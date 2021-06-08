@@ -1,7 +1,6 @@
 import pyscf
 import pyscf.gto
 import pyscf.scf
-import pyscf.cc
 
 import vayesta
 import vayesta.ewf
