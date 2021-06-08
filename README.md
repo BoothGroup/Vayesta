@@ -1,3 +1,32 @@
 # Vayesta
 
-AUTHORS: OJ Backhouse, M Nusspickel, CJC Scott, GH Booth
+Authors
+-------
+
+OJ Backhouse, M Nusspickel, CJC Scott, GH Booth
+
+Installation
+------------
+
+* Requirements
+    - NumPy
+    - SciPy
+    - PySCF
+
+* Installation
+    1. Clone from Git repository
+
+        - `git clone git@github.com:boothgroup/vayesta.git`
+
+    2. Build
+
+        - `cd vayesta/lib`
+        - `mkdir build`
+        - `cd build`
+        - `cmake ..`
+        - `make`
+
+    3. Add Vayesta to your `PYTHONPATH` environment variable
+
+        - For example by adding this line to your `~/.profile`:
+            `export PYTHONPATH=<path to Vayesta>:$PYTHONPATH`
