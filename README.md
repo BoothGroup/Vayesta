@@ -23,5 +23,5 @@ Installation
         - `cmake ..`
         - `make`
 
-    3. Add Vayesta to your `PYTHONPATH` environment variable, for example by adding this line to your `~/.profile`:
+    3. Add Vayesta to your PYTHONPATH environment variable, for example by adding this line to your bashrc/profile:
         `export PYTHONPATH=<path to Vayesta>:$PYTHONPATH`
