@@ -549,16 +549,14 @@ class EWF(QEmbeddingMethod):
     def print_results(self, results):
         self.log.info("Energies")
         self.log.info("********")
-        fmt = "%-10s E(corr)=  % 16.8f Ha"
+        fmt = "%-20s %+16.8f Ha"
         for i, frag in enumerate(self.loop()):
             e_corr = results["e_corr"][i]
-            self.log.info(fmt, frag.id_name, e_corr)
-            self.log.info("E(fragMF)= % 16.8f Ha", frag.get_fragment_mf_energy())
-
-        self.log.info("E(nuc)=  % 16.8f Ha", self.mol.energy_nuc())
-        self.log.info("E(MF)=   % 16.8f Ha", self.e_mf)
-        self.log.info("E(corr)= % 16.8f Ha", self.e_corr)
-        self.log.info("E(tot)=  % 16.8f Ha", self.e_tot)
+            self.log.info(fmt, 'E(corr)[' + frag.trimmed_name() + ']=', e_corr)
+        self.log.info(fmt, 'E(corr)=', self.e_corr)
+        self.log.info(fmt, 'E(MF)=', self.e_mf)
+        self.log.info(fmt, 'E(nuc)=', self.mol.energy_nuc())
+        self.log.info(fmt, 'E(tot)=', self.e_tot)
 
 
     def get_energies(self):

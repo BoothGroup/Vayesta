@@ -18,7 +18,7 @@ Installation
 
     2. Build
 
-        - `cd vayesta/lib`
+        - `cd vayesta/libs`
         - `mkdir build && cd build`
         - `cmake ..`
         - `make`
