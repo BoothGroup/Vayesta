@@ -20,7 +20,7 @@ import pyscf.pbc.tools
 from pyscf.pbc.lib import kpts_helper
 # Package
 from vayesta.core.util import *
-import vayesta.lib
+import vayesta.libs
 
 log = logging.getLogger(__name__)
 
@@ -507,7 +507,7 @@ def j3c_kao2gmo(ints3c, cocc, cvir, only_ov=False, make_real=True, driver='c'):
 
         cocc = cocc.copy()
         cvir = cvir.copy()
-        libcore = vayesta.lib.load_library('core')
+        libcore = vayesta.libs.load_library('core')
         t0 = timer()
         ierr = libcore.j3c_kao2gmo(
                 ctypes.c_int64(nk),
