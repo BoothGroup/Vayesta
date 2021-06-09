@@ -30,20 +30,20 @@ def gdf_to_pyscf_eris(mf, gdf, cm, fock=None):
     This folds the MO back into k-space
     and contracts with the k-space three-center integrals..
 
-    Arguments
-    ---------
+    Parameters
+    ----------
     mf: pyscf.scf.hf.RHF
         Supercell mean-field object.
     gdf: pyscf.pbc.df.GDF
         Gaussian density-fit object of primitive cell (with k-points)
-    cm: pyscf.mp.mp2.MP2 or pyscf.cc.ccsd.CCSD
-        Correlated method, must have mo_coeff set.
+    cm: `pyscf.mp.mp2.MP2` or `pyscf.cc.ccsd.CCSD`
+        Correlated method, must have `mo_coeff` set.
     fock: (N,N) array, optional
-        Fock matrix. If None, calculated via mf.get_fock().
+        Fock matrix. If None, calculated via `mf.get_fock()`.
 
     Returns
     -------
-    eris: pyscf.mp.mp2._ChemistsERIs or pyscf.cc.rccsd._ChemistsERIs
+    eris: pyscf.mp.mp2._ChemistsERIs, pyscf.cc.ccsd._ChemistsERIs, or pyscf.cc.rccsd._ChemistsERIs
         ERIs which can be used for the respective correlated method.
     """
     #log.debug("Correlated method in eris_kao2gmo= %s", type(cm))
@@ -102,27 +102,32 @@ def gdf_to_pyscf_eris(mf, gdf, cm, fock=None):
 def gdf_to_eris(gdf, mo_coeff, nocc, only_ovov=False, real_j3c=True, symmetry=False, j3c_threshold=None):
     """Make supercell ERIs from k-point sampled, density-fitted three-center integrals.
 
-    Arguments
-    ---------
-    cell : pyscf.pbc.gto.Cell
-        Primitive unit cell, not supercell!
+    Parameters
+    ----------
     gdf : pyscf.pbc.df.GDF
         Density fitting object of primitive cell, with k-points.
-    mo_coeff : (Nr*Nao, Nmo) array
+    mo_coeff : (nK*nAO, nMO) array
         MO coefficients in supercell. The AOs in the supercell must be ordered
         in the same way as the k-points in the primitive cell!
     nocc : int
         Number of occupied orbitals.
-    kpts : (Nk, 3)
-        k-point coordinates.
     only_ovov : bool, optional
         Only calculate (occ,vir|occ,vir)-type ERIs (for MP2). Default=False.
+    real_j3c : bool, optional
+        Fourier transform the auxiliary basis to the real-space domain, such that the
+        resulting Gamma-point three center integrals become real. Default: True.
+    symmetry : bool, optional
+        If True, the 'vvvv' and 'ovvv' four-center integrals will be stored in their compact form,
+        otherwise the full array will be stored. Set to True for ccsd.CCSD and False for rccsd.RCCSD.
+        Default: False.
+
+
 
     Returns
     -------
     eris : dict
-        Dict of supercell ERIs. Has elements "ovov" `if only_ovov == True`
-        and "oooo", "ovoo", "oovv", "ovov", "ovvo", "ovvv", and "vvvv" otherwise.
+        Dict of supercell ERIs. Has elements 'ovov' `if only_ovov == True`
+        and 'oooo', 'ovoo', 'oovv', 'ovov', 'ovvo', 'ovvv', and 'vvvv' otherwise.
     """
     # DF compatiblity layer
     ints3c = ThreeCenterInts.init_from_gdf(gdf)
@@ -319,7 +324,11 @@ def contract_j3c(j3c, kind, symmetry=None):
 
 
 class ThreeCenterInts:
-    """Interface class for DF classes."""
+    """Temporary interface class for DF classes.
+
+    This should be implemented better at some point, as a larger effort to unify integral classes
+    and offer a common interface.
+    """
 
     def __init__(self, cell, kpts, naux):
         self.cell = cell

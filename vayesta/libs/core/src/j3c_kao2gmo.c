@@ -62,6 +62,8 @@ int64_t j3c_k2gamma(
 #pragma omp for reduction(+:ierr)
     for (l = 0; l < naux; l++) {
 
+        //printf("l= %ld running on OpenMP thread %d\n", l, omp_get_thread_num());
+
         memset(work1, 0, K3N2 * sizeof(double complex));
 
         // Copy j3c_kpts(L|a,b,ki,kj) -> work1(kk,L,a,b,ki,kj)
@@ -182,7 +184,7 @@ int64_t j3c_kao2gmo(
  * (L can be included in the ZGEMMs) */
 #pragma omp for
     for (l = 0; l < naux; l++) {
-        //printf("l= %ld on thread %d / %d...\n", l, omp_get_thread_num(), omp_get_num_threads());
+        printf("l= %ld on thread %d / %d...\n", l, omp_get_thread_num(), omp_get_num_threads());
         for (ki = 0; ki < nk; ki++) {
         for (kj = 0; kj < nk; kj++) {
 
