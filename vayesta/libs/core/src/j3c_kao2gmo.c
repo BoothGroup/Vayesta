@@ -184,7 +184,8 @@ int64_t j3c_kao2gmo(
  * (L can be included in the ZGEMMs) */
 #pragma omp for
     for (l = 0; l < naux; l++) {
-        printf("l= %ld on thread %d / %d...\n", l, omp_get_thread_num(), omp_get_num_threads());
+        //printf("l= %ld on thread %d / %d...\n", l, omp_get_thread_num(), omp_get_num_threads());
+
         for (ki = 0; ki < nk; ki++) {
         for (kj = 0; kj < nk; kj++) {
 
