@@ -33,6 +33,7 @@ from . import psubspace
 @dataclasses.dataclass
 class EWFFragmentOptions(Options):
     """Attributes set to `NotSet` inherit their value from the parent EWF object."""
+    # Options also present in `base`:
     dmet_threshold : float = NotSet
     make_rdm1 : bool = NotSet
     eom_ccsd : bool = NotSet
@@ -41,6 +42,7 @@ class EWFFragmentOptions(Options):
     bsse_correction : bool = NotSet
     bsse_rmax : float = NotSet
     energy_partitioning : str = NotSet
+    # Additional fragment specific options:
     bno_threshold_factor : float = 1.0
 
 
@@ -132,8 +134,8 @@ class EWFFragment(QEmbeddingFragment):
 
         Parameters
         ----------
-        solver : str
-            Method ["MP2", "CISD", "CCSD", "CCSD(T)", "FCI"]
+        solver : {"MP2", "CISD", "CCSD", "CCSD(T)", "FCI"}
+            Correlated solver.
         bno_threshold : list
             List of bath natural orbital (BNO) thresholds.
         """
@@ -600,7 +602,7 @@ class EWFFragment(QEmbeddingFragment):
 
         if hasattr(eris, "ovvo"):
             eris_ovvo = eris.ovvo
-        # MP2 only has eris.ovov - are these the same integrals?
+        # MP2 only has eris.ovov - for real integrals we tranpose
         else:
             no, nv = p2.shape[1:3]
             eris_ovvo = eris.ovov[:].reshape(no,nv,no,nv).transpose(0, 1, 3, 2).conj()
