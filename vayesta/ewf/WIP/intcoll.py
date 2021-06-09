@@ -227,123 +227,116 @@ class Integral:
 
 
 
+if __name__ == '__main__':
 
-from timeit import default_timer as timer
+    from timeit import default_timer as timer
 
-n = 1000
-naux = 200
-nocc = 50
-nvir = 120
-norb = nocc + nvir
-j3c_ov = np.random.rand(naux,nocc,nvir)
+    n = 1000
+    naux = 200
+    nocc = 50
+    nvir = 120
+    norb = nocc + nvir
+    j3c_ov = np.random.rand(naux,nocc,nvir)
 
-eris = IntegralCollection()
-eris.add('oooo', np.random.rand(nocc,nocc,nocc,nocc))
-lov = np.random.rand(naux,nocc,nvir)
-eris.add('lov', lov, store='disk')
+    eris = IntegralCollection()
+    eris.add('oooo', np.random.rand(nocc,nocc,nocc,nocc))
+    lov = np.random.rand(naux,nocc,nvir)
+    eris.add('lov', lov, store='disk')
 
-j3c = np.random.rand(naux,norb,norb)
-eris.add('j3c', j3c, store='disk')
+    j3c = np.random.rand(naux,norb,norb)
+    eris.add('j3c', j3c, store='disk')
 
-occ, vir = np.s_[:nocc], np.s_[nocc:]
-eris.add_rule('j3c_oo', rule=lambda coll, key : coll.j3c[:,occ,occ][key], shape=(nocc, nocc), dtype=j3c.dtype)
-eris.add_rule('j3c_ov', rule=lambda coll, key : coll.j3c[:,occ,vir][key], shape=(nocc, nvir), dtype=j3c.dtype)
-eris.add_rule('j3c_vv', rule=lambda coll, key : coll.j3c[:,vir,vir][key], shape=(nvir, nvir), dtype=j3c.dtype)
+    occ, vir = np.s_[:nocc], np.s_[nocc:]
+    eris.add_rule('j3c_oo', rule=lambda coll, key : coll.j3c[:,occ,occ][key], shape=(nocc, nocc), dtype=j3c.dtype)
+    eris.add_rule('j3c_ov', rule=lambda coll, key : coll.j3c[:,occ,vir][key], shape=(nocc, nvir), dtype=j3c.dtype)
+    eris.add_rule('j3c_vv', rule=lambda coll, key : coll.j3c[:,vir,vir][key], shape=(nvir, nvir), dtype=j3c.dtype)
 
-print(eris.j3c_oo.shape)
-print(eris.j3c_ov.shape)
-print(eris.j3c_vv.shape)
-assert np.allclose(eris.j3c_vv[:], eris.j3c[:,vir,vir])
-# Indexing/slicing still works!
-assert np.allclose(eris.j3c_vv[:2,4:5], eris.j3c[:,vir,vir][:2,4:5])
+    print(eris.j3c_oo.shape)
+    print(eris.j3c_ov.shape)
+    print(eris.j3c_vv.shape)
+    assert np.allclose(eris.j3c_vv[:], eris.j3c[:,vir,vir])
+    # Indexing/slicing still works!
+    assert np.allclose(eris.j3c_vv[:2,4:5], eris.j3c[:,vir,vir][:2,4:5])
 
-eris.add_rule('ovvv', rule=lambda coll, key : np.einsum("Lij,Lkl->ijkl", coll.j3c_ov[:,:,key], coll.j3c_vv, shape=(nocc,nvir,nvir,nvir), dtype=j3c.dtype))
+    eris.add_rule('ovvv', rule=lambda coll, key : np.einsum("Lij,Lkl->ijkl", coll.j3c_ov[:,:,key], coll.j3c_vv, shape=(nocc,nvir,nvir,nvir), dtype=j3c.dtype))
 
-ovov = np.einsum("Lij,Lkl->ijkl", lov, lov, optimize=True)
+    ovov = np.einsum("Lij,Lkl->ijkl", lov, lov, optimize=True)
 
+    # Support for abstract integrals via `eris.add_rule`
+    def make_ovov(collection, key):
+        # Some logic to transform the (ov|ov) key to key1, key2 for (ov|L) and (L|ov), respectively.
+        if isinstance(key, tuple):
+            key1 = (slice(None), *(key[:2]))
+            key2 = (slice(None), *(key[2:]))
+        else:
+            key1, key2 = (slice(None), key), slice(None)
+        return np.einsum('Lij,Lkl->ijkl', collection.lov[key1], collection.lov[key2], optimize=True)
+    eris.add_rule('ovov', rule=make_ovov, shape=(nocc,nvir,nocc,nvir), dtype=eris.lov.dtype)
 
-# Support for abstract integrals via `eris.add_rule`
-def make_ovov(collection, key):
-    # Some logic to transform the (ov|ov) key to key1, key2 for (ov|L) and (L|ov), respectively.
-    if isinstance(key, tuple):
-        key1 = (slice(None), *(key[:2]))
-        key2 = (slice(None), *(key[2:]))
-    else:
-        key1, key2 = (slice(None), key), slice(None)
-    return np.einsum('Lij,Lkl->ijkl', collection.lov[key1], collection.lov[key2], optimize=True)
-eris.add_rule('ovov', rule=make_ovov, shape=(nocc,nvir,nocc,nvir), dtype=eris.lov.dtype)
+    eris.add_rule('ovov-2x', rule=lambda coll, key : 2*coll.ovov[key], shape=(nocc,nvir,nocc,nvir), dtype=eris.lov.dtype)
 
-eris.add_rule('ovov-2x', rule=lambda coll, key : 2*coll.ovov[key], shape=(nocc,nvir,nocc,nvir), dtype=eris.lov.dtype)
+    eris.print_storage()
 
+    print(eris.ovov.dtype)
+    print(eris.ovov.shape)
 
-eris.print_storage()
+    t0 = timer()
+    assert(np.allclose(eris.ovov[:3], ovov[:3]))
+    t1 = timer()-t0
 
-print(eris.ovov.dtype)
+    t0 = timer()
+    assert(np.allclose(eris.ovov[:,:3], ovov[:,:3]))
+    t2 = timer()-t0
 
-print(eris.ovov.shape)
+    t0 = timer()
+    assert(np.allclose(eris.ovov[:,:,:3], ovov[:,:,:3]))
+    t3 = timer()-t0
 
-t0 = timer()
-assert(np.allclose(eris.ovov[:3], ovov[:3]))
-t1 = timer()-t0
+    t0 = timer()
+    eris.ovov[:][:3]
+    tf = timer()-t0
 
-t0 = timer()
-assert(np.allclose(eris.ovov[:,:3], ovov[:,:3]))
-t2 = timer()-t0
+    print(eris.get('ovov-2x')[0,0,0,0])
+    print(eris.get('ovov')[0,0,0,0])
 
-t0 = timer()
-assert(np.allclose(eris.ovov[:,:,:3], ovov[:,:,:3]))
-t3 = timer()-t0
+    print(t1, t2, t3, tf)
 
+    eris.clear()
 
-t0 = timer()
-eris.ovov[:][:3]
-tf = timer()-t0
+    1/0
+    #print(np.einsum("Lij,Lkl->", eris.Lov[:], eris.Lov[:]))
+    #eris.add_integral('oooo', data)
+    #eris.add_rule('ovov', rule=lambda base, key: np.einsum('Lij,Lkl->ijkl', base.Lov[:,key], base.Lov, optimize=True))
 
-print(eris.get('ovov-2x')[0,0,0,0])
-print(eris.get('ovov')[0,0,0,0])
+    print(eris.ovov[key])
 
-print(t1, t2, t3, tf)
+    eris.print_storage()
 
-eris.clear()
+    #print(eris.Lov.shape)
+    #print(eris.oooo[:]-eris.ovvv[:])
+    t0 = timer()
+    print(eris.ovov[:].shape)
+    print("Time= %.3f" % (timer()-t0))
 
+    t0 = timer()
+    #np.einsum('Lij,Lkl->ijkl', Lov, Lov, optimize=True)
+    print("Time= %.3f" % (timer()-t0))
 
+    eris.clear()
 
-1/0
-#print(np.einsum("Lij,Lkl->", eris.Lov[:], eris.Lov[:]))
-#eris.add_integral('oooo', data)
-#eris.add_rule('ovov', rule=lambda base, key: np.einsum('Lij,Lkl->ijkl', base.Lov[:,key], base.Lov, optimize=True))
-
-
-print(eris.ovov[key])
-
-eris.print_storage()
-
-#print(eris.Lov.shape)
-
-#print(eris.oooo[:]-eris.ovvv[:])
-t0 = timer()
-print(eris.ovov[:].shape)
-print("Time= %.3f" % (timer()-t0))
-
-t0 = timer()
-#np.einsum('Lij,Lkl->ijkl', Lov, Lov, optimize=True)
-print("Time= %.3f" % (timer()-t0))
-
-eris.clear()
-
-1/0
-eris.delete('oooo')
-eris.show_storage()
-eris.add_integral('oovv', data, store='disk')
-eris.show_storage()
-eris.delete_integral('oovv')
-eris.show_storage()
-1/0
-t0 = timer()
-print(eris.oooo[:])
-t1 = timer()
-print(eris.oovv[:])
-t2 = timer()
-print(t1-t0, t2-t1)
-print(eris.oooo[:].shape)
-print(np.einsum("ij->", eris.oooo[:]))
+    1/0
+    eris.delete('oooo')
+    eris.show_storage()
+    eris.add_integral('oovv', data, store='disk')
+    eris.show_storage()
+    eris.delete_integral('oovv')
+    eris.show_storage()
+    1/0
+    t0 = timer()
+    print(eris.oooo[:])
+    t1 = timer()
+    print(eris.oovv[:])
+    t2 = timer()
+    print(t1-t0, t2-t1)
+    print(eris.oooo[:].shape)
+    print(np.einsum("ij->", eris.oooo[:]))
