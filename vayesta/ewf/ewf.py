@@ -567,6 +567,7 @@ class EWF(QEmbeddingMethod):
             energies += frag.e_corrs
         return energies
 
+
     def get_cluster_sizes(self):
         sizes = np.zeros((self.nfrag, self.ncalc), dtype=np.int)
         for i, frag in enumerate(self.loop()):

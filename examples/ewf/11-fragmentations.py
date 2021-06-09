@@ -40,7 +40,7 @@ print("E%-11s %+16.8f Ha" % ('(EWF-CCSD)=', ecc.e_tot))
 ecc = vayesta.ewf.EWF(mf, bno_threshold=1e-6)
 ecc.make_ao_fragment([1])                       # 2s at O
 ecc.make_ao_fragment(["O 1s", "H.*1s"])         # 1s at O,H1,H2
-ecc.make_ao_fragment("O 2p.*")                 # 2px, 2py, 2pz at O
+ecc.make_ao_fragment("O 2p.*")                  # 2px, 2py, 2pz at O
 ecc.kernel()
 print("E%-11s %+16.8f Ha" % ('(EWF-CCSD)=', ecc.e_tot))
 

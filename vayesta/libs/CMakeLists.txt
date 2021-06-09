@@ -1,7 +1,6 @@
 cmake_minimum_required (VERSION 3.5)
 project ("Vayesta")
 
-
 # C FLAGS
 set(CMAKE_C_FLAGS "-Wall ${CMAKE_C_FLAGS}")
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fopenmp")
@@ -18,6 +17,5 @@ if (NOT BLAS_LIBRARIES)
 else()
   message(STATUS "BLAS libraries: ${BLAS_LIBRARIES}")
 endif()
-
 
 add_subdirectory(core)

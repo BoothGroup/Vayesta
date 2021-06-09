@@ -29,6 +29,12 @@ class Latt:
     def __init__(self, nsite, nelectron):
         self.nsite = nsite
         self.nelectron
+        self.hubbard_u
+
+
+    def make_mol(self):
+        # TODO
+        #mol = 
 
 
     # PySCF compatibility:

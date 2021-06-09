@@ -61,9 +61,9 @@ class QEmbeddingFragment:
             Fragment orbital type.
         sym_factor : float
             Symmetry factor (number of symmetry equivalent fragments).
-        atoms : list or int
+        atoms : list
             Atoms in fragment.
-        aos : list or int
+        aos : list
             Atomic orbitals in fragment
         """
         self.log = log or base.log

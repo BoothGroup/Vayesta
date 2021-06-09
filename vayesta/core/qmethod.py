@@ -257,6 +257,7 @@ class QEmbeddingMethod:
         """Fock matrix in AO basis."""
         return self._fock
 
+
     def get_eris(self, cm):
         """Get ERIS for post-HF methods.
 
@@ -281,7 +282,7 @@ class QEmbeddingMethod:
                 return cm.ao2mo(store_eris=True)
             else:
                 return cm.ao2mo()
-        # k-point sampled primtive cell:
+        # k-point sampled primitive cell:
         eris = gdf_to_pyscf_eris(self.mf, self.kdf, cm, fock=self.get_fock())
         return eris
 
