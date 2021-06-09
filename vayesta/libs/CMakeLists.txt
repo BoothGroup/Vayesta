@@ -5,8 +5,9 @@ project ("Vayesta")
 # C FLAGS
 set(CMAKE_C_FLAGS "-Wall ${CMAKE_C_FLAGS}")
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fopenmp")
-#set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -march=native")
-#set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -march=native -funroll-loops -ftree-vectorize")
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -march=native")
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Ofast")
+#set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -funroll-loops -ftree-vectorize")
 
 # BLAS
 if (NOT BLAS_LIBRARIES)
