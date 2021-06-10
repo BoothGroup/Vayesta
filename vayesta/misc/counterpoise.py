@@ -7,18 +7,23 @@ import pyscf.lib
 
 log = logging.getLogger(__name__)
 
-def make_mol(mol, atom, rmax, nimages=5, unit='A', **kwargs):
+def make_mol(mol, atom, rmax, nimages=1, unit='A', **kwargs):
     """Make molecule object for counterposise calculation.
 
     WARNING: This has only been tested for periodic systems so far!
 
     Parameters
     ----------
+    mol : pyscf.gto.Mole or pyscf.pbc.gto.Cell object
+        PySCF molecule or cell object.
+    atom : int
+        Atom index for which the counterpoise correction should be calculated.
+        TODO: allow list of atoms.
     rmax : float
         All atom centers within range `rmax` are added as ghost-atoms in the counterpoise correction.
     nimages : int, optional
         Number of neighboring unit cell in each spatial direction. Has no effect in open boundary
-        calculations. Default: 5.
+        calculations. Default: 1.
     unit : ['A', 'B']
         Unit for `rmax`, either Angstrom (`A`) or Bohr (`B`).
     **kwargs :
@@ -51,7 +56,7 @@ def make_mol(mol, atom, rmax, nimages=5, unit='A', **kwargs):
         # Add ghost atoms. Note that rx = ry = rz = 0 for open boundary conditions
         center = mol.atom_coord(atom, unit=unit_pyscf)
         log.debugv('Counterpoise center= %r %s', center, unit)
-        amat = mol.lattice_vectors()    # In Bohr
+        amat = mol.lattice_vectors().copy()    # In Bohr
         log.debugv('Latt. vec.= %r', amat)
         log.debugv('mol.unit= %r', mol.unit)
         if unit.upper()[0] == 'A':
