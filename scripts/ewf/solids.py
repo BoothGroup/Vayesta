@@ -59,7 +59,7 @@ def get_arguments():
     parser.add_argument("--pseudopot", type=str_or_none)
     parser.add_argument("--ecp")
     parser.add_argument("--supercell", type=int, nargs=3)
-    parser.add_argument("--k-points", type=int, nargs=3, default=[4,4,1])
+    parser.add_argument("--k-points", type=int, nargs=3)
     parser.add_argument("--lattice-consts", type=float, nargs="*")
     parser.add_argument("--skip", type=int, default=0)
     parser.add_argument("--only", type=int, nargs="*")
@@ -309,7 +309,7 @@ def make_cell(a, args, **kwargs):
                     for atm in cell.atom:
                         symb = atm[0] if atm[0].lower().startswith('ghost') else 'Ghost-%s' % atm[0]
                         coord = atm[1] + x*cell.a[0] + y*cell.a[1] + z*cell.a[2]
-                        if np.linalg.norm(coord - center) < args.counterpoise_range:
+                        if args.counterpoise_range is None or (np.linalg.norm(coord - center) < args.counterpoise_range):
                             atom.append([symb, coord])
                             log.debugv("Adding atom %r at %r with distance %.2f", symb, coord, np.linalg.norm(coord-center))
                         else:
