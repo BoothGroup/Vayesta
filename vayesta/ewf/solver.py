@@ -1,5 +1,7 @@
-import numpy as np
+import dataclasses
 from timeit import default_timer as timer
+
+import numpy as np
 
 import pyscf
 import pyscf.cc
@@ -13,13 +15,19 @@ def get_solver_class(solver):
         return CCSDSolver
     if solver.upper() == 'FCI':
         return FCISolver
-
     raise NotImplementedError("Unknown solver %s" % solver)
+
+
+@dataclasses.dataclass
+class ClusterSolverOptions(Options):
+    eom_ccsd : bool = NotSet
+    make_rdm1 : bool = NotSet
 
 class ClusterSolver:
     """Base class for cluster solver"""
 
-    def __init__(self, cluster, mo_coeff, mo_occ, nocc_frozen, nvir_frozen, eris=None, options=None, log=None):
+    def __init__(self, fragment, mo_coeff, mo_occ, nocc_frozen, nvir_frozen, eris=None,
+            options=None, log=None, **kwargs):
         """
 
         Arguments
@@ -29,21 +37,28 @@ class ClusterSolver:
         nvir_frozen : int
             Number of frozen virtual orbitals. Need to be at the end of mo_coeff.
         """
-        self.log = log or cluster.log
+        self.log = log or fragment.log
 
-        # Input
-        self.cluster = cluster
+        if options is None:
+            options = ClusterSolverOptions(**kwargs)
+        else:
+            options = options.replace(kwargs)
+        options = options.replace(self.base.opts, select=NotSet)
+        self.opts = options
+
+        self.fragment = fragment
         self.mo_coeff = mo_coeff
         self.mo_occ = mo_occ
         self.nocc_frozen = nocc_frozen
         self.nvir_frozen = nvir_frozen
-        self.options = options
         # Intermediates
         self._eris = eris
         self._solver = None
         # Output
-        self.c1 = self.c2 = None
-        self.t1 = self.t2 = None
+        self.c1 = None
+        self.c2 = None
+        self.t1 = None
+        self.t2 = None
         self.converged = False
         self.e_corr = 0.0           # Note that this is the full correlation energy
         # Optional output
@@ -55,15 +70,19 @@ class ClusterSolver:
 
     @property
     def base(self):
-        return self.cluster.base
+        return self.fragment.base
 
     @property
     def mf(self):
-        return self.cluster.mf
+        return self.fragment.mf
 
     @property
     def nmo(self):
         return self.mo_coeff.shape[-1]
+
+    @property
+    def nocc(self):
+        return np.count_nonzero(self.mo_occ > 0)
 
     @property
     def nactive(self):
@@ -81,6 +100,16 @@ class ClusterSolver:
         nmo = self.mo_coeff.shape[-1]
         idx = list(range(self.nocc_frozen)) + list(range(nmo-self.nvir_frozen, nmo))
         return idx
+
+    @property
+    def c_active_occ(self):
+        """Active occupied orbital coefficients."""
+        return self.mo_coeff[:,self.nocc_frozen:self.nocc]
+
+    @property
+    def c_active_vir(self):
+        """Active virtual orbital coefficients."""
+        return self.mo_coeff[:,self.nocc:-self.nvir_frozen]
 
     #def kernel(self, init_guess=None, options=None):
 
@@ -155,9 +184,7 @@ class ClusterSolver:
 
 class CCSDSolver(ClusterSolver):
 
-    def kernel(self, init_guess=None, options=None):
-
-        options = options or self.options
+    def kernel(self, init_guess=None):
 
         # Do not use pbc.ccsd for Gamma point CCSD -> always use molecular code
         #if self.base.boundary_cond == 'open':
@@ -169,11 +196,6 @@ class CCSDSolver(ClusterSolver):
         cls = pyscf.cc.ccsd.CCSD
         self.log.debug("CCSD class= %r" % cls)
         cc = cls(self.mf, mo_coeff=self.mo_coeff, mo_occ=self.mo_occ, frozen=self.get_frozen_indices())
-        # Additional solver options
-        if options:
-            for key, val in options.items():
-                setattr(cc, key, val)
-
         self._solver = cc
 
         # Integral transformation
@@ -207,7 +229,7 @@ class CCSDSolver(ClusterSolver):
         self.c1 = cc.t1
         self.c2 = cc.t2 + einsum("ia,jb->ijab", cc.t1, cc.t1)
 
-        if self.cluster.opts.make_rdm1:
+        if self.opts.make_rdm1:
             try:
                 t0 = timer()
                 self.log.info("Making RDM1...")
@@ -231,12 +253,55 @@ class CCSDSolver(ClusterSolver):
                 e, c = [e], [c]
             return e, c
 
-        if self.cluster.opts.eom_ccsd in (True, "IP"):
+        if self.opts.eom_ccsd in (True, "IP"):
             self.ip_energy, self.ip_coeff = eom_ccsd("IP")
-        if self.cluster.opts.eom_ccsd in (True, "EA"):
+        if self.opts.eom_ccsd in (True, "EA"):
             self.ea_energy, self.ea_coeff = eom_ccsd("EA")
 
         self.print_t_diagnostic()
+
+
+    def make_tailor_function(self):
+        """Build tailor function.
+
+        This assumes orthogonal fragment spaces.
+        """
+        ovlp = self.base.get_ovlp()
+        c_occ = self.c_active_occ
+        c_vir = self.c_active_vir
+
+        def tailor_func(t1, t2):
+            tt1 = t1.copy()
+            tt2 = t2.copy()
+            for fx in self.tailor_fragments:
+                sx = fx.cluster_solver
+                cx_occ = sx.c_active_occ
+                cx_vir = sx.c_active_occ
+                # Projections from fragment x occ/vir space to current fragment occ/vir space
+                p_occ = np.linalg.multi_dot((cx_occ.T, ovlp, c_occ))
+                p_vir = np.linalg.multi_dot((cx_vir.T, ovlp, c_vir))
+                # Transform fragment x T-amplitudes
+                tx1 = helper.transform_amplitude(sx.t1, p_occ, p_vir)
+                tx2 = helper.transform_amplitude(sx.t2, p_occ, p_vir)
+                # Form difference with current amplitudes
+                # TODO: It shouldn't matter if we use t1/t2 or tt1/tt2 for more than 2 fragments ... check this
+                dt1 = (tx1 - t1)
+                dt2 = (tx2 - t2)
+                # Project onto x's fragment space
+                px = fx.get_fragment_projector(c_occ)
+                px1 = np.dot(px, td1)
+                # OR:
+                #px2 = einsum('xi,ijab->xjab', px, dt2) + symmetrize!
+                px2 = einsum('xi,yj,ijab->xyab', px, px, dt2)
+                # Add contributions
+                assert px1.shape == tt1.shape
+                assert px2.shape == tt2.shape
+                tt1 += px1
+                tt2 += px2
+
+            return tt1, tt2
+
+        return tailor_func
 
 
     def print_t_diagnostic(self):
@@ -265,11 +330,9 @@ class FCISolver(ClusterSolver):
     """Not tested"""
 
 
-    def kernel(self, init_guess=None, options=None):
+    def kernel(self, init_guess=None):
         import pyscf.mcscf
         import pyscf.ci
-
-        options = options or self.options
 
         nelectron = sum(self.mo_occ[self.get_active_slice()])
         casci = pyscf.mcscf.CASCI(self.mf, self.nactive, nelectron)

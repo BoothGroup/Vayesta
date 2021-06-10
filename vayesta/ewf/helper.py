@@ -17,12 +17,24 @@ def get_minimal_basis(basis):
     minao = default_minao.get(basis, "minao")
     return minao
 
+
 def indices_to_bools(indices, n):
     bools = np.zeros(n, dtype=bool)
     bools[np.asarray(indices)] = True
     return bools
 
+
+def transform_amplitudes(t, u_occ, u_vir):
+    """(Old basis|new basis)"""
+    if np.ndim(t) == 2:
+        return einsum("ia,ix,ay->xy", t1, u_occ, u_vir)
+    if np.ndim(t) == 4:
+        return einsum("ijab,ix,jy,az,bw->xyzw", t2, u_occ, u_occ, u_vir, u_vir)
+    raise NotImplementedError()
+
+
 def transform_amplitudes(t1, t2, u_occ, u_vir):
+    """(Old basis|new basis)"""
     if t1 is not None:
         t1 = einsum("ia,ix,ay->xy", t1, u_occ, u_vir)
     else:
@@ -32,6 +44,7 @@ def transform_amplitudes(t1, t2, u_occ, u_vir):
     else:
         t2 = None
     return t1, t2
+
 
 def plot_histogram(values, bins=None, maxbarlength=50):
     if bins is None:
@@ -59,11 +72,13 @@ def atom_labels_to_ao_indices(mol, atom_labels):
     ao_indices = np.nonzero(np.isin(atom_labels_mol, atom_labels))[0]
     return ao_indices
 
+
 def atom_label_to_ids(mol, atom_label):
     """Get all atom IDs corresponding to an atom label."""
     atom_labels = np.asarray([mol.atom_symbol(atomid) for atomid in range(mol.natm)])
     atom_ids = np.where(np.in1d(atom_labels, atom_label))[0]
     return atom_ids
+
 
 def get_ao_indices_at_atoms(mol, atomids):
     """Return indices of AOs centered at a given atom ID."""
@@ -74,6 +89,7 @@ def get_ao_indices_at_atoms(mol, atomids):
         ao_slice = mol.aoslice_by_atom()[atomid]
         ao_indices += list(range(ao_slice[2], ao_slice[3]))
     return ao_indices
+
 
 def orthogonalize_mo(c, s, tol=1e-6):
     """Orthogonalize MOs, such that C^T S C = I (identity matrix).
@@ -110,6 +126,7 @@ def orthogonalize_mo(c, s, tol=1e-6):
         log.error("Orbital non-orthogonality= %.1e", nonorth)
 
     return c_out
+
 
 def amplitudes_C2T(C1, C2):
     T1 = C1.copy()

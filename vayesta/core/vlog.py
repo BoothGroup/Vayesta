@@ -53,7 +53,7 @@ class LevelRangeFilter(logging.Filter):
 
 
 class LevelIncludeFilter(logging.Filter):
-    """Only log events with level not in exlude."""
+    """Only log events with level in include."""
 
     def __init__(self, *args, include, **kwargs):
         super().__init__(*args, **kwargs)

@@ -59,6 +59,8 @@ class EWFOptions(Options):
     # Counterpoise correction of BSSE
     bsse_correction: bool = True
     bsse_rmax: float = 5.0              # In Angstrom
+    # ---Tailoring
+    tailor_mode: int = 1
     # --- Other
     energy_partitioning: str = 'first-occ'
     strict: bool = False                # Stop if cluster not converged
@@ -452,7 +454,7 @@ class EWF(QEmbeddingMethod):
         #        "e_dmet", "e_corr_full", "e_corr_v", "e_corr_d",
         #        "nactive", "nfrozen"]
 
-        attributes = ["converged", "e_corr", "e_delta_mp2", "e_pert_t", "nactive", "nfrozen"]
+        attributes = ["converged", "e_corr", "e_delta_mp2", "e_pert_t"]
 
         results = self.collect_results(*attributes)
         if MPI_rank == 0 and not np.all(results["converged"]):
