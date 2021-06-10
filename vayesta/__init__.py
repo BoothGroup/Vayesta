@@ -21,14 +21,14 @@ log.setLevel(args.loglevel)
 fmt = vlog.VFormatter(indent=True)
 # Log to stream
 if args.output is None:
-    # Log level < WARNING to stdout
-    outh = vlog.VStreamHandler(sys.stdout, formatter=fmt)
-    outh.addFilter(vlog.LevelFilter(high=logging.WARNING))
-    log.addHandler(outh)
-    # Log level >= WARNING to stderr
+    # Everything except logging.OUTPUT goes to stderr:
     errh = vlog.VStreamHandler(sys.stderr, formatter=fmt)
-    errh.setLevel(logging.WARNING)
+    errh.addFilter(vlog.LevelExcludeFilter(exclude=[logging.OUTPUT]))
     log.addHandler(errh)
+    # Log level logging.OUTPUT to stdout
+    outh = vlog.VStreamHandler(sys.stdout, formatter=fmt)
+    outh.addFilter(vlog.LevelIncludeFilter(include=[logging.OUTPUT]))
+    log.addHandler(outh)
 # Log to file
 else:
     log.addHandler(vlog.VFileHandler(args.output, formatter=fmt))

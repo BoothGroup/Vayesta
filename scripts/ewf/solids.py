@@ -276,7 +276,7 @@ def make_cell(a, args, **kwargs):
         # Remove all but one atom, but keep basis functions of the 26 (3D) or 8 (2D) neighboring cells
         elif '*' in args.counterpoise:
             atmidx = int(args.counterpoise.replace('*', ''))
-                cell = counterpoise.make_mol(cell, atmidx, rmax=args.counterpoise_rmax, nimages=args.counterpoise_nimages, output='pyscf-cp-d.txt')
+            cell = counterpoise.make_mol(cell, atmidx, rmax=args.counterpoise_rmax, nimages=args.counterpoise_nimages, output='pyscf-cp-d.txt')
     return cell
 
 
@@ -597,12 +597,11 @@ for i, a in enumerate(args.lattice_consts):
                 #    ix = ncells-1    # Make cluster in center
                 #ccx.make_atom_cluster(ix, sym_factor=2, **kwargs)
 
+                if (args.atoms[0] == args.atoms[1]):
+                    ccx.make_atom_fragment(0, sym_factor=2*ncells, **kwargs)
                 else:
-                    if (args.atoms[0] == args.atoms[1]):
-                        ccx.make_atom_fragment(0, sym_factor=2*ncells, **kwargs)
-                    else:
-                        ccx.make_atom_fragment(0, sym_factor=ncells, **kwargs)
-                        ccx.make_atom_fragment(1, sym_factor=ncells, **kwargs)
+                    ccx.make_atom_fragment(0, sym_factor=ncells, **kwargs)
+                    ccx.make_atom_fragment(1, sym_factor=ncells, **kwargs)
 
             elif args.system == "perovskite":
                 #ccx.make_atom_cluster(0)
