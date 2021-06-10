@@ -48,10 +48,13 @@ class EWFFragmentOptions(Options):
 
 @dataclasses.dataclass
 class EWFFragmentResults:
-    converged : bool = None
+    fid : int = None
     bno_threshold : float = None
-    e_corr : float = None
     n_active : int = None
+    converged : bool = None
+    e_corr : float = None
+    ip_energy : np.ndarray = None
+    ea_energy : np.ndarray = None
     t1 : np.ndarray = None
     t2 : np.ndarray = None
 
@@ -59,7 +62,7 @@ class EWFFragmentResults:
 class EWFFragment(QEmbeddingFragment):
 
     def __init__(self, base, fid, name, c_frag, c_env, fragment_type, sym_factor=1, atoms=None, log=None,
-            solver=None, bno_threshold=None, options=None, **kwargs):
+            solver=None, options=None, **kwargs):
         """
         Parameters
         ----------
@@ -90,24 +93,28 @@ class EWFFragment(QEmbeddingFragment):
         self.log.infov('  * %-24s %r', 'Solver:', self.solver)
 
        # Bath natural orbital (BNO) threshold
-        if bno_threshold is None:
-            bno_threshold = self.base.bno_threshold
-        if np.ndim(bno_threshold) == 0:
-            bno_threshold = [bno_threshold]
-        assert len(bno_threshold) == len(self.base.bno_threshold)
-        self.bno_threshold = self.opts.bno_threshold_factor*np.asarray(bno_threshold)
-        # Sort such that most expensive calculation (smallest threshold) comes first
-        # (allows projecting down ERIs and initial guess for subsequent calculations)
-        self.bno_threshold.sort()
+        #if bno_threshold is None:
+        #    bno_threshold = self.base.bno_threshold
+        #if np.ndim(bno_threshold) == 0:
+        #    bno_threshold = [bno_threshold]
+        #assert len(bno_threshold) == len(self.base.bno_threshold)
+        #self.bno_threshold = self.opts.bno_threshold_factor*np.asarray(bno_threshold)
+        ## Sort such that most expensive calculation (smallest threshold) comes first
+        ## (allows projecting down ERIs and initial guess for subsequent calculations)
+        #self.bno_threshold.sort()
 
-        # Intermediate and output attributes:
-        # Save correlation energies for different BNO thresholds
-        self.e_corrs = len(self.bno_threshold)*[None]
-        self.n_active = len(self.bno_threshold)*[None]
-        # Output values
-        self.e_delta_mp2 = 0.0
-        self.e_pert_t = 0.0
-        self.e_corr_dmp2 = 0.0
+        # For Tailoring
+        self.tailor_fragments = []
+
+        # OLD
+        ## Intermediate and output attributes:
+        ## Save correlation energies for different BNO thresholds
+        #self.e_corrs = len(self.bno_threshold)*[None]
+        #self.n_active = len(self.bno_threshold)*[None]
+        ## Output values
+        #self.e_delta_mp2 = 0.0
+        #self.e_pert_t = 0.0
+        #self.e_corr_dmp2 = 0.0
 
         # --- These attributes will be set after calling `make_bath`:
         # DMET-cluster (fragment + DMET bath) orbital coefficients
@@ -120,26 +127,12 @@ class EWFFragment(QEmbeddingFragment):
         self.n_no_occ = None
         self.n_no_vir = None
 
-        # For Tailoring
-        self.tailor_fragments = []
-
-        # BSSE energies
-        self.e_bsse = len(self.bno_threshold)*[None]
-
         # --- Attributes which will be overwritten for each BNO threshold:
-        self.converged = False
-        self.iteration = 0
         # Active orbitals
         self.c_active_occ = None
         self.c_active_vir = None
-
         self.cluster_solver = None
-
-        # For EMO-CCSD
-        self.eom_ip_energy = None
-        self.eom_ea_energy = None
-
-        self.results = []
+        self.results = None
 
 
     def __repr__(self):
@@ -304,27 +297,25 @@ class EWFFragment(QEmbeddingFragment):
                 self.log.info("  * BNO threshold= %.1e :  <Exception during calculation>", bno_thr)
 
 
-    def kernel(self, solver, bno_threshold, init_guess=None, eris=None):
+    def kernel(self, bno_threshold, solver=None, init_guess=None, eris=None):
         """Run solver for a single BNO threshold.
 
         Parameters
         ----------
-        solver : {'MP2', 'CISD', 'CCSD', 'CCSD(T)', 'FCI'}
-            Correlated solver.
         bno_threshold : float
             Bath natural orbital (BNO) thresholds.
+        solver : {'MP2', 'CISD', 'CCSD', 'CCSD(T)', 'FCI'}, optional
+            Correlated solver.
 
         Returns
         -------
         results : EWFFragmentResults
         """
-
-        self.log.changeIndentLevel(1)
         solver = solver or self.solver
 
         if self.c_cluster_occ is None:
             self.make_bath()
- 
+
         #self.e_delta_mp2 = e_delta_occ + e_delta_vir
         #self.log.debug("MP2 correction = %.8g", self.e_delta_mp2)
 
@@ -364,8 +355,8 @@ class EWFFragment(QEmbeddingFragment):
         nfrozen = nocc_frozen + nvir_frozen
         nactive = c_active_occ.shape[-1] + c_active_vir.shape[-1]
 
-        self.log.info("Orbitals for Fragment %3d", self.id)
-        self.log.info("************************")
+        self.log.info("Orbitals for %s", self)
+        self.log.info("*************" + len(str(self))*"*")
         self.log.info("  * Occupied: active= %4d  frozen= %4d  total= %4d", c_active_occ.shape[-1], nocc_frozen, c_occ.shape[-1])
         self.log.info("  * Virtual:  active= %4d  frozen= %4d  total= %4d", c_active_vir.shape[-1], nvir_frozen, c_vir.shape[-1])
         self.log.info("  * Total:    active= %4d  frozen= %4d  total= %4d", nactive, nfrozen, mo_coeff.shape[-1])
@@ -382,10 +373,10 @@ class EWFFragment(QEmbeddingFragment):
             # Projectors for occupied and virtual orbitals
             p_occ = np.linalg.multi_dot((self.c_active_occ.T, self.base.get_ovlp(), c_active_occ))
             p_vir = np.linalg.multi_dot((self.c_active_vir.T, self.base.get_ovlp(), c_active_vir))
-            t1, t2 = init_guess.pop("t1"), init_guess.pop("t2")
+            t1, t2 = init_guess.pop('t1'), init_guess.pop('t2')
             t1, t2 = helper.transform_amplitudes(t1, t2, p_occ, p_vir)
-            init_guess["t1"] = t1
-            init_guess["t2"] = t2
+            init_guess['t1'] = t1
+            init_guess['t2'] = t2
         else:
             init_guess = None
         # If superspace ERIs were calculated before, they can be transformed and used again
@@ -406,43 +397,39 @@ class EWFFragment(QEmbeddingFragment):
         self.cluster_solver = cluster_solver_cls(self, mo_coeff, mo_occ, nocc_frozen=nocc_frozen, nvir_frozen=nvir_frozen, eris=eris)
         self.cluster_solver.kernel(init_guess=init_guess)
         self.log.timing("Time for %s solver:  %s", solver, time_string(timer()-t0))
-        self.converged = self.cluster_solver.converged
         # ERIs and initial guess for next calculations
         if self.base.opts.project_eris:
             eris = self.cluster_solver._eris
         else:
             eris = None
-        if self.base.opts.project_init_guess:
-            init_guess = {"t1" : self.cluster_solver.t1, "t2" : self.cluster_solver.t2}
-        else:
-            init_guess = None
 
         p1, p2 = self.project_amplitudes_to_fragment(self.cluster_solver._solver, self.cluster_solver.c1, self.cluster_solver.c2)
         e_corr = self.get_fragment_energy(self.cluster_solver._solver, p1, p2, eris=self.cluster_solver._eris)
+        self.log.info("BNO threshold= %.1e :  E(corr)= %+14.8f Ha", bno_threshold, e_corr)
         # Population analysis
         if self.opts.make_rdm1 and self.cluster_solver.dm1 is not None:
             try:
                 self.pop_analysis(self.cluster_solver.dm1)
             except Exception as e:
                 self.log.error("Exception in population analysis: %s", e)
-        # EOM analysis
-        if self.opts.eom_ccsd in (True, "IP"):
-            self.eom_ip_energy, _ = self.eom_analysis(self.cluster_solver, "IP")
-        if self.opts.eom_ccsd in (True, "EA"):
-            self.eom_ea_energy, _ = self.eom_analysis(self.cluster_solver, "EA")
 
         results = EWFFragmentResults(
-                converged=self.cluster_solver.converged,
+                fid=self.id,
                 bno_threshold=bno_threshold,
-                e_corr=e_corr,
                 n_active=nactive,
-                t1 = self.cluster_solver.t1,
-                t2 = self.cluster_solver.t2)
+                converged=self.cluster_solver.converged,
+                e_corr=e_corr)
+        # EOM analysis
+        if self.opts.eom_ccsd in (True, "IP"):
+            results.ip_energy, _ = self.eom_analysis(self.cluster_solver, "IP")
+        if self.opts.eom_ccsd in (True, "EA"):
+            results.ea_energy, _ = self.eom_analysis(self.cluster_solver, "EA")
+        if self.base.opts.project_init_guess:
+            results.t1 = self.cluster_solver.t1
+            results.t2 = self.cluster_solver.t2
+        self.results = results
 
-        self.log.info("BNO threshold= %.1e :  E(corr)= %+14.8f Ha", bno_threshold, results.e_corr)
-        self.log.changeIndentLevel(-1)
-
-        return results, init_guess, eris
+        return results, eris
 
 
     def apply_bno_threshold(self, c_no, n_no, bno_thr):

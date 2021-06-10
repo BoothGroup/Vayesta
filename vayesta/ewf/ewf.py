@@ -44,7 +44,7 @@ class EWFOptions(Options):
     orbfile: str = None                 # Filename for orbital coefficients
     # If multiple bno thresholds are to be calculated, we can project integrals and amplitudes from a previous larger cluster:
     project_eris: bool = False          # Project ERIs from a pervious larger cluster (corresponding to larger eta), can result in a loss of accuracy especially for large basis sets!
-    project_init_guess: bool = True     # Project converted T1,T2 amplitudes from a previous larger cluster
+    project_init_guess: bool = False    # Project converted T1,T2 amplitudes from a previous larger cluster
     orthogonal_mo_tol: float = False
     #Orbital file
     plot_orbitals: bool = False
@@ -53,6 +53,7 @@ class EWFOptions(Options):
     # --- Solver settings
     solver_options: dict = dataclasses.field(default_factory=dict)
     make_rdm1: bool = False
+    pop_analysis: bool = False          # Do population analysis
     popfile: str = 'population'         # Filename for population analysis
     eom_ccsd: bool = False              # Perform EOM-CCSD in each cluster by default
     eomfile: str = 'eom-ccsd'           # Filename for EOM-CCSD states
@@ -60,10 +61,18 @@ class EWFOptions(Options):
     bsse_correction: bool = True
     bsse_rmax: float = 5.0              # In Angstrom
     # ---Tailoring
+    maxiter: int = 1
     tailor_mode: int = 1
     # --- Other
     energy_partitioning: str = 'first-occ'
     strict: bool = False                # Stop if cluster not converged
+
+
+@dataclasses.dataclass
+class EWFResults:
+    bno_threshold: float = None
+    cluster_sizes: np.ndarray = None
+    e_corr: float = None
 
 
 VALID_SOLVERS = [None, "", "MP2", "CISD", "CCSD", "CCSD(T)", 'FCI', "FCI-spin0", "FCI-spin1"]
@@ -72,7 +81,7 @@ class EWF(QEmbeddingMethod):
 
     FRAGMENT_CLS = EWFFragment
 
-    def __init__(self, mf, solver='CCSD', bno_threshold=1e-8, options=None, log=None, **kwargs):
+    def __init__(self, mf, bno_threshold=1e-8, solver='CCSD', options=None, log=None, **kwargs):
         """Embedded wave function (EWF) calculation object.
 
         Parameters
@@ -81,8 +90,6 @@ class EWF(QEmbeddingMethod):
             Converged mean-field object.
         solver : str, optional
             Solver for embedding problem. Default: 'CCSD'.
-        bno_threshold : float, optiona
-            Bath natural orbital threshold. Default: 1e-8.
         **kwargs :
             See class `EWFOptions` for additional options.
         """
@@ -105,14 +112,10 @@ class EWF(QEmbeddingMethod):
                 raise RuntimeError("Mean-field calculation not converged.")
             else:
                 self.log.error("Mean-field calculation not converged.")
+        self.bno_threshold = bno_threshold
         if solver not in VALID_SOLVERS:
             raise ValueError("Unknown solver: %s" % solver)
         self.solver = solver
-
-        # Bath natural orbital threshold
-        if np.isscalar(bno_threshold):
-            bno_threshold = [bno_threshold]
-        self.bno_threshold = bno_threshold
 
         # Orthogonalize insufficiently orthogonal MOs
         # (For example as a result of k2gamma conversion with low cell.precision)
@@ -146,9 +149,15 @@ class EWF(QEmbeddingMethod):
         self.log.timing("Time for EWF setup: %s", time_string(timer()-t_start))
 
         # Intermediate and output attributes
-        self.e_corr = 0.0           # Correlation energy
-        self.e_pert_t = 0.0         # CCSD(T) correction
-        self.e_delta_mp2 = 0.0      # MP2 correction
+        #self.e_corr = 0.0           # Correlation energy
+        #self.e_pert_t = 0.0         # CCSD(T) correction
+        #self.e_delta_mp2 = 0.0      # MP2 correction
+
+        # Population analysis
+        self.pop_mf = self.pop_mf_chg = None
+
+        self.cluster_results = {}
+        self.results = []
 
     #def init_fragments(self):
     #    if self.opts.fragment_type.upper() == "IAO":
@@ -207,11 +216,6 @@ class EWF(QEmbeddingMethod):
     #        #create_orbital_file(self.mol, self.local_orbital_type, coeffs, names, directory="fragment-localized")
     #        create_orbital_file(self.mol, self.opts.fragment_type, coeffs, names, directory="fragment-localized", filetype="cube")
 
-
-    @property
-    def ncalc(self):
-        """Number of calculations in each cluster."""
-        return len(self.bno_threshold)
 
     @property
     def e_tot(self):
@@ -397,14 +401,27 @@ class EWF(QEmbeddingMethod):
         return pop, chg
 
 
-    def kernel(self, **kwargs):
+    def kernel(self, bno_threshold=None):
+        """Run EWF.
+
+        Parameters
+        ----------
+        bno_threshold : float or list, optional
+            Bath natural orbital threshold. Default: 1e-8.
+        """
 
         if MPI: MPI_comm.Barrier()
         t_start = timer()
 
+        bno_threshold = bno_threshold or self.bno_threshold
+        if np.ndim(bno_threshold) == 0:
+            bno_threshold = [bno_threshold]
+        bno_threshold = np.sort(np.asarray(bno_threshold))
+
         if self.nfrag == 0:
             raise ValueError("No fragments defined for calculation.")
 
+        # TODO: clean this up
         if self.opts.orbfile:
             filename = "%s.txt" % self.opts.orbfile
             tstamp = datetime.now()
@@ -427,62 +444,87 @@ class EWF(QEmbeddingMethod):
 
         # Mean-field population analysis
         self.lo = pyscf.lo.orth_ao(self.mol, "lowdin")
-        self.pop_mf, self.pop_mf_chg = self.pop_analysis()
+        if self.opts.pop_analysis:
+            self.pop_mf, self.pop_mf_chg = self.pop_analysis()
 
         nelec_frags = sum([f.sym_factor*f.nelectron for f in self.loop()])
         self.log.info("Total number of mean-field electrons over all fragments= %.8f", nelec_frags)
         if abs(nelec_frags - np.rint(nelec_frags)) > 1e-4:
             self.log.warning("Number of electrons not integer!")
 
-        for idx, frag in enumerate(self.loop()):
-            if MPI_rank != (idx % MPI_size):
-                continue
 
-            mpi_info = (" on MPI process %3d" % MPI_rank) if MPI_size > 1 else ""
-            msg = "Running Fragment %s%s" % (frag, mpi_info)
-            self.log.info(msg)
-            self.log.info(len(msg)*"*")
-            self.log.changeIndentLevel(1)
-            #frag.kernel(**kwargs)
-            frag.run_multiple(**kwargs)
-            self.log.info("Fragment %s%s is done.", frag, mpi_info)
-            self.log.changeIndentLevel(-1)
+        for i, bno_thr in enumerate(bno_threshold):
 
-        #results = self.collect_results("converged", "e_corr", "e_delta_mp2", "e_corr_v", "e_corr_d")
-        #attributes = ["converged", "e_corr", "e_pert_t",
-        #        #"e_pert_t2",
-        #        "e_delta_mp2",
-        #        "e_dmet", "e_corr_full", "e_corr_v", "e_corr_d",
-        #        "nactive", "nfrozen"]
+            for iteration in range(1, self.opts.maxiter+1):
+                self.log.info("Now running BNO threshold= %.2e - Iteration= %2d", bno_thr, iteration)
+                self.log.info("****************************************************")
 
-        attributes = ["converged", "e_corr", "e_delta_mp2", "e_pert_t"]
+                for x, frag in enumerate(self.fragments):
 
-        results = self.collect_results(*attributes)
-        if MPI_rank == 0 and not np.all(results["converged"]):
-            self.log.critical("The following fragments did not converge:")
-            for i, frag in enumerate(self.loop()):
-                if not results["converged"][i]:
-                    self.log.critical("%3d %s solver= %s", frag.id, frag.name, frag.solver)
-            if self.opts.strict:
-                raise RuntimeError("Not all fragments converged")
+                    # MPI
+                    if MPI_rank != (x % MPI_size):
+                        continue
+                    mpi_info = (" on MPI process %d" % MPI_rank) if MPI_size > 1 else ""
+                    msg = "Now running Fragment %s%s" % (frag, mpi_info)
+                    self.log.info(msg)
+                    self.log.info(len(msg)*"*")
+                    self.log.changeIndentLevel(1)
+                    result, eris = frag.kernel(bno_threshold=bno_thr)
+                    self.cluster_results[(frag.id, bno_thr)] = result
+                    if not result.converged:
+                        self.log.error("Fragment %s is not converged!", frag)
+                    else:
+                        self.log.info("Fragment %s is done.", frag)
+                    self.log.changeIndentLevel(-1)
 
-        self.e_corr = sum(results["e_corr"])
-        #self.e_pert_t = sum(results["e_pert_t"])
-        #self.e_pert_t2 = sum(results["e_pert_t2"])
-        self.e_delta_mp2 = sum(results["e_delta_mp2"])
+                e_corr = sum([self.cluster_results[(f.id, bno_thr)].e_corr for f in self.fragments])
+                self.log.info("Iteration %d: E(corr)= % 16.8f", iteration, e_corr)
+
+            result = EWFResults(bno_threshold=bno_thr, e_corr=e_corr)
+            self.results.append(result)
+
+
+        self.log.info("Fragment Correlation Energies")
+        self.log.info("*****************************")
+        self.log.info("%13s:" + self.nfrag*" %16s", "BNO threshold", *[f.name for f in self.fragments])
+        fmt = "%13.2e:" + self.nfrag*" %16.8f Ha"
+        for bno_thr in bno_threshold[::-1]:
+            self.log.info(fmt, bno_thr, *[self.cluster_results[(f.id, bno_thr)].e_corr for f in self.fragments])
+
+        bno_min = np.min(bno_threshold)
+        #self.e_corr = sum([results[(f.id, bno_min)].e_corr for f in self.fragments])
+        self.e_corr = self.results[0].e_corr
+        fmt = "%-8s %+16.8f Ha"
+        self.log.output(fmt, 'E(nuc)=', self.mol.energy_nuc())
+        self.log.output(fmt, 'E(MF)=', self.e_mf)
+        self.log.output(fmt, 'E(corr)=', self.e_corr)
+        self.log.output(fmt, 'E(tot)=', self.e_tot)
+
+        #attributes = ["converged", "e_corr", "e_delta_mp2", "e_pert_t"]
+
+        #results = self.collect_results(*attributes)
+        #if MPI_rank == 0 and not np.all(results["converged"]):
+        #    self.log.critical("The following fragments did not converge:")
+        #    for i, frag in enumerate(self.loop()):
+        #        if not results["converged"][i]:
+        #            self.log.critical("%3d %s solver= %s", frag.id, frag.name, frag.solver)
+        #    if self.opts.strict:
+        #        raise RuntimeError("Not all fragments converged")
+
+        #self.e_corr = sum(results["e_corr"])
+        ##self.e_pert_t = sum(results["e_pert_t"])
+        ##self.e_pert_t2 = sum(results["e_pert_t2"])
+        #self.e_delta_mp2 = sum(results["e_delta_mp2"])
 
         #self.e_corr_full = sum(results["e_corr_full"])
 
-        if MPI_rank == 0:
-            self.print_results(results)
+        #if MPI_rank == 0:
+        #    self.print_results(results)
 
-        if MPI: MPI_comm.Barrier()
+        #if MPI: MPI_comm.Barrier()
         self.log.info("Total wall time:  %s", time_string(timer()-t_start))
-
         self.log.info("All done.")
 
-    # Alias for kernel
-    run = kernel
 
     def collect_results(self, *attributes):
         """Use MPI to collect results from all fragments."""
@@ -564,18 +606,19 @@ class EWF(QEmbeddingMethod):
 
     def get_energies(self):
         """Get total energy."""
-        energies = np.zeros(self.ncalc)
-        energies[:] = self.e_mf
-        for frag in self.loop():
-            energies += frag.e_corrs
-        return energies
+        #[results[(f.id, bno_min)].e_corr for f in self.fragments])
+        #energies = np.zeros(self.ncalc)
+        #energies[:] = self.e_mf
+        #for frag in self.loop():
+        #    energies += frag.e_corrs
+        #return energies
+        return [r.e_corr for r in self.results]
 
-
-    def get_cluster_sizes(self):
-        sizes = np.zeros((self.nfrag, self.ncalc), dtype=np.int)
-        for i, frag in enumerate(self.loop()):
-            sizes[i] = frag.n_active
-        return sizes
+    #def get_cluster_sizes(self)
+    #    sizes = np.zeros((self.nfrag, self.ncalc), dtype=np.int)
+    #    for i, frag in enumerate(self.loop()):
+    #        sizes[i] = frag.n_active
+    #    return sizes
 
 
     def print_clusters(self):

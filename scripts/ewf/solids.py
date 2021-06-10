@@ -621,11 +621,11 @@ for i, a in enumerate(args.lattice_consts):
         energies["ewf-ccsd"] = ccx.get_energies()
 
         # Write cluster sizes to file
-        for x in ccx.fragments:
-            fname = "cluster-%s-size.txt" % x.id_name
-            val = x.n_active
-            with open(fname, "a") as f:
-                f.write(("%6.3f" + len(val)*"  %3d" + "\n") % (a, *val))
+        #for x in ccx.fragments:
+        #    fname = "cluster-%s-size.txt" % x.id_name
+        #    val = x.n_active
+        #    with open(fname, "a") as f:
+        #        f.write(("%6.3f" + len(val)*"  %3d" + "\n") % (a, *val))
 
         # Save energies
         #energies["ccsd-dmp2"].append((ccx.e_tot + ccx.e_delta_mp2))
