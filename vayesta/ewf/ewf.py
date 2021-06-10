@@ -443,7 +443,8 @@ class EWF(QEmbeddingMethod):
             self.log.info(msg)
             self.log.info(len(msg)*"*")
             self.log.changeIndentLevel(1)
-            frag.kernel(**kwargs)
+            #frag.kernel(**kwargs)
+            frag.run_multiple(**kwargs)
             self.log.info("Fragment %s%s is done.", frag, mpi_info)
             self.log.changeIndentLevel(-1)
 

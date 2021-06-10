@@ -38,6 +38,11 @@ class ClusterSolver:
             Number of frozen virtual orbitals. Need to be at the end of mo_coeff.
         """
         self.log = log or fragment.log
+        self.fragment = fragment
+        self.mo_coeff = mo_coeff
+        self.mo_occ = mo_occ
+        self.nocc_frozen = nocc_frozen
+        self.nvir_frozen = nvir_frozen
 
         if options is None:
             options = ClusterSolverOptions(**kwargs)
@@ -46,11 +51,6 @@ class ClusterSolver:
         options = options.replace(self.base.opts, select=NotSet)
         self.opts = options
 
-        self.fragment = fragment
-        self.mo_coeff = mo_coeff
-        self.mo_occ = mo_occ
-        self.nocc_frozen = nocc_frozen
-        self.nvir_frozen = nvir_frozen
         # Intermediates
         self._eris = eris
         self._solver = None

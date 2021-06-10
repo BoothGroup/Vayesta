@@ -49,6 +49,7 @@ class EWFFragmentOptions(Options):
 @dataclasses.dataclass
 class EWFFragmentResults:
     converged : bool = None
+    bno_threshold : float = None
     e_corr : float = None
     n_active : int = None
     t1 : np.ndarray = None
@@ -108,6 +109,7 @@ class EWFFragment(QEmbeddingFragment):
         self.e_pert_t = 0.0
         self.e_corr_dmp2 = 0.0
 
+        # --- These attributes will be set after calling `make_bath`:
         # DMET-cluster (fragment + DMET bath) orbital coefficients
         self.c_cluster_occ = None
         self.c_cluster_vir = None
@@ -123,9 +125,6 @@ class EWFFragment(QEmbeddingFragment):
 
         # BSSE energies
         self.e_bsse = len(self.bno_threshold)*[None]
-
-        # For orbital plotting
-        self.cubefile = None
 
         # --- Attributes which will be overwritten for each BNO threshold:
         self.converged = False
@@ -158,21 +157,8 @@ class EWFFragment(QEmbeddingFragment):
         return self.e_corrs[idx]
 
 
-    def kernel(self, solver=None, bno_threshold=None):
-        """Construct bath orbitals and run solver.
-
-        Parameters
-        ----------
-        solver : {"MP2", "CISD", "CCSD", "CCSD(T)", "FCI"}
-            Correlated solver.
-        bno_threshold : list
-            List of bath natural orbital (BNO) thresholds.
-        """
-
-        solver = solver or self.solver
-        if bno_threshold is None:
-            bno_threshold = self.bno_threshold
-
+    def make_bath(self):
+        """Make DMET and MP2 bath natural orbitals."""
         t0_bath = t0 = timer()
         self.log.info("Making DMET Bath")
         self.log.info("****************")
@@ -185,9 +171,9 @@ class EWFFragment(QEmbeddingFragment):
         if self.opts.plot_orbitals:
             os.makedirs(self.base.opts.plot_orbitals_dir, exist_ok=True)
             name = "%s.cube" % os.path.join(self.base.opts.plot_orbitals_dir, self.name)
-            self.cubefile = cubegen.CubeFile(self.mol, filename=name, **self.base.opts.plot_orbitals_kwargs)
-            self.cubefile.add_orbital(self.c_frag.copy())
-            self.cubefile.add_orbital(c_dmet.copy(), dset_idx=1001)
+            cubefile = cubegen.CubeFile(self.mol, filename=name, **self.base.opts.plot_orbitals_kwargs)
+            cubefile.add_orbital(self.c_frag.copy())
+            cubefile.add_orbital(c_dmet.copy(), dset_idx=1001)
 
         # Add additional orbitals to cluster [optional]
         #c_dmet, c_env_occ, c_env_vir = self.additional_bath_for_cluster(c_dmet, c_env_occ, c_env_vir)
@@ -260,13 +246,28 @@ class EWFFragment(QEmbeddingFragment):
             self.c_no_vir = c_env_vir
             self.n_no_vir = np.zeros((0,))
 
-
         # Plot orbitals
         if self.opts.plot_orbitals:
             # Save state of cubefile, in case a replot of the same data is required later:
-            self.cubefile.save_state("%s.pkl" % self.cubefile.filename)
-            self.cubefile.write()
+            cubefile.save_state("%s.pkl" % cubefile.filename)
+            cubefile.write()
         self.log.timing("Time for bath:  %s", time_string(timer()-t0_bath))
+
+
+    def run_multiple(self, solver=None, bno_threshold=None):
+        """Construct bath orbitals and run solver.
+
+        Parameters
+        ----------
+        solver : {"MP2", "CISD", "CCSD", "CCSD(T)", "FCI"}
+            Correlated solver.
+        bno_threshold : list
+            List of bath natural orbital (BNO) thresholds.
+        """
+
+        solver = solver or self.solver
+        if bno_threshold is None:
+            bno_threshold = self.bno_threshold
 
         init_guess = eris = None
         for icalc, bno_thr in enumerate(bno_threshold):
@@ -282,8 +283,7 @@ class EWFFragment(QEmbeddingFragment):
             #    e_corr = n_active = 0
 
             #e_corr, n_active, init_guess, eris = self.run_bno_threshold(solver, bno_thr, init_guess=init_guess, eris=eris)
-            results, init_guess, eris = self.run_bno_threshold(solver, bno_thr, init_guess=init_guess, eris=eris)
-            self.log.info("BNO threshold= %.1e :  E(corr)= %+14.8f Ha", bno_thr, results.e_corr)
+            results, init_guess, eris = self.kernel(solver, bno_thr, init_guess=init_guess, eris=eris)
             self.e_corrs[icalc] = results.e_corr
             self.n_active[icalc] = results.n_active
             self.results.append(results)
@@ -304,8 +304,27 @@ class EWFFragment(QEmbeddingFragment):
                 self.log.info("  * BNO threshold= %.1e :  <Exception during calculation>", bno_thr)
 
 
+    def kernel(self, solver, bno_threshold, init_guess=None, eris=None):
+        """Run solver for a single BNO threshold.
 
-    def run_bno_threshold(self, solver, bno_thr, init_guess=None, eris=None):
+        Parameters
+        ----------
+        solver : {'MP2', 'CISD', 'CCSD', 'CCSD(T)', 'FCI'}
+            Correlated solver.
+        bno_threshold : float
+            Bath natural orbital (BNO) thresholds.
+
+        Returns
+        -------
+        results : EWFFragmentResults
+        """
+
+        self.log.changeIndentLevel(1)
+        solver = solver or self.solver
+
+        if self.c_cluster_occ is None:
+            self.make_bath()
+ 
         #self.e_delta_mp2 = e_delta_occ + e_delta_vir
         #self.log.debug("MP2 correction = %.8g", self.e_delta_mp2)
 
@@ -313,9 +332,9 @@ class EWFFragment(QEmbeddingFragment):
         assert (self.c_no_vir is not None)
 
         self.log.info("Occupied BNOs:")
-        c_nbo_occ, c_frozen_occ = self.apply_bno_threshold(self.c_no_occ, self.n_no_occ, bno_thr)
+        c_nbo_occ, c_frozen_occ = self.apply_bno_threshold(self.c_no_occ, self.n_no_occ, bno_threshold)
         self.log.info("Virtual BNOs:")
-        c_nbo_vir, c_frozen_vir = self.apply_bno_threshold(self.c_no_vir, self.n_no_vir, bno_thr)
+        c_nbo_vir, c_frozen_vir = self.apply_bno_threshold(self.c_no_vir, self.n_no_vir, bno_threshold)
 
         # Canonicalize orbitals
         c_active_occ = self.canonicalize_mo(self.c_cluster_occ, c_nbo_occ)[0]
@@ -414,10 +433,14 @@ class EWFFragment(QEmbeddingFragment):
 
         results = EWFFragmentResults(
                 converged=self.cluster_solver.converged,
+                bno_threshold=bno_threshold,
                 e_corr=e_corr,
                 n_active=nactive,
                 t1 = self.cluster_solver.t1,
                 t2 = self.cluster_solver.t2)
+
+        self.log.info("BNO threshold= %.1e :  E(corr)= %+14.8f Ha", bno_threshold, results.e_corr)
+        self.log.changeIndentLevel(-1)
 
         return results, init_guess, eris
 
@@ -646,9 +669,9 @@ class EWFFragment(QEmbeddingFragment):
         e2 = 2*einsum('ijab,iabj', p2, eris_ovvo)
         e2 -=  einsum('ijab,jabi', p2, eris_ovvo)
 
-        self.log.info("Energy components: E1= % 16.8f Ha, E2=% 16.8f Ha", e1, e2)
+        self.log.info("Energy components: E[T1]= % 16.8f Ha, E[T2+T1^2]= % 16.8f Ha", e1, e2)
         if e1 > 1e-4 and 10*e1 > e2:
-            self.log.warning("WARNING: Large E1 component!")
+            self.log.warning("WARNING: Large E[T1] component!")
 
         e_frag = self.sym_factor * (e1 + e2)
         return e_frag
