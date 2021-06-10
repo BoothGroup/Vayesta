@@ -71,8 +71,8 @@ def get_arguments():
     parser.add_argument("--exp-to-discard", type=float, help="If set, discard diffuse basis functions.")
     # Counterpoise
     parser.add_argument("--counterpoise")
-    parser.add_argument("--counterpoise-shells", type=int, default=1)
-    parser.add_argument("--counterpoise-range", type=float, default=np.inf)
+    parser.add_argument("--counterpoise-nimages", type=int, default=1)
+    parser.add_argument("--counterpoise-rmax", type=float, default=np.inf)
     # Mean-field
     parser.add_argument("--save-scf", help="Save primitive cell SCF.", default="scf-%.2f.chk")           # If containg "%", it will be formatted as args.save_scf % a with a being the lattice constant
     parser.add_argument("--load-scf", help="Load primitive cell SCF.")
@@ -140,11 +140,6 @@ def get_arguments():
                 "lattice_consts" : np.asarray([2.4, 2.425, 2.45, 2.475, 2.5, 2.525]),
                 "vacuum_size" : 20.0
                 }
-        # This is not how we do it anymore
-        #if args.counterpoise == 'monomer-basis':
-        #    defaults['atoms'] = ['C', None]
-        #elif args.counterpoise == 'dimer-basis':
-        #    defaults['atoms'] = ['C', 'Ghost-C']
 
     elif args.system == "hbn":
         defaults = {
@@ -153,15 +148,6 @@ def get_arguments():
                 "lattice_consts" : np.asarray([2.45, 2.475, 2.5, 2.525, 2.55, 2.575]),
                 "vacuum_size" : 20.0
                 }
-        # This is not how we do it anymore
-        #if args.counterpoise == 'monomer-basis-B':
-        #    defaults['atoms'] = ['B', None]
-        #elif args.counterpoise == 'monomer-basis-N':
-        #    defaults['atoms'] = [None, 'N']
-        #elif args.counterpoise == 'dimer-basis-B':
-        #    defaults['atoms'] = ['B', 'Ghost-N']
-        #elif args.counterpoise == 'dimer-basis-N':
-        #    defaults['atoms'] = ['Ghost-B', 'N']
 
     elif args.system == "perovskite":
         defaults = {
@@ -290,7 +276,7 @@ def make_cell(a, args, **kwargs):
         # Remove all but one atom, but keep basis functions of the 26 (3D) or 8 (2D) neighboring cells
         elif '*' in args.counterpoise:
             atmidx = int(args.counterpoise.replace('*', ''))
-                cell = counterpoise.make_mol(cell, atmidx, rmax=args.counterpoise_range, nimages=args.counterpoise_shells, output='pyscf-cp-d.txt')
+                cell = counterpoise.make_mol(cell, atmidx, rmax=args.counterpoise_rmax, nimages=args.counterpoise_nimages, output='pyscf-cp-d.txt')
     return cell
 
 
@@ -592,48 +578,44 @@ for i, a in enumerate(args.lattice_consts):
             **kwargs)
 
         # Define atomic fragments, first argument is atom index
-        if args.system == "diamond":
-            ccx.make_atom_fragment(0, sym_factor=2*ncells)
-        elif args.system == "graphite":
-            ccx.make_atom_fragment(0, sym_factor=2*ncells)
-            ccx.make_atom_fragment(1, sym_factor=2*ncells)
-        elif args.system in ("graphene", "hbn"):
-            #for ix in range(2):
-            #    ccx.make_atom_cluster(ix, sym_factor=ncells, **kwargs)
-            #if ncells % 2 == 0:
-            #    nx, ny = args.supercell[:2]
-            #    ix = 2*np.arange(ncells).reshape(nx,ny)[nx//2,ny//2]
-            #else:
-            #    ix = ncells-1    # Make cluster in center
-            #ccx.make_atom_cluster(ix, sym_factor=2, **kwargs)
-
-            if args.counterpoise:
-                idx = int(args.counterpoise.replace('*', ''))
-                ccx.make_atom_fragment(idx, **kwargs)
-            else:
-                if (args.atoms[0] == args.atoms[1]):
-                    ccx.make_atom_fragment(0, sym_factor=2*ncells, **kwargs)
-                # For counterpoise:
-                #elif args.atoms[0] is None or args.atoms[0].lower().startswith('ghost'):
-                #    ccx.make_atom_cluster(1, sym_factor=ncells, **kwargs)
-                #elif args.atoms[1] is None or args.atoms[1].lower().startswith('ghost'):
-                #    ccx.make_atom_cluster(0, sym_factor=ncells, **kwargs)
-                else:
-                    ccx.make_atom_fragment(0, sym_factor=ncells, **kwargs)
-                    ccx.make_atom_fragment(1, sym_factor=ncells, **kwargs)
-
-        elif args.system == "perovskite":
-            #ccx.make_atom_cluster(0)
-            ## Ti needs larger threshold
-            #ccx.make_atom_cluster(1, bno_threshold_factor=10)
-            #ccx.make_atom_cluster(2, sym_factor=3)
-
-            # Ti needs larger threshold
-            ccx.make_atom_fragment(0, sym_factor=ncells, bno_threshold_factor=0.3)
-            ccx.make_atom_fragment(1, sym_factor=ncells)
-            ccx.make_atom_fragment(2, sym_factor=3*ncells, bno_threshold_factor=0.03)
+        if args.counterpoise:
+            idx = int(args.counterpoise.replace('*', ''))
+            ccx.make_atom_fragment(idx, **kwargs)
         else:
-            raise SystemError()
+            if args.system == "diamond":
+                ccx.make_atom_fragment(0, sym_factor=2*ncells)
+            elif args.system == "graphite":
+                ccx.make_atom_fragment(0, sym_factor=2*ncells)
+                ccx.make_atom_fragment(1, sym_factor=2*ncells)
+            elif args.system in ("graphene", "hbn"):
+                #for ix in range(2):
+                #    ccx.make_atom_cluster(ix, sym_factor=ncells, **kwargs)
+                #if ncells % 2 == 0:
+                #    nx, ny = args.supercell[:2]
+                #    ix = 2*np.arange(ncells).reshape(nx,ny)[nx//2,ny//2]
+                #else:
+                #    ix = ncells-1    # Make cluster in center
+                #ccx.make_atom_cluster(ix, sym_factor=2, **kwargs)
+
+                else:
+                    if (args.atoms[0] == args.atoms[1]):
+                        ccx.make_atom_fragment(0, sym_factor=2*ncells, **kwargs)
+                    else:
+                        ccx.make_atom_fragment(0, sym_factor=ncells, **kwargs)
+                        ccx.make_atom_fragment(1, sym_factor=ncells, **kwargs)
+
+            elif args.system == "perovskite":
+                #ccx.make_atom_cluster(0)
+                ## Ti needs larger threshold
+                #ccx.make_atom_cluster(1, bno_threshold_factor=10)
+                #ccx.make_atom_cluster(2, sym_factor=3)
+
+                # Ti needs larger threshold
+                ccx.make_atom_fragment(0, sym_factor=ncells, bno_threshold_factor=0.3)
+                ccx.make_atom_fragment(1, sym_factor=ncells)
+                ccx.make_atom_fragment(2, sym_factor=3*ncells, bno_threshold_factor=0.03)
+            else:
+                raise RuntimeError()
 
         ccx.kernel()
 
