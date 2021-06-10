@@ -32,6 +32,24 @@ LVL_PREFIX = {
    "DEBUGV" : "***",
    }
 
+
+class LevelFilter(logging.Filter):
+    """Only log events with level in interval [low, high)."""
+
+    def __init__(self, *args, low=None, high=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._low = low
+        self._high = high
+
+
+    def filter(self, record):
+        if self._low is None:
+            return (record.levelno < self._high)
+        if self._high is None:
+            return (self._low <= record.levelno)
+        return (self._low <= record.levelno < self._high)
+
+
 class VFormatter(logging.Formatter):
     """Formatter which adds a prefix column and indentation."""
 
@@ -61,9 +79,18 @@ class VFormatter(logging.Formatter):
         return "\n".join(lines)
 
 
+class VStreamHandler(logging.StreamHandler):
+    """Default stream handler with IndentedFormatter"""
+
+    def __init__(self, stream, formatter=None, **kwargs):
+        super().__init__(stream, **kwargs)
+        if formatter is None:
+            formatter = VFormatter()
+        self.setFormatter(formatter)
+
+
 class VFileHandler(logging.FileHandler):
     """Default file handler with IndentedFormatter"""
-
 
     def __init__(self, filename, mode='a', formatter=None, **kwargs):
         filename = get_logname(filename)

@@ -1,5 +1,6 @@
 """Vayesta"""
 
+import sys
 import os.path
 import logging
 import subprocess
@@ -11,20 +12,26 @@ __version__ = 'v0.0.0'
 
 # Command line arguments
 args = cmdargs.parse_cmd_args()
-strict = args.strict
 
 # Logging
 vlog.init_logging()
 log = logging.getLogger(__name__)
 log.setLevel(args.loglevel)
 
-# Default log
 fmt = vlog.VFormatter(indent=True)
-log.addHandler(vlog.VFileHandler(args.logname, formatter=fmt))
-# Warning log (for WARNING and above)
-wh = vlog.VFileHandler("vayesta-warnings")
-wh.setLevel(logging.WARNING)
-log.addHandler(wh)
+# Log to stream
+if args.output is None:
+    # Log level < WARNING to stdout
+    outh = vlog.VStreamHandler(sys.stdout, formatter=fmt)
+    outh.addFilter(vlog.LevelFilter(high=logging.WARNING))
+    log.addHandler(outh)
+    # Log level >= WARNING to stderr
+    errh = vlog.VStreamHandler(sys.stderr, formatter=fmt)
+    errh.setLevel(logging.WARNING)
+    log.addHandler(errh)
+# Log to file
+else:
+    log.addHandler(vlog.VFileHandler(args.output, formatter=fmt))
 
 log.info("+%s+", (len(__version__)+10)*'-')
 log.info("| Vayesta %s |", __version__)
