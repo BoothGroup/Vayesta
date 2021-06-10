@@ -17,6 +17,7 @@ import pyscf.pbc.df
 
 import vayesta
 import vayesta.ewf
+from vayesta.misc import counterpoise
 log = vayesta.log
 
 # Olli's incore GDF
@@ -71,7 +72,7 @@ def get_arguments():
     # Counterpoise
     parser.add_argument("--counterpoise")
     parser.add_argument("--counterpoise-shells", type=int, default=1)
-    parser.add_argument("--counterpoise-range", type=float)
+    parser.add_argument("--counterpoise-range", type=float, default=np.inf)
     # Mean-field
     parser.add_argument("--save-scf", help="Save primitive cell SCF.", default="scf-%.2f.chk")           # If containg "%", it will be formatted as args.save_scf % a with a being the lattice constant
     parser.add_argument("--load-scf", help="Load primitive cell SCF.")
@@ -275,55 +276,23 @@ def make_cell(a, args, **kwargs):
         cell.exp_to_discard = args.exp_to_discard
     if args.lindep_threshold:
         cell.lindep_threshold=args.lindep_threshold
-    if args.counterpoise is None:
-        cell.build()
-        if args.supercell and not np.all(args.supercell == 1):
-            cell = pyscf.pbc.tools.super_cell(cell, args.supercell)
-    # Remove all but one atom
-    elif '*' not in args.counterpoise:
-        atmidx = int(args.counterpoise)
-        cell.atom = cell.atom[atmidx:atmidx+1]
-        #cell = cell.to_mol()
-        # If we leave it as a cell object and just set `.a` to None, we can still use PBC basis sets / PP
-        cell.a = None
-    # Remove all but one atom, but keep basis functions of the 26 (3D) or 8 (2D) neighboring cells
-    elif '*' in args.counterpoise:
-        atmidx = int(args.counterpoise.replace('*', ''))
-        atom = cell.atom.copy()
-        center = atom[atmidx][1]
-        # Make other atoms within unit cell to Ghost atoms
-        for idx in range(len(atom)):
-            if (idx != atmidx):
-                atom[idx][0] = 'Ghost-%s' % atom[idx][0]
-        # Add Ghost atoms in other cells
-        if cell.dimension == 2:
-            images = [args.counterpoise_shells, args.counterpoise_shells, 0]
-        else:
-            images = [args.counterpoise_shells, args.counterpoise_shells, args.counterpoise_shells]
-        for x in range(-images[0], images[0]+1):
-            for y in range(-images[1], images[1]+1):
-                for z in range(-images[2], images[2]+1):
-                    # Central unit cell already done; skip
-                    if abs(x)+abs(y)+abs(z) == 0:
-                        continue
-                    for atm in cell.atom:
-                        symb = atm[0] if atm[0].lower().startswith('ghost') else 'Ghost-%s' % atm[0]
-                        coord = atm[1] + x*cell.a[0] + y*cell.a[1] + z*cell.a[2]
-                        if args.counterpoise_range is None or (np.linalg.norm(coord - center) < args.counterpoise_range):
-                            atom.append([symb, coord])
-                            log.debugv("Adding atom %r at %r with distance %.2f", symb, coord, np.linalg.norm(coord-center))
-                        else:
-                            log.debugv("Not adding atom %r at %r with distance %.2f", symb, coord, np.linalg.norm(coord-center))
-        cell.atom = atom
-        #cell = cell.to_mol()
-        # If we leave it as a cell object and just set `.a` to None, we can still use PBC basis sets / PP
-        cell.a = None
-        #cell.ecp = cell.pseudo
-        #cell.pseudo = None
-        cell.build()
-    else:
-        raise ValueError()
+
+    cell.build()
+    if args.supercell and not np.all(args.supercell == 1):
+        cell = pyscf.pbc.tools.super_cell(cell, args.supercell)
+
+    # Counterpoise
+    if args.counterpoise is not None:
+        # Remove all but one atom
+        if '*' not in args.counterpoise:
+            atmidx = int(args.counterpoise)
+            cell = counterpoise.make_mol(cell, atmidx, rmax=0, output='pyscf-cp-m.txt')
+        # Remove all but one atom, but keep basis functions of the 26 (3D) or 8 (2D) neighboring cells
+        elif '*' in args.counterpoise:
+            atmidx = int(args.counterpoise.replace('*', ''))
+                cell = counterpoise.make_mol(cell, atmidx, rmax=args.counterpoise_range, nimages=args.counterpoise_shells, output='pyscf-cp-d.txt')
     return cell
+
 
 def pop_analysis(mf, filename=None, mode="a"):
     t0 = timer()

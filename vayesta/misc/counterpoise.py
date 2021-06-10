@@ -1,9 +1,13 @@
+import logging
+
 import numpy as np
 
 import pyscf
 import pyscf.lib
 
-def make_counterpoise_mol(mol, atom, rmax, nimages=5, unit='A', **kwargs):
+log = logging.getLogger(__name__)
+
+def make_mol(mol, atom, rmax, nimages=5, unit='A', **kwargs):
     """Make molecule object for counterposise calculation.
 
     WARNING: This has only been tested for periodic systems so far!
@@ -28,13 +32,14 @@ def make_counterpoise_mol(mol, atom, rmax, nimages=5, unit='A', **kwargs):
     """
     unit_pyscf = 'ANG' if (unit.upper()[0] == 'A') else unit
     # Add physical atom
-    atoms = [mol.atom_symbol(atom), mol.atom_coord(atm, unit=unit_pyscf)]
+    atoms = [(mol.atom_symbol(atom), mol.atom_coord(atom, unit=unit_pyscf))]
+    log.debugv("Counterpoise: adding atom %6s at %8.5f %8.5f %8.5f %s", atoms[0][0], *(atoms[0][1]), unit)
 
     # If rmax > 0: Atomic calculation with additional basis functions
     # else: Atom only
     if rmax:
         images = np.zeros(3, dtype=int)
-        if not hasattr(mol, 'a'):
+        if (not hasattr(mol, 'a')) or (mol.a is None):
             pass    # Open boundary conditions - do not create images
         elif mol.dimension == 1:
             images[0] = nimages
@@ -42,13 +47,16 @@ def make_counterpoise_mol(mol, atom, rmax, nimages=5, unit='A', **kwargs):
             images[:2] = nimages
         elif mol.dimension == 3:
             images[:] = nimages
+        log.debugv('Counterpoise images= %r', images)
         # Add ghost atoms. Note that rx = ry = rz = 0 for open boundary conditions
         center = mol.atom_coord(atom, unit=unit_pyscf)
-        amat = mol.lattice_vectors()
-        if unit.upper()[0] == 'A' and mol.unit.upper()[0] == 'B':
+        log.debugv('Counterpoise center= %r %s', center, unit)
+        amat = mol.lattice_vectors()    # In Bohr
+        log.debugv('Latt. vec.= %r', amat)
+        log.debugv('mol.unit= %r', mol.unit)
+        if unit.upper()[0] == 'A':
             amat *= pyscf.lib.param.BOHR
-        if unit.upper()[0] == 'B' and mol.unit.upper()[:3] == 'ANG':
-            amat /= pyscf.lib.param.BOHR
+        log.debugv('amat= %r', amat)
         for rx in range(-images[0], images[0]+1):
             for ry in range(-images[1], images[1]+1):
                 for rz in range(-images[2], images[2]+1):
@@ -58,7 +66,7 @@ def make_counterpoise_mol(mol, atom, rmax, nimages=5, unit='A', **kwargs):
                         # This is a fragment atom - already included above as real atom
                         if (abs(rx)+abs(ry)+abs(rz) == 0) and (atm == atom):
                             assert (symb == atoms[0][0])
-                            assert np.allclose(coords, atoms[0][1])
+                            assert np.allclose(coord, atoms[0][1])
                             continue
                         # This is either a non-fragment atom in the unit cell (rx = ry = rz = 0) or in a neighbor cell
                         if abs(rx)+abs(ry)+abs(rz) > 0:
@@ -66,13 +74,15 @@ def make_counterpoise_mol(mol, atom, rmax, nimages=5, unit='A', **kwargs):
                         if not symb.lower().startswith('ghost'):
                             symb = 'Ghost-' + symb
                         distance = np.linalg.norm(coord - center)
-                        if distance <= rmax:
-                            atoms.append([symb, coord])
+                        if (not rmax) or (distance <= rmax):
+                            log.debugv("Counterpoise: adding atom %6s at %8.5f %8.5f %8.5f with distance %8.5f %s", symb, *coord, distance, unit)
+                            atoms.append((symb, coord))
     mol_cp = mol.copy()
     mol_cp.atom = atoms
     mol_cp.unit = unit_pyscf
     mol_cp.a = None
     for key, val in kwargs.items():
+        log.debugv("Counterpoise: setting attribute %s to %r", key, val)
         setattr(mol_cp, key, val)
     mol_cp.build(False, False)
     return mol_cp
