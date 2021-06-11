@@ -30,8 +30,9 @@ if args.output is None:
     outh.addFilter(vlog.LevelIncludeFilter(include=[logging.OUTPUT]))
     log.addHandler(outh)
 # Log to file
-else:
-    log.addHandler(vlog.VFileHandler(args.output, formatter=fmt))
+if (args.output or args.log):
+    logname = args.output or args.log
+    log.addHandler(vlog.VFileHandler(logname, formatter=fmt))
 
 log.info("+%s+", (len(__version__)+10)*'-')
 log.info("| Vayesta %s |", __version__)

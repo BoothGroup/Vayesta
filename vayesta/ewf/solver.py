@@ -8,6 +8,7 @@ import pyscf.cc
 import pyscf.pbc
 
 from vayesta.core.util import *
+from . import helper
 
 
 def get_solver_class(solver):
@@ -22,6 +23,7 @@ def get_solver_class(solver):
 class ClusterSolverOptions(Options):
     eom_ccsd : bool = NotSet
     make_rdm1 : bool = NotSet
+    sc_mode : int = NotSet
 
 class ClusterSolver:
     """Base class for cluster solver"""
@@ -93,7 +95,8 @@ class ClusterSolver:
         return self.nocc_frozen + self.nvir_frozen
 
     def get_active_slice(self):
-        slc = np.s_[self.nocc_frozen:-self.nvir_frozen]
+        #slc = np.s_[self.nocc_frozen:-self.nvir_frozen]
+        slc = np.s_[self.nocc_frozen:self.nocc_frozen+self.nactive]
         return slc
 
     def get_frozen_indices(self):
@@ -109,7 +112,8 @@ class ClusterSolver:
     @property
     def c_active_vir(self):
         """Active virtual orbital coefficients."""
-        return self.mo_coeff[:,self.nocc:-self.nvir_frozen]
+        #return self.mo_coeff[:,self.nocc:-self.nvir_frozen]
+        return self.mo_coeff[:,self.nocc:self.nocc_frozen+self.nactive]
 
     #def kernel(self, init_guess=None, options=None):
 
@@ -210,6 +214,13 @@ class CCSDSolver(ClusterSolver):
         #        diff = getattr(self._eris, kind) - getattr(eris, kind)
         #        log.debug("Difference (%2s|%2s): max= %.2e norm= %.2e", kind[:2], kind[2:], abs(diff).max(), np.linalg.norm(diff))
 
+        # Tailored CC
+        if self.opts.sc_mode and self.base.iteration > 1:
+            # __get__(cc) to bind the tailor function as a method,
+            # rather than just a callable attribute
+            self.log.info("Adding tailor function to CCSD.")
+            cc.tailor_func = self.make_tailor_function().__get__(cc)
+
         t0 = timer()
         if init_guess:
             self.log.info("Running CCSD with initial guess for %r..." % list(init_guess.keys()))
@@ -221,6 +232,11 @@ class CCSDSolver(ClusterSolver):
         (self.log.info if cc.converged else self.log.error)("CCSD done. converged: %r", cc.converged)
         self.log.debug("E(full corr)= % 16.8f Ha", cc.e_corr)
         self.log.timing("Time for CCSD:  %s", time_string(timer()-t0))
+
+        if hasattr(cc, '_norm_dt1'):
+            self.log.debug("Tailored CC: |dT1|= %.2e |dT2|= %.2e", cc._norm_dt1, cc._norm_dt2)
+            del cc._norm_dt1
+            del cc._norm_dt2
 
         self.converged = cc.converged
         self.e_corr = cc.e_corr
@@ -270,13 +286,16 @@ class CCSDSolver(ClusterSolver):
         c_occ = self.c_active_occ
         c_vir = self.c_active_vir
 
-        def tailor_func(t1, t2):
-            tt1 = t1.copy()
-            tt2 = t2.copy()
-            for fx in self.tailor_fragments:
+        def tailor_func(cc, t1, t2):
+            dt1 = np.zeros_like(t1)
+            dt2 = np.zeros_like(t2)
+
+            for fx in self.fragment.tailor_fragments:
+                assert (fx is not self.fragment)
+                #self.log.debug("Tailoring %s with %s", self.fragment, fx)
                 sx = fx.cluster_solver
                 cx_occ = sx.c_active_occ
-                cx_vir = sx.c_active_occ
+                cx_vir = sx.c_active_vir
                 # Projections from fragment x occ/vir space to current fragment occ/vir space
                 p_occ = np.linalg.multi_dot((cx_occ.T, ovlp, c_occ))
                 p_vir = np.linalg.multi_dot((cx_vir.T, ovlp, c_vir))
@@ -284,22 +303,32 @@ class CCSDSolver(ClusterSolver):
                 tx1 = helper.transform_amplitude(sx.t1, p_occ, p_vir)
                 tx2 = helper.transform_amplitude(sx.t2, p_occ, p_vir)
                 # Form difference with current amplitudes
-                # TODO: It shouldn't matter if we use t1/t2 or tt1/tt2 for more than 2 fragments ... check this
-                dt1 = (tx1 - t1)
-                dt2 = (tx2 - t2)
+                dtx1 = (tx1 - t1)
+                dtx2 = (tx2 - t2)
                 # Project onto x's fragment space
                 px = fx.get_fragment_projector(c_occ)
-                px1 = np.dot(px, td1)
+                dtx1 = np.dot(px, dtx1)
+                dtx2 = einsum('xi,ijab->xjab', px, dtx2)
                 # OR:
-                #px2 = einsum('xi,ijab->xjab', px, dt2) + symmetrize!
-                px2 = einsum('xi,yj,ijab->xyab', px, px, dt2)
-                # Add contributions
-                assert px1.shape == tt1.shape
-                assert px2.shape == tt2.shape
-                tt1 += px1
-                tt2 += px2
+                #dt2 = einsum('xi,yj,ijab->xyab', px, px, dt2)
+                assert dtx1.shape == dt1.shape
+                assert dtx2.shape == dt2.shape
+                dt1 += dtx1
+                dt2 += dtx2
 
-            return tt1, tt2
+            # Store these norms in cc, to log their final value:
+            cc._norm_dt1 = np.linalg.norm(dt1)
+            cc._norm_dt2 = np.linalg.norm(dt2)
+            self.log.debugv("|dT1|= %.2e |dT2|= %.2e", cc._norm_dt1, cc._norm_dt2)
+            # dT2 symmetry
+            #sym_err = np.linalg.norm(dt2 - dt2.transpose(1,0,3,2))
+            #self.log.debugv("dT2 symmetry error= %.2e", sym_err)
+            dt2 = (dt2 + dt2.transpose(1,0,3,2))/2
+            # Add contributions
+            t1 = (t1 + dt1)
+            t2 = (t2 + dt2)
+
+            return t1, t2
 
         return tailor_func
 

@@ -41,7 +41,7 @@ class EWFFragmentOptions(Options):
     bsse_correction : bool = NotSet
     bsse_rmax : float = NotSet
     energy_partitioning : str = NotSet
-    tailor_mode : int = NotSet
+    sc_mode : int = NotSet
     # Additional fragment specific options:
     bno_threshold_factor : float = 1.0
 
@@ -457,7 +457,10 @@ class EWFFragment(QEmbeddingFragment):
 
 
     def add_tailor_fragment(self, frag):
-        self.tailor_fragment.append(frag)
+        if frag is self:
+            raise RuntimeError()
+        self.tailor_fragments.append(frag)
+        self.log.debug("Tailoring %s with %s", self, frag)
 
 
     def additional_bath_for_cluster(self, c_bath, c_occenv, c_virenv):

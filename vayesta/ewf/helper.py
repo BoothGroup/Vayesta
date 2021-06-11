@@ -24,12 +24,12 @@ def indices_to_bools(indices, n):
     return bools
 
 
-def transform_amplitudes(t, u_occ, u_vir):
+def transform_amplitude(t, u_occ, u_vir):
     """(Old basis|new basis)"""
     if np.ndim(t) == 2:
-        return einsum("ia,ix,ay->xy", t1, u_occ, u_vir)
+        return einsum("ia,ix,ay->xy", t, u_occ, u_vir)
     if np.ndim(t) == 4:
-        return einsum("ijab,ix,jy,az,bw->xyzw", t2, u_occ, u_occ, u_vir, u_vir)
+        return einsum("ijab,ix,jy,az,bw->xyzw", t, u_occ, u_occ, u_vir, u_vir)
     raise NotImplementedError()
 
 

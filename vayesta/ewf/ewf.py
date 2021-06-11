@@ -60,9 +60,10 @@ class EWFOptions(Options):
     # Counterpoise correction of BSSE
     bsse_correction: bool = True
     bsse_rmax: float = 5.0              # In Angstrom
-    # ---Tailoring
-    maxiter: int = 1
-    tailor_mode: int = 1
+    # -- Self-consistency
+    sc_maxiter: int = 20
+    sc_energy_tol: float = 1e-8
+    sc_mode: int = 0
     # --- Other
     energy_partitioning: str = 'first-occ'
     strict: bool = False                # Stop if cluster not converged
@@ -156,8 +157,10 @@ class EWF(QEmbeddingMethod):
         # Population analysis
         self.pop_mf = self.pop_mf_chg = None
 
+        self.iteration = 0
         self.cluster_results = {}
         self.results = []
+        self.e_corr = 0.0
 
     #def init_fragments(self):
     #    if self.opts.fragment_type.upper() == "IAO":
@@ -401,6 +404,12 @@ class EWF(QEmbeddingMethod):
         return pop, chg
 
 
+    def tailor_all_fragments(self):
+        for frag in self.fragments:
+            for frag2 in frag.loop_fragments(exclude_self=True):
+                frag.add_tailor_fragment(frag2)
+
+
     def kernel(self, bno_threshold=None):
         """Run EWF.
 
@@ -455,13 +464,16 @@ class EWF(QEmbeddingMethod):
 
         for i, bno_thr in enumerate(bno_threshold):
 
-            for iteration in range(1, self.opts.maxiter+1):
+            e_corr_1 = 0.0
+            e_corr_last = 0.0
+            # Self consistency loop
+            maxiter = (self.opts.sc_maxiter if self.opts.sc_mode else 1)
+            for iteration in range(1, maxiter+1):
+                self.iteration = iteration
                 self.log.info("Now running BNO threshold= %.2e - Iteration= %2d", bno_thr, iteration)
                 self.log.info("****************************************************")
 
                 for x, frag in enumerate(self.fragments):
-
-                    # MPI
                     if MPI_rank != (x % MPI_size):
                         continue
                     mpi_info = (" on MPI process %d" % MPI_rank) if MPI_size > 1 else ""
@@ -478,7 +490,21 @@ class EWF(QEmbeddingMethod):
                     self.log.changeIndentLevel(-1)
 
                 e_corr = sum([self.cluster_results[(f.id, bno_thr)].e_corr for f in self.fragments])
-                self.log.info("Iteration %d: E(corr)= % 16.8f", iteration, e_corr)
+                if iteration == 1:
+                    e_corr_1 = e_corr
+                de = (e_corr - e_corr_last)
+                e_corr_last = e_corr
+                self.log.info("Iteration %d: E(corr)= % 16.8f Ha (delta= % 16.8f Ha)", iteration, e_corr, de)
+                if (self.opts.sc_mode and (abs(de) < self.opts.sc_energy_tol)):
+                    self.log.info("Self-consistency reached in %d iterations", iteration)
+                    break
+                e_corr0 = e_corr
+            else:
+                if self.opts.sc_mode:
+                    self.log.warning("Self-consistency not reached!")
+
+            if self.opts.sc_mode:
+                self.log.info("E(corr)[SC]= % 16.8f Ha  E(corr)[1]= % 16.8f Ha  (diff= % 16.8f Ha)", e_corr, e_corr_1, (e_corr-e_corr_1))
 
             result = EWFResults(bno_threshold=bno_thr, e_corr=e_corr)
             self.results.append(result)
