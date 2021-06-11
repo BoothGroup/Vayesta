@@ -61,8 +61,8 @@ class EWFOptions(Options):
     bsse_correction: bool = True
     bsse_rmax: float = 5.0              # In Angstrom
     # -- Self-consistency
-    sc_maxiter: int = 20
-    sc_energy_tol: float = 1e-8
+    sc_maxiter: int = 30
+    sc_energy_tol: float = 1e-6
     sc_mode: int = 0
     # --- Other
     energy_partitioning: str = 'first-occ'
@@ -105,7 +105,7 @@ class EWF(QEmbeddingMethod):
         self.opts = options
         self.log.info("EWF parameters:")
         for key, val in self.opts.items():
-            self.log.info('  * %-24s %r', key + ':', val)
+            self.log.info('  > %-24s %r', key + ':', val)
 
         # --- Check input
         if not mf.converged:
@@ -470,8 +470,12 @@ class EWF(QEmbeddingMethod):
             maxiter = (self.opts.sc_maxiter if self.opts.sc_mode else 1)
             for iteration in range(1, maxiter+1):
                 self.iteration = iteration
-                self.log.info("Now running BNO threshold= %.2e - Iteration= %2d", bno_thr, iteration)
-                self.log.info("****************************************************")
+                if self.opts.sc_mode:
+                    self.log.info("Now running BNO threshold= %.2e - Iteration= %2d", bno_thr, iteration)
+                    self.log.info("****************************************************")
+                else:
+                    self.log.info("Now running BNO threshold= %.2e", bno_thr)
+                    self.log.info("***********************************")
 
                 for x, frag in enumerate(self.fragments):
                     if MPI_rank != (x % MPI_size):
@@ -494,7 +498,10 @@ class EWF(QEmbeddingMethod):
                     e_corr_1 = e_corr
                 de = (e_corr - e_corr_last)
                 e_corr_last = e_corr
-                self.log.info("Iteration %d: E(corr)= % 16.8f Ha (delta= % 16.8f Ha)", iteration, e_corr, de)
+                if self.opts.sc_mode:
+                    self.log.info("Iteration %d: E(corr)= % 16.8f Ha (delta= % 16.8f Ha)", iteration, e_corr, de)
+                else:
+                    self.log.info("E(corr)= % 16.8f Ha (delta= % 16.8f Ha)", e_corr, de)
                 if (self.opts.sc_mode and (abs(de) < self.opts.sc_energy_tol)):
                     self.log.info("Self-consistency reached in %d iterations", iteration)
                     break

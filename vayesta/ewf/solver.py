@@ -219,7 +219,7 @@ class CCSDSolver(ClusterSolver):
             # __get__(cc) to bind the tailor function as a method,
             # rather than just a callable attribute
             self.log.info("Adding tailor function to CCSD.")
-            cc.tailor_func = self.make_tailor_function().__get__(cc)
+            cc.tailor_func = self.make_tailor_function(mode=self.opts.sc_mode).__get__(cc)
 
         t0 = timer()
         if init_guess:
@@ -277,56 +277,70 @@ class CCSDSolver(ClusterSolver):
         self.print_t_diagnostic()
 
 
-    def make_tailor_function(self):
+    def make_tailor_function(self, mode, correct_t1=True, correct_t2=True):
         """Build tailor function.
 
         This assumes orthogonal fragment spaces.
         """
-        ovlp = self.base.get_ovlp()
-        c_occ = self.c_active_occ
-        c_vir = self.c_active_vir
+        if mode not in (1, 2):
+            raise ValueError()
+        ovlp = self.base.get_ovlp()     # AO overlap matrix
+        c_occ = self.c_active_occ       # Occupied active orbitals of current cluster
+        c_vir = self.c_active_vir       # Virtual  active orbitals of current cluster
 
         def tailor_func(cc, t1, t2):
-            dt1 = np.zeros_like(t1)
-            dt2 = np.zeros_like(t2)
+            """Add external correction to T1 and T2 amplitudes."""
 
+            # Add the correction to dt1 and dt2:
+            if correct_t1:
+                dt1 = np.zeros_like(t1)
+            if correct_t2:
+                dt2 = np.zeros_like(t2)
+
+            # Loop over all *other* fragments/cluster X
             for fx in self.fragment.tailor_fragments:
                 assert (fx is not self.fragment)
-                #self.log.debug("Tailoring %s with %s", self.fragment, fx)
                 sx = fx.cluster_solver
-                cx_occ = sx.c_active_occ
-                cx_vir = sx.c_active_vir
-                # Projections from fragment x occ/vir space to current fragment occ/vir space
+                cx_occ = sx.c_active_occ    # Occupied active orbitals of cluster X
+                cx_vir = sx.c_active_vir    # Virtual  active orbitals of cluster X
+                # Rotation & projections from cluster X active space to current fragment active space
                 p_occ = np.linalg.multi_dot((cx_occ.T, ovlp, c_occ))
                 p_vir = np.linalg.multi_dot((cx_vir.T, ovlp, c_vir))
-                # Transform fragment x T-amplitudes
-                tx1 = helper.transform_amplitude(sx.t1, p_occ, p_vir)
-                tx2 = helper.transform_amplitude(sx.t2, p_occ, p_vir)
-                # Form difference with current amplitudes
-                dtx1 = (tx1 - t1)
-                dtx2 = (tx2 - t2)
-                # Project onto x's fragment space
-                px = fx.get_fragment_projector(c_occ)
-                dtx1 = np.dot(px, dtx1)
-                dtx2 = einsum('xi,ijab->xjab', px, dtx2)
-                # OR:
-                #dt2 = einsum('xi,yj,ijab->xyab', px, px, dt2)
-                assert dtx1.shape == dt1.shape
-                assert dtx2.shape == dt2.shape
-                dt1 += dtx1
-                dt2 += dtx2
+                px = fx.get_fragment_projector(c_occ)   # this is C_occ^T . S . C_frag . C_frag^T . S . C_occ
+                # Transform fragment X T-amplitudes to current active space and form difference
+                if correct_t1:
+                    tx1 = helper.transform_amplitude(sx.t1, p_occ, p_vir)   # ia,ix,ap->xp
+                    dtx1 = (tx1 - t1)
+                    dtx1 = np.dot(px, dtx1)
+                    assert dtx1.shape == dt1.shape
+                    dt1 += dtx1
+                if correct_t2:
+                    tx2 = helper.transform_amplitude(sx.t2, p_occ, p_vir)   # ijab,ix,jy,ap,bq->xypq
+                    dtx2 = (tx2 - t2)
+                    if mode == 1:
+                        dtx2 = einsum('xi,yj,ijab->xyab', px, px, dtx2)
+                    elif mode == 2:
+                        dtx2 = einsum('xi,ijab->xjab', px, dtx2)
+                    assert dtx2.shape == dt2.shape
+                    dt2 += dtx2
+
+                self.log.debug("Tailoring %s <- %s: |dT1|= %.2e  |dT2|= %.2e", self.fragment, fx, np.linalg.norm(dtx1), np.linalg.norm(dtx2))
 
             # Store these norms in cc, to log their final value:
-            cc._norm_dt1 = np.linalg.norm(dt1)
-            cc._norm_dt2 = np.linalg.norm(dt2)
-            self.log.debugv("|dT1|= %.2e |dT2|= %.2e", cc._norm_dt1, cc._norm_dt2)
-            # dT2 symmetry
-            #sym_err = np.linalg.norm(dt2 - dt2.transpose(1,0,3,2))
-            #self.log.debugv("dT2 symmetry error= %.2e", sym_err)
-            dt2 = (dt2 + dt2.transpose(1,0,3,2))/2
-            # Add contributions
-            t1 = (t1 + dt1)
-            t2 = (t2 + dt2)
+            if correct_t1:
+                cc._norm_dt1 = np.linalg.norm(dt1)
+            else:
+                cc._norm_dt1 = 0.0
+            if correct_t2:
+                cc._norm_dt2 = np.linalg.norm(dt2)
+            else:
+                cc._norm_dt2 = 0.0
+            # Add correction:
+            if correct_t1:
+                t1 = (t1 + dt1)
+            if correct_t2:
+                dt2 = (dt2 + dt2.transpose(1,0,3,2))/2
+                t2 = (t2 + dt2)
 
             return t1, t2
 
@@ -345,7 +359,7 @@ class CCSDSolver(ClusterSolver):
             dg_t1_msg = "good" if dg_t1 <= 0.02 else "inadequate!"
             dg_d1_msg = "good" if dg_d1 <= 0.02 else ("fair" if dg_d1 <= 0.05 else "inadequate!")
             dg_d2_msg = "good" if dg_d2 <= 0.15 else ("fair" if dg_d2 <= 0.18 else "inadequate!")
-            fmtstr = "  * %2s= %6g (%s)"
+            fmtstr = "  > %2s= %6g (%s)"
             self.log.info(fmtstr, "T1", dg_t1, dg_t1_msg)
             self.log.info(fmtstr, "D1", dg_d1, dg_d1_msg)
             self.log.info(fmtstr, "D2", dg_d2, dg_d2_msg)

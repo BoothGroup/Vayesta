@@ -10,20 +10,14 @@ import pyscf.tools.ring
 import vayesta
 import vayesta.ewf
 
-dists = np.arange(0.5, 3.0001, 0.25)
-basis = 'aug-cc-pvdz'
+for d in np.arange(0.5, 3.0001, 0.25)
 
-n = 6
-bno_thr = 1e-4
-
-for d in dists:
-
-    ring = pyscf.tools.ring.make(n, d)
+    ring = pyscf.tools.ring.make(6, d)
     atom = [('H %f %f %f' % xyz) for xyz in ring]
 
     mol = pyscf.gto.Mole()
     mol.atom = atom
-    mol.basis = basis
+    mol.basis = 'aug-cc-pvdz'
     mol.verbose = 10
     mol.output = 'pyscf_out.txt'
     mol.build()
@@ -36,11 +30,13 @@ for d in dists:
     cc = pyscf.cc.CCSD(mf)
     cc.kernel()
 
-    ecc = vayesta.ewf.EWF(mf, bno_threshold=bno_thr)
+    # One-shot EWF-CCSD
+    ecc = vayesta.ewf.EWF(mf, bno_threshold=1e-4)
     ecc.make_all_atom_fragments()
     ecc.kernel()
 
-    scecc = vayesta.ewf.EWF(mf, bno_threshold=bno_thr, sc_mode=True)
+    # Self-consistent EWF-CCSD
+    scecc = vayesta.ewf.EWF(mf, bno_threshold=1e-4, sc_mode=1)
     scecc.make_all_atom_fragments()
     scecc.tailor_all_fragments()
     scecc.kernel()

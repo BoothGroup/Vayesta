@@ -82,7 +82,7 @@ class QEmbeddingFragment:
         self.aos = aos
 
         # Some output
-        fmt = '  * %-24s %r'
+        fmt = '  > %-24s %r'
         self.log.info(fmt, "Fragment type:", self.fragment_type)
         self.log.info(fmt, "Fragment orbitals:", self.size)
         self.log.info(fmt, "Symmetry factor:", self.sym_factor)

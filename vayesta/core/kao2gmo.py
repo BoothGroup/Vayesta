@@ -186,16 +186,16 @@ def gdf_to_eris(gdf, mo_coeff, nocc, only_ovov=False, real_j3c=True, symmetry=Fa
 
     # Prune?
     norm_ov = np.linalg.norm(j3c['ov'], axis=(1,2))
-    log.debug("Number of ov elements= %d - number of parts below 1E-14= %d  1E-12= %d  1E-10= %d  1E-8= %d",
+    log.debugv("Number of ov elements= %d - number of parts below 1E-14= %d  1E-12= %d  1E-10= %d  1E-8= %d",
             len(norm_ov), np.count_nonzero(norm_ov < 1e-14), np.count_nonzero(norm_ov < 1e-12),
             np.count_nonzero(norm_ov < 1e-10), np.count_nonzero(norm_ov < 1e-8))
     if not only_ovov:
         norm_oo = np.linalg.norm(j3c['oo'], axis=(1,2))
-        log.debug("Number of oo elements= %d - number of parts below 1E-14= %d  1E-12= %d  1E-10= %d  1E-8= %d",
+        log.debugv("Number of oo elements= %d - number of parts below 1E-14= %d  1E-12= %d  1E-10= %d  1E-8= %d",
                 len(norm_oo), np.count_nonzero(norm_oo < 1e-14), np.count_nonzero(norm_oo < 1e-12),
                 np.count_nonzero(norm_oo < 1e-10), np.count_nonzero(norm_oo < 1e-8))
         norm_vv = np.linalg.norm(j3c['vv'], axis=(1,2))
-        log.debug("Number of vv elements= %d - number of parts below 1E-14= %d  1E-12= %d  1E-10= %d  1E-8= %d",
+        log.debugv("Number of vv elements= %d - number of parts below 1E-14= %d  1E-12= %d  1E-10= %d  1E-8= %d",
                 len(norm_vv), np.count_nonzero(norm_vv < 1e-14), np.count_nonzero(norm_vv < 1e-12),
                 np.count_nonzero(norm_vv < 1e-10), np.count_nonzero(norm_vv < 1e-8))
 
@@ -247,7 +247,7 @@ def gdf_to_eris(gdf, mo_coeff, nocc, only_ovov=False, real_j3c=True, symmetry=Fa
             if max(inorm, imax) > 1e-5:
                 log.warning("Norm of Im(%2s|%2s):  L2= %.2e  Linf= %.2e", key[:2], key[2:], inorm, imax)
             else:
-                log.debug("Norm of Im(%2s|%2s):  L2= %.2e  Linf= %.2e", key[:2], key[2:], inorm, imax)
+                log.debugv("Norm of Im(%2s|%2s):  L2= %.2e  Linf= %.2e", key[:2], key[2:], inorm, imax)
             eris[key] = val.real
 
     for key, val in eris.items():
@@ -512,7 +512,7 @@ def j3c_kao2gmo(ints3c, cocc, cvir, only_ov=False, make_real=True, driver='c'):
         # Load j3c into memory
         t0 = timer()
         j3c_kpts, j3c_neg, kunique = ints3c.get_array()
-        log.timing("Time to load k-point sampled 3c-integrals:  %s", time_string(timer()-t0))
+        log.timingv("Time to load k-point sampled 3c-integrals:  %s", time_string(timer()-t0))
 
         cocc = cocc.copy()
         cvir = cvir.copy()
@@ -534,7 +534,7 @@ def j3c_kao2gmo(ints3c, cocc, cvir, only_ov=False, make_real=True, driver='c'):
                 j3c["ov"].ctypes.data_as(ctypes.c_void_p),
                 j3c["oo"].ctypes.data_as(ctypes.c_void_p) if "oo" in j3c else ctypes.POINTER(ctypes.c_void_p)(),
                 j3c["vv"].ctypes.data_as(ctypes.c_void_p) if "vv" in j3c else ctypes.POINTER(ctypes.c_void_p)())
-        log.timing("Time in j3c_kao2gamo in C:  %s", time_string(timer()-t0))
+        log.timingv("Time in j3c_kao2gamo in C:  %s", time_string(timer()-t0))
         assert (ierr == 0)
 
         # Do the negative part for 2D systems in python (only one auxiliary function and ki==kj)
@@ -577,6 +577,6 @@ def j3c_kao2gmo(ints3c, cocc, cvir, only_ov=False, make_real=True, driver='c'):
             else:
                 j3c[key] = ft_auxiliary_basis(j3c[key], key)
 
-        log.timing("Time to rotate to real:  %s", time_string(timer()-t0))
+        log.timingv("Time to rotate to real:  %s", time_string(timer()-t0))
 
     return j3c

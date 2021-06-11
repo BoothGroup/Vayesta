@@ -742,7 +742,7 @@ class QEmbeddingMethod:
         self.log.info("***********************************")
         for a in range(self.mol.natm if not tsym else self.kcell.natm):
             mask = np.where(atoms == a)[0]
-            fmt = "  * %3d: %-8s total= %12.8f" + len(occup_atom[a])*"  %s= %10.8f"
+            fmt = "  > %3d: %-8s total= %12.8f" + len(occup_atom[a])*"  %s= %10.8f"
             sublabels = [("_".join((x[2], x[3])) if x[3] else x[2]) for x in np.asarray(labels)[mask]]
             vals = [val for pair in zip(sublabels, occup_atom[a]) for val in pair]
             self.log.info(fmt, a, self.mol.atom_symbol(a), np.sum(occup_atom[a]), *vals)

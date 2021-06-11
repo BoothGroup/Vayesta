@@ -83,14 +83,14 @@ class EWFFragment(QEmbeddingFragment):
         options = options.replace(self.base.opts, select=NotSet)
         self.opts = options
         for key, val in self.opts.items():
-            self.log.infov('  * %-24s %r', key + ':', val)
+            self.log.infov('  > %-24s %r', key + ':', val)
 
         if solver is None:
             solver = self.base.solver
         if solver not in ewf.VALID_SOLVERS:
             raise ValueError("Unknown solver: %s" % solver)
         self.solver = solver
-        self.log.infov('  * %-24s %r', 'Solver:', self.solver)
+        self.log.infov('  > %-24s %r', 'Solver:', self.solver)
 
        # Bath natural orbital (BNO) threshold
         #if bno_threshold is None:
@@ -357,9 +357,9 @@ class EWFFragment(QEmbeddingFragment):
 
         self.log.info("Orbitals for %s", self)
         self.log.info("*************" + len(str(self))*"*")
-        self.log.info("  * Occupied: active= %4d  frozen= %4d  total= %4d", c_active_occ.shape[-1], nocc_frozen, c_occ.shape[-1])
-        self.log.info("  * Virtual:  active= %4d  frozen= %4d  total= %4d", c_active_vir.shape[-1], nvir_frozen, c_vir.shape[-1])
-        self.log.info("  * Total:    active= %4d  frozen= %4d  total= %4d", nactive, nfrozen, mo_coeff.shape[-1])
+        self.log.info("  > Occupied: active= %4d  frozen= %4d  total= %4d", c_active_occ.shape[-1], nocc_frozen, c_occ.shape[-1])
+        self.log.info("  > Virtual:  active= %4d  frozen= %4d  total= %4d", c_active_vir.shape[-1], nvir_frozen, c_vir.shape[-1])
+        self.log.info("  > Total:    active= %4d  frozen= %4d  total= %4d", nactive, nfrozen, mo_coeff.shape[-1])
 
         # --- Do nothing if solver is not set
         if not solver:
