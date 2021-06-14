@@ -271,9 +271,9 @@ def contract_j3c(j3c, kind, symmetry=None):
     mem = 1e9
     # Four-fold permutation symmetry
     if symmetry == 4:
-        l = pyscf.lib.pack_tril(l)
-        r = pyscf.lib.pack_tril(r)
-        c = np.dot(l.T.conj(), r)
+        l = pyscf.lib.pack_tril(l)  # Lij->LI
+        r = pyscf.lib.pack_tril(r)  # Lkl->LK
+        c = np.dot(l.T.conj(), r)   # LI,LK->IK
     # Permutation symmetry only on right side
     elif symmetry == 2:
         r = pyscf.lib.pack_tril(r)
@@ -402,7 +402,7 @@ class ThreeCenterInts:
                             j3c_kij[blk] = (lr+1j*li).reshape(blksize, self.nao, self.nao)
                         # For 2D systems:
                         else:
-                            assert (sign == -1) and (blksize == 1) and (ki == kj)
+                            assert (sign == -1) and (blksize == 1) and (ki == kj), ("sign= %r, blksize= %r, ki= %r, kj=%r" % (sign, blksize, ki, kj))
                             j3c_neg[ki] += (lr+1j*li)[0].reshape(self.nao, self.nao)
 
                     #if blk0 != self.naux:
