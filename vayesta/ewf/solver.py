@@ -282,7 +282,7 @@ class CCSDSolver(ClusterSolver):
 
         This assumes orthogonal fragment spaces.
         """
-        if mode not in (1, 2):
+        if mode not in (1, 2, 3):
             raise ValueError()
         ovlp = self.base.get_ovlp()     # AO overlap matrix
         c_occ = self.c_active_occ       # Occupied active orbitals of current cluster
@@ -320,6 +320,9 @@ class CCSDSolver(ClusterSolver):
                     if mode == 1:
                         dtx2 = einsum('xi,yj,ijab->xyab', px, px, dtx2)
                     elif mode == 2:
+                        py = self.fragment.get_fragment_projector(c_occ, inverse=True)
+                        dtx2 = einsum('xi,yj,ijab->xyab', px, py, dtx2)
+                    elif mode == 3:
                         dtx2 = einsum('xi,ijab->xjab', px, dtx2)
                     assert dtx2.shape == dt2.shape
                     dt2 += dtx2

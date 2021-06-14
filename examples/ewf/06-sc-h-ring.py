@@ -10,9 +10,11 @@ import pyscf.tools.ring
 import vayesta
 import vayesta.ewf
 
-for d in np.arange(0.5, 3.0001, 0.25)
+natom = 6
 
-    ring = pyscf.tools.ring.make(6, d)
+for d in np.arange(0.5, 3.0001, 0.25):
+
+    ring = pyscf.tools.ring.make(natom, d)
     atom = [('H %f %f %f' % xyz) for xyz in ring]
 
     mol = pyscf.gto.Mole()

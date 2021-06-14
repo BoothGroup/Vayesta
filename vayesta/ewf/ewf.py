@@ -499,9 +499,9 @@ class EWF(QEmbeddingMethod):
                 de = (e_corr - e_corr_last)
                 e_corr_last = e_corr
                 if self.opts.sc_mode:
-                    self.log.info("Iteration %d: E(corr)= % 16.8f Ha (delta= % 16.8f Ha)", iteration, e_corr, de)
+                    self.log.info("Iteration %d: E(corr)= % 12.8f Ha (dE= % 12.8f Ha)", iteration, e_corr, de)
                 else:
-                    self.log.info("E(corr)= % 16.8f Ha (delta= % 16.8f Ha)", e_corr, de)
+                    self.log.info("E(corr)= % 12.8f Ha (dE= % 12.8f Ha)", e_corr, de)
                 if (self.opts.sc_mode and (abs(de) < self.opts.sc_energy_tol)):
                     self.log.info("Self-consistency reached in %d iterations", iteration)
                     break
@@ -511,7 +511,7 @@ class EWF(QEmbeddingMethod):
                     self.log.warning("Self-consistency not reached!")
 
             if self.opts.sc_mode:
-                self.log.info("E(corr)[SC]= % 16.8f Ha  E(corr)[1]= % 16.8f Ha  (diff= % 16.8f Ha)", e_corr, e_corr_1, (e_corr-e_corr_1))
+                self.log.info("E(corr)[SC]= % 12.8f Ha  E(corr)[1]= % 12.8f Ha  (diff= % 12.8f Ha)", e_corr, e_corr_1, (e_corr-e_corr_1))
 
             result = EWFResults(bno_threshold=bno_thr, e_corr=e_corr)
             self.results.append(result)
@@ -520,8 +520,17 @@ class EWF(QEmbeddingMethod):
         self.log.info("Fragment Correlation Energies")
         self.log.info("*****************************")
         self.log.info("%13s:" + self.nfrag*" %16s", "BNO threshold", *[f.name for f in self.fragments])
-        fmt = "%13.2e:" + self.nfrag*" %16.8f Ha"
+        # TODO
+        fmt = "%13.2e:" + self.nfrag*" %13.8f Ha"
+        #fmt0 = self.nfrag*" %13.8f Ha"
         for bno_thr in bno_threshold[::-1]:
+            #for n in range(0, self.nfrag, 5):
+            #    energies = [self.cluster_results[(f.id, bno_thr)].e_corr for f in self.fragments[n:n+5])
+            #    if n == 0:
+            #        fmt = ("%13.2e:" % bno_thr) + fmt0
+            #    else:
+            #        fmt = 13*" " + fmt0
+            #    self.log.info(fmt, *energies)
             self.log.info(fmt, bno_thr, *[self.cluster_results[(f.id, bno_thr)].e_corr for f in self.fragments])
 
         bno_min = np.min(bno_threshold)
