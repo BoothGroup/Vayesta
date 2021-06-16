@@ -1,4 +1,7 @@
 09/06/2021
 - Lattice model class + PySCF compatibility layer
 - Logging config + default behavior in interactive sessions
-
+16/6/2021
+- Lattice model class + PySCF compatibility layer - CJCS
+- Move incore GDF to vayesta - OJB
+- Build system to allow MKL? - CJCS
