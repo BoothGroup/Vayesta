@@ -3,16 +3,17 @@
 
 #define USE_BLAS
 
-#include "stdint.h"
-#include "stdlib.h"
-#include "string.h"
-#include "stdio.h"
-#include "stdbool.h"
-#include "complex.h"
-#include "math.h"
-#include "assert.h"
-#include <omp.h>
-#include <cblas.h>
+#include <stdint.h>
+#include <stdlib.h>
+#include <string.h>
+#include <stdio.h>
+#include <stdbool.h>
+#include <complex.h>
+#include <math.h>
+#include <assert.h>
+
+#include "omp.h"
+#include "cblas.h"
 
 int64_t j3c_k2gamma(
         /* In */
@@ -326,6 +327,5 @@ EXIT:
     free(work2);
     } // end of parallel region
 
-    //printf("Returning to python...\n");
     return ierr;
 }
