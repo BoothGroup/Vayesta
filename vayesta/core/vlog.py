@@ -17,6 +17,7 @@ Name            Level           Usage
 CRITICAL        50              For immediate, non-recoverable errors
 ERROR           40              For errors which are likely non-recoverable
 WARNING         30              For possible errors and important information
+OUTPUT  (*)     25              Main result level - the only level which by default gets streamed to stdout
 INFO            20              Information, readable to users
 INFOV   (*)     15  (-v)        Verbose information, readable to users
 TIMING  (*)     12  (-vv)       Timing information for primary routines
@@ -29,8 +30,51 @@ LVL_PREFIX = {
    "CRITICAL" : "CRITICAL",
    "ERROR" : "ERROR",
    "WARNING" : "WARNING",
+   "OUTPUT" : "OUTPUT",
    "DEBUGV" : "***",
    }
+
+
+class LevelRangeFilter(logging.Filter):
+    """Only log events with level in interval [low, high)."""
+
+    def __init__(self, *args, low=None, high=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._low = low
+        self._high = high
+
+
+    def filter(self, record):
+        if self._low is None:
+            return (record.levelno < self._high)
+        if self._high is None:
+            return (self._low <= record.levelno)
+        return (self._low <= record.levelno < self._high)
+
+
+class LevelIncludeFilter(logging.Filter):
+    """Only log events with level in include."""
+
+    def __init__(self, *args, include, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._include = include
+
+
+    def filter(self, record):
+        return (record.levelno in self._include)
+
+
+class LevelExcludeFilter(logging.Filter):
+    """Only log events with level not in exlude."""
+
+    def __init__(self, *args, exclude, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._exclude = exclude
+
+
+    def filter(self, record):
+        return (record.levelno not in self._exclude)
+
 
 class VFormatter(logging.Formatter):
     """Formatter which adds a prefix column and indentation."""
@@ -57,13 +101,23 @@ class VFormatter(logging.Formatter):
             root = logging.getLogger()
             indent = root.indentLevel * self.indent_width * self.indent_char
         lines = [indent + x for x in message.split("\n")]
-        lines = [((prefix + "  " + line) if line else prefix) for line in lines]
+        if prefix:
+            lines = [((prefix + "  " + line) if line else prefix) for line in lines]
         return "\n".join(lines)
+
+
+class VStreamHandler(logging.StreamHandler):
+    """Default stream handler with IndentedFormatter"""
+
+    def __init__(self, stream, formatter=None, **kwargs):
+        super().__init__(stream, **kwargs)
+        if formatter is None:
+            formatter = VFormatter()
+        self.setFormatter(formatter)
 
 
 class VFileHandler(logging.FileHandler):
     """Default file handler with IndentedFormatter"""
-
 
     def __init__(self, filename, mode='a', formatter=None, **kwargs):
         filename = get_logname(filename)
@@ -74,8 +128,10 @@ class VFileHandler(logging.FileHandler):
 
 
 def get_logname(basename, ext='log'):
-    if ext:
+    if ext and '.' not in basename:
         ext = '.' + ext
+    else:
+        ext = ''
     name = '%s%s%s' % (basename, (('.mpi%d' % MPI_rank) if MPI_rank > 0 else ''), ext)
     return name
 
@@ -85,7 +141,7 @@ def init_logging():
 
     This will:
     1) Add four new logging levels:
-        `infov`, `timing`, `debugv`, and `timingv`.
+        `output`, `infov`, `timing`, `debugv`, and `timingv`.
     2) Adds the attribute `indentLevel` to the root logger and two new Logger methods:
         `setIndentLevel`, `changeIndentLevel`.
     """
@@ -102,6 +158,7 @@ def init_logging():
             logging.log(level, message, *args, **kwargs)
         setattr(logging.getLoggerClass(), name, logForLevel)
         setattr(logging, name, logToRoot)
+    add_log_level(25, "output")
     add_log_level(15, "infov")
     add_log_level(12, "timing")
     add_log_level(5, "debugv")

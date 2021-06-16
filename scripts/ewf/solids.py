@@ -17,6 +17,7 @@ import pyscf.pbc.df
 
 import vayesta
 import vayesta.ewf
+from vayesta.misc import counterpoise
 log = vayesta.log
 
 # Olli's incore GDF
@@ -59,7 +60,7 @@ def get_arguments():
     parser.add_argument("--pseudopot", type=str_or_none)
     parser.add_argument("--ecp")
     parser.add_argument("--supercell", type=int, nargs=3)
-    parser.add_argument("--k-points", type=int, nargs=3, default=[4,4,1])
+    parser.add_argument("--k-points", type=int, nargs=3)
     parser.add_argument("--lattice-consts", type=float, nargs="*")
     parser.add_argument("--skip", type=int, default=0)
     parser.add_argument("--only", type=int, nargs="*")
@@ -70,8 +71,8 @@ def get_arguments():
     parser.add_argument("--exp-to-discard", type=float, help="If set, discard diffuse basis functions.")
     # Counterpoise
     parser.add_argument("--counterpoise")
-    parser.add_argument("--counterpoise-shells", type=int, default=1)
-    parser.add_argument("--counterpoise-range", type=float)
+    parser.add_argument("--counterpoise-nimages", type=int, default=1)
+    parser.add_argument("--counterpoise-rmax", type=float, default=np.inf)
     # Mean-field
     parser.add_argument("--save-scf", help="Save primitive cell SCF.", default="scf-%.2f.chk")           # If containg "%", it will be formatted as args.save_scf % a with a being the lattice constant
     parser.add_argument("--load-scf", help="Load primitive cell SCF.")
@@ -128,7 +129,8 @@ def get_arguments():
         defaults = {
                 "atoms" : ["C", "C", "C", "C"],
                 "ndim" : 3,
-                "lattice_consts" : np.arange(2.35, 2.55+1e-12, 0.05),
+                #"lattice_consts" : np.arange(2.35, 2.55+1e-12, 0.05),
+                "lattice_consts" : np.asarray([2.4, 2.425, 2.45, 2.475, 2.5]),
                 "vacuum_size" : 6.708,
                 }
     elif args.system == "graphene":
@@ -139,11 +141,6 @@ def get_arguments():
                 "lattice_consts" : np.asarray([2.4, 2.425, 2.45, 2.475, 2.5, 2.525]),
                 "vacuum_size" : 20.0
                 }
-        # This is not how we do it anymore
-        #if args.counterpoise == 'monomer-basis':
-        #    defaults['atoms'] = ['C', None]
-        #elif args.counterpoise == 'dimer-basis':
-        #    defaults['atoms'] = ['C', 'Ghost-C']
 
     elif args.system == "hbn":
         defaults = {
@@ -152,15 +149,6 @@ def get_arguments():
                 "lattice_consts" : np.asarray([2.45, 2.475, 2.5, 2.525, 2.55, 2.575]),
                 "vacuum_size" : 20.0
                 }
-        # This is not how we do it anymore
-        #if args.counterpoise == 'monomer-basis-B':
-        #    defaults['atoms'] = ['B', None]
-        #elif args.counterpoise == 'monomer-basis-N':
-        #    defaults['atoms'] = [None, 'N']
-        #elif args.counterpoise == 'dimer-basis-B':
-        #    defaults['atoms'] = ['B', 'Ghost-N']
-        #elif args.counterpoise == 'dimer-basis-N':
-        #    defaults['atoms'] = ['Ghost-B', 'N']
 
     elif args.system == "perovskite":
         defaults = {
@@ -275,55 +263,23 @@ def make_cell(a, args, **kwargs):
         cell.exp_to_discard = args.exp_to_discard
     if args.lindep_threshold:
         cell.lindep_threshold=args.lindep_threshold
-    if args.counterpoise is None:
-        cell.build()
-        if args.supercell and not np.all(args.supercell == 1):
-            cell = pyscf.pbc.tools.super_cell(cell, args.supercell)
-    # Remove all but one atom
-    elif '*' not in args.counterpoise:
-        atmidx = int(args.counterpoise)
-        cell.atom = cell.atom[atmidx:atmidx+1]
-        #cell = cell.to_mol()
-        # If we leave it as a cell object and just set `.a` to None, we can still use PBC basis sets / PP
-        cell.a = None
-    # Remove all but one atom, but keep basis functions of the 26 (3D) or 8 (2D) neighboring cells
-    elif '*' in args.counterpoise:
-        atmidx = int(args.counterpoise.replace('*', ''))
-        atom = cell.atom.copy()
-        center = atom[atmidx][1]
-        # Make other atoms within unit cell to Ghost atoms
-        for idx in range(len(atom)):
-            if (idx != atmidx):
-                atom[idx][0] = 'Ghost-%s' % atom[idx][0]
-        # Add Ghost atoms in other cells
-        if cell.dimension == 2:
-            images = [args.counterpoise_shells, args.counterpoise_shells, 0]
-        else:
-            images = [args.counterpoise_shells, args.counterpoise_shells, args.counterpoise_shells]
-        for x in range(-images[0], images[0]+1):
-            for y in range(-images[1], images[1]+1):
-                for z in range(-images[2], images[2]+1):
-                    # Central unit cell already done; skip
-                    if abs(x)+abs(y)+abs(z) == 0:
-                        continue
-                    for atm in cell.atom:
-                        symb = atm[0] if atm[0].lower().startswith('ghost') else 'Ghost-%s' % atm[0]
-                        coord = atm[1] + x*cell.a[0] + y*cell.a[1] + z*cell.a[2]
-                        if np.linalg.norm(coord - center) < args.counterpoise_range:
-                            atom.append([symb, coord])
-                            log.debugv("Adding atom %r at %r with distance %.2f", symb, coord, np.linalg.norm(coord-center))
-                        else:
-                            log.debugv("Not adding atom %r at %r with distance %.2f", symb, coord, np.linalg.norm(coord-center))
-        cell.atom = atom
-        #cell = cell.to_mol()
-        # If we leave it as a cell object and just set `.a` to None, we can still use PBC basis sets / PP
-        cell.a = None
-        #cell.ecp = cell.pseudo
-        #cell.pseudo = None
-        cell.build()
-    else:
-        raise ValueError()
+
+    cell.build()
+    if args.supercell and not np.all(args.supercell == 1):
+        cell = pyscf.pbc.tools.super_cell(cell, args.supercell)
+
+    # Counterpoise
+    if args.counterpoise is not None:
+        # Remove all but one atom
+        if '*' not in args.counterpoise:
+            atmidx = int(args.counterpoise)
+            cell = counterpoise.make_mol(cell, atmidx, rmax=0, output='pyscf-cp-m.txt')
+        # Remove all but one atom, but keep basis functions of the 26 (3D) or 8 (2D) neighboring cells
+        elif '*' in args.counterpoise:
+            atmidx = int(args.counterpoise.replace('*', ''))
+            cell = counterpoise.make_mol(cell, atmidx, rmax=args.counterpoise_rmax, nimages=args.counterpoise_nimages, output='pyscf-cp-d.txt')
     return cell
+
 
 def pop_analysis(mf, filename=None, mode="a"):
     t0 = timer()
@@ -623,59 +579,54 @@ for i, a in enumerate(args.lattice_consts):
             **kwargs)
 
         # Define atomic fragments, first argument is atom index
-        if args.system == "diamond":
-            ccx.make_atom_fragment(0, sym_factor=2*ncells)
-        elif args.system == "graphite":
-            ccx.make_atom_fragment(0, sym_factor=2*ncells)
-            ccx.make_atom_fragment(1, sym_factor=2*ncells)
-        elif args.system in ("graphene", "hbn"):
-            #for ix in range(2):
-            #    ccx.make_atom_cluster(ix, sym_factor=ncells, **kwargs)
-            #if ncells % 2 == 0:
-            #    nx, ny = args.supercell[:2]
-            #    ix = 2*np.arange(ncells).reshape(nx,ny)[nx//2,ny//2]
-            #else:
-            #    ix = ncells-1    # Make cluster in center
-            #ccx.make_atom_cluster(ix, sym_factor=2, **kwargs)
+        if args.counterpoise:
+            idx = int(args.counterpoise.replace('*', ''))
+            ccx.make_atom_fragment(idx, **kwargs)
+        else:
+            if args.system == "diamond":
+                ccx.make_atom_fragment(0, sym_factor=2*ncells)
+            elif args.system == "graphite":
+                ccx.make_atom_fragment(0, sym_factor=2*ncells)
+                ccx.make_atom_fragment(1, sym_factor=2*ncells)
+            elif args.system in ("graphene", "hbn"):
+                #for ix in range(2):
+                #    ccx.make_atom_cluster(ix, sym_factor=ncells, **kwargs)
+                #if ncells % 2 == 0:
+                #    nx, ny = args.supercell[:2]
+                #    ix = 2*np.arange(ncells).reshape(nx,ny)[nx//2,ny//2]
+                #else:
+                #    ix = ncells-1    # Make cluster in center
+                #ccx.make_atom_cluster(ix, sym_factor=2, **kwargs)
 
-            if args.counterpoise:
-                idx = int(args.counterpoise.replace('*', ''))
-                ccx.make_atom_fragment(idx, **kwargs)
-            else:
                 if (args.atoms[0] == args.atoms[1]):
                     ccx.make_atom_fragment(0, sym_factor=2*ncells, **kwargs)
-                # For counterpoise:
-                #elif args.atoms[0] is None or args.atoms[0].lower().startswith('ghost'):
-                #    ccx.make_atom_cluster(1, sym_factor=ncells, **kwargs)
-                #elif args.atoms[1] is None or args.atoms[1].lower().startswith('ghost'):
-                #    ccx.make_atom_cluster(0, sym_factor=ncells, **kwargs)
                 else:
                     ccx.make_atom_fragment(0, sym_factor=ncells, **kwargs)
                     ccx.make_atom_fragment(1, sym_factor=ncells, **kwargs)
 
-        elif args.system == "perovskite":
-            #ccx.make_atom_cluster(0)
-            ## Ti needs larger threshold
-            #ccx.make_atom_cluster(1, bno_threshold_factor=10)
-            #ccx.make_atom_cluster(2, sym_factor=3)
+            elif args.system == "perovskite":
+                #ccx.make_atom_cluster(0)
+                ## Ti needs larger threshold
+                #ccx.make_atom_cluster(1, bno_threshold_factor=10)
+                #ccx.make_atom_cluster(2, sym_factor=3)
 
-            # Ti needs larger threshold
-            ccx.make_atom_fragment(0, sym_factor=ncells, bno_threshold_factor=0.3)
-            ccx.make_atom_fragment(1, sym_factor=ncells)
-            ccx.make_atom_fragment(2, sym_factor=3*ncells, bno_threshold_factor=0.03)
-        else:
-            raise SystemError()
+                # Ti needs larger threshold
+                ccx.make_atom_fragment(0, sym_factor=ncells, bno_threshold_factor=0.3)
+                ccx.make_atom_fragment(1, sym_factor=ncells)
+                ccx.make_atom_fragment(2, sym_factor=3*ncells, bno_threshold_factor=0.03)
+            else:
+                raise RuntimeError()
 
         ccx.kernel()
 
         energies["ewf-ccsd"] = ccx.get_energies()
 
         # Write cluster sizes to file
-        for x in ccx.fragments:
-            fname = "cluster-%s-size.txt" % x.id_name
-            val = x.n_active
-            with open(fname, "a") as f:
-                f.write(("%6.3f" + len(val)*"  %3d" + "\n") % (a, *val))
+        #for x in ccx.fragments:
+        #    fname = "cluster-%s-size.txt" % x.id_name
+        #    val = x.n_active
+        #    with open(fname, "a") as f:
+        #        f.write(("%6.3f" + len(val)*"  %3d" + "\n") % (a, *val))
 
         # Save energies
         #energies["ccsd-dmp2"].append((ccx.e_tot + ccx.e_delta_mp2))

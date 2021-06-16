@@ -2,6 +2,7 @@ import os
 import logging
 import dataclasses
 import copy
+import psutil
 
 import numpy as np
 import scipy
@@ -10,7 +11,7 @@ import scipy.optimize
 log = logging.getLogger(__name__)
 
 # util module can be imported as *, such that the following is imported:
-__all__ = ['NotSet', 'einsum', 'time_string', 'memory_string', 'Options']
+__all__ = ['NotSet', 'einsum', 'get_used_memory', 'time_string', 'memory_string', 'Options']
 
 class NotSetType:
     def __repr__(self):
@@ -24,6 +25,11 @@ NotSet = NotSetType()
 def einsum(*args, **kwargs):
     kwargs['optimize'] = kwargs.pop('optimize', True)
     return np.einsum(*args, **kwargs)
+
+
+def get_used_memory():
+    process = psutil.Process(os.getpid())
+    return(process.memory_info().rss)  # in bytes
 
 
 def time_string(seconds, show_zeros=False):

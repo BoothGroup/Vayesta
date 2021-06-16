@@ -82,7 +82,7 @@ class QEmbeddingFragment:
         self.aos = aos
 
         # Some output
-        fmt = '  * %-24s %r'
+        fmt = '  > %-24s %r'
         self.log.info(fmt, "Fragment type:", self.fragment_type)
         self.log.info(fmt, "Fragment orbitals:", self.size)
         self.log.info(fmt, "Symmetry factor:", self.sym_factor)
@@ -279,7 +279,7 @@ class QEmbeddingFragment:
     # ================
 
 
-    def make_counterpoise_mol(self, rmax, nimages=5, unit='A', **kwargs):
+    def make_counterpoise_mol(self, rmax, nimages=1, unit='A', **kwargs):
         """Make molecule object for counterposise calculation.
 
         WARNING: This has only been tested for periodic systems so far!
@@ -302,65 +302,7 @@ class QEmbeddingFragment:
             Mole or Cell object with periodic boundary conditions removed
             and with ghost atoms added depending on `rmax` and `nimages`.
         """
-        # Atomic calculation with additional basis functions:
-        images = np.zeros(3, dtype=int)
-        if self.boundary_cond == 'periodic-1D':
-            images[0] = nimages
-        elif self.boundary_cond == 'periodic-2D':
-            images[:2] = nimages
-        elif self.boundary_cond == 'periodic':
-            images[:] = nimages
-        self.log.debugv('images= %r', images)
-
-        # TODO: More than one atom in fragment! -> find center over fragment atoms?
-        unit_pyscf = 'ANG' if (unit.upper()[0] == 'A') else unit
-        if self.kcell is None:
-            mol = self.mol
-        else:
-            mol = self.kcell
-        center = mol.atom_coord(self.atoms[0], unit=unit_pyscf).copy()
-        amat = mol.lattice_vectors().copy()
-        if unit.upper()[0] == 'A' and mol.unit.upper()[0] == 'B':
-            amat *= pyscf.lib.param.BOHR
-        if unit.upper()[0] == 'B' and mol.unit.upper()[:3] == 'ANG':
-            amat /= pyscf.lib.param.BOHR
-        self.log.debugv('A= %r', amat)
-        self.log.debugv('unit= %r', unit)
-        self.log.debugv('Center= %r', center)
-        atom = []
-        # Fragments atoms first:
-        for atm in self.atoms:
-            symb = mol.atom_symbol(atm)
-            coord = mol.atom_coord(atm, unit=unit_pyscf)
-            self.log.debug("Counterpoise: Adding fragment atom %6s at %8.5f %8.5f %8.5f", symb, *coord)
-            atom.append([symb, coord])
-        # Other atom positions. Note that rx = ry = rz = 0 for open boundary conditions
-        for rx in range(-images[0], images[0]+1):
-            for ry in range(-images[1], images[1]+1):
-                for rz in range(-images[2], images[2]+1):
-                    for atm in range(mol.natm):
-                        # This is a fragment atom - already included above as real atom
-                        if (abs(rx)+abs(ry)+abs(rz) == 0) and (atm in self.atoms):
-                            continue
-                        # This is either a non-fragment atom in the unit cell (rx = ry = rz = 0) or in a neighbor cell
-                        symb = mol.atom_symbol(atm)
-                        coord = mol.atom_coord(atm, unit=unit_pyscf).copy()
-                        if abs(rx)+abs(ry)+abs(rz) > 0:
-                            coord += (rx*amat[0] + ry*amat[1] + rz*amat[2])
-                        if not symb.lower().startswith('ghost'):
-                            symb = 'Ghost-' + symb
-                        distance = np.linalg.norm(coord - center)
-                        if distance <= rmax:
-                            self.log.debugv("Counterpoise:     including atom %6s at %8.5f %8.5f %8.5f with distance %8.5f %s", symb, *coord, distance, unit)
-                            atom.append([symb, coord])
-                        #else:
-                            #self.log.debugv("Counterpoise: NOT including atom %3s at %8.5f %8.5f %8.5f with distance %8.5f A", symb, *coord, distance)
-        mol_cp = mol.copy()
-        mol_cp.atom = atom
-        self.log.debugv('atom= %r', mol_cp.atom)
-        mol_cp.unit = unit_pyscf
-        mol_cp.a = None
-        for key, val in kwargs.items():
-            setattr(mol_cp, key, val)
-        mol_cp.build(False, False)
-        return mol_cp
+        if len(self.atoms) > 1:
+            raise NotImplementedError()
+        import vayesta.misc
+        return vayesta.misc.counterpoise.make_mol(self.mol, self.atoms[1], rmax=rmax, nimages=nimages, unit=unit, **kwargs)
