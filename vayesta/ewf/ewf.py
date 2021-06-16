@@ -44,7 +44,7 @@ class EWFOptions(Options):
     orbfile: str = None                 # Filename for orbital coefficients
     # If multiple bno thresholds are to be calculated, we can project integrals and amplitudes from a previous larger cluster:
     project_eris: bool = False          # Project ERIs from a pervious larger cluster (corresponding to larger eta), can result in a loss of accuracy especially for large basis sets!
-    project_init_guess: bool = False    # Project converted T1,T2 amplitudes from a previous larger cluster
+    project_init_guess: bool = True     # Project converted T1,T2 amplitudes from a previous larger cluster
     orthogonal_mo_tol: float = False
     #Orbital file
     plot_orbitals: bool = False
@@ -481,16 +481,16 @@ class EWF(QEmbeddingMethod):
                     if MPI_rank != (x % MPI_size):
                         continue
                     mpi_info = (" on MPI process %d" % MPI_rank) if MPI_size > 1 else ""
-                    msg = "Now running Fragment %s%s" % (frag, mpi_info)
+                    msg = "Now running %s%s" % (frag, mpi_info)
                     self.log.info(msg)
                     self.log.info(len(msg)*"*")
                     self.log.changeIndentLevel(1)
-                    result, eris = frag.kernel(bno_threshold=bno_thr)
+                    result = frag.kernel(bno_threshold=bno_thr)
                     self.cluster_results[(frag.id, bno_thr)] = result
                     if not result.converged:
-                        self.log.error("Fragment %s is not converged!", frag)
+                        self.log.error("%s is not converged!", frag)
                     else:
-                        self.log.info("Fragment %s is done.", frag)
+                        self.log.info("%s is done.", frag)
                     self.log.changeIndentLevel(-1)
 
                 e_corr = sum([self.cluster_results[(f.id, bno_thr)].e_corr for f in self.fragments])
@@ -501,14 +501,14 @@ class EWF(QEmbeddingMethod):
                 if self.opts.sc_mode:
                     self.log.info("Iteration %d: E(corr)= % 12.8f Ha (dE= % 12.8f Ha)", iteration, e_corr, de)
                 else:
-                    self.log.info("E(corr)= % 12.8f Ha (dE= % 12.8f Ha)", e_corr, de)
+                    self.log.info("E(corr)= % 12.8f Ha", e_corr)
                 if (self.opts.sc_mode and (abs(de) < self.opts.sc_energy_tol)):
                     self.log.info("Self-consistency reached in %d iterations", iteration)
                     break
                 e_corr0 = e_corr
             else:
                 if self.opts.sc_mode:
-                    self.log.warning("Self-consistency not reached!")
+                    self.log.error("Self-consistency not reached!")
 
             if self.opts.sc_mode:
                 self.log.info("E(corr)[SC]= % 12.8f Ha  E(corr)[1]= % 12.8f Ha  (diff= % 12.8f Ha)", e_corr, e_corr_1, (e_corr-e_corr_1))
@@ -654,7 +654,7 @@ class EWF(QEmbeddingMethod):
         #for frag in self.loop():
         #    energies += frag.e_corrs
         #return energies
-        return [r.e_corr for r in self.results]
+        return [(self.e_mf + r.e_corr) for r in self.results]
 
     #def get_cluster_sizes(self)
     #    sizes = np.zeros((self.nfrag, self.ncalc), dtype=np.int)

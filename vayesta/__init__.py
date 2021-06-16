@@ -34,9 +34,11 @@ if (args.output or args.log):
     logname = args.output or args.log
     log.addHandler(vlog.VFileHandler(logname, formatter=fmt))
 
-log.info("+%s+", (len(__version__)+10)*'-')
+log.info(" %s", (len(__version__)+10)*'_')
+log.info("|%s|", (len(__version__)+10)*' ')
 log.info("| Vayesta %s |", __version__)
-log.info("+%s+", (len(__version__)+10)*'-')
+log.info("|%s|", (len(__version__)+10)*'_')
+log.info("")
 
 def get_git_hash(dir):
     git_dir = os.path.join(dir, '.git')
@@ -55,10 +57,9 @@ log.info("")
 
 # Required modules
 log.debug("Required modules:")
-log.changeIndentLevel(1)
 
 # NumPy
-fmt = '> %-10s  v%-8s  found at  %s'
+fmt = '  > %-10s  v%-8s  found at  %s'
 try:
     import numpy
     log.debug(fmt, 'NumPy', numpy.__version__, os.path.dirname(numpy.__file__))
@@ -85,7 +86,7 @@ try:
     log.debug(fmt, 'PySCF', pyscf.__version__, os.path.dirname(pyscf.__file__))
     pyscf_dir = os.path.dirname(os.path.dirname(pyscf.__file__))
     pyscf_hash = get_git_hash(pyscf_dir)
-    log.info("  PySCF Git hash: %s", pyscf_hash)
+    log.info("    PySCF Git hash: %s", pyscf_hash)
 except ImportError:
     log.critical("PySCF not found.")
     raise
@@ -97,9 +98,8 @@ try:
     MPI_comm = MPI.COMM_WORLD
     MPI_rank = MPI_comm.Get_rank()
     MPI_size = MPI_comm.Get_size()
-    log.debug("  MPI(rank= %d , size= %d)", MPI_rank, MPI_size)
+    log.debug("    MPI(rank= %d , size= %d)", MPI_rank, MPI_size)
 except ImportError:
     log.debug("mpi4py not found.")
 
-log.changeIndentLevel(-1)
 log.debug("")

@@ -373,20 +373,19 @@ def test_diamond_bno_threshold(bno_threshold=[1e-3, 1e-4, 1e-5, 1e-6], kmesh=[2,
     t0 = timer()
     kcc.kernel()
     print("Time for k-EmbWF= %.3f" % (timer()-t0))
-    print("N(EmbWF) = %r" % kcc.get_cluster_sizes())
     print("E(EmbWF) = %r" % kcc.get_energies())
 
     # For [2,2,2], gth-dzv, a=3.5
     if kmesh == [2,2,2]:
-        N_EXPECTED = np.array([[77, 52, 39, 14]])
+        #N_EXPECTED = np.array([[77, 52, 39, 14]])
         E_EXPECTED = np.array([-11.16455488, -11.15595256, -11.1383086 , -11.09207628])
         e = kcc.get_energies()
         if not np.allclose(e, E_EXPECTED):
             print("Got:      %r" % e)
             print("Expected: %r" % E_EXPECTED)
 
-            print("Cluster sizes: %r" % kcc.get_cluster_sizes())
-            print("Expected:      %r" % N_EXPECTED)
+            #print("Cluster sizes: %r" % kcc.get_cluster_sizes())
+            #print("Expected:      %r" % N_EXPECTED)
             raise RuntimeError()
         print("SUCCESS")
 
@@ -394,9 +393,9 @@ def test_diamond_bno_threshold(bno_threshold=[1e-3, 1e-4, 1e-5, 1e-6], kmesh=[2,
         #assert np.all(kcc.get_cluster_sizes() == N_EXPECTED)
     # For [3,3,3], gth-dzv, a=3.5
     elif kmesh == [3,3,3]:
-        N_EXPECTED = np.array([[89, 61, 39, 14]])
+        #N_EXPECTED = np.array([[89, 61, 39, 14]])
         E_EXPECTED = np.array([-11.22353507, -11.21390107, -11.19618965, -11.15312301])
-        assert np.all(kcc.get_cluster_sizes() == N_EXPECTED)
+        #assert np.all(kcc.get_cluster_sizes() == N_EXPECTED)
         assert np.allclose(kcc.get_energies(), E_EXPECTED)
         print("SUCCESS")
 

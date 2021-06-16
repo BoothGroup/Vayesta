@@ -7,6 +7,7 @@ from datetime import datetime
 from timeit import default_timer as timer
 import dataclasses
 import copy
+import gc
 
 # External libaries
 import numpy as np
@@ -48,15 +49,16 @@ class EWFFragmentOptions(Options):
 
 @dataclasses.dataclass
 class EWFFragmentResults:
-    fid : int = None
-    bno_threshold : float = None
-    n_active : int = None
-    converged : bool = None
-    e_corr : float = None
-    ip_energy : np.ndarray = None
-    ea_energy : np.ndarray = None
-    t1 : np.ndarray = None
-    t2 : np.ndarray = None
+    fid: int = None
+    bno_threshold: float = None
+    n_active: int = None
+    converged: bool = None
+    e_corr: float = None
+    ip_energy: np.ndarray = None
+    ea_energy: np.ndarray = None
+    t1: np.ndarray = None
+    t2: np.ndarray = None
+    eris: 'typing.Any' = None
 
 
 class EWFFragment(QEmbeddingFragment):
@@ -131,7 +133,10 @@ class EWFFragment(QEmbeddingFragment):
         # Active orbitals
         self.c_active_occ = None
         self.c_active_vir = None
-        self.cluster_solver = None
+
+        # For self-consistent mode
+        self.solver_results = None
+
         self.results = None
 
 
@@ -247,56 +252,6 @@ class EWFFragment(QEmbeddingFragment):
         self.log.timing("Time for bath:  %s", time_string(timer()-t0_bath))
 
 
-    def run_multiple(self, solver=None, bno_threshold=None):
-        """Construct bath orbitals and run solver.
-
-        Parameters
-        ----------
-        solver : {"MP2", "CISD", "CCSD", "CCSD(T)", "FCI"}
-            Correlated solver.
-        bno_threshold : list
-            List of bath natural orbital (BNO) thresholds.
-        """
-
-        solver = solver or self.solver
-        if bno_threshold is None:
-            bno_threshold = self.bno_threshold
-
-        init_guess = eris = None
-        for icalc, bno_thr in enumerate(bno_threshold):
-            self.log.info("Run %2d - BNO threshold= %.1e", icalc, bno_thr)
-            self.log.info("*******************************")
-            self.log.changeIndentLevel(1)
-
-            #try:
-            #    e_corr, n_active, init_guess, eris = self.run_bno_threshold(solver, bno_thr, init_guess=init_guess, eris=eris)
-            #    self.log.info("BNO threshold= %.1e :  E(corr)= %+14.8f Ha", bno_thr, e_corr)
-            #except Exception as e:
-            #    self.log.error("Exception for BNO threshold= %.1e:\n%r", bno_thr, e)
-            #    e_corr = n_active = 0
-
-            #e_corr, n_active, init_guess, eris = self.run_bno_threshold(solver, bno_thr, init_guess=init_guess, eris=eris)
-            results, init_guess, eris = self.kernel(solver, bno_thr, init_guess=init_guess, eris=eris)
-            self.e_corrs[icalc] = results.e_corr
-            self.n_active[icalc] = results.n_active
-            self.results.append(results)
-            self.log.changeIndentLevel(-1)
-
-        self.log.info("Fragment Correlation Energies")
-        self.log.info("*****************************")
-        for i in range(len(bno_threshold)):
-            icalc = -(i+1)
-            bno_thr = bno_threshold[icalc]
-            n_active = self.n_active[icalc]
-            assert n_active == self.results[icalc].n_active
-            e_corr = self.e_corrs[icalc]
-            assert e_corr == self.results[icalc].e_corr
-            if n_active > 0:
-                self.log.info("  * BNO threshold= %.1e :  n(active)= %4d  E(corr)= %+14.8f Ha", bno_thr, n_active, e_corr)
-            else:
-                self.log.info("  * BNO threshold= %.1e :  <Exception during calculation>", bno_thr)
-
-
     def kernel(self, bno_threshold, solver=None, init_guess=None, eris=None):
         """Run solver for a single BNO threshold.
 
@@ -357,36 +312,53 @@ class EWFFragment(QEmbeddingFragment):
 
         self.log.info("Orbitals for %s", self)
         self.log.info("*************" + len(str(self))*"*")
-        self.log.info("  > Occupied: active= %4d  frozen= %4d  total= %4d", c_active_occ.shape[-1], nocc_frozen, c_occ.shape[-1])
-        self.log.info("  > Virtual:  active= %4d  frozen= %4d  total= %4d", c_active_vir.shape[-1], nvir_frozen, c_vir.shape[-1])
-        self.log.info("  > Total:    active= %4d  frozen= %4d  total= %4d", nactive, nfrozen, mo_coeff.shape[-1])
+        self.log.info("  > Active:   n(occ)= %4d  n(vir)= %4d  n(tot)= %4d", c_active_occ.shape[-1], c_active_vir.shape[-1], nactive)
+        self.log.info("  > Frozen:   n(occ)= %4d  n(vir)= %4d  n(tot)= %4d", nocc_frozen, nvir_frozen, nfrozen)
+        self.log.info("  > Total:    n(occ)= %4d  n(vir)= %4d  n(tot)= %4d", c_occ.shape[-1], c_vir.shape[-1], mo_coeff.shape[-1])
 
-        # --- Do nothing if solver is not set
-        if not solver:
-            self.log.info("Solver set to None. Skipping calculation.")
-            self.converged = True
-            return 0, nactive, None, None
+        ## --- Do nothing if solver is not set
+        #if not solver:
+        #    self.log.info("Solver set to None. Skipping calculation.")
+        #    self.converged = True
+        #    return 0, nactive, None, None
 
         # --- Project initial guess and integrals from previous cluster calculation with smaller eta:
         # Use initial guess from previous calculations
-        if self.base.opts.project_init_guess and init_guess is not None:
-            # Projectors for occupied and virtual orbitals
-            p_occ = np.linalg.multi_dot((self.c_active_occ.T, self.base.get_ovlp(), c_active_occ))
-            p_vir = np.linalg.multi_dot((self.c_active_vir.T, self.base.get_ovlp(), c_active_vir))
-            t1, t2 = init_guess.pop('t1'), init_guess.pop('t2')
-            t1, t2 = helper.transform_amplitudes(t1, t2, p_occ, p_vir)
-            init_guess['t1'] = t1
-            init_guess['t2'] = t2
-        else:
-            init_guess = None
-        # If superspace ERIs were calculated before, they can be transformed and used again
-        if self.base.opts.project_eris and eris is not None:
-            t0 = timer()
-            self.log.debug("Projecting previous ERIs onto subspace")
-            eris = psubspace.project_eris(eris, c_active_occ, c_active_vir, ovlp=self.base.get_ovlp())
-            self.log.timing("Time to project ERIs:  %s", time_string(timer()-t0))
-        else:
-            eris = None
+        # For self-consistent calculations, we can restart calculation:
+        if init_guess is None:
+            if self.base.opts.sc_mode and self.base.iteration > 1:
+                self.log.debugv("Restarting using T1,T2 from previous iteration")
+                init_guess = {'t1' : self.results.t1, 't2' : self.results.t2}
+            #elif self.base.opts.project_init_guess and init_guess is not None:
+            #    # Projectors for occupied and virtual orbitals
+            #    p_occ = np.linalg.multi_dot((self.c_active_occ.T, self.base.get_ovlp(), c_active_occ))
+            #    p_vir = np.linalg.multi_dot((self.c_active_vir.T, self.base.get_ovlp(), c_active_vir))
+            #    t1, t2 = init_guess.pop('t1'), init_guess.pop('t2')
+            #    t1, t2 = helper.transform_amplitudes(t1, t2, p_occ, p_vir)
+            #    init_guess['t1'] = t1
+            #    init_guess['t2'] = t2
+            elif self.base.opts.project_init_guess and self.results is not None:
+                self.log.debugv("Restarting using projected previous T1,T2")
+                # Projectors for occupied and virtual orbitals
+                p_occ = np.linalg.multi_dot((self.c_active_occ.T, self.base.get_ovlp(), c_active_occ))
+                p_vir = np.linalg.multi_dot((self.c_active_vir.T, self.base.get_ovlp(), c_active_vir))
+                #t1, t2 = init_guess.pop('t1'), init_guess.pop('t2')
+                t1, t2 = helper.transform_amplitudes(self.results.t1, self.results.t2, p_occ, p_vir)
+                init_guess = {'t1' : t1, 't2' : t2}
+
+
+        # For self-consistent calculations, we can reuse ERIs:
+        if eris is None:
+            if self.base.opts.sc_mode and self.base.iteration > 1:
+                self.log.debugv("Reusing ERIs from previous iteration")
+                eris = self.results.eris
+            # If superspace ERIs were calculated before, they can be transformed and used again:
+            elif self.base.opts.project_eris and self.results is not None:
+                t0 = timer()
+                self.log.debugv("Projecting previous ERIs onto subspace")
+                eris = psubspace.project_eris(self.results.eris, c_active_occ, c_active_vir, ovlp=self.base.get_ovlp())
+                self.log.timingv("Time to project ERIs:  %s", time_string(timer()-t0))
+
         # We can now overwrite the orbitals from last BNO run:
         self.c_active_occ = c_active_occ
         self.c_active_vir = c_active_vir
@@ -394,22 +366,22 @@ class EWFFragment(QEmbeddingFragment):
         # Create solver object
         t0 = timer()
         cluster_solver_cls = get_solver_class(solver)
-        self.cluster_solver = cluster_solver_cls(self, mo_coeff, mo_occ, nocc_frozen=nocc_frozen, nvir_frozen=nvir_frozen, eris=eris)
-        self.cluster_solver.kernel(init_guess=init_guess)
+        cluster_solver = cluster_solver_cls(self, mo_coeff, mo_occ, nocc_frozen=nocc_frozen, nvir_frozen=nvir_frozen)
+        solver_results = cluster_solver.kernel(init_guess=init_guess, eris=eris)
         self.log.timing("Time for %s solver:  %s", solver, time_string(timer()-t0))
-        # ERIs and initial guess for next calculations
-        if self.base.opts.project_eris:
-            eris = self.cluster_solver._eris
-        else:
-            eris = None
 
-        p1, p2 = self.project_amplitudes_to_fragment(self.cluster_solver._solver, self.cluster_solver.c1, self.cluster_solver.c2)
-        e_corr = self.get_fragment_energy(self.cluster_solver._solver, p1, p2, eris=self.cluster_solver._eris)
+        # Get projected amplitudes ('p1', 'p2')
+        c1 = solver_results.t1
+        c2 = solver_results.t2 + einsum('ia,jb->ijab', c1, c1)
+        p1 = self.project_amplitude_to_fragment(c1, c_active_occ, c_active_vir)
+        p2 = self.project_amplitude_to_fragment(c2, c_active_occ, c_active_vir)
+
+        e_corr = self.get_fragment_energy(p1, p2, eris=solver_results.eris)
         self.log.info("BNO threshold= %.1e :  E(corr)= %+14.8f Ha", bno_threshold, e_corr)
         # Population analysis
-        if self.opts.make_rdm1 and self.cluster_solver.dm1 is not None:
+        if self.opts.make_rdm1 and solver_results.dm1 is not None:
             try:
-                self.pop_analysis(self.cluster_solver.dm1)
+                self.pop_analysis(solver_results.dm1)
             except Exception as e:
                 self.log.error("Exception in population analysis: %s", e)
 
@@ -417,19 +389,31 @@ class EWFFragment(QEmbeddingFragment):
                 fid=self.id,
                 bno_threshold=bno_threshold,
                 n_active=nactive,
-                converged=self.cluster_solver.converged,
+                converged=solver_results.converged,
                 e_corr=e_corr)
         # EOM analysis
         if self.opts.eom_ccsd in (True, "IP"):
-            results.ip_energy, _ = self.eom_analysis(self.cluster_solver, "IP")
+            results.ip_energy, _ = self.eom_analysis(cluster_solver, "IP")
         if self.opts.eom_ccsd in (True, "EA"):
-            results.ea_energy, _ = self.eom_analysis(self.cluster_solver, "EA")
-        if self.base.opts.project_init_guess:
-            results.t1 = self.cluster_solver.t1
-            results.t2 = self.cluster_solver.t2
+            results.ea_energy, _ = self.eom_analysis(cluster_solver, "EA")
+
+        # Keep T-Amplitudes [optional]
+        if self.base.opts.project_init_guess or self.opts.sc_mode:
+            results.t1 = solver_results.t1
+            results.t2 = solver_results.t2
+        # Keep ERIs [optional]
+        if self.base.opts.project_eris or self.opts.sc_mode:
+            results.eris = solver_results.eris
+
         self.results = results
 
-        return results, eris
+        # Force GC to free memory
+        m0 = get_used_memory()
+        del cluster_solver, solver_results
+        ndel = gc.collect()
+        self.log.debugv("GC deleted %d objects and freed %.3f MB of memory", ndel, (get_used_memory()-m0)/1e6)
+
+        return results
 
 
     def apply_bno_threshold(self, c_no, n_no, bno_thr):
@@ -460,7 +444,7 @@ class EWFFragment(QEmbeddingFragment):
         if frag is self:
             raise RuntimeError()
         self.tailor_fragments.append(frag)
-        self.log.debug("Tailoring %s with %s", self, frag)
+        self.log.debugv("Tailoring %s with %s", self, frag)
 
 
     def additional_bath_for_cluster(self, c_bath, c_occenv, c_virenv):
@@ -620,13 +604,10 @@ class EWFFragment(QEmbeddingFragment):
         return p
 
 
-    def get_fragment_energy(self, cm, p1, p2, eris):
+    def get_fragment_energy(self, p1, p2, eris):
         """
         Parameters
         ----------
-        cm : pyscf[.pbc].cc.CCSD or pyscf[.pbc].mp.MP2
-            PySCF coupled cluster or MP2 object. This function accesses
-            `cc.get_frozen_mask()` and `cm.mo_occ`.
         p1 : (nOcc, nVir) array
             Locally projected C1 amplitudes.
         p2 : (nOcc, nOcc, nVir, nVir) array
@@ -644,9 +625,8 @@ class EWFFragment(QEmbeddingFragment):
             e1 = 0
         # CC
         else:
-            act = cm.get_frozen_mask()
-            occ = cm.mo_occ[act] > 0
-            vir = cm.mo_occ[act] == 0
+            occ = np.s_[:eris.nocc]
+            vir = np.s_[eris.nocc:]
             f = eris.fock[occ][:,vir]
             e1 = 2*np.sum(f * p1)
 
@@ -656,8 +636,8 @@ class EWFFragment(QEmbeddingFragment):
         else:
             no, nv = p2.shape[1:3]
             eris_ovvo = eris.ovov[:].reshape(no,nv,no,nv).transpose(0, 1, 3, 2).conj()
-        e2 = 2*einsum('ijab,iabj', p2, eris_ovvo)
-        e2 -=  einsum('ijab,jabi', p2, eris_ovvo)
+        e2 = (2*einsum('ijab,iabj', p2, eris_ovvo)
+              - einsum('ijab,jabi', p2, eris_ovvo))
 
         self.log.info("Energy components: E[T1]= % 16.8f Ha, E[T2+T1^2]= % 16.8f Ha", e1, e2)
         if e1 > 1e-4 and 10*e1 > e2:

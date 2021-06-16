@@ -1,6 +1,8 @@
 """These functions take a fragment instance as first argument ("self")."""
 
 import numpy as np
+import scipy
+import scipy.linalg
 
 import pyscf
 import pyscf.lo
@@ -68,7 +70,10 @@ def make_dmet_bath(self, C_ref=None, nbath=None, tol=1e-4, reftol=0.8):
     # Divide by 2 to get eigenvalues in [0,1]
     sc = np.dot(self.base.get_ovlp(), C_env)
     D_env = np.linalg.multi_dot((sc.T, self.mf.make_rdm1(), sc)) / 2
-    eig, R = np.linalg.eigh(D_env)
+    try:
+        eig, R = np.linalg.eigh(D_env)
+    except np.linalg.LinAlgError:
+        eig, R = scipy.linalg.eigh(D_env)
     eig, R = eig[::-1], R[:,::-1]
 
     if (eig.min() < -1e-9):

@@ -1,3 +1,4 @@
-09/06/2012
+09/06/2021
 - Lattice model class + PySCF compatibility layer
 - Logging config + default behavior in interactive sessions
+
