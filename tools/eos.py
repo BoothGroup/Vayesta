@@ -117,7 +117,7 @@ def cmdline_tool():
     x = volume_func(x)
     e0, v0, b0 = fit_eos(x, y)
     x0 = inv_volume_func(v0)
-    print("Fit results: E0= %.4f Ha  X0= %.4f A  V0= %.4f A^3  B0= %.4f GPa" % (e0, x0, v0, b0))
+    print("Fit results: E0= %.4f Ha  x0= %.4f A  V0= %.4f A^3  B0= %.4f GPa" % (e0, x0, v0, b0))
 
 
 if __name__ == '__main__':
