@@ -89,14 +89,36 @@ def fit_from_file(filename, xcol=0, ycol=1, volume_func=None):
     return e0, v0, b0
 
 
-if __name__ == '__main__':
-    import sys
-    filename =  sys.argv[1]
-    ycol = -1
-    # For diamond:
-    volume_func = lambda x : (x**3) / 4
-    inv_volume_func = lambda v : np.power(4*v, 1.0/3)
+def cmdline_tool():
+    import argparse
+    parser = argparse.ArgumentParser(allow_abbrev=False)
+    parser.add_argument('file')
+    parser.add_argument('--lattice')
+    parser.add_argument('--bsse')
+    parser.add_argument('--xcol', type=int, default=0)
+    parser.add_argument('--ycol', type=int, default=1)
+    args = parser.parse_args()
 
-    e0, v0, b0 = fit_from_file(filename, ycol=ycol, volume_func=volume_func)
+    volume_func = lambda x : x
+    if args.lattice == 'diamond':
+        volume_func = lambda x : (x**3) / 4
+        inv_volume_func = lambda v : np.power(4*v, 1.0/3)
+    elif args.lattice is not None:
+        raise ValueError()
+
+    data = np.loadtxt(args.file)
+    x = data[:,args.xcol]
+    y = data[:,args.ycol]
+    if args.bsse:
+        data = np.loadtxt(args.bsse)
+        assert np.allclose(data[:,args.xcol], x)
+        y -= data[:,args.ycol]
+
+    x = volume_func(x)
+    e0, v0, b0 = fit_eos(x, y)
     x0 = inv_volume_func(v0)
     print("Fit results: E0= %.4f Ha  X0= %.4f A  V0= %.4f A^3  B0= %.4f GPa" % (e0, x0, v0, b0))
+
+
+if __name__ == '__main__':
+    cmdline_tool()

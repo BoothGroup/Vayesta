@@ -228,7 +228,7 @@ def gdf_to_eris(gdf, mo_coeff, nocc, only_ovov=False, real_j3c=True, symmetry=Fa
             if not store_vvl:
                 eris["vvvv"] = contract_j3c(j3c, "vvvv", symmetry=4)
             else:
-                eris['vvL'] = pyscf.lib.pack_tril(j3c['vv']).T.copy()
+                eris['vvL'] = pyscf.lib.pack_tril(j3c['vv']).T
             eris["ovvv"] = contract_j3c(j3c, "ovvv", symmetry=2)
         else:
             if not store_vvl:
