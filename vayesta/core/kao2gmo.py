@@ -20,6 +20,7 @@ import pyscf.pbc.tools
 from pyscf.pbc.lib import kpts_helper
 # Package
 from vayesta.core.util import *
+from vayesta.misc.gdf import GDF
 import vayesta.libs
 
 log = logging.getLogger(__name__)
@@ -432,7 +433,7 @@ class ThreeCenterInts:
                 assert np.all(kuniq_map > -nkij)
 
         # In IncoreGDF, we can access the array directly
-        elif isinstance(self.df, pyscf.pbc.df.df_incore.IncoreGDF):
+        elif isinstance(self.df, (GDF, pyscf.pbc.df.df_incore.IncoreGDF)):  #TODO deprecate IncoreGDF
             j3c = self.df._cderi["j3c"].reshape(-1, self.naux, self.nao, self.nao)
             nkuniq = j3c.shape[0]
             log.info("Nkuniq= %3d", nkuniq)
