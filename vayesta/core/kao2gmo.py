@@ -36,20 +36,22 @@ def gdf_to_pyscf_eris(mf, gdf, cm, fock=None):
         Supercell mean-field object.
     gdf: pyscf.pbc.df.GDF
         Gaussian density-fit object of primitive cell (with k-points)
-    cm: `pyscf.mp.mp2.MP2` or `pyscf.cc.ccsd.CCSD`
+    cm: `pyscf.mp.mp2.MP2`, `pyscf.cc.dfccdf.RCCSD`, or `pyscf.cc.ccsd.CCSD`
         Correlated method, must have `mo_coeff` set.
     fock: (N,N) array, optional
         Fock matrix. If None, calculated via `mf.get_fock()`.
 
     Returns
     -------
-    eris: pyscf.mp.mp2._ChemistsERIs, pyscf.cc.ccsd._ChemistsERIs, or pyscf.cc.rccsd._ChemistsERIs
+    eris: _ChemistsERIs
         ERIs which can be used for the respective correlated method.
     """
-    #log.debug("Correlated method in eris_kao2gmo= %s", type(cm))
+    log.debugv("Correlated method in gdf_to_pyscf_eris= %s", type(cm))
 
     if fock is None: fock = mf.get_fock()
 
+    only_ovov = False
+    store_vvl = False
     # MP2 ERIS
     if isinstance(cm, pyscf.mp.mp2.MP2):
         from pyscf.mp.mp2 import _ChemistsERIs
@@ -61,13 +63,15 @@ def gdf_to_pyscf_eris(mf, gdf, cm, fock=None):
         from pyscf.cc.rccsd import _ChemistsERIs
         eris = _ChemistsERIs()
         sym = False
-        only_ovov = False
+    elif isinstance(cm, pyscf.cc.dfccsd.RCCSD):
+        from pyscf.cc.dfccsd import _ChemistsERIs
+        eris = _ChemistsERIs()
+        store_vvl = True
+        sym = True
     elif isinstance(cm, pyscf.cc.ccsd.CCSD):
-        #raise NotImplementedError()
         from pyscf.cc.ccsd import _ChemistsERIs
         eris = _ChemistsERIs()
         sym = True
-        only_ovov = False
     else:
         raise NotImplementedError("Unknown correlated method= %s" % type(cm))
 
@@ -92,14 +96,14 @@ def gdf_to_pyscf_eris(mf, gdf, cm, fock=None):
     #    mx = abs(val - g_i[key]).max()
     #    log.debug("Difference in (%2s|%2s):  max= %.3e  norm= %.3e", key[:2], key[2:], mx, norm)
 
-    g = gdf_to_eris(gdf, mo_coeff, cm.nocc, only_ovov=only_ovov, symmetry=sym)
+    g = gdf_to_eris(gdf, mo_coeff, cm.nocc, only_ovov=only_ovov, symmetry=sym, store_vvl=store_vvl)
     for key, val in g.items():
         setattr(eris, key, val)
 
     return eris
 
 
-def gdf_to_eris(gdf, mo_coeff, nocc, only_ovov=False, real_j3c=True, symmetry=False, j3c_threshold=None):
+def gdf_to_eris(gdf, mo_coeff, nocc, only_ovov=False, real_j3c=True, symmetry=False, store_vvl=False, j3c_threshold=None):
     """Make supercell ERIs from k-point sampled, density-fitted three-center integrals.
 
     Parameters
@@ -120,7 +124,9 @@ def gdf_to_eris(gdf, mo_coeff, nocc, only_ovov=False, real_j3c=True, symmetry=Fa
         If True, the 'vvvv' and 'ovvv' four-center integrals will be stored in their compact form,
         otherwise the full array will be stored. Set to True for ccsd.CCSD and False for rccsd.RCCSD.
         Default: False.
-
+    store_vvl : bool, optional
+        If True, do not perform contraction (vv|L)(L|vv)->(vv|vv) and instead store three-center
+        elements (vv|L). This is needed for the pyscf.cc.dfccsd.RCCSD class. Default: False.
 
 
     Returns
@@ -219,10 +225,16 @@ def gdf_to_eris(gdf, mo_coeff, nocc, only_ovov=False, real_j3c=True, symmetry=Fa
     # (L|vv) dependend
         # These symmetries are used in ccsd.CCSD but not rccsd.RCCSD!
         if symmetry:
-            eris["vvvv"] = contract_j3c(j3c, "vvvv", symmetry=4)
+            if not store_vvl:
+                eris["vvvv"] = contract_j3c(j3c, "vvvv", symmetry=4)
+            else:
+                eris['vvL'] = pyscf.lib.pack_tril(j3c['vv']).T.copy()
             eris["ovvv"] = contract_j3c(j3c, "ovvv", symmetry=2)
         else:
-            eris["vvvv"] = contract_j3c(j3c, "vvvv")
+            if not store_vvl:
+                eris["vvvv"] = contract_j3c(j3c, "vvvv")
+            else:
+                eris['vvL'] = j3c['vv']
             eris["ovvv"] = contract_j3c(j3c, "ovvv")
 
         eris["oovv"] = contract_j3c(j3c, "oovv")

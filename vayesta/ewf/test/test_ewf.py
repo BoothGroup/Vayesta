@@ -495,20 +495,15 @@ def run_test():
     #test_cubic(bno_threshold=-1)
     #test_cubic('C', basis='gth-tzvp')
    # test_diamond(basis='gth-tzvp', bno_threshold=1e-8)
-    #ecc = test_graphene(basis='gth-dzv', bno_threshold=1e-4)
-    #assert np.isclose(ecc, -10.88016134)   # threshold 1e-4
+    ecc = test_graphene(basis='gth-dzv', bno_threshold=1e-4)
+    assert np.isclose(ecc, -10.88016134)   # threshold 1e-4
     #assert np.isclose(ecc, -10.89049556)   # threshold -1
 
     #test_graphene(basis='gth-tzvp', bno_threshold=1e-8)
     #test_graphene_bsse(basis='def2-svp', pseudo=None, kmesh=[2,2,1])
-    #test_fci_solver()
-    #test_perovskite()
-    test_diamond_bno_threshold(kmesh=[2,2,2])
+
+    #test_diamond_bno_threshold(kmesh=[2,2,2])
     #test_diamond_bno_threshold(bno_threshold=-1, kmesh=[2,2,2])
-    #test_diamond_bno_threshold(kmesh=[4,4,4])
-    #test_canonical_orth()
-    #sample_canonical_orth()
-    #test_full_ccsd_limit(-11.170842)
 
 if __name__ == "__main__":
     run_test()

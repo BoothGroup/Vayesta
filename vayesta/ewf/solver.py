@@ -5,6 +5,7 @@ import numpy as np
 
 import pyscf
 import pyscf.cc
+import pyscf.cc.dfccsd
 import pyscf.pbc
 
 from vayesta.core.util import *
@@ -219,7 +220,15 @@ class CCSDSolver(ClusterSolver):
         #    import pyscf.pbc.cc
         #    cls = pyscf.pbc.cc.CCSD
         #    #cls = pyscf.cc.ccsd.CCSD
-        cls = pyscf.cc.ccsd.CCSD
+
+        # For 2D-systems the Coulomb repulsion is not PSD
+        # Density-fitted CCSD does not support non-PSD three-center integrals,
+        # thus we need a four-center formulation, where non PSD elements can be summed in
+        if self.base.boundary_cond in ('periodic-1D', 'periodic-2D'):
+            cls = pyscf.cc.ccsd.CCSD
+        else:
+            cls = pyscf.cc.dfccsd.RCCSD
+
         self.log.debug("CCSD class= %r" % cls)
         cc = cls(self.mf, mo_coeff=self.mo_coeff, mo_occ=self.mo_occ, frozen=self.get_frozen_indices())
 
