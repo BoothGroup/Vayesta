@@ -97,6 +97,7 @@ def cmdline_tool():
     parser.add_argument('--bsse')
     parser.add_argument('--xcol', type=int, default=0)
     parser.add_argument('--ycol', type=int, default=1)
+    parser.add_argument('--no-plot', dest='plot', action='store_false', default=True)
     args = parser.parse_args()
 
     volume_func = lambda x : x
@@ -107,18 +108,32 @@ def cmdline_tool():
         raise ValueError()
 
     data = np.loadtxt(args.file)
+    print("Loading file %s using columns x= %d y= %d" % (args.file, args.xcol, args.ycol))
     x = data[:,args.xcol]
     y = data[:,args.ycol]
     if args.bsse:
-        data = np.loadtxt(args.bsse)
-        assert np.allclose(data[:,args.xcol], x)
-        y -= data[:,args.ycol]
+        print("Loading BSSE from file %s" % args.bsse)
+        bsse_data = np.loadtxt(args.bsse)
+        assert np.allclose(bsse_data[:,args.xcol], x)
+        y = y - bsse_data[:,args.ycol]
 
     x = volume_func(x)
-    e0, v0, b0 = fit_eos(x, y)
+    e0, v0, b0 = fit_eos(x, y, plot=args.plot)
     x0 = inv_volume_func(v0)
     print("Fit results: E0= %.4f Ha  x0= %.4f A  V0= %.4f A^3  B0= %.4f GPa" % (e0, x0, v0, b0))
 
 
 if __name__ == '__main__':
+    #import sys
+    #filename = sys.argv[1]
+    #data = np.loadtxt(filename)
+    #x = data[:,0]
+    #y = data[:,1]
+    #print('x= %r' % x)
+    #print('y= %r' % y)
+    #volume_func = lambda x : (x**3) / 4.0
+
+    #e0, v0, b0 = fit_from_file(filename, volume_func=volume_func)
+    #print("Fit results: E0= %.4f Ha  V0= %.4f A^3  B0= %.4f GPa" % (e0, v0, b0))
+
     cmdline_tool()
