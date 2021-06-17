@@ -4,7 +4,7 @@ project ("Vayesta")
 # OpenMP
 find_package(OpenMP)
 if(NOT OPENMP_FOUND)
-message(FATAL ERROR "Cannot find OpenMP")
+message(FATAL_ERROR "Cannot find OpenMP")
 endif()
 
 # BLAS
