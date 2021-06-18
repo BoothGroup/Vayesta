@@ -22,6 +22,7 @@ from vayesta.core import vlog
 from vayesta.core.util import *
 from vayesta.core.qfragment import QEmbeddingFragment
 from .kao2gmo import gdf_to_pyscf_eris
+from vayesta.misc.gdf import GDF
 
 
 class QEmbeddingMethod:
@@ -118,7 +119,7 @@ class QEmbeddingMethod:
             self.kcell = mf.mol
             self.kpts = mf.kpts
             # For GDF, we can unfold the three-center integrals later
-            if isinstance(mf.with_df, (pyscf.pbc.df.GDF, IncoreGDF)):
+            if isinstance(mf.with_df, (GDF, pyscf.pbc.df.GDF, IncoreGDF)):
                 self.log.debug("type(df._cderi)= %r", type(mf.with_df._cderi))
                 self.kdf = mf.with_df
             else:
