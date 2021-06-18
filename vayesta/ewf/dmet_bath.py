@@ -125,7 +125,7 @@ def make_dmet_bath(self, C_ref=None, nbath=None, tol=1e-4, reftol=0.8):
                     name = names[j]
                     break
             if name:
-                self.log.info("  * %-34s  n= %12.6g  1-n= %12.6g", name, e, 1-e)
+                self.log.info("  > %-34s  n= %12.6g  1-n= %12.6g", name, e, 1-e)
 
     # Calculate entanglement entropy
     entropy = np.sum(eig * (1-eig))
