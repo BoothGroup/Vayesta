@@ -140,14 +140,6 @@ class EWFFragment(QEmbeddingFragment):
         self.results = None
 
 
-    def __repr__(self):
-        keys = ['id', 'name', 'fragment_type', 'sym_factor', 'atoms', 'aos']    # QEmbeddingFragment
-        keys += ['solver', 'bno_threshold']                                     # EWFFragment
-        fmt = ('%s(' + len(keys)*'%s: %r, ')[:-2] + ')'
-        values = [self.__dict__[k] for k in keys]
-        return fmt % (self.__class__.__name__, *[x for y in zip(keys, values) for x in y])
-
-
     @property
     def e_corr(self):
         """Best guess for correlation energy, using the lowest BNO threshold."""

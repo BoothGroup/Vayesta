@@ -106,8 +106,8 @@ class QEmbeddingMethod:
         # 1) Logging
         # ----------
         self.log = log or logging.getLogger(__name__)
-        self.log.info("Initializing %s" % self)
-        self.log.info("*************%s" % (len(str(self))*"*"))
+        self.log.info("Initializing %s" % self.__class__.__name__)
+        self.log.info("*************%s" % (len(str(self.__class__.__name__))*"*"))
 
         # 2) Mean-field
         # -------------
@@ -164,9 +164,6 @@ class QEmbeddingMethod:
         fmt = ('%s(' + len(keys)*'%s: %r, ')[:-2] + ')'
         values = [self.__dict__[k] for k in keys]
         return fmt % (self.__class__.__name__, *[x for y in zip(keys, values) for x in y])
-
-    def __str__(self):
-        return self.__class__.__name__
 
     @property
     def mol(self):

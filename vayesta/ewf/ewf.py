@@ -162,6 +162,14 @@ class EWF(QEmbeddingMethod):
         self.results = []
         self.e_corr = 0.0
 
+
+    def __repr__(self):
+        keys = ['mf', 'bno_threshold', 'solver']
+        fmt = ('%s(' + len(keys)*'%s: %r, ')[:-2] + ')'
+        values = [self.__dict__[k] for k in keys]
+        return fmt % (self.__class__.__name__, *[x for y in zip(keys, values) for x in y])
+
+
     #def init_fragments(self):
     #    if self.opts.fragment_type.upper() == "IAO":
     #        #self.C_ao, self.C_env, self.iao_labels = self.make_iao_coeffs(minao=self.opts.iao_minao)
