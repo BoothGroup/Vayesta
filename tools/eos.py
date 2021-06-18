@@ -27,7 +27,7 @@ def birch_murnaghan(v, e0, v0, b0, bp):
     return ev
 
 
-def fit_eos(volumes, energies, fitfunc=birch_murnaghan, plot=True):
+def fit_eos(volumes, energies, fitfunc=birch_murnaghan, plot=True, value_at=None):
     """Fit EOS to volumes, energies data points."""
     # Estimate starting parameters
     minidx = np.argmin(energies)
@@ -65,8 +65,14 @@ def fit_eos(volumes, energies, fitfunc=birch_murnaghan, plot=True):
             """ % (e0, v0, b0)
             if other:
                 bp = other[0]
-                text += "$B'= % .6f$" % bp
-            ax.text(0.3, 0.9,  text, transform=ax.transAxes, ha='left', va='top')
+                text += "$B'= % .6f$\n" % bp
+            if value_at is not None:
+                xv = value_at
+                yv = fitfunc(xv, *popt)
+                text += "$E(%g\,\mathrm{\AA}^3)= %.6f\,\mathrm{Ha}$" % (xv, yv)
+                ax.plot([xv], [yv], label="Value at $V= %g\,\mathrm{\AA}^3$" % xv, marker='d', color='C3', markersize=12, markeredgecolor='black', ls='')
+
+            ax.text(0.3, 0.7,  text, transform=ax.transAxes, ha='left', va='top')
             ax.legend()
             if plot is True:
                 plt.show()
@@ -98,6 +104,7 @@ def cmdline_tool():
     parser.add_argument('--xcol', type=int, default=0)
     parser.add_argument('--ycol', type=int, default=1)
     parser.add_argument('--no-plot', dest='plot', action='store_false', default=True)
+    parser.add_argument('--value-at', type=float)
     args = parser.parse_args()
 
     volume_func = lambda x : x
@@ -118,7 +125,7 @@ def cmdline_tool():
         y = y - bsse_data[:,args.ycol]
 
     x = volume_func(x)
-    e0, v0, b0 = fit_eos(x, y, plot=args.plot)
+    e0, v0, b0 = fit_eos(x, y, plot=args.plot, value_at=args.value_at)
     x0 = inv_volume_func(v0)
     print("Fit results: E0= %.4f Ha  x0= %.4f A  V0= %.4f A^3  B0= %.4f GPa" % (e0, x0, v0, b0))
 
