@@ -73,6 +73,7 @@ def get_arguments():
     parser.add_argument("--counterpoise")
     parser.add_argument("--counterpoise-nimages", type=int, default=1)
     parser.add_argument("--counterpoise-rmax", type=float, default=np.inf)
+    parser.add_argument("--counterpoise-unit", default='a0')
     # Mean-field
     parser.add_argument("--save-scf", help="Save primitive cell SCF.", default="scf-%.2f.chk")           # If containg "%", it will be formatted as args.save_scf % a with a being the lattice constant
     parser.add_argument("--load-scf", help="Load primitive cell SCF.")
@@ -277,7 +278,8 @@ def make_cell(a, args, **kwargs):
         # Remove all but one atom, but keep basis functions of the 26 (3D) or 8 (2D) neighboring cells
         elif '*' in args.counterpoise:
             atmidx = int(args.counterpoise.replace('*', ''))
-            cell = counterpoise.make_mol(cell, atmidx, rmax=args.counterpoise_rmax, nimages=args.counterpoise_nimages, output='pyscf-cp-d.txt')
+            cell = counterpoise.make_mol(cell, atmidx, rmax=args.counterpoise_rmax, nimages=args.counterpoise_nimages,
+                    unit=args.counterpoise_unit, output='pyscf-cp-d.txt')
     return cell
 
 
