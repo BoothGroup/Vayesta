@@ -297,11 +297,23 @@ class CCSDSolver(ClusterSolver):
             g_cas[v,v,o,v] = g_cas[o,v,v,v].transpose(2,3,0,1)
             g_cas[v,v,v,o] = g_cas[v,v,o,v].transpose(1,0,3,2)
             # 4 v
-            if eris.vvvv.ndim == 2:
-                g_vvvv = pyscf.ao2mo.restore(1, np.asarray(eris.vvvv), nvir)
+            if hasattr(eris, 'vvvv') and eris.vvvv is not None:
+                if eris.vvvv.ndim == 2:
+                    g_vvvv = pyscf.ao2mo.restore(1, np.asarray(eris.vvvv), nvir)
+                else:
+                    g_vvvv = eris.vvvv[:]
+                g_cas[v,v,v,v] = einsum('IJKL,Ii,Jj,Kk,Ll->ijkl', g_vvvv, rv, rv, rv, rv)
+            # Note that this will not work for 2D systems!:
+            elif hasattr(eris, 'vvL') and eris.vvL is not None:
+                if eris.vvL.ndim == 2:
+                    naux = eris.vvL.shape[-1]
+                    vvl = pyscf.lib.unpack_tril(eris.vvL, axis=0).reshape(nvir,nvir,naux)
+                else:
+                    vvl = eris.vvl
+                vvl = einsum('IJQ,Ii,Jj->ijQ', vvl, rv, rv)
+                g_cas[v,v,v,v] = einsum('ijQ,klQ->ijkl', vvl.conj(), vvl)
             else:
-                g_vvvv = eris.vvvv[:]
-            g_cas[v,v,v,v] = einsum('IJKL,Ii,Jj,Kk,Ll->ijkl', g_vvvv, rv, rv, rv, rv)
+                raise RuntimeError("ERIs has not attribute 'vvvv' or 'vvL'.")
             self.log.timingv("Time to make CAS ERIs: %s", time_string(timer()-t0))
             return g_cas
 
@@ -324,6 +336,8 @@ class CCSDSolver(ClusterSolver):
             fcisolver = pyscf.fci.addons.fix_spin_(fcisolver, ss=self.opts.tcc_spin)
 
         e_fci, wf0 = fcisolver.kernel(h_eff, g_cas, ncas, nelec)
+        if not fcisolver.converged:
+            self.log.error("FCI not converged!")
         # Get C0,C1,and C2 from WF
         cisdvec = pyscf.ci.cisd.from_fcivec(wf0, ncas, nelec)
         c0, c1, c2 = pyscf.ci.cisd.cisdvec_to_amplitudes(cisdvec, ncas, ncasocc)

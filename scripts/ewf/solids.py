@@ -18,6 +18,7 @@ import pyscf.pbc.df
 import vayesta
 import vayesta.ewf
 from vayesta.misc import counterpoise
+from vayesta.misc import molstructs
 log = vayesta.log
 
 # Olli's incore GDF
@@ -54,7 +55,7 @@ def get_arguments():
     """Get arguments from command line."""
     parser = argparse.ArgumentParser(allow_abbrev=False)
     # System
-    parser.add_argument("--system", choices=["diamond", "graphite", "graphene", "hbn", "perovskite"], default="graphene")
+    parser.add_argument("--system", choices=["diamond", "graphite", "graphene", "hbn", "perovskite", 'SrTiO3-I4'], default="graphene")
     parser.add_argument("--atoms", nargs="*")
     parser.add_argument("--basis", default="def2-svp")
     parser.add_argument("--pseudopot", type=str_or_none)
@@ -161,6 +162,14 @@ def get_arguments():
                 #"lattice_consts" : np.arange(3.825, 3.975+1e-12, 0.025),
                 "lattice_consts" : np.asarray([3.905])
                 }
+    elif args.system == "SrTiO3-I4":
+        defaults = {
+                "atoms" : ["Sr", "Ti", "O"],
+                "ndim" : 3,
+                #"lattice_consts" : np.arange(3.8, 4.0+1e-12, 0.05),
+                #"lattice_consts" : np.arange(3.825, 3.975+1e-12, 0.025),
+                #"lattice_consts" : np.asarray([3.905])
+                }
 
     if args.auxbasis is not None and args.auxbasis.lower() == 'auto':
         args.auxbasis = default_auxbasis.get(args.basis)
@@ -182,78 +191,21 @@ def get_arguments():
 
     return args
 
-def make_diamond(a, atoms=["C", "C"]):
-    amat = a * np.asarray([
-        [0.5, 0.5, 0.0],
-        [0.0, 0.5, 0.5],
-        [0.5, 0.0, 0.5]])
-    coords = a * np.asarray([[0, 0, 0], [1, 1, 1]])/4
-    atom = [[atoms[0], coords[0]], [atoms[1], coords[1]]]
-    return amat, atom
-
-def make_graphene(a, c, atoms=['C', 'C']):
-    amat = np.asarray([
-            [a, 0, 0],
-            [a/2, a*np.sqrt(3.0)/2, 0],
-            [0, 0, c]])
-    coords_internal = np.asarray([
-        [2.0, 2.0, 3.0],
-        [4.0, 4.0, 3.0]])/6
-    coords = np.dot(coords_internal, amat)
-
-    atom = []
-    for i in range(len(atoms)):
-        if atoms[i] is not None:
-            atom.append([atoms[i], coords[i]])
-    #atom = [(atoms[0], coords[0]), (atoms[1], coords[1])]
-    return amat, atom
-
-def make_graphite(a, c=6.708, atoms=["C", "C", "C", "C"]):
-    """a = 2.461 A , c = 6.708 A"""
-    amat = np.asarray([
-            [a/2, -a*np.sqrt(3.0)/2, 0],
-            [a/2, +a*np.sqrt(3.0)/2, 0],
-            [0, 0, c]])
-    coords_internal = np.asarray([
-        [0,     0,      1.0/4],
-        [2.0/3, 1.0/3,  1.0/4],
-        [0,     0,      3.0/4],
-        [1.0/3, 2.0/3,  3.0/4]])
-    coords = np.dot(coords_internal, amat)
-    atom = [[atoms[i], coords[i]] for i in range(4)]
-    return amat, atom
-
-
-def make_perovskite(a, atoms=["Sr", "Ti", "O"]):
-    amat = a * np.eye(3)
-    coords = np.asarray([
-                [0,     0,      0],
-                [a/2,   a/2,    a/2],
-                [0,     a/2,    a/2],
-                [a/2,   0,      a/2],
-                [a/2,   a/2,    0]
-                ])
-    atom = [
-        [atoms[0], coords[0]],
-        [atoms[1], coords[1]],
-        [atoms[2], coords[2]],
-        [atoms[2], coords[3]],
-        [atoms[2], coords[4]],
-        ]
-    return amat, atom
-
 
 def make_cell(a, args, **kwargs):
 
     cell = pyscf.pbc.gto.Cell()
     if args.system == "diamond":
-        amat, atom = make_diamond(a, atoms=args.atoms)
+        amat, atom = molstructs.diamond(args.atoms, a=a)
     elif args.system == "graphite":
-        amat, atom = make_graphite(a, c=args.vacuum_size, atoms=args.atoms)
+        amat, atom = molstructs.graphite(args.atoms, a=a, c=args.vacuum_size)
     elif args.system in ("graphene", "hbn"):
-        amat, atom = make_graphene(a, c=args.vacuum_size, atoms=args.atoms)
+        amat, atom = molstructs.graphene(args.atoms, a=a, c=args.vacuum_size)
     elif args.system == "perovskite":
-        amat, atom = make_perovskite(a, atoms=args.atoms)
+        amat, atom = molstructs.perovskite(args.atoms, a=a)
+    elif args.system == "SrTiO3-I4":
+        amat, atom = molstructs.perovskite_tetragonal(args.atoms)
+
     cell.a, cell.atom = amat, atom
     cell.dimension = args.ndim
     cell.precision = args.precision
@@ -620,21 +572,13 @@ for i, a in enumerate(args.lattice_consts):
                     ccx.make_atom_fragment(0, sym_factor=ncells, **kwargs)
                     ccx.make_atom_fragment(1, sym_factor=ncells, **kwargs)
 
-            elif args.system == "perovskite":
-                #ccx.make_atom_cluster(0)
-                ## Ti needs larger threshold
-                #ccx.make_atom_cluster(1, bno_threshold_factor=10)
-                #ccx.make_atom_cluster(2, sym_factor=3)
-
-                # Ti needs larger threshold
-                #ccx.make_atom_fragment(0, sym_factor=ncells, bno_threshold_factor=0.3)
-                #ccx.make_atom_fragment(1, sym_factor=ncells)
-                #ccx.make_atom_fragment(2, sym_factor=3*ncells, bno_threshold_factor=0.03)
-
-                # Whole Ti:
-                #ccx.make_atom_fragment(1, sym_factor=ncells)
-                # Ti 3d:
-                ccx.make_ao_fragment('Ti 3d', sym_factor=ncells)
+            #elif args.system == "perovskite":
+            #    # Ti needs larger threshold
+            #    ccx.make_atom_fragment(0, sym_factor=ncells, bno_threshold_factor=0.3)
+            #    ccx.make_atom_fragment(1, sym_factor=ncells)
+            #    ccx.make_atom_fragment(2, sym_factor=3*ncells, bno_threshold_factor=0.03)
+            elif args.system in ("perovskite", 'SrTiO3-I4'):
+                ccx.make_atom_fragment(1, aos=['3d'], sym_factor=ncells)
             else:
                 raise RuntimeError()
 

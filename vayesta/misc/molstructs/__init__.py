@@ -1,3 +1,3 @@
 """Molecular structures"""
 
-from solids import *
+from .solids import *
