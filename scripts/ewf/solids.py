@@ -169,6 +169,8 @@ def get_arguments():
                 #"lattice_consts" : np.arange(3.8, 4.0+1e-12, 0.05),
                 #"lattice_consts" : np.arange(3.825, 3.975+1e-12, 0.025),
                 #"lattice_consts" : np.asarray([3.905])
+                #"lattice_consts" : np.asarray([5.507])
+                "lattice_consts" : np.asarray([5.522])
                 }
 
     if args.auxbasis is not None and args.auxbasis.lower() == 'auto':
@@ -204,7 +206,9 @@ def make_cell(a, args, **kwargs):
     elif args.system == "perovskite":
         amat, atom = molstructs.perovskite(args.atoms, a=a)
     elif args.system == "SrTiO3-I4":
-        amat, atom = molstructs.perovskite_tetragonal(args.atoms)
+        #amat, atom = molstructs.perovskite_tetragonal(args.atoms)
+        # Check equal to cubic:
+        amat, atom = molstructs.perovskite_tetragonal(args.atoms, a=5.522, c=7.796, u=0.25)
 
     cell.a, cell.atom = amat, atom
     cell.dimension = args.ndim
@@ -497,6 +501,17 @@ for i, a in enumerate(args.lattice_consts):
         log.debug("Converting basis of initial guess DM from %s to %s", cell_init_guess.basis, cell.basis)
         dm_init = pyscf.pbc.scf.addons.project_dm_nr2nr(cell_init_guess, dm_init, cell, kpts)
 
+    # TEST
+    if False:
+        scell = pyscf.pbc.tools.super_cell(cell, args.k_points)
+        atom = 1
+        center = scell.atom_coord(atom, unit='ANG')
+        distances = np.linalg.norm(center[None] -  scell.atom_coords(unit='ANG'), axis=1)
+        sort = np.argsort(distances)
+        for atm in sort:
+            print('%3d %-6s at %.6f %.6f %.6f  d= %.8f A' % (atm, scell.atom_symbol(atm),
+                *scell.atom_coord(atm, unit='ANG'), distances[atm]))
+
     # Mean-field
     if args.run_hf:
         mf = run_mf(a, cell, args, kpts=kpts, dm_init=dm_init)
@@ -578,7 +593,11 @@ for i, a in enumerate(args.lattice_consts):
             #    ccx.make_atom_fragment(1, sym_factor=ncells)
             #    ccx.make_atom_fragment(2, sym_factor=3*ncells, bno_threshold_factor=0.03)
             elif args.system in ("perovskite", 'SrTiO3-I4'):
-                ccx.make_atom_fragment(1, aos=['3d'], sym_factor=ncells)
+                #ccx.make_atom_fragment(1, aos=['3d'], sym_factor=ncells)
+
+                # 8 fragment orbitals:
+                aos = ['1 Ti 3dz', '1 Ti 3dx2-y2', '2 O 2px', '3 O 2py', '4 O 2pz', '22 O 2px', '13 O 2py', '9 O 2pz']
+                ccx.make_ao_fragment(aos, sym_factor=ncells)
             else:
                 raise RuntimeError()
 
