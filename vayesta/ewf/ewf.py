@@ -391,7 +391,7 @@ class EWF(QEmbeddingMethod):
 
 
     def pop_analysis(self, dm1, mo_coeff=None, filename=None, filemode='a',
-            refpop=None, reftol=0.1):
+            refpop=None, reftol=0.1, verbose=True):
         """
         Parameters
         ----------
@@ -410,7 +410,21 @@ class EWF(QEmbeddingMethod):
             self.log.info("[%s] Writing population analysis to file \"%s\"", tstamp, filename)
         c_loc = self.lo
         cs = np.dot(c_loc.T, self.get_ovlp())
-        pop = einsum('ia,ab,jb->i', cs, dm1, cs)
+        pop = einsum('ia,ab,ib->i', cs, dm1, cs)
+
+        # Get atomic charges
+        chg = np.zeros(self.mol.natm)
+        for i, label in enumerate(self.mol.ao_labels(fmt=None)):
+            chg[label[0]] += pop[i]
+        chg = self.mol.atom_charges() - chg
+
+        # TEST
+        #cs = np.dot(c_loc.T, self.get_ovlp())
+        #dm1 = np.linalg.multi_dot((cs, dm1, cs.T))
+        #self.mf.mulliken_pop(self.mol, dm1, np.eye(self.mol.nao_nr()))
+
+        if not verbose:
+            return pop, chg
 
         # Output
         if filename is None:
@@ -420,24 +434,34 @@ class EWF(QEmbeddingMethod):
             write("[%s] Population analysis" % tstamp)
             write("*%s*********************" % (26*"*"))
 
-        atom = 0
-        atom_chg = 0
-        for i, label in enumerate(self.mol.ao_labels(fmt=None)):
-            if label[0] != atom:
-                write("Charge of atom %d%-6s= % 11.8f", atom, self.mol.atom_symbol(atom), atom_chg)
-                atom = label[0]
-                atom_chg = 0
-            fmtlabel = '%d%3s %s%-4s' % label
-            if (refpop is not None and abs(pop[i]-refpop[i]) >= reftol):
-                write("    %4d %-16s= % 11.8f (reference= % 11.8f !)" % (i, fmtlabel, pop[i], refpop[i]))
-            else:
-                write("    %4d %-16s= % 11.8f" % (i, fmtlabel, pop[i]))
-            atom_chg += pop[i]
-        write("Charge of atom %d%-6s= % 11.8f", atom, self.mol.atom_symbol(atom), atom_chg)
+        aoslices = self.mol.aoslice_by_atom()[:,2:]
+        aolabels = self.mol.ao_labels()
+
+        for atom in range(self.mol.natm):
+            write("> Charge of atom %d%-6s= % 11.8f", atom, self.mol.atom_symbol(atom), chg[atom])
+            aos = aoslices[atom]
+            for ao in range(aos[0], aos[1]):
+                label = aolabels[ao]
+                #fmtlabel = '%d%3s %s%-4s' % label
+                write("    %4d %-16s= % 11.8f" % (ao, label, pop[ao]))
+        #atom = 0
+        #atom_chg = 0
+        #for i, label in enumerate(self.mol.ao_labels(fmt=None)):
+        #    if label[0] != atom:
+        #        write("Charge of atom %d%-6s= % 11.8f", atom, self.mol.atom_symbol(atom), atom_chg)
+        #        atom = label[0]
+        #        atom_chg = 0
+        #    fmtlabel = '%d%3s %s%-4s' % label
+        #    if (refpop is not None and abs(pop[i]-refpop[i]) >= reftol):
+        #        write("    %4d %-16s= % 11.8f (reference= % 11.8f !)" % (i, fmtlabel, pop[i], refpop[i]))
+        #    else:
+        #        write("    %4d %-16s= % 11.8f" % (i, fmtlabel, pop[i]))
+        #    atom_chg += pop[i]
+        #write("Charge of atom %d%-6s= % 11.8f", atom, self.mol.atom_symbol(atom), atom_chg)
 
         if filename is not None:
             f.close()
-        return pop
+        return pop, chg
 
 
     def tailor_all_fragments(self):
@@ -495,7 +519,7 @@ class EWF(QEmbeddingMethod):
                 filename = self.opts.pop_analysis
             else:
                 filename = None
-            self.pop_mf = self.pop_analysis(dm1, filename=filename)
+            self.pop_mf = self.pop_analysis(dm1, filename=filename)[0]
 
         nelec_frags = sum([f.sym_factor*f.nelectron for f in self.loop()])
         self.log.info("Total number of mean-field electrons over all fragments= %.8f", nelec_frags)

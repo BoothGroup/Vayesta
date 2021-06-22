@@ -99,6 +99,7 @@ def get_arguments():
     parser.add_argument("--ccsd-diis-start-cycle", type=int)
     parser.add_argument("--opts", nargs="*", default=[])
     parser.add_argument("--plot-orbitals-crop-c", type=float, nargs=2)
+    parser.add_argument("--pop-analysis", type=str)
     # Bath specific
     parser.add_argument("--dmet-threshold", type=float, default=1e-4, help="Threshold for DMET bath orbitals. Default= 1e-4")
     parser.add_argument("--bno-threshold", type=float, nargs="*",
@@ -110,9 +111,10 @@ def get_arguments():
     parser.add_argument("--run-ewf", type=int, default=1)
 
     # Benchmark
-    parser.add_argument("--dft-xc", nargs="*", default=[])
-    parser.add_argument("--canonical-mp2", action="store_true", help="Perform canonical MP2 calculation.")
-    parser.add_argument("--canonical-ccsd", action="store_true", help="Perform canonical CCSD calculation.")
+    #parser.add_argument("--dft-xc", nargs="*", default=[])
+    #parser.add_argument("--canonical-mp2", action="store_true", help="Perform canonical MP2 calculation.")
+    #parser.add_argument("--canonical-ccsd", action="store_true", help="Perform canonical CCSD calculation.")
+    parser.add_argument("--benchmarks")
 
     args, restargs = parser.parse_known_args()
     sys.argv[1:] = restargs
@@ -156,7 +158,8 @@ def get_arguments():
                 "atoms" : ["Sr", "Ti", "O"],
                 "ndim" : 3,
                 #"lattice_consts" : np.arange(3.8, 4.0+1e-12, 0.05),
-                "lattice_consts" : np.arange(3.825, 3.975+1e-12, 0.025),
+                #"lattice_consts" : np.arange(3.825, 3.975+1e-12, 0.025),
+                "lattice_consts" : np.asarray([3.905])
                 }
 
     if args.auxbasis is not None and args.auxbasis.lower() == 'auto':
@@ -175,7 +178,7 @@ def get_arguments():
         log.info("PARAMETERS IN INPUT SCRIPT")
         log.info("**************************")
         for name, value in sorted(vars(args).items()):
-            log.info("  * %-32s: %r", name, value)
+            log.info("  > %-32s %r", name+':', value)
 
     return args
 
@@ -310,7 +313,7 @@ def pop_analysis(mf, filename=None, mode="a"):
 
     return pop, chg
 
-def get_mf(cell, kpts=kpts, xc='hf'):
+def get_mf(cell, kpts=None, xc='hf'):
     if kpts is None:
         if hasattr(cell, 'a') and cell.a is not None:
             if xc is None or xc.lower() == "hf":
@@ -450,14 +453,18 @@ def run_benchmarks(a, cell, mf, kpts, args):
 
     # DFT
     df = None
-    for xc in args.dft_xc:
+    #for xc in args.dft_xc:
+    for bm in args.benchmarks:
+        if not bm.startswith('DFT-'):
+            continue
+        xc = bm[4:]
         dft = run_mf(a, cell, args, kpts=kpts, xc=xc, df=df)
         if df is None:
             df = dft.with_df
         energies[xc] = [dft.e_tot]
 
     # Canonical MP2
-    if args.canonical_mp2:
+    if 'MP2' in args.benchmarks:
         import pyscf.pbc.mp
         try:
             t0 = timer()
@@ -473,7 +480,7 @@ def run_benchmarks(a, cell, mf, kpts, args):
             log.error("Error in canonical MP2 calculation: %s", e)
 
     # Canonical CCSD
-    if args.canonical_ccsd:
+    if 'CCSD' in args.benchmarks:
         import pyscf.pbc.cc
         try:
             t0 = timer()
@@ -565,7 +572,8 @@ for i, a in enumerate(args.lattice_consts):
     #    nkpts = 1
 
     # DFT and Post-HF benchmarks
-    energies.update(run_benchmarks(a, cell, mf, kpts, args))
+    if args.benchmarks:
+        energies.update(run_benchmarks(a, cell, mf, kpts, args))
 
     if args.run_ewf:
         energies["ccsd"] = []
@@ -577,6 +585,8 @@ for i, a in enumerate(args.lattice_consts):
         # ----------------------
 
         kwargs = {opt : True for opt in args.opts}
+        if args.pop_analysis:
+            kwargs['pop_analysis'] = args.pop_analysis
         solver_options = {}
         if args.ccsd_diis_start_cycle is not None:
             solver_options["diis_start_cycle"] = args.ccsd_diis_start_cycle
@@ -617,9 +627,14 @@ for i, a in enumerate(args.lattice_consts):
                 #ccx.make_atom_cluster(2, sym_factor=3)
 
                 # Ti needs larger threshold
-                ccx.make_atom_fragment(0, sym_factor=ncells, bno_threshold_factor=0.3)
-                ccx.make_atom_fragment(1, sym_factor=ncells)
-                ccx.make_atom_fragment(2, sym_factor=3*ncells, bno_threshold_factor=0.03)
+                #ccx.make_atom_fragment(0, sym_factor=ncells, bno_threshold_factor=0.3)
+                #ccx.make_atom_fragment(1, sym_factor=ncells)
+                #ccx.make_atom_fragment(2, sym_factor=3*ncells, bno_threshold_factor=0.03)
+
+                # Whole Ti:
+                #ccx.make_atom_fragment(1, sym_factor=ncells)
+                # Ti 3d:
+                ccx.make_ao_fragment('Ti 3d', sym_factor=ncells)
             else:
                 raise RuntimeError()
 
