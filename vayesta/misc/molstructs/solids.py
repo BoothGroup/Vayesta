@@ -65,6 +65,11 @@ def perovskite_tetragonal(atoms=['Sr', 'Ti', 'O'], a=5.507, c=7.796, u=0.241):
     a = 5.522 A, c = 2a0 = 7.810 A , u = 0.25
     (see DOI: 10.1103/PhysRevB.83.134108)
     """
+    if a is None:
+        a = c/np.sqrt(2)
+    if c is None:
+        c = np.sqrt(2)*a
+
     if len(atoms) == 3:
         atoms = [atoms[0], atoms[1]] + 3*[atoms[2]]
     if len(atoms) == 5:
@@ -73,7 +78,7 @@ def perovskite_tetragonal(atoms=['Sr', 'Ti', 'O'], a=5.507, c=7.796, u=0.241):
     amat = a * np.eye(3)
     amat[2,2] = c
 
-    #coords = a*np.asarray([
+    #coords_internal = a*np.asarray([
     #            [0      ,   0.5     ,   0.25],  # Sr
     #            [0.5    ,   0       ,   0.75],  # Sr
     #            [0.5    ,   0       ,   0.25],  # Sr
@@ -96,7 +101,7 @@ def perovskite_tetragonal(atoms=['Sr', 'Ti', 'O'], a=5.507, c=7.796, u=0.241):
     #            [u      ,   0.5-u   ,   0.5],   # O
     #            ])
     # Order?
-    coords = a*np.asarray([
+    coords_internal = np.asarray([
                 [0      ,   0.5     ,   0.25],  # Sr
                 [0      ,   0       ,   0],     # Ti
                 [0      ,   0       ,   0.25],  # O (4a)
@@ -118,6 +123,7 @@ def perovskite_tetragonal(atoms=['Sr', 'Ti', 'O'], a=5.507, c=7.796, u=0.241):
                 [0.5+u  ,   -u      ,   0],     # O
                 [u      ,   0.5-u   ,   0.5],   # O
                 ])
+    coords = np.dot(coords_internal, amat)
 
     atom = _make_atom(atoms, coords)
     return amat, atom

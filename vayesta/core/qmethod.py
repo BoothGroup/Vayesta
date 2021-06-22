@@ -428,7 +428,7 @@ class QEmbeddingMethod:
                 if atom_label not in all_atom_labels:
                     raise ValueError("Atom with label %s not in molecule." % atom_label)
             atom_indices = np.nonzero(np.isin(all_atom_labels, atom_labels))[0]
-        assert len(atom_indices) == len(atom_labels)
+        #assert len(atom_indices) == len(atom_labels)
 
         # Generate cluster name if not given
         if name is None:

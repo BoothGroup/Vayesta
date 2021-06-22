@@ -157,6 +157,17 @@ class EWFFragment(QEmbeddingFragment):
         self.log.info("****************")
         self.log.changeIndentLevel(1)
         c_dmet, c_env_occ, c_env_vir = self.make_dmet_bath(tol=self.opts.dmet_threshold)
+        # DMET bath analysis
+        self.log.info("DMET bath character:")
+        for i in range(c_dmet.shape[-1]):
+            ovlp = einsum('a,b,ba->a', c_dmet[:,i], c_dmet[:,i], self.base.get_ovlp())
+            sort = np.argsort(-ovlp)
+            ovlp = ovlp[sort]
+            n = np.amin((np.count_nonzero(ovlp >= 0.2), 5))
+            labels = np.asarray(self.mol.ao_labels())[sort][:n]
+            lines = [("%s= %.5f" % (labels[i].strip(), ovlp[i])) for i in range(n)]
+            self.log.info("  > %2d:   %s", i+1, '  '.join(lines))
+
         self.log.timing("Time for DMET bath:  %s", time_string(timer()-t0))
         self.log.changeIndentLevel(-1)
 

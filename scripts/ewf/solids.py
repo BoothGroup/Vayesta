@@ -207,8 +207,9 @@ def make_cell(a, args, **kwargs):
         amat, atom = molstructs.perovskite(args.atoms, a=a)
     elif args.system == "SrTiO3-I4":
         #amat, atom = molstructs.perovskite_tetragonal(args.atoms)
-        # Check equal to cubic:
-        amat, atom = molstructs.perovskite_tetragonal(args.atoms, a=5.522, c=7.796, u=0.25)
+        # Cubic structure:
+        a0 = 3.905
+        amat, atom = molstructs.perovskite_tetragonal(args.atoms, a=np.sqrt(2)*a0, c=2*a0, u=0.25)
 
     cell.a, cell.atom = amat, atom
     cell.dimension = args.ndim
@@ -502,15 +503,17 @@ for i, a in enumerate(args.lattice_consts):
         dm_init = pyscf.pbc.scf.addons.project_dm_nr2nr(cell_init_guess, dm_init, cell, kpts)
 
     # TEST
+    #if True:
     if False:
         scell = pyscf.pbc.tools.super_cell(cell, args.k_points)
-        atom = 1
+        atom = 6
         center = scell.atom_coord(atom, unit='ANG')
         distances = np.linalg.norm(center[None] -  scell.atom_coords(unit='ANG'), axis=1)
         sort = np.argsort(distances)
         for atm in sort:
             print('%3d %-6s at %.6f %.6f %.6f  d= %.8f A' % (atm, scell.atom_symbol(atm),
                 *scell.atom_coord(atm, unit='ANG'), distances[atm]))
+        raise SystemExit()
 
     # Mean-field
     if args.run_hf:
@@ -593,11 +596,21 @@ for i, a in enumerate(args.lattice_consts):
             #    ccx.make_atom_fragment(1, sym_factor=ncells)
             #    ccx.make_atom_fragment(2, sym_factor=3*ncells, bno_threshold_factor=0.03)
             elif args.system in ("perovskite", 'SrTiO3-I4'):
-                #ccx.make_atom_fragment(1, aos=['3d'], sym_factor=ncells)
-
-                # 8 fragment orbitals:
-                aos = ['1 Ti 3dz', '1 Ti 3dx2-y2', '2 O 2px', '3 O 2py', '4 O 2pz', '22 O 2px', '13 O 2py', '9 O 2pz']
-                ccx.make_ao_fragment(aos, sym_factor=ncells)
+                ccx.make_atom_fragment(1, aos=['4s', '3d'], sym_factor=ncells)
+            #elif args.system in ('perovskite',):
+            #    # 8 fragment orbitals:
+            #    aos = ['1 Ti 3dz', '1 Ti 3dx2-y2', '2 O 2px', '3 O 2py', '4 O 2pz', '22 O 2px', '13 O 2py', '9 O 2pz']
+            #    ccx.make_ao_fragment(aos, sym_factor=ncells)
+            #elif (args.system == 'SrTiO3-I4'):
+	    #    #  6 Ti     at 2.761252 2.761252 3.905000  d= 0.00000000 A
+	    #    # 17 O      at 2.761252 2.761252 1.952500  d= 1.95250000 A	-z
+	    #    #  4 O      at 4.141878 1.380626 3.905000  d= 1.95250000 A	# Problem: x-y rotated!
+	    #    # 19 O      at 1.380626 1.380626 3.905000  d= 1.95250000 A
+	    #    # 94 O      at 4.141878 4.141878 3.905000  d= 1.95250000 A
+	    #    # 49 O      at 1.380626 4.141878 3.905000  d= 1.95250000 A
+	    #    #  7 O      at 2.761252 2.761252 5.857500  d= 1.95250000 A	+z
+            #    aos = ['6 Ti 3dz', '6 Ti 3dx2-y2', ' O 2px', '3 O 2py', '4 O 2pz', '22 O 2px', '13 O 2py', '9 O 2pz']
+            #    ccx.make_ao_fragment(aos, sym_factor=ncells)
             else:
                 raise RuntimeError()
 
