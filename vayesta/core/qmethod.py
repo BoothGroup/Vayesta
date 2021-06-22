@@ -389,20 +389,22 @@ class QEmbeddingMethod:
     # Fragmentation methods
     # ---------------------
 
-    def make_atom_fragment(self, atoms, name=None, fragment_type=None, **kwargs):
+    def make_atom_fragment(self, atoms, aos=None, name=None, fragment_type=None, **kwargs):
         """Create a fragment for one atom or a set of atoms.
 
         Parameters
         ----------
         atoms : list
             List of atom IDs or labels.
+        aos : list, optional
+            Additionally restrict fragment orbitals to a specific AO type (e.g. '2p'). Default: None.
         name : str, optional
             Name for fragment.
         fragment_type : [None, 'IAO', "Lowdin-AO', 'AO']
             Fragment orbital type. If `None`, the value of `self.default_fragment_type` is used.
             Default: `None`.
         **kwargs :
-            Additional keyword arguments will be passed through to `make_fragment`.
+            Additional keyword arguments will be passed through to `add_fragment`.
 
         Returns
         -------
@@ -438,6 +440,14 @@ class QEmbeddingMethod:
             iao_atoms = [iao[0] for iao in self.iao_labels]
             # Indices of IAOs based at atoms
             frag_iaos = np.nonzero(np.isin(iao_atoms, atom_indices))[0]
+            refmol = pyscf.lo.iao.reference_mol(self.mol, minao=self.iao_minao)
+            if aos is not None:
+                for ao in aos:
+                    if len(refmol.search_ao_label(ao)) == 0:
+                        raise ValueError("No orbitals matching the label %s in molecule", ao)
+                ao_indices = refmol.search_ao_label(aos)
+                frag_iaos = [i for i in frag_iaos if (i in ao_indices)]
+            self.log.debug("Adding fragment orbitals %r", np.asarray(refmol.ao_labels())[frag_iaos].tolist())
             c_frag = self.iao_coeff[:,frag_iaos].copy()
             # Combine remaining IAOs and rest virtual space (`iao_rest_coeff`)
             #rest_iaos = np.asarray([i for i in np.arange(self.iao_coeff.shape[-1]) if i not in frag_iaos])
@@ -469,7 +479,7 @@ class QEmbeddingMethod:
         else:
             raise ValueError("Unknown fragment_type: %s" % fragment_type)
 
-        frag = self.make_fragment(name, c_frag, c_env, fragment_type=fragment_type, atoms=atom_indices, **kwargs)
+        frag = self.add_fragment(name, c_frag, c_env, fragment_type=fragment_type, atoms=atom_indices, **kwargs)
         return frag
 
 
@@ -489,7 +499,7 @@ class QEmbeddingMethod:
             Fragment orbital type. If `None`, the value of `self.default_fragment_type` is used.
             Default: `None`.
         **kwargs :
-            Additional keyword arguments will be passed through to `make_fragment`.
+            Additional keyword arguments will be passed through to `add_fragment`.
 
         Returns
         -------
@@ -551,11 +561,11 @@ class QEmbeddingMethod:
         else:
             raise ValueError("Unknown fragment_type: %s" % fragment_type)
 
-        frag = self.make_fragment(name, c_frag, c_env, fragment_type=fragment_type, **kwargs)
+        frag = self.add_fragment(name, c_frag, c_env, fragment_type=fragment_type, **kwargs)
         return frag
 
 
-    def make_fragment(self, name, c_frag, c_env, fragment_type, sym_factor=1.0, **kwargs):
+    def add_fragment(self, name, c_frag, c_env, fragment_type, sym_factor=1.0, **kwargs):
         """Create Fragment object and add to fragment list.
 
         This may have to be shadowed by an embedding method specific version!

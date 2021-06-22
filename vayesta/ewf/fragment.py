@@ -398,7 +398,7 @@ class EWFFragment(QEmbeddingFragment):
                 dm1[np.diag_indices(nocc)] = 2
                 a = cluster_solver.get_active_slice()
                 dm1[a,a] = solver_results.dm1
-                self.base.pop_analysis(dm1, mo_coeff=mo_coeff, filename=filename, refpop=self.base.pop_mf)
+                self.base.pop_analysis(dm1, mo_coeff=mo_coeff, filename=filename)
             except Exception as e:
                 self.log.error("Exception in population analysis: %s", e)
 

@@ -390,8 +390,7 @@ class EWF(QEmbeddingMethod):
     #    return frag
 
 
-    def pop_analysis(self, dm1, mo_coeff=None, filename=None, filemode='a',
-            refpop=None, reftol=0.1, verbose=True):
+    def pop_analysis(self, dm1, mo_coeff=None, filename=None, filemode='a', verbose=True):
         """
         Parameters
         ----------
@@ -400,40 +399,31 @@ class EWF(QEmbeddingMethod):
         """
         if mo_coeff is not None:
             dm1 = einsum('ai,ij,bj->ab', mo_coeff, dm1, mo_coeff)
-
-        if filename is None:
-            write = lambda *args : self.log.info(*args)
-        else:
-            f = open(filename, filemode)
-            write = lambda fmt, *args : f.write((fmt+'\n') % args)
-            tstamp = datetime.now()
-            self.log.info("[%s] Writing population analysis to file \"%s\"", tstamp, filename)
         c_loc = self.lo
         cs = np.dot(c_loc.T, self.get_ovlp())
         pop = einsum('ia,ab,ib->i', cs, dm1, cs)
-
         # Get atomic charges
         chg = np.zeros(self.mol.natm)
         for i, label in enumerate(self.mol.ao_labels(fmt=None)):
             chg[label[0]] += pop[i]
         chg = self.mol.atom_charges() - chg
 
-        # TEST
-        #cs = np.dot(c_loc.T, self.get_ovlp())
-        #dm1 = np.linalg.multi_dot((cs, dm1, cs.T))
-        #self.mf.mulliken_pop(self.mol, dm1, np.eye(self.mol.nao_nr()))
-
         if not verbose:
             return pop, chg
 
-        # Output
         if filename is None:
+            write = lambda *args : self.log.info(*args)
             write("Population analysis")
             write("*******************")
         else:
+            f = open(filename, filemode)
+            write = lambda fmt, *args : f.write((fmt+'\n') % args)
+            tstamp = datetime.now()
+            self.log.info("[%s] Writing population analysis to file \"%s\"", tstamp, filename)
             write("[%s] Population analysis" % tstamp)
             write("*%s*********************" % (26*"*"))
 
+        #shellslices = self.mol.aoslice_by_atom()[:,:2]
         aoslices = self.mol.aoslice_by_atom()[:,2:]
         aolabels = self.mol.ao_labels()
 
@@ -442,22 +432,9 @@ class EWF(QEmbeddingMethod):
             aos = aoslices[atom]
             for ao in range(aos[0], aos[1]):
                 label = aolabels[ao]
-                #fmtlabel = '%d%3s %s%-4s' % label
                 write("    %4d %-16s= % 11.8f" % (ao, label, pop[ao]))
-        #atom = 0
-        #atom_chg = 0
-        #for i, label in enumerate(self.mol.ao_labels(fmt=None)):
-        #    if label[0] != atom:
-        #        write("Charge of atom %d%-6s= % 11.8f", atom, self.mol.atom_symbol(atom), atom_chg)
-        #        atom = label[0]
-        #        atom_chg = 0
-        #    fmtlabel = '%d%3s %s%-4s' % label
-        #    if (refpop is not None and abs(pop[i]-refpop[i]) >= reftol):
-        #        write("    %4d %-16s= % 11.8f (reference= % 11.8f !)" % (i, fmtlabel, pop[i], refpop[i]))
-        #    else:
-        #        write("    %4d %-16s= % 11.8f" % (i, fmtlabel, pop[i]))
-        #    atom_chg += pop[i]
-        #write("Charge of atom %d%-6s= % 11.8f", atom, self.mol.atom_symbol(atom), atom_chg)
+            #for sh in range(self.mol.nbas):
+            #    # Loop over AOs in shell
 
         if filename is not None:
             f.close()
@@ -528,7 +505,6 @@ class EWF(QEmbeddingMethod):
 
 
         for i, bno_thr in enumerate(bno_threshold):
-
             e_corr_1 = 0.0
             e_corr_last = 0.0
             # Self consistency loop
