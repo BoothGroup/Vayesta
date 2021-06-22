@@ -53,8 +53,7 @@ class EWFOptions(Options):
     # --- Solver settings
     solver_options: dict = dataclasses.field(default_factory=dict)
     make_rdm1: bool = False
-    pop_analysis: bool = False          # Do population analysis
-    popfile: str = 'population'         # Filename for population analysis
+    pop_analysis: str = False          # Do population analysis
     eom_ccsd: bool = False              # Perform EOM-CCSD in each cluster by default
     eomfile: str = 'eom-ccsd'           # Filename for EOM-CCSD states
     # Counterpoise correction of BSSE
@@ -76,7 +75,7 @@ class EWFResults:
     e_corr: float = None
 
 
-VALID_SOLVERS = [None, "", "MP2", "CISD", "CCSD", "CCSD(T)", 'FCI', "FCI-spin0", "FCI-spin1"]
+VALID_SOLVERS = [None, "", "MP2", "CISD", "CCSD", 'TCCSD', "CCSD(T)", 'FCI', "FCI-spin0", "FCI-spin1"]
 
 class EWF(QEmbeddingMethod):
 
@@ -102,6 +101,9 @@ class EWF(QEmbeddingMethod):
             options = EWFOptions(**kwargs)
         else:
             options = options.replace(kwargs)
+        # Options logic
+        if options.pop_analysis:
+            options.make_rdm1 = True
         self.opts = options
         self.log.info("EWF parameters:")
         for key, val in self.opts.items():
@@ -155,7 +157,8 @@ class EWF(QEmbeddingMethod):
         #self.e_delta_mp2 = 0.0      # MP2 correction
 
         # Population analysis
-        self.pop_mf = self.pop_mf_chg = None
+        self.pop_mf = None
+        #self.pop_mf_chg = None
 
         self.iteration = 0
         self.cluster_results = {}
@@ -386,30 +389,55 @@ class EWF(QEmbeddingMethod):
 
     #    return frag
 
-    def pop_analysis(self, filename=None, mode="a"):
-        if filename is None and self.opts.popfile:
-            filename = "%s.txt" % self.opts.popfile
-        mo = np.linalg.solve(self.lo, self.mf.mo_coeff)
-        dm = self.mf.make_rdm1(mo, self.mf.mo_occ)
-        pop, chg = self.mf.mulliken_pop(dm=dm, s=np.eye(dm.shape[-1]))
 
-        if filename:
+    def pop_analysis(self, dm1, mo_coeff=None, filename=None, filemode='a',
+            refpop=None, reftol=0.1):
+        """
+        Parameters
+        ----------
+        dm1 : (N, N) array
+            If `mo_coeff` is None, AO representation is assumed!
+        """
+        if mo_coeff is not None:
+            dm1 = einsum('ai,ij,bj->ab', mo_coeff, dm1, mo_coeff)
+
+        if filename is None:
+            write = lambda *args : self.log.info(*args)
+        else:
+            f = open(filename, filemode)
+            write = lambda fmt, *args : f.write((fmt+'\n') % args)
             tstamp = datetime.now()
-            self.log.info("[%s] Writing mean-field population analysis to file \"%s\"", tstamp, filename)
-            with open(filename, mode) as f:
-                f.write("[%s] Mean-field population analysis\n" % tstamp)
-                f.write("*%s********************************\n" % (26*"*"))
-                # per orbital
-                for i, s in enumerate(self.mol.ao_labels()):
-                    f.write("  * MF population of OrthAO %4d %-16s = %10.5f\n" % (i, s, pop[i]))
-                # per atom
-                f.write("[%s] Mean-field atomic charges\n" % tstamp)
-                f.write("*%s***************************\n" % (26*"*"))
-                for ia in range(self.mol.natm):
-                    symb = self.mol.atom_symbol(ia)
-                    f.write("  * MF charge at atom %3d %-3s = %10.5f\n" % (ia, symb, chg[ia]))
+            self.log.info("[%s] Writing population analysis to file \"%s\"", tstamp, filename)
+        c_loc = self.lo
+        cs = np.dot(c_loc.T, self.get_ovlp())
+        pop = einsum('ia,ab,jb->i', cs, dm1, cs)
 
-        return pop, chg
+        # Output
+        if filename is None:
+            write("Population analysis")
+            write("*******************")
+        else:
+            write("[%s] Population analysis" % tstamp)
+            write("*%s*********************" % (26*"*"))
+
+        atom = 0
+        atom_chg = 0
+        for i, label in enumerate(self.mol.ao_labels(fmt=None)):
+            if label[0] != atom:
+                write("Charge of atom %d%-6s= % 11.8f", atom, self.mol.atom_symbol(atom), atom_chg)
+                atom = label[0]
+                atom_chg = 0
+            fmtlabel = '%d%3s %s%-4s' % label
+            if (refpop is not None and abs(pop[i]-refpop[i]) >= reftol):
+                write("    %4d %-16s= % 11.8f (reference= % 11.8f !)" % (i, fmtlabel, pop[i], refpop[i]))
+            else:
+                write("    %4d %-16s= % 11.8f" % (i, fmtlabel, pop[i]))
+            atom_chg += pop[i]
+        write("Charge of atom %d%-6s= % 11.8f", atom, self.mol.atom_symbol(atom), atom_chg)
+
+        if filename is not None:
+            f.close()
+        return pop
 
 
     def tailor_all_fragments(self):
@@ -462,7 +490,12 @@ class EWF(QEmbeddingMethod):
         # Mean-field population analysis
         self.lo = pyscf.lo.orth_ao(self.mol, "lowdin")
         if self.opts.pop_analysis:
-            self.pop_mf, self.pop_mf_chg = self.pop_analysis()
+            dm1 = self.mf.make_rdm1()
+            if isinstance(self.opts.pop_analysis, str):
+                filename = self.opts.pop_analysis
+            else:
+                filename = None
+            self.pop_mf = self.pop_analysis(dm1, filename=filename)
 
         nelec_frags = sum([f.sym_factor*f.nelectron for f in self.loop()])
         self.log.info("Total number of mean-field electrons over all fragments= %.8f", nelec_frags)

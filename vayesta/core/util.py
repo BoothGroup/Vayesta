@@ -125,11 +125,11 @@ class Options:
 
         # Only replace values which are in select
         if select is not SelectNotSet:
-            if np.ndim(select) == 0:
-                select = [select]
+            #if np.ndim(select) == 0:
+            #    select = [select]
             updates = {}
             for key, val in self.items():
-                if val in select:
+                if val is select:
                     log.debugv("Replacing option %s : %r -> %r", key, val, other[key])
                     updates[key] = copy.copy(other[key])
                 else:

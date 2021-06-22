@@ -124,7 +124,7 @@ def get_arguments():
                 "ndim" : 3,
                 #"lattice_consts" : np.arange(3.4, 3.8+1e-12, 0.1),
                 # a0 ~ 3.56
-                "lattice_consts" : np.arange(3.4, 3.7+1e-12, 0.05),
+                "lattice_consts" : np.arange(3.4, 3.7+1e-12, 0.05), # 7 calculations
                 }
     elif args.system == "graphite":
         defaults = {
@@ -310,7 +310,7 @@ def pop_analysis(mf, filename=None, mode="a"):
 
     return pop, chg
 
-def run_mf(a, cell, args, kpts=None, dm_init=None, xc="hf", df=None, build_df_early=False):
+def get_mf(cell, kpts=kpts, xc='hf'):
     if kpts is None:
         if hasattr(cell, 'a') and cell.a is not None:
             if xc is None or xc.lower() == "hf":
@@ -330,6 +330,10 @@ def run_mf(a, cell, args, kpts=None, dm_init=None, xc="hf", df=None, build_df_ea
         else:
             mf = pyscf.pbc.dft.KRKS(cell, kpts)
             mf.xc = xc
+    return mf
+
+def run_mf(a, cell, args, kpts=None, dm_init=None, xc="hf", df=None, build_df_early=False):
+    mf = get_mf(cell, kpts, xc)
     if args.exxdiv_none:
         mf.exxdiv = None
     if args.scf_conv_tol is not None:

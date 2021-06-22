@@ -35,16 +35,17 @@ from . import psubspace
 class EWFFragmentOptions(Options):
     """Attributes set to `NotSet` inherit their value from the parent EWF object."""
     # Options also present in `base`:
-    dmet_threshold : float = NotSet
-    make_rdm1 : bool = NotSet
-    eom_ccsd : bool = NotSet
-    plot_orbitals : bool = NotSet
-    bsse_correction : bool = NotSet
-    bsse_rmax : float = NotSet
-    energy_partitioning : str = NotSet
-    sc_mode : int = NotSet
+    dmet_threshold: float = NotSet
+    make_rdm1: bool = NotSet
+    eom_ccsd: bool = NotSet
+    plot_orbitals: bool = NotSet
+    bsse_correction: bool = NotSet
+    bsse_rmax: float = NotSet
+    energy_partitioning: str = NotSet
+    pop_analysis: str = NotSet
+    sc_mode: int = NotSet
     # Additional fragment specific options:
-    bno_threshold_factor : float = 1.0
+    bno_threshold_factor: float = 1.0
 
 
 @dataclasses.dataclass
@@ -83,6 +84,8 @@ class EWFFragment(QEmbeddingFragment):
         else:
             options = options.replace(kwargs)
         options = options.replace(self.base.opts, select=NotSet)
+        if options.pop_analysis:
+            options.make_rdm1 = True
         self.opts = options
         for key, val in self.opts.items():
             self.log.infov('  > %-24s %r', key + ':', val)
@@ -357,8 +360,15 @@ class EWFFragment(QEmbeddingFragment):
 
         # Create solver object
         t0 = timer()
+        solver_opts = {}
+        solver_opts['make_rdm1'] = self.opts.make_rdm1
+        if solver.upper() == 'TCCSD':
+            solver_opts['tcc_c_occ'] = self.c_cluster_occ
+            solver_opts['tcc_c_vir'] = self.c_cluster_vir
+            solver_opts['tcc_spin'] = 0
+
         cluster_solver_cls = get_solver_class(solver)
-        cluster_solver = cluster_solver_cls(self, mo_coeff, mo_occ, nocc_frozen=nocc_frozen, nvir_frozen=nvir_frozen)
+        cluster_solver = cluster_solver_cls(self, mo_coeff, mo_occ, nocc_frozen=nocc_frozen, nvir_frozen=nvir_frozen, **solver_opts)
         solver_results = cluster_solver.kernel(init_guess=init_guess, eris=eris)
         self.log.timing("Time for %s solver:  %s", solver, time_string(timer()-t0))
 
@@ -371,9 +381,24 @@ class EWFFragment(QEmbeddingFragment):
         e_corr = self.get_fragment_energy(p1, p2, eris=solver_results.eris)
         self.log.info("BNO threshold= %.1e :  E(corr)= %+14.8f Ha", bno_threshold, e_corr)
         # Population analysis
-        if self.opts.make_rdm1 and solver_results.dm1 is not None:
+        if self.opts.pop_analysis:
             try:
-                self.pop_analysis(solver_results.dm1)
+                if isinstance(self.base.opts.pop_analysis, str):
+                    filename = self.base.opts.pop_analysis.rsplit('.', 1)
+                    if len(filename) > 1:
+                        filename, ext = filename
+                    else:
+                        ext = 'txt'
+                    filename = "%s-%s.%s" % (filename, self.id_name, ext)
+                else:
+                    filename = None
+                # Add frozen states and transform to AO
+                dm1 = np.zeros(2*[self.base.nao])
+                nocc = np.count_nonzero(self.mf.mo_occ > 0)
+                dm1[np.diag_indices(nocc)] = 2
+                a = cluster_solver.get_active_slice()
+                dm1[a,a] = solver_results.dm1
+                self.base.pop_analysis(dm1, mo_coeff=mo_coeff, filename=filename, refpop=self.base.pop_mf)
             except Exception as e:
                 self.log.error("Exception in population analysis: %s", e)
 
@@ -437,6 +462,7 @@ class EWFFragment(QEmbeddingFragment):
             raise RuntimeError()
         self.tailor_fragments.append(frag)
         self.log.debugv("Tailoring %s with %s", self, frag)
+
 
 
     def additional_bath_for_cluster(self, c_bath, c_occenv, c_virenv):
@@ -637,43 +663,6 @@ class EWFFragment(QEmbeddingFragment):
 
         e_frag = self.sym_factor * (e1 + e2)
         return e_frag
-
-
-    def pop_analysis(self, dm1, filename=None, mode="a", sig_tol=0.01):
-        """Perform population analsis for the given density-matrix and compare to the MF."""
-        if filename is None:
-            filename = "%s-%s.txt" % (self.base.opts.popfile, self.name)
-
-        sc = np.dot(self.base.get_ovlp(), self.base.lo)
-        dm1 = np.linalg.multi_dot((sc.T, dm1, sc))
-        pop, chg = self.mf.mulliken_pop(dm=dm1, s=np.eye(dm1.shape[-1]))
-        pop_mf = self.base.pop_mf
-        chg_mf = self.base.pop_mf_chg
-
-        tstamp = datetime.now()
-
-        self.log.info("[%s] Writing cluster population analysis to file \"%s\"", tstamp, filename)
-        with open(filename, mode) as f:
-            f.write("[%s] Population analysis\n" % tstamp)
-            f.write("*%s*********************\n" % (26*"*"))
-
-            # per orbital
-            for i, s in enumerate(self.mf.mol.ao_labels()):
-                dmf = (pop[i]-pop_mf[i])
-                sig = (" !" if abs(dmf)>=sig_tol else "")
-                f.write("  orb= %4d %-16s occ= %10.5f dHF= %+10.5f%s\n" %
-                        (i, s, pop[i], dmf, sig))
-            # Charge per atom
-            f.write("[%s] Atomic charges\n" % tstamp)
-            f.write("*%s****************\n" % (26*"*"))
-            for ia in range(self.mf.mol.natm):
-                symb = self.mf.mol.atom_symbol(ia)
-                dmf = (chg[ia]-chg_mf[ia])
-                sig = (" !" if abs(dmf)>=sig_tol else "")
-                f.write("  atom= %3d %-3s charge= %10.5f dHF= %+10.5f%s\n" %
-                        (ia, symb, chg[ia], dmf, sig))
-
-        return pop, chg
 
 
     def eom_analysis(self, csolver, kind, filename=None, mode="a", sort_weight=True, r1_min=1e-2):
