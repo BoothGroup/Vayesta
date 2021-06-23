@@ -203,13 +203,13 @@ def make_cell(a, args, **kwargs):
         amat, atom = molstructs.graphite(args.atoms, a=a, c=args.vacuum_size)
     elif args.system in ("graphene", "hbn"):
         amat, atom = molstructs.graphene(args.atoms, a=a, c=args.vacuum_size)
-    elif args.system == "perovskite":
+    elif args.system in ("perovskite", 'SrTiO3'):
         amat, atom = molstructs.perovskite(args.atoms, a=a)
     elif args.system == "SrTiO3-I4":
-        #amat, atom = molstructs.perovskite_tetragonal(args.atoms)
+        amat, atom = molstructs.perovskite_tetragonal(args.atoms)
         # Cubic structure:
-        a0 = 3.905
-        amat, atom = molstructs.perovskite_tetragonal(args.atoms, a=np.sqrt(2)*a0, c=2*a0, u=0.25)
+        #a0 = 3.905
+        #amat, atom = molstructs.perovskite_tetragonal(args.atoms, a=np.sqrt(2)*a0, c=2*a0, u=0.25)
 
     cell.a, cell.atom = amat, atom
     cell.dimension = args.ndim
@@ -611,6 +611,11 @@ for i, a in enumerate(args.lattice_consts):
 	    #    #  7 O      at 2.761252 2.761252 5.857500  d= 1.95250000 A	+z
             #    aos = ['6 Ti 3dz', '6 Ti 3dx2-y2', ' O 2px', '3 O 2py', '4 O 2pz', '22 O 2px', '13 O 2py', '9 O 2pz']
             #    ccx.make_ao_fragment(aos, sym_factor=ncells)
+            elif args.system == 'SrTiO3':
+                # for 2x2x2:
+                f = ccx.make_atom_fragment([1,2,3,4,22,13,9], sym_factor=ncells)
+                iaos = ['1 Ti 3dz', '1 Ti 3dx2-y2', '2 O 2px', '3 O 2py', '4 O 2pz', '22 O 2px', '13 O 2py', '9 O 2pz']
+                f.set_cas(iaos=iaos)
             else:
                 raise RuntimeError()
 
