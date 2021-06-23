@@ -483,6 +483,29 @@ class QEmbeddingMethod:
         return frag
 
 
+    def get_ao_labels(self, ao_indices, fragment_type=None):
+        fragment_type = (fragment_type or self.default_fragment_type).upper()
+        if fragment_type in ('LOWDIN-AO', 'AO'):
+            mol = self.mol
+        elif fragment_type == 'IAO':
+            mol = pyscf.lo.iao.reference_mol(self.mol, minao=self.iao_minao)
+        ao_labels = np.asarray(mol.ao_labels())[ao_indices]
+        return ao_labels
+
+
+    def get_ao_indices(self, ao_labels, fragment_type=None):
+        fragment_type = (fragment_type or self.default_fragment_type).upper()
+        if fragment_type in ('LOWDIN-AO', 'AO'):
+            mol = self.mol
+        elif fragment_type == 'IAO':
+            mol = pyscf.lo.iao.reference_mol(self.mol, minao=self.iao_minao)
+        for ao_label in ao_labels:
+            if len(mol.search_ao_label(ao_label)) == 0:
+                raise ValueError("No orbitals matching the label %s in molecule", ao_label)
+        ao_indices = mol.search_ao_label(ao_labels)
+        return ao_indices
+
+
     def make_ao_fragment(self, aos, name=None, fragment_type=None, **kwargs):
         """Create a fragment for one atomic orbitals or a set of atomic orbitals.
 
@@ -515,21 +538,26 @@ class QEmbeddingMethod:
         # Determine the other list and store in `ao_indices` and `ao_labels`
         if isinstance(aos[0], (int, np.integer)):
             ao_indices = aos
-            if fragment_type in ('LOWDIN-AO', 'AO'):
-                ao_labels = np.asarray(self.mol.ao_labels())[ao_indices]
-            elif fragment_type == 'IAO':
-                refmol = pyscf.lo.iao.reference_mol(self.mol, minao=self.iao_minao)
-                ao_labels = np.asarray(refmol.ao_labels())[ao_indices]
+            #if fragment_type in ('LOWDIN-AO', 'AO'):
+            #    ao_labels = np.asarray(self.mol.ao_labels())[ao_indices]
+            #elif fragment_type == 'IAO':
+            #    refmol = pyscf.lo.iao.reference_mol(self.mol, minao=self.iao_minao)
+            #    ao_labels = np.asarray(refmol.ao_labels())[ao_indices]
+            ao_labels = self.get_ao_labels(ao_indices, fragment_type)
         else:
             ao_labels = aos
-            if fragment_type in ('LOWDIN-AO', 'AO'):
-                ao_indices = self.mol.search_ao_label(ao_labels)
-            elif fragment_type == 'IAO':
-                refmol = pyscf.lo.iao.reference_mol(self.mol, minao=self.iao_minao)
-                for ao_label in ao_labels:
-                    if len(refmol.search_ao_label(ao_label)) == 0:
-                        raise ValueError("No orbitals matching the label %s in molecule", ao_label)
-                ao_indices = refmol.search_ao_label(ao_labels)
+            #if fragment_type in ('LOWDIN-AO', 'AO'):
+            #    for ao_label in ao_labels:
+            #        if len(mol.search_ao_label(ao_label)) == 0:
+            #            raise ValueError("No orbitals matching the label %s in molecule", ao_label)
+            #    ao_indices = self.mol.search_ao_label(ao_labels)
+            #elif fragment_type == 'IAO':
+            #    refmol = pyscf.lo.iao.reference_mol(self.mol, minao=self.iao_minao)
+            #    for ao_label in ao_labels:
+            #        if len(refmol.search_ao_label(ao_label)) == 0:
+            #            raise ValueError("No orbitals matching the label %s in molecule", ao_label)
+            #    ao_indices = refmol.search_ao_label(ao_labels)
+            ao_indices = self.get_ao_indices(ao_labels, fragment_type)
 
         if name is None:
             #name = ",".join(["-".join(ao) for ao in aos])

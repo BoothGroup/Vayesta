@@ -39,7 +39,7 @@ def project_ref_orbitals(self, C_ref, C):
 
     return C, e
 
-def make_dmet_bath(self, C_ref=None, nbath=None, tol=1e-4, reftol=0.8):
+def make_dmet_bath(self, C_env, C_ref=None, nbath=None, tol=1e-4, reftol=0.8):
     """Calculate DMET bath, occupied environment and virtual environment orbitals.
 
     If C_ref is not None, complete DMET orbital space using active transformation of reference orbitals.
@@ -66,7 +66,7 @@ def make_dmet_bath(self, C_ref=None, nbath=None, tol=1e-4, reftol=0.8):
     C_virenv : ndarray
         Virtual environment orbitals.
     """
-    C_env = self.c_env
+    #C_env = self.c_env
     # Divide by 2 to get eigenvalues in [0,1]
     sc = np.dot(self.base.get_ovlp(), C_env)
     D_env = np.linalg.multi_dot((sc.T, self.mf.make_rdm1(), sc)) / 2

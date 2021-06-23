@@ -32,9 +32,11 @@ class ClusterSolverOptions(Options):
     make_rdm1: bool = NotSet
     sc_mode: int = NotSet
     # CCSD specific
+    # Active space methods
+    c_cas_occ: np.array = None
+    c_cas_vir: np.array = None
     # Tailored-CCSD
-    tcc_c_occ: np.array = None
-    tcc_c_vir: np.array = None
+    tcc: bool = False
     tcc_spin: float = None
 
 
@@ -177,10 +179,10 @@ class CCSDSolver(ClusterSolver):
         #        log.debug("Difference (%2s|%2s): max= %.2e norm= %.2e", kind[:2], kind[2:], abs(diff).max(), np.linalg.norm(diff))
 
         # Tailored CC
-        if self.opts.tcc_c_occ is not None:
+        if self.opts.tcc:
             self.log.info("Adding tailor function to CCSD.")
             cc.tailor_func = self.make_tcc_tailor_function(
-                    c_cas_occ=self.opts.tcc_c_occ, c_cas_vir=self.opts.tcc_c_vir, eris=eris).__get__(cc)
+                    c_cas_occ=self.opts.c_cas_occ, c_cas_vir=self.opts.c_cas_vir, eris=eris).__get__(cc)
 
         elif self.opts.sc_mode and self.base.iteration > 1:
             # __get__(cc) to bind the tailor function as a method,
@@ -335,7 +337,9 @@ class CCSDSolver(ClusterSolver):
         if self.opts.tcc_spin is not None:
             fcisolver = pyscf.fci.addons.fix_spin_(fcisolver, ss=self.opts.tcc_spin)
 
+        t0 = timer()
         e_fci, wf0 = fcisolver.kernel(h_eff, g_cas, ncas, nelec)
+        self.log.timing("Time for FCI: %s", time_string(timer()-t0))
         if not fcisolver.converged:
             self.log.error("FCI not converged!")
         # Get C0,C1,and C2 from WF

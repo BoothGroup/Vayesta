@@ -244,13 +244,13 @@ class QEmbeddingFragment:
         return mo_can, rot
 
 
-    def diagonalize_cluster_dm(self, c_bath, tol=1e-4):
+    def diagonalize_cluster_dm(self, *mo_coeff, tol=1e-4):
         """Diagonalize cluster (fragment+bath) DM to get fully occupied and virtual orbitals.
 
         Parameters
         ----------
-        c_bath : ndarray
-            Bath orbitals.
+        *mo_coeff : ndarrays
+            Orbital coefficients.
         tol : float, optional
             If set, check that all eigenvalues of the cluster DM are close
             to 0 or 1, with the tolerance given by tol. Default= 1e-4.
@@ -262,7 +262,8 @@ class QEmbeddingFragment:
         c_virclt : ndarray
             Virtual cluster orbitals.
         """
-        c_clt = np.hstack((self.c_frag, c_bath))
+        #c_clt = np.hstack((self.c_frag, c_bath))
+        c_clt = np.hstack(mo_coeff)
         sc = np.dot(self.base.get_ovlp(), c_clt)
         dm = np.linalg.multi_dot((sc.T, self.mf.make_rdm1(), sc)) / 2
         e, v = np.linalg.eigh(dm)

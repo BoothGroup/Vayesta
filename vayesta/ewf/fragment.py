@@ -46,6 +46,9 @@ class EWFFragmentOptions(Options):
     sc_mode: int = NotSet
     # Additional fragment specific options:
     bno_threshold_factor: float = 1.0
+    # CAS methods
+    c_cas_occ: np.ndarray = None
+    c_cas_vir: np.ndarray = None
 
 
 @dataclasses.dataclass
@@ -156,17 +159,18 @@ class EWFFragment(QEmbeddingFragment):
         self.log.info("Making DMET Bath")
         self.log.info("****************")
         self.log.changeIndentLevel(1)
-        c_dmet, c_env_occ, c_env_vir = self.make_dmet_bath(tol=self.opts.dmet_threshold)
+        c_dmet, c_env_occ, c_env_vir = self.make_dmet_bath(self.c_env, tol=self.opts.dmet_threshold)
         # DMET bath analysis
         self.log.info("DMET bath character:")
         for i in range(c_dmet.shape[-1]):
             ovlp = einsum('a,b,ba->a', c_dmet[:,i], c_dmet[:,i], self.base.get_ovlp())
             sort = np.argsort(-ovlp)
             ovlp = ovlp[sort]
-            n = np.amin((np.count_nonzero(ovlp >= 0.2), 5))
+            #n = np.amin((np.count_nonzero(ovlp >= 0.2), 5))
+            n = np.amin((len(ovlp), 6))
             labels = np.asarray(self.mol.ao_labels())[sort][:n]
             lines = [("%s= %.5f" % (labels[i].strip(), ovlp[i])) for i in range(n)]
-            self.log.info("  > %2d:   %s", i+1, '  '.join(lines))
+            self.log.info("  > %2d:  %s", i+1, '  '.join(lines))
 
         self.log.timing("Time for DMET bath:  %s", time_string(timer()-t0))
         self.log.changeIndentLevel(-1)
@@ -183,7 +187,7 @@ class EWFFragment(QEmbeddingFragment):
         #c_dmet, c_env_occ, c_env_vir = self.additional_bath_for_cluster(c_dmet, c_env_occ, c_env_vir)
 
         # Diagonalize cluster DM to separate cluster occupied and virtual
-        self.c_cluster_occ, self.c_cluster_vir = self.diagonalize_cluster_dm(c_dmet, tol=2*self.opts.dmet_threshold)
+        self.c_cluster_occ, self.c_cluster_vir = self.diagonalize_cluster_dm(self.c_frag, c_dmet, tol=2*self.opts.dmet_threshold)
         self.log.info("Cluster orbitals:  n(occ)= %3d  n(vir)= %3d", self.c_cluster_occ.shape[-1], self.c_cluster_vir.shape[-1])
 
         # Add cluster orbitals to plot
@@ -258,6 +262,36 @@ class EWFFragment(QEmbeddingFragment):
         self.log.timing("Time for bath:  %s", time_string(timer()-t0_bath))
 
 
+    def set_cas(self, iaos=None, c_occ=None, c_vir=None):
+        if iaos is not None:
+            # Convert to index array
+            iaos = self.base.get_ao_indices(iaos, 'IAO')
+            c_iao = self.base.iao_coeff[:,iaos]
+            rest_iaos = np.setdiff1d(range(self.base.iao_coeff.shape[-1]), iaos)
+            # Combine remaining IAOs and rest virtual space (`iao_rest_coeff`)
+            c_env = np.hstack((self.base.iao_coeff[:,rest_iaos], self.base.iao_rest_coeff))
+            c_dmet = self.make_dmet_bath(c_env, tol=self.opts.dmet_threshold)[0]
+
+            c_iao_occ, c_iao_vir = self.diagonalize_cluster_dm(c_iao, c_dmet, tol=2*self.opts.dmet_threshold)
+        else:
+            c_iao_occ = c_iao_vir = None
+
+        def combine(c1, c2):
+            if c1 is not None and c2 is not None:
+                return np.hstack((c1, c2))
+            if c1 is not None:
+                return c1
+            if c2 is not None:
+                return c2
+            raise ValueError()
+
+        c_cas_occ = combine(c_occ, c_iao_occ)
+        c_cas_vir = combine(c_vir, c_iao_vir)
+        self.opts.c_cas_occ = c_cas_occ
+        self.opts.c_cas_vir = c_cas_vir
+        return c_cas_occ, c_cas_vir
+
+
     def kernel(self, bno_threshold, solver=None, init_guess=None, eris=None):
         """Run solver for a single BNO threshold.
 
@@ -318,9 +352,9 @@ class EWFFragment(QEmbeddingFragment):
 
         self.log.info("Orbitals for %s", self)
         self.log.info("*************" + len(str(self))*"*")
-        self.log.info("  > Active:   n(occ)= %4d  n(vir)= %4d  n(tot)= %4d", c_active_occ.shape[-1], c_active_vir.shape[-1], nactive)
-        self.log.info("  > Frozen:   n(occ)= %4d  n(vir)= %4d  n(tot)= %4d", nocc_frozen, nvir_frozen, nfrozen)
-        self.log.info("  > Total:    n(occ)= %4d  n(vir)= %4d  n(tot)= %4d", c_occ.shape[-1], c_vir.shape[-1], mo_coeff.shape[-1])
+        self.log.info("  > Active:   n(occ)= %5d  n(vir)= %5d  n(tot)= %5d", c_active_occ.shape[-1], c_active_vir.shape[-1], nactive)
+        self.log.info("  > Frozen:   n(occ)= %5d  n(vir)= %5d  n(tot)= %5d", nocc_frozen, nvir_frozen, nfrozen)
+        self.log.info("  > Total:    n(occ)= %5d  n(vir)= %5d  n(tot)= %5d", c_occ.shape[-1], c_vir.shape[-1], mo_coeff.shape[-1])
 
         ## --- Do nothing if solver is not set
         #if not solver:
@@ -374,8 +408,17 @@ class EWFFragment(QEmbeddingFragment):
         solver_opts = {}
         solver_opts['make_rdm1'] = self.opts.make_rdm1
         if solver.upper() == 'TCCSD':
-            solver_opts['tcc_c_occ'] = self.c_cluster_occ
-            solver_opts['tcc_c_vir'] = self.c_cluster_vir
+            solver_opts['tcc'] = True
+            # Set CAS orbitals
+            if self.opts.c_cas_occ is None:
+                self.log.warning("Occupied CAS orbitals not set. Setting to occupied DMET cluster orbitals.")
+                self.opts.c_cas_occ = self.c_cluster_occ
+            if self.opts.c_cas_vir is None:
+                self.log.warning("Virtual CAS orbitals not set. Setting to virtual DMET cluster orbitals.")
+                self.opts.c_cas_vir = self.c_cluster_vir
+            solver_opts['c_cas_occ'] = self.opts.c_cas_occ
+            solver_opts['c_cas_vir'] = self.opts.c_cas_vir
+            # Temporary:
             solver_opts['tcc_spin'] = 0
 
         cluster_solver_cls = get_solver_class(solver)

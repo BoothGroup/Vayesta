@@ -506,7 +506,7 @@ for i, a in enumerate(args.lattice_consts):
     #if True:
     if False:
         scell = pyscf.pbc.tools.super_cell(cell, args.k_points)
-        atom = 6
+        atom = 1
         center = scell.atom_coord(atom, unit='ANG')
         distances = np.linalg.norm(center[None] -  scell.atom_coords(unit='ANG'), axis=1)
         sort = np.argsort(distances)
