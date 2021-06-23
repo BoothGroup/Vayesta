@@ -55,7 +55,7 @@ def get_arguments():
     """Get arguments from command line."""
     parser = argparse.ArgumentParser(allow_abbrev=False)
     # System
-    parser.add_argument("--system", choices=["diamond", "graphite", "graphene", "hbn", "perovskite", 'SrTiO3-I4'], default="graphene")
+    parser.add_argument("--system", choices=["diamond", "graphite", "graphene", "hbn", "perovskite", 'SrTiO3', 'SrTiO3-I4'], default="graphene")
     parser.add_argument("--atoms", nargs="*")
     parser.add_argument("--basis", default="def2-svp")
     parser.add_argument("--pseudopot", type=str_or_none)
@@ -154,7 +154,7 @@ def get_arguments():
                 "vacuum_size" : 20.0
                 }
 
-    elif args.system == "perovskite":
+    elif args.system in ('perovskite', 'SrTiO3'):
         defaults = {
                 "atoms" : ["Sr", "Ti", "O"],
                 "ndim" : 3,
@@ -615,6 +615,9 @@ for i, a in enumerate(args.lattice_consts):
                 # for 2x2x2:
                 f = ccx.make_atom_fragment([1,2,3,4,22,13,9], sym_factor=ncells)
                 iaos = ['1 Ti 3dz', '1 Ti 3dx2-y2', '2 O 2px', '3 O 2py', '4 O 2pz', '22 O 2px', '13 O 2py', '9 O 2pz']
+                # for 3x3x3:
+                #f = ccx.make_atom_fragment([1,2,3,4,47,18,9], sym_factor=ncells)
+                #iaos = ['1 Ti 3dz', '1 Ti 3dx2-y2', '2 O 2px', '3 O 2py', '4 O 2pz', '47 O 2px', '18 O 2py', '9 O 2pz']
                 f.set_cas(iaos=iaos)
             else:
                 raise RuntimeError()
