@@ -179,7 +179,4 @@ def make_dmet_bath(self, C_env, C_ref=None, nbath=None, tol=1e-4, reftol=0.8):
             self.log.critical(err)
             raise RuntimeError(err)
 
-    # There should never be more DMET bath orbitals than fragment orbitals
-    assert nbath <= self.c_frag.shape[-1]
-
     return C_bath, C_occenv, C_virenv
