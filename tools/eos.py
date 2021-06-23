@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 """Fitting of equations of states."""
 
+import dataclasses
+
 import numpy as np
 
 import scipy
@@ -25,6 +27,28 @@ def birch_murnaghan(v, e0, v0, b0, bp):
     t2 = (vr-1)**2 * (6-4*vr)
     ev = e0 + 9/16*v0*b0 * (t1*bp + t2)
     return ev
+
+
+@dataclasses.dataclass
+class FitResult:
+    """DOC"""
+    e0: float = None
+    b0: float = None
+    x0: float = None
+    v0: float = None
+    bp: float = None
+
+    def __repr__(self):
+        txt = "Fit results: E0= %.4f Ha" % self.e0
+        if self.x0 is not None:
+            txt += ("  x0= %.4f A" % self.x0)
+        if self.v0 is not None:
+            txt += ("  V0= %.4f A^3" % self.v0)
+        if self.b0 is not None:
+            txt += ("  B0= %.4f GPa" % self.b0)
+        if self.bp is not None:
+            txt += ("  B'= %.4f" % self.bp)
+        return txt
 
 
 def fit_eos(volumes, energies, fitfunc=birch_murnaghan, plot=True, value_at=None):
@@ -81,7 +105,11 @@ def fit_eos(volumes, energies, fitfunc=birch_murnaghan, plot=True, value_at=None
         except Exception as e:
             print("Error while creating plot: %s" % e)
 
-    return e0, v0, b0
+    result = FitResult(e0, b0, v0=v0)
+    if other:
+        result.bp = other[0]
+
+    return result
 
 
 def fit_from_file(filename, xcol=0, ycol=1, volume_func=None):
@@ -91,8 +119,8 @@ def fit_from_file(filename, xcol=0, ycol=1, volume_func=None):
     y = data[:,ycol]
     if volume_func is not None:
         x = volume_func(x)
-    e0, v0, b0 = fit_eos(x, y)
-    return e0, v0, b0
+    result = fit_eos(x, y)
+    return result
 
 
 def cmdline_tool():
@@ -125,9 +153,9 @@ def cmdline_tool():
         y = y - bsse_data[:,args.ycol]
 
     x = volume_func(x)
-    e0, v0, b0 = fit_eos(x, y, plot=args.plot, value_at=args.value_at)
-    x0 = inv_volume_func(v0)
-    print("Fit results: E0= %.4f Ha  x0= %.4f A  V0= %.4f A^3  B0= %.4f GPa" % (e0, x0, v0, b0))
+    result = fit_eos(x, y, plot=args.plot, value_at=args.value_at)
+    result.x0 = inv_volume_func(result.v0)
+    print(result)
 
 
 if __name__ == '__main__':
