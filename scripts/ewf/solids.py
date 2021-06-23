@@ -615,9 +615,11 @@ for i, a in enumerate(args.lattice_consts):
                 # for 2x2x2:
                 f = ccx.make_atom_fragment([1,2,3,4,22,13,9], sym_factor=ncells)
                 iaos = ['1 Ti 3dz', '1 Ti 3dx2-y2', '2 O 2px', '3 O 2py', '4 O 2pz', '22 O 2px', '13 O 2py', '9 O 2pz']
+                # Match must start with substring:
                 # for 3x3x3:
                 #f = ccx.make_atom_fragment([1,2,3,4,47,18,9], sym_factor=ncells)
                 #iaos = ['1 Ti 3dz', '1 Ti 3dx2-y2', '2 O 2px', '3 O 2py', '4 O 2pz', '47 O 2px', '18 O 2py', '9 O 2pz']
+                iaos = [('^%s' % iao) for iao in iaos]
                 f.set_cas(iaos=iaos)
             else:
                 raise RuntimeError()
