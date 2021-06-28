@@ -136,6 +136,8 @@ class ClusterSolver:
 class CCSDSolverResults(ClusterSolverResults):
     t1: np.array = None
     t2: np.array = None
+    l1: np.array = None
+    l2: np.array = None
     # EOM-CCSD
     ip_energy: np.array = None
     ip_coeff: np.array = None
@@ -212,18 +214,21 @@ class CCSDSolver(ClusterSolver):
         results = CCSDSolverResults(converged=cc.converged, e_corr=cc.e_corr, t1=cc.t1, t2=cc.t2,
                 c_occ=self.c_active_occ, c_vir=self.c_active_vir, eris=eris)
 
+        solve_lamda = self.opts.make_rdm1
+        if solve_lambda:
+            t0 = timer()
+            self.log.info("Solving lambda equations...")
+            # This automatically sets cc.l1, cc.l2:
+            results.l1, results.l2 = cc.solve_lambda(cc.t1, cc.t2, eris=eris)
+            self.log.info("Lambda equations done. Lambda converged: %r", cc.converged_lambda)
+            if not cc.converged_lambda:
+                self.log.error("Solution of lambda equation not converged!")
+            self.log.timing("Time for lambda-equations: %s", time_string(timer()-t0))
+
         if self.opts.make_rdm1:
-            try:
-                t0 = timer()
-                self.log.info("Making RDM1...")
-                #results.dm1 = cc.make_rdm1(eris=eris, ao_repr=True)
-                results.dm1 = cc.make_rdm1(eris=eris, with_frozen=False)
-                self.log.info("RDM1 done. Lambda converged: %r", cc.converged_lambda)
-                if not cc.converged_lambda:
-                    self.log.error("Solution of lambda equation not converged!")
-                self.log.timing("Time for RDM1: %s", time_string(timer()-t0))
-            except Exception as e:
-                self.log.error("Exception while making RDM1: %s", e)
+            self.log.info("Making RDM1...")
+            #results.dm1 = cc.make_rdm1(eris=eris, ao_repr=True)
+            results.dm1 = cc.make_rdm1(with_frozen=False)
 
         def eom_ccsd(kind, nroots=3):
             kind = kind.upper()

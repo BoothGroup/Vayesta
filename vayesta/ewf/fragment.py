@@ -38,7 +38,7 @@ class EWFFragmentOptions(Options):
     dmet_threshold: float = NotSet
     make_rdm1: bool = NotSet
     eom_ccsd: bool = NotSet
-    plot_orbitals: bool = NotSet
+    plot_orbitals: str = NotSet
     bsse_correction: bool = NotSet
     bsse_rmax: float = NotSet
     energy_partitioning: str = NotSet
@@ -62,8 +62,15 @@ class EWFFragmentResults:
     ea_energy: np.ndarray = None
     t1: np.ndarray = None
     t2: np.ndarray = None
+    #l1: np.ndarray = None
+    #l2: np.ndarray = None
     eris: 'typing.Any' = None
+    # For DM1:
+    g1: np.ndarray = None
 
+
+class EWFFragmentExit(Exception):
+    pass
 
 class EWFFragment(QEmbeddingFragment):
 
@@ -177,11 +184,19 @@ class EWFFragment(QEmbeddingFragment):
 
         # Add fragment and DMET orbitals for cube file plots
         if self.opts.plot_orbitals:
+            if self.boundary_cond == 'open':
+                raise NotImplementedError()
             os.makedirs(self.base.opts.plot_orbitals_dir, exist_ok=True)
             name = "%s.cube" % os.path.join(self.base.opts.plot_orbitals_dir, self.name)
             cubefile = cubegen.CubeFile(self.mol, filename=name, **self.base.opts.plot_orbitals_kwargs)
+            self.log.debug("Adding fragment orbitals to cube file.")
             cubefile.add_orbital(self.c_frag.copy())
-            cubefile.add_orbital(c_dmet.copy(), dset_idx=1001)
+            if (self.opts.plot_orbitals is True) or ('dmet' in str(self.opts.plot_orbitals).lower()):
+                self.log.debug("Adding DMET orbitals to cube file.")
+                cubefile.add_orbital(c_dmet.copy(), dset_idx=1001)
+            if str(self.opts.plot_orbitals).lower() in ('fragment-exit', 'dmet-exit'):
+                cubefile.write()
+                raise EWFFragmentExit()
 
         # Add additional orbitals to cluster [optional]
         #c_dmet, c_env_occ, c_env_vir = self.additional_bath_for_cluster(c_dmet, c_env_occ, c_env_vir)
@@ -221,15 +236,16 @@ class EWFFragment(QEmbeddingFragment):
         #self.C_bath = C_bath
 
         if c_env_occ.shape[-1] > 0:
-            self.log.info("Making Occupied BNOs")
-            self.log.info("********************")
+            self.log.info("Making Occupied Bath NOs")
+            self.log.info("------------------------")
             t0 = timer()
             self.log.changeIndentLevel(1)
             self.c_no_occ, self.n_no_occ = make_mp2_bno(
                     self, "occ", self.c_cluster_occ, self.c_cluster_vir, c_env_occ, c_env_vir)
             self.log.timing("Time for occupied BNOs:  %s", time_string(timer()-t0))
             if len(self.n_no_occ) > 0:
-                self.log.info("Occupied BNO histogram:")
+                self.log.info("Occupied Bath NO Histogram")
+                self.log.info("--------------------------")
                 for line in helper.plot_histogram(self.n_no_occ):
                     self.log.info(line)
             self.log.changeIndentLevel(-1)
@@ -238,15 +254,16 @@ class EWFFragment(QEmbeddingFragment):
             self.n_no_occ = np.zeros((0,))
 
         if c_env_vir.shape[-1] > 0:
-            self.log.info("Making Virtual BNOs")
-            self.log.info("*******************")
+            self.log.info("Making Virtual Bath NOs")
+            self.log.info("-----------------------")
             t0 = timer()
             self.log.changeIndentLevel(1)
             self.c_no_vir, self.n_no_vir = make_mp2_bno(
                     self, "vir", self.c_cluster_occ, self.c_cluster_vir, c_env_occ, c_env_vir)
             self.log.timing("Time for virtual BNOs:   %s", time_string(timer()-t0))
             if len(self.n_no_vir) > 0:
-                self.log.info("Virtual BNO histogram:")
+                self.log.info("Virtual Bath NO Histogram")
+                self.log.info("-------------------------")
                 for line in helper.plot_histogram(self.n_no_vir):
                     self.log.info(line)
             self.log.changeIndentLevel(-1)
@@ -472,6 +489,10 @@ class EWFFragment(QEmbeddingFragment):
         if self.base.opts.project_init_guess or self.opts.sc_mode:
             results.t1 = solver_results.t1
             results.t2 = solver_results.t2
+        # Keep Lambda-Amplitudes
+        if results.l1 is not None:
+            results.l1 = solver_results.l1
+            results.l2 = solver_results.l2
         # Keep ERIs [optional]
         if self.base.opts.project_eris or self.opts.sc_mode:
             results.eris = solver_results.eris
@@ -489,19 +510,18 @@ class EWFFragment(QEmbeddingFragment):
 
     def apply_bno_threshold(self, c_no, n_no, bno_thr):
         """Split natural orbitals (NO) into bath and rest."""
-        n_bno = sum(n_no >= bno_thr)
-        n_rest = len(n_no)-n_bno
-        n_in, n_cut = np.split(n_no, [n_bno])
+        n_bno = np.count_nonzero(n_no >= bno_thr)
         # Logging
-        fmt = "  %4s: N= %4d  max= % 9.3g  min= % 9.3g  sum= % 9.3g ( %7.3f %%)"
-        if n_bno > 0:
-            self.log.info(fmt, "Bath", n_bno, max(n_in), min(n_in), np.sum(n_in), 100*np.sum(n_in)/np.sum(n_no))
-        else:
-            self.log.info(fmt[:13], "Bath", 0)
-        if n_rest > 0:
-            self.log.info(fmt, "Rest", n_rest, max(n_cut), min(n_cut), np.sum(n_cut), 100*np.sum(n_cut)/np.sum(n_no))
-        else:
-            self.log.info(fmt[:13], "Rest", 0)
+        fmt = "  > %4s: N= %4d  max= % 9.3g  min= % 9.3g  sum= % 9.3g ( %7.3f %%)"
+        def log(name, n_part):
+            if len(n_part) > 0:
+                with np.errstate(invalid='ignore'): # supress 0/0=nan warning
+                    self.log.info(fmt, name, len(n_part), max(n_part), min(n_part), np.sum(n_part),
+                            100*np.sum(n_part)/np.sum(n_no))
+            else:
+                self.log.info(fmt[:fmt.index('max')], name, 0)
+        log("Bath", n_no[:n_bno])
+        log("Rest", n_no[n_bno:])
 
         c_bno, c_rest = np.hsplit(c_no, [n_bno])
         return c_bno, c_rest
@@ -516,7 +536,6 @@ class EWFFragment(QEmbeddingFragment):
             raise RuntimeError()
         self.tailor_fragments.append(frag)
         self.log.debugv("Tailoring %s with %s", self, frag)
-
 
 
     def additional_bath_for_cluster(self, c_bath, c_occenv, c_virenv):
@@ -717,6 +736,38 @@ class EWFFragment(QEmbeddingFragment):
 
         e_frag = self.sym_factor * (e1 + e2)
         return e_frag
+
+
+    def get_fragment_g1(self, t1, p1, p2, l1, l2, c_occ):
+        """Gamma 1 intermediate for density-matrix.
+
+        See pyscf.cc.ccsd_rdm._gamma1_intermediates."""
+        no, nv = t1.shape
+        g1 = np.zeros(2*[no+nv])
+        o, v = np.s_[:no], np.s_[no:]
+
+        g1[o,o] = -einsum('ja,ia->ij', p1, l1)
+        g1[v,v] = einsum('ia,ib->ab', p1, l1)
+        #xtv = einsum('ie,me->im', t1, l1)   # Do not use p1 here!
+        #dvo = p1.T - einsum('im,ma->ai', xtv, p1)
+        g1[v,o] = p1.T - einsum('ie,me,ma->ai', t1, l1, p1)
+        theta = p2 * 2 - p2.transpose(0,1,3,2)
+        g1[o,o] -= einsum('jkab,ikab->ij', theta, l2)
+        g1[v,v] += einsum('jica,jicb->ab', theta, l2)
+        g1[v,o] += einsum('imae,me->ai', theta, l1)
+        theta = t2 * 2 - t2.transpose(0,1,3,2)  # Do not use p2 here!
+        #xt1  = einsum('mnef,inef->mi', l2, theta_t)
+        #xt2  = einsum('mnaf,mnef->ea', l2, theta_t)
+        #g1[v,o] -= einsum('mi,ma->ai', xt1, p1)
+        #g1[v,o] -= einsum('ie,ae->ai', p1, xt2)
+        xt1  = einsum('mnef,inef->mi', l2, theta_t)
+        xt2  = einsum('mnaf,mnef->ea', l2, theta_t)
+        g1[v,o] -= einsum('mnef,inef,ma->ai',l2, theta, p1)
+        g1[v,o] -= einsum('ie,mnef,mnaf->ai', p1, l2, theta)
+
+        pl1 = self.project_amplitude_to_fragment(l1, c_occ=c_occ)
+        g1[o,v] = pl1
+        return g1
 
 
     def eom_analysis(self, csolver, kind, filename=None, mode="a", sort_weight=True, r1_min=1e-2):

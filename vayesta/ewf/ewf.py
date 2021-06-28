@@ -18,7 +18,7 @@ from vayesta.core.util import *
 from vayesta.core import QEmbeddingMethod
 
 from . import helper
-from .fragment import EWFFragment
+from .fragment import EWFFragment, EWFFragmentExit
 
 try:
     from mpi4py import MPI
@@ -47,7 +47,7 @@ class EWFOptions(Options):
     project_init_guess: bool = True     # Project converted T1,T2 amplitudes from a previous larger cluster
     orthogonal_mo_tol: float = False
     #Orbital file
-    plot_orbitals: bool = False
+    plot_orbitals: str = False          # {True, False, 'dmet-exit'}
     plot_orbitals_dir: str = 'orbitals'
     plot_orbitals_kwargs: dict = dataclasses.field(default_factory=dict)
     # --- Solver settings
@@ -403,10 +403,10 @@ class EWF(QEmbeddingMethod):
         cs = np.dot(c_loc.T, self.get_ovlp())
         pop = einsum('ia,ab,ib->i', cs, dm1, cs)
         # Get atomic charges
-        chg = np.zeros(self.mol.natm)
+        elecs = np.zeros(self.mol.natm)
         for i, label in enumerate(self.mol.ao_labels(fmt=None)):
-            chg[label[0]] += pop[i]
-        chg = self.mol.atom_charges() - chg
+            elecs[label[0]] += pop[i]
+        chg = self.mol.atom_charges() - elecs
 
         if not verbose:
             return pop, chg
@@ -428,7 +428,7 @@ class EWF(QEmbeddingMethod):
         aolabels = self.mol.ao_labels()
 
         for atom in range(self.mol.natm):
-            write("> Charge of atom %d%-6s= % 11.8f", atom, self.mol.atom_symbol(atom), chg[atom])
+            write("> Charge of atom %d%-6s= % 11.8f (% 11.8f electrons)", atom, self.mol.atom_symbol(atom), chg[atom], elecs[atom])
             aos = aoslices[atom]
             for ao in range(aos[0], aos[1]):
                 label = aolabels[ao]
@@ -503,7 +503,7 @@ class EWF(QEmbeddingMethod):
         if abs(nelec_frags - np.rint(nelec_frags)) > 1e-4:
             self.log.warning("Number of electrons not integer!")
 
-
+        exit = False
         for i, bno_thr in enumerate(bno_threshold):
             e_corr_1 = 0.0
             e_corr_last = 0.0
@@ -526,13 +526,22 @@ class EWF(QEmbeddingMethod):
                     self.log.info(msg)
                     self.log.info(len(msg)*"*")
                     self.log.changeIndentLevel(1)
-                    result = frag.kernel(bno_threshold=bno_thr)
+                    try:
+                        result = frag.kernel(bno_threshold=bno_thr)
+                    except EWFFragmentExit:
+                        exit = True
+                        self.log.info("Exiting %s", frag)
+                        self.log.changeIndentLevel(-1)
+                        continue
+
                     self.cluster_results[(frag.id, bno_thr)] = result
                     if not result.converged:
                         self.log.error("%s is not converged!", frag)
                     else:
                         self.log.info("%s is done.", frag)
                     self.log.changeIndentLevel(-1)
+                if exit:
+                    break
 
                 e_corr = sum([self.cluster_results[(f.id, bno_thr)].e_corr for f in self.fragments])
                 if iteration == 1:
@@ -550,13 +559,16 @@ class EWF(QEmbeddingMethod):
             else:
                 if self.opts.sc_mode:
                     self.log.error("Self-consistency not reached!")
+            if exit:
+                break
 
             if self.opts.sc_mode:
                 self.log.info("E(corr)[SC]= % 12.8f Ha  E(corr)[1]= % 12.8f Ha  (diff= % 12.8f Ha)", e_corr, e_corr_1, (e_corr-e_corr_1))
 
             result = EWFResults(bno_threshold=bno_thr, e_corr=e_corr)
             self.results.append(result)
-
+        if exit:
+            return
 
         self.log.info("Fragment Correlation Energies")
         self.log.info("*****************************")
@@ -702,6 +714,11 @@ class EWF(QEmbeddingMethod):
     #    for i, frag in enumerate(self.loop()):
     #        sizes[i] = frag.n_active
     #    return sizes
+
+    def get_dm1(self):
+        for i, frag in enumerate(self.fragments):
+            pass
+
 
 
     def print_clusters(self):

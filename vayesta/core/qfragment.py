@@ -122,11 +122,13 @@ class QEmbeddingFragment:
         ne = np.einsum("ai,ab,bi->", sc, self.mf.make_rdm1(), sc)
         return ne
 
-    def trimmed_name(self, length=10):
+    def trimmed_name(self, length=10, add_dots=True):
         """Fragment name trimmed to a given maximum length."""
         if len(self.name) <= length:
             return self.name
-        return self.name[:(length-3)] + "..."
+        if add_dots:
+            return self.name[:(length-3)] + "..."
+        return self.name[:length]
 
     @property
     def id_name(self):

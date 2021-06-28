@@ -432,7 +432,7 @@ class QEmbeddingMethod:
 
         # Generate cluster name if not given
         if name is None:
-            name = ",".join(atom_labels)
+            name = "-".join(atom_labels)
 
         # Fragment type specific implementation
         if fragment_type == 'IAO':
@@ -562,7 +562,7 @@ class QEmbeddingMethod:
         if name is None:
             #name = ",".join(["-".join(ao) for ao in aos])
             #name = ";".join([",".join(ao.split()) for ao in ao_labels])
-            name = ";".join([ao.rstrip() for ao in ao_labels])
+            name = "-".join([ao.rstrip() for ao in ao_labels])
 
         # Fragment type specific implementation
         if fragment_type == 'IAO':
