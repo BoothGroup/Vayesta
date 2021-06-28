@@ -3,8 +3,10 @@ project ("Vayesta")
 
 # OpenMP
 find_package(OpenMP)
-if(NOT OPENMP_FOUND)
-message(FATAL_ERROR "Cannot find OpenMP")
+if(OPENMP_FOUND)
+  set(HAVE_OPENMP 1)
+else ()
+  set(OpenMP_C_FLAGS " ")
 endif()
 
 # BLAS
