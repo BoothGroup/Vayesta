@@ -62,8 +62,8 @@ class EWFFragmentResults:
     ea_energy: np.ndarray = None
     t1: np.ndarray = None
     t2: np.ndarray = None
-    #l1: np.ndarray = None
-    #l2: np.ndarray = None
+    l1: np.ndarray = None
+    l2: np.ndarray = None
     eris: 'typing.Any' = None
     # For DM1:
     g1: np.ndarray = None

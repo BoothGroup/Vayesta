@@ -214,7 +214,7 @@ class CCSDSolver(ClusterSolver):
         results = CCSDSolverResults(converged=cc.converged, e_corr=cc.e_corr, t1=cc.t1, t2=cc.t2,
                 c_occ=self.c_active_occ, c_vir=self.c_active_vir, eris=eris)
 
-        solve_lamda = self.opts.make_rdm1
+        solve_lambda = self.opts.make_rdm1
         if solve_lambda:
             t0 = timer()
             self.log.info("Solving lambda equations...")

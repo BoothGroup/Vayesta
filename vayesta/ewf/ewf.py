@@ -701,12 +701,6 @@ class EWF(QEmbeddingMethod):
 
     def get_energies(self):
         """Get total energy."""
-        #[results[(f.id, bno_min)].e_corr for f in self.fragments])
-        #energies = np.zeros(self.ncalc)
-        #energies[:] = self.e_mf
-        #for frag in self.loop():
-        #    energies += frag.e_corrs
-        #return energies
         return [(self.e_mf + r.e_corr) for r in self.results]
 
     #def get_cluster_sizes(self)
@@ -715,15 +709,9 @@ class EWF(QEmbeddingMethod):
     #        sizes[i] = frag.n_active
     #    return sizes
 
-    def get_dm1(self):
-        for i, frag in enumerate(self.fragments):
-            pass
-
-
 
     def print_clusters(self):
         """Print fragments of calculations."""
         self.log.info("%3s  %20s  %8s  %4s", "ID", "Name", "Solver", "Size")
         for frag in self.loop():
             self.log.info("%3d  %20s  %8s  %4d", frag.id, frag.name, frag.solver, frag.size)
-
