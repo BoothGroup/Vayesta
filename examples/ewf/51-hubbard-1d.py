@@ -18,6 +18,7 @@ print("E%-11s %+16.8f Ha" % ('(EWF-CCSD)=', ecc.e_tot/nsite))
 
 # Double site embedding:
 ecc = vayesta.ewf.EWF(mf, bno_threshold=1e-8, fragment_type='Site')
+# First index defines site indices of fragment
 ecc.make_atom_fragment([0,1], sym_factor=nsite/2)
 ecc.kernel()
 print("E%-11s %+16.8f Ha" % ('(MF)=', mf.e_tot/nsite))

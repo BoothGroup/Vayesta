@@ -16,6 +16,7 @@ mf.kernel()
 
 # Single site embedding:
 ecc = vayesta.ewf.EWF(mf, bno_threshold=-1, fragment_type='Site')
+# First index site index for fragment
 ecc.make_atom_fragment(0, sym_factor=nsite)
 ecc.kernel()
 print("E%-11s %+16.8f Ha" % ('(MF)=', mf.e_tot/nsite))
