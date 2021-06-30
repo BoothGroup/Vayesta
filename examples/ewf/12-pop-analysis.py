@@ -16,18 +16,18 @@ mol.build()
 mf = pyscf.scf.RHF(mol)
 mf.kernel()
 
-## Activate population analysis for all fragments and write to log
-#ecc = vayesta.ewf.EWF(mf, pop_analysis=True)
-#ecc.make_all_atom_fragments()
-#ecc.kernel(bno_threshold=1e-6)
+# Activate population analysis for all fragments and write to log
+ecc = vayesta.ewf.EWF(mf, pop_analysis=True)
+ecc.make_all_atom_fragments()
+ecc.kernel(bno_threshold=1e-6)
 
 # Activate population analysis for all fragments and write to file
 ecc = vayesta.ewf.EWF(mf, pop_analysis='population.txt')
 ecc.make_all_atom_fragments()
 ecc.kernel(bno_threshold=1e-6)
 
-## Activate population analysis for Li cluster only and write to log
-#ecc = vayesta.ewf.EWF(mf)
-#ecc.make_atom_fragment(0, pop_analysis=True)
-#ecc.make_atom_fragment(1)
-#ecc.kernel(bno_threshold=1e-6)
+# Activate population analysis for Li cluster only and write to log
+ecc = vayesta.ewf.EWF(mf)
+ecc.make_atom_fragment(0, pop_analysis=True)
+ecc.make_atom_fragment(1)
+ecc.kernel(bno_threshold=1e-6)

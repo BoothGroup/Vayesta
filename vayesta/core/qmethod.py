@@ -10,6 +10,7 @@ import pyscf.gto
 import pyscf.mp
 import pyscf.lo
 import pyscf.pbc
+import pyscf.ao2mo
 import pyscf.pbc.gto
 import pyscf.pbc.df
 try:
@@ -60,7 +61,7 @@ class QEmbeddingMethod:
             MO occupation numbers.
         self.mo_coeff : (nAO, nMO) array
             MO coefficients.
-        self.default_fragment_type : {'IAO', 'Lowdin-AO', 'AO'}
+        self.default_fragment_type : {'IAO', 'Lowdin-AO', 'AO', 'Site'}
             The default type for fragment orbitals, when a new fragment is created.
         self.fragments : list
             List of fragments for embedding calculation.
@@ -102,6 +103,11 @@ class QEmbeddingMethod:
         --
         ao_labels : list
             AO labels.
+
+        Site
+        ----
+        site_labels : list
+            Site labels.
         """
 
         # 1) Logging
@@ -255,7 +261,6 @@ class QEmbeddingMethod:
         """Fock matrix in AO basis."""
         return self._fock
 
-
     def get_eris(self, cm):
         """Get ERIS for post-HF methods.
 
@@ -303,7 +308,7 @@ class QEmbeddingMethod:
 
         Parameters
         ----------
-        fragment_type : ['IAO', 'Lowdin-AO', 'AO']
+        fragment_type : ['IAO', 'Lowdin-AO', 'AO', 'Sites']
             Fragmentation type.
         **kwargs :
             Additional keyword arguments will be passed to the corresponding fragmentation
@@ -316,6 +321,8 @@ class QEmbeddingMethod:
             return self.init_lowdin_fragmentation(**kwargs)
         if fragment_type == 'AO':
             return self.init_ao_fragmentation(**kwargs)
+        if fragment_type == 'SITE':
+            return self.init_site_fragmentation(**kwargs)
         raise ValueError("Unknown fragment_type: %s", fragment_type)
 
 
@@ -386,6 +393,20 @@ class QEmbeddingMethod:
         self.ao_labels = ao_labels
 
 
+    def init_site_fragmentation(self):
+        """This needs to be called before any site fragments can be added.
+
+        The following attributes will be defined:
+        default_fragment_type
+        site_labels
+        """
+        self.log.info("Initializing site fragmentation")
+        site_labels = self.mol.ao_labels(None)
+        # Define fragmentation specific attributes
+        self.default_fragment_type = 'Site'
+        self.site_labels = site_labels
+
+
     # Fragmentation methods
     # ---------------------
 
@@ -400,7 +421,7 @@ class QEmbeddingMethod:
             Additionally restrict fragment orbitals to a specific AO type (e.g. '2p'). Default: None.
         name : str, optional
             Name for fragment.
-        fragment_type : [None, 'IAO', "Lowdin-AO', 'AO']
+        fragment_type : [None, 'IAO', 'Lowdin-AO', 'AO', 'Site']
             Fragment orbital type. If `None`, the value of `self.default_fragment_type` is used.
             Default: `None`.
         **kwargs :
@@ -476,6 +497,11 @@ class QEmbeddingMethod:
             c_frag, c_env = np.hsplit(c, [size])
             # In the case of AOs, we can also store them in the fragment
             kwargs['aos'] = frag_aos
+        elif fragment_type == 'SITE':
+            sites = atom_indices
+            c_frag = np.eye(self.mol.nao_nr())[:,sites]
+            rest = [i for i in range(self.mol.nao_nr()) if i not in sites]
+            c_env = np.eye(self.mol.nao_nr())[:,rest]
         else:
             raise ValueError("Unknown fragment_type: %s" % fragment_type)
 
@@ -583,7 +609,7 @@ class QEmbeddingMethod:
             size = len(e[e>1e-5])
             if size != len(ao_indices):
                 raise RuntimeError("Error finding fragment atomic orbitals. Eigenvalues: %s" % e)
-            assert np.allclose(np.linalg.multi_dot((c.T, self.get_ovlp(), c)) - np.eye(nao), 0)
+            assert np.allclose(np.linalg.multi_dot((c.T, self.get_ovlp(), c)) - np.eye(c.shape[-1]), 0)
             c_frag, c_env = np.hsplit(c, [size])
             kwargs['aos'] = ao_indices
         else:

@@ -9,6 +9,7 @@ import pyscf.cc
 import pyscf.cc.dfccsd
 import pyscf.pbc
 import pyscf.ci
+import pyscf.mcscf
 import pyscf.fci
 import pyscf.fci.addons
 import pyscf.fci.direct_spin0
@@ -211,8 +212,9 @@ class CCSDSolver(ClusterSolver):
         if t_diagnostic:
             self.t_diagnostic(cc)
 
-        results = CCSDSolverResults(converged=cc.converged, e_corr=cc.e_corr, t1=cc.t1, t2=cc.t2,
-                c_occ=self.c_active_occ, c_vir=self.c_active_vir, eris=eris)
+        results = CCSDSolverResults(
+                converged=cc.converged, e_corr=cc.e_corr, c_occ=self.c_active_occ, c_vir=self.c_active_vir, eris=eris,
+                t1=cc.t1, t2=cc.t2)
 
         solve_lambda = self.opts.make_rdm1
         if solve_lambda:
@@ -477,7 +479,7 @@ class CCSDSolver(ClusterSolver):
 
 
 @dataclasses.dataclass
-class FCISolverResults(ClusterSolverResults):
+class CISolverResults(ClusterSolverResults):
     # CI coefficients
     c0: float = None
     c1: np.array = None
@@ -485,41 +487,66 @@ class FCISolverResults(ClusterSolverResults):
 
 
 class FCISolver(ClusterSolver):
-    """Not tested"""
 
-
-    def kernel(self, init_guess=None):
-        import pyscf.mcscf
-        import pyscf.ci
-
-        nelectron = sum(self.mo_occ[self.get_active_slice()])
-        casci = pyscf.mcscf.CASCI(self.mf, self.nactive, nelectron)
+    def kernel(self, init_guess=None, eris=None):
+        """TODO: Avoid CASCI and use FCISolver, to use unfolded PBC eris."""
+        nelec = sum(self.mo_occ[self.get_active_slice()])
+        casci = pyscf.mcscf.CASCI(self.mf, self.nactive, nelec)
         casci.canonicalization = False
 
+        self.log.debug("Running CASCI with (%d, %d) CAS", nelec, self.nactive)
+        t0 = timer()
         e_tot, e_cas, wf, *_ = casci.kernel(mo_coeff=self.mo_coeff)
         self.log.debug("FCI done. converged: %r", casci.converged)
+        self.log.timing("Time for FCI: %s", time_string(timer()-t0))
+        e_corr = (e_tot-self.mf.e_tot)
 
-        cisdvec = pyscf.ci.cisd.from_fcivec(wf, self.nactive, nelectron)
-        nocc_active = nelectron // 2
-        c0, c1, c2 = pyscf.ci.cisd.cisdvec_to_amplitudes(cisdvec, self.nactive, nocc_active)
-        # Intermediate normalization
-        self.log.debug("Weight of reference determinant= %.8e", c0)
-        c1 /= c0
-        c2 /= c0
-        self.c1 = c1
-        self.c2 = c2
+        cisdvec = pyscf.ci.cisd.from_fcivec(wf, self.nactive, nelec)
+        nocc = nelec // 2
+        c0, c1, c2 = pyscf.ci.cisd.cisdvec_to_amplitudes(cisdvec, self.nactive, nocc)
 
-        self.converged = casci.converged
-        self.e_corr = (e_tot - self.mf.e_tot)
-        self.log.debug("E(full corr)= % 16.8f Ha", self.e_corr)
+        # Temporary workaround (eris needed for energy later)
+        class ERIs:
+            pass
+        eris = ERIs()
+        c_act = self.mo_coeff[:,self.get_active_slice()]
+        eris.fock = np.linalg.multi_dot((c_act.T, self.base.get_fock(), c_act))
+        g = pyscf.ao2mo.full(self.mf._eri, c_act)
+        o = np.s_[:nocc]
+        v = np.s_[nocc:]
+        eris.ovvo = pyscf.ao2mo.restore(1, g, self.nactive)[o,v,v,o]
 
-        ## Create fake CISD object
-        #cisd = pyscf.ci.CISD(self.mf, mo_coeff=self.mo_coeff, mo_occ=self.mo_occ, frozen=self.get_frozen_indices())
+        results = CISolverResults(
+                converged=casci.converged, e_corr=e_corr, c_occ=self.c_active_occ, c_vir=self.c_active_vir, eris=eris,
+                c0=c0, c1=c1, c2=c2)
 
-        ## Get eris somewhere else?
-        #t0 = timer()
-        #eris = cisd.ao2mo()
-        #self.log.debug("Time for integral transformation: %s", time_string(timer()-t0))
+        return results
+
+
+    #def kernel2(self, init_guess=None, eris=None):
+    #    """TODO"""
+
+    #    c_act = self.mo_coeff[:,self.get_active_slice()]
+    #    if eris is None:
+    #        # Temporary implementation
+    #        import pyscf.ao2mo
+    #        t0 = timer()
+    #        eris = pyscf.ao2mo.general(self.mf._eri, c_act)
+    #        self.log.timing("Time for AO->MO of (ij|kl):  %s", time_string(timer()-t0))
+
+
+    #    f_act = np.linalg.multi_dot((r.T, eris.fock, r))
+    #    v_act = 2*einsum('iipq->pq', eris[o,o]) - einsum('iqpi->pq', g_cas[o,:,:,o])
+    #    h_eff = f_act - v_act
+
+
+    #    fcisolver = pyscf.fci.direct_spin1.FCISolver(self.mol)
+    #    t0 = timer()
+    #    e_fci, wf0 = fcisolver.kernel(h_eff, g_cas, ncas, nelec)
+    #    if not fcisolver.converged:
+    #        self.log.error("FCI not converged!")
+    #    self.log.timing("Time for FCI: %s", time_string(timer()-t0))
+
 
 
     #def run_fci(self):

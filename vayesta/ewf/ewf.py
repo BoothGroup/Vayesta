@@ -136,7 +136,6 @@ class EWF(QEmbeddingMethod):
             self.log.timing("Time for orbital orthogonalization: %s", time_string(timer()-t0))
 
         # Prepare fragments
-        #if self.local_orbital_type in ("IAO", "LAO"):
         t0 = timer()
         fragkw = {}
         if self.opts.fragment_type.upper() == 'IAO':
@@ -489,7 +488,8 @@ class EWF(QEmbeddingMethod):
                     f.write(fmtline % (ao_labels[i], *self.iao_coeff[i]))
 
         # Mean-field population analysis
-        self.lo = pyscf.lo.orth_ao(self.mol, "lowdin")
+        if self.opts.fragment_type.upper() != 'SITE':
+            self.lo = pyscf.lo.orth_ao(self.mol, "lowdin")
         if self.opts.pop_analysis:
             dm1 = self.mf.make_rdm1()
             if isinstance(self.opts.pop_analysis, str):

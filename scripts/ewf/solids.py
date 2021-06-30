@@ -600,8 +600,8 @@ for i, a in enumerate(args.lattice_consts):
             ###    ccx.make_atom_fragment(0, sym_factor=ncells, bno_threshold_factor=0.3)
             ###    ccx.make_atom_fragment(1, sym_factor=ncells)
             ###    ccx.make_atom_fragment(2, sym_factor=3*ncells, bno_threshold_factor=0.03)
-            ##elif args.system in ("perovskite", 'SrTiO3-I4'):
-            ##    ccx.make_atom_fragment(1, aos=['4s', '3d'], sym_factor=ncells)
+            elif args.system in ('perovskite', 'SrTiO3', 'SrTiO3-I4'):
+                ccx.make_atom_fragment(1, aos=['4s', '3d'], sym_factor=ncells)
             ###elif args.system in ('perovskite',):
             ###    # 8 fragment orbitals:
             ###    aos = ['1 Ti 3dz', '1 Ti 3dx2-y2', '2 O 2px', '3 O 2py', '4 O 2pz', '22 O 2px', '13 O 2py', '9 O 2pz']
@@ -626,13 +626,13 @@ for i, a in enumerate(args.lattice_consts):
             ##    #iaos = ['1 Ti 3dz', '1 Ti 3dx2-y2', '2 O 2px', '3 O 2py', '4 O 2pz', '47 O 2px', '18 O 2py', '9 O 2pz']
             ##    iaos = [('^%s' % iao) for iao in iaos]
             ##    f.set_cas(iaos=iaos)
-            elif args.system in ('perovskite', 'SrTiO3'):
-              # Sr, Ti needs larger threshold
-              ccx.make_atom_fragment(0, sym_factor=ncells, bno_threshold_factor=10.0)       # Sr
-              ccx.make_atom_fragment(1, sym_factor=ncells, bno_threshold_factor=100.0)      # Ti
-              ccx.make_atom_fragment(2, sym_factor=ncells)                                  # O1
-              ccx.make_atom_fragment(3, sym_factor=ncells)                                  # O2
-              ccx.make_atom_fragment(4, sym_factor=ncells)                                  # O3
+            #elif args.system in ('perovskite', 'SrTiO3'):
+            #  # Sr, Ti needs larger threshold
+            #  ccx.make_atom_fragment(0, sym_factor=ncells, bno_threshold_factor=10.0)       # Sr
+            #  ccx.make_atom_fragment(1, sym_factor=ncells, bno_threshold_factor=100.0)      # Ti
+            #  ccx.make_atom_fragment(2, sym_factor=ncells)                                  # O1
+            #  ccx.make_atom_fragment(3, sym_factor=ncells)                                  # O2
+            #  ccx.make_atom_fragment(4, sym_factor=ncells)                                  # O3
             elif args.system in ('SrTiO3-I4',):
               # Sr, Ti needs larger threshold
               ccx.make_atom_fragment(0, sym_factor=ncells, bno_threshold_factor=10.0)       # Sr

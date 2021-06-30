@@ -188,6 +188,9 @@ class QEmbeddingFragment:
                 assert np.allclose(s.half.imag, 0)
                 shalf = shalf.real
                 p = np.linalg.multi_dot((C.T, shalf[:,self.aos], s[self.aos], C))
+        if self.fragment_type.upper() == 'SITE':
+            r = np.dot(coeff.T, self.c_frag)
+            p = np.dot(r, r.T)
         if inverse:
             p = np.eye(p.shape[-1]) - p
         return p

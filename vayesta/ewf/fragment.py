@@ -60,6 +60,9 @@ class EWFFragmentResults:
     e_corr: float = None
     ip_energy: np.ndarray = None
     ea_energy: np.ndarray = None
+    c0: float = None
+    c1: np.ndarray = None
+    c2: np.ndarray = None
     t1: np.ndarray = None
     t2: np.ndarray = None
     l1: np.ndarray = None
@@ -74,7 +77,7 @@ class EWFFragmentExit(Exception):
 
 class EWFFragment(QEmbeddingFragment):
 
-    def __init__(self, base, fid, name, c_frag, c_env, fragment_type, sym_factor=1, atoms=None, log=None,
+    def __init__(self, base, fid, name, c_frag, c_env, fragment_type, sym_factor=1, atoms=None, aos=None, log=None,
             solver=None, options=None, **kwargs):
         """
         Parameters
@@ -87,7 +90,7 @@ class EWFFragment(QEmbeddingFragment):
             Name of fragment.
         """
 
-        super().__init__(base, fid, name, c_frag, c_env, fragment_type, sym_factor=sym_factor, atoms=atoms, log=log)
+        super().__init__(base, fid, name, c_frag, c_env, fragment_type, sym_factor=sym_factor, atoms=atoms, aos=aos, log=log)
 
         if options is None:
             options = EWFFragmentOptions(**kwargs)
@@ -334,10 +337,11 @@ class EWFFragment(QEmbeddingFragment):
         assert (self.c_no_occ is not None)
         assert (self.c_no_vir is not None)
 
+        bno_thr = self.opts.bno_threshold_factor * bno_threshold
         self.log.info("Occupied BNOs:")
-        c_nbo_occ, c_frozen_occ = self.apply_bno_threshold(self.c_no_occ, self.n_no_occ, bno_threshold)
+        c_nbo_occ, c_frozen_occ = self.apply_bno_threshold(self.c_no_occ, self.n_no_occ, bno_thr)
         self.log.info("Virtual BNOs:")
-        c_nbo_vir, c_frozen_vir = self.apply_bno_threshold(self.c_no_vir, self.n_no_vir, bno_threshold)
+        c_nbo_vir, c_frozen_vir = self.apply_bno_threshold(self.c_no_vir, self.n_no_vir, bno_thr)
 
         # Canonicalize orbitals
         c_active_occ = self.canonicalize_mo(self.c_cluster_occ, c_nbo_occ)[0]
@@ -444,8 +448,13 @@ class EWFFragment(QEmbeddingFragment):
         self.log.timing("Time for %s solver:  %s", solver, time_string(timer()-t0))
 
         # Get projected amplitudes ('p1', 'p2')
-        c1 = solver_results.t1
-        c2 = solver_results.t2 + einsum('ia,jb->ijab', c1, c1)
+        if hasattr(solver_results, 't1'):
+            c1 = solver_results.t1
+            c2 = solver_results.t2 + einsum('ia,jb->ijab', c1, c1)
+        elif hasattr(solver_results, 'c1'):
+            self.log.info("Weight of reference determinant= %.8g", abs(solver_results.c0))
+            c1 = solver_results.c1 / solver_results.c0
+            c2 = solver_results.c2 / solver_results.c0
         p1 = self.project_amplitude_to_fragment(c1, c_active_occ, c_active_vir)
         p2 = self.project_amplitude_to_fragment(c2, c_active_occ, c_active_vir)
 
@@ -460,7 +469,7 @@ class EWFFragment(QEmbeddingFragment):
                         filename, ext = filename
                     else:
                         ext = 'txt'
-                    filename = "%s-%s.%s" % (filename, self.id_name, ext)
+                    filename = '%s-%s.%s' % (filename, self.id_name, ext)
                 else:
                     filename = None
                 # Add frozen states and transform to AO
@@ -480,15 +489,20 @@ class EWFFragment(QEmbeddingFragment):
                 converged=solver_results.converged,
                 e_corr=e_corr)
         # EOM analysis
-        if self.opts.eom_ccsd in (True, "IP"):
-            results.ip_energy, _ = self.eom_analysis(cluster_solver, "IP")
-        if self.opts.eom_ccsd in (True, "EA"):
-            results.ea_energy, _ = self.eom_analysis(cluster_solver, "EA")
+        if self.opts.eom_ccsd in (True, 'IP'):
+            results.ip_energy, _ = self.eom_analysis(cluster_solver, 'IP')
+        if self.opts.eom_ccsd in (True, 'EA'):
+            results.ea_energy, _ = self.eom_analysis(cluster_solver, 'EA')
 
-        # Keep T-Amplitudes [optional]
+        # Keep Amplitudes [optional]
         if self.base.opts.project_init_guess or self.opts.sc_mode:
-            results.t1 = solver_results.t1
-            results.t2 = solver_results.t2
+            if hasattr(solver_results, 't1'):
+                results.t1 = solver_results.t1
+                results.t2 = solver_results.t2
+            if hasattr(solver_results, 'c1'):
+                results.c0 = solver_results.c0
+                results.c1 = solver_results.c1
+                results.c2 = solver_results.c2
         # Keep Lambda-Amplitudes
         if results.l1 is not None:
             results.l1 = solver_results.l1
@@ -711,33 +725,34 @@ class EWFFragment(QEmbeddingFragment):
         e_frag : float
             Fragment energy contribution.
         """
+        nocc, nvir = p2.shape[1:3]
         # MP2
         if p1 is None:
             e1 = 0
         # CC
         else:
-            occ = np.s_[:eris.nocc]
-            vir = np.s_[eris.nocc:]
+            occ = np.s_[:nocc]
+            vir = np.s_[nocc:]
             f = eris.fock[occ][:,vir]
             e1 = 2*np.sum(f * p1)
 
         if hasattr(eris, "ovvo"):
             eris_ovvo = eris.ovvo
-        # MP2 only has eris.ovov - for real integrals we tranpose
+        # MP2 only has eris.ovov - for real integrals we transpose
         else:
-            no, nv = p2.shape[1:3]
-            eris_ovvo = eris.ovov[:].reshape(no,nv,no,nv).transpose(0, 1, 3, 2).conj()
+            eris_ovvo = eris.ovov[:].reshape(nocc,nvir,nocc,nvir).transpose(0, 1, 3, 2).conj()
         e2 = (2*einsum('ijab,iabj', p2, eris_ovvo)
               - einsum('ijab,jabi', p2, eris_ovvo))
 
-        self.log.info("Energy components: E[T1]= % 16.8f Ha, E[T2+T1^2]= % 16.8f Ha", e1, e2)
+        self.log.info("Energy components: E[C1]= % 16.8f Ha, E[C2]= % 16.8f Ha", e1, e2)
         if e1 > 1e-4 and 10*e1 > e2:
-            self.log.warning("WARNING: Large E[T1] component!")
+            self.log.warning("WARNING: Large E[C1] component!")
 
         e_frag = self.sym_factor * (e1 + e2)
         return e_frag
 
 
+    # WIP
     def get_fragment_g1(self, t1, p1, p2, l1, l2, c_occ):
         """Gamma 1 intermediate for density-matrix.
 
