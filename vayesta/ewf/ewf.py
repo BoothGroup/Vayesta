@@ -53,8 +53,9 @@ class EWFOptions(Options):
     # --- Solver settings
     solver_options: dict = dataclasses.field(default_factory=dict)
     make_rdm1: bool = False
-    pop_analysis: str = False          # Do population analysis
-    eom_ccsd: bool = False              # Perform EOM-CCSD in each cluster by default
+    pop_analysis: str = False           # Do population analysis
+    eom_ccsd: list = dataclasses.field(default_factory=list)  # Perform EOM-CCSD in each cluster by default
+    eom_ccsd_nroots: int = 5            # Perform EOM-CCSD in each cluster by default
     eomfile: str = 'eom-ccsd'           # Filename for EOM-CCSD states
     # Counterpoise correction of BSSE
     bsse_correction: bool = True

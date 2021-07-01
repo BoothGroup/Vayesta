@@ -29,10 +29,12 @@ def get_solver_class(solver):
 
 @dataclasses.dataclass
 class ClusterSolverOptions(Options):
-    eom_ccsd: bool = NotSet
     make_rdm1: bool = NotSet
     sc_mode: int = NotSet
     # CCSD specific
+    # EOM CCSD
+    eom_ccsd: list = NotSet  # {'IP', 'EA', 'EE-S', 'EE-D', 'EE-SF'}
+    eom_ccsd_nroots: int = NotSet
     # Active space methods
     c_cas_occ: np.array = None
     c_cas_vir: np.array = None
@@ -144,6 +146,14 @@ class CCSDSolverResults(ClusterSolverResults):
     ip_coeff: np.array = None
     ea_energy: np.array = None
     ea_coeff: np.array = None
+    # EE
+    ee_s_energy: np.array = None
+    ee_t_energy: np.array = None
+    ee_sf_energy: np.array = None
+    ee_s_coeff: np.array = None
+    ee_t_coeff: np.array = None
+    ee_sf_coeff: np.array = None
+
 
 
 class CCSDSolver(ClusterSolver):
@@ -232,22 +242,35 @@ class CCSDSolver(ClusterSolver):
             #results.dm1 = cc.make_rdm1(eris=eris, ao_repr=True)
             results.dm1 = cc.make_rdm1(with_frozen=False)
 
-        def eom_ccsd(kind, nroots=3):
+        def run_eom_ccsd(kind, nroots=None):
+            nroots = nroots or self.opts.eom_ccsd_nroots
             kind = kind.upper()
-            assert kind in ("IP", "EA")
+            assert kind in ('IP', 'EA', 'EE-S', 'EE-T', 'EE-SF')
             self.log.info("Running %s-EOM-CCSD (nroots=%d)...", kind, nroots)
-            eom_funcs = {"IP" : cc.ipccsd , "EA" : cc.eaccsd}
+            eom_funcs = {
+                    'IP' : cc.ipccsd , 'EA' : cc.eaccsd,
+                    'EE-S' : cc.eomee_ccsd_singlet,
+                    'EE-T' : cc.eomee_ccsd_triplet,
+                    'EE-SF' : cc.eomsf_ccsd,}
             t0 = timer()
             e, c = eom_funcs[kind](nroots=nroots, eris=eris)
             self.log.timing("Time for %s-EOM-CCSD:  %s", kind, time_string(timer()-t0))
             if nroots == 1:
-                e, c = [e], [c]
+                e, c = np.asarray([e]), np.asarray([c])
+            fmt = "%s-EOM-CCSD energies:" + len(e) * "  %+14.8f"
+            self.log.info(fmt, kind, *e)
             return e, c
 
-        if self.opts.eom_ccsd in (True, "IP"):
-            results.ip_energy, results.ip_coeff = eom_ccsd("IP")
-        if self.opts.eom_ccsd in (True, "EA"):
-            results.ea_energy, results.ea_coeff = eom_ccsd("EA")
+        if 'IP' in self.opts.eom_ccsd:
+            results.ip_energy, results.ip_coeff = run_eom_ccsd('IP')
+        if 'EA' in self.opts.eom_ccsd:
+            results.ea_energy, results.ea_coeff = run_eom_ccsd('EA')
+        if 'EE-S' in self.opts.eom_ccsd:
+            results.ee_s_energy, results.ee_s_coeff = run_eom_ccsd('EE-S')
+        if 'EE-T' in self.opts.eom_ccsd:
+            results.ee_t_energy, results.ee_t_coeff = run_eom_ccsd('EE-T')
+        if 'EE-SF' in self.opts.eom_ccsd:
+            results.ee_sf_energy, results.ee_sf_coeff = run_eom_ccsd('EE-SF')
 
 
         return results

@@ -102,9 +102,11 @@ def get_arguments():
     parser.add_argument("--solver", type=str_or_none, default="CCSD")
     parser.add_argument("--ccsd-diis-start-cycle", type=int)
     parser.add_argument("--opts", nargs="*", default=[])
+    parser.add_argument("--plot-orbitals", type=str)
     parser.add_argument("--plot-orbitals-crop-c", type=float, nargs=2)
     parser.add_argument("--pop-analysis", type=str)
     parser.add_argument("--check-surrounding", type=int)
+    parser.add_argument("--eom-ccsd", nargs='*')
     # Bath specific
     parser.add_argument("--dmet-threshold", type=float, default=1e-4, help="Threshold for DMET bath orbitals. Default= 1e-4")
     parser.add_argument("--bno-threshold", type=float, nargs="*",
@@ -559,8 +561,12 @@ for i, a in enumerate(args.lattice_consts):
         # ----------------------
 
         kwargs = {opt : True for opt in args.opts}
+        if args.plot_orbitals:
+            kwargs['plot_orbitals'] = args.plot_orbitals
         if args.pop_analysis:
             kwargs['pop_analysis'] = args.pop_analysis
+        if args.eom_ccsd:
+            kwargs['eom_ccsd'] = args.eom_ccsd
         solver_options = {}
         if args.ccsd_diis_start_cycle is not None:
             solver_options["diis_start_cycle"] = args.ccsd_diis_start_cycle
@@ -602,6 +608,8 @@ for i, a in enumerate(args.lattice_consts):
             ###    ccx.make_atom_fragment(2, sym_factor=3*ncells, bno_threshold_factor=0.03)
             elif args.system in ('perovskite', 'SrTiO3', 'SrTiO3-I4'):
                 ccx.make_atom_fragment(1, aos=['4s', '3d'], sym_factor=ncells)
+                # Center in 3x3x3:
+                #ccx.make_atom_fragment(66, aos=['4s', '3d'], sym_factor=ncells)
             ###elif args.system in ('perovskite',):
             ###    # 8 fragment orbitals:
             ###    aos = ['1 Ti 3dz', '1 Ti 3dx2-y2', '2 O 2px', '3 O 2py', '4 O 2pz', '22 O 2px', '13 O 2py', '9 O 2pz']

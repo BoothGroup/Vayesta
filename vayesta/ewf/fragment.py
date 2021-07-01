@@ -37,7 +37,8 @@ class EWFFragmentOptions(Options):
     # Options also present in `base`:
     dmet_threshold: float = NotSet
     make_rdm1: bool = NotSet
-    eom_ccsd: bool = NotSet
+    eom_ccsd: list = NotSet
+    eom_ccsd_nroots: int = NotSet
     plot_orbitals: str = NotSet
     bsse_correction: bool = NotSet
     bsse_rmax: float = NotSet
@@ -191,7 +192,8 @@ class EWFFragment(QEmbeddingFragment):
                 raise NotImplementedError()
             os.makedirs(self.base.opts.plot_orbitals_dir, exist_ok=True)
             name = "%s.cube" % os.path.join(self.base.opts.plot_orbitals_dir, self.name)
-            cubefile = cubegen.CubeFile(self.mol, filename=name, **self.base.opts.plot_orbitals_kwargs)
+            n = 160
+            cubefile = cubegen.CubeFile(self.mol, filename=name, nx=n, ny=n, nz=n, **self.base.opts.plot_orbitals_kwargs)
             self.log.debug("Adding fragment orbitals to cube file.")
             cubefile.add_orbital(self.c_frag.copy())
             if (self.opts.plot_orbitals is True) or ('dmet' in str(self.opts.plot_orbitals).lower()):
@@ -489,10 +491,10 @@ class EWFFragment(QEmbeddingFragment):
                 converged=solver_results.converged,
                 e_corr=e_corr)
         # EOM analysis
-        if self.opts.eom_ccsd in (True, 'IP'):
-            results.ip_energy, _ = self.eom_analysis(cluster_solver, 'IP')
-        if self.opts.eom_ccsd in (True, 'EA'):
-            results.ea_energy, _ = self.eom_analysis(cluster_solver, 'EA')
+        #if 'IP' in self.opts.eom_ccsd:
+        #    results.ip_energy, _ = self.eom_analysis(cluster_solver, 'IP')
+        #if 'EA' in self.opts.eom_ccsd:
+        #    results.ea_energy, _ = self.eom_analysis(cluster_solver, 'EA')
 
         # Keep Amplitudes [optional]
         if self.base.opts.project_init_guess or self.opts.sc_mode:
@@ -795,8 +797,10 @@ class EWFFragment(QEmbeddingFragment):
         sc = np.dot(self.base.get_ovlp(), self.base.lo)
         if kind == "IP":
             e, c = csolver.ip_energy, csolver.ip_coeff
-        else:
+        elif kind == "EA":
             e, c = csolver.ea_energy, csolver.ea_coeff
+        else:
+            raise ValueError()
         nroots = len(e)
         eris = csolver._eris
         cc = csolver._solver
