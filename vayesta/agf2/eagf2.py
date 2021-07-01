@@ -34,6 +34,9 @@ class EAGF2Options(Options):
     # --- Bath settings
     dmet_threshold: float = 1e-4
     orthogonal_mo_tol: float = False
+    bath_type: str = 'dmet+mp2'
+    nmom_bath: int = 0
+    wtol_bath: float = 1e-14
 
     # --- Solver settings
     solver_options: dict = dataclasses.field(default_factory=dict)
@@ -201,37 +204,58 @@ class EAGF2(QEmbeddingMethod):
             if self.opts.fragment_type.lower() == 'iao':
                 coeff = np.linalg.multi_dot((c.T.conj(), s, self.iao_coeff))
             elif self.opts.fragment_type.lower() == 'lowdin-ao':
-                w, v = np.linalg.eigh(s)
-                s_half = np.dot(v * np.sqrt(w)[None], v.T.conj())
-                coeff = np.dot(c.T.conj(), s_half)
+                coeff = np.linalg.multi_dot((c.T.conj(), s, self.lao_coeff))
 
             fock = np.linalg.multi_dot((coeff, fock, coeff.T.conj()))
             se.coupling = np.dot(coeff, se.coupling)
 
-            gf2 = RAGF2(self.mf)
-            gf2.se = se
-            w, v = gf2.solve_dyson(se=se, fock=fock)
-            gf2.gf = pyscf.agf2.GreensFunction(w, v[:se.nphys], chempot=se.chempot)
-            gf2.gf, gf2.se = gf2.fock_loop()
-            gf2.e_1b = gf2.energy_1body()
-            gf2.e_2b = gf2.energy_2body()
+            class FakeRAGF2(RAGF2):
+                def __init__(self, mf):
+                    tmplog = logging.getLogger('tmp')
+                    tmplog.setLevel(logging.ERROR)
+                    eri = mf._eri
+                    RAGF2.__init__(self, mf, eri=eri, log=tmplog)
+
+                def get_fock(self, *args, **kwargs):
+                    rdm1 = RAGF2.make_rdm1(self, *args, **kwargs)
+                    mo_coeff = self.mf.mo_coeff
+                    rdm1 = np.linalg.multi_dot((mo_coeff, rdm1, mo_coeff.T.conj()))
+                    vj, vk = pyscf.scf._vhf.incore(self.eri, rdm1)
+                    fock = self.mf.get_hcore() + vj - 0.5 * vk
+                    fock = np.linalg.multi_dot((mo_coeff.T.conj(), fock, mo_coeff))
+                    return fock
+
+            gf2 = FakeRAGF2(self.mf)
+            gf, se = gf2.fock_loop(gf=se.get_greens_function(fock), se=se)
+
+            rdm1 = gf.make_rdm1()
+            h1e = np.linalg.multi_dot((c.T.conj(), self.mf.get_hcore(), c))
+            e_1b = 0.5 * np.sum(rdm1 * (h1e + fock))
+            e_1b += self.mf.mol.energy_nuc()
+            e_2b = RAGF2.energy_2body(None, gf=gf, se=se)
+            e_corr = e_1b + e_2b - self.mf.e_tot
+
+            e_ip = -gf.get_occupied().energy.max()
+            e_ea = gf.get_virtual().energy.min()
 
             result = EAGF2Results(
                     bno_threshold=bno_thr,
-                    e_corr=gf2.e_corr,
-                    e_1b=gf2.e_1b,
-                    e_2b=gf2.e_2b,
-                    gf=gf2.gf,
-                    se=gf2.se,
+                    e_corr=e_corr,
+                    e_1b=e_1b,
+                    e_2b=e_2b,
+                    gf=gf,
+                    se=se,
             )
             self.results.append(result)
 
+        self.log.info("E(corr) = %20.12f", e_corr)
+        self.log.info("E(1b)   = %20.12f", e_1b)
+        self.log.info("E(2b)   = %20.12f", e_2b)
+        self.log.info("E(tot)  = %20.12f", e_1b + e_2b)
 
-        self.e_corr = self.results[0].e_corr
-        self.log.output('E(nuc)  = %20.12f', self.mol.energy_nuc())
-        self.log.output('E(MF)   = %20.12f', self.e_mf)
-        self.log.output('E(corr) = %20.12f', self.e_corr)
-        self.log.output('E(tot)  = %20.12f', self.e_tot)
+        self.log.info("IP      = %20.12f", e_ip)
+        self.log.info("EA      = %20.12f", e_ea)
+        self.log.info("Gap     = %20.12f", e_ip + e_ea)
 
         self.log.info("Total wall time:  %s", time_string(timer() - t0))
         self.log.info("All done.")
@@ -255,7 +279,9 @@ if __name__ == '__main__':
     mol = pyscf.gto.Mole()
     mol.atom = 'Li 0 0 0; H 0 0 1.4'
     #mol.atom = 'N 0 0 0; N 0 0 0.8'
+    #mol.atom = 'O 0 0 0; H 0 0 1; H 0 1 0'
     mol.basis = 'aug-cc-pvdz'
+    #mol.basis = 'cc-pvdz'
     mol.verbose = 0
     mol.max_memory = 1e9
     mol.build()
@@ -281,10 +307,10 @@ if __name__ == '__main__':
     vayesta.log.setLevel(logging.INFO)
 
     vayesta.log.info('         %14s %14s %s', 'RHF', 'AGF2', ' '.join(['%14s' % res.bno_threshold for res in eagf2.results]))
-    vayesta.log.info('max(N) = %14d %14d %s',     mol.nao,    mol.nao,              ' '.join(['%14d' % max([eagf2.cluster_results[(frag.id, res.bno_threshold)].n_active for frag in eagf2.fragments]) for res in eagf2.results]))
-    vayesta.log.info('E(1b)  = %14.8f %14.8f %s', agf2.e_1b,  mf.e_tot,             ' '.join(['%14.8f' % res.e_1b for res in eagf2.results]))
-    vayesta.log.info('E(2b)  = %14.8f %14.8f %s', agf2.e_2b,  0.0,                  ' '.join(['%14.8f' % res.e_2b for res in eagf2.results]))
-    vayesta.log.info('E(tot) = %14.8f %14.8f %s', agf2.e_tot, mf.e_tot,             ' '.join(['%14.8f' % (res.e_1b+res.e_2b) for res in eagf2.results]))
-    vayesta.log.info('IP     = %14.8f %14.8f %s', agf2.e_ip,  ip_mf,                ' '.join(['%14.8f' % -res.gf.get_occupied().energy.max() for res in eagf2.results]))
-    vayesta.log.info('EA     = %14.8f %14.8f %s', agf2.e_ea,  ea_mf,                ' '.join(['%14.8f' % res.gf.get_virtual().energy.min() for res in eagf2.results]))
-    vayesta.log.info('Gap    = %14.8f %14.8f %s', agf2.e_ip+agf2.e_ea, ip_mf+ea_mf, ' '.join(['%14.8f' % (res.gf.get_virtual().energy.min()-res.gf.get_occupied().energy.max()) for res in eagf2.results]))
+    vayesta.log.info('max(N) = %14d %14d %s',     mol.nao,              mol.nao,    ' '.join(['%14d' % max([eagf2.cluster_results[(frag.id, res.bno_threshold)].n_active for frag in eagf2.fragments]) for res in eagf2.results]))
+    vayesta.log.info('E(1b)  = %14.8f %14.8f %s', mf.e_tot,             agf2.e_1b,  ' '.join(['%14.8f' % res.e_1b for res in eagf2.results]))
+    vayesta.log.info('E(2b)  = %14.8f %14.8f %s', 0.0,                  agf2.e_2b,  ' '.join(['%14.8f' % res.e_2b for res in eagf2.results]))
+    vayesta.log.info('E(tot) = %14.8f %14.8f %s', mf.e_tot,             agf2.e_tot, ' '.join(['%14.8f' % (res.e_1b+res.e_2b) for res in eagf2.results]))
+    vayesta.log.info('IP     = %14.8f %14.8f %s', ip_mf,                agf2.e_ip,  ' '.join(['%14.8f' % -res.gf.get_occupied().energy.max() for res in eagf2.results]))
+    vayesta.log.info('EA     = %14.8f %14.8f %s', ea_mf,                agf2.e_ea,  ' '.join(['%14.8f' % res.gf.get_virtual().energy.min() for res in eagf2.results]))
+    vayesta.log.info('Gap    = %14.8f %14.8f %s', ip_mf+ea_mf, agf2.e_ip+agf2.e_ea, ' '.join(['%14.8f' % (res.gf.get_virtual().energy.min()-res.gf.get_occupied().energy.max()) for res in eagf2.results]))
