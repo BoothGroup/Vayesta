@@ -38,14 +38,14 @@ c1_vir = f1.c_active_vir    # (site, virtual orbital)
 
 
 # 5) Combine (add) to a single c1, c2
-c1 = np.zeros(nsite, nsite)
+c1 = np.zeros((nsite, nsite))
 c2 = np.zeros(4*[nsite])
 #...
 
 
 # 6) Use full c1, c2 to tailor a CCSD calculation
 # TODO: Tailored CC
-ecc = vayesta.ewf.EWF(mf, solver='CCSD', bno_threshold=-np.inf)
+ecc = vayesta.ewf.EWF(mf, solver='CCSD', bno_threshold=-np.inf, fragment_type='Site')
 ecc.make_atom_fragment(list(range(nsite)))
 ecc.kernel()
 

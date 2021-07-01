@@ -66,6 +66,10 @@ def make_dmet_bath(self, C_env, C_ref=None, nbath=None, tol=1e-4, reftol=0.8):
     C_virenv : ndarray
         Virtual environment orbitals.
     """
+    if C_env.shape[-1] == 0:
+        nao = C_env.shape[0]
+        return np.zeros((nao, 0)), np.zeros((nao, 0)), np.zeros((nao, 0))
+
     #C_env = self.c_env
     # Divide by 2 to get eigenvalues in [0,1]
     sc = np.dot(self.base.get_ovlp(), C_env)

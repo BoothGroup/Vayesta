@@ -24,7 +24,16 @@ kmf = kmf.density_fit(auxbasis='def2-svp-ri')
 kmf.kernel()
 
 # Embedded calculation will automatically unfold the k-point sampled mean-field
-ecc = vayesta.ewf.EWF(kmf, plot_orbitals='dmet-exit')
+orbitals = ['fragment', 'dmet',
+        'bno-occ-[1e-4,1]',
+        'bno-occ-[1e-6,1e-4]',
+        'bno-occ-[1e-8,1e-6]',
+        'bno-occ-[-1,1e-8]',
+        'bno-vir-[1e-4,1]',
+        'bno-vir-[1e-6,1e-4]',
+        'bno-vir-[1e-8,1e-6]',
+        'bno-vir-[-1,1e-8]']
+ecc = vayesta.ewf.EWF(kmf, plot_orbitals=orbitals, plot_orbitals_gridsize=3*[80], plot_orbitals_exit=True)
 ecc.make_atom_fragment(0)
 ecc.make_atom_fragment(1)
 ecc.kernel()

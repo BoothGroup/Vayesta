@@ -39,7 +39,6 @@ class EWFFragmentOptions(Options):
     make_rdm1: bool = NotSet
     eom_ccsd: list = NotSet
     eom_ccsd_nroots: int = NotSet
-    plot_orbitals: str = NotSet
     bsse_correction: bool = NotSet
     bsse_rmax: float = NotSet
     energy_partitioning: str = NotSet
@@ -50,6 +49,12 @@ class EWFFragmentOptions(Options):
     # CAS methods
     c_cas_occ: np.ndarray = None
     c_cas_vir: np.ndarray = None
+    # --- Orbital plots
+    plot_orbitals: list = NotSet
+    plot_orbitals_exit: bool = NotSet            # Exit immediately after all orbital plots have been generated
+    plot_orbitals_dir: str = NotSet
+    plot_orbitals_kwargs: dict = NotSet
+    plot_orbitals_gridsize: tuple = NotSet
 
 
 @dataclasses.dataclass
@@ -164,11 +169,46 @@ class EWFFragment(QEmbeddingFragment):
         return self.e_corrs[idx]
 
 
+    def init_orbital_plot(self):
+        if self.boundary_cond == 'open':
+            raise NotImplementedError()
+        os.makedirs(self.opts.plot_orbitals_dir, exist_ok=True)
+        name = "%s.cube" % os.path.join(self.opts.plot_orbitals_dir, self.id_name)
+        nx, ny, nz = self.opts.plot_orbitals_gridsize
+        cubefile = cubegen.CubeFile(self.mol, filename=name, nx=nx, ny=ny, nz=nz, **self.base.opts.plot_orbitals_kwargs)
+        return cubefile
+
+    def add_orbital_plot(self, cubefile, name, mo_coeff=None, dm=None, dset_idx=None, keep_in_list=False):
+        if mo_coeff is None and dm is None:
+            raise ValueError("set mo_coeff or dm")
+        if name in self.opts.plot_orbitals:
+            if not keep_in_list:
+                self.opts.plot_orbitals.remove(name)
+            if mo_coeff is not None:
+                self.log.debugv("Adding %s orbitals to cube file.", name)
+                cubefile.add_orbital(mo_coeff.copy(), dset_idx=dset_idx)
+            else:
+                self.log.debugv("Adding %s density to cube file.", name)
+                cubefile.add_density(dm.copy(), dset_idx=dset_idx)
+            if not self.opts.plot_orbitals:
+                self.write_orbital_plot(cubefile)
+
+    def write_orbital_plot(self, cubefile):
+        self.log.debug("Writing cube file.")
+        cubefile.write()
+        if self.opts.plot_orbitals_exit:
+            raise EWFFragmentExit("All plots done")
+
     def make_bath(self):
         """Make DMET and MP2 bath natural orbitals."""
+        # Add fragment orbitals for cube file plots
+        if self.opts.plot_orbitals:
+            cubefile = self.init_orbital_plot()
+            self.add_orbital_plot(cubefile, 'fragment', self.c_frag)
+
         t0_bath = t0 = timer()
         self.log.info("Making DMET Bath")
-        self.log.info("****************")
+        self.log.info("----------------")
         self.log.changeIndentLevel(1)
         c_dmet, c_env_occ, c_env_vir = self.make_dmet_bath(self.c_env, tol=self.opts.dmet_threshold)
         # DMET bath analysis
@@ -180,28 +220,13 @@ class EWFFragment(QEmbeddingFragment):
             #n = np.amin((np.count_nonzero(ovlp >= 0.2), 5))
             n = np.amin((len(ovlp), 6))
             labels = np.asarray(self.mol.ao_labels())[sort][:n]
-            lines = [("%s= %.5f" % (labels[i].strip(), ovlp[i])) for i in range(n)]
+            lines = [('%s= %.5f' % (labels[i].strip(), ovlp[i])) for i in range(n)]
             self.log.info("  > %2d:  %s", i+1, '  '.join(lines))
-
         self.log.timing("Time for DMET bath:  %s", time_string(timer()-t0))
-        self.log.changeIndentLevel(-1)
-
-        # Add fragment and DMET orbitals for cube file plots
+        # Add DMET orbitals for cube file plots
         if self.opts.plot_orbitals:
-            if self.boundary_cond == 'open':
-                raise NotImplementedError()
-            os.makedirs(self.base.opts.plot_orbitals_dir, exist_ok=True)
-            name = "%s.cube" % os.path.join(self.base.opts.plot_orbitals_dir, self.name)
-            n = 160
-            cubefile = cubegen.CubeFile(self.mol, filename=name, nx=n, ny=n, nz=n, **self.base.opts.plot_orbitals_kwargs)
-            self.log.debug("Adding fragment orbitals to cube file.")
-            cubefile.add_orbital(self.c_frag.copy())
-            if (self.opts.plot_orbitals is True) or ('dmet' in str(self.opts.plot_orbitals).lower()):
-                self.log.debug("Adding DMET orbitals to cube file.")
-                cubefile.add_orbital(c_dmet.copy(), dset_idx=1001)
-            if str(self.opts.plot_orbitals).lower() in ('fragment-exit', 'dmet-exit'):
-                cubefile.write()
-                raise EWFFragmentExit()
+            self.add_orbital_plot(cubefile, 'dmet', c_dmet, dset_idx=1001)
+        self.log.changeIndentLevel(-1)
 
         # Add additional orbitals to cluster [optional]
         #c_dmet, c_env_occ, c_env_vir = self.additional_bath_for_cluster(c_dmet, c_env_occ, c_env_vir)
@@ -211,9 +236,9 @@ class EWFFragment(QEmbeddingFragment):
         self.log.info("Cluster orbitals:  n(occ)= %3d  n(vir)= %3d", self.c_cluster_occ.shape[-1], self.c_cluster_vir.shape[-1])
 
         # Add cluster orbitals to plot
-        #if self.opts.plot_orbitals:
-        #    self.cubefile.add_orbital(C_occclst.copy(), dset_idx=2001)
-        #    self.cubefile.add_orbital(C_virclst.copy(), dset_idx=3001)
+        if self.opts.plot_orbitals:
+            self.add_orbital_plot(cubefile, 'cluster', self.c_cluster_occ, dset_idx=2001, keep_in_list=True)
+            self.add_orbital_plot(cubefile, 'cluster', self.c_cluster_vir, dset_idx=3001)
 
         # Primary MP2 bath orbitals
         # TODO NOT MAINTAINED
@@ -240,51 +265,54 @@ class EWFFragment(QEmbeddingFragment):
         #    C_occclst, C_virclst = self.diagonalize_cluster_dm(C_bath)
         #self.C_bath = C_bath
 
-        if c_env_occ.shape[-1] > 0:
-            self.log.info("Making Occupied Bath NOs")
-            self.log.info("------------------------")
-            t0 = timer()
-            self.log.changeIndentLevel(1)
-            self.c_no_occ, self.n_no_occ = make_mp2_bno(
-                    self, "occ", self.c_cluster_occ, self.c_cluster_vir, c_env_occ, c_env_vir)
-            self.log.timing("Time for occupied BNOs:  %s", time_string(timer()-t0))
-            if len(self.n_no_occ) > 0:
-                self.log.info("Occupied Bath NO Histogram")
-                self.log.info("--------------------------")
-                for line in helper.plot_histogram(self.n_no_occ):
-                    self.log.info(line)
-            self.log.changeIndentLevel(-1)
-        else:
-            self.c_no_occ = c_env_occ
-            self.n_no_occ = np.zeros((0,))
+        self.c_no_occ, self.n_no_occ = self.make_bno_bath(c_env_occ, c_env_vir, 'occ', cubefile)
+        self.c_no_vir, self.n_no_vir = self.make_bno_bath(c_env_occ, c_env_vir, 'vir', cubefile)
 
-        if c_env_vir.shape[-1] > 0:
-            self.log.info("Making Virtual Bath NOs")
-            self.log.info("-----------------------")
-            t0 = timer()
-            self.log.changeIndentLevel(1)
-            self.c_no_vir, self.n_no_vir = make_mp2_bno(
-                    self, "vir", self.c_cluster_occ, self.c_cluster_vir, c_env_occ, c_env_vir)
-            self.log.timing("Time for virtual BNOs:   %s", time_string(timer()-t0))
-            if len(self.n_no_vir) > 0:
-                self.log.info("Virtual Bath NO Histogram")
-                self.log.info("-------------------------")
-                for line in helper.plot_histogram(self.n_no_vir):
-                    self.log.info(line)
-            self.log.changeIndentLevel(-1)
-        else:
-            self.c_no_vir = c_env_vir
-            self.n_no_vir = np.zeros((0,))
-
-        # Plot orbitals
         if self.opts.plot_orbitals:
-            # Save state of cubefile, in case a replot of the same data is required later:
-            cubefile.save_state("%s.pkl" % cubefile.filename)
-            cubefile.write()
+            self.log.warning("The following orbital/densities could not be plotted: %r", self.opts.plot_orbitals)
+            self.write_orbital_plot(cubefile)
+
         self.log.timing("Time for bath:  %s", time_string(timer()-t0_bath))
 
 
+    def make_bno_bath(self, c_env_occ, c_env_vir, kind, cubefile):
+        assert kind in ('occ', 'vir')
+        c_env = c_env_occ if (kind == 'occ') else c_env_vir
+        if c_env.shape[-1] == 0:
+            return c_env, np.zeros((0,))
+
+        name = {'occ': "occupied", 'vir': "virtual"}[kind]
+
+        self.log.info("Making %s Bath NOs", name.capitalize())
+        self.log.info("-------%s---------", len(name)*'-')
+        self.log.changeIndentLevel(1)
+        t0 = timer()
+        c_no, n_no = make_mp2_bno(
+                self, kind, self.c_cluster_occ, self.c_cluster_vir, c_env_occ, c_env_vir)
+        if len(n_no) > 0:
+            self.log.info("%s Bath NO Histogram", name.capitalize())
+            self.log.info("%s------------------", len(name)*'-')
+            for line in helper.plot_histogram(n_no):
+                self.log.info(line)
+        # Orbital plot
+        if self.opts.plot_orbitals:
+            idx = 0
+            for key in self.opts.plot_orbitals.copy():
+                if key.startswith('bno-%s-' % kind):
+                    itvl = key[key.find('[')+1:key.find(']')]
+                    low, high = [float(x) for x in itvl.split(',')]
+                    mask = np.logical_and(n_no >= low, n_no < high)
+                    dm = np.dot(c_no[:,mask], c_no[:,mask].T)
+                    self.add_orbital_plot(cubefile, key, dm=dm, dset_idx=(4001 if kind=='occ' else 5001)+idx)
+                    idx += 1
+        self.log.timing("Time for %s BNOs:  %s", name, time_string(timer()-t0))
+        self.log.changeIndentLevel(-1)
+
+        return c_no, n_no
+
+
     def set_cas(self, iaos=None, c_occ=None, c_vir=None):
+        """For TCCSD"""
         if iaos is not None:
             # Convert to index array
             iaos = self.base.get_ao_indices(iaos, 'IAO')
@@ -374,7 +402,7 @@ class EWFFragment(QEmbeddingFragment):
         nactive = c_active_occ.shape[-1] + c_active_vir.shape[-1]
 
         self.log.info("Orbitals for %s", self)
-        self.log.info("*************" + len(str(self))*"*")
+        self.log.info("-------------" + len(str(self))*"-")
         self.log.info("  > Active:   n(occ)= %5d  n(vir)= %5d  n(tot)= %5d", c_active_occ.shape[-1], c_active_vir.shape[-1], nactive)
         self.log.info("  > Frozen:   n(occ)= %5d  n(vir)= %5d  n(tot)= %5d", nocc_frozen, nvir_frozen, nfrozen)
         self.log.info("  > Total:    n(occ)= %5d  n(vir)= %5d  n(tot)= %5d", c_occ.shape[-1], c_vir.shape[-1], mo_coeff.shape[-1])

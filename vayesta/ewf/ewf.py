@@ -46,10 +46,6 @@ class EWFOptions(Options):
     project_eris: bool = False          # Project ERIs from a pervious larger cluster (corresponding to larger eta), can result in a loss of accuracy especially for large basis sets!
     project_init_guess: bool = True     # Project converted T1,T2 amplitudes from a previous larger cluster
     orthogonal_mo_tol: float = False
-    #Orbital file
-    plot_orbitals: str = False          # {True, False, 'dmet-exit'}
-    plot_orbitals_dir: str = 'orbitals'
-    plot_orbitals_kwargs: dict = dataclasses.field(default_factory=dict)
     # --- Solver settings
     solver_options: dict = dataclasses.field(default_factory=dict)
     make_rdm1: bool = False
@@ -64,6 +60,12 @@ class EWFOptions(Options):
     sc_maxiter: int = 30
     sc_energy_tol: float = 1e-6
     sc_mode: int = 0
+    # --- Orbital plots
+    plot_orbitals: list = dataclasses.field(default_factory=dict)
+    plot_orbitals_exit: bool = False            # Exit immediately after all orbital plots have been generated
+    plot_orbitals_dir: str = 'orbitals'
+    plot_orbitals_kwargs: dict = dataclasses.field(default_factory=dict)
+    plot_orbitals_gridsize: tuple = dataclasses.field(default_factory=lambda: (160, 160, 160))
     # --- Other
     energy_partitioning: str = 'first-occ'
     strict: bool = False                # Stop if cluster not converged
