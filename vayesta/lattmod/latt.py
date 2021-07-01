@@ -157,7 +157,7 @@ class LatticeMF(pyscf.scf.hf.RHF):
         np.fill_diagonal(self._eri, self.mol.hubbard_u)
 
 
-    def get_hcore(self):
+    def get_hcore(self, *args, **kwargs):
         return self.mol.h1e
 
     def get_ovlp(self):
