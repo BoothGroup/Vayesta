@@ -72,6 +72,7 @@ def get_arguments():
     parser.add_argument("--precision", type=float, default=1e-8)
     parser.add_argument("--pyscf-verbose", type=int, default=10)
     parser.add_argument("--exp-to-discard", type=float, help="If set, discard diffuse basis functions.")
+    parser.add_argument('--srtio3-u', type=float, default=0.241)    # For SrTiO3-I4, exp=0.241
     # Counterpoise
     parser.add_argument("--counterpoise")
     parser.add_argument("--counterpoise-nimages", type=int, default=1)
@@ -101,9 +102,11 @@ def get_arguments():
     parser.add_argument("--solver", type=str_or_none, default="CCSD")
     parser.add_argument("--ccsd-diis-start-cycle", type=int)
     parser.add_argument("--opts", nargs="*", default=[])
+    parser.add_argument("--plot-orbitals", type=str)
     parser.add_argument("--plot-orbitals-crop-c", type=float, nargs=2)
     parser.add_argument("--pop-analysis", type=str)
     parser.add_argument("--check-surrounding", type=int)
+    parser.add_argument("--eom-ccsd", nargs='*')
     # Bath specific
     parser.add_argument("--dmet-threshold", type=float, default=1e-4, help="Threshold for DMET bath orbitals. Default= 1e-4")
     parser.add_argument("--bno-threshold", type=float, nargs="*",
@@ -113,11 +116,7 @@ def get_arguments():
     # Other
     parser.add_argument("--run-hf", type=int, default=1)
     parser.add_argument("--run-ewf", type=int, default=1)
-
     # Benchmark
-    #parser.add_argument("--dft-xc", nargs="*", default=[])
-    #parser.add_argument("--canonical-mp2", action="store_true", help="Perform canonical MP2 calculation.")
-    #parser.add_argument("--canonical-ccsd", action="store_true", help="Perform canonical CCSD calculation.")
     parser.add_argument("--benchmarks", nargs='*')
 
     args, restargs = parser.parse_known_args()
@@ -209,7 +208,7 @@ def make_cell(a, args, **kwargs):
     elif args.system in ("perovskite", 'SrTiO3'):
         amat, atom = molstructs.perovskite(args.atoms, a=a)
     elif args.system == "SrTiO3-I4":
-        amat, atom = molstructs.perovskite_tetragonal(args.atoms)
+        amat, atom = molstructs.perovskite_tetragonal(args.atoms, u=args.srtio3_u)
         # Cubic structure:
         #a0 = 3.905
         #amat, atom = molstructs.perovskite_tetragonal(args.atoms, a=np.sqrt(2)*a0, c=2*a0, u=0.25)
@@ -218,7 +217,7 @@ def make_cell(a, args, **kwargs):
     cell.dimension = args.ndim
     cell.precision = args.precision
     cell.verbose = args.pyscf_verbose
-    cell.basis = kwargs.get("basis", args.basis)
+    cell.basis = kwargs.get('basis', args.basis)
     if args.pseudopot:
         cell.pseudo = args.pseudopot
     if args.ecp:
@@ -533,15 +532,12 @@ for i, a in enumerate(args.lattice_consts):
     # Mean-field
     if args.run_hf:
         mf = run_mf(a, cell, args, kpts=kpts, dm_init=dm_init)
-
         with open("mo-energies.txt", "a") as f:
             if not isinstance(mf.mo_energy, list):
                 np.savetxt(f, mf.mo_energy, fmt="%.10e", header="MO energies at a=%.2f" % a)
             else:
                 for k, mok in enumerate(mf.mo_energy):
                     np.savetxt(f, mok, fmt="%.10e", header="MO energies at a=%.2f kpt= %d" % (a, k))
-
-        #    np.savetxt(f, np.asarray(mf.mo_energy).T, fmt="%.10e", header="MO energies at a=%.2f" % a)
         energies["hf"] = [mf.e_tot]
     else:
         mf = None
@@ -550,11 +546,6 @@ for i, a in enumerate(args.lattice_consts):
         ncells = np.product(args.supercell)
     else:
         ncells = 1
-
-    #elif args.k_points is not None:
-    #    nkpts = np.product(args.k_points)
-    #else:
-    #    nkpts = 1
 
     # DFT and Post-HF benchmarks
     if args.benchmarks:
@@ -570,8 +561,12 @@ for i, a in enumerate(args.lattice_consts):
         # ----------------------
 
         kwargs = {opt : True for opt in args.opts}
+        if args.plot_orbitals:
+            kwargs['plot_orbitals'] = args.plot_orbitals
         if args.pop_analysis:
             kwargs['pop_analysis'] = args.pop_analysis
+        if args.eom_ccsd:
+            kwargs['eom_ccsd'] = args.eom_ccsd
         solver_options = {}
         if args.ccsd_diis_start_cycle is not None:
             solver_options["diis_start_cycle"] = args.ccsd_diis_start_cycle
@@ -605,57 +600,59 @@ for i, a in enumerate(args.lattice_consts):
                     ccx.make_atom_fragment(0, sym_factor=ncells, **kwargs)
                     ccx.make_atom_fragment(1, sym_factor=ncells, **kwargs)
 
-            #elif args.system == "perovskite":
-            #    # Ti needs larger threshold
-            #    ccx.make_atom_fragment(0, sym_factor=ncells, bno_threshold_factor=0.3)
-            #    ccx.make_atom_fragment(1, sym_factor=ncells)
-            #    ccx.make_atom_fragment(2, sym_factor=3*ncells, bno_threshold_factor=0.03)
-            elif args.system in ("perovskite", 'SrTiO3-I4'):
+            # For population analysis:
+            #####elif args.system == "perovskite":
+            ###    # Ti needs larger threshold
+            ###    ccx.make_atom_fragment(0, sym_factor=ncells, bno_threshold_factor=0.3)
+            ###    ccx.make_atom_fragment(1, sym_factor=ncells)
+            ###    ccx.make_atom_fragment(2, sym_factor=3*ncells, bno_threshold_factor=0.03)
+            elif args.system in ('perovskite', 'SrTiO3', 'SrTiO3-I4'):
                 ccx.make_atom_fragment(1, aos=['4s', '3d'], sym_factor=ncells)
-            #elif args.system in ('perovskite',):
-            #    # 8 fragment orbitals:
-            #    aos = ['1 Ti 3dz', '1 Ti 3dx2-y2', '2 O 2px', '3 O 2py', '4 O 2pz', '22 O 2px', '13 O 2py', '9 O 2pz']
-            #    ccx.make_ao_fragment(aos, sym_factor=ncells)
-            #elif (args.system == 'SrTiO3-I4'):
-	    #    #  6 Ti     at 2.761252 2.761252 3.905000  d= 0.00000000 A
-	    #    # 17 O      at 2.761252 2.761252 1.952500  d= 1.95250000 A	-z
-	    #    #  4 O      at 4.141878 1.380626 3.905000  d= 1.95250000 A	# Problem: x-y rotated!
-	    #    # 19 O      at 1.380626 1.380626 3.905000  d= 1.95250000 A
-	    #    # 94 O      at 4.141878 4.141878 3.905000  d= 1.95250000 A
-	    #    # 49 O      at 1.380626 4.141878 3.905000  d= 1.95250000 A
-	    #    #  7 O      at 2.761252 2.761252 5.857500  d= 1.95250000 A	+z
-            #    aos = ['6 Ti 3dz', '6 Ti 3dx2-y2', ' O 2px', '3 O 2py', '4 O 2pz', '22 O 2px', '13 O 2py', '9 O 2pz']
-            #    ccx.make_ao_fragment(aos, sym_factor=ncells)
-            elif args.system == 'SrTiO3':
-                # for 2x2x2:
-                f = ccx.make_atom_fragment([1,2,3,4,22,13,9], sym_factor=ncells)
-                iaos = ['1 Ti 3dz', '1 Ti 3dx2-y2', '2 O 2px', '3 O 2py', '4 O 2pz', '22 O 2px', '13 O 2py', '9 O 2pz']
-                # Match must start with substring:
-                # for 3x3x3:
-                #f = ccx.make_atom_fragment([1,2,3,4,47,18,9], sym_factor=ncells)
-                #iaos = ['1 Ti 3dz', '1 Ti 3dx2-y2', '2 O 2px', '3 O 2py', '4 O 2pz', '47 O 2px', '18 O 2py', '9 O 2pz']
-                iaos = [('^%s' % iao) for iao in iaos]
-                f.set_cas(iaos=iaos)
+                # Center in 3x3x3:
+                #ccx.make_atom_fragment(66, aos=['4s', '3d'], sym_factor=ncells)
+            ###elif args.system in ('perovskite',):
+            ###    # 8 fragment orbitals:
+            ###    aos = ['1 Ti 3dz', '1 Ti 3dx2-y2', '2 O 2px', '3 O 2py', '4 O 2pz', '22 O 2px', '13 O 2py', '9 O 2pz']
+            ###    ccx.make_ao_fragment(aos, sym_factor=ncells)
+            ###elif (args.system == 'SrTiO3-I4'):
+	    ###    #  6 Ti     at 2.761252 2.761252 3.905000  d= 0.00000000 A
+	    ###    # 17 O      at 2.761252 2.761252 1.952500  d= 1.95250000 A	-z
+	    ###    #  4 O      at 4.141878 1.380626 3.905000  d= 1.95250000 A	# Problem: x-y rotated!
+	    ###    # 19 O      at 1.380626 1.380626 3.905000  d= 1.95250000 A
+	    ###    # 94 O      at 4.141878 4.141878 3.905000  d= 1.95250000 A
+	    ###    # 49 O      at 1.380626 4.141878 3.905000  d= 1.95250000 A
+	    ###    #  7 O      at 2.761252 2.761252 5.857500  d= 1.95250000 A	+z
+            ###    aos = ['6 Ti 3dz', '6 Ti 3dx2-y2', ' O 2px', '3 O 2py', '4 O 2pz', '22 O 2px', '13 O 2py', '9 O 2pz']
+            ###    ccx.make_ao_fragment(aos, sym_factor=ncells)
+            ##elif args.system == 'SrTiO3':
+            ##    # for 2x2x2:
+            ##    f = ccx.make_atom_fragment([1,2,3,4,22,13,9], sym_factor=ncells)
+            ##    iaos = ['1 Ti 3dz', '1 Ti 3dx2-y2', '2 O 2px', '3 O 2py', '4 O 2pz', '22 O 2px', '13 O 2py', '9 O 2pz']
+            ##    # Match must start with substring:
+            ##    # for 3x3x3:
+            ##    #f = ccx.make_atom_fragment([1,2,3,4,47,18,9], sym_factor=ncells)
+            ##    #iaos = ['1 Ti 3dz', '1 Ti 3dx2-y2', '2 O 2px', '3 O 2py', '4 O 2pz', '47 O 2px', '18 O 2py', '9 O 2pz']
+            ##    iaos = [('^%s' % iao) for iao in iaos]
+            ##    f.set_cas(iaos=iaos)
+            #elif args.system in ('perovskite', 'SrTiO3'):
+            #  # Sr, Ti needs larger threshold
+            #  ccx.make_atom_fragment(0, sym_factor=ncells, bno_threshold_factor=10.0)       # Sr
+            #  ccx.make_atom_fragment(1, sym_factor=ncells, bno_threshold_factor=100.0)      # Ti
+            #  ccx.make_atom_fragment(2, sym_factor=ncells)                                  # O1
+            #  ccx.make_atom_fragment(3, sym_factor=ncells)                                  # O2
+            #  ccx.make_atom_fragment(4, sym_factor=ncells)                                  # O3
+            elif args.system in ('SrTiO3-I4',):
+              # Sr, Ti needs larger threshold
+              ccx.make_atom_fragment(0, sym_factor=ncells, bno_threshold_factor=10.0)       # Sr
+              ccx.make_atom_fragment(1, sym_factor=ncells, bno_threshold_factor=100.0)      # Ti
+              ccx.make_atom_fragment(2, sym_factor=ncells)                                  # O1
+              ccx.make_atom_fragment(8, sym_factor=ncells)                                  # O2
+              ccx.make_atom_fragment(13, sym_factor=ncells)                                 # O3
             else:
                 raise RuntimeError()
 
         ccx.kernel()
-
         energies["ewf-ccsd"] = ccx.get_energies()
-
-        # Write cluster sizes to file
-        #for x in ccx.fragments:
-        #    fname = "cluster-%s-size.txt" % x.id_name
-        #    val = x.n_active
-        #    with open(fname, "a") as f:
-        #        f.write(("%6.3f" + len(val)*"  %3d" + "\n") % (a, *val))
-
-        # Save energies
-        #energies["ccsd-dmp2"].append((ccx.e_tot + ccx.e_delta_mp2))
-        #if args.solver == "CCSD(T)":
-        #    energies["ccsdt"].append((ccx.e_tot + ccx.e_pert_t))
-        #    energies["ccsdt-dmp2"].append((ccx.e_tot + ccx.e_delta_mp2 + ccx.e_pert_t))
-
         del ccx
 
     if args.run_hf: del mf

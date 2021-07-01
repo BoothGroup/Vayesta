@@ -9,6 +9,7 @@ import pyscf.cc
 import pyscf.cc.dfccsd
 import pyscf.pbc
 import pyscf.ci
+import pyscf.mcscf
 import pyscf.fci
 import pyscf.fci.addons
 import pyscf.fci.direct_spin0
@@ -28,10 +29,12 @@ def get_solver_class(solver):
 
 @dataclasses.dataclass
 class ClusterSolverOptions(Options):
-    eom_ccsd: bool = NotSet
     make_rdm1: bool = NotSet
     sc_mode: int = NotSet
     # CCSD specific
+    # EOM CCSD
+    eom_ccsd: list = NotSet  # {'IP', 'EA', 'EE-S', 'EE-D', 'EE-SF'}
+    eom_ccsd_nroots: int = NotSet
     # Active space methods
     c_cas_occ: np.array = None
     c_cas_vir: np.array = None
@@ -136,11 +139,21 @@ class ClusterSolver:
 class CCSDSolverResults(ClusterSolverResults):
     t1: np.array = None
     t2: np.array = None
+    l1: np.array = None
+    l2: np.array = None
     # EOM-CCSD
     ip_energy: np.array = None
     ip_coeff: np.array = None
     ea_energy: np.array = None
     ea_coeff: np.array = None
+    # EE
+    ee_s_energy: np.array = None
+    ee_t_energy: np.array = None
+    ee_sf_energy: np.array = None
+    ee_s_coeff: np.array = None
+    ee_t_coeff: np.array = None
+    ee_sf_coeff: np.array = None
+
 
 
 class CCSDSolver(ClusterSolver):
@@ -209,38 +222,55 @@ class CCSDSolver(ClusterSolver):
         if t_diagnostic:
             self.t_diagnostic(cc)
 
-        results = CCSDSolverResults(converged=cc.converged, e_corr=cc.e_corr, t1=cc.t1, t2=cc.t2,
-                c_occ=self.c_active_occ, c_vir=self.c_active_vir, eris=eris)
+        results = CCSDSolverResults(
+                converged=cc.converged, e_corr=cc.e_corr, c_occ=self.c_active_occ, c_vir=self.c_active_vir, eris=eris,
+                t1=cc.t1, t2=cc.t2)
+
+        solve_lambda = self.opts.make_rdm1
+        if solve_lambda:
+            t0 = timer()
+            self.log.info("Solving lambda equations...")
+            # This automatically sets cc.l1, cc.l2:
+            results.l1, results.l2 = cc.solve_lambda(cc.t1, cc.t2, eris=eris)
+            self.log.info("Lambda equations done. Lambda converged: %r", cc.converged_lambda)
+            if not cc.converged_lambda:
+                self.log.error("Solution of lambda equation not converged!")
+            self.log.timing("Time for lambda-equations: %s", time_string(timer()-t0))
 
         if self.opts.make_rdm1:
-            try:
-                t0 = timer()
-                self.log.info("Making RDM1...")
-                #results.dm1 = cc.make_rdm1(eris=eris, ao_repr=True)
-                results.dm1 = cc.make_rdm1(eris=eris, with_frozen=False)
-                self.log.info("RDM1 done. Lambda converged: %r", cc.converged_lambda)
-                if not cc.converged_lambda:
-                    self.log.error("Solution of lambda equation not converged!")
-                self.log.timing("Time for RDM1: %s", time_string(timer()-t0))
-            except Exception as e:
-                self.log.error("Exception while making RDM1: %s", e)
+            self.log.info("Making RDM1...")
+            #results.dm1 = cc.make_rdm1(eris=eris, ao_repr=True)
+            results.dm1 = cc.make_rdm1(with_frozen=False)
 
-        def eom_ccsd(kind, nroots=3):
+        def run_eom_ccsd(kind, nroots=None):
+            nroots = nroots or self.opts.eom_ccsd_nroots
             kind = kind.upper()
-            assert kind in ("IP", "EA")
+            assert kind in ('IP', 'EA', 'EE-S', 'EE-T', 'EE-SF')
             self.log.info("Running %s-EOM-CCSD (nroots=%d)...", kind, nroots)
-            eom_funcs = {"IP" : cc.ipccsd , "EA" : cc.eaccsd}
+            eom_funcs = {
+                    'IP' : cc.ipccsd , 'EA' : cc.eaccsd,
+                    'EE-S' : cc.eomee_ccsd_singlet,
+                    'EE-T' : cc.eomee_ccsd_triplet,
+                    'EE-SF' : cc.eomsf_ccsd,}
             t0 = timer()
             e, c = eom_funcs[kind](nroots=nroots, eris=eris)
             self.log.timing("Time for %s-EOM-CCSD:  %s", kind, time_string(timer()-t0))
             if nroots == 1:
-                e, c = [e], [c]
+                e, c = np.asarray([e]), np.asarray([c])
+            fmt = "%s-EOM-CCSD energies:" + len(e) * "  %+14.8f"
+            self.log.info(fmt, kind, *e)
             return e, c
 
-        if self.opts.eom_ccsd in (True, "IP"):
-            results.ip_energy, results.ip_coeff = eom_ccsd("IP")
-        if self.opts.eom_ccsd in (True, "EA"):
-            results.ea_energy, results.ea_coeff = eom_ccsd("EA")
+        if 'IP' in self.opts.eom_ccsd:
+            results.ip_energy, results.ip_coeff = run_eom_ccsd('IP')
+        if 'EA' in self.opts.eom_ccsd:
+            results.ea_energy, results.ea_coeff = run_eom_ccsd('EA')
+        if 'EE-S' in self.opts.eom_ccsd:
+            results.ee_s_energy, results.ee_s_coeff = run_eom_ccsd('EE-S')
+        if 'EE-T' in self.opts.eom_ccsd:
+            results.ee_t_energy, results.ee_t_coeff = run_eom_ccsd('EE-T')
+        if 'EE-SF' in self.opts.eom_ccsd:
+            results.ee_sf_energy, results.ee_sf_coeff = run_eom_ccsd('EE-SF')
 
 
         return results
@@ -472,7 +502,7 @@ class CCSDSolver(ClusterSolver):
 
 
 @dataclasses.dataclass
-class FCISolverResults(ClusterSolverResults):
+class CISolverResults(ClusterSolverResults):
     # CI coefficients
     c0: float = None
     c1: np.array = None
@@ -480,41 +510,66 @@ class FCISolverResults(ClusterSolverResults):
 
 
 class FCISolver(ClusterSolver):
-    """Not tested"""
 
-
-    def kernel(self, init_guess=None):
-        import pyscf.mcscf
-        import pyscf.ci
-
-        nelectron = sum(self.mo_occ[self.get_active_slice()])
-        casci = pyscf.mcscf.CASCI(self.mf, self.nactive, nelectron)
+    def kernel(self, init_guess=None, eris=None):
+        """TODO: Avoid CASCI and use FCISolver, to use unfolded PBC eris."""
+        nelec = sum(self.mo_occ[self.get_active_slice()])
+        casci = pyscf.mcscf.CASCI(self.mf, self.nactive, nelec)
         casci.canonicalization = False
 
+        self.log.debug("Running CASCI with (%d, %d) CAS", nelec, self.nactive)
+        t0 = timer()
         e_tot, e_cas, wf, *_ = casci.kernel(mo_coeff=self.mo_coeff)
         self.log.debug("FCI done. converged: %r", casci.converged)
+        self.log.timing("Time for FCI: %s", time_string(timer()-t0))
+        e_corr = (e_tot-self.mf.e_tot)
 
-        cisdvec = pyscf.ci.cisd.from_fcivec(wf, self.nactive, nelectron)
-        nocc_active = nelectron // 2
-        c0, c1, c2 = pyscf.ci.cisd.cisdvec_to_amplitudes(cisdvec, self.nactive, nocc_active)
-        # Intermediate normalization
-        self.log.debug("Weight of reference determinant= %.8e", c0)
-        c1 /= c0
-        c2 /= c0
-        self.c1 = c1
-        self.c2 = c2
+        cisdvec = pyscf.ci.cisd.from_fcivec(wf, self.nactive, nelec)
+        nocc = nelec // 2
+        c0, c1, c2 = pyscf.ci.cisd.cisdvec_to_amplitudes(cisdvec, self.nactive, nocc)
 
-        self.converged = casci.converged
-        self.e_corr = (e_tot - self.mf.e_tot)
-        self.log.debug("E(full corr)= % 16.8f Ha", self.e_corr)
+        # Temporary workaround (eris needed for energy later)
+        class ERIs:
+            pass
+        eris = ERIs()
+        c_act = self.mo_coeff[:,self.get_active_slice()]
+        eris.fock = np.linalg.multi_dot((c_act.T, self.base.get_fock(), c_act))
+        g = pyscf.ao2mo.full(self.mf._eri, c_act)
+        o = np.s_[:nocc]
+        v = np.s_[nocc:]
+        eris.ovvo = pyscf.ao2mo.restore(1, g, self.nactive)[o,v,v,o]
 
-        ## Create fake CISD object
-        #cisd = pyscf.ci.CISD(self.mf, mo_coeff=self.mo_coeff, mo_occ=self.mo_occ, frozen=self.get_frozen_indices())
+        results = CISolverResults(
+                converged=casci.converged, e_corr=e_corr, c_occ=self.c_active_occ, c_vir=self.c_active_vir, eris=eris,
+                c0=c0, c1=c1, c2=c2)
 
-        ## Get eris somewhere else?
-        #t0 = timer()
-        #eris = cisd.ao2mo()
-        #self.log.debug("Time for integral transformation: %s", time_string(timer()-t0))
+        return results
+
+
+    #def kernel2(self, init_guess=None, eris=None):
+    #    """TODO"""
+
+    #    c_act = self.mo_coeff[:,self.get_active_slice()]
+    #    if eris is None:
+    #        # Temporary implementation
+    #        import pyscf.ao2mo
+    #        t0 = timer()
+    #        eris = pyscf.ao2mo.general(self.mf._eri, c_act)
+    #        self.log.timing("Time for AO->MO of (ij|kl):  %s", time_string(timer()-t0))
+
+
+    #    f_act = np.linalg.multi_dot((r.T, eris.fock, r))
+    #    v_act = 2*einsum('iipq->pq', eris[o,o]) - einsum('iqpi->pq', g_cas[o,:,:,o])
+    #    h_eff = f_act - v_act
+
+
+    #    fcisolver = pyscf.fci.direct_spin1.FCISolver(self.mol)
+    #    t0 = timer()
+    #    e_fci, wf0 = fcisolver.kernel(h_eff, g_cas, ncas, nelec)
+    #    if not fcisolver.converged:
+    #        self.log.error("FCI not converged!")
+    #    self.log.timing("Time for FCI: %s", time_string(timer()-t0))
+
 
 
     #def run_fci(self):
