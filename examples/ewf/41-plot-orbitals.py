@@ -16,7 +16,7 @@ cell.verbose = 10
 cell.output = 'pyscf_out.txt'
 cell.build()
 
-kpts = cell.make_kpts([2,2,1])
+kpts = cell.make_kpts([4,4,1])
 
 # Hartree-Fock with k-points
 kmf = pyscf.pbc.scf.KRHF(cell, kpts)
@@ -24,16 +24,8 @@ kmf = kmf.density_fit(auxbasis='def2-svp-ri')
 kmf.kernel()
 
 # Embedded calculation will automatically unfold the k-point sampled mean-field
-orbitals = ['fragment', 'dmet',
-        'bno-occ-[1e-4,1]',
-        'bno-occ-[1e-6,1e-4]',
-        'bno-occ-[1e-8,1e-6]',
-        'bno-occ-[-1,1e-8]',
-        'bno-vir-[1e-4,1]',
-        'bno-vir-[1e-6,1e-4]',
-        'bno-vir-[1e-8,1e-6]',
-        'bno-vir-[-1,1e-8]']
-ecc = vayesta.ewf.EWF(kmf, plot_orbitals=orbitals, plot_orbitals_gridsize=3*[80], plot_orbitals_exit=True)
+orbitals = ['fragment', 'dmet', 'bno-occ-[1e-6,1e-4]', 'bno-vir-[1,1e-4]', 'active', 'frozen']
+ecc = vayesta.ewf.EWF(kmf, bno_threshold=1e-6, plot_orbitals=orbitals, plot_orbitals_gridsize=3*[80], plot_orbitals_exit=True)
 ecc.make_atom_fragment(0)
 ecc.make_atom_fragment(1)
 ecc.kernel()

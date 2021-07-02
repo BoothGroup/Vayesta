@@ -102,7 +102,7 @@ def get_arguments():
     parser.add_argument("--solver", type=str_or_none, default="CCSD")
     parser.add_argument("--ccsd-diis-start-cycle", type=int)
     parser.add_argument("--opts", nargs="*", default=[])
-    parser.add_argument("--plot-orbitals", type=str)
+    parser.add_argument("--plot-orbitals", nargs='*')
     parser.add_argument("--plot-orbitals-crop-c", type=float, nargs=2)
     parser.add_argument("--pop-analysis", type=str)
     parser.add_argument("--check-surrounding", type=int)
@@ -594,11 +594,13 @@ for i, a in enumerate(args.lattice_consts):
                 #    ix = ncells-1    # Make cluster in center
                 #ccx.make_atom_cluster(ix, sym_factor=2, **kwargs)
 
+                # Atom in the center of supercell (better for orbital plots)
+                idx = np.product(args.k_points)-1
                 if (args.atoms[0] == args.atoms[1]):
-                    ccx.make_atom_fragment(0, sym_factor=2*ncells, **kwargs)
+                    ccx.make_atom_fragment(idx, sym_factor=2*ncells, **kwargs)
                 else:
-                    ccx.make_atom_fragment(0, sym_factor=ncells, **kwargs)
-                    ccx.make_atom_fragment(1, sym_factor=ncells, **kwargs)
+                    ccx.make_atom_fragment(idx, sym_factor=ncells, **kwargs)
+                    ccx.make_atom_fragment(idx+1, sym_factor=ncells, **kwargs)
 
             # For population analysis:
             #####elif args.system == "perovskite":

@@ -159,6 +159,9 @@ class EWFFragment(QEmbeddingFragment):
         # For self-consistent mode
         self.solver_results = None
 
+        # For orbital plotting
+        self.cubefile = None
+
         self.results = None
 
 
@@ -178,7 +181,7 @@ class EWFFragment(QEmbeddingFragment):
         cubefile = cubegen.CubeFile(self.mol, filename=name, nx=nx, ny=ny, nz=nz, **self.base.opts.plot_orbitals_kwargs)
         return cubefile
 
-    def add_orbital_plot(self, cubefile, name, mo_coeff=None, dm=None, dset_idx=None, keep_in_list=False):
+    def add_orbital_plot(self, name, mo_coeff=None, dm=None, dset_idx=None, keep_in_list=False):
         if mo_coeff is None and dm is None:
             raise ValueError("set mo_coeff or dm")
         if name in self.opts.plot_orbitals:
@@ -186,16 +189,16 @@ class EWFFragment(QEmbeddingFragment):
                 self.opts.plot_orbitals.remove(name)
             if mo_coeff is not None:
                 self.log.debugv("Adding %s orbitals to cube file.", name)
-                cubefile.add_orbital(mo_coeff.copy(), dset_idx=dset_idx)
+                self.cubefile.add_orbital(mo_coeff.copy(), dset_idx=dset_idx)
             else:
                 self.log.debugv("Adding %s density to cube file.", name)
-                cubefile.add_density(dm.copy(), dset_idx=dset_idx)
+                self.cubefile.add_density(dm.copy(), dset_idx=dset_idx)
             if not self.opts.plot_orbitals:
-                self.write_orbital_plot(cubefile)
+                self.write_orbital_plot()
 
-    def write_orbital_plot(self, cubefile):
+    def write_orbital_plot(self):
         self.log.debug("Writing cube file.")
-        cubefile.write()
+        self.cubefile.write()
         if self.opts.plot_orbitals_exit:
             raise EWFFragmentExit("All plots done")
 
@@ -203,8 +206,8 @@ class EWFFragment(QEmbeddingFragment):
         """Make DMET and MP2 bath natural orbitals."""
         # Add fragment orbitals for cube file plots
         if self.opts.plot_orbitals:
-            cubefile = self.init_orbital_plot()
-            self.add_orbital_plot(cubefile, 'fragment', self.c_frag)
+            self.cubefile = self.init_orbital_plot()
+            self.add_orbital_plot('fragment', self.c_frag)
 
         t0_bath = t0 = timer()
         self.log.info("Making DMET Bath")
@@ -225,7 +228,7 @@ class EWFFragment(QEmbeddingFragment):
         self.log.timing("Time for DMET bath:  %s", time_string(timer()-t0))
         # Add DMET orbitals for cube file plots
         if self.opts.plot_orbitals:
-            self.add_orbital_plot(cubefile, 'dmet', c_dmet, dset_idx=1001)
+            self.add_orbital_plot('dmet', c_dmet, dset_idx=1001)
         self.log.changeIndentLevel(-1)
 
         # Add additional orbitals to cluster [optional]
@@ -237,8 +240,8 @@ class EWFFragment(QEmbeddingFragment):
 
         # Add cluster orbitals to plot
         if self.opts.plot_orbitals:
-            self.add_orbital_plot(cubefile, 'cluster', self.c_cluster_occ, dset_idx=2001, keep_in_list=True)
-            self.add_orbital_plot(cubefile, 'cluster', self.c_cluster_vir, dset_idx=3001)
+            self.add_orbital_plot('cluster', self.c_cluster_occ, dset_idx=2001, keep_in_list=True)
+            self.add_orbital_plot('cluster', self.c_cluster_vir, dset_idx=3001)
 
         # Primary MP2 bath orbitals
         # TODO NOT MAINTAINED
@@ -265,17 +268,25 @@ class EWFFragment(QEmbeddingFragment):
         #    C_occclst, C_virclst = self.diagonalize_cluster_dm(C_bath)
         #self.C_bath = C_bath
 
-        self.c_no_occ, self.n_no_occ = self.make_bno_bath(c_env_occ, c_env_vir, 'occ', cubefile)
-        self.c_no_vir, self.n_no_vir = self.make_bno_bath(c_env_occ, c_env_vir, 'vir', cubefile)
+        self.c_no_occ, self.n_no_occ = self.make_bno_bath(c_env_occ, c_env_vir, 'occ')
+        self.c_no_vir, self.n_no_vir = self.make_bno_bath(c_env_occ, c_env_vir, 'vir')
 
-        if self.opts.plot_orbitals:
-            self.log.warning("The following orbital/densities could not be plotted: %r", self.opts.plot_orbitals)
-            self.write_orbital_plot(cubefile)
+        #if self.opts.plot_orbitals:
+        #    for key in self.opts.plot_orbitals.copy():
+        #        if key.startswith('active-'):
+        #            eta = float(key[key.find('[')+1:key.find(']')])
+        #            act = (n_no >= eta)
+        #            dm = np.dot(self.c_no_cc[:,mask], c_no[:,mask].T)
+
+
+        #if self.opts.plot_orbitals:
+        #    self.log.warning("The following orbital/densities could not be plotted: %r", self.opts.plot_orbitals)
+        #    self.write_orbital_plot(cubefile)
 
         self.log.timing("Time for bath:  %s", time_string(timer()-t0_bath))
 
 
-    def make_bno_bath(self, c_env_occ, c_env_vir, kind, cubefile):
+    def make_bno_bath(self, c_env_occ, c_env_vir, kind):
         assert kind in ('occ', 'vir')
         c_env = c_env_occ if (kind == 'occ') else c_env_vir
         if c_env.shape[-1] == 0:
@@ -303,7 +314,7 @@ class EWFFragment(QEmbeddingFragment):
                     low, high = [float(x) for x in itvl.split(',')]
                     mask = np.logical_and(n_no >= low, n_no < high)
                     dm = np.dot(c_no[:,mask], c_no[:,mask].T)
-                    self.add_orbital_plot(cubefile, key, dm=dm, dset_idx=(4001 if kind=='occ' else 5001)+idx)
+                    self.add_orbital_plot(key, dm=dm, dset_idx=(4001 if kind=='occ' else 5001)+idx)
                     idx += 1
         self.log.timing("Time for %s BNOs:  %s", name, time_string(timer()-t0))
         self.log.changeIndentLevel(-1)
@@ -378,6 +389,16 @@ class EWFFragment(QEmbeddingFragment):
         c_active_vir = self.canonicalize_mo(self.c_cluster_vir, c_nbo_vir)[0]
         # Do not overwrite self.c_active_occ/vir yet - we still need the previous coefficients
         # to generate an intial guess
+
+        # Active/frozen density plotting
+        if 'active' in self.opts.plot_orbitals:
+            dm = 2*(np.dot(c_active_occ, c_active_occ.T)
+                  + np.dot(c_active_vir, c_active_vir.T))
+            self.add_orbital_plot('active', dm=dm, dset_idx=(6001))
+        if 'frozen' in self.opts.plot_orbitals:
+            dm = 2*(np.dot(c_frozen_occ, c_frozen_occ.T)
+                  + np.dot(c_frozen_vir, c_frozen_vir.T))
+            self.add_orbital_plot('frozen', dm=dm, dset_idx=(7001))
 
         # Combine, important to keep occupied orbitals first!
         # Put frozen (occenv, virenv) orbitals to the front and back
@@ -563,7 +584,7 @@ class EWFFragment(QEmbeddingFragment):
                     self.log.info(fmt, name, len(n_part), max(n_part), min(n_part), np.sum(n_part),
                             100*np.sum(n_part)/np.sum(n_no))
             else:
-                self.log.info(fmt[:fmt.index('max')], name, 0)
+                self.log.info(fmt[:fmt.index('max')].rstrip(), name, 0)
         log("Bath", n_no[:n_bno])
         log("Rest", n_no[n_bno:])
 
