@@ -117,7 +117,9 @@ def get_arguments():
     parser.add_argument("--run-hf", type=int, default=1)
     parser.add_argument("--run-ewf", type=int, default=1)
     # Benchmark
-    parser.add_argument("--benchmarks", nargs='*')
+    parser.add_argument('--benchmarks', nargs='*')
+    parser.add_argument('--plus-u', type=float)     # For DFT+U
+    parser.add_argument('--plus-u-orbitals', nargs='*')     # For DFT+U
 
     args, restargs = parser.parse_known_args()
     sys.argv[1:] = restargs
@@ -272,7 +274,7 @@ def pop_analysis(mf, filename=None, mode="a"):
 
     return pop, chg
 
-def get_mf(cell, kpts=None, xc='hf'):
+def get_mf(cell, kpts=None, xc='hf', plus_u=None):
     if kpts is None:
         if hasattr(cell, 'a') and cell.a is not None:
             if xc is None or xc.lower() == "hf":
@@ -290,8 +292,14 @@ def get_mf(cell, kpts=None, xc='hf'):
         if xc is None or xc.lower() == "hf":
             mf = pyscf.pbc.scf.KRHF(cell, kpts)
         else:
-            mf = pyscf.pbc.dft.KRKS(cell, kpts)
-            mf.xc = xc
+            if plus_u is None:
+                mf = pyscf.pbc.dft.KRKS(cell, kpts)
+                mf.xc = xc
+            # DFT + U
+            else:
+                mf = pyscf.pbc.dft.KRKSpU(cell, kpts, xc=xc,
+                        U_idx=args.plus_u_orbitals, U_val=args.plus_u)
+
     return mf
 
 def run_mf(a, cell, args, kpts=None, dm_init=None, xc="hf", df=None, build_df_early=False):

@@ -362,7 +362,7 @@ class CCSDSolver(ClusterSolver):
 
         #fcisolver = pyscf.fci.direct_spin0.FCISolver(self.mol)
         fcisolver = pyscf.fci.direct_spin1.FCISolver(self.mol)
-        self.opts.tcc_fci_opts['max_cycle'] = self.opts.tcc_fci_opts.get('max_cycle', 500)
+        self.opts.tcc_fci_opts['max_cycle'] = self.opts.tcc_fci_opts.get('max_cycle', 1000)
         fix_spin = self.opts.tcc_fci_opts.pop('fix_spin', 0)
         if fix_spin not in (None, False):
             self.log.debugv("Fixing spin of FCIsolver to S^2= %r", fix_spin)
