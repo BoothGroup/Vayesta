@@ -477,7 +477,7 @@ for i, a in enumerate(args.lattice_consts):
 
     if MPI_rank == 0:
         log.info("LATTICE CONSTANT %.3f", a)
-        log.info("**********************")
+        log.info("======================")
         log.changeIndentLevel(1)
 
     energies = {}
@@ -564,7 +564,7 @@ for i, a in enumerate(args.lattice_consts):
         if args.plot_orbitals:
             kwargs['plot_orbitals'] = args.plot_orbitals
         if args.plot_orbitals_crop_c:
-            kwargs['plot_orbitals_kwargs'] = {'c0' : args.plot_orbitals_crop_c[0], 'c1' : args.plot_orbitals_crop_c[1]}
+            kwargs['plot_orbitals_kwargs'] = {'crop': {'c0': args.plot_orbitals_crop_c[0], 'c1': args.plot_orbitals_crop_c[1]}}
         if args.pop_analysis:
             kwargs['pop_analysis'] = args.pop_analysis
         if args.eom_ccsd:
