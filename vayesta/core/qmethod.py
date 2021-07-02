@@ -114,7 +114,7 @@ class QEmbeddingMethod:
         # ----------
         self.log = log or logging.getLogger(__name__)
         self.log.info("Initializing %s" % self.__class__.__name__)
-        self.log.info("*************%s" % (len(str(self.__class__.__name__))*"*"))
+        self.log.info("=============%s" % (len(str(self.__class__.__name__))*"="))
 
         # 2) Mean-field
         # -------------
@@ -801,7 +801,7 @@ class QEmbeddingMethod:
 
         # Print occupations of IAOs
         self.log.info("Fragment Orbital Occupancy per Atom")
-        self.log.info("***********************************")
+        self.log.info("-----------------------------------")
         for a in range(self.mol.natm if not tsym else self.kcell.natm):
             mask = np.where(atoms == a)[0]
             fmt = "  > %3d: %-8s total= %12.8f" + len(occup_atom[a])*"  %s= %10.8f"

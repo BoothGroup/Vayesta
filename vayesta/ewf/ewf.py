@@ -65,7 +65,7 @@ class EWFOptions(Options):
     plot_orbitals_exit: bool = False            # Exit immediately after all orbital plots have been generated
     plot_orbitals_dir: str = 'orbitals'
     plot_orbitals_kwargs: dict = dataclasses.field(default_factory=dict)
-    plot_orbitals_gridsize: tuple = dataclasses.field(default_factory=lambda: (160, 160, 160))
+    plot_orbitals_gridsize: tuple = dataclasses.field(default_factory=lambda: (128, 128, 128))
     # --- Other
     energy_partitioning: str = 'first-occ'
     strict: bool = False                # Stop if cluster not converged
@@ -416,14 +416,14 @@ class EWF(QEmbeddingMethod):
         if filename is None:
             write = lambda *args : self.log.info(*args)
             write("Population analysis")
-            write("*******************")
+            write("-------------------")
         else:
             f = open(filename, filemode)
             write = lambda fmt, *args : f.write((fmt+'\n') % args)
             tstamp = datetime.now()
             self.log.info("[%s] Writing population analysis to file \"%s\"", tstamp, filename)
             write("[%s] Population analysis" % tstamp)
-            write("*%s*********************" % (26*"*"))
+            write("-%s---------------------" % (26*"-"))
 
         #shellslices = self.mol.aoslice_by_atom()[:,:2]
         aoslices = self.mol.aoslice_by_atom()[:,2:]
@@ -481,7 +481,7 @@ class EWF(QEmbeddingMethod):
             self.log.info("[%s] Writing fragment orbitals to file \"%s\"", tstamp, filename)
             with open(filename, "a") as f:
                 f.write("[%s] Fragment Orbitals\n" % tstamp)
-                f.write("*%s*******************\n" % (26*"*"))
+                f.write("*%s-------------------\n" % (26*"-"))
                 # Header
                 fmtline = "%20s" + nfo*"   %20s" + "\n"
                 f.write(fmtline % ("AO", *iao_labels))
@@ -516,10 +516,10 @@ class EWF(QEmbeddingMethod):
                 self.iteration = iteration
                 if self.opts.sc_mode:
                     self.log.info("Now running BNO threshold= %.2e - Iteration= %2d", bno_thr, iteration)
-                    self.log.info("****************************************************")
+                    self.log.info("====================================================")
                 else:
                     self.log.info("Now running BNO threshold= %.2e", bno_thr)
-                    self.log.info("***********************************")
+                    self.log.info("===================================")
 
                 for x, frag in enumerate(self.fragments):
                     if MPI_rank != (x % MPI_size):
@@ -527,7 +527,7 @@ class EWF(QEmbeddingMethod):
                     mpi_info = (" on MPI process %d" % MPI_rank) if MPI_size > 1 else ""
                     msg = "Now running %s%s" % (frag, mpi_info)
                     self.log.info(msg)
-                    self.log.info(len(msg)*"*")
+                    self.log.info(len(msg)*"-")
                     self.log.changeIndentLevel(1)
                     try:
                         result = frag.kernel(bno_threshold=bno_thr)
@@ -574,7 +574,7 @@ class EWF(QEmbeddingMethod):
             return
 
         self.log.info("Fragment Correlation Energies")
-        self.log.info("*****************************")
+        self.log.info("-----------------------------")
         self.log.info("%13s:" + self.nfrag*" %16s", "BNO threshold", *[f.name for f in self.fragments])
         # TODO
         fmt = "%13.2e:" + self.nfrag*" %13.8f Ha"
@@ -691,7 +691,7 @@ class EWF(QEmbeddingMethod):
 
     def print_results(self, results):
         self.log.info("Energies")
-        self.log.info("********")
+        self.log.info("========")
         fmt = "%-20s %+16.8f Ha"
         for i, frag in enumerate(self.loop()):
             e_corr = results["e_corr"][i]

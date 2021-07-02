@@ -123,17 +123,21 @@ class Options:
         if kwargs:
             other.update(kwargs)
 
+        def _repr(a, maxlen=30):
+            r = a.__repr__()
+            if len(r) > maxlen:
+                r = r[:(maxlen-3)] + '...'
+            return r
+
         # Only replace values which are in select
         if select is not SelectNotSet:
-            #if np.ndim(select) == 0:
-            #    select = [select]
             updates = {}
             for key, val in self.items():
                 if val is select:
-                    log.debugv("Replacing option %s : %r -> %r", key, val, other[key])
+                    log.debugv("Replacing option %s : %s -> %s", key, _repr(val), _repr(other[key]))
                     updates[key] = copy.copy(other[key])
                 else:
-                    log.debugv("Keeping option %s : %r", key, val)
+                    log.debugv("Keeping option %s : %s", key, _repr(val))
             other = updates
 
         return dataclasses.replace(self, **other)

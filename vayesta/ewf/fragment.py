@@ -55,6 +55,8 @@ class EWFFragmentOptions(Options):
     plot_orbitals_dir: str = NotSet
     plot_orbitals_kwargs: dict = NotSet
     plot_orbitals_gridsize: tuple = NotSet
+    # --- Solver options
+    tcc_fci_opts: dict = dataclasses.field(default_factory=dict)
 
 
 @dataclasses.dataclass
@@ -279,10 +281,6 @@ class EWFFragment(QEmbeddingFragment):
         #            dm = np.dot(self.c_no_cc[:,mask], c_no[:,mask].T)
 
 
-        #if self.opts.plot_orbitals:
-        #    self.log.warning("The following orbital/densities could not be plotted: %r", self.opts.plot_orbitals)
-        #    self.write_orbital_plot(cubefile)
-
         self.log.timing("Time for bath:  %s", time_string(timer()-t0_bath))
 
 
@@ -399,6 +397,9 @@ class EWFFragment(QEmbeddingFragment):
             dm = 2*(np.dot(c_frozen_occ, c_frozen_occ.T)
                   + np.dot(c_frozen_vir, c_frozen_vir.T))
             self.add_orbital_plot('frozen', dm=dm, dset_idx=(7001))
+        if self.opts.plot_orbitals:
+            self.log.warning("The following orbital/densities could not be plotted: %r", self.opts.plot_orbitals)
+            self.write_orbital_plot(cubefile)
 
         # Combine, important to keep occupied orbitals first!
         # Put frozen (occenv, virenv) orbitals to the front and back
@@ -490,8 +491,7 @@ class EWFFragment(QEmbeddingFragment):
                 self.opts.c_cas_vir = self.c_cluster_vir
             solver_opts['c_cas_occ'] = self.opts.c_cas_occ
             solver_opts['c_cas_vir'] = self.opts.c_cas_vir
-            # Temporary:
-            solver_opts['tcc_spin'] = 0
+            solver_opts['tcc_fci_opts'] = self.opts.tcc_fci_opts
 
         cluster_solver_cls = get_solver_class(solver)
         cluster_solver = cluster_solver_cls(self, mo_coeff, mo_occ, nocc_frozen=nocc_frozen, nvir_frozen=nvir_frozen, **solver_opts)

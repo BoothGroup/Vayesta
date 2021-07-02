@@ -40,7 +40,7 @@ class ClusterSolverOptions(Options):
     c_cas_vir: np.array = None
     # Tailored-CCSD
     tcc: bool = False
-    tcc_spin: float = None
+    tcc_fci_opts: dict = dataclasses.field(default_factory=dict)
 
 
 @dataclasses.dataclass
@@ -175,7 +175,6 @@ class CCSDSolver(ClusterSolver):
             cls = pyscf.cc.ccsd.CCSD
         else:
             cls = pyscf.cc.dfccsd.RCCSD
-
         self.log.debug("CCSD class= %r" % cls)
         cc = cls(self.mf, mo_coeff=self.mo_coeff, mo_occ=self.mo_occ, frozen=self.get_frozen_indices())
 
@@ -363,9 +362,14 @@ class CCSDSolver(ClusterSolver):
 
         #fcisolver = pyscf.fci.direct_spin0.FCISolver(self.mol)
         fcisolver = pyscf.fci.direct_spin1.FCISolver(self.mol)
-
-        if self.opts.tcc_spin is not None:
-            fcisolver = pyscf.fci.addons.fix_spin_(fcisolver, ss=self.opts.tcc_spin)
+        self.opts.tcc_fci_opts['max_cycle'] = self.opts.tcc_fci_opts.get('max_cycle', 500)
+        fix_spin = self.opts.tcc_fci_opts.pop('fix_spin', 0)
+        if fix_spin not in (None, False):
+            self.log.debugv("Fixing spin of FCIsolver to S^2= %r", fix_spin)
+            fcisolver = pyscf.fci.addons.fix_spin_(fcisolver, ss=fix_spin)
+        for key, val in self.opts.tcc_fci_opts.items():
+            self.log.debugv("Setting FCIsolver attribute %s to %r", key, val)
+            setattr(fcisolver, key, val)
 
         t0 = timer()
         e_fci, wf0 = fcisolver.kernel(h_eff, g_cas, ncas, nelec)
@@ -376,6 +380,8 @@ class CCSDSolver(ClusterSolver):
         cisdvec = pyscf.ci.cisd.from_fcivec(wf0, ncas, nelec)
         c0, c1, c2 = pyscf.ci.cisd.cisdvec_to_amplitudes(cisdvec, ncas, ncasocc)
         self.log.info("FCI weight on reference determinant: %.8g", abs(c0))
+        if abs(c0) < 1e-4:
+            self.log.warning("Weight on reference determinant small!")
         if (c0 == 0):
             msg = "FCI wave function has no overlap with HF determinant."
             self.log.critical(msg)
@@ -481,7 +487,7 @@ class CCSDSolver(ClusterSolver):
 
     def t_diagnostic(self, cc):
         self.log.info("T-Diagnostic")
-        self.log.info("************")
+        self.log.info("------------")
         try:
             dg_t1 = cc.get_t1_diagnostic()
             dg_d1 = cc.get_d1_diagnostic()

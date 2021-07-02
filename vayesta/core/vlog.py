@@ -31,7 +31,7 @@ LVL_PREFIX = {
    "ERROR" : "ERROR",
    "WARNING" : "WARNING",
    "OUTPUT" : "OUTPUT",
-   "DEBUGV" : "***",
+   "DEBUGV" : "DEBUG",
    }
 
 

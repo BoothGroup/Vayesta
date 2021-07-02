@@ -70,7 +70,7 @@ class QEmbeddingFragment:
         self.id = fid
         self.name = name
         self.log.info("Initializing %s" % self)
-        self.log.info("*************%s" % (len(str(self))*"*"))
+        self.log.info("-------------%s" % (len(str(self))*"-"))
 
         self.base = base
         self.c_frag = c_frag
