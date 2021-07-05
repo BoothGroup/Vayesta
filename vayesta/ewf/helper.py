@@ -128,13 +128,13 @@ def orthogonalize_mo(c, s, tol=1e-6):
     return c_out
 
 
-def amplitudes_C2T(C1, C2):
-    T1 = C1.copy()
-    T2 = C2 - einsum("ia,jb->ijab", C1, C1)
-    return T1, T2
+def amplitudes_c2t(c1, c2):
+    t1 = c1.copy()
+    t2 = c2 - einsum("ia,jb->ijab", c1, c1)
+    return t1, t2
 
 
-def amplitudes_T2C(T1, T2):
-    C1 = T1.copy()
-    C2 = T2 + einsum("ia,jb->ijab", T1, T1)
-    return C1, C2
+def amplitudes_t2c(t1, t2):
+    c1 = t1.copy()
+    c2 = t2 + einsum("ia,jb->ijab", t1, t1)
+    return c1, c2

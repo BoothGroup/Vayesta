@@ -65,6 +65,8 @@ class QEmbeddingFragment:
             Atoms in fragment.
         aos : list
             Atomic orbitals in fragment
+        coupled_fragments : list
+            List of fragments, the current fragment is coupled to.
         """
         self.log = log or base.log
         self.id = fid
@@ -80,6 +82,8 @@ class QEmbeddingFragment:
         # For some embeddings, it may be necessary to keep track of any associated atoms or basis functions (AOs)
         self.atoms = atoms
         self.aos = aos
+
+        self.coupled_fragments = []
 
         # Some output
         fmt = '  > %-24s %r'
@@ -138,6 +142,13 @@ class QEmbeddingFragment:
     @property
     def boundary_cond(self):
         return self.base.boundary_cond
+
+
+    def couple_to_fragment(self, frag):
+        if frag is self:
+            raise RuntimeError("Cannot couple fragment with itself.")
+        self.log.debugv("Coupling %s with %s", self, frag)
+        self.coupled_fragments.append(frag)
 
 
     def get_fragment_mf_energy(self):

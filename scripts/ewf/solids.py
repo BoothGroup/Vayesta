@@ -274,7 +274,7 @@ def pop_analysis(mf, filename=None, mode="a"):
 
     return pop, chg
 
-def get_mf(cell, kpts=None, xc='hf', plus_u=None):
+def get_mf(cell, kpts=None, xc='hf', plus_u=None, plus_u_orbitals=[], minao='MINAO'):
     if kpts is None:
         if hasattr(cell, 'a') and cell.a is not None:
             if xc is None or xc.lower() == "hf":
@@ -297,13 +297,14 @@ def get_mf(cell, kpts=None, xc='hf', plus_u=None):
                 mf.xc = xc
             # DFT + U
             else:
-                mf = pyscf.pbc.dft.KRKSpU(cell, kpts, xc=xc,
-                        U_idx=args.plus_u_orbitals, U_val=args.plus_u)
+                orbs = ' '.join(plus_u_orbitals).split(';')
+                log.info("DFT+U orbitals: %r", orbs)
+                mf = pyscf.pbc.dft.KRKSpU(cell, kpts, xc=xc, U_idx=orbs, U_val=[plus_u], minao_ref=minao)
 
     return mf
 
 def run_mf(a, cell, args, kpts=None, dm_init=None, xc="hf", df=None, build_df_early=False):
-    mf = get_mf(cell, kpts, xc)
+    mf = get_mf(cell, kpts, xc, plus_u=args.plus_u, plus_u_orbitals=args.plus_u_orbitals, minao=args.iao_minao)
     if args.exxdiv_none:
         mf.exxdiv = None
     if args.scf_conv_tol is not None:
@@ -432,17 +433,22 @@ def run_benchmarks(a, cell, mf, kpts, args):
             df = dft.with_df
         energies[xc] = [dft.e_tot]
 
-        # population analysis
+        # Trick: Use EWF for population analysis
         if args.pop_analysis:
-            dft_sc = pyscf.pbc.tools.k2gamma.k2gamma(dft)
-            c_loc = pyscf.lo.orth_ao(dft_sc, 'lowdin')
-            mo = np.linalg.solve(c_loc, dft_sc.mo_coeff)
-            # Mulliken population analysis based on Lowdin orbitals
-            dm = dft_sc.make_rdm1(mo, dft_sc.mo_occ)
-            pop, chg = dft_sc.mulliken_pop(dm=dm, s=np.eye(dm.shape[-1]))
-            with open('dft-%s-pop.txt' % xc, 'a') as f:
-                for i in range(dft_sc.mol.natm):
-                    f.write('%3d %6s  %.8f\n' % (i, dft_sc.mol.atom_symbol(i), chg[i]))
+            ewf = vayesta.ewf.EWF(dft, iao_minao=args.iao_minao)
+            fname = 'dft-%s-pop.txt' % xc
+            ewf.pop_analysis(ewf.mf.make_rdm1(), filename=fname)
+
+            #dft_sc = pyscf.pbc.tools.k2gamma.k2gamma(dft)
+            ##c_loc = pyscf.lo.orth_ao(dft_sc, 'lowdin')
+            #c_loc = pyscf.lo.orth_ao(dft_sc, 'meta-lowdin', pre_orth_ao=None)
+            #mo = np.linalg.solve(c_loc, dft_sc.mo_coeff)
+            ## Mulliken population analysis based on Lowdin orbitals
+            #dm = dft_sc.make_rdm1(mo, dft_sc.mo_occ)
+            #pop, chg = dft_sc.mulliken_pop(dm=dm, s=np.eye(dm.shape[-1]))
+            #with open('dft-%s-meta-pop.txt' % xc, 'a') as f:
+            #    for i in range(dft_sc.mol.natm):
+            #        f.write('%3d %6s  %.8f\n' % (i, dft_sc.mol.atom_symbol(i), chg[i]))
 
 
     # Canonical MP2

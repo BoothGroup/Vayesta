@@ -158,7 +158,10 @@ class CCSDSolverResults(ClusterSolverResults):
 
 class CCSDSolver(ClusterSolver):
 
-    def kernel(self, init_guess=None, eris=None, t_diagnostic=True):
+    def kernel(self, init_guess=None, eris=None, coupled_fragments=None, t_diagnostic=True):
+
+        if coupled_fragments is None:
+            coupled_fragments = self.fragment.coupled_fragments
 
         # Do not use pbc.ccsd for Gamma point CCSD -> always use molecular code
         #if self.base.boundary_cond == 'open':
@@ -193,14 +196,21 @@ class CCSDSolver(ClusterSolver):
         # Tailored CC
         if self.opts.tcc:
             self.log.info("Adding tailor function to CCSD.")
-            cc.tailor_func = self.make_tcc_tailor_function(
+            cc.tailor_func = self.make_cas_tcc_function(
                     c_cas_occ=self.opts.c_cas_occ, c_cas_vir=self.opts.c_cas_vir, eris=eris).__get__(cc)
 
         elif self.opts.sc_mode and self.base.iteration > 1:
             # __get__(cc) to bind the tailor function as a method,
             # rather than just a callable attribute
             self.log.info("Adding tailor function to CCSD.")
-            cc.tailor_func = self.make_sc_tailor_function(mode=self.opts.sc_mode).__get__(cc)
+            cc.tailor_func = self.make_cross_fragment_tcc_function(mode=self.opts.sc_mode).__get__(cc)
+
+        # This should include the SC mode?
+        elif coupled_fragments and np.all([x.results is not None for x in coupled_fragments]):
+            self.log.info("Adding tailor function to CCSD.")
+            cc.tailor_func = self.make_cross_fragment_tcc_function(mode=self.opts.sc_mode,
+                    coupled_fragments=coupled_fragments).__get__(cc)
+
 
         t0 = timer()
         if init_guess:
@@ -275,7 +285,7 @@ class CCSDSolver(ClusterSolver):
         return results
 
 
-    def make_tcc_tailor_function(self, c_cas_occ, c_cas_vir, eris):
+    def make_cas_tcc_function(self, c_cas_occ, c_cas_vir, eris):
         """Make tailor function for Tailored CC."""
 
         ncasocc = c_cas_occ.shape[-1]
@@ -412,10 +422,31 @@ class CCSDSolver(ClusterSolver):
         return tailor_func
 
 
-    def make_sc_tailor_function(self, mode, correct_t1=True, correct_t2=True):
-        """Build tailor function.
+    def make_cross_fragment_tcc_function(self, mode, coupled_fragments=None, correct_t1=True, correct_t2=True, symmetrize_t2=True):
+        """Tailor current CCSD calculation with amplitudes of other fragments.
 
         This assumes orthogonal fragment spaces.
+
+        Parameters
+        ----------
+        mode : int
+            Level of external correction of T2 amplitudes:
+            1: Both occupied indices are projected to each other fragment X.
+            2: Both occupied indices are projected to each other fragment X
+               and combinations of other fragments X,Y.
+            3: Only the first occupied indices is projected to each other fragment X.
+        coupled_fragments : list, optional
+            List of fragments, which are used for the external correction.
+            Each fragment x must have the following attributes defined:
+            `c_active_occ` : Active occupied MO orbitals of fragment x
+            `c_active_vir` : Active virtual MO orbitals of fragment x
+            `results.t1` :   T1 amplitudes of fragment x
+            `results.t2` :   T2 amplitudes of fragment x
+
+        Returns
+        -------
+        tailor_func : function(cc, t1, t2) -> t1, t2
+            Tailoring function for CCSD.
         """
         if mode not in (1, 2, 3):
             raise ValueError()
@@ -423,34 +454,34 @@ class CCSDSolver(ClusterSolver):
         c_occ = self.c_active_occ       # Occupied active orbitals of current cluster
         c_vir = self.c_active_vir       # Virtual  active orbitals of current cluster
 
+        if coupled_fragments is None:
+            coupled_fragments = self.fragment.coupled_fragments
+
         def tailor_func(cc, t1, t2):
             """Add external correction to T1 and T2 amplitudes."""
-
             # Add the correction to dt1 and dt2:
-            if correct_t1:
-                dt1 = np.zeros_like(t1)
-            if correct_t2:
-                dt2 = np.zeros_like(t2)
+            if correct_t1:  dt1 = np.zeros_like(t1)
+            if correct_t2:  dt2 = np.zeros_like(t2)
 
             # Loop over all *other* fragments/cluster X
-            for fx in self.fragment.tailor_fragments:
-                assert (fx is not self.fragment)
-                cx_occ = fx.c_active_occ    # Occupied active orbitals of cluster X
-                cx_vir = fx.c_active_vir    # Virtual  active orbitals of cluster X
+            for x in coupled_fragments:
+                assert (x is not self.fragment)
+                cx_occ = x.c_active_occ    # Occupied active orbitals of cluster X
+                cx_vir = x.c_active_vir    # Virtual  active orbitals of cluster X
 
                 # Rotation & projections from cluster X active space to current fragment active space
                 p_occ = np.linalg.multi_dot((cx_occ.T, ovlp, c_occ))
                 p_vir = np.linalg.multi_dot((cx_vir.T, ovlp, c_vir))
-                px = fx.get_fragment_projector(c_occ)   # this is C_occ^T . S . C_frag . C_frag^T . S . C_occ
+                px = x.get_fragment_projector(c_occ)   # this is C_occ^T . S . C_frag . C_frag^T . S . C_occ
                 # Transform fragment X T-amplitudes to current active space and form difference
                 if correct_t1:
-                    tx1 = helper.transform_amplitude(fx.results.t1, p_occ, p_vir)   # ia,ix,ap->xp
+                    tx1 = helper.transform_amplitude(x.results.t1, p_occ, p_vir)   # ia,ix,ap->xp
                     dtx1 = (tx1 - t1)
                     dtx1 = np.dot(px, dtx1)
                     assert dtx1.shape == dt1.shape
                     dt1 += dtx1
                 if correct_t2:
-                    tx2 = helper.transform_amplitude(fx.results.t2, p_occ, p_vir)   # ijab,ix,jy,ap,bq->xypq
+                    tx2 = helper.transform_amplitude(x.results.t2, p_occ, p_vir)   # ijab,ix,jy,ap,bq->xypq
                     dtx2 = (tx2 - t2)
                     if mode == 1:
                         dtx2 = einsum('xi,yj,ijab->xyab', px, px, dtx2)
@@ -462,24 +493,19 @@ class CCSDSolver(ClusterSolver):
                     assert dtx2.shape == dt2.shape
                     dt2 += dtx2
 
-                self.log.debugv("Tailoring %12s <- %12s: |dT1|= %.2e  |dT2|= %.2e", self.fragment, fx, np.linalg.norm(dtx1), np.linalg.norm(dtx2))
+                self.log.debugv("Tailoring %12s <- %12s: |dT1|= %.2e  |dT2|= %.2e", self.fragment, x, np.linalg.norm(dtx1), np.linalg.norm(dtx2))
 
             # Store these norms in cc, to log their final value:
-            if correct_t1:
-                cc._norm_dt1 = np.linalg.norm(dt1)
-            else:
-                cc._norm_dt1 = 0.0
-            if correct_t2:
-                cc._norm_dt2 = np.linalg.norm(dt2)
-            else:
-                cc._norm_dt2 = 0.0
+            cc._norm_dt1 = np.linalg.norm(dt1) if correct_t1 else 0.0
+            cc._norm_dt2 = np.linalg.norm(dt2) if correct_t2 else 0.0
             # Add correction:
             if correct_t1:
                 t1 = (t1 + dt1)
             if correct_t2:
-                dt2 = (dt2 + dt2.transpose(1,0,3,2))/2
+                if symmetrize_t2:
+                    self.log.debugv("T2 symmetry error: %e", np.linalg.norm(dt2 - dt2.transpose(1,0,3,2))/2)
+                    dt2 = (dt2 + dt2.transpose(1,0,3,2))/2
                 t2 = (t2 + dt2)
-
             return t1, t2
 
         return tailor_func

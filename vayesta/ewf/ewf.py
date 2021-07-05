@@ -392,56 +392,6 @@ class EWF(QEmbeddingMethod):
     #    return frag
 
 
-    def pop_analysis(self, dm1, mo_coeff=None, filename=None, filemode='a', verbose=True):
-        """
-        Parameters
-        ----------
-        dm1 : (N, N) array
-            If `mo_coeff` is None, AO representation is assumed!
-        """
-        if mo_coeff is not None:
-            dm1 = einsum('ai,ij,bj->ab', mo_coeff, dm1, mo_coeff)
-        c_loc = self.lo
-        cs = np.dot(c_loc.T, self.get_ovlp())
-        pop = einsum('ia,ab,ib->i', cs, dm1, cs)
-        # Get atomic charges
-        elecs = np.zeros(self.mol.natm)
-        for i, label in enumerate(self.mol.ao_labels(fmt=None)):
-            elecs[label[0]] += pop[i]
-        chg = self.mol.atom_charges() - elecs
-
-        if not verbose:
-            return pop, chg
-
-        if filename is None:
-            write = lambda *args : self.log.info(*args)
-            write("Population analysis")
-            write("-------------------")
-        else:
-            f = open(filename, filemode)
-            write = lambda fmt, *args : f.write((fmt+'\n') % args)
-            tstamp = datetime.now()
-            self.log.info("[%s] Writing population analysis to file \"%s\"", tstamp, filename)
-            write("[%s] Population analysis" % tstamp)
-            write("-%s---------------------" % (26*"-"))
-
-        #shellslices = self.mol.aoslice_by_atom()[:,:2]
-        aoslices = self.mol.aoslice_by_atom()[:,2:]
-        aolabels = self.mol.ao_labels()
-
-        for atom in range(self.mol.natm):
-            write("> Charge of atom %d%-6s= % 11.8f (% 11.8f electrons)", atom, self.mol.atom_symbol(atom), chg[atom], elecs[atom])
-            aos = aoslices[atom]
-            for ao in range(aos[0], aos[1]):
-                label = aolabels[ao]
-                write("    %4d %-16s= % 11.8f" % (ao, label, pop[ao]))
-            #for sh in range(self.mol.nbas):
-            #    # Loop over AOs in shell
-
-        if filename is not None:
-            f.close()
-        return pop, chg
-
 
     def tailor_all_fragments(self):
         for frag in self.fragments:
@@ -491,8 +441,6 @@ class EWF(QEmbeddingMethod):
                     f.write(fmtline % (ao_labels[i], *self.iao_coeff[i]))
 
         # Mean-field population analysis
-        if self.opts.fragment_type.upper() != 'SITE':
-            self.lo = pyscf.lo.orth_ao(self.mol, "lowdin")
         if self.opts.pop_analysis:
             dm1 = self.mf.make_rdm1()
             if isinstance(self.opts.pop_analysis, str):

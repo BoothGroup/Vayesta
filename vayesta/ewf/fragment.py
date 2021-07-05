@@ -129,8 +129,8 @@ class EWFFragment(QEmbeddingFragment):
         ## (allows projecting down ERIs and initial guess for subsequent calculations)
         #self.bno_threshold.sort()
 
-        # For Tailoring
-        self.tailor_fragments = []
+        # For coupling (e.g. Tailoring)
+        self.coupled_fragments = []
 
         # OLD
         ## Intermediate and output attributes:
@@ -166,13 +166,19 @@ class EWFFragment(QEmbeddingFragment):
 
         self.results = None
 
+        # Add some pass-through to results:
+        #self.c0 = property(lambda self: self.results.c0)
+        #self.c1 = property(lambda self: self.results.c1)
+        #self.c2 = property(lambda self: self.results.c2)
+        #self.t1 = property(lambda self: self.results.t1)
+        #self.t2 = property(lambda self: self.results.t2)
+
 
     @property
     def e_corr(self):
         """Best guess for correlation energy, using the lowest BNO threshold."""
         idx = np.argmin(self.bno_threshold)
         return self.e_corrs[idx]
-
 
     def init_orbital_plot(self):
         if self.boundary_cond == 'open':
@@ -596,13 +602,6 @@ class EWFFragment(QEmbeddingFragment):
     make_dmet_bath = make_dmet_bath
 
 
-    def add_tailor_fragment(self, frag):
-        if frag is self:
-            raise RuntimeError()
-        self.tailor_fragments.append(frag)
-        self.log.debugv("Tailoring %s with %s", self, frag)
-
-
     def additional_bath_for_cluster(self, c_bath, c_occenv, c_virenv):
         """Add additional bath orbitals to cluster (fragment+DMET bath)."""
         # NOT MAINTAINED
@@ -761,12 +760,13 @@ class EWFFragment(QEmbeddingFragment):
 
 
     def get_fragment_energy(self, p1, p2, eris):
-        """
+        """Calculate fragment correlation energy contribution from porjected C1, C2.
+
         Parameters
         ----------
-        p1 : (nOcc, nVir) array
+        p1 : (n(occ), n(vir)) array
             Locally projected C1 amplitudes.
-        p2 : (nOcc, nOcc, nVir, nVir) array
+        p2 : (n(occ), n(occ), n(vir), n(vir)) array
             Locally projected C2 amplitudes.
         eris :
             PySCF eris object as returned by cm.ao2mo()
@@ -777,28 +777,23 @@ class EWFFragment(QEmbeddingFragment):
             Fragment energy contribution.
         """
         nocc, nvir = p2.shape[1:3]
-        # MP2
-        if p1 is None:
-            e1 = 0
-        # CC
-        else:
+        # E1
+        e1 = 0
+        if p1 is not None:
             occ = np.s_[:nocc]
             vir = np.s_[nocc:]
-            f = eris.fock[occ][:,vir]
+            f = eris.fock[occ,vir]
             e1 = 2*np.sum(f * p1)
-
-        if hasattr(eris, "ovvo"):
-            eris_ovvo = eris.ovvo
-        # MP2 only has eris.ovov - for real integrals we transpose
+        # E2
+        if hasattr(eris, 'ovvo'):
+            g_ovvo = eris.ovvo[:]
         else:
-            eris_ovvo = eris.ovov[:].reshape(nocc,nvir,nocc,nvir).transpose(0, 1, 3, 2).conj()
-        e2 = (2*einsum('ijab,iabj', p2, eris_ovvo)
-              - einsum('ijab,jabi', p2, eris_ovvo))
-
+            # MP2 only has eris.ovov - for real integrals we transpose
+            g_ovvo = eris.ovov[:].reshape(nocc,nvir,nocc,nvir).transpose(0, 1, 3, 2).conj()
+        e2 = 2*einsum('ijab,iabj', p2, g_ovvo) - einsum('ijab,jabi', p2, g_ovvo)
         self.log.info("Energy components: E[C1]= % 16.8f Ha, E[C2]= % 16.8f Ha", e1, e2)
         if e1 > 1e-4 and 10*e1 > e2:
             self.log.warning("WARNING: Large E[C1] component!")
-
         e_frag = self.sym_factor * (e1 + e2)
         return e_frag
 
