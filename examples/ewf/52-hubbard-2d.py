@@ -5,6 +5,7 @@ import vayesta.lattmod
 #nsites = (8,8)
 #nsites = (6,6)
 nsites = (12,8)
+
 nsite = nsites[0]*nsites[1]
 nelectron = nsite
 hubbard_u = 2.0
