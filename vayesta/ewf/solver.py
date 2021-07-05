@@ -208,8 +208,7 @@ class CCSDSolver(ClusterSolver):
         # This should include the SC mode?
         elif coupled_fragments and np.all([x.results is not None for x in coupled_fragments]):
             self.log.info("Adding tailor function to CCSD.")
-            cc.tailor_func = self.make_cross_fragment_tcc_function(mode=self.opts.sc_mode,
-                    coupled_fragments=coupled_fragments).__get__(cc)
+            cc.tailor_func = self.make_cross_fragment_tcc_function(coupled_fragments=coupled_fragments).__get__(cc)
 
 
         t0 = timer()
@@ -422,7 +421,7 @@ class CCSDSolver(ClusterSolver):
         return tailor_func
 
 
-    def make_cross_fragment_tcc_function(self, mode, coupled_fragments=None, correct_t1=True, correct_t2=True, symmetrize_t2=True):
+    def make_cross_fragment_tcc_function(self, mode=2, coupled_fragments=None, correct_t1=True, correct_t2=True, symmetrize_t2=True):
         """Tailor current CCSD calculation with amplitudes of other fragments.
 
         This assumes orthogonal fragment spaces.
@@ -472,12 +471,8 @@ class CCSDSolver(ClusterSolver):
                 # Rotation & projections from cluster X active space to current fragment active space
                 p_occ = np.linalg.multi_dot((cx_occ.T, ovlp, c_occ))
                 p_vir = np.linalg.multi_dot((cx_vir.T, ovlp, c_vir))
-<<<<<<< HEAD
                 px = x.get_fragment_projector(c_occ)   # this is C_occ^T . S . C_frag . C_frag^T . S . C_occ
-=======
-                px = fx.get_fragment_projector(c_occ)   # this is C_occ^T . S . C_frag . C_frag^T . S . C_occ
-                
->>>>>>> master
+
                 # Transform fragment X T-amplitudes to current active space and form difference
                 if correct_t1:
                     tx1 = helper.transform_amplitude(x.results.t1, p_occ, p_vir)   # ia,ix,ap->xp
