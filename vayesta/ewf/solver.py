@@ -421,7 +421,7 @@ class CCSDSolver(ClusterSolver):
         return tailor_func
 
 
-    def make_cross_fragment_tcc_function(self, mode=2, coupled_fragments=None, correct_t1=True, correct_t2=True, symmetrize_t2=True):
+    def make_cross_fragment_tcc_function(self, mode=3, coupled_fragments=None, correct_t1=True, correct_t2=True, symmetrize_t2=True):
         """Tailor current CCSD calculation with amplitudes of other fragments.
 
         This assumes orthogonal fragment spaces.
@@ -449,6 +449,7 @@ class CCSDSolver(ClusterSolver):
         """
         if mode not in (1, 2, 3):
             raise ValueError()
+        self.log.debugv("TCC mode = %d", mode)
         ovlp = self.base.get_ovlp()     # AO overlap matrix
         c_occ = self.c_active_occ       # Occupied active orbitals of current cluster
         c_vir = self.c_active_vir       # Virtual  active orbitals of current cluster
