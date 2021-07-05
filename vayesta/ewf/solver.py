@@ -472,7 +472,12 @@ class CCSDSolver(ClusterSolver):
                 # Rotation & projections from cluster X active space to current fragment active space
                 p_occ = np.linalg.multi_dot((cx_occ.T, ovlp, c_occ))
                 p_vir = np.linalg.multi_dot((cx_vir.T, ovlp, c_vir))
+<<<<<<< HEAD
                 px = x.get_fragment_projector(c_occ)   # this is C_occ^T . S . C_frag . C_frag^T . S . C_occ
+=======
+                px = fx.get_fragment_projector(c_occ)   # this is C_occ^T . S . C_frag . C_frag^T . S . C_occ
+                
+>>>>>>> master
                 # Transform fragment X T-amplitudes to current active space and form difference
                 if correct_t1:
                     tx1 = helper.transform_amplitude(x.results.t1, p_occ, p_vir)   # ia,ix,ap->xp

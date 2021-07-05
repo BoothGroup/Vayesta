@@ -24,4 +24,4 @@ Installation
         - `make`
 
     3. Add Vayesta to your PYTHONPATH environment variable, for example by adding this line to your .bashrc/profile:
-        `export PYTHONPATH=<path to Vayesta>:$PYTHONPATH`
+        `export PYTHONPATH=/Users/marcell/Desktop/RESEARCH/UROP_2021/Vayesta:$PYTHONPATH`
