@@ -1,3 +1,3 @@
 """Lattice model module"""
 
-from .latt import Latt
+from .latt import *
