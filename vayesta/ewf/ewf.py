@@ -523,7 +523,7 @@ class EWF(QEmbeddingMethod):
 
         self.log.info("Fragment Correlation Energies")
         self.log.info("-----------------------------")
-        self.log.info("%13s:" + self.nfrag*" %16s", "BNO threshold", *[f.name for f in self.fragments])
+        self.log.info("%13s:" + self.nfrag*" %16s", "BNO threshold", *[f.id_name for f in self.fragments])
         # TODO
         fmt = "%13.2e:" + self.nfrag*" %13.8f Ha"
         #fmt0 = self.nfrag*" %13.8f Ha"

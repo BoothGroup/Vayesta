@@ -30,7 +30,7 @@ def transform_amplitude(t, u_occ, u_vir):
         return einsum("ia,ix,ay->xy", t, u_occ, u_vir)
     if np.ndim(t) == 4:
         return einsum("ijab,ix,jy,az,bw->xyzw", t, u_occ, u_occ, u_vir, u_vir)
-    raise NotImplementedError()
+    raise NotImplementedError('Transformation of amplitudes with ndim=%d' % np.ndim(t))
 
 
 def transform_amplitudes(t1, t2, u_occ, u_vir):

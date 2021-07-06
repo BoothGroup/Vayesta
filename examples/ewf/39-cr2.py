@@ -23,9 +23,12 @@ dimer = ['Cr', 'Cr']
 #        'E1ux' : 1,
 #        'E1uy' : 1,
 #        }
-basis = 'cc-pVTZ'
+#basis = 'cc-pVTZ'
+basis = 'cc-pwCVQZ-DK'
+#basis = 'cc-pwCV5Z-DK'
 
 #for d in [3.0]:
+dm1 = None
 for d in np.arange(dmin, dmax+1e-12, dstep):
     mol = pyscf.gto.Mole()
     mol.atom = ['%s 0.0 0.0 %f' % (dimer[0], -d/2), '%s 0.0 0.0 %f' % (dimer[1], d/2)]
@@ -46,15 +49,19 @@ for d in np.arange(dmin, dmax+1e-12, dstep):
     mf = pyscf.scf.RHF(mol_sym)
     mf.level_shift = 0.4
     mf.max_cycle = 100
-    mf.kernel()
+    # Scalar relativistic:
+    mf = mf.x2c()
+    mf.kernel(dm1)
     # Stability
     while True:
         mo = mf.stability()[0]
         if np.allclose(mo, mf.mo_coeff):
+            print("HF stable at d=%.3f A" % d)
             break
         print("HF unstable at d=%.3f A" % d)
         dm1 = mf.make_rdm1(mo, mf.mo_occ)
         mf.kernel(dm1)
+    dm1 = mf.make_rdm1()
 
     # Replace with mol without symmetry
     mf.mol = mol
@@ -114,17 +121,28 @@ for d in np.arange(dmin, dmax+1e-12, dstep):
     #except:
     #    ecc.e_tot = np.nan
 
-    etcc = vayesta.ewf.EWF(mf, solver='TCCSD', bno_threshold=-1)
-    if dimer[0] == dimer[1]:
-        #f = etcc.make_atom_fragment(0, sym_factor=2, tcc_fci_opts={'threads': 1, 'conv_tol': 1e-8})
-        f = etcc.make_atom_fragment(0, sym_factor=2, tcc_fci_opts={'threads': 1, 'conv_tol': 1e-8, 'fix_spin' : False})
-        f.set_cas(iaos=['0 Cr 4s', '0 Cr 3d'])
-    else:
-        etcc.make_all_atom_fragments()
-    etcc.kernel()
+    #etcc = vayesta.ewf.EWF(mf, solver='TCCSD', bno_threshold=-1)
+    #if dimer[0] == dimer[1]:
+    #    #f = etcc.make_atom_fragment(0, sym_factor=2, tcc_fci_opts={'threads': 1, 'conv_tol': 1e-8})
+    #    f = etcc.make_atom_fragment(0, sym_factor=2, tcc_fci_opts={'threads': 1, 'conv_tol': 1e-8, 'fix_spin' : False})
+    #    f.set_cas(iaos=['0 Cr 4s', '0 Cr 3d'])
+    #else:
+    #    etcc.make_all_atom_fragments()
+    #etcc.kernel()
+
+    ewf = vayesta.ewf.EWF(mf, bno_threshold=-np.inf)
+    #fci_opts={'threads': 1, 'conv_tol': 1e-8, 'fix_spin' : False}
+    fci_opts={'threads': 1, 'conv_tol': 1e-8}
+    fci_cr0 = ewf.make_ao_fragment(['0 Cr 4s', '0 Cr 3d'], solver='FCI', energy_factor=0, tcc_fci_opts=fci_opts)
+    fci_cr1 = ewf.make_ao_fragment(['1 Cr 4s', '1 Cr 3d'], solver='FCI', energy_factor=0, tcc_fci_opts=fci_opts)
+    fci_cr0.kernel(np.inf)
+    fci_cr1.kernel(np.inf)
+    ccsd = ewf.make_atom_fragment([0,1])
+    ccsd.couple_to_fragments([fci_cr0, fci_cr1])
+    e_corr = ccsd.kernel().e_corr
 
     with open('energies.txt', 'a') as f:
         if d == dmin:
             f.write("# Energies for %s-%s dimer\n" % (dimer[0], dimer[1]))
         #f.write('%3f  %16.8f  %16.8f  %16.8f  %16.8f  %16.8f  %16.8f  %16.8f\n' % (d, mf.e_tot, casci.e_tot, casscf.e_tot, casscf.e_tot + e_nevpt2, cc.e_tot, ecc.e_tot, etcc.e_tot))
-        f.write('%3f  %16.8f  %16.8f\n' % (d, mf.e_tot, etcc.e_tot))
+        f.write('%3f  %16.8f  %16.8f\n' % (d, mf.e_tot, mf.e_tot + e_corr))

@@ -41,6 +41,7 @@ class EWFFragmentOptions(Options):
     eom_ccsd_nroots: int = NotSet
     bsse_correction: bool = NotSet
     bsse_rmax: float = NotSet
+    energy_factor: float = 1.0
     energy_partitioning: str = NotSet
     pop_analysis: str = NotSet
     sc_mode: int = NotSet
@@ -79,6 +80,10 @@ class EWFFragmentResults:
     # For DM1:
     g1: np.ndarray = None
 
+    def convert_amp_c_to_t(self):
+        self.t1 = self.c1/self.c0
+        self.t2 = self.c2/self.c0 - einsum('ia,jb->ijab', self.t1, self.t1)
+        return self.t1, self.t2
 
 class EWFFragmentExit(Exception):
     pass
@@ -118,29 +123,8 @@ class EWFFragment(QEmbeddingFragment):
         self.solver = solver
         self.log.infov('  > %-24s %r', 'Solver:', self.solver)
 
-       # Bath natural orbital (BNO) threshold
-        #if bno_threshold is None:
-        #    bno_threshold = self.base.bno_threshold
-        #if np.ndim(bno_threshold) == 0:
-        #    bno_threshold = [bno_threshold]
-        #assert len(bno_threshold) == len(self.base.bno_threshold)
-        #self.bno_threshold = self.opts.bno_threshold_factor*np.asarray(bno_threshold)
-        ## Sort such that most expensive calculation (smallest threshold) comes first
-        ## (allows projecting down ERIs and initial guess for subsequent calculations)
-        #self.bno_threshold.sort()
-
         # For coupling (e.g. Tailoring)
         self.coupled_fragments = []
-
-        # OLD
-        ## Intermediate and output attributes:
-        ## Save correlation energies for different BNO thresholds
-        #self.e_corrs = len(self.bno_threshold)*[None]
-        #self.n_active = len(self.bno_threshold)*[None]
-        ## Output values
-        #self.e_delta_mp2 = 0.0
-        #self.e_pert_t = 0.0
-        #self.e_corr_dmp2 = 0.0
 
         # --- These attributes will be set after calling `make_bath`:
         # DMET-cluster (fragment + DMET bath) orbital coefficients
@@ -166,19 +150,11 @@ class EWFFragment(QEmbeddingFragment):
 
         self.results = None
 
-        # Add some pass-through to results:
-        #self.c0 = property(lambda self: self.results.c0)
-        #self.c1 = property(lambda self: self.results.c1)
-        #self.c2 = property(lambda self: self.results.c2)
-        #self.t1 = property(lambda self: self.results.t1)
-        #self.t2 = property(lambda self: self.results.t2)
-
-
-    @property
-    def e_corr(self):
-        """Best guess for correlation energy, using the lowest BNO threshold."""
-        idx = np.argmin(self.bno_threshold)
-        return self.e_corrs[idx]
+    #@property
+    #def e_corr(self):
+    #    """Best guess for correlation energy, using the lowest BNO threshold."""
+    #    idx = np.argmin(self.bno_threshold)
+    #    return self.e_corrs[idx]
 
     def init_orbital_plot(self):
         if self.boundary_cond == 'open':
@@ -357,7 +333,7 @@ class EWFFragment(QEmbeddingFragment):
         return c_cas_occ, c_cas_vir
 
 
-    def kernel(self, bno_threshold, solver=None, init_guess=None, eris=None):
+    def kernel(self, bno_threshold=None, solver=None, init_guess=None, eris=None):
         """Run solver for a single BNO threshold.
 
         Parameters
@@ -371,6 +347,8 @@ class EWFFragment(QEmbeddingFragment):
         -------
         results : EWFFragmentResults
         """
+        if bno_threshold is None:
+            bno_threshold = self.base.bno_threshold
         solver = solver or self.solver
 
         if self.c_cluster_occ is None:
@@ -776,6 +754,9 @@ class EWFFragment(QEmbeddingFragment):
         e_frag : float
             Fragment energy contribution.
         """
+        if self.opts.energy_factor == 0:
+            return 0
+
         nocc, nvir = p2.shape[1:3]
         # E1
         e1 = 0
@@ -794,7 +775,7 @@ class EWFFragment(QEmbeddingFragment):
         self.log.info("Energy components: E[C1]= % 16.8f Ha, E[C2]= % 16.8f Ha", e1, e2)
         if e1 > 1e-4 and 10*e1 > e2:
             self.log.warning("WARNING: Large E[C1] component!")
-        e_frag = self.sym_factor * (e1 + e2)
+        e_frag = self.opts.energy_factor * self.sym_factor * (e1 + e2)
         return e_frag
 
 
