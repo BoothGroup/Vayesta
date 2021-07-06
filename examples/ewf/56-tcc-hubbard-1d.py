@@ -4,7 +4,7 @@ import vayesta
 import vayesta.ewf
 import vayesta.lattmod
 
-nsite = 12
+nsite = 10
 nimp = 1
 fci_bno_threshold = np.inf
 nelectron = nsite

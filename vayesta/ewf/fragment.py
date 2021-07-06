@@ -333,13 +333,15 @@ class EWFFragment(QEmbeddingFragment):
         return c_cas_occ, c_cas_vir
 
 
-    def kernel(self, bno_threshold=None, solver=None, init_guess=None, eris=None):
+    def kernel(self, bno_threshold=None, bno_number=None, solver=None, init_guess=None, eris=None):
         """Run solver for a single BNO threshold.
 
         Parameters
         ----------
-        bno_threshold : float
+        bno_threshold : float, optional
             Bath natural orbital (BNO) thresholds.
+        bno_number : int, optional
+            Number of bath natural orbitals. Default: None.
         solver : {'MP2', 'CISD', 'CCSD', 'CCSD(T)', 'FCI'}, optional
             Correlated solver.
 
@@ -347,9 +349,16 @@ class EWFFragment(QEmbeddingFragment):
         -------
         results : EWFFragmentResults
         """
-        if bno_threshold is None:
+        if (bno_threshold is None and bno_number is None):
             bno_threshold = self.base.bno_threshold
-        solver = solver or self.solver
+
+        if np.ndim(bno_threshold) == 0:
+            bno_threshold = 2*[bno_threshold]
+        if np.ndim(bno_number) == 0:
+            bno_number = 2*[bno_number]
+
+        if solver is None:
+            solver = self.solver
 
         if self.c_cluster_occ is None:
             self.make_bath()
@@ -360,11 +369,10 @@ class EWFFragment(QEmbeddingFragment):
         assert (self.c_no_occ is not None)
         assert (self.c_no_vir is not None)
 
-        bno_thr = self.opts.bno_threshold_factor * bno_threshold
         self.log.info("Occupied BNOs:")
-        c_nbo_occ, c_frozen_occ = self.apply_bno_threshold(self.c_no_occ, self.n_no_occ, bno_thr)
+        c_nbo_occ, c_frozen_occ = self.truncate_bno(self.c_no_occ, self.n_no_occ, bno_threshold[0], bno_number[0])
         self.log.info("Virtual BNOs:")
-        c_nbo_vir, c_frozen_vir = self.apply_bno_threshold(self.c_no_vir, self.n_no_vir, bno_thr)
+        c_nbo_vir, c_frozen_vir = self.truncate_bno(self.c_no_vir, self.n_no_vir, bno_threshold[1], bno_number[1])
 
         # Canonicalize orbitals
         c_active_occ = self.canonicalize_mo(self.c_cluster_occ, c_nbo_occ)[0]
@@ -494,7 +502,10 @@ class EWFFragment(QEmbeddingFragment):
         p2 = self.project_amplitude_to_fragment(c2, c_active_occ, c_active_vir)
 
         e_corr = self.get_fragment_energy(p1, p2, eris=solver_results.eris)
-        self.log.info("BNO threshold= %.1e :  E(corr)= %+14.8f Ha", bno_threshold, e_corr)
+        if bno_threshold[0] == bno_threshold[1]:
+            self.log.info("BNO threshold= %.1e :  E(corr)= %+14.8f Ha", bno_threshold[0], e_corr)
+        else:
+            self.log.info("BNO threshold= %.1e / %.1e :  E(corr)= %+14.8f Ha", *bno_threshold, e_corr)
         # Population analysis
         if self.opts.pop_analysis:
             try:
@@ -557,9 +568,13 @@ class EWFFragment(QEmbeddingFragment):
         return results
 
 
-    def apply_bno_threshold(self, c_no, n_no, bno_thr):
+    def truncate_bno(self, c_no, n_no, bno_threshold=None, bno_number=None):
         """Split natural orbitals (NO) into bath and rest."""
-        n_bno = np.count_nonzero(n_no >= bno_thr)
+        if bno_threshold is None and bno_number is None:
+            raise ValueError()
+        elif bno_threshold is not None:
+            bno_threshold *= self.opts.bno_threshold_factor
+            bno_number = np.count_nonzero(n_no >= bno_threshold)
         # Logging
         fmt = "  > %4s: N= %4d  max= % 9.3g  min= % 9.3g  sum= % 9.3g ( %7.3f %%)"
         def log(name, n_part):
@@ -569,10 +584,10 @@ class EWFFragment(QEmbeddingFragment):
                             100*np.sum(n_part)/np.sum(n_no))
             else:
                 self.log.info(fmt[:fmt.index('max')].rstrip(), name, 0)
-        log("Bath", n_no[:n_bno])
-        log("Rest", n_no[n_bno:])
+        log("Bath", n_no[:bno_number])
+        log("Rest", n_no[bno_number:])
 
-        c_bno, c_rest = np.hsplit(c_no, [n_bno])
+        c_bno, c_rest = np.hsplit(c_no, [bno_number])
         return c_bno, c_rest
 
 
