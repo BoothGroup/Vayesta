@@ -208,7 +208,8 @@ class CCSDSolver(ClusterSolver):
         # This should include the SC mode?
         elif coupled_fragments and np.all([x.results is not None for x in coupled_fragments]):
             self.log.info("Adding tailor function to CCSD.")
-            cc.tailor_func = self.make_cross_fragment_tcc_function(coupled_fragments=coupled_fragments).__get__(cc)
+            cc.tailor_func = self.make_cross_fragment_tcc_function(mode=(self.opts.sc_mode or 3),
+                    coupled_fragments=coupled_fragments).__get__(cc)
 
 
         t0 = timer()
@@ -421,14 +422,14 @@ class CCSDSolver(ClusterSolver):
         return tailor_func
 
 
-    def make_cross_fragment_tcc_function(self, mode=3, coupled_fragments=None, correct_t1=True, correct_t2=True, symmetrize_t2=True):
+    def make_cross_fragment_tcc_function(self, mode, coupled_fragments=None, correct_t1=True, correct_t2=True, symmetrize_t2=True):
         """Tailor current CCSD calculation with amplitudes of other fragments.
 
         This assumes orthogonal fragment spaces.
 
         Parameters
         ----------
-        mode : int
+        mode : int, optional
             Level of external correction of T2 amplitudes:
             1: Both occupied indices are projected to each other fragment X.
             2: Both occupied indices are projected to each other fragment X
@@ -449,7 +450,7 @@ class CCSDSolver(ClusterSolver):
         """
         if mode not in (1, 2, 3):
             raise ValueError()
-        self.log.debugv("TCC mode = %d", mode)
+        self.log.debugv("TCC mode= %d", mode)
         ovlp = self.base.get_ovlp()     # AO overlap matrix
         c_occ = self.c_active_occ       # Occupied active orbitals of current cluster
         c_vir = self.c_active_vir       # Virtual  active orbitals of current cluster
@@ -473,7 +474,9 @@ class CCSDSolver(ClusterSolver):
                 p_occ = np.linalg.multi_dot((cx_occ.T, ovlp, c_occ))
                 p_vir = np.linalg.multi_dot((cx_vir.T, ovlp, c_vir))
                 px = x.get_fragment_projector(c_occ)   # this is C_occ^T . S . C_frag . C_frag^T . S . C_occ
-
+                if x.results.t1 is None and x.results.c1 is not None:
+                    self.log.debugv("Converting C-amplitudes of %s to T-amplitudes", x)
+                    x.results.convert_amp_c_to_t()
                 # Transform fragment X T-amplitudes to current active space and form difference
                 if correct_t1:
                     tx1 = helper.transform_amplitude(x.results.t1, p_occ, p_vir)   # ia,ix,ap->xp
@@ -493,7 +496,6 @@ class CCSDSolver(ClusterSolver):
                         dtx2 = einsum('xi,ijab->xjab', px, dtx2)
                     assert dtx2.shape == dt2.shape
                     dt2 += dtx2
-
                 self.log.debugv("Tailoring %12s <- %12s: |dT1|= %.2e  |dT2|= %.2e", self.fragment, x, np.linalg.norm(dtx1), np.linalg.norm(dtx2))
 
             # Store these norms in cc, to log their final value:
@@ -562,15 +564,19 @@ class FCISolver(ClusterSolver):
         c0, c1, c2 = pyscf.ci.cisd.cisdvec_to_amplitudes(cisdvec, self.nactive, nocc)
 
         # Temporary workaround (eris needed for energy later)
-        class ERIs:
+        if self.mf._eri is not None:
+            class ERIs:
+                pass
+            eris = ERIs()
+            c_act = self.mo_coeff[:,self.get_active_slice()]
+            eris.fock = np.linalg.multi_dot((c_act.T, self.base.get_fock(), c_act))
+            g = pyscf.ao2mo.full(self.mf._eri, c_act)
+            o = np.s_[:nocc]
+            v = np.s_[nocc:]
+            eris.ovvo = pyscf.ao2mo.restore(1, g, self.nactive)[o,v,v,o]
+        else:
+            # TODO
             pass
-        eris = ERIs()
-        c_act = self.mo_coeff[:,self.get_active_slice()]
-        eris.fock = np.linalg.multi_dot((c_act.T, self.base.get_fock(), c_act))
-        g = pyscf.ao2mo.full(self.mf._eri, c_act)
-        o = np.s_[:nocc]
-        v = np.s_[nocc:]
-        eris.ovvo = pyscf.ao2mo.restore(1, g, self.nactive)[o,v,v,o]
 
         results = CISolverResults(
                 converged=casci.converged, e_corr=e_corr, c_occ=self.c_active_occ, c_vir=self.c_active_vir, eris=eris,
