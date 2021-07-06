@@ -1,5 +1,6 @@
 import numpy as np
 
+
 def block_diagonal(arrays):
     ''' Constructs a block diagonal array from a series of arrays.
         Input arrays don't need to be square or the same shape.
@@ -18,6 +19,3 @@ def block_diagonal(arrays):
         array = np.block([[array, zeros_ur], [zeros_bl, array_next]])
 
     return array
-
-
-

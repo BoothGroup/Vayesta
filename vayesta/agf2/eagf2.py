@@ -33,10 +33,10 @@ class EAGF2Options(Options):
 
     # --- Bath settings
     dmet_threshold: float = 1e-4
+    ewdmet_threshold: float = 1e-4
     orthogonal_mo_tol: float = False
-    bath_type: str = 'dmet+mp2'
-    nmom_bath: int = 0
-    wtol_bath: float = 1e-14
+    bath_type: str = 'ewdmet'
+    nmom_bath: int = 3
 
     # --- Solver settings
     solver_options: dict = dataclasses.field(default_factory=dict)
@@ -277,11 +277,11 @@ if __name__ == '__main__':
     #fragment_type = 'Lowdin-AO'
 
     mol = pyscf.gto.Mole()
-    mol.atom = 'Li 0 0 0; H 0 0 1.4'
-    #mol.atom = 'N 0 0 0; N 0 0 0.8'
+    #mol.atom = 'Li 0 0 0; H 0 0 1.4'
+    mol.atom = 'N 0 0 0; N 0 0 0.8'
     #mol.atom = 'O 0 0 0; H 0 0 1; H 0 1 0'
-    mol.basis = 'aug-cc-pvdz'
-    #mol.basis = 'cc-pvdz'
+    #mol.basis = 'aug-cc-pvdz'
+    mol.basis = 'cc-pvdz'
     mol.verbose = 0
     mol.max_memory = 1e9
     mol.build()

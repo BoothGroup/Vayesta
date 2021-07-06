@@ -253,14 +253,20 @@ class RAGF2:
         return t
 
 
-    def _build_se_from_moments(self, t, chempot=0.0):
+    def _build_se_from_moments(self, t, chempot=0.0, eps=1e-16):
         ''' Build the occupied or virtual self-energy from its moments
         '''
 
         nphys = t[0].shape[0]
         
         if self.opts.nmom_lanczos == 0:
-            e, v = _agf2.cholesky_build(t[0], t[1])
+            w, v = np.linalg.eigh(t[0])
+            w[w < eps] = eps
+            b = np.dot(v * w[None]**0.5, v.T.conj())
+            b_inv = np.dot(v * w[None]**-0.5, v.T.conj())
+            e, v = np.linalg.eigh(np.linalg.multi_dot((b_inv.T.conj(), t[1], b_inv)))
+            v = np.dot(b.T.conj(), v[:nphys])
+
         else:
             import dyson
             m, b = dyson.block_lanczos_se.block_lanczos(t, self.opts.nmom_lanczos)
@@ -773,6 +779,72 @@ class RAGF2:
         return self
 
 
+    def print_excitations(self, gf=None):
+        ''' Print the excitations and some information on their character
+        '''
+
+        gf = gf or self.gf
+        gf_occ, gf_vir = gf.get_occupied(), gf.get_virtual()
+
+        self.log.info("Excitations")
+        self.log.info("***********")
+        self.log.changeIndentLevel(1)
+
+        self.log.infov("%2s %12s %12s %s", "IP", "Energy", "QP weight", " Dominant MOs")
+        for n in range(min(gf_occ.naux, self.opts.excitation_number)):
+            en = -gf_occ.energy[-n-1]
+            vn = gf_occ.coupling[:, -n-1]
+            qpwt = np.linalg.norm(vn)**2
+            char_string = ""
+            num = 0
+            for i in np.argsort(vn**2)[::-1]:
+                if vn[i]**2 > self.opts.excitation_tol:
+                    if num == 3:
+                        char_string += " ..."
+                        break
+                    char_string += "%3d (%7.3f %%) " % (i, (vn[i]**2)*100)
+                    num += 1
+            self.log.infov("%2d %12.6f %12.6f  %s", n, en, qpwt, char_string)
+
+        self.log.infov("%2s %12s %12s %s", "EA", "Energy", "QP weight", " Dominant MOs")
+        for n in range(min(gf_vir.naux, self.opts.excitation_number)):
+            en = gf_vir.energy[n]
+            vn = gf_vir.coupling[:, n]
+            qpwt = np.linalg.norm(vn)**2
+            char_string = ""
+            num = 0
+            for i in np.argsort(vn**2)[::-1]:
+                if vn[i]**2 > self.opts.excitation_tol:
+                    if num == 3:
+                        char_string += " ..."
+                        break
+                    char_string += "%3d (%7.3f %%) " % (i, (vn[i]**2)*100)
+                    num += 1
+            self.log.infov("%2d %12.6f %12.6f  %s", n, en, qpwt, char_string)
+
+        self.log.changeIndentLevel(-1)
+
+
+    def print_energies(self):
+        ''' Print the energies
+        '''
+
+        self.log.info("Energies")
+        self.log.info("********")
+        self.log.changeIndentLevel(1)
+
+        self.log.info("E(corr) = %20.12f", self.e_corr)
+        self.log.info("E(1b)   = %20.12f", self.e_1b)
+        self.log.info("E(2b)   = %20.12f", self.e_2b)
+        self.log.info("E(tot)  = %20.12f", self.e_tot)
+
+        self.log.info("IP      = %20.12f", self.e_ip)
+        self.log.info("EA      = %20.12f", self.e_ea)
+        self.log.info("Gap     = %20.12f", self.e_ip + self.e_ea)
+
+        self.log.changeIndentLevel(-1)
+
+
     def kernel(self):
         ''' Driving function for RAGF2
         '''
@@ -820,55 +892,8 @@ class RAGF2:
             se = self.se = self.run_diis(se, gf, diis, se_prev=se_prev)
             e_2b = self.e_2b = self.energy_2body(gf=gf, se=se)
 
-            self.log.info("Energies")
-            self.log.info("********")
-            self.log.info("E(corr) = %20.12f", self.e_corr)
-            self.log.info("E(1b)   = %20.12f", self.e_1b)
-            self.log.info("E(2b)   = %20.12f", self.e_2b)
-            self.log.info("E(tot)  = %20.12f", self.e_tot)
-
-            self.log.info("IP      = %20.12f", self.e_ip)
-            self.log.info("EA      = %20.12f", self.e_ea)
-            self.log.info("Gap     = %20.12f", self.e_ip + self.e_ea)
-
-            self.log.info("Excitations")
-            self.log.info("***********")
-            self.log.changeIndentLevel(1)
-
-            self.log.infov("%2s %12s %12s %s", "IP", "Energy", "QP weight", " Dominant MOs")
-            for n in range(min(gf_occ.naux, self.opts.excitation_number)):
-                en = -gf_occ.energy[-n-1]
-                vn = gf_occ.coupling[:, -n-1]
-                qpwt = np.linalg.norm(vn)**2
-                char_string = ""
-                num = 0
-                for i in np.argsort(vn**2)[::-1]:
-                    if vn[i]**2 > self.opts.excitation_tol:
-                        if num == 3:
-                            char_string += " ..."
-                            break
-                        char_string += "%3d (%7.3f %%) " % (i, (vn[i]**2)*100)
-                        num += 1
-                self.log.infov("%2d %12.6f %12.6f  %s", n, en, qpwt, char_string)
-
-            self.log.infov("%2s %12s %12s %s", "EA", "Energy", "QP weight", " Dominant MOs")
-            for n in range(min(gf_vir.naux, self.opts.excitation_number)):
-                en = gf_vir.energy[n]
-                vn = gf_vir.coupling[:, n]
-                qpwt = np.linalg.norm(vn)**2
-                char_string = ""
-                num = 0
-                for i in np.argsort(vn**2)[::-1]:
-                    if vn[i]**2 > self.opts.excitation_tol:
-                        if num == 3:
-                            char_string += " ..."
-                            break
-                        char_string += "%3d (%7.3f %%) " % (i, (vn[i]**2)*100)
-                        num += 1
-                self.log.infov("%2d %12.6f %12.6f  %s", n, en, qpwt, char_string)
-
-
-            self.log.changeIndentLevel(-1)
+            self.print_excitations()
+            self.print_energies()
 
             deltas = [
                     np.abs(self.e_tot - e_prev),
@@ -999,7 +1024,7 @@ if __name__ == '__main__':
     gf2 = RAGF2(rhf, frozen=(0,0), non_dyson=False, nmom_lanczos=0, nmom_projection=None)
     gf2.run()
 
-    test = False
+    test = True
 
     if test:
         mols = [
