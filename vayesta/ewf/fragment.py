@@ -37,6 +37,7 @@ class EWFFragmentOptions(Options):
     # Options also present in `base`:
     dmet_threshold: float = NotSet
     make_rdm1: bool = NotSet
+    make_rdm2: bool = NotSet
     eom_ccsd: list = NotSet
     eom_ccsd_nroots: int = NotSet
     bsse_correction: bool = NotSet
@@ -77,7 +78,9 @@ class EWFFragmentResults:
     l1: np.ndarray = None
     l2: np.ndarray = None
     eris: 'typing.Any' = None
-    # For DM1:
+    # Density-matrices
+    dm1: np.ndarray = None
+    dm2: np.ndarray = None
     g1: np.ndarray = None
 
     def convert_amp_c_to_t(self):
@@ -472,6 +475,7 @@ class EWFFragment(QEmbeddingFragment):
         t0 = timer()
         solver_opts = {}
         solver_opts['make_rdm1'] = self.opts.make_rdm1
+        solver_opts['make_rdm2'] = self.opts.make_rdm2
         if solver.upper() == 'TCCSD':
             solver_opts['tcc'] = True
             # Set CAS orbitals
@@ -502,10 +506,13 @@ class EWFFragment(QEmbeddingFragment):
         p2 = self.project_amplitude_to_fragment(c2, c_active_occ, c_active_vir)
 
         e_corr = self.get_fragment_energy(p1, p2, eris=solver_results.eris)
-        if bno_threshold[0] == bno_threshold[1]:
-            self.log.info("BNO threshold= %.1e :  E(corr)= %+14.8f Ha", bno_threshold[0], e_corr)
+        if bno_threshold[0] is not None:
+            if bno_threshold[0] == bno_threshold[1]:
+                self.log.info("BNO threshold= %.1e :  E(corr)= %+14.8f Ha", bno_threshold[0], e_corr)
+            else:
+                self.log.info("BNO threshold= %.1e / %.1e :  E(corr)= %+14.8f Ha", *bno_threshold, e_corr)
         else:
-            self.log.info("BNO threshold= %.1e / %.1e :  E(corr)= %+14.8f Ha", *bno_threshold, e_corr)
+            self.log.info("BNO number= %3d / %3d:  E(corr)= %+14.8f Ha", *bno_number, e_corr)
         # Population analysis
         if self.opts.pop_analysis:
             try:
@@ -533,7 +540,8 @@ class EWFFragment(QEmbeddingFragment):
                 bno_threshold=bno_threshold,
                 n_active=nactive,
                 converged=solver_results.converged,
-                e_corr=e_corr)
+                e_corr=e_corr,
+                dm1=solver_results.dm1, dm2=solver_results.dm2)
         # EOM analysis
         #if 'IP' in self.opts.eom_ccsd:
         #    results.ip_energy, _ = self.eom_analysis(cluster_solver, 'IP')
@@ -570,11 +578,14 @@ class EWFFragment(QEmbeddingFragment):
 
     def truncate_bno(self, c_no, n_no, bno_threshold=None, bno_number=None):
         """Split natural orbitals (NO) into bath and rest."""
-        if bno_threshold is None and bno_number is None:
-            raise ValueError()
+        if bno_number is not None:
+            pass
         elif bno_threshold is not None:
             bno_threshold *= self.opts.bno_threshold_factor
             bno_number = np.count_nonzero(n_no >= bno_threshold)
+        else:
+            raise ValueError()
+
         # Logging
         fmt = "  > %4s: N= %4d  max= % 9.3g  min= % 9.3g  sum= % 9.3g ( %7.3f %%)"
         def log(name, n_part):

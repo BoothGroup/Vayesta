@@ -49,6 +49,7 @@ class EWFOptions(Options):
     # --- Solver settings
     solver_options: dict = dataclasses.field(default_factory=dict)
     make_rdm1: bool = False
+    make_rdm2: bool = False
     pop_analysis: str = False           # Do population analysis
     eom_ccsd: list = dataclasses.field(default_factory=list)  # Perform EOM-CCSD in each cluster by default
     eom_ccsd_nroots: int = 5            # Perform EOM-CCSD in each cluster by default
