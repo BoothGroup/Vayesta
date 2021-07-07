@@ -49,6 +49,7 @@ class EWFOptions(Options):
     # --- Solver settings
     solver_options: dict = dataclasses.field(default_factory=dict)
     make_rdm1: bool = False
+    make_rdm2: bool = False
     pop_analysis: str = False           # Do population analysis
     eom_ccsd: list = dataclasses.field(default_factory=list)  # Perform EOM-CCSD in each cluster by default
     eom_ccsd_nroots: int = 5            # Perform EOM-CCSD in each cluster by default
@@ -523,7 +524,7 @@ class EWF(QEmbeddingMethod):
 
         self.log.info("Fragment Correlation Energies")
         self.log.info("-----------------------------")
-        self.log.info("%13s:" + self.nfrag*" %16s", "BNO threshold", *[f.name for f in self.fragments])
+        self.log.info("%13s:" + self.nfrag*" %16s", "BNO threshold", *[f.id_name for f in self.fragments])
         # TODO
         fmt = "%13.2e:" + self.nfrag*" %13.8f Ha"
         #fmt0 = self.nfrag*" %13.8f Ha"

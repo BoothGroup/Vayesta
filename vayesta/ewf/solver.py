@@ -30,6 +30,7 @@ def get_solver_class(solver):
 @dataclasses.dataclass
 class ClusterSolverOptions(Options):
     make_rdm1: bool = NotSet
+    make_rdm2: bool = NotSet
     sc_mode: int = NotSet
     # CCSD specific
     # EOM CCSD
@@ -51,6 +52,7 @@ class ClusterSolverResults:
     c_vir: np.array = None
     # Density matrix in MO representation:
     dm1: np.array = None
+    dm2: np.array = None
     eris: 'typing.Any' = None
 
 
@@ -211,7 +213,6 @@ class CCSDSolver(ClusterSolver):
             cc.tailor_func = self.make_cross_fragment_tcc_function(mode=(self.opts.sc_mode or 3),
                     coupled_fragments=coupled_fragments).__get__(cc)
 
-
         t0 = timer()
         if init_guess:
             self.log.info("Running CCSD with initial guess for %r..." % list(init_guess.keys()))
@@ -235,7 +236,7 @@ class CCSDSolver(ClusterSolver):
                 converged=cc.converged, e_corr=cc.e_corr, c_occ=self.c_active_occ, c_vir=self.c_active_vir, eris=eris,
                 t1=cc.t1, t2=cc.t2)
 
-        solve_lambda = self.opts.make_rdm1
+        solve_lambda = (self.opts.make_rdm1 or self.opts.make_rdm2)
         if solve_lambda:
             t0 = timer()
             self.log.info("Solving lambda equations...")
@@ -250,6 +251,9 @@ class CCSDSolver(ClusterSolver):
             self.log.info("Making RDM1...")
             #results.dm1 = cc.make_rdm1(eris=eris, ao_repr=True)
             results.dm1 = cc.make_rdm1(with_frozen=False)
+        if self.opts.make_rdm2:
+            self.log.info("Making RDM2...")
+            results.dm2 = cc.make_rdm2(with_frozen=False)
 
         def run_eom_ccsd(kind, nroots=None):
             nroots = nroots or self.opts.eom_ccsd_nroots
@@ -559,9 +563,12 @@ class FCISolver(ClusterSolver):
         self.log.timing("Time for FCI: %s", time_string(timer()-t0))
         e_corr = (e_tot-self.mf.e_tot)
 
+
+
         cisdvec = pyscf.ci.cisd.from_fcivec(wf, self.nactive, nelec)
         nocc = nelec // 2
         c0, c1, c2 = pyscf.ci.cisd.cisdvec_to_amplitudes(cisdvec, self.nactive, nocc)
+
 
         # Temporary workaround (eris needed for energy later)
         if self.mf._eri is not None:
@@ -581,6 +588,11 @@ class FCISolver(ClusterSolver):
         results = CISolverResults(
                 converged=casci.converged, e_corr=e_corr, c_occ=self.c_active_occ, c_vir=self.c_active_vir, eris=eris,
                 c0=c0, c1=c1, c2=c2)
+
+        if self.opts.make_rdm2:
+            results.dm1, results.dm2 = casci.fcisolver.make_rdm12(wf, self.nactive, nelec)
+        elif self.opts.make_rdm1:
+            results.dm1 = casci.fcisolver.make_rdm1(wf, self.nactive, nelec)
 
         return results
 
