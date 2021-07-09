@@ -47,6 +47,8 @@ class EAGF2FragmentResults:
     bno_threshold: float = None
     n_active: int = None
     converged: bool = None
+    c_frozen: np.ndarray = None
+    c_active: np.ndarray = None
     e_corr: float = None
     fock: np.ndarray = None
     se: pyscf.agf2.SelfEnergy = None
@@ -156,20 +158,20 @@ class EAGF2Fragment(QEmbeddingFragment):
             return self.make_ewdmet_bath()
 
 
-    def project_to_fragment(self, cluster_solver, mo_coeff):
-        ''' Project quantities back onto the fragment space
-        '''
+    #def project_to_fragment(self, cluster_solver, mo_coeff):
+    #    ''' Project quantities back onto the fragment space
+    #    '''
 
-        coeff = np.linalg.multi_dot((self.c_frag.T.conj(), self.mf.get_ovlp(), mo_coeff))
-        
-        fock = cluster_solver.get_fock(with_frozen=False)
-        fock = np.linalg.multi_dot((coeff, fock, coeff.T.conj()))
+    #    coeff = np.linalg.multi_dot((self.c_frag.T.conj(), self.mf.get_ovlp(), mo_coeff))
+    #    
+    #    fock = cluster_solver.get_fock(with_frozen=False)
+    #    fock = np.linalg.multi_dot((coeff, fock, coeff.T.conj()))
 
-        energy = cluster_solver.se.energy
-        coupling = np.dot(coeff, cluster_solver.se.coupling)
-        se = pyscf.agf2.SelfEnergy(energy, coupling, chempot=cluster_solver.se.chempot)
+    #    energy = cluster_solver.se.energy
+    #    coupling = np.dot(coeff, cluster_solver.se.coupling)
+    #    se = pyscf.agf2.SelfEnergy(energy, coupling, chempot=cluster_solver.se.chempot)
 
-        return fock, se
+    #    return fock, se
 
 
     def get_coeffs(self, bno_threshold=None):
@@ -203,6 +205,7 @@ class EAGF2Fragment(QEmbeddingFragment):
 
         c_active_occ, c_frozen_occ, c_active_vir, c_frozen_vir = self.get_coeffs(bno_threshold)
         c_active = np.hstack((c_active_occ, c_active_vir))
+        c_frozen = np.hstack((c_frozen_occ, c_frozen_vir))
         c_occ = np.hstack((c_frozen_occ, c_active_occ))
         c_vir = np.hstack((c_active_vir, c_frozen_vir))
         nactive = c_active.shape[-1]
@@ -237,14 +240,10 @@ class EAGF2Fragment(QEmbeddingFragment):
 
         # Get the MO energies
         rdm1 = np.dot(c_occ, c_occ.T.conj()) * 2
-        #assert np.allclose(self.mf.make_rdm1(), rdm1)  # should be the same
+        assert np.allclose(self.mf.make_rdm1(), rdm1)  # should be the same
         fock = self.mf.get_fock(dm=rdm1)
         fock = np.linalg.multi_dot((mo_coeff.T.conj(), fock, mo_coeff))
         mo_energy, r = np.linalg.eigh(fock)
-        a, _, b = self.canonicalize_mo(mo_coeff, eigvals=True)
-        mo_coeff = np.dot(mo_coeff, r)
-        #mo_coeff, _, mo_energy = self.canonicalize_mo(mo_coeff, eigvals=True)
-        #NOTE: better Fock loop convergence with self.mf.get_fock than self.base.get_fock
 
         # Run solver
         cluster_solver = RAGF2(
@@ -262,13 +261,17 @@ class EAGF2Fragment(QEmbeddingFragment):
         cluster_solver.kernel()
 
         e_corr = cluster_solver.e_corr
-        fock, se = self.project_to_fragment(cluster_solver, c_active)
+        #fock, se = self.project_to_fragment(cluster_solver, c_active)
+        fock = cluster_solver.get_fock(with_frozen=False)
+        se = cluster_solver.se
 
         results = EAGF2FragmentResults(
                 fid=self.id,
                 bno_threshold=bno_threshold,
                 n_active=nactive,
                 converged=cluster_solver.converged,
+                c_frozen=c_frozen,
+                c_active=c_active,
                 e_corr=e_corr,
                 fock=fock,
                 se=se,

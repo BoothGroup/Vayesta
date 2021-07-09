@@ -30,19 +30,22 @@ class EAGF2Options(Options):
     # --- Fragment settings
     fragment_type: str = 'IAO'
     iao_minao: str = 'auto'
+    partitioning: str = 'democratic'    # 'simple', 'democratic'
+    partitioning_se: str = 'rebuild'    # 'project', 'rebuild'
 
     # --- Bath settings
     dmet_threshold: float = 1e-4
     ewdmet_threshold: float = 1e-4
     orthogonal_mo_tol: float = False
-    bath_type: str = 'ewdmet'
-    nmom_bath: int = 3
+    bath_type: str = 'mp2+dmet'           # 'ewdmet', 'mp2+dmet'
+    nmom_bath: int = 4
 
     # --- Solver settings
     solver_options: dict = dataclasses.field(default_factory=dict)
 
     # --- Other
     strict: bool = False
+    fock_loop: bool = True
 
 
 @dataclasses.dataclass
@@ -141,6 +144,123 @@ class EAGF2(QEmbeddingMethod):
         return self.e_mf + self.e_corr
 
 
+    def partition(self, fock, se, c_active, c_frozen):
+        ''' 
+        Partition the Fock matrix and self-energy resulting from the
+        application of the solver on each fragment into a single Fock
+        matrix on the full system in MO basis.
+
+        Partitioning schemes:
+            'simple':     Project the fragment-fragment block only.
+            'democratic': Include the effects of the environment by
+                          democratic partitoning.
+
+        Self-energy partitioning methods:
+            'project': Project the couplings directly into the new basis
+            'rebuild': Project the moments into the new basis and build
+                       self-energy again (reapplies the compression).
+        '''
+
+        s = self.mf.get_ovlp()
+        c = self.mf.mo_coeff
+        if self.opts.fragment_type.lower() == 'iao':
+            local_coeff = self.iao_coeff
+        elif self.opts.fragment_type.lower() == 'lowdin-ao':
+            local_coeff = self.lao_coeff
+            
+        if self.opts.partitioning == 'simple':
+            if self.opts.partitioning_se == 'rebuild':
+                nmo = self.mf.mo_occ.size
+                moments = [np.zeros((2, 2, x.nphys, x.nphys)) for x in se]
+                for x, frag in enumerate(self.fragments):
+                    moments[x][0] = se[x].get_occupied().moment([0,1], squeeze=False)
+                    moments[x][1] = se[x].get_virtual().moment([0,1], squeeze=False)
+
+            for x, frag in enumerate(self.fragments):
+                # Project onto fragment IAOs in the basis of cluster MOs
+                r = np.linalg.multi_dot((c_active[x].T.conj(), s, frag.c_frag))
+                p = np.dot(r, r.T.conj())
+                fock[x] = np.linalg.multi_dot((p, fock[x], p.T.conj()))
+
+                if self.opts.partitioning_se == 'project':
+                    se[x].coupling = np.dot(p, se[x].coupling)
+                elif self.opts.partitioning_se == 'rebuild':
+                    moments[x] = np.einsum('abij,pi,qj->abpq', moments[x], p, p.conj())
+
+                # Project from cluster MOs back to original MOs
+                coeff = np.linalg.multi_dot((c_active[x].T.conj(), s, frag.mf.mo_coeff))
+                fock[x] = np.linalg.multi_dot((coeff.T.conj(), fock[x], coeff))
+
+                if self.opts.partitioning_se == 'project':
+                    se[x].coupling = np.dot(coeff.T.conj(), se[x].coupling)
+                elif self.opts.partitioning_se == 'rebuild':
+                    moments[x] = np.einsum('abpq,pi,qj->abij', moments[x], coeff.conj(), coeff)
+                    se_o = pyscf.agf2.SelfEnergy(*pyscf.agf2._agf2.cholesky_build(*moments[x][0]))
+                    se_v = pyscf.agf2.SelfEnergy(*pyscf.agf2._agf2.cholesky_build(*moments[x][1]))
+                    se[x] = pyscf.agf2.aux.combine(se_o, se_v)
+
+            fock = sum(fock)
+            se = pyscf.agf2.SelfEnergy(
+                    np.concatenate([x.energy for x in se]),
+                    np.concatenate([x.coupling for x in se], axis=1),
+            )
+
+            if self.opts.partitioning_se == 'rebuild':
+                se = se.compress(n=(None, 0))
+
+        elif self.opts.partitioning == 'democratic':
+            if self.opts.partitioning_se == 'project':
+                raise NotImplementedError('partitioning="democratic" & partitioning_se="project"')
+
+            t0_occ = []
+            t1_occ = []
+            t0_vir = []
+            t1_vir = []
+            for x, frag in enumerate(self.fragments):
+                t0_occ.append(se[x].get_occupied().moment(0, squeeze=False)[0])
+                t1_occ.append(se[x].get_occupied().moment(1, squeeze=False)[0])
+                t0_vir.append(se[x].get_virtual().moment(0, squeeze=False)[0])
+                t1_vir.append(se[x].get_virtual().moment(1, squeeze=False)[0])
+
+            arrs = [fock, t0_occ, t1_occ, t0_vir, t1_vir]
+            
+            for x, frag in enumerate(self.fragments):
+                # Projector onto fragment in the space of cluster MOs
+                r_frag = np.linalg.multi_dot((c_active[x].T.conj(), s, frag.c_frag))
+                p_frag = np.dot(r_frag, r_frag.T.conj())
+
+                # Projector onto full space in the space of cluster MOs
+                c_full = np.hstack((frag.c_frag, frag.c_env))
+                r_full = np.linalg.multi_dot((c_active[x].T.conj(), s, c_full))
+                p_full = np.dot(r_full, r_full.T.conj())
+
+                # Apply projectors
+                for arr in arrs:
+                    arr[x] = np.linalg.multi_dot((p_frag, arr[x], p_full))
+
+                # Partition democratically
+                for arr in arrs:
+                    m = np.linalg.multi_dot((p_frag, arr[x], p_full))
+                    arr[x] = 0.5 * (m + m.T.conj())
+
+                # Project into original MO space
+                coeff = np.linalg.multi_dot((c_active[x].T.conj(), s, self.mf.mo_coeff))
+                for arr in arrs:
+                    arr[x] = np.linalg.multi_dot((coeff.T.conj(), arr[x], coeff))
+
+            # Sum fragments
+            for i, arr in enumerate(arrs):
+                arrs[i] = sum(arr)
+
+            fock, t0_occ, t1_occ, t0_vir, t1_vir = arrs
+
+            se_occ = pyscf.agf2.SelfEnergy(*pyscf.agf2._agf2.cholesky_build(t0_occ, t1_occ))
+            se_vir = pyscf.agf2.SelfEnergy(*pyscf.agf2._agf2.cholesky_build(t0_vir, t1_vir))
+            se = pyscf.agf2.aux.combine(se_occ, se_vir)
+
+        return fock, se
+
+
     def kernel(self, bno_threshold=None):
         ''' Run EAGF2
 
@@ -193,21 +313,14 @@ class EAGF2(QEmbeddingMethod):
                 fock.append(result.fock)
                 se.append(result.se)
 
-            fock = util.block_diagonal(fock)
-            se = pyscf.agf2.SelfEnergy(
-                    np.concatenate([x.energy for x in se]),
-                    util.block_diagonal([x.coupling for x in se]),
-            )
+            c_active = [
+                    self.cluster_results[(frag.id, bno_thr)].c_active for frag in self.fragments
+            ]
+            c_frozen = [
+                    self.cluster_results[(frag.id, bno_thr)].c_frozen for frag in self.fragments
+            ]
 
-            c = self.mf.mo_coeff
-            s = self.mf.get_ovlp()
-            if self.opts.fragment_type.lower() == 'iao':
-                coeff = np.linalg.multi_dot((c.T.conj(), s, self.iao_coeff))
-            elif self.opts.fragment_type.lower() == 'lowdin-ao':
-                coeff = np.linalg.multi_dot((c.T.conj(), s, self.lao_coeff))
-
-            fock = np.linalg.multi_dot((coeff, fock, coeff.T.conj()))
-            se.coupling = np.dot(coeff, se.coupling)
+            fock, se = self.partition(fock, se, c_active=c_active, c_frozen=c_frozen)
 
             class FakeRAGF2(RAGF2):
                 def __init__(self, mf):
@@ -215,6 +328,10 @@ class EAGF2(QEmbeddingMethod):
                     tmplog.setLevel(logging.ERROR)
                     eri = mf._eri
                     RAGF2.__init__(self, mf, eri=eri, log=tmplog)
+
+                def fock_loop(self, *args, **kwargs):
+                    with pyscf.lib.temporary_env(self, log=vayesta.log):
+                        return RAGF2.fock_loop(self, *args, **kwargs)
 
                 def get_fock(self, *args, **kwargs):
                     rdm1 = RAGF2.make_rdm1(self, *args, **kwargs)
@@ -226,8 +343,17 @@ class EAGF2(QEmbeddingMethod):
                     return fock
 
             gf2 = FakeRAGF2(self.mf)
-            gf, se = gf2.fock_loop(gf=se.get_greens_function(fock), se=se)
 
+            if self.opts.fock_loop:
+                gf, se = gf2.fock_loop(gf=se.get_greens_function(fock), se=se)
+                gf.remove_uncoupled(tol=1e-10)
+            else:
+                #se, opt = pyscf.agf2.chempot.minimize_chempot(se, fock, self.mol.nelectron)
+                gf = se.get_greens_function(fock)
+                gf.remove_uncoupled(tol=1e-10)
+                se.chempot = gf.chempot = pyscf.agf2.chempot.binsearch_chempot(se.eig(fock), se.nphys, self.mf.mol.nelectron)[0]
+
+            c = self.mf.mo_coeff
             rdm1 = gf.make_rdm1()
             h1e = np.linalg.multi_dot((c.T.conj(), self.mf.get_hcore(), c))
             e_1b = 0.5 * np.sum(rdm1 * (h1e + fock))
@@ -272,16 +398,17 @@ class EAGF2(QEmbeddingMethod):
 
 
 if __name__ == '__main__':
-    bno_threshold = [1e-7, 1e-6, 1e-5]
+    bno_threshold = [1e-9]
     fragment_type = 'IAO'
     #fragment_type = 'Lowdin-AO'
 
     mol = pyscf.gto.Mole()
     #mol.atom = 'Li 0 0 0; H 0 0 1.4'
-    mol.atom = 'N 0 0 0; N 0 0 0.8'
+    #mol.atom = 'N 0 0 0; N 0 0 0.8'
     #mol.atom = 'O 0 0 0; H 0 0 1; H 0 1 0'
-    #mol.basis = 'aug-cc-pvdz'
-    mol.basis = 'cc-pvdz'
+    mol.atom = 'C 0 0 0'
+    mol.basis = 'aug-cc-pvdz'
+    #mol.basis = 'cc-pvdz'
     mol.verbose = 0
     mol.max_memory = 1e9
     mol.build()
@@ -294,7 +421,19 @@ if __name__ == '__main__':
     ip_mf = -mf.mo_energy[mf.mo_occ > 0].max()
     ea_mf = mf.mo_energy[mf.mo_occ == 0].min()
 
-    eagf2 = EAGF2(mf, bno_threshold=bno_threshold, fragment_type=fragment_type)
+    eagf2 = EAGF2(mf,
+            bno_threshold=bno_threshold, 
+            fragment_type=fragment_type,
+            bath_type='dmet+mp2',
+            #bath_type='ewdmet',
+            partitioning='simple',
+            #partitioning='democratic',
+            partitioning_se='project',
+            #partitioning_se='rebuild',
+            fock_loop=True,
+            #fock_loop=False,
+            nmom_bath=4
+    )
     for i in range(mol.natm):
         frag = eagf2.make_atom_fragment(i)
         frag.make_bath()
