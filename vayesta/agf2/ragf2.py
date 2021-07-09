@@ -222,7 +222,7 @@ class RAGF2:
             else:
                 t = _agf2.build_mats_ragf2_incore(xija, eo, ev, **facs)
         else:
-            nphys = xija[0].shape[1]
+            nphys = xija[0].shape[1] if isinstance(xija, tuple) else xija.shape[0]
             dtype = xija[0].dtype
 
             t = np.zeros((2*self.opts.nmom_lanczos+2, nphys, nphys), dtype=dtype)
