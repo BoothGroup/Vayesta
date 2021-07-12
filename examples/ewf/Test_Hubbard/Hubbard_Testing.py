@@ -188,6 +188,9 @@ class Test_Hubbard_1D:
         #E_dm += np.einsum('ijkl, ijkl->', h2, dm2)
         E_dm += 0.5*self.__hubbard_u*np.einsum('pppp->', dm2)
 
+        # PROJECTION ONLY WORKS FOR FIRST FRAGMENT
+        # FOR THE REST OF THE FRAGMENTS SUBSPACE DIFFERS
+        # FOR MF-FCI EMBEDDING, FRAGMENT RDM-s ARE THE SAME
         E_dm_proj += np.einsum('ij, ij->', h1[:self.__fragment_size], dm1[:self.__fragment_size])
         E_dm_proj += 0.5*np.einsum('ijkl, ijkl->', h2[:self.__fragment_size], dm2[:self.__fragment_size])
     
@@ -252,10 +255,26 @@ class Test_Hubbard_1D:
         '''
         return (self.__nsite/self.__fragment_size)*self.get_rdm_energy(self.__fragments[0])
         
-    def fragment_spectrum(self):
+    def fragment_rdm_spectrum(self):
         '''
+        Return spectrum of total RDM energy calculated for each fragment
+        '''
+        fragment_energies = []
+        for fragment in self.__fragments:
+            fragment_energies.append((self.__nsite/self.__fragment_size)*self.get_rdm_energy(fragment))
         
+        return fragment_energies
+        
+    def fragment_amp_spectrum(self):
         '''
+        Return spectrum of total amplitude calculated for each fragment
+        '''
+        fragment_energies = []
+        for fragment in self.__fragments:
+            fragment_energies.append(fragment.results.e_corr*(self.__nsite/self.__fragment_size) + self.get_MF_tot_energy())
+        
+        return fragment_energies
+                
     
     def energy_comparison(self):
         '''
@@ -273,16 +292,11 @@ class Test_Hubbard_1D:
         print('Projected RDM energy ', self.get_rdm_tot_energy())
         
         print('-----------------')
-        
-def degeneracy_test(nsite=10, nelectron=10, hubbard_u_range=np.linspace(0.0, 10.0, 11), fragment_size=1):
-        
-        
-    for hubbard_u in hubbard_u_range:
-
-        
 
 def energy_test(nsite=10, nelectron=10, hubbard_u_range=np.linspace(0.0, 10.0, 11), fragment_size=1):
-    
+    '''
+    Compare amplitude energy expectation and rdm energy expectation versus FCI/MF energies and their errors
+    '''
     E_MF = []
     E_FCI_EWF = []
     E_RDM_proj = []
@@ -343,4 +357,3 @@ def energy_test(nsite=10, nelectron=10, hubbard_u_range=np.linspace(0.0, 10.0, 1
     plt.savefig('Test_Hubbard_Energy_Error.jpeg')
     plt.close()
     
-energy_test(nsite=10, nelectron=10, hubbard_u_range=np.linspace(0.0, 10.0, 11), fragment_size=2)
