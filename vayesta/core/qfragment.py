@@ -104,7 +104,7 @@ class QEmbeddingFragment:
         return fmt % (self.__class__.__name__, *[x for y in zip(keys, values) for x in y])
 
     def __str__(self):
-        return '%s %d: %s' % (self.__class__.__name__, self.id, self.name)
+        return '%s %d: %s' % (self.__class__.__name__, self.id, self.trimmed_name())
 
     @property
     def mol(self):
@@ -150,6 +150,9 @@ class QEmbeddingFragment:
         self.log.debugv("Coupling %s with %s", self, frag)
         self.coupled_fragments.append(frag)
 
+    def couple_to_fragments(self, frags):
+        for frag in frags:
+            self.couple_to_fragment(frag)
 
     def get_fragment_mf_energy(self):
         """Calculate the part of the mean-field energy associated with the fragment.

@@ -46,6 +46,7 @@ class EWFFragmentOptions(Options):
     energy_partitioning: str = NotSet
     pop_analysis: str = NotSet
     sc_mode: int = NotSet
+    nelectron_target: int = None                # If set, adjust bath chemical potential until electron number in fragment equals nelectron_target
     # Additional fragment specific options:
     bno_threshold_factor: float = 1.0
     # CAS methods
@@ -158,6 +159,10 @@ class EWFFragment(QEmbeddingFragment):
     #    """Best guess for correlation energy, using the lowest BNO threshold."""
     #    idx = np.argmin(self.bno_threshold)
     #    return self.e_corrs[idx]
+
+    @property
+    def c_active(self):
+        return np.hstack((self.c_active_occ, self.c_active_vir))
 
     def init_orbital_plot(self):
         if self.boundary_cond == 'open':
@@ -489,9 +494,13 @@ class EWFFragment(QEmbeddingFragment):
             solver_opts['c_cas_vir'] = self.opts.c_cas_vir
             solver_opts['tcc_fci_opts'] = self.opts.tcc_fci_opts
 
+
         cluster_solver_cls = get_solver_class(solver)
         cluster_solver = cluster_solver_cls(self, mo_coeff, mo_occ, nocc_frozen=nocc_frozen, nvir_frozen=nvir_frozen, **solver_opts)
-        solver_results = cluster_solver.kernel(init_guess=init_guess, eris=eris)
+        if self.opts.nelectron_target is None:
+            solver_results = cluster_solver.kernel(init_guess=init_guess, eris=eris)
+        else:
+            solver_results = cluster_solver.kernel_optimize_cpt(self.opts.nelectron_target, init_guess=init_guess, eris=eris)
         self.log.timing("Time for %s solver:  %s", solver, time_string(timer()-t0))
 
         # Get projected amplitudes ('p1', 'p2')
@@ -803,6 +812,20 @@ class EWFFragment(QEmbeddingFragment):
             self.log.warning("WARNING: Large E[C1] component!")
         e_frag = self.opts.energy_factor * self.sym_factor * (e1 + e2)
         return e_frag
+
+    #def get_fragment_dmet_energy(self, p_frag, dm1=None, dm2=None, eris=None):
+    #    if dm1 is None:
+    #        dm1 = self.results.dm1
+    #    if dm2 is None:
+    #        dm2 = self.results.dm2
+    #    if eris is None:
+    #        eris = self.results.eris
+    #    if None in [dm1, dm2, eris]:
+    #        self.log.error("Calculation of DMET energy requires dm1, dm2, and eris")
+    #        return None
+    #    h1e = self.base.get_hcore()
+    #    e1 = einsum('ij,ix,xj->', h1e, p_frag, dm1)
+    #    e2 = einsum('ijkl,ix,xj->', eris, p_frag, dm1)
 
 
     # WIP
