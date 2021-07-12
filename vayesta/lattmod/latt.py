@@ -53,10 +53,10 @@ class LatticeMole(pyscf.pbc.gto.Cell):
 
     def atom_symbol(self, site):
         return 'Site_%d' % site
-
+    '''
     def build(self):
         pass
-
+    '''
     def search_ao_label(self):
         raise NotImplementedError()
 
