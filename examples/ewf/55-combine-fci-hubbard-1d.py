@@ -12,6 +12,9 @@ import vayesta.lattmod
 import vayesta.ewf
 
 def read_exact(file):
+    '''
+    Read exact energy for Hubbard model versus U/t for comparison
+    '''
     with open(file, 'r') as file_object:
         U = []
         E_tot = []
@@ -30,9 +33,10 @@ def fragmentation_2D(nsites, frag_size):
     '''
     assert (nsites[0] % frag_size[0] == 0)
     assert (nsites[1] % frag_size[1] == 0)
+    
     nfrag_x = int(nsites[0]/frag_size[0])
     nfrag_y = int(nsites[1]/frag_size[1])
-    # No. fragments
+    # No. fragments in directions
     
     fragment_indices = []
     fragment_index = []
@@ -47,9 +51,6 @@ def fragmentation_2D(nsites, frag_size):
                 
                         
     return fragment_indices
-
-print(fragmentation_2D((3,4), (3,2)))
-
             
     
 def fragmentation_1D(nsites, frag_size):
@@ -64,6 +65,7 @@ def fragmentation_1D(nsites, frag_size):
     
     fragment_indices = []
     frag_index = []
+    
     for i in range(nsites):
         print(i)
         frag_index.append(i)
@@ -96,7 +98,7 @@ def amplitude_conversion(fragment):
             for a in range(n_vir):
                 for b in range(n_vir):
                     t2[i, j, a, b] -= t1[i, a]*t1[j, b] #- t1[i, b]*t1[j,a]
-                    # Use normalised c1 amplitudes from above. Antisymmetric term is not needed as only an occupied/unoccupied basis states are assumed for Hubbard
+                    # Use normalised c1 amplitudes from above. Antisymmetric term is not needed as only an occupied/unoccupied basis states are assumed for Hubbard model
     
     return t1, t2
     
@@ -121,12 +123,355 @@ def t_projection(fragment):
     t2_proj = np.einsum('kjab, ik->ijab', fragment.results.t2, projector)
     
     return t1_proj, t2_proj
+    
+
+
+class Test_Hubbard_1D:
+
+    def __init__(self, nsite=10, nelectron=10, hubbard_u=2.0, fragment_size=1):
+        
+        if (nsite != nelectron):
+            print('Moving away from half-filling')
+            
+        assert (nsite % fragment_size == 0) # Ensure non-overlapping tiling
+        
+        # Lattice parameters
+        
+        self.__nfragments = int(nsite/fragment_size) # No. fragments
+        
+        self.__nsite = nsite
+        self.__nelectron = nelectron
+        self.__hubbard_u = 2.0
+        self.__fragment_size = 1
+        
+        # Initialise lattice Hamiltonian
+        self.__mol = vayesta.lattmod.Hubbard1D(nsite, nelectron=nelectron, hubbard_u=hubbard_u, output='pyscf.out', verbose=10)
+        self.__mol.build()
+    
+        # Initialise embedding solver
+        self.__ecc = vayesta.ewf.EWF(mf, solver='FCI', fragment_type='Site', make_rdm1=True, make_rdm2=True)
+        
+        # Initialise mean-field solver:
+        
+        self.__mf = vayesta.lattmod.LatticeMF(mol)
+        self.__mf.kernel()
+        
+        # Initalise fragments
+        
+        self.__fragments = self.create_fragments()
+        self.__fragments_rdm1, self.__fragments_rdm2 = self.create_rdms()
+        
+    def create_rdms(self):
+        '''
+        Allocate memory for each fragment's reduced 1 and 2 body density matrix
+        '''
+        rdm1 = []
+        rdm2 = []
+        for i in range(self.__nfragments):
+            rdm1.append(np.zeros(2*[self.__nsite]))
+            rdm2.append(np.zeros(4*[self.__nsite]))
+
+        return rdm1, rdm2
+        
+        
+    def create_fragments(self):
+        '''
+        Carry out fragmentation with fragmented indices
+        '''
+        fragments = []
+        indices = self.get_fragment_indices()
+        for i in range(self.__nfragments):
+            fragments.append(self.__ecc.make_atom_fragment(indices[i]))
+        
+        return fragments
+        
+    def get_fragment_indices(self):
+        '''
+        Partition a 1D chain into non-overlapping fragments (DMET baths will overlap from fragment to fragment)
+        Return list of fragment indices
+        '''
+        
+        fragment_indices = []
+        frag_index = []
+        
+        for i in range(self.__nsite):
+            print(i)
+            frag_index.append(i)
+            if ((i+1) % frag_size == 0):
+                fragment_indices.append(frag_index)
+                frag_index = []
+                
+        #print(fragment_indices)
+        return fragment_indices
+        
+    def amplitude_conversion(self, fragment):
+        '''
+        Map single/double FCI amplitudes c1/c2 into CCSD cluster amplitudes t1/t2 for some fragment
+        c1, c2 should be the amplitudes in the complete active space (CAS) (ie. after projecting out occupied/virtual subspaces and carrying out
+        basis transformation into site basis)
+        '''
+        t1 = fragment.results.c1/fragment.results.c0  # Employ intermediate normalisation
+        t2 = fragment.results.c2/fragment.results.c0  # Employ intermediate normalisation
+        n_occ = t1.shape[0]
+        n_vir = t1.shape[1]
+        
+        print(t1.shape)
+        print(t2.shape)
+        
+        # Include uncorrelated double excitations for t2 too:
+        # Loop through occupied orbital indices
+        for i in range(n_occ):
+            for j in range(n_occ):
+            # Loop through unoccupied orbital indices
+                for a in range(n_vir):
+                    for b in range(n_vir):
+                        t2[i, j, a, b] -= t1[i, a]*t1[j, b] #- t1[i, b]*t1[j,a]
+                        # Use normalised c1 amplitudes from above. Antisymmetric term is not needed as only an occupied/unoccupied basis states are assumed for Hubbard model
+        
+        return t1, t2
+            
+    
+    def cluster_FCI(self):
+        '''
+        Carry out FCI cluster calculation and modify CISD amplitudes
+        '''
+        
+        # For each fragment:
+        for fragment in self.__fragments:
+            # Calcuate CISD amplitudes
+            fragment.results.c1 = fragment.kernel(np.inf).c1
+            fragment.results.c2 = fragment.kernel(np.inf).c2
+            # Convert CISD amplitudes to CCSD amplitudes
+            fragment.results.t1, fragment.results.t2  = self.amplitude_conversion(fragment)
+        
+        # Create density matrices for each fragments
+        for rdm1 in self.__fragments_rdm1:
+            
+        
+
+
+
+def test_rdm(nsite=8, nelectron=8, hubbard_u=2.0, fragment_size=1):
+    
+    mol = vayesta.lattmod.Hubbard1D(nsite, nelectron=nelectron, hubbard_u=hubbard_u, output='pyscf.out', verbose=10)
+    mol.build()
+
+
+    ecc = vayesta.ewf.EWF(mf, solver='FCI', fragment_type='Site', make_rdm1=True, make_rdm2=True)
+
+    # Store each site as a separate fragment (assume translationsal symmetry on lattice)
+    fragments = []
+    # FCI solver results for fragment
+    results = []
+    
+    # Containers for fragment energy from density matrices
+    E_dm = 0 # Unprojected density matrix energy
+    E_dm_proj = 0 # Projected density matrix energy in the first fragment subspace (see below)
+
+    # Fragmentation -> create fragment out of each lattice site separately
+    assert (nsite % fragment_size == 0) # Ensure non-overlapping tiling
+    
+    nfragments = int(nsite/fragment_size)
+    fragment_indices = fragmentation_1D(nsite, fragment_size)
+    
+    for frag_index in range(nfragments):
+        fragments.append(ecc.make_atom_fragment(fragment_indices[frag_index]))
+    
+    for frag_index in range(nfragments):
+        # Get amplitudes for each fragment
+        # No normalisation of c amplitudes with MF amplitudes (carried out in
+        fragments[frag_index].results.c1 = fragments[frag_index].kernel(np.inf).c1
+        fragments[frag_index].results.c2 = fragments[frag_index].kernel(np.inf).c2
+        
+        # Carry out CISD->CCSD mapping
+        fragments[frag_index].results.t1, fragments[frag_index].results.t2  = amplitude_conversion(fragments[frag_index])
+        
+
+        # Sanity check for RDM-s from the fragmented-uncoupled FCI
+                
+        dm1 = fragments[frag_index].results.dm1
+        dm2 = fragments[frag_index].results.dm2
+        
+        print('Density Matrix dimensions')
+        print(dm1.shape)
+        print(dm2.shape)
+        print()
+        print('Calculating Density Matrix energies')
+        
+        # Get MO -> Occupation basis transformation matrix
+        mo_coeff = np.hstack(( fragments[frag_index].c_active_occ,  fragments[frag_index].c_active_vir))
+        print('Basis transformation matrix')
+        print(mo_coeff.shape)
+        
+        # Transform density matrices into site basis Hamiltonian
+
+        dm1 = np.einsum('pq, ip, jq->ij', dm1, mo_coeff, mo_coeff)
+        dm2 = np.einsum('pqrs,ip,jq,kr,ls->ijkl', dm2, mo_coeff, mo_coeff, mo_coeff, mo_coeff)
+
+        print('Site basis DM sdimension')
+        print(dm1.shape)
+        print(dm2.shape)
+        print()
+
+        # Calculate/trace out energy using density matrix
+        
+
+        h1 = mf.get_hcore() # Hopping matrix in site basis
+        h2 = mf._eri # Repulsion tensor in site basis
+       
+        print('Hamiltonian shapes')
+        print(h1.shape)
+        print(h2.shape)
+
+        if frag_index == 0:
+            E_dm += np.einsum('ij, ij->', h1, dm1)
+            #E_dm += np.einsum('ijkl, ijkl->', h2, dm2)
+            E_dm += 0.5*hubbard_u*np.einsum('pppp->', dm2)
+
+            E_dm_proj += np.einsum('ij, ij->', h1[:fragment_size], dm1[:fragment_size])
+            E_dm_proj += 0.5*np.einsum('ijkl, ijkl->', h2[:fragment_size], dm2[:fragment_size])
+
+
+    # Each fragment is translationally invariant so these energies will be the same for each fragment... One can just use the last one to
+    
+    # Run CCSD energy calculation
+        
+    # Carry out embedded CCSD calculation with the projected t1, t2 amplitudes
+    ecc = vayesta.ewf.EWF(mf, solver='CCSD',fragment_type='Site', bno_threshold=-np.inf)
+    lattice = ecc.make_atom_fragment(list(range(nsite)))
+    for fragment in fragments:
+        lattice.couple_to_fragment(fragment)
+
+    ecc.kernel()
+
+    #Compare energy of fragments
+    E_CCSD = ecc.e_tot
+    
+    E_FCI = mf.e_tot + (nsite/fragment_size)*fragments[0].results.e_corr # Embedded FCI
+    cisolver = fci.FCI(mf)
+    fci_energy, c0 = cisolver.kernel() # non-embedded FCI
+    
+    E_FCI_ref = fci_energy
+    E_RDM = (nsite/fragment_size)*E_dm # Non-projected density matrix energy
+    E_RDM_proj = (nsite/fragment_size)*E_dm_proj # Projected density matrix energy
+    
+    print('Fragment energies')
+    for fragment in fragments:
+        print(fragment.results.e_corr*(nsite/fragment_size) + mf.e_tot )
+    print('ENERGY COMPARISON')
+    print('nelectron = nsite = ', nsite)
+    print('fragment_size = ', fragment_size)
+
+    print('U/t = ', hubbard_u)
+    print('-----------------')
+    print('MF total energy ', mf.e_tot)
+    print('CCSD (coupled fragments) total energy ', E_CCSD)
+    print('FCI total energy ', E_FCI)
+    print('Unprojected RDM energy ', E_RDM)
+    print('Projected RDM energy ', E_RDM_proj)
+    print('-----------------')
+    print('MF total energy per e- ', mf.e_tot/nelectron)
+    
+    # Consider
+    
+    return (mf.e_tot, E_FCI, E_RDM_proj, E_FCI_ref)
+    
+        
+def test_energy_comparison(nsite=8, nelectron=8, U_range=np.linspace(0.0, 10.0, 11), fragment_size=1):
+    
+    E_MF = []
+    E_FCI_EWF = []
+    E_RDM_proj = []
+    E_FCI = []
+    for hubbard_u in U_range:
+        a, b, c, d = test_rdm(nsite, nelectron, hubbard_u, fragment_size)
+        E_MF.append(a)
+        E_FCI_EWF.append(b)
+        E_RDM_proj.append(c)
+        E_FCI.append(d)
+        
+        
+    params = {
+    
+       'axes.labelsize': 40,
+       'font.size': 40,
+       'legend.fontsize': 40,
+       'lines.linewidth' : 4,
+       'lines.markersize' : 10,
+       'xtick.labelsize': 40,
+       'ytick.labelsize': 40,
+       'figure.figsize': [40, 15]
+       }
+    plt.rcParams.update(params)
+        
+    plt.title(str(nsite)+' site, '+str(nelectron)+' electron, 1D Hubbard model - Fragment size '+str(fragment_size))
+    plt.plot(U_range, np.array(E_MF)/nelectron, color='orange', label='HF Mean Field')
+    plt.plot(U_range, np.array(E_FCI)/nelectron, color='green', label='FCI')
+    plt.plot(U_range, np.array(E_FCI_EWF)/nelectron, 'x', color='red', label='Projected Amplitude')
+    plt.plot(U_range, np.array(E_RDM_proj)/nelectron, 'x', color='blue', label='Projected Density Matrix')
+    
+
+    #plt.plot(U_range, f_bethe(U_range), color='purple', label='Bethe Ansatz')
+
+    #plt.plot(U_range, f_bethe(U_range), 'blue', label='Bethe R')
+    #plt.plot(U_range, (f(U_range)), 'green', label='Reference')
+
+    plt.xlabel('U/t')
+    plt.ylabel('Total energy per electron [t]')
+    plt.legend()
+    plt.grid()
+    plt.savefig('EWF_Hubbard_Energy.jpeg')
+    plt.close()
+    
+    # Plot relative errors, remove zero divisions
+    E_corr_exact = np.array(E_FCI)-np.array(E_MF)
+    E_corr_fraction_amp = (np.array(E_FCI_EWF)-np.array(E_MF))
+    E_corr_fraction_rdm = (np.array(E_RDM_proj)-np.array(E_MF))
+    
+    for i in range(len(E_corr_fraction_amp)):
+        if E_corr_exact[i] == E_corr_fraction_amp[i]:
+            E_corr_fraction_amp[i] = 0.0
+        if E_corr_exact[i] == E_corr_fraction_rdm[i]:
+            E_corr_fraction_rdm[i] = 0.0
+        
+        if (E_corr_exact[i]!=0.0):
+            E_corr_fraction_rdm[i] -= E_corr_exact[i]
+            E_corr_fraction_amp[i] -= E_corr_exact[i]
+            E_corr_fraction_rdm[i] /= E_corr_exact[i]
+            E_corr_fraction_amp[i] /= E_corr_exact[i]
+            
+        E_corr_exact[i] = 0.0
+            
+            
+    
+    plt.title(str(nsite)+' site, '+str(nelectron)+' electron, 1D Hubbard model - Fragment size '+str(fragment_size))
+    #plt.plot(U_range, np.array(E_MF)/nelectron, color='orange', label='HF Mean Field')
+    plt.plot(U_range, E_corr_exact*100, color='green', label='FCI')
+    plt.plot(U_range, E_corr_fraction_amp*100, 'x', color='red', label='Projected Amplitude')
+    plt.plot(U_range, E_corr_fraction_rdm*100, 'x', color='blue', label='Projected Density Matrix')
+    
+
+    #plt.plot(U_range, f_bethe(U_range), color='purple', label='Bethe Ansatz')
+
+    #plt.plot(U_range, f_bethe(U_range), 'blue', label='Bethe R')
+    #plt.plot(U_range, (f(U_range)), 'green', label='Reference')
+
+    plt.xlabel('U/t')
+    plt.ylabel('Correlation energy relative error [%]')
+    plt.legend()
+    plt.grid()
+    plt.savefig('EWF_Hubbard_Energy_Fraction.jpeg')
+    plt.close()
+    
+
+#test_energy_comparison(nsite=10, fragment_size=2)
+#test_rdm(fragment_size=2)
 
 
 def iterate(nsite=8, nelectron=8, hubbard_u=2.0, fragment_size=1):
 
     mol = vayesta.lattmod.Hubbard1D(nsite, nelectron=nelectron, hubbard_u=hubbard_u, output='pyscf.out', verbose=10)
-    mol.build()
+    #mol.build()
     mf = vayesta.lattmod.LatticeMF(mol)
     mf.kernel()
 
@@ -154,8 +499,7 @@ def iterate(nsite=8, nelectron=8, hubbard_u=2.0, fragment_size=1):
         fragments[frag_index].results.c2 = fragments[frag_index].kernel(np.inf).c2
         
         '''
-        # Alternative: carry out occupied basis projection first for CISD amplitudes, then carry out
-        # CISD -> CCSD mapping
+        # Alternative: carry out occupied basis projection first for CISD amplitudes, then carry out CISD -> CCSD mapping
         
         fragments[frag_index].results.c1, fragments[frag_index].results.c2 = c_projection(fragments[frag_index])
         
@@ -166,6 +510,7 @@ def iterate(nsite=8, nelectron=8, hubbard_u=2.0, fragment_size=1):
         # Carry out CISD->CCSD mapping
         fragments[frag_index].results.t1, fragments[frag_index].results.t2  = amplitude_conversion(fragments[frag_index])
         '''
+        # Unused -- Already performed in tailored CCSD calculation
         # Carry out first occupied basis projection for t1,t2 amplitude tensors:
         fragments[frag_index].results.t1, fragments[frag_index].results.t2 = t_projection(fragments[frag_index])
         '''
@@ -188,8 +533,12 @@ def iterate(nsite=8, nelectron=8, hubbard_u=2.0, fragment_size=1):
     cisolver = fci.FCI(mf)
     fci_energy, c0 = cisolver.kernel()
 
+    '''
     
+    '''
     mycc = cc.CCSD(mf)
+    
+    
     cc.diis = False
     #cc.iterative_damping = 0.1
     #cc.max_cycle = 300
@@ -199,72 +548,66 @@ def iterate(nsite=8, nelectron=8, hubbard_u=2.0, fragment_size=1):
     return (mf.e_tot, ecc.e_tot)#, fci_energy)#), mycc.e_tot)
 
 
-
-#iterate(nsite=4, nelectron=4, hubbard_u=2.0)
-
-'''
-
+def energy_calculation():
     
-U_range = np.linspace(0.0, 10.0, 11)
-nsite = 54
-nelectron = nsite # Half-filling
-fragment_size = 6
+    U_range = np.linspace(0.0, 10.0, 11)
+    nsite = 10
+    nelectron = nsite # Half-filling
+    fragment_size = 2
 
-E_tot_EWF = []
-E_tot_FCI = []
-E_tot_CCSD = []
-E_tot_MF = []
-E_corr_EWF = []
-E_corr_MP2 = []
-E_corr_CCSD = []
+    E_tot_EWF = []
+    E_tot_FCI = []
+    E_tot_CCSD = []
+    E_tot_MF = []
+    E_corr_EWF = []
+    E_corr_MP2 = []
+    E_corr_CCSD = []
 
-for hubbard_u in U_range:
-    e_tot_MF, e_tot_EWF = iterate(nsite, nelectron, hubbard_u, fragment_size)# e_tot_FCI = iterate(nsite, nelectron, hubbard_u, fragment_size)#, e_tot_CCSD = iterate(nsite, nelectron, hubbard_u, fragment_size)
-    E_tot_MF.append(e_tot_MF)
-    E_tot_EWF.append(e_tot_EWF)
-    #E_tot_FCI.append(e_tot_FCI)
-    #E_tot_CCSD.append(e_tot_CCSD)
+    for hubbard_u in U_range:
+        e_tot_MF, e_tot_EWF = iterate(nsite, nelectron, hubbard_u, fragment_size)# e_tot_FCI = iterate(nsite, nelectron, hubbard_u, fragment_size)#, e_tot_CCSD = iterate(nsite, nelectron, hubbard_u, fragment_size)
+        E_tot_MF.append(e_tot_MF)
+        E_tot_EWF.append(e_tot_EWF)
+        #E_tot_FCI.append(e_tot_FCI)
+        #E_tot_CCSD.append(e_tot_CCSD)
 
-    print()
-    print('U/t = ', hubbard_u)
-    print('Iteration finished.')
-    
+        print()
+        print('U/t = ', hubbard_u)
+        print('Iteration finished.')
+        
 
-U_bethe, E_pere_bethe = read_exact('hubbard1d-bethe.txt')
-f_bethe = interp1d(U_bethe, E_pere_bethe)
+    U_bethe, E_pere_bethe = read_exact('hubbard1d-bethe.txt')
+    f_bethe = interp1d(U_bethe, E_pere_bethe)
 
+    params = {
+       'axes.labelsize': 40,
+       'font.size': 40,
+       'legend.fontsize': 40,
+       'lines.linewidth' : 4,
+       'lines.markersize' : 10,
+       'xtick.labelsize': 40,
+       'ytick.labelsize': 40,
+       'figure.figsize': [40, 15]
+       }
+    plt.rcParams.update(params)
+        
+    plt.title(str(nsite)+' electron, half-filled, 1D Hubbard model - Fragment size '+str(fragment_size))
+    plt.plot(U_range, np.array(E_tot_EWF)/nelectron, 'x', color='red', label='EWF-CCSD')
+    plt.plot(U_range, np.array(E_tot_MF)/nelectron, color='orange', label='EWF-MF')
+    #plt.plot(U_range, np.array(E_tot_CCSD)/nelectron, color='blue', label='CCSD')
+    #plt.plot(U_range, np.array(E_tot_FCI)/nelectron, color='green', label='FCI')
+    plt.plot(U_range, f_bethe(U_range), color='purple', label='Bethe Ansatz')
 
+    #plt.plot(U_range, f_bethe(U_range), 'blue', label='Bethe R')
+    #plt.plot(U_range, (f(U_range)), 'green', label='Reference')
 
-params = {
-   'axes.labelsize': 40,
-   'font.size': 40,
-   'legend.fontsize': 40,
-   'lines.linewidth' : 4,
-   'lines.markersize' : 10,
-   'xtick.labelsize': 40,
-   'ytick.labelsize': 40,
-   'figure.figsize': [40, 15]
-   }
-plt.rcParams.update(params)
-    
-plt.title(str(nsite)+' electron, half-filled, 1D Hubbard model - Fragment size '+str(fragment_size))
-plt.plot(U_range, np.array(E_tot_EWF)/nelectron, 'x', color='red', label='EWF-CCSD')
-plt.plot(U_range, np.array(E_tot_MF)/nelectron, color='orange', label='EWF-MF')
-#plt.plot(U_range, np.array(E_tot_CCSD)/nelectron, color='blue', label='CCSD')
-#plt.plot(U_range, np.array(E_tot_FCI)/nelectron, color='green', label='FCI')
-plt.plot(U_range, f_bethe(U_range), color='purple', label='Bethe Ansatz')
+    plt.xlabel('U/t')
+    plt.ylabel('Total energy per electron [t]')
+    plt.legend()
+    plt.grid()
+    plt.savefig('EWF_Hubbard_Energy.jpeg')
+    plt.close()
 
-#plt.plot(U_range, f_bethe(U_range), 'blue', label='Bethe R')
-#plt.plot(U_range, (f(U_range)), 'green', label='Reference')
-
-plt.xlabel('U/t')
-plt.ylabel('Total energy per electron [t]')
-plt.legend()
-plt.grid()
-plt.savefig('EWF_Hubbard_Energy.jpeg')
-plt.close()
-'''
-
+test_energy_comparison(nsite=10,nelectron=10, fragment_size=2)
 
 '''
 # Earlier fragmentation test
