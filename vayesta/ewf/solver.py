@@ -2,6 +2,8 @@ import dataclasses
 from timeit import default_timer as timer
 
 import numpy as np
+import scipy
+import scipy.optimize
 
 import pyscf
 import pyscf.ao2mo
@@ -135,6 +137,59 @@ class ClusterSolver:
         """Active virtual orbital coefficients."""
         #return self.mo_coeff[:,self.nocc:-self.nvir_frozen]
         return self.mo_coeff[:,self.nocc:self.nocc_frozen+self.nactive]
+
+    @property
+    def c_active(self):
+        return self.mo_coeff[:,self.get_active_slice()]
+
+    def kernel_optimize_cpt(self, nelectron_target, *args, lower_bound=-1.0, upper_bound=1.0, tol=1e-8, **kwargs):
+        get_hcore = self.base.mf.get_hcore
+        h1e = get_hcore()
+        # Fragment projector
+        cs = np.dot(self.fragment.c_frag.T, self.base.get_ovlp())
+        p_frag = np.dot(cs.T, cs)
+        csc = np.dot(cs, self.c_active)
+
+        self.opts.make_rdm1 = True
+        results = None
+        err = None
+
+        def electron_err(cpt):
+            nonlocal results, err
+            h1e_cpt = h1e - cpt*p_frag
+            # Not multi-threaded!
+            self.base.mf.get_hcore = lambda *args : h1e_cpt
+            results = self.kernel(*args, **kwargs)
+            ne_frag = einsum('xi,ij,xj->', csc, results.dm1, csc)
+            err = (ne_frag - nelectron_target)
+            self.log.debug("Electron number in fragment= %.8f  target=  %.8f  error= %.8f  chem. pot.=  %16.8f Ha", ne_frag, nelectron_target, err, cpt)
+            return err
+
+        for ndouble in range(5):
+            try:
+                cpt, res = scipy.optimize.brentq(electron_err, a=lower_bound, b=upper_bound, xtol=tol, full_output=True)
+            except ValueError:
+                if err < 0:
+                    upper_bound *= 2
+                else:
+                    lower_bound *= 2
+                self.log.debug("Bounds for chemical potential search too small. New bounds: [%f %f]", lower_bound, upper_bound)
+                continue
+
+            if res.converged:
+                break
+            else:
+                errmsg = "Correct chemical potential not found."
+                self.log.critical(errmsg)
+                raise RuntimeError(errmsg)
+        else:
+            errmsg = "Could not find chemical potential within [%f %f]" % (lower_bound, upper_bound)
+            self.log.critical(errmsg)
+            raise RuntimeError(errmsg)
+
+        # Restore
+        self.base.mf.get_hcore = get_hcore
+        return results
 
 
 @dataclasses.dataclass
@@ -563,12 +618,9 @@ class FCISolver(ClusterSolver):
         self.log.timing("Time for FCI: %s", time_string(timer()-t0))
         e_corr = (e_tot-self.mf.e_tot)
 
-
-
         cisdvec = pyscf.ci.cisd.from_fcivec(wf, self.nactive, nelec)
         nocc = nelec // 2
         c0, c1, c2 = pyscf.ci.cisd.cisdvec_to_amplitudes(cisdvec, self.nactive, nocc)
-
 
         # Temporary workaround (eris needed for energy later)
         if self.mf._eri is not None:
