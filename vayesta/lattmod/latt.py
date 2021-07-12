@@ -54,8 +54,8 @@ class LatticeMole(pyscf.pbc.gto.Cell):
     def atom_symbol(self, site):
         return 'Site_%d' % site
 
-    def build(self):
-        pass
+    #def build(self):
+    #    pass
 
     def search_ao_label(self):
         raise NotImplementedError()
@@ -173,7 +173,22 @@ class LatticeMF(pyscf.scf.hf.RHF):
             e = mo_energy[i:i+5]
             fmt = '  ' + len(e)*'  %+16.8f'
             log.info(fmt, *e)
-        log.info("HOMO= %+16.8f  LUMO= %+16.8f", self.mo_energy[nocc-1], self.mo_energy[nocc])
+        if nocc > 0:
+            homo = self.mo_energy[nocc-1]
+        else:
+            homo = np.nan
+        if nvir > 0:
+            lumo = self.mo_energy[nocc]
+        else:
+            lumo = np.nan
+        gap = (lumo-homo)
+        log.info("HOMO= %+16.8f  LUMO= %+16.8f  gap= %+16.8f", homo, lumo, gap)
+        if gap < 1e-6:
+            log.critical("Zero HOMO-LUMO gap!")
+            raise RuntimeError()
+        elif gap < 0.1:
+            log.warning("Small HOMO-LUMO gap!")
+
         self.mo_coeff = mo_coeff
         self.mo_occ = np.asarray((nocc*[2] + nvir*[0]))
 

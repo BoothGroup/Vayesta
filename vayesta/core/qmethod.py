@@ -158,7 +158,7 @@ class QEmbeddingMethod:
         self.log.info("n(AO)= %4d  n(MO)= %4d  n(linear dep.)= %4d", self.nao, self.nmo, self.nao-self.nmo)
         idterr = self.mo_coeff.T.dot(self._ovlp).dot(self.mo_coeff) - np.eye(self.nmo)
         self.log.log(logging.ERROR if np.linalg.norm(idterr) > 1e-5 else logging.DEBUG,
-                "Orthogonality error of MF orbitals: L2= %.2e  Linf= %.2e", np.linalg.norm(idterr), abs(idterr).max())
+                "Orthogonality error of MF orbitals: L(2)= %.2e  L(inf)= %.2e", np.linalg.norm(idterr), abs(idterr).max())
 
         # 3) Fragments
         # ------------
@@ -734,7 +734,7 @@ class QEmbeddingMethod:
         # Test orthogonality of IAO
         idterr = c_iao.T.dot(ovlp).dot(c_iao) - np.eye(niao)
         self.log.log(logging.ERROR if np.linalg.norm(idterr) > 1e-5 else logging.DEBUG,
-                "Orthogonality error of IAO: L2= %.2e  Linf= %.2e", np.linalg.norm(idterr), abs(idterr).max())
+                "Orthogonality error of IAO: L(2)= %.2e  L(inf)= %.2e", np.linalg.norm(idterr), abs(idterr).max())
 
         if not return_rest:
             return c_iao, None
@@ -780,7 +780,7 @@ class QEmbeddingMethod:
         c_all = np.hstack((c_iao, c_rest))
         idterr = c_all.T.dot(ovlp).dot(c_all) - np.eye(self.nmo)
         self.log.log(logging.ERROR if np.linalg.norm(idterr) > 1e-5 else logging.DEBUG,
-                "Orthogonality error of IAO+vir. orbitals: L2= %.2e  Linf= %.2e", np.linalg.norm(idterr), abs(idterr).max())
+                "Orthogonality error of IAO+vir. orbitals: L(2)= %.2e  L(inf)= %.2e", np.linalg.norm(idterr), abs(idterr).max())
 
         return c_iao, c_rest
 
