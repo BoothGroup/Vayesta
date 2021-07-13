@@ -506,7 +506,7 @@ class RAGF2:
             se, opt = agf2.chempot.minimize_chempot(
                     se, fock, nelec,
                     x0=se.chempot,
-                    tol=self.opts.conv_tol_nelec,
+                    tol=self.opts.conv_tol_nelec*1e-1,  #FIXME - may change after rediagonalisation
                     maxiter=self.opts.max_cycle_inner,
             )
 
@@ -560,7 +560,7 @@ class RAGF2:
                 vk[i] += lib.einsum('iklj,kl->ij', eri[i], rdm1)
             else:
                 tmp = lib.einsum('Qik,kl->Qil', eri[:,i], rdm1)
-                vj[i] += lib.einsum('Qij,Qkk->ij', eri[:,i], tmp)
+                vj[i] += lib.einsum('Qij,Qkk->ij', eri[:,i], tmp[:,:,i])
                 vk[i] += lib.einsum('Qlj,Qil->ij', eri, tmp)
 
         mpi_helper.barrier()
@@ -569,7 +569,7 @@ class RAGF2:
 
         fock = vj - 0.5 * vk
         if self.veff is not None:
-            fock += self.veff[self.act, self.act]
+            fock += self.veff
         fock += self.h1e[self.act, self.act]
 
         if with_frozen:
