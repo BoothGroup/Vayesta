@@ -35,6 +35,7 @@ class RAGF2Options(Options):
     nmom_projection: int = None     # number of moments for EwDMET projection
     os_factor: float = 1.0          # opposite-spin scaling factor
     ss_factor: float = 1.0          # same-spin scaling factor
+    diagonal_se: bool = False       # use a diagonal approximation
 
     # --- Main convergence parameters
     max_cycle: int = 50             # maximum number of AGF2 iterations
@@ -46,6 +47,7 @@ class RAGF2Options(Options):
     diis_min_space: int = 1         # minimum AGF2 DIIS space before extrapolation
 
     # --- Fock loop convergence parameters
+    fock_loop: bool = True          # do the Fock loop
     max_cycle_outer: int = 20       # maximum number of outer Fock loop cycles
     max_cycle_inner: int = 50       # maximum number of inner Fock loop cycles
     conv_tol_rdm1: float = 1e-8     # convergence tolerance in 1RDM
@@ -216,7 +218,7 @@ class RAGF2:
         ss_factor = ss_factor or self.opts.ss_factor
         facs = {'os_factor': os_factor, 'ss_factor': ss_factor}
 
-        if self.opts.nmom_lanczos == 0:
+        if self.opts.nmom_lanczos == 0 and not self.opts.diagonal_se:
             if isinstance(xija, tuple):
                 t = _agf2.build_mats_dfragf2_incore(*xija, eo, ev, **facs)
             else:
@@ -242,10 +244,16 @@ class RAGF2:
 
                 for n in range(2*self.opts.nmom_lanczos+2):
                     xja_n = xja * np.ravel(ija[i]**n)[None]
-                    t[n] += (
-                        + fpos * np.dot(xja_n, xja.T.conj())
-                        + fneg * np.dot(xja_n, xia.T.conj())
-                    )
+                    if not self.opts.diagonal_se:
+                        t[n] += (
+                            + fpos * np.dot(xja_n, xja.T.conj())
+                            + fneg * np.dot(xja_n, xia.T.conj())
+                        )
+                    else:
+                        t[n][np.diag_indices_from(t[n])] += (
+                            + fpos * np.sum(xja_n * xja.conj(), axis=1)
+                            + fneg * np.sum(xja_n * xia.conj(), axis=1)
+                        )
 
             mpi_helper.barrier()
             mpi_helper.allreduce_safe_inplace(t)
@@ -487,6 +495,11 @@ class RAGF2:
         ''' Do the self-consistent Fock loop
         '''
 
+        if not self.opts.fock_loop:
+            gf = gf or self.gf
+            se = se or self.se
+            return gf, se
+
         t0 = timer()
         gf = gf or self.gf
         se = se or self.se
@@ -542,6 +555,7 @@ class RAGF2:
         ''' Get the Fock matrix including all frozen contributions
         '''
         #TODO Δdm algorithm
+        #TODO check these expressions for complex ERIs
 
         t0 = timer()
         self.log.debugv("Building Fock matrix")
@@ -553,15 +567,18 @@ class RAGF2:
         vj = np.zeros((self.nact, self.nact))
         vk = np.zeros((self.nact, self.nact))
 
-        for i0, i1 in mpi_helper.prange(0, self.nmo, self.nmo):
-            i = slice(i0, i1)
-            if eri.ndim == 4:
+        if eri.ndim == 4:
+            for i0, i1 in mpi_helper.prange(0, self.nmo, self.nmo):
+                i = slice(i0, i1)
                 vj[i] += lib.einsum('ijkl,kl->ij', eri[i], rdm1)
                 vk[i] += lib.einsum('iklj,kl->ij', eri[i], rdm1)
-            else:
-                tmp = lib.einsum('Qik,kl->Qil', eri[:,i], rdm1)
-                vj[i] += lib.einsum('Qij,Qkk->ij', eri[:,i], tmp[:,:,i])
-                vk[i] += lib.einsum('Qlj,Qil->ij', eri, tmp)
+        else:
+            naux = eri.shape[0]
+            for q0, q1 in mpi_helper.prange(0, naux, naux):
+                q = slice(q0, q1)
+                tmp = lib.einsum('Qik,kl->Qil', eri[q], rdm1)
+                vj += lib.einsum('Qij,Qkk->ij', eri[q], tmp)
+                vk += lib.einsum('Qlj,Qil->ij', eri[q], tmp)
 
         mpi_helper.barrier()
         mpi_helper.allreduce_safe_inplace(vj)
@@ -569,7 +586,7 @@ class RAGF2:
 
         fock = vj - 0.5 * vk
         if self.veff is not None:
-            fock += self.veff
+            fock += self.veff[self.act, self.act]
         fock += self.h1e[self.act, self.act]
 
         if with_frozen:
@@ -1021,10 +1038,18 @@ if __name__ == '__main__':
     mol = gto.M(atom='O 0 0 0; O 0 0 1', basis='aug-cc-pvdz', verbose=0)
     #mol = gto.M(atom='O 0 0 0; H 0 0 1; H 0 1 0', basis='cc-pvdz', verbose=0)
     rhf = scf.RHF(mol).density_fit().run()
-    gf2 = RAGF2(rhf, frozen=(0,0), non_dyson=False, nmom_lanczos=0, nmom_projection=None)
+    gf2 = RAGF2(
+            rhf,
+            frozen=(0,0),
+            non_dyson=False,
+            fock_loop=False,
+            nmom_lanczos=0,
+            nmom_projection=None,
+            diagonal_se=True,
+    )
     gf2.run()
 
-    test = True
+    test = False
 
     if test:
         mols = [
