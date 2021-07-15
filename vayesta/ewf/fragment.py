@@ -25,7 +25,6 @@ from vayesta.core import QEmbeddingFragment
 
 from . import ewf
 from .solver import get_solver_class
-from .dmet_bath import make_dmet_bath, project_ref_orbitals
 from .mp2_bath import make_mp2_bno
 from . import helper
 from . import psubspace
@@ -206,17 +205,6 @@ class EWFFragment(QEmbeddingFragment):
         self.log.info("----------------")
         self.log.changeIndentLevel(1)
         c_dmet, c_env_occ, c_env_vir = self.make_dmet_bath(self.c_env, tol=self.opts.dmet_threshold)
-        # DMET bath analysis
-        self.log.info("DMET bath character:")
-        for i in range(c_dmet.shape[-1]):
-            ovlp = einsum('a,b,ba->a', c_dmet[:,i], c_dmet[:,i], self.base.get_ovlp())
-            sort = np.argsort(-ovlp)
-            ovlp = ovlp[sort]
-            #n = np.amin((np.count_nonzero(ovlp >= 0.2), 5))
-            n = np.amin((len(ovlp), 6))
-            labels = np.asarray(self.mol.ao_labels())[sort][:n]
-            lines = [('%s= %.5f' % (labels[i].strip(), ovlp[i])) for i in range(n)]
-            self.log.info("  > %2d:  %s", i+1, '  '.join(lines))
         self.log.timing("Time for DMET bath:  %s", time_string(timer()-t0))
         # Add DMET orbitals for cube file plots
         if self.opts.plot_orbitals:
@@ -612,7 +600,7 @@ class EWFFragment(QEmbeddingFragment):
 
 
     # Register frunctions of dmet_bath.py as methods
-    make_dmet_bath = make_dmet_bath
+    #make_dmet_bath = make_dmet_bath
 
 
     def additional_bath_for_cluster(self, c_bath, c_occenv, c_virenv):

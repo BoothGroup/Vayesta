@@ -5,9 +5,9 @@ import vayesta.ewf
 import vayesta.lattmod
 
 nsite = 10
-nelectron = 6
+nelectron = 14
 nimp = 1
-hubbard_u = 12.0
+hubbard_u = 10.0
 filling = nelectron/nsite
 mol = vayesta.lattmod.Hubbard1D(nsite, nelectron=nelectron, hubbard_u=hubbard_u, output='pyscf.out')
 mf = vayesta.lattmod.LatticeMF(mol)
@@ -21,7 +21,7 @@ def get_e_dmet(dm1, dm2):
     return e1 + e2
 
 # Without chemical potential optimization
-ecc = vayesta.ewf.EWF(mf, bno_threshold=np.inf, fragment_type='Site', make_rdm1=True, make_rdm2=True)
+ecc = vayesta.ewf.EWF(mf, bno_threshold=np.inf, fragment_type='Site', solver='FCI', make_rdm1=True, make_rdm2=True)
 f = ecc.make_atom_fragment(list(range(nimp)), sym_factor=nsite/nimp)
 ecc.kernel()
 # c transforms to fragment site(s)
@@ -30,7 +30,7 @@ dm1 = np.einsum('ij,ai,bj->ab', f.results.dm1, c, c)
 dm2 = np.einsum('ijkl,ai,bj,ck,dl->abcd', f.results.dm2, c, c, c, c)/2
 
 # With chemical potential optimization (set nelectron_target)
-ecc_cpt = vayesta.ewf.EWF(mf, bno_threshold=np.inf, fragment_type='Site', make_rdm1=True, make_rdm2=True)
+ecc_cpt = vayesta.ewf.EWF(mf, bno_threshold=np.inf, fragment_type='Site', solver='FCI', make_rdm1=True, make_rdm2=True)
 f = ecc_cpt.make_atom_fragment(list(range(nimp)), sym_factor=nsite/nimp, nelectron_target=nimp*filling)
 ecc_cpt.kernel()
 # c transforms to fragment site(s)
@@ -39,10 +39,30 @@ dm1_cpt = np.einsum('ij,ai,bj->ab', f.results.dm1, c, c)
 dm2_cpt = np.einsum('ijkl,ai,bj,ck,dl->abcd', f.results.dm2, c, c, c, c)/2
 
 # Exact energy
-fci = vayesta.ewf.EWF(mf, solver='FCI', bno_threshold=-np.inf, fragment_type='Site')
-fci.make_atom_fragment(list(range(nsite)), name='lattice')
+fci = vayesta.ewf.EWF(mf, solver='FCI', bno_threshold=-np.inf, fragment_type='Site', make_rdm1=True, make_rdm2=True)
+f = fci.make_atom_fragment(list(range(nsite)), name='lattice')
 fci.kernel()
 
+c = f.c_active
+dm2_fci = np.einsum('ijkl,ai,bj,ck,dl->abcd', f.results.dm2, c, c, c, c)/2
+
+cc = vayesta.ewf.EWF(mf, bno_threshold=np.inf, fragment_type='Site', solver='FCI', make_rdm1=True, make_rdm2=True)
+for site in range(0, nsite, nimp):
+    cc.make_atom_fragment(list(range(site, site+nimp)))
+    #cc.make_atom_fragment([site], nelectron_target=nimp*filling)
+cc.kernel()
+
+f = ecc.make_atom_fragment(list(range(nimp)), sym_factor=nsite/nimp)
+tcc = vayesta.ewf.EWF(mf, bno_threshold=-np.inf, fragment_type='Site', make_rdm1=True, make_rdm2=True)
+f = tcc.make_atom_fragment(list(range(nsite)), name='lattice')
+f.couple_to_fragments(cc.fragments)
+tcc.kernel()
+
+c = f.c_active
+dm2_tcc = np.einsum('ijkl,ai,bj,ck,dl->abcd', f.results.dm2, c, c, c, c)/2
+
+print("FCI 2DM %f" % (dm2_fci[0,0,0,0]))
+print("TCC 2DM %f" % (dm2_tcc[0,0,0,0]))
 
 # --- OUTPUT
 print("Filling= %f" % filling)

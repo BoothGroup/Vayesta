@@ -162,7 +162,7 @@ class ClusterSolver:
             results = self.kernel(*args, **kwargs)
             ne_frag = einsum('xi,ij,xj->', csc, results.dm1, csc)
             err = (ne_frag - nelectron_target)
-            self.log.debug("Electron number in fragment= %.8f  target=  %.8f  error= %.8f  chem. pot.=  %16.8f Ha", ne_frag, nelectron_target, err, cpt)
+            self.log.debugv("Electron number in fragment= %.8f  target=  %.8f  error= %.8f  chem. pot.=  %16.8f Ha", ne_frag, nelectron_target, err, cpt)
             return err
 
         for ndouble in range(5):
@@ -186,6 +186,8 @@ class ClusterSolver:
             errmsg = "Could not find chemical potential within [%f %f]" % (lower_bound, upper_bound)
             self.log.critical(errmsg)
             raise RuntimeError(errmsg)
+
+        self.log.info("Optimized chemical potential= % 16.8f Ha", cpt)
 
         # Restore
         self.base.mf.get_hcore = get_hcore
