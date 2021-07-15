@@ -41,7 +41,7 @@ class RAGF2Options(Options):
     max_cycle: int = 50             # maximum number of AGF2 iterations
     conv_tol: float = 1e-7          # convergence tolerance in AGF2 energy
     conv_tol_t0: float = 1e-6       # convergence tolerance in zeroth SE moment
-    conv_tol_t1: float = 1e-4       # convergence tolerance in first SE moment
+    conv_tol_t1: float = np.inf     # convergence tolerance in first SE moment
     damping: float = 0.0            # damping of AGF2 iterations
     diis_space: int = 6             # size of AGF2 DIIS space
     diis_min_space: int = 1         # minimum AGF2 DIIS space before extrapolation
@@ -203,10 +203,9 @@ class RAGF2:
         elif self.frozen != (0, 0):
             self.log.info("Calculating Veff due to frozen density")
             c_focc = self.mo_coeff[:, self.focc]
-            c_act = self.mo_coeff[:, self.act]
             dm_froz = np.dot(c_focc, c_focc.T.conj()) * 2
             veff = self.mf.get_veff(dm=dm_froz)
-            veff = np.linalg.multi_dot((c_act.T.conj(), veff, c_act))
+            veff = np.linalg.multi_dot((self.mo_coeff.T.conj(), veff, self.mo_coeff))
             self.veff = veff
 
 
