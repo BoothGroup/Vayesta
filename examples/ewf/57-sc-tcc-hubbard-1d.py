@@ -7,21 +7,34 @@ import vayesta.lattmod
 from vayesta.misc import brueckner
 
 nsite = 10
+#nsites = [4, 4]
+#nsite = nsites[0]*nsites[1]
 nimp = 2
 nelectron = nsite
-hubbard_u = 6.0
+#nelectron = 16
+hubbard_u = 10.0
+#v_nn = 2.0
 
 mol = vayesta.lattmod.Hubbard1D(nsite, nelectron=nelectron, hubbard_u=hubbard_u, output='pyscf.out', verbose=10)
+#mol = vayesta.lattmod.Hubbard1D(nsite, nelectron=nelectron, hubbard_u=hubbard_u, v_nn=v_nn, output='pyscf.out', verbose=10)
+#mol = vayesta.lattmod.Hubbard2D((4,4), nelectron=nelectron, hubbard_u=hubbard_u, output='pyscf.out', verbose=10)
 mol.build()
 mf = vayesta.lattmod.LatticeMF(mol)
 mf.kernel()
+
+#fci = vayesta.ewf.EWF(mf, solver='FCI', bno_threshold=np.inf, fragment_type='Site')
+#fci.make_atom_fragment(list(range(nsite)))
+#fci.kernel()
+#print(fci.e_tot/nelectron)
+#1/0
 
 e0 = None
 etol = 1e-6
 maxiter = 100
 for it in range(1, maxiter+1):
     # Calculate FCI fragments
-    fci = vayesta.ewf.EWF(mf, solver='FCI', bno_threshold=np.inf, fragment_type='Site')
+    #fci = vayesta.ewf.EWF(mf, solver='FCI', bno_threshold=np.inf, fragment_type='Site')
+    fci = vayesta.ewf.EWF(mf, solver='CCSD', bno_threshold=np.inf, fragment_type='Site')
     for site in range(0, nsite, nimp):
         f = fci.make_atom_fragment(list(range(site, site+nimp)))
         f.kernel()
@@ -56,6 +69,15 @@ for it in range(1, maxiter+1):
         ro = np.dot(x.c_active_occ.T, mf.mo_coeff[:,occ])
         rv = np.dot(x.c_active_vir.T, mf.mo_coeff[:,vir])
         t1 += np.einsum('ia,ip,aq->pq', pt1, ro, rv)
+    print("Iteration %d: Norm of T1 amplitudes= %.3e" % (it, np.linalg.norm(t1)))
 
     # Update MF orbitals
-    mf = brueckner.update_mf(mf, t1=t1, inplace=True)
+    #mf = brueckner.update_mf(mf, t1=t1, inplace=True)
+
+    ecc = vayesta.ewf.EWF(mf, bno_threshold=np.inf, fragment_type='Site')
+    lattice = ecc.make_atom_fragment(list(range(nsite)))
+    lattice.couple_to_fragments(fci.fragments)
+    ecc.kernel()
+    print(ecc.e_tot / nelectron)
+        
+    1/0

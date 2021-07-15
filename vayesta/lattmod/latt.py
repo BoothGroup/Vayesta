@@ -53,6 +53,7 @@ class LatticeMole(pyscf.pbc.gto.Cell):
 
     def atom_symbol(self, site):
         return 'Site_%d' % site
+        #return 'X_%d' % site
 
     #def build(self):
     #    pass
@@ -64,8 +65,8 @@ class LatticeMole(pyscf.pbc.gto.Cell):
 class Hubbard(LatticeMole):
     """Abstract Hubbard model class."""
 
-    def __init__(self, nsite, nelectron=None, hubbard_t=1.0, hubbard_u=0.0, verbose=0,
-            output=None):
+    def __init__(self, nsite, nelectron=None, hubbard_t=1.0, hubbard_u=0.0, v_nn=0.0,
+            verbose=0, output=None):
         super().__init__(verbose=verbose, output=output)
         self.nsite = nsite
         if nelectron is None:
@@ -73,14 +74,15 @@ class Hubbard(LatticeMole):
         self.nelectron = nelectron
         self.hubbard_t = hubbard_t
         self.hubbard_u = hubbard_u
+        self.v_nn = v_nn
 
 
 class Hubbard1D(Hubbard):
     """Hubbard model in 1D."""
 
-    def __init__(self, nsite, nelectron=None, hubbard_t=1.0, hubbard_u=0.0, boundary='auto',
+    def __init__(self, nsite, nelectron=None, hubbard_t=1.0, hubbard_u=0.0, v_nn=0.0, boundary='auto',
             verbose=0, output=None):
-        super().__init__(nsite, nelectron, hubbard_t, hubbard_u, verbose=verbose, output=output)
+        super().__init__(nsite, nelectron, hubbard_t, hubbard_u, v_nn=v_nn, verbose=verbose, output=output)
 
         self.nsites = [nsite]
         self.dimension = 1
@@ -101,6 +103,21 @@ class Hubbard1D(Hubbard):
             h1e[i,i+1] = h1e[i+1,i] = -hubbard_t
         h1e[nsite-1,0] = h1e[0,nsite-1] = bfac * -hubbard_t
         self.h1e = h1e
+
+    def get_eri(self, hubbard_u=None, v_nn=None):
+        if hubbard_u is None:
+            hubbard_u = self.hubbard_u
+        if v_nn is None:
+            v_nn = self.v_nn
+
+        eri = np.zeros(4*[self.nsite])
+        np.fill_diagonal(eri, hubbard_u)
+        # Nearest-neighbor interaction
+        if v_nn:
+            for i in range(self.nsite-1):
+                eri[i,i,i+1,i+1] = eri[i+1,i+1,i,i] = v_nn
+            eri[self.nsite-1,self.nsite-1,0,0] = eri[0,0,self.nsite-1,self.nsite-1] = v_nn
+        return eri
 
 
 class Hubbard2D(Hubbard):
@@ -148,14 +165,25 @@ class Hubbard2D(Hubbard):
                 h1e[idx,idx_d] += fac_d * -hubbard_t
         self.h1e = h1e
 
+    def get_eri(self, hubbard_u=None, v_nn=None):
+        if hubbard_u is None:
+            hubbard_u = self.hubbard_u
+        if v_nn is None:
+            v_nn = self.v_nn
+
+        eri = np.zeros(4*[self.nsite])
+        np.fill_diagonal(eri, hubbard_u)
+        # Nearest-neighbor interaction
+        if v_nn:
+            raise NotImplementedError()
+        return eri
+
 
 class LatticeMF(pyscf.scf.hf.RHF):
 
     def __init__(self, mol, *args, **kwargs):
         super().__init__(mol, *args, **kwargs)
-        self._eri = np.zeros(4*[self.mol.nsite])
-        np.fill_diagonal(self._eri, self.mol.hubbard_u)
-
+        self._eri = mol.get_eri()
 
     def get_hcore(self, *args, **kwargs):
         return self.mol.h1e
@@ -163,7 +191,7 @@ class LatticeMF(pyscf.scf.hf.RHF):
     def get_ovlp(self):
         return np.eye(self.mol.nsite)
 
-    def kernel(self):
+    def kernel_hubbard(self):
         mo_energy, mo_coeff = np.linalg.eigh(self.mol.h1e)
         nocc = self.mol.nelectron//2
         nvir = self.mol.nsite - nocc
@@ -198,6 +226,8 @@ class LatticeMF(pyscf.scf.hf.RHF):
         self.converged = True
 
         return self.e_tot
+
+    kernel = kernel_hubbard
 
     #def get_veff(self, dm=None, *args, **kwargs):
     #    if dm is None:

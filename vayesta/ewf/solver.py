@@ -519,6 +519,8 @@ class CCSDSolver(ClusterSolver):
         if coupled_fragments is None:
             coupled_fragments = self.fragment.coupled_fragments
 
+        #mode = 1
+
         def tailor_func(cc, t1, t2):
             """Add external correction to T1 and T2 amplitudes."""
             # Add the correction to dt1 and dt2:
@@ -528,13 +530,14 @@ class CCSDSolver(ClusterSolver):
             # Loop over all *other* fragments/cluster X
             for x in coupled_fragments:
                 assert (x is not self.fragment)
-                cx_occ = x.c_active_occ    # Occupied active orbitals of cluster X
-                cx_vir = x.c_active_vir    # Virtual  active orbitals of cluster X
 
                 # Rotation & projections from cluster X active space to current fragment active space
-                p_occ = np.linalg.multi_dot((cx_occ.T, ovlp, c_occ))
-                p_vir = np.linalg.multi_dot((cx_vir.T, ovlp, c_vir))
-                px = x.get_fragment_projector(c_occ)   # this is C_occ^T . S . C_frag . C_frag^T . S . C_occ
+                p_occ = np.linalg.multi_dot((x.c_active_occ.T, ovlp, c_occ))
+                p_vir = np.linalg.multi_dot((x.c_active_vir.T, ovlp, c_vir))
+                px = x.get_fragment_projector(c_occ)    # this is C_occ^T . S . C_frag . C_frag^T . S . C_occ
+                assert np.allclose(px, px.T)
+                #pxv = x.get_fragment_projector(c_vir)   # this is C_occ^T . S . C_frag . C_frag^T . S . C_occ
+                #assert np.allclose(pxv, pxv.T)
                 if x.results.t1 is None and x.results.c1 is not None:
                     self.log.debugv("Converting C-amplitudes of %s to T-amplitudes", x)
                     x.results.convert_amp_c_to_t()
@@ -543,13 +546,23 @@ class CCSDSolver(ClusterSolver):
                     tx1 = helper.transform_amplitude(x.results.t1, p_occ, p_vir)   # ia,ix,ap->xp
                     dtx1 = (tx1 - t1)
                     dtx1 = np.dot(px, dtx1)
+                    #dtx1o = np.dot(px, dtx1)
+                    #dtx1v = np.dot(dtx1, pxv)
+                    #dtx1 = dtx1o + dtx1v - np.linalg.multi_dot((px, dtx1, pxv))
                     assert dtx1.shape == dt1.shape
                     dt1 += dtx1
+                else:
+                    dtx1 = 0
                 if correct_t2:
                     tx2 = helper.transform_amplitude(x.results.t2, p_occ, p_vir)   # ijab,ix,jy,ap,bq->xypq
                     dtx2 = (tx2 - t2)
                     if mode == 1:
                         dtx2 = einsum('xi,yj,ijab->xyab', px, px, dtx2)
+                        #dtx2 = einsum('xi,yj,ijab,pa,qb->xypq', px, px, dtx2, pxv, pxv)
+                        #dtx2o = einsum('xi,yj,ijab->xyab', px, px, dtx2)
+                        #dtx2v = einsum('xa,yb,ijab->ijxy', pxv, pxv, dtx2)
+                        #dtx2dc = einsum('xi,yj,ijab,pa,qb->xypq', px, px, dtx2, pxv, pxv)
+                        #dtx2 = dtx2o + dtx2v - dtx2dc
                     elif mode == 2:
                         py = self.fragment.get_fragment_projector(c_occ, inverse=True)
                         dtx2 = einsum('xi,yj,ijab->xyab', px, py, dtx2)
@@ -557,6 +570,8 @@ class CCSDSolver(ClusterSolver):
                         dtx2 = einsum('xi,ijab->xjab', px, dtx2)
                     assert dtx2.shape == dt2.shape
                     dt2 += dtx2
+                else:
+                    dtx2 = 0
                 self.log.debugv("Tailoring %12s <- %12s: |dT1|= %.2e  |dT2|= %.2e", self.fragment, x, np.linalg.norm(dtx1), np.linalg.norm(dtx2))
 
             # Store these norms in cc, to log their final value:
