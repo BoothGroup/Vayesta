@@ -9,6 +9,8 @@ LIN_DEP_THRESHOLD = 1e-12
 SVD_THRESHOLD = 1e-9
 ENV_THRESHOLD = 1e-9
 
+zmax = lambda x: np.max(x) if x.size != 0 else 0.0
+
 
 def rotate_ov(c, s, rdm1, return_eigvals=False):
     ''' Rotate orbitals into an occupied & virtual representation
@@ -34,7 +36,7 @@ def orthogonality(c, s):
     p = np.linalg.multi_dot((c.T.conj(), s, c))
     i = np.eye(c.shape[1])
 
-    return np.max(np.abs(p-i))
+    return zmax(np.abs(p-i))
 
 
 def idempotency(c, s, rdm1):
@@ -43,8 +45,8 @@ def idempotency(c, s, rdm1):
 
     _, _, eo, ev = rotate_ov(c, s, rdm1, return_eigvals=True)
 
-    error_occ = np.max(1-eo) if eo.size else 0.0
-    error_vir = np.max(ev) if ev.size else 0.0
+    error_occ = zmax(1-eo) if eo.size else 0.0
+    error_vir = zmax(ev) if ev.size else 0.0
 
     return max(error_occ, error_vir)
 
