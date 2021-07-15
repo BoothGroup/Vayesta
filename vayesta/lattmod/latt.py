@@ -196,6 +196,7 @@ class LatticeMF(pyscf.scf.hf.RHF):
         veff = self.get_veff()
         self.e_tot = np.einsum('ab,ba->', (self.get_hcore() + veff/2), dm)
         self.converged = True
+
         return self.e_tot
 
     #def get_veff(self, dm=None, *args, **kwargs):
