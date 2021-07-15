@@ -28,6 +28,7 @@ from vayesta.ewf import helper, psubspace
 
 from . import dmet
 from .solver import get_solver_class
+from vayesta.ewf import mp2_bath
 
 
 @dataclasses.dataclass
@@ -189,7 +190,7 @@ class DMETFragment(QEmbeddingFragment):
             self.log.info("------------------------")
             t0 = timer()
             self.log.changeIndentLevel(1)
-            self.c_no_occ, self.n_no_occ = make_mp2_bno(
+            self.c_no_occ, self.n_no_occ = mp2_bath.make_mp2_bno(
                     self, "occ", self.c_cluster_occ, self.c_cluster_vir, c_env_occ, c_env_vir)
             self.log.timing("Time for occupied BNOs:  %s", time_string(timer()-t0))
             if len(self.n_no_occ) > 0:
@@ -207,7 +208,7 @@ class DMETFragment(QEmbeddingFragment):
             self.log.info("-----------------------")
             t0 = timer()
             self.log.changeIndentLevel(1)
-            self.c_no_vir, self.n_no_vir = make_mp2_bno(
+            self.c_no_vir, self.n_no_vir = mp2_bath.make_mp2_bno(
                     self, "vir", self.c_cluster_occ, self.c_cluster_vir, c_env_occ, c_env_vir)
             self.log.timing("Time for virtual BNOs:   %s", time_string(timer()-t0))
             if len(self.n_no_vir) > 0:

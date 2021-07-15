@@ -5,7 +5,7 @@ from .fragment import DMETFragmentExit
 
 solver = cp.SCS
 
-def perform_SDP_fit(nelec, fock, impurity_projectors, target_rdms, log):
+def perform_SDP_fit(nelec, fock, impurity_projectors, target_rdms, ovlp, log):
     """Given all required information about the system, generate the correlation potential reproducing the local DM
     via a semidefinite program, as described in doi.org/10.1103/PhysRevB.102.085123. Initially use SCS solver, though
     others (eg. MOSEK) could be used if this runs into issues.
@@ -24,10 +24,16 @@ def perform_SDP_fit(nelec, fock, impurity_projectors, target_rdms, log):
         set.
     target_rdms: list of np.array
         Impurity-local one-body density matrices for each class of impurities.
+    ovlp: np.array
+        Overlap matrix of the AOs, so we can implicitly transform into the PAO basis.
     """
+    print(target_rdms)
     # First calculate the number of different symmetry-eqivalent orbital sets for each class of impurity (this is the
     # symmetry factor, elsewhere in the code).
-    nimp = [len(x) for x in impurity_projectors]
+    nimp = [x[0].shape[1] for x in impurity_projectors]
+    nsym = [len(x) for x in impurity_projectors]
+    log.info("Number of site fragments: %s" % nimp)
+    log.info("Number of symmetry-related fragments: %s" % nsym)
 
     z = cp.Variable(fock.shape, PSD=True)
     us = [cp.Variable((i, i), symmetric=True) for i in nimp]
@@ -41,29 +47,34 @@ def perform_SDP_fit(nelec, fock, impurity_projectors, target_rdms, log):
     # It might be neater to have U as the variable and impose a sparsity pattern, but I've coded this
     # version up now and it'll make it easier to extend with symmetry-related impurities.
     constraints = [
-        (fock + sum([aproj @ us[i] @ aproj.T for i, curr_proj in enumerate(impurity_projectors) for aproj in curr_proj])
+        (fock + sum([np.linalg.pinv(aproj).T @ us[i] @ np.linalg.pinv(aproj) for i, curr_proj in enumerate(impurity_projectors) for aproj in curr_proj])
          + z - alpha * np.eye(fock.shape[0])) >> 0,
-        cp.trace(sum([aproj @ us[i] @ aproj.T for i, curr_proj in enumerate(impurity_projectors) for aproj in
+        cp.trace(sum([np.linalg.pinv(aproj).T @ us[i] @ np.linalg.pinv(aproj) for i, curr_proj in enumerate(impurity_projectors) for aproj in
                       curr_proj])) == 0,
     ]
 
     objective = cp.Minimize(
-        sum([cp.trace(rdm1 @ ux) * nimp for ni, rdm1, ux in zip(nimp, target_rdms, us)])
-        - alpha * nelec + cp.trace(z)
+        sum([cp.trace(rdm1 @ ux) * ni for ni, rdm1, ux in zip(nsym, target_rdms, us)])
+        - alpha * nelec + cp.trace(z @ np.linalg.inv(ovlp))
     )
     prob = cp.Problem(objective, constraints)
 
     solval = prob.solve(solver=cp.SCS, eps=1e-8)
-    # Our local correlation potential values are then contained within the values of this list; use our projector to
-    # map back into full space.
-    fullv = sum([aproj @ us[i].value @ aproj.T for i, curr_proj in enumerate(impurity_projectors) for aproj in curr_proj])
-
-    # Report the result of the optimisation, as warning if optimal solution not found.
     msg = "SDP fitting completed. Status= %s" % prob.status
     if not prob.status in [cp.OPTIMAL]:#, cp.OPTIMAL_INACCURATE]:
         log.warning(msg)
     else:
         log.info(msg)
+
+    # Our local correlation potential values are then contained within the values of this list; use our projector to
+    # map back into full space.
+    print(us)
+    print([x.value for x in us])
+
+    fullv = sum([np.linalg.pinv(aproj).T @ us[i].value @ np.linalg.pinv(aproj) for i, curr_proj in enumerate(impurity_projectors) for aproj in curr_proj])
+
+    # Report the result of the optimisation, as warning if optimal solution not found.
+
     return fullv
 
 # Code to check that the correlation potential does what it says on the tin, saved for later.

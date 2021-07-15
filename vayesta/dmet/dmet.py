@@ -47,7 +47,7 @@ class DMETOptions(Options):
     bsse_correction: bool = True
     bsse_rmax: float = 5.0              # In Angstrom
     # -- Self-consistency
-    sc_maxiter: int = 30
+    maxiter: int = 30
     sc_energy_tol: float = 1e-6
     sc_mode: int = 0
     # --- Other
@@ -61,7 +61,7 @@ class DMETResults:
     e_corr: float = None
 
 
-VALID_SOLVERS = [None]#, "", "MP2", "CISD", "CCSD", 'TCCSD', "CCSD(T)", 'FCI', "FCI-spin0", "FCI-spin1"]
+VALID_SOLVERS = [None, "", "MP2", "CISD", "CCSD", 'TCCSD', "CCSD(T)", 'FCI', "FCI-spin0", "FCI-spin1"]
 
 class DMET(QEmbeddingMethod):
 
@@ -214,14 +214,15 @@ class DMET(QEmbeddingMethod):
         if self.nfrag == 0:
             raise ValueError("No fragments defined for calculation.")
 
-        maxiter = (self.opts.sc_maxiter if self.opts.sc_mode else 1)
+        maxiter = self.opts.maxiter
         # View this as a single number for now, if needed at all...
         bno_thr = bno_threshold
 
-        rdm = self.mf.make_rdm1()
-        fock = self.base.get_fock(dm=rdm)
+        #rdm = self.mf.make_rdm1()
+        fock = self.get_fock()
         vcorr = np.zeros_like(fock)
 
+        exit = False
         for iteration in range(1, maxiter + 1):
             self.iteration = iteration
             self.log.info("Now running iteration= %2d", iteration)
@@ -230,7 +231,7 @@ class DMET(QEmbeddingMethod):
             mo_energy, mo_coeff = self.mf.eig(fock + vcorr, self.get_ovlp())
             mo_occ = self.mf.get_occ(mo_energy, mo_coeff)
             rdm = self.mf.make_rdm1(mo_coeff, mo_occ)
-            fock = self.base.get_fock(dm=rdm)
+            fock = self.mf.get_fock(dm=rdm)
 
             for x, frag in enumerate(self.fragments):
                 msg = "Now running %s" % (frag)
@@ -262,11 +263,11 @@ class DMET(QEmbeddingMethod):
             hl_rdms = [None] * len(self.fragments)
 
             for x, frag in enumerate(self.fragments):
-                c = self.cluster_results[frag.id].c_frag
+                c = frag.c_frag#self.cluster_results[frag.id].c_frag
                 impurity_projectors[x] = [c]
                 # Project AO rdm into fragment space.
                 hl_rdms[x] = np.dot(c.T, np.dot(self.cluster_results[frag.id].dm1, c)) / 2
-            vcorr = perform_SDP_fit(self.mol.nelec[0], fock, impurity_projectors, hl_rdms)
+            vcorr = perform_SDP_fit(self.mol.nelec[0], fock, impurity_projectors, hl_rdms, self.get_ovlp(), self.log)
         else:
             if self.opts.sc_mode:
                 self.log.error("Self-consistency not reached!")
