@@ -266,7 +266,6 @@ def test_energy_comparison(nsite=8, nelectron=8, U_range=np.linspace(0.0, 10.0, 
         E_RDM_proj.append(c)
         E_FCI.append(d)
         
-        
     params = {
     
        'axes.labelsize': 40,

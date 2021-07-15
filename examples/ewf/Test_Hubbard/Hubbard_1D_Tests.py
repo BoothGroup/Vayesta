@@ -8,6 +8,7 @@ from pyscf import fci
 from scipy.interpolate import interp1d
 
 import vayesta
+
 import vayesta.lattmod
 import vayesta.ewf
 
@@ -48,10 +49,9 @@ def rel_error(a, b):
             return (a-b)/b
         else:
             return 0.0
-        
+
     
 class Test_Hubbard_1D:
-
     def __init__(self, nsite=10, nelectron=10, hubbard_u=2.0, fragment_size=1):
         
         if (nsite != nelectron):
@@ -61,12 +61,18 @@ class Test_Hubbard_1D:
         
         # Lattice parameters
         
-        self.__nfragments = int(nsite/fragment_size) # No. fragments
+        self.__nfragments = int(nsite/fragment_size) # No. fragments in divided lattice
+        self.__nimp = 1 # No. fragments to run the calculation on (exploit translational symmetry
+    
         
         self.__nsite = nsite
         self.__nelectron = nelectron
         self.__hubbard_u = hubbard_u
         self.__fragment_size = fragment_size
+        
+    
+        self.__filling = self.__nelectron/(self.__nsite)
+        assert (self.__filling <= 2.0 and self.__filling > 0.0)
         
         # Initialise lattice Hamiltonian
         self.__mol = vayesta.lattmod.Hubbard1D(nsite, nelectron=nelectron, hubbard_u=hubbard_u, output='pyscf.out', verbose=10)
@@ -78,7 +84,7 @@ class Test_Hubbard_1D:
         self.__mf.kernel()
     
         # Initialise embedding solvers
-        self.__ecc = vayesta.ewf.EWF(self.__mf, solver='FCI', fragment_type='Site', make_rdm1=True, make_rdm2=True)
+        self.__ecc = vayesta.ewf.EWF(self.__mf, bno_threshold=np.inf, solver='FCI', fragment_type='Site', make_rdm1=True, make_rdm2=True)
         
         # Initialise solver for fragment couplings
         self.__ecc_lattice = vayesta.ewf.EWF(self.__mf, solver='CCSD',fragment_type='Site', bno_threshold=-np.inf)
@@ -86,17 +92,24 @@ class Test_Hubbard_1D:
 
         # Initalise fragments
         
+        # "Brute-force" calculation for all fragments
         self.__fragments = self.create_fragments()
         
+        # Chemical potential correction for fragments
+        self.__cpt_fragments = self.create_fragments(cpt=True)
         
-    def create_fragments(self):
+
+    def create_fragments(self, cpt=False):
         '''
         Carry out fragmentation with fragmented indices
         '''
         fragments = []
         indices = self.get_fragment_indices()
-        for i in range(self.__nfragments):
-            fragments.append(self.__ecc.make_atom_fragment(indices[i]))
+        for i in range(self.__nimp):
+            if (cpt):
+                fragments.append(self.__ecc.make_atom_fragment(indices[i]), sym_factor=self.__nsite/self.__nimp, nelectron_target=self.__nimp*self.__filling)
+            else:
+                fragments.append(self.__ecc.make_atom_fragment(indices[i]))
         
         return fragments
         
@@ -144,6 +157,8 @@ class Test_Hubbard_1D:
                         # Use normalised c1 amplitudes from above. Antisymmetric term is not needed as only an occupied/unoccupied basis states are assumed for Hubbard model
         
         return t1, t2
+            
+        
         
     def get_rdm_energy(self, fragment):
         '''
