@@ -6,7 +6,7 @@ import vayesta.lattmod
 
 nsite = 10
 nelectron = 6
-nimp = 1
+nimp = 1 
 hubbard_u = 12.0
 filling = nelectron/nsite
 mol = vayesta.lattmod.Hubbard1D(nsite, nelectron=nelectron, hubbard_u=hubbard_u, output='pyscf.out')
