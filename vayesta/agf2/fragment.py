@@ -103,7 +103,7 @@ class EAGF2Fragment(QEmbeddingFragment):
     make_dmet_bath = EWFFragment.make_dmet_bath
     project_amplitude_to_fragment = EWFFragment.project_amplitude_to_fragment
     project_amplitudes_to_fragment = EWFFragment.project_amplitudes_to_fragment
-    apply_bno_threshold = EWFFragment.apply_bno_threshold
+    truncate_bno = EWFFragment.truncate_bno
 
 
     def make_ewdmet_bath(self):
@@ -180,9 +180,9 @@ class EAGF2Fragment(QEmbeddingFragment):
 
         if self.opts.bath_type.lower() == 'dmet+mp2':
             self.log.info("Occupied BNOs:")
-            c_nbo_occ, c_frozen_occ = self.apply_bno_threshold(self.c_no_occ, self.n_no_occ, bno_threshold)
+            c_nbo_occ, c_frozen_occ = self.truncate_bno(self.c_no_occ, self.n_no_occ, bno_threshold)
             self.log.info("Virtual BNOs:")
-            c_nbo_vir, c_frozen_vir = self.apply_bno_threshold(self.c_no_vir, self.n_no_vir, bno_threshold)
+            c_nbo_vir, c_frozen_vir = self.truncate_bno(self.c_no_vir, self.n_no_vir, bno_threshold)
 
             c_active_occ = self.canonicalize_mo(self.c_cluster_occ, c_nbo_occ)[0]
             c_active_vir = self.canonicalize_mo(self.c_cluster_vir, c_nbo_vir)[0]
