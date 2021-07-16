@@ -10,7 +10,7 @@ import pyscf.agf2
 from vayesta.ewf.fragment import EWFFragment
 from vayesta.core.util import Options, NotSet, get_used_memory, time_string
 from vayesta.core import QEmbeddingFragment
-from vayesta.agf2 import RAGF2, make_ewdmet_bath, util
+from vayesta.agf2 import ragf2, ewdmet_bath, util
 
 try:
     from mpi4py import MPI
@@ -70,7 +70,7 @@ class EAGF2Fragment(QEmbeddingFragment):
         self.opts = self.opts.replace(self.base.opts, select=NotSet)
         for key, val in self.opts.items():
             self.log.infov("  > %-24s %r", key + ':', val)
-        self.solver = RAGF2
+        self.solver = ragf2.RAGF2
         self.log.infov("  > %-24s %r", 'Solver:', self.solver)
 
         # DMET-cluster
@@ -116,7 +116,7 @@ class EAGF2Fragment(QEmbeddingFragment):
         self.log.info("******************")
         self.log.changeIndentLevel(1)
 
-        c_ewdmet, c_env_occ, c_env_vir = make_ewdmet_bath(
+        c_ewdmet, c_env_occ, c_env_vir = ewdmet_bath.make_ewdmet_bath(
                 self,
                 self.c_env,
                 nmom=self.opts.nmom_bath,

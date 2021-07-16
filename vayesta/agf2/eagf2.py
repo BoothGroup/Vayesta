@@ -11,8 +11,8 @@ import pyscf.ao2mo
 
 import vayesta
 import vayesta.ewf
-import vayesta.agf2
 import vayesta.lattmod
+from vayesta.agf2 import ragf2, ewdmet_bath
 
 try:
     import dyson
@@ -88,7 +88,7 @@ for x, frag in enumerate(ewf.fragments):
 
     # --- Generate orbitals
     if ewdmet:
-        c_ewdmet, c_froz_occ, c_froz_vir = vayesta.agf2.ewdmet_bath.make_ewdmet_bath(frag, frag.c_env, nmom=nmom_ewdmet)
+        c_ewdmet, c_froz_occ, c_froz_vir = ewdmet_bath.make_ewdmet_bath(frag, frag.c_env, nmom=nmom_ewdmet)
         c_act_occ, c_act_vir = frag.diagonalize_cluster_dm(frag.c_frag, c_ewdmet)
     else:
         frag.make_bath()
@@ -122,7 +122,7 @@ for x, frag in enumerate(ewf.fragments):
     eri = eri.reshape((c_act.shape[1],) * 4)
 
     # --- Run the solver
-    agf2 = vayesta.agf2.RAGF2(
+    gf2 = ragf2.RAGF2(
             mf,
             mo_energy=mo_energy,
             mo_coeff=mo_coeff,
@@ -133,17 +133,17 @@ for x, frag in enumerate(ewf.fragments):
             conv_tol=1e-5,
             log=fakelog,
     )
-    agf2.kernel()
-    data['solvers'].append(agf2)
-    fock = agf2.get_fock(with_frozen=False)
-    se = agf2.se
+    gf2.kernel()
+    data['solvers'].append(gf2)
+    fock = gf2.get_fock(with_frozen=False)
+    se = gf2.se
     mom = np.array((se.get_occupied().moment(range(2*nmom_projection+2)), se.get_virtual().moment(range(2*nmom_projection+2))))
     log.info("AGF2 results:")
-    log.info("  > Converged: %r", agf2.converged)
-    log.info("  > E(1b)  = %14.8f   E(2b)   = %12.8f", agf2.e_1b, agf2.e_2b)
-    log.info("  > E(tot) = %14.8f   E(corr) = %12.8f", agf2.e_tot, agf2.e_corr)
-    log.info("  > IP     = %14.8f   EA      = %12.8f", agf2.e_ip, agf2.e_ea)
-    log.info("  > Gap    = %14.8f", agf2.e_ip + agf2.e_ea)
+    log.info("  > Converged: %r", gf2.converged)
+    log.info("  > E(1b)  = %14.8f   E(2b)   = %12.8f", gf2.e_1b, gf2.e_2b)
+    log.info("  > E(tot) = %14.8f   E(corr) = %12.8f", gf2.e_tot, gf2.e_corr)
+    log.info("  > IP     = %14.8f   EA      = %12.8f", gf2.e_ip, gf2.e_ea)
+    log.info("  > Gap    = %14.8f", gf2.e_ip + gf2.e_ea)
 
     # --- Build projectors
     c = np.einsum('pa,pq,qi->ai', c_act, mf.get_ovlp(), frag.c_frag)
@@ -205,34 +205,34 @@ else:
     se = pyscf.agf2.SelfEnergy(e, v)
 
 # --- Get results
-agf2 = vayesta.agf2.RAGF2(mf, log=fakelog)
-agf2.se = se
-agf2.se.remove_uncoupled(tol=1e-9)
-agf2.gf = se.get_greens_function(fock)
-agf2.gf.remove_uncoupled(tol=1e-9)
+gf2 = ragf2.RAGF2(mf, log=fakelog)
+gf2.se = se
+gf2.se.remove_uncoupled(tol=1e-9)
+gf2.gf = se.get_greens_function(fock)
+gf2.gf.remove_uncoupled(tol=1e-9)
 if fock_loop:
-    agf2.gf, agf2.se = agf2.fock_loop()
+    gf2.gf, gf2.se = gf2.fock_loop()
 else:
-    agf2.se.chempot = agf2.gf.chempot = pyscf.agf2.chempot.binsearch_chempot(se.eig(fock), se.nphys, mol.nelectron)[0]
-agf2.e_1b = agf2.energy_1body()
-agf2.e_2b = agf2.energy_2body()
+    gf2.se.chempot = gf2.gf.chempot = pyscf.agf2.chempot.binsearch_chempot(se.eig(fock), se.nphys, mol.nelectron)[0]
+gf2.e_1b = gf2.energy_1body()
+gf2.e_2b = gf2.energy_2body()
 log.info("Output (Emebedded AGF2)")
 log.info("***********************")
 log.changeIndentLevel(1)
-log.info("  > E(1b)  = %14.8f   E(2b)   = %12.8f", agf2.e_1b, agf2.e_2b)
-log.info("  > E(tot) = %14.8f   E(corr) = %12.8f", agf2.e_tot, agf2.e_corr)
-log.info("  > IP     = %14.8f   EA      = %12.8f", agf2.e_ip, agf2.e_ea)
-log.info("  > Gap    = %14.8f", agf2.e_ip + agf2.e_ea)
+log.info("  > E(1b)  = %14.8f   E(2b)   = %12.8f", gf2.e_1b, gf2.e_2b)
+log.info("  > E(tot) = %14.8f   E(corr) = %12.8f", gf2.e_tot, gf2.e_corr)
+log.info("  > IP     = %14.8f   EA      = %12.8f", gf2.e_ip, gf2.e_ea)
+log.info("  > Gap    = %14.8f", gf2.e_ip + gf2.e_ea)
 log.changeIndentLevel(-1)
 
 # --- Standard AGF2 output
-agf2 = vayesta.agf2.RAGF2(mf, log=fakelog)
-agf2.kernel()
+gf2 = ragf2.RAGF2(mf, log=fakelog)
+gf2.kernel()
 log.info("Output (Standard AGF2)")
 log.info("**********************")
 log.changeIndentLevel(1)
-log.info("  > E(1b)  = %14.8f   E(2b)   = %12.8f", agf2.e_1b, agf2.e_2b)
-log.info("  > E(tot) = %14.8f   E(corr) = %12.8f", agf2.e_tot, agf2.e_corr)
-log.info("  > IP     = %14.8f   EA      = %12.8f", agf2.e_ip, agf2.e_ea)
-log.info("  > Gap    = %14.8f", agf2.e_ip + agf2.e_ea)
+log.info("  > E(1b)  = %14.8f   E(2b)   = %12.8f", gf2.e_1b, gf2.e_2b)
+log.info("  > E(tot) = %14.8f   E(corr) = %12.8f", gf2.e_tot, gf2.e_corr)
+log.info("  > IP     = %14.8f   EA      = %12.8f", gf2.e_ip, gf2.e_ea)
+log.info("  > Gap    = %14.8f", gf2.e_ip + gf2.e_ea)
 log.changeIndentLevel(-1)
