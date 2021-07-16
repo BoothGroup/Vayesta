@@ -2,6 +2,8 @@ import dataclasses
 from timeit import default_timer as timer
 
 import numpy as np
+import scipy
+import scipy.optimize
 
 import pyscf
 import pyscf.ao2mo
@@ -29,16 +31,19 @@ def get_solver_class(solver):
 
 @dataclasses.dataclass
 class ClusterSolverOptions(Options):
-    eom_ccsd: bool = NotSet
     make_rdm1: bool = NotSet
+    make_rdm2: bool = NotSet
     sc_mode: int = NotSet
     # CCSD specific
+    # EOM CCSD
+    eom_ccsd: list = NotSet  # {'IP', 'EA', 'EE-S', 'EE-D', 'EE-SF'}
+    eom_ccsd_nroots: int = NotSet
     # Active space methods
     c_cas_occ: np.array = None
     c_cas_vir: np.array = None
     # Tailored-CCSD
     tcc: bool = False
-    tcc_spin: float = None
+    tcc_fci_opts: dict = dataclasses.field(default_factory=dict)
 
 
 @dataclasses.dataclass
@@ -49,6 +54,7 @@ class ClusterSolverResults:
     c_vir: np.array = None
     # Density matrix in MO representation:
     dm1: np.array = None
+    dm2: np.array = None
     eris: 'typing.Any' = None
 
 
@@ -132,6 +138,61 @@ class ClusterSolver:
         #return self.mo_coeff[:,self.nocc:-self.nvir_frozen]
         return self.mo_coeff[:,self.nocc:self.nocc_frozen+self.nactive]
 
+    @property
+    def c_active(self):
+        return self.mo_coeff[:,self.get_active_slice()]
+
+    def kernel_optimize_cpt(self, nelectron_target, *args, lower_bound=-1.0, upper_bound=1.0, tol=1e-8, **kwargs):
+        get_hcore = self.base.mf.get_hcore
+        h1e = get_hcore()
+        # Fragment projector
+        cs = np.dot(self.fragment.c_frag.T, self.base.get_ovlp())
+        p_frag = np.dot(cs.T, cs)
+        csc = np.dot(cs, self.c_active)
+
+        self.opts.make_rdm1 = True
+        results = None
+        err = None
+
+        def electron_err(cpt):
+            nonlocal results, err
+            h1e_cpt = h1e - cpt*p_frag
+            # Not multi-threaded!
+            self.base.mf.get_hcore = lambda *args : h1e_cpt
+            results = self.kernel(*args, **kwargs)
+            ne_frag = einsum('xi,ij,xj->', csc, results.dm1, csc)
+            err = (ne_frag - nelectron_target)
+            self.log.debugv("Electron number in fragment= %.8f  target=  %.8f  error= %.8f  chem. pot.=  %16.8f Ha", ne_frag, nelectron_target, err, cpt)
+            return err
+
+        for ndouble in range(5):
+            try:
+                cpt, res = scipy.optimize.brentq(electron_err, a=lower_bound, b=upper_bound, xtol=tol, full_output=True)
+            except ValueError:
+                if err < 0:
+                    upper_bound *= 2
+                else:
+                    lower_bound *= 2
+                self.log.debug("Bounds for chemical potential search too small. New bounds: [%f %f]", lower_bound, upper_bound)
+                continue
+
+            if res.converged:
+                break
+            else:
+                errmsg = "Correct chemical potential not found."
+                self.log.critical(errmsg)
+                raise RuntimeError(errmsg)
+        else:
+            errmsg = "Could not find chemical potential within [%f %f]" % (lower_bound, upper_bound)
+            self.log.critical(errmsg)
+            raise RuntimeError(errmsg)
+
+        self.log.info("Optimized chemical potential= % 16.8f Ha", cpt)
+
+        # Restore
+        self.base.mf.get_hcore = get_hcore
+        return results
+
 
 @dataclasses.dataclass
 class CCSDSolverResults(ClusterSolverResults):
@@ -144,11 +205,22 @@ class CCSDSolverResults(ClusterSolverResults):
     ip_coeff: np.array = None
     ea_energy: np.array = None
     ea_coeff: np.array = None
+    # EE
+    ee_s_energy: np.array = None
+    ee_t_energy: np.array = None
+    ee_sf_energy: np.array = None
+    ee_s_coeff: np.array = None
+    ee_t_coeff: np.array = None
+    ee_sf_coeff: np.array = None
+
 
 
 class CCSDSolver(ClusterSolver):
 
-    def kernel(self, init_guess=None, eris=None, t_diagnostic=True):
+    def kernel(self, init_guess=None, eris=None, coupled_fragments=None, t_diagnostic=True):
+
+        if coupled_fragments is None:
+            coupled_fragments = self.fragment.coupled_fragments
 
         # Do not use pbc.ccsd for Gamma point CCSD -> always use molecular code
         #if self.base.boundary_cond == 'open':
@@ -165,7 +237,6 @@ class CCSDSolver(ClusterSolver):
             cls = pyscf.cc.ccsd.CCSD
         else:
             cls = pyscf.cc.dfccsd.RCCSD
-
         self.log.debug("CCSD class= %r" % cls)
         cc = cls(self.mf, mo_coeff=self.mo_coeff, mo_occ=self.mo_occ, frozen=self.get_frozen_indices())
 
@@ -184,14 +255,20 @@ class CCSDSolver(ClusterSolver):
         # Tailored CC
         if self.opts.tcc:
             self.log.info("Adding tailor function to CCSD.")
-            cc.tailor_func = self.make_tcc_tailor_function(
+            cc.tailor_func = self.make_cas_tcc_function(
                     c_cas_occ=self.opts.c_cas_occ, c_cas_vir=self.opts.c_cas_vir, eris=eris).__get__(cc)
 
         elif self.opts.sc_mode and self.base.iteration > 1:
             # __get__(cc) to bind the tailor function as a method,
             # rather than just a callable attribute
             self.log.info("Adding tailor function to CCSD.")
-            cc.tailor_func = self.make_sc_tailor_function(mode=self.opts.sc_mode).__get__(cc)
+            cc.tailor_func = self.make_cross_fragment_tcc_function(mode=self.opts.sc_mode).__get__(cc)
+
+        # This should include the SC mode?
+        elif coupled_fragments and np.all([x.results is not None for x in coupled_fragments]):
+            self.log.info("Adding tailor function to CCSD.")
+            cc.tailor_func = self.make_cross_fragment_tcc_function(mode=(self.opts.sc_mode or 3),
+                    coupled_fragments=coupled_fragments).__get__(cc)
 
         t0 = timer()
         if init_guess:
@@ -216,7 +293,7 @@ class CCSDSolver(ClusterSolver):
                 converged=cc.converged, e_corr=cc.e_corr, c_occ=self.c_active_occ, c_vir=self.c_active_vir, eris=eris,
                 t1=cc.t1, t2=cc.t2)
 
-        solve_lambda = self.opts.make_rdm1
+        solve_lambda = (self.opts.make_rdm1 or self.opts.make_rdm2)
         if solve_lambda:
             t0 = timer()
             self.log.info("Solving lambda equations...")
@@ -231,29 +308,45 @@ class CCSDSolver(ClusterSolver):
             self.log.info("Making RDM1...")
             #results.dm1 = cc.make_rdm1(eris=eris, ao_repr=True)
             results.dm1 = cc.make_rdm1(with_frozen=False)
+        if self.opts.make_rdm2:
+            self.log.info("Making RDM2...")
+            results.dm2 = cc.make_rdm2(with_frozen=False)
 
-        def eom_ccsd(kind, nroots=3):
+        def run_eom_ccsd(kind, nroots=None):
+            nroots = nroots or self.opts.eom_ccsd_nroots
             kind = kind.upper()
-            assert kind in ("IP", "EA")
+            assert kind in ('IP', 'EA', 'EE-S', 'EE-T', 'EE-SF')
             self.log.info("Running %s-EOM-CCSD (nroots=%d)...", kind, nroots)
-            eom_funcs = {"IP" : cc.ipccsd , "EA" : cc.eaccsd}
+            eom_funcs = {
+                    'IP' : cc.ipccsd , 'EA' : cc.eaccsd,
+                    'EE-S' : cc.eomee_ccsd_singlet,
+                    'EE-T' : cc.eomee_ccsd_triplet,
+                    'EE-SF' : cc.eomsf_ccsd,}
             t0 = timer()
             e, c = eom_funcs[kind](nroots=nroots, eris=eris)
             self.log.timing("Time for %s-EOM-CCSD:  %s", kind, time_string(timer()-t0))
             if nroots == 1:
-                e, c = [e], [c]
+                e, c = np.asarray([e]), np.asarray([c])
+            fmt = "%s-EOM-CCSD energies:" + len(e) * "  %+14.8f"
+            self.log.info(fmt, kind, *e)
             return e, c
 
-        if self.opts.eom_ccsd in (True, "IP"):
-            results.ip_energy, results.ip_coeff = eom_ccsd("IP")
-        if self.opts.eom_ccsd in (True, "EA"):
-            results.ea_energy, results.ea_coeff = eom_ccsd("EA")
+        if 'IP' in self.opts.eom_ccsd:
+            results.ip_energy, results.ip_coeff = run_eom_ccsd('IP')
+        if 'EA' in self.opts.eom_ccsd:
+            results.ea_energy, results.ea_coeff = run_eom_ccsd('EA')
+        if 'EE-S' in self.opts.eom_ccsd:
+            results.ee_s_energy, results.ee_s_coeff = run_eom_ccsd('EE-S')
+        if 'EE-T' in self.opts.eom_ccsd:
+            results.ee_t_energy, results.ee_t_coeff = run_eom_ccsd('EE-T')
+        if 'EE-SF' in self.opts.eom_ccsd:
+            results.ee_sf_energy, results.ee_sf_coeff = run_eom_ccsd('EE-SF')
 
 
         return results
 
 
-    def make_tcc_tailor_function(self, c_cas_occ, c_cas_vir, eris):
+    def make_cas_tcc_function(self, c_cas_occ, c_cas_vir, eris):
         """Make tailor function for Tailored CC."""
 
         ncasocc = c_cas_occ.shape[-1]
@@ -340,9 +433,14 @@ class CCSDSolver(ClusterSolver):
 
         #fcisolver = pyscf.fci.direct_spin0.FCISolver(self.mol)
         fcisolver = pyscf.fci.direct_spin1.FCISolver(self.mol)
-
-        if self.opts.tcc_spin is not None:
-            fcisolver = pyscf.fci.addons.fix_spin_(fcisolver, ss=self.opts.tcc_spin)
+        self.opts.tcc_fci_opts['max_cycle'] = self.opts.tcc_fci_opts.get('max_cycle', 1000)
+        fix_spin = self.opts.tcc_fci_opts.pop('fix_spin', 0)
+        if fix_spin not in (None, False):
+            self.log.debugv("Fixing spin of FCIsolver to S^2= %r", fix_spin)
+            fcisolver = pyscf.fci.addons.fix_spin_(fcisolver, ss=fix_spin)
+        for key, val in self.opts.tcc_fci_opts.items():
+            self.log.debugv("Setting FCIsolver attribute %s to %r", key, val)
+            setattr(fcisolver, key, val)
 
         t0 = timer()
         e_fci, wf0 = fcisolver.kernel(h_eff, g_cas, ncas, nelec)
@@ -353,6 +451,8 @@ class CCSDSolver(ClusterSolver):
         cisdvec = pyscf.ci.cisd.from_fcivec(wf0, ncas, nelec)
         c0, c1, c2 = pyscf.ci.cisd.cisdvec_to_amplitudes(cisdvec, ncas, ncasocc)
         self.log.info("FCI weight on reference determinant: %.8g", abs(c0))
+        if abs(c0) < 1e-4:
+            self.log.warning("Weight on reference determinant small!")
         if (c0 == 0):
             msg = "FCI wave function has no overlap with HF determinant."
             self.log.critical(msg)
@@ -383,45 +483,70 @@ class CCSDSolver(ClusterSolver):
         return tailor_func
 
 
-    def make_sc_tailor_function(self, mode, correct_t1=True, correct_t2=True):
-        """Build tailor function.
+    def make_cross_fragment_tcc_function(self, mode, coupled_fragments=None, correct_t1=True, correct_t2=True, symmetrize_t2=True):
+        """Tailor current CCSD calculation with amplitudes of other fragments.
 
         This assumes orthogonal fragment spaces.
+
+        Parameters
+        ----------
+        mode : int, optional
+            Level of external correction of T2 amplitudes:
+            1: Both occupied indices are projected to each other fragment X.
+            2: Both occupied indices are projected to each other fragment X
+               and combinations of other fragments X,Y.
+            3: Only the first occupied indices is projected to each other fragment X.
+        coupled_fragments : list, optional
+            List of fragments, which are used for the external correction.
+            Each fragment x must have the following attributes defined:
+            `c_active_occ` : Active occupied MO orbitals of fragment x
+            `c_active_vir` : Active virtual MO orbitals of fragment x
+            `results.t1` :   T1 amplitudes of fragment x
+            `results.t2` :   T2 amplitudes of fragment x
+
+        Returns
+        -------
+        tailor_func : function(cc, t1, t2) -> t1, t2
+            Tailoring function for CCSD.
         """
         if mode not in (1, 2, 3):
             raise ValueError()
+        self.log.debugv("TCC mode= %d", mode)
         ovlp = self.base.get_ovlp()     # AO overlap matrix
         c_occ = self.c_active_occ       # Occupied active orbitals of current cluster
         c_vir = self.c_active_vir       # Virtual  active orbitals of current cluster
 
+        if coupled_fragments is None:
+            coupled_fragments = self.fragment.coupled_fragments
+
         def tailor_func(cc, t1, t2):
             """Add external correction to T1 and T2 amplitudes."""
-
             # Add the correction to dt1 and dt2:
-            if correct_t1:
-                dt1 = np.zeros_like(t1)
-            if correct_t2:
-                dt2 = np.zeros_like(t2)
+            if correct_t1:  dt1 = np.zeros_like(t1)
+            if correct_t2:  dt2 = np.zeros_like(t2)
 
             # Loop over all *other* fragments/cluster X
-            for fx in self.fragment.tailor_fragments:
-                assert (fx is not self.fragment)
-                cx_occ = fx.c_active_occ    # Occupied active orbitals of cluster X
-                cx_vir = fx.c_active_vir    # Virtual  active orbitals of cluster X
+            for x in coupled_fragments:
+                assert (x is not self.fragment)
+                cx_occ = x.c_active_occ    # Occupied active orbitals of cluster X
+                cx_vir = x.c_active_vir    # Virtual  active orbitals of cluster X
 
                 # Rotation & projections from cluster X active space to current fragment active space
                 p_occ = np.linalg.multi_dot((cx_occ.T, ovlp, c_occ))
                 p_vir = np.linalg.multi_dot((cx_vir.T, ovlp, c_vir))
-                px = fx.get_fragment_projector(c_occ)   # this is C_occ^T . S . C_frag . C_frag^T . S . C_occ
+                px = x.get_fragment_projector(c_occ)   # this is C_occ^T . S . C_frag . C_frag^T . S . C_occ
+                if x.results.t1 is None and x.results.c1 is not None:
+                    self.log.debugv("Converting C-amplitudes of %s to T-amplitudes", x)
+                    x.results.convert_amp_c_to_t()
                 # Transform fragment X T-amplitudes to current active space and form difference
                 if correct_t1:
-                    tx1 = helper.transform_amplitude(fx.results.t1, p_occ, p_vir)   # ia,ix,ap->xp
+                    tx1 = helper.transform_amplitude(x.results.t1, p_occ, p_vir)   # ia,ix,ap->xp
                     dtx1 = (tx1 - t1)
                     dtx1 = np.dot(px, dtx1)
                     assert dtx1.shape == dt1.shape
                     dt1 += dtx1
                 if correct_t2:
-                    tx2 = helper.transform_amplitude(fx.results.t2, p_occ, p_vir)   # ijab,ix,jy,ap,bq->xypq
+                    tx2 = helper.transform_amplitude(x.results.t2, p_occ, p_vir)   # ijab,ix,jy,ap,bq->xypq
                     dtx2 = (tx2 - t2)
                     if mode == 1:
                         dtx2 = einsum('xi,yj,ijab->xyab', px, px, dtx2)
@@ -432,25 +557,19 @@ class CCSDSolver(ClusterSolver):
                         dtx2 = einsum('xi,ijab->xjab', px, dtx2)
                     assert dtx2.shape == dt2.shape
                     dt2 += dtx2
-
-                self.log.debugv("Tailoring %12s <- %12s: |dT1|= %.2e  |dT2|= %.2e", self.fragment, fx, np.linalg.norm(dtx1), np.linalg.norm(dtx2))
+                self.log.debugv("Tailoring %12s <- %12s: |dT1|= %.2e  |dT2|= %.2e", self.fragment, x, np.linalg.norm(dtx1), np.linalg.norm(dtx2))
 
             # Store these norms in cc, to log their final value:
-            if correct_t1:
-                cc._norm_dt1 = np.linalg.norm(dt1)
-            else:
-                cc._norm_dt1 = 0.0
-            if correct_t2:
-                cc._norm_dt2 = np.linalg.norm(dt2)
-            else:
-                cc._norm_dt2 = 0.0
+            cc._norm_dt1 = np.linalg.norm(dt1) if correct_t1 else 0.0
+            cc._norm_dt2 = np.linalg.norm(dt2) if correct_t2 else 0.0
             # Add correction:
             if correct_t1:
                 t1 = (t1 + dt1)
             if correct_t2:
-                dt2 = (dt2 + dt2.transpose(1,0,3,2))/2
+                if symmetrize_t2:
+                    self.log.debugv("T2 symmetry error: %e", np.linalg.norm(dt2 - dt2.transpose(1,0,3,2))/2)
+                    dt2 = (dt2 + dt2.transpose(1,0,3,2))/2
                 t2 = (t2 + dt2)
-
             return t1, t2
 
         return tailor_func
@@ -458,7 +577,7 @@ class CCSDSolver(ClusterSolver):
 
     def t_diagnostic(self, cc):
         self.log.info("T-Diagnostic")
-        self.log.info("************")
+        self.log.info("------------")
         try:
             dg_t1 = cc.get_t1_diagnostic()
             dg_d1 = cc.get_d1_diagnostic()
@@ -506,19 +625,28 @@ class FCISolver(ClusterSolver):
         c0, c1, c2 = pyscf.ci.cisd.cisdvec_to_amplitudes(cisdvec, self.nactive, nocc)
 
         # Temporary workaround (eris needed for energy later)
-        class ERIs:
+        if self.mf._eri is not None:
+            class ERIs:
+                pass
+            eris = ERIs()
+            c_act = self.mo_coeff[:,self.get_active_slice()]
+            eris.fock = np.linalg.multi_dot((c_act.T, self.base.get_fock(), c_act))
+            g = pyscf.ao2mo.full(self.mf._eri, c_act)
+            o = np.s_[:nocc]
+            v = np.s_[nocc:]
+            eris.ovvo = pyscf.ao2mo.restore(1, g, self.nactive)[o,v,v,o]
+        else:
+            # TODO
             pass
-        eris = ERIs()
-        c_act = self.mo_coeff[:,self.get_active_slice()]
-        eris.fock = np.linalg.multi_dot((c_act.T, self.base.get_fock(), c_act))
-        g = pyscf.ao2mo.full(self.mf._eri, c_act)
-        o = np.s_[:nocc]
-        v = np.s_[nocc:]
-        eris.ovvo = pyscf.ao2mo.restore(1, g, self.nactive)[o,v,v,o]
 
         results = CISolverResults(
                 converged=casci.converged, e_corr=e_corr, c_occ=self.c_active_occ, c_vir=self.c_active_vir, eris=eris,
                 c0=c0, c1=c1, c2=c2)
+
+        if self.opts.make_rdm2:
+            results.dm1, results.dm2 = casci.fcisolver.make_rdm12(wf, self.nactive, nelec)
+        elif self.opts.make_rdm1:
+            results.dm1 = casci.fcisolver.make_rdm1(wf, self.nactive, nelec)
 
         return results
 

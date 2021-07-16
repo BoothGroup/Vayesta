@@ -46,15 +46,13 @@ class EWFOptions(Options):
     project_eris: bool = False          # Project ERIs from a pervious larger cluster (corresponding to larger eta), can result in a loss of accuracy especially for large basis sets!
     project_init_guess: bool = True     # Project converted T1,T2 amplitudes from a previous larger cluster
     orthogonal_mo_tol: float = False
-    #Orbital file
-    plot_orbitals: str = False          # {True, False, 'dmet-exit'}
-    plot_orbitals_dir: str = 'orbitals'
-    plot_orbitals_kwargs: dict = dataclasses.field(default_factory=dict)
     # --- Solver settings
     solver_options: dict = dataclasses.field(default_factory=dict)
     make_rdm1: bool = False
-    pop_analysis: str = False          # Do population analysis
-    eom_ccsd: bool = False              # Perform EOM-CCSD in each cluster by default
+    make_rdm2: bool = False
+    pop_analysis: str = False           # Do population analysis
+    eom_ccsd: list = dataclasses.field(default_factory=list)  # Perform EOM-CCSD in each cluster by default
+    eom_ccsd_nroots: int = 5            # Perform EOM-CCSD in each cluster by default
     eomfile: str = 'eom-ccsd'           # Filename for EOM-CCSD states
     # Counterpoise correction of BSSE
     bsse_correction: bool = True
@@ -63,6 +61,12 @@ class EWFOptions(Options):
     sc_maxiter: int = 30
     sc_energy_tol: float = 1e-6
     sc_mode: int = 0
+    # --- Orbital plots
+    plot_orbitals: list = dataclasses.field(default_factory=dict)
+    plot_orbitals_exit: bool = False            # Exit immediately after all orbital plots have been generated
+    plot_orbitals_dir: str = 'orbitals'
+    plot_orbitals_kwargs: dict = dataclasses.field(default_factory=dict)
+    plot_orbitals_gridsize: tuple = dataclasses.field(default_factory=lambda: (128, 128, 128))
     # --- Other
     energy_partitioning: str = 'first-occ'
     strict: bool = False                # Stop if cluster not converged
@@ -389,56 +393,6 @@ class EWF(QEmbeddingMethod):
     #    return frag
 
 
-    def pop_analysis(self, dm1, mo_coeff=None, filename=None, filemode='a', verbose=True):
-        """
-        Parameters
-        ----------
-        dm1 : (N, N) array
-            If `mo_coeff` is None, AO representation is assumed!
-        """
-        if mo_coeff is not None:
-            dm1 = einsum('ai,ij,bj->ab', mo_coeff, dm1, mo_coeff)
-        c_loc = self.lo
-        cs = np.dot(c_loc.T, self.get_ovlp())
-        pop = einsum('ia,ab,ib->i', cs, dm1, cs)
-        # Get atomic charges
-        elecs = np.zeros(self.mol.natm)
-        for i, label in enumerate(self.mol.ao_labels(fmt=None)):
-            elecs[label[0]] += pop[i]
-        chg = self.mol.atom_charges() - elecs
-
-        if not verbose:
-            return pop, chg
-
-        if filename is None:
-            write = lambda *args : self.log.info(*args)
-            write("Population analysis")
-            write("*******************")
-        else:
-            f = open(filename, filemode)
-            write = lambda fmt, *args : f.write((fmt+'\n') % args)
-            tstamp = datetime.now()
-            self.log.info("[%s] Writing population analysis to file \"%s\"", tstamp, filename)
-            write("[%s] Population analysis" % tstamp)
-            write("*%s*********************" % (26*"*"))
-
-        #shellslices = self.mol.aoslice_by_atom()[:,:2]
-        aoslices = self.mol.aoslice_by_atom()[:,2:]
-        aolabels = self.mol.ao_labels()
-
-        for atom in range(self.mol.natm):
-            write("> Charge of atom %d%-6s= % 11.8f (% 11.8f electrons)", atom, self.mol.atom_symbol(atom), chg[atom], elecs[atom])
-            aos = aoslices[atom]
-            for ao in range(aos[0], aos[1]):
-                label = aolabels[ao]
-                write("    %4d %-16s= % 11.8f" % (ao, label, pop[ao]))
-            #for sh in range(self.mol.nbas):
-            #    # Loop over AOs in shell
-
-        if filename is not None:
-            f.close()
-        return pop, chg
-
 
     def tailor_all_fragments(self):
         for frag in self.fragments:
@@ -478,7 +432,7 @@ class EWF(QEmbeddingMethod):
             self.log.info("[%s] Writing fragment orbitals to file \"%s\"", tstamp, filename)
             with open(filename, "a") as f:
                 f.write("[%s] Fragment Orbitals\n" % tstamp)
-                f.write("*%s*******************\n" % (26*"*"))
+                f.write("*%s-------------------\n" % (26*"-"))
                 # Header
                 fmtline = "%20s" + nfo*"   %20s" + "\n"
                 f.write(fmtline % ("AO", *iao_labels))
@@ -488,8 +442,6 @@ class EWF(QEmbeddingMethod):
                     f.write(fmtline % (ao_labels[i], *self.iao_coeff[i]))
 
         # Mean-field population analysis
-        if self.opts.fragment_type.upper() != 'SITE':
-            self.lo = pyscf.lo.orth_ao(self.mol, "lowdin")
         if self.opts.pop_analysis:
             dm1 = self.mf.make_rdm1()
             if isinstance(self.opts.pop_analysis, str):
@@ -513,10 +465,10 @@ class EWF(QEmbeddingMethod):
                 self.iteration = iteration
                 if self.opts.sc_mode:
                     self.log.info("Now running BNO threshold= %.2e - Iteration= %2d", bno_thr, iteration)
-                    self.log.info("****************************************************")
+                    self.log.info("====================================================")
                 else:
                     self.log.info("Now running BNO threshold= %.2e", bno_thr)
-                    self.log.info("***********************************")
+                    self.log.info("===================================")
 
                 for x, frag in enumerate(self.fragments):
                     if MPI_rank != (x % MPI_size):
@@ -524,7 +476,7 @@ class EWF(QEmbeddingMethod):
                     mpi_info = (" on MPI process %d" % MPI_rank) if MPI_size > 1 else ""
                     msg = "Now running %s%s" % (frag, mpi_info)
                     self.log.info(msg)
-                    self.log.info(len(msg)*"*")
+                    self.log.info(len(msg)*"-")
                     self.log.changeIndentLevel(1)
                     try:
                         result = frag.kernel(bno_threshold=bno_thr)
@@ -571,8 +523,8 @@ class EWF(QEmbeddingMethod):
             return
 
         self.log.info("Fragment Correlation Energies")
-        self.log.info("*****************************")
-        self.log.info("%13s:" + self.nfrag*" %16s", "BNO threshold", *[f.name for f in self.fragments])
+        self.log.info("-----------------------------")
+        self.log.info("%13s:" + self.nfrag*" %16s", "BNO threshold", *[f.id_name for f in self.fragments])
         # TODO
         fmt = "%13.2e:" + self.nfrag*" %13.8f Ha"
         #fmt0 = self.nfrag*" %13.8f Ha"
@@ -688,7 +640,7 @@ class EWF(QEmbeddingMethod):
 
     def print_results(self, results):
         self.log.info("Energies")
-        self.log.info("********")
+        self.log.info("========")
         fmt = "%-20s %+16.8f Ha"
         for i, frag in enumerate(self.loop()):
             e_corr = results["e_corr"][i]

@@ -1,5 +1,6 @@
 import logging
 from timeit import default_timer as timer
+from datetime import datetime
 
 import numpy as np
 import scipy
@@ -13,6 +14,8 @@ import pyscf.pbc
 import pyscf.ao2mo
 import pyscf.pbc.gto
 import pyscf.pbc.df
+import pyscf.pbc.tools
+import pyscf.lib
 try:
     import pyscf.pbc.df.df_incore
     from pyscf.pbc.df.df_incore import IncoreGDF
@@ -114,7 +117,7 @@ class QEmbeddingMethod:
         # ----------
         self.log = log or logging.getLogger(__name__)
         self.log.info("Initializing %s" % self.__class__.__name__)
-        self.log.info("*************%s" % (len(str(self.__class__.__name__))*"*"))
+        self.log.info("=============%s" % (len(str(self.__class__.__name__))*"="))
 
         # 2) Mean-field
         # -------------
@@ -155,12 +158,16 @@ class QEmbeddingMethod:
         self.log.info("n(AO)= %4d  n(MO)= %4d  n(linear dep.)= %4d", self.nao, self.nmo, self.nao-self.nmo)
         idterr = self.mo_coeff.T.dot(self._ovlp).dot(self.mo_coeff) - np.eye(self.nmo)
         self.log.log(logging.ERROR if np.linalg.norm(idterr) > 1e-5 else logging.DEBUG,
-                "Orthogonality error of MF orbitals: L2= %.2e  Linf= %.2e", np.linalg.norm(idterr), abs(idterr).max())
+                "Orthogonality error of MF orbitals: L(2)= %.2e  L(inf)= %.2e", np.linalg.norm(idterr), abs(idterr).max())
 
         # 3) Fragments
         # ------------
         self.default_fragment_type = None
         self.fragments = []
+
+        # 4) Other
+        # --------
+        self.c_lo = None  # Local orthogonal orbitals (e.g. Lowdin)
 
 
     # --- Basic properties and methods
@@ -257,6 +264,31 @@ class QEmbeddingMethod:
         """AO overlap matrix."""
         return self._ovlp
 
+    def get_ovlp_power(self, power):
+        """get power of AO overlap matrix.
+
+        For unfolded calculations, this uses the k-point sampled overlap, for better performance and accuracy.
+
+        Parameters
+        ----------
+        power : float
+            Matrix power.
+
+        Returns
+        -------
+        spow : (n(AO), n(AO)) array
+            Matrix power of AO overlap matrix
+        """
+        if power == 1: return self.get_ovlp()
+        if self.kcell is None:
+            e, v = np.linalg.eigh(self.get_ovlp())
+            return np.dot(v*(e**power), v.T.conj())
+        sk = self.kcell.pbc_intor('int1e_ovlp', hermi=1, kpts=self.kpts, pbcopt=pyscf.lib.c_null_ptr())
+        ek, vk = np.linalg.eigh(sk)
+        spowk = einsum('kai,ki,kbi->kab', vk, ek**power, vk.conj())
+        spow = pyscf.pbc.tools.k2gamma.to_supercell_ao_integrals(self.kcell, self.kpts, spowk)
+        return spow
+
     def get_fock(self):
         """Fock matrix in AO basis."""
         return self._fock
@@ -267,7 +299,7 @@ class QEmbeddingMethod:
         For unfolded PBC calculations, this folds the MO back into k-space
         and contracts with the k-space three-center integrals..
 
-        Arguments
+        Paramters
         ---------
         cm: pyscf.mp.mp2.MP2, pyscf.cc.ccsd.CCSD, or pyscf.cc.rccsd.RCCSD
             Correlated method, must have mo_coeff set.
@@ -702,7 +734,7 @@ class QEmbeddingMethod:
         # Test orthogonality of IAO
         idterr = c_iao.T.dot(ovlp).dot(c_iao) - np.eye(niao)
         self.log.log(logging.ERROR if np.linalg.norm(idterr) > 1e-5 else logging.DEBUG,
-                "Orthogonality error of IAO: L2= %.2e  Linf= %.2e", np.linalg.norm(idterr), abs(idterr).max())
+                "Orthogonality error of IAO: L(2)= %.2e  L(inf)= %.2e", np.linalg.norm(idterr), abs(idterr).max())
 
         if not return_rest:
             return c_iao, None
@@ -748,7 +780,7 @@ class QEmbeddingMethod:
         c_all = np.hstack((c_iao, c_rest))
         idterr = c_all.T.dot(ovlp).dot(c_all) - np.eye(self.nmo)
         self.log.log(logging.ERROR if np.linalg.norm(idterr) > 1e-5 else logging.DEBUG,
-                "Orthogonality error of IAO+vir. orbitals: L2= %.2e  Linf= %.2e", np.linalg.norm(idterr), abs(idterr).max())
+                "Orthogonality error of IAO+vir. orbitals: L(2)= %.2e  L(inf)= %.2e", np.linalg.norm(idterr), abs(idterr).max())
 
         return c_iao, c_rest
 
@@ -801,7 +833,7 @@ class QEmbeddingMethod:
 
         # Print occupations of IAOs
         self.log.info("Fragment Orbital Occupancy per Atom")
-        self.log.info("***********************************")
+        self.log.info("-----------------------------------")
         for a in range(self.mol.natm if not tsym else self.kcell.natm):
             mask = np.where(atoms == a)[0]
             fmt = "  > %3d: %-8s total= %12.8f" + len(occup_atom[a])*"  %s= %10.8f"
@@ -972,3 +1004,77 @@ class QEmbeddingMethod:
         p = np.dot(s21.T, p21)
         assert np.allclose(p, p.T)
         return p
+
+    # Utility
+    # -------
+
+    def pop_analysis(self, dm1, mo_coeff=None, kind='lo', c_lo=None, filename=None, filemode='a', verbose=True):
+    #def pop_analysis(self, dm1, mo_coeff=None, kind='mulliken', c_lo=None, filename=None, filemode='a', verbose=True):
+        """
+        Parameters
+        ----------
+        dm1 : (N, N) array
+            If `mo_coeff` is None, AO representation is assumed!
+        kind : {'mulliken', 'lo'}
+            Kind of population analysis. Default: 'lo'.
+        c_lo :
+            Local orbital coefficients, only used if kind=='lo'. Default: Lowdin AOs.
+        """
+        if mo_coeff is not None:
+            dm1 = einsum('ai,ij,bj->ab', mo_coeff, dm1, mo_coeff)
+        if kind.lower() == 'mulliken':
+            pop = einsum('ab,ba->a', dm1, self.get_ovlp())
+            name = "Mulliken"
+        elif kind.lower() == 'lo':
+            name = "Local orbital"
+            if c_lo is None:
+                c_lo = self.c_lo
+                name = "Lowdin"
+            if c_lo is None:
+                # Lowdin population analysis:
+                # Avoid pre_orth_ao step!
+                #self.c_lo = c_lo = pyscf.lo.orth_ao(self.mol, 'lowdin')
+                #self.c_lo = c_lo = pyscf.lo.orth_ao(self.mol, 'meta-lowdin', pre_orth_ao=None)
+                self.c_lo = c_lo = self.get_ovlp_power(power=-0.5)
+            cs = np.dot(c_lo.T, self.get_ovlp())
+            pop = einsum('ia,ab,ib->i', cs, dm1, cs)
+        else:
+            raise ValueError("Unknown population analysis kind: %s" % kind)
+        # Get atomic charges
+        elecs = np.zeros(self.mol.natm)
+        for i, label in enumerate(self.mol.ao_labels(fmt=None)):
+            elecs[label[0]] += pop[i]
+        chg = self.mol.atom_charges() - elecs
+
+        if not verbose:
+            return pop, chg
+
+        if filename is None:
+            write = lambda *args : self.log.info(*args)
+            write("%s population analysis", name)
+            write("%s--------------------", len(name)*'-')
+        else:
+            f = open(filename, filemode)
+            write = lambda fmt, *args : f.write((fmt+'\n') % args)
+            tstamp = datetime.now()
+            self.log.info("[%s] Writing population analysis to file \"%s\"", tstamp, filename)
+            write("[%s] %s population analysis" % (tstamp, name))
+            write("-%s--%s--------------------" % (26*'-', len(name)*'-'))
+
+        #shellslices = self.mol.aoslice_by_atom()[:,:2]
+        aoslices = self.mol.aoslice_by_atom()[:,2:]
+        aolabels = self.mol.ao_labels()
+
+        for atom in range(self.mol.natm):
+            write("> Charge of atom %d%-6s= % 11.8f (% 11.8f electrons)", atom, self.mol.atom_symbol(atom), chg[atom], elecs[atom])
+            aos = aoslices[atom]
+            for ao in range(aos[0], aos[1]):
+                label = aolabels[ao]
+                write("    %4d %-16s= % 11.8f" % (ao, label, pop[ao]))
+            #for sh in range(self.mol.nbas):
+            #    # Loop over AOs in shell
+
+        if filename is not None:
+            f.close()
+        return pop, chg
+

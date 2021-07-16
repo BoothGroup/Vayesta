@@ -1,3 +1,5 @@
+import numpy as np
+
 import pyscf
 import pyscf.gto
 import pyscf.scf
@@ -29,7 +31,6 @@ c1_1 = results1.c1 / results1.c0
 c2_1 = results1.c2 / results1.c0
 c1_2 = results2.c1 / results2.c0
 c2_2 = results2.c2 / results2.c0
-
 
 # 2) Get fragment projector
 p1 = f1.get_fragment_projector(f1.c_active_occ)

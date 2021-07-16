@@ -102,9 +102,11 @@ def get_arguments():
     parser.add_argument("--solver", type=str_or_none, default="CCSD")
     parser.add_argument("--ccsd-diis-start-cycle", type=int)
     parser.add_argument("--opts", nargs="*", default=[])
+    parser.add_argument("--plot-orbitals", nargs='*')
     parser.add_argument("--plot-orbitals-crop-c", type=float, nargs=2)
     parser.add_argument("--pop-analysis", type=str)
     parser.add_argument("--check-surrounding", type=int)
+    parser.add_argument("--eom-ccsd", nargs='*')
     # Bath specific
     parser.add_argument("--dmet-threshold", type=float, default=1e-4, help="Threshold for DMET bath orbitals. Default= 1e-4")
     parser.add_argument("--bno-threshold", type=float, nargs="*",
@@ -115,7 +117,9 @@ def get_arguments():
     parser.add_argument("--run-hf", type=int, default=1)
     parser.add_argument("--run-ewf", type=int, default=1)
     # Benchmark
-    parser.add_argument("--benchmarks", nargs='*')
+    parser.add_argument('--benchmarks', nargs='*')
+    parser.add_argument('--plus-u', type=float)     # For DFT+U
+    parser.add_argument('--plus-u-orbitals', nargs='*')     # For DFT+U
 
     args, restargs = parser.parse_known_args()
     sys.argv[1:] = restargs
@@ -270,7 +274,7 @@ def pop_analysis(mf, filename=None, mode="a"):
 
     return pop, chg
 
-def get_mf(cell, kpts=None, xc='hf'):
+def get_mf(cell, kpts=None, xc='hf', plus_u=None, plus_u_orbitals=[], minao='MINAO'):
     if kpts is None:
         if hasattr(cell, 'a') and cell.a is not None:
             if xc is None or xc.lower() == "hf":
@@ -288,12 +292,19 @@ def get_mf(cell, kpts=None, xc='hf'):
         if xc is None or xc.lower() == "hf":
             mf = pyscf.pbc.scf.KRHF(cell, kpts)
         else:
-            mf = pyscf.pbc.dft.KRKS(cell, kpts)
-            mf.xc = xc
+            if plus_u is None:
+                mf = pyscf.pbc.dft.KRKS(cell, kpts)
+                mf.xc = xc
+            # DFT + U
+            else:
+                orbs = ' '.join(plus_u_orbitals).split(';')
+                log.info("DFT+U orbitals: %r", orbs)
+                mf = pyscf.pbc.dft.KRKSpU(cell, kpts, xc=xc, U_idx=orbs, U_val=[plus_u], minao_ref=minao)
+
     return mf
 
 def run_mf(a, cell, args, kpts=None, dm_init=None, xc="hf", df=None, build_df_early=False):
-    mf = get_mf(cell, kpts, xc)
+    mf = get_mf(cell, kpts, xc, plus_u=args.plus_u, plus_u_orbitals=args.plus_u_orbitals, minao=args.iao_minao)
     if args.exxdiv_none:
         mf.exxdiv = None
     if args.scf_conv_tol is not None:
@@ -422,17 +433,22 @@ def run_benchmarks(a, cell, mf, kpts, args):
             df = dft.with_df
         energies[xc] = [dft.e_tot]
 
-        # population analysis
+        # Trick: Use EWF for population analysis
         if args.pop_analysis:
-            dft_sc = pyscf.pbc.tools.k2gamma.k2gamma(dft)
-            c_loc = pyscf.lo.orth_ao(dft_sc, 'lowdin')
-            mo = np.linalg.solve(c_loc, dft_sc.mo_coeff)
-            # Mulliken population analysis based on Lowdin orbitals
-            dm = dft_sc.make_rdm1(mo, dft_sc.mo_occ)
-            pop, chg = dft_sc.mulliken_pop(dm=dm, s=np.eye(dm.shape[-1]))
-            with open('dft-%s-pop.txt' % xc, 'a') as f:
-                for i in range(dft_sc.mol.natm):
-                    f.write('%3d %6s  %.8f\n' % (i, dft_sc.mol.atom_symbol(i), chg[i]))
+            ewf = vayesta.ewf.EWF(dft, iao_minao=args.iao_minao)
+            fname = 'dft-%s-pop.txt' % xc
+            ewf.pop_analysis(ewf.mf.make_rdm1(), filename=fname)
+
+            #dft_sc = pyscf.pbc.tools.k2gamma.k2gamma(dft)
+            ##c_loc = pyscf.lo.orth_ao(dft_sc, 'lowdin')
+            #c_loc = pyscf.lo.orth_ao(dft_sc, 'meta-lowdin', pre_orth_ao=None)
+            #mo = np.linalg.solve(c_loc, dft_sc.mo_coeff)
+            ## Mulliken population analysis based on Lowdin orbitals
+            #dm = dft_sc.make_rdm1(mo, dft_sc.mo_occ)
+            #pop, chg = dft_sc.mulliken_pop(dm=dm, s=np.eye(dm.shape[-1]))
+            #with open('dft-%s-meta-pop.txt' % xc, 'a') as f:
+            #    for i in range(dft_sc.mol.natm):
+            #        f.write('%3d %6s  %.8f\n' % (i, dft_sc.mol.atom_symbol(i), chg[i]))
 
 
     # Canonical MP2
@@ -475,7 +491,7 @@ for i, a in enumerate(args.lattice_consts):
 
     if MPI_rank == 0:
         log.info("LATTICE CONSTANT %.3f", a)
-        log.info("**********************")
+        log.info("======================")
         log.changeIndentLevel(1)
 
     energies = {}
@@ -559,8 +575,14 @@ for i, a in enumerate(args.lattice_consts):
         # ----------------------
 
         kwargs = {opt : True for opt in args.opts}
+        if args.plot_orbitals:
+            kwargs['plot_orbitals'] = args.plot_orbitals
+        if args.plot_orbitals_crop_c:
+            kwargs['plot_orbitals_kwargs'] = {'crop': {'c0': args.plot_orbitals_crop_c[0], 'c1': args.plot_orbitals_crop_c[1]}}
         if args.pop_analysis:
             kwargs['pop_analysis'] = args.pop_analysis
+        if args.eom_ccsd:
+            kwargs['eom_ccsd'] = args.eom_ccsd
         solver_options = {}
         if args.ccsd_diis_start_cycle is not None:
             solver_options["diis_start_cycle"] = args.ccsd_diis_start_cycle
@@ -588,11 +610,13 @@ for i, a in enumerate(args.lattice_consts):
                 #    ix = ncells-1    # Make cluster in center
                 #ccx.make_atom_cluster(ix, sym_factor=2, **kwargs)
 
+                # Atom in the center of supercell (better for orbital plots)
+                idx = np.product(args.k_points)-1
                 if (args.atoms[0] == args.atoms[1]):
-                    ccx.make_atom_fragment(0, sym_factor=2*ncells, **kwargs)
+                    ccx.make_atom_fragment(idx, sym_factor=2*ncells, **kwargs)
                 else:
-                    ccx.make_atom_fragment(0, sym_factor=ncells, **kwargs)
-                    ccx.make_atom_fragment(1, sym_factor=ncells, **kwargs)
+                    ccx.make_atom_fragment(idx, sym_factor=ncells, **kwargs)
+                    ccx.make_atom_fragment(idx+1, sym_factor=ncells, **kwargs)
 
             # For population analysis:
             #####elif args.system == "perovskite":
@@ -602,6 +626,8 @@ for i, a in enumerate(args.lattice_consts):
             ###    ccx.make_atom_fragment(2, sym_factor=3*ncells, bno_threshold_factor=0.03)
             elif args.system in ('perovskite', 'SrTiO3', 'SrTiO3-I4'):
                 ccx.make_atom_fragment(1, aos=['4s', '3d'], sym_factor=ncells)
+                # Center in 3x3x3:
+                #ccx.make_atom_fragment(66, aos=['4s', '3d'], sym_factor=ncells)
             ###elif args.system in ('perovskite',):
             ###    # 8 fragment orbitals:
             ###    aos = ['1 Ti 3dz', '1 Ti 3dx2-y2', '2 O 2px', '3 O 2py', '4 O 2pz', '22 O 2px', '13 O 2py', '9 O 2pz']

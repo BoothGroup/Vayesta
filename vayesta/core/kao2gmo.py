@@ -258,9 +258,9 @@ def gdf_to_eris(gdf, mo_coeff, nocc, only_ovov=False, real_j3c=True, symmetry=Fa
             inorm = np.linalg.norm(val.imag)
             imax = abs(val.imag).max()
             if max(inorm, imax) > 1e-5:
-                log.warning("Norm of Im(%2s|%2s):  L2= %.2e  Linf= %.2e", key[:2], key[2:], inorm, imax)
+                log.warning("Norm of Im(%2s|%2s):  L(2)= %.2e  L(inf)= %.2e", key[:2], key[2:], inorm, imax)
             else:
-                log.debugv("Norm of Im(%2s|%2s):  L2= %.2e  Linf= %.2e", key[:2], key[2:], inorm, imax)
+                log.debugv("Norm of Im(%2s|%2s):  L(2)= %.2e  L(inf)= %.2e", key[:2], key[2:], inorm, imax)
             eris[key] = val.real
 
     for key, val in eris.items():
@@ -567,9 +567,9 @@ def j3c_kao2gmo(ints3c, cocc, cvir, only_ov=False, make_real=True, driver='c'):
                 inorm = np.linalg.norm(pj.imag)
                 imax = abs(pj.imag).max()
                 if max(inorm, imax) > 1e-5:
-                    log.warning("Norm of Im(L|%2s):     L2= %.2e  Linf= %.2e", key, inorm, imax)
+                    log.warning("Norm of Im(L|%2s):     L(2)= %.2e  L(inf)= %.2e", key, inorm, imax)
                 else:
-                    log.debug("Norm of Im(L|%2s):     L2= %.2e  Linf= %.2e", key, inorm, imax)
+                    log.debug("Norm of Im(L|%2s):     L(2)= %.2e  L(inf)= %.2e", key, inorm, imax)
             return pj.real
 
         def check_real(j, key):
@@ -578,9 +578,9 @@ def j3c_kao2gmo(ints3c, cocc, cvir, only_ov=False, make_real=True, driver='c'):
                 inorm = np.linalg.norm(pj.imag)
                 imax = abs(pj.imag).max()
                 if max(inorm, imax) > 1e-5:
-                    log.warning("Norm of Im(L|%2s)(-):  L2= %.2e  Linf= %.2e", key[:2], inorm, imax)
+                    log.warning("Norm of Im(L|%2s)(-):  L(2)= %.2e  L(inf)= %.2e", key[:2], inorm, imax)
                 else:
-                    log.debug("Norm of Im(L|%2s)(-):  L2= %.2e  Linf= %.2e", key[:2], inorm, imax)
+                    log.debug("Norm of Im(L|%2s)(-):  L(2)= %.2e  L(inf)= %.2e", key[:2], inorm, imax)
             return pj.real
 
         for key in list(j3c.keys()):
