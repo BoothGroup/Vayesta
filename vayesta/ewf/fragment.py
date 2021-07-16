@@ -215,13 +215,13 @@ class EWFFragment(QEmbeddingFragment):
         #c_dmet, c_env_occ, c_env_vir = self.additional_bath_for_cluster(c_dmet, c_env_occ, c_env_vir)
 
         # Diagonalize cluster DM to separate cluster occupied and virtual
-        self.c_cluster_occ, self.c_cluster_vir = self.diagonalize_cluster_dm(self.c_frag, c_dmet, tol=2*self.opts.dmet_threshold)
-        self.log.info("Cluster orbitals:  n(occ)= %3d  n(vir)= %3d", self.c_cluster_occ.shape[-1], self.c_cluster_vir.shape[-1])
+        c_cluster_occ, c_cluster_vir = self.diagonalize_cluster_dm(self.c_frag, c_dmet, tol=2*self.opts.dmet_threshold)
+        self.log.info("Cluster orbitals:  n(occ)= %3d  n(vir)= %3d", c_cluster_occ.shape[-1], c_cluster_vir.shape[-1])
 
         # Add cluster orbitals to plot
         if self.opts.plot_orbitals:
-            self.add_orbital_plot('cluster', self.c_cluster_occ, dset_idx=2001, keep_in_list=True)
-            self.add_orbital_plot('cluster', self.c_cluster_vir, dset_idx=3001)
+            self.add_orbital_plot('cluster', c_cluster_occ, dset_idx=2001, keep_in_list=True)
+            self.add_orbital_plot('cluster', c_cluster_vir, dset_idx=3001)
 
         # Primary MP2 bath orbitals
         # TODO NOT MAINTAINED
@@ -248,8 +248,8 @@ class EWFFragment(QEmbeddingFragment):
         #    C_occclst, C_virclst = self.diagonalize_cluster_dm(C_bath)
         #self.C_bath = C_bath
 
-        self.c_no_occ, self.n_no_occ = self.make_bno_bath(c_env_occ, c_env_vir, 'occ')
-        self.c_no_vir, self.n_no_vir = self.make_bno_bath(c_env_occ, c_env_vir, 'vir')
+        c_no_occ, n_no_occ = self.make_bno_bath(c_cluster_occ, c_cluster_vir, c_env_occ, c_env_vir, 'occ')
+        c_no_vir, n_no_vir = self.make_bno_bath(c_cluster_occ, c_cluster_vir, c_env_occ, c_env_vir, 'vir')
 
         #if self.opts.plot_orbitals:
         #    for key in self.opts.plot_orbitals.copy():
@@ -258,11 +258,12 @@ class EWFFragment(QEmbeddingFragment):
         #            act = (n_no >= eta)
         #            dm = np.dot(self.c_no_cc[:,mask], c_no[:,mask].T)
 
-
         self.log.timing("Time for bath:  %s", time_string(timer()-t0_bath))
 
+        return c_cluster_occ, c_cluster_vir, c_no_occ, n_no_occ, c_no_vir, n_no_vir
 
-    def make_bno_bath(self, c_env_occ, c_env_vir, kind):
+
+    def make_bno_bath(self, c_cluster_occ, c_cluster_vir, c_env_occ, c_env_vir, kind):
         assert kind in ('occ', 'vir')
         c_env = c_env_occ if (kind == 'occ') else c_env_vir
         if c_env.shape[-1] == 0:
@@ -275,7 +276,7 @@ class EWFFragment(QEmbeddingFragment):
         self.log.changeIndentLevel(1)
         t0 = timer()
         c_no, n_no = make_mp2_bno(
-                self, kind, self.c_cluster_occ, self.c_cluster_vir, c_env_occ, c_env_vir)
+                self, kind, c_cluster_occ, c_cluster_vir, c_env_occ, c_env_vir)
         if len(n_no) > 0:
             self.log.info("%s Bath NO Histogram", name.capitalize())
             self.log.info("%s------------------", len(name)*'-')
@@ -357,7 +358,7 @@ class EWFFragment(QEmbeddingFragment):
             solver = self.solver
 
         if self.c_cluster_occ is None:
-            self.make_bath()
+            self.c_cluster_occ, self.c_cluster_vir, self.c_no_occ, self.n_no_occ, self.c_no_vir, self.n_no_vir = self.make_bath()
 
         #self.e_delta_mp2 = e_delta_occ + e_delta_vir
         #self.log.debug("MP2 correction = %.8g", self.e_delta_mp2)
