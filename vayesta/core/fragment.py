@@ -282,7 +282,7 @@ class QEmbeddingFragment:
         return p
 
 
-    def get_mo_occupation(self, *mo_coeff):
+    def get_mo_occupation(self, *mo_coeff, dm1 = None):
         """Get mean-field occupation numbers (diagonal of 1-RDM) of orbitals.
 
         Parameters
@@ -297,7 +297,8 @@ class QEmbeddingFragment:
         """
         mo_coeff = np.hstack(mo_coeff)
         sc = np.dot(self.base.get_ovlp(), mo_coeff)
-        occ = einsum('ai,ab,bi->i', sc, self.mf.make_rdm1(), sc)
+        if dm1 is None: dm1 = self.base.get_dm1()
+        occ = einsum('ai,ab,bi->i', sc, dm1, sc)
         return occ
 
 
@@ -357,7 +358,7 @@ class QEmbeddingFragment:
         #c_clt = np.hstack((self.c_frag, c_bath))
         c_clt = np.hstack(mo_coeff)
         sc = np.dot(self.base.get_ovlp(), c_clt)
-        dm = np.linalg.multi_dot((sc.T, self.mf.make_rdm1(), sc)) / 2
+        dm = np.linalg.multi_dot((sc.T, self.base.get_dm1(), sc)) / 2
         e, v = np.linalg.eigh(dm)
         if tol and not np.allclose(np.fmin(abs(e), abs(e-1)), 0, atol=tol, rtol=0):
             raise RuntimeError("Error while diagonalizing cluster DM: eigenvalues not all close to 0 or 1:\n%s", e)

@@ -231,7 +231,14 @@ class DMET(QEmbeddingMethod):
             mo_energy, mo_coeff = self.mf.eig(fock + vcorr, self.get_ovlp())
             mo_occ = self.mf.get_occ(mo_energy, mo_coeff)
             rdm = self.mf.make_rdm1(mo_coeff, mo_occ)
+            self.dm1 = rdm
             fock = self.mf.get_fock(dm=rdm)
+
+            print("Frag 1")
+            print(np.linalg.multi_dot((self.fragments[0].c_frag.T, rdm, self.fragments[0].c_frag)))
+            print(np.linalg.eigvalsh(np.linalg.multi_dot((self.fragments[0].c_frag.T, rdm, self.fragments[0].c_frag))))
+
+            # Need to optimise a global chemical potential to ensure electron number is converged.
 
             for x, frag in enumerate(self.fragments):
                 msg = "Now running %s" % (frag)
@@ -239,7 +246,7 @@ class DMET(QEmbeddingMethod):
                 self.log.info(len(msg) * "*")
                 self.log.changeIndentLevel(1)
                 try:
-                    result = frag.kernel(rdm, bno_threshold=bno_thr)
+                    result = frag.kernel(rdm, bno_threshold=bno_thr, construct_bath=True)
                 except DMETFragmentExit:
                     exit = True
                     self.log.info("Exiting %s", frag)
@@ -263,11 +270,22 @@ class DMET(QEmbeddingMethod):
             hl_rdms = [None] * len(self.fragments)
 
             for x, frag in enumerate(self.fragments):
-                c = frag.c_frag#self.cluster_results[frag.id].c_frag
-                impurity_projectors[x] = [c]
-                # Project AO rdm into fragment space.
-                hl_rdms[x] = np.dot(c.T, np.dot(self.cluster_results[frag.id].dm1, c)) / 2
-            vcorr = perform_SDP_fit(self.mol.nelec[0], fock, impurity_projectors, hl_rdms, self.get_ovlp(), self.log)
+                # Get projector from AO space to impurity orbitals.
+                #c = np.dot(c.frag., np.dot(self.mf.get_ovlp()), frag.c_frag)
+                impurity_projectors[x] = [frag.c_frag]
+                # Project rdm into fragment space; currently in cluster canonical orbitals.
+                c = np.linalg.multi_dot((
+                                frag.c_frag.T, self.mf.get_ovlp(), np.hstack((frag.c_active_occ, frag.c_active_vir))))
+                hl_rdms[x] = np.linalg.multi_dot((c, frag.results.dm1, c.T)) / 2
+                #hl_rdms[x] = np.dot(c.T, np.dot(self.cluster_results[frag.id].dm1, c)) / 2
+            vcorr_new = perform_SDP_fit(self.mol.nelec[0], fock, impurity_projectors, hl_rdms, self.get_ovlp(), self.log)
+            delta = sum((vcorr_new - vcorr).reshape(-1)**2)**(0.5)
+            self.log.info("Delta %f" % delta)
+            if delta < 1e-6:
+                self.log.info("DMET converged after %d iterations" % iteration)
+                break
+            vcorr = vcorr_new
+
         else:
             if self.opts.sc_mode:
                 self.log.error("Self-consistency not reached!")

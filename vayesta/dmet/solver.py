@@ -216,8 +216,7 @@ class CCSDSolver(ClusterSolver):
         if self.opts.make_rdm1:
             self.log.info("Making RDM1...")
             #results.dm1 = cc.make_rdm1(eris=eris, ao_repr=True)
-            results.dm1 = cc.make_rdm1(with_frozen=False)
-
+            results.dm1 = cc.make_rdm1(with_frozen=False, ao_repr=False)
         def eom_ccsd(kind, nroots=3):
             kind = kind.upper()
             assert kind in ("IP", "EA")

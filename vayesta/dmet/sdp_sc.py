@@ -3,7 +3,7 @@ import numpy as np
 from pyscf.lib import diis
 from .fragment import DMETFragmentExit
 
-solver = cp.SCS
+solver = cp.MOSEK#cp.SCS
 
 def perform_SDP_fit(nelec, fock, impurity_projectors, target_rdms, ovlp, log):
     """Given all required information about the system, generate the correlation potential reproducing the local DM
@@ -27,7 +27,10 @@ def perform_SDP_fit(nelec, fock, impurity_projectors, target_rdms, ovlp, log):
     ovlp: np.array
         Overlap matrix of the AOs, so we can implicitly transform into the PAO basis.
     """
+    print("Target RDMs:")
     print(target_rdms)
+    print("Nsym:")
+    print([x[0].shape for x in impurity_projectors])
     # First calculate the number of different symmetry-eqivalent orbital sets for each class of impurity (this is the
     # symmetry factor, elsewhere in the code).
     nimp = [x[0].shape[1] for x in impurity_projectors]
@@ -44,18 +47,26 @@ def perform_SDP_fit(nelec, fock, impurity_projectors, target_rdms, ovlp, log):
 
     # print(fock)
 
-    # It might be neater to have U as the variable and impose a sparsity pattern, but I've coded this
-    # version up now and it'll make it easier to extend with symmetry-related impurities.
-    constraints = [
-        (fock + sum([np.linalg.pinv(aproj).T @ us[i] @ np.linalg.pinv(aproj) for i, curr_proj in enumerate(impurity_projectors) for aproj in curr_proj])
-         + z - alpha * np.eye(fock.shape[0])) >> 0,
-        cp.trace(sum([np.linalg.pinv(aproj).T @ us[i] @ np.linalg.pinv(aproj) for i, curr_proj in enumerate(impurity_projectors) for aproj in
-                      curr_proj])) == 0,
-    ]
+    # We have the coefficients of the impurity orbitals in the nonorthogonal AO basis, C.
+    # The coefficients of the AOs in the impurity orbitals is then equal to S @ C.T
+    AO_in_imps = [[aproj.T @ ovlp for aproj in curr_proj] for curr_proj in impurity_projectors]
 
+
+    # Want to construct the full correlation potential, in the AO basis.
+    utot = sum([cp.matmul(aproj.T, cp.matmul(us[i], aproj)) for i, curr_proj in enumerate(AO_in_imps) for aproj in curr_proj])
+    #import scipy
+    #c_pao = np.linalg.inv(scipy.linalg.sqrtm(ovlp))
+
+    # First constraint in AO basis required for solution, second enforces tracelessness of Vcorr.
+    constraints = [
+        fock + utot + z - alpha * ovlp >> 0,
+        cp.trace(utot) == 0,
+    ]
+    # Object function computed implicitly in PAO basis; partially use the fragment basis thanks to the invariance of the
+    # trace to orthogonal rotations (if you're using nonorthogonal fragment orbitals this will need a bit more thought).
     objective = cp.Minimize(
         sum([cp.trace(rdm1 @ ux) * ni for ni, rdm1, ux in zip(nsym, target_rdms, us)])
-        - alpha * nelec + cp.trace(z @ np.linalg.inv(ovlp))
+        - alpha * nelec + cp.trace(cp.matmul(z, np.linalg.inv(ovlp)))
     )
     prob = cp.Problem(objective, constraints)
 
@@ -68,14 +79,20 @@ def perform_SDP_fit(nelec, fock, impurity_projectors, target_rdms, ovlp, log):
 
     # Our local correlation potential values are then contained within the values of this list; use our projector to
     # map back into full space.
-    print(us)
+    print("Local Correlation Potential:")
     print([x.value for x in us])
 
-    fullv = sum([np.linalg.pinv(aproj).T @ us[i].value @ np.linalg.pinv(aproj) for i, curr_proj in enumerate(impurity_projectors) for aproj in curr_proj])
-
+    #fullv = sum([np.linalg.pinv(aproj).T @ us[i].value @ np.linalg.pinv(aproj) for i, curr_proj in enumerate(impurity_projectors) for aproj in curr_proj])
+    #print(fullv)
+    print("Overall Correlation Potential:")
+    print(utot.value)
+    print("Projected local correlation potential:")
+    print(np.linalg.multi_dot([impurity_projectors[0][0].T, utot.value, impurity_projectors[0][0]]))
+    print(np.linalg.multi_dot([impurity_projectors[1][0].T, utot.value, impurity_projectors[1][0]]))
+    print(np.linalg.multi_dot([impurity_projectors[2][0].T, utot.value, impurity_projectors[2][0]]))
     # Report the result of the optimisation, as warning if optimal solution not found.
 
-    return fullv
+    return utot.value
 
 # Code to check that the correlation potential does what it says on the tin, saved for later.
 def WIP():

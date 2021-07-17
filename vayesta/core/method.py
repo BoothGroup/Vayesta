@@ -156,6 +156,7 @@ class QEmbeddingMethod:
         else:
             self.kcell = self.kpts = self.kdf = None
         self.mf = mf
+        self.dm1 = None
 
         # Copy MO attributes, so they can be modified later with no side-effects (updating the mean-field)
         self.mo_energy = self.mf.mo_energy.copy()
@@ -327,6 +328,12 @@ class QEmbeddingMethod:
         # k-point sampled primitive cell:
         eris = gdf_to_pyscf_eris(self.mf, self.kdf, cm, fock=self.get_fock())
         return eris
+
+    def get_dm1(self):
+        if self.dm1 is None:
+            return self.mf.make_rdm1()
+        else:
+            return self.dm1
 
 
     # --- Initialization of fragmentations
@@ -732,7 +739,7 @@ class QEmbeddingMethod:
 
         # Check that all electrons are in IAO space
         sc = np.dot(ovlp, c_iao)
-        dm_iao = np.linalg.multi_dot((sc.T, self.mf.make_rdm1(), sc))
+        dm_iao = np.linalg.multi_dot((sc.T, self.get_dm1(), sc))
         nelec_iao = np.trace(dm_iao)
         self.log.debugv('nelec_iao= %.8f', nelec_iao)
         if abs(nelec_iao - self.mol.nelectron) > 1e-5:
@@ -813,7 +820,7 @@ class QEmbeddingMethod:
             Occupation of fragment orbitals.
         """
         sc = np.dot(self.get_ovlp(), coeff)
-        occup = einsum('ai,ab,bi->i', sc, self.mf.make_rdm1(), sc)
+        occup = einsum('ai,ab,bi->i', sc, self.get_dm1(), sc)
         if not verbose:
             return occup
 
