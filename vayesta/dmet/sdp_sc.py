@@ -29,6 +29,8 @@ def perform_SDP_fit(nelec, fock, impurity_projectors, target_rdms, ovlp, log):
     """
     print("Target RDMs:")
     print(target_rdms)
+    print([x.trace() for x in target_rdms])
+
     print("Nsym:")
     print([x[0].shape for x in impurity_projectors])
     # First calculate the number of different symmetry-eqivalent orbital sets for each class of impurity (this is the
@@ -42,15 +44,12 @@ def perform_SDP_fit(nelec, fock, impurity_projectors, target_rdms, ovlp, log):
     us = [cp.Variable((i, i), symmetric=True) for i in nimp]
     alpha = cp.Variable(1)
 
-    # print("Targets2:")
-    # for i in rdms: print(i)
-
-    # print(fock)
-
     # We have the coefficients of the impurity orbitals in the nonorthogonal AO basis, C.
     # The coefficients of the AOs in the impurity orbitals is then equal to S @ C.T
     AO_in_imps = [[aproj.T @ ovlp for aproj in curr_proj] for curr_proj in impurity_projectors]
 
+    # Check this is correctly orthogonal.
+    #print([x[0].T @ y[0].T for (x,y) in zip(impurity_projectors, AO_in_imps)])
 
     # Want to construct the full correlation potential, in the AO basis.
     utot = sum([cp.matmul(aproj.T, cp.matmul(us[i], aproj)) for i, curr_proj in enumerate(AO_in_imps) for aproj in curr_proj])
@@ -60,7 +59,7 @@ def perform_SDP_fit(nelec, fock, impurity_projectors, target_rdms, ovlp, log):
     # First constraint in AO basis required for solution, second enforces tracelessness of Vcorr.
     constraints = [
         fock + utot + z - alpha * ovlp >> 0,
-        cp.trace(utot) == 0,
+        sum([cp.trace(x) for x in us]) == 0,
     ]
     # Object function computed implicitly in PAO basis; partially use the fragment basis thanks to the invariance of the
     # trace to orthogonal rotations (if you're using nonorthogonal fragment orbitals this will need a bit more thought).
@@ -79,19 +78,18 @@ def perform_SDP_fit(nelec, fock, impurity_projectors, target_rdms, ovlp, log):
 
     # Our local correlation potential values are then contained within the values of this list; use our projector to
     # map back into full space.
-    print("Local Correlation Potential:")
-    print([x.value for x in us])
+    #print("Local Correlation Potential:")
+    #print([x.value for x in us])
 
     #fullv = sum([np.linalg.pinv(aproj).T @ us[i].value @ np.linalg.pinv(aproj) for i, curr_proj in enumerate(impurity_projectors) for aproj in curr_proj])
     #print(fullv)
-    print("Overall Correlation Potential:")
-    print(utot.value)
-    print("Projected local correlation potential:")
-    print(np.linalg.multi_dot([impurity_projectors[0][0].T, utot.value, impurity_projectors[0][0]]))
-    print(np.linalg.multi_dot([impurity_projectors[1][0].T, utot.value, impurity_projectors[1][0]]))
-    print(np.linalg.multi_dot([impurity_projectors[2][0].T, utot.value, impurity_projectors[2][0]]))
-    # Report the result of the optimisation, as warning if optimal solution not found.
-
+    #print("Overall Correlation Potential:")
+    #print(utot.value)
+    #print("Projected local correlation potential:")
+    #print(np.linalg.multi_dot([impurity_projectors[0][0].T, utot.value, impurity_projectors[0][0]]))
+    #print(np.linalg.multi_dot([impurity_projectors[1][0].T, utot.value, impurity_projectors[1][0]]))
+    #print(np.linalg.multi_dot([impurity_projectors[2][0].T, utot.value, impurity_projectors[2][0]]))
+    # Report the result of the optimisation.
     return utot.value
 
 # Code to check that the correlation potential does what it says on the tin, saved for later.

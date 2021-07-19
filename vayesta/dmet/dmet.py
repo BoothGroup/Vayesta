@@ -233,11 +233,6 @@ class DMET(QEmbeddingMethod):
             rdm = self.mf.make_rdm1(mo_coeff, mo_occ)
             self.dm1 = rdm
             fock = self.mf.get_fock(dm=rdm)
-
-            print("Frag 1")
-            print(np.linalg.multi_dot((self.fragments[0].c_frag.T, rdm, self.fragments[0].c_frag)))
-            print(np.linalg.eigvalsh(np.linalg.multi_dot((self.fragments[0].c_frag.T, rdm, self.fragments[0].c_frag))))
-
             # Need to optimise a global chemical potential to ensure electron number is converged.
 
             for x, frag in enumerate(self.fragments):
@@ -245,6 +240,13 @@ class DMET(QEmbeddingMethod):
                 self.log.info(msg)
                 self.log.info(len(msg) * "*")
                 self.log.changeIndentLevel(1)
+
+                c = frag.c_frag.T @ self.get_ovlp() / np.sqrt(2)
+
+                print(np.linalg.multi_dot((c, rdm, c.T)))
+                #print(np.linalg.eigvalsh(
+                #    np.linalg.multi_dot((c, rdm, c.T))))
+                print(np.linalg.multi_dot((c, rdm, c.T)).trace())
                 try:
                     result = frag.kernel(rdm, bno_threshold=bno_thr, construct_bath=True)
                 except DMETFragmentExit:
@@ -277,7 +279,6 @@ class DMET(QEmbeddingMethod):
                 c = np.linalg.multi_dot((
                                 frag.c_frag.T, self.mf.get_ovlp(), np.hstack((frag.c_active_occ, frag.c_active_vir))))
                 hl_rdms[x] = np.linalg.multi_dot((c, frag.results.dm1, c.T)) / 2
-                #hl_rdms[x] = np.dot(c.T, np.dot(self.cluster_results[frag.id].dm1, c)) / 2
             vcorr_new = perform_SDP_fit(self.mol.nelec[0], fock, impurity_projectors, hl_rdms, self.get_ovlp(), self.log)
             delta = sum((vcorr_new - vcorr).reshape(-1)**2)**(0.5)
             self.log.info("Delta %f" % delta)
@@ -289,6 +290,8 @@ class DMET(QEmbeddingMethod):
         else:
             if self.opts.sc_mode:
                 self.log.error("Self-consistency not reached!")
+        return vcorr
+
 
     def print_results(self, results):
         self.log.info("Energies")
