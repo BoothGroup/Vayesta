@@ -76,6 +76,7 @@ class DMET(QEmbeddingMethod):
         """
 
         super().__init__(mf, log=log)
+
         t_start = timer()
         if options is None:
             options = DMETOptions(**kwargs)
@@ -222,68 +223,67 @@ class DMET(QEmbeddingMethod):
         fock = self.get_fock()
         vcorr = np.zeros_like(fock)
 
+        mf = self.curr_mf
+
         exit = False
         for iteration in range(1, maxiter + 1):
             self.iteration = iteration
             self.log.info("Now running iteration= %2d", iteration)
             self.log.info("****************************************************")
 
-            mo_energy, mo_coeff = self.mf.eig(fock + vcorr, self.get_ovlp())
-            mo_occ = self.mf.get_occ(mo_energy, mo_coeff)
-            rdm = self.mf.make_rdm1(mo_coeff, mo_occ)
-            self.dm1 = rdm
-            fock = self.mf.get_fock(dm=rdm)
+            mf.mo_energy, mf.mo_coeff = mf.eig(fock + vcorr, self.get_ovlp())
+            mf.mo_occ = self.mf.get_occ(mf.mo_energy, mf.mo_coeff)
+
+
+            rdm = mf.make_rdm1()
+            fock = mf.get_fock()
             # Need to optimise a global chemical potential to ensure electron number is converged.
 
+            nelec_mf = 0.0
+            rdm = self.curr_mf.make_rdm1()
             for x, frag in enumerate(self.fragments):
-                msg = "Now running %s" % (frag)
-                self.log.info(msg)
-                self.log.info(len(msg) * "*")
-                self.log.changeIndentLevel(1)
-
-                c = frag.c_frag.T @ self.get_ovlp() / np.sqrt(2)
-
-                print(np.linalg.multi_dot((c, rdm, c.T)))
-                #print(np.linalg.eigvalsh(
+                c = frag.c_frag.T @ self.get_ovlp()# / np.sqrt(2)
+                nelec_mf += np.linalg.multi_dot((c, rdm, c.T)).trace()
+                # Want to print one component of the spinorbital dm.
+                print(np.linalg.multi_dot((c, rdm, c.T))/2)
+                # print(np.linalg.eigvalsh(
                 #    np.linalg.multi_dot((c, rdm, c.T))))
                 print(np.linalg.multi_dot((c, rdm, c.T)).trace())
-                try:
-                    result = frag.kernel(rdm, bno_threshold=bno_thr, construct_bath=True)
-                except DMETFragmentExit:
-                    exit = True
-                    self.log.info("Exiting %s", frag)
-                    self.log.changeIndentLevel(-1)
-                    continue
 
-                self.cluster_results[frag.id] = result
-                if not result.converged:
-                    self.log.error("%s is not converged!", frag)
-                else:
-                    self.log.info("%s is done.", frag)
-                self.log.changeIndentLevel(-1)
-                if exit:
-                    break
-            if exit:
-                break
+            lo, hi = -0.2, 0.2
+            err = None
+            def electron_err(cpt):
+                nonlocal  err
+                err = self.calc_electron_number_defect(cpt, bno_thr, nelec_mf)
+                return err
+
+            for ntry in range(5):
+                try:
+                    cpt, res = scipy.optimize.brentq(electron_err, a=lo, b=hi, full_output=True)
+                except ValueError:
+                    print("!",err)
+                    if err < 0:
+                        hi *= 2
+                    else:
+                        lo *= 2
+
+
+
             # Now for the DMET self-consistency! This is where we start needing extra functionality compared to EWF.
             self.log.info("Now running DMET correlation potential fitting")
 
             impurity_projectors = [None] * len(self.fragments)
             hl_rdms = [None] * len(self.fragments)
 
-            for x, frag in enumerate(self.fragments):
+            #for x, frag in enumerate(self.fragments):
                 # Get projector from AO space to impurity orbitals.
                 #c = np.dot(c.frag., np.dot(self.mf.get_ovlp()), frag.c_frag)
-                impurity_projectors[x] = [frag.c_frag]
-                # Project rdm into fragment space; currently in cluster canonical orbitals.
-                c = np.linalg.multi_dot((
-                                frag.c_frag.T, self.mf.get_ovlp(), np.hstack((frag.c_active_occ, frag.c_active_vir))))
-                hl_rdms[x] = np.linalg.multi_dot((c, frag.results.dm1, c.T)) / 2
+
             vcorr_new = perform_SDP_fit(self.mol.nelec[0], fock, impurity_projectors, hl_rdms, self.get_ovlp(), self.log)
             delta = sum((vcorr_new - vcorr).reshape(-1)**2)**(0.5)
-            self.log.info("Delta %f" % delta)
+            self.log.debug("Delta %f" % delta)
             if delta < 1e-6:
-                self.log.info("DMET converged after %d iterations" % iteration)
+                self.log.debug("DMET converged after %d iterations" % iteration)
                 break
             vcorr = vcorr_new
 
@@ -291,6 +291,59 @@ class DMET(QEmbeddingMethod):
             if self.opts.sc_mode:
                 self.log.error("Self-consistency not reached!")
         return vcorr
+
+    def calc_electron_number_defect(self, chempot, bno_thr, nelec_target, construct_bath = True):
+
+        # Save original one-body hamiltonian calculation.
+        saved_hcore = self.curr_mf.get_hcore
+
+        impurity_projectors = [None] * len(self.fragments)
+        hl_rdms = [None] * len(self.fragments)
+        nelec_hl = 0.0
+        exit = False
+        for x, frag in enumerate(self.fragments):
+            msg = "Now running %s" % (frag)
+            self.log.info(msg)
+            self.log.info(len(msg) * "*")
+            self.log.changeIndentLevel(1)
+
+            self.curr_mf.get_hcore = lambda *args: self.mf.get_hcore(*args) - chempot * np.dot(frag.c_frag, frag.c_frag.T)
+
+            try:
+                result = frag.kernel(bno_threshold=bno_thr, construct_bath=construct_bath, chempot=chempot)
+            except DMETFragmentExit as e:
+                exit = True
+                self.log.info("Exiting %s", frag)
+                self.log.changeIndentLevel(-1)
+                self.curr_mf.get_hcore = saved_hcore
+                raise e
+
+            self.cluster_results[frag.id] = result
+            if not result.converged:
+                self.log.error("%s is not converged!", frag)
+            else:
+                self.log.info("%s is done.", frag)
+            self.log.changeIndentLevel(-1)
+            if exit:
+                break
+            impurity_projectors[x] = [frag.c_frag]
+            # Project rdm into fragment space; currently in cluster canonical orbitals.
+            c = np.linalg.multi_dot((
+                frag.c_frag.T, self.mf.get_ovlp(), np.hstack((frag.c_active_occ, frag.c_active_vir))))
+            hl_rdms[x] = np.linalg.multi_dot((c, frag.results.dm1, c.T))# / 2
+            nelec_hl += hl_rdms[x].trace()
+        # Set hcore back to original calculation.
+        self.curr_mf.get_hcore = saved_hcore
+
+        self.log.info("Chemical Potential {:6.4e} gives Total electron deviation {:6.4f}".format(
+                        chempot, nelec_hl - nelec_target))
+        print("Chemical Potential {:6.4e} gives Total electron deviation {:6.4f}".format(
+                        chempot, nelec_hl - nelec_target))
+        print("LL: {:6.4e}, HL: {:6.4e}".format(nelec_target, nelec_hl))
+        return nelec_hl - nelec_target
+
+
+
 
 
     def print_results(self, results):

@@ -139,13 +139,13 @@ class DMETFragment(QEmbeddingFragment):
         return self.e_corrs[idx]
 
 
-    def make_bath(self, rdm):
+    def make_bath(self):
         """Make DMET and MP2 bath natural orbitals."""
         t0_bath = t0 = timer()
         self.log.info("Making DMET Bath")
         self.log.info("****************")
         self.log.changeIndentLevel(1)
-        c_dmet, c_env_occ, c_env_vir = self.make_dmet_bath(self.c_env, tol=self.opts.dmet_threshold, dm1 = rdm)
+        c_dmet, c_env_occ, c_env_vir = self.make_dmet_bath(self.c_env, tol=self.opts.dmet_threshold)
         # DMET bath analysis
         self.log.info("DMET bath character:")
         for i in range(c_dmet.shape[-1]):
@@ -258,7 +258,7 @@ class DMETFragment(QEmbeddingFragment):
         return c_cas_occ, c_cas_vir
 
 
-    def kernel(self, rdm, bno_threshold, solver=None, init_guess=None, eris=None, construct_bath = False):
+    def kernel(self, bno_threshold, solver=None, init_guess=None, eris=None, construct_bath = False, chempot = 0.0):
         """Run solver for a single BNO threshold.
 
         Parameters
@@ -275,7 +275,7 @@ class DMETFragment(QEmbeddingFragment):
         solver = solver or self.solver
         # We always want to regenerate our bath orbitals.
         if construct_bath:#self.c_cluster_occ is None:
-            self.make_bath(rdm)
+            self.make_bath()
 
         #self.e_delta_mp2 = e_delta_occ + e_delta_vir
         #self.log.debug("MP2 correction = %.8g", self.e_delta_mp2)
@@ -304,10 +304,10 @@ class DMETFragment(QEmbeddingFragment):
         mo_coeff = np.hstack((c_occ, c_vir))
 
         # Check occupations
-        n_occ = self.get_mo_occupation(c_occ, dm1=rdm)
+        n_occ = self.get_mo_occupation(c_occ)
         if not np.allclose(n_occ, 2, atol=2*self.opts.dmet_threshold):
             raise RuntimeError("Incorrect occupation of occupied orbitals:\n%r" % n_occ)
-        n_vir = self.get_mo_occupation(c_vir, dm1=rdm)
+        n_vir = self.get_mo_occupation(c_vir)
         if not np.allclose(n_vir, 0, atol=2*self.opts.dmet_threshold):
             raise RuntimeError("Incorrect occupation of virtual orbitals:\n%r" % n_vir)
         mo_occ = np.asarray(nocc*[2] + nvir*[0])

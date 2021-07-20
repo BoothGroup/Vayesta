@@ -30,6 +30,8 @@ from vayesta.core.fragment import QEmbeddingFragment
 from .kao2gmo import gdf_to_pyscf_eris
 from vayesta.misc.gdf import GDF
 
+import copy
+
 
 class QEmbeddingMethod:
 
@@ -156,8 +158,12 @@ class QEmbeddingMethod:
         else:
             self.kcell = self.kpts = self.kdf = None
         self.mf = mf
-        self.dm1 = None
-
+        # Set current mean-field field to shallow copy of original; all attributes will be the same objects, but
+        # reassignments won't overwrite the original object.
+        # If we store coefficients separately then we'll need to have a different interface around all solvers using
+        # the fock matrix, as the fock matrix calculated from the provided mf object is used by default, so we need
+        # to have a separate mf object.
+        self.curr_mf = copy.copy(mf)
         # Copy MO attributes, so they can be modified later with no side-effects (updating the mean-field)
         self.mo_energy = self.mf.mo_energy.copy()
         self.mo_coeff = self.mf.mo_coeff.copy()
@@ -250,7 +256,7 @@ class QEmbeddingMethod:
         Note that the input unit cell itself can be a supercell, in which case
         `e_mf` refers to this cell.
         """
-        return self.mf.e_tot/self.ncells
+        return self.curr_mf.e_tot/self.ncells
 
     def loop(self):
         """Loop over fragments."""
@@ -326,15 +332,8 @@ class QEmbeddingMethod:
             else:
                 return cm.ao2mo()
         # k-point sampled primitive cell:
-        eris = gdf_to_pyscf_eris(self.mf, self.kdf, cm, fock=self.get_fock())
+        eris = gdf_to_pyscf_eris(self.curr_mf, self.kdf, cm, fock=self.get_fock())
         return eris
-
-    def get_dm1(self):
-        if self.dm1 is None:
-            return self.mf.make_rdm1()
-        else:
-            return self.dm1
-
 
     # --- Initialization of fragmentations
     # ------------------------------------
@@ -739,7 +738,7 @@ class QEmbeddingMethod:
 
         # Check that all electrons are in IAO space
         sc = np.dot(ovlp, c_iao)
-        dm_iao = np.linalg.multi_dot((sc.T, self.get_dm1(), sc))
+        dm_iao = np.linalg.multi_dot((sc.T, self.curr_mf.make_rdm1(), sc))
         nelec_iao = np.trace(dm_iao)
         self.log.debugv('nelec_iao= %.8f', nelec_iao)
         if abs(nelec_iao - self.mol.nelectron) > 1e-5:
@@ -820,7 +819,7 @@ class QEmbeddingMethod:
             Occupation of fragment orbitals.
         """
         sc = np.dot(self.get_ovlp(), coeff)
-        occup = einsum('ai,ab,bi->i', sc, self.get_dm1(), sc)
+        occup = einsum('ai,ab,bi->i', sc, self.curr_mf.make_rdm1(), sc)
         if not verbose:
             return occup
 
