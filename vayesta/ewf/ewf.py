@@ -15,7 +15,7 @@ import pyscf.pbc
 import pyscf.pbc.tools
 
 from vayesta.core.util import *
-from vayesta.core import QEmbeddingMethod
+from vayesta.core import QEmbeddingMethod, QEmbeddingOptions
 
 from . import helper
 from .fragment import EWFFragment, EWFFragmentExit
@@ -33,7 +33,7 @@ except ImportError:
     from timeit import default_timer as timer
 
 @dataclasses.dataclass
-class EWFOptions(Options):
+class EWFOptions(QEmbeddingOptions):
     """Options for EWF calculations."""
     # --- Fragment settings
     fragment_type: str = 'IAO'
@@ -83,6 +83,7 @@ VALID_SOLVERS = [None, "", "MP2", "CISD", "CCSD", 'TCCSD', "CCSD(T)", 'FCI', "FC
 
 class EWF(QEmbeddingMethod):
 
+    OPTIONS_CLS = EWFOptions
     FRAGMENT_CLS = EWFFragment
 
     def __init__(self, mf, bno_threshold=1e-8, solver='CCSD', options=None, log=None, **kwargs):
@@ -98,17 +99,12 @@ class EWF(QEmbeddingMethod):
             See class `EWFOptions` for additional options.
         """
 
-        super().__init__(mf, log=log)
+        super().__init__(mf, options=options, log=log, **kwargs)
         t_start = timer()
 
-        if options is None:
-            options = EWFOptions(**kwargs)
-        else:
-            options = options.replace(kwargs)
-        # Options logic
-        if options.pop_analysis:
-            options.make_rdm1 = True
-        self.opts = options
+        # Options
+        if self.opts.pop_analysis:
+            self.opts.make_rdm1 = True
         self.log.info("EWF parameters:")
         for key, val in self.opts.items():
             self.log.info('  > %-24s %r', key + ':', val)

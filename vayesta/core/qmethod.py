@@ -1,6 +1,7 @@
 import logging
 from timeit import default_timer as timer
 from datetime import datetime
+import dataclasses
 
 import numpy as np
 import scipy
@@ -29,12 +30,18 @@ from .kao2gmo import gdf_to_pyscf_eris
 from vayesta.misc.gdf import GDF
 
 
+@dataclasses.dataclass
+class QEmbeddingOptions(Options):
+    recalc_fock: bool = False
+
+
 class QEmbeddingMethod:
 
     # Shadow this in inherited methods:
+    OPTIONS_CLS = QEmbeddingOptions
     FRAGMENT_CLS = QEmbeddingFragment
 
-    def __init__(self, mf, log=None):
+    def __init__(self, mf, options=None, log=None, **kwargs):
         """Abstract base class for quantum embedding methods.
 
         Parameters
@@ -119,6 +126,15 @@ class QEmbeddingMethod:
         self.log.info("Initializing %s" % self.__class__.__name__)
         self.log.info("=============%s" % (len(str(self.__class__.__name__))*"="))
 
+
+        # Options
+        # -------
+        if options is None:
+            options = self.OPTIONS_CLS(**kwargs)
+        else:
+            options = options.replace(kwargs)
+        self.opts = options
+
         # 2) Mean-field
         # -------------
         # k-space unfolding
@@ -147,8 +163,12 @@ class QEmbeddingMethod:
         # Recalcution of Fock matrix expensive for PBC!
         # => avoid self._fock = self.mf.get_fock()
         # (however, loss of accuracy for large values for cell.precision!)
-        cs = np.dot(self.mo_coeff.T, self._ovlp)
-        self._fock = np.dot(cs.T*self.mo_energy, cs)
+        if self.opts.recalc_fock:
+            dm = self.mf.make_rdm1(mo_coeff=self.mo_coeff)
+            self._fock = mf.get_fock(dm=dm)
+        else:
+            cs = np.dot(self.mo_coeff.T, self._ovlp)
+            self._fock = np.dot(cs.T*self.mo_energy, cs)
 
         # Some MF output
         if self.mf.converged:
@@ -299,8 +319,8 @@ class QEmbeddingMethod:
         For unfolded PBC calculations, this folds the MO back into k-space
         and contracts with the k-space three-center integrals..
 
-        Paramters
-        ---------
+        Parameters
+        ----------
         cm: pyscf.mp.mp2.MP2, pyscf.cc.ccsd.CCSD, or pyscf.cc.rccsd.RCCSD
             Correlated method, must have mo_coeff set.
 

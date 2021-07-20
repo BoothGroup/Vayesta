@@ -22,9 +22,9 @@ from pyscf.pbc.tools import cubegen
 # Local modules
 from vayesta.core.util import *
 from vayesta.core import QEmbeddingFragment
+from vayesta.solver import get_solver_class
 
 from . import ewf
-from .solver import get_solver_class
 from .mp2_bath import make_mp2_bno
 from . import helper
 from . import psubspace
@@ -465,6 +465,9 @@ class EWFFragment(QEmbeddingFragment):
         self.c_active_occ = c_active_occ
         self.c_active_vir = c_active_vir
 
+        if solver is None:
+            return None
+
         # Create solver object
         t0 = timer()
         solver_opts = {}
@@ -782,19 +785,25 @@ class EWFFragment(QEmbeddingFragment):
             return 0
 
         nocc, nvir = p2.shape[1:3]
+        occ = np.s_[:nocc]
+        vir = np.s_[nocc:]
         # E1
         e1 = 0
         if p1 is not None:
-            occ = np.s_[:nocc]
-            vir = np.s_[nocc:]
-            f = eris.fock[occ,vir]
+            if hasattr(eris, 'fock'):
+                f = eris.fock[occ,vir]
+            else:
+                f = np.linalg.multi_dot((self.c_active_occ.T, self.base.get_fock(), self.c_active_vir))
             e1 = 2*np.sum(f * p1)
         # E2
         if hasattr(eris, 'ovvo'):
             g_ovvo = eris.ovvo[:]
-        else:
+        elif hasattr(eris, 'ovov'):
             # MP2 only has eris.ovov - for real integrals we transpose
             g_ovvo = eris.ovov[:].reshape(nocc,nvir,nocc,nvir).transpose(0, 1, 3, 2).conj()
+        else:
+            g_ovvo = eris[occ,vir,vir,occ]
+
         e2 = 2*einsum('ijab,iabj', p2, g_ovvo) - einsum('ijab,jabi', p2, g_ovvo)
         self.log.info("Energy components: E[C1]= % 16.8f Ha, E[C2]= % 16.8f Ha", e1, e2)
         if e1 > 1e-4 and 10*e1 > e2:

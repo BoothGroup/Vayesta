@@ -188,7 +188,10 @@ class QEmbeddingFragment:
         p : (n, n) array
             Projection matrix.
         """
-
+        self.log.debugv("Get fragment projector type %s", self.fragment_type)
+        if self.fragment_type.upper() == 'SITE':
+            r = np.dot(coeff.T, self.c_frag)
+            p = np.dot(r, r.T)
         if self.fragment_type.upper() in ('IAO', 'LOWDIN-AO'):
             r = np.linalg.multi_dot((coeff.T, self.base.get_ovlp(), self.c_frag))
             p = np.dot(r, r.T)
@@ -205,9 +208,6 @@ class QEmbeddingFragment:
                 assert np.allclose(s.half.imag, 0)
                 shalf = shalf.real
                 p = np.linalg.multi_dot((C.T, shalf[:,self.aos], s[self.aos], C))
-        if self.fragment_type.upper() == 'SITE':
-            r = np.dot(coeff.T, self.c_frag)
-            p = np.dot(r, r.T)
         if inverse:
             p = np.eye(p.shape[-1]) - p
         return p
