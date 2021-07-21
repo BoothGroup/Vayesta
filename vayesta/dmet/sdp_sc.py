@@ -29,10 +29,10 @@ def perform_SDP_fit(nelec, fock, impurity_projectors, target_rdms, ovlp, log):
     """
     print("Target RDMs:")
     print(target_rdms)
-    print([x.trace() for x in target_rdms])
+    #print([x.trace() for x in target_rdms])
 
-    print("Nsym:")
-    print([x[0].shape for x in impurity_projectors])
+    #print("Nsym:")
+    #print([x[0].shape for x in impurity_projectors])
     # First calculate the number of different symmetry-eqivalent orbital sets for each class of impurity (this is the
     # symmetry factor, elsewhere in the code).
     nimp = [x[0].shape[1] for x in impurity_projectors]

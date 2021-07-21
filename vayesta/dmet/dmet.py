@@ -50,6 +50,9 @@ class DMETOptions(Options):
     maxiter: int = 30
     sc_energy_tol: float = 1e-6
     sc_mode: int = 0
+    charge_consistent: bool = True
+    max_elec_err: float = 1e-4
+    conv_tol: float = 1e-6
     # --- Other
     energy_partitioning: str = 'first-occ'
     strict: bool = False                # Stop if cluster not converged
@@ -222,7 +225,7 @@ class DMET(QEmbeddingMethod):
         #rdm = self.mf.make_rdm1()
         fock = self.get_fock()
         vcorr = np.zeros_like(fock)
-
+        cpt = 0.0
         mf = self.curr_mf
 
         exit = False
@@ -230,13 +233,12 @@ class DMET(QEmbeddingMethod):
             self.iteration = iteration
             self.log.info("Now running iteration= %2d", iteration)
             self.log.info("****************************************************")
-
             mf.mo_energy, mf.mo_coeff = mf.eig(fock + vcorr, self.get_ovlp())
             mf.mo_occ = self.mf.get_occ(mf.mo_energy, mf.mo_coeff)
 
 
             rdm = mf.make_rdm1()
-            fock = mf.get_fock()
+            if self.opts.charge_consistent: fock = mf.get_fock()
             # Need to optimise a global chemical potential to ensure electron number is converged.
 
             nelec_mf = 0.0
@@ -250,39 +252,54 @@ class DMET(QEmbeddingMethod):
                 #    np.linalg.multi_dot((c, rdm, c.T))))
                 print(np.linalg.multi_dot((c, rdm, c.T)).trace())
 
-            lo, hi = -0.2, 0.2
             err = None
             def electron_err(cpt):
                 nonlocal  err
                 err = self.calc_electron_number_defect(cpt, bno_thr, nelec_mf)
                 return err
 
-            for ntry in range(5):
-                try:
-                    cpt, res = scipy.optimize.brentq(electron_err, a=lo, b=hi, full_output=True)
-                except ValueError:
-                    print("!",err)
-                    if err < 0:
-                        hi *= 2
-                    else:
-                        lo *= 2
+            err = electron_err(cpt)
 
+            if abs(err) > self.opts.max_elec_err * nelec_mf:
+                if err < 0:
+                    lo = cpt
+                    hi = cpt + 0.01
+                else:
+                    lo = cpt - 0.01
+                    hi = cpt
+
+                for ntry in range(5):
+                    try:
+                        cpt, res = scipy.optimize.brentq(electron_err, a=lo, b=hi, full_output=True,
+                                    xtol = self.opts.max_elec_err * nelec_mf, rtol = self.opts.max_elec_err * nelec_mf)
+                    except ValueError:
+                        if abs(err) < 1e-6:
+                            cpt = hi
+                            self.log.info("Converged chemical potential: {:6.4e}".format(cpt))
+                            break
+                        elif err < 0:
+                            hi += 0.01 * 2**ntry
+                        else:
+                            lo -= 0.01 * 2**ntry
+                    else:
+                        self.log.info("Converged chemical potential: {:6.4e}".format(cpt))
+                        break
 
 
             # Now for the DMET self-consistency! This is where we start needing extra functionality compared to EWF.
             self.log.info("Now running DMET correlation potential fitting")
 
-            impurity_projectors = [None] * len(self.fragments)
-            hl_rdms = [None] * len(self.fragments)
 
             #for x, frag in enumerate(self.fragments):
                 # Get projector from AO space to impurity orbitals.
                 #c = np.dot(c.frag., np.dot(self.mf.get_ovlp()), frag.c_frag)
 
-            vcorr_new = perform_SDP_fit(self.mol.nelec[0], fock, impurity_projectors, hl_rdms, self.get_ovlp(), self.log)
+            vcorr_new = perform_SDP_fit(self.mol.nelec[0], fock, self.impurity_projectors, [x/2 for x in self.hl_rdms],
+                                            self.get_ovlp(), self.log)
             delta = sum((vcorr_new - vcorr).reshape(-1)**2)**(0.5)
-            self.log.debug("Delta %f" % delta)
-            if delta < 1e-6:
+            self.log.debug("Delta {:6.4e}".format(delta))
+            if delta < self.opts.conv_tol:
+                #print("DMET converged after %d iterations" % iteration)
                 self.log.debug("DMET converged after %d iterations" % iteration)
                 break
             vcorr = vcorr_new
@@ -293,7 +310,7 @@ class DMET(QEmbeddingMethod):
         return vcorr
 
     def calc_electron_number_defect(self, chempot, bno_thr, nelec_target, construct_bath = True):
-
+        self.log.info("Running chemical potential {:6.4e}".format(chempot))
         # Save original one-body hamiltonian calculation.
         saved_hcore = self.curr_mf.get_hcore
 
@@ -310,7 +327,7 @@ class DMET(QEmbeddingMethod):
             self.curr_mf.get_hcore = lambda *args: self.mf.get_hcore(*args) - chempot * np.dot(frag.c_frag, frag.c_frag.T)
 
             try:
-                result = frag.kernel(bno_threshold=bno_thr, construct_bath=construct_bath, chempot=chempot)
+                result = frag.kernel(bno_threshold=bno_thr, construct_bath=construct_bath)
             except DMETFragmentExit as e:
                 exit = True
                 self.log.info("Exiting %s", frag)
@@ -334,12 +351,15 @@ class DMET(QEmbeddingMethod):
             nelec_hl += hl_rdms[x].trace()
         # Set hcore back to original calculation.
         self.curr_mf.get_hcore = saved_hcore
-
+        self.hl_rdms = hl_rdms
+        self.impurity_projectors = impurity_projectors
         self.log.info("Chemical Potential {:6.4e} gives Total electron deviation {:6.4f}".format(
                         chempot, nelec_hl - nelec_target))
         print("Chemical Potential {:6.4e} gives Total electron deviation {:6.4f}".format(
                         chempot, nelec_hl - nelec_target))
-        print("LL: {:6.4e}, HL: {:6.4e}".format(nelec_target, nelec_hl))
+        #print("Chemical Potential {:6.4e} gives Total electron deviation {:6.4e}".format(
+        #                chempot, nelec_hl - nelec_target))
+        #print("LL: {:6.4e}, HL: {:6.4e}".format(nelec_target, nelec_hl))
         return nelec_hl - nelec_target
 
 

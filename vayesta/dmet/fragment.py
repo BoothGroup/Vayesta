@@ -258,7 +258,7 @@ class DMETFragment(QEmbeddingFragment):
         return c_cas_occ, c_cas_vir
 
 
-    def kernel(self, bno_threshold, solver=None, init_guess=None, eris=None, construct_bath = False, chempot = 0.0):
+    def kernel(self, bno_threshold, solver=None, init_guess=None, eris=None, construct_bath = False):
         """Run solver for a single BNO threshold.
 
         Parameters
