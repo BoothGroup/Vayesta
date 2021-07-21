@@ -182,7 +182,7 @@ def make_cross_fragment_tcc_function(solver, mode, coupled_fragments=None, corre
     c_vir = solver.c_active_vir       # Virtual  active orbitals of current cluster
 
     if coupled_fragments is None:
-        coupled_fragments = solver.fragment.coupled_fragments
+        coupled_fragments = solver.fragment.opts.coupled_fragments
 
     #mode = 1
 

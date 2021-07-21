@@ -8,28 +8,25 @@ import scipy.optimize
 from vayesta.core.util import *
 
 
-@dataclasses.dataclass
-class ClusterSolverOptions(Options):
-    make_rdm1: bool = NotSet
-    make_rdm2: bool = NotSet
-
-
-@dataclasses.dataclass
-class ClusterSolverResults:
-    converged: bool = False
-    e_corr: float = 0.0
-    c_occ: np.array = None
-    c_vir: np.array = None
-    # Density matrix in MO representation:
-    dm1: np.array = None
-    dm2: np.array = None
-    eris: 'typing.Any' = None
-
 
 class ClusterSolver:
     """Base class for cluster solver"""
 
-    OPTIONS_CLS = ClusterSolverOptions
+    @dataclasses.dataclass
+    class Options(OptionsBase):
+        make_rdm1: bool = NotSet
+        make_rdm2: bool = NotSet
+
+    @dataclasses.dataclass
+    class Results:
+        converged: bool = False
+        e_corr: float = 0.0
+        c_occ: np.array = None
+        c_vir: np.array = None
+        # Density matrix in MO representation:
+        dm1: np.array = None
+        dm2: np.array = None
+        eris: 'typing.Any' = None
 
     def __init__(self, fragment, mo_coeff, mo_occ, nocc_frozen, nvir_frozen,
             options=None, log=None, **kwargs):
@@ -50,7 +47,7 @@ class ClusterSolver:
         self.nvir_frozen = nvir_frozen
 
         if options is None:
-            options = self.OPTIONS_CLS(**kwargs)
+            options = self.Options(**kwargs)
         else:
             options = options.replace(kwargs)
         options = options.replace(self.base.opts, select=NotSet)

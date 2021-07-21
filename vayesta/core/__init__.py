@@ -1,2 +1,2 @@
-from .qmethod import QEmbeddingMethod, QEmbeddingOptions
+from .qmethod import QEmbeddingMethod
 from .qfragment import QEmbeddingFragment

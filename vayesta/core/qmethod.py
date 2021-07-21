@@ -2,6 +2,7 @@ import logging
 from timeit import default_timer as timer
 from datetime import datetime
 import dataclasses
+import copy
 
 import numpy as np
 import scipy
@@ -30,16 +31,16 @@ from .kao2gmo import gdf_to_pyscf_eris
 from vayesta.misc.gdf import GDF
 
 
-@dataclasses.dataclass
-class QEmbeddingOptions(Options):
-    recalc_fock: bool = False
-
-
 class QEmbeddingMethod:
 
-    # Shadow this in inherited methods:
-    OPTIONS_CLS = QEmbeddingOptions
-    FRAGMENT_CLS = QEmbeddingFragment
+    # Shadow these in inherited methods:
+    Fragment = QEmbeddingFragment
+
+    @dataclasses.dataclass
+    class Options(OptionsBase):
+        copy_mf: bool = True        # Create shallow copy of mean-field object on entry
+        recalc_fock: bool = False
+
 
     def __init__(self, mf, options=None, log=None, **kwargs):
         """Abstract base class for quantum embedding methods.
@@ -126,17 +127,18 @@ class QEmbeddingMethod:
         self.log.info("Initializing %s" % self.__class__.__name__)
         self.log.info("=============%s" % (len(str(self.__class__.__name__))*"="))
 
-
         # Options
         # -------
         if options is None:
-            options = self.OPTIONS_CLS(**kwargs)
+            options = self.Options(**kwargs)
         else:
             options = options.replace(kwargs)
         self.opts = options
 
         # 2) Mean-field
         # -------------
+        if self.opts.copy_mf:
+            mf = copy.copy(mf)
         # k-space unfolding
         if hasattr(mf, 'kpts') and mf.kpts is not None:
             t0 = timer()
@@ -481,8 +483,8 @@ class QEmbeddingMethod:
 
         Returns
         -------
-        frag : self.FRAGMENT_CLS
-            Fragment object of type self.FRAGMENT_CLS.
+        frag : self.Fragment
+            Fragment object of type self.Fragment.
         """
         fragment_type = (fragment_type or self.default_fragment_type).upper()
 
@@ -604,8 +606,8 @@ class QEmbeddingMethod:
 
         Returns
         -------
-        frag : self.FRAGMENT_CLS
-            Fragment object of type self.FRAGMENT_CLS.
+        frag : self.Fragment
+            Fragment object of type self.Fragment.
         """
         fragment_type = (fragment_type or self.default_fragment_type).upper()
 
@@ -691,12 +693,12 @@ class QEmbeddingMethod:
 
         Returns
         -------
-        frag : self.FRAGMENT_CLS
-            Fragment object of type self.FRAGMENT_CLS.
+        frag : self.Fragment
+            Fragment object of type self.Fragment.
         """
         # Get new fragment ID
         fid = self.nfrag + 1
-        frag = self.FRAGMENT_CLS(self, fid=fid, name=name, c_frag=c_frag, c_env=c_env,
+        frag = self.Fragment(self, fid=fid, name=name, c_frag=c_frag, c_env=c_env,
                 fragment_type=fragment_type, sym_factor=sym_factor, **kwargs)
         self.fragments.append(frag)
         return frag

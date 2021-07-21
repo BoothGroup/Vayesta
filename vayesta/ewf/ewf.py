@@ -15,10 +15,10 @@ import pyscf.pbc
 import pyscf.pbc.tools
 
 from vayesta.core.util import *
-from vayesta.core import QEmbeddingMethod, QEmbeddingOptions
+from vayesta.core import QEmbeddingMethod
 
 from . import helper
-from .fragment import EWFFragment, EWFFragmentExit
+from .fragment import EWFFragment
 
 try:
     from mpi4py import MPI
@@ -32,44 +32,6 @@ except ImportError:
     MPI_size = 1
     from timeit import default_timer as timer
 
-@dataclasses.dataclass
-class EWFOptions(QEmbeddingOptions):
-    """Options for EWF calculations."""
-    # --- Fragment settings
-    fragment_type: str = 'IAO'
-    localize_fragment: bool = False     # Perform numerical localization on fragment orbitals
-    iao_minao : str = 'auto'            # Minimal basis for IAOs
-    # --- Bath settings
-    dmet_threshold: float = 1e-4
-    orbfile: str = None                 # Filename for orbital coefficients
-    # If multiple bno thresholds are to be calculated, we can project integrals and amplitudes from a previous larger cluster:
-    project_eris: bool = False          # Project ERIs from a pervious larger cluster (corresponding to larger eta), can result in a loss of accuracy especially for large basis sets!
-    project_init_guess: bool = True     # Project converted T1,T2 amplitudes from a previous larger cluster
-    orthogonal_mo_tol: float = False
-    # --- Solver settings
-    solver_options: dict = dataclasses.field(default_factory=dict)
-    make_rdm1: bool = False
-    make_rdm2: bool = False
-    pop_analysis: str = False           # Do population analysis
-    eom_ccsd: list = dataclasses.field(default_factory=list)  # Perform EOM-CCSD in each cluster by default
-    eom_ccsd_nroots: int = 5            # Perform EOM-CCSD in each cluster by default
-    eomfile: str = 'eom-ccsd'           # Filename for EOM-CCSD states
-    # Counterpoise correction of BSSE
-    bsse_correction: bool = True
-    bsse_rmax: float = 5.0              # In Angstrom
-    # -- Self-consistency
-    sc_maxiter: int = 30
-    sc_energy_tol: float = 1e-6
-    sc_mode: int = 0
-    # --- Orbital plots
-    plot_orbitals: list = dataclasses.field(default_factory=dict)
-    plot_orbitals_exit: bool = False            # Exit immediately after all orbital plots have been generated
-    plot_orbitals_dir: str = 'orbitals'
-    plot_orbitals_kwargs: dict = dataclasses.field(default_factory=dict)
-    plot_orbitals_gridsize: tuple = dataclasses.field(default_factory=lambda: (128, 128, 128))
-    # --- Other
-    energy_partitioning: str = 'first-occ'
-    strict: bool = False                # Stop if cluster not converged
 
 
 @dataclasses.dataclass
@@ -83,8 +45,46 @@ VALID_SOLVERS = [None, "", "MP2", "CISD", "CCSD", 'TCCSD', "CCSD(T)", 'FCI', "FC
 
 class EWF(QEmbeddingMethod):
 
-    OPTIONS_CLS = EWFOptions
-    FRAGMENT_CLS = EWFFragment
+    @dataclasses.dataclass
+    class Options(QEmbeddingMethod.Options):
+        """Options for EWF calculations."""
+        # --- Fragment settings
+        fragment_type: str = 'IAO'
+        localize_fragment: bool = False     # Perform numerical localization on fragment orbitals
+        iao_minao : str = 'auto'            # Minimal basis for IAOs
+        # --- Bath settings
+        dmet_threshold: float = 1e-4
+        orbfile: str = None                 # Filename for orbital coefficients
+        # If multiple bno thresholds are to be calculated, we can project integrals and amplitudes from a previous larger cluster:
+        project_eris: bool = False          # Project ERIs from a pervious larger cluster (corresponding to larger eta), can result in a loss of accuracy especially for large basis sets!
+        project_init_guess: bool = True     # Project converted T1,T2 amplitudes from a previous larger cluster
+        orthogonal_mo_tol: float = False
+        # --- Solver settings
+        solver_options: dict = dataclasses.field(default_factory=dict)
+        make_rdm1: bool = False
+        make_rdm2: bool = False
+        pop_analysis: str = False           # Do population analysis
+        eom_ccsd: list = dataclasses.field(default_factory=list)  # Perform EOM-CCSD in each cluster by default
+        eom_ccsd_nroots: int = 5            # Perform EOM-CCSD in each cluster by default
+        eomfile: str = 'eom-ccsd'           # Filename for EOM-CCSD states
+        # Counterpoise correction of BSSE
+        bsse_correction: bool = True
+        bsse_rmax: float = 5.0              # In Angstrom
+        # -- Self-consistency
+        sc_maxiter: int = 30
+        sc_energy_tol: float = 1e-6
+        sc_mode: int = 0
+        # --- Orbital plots
+        plot_orbitals: list = dataclasses.field(default_factory=dict)
+        plot_orbitals_exit: bool = False            # Exit immediately after all orbital plots have been generated
+        plot_orbitals_dir: str = 'orbitals'
+        plot_orbitals_kwargs: dict = dataclasses.field(default_factory=dict)
+        plot_orbitals_gridsize: tuple = dataclasses.field(default_factory=lambda: (128, 128, 128))
+        # --- Other
+        energy_partitioning: str = 'first-occ'
+        strict: bool = False                # Stop if cluster not converged
+
+    Fragment = EWFFragment
 
     def __init__(self, mf, bno_threshold=1e-8, solver='CCSD', options=None, log=None, **kwargs):
         """Embedded wave function (EWF) calculation object.
@@ -96,7 +96,7 @@ class EWF(QEmbeddingMethod):
         solver : str, optional
             Solver for embedding problem. Default: 'CCSD'.
         **kwargs :
-            See class `EWFOptions` for additional options.
+            See class `Options` for additional options.
         """
 
         super().__init__(mf, options=options, log=log, **kwargs)
@@ -476,7 +476,7 @@ class EWF(QEmbeddingMethod):
                     self.log.changeIndentLevel(1)
                     try:
                         result = frag.kernel(bno_threshold=bno_thr)
-                    except EWFFragmentExit:
+                    except EWFFragment.Exit:
                         exit = True
                         self.log.info("Exiting %s", frag)
                         self.log.changeIndentLevel(-1)

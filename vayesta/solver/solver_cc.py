@@ -9,51 +9,48 @@ import pyscf.cc.dfccsd
 
 from vayesta.core.util import *
 from vayesta.ewf import coupling
-from .solver import ClusterSolver, ClusterSolverOptions, ClusterSolverResults
-
-
-@dataclasses.dataclass
-class CCSDSolverOptions(ClusterSolverOptions):
-    sc_mode: int = NotSet
-    # EOM CCSD
-    eom_ccsd: list = NotSet  # {'IP', 'EA', 'EE-S', 'EE-D', 'EE-SF'}
-    eom_ccsd_nroots: int = NotSet
-    # Tailored-CCSD
-    tcc: bool = False
-    tcc_fci_opts: dict = dataclasses.field(default_factory=dict)
-    # Active space methods
-    c_cas_occ: np.array = None
-    c_cas_vir: np.array = None
-
-
-@dataclasses.dataclass
-class CCSDSolverResults(ClusterSolverResults):
-    t1: np.array = None
-    t2: np.array = None
-    l1: np.array = None
-    l2: np.array = None
-    # EOM-CCSD
-    ip_energy: np.array = None
-    ip_coeff: np.array = None
-    ea_energy: np.array = None
-    ea_coeff: np.array = None
-    # EE
-    ee_s_energy: np.array = None
-    ee_t_energy: np.array = None
-    ee_sf_energy: np.array = None
-    ee_s_coeff: np.array = None
-    ee_t_coeff: np.array = None
-    ee_sf_coeff: np.array = None
+from .solver import ClusterSolver
 
 
 class CCSDSolver(ClusterSolver):
 
-    OPTIONS_CLS = CCSDSolverOptions
+    @dataclasses.dataclass
+    class Options(ClusterSolver.Options):
+        sc_mode: int = NotSet
+        # EOM CCSD
+        eom_ccsd: list = NotSet  # {'IP', 'EA', 'EE-S', 'EE-D', 'EE-SF'}
+        eom_ccsd_nroots: int = NotSet
+        # Tailored-CCSD
+        tcc: bool = False
+        tcc_fci_opts: dict = dataclasses.field(default_factory=dict)
+        # Active space methods
+        c_cas_occ: np.array = None
+        c_cas_vir: np.array = None
+
+    @dataclasses.dataclass
+    class Results(ClusterSolver.Results):
+        t1: np.array = None
+        t2: np.array = None
+        l1: np.array = None
+        l2: np.array = None
+        # EOM-CCSD
+        ip_energy: np.array = None
+        ip_coeff: np.array = None
+        ea_energy: np.array = None
+        ea_coeff: np.array = None
+        # EE
+        ee_s_energy: np.array = None
+        ee_t_energy: np.array = None
+        ee_sf_energy: np.array = None
+        ee_s_coeff: np.array = None
+        ee_t_coeff: np.array = None
+        ee_sf_coeff: np.array = None
+
 
     def kernel(self, init_guess=None, eris=None, coupled_fragments=None, t_diagnostic=True):
 
         if coupled_fragments is None:
-            coupled_fragments = self.fragment.coupled_fragments
+            coupled_fragments = self.fragment.opts.coupled_fragments
 
         # For 2D-systems the Coulomb repulsion is not PSD
         # Density-fitted CCSD does not support non-PSD three-center integrals,
@@ -114,7 +111,7 @@ class CCSDSolver(ClusterSolver):
         if t_diagnostic:
             self.t_diagnostic(cc)
 
-        results = CCSDSolverResults(
+        results = self.Results(
                 converged=cc.converged, e_corr=cc.e_corr, c_occ=self.c_active_occ, c_vir=self.c_active_vir, eris=eris,
                 t1=cc.t1, t2=cc.t2)
 

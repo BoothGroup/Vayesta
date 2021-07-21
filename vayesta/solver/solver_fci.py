@@ -12,29 +12,28 @@ import pyscf.fci
 #import pyscf.fci.direct_spin1
 
 from vayesta.core.util import *
-from .solver import ClusterSolver, ClusterSolverOptions, ClusterSolverResults
-
-
-class FCISolverOptions(ClusterSolverOptions):
-    threads: int = 1
-    lindep: float = None
-    conv_tol: float = None
-
-
-@dataclasses.dataclass
-class FCISolverResults(ClusterSolverResults):
-    # CI coefficients
-    c0: float = None
-    c1: np.array = None
-    c2: np.array = None
+from .solver import ClusterSolver
 
 
 class FCISolver(ClusterSolver):
 
-    OPTIONS_CLS = FCISolverOptions
+
+    class Options(ClusterSolver.Options):
+        threads: int = 1
+        lindep: float = None
+        conv_tol: float = None
+
+
+    @dataclasses.dataclass
+    class Results(ClusterSolver.Results):
+        # CI coefficients
+        c0: float = None
+        c1: np.array = None
+        c2: np.array = None
+
 
     def kernel(self, init_guess=None, eris=None):
-        """TODO"""
+        """Run FCI kernel."""
 
         c_act = self.mo_coeff[:,self.get_active_slice()]
 
@@ -70,7 +69,7 @@ class FCISolver(ClusterSolver):
         cisdvec = pyscf.ci.cisd.from_fcivec(wf, self.nactive, nelec)
         c0, c1, c2 = pyscf.ci.cisd.cisdvec_to_amplitudes(cisdvec, self.nactive, nocc)
 
-        results = FCISolverResults(
+        results = self.Results(
                 converged=fcisolver.converged, e_corr=e_corr, c_occ=self.c_active_occ, c_vir=self.c_active_vir, eris=eris,
                 c0=c0, c1=c1, c2=c2)
 
@@ -115,7 +114,7 @@ class FCISolver(ClusterSolver):
             # TODO
             pass
 
-        results = FCISolverResults(
+        results = self.Results(
                 converged=casci.converged, e_corr=e_corr, c_occ=self.c_active_occ, c_vir=self.c_active_vir, eris=eris,
                 c0=c0, c1=c1, c2=c2)
 

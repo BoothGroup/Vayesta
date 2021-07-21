@@ -30,68 +30,64 @@ from . import helper
 from . import psubspace
 
 
-@dataclasses.dataclass
-class EWFFragmentOptions(Options):
-    """Attributes set to `NotSet` inherit their value from the parent EWF object."""
-    # Options also present in `base`:
-    dmet_threshold: float = NotSet
-    make_rdm1: bool = NotSet
-    make_rdm2: bool = NotSet
-    eom_ccsd: list = NotSet
-    eom_ccsd_nroots: int = NotSet
-    bsse_correction: bool = NotSet
-    bsse_rmax: float = NotSet
-    energy_factor: float = 1.0
-    energy_partitioning: str = NotSet
-    pop_analysis: str = NotSet
-    sc_mode: int = NotSet
-    nelectron_target: int = None                # If set, adjust bath chemical potential until electron number in fragment equals nelectron_target
-    # Additional fragment specific options:
-    bno_threshold_factor: float = 1.0
-    # CAS methods
-    c_cas_occ: np.ndarray = None
-    c_cas_vir: np.ndarray = None
-    # --- Orbital plots
-    plot_orbitals: list = NotSet
-    plot_orbitals_exit: bool = NotSet            # Exit immediately after all orbital plots have been generated
-    plot_orbitals_dir: str = NotSet
-    plot_orbitals_kwargs: dict = NotSet
-    plot_orbitals_gridsize: tuple = NotSet
-    # --- Solver options
-    tcc_fci_opts: dict = dataclasses.field(default_factory=dict)
-
-
-@dataclasses.dataclass
-class EWFFragmentResults:
-    fid: int = None
-    bno_threshold: float = None
-    n_active: int = None
-    converged: bool = None
-    e_corr: float = None
-    ip_energy: np.ndarray = None
-    ea_energy: np.ndarray = None
-    c0: float = None
-    c1: np.ndarray = None
-    c2: np.ndarray = None
-    t1: np.ndarray = None
-    t2: np.ndarray = None
-    l1: np.ndarray = None
-    l2: np.ndarray = None
-    eris: 'typing.Any' = None
-    # Density-matrices
-    dm1: np.ndarray = None
-    dm2: np.ndarray = None
-    g1: np.ndarray = None
-
-    def convert_amp_c_to_t(self):
-        self.t1 = self.c1/self.c0
-        self.t2 = self.c2/self.c0 - einsum('ia,jb->ijab', self.t1, self.t1)
-        return self.t1, self.t2
-
-class EWFFragmentExit(Exception):
-    pass
-
 class EWFFragment(QEmbeddingFragment):
+
+    @dataclasses.dataclass
+    class Options(QEmbeddingFragment.Options):
+        """Attributes set to `NotSet` inherit their value from the parent EWF object."""
+        # Options also present in `base`:
+        dmet_threshold: float = NotSet
+        make_rdm1: bool = NotSet
+        make_rdm2: bool = NotSet
+        eom_ccsd: list = NotSet
+        eom_ccsd_nroots: int = NotSet
+        bsse_correction: bool = NotSet
+        bsse_rmax: float = NotSet
+        energy_factor: float = 1.0
+        energy_partitioning: str = NotSet
+        pop_analysis: str = NotSet
+        sc_mode: int = NotSet
+        nelectron_target: int = None                # If set, adjust bath chemical potential until electron number in fragment equals nelectron_target
+        # Additional fragment specific options:
+        bno_threshold_factor: float = 1.0
+        # CAS methods
+        c_cas_occ: np.ndarray = None
+        c_cas_vir: np.ndarray = None
+        # --- Orbital plots
+        plot_orbitals: list = NotSet
+        plot_orbitals_exit: bool = NotSet            # Exit immediately after all orbital plots have been generated
+        plot_orbitals_dir: str = NotSet
+        plot_orbitals_kwargs: dict = NotSet
+        plot_orbitals_gridsize: tuple = NotSet
+        # --- Solver options
+        tcc_fci_opts: dict = dataclasses.field(default_factory=dict)
+
+    @dataclasses.dataclass
+    class Results(QEmbeddingFragment.Results):
+        bno_threshold: float = None
+        n_active: int = None
+        converged: bool = None
+        e_corr: float = None
+        ip_energy: np.ndarray = None
+        ea_energy: np.ndarray = None
+        c0: float = None
+        c1: np.ndarray = None
+        c2: np.ndarray = None
+        t1: np.ndarray = None
+        t2: np.ndarray = None
+        l1: np.ndarray = None
+        l2: np.ndarray = None
+        eris: 'typing.Any' = None
+        # Density-matrices
+        dm1: np.ndarray = None
+        dm2: np.ndarray = None
+        g1: np.ndarray = None
+
+        def convert_amp_c_to_t(self):
+            self.t1 = self.c1/self.c0
+            self.t2 = self.c2/self.c0 - einsum('ia,jb->ijab', self.t1, self.t1)
+            return self.t1, self.t2
+
 
     def __init__(self, base, fid, name, c_frag, c_env, fragment_type, sym_factor=1, atoms=None, aos=None, log=None,
             solver=None, options=None, **kwargs):
@@ -108,14 +104,13 @@ class EWFFragment(QEmbeddingFragment):
 
         super().__init__(base, fid, name, c_frag, c_env, fragment_type, sym_factor=sym_factor, atoms=atoms, aos=aos, log=log)
 
-        if options is None:
-            options = EWFFragmentOptions(**kwargs)
-        else:
-            options = options.replace(kwargs)
-        options = options.replace(self.base.opts, select=NotSet)
-        if options.pop_analysis:
-            options.make_rdm1 = True
-        self.opts = options
+        #if options is None:
+        #    options = EWFFragmentOptions(**kwargs)
+        #else:
+        #    options = options.replace(kwargs)
+        #options = options.replace(self.base.opts, select=NotSet)
+        if self.opts.pop_analysis:
+            self.opts.make_rdm1 = True
         for key, val in self.opts.items():
             self.log.infov('  > %-24s %r', key + ':', val)
 
@@ -126,8 +121,6 @@ class EWFFragment(QEmbeddingFragment):
         self.solver = solver
         self.log.infov('  > %-24s %r', 'Solver:', self.solver)
 
-        # For coupling (e.g. Tailoring)
-        self.coupled_fragments = []
 
         # --- These attributes will be set after calling `make_bath`:
         # DMET-cluster (fragment + DMET bath) orbital coefficients
@@ -191,7 +184,7 @@ class EWFFragment(QEmbeddingFragment):
         self.log.debug("Writing cube file.")
         self.cubefile.write()
         if self.opts.plot_orbitals_exit:
-            raise EWFFragmentExit("All plots done")
+            raise self.Exit("All plots done")
 
     def make_bath(self):
         """Make DMET and MP2 bath natural orbitals."""
@@ -344,7 +337,7 @@ class EWFFragment(QEmbeddingFragment):
 
         Returns
         -------
-        results : EWFFragmentResults
+        results : self.Results
         """
         if (bno_threshold is None and bno_number is None):
             bno_threshold = self.base.bno_threshold
@@ -536,7 +529,7 @@ class EWFFragment(QEmbeddingFragment):
             except Exception as e:
                 self.log.error("Exception in population analysis: %s", e)
 
-        results = EWFFragmentResults(
+        results = self.Results(
                 fid=self.id,
                 bno_threshold=bno_threshold,
                 n_active=nactive,

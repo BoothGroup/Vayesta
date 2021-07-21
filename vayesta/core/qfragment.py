@@ -1,3 +1,5 @@
+import dataclasses
+
 import numpy as np
 import scipy
 import scipy.linalg
@@ -11,7 +13,24 @@ from vayesta.core.util import *
 
 class QEmbeddingFragment:
 
-    def __init__(self, base, fid, name, c_frag, c_env, fragment_type, atoms=None, aos=None, sym_factor=1.0, log=None):
+
+    @dataclasses.dataclass
+    class Options(OptionsBase):
+        sym_factor: float = 1.0
+        coupled_fragments: list = dataclasses.field(default_factory=list)
+
+
+    @dataclasses.dataclass
+    class Results:
+        fid: int = None
+
+
+    class Exit(Exception):
+        """Raise for controlled early exit."""
+        pass
+
+
+    def __init__(self, base, fid, name, c_frag, c_env, fragment_type, atoms=None, aos=None, log=None, options=None, **kwargs):
         """Abstract base class for quantum embedding fragments.
 
         The fragment may keep track of associated atoms or atomic orbitals, using
@@ -77,16 +96,22 @@ class QEmbeddingFragment:
         self.log.info("Initializing %s" % self)
         self.log.info("-------------%s" % (len(str(self))*"-"))
 
+        # Options
         self.base = base
+        if options is None:
+            options = self.Options(**kwargs)
+        else:
+            options = options.replace(kwargs)
+        options = options.replace(self.base.opts, select=NotSet)
+        self.opts = options
+
         self.c_frag = c_frag
         self.c_env = c_env
         self.fragment_type = fragment_type
-        self.sym_factor = sym_factor
+        self.sym_factor = self.opts.sym_factor
         # For some embeddings, it may be necessary to keep track of any associated atoms or basis functions (AOs)
         self.atoms = atoms
         self.aos = aos
-
-        self.coupled_fragments = []
 
         # Some output
         fmt = '  > %-24s %r'
@@ -151,7 +176,7 @@ class QEmbeddingFragment:
         if frag is self:
             raise RuntimeError("Cannot couple fragment with itself.")
         self.log.debugv("Coupling %s with %s", self, frag)
-        self.coupled_fragments.append(frag)
+        self.opts.coupled_fragments.append(frag)
 
     def couple_to_fragments(self, frags):
         for frag in frags:

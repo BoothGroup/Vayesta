@@ -3,6 +3,7 @@ import logging
 import dataclasses
 import copy
 import psutil
+from timeit import default_timer
 
 import numpy as np
 import scipy
@@ -11,7 +12,7 @@ import scipy.optimize
 log = logging.getLogger(__name__)
 
 # util module can be imported as *, such that the following is imported:
-__all__ = ['NotSet', 'einsum', 'get_used_memory', 'time_string', 'memory_string', 'Options']
+__all__ = ['NotSet', 'einsum', 'get_used_memory', 'timer', 'time_string', 'memory_string', 'OptionsBase']
 
 class NotSetType:
     def __repr__(self):
@@ -21,6 +22,7 @@ in cases where `None` itself is a valid setting.
 """
 NotSet = NotSetType()
 
+timer = default_timer
 
 def einsum(*args, **kwargs):
     kwargs['optimize'] = kwargs.pop('optimize', True)
@@ -74,7 +76,7 @@ class SelectNotSetType:
         return 'SelectNotSet'
 SelectNotSet = SelectNotSetType()
 
-class Options:
+class OptionsBase:
     """Abstract base class for Option dataclasses.
 
     This should be inherited and decorated with `@dataclasses.dataclass`.
@@ -118,7 +120,7 @@ class Options:
             Additional keyword arguments will be added to `other`
         """
 
-        if isinstance(other, Options):
+        if isinstance(other, OptionsBase):
             other = other.asdict()
         if kwargs:
             other.update(kwargs)
