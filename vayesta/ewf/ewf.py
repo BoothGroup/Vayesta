@@ -53,6 +53,7 @@ class EWF(QEmbeddingMethod):
         localize_fragment: bool = False     # Perform numerical localization on fragment orbitals
         iao_minao : str = 'auto'            # Minimal basis for IAOs
         # --- Bath settings
+        bath_type: str = 'MP2-BNO'
         dmet_threshold: float = 1e-4
         orbfile: str = None                 # Filename for orbital coefficients
         # If multiple bno thresholds are to be calculated, we can project integrals and amplitudes from a previous larger cluster:

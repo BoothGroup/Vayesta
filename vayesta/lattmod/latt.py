@@ -7,6 +7,8 @@ import pyscf.pbc
 import pyscf.pbc.gto
 #import pyscf.gto
 import pyscf.scf
+import pyscf.lib
+from pyscf.lib.parameters import BOHR
 
 log = logging.getLogger(__name__)
 
@@ -15,20 +17,14 @@ class LatticeMole(pyscf.pbc.gto.Cell):
 
     Needs to implement:
     a
-    natm                    x
-    nao_nr()                x
-    ao_labels()             x
-    search_ao_label()
-    atom_symbol()
     copy()
-    build()                 x
+    build()
     intor_cross()
     intor_symmetric()
     pbc_intor()
     basis
 
     ?
-    lattice_vectors()
     atom_coord
     unit
     """
@@ -49,11 +45,13 @@ class LatticeMole(pyscf.pbc.gto.Cell):
         return self.nsite
 
     def ao_labels(self, *args):
-        return ['SiteOrb_%d' % i for i in range(self.nsite)]
+        return ['X%d' % i for i in range(self.nsite)]
 
     def atom_symbol(self, site):
-        return 'Site_%d' % site
-        #return 'X_%d' % site
+        return 'X%d' % site
+
+    def atom_pure_symbol(self, site):
+        return 'X'
 
     #def build(self):
     #    pass
@@ -75,6 +73,13 @@ class Hubbard(LatticeMole):
         self.hubbard_t = hubbard_t
         self.hubbard_u = hubbard_u
         self.v_nn = v_nn
+
+    def aoslice_by_atom(self):
+        """One basis function per site ("atom")."""
+        aorange = np.stack(4*[np.arange(self.nsite)], axis=1)
+        aorange[:,1] += 1
+        aorange[:,3] += 1
+        return aorange
 
 
 class Hubbard1D(Hubbard):
@@ -118,6 +123,21 @@ class Hubbard1D(Hubbard):
                 eri[i,i,i+1,i+1] = eri[i+1,i+1,i,i] = v_nn
             eri[self.nsite-1,self.nsite-1,0,0] = eri[0,0,self.nsite-1,self.nsite-1] = v_nn
         return eri
+
+
+    def lattice_vectors(self):
+        """Lattice vectors of 1D Hubbard model.
+
+        An arbitrary value of 1 A is assumed between sites. The lattice vectors, however, are saved in units of Bohr.
+        """
+        rvecs = np.eye(3)
+        rvecs[0,0] = self.nsite
+        return rvecs / BOHR
+
+    def atom_coords(self):
+        coords = np.zeros((self.nsite, 3))
+        coords[:,0] = np.arange(self.nsite)
+        return coords / BOHR
 
 
 class Hubbard2D(Hubbard):
@@ -180,13 +200,25 @@ class Hubbard2D(Hubbard):
 
 
 class LatticeMF(pyscf.scf.hf.RHF):
+#class LatticeMF(pyscf.pbc.scf.hf.RHF):
 
     def __init__(self, mol, *args, **kwargs):
         super().__init__(mol, *args, **kwargs)
         self._eri = mol.get_eri()
 
+    @property
+    def cell(self):
+        return self.mol
+
     def get_hcore(self, *args, **kwargs):
         return self.mol.h1e
+
+    def get_veff(self, mol=None, dm=None, *args, **kwargs):
+        if mol is None: mol = self.mol
+        if dm is None: dm = self.make_rdm1()
+        if self.mol.v_nn is not None and mol.v_nn != 0:
+            raise NotImplementedError()
+        return np.diag(np.diag(dm))*mol.hubbard_u/2
 
     def get_ovlp(self):
         return np.eye(self.mol.nsite)
@@ -227,12 +259,11 @@ class LatticeMF(pyscf.scf.hf.RHF):
 
         return self.e_tot
 
+    #class with_df:
+    #    """Dummy density-fitting"""
+
+    #    @classmethod
+    #    def ao2mo(cls, mo_coeff):
+    #        pass
+
     kernel = kernel_hubbard
-
-    #def get_veff(self, dm=None, *args, **kwargs):
-    #    if dm is None:
-    #        dm = self.make_rdm1()
-    #    return np.diag(np.diag(self.mol.hubbard_u * dm/2))
-
-    #def energy_tot(self, *args, **kwargs):
-    #    return self.e_tot

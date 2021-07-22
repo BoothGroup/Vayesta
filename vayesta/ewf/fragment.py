@@ -48,6 +48,8 @@ class EWFFragment(QEmbeddingFragment):
         pop_analysis: str = NotSet
         sc_mode: int = NotSet
         nelectron_target: int = None                # If set, adjust bath chemical potential until electron number in fragment equals nelectron_target
+        # Bath type
+        bath_type: str = NotSet
         # Additional fragment specific options:
         bno_threshold_factor: float = 1.0
         # CAS methods
@@ -89,7 +91,7 @@ class EWFFragment(QEmbeddingFragment):
             return self.t1, self.t2
 
 
-    def __init__(self, base, fid, name, c_frag, c_env, fragment_type, sym_factor=1, atoms=None, aos=None, log=None,
+    def __init__(self, base, fid, name, c_frag, c_env, fragment_type, atoms=None, aos=None, log=None,
             solver=None, options=None, **kwargs):
         """
         Parameters
@@ -102,7 +104,7 @@ class EWFFragment(QEmbeddingFragment):
             Name of fragment.
         """
 
-        super().__init__(base, fid, name, c_frag, c_env, fragment_type, sym_factor=sym_factor, atoms=atoms, aos=aos, log=log)
+        super().__init__(base, fid, name, c_frag, c_env, fragment_type, atoms=atoms, aos=aos, log=log, **kwargs)
 
         #if options is None:
         #    options = EWFFragmentOptions(**kwargs)
@@ -134,9 +136,6 @@ class EWFFragment(QEmbeddingFragment):
         self.n_no_vir = None
 
         # --- Attributes which will be overwritten for each BNO threshold:
-        # Active orbitals
-        self.c_active_occ = None
-        self.c_active_vir = None
 
         # For self-consistent mode
         self.solver_results = None
@@ -144,17 +143,12 @@ class EWFFragment(QEmbeddingFragment):
         # For orbital plotting
         self.cubefile = None
 
-        self.results = None
 
     #@property
     #def e_corr(self):
     #    """Best guess for correlation energy, using the lowest BNO threshold."""
     #    idx = np.argmin(self.bno_threshold)
     #    return self.e_corrs[idx]
-
-    @property
-    def c_active(self):
-        return np.hstack((self.c_active_occ, self.c_active_vir))
 
     def init_orbital_plot(self):
         if self.boundary_cond == 'open':
@@ -241,8 +235,20 @@ class EWFFragment(QEmbeddingFragment):
         #    C_occclst, C_virclst = self.diagonalize_cluster_dm(C_bath)
         #self.C_bath = C_bath
 
-        c_no_occ, n_no_occ = self.make_bno_bath(c_cluster_occ, c_cluster_vir, c_env_occ, c_env_vir, 'occ')
-        c_no_vir, n_no_vir = self.make_bno_bath(c_cluster_occ, c_cluster_vir, c_env_occ, c_env_vir, 'vir')
+        if self.opts.bath_type is None or self.opts.bath_type.upper() == 'NONE':
+            c_no_occ = c_env_occ
+            c_no_vir = c_env_vir
+            n_no_occ = np.full((c_no_occ.shape[-1],), -np.inf)
+            n_no_vir = np.full((c_no_vir.shape[-1],), -np.inf)
+        elif self.opts.bath_type.upper() == 'ALL':
+            c_no_occ = c_env_occ
+            c_no_vir = c_env_vir
+            n_no_occ = np.full((c_no_occ.shape[-1],), np.inf)
+            n_no_vir = np.full((c_no_vir.shape[-1],), np.inf)
+        elif self.opts.bath_type.upper() == 'MP2-BNO':
+            c_no_occ, n_no_occ = self.make_bno_bath(c_cluster_occ, c_cluster_vir, c_env_occ, c_env_vir, 'occ')
+            c_no_vir, n_no_vir = self.make_bno_bath(c_cluster_occ, c_cluster_vir, c_env_occ, c_env_vir, 'vir')
+
 
         #if self.opts.plot_orbitals:
         #    for key in self.opts.plot_orbitals.copy():

@@ -26,7 +26,7 @@ except:
 
 from vayesta.core import vlog
 from vayesta.core.util import *
-from vayesta.core.qfragment import QEmbeddingFragment
+from vayesta.core.fragment import QEmbeddingFragment
 from .kao2gmo import gdf_to_pyscf_eris
 from vayesta.misc.gdf import GDF
 
@@ -210,6 +210,7 @@ class QEmbeddingMethod:
     def has_lattice_vectors(self):
         """Flag if self.mol has lattice vectors defined."""
         return (hasattr(self.mol, 'a') and self.mol.a is not None)
+        #return hasattr(self.mol, 'lattice_vectors')
 
     @property
     def boundary_cond(self):
@@ -221,27 +222,6 @@ class QEmbeddingMethod:
         if self.mol.dimension == 2:
             return 'periodic-2D'
         return 'periodic'
-
-    # Store these as attributes instead:
-    #@property
-    #def kpts(self):
-    #    """k-points for periodic calculations.
-
-    #    TODO: for *not unfolded* Gamma-point calculations, does this return None?
-    #    Should it return [(0,0,0)]?
-    #    """
-    #    if self.kdf is None:
-    #        return None
-    #    return self.kdf.kpts
-
-    #@property
-    #def kcell(self):
-    #    """Unit cell for periodic calculations.
-    #    Note that this is not the unfolded supercell, which is stored in `self.mol`.
-    #    """
-    #    if self.kdf is None:
-    #        return None
-    #    return self.kdf.cell
 
     @property
     def nao(self):
