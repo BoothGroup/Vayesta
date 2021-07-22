@@ -755,7 +755,7 @@ class RAGF2:
 
         chkfile = chkfile or self.chkfile
 
-        if self.chkfile is None:
+        if chkfile is None:
             return self
 
         chkutil.dump_agf2(self, chkfile=self.mf.chkfile)
