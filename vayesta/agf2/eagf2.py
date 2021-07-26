@@ -10,8 +10,8 @@ import pyscf.agf2
 import vayesta
 import vayesta.ewf
 from vayesta.ewf import helper
-from vayesta.core.util import Options, time_string
-from vayesta.core.qmethod import QEmbeddingMethod
+from vayesta.core import QEmbeddingMethod
+from vayesta.core.util import OptionsBase, time_string
 from vayesta.agf2.fragment import EAGF2Fragment
 from vayesta.agf2.ragf2 import RAGF2
 from vayesta.agf2 import util
@@ -22,9 +22,11 @@ try:
 except ImportError:
     from timeit import default_timer as timer
 
+#TODO bath_type = 'ALL', 'NONE'
+
 
 @dataclasses.dataclass
-class EAGF2Options(Options):
+class EAGF2Options(OptionsBase):
     ''' Options for EAGF2 calculations
     '''
 
@@ -33,7 +35,7 @@ class EAGF2Options(Options):
     iao_minao: str = 'auto'
 
     # --- Bath settings
-    ewdmet: bool = False
+    bath_type: str = 'MP2-BNO'    # 'MP2-BNO', 'EWDMET' == 'POWER'
     nmom_bath: int = 2
     bno_threshold: float = 1e-8
     bno_threshold_factor: float = 1.0
@@ -114,7 +116,7 @@ def fock_loop(mf, gf, se, max_cycle_inner=50, max_cycle_outer=20, conv_tol_nelec
 
 class EAGF2(QEmbeddingMethod):
 
-    FRAGMENT_CLS = EAGF2Fragment
+    Fragment = EAGF2Fragment
 
     def __init__(self, mf, options=None, log=None, **kwargs):
         ''' Embedded AGF2 calculation
@@ -315,7 +317,7 @@ if __name__ == '__main__':
     eagf2 = EAGF2(mf,
             bno_threshold=bno_threshold, 
             fragment_type=fragment_type,
-            ewdmet=True,
+            bath_type='MP2-BNO',
             fock_loop=True,
     )
     for i in range(mol.natm):

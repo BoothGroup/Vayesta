@@ -9,7 +9,7 @@ import pyscf.lib
 import pyscf.agf2
 
 from vayesta.ewf.fragment import EWFFragment
-from vayesta.core.util import Options, NotSet, get_used_memory, time_string
+from vayesta.core.util import OptionsBase, NotSet, get_used_memory, time_string
 from vayesta.core import QEmbeddingFragment
 from vayesta.agf2 import ragf2, ewdmet_bath, util
 
@@ -21,12 +21,12 @@ except ImportError:
 
 
 @dataclasses.dataclass
-class EAGF2FragmentOptions(Options):
+class EAGF2FragmentOptions(OptionsBase):
     ''' Options for EAGF2 fragments
     '''
 
     # --- Bath settings
-    ewdmet: bool = NotSet
+    bath_type: str = NotSet
     nmom_bath: int = NotSet
     bno_threshold: float = NotSet
     bno_threshold_factor: float = NotSet
@@ -140,16 +140,17 @@ class EAGF2Fragment(QEmbeddingFragment):
         ''' Make bath orbitals
         '''
 
-        if self.opts.ewdmet:
+        if self.opts.bath_type.upper() in ['EWDMET', 'POWER']:
             return self.make_ewdmet_bath()
-        else:
+        elif self.opts.bath_type.upper() == 'MP2-BNO':
             #TODO make consistent with EWF API
-            EWFFragment.make_bath(self)
+            self.c_cluster_occ, self.c_cluster_vir, c_no_occ, n_no_occ, c_no_vir, n_no_vir = \
+                    EWFFragment.make_bath(self)
 
             c_nbo_occ, c_env_occ = \
-                    self.truncate_bno(self.c_no_occ, self.n_no_occ, self.opts.bno_threshold)
+                    self.truncate_bno(c_no_occ, n_no_occ, self.opts.bno_threshold)
             c_nbo_vir, c_env_vir = \
-                    self.truncate_bno(self.c_no_vir, self.n_no_vir, self.opts.bno_threshold)
+                    self.truncate_bno(c_no_vir, n_no_vir, self.opts.bno_threshold)
 
             self.c_env_occ = c_env_occ
             self.c_env_vir = c_env_vir

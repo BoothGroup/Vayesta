@@ -14,7 +14,7 @@ from pyscf.agf2 import chkfile as chkutil
 
 # Vayesta
 import vayesta
-from vayesta.core.util import time_string, Options, NotSet
+from vayesta.core.util import time_string, OptionsBase, NotSet
 
 # Timings
 if mpi_helper.mpi == None:
@@ -24,7 +24,7 @@ else:
 
 
 @dataclasses.dataclass
-class RAGF2Options(Options):
+class RAGF2Options(OptionsBase):
     ''' Options for RAGF2 calculations.
     '''
 
