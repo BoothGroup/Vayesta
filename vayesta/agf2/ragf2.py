@@ -870,11 +870,13 @@ class RAGF2:
         if self.gf is None:
             gf = self.gf = self.g0 = self.build_init_greens_function()
         else:
+            gf = self.gf
             self.log.info("Initial GF was already initialised")
 
         if self.se is None:
             se = self.se = self.build_self_energy(gf)
         else:
+            se = self.se
             self.log.info("Initial SE was already initialised")
 
         diis = DIIS(space=self.opts.diis_space, min_space=self.opts.diis_min_space)
