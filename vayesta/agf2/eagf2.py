@@ -1,273 +1,329 @@
 import logging
-import collections
-import argparse
+import dataclasses
 
 import numpy as np
 
 import pyscf
-import pyscf.gto
-import pyscf.scf
+import pyscf.lib
 import pyscf.agf2
-import pyscf.ao2mo
 
 import vayesta
 import vayesta.ewf
-import vayesta.lattmod
-from vayesta.agf2 import ragf2, ewdmet_bath
+from vayesta.ewf import helper
+from vayesta.core.util import Options, time_string
+from vayesta.core.qmethod import QEmbeddingMethod
+from vayesta.agf2.fragment import EAGF2Fragment
+from vayesta.agf2.ragf2 import RAGF2
+from vayesta.agf2 import util
 
 try:
-    import dyson
+    from mpi4py import MPI
+    timer = MPI.Wtime
 except ImportError:
-    pass
+    from timeit import default_timer as timer
 
-fakelog = logging.getLogger('fake')
-fakelog.setLevel(logging.CRITICAL)
 
-log = vayesta.log
+@dataclasses.dataclass
+class EAGF2Options(Options):
+    ''' Options for EAGF2 calculations
+    '''
 
-# --- Settings
-parser = argparse.ArgumentParser()
-parser.add_argument('--hubbard', action='store_true', help='use the Hubbard model')
-parser.add_argument('--ewdmet', action='store_true', help='use the EwDMET bath')
-parser.add_argument('--fock-loop', action='store_true', help='perform an additional Fock loop')
-parser.add_argument('--democratic', action='store_true', help='perform democratic partitioning')
-parser.add_argument('--bno_threshold', type=float, default=1e9, help='BNO threshold')
-parser.add_argument('--nmom-ewdmet', type=int, default=3, help='Number of EwDMET bath moments')
-parser.add_argument('--nmom-projection', type=int, default=0, help='Number of projection moments')
-parser.add_argument('--project-moments', action='store_true', help='Project via moments')
-parser.add_argument('--nsite', type=int, default=20, help='Number of Hubbard sites')
-parser.add_argument('--hubbard-u', type=float, default=8.0, help='Hubbard U parameter')
-parser.add_argument('--do-full-agf2', action='store_true', help='Compare to full AGF2')
-parser.add_argument('--atom', type=str, default='C 0 0 0', help='PySCF atom field')
-parser.add_argument('--basis', type=str, default='cc-pvdz', help='PySCF basis field')
-globals().update(parser.parse_args().__dict__)
+    # --- Fragment settings
+    fragment_type: str = 'Lowdin-AO'
+    iao_minao: str = 'auto'
 
-# --- System
-if hubbard:
-    mol = vayesta.lattmod.Hubbard1D(
-            nsite=nsite,
-            nelectron=nsite,
-            hubbard_u=hubbard_u,
-            boundary='apbc',
-            verbose=0,
+    # --- Bath settings
+    ewdmet: bool = False
+    nmom_bath: int = 2
+    bno_threshold: float = 1e-8
+    bno_threshold_factor: float = 1.0
+    dmet_threshold: float = 1e-4
+    ewdmet_threshold: float = 1e-4
+
+    # --- Solver settings
+    solver_options: dict = dataclasses.field(default_factory=dict)
+
+    # --- Other
+    strict: bool = False
+    fock_loop: bool = True
+    orthogonal_mo_tol = 1e-9
+
+
+@dataclasses.dataclass
+class EAGF2Results:
+    ''' Results for EAGF2 calculations
+    '''
+
+    e_corr: float = None
+    e_1b: float = None
+    e_2b: float = None
+    gf: pyscf.agf2.GreensFunction = None
+    se: pyscf.agf2.SelfEnergy = None
+
+
+#TODO: combine with vayesta.agf2.ragf2.RAGF2 functionality
+#TODO: take fock loop opts from solver_options
+def fock_loop(mf, gf, se, max_cycle_inner=50, max_cycle_outer=20, conv_tol_nelec=1e-7, conv_tol_rdm1=1e-7):
+    '''
+    Perform a Fock loop with Fock builds in AO basis
+    '''
+
+    nmo = gf.nphys
+    nelec = mf.mol.nelectron
+    diis = pyscf.lib.diis.DIIS()
+    converged = False
+
+    def get_fock():
+        rdm1 = gf.make_rdm1()
+        rdm1 = np.linalg.multi_dot((mf.mo_coeff, rdm1, mf.mo_coeff.T))
+        fock = mf.get_fock(dm=rdm1)
+        fock = np.linalg.multi_dot((mf.mo_coeff.T, fock, mf.mo_coeff))
+        return fock
+
+    fock = get_fock()
+    rdm1_prev = np.zeros_like(fock)
+
+    for niter1 in range(max_cycle_outer):
+        se, opt = pyscf.agf2.chempot.minimize_chempot(
+                se, fock, nelec, x0=se.chempot,
+                tol=conv_tol_nelec*1e-2,
+                maxiter=max_cycle_inner,
+        )
+
+        for niter2 in range(max_cycle_inner):
+            w, v = se.eig(fock)
+            se.chempot, nerr = pyscf.agf2.chempot.binsearch_chempot((w, v), nmo, nelec)
+            gf = pyscf.agf2.GreensFunction(w, v[:nmo], chempot=se.chempot)
+
+            fock = get_fock()
+            rdm1 = gf.make_rdm1()
+            fock = diis.update(fock, xerr=None)
+
+            derr = np.max(np.absolute(rdm1 - rdm1_prev))
+            rdm1_prev = rdm1.copy()
+
+            if derr < conv_tol_rdm1:
+                break
+
+        if derr < conv_tol_rdm1 and abs(nerr) < conv_tol_nelec:
+            converged = True
+            break
+
+    return gf, se, fock
+
+
+class EAGF2(QEmbeddingMethod):
+
+    FRAGMENT_CLS = EAGF2Fragment
+
+    def __init__(self, mf, options=None, log=None, **kwargs):
+        ''' Embedded AGF2 calculation
+
+        Parameters
+        ----------
+        mf : pyscf.scf ojbect
+            Converged mean-field object.
+        '''
+
+        super().__init__(mf, log=log)
+        t0 = timer()
+
+        # --- Quiet logger for AGF2 calculations on the clusters
+        self.quiet_log = logging.Logger('quiet')
+        self.quiet_log.setLevel(logging.CRITICAL)
+
+        self.opts = options
+        if self.opts is None:
+            self.opts = EAGF2Options(**kwargs)
+        else:
+            self.opts = self.opts.replace(kwargs)
+        self.log.info("EAGF2 parameters:")
+        for key, val in self.opts.items():
+            self.log.info("  > %-24s %r", key + ":", val)
+
+        # --- Check input
+        if not mf.converged:
+            if self.opts.strict:
+                raise RuntimeError("Mean-field calculation not converged.")
+            else:
+                self.log.error("Mean-field calculation not converged.")
+        self.bno_threshold = bno_threshold
+
+        # Orthogonalize insufficiently orthogonal MOs
+        # (For example as a result of k2gamma conversion with low cell.precision)
+        c = self.mo_coeff.copy()
+        assert np.all(c.imag == 0), "max|Im(C)|= %.2e" % abs(c.imag).max()
+        ctsc = np.linalg.multi_dot((c.T, self.get_ovlp(), c))
+        nonorth = abs(ctsc - np.eye(ctsc.shape[-1])).max()
+        self.log.info("Max. non-orthogonality of input orbitals= %.2e%s", nonorth, " (!!!)" if nonorth > 1e-5 else "")
+        if self.opts.orthogonal_mo_tol and nonorth > self.opts.orthogonal_mo_tol:
+            t0 = timer()
+            self.log.info("Orthogonalizing orbitals...")
+            self.mo_coeff = helper.orthogonalize_mo(c, self.get_ovlp())
+            change = abs(np.diag(np.linalg.multi_dot((self.mo_coeff.T, self.get_ovlp(), c)))-1)
+            self.log.info("Max. orbital change= %.2e%s", change.max(), " (!!!)" if change.max() > 1e-4 else "")
+            self.log.timing("Time for orbital orthogonalization: %s", time_string(timer()-t0))
+
+        # Prepare fragments
+        t1 = timer()
+        fragkw = {}
+        if self.opts.fragment_type.upper() == 'IAO':
+            if self.opts.iao_minao == 'auto':
+                self.opts.iao_minao = helper.get_minimal_basis(self.mol.basis)
+                self.log.warning("Minimal basis set '%s' for IAOs was selected automatically.",  self.opts.iao_minao)
+            self.log.info("Computational basis= %s", self.mol.basis)
+            self.log.info("Minimal basis=       %s", self.opts.iao_minao)
+            fragkw['minao'] = self.opts.iao_minao
+        self.init_fragmentation(self.opts.fragment_type, **fragkw)
+        self.log.timing("Time for fragment initialization: %s", time_string(timer() - t1))
+
+        self.log.timing("Time for EAGF2 setup: %s", time_string(timer() - t0))
+
+        self.cluster_results = {}
+        self.result = None
+        self.e_corr = 0.0
+
+
+    def __repr__(self):
+        keys = ['mf']
+        fmt = ('%s(' + len(keys)*'%s: %r, ')[:-2] + ')'
+        values = [self.__dict__[k] for k in keys]
+        return fmt % (self.__class__.__name__, *[x for y in zip(keys, values) for x in y])
+
+
+    @property
+    def e_tot(self):
+        """Total energy."""
+        return self.e_mf + self.e_corr
+
+
+    def kernel(self):
+        ''' Run EAGF2
+        '''
+
+        t0 = timer()
+
+        if self.nfrag == 0:
+            raise ValueError("No fragments defined for calculation.")
+
+        nelec_frags = sum([f.sym_factor*f.nelectron for f in self.loop()])
+        self.log.info("Total number of mean-field electrons over all fragments= %.8f", nelec_frags)
+        if abs(nelec_frags - np.rint(nelec_frags)) > 1e-4:
+            self.log.warning("Number of electrons not integer!")
+
+        nmo = self.mf.mo_occ.size
+        rdm1 = np.zeros((nmo, nmo))
+        t_occ = np.zeros((2, nmo, nmo))  #TODO higher moments?
+        t_vir = np.zeros((2, nmo, nmo))
+
+        for x, frag in enumerate(self.fragments):
+            self.log.info("Now running %s", frag)
+            self.log.info("************%s", len(str(frag))*"*")
+            self.log.changeIndentLevel(1)
+
+            result = frag.kernel()
+            self.cluster_results[frag.id] = result
+
+            if not result.converged:
+                self.log.error("%s is not converged", frag)
+            else:
+                self.log.info("%s is done.", frag)
+
+            ovlp = frag.mf.get_ovlp()
+            c = pyscf.lib.einsum('pa,pq,qi->ai', result.c_active.conj(), ovlp, frag.mf.mo_coeff)
+
+            rdm1 += pyscf.lib.einsum('pq,pi,qj->ij', result.rdm1, c.conj(), c)
+            t_occ += pyscf.lib.einsum('...pq,pi,qj->...ij', result.t_occ, c.conj(), c)
+            t_vir += pyscf.lib.einsum('...pq,pi,qj->...ij', result.t_vir, c.conj(), c)
+
+            self.log.changeIndentLevel(-1)
+
+        gf2 = RAGF2(self.mf, 
+                eri=np.zeros((1,1,1,1)),
+                log=self.quiet_log,
+                **self.opts.solver_options,
+        )
+
+        se_occ = gf2._build_se_from_moments(t_occ)
+        se_vir = gf2._build_se_from_moments(t_vir)
+        gf2.se = pyscf.agf2.aux.combine(se_occ, se_vir)
+
+        mo_coeff = self.mf.mo_coeff
+        rdm1_ao = np.linalg.multi_dot((mo_coeff, rdm1, mo_coeff.T.conj()))
+        fock_ao = self.mf.get_fock(dm=rdm1_ao)
+        fock = np.linalg.multi_dot((mo_coeff.T.conj(), fock_ao, mo_coeff))
+
+        gf2.gf = gf2.se.get_greens_function(fock)
+
+        if self.opts.fock_loop:
+            gf2.gf, gf2.se, fock = fock_loop(self.mf, gf2.gf, gf2.se)
+
+        gf2.e_1b  = 0.5 * np.sum(rdm1 * (gf2.h1e + fock))
+        gf2.e_1b += gf2.e_nuc
+        gf2.e_2b  = gf2.energy_2body()
+
+        result = EAGF2Results(
+                e_corr=gf2.e_corr,
+                e_1b=gf2.e_1b,
+                e_2b=gf2.e_2b,
+                gf=gf2.gf,
+                se=gf2.se,
+        )
+        self.result = result
+
+        self.log.output("E(nuc)  = %20.12f", gf2.e_nuc)
+        self.log.output("E(MF)   = %20.12f", gf2.mf.e_tot)
+        self.log.output("E(corr) = %20.12f", gf2.e_corr)
+        self.log.output("E(tot)  = %20.12f", gf2.e_tot)
+        self.log.output("IP      = %20.12f", gf2.e_ip)
+        self.log.output("EA      = %20.12f", gf2.e_ea)
+        self.log.output("Gap     = %20.12f", gf2.e_ip + gf2.e_ea)
+
+        self.log.info("Total wall time:  %s", time_string(timer() - t0))
+        self.log.info("All done.")
+
+    run = kernel
+
+
+    def print_clusters(self):
+        """Print fragments of calculations."""
+        self.log.info("%3s  %20s  %8s  %4s", "ID", "Name", "Solver", "Size")
+        for frag in self.loop():
+            self.log.info("%3d  %20s  %8s  %4d", frag.id, frag.name, frag.solver, frag.size)
+
+
+
+if __name__ == '__main__':
+    bno_threshold = 0.0
+    fragment_type = 'Lowdin-AO'
+
+    mol = pyscf.gto.Mole()
+    mol.atom = 'He 0 0 0; He 0 0 1'
+    mol.basis = '6-31g'
+    mol.verbose = 0
+    mol.max_memory = 1e9
+    mol.build()
+
+    mf = pyscf.scf.RHF(mol)
+    mf.conv_tol = 1e-10
+    mf.conv_tol_grad = 1e-8
+    mf.run()
+
+    ip_mf = -mf.mo_energy[mf.mo_occ > 0].max()
+    ea_mf = mf.mo_energy[mf.mo_occ == 0].min()
+
+    eagf2 = EAGF2(mf,
+            bno_threshold=bno_threshold, 
+            fragment_type=fragment_type,
+            ewdmet=True,
+            fock_loop=True,
     )
-else:
-    mol = pyscf.gto.M(
-            atom=atom,
-            basis=basis,
-            verbose=0,
-    )
-
-# --- Mean-field
-with pyscf.lib.with_omp_threads(1):
-    if isinstance(mol, vayesta.lattmod.LatticeMole):
-        mf = vayesta.lattmod.LatticeMF(mol)
-    else:
-        mf = pyscf.scf.RHF(mol)
-    mf.max_memory = mol.max_memory = 1e9
-    mf.conv_tol = 1e-12
-    mf.kernel()
-homo = np.max(mf.mo_energy[mf.mo_occ > 0])
-lumo = np.min(mf.mo_energy[mf.mo_occ == 0])
-log.info("Mean-field")
-log.info("**********")
-log.changeIndentLevel(1)
-log.info("  > E(mf) = %14.8f", mf.e_tot)
-log.info("  > IP    = %14.8f", -homo)
-log.info("  > EA    = %14.8f", lumo)
-log.info("  > Gap   = %14.8f", lumo - homo)
-log.changeIndentLevel(-1)
-
-# --- Fragmentation
-if isinstance(mol, vayesta.lattmod.LatticeMole):
-    ewf = vayesta.ewf.EWF(mf, bno_threshold=bno_threshold, fragment_type='site', log=log)
-    #for i in range(mol.natm//2):
-    #    ewf.make_atom_fragment([i*2, i*2+1])
     for i in range(mol.natm):
-        ewf.make_atom_fragment(i)
-    #ewf.make_atom_fragment(0, sym_factor=mol.nao)
-else:
-    ewf = vayesta.ewf.EWF(mf, bno_threshold=bno_threshold, fragment_type='Lowdin-AO', log=log)
-    for i in range(mol.natm):
-        ewf.make_atom_fragment(i)
-
-# --- Loop over fragments
-data = collections.defaultdict(list)
-for x, frag in enumerate(ewf.fragments):
-    log.info("Fragment %d", x)
-    log.info("*********" + "*"*len(str(x)))
-    log.changeIndentLevel(1)
-
-    # --- Generate orbitals
-    if ewdmet:
-        c_ewdmet, c_froz_occ, c_froz_vir = ewdmet_bath.make_ewdmet_bath(frag, frag.c_env, nmom=nmom_ewdmet)
-        c_act_occ, c_act_vir = frag.diagonalize_cluster_dm(frag.c_frag, c_ewdmet)
-    else:
+        frag = eagf2.make_atom_fragment(i)
         frag.make_bath()
-        c_nbo_occ, c_froz_occ = frag.truncate_bno(frag.c_no_occ, frag.n_no_occ, bno_threshold)
-        c_nbo_vir, c_froz_vir = frag.truncate_bno(frag.c_no_vir, frag.n_no_vir, bno_threshold)
-        c_act_occ, _, e_act_occ = frag.canonicalize_mo(frag.c_cluster_occ, c_nbo_occ, eigvals=True)
-        c_act_vir, _, e_act_vir = frag.canonicalize_mo(frag.c_cluster_vir, c_nbo_vir, eigvals=True)
-        #FIXME use these energies...?
-    c_act = np.hstack((c_act_occ, c_act_vir))
-    c_froz = np.hstack((c_froz_occ, c_froz_vir))
-    c_occ = np.hstack((c_froz_occ, c_act_occ))
-    c_vir = np.hstack((c_act_vir, c_froz_vir))
-    mo_coeff = np.hstack((c_occ, c_vir))
-    rdm1_froz = np.linalg.multi_dot((c_froz.T, mf.get_ovlp(), mf.make_rdm1(), mf.get_ovlp(), c_froz))
-    rdm1_act = np.linalg.multi_dot((c_act.T, mf.get_ovlp(), mf.make_rdm1(), mf.get_ovlp(), c_act))
-    rdm1_full = np.linalg.multi_dot((mf.mo_coeff.T, mf.get_ovlp(), mf.make_rdm1(), mf.get_ovlp(), mf.mo_coeff))
-    log.info("Orbital dimensions:")
-    log.info("  > Active:  nocc = %-4d nvir = %-4d nelec = %-4.2f", c_act_occ.shape[1], c_act_vir.shape[1], np.trace(rdm1_act))
-    log.info("  > Frozen:  nocc = %-4d nvir = %-4d nelec = %-4.2f", c_froz_occ.shape[1], c_froz_vir.shape[1], np.trace(rdm1_froz))
-    log.info("  > Total:   nocc = %-4d nvir = %-4d nelec = %-4.2f", c_occ.shape[1], c_vir.shape[1], np.trace(rdm1_full))
+    eagf2.run()
 
-    # --- Get the MOs
-    fock = np.einsum('pq,pi,qj->ij', mf.get_fock(), mo_coeff, mo_coeff)
-    mo_energy, r = np.linalg.eigh(fock)
-    mo_occ = np.array(c_occ.shape[1]*[2] + c_vir.shape[1]*[0])
-
-    # --- Get Veff due to the frozen density
-    rdm1 = np.linalg.multi_dot((c_froz, rdm1_froz, c_froz.T))
-    veff = mf.get_veff(dm=rdm1)
-    veff = np.einsum('pq,pi,qj->ij', veff, mo_coeff, mo_coeff)
-
-    # -- Get the ERIs
-    eri = pyscf.ao2mo.incore.full(mf._eri, c_act, compact=False)
-    eri = eri.reshape((c_act.shape[1],) * 4)
-
-    # --- Run the solver
-    gf2 = ragf2.RAGF2(
-            mf,
-            mo_energy=mo_energy,
-            mo_coeff=mo_coeff,
-            mo_occ=mo_occ,
-            frozen=(c_froz_occ.shape[1], c_froz_vir.shape[1]),
-            eri=eri,
-            veff=veff,
-            conv_tol=1e-5,
-            log=fakelog,
-    )
-    gf2.kernel()
-    data['solvers'].append(gf2)
-    rdm1 = gf2.make_rdm1(with_frozen=False)
-    fock = gf2.get_fock(with_frozen=False)
-    se = gf2.se
-    mom = np.array((se.get_occupied().moment(range(2*nmom_projection+2)), se.get_virtual().moment(range(2*nmom_projection+2))))
-    log.info("AGF2 results:")
-    log.info("  > Converged: %r", gf2.converged)
-    log.info("  > E(1b)  = %14.8f   E(2b)   = %12.8f", gf2.e_1b, gf2.e_2b)
-    log.info("  > E(tot) = %14.8f   E(corr) = %12.8f", gf2.e_tot, gf2.e_corr)
-    log.info("  > IP     = %14.8f   EA      = %12.8f", gf2.e_ip, gf2.e_ea)
-    log.info("  > Gap    = %14.8f", gf2.e_ip + gf2.e_ea)
-
-    # --- Build projectors
-    c = np.einsum('pa,pq,qi->ai', c_act, mf.get_ovlp(), frag.c_frag)
-    p_frag = np.dot(c, c.T)
-    if democratic:
-        # mo_coeff here can be replace by np.hstack((frag.c_frag, frag.c_env))
-        c = np.einsum('pa,pq,qi->ai', c_act, mf.get_ovlp(), mf.mo_coeff)
-        p_full = np.dot(c, c.T)
-
-    if democratic:
-        # --- Project onto (fragment | full) in the basis of active cluster MOs
-        fock = np.einsum('pq,pi,qj->ij', fock, p_frag, p_full)
-        rdm1 = np.einsum('pq,pi,qj->ij', rdm1, p_frag, p_full)
-        mom = np.einsum('...pq,pi,qj->...ij', mom, p_frag, p_full)
-        coup = np.einsum('pk,qk,pi,qj->kij', se.coupling, se.coupling, p_frag, p_full)
-
-        # --- Partition democratically
-        fock = 0.5 * (fock + fock.T)
-        rdm1 = 0.5 * (rdm1 + rdm1.T)
-        mom = 0.5 * (mom + mom.swapaxes(2, 3))
-        coup = 0.5 * (coup + coup.swapaxes(1, 2))
-
-        # --- Get the self-energy couplings
-        if not project_moments:
-            w, v = np.linalg.eigh(coup)
-            couplings = []
-            for i in range(w.shape[0]):
-                for wi, vi in zip(w[i], v[i]):
-                    assert np.all(wi > -1e-8), wi
-                    mask = wi > 1e-10
-                    for wij, vij in zip(wi[mask], vi[mask].T):
-                        couplings.append(wij**0.5 * vij)
-            se.couplings = np.array(couplings).T
-
-    else:
-        # --- Project onto fragment orbitals in the basis of active cluster MOs
-        fock = np.einsum('pq,pi,qj->ij', fock, p_frag, p_frag)
-        rdm1 = np.einsum('pq,pi,qj->ij', rdm1, p_frag, p_frag)
-        se.coupling = np.dot(p_frag.T, se.coupling)
-        mom = np.einsum('...pq,pi,qj->...ij', mom, p_frag, p_frag)
-
-    # --- Transform into original MO basis
-    c = np.einsum('pa,pq,qi->ai', c_act, mf.get_ovlp(), mf.mo_coeff)
-    fock = np.einsum('pq,pi,qj->ij', fock, c, c)
-    rdm1 = np.einsum('pq,pi,qj->ij', rdm1, c, c)
-    se.coupling = np.dot(c.T, se.coupling)
-    mom = np.einsum('...pq,pi,qj->...ij', mom, c, c)
-
-    # --- Store results
-    data['fock'].append(fock)
-    data['rdm1'].append(rdm1)
-    data['se'].append(se)
-    data['mom'].append(mom)
-    log.changeIndentLevel(-1)
-
-# --- Combine fragment results
-fock = sum(data['fock'])
-rdm1 = sum(data['rdm1'])
-mom = sum(data['mom'])
-se = pyscf.agf2.SelfEnergy(
-        np.concatenate([s.energy for s in data['se']]),
-        np.concatenate([s.coupling for s in data['se']], axis=1),
-)
-#FIXME: If the fragments have very different chempots this may be tricky:
-#       If so, then track occupancy of poles instead of a global chempot.
-assert np.allclose(mom[0], se.get_occupied().moment(range(2*nmom_projection+2)))
-assert np.allclose(mom[1], se.get_virtual().moment(range(2*nmom_projection+2)))
-
-# --- Construct the compressed SE
-if project_moments:
-    if nmom_projection == 0:
-        se_occ = pyscf.agf2.SelfEnergy(*pyscf.agf2._agf2.cholesky_build(*mom[0]))
-        se_vir = pyscf.agf2.SelfEnergy(*pyscf.agf2._agf2.cholesky_build(*mom[1]))
-        se = pyscf.agf2.aux.combine(se_occ, se_vir)
-    else:
-        e, v = dyson.kernel_se(mom[0], mom[1], nmom_lanczos=nmom_projection)
-        se = pyscf.agf2.SelfEnergy(e, v)
-
-# --- Get results
-gf2 = ragf2.RAGF2(mf, log=fakelog)
-gf2.se = se
-gf2.se.remove_uncoupled(tol=1e-9)
-gf2.gf = se.get_greens_function(fock)
-gf2.gf.remove_uncoupled(tol=1e-9)
-if fock_loop:
-    gf2.gf, gf2.se = gf2.fock_loop()
-else:
-    gf2.se.chempot = gf2.gf.chempot = pyscf.agf2.chempot.binsearch_chempot(se.eig(fock), se.nphys, mol.nelectron)[0]
-gf2.e_1b = gf2.energy_1body()
-gf2.e_2b = gf2.energy_2body()
-log.info("Output (Emebedded AGF2)")
-log.info("***********************")
-log.changeIndentLevel(1)
-log.info("  > E(1b)  = %14.8f   E(2b)   = %12.8f", gf2.e_1b, gf2.e_2b)
-log.info("  > E(tot) = %14.8f   E(corr) = %12.8f", gf2.e_tot, gf2.e_corr)
-log.info("  > IP     = %14.8f   EA      = %12.8f", gf2.e_ip, gf2.e_ea)
-log.info("  > Gap    = %14.8f", gf2.e_ip + gf2.e_ea)
-log.changeIndentLevel(-1)
-
-if do_full_agf2:
-    # --- Standard AGF2 output
-    gf2 = ragf2.RAGF2(mf, log=fakelog)
-    gf2.kernel()
-    log.info("Output (Standard AGF2)")
-    log.info("**********************")
-    log.changeIndentLevel(1)
-    log.info("  > E(1b)  = %14.8f   E(2b)   = %12.8f", gf2.e_1b, gf2.e_2b)
-    log.info("  > E(tot) = %14.8f   E(corr) = %12.8f", gf2.e_tot, gf2.e_corr)
-    log.info("  > IP     = %14.8f   EA      = %12.8f", gf2.e_ip, gf2.e_ea)
-    log.info("  > Gap    = %14.8f", gf2.e_ip + gf2.e_ea)
-    log.changeIndentLevel(-1)
+    vayesta.log.setLevel(logging.OUTPUT)
+    agf2 = RAGF2(mf)
+    agf2.kernel()
+    vayesta.log.setLevel(logging.INFO)

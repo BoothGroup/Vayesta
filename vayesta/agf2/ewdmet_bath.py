@@ -128,7 +128,7 @@ def make_ewdmet_bath(frag, c_env, nmom=0, svd_full=False, svd_tol=SVD_THRESHOLD,
 
     # n = 0
     c_dmet, c_env_occ, c_env_vir = frag.make_dmet_bath(frag.c_env)
-    c_cls_occ, c_cls_vir = frag.diagonalize_cluster_dm(c_frag, c_dmet, tol=0)
+    c_cls_occ, c_cls_vir = frag.diagonalize_cluster_dm(c_frag, c_dmet)
     c_bath = c_dmet.copy()
 
     c_cls = np.hstack((c_cls_occ, c_cls_vir))
@@ -164,14 +164,14 @@ def make_ewdmet_bath(frag, c_env, nmom=0, svd_full=False, svd_tol=SVD_THRESHOLD,
             c_ewdmet_vir.append(np.dot(c_env_vir, v[mask].T.conj()))
 
         c_bath = np.hstack((c_dmet, *c_ewdmet_occ, *c_ewdmet_vir))
-        c_bath = orthonormalise(c_bath, ovlp, mo_coeff)
+        #c_bath = orthonormalise(c_bath, ovlp, mo_coeff)
         c_bath_occ, c_bath_vir = rotate_ov(c_bath, ovlp, rdm1)
         log.info("Total number of bath states:  %d  (nocc=%d, nvir=%d)",
                  c_bath.shape[1], c_bath_occ.shape[1], c_bath_vir.shape[1])
         
-        c_cls_occ, c_cls_vir = frag.diagonalize_cluster_dm(c_frag, c_bath, tol=0)
+        c_cls_occ, c_cls_vir = frag.diagonalize_cluster_dm(c_frag, c_bath)
         c_cls = np.hstack((c_cls_occ, c_cls_vir))
-        c_cls = orthonormalise(c_cls, ovlp, mo_coeff)
+        #c_cls = orthonormalise(c_cls, ovlp, mo_coeff)
 
         csc = np.linalg.multi_dot((mo_coeff.T.conj(), ovlp, c_cls))
         p = np.dot(csc, csc.T.conj())
