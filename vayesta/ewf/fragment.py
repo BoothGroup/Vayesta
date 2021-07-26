@@ -22,78 +22,76 @@ from pyscf.pbc.tools import cubegen
 # Local modules
 from vayesta.core.util import *
 from vayesta.core import QEmbeddingFragment
+from vayesta.solver import get_solver_class
 
 from . import ewf
-from .solver import get_solver_class
 from .mp2_bath import make_mp2_bno
 from . import helper
 from . import psubspace
 
 
-@dataclasses.dataclass
-class EWFFragmentOptions(Options):
-    """Attributes set to `NotSet` inherit their value from the parent EWF object."""
-    # Options also present in `base`:
-    dmet_threshold: float = NotSet
-    make_rdm1: bool = NotSet
-    make_rdm2: bool = NotSet
-    eom_ccsd: list = NotSet
-    eom_ccsd_nroots: int = NotSet
-    bsse_correction: bool = NotSet
-    bsse_rmax: float = NotSet
-    energy_factor: float = 1.0
-    energy_partitioning: str = NotSet
-    pop_analysis: str = NotSet
-    sc_mode: int = NotSet
-    nelectron_target: int = None                # If set, adjust bath chemical potential until electron number in fragment equals nelectron_target
-    # Additional fragment specific options:
-    bno_threshold_factor: float = 1.0
-    # CAS methods
-    c_cas_occ: np.ndarray = None
-    c_cas_vir: np.ndarray = None
-    # --- Orbital plots
-    plot_orbitals: list = NotSet
-    plot_orbitals_exit: bool = NotSet            # Exit immediately after all orbital plots have been generated
-    plot_orbitals_dir: str = NotSet
-    plot_orbitals_kwargs: dict = NotSet
-    plot_orbitals_gridsize: tuple = NotSet
-    # --- Solver options
-    tcc_fci_opts: dict = dataclasses.field(default_factory=dict)
-
-
-@dataclasses.dataclass
-class EWFFragmentResults:
-    fid: int = None
-    bno_threshold: float = None
-    n_active: int = None
-    converged: bool = None
-    e_corr: float = None
-    ip_energy: np.ndarray = None
-    ea_energy: np.ndarray = None
-    c0: float = None
-    c1: np.ndarray = None
-    c2: np.ndarray = None
-    t1: np.ndarray = None
-    t2: np.ndarray = None
-    l1: np.ndarray = None
-    l2: np.ndarray = None
-    eris: 'typing.Any' = None
-    # Density-matrices
-    dm1: np.ndarray = None
-    dm2: np.ndarray = None
-    g1: np.ndarray = None
-
-    def convert_amp_c_to_t(self):
-        self.t1 = self.c1/self.c0
-        self.t2 = self.c2/self.c0 - einsum('ia,jb->ijab', self.t1, self.t1)
-        return self.t1, self.t2
-
-class EWFFragmentExit(Exception):
-    pass
-
 class EWFFragment(QEmbeddingFragment):
 
-    def __init__(self, base, fid, name, c_frag, c_env, fragment_type, sym_factor=1, atoms=None, aos=None, log=None,
+    @dataclasses.dataclass
+    class Options(QEmbeddingFragment.Options):
+        """Attributes set to `NotSet` inherit their value from the parent EWF object."""
+        # Options also present in `base`:
+        dmet_threshold: float = NotSet
+        make_rdm1: bool = NotSet
+        make_rdm2: bool = NotSet
+        eom_ccsd: list = NotSet
+        eom_ccsd_nroots: int = NotSet
+        bsse_correction: bool = NotSet
+        bsse_rmax: float = NotSet
+        energy_factor: float = 1.0
+        energy_partitioning: str = NotSet
+        pop_analysis: str = NotSet
+        sc_mode: int = NotSet
+        nelectron_target: int = None                # If set, adjust bath chemical potential until electron number in fragment equals nelectron_target
+        # Bath type
+        bath_type: str = NotSet
+        # Additional fragment specific options:
+        bno_threshold_factor: float = 1.0
+        # CAS methods
+        c_cas_occ: np.ndarray = None
+        c_cas_vir: np.ndarray = None
+        # --- Orbital plots
+        plot_orbitals: list = NotSet
+        plot_orbitals_exit: bool = NotSet            # Exit immediately after all orbital plots have been generated
+        plot_orbitals_dir: str = NotSet
+        plot_orbitals_kwargs: dict = NotSet
+        plot_orbitals_gridsize: tuple = NotSet
+        # --- Solver options
+        tcc_fci_opts: dict = dataclasses.field(default_factory=dict)
+
+    @dataclasses.dataclass
+    class Results(QEmbeddingFragment.Results):
+        bno_threshold: float = None
+        n_active: int = None
+        converged: bool = None
+        e_corr: float = None
+        ip_energy: np.ndarray = None
+        ea_energy: np.ndarray = None
+        c0: float = None
+        c1: np.ndarray = None
+        c2: np.ndarray = None
+        t1: np.ndarray = None
+        t2: np.ndarray = None
+        l1: np.ndarray = None
+        l2: np.ndarray = None
+        eris: 'typing.Any' = None
+        # Density-matrices
+        dm1: np.ndarray = None
+        dm2: np.ndarray = None
+        g1: np.ndarray = None
+
+        def convert_amp_c_to_t(self):
+            self.t1 = self.c1/self.c0
+            self.t2 = self.c2/self.c0 - einsum('ia,jb->ijab', self.t1, self.t1)
+            return self.t1, self.t2
+
+
+    def __init__(self, base, fid, name, c_frag, c_env, fragment_type, atoms=None, aos=None, log=None,
             solver=None, options=None, **kwargs):
         """
         Parameters
@@ -106,16 +104,15 @@ class EWFFragment(QEmbeddingFragment):
             Name of fragment.
         """
 
-        super().__init__(base, fid, name, c_frag, c_env, fragment_type, sym_factor=sym_factor, atoms=atoms, aos=aos, log=log)
+        super().__init__(base, fid, name, c_frag, c_env, fragment_type, atoms=atoms, aos=aos, log=log, **kwargs)
 
-        if options is None:
-            options = EWFFragmentOptions(**kwargs)
-        else:
-            options = options.replace(kwargs)
-        options = options.replace(self.base.opts, select=NotSet)
-        if options.pop_analysis:
-            options.make_rdm1 = True
-        self.opts = options
+        #if options is None:
+        #    options = EWFFragmentOptions(**kwargs)
+        #else:
+        #    options = options.replace(kwargs)
+        #options = options.replace(self.base.opts, select=NotSet)
+        if self.opts.pop_analysis:
+            self.opts.make_rdm1 = True
         for key, val in self.opts.items():
             self.log.infov('  > %-24s %r', key + ':', val)
 
@@ -126,8 +123,6 @@ class EWFFragment(QEmbeddingFragment):
         self.solver = solver
         self.log.infov('  > %-24s %r', 'Solver:', self.solver)
 
-        # For coupling (e.g. Tailoring)
-        self.coupled_fragments = []
 
         # --- These attributes will be set after calling `make_bath`:
         # DMET-cluster (fragment + DMET bath) orbital coefficients
@@ -141,9 +136,6 @@ class EWFFragment(QEmbeddingFragment):
         self.n_no_vir = None
 
         # --- Attributes which will be overwritten for each BNO threshold:
-        # Active orbitals
-        self.c_active_occ = None
-        self.c_active_vir = None
 
         # For self-consistent mode
         self.solver_results = None
@@ -151,17 +143,12 @@ class EWFFragment(QEmbeddingFragment):
         # For orbital plotting
         self.cubefile = None
 
-        self.results = None
 
     #@property
     #def e_corr(self):
     #    """Best guess for correlation energy, using the lowest BNO threshold."""
     #    idx = np.argmin(self.bno_threshold)
     #    return self.e_corrs[idx]
-
-    @property
-    def c_active(self):
-        return np.hstack((self.c_active_occ, self.c_active_vir))
 
     def init_orbital_plot(self):
         if self.boundary_cond == 'open':
@@ -191,7 +178,7 @@ class EWFFragment(QEmbeddingFragment):
         self.log.debug("Writing cube file.")
         self.cubefile.write()
         if self.opts.plot_orbitals_exit:
-            raise EWFFragmentExit("All plots done")
+            raise self.Exit("All plots done")
 
     def make_bath(self):
         """Make DMET and MP2 bath natural orbitals."""
@@ -215,13 +202,13 @@ class EWFFragment(QEmbeddingFragment):
         #c_dmet, c_env_occ, c_env_vir = self.additional_bath_for_cluster(c_dmet, c_env_occ, c_env_vir)
 
         # Diagonalize cluster DM to separate cluster occupied and virtual
-        self.c_cluster_occ, self.c_cluster_vir = self.diagonalize_cluster_dm(self.c_frag, c_dmet, tol=2*self.opts.dmet_threshold)
-        self.log.info("Cluster orbitals:  n(occ)= %3d  n(vir)= %3d", self.c_cluster_occ.shape[-1], self.c_cluster_vir.shape[-1])
+        c_cluster_occ, c_cluster_vir = self.diagonalize_cluster_dm(self.c_frag, c_dmet, tol=2*self.opts.dmet_threshold)
+        self.log.info("Cluster orbitals:  n(occ)= %3d  n(vir)= %3d", c_cluster_occ.shape[-1], c_cluster_vir.shape[-1])
 
         # Add cluster orbitals to plot
         if self.opts.plot_orbitals:
-            self.add_orbital_plot('cluster', self.c_cluster_occ, dset_idx=2001, keep_in_list=True)
-            self.add_orbital_plot('cluster', self.c_cluster_vir, dset_idx=3001)
+            self.add_orbital_plot('cluster', c_cluster_occ, dset_idx=2001, keep_in_list=True)
+            self.add_orbital_plot('cluster', c_cluster_vir, dset_idx=3001)
 
         # Primary MP2 bath orbitals
         # TODO NOT MAINTAINED
@@ -248,8 +235,20 @@ class EWFFragment(QEmbeddingFragment):
         #    C_occclst, C_virclst = self.diagonalize_cluster_dm(C_bath)
         #self.C_bath = C_bath
 
-        self.c_no_occ, self.n_no_occ = self.make_bno_bath(c_env_occ, c_env_vir, 'occ')
-        self.c_no_vir, self.n_no_vir = self.make_bno_bath(c_env_occ, c_env_vir, 'vir')
+        if self.opts.bath_type is None or self.opts.bath_type.upper() == 'NONE':
+            c_no_occ = c_env_occ
+            c_no_vir = c_env_vir
+            n_no_occ = np.full((c_no_occ.shape[-1],), -np.inf)
+            n_no_vir = np.full((c_no_vir.shape[-1],), -np.inf)
+        elif self.opts.bath_type.upper() == 'ALL':
+            c_no_occ = c_env_occ
+            c_no_vir = c_env_vir
+            n_no_occ = np.full((c_no_occ.shape[-1],), np.inf)
+            n_no_vir = np.full((c_no_vir.shape[-1],), np.inf)
+        elif self.opts.bath_type.upper() == 'MP2-BNO':
+            c_no_occ, n_no_occ = self.make_bno_bath(c_cluster_occ, c_cluster_vir, c_env_occ, c_env_vir, 'occ')
+            c_no_vir, n_no_vir = self.make_bno_bath(c_cluster_occ, c_cluster_vir, c_env_occ, c_env_vir, 'vir')
+
 
         #if self.opts.plot_orbitals:
         #    for key in self.opts.plot_orbitals.copy():
@@ -258,11 +257,12 @@ class EWFFragment(QEmbeddingFragment):
         #            act = (n_no >= eta)
         #            dm = np.dot(self.c_no_cc[:,mask], c_no[:,mask].T)
 
-
         self.log.timing("Time for bath:  %s", time_string(timer()-t0_bath))
 
+        return c_cluster_occ, c_cluster_vir, c_no_occ, n_no_occ, c_no_vir, n_no_vir
 
-    def make_bno_bath(self, c_env_occ, c_env_vir, kind):
+
+    def make_bno_bath(self, c_cluster_occ, c_cluster_vir, c_env_occ, c_env_vir, kind):
         assert kind in ('occ', 'vir')
         c_env = c_env_occ if (kind == 'occ') else c_env_vir
         if c_env.shape[-1] == 0:
@@ -275,7 +275,7 @@ class EWFFragment(QEmbeddingFragment):
         self.log.changeIndentLevel(1)
         t0 = timer()
         c_no, n_no = make_mp2_bno(
-                self, kind, self.c_cluster_occ, self.c_cluster_vir, c_env_occ, c_env_vir)
+                self, kind, c_cluster_occ, c_cluster_vir, c_env_occ, c_env_vir)
         if len(n_no) > 0:
             self.log.info("%s Bath NO Histogram", name.capitalize())
             self.log.info("%s------------------", len(name)*'-')
@@ -343,7 +343,7 @@ class EWFFragment(QEmbeddingFragment):
 
         Returns
         -------
-        results : EWFFragmentResults
+        results : self.Results
         """
         if (bno_threshold is None and bno_number is None):
             bno_threshold = self.base.bno_threshold
@@ -357,7 +357,7 @@ class EWFFragment(QEmbeddingFragment):
             solver = self.solver
 
         if self.c_cluster_occ is None:
-            self.make_bath()
+            self.c_cluster_occ, self.c_cluster_vir, self.c_no_occ, self.n_no_occ, self.c_no_vir, self.n_no_vir = self.make_bath()
 
         #self.e_delta_mp2 = e_delta_occ + e_delta_vir
         #self.log.debug("MP2 correction = %.8g", self.e_delta_mp2)
@@ -464,6 +464,9 @@ class EWFFragment(QEmbeddingFragment):
         self.c_active_occ = c_active_occ
         self.c_active_vir = c_active_vir
 
+        if solver is None:
+            return None
+
         # Create solver object
         t0 = timer()
         solver_opts = {}
@@ -532,7 +535,7 @@ class EWFFragment(QEmbeddingFragment):
             except Exception as e:
                 self.log.error("Exception in population analysis: %s", e)
 
-        results = EWFFragmentResults(
+        results = self.Results(
                 fid=self.id,
                 bno_threshold=bno_threshold,
                 n_active=nactive,
@@ -781,19 +784,25 @@ class EWFFragment(QEmbeddingFragment):
             return 0
 
         nocc, nvir = p2.shape[1:3]
+        occ = np.s_[:nocc]
+        vir = np.s_[nocc:]
         # E1
         e1 = 0
         if p1 is not None:
-            occ = np.s_[:nocc]
-            vir = np.s_[nocc:]
-            f = eris.fock[occ,vir]
+            if hasattr(eris, 'fock'):
+                f = eris.fock[occ,vir]
+            else:
+                f = np.linalg.multi_dot((self.c_active_occ.T, self.base.get_fock(), self.c_active_vir))
             e1 = 2*np.sum(f * p1)
         # E2
         if hasattr(eris, 'ovvo'):
             g_ovvo = eris.ovvo[:]
-        else:
+        elif hasattr(eris, 'ovov'):
             # MP2 only has eris.ovov - for real integrals we transpose
             g_ovvo = eris.ovov[:].reshape(nocc,nvir,nocc,nvir).transpose(0, 1, 3, 2).conj()
+        else:
+            g_ovvo = eris[occ,vir,vir,occ]
+
         e2 = 2*einsum('ijab,iabj', p2, g_ovvo) - einsum('ijab,jabi', p2, g_ovvo)
         self.log.info("Energy components: E[C1]= % 16.8f Ha, E[C2]= % 16.8f Ha", e1, e2)
         if e1 > 1e-4 and 10*e1 > e2:

@@ -1,3 +1,5 @@
+import dataclasses
+
 import numpy as np
 import scipy
 import scipy.linalg
@@ -7,11 +9,34 @@ import pyscf.lib
 import pyscf.lo
 
 from vayesta.core.util import *
+from . import helper
+from . import tsymmetry
 
 
 class QEmbeddingFragment:
 
-    def __init__(self, base, fid, name, c_frag, c_env, fragment_type, atoms=None, aos=None, sym_factor=1.0, log=None):
+
+    @dataclasses.dataclass
+    class Options(OptionsBase):
+        sym_factor: float = 1.0
+        coupled_fragments: list = dataclasses.field(default_factory=list)
+        # Translationally symmetry
+        tsym_parent: 'typing.Any' = None
+        tsym_order: list = None
+        tsym_inverse: list = None
+
+
+    @dataclasses.dataclass
+    class Results:
+        fid: int = None
+
+
+    class Exit(Exception):
+        """Raise for controlled early exit."""
+        pass
+
+
+    def __init__(self, base, fid, name, c_frag, c_env, fragment_type, atoms=None, aos=None, log=None, options=None, **kwargs):
         """Abstract base class for quantum embedding fragments.
 
         The fragment may keep track of associated atoms or atomic orbitals, using
@@ -77,16 +102,22 @@ class QEmbeddingFragment:
         self.log.info("Initializing %s" % self)
         self.log.info("-------------%s" % (len(str(self))*"-"))
 
+        # Options
         self.base = base
+        if options is None:
+            options = self.Options(**kwargs)
+        else:
+            options = options.replace(kwargs)
+        options = options.replace(self.base.opts, select=NotSet)
+        self.opts = options
+
         self.c_frag = c_frag
         self.c_env = c_env
         self.fragment_type = fragment_type
-        self.sym_factor = sym_factor
+        self.sym_factor = self.opts.sym_factor
         # For some embeddings, it may be necessary to keep track of any associated atoms or basis functions (AOs)
         self.atoms = atoms
         self.aos = aos
-
-        self.coupled_fragments = []
 
         # Some output
         fmt = '  > %-24s %r'
@@ -99,9 +130,15 @@ class QEmbeddingFragment:
         if self.aos is not None:
             self.log.info(fmt, "Associated AOs:", self.aos)
 
+        # Final cluster active orbitals
+        self.c_active_occ = None
+        self.c_active_vir = None
+
+        self.results = None
+
 
     def __repr__(self):
-        keys = ['id', 'name', 'fragment_type', 'sym_factor', 'atoms', 'aos']
+        keys = ['id', 'name', 'fragment_type', 'atoms', 'aos']
         fmt = ('%s(' + len(keys)*'%s: %r, ')[:-2] + ')'
         values = [self.__dict__[k] for k in keys]
         return fmt % (self.__class__.__name__, *[x for y in zip(keys, values) for x in y])
@@ -146,12 +183,17 @@ class QEmbeddingFragment:
     def boundary_cond(self):
         return self.base.boundary_cond
 
+    @property
+    def c_active(self):
+        if self.c_active_occ is None:
+            return None
+        return np.hstack((self.c_active_occ, self.c_active_vir))
 
     def couple_to_fragment(self, frag):
         if frag is self:
             raise RuntimeError("Cannot couple fragment with itself.")
         self.log.debugv("Coupling %s with %s", self, frag)
-        self.coupled_fragments.append(frag)
+        self.opts.coupled_fragments.append(frag)
 
     def couple_to_fragments(self, frags):
         for frag in frags:
@@ -188,7 +230,10 @@ class QEmbeddingFragment:
         p : (n, n) array
             Projection matrix.
         """
-
+        self.log.debugv("Get fragment projector type %s", self.fragment_type)
+        if self.fragment_type.upper() == 'SITE':
+            r = np.dot(coeff.T, self.c_frag)
+            p = np.dot(r, r.T)
         if self.fragment_type.upper() in ('IAO', 'LOWDIN-AO'):
             r = np.linalg.multi_dot((coeff.T, self.base.get_ovlp(), self.c_frag))
             p = np.dot(r, r.T)
@@ -205,9 +250,6 @@ class QEmbeddingFragment:
                 assert np.allclose(s.half.imag, 0)
                 shalf = shalf.real
                 p = np.linalg.multi_dot((C.T, shalf[:,self.aos], s[self.aos], C))
-        if self.fragment_type.upper() == 'SITE':
-            r = np.dot(coeff.T, self.c_frag)
-            p = np.dot(r, r.T)
         if inverse:
             p = np.eye(p.shape[-1]) - p
         return p
@@ -261,6 +303,7 @@ class QEmbeddingFragment:
         fock = np.linalg.multi_dot((mo_coeff.T, self.base.get_fock(), mo_coeff))
         mo_energy, rot = np.linalg.eigh(fock)
         mo_can = np.dot(mo_coeff, rot)
+        mo_can = helper.orbital_sign_convention(mo_can)
         if eigvals:
             return mo_can, rot, mo_energy
         return mo_can, rot
@@ -501,6 +544,56 @@ class QEmbeddingFragment:
                 raise RuntimeError(err)
 
         return c_bath, c_occenv, c_virenv
+
+    # --- Symmetry
+    # ============
+
+    def make_tsymmetric_fragments(self, tvecs, unit='Ang'):
+        #if self.boundary_cond == 'open': return []
+
+        mesh, tvecs = tsymmetry.get_mesh_tvecs(self.mol, tvecs, unit)
+        self.log.debugv("nx= %d ny= %d nz= %d", *mesh)
+        self.log.debugv("tvecs=\n%r", tvecs)
+
+        ovlp = self.base.get_ovlp()
+        sds = np.linalg.multi_dot((ovlp, self.mf.make_rdm1(), ovlp))
+        dm0 = np.linalg.multi_dot((self.c_frag.T, sds, self.c_frag))
+
+        fragments = []
+        for dx in range(mesh[0]):
+            for dy in range(mesh[1]):
+                for dz in range(mesh[2]):
+                    if abs(dx) + abs(dy) + abs(dz) == 0:
+                        continue
+                    t = dx*tvecs[0] + dy*tvecs[1] + dz*tvecs[2]
+                    reorder = tsymmetry.reorder_aos(self.mol, t, unit='Bohr')[0]
+                    if reorder is None:
+                        self.log.error("No T-symmetric fragment found for translation [%d %d %d] of fragment %s", dx, dy, dz, self.name)
+                        continue
+                    name = '%s.t%d.%d.%d' % (self.name, dx, dy, dz)
+                    c_frag = self.c_frag[reorder]
+                    c_env = self.c_env[reorder]
+                    # Check that fragment does not overlap with existing fragments:
+                    for f in self.base.fragments:
+                        ovlp = np.linalg.norm(np.linalg.multi_dot((f.c_frag.T, self.base.get_ovlp(), c_frag)))
+                        if ovlp > 1e-10:
+                            self.log.error("Translation [%d %d %d] of fragment %s overlaps with fragment %s (overlap= %.3e)!",
+                                    dx, dy, dz, self.name, f.name, ovlp)
+                    # Check that MF solution has lattice periodicity:
+                    dm = np.linalg.multi_dot((c_frag.T, sds, c_frag))
+                    err = np.linalg.norm(dm - dm0)
+                    if err > 1e-10:
+                        self.log.error("Mean-field not T-symmetric for translation [%d %d %d] of fragment %s (error= %.3e)!",
+                                dx, dy, dz, self.name, err)
+                    f = self.base.add_fragment(name, c_frag, c_env, fragment_type=self.fragment_type, options=self.opts, tsym_parent=self)
+                    fragments.append(f)
+                    # Copy results
+                    f.results = self.results
+                    if self.c_active_occ is not None:
+                        f.c_active_occ = self.c_active_occ[reorder]
+                        f.c_active_vir = self.c_active_vir[reorder]
+        return fragments
+
 
     # --- Counterpoise
     # ================

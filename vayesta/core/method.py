@@ -1,6 +1,8 @@
 import logging
 from timeit import default_timer as timer
 from datetime import datetime
+import dataclasses
+import copy
 
 import numpy as np
 import scipy
@@ -24,17 +26,23 @@ except:
 
 from vayesta.core import vlog
 from vayesta.core.util import *
-from vayesta.core.qfragment import QEmbeddingFragment
+from vayesta.core.fragment import QEmbeddingFragment
 from .kao2gmo import gdf_to_pyscf_eris
 from vayesta.misc.gdf import GDF
 
 
 class QEmbeddingMethod:
 
-    # Shadow this in inherited methods:
-    FRAGMENT_CLS = QEmbeddingFragment
+    # Shadow these in inherited methods:
+    Fragment = QEmbeddingFragment
 
-    def __init__(self, mf, log=None):
+    @dataclasses.dataclass
+    class Options(OptionsBase):
+        copy_mf: bool = True        # Create shallow copy of mean-field object on entry
+        recalc_fock: bool = False
+
+
+    def __init__(self, mf, options=None, log=None, **kwargs):
         """Abstract base class for quantum embedding methods.
 
         Parameters
@@ -119,8 +127,18 @@ class QEmbeddingMethod:
         self.log.info("Initializing %s" % self.__class__.__name__)
         self.log.info("=============%s" % (len(str(self.__class__.__name__))*"="))
 
+        # Options
+        # -------
+        if options is None:
+            options = self.Options(**kwargs)
+        else:
+            options = options.replace(kwargs)
+        self.opts = options
+
         # 2) Mean-field
         # -------------
+        if self.opts.copy_mf:
+            mf = copy.copy(mf)
         # k-space unfolding
         if hasattr(mf, 'kpts') and mf.kpts is not None:
             t0 = timer()
@@ -147,8 +165,12 @@ class QEmbeddingMethod:
         # Recalcution of Fock matrix expensive for PBC!
         # => avoid self._fock = self.mf.get_fock()
         # (however, loss of accuracy for large values for cell.precision!)
-        cs = np.dot(self.mo_coeff.T, self._ovlp)
-        self._fock = np.dot(cs.T*self.mo_energy, cs)
+        if self.opts.recalc_fock:
+            dm = self.mf.make_rdm1(mo_coeff=self.mo_coeff)
+            self._fock = mf.get_fock(dm=dm)
+        else:
+            cs = np.dot(self.mo_coeff.T, self._ovlp)
+            self._fock = np.dot(cs.T*self.mo_energy, cs)
 
         # Some MF output
         if self.mf.converged:
@@ -188,6 +210,7 @@ class QEmbeddingMethod:
     def has_lattice_vectors(self):
         """Flag if self.mol has lattice vectors defined."""
         return (hasattr(self.mol, 'a') and self.mol.a is not None)
+        #return hasattr(self.mol, 'lattice_vectors')
 
     @property
     def boundary_cond(self):
@@ -199,27 +222,6 @@ class QEmbeddingMethod:
         if self.mol.dimension == 2:
             return 'periodic-2D'
         return 'periodic'
-
-    # Store these as attributes instead:
-    #@property
-    #def kpts(self):
-    #    """k-points for periodic calculations.
-
-    #    TODO: for *not unfolded* Gamma-point calculations, does this return None?
-    #    Should it return [(0,0,0)]?
-    #    """
-    #    if self.kdf is None:
-    #        return None
-    #    return self.kdf.kpts
-
-    #@property
-    #def kcell(self):
-    #    """Unit cell for periodic calculations.
-    #    Note that this is not the unfolded supercell, which is stored in `self.mol`.
-    #    """
-    #    if self.kdf is None:
-    #        return None
-    #    return self.kdf.cell
 
     @property
     def nao(self):
@@ -299,8 +301,8 @@ class QEmbeddingMethod:
         For unfolded PBC calculations, this folds the MO back into k-space
         and contracts with the k-space three-center integrals..
 
-        Paramters
-        ---------
+        Parameters
+        ----------
         cm: pyscf.mp.mp2.MP2, pyscf.cc.ccsd.CCSD, or pyscf.cc.rccsd.RCCSD
             Correlated method, must have mo_coeff set.
 
@@ -461,8 +463,8 @@ class QEmbeddingMethod:
 
         Returns
         -------
-        frag : self.FRAGMENT_CLS
-            Fragment object of type self.FRAGMENT_CLS.
+        frag : self.Fragment
+            Fragment object of type self.Fragment.
         """
         fragment_type = (fragment_type or self.default_fragment_type).upper()
 
@@ -584,8 +586,8 @@ class QEmbeddingMethod:
 
         Returns
         -------
-        frag : self.FRAGMENT_CLS
-            Fragment object of type self.FRAGMENT_CLS.
+        frag : self.Fragment
+            Fragment object of type self.Fragment.
         """
         fragment_type = (fragment_type or self.default_fragment_type).upper()
 
@@ -671,12 +673,12 @@ class QEmbeddingMethod:
 
         Returns
         -------
-        frag : self.FRAGMENT_CLS
-            Fragment object of type self.FRAGMENT_CLS.
+        frag : self.Fragment
+            Fragment object of type self.Fragment.
         """
         # Get new fragment ID
         fid = self.nfrag + 1
-        frag = self.FRAGMENT_CLS(self, fid=fid, name=name, c_frag=c_frag, c_env=c_env,
+        frag = self.Fragment(self, fid=fid, name=name, c_frag=c_frag, c_env=c_env,
                 fragment_type=fragment_type, sym_factor=sym_factor, **kwargs)
         self.fragments.append(frag)
         return frag
