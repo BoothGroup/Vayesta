@@ -91,8 +91,10 @@ class EWFFragment(QEmbeddingFragment):
             return self.t1, self.t2
 
 
-    def __init__(self, base, fid, name, c_frag, c_env, fragment_type, atoms=None, aos=None, log=None,
-            solver=None, options=None, **kwargs):
+    #def __init__(self, base, fid, name, c_frag, c_env, fragment_type, atoms=None, aos=None, log=None,
+    #        solver=None, options=None, **kwargs):
+    def __init__(self, *args, solver=None, **kwargs):
+
         """
         Parameters
         ----------
@@ -104,24 +106,25 @@ class EWFFragment(QEmbeddingFragment):
             Name of fragment.
         """
 
-        super().__init__(base, fid, name, c_frag, c_env, fragment_type, atoms=atoms, aos=aos, log=log, **kwargs)
+        super().__init__(*args, **kwargs)
 
-        #if options is None:
-        #    options = EWFFragmentOptions(**kwargs)
-        #else:
-        #    options = options.replace(kwargs)
-        #options = options.replace(self.base.opts, select=NotSet)
         if self.opts.pop_analysis:
             self.opts.make_rdm1 = True
+
+        # Default options:
+        defaults = self.Options().replace(self.base.Options(), select=NotSet)
         for key, val in self.opts.items():
-            self.log.infov('  > %-24s %r', key + ':', val)
+            if val != getattr(defaults, key):
+                self.log.info('  > %-24s %3s %r', key + ':', '(*)', val)
+            else:
+                self.log.debugv('  > %-24s %3s %r', key + ':', '', val)
 
         if solver is None:
             solver = self.base.solver
         if solver not in ewf.VALID_SOLVERS:
             raise ValueError("Unknown solver: %s" % solver)
         self.solver = solver
-        self.log.infov('  > %-24s %r', 'Solver:', self.solver)
+        self.log.infov('  > %-24s %3s %r', 'Solver:', '', self.solver)
 
 
         # --- These attributes will be set after calling `make_bath`:
@@ -248,6 +251,8 @@ class EWFFragment(QEmbeddingFragment):
         elif self.opts.bath_type.upper() == 'MP2-BNO':
             c_no_occ, n_no_occ = self.make_bno_bath(c_cluster_occ, c_cluster_vir, c_env_occ, c_env_vir, 'occ')
             c_no_vir, n_no_vir = self.make_bno_bath(c_cluster_occ, c_cluster_vir, c_env_occ, c_env_vir, 'vir')
+        else:
+            raise ValueError("Unknown bath type: '%s'" % self.opts.bath_type)
 
 
         #if self.opts.plot_orbitals:
@@ -461,8 +466,8 @@ class EWFFragment(QEmbeddingFragment):
                 self.log.timingv("Time to project ERIs:  %s", time_string(timer()-t0))
 
         # We can now overwrite the orbitals from last BNO run:
-        self.c_active_occ = c_active_occ
-        self.c_active_vir = c_active_vir
+        self._c_active_occ = c_active_occ
+        self._c_active_vir = c_active_vir
 
         if solver is None:
             return None
@@ -565,7 +570,7 @@ class EWFFragment(QEmbeddingFragment):
         if self.base.opts.project_eris or self.opts.sc_mode:
             results.eris = solver_results.eris
 
-        self.results = results
+        self._results = results
 
         # Force GC to free memory
         m0 = get_used_memory()

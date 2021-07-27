@@ -1,4 +1,5 @@
 import dataclasses
+import itertools
 
 import numpy as np
 import scipy
@@ -18,12 +19,9 @@ class QEmbeddingFragment:
 
     @dataclasses.dataclass
     class Options(OptionsBase):
-        sym_factor: float = 1.0
         coupled_fragments: list = dataclasses.field(default_factory=list)
-        # Translationally symmetry
-        tsym_parent: 'typing.Any' = None
-        tsym_order: list = None
-        tsym_inverse: list = None
+        # Symmetry
+        sym_factor: float = 1.0
 
 
     @dataclasses.dataclass
@@ -36,7 +34,9 @@ class QEmbeddingFragment:
         pass
 
 
-    def __init__(self, base, fid, name, c_frag, c_env, fragment_type, atoms=None, aos=None, log=None, options=None, **kwargs):
+    def __init__(self, base, fid, name, c_frag, c_env, fragment_type, atoms=None, aos=None,
+            sym_parent=None, sym_op=None,
+            log=None, options=None, **kwargs):
         """Abstract base class for quantum embedding fragments.
 
         The fragment may keep track of associated atoms or atomic orbitals, using
@@ -62,6 +62,10 @@ class QEmbeddingFragment:
             Associated atomic orbitals. Default: None
         sym_factor : float, optional
             Symmetry factor (number of symmetry equivalent fragments). Default: 1.0.
+        sym_parent : Fragment, optional
+            Symmetry related parent fragment. Default: None.
+        sym_op : Callable, optional
+            Symmetry operation on AO basis function, representing the symmetry to the `sym_parent` object. Default: None.
         log : logging.Logger
             Logger object. If None, the logger of the `base` object is used. Default: None.
 
@@ -115,12 +119,14 @@ class QEmbeddingFragment:
         self.c_env = c_env
         self.fragment_type = fragment_type
         self.sym_factor = self.opts.sym_factor
+        self.sym_parent = sym_parent
+        self.sym_op = sym_op
         # For some embeddings, it may be necessary to keep track of any associated atoms or basis functions (AOs)
         self.atoms = atoms
         self.aos = aos
 
         # Some output
-        fmt = '  > %-24s %r'
+        fmt = '  > %-24s     %r'
         self.log.info(fmt, "Fragment type:", self.fragment_type)
         self.log.info(fmt, "Fragment orbitals:", self.size)
         self.log.info(fmt, "Symmetry factor:", self.sym_factor)
@@ -131,10 +137,10 @@ class QEmbeddingFragment:
             self.log.info(fmt, "Associated AOs:", self.aos)
 
         # Final cluster active orbitals
-        self.c_active_occ = None
-        self.c_active_vir = None
-
-        self.results = None
+        self._c_active_occ = None
+        self._c_active_vir = None
+        # Final results
+        self._results = None
 
 
     def __repr__(self):
@@ -184,10 +190,31 @@ class QEmbeddingFragment:
         return self.base.boundary_cond
 
     @property
+    def c_active_occ(self):
+        if self.sym_parent is None:
+            return self._c_active_occ
+        else:
+            return self.sym_op(self.sym_parent.c_active_occ)
+
+    @property
+    def c_active_vir(self):
+        if self.sym_parent is None:
+            return self._c_active_vir
+        else:
+            return self.sym_op(self.sym_parent.c_active_vir)
+
+    @property
     def c_active(self):
         if self.c_active_occ is None:
             return None
         return np.hstack((self.c_active_occ, self.c_active_vir))
+
+    @property
+    def results(self):
+        if self.sym_parent is None:
+            return self._results
+        else:
+            return self.sym_parent.results
 
     def couple_to_fragment(self, frag):
         if frag is self:
@@ -548,7 +575,29 @@ class QEmbeddingFragment:
     # --- Symmetry
     # ============
 
-    def make_tsymmetric_fragments(self, tvecs, unit='Ang'):
+    def make_tsymmetric_fragments(self, tvecs, unit='Ang', mf_tol=1e-6):
+        """
+
+        Parameters
+        ----------
+        tvecs: (3,3) float array or (3,) integer array
+            Translational symmetry vectors. If an array with shape (3,3) is passed, each row represents
+            a translation vector in cartesian coordinates, in units defined by the parameter `unit`.
+            If an array with shape (3,) is passed, each element represent the number of
+            translation vector corresponding to the a0, a1, and a2 lattice vectors of the cell.
+        unit: ['Ang', 'Bohr'], optional
+            Units of translation vectors. Only used if a (3, 3) array is passed. Default: 'Ang'.
+        mf_tol: float, optional
+            Tolerance for the error of the mean-field density matrix between symmetry related fragments.
+            If the largest absolute difference in the density-matrix is above `mf_tol`,
+            the translated fragment is not considered as symmetry related. Default: 1e-6.
+
+        Returns
+        -------
+        fragments: list
+            List of T-symmetry related fragments. These will be automatically added to base.fragments and
+            have the attributes `sym_parent` and `sym_op` set.
+        """
         #if self.boundary_cond == 'open': return []
 
         mesh, tvecs = tsymmetry.get_mesh_tvecs(self.mol, tvecs, unit)
@@ -557,47 +606,50 @@ class QEmbeddingFragment:
 
         ovlp = self.base.get_ovlp()
         sds = np.linalg.multi_dot((ovlp, self.mf.make_rdm1(), ovlp))
-        dm0 = np.linalg.multi_dot((self.c_frag.T, sds, self.c_frag))
+        c_all = np.hstack((self.c_frag, self.c_env))
+        dm0 = np.linalg.multi_dot((c_all.T, sds, c_all))
 
         fragments = []
-        for dx in range(mesh[0]):
-            for dy in range(mesh[1]):
-                for dz in range(mesh[2]):
-                    if abs(dx) + abs(dy) + abs(dz) == 0:
-                        continue
-                    t = dx*tvecs[0] + dy*tvecs[1] + dz*tvecs[2]
-                    reorder = tsymmetry.reorder_aos(self.mol, t, unit='Bohr')[0]
-                    if reorder is None:
-                        self.log.error("No T-symmetric fragment found for translation [%d %d %d] of fragment %s", dx, dy, dz, self.name)
-                        continue
-                    name = '%s.t%d.%d.%d' % (self.name, dx, dy, dz)
-                    c_frag = self.c_frag[reorder]
-                    c_env = self.c_env[reorder]
-                    # Check that fragment does not overlap with existing fragments:
-                    for f in self.base.fragments:
-                        ovlp = np.linalg.norm(np.linalg.multi_dot((f.c_frag.T, self.base.get_ovlp(), c_frag)))
-                        if ovlp > 1e-10:
-                            self.log.error("Translation [%d %d %d] of fragment %s overlaps with fragment %s (overlap= %.3e)!",
-                                    dx, dy, dz, self.name, f.name, ovlp)
-                    # Check that MF solution has lattice periodicity:
-                    dm = np.linalg.multi_dot((c_frag.T, sds, c_frag))
-                    err = np.linalg.norm(dm - dm0)
-                    if err > 1e-10:
-                        self.log.error("Mean-field not T-symmetric for translation [%d %d %d] of fragment %s (error= %.3e)!",
-                                dx, dy, dz, self.name, err)
-                    f = self.base.add_fragment(name, c_frag, c_env, fragment_type=self.fragment_type, options=self.opts, tsym_parent=self)
-                    fragments.append(f)
-                    # Copy results
-                    f.results = self.results
-                    if self.c_active_occ is not None:
-                        f.c_active_occ = self.c_active_occ[reorder]
-                        f.c_active_vir = self.c_active_vir[reorder]
+        # last index is fastest looping - change x first, then y, then z:
+        for dz, dy, dx in itertools.product(range(mesh[2]), range(mesh[1]), range(mesh[0])):
+            if abs(dx) + abs(dy) + abs(dz) == 0:
+                continue
+            t = dx*tvecs[0] + dy*tvecs[1] + dz*tvecs[2]
+            reorder, inverse, phases = tsymmetry.reorder_aos(self.mol, t, unit='Bohr')
+            self.log.debugv("reorder=\n%r", reorder)
+            self.log.debugv("inverse=\n%r", inverse)
+            self.log.debugv("phases=\n%r", phases)
+            if reorder is None:
+                self.log.error("No T-symmetric fragment found for translation [%d %d %d] of fragment %s", dx, dy, dz, self.name)
+                continue
+            name = '%s.t%d.%d.%d' % (self.name, dx, dy, dz)
+            c_frag = self.c_frag[reorder]*phases[:,None]
+            c_env = self.c_env[reorder]*phases[:,None]
+            # Check that translated fragment does not overlap with current fragment:
+            ovlp = np.linalg.norm(np.linalg.multi_dot((self.c_frag.T, self.base.get_ovlp(), c_frag)))
+            if ovlp > 1e-10:
+                self.log.error("Translation [%d %d %d] of fragment %s not orthogonal to original fragment (overlap= %.3e)!",
+                            dx, dy, dz, self.name, ovlp)
+            # Check that MF solution has lattice periodicity:
+            c_all = np.hstack((c_frag, c_env))
+            dm = np.linalg.multi_dot((c_all.T, sds, c_all))
+            err = abs(dm - dm0).max()
+            if err > mf_tol:
+                self.log.error("Mean-field not T-symmetric for translation [%d %d %d] of fragment space %s (error= %.3e)!",
+                        dx, dy, dz, self.name, err)
+                continue
+
+            sym_op = tsymmetry.make_sym_op(reorder, phases)
+            f = self.base.add_fragment(name, c_frag, c_env, fragment_type=self.fragment_type,
+                    options=self.opts,
+                    sym_parent=self, sym_op=sym_op)
+            fragments.append(f)
+
         return fragments
 
 
     # --- Counterpoise
     # ================
-
 
     def make_counterpoise_mol(self, rmax, nimages=1, unit='A', **kwargs):
         """Make molecule object for counterposise calculation.

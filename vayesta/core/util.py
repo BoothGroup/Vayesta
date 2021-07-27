@@ -136,10 +136,7 @@ class OptionsBase:
             updates = {}
             for key, val in self.items():
                 if val is select:
-                    log.debugv("Replacing option %s : %s -> %s", key, _repr(val), _repr(other[key]))
                     updates[key] = copy.copy(other[key])
-                else:
-                    log.debugv("Keeping option %s : %s", key, _repr(val))
             other = updates
 
         return dataclasses.replace(self, **other)
