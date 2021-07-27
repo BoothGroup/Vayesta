@@ -162,7 +162,6 @@ class EAGF2(QEmbeddingMethod):
                 raise RuntimeError("Mean-field calculation not converged.")
             else:
                 self.log.error("Mean-field calculation not converged.")
-        self.bno_threshold = bno_threshold
 
         # Orthogonalize insufficiently orthogonal MOs
         # (For example as a result of k2gamma conversion with low cell.precision)
