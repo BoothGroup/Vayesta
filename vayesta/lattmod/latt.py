@@ -316,6 +316,11 @@ class LatticeMF(pyscf.scf.hf.RHF):
     def kernel_hubbard(self):
         mo_energy, mo_coeff = np.linalg.eigh(self.mol.h1e)
         nocc = self.mol.nelectron//2
+        occ = np.s_[:nocc]
+        dm0 = 2*np.dot(mo_coeff[:,occ], mo_coeff[:,occ].T)
+        veff = self.get_veff(dm=dm0)
+        fock = self.get_hcore() + veff
+        mo_energy, mo_coeff = np.linalg.eigh(fock)
         nvir = self.mol.nsite - nocc
         self.mo_energy = mo_energy
         log.info("MO energies:")

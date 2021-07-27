@@ -47,9 +47,15 @@ class FCISolver(ClusterSolver):
         nocc = self.nocc - self.nocc_frozen
         occ = np.s_[:nocc]
         vir = np.s_[nocc:]
+
         f_act = np.linalg.multi_dot((c_act.T, self.base.get_fock(), c_act))
         v_act = 2*einsum('iipq->pq', eris[occ,occ]) - einsum('iqpi->pq', eris[occ,:,:,occ])
         h_eff = f_act - v_act
+        # This should be equivalent to:
+        #core = np.s_[:self.nocc_frozen]
+        #dm_core = 2*np.dot(self.mo_coeff[:,core], self.mo_coeff[:,core].T)
+        #v_core = self.mf.get_veff(dm=dm_core)
+        #h_eff = np.linalg.multi_dot((c_act.T, self.base.get_hcore()+v_core, c_act))
 
         fcisolver = pyscf.fci.direct_spin1.FCISolver(self.mol)
         if self.opts.threads is not None: fcisolver.threads = self.opts.threads
@@ -86,7 +92,12 @@ class FCISolver(ClusterSolver):
         nelec = sum(self.mo_occ[self.get_active_slice()])
         casci = pyscf.mcscf.CASCI(self.mf, self.nactive, nelec)
         casci.canonicalization = False
-        casci.fcisolver.threads = 1
+        if self.opts.threads is not None: casci.fcisolver.threads = self.opts.threads
+        if self.opts.conv_tol is not None: casci.fcisolver.conv_tol = self.opts.conv_tol
+        if self.opts.lindep is not None: casci.fcisolver.lindep = self.opts.lindep
+        # FCI default values:
+        #casci.fcisolver.conv_tol = 1e-10
+        #casci.fcisolver.lindep = 1e-14
 
         self.log.debug("Running CASCI with (%d, %d) CAS", nelec, self.nactive)
         t0 = timer()

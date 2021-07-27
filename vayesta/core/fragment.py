@@ -638,6 +638,8 @@ class QEmbeddingFragment:
                 self.log.error("Mean-field not T-symmetric for translation [%d %d %d] of fragment space %s (error= %.3e)!",
                         dx, dy, dz, self.name, err)
                 continue
+            else:
+                self.log.debugv("Mean-field T-symmetry error for translation [%d %d %d]= %.3e", dx, dy, dz, err)
 
             sym_op = tsymmetry.make_sym_op(reorder, phases)
             f = self.base.add_fragment(name, c_frag, c_env, fragment_type=self.fragment_type,
