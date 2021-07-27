@@ -89,6 +89,8 @@ class EAGF2Fragment(QEmbeddingFragment):
     make_dmet_bath = EWFFragment.make_dmet_bath
     make_bno_bath = EWFFragment.make_bno_bath
     truncate_bno = EWFFragment.truncate_bno
+    project_amplitude_to_fragment = EWFFragment.project_amplitude_to_fragment
+    project_amplitudes_to_fragment = EWFFragment.project_amplitudes_to_fragment
 
 
     #TODO remove side effects?
