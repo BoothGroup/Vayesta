@@ -37,6 +37,7 @@ class EAGF2FragmentOptions(OptionsBase):
 
     # --- Appease EWF inheritance
     plot_orbitals: bool = False
+    energy_partitioning: str = 'first-occ'
 
 
 @dataclasses.dataclass
