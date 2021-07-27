@@ -35,7 +35,7 @@ class EAGF2Options(OptionsBase):
     iao_minao: str = 'auto'
 
     # --- Bath settings
-    bath_type: str = 'MP2-BNO'    # 'MP2-BNO', 'EWDMET' == 'POWER'
+    bath_type: str = 'MP2-BNO'    # 'MP2-BNO', 'EWDMET' == 'POWER', 'ALL', 'NONE'
     nmom_bath: int = 2
     bno_threshold: float = 1e-8
     bno_threshold_factor: float = 1.0
@@ -47,7 +47,7 @@ class EAGF2Options(OptionsBase):
 
     # --- Other
     strict: bool = False
-    orthogonal_mo_tol = 1e-9
+    orthogonal_mo_tol: float = 1e-9
 
 
 @dataclasses.dataclass
@@ -274,7 +274,13 @@ class EAGF2(QEmbeddingMethod):
         gf2.gf = gf2.se.get_greens_function(fock)
 
         if self.opts.solver_options.fock_loop:
-            gf2.gf, gf2.se, fock = fock_loop(self.mf, gf2.gf, gf2.se)
+            gf2.gf, gf2.se, fock = fock_loop(
+                    self.mf, gf2.gf, gf2.se,
+                    conv_tol_rdm1=self.opts.solver_options.conv_tol_rdm1,
+                    conv_tol_nelec=self.opts.solver_options.conv_tol_nelec,
+                    max_cycle_inner=self.opts.solver_options.max_cycle_inner,
+                    max_cycle_outer=self.opts.solver_options.max_cycle_outer,
+            )
 
         gf2.e_1b  = 0.5 * np.sum(rdm1 * (gf2.h1e + fock))
         gf2.e_1b += gf2.e_nuc
@@ -329,7 +335,7 @@ if __name__ == '__main__':
     eagf2 = EAGF2(mf,
             bno_threshold=bno_threshold,
             fragment_type=fragment_type,
-            bath_type='MP2-BNO',
+            bath_type='ALL',
     )
     for i in range(mol.natm):
         frag = eagf2.make_atom_fragment(i)

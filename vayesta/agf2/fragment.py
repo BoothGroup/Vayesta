@@ -155,6 +155,7 @@ class EAGF2Fragment(QEmbeddingFragment):
         self.log.info("------------------------")
         c_nbo_occ, c_env_occ = \
                 self.truncate_bno(c_no_occ, n_no_occ, self.opts.bno_threshold)
+
         self.log.info("Making virtual BNO bath")
         self.log.info("-----------------------")
         c_nbo_vir, c_env_vir = \
@@ -175,7 +176,7 @@ class EAGF2Fragment(QEmbeddingFragment):
 
         if self.opts.bath_type.upper() in ['EWDMET', 'POWER']:
             return self.make_ewdmet_bath()
-        elif self.opts.bath_type.upper() == 'MP2-BNO':
+        else:
             return self.make_dmet_mp2_bath()
 
 
