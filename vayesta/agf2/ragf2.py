@@ -155,7 +155,7 @@ class RAGF2:
         if options is None:
             self.opts = RAGF2Options(**kwargs)
         else:
-            self.opts = self.opts.replace(kwargs)
+            self.opts = options.replace(kwargs)
         self.log.info("RAGF2 parameters:")
         for key, val in self.opts.items():
             self.log.info("  > %-28s %r", key + ":", val)
@@ -841,7 +841,7 @@ class RAGF2:
         self.log.changeIndentLevel(-1)
 
 
-    def print_energies(self):
+    def print_energies(self, output=False):
         ''' Print the energies
         '''
 
@@ -849,14 +849,16 @@ class RAGF2:
         self.log.info("********")
         self.log.changeIndentLevel(1)
 
-        self.log.info("E(corr) = %20.12f", self.e_corr)
-        self.log.info("E(1b)   = %20.12f", self.e_1b)
-        self.log.info("E(2b)   = %20.12f", self.e_2b)
-        self.log.info("E(tot)  = %20.12f", self.e_tot)
+        logger = self.log.output if output else self.log.info
 
-        self.log.info("IP      = %20.12f", self.e_ip)
-        self.log.info("EA      = %20.12f", self.e_ea)
-        self.log.info("Gap     = %20.12f", self.e_ip + self.e_ea)
+        logger("E(corr) = %20.12f", self.e_corr)
+        logger("E(1b)   = %20.12f", self.e_1b)
+        logger("E(2b)   = %20.12f", self.e_2b)
+        logger("E(tot)  = %20.12f", self.e_tot)
+
+        logger("IP      = %20.12f", self.e_ip)
+        logger("EA      = %20.12f", self.e_ea)
+        logger("Gap     = %20.12f", self.e_ip + self.e_ea)
 
         self.log.changeIndentLevel(-1)
 
@@ -954,14 +956,7 @@ class RAGF2:
                 if (gf_occ.naux+i) < gf.naux:
                     self.dump_cube(gf_occ.naux+i, cubefile="luqmo%d.cube"%i)
 
-        self.log.output("E(nuc)  = %20.12f Ha", self.e_nuc)
-        self.log.output("E(MF)   = %20.12f Ha", self.e_mf)
-        self.log.output("E(corr) = %20.12f Ha", self.e_corr)
-        self.log.output("E(tot)  = %20.12f Ha", self.e_tot)
-
-        self.log.output("IP      = %20.12f Ha", self.e_ip)
-        self.log.output("EA      = %20.12f Ha", self.e_ea)
-        self.log.output("Gap     = %20.12f Ha", self.e_ip + self.e_ea)
+        self.print_energies(output=True)
 
         self.log.info("Time elapsed:  %s", time_string(timer() - t0))
 

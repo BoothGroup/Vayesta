@@ -1,4 +1,3 @@
-import logging
 import dataclasses
 import gc
 
@@ -11,7 +10,7 @@ import pyscf.agf2
 from vayesta.ewf.fragment import EWFFragment
 from vayesta.core.util import OptionsBase, NotSet, get_used_memory, time_string
 from vayesta.core import QEmbeddingFragment
-from vayesta.agf2 import ragf2, ewdmet_bath, util
+from vayesta.agf2 import ragf2, ewdmet_bath
 
 try:
     from mpi4py import MPI
@@ -38,7 +37,7 @@ class EAGF2FragmentOptions(OptionsBase):
 
     # --- Appease EWF inheritance
     plot_orbitals: bool = False
-    
+
 
 @dataclasses.dataclass
 class EAGF2FragmentResults:
@@ -59,10 +58,10 @@ class EAGF2FragmentResults:
 class EAGF2Fragment(QEmbeddingFragment):
 
     def __init__(self, base, fid, name, c_frag, c_env, fragment_type, sym_factor=1,
-            atoms=None, log=None, options=None, **kwargs):
+                 atoms=None, log=None, options=None, **kwargs):
 
         super().__init__(
-                base, fid, name, c_frag, c_env, fragment_type, 
+                base, fid, name, c_frag, c_env, fragment_type,
                 sym_factor=sym_factor, atoms=atoms, log=log,
         )
 
@@ -82,18 +81,17 @@ class EAGF2Fragment(QEmbeddingFragment):
 
         self.results = None
 
-
     @property
     def e_corr(self):
         idx = np.argmin(self.bno_threshold)
         return self.e_corrs[idx]
-
 
     make_dmet_bath = EWFFragment.make_dmet_bath
     make_bno_bath = EWFFragment.make_bno_bath
     truncate_bno = EWFFragment.truncate_bno
 
 
+    #TODO remove side effects?
     def make_ewdmet_bath(self):
         ''' Make EwDMET bath orbitals
         '''
@@ -113,7 +111,7 @@ class EAGF2Fragment(QEmbeddingFragment):
         self.log.info("EwDMET bath character:")
         s = self.mf.get_ovlp()
         for i in range(c_bath.shape[-1]):
-            s_bath = np.linalg.multi_dot((c_bath[:,i].T.conj(), s, c_bath[:,[i]]))
+            s_bath = np.linalg.multi_dot((c_bath[:, i].T.conj(), s, c_bath[:, [i]]))
             arg = np.argsort(-s_bath)
             s_bath = s_bath[arg]
             n = np.amin((len(s_bath), 6))
@@ -136,6 +134,38 @@ class EAGF2Fragment(QEmbeddingFragment):
         )
 
 
+    #FIXME: make API consistent with EWF
+    def make_dmet_mp2_bath(self):
+        ''' Make DMET + MP2 BNO bath orbitals
+        '''
+
+        t0 = timer()
+
+        self.log.info("Making DMET+MP2 bath")
+        self.log.info("*******************")
+        self.log.changeIndentLevel(1)
+
+        self.c_cluster_occ, self.c_cluster_vir, \
+                c_no_occ, n_no_occ, c_no_vir, n_no_vir = EWFFragment.make_bath(self)
+
+        self.log.info("Making occupied BNO bath")
+        self.log.info("------------------------")
+        c_nbo_occ, c_env_occ = \
+                self.truncate_bno(c_no_occ, n_no_occ, self.opts.bno_threshold)
+        self.log.info("Making virtual BNO bath")
+        self.log.info("-----------------------")
+        c_nbo_vir, c_env_vir = \
+                self.truncate_bno(c_no_vir, n_no_vir, self.opts.bno_threshold)
+
+        self.c_env_occ = c_env_occ
+        self.c_env_vir = c_env_vir
+        self.c_cluster_occ = self.canonicalize_mo(self.c_cluster_occ, c_nbo_occ)[0]
+        self.c_cluster_vir = self.canonicalize_mo(self.c_cluster_vir, c_nbo_vir)[0]
+
+        self.log.timing("Time for DMET+MP2 bath:  %s", time_string(timer() - t0))
+        self.log.changeIndentLevel(-1)
+
+
     def make_bath(self):
         ''' Make bath orbitals
         '''
@@ -143,19 +173,7 @@ class EAGF2Fragment(QEmbeddingFragment):
         if self.opts.bath_type.upper() in ['EWDMET', 'POWER']:
             return self.make_ewdmet_bath()
         elif self.opts.bath_type.upper() == 'MP2-BNO':
-            #TODO make consistent with EWF API
-            self.c_cluster_occ, self.c_cluster_vir, c_no_occ, n_no_occ, c_no_vir, n_no_vir = \
-                    EWFFragment.make_bath(self)
-
-            c_nbo_occ, c_env_occ = \
-                    self.truncate_bno(c_no_occ, n_no_occ, self.opts.bno_threshold)
-            c_nbo_vir, c_env_vir = \
-                    self.truncate_bno(c_no_vir, n_no_vir, self.opts.bno_threshold)
-
-            self.c_env_occ = c_env_occ
-            self.c_env_vir = c_env_vir
-            self.c_cluster_occ = self.canonicalize_mo(self.c_cluster_occ, c_nbo_occ)[0]
-            self.c_cluster_vir = self.canonicalize_mo(self.c_cluster_vir, c_nbo_vir)[0]
+            return self.make_dmet_mp2_bath()
 
 
     def project_to_fragment(self, cluster_solver, mo_coeff):
@@ -166,23 +184,22 @@ class EAGF2Fragment(QEmbeddingFragment):
         se = cluster_solver.se
         ovlp = self.mf.get_ovlp()
 
-        def democratic_part(frag, matrix, mo_coeff):
-            #TODO move to external function
-            c = pyscf.lib.einsum('pa,pq,qi->ai', mo_coeff.conj(), ovlp, frag.c_frag)
-            p_frag = np.dot(c, c.T.conj())
+        #TODO move democratic partitioning to external function
+        c = pyscf.lib.einsum('pa,pq,qi->ai', mo_coeff.conj(), ovlp, self.c_frag)
+        p_frag = np.dot(c, c.T.conj())
 
-            c_full = np.hstack((frag.c_frag, frag.c_env))
-            c = pyscf.lib.einsum('pa,pq,qi->ai', mo_coeff.conj(), ovlp, c_full)
-            p_full = np.dot(c, c.T.conj())
+        c_full = np.hstack((self.c_frag, self.c_env))
+        c = pyscf.lib.einsum('pa,pq,qi->ai', mo_coeff.conj(), ovlp, c_full)
+        p_full = np.dot(c, c.T.conj())
 
+        def democratic_part(matrix):
             m = pyscf.lib.einsum('...pq,pi,qj->...ij', matrix, p_frag, p_full)
             m = 0.5 * (m + m.swapaxes(m.ndim-1, m.ndim-2).conj())
-
             return m
 
-        rdm1 = democratic_part(self, rdm1, mo_coeff)
-        t_occ = democratic_part(self, se.get_occupied().moment([0, 1], squeeze=False), mo_coeff)
-        t_vir = democratic_part(self, se.get_virtual().moment([0, 1], squeeze=False), mo_coeff)
+        rdm1 = democratic_part(rdm1)
+        t_occ = democratic_part(se.get_occupied().moment([0, 1], squeeze=False))
+        t_vir = democratic_part(se.get_virtual().moment([0, 1], squeeze=False))
         #TODO higher moments?
 
         return rdm1, t_occ, t_vir
@@ -218,21 +235,8 @@ class EAGF2Fragment(QEmbeddingFragment):
 
         # Get ERIs
         if eris is None:
-            #TODO re-use for self-consistency
             eri = pyscf.ao2mo.incore.full(self.mf._eri, c_active, compact=False)
             eri = eri.reshape((c_active.shape[1],) * 4)
-
-        ## Get Veff due to frozen density
-        #rdm1 = np.dot(c_frozen_occ, c_frozen_occ.T.conj()) * 2
-        #veff = self.mf.get_veff(dm=rdm1)
-        #veff = np.linalg.multi_dot((mo_coeff.T.conj(), veff, mo_coeff))
-
-        ## Get the MO energies
-        #rdm1 = np.dot(c_occ, c_occ.T.conj()) * 2
-        #assert np.allclose(self.mf.make_rdm1(), rdm1)  # should be the same
-        #fock = self.mf.get_fock(dm=rdm1)
-        #fock = np.linalg.multi_dot((mo_coeff.T.conj(), fock, mo_coeff))
-        #mo_energy, r = np.linalg.eigh(fock)
 
         # Run solver
         cluster_solver = self.solver(
@@ -243,12 +247,10 @@ class EAGF2Fragment(QEmbeddingFragment):
                 frozen=(nocc_frozen, nvir_frozen),
                 log=self.base.quiet_log,
                 eri=eri,
-                #veff=veff,
                 dump_chkfile=False,
-                **self.opts.solver_options,
+                options=self.opts.solver_options,
         )
         cluster_solver.kernel()
-        #TODO: brief output of results on current cluster
 
         e_corr = cluster_solver.e_corr
         rdm1, t_occ, t_vir = self.project_to_fragment(cluster_solver, c_active)
@@ -271,6 +273,7 @@ class EAGF2Fragment(QEmbeddingFragment):
         m0 = get_used_memory()
         del cluster_solver
         ndel = gc.collect()
-        self.log.debugv("GC deleted %d objects and freed %.3f MB of memory", ndel, (get_used_memory()-m0)/1e6)
+        self.log.debugv("GC deleted %d objects and freed %.3f MB of memory",
+                        ndel, (get_used_memory()-m0)/1e6)
 
         return results

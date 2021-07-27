@@ -13,8 +13,7 @@ from vayesta.ewf import helper
 from vayesta.core import QEmbeddingMethod
 from vayesta.core.util import OptionsBase, time_string
 from vayesta.agf2.fragment import EAGF2Fragment
-from vayesta.agf2.ragf2 import RAGF2
-from vayesta.agf2 import util
+from vayesta.agf2.ragf2 import RAGF2, RAGF2Options
 
 try:
     from mpi4py import MPI
@@ -23,6 +22,7 @@ except ImportError:
     from timeit import default_timer as timer
 
 #TODO bath_type = 'ALL', 'NONE'
+#TODO ragf2 as solver
 
 
 @dataclasses.dataclass
@@ -47,7 +47,6 @@ class EAGF2Options(OptionsBase):
 
     # --- Other
     strict: bool = False
-    fock_loop: bool = True
     orthogonal_mo_tol = 1e-9
 
 
@@ -65,7 +64,13 @@ class EAGF2Results:
 
 #TODO: combine with vayesta.agf2.ragf2.RAGF2 functionality
 #TODO: take fock loop opts from solver_options
-def fock_loop(mf, gf, se, max_cycle_inner=50, max_cycle_outer=20, conv_tol_nelec=1e-7, conv_tol_rdm1=1e-7):
+def fock_loop(
+        mf, gf, se,
+        max_cycle_inner=50,
+        max_cycle_outer=20,
+        conv_tol_nelec=1e-7,
+        conv_tol_rdm1=1e-7,
+):
     '''
     Perform a Fock loop with Fock builds in AO basis
     '''
@@ -141,6 +146,14 @@ class EAGF2(QEmbeddingMethod):
             self.opts = self.opts.replace(kwargs)
         self.log.info("EAGF2 parameters:")
         for key, val in self.opts.items():
+            if key == 'solver_options':
+                continue
+            self.log.info("  > %-24s %r", key + ":", val)
+
+        solver_options = RAGF2Options(**self.opts.solver_options)
+        self.opts.solver_options = solver_options
+        self.log.info("RAGF2 solver parameters:")
+        for key, val in self.opts.solver_options.items():
             self.log.info("  > %-24s %r", key + ":", val)
 
         # --- Check input
@@ -157,13 +170,15 @@ class EAGF2(QEmbeddingMethod):
         assert np.all(c.imag == 0), "max|Im(C)|= %.2e" % abs(c.imag).max()
         ctsc = np.linalg.multi_dot((c.T, self.get_ovlp(), c))
         nonorth = abs(ctsc - np.eye(ctsc.shape[-1])).max()
-        self.log.info("Max. non-orthogonality of input orbitals= %.2e%s", nonorth, " (!!!)" if nonorth > 1e-5 else "")
+        self.log.info("Max. non-orthogonality of input orbitals= %.2e%s", nonorth,
+                      " (!!!)" if nonorth > 1e-5 else "")
         if self.opts.orthogonal_mo_tol and nonorth > self.opts.orthogonal_mo_tol:
             t0 = timer()
             self.log.info("Orthogonalizing orbitals...")
             self.mo_coeff = helper.orthogonalize_mo(c, self.get_ovlp())
             change = abs(np.diag(np.linalg.multi_dot((self.mo_coeff.T, self.get_ovlp(), c)))-1)
-            self.log.info("Max. orbital change= %.2e%s", change.max(), " (!!!)" if change.max() > 1e-4 else "")
+            self.log.info("Max. orbital change= %.2e%s", change.max(),
+                          " (!!!)" if change.max() > 1e-4 else "")
             self.log.timing("Time for orbital orthogonalization: %s", time_string(timer()-t0))
 
         # Prepare fragments
@@ -172,7 +187,8 @@ class EAGF2(QEmbeddingMethod):
         if self.opts.fragment_type.upper() == 'IAO':
             if self.opts.iao_minao == 'auto':
                 self.opts.iao_minao = helper.get_minimal_basis(self.mol.basis)
-                self.log.warning("Minimal basis set '%s' for IAOs was selected automatically.",  self.opts.iao_minao)
+                self.log.warning("Minimal basis set '%s' for IAOs was selected automatically.",
+                                 self.opts.iao_minao)
             self.log.info("Computational basis= %s", self.mol.basis)
             self.log.info("Minimal basis=       %s", self.opts.iao_minao)
             fragkw['minao'] = self.opts.iao_minao
@@ -226,6 +242,7 @@ class EAGF2(QEmbeddingMethod):
             result = frag.kernel()
             self.cluster_results[frag.id] = result
 
+            self.log.info("E(corr) = %20.12f", result.e_corr)
             if not result.converged:
                 self.log.error("%s is not converged", frag)
             else:
@@ -240,10 +257,10 @@ class EAGF2(QEmbeddingMethod):
 
             self.log.changeIndentLevel(-1)
 
-        gf2 = RAGF2(self.mf, 
-                eri=np.zeros((1,1,1,1)),
+        gf2 = RAGF2(self.mf,
+                eri=np.zeros((1, 1, 1, 1)),
                 log=self.quiet_log,
-                **self.opts.solver_options,
+                options=self.opts.solver_options,
         )
 
         se_occ = gf2._build_se_from_moments(t_occ)
@@ -257,7 +274,7 @@ class EAGF2(QEmbeddingMethod):
 
         gf2.gf = gf2.se.get_greens_function(fock)
 
-        if self.opts.fock_loop:
+        if self.opts.solver_options.fock_loop:
             gf2.gf, gf2.se, fock = fock_loop(self.mf, gf2.gf, gf2.se)
 
         gf2.e_1b  = 0.5 * np.sum(rdm1 * (gf2.h1e + fock))
@@ -273,13 +290,9 @@ class EAGF2(QEmbeddingMethod):
         )
         self.result = result
 
-        self.log.output("E(nuc)  = %20.12f", gf2.e_nuc)
-        self.log.output("E(MF)   = %20.12f", gf2.mf.e_tot)
-        self.log.output("E(corr) = %20.12f", gf2.e_corr)
-        self.log.output("E(tot)  = %20.12f", gf2.e_tot)
-        self.log.output("IP      = %20.12f", gf2.e_ip)
-        self.log.output("EA      = %20.12f", gf2.e_ea)
-        self.log.output("Gap     = %20.12f", gf2.e_ip + gf2.e_ea)
+        with pyscf.lib.temporary_env(gf2, log=self.log):
+            gf2.print_excitations()
+            gf2.print_energies(output=True)
 
         self.log.info("Total wall time:  %s", time_string(timer() - t0))
         self.log.info("All done.")
@@ -315,10 +328,9 @@ if __name__ == '__main__':
     ea_mf = mf.mo_energy[mf.mo_occ == 0].min()
 
     eagf2 = EAGF2(mf,
-            bno_threshold=bno_threshold, 
+            bno_threshold=bno_threshold,
             fragment_type=fragment_type,
             bath_type='MP2-BNO',
-            fock_loop=True,
     )
     for i in range(mol.natm):
         frag = eagf2.make_atom_fragment(i)
