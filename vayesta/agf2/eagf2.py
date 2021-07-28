@@ -13,7 +13,7 @@ from vayesta.ewf import helper
 from vayesta.core import QEmbeddingMethod
 from vayesta.core.util import OptionsBase, time_string
 from vayesta.agf2.fragment import EAGF2Fragment
-from vayesta.agf2.ragf2 import RAGF2, RAGF2Options
+from vayesta.agf2.ragf2 import RAGF2, RAGF2Options, DIIS
 
 try:
     from mpi4py import MPI
@@ -21,7 +21,6 @@ try:
 except ImportError:
     from timeit import default_timer as timer
 
-#TODO bath_type = 'ALL', 'NONE'
 #TODO ragf2 as solver
 
 
@@ -60,63 +59,6 @@ class EAGF2Results:
     e_2b: float = None
     gf: pyscf.agf2.GreensFunction = None
     se: pyscf.agf2.SelfEnergy = None
-
-
-#TODO: combine with vayesta.agf2.ragf2.RAGF2 functionality
-#TODO: take fock loop opts from solver_options
-def fock_loop(
-        mf, gf, se,
-        max_cycle_inner=50,
-        max_cycle_outer=20,
-        conv_tol_nelec=1e-7,
-        conv_tol_rdm1=1e-7,
-):
-    '''
-    Perform a Fock loop with Fock builds in AO basis
-    '''
-
-    nmo = gf.nphys
-    nelec = mf.mol.nelectron
-    diis = pyscf.lib.diis.DIIS()
-    converged = False
-
-    def get_fock():
-        rdm1 = gf.make_rdm1()
-        rdm1 = np.linalg.multi_dot((mf.mo_coeff, rdm1, mf.mo_coeff.T))
-        fock = mf.get_fock(dm=rdm1)
-        fock = np.linalg.multi_dot((mf.mo_coeff.T, fock, mf.mo_coeff))
-        return fock
-
-    fock = get_fock()
-    rdm1_prev = np.zeros_like(fock)
-
-    for niter1 in range(max_cycle_outer):
-        se, opt = pyscf.agf2.chempot.minimize_chempot(
-                se, fock, nelec, x0=se.chempot,
-                tol=conv_tol_nelec*1e-2,
-                maxiter=max_cycle_inner,
-        )
-
-        for niter2 in range(max_cycle_inner):
-            w, v = se.eig(fock)
-            se.chempot, nerr = pyscf.agf2.chempot.binsearch_chempot((w, v), nmo, nelec)
-            gf = pyscf.agf2.GreensFunction(w, v[:nmo], chempot=se.chempot)
-
-            fock = get_fock()
-            rdm1 = gf.make_rdm1()
-            fock = diis.update(fock, xerr=None)
-
-            derr = np.max(np.absolute(rdm1 - rdm1_prev))
-            rdm1_prev = rdm1.copy()
-
-            if derr < conv_tol_rdm1:
-                break
-
-        if derr < conv_tol_rdm1 and abs(nerr) < conv_tol_nelec:
-            converged = True
-            break
-
-    return gf, se, fock
 
 
 class EAGF2(QEmbeddingMethod):
@@ -197,7 +139,7 @@ class EAGF2(QEmbeddingMethod):
         self.log.timing("Time for EAGF2 setup: %s", time_string(timer() - t0))
 
         self.cluster_results = {}
-        self.result = None
+        self.results = None
         self.e_corr = 0.0
 
 
@@ -238,62 +180,58 @@ class EAGF2(QEmbeddingMethod):
             self.log.info("************%s", len(str(frag))*"*")
             self.log.changeIndentLevel(1)
 
-            result = frag.kernel()
-            self.cluster_results[frag.id] = result
+            results = frag.kernel()
+            self.cluster_results[frag.id] = results
 
-            self.log.info("E(corr) = %20.12f", result.e_corr)
-            if not result.converged:
+            self.log.info("E(corr) = %20.12f", results.e_corr)
+            self.log.info("IP      = %20.12f", results.ip)
+            self.log.info("EA      = %20.12f", results.ea)
+            self.log.info("Gap     = %20.12f", results.ip + results.ea)
+            if not results.converged:
                 self.log.error("%s is not converged", frag)
             else:
                 self.log.info("%s is done.", frag)
 
             ovlp = frag.mf.get_ovlp()
-            c = pyscf.lib.einsum('pa,pq,qi->ai', result.c_active.conj(), ovlp, frag.mf.mo_coeff)
+            c = pyscf.lib.einsum('pa,pq,qi->ai', results.c_active.conj(), ovlp, frag.mf.mo_coeff)
 
-            rdm1 += pyscf.lib.einsum('pq,pi,qj->ij', result.rdm1, c.conj(), c)
-            t_occ += pyscf.lib.einsum('...pq,pi,qj->...ij', result.t_occ, c.conj(), c)
-            t_vir += pyscf.lib.einsum('...pq,pi,qj->...ij', result.t_vir, c.conj(), c)
+            rdm1 += pyscf.lib.einsum('pq,pi,qj->ij', results.rdm1, c.conj(), c)
+            t_occ += pyscf.lib.einsum('...pq,pi,qj->...ij', results.t_occ, c.conj(), c)
+            t_vir += pyscf.lib.einsum('...pq,pi,qj->...ij', results.t_vir, c.conj(), c)
 
             self.log.changeIndentLevel(-1)
 
+        options = self.opts.solver_options.replace({'fock_basis': 'ao'})
         gf2 = RAGF2(self.mf,
-                eri=np.zeros((1, 1, 1, 1)),
+                eri=np.empty(()),
                 log=self.quiet_log,
-                options=self.opts.solver_options,
+                options=options,
         )
 
         se_occ = gf2._build_se_from_moments(t_occ)
         se_vir = gf2._build_se_from_moments(t_vir)
+        assert np.allclose(se_occ.moment(range(2)).ravel(), t_occ.ravel())
+        assert np.allclose(se_vir.moment(range(2)).ravel(), t_vir.ravel())
         gf2.se = pyscf.agf2.aux.combine(se_occ, se_vir)
+        gf2.se.chempot = 0.5 * (se_occ.energy.max() + se_vir.energy.min())
 
-        mo_coeff = self.mf.mo_coeff
-        rdm1_ao = np.linalg.multi_dot((mo_coeff, rdm1, mo_coeff.T.conj()))
-        fock_ao = self.mf.get_fock(dm=rdm1_ao)
-        fock = np.linalg.multi_dot((mo_coeff.T.conj(), fock_ao, mo_coeff))
-
-        gf2.gf = gf2.se.get_greens_function(fock)
-
-        if self.opts.solver_options.fock_loop:
-            gf2.gf, gf2.se, fock = fock_loop(
-                    self.mf, gf2.gf, gf2.se,
-                    conv_tol_rdm1=self.opts.solver_options.conv_tol_rdm1,
-                    conv_tol_nelec=self.opts.solver_options.conv_tol_nelec,
-                    max_cycle_inner=self.opts.solver_options.max_cycle_inner,
-                    max_cycle_outer=self.opts.solver_options.max_cycle_outer,
-            )
+        fock = gf2.get_fock(rdm1=rdm1)
+        w, v = gf2.solve_dyson(se=gf2.se, gf=gf2.gf, fock=fock)
+        gf2.gf = pyscf.agf2.GreensFunction(w, v[:gf2.nmo])
+        gf2.gf, gf2.se = gf2.fock_loop(gf=gf2.gf, se=gf2.se)
 
         gf2.e_1b  = 0.5 * np.sum(rdm1 * (gf2.h1e + fock))
         gf2.e_1b += gf2.e_nuc
-        gf2.e_2b  = gf2.energy_2body()
+        gf2.e_2b  = gf2.energy_2body(gf=gf2.gf, se=gf2.se)
 
-        result = EAGF2Results(
+        results = EAGF2Results(
                 e_corr=gf2.e_corr,
                 e_1b=gf2.e_1b,
                 e_2b=gf2.e_2b,
                 gf=gf2.gf,
                 se=gf2.se,
         )
-        self.result = result
+        self.results = results
 
         with pyscf.lib.temporary_env(gf2, log=self.log):
             gf2.print_excitations()
@@ -318,16 +256,27 @@ if __name__ == '__main__':
     fragment_type = 'Lowdin-AO'
 
     mol = pyscf.gto.Mole()
-    mol.atom = 'He 0 0 0; He 0 0 1'
-    mol.basis = '6-31g'
+    #mol.atom = 'He 0 0 0; He 0 0 1'
+    #mol.basis = '6-31g'
+    mol.atom = 'O 0 0 0.11779; H 0 0.755453 -0.471161; H 0 -0.755453 -0.471161'
+    mol.basis = 'cc-pvdz'
     mol.verbose = 0
     mol.max_memory = 1e9
     mol.build()
 
     mf = pyscf.scf.RHF(mol)
-    mf.conv_tol = 1e-10
-    mf.conv_tol_grad = 1e-8
+    mf.conv_tol = 1e-14
+    mf.conv_tol_grad = 1e-10
     mf.run()
+    
+    gf2_params = {
+        'conv_tol': 1e-10,
+        'conv_tol_rdm1': 1e-14,
+        'conv_tol_nelec': 1e-12,
+        'max_cycle_inner': 200,
+        'weight_tol': 0,
+        #'fock_loop': False,
+    }
 
     ip_mf = -mf.mo_energy[mf.mo_occ > 0].max()
     ea_mf = mf.mo_energy[mf.mo_occ == 0].min()
@@ -336,6 +285,7 @@ if __name__ == '__main__':
             bno_threshold=bno_threshold,
             fragment_type=fragment_type,
             bath_type='ALL',
+            solver_options=gf2_params,
     )
     for i in range(mol.natm):
         frag = eagf2.make_atom_fragment(i)
@@ -343,6 +293,11 @@ if __name__ == '__main__':
     eagf2.run()
 
     vayesta.log.setLevel(logging.OUTPUT)
-    agf2 = RAGF2(mf)
+    agf2 = RAGF2(mf, **gf2_params)
     agf2.kernel()
+    #fock = agf2.get_fock()
+    #w, v = agf2.solve_dyson(se=agf2.se, gf=agf2.gf, fock=fock)
+    #gf = pyscf.agf2.GreensFunction(w, v[:agf2.nmo])
+    #gf, se = agf2.fock_loop(gf=gf, se=agf2.se)
+    #print(gf.get_occupied().energy.max())
     vayesta.log.setLevel(logging.INFO)

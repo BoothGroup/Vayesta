@@ -51,6 +51,10 @@ class EAGF2FragmentResults:
     c_frozen: np.ndarray = None
     c_active: np.ndarray = None
     e_corr: float = None
+    e_1b: float = None
+    e_2b: float = None
+    ip: float = None
+    ea: float = None
     rdm1: np.ndarray = None
     t_occ: np.ndarray = None
     t_vir: np.ndarray = None
@@ -216,11 +220,9 @@ class EAGF2Fragment(QEmbeddingFragment):
         if self.c_cluster_occ is None:
             self.make_bath()
 
-        c_active = np.hstack((self.c_cluster_occ, self.c_cluster_vir))
-        c_frozen = np.hstack((self.c_env_occ, self.c_env_vir))
         c_occ = np.hstack((self.c_env_occ, self.c_cluster_occ))
         c_vir = np.hstack((self.c_cluster_vir, self.c_env_vir))
-        nactive = c_active.shape[-1]
+        nactive = self.c_cluster_occ.shape[-1] + self.c_cluster_vir.shape[-1]
         nocc, nvir = c_occ.shape[-1], c_vir.shape[-1]
         nocc_frozen = self.c_env_occ.shape[-1]
         nvir_frozen = self.c_env_vir.shape[-1]
@@ -235,7 +237,11 @@ class EAGF2Fragment(QEmbeddingFragment):
         if not np.allclose(n_vir, 0, atol=2*self.opts.dmet_threshold):
             raise RuntimeError("Incorrect occupation of virtual orbitals:\n%r" % n_vir)
         mo_occ = np.asarray(nocc*[2] + nvir*[0])
-        mo_energy = self.mf.canonicalize(mo_coeff, mo_occ)[0]
+
+        mo_energy, mo_coeff = self.mf.canonicalize(mo_coeff, mo_occ)
+        c_active = mo_coeff[:, list(range(nocc_frozen, nocc+nvir-nvir_frozen))]
+        c_frozen = mo_coeff[:, list(range(nocc_frozen)) + 
+                               list(range(nocc+nvir-nvir_frozen, nocc+nvir))]
 
         # Get ERIs
         if eris is None:
@@ -256,6 +262,31 @@ class EAGF2Fragment(QEmbeddingFragment):
         )
         cluster_solver.kernel()
 
+        #FIXME FIXME FIXME
+        #NOTE: AGF2 solver on each cluster must end on a Fock loop in order
+        #      that the final cluster Fock loop returns the AGF2 result.
+        #      This makes the results on each cluster look slightly wrong
+        #      in the instance of a complete bath, but the correct result
+        #      is recovered after partitioning.
+        #
+        # For example, the following gives different IPs:
+        #    gf2 = ragf2.RAGF2(mf).run()
+        #    print(gf2.gf.get_occupied().energy.max())
+        #    w, v = gf2.solve_dyson(se=gf2.se, gf=gf2.gf, fock=gf2.get_fock())
+        #    gf2.gf = gf2.gf.__class__(w, v[:gf2.nmo])
+        #    gf2.gf, gf2.se = gf2.fock_loop()
+        #    print(gf2.gf.get_occupied().energy.max())
+        #
+        # But the following is correct:
+        #    gf2 = ragf2.RAGF2(mf).run()
+        #    print(gf2.gf.get_occupied().energy.max())
+        #    gf2.gf, gf2.se = gf2.fock_loop()
+        #    w, v = gf2.solve_dyson(se=gf2.se, gf=gf2.gf, fock=gf2.get_fock())
+        #    gf2.gf = gf2.gf.__class__(w, v[:gf2.nmo])
+        #    gf2.gf, gf2.se = gf2.fock_loop()
+        #    print(gf2.gf.get_occupied().energy.max())
+        cluster_solver.gf, cluster_solver.se = cluster_solver.fock_loop()
+
         e_corr = cluster_solver.e_corr
         rdm1, t_occ, t_vir = self.project_to_fragment(cluster_solver, c_active)
 
@@ -266,6 +297,10 @@ class EAGF2Fragment(QEmbeddingFragment):
                 c_frozen=c_frozen,
                 c_active=c_active,
                 e_corr=e_corr,
+                e_1b=cluster_solver.e_1b,
+                e_2b=cluster_solver.e_2b,
+                ip=cluster_solver.e_ip,
+                ea=cluster_solver.e_ea,
                 rdm1=rdm1,
                 t_occ=t_occ,
                 t_vir=t_vir,
