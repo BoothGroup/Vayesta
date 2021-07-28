@@ -210,8 +210,9 @@ class EAGF2(QEmbeddingMethod):
 
         se_occ = gf2._build_se_from_moments(t_occ)
         se_vir = gf2._build_se_from_moments(t_vir)
-        assert np.allclose(se_occ.moment(range(2)).ravel(), t_occ.ravel())
-        assert np.allclose(se_vir.moment(range(2)).ravel(), t_vir.ravel())
+        #FIXME: not necessarily true if some eigenvalues are removed:
+        #assert np.allclose(se_occ.moment(range(2)).ravel(), t_occ.ravel())
+        #assert np.allclose(se_vir.moment(range(2)).ravel(), t_vir.ravel())
         gf2.se = pyscf.agf2.aux.combine(se_occ, se_vir)
         gf2.se.chempot = 0.5 * (se_occ.energy.max() + se_vir.energy.min())
 
