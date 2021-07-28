@@ -47,6 +47,7 @@ class RAGF2Options(OptionsBase):
     diis_min_space: int = 1         # minimum AGF2 DIIS space before extrapolation
 
     # --- Fock loop convergence parameters
+    fock_basis: str = 'MO'          # basis to perform Fock build in
     fock_loop: bool = True          # do the Fock loop
     max_cycle_outer: int = 20       # maximum number of outer Fock loop cycles
     max_cycle_inner: int = 50       # maximum number of inner Fock loop cycles
@@ -490,24 +491,28 @@ class RAGF2:
         return w, v
 
 
-    def fock_loop(self, gf=None, se=None):
+    def fock_loop(self, gf=None, se=None, fock=None):
         ''' Do the self-consistent Fock loop
         '''
-
-        if not self.opts.fock_loop:
-            gf = gf or self.gf
-            se = se or self.se
-            return gf, se
 
         t0 = timer()
         gf = gf or self.gf
         se = se or self.se
 
+        nelec  = (self.nocc - self.frozen[0]) * 2  #FIXME yes?
+        if fock is None:
+            fock = self.get_fock(gf=gf, with_frozen=False)
+
+        if not self.opts.fock_loop:
+            # Just solve Dyson eqn
+            w, v = self.solve_dyson(se=se, gf=gf, fock=fock)
+            gf = agf2.GreensFunction(w, v[:self.nact], chempot=se.chempot)
+            gf.chempot = se.chempot = agf2.chempot.binsearch_chempot((w, v), self.nact, nelec)[0]
+            return gf, se
+
         self.log.info('Fock loop')
         self.log.info('*********')
 
-        nelec  = (self.nocc - self.frozen[0]) * 2  #FIXME yes?
-        fock = self.get_fock(gf=gf, with_frozen=False)
         diis = DIIS(space=self.opts.fock_diis_space, min_space=self.opts.fock_diis_min_space)
         rdm1_prev = np.zeros_like(fock)
         converged = False
@@ -518,7 +523,7 @@ class RAGF2:
             se, opt = agf2.chempot.minimize_chempot(
                     se, fock, nelec,
                     x0=se.chempot,
-                    tol=self.opts.conv_tol_nelec*1e-1,  #FIXME - may change after rediagonalisation
+                    tol=self.opts.conv_tol_nelec*1e-2,  #FIXME - may change after rediagonalisation
                     maxiter=self.opts.max_cycle_inner,
             )
 
@@ -550,17 +555,20 @@ class RAGF2:
         return gf, se
 
 
-    def get_fock(self, gf=None, with_frozen=True):
+    def get_fock(self, gf=None, rdm1=None, with_frozen=True):
         ''' Get the Fock matrix including all frozen contributions
         '''
-        #TODO Δdm algorithm
         #TODO check these expressions for complex ERIs
+
+        if self.opts.fock_basis.lower() == 'ao':
+            return self._get_fock_via_ao(gf=gf, rdm1=rdm1, with_frozen=with_frozen)
 
         t0 = timer()
         self.log.debugv("Building Fock matrix")
 
         gf = gf or self.gf
-        rdm1 = self.make_rdm1(gf=gf, with_frozen=False)
+        if rdm1 is None:
+            rdm1 = self.make_rdm1(gf=gf, with_frozen=False)
         eri = self.eri
 
         vj = np.zeros((self.nact, self.nact))
@@ -597,6 +605,35 @@ class RAGF2:
         
         return fock
 
+
+    def _get_fock_via_ao(self, gf=None, rdm1=None, with_frozen=True):
+        '''
+        Get the Fock matrix via AO basis integrals - result is still
+        transformed into MO basis.
+        '''
+        #TODO Δdm algorithm for integral-direct
+
+        t0 = timer()
+        self.log.debugv("Building Fock matrix via AO integrals")
+
+        gf = gf or self.gf
+        mo_coeff = self.mo_coeff
+        if rdm1 is None:
+            rdm1 = self.make_rdm1(gf=gf, with_frozen=True)
+        rdm1_ao = np.linalg.multi_dot((mo_coeff, rdm1, mo_coeff.T.conj()))
+
+        veff_ao = self.mf.get_veff(dm=rdm1_ao)
+        veff = np.linalg.multi_dot((mo_coeff.T.conj(), veff_ao, mo_coeff))
+
+        fock = self.h1e + veff
+
+        if not with_frozen:
+            fock = fock[self.act, self.act]
+
+        self.log.timingv("Time for fock matrix:  %s", time_string(timer() - t0))
+        
+        return fock
+        
 
     def make_rdm1(self, gf=None, with_frozen=True):
         ''' Get the 1RDM
@@ -1033,15 +1070,16 @@ if __name__ == '__main__':
 
     mol = gto.M(atom='O 0 0 0; O 0 0 1', basis='aug-cc-pvdz', verbose=0)
     #mol = gto.M(atom='O 0 0 0; H 0 0 1; H 0 1 0', basis='cc-pvdz', verbose=0)
-    rhf = scf.RHF(mol).density_fit().run()
+    rhf = scf.RHF(mol).run()#density_fit().run()
     gf2 = RAGF2(
             rhf,
             frozen=(0,0),
             non_dyson=False,
-            fock_loop=False,
+            fock_loop=True,
             nmom_lanczos=0,
             nmom_projection=None,
-            diagonal_se=True,
+            diagonal_se=False,
+            #fock_basis='ao',
     )
     gf2.run()
 
