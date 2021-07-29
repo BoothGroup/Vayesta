@@ -157,11 +157,11 @@ class KnownValues(unittest.TestCase):
 
         self.assertAlmostEqual(gf2.results.gf.make_rdm1().trace(), self.mol.nelectron, 8)
 
-        self.assertAlmostEqual(gf2.results.e_1b,                 -75.9127804023249, 8)
-        self.assertAlmostEqual(gf2.results.e_2b,                  -0.3360997642708, 8)
+        self.assertAlmostEqual(gf2.results.e_1b,                 -75.8994510476693, 8)
+        self.assertAlmostEqual(gf2.results.e_2b,                  -0.3359556660481, 8)
         self.assertAlmostEqual(lib.fp(gf2.results.gf.moment(0)),   0.6671541571085, 8)
-        self.assertAlmostEqual(lib.fp(gf2.results.gf.moment(1)), -44.1080615604830, 8)
-        self.assertAlmostEqual(lib.fp(gf2.results.gf.moment(2)), 355.5364271689491, 8)
+        self.assertAlmostEqual(lib.fp(gf2.results.gf.moment(1)), -44.1077558841127, 8)
+        self.assertAlmostEqual(lib.fp(gf2.results.gf.moment(2)), 355.5543812465610, 8)
 
     #TODO: test these using He, 0th SE moment non pos def here
     #def test__lowdin__dmet(self):
@@ -244,11 +244,11 @@ class KnownValues(unittest.TestCase):
 
         self.assertAlmostEqual(gf2.results.gf.make_rdm1().trace(), self.mol.nelectron, 8)
 
-        self.assertAlmostEqual(gf2.results.e_1b,                 -75.9187859837239, 8)
-        self.assertAlmostEqual(gf2.results.e_2b,                  -0.3371886109049, 8)
-        self.assertAlmostEqual(lib.fp(gf2.results.gf.moment(0)),   0.6671541571085, 8)
-        self.assertAlmostEqual(lib.fp(gf2.results.gf.moment(1)), -44.1069011324748, 8)
-        self.assertAlmostEqual(lib.fp(gf2.results.gf.moment(2)), 355.4812938414196, 8)
+        self.assertAlmostEqual(gf2.results.e_1b,                 -75.898135786957, 8)
+        self.assertAlmostEqual(gf2.results.e_2b,                  -0.336850822798, 8)
+        self.assertAlmostEqual(lib.fp(gf2.results.gf.moment(0)),   0.667154157109, 8)
+        self.assertAlmostEqual(lib.fp(gf2.results.gf.moment(1)), -44.106041308364, 8)
+        self.assertAlmostEqual(lib.fp(gf2.results.gf.moment(2)), 355.524388875832, 8)
 
 
 

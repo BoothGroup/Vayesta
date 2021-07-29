@@ -140,7 +140,6 @@ class EAGF2(QEmbeddingMethod):
 
         self.cluster_results = {}
         self.results = None
-        self.e_corr = 0.0
 
 
     def __repr__(self):
@@ -152,8 +151,19 @@ class EAGF2(QEmbeddingMethod):
 
     @property
     def e_tot(self):
-        """Total energy."""
-        return self.e_mf + self.e_corr
+        return self.results.e_1b + self.results.e_2b
+
+    @property
+    def e_corr(self):
+        return self.results.e_corr
+
+    @property
+    def e_ip(self):
+        return -self.results.gf.get_occupied().energy.max()
+
+    @property
+    def e_ea(self):
+        return self.results.gf.get_virtual().energy.min()
 
 
     def kernel(self):
@@ -172,6 +182,7 @@ class EAGF2(QEmbeddingMethod):
 
         nmo = self.mf.mo_occ.size
         rdm1 = np.zeros((nmo, nmo))
+        fock = np.zeros((nmo, nmo))
         t_occ = np.zeros((2, nmo, nmo))  #TODO higher moments?
         t_vir = np.zeros((2, nmo, nmo))
 
@@ -196,6 +207,7 @@ class EAGF2(QEmbeddingMethod):
             c = pyscf.lib.einsum('pa,pq,qi->ai', results.c_active.conj(), ovlp, frag.mf.mo_coeff)
 
             rdm1 += pyscf.lib.einsum('pq,pi,qj->ij', results.rdm1, c.conj(), c)
+            fock += pyscf.lib.einsum('pq,pi,qj->ij', results.fock, c.conj(), c)
             t_occ += pyscf.lib.einsum('...pq,pi,qj->...ij', results.t_occ, c.conj(), c)
             t_vir += pyscf.lib.einsum('...pq,pi,qj->...ij', results.t_vir, c.conj(), c)
 
@@ -217,10 +229,9 @@ class EAGF2(QEmbeddingMethod):
         gf2.se = pyscf.agf2.aux.combine(se_occ, se_vir)
         gf2.se.chempot = 0.5 * (se_occ.energy.max() + se_vir.energy.min())
 
-        fock = gf2.get_fock(rdm1=rdm1)
         w, v = gf2.solve_dyson(se=gf2.se, gf=gf2.gf, fock=fock)
         gf2.gf = pyscf.agf2.GreensFunction(w, v[:gf2.nmo])
-        gf2.gf, gf2.se = gf2.fock_loop(gf=gf2.gf, se=gf2.se)
+        gf2.gf, gf2.se = gf2.fock_loop(gf=gf2.gf, se=gf2.se, fock=fock)
 
         gf2.e_1b  = 0.5 * np.sum(rdm1 * (gf2.h1e + fock))
         gf2.e_1b += gf2.e_nuc

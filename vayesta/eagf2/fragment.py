@@ -56,6 +56,7 @@ class EAGF2FragmentResults:
     ip: float = None
     ea: float = None
     rdm1: np.ndarray = None
+    fock: np.ndarray = None
     t_occ: np.ndarray = None
     t_vir: np.ndarray = None
 
@@ -189,6 +190,7 @@ class EAGF2Fragment(QEmbeddingFragment):
         '''
 
         rdm1 = cluster_solver.make_rdm1(with_frozen=False)
+        fock = cluster_solver.get_fock(with_frozen=False)
         se = cluster_solver.se
         ovlp = self.mf.get_ovlp()
 
@@ -206,11 +208,12 @@ class EAGF2Fragment(QEmbeddingFragment):
             return m
 
         rdm1 = democratic_part(rdm1)
+        fock = democratic_part(fock)
         t_occ = democratic_part(se.get_occupied().moment([0, 1], squeeze=False))
         t_vir = democratic_part(se.get_virtual().moment([0, 1], squeeze=False))
         #TODO higher moments?
 
-        return rdm1, t_occ, t_vir
+        return rdm1, fock, t_occ, t_vir
 
 
     def kernel(self, eris=None):
@@ -262,33 +265,8 @@ class EAGF2Fragment(QEmbeddingFragment):
         )
         cluster_solver.kernel()
 
-        #FIXME FIXME FIXME
-        #NOTE: AGF2 solver on each cluster must end on a Fock loop in order
-        #      that the final cluster Fock loop returns the AGF2 result.
-        #      This makes the results on each cluster look slightly wrong
-        #      in the instance of a complete bath, but the correct result
-        #      is recovered after partitioning.
-        #
-        # For example, the following gives different IPs:
-        #    gf2 = ragf2.RAGF2(mf).run()
-        #    print(gf2.gf.get_occupied().energy.max())
-        #    w, v = gf2.solve_dyson(se=gf2.se, gf=gf2.gf, fock=gf2.get_fock())
-        #    gf2.gf = gf2.gf.__class__(w, v[:gf2.nmo])
-        #    gf2.gf, gf2.se = gf2.fock_loop()
-        #    print(gf2.gf.get_occupied().energy.max())
-        #
-        # But the following is correct:
-        #    gf2 = ragf2.RAGF2(mf).run()
-        #    print(gf2.gf.get_occupied().energy.max())
-        #    gf2.gf, gf2.se = gf2.fock_loop()
-        #    w, v = gf2.solve_dyson(se=gf2.se, gf=gf2.gf, fock=gf2.get_fock())
-        #    gf2.gf = gf2.gf.__class__(w, v[:gf2.nmo])
-        #    gf2.gf, gf2.se = gf2.fock_loop()
-        #    print(gf2.gf.get_occupied().energy.max())
-        cluster_solver.gf, cluster_solver.se = cluster_solver.fock_loop()
-
         e_corr = cluster_solver.e_corr
-        rdm1, t_occ, t_vir = self.project_to_fragment(cluster_solver, c_active)
+        rdm1, fock, t_occ, t_vir = self.project_to_fragment(cluster_solver, c_active)
 
         results = EAGF2FragmentResults(
                 fid=self.id,
@@ -302,6 +280,7 @@ class EAGF2Fragment(QEmbeddingFragment):
                 ip=cluster_solver.e_ip,
                 ea=cluster_solver.e_ea,
                 rdm1=rdm1,
+                fock=fock,
                 t_occ=t_occ,
                 t_vir=t_vir,
         )
