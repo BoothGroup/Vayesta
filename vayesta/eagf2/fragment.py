@@ -81,8 +81,8 @@ class EAGF2Fragment(QEmbeddingFragment):
 
         self.c_env_occ = None
         self.c_env_vir = None
-        self.c_act_occ = None
-        self.c_act_occ = None
+        self.c_cluster_occ = None
+        self.c_cluster_vir = None
 
         self.results = None
 
