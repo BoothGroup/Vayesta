@@ -1,0 +1,14 @@
+[run]
+branch = True
+omit = 
+        */libs/*
+        */test_*.py
+
+[report]
+exclude_lines =
+    pragma: no cover
+    raise RuntimeError
+    raise NotImplementedError
+    pass
+    if __name__ == .__main__.:
+    except ImportError:

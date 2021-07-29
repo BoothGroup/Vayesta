@@ -1,0 +1,4 @@
+numpy
+scipy
+#TODO: replace with release version
+git+git://github.com/BoothGroup/pyscf@master#egg=pyscf
