@@ -29,7 +29,7 @@ jobs:
         #TODO: how to handle Charlie's extra deps?
         run: |
           python -m pip install --upgrade pip
-          pip install --user -r -v requirements.txt
+          pip install --user -r requirements.txt -v 
         #TODO: do we need any system dependencies that are not in pyscf?
       - name: Install Vayesta
         #TODO: is this the same for mac?
