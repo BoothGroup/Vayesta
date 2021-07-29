@@ -75,6 +75,7 @@ class EWF(QEmbeddingMethod):
         sc_maxiter: int = 30
         sc_energy_tol: float = 1e-6
         sc_mode: int = 0
+        nelectron_target: int = None
         # --- Orbital plots
         plot_orbitals: list = dataclasses.field(default_factory=dict)
         plot_orbitals_exit: bool = False            # Exit immediately after all orbital plots have been generated

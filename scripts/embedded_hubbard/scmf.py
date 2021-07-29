@@ -13,14 +13,13 @@ from vayesta.dmet import pdmet
 
 class SelfConsistentMF:
 
-    def __init__(self, mf, sc_type, tvecs=None, mo_coeff=None, tol=1e-6, maxiter=200, damping=0, diis=True):
+    def __init__(self, mf, sc_type, tvecs=None, nelectron_target=None, tol=1e-6, maxiter=200, damping=0, diis=True):
         self.mf = copy.copy(mf)
-        if mo_coeff is not None:
-            self.mf.mo_coeff = mo_coeff
         if sc_type is not None and sc_type.lower() not in('pdmet', 'brueckner'):
             raise ValueError("Unknown self-consistency type: %r", sc_type)
         self.sc_type = sc_type
         self.tvecs = tvecs
+        self.nelectron_target = nelectron_target
         self.tol = tol
         self.maxiter = (1 if sc_type is None else maxiter)
         self.damping = damping
@@ -34,14 +33,15 @@ class SelfConsistentMF:
 
     @property
     def nelectron(self):
-        return self.mf.mol.nsite
+        return self.mf.mol.nelectron
 
     @property
     def filling(self):
         return self.nelectron / self.nsite
 
     def run_fci_fragments(self, mf, nimp, *args, **kwargs):
-        fci = vayesta.ewf.EWF(mf, fragment_type='Site', bath_type=None, solver='FCI', make_rdm1=True, make_rdm2=True)
+        fci = vayesta.ewf.EWF(mf, fragment_type='Site', bath_type=None, solver='FCI',
+                make_rdm1=True, make_rdm2=True, nelectron_target=self.nelectron_target)
         if self.tvecs is not None:
             f = fci.make_atom_fragment(list(range(nimp)))
             fci.kernel()

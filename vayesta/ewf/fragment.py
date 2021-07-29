@@ -47,7 +47,7 @@ class EWFFragment(QEmbeddingFragment):
         energy_partitioning: str = NotSet
         pop_analysis: str = NotSet
         sc_mode: int = NotSet
-        nelectron_target: int = None                # If set, adjust bath chemical potential until electron number in fragment equals nelectron_target
+        nelectron_target: int = NotSet                  # If set, adjust bath chemical potential until electron number in fragment equals nelectron_target
         # Bath type
         bath_type: str = NotSet
         # Additional fragment specific options:
