@@ -237,6 +237,16 @@ class EWF(QEmbeddingMethod):
         """Total energy."""
         return self.e_mf + self.e_corr
 
+    def get_e_tot(self):
+        return self.e_mf + self.get_e_corr()
+
+
+    def get_e_corr(self):
+        e_corr = 0.0
+        for f in self.fragments:
+            e_corr += f.results.e_corr
+        return e_corr
+
     # -------------------------------------------------------------------------------------------- #
 
     # TODO: Reimplement

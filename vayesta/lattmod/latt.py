@@ -349,7 +349,13 @@ class LatticeMF(pyscf.scf.hf.RHF):
         self.mo_coeff = mo_coeff
         self.mo_occ = np.asarray((nocc*[2] + nvir*[0]))
 
+        # Check lattice symmetry
         dm = self.make_rdm1()
+        occ = np.diag(dm)
+        if not np.all(np.isclose(occ[0], occ)):
+            log.warning("Mean-field not lattice symmetric! Site occupations=\n%r", occ)
+        else:
+            log.debug("Mean-field site occupations=\n%r", occ)
         veff = self.get_veff()
         self.e_tot = np.einsum('ab,ba->', (self.get_hcore() + veff/2), dm)
         self.converged = True

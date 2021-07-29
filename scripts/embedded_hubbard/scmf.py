@@ -24,8 +24,13 @@ class SelfConsistentMF:
         self.maxiter = (1 if sc_type is None else maxiter)
         self.damping = damping
         self.diis = diis
+
+        # Results
         self.converged = False
         self.iteration = 0
+        self.e_dmet = 0
+        self.e_ewf = 0
+        self.docc = 0
 
     @property
     def nsite(self):
@@ -39,7 +44,7 @@ class SelfConsistentMF:
     def filling(self):
         return self.nelectron / self.nsite
 
-    def run_fci_fragments(self, mf, nimp, *args, **kwargs):
+    def run_fragments(self, mf, nimp, *args, **kwargs):
         fci = vayesta.ewf.EWF(mf, fragment_type='Site', bath_type=None, solver='FCI',
                 make_rdm1=True, make_rdm2=True, nelectron_target=self.nelectron_target)
         if self.tvecs is not None:
@@ -54,7 +59,7 @@ class SelfConsistentMF:
             for f in fci.fragments:
                 assert f.results.converged
         assert len(fci.fragments) == self.nsite//nimp
-        return fci.fragments
+        return fci
 
     def kernel(self, nimp, mo_coeff=None):
         if mo_coeff is not None:
@@ -79,28 +84,38 @@ class SelfConsistentMF:
                 ddm = np.inf
             dm0 = self.mf.make_rdm1()
 
-            fci_frags = self.run_fci_fragments(self.mf, nimp)
-            energy = self.get_energy(fci_frags)
+            fci = self.run_fragments(self.mf, nimp)
+            e_dmet = self.get_energy(fci.fragments) / self.nelectron
+            e_ewf = fci.get_e_tot() / self.nelectron
             if self.sc_type:
-                print("Iteration %3d: E(MF)= %16.8f E(tot)= %16.8f dDM= %16.8f" % (self.iteration, e_mf, energy, ddm))
+                print("Iteration %3d: E(MF)= %16.8f E(tot)= %16.8f dDM= %16.8f" % (self.iteration, e_mf, e_dmet, ddm))
             if ddm < (1-self.damping)*self.tol:
                 print("%s converged in %d iterations." % (self.__class__.__name__, self.iteration))
                 self.converged = True
                 break
-            self.mf = self.update_mf(self.mf, fci_frags, diis)
+            self.mf = self.update_mf(self.mf, fci.fragments, diis)
         else:
             if self.sc_type is not None:
                 print("%s not converged!" % self.__class__.__name__)
 
-        imp = fci_frags[0].c_active[:nimp]
-        docc = einsum("ijkl,xi,xj,xk,xl->x", fci_frags[0].results.dm2, *(4*[imp]))/2
-        return energy, docc
+        # Onsite double occupancies (for all sites)
+        docc = np.zeros((self.nsite,))
+        for f, s in enumerate(range(0, self.nsite, nimp)):
+            imp = fci.fragments[f].c_active[s:s+nimp]
+            d = einsum("ijkl,xi,xj,xk,xl->x", fci.fragments[f].results.dm2, *(4*[imp]))/2
+            docc[s:s+nimp] = d
+
+        self.e_dmet = e_dmet
+        self.e_ewf = e_ewf
+        self.docc = docc
+
+        return e_dmet, docc
 
     def get_energy(self, frags):
         # DMET energy
         e = np.asarray([self.get_e_dmet(f) for f in frags])
         assert abs(e.min()-e.max()) < 1e-6
-        e = np.sum(e) / self.nelectron
+        e = np.sum(e)
         return e
 
     def get_e_dmet(self, f):
@@ -115,7 +130,7 @@ class SelfConsistentMF:
 
     def update_mf(self, *args, **kwargs):
         if self.sc_type is None:
-            return
+            return self.mf
         if self.sc_type.lower() == 'pdmet':
             return self.update_mf_pdmet(*args, **kwargs)
         if self.sc_type.lower() == 'brueckner':
