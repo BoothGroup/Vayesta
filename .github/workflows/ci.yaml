@@ -24,13 +24,13 @@ jobs:
       - name: Install non-python dependencies
         #TODO: do we need any system dependencies that are not in pyscf?
       - name: Install python dependencies
-        run: |
         #TODO: how to handle Charlie's extra deps?
+        run: |
           python -m pip install --upgrade pip
           pip install --user -r -v requirements.txt
       - name: Install Vayesta
-        run: |
         #TODO: is this the same for mac?
+        run: |
           cd ./vayesta/libs
           mkdir build; cd build
           cmake ..
