@@ -2,7 +2,7 @@ import numpy as np
 
 import pyscf
 
-from vayesta.agf2 import util
+from vayesta.eagf2 import util
 from vayesta.ewf import helper
 
 LIN_DEP_THRESHOLD = 1e-12

@@ -12,7 +12,7 @@ from pyscf import gto, scf, lib
 
 # Vayesta
 import vayesta
-from vayesta.agf2 import ragf2, eagf2
+from vayesta.eagf2 import ragf2, eagf2
 
 
 class KnownValues(unittest.TestCase):

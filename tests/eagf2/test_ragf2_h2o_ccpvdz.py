@@ -12,7 +12,7 @@ from pyscf import gto, scf, lib, agf2
 
 # Vayesta
 import vayesta
-from vayesta.agf2 import ragf2
+from vayesta.eagf2 import ragf2
 
 #TODO: tests for non-dyson, higher moments, diagonal, SCS, no fock loop
 

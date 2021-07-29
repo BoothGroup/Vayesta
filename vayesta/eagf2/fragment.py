@@ -10,7 +10,7 @@ import pyscf.agf2
 from vayesta.ewf.fragment import EWFFragment
 from vayesta.core.util import OptionsBase, NotSet, get_used_memory, time_string
 from vayesta.core import QEmbeddingFragment
-from vayesta.agf2 import ragf2, ewdmet_bath
+from vayesta.eagf2 import ragf2, ewdmet_bath
 
 try:
     from mpi4py import MPI

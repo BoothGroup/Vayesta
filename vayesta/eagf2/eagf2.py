@@ -12,8 +12,8 @@ import vayesta.ewf
 from vayesta.ewf import helper
 from vayesta.core import QEmbeddingMethod
 from vayesta.core.util import OptionsBase, time_string
-from vayesta.agf2.fragment import EAGF2Fragment
-from vayesta.agf2.ragf2 import RAGF2, RAGF2Options, DIIS
+from vayesta.eagf2.fragment import EAGF2Fragment
+from vayesta.eagf2.ragf2 import RAGF2, RAGF2Options, DIIS
 
 try:
     from mpi4py import MPI
@@ -211,6 +211,7 @@ class EAGF2(QEmbeddingMethod):
         se_occ = gf2._build_se_from_moments(t_occ)
         se_vir = gf2._build_se_from_moments(t_vir)
         #FIXME: not necessarily true if some eigenvalues are removed:
+        #TODO check eigenvalues here
         #assert np.allclose(se_occ.moment(range(2)).ravel(), t_occ.ravel())
         #assert np.allclose(se_vir.moment(range(2)).ravel(), t_vir.ravel())
         gf2.se = pyscf.agf2.aux.combine(se_occ, se_vir)
