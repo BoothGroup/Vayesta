@@ -220,12 +220,28 @@ class EAGF2(QEmbeddingMethod):
                 options=options,
         )
 
+        w_occ = np.linalg.eigvalsh(t_occ[0])
         se_occ = gf2._build_se_from_moments(t_occ)
+        if np.any(w_occ < -1e-10):
+            self.log.warning("Large negative eigenvalue of occupied 0th moment:  %.3g", w_occ.min())
+            self.log.warning("EAGF2 may not recover full embedded self-energy!")
+        else:
+            t_occ_emb = se_occ.moment(range(2), squeeze=False)
+            if not np.allclose(t_occ_emb, t_occ):
+                self.log.error("EAGF2 did not recover full embedded occupied self-energy!")
+                self.log.error("Error = %.3g", np.max(np.abs(t_occ - t_occ_emb)))
+
+        w_vir = np.linalg.eigvalsh(t_vir[0])
         se_vir = gf2._build_se_from_moments(t_vir)
-        #FIXME: not necessarily true if some eigenvalues are removed:
-        #TODO check eigenvalues here
-        #assert np.allclose(se_occ.moment(range(2)).ravel(), t_occ.ravel())
-        #assert np.allclose(se_vir.moment(range(2)).ravel(), t_vir.ravel())
+        if np.any(w_vir < -1e-10):
+            self.log.warning("Large negative eigenvalue of virtual 0th moment:  %.3g", w_vir.min())
+            self.log.warning("EAGF2 may not recover full embedded self-energy!")
+        else:
+            t_vir_emb = se_vir.moment(range(2), squeeze=False)
+            if not np.allclose(t_vir_emb, t_vir):
+                self.log.error("EAGF2 did not recover full embedded virtual self-energy!")
+                self.log.error("Error = %.3g", np.max(np.abs(t_vir - t_vir_emb)))
+
         gf2.se = pyscf.agf2.aux.combine(se_occ, se_vir)
         gf2.se.chempot = 0.5 * (se_occ.energy.max() + se_vir.energy.min())
 
