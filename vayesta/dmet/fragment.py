@@ -27,50 +27,8 @@ from vayesta.ewf import helper, psubspace
 
 
 from . import dmet
-from .solver import get_solver_class
+from vayesta.solver import get_solver_class
 from vayesta.ewf import mp2_bath
-
-
-@dataclasses.dataclass
-class DMETFragmentOptions(Options):
-    """Attributes set to `NotSet` inherit their value from the parent EWF object."""
-    # Options also present in `base`:
-    dmet_threshold: float = NotSet
-    make_rdm1: bool = True
-    eom_ccsd: bool = NotSet
-    plot_orbitals: str = NotSet
-    bsse_correction: bool = NotSet
-    bsse_rmax: float = NotSet
-    energy_partitioning: str = NotSet
-    pop_analysis: str = NotSet
-    sc_mode: int = NotSet
-    # Additional fragment specific options:
-    bno_threshold_factor: float = 1.0
-    # CAS methods
-    c_cas_occ: np.ndarray = None
-    c_cas_vir: np.ndarray = None
-
-
-@dataclasses.dataclass
-class DMETFragmentResults:
-    fid: int = None
-    bno_threshold: float = None
-    n_active: int = None
-    converged: bool = None
-    e_corr: float = None
-    ip_energy: np.ndarray = None
-    ea_energy: np.ndarray = None
-    c0: float = None
-    c1: np.ndarray = None
-    c2: np.ndarray = None
-    t1: np.ndarray = None
-    t2: np.ndarray = None
-    l1: np.ndarray = None
-    l2: np.ndarray = None
-    eris: 'typing.Any' = None
-    # For DM1:
-    g1: np.ndarray = None
-    dm1: np.ndarray = None
 
 
 class DMETFragmentExit(Exception):
@@ -78,31 +36,67 @@ class DMETFragmentExit(Exception):
 
 
 class DMETFragment(QEmbeddingFragment):
-    def __init__(self, base, fid, name, c_frag, c_env, fragment_type, sym_factor=1, atoms=None, aos=None, log=None,
-            solver=None, options=None, **kwargs):
+
+    @dataclasses.dataclass
+    class Options(QEmbeddingFragment.Options):
+        """Attributes set to `NotSet` inherit their value from the parent EWF object."""
+        # Options also present in `base`:
+        dmet_threshold: float = NotSet
+        make_rdm1: bool = True
+        make_rdm2: bool = False
+        eom_ccsd: bool = NotSet
+        energy_partitioning: str = NotSet
+        sc_mode: int = NotSet
+        # Additional fragment specific options:
+        bno_threshold_factor: float = 1.0
+        # CAS methods
+        c_cas_occ: np.ndarray = None
+        c_cas_vir: np.ndarray = None
+
+    @dataclasses.dataclass
+    class Results(QEmbeddingFragment.Results):
+        fid: int = None
+        bno_threshold: float = None
+        n_active: int = None
+        converged: bool = None
+        e_corr: float = None
+        ip_energy: np.ndarray = None
+        ea_energy: np.ndarray = None
+        c0: float = None
+        c1: np.ndarray = None
+        c2: np.ndarray = None
+        t1: np.ndarray = None
+        t2: np.ndarray = None
+        l1: np.ndarray = None
+        l2: np.ndarray = None
+        eris: 'typing.Any' = None
+        # For DM1:
+        g1: np.ndarray = None
+        dm1: np.ndarray = None
+
+    def __init__(self, *args, solver=None, **kwargs):
+
         """
         Parameters
         ----------
-        base : EWF
-            Base EWF object.
+        base : DMET
+            Base DMET object.
         fid : int
             Unique ID of fragment.
         name :
             Name of fragment.
         """
 
-        super().__init__(base, fid, name, c_frag, c_env, fragment_type, sym_factor=sym_factor, atoms=atoms, aos=aos, log=log)
+        super().__init__(*args, **kwargs)
 
-        if options is None:
-            options = DMETFragmentOptions(**kwargs)
-        else:
-            options = options.replace(kwargs)
-        options = options.replace(self.base.opts, select=NotSet)
-        if options.pop_analysis:
-            options.make_rdm1 = True
-        self.opts = options
+        # Default options:
+        defaults = self.Options().replace(self.base.Options(), select=NotSet)
+
         for key, val in self.opts.items():
-            self.log.infov('  > %-24s %r', key + ':', val)
+            if val != getattr(defaults, key):
+                self.log.info('  > %-24s %3s %r', key + ':', '(*)', val)
+            else:
+                self.log.debugv('  > %-24s %3s %r', key + ':', '', val)
 
         if solver is None:
             solver = self.base.solver
@@ -123,14 +117,9 @@ class DMETFragment(QEmbeddingFragment):
         self.n_no_vir = None
 
         # --- Attributes which will be overwritten for each BNO threshold:
-        # Active orbitals
-        self.c_active_occ = None
-        self.c_active_vir = None
 
         # For self-consistent mode
         self.solver_results = None
-
-        self.results = None
 
     @property
     def e_corr(self):
@@ -160,22 +149,6 @@ class DMETFragment(QEmbeddingFragment):
 
         self.log.timing("Time for DMET bath:  %s", time_string(timer()-t0))
         self.log.changeIndentLevel(-1)
-
-        # Add fragment and DMET orbitals for cube file plots
-        if self.opts.plot_orbitals:
-            if self.boundary_cond == 'open':
-                raise NotImplementedError()
-            os.makedirs(self.base.opts.plot_orbitals_dir, exist_ok=True)
-            name = "%s.cube" % os.path.join(self.base.opts.plot_orbitals_dir, self.name)
-            cubefile = cubegen.CubeFile(self.mol, filename=name, **self.base.opts.plot_orbitals_kwargs)
-            self.log.debug("Adding fragment orbitals to cube file.")
-            cubefile.add_orbital(self.c_frag.copy())
-            if (self.opts.plot_orbitals is True) or ('dmet' in str(self.opts.plot_orbitals).lower()):
-                self.log.debug("Adding DMET orbitals to cube file.")
-                cubefile.add_orbital(c_dmet.copy(), dset_idx=1001)
-            if str(self.opts.plot_orbitals).lower() in ('fragment-exit', 'dmet-exit'):
-                cubefile.write()
-                raise DMETFragmentExit()
 
         # Add additional orbitals to cluster [optional]
         #c_dmet, c_env_occ, c_env_vir = self.additional_bath_for_cluster(c_dmet, c_env_occ, c_env_vir)
@@ -221,11 +194,7 @@ class DMETFragment(QEmbeddingFragment):
             self.c_no_vir = c_env_vir
             self.n_no_vir = np.zeros((0,))
 
-        # Plot orbitals
-        if self.opts.plot_orbitals:
-            # Save state of cubefile, in case a replot of the same data is required later:
-            cubefile.save_state("%s.pkl" % cubefile.filename)
-            cubefile.write()
+
         self.log.timing("Time for bath:  %s", time_string(timer()-t0_bath))
 
     def set_cas(self, iaos=None, c_occ=None, c_vir=None):
@@ -367,26 +336,17 @@ class DMETFragment(QEmbeddingFragment):
                 self.log.timingv("Time to project ERIs:  %s", time_string(timer()-t0))
 
         # We can now overwrite the orbitals from last BNO run:
-        self.c_active_occ = c_active_occ
-        self.c_active_vir = c_active_vir
+        self._c_active_occ = c_active_occ
+        self._c_active_vir = c_active_vir
 
         # Create solver object
         t0 = timer()
         solver_opts = {}
         solver_opts['make_rdm1'] = self.opts.make_rdm1
-        if solver.upper() == 'TCCSD':
-            solver_opts['tcc'] = True
-            # Set CAS orbitals
-            if self.opts.c_cas_occ is None:
-                self.log.warning("Occupied CAS orbitals not set. Setting to occupied DMET cluster orbitals.")
-                self.opts.c_cas_occ = self.c_cluster_occ
-            if self.opts.c_cas_vir is None:
-                self.log.warning("Virtual CAS orbitals not set. Setting to virtual DMET cluster orbitals.")
-                self.opts.c_cas_vir = self.c_cluster_vir
-            solver_opts['c_cas_occ'] = self.opts.c_cas_occ
-            solver_opts['c_cas_vir'] = self.opts.c_cas_vir
-            # Temporary:
-            solver_opts['tcc_spin'] = 0
+        solver_opts['make_rdm2'] = self.opts.make_rdm2
+        solver_opts['eom_ccsd'] = []
+        solver_opts['eom_ccsd_nroots'] = None
+
 
         cluster_solver_cls = get_solver_class(solver)
         cluster_solver = cluster_solver_cls(self, mo_coeff, mo_occ, nocc_frozen=nocc_frozen, nvir_frozen=nvir_frozen, **solver_opts)
@@ -406,35 +366,16 @@ class DMETFragment(QEmbeddingFragment):
 
         e_corr = self.get_fragment_energy(p1, p2, eris=solver_results.eris)
         self.log.info("BNO threshold= %.1e :  E(corr)= %+14.8f Ha", bno_threshold, e_corr)
-        # Add frozen states and transform to AO
-        dm1 = np.zeros(2 * [self.base.nao])
-        nocc = np.count_nonzero(self.mf.mo_occ > 0)
-        dm1[np.diag_indices(nocc)] = 2
-        a = cluster_solver.get_active_slice()
-        dm1[a, a] = solver_results.dm1
-        # Population analysis
-        if self.opts.pop_analysis:
-            try:
-                if isinstance(self.base.opts.pop_analysis, str):
-                    filename = self.base.opts.pop_analysis.rsplit('.', 1)
-                    if len(filename) > 1:
-                        filename, ext = filename
-                    else:
-                        ext = 'txt'
-                    filename = '%s-%s.%s' % (filename, self.id_name, ext)
-                else:
-                    filename = None
-                self.base.pop_analysis(dm1, mo_coeff=mo_coeff, filename=filename)
-            except Exception as e:
-                self.log.error("Exception in population analysis: %s", e)
 
-        results = DMETFragmentResults(
+
+        results = self.Results(
                 fid=self.id,
                 bno_threshold=bno_threshold,
                 n_active=nactive,
                 converged=solver_results.converged,
                 e_corr=e_corr,
                 dm1 = solver_results.dm1)
+
         # EOM analysis
         if self.opts.eom_ccsd in (True, 'IP'):
             results.ip_energy, _ = self.eom_analysis(cluster_solver, 'IP')
@@ -458,7 +399,7 @@ class DMETFragment(QEmbeddingFragment):
         if self.base.opts.project_eris or self.opts.sc_mode:
             results.eris = solver_results.eris
 
-        self.results = results
+        self._results = results
 
         # Force GC to free memory
         m0 = get_used_memory()
