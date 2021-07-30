@@ -86,7 +86,6 @@ class KnownValues(unittest.TestCase):
 
         for i in range(self.mol.natm):
             frag = gf2.make_atom_fragment(i)
-            frag.make_bath()
 
         gf2.kernel()
 
@@ -106,7 +105,6 @@ class KnownValues(unittest.TestCase):
 
         for i in range(self.mol.natm):
             frag = gf2.make_atom_fragment(i)
-            frag.make_bath()
 
         gf2.kernel()
 
@@ -127,7 +125,6 @@ class KnownValues(unittest.TestCase):
 
         for i in range(self.mol.natm):
             frag = gf2.make_atom_fragment(i)
-            frag.make_bath()
 
         gf2.kernel()
 
@@ -148,7 +145,6 @@ class KnownValues(unittest.TestCase):
 
         for i in range(self.mol.natm):
             frag = gf2.make_atom_fragment(i)
-            frag.make_bath()
 
         gf2.kernel()
 
@@ -178,7 +174,6 @@ class KnownValues(unittest.TestCase):
 
     #    for i in range(self.mol.natm):
     #        frag = gf2.make_atom_fragment(i)
-    #        frag.make_bath()
 
     #    gf2.kernel()
 
@@ -208,7 +203,6 @@ class KnownValues(unittest.TestCase):
 
     #    for i in range(self.mol.natm):
     #        frag = gf2.make_atom_fragment(i)
-    #        frag.make_bath()
 
     #    gf2.kernel()
 
@@ -238,7 +232,6 @@ class KnownValues(unittest.TestCase):
 
         for i in range(self.mol.natm):
             frag = gf2.make_atom_fragment(i)
-            frag.make_bath()
 
         gf2.kernel()
 

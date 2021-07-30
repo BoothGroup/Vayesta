@@ -26,7 +26,7 @@ except ImportError:
 
 @dataclasses.dataclass
 class EAGF2Options(OptionsBase):
-    ''' Options for EAGF2 calculations
+    ''' Options for EAGF2 calculations - see `EAGF2`.
     '''
 
     # --- Fragment settings
@@ -51,7 +51,20 @@ class EAGF2Options(OptionsBase):
 
 @dataclasses.dataclass
 class EAGF2Results:
-    ''' Results for EAGF2 calculations
+    ''' Results for EAGF2 calculations.
+
+    Attributes
+    ----------
+    e_corr : float
+        Correlation energy.
+    e_1b : float
+        One-body part of total energy, including nuclear repulsion.
+    e_2b : float
+        Two-body part of total energy.
+    gf: pyscf.agf2.GreensFunction
+        Green's function object.
+    se: pyscf.agf2.SelfEnergy
+        Self-energy object.
     '''
 
     e_corr: float = None
@@ -72,6 +85,54 @@ class EAGF2(QEmbeddingMethod):
         ----------
         mf : pyscf.scf ojbect
             Converged mean-field object.
+        options : EAGF2Options
+            Options `dataclass`.
+        log : logging.Logger
+            Logger object. If None, the default Vayesta logger is used
+            (default value is None).
+        fragment_type : {'Lowdin-AO', 'IAO'}
+            Fragmentation method (default value is 'Lowdin-AO').
+        iao_minao : str
+            Minimal basis for IAOs (default value is 'auto').
+        bath_type : {'MP2-BNO', 'EWDMET', 'POWER', 'ALL', 'NONE'}
+            Bath orbital method (default value is 'MP2-BNO'). 'EWDMET'
+            and 'POWER' are equivalent.
+        nmom_bath : int
+            Number of moments for power orbitals (default value is 2).
+        bno_threshold : float
+            Threshold for BNO cutoff when `bath_type` is 'MP2-BNO'
+            (default value is 1e-8).
+        bno_threshold_factor : float
+            Additional factor for `bno_threshold` (default value is 1).
+        dmet_threshold : float
+            Threshold for idempotency of cluster DM in DMET bath
+            construction (default value is 1e-4).
+        ewdmet_threshold : float
+            Threshold for idempotency of cluster DM in power orbital
+            bath construction (default value is 1e-4).
+        solver_options : dataclass.field
+            Options passed to solver on each cluster, see 
+            `vayesta.eagf2.ragf2.RAGF2` for options.
+        strict : bool
+            Force convergence in the mean-field calculations (default
+            value is True).
+        orthogonal_mo_tol : float
+            Threshold for orthogonality in molecular orbitals (default
+            value is 1e-9).
+
+        Attributes
+        ----------
+        results : EAGF2Results
+            Results of EAGF2 calculation, see `EAGF2Results` for a list
+            of attributes.
+        e_tot : float
+            Total energy.
+        e_corr : float
+            Correlation energy.
+        e_ip : float
+            Ionisation potential.
+        e_ea : float
+            Electron affinity.
         '''
 
         super().__init__(mf, log=log)
@@ -142,13 +203,6 @@ class EAGF2(QEmbeddingMethod):
         self.results = None
 
 
-    def __repr__(self):
-        keys = ['mf']
-        fmt = ('%s(' + len(keys)*'%s: %r, ')[:-2] + ')'
-        values = [self.__dict__[k] for k in keys]
-        return fmt % (self.__class__.__name__, *[x for y in zip(keys, values) for x in y])
-
-
     @property
     def e_tot(self):
         return self.results.e_1b + self.results.e_2b
@@ -167,7 +221,13 @@ class EAGF2(QEmbeddingMethod):
 
 
     def kernel(self):
-        ''' Run EAGF2
+        ''' Run the EAGF2 calculation.
+
+        Returns
+        -------
+        results : EAGF2Results
+            Object containing results of `EAGF2` calculation, see
+            `EAGF2Results` for a list of attributes.
         '''
 
         t0 = timer()
@@ -269,7 +329,21 @@ class EAGF2(QEmbeddingMethod):
         self.log.info("Total wall time:  %s", time_string(timer() - t0))
         self.log.info("All done.")
 
-    run = kernel
+        return results
+
+
+    def run(self):
+        ''' Run self.kernel and return self.
+
+        Returns
+        -------
+        eagf2 : EAGF2
+            `EAGF2` object containing calculation results.
+        '''
+
+        self.kernel()
+
+        return self
 
 
     def print_clusters(self):
@@ -277,6 +351,13 @@ class EAGF2(QEmbeddingMethod):
         self.log.info("%3s  %20s  %8s  %4s", "ID", "Name", "Solver", "Size")
         for frag in self.loop():
             self.log.info("%3d  %20s  %8s  %4d", frag.id, frag.name, frag.solver, frag.size)
+
+
+    def __repr__(self):
+        keys = ['mf']
+        fmt = ('%s(' + len(keys)*'%s: %r, ')[:-2] + ')'
+        values = [self.__dict__[k] for k in keys]
+        return fmt % (self.__class__.__name__, *[x for y in zip(keys, values) for x in y])
 
 
 

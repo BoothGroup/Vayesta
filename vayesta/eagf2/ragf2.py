@@ -269,7 +269,6 @@ class RAGF2:
         
         if self.opts.nmom_lanczos == 0:
             w, v = np.linalg.eigh(t[0])
-            #TODO warn about removed eigenvalues
             w[w < eps] = eps
             b = np.dot(v * w[None]**0.5, v.T.conj())
             b_inv = np.dot(v * w[None]**-0.5, v.T.conj())

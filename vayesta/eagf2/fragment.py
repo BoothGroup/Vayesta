@@ -21,7 +21,7 @@ except ImportError:
 
 @dataclasses.dataclass
 class EAGF2FragmentOptions(OptionsBase):
-    ''' Options for EAGF2 fragments
+    ''' Options for EAGF2 fragments - see `EAGF2Fragment`.
     '''
 
     # --- Bath settings
@@ -42,7 +42,42 @@ class EAGF2FragmentOptions(OptionsBase):
 
 @dataclasses.dataclass
 class EAGF2FragmentResults:
-    ''' Results for EAGF2 fragments
+    ''' Results for EAGF2 fragments.
+
+    Attributes
+    ----------
+    fid : int
+        Fragment ID.
+    n_active : int
+        Number of active orbitals.
+    converged : bool
+        Whether the cluster calculation converged successfully.
+    c_frozen : np.ndarray
+        Frozen cluster orbital coefficients.
+    c_active : np.ndarray
+        Active cluster orbital coefficients.
+    e_corr : float
+        Correlation energy.
+    e_1b : float
+        One-body part of total energy, including nuclear repulsion.
+    e_2b : float
+        Two-body part of total energy.
+    ip : float
+        Ionisation potential.
+    ea : float
+        Electron affinity.
+    rdm1 : np.ndarray
+        Reduced one-body density matrix, democratically partitioned and
+        transformed into the MO basis.
+    fock : np.ndarray
+        Fock matrix, democratically partitioned and transformed into the
+        MO basis.
+    t_occ : np.ndarray
+        Occupied self-energy moments, democratically partitioned and 
+        transformed into the into the MO basis.
+    t_vir : np.ndarray
+        Virtual self-energy moments, democratically partitioned and 
+        transformed into the into the MO basis.
     '''
 
     fid: int = None
@@ -64,11 +99,42 @@ class EAGF2FragmentResults:
 class EAGF2Fragment(QEmbeddingFragment):
 
     def __init__(self, base, fid, name, c_frag, c_env, fragment_type, sym_factor=1,
-                 atoms=None, log=None, options=None, **kwargs):
+                 atoms=None, aos=None, log=None, options=None, **kwargs):
+        ''' Embedded AGF2 fragment.
+
+        Parameters
+        ----------
+        base : EAGF2
+            Parent `EAGF2` method the fragment is part of.
+        fid : int
+            Fragment ID.
+        name : str
+            Name of fragment.
+        log : logging.Logger
+            Logger object. If None, the logger of the `base` object is
+            used (default value is None).
+        options : EAGF2FragmentOptions
+            Options `dataclass`.
+        c_frag : np.ndarray
+            Fragment orbital coefficients.
+        c_env : np.ndarray
+            Environment orbital coefficients.
+        fragment_type : {'IAO', 'Lowdin-AO'}
+            Fragment orbital type.
+        atoms : list or int
+            Associated atoms (default value is None).
+        aos : list or int
+            Associated atomic orbitals (default value is None).
+        sym_factor : float
+            Symmetry factor (number of symmetry equivalent fragments)
+            (default value is 1.0).
+        **kwargs : dict, optional
+            Additional arguments passed to `EAGF2FragmentOptions`.
+        '''
 
         super().__init__(
                 base, fid, name, c_frag, c_env, fragment_type,
-                sym_factor=sym_factor, atoms=atoms, log=log,
+                sym_factor=sym_factor, atoms=atoms, aos=aos, log=log,
         )
 
         self.opts = options
@@ -99,9 +165,19 @@ class EAGF2Fragment(QEmbeddingFragment):
     project_amplitudes_to_fragment = EWFFragment.project_amplitudes_to_fragment
 
 
-    #TODO remove side effects?
     def make_ewdmet_bath(self):
-        ''' Make EwDMET bath orbitals
+        ''' Make EwDMET bath orbitals.
+
+        Returns
+        -------
+        c_cluster_occ : np.ndarray
+            Occupied cluster coefficients.
+        c_cluster_vir : np.ndarray
+            Virtual cluster coefficients.
+        c_env_occ : np.ndarray
+            Occupied environment coefficients.
+        c_env_vir : np.ndarray
+            Virtual environment coefficients.
         '''
 
         t0 = timer()
@@ -130,21 +206,33 @@ class EAGF2Fragment(QEmbeddingFragment):
         self.log.timing("Time for EwDMET bath:  %s", time_string(timer() - t0))
         self.log.changeIndentLevel(-1)
 
-        self.c_env_occ, self.c_env_vir = c_env_occ, c_env_vir
-        self.c_cluster_occ, self.c_cluster_vir = self.diagonalize_cluster_dm(
+        c_env_occ, c_env_vir = c_env_occ, c_env_vir
+        c_cluster_occ, c_cluster_vir = self.diagonalize_cluster_dm(
                 self.c_frag,
                 c_bath,
                 tol=2*self.opts.ewdmet_threshold,
         )
         self.log.info(
                 "Cluster orbitals:  n(occ) = %d  n(vir) = %d",
-                self.c_cluster_occ.shape[-1], self.c_cluster_vir.shape[-1],
+                c_cluster_occ.shape[-1], c_cluster_vir.shape[-1],
         )
 
+        return c_cluster_occ, c_cluster_vir, c_env_occ, c_env_vir
 
-    #FIXME: make API consistent with EWF
+
     def make_dmet_mp2_bath(self):
-        ''' Make DMET + MP2 BNO bath orbitals
+        ''' Make DMET + MP2 BNO bath orbitals.
+
+        Returns
+        -------
+        c_cluster_occ : np.ndarray
+            Occupied cluster coefficients.
+        c_cluster_vir : np.ndarray
+            Virtual cluster coefficients.
+        c_env_occ : np.ndarray
+            Occupied environment coefficients.
+        c_env_vir : np.ndarray
+            Virtual environment coefficients.
         '''
 
         t0 = timer()
@@ -153,7 +241,7 @@ class EAGF2Fragment(QEmbeddingFragment):
         self.log.info("*******************")
         self.log.changeIndentLevel(1)
 
-        self.c_cluster_occ, self.c_cluster_vir, \
+        c_cluster_occ, c_cluster_vir, \
                 c_no_occ, n_no_occ, c_no_vir, n_no_vir = EWFFragment.make_bath(self)
 
         self.log.info("Making occupied BNO bath")
@@ -166,17 +254,30 @@ class EAGF2Fragment(QEmbeddingFragment):
         c_nbo_vir, c_env_vir = \
                 self.truncate_bno(c_no_vir, n_no_vir, self.opts.bno_threshold)
 
-        self.c_env_occ = c_env_occ
-        self.c_env_vir = c_env_vir
-        self.c_cluster_occ = self.canonicalize_mo(self.c_cluster_occ, c_nbo_occ)[0]
-        self.c_cluster_vir = self.canonicalize_mo(self.c_cluster_vir, c_nbo_vir)[0]
+        c_env_occ = c_env_occ
+        c_env_vir = c_env_vir
+        c_cluster_occ = self.canonicalize_mo(c_cluster_occ, c_nbo_occ)[0]
+        c_cluster_vir = self.canonicalize_mo(c_cluster_vir, c_nbo_vir)[0]
 
         self.log.timing("Time for DMET+MP2 bath:  %s", time_string(timer() - t0))
         self.log.changeIndentLevel(-1)
 
+        return c_cluster_occ, c_cluster_vir, c_env_occ, c_env_vir
+
 
     def make_bath(self):
-        ''' Make bath orbitals
+        ''' Make bath orbitals.
+
+        Returns
+        -------
+        c_cluster_occ : np.ndarray
+            Occupied cluster coefficients.
+        c_cluster_vir : np.ndarray
+            Virtual cluster coefficients.
+        c_env_occ : np.ndarray
+            Occupied environment coefficients.
+        c_env_vir : np.ndarray
+            Virtual environment coefficients.
         '''
 
         if self.opts.bath_type.upper() in ['EWDMET', 'POWER']:
@@ -186,7 +287,30 @@ class EAGF2Fragment(QEmbeddingFragment):
 
 
     def project_to_fragment(self, cluster_solver, mo_coeff):
-        ''' Project quantities back onto the fragment space
+        ''' Project quantities back onto the fragment space.
+
+        Parameters
+        ----------
+        cluster_solver : vayesta.eagf2.ragf2.RAGF2
+            RAGF2 cluster solver object.
+        mo_coeff : np.ndarray
+            MO coefficients corresponding to the active orbitals of the
+            basis used in `cluster_solver`.
+
+        Returns
+        -------
+        rdm1 : np.ndarray
+            Reduced one-body density matrix, democratically partitioned and
+            transformed into the MO basis.
+        fock : np.ndarray
+            Fock matrix, democratically partitioned and transformed into the
+            MO basis.
+        t_occ : np.ndarray
+            Occupied self-energy moments, democratically partitioned and 
+            transformed into the into the MO basis.
+        t_vir : np.ndarray
+            Virtual self-energy moments, democratically partitioned and 
+            transformed into the into the MO basis.
         '''
 
         rdm1 = cluster_solver.make_rdm1(with_frozen=False)
@@ -217,11 +341,24 @@ class EAGF2Fragment(QEmbeddingFragment):
 
 
     def kernel(self, eris=None):
-        ''' Run solver for a single BNO threshold
+        ''' Run solver.
+
+        Parameters
+        ----------
+        eri : np.ndarray
+            Four-centre ERI array, if None then calculate inside cluster
+            solver (default value is None).
+
+        Returns
+        -------
+        results : EAGF2FragmentResults
+            Object contained results of `EAGF2Fragment`, see 
+            `EAGF2FragmentResults` for a list of attributes.
         '''
 
         if self.c_cluster_occ is None:
-            self.make_bath()
+            self.c_cluster_occ, self.c_cluster_vir, self.c_env_occ, self.c_env_vir = \
+                    self.make_bath()
 
         c_occ = np.hstack((self.c_env_occ, self.c_cluster_occ))
         c_vir = np.hstack((self.c_cluster_vir, self.c_env_vir))
@@ -232,7 +369,6 @@ class EAGF2Fragment(QEmbeddingFragment):
         mo_coeff = np.hstack((c_occ, c_vir))
 
         # Check occupations
-        #FIXME for EwDMET too ye?
         n_occ = self.get_mo_occupation(c_occ)
         if not np.allclose(n_occ, 2, atol=2*self.opts.dmet_threshold):
             raise RuntimeError("Incorrect occupation of occupied orbitals:\n%r" % n_occ)
@@ -295,3 +431,17 @@ class EAGF2Fragment(QEmbeddingFragment):
                         ndel, (get_used_memory()-m0)/1e6)
 
         return results
+
+
+    def run(self):
+        ''' Run self.kernel and return self.
+
+        Returns
+        -------
+        frag : EAGF2Fragment
+            `EAGF2Fragment` object containing calculation results.
+        '''
+
+        self.kernel()
+
+        return self

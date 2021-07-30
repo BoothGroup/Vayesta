@@ -54,6 +54,7 @@ def idempotency(c, s, rdm1):
 def nelec(c, s, rdm1):
     ''' Return the number of electrons in the 1RDM in a basis
     '''
+
     sc = np.dot(s, c)
     dm = np.linalg.multi_dot((sc.T.conj(), rdm1, sc))
 
@@ -90,19 +91,19 @@ def make_ewdmet_bath(frag, c_env, nmom=0, svd_full=False, svd_tol=SVD_THRESHOLD,
         Fragment object.
     c_env : ndarray
         Environment (non-fragment) orbital coefficients.
-    nmom : int, optional
-        Number of bath states to calculate, defaults to 0 which is equal
-        to a DMET bath.
-    svd_full : bool, optional
-        If True, SVD the entire occupied & virtual block together,
-        defaults to False.
+    nmom : int
+        Number of bath states to calculate (default value is 0 which is
+        equal to a DMET bath).
+    svd_full : bool
+        If True, SVD the entire occupied & virtual block together
+        (default value is False).
     svd_tol : float, optional
-        Threshold in singular values to be considered zero, defaults to
-        SVD_THRESHOLD.
+        Threshold in singular values to be considered zero (default
+        value is `SVD_THRESHOLD`).
         Warning: algorithm may be sensitive to this parameter.
     env_tol : float, optional
         Threshold in eigenvalues of the complement to the cluster space
-        to be considered zero, defaults to ENV_THRESHOLD.
+        to be considered zero (default value is `ENV_THRESHOLD`).
         Warning: algorithm may be sensitive to this parameter.
 
     Returns
