@@ -346,8 +346,8 @@ class EAGF2Fragment(QEmbeddingFragment):
         Parameters
         ----------
         eri : np.ndarray
-            Four-centre ERI array, if None then calculate inside cluster
-            solver (default value is None).
+            Four- or three-centre ERI array, if None then calculate
+            inside cluster solver (default value is None).
 
         Returns
         -------
@@ -384,8 +384,14 @@ class EAGF2Fragment(QEmbeddingFragment):
 
         # Get ERIs
         if eris is None:
-            eri = pyscf.ao2mo.incore.full(self.mf._eri, c_active, compact=False)
-            eri = eri.reshape((c_active.shape[1],) * 4)
+            if getattr(self.mf, 'with_df', None) is None:
+                eri = pyscf.ao2mo.incore.full(self.mf._eri, c_active, compact=False)
+                eri = eri.reshape((c_active.shape[1],) * 4)
+            else:
+                if self.mf.with_df._cderi is None:
+                    self.mf.with_df.build()
+                eri = np.asarray(pyscf.lib.unpack_tril(self.mf.with_df._cderi, axis=-1))
+                eri = ragf2._ao2mo_3c(eri, c_active, c_active)
 
         # Run solver
         cluster_solver = self.solver(

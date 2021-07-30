@@ -31,6 +31,12 @@ class KnownValues(unittest.TestCase):
         mf.conv_tol_grad = 1e-10
         mf.run()
 
+        mf_df = scf.RHF(mol)
+        mf_df = mf_df.density_fit()
+        mf_df.conv_tol = 1e-14
+        mf_df.conv_tol_grad = 1e-10
+        mf_df.run()
+
         silent_log = logging.Logger('silent')
         silent_log.setLevel(logging.CRITICAL)
 
@@ -46,16 +52,21 @@ class KnownValues(unittest.TestCase):
         gf2 = ragf2.RAGF2(mf, log=silent_log, **gf2_params)
         gf2.run()
 
+        gf2_df = ragf2.RAGF2(mf_df, log=silent_log, **gf2_params)
+        gf2_df.run()
+
         self.mol = mol
         self.mf = mf
+        self.mf_df = mf_df
         self.log = vayesta.log
         self.silent_log = silent_log
         self.gf2_params = gf2_params
         self.gf2 = gf2
+        self.gf2_df = gf2_df
 
     @classmethod
     def tearDownClass(self):
-        del self.mol, self.mf, self.silent_log, self.gf2
+        del self.mol, self.mf, self.mf_df, self.silent_log, self.gf2, self.gf2_df
 
     def _test_exact(self, gf2):
         # --- Perform exact test (within convergence) for i.e. a complete bath
@@ -70,6 +81,20 @@ class KnownValues(unittest.TestCase):
         self.assertAlmostEqual(np.max(np.abs(gf2.results.gf.moment(0)-self.gf2.gf.moment(0))), 0, 8)
         self.assertAlmostEqual(np.max(np.abs(gf2.results.gf.moment(1)-self.gf2.gf.moment(1))), 0, 8)
         self.assertAlmostEqual(np.max(np.abs(gf2.results.gf.moment(2)-self.gf2.gf.moment(2))), 0, 8)
+
+    def _test_exact_df(self, gf2):
+        # --- Perform exact test for DF
+        for x, frag in enumerate(gf2.fragments):
+            self.assertTrue(frag.results.converged)
+
+        # Test ground-state energies
+        self.assertAlmostEqual(gf2.mf.e_tot, self.gf2_df.mf.e_tot, 12)
+        self.assertAlmostEqual(gf2.results.e_1b, self.gf2_df.e_1b, 8)
+
+        # Test moments of the GF
+        self.assertAlmostEqual(np.max(np.abs(gf2.results.gf.moment(0)-self.gf2_df.gf.moment(0))), 0, 8)
+        self.assertAlmostEqual(np.max(np.abs(gf2.results.gf.moment(1)-self.gf2_df.gf.moment(1))), 0, 8)
+        self.assertAlmostEqual(np.max(np.abs(gf2.results.gf.moment(2)-self.gf2_df.gf.moment(2))), 0, 8)
 
     def test__lowdin__dmet_mp2__complete(self):
         # --- Complete bath via DMET+MP2
@@ -129,6 +154,26 @@ class KnownValues(unittest.TestCase):
         gf2.kernel()
 
         self._test_exact(gf2)
+
+    def test__df__lowdin__dmet_mp2__complete(self):
+        # --- Complete bath via DMET+MP2
+
+        gf2 = eagf2.EAGF2(
+                self.mf_df,
+                log=self.silent_log,
+                fragment_type='Lowdin-AO',
+                bath_type='MP2-BNO',
+                bno_threshold=0.0,
+                dmet_threshold=1e-10,
+                solver_options=self.gf2_params,
+        )
+
+        for i in range(self.mol.natm):
+            frag = gf2.make_atom_fragment(i)
+
+        gf2.kernel()
+
+        self._test_exact_df(gf2)
 
     def test__lowdin__dmet_mp2(self):
         # --- Incomplete DMET+MP2 bath
