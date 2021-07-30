@@ -25,6 +25,7 @@ except:
     IncoreGDF = pyscf.pbc.df.GDF
 
 from vayesta.core import vlog
+from vayesta.core.k2bvk import UnfoldedSCF, unfold_scf
 from vayesta.core.util import *
 from vayesta.core.fragment import QEmbeddingFragment
 from .kao2gmo import gdf_to_pyscf_eris
@@ -139,20 +140,11 @@ class QEmbeddingMethod:
         # -------------
         if self.opts.copy_mf:
             mf = copy.copy(mf)
-        # k-space unfolding
+        self.log.debug("type(MF)= %r", type(mf))
         if hasattr(mf, 'kpts') and mf.kpts is not None:
-            t0 = timer()
-            self.log.info("Mean-field calculations has %d k-points; unfolding to supercell.", len(mf.kpts))
-            self.kcell = mf.mol
-            self.kpts = mf.kpts
-            # For GDF, we can unfold the three-center integrals later
-            if isinstance(mf.with_df, (GDF, pyscf.pbc.df.GDF, IncoreGDF)):
-                self.log.debug("type(df._cderi)= %r", type(mf.with_df._cderi))
-                self.kdf = mf.with_df
-            else:
-                self.kdf = None
-            mf = pyscf.pbc.tools.k2gamma.k2gamma(mf)
-            self.log.timing("Time for k->Gamma unfolding of mean-field calculation:  %s", time_string(timer()-t0))
+            mf = unfold_scf(mf)
+        if isinstance(mf, UnfoldedSCF):
+            self.kcell, self.kpts, self.kdf = mf.kmf.mol, mf.kmf.kpts, mf.kmf.with_df
         else:
             self.kcell = self.kpts = self.kdf = None
         self.mf = mf
