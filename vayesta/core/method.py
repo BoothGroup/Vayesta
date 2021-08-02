@@ -227,8 +227,28 @@ class QEmbeddingMethod:
 
     @property
     def nmo(self):
-        """Number of molecular orbitals."""
+        """Total number of molecular orbitals (MOs)."""
         return len(self.mo_energy)
+
+    @property
+    def nocc(self):
+        """Number of occupied MOs."""
+        return np.count_nonzero(self.mo_occ > 0)
+
+    @property
+    def nvir(self):
+        """Number of virtual MOs."""
+        return np.count_nonzero(self.mo_occ == 0)
+
+    @property
+    def mo_coeff_occ(self):
+        """Occupied MO coefficients."""
+        return self.mo_coeff[:,:self.nocc]
+
+    @property
+    def mo_coeff_vir(self):
+        """Virtual MO coefficients."""
+        return self.mo_coeff[:,self.nocc:]
 
     @property
     def nfrag(self):
@@ -1003,6 +1023,46 @@ class QEmbeddingMethod:
         p = np.dot(s21.T, p21)
         assert np.allclose(p, p.T)
         return p
+
+    # Symmetry between fragments
+    # --------------------------
+
+
+    def get_symmetry_parent_fragments(self):
+        """Returns a list of all fragments, which are parents to symmetry related child fragments.
+
+        Returns
+        -------
+        parents: list
+            A list of all parent fragments, ordered in the same way as they appear in `self.fragments`.
+        """
+        parents = []
+        for f in self.fragments:
+            if f.sym_parent is None:
+                parents.append(f)
+        return parents
+
+
+    def get_symmetry_child_fragments(self):
+        """Returns a list of all fragments, which are children to symmetry related parent fragments.
+
+        Returns
+        -------
+        children: list of lists
+            A list with the length of the number of parent fragments in the system, each element
+            being another list containing all the children fragments of the given parent fragment.
+            Both the outer and inner lists are ordered in the same way that the fragments appear in `self.fragments`.
+        """
+        parent_ids = [x.id for x in self.get_symmetry_parent_fragments()]
+        children = len(parent_ids)*[[]]
+        for f in self.fragments:
+            if f.sym_parent is None: continue
+            pid = f.sym_parent.id
+            assert (pid in parent_ids)
+            idx = parent_ids.index(pid)
+            children[idx].append(f)
+        return children
+
 
     # Utility
     # -------
