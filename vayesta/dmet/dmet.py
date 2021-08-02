@@ -152,7 +152,7 @@ class DMET(QEmbeddingMethod):
         """Total energy."""
         return self.e_mf + self.e_corr
 
-    def kernel(self, bno_threshold=None):
+    def kernel(self, bno_threshold=np.inf):
         """Run DMET calculation.
         """
         t_start = timer()
@@ -171,6 +171,15 @@ class DMET(QEmbeddingMethod):
         mf = self.curr_mf
 
         exit = False
+        sym_parents = self.get_symmetry_parent_fragments()
+        sym_children = self.get_symmetry_child_fragments()
+        nsym = [len(x) + 1 for x in sym_children]
+
+        impurity_projectors = [
+            [parent.c_frag] + [c.c_frag for c in children] for (parent, children) in zip(sym_parents, sym_children)
+        ]
+
+
         for iteration in range(1, maxiter + 1):
             self.iteration = iteration
             self.log.info("Now running iteration= %2d", iteration)
@@ -185,6 +194,7 @@ class DMET(QEmbeddingMethod):
 
             nelec_mf = 0.0
             rdm = self.curr_mf.make_rdm1()
+            # This could loop over parents and multiply. Leave simple for now.
             for x, frag in enumerate(self.fragments):
                 c = frag.c_frag.T @ self.get_ovlp()# / np.sqrt(2)
                 nelec_mf += np.linalg.multi_dot((c, rdm, c.T)).trace()
@@ -197,7 +207,7 @@ class DMET(QEmbeddingMethod):
             err = None
             def electron_err(cpt):
                 nonlocal  err
-                err = self.calc_electron_number_defect(cpt, bno_thr, nelec_mf)
+                err = self.calc_electron_number_defect(cpt, bno_thr, nelec_mf, sym_parents, nsym)
                 return err
 
             err = electron_err(cpt)
@@ -235,7 +245,7 @@ class DMET(QEmbeddingMethod):
                 #c = np.dot(c.frag., np.dot(self.mf.get_ovlp()), frag.c_frag)
 
 
-            vcorr_new = perform_SDP_fit(self.mol.nelec[0], fock, self.impurity_projectors, [x/2 for x in self.hl_rdms],
+            vcorr_new = perform_SDP_fit(self.mol.nelec[0], fock, impurity_projectors, [x/2 for x in self.hl_rdms],
                                             self.get_ovlp(), self.log)
             delta = sum((vcorr_new - vcorr).reshape(-1)**2)**(0.5)
             self.log.debug("Delta {:6.4e}".format(delta))
@@ -250,16 +260,15 @@ class DMET(QEmbeddingMethod):
                 self.log.error("Self-consistency not reached!")
         return vcorr
 
-    def calc_electron_number_defect(self, chempot, bno_thr, nelec_target, construct_bath = True):
+    def calc_electron_number_defect(self, chempot, bno_thr, nelec_target, parent_fragments, nsym, construct_bath = True):
         self.log.info("Running chemical potential {:6.4e}".format(chempot))
         # Save original one-body hamiltonian calculation.
         saved_hcore = self.curr_mf.get_hcore
 
-        impurity_projectors = [None] * len(self.fragments)
-        hl_rdms = [None] * len(self.fragments)
+        hl_rdms = [None] * len(parent_fragments)
         nelec_hl = 0.0
         exit = False
-        for x, frag in enumerate(self.fragments):
+        for x, frag in enumerate(parent_fragments):
             msg = "Now running %s" % (frag)
             self.log.info(msg)
             self.log.info(len(msg) * "*")
@@ -285,17 +294,15 @@ class DMET(QEmbeddingMethod):
             self.log.changeIndentLevel(-1)
             if exit:
                 break
-            impurity_projectors[x] = [frag.c_frag]
             # Project rdm into fragment space; currently in cluster canonical orbitals.
             c = np.linalg.multi_dot((
                 frag.c_frag.T, self.mf.get_ovlp(), np.hstack((frag.c_active_occ, frag.c_active_vir))))
             hl_rdms[x] = np.linalg.multi_dot((c, frag.results.dm1, c.T))# / 2
-            nelec_hl += hl_rdms[x].trace()
+            nelec_hl += hl_rdms[x].trace() * nsym[x]
         # Set hcore back to original calculation.
         self.curr_mf.get_hcore = saved_hcore
         self._hcore = self.curr_mf.get_hcore()
         self.hl_rdms = hl_rdms
-        self.impurity_projectors = impurity_projectors
         self.log.info("Chemical Potential {:6.4e} gives Total electron deviation {:6.4f}".format(
                         chempot, nelec_hl - nelec_target))
         print("Chemical Potential {:6.4e} gives Total electron deviation {:6.4f}".format(
@@ -304,10 +311,6 @@ class DMET(QEmbeddingMethod):
         #                chempot, nelec_hl - nelec_target))
         #print("LL: {:6.4e}, HL: {:6.4e}".format(nelec_target, nelec_hl))
         return nelec_hl - nelec_target
-
-
-
-
 
     def print_results(self, results):
         self.log.info("Energies")
