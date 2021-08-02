@@ -14,15 +14,16 @@ mf = vayesta.lattmod.LatticeMF(mol)
 mf.kernel()
 
 # Single site embedding:
-ecc = vayesta.ewf.EWF(mf, solver='FCI', fragment_type='Site', bath_type=None)
-ecc.make_atom_fragment(0, sym_factor=nsite)
-ecc.kernel()
-print("E%-11s %+16.8f Ha" % ('(MF)=', mf.e_tot/nsite))
-print("E%-11s %+16.8f Ha" % ('(EWF-CCSD)=', ecc.e_tot/nsite))
+ewf = vayesta.ewf.EWF(mf, solver='FCI', fragment_type='Site', bath_type=None)
+ewf.make_atom_fragment(0, sym_factor=nsite)
+ewf.kernel()
+print("E%-11s %+16.8f Ha" % ('(MF)=', mf.e_tot/nelectron))
+print("E%-11s %+16.8f Ha" % ('(EWF-FCI)=', ewf.e_tot/nelectron))
+
 
 # Double site embedding:
-ecc = vayesta.ewf.EWF(mf, solver='FCI', fragment_type='Site', bath_type=None)
-ecc.make_atom_fragment([0,1], sym_factor=nsite/2)
-ecc.kernel()
-print("E%-11s %+16.8f Ha" % ('(MF)=', mf.e_tot/nsite))
-print("E%-11s %+16.8f Ha" % ('(EWF-CCSD)=', ecc.e_tot/nsite))
+ewf = vayesta.ewf.EWF(mf, solver='FCI', fragment_type='Site', bath_type=None)
+ewf.make_atom_fragment([0,1], sym_factor=nsite/2)
+ewf.kernel()
+print("E%-11s %+16.8f Ha" % ('(MF)=', mf.e_tot/nelectron))
+print("E%-11s %+16.8f Ha" % ('(EWF-FCI)=', ewf.e_tot/nelectron))

@@ -25,6 +25,7 @@ except:
     IncoreGDF = pyscf.pbc.df.GDF
 
 from vayesta.core import vlog
+from vayesta.core.k2bvk import UnfoldedSCF, unfold_scf
 from vayesta.core.util import *
 from vayesta.core.fragment import QEmbeddingFragment
 from .kao2gmo import gdf_to_pyscf_eris
@@ -141,20 +142,11 @@ class QEmbeddingMethod:
         # -------------
         if self.opts.copy_mf:
             mf = copy.copy(mf)
-        # k-space unfolding
+        self.log.debug("type(MF)= %r", type(mf))
         if hasattr(mf, 'kpts') and mf.kpts is not None:
-            t0 = timer()
-            self.log.info("Mean-field calculations has %d k-points; unfolding to supercell.", len(mf.kpts))
-            self.kcell = mf.mol
-            self.kpts = mf.kpts
-            # For GDF, we can unfold the three-center integrals later
-            if isinstance(mf.with_df, (GDF, pyscf.pbc.df.GDF, IncoreGDF)):
-                self.log.debug("type(df._cderi)= %r", type(mf.with_df._cderi))
-                self.kdf = mf.with_df
-            else:
-                self.kdf = None
-            mf = pyscf.pbc.tools.k2gamma.k2gamma(mf)
-            self.log.timing("Time for k->Gamma unfolding of mean-field calculation:  %s", time_string(timer()-t0))
+            mf = unfold_scf(mf)
+        if isinstance(mf, UnfoldedSCF):
+            self.kcell, self.kpts, self.kdf = mf.kmf.mol, mf.kmf.kpts, mf.kmf.with_df
         else:
             self.kcell = self.kpts = self.kdf = None
         self.mf = mf
@@ -242,8 +234,28 @@ class QEmbeddingMethod:
 
     @property
     def nmo(self):
-        """Number of molecular orbitals."""
+        """Total number of molecular orbitals (MOs)."""
         return len(self.mo_energy)
+
+    @property
+    def nocc(self):
+        """Number of occupied MOs."""
+        return np.count_nonzero(self.mo_occ > 0)
+
+    @property
+    def nvir(self):
+        """Number of virtual MOs."""
+        return np.count_nonzero(self.mo_occ == 0)
+
+    @property
+    def mo_coeff_occ(self):
+        """Occupied MO coefficients."""
+        return self.mo_coeff[:,:self.nocc]
+
+    @property
+    def mo_coeff_vir(self):
+        """Virtual MO coefficients."""
+        return self.mo_coeff[:,self.nocc:]
 
     @property
     def nfrag(self):
@@ -1017,6 +1029,46 @@ class QEmbeddingMethod:
         p = np.dot(s21.T, p21)
         assert np.allclose(p, p.T)
         return p
+
+    # Symmetry between fragments
+    # --------------------------
+
+
+    def get_symmetry_parent_fragments(self):
+        """Returns a list of all fragments, which are parents to symmetry related child fragments.
+
+        Returns
+        -------
+        parents: list
+            A list of all parent fragments, ordered in the same way as they appear in `self.fragments`.
+        """
+        parents = []
+        for f in self.fragments:
+            if f.sym_parent is None:
+                parents.append(f)
+        return parents
+
+
+    def get_symmetry_child_fragments(self):
+        """Returns a list of all fragments, which are children to symmetry related parent fragments.
+
+        Returns
+        -------
+        children: list of lists
+            A list with the length of the number of parent fragments in the system, each element
+            being another list containing all the children fragments of the given parent fragment.
+            Both the outer and inner lists are ordered in the same way that the fragments appear in `self.fragments`.
+        """
+        parent_ids = [x.id for x in self.get_symmetry_parent_fragments()]
+        children = len(parent_ids)*[[]]
+        for f in self.fragments:
+            if f.sym_parent is None: continue
+            pid = f.sym_parent.id
+            assert (pid in parent_ids)
+            idx = parent_ids.index(pid)
+            children[idx].append(f)
+        return children
+
 
     # Utility
     # -------

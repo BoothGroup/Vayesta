@@ -89,7 +89,7 @@ def get_arguments():
     #parser.add_argument("--remove-linear-dep", type=float)
     parser.add_argument("--lindep-threshold", type=float)
     # Density-fitting
-    parser.add_argument("--df", choices=["FFTDF", "GDF", "IncoreGDF"], default="GDF", help="Density-fitting method")
+    parser.add_argument("--df", choices=["FFTDF", "GDF", "IncoreGDF", 'RSGDF'], default="GDF", help="Density-fitting method")
     parser.add_argument("--auxbasis", help="Auxiliary basis. Only works for those known to PySCF.", default='auto')
     parser.add_argument("--auxbasis-file", help="Load auxiliary basis from file (NWChem format)")
     parser.add_argument("--save-gdf", help="Save primitive cell GDF") #, default="gdf-%.2f.h5")
@@ -97,6 +97,7 @@ def get_arguments():
     parser.add_argument("--df-lindep-method")
     parser.add_argument("--df-lindep-threshold", type=float)
     parser.add_argument("--df-lindep-always", action="store_true")
+    parser.add_argument("--rsgdf-omega", type=float, default=None)
     # Embedded correlated calculation
     parser.add_argument("--iao-minao", default="minao", help="Minimial basis set for IAOs.")
     parser.add_argument("--solver", type=str_or_none, default="CCSD")
@@ -303,7 +304,7 @@ def get_mf(cell, kpts=None, xc='hf', plus_u=None, plus_u_orbitals=[], minao='MIN
 
     return mf
 
-def run_mf(a, cell, args, kpts=None, dm_init=None, xc="hf", df=None, build_df_early=False):
+def run_mf(a, cell, args, kpts=None, dm_init=None, xc="hf", df=None, build_df_early=True):
     mf = get_mf(cell, kpts, xc, plus_u=args.plus_u, plus_u_orbitals=args.plus_u_orbitals, minao=args.iao_minao)
     if args.exxdiv_none:
         mf.exxdiv = None
@@ -340,11 +341,19 @@ def run_mf(a, cell, args, kpts=None, dm_init=None, xc="hf", df=None, build_df_ea
     if df is not None:
         mf.with_df = df
     #elif args.df == "GDF":
-    elif args.df in ("GDF", "IncoreGDF"):
+    elif args.df in ("GDF", "IncoreGDF", 'RSGDF'):
         if args.df == "GDF":
             mf = mf.density_fit()
         elif args.df == "IncoreGDF":
             mf.with_df = IncoreGDF(cell, kpts)
+        elif args.df == "RSGDF":
+            from pyscf.pbc.df import RSGDF
+            if kpts is None:
+                kpts = np.zeros((1,3))
+            mf.with_df = RSGDF(cell, kpts)
+            if args.rsgdf_omega is not None:
+                mf.with_df.omega = args.rsgdf_omega
+
         df = mf.with_df
         # TEST
         if args.df_lindep_method is not None:
@@ -566,6 +575,7 @@ for i, a in enumerate(args.lattice_consts):
         energies.update(run_benchmarks(a, cell, mf, kpts, args))
 
     if args.run_ewf:
+
         energies["ccsd"] = []
         energies["ccsd-dmp2"] = []
         if args.solver == "CCSD(T)":

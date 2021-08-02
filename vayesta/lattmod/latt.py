@@ -105,7 +105,7 @@ class Hubbard1D(Hubbard):
                 boundary = 'APBC'
             else:
                 raise ValueError()
-            log.warning("boundary condition: %s", boundary)
+            log.debug("Automatically chosen boundary condition: %s", boundary)
         self.boundary = boundary
         if boundary.upper() == 'PBC':
             bfac = 1
@@ -183,6 +183,8 @@ class Hubbard2D(Hubbard):
                     #boundary = ('PBC', 'APBC')
                 elif self.nsites[0] % 4 == 2 and self.nsites[1] % 4 == 2:
                     boundary = ('PBC', 'APBC')
+                else:
+                    raise NotImplementedError("Please specifiy boundary conditions.")
             else:
                 raise NotImplementedError("Please specifiy boundary conditions.")
         if np.ndim(boundary) == 0:
@@ -252,7 +254,7 @@ class Hubbard2D(Hubbard):
 
     def atom_coords(self):
         """Sites are ordered by default as:
-        ...
+
         6 7 8
         3 4 5
         0 1 2
@@ -338,16 +340,22 @@ class LatticeMF(pyscf.scf.hf.RHF):
             lumo = np.nan
         gap = (lumo-homo)
         log.info("HOMO= %+16.8f  LUMO= %+16.8f  gap= %+16.8f", homo, lumo, gap)
-        if gap < 1e-6:
+        if gap < 1e-8:
             log.critical("Zero HOMO-LUMO gap!")
-            raise RuntimeError()
-        elif gap < 0.1:
+            raise RuntimeError("Zero HOMO-LUMO gap!")
+        elif gap < 1e-2:
             log.warning("Small HOMO-LUMO gap!")
 
         self.mo_coeff = mo_coeff
         self.mo_occ = np.asarray((nocc*[2] + nvir*[0]))
 
+        # Check lattice symmetry
         dm = self.make_rdm1()
+        occ = np.diag(dm)
+        if not np.all(np.isclose(occ[0], occ)):
+            log.warning("Mean-field not lattice symmetric! Site occupations=\n%r", occ)
+        else:
+            log.debug("Mean-field site occupations=\n%r", occ)
         veff = self.get_veff()
         self.e_tot = np.einsum('ab,ba->', (self.get_hcore() + veff/2), dm)
         self.converged = True

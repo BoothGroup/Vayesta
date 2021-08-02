@@ -75,6 +75,7 @@ class EWF(QEmbeddingMethod):
         sc_maxiter: int = 30
         sc_energy_tol: float = 1e-6
         sc_mode: int = 0
+        nelectron_target: int = None
         # --- Orbital plots
         plot_orbitals: list = dataclasses.field(default_factory=dict)
         plot_orbitals_exit: bool = False            # Exit immediately after all orbital plots have been generated
@@ -235,6 +236,16 @@ class EWF(QEmbeddingMethod):
     def e_tot(self):
         """Total energy."""
         return self.e_mf + self.e_corr
+
+    def get_e_tot(self):
+        return self.e_mf + self.get_e_corr()
+
+
+    def get_e_corr(self):
+        e_corr = 0.0
+        for f in self.fragments:
+            e_corr += f.results.e_corr
+        return e_corr
 
     # -------------------------------------------------------------------------------------------- #
 
