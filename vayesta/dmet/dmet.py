@@ -51,7 +51,8 @@ class DMET(QEmbeddingMethod):
         # --- Solver settings
         solver_options: dict = dataclasses.field(default_factory=dict)
         make_rdm1: bool = False
-        eom_ccsd: bool = False  # Perform EOM-CCSD in each cluster by default
+        eom_ccsd: list = dataclasses.field(default_factory=list)  # Perform EOM-CCSD in each cluster by default
+        eom_ccsd_nroots: int = 5
         eomfile: str = 'eom-ccsd'  # Filename for EOM-CCSD states
         # Counterpoise correction of BSSE
         bsse_correction: bool = True
@@ -200,7 +201,6 @@ class DMET(QEmbeddingMethod):
                 return err
 
             err = electron_err(cpt)
-
             if abs(err) > self.opts.max_elec_err * nelec_mf:
                 if err < 0:
                     lo = cpt
@@ -225,7 +225,6 @@ class DMET(QEmbeddingMethod):
                     else:
                         self.log.info("Converged chemical potential: {:6.4e}".format(cpt))
                         break
-
 
             # Now for the DMET self-consistency! This is where we start needing extra functionality compared to EWF.
             self.log.info("Now running DMET correlation potential fitting")
@@ -267,6 +266,7 @@ class DMET(QEmbeddingMethod):
             self.log.changeIndentLevel(1)
 
             self.curr_mf.get_hcore = lambda *args: self.mf.get_hcore(*args) - chempot * np.dot(frag.c_frag, frag.c_frag.T)
+            self._hcore = self.curr_mf.get_hcore()
 
             try:
                 result = frag.kernel(bno_threshold=bno_thr, construct_bath=construct_bath)
@@ -293,6 +293,7 @@ class DMET(QEmbeddingMethod):
             nelec_hl += hl_rdms[x].trace()
         # Set hcore back to original calculation.
         self.curr_mf.get_hcore = saved_hcore
+        self._hcore = self.curr_mf.get_hcore()
         self.hl_rdms = hl_rdms
         self.impurity_projectors = impurity_projectors
         self.log.info("Chemical Potential {:6.4e} gives Total electron deviation {:6.4f}".format(

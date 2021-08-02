@@ -44,6 +44,7 @@ class DMETFragment(QEmbeddingFragment):
         dmet_threshold: float = NotSet
         make_rdm1: bool = True
         make_rdm2: bool = False
+        energy_factor: float = 1.0
         eom_ccsd: bool = NotSet
         energy_partitioning: str = NotSet
         sc_mode: int = NotSet
@@ -344,12 +345,11 @@ class DMETFragment(QEmbeddingFragment):
         solver_opts = {}
         solver_opts['make_rdm1'] = self.opts.make_rdm1
         solver_opts['make_rdm2'] = self.opts.make_rdm2
-        solver_opts['eom_ccsd'] = []
-        solver_opts['eom_ccsd_nroots'] = None
 
 
         cluster_solver_cls = get_solver_class(solver)
-        cluster_solver = cluster_solver_cls(self, mo_coeff, mo_occ, nocc_frozen=nocc_frozen, nvir_frozen=nvir_frozen, **solver_opts)
+        cluster_solver = cluster_solver_cls(
+            self, mo_coeff, mo_occ, nocc_frozen=nocc_frozen, nvir_frozen=nvir_frozen, **solver_opts)
         solver_results = cluster_solver.kernel(init_guess=init_guess, eris=eris)
         self.log.timing("Time for %s solver:  %s", solver, time_string(timer()-t0))
 
@@ -363,7 +363,6 @@ class DMETFragment(QEmbeddingFragment):
             c2 = solver_results.c2 / solver_results.c0
         p1 = self.project_amplitude_to_fragment(c1, c_active_occ, c_active_vir)
         p2 = self.project_amplitude_to_fragment(c2, c_active_occ, c_active_vir)
-
         e_corr = self.get_fragment_energy(p1, p2, eris=solver_results.eris)
         self.log.info("BNO threshold= %.1e :  E(corr)= %+14.8f Ha", bno_threshold, e_corr)
 
@@ -560,12 +559,13 @@ class DMETFragment(QEmbeddingFragment):
 
 
     def get_fragment_energy(self, p1, p2, eris):
-        """
+        """Calculate fragment correlation energy contribution from porjected C1, C2.
+
         Parameters
         ----------
-        p1 : (nOcc, nVir) array
+        p1 : (n(occ), n(vir)) array
             Locally projected C1 amplitudes.
-        p2 : (nOcc, nOcc, nVir, nVir) array
+        p2 : (n(occ), n(occ), n(vir), n(vir)) array
             Locally projected C2 amplitudes.
         eris :
             PySCF eris object as returned by cm.ao2mo()
@@ -575,29 +575,33 @@ class DMETFragment(QEmbeddingFragment):
         e_frag : float
             Fragment energy contribution.
         """
+        if self.opts.energy_factor == 0:
+            return 0
+
         nocc, nvir = p2.shape[1:3]
-        # MP2
-        if p1 is None:
-            e1 = 0
-        # CC
-        else:
-            occ = np.s_[:nocc]
-            vir = np.s_[nocc:]
-            f = eris.fock[occ][:,vir]
+        occ = np.s_[:nocc]
+        vir = np.s_[nocc:]
+        # E1
+        e1 = 0
+        if p1 is not None:
+            if hasattr(eris, 'fock'):
+                f = eris.fock[occ,vir]
+            else:
+                f = np.linalg.multi_dot((self.c_active_occ.T, self.base.get_fock(), self.c_active_vir))
             e1 = 2*np.sum(f * p1)
-
-        if hasattr(eris, "ovvo"):
-            eris_ovvo = eris.ovvo
-        # MP2 only has eris.ovov - for real integrals we transpose
+        # E2
+        if hasattr(eris, 'ovvo'):
+            g_ovvo = eris.ovvo[:]
+        elif hasattr(eris, 'ovov'):
+            # MP2 only has eris.ovov - for real integrals we transpose
+            g_ovvo = eris.ovov[:].reshape(nocc,nvir,nocc,nvir).transpose(0, 1, 3, 2).conj()
         else:
-            eris_ovvo = eris.ovov[:].reshape(nocc,nvir,nocc,nvir).transpose(0, 1, 3, 2).conj()
-        e2 = (2*einsum('ijab,iabj', p2, eris_ovvo)
-              - einsum('ijab,jabi', p2, eris_ovvo))
+            g_ovvo = eris[occ,vir,vir,occ]
 
+        e2 = 2*einsum('ijab,iabj', p2, g_ovvo) - einsum('ijab,jabi', p2, g_ovvo)
         self.log.info("Energy components: E[C1]= % 16.8f Ha, E[C2]= % 16.8f Ha", e1, e2)
         if e1 > 1e-4 and 10*e1 > e2:
             self.log.warning("WARNING: Large E[C1] component!")
-
-        e_frag = self.sym_factor * (e1 + e2)
+        e_frag = self.opts.energy_factor * self.sym_factor * (e1 + e2)
         return e_frag
 
