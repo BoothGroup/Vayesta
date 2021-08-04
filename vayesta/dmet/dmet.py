@@ -17,6 +17,7 @@ from .fragment import DMETFragment, DMETFragmentExit
 from .sdp_sc import perform_SDP_fit
 
 from timeit import default_timer as timer
+import copy
 
 
 
@@ -80,6 +81,8 @@ class DMET(QEmbeddingMethod):
         """
 
         super().__init__(mf, options=options, log=log, **kwargs)
+        # Set up
+        self.ll_mf = copy.copy(mf)
 
         t_start = timer()
 
@@ -137,12 +140,12 @@ class DMET(QEmbeddingMethod):
         self.pop_mf = None
         #self.pop_mf_chg = None
 
-        self.vcorr = np.zeros_like(self.mf.get_ovlp().shape)
+        self.vcorr = np.zeros_like(self.mf.get_ovlp())
 
         self.iteration = 0
         self.cluster_results = {}
         self.results = []
-        self.e_dmet = self.e_mf - self.curr_mf.energy_nuc()
+        self.e_dmet = self.e_mf - self.ll_mf.energy_nuc()
 
     def __repr__(self):
         keys = ['mf', 'bno_threshold', 'solver']
@@ -153,7 +156,7 @@ class DMET(QEmbeddingMethod):
     @property
     def e_corr(self):
         """Total energy."""
-        return self.e_dmet - self.e_mf + self.curr_mf.energy_nuc()
+        return self.e_dmet - self.e_mf + self.ll_mf.energy_nuc()
 
     @property
     def e_tot(self):
@@ -176,7 +179,7 @@ class DMET(QEmbeddingMethod):
         #rdm = self.mf.make_rdm1()
         fock = self.get_fock()
         cpt = 0.0
-        mf = self.curr_mf
+        mf = self.ll_mf
 
         sym_parents = self.get_symmetry_parent_fragments()
         sym_children = self.get_symmetry_child_fragments()
@@ -198,7 +201,7 @@ class DMET(QEmbeddingMethod):
             # Need to optimise a global chemical potential to ensure electron number is converged.
 
             nelec_mf = 0.0
-            rdm = self.curr_mf.make_rdm1()
+            rdm = self.ll_mf.make_rdm1()
             # This could loop over parents and multiply. Leave simple for now.
             for x, frag in enumerate(self.fragments):
                 c = frag.c_frag.T @ self.get_ovlp()# / np.sqrt(2)
@@ -270,7 +273,7 @@ class DMET(QEmbeddingMethod):
     def calc_electron_number_defect(self, chempot, bno_thr, nelec_target, parent_fragments, nsym, construct_bath = True):
         self.log.info("Running chemical potential={:8.6e}".format(chempot))
         # Save original one-body hamiltonian calculation.
-        saved_hcore = self.curr_mf.get_hcore
+        saved_hcore = self.ll_mf.get_hcore
 
         hl_rdms = [None] * len(parent_fragments)
         nelec_hl = 0.0
@@ -281,8 +284,8 @@ class DMET(QEmbeddingMethod):
             self.log.info(len(msg) * "*")
             self.log.changeIndentLevel(1)
 
-            self.curr_mf.get_hcore = lambda *args: self.mf.get_hcore(*args) - chempot * np.dot(frag.c_frag, frag.c_frag.T)
-            self._hcore = self.curr_mf.get_hcore()
+            self.ll_mf.get_hcore = lambda *args: self.mf.get_hcore(*args) - chempot * np.dot(frag.c_frag, frag.c_frag.T)
+            self._hcore = self.ll_mf.get_hcore()
 
             try:
                 result = frag.kernel(bno_threshold=bno_thr, construct_bath=construct_bath)
@@ -290,7 +293,7 @@ class DMET(QEmbeddingMethod):
                 exit = True
                 self.log.info("Exiting %s", frag)
                 self.log.changeIndentLevel(-1)
-                self.curr_mf.get_hcore = saved_hcore
+                self.ll_mf.get_hcore = saved_hcore
                 raise e
 
             self.cluster_results[frag.id] = result
@@ -307,8 +310,8 @@ class DMET(QEmbeddingMethod):
             hl_rdms[x] = np.linalg.multi_dot((c, frag.results.dm1, c.T))# / 2
             nelec_hl += hl_rdms[x].trace() * nsym[x]
         # Set hcore back to original calculation.
-        self.curr_mf.get_hcore = saved_hcore
-        self._hcore = self.curr_mf.get_hcore()
+        self.ll_mf.get_hcore = saved_hcore
+        self._hcore = self.ll_mf.get_hcore()
         self.hl_rdms = hl_rdms
         self.log.info("Chemical Potential {:8.6e} gives Total electron deviation {:6.4e}".format(
                         chempot, nelec_hl - nelec_target))

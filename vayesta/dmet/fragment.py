@@ -124,11 +124,15 @@ class DMETFragment(QEmbeddingFragment):
         self.solver_results = None
 
     @property
+    def mf(self):
+        """Current mean-field, which the fragment is linked to. Not the original."""
+        return self.base.ll_mf
+
+    @property
     def e_corr(self):
         """Best guess for correlation energy, using the lowest BNO threshold."""
         idx = np.argmin(self.bno_threshold)
         return self.e_corrs[idx]
-
 
     def make_bath(self):
         """Make DMET and MP2 bath natural orbitals."""
@@ -136,8 +140,7 @@ class DMETFragment(QEmbeddingFragment):
         self.log.info("Making DMET Bath")
         self.log.info("****************")
         self.log.changeIndentLevel(1)
-        c_dmet, c_env_occ, c_env_vir = self.make_dmet_bath(self.c_env, dm1 = self.base.curr_mf.make_rdm1(),
-                                                           tol=self.opts.dmet_threshold)
+        c_dmet, c_env_occ, c_env_vir = self.make_dmet_bath(self.c_env, tol=self.opts.dmet_threshold)
         # DMET bath analysis
         self.log.info("DMET bath character:")
         for i in range(c_dmet.shape[-1]):
@@ -571,7 +574,7 @@ class DMETFragment(QEmbeddingFragment):
         nocc = self.c_active_occ.shape[1]
         occ = np.s_[:nocc]
         # Calculate the effective onebody interaction within the cluster.
-        f_act = np.linalg.multi_dot((c_act.T, self.base.curr_mf.get_fock(), c_act))
+        f_act = np.linalg.multi_dot((c_act.T, self.base.ll_mf.get_fock(), c_act))
         v_act = 2*np.einsum('iipq->pq', eris[occ,occ]) - np.einsum('iqpi->pq', eris[occ,:,:,occ])
         h_eff = f_act - v_act
         h_bare = np.linalg.multi_dot((c_act.T, self.base.get_hcore(), c_act))
@@ -579,7 +582,7 @@ class DMETFragment(QEmbeddingFragment):
         e1 = 0.5 * np.linalg.multi_dot((P_imp, h_bare + h_eff, self.results.dm1)).trace()
         e2 = 0.5 * np.einsum('pt,pqrs,pqrs->', P_imp, eris, self.results.dm2)
         # Code to generate the HF energy contribution for testing purposes.
-        #mf_dm1 = np.linalg.multi_dot((c_act.T, self.base.get_ovlp(), self.base.curr_mf.make_rdm1(),\
+        #mf_dm1 = np.linalg.multi_dot((c_act.T, self.base.get_ovlp(), self.base.ll_mf.make_rdm1(),\
         #                               self.base.get_ovlp(), c_act))
         #e_hf = np.linalg.multi_dot((P_imp, 0.5 * (h_bare + f_act), mf_dm1)).trace()
         return e1, e2

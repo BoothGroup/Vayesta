@@ -159,7 +159,7 @@ class QEmbeddingFragment:
     @property
     def mf(self):
         """Current mean-field, which the fragment is linked to. Not the original."""
-        return self.base.curr_mf
+        return self.base.mf
 
     @property
     def size(self):
