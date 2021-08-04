@@ -27,12 +27,10 @@ def perform_SDP_fit(nelec, fock, impurity_projectors, target_rdms, ovlp, log):
     ovlp: np.array
         Overlap matrix of the AOs, so we can implicitly transform into the PAO basis.
     """
-    print("Target RDMs:")
-    print(target_rdms)
+    #print("Target RDMs:")
+    #print(target_rdms)
     #print([x.trace() for x in target_rdms])
 
-    #print("Nsym:")
-    #print([x[0].shape for x in impurity_projectors])
     # First calculate the number of different symmetry-eqivalent orbital sets for each class of impurity (this is the
     # symmetry factor, elsewhere in the code).
     nimp = [x[0].shape[1] for x in impurity_projectors]
@@ -76,61 +74,6 @@ def perform_SDP_fit(nelec, fock, impurity_projectors, target_rdms, ovlp, log):
     else:
         log.info(msg)
 
-    # Our local correlation potential values are then contained within the values of this list; use our projector to
-    # map back into full space.
-    #print("Local Correlation Potential:")
-    #print([x.value for x in us])
-
-    #fullv = sum([np.linalg.pinv(aproj).T @ us[i].value @ np.linalg.pinv(aproj) for i, curr_proj in enumerate(impurity_projectors) for aproj in curr_proj])
-    #print(fullv)
-    #print("Overall Correlation Potential:")
-    #print(utot.value)
-    #print("Projected local correlation potential:")
-    #print(np.linalg.multi_dot([impurity_projectors[0][0].T, utot.value, impurity_projectors[0][0]]))
-    #print(np.linalg.multi_dot([impurity_projectors[1][0].T, utot.value, impurity_projectors[1][0]]))
-    #print(np.linalg.multi_dot([impurity_projectors[2][0].T, utot.value, impurity_projectors[2][0]]))
     # Report the result of the optimisation.
     return utot.value
 
-# Code to check that the correlation potential does what it says on the tin, saved for later.
-def WIP():
-    raise NotImplementedError
-    resham = fock + fullv
-    # print(resham)
-
-    ea, ca = np.linalg.eigh(resham[::2, ::2])
-    eb, cb = np.linalg.eigh(resham[1::2, 1::2])
-    # print("Res:")#, fock.shape, resham.shape, fullv.shape, rdms[0].shape)
-    # print(e)
-    n = len(impurities[0][0])
-
-    temp = np.zeros_like(resham)
-    temp[::2, ::2] = np.dot(ca[:, :nelec // 2], ca[:, :nelec // 2].T)
-    temp[1::2, 1::2] = np.dot(cb[:, :nelec // 2], cb[:, :nelec // 2].T)
-    # print(temp)
-    maxdev = np.array(
-        [
-            [abs(temp[np.ix_(i, i)] - rdm[:len(i), :len(i)]).max() for i in impset
-             ] for impset, rdm in zip(self.impurities, rdms)
-        ]).max()
-    # print(maxdev)
-    if maxdev > 1e-4:
-        print("Exact reproduction of 1rdm not achieved; Maximum deviation: ", maxdev, end=". ")
-        print("Resultant system may have unaccounted for broken symmetry or be gapless. FMO energies are")
-        print("alpha:", ea[nelec // 2 - 1: nelec // 2 + 1], "beta:",
-              eb[nelec // 2 - 1: nelec // 2 + 1])
-        # print("fock")
-        # print(fock)
-        # print("Overall ham resulting")
-        # print(resham)
-        # print("New correlation potential")
-        # print(fullv)
-        # print(ea)
-        # print(eb)
-
-    # print(fullv)
-    fullv = np.array((fullv[::2, ::2], fullv[1::2, 1::2]))
-    # print(fullv)
-    # print(abs(fullv - mf.vcorr).max())
-    # value of u is now the optimiser for the DMET problem, with fixed fock matrix.
-    return fullv, prob.status != cp.OPTIMAL

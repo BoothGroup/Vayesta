@@ -10,7 +10,7 @@ import scipy.linalg
 
 from vayesta.core.util import *
 from vayesta.core import QEmbeddingMethod
-
+from pyscf.lib import diis
 
 from vayesta.ewf import helper
 from .fragment import DMETFragment, DMETFragmentExit
@@ -50,7 +50,8 @@ class DMET(QEmbeddingMethod):
         plot_orbitals_kwargs: dict = dataclasses.field(default_factory=dict)
         # --- Solver settings
         solver_options: dict = dataclasses.field(default_factory=dict)
-        make_rdm1: bool = False
+        make_rdm1: bool = True
+        make_rdm2: bool = True
         eom_ccsd: list = dataclasses.field(default_factory=list)  # Perform EOM-CCSD in each cluster by default
         eom_ccsd_nroots: int = 5
         eomfile: str = 'eom-ccsd'  # Filename for EOM-CCSD states
@@ -139,7 +140,7 @@ class DMET(QEmbeddingMethod):
         self.iteration = 0
         self.cluster_results = {}
         self.results = []
-        self.e_corr = 0.0
+        self.e_tot = 0.0
 
     def __repr__(self):
         keys = ['mf', 'bno_threshold', 'solver']
@@ -148,9 +149,9 @@ class DMET(QEmbeddingMethod):
         return fmt % (self.__class__.__name__, *[x for y in zip(keys, values) for x in y])
 
     @property
-    def e_tot(self):
-        """Total energy."""
-        return self.e_mf + self.e_corr
+    def e_corr(self):
+        """Correlation energy."""
+        return self.e_tot - self.e_mf
 
     def kernel(self, bno_threshold=np.inf):
         """Run DMET calculation.
@@ -170,7 +171,6 @@ class DMET(QEmbeddingMethod):
         cpt = 0.0
         mf = self.curr_mf
 
-        exit = False
         sym_parents = self.get_symmetry_parent_fragments()
         sym_children = self.get_symmetry_child_fragments()
         nsym = [len(x) + 1 for x in sym_children]
@@ -179,7 +179,7 @@ class DMET(QEmbeddingMethod):
             [parent.c_frag] + [c.c_frag for c in children] for (parent, children) in zip(sym_parents, sym_children)
         ]
 
-
+        self.converged = False
         for iteration in range(1, maxiter + 1):
             self.iteration = iteration
             self.log.info("Now running iteration= %2d", iteration)
@@ -187,8 +187,6 @@ class DMET(QEmbeddingMethod):
             mf.mo_energy, mf.mo_coeff = mf.eig(fock + vcorr, self.get_ovlp())
             mf.mo_occ = self.mf.get_occ(mf.mo_energy, mf.mo_coeff)
 
-
-            rdm = mf.make_rdm1()
             if self.opts.charge_consistent: fock = mf.get_fock()
             # Need to optimise a global chemical potential to ensure electron number is converged.
 
@@ -198,11 +196,9 @@ class DMET(QEmbeddingMethod):
             for x, frag in enumerate(self.fragments):
                 c = frag.c_frag.T @ self.get_ovlp()# / np.sqrt(2)
                 nelec_mf += np.linalg.multi_dot((c, rdm, c.T)).trace()
-                # Want to print one component of the spinorbital dm.
-                print(np.linalg.multi_dot((c, rdm, c.T))/2)
-                # print(np.linalg.eigvalsh(
-                #    np.linalg.multi_dot((c, rdm, c.T))))
-                print(np.linalg.multi_dot((c, rdm, c.T)).trace())
+                # Print local 1rdm
+                #print(np.linalg.multi_dot((c, rdm, c.T))/2)
+                #print(np.linalg.multi_dot((c, rdm, c.T)).trace())
 
             err = None
             def electron_err(cpt):
@@ -212,6 +208,7 @@ class DMET(QEmbeddingMethod):
 
             err = electron_err(cpt)
             if abs(err) > self.opts.max_elec_err * nelec_mf:
+                self.log.info("Optimising chemical potential.")
                 if err < 0:
                     lo = cpt
                     hi = cpt + 0.1
@@ -222,42 +219,42 @@ class DMET(QEmbeddingMethod):
                 for ntry in range(5):
                     try:
                         cpt, res = scipy.optimize.brentq(electron_err, a=lo, b=hi, full_output=True,
-                                    xtol = self.opts.max_elec_err * nelec_mf, rtol = self.opts.max_elec_err * nelec_mf)
-                    except ValueError:
-                        if abs(err) < 1e-6:
-                            cpt = hi
-                            self.log.info("Converged chemical potential: {:6.4e}".format(cpt))
-                            break
-                        elif err < 0:
+                                    xtol = self.opts.max_elec_err * nelec_mf)#self.opts.max_elec_err * nelec_mf)
+                    except ValueError as e:
+                        if err < 0:
                             hi += 0.1 * 2**ntry
                         else:
                             lo -= 0.1 * 2**ntry
                     else:
                         self.log.info("Converged chemical potential: {:6.4e}".format(cpt))
                         break
-
-            # Now for the DMET self-consistency! This is where we start needing extra functionality compared to EWF.
+                else:
+                    self.log.fatal("Could not find chemical potential bracket.")
+                    break
+            else:
+                self.log.info("Previous chemical cotential still suitable")
+            # Now for the DMET self-consistency!
             self.log.info("Now running DMET correlation potential fitting")
 
-
-            #for x, frag in enumerate(self.fragments):
-                # Get projector from AO space to impurity orbitals.
-                #c = np.dot(c.frag., np.dot(self.mf.get_ovlp()), frag.c_frag)
-
+            e1, e2 = 0.0, 0.0
+            for x, frag in enumerate(sym_parents):
+                e1_contrib, e2_contrib = frag.get_dmet_energy_contrib()
+                e1 += e1_contrib * nsym[x]
+                e2 += e2_contrib * nsym[x]
+            self.e_tot = e1 + e2
+            self.log.info("Total DMET energy {:8.4f}".format(self.e_tot))
 
             vcorr_new = perform_SDP_fit(self.mol.nelec[0], fock, impurity_projectors, [x/2 for x in self.hl_rdms],
                                             self.get_ovlp(), self.log)
             delta = sum((vcorr_new - vcorr).reshape(-1)**2)**(0.5)
-            self.log.debug("Delta {:6.4e}".format(delta))
+            self.log.debug("Delta Vcorr {:6.4e}".format(delta))
             if delta < self.opts.conv_tol:
-                #print("DMET converged after %d iterations" % iteration)
-                self.log.debug("DMET converged after %d iterations" % iteration)
+                self.converged = True
+                self.log.info("DMET converged after %d iterations" % iteration)
                 break
             vcorr = vcorr_new
-
         else:
-            if self.opts.sc_mode:
-                self.log.error("Self-consistency not reached!")
+            self.log.error("Self-consistency not reached in {} iterations.".format(maxiter))
         return vcorr
 
     def calc_electron_number_defect(self, chempot, bno_thr, nelec_target, parent_fragments, nsym, construct_bath = True):
@@ -303,31 +300,21 @@ class DMET(QEmbeddingMethod):
         self.curr_mf.get_hcore = saved_hcore
         self._hcore = self.curr_mf.get_hcore()
         self.hl_rdms = hl_rdms
-        self.log.info("Chemical Potential {:6.4e} gives Total electron deviation {:6.4f}".format(
+        self.log.info("Chemical Potential {:6.4e} gives Total electron deviation {:6.4e}".format(
                         chempot, nelec_hl - nelec_target))
-        print("Chemical Potential {:6.4e} gives Total electron deviation {:6.4f}".format(
-                        chempot, nelec_hl - nelec_target))
-        #print("Chemical Potential {:6.4e} gives Total electron deviation {:6.4e}".format(
-        #                chempot, nelec_hl - nelec_target))
-        #print("LL: {:6.4e}, HL: {:6.4e}".format(nelec_target, nelec_hl))
         return nelec_hl - nelec_target
 
-    def print_results(self, results):
+    def print_results(self):#, results):
         self.log.info("Energies")
         self.log.info("********")
         fmt = "%-20s %+16.8f Ha"
-        for i, frag in enumerate(self.loop()):
-            e_corr = results["e_corr"][i]
-            self.log.output(fmt, 'E(corr)[' + frag.trimmed_name() + ']=', e_corr)
+        #for i, frag in enumerate(self.loop()):
+        #    e_corr = results["e_corr"][i]
+        #    self.log.output(fmt, 'E(corr)[' + frag.trimmed_name() + ']=', e_corr)
         self.log.output(fmt, 'E(corr)=', self.e_corr)
         self.log.output(fmt, 'E(MF)=', self.e_mf)
         self.log.output(fmt, 'E(nuc)=', self.mol.energy_nuc())
         self.log.output(fmt, 'E(tot)=', self.e_tot)
-
-
-    def get_energies(self):
-        """Get total energy."""
-        return [(self.e_mf + r.e_corr) for r in self.results]
 
     def print_clusters(self):
         """Print fragments of calculations."""

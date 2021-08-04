@@ -43,7 +43,7 @@ class DMETFragment(QEmbeddingFragment):
         # Options also present in `base`:
         dmet_threshold: float = NotSet
         make_rdm1: bool = True
-        make_rdm2: bool = False
+        make_rdm2: bool = True
         energy_factor: float = 1.0
         eom_ccsd: bool = NotSet
         energy_partitioning: str = NotSet
@@ -74,6 +74,7 @@ class DMETFragment(QEmbeddingFragment):
         # For DM1:
         g1: np.ndarray = None
         dm1: np.ndarray = None
+        dm2: np.ndarray = None
 
     def __init__(self, *args, solver=None, **kwargs):
 
@@ -135,7 +136,8 @@ class DMETFragment(QEmbeddingFragment):
         self.log.info("Making DMET Bath")
         self.log.info("****************")
         self.log.changeIndentLevel(1)
-        c_dmet, c_env_occ, c_env_vir = self.make_dmet_bath(self.c_env, tol=self.opts.dmet_threshold)
+        c_dmet, c_env_occ, c_env_vir = self.make_dmet_bath(self.c_env, dm1 = self.base.curr_mf.make_rdm1(),
+                                                           tol=self.opts.dmet_threshold)
         # DMET bath analysis
         self.log.info("DMET bath character:")
         for i in range(c_dmet.shape[-1]):
@@ -326,11 +328,7 @@ class DMETFragment(QEmbeddingFragment):
 
         # For self-consistent calculations, we can reuse ERIs:
         if eris is None:
-            if self.base.opts.sc_mode and self.base.iteration > 1:
-                self.log.debugv("Reusing ERIs from previous iteration")
-                eris = self.results.eris
-            # If superspace ERIs were calculated before, they can be transformed and used again:
-            elif self.base.opts.project_eris and self.results is not None:
+            if self.base.opts.project_eris and self.results is not None:
                 t0 = timer()
                 self.log.debugv("Projecting previous ERIs onto subspace")
                 eris = psubspace.project_eris(self.results.eris, c_active_occ, c_active_vir, ovlp=self.base.get_ovlp())
@@ -373,7 +371,8 @@ class DMETFragment(QEmbeddingFragment):
                 n_active=nactive,
                 converged=solver_results.converged,
                 e_corr=e_corr,
-                dm1 = solver_results.dm1)
+                dm1 = solver_results.dm1,
+                dm2 = solver_results.dm2)
 
         # EOM analysis
         if self.opts.eom_ccsd in (True, 'IP'):
@@ -397,7 +396,7 @@ class DMETFragment(QEmbeddingFragment):
         # Keep ERIs [optional]
         if self.base.opts.project_eris or self.opts.sc_mode:
             results.eris = solver_results.eris
-
+        self.solver_results = solver_results
         self._results = results
 
         # Force GC to free memory
@@ -557,9 +556,36 @@ class DMETFragment(QEmbeddingFragment):
 
         return p
 
+    def get_dmet_energy_contrib(self):
+        """Calculate the contribution of this fragment to the overall DMET energy."""
+        # Projector to the impurity in the active basis.
+        P_imp = self.get_fragment_projector(self.c_active)
+        c_act = self.c_active
+
+        # Temporary implementation
+        import pyscf.ao2mo
+        t0 = timer()
+        eris = pyscf.ao2mo.full(self.mf._eri, c_act, compact=False).reshape(4 * [c_act.shape[1]])
+        self.log.timing("Time for AO->MO of (ij|kl):  %s", time_string(timer() - t0))
+
+        nocc = self.c_active_occ.shape[1]
+        occ = np.s_[:nocc]
+        # Calculate the effective onebody interaction within the cluster.
+        f_act = np.linalg.multi_dot((c_act.T, self.base.curr_mf.get_fock(), c_act))
+        v_act = 2*np.einsum('iipq->pq', eris[occ,occ]) - np.einsum('iqpi->pq', eris[occ,:,:,occ])
+        h_eff = f_act - v_act
+        h_bare = np.linalg.multi_dot((c_act.T, self.base.get_hcore(), c_act))
+
+        e1 = 0.5 * np.linalg.multi_dot((P_imp, h_bare + h_eff, self.results.dm1)).trace()
+        e2 = 0.5 * np.einsum('pt,pqrs,pqrs->', P_imp, eris, self.results.dm2)
+        # Code to generate the HF energy contribution for testing purposes.
+        #mf_dm1 = np.linalg.multi_dot((c_act.T, self.base.get_ovlp(), self.base.curr_mf.make_rdm1(),\
+        #                               self.base.get_ovlp(), c_act))
+        #e_hf = np.linalg.multi_dot((P_imp, 0.5 * (h_bare + f_act), mf_dm1)).trace()
+        return e1, e2
 
     def get_fragment_energy(self, p1, p2, eris):
-        """Calculate fragment correlation energy contribution from porjected C1, C2.
+        """Calculate fragment correlation energy contribution from projected C1, C2.
 
         Parameters
         ----------
