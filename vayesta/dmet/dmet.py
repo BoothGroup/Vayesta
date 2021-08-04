@@ -140,7 +140,7 @@ class DMET(QEmbeddingMethod):
         self.iteration = 0
         self.cluster_results = {}
         self.results = []
-        self.e_tot = 0.0
+        self.e_dmet = self.e_mf - self.curr_mf.energy_nuc()
 
     def __repr__(self):
         keys = ['mf', 'bno_threshold', 'solver']
@@ -150,8 +150,14 @@ class DMET(QEmbeddingMethod):
 
     @property
     def e_corr(self):
-        """Correlation energy."""
-        return self.e_tot - self.e_mf
+        """Total energy."""
+        return self.e_dmet - self.e_mf + self.curr_mf.energy_nuc()
+
+    @property
+    def e_tot(self):
+        """Total energy."""
+        return self.e_mf + self.e_corr
+
 
     def kernel(self, bno_threshold=np.inf):
         """Run DMET calculation.
@@ -232,16 +238,15 @@ class DMET(QEmbeddingMethod):
                     self.log.fatal("Could not find chemical potential bracket.")
                     break
             else:
-                self.log.info("Previous chemical cotential still suitable")
+                self.log.info("Previous chemical potential still suitable")
             # Now for the DMET self-consistency!
             self.log.info("Now running DMET correlation potential fitting")
-
             e1, e2 = 0.0, 0.0
             for x, frag in enumerate(sym_parents):
                 e1_contrib, e2_contrib = frag.get_dmet_energy_contrib()
                 e1 += e1_contrib * nsym[x]
                 e2 += e2_contrib * nsym[x]
-            self.e_tot = e1 + e2
+            self.e_dmet = e1 + e2
             self.log.info("Total DMET energy {:8.4f}".format(self.e_tot))
 
             vcorr_new = perform_SDP_fit(self.mol.nelec[0], fock, impurity_projectors, [x/2 for x in self.hl_rdms],
@@ -258,7 +263,7 @@ class DMET(QEmbeddingMethod):
         return vcorr
 
     def calc_electron_number_defect(self, chempot, bno_thr, nelec_target, parent_fragments, nsym, construct_bath = True):
-        self.log.info("Running chemical potential {:6.4e}".format(chempot))
+        self.log.info("Running chemical potential={:8.6e}".format(chempot))
         # Save original one-body hamiltonian calculation.
         saved_hcore = self.curr_mf.get_hcore
 
@@ -300,7 +305,7 @@ class DMET(QEmbeddingMethod):
         self.curr_mf.get_hcore = saved_hcore
         self._hcore = self.curr_mf.get_hcore()
         self.hl_rdms = hl_rdms
-        self.log.info("Chemical Potential {:6.4e} gives Total electron deviation {:6.4e}".format(
+        self.log.info("Chemical Potential {:8.6e} gives Total electron deviation {:6.4e}".format(
                         chempot, nelec_hl - nelec_target))
         return nelec_hl - nelec_target
 
