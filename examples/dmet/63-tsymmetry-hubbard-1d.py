@@ -19,7 +19,7 @@ mf.kernel()
 dmet1 = vayesta.dmet.DMET(mf, solver='FCI', fragment_type='Site')
 for site in range(0, nsite, nimp):
     dmet1.make_atom_fragment(list(range(site, site+nimp)))
-vcorr1 = dmet1.kernel()
+dmet1.kernel()
 
 # Calculate a single fragment and use translational symmetry:
 dmet2 = vayesta.dmet.DMET(mf, solver='FCI', fragment_type='Site')
@@ -34,11 +34,10 @@ symfrags = f.make_tsymmetric_fragments(tvecs=[nsite//nimp, 1, 1])
 print("%d symmetry equivalent fragments found" % len(symfrags))
 # Check that every fragment has been identified!
 assert (len(symfrags)+1 == nsite//nimp)
-
-vcorr2 = dmet2.kernel()
+dmet2.kernel()
 
 
 
 # Compare converged correlation potential
 print("L2 norm difference in converged correlation potentials with and without translational symmetry: {:6.4e}".format(
-                    sum((vcorr1.ravel() - vcorr2.ravel())**2)**(0.5)))
+                    sum((dmet1.vcorr.ravel() - dmet2.vcorr.ravel())**2)**(0.5)))

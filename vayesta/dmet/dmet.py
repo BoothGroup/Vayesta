@@ -137,6 +137,8 @@ class DMET(QEmbeddingMethod):
         self.pop_mf = None
         #self.pop_mf_chg = None
 
+        self.vcorr = np.zeros_like(self.mf.get_ovlp().shape)
+
         self.iteration = 0
         self.cluster_results = {}
         self.results = []
@@ -173,7 +175,6 @@ class DMET(QEmbeddingMethod):
 
         #rdm = self.mf.make_rdm1()
         fock = self.get_fock()
-        vcorr = np.zeros_like(fock)
         cpt = 0.0
         mf = self.curr_mf
 
@@ -190,7 +191,7 @@ class DMET(QEmbeddingMethod):
             self.iteration = iteration
             self.log.info("Now running iteration= %2d", iteration)
             self.log.info("****************************************************")
-            mf.mo_energy, mf.mo_coeff = mf.eig(fock + vcorr, self.get_ovlp())
+            mf.mo_energy, mf.mo_coeff = mf.eig(fock + self.vcorr, self.get_ovlp())
             mf.mo_occ = self.mf.get_occ(mf.mo_energy, mf.mo_coeff)
 
             if self.opts.charge_consistent: fock = mf.get_fock()
@@ -251,16 +252,20 @@ class DMET(QEmbeddingMethod):
 
             vcorr_new = perform_SDP_fit(self.mol.nelec[0], fock, impurity_projectors, [x/2 for x in self.hl_rdms],
                                             self.get_ovlp(), self.log)
-            delta = sum((vcorr_new - vcorr).reshape(-1)**2)**(0.5)
+            delta = sum((vcorr_new - self.vcorr).reshape(-1)**2)**(0.5)
             self.log.debug("Delta Vcorr {:6.4e}".format(delta))
             if delta < self.opts.conv_tol:
                 self.converged = True
                 self.log.info("DMET converged after %d iterations" % iteration)
                 break
-            vcorr = vcorr_new
+            self.vcorr = vcorr_new
         else:
             self.log.error("Self-consistency not reached in {} iterations.".format(maxiter))
-        return vcorr
+
+        self.print_results()
+
+        self.log.info("Total wall time:  %s", time_string(timer()-t_start))
+        self.log.info("All done.")
 
     def calc_electron_number_defect(self, chempot, bno_thr, nelec_target, parent_fragments, nsym, construct_bath = True):
         self.log.info("Running chemical potential={:8.6e}".format(chempot))
