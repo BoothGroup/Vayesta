@@ -176,6 +176,7 @@ class QEmbeddingMethod:
         # ------------
         self.default_fragment_type = None
         self.fragments = []
+        self._nfrag_tot = 0 # Total number of fragments created with `add_fragment` method.
 
         # 4) Other
         # --------
@@ -693,11 +694,11 @@ class QEmbeddingMethod:
         frag : self.Fragment
             Fragment object of type self.Fragment.
         """
-        # Get new fragment ID
-        fid = self.nfrag + 1
+        fid = self._nfrag_tot + 1   # Get new fragment ID
         frag = self.Fragment(self, fid=fid, name=name, c_frag=c_frag, c_env=c_env,
                 fragment_type=fragment_type, sym_factor=sym_factor, **kwargs)
         self.fragments.append(frag)
+        self._nfrag_tot += 1
         return frag
 
 
@@ -1043,8 +1044,13 @@ class QEmbeddingMethod:
         return parents
 
 
-    def get_symmetry_child_fragments(self):
+    def get_symmetry_child_fragments(self, include_parents=False):
         """Returns a list of all fragments, which are children to symmetry related parent fragments.
+
+        Parameters
+        ----------
+        include_parents: bool, optional
+            If true, the parent fragment of each symmetry group is prepended to each symmetry sublist.
 
         Returns
         -------
@@ -1053,8 +1059,12 @@ class QEmbeddingMethod:
             being another list containing all the children fragments of the given parent fragment.
             Both the outer and inner lists are ordered in the same way that the fragments appear in `self.fragments`.
         """
-        parent_ids = [x.id for x in self.get_symmetry_parent_fragments()]
-        children = len(parent_ids)*[[]]
+        parents = self.get_symmetry_parent_fragments()
+        if include_parents:
+            children = [[p] for p in parents]
+        else:
+            children = [[] for p in parents]
+        parent_ids = [p.id for p in parents]
         for f in self.fragments:
             if f.sym_parent is None: continue
             pid = f.sym_parent.id

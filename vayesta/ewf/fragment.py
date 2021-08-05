@@ -159,7 +159,8 @@ class EWFFragment(QEmbeddingFragment):
         os.makedirs(self.opts.plot_orbitals_dir, exist_ok=True)
         name = "%s.cube" % os.path.join(self.opts.plot_orbitals_dir, self.id_name)
         nx, ny, nz = self.opts.plot_orbitals_gridsize
-        cubefile = cubegen.CubeFile(self.mol, filename=name, nx=nx, ny=ny, nz=nz, **self.base.opts.plot_orbitals_kwargs)
+        cubefile = cubegen.CubeFile(self.mol, filename=name, nx=nx, ny=ny, nz=nz,
+                **self.base.opts.plot_orbitals_kwargs)
         return cubefile
 
     def add_orbital_plot(self, name, mo_coeff=None, dm=None, dset_idx=None, keep_in_list=False):
@@ -183,8 +184,10 @@ class EWFFragment(QEmbeddingFragment):
         if self.opts.plot_orbitals_exit:
             raise self.Exit("All plots done")
 
-    def make_bath(self):
+    def make_bath(self, bath_type=NotSet):
         """Make DMET and MP2 bath natural orbitals."""
+        if bath_type is NotSet:
+            bath_type = self.opts.bath_type
         # Add fragment orbitals for cube file plots
         if self.opts.plot_orbitals:
             self.cubefile = self.init_orbital_plot()
@@ -238,21 +241,22 @@ class EWFFragment(QEmbeddingFragment):
         #    C_occclst, C_virclst = self.diagonalize_cluster_dm(C_bath)
         #self.C_bath = C_bath
 
-        if self.opts.bath_type is None or self.opts.bath_type.upper() == 'NONE':
+        self.log.debugv("bath_type= %r", bath_type)
+        if bath_type is None or bath_type.upper() == 'NONE':
             c_no_occ = c_env_occ
             c_no_vir = c_env_vir
             n_no_occ = np.full((c_no_occ.shape[-1],), -np.inf)
             n_no_vir = np.full((c_no_vir.shape[-1],), -np.inf)
-        elif self.opts.bath_type.upper() == 'ALL':
+        elif bath_type.upper() == 'ALL':
             c_no_occ = c_env_occ
             c_no_vir = c_env_vir
             n_no_occ = np.full((c_no_occ.shape[-1],), np.inf)
             n_no_vir = np.full((c_no_vir.shape[-1],), np.inf)
-        elif self.opts.bath_type.upper() == 'MP2-BNO':
+        elif bath_type.upper() == 'MP2-BNO':
             c_no_occ, n_no_occ = self.make_bno_bath(c_cluster_occ, c_cluster_vir, c_env_occ, c_env_vir, 'occ')
             c_no_vir, n_no_vir = self.make_bno_bath(c_cluster_occ, c_cluster_vir, c_env_occ, c_env_vir, 'vir')
         else:
-            raise ValueError("Unknown bath type: '%s'" % self.opts.bath_type)
+            raise ValueError("Unknown bath type: '%s'" % bath_type)
 
 
         #if self.opts.plot_orbitals:
@@ -667,15 +671,18 @@ class EWFFragment(QEmbeddingFragment):
         if part not in ('first-occ', 'first-vir', 'democratic'):
             raise ValueError("Unknown partitioning of amplitudes: %s" % part)
 
+        if c_occ is None: c_occ = self.c_active_occ
+        if c_vir is None: c_vir = self.c_active_vir
+
         # Projectors into fragment occupied and virtual space
-        if part in ("first-occ", "democratic"):
+        if part in ('first-occ', 'democratic'):
             assert c_occ is not None
             fo = self.get_fragment_projector(c_occ)
-        if part in ("first-vir", "democratic"):
+        if part in ('first-vir', 'democratic'):
             assert c_vir is not None
             fv = self.get_fragment_projector(c_vir)
         # Inverse projectors needed
-        if part == "democratic":
+        if part == 'democratic':
             ro = np.eye(fo.shape[-1]) - fo
             rv = np.eye(fv.shape[-1]) - fv
 
@@ -690,8 +697,6 @@ class EWFFragment(QEmbeddingFragment):
                 p += einsum("xi,ia,ya->xy", ro, c, fv) / 2.0
             return p
 
-        # ndim == 4:
-
         if part == "first-occ":
             p = einsum("xi,ijab->xjab", fo, c)
         elif part == "first-vir":
@@ -699,7 +704,7 @@ class EWFFragment(QEmbeddingFragment):
         elif part == "democratic":
 
             def project(p1, p2, p3, p4):
-                p = einsum("xi,yj,ijab,za,wb->xyzw", p1, p2, c, p3, p4)
+                p = einsum('xi,yj,ijab,za,wb->xyzw', p1, p2, c, p3, p4)
                 return p
 
             # Factors of 2 due to ij,ab <-> ji,ba symmetry

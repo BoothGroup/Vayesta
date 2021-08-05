@@ -9,6 +9,7 @@ import pyscf.pbc
 import pyscf.pbc.mp
 
 from vayesta.core.util import *
+from vayesta.core.linalg import recursive_block_svd
 from .psubspace import transform_mp2_eris
 
 def make_mp2_bno(self, kind, c_cluster_occ, c_cluster_vir, c_env_occ, c_env_vir,
@@ -143,23 +144,16 @@ def make_mp2_bno(self, kind, c_cluster_occ, c_cluster_vir, c_env_occ, c_env_vir,
         dm = np.linalg.multi_dot((r_vir, dm, r_vir.T))
 
     clt, env = np.s_[:ncluster], np.s_[ncluster:]
-    # TEST SVD of cluster-environment block
-    if False:
-        sv, c_svd = np.linalg.svd(dm[clt,env], full_matrices=False)[1:]
-        self.log.debug("Sqrt of singular values: %r", np.sqrt(sv))
-        #c_svd = np.dot(c_env, vh.T)
-        c_svd = c_svd.T
-        nsvd = np.sqrt(sv) > 1e-3
 
-        # Rotate environment
-        #dm_env = np.linalg.multi_dot((c_svd.T, dm[env,env] c_svd))
-        c_no = np.dot(c_env, c_svd)
+    # TEST SVD BATH:
+    #coeff, sv, order = recursive_block_svd(dm, n=ncluster)
+    #c_no = np.dot(c_env, coeff)
+    #n_no = 1/order
+    #self.log.debugv("n_no= %r", n_no)
 
-    else:
-
-        n_no, c_no = np.linalg.eigh(dm[env,env])
-        n_no, c_no = n_no[::-1], c_no[:,::-1]
-        c_no = np.dot(c_env, c_no)
+    n_no, c_no = np.linalg.eigh(dm[env,env])
+    n_no, c_no = n_no[::-1], c_no[:,::-1]
+    c_no = np.dot(c_env, c_no)
 
     return c_no, n_no
 
