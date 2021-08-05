@@ -68,8 +68,6 @@ class EWFFragment(QEmbeddingFragment):
     class Results(QEmbeddingFragment.Results):
         bno_threshold: float = None
         n_active: int = None
-        converged: bool = None
-        e_corr: float = None
         ip_energy: np.ndarray = None
         ea_energy: np.ndarray = None
         c0: float = None
@@ -81,8 +79,6 @@ class EWFFragment(QEmbeddingFragment):
         l2: np.ndarray = None
         eris: 'typing.Any' = None
         # Density-matrices
-        dm1: np.ndarray = None
-        dm2: np.ndarray = None
         g1: np.ndarray = None
 
         def convert_amp_c_to_t(self):
@@ -91,8 +87,6 @@ class EWFFragment(QEmbeddingFragment):
             return self.t1, self.t2
 
 
-    #def __init__(self, base, fid, name, c_frag, c_env, fragment_type, atoms=None, aos=None, log=None,
-    #        solver=None, options=None, **kwargs):
     def __init__(self, *args, solver=None, **kwargs):
 
         """

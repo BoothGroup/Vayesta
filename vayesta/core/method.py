@@ -39,8 +39,7 @@ class QEmbeddingMethod:
 
     @dataclasses.dataclass
     class Options(OptionsBase):
-        copy_mf: bool = True        # Create shallow copy of mean-field object on entry
-        recalc_veff: bool = True    # TODO: automatic?
+        recalc_veff: bool = False       # TODO: automatic?
 
 
     def __init__(self, mf, options=None, log=None, **kwargs):
@@ -138,8 +137,8 @@ class QEmbeddingMethod:
 
         # 2) Mean-field
         # -------------
-        if self.opts.copy_mf:
-            mf = copy.copy(mf)
+        self._mf_orig = mf      # Keep track of original mean-field object - be careful not to modify in any way, to avoid side effects!
+        mf = copy.copy(mf)
         self.log.debug("type(MF)= %r", type(mf))
         if hasattr(mf, 'kpts') and mf.kpts is not None:
             mf = unfold_scf(mf)
@@ -148,27 +147,25 @@ class QEmbeddingMethod:
         else:
             self.kcell = self.kpts = self.kdf = None
         self.mf = mf
-
-        # Copy MO attributes, so they can be modified later with no side-effects (updating the mean-field)
-        self.mo_energy = self.mf.mo_energy.copy()
-        self.mo_coeff = self.mf.mo_coeff.copy()
-        self.mo_occ = self.mf.mo_occ.copy()
-        self._ovlp = self.mf.get_ovlp()
-        self._hcore = self.mf.get_hcore()
+        # Cached AO integral matrices (too improve efficiency):
+        self._ovlp = None
+        self._hcore = None
+        self._veff = None
+        # HF potential
         if self.opts.recalc_veff:
-            self._veff = self.mf.get_veff()
+            self.log.debug("Recalculating effective potential from MF object.")
         else:
+            self.log.debug("Determining effective potential from MOs.")
             cs = np.dot(self.mo_coeff.T, self.get_ovlp())
             fock = np.dot(cs.T*self.mo_energy, cs)
             self._veff = fock - self.get_hcore()
-
         # Some MF output
         if self.mf.converged:
             self.log.info("E(MF)= %+16.8f Ha", self.e_mf)
         else:
             self.log.warning("E(MF)= %+16.8f Ha (not converged!)", self.e_mf)
         self.log.info("n(AO)= %4d  n(MO)= %4d  n(linear dep.)= %4d", self.nao, self.nmo, self.nao-self.nmo)
-        idterr = self.mo_coeff.T.dot(self._ovlp).dot(self.mo_coeff) - np.eye(self.nmo)
+        idterr = self.mo_coeff.T.dot(self.get_ovlp()).dot(self.mo_coeff) - np.eye(self.nmo)
         self.log.log(logging.ERROR if np.linalg.norm(idterr) > 1e-5 else logging.DEBUG,
                 "Orthogonality error of MF orbitals: L(2)= %.2e  L(inf)= %.2e", np.linalg.norm(idterr), abs(idterr).max())
 
@@ -192,6 +189,8 @@ class QEmbeddingMethod:
         values = [self.__dict__[k] for k in keys]
         return fmt % (self.__class__.__name__, *[x for y in zip(keys, values) for x in y])
 
+    # Mol/Cell properties
+
     @property
     def mol(self):
         """Mole or Cell object."""
@@ -201,6 +200,8 @@ class QEmbeddingMethod:
     def has_lattice_vectors(self):
         """Flag if self.mol has lattice vectors defined."""
         return (hasattr(self.mol, 'a') and self.mol.a is not None)
+        # This would be better, but would trigger PBC code for Hubbard models, which have lattice vectors defined,
+        # but not 'a':
         #return hasattr(self.mol, 'lattice_vectors')
 
     @property
@@ -225,6 +226,46 @@ class QEmbeddingMethod:
         if self.kpts is None:
             return 1
         return len(self.kpts)
+
+    # Mean-field properties
+
+    @property
+    def mo_energy(self):
+        """Molecular orbital energies."""
+        return self.mf.mo_energy
+
+    @property
+    def mo_coeff(self):
+        """Molecular orbital coefficients."""
+        return self.mf.mo_coeff
+
+    @property
+    def mo_occ(self):
+        """Molecular orbital occupations."""
+        return self.mf.mo_occ
+
+    # MOs setters:
+
+    @mo_energy.setter
+    def mo_energy(self, mo_energy):
+        """Updating the MOs resets the effective potential cache `_veff`."""
+        self.log.debugv("MF attribute 'mo_energy' is updated; deleting cached _veff.")
+        self._veff = None
+        self.mf.mo_energy = mo_energy
+
+    @mo_coeff.setter
+    def mo_coeff(self, mo_coeff):
+        """Updating the MOs resets the effective potential cache `_veff`."""
+        self.log.debugv("MF attribute 'mo_coeff' is updated; deleting chached _veff.")
+        self._veff = None
+        self.mf.mo_coeff = mo_coeff
+
+    @mo_occ.setter
+    def mo_occ(self, mo_occ):
+        """Updating the MOs resets the effective potential cache `_veff`."""
+        self.log.debugv("MF attribute 'mo_occ' is updated; deleting chached _veff.")
+        self._veff = None
+        self.mf.mo_occ = mo_occ
 
     @property
     def nmo(self):
@@ -252,11 +293,6 @@ class QEmbeddingMethod:
         return self.mo_coeff[:,self.nocc:]
 
     @property
-    def nfrag(self):
-        """Number of fragments."""
-        return len(self.fragments)
-
-    @property
     def e_mf(self):
         """Total mean-field energy per unit cell (not unfolded supercell!).
         Note that the input unit cell itself can be a supercell, in which case
@@ -264,18 +300,24 @@ class QEmbeddingMethod:
         """
         return self.mf.e_tot/self.ncells
 
+    # Embedding properties
+
+    @property
+    def nfrag(self):
+        """Number of fragments."""
+        return len(self.fragments)
+
     def loop(self):
         """Loop over fragments."""
         for frag in self.fragments:
             yield frag
 
-
     # --- Integral methods
     # ====================
 
-    def get_ovlp(self):
-        """AO overlap matrix."""
-        return self._ovlp
+    @cached_method('_ovlp')
+    def get_ovlp(self, *args, **kwargs):
+        return self.mf.get_ovlp(*args, **kwargs)
 
     def get_ovlp_power(self, power):
         """get power of AO overlap matrix.
@@ -302,14 +344,16 @@ class QEmbeddingMethod:
         spow = pyscf.pbc.tools.k2gamma.to_supercell_ao_integrals(self.kcell, self.kpts, spowk)
         return spow
 
-    def get_hcore(self):
-        return self._hcore
+    @cached_method('_hcore')
+    def get_hcore(self, *args, **kwargs):
+        return self.mf.get_hcore(*args, **kwargs)
 
-    def get_veff(self):
+    @cached_method('_veff')
+    def get_veff(self, *args, **kwargs):
         """Hartree-Fock Coulomb and exchange potential."""
-        return self._veff
+        return self.mf.get_veff(*args, **kwargs)
 
-    def get_fock(self):
+    def get_fock(self, recalc=False):
         """Fock matrix in AO basis."""
         return self.get_hcore() + self.get_veff()
 
@@ -1078,7 +1122,6 @@ class QEmbeddingMethod:
     # -------
 
     def pop_analysis(self, dm1, mo_coeff=None, kind='lo', c_lo=None, filename=None, filemode='a', verbose=True):
-    #def pop_analysis(self, dm1, mo_coeff=None, kind='mulliken', c_lo=None, filename=None, filemode='a', verbose=True):
         """
         Parameters
         ----------
@@ -1130,7 +1173,6 @@ class QEmbeddingMethod:
             write("[%s] %s population analysis" % (tstamp, name))
             write("-%s--%s--------------------" % (26*'-', len(name)*'-'))
 
-        #shellslices = self.mol.aoslice_by_atom()[:,:2]
         aoslices = self.mol.aoslice_by_atom()[:,2:]
         aolabels = self.mol.ao_labels()
 
@@ -1140,8 +1182,6 @@ class QEmbeddingMethod:
             for ao in range(aos[0], aos[1]):
                 label = aolabels[ao]
                 write("    %4d %-16s= % 11.8f" % (ao, label, pop[ao]))
-            #for sh in range(self.mol.nbas):
-            #    # Loop over AOs in shell
 
         if filename is not None:
             f.close()

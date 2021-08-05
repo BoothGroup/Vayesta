@@ -26,7 +26,11 @@ class QEmbeddingFragment:
 
     @dataclasses.dataclass
     class Results:
-        fid: int = None
+        fid: int = None             # Fragment ID
+        converged: bool = None      # True, if solver reached convergence criterion or no convergence required (eg. MP2 solver)
+        e_corr: float = None        # Fragment correlation energy contribution
+        dm1: np.ndarray = None      # One-particle reduced density matrix (dm1[i,j] = <0| i^+ j |0>
+        dm2: np.ndarray = None      # Two-particle reduced density matrix (dm2[i,j,k,l] = <0| i^+ k^+ l j |0>)
 
 
     class Exit(Exception):
