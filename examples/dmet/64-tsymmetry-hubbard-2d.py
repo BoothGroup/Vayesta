@@ -43,5 +43,5 @@ assert (len(symfrags)+1 == nsite//nimp)
 dmet2.kernel()
 
 # Compare converged correlation potential
-print("L2 norm difference in converged correlation potentials with and without translational symmetry: {:6.4e}".format(
+print("L2 norm difference in correlation potentials with and without translational symmetry: {:6.4e}".format(
                     sum((dmet1.vcorr.ravel() - dmet2.vcorr.ravel())**2)**(0.5)))

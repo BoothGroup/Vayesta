@@ -23,7 +23,8 @@ class Update:
 class DIISUpdate(Update):
     def __init__(self, param_shape, space_size = 6, min_space_size = 1):
         super().__init__(param_shape)
-        self.adiis = diis.DIIS()
+        # Force incore on DIIS, otherwise we'll demolish our storage for large enough systems.
+        self.adiis = diis.DIIS(incore=True)
         self.adiis.space = space_size
         self.adiis.min_space = min_space_size
 
@@ -42,6 +43,6 @@ class MixUpdate(Update):
     def update(self, params):
         flat_params = self._flatten_params(params)
         diff = sum((flat_params - self.prev_params) ** 2) ** (0.5)
-        update = (1.0 * self.alpha) * self.prev_params + self.alpha * flat_params
+        update = (1.0 - self.alpha) * self.prev_params + self.alpha * flat_params
         self.prev_params = flat_params
         return self._unflatten_params(update), diff

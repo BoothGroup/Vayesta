@@ -74,7 +74,7 @@ class DMET(QEmbeddingMethod):
 
     Fragment = DMETFragment
 
-    def __init__(self, mf, bno_threshold=1e-8, solver='CCSD', options=None, log=None, **kwargs):
+    def __init__(self, mf, bno_threshold=np.inf, solver='CCSD', options=None, log=None, **kwargs):
         """Density matrix embedding theory (DMET) calculation object.
 
         Parameters
