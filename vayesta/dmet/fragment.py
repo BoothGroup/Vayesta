@@ -304,30 +304,6 @@ class DMETFragment(QEmbeddingFragment):
         #    self.converged = True
         #    return 0, nactive, None, None
 
-        # --- Project initial guess and integrals from previous cluster calculation with smaller eta:
-        # Use initial guess from previous calculations
-        # For self-consistent calculations, we can restart calculation:
-        if init_guess is None:
-            if self.base.opts.sc_mode and self.base.iteration > 1:
-                self.log.debugv("Restarting using T1,T2 from previous iteration")
-                init_guess = {'t1' : self.results.t1, 't2' : self.results.t2}
-            #elif self.base.opts.project_init_guess and init_guess is not None:
-            #    # Projectors for occupied and virtual orbitals
-            #    p_occ = np.linalg.multi_dot((self.c_active_occ.T, self.base.get_ovlp(), c_active_occ))
-            #    p_vir = np.linalg.multi_dot((self.c_active_vir.T, self.base.get_ovlp(), c_active_vir))
-            #    t1, t2 = init_guess.pop('t1'), init_guess.pop('t2')
-            #    t1, t2 = helper.transform_amplitudes(t1, t2, p_occ, p_vir)
-            #    init_guess['t1'] = t1
-            #    init_guess['t2'] = t2
-            elif self.base.opts.project_init_guess and self.results is not None:
-                self.log.debugv("Restarting using projected previous T1,T2")
-                # Projectors for occupied and virtual orbitals
-                p_occ = np.linalg.multi_dot((self.c_active_occ.T, self.base.get_ovlp(), c_active_occ))
-                p_vir = np.linalg.multi_dot((self.c_active_vir.T, self.base.get_ovlp(), c_active_vir))
-                #t1, t2 = init_guess.pop('t1'), init_guess.pop('t2')
-                t1, t2 = helper.transform_amplitudes(self.results.t1, self.results.t2, p_occ, p_vir)
-                init_guess = {'t1' : t1, 't2' : t2}
-
 
         # For self-consistent calculations, we can reuse ERIs:
         if eris is None:
@@ -383,21 +359,13 @@ class DMETFragment(QEmbeddingFragment):
         if self.opts.eom_ccsd in (True, 'EA'):
             results.ea_energy, _ = self.eom_analysis(cluster_solver, 'EA')
 
-        # Keep Amplitudes [optional]
-        if self.base.opts.project_init_guess or self.opts.sc_mode:
-            if hasattr(solver_results, 't1'):
-                results.t1 = solver_results.t1
-                results.t2 = solver_results.t2
-            if hasattr(solver_results, 'c1'):
-                results.c0 = solver_results.c0
-                results.c1 = solver_results.c1
-                results.c2 = solver_results.c2
+
         # Keep Lambda-Amplitudes
         if results.l1 is not None:
             results.l1 = solver_results.l1
             results.l2 = solver_results.l2
         # Keep ERIs [optional]
-        if self.base.opts.project_eris or self.opts.sc_mode:
+        if self.base.opts.project_eris:
             results.eris = solver_results.eris
         self.solver_results = solver_results
         self._results = results

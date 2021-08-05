@@ -10,11 +10,11 @@ import scipy.linalg
 
 from vayesta.core.util import *
 from vayesta.core import QEmbeddingMethod
-from pyscf.lib import diis
 
 from vayesta.ewf import helper
 from .fragment import DMETFragment, DMETFragmentExit
 from .sdp_sc import perform_SDP_fit
+from .updates import MixUpdate, DIISUpdate
 
 from timeit import default_timer as timer
 import copy
@@ -25,7 +25,6 @@ import copy
 class DMETResults:
     cluster_sizes: np.ndarray = None
     e_corr: float = None
-
 
 VALID_SOLVERS = [None, "", "MP2", "CISD", "CCSD", 'TCCSD', "CCSD(T)", 'FCI', "FCI-spin0", "FCI-spin1"]
 
@@ -61,11 +60,14 @@ class DMET(QEmbeddingMethod):
         bsse_rmax: float = 5.0  # In Angstrom
         # -- Self-consistency
         maxiter: int = 30
-        sc_energy_tol: float = 1e-6
         sc_mode: int = 0
+        sc_energy_tol: float = 1e-6
         charge_consistent: bool = True
         max_elec_err: float = 1e-4
         conv_tol: float = 1e-6
+        diis: bool = True
+        mixing_param: float = 0.5
+        mixing_variable: str = "hl rdm"
         # --- Other
         energy_partitioning: str = 'first-occ'
         strict: bool = False  # Stop if cluster not converged
@@ -185,6 +187,17 @@ class DMET(QEmbeddingMethod):
         sym_children = self.get_symmetry_child_fragments()
         nsym = [len(x) + 1 for x in sym_children]
 
+
+        if self.opts.mixing_variable == "hl rdm":
+            param_shape =  [(x.c_frag.shape[1],x.c_frag.shape[1]) for x in sym_parents]
+        else:
+            raise ValueError("Only DIIS extrapolation of the high-level rdms is current implemented.")
+
+        if self.opts.diis:
+            self.updater = DIISUpdate(param_shape)
+        else:
+            self.updater = MixUpdate(param_shape, self.opts.mixing_param)
+
         impurity_projectors = [
             [parent.c_frag] + [c.c_frag for c in children] for (parent, children) in zip(sym_parents, sym_children)
         ]
@@ -253,10 +266,12 @@ class DMET(QEmbeddingMethod):
             self.e_dmet = e1 + e2
             self.log.info("Total DMET energy {:8.4f}".format(self.e_tot))
 
-            vcorr_new = perform_SDP_fit(self.mol.nelec[0], fock, impurity_projectors, [x/2 for x in self.hl_rdms],
+            curr_rdms, delta_rdms = self.updater.update(self.hl_rdms)
+            self.log.info("Change in high-level RDMs: {:6.4e}".format(delta_rdms))
+            vcorr_new = perform_SDP_fit(self.mol.nelec[0], fock, impurity_projectors, [x/2 for x in curr_rdms],
                                             self.get_ovlp(), self.log)
             delta = sum((vcorr_new - self.vcorr).reshape(-1)**2)**(0.5)
-            self.log.debug("Delta Vcorr {:6.4e}".format(delta))
+            self.log.info("Delta Vcorr {:6.4e}".format(delta))
             if delta < self.opts.conv_tol:
                 self.converged = True
                 self.log.info("DMET converged after %d iterations" % iteration)
@@ -334,3 +349,21 @@ class DMET(QEmbeddingMethod):
         self.log.info("%3s  %20s  %8s  %4s", "ID", "Name", "Solver", "Size")
         for frag in self.loop():
             self.log.info("%3d  %20s  %8s  %4d", frag.id, frag.name, frag.solver, frag.size)
+
+    def update_params(self, params, ):
+        """Given list of different parameter vectors, perform DIIS on them all at once and return the corresponding
+        separate parameter strings.
+        :param params: list of vectors for different parameter values.
+        :return:
+        """
+        conv_grad = self.check_convergence_grad(params)
+        inp = np.concatenate(params)
+        new_params = self.adiis.update(inp)
+        self.prev_params = new_params
+        x = 0
+        res = []
+        for i in params:
+            res += [new_params[x:x+len(i)]]
+            x += len(i)
+        self.iter += 1
+        return res, conv_grad
