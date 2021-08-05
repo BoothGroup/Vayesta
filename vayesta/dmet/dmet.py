@@ -166,7 +166,7 @@ class DMET(QEmbeddingMethod):
         return self.e_mf + self.e_corr
 
 
-    def kernel(self, bno_threshold=np.inf):
+    def kernel(self, bno_threshold=None):
         """Run DMET calculation.
         """
         t_start = timer()
@@ -175,9 +175,8 @@ class DMET(QEmbeddingMethod):
             raise ValueError("No fragments defined for calculation.")
 
         maxiter = self.opts.maxiter
-        # View this as a single number for now, if needed at all...
-        bno_thr = bno_threshold
-
+        # View this as a single number for now.
+        bno_thr = bno_threshold or self.bno_threshold
         #rdm = self.mf.make_rdm1()
         fock = self.get_fock()
         cpt = 0.0
@@ -223,37 +222,52 @@ class DMET(QEmbeddingMethod):
                 #print(np.linalg.multi_dot((c, rdm, c.T))/2)
                 #print(np.linalg.multi_dot((c, rdm, c.T)).trace())
 
-            err = None
             def electron_err(cpt):
-                nonlocal  err
                 err = self.calc_electron_number_defect(cpt, bno_thr, nelec_mf, sym_parents, nsym)
                 return err
 
             err = electron_err(cpt)
-            if abs(err) > self.opts.max_elec_err * nelec_mf:
-                self.log.info("Optimising chemical potential.")
-                if err < 0:
-                    lo = cpt
-                    hi = cpt + 0.1
-                else:
-                    lo = cpt - 0.1
-                    hi = cpt
 
-                for ntry in range(5):
-                    try:
-                        cpt, res = scipy.optimize.brentq(electron_err, a=lo, b=hi, full_output=True,
-                                    xtol = self.opts.max_elec_err * nelec_mf)#self.opts.max_elec_err * nelec_mf)
-                    except ValueError as e:
-                        if err < 0:
-                            hi += 0.1 * 2**ntry
-                        else:
-                            lo -= 0.1 * 2**ntry
+            if abs(err) > self.opts.max_elec_err * nelec_mf:
+                # Need to find chemical potential bracket.
+                # Error is positive if excess electrons at high-level, and negative if too few electrons at high-level.
+                # Changing chemical potential should introduces similar change in high-level electron number, so we want
+                # our new chemical potential to be shifted in the opposite direction as electron error.
+                new_cpt = cpt - np.sign(err) * 0.1
+                # Set this in case of errors later on.
+                new_err = err
+                try:
+                    new_err = electron_err(new_cpt)
+                except np.linalg.LinAlgError as e:
+                    if self.solver == "CCSD":
+                        self.log.info("Caught DIIS error in CCSD; trying smaller chemical potential deviation.")
+                        # Want to end up with 3/4 of current value after multiplied by two.
+                        new_cpt = cpt - (new_cpt - cpt) * 3 / 8
                     else:
-                        self.log.info("Converged chemical potential: {:6.4e}".format(cpt))
+                        raise e
+                if err * new_err > 0: # Check if errors have same sign.
+                    for ntry in range(10):
+                        new_cpt = cpt + (new_cpt - cpt) * 2
+                        try:
+                            new_err = electron_err(new_cpt)
+                        except np.linalg.LinAlgError as e:
+                            if self.solver == "CCSD":
+                                self.log.info("Caught DIIS error in CCSD; trying smaller chemical potential deviation.")
+                                # Want to end up with 3/4 of current value after multiplied by two.
+                                new_cpt = cpt - (new_cpt - cpt) * 3 / 8
+                            else:
+                                raise e
+                        if err * new_err < 0:
+                            break
+                    else:
+                        self.log.fatal("Could not find chemical potential bracket.")
                         break
-                else:
-                    self.log.fatal("Could not find chemical potential bracket.")
-                    break
+                # If we've got to here we've found a bracket.
+                [lo, hi] = sorted([cpt, new_cpt])
+                cpt, res = scipy.optimize.brentq(electron_err, a=lo, b=hi, full_output=True,
+                                                 xtol=self.opts.max_elec_err * nelec_mf)  # self.opts.max_elec_err * nelec_mf)
+                self.log.info("Converged chemical potential: {:6.4e}".format(cpt))
+
             else:
                 self.log.info("Previous chemical potential still suitable")
             # Now for the DMET self-consistency!
