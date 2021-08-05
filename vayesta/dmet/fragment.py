@@ -548,7 +548,7 @@ class DMETFragment(QEmbeddingFragment):
         h_bare = np.linalg.multi_dot((c_act.T, self.base.get_hcore(), c_act))
 
         e1 = 0.5 * np.linalg.multi_dot((P_imp, h_bare + h_eff, self.results.dm1)).trace()
-        e2 = 0.5 * np.einsum('pt,pqrs,pqrs->', P_imp, eris, self.results.dm2)
+        e2 = 0.5 * np.einsum('pt,tqrs,pqrs->', P_imp, eris, self.results.dm2)
         # Code to generate the HF energy contribution for testing purposes.
         #mf_dm1 = np.linalg.multi_dot((c_act.T, self.base.get_ovlp(), self.base.ll_mf.make_rdm1(),\
         #                               self.base.get_ovlp(), c_act))
