@@ -148,7 +148,6 @@ class QEmbeddingMethod:
         else:
             self.kcell = self.kpts = self.kdf = None
         self.mf = mf
-
         # Copy MO attributes, so they can be modified later with no side-effects (updating the mean-field)
         self.mo_energy = self.mf.mo_energy.copy()
         self.mo_coeff = self.mf.mo_coeff.copy()
@@ -340,7 +339,6 @@ class QEmbeddingMethod:
         # k-point sampled primitive cell:
         eris = gdf_to_pyscf_eris(self.mf, self.kdf, cm, fock=self.get_fock())
         return eris
-
 
     # --- Initialization of fragmentations
     # ------------------------------------
