@@ -158,7 +158,6 @@ class QEmbeddingFragment:
 
     @property
     def mf(self):
-        """Current mean-field, which the fragment is linked to. Not the original."""
         return self.base.mf
 
     @property
@@ -298,8 +297,7 @@ class QEmbeddingFragment:
         """
         mo_coeff = np.hstack(mo_coeff)
         sc = np.dot(self.base.get_ovlp(), mo_coeff)
-        dm1 = self.mf.make_rdm1()
-        occ = einsum('ai,ab,bi->i', sc, dm1, sc)
+        occ = einsum('ai,ab,bi->i', sc, self.mf.make_rdm1(), sc)
         return occ
 
 
