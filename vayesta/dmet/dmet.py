@@ -177,6 +177,9 @@ class DMET(QEmbeddingMethod):
         maxiter = self.opts.maxiter
         # View this as a single number for now.
         bno_thr = bno_threshold or self.bno_threshold
+        if bno_thr < np.inf:
+            raise NotImplementedError("MP2 bath calculation is currently ignoring the correlation potential, so does"
+                                      " not work properly for self-consistent calculations.")
         #rdm = self.mf.make_rdm1()
         fock = self.get_fock()
         cpt = 0.0
@@ -270,8 +273,7 @@ class DMET(QEmbeddingMethod):
 
             else:
                 self.log.info("Previous chemical potential still suitable")
-            # Now for the DMET self-consistency!
-            self.log.info("Now running DMET correlation potential fitting")
+
             e1, e2 = 0.0, 0.0
             for x, frag in enumerate(sym_parents):
                 e1_contrib, e2_contrib = frag.get_dmet_energy_contrib()
@@ -282,6 +284,8 @@ class DMET(QEmbeddingMethod):
 
             curr_rdms, delta_rdms = self.updater.update(self.hl_rdms)
             self.log.info("Change in high-level RDMs: {:6.4e}".format(delta_rdms))
+            # Now for the DMET self-consistency!
+            self.log.info("Now running DMET correlation potential fitting")
             vcorr_new = perform_SDP_fit(self.mol.nelec[0], fock, impurity_projectors, [x/2 for x in curr_rdms],
                                             self.get_ovlp(), self.log)
             delta = sum((vcorr_new - self.vcorr).reshape(-1)**2)**(0.5)
