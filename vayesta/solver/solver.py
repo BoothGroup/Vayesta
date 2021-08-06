@@ -8,7 +8,6 @@ import scipy.optimize
 from vayesta.core.util import *
 
 
-
 class ClusterSolver:
     """Base class for cluster solver"""
 
@@ -107,7 +106,7 @@ class ClusterSolver:
     def c_active(self):
         return self.mo_coeff[:,self.get_active_slice()]
 
-    def kernel_optimize_cpt(self, nelectron_target, *args, lower_bound=-1.0, upper_bound=1.0, tol=1e-8, **kwargs):
+    def kernel_optimize_cpt(self, nelectron_target, *args, bounds=[-1.0, 1.0], tol=1e-8, **kwargs):
 
         mf = self.base.mf
         # Save current hcore to restore later
@@ -130,6 +129,8 @@ class ClusterSolver:
             # Important: delete cache of QuantumEmbeddingMethod:
             self.base._hcore = None
             results = self.kernel(*args, **kwargs)
+            if not results.converged:
+                raise ConvergenceError()
             ne_frag = einsum('xi,ij,xj->', csc, results.dm1, csc)
             err = (ne_frag - nelectron_target)
             self.log.debugv("Electron number in fragment= %.8f  target=  %.8f  error= %.8f  chem. pot.=  %16.8f Ha", ne_frag, nelectron_target, err, cpt)
@@ -137,14 +138,19 @@ class ClusterSolver:
 
         for ndouble in range(5):
             try:
-                cpt, res = scipy.optimize.brentq(electron_err, a=lower_bound, b=upper_bound, xtol=tol, full_output=True)
+                cpt, res = scipy.optimize.brentq(electron_err, a=bounds[0], b=bounds[1], xtol=tol, full_output=True)
+            # Could not find chemical potential in bracket:
             except ValueError:
                 if err < 0:
-                    upper_bound *= 2
+                    bounds[1] *= 2
                 else:
-                    lower_bound *= 2
-                self.log.debug("Bounds for chemical potential search too small. New bounds: [%f %f]", lower_bound, upper_bound)
+                    bounds[2] *= 2
+                self.log.debug("Bounds for chemical potential search too small. New bounds: [%f %f]", *bounds)
                 continue
+            # Could not convergence in bracket:
+            except ConvergenceError:
+                bounds[0], bounds[1] = bounds[0]/2, bounds[1]/2
+                self.log.debug("Solver did not converge. New bounds: [%f %f]", *bounds)
 
             if res.converged:
                 break

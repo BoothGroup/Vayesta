@@ -14,7 +14,7 @@ def recursive_block_svd(a, n, tol=1e-10, maxblock=100):
     n : int
         Number of rows of the first offdiagonal block.
     tol : float, optional
-        Singular values below the tolerance are considered uncoupled. Default: 1e^10.
+        Singular values below the tolerance are considered uncoupled. Default: 1e-10.
     maxblock : int, optional
         Maximum number of recursions. Default: 100.
 

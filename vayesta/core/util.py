@@ -13,7 +13,7 @@ import scipy.optimize
 log = logging.getLogger(__name__)
 
 # util module can be imported as *, such that the following is imported:
-__all__ = ['NotSet', 'einsum', 'cached_method', 'get_used_memory', 'timer', 'time_string', 'memory_string', 'OptionsBase']
+__all__ = ['NotSet', 'einsum', 'cached_method', 'ConvergenceError', 'get_used_memory', 'timer', 'time_string', 'memory_string', 'OptionsBase']
 
 class NotSetType:
     def __repr__(self):
@@ -57,6 +57,9 @@ def cached_method(cachename, use_cache_default=True, store_cache_default=True):
             return val
         return wrapper
     return cached_function
+
+class ConvergenceError(RuntimeError):
+    pass
 
 
 def get_used_memory():

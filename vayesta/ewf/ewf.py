@@ -299,29 +299,6 @@ class EWF(QEmbeddingMethod):
 
         return c0, c1, c2
 
-    def get_wf_ccsd(self, partitioning=None):
-        t1 = np.zeros((self.nocc, self.nvir))
-        t2 = np.zeros((self.nocc, self.nocc, self.nvir, self.nvir))
-        ovlp = self.get_ovlp()
-        # Add fragment WFs in intermediate normalization
-        for f in self.fragments:
-            if f.results.t2 is None:
-                t1f, t2f = f.results.convert_amp_c_to_t()
-            else:
-                t1f, t2f = f.results.t1, f.results.t2
-            t1f = f.project_amplitude_to_fragment(t1f, partitioning=partitioning)
-            t2f = f.project_amplitude_to_fragment(t2f, partitioning=partitioning, symmetrize=True)
-            assert np.allclose(t2f, t2f.transpose(1,0,3,2))
-            ro = np.linalg.multi_dot((f.c_active_occ.T, ovlp, self.mo_coeff_occ))
-            rv = np.linalg.multi_dot((f.c_active_vir.T, ovlp, self.mo_coeff_vir))
-            t1 += einsum('ia,iI,aA->IA', t1f, ro, rv)
-            #t2f = (t2f + t2f.transpose(1,0,3,2))/2
-            t2 += einsum('ijab,iI,jJ,aA,bB->IJAB', t2f, ro, ro, rv, rv)
-
-        # Symmetrize
-        #t2 = (t2 + t2.transpose(1,0,3,2))/2
-        return t1, t2
-
     # -------------------------------------------------------------------------------------------- #
 
     # TODO: Reimplement
