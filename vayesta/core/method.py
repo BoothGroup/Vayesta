@@ -39,7 +39,7 @@ class QEmbeddingMethod:
     @dataclasses.dataclass
     class Options(OptionsBase):
         copy_mf: bool = True        # Create shallow copy of mean-field object on entry
-        recalc_fock: bool = False
+        recalc_veff: bool = True    # TODO: automatic?
 
 
     def __init__(self, mf, options=None, log=None, **kwargs):
@@ -162,15 +162,13 @@ class QEmbeddingMethod:
         self.mo_coeff = self.mf.mo_coeff.copy()
         self.mo_occ = self.mf.mo_occ.copy()
         self._ovlp = self.mf.get_ovlp()
-        # Recalcution of Fock matrix expensive for PBC!
-        # => avoid self._fock = self.mf.get_fock()
-        # (however, loss of accuracy for large values for cell.precision!)
-        if self.opts.recalc_fock:
-            dm = self.mf.make_rdm1(mo_coeff=self.mo_coeff)
-            self._fock = mf.get_fock(dm=dm)
+        self._hcore = self.mf.get_hcore()
+        if self.opts.recalc_veff:
+            self._veff = self.mf.get_veff()
         else:
-            cs = np.dot(self.mo_coeff.T, self._ovlp)
-            self._fock = np.dot(cs.T*self.mo_energy, cs)
+            cs = np.dot(self.mo_coeff.T, self.get_ovlp())
+            fock = np.dot(cs.T*self.mo_energy, cs)
+            self._veff = fock - self.get_hcore()
 
         # Some MF output
         if self.mf.converged:
@@ -291,9 +289,16 @@ class QEmbeddingMethod:
         spow = pyscf.pbc.tools.k2gamma.to_supercell_ao_integrals(self.kcell, self.kpts, spowk)
         return spow
 
+    def get_hcore(self):
+        return self._hcore
+
+    def get_veff(self):
+        """Hartree-Fock Coulomb and exchange potential."""
+        return self._veff
+
     def get_fock(self):
         """Fock matrix in AO basis."""
-        return self._fock
+        return self.get_hcore() + self.get_veff()
 
     def get_eris(self, cm):
         """Get ERIS for post-HF methods.

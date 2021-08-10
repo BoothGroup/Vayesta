@@ -101,7 +101,6 @@ class ClusterSolver:
     @property
     def c_active_vir(self):
         """Active virtual orbital coefficients."""
-        #return self.mo_coeff[:,self.nocc:-self.nvir_frozen]
         return self.mo_coeff[:,self.nocc:self.nocc_frozen+self.nactive]
 
     @property
@@ -109,8 +108,8 @@ class ClusterSolver:
         return self.mo_coeff[:,self.get_active_slice()]
 
     def kernel_optimize_cpt(self, nelectron_target, *args, lower_bound=-1.0, upper_bound=1.0, tol=1e-8, **kwargs):
-        get_hcore = self.base.mf.get_hcore
-        h1e = get_hcore()
+
+        hcore0 = self.base._hcore
         # Fragment projector
         cs = np.dot(self.fragment.c_frag.T, self.base.get_ovlp())
         p_frag = np.dot(cs.T, cs)
@@ -122,9 +121,7 @@ class ClusterSolver:
 
         def electron_err(cpt):
             nonlocal results, err
-            h1e_cpt = h1e - cpt*p_frag
-            # Not multi-threaded!
-            self.base.mf.get_hcore = lambda *args : h1e_cpt
+            self.base._hcore = (hcore0 - cpt*p_frag)
             results = self.kernel(*args, **kwargs)
             ne_frag = einsum('xi,ij,xj->', csc, results.dm1, csc)
             err = (ne_frag - nelectron_target)
@@ -154,7 +151,5 @@ class ClusterSolver:
             raise RuntimeError(errmsg)
 
         self.log.info("Optimized chemical potential= % 16.8f Ha", cpt)
-
-        # Restore
-        self.base.mf.get_hcore = get_hcore
+        self.base._hcore = hcore0
         return results

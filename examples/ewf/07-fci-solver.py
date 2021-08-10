@@ -7,7 +7,7 @@ import vayesta
 import vayesta.ewf
 
 mol = pyscf.gto.Mole()
-mol.atom = ['N 0.0 0.0 0.0', 'N 0.0, 0.0, 2']
+mol.atom = ['N 0.0 0.0 0.0', 'N 0.0, 0.0, 2.0']
 mol.basis = 'aug-cc-pvdz'
 mol.verbose = 10
 mol.output = 'pyscf_out.txt'

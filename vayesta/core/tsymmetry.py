@@ -14,7 +14,10 @@ def get_mesh_tvecs(cell, tvecs, unit='Ang'):
     if (np.ndim(tvecs) == 1 and len(tvecs) == 3):
         mesh = tvecs
         tvecs = [rvecs[d]/mesh[d] for d in range(3)]
-    else:
+    elif (np.ndim(tvecs) == 2 and tvecs.shape == (3,3)):
+        for d in range(3):
+            if np.all(tvecs[d] == 0):
+                tvecs[d] = rvecs[d]
         tvecs = to_bohr(tvecs, unit)
         mesh = []
         for d in range(3):
@@ -22,8 +25,16 @@ def get_mesh_tvecs(cell, tvecs, unit='Ang'):
             if abs(nd - int(nd)) > 1e-14:
                 raise ValueError("Translationally vectors not consumerate with lattice vectors. Correct units?")
             mesh.append(int(nd))
-    #if cell.dimension == 2 and (mesh[1] != 1):
+    else:
+        raise ValueError("Unknown set of T-vectors: %r" % tvecs)
     return mesh, tvecs
+
+
+def make_sym_op(reorder, phases):
+    def sym_op(a, axis=0):
+        bc = tuple(axis*[None] + [slice(None, None, None)] + (a.ndim-axis-1)*[None])
+        return np.take(a, reorder, axis=axis) * phases[bc]
+    return sym_op
 
 
 def tsymmetric_atoms(cell, rvecs, xtol=1e-8, unit='Ang', check_element=True, check_basis=True):
@@ -84,7 +95,21 @@ def tsymmetric_atoms(cell, rvecs, xtol=1e-8, unit='Ang', check_element=True, che
     return indices
 
 
-def reorder_atoms(cell, tvec, unit='Ang'):
+def compare_atoms(cell, atm1, atm2, check_basis=True):
+    type1 = cell.atom_pure_symbol(atm1)
+    type2 = cell.atom_pure_symbol(atm2)
+    if type1 != type2:
+        return False
+    if not check_basis:
+        return True
+    bas1 = cell._basis[cell.atom_symbol(atm1)]
+    bas2 = cell._basis[cell.atom_symbol(atm2)]
+    if bas1 != bas2:
+        return False
+    return True
+
+
+def reorder_atoms(cell, tvec, boundary=None, unit='Ang', check_basis=True):
     """Reordering of atoms for a given translation.
 
     Parameters
@@ -97,55 +122,94 @@ def reorder_atoms(cell, tvec, unit='Ang'):
     reorder: list
     inverse: list
     """
+    if boundary is None:
+        if hasattr(cell, 'boundary'):
+            boundary = cell.boundary
+        else:
+            boundary = 'PBC'
+    if np.ndim(boundary) == 0:
+        boundary = 3*[boundary]
+    elif np.ndim(boundary) == 1 and len(boundary) == 2:
+        boundary = [boundary[0], boundary[1], 'PBC']
+
     tvec = to_bohr(tvec, unit)
 
     rvecs = cell.lattice_vectors()
     bvecs = np.linalg.inv(rvecs.T)
+    log.debugv("lattice vectors=\n%r", rvecs)
+    log.debugv("inverse lattice vectors=\n%r", bvecs)
     atom_coords = np.dot(cell.atom_coords(), bvecs.T)
+    for atm, coords in enumerate(atom_coords):
+        log.debugv("%3d %f %f %f", atm, *coords)
+    log.debugv("boundary= %r", boundary)
+    for d in range(3):
+        if boundary[d].upper() == 'PBC':
+            boundary[d] = 1
+        elif boundary[d].upper() == 'APBC':
+            boundary[d] = -1
+        else:
+            raise ValueError("Boundary= %s" % boundary)
+    boundary = np.asarray(boundary)
+    log.debugv("boundary= %r", boundary)
 
     def get_atom_at(pos, xtol=1e-8):
         for dx, dy, dz in itertools.product([0,-1,1], repeat=3):
             if cell.dimension in (1, 2) and (dz != 0): continue
             if cell.dimension == 1 and (dy != 0): continue
             dr = np.asarray([dx, dy, dz])
+            phase = np.product(boundary[dr!=0])
+            #log.debugv("dx= %d dy= %d dz= %d phase= %d", dx, dy, dz, phase)
             dists = np.linalg.norm(atom_coords + dr - pos, axis=1)
             idx = np.argmin(dists)
-            if dists[idx] < xtol:
-                return idx
-        return None
+            if (dists[idx] < xtol):
+                return idx, phase
+            #log.debugv("atom %d not close with distance %f", idx, dists[idx])
+        return None, None
 
-    reorder = cell.natm*[None]
-    inverse = cell.natm*[None]
+    natm = cell.natm
+    reorder = np.full((natm,), -1)
+    inverse = np.full((natm,), -1)
+    phases = np.full((natm,), 0)
     tvec = np.dot(tvec, bvecs.T)
     for atm0 in range(cell.natm):
-        atm1 = get_atom_at(atom_coords[atm0] + tvec)
-        if atm1 is None:
-            return None, None
+        atm1, phase = get_atom_at(atom_coords[atm0] + tvec)
+        if atm1 is None or not compare_atoms(cell, atm0, atm1, check_basis=check_basis):
+            return None, None, None
+        log.debugv("atom %d T-symmetric to atom %d for translation %r", atm1, atm0, tvec)
         reorder[atm1] = atm0
         inverse[atm0] = atm1
+        phases[atm0] = phase
+    assert not np.any(reorder == -1)
+    assert not np.any(inverse == -1)
+    assert not np.any(phases == 0)
 
     assert np.all(np.arange(cell.natm)[reorder][inverse] == np.arange(cell.natm))
 
-    return reorder, inverse
+    return reorder, inverse, phases
 
 def reorder_aos(cell, tvec, unit='Ang'):
-    atom_reorder, atom_inverse = reorder_atoms(cell, tvec, unit=unit)
+    atom_reorder, atom_inverse, atom_phases = reorder_atoms(cell, tvec, unit=unit)
     if atom_reorder is None:
-        return None, None
+        return None, None, None
     aoslice = cell.aoslice_by_atom()[:,2:]
     nao = cell.nao_nr()
-    reorder = nao*[None]
-    inverse = nao*[None]
+    reorder = np.full((nao,), -1)
+    inverse = np.full((nao,), -1)
+    phases = np.full((nao,), 0)
     for atm0 in range(cell.natm):
         atm1 = atom_reorder[atm0]
         aos0 = list(range(aoslice[atm0,0], aoslice[atm0,1]))
         aos1 = list(range(aoslice[atm1,0], aoslice[atm1,1]))
         reorder[aos0[0]:aos0[-1]+1] = aos1
         inverse[aos1[0]:aos1[-1]+1] = aos0
+        phases[aos0[0]:aos0[-1]+1] = atom_phases[atm1]
+    assert not np.any(reorder == -1)
+    assert not np.any(inverse == -1)
+    assert not np.any(phases == 0)
 
     assert np.all(np.arange(nao)[reorder][inverse] == np.arange(nao))
 
-    return reorder, inverse
+    return reorder, inverse, phases
 
 
 if __name__ == '__main__':

@@ -3,53 +3,71 @@
 
 import numpy as np
 
+import pyscf
+import pyscf.pbc
+import pyscf.pbc.gto
+
 import vayesta
 import vayesta.ewf
 import vayesta.lattmod
 
-nsite = 10
-nelectron = nsite
-nimp = 2
-hubbard_u = 10.0
-mol = vayesta.lattmod.Hubbard1D(nsite, nelectron=nelectron, hubbard_u=hubbard_u, output='pyscf.out')
-mf = vayesta.lattmod.LatticeMF(mol)
+cell = pyscf.pbc.gto.Cell()
+spacing = 1.8
+shape = (4, 4)
+impshape = (2, 2)
+ncells = shape[0]*shape[1]
+nimp = impshape[0] * impshape[1]
+cell.a = np.zeros((3,3))
+cell.a[0,0] = shape[0]*spacing
+cell.a[1,1] = shape[1]*spacing
+cell.a[2,2] = 20.0 # Vacuum
+atoms = []
+for row in range(shape[0]):
+    for col in range(shape[1]):
+        atoms.append('H %f %f 0' % (col*spacing, row*spacing))
+cell.atom = atoms
+cell.dimension = 2
+
+
+# Reordering of atoms into (2, 2) tiles
+from vayesta.lattmod.latt import Hubbard2D
+order = Hubbard2D.get_tiles_order(shape, impshape)
+
+
+cell.basis = '6-31G'
+cell.build()
+mf = pyscf.pbc.scf.RHF(cell)
+mf = mf.density_fit(auxbasis='def2-universal-jkfit')
+mf.conv_tol = 1e-14
 mf.kernel()
+assert mf.converged
 
 # Calculate each fragment:
-ewf1 = vayesta.ewf.EWF(mf, solver='FCI', fragment_type='Site', bath_type=None)
-for site in range(0, nsite, nimp):
-    ewf1.make_atom_fragment(list(range(site, site+nimp)))
+ewf1 = vayesta.ewf.EWF(mf, solver='FCI', bath_type=None)
+for site in range(0, ncells, nimp):
+    ewf1.make_atom_fragment(order[site:site+nimp])
 ewf1.kernel()
 
 # Calculate a single fragment and use translational symmetry:
-ewf2 = vayesta.ewf.EWF(mf, solver='FCI', fragment_type='Site', bath_type=None)
-f = ewf2.make_atom_fragment(list(range(nimp)))
+ewf2 = vayesta.ewf.EWF(mf, solver='FCI', bath_type=None)
+f = ewf2.make_atom_fragment(order[:nimp])
 ewf2.kernel()
 
 # Add fragments which are translationally symmetric to f - the results of the fragment f
-# fill be automatically copied. There are two ways to pass the three translation vectors,
-# which define the symmetric translations.
-opt = 1
-# Option 1)
+# fill be automatically copied.
 # Specify translation vectors as parts of the full system lattice vectors
 # by passing a list with three integers, [n, m, l];
 # the translation vectors will be set equal to the lattice vectors, divided
 # by n, m, l in a0, a1, and a2 direction, repectively.
-if opt == 1:
-    f.make_tsymmetric_fragments(tvecs=[nsite//nimp,1,1])
-# Option 2) Specify translation vectors directly in units of Angstrom
-# (Bohr is possible, by adding `unit='Bohr'`).
-# Note that the Hubbard model class assumes a distance of 1A between neighboring sites.
-if opt == 2:
-    f.make_tsymmetric_fragments(tvecs=np.diag([nimp, 1, 1]))
-
+symfrags = f.make_tsymmetric_fragments(tvecs=[2, 2, 1])
+assert len(symfrags) + 1 == ncells//nimp
 
 # Check results:
 
 def get_global_amplitudes(fragments):
     # Get combined T1 amplitudes
-    nocc = nelectron//2
-    nvir = nsite - nocc
+    nocc = np.count_nonzero(mf.mo_occ > 0)
+    nvir = np.count_nonzero(mf.mo_occ == 0)
     occ = np.s_[:nocc]
     vir = np.s_[nocc:]
     c1 = np.zeros((nocc, nvir))
