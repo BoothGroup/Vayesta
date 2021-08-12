@@ -18,3 +18,4 @@ def load_library(libname, critical=False):
     return None
 
 libcore = load_library('core')
+libeagf2 = load_library('eagf2')

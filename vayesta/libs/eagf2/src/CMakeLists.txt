@@ -1,0 +1,7 @@
+target_sources(eagf2 PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/ragf2.c)
+target_sources(eagf2 PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/kragf2.c)
+
+set_target_properties(eagf2 PROPERTIES
+  LIBRARY_OUTPUT_DIRECTORY ${PROJECT_SOURCE_DIR}
+  COMPILE_FLAGS ${OpenMP_C_FLAGS}
+  LINK_FLAGS ${OpenMP_C_FLAGS})

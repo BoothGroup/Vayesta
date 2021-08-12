@@ -1,6 +1,7 @@
 # Standard library
 import dataclasses
 import logging
+import copy
 import sys
 
 # NumPy
@@ -40,7 +41,7 @@ class RAGF2Options(OptionsBase):
     # --- Main convergence parameters
     max_cycle: int = 50             # maximum number of AGF2 iterations
     conv_tol: float = 1e-7          # convergence tolerance in AGF2 energy
-    conv_tol_t0: float = 1e-6       # convergence tolerance in zeroth SE moment
+    conv_tol_t0: float = np.inf     # convergence tolerance in zeroth SE moment
     conv_tol_t1: float = np.inf     # convergence tolerance in first SE moment
     damping: float = 0.0            # damping of AGF2 iterations
     diis_space: int = 6             # size of AGF2 DIIS space
@@ -104,12 +105,18 @@ def _ao2mo_3c(eri, ci, cj):
     ni, nj = ci.shape[1], cj.shape[1]
     cij = np.hstack((ci, cj))
     sij = (0, ci.shape[1], ci.shape[1], ci.shape[1]+cj.shape[1])
+    sym = dict(aosym='s1', mosym='s1')
 
-    qij = np.zeros((naux, ni*nj))
+    dtype = np.result_type(eri.dtype, ci.dtype, cj.dtype)
+    qij = np.zeros((naux, ni*nj), dtype=dtype)
 
     for p0, p1 in mpi_helper.prange(0, naux, naux):
         eri0 = eri[p0:p1]
-        qij[p0:p1] = ao2mo._ao2mo.nr_e2(eri0, cij, sij, out=qij[p0:p1], aosym='s1', mosym='s1')
+        if dtype is np.complex128:
+            cij = np.asarray(cij, dtype=np.complex128)
+            qij[p0:p1] = ao2mo._ao2mo.r_e2(eri0, cij, sij, [], None, out=qij[p0:p1])
+        else:
+            qij[p0:p1] = ao2mo._ao2mo.nr_e2(eri0, cij, sij, out=qij[p0:p1], **sym)
 
     mpi_helper.barrier()
     mpi_helper.allreduce_safe_inplace(qij)
@@ -124,13 +131,14 @@ def _ao2mo_4c(eri, ci, cj, ck, cl):
     nao = eri.shape[0]
     ni = ci.shape[1] if ci is not None else nao
 
+    dtype = np.result_type(*(x.dtype for x in (eri, cj, ck, cl)))
     ijkl = np.zeros((ni, cj.shape[1], ck.shape[1], cl.shape[1]))
 
     for p0, p1 in mpi_helper.prange(0, nao, nao):
-        tmp = lib.einsum('pqrs,qj,rk,sl->pjkl', eri[p0:p1], cj, ck, cl)
+        tmp = lib.einsum('pqrs,qj,rk,sl->pjkl', eri[p0:p1], cj, ck.conj(), cl)
 
         if ci is not None:
-            ijkl += lib.einsum('pjkl,pi->ijkl', tmp, ci[p0:p1])
+            ijkl += lib.einsum('pjkl,pi->ijkl', tmp, ci[p0:p1].conj())
         else:
             ijkl[p0:p1] = tmp
 
@@ -141,6 +149,10 @@ def _ao2mo_4c(eri, ci, cj, ck, cl):
 
 
 class RAGF2:
+
+    Options = RAGF2Options
+    DIIS = DIIS
+
     def __init__(self, mf, log=None, options=None, frozen=(0, 0), eri=None,
                  mo_energy=None, mo_coeff=None, mo_occ=None, veff=None, **kwargs):
         ''' 
@@ -154,10 +166,10 @@ class RAGF2:
 
         # Options:
         if options is None:
-            self.opts = RAGF2Options(**kwargs)
+            self.opts = self.Options(**kwargs)
         else:
             self.opts = options.replace(kwargs)
-        self.log.info("RAGF2 parameters:")
+        self.log.info(self.__class__.__name__ + " parameters:")
         for key, val in self.opts.items():
             self.log.info("  > %-28s %r", key + ":", val)
 
@@ -167,7 +179,7 @@ class RAGF2:
         self.mo_energy = mo_energy if mo_energy is not None else mf.mo_energy
         self.mo_coeff = mo_coeff if mo_coeff is not None else mf.mo_coeff
         self.mo_occ = mo_occ if mo_occ is not None else mf.get_occ(self.mo_energy, self.mo_coeff)
-        self.h1e = np.linalg.multi_dot((self.mo_coeff.T.conj(), mf.get_hcore(), self.mo_coeff))
+        self.h1e = self._get_h1e(self.mo_coeff)
         self.eri = eri
         self.gf = self.se = None
         self.e_init = 0.0
@@ -181,13 +193,10 @@ class RAGF2:
 
         # Frozen masks:
         self.frozen = frozen
-        self.focc, self.fvir, self.act = _active_slices(self.nmo, self.frozen)
+        self.focc, self.fvir, self.act = self._active_slices(self.nmo, self.frozen)
 
         # Print system information:
-        self.log.info("               %6s %6s %6s", 'active', 'frozen', 'total')
-        self.log.info("Occupied MOs:  %6d %6d %6d", self.nocc-self.frozen[0], self.frozen[0], self.nocc)
-        self.log.info("Virtual MOs:   %6d %6d %6d", self.nvir-self.frozen[1], self.frozen[1], self.nvir)
-        self.log.info("General MOs:   %6d %6d %6d", self.nact,                self.nfroz,     self.nmo)
+        self._print_sizes()
 
         # ERIs:
         if self.eri is not None:
@@ -199,15 +208,53 @@ class RAGF2:
             self.ao2mo()
 
         # Veff due to frozen density:
+        self._get_frozen_veff(self.mo_coeff)
+
+
+    def _active_slices(self, nmo, frozen):
+        ''' Get slices for frozen occupied, active, frozen virtual spaces
+        '''
+
+        return _active_slices(nmo, frozen)
+
+
+    def _get_h1e(self, mo_coeff):
+        ''' Get the core Hamiltonian
+        '''
+
+        h1e_ao = self.mf.get_hcore()
+        h1e = np.linalg.multi_dot((mo_coeff.T.conj(), h1e_ao, mo_coeff))
+
+        return h1e
+
+
+    def _get_frozen_veff(self, mo_coeff):
+        ''' Get Veff due to the frozen density
+        '''
+
         if self.veff is not None:
             self.log.info("Veff due to frozen density passed by kwarg")
-        elif self.frozen != (0, 0):
+        elif not all([x == (0, 0) for x in self.frozen]):
             self.log.info("Calculating Veff due to frozen density")
-            c_focc = self.mo_coeff[:, self.focc]
-            dm_froz = np.dot(c_focc, c_focc.T.conj()) * 2
-            veff = self.mf.get_veff(dm=dm_froz)
-            veff = np.linalg.multi_dot((self.mo_coeff.T.conj(), veff, self.mo_coeff))
-            self.veff = veff
+            c_focc = mo_coeff[:, self.focc]
+            dm_froz = np.dot(c_focc, c_focc.T.conj()) * 2  #TODO is this correct? or project full RDM into frozen space? or are they the same?
+            self.veff = self.mf.get_veff(dm=dm_froz)
+            self.veff = np.linalg.multi_dot((mo_coeff.T.conj(), self.veff, mo_coeff))
+
+        return self.veff
+
+
+    def _print_sizes(self):
+        ''' Print the system sizes
+        '''
+
+        nmo, nocc, nvir = self.nmo, self.nocc, self.nvir
+        frozen, nact, nfroz = self.frozen, self.nact, self.nfroz
+
+        self.log.info("               %6s %6s %6s", 'active', 'frozen', 'total')
+        self.log.info("Occupied MOs:  %6d %6d %6d", nocc-frozen[0], frozen[0], nocc)
+        self.log.info("Virtual MOs:   %6d %6d %6d", nvir-frozen[1], frozen[1], nvir)
+        self.log.info("General MOs:   %6d %6d %6d", nact,           nfroz,     nmo)
 
 
     def _build_moments(self, eo, ev, xija, os_factor=None, ss_factor=None):
@@ -308,8 +355,9 @@ class RAGF2:
         ''' Get the ERIs in MO basis
         '''
 
+        t0 = timer()
+
         if getattr(self.mf, 'with_df', None):
-            t0 = timer()
             self.log.info("ERIs will be density fitted")
             if self.mf.with_df._cderi is None:
                 self.mf.with_df.build()
@@ -318,19 +366,18 @@ class RAGF2:
             mo_coeff = self.mo_coeff[:, self.act]
             self.eri = np.asarray(lib.unpack_tril(self.mf.with_df._cderi, axis=-1))
             self.eri = _ao2mo_3c(self.eri, mo_coeff, mo_coeff)
-            self.log.timing("Time for AO->MO:  %s", time_string(timer() - t0))
         else:
-            t0 = timer()
-            self.log.info("ERIs will be four centered")
+            self.log.info("ERIs will be four-centered")
             mo_coeff = self.mo_coeff[:, self.act]
             self.eri = ao2mo.incore.full(self.mf._eri, mo_coeff, compact=False)
             self.eri = self.eri.reshape((self.nact,) * 4)
-            self.log.timing("Time for AO->MO:  %s", time_string(timer() - t0))
+
+        self.log.timing("Time for AO->MO:  %s", time_string(timer() - t0))
 
         return self.eri
 
 
-    def build_self_energy(self, gf):
+    def build_self_energy(self, gf, se_prev=None):
         ''' Build the self-energy using a given Green's function
         '''
 
@@ -513,7 +560,7 @@ class RAGF2:
         self.log.info('Fock loop')
         self.log.info('*********')
 
-        diis = DIIS(space=self.opts.fock_diis_space, min_space=self.opts.fock_diis_min_space)
+        diis = self.DIIS(space=self.opts.fock_diis_space, min_space=self.opts.fock_diis_min_space)
         rdm1_prev = np.zeros_like(fock)
         converged = False
 
@@ -601,7 +648,7 @@ class RAGF2:
             fock_ref[self.act, self.act] = fock
             fock = fock_ref
 
-        self.log.timingv("Time for fock matrix:  %s", time_string(timer() - t0))
+        self.log.timingv("Time for Fock matrix:  %s", time_string(timer() - t0))
         
         return fock
 
@@ -630,7 +677,7 @@ class RAGF2:
         if not with_frozen:
             fock = fock[self.act, self.act]
 
-        self.log.timingv("Time for fock matrix:  %s", time_string(timer() - t0))
+        self.log.timingv("Time for Fock matrix:  %s", time_string(timer() - t0))
         
         return fock
         
@@ -855,7 +902,7 @@ class RAGF2:
                     if num == 3:
                         char_string += " ..."
                         break
-                    char_string += "%3d (%7.3f %%) " % (i, (vn[i]**2)*100)
+                    char_string += "%3d (%7.3f %%) " % (i, (np.abs(vn[i])**2)*100)
                     num += 1
             self.log.infov("%2d %12.6f %12.6f  %s", n, en, qpwt, char_string)
 
@@ -871,7 +918,7 @@ class RAGF2:
                     if num == 3:
                         char_string += " ..."
                         break
-                    char_string += "%3d (%7.3f %%) " % (i, (vn[i]**2)*100)
+                    char_string += "%3d (%7.3f %%) " % (i, (np.abs(vn[i])**2)*100)
                     num += 1
             self.log.infov("%2d %12.6f %12.6f  %s", n, en, qpwt, char_string)
 
@@ -900,6 +947,30 @@ class RAGF2:
         self.log.changeIndentLevel(-1)
 
 
+    def _convergence_checks(self, se=None, se_prev=None, e_prev=None):
+        ''' 
+        Return a list of [energy, 0th moment, 1st moment] changes between
+        iterations to check convergence progress.
+        '''
+
+        se = se or self.se
+        e_prev = e_prev or self.mf.e_tot
+
+        t0, t1 = se.moment(range(2), squeeze=False)
+        if se_prev is None:
+            t0_prev = t1_prev = np.zeros_like(t0)
+        else:
+            t0_prev, t1_prev = se_prev.moment(range(2), squeeze=False)
+
+        deltas = [
+                np.abs(self.e_tot - e_prev),
+                np.linalg.norm(t0 - t0_prev),
+                np.linalg.norm(t1 - t1_prev),
+        ]
+
+        return deltas
+
+
     def kernel(self):
         ''' Driving function for RAGF2
         '''
@@ -918,7 +989,7 @@ class RAGF2:
             se = self.se
             self.log.info("Initial SE was already initialised")
 
-        diis = DIIS(space=self.opts.diis_space, min_space=self.opts.diis_min_space)
+        diis = self.DIIS(space=self.opts.diis_space, min_space=self.opts.diis_min_space)
 
         e_mp2 = self.e_init = self.energy_mp2(se=se)
         self.log.info("Initial energies")
@@ -936,27 +1007,22 @@ class RAGF2:
             self.log.info("**********%s", "*" * len(str(niter)))
             self.log.changeIndentLevel(1)
 
-            se_prev = agf2.SelfEnergy(se.energy.copy(), se.coupling.copy(), chempot=se.chempot)
+            se_prev = copy.deepcopy(self.se)
             e_prev = self.e_tot
 
             # one-body terms
             gf, se = self.gf, self.se = self.fock_loop(gf=gf, se=se)
-            gf_occ, gf_vir = self.gf.get_occupied(), self.gf.get_virtual()
             e_1b = self.e_1b = self.energy_1body(gf=gf)
 
             # two-body terms
-            se = self.se = self.build_self_energy(gf=gf)
+            se = self.se = self.build_self_energy(gf=gf, se_prev=se_prev)
             se = self.se = self.run_diis(se, gf, diis, se_prev=se_prev)
             e_2b = self.e_2b = self.energy_2body(gf=gf, se=se)
 
             self.print_excitations()
             self.print_energies()
 
-            deltas = [
-                    np.abs(self.e_tot - e_prev),
-                    np.linalg.norm(se.moment(0) - se_prev.moment(0)),
-                    np.linalg.norm(se.moment(1) - se_prev.moment(1)),
-            ]
+            deltas = self._convergence_checks(se=se, se_prev=se_prev, e_prev=e_prev)
 
             self.log.info("Change in energy:     %10.3g", deltas[0])
             self.log.info("Change in 0th moment: %10.3g", deltas[1])
@@ -985,8 +1051,9 @@ class RAGF2:
             self.dip_moment()
 
         if self.opts.dump_cubefiles:
-            #TODO test
+            #TODO test, generalise for periodic
             self.log.debug("Dumping orbitals to .cube files")
+            gf_occ, gf_vir = self.gf.get_occupied(), self.gf.get_virtual()
             for i in range(self.opts.dump_cubefiles):
                 if (gf_occ.naux-1-i) >= 0:
                     self.dump_cube(gf_occ.naux-1-i, cubefile="hoqmo%d.cube"%i)
@@ -1019,7 +1086,7 @@ class RAGF2:
 
     @property
     def qmo_occ(self):
-        occ = np.linalg.norm(self.gf.get_occupied(), axis=0)**2
+        occ = np.linalg.norm(self.gf.get_occupied().coupling, axis=0)**2
         vir = np.zeros_like(self.gf.get_virtual().energy)
         return np.concatenate([occ, vir], axis=0)
 
@@ -1032,7 +1099,7 @@ class RAGF2:
     @frozen.setter
     def frozen(self, frozen):
         if frozen == None or frozen == 0 or frozen == (0, 0):
-            self._frozen = frozen = (0, 0)
+            self._frozen = (0, 0)
         elif isinstance(frozen, int):
             self._frozen = (frozen, 0)
         else:
@@ -1057,7 +1124,7 @@ class RAGF2:
     @property
     def nocc(self): return self._nocc or np.sum(self.mo_occ > 0)
     @property
-    def nvir(self): return np.sum(self.mo_occ == 0)
+    def nvir(self): return self.nmo - self.nocc
     @property
     def nfroz(self): return self.frozen[0] + self.frozen[1]
     @property
