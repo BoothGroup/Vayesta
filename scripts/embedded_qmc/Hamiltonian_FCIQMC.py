@@ -134,7 +134,7 @@ def construct_FCIQMC_Hamiltonian(nsite, nelectron, nimp, hubbard_u, mean_field, 
 
 nsite = 10
 nelectron = 10
-hubbard_u = 2.0
+hubbard_u = 10.0
 nimp = 2 # Fragment size
  
 filling = nelectron//nsite # Electron filling
