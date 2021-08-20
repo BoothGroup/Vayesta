@@ -21,6 +21,7 @@ class QEmbeddingFragment:
         coupled_fragments: list = dataclasses.field(default_factory=list)
         # Symmetry
         sym_factor: float = 1.0
+        wf_partition: str = NotSet  # ['first-occ', 'first-vir', 'democratic']
 
 
     @dataclasses.dataclass
@@ -156,6 +157,9 @@ class QEmbeddingFragment:
         # Final cluster active orbitals
         self._c_active_occ = None
         self._c_active_vir = None
+        # Final cluster frozen orbitals (Avoid storing these, as they scale as N^2 per cluster)
+        self._c_frozen_occ = None
+        self._c_frozen_vir = None
         # Final results
         self._results = None
 
@@ -206,6 +210,14 @@ class QEmbeddingFragment:
     def boundary_cond(self):
         return self.base.boundary_cond
 
+    # Active orbitals
+
+    @property
+    def c_active(self):
+        if self.c_active_occ is None:
+            return None
+        return np.hstack((self.c_active_occ, self.c_active_vir))
+
     @property
     def c_active_occ(self):
         if self.sym_parent is None:
@@ -220,11 +232,33 @@ class QEmbeddingFragment:
         else:
             return self.sym_op(self.sym_parent.c_active_vir)
 
+    # Frozen orbitals
+
     @property
-    def c_active(self):
-        if self.c_active_occ is None:
+    def c_frozen(self):
+        if self.c_frozen_occ is None:
             return None
-        return np.hstack((self.c_active_occ, self.c_active_vir))
+        return np.hstack((self.c_frozen_occ, self.c_frozen_vir))
+
+    @property
+    def c_frozen_occ(self):
+        if self.sym_parent is None:
+            return self._c_frozen_occ
+        else:
+            return self.sym_op(self.sym_parent.c_frozen_occ)
+
+    @property
+    def c_frozen_vir(self):
+        if self.sym_parent is None:
+            return self._c_frozen_vir
+        else:
+            return self.sym_op(self.sym_parent.c_frozen_vir)
+
+    # All orbitals
+
+    @property
+    def mo_coeff(self):
+        return np.hstack((self.c_frozen_occ, self.c_active_occ, self.c_active_vir, self.c_frozen_vir))
 
     @property
     def results(self):
@@ -326,7 +360,7 @@ class QEmbeddingFragment:
             yield frag
 
 
-    def canonicalize_mo(self, *mo_coeff, eigvals=False):
+    def canonicalize_mo(self, *mo_coeff, eigvals=False, sign_convention=True):
         """Diagonalize Fock matrix within subspace.
 
         Parameters
@@ -347,7 +381,11 @@ class QEmbeddingFragment:
         fock = np.linalg.multi_dot((mo_coeff.T, self.base.get_fock(), mo_coeff))
         mo_energy, rot = np.linalg.eigh(fock)
         mo_can = np.dot(mo_coeff, rot)
-        mo_can = helper.orbital_sign_convention(mo_can)
+        if sign_convention:
+            mo_can, signs = helper.orbital_sign_convention(mo_can)
+            rot = rot*signs[np.newaxis]
+        assert np.allclose(np.dot(mo_coeff, rot), mo_can)
+        assert np.allclose(np.dot(mo_can, rot.T), mo_coeff)
         if eigvals:
             return mo_can, rot, mo_energy
         return mo_can, rot
@@ -593,7 +631,7 @@ class QEmbeddingFragment:
     # Amplitude projection
     # --------------------
 
-    def project_amplitude_to_fragment(self, c, c_occ=None, c_vir=None, partition='first-occ', symmetrize=True):
+    def project_amplitude_to_fragment(self, c, c_occ=None, c_vir=None, partition=None, symmetrize=True):
         """Get fragment contribution of CI coefficients or CC amplitudes.
 
         Parameters
@@ -614,6 +652,8 @@ class QEmbeddingFragment:
         pc: array
             Projected CI coefficients or CC amplitudes.
         """
+
+        if partition is None: partition = self.opts.wf_partition
 
         if np.ndim(c) not in (2, 4):
             raise NotImplementedError()

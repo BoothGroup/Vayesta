@@ -44,7 +44,7 @@ class EWFFragment(QEmbeddingFragment):
         bsse_correction: bool = NotSet
         bsse_rmax: float = NotSet
         energy_factor: float = 1.0
-        energy_partitioning: str = NotSet
+        #energy_partitioning: str = NotSet
         pop_analysis: str = NotSet
         sc_mode: int = NotSet
         nelectron_target: int = NotSet                  # If set, adjust bath chemical potential until electron number in fragment equals nelectron_target
@@ -126,6 +126,9 @@ class EWFFragment(QEmbeddingFragment):
         # For orbital plotting
         self.cubefile = None
 
+        # TEMPORARY:
+        self._c_frozen_occ = None
+        self._c_frozen_vir = None
 
     #@property
     #def e_corr(self):
@@ -265,6 +268,7 @@ class EWFFragment(QEmbeddingFragment):
         t0 = timer()
         c_no, n_no = make_mp2_bno(
                 self, kind, c_cluster_occ, c_cluster_vir, c_env_occ, c_env_vir)
+        self.log.debugv('BNO eigenvalues:\n%r', n_no)
         if len(n_no) > 0:
             self.log.info("%s Bath NO Histogram", name.capitalize())
             self.log.info("%s------------------", len(name)*'-')
@@ -359,11 +363,16 @@ class EWFFragment(QEmbeddingFragment):
         self.log.info("Virtual BNOs:")
         c_nbo_vir, c_frozen_vir = self.truncate_bno(self.c_no_vir, self.n_no_vir, bno_threshold[1], bno_number[1])
 
+
         # Canonicalize orbitals
         c_active_occ = self.canonicalize_mo(self.c_cluster_occ, c_nbo_occ)[0]
         c_active_vir = self.canonicalize_mo(self.c_cluster_vir, c_nbo_vir)[0]
         # Do not overwrite self.c_active_occ/vir yet - we still need the previous coefficients
         # to generate an intial guess
+
+        # TODO: Do not store these!
+        self._c_frozen_occ = c_frozen_occ
+        self._c_frozen_vir = c_frozen_vir
 
         # Active/frozen density plotting
         if 'active' in self.opts.plot_orbitals:
@@ -539,15 +548,15 @@ class EWFFragment(QEmbeddingFragment):
 
         # Keep Amplitudes [optional]
         if self.base.opts.project_init_guess or self.opts.sc_mode:
-            if hasattr(solver_results, 't1'):
+            if hasattr(solver_results, 't2'):
                 results.t1 = solver_results.t1
                 results.t2 = solver_results.t2
-            if hasattr(solver_results, 'c1'):
+            if hasattr(solver_results, 'c2'):
                 results.c0 = solver_results.c0
                 results.c1 = solver_results.c1
                 results.c2 = solver_results.c2
         # Keep Lambda-Amplitudes
-        if solver_results.l1 is not None:
+        if hasattr(solver_results, 'l2') and solver_results.l2 is not None:
             results.l1 = solver_results.l1
             results.l2 = solver_results.l2
         # Keep ERIs [optional]

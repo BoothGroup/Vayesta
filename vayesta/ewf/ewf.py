@@ -53,7 +53,7 @@ class EWF(QEmbeddingMethod):
         iao_minao : str = 'auto'            # Minimal basis for IAOs
         # --- Bath settings
         bath_type: str = 'MP2-BNO'
-        dmet_threshold: float = 1e-4
+        dmet_threshold: float = 1e-5
         orbfile: str = None                 # Filename for orbital coefficients
         # If multiple bno thresholds are to be calculated, we can project integrals and amplitudes from a previous larger cluster:
         project_eris: bool = False          # Project ERIs from a pervious larger cluster (corresponding to larger eta), can result in a loss of accuracy especially for large basis sets!
@@ -63,6 +63,7 @@ class EWF(QEmbeddingMethod):
         solver_options: dict = dataclasses.field(default_factory=dict)
         make_rdm1: bool = False
         make_rdm2: bool = False
+        dm_with_frozen: bool = False        # Add frozen parts to cluster DMs
         pop_analysis: str = False           # Do population analysis
         eom_ccsd: list = dataclasses.field(default_factory=list)  # Perform EOM-CCSD in each cluster by default
         eom_ccsd_nroots: int = 5            # Perform EOM-CCSD in each cluster by default
@@ -82,7 +83,7 @@ class EWF(QEmbeddingMethod):
         plot_orbitals_kwargs: dict = dataclasses.field(default_factory=dict)
         plot_orbitals_gridsize: tuple = dataclasses.field(default_factory=lambda: (128, 128, 128))
         # --- Other
-        energy_partitioning: str = 'first-occ'
+        #energy_partitioning: str = 'first-occ'
         strict: bool = False                # Stop if cluster not converged
 
     Fragment = EWFFragment

@@ -37,7 +37,8 @@ class QEmbeddingMethod:
 
     @dataclasses.dataclass
     class Options(OptionsBase):
-        recalc_veff: bool = False       # TODO: automatic?
+        recalc_veff: bool = False
+        wf_partition: str = 'first-occ'     # ['first-occ', 'first-vir', 'democratic']
 
 
     def __init__(self, mf, options=None, log=None, **kwargs):
@@ -166,6 +167,8 @@ class QEmbeddingMethod:
         idterr = self.mo_coeff.T.dot(self.get_ovlp()).dot(self.mo_coeff) - np.eye(self.nmo)
         self.log.log(logging.ERROR if np.linalg.norm(idterr) > 1e-5 else logging.DEBUG,
                 "Orthogonality error of MF orbitals: L(2)= %.2e  L(inf)= %.2e", np.linalg.norm(idterr), abs(idterr).max())
+        self.log.debugv("MO energies (occ):\n%r", self.mo_energy[self.mo_occ > 0])
+        self.log.debugv("MO energies (vir):\n%r", self.mo_energy[self.mo_occ == 0])
 
         # 3) Fragments
         # ------------
@@ -453,7 +456,7 @@ class QEmbeddingMethod:
     # -------
 
 
-    def get_wf_ccsd(self, get_lambda=False, partition='first-occ'):
+    def get_wf_ccsd(self, get_lambda=False, partition=None):
         """Get global CCSD wave function (T1 and T2 amplitudes) from fragment calculations.
 
         Parameters
@@ -468,6 +471,7 @@ class QEmbeddingMethod:
         t2: (n(occ), n(occ), n(vir), n(vir)) array
             Global T2 amplitudes.
         """
+        if partition is None: partition = self.opts.wf_partition
         t1 = np.zeros((self.nocc, self.nvir))
         t2 = np.zeros((self.nocc, self.nocc, self.nvir, self.nvir))
         ovlp = self.get_ovlp()
@@ -491,7 +495,7 @@ class QEmbeddingMethod:
 
 
     def make_rdm1(self, partition='dm', ao_basis=False, add_mf=True, symmetrize=True,
-            wf_partition='first-occ'):
+            wf_partition=None):
         """Recreate global one-particle reduced density-matrix from fragment calculations.
 
         Warning: A democratically partitioned DM is only expected to yield good results
@@ -522,7 +526,8 @@ class QEmbeddingMethod:
         partition = partition.lower()
         if partition == 'dm':
             if add_mf:
-                sc = np.dot(self.get_ovlp(), self.mo_coeff)
+                #sc = np.dot(self.get_ovlp(), self.mo_coeff)
+                sc = np.dot(self.get_ovlp(), self.mf.mo_coeff)
                 dm1_mf = np.linalg.multi_dot((sc.T, self.mf.make_rdm1(), sc))
                 dm1 = dm1_mf.copy()
             else:
@@ -530,8 +535,12 @@ class QEmbeddingMethod:
             for f in self.fragments:
                 if f.results.dm1 is None:
                     raise RuntimeError("DM1 not calculated for fragment %s!" % f)
-                cf = f.c_active
-                rf = np.linalg.multi_dot((self.mo_coeff.T, self.get_ovlp(), cf))
+                if self.opts.dm_with_frozen:
+                    cf = f.mo_coeff
+                else:
+                    cf = f.c_active
+                #rf = np.linalg.multi_dot((self.mo_coeff.T, self.get_ovlp(), cf))
+                rf = np.linalg.multi_dot((self.mf.mo_coeff.T, self.get_ovlp(), cf))
                 if add_mf:
                     # Subtract double counting:
                     ddm = (f.results.dm1 - np.linalg.multi_dot((rf.T, dm1_mf, rf)))
@@ -553,14 +562,15 @@ class QEmbeddingMethod:
             raise NotImplementedError("Unknown make_rdm1 partition= %r", partition)
 
         if ao_basis:
-            dm1 = np.linalg.multi_dot((self.mo_coeff, dm1, self.mo_coeff.T))
+            #dm1 = np.linalg.multi_dot((self.mo_coeff, dm1, self.mo_coeff.T))
+            dm1 = np.linalg.multi_dot((self.mf.mo_coeff, dm1, self.mf.mo_coeff.T))
         if symmetrize:
             dm1 = (dm1 + dm1.T)/2
         return dm1
 
 
     def make_rdm2(self, partition='dm', ao_basis=False, add_mf=True, symmetrize=True,
-            wf_partition='first-occ'):
+            wf_partition=None):
         """Recreate global two-particle reduced density-matrix from fragment calculations.
 
         Warning: A democratically partitioned DM is only expected to yield good results
@@ -606,7 +616,10 @@ class QEmbeddingMethod:
             for f in self.fragments:
                 if f.results.dm2 is None:
                     raise RuntimeError("DM2 not calculated for fragment %s!" % f)
-                cf = f.c_active
+                if self.opts.dm_with_frozen:
+                    cf = f.mo_coeff
+                else:
+                    cf = f.c_active
                 rf = np.linalg.multi_dot((self.mo_coeff.T, self.get_ovlp(), cf))
                 if add_mf:
                     # Subtract double counting:
