@@ -52,6 +52,7 @@ class DMET(QEmbeddingMethod):
         solver_options: dict = dataclasses.field(default_factory=dict)
         make_rdm1: bool = True
         make_rdm2: bool = True
+        dm_with_frozen: bool = False        # Add frozen parts to cluster DMs
         eom_ccsd: list = dataclasses.field(default_factory=list)  # Perform EOM-CCSD in each cluster by default
         eom_ccsd_nroots: int = 5
         eomfile: str = 'eom-ccsd'  # Filename for EOM-CCSD states
