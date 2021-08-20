@@ -53,7 +53,7 @@ class EWF(QEmbeddingMethod):
         iao_minao : str = 'auto'            # Minimal basis for IAOs
         # --- Bath settings
         bath_type: str = 'MP2-BNO'
-        dmet_threshold: float = 1e-4
+        dmet_threshold: float = 1e-5
         orbfile: str = None                 # Filename for orbital coefficients
         # If multiple bno thresholds are to be calculated, we can project integrals and amplitudes from a previous larger cluster:
         project_eris: bool = False          # Project ERIs from a pervious larger cluster (corresponding to larger eta), can result in a loss of accuracy especially for large basis sets!
@@ -63,6 +63,7 @@ class EWF(QEmbeddingMethod):
         solver_options: dict = dataclasses.field(default_factory=dict)
         make_rdm1: bool = False
         make_rdm2: bool = False
+        dm_with_frozen: bool = False        # Add frozen parts to cluster DMs
         pop_analysis: str = False           # Do population analysis
         eom_ccsd: list = dataclasses.field(default_factory=list)  # Perform EOM-CCSD in each cluster by default
         eom_ccsd_nroots: int = 5            # Perform EOM-CCSD in each cluster by default
@@ -82,7 +83,7 @@ class EWF(QEmbeddingMethod):
         plot_orbitals_kwargs: dict = dataclasses.field(default_factory=dict)
         plot_orbitals_gridsize: tuple = dataclasses.field(default_factory=lambda: (128, 128, 128))
         # --- Other
-        energy_partitioning: str = 'first-occ'
+        #energy_partitioning: str = 'first-occ'
         strict: bool = False                # Stop if cluster not converged
 
     Fragment = EWFFragment
@@ -298,29 +299,6 @@ class EWF(QEmbeddingMethod):
                     assert np.isclose(norm, 1.0)
 
         return c0, c1, c2
-
-    def get_wf_ccsd(self, partitioning=None):
-        t1 = np.zeros((self.nocc, self.nvir))
-        t2 = np.zeros((self.nocc, self.nocc, self.nvir, self.nvir))
-        ovlp = self.get_ovlp()
-        # Add fragment WFs in intermediate normalization
-        for f in self.fragments:
-            if f.results.t2 is None:
-                t1f, t2f = f.results.convert_amp_c_to_t()
-            else:
-                t1f, t2f = f.results.t1, f.results.t2
-            t1f = f.project_amplitude_to_fragment(t1f, partitioning=partitioning)
-            t2f = f.project_amplitude_to_fragment(t2f, partitioning=partitioning, symmetrize=True)
-            assert np.allclose(t2f, t2f.transpose(1,0,3,2))
-            ro = np.linalg.multi_dot((f.c_active_occ.T, ovlp, self.mo_coeff_occ))
-            rv = np.linalg.multi_dot((f.c_active_vir.T, ovlp, self.mo_coeff_vir))
-            t1 += einsum('ia,iI,aA->IA', t1f, ro, rv)
-            #t2f = (t2f + t2f.transpose(1,0,3,2))/2
-            t2 += einsum('ijab,iI,jJ,aA,bB->IJAB', t2f, ro, ro, rv, rv)
-
-        # Symmetrize
-        #t2 = (t2 + t2.transpose(1,0,3,2))/2
-        return t1, t2
 
     # -------------------------------------------------------------------------------------------- #
 

@@ -36,28 +36,34 @@ def make_mp2_bno(self, kind, c_cluster_occ, c_cluster_vir, c_env_occ, c_env_vir,
     n_no
     """
 
-    if kind == "occ":
+    if kind == 'occ':
         ncluster = c_cluster_occ.shape[-1]
         c_occ = np.hstack((c_cluster_occ, c_env_occ))
         c_vir = c_cluster_vir
         c_occ_frozen = None
         c_vir_frozen = c_env_vir
         c_env = c_env_occ
-    elif kind == "vir":
+    elif kind == 'vir':
         ncluster = c_cluster_vir.shape[-1]
         c_occ = c_cluster_occ
         c_vir = np.hstack((c_cluster_vir, c_env_vir))
         c_occ_frozen = c_env_occ
         c_vir_frozen = None
         c_env = c_env_vir
+    else:
+        raise ValueError("Unknown kind: %r" % kind)
+    self.log.debugv("n(cluster)= %d", ncluster)
 
     # Canonicalization [optional]
     if canonicalize in (True, False):
         canonicalize = 2*[canonicalize]
+    self.log.debugv("canonicalize: occ= %r vir= %r", *canonicalize)
     if canonicalize[0]:
-        c_occ, r_occ = self.canonicalize_mo(c_occ)
+        c_occ, r_occ, e_occ = self.canonicalize_mo(c_occ, eigvals=True)
+        self.log.debugv("eigenvalues (occ):\n%r", e_occ)
     if canonicalize[1]:
-        c_vir, r_vir = self.canonicalize_mo(c_vir)
+        c_vir, r_vir, e_vir = self.canonicalize_mo(c_vir, eigvals=True)
+        self.log.debugv("eigenvalues (vir):\n%r", e_vir)
 
     # Setup MP2 object
     nao = c_occ.shape[0]
@@ -67,12 +73,15 @@ def make_mp2_bno(self, kind, c_cluster_occ, c_cluster_vir, c_env_occ, c_env_vir,
     if c_vir_frozen is None:
         c_vir_frozen = np.zeros((nao, 0))
 
+    self.log.debugv("n(frozen occ)= %d  n(active occ)= %d  n(active vir)= %d  n(frozen vir)= %d",
+            *[x.shape[-1] for x in (c_occ_frozen, c_occ, c_vir, c_vir_frozen)])
     c_active = np.hstack((c_occ, c_vir))
     c_all = np.hstack((c_occ_frozen, c_active, c_vir_frozen))
     nmo = c_all.shape[-1]
     nocc_frozen = c_occ_frozen.shape[-1]
     nvir_frozen = c_vir_frozen.shape[-1]
     frozen_indices = list(range(nocc_frozen)) + list(range(nmo-nvir_frozen, nmo))
+    self.log.debugv("Frozen indices: %r", frozen_indices)
     if self.base.boundary_cond == 'open':
         cls = pyscf.mp.MP2
     else:
@@ -109,7 +118,7 @@ def make_mp2_bno(self, kind, c_cluster_occ, c_cluster_vir, c_env_occ, c_env_vir,
     #dm_occ = dm_vir = None
     if local_dm is False:
         self.log.debug("Constructing DM from full T2 amplitudes.")
-        t2l, t2r = t2, t2
+        t2l = t2r = t2
         # This is equivalent to:
         # do, dv = pyscf.mp.mp2._gamma1_intermediates(mp2, eris=eris)
         # do, dv = -2*do, 2*dv
@@ -117,31 +126,33 @@ def make_mp2_bno(self, kind, c_cluster_occ, c_cluster_vir, c_env_occ, c_env_vir,
         # LOCAL DM IS NOT RECOMMENDED - USE SEMI OR FALSE
         self.log.warning("Using local_dm = True is not recommended - use 'semi' or False")
         self.log.debug("Constructing DM from local T2 amplitudes.")
-        t2l, t2r = t2loc, t2loc
+        t2l = t2r = t2loc
     elif local_dm == "semi":
         self.log.debug("Constructing DM from semi-local T2 amplitudes.")
         t2l, t2r = t2loc, t2
     else:
         raise ValueError("Unknown value for local_dm: %r" % local_dm)
 
-    if kind == "occ":
-        dm = 2*(2*einsum("ikab,jkab->ij", t2l, t2r)
-                - einsum("ikab,kjab->ij", t2l, t2r))
+    if kind == 'occ':
+        dm = 2*(2*einsum('ikab,jkab->ij', t2l, t2r)
+                - einsum('ikab,kjab->ij', t2l, t2r))
         # This turns out to be equivalent:
         #dm = 2*(2*einsum("kiba,kjba->ij", t2l, t2r)
         #        - einsum("kiba,kjab->ij", t2l, t2r))
     else:
-        dm = 2*(2*einsum("ijac,ijbc->ab", t2l, t2r)
-                - einsum("ijac,ijcb->ab", t2l, t2r))
-    if local_dm == "semi":
+        dm = 2*(2*einsum('ijac,ijbc->ab', t2l, t2r)
+                - einsum('ijac,ijcb->ab', t2l, t2r))
+    if local_dm == 'semi':
         dm = (dm + dm.T)/2
     assert np.allclose(dm, dm.T)
 
     # Undo canonicalization
-    if kind == "occ" and canonicalize[0]:
+    if kind == 'occ' and canonicalize[0]:
         dm = np.linalg.multi_dot((r_occ, dm, r_occ.T))
-    elif kind == "vir" and canonicalize[1]:
+        self.log.debugv("Undoing occupied canonicalization")
+    elif kind == 'vir' and canonicalize[1]:
         dm = np.linalg.multi_dot((r_vir, dm, r_vir.T))
+        self.log.debugv("Undoing virtual canonicalization")
 
     clt, env = np.s_[:ncluster], np.s_[ncluster:]
 
@@ -151,6 +162,9 @@ def make_mp2_bno(self, kind, c_cluster_occ, c_cluster_vir, c_env_occ, c_env_vir,
     #n_no = 1/order
     #self.log.debugv("n_no= %r", n_no)
 
+    self.log.debugv("Tr[D]= %r", np.trace(dm))
+    self.log.debugv("Tr[D(cluster,cluster)]= %r", np.trace(dm[clt,clt]))
+    self.log.debugv("Tr[D(env,env)]= %r", np.trace(dm[env,env]))
     n_no, c_no = np.linalg.eigh(dm[env,env])
     n_no, c_no = n_no[::-1], c_no[:,::-1]
     c_no = np.dot(c_env, c_no)

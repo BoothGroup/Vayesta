@@ -192,7 +192,7 @@ def get_arguments():
 
     if MPI_rank == 0:
         log.info("PARAMETERS IN INPUT SCRIPT")
-        log.info("**************************")
+        log.info("==========================")
         for name, value in sorted(vars(args).items()):
             log.info("  > %-32s %r", name+':', value)
 

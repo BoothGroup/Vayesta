@@ -17,6 +17,8 @@ class CCSDSolver(ClusterSolver):
     @dataclasses.dataclass
     class Options(ClusterSolver.Options):
         sc_mode: int = NotSet
+        # DM
+        dm_with_frozen: bool = NotSet
         # EOM CCSD
         eom_ccsd: list = NotSet  # {'IP', 'EA', 'EE-S', 'EE-D', 'EE-SF'}
         eom_ccsd_nroots: int = NotSet
@@ -129,10 +131,10 @@ class CCSDSolver(ClusterSolver):
         if self.opts.make_rdm1:
             self.log.info("Making RDM1...")
             #results.dm1 = cc.make_rdm1(eris=eris, ao_repr=True)
-            results.dm1 = cc.make_rdm1(with_frozen=False)
+            results.dm1 = cc.make_rdm1(with_frozen=self.opts.dm_with_frozen)
         if self.opts.make_rdm2:
             self.log.info("Making RDM2...")
-            results.dm2 = cc.make_rdm2(with_frozen=False)
+            results.dm2 = cc.make_rdm2(with_frozen=self.opts.dm_with_frozen)
 
         def run_eom_ccsd(kind, nroots=None):
             nroots = nroots or self.opts.eom_ccsd_nroots

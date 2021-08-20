@@ -42,10 +42,6 @@ class UnfoldedSCF:
         Number of primitive unit cells within BVK supercell
     kphase: (ncells, ncells) array
         Transformation matrix between k-point and BVK quantities.
-
-    TODO:
-    `get_veff` is inaccurate for a general DM, which is not the converged HF solution.
-    What is the reason behind this?
     """
 
     def __init__(self, kmf, *args, **kwargs):
@@ -475,6 +471,7 @@ if __name__ == '__main__':
     print("Error veff= %.3e" % err)
 
     # Veff matrix for given DM
-    dm = shf.get_init_guess()
+    scell, phase = get_phase(cell, kpts)
+    dm = k2bvk_2d(khf.get_init_guess(), phase)
     err = np.linalg.norm(hf.get_veff(dm=dm) - shf.get_veff(dm=dm))
     print("Error veff for given DM= %.3e" % err)
