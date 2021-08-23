@@ -44,10 +44,10 @@ class EWFFragment(QEmbeddingFragment):
         bsse_correction: bool = NotSet
         bsse_rmax: float = NotSet
         energy_factor: float = 1.0
-        energy_partitioning: str = NotSet
+        #energy_partitioning: str = NotSet
         pop_analysis: str = NotSet
         sc_mode: int = NotSet
-        nelectron_target: int = None                # If set, adjust bath chemical potential until electron number in fragment equals nelectron_target
+        nelectron_target: int = NotSet                  # If set, adjust bath chemical potential until electron number in fragment equals nelectron_target
         # Bath type
         bath_type: str = NotSet
         # Additional fragment specific options:
@@ -68,31 +68,11 @@ class EWFFragment(QEmbeddingFragment):
     class Results(QEmbeddingFragment.Results):
         bno_threshold: float = None
         n_active: int = None
-        converged: bool = None
-        e_corr: float = None
         ip_energy: np.ndarray = None
         ea_energy: np.ndarray = None
-        c0: float = None
-        c1: np.ndarray = None
-        c2: np.ndarray = None
-        t1: np.ndarray = None
-        t2: np.ndarray = None
-        l1: np.ndarray = None
-        l2: np.ndarray = None
         eris: 'typing.Any' = None
-        # Density-matrices
-        dm1: np.ndarray = None
-        dm2: np.ndarray = None
-        g1: np.ndarray = None
-
-        def convert_amp_c_to_t(self):
-            self.t1 = self.c1/self.c0
-            self.t2 = self.c2/self.c0 - einsum('ia,jb->ijab', self.t1, self.t1)
-            return self.t1, self.t2
 
 
-    #def __init__(self, base, fid, name, c_frag, c_env, fragment_type, atoms=None, aos=None, log=None,
-    #        solver=None, options=None, **kwargs):
     def __init__(self, *args, solver=None, **kwargs):
 
         """
@@ -146,6 +126,9 @@ class EWFFragment(QEmbeddingFragment):
         # For orbital plotting
         self.cubefile = None
 
+        # TEMPORARY:
+        self._c_frozen_occ = None
+        self._c_frozen_vir = None
 
     #@property
     #def e_corr(self):
@@ -159,7 +142,8 @@ class EWFFragment(QEmbeddingFragment):
         os.makedirs(self.opts.plot_orbitals_dir, exist_ok=True)
         name = "%s.cube" % os.path.join(self.opts.plot_orbitals_dir, self.id_name)
         nx, ny, nz = self.opts.plot_orbitals_gridsize
-        cubefile = cubegen.CubeFile(self.mol, filename=name, nx=nx, ny=ny, nz=nz, **self.base.opts.plot_orbitals_kwargs)
+        cubefile = cubegen.CubeFile(self.mol, filename=name, nx=nx, ny=ny, nz=nz,
+                **self.base.opts.plot_orbitals_kwargs)
         return cubefile
 
     def add_orbital_plot(self, name, mo_coeff=None, dm=None, dset_idx=None, keep_in_list=False):
@@ -183,8 +167,10 @@ class EWFFragment(QEmbeddingFragment):
         if self.opts.plot_orbitals_exit:
             raise self.Exit("All plots done")
 
-    def make_bath(self):
+    def make_bath(self, bath_type=NotSet):
         """Make DMET and MP2 bath natural orbitals."""
+        if bath_type is NotSet:
+            bath_type = self.opts.bath_type
         # Add fragment orbitals for cube file plots
         if self.opts.plot_orbitals:
             self.cubefile = self.init_orbital_plot()
@@ -238,21 +224,22 @@ class EWFFragment(QEmbeddingFragment):
         #    C_occclst, C_virclst = self.diagonalize_cluster_dm(C_bath)
         #self.C_bath = C_bath
 
-        if self.opts.bath_type is None or self.opts.bath_type.upper() == 'NONE':
+        self.log.debugv("bath_type= %r", bath_type)
+        if bath_type is None or bath_type.upper() == 'NONE':
             c_no_occ = c_env_occ
             c_no_vir = c_env_vir
             n_no_occ = np.full((c_no_occ.shape[-1],), -np.inf)
             n_no_vir = np.full((c_no_vir.shape[-1],), -np.inf)
-        elif self.opts.bath_type.upper() == 'ALL':
+        elif bath_type.upper() == 'ALL':
             c_no_occ = c_env_occ
             c_no_vir = c_env_vir
             n_no_occ = np.full((c_no_occ.shape[-1],), np.inf)
             n_no_vir = np.full((c_no_vir.shape[-1],), np.inf)
-        elif self.opts.bath_type.upper() == 'MP2-BNO':
+        elif bath_type.upper() == 'MP2-BNO':
             c_no_occ, n_no_occ = self.make_bno_bath(c_cluster_occ, c_cluster_vir, c_env_occ, c_env_vir, 'occ')
             c_no_vir, n_no_vir = self.make_bno_bath(c_cluster_occ, c_cluster_vir, c_env_occ, c_env_vir, 'vir')
         else:
-            raise ValueError("Unknown bath type: '%s'" % self.opts.bath_type)
+            raise ValueError("Unknown bath type: '%s'" % bath_type)
 
 
         #if self.opts.plot_orbitals:
@@ -281,6 +268,7 @@ class EWFFragment(QEmbeddingFragment):
         t0 = timer()
         c_no, n_no = make_mp2_bno(
                 self, kind, c_cluster_occ, c_cluster_vir, c_env_occ, c_env_vir)
+        self.log.debugv('BNO eigenvalues:\n%r', n_no)
         if len(n_no) > 0:
             self.log.info("%s Bath NO Histogram", name.capitalize())
             self.log.info("%s------------------", len(name)*'-')
@@ -375,11 +363,16 @@ class EWFFragment(QEmbeddingFragment):
         self.log.info("Virtual BNOs:")
         c_nbo_vir, c_frozen_vir = self.truncate_bno(self.c_no_vir, self.n_no_vir, bno_threshold[1], bno_number[1])
 
+
         # Canonicalize orbitals
         c_active_occ = self.canonicalize_mo(self.c_cluster_occ, c_nbo_occ)[0]
         c_active_vir = self.canonicalize_mo(self.c_cluster_vir, c_nbo_vir)[0]
         # Do not overwrite self.c_active_occ/vir yet - we still need the previous coefficients
         # to generate an intial guess
+
+        # TODO: Do not store these!
+        self._c_frozen_occ = c_frozen_occ
+        self._c_frozen_vir = c_frozen_vir
 
         # Active/frozen density plotting
         if 'active' in self.opts.plot_orbitals:
@@ -555,15 +548,15 @@ class EWFFragment(QEmbeddingFragment):
 
         # Keep Amplitudes [optional]
         if self.base.opts.project_init_guess or self.opts.sc_mode:
-            if hasattr(solver_results, 't1'):
+            if hasattr(solver_results, 't2'):
                 results.t1 = solver_results.t1
                 results.t2 = solver_results.t2
-            if hasattr(solver_results, 'c1'):
+            if hasattr(solver_results, 'c2'):
                 results.c0 = solver_results.c0
                 results.c1 = solver_results.c1
                 results.c2 = solver_results.c2
         # Keep Lambda-Amplitudes
-        if results.l1 is not None:
+        if hasattr(solver_results, 'l2') and solver_results.l2 is not None:
             results.l1 = solver_results.l1
             results.l2 = solver_results.l2
         # Keep ERIs [optional]
@@ -655,119 +648,6 @@ class EWFFragment(QEmbeddingFragment):
         return p1, p2
 
 
-    def project_amplitude_to_fragment(self, c, c_occ=None, c_vir=None, partitioning=None, symmetrize=False):
-        """Get local contribution of amplitudes."""
-
-        if np.ndim(c) not in (2, 4):
-            raise NotImplementedError()
-        if partitioning is None:
-            part = self.opts.energy_partitioning
-        else:
-            part = partitioning
-        if part not in ('first-occ', 'first-vir', 'democratic'):
-            raise ValueError("Unknown partitioning of amplitudes: %s" % part)
-
-        # Projectors into fragment occupied and virtual space
-        if part in ("first-occ", "democratic"):
-            assert c_occ is not None
-            fo = self.get_fragment_projector(c_occ)
-        if part in ("first-vir", "democratic"):
-            assert c_vir is not None
-            fv = self.get_fragment_projector(c_vir)
-        # Inverse projectors needed
-        if part == "democratic":
-            ro = np.eye(fo.shape[-1]) - fo
-            rv = np.eye(fv.shape[-1]) - fv
-
-        if np.ndim(c) == 2:
-            if part == "first-occ":
-                p = einsum("xi,ia->xa", fo, c)
-            elif part == "first-vir":
-                p = einsum("ia,xa->ix", c, fv)
-            elif part == "democratic":
-                p = einsum("xi,ia,ya->xy", fo, c, fv)
-                p += einsum("xi,ia,ya->xy", fo, c, rv) / 2.0
-                p += einsum("xi,ia,ya->xy", ro, c, fv) / 2.0
-            return p
-
-        # ndim == 4:
-
-        if part == "first-occ":
-            p = einsum("xi,ijab->xjab", fo, c)
-        elif part == "first-vir":
-            p = einsum("ijab,xa->ijxb", c, fv)
-        elif part == "democratic":
-
-            def project(p1, p2, p3, p4):
-                p = einsum("xi,yj,ijab,za,wb->xyzw", p1, p2, c, p3, p4)
-                return p
-
-            # Factors of 2 due to ij,ab <-> ji,ba symmetry
-            # Denominators 1/N due to element being shared between N clusters
-
-            # Quadruple F
-            # ===========
-            # This is fully included
-            p = project(fo, fo, fv, fv)
-            # Triple F
-            # ========
-            # This is fully included
-            p += 2*project(fo, fo, fv, rv)
-            p += 2*project(fo, ro, fv, fv)
-            # Double F
-            # ========
-            # P(FFrr) [This wrongly includes: 1x P(FFaa), instead of 0.5x - correction below]
-            p +=   project(fo, fo, rv, rv)
-            p += 2*project(fo, ro, fv, rv)
-            p += 2*project(fo, ro, rv, fv)
-            p +=   project(ro, ro, fv, fv)
-            # Single F
-            # ========
-            # P(Frrr) [This wrongly includes: P(Faar) (where r could be a) - correction below]
-            p += 2*project(fo, ro, rv, rv) / 4.0
-            p += 2*project(ro, ro, fv, rv) / 4.0
-
-            # Corrections
-            # ===========
-            # Loop over all other clusters x
-            for x in self.loop_fragments(exclude_self=True):
-
-                xo = x.get_fragment_projector(c_occ)
-                xv = x.get_fragment_projector(c_vir)
-
-                # Double correction
-                # -----------------
-                # Correct for wrong inclusion of P(FFaa)
-                # The case P(FFaa) was included with prefactor of 1 instead of 1/2
-                # We thus need to only correct by "-1/2"
-                p -=   project(fo, fo, xv, xv) / 2.0
-                p -= 2*project(fo, xo, fv, xv) / 2.0
-                p -= 2*project(fo, xo, xv, fv) / 2.0
-                p -=   project(xo, xo, fv, fv) / 2.0
-
-                # Single correction
-                # -----------------
-                # Correct for wrong inclusion of P(Faar)
-                # This corrects the case P(Faab) but overcorrects P(Faaa)!
-                p -= 2*project(fo, xo, xv, rv) / 4.0
-                p -= 2*project(fo, xo, rv, xv) / 4.0 # If r == x this is the same as above -> overcorrection
-                p -= 2*project(fo, ro, xv, xv) / 4.0 # overcorrection
-                p -= 2*project(xo, xo, fv, rv) / 4.0
-                p -= 2*project(xo, ro, fv, xv) / 4.0 # overcorrection
-                p -= 2*project(ro, xo, fv, xv) / 4.0 # overcorrection
-
-                # Correct overcorrection
-                # The additional factor of 2 comes from how often the term was wrongly included above
-                p += 2*2*project(fo, xo, xv, xv) / 4.0
-                p += 2*2*project(xo, xo, fv, xv) / 4.0
-
-        # Note that the energy should be invariant to symmetrization
-        if symmetrize:
-            p = (p + p.transpose(1,0,3,2)) / 2
-
-        return p
-
-
     def get_fragment_energy(self, p1, p2, eris):
         """Calculate fragment correlation energy contribution from porjected C1, C2.
 
@@ -828,39 +708,6 @@ class EWFFragment(QEmbeddingFragment):
     #    h1e = self.base.get_hcore()
     #    e1 = einsum('ij,ix,xj->', h1e, p_frag, dm1)
     #    e2 = einsum('ijkl,ix,xj->', eris, p_frag, dm1)
-
-
-    # WIP
-    def get_fragment_g1(self, t1, p1, p2, l1, l2, c_occ):
-        """Gamma 1 intermediate for density-matrix.
-
-        See pyscf.cc.ccsd_rdm._gamma1_intermediates."""
-        no, nv = t1.shape
-        g1 = np.zeros(2*[no+nv])
-        o, v = np.s_[:no], np.s_[no:]
-
-        g1[o,o] = -einsum('ja,ia->ij', p1, l1)
-        g1[v,v] = einsum('ia,ib->ab', p1, l1)
-        #xtv = einsum('ie,me->im', t1, l1)   # Do not use p1 here!
-        #dvo = p1.T - einsum('im,ma->ai', xtv, p1)
-        g1[v,o] = p1.T - einsum('ie,me,ma->ai', t1, l1, p1)
-        theta = p2 * 2 - p2.transpose(0,1,3,2)
-        g1[o,o] -= einsum('jkab,ikab->ij', theta, l2)
-        g1[v,v] += einsum('jica,jicb->ab', theta, l2)
-        g1[v,o] += einsum('imae,me->ai', theta, l1)
-        theta = t2 * 2 - t2.transpose(0,1,3,2)  # Do not use p2 here!
-        #xt1  = einsum('mnef,inef->mi', l2, theta_t)
-        #xt2  = einsum('mnaf,mnef->ea', l2, theta_t)
-        #g1[v,o] -= einsum('mi,ma->ai', xt1, p1)
-        #g1[v,o] -= einsum('ie,ae->ai', p1, xt2)
-        xt1  = einsum('mnef,inef->mi', l2, theta_t)
-        xt2  = einsum('mnaf,mnef->ea', l2, theta_t)
-        g1[v,o] -= einsum('mnef,inef,ma->ai',l2, theta, p1)
-        g1[v,o] -= einsum('ie,mnef,mnaf->ai', p1, l2, theta)
-
-        pl1 = self.project_amplitude_to_fragment(l1, c_occ=c_occ)
-        g1[o,v] = pl1
-        return g1
 
 
     def eom_analysis(self, csolver, kind, filename=None, mode="a", sort_weight=True, r1_min=1e-2):

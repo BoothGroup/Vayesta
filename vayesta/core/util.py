@@ -3,6 +3,7 @@ import logging
 import dataclasses
 import copy
 import psutil
+from functools import wraps
 from timeit import default_timer
 
 import numpy as np
@@ -12,7 +13,7 @@ import scipy.optimize
 log = logging.getLogger(__name__)
 
 # util module can be imported as *, such that the following is imported:
-__all__ = ['NotSet', 'einsum', 'get_used_memory', 'timer', 'time_string', 'memory_string', 'OptionsBase']
+__all__ = ['NotSet', 'einsum', 'cached_method', 'ConvergenceError', 'get_used_memory', 'timer', 'time_string', 'memory_string', 'OptionsBase']
 
 class NotSetType:
     def __repr__(self):
@@ -27,6 +28,38 @@ timer = default_timer
 def einsum(*args, **kwargs):
     kwargs['optimize'] = kwargs.pop('optimize', True)
     return np.einsum(*args, **kwargs)
+
+
+def cached_method(cachename, use_cache_default=True, store_cache_default=True):
+    """Cache the return value of a class method.
+
+    This adds the parameters `load_from_cache` and `save_in_cache` to the method
+    signature; the default values for both parameters is `True`."""
+    def cached_function(func):
+        nonlocal cachename
+
+        def is_cached(self):
+            return (hasattr(self, cachename) and get_cache(self) is not None)
+
+        def get_cache(self):
+            return getattr(self, cachename)
+
+        def set_cache(self, value):
+            return setattr(self, cachename, value)
+
+        @wraps(func)
+        def wrapper(self, *args, use_cache=use_cache_default, store_cache=store_cache_default, **kwargs):
+            if use_cache and is_cached(self):
+                return get_cache(self)
+            val = func(self, *args, **kwargs)
+            if store_cache:
+                set_cache(self, val)
+            return val
+        return wrapper
+    return cached_function
+
+class ConvergenceError(RuntimeError):
+    pass
 
 
 def get_used_memory():
@@ -140,3 +173,22 @@ class OptionsBase:
             other = updates
 
         return dataclasses.replace(self, **other)
+
+if __name__ == '__main__':
+
+    class TestClass:
+
+        def __init__(self):
+            self.val = 2
+
+        @cached_method('_test_method')
+        def test_method(self):
+            print("Calculating...")
+            return self.val
+
+    test = TestClass()
+    test.test_method()
+    test.test_method()
+
+    test2 = TestClass()
+    test2.test_method()

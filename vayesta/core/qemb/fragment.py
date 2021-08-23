@@ -10,8 +10,7 @@ import pyscf.lib
 import pyscf.lo
 
 from vayesta.core.util import *
-from . import helper
-from . import tsymmetry
+from vayesta.core import helper, tsymmetry
 
 
 class QEmbeddingFragment:
@@ -22,11 +21,30 @@ class QEmbeddingFragment:
         coupled_fragments: list = dataclasses.field(default_factory=list)
         # Symmetry
         sym_factor: float = 1.0
+        wf_partition: str = NotSet  # ['first-occ', 'first-vir', 'democratic']
 
 
     @dataclasses.dataclass
     class Results:
-        fid: int = None
+        fid: int = None             # Fragment ID
+        converged: bool = None      # True, if solver reached convergence criterion or no convergence required (eg. MP2 solver)
+        e_corr: float = None        # Fragment correlation energy contribution
+        # Wave-function
+        c0: float = None            # Reference determinant CI coefficient
+        c1: np.ndarray = None       # CI single coefficients
+        c2: np.ndarray = None       # CI double coefficients
+        t1: np.ndarray = None       # CC single amplitudes
+        t2: np.ndarray = None       # CC double amplitudes
+        l1: np.ndarray = None       # CC single Lambda-amplitudes
+        l2: np.ndarray = None       # CC double Lambda-amplitudes
+        # Density-matrix
+        dm1: np.ndarray = None      # One-particle reduced density matrix (dm1[i,j] = <0| i^+ j |0>
+        dm2: np.ndarray = None      # Two-particle reduced density matrix (dm2[i,j,k,l] = <0| i^+ k^+ l j |0>)
+
+        def convert_amp_c_to_t(self):
+            self.t1 = self.c1/self.c0
+            self.t2 = self.c2/self.c0 - einsum('ia,jb->ijab', self.t1, self.t1)
+            return self.t1, self.t2
 
 
     class Exit(Exception):
@@ -139,6 +157,9 @@ class QEmbeddingFragment:
         # Final cluster active orbitals
         self._c_active_occ = None
         self._c_active_vir = None
+        # Final cluster frozen orbitals (Avoid storing these, as they scale as N^2 per cluster)
+        self._c_frozen_occ = None
+        self._c_frozen_vir = None
         # Final results
         self._results = None
 
@@ -189,6 +210,14 @@ class QEmbeddingFragment:
     def boundary_cond(self):
         return self.base.boundary_cond
 
+    # Active orbitals
+
+    @property
+    def c_active(self):
+        if self.c_active_occ is None:
+            return None
+        return np.hstack((self.c_active_occ, self.c_active_vir))
+
     @property
     def c_active_occ(self):
         if self.sym_parent is None:
@@ -203,11 +232,33 @@ class QEmbeddingFragment:
         else:
             return self.sym_op(self.sym_parent.c_active_vir)
 
+    # Frozen orbitals
+
     @property
-    def c_active(self):
-        if self.c_active_occ is None:
+    def c_frozen(self):
+        if self.c_frozen_occ is None:
             return None
-        return np.hstack((self.c_active_occ, self.c_active_vir))
+        return np.hstack((self.c_frozen_occ, self.c_frozen_vir))
+
+    @property
+    def c_frozen_occ(self):
+        if self.sym_parent is None:
+            return self._c_frozen_occ
+        else:
+            return self.sym_op(self.sym_parent.c_frozen_occ)
+
+    @property
+    def c_frozen_vir(self):
+        if self.sym_parent is None:
+            return self._c_frozen_vir
+        else:
+            return self.sym_op(self.sym_parent.c_frozen_vir)
+
+    # All orbitals
+
+    @property
+    def mo_coeff(self):
+        return np.hstack((self.c_frozen_occ, self.c_active_occ, self.c_active_vir, self.c_frozen_vir))
 
     @property
     def results(self):
@@ -309,7 +360,7 @@ class QEmbeddingFragment:
             yield frag
 
 
-    def canonicalize_mo(self, *mo_coeff, eigvals=False):
+    def canonicalize_mo(self, *mo_coeff, eigvals=False, sign_convention=True):
         """Diagonalize Fock matrix within subspace.
 
         Parameters
@@ -330,7 +381,11 @@ class QEmbeddingFragment:
         fock = np.linalg.multi_dot((mo_coeff.T, self.base.get_fock(), mo_coeff))
         mo_energy, rot = np.linalg.eigh(fock)
         mo_can = np.dot(mo_coeff, rot)
-        mo_can = helper.orbital_sign_convention(mo_can)
+        if sign_convention:
+            mo_can, signs = helper.orbital_sign_convention(mo_can)
+            rot = rot*signs[np.newaxis]
+        assert np.allclose(np.dot(mo_coeff, rot), mo_can)
+        assert np.allclose(np.dot(mo_can, rot.T), mo_coeff)
         if eigvals:
             return mo_can, rot, mo_energy
         return mo_can, rot
@@ -571,6 +626,140 @@ class QEmbeddingFragment:
                 raise RuntimeError(err)
 
         return c_bath, c_occenv, c_virenv
+
+
+    # Amplitude projection
+    # --------------------
+
+    def project_amplitude_to_fragment(self, c, c_occ=None, c_vir=None, partition=None, symmetrize=True):
+        """Get fragment contribution of CI coefficients or CC amplitudes.
+
+        Parameters
+        ----------
+        c: (n(occ), n(vir)) or (n(occ), n(occ), n(vir), n(vir)) array
+            CI coefficients or CC amplitudes.
+        c_occ: (n(AO), n(MO)) array, optional
+            Occupied MO coefficients. If `None`, `self.c_active_occ` is used. Default: `None`.
+        c_vir: (n(AO), n(MO)) array, optional
+            Virtual MO coefficients. If `None`, `self.c_active_vir` is used. Default: `None`.
+        partition: ['first-occ', 'first-vir', 'democractic'], optional
+            Partitioning scheme of amplitudes. Default: 'first-occ'.
+        symmetrize: bool, optional
+            Symmetrize C2/T2 amplitudes such that they obey "(ijab) = (jiba)" symmetry. Default: True.
+
+        Returns
+        -------
+        pc: array
+            Projected CI coefficients or CC amplitudes.
+        """
+
+        if partition is None: partition = self.opts.wf_partition
+
+        if np.ndim(c) not in (2, 4):
+            raise NotImplementedError()
+        partition = partition.lower()
+        if partition not in ('first-occ', 'first-vir', 'democratic'):
+            raise ValueError("Unknown partitioning of amplitudes: %r" % partition)
+
+        if c_occ is None: c_occ = self.c_active_occ
+        if c_vir is None: c_vir = self.c_active_vir
+
+        # Projectors into fragment occupied and virtual space
+        if partition in ('first-occ', 'democratic'):
+            fo = self.get_fragment_projector(c_occ)
+        if partition in ('first-vir', 'democratic'):
+            fv = self.get_fragment_projector(c_vir)
+        # Inverse projectors
+        if partition == 'democratic':
+            ro = np.eye(fo.shape[-1]) - fo
+            rv = np.eye(fv.shape[-1]) - fv
+
+        if np.ndim(c) == 2:
+            if partition == 'first-occ':
+                pc = einsum('xi,ia->xa', fo, c)
+            elif partition == 'first-vir':
+                pc = einsum('ia,xa->ix', c, fv)
+            elif partition == 'democratic':
+                pc = einsum('xi,ia,ya->xy', fo, c, fv)
+                pc += einsum('xi,ia,ya->xy', fo, c, rv) / 2.0
+                pc += einsum('xi,ia,ya->xy', ro, c, fv) / 2.0
+            return pc
+
+        if partition == 'first-occ':
+            pc = einsum('xi,ijab->xjab', fo, c)
+        elif partition == 'first-vir':
+            pc = einsum('ijab,xa->ijxb', c, fv)
+        elif partition == 'democratic':
+
+            def project(p1, p2, p3, p4):
+                pc = einsum('xi,yj,ijab,za,wb->xyzw', p1, p2, c, p3, p4)
+                return pc
+
+            # Factors of 2 due to ij,ab <-> ji,ba symmetry
+            # Denominators 1/N due to element being shared between N clusters
+
+            # Quadruple F
+            # ===========
+            # This is fully included
+            pc = project(fo, fo, fv, fv)
+            # Triple F
+            # ========
+            # This is fully included
+            pc += 2*project(fo, fo, fv, rv)
+            pc += 2*project(fo, ro, fv, fv)
+            # Double F
+            # ========
+            # P(FFrr) [This wrongly includes: 1x P(FFaa), instead of 0.5x - correction below]
+            pc +=   project(fo, fo, rv, rv)
+            pc += 2*project(fo, ro, fv, rv)
+            pc += 2*project(fo, ro, rv, fv)
+            pc +=   project(ro, ro, fv, fv)
+            # Single F
+            # ========
+            # P(Frrr) [This wrongly includes: P(Faar) (where r could be a) - correction below]
+            pc += 2*project(fo, ro, rv, rv) / 4.0
+            pc += 2*project(ro, ro, fv, rv) / 4.0
+
+            # Corrections
+            # ===========
+            # Loop over all other clusters x
+            for x in self.loop_fragments(exclude_self=True):
+
+                xo = x.get_fragment_projector(c_occ)
+                xv = x.get_fragment_projector(c_vir)
+
+                # Double correction
+                # -----------------
+                # Correct for wrong inclusion of P(FFaa)
+                # The case P(FFaa) was included with prefactor of 1 instead of 1/2
+                # We thus need to only correct by "-1/2"
+                pc -=   project(fo, fo, xv, xv) / 2.0
+                pc -= 2*project(fo, xo, fv, xv) / 2.0
+                pc -= 2*project(fo, xo, xv, fv) / 2.0
+                pc -=   project(xo, xo, fv, fv) / 2.0
+
+                # Single correction
+                # -----------------
+                # Correct for wrong inclusion of P(Faar)
+                # This corrects the case P(Faab) but overcorrects P(Faaa)!
+                pc -= 2*project(fo, xo, xv, rv) / 4.0
+                pc -= 2*project(fo, xo, rv, xv) / 4.0 # If r == x this is the same as above -> overcorrection
+                pc -= 2*project(fo, ro, xv, xv) / 4.0 # overcorrection
+                pc -= 2*project(xo, xo, fv, rv) / 4.0
+                pc -= 2*project(xo, ro, fv, xv) / 4.0 # overcorrection
+                pc -= 2*project(ro, xo, fv, xv) / 4.0 # overcorrection
+
+                # Correct overcorrection
+                # The additional factor of 2 comes from how often the term was wrongly included above
+                pc += 2*2*project(fo, xo, xv, xv) / 4.0
+                pc += 2*2*project(xo, xo, fv, xv) / 4.0
+
+        # Note that the energy should be invariant to symmetrization
+        if symmetrize:
+            pc = (pc + pc.transpose(1,0,3,2)) / 2
+
+        return pc
+
 
     # --- Symmetry
     # ============
