@@ -12,7 +12,7 @@ import vayesta
 import vayesta.ewf
 from vayesta.ewf import helper
 from vayesta.core import QEmbeddingMethod
-from vayesta.core.util import OptionsBase, time_string
+from vayesta.core.util import OptionsBase, time_string, NotSet
 from vayesta.eagf2.fragment import EAGF2Fragment
 from vayesta.eagf2.ragf2 import RAGF2, RAGF2Options
 

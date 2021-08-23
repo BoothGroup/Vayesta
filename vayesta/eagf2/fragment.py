@@ -37,7 +37,7 @@ class EAGF2FragmentOptions(OptionsBase):
 
     # --- Appease EWF inheritance
     plot_orbitals: bool = False
-    energy_partitioning: str = 'first-occ'
+    wf_partition: str = 'first-occ'
     sym_factor: float = 1.0
 
 
@@ -397,10 +397,22 @@ class EAGF2Fragment(QEmbeddingFragment):
                 #TODO this is hacky!
                 #c = np.concatenate((c_active, c_active), axis=1)
                 #eri = kao2gmo.gdf_to_eris(self.base.kdf, c, nactive, only_ovov=True)['ovov']
-                ints3c = kao2gmo.ThreeCenterInts.init_from_gdf(self.base.kdf)
-                eri = kao2gmo.j3c_kao2gmo(ints3c, c_active, c_active, only_ov=True)['ov']
-                eri = eri.reshape(eri.shape[0]*eri.shape[1], eri.shape[2], eri.shape[3])
-                eri = np.ascontiguousarray(eri)
+
+                #ints3c = kao2gmo.ThreeCenterInts.init_from_gdf(self.base.kdf)
+                #iden = np.array([np.eye(self.base.kcell.nao),] * len(self.base.kdf.kpts))
+                #eri = kao2gmo.j3c_kao2gmo(ints3c, iden, iden, only_ov=True, driver='python')['ov']
+                #eri = eri.reshape(eri.shape[0]*eri.shape[1], eri.shape[2], eri.shape[3])
+                #eri = np.einsum('Lpq,pi,qj->Lij', eri, c_active.conj(), c_active)
+                #eri = np.ascontiguousarray(eri)
+
+                eri = kao2gmo.gdf_to_eris(
+                        self.base.kdf,
+                        np.hstack((c_active, c_active)),
+                        c_active.shape[-1],
+                        only_ovov=True,
+                        store_vvl=True,
+                )
+                eri = eri['ovov']
 
         # Get Veff due to frozen density
         if self.base.kdf is None:

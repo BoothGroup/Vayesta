@@ -198,11 +198,18 @@ class KnownValues(unittest.TestCase):
 
         self.assertAlmostEqual(gf2.results.gf.make_rdm1().trace(), self.mol.nelectron, 8)
 
-        self.assertAlmostEqual(gf2.results.e_1b,                 -75.8994510476693, 8)
-        self.assertAlmostEqual(gf2.results.e_2b,                  -0.3359556660481, 8)
-        self.assertAlmostEqual(lib.fp(gf2.results.gf.moment(0)),   0.6671541571085, 8)
-        self.assertAlmostEqual(lib.fp(gf2.results.gf.moment(1)), -44.1077558841127, 8)
-        self.assertAlmostEqual(lib.fp(gf2.results.gf.moment(2)), 355.5543812465610, 8)
+	# Before changes to canonicalisation...?
+        #self.assertAlmostEqual(gf2.results.e_1b,                 -75.8994510476693, 8)
+        #self.assertAlmostEqual(gf2.results.e_2b,                  -0.3359556660481, 8)
+        #self.assertAlmostEqual(lib.fp(gf2.results.gf.moment(0)),   0.6671541571085, 8)
+        #self.assertAlmostEqual(lib.fp(gf2.results.gf.moment(1)), -44.1077558841127, 8)
+        #self.assertAlmostEqual(lib.fp(gf2.results.gf.moment(2)), 355.5543812465610, 8)
+
+        self.assertAlmostEqual(gf2.results.e_1b,                 -75.89813578695711, 8)
+        self.assertAlmostEqual(gf2.results.e_2b,                  -0.33685082279822, 8)
+        self.assertAlmostEqual(lib.fp(gf2.results.gf.moment(0)),   0.66715415710851, 8)
+        self.assertAlmostEqual(lib.fp(gf2.results.gf.moment(1)), -44.10604130836711, 8)
+        self.assertAlmostEqual(lib.fp(gf2.results.gf.moment(2)), 355.52438887597367, 8)
 
     #TODO: test these using He, 0th SE moment non pos def here
     #def test__lowdin__dmet(self):

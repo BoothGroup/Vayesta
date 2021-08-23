@@ -20,6 +20,7 @@ import pyscf.pbc.df
 import pyscf.pbc.tools
 from pyscf.pbc.lib import kpts_helper
 # Package
+from vayesta.core.util import NotSetType  #FIXME
 from vayesta.core.util import *
 from vayesta.misc import gdf
 import vayesta.libs
@@ -28,7 +29,8 @@ import vayesta.libs
 try:
     from pyscf.pbc.df.rsdf import RSGDF
 except ImportError:
-    RSGDF = vayesta.core.util.NotSetType
+    #RSGDF = vayesta.core.util.NotSetType  #FIXME
+    RSGDF = NotSetType
 
 log = logging.getLogger(__name__)
 
