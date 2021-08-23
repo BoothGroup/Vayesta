@@ -12,6 +12,7 @@ import logging
 import numpy as np
 # PySCF
 import pyscf
+import pyscf.cc  #FIXME
 import pyscf.lib
 from pyscf.mp.mp2 import _mo_without_core
 import pyscf.pbc
@@ -20,7 +21,7 @@ import pyscf.pbc.tools
 from pyscf.pbc.lib import kpts_helper
 # Package
 from vayesta.core.util import *
-from vayesta.misc.gdf import GDF
+from vayesta.misc import gdf
 import vayesta.libs
 
 log = logging.getLogger(__name__)
@@ -433,12 +434,12 @@ class ThreeCenterInts:
                 assert np.all(kuniq_map > -nkij)
 
         # In IncoreGDF, we can access the array directly
-        elif isinstance(self.df, (GDF, pyscf.pbc.df.df_incore.IncoreGDF)):  #TODO deprecate IncoreGDF
+        elif isinstance(self.df, gdf.GDF):  #TODO deprecate IncoreGDF
             j3c = self.df._cderi["j3c"].reshape(-1, self.naux, self.nao, self.nao)
             nkuniq = j3c.shape[0]
             log.info("Nkuniq= %3d", nkuniq)
             # Check map
-            _get_kpt_hash = pyscf.pbc.df.df_incore._get_kpt_hash
+            _get_kpt_hash = gdf._get_kpt_hash
             kuniq_map = np.zeros((self.nk, self.nk), dtype=np.int)
             # 2D systems not supported in incore version:
             j3c_neg = None

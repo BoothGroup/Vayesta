@@ -1,5 +1,6 @@
 import logging
 import dataclasses
+import types
 
 import numpy as np
 
@@ -13,7 +14,7 @@ from vayesta.ewf import helper
 from vayesta.core import QEmbeddingMethod
 from vayesta.core.util import OptionsBase, time_string
 from vayesta.eagf2.fragment import EAGF2Fragment
-from vayesta.eagf2.ragf2 import RAGF2, RAGF2Options, DIIS
+from vayesta.eagf2.ragf2 import RAGF2, RAGF2Options
 
 try:
     from mpi4py import MPI
@@ -47,6 +48,9 @@ class EAGF2Options(OptionsBase):
     # --- Other
     strict: bool = False
     orthogonal_mo_tol: float = 1e-9
+    recalc_veff: bool = False
+    copy_mf: bool = False
+    quiet_solver: bool = True
 
 
 @dataclasses.dataclass
@@ -74,8 +78,36 @@ class EAGF2Results:
     se: pyscf.agf2.SelfEnergy = None
 
 
+def _get_veff_unfolded(eagf2):
+    ''' Get the `get_veff` function using unfolding.
+    '''
+    #TODO clean, repeated in fragment kernel
+
+    from pyscf.pbc.tools import k2gamma
+    scell, phase = k2gamma.get_phase(eagf2.kcell, eagf2.kpts)
+    nr, nk = phase.shape
+    nao = eagf2.kcell.nao
+
+    def get_veff(self, dm, *args, **kwargs):
+        dm_kpts = np.einsum('risj,rk,sk->kij', dm.reshape(nr, nao, nr, nao), phase.conj(), phase)
+        #dm_kpts = dm_kpts.real
+
+        vj_kpts, vk_kpts = eagf2.kdf.get_jk(dm_kpts)
+        veff_kpts = [vj-0.5*vk for vj, vk in zip(vj_kpts, vk_kpts)]
+        veff = np.einsum('kij,rk,sk->risj', veff_kpts, phase, phase.conj())
+        veff = veff.reshape(nr*nao, nr*nao)
+        assert np.max(np.abs(veff.imag)) < 1e-7
+        veff = veff.real
+
+        return veff
+
+    return get_veff
+
+
 class EAGF2(QEmbeddingMethod):
 
+    Options = EAGF2Options
+    Results = EAGF2Results
     Fragment = EAGF2Fragment
 
     def __init__(self, mf, options=None, log=None, **kwargs):
@@ -111,7 +143,7 @@ class EAGF2(QEmbeddingMethod):
             Threshold for idempotency of cluster DM in power orbital
             bath construction (default value is 1e-4).
         solver_options : dataclass.field
-            Options passed to solver on each cluster, see 
+            Options passed to solver on each cluster, see
             `vayesta.eagf2.ragf2.RAGF2` for options.
         strict : bool
             Force convergence in the mean-field calculations (default
@@ -138,10 +170,6 @@ class EAGF2(QEmbeddingMethod):
         super().__init__(mf, log=log)
         t0 = timer()
 
-        # --- Quiet logger for AGF2 calculations on the clusters
-        self.quiet_log = logging.Logger('quiet')
-        self.quiet_log.setLevel(logging.CRITICAL)
-
         self.opts = options
         if self.opts is None:
             self.opts = EAGF2Options(**kwargs)
@@ -152,6 +180,13 @@ class EAGF2(QEmbeddingMethod):
             if key == 'solver_options':
                 continue
             self.log.info("  > %-24s %r", key + ":", val)
+
+        # --- Quiet logger for AGF2 calculations on the clusters
+        if self.opts.quiet_solver:
+            self.quiet_log = logging.Logger('quiet')
+            self.quiet_log.setLevel(logging.CRITICAL)
+        else:
+            self.quiet_log = self.log
 
         solver_options = RAGF2Options(**self.opts.solver_options)
         self.opts.solver_options = solver_options
@@ -273,9 +308,16 @@ class EAGF2(QEmbeddingMethod):
 
             self.log.changeIndentLevel(-1)
 
+        #TODO hacky
+        #TODO unfold AO 3c integrals and use for fock build and transformation to active basis
+        if getattr(self, 'kdf', None) is not None:
+            old_veff = self.mf.get_veff
+            self.mf.get_veff = types.MethodType(_get_veff_unfolded(self), self.mf)
+
         options = self.opts.solver_options.replace({'fock_basis': 'ao'})
         gf2 = RAGF2(self.mf,
                 eri=np.empty(()),
+                veff=np.empty(()),
                 log=self.quiet_log,
                 options=options,
         )
@@ -329,6 +371,10 @@ class EAGF2(QEmbeddingMethod):
         self.log.info("Total wall time:  %s", time_string(timer() - t0))
         self.log.info("All done.")
 
+        #TODO hacky
+        if getattr(self, 'kdf', None) is not None:
+            self.mf.get_veff = types.MethodType(old_veff, self.mf)
+
         return results
 
 
@@ -378,7 +424,7 @@ if __name__ == '__main__':
     mf.conv_tol = 1e-14
     mf.conv_tol_grad = 1e-10
     mf.run()
-    
+
     gf2_params = {
         'conv_tol': 1e-10,
         'conv_tol_rdm1': 1e-14,

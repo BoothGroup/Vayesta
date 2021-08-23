@@ -9,7 +9,7 @@ import pyscf.agf2
 
 from vayesta.ewf.fragment import EWFFragment
 from vayesta.core.util import OptionsBase, NotSet, get_used_memory, time_string
-from vayesta.core import QEmbeddingFragment
+from vayesta.core import QEmbeddingFragment, kao2gmo
 from vayesta.eagf2 import ragf2, ewdmet_bath
 
 try:
@@ -38,6 +38,7 @@ class EAGF2FragmentOptions(OptionsBase):
     # --- Appease EWF inheritance
     plot_orbitals: bool = False
     energy_partitioning: str = 'first-occ'
+    sym_factor: float = 1.0
 
 
 @dataclasses.dataclass
@@ -98,7 +99,10 @@ class EAGF2FragmentResults:
 
 class EAGF2Fragment(QEmbeddingFragment):
 
-    def __init__(self, base, fid, name, c_frag, c_env, fragment_type, sym_factor=1,
+    Options = EAGF2FragmentOptions
+    Results = EAGF2FragmentResults
+
+    def __init__(self, base, fid, name, c_frag, c_env, fragment_type, 
                  atoms=None, aos=None, log=None, options=None, **kwargs):
         ''' Embedded AGF2 fragment.
 
@@ -125,16 +129,12 @@ class EAGF2Fragment(QEmbeddingFragment):
             Associated atoms (default value is None).
         aos : list or int
             Associated atomic orbitals (default value is None).
-        sym_factor : float
-            Symmetry factor (number of symmetry equivalent fragments)
-            (default value is 1.0).
         **kwargs : dict, optional
             Additional arguments passed to `EAGF2FragmentOptions`.
         '''
 
         super().__init__(
-                base, fid, name, c_frag, c_env, fragment_type,
-                sym_factor=sym_factor, atoms=atoms, aos=aos, log=log,
+                base, fid, name, c_frag, c_env, fragment_type, atoms=atoms, aos=aos, log=log,
         )
 
         self.opts = options
@@ -150,8 +150,6 @@ class EAGF2Fragment(QEmbeddingFragment):
         self.c_env_vir = None
         self.c_cluster_occ = None
         self.c_cluster_vir = None
-
-        self.results = None
 
     @property
     def e_corr(self):
@@ -377,21 +375,54 @@ class EAGF2Fragment(QEmbeddingFragment):
             raise RuntimeError("Incorrect occupation of virtual orbitals:\n%r" % n_vir)
         mo_occ = np.asarray(nocc*[2] + nvir*[0])
 
-        mo_energy, mo_coeff = self.mf.canonicalize(mo_coeff, mo_occ)
+        #mo_energy, mo_coeff = self.mf.canonicalize(mo_coeff, mo_occ)
+        mo_coeff, _, mo_energy = self.canonicalize_mo(mo_coeff, eigvals=True)
         c_active = mo_coeff[:, list(range(nocc_frozen, nocc+nvir-nvir_frozen))]
         c_frozen = mo_coeff[:, list(range(nocc_frozen)) + 
                                list(range(nocc+nvir-nvir_frozen, nocc+nvir))]
 
         # Get ERIs
         if eris is None:
-            if getattr(self.mf, 'with_df', None) is None:
-                eri = pyscf.ao2mo.incore.full(self.mf._eri, c_active, compact=False)
-                eri = eri.reshape((c_active.shape[1],) * 4)
+            if self.base.kdf is None:
+                if getattr(self.mf, 'with_df', None) is None:
+                    eri = pyscf.ao2mo.incore.full(self.mf._eri, c_active, compact=False)
+                    eri = eri.reshape((c_active.shape[1],) * 4)
+                else:
+                    if self.mf.with_df._cderi is None:
+                        self.mf.with_df.build()
+                    eri = np.asarray(pyscf.lib.unpack_tril(self.mf.with_df._cderi, axis=-1))
+                    eri = ragf2._ao2mo_3c(eri, c_active, c_active)
             else:
-                if self.mf.with_df._cderi is None:
-                    self.mf.with_df.build()
-                eri = np.asarray(pyscf.lib.unpack_tril(self.mf.with_df._cderi, axis=-1))
-                eri = ragf2._ao2mo_3c(eri, c_active, c_active)
+                #TODO Three-center?
+                #TODO this is hacky!
+                #c = np.concatenate((c_active, c_active), axis=1)
+                #eri = kao2gmo.gdf_to_eris(self.base.kdf, c, nactive, only_ovov=True)['ovov']
+                ints3c = kao2gmo.ThreeCenterInts.init_from_gdf(self.base.kdf)
+                eri = kao2gmo.j3c_kao2gmo(ints3c, c_active, c_active, only_ov=True)['ov']
+                eri = eri.reshape(eri.shape[0]*eri.shape[1], eri.shape[2], eri.shape[3])
+                eri = np.ascontiguousarray(eri)
+
+        # Get Veff due to frozen density
+        if self.base.kdf is None:
+            veff = None  # Just let RAGF2 code get it
+        else:
+            from pyscf.pbc.tools import k2gamma
+            #TODO clean, sort of repeated in eagf2._get_veff_unfolded
+            scell, phase = k2gamma.get_phase(self.base.kcell, self.base.kpts)
+            nr, nk = phase.shape
+            nao = self.base.kcell.nao
+
+            dm_froz = np.dot(self.c_env_occ, self.c_env_occ.T.conj()) * 2
+            dm_froz = dm_froz.reshape(nr, nao, nr, nao)
+            dm_froz_kpts = np.einsum('risj,rk,sk->kij', dm_froz, phase.conj(), phase)
+            #dm_froz_kpts = dm_froz_kpts.real  #FIXME don't think so
+
+            vj_kpts, vk_kpts = self.base.kdf.get_jk(dm_froz_kpts)
+            veff_kpts = [vj-0.5*vk for vj,vk in zip(vj_kpts, vk_kpts)]
+            veff = np.einsum('kij,rk,sk->risj', veff_kpts, phase, phase.conj())
+            veff = veff.reshape(nr*nao, nr*nao)
+            assert np.max(np.abs(veff.imag)) < 1e-7
+            veff = veff.real
 
         # Run solver
         cluster_solver = self.solver(
@@ -402,6 +433,7 @@ class EAGF2Fragment(QEmbeddingFragment):
                 frozen=(nocc_frozen, nvir_frozen),
                 log=self.base.quiet_log,
                 eri=eri,
+                veff=veff,
                 dump_chkfile=False,
                 options=self.opts.solver_options,
         )
@@ -427,7 +459,7 @@ class EAGF2Fragment(QEmbeddingFragment):
                 t_vir=t_vir,
         )
 
-        self.results = results
+        self._results = results
 
         # Force GC to free memory
         m0 = get_used_memory()
