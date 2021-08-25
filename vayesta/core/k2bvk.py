@@ -69,13 +69,12 @@ class UnfoldedSCF:
         hcore = k2bvk_2d(hk, self.kphase)
         return hcore
 
-    def get_veff(self, cell=None, dm=None, *args, **kwargs):
-        if cell is None:
-            cell = self.kcell
+    def get_veff(self, mol=None, dm=None, *args, **kwargs):
+        assert (mol is None or mol is self.mol)
         if dm is not None:
             # Fold DM into k-space
             dm = bvk2k_2d(dm, self.kphase)
-        vk = self.kmf.get_veff(cell=cell, dm_kpts=dm, *args, **kwargs)
+        vk = self.kmf.get_veff(dm_kpts=dm, *args, **kwargs)
         veff = k2bvk_2d(vk, self.kphase)
         return veff
 

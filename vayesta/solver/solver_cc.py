@@ -75,6 +75,9 @@ class CCSDSolver(ClusterSolver):
         #    for kind in ["oooo", "ovoo", "ovvo", "oovv", "ovov", "ovvv", "vvvv"]:
         #        diff = getattr(self._eris, kind) - getattr(eris, kind)
         #        log.debug("Difference (%2s|%2s): max= %.2e norm= %.2e", kind[:2], kind[2:], abs(diff).max(), np.linalg.norm(diff))
+        self.log.debugv("eris.mo_energy:\n%r", eris.mo_energy)
+        self.log.debugv("sum(eris.mo_energy)= %.8e", sum(eris.mo_energy))
+        self.log.debugv("Tr(eris.Fock)= %.8e", np.trace(eris.fock))
 
         # Tailored CC
         if self.opts.tcc:
