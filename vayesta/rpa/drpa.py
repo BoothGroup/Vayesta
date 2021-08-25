@@ -12,7 +12,7 @@ from timeit import default_timer as timer
 class dRPA:
     """Approach based on equations expressed succinctly in the appendix of
     Furche, F. (2001). PRB, 64(19), 195120. https://doi.org/10.1103/PhysRevB.64.195120
-    WARNING: Should only be used with canonical mean-field orbital coefficients in mf.mo_coeff.
+    WARNING: Should only be used with canonical mean-field orbital coefficients in mf.mo_coeff and RHF.
     """
 
     def __init__(self, mf, log):
@@ -30,15 +30,15 @@ class dRPA:
         return self.nocc * self.nvir
 
     def kernel(self):
-        """Solve singlet component of dRPA response.
+        """Solve same-spin component of dRPA response.
         At level of dRPA this is the only contribution to correlation energy; introduction of exchange will lead to
-        triplet contributions.
+        spin-flip contributions.
         """
         M, AmB, v = self._gen_arrays()
         e, c = np.linalg.eigh(M)
         self.freqs_s = e ** (0.5)
         assert (all(e > 1e-12))
-        self.ecorr = sum(self.freqs_s) - 2 * sum(v.diagonal()) - sum(AmB)
+        self.ecorr = 0.5 * (sum(self.freqs_s) - 2*v.trace() - sum(AmB))
 
         XpY = np.einsum("n,p,pn->pn", self.freqs_s**(-0.5), AmB**(0.5), c)
         XmY = np.einsum("n,p,pn->pn", self.freqs_s ** (0.5), AmB ** (-0.5), c)
