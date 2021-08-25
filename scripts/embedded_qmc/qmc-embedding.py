@@ -193,9 +193,10 @@ qmc_amp_energy = 0
 qmc_energies = []
 for i in range(nsite//nimp):
     ham = Hamiltonian()
-    ham.from_pickle('Hubbard_Hamiltonian_cluster%1d.pkl'%i)
+    # Hamiltonians, pkl-s indexed from 1,2...
+    ham.from_pickle('Hubbard_Hamiltonian_cluster%1d.pkl'%(i+1))
     cisd_coeffs = RestoredCisdCoeffs(ham)
-    cisd_coeffs.from_pickle('avg_coeff_cluster%1d.pkl'%i)
+    cisd_coeffs.from_pickle('avg_coeff_cluster%1d.pkl'%(i+1))
     #print(cisd_coeffs.energy())
     qmc_amp_energy = cisd_coeffs.energy()
     #print(qmc_amp_energy)
