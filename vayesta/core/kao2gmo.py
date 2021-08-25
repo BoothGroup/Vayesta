@@ -27,7 +27,7 @@ import vayesta.libs
 try:
     from pyscf.pbc.df.rsdf import RSGDF
 except ImportError:
-    RSGDF = vayesta.core.util.NotSetType
+    RSGDF = NotSetType
 
 log = logging.getLogger(__name__)
 
