@@ -13,7 +13,7 @@ import scipy.optimize
 log = logging.getLogger(__name__)
 
 # util module can be imported as *, such that the following is imported:
-__all__ = ['NotSet', 'einsum', 'cached_method', 'ConvergenceError', 'get_used_memory', 'timer', 'time_string', 'memory_string', 'OptionsBase']
+__all__ = ['NotSetType', 'NotSet', 'einsum', 'cached_method', 'ConvergenceError', 'get_used_memory', 'timer', 'time_string', 'memory_string', 'OptionsBase']
 
 class NotSetType:
     def __repr__(self):
