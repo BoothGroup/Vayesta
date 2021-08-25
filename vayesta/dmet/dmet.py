@@ -38,7 +38,8 @@ class DMET(QEmbeddingMethod):
         localize_fragment: bool = False  # Perform numerical localization on fragment orbitals
         iao_minao: str = 'auto'  # Minimal basis for IAOs
         # --- Bath settings
-        dmet_threshold: float = 1e-4
+        bath_type: str = None
+        dmet_threshold: float = 1e-6
         orbfile: str = None  # Filename for orbital coefficients
         # If multiple bno thresholds are to be calculated, we can project integrals and amplitudes from a previous larger cluster:
         project_eris: bool = False  # Project ERIs from a pervious larger cluster (corresponding to larger eta), can result in a loss of accuracy especially for large basis sets!
