@@ -658,14 +658,14 @@ class QEmbeddingFragment:
         if np.ndim(c) not in (2, 4):
             raise NotImplementedError()
         partition = partition.lower()
-        if partition not in ('first-occ', 'first-vir', 'democratic'):
+        if partition not in ('first-occ', 'occ-2', 'first-vir', 'democratic'):
             raise ValueError("Unknown partitioning of amplitudes: %r" % partition)
 
         if c_occ is None: c_occ = self.c_active_occ
         if c_vir is None: c_vir = self.c_active_vir
 
         # Projectors into fragment occupied and virtual space
-        if partition in ('first-occ', 'democratic'):
+        if partition in ('first-occ', 'occ-2', 'democratic'):
             fo = self.get_fragment_projector(c_occ)
         if partition in ('first-vir', 'democratic'):
             fv = self.get_fragment_projector(c_vir)
@@ -675,7 +675,7 @@ class QEmbeddingFragment:
             rv = np.eye(fv.shape[-1]) - fv
 
         if np.ndim(c) == 2:
-            if partition == 'first-occ':
+            if partition in ('first-occ', 'occ-2'):
                 pc = einsum('xi,ia->xa', fo, c)
             elif partition == 'first-vir':
                 pc = einsum('ia,xa->ix', c, fv)
@@ -687,6 +687,8 @@ class QEmbeddingFragment:
 
         if partition == 'first-occ':
             pc = einsum('xi,ijab->xjab', fo, c)
+        elif partition == 'occ-2':
+            pc = einsum('xj,ijab->ixab', fo, c)
         elif partition == 'first-vir':
             pc = einsum('ijab,xa->ijxb', c, fv)
         elif partition == 'democratic':

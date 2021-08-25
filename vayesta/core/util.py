@@ -13,7 +13,9 @@ import scipy.optimize
 log = logging.getLogger(__name__)
 
 # util module can be imported as *, such that the following is imported:
-__all__ = ['NotSet', 'einsum', 'cached_method', 'ConvergenceError', 'get_used_memory', 'timer', 'time_string', 'memory_string', 'OptionsBase']
+__all__ = ['NotSet', 'dot', 'einsum',
+        'cached_method', 'ConvergenceError', 'get_used_memory',
+        'timer', 'time_string', 'memory_string', 'OptionsBase']
 
 class NotSetType:
     def __repr__(self):
@@ -24,6 +26,10 @@ in cases where `None` itself is a valid setting.
 NotSet = NotSetType()
 
 timer = default_timer
+
+def dot(*args, **kwargs):
+    return np.linalg.multi_dot(args, **kwargs)
+
 
 def einsum(*args, **kwargs):
     kwargs['optimize'] = kwargs.pop('optimize', True)

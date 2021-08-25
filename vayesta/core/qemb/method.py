@@ -15,6 +15,7 @@ import pyscf.pbc
 import pyscf.pbc.df
 import pyscf.pbc.tools
 import pyscf.lib
+from pyscf.mp.mp2 import _mo_without_core
 try:
     import pyscf.pbc.df.df_incore
     from pyscf.pbc.df.df_incore import IncoreGDF
@@ -24,7 +25,8 @@ except:
 from vayesta.core import vlog
 from vayesta.core.k2bvk import UnfoldedSCF, unfold_scf
 from vayesta.core.util import *
-from vayesta.core.kao2gmo import gdf_to_pyscf_eris
+from vayesta.core.ao2mo.dfccsd import make_eris as make_eris_ccsd
+from vayesta.core.ao2mo.kao2gmo import gdf_to_pyscf_eris
 from vayesta.misc.gdf import GDF
 
 from .fragment import QEmbeddingFragment
@@ -377,7 +379,17 @@ class QEmbeddingMethod:
         # Molecules or supercell:
         if self.kdf is None:
             self.log.debugv("ao2mo method: %r", cm.ao2mo)
-            if isinstance(cm, pyscf.mp.dfmp2.DFMP2):
+            # For PBC DFCCSD calculation we need to use the right Fock matrix (without exxdiv correction!)
+            # -> use custom ao2mo
+            if self.boundary_cond.startswith('periodic') and isinstance(cm, pyscf.cc.ccsd.CCSD):
+                c_act = _mo_without_core(cm, cm.mo_coeff)
+                fock = dot(c_act.T, self.get_fock(), c_act)
+                mo_energy = fock.diagonal().copy()
+                madelung = pyscf.pbc.tools.madelung(self.mol, self.mf.kpt)
+                for i in range(cm.get_nocc()):
+                    fock[i,i] += madelung
+                return make_eris_ccsd(cm, fock=fock, mo_energy=mo_energy)
+            elif isinstance(cm, pyscf.mp.dfmp2.DFMP2):
                 # TODO: This is a hack, requiring modified PySCF - normal DFMP2 does not store 4c (ov|ov) integrals
                 return cm.ao2mo(store_eris=True)
             else:
@@ -456,7 +468,7 @@ class QEmbeddingMethod:
     # -------
 
 
-    def get_wf_ccsd(self, get_lambda=False, partition=None):
+    def get_wf_ccsd(self, get_lambda=False, partition=None, symmetrize=True):
         """Get global CCSD wave function (T1 and T2 amplitudes) from fragment calculations.
 
         Parameters
@@ -486,11 +498,13 @@ class QEmbeddingMethod:
             else:
                 raise RuntimeError("No amplitudes found for fragment %s" % f)
             a1 = f.project_amplitude_to_fragment(a1, partition=partition)
-            a2 = f.project_amplitude_to_fragment(a2, partition=partition, symmetrize=True)
+            a2 = f.project_amplitude_to_fragment(a2, partition=partition, symmetrize=symmetrize)
             ro = np.linalg.multi_dot((f.c_active_occ.T, ovlp, self.mo_coeff_occ))
             rv = np.linalg.multi_dot((f.c_active_vir.T, ovlp, self.mo_coeff_vir))
             t1 += einsum('ia,iI,aA->IA', a1, ro, rv)
             t2 += einsum('ijab,iI,jJ,aA,bB->IJAB', a2, ro, ro, rv, rv)
+        #t2 = (t2 + t2.transpose(1,0,3,2))/2
+        #assert np.allclose(t2, t2.transpose(1,0,3,2))
         return t1, t2
 
 
@@ -526,9 +540,8 @@ class QEmbeddingMethod:
         partition = partition.lower()
         if partition == 'dm':
             if add_mf:
-                #sc = np.dot(self.get_ovlp(), self.mo_coeff)
-                sc = np.dot(self.get_ovlp(), self.mf.mo_coeff)
-                dm1_mf = np.linalg.multi_dot((sc.T, self.mf.make_rdm1(), sc))
+                sc = np.dot(self.get_ovlp(), self.mo_coeff)
+                dm1_mf = dot(sc.T, self.mf.make_rdm1(), sc)
                 dm1 = dm1_mf.copy()
             else:
                 dm1 = np.zeros((self.nmo, self.nmo))
@@ -539,11 +552,10 @@ class QEmbeddingMethod:
                     cf = f.mo_coeff
                 else:
                     cf = f.c_active
-                #rf = np.linalg.multi_dot((self.mo_coeff.T, self.get_ovlp(), cf))
-                rf = np.linalg.multi_dot((self.mf.mo_coeff.T, self.get_ovlp(), cf))
+                rf = dot(self.mo_coeff.T, self.get_ovlp(), cf)
                 if add_mf:
                     # Subtract double counting:
-                    ddm = (f.results.dm1 - np.linalg.multi_dot((rf.T, dm1_mf, rf)))
+                    ddm = (f.results.dm1 - dot(rf.T, dm1_mf, rf))
                 else:
                     ddm = f.results.dm1
                 pf = f.get_fragment_projector(cf)
@@ -555,6 +567,7 @@ class QEmbeddingMethod:
                 l1 = l2 = None
             elif 'l12' in partition:
                 l1, l2 = self.get_wf_ccsd(get_lambda=True, partition=wf_partition)
+                #l1, l2 = self.get_wf_ccsd(get_lambda=True, partition='occ-2')
             else:
                 l1, l2 = t1, t2
             dm1 = cc.make_rdm1(t1=t1, t2=t2, l1=l1, l2=l2, with_frozen=False)
@@ -562,8 +575,7 @@ class QEmbeddingMethod:
             raise NotImplementedError("Unknown make_rdm1 partition= %r", partition)
 
         if ao_basis:
-            #dm1 = np.linalg.multi_dot((self.mo_coeff, dm1, self.mo_coeff.T))
-            dm1 = np.linalg.multi_dot((self.mf.mo_coeff, dm1, self.mf.mo_coeff.T))
+            dm1 = dot(self.mo_coeff, dm1, self.mo_coeff.T)
         if symmetrize:
             dm1 = (dm1 + dm1.T)/2
         return dm1
@@ -681,7 +693,7 @@ class QEmbeddingMethod:
             cs = np.dot(c_lo.T, self.get_ovlp())
             pop = einsum('ia,ab,ib->i', cs, dm1, cs)
         else:
-            raise ValueError("Unknown population analysis kind: %s" % kind)
+            raise ValueError("Unknown population analysis kind: %r" % kind)
         # Get atomic charges
         elecs = np.zeros(self.mol.natm)
         for i, label in enumerate(self.mol.ao_labels(fmt=None)):

@@ -13,6 +13,8 @@ import numpy as np
 # PySCF
 import pyscf
 import pyscf.lib
+import pyscf.mp
+import pyscf.cc
 from pyscf.mp.mp2 import _mo_without_core
 import pyscf.pbc
 import pyscf.pbc.df
@@ -20,14 +22,8 @@ import pyscf.pbc.tools
 from pyscf.pbc.lib import kpts_helper
 # Package
 from vayesta.core.util import *
-from vayesta.misc.gdf import GDF
 import vayesta.libs
 
-# RSGDF [Berkelback et al.]
-try:
-    from pyscf.pbc.df.rsdf import RSGDF
-except ImportError:
-    RSGDF = vayesta.core.util.NotSetType
 
 log = logging.getLogger(__name__)
 
