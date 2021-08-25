@@ -12,6 +12,8 @@ import logging
 import numpy as np
 # PySCF
 import pyscf
+import pyscf.mp
+import pyscf.cc
 import pyscf.lib
 from pyscf.mp.mp2 import _mo_without_core
 import pyscf.pbc
