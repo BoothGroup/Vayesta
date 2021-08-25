@@ -105,8 +105,8 @@ class FCIQMCSolver(ClusterSolver):
         
         qmc_H = Hamiltonian()
         qmc_H.from_arrays(h0, h_eff, eris, nelec)
-        qmc_H.to_pickle('Hubbard_Hamiltonian_cluster%1d.pkl'%self.fragment.id)
-        qmc_H.write_fcidump( fname='FCIDUMP_cluster%1d'%self.fragment.id)
+        qmc_H.to_pickle('Hubbard_Hamiltonian_cluster%1d.pkl'%(self.fragment.id))
+        qmc_H.write_fcidump( fname='FCIDUMP_cluster%1d'%(self.fragment.id))
 
         
         t0 = timer()
