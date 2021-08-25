@@ -112,14 +112,14 @@ for uidx, hubbard_u in enumerate(range(u_min, u_max+1, u_step)):
             f.write("%12s  %16s  %16s %16s  \n" % ("#", "nsites", "nimps", "doping"))
             f.write("%12s  %16d  %16d %16d  \n" % ("# ", (nsite), (nimp), (doping)))
             f.write("%12s  %16s  %16s  %16s  %16s %16s %16s\n" % ("# Hubbard-U", "Exact", "Oneshot", "PDMET", "Brueckner", "DMET", "DMET_ncopt"))
-        f.write('%12.1f  %16.8f  %16.8f  %16.8f  %16.8f %16.8f %16.8f \n' % (hubbard_u, e_exact, oneshot.e_dmet, sc_pdmet.e_dmet, sc_brueck.e_dmet, dmet_e_tot, dmet_e_tot))
+        f.write('%12.1f  %16.8f  %16.8f  %16.8f  %16.8f %16.8f %16.8f \n' % (hubbard_u/hubbard_t, e_exact, oneshot.e_dmet, sc_pdmet.e_dmet, sc_brueck.e_dmet, dmet_e_tot, dmet_e_tot))
 
     with open('1D-energies-ewf.txt', 'a') as f:
         if uidx == 0:
             f.write("%12s  %16s  %16s %16s  \n" % ("#", "nsites", "nimps", "doping"))
             f.write("%12s  %16d  %16d %16d  \n" % ("# ", (nsite), (nimp), (doping)))
             f.write("%12s  %16s  %16s  %16s  %16s %16s %16s\n" % ("# Hubbard-U", "Exact", "Oneshot", "PDMET", "Brueckner", "DMET", "DMET_ncopt"))
-        f.write('%12.1f  %16.8f  %16.8f  %16.8f  %16.8f %16.8f %16.8f\n' % (hubbard_u, e_exact, oneshot.e_ewf, sc_pdmet.e_ewf, sc_brueck.e_ewf, dmet_e_tot, dmet_e_tot))
+        f.write('%12.1f  %16.8f  %16.8f  %16.8f  %16.8f %16.8f %16.8f\n' % (hubbard_u/hubbard_t, e_exact, oneshot.e_ewf, sc_pdmet.e_ewf, sc_brueck.e_ewf, dmet_e_tot, dmet_e_tot))
 
     with open('1D-docc.txt', 'a') as f:
         if uidx == 0:
@@ -127,12 +127,12 @@ for uidx, hubbard_u in enumerate(range(u_min, u_max+1, u_step)):
             f.write("%12s  %16d  %16d %16d  \n" % ("# ", (nsite), (nimp), (doping)))
             f.write("%12s  %16s  %16s  %16s  %16s %16s %16s\n" % ("# Hubbard-U", "Exact", "Oneshot", "PDMET", "Brueckner", "DMET", "DMET_ncopt"))
         s = nimp // 2 # Take site at the center of fragment 0
-        f.write('%12.1f  %16.8f  %16.8f  %16.8f  %16.8f %16.8f %16.8f\n' % (hubbard_u, docc_exact, oneshot.docc[s], sc_pdmet.docc[s], sc_brueck.docc[s], dmet_docc[s], dmet_docc[s]))
+        f.write('%12.1f  %16.8f  %16.8f  %16.8f  %16.8f %16.8f %16.8f\n' % (hubbard_u/hubbard_t, docc_exact, oneshot.docc[s], sc_pdmet.docc[s], sc_brueck.docc[s], dmet_docc[s], dmet_docc[s]))
         
     with open('1D-convergence.txt', 'a') as f:
         if uidx == 0:
             f.write("%12s  %16s  %16s %16s  \n" % ("#", "nsites", "nimps", "doping"))
             f.write("%12s  %16d  %16d %16d  \n" % ("# ", (nsite), (nimp), (doping)))
             f.write("%12s  %16s  %16s  %16s  %16s %16s %16s\n" % ("# Hubbard-U", "Exact", "Oneshot", "PDMET", "Brueckner", "DMET", "DMET_ncopt"))
-        f.write('%12.1f %16.8s %d  %16.8s %d  %16.8s %d  %16.8s %d %16.8s %d %16.8s %d\n' % (hubbard_u, str(fci_converged), 1,  str(oneshot.converged), oneshot.iteration, str(sc_pdmet.converged), sc_pdmet.iteration, str(sc_brueck.converged), sc_brueck.iteration,str(dmet_converged), 1,str(dmet_converged), 1))
+        f.write('%12.1f %16.8s %d  %16.8s %d  %16.8s %d  %16.8s %d %16.8s %d %16.8s %d\n' % (hubbard_u/hubbard_t, str(fci_converged), 1,  str(oneshot.converged), oneshot.iteration, str(sc_pdmet.converged), sc_pdmet.iteration, str(sc_brueck.converged), sc_brueck.iteration,str(dmet_converged), 1,str(dmet_converged), 1))
 

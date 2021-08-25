@@ -97,9 +97,7 @@ class SelfConsistentMF:
                 diis = PCDIIS(self.mf.mo_coeff[:,:nocc].copy())
         else:
             diis = None
-        
-        dm0 = None
-        for self.iteration in range(1, self.maxiter+1):
+
             e_mf = self.mf.e_tot / self.nelectron
             if dm0 is not None:
                 ddm = abs(self.mf.make_rdm1() - dm0).max()
