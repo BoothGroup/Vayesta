@@ -138,7 +138,7 @@ class ClusterSolver:
         for ndouble in range(5):
             try:
             	cpt, res = scipy.optimize.brentq(electron_err, a=bounds[0], b=bounds[1], xtol=tol, full_output=True)
-	    except ValueError:
+            except ValueError:
                 if err < 0:
                     bounds[1] *= 2
                 else:

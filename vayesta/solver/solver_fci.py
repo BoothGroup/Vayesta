@@ -41,7 +41,9 @@ class FCISolver(ClusterSolver):
             # Temporary implementation
             import pyscf.ao2mo
             t0 = timer()
-            eris = pyscf.ao2mo.full(self.mf._eri, c_act, compact=False).reshape(4*[self.nactive])
+            # HACK for hubbard model - not to be pushed back to master!
+            eris = einsum('ai,aj,ak,al->ijkl', c_act, c_act, c_act, c_act) * self.mf.mol.hubbard_u
+            #eris = pyscf.ao2mo.full(self.mf._eri, c_act, compact=False).reshape(4*[self.nactive])
             self.log.timing("Time for AO->MO of (ij|kl):  %s", time_string(timer()-t0))
 
         nocc = self.nocc - self.nocc_frozen
