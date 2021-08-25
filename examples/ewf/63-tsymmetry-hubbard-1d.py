@@ -45,5 +45,7 @@ def site_basis_c1(f):
     return c1
 
 for i in range(len(ewf1.fragments)):
+    # Note that the fragments C1 amplitudes from FCI are only defined up to a sign
     err = np.linalg.norm(site_basis_c1(ewf1.fragments[i]) - site_basis_c1(ewf2.fragments[i]))
-    print("Error fragment %3d= %.3e" % (i, err))
+    err_sum = np.linalg.norm(site_basis_c1(ewf1.fragments[i]) + site_basis_c1(ewf2.fragments[i]))
+    print("Error fragment %3d= %.3e" % (i, min(err, err_sum)))
