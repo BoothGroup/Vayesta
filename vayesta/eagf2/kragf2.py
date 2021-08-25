@@ -28,6 +28,8 @@ else:
 
 libeagf2 = getattr(libs, 'libeagf2')
 
+#FIXME broken with mf.exxdiv = 'ewald'?
+
 
 @dataclasses.dataclass
 class KRAGF2Options(RAGF2Options):

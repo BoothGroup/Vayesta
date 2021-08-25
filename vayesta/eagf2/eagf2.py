@@ -47,7 +47,7 @@ class EAGF2Options(OptionsBase):
 
     # --- Other
     strict: bool = False
-    orthogonal_mo_tol: float = 1e-9
+    orthogonal_mo_tol: float = 1e-10
     recalc_veff: bool = False
     copy_mf: bool = False
     quiet_solver: bool = True
@@ -230,6 +230,7 @@ class EAGF2(QEmbeddingMethod):
             self.log.info("Minimal basis=       %s", self.opts.iao_minao)
             fragkw['minao'] = self.opts.iao_minao
         self.init_fragmentation(self.opts.fragment_type, **fragkw)
+        self.symfrags = []
         self.log.timing("Time for fragment initialization: %s", time_string(timer() - t1))
 
         self.log.timing("Time for EAGF2 setup: %s", time_string(timer() - t0))
@@ -286,33 +287,51 @@ class EAGF2(QEmbeddingMethod):
             self.log.info("************%s", len(str(frag))*"*")
             self.log.changeIndentLevel(1)
 
-            results = frag.kernel()
-            self.cluster_results[frag.id] = results
+            if frag.sym_parent is None:
+                results = frag.kernel()
+                self.cluster_results[frag.id] = results
 
-            self.log.info("E(corr) = %20.12f", results.e_corr)
-            self.log.info("IP      = %20.12f", results.ip)
-            self.log.info("EA      = %20.12f", results.ea)
-            self.log.info("Gap     = %20.12f", results.ip + results.ea)
-            if not results.converged:
-                self.log.error("%s is not converged", frag)
+                self.log.info("E(corr) = %20.12f", results.e_corr)
+                self.log.info("IP      = %20.12f", results.ip)
+                self.log.info("EA      = %20.12f", results.ea)
+                self.log.info("Gap     = %20.12f", results.ip + results.ea)
+                if not results.converged:
+                    self.log.error("%s is not converged", frag)
+                else:
+                    self.log.info("%s is done.", frag)
+
             else:
-                self.log.info("%s is done.", frag)
+                self.log.info("Fragment is symmetry related, parent: %s", frag.sym_parent)
+                results = self.cluster_results[frag.sym_parent.id]
+
+                #TODO messy - should the symmetry related fragments have a kernel which
+                # just does this and doesn't run the solver?
+                if frag.c_cluster_occ is None:
+                    frag.c_cluster_occ, frag.c_cluster_vir, frag.c_env_occ, frag.c_env_vir = \
+                            frag.make_bath()
+
+            rdm1_frag = frag.democratic_partition(results.rdm1, mo_coeff=results.c_active)
+            fock_frag = frag.democratic_partition(results.fock, mo_coeff=results.c_active)
+            t_occ_frag = frag.democratic_partition(results.t_occ, mo_coeff=results.c_active)
+            t_vir_frag = frag.democratic_partition(results.t_vir, mo_coeff=results.c_active)
 
             ovlp = frag.mf.get_ovlp()
             c = pyscf.lib.einsum('pa,pq,qi->ai', results.c_active.conj(), ovlp, frag.mf.mo_coeff)
 
-            rdm1 += pyscf.lib.einsum('pq,pi,qj->ij', results.rdm1, c.conj(), c)
-            fock += pyscf.lib.einsum('pq,pi,qj->ij', results.fock, c.conj(), c)
-            t_occ += pyscf.lib.einsum('...pq,pi,qj->...ij', results.t_occ, c.conj(), c)
-            t_vir += pyscf.lib.einsum('...pq,pi,qj->...ij', results.t_vir, c.conj(), c)
+            rdm1 += pyscf.lib.einsum('pq,pi,qj->ij', rdm1_frag, c.conj(), c)
+            fock += pyscf.lib.einsum('pq,pi,qj->ij', fock_frag, c.conj(), c)
+            t_occ += pyscf.lib.einsum('...pq,pi,qj->...ij', t_occ_frag, c.conj(), c)
+            t_vir += pyscf.lib.einsum('...pq,pi,qj->...ij', t_vir_frag, c.conj(), c)
 
             self.log.changeIndentLevel(-1)
 
-        #TODO hacky
-        #TODO unfold AO 3c integrals and use for fock build and transformation to active basis
-        if getattr(self, 'kdf', None) is not None:
-            old_veff = self.mf.get_veff
-            self.mf.get_veff = types.MethodType(_get_veff_unfolded(self), self.mf)
+
+        #NOTE: UnfoldedRHF should do this automatically!
+        ##TODO hacky
+        ##TODO unfold AO 3c integrals and use for fock build and transformation to active basis
+        #if getattr(self, 'kdf', None) is not None:
+        #    old_veff = self.mf.get_veff
+        #    self.mf.get_veff = types.MethodType(_get_veff_unfolded(self), self.mf)
 
         options = self.opts.solver_options.replace({'fock_basis': 'ao'})
         gf2 = RAGF2(self.mf,
@@ -371,9 +390,10 @@ class EAGF2(QEmbeddingMethod):
         self.log.info("Total wall time:  %s", time_string(timer() - t0))
         self.log.info("All done.")
 
-        #TODO hacky
-        if getattr(self, 'kdf', None) is not None:
-            self.mf.get_veff = types.MethodType(old_veff, self.mf)
+        #NOTE: UnfoldedRHF should do this automatically!
+        ##TODO hacky
+        #if getattr(self, 'kdf', None) is not None:
+        #    self.mf.get_veff = types.MethodType(old_veff, self.mf)
 
         return results
 

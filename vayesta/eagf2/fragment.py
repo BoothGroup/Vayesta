@@ -102,8 +102,9 @@ class EAGF2Fragment(QEmbeddingFragment):
     Options = EAGF2FragmentOptions
     Results = EAGF2FragmentResults
 
-    def __init__(self, base, fid, name, c_frag, c_env, fragment_type, 
-                 atoms=None, aos=None, log=None, options=None, **kwargs):
+    #def __init__(self, base, fid, name, c_frag, c_env, fragment_type, 
+    #             atoms=None, aos=None, log=None, options=None, **kwargs):
+    def __init__(self, *args, **kwargs):
         ''' Embedded AGF2 fragment.
 
         Parameters
@@ -133,18 +134,16 @@ class EAGF2Fragment(QEmbeddingFragment):
             Additional arguments passed to `EAGF2FragmentOptions`.
         '''
 
-        super().__init__(
-                base, fid, name, c_frag, c_env, fragment_type, atoms=atoms, aos=aos, log=log,
-        )
+        super().__init__(*args, **kwargs)
 
-        self.opts = options
-        if self.opts is None:
-            self.opts = EAGF2FragmentOptions(**kwargs)
-        self.opts = self.opts.replace(self.base.opts, select=NotSet)
+        defaults = self.Options().replace(self.base.Options(), select=NotSet)
         for key, val in self.opts.items():
-            self.log.infov("  > %-24s %r", key + ':', val)
+            if val != getattr(defaults, key):
+                self.log.info('  > %-24s %3s %r', key + ':', '(*)', val)
+            else:
+                self.log.debugv('  > %-24s %3s %r', key + ':', '', val)
         self.solver = ragf2.RAGF2
-        self.log.infov("  > %-24s %r", 'Solver:', self.solver)
+        #self.log.infov("  > %-24s %r", 'Solver:', self.solver)
 
         self.c_env_occ = None
         self.c_env_vir = None
@@ -284,39 +283,14 @@ class EAGF2Fragment(QEmbeddingFragment):
             return self.make_dmet_mp2_bath()
 
 
-    def project_to_fragment(self, cluster_solver, mo_coeff):
-        ''' Project quantities back onto the fragment space.
-
-        Parameters
-        ----------
-        cluster_solver : vayesta.eagf2.ragf2.RAGF2
-            RAGF2 cluster solver object.
-        mo_coeff : np.ndarray
-            MO coefficients corresponding to the active orbitals of the
-            basis used in `cluster_solver`.
-
-        Returns
-        -------
-        rdm1 : np.ndarray
-            Reduced one-body density matrix, democratically partitioned and
-            transformed into the MO basis.
-        fock : np.ndarray
-            Fock matrix, democratically partitioned and transformed into the
-            MO basis.
-        t_occ : np.ndarray
-            Occupied self-energy moments, democratically partitioned and 
-            transformed into the into the MO basis.
-        t_vir : np.ndarray
-            Virtual self-energy moments, democratically partitioned and 
-            transformed into the into the MO basis.
+    def democratic_partition(self, matrix, mo_coeff=None):
+        ''' Democratically partition a matrix.
         '''
 
-        rdm1 = cluster_solver.make_rdm1(with_frozen=False)
-        fock = cluster_solver.get_fock(with_frozen=False)
-        se = cluster_solver.se
+        if mo_coeff is None:
+            mo_coeff = self.c_active
         ovlp = self.mf.get_ovlp()
 
-        #TODO move democratic partitioning to external function
         c = pyscf.lib.einsum('pa,pq,qi->ai', mo_coeff.conj(), ovlp, self.c_frag)
         p_frag = np.dot(c, c.T.conj())
 
@@ -324,18 +298,64 @@ class EAGF2Fragment(QEmbeddingFragment):
         c = pyscf.lib.einsum('pa,pq,qi->ai', mo_coeff.conj(), ovlp, c_full)
         p_full = np.dot(c, c.T.conj())
 
-        def democratic_part(matrix):
-            m = pyscf.lib.einsum('...pq,pi,qj->...ij', matrix, p_frag, p_full)
-            m = 0.5 * (m + m.swapaxes(m.ndim-1, m.ndim-2).conj())
-            return m
+        m = pyscf.lib.einsum('...pq,pi,qj->...ij', matrix, p_frag, p_full)
+        m = 0.5 * (m + m.swapaxes(m.ndim-1, m.ndim-2).conj())
 
-        rdm1 = democratic_part(rdm1)
-        fock = democratic_part(fock)
-        t_occ = democratic_part(se.get_occupied().moment([0, 1], squeeze=False))
-        t_vir = democratic_part(se.get_virtual().moment([0, 1], squeeze=False))
-        #TODO higher moments?
+        return m
 
-        return rdm1, fock, t_occ, t_vir
+
+    #def project_to_fragment(self, cluster_solver, mo_coeff):
+    #    ''' Project quantities back onto the fragment space.
+
+    #    Parameters
+    #    ----------
+    #    cluster_solver : vayesta.eagf2.ragf2.RAGF2
+    #        RAGF2 cluster solver object.
+    #    mo_coeff : np.ndarray
+    #        MO coefficients corresponding to the active orbitals of the
+    #        basis used in `cluster_solver`.
+
+    #    Returns
+    #    -------
+    #    rdm1 : np.ndarray
+    #        Reduced one-body density matrix, democratically partitioned and
+    #        transformed into the MO basis.
+    #    fock : np.ndarray
+    #        Fock matrix, democratically partitioned and transformed into the
+    #        MO basis.
+    #    t_occ : np.ndarray
+    #        Occupied self-energy moments, democratically partitioned and 
+    #        transformed into the into the MO basis.
+    #    t_vir : np.ndarray
+    #        Virtual self-energy moments, democratically partitioned and 
+    #        transformed into the into the MO basis.
+    #    '''
+
+    #    rdm1 = cluster_solver.make_rdm1(with_frozen=False)
+    #    fock = cluster_solver.get_fock(with_frozen=False)
+    #    se = cluster_solver.se
+    #    ovlp = self.mf.get_ovlp()
+
+    #    #TODO move democratic partitioning to external function
+    #    c = pyscf.lib.einsum('pa,pq,qi->ai', mo_coeff.conj(), ovlp, self.c_frag)
+    #    p_frag = np.dot(c, c.T.conj())
+
+    #    c_full = np.hstack((self.c_frag, self.c_env))
+    #    c = pyscf.lib.einsum('pa,pq,qi->ai', mo_coeff.conj(), ovlp, c_full)
+    #    p_full = np.dot(c, c.T.conj())
+
+    #    def democratic_part(matrix):
+    #        m = pyscf.lib.einsum('...pq,pi,qj->...ij', matrix, p_frag, p_full)
+    #        m = 0.5 * (m + m.swapaxes(m.ndim-1, m.ndim-2).conj())
+    #        return m
+
+    #    rdm1 = democratic_part(rdm1)
+    #    fock = democratic_part(fock)
+    #    t_occ = democratic_part(se.get_occupied().moment([0, 1], squeeze=False))
+    #    t_vir = democratic_part(se.get_virtual().moment([0, 1], squeeze=False))
+    #    #TODO higher moments?
+
+    #    return rdm1, fock, t_occ, t_vir
 
 
     def kernel(self, eris=None):
@@ -410,7 +430,6 @@ class EAGF2Fragment(QEmbeddingFragment):
                         np.hstack((c_active, c_active)),
                         c_active.shape[-1],
                         only_ovov=True,
-                        store_vvl=True,
                 )
                 eri = eri['ovov']
 
@@ -452,7 +471,11 @@ class EAGF2Fragment(QEmbeddingFragment):
         cluster_solver.kernel()
 
         e_corr = cluster_solver.e_corr
-        rdm1, fock, t_occ, t_vir = self.project_to_fragment(cluster_solver, c_active)
+        #rdm1, fock, t_occ, t_vir = self.project_to_fragment(cluster_solver, c_active)
+        rdm1 = cluster_solver.make_rdm1(with_frozen=False)
+        fock = cluster_solver.get_fock(with_frozen=False)
+        t_occ = cluster_solver.se.get_occupied().moment([0, 1], squeeze=False)
+        t_vir = cluster_solver.se.get_virtual().moment([0, 1], squeeze=False)
 
         results = EAGF2FragmentResults(
                 fid=self.id,
