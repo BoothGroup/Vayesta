@@ -105,9 +105,14 @@ class ClusterSolver:
     def c_active(self):
         return self.mo_coeff[:,self.get_active_slice()]
 
-    def kernel_optimize_cpt(self, nelectron_target, *args, lower_bound=-1.0, upper_bound=1.0, tol=1e-8, **kwargs):
+    def kernel_optimize_cpt(self, nelectron_target, *args, bounds=[-1.0, 1.0], tol=1e-8, **kwargs):
 
-        hcore0 = self.base._hcore
+        mf = self.base.mf
+        # Save current hcore to restore later
+        hfunc0 = mf.get_hcore
+        hcache0 = self.base._hcore
+        # Unmodified hcore
+        h0 = self.base.get_hcore()
         # Fragment projector
         cs = np.dot(self.fragment.c_frag.T, self.base.get_ovlp())
         p_frag = np.dot(cs.T, cs)
@@ -119,8 +124,12 @@ class ClusterSolver:
 
         def electron_err(cpt):
             nonlocal results, err
-            self.base._hcore = (hcore0 - cpt*p_frag)
+            mf.get_hcore = lambda *args : (h0 - cpt*p_frag)
+            # Important: delete cache of QuantumEmbeddingMethod:
+            self.base._hcore = None
             results = self.kernel(*args, **kwargs)
+            if not results.converged:
+                raise ConvergenceError()
             ne_frag = einsum('xi,ij,xj->', csc, results.dm1, csc)
             err = (ne_frag - nelectron_target)
             self.log.debugv("Electron number in fragment= %.8f  target=  %.8f  error= %.8f  chem. pot.=  %16.8f Ha", ne_frag, nelectron_target, err, cpt)
@@ -128,14 +137,18 @@ class ClusterSolver:
 
         for ndouble in range(5):
             try:
-                cpt, res = scipy.optimize.brentq(electron_err, a=lower_bound, b=upper_bound, xtol=tol, full_output=True)
-            except ValueError:
+            	cpt, res = scipy.optimize.brentq(electron_err, a=bounds[0], b=bounds[1], xtol=tol, full_output=True)
+	    except ValueError:
                 if err < 0:
-                    upper_bound *= 2
+                    bounds[1] *= 2
                 else:
-                    lower_bound *= 2
-                self.log.debug("Bounds for chemical potential search too small. New bounds: [%f %f]", lower_bound, upper_bound)
+                    bounds[2] *= 2
+                self.log.debug("Bounds for chemical potential search too small. New bounds: [%f %f]", *bounds)
                 continue
+            # Could not convergence in bracket:
+            except ConvergenceError:
+                bounds[0], bounds[1] = bounds[0]/2, bounds[1]/2
+                self.log.debug("Solver did not converge. New bounds: [%f %f]", *bounds)
 
             if res.converged:
                 break
@@ -149,5 +162,7 @@ class ClusterSolver:
             raise RuntimeError(errmsg)
 
         self.log.info("Optimized chemical potential= % 16.8f Ha", cpt)
-        self.base._hcore = hcore0
+        # Restore hcore
+        mf.get_hcore = hfunc0
+        self.base._hcore = hcache0
         return results

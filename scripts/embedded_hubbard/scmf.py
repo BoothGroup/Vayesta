@@ -41,7 +41,7 @@ class SelfConsistentMF:
         if (not self.ab_initio):
             return self.mf.mol.nsite
         else:
-            return self.mf.mol.nelectron
+            return self.mf.mol.nelectron # Only works for ab-initio Hydrogen rings!
 
     @property
     def nelectron(self):
@@ -97,11 +97,6 @@ class SelfConsistentMF:
                 diis = PCDIIS(self.mf.mo_coeff[:,:nocc].copy())
         else:
             diis = None
-            
-        
-
-        dm0 = None
-        for self.iteration in range(1, self.maxiter+1):
 
             e_mf = self.mf.e_tot / self.nelectron
             if dm0 is not None:
@@ -120,7 +115,6 @@ class SelfConsistentMF:
                 e_ewf = fci.e_tot /self.nelectron
             else:
                 e_ewf = fci.get_e_tot() / self.nelectron
-            
             if self.sc_type:
                 print("Iteration %3d: E(MF)= %16.8f E(tot)= %16.8f dDM= %16.8f" % (self.iteration, e_mf, e_dmet, ddm))
             if ddm < (1-self.damping)*self.tol:
@@ -170,7 +164,6 @@ class SelfConsistentMF:
     def update_mf(self, *args, **kwargs):
         if self.sc_type is None:
             return self.mf
-
         if self.sc_type.lower() == 'pdmet':
             return self.update_mf_pdmet(*args, **kwargs)
         if self.sc_type.lower() == 'brueckner':

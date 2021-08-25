@@ -1,4 +1,3 @@
-#import logging
 import os.path
 import functools
 from datetime import datetime
@@ -18,7 +17,7 @@ from vayesta.core.util import *
 from vayesta.core import QEmbeddingMethod
 
 from . import helper
-from .fragment import EWFFragment, EWFFragmentExit
+from .fragment import EWFFragment
 
 try:
     from mpi4py import MPI
@@ -32,44 +31,6 @@ except ImportError:
     MPI_size = 1
     from timeit import default_timer as timer
 
-@dataclasses.dataclass
-class EWFOptions(Options):
-    """Options for EWF calculations."""
-    # --- Fragment settings
-    fragment_type: str = 'IAO'
-    localize_fragment: bool = False     # Perform numerical localization on fragment orbitals
-    iao_minao : str = 'auto'            # Minimal basis for IAOs
-    # --- Bath settings
-    dmet_threshold: float = 1e-4
-    orbfile: str = None                 # Filename for orbital coefficients
-    # If multiple bno thresholds are to be calculated, we can project integrals and amplitudes from a previous larger cluster:
-    project_eris: bool = False          # Project ERIs from a pervious larger cluster (corresponding to larger eta), can result in a loss of accuracy especially for large basis sets!
-    project_init_guess: bool = True     # Project converted T1,T2 amplitudes from a previous larger cluster
-    orthogonal_mo_tol: float = False
-    # --- Solver settings
-    solver_options: dict = dataclasses.field(default_factory=dict)
-    make_rdm1: bool = False
-    make_rdm2: bool = False
-    pop_analysis: str = False           # Do population analysis
-    eom_ccsd: list = dataclasses.field(default_factory=list)  # Perform EOM-CCSD in each cluster by default
-    eom_ccsd_nroots: int = 5            # Perform EOM-CCSD in each cluster by default
-    eomfile: str = 'eom-ccsd'           # Filename for EOM-CCSD states
-    # Counterpoise correction of BSSE
-    bsse_correction: bool = True
-    bsse_rmax: float = 5.0              # In Angstrom
-    # -- Self-consistency
-    sc_maxiter: int = 30
-    sc_energy_tol: float = 1e-6
-    sc_mode: int = 0
-    # --- Orbital plots
-    plot_orbitals: list = dataclasses.field(default_factory=dict)
-    plot_orbitals_exit: bool = False            # Exit immediately after all orbital plots have been generated
-    plot_orbitals_dir: str = 'orbitals'
-    plot_orbitals_kwargs: dict = dataclasses.field(default_factory=dict)
-    plot_orbitals_gridsize: tuple = dataclasses.field(default_factory=lambda: (128, 128, 128))
-    # --- Other
-    energy_partitioning: str = 'first-occ'
-    strict: bool = False                # Stop if cluster not converged
 
 
 @dataclasses.dataclass
@@ -83,7 +44,49 @@ VALID_SOLVERS = [None, "", "MP2", "CISD", "CCSD", 'TCCSD', "CCSD(T)", 'FCI', "FC
 
 class EWF(QEmbeddingMethod):
 
-    FRAGMENT_CLS = EWFFragment
+    @dataclasses.dataclass
+    class Options(QEmbeddingMethod.Options):
+        """Options for EWF calculations."""
+        # --- Fragment settings
+        fragment_type: str = 'IAO'
+        localize_fragment: bool = False     # Perform numerical localization on fragment orbitals
+        iao_minao : str = 'auto'            # Minimal basis for IAOs
+        # --- Bath settings
+        bath_type: str = 'MP2-BNO'
+        dmet_threshold: float = 1e-5
+        orbfile: str = None                 # Filename for orbital coefficients
+        # If multiple bno thresholds are to be calculated, we can project integrals and amplitudes from a previous larger cluster:
+        project_eris: bool = False          # Project ERIs from a pervious larger cluster (corresponding to larger eta), can result in a loss of accuracy especially for large basis sets!
+        project_init_guess: bool = True     # Project converted T1,T2 amplitudes from a previous larger cluster
+        orthogonal_mo_tol: float = False
+        # --- Solver settings
+        solver_options: dict = dataclasses.field(default_factory=dict)
+        make_rdm1: bool = False
+        make_rdm2: bool = False
+        dm_with_frozen: bool = False        # Add frozen parts to cluster DMs
+        pop_analysis: str = False           # Do population analysis
+        eom_ccsd: list = dataclasses.field(default_factory=list)  # Perform EOM-CCSD in each cluster by default
+        eom_ccsd_nroots: int = 5            # Perform EOM-CCSD in each cluster by default
+        eomfile: str = 'eom-ccsd'           # Filename for EOM-CCSD states
+        # Counterpoise correction of BSSE
+        bsse_correction: bool = True
+        bsse_rmax: float = 5.0              # In Angstrom
+        # -- Self-consistency
+        sc_maxiter: int = 30
+        sc_energy_tol: float = 1e-6
+        sc_mode: int = 0
+        nelectron_target: int = None
+        # --- Orbital plots
+        plot_orbitals: list = dataclasses.field(default_factory=dict)
+        plot_orbitals_exit: bool = False            # Exit immediately after all orbital plots have been generated
+        plot_orbitals_dir: str = 'orbitals'
+        plot_orbitals_kwargs: dict = dataclasses.field(default_factory=dict)
+        plot_orbitals_gridsize: tuple = dataclasses.field(default_factory=lambda: (128, 128, 128))
+        # --- Other
+        #energy_partitioning: str = 'first-occ'
+        strict: bool = False                # Stop if cluster not converged
+
+    Fragment = EWFFragment
 
     def __init__(self, mf, bno_threshold=1e-8, solver='CCSD', options=None, log=None, **kwargs):
         """Embedded wave function (EWF) calculation object.
@@ -95,20 +98,15 @@ class EWF(QEmbeddingMethod):
         solver : str, optional
             Solver for embedding problem. Default: 'CCSD'.
         **kwargs :
-            See class `EWFOptions` for additional options.
+            See class `Options` for additional options.
         """
 
-        super().__init__(mf, log=log)
+        super().__init__(mf, options=options, log=log, **kwargs)
         t_start = timer()
 
-        if options is None:
-            options = EWFOptions(**kwargs)
-        else:
-            options = options.replace(kwargs)
-        # Options logic
-        if options.pop_analysis:
-            options.make_rdm1 = True
-        self.opts = options
+        # Options
+        if self.opts.pop_analysis:
+            self.opts.make_rdm1 = True
         self.log.info("EWF parameters:")
         for key, val in self.opts.items():
             self.log.info('  > %-24s %r', key + ':', val)
@@ -238,6 +236,69 @@ class EWF(QEmbeddingMethod):
     def e_tot(self):
         """Total energy."""
         return self.e_mf + self.e_corr
+
+    def get_e_tot(self):
+        return self.e_mf + self.get_e_corr()
+
+
+    def get_e_corr(self):
+        e_corr = 0.0
+        for f in self.fragments:
+            e_corr += f.results.e_corr
+        return e_corr
+
+    def get_wf_cisd(self, intermediate_norm=False, c0=None):
+        c0_target = c0
+
+        c0 = 1.0
+        c1 = np.zeros((self.nocc, self.nvir))
+        c2 = np.zeros((self.nocc, self.nocc, self.nvir, self.nvir))
+        ovlp = self.get_ovlp()
+        # Add fragment WFs in intermediate normalization
+        for f in self.fragments:
+            c1f, c2f = f.results.c1/f.results.c0, f.results.c2/f.results.c0
+            #c1f, c2f = f.results.c1, f.results.c2
+            c1f = f.project_amplitude_to_fragment(c1f, c_occ=f.c_active_occ)
+            c2f = f.project_amplitude_to_fragment(c2f, c_occ=f.c_active_occ)
+            ro = np.linalg.multi_dot((f.c_active_occ.T, ovlp, self.mo_coeff_occ))
+            rv = np.linalg.multi_dot((f.c_active_vir.T, ovlp, self.mo_coeff_vir))
+            c1 += einsum('ia,iI,aA->IA', c1f, ro, rv)
+            #c2f = (c2f + c2f.transpose(1,0,3,2))/2
+            c2 += einsum('ijab,iI,jJ,aA,bB->IJAB', c2f, ro, ro, rv, rv)
+
+        # Symmetrize
+        c2 = (c2 + c2.transpose(1,0,3,2))/2
+
+        # Restore standard normalization
+        if not intermediate_norm:
+            #c0 = self.fragments[0].results.c0
+            norm = np.sqrt(c0**2 + 2*np.dot(c1.flatten(), c1.flatten()) + 2*np.dot(c2.flatten(), c2.flatten())
+                    - einsum('jiab,ijab->', c2, c2))
+            c0 = c0/norm
+            c1 /= norm
+            c2 /= norm
+            # Check normalization
+            norm = (c0**2 + 2*np.dot(c1.flatten(), c1.flatten()) + 2*np.dot(c2.flatten(), c2.flatten())
+                    - einsum('jiab,ijab->', c2, c2))
+            assert np.isclose(norm, 1.0)
+
+            if c0_target is not None:
+                norm12 = (2*np.dot(c1.flatten(), c1.flatten()) + 2*np.dot(c2.flatten(), c2.flatten())
+                        - einsum('jiab,ijab->', c2, c2))
+                if norm12 > 1e-10:
+                    print('norm12= %.6e' % norm12)
+                    fac12 = np.sqrt((1.0-c0_target**2)/norm12)
+                    print('fac12= %.6e' % fac12)
+                    c0 = c0_target
+                    c1 *= fac12
+                    c2 *= fac12
+
+                    # Check normalization
+                    norm = (c0**2 + 2*np.dot(c1.flatten(), c1.flatten()) + 2*np.dot(c2.flatten(), c2.flatten())
+                            - einsum('jiab,ijab->', c2, c2))
+                    assert np.isclose(norm, 1.0)
+
+        return c0, c1, c2
 
     # -------------------------------------------------------------------------------------------- #
 
@@ -412,9 +473,8 @@ class EWF(QEmbeddingMethod):
         if MPI: MPI_comm.Barrier()
         t_start = timer()
 
-        bno_threshold = bno_threshold or self.bno_threshold
-        if np.ndim(bno_threshold) == 0:
-            bno_threshold = [bno_threshold]
+        if bno_threshold is None: bno_threshold = self.bno_threshold
+        if np.ndim(bno_threshold) == 0: bno_threshold = [bno_threshold]
         bno_threshold = np.sort(np.asarray(bno_threshold))
 
         if self.nfrag == 0:
@@ -480,7 +540,7 @@ class EWF(QEmbeddingMethod):
                     self.log.changeIndentLevel(1)
                     try:
                         result = frag.kernel(bno_threshold=bno_thr)
-                    except EWFFragmentExit:
+                    except EWFFragment.Exit:
                         exit = True
                         self.log.info("Exiting %s", frag)
                         self.log.changeIndentLevel(-1)

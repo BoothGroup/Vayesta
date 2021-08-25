@@ -12,6 +12,8 @@ import logging
 import numpy as np
 # PySCF
 import pyscf
+import pyscf.mp
+import pyscf.cc
 import pyscf.lib
 from pyscf.mp.mp2 import _mo_without_core
 import pyscf.pbc
@@ -22,6 +24,12 @@ from pyscf.pbc.lib import kpts_helper
 from vayesta.core.util import *
 from vayesta.misc.gdf import GDF
 import vayesta.libs
+
+# RSGDF [Berkelback et al.]
+try:
+    from pyscf.pbc.df.rsdf import RSGDF
+except ImportError:
+    RSGDF = NotSetType
 
 log = logging.getLogger(__name__)
 
@@ -374,14 +382,7 @@ class ThreeCenterInts:
         if self.values is not None:
             return self.values, None, None
 
-        elif isinstance(self.df._cderi, str):
-            #import h5py
-            #with h5py.File(self.df._cderi) as f:
-            #    log.info("h5py keys: %r", list(f.keys()))
-            #    #for key in list(f.keys()):
-            #    log.info("h5py keys of j3c: %r", list(f["j3c"].keys()))
-            #    log.info("h5py kptij: %r", list(f["j3c-kptij"].shape))
-
+        elif isinstance(self.df._cderi, (str, type(None))):
             if kptsym:
                 nkij = self.nk*(self.nk+1)//2
                 j3c = np.zeros((nkij, self.naux, self.nao, self.nao), dtype=complex)
@@ -417,10 +418,6 @@ class ThreeCenterInts:
                         else:
                             assert (sign == -1) and (blksize == 1) and (ki == kj), ("sign= %r, blksize= %r, ki= %r, kj=%r" % (sign, blksize, ki, kj))
                             j3c_neg[ki] += (lr+1j*li)[0].reshape(self.nao, self.nao)
-
-                    #if blk0 != self.naux:
-                    #    log.info("Naux(ki= %3d, kj= %3d)= %4d", ki, kj, blk0)
-
                     kij += 1
 
             if kptsym:
@@ -433,7 +430,7 @@ class ThreeCenterInts:
                 assert np.all(kuniq_map > -nkij)
 
         # In IncoreGDF, we can access the array directly
-        elif isinstance(self.df, (GDF, pyscf.pbc.df.df_incore.IncoreGDF)):  #TODO deprecate IncoreGDF
+        elif hasattr(self.df._cderi, '__getitem__') and 'j3c' in self.df._cderi:
             j3c = self.df._cderi["j3c"].reshape(-1, self.naux, self.nao, self.nao)
             nkuniq = j3c.shape[0]
             log.info("Nkuniq= %3d", nkuniq)
@@ -455,6 +452,8 @@ class ThreeCenterInts:
                         kij_id = -kij_id[0]
                     assert (abs(kij_id) < nkuniq)
                     kuniq_map[ki,kj] = kij_id
+        else:
+            raise ValueError("Unknown DF type: %r" % type(self.df))
 
         return j3c, j3c_neg, kuniq_map
 

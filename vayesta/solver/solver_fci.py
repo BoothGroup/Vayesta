@@ -51,7 +51,6 @@ class FCISolver(ClusterSolver):
         f_act = np.linalg.multi_dot((c_act.T, self.base.get_fock(), c_act))
         v_act = 2*einsum('iipq->pq', eris[occ,occ]) - einsum('iqpi->pq', eris[occ,:,:,occ])
         h_eff = f_act - v_act
-        
         # This should be equivalent to:
         #core = np.s_[:self.nocc_frozen]
         #dm_core = 2*np.dot(self.mo_coeff[:,core], self.mo_coeff[:,core].T)

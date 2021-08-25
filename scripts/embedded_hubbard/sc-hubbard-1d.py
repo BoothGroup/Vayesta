@@ -12,8 +12,8 @@ doping = 0
 u_min = 0
 u_max = 12
 u_step = 1
-do_fci = (nsite <= 12)
 
+do_fci = (nsite <= 10)
 if doping:
     ne_target = (nsite + doping)/nsite * nimp
 else:
@@ -40,11 +40,13 @@ t_max = 1.0
 t_min = 1.0
 t_step = abs(t_max-t_min)/10
 '''
-hubbard_t = 1
+mo_pdmet = None
+mo_brueck = None
+
 for uidx, hubbard_u in enumerate(range(u_min, u_max+1, u_step)):
-    print("Hubbard-U= ", hubbard_u/hubbard_t)
+    print("Hubbard-U= %4.1f" % hubbard_u)
     print("===============")
-    mol = vayesta.lattmod.Hubbard1D(nsite, nelectron=nsite+doping, hubbard_t=hubbard_t, hubbard_u=hubbard_u)
+    mol = vayesta.lattmod.Hubbard1D(nsite, nelectron=nsite+doping, hubbard_u=hubbard_u)
     mf = vayesta.lattmod.LatticeMF(mol)
     mf.kernel()
 

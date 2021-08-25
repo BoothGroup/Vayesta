@@ -1,0 +1,2 @@
+- Fit of -C_ij / R_ij^6 to include long-range VdW?
+- MP2 bath orbitals via SVD
