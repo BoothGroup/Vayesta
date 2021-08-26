@@ -260,6 +260,15 @@ class QEmbeddingFragment:
     def mo_coeff(self):
         return np.hstack((self.c_frozen_occ, self.c_active_occ, self.c_active_vir, self.c_frozen_vir))
 
+    # Rotation matrices
+
+    def get_rot_cmo_to_active(self):
+        occ = (self.base.mo_occ > 0)
+        vir = (self.base.mo_occ == 0)
+        r_occ = dot(self.base.mo_coeff[:,occ].T, self.base.get_ovlp(), self.c_active_occ)
+        r_vir = dot(self.base.mo_coeff[:,vir].T, self.base.get_ovlp(), self.c_active_vir)
+        return r_occ, r_vir
+
     @property
     def results(self):
         if self.sym_parent is None:
