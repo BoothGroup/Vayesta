@@ -39,7 +39,7 @@ class QEmbeddingMethod:
 
     @dataclasses.dataclass
     class Options(OptionsBase):
-        recalc_veff: bool = False
+        recalc_vhf: bool = True
         wf_partition: str = 'first-occ'     # ['first-occ', 'first-vir', 'democratic']
 
 
@@ -153,10 +153,10 @@ class QEmbeddingMethod:
         self._hcore = None
         self._veff = None
         # HF potential
-        if self.opts.recalc_veff:
-            self.log.debug("Recalculating effective potential from MF object.")
+        if self.opts.recalc_vhf:
+            self.log.debug("Recalculating HF potential from MF object.")
         else:
-            self.log.debug("Determining effective potential from MOs.")
+            self.log.debug("Determining HF potential from MO energies and coefficients.")
             cs = np.dot(self.mo_coeff.T, self.get_ovlp())
             fock = np.dot(cs.T*self.mo_energy, cs)
             self._veff = fock - self.get_hcore()
@@ -563,6 +563,8 @@ class QEmbeddingMethod:
         elif partition.startswith('wf-t12'):
             t1, t2 = self.get_wf_ccsd(partition=wf_partition)
             cc = pyscf.cc.ccsd.CCSD(self.mf)
+            #cc.conv_tol = 1e-12
+            #cc.conv_tol_normt = 1e-10
             if 'l12_full' in partition:
                 l1 = l2 = None
             elif 'l12' in partition:

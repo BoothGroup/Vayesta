@@ -53,7 +53,7 @@ class EWF(QEmbeddingMethod):
         iao_minao : str = 'auto'            # Minimal basis for IAOs
         # --- Bath settings
         bath_type: str = 'MP2-BNO'
-        dmet_threshold: float = 1e-5
+        dmet_threshold: float = 1e-8
         orbfile: str = None                 # Filename for orbital coefficients
         # If multiple bno thresholds are to be calculated, we can project integrals and amplitudes from a previous larger cluster:
         project_eris: bool = False          # Project ERIs from a pervious larger cluster (corresponding to larger eta), can result in a loss of accuracy especially for large basis sets!

@@ -16,6 +16,14 @@ class CCSDSolver(ClusterSolver):
 
     @dataclasses.dataclass
     class Options(ClusterSolver.Options):
+        # Convergence
+        maxiter: int = 100              # Max number of iterations
+        conv_etol: float = None     # Convergence energy tolerance
+        conv_ttol: float = None     # Convergence amplitude tolerance
+        #conv_etol: float = 1e-12        # Convergence energy tolerance
+        #conv_ttol: float = 1e-10        # Convergence amplitude tolerance
+
+        # Self-consistent mode
         sc_mode: int = NotSet
         # DM
         dm_with_frozen: bool = NotSet
@@ -63,6 +71,9 @@ class CCSDSolver(ClusterSolver):
             cls = pyscf.cc.dfccsd.RCCSD
         self.log.debug("CCSD class= %r" % cls)
         cc = cls(self.mf, mo_coeff=self.mo_coeff, mo_occ=self.mo_occ, frozen=self.get_frozen_indices())
+        if self.opts.maxiter is not None: cc.max_cycle = self.opts.maxiter
+        if self.opts.conv_etol is not None: cc.conv_tol = self.opts.conv_etol
+        if self.opts.conv_ttol is not None: cc.conv_tol_normt = self.opts.conv_ttol
 
         # Integral transformation
         if eris is None:
