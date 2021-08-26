@@ -105,10 +105,13 @@ class FCIQMCSolver(ClusterSolver):
         
         qmc_H = Hamiltonian()
         qmc_H.from_arrays(h0, h_eff, eris, nelec)
+        e_fci_fciqmc = qmc_H.get_fci_energy()
+        
+    
         qmc_H.to_pickle('Hubbard_Hamiltonian_cluster%1d.pkl'%(self.fragment.id))
         qmc_H.write_fcidump( fname='FCIDUMP_cluster%1d'%(self.fragment.id))
-
         
+    
         t0 = timer()
         e_fci, wf = fcisolver.kernel(h_eff, eris, self.nactive, nelec)
         self.log.debug("FCI done. converged: %r", fcisolver.converged)
@@ -120,6 +123,10 @@ class FCIQMCSolver(ClusterSolver):
 
         cisdvec = pyscf.ci.cisd.from_fcivec(wf, self.nactive, nelec)
         c0, c1, c2 = pyscf.ci.cisd.cisdvec_to_amplitudes(cisdvec, self.nactive, nocc)
+        
+        print(e_fci, e_fci_fciqmc)
+        assert 0
+        assert e_fci == e_fci_fciqmc
         
         
         results = self.Results(

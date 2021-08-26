@@ -32,7 +32,6 @@ except ImportError:
     from timeit import default_timer as timer
 
 
-
 @dataclasses.dataclass
 class EWFResults:
     bno_threshold: float = None
