@@ -114,17 +114,16 @@ class CellFragmentTests(unittest.TestCase):
         qemb.init_fragmentation('iao')
         frag = qemb.make_atom_fragment([0, 1])
         frags = [frag,] + frag.make_tsymmetric_fragments([2,2,2])
-        #frags = [qemb.make_atom_fragment([i*2, i*2+1]) for i in range(len(self.kpts))]
 
         for frag in frags:
             self.assertAlmostEqual(frag.get_fragment_mf_energy().real, -4.261995344528774, 8)
 
         tr = lambda c: np.einsum('xi,xi->', c, c.conj())
 
-        c_bath, c_occenv, c_virenv = frags[0].make_dmet_bath(frags[0].c_env+1e-2)
-        self.assertAlmostEqual(tr(c_bath), 2.600380583365948, 8)
-        self.assertAlmostEqual(tr(c_occenv), 9.12610235993984, 8)
-        self.assertAlmostEqual(tr(c_virenv), 40.98101517539557, 8)
+        c_bath, c_occenv, c_virenv = frags[0].make_dmet_bath(frags[0].c_env)
+        self.assertAlmostEqual(tr(c_bath), 0.0, 8)
+        self.assertAlmostEqual(tr(c_occenv), 8.600258699380264, 8)
+        self.assertAlmostEqual(tr(c_virenv), 43.70235664564082, 8)
 
     def test_iao_aos(self):
         qemb = QEmbeddingMethod(self.mf)
