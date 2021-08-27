@@ -143,10 +143,10 @@ class CellFragmentTests(unittest.TestCase):
 
         tr = lambda c: np.einsum('xi,xi->', c, c.conj())
 
-        c_bath, c_occenv, c_virenv = frags[0].make_dmet_bath(frags[0].c_env+1e-2)
-        self.assertAlmostEqual(tr(c_bath), 2.6998807858077125, 8)
-        self.assertAlmostEqual(tr(c_occenv), 9.126026350527649, 8)
-        self.assertAlmostEqual(tr(c_virenv), 35.54091361277011, 8)
+        c_bath, c_occenv, c_virenv = frags[0].make_dmet_bath(frags[0].c_env)
+        self.assertAlmostEqual(tr(c_bath), 0.0, 8)
+        self.assertAlmostEqual(tr(c_occenv), 8.60025893931295, 8)
+        self.assertAlmostEqual(tr(c_virenv), 38.23956182500303, 8)
 
     def test_lowdin_aos(self):
         qemb = QEmbeddingMethod(self.mf)
