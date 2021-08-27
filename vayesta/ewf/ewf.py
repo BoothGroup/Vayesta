@@ -40,7 +40,7 @@ class EWFResults:
     e_corr: float = None
 
 
-VALID_SOLVERS = [None, "", "MP2", "CISD", "CCSD", 'TCCSD', "CCSD(T)", 'FCI', "FCI-spin0", "FCI-spin1"]
+VALID_SOLVERS = [None, "", "MP2", "CISD", "CCSD", 'TCCSD', "CCSD(T)", 'FCI', "FCI-spin0", "FCI-spin1", "FCIQMC"]
 
 class EWF(QEmbeddingMethod):
 

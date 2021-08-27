@@ -8,7 +8,10 @@ import pyscf.ao2mo
 import pyscf.ci
 import pyscf.mcscf
 import pyscf.fci
-from pyscf import tools, ao2mo
+from pyscf import tools, ao2mo, fci
+
+from M7_config_yaml_helper import M7_config_to_dict
+from subprocess import Popen, PIPE
 
 #import pyscf.fci.direct_spin0
 #import pyscf.fci.direct_spin1
@@ -18,37 +21,6 @@ from .solver import ClusterSolver
 
 from cisd_coeff import Hamiltonian, RestoredCisdCoeffs
 import pickle as pkl
-
-
-class Hamiltonian:
-    '''
-    Hamiltonian class for FCIQMC formatting
-    '''
-    h0 = None
-    h1e = None
-    eri = None
-    nelec = None
-    def from_arrays(self, h0, h1e, eri, nelec):
-        self.h0, self.h1e, self.eri, self.nelec = h0, h1e, eri, nelec
-    def to_pickle(self, fname):
-        with open(fname, 'wb') as f: pkl.dump([self.h0, self.h1e, self.eri, self.nelec], f)
-    def from_pickle(self, fname):
-        with open(fname, 'rb') as f:
-            self.h0, self.h1e, self.eri, self.nelec = pkl.load(f)
-    def write_fcidump(self, fname='FCIDUMP'):
-        '''
-        writes the provided integrals to a file in a standard format for FCI programs
-        '''
-        nsite = self.h1e.shape[0]
-        if len(self.eri.shape)!=1:
-            # ERIs must have 8-fold symmetry restored
-            eri = ao2mo.restore(8, self.eri, nsite)
-        else: eri = self.eri
-        tools.fcidump.from_integrals(fname, self.h1e, eri, nsite, self.nelec, self.h0, 0, [1,]*nsite)
-    def get_fci_energy(self):
-        nsite = self.h1e.shape[0]
-        return fci.direct_spin1.kernel(self.h1e, self.eri, nsite, self.nelec, verbose=6, ecore=self.h0)[0]
-
 
 class FCIQMCSolver(ClusterSolver):
 
@@ -101,16 +73,78 @@ class FCIQMCSolver(ClusterSolver):
         
         h0 = 0.0 # No 0-electron energy for lattice models
         
-        # Once Hamiltonian's are setup, write Hamiltonians in FCIQMC readable format
+        # Once Hamiltonian's are setup, prepare to run FCIQMC (M7)
         
+        path_to_M7 = '/Users/darrenlean/Documents/UROP/Code/M7'
+        
+        random_seed = 1
+        ham_pkl_name = 'Hubbard_Hamiltonian_cluster'+str(int(self.fragment.id))+'.pkl'
+        FCIDUMP_name = 'FCIDUMP_cluster'+str(int(self.fragment.id))
+        h5_name = 'M7_data/M7.cluster'+str(int(self.fragment.id))+'.'+str(random_seed)+'.h5'
+        stats_name = 'M7_data/M7.cluster'+str(int(self.fragment.id))+'.stats'
+        coeff_pkl_name = 'cluster'+str(int(self.fragment.id))+'_coeff.pkl'
+        
+        #Writing Hamiltonian for M7 (FCIDUMP) and Python analysis (pkl)
         qmc_H = Hamiltonian()
         qmc_H.from_arrays(h0, h_eff, eris, nelec)
-        qmc_H.to_pickle('Hubbard_Hamiltonian_cluster%1d.pkl'%(self.fragment.id))
-        qmc_H.write_fcidump( fname='FCIDUMP_cluster%1d'%(self.fragment.id))
-
+        qmc_H.to_pickle(ham_pkl_name)
+        qmc_H.write_fcidump(FCIDUMP_name)
         
+        #Writing settings for M7 in a yaml
+        yaml_name = 'M7_settings.yaml'
+
+        M7_config_obj = M7_config_to_dict(path_to_M7)
+        #Make the changes on M7 config you want here, for example:
+        M7_config_obj.M7_config_dict['prng']['seed'] = random_seed
+        M7_config_obj.M7_config_dict['wavefunction']['nw_init'] = 3
+        M7_config_obj.M7_config_dict['wavefunction']['load_balancing']['period'] = 100
+        M7_config_obj.M7_config_dict['wavefunction']['load_balancing']['nnull_updates_deactivate'] = 8
+        M7_config_obj.M7_config_dict['propagator']['nw_target'] = 30000
+        M7_config_obj.M7_config_dict['av_ests']['delay'] = 1000
+        M7_config_obj.M7_config_dict['av_ests']['ncycle'] = 5000
+        M7_config_obj.M7_config_dict['av_ests']['ref_excits']['max_exlvl'] = 2
+        M7_config_obj.M7_config_dict['av_ests']['ref_excits']['archive']['save'] = 'yes'
+        M7_config_obj.M7_config_dict['archive']['save_path'] = h5_name
+        M7_config_obj.M7_config_dict['hamiltonian']['fcidump']['path'] = FCIDUMP_name
+        M7_config_obj.M7_config_dict['stats']['path'] = stats_name
+        
+        M7_config_obj.write_yaml(yaml_name)        
+        
+        # Run M7
+        process = Popen('/usr/local/bin/mpirun -np 1 ' + path_to_M7 + '/build/src/release ' + yaml_name, stdout=PIPE, stderr=PIPE, shell=True)
+        stdout, stderr = process.communicate()
+        stdout = stdout.decode("utf-8")
+        stderr = stderr.decode("utf-8")
+        
+        if stderr == "":
+            print("Successful M7 run!")
+            # Calling analysis for M7 FCIQMC
+            ham = Hamiltonian()
+            
+            # Loading Hamiltonian from the pickle
+            ham.from_pickle(ham_pkl_name)
+            cisd_coeffs = RestoredCisdCoeffs(ham)
+            cisd_coeffs.from_m7(h5_name)
+            cisd_coeffs.normalise()
+            #c0_qmc = cisd_coeffs.c0
+            #c1_qmc = cisd_coeffs.c1
+            #c2_qmc = cisd_coeffs.c2
+            e_qmc = cisd_coeffs.energy()
+            print('e_qmc', e_qmc)
+            # saving coefficients into pickle
+            cisd_coeffs.to_pickle(coeff_pkl_name)
+        else:
+            print("Error from M7... printing the log:")
+            print(stdout)
+            print(stderr)
+            assert 0
+        
+
         t0 = timer()
         e_fci, wf = fcisolver.kernel(h_eff, eris, self.nactive, nelec)
+        print('e_fci', e_fci)
+
+        
         self.log.debug("FCI done. converged: %r", fcisolver.converged)
         if not fcisolver.converged:
             self.log.error("FCI not converged!")

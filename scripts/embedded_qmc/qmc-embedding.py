@@ -196,7 +196,7 @@ for i in range(nsite//nimp):
     # Hamiltonians, pkl-s indexed from 1,2...
     ham.from_pickle('Hubbard_Hamiltonian_cluster%1d.pkl'%(i+1))
     cisd_coeffs = RestoredCisdCoeffs(ham)
-    cisd_coeffs.from_pickle('avg_coeff_cluster%1d.pkl'%(i+1))
+    cisd_coeffs.from_pickle('cluster'+str(int(i+1))+'_coeff.pkl')
     #print(cisd_coeffs.energy())
     qmc_amp_energy = cisd_coeffs.energy()
     #print(qmc_amp_energy)
