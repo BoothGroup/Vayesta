@@ -4024,3 +4024,639 @@ nocc = 2, nmo = 7
 frozen orbitals [0, 1, 2]
 max_memory 4000 MB (current use 0 MB)
 E(MP2) = -8.1683643301884  E_corr = -0.224092420189241
+E1 = -12.944271909999161  E_coul = 5.0
+transform (ia|jb) incore
+    CPU time for Integral transformation      0.00 sec, wall time      0.00 sec
+
+******** <class 'pyscf.mp.mp2.MP2'> ********
+nocc = 5, nmo = 7
+frozen orbitals [7, 8, 9]
+max_memory 4000 MB (current use 0 MB)
+E(MP2) = -8.1683643301884  E_corr = -0.224092420189241
+E1 = -12.94427190999916  E_coul = 5.000000000000001
+transform (ia|jb) incore
+    CPU time for Integral transformation      0.00 sec, wall time      0.01 sec
+
+******** <class 'pyscf.mp.mp2.MP2'> ********
+nocc = 2, nmo = 7
+frozen orbitals [0, 1, 2]
+max_memory 4000 MB (current use 0 MB)
+E(MP2) = -8.1683643301884  E_corr = -0.224092420189242
+E1 = -12.94427190999916  E_coul = 5.0
+transform (ia|jb) incore
+    CPU time for Integral transformation      0.01 sec, wall time      0.00 sec
+
+******** <class 'pyscf.mp.mp2.MP2'> ********
+nocc = 5, nmo = 7
+frozen orbitals [7, 8, 9]
+max_memory 4000 MB (current use 0 MB)
+E(MP2) = -8.1683643301884  E_corr = -0.224092420189241
+E1 = -12.944271909999156  E_coul = 4.999999999999999
+transform (ia|jb) incore
+    CPU time for Integral transformation      0.00 sec, wall time      0.00 sec
+
+******** <class 'pyscf.mp.mp2.MP2'> ********
+nocc = 2, nmo = 7
+frozen orbitals [0, 1, 2]
+max_memory 4000 MB (current use 0 MB)
+E(MP2) = -8.1683643301884  E_corr = -0.224092420189241
+E1 = -12.944271909999152  E_coul = 4.9999999999999964
+transform (ia|jb) incore
+    CPU time for Integral transformation      0.00 sec, wall time      0.00 sec
+
+******** <class 'pyscf.mp.mp2.MP2'> ********
+nocc = 5, nmo = 7
+frozen orbitals [7, 8, 9]
+max_memory 4000 MB (current use 0 MB)
+E(MP2) = -8.1683643301884  E_corr = -0.224092420189242
+E1 = -12.944271909999157  E_coul = 5.000000000000002
+transform (ia|jb) incore
+    CPU time for Integral transformation      0.00 sec, wall time      0.00 sec
+
+******** <class 'pyscf.mp.mp2.MP2'> ********
+nocc = 2, nmo = 7
+frozen orbitals [0, 1, 2]
+max_memory 4000 MB (current use 0 MB)
+E(MP2) = -8.1683643301884  E_corr = -0.224092420189242
+E1 = -12.944271909999161  E_coul = 5.000000000000002
+transform (ia|jb) incore
+    CPU time for Integral transformation      0.00 sec, wall time      0.00 sec
+
+******** <class 'pyscf.mp.mp2.MP2'> ********
+nocc = 5, nmo = 7
+frozen orbitals [7, 8, 9]
+max_memory 4000 MB (current use 0 MB)
+E(MP2) = -8.1683643301884  E_corr = -0.224092420189241
+E1 = -12.94427190999916  E_coul = 5.000000000000002
+transform (ia|jb) incore
+    CPU time for Integral transformation      0.00 sec, wall time      0.01 sec
+
+******** <class 'pyscf.mp.mp2.MP2'> ********
+nocc = 2, nmo = 7
+frozen orbitals [0, 1, 2]
+max_memory 4000 MB (current use 0 MB)
+E(MP2) = -8.1683643301884  E_corr = -0.224092420189242
+<class 'vayesta.lattmod.latt.Hubbard1D'> does not have attributes  nsite h1e hubbard_u hubbard_t order v_nn nsites boundary
+arg.atm = []
+arg.bas = []
+arg.env = [0. 0. 0. 0. 0. 0. 0. 0. 0. 0. 0. 0. 0. 0. 0. 0. 0. 0. 0. 0.]
+ecpbas  = []
+E1 = -12.944271909999163  E_coul = 5.000000000000003
+transform (ia|jb) incore
+    CPU time for Integral transformation      0.00 sec, wall time      0.00 sec
+
+******** <class 'pyscf.mp.mp2.MP2'> ********
+nocc = 5, nmo = 7
+frozen orbitals [7, 8, 9]
+max_memory 4000 MB (current use 0 MB)
+E(MP2) = -8.1683643301884  E_corr = -0.224092420189241
+E1 = -12.94427190999916  E_coul = 5.000000000000002
+transform (ia|jb) incore
+    CPU time for Integral transformation      0.00 sec, wall time      0.00 sec
+
+******** <class 'pyscf.mp.mp2.MP2'> ********
+nocc = 2, nmo = 7
+frozen orbitals [0, 1, 2]
+max_memory 4000 MB (current use 0 MB)
+E(MP2) = -8.1683643301884  E_corr = -0.224092420189241
+E1 = -12.944271909999161  E_coul = 5.0
+transform (ia|jb) incore
+    CPU time for Integral transformation      0.00 sec, wall time      0.01 sec
+
+******** <class 'pyscf.mp.mp2.MP2'> ********
+nocc = 5, nmo = 7
+frozen orbitals [7, 8, 9]
+max_memory 4000 MB (current use 0 MB)
+E(MP2) = -8.1683643301884  E_corr = -0.224092420189241
+E1 = -12.94427190999916  E_coul = 5.000000000000001
+transform (ia|jb) incore
+    CPU time for Integral transformation      0.00 sec, wall time      0.00 sec
+
+******** <class 'pyscf.mp.mp2.MP2'> ********
+nocc = 2, nmo = 7
+frozen orbitals [0, 1, 2]
+max_memory 4000 MB (current use 0 MB)
+E(MP2) = -8.1683643301884  E_corr = -0.224092420189242
+E1 = -12.94427190999916  E_coul = 5.0
+transform (ia|jb) incore
+    CPU time for Integral transformation      0.01 sec, wall time      0.03 sec
+
+******** <class 'pyscf.mp.mp2.MP2'> ********
+nocc = 5, nmo = 7
+frozen orbitals [7, 8, 9]
+max_memory 4000 MB (current use 0 MB)
+E(MP2) = -8.1683643301884  E_corr = -0.224092420189241
+E1 = -12.944271909999156  E_coul = 4.999999999999999
+transform (ia|jb) incore
+    CPU time for Integral transformation      0.00 sec, wall time      0.00 sec
+
+******** <class 'pyscf.mp.mp2.MP2'> ********
+nocc = 2, nmo = 7
+frozen orbitals [0, 1, 2]
+max_memory 4000 MB (current use 0 MB)
+E(MP2) = -8.1683643301884  E_corr = -0.224092420189241
+E1 = -12.944271909999152  E_coul = 4.9999999999999964
+transform (ia|jb) incore
+    CPU time for Integral transformation      0.00 sec, wall time      0.00 sec
+
+******** <class 'pyscf.mp.mp2.MP2'> ********
+nocc = 5, nmo = 7
+frozen orbitals [7, 8, 9]
+max_memory 4000 MB (current use 0 MB)
+E(MP2) = -8.1683643301884  E_corr = -0.224092420189242
+E1 = -12.944271909999157  E_coul = 5.000000000000002
+transform (ia|jb) incore
+    CPU time for Integral transformation      0.00 sec, wall time      0.00 sec
+
+******** <class 'pyscf.mp.mp2.MP2'> ********
+nocc = 2, nmo = 7
+frozen orbitals [0, 1, 2]
+max_memory 4000 MB (current use 0 MB)
+E(MP2) = -8.1683643301884  E_corr = -0.224092420189242
+E1 = -12.944271909999161  E_coul = 5.000000000000002
+transform (ia|jb) incore
+    CPU time for Integral transformation      0.00 sec, wall time      0.00 sec
+
+******** <class 'pyscf.mp.mp2.MP2'> ********
+nocc = 5, nmo = 7
+frozen orbitals [7, 8, 9]
+max_memory 4000 MB (current use 0 MB)
+E(MP2) = -8.1683643301884  E_corr = -0.224092420189241
+E1 = -12.94427190999916  E_coul = 5.000000000000002
+transform (ia|jb) incore
+    CPU time for Integral transformation      0.00 sec, wall time      0.00 sec
+
+******** <class 'pyscf.mp.mp2.MP2'> ********
+nocc = 2, nmo = 7
+frozen orbitals [0, 1, 2]
+max_memory 4000 MB (current use 0 MB)
+E(MP2) = -8.1683643301884  E_corr = -0.224092420189242
+tol 1e-10  toloose 1e-05
+max_cycle 100  max_space 12  max_memory 4000  incore True
+davidson 0 1  |r|= 1.84  e= [-7.94427191]  max|de|= -7.94  lindep= 0.00115
+davidson 1 2  |r|= 0.801  e= [-8.54528063]  max|de|= -0.601  lindep= 0.995
+davidson 2 3  |r|= 0.309  e= [-8.62516877]  max|de|= -0.0799  lindep= 0.886
+davidson 3 4  |r|= 0.117  e= [-8.63674292]  max|de|= -0.0116  lindep= 0.917
+davidson 4 5  |r|= 0.0355  e= [-8.63830266]  max|de|= -0.00156  lindep= 0.934
+davidson 5 6  |r|= 0.00793  e= [-8.63841001]  max|de|= -0.000107  lindep= 0.914
+davidson 6 7  |r|= 0.00232  e= [-8.63841521]  max|de|= -5.2e-06  lindep= 0.92
+davidson 7 8  |r|= 0.00057  e= [-8.6384157]  max|de|= -4.89e-07  lindep= 0.946
+davidson 8 9  |r|= 0.000206  e= [-8.63841573]  max|de|= -3.29e-08  lindep= 0.916
+davidson 9 10  |r|= 6.4e-05  e= [-8.63841574]  max|de|= -6.24e-09  lindep= 0.929
+davidson 10 11  |r|= 1.81e-05  e= [-8.63841574]  max|de|= -3.95e-10  lindep= 0.963
+root 0 converged  |r|= 4.23e-06  e= -8.638415739959527  max|de|= -2.85e-11
+converged 11 12  |r|= 4.23e-06  e= [-8.63841574]  max|de|= -2.85e-11
+E1 = -12.944271909999163  E_coul = 5.000000000000003
+transform (ia|jb) incore
+    CPU time for Integral transformation      0.00 sec, wall time      0.00 sec
+
+******** <class 'pyscf.mp.mp2.MP2'> ********
+nocc = 5, nmo = 7
+frozen orbitals [7, 8, 9]
+max_memory 4000 MB (current use 0 MB)
+E(MP2) = -8.1683643301884  E_corr = -0.224092420189241
+E1 = -12.94427190999916  E_coul = 5.000000000000002
+transform (ia|jb) incore
+    CPU time for Integral transformation      0.00 sec, wall time      0.01 sec
+
+******** <class 'pyscf.mp.mp2.MP2'> ********
+nocc = 2, nmo = 7
+frozen orbitals [0, 1, 2]
+max_memory 4000 MB (current use 0 MB)
+E(MP2) = -8.1683643301884  E_corr = -0.224092420189241
+E1 = -12.944271909999161  E_coul = 5.0
+transform (ia|jb) incore
+    CPU time for Integral transformation      0.00 sec, wall time      0.01 sec
+
+******** <class 'pyscf.mp.mp2.MP2'> ********
+nocc = 5, nmo = 7
+frozen orbitals [7, 8, 9]
+max_memory 4000 MB (current use 0 MB)
+E(MP2) = -8.1683643301884  E_corr = -0.224092420189241
+E1 = -12.94427190999916  E_coul = 5.000000000000001
+transform (ia|jb) incore
+    CPU time for Integral transformation      0.00 sec, wall time      0.00 sec
+
+******** <class 'pyscf.mp.mp2.MP2'> ********
+nocc = 2, nmo = 7
+frozen orbitals [0, 1, 2]
+max_memory 4000 MB (current use 0 MB)
+E(MP2) = -8.1683643301884  E_corr = -0.224092420189242
+E1 = -12.94427190999916  E_coul = 5.0
+transform (ia|jb) incore
+    CPU time for Integral transformation      0.00 sec, wall time      0.00 sec
+
+******** <class 'pyscf.mp.mp2.MP2'> ********
+nocc = 5, nmo = 7
+frozen orbitals [7, 8, 9]
+max_memory 4000 MB (current use 0 MB)
+E(MP2) = -8.1683643301884  E_corr = -0.224092420189241
+E1 = -12.944271909999156  E_coul = 4.999999999999999
+transform (ia|jb) incore
+    CPU time for Integral transformation      0.00 sec, wall time      0.00 sec
+
+******** <class 'pyscf.mp.mp2.MP2'> ********
+nocc = 2, nmo = 7
+frozen orbitals [0, 1, 2]
+max_memory 4000 MB (current use 0 MB)
+E(MP2) = -8.1683643301884  E_corr = -0.224092420189241
+<class 'vayesta.lattmod.latt.Hubbard1D'> does not have attributes  v_nn nsite nsites hubbard_t boundary hubbard_u order h1e
+arg.atm = []
+arg.bas = []
+arg.env = [0. 0. 0. 0. 0. 0. 0. 0. 0. 0. 0. 0. 0. 0. 0. 0. 0. 0. 0. 0.]
+ecpbas  = []
+E1 = -12.944271909999163  E_coul = 5.000000000000003
+transform (ia|jb) incore
+    CPU time for Integral transformation      0.00 sec, wall time      0.00 sec
+
+******** <class 'pyscf.mp.mp2.MP2'> ********
+nocc = 5, nmo = 7
+frozen orbitals [7, 8, 9]
+max_memory 4000 MB (current use 0 MB)
+E(MP2) = -8.1683643301884  E_corr = -0.224092420189241
+E1 = -12.94427190999916  E_coul = 5.000000000000002
+transform (ia|jb) incore
+    CPU time for Integral transformation      0.00 sec, wall time      0.01 sec
+
+******** <class 'pyscf.mp.mp2.MP2'> ********
+nocc = 2, nmo = 7
+frozen orbitals [0, 1, 2]
+max_memory 4000 MB (current use 0 MB)
+E(MP2) = -8.1683643301884  E_corr = -0.224092420189241
+E1 = -12.944271909999161  E_coul = 5.0
+transform (ia|jb) incore
+    CPU time for Integral transformation      0.00 sec, wall time      0.00 sec
+
+******** <class 'pyscf.mp.mp2.MP2'> ********
+nocc = 5, nmo = 7
+frozen orbitals [7, 8, 9]
+max_memory 4000 MB (current use 0 MB)
+E(MP2) = -8.1683643301884  E_corr = -0.224092420189241
+E1 = -12.94427190999916  E_coul = 5.000000000000001
+transform (ia|jb) incore
+    CPU time for Integral transformation      0.00 sec, wall time      0.00 sec
+
+******** <class 'pyscf.mp.mp2.MP2'> ********
+nocc = 2, nmo = 7
+frozen orbitals [0, 1, 2]
+max_memory 4000 MB (current use 0 MB)
+E(MP2) = -8.1683643301884  E_corr = -0.224092420189242
+E1 = -12.94427190999916  E_coul = 5.0
+transform (ia|jb) incore
+    CPU time for Integral transformation      0.00 sec, wall time      0.00 sec
+
+******** <class 'pyscf.mp.mp2.MP2'> ********
+nocc = 5, nmo = 7
+frozen orbitals [7, 8, 9]
+max_memory 4000 MB (current use 0 MB)
+E(MP2) = -8.1683643301884  E_corr = -0.224092420189241
+E1 = -12.944271909999156  E_coul = 4.999999999999999
+transform (ia|jb) incore
+    CPU time for Integral transformation      0.00 sec, wall time      0.00 sec
+
+******** <class 'pyscf.mp.mp2.MP2'> ********
+nocc = 2, nmo = 7
+frozen orbitals [0, 1, 2]
+max_memory 4000 MB (current use 0 MB)
+E(MP2) = -8.1683643301884  E_corr = -0.224092420189241
+E1 = -12.944271909999152  E_coul = 4.9999999999999964
+transform (ia|jb) incore
+    CPU time for Integral transformation      0.00 sec, wall time      0.00 sec
+
+******** <class 'pyscf.mp.mp2.MP2'> ********
+nocc = 5, nmo = 7
+frozen orbitals [7, 8, 9]
+max_memory 4000 MB (current use 0 MB)
+E(MP2) = -8.1683643301884  E_corr = -0.224092420189242
+E1 = -12.944271909999157  E_coul = 5.000000000000002
+transform (ia|jb) incore
+    CPU time for Integral transformation      0.00 sec, wall time      0.00 sec
+
+******** <class 'pyscf.mp.mp2.MP2'> ********
+nocc = 2, nmo = 7
+frozen orbitals [0, 1, 2]
+max_memory 4000 MB (current use 0 MB)
+E(MP2) = -8.1683643301884  E_corr = -0.224092420189242
+E1 = -12.944271909999161  E_coul = 5.000000000000002
+transform (ia|jb) incore
+    CPU time for Integral transformation      0.00 sec, wall time      0.00 sec
+
+******** <class 'pyscf.mp.mp2.MP2'> ********
+nocc = 5, nmo = 7
+frozen orbitals [7, 8, 9]
+max_memory 4000 MB (current use 0 MB)
+E(MP2) = -8.1683643301884  E_corr = -0.224092420189241
+E1 = -12.94427190999916  E_coul = 5.000000000000002
+transform (ia|jb) incore
+    CPU time for Integral transformation      0.00 sec, wall time      0.00 sec
+
+******** <class 'pyscf.mp.mp2.MP2'> ********
+nocc = 2, nmo = 7
+frozen orbitals [0, 1, 2]
+max_memory 4000 MB (current use 0 MB)
+E(MP2) = -8.1683643301884  E_corr = -0.224092420189242
+tol 1e-10  toloose 1e-05
+max_cycle 100  max_space 12  max_memory 4000  incore True
+davidson 0 1  |r|= 1.84  e= [-7.94427191]  max|de|= -7.94  lindep= 0.00115
+davidson 1 2  |r|= 0.801  e= [-8.54528063]  max|de|= -0.601  lindep= 0.995
+davidson 2 3  |r|= 0.309  e= [-8.62516877]  max|de|= -0.0799  lindep= 0.886
+davidson 3 4  |r|= 0.117  e= [-8.63674292]  max|de|= -0.0116  lindep= 0.917
+davidson 4 5  |r|= 0.0355  e= [-8.63830266]  max|de|= -0.00156  lindep= 0.934
+davidson 5 6  |r|= 0.00793  e= [-8.63841001]  max|de|= -0.000107  lindep= 0.914
+davidson 6 7  |r|= 0.00232  e= [-8.63841521]  max|de|= -5.2e-06  lindep= 0.92
+davidson 7 8  |r|= 0.00057  e= [-8.6384157]  max|de|= -4.89e-07  lindep= 0.946
+davidson 8 9  |r|= 0.000206  e= [-8.63841573]  max|de|= -3.29e-08  lindep= 0.916
+davidson 9 10  |r|= 6.4e-05  e= [-8.63841574]  max|de|= -6.24e-09  lindep= 0.929
+davidson 10 11  |r|= 1.81e-05  e= [-8.63841574]  max|de|= -3.95e-10  lindep= 0.963
+root 0 converged  |r|= 4.23e-06  e= -8.638415739959527  max|de|= -2.85e-11
+converged 11 12  |r|= 4.23e-06  e= [-8.63841574]  max|de|= -2.85e-11
+E1 = -12.944271909999163  E_coul = 5.000000000000003
+transform (ia|jb) incore
+    CPU time for Integral transformation      0.00 sec, wall time      0.00 sec
+
+******** <class 'pyscf.mp.mp2.MP2'> ********
+nocc = 5, nmo = 7
+frozen orbitals [7, 8, 9]
+max_memory 4000 MB (current use 0 MB)
+E(MP2) = -8.1683643301884  E_corr = -0.224092420189241
+E1 = -12.94427190999916  E_coul = 5.000000000000002
+transform (ia|jb) incore
+    CPU time for Integral transformation      0.00 sec, wall time      0.00 sec
+
+******** <class 'pyscf.mp.mp2.MP2'> ********
+nocc = 2, nmo = 7
+frozen orbitals [0, 1, 2]
+max_memory 4000 MB (current use 0 MB)
+E(MP2) = -8.1683643301884  E_corr = -0.224092420189241
+E1 = -12.944271909999161  E_coul = 5.0
+transform (ia|jb) incore
+    CPU time for Integral transformation      0.00 sec, wall time      0.00 sec
+
+******** <class 'pyscf.mp.mp2.MP2'> ********
+nocc = 5, nmo = 7
+frozen orbitals [7, 8, 9]
+max_memory 4000 MB (current use 0 MB)
+E(MP2) = -8.1683643301884  E_corr = -0.224092420189241
+E1 = -12.94427190999916  E_coul = 5.000000000000001
+transform (ia|jb) incore
+    CPU time for Integral transformation      0.00 sec, wall time      0.00 sec
+
+******** <class 'pyscf.mp.mp2.MP2'> ********
+nocc = 2, nmo = 7
+frozen orbitals [0, 1, 2]
+max_memory 4000 MB (current use 0 MB)
+E(MP2) = -8.1683643301884  E_corr = -0.224092420189242
+E1 = -12.94427190999916  E_coul = 5.0
+transform (ia|jb) incore
+    CPU time for Integral transformation      0.00 sec, wall time      0.00 sec
+
+******** <class 'pyscf.mp.mp2.MP2'> ********
+nocc = 5, nmo = 7
+frozen orbitals [7, 8, 9]
+max_memory 4000 MB (current use 0 MB)
+E(MP2) = -8.1683643301884  E_corr = -0.224092420189241
+E1 = -12.944271909999156  E_coul = 4.999999999999999
+transform (ia|jb) incore
+    CPU time for Integral transformation      0.00 sec, wall time      0.00 sec
+
+******** <class 'pyscf.mp.mp2.MP2'> ********
+nocc = 2, nmo = 7
+frozen orbitals [0, 1, 2]
+max_memory 4000 MB (current use 0 MB)
+E(MP2) = -8.1683643301884  E_corr = -0.224092420189241
+E1 = -12.944271909999152  E_coul = 4.9999999999999964
+transform (ia|jb) incore
+    CPU time for Integral transformation      0.00 sec, wall time      0.00 sec
+
+******** <class 'pyscf.mp.mp2.MP2'> ********
+nocc = 5, nmo = 7
+frozen orbitals [7, 8, 9]
+max_memory 4000 MB (current use 0 MB)
+E(MP2) = -8.1683643301884  E_corr = -0.224092420189242
+E1 = -12.944271909999157  E_coul = 5.000000000000002
+transform (ia|jb) incore
+    CPU time for Integral transformation      0.00 sec, wall time      0.00 sec
+
+******** <class 'pyscf.mp.mp2.MP2'> ********
+nocc = 2, nmo = 7
+frozen orbitals [0, 1, 2]
+max_memory 4000 MB (current use 0 MB)
+E(MP2) = -8.1683643301884  E_corr = -0.224092420189242
+E1 = -12.944271909999161  E_coul = 5.000000000000002
+transform (ia|jb) incore
+    CPU time for Integral transformation      0.00 sec, wall time      0.00 sec
+
+******** <class 'pyscf.mp.mp2.MP2'> ********
+nocc = 5, nmo = 7
+frozen orbitals [7, 8, 9]
+max_memory 4000 MB (current use 0 MB)
+E(MP2) = -8.1683643301884  E_corr = -0.224092420189241
+E1 = -12.94427190999916  E_coul = 5.000000000000002
+transform (ia|jb) incore
+    CPU time for Integral transformation      0.00 sec, wall time      0.00 sec
+
+******** <class 'pyscf.mp.mp2.MP2'> ********
+nocc = 2, nmo = 7
+frozen orbitals [0, 1, 2]
+max_memory 4000 MB (current use 0 MB)
+E(MP2) = -8.1683643301884  E_corr = -0.224092420189242
+<class 'vayesta.lattmod.latt.Hubbard1D'> does not have attributes  nsite order hubbard_t nsites hubbard_u v_nn h1e boundary
+arg.atm = []
+arg.bas = []
+arg.env = [0. 0. 0. 0. 0. 0. 0. 0. 0. 0. 0. 0. 0. 0. 0. 0. 0. 0. 0. 0.]
+ecpbas  = []
+E1 = -12.944271909999163  E_coul = 5.000000000000003
+transform (ia|jb) incore
+    CPU time for Integral transformation      0.00 sec, wall time      0.00 sec
+
+******** <class 'pyscf.mp.mp2.MP2'> ********
+nocc = 5, nmo = 7
+frozen orbitals [7, 8, 9]
+max_memory 4000 MB (current use 0 MB)
+E(MP2) = -8.1683643301884  E_corr = -0.224092420189241
+E1 = -12.94427190999916  E_coul = 5.000000000000002
+transform (ia|jb) incore
+    CPU time for Integral transformation      0.00 sec, wall time      0.00 sec
+
+******** <class 'pyscf.mp.mp2.MP2'> ********
+nocc = 2, nmo = 7
+frozen orbitals [0, 1, 2]
+max_memory 4000 MB (current use 0 MB)
+E(MP2) = -8.1683643301884  E_corr = -0.224092420189241
+E1 = -12.944271909999161  E_coul = 5.0
+transform (ia|jb) incore
+    CPU time for Integral transformation      0.00 sec, wall time      0.00 sec
+
+******** <class 'pyscf.mp.mp2.MP2'> ********
+nocc = 5, nmo = 7
+frozen orbitals [7, 8, 9]
+max_memory 4000 MB (current use 0 MB)
+E(MP2) = -8.1683643301884  E_corr = -0.224092420189241
+E1 = -12.94427190999916  E_coul = 5.000000000000001
+transform (ia|jb) incore
+    CPU time for Integral transformation      0.00 sec, wall time      0.00 sec
+
+******** <class 'pyscf.mp.mp2.MP2'> ********
+nocc = 2, nmo = 7
+frozen orbitals [0, 1, 2]
+max_memory 4000 MB (current use 0 MB)
+E(MP2) = -8.1683643301884  E_corr = -0.224092420189242
+E1 = -12.94427190999916  E_coul = 5.0
+transform (ia|jb) incore
+    CPU time for Integral transformation      0.00 sec, wall time      0.00 sec
+
+******** <class 'pyscf.mp.mp2.MP2'> ********
+nocc = 5, nmo = 7
+frozen orbitals [7, 8, 9]
+max_memory 4000 MB (current use 0 MB)
+E(MP2) = -8.1683643301884  E_corr = -0.224092420189241
+E1 = -12.944271909999156  E_coul = 4.999999999999999
+transform (ia|jb) incore
+    CPU time for Integral transformation      0.00 sec, wall time      0.00 sec
+
+******** <class 'pyscf.mp.mp2.MP2'> ********
+nocc = 2, nmo = 7
+frozen orbitals [0, 1, 2]
+max_memory 4000 MB (current use 0 MB)
+E(MP2) = -8.1683643301884  E_corr = -0.224092420189241
+E1 = -12.944271909999152  E_coul = 4.9999999999999964
+transform (ia|jb) incore
+    CPU time for Integral transformation      0.00 sec, wall time      0.00 sec
+
+******** <class 'pyscf.mp.mp2.MP2'> ********
+nocc = 5, nmo = 7
+frozen orbitals [7, 8, 9]
+max_memory 4000 MB (current use 0 MB)
+E(MP2) = -8.1683643301884  E_corr = -0.224092420189242
+E1 = -12.944271909999157  E_coul = 5.000000000000002
+transform (ia|jb) incore
+    CPU time for Integral transformation      0.00 sec, wall time      0.00 sec
+
+******** <class 'pyscf.mp.mp2.MP2'> ********
+nocc = 2, nmo = 7
+frozen orbitals [0, 1, 2]
+max_memory 4000 MB (current use 0 MB)
+E(MP2) = -8.1683643301884  E_corr = -0.224092420189242
+E1 = -12.944271909999161  E_coul = 5.000000000000002
+transform (ia|jb) incore
+    CPU time for Integral transformation      0.00 sec, wall time      0.00 sec
+
+******** <class 'pyscf.mp.mp2.MP2'> ********
+nocc = 5, nmo = 7
+frozen orbitals [7, 8, 9]
+max_memory 4000 MB (current use 0 MB)
+E(MP2) = -8.1683643301884  E_corr = -0.224092420189241
+E1 = -12.94427190999916  E_coul = 5.000000000000002
+transform (ia|jb) incore
+    CPU time for Integral transformation      0.00 sec, wall time      0.00 sec
+
+******** <class 'pyscf.mp.mp2.MP2'> ********
+nocc = 2, nmo = 7
+frozen orbitals [0, 1, 2]
+max_memory 4000 MB (current use 0 MB)
+E(MP2) = -8.1683643301884  E_corr = -0.224092420189242
+tol 1e-10  toloose 1e-05
+max_cycle 100  max_space 12  max_memory 4000  incore True
+davidson 0 1  |r|= 1.84  e= [-7.94427191]  max|de|= -7.94  lindep= 0.00115
+davidson 1 2  |r|= 0.801  e= [-8.54528063]  max|de|= -0.601  lindep= 0.995
+davidson 2 3  |r|= 0.309  e= [-8.62516877]  max|de|= -0.0799  lindep= 0.886
+davidson 3 4  |r|= 0.117  e= [-8.63674292]  max|de|= -0.0116  lindep= 0.917
+davidson 4 5  |r|= 0.0355  e= [-8.63830266]  max|de|= -0.00156  lindep= 0.934
+davidson 5 6  |r|= 0.00793  e= [-8.63841001]  max|de|= -0.000107  lindep= 0.914
+davidson 6 7  |r|= 0.00232  e= [-8.63841521]  max|de|= -5.2e-06  lindep= 0.92
+davidson 7 8  |r|= 0.00057  e= [-8.6384157]  max|de|= -4.89e-07  lindep= 0.946
+davidson 8 9  |r|= 0.000206  e= [-8.63841573]  max|de|= -3.29e-08  lindep= 0.916
+davidson 9 10  |r|= 6.4e-05  e= [-8.63841574]  max|de|= -6.24e-09  lindep= 0.929
+davidson 10 11  |r|= 1.81e-05  e= [-8.63841574]  max|de|= -3.95e-10  lindep= 0.963
+root 0 converged  |r|= 4.23e-06  e= -8.638415739959527  max|de|= -2.85e-11
+converged 11 12  |r|= 4.23e-06  e= [-8.63841574]  max|de|= -2.85e-11
+E1 = -12.944271909999163  E_coul = 5.000000000000003
+transform (ia|jb) incore
+    CPU time for Integral transformation      0.00 sec, wall time      0.04 sec
+
+******** <class 'pyscf.mp.mp2.MP2'> ********
+nocc = 5, nmo = 7
+frozen orbitals [7, 8, 9]
+max_memory 4000 MB (current use 0 MB)
+E(MP2) = -8.1683643301884  E_corr = -0.224092420189241
+E1 = -12.94427190999916  E_coul = 5.000000000000002
+transform (ia|jb) incore
+    CPU time for Integral transformation      0.00 sec, wall time      0.01 sec
+
+******** <class 'pyscf.mp.mp2.MP2'> ********
+nocc = 2, nmo = 7
+frozen orbitals [0, 1, 2]
+max_memory 4000 MB (current use 0 MB)
+E(MP2) = -8.1683643301884  E_corr = -0.224092420189241
+E1 = -12.944271909999161  E_coul = 5.0
+transform (ia|jb) incore
+    CPU time for Integral transformation      0.00 sec, wall time      0.00 sec
+
+******** <class 'pyscf.mp.mp2.MP2'> ********
+nocc = 5, nmo = 7
+frozen orbitals [7, 8, 9]
+max_memory 4000 MB (current use 0 MB)
+E(MP2) = -8.1683643301884  E_corr = -0.224092420189241
+E1 = -12.94427190999916  E_coul = 5.000000000000001
+transform (ia|jb) incore
+    CPU time for Integral transformation      0.00 sec, wall time      0.00 sec
+
+******** <class 'pyscf.mp.mp2.MP2'> ********
+nocc = 2, nmo = 7
+frozen orbitals [0, 1, 2]
+max_memory 4000 MB (current use 0 MB)
+E(MP2) = -8.1683643301884  E_corr = -0.224092420189242
+E1 = -12.94427190999916  E_coul = 5.0
+transform (ia|jb) incore
+    CPU time for Integral transformation      0.00 sec, wall time      0.00 sec
+
+******** <class 'pyscf.mp.mp2.MP2'> ********
+nocc = 5, nmo = 7
+frozen orbitals [7, 8, 9]
+max_memory 4000 MB (current use 0 MB)
+E(MP2) = -8.1683643301884  E_corr = -0.224092420189241
+E1 = -12.944271909999156  E_coul = 4.999999999999999
+transform (ia|jb) incore
+    CPU time for Integral transformation      0.00 sec, wall time      0.00 sec
+
+******** <class 'pyscf.mp.mp2.MP2'> ********
+nocc = 2, nmo = 7
+frozen orbitals [0, 1, 2]
+max_memory 4000 MB (current use 0 MB)
+E(MP2) = -8.1683643301884  E_corr = -0.224092420189241
+E1 = -12.944271909999152  E_coul = 4.9999999999999964
+transform (ia|jb) incore
+    CPU time for Integral transformation      0.00 sec, wall time      0.00 sec
+
+******** <class 'pyscf.mp.mp2.MP2'> ********
+nocc = 5, nmo = 7
+frozen orbitals [7, 8, 9]
+max_memory 4000 MB (current use 0 MB)
+E(MP2) = -8.1683643301884  E_corr = -0.224092420189242
+E1 = -12.944271909999157  E_coul = 5.000000000000002
+transform (ia|jb) incore
+    CPU time for Integral transformation      0.00 sec, wall time      0.00 sec
+
+******** <class 'pyscf.mp.mp2.MP2'> ********
+nocc = 2, nmo = 7
+frozen orbitals [0, 1, 2]
+max_memory 4000 MB (current use 0 MB)
+E(MP2) = -8.1683643301884  E_corr = -0.224092420189242
+E1 = -12.944271909999161  E_coul = 5.000000000000002
+transform (ia|jb) incore
+    CPU time for Integral transformation      0.00 sec, wall time      0.00 sec
+
+******** <class 'pyscf.mp.mp2.MP2'> ********
+nocc = 5, nmo = 7
+frozen orbitals [7, 8, 9]
+max_memory 4000 MB (current use 0 MB)
+E(MP2) = -8.1683643301884  E_corr = -0.224092420189241
+E1 = -12.94427190999916  E_coul = 5.000000000000002
+transform (ia|jb) incore
+    CPU time for Integral transformation      0.00 sec, wall time      0.00 sec
+
+******** <class 'pyscf.mp.mp2.MP2'> ********
+nocc = 2, nmo = 7
+frozen orbitals [0, 1, 2]
+max_memory 4000 MB (current use 0 MB)
+E(MP2) = -8.1683643301884  E_corr = -0.224092420189242

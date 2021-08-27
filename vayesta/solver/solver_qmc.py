@@ -132,11 +132,11 @@ class FCIQMCSolver(ClusterSolver):
             c1a_qmc = cisd_coeffs.c1a
             c1b_qmc = cisd_coeffs.c1b
             c1_qmc = (c1a_qmc+c1b_qmc)/2
-            
-            c2aa_qmc = cisd_coeffs.c2aa
-            c2bb_qmc = cisd_coeffs.c2bb
-            c2ab_qmc = cisd_coeffs.c2ab
-            c2_qmc = (c2aa_qmc + 2*c2ab_qmc.T + c2bb_qmc)/2
+
+            c2aa_qmc = cisd_coeffs.c2aa.transpose(0, 2, 1, 3)
+            c2bb_qmc = cisd_coeffs.c2bb.transpose(0, 2, 1, 3)
+            c2ab_qmc = cisd_coeffs.c2ab.transpose(0, 2, 1, 3)
+            c2_qmc = (c2aa_qmc + 2*c2ab_qmc.transpose(0,1,3,2) + c2bb_qmc)/2
             
             e_qmc = cisd_coeffs.energy()
             e_corr_qmc = e_qmc - cisd_coeffs.ref_energy()

@@ -4,7 +4,7 @@ prng:
   ngen_block: 10000
 archive:
   load_path: ""
-  save_path: M7_data/M7.cluster1.1.h5
+  save_path: M7_data/M7.cluster5.1.h5
   chkpt_path: ""
   period: 0
   period_mins: 0
@@ -65,7 +65,7 @@ propagator:
     delay: 0
 hamiltonian:
   fcidump:
-    path: FCIDUMP_cluster1
+    path: FCIDUMP_cluster5
     eb_path: EBDUMP
     bos_path: BOSDUMP
     spin_major: false
@@ -73,7 +73,7 @@ hamiltonian:
   boson_coupling: 0.0
   nboson_max: 0.0
 stats:
-  path: M7_data/M7.cluster1.stats
+  path: M7_data/M7.cluster5.stats
   parallel: false
 inst_ests:
   spf_uniform_twf: false

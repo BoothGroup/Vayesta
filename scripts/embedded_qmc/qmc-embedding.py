@@ -120,7 +120,7 @@ for site in range(0, nsite, nimp):
     f.kernel()
     
 # Obtain reference EWF embedding energies
-e_tot_amp_ewf = oneshot.e_tot / nelectron
+e_tot_amp_ewf = oneshot.get_e_tot() / nelectron
 e_tot_rdm_ewf = get_energy(mf, oneshot.fragments) / nelectron
 
 # Run FCI reference calculation using Vayesta (treat system as one
@@ -191,7 +191,7 @@ for fragment in oneshot.fragments:
 
 
 # Combine fragment energies
-qmc_amp_energy = (qmc_solver.e_tot) /nelectron
+qmc_amp_energy = (qmc_solver.get_e_tot()) /nelectron
 # Comparison of energy per electron
 print('Energy per e- comparison')
 print('------------------------')
