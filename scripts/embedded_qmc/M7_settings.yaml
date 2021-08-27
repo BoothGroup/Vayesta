@@ -1,0 +1,139 @@
+---
+prng:
+  seed: 1
+  ngen_block: 10000
+archive:
+  load_path: ""
+  save_path: M7_data/M7.cluster1.1.h5
+  chkpt_path: ""
+  period: 0
+  period_mins: 0
+wavefunction:
+  nw_init: 3
+  nroot: 1
+  spin_restrict: 0
+  buffers:
+    store_fac_init: 1.0
+    store_expand_fac: 0.5
+    comm_fac_init: 1.0
+    comm_expand_fac: 0.5
+  hash_mapping:
+    remap_ratio: 2.0
+    remap_nlookup: 500
+  archive:
+    load: false
+    save: false
+    chkpt: false
+  load_balancing:
+    nblock_per_rank: 6
+    period: 100
+    acceptable_imbalance: 0.05
+    nnull_updates_deactivate: 8
+reference:
+  init_reference_mbf: []
+  redef_thresh: 10.0
+shift:
+  init: 0.0
+  damp: 0.05
+  period: 5
+  ncycle_av: 100
+  jump: false
+  reweight:
+    ncycle: 1500
+    delay: 1000
+propagator:
+  ncycle: 18446744073709551615
+  stochastic: true
+  excit_gen: pchb
+  nw_target: 30000
+  max_bloom: 0.0
+  nadd: 3.0
+  tau_init: 0.001
+  tau_min: 1e-05
+  tau_max: 0.01
+  static_tau: true
+  static_probs: true
+  min_spawn_mag: 0.4
+  min_death_mag: 0.0
+  min_exlvl_prob: 0.001
+  exlvl_probs_init: []
+  ndraw_min_for_dynamic: 1000
+  period: 10
+  semistochastic:
+    size: 0
+    l1_fraction_cutoff: 1.0
+    delay: 0
+hamiltonian:
+  fcidump:
+    path: FCIDUMP_cluster1
+    eb_path: EBDUMP
+    bos_path: BOSDUMP
+    spin_major: false
+  boson_frequency: 0.0
+  boson_coupling: 0.0
+  nboson_max: 0.0
+stats:
+  path: M7_data/M7.cluster1.stats
+  parallel: false
+inst_ests:
+  spf_uniform_twf: false
+  spf_weighted_twf:
+    fermion_fac: 0.0
+    boson_fac: 0.0
+av_ests:
+  delay: 1000
+  ncycle: 5000
+  stats_period: 100
+  stats_path: M7.av_ests.stats
+  rdm:
+    ranks: []
+    buffers:
+      store_fac_init: 1.0
+      store_expand_fac: 0.5
+      comm_fac_init: 1.0
+      comm_expand_fac: 0.5
+    hash_mapping:
+      remap_ratio: 2.0
+      remap_nlookup: 500
+    load_balancing:
+      nblock_per_rank: 6
+      period: 10
+      acceptable_imbalance: 0.05
+      nnull_updates_deactivate: 20
+    archive:
+      load: false
+      save: false
+      chkpt: false
+    explicit_ref_conns: true
+  spec_mom:
+    ranks: []
+    buffers:
+      store_fac_init: 1.0
+      store_expand_fac: 0.5
+      comm_fac_init: 1.0
+      comm_expand_fac: 0.5
+    hash_mapping:
+      remap_ratio: 2.0
+      remap_nlookup: 500
+    load_balancing:
+      nblock_per_rank: 6
+      period: 10
+      acceptable_imbalance: 0.05
+      nnull_updates_deactivate: 20
+    archive:
+      load: false
+      save: false
+      chkpt: false
+    stochastic: true
+    nattempt_per_walker: 1.0
+  ref_excits:
+    max_exlvl: 2
+    buffers:
+      store_fac_init: 1.0
+      store_expand_fac: 0.5
+      comm_fac_init: 1.0
+      comm_expand_fac: 0.5
+    archive:
+      load: false
+      save: yes
+      chkpt: false

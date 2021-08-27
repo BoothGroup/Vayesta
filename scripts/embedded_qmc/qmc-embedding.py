@@ -144,8 +144,8 @@ qmc_solver = vayesta.ewf.EWF(mf, solver="FCIQMC", bno_threshold=np.inf, fragment
 
 frag_index = 0.0
 for site in range(0, nsite, nimp):
-    f = qmc_solver.make_atom_fragment(list(range(site, site+nimp)))
-    fragment_H = f.kernel() # Automatically creates FCIDUMP/PKL for FCIQMC
+    f_qmc = qmc_solver.make_atom_fragment(list(range(site, site+nimp)))
+    f_qmc.kernel() # Automatically creates FCIDUMP/PKL for FCIQMC
     #fragment_H.to_pickle('Hubbard_Hamiltonian%d.pkl'%frag_index)
     #fragment_H.write_fcidump( fname='FCIDUMP_frag%d'%frag_index)
     
@@ -189,26 +189,9 @@ for fragment in oneshot.fragments:
 # script and returned FCI amplitudes in "init_fname" .pkl files
 # Perform energy calculation for each fragment
 
-qmc_amp_energy = 0
-qmc_energies = []
-for i in range(nsite//nimp):
-    ham = Hamiltonian()
-    # Hamiltonians, pkl-s indexed from 1,2...
-    ham.from_pickle('Hubbard_Hamiltonian_cluster%1d.pkl'%(i+1))
-    cisd_coeffs = RestoredCisdCoeffs(ham)
-    cisd_coeffs.from_pickle('cluster'+str(int(i+1))+'_coeff.pkl')
-    #print(cisd_coeffs.energy())
-    qmc_amp_energy = cisd_coeffs.energy()
-    #print(qmc_amp_energy)
-    qmc_energies.append(qmc_amp_energy)
-
-# Check if fragments are translationally invariant
-print('Fragment QMC energies')
-qmc_energies = np.array(qmc_energies)
-print(qmc_energies)
 
 # Combine fragment energies
-qmc_amp_energy = (qmc_energies.sum()) /nelectron
+qmc_amp_energy = (qmc_solver.e_tot) /nelectron
 # Comparison of energy per electron
 print('Energy per e- comparison')
 print('------------------------')

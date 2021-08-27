@@ -20,7 +20,6 @@ from vayesta.core.util import *
 from .solver import ClusterSolver
 
 from cisd_coeff import Hamiltonian, RestoredCisdCoeffs
-import pickle as pkl
 
 class FCIQMCSolver(ClusterSolver):
 
@@ -111,6 +110,7 @@ class FCIQMCSolver(ClusterSolver):
         M7_config_obj.write_yaml(yaml_name)        
         
         # Run M7
+        print("Running M7 FCIQMC...")
         process = Popen('/usr/local/bin/mpirun -np 1 ' + path_to_M7 + '/build/src/release ' + yaml_name, stdout=PIPE, stderr=PIPE, shell=True)
         stdout, stderr = process.communicate()
         stdout = stdout.decode("utf-8")
@@ -126,10 +126,20 @@ class FCIQMCSolver(ClusterSolver):
             cisd_coeffs = RestoredCisdCoeffs(ham)
             cisd_coeffs.from_m7(h5_name)
             cisd_coeffs.normalise()
-            #c0_qmc = cisd_coeffs.c0
-            #c1_qmc = cisd_coeffs.c1
-            #c2_qmc = cisd_coeffs.c2
+
+            c0_qmc = cisd_coeffs.c0
+            
+            c1a_qmc = cisd_coeffs.c1a
+            c1b_qmc = cisd_coeffs.c1b
+            c1_qmc = (c1a_qmc+c1b_qmc)/2
+            
+            c2aa_qmc = cisd_coeffs.c2aa
+            c2bb_qmc = cisd_coeffs.c2bb
+            c2ab_qmc = cisd_coeffs.c2ab
+            c2_qmc = (c2aa_qmc + 2*c2ab_qmc.T + c2bb_qmc)/2
+            
             e_qmc = cisd_coeffs.energy()
+            e_corr_qmc = e_qmc - cisd_coeffs.ref_energy()
             print('e_qmc', e_qmc)
             # saving coefficients into pickle
             cisd_coeffs.to_pickle(coeff_pkl_name)
@@ -139,7 +149,7 @@ class FCIQMCSolver(ClusterSolver):
             print(stderr)
             assert 0
         
-
+        '''
         t0 = timer()
         e_fci, wf = fcisolver.kernel(h_eff, eris, self.nactive, nelec)
         print('e_fci', e_fci)
@@ -151,14 +161,23 @@ class FCIQMCSolver(ClusterSolver):
         self.log.timing("Time for FCI: %s", time_string(timer()-t0))
         # TODO: This requires the E_core energy (and nuc-nuc repulsion)
         e_corr = np.nan
-
+        
         cisdvec = pyscf.ci.cisd.from_fcivec(wf, self.nactive, nelec)
         c0, c1, c2 = pyscf.ci.cisd.cisdvec_to_amplitudes(cisdvec, self.nactive, nocc)
+        c1 /= c0
+        c2 /= c0
+        c0 /= c0
+        
         
         
         results = self.Results(
                 converged=fcisolver.converged, e_corr=e_corr, c_occ=self.c_active_occ, c_vir=self.c_active_vir, eris=eris,
-                c0=c0, c1=c1, c2=c2)
+                c0=c0_qmc, c1=c1, c2=c2)
+        '''
+        
+        results = self.Results(
+                converged=1, e_corr=e_corr_qmc, c_occ=self.c_active_occ, c_vir=self.c_active_vir, eris=eris,
+                c0=c0_qmc, c1=c1_qmc, c2=c2_qmc)
 
         if self.opts.make_rdm2:
             results.dm1, results.dm2 = fcisolver.make_rdm12(wf, self.nactive, nelec)
