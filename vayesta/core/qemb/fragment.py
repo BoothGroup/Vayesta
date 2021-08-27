@@ -291,13 +291,13 @@ class QEmbeddingFragment:
 
         Does not include nuclear-nuclear repulsion!
         """
-        h1e = np.linalg.multi_dot((self.base.mo_coeff.T, self.mf.get_hcore(), self.base.mo_coeff))
-        h1e += np.diag(self.base.mo_energy)
-        p = self.get_fragment_projector(self.base.mo_coeff)
-        h1e = np.dot(p, h1e)
-        e_mf = np.sum(np.diag(h1e)[self.base.mo_occ>0])
+        #h1e = np.linalg.multi_dot((self.base.mo_coeff.T, self.mf.get_hcore(), self.base.mo_coeff))
+        #h1e += np.diag(self.base.mo_energy)
+        px = self.get_fragment_projector(self.base.mo_coeff)
+        hveff = dot(px, self.base.mo_coeff.T, 2*self.base.get_hcore()+self.base.get_veff(), self.base.mo_coeff)
+        occ = (self.base.mo_occ > 0)
+        e_mf = np.sum(np.diag(hveff)[occ])
         return e_mf
-
 
     def get_fragment_projector(self, coeff, ao_ptype='right', inverse=False):
         """Projector for one index of amplitudes local energy expression.
@@ -360,14 +360,12 @@ class QEmbeddingFragment:
         occ = einsum('ai,ab,bi->i', sc, self.mf.make_rdm1(), sc)
         return occ
 
-
     def loop_fragments(self, exclude_self=False):
         """Loop over all fragments."""
         for frag in self.base.fragments:
             if (exclude_self and frag is self):
                 continue
             yield frag
-
 
     def canonicalize_mo(self, *mo_coeff, eigvals=False, sign_convention=True):
         """Diagonalize Fock matrix within subspace.
@@ -398,7 +396,6 @@ class QEmbeddingFragment:
         if eigvals:
             return mo_can, rot, mo_energy
         return mo_can, rot
-
 
     def diagonalize_cluster_dm(self, *mo_coeff, tol=1e-4):
         """Diagonalize cluster (fragment+bath) DM to get fully occupied and virtual orbitals.
@@ -431,7 +428,6 @@ class QEmbeddingFragment:
         c_occclt, c_virclt = np.hsplit(c_clt, [nocc])
         return c_occclt, c_virclt
 
-
     def project_ref_orbitals(self, c_ref, c):
         """Project reference orbitals into available space in new geometry.
 
@@ -460,7 +456,6 @@ class QEmbeddingFragment:
         c = np.dot(c, r)
 
         return c, e
-
 
     # --- DMET
     # ========
@@ -771,7 +766,6 @@ class QEmbeddingFragment:
 
         return pc
 
-
     # --- Symmetry
     # ============
 
@@ -848,7 +842,6 @@ class QEmbeddingFragment:
             fragments.append(f)
 
         return fragments
-
 
     # --- Counterpoise
     # ================
