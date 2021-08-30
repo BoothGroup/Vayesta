@@ -39,7 +39,7 @@ def einsum(*args, **kwargs):
 def cached_method(cachename, use_cache_default=True, store_cache_default=True):
     """Cache the return value of a class method.
 
-    This adds the parameters `load_from_cache` and `save_in_cache` to the method
+    This adds the parameters `use_cache` and `store_cache` to the method
     signature; the default values for both parameters is `True`."""
     def cached_function(func):
         nonlocal cachename
