@@ -83,12 +83,12 @@ N6_U6_2imp_halffilling_sc_Test = make_hubbard1d_test(
         name='N6_U6_2imp_halffilling_sc_Test',
 )
 
-N6x6_U1_2x2imp_halffilling_Test = make_hubbard2d_test(
-        (6, 6), 36, 1.0, (2, 2), "PBC",
-        {'bno_threshold': 1e-6},
-        {'e_tot': -46.639376232193776},
-        name='N6x6_U1_2x2imp_halffilling_Test',
-)
+#N6x6_U1_2x2imp_halffilling_Test = make_hubbard2d_test(
+#        (6, 6), 36, 1.0, (2, 2), "PBC",
+#        {'bno_threshold': 1e-6},
+#        {'e_tot': -46.639376232193776},
+#        name='N6x6_U1_2x2imp_halffilling_Test',
+#)
 
 
 

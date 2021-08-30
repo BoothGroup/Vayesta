@@ -51,21 +51,21 @@ LiH_ccpvdz_lowdin_aos_Test = make_test(
         name='LiH_ccpvdz_lowdin_aos_Test',
 )
 
-N2_augccpvdz_stretched_FCI_Test = make_test(
-        'N 0 0 0; N 0 0 2', 'aug-cc-pvdz',
-        {'solver': 'FCI', 'bno_threshold': 100},
-        lambda ewf: ewf.make_atom_fragment(0, sym_factor=2),
-        {'e_tot': -108.7770182190321},
-        name='N2_augccpvdz_stretched_FCI_Test',
-)
-
-N2_ccpvdz_TCCSD_Test = make_test(
-        'N1 0 0 0; N2 0 0 1.1', 'cc-pvdz',
-        {'solver': 'TCCSD', 'bno_threshold': 1e-4},
-        lambda ewf: ewf.make_atom_fragment('N1', sym_factor=2),
-        {'e_tot': -109.27077981413623},
-        name='N2_ccpvdz_TCCSD_Test',
-)
+#N2_augccpvdz_stretched_FCI_Test = make_test(
+#        'N 0 0 0; N 0 0 2', 'aug-cc-pvdz',
+#        {'solver': 'FCI', 'bno_threshold': 100},
+#        lambda ewf: ewf.make_atom_fragment(0, sym_factor=2),
+#        {'e_tot': -108.7770182190321},
+#        name='N2_augccpvdz_stretched_FCI_Test',
+#)
+#
+#N2_ccpvdz_TCCSD_Test = make_test(
+#        'N1 0 0 0; N2 0 0 1.1', 'cc-pvdz',
+#        {'solver': 'TCCSD', 'bno_threshold': 1e-4},
+#        lambda ewf: ewf.make_atom_fragment('N1', sym_factor=2),
+#        {'e_tot': -109.27077981413623},
+#        name='N2_ccpvdz_TCCSD_Test',
+#)
 
 N2_ccpvdz_sc_Test = make_test(
         'N1 0 0 0; N2 0 0 1.1', 'cc-pvdz',
