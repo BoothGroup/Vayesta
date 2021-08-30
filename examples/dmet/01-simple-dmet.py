@@ -5,7 +5,7 @@ import vayesta.dmet
 
 mol = pyscf.gto.Mole()
 mol.atom = ['Li 0.0 0.0 0.0', 'H 0.0, 0.0, 1.4']
-mol.basis = 'aug-cc-pvdz'
+mol.basis = 'cc-pvdz'
 mol.verbose = 10
 mol.output = 'pyscf_out.txt'
 mol.build()
