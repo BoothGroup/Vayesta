@@ -23,13 +23,12 @@ class QEmbeddingFragment:
         sym_factor: float = 1.0
         wf_partition: str = NotSet  # ['first-occ', 'first-vir', 'democratic']
 
-
     @dataclasses.dataclass
     class Results:
         fid: int = None             # Fragment ID
         converged: bool = None      # True, if solver reached convergence criterion or no convergence required (eg. MP2 solver)
         e_corr: float = None        # Fragment correlation energy contribution
-        # Wave-function
+        # --- Wave-function
         c0: float = None            # Reference determinant CI coefficient
         c1: np.ndarray = None       # CI single coefficients
         c2: np.ndarray = None       # CI double coefficients
@@ -37,6 +36,11 @@ class QEmbeddingFragment:
         t2: np.ndarray = None       # CC double amplitudes
         l1: np.ndarray = None       # CC single Lambda-amplitudes
         l2: np.ndarray = None       # CC double Lambda-amplitudes
+        # Fragment-projected ("fp") amplitudes:
+        t1_fp: np.ndarray = None    # Fragment-projected CC single amplitudes
+        t2_fp: np.ndarray = None    # Fragment-projected CC double amplitudes
+        l1_fp: np.ndarray = None    # Fragment-projected CC single Lambda-amplitudes
+        l2_fp: np.ndarray = None    # Fragment-projected CC double Lambda-amplitudes
         # Density-matrix
         dm1: np.ndarray = None      # One-particle reduced density matrix (dm1[i,j] = <0| i^+ j |0>
         dm2: np.ndarray = None      # Two-particle reduced density matrix (dm2[i,j,k,l] = <0| i^+ k^+ l j |0>)
@@ -50,7 +54,6 @@ class QEmbeddingFragment:
     class Exit(Exception):
         """Raise for controlled early exit."""
         pass
-
 
     def __init__(self, base, fid, name, c_frag, c_env, fragment_type, atoms=None, aos=None,
             sym_parent=None, sym_op=None,
@@ -210,16 +213,18 @@ class QEmbeddingFragment:
     def boundary_cond(self):
         return self.base.boundary_cond
 
-    # Active orbitals
+    # --- Active orbitals
 
     @property
     def c_active(self):
+        """Active orbital coefficients."""
         if self.c_active_occ is None:
             return None
         return np.hstack((self.c_active_occ, self.c_active_vir))
 
     @property
     def c_active_occ(self):
+        """Active occupied orbital coefficients."""
         if self.sym_parent is None:
             return self._c_active_occ
         else:
@@ -227,21 +232,39 @@ class QEmbeddingFragment:
 
     @property
     def c_active_vir(self):
+        """Active virtual orbital coefficients."""
         if self.sym_parent is None:
             return self._c_active_vir
         else:
             return self.sym_op(self.sym_parent.c_active_vir)
 
-    # Frozen orbitals
+    @property
+    def n_active(self):
+        """Number of active orbitals."""
+        return (self.n_active_occ + self.n_active_vir)
+
+    @property
+    def n_active_occ(self):
+        """Number of active occupied orbitals."""
+        return self.c_active_occ.shape[-1]
+
+    @property
+    def n_active_vir(self):
+        """Number of active virtual orbitals."""
+        return self.c_active_vir.shape[-1]
+
+    # --- Frozen orbitals
 
     @property
     def c_frozen(self):
+        """Frozen orbital coefficients."""
         if self.c_frozen_occ is None:
             return None
         return np.hstack((self.c_frozen_occ, self.c_frozen_vir))
 
     @property
     def c_frozen_occ(self):
+        """Frozen occupied orbital coefficients."""
         if self.sym_parent is None:
             return self._c_frozen_occ
         else:
@@ -249,12 +272,28 @@ class QEmbeddingFragment:
 
     @property
     def c_frozen_vir(self):
+        """Frozen virtual orbital coefficients."""
         if self.sym_parent is None:
             return self._c_frozen_vir
         else:
             return self.sym_op(self.sym_parent.c_frozen_vir)
 
-    # All orbitals
+    @property
+    def n_frozen(self):
+        """Number of frozen orbitals."""
+        return (self.n_frozen_occ + self.n_frozen_vir)
+
+    @property
+    def n_frozen_occ(self):
+        """Number of frozen occupied orbitals."""
+        return self.c_frozen_occ.shape[-1]
+
+    @property
+    def n_frozen_vir(self):
+        """Number of frozen virtual orbitals."""
+        return self.c_frozen_vir.shape[-1]
+
+    # --- All orbitals
 
     @property
     def mo_coeff(self):
@@ -262,11 +301,18 @@ class QEmbeddingFragment:
 
     # Rotation matrices
 
-    def get_rot_cmo_to_active(self):
-        occ = (self.base.mo_occ > 0)
-        vir = (self.base.mo_occ == 0)
-        r_occ = dot(self.base.mo_coeff[:,occ].T, self.base.get_ovlp(), self.c_active_occ)
-        r_vir = dot(self.base.mo_coeff[:,vir].T, self.base.get_ovlp(), self.c_active_vir)
+    def get_rot_to_mf(self):
+        """Get rotation matrices from occupied/virtual active space to MF orbitals."""
+        ovlp = self.base.get_ovlp()
+        r_occ = dot(self.c_active_occ.T, ovlp, self.base.mo_coeff_occ)
+        r_vir = dot(self.c_active_vir.T, ovlp, self.base.mo_coeff_vir)
+        return r_occ, r_vir
+
+    def get_rot_to_fragment(self, fragment):
+        """Get rotation matrices between occupied/virtual active space of this and another fragment."""
+        ovlp = self.base.get_ovlp()
+        r_occ = dot(self.c_active_occ.T, ovlp, fragment.c_active_occ)
+        r_vir = dot(self.c_active_vir.T, ovlp, fragment.c_active_vir)
         return r_occ, r_vir
 
     @property
@@ -302,6 +348,8 @@ class QEmbeddingFragment:
     def get_fragment_projector(self, coeff, ao_ptype='right', inverse=False):
         """Projector for one index of amplitudes local energy expression.
 
+        Cost: N^2 if O(1) coeffs , N^3 if O(N) coeffs
+
         Parameters
         ----------
         coeff : ndarray, shape(nAO, n)
@@ -318,25 +366,27 @@ class QEmbeddingFragment:
             Projection matrix.
         """
         self.log.debugv("Get fragment projector type %s", self.fragment_type)
-        if self.fragment_type.upper() == 'SITE':
+        ftype = self.fragment_type.upper()
+        if ftype == 'SITE':
             r = np.dot(coeff.T, self.c_frag)
             p = np.dot(r, r.T)
-        if self.fragment_type.upper() in ('IAO', 'LOWDIN-AO'):
-            r = np.linalg.multi_dot((coeff.T, self.base.get_ovlp(), self.c_frag))
+        elif ftype in ('IAO', 'LOWDIN-AO'):
+            r = dot(coeff.T, self.base.get_ovlp(), self.c_frag)
             p = np.dot(r, r.T)
-        if self.fragment_type.upper() == 'AO':
+        elif ftype == 'AO':
             if self.aos is None:
                 raise ValueError("Cannot obtain local projector for fragment_type 'AO', if attribute `aos` is not set.")
             if ao_ptype == 'right':
-                p = np.linalg.multi_dot((coeff.T, self.base.get_ovlp()[:,self.aos], self.c_frag[self.aos]))
+                p = dot(coeff.T, self.base.get_ovlp()[:,self.aos], self.c_frag[self.aos])
             elif ao_ptype == 'right':
-                p = np.linalg.multi_dot((coeff[self.aos].T, self.base.get_ovlp()[self.aos], self.c_frag))
+                p = dot(coeff[self.aos].T, self.base.get_ovlp()[self.aos], self.c_frag)
             elif ao_ptype == 'symmetric':
-                # Does this even make sense?
                 shalf = scipy.linalg.fractional_matrix_power(self.get_ovlp, 0.5)
                 assert np.allclose(s.half.imag, 0)
                 shalf = shalf.real
-                p = np.linalg.multi_dot((C.T, shalf[:,self.aos], s[self.aos], C))
+                p = dot(C.T, shalf[:,self.aos], s[self.aos], C)
+        else:
+            raise ValueError("Unknown fragment type: %r" % ftype)
         if inverse:
             p = np.eye(p.shape[-1]) - p
         return p
