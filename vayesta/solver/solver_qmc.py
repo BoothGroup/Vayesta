@@ -74,7 +74,7 @@ class FCIQMCSolver(ClusterSolver):
         
         # Once Hamiltonian's are setup, prepare to run FCIQMC (M7)
         
-        path_to_M7 = '/Users/darrenlean/Documents/UROP/Code/M7'
+        path_to_M7 = '/Users/marcell/Desktop/RESEARCH/M7'
         
         random_seed = 1
         ham_pkl_name = 'Hubbard_Hamiltonian_cluster'+str(int(self.fragment.id))+'.pkl'
