@@ -103,6 +103,11 @@ class FCIQMCSolver(ClusterSolver):
         M7_config_obj.M7_config_dict['av_ests']['ncycle'] = 5000
         M7_config_obj.M7_config_dict['av_ests']['ref_excits']['max_exlvl'] = 2
         M7_config_obj.M7_config_dict['av_ests']['ref_excits']['archive']['save'] = 'yes'
+        rdm_ranks = []
+        if self.opts.make_rdm1: rdm_ranks.append('1')
+        if self.opts.make_rdm2: rdm_ranks.append('2')
+        M7_config_obj.M7_config_dict['av_ests']['rdm']['ranks'] = rdm_ranks
+        M7_config_obj.M7_config_dict['av_ests']['rdm']['archive']['save'] = 'yes'
         M7_config_obj.M7_config_dict['archive']['save_path'] = h5_name
         M7_config_obj.M7_config_dict['hamiltonian']['fcidump']['path'] = FCIDUMP_name
         M7_config_obj.M7_config_dict['stats']['path'] = stats_name
@@ -180,9 +185,9 @@ class FCIQMCSolver(ClusterSolver):
                 c0=c0_qmc, c1=c1_qmc, c2=c2_qmc)
 
         if self.opts.make_rdm2:
-            results.dm1, results.dm2 = fcisolver.make_rdm12(wf, self.nactive, nelec)
+            results.dm1, results.dm2 = rdm_utils.load_spinfree_1_2rdm_from_m7(h5_name, nelec)
         elif self.opts.make_rdm1:
-            results.dm1 = fcisolver.make_rdm1(wf, self.nactive, nelec)
+            results.dm1 = rdm_utils.load_spinfree_1rdm_from_m7(h5_name)
         
         return results
 
