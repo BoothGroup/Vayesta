@@ -30,43 +30,45 @@ class RAGF2Options(OptionsBase):
     '''
 
     # --- Auxiliary parameters
-    weight_tol: float = 1e-12       # tolerance in weight of auxiliaries
-    non_dyson: bool = False         # set to True for non-Dyson approximation
-    nmom_lanczos: int = 0           # number of moments for block Lanczos
-    nmom_projection: int = None     # number of moments for EwDMET projection
-    os_factor: float = 1.0          # opposite-spin scaling factor
-    ss_factor: float = 1.0          # same-spin scaling factor
-    diagonal_se: bool = False       # use a diagonal approximation
+    weight_tol: float = 1e-12           # tolerance in weight of auxiliaries
+    non_dyson: bool = False             # set to True for non-Dyson approximation
+    nmom_lanczos: int = 0               # number of moments for block Lanczos
+    nmom_projection: int = None         # number of moments for EwDMET projection
+    os_factor: float = 1.0              # opposite-spin scaling factor
+    ss_factor: float = 1.0              # same-spin scaling factor
+    diagonal_se: bool = False           # use a diagonal approximation
 
     # --- Main convergence parameters
-    max_cycle: int = 50             # maximum number of AGF2 iterations
-    conv_tol: float = 1e-7          # convergence tolerance in AGF2 energy
-    conv_tol_t0: float = np.inf     # convergence tolerance in zeroth SE moment
-    conv_tol_t1: float = np.inf     # convergence tolerance in first SE moment
-    damping: float = 0.0            # damping of AGF2 iterations
-    diis_space: int = 6             # size of AGF2 DIIS space
-    diis_min_space: int = 1         # minimum AGF2 DIIS space before extrapolation
+    max_cycle: int = 50                 # maximum number of AGF2 iterations
+    conv_tol: float = 1e-7              # convergence tolerance in AGF2 energy
+    conv_tol_t0: float = np.inf         # convergence tolerance in zeroth SE moment
+    conv_tol_t1: float = np.inf         # convergence tolerance in first SE moment
+    damping: float = 0.0                # damping of AGF2 iterations
+    diis_space: int = 6                 # size of AGF2 DIIS space
+    diis_min_space: int = 1             # minimum AGF2 DIIS space before extrapolation
 
     # --- Fock loop convergence parameters
-    fock_basis: str = 'MO'          # basis to perform Fock build in
-    fock_loop: bool = True          # do the Fock loop
-    max_cycle_outer: int = 20       # maximum number of outer Fock loop cycles
-    max_cycle_inner: int = 50       # maximum number of inner Fock loop cycles
-    conv_tol_rdm1: float = 1e-8     # convergence tolerance in 1RDM
-    conv_tol_nelec: float = 1e-6    # convergence tolerance in number of electrons
-    fock_diis_space: int = 8        # size of Fock loop DIIS space
-    fock_diis_min_space: int = 1    # minimum Fock loop DIIS space before extrapolation
+    fock_basis: str = 'MO'              # basis to perform Fock build in
+    fock_loop: bool = True              # do the Fock loop
+    max_cycle_outer: int = 20           # maximum number of outer Fock loop cycles
+    max_cycle_inner: int = 50           # maximum number of inner Fock loop cycles
+    conv_tol_rdm1: float = 1e-8         # convergence tolerance in 1RDM
+    conv_tol_nelec: float = 1e-6        # convergence tolerance in number of electrons
+    conv_tol_nelec_factor: float = 1e-2 # control non-commutative convergence critera
+    fock_diis_space: int = 8            # size of Fock loop DIIS space
+    fock_diis_min_space: int = 1        # minimum Fock loop DIIS space before extrapolation
+    fock_damping: float = 0.0           # damping of Fock matrices
 
     # --- Analysis
-    pop_analysis: bool = False      # perform population analysis
-    dip_moment: bool = False        # calculate dipole moments
-    excitation_tol: float = 0.1     # tolerance for printing MO character of excitations
-    excitation_number: int = 5      # number of excitations to print
-
-    # --- Output
-    dump_chkfile: bool = True       # dump results to chkfile
-    chkfile: str = None             # name of chkfile, if None then inherit from self.mf
-    dump_cubefiles: int = 0         # number of HOQMOs and LUQMOs to dump to .cube files
+    pop_analysis: bool = False          # perform population analysis
+    dip_moment: bool = False            # calculate dipole moments
+    excitation_tol: float = 0.1         # tolerance for printing MO character of excitations
+    excitation_number: int = 5          # number of excitations to print
+                                        
+    # --- Output                        
+    dump_chkfile: bool = True           # dump results to chkfile
+    chkfile: str = None                 # name of chkfile, if None then inherit from self.mf
+    dump_cubefiles: int = 0             # number of HOQMOs and LUQMOs to dump to .cube files
 
 
 class DIIS(lib.diis.DIIS):
@@ -426,17 +428,24 @@ class RAGF2:
 
         del xija, xabi
 
+        for i in range(2*self.opts.nmom_lanczos+2):
+            self.log.debug(
+                    "Trace of n=%d moments:  Occupied = %.5g  Virtual = %.5g",
+                    i, np.trace(t_occ[i]), np.trace(t_vir[i]),
+            )
+
 
         # === Occupied:
 
         self.log.info("Occupied self-energy:")
         self.log.changeIndentLevel(1)
-        self.log.infov("Number of ija:  %s", ei.size**2 * ea.size)
+        self.log.debug("Number of ija:  %s", ei.size**2 * ea.size)
 
         w = np.linalg.eigvalsh(t_occ[0])
-        wmin = w.min()
-        if wmin < 1e-8:
-            (self.log.critical if wmin<0 else self.log.warning)('Smallest eigenvalue:  %.6g', wmin)
+        wmin, wmax = w.min(), w.max()
+        (self.log.warning if wmin < 1e-8 else self.log.debug)(
+                'Eigenvalue range:  %.5g -> %.5g', wmin, wmax,
+        )
 
         se_occ = self._build_se_from_moments(t_occ, chempot=gf.chempot)
 
@@ -448,12 +457,13 @@ class RAGF2:
         
         self.log.info("Virtual self-energy:")
         self.log.changeIndentLevel(1)
-        self.log.info("Number of abi:  %s", ei.size * ea.size**2)
+        self.log.debug("Number of abi:  %s", ei.size * ea.size**2)
 
         w = np.linalg.eigvalsh(t_vir[0])
-        wmin = w.min()
-        if wmin < 1e-8:
-            (self.log.critical if wmin<0 else self.log.warning)('Smallest eigenvalue:  %.6g', wmin)
+        wmin, wmax = w.min(), w.max()
+        (self.log.warning if wmin < 1e-8 else self.log.debug)(
+                'Eigenvalue range:  %.5g -> %.5g', wmin, wmax,
+        )
 
         se_vir = self._build_se_from_moments(t_vir, chempot=gf.chempot)
 
@@ -477,6 +487,8 @@ class RAGF2:
             se.get_occupied().moment(range(2*self.opts.nmom_lanczos+2)),
             se.get_virtual().moment(range(2*self.opts.nmom_lanczos+2)),
         ))
+        self.log.debug("Summed trace of moments:")
+        self.log.debug(" > Initial :  %.5g", np.einsum('onii->', t))
 
         if self.opts.damping and se_prev:
             t_prev = np.array((
@@ -486,8 +498,10 @@ class RAGF2:
 
             t *= (1.0 - self.opts.damping)
             t += self.opts.damping * t_prev
+            self.log.debug(" > Damping :  %.5g", np.einsum('onii->', t))
 
         t = diis.update(t)
+        self.log.debug(" > DIIS    :  %.5g", np.einsum('onii->', t))
 
         se_occ = self._build_se_from_moments(t[0], chempot=se.chempot)
         se_vir = self._build_se_from_moments(t[1], chempot=se.chempot)
@@ -510,6 +524,7 @@ class RAGF2:
         v = np.eye(self.nact)
         gf = agf2.GreensFunction(e, v, chempot=chempot)
 
+        self.log.debug("Built G0 with μ(MF) = %.5g", chempot)
         self.log.info("Number of active electrons in G0:  %s", np.trace(gf.make_rdm1()))
 
         return gf
@@ -535,6 +550,18 @@ class RAGF2:
         f_ext = np.block([[fock, v], [v.T.conj(), np.diag(e)]])
         w, v = np.linalg.eigh(f_ext)
 
+        self.log.debugv("Solved Dyson equation, eigenvalue ranges:")
+        self.log.debugv(
+                " > Occupied :  %.5g -> %.5g",
+                np.min(w[w < se.chempot]),
+                np.max(w[w < se.chempot]),
+        )
+        self.log.debugv(
+                " > Virtual  :  %.5g -> %.5g",
+                np.min(w[w >= se.chempot]),
+                np.max(w[w >= se.chempot]),
+        )
+
         return w, v
 
 
@@ -552,10 +579,11 @@ class RAGF2:
 
         if not self.opts.fock_loop:
             # Just solve Dyson eqn
+            self.log.info("Solving Dyson equation")
             w, v = self.solve_dyson(se=se, gf=gf, fock=fock)
             gf = agf2.GreensFunction(w, v[:self.nact], chempot=se.chempot)
             gf.chempot = se.chempot = agf2.chempot.binsearch_chempot((w, v), self.nact, nelec)[0]
-            return gf, se
+            return gf, se, True
 
         self.log.info('Fock loop')
         self.log.info('*********')
@@ -564,13 +592,14 @@ class RAGF2:
         rdm1_prev = np.zeros_like(fock)
         converged = False
 
+        self.log.debug("Target number of electrons:  %d", nelec)
         self.log.infov('%12s %9s %12s %12s', 'Iteration', 'Cycles', 'Nelec error', 'DM change')
 
         for niter1 in range(1, self.opts.max_cycle_outer+1):
             se, opt = agf2.chempot.minimize_chempot(
                     se, fock, nelec,
                     x0=se.chempot,
-                    tol=self.opts.conv_tol_nelec*1e-2,  #FIXME - may change after rediagonalisation
+                    tol=self.opts.conv_tol_nelec*self.opts.conv_tol_nelec_factor,
                     maxiter=self.opts.max_cycle_inner,
             )
 
@@ -579,19 +608,27 @@ class RAGF2:
                 se.chempot, nerr = agf2.chempot.binsearch_chempot((w, v), self.nact, nelec)
                 gf = agf2.GreensFunction(w, v[:self.nact], chempot=se.chempot)
 
+                fock_prev = fock.copy()
                 fock = self.get_fock(gf=gf, with_frozen=False)
+
+                if self.opts.fock_damping:
+                    fock *= (1.0 - self.opts.fock_damping)
+                    fock += self.opts.fock_damping * fock_prev
+
                 rdm1 = self.make_rdm1(gf=gf, with_frozen=False)
                 fock = diis.update(fock, xerr=None)
 
                 derr = np.max(np.absolute(rdm1 - rdm1_prev))
                 rdm1_prev = rdm1.copy()
 
-                if derr < self.opts.conv_tol_rdm1:
+                self.log.debug('%12s %9s %12.4g %12.4g', '(*) %d'%niter1, '-> %d'%niter2, nerr, derr)
+
+                if abs(derr) < self.opts.conv_tol_rdm1:
                     break
 
             self.log.infov('%12d %9d %12.4g %12.4g', niter1, niter2, nerr, derr)
 
-            if derr < self.opts.conv_tol_rdm1 and abs(nerr) < self.opts.conv_tol_nelec:
+            if abs(derr) < self.opts.conv_tol_rdm1 and abs(nerr) < self.opts.conv_tol_nelec:
                 converged = True
                 break
 
@@ -599,7 +636,7 @@ class RAGF2:
         self.log.info("μ = %.9g", se.chempot)
         self.log.timing('Time for fock loop:  %s', time_string(timer() - t0))
 
-        return gf, se
+        return gf, se, converged
 
 
     def get_fock(self, gf=None, rdm1=None, with_frozen=True):
@@ -1011,7 +1048,7 @@ class RAGF2:
             e_prev = self.e_tot
 
             # one-body terms
-            gf, se = self.gf, self.se = self.fock_loop(gf=gf, se=se)
+            gf, se, _ = self.gf, self.se, fconv = self.fock_loop(gf=gf, se=se)
             e_1b = self.e_1b = self.energy_1body(gf=gf)
 
             # two-body terms
