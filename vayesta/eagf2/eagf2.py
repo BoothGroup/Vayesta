@@ -44,6 +44,7 @@ class EAGF2Options(OptionsBase):
 
     # --- Solver settings
     solver_options: dict = dataclasses.field(default_factory=dict)
+    fock_loop_options: dict = NotSet
 
     # --- Other
     strict: bool = False
@@ -145,6 +146,9 @@ class EAGF2(QEmbeddingMethod):
         solver_options : dataclass.field
             Options passed to solver on each cluster, see
             `vayesta.eagf2.ragf2.RAGF2` for options.
+        fock_loop_options : dataclass.field
+            Options passed to Fock loop on combined system. If NotSet
+            then use solver_options.
         strict : bool
             Force convergence in the mean-field calculations (default
             value is True).
@@ -177,7 +181,7 @@ class EAGF2(QEmbeddingMethod):
             self.opts = self.opts.replace(kwargs)
         self.log.info("EAGF2 parameters:")
         for key, val in self.opts.items():
-            if key == 'solver_options':
+            if key == 'solver_options' or key == 'fock_loop_options':
                 continue
             self.log.info("  > %-24s %r", key + ":", val)
 
@@ -188,11 +192,22 @@ class EAGF2(QEmbeddingMethod):
         else:
             self.quiet_log = self.log
 
+        # --- Options for RAGF2 solver
         solver_options = RAGF2Options(**self.opts.solver_options)
         self.opts.solver_options = solver_options
         self.log.info("RAGF2 solver parameters:")
         for key, val in self.opts.solver_options.items():
             self.log.info("  > %-24s %r", key + ":", val)
+
+        # --- Options for final Fock loop
+        if not (self.opts.fock_loop_options is NotSet):
+            fock_loop_options = RAGF2Options(**self.opts.fock_loop_options)
+            self.opts.fock_loop_options = fock_loop_options.replace({'fock_basis': 'ao'})
+            self.log.info("RAGF2 Fock loop parameters:")
+            for key, val in self.opts.fock_loop_options.items():
+                self.log.info("  > %-24s %r", key + ":", val)
+        else:
+            self.opts.fock_loop_options = solver_options.replace({'fock_basis': 'ao'})
 
         # --- Check input
         if not mf.converged:
@@ -297,18 +312,14 @@ class EAGF2(QEmbeddingMethod):
                 self.log.info("Gap     = %20.12f", results.ip + results.ea)
                 if not results.converged:
                     self.log.error("%s is not converged", frag)
+                    if self.opts.strict:
+                        raise RuntimeError
                 else:
                     self.log.info("%s is done.", frag)
 
             else:
                 self.log.info("Fragment is symmetry related, parent: %s", frag.sym_parent)
                 results = self.cluster_results[frag.sym_parent.id]
-
-                #TODO messy - should the symmetry related fragments have a kernel which
-                # just does this and doesn't run the solver?
-                if frag.c_cluster_occ is None:
-                    frag.c_cluster_occ, frag.c_cluster_vir, frag.c_env_occ, frag.c_env_vir = \
-                            frag.make_bath()
 
             rdm1_frag = frag.democratic_partition(results.rdm1, mo_coeff=results.c_active)
             fock_frag = frag.democratic_partition(results.fock, mo_coeff=results.c_active)
@@ -326,14 +337,6 @@ class EAGF2(QEmbeddingMethod):
             self.log.changeIndentLevel(-1)
 
 
-        #NOTE: UnfoldedRHF should do this automatically!
-        ##TODO hacky
-        ##TODO unfold AO 3c integrals and use for fock build and transformation to active basis
-        #if getattr(self, 'kdf', None) is not None:
-        #    old_veff = self.mf.get_veff
-        #    self.mf.get_veff = types.MethodType(_get_veff_unfolded(self), self.mf)
-
-        options = self.opts.solver_options.replace({'fock_basis': 'ao'})
         gf2 = RAGF2(self.mf,
                 eri=np.empty(()),
                 veff=np.empty(()),
@@ -368,7 +371,12 @@ class EAGF2(QEmbeddingMethod):
 
         w, v = gf2.solve_dyson(se=gf2.se, gf=gf2.gf, fock=fock)
         gf2.gf = pyscf.agf2.GreensFunction(w, v[:gf2.nmo])
-        gf2.gf, gf2.se = gf2.fock_loop(gf=gf2.gf, se=gf2.se, fock=fock)
+        gf2.gf, gf2.se, fconv = gf2.fock_loop(gf=gf2.gf, se=gf2.se, fock=fock)
+
+        if not fconv:
+            self.log.warning("Full system Fock loop did not converge.")
+            if self.opts.strict:
+                raise RuntimeError
 
         gf2.e_1b  = 0.5 * np.sum(rdm1 * (gf2.h1e + fock))
         gf2.e_1b += gf2.e_nuc
@@ -389,11 +397,6 @@ class EAGF2(QEmbeddingMethod):
 
         self.log.info("Total wall time:  %s", time_string(timer() - t0))
         self.log.info("All done.")
-
-        #NOTE: UnfoldedRHF should do this automatically!
-        ##TODO hacky
-        #if getattr(self, 'kdf', None) is not None:
-        #    self.mf.get_veff = types.MethodType(old_veff, self.mf)
 
         return results
 

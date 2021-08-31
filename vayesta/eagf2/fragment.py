@@ -410,7 +410,8 @@ class EAGF2Fragment(QEmbeddingFragment):
                 else:
                     if self.mf.with_df._cderi is None:
                         self.mf.with_df.build()
-                    eri = np.asarray(pyscf.lib.unpack_tril(self.mf.with_df._cderi, axis=-1))
+                    eri = np.concatenate([x for x in self.mf.with_df.loop()])
+                    eri = np.asarray(pyscf.lib.unpack_tril(eri, axis=-1))
                     eri = ragf2._ao2mo_3c(eri, c_active, c_active)
             else:
                 #TODO Three-center?
