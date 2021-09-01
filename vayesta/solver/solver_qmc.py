@@ -10,7 +10,8 @@ import pyscf.mcscf
 import pyscf.fci
 from pyscf import tools, ao2mo, fci
 
-from M7_config_yaml_helper import M7_config_to_dict
+
+from .M7_config_yaml_helper import M7_config_to_dict
 from subprocess import Popen, PIPE
 
 #import pyscf.fci.direct_spin0
@@ -19,7 +20,8 @@ from subprocess import Popen, PIPE
 from vayesta.core.util import *
 from .solver import ClusterSolver
 
-from cisd_coeff import Hamiltonian, RestoredCisdCoeffs
+from .cisd_coeff import Hamiltonian, RestoredCisdCoeffs
+from .rdm_utils import load_spinfree_1rdm_from_m7, load_spinfree_1_2rdm_from_m7
 
 class FCIQMCSolver(ClusterSolver):
 
@@ -99,6 +101,7 @@ class FCIQMCSolver(ClusterSolver):
         M7_config_obj.M7_config_dict['wavefunction']['load_balancing']['period'] = 100
         M7_config_obj.M7_config_dict['wavefunction']['load_balancing']['nnull_updates_deactivate'] = 8
         M7_config_obj.M7_config_dict['propagator']['nw_target'] = 30000
+
         M7_config_obj.M7_config_dict['av_ests']['delay'] = 1000
         M7_config_obj.M7_config_dict['av_ests']['ncycle'] = 5000
         M7_config_obj.M7_config_dict['av_ests']['ref_excits']['max_exlvl'] = 2
@@ -106,8 +109,10 @@ class FCIQMCSolver(ClusterSolver):
         rdm_ranks = []
         if self.opts.make_rdm1: rdm_ranks.append('1')
         if self.opts.make_rdm2: rdm_ranks.append('2')
+        
         M7_config_obj.M7_config_dict['av_ests']['rdm']['ranks'] = rdm_ranks
-        M7_config_obj.M7_config_dict['av_ests']['rdm']['archive']['save'] = 'yes'
+        if (len(rdm_ranks)):
+            M7_config_obj.M7_config_dict['av_ests']['rdm']['archive']['save'] = 'yes'
         M7_config_obj.M7_config_dict['archive']['save_path'] = h5_name
         M7_config_obj.M7_config_dict['hamiltonian']['fcidump']['path'] = FCIDUMP_name
         M7_config_obj.M7_config_dict['stats']['path'] = stats_name
@@ -185,9 +190,9 @@ class FCIQMCSolver(ClusterSolver):
                 c0=c0_qmc, c1=c1_qmc, c2=c2_qmc)
 
         if self.opts.make_rdm2:
-            results.dm1, results.dm2 = rdm_utils.load_spinfree_1_2rdm_from_m7(h5_name, nelec)
+            results.dm1, results.dm2 = load_spinfree_1_2rdm_from_m7(h5_name, nelec)
         elif self.opts.make_rdm1:
-            results.dm1 = rdm_utils.load_spinfree_1rdm_from_m7(h5_name)
+            results.dm1 = load_spinfree_1rdm_from_m7(h5_name)
         
         return results
 
