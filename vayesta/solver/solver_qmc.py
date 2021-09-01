@@ -81,8 +81,8 @@ class FCIQMCSolver(ClusterSolver):
         random_seed = 1
         ham_pkl_name = 'Hubbard_Hamiltonian_cluster'+str(int(self.fragment.id))+'.pkl'
         FCIDUMP_name = 'FCIDUMP_cluster'+str(int(self.fragment.id))
-        h5_name = 'M7_data/M7.cluster'+str(int(self.fragment.id))+'.'+str(random_seed)+'.h5'
-        stats_name = 'M7_data/M7.cluster'+str(int(self.fragment.id))+'.stats'
+        h5_name = 'M7.cluster'+str(int(self.fragment.id))+'.'+str(random_seed)+'.h5'
+        stats_name = 'M7.cluster'+str(int(self.fragment.id))+'.stats'
         coeff_pkl_name = 'cluster'+str(int(self.fragment.id))+'_coeff.pkl'
         
         #Writing Hamiltonian for M7 (FCIDUMP) and Python analysis (pkl)

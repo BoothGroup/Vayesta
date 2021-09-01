@@ -12,8 +12,6 @@ from pyscf import fci
 from scipy.interpolate import interp1d
 
 
-from cisd_coeff import Hamiltonian, RestoredCisdCoeffs
-
 import vayesta
 
 import vayesta.lattmod
@@ -140,7 +138,7 @@ fci.direct_spin1.kernel(h1e=mf.get_hcore(), eri=mf._eri, nelec=nelectron,norb=ne
 out_filename='M7_Hamiltonian'
 
 
-qmc_solver = vayesta.ewf.EWF(mf, solver="FCIQMC", bno_threshold=np.inf, fragment_type='Site', make_rdm1=False, make_rdm2=False)
+qmc_solver = vayesta.ewf.EWF(mf, solver="FCIQMC", bno_threshold=np.inf, fragment_type='Site', make_rdm1=True, make_rdm2=True)
 
 frag_index = 0.0
 for site in range(0, nsite, nimp):
@@ -149,42 +147,9 @@ for site in range(0, nsite, nimp):
     #fragment_H.to_pickle('Hubbard_Hamiltonian%d.pkl'%frag_index)
     #fragment_H.write_fcidump( fname='FCIDUMP_frag%d'%frag_index)
     
+
     frag_index += 1
 
-'''
-frag_index = 0
-for fragment in oneshot.fragments:
-
-    #solver = embqmc.FCIQMCSolver(fragment=fragment,\
-    #mo_coeff=fragment.mo_coeff,\
-    #mo_occ=fragment.mo_occ,\
-    #nocc_frozen=fragment.nocc_frozen,\
-    #nvir_frozen=fragment.nvir_frozen)
-    
-    # Get active space projector to fragment's cluster space
-    c = fragment.c_active
-    print(c.shape)
-    assert c.shape == (nsite, 2*nimp)
-    
-    h0 = 0.0 # No non-electronic energy for Hubbard lattices
-    
-    # Project electron Hamiltonians into cluster space
-    assert mf.get_hcore().shape == (nsite, nsite)
-    assert mf._eri.shape == (nsite, nsite, nsite, nsite)
-    h1 = np.einsum('ij,ia,jb->ab', mf.get_hcore(), c, c)
-    h2 = np.einsum('ijkl,ia,jb,kc,ld->abcd', mf._eri, c, c, c, c)/2
-    
-    local_nelec = int(2*nimp*filling)
-    
-    # Write result in FCIQMC files per fragment
-    # FCIQMC should read in from these files
-    Hubbard_Hamiltonian = solver.kernel()
-    #Hubbard_Hamiltonian.from_arrays(h0, h1, h2, local_nelec)
-    Hubbard_Hamiltonian.to_pickle('Hubbard_Hamiltonian%d.pkl'%frag_index)
-    Hubbard_Hamiltonian.write_fcidump( fname='FCIDUMP_frag%d'%frag_index)
-    
-    frag_index += 1"
-'''
 # Here the code assumes M7 has solved the above Hamiltonians outside of
 # script and returned FCI amplitudes in "init_fname" .pkl files
 # Perform energy calculation for each fragment
@@ -192,12 +157,16 @@ for fragment in oneshot.fragments:
 
 # Combine fragment energies
 qmc_amp_energy = (qmc_solver.get_e_tot()) /nelectron
+qmc_rdm_energy = (get_energy(mf, qmc_solver.fragments))/nelectron
 # Comparison of energy per electron
 print('Energy per e- comparison')
 print('------------------------')
 print('QMC energy [t] %1.12f (Vayesta + FCIQMC / Amplitude)'% qmc_amp_energy)
 print('EWF energy [t] %1.12f (Vayesta + FCI / Amplitude)'% e_tot_amp_ewf)
+print()
+print('QMC energy [t] %1.12f (Vayesta + FCIQMC / Redduced DM)'% qmc_rdm_energy)
 print('RDM energy [t] %1.12f (Vayesta + FCI / Reduced DM)'% e_tot_rdm_ewf)
+print()
 print('FCI energy [t] %1.12f (Vayesta/EWF) '% e_tot_fci_1)
 print('FCI energy [t] %1.12f (PySCF/direct_spin1) '% e_tot_fci_2)
     
