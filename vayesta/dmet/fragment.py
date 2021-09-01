@@ -25,15 +25,12 @@ from vayesta.core import QEmbeddingFragment
 # We might want to move the useful things from here into core, since they seem pretty general.
 from vayesta.ewf import helper, psubspace
 
-
 from . import dmet
 from vayesta.solver import get_solver_class
 from vayesta.ewf import mp2_bath
 
-
 class DMETFragmentExit(Exception):
     pass
-
 
 class DMETFragment(QEmbeddingFragment):
 

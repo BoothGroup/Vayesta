@@ -467,7 +467,7 @@ class QEmbeddingMethod:
     # Results
     # -------
 
-    def get_wf_ccsd(self, calc_t1=True, calc_t2=True, get_lambda=False, partition=None, symmetrize=True):
+    def get_t12(self, calc_t1=True, calc_t2=True, get_lambda=False, partition=None, symmetrize=True):
         """Get global CCSD wave function (T1 and T2 amplitudes) from fragment calculations.
 
         Parameters
@@ -491,16 +491,20 @@ class QEmbeddingMethod:
             self.log.debugv("Now adding projected %s-amplitudes of fragment %s", ("L" if get_lambda else "T"), f)
             ro, rv = f.get_rot_to_mf()
             if calc_t1:
-                t1f = f.results.l1 if get_lambda else f.results.t1
+                t1f = (f.results.l1 if get_lambda else f.results.t1)
+                if t1f is None: raise RuntimeError("Amplitudes not found for fragment %s" % f)
                 t1f = f.project_amplitude_to_fragment(t1f, partition=partition)
                 t1 += einsum('ia,iI,aA->IA', t1f, ro, rv)
             if calc_t2:
-                t2f = f.results.l2 if get_lambda else f.results.t2
+                t2f = (f.results.l2 if get_lambda else f.results.t2)
+                if t2f is None: raise RuntimeError("Amplitudes not found for fragment %s" % f)
                 t2f = f.project_amplitude_to_fragment(t2f, partition=partition, symmetrize=symmetrize)
                 t2 += einsum('ijab,iI,jJ,aA,bB->IJAB', t2f, ro, ro, rv, rv)
         #t2 = (t2 + t2.transpose(1,0,3,2))/2
         #assert np.allclose(t2, t2.transpose(1,0,3,2))
         return t1, t2
+
+    #get_wf_ccsd = get_ccsd_t12
 
     def make_rdm1_demo(self, ao_basis=False, add_mf=True, symmetrize=True):
         """Make democratically partitioned one-particle reduced density-matrix from fragment calculations.
@@ -574,7 +578,7 @@ class QEmbeddingMethod:
         """
 
         if slow:
-            t1, t2 = self.get_wf_ccsd(partition=partition)
+            t1, t2 = self.get_t12(partition=partition)
             cc = pyscf.cc.ccsd.CCSD(self.mf)
             #cc.conv_tol = 1e-12
             #cc.conv_tol_normt = 1e-10
@@ -583,13 +587,13 @@ class QEmbeddingMethod:
             if t_as_lambda:
                 l1, l2 = t1, t2
             else:
-                l1, l2 = self.get_wf_ccsd(get_lambda=True, partition=partition)
+                l1, l2 = self.get_t12(get_lambda=True, partition=partition)
             dm1 = cc.make_rdm1(t1=t1, t2=t2, l1=l1, l2=l2, with_frozen=False)
 
         else:
             # T1/L1-amplitudes can be summed directly
-            t1 = self.get_wf_ccsd(calc_t2=False, partition=partition)[0]
-            l1 = (t1 if t_as_lambda else self.get_wf_ccsd(calc_t2=False, get_lambda=True, partition=partition)[0])
+            t1 = self.get_t12(calc_t2=False, partition=partition)[0]
+            l1 = (t1 if t_as_lambda else self.get_t12(calc_t2=False, get_lambda=True, partition=partition)[0])
 
             # --- Preconstruct some C^T.S.C rotation matrices:
             # Fragment orbital projectors
@@ -651,7 +655,7 @@ class QEmbeddingMethod:
                 doo += np.dot(f2mfo[i1].T, doo_f1)
                 dvv += np.dot(f2mfv[i1].T, dvv_f1)
 
-            dov += einsum('mi,ma->ia', doo, t1)
+            dov += einsum('im,ma->ia', doo, t1)
             dov -= einsum('ie,ae->ia', t1, dvv)
             doo -= einsum('ja,ia->ij', t1, l1)
             dvv += einsum('ia,ib->ab', t1, l1)
@@ -750,14 +754,14 @@ class QEmbeddingMethod:
         """
 
         if slow:
-            t1, t2 = self.get_wf_ccsd(partition=partition)
+            t1, t2 = self.get_t12(partition=partition)
             cc = pyscf.cc.ccsd.CCSD(self.mf)
             #if 'l12_full' in partition:
             #    l1 = l2 = None
             if t_as_lambda:
                 l1, l2 = t1, t2
             else:
-                l1, l2 = self.get_wf_ccsd(get_lambda=True, partition=partition)
+                l1, l2 = self.get_t12(get_lambda=True, partition=partition)
             dm2 = cc.make_rdm2(t1=t1, t2=t2, l1=l1, l2=l2, with_frozen=False)
         else:
             raise NotImplementedError()

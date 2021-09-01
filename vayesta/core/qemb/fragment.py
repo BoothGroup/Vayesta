@@ -41,7 +41,7 @@ class QEmbeddingFragment:
         t2_fp: np.ndarray = None    # Fragment-projected CC double amplitudes
         l1_fp: np.ndarray = None    # Fragment-projected CC single Lambda-amplitudes
         l2_fp: np.ndarray = None    # Fragment-projected CC double Lambda-amplitudes
-        # Density-matrix
+        # Cluster density-matrices
         dm1: np.ndarray = None      # One-particle reduced density matrix (dm1[i,j] = <0| i^+ j |0>
         dm2: np.ndarray = None      # Two-particle reduced density matrix (dm2[i,j,k,l] = <0| i^+ k^+ l j |0>)
 
@@ -471,7 +471,7 @@ class QEmbeddingFragment:
         dm = np.linalg.multi_dot((sc.T, self.mf.make_rdm1(), sc)) / 2
         e, v = np.linalg.eigh(dm)
         if tol and not np.allclose(np.fmin(abs(e), abs(e-1)), 0, atol=tol, rtol=0):
-            raise RuntimeError("Error while diagonalizing cluster DM: eigenvalues not all close to 0 or 1:\n%s", e)
+            raise RuntimeError("Error while diagonalizing cluster DM: eigenvalues not all close to 0 or 1:\n%s" % e)
         e, v = e[::-1], v[:,::-1]
         c_clt = np.dot(c_clt, v)
         nocc = sum(e >= 0.5)
@@ -710,7 +710,7 @@ class QEmbeddingFragment:
         if partition is None: partition = self.opts.wf_partition
 
         if np.ndim(c) not in (2, 4):
-            raise NotImplementedError()
+            raise NotImplementedError("C.shape= %r" % c.shape)
         partition = partition.lower()
         if partition not in ('first-occ', 'occ-2', 'first-vir', 'democratic'):
             raise ValueError("Unknown partitioning of amplitudes: %r" % partition)

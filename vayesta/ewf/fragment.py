@@ -71,7 +71,9 @@ class EWFFragment(QEmbeddingFragment):
         ip_energy: np.ndarray = None
         ea_energy: np.ndarray = None
         eris: 'typing.Any' = None
-
+        #e1b: float = None
+        #e2b_conn: float = None
+        #e2b_disc: float = None
 
     def __init__(self, *args, solver=None, **kwargs):
 
@@ -511,7 +513,8 @@ class EWFFragment(QEmbeddingFragment):
                 self.log.info("BNO threshold= %.1e / %.1e :  E(corr)= %+14.8f Ha", *bno_threshold, e_corr)
         else:
             self.log.info("BNO number= %3d / %3d:  E(corr)= %+14.8f Ha", *bno_number, e_corr)
-        # Population analysis
+
+        # --- Population analysis
         if self.opts.pop_analysis:
             try:
                 if isinstance(self.base.opts.pop_analysis, str):
@@ -540,6 +543,9 @@ class EWFFragment(QEmbeddingFragment):
                 converged=solver_results.converged,
                 e_corr=e_corr,
                 dm1=solver_results.dm1, dm2=solver_results.dm2)
+
+        #(results.t1_pf, results.t2_pf), (results.e1b, results.e2b_conn, results.e2b_disc) = self.project_solver_results(solver_results)
+
         # EOM analysis
         #if 'IP' in self.opts.eom_ccsd:
         #    results.ip_energy, _ = self.eom_analysis(cluster_solver, 'IP')
@@ -629,10 +635,8 @@ class EWFFragment(QEmbeddingFragment):
             c_bath = np.hstack((c_bath, c_add))
         return c_bath, c_occenv, c_virenv
 
-
     def project_amplitudes_to_fragment(self, cm, c1, c2, **kwargs):
         """Wrapper for project_amplitude_to_fragment, where the mo coefficients are extracted from a MP2 or CC object."""
-
         act = cm.get_frozen_mask()
         occ = cm.mo_occ[act] > 0
         vir = cm.mo_occ[act] == 0
@@ -647,6 +651,45 @@ class EWFFragment(QEmbeddingFragment):
             p2 = self.project_amplitude_to_fragment(c2, c_occ, c_vir, **kwargs)
         return p1, p2
 
+    def project_solver_results(self, results):
+        # Projected amplitudes
+        rf = dot(self.c_frag.T, self.base.get_ovlp(), self.c_active_occ)
+        t1, t2 = results.t1, results.t2
+        t1_pf = np.dot(rf, t1)
+        t2_pf = np.tensordot(rf, t2, axes=1)
+        #t2_pf = (t2_pf + t2_pf.transpose(1,0,3,2)) / 2
+        # --- Correlation energy
+        eris = results.eris
+        nocc, nvir = t2_pf.shape[1:3]
+        # E(1-body)
+        fov = np.dot(rf, eris.fock[:nocc,nocc:])
+        e1b = 2*np.sum(fov * t1_pf)
+        # E(2-body)
+        tau = t2_pf
+        if hasattr(eris, 'ovvo'):
+            gov = eris.ovvo[:]
+        elif hasattr(eris, 'ovov'):
+            # MP2 only has eris.ovov - for real integrals we transpose
+            gov = eris.ovov[:].reshape(nocc,nvir,nocc,nvir).transpose(0, 1, 3, 2).conj()
+        #else:
+        #    g_ovvo = eris[occ,vir,vir,occ]
+        gov1 = np.tensordot(rf, gov, axes=1)
+        gov2 = einsum('xj,iabj->xabi', rf, gov)
+        #e2 = 2*einsum('ijab,iabj', t2_pf, gov) - einsum('ijab,jabi', t2_pf, gov)
+        #e2 = 2*einsum('ijab,iabj', t2_pf, gov) - einsum('ijab,ibaj', t2_pf, gov)
+        #gov = (2*gov + gov.transpose(0, 2, 1, 3))
+        gov = (2*gov1 - gov2)
+
+        #e2 = 2*einsum('ijab,iabj', p2, g_ovvo) - einsum('ijab,jabi', p2, g_ovvo)
+        e2b_conn = einsum('ijab,iabj->', t2_pf, gov)
+        #e2_t1 = einsum('ia,jb,iabj->', t1_pf, t1, gov)
+        e2b_disc = einsum('ia,iabj->jb', t1_pf, gov)
+        #e2b_disc = 0.0
+        #self.log.info("Energy components: E[C1]= % 16.8f Ha, E[C2]= % 16.8f Ha", e1, e2)
+        #if e1 > 1e-4 and 10*e1 > e2:
+        #    self.log.warning("WARNING: Large E[C1] component!")
+        #e_frag = self.opts.energy_factor * self.sym_factor * (e1 + e2)
+        return (t1_pf, t2_pf), (e1b, e2b_conn, e2b_disc)
 
     def get_fragment_energy(self, p1, p2, eris):
         """Calculate fragment correlation energy contribution from porjected C1, C2.
