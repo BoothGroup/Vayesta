@@ -36,16 +36,16 @@ class dRPA:
         """
         M, AmB, v = self._gen_arrays()
         e, c = np.linalg.eigh(M)
-        self.freqs_s = e ** (0.5)
+        self.freqs_ss = e ** (0.5)
         assert (all(e > 1e-12))
-        self.ecorr = 0.5 * (sum(self.freqs_s) - 2*v.trace() - sum(AmB))
+        self.ecorr = 0.5 * (sum(self.freqs_ss) - 2 * v.trace() - sum(AmB))
 
-        XpY = np.einsum("n,p,pn->pn", self.freqs_s**(-0.5), AmB**(0.5), c)
-        XmY = np.einsum("n,p,pn->pn", self.freqs_s ** (0.5), AmB ** (-0.5), c)
-        self.XpY_s = (XpY[:self.ov], XpY[self.ov:])
-        self.XmY_s = (XmY[:self.ov], XmY[self.ov:])
+        XpY = np.einsum("n,p,pn->pn", self.freqs_ss ** (-0.5), AmB ** (0.5), c)
+        XmY = np.einsum("n,p,pn->pn", self.freqs_ss ** (0.5), AmB ** (-0.5), c)
+        self.XpY_ss = (XpY[:self.ov], XpY[self.ov:])
+        self.XmY_ss = (XmY[:self.ov], XmY[self.ov:])
 
-        self.freqs_t = (AmB[:self.ov], AmB[self.ov:])
+        self.freqs_sf = (AmB[:self.ov], AmB[self.ov:])
         return self.ecorr
 
 
