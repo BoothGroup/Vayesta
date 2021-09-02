@@ -157,7 +157,7 @@ class ClusterSolver:
                 self.log.critical(errmsg)
                 raise RuntimeError(errmsg)
         else:
-            errmsg = "Could not find chemical potential within [%f %f]" % (lower_bound, upper_bound)
+            errmsg = ("Could not find chemical potential within [%f %f]" % bounds)
             self.log.critical(errmsg)
             raise RuntimeError(errmsg)
 

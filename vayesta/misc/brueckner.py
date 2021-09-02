@@ -45,9 +45,7 @@ def update_mo_coeff(mo_coeff, t1, ovlp=None, damping=0.0, diis=None):
         ovlp = np.eye(nmo)
     bmo = np.hstack((bmo_occ, bmo_vir))
     assert np.allclose(np.linalg.multi_dot((bmo.T, ovlp, bmo))-np.eye(nmo), 0)
-
     return bmo_occ, bmo_vir
-
 
 def update_mf(mf, t1, mo_coeff=None, inplace=False, canonicalize=True, damping=0.0, diis=None):
     """Update occupied MOs based on T1 amplitudes, to converge to Brueckner MOs.

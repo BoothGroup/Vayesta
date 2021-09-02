@@ -16,6 +16,14 @@ class CCSDSolver(ClusterSolver):
 
     @dataclasses.dataclass
     class Options(ClusterSolver.Options):
+        # Convergence
+        maxiter: int = 100              # Max number of iterations
+        conv_etol: float = None         # Convergence energy tolerance
+        conv_ttol: float = None         # Convergence amplitude tolerance
+        #conv_etol: float = 1e-10       # Convergence energy tolerance
+        #conv_ttol: float = 1e-8        # Convergence amplitude tolerance
+
+        # Self-consistent mode
         sc_mode: int = NotSet
         # DM
         dm_with_frozen: bool = NotSet
@@ -48,7 +56,6 @@ class CCSDSolver(ClusterSolver):
         ee_t_coeff: np.array = None
         ee_sf_coeff: np.array = None
 
-
     def kernel(self, init_guess=None, eris=None, coupled_fragments=None, t_diagnostic=True):
 
         if coupled_fragments is None:
@@ -63,6 +70,9 @@ class CCSDSolver(ClusterSolver):
             cls = pyscf.cc.dfccsd.RCCSD
         self.log.debug("CCSD class= %r" % cls)
         cc = cls(self.mf, mo_coeff=self.mo_coeff, mo_occ=self.mo_occ, frozen=self.get_frozen_indices())
+        if self.opts.maxiter is not None: cc.max_cycle = self.opts.maxiter
+        if self.opts.conv_etol is not None: cc.conv_tol = self.opts.conv_etol
+        if self.opts.conv_ttol is not None: cc.conv_tol_normt = self.opts.conv_ttol
 
         # Integral transformation
         if eris is None:
@@ -75,6 +85,9 @@ class CCSDSolver(ClusterSolver):
         #    for kind in ["oooo", "ovoo", "ovvo", "oovv", "ovov", "ovvv", "vvvv"]:
         #        diff = getattr(self._eris, kind) - getattr(eris, kind)
         #        log.debug("Difference (%2s|%2s): max= %.2e norm= %.2e", kind[:2], kind[2:], abs(diff).max(), np.linalg.norm(diff))
+        self.log.debugv("eris.mo_energy:\n%r", eris.mo_energy)
+        self.log.debugv("sum(eris.mo_energy)= %.8e", sum(eris.mo_energy))
+        self.log.debugv("Tr(eris.Fock)= %.8e", np.trace(eris.fock))
 
         # Tailored CC
         if self.opts.tcc:

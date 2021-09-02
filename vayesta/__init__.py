@@ -103,3 +103,14 @@ except ImportError:
     log.debug("mpi4py not found.")
 
 log.debug("")
+
+def new_log(logname, fmt=None, remove_existing=True):
+    if fmt is None:
+        fmt = vlog.VFormatter(indent=True)
+    if remove_existing:
+        for hdl in log.handlers[:]:
+            log.removeHandler(hdl)
+    log.addHandler(vlog.VFileHandler(logname, formatter=fmt))
+
+# --- NumPy
+numpy.set_printoptions(linewidth=120)
