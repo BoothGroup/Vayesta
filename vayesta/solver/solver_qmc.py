@@ -191,6 +191,19 @@ class FCIQMCSolver(ClusterSolver):
 
         if self.opts.make_rdm2:
             results.dm1, results.dm2 = load_spinfree_1_2rdm_from_m7(h5_name, nelec)
+            print('Running RDM checks')
+            tr1 = np.sum(np.diag(results.dm1))
+            tr2 = np.sum(np.diagonal(results.dm2))
+            print("nelec", nelec)
+            print("Trace of 1RDM %1.16f Expected %3f", tr1, nelec)
+            print("Trace of 2RDM %1.16f Expected %3f", tr1, nelec*(nelec-1)/2)
+
+            print('Partial trace of 2RDM/1RDM')
+            print(np.diag(np.einsum('ijkk->ij',results.dm2))/(nelec-1))
+            print(np.diag(results.dm1))
+            
+            assert 0
+
         elif self.opts.make_rdm1:
             results.dm1 = load_spinfree_1rdm_from_m7(h5_name)
         
