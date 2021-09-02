@@ -231,30 +231,13 @@ class DMETFragment(QEmbeddingFragment):
         self.opts.c_cas_vir = c_cas_vir
         return c_cas_occ, c_cas_vir
 
-
-    def kernel(self, bno_threshold = None, bno_number = None, solver=None, init_guess=None, eris=None, construct_bath = False):
-        """Run solver for a single BNO threshold.
-
-        Parameters
-        ----------
-        bno_threshold : float
-            Bath natural orbital (BNO) thresholds.
-        solver : {'MP2', 'CISD', 'CCSD', 'CCSD(T)', 'FCI'}, optional
-            Correlated solver.
-
-        Returns
-        -------
-        results : DMETFragmentResults
-        """
-        if (bno_threshold is None and bno_number is None):
-            bno_threshold = self.base.bno_threshold
+    def set_up_orbitals(self, bno_threshold =None, bno_number = None, construct_bath = False):
 
         if np.ndim(bno_threshold) == 0:
             bno_threshold = 2*[bno_threshold]
         if np.ndim(bno_number) == 0:
             bno_number = 2*[bno_number]
 
-        solver = solver or self.solver
         # We always want to regenerate our bath orbitals.
         if self.c_cluster_occ is None or construct_bath:
             self.c_cluster_occ, self.c_cluster_vir, self.c_no_occ, self.n_no_occ, self.c_no_vir, self.n_no_vir = \
@@ -313,18 +296,31 @@ class DMETFragment(QEmbeddingFragment):
         #    self.converged = True
         #    return 0, nactive, None, None
 
-
-        # For self-consistent calculations, we can reuse ERIs:
-        if eris is None:
-            if self.base.opts.project_eris and self.results is not None:
-                t0 = timer()
-                self.log.debugv("Projecting previous ERIs onto subspace")
-                eris = psubspace.project_eris(self.results.eris, c_active_occ, c_active_vir, ovlp=self.base.get_ovlp())
-                self.log.timingv("Time to project ERIs:  %s", time_string(timer()-t0))
-
         # We can now overwrite the orbitals from last BNO run:
         self._c_active_occ = c_active_occ
         self._c_active_vir = c_active_vir
+        return mo_coeff, mo_occ, nocc_frozen, nvir_frozen, nactive
+
+
+    def kernel(self, bno_threshold = None, bno_number = None, solver=None, init_guess=None, eris=None, construct_bath = False):
+        """Run solver for a single BNO threshold.
+
+        Parameters
+        ----------
+        bno_threshold : float
+            Bath natural orbital (BNO) thresholds.
+        solver : {'MP2', 'CISD', 'CCSD', 'CCSD(T)', 'FCI'}, optional
+            Correlated solver.
+
+        Returns
+        -------
+        results : DMETFragmentResults
+        """
+        mo_coeff, mo_occ, nocc_frozen, nvir_frozen, nactive = \
+                            self.set_up_orbitals(bno_threshold, bno_number, construct_bath)
+
+
+        solver = solver or self.solver
 
         # Create solver object
         t0 = timer()
@@ -347,16 +343,16 @@ class DMETFragment(QEmbeddingFragment):
             self.log.info("Weight of reference determinant= %.8g", abs(solver_results.c0))
             c1 = solver_results.c1 / solver_results.c0
             c2 = solver_results.c2 / solver_results.c0
-        p1 = self.project_amplitude_to_fragment(c1, c_active_occ, c_active_vir)
-        p2 = self.project_amplitude_to_fragment(c2, c_active_occ, c_active_vir)
-        e_corr = self.get_fragment_energy(p1, p2, eris=solver_results.eris)
-        if bno_threshold[0] is not None:
-            if bno_threshold[0] == bno_threshold[1]:
-                self.log.info("BNO threshold= %.1e :  E(corr)= %+14.8f Ha", bno_threshold[0], e_corr)
-            else:
-                self.log.info("BNO threshold= %.1e / %.1e :  E(corr)= %+14.8f Ha", *bno_threshold, e_corr)
-        else:
-            self.log.info("BNO number= %3d / %3d:  E(corr)= %+14.8f Ha", *bno_number, e_corr)
+        #p1 = self.project_amplitude_to_fragment(c1, c_active_occ, c_active_vir)
+        #p2 = self.project_amplitude_to_fragment(c2, c_active_occ, c_active_vir)
+        #e_corr = self.get_fragment_energy(p1, p2, eris=solver_results.eris)
+        #if bno_threshold[0] is not None:
+        #    if bno_threshold[0] == bno_threshold[1]:
+        #        self.log.info("BNO threshold= %.1e :  E(corr)= %+14.8f Ha", bno_threshold[0], e_corr)
+        #    else:
+        #        self.log.info("BNO threshold= %.1e / %.1e :  E(corr)= %+14.8f Ha", *bno_threshold, e_corr)
+        #else:
+        #    self.log.info("BNO number= %3d / %3d:  E(corr)= %+14.8f Ha", *bno_number, e_corr)
 
 
         results = self.Results(
@@ -364,16 +360,9 @@ class DMETFragment(QEmbeddingFragment):
                 bno_threshold=bno_threshold,
                 n_active=nactive,
                 converged=solver_results.converged,
-                e_corr=e_corr,
+        #        e_corr=e_corr,
                 dm1 = solver_results.dm1,
                 dm2 = solver_results.dm2)
-
-        # EOM analysis
-        if self.opts.eom_ccsd in (True, 'IP'):
-            results.ip_energy, _ = self.eom_analysis(cluster_solver, 'IP')
-        if self.opts.eom_ccsd in (True, 'EA'):
-            results.ea_energy, _ = self.eom_analysis(cluster_solver, 'EA')
-
 
         # Keep Lambda-Amplitudes
         if results.l1 is not None:
