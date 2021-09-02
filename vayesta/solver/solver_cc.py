@@ -18,10 +18,10 @@ class CCSDSolver(ClusterSolver):
     class Options(ClusterSolver.Options):
         # Convergence
         maxiter: int = 100              # Max number of iterations
-        conv_etol: float = None     # Convergence energy tolerance
-        conv_ttol: float = None     # Convergence amplitude tolerance
-        #conv_etol: float = 1e-12        # Convergence energy tolerance
-        #conv_ttol: float = 1e-10        # Convergence amplitude tolerance
+        conv_etol: float = None         # Convergence energy tolerance
+        conv_ttol: float = None         # Convergence amplitude tolerance
+        #conv_etol: float = 1e-10       # Convergence energy tolerance
+        #conv_ttol: float = 1e-8        # Convergence amplitude tolerance
 
         # Self-consistent mode
         sc_mode: int = NotSet
@@ -55,7 +55,6 @@ class CCSDSolver(ClusterSolver):
         ee_s_coeff: np.array = None
         ee_t_coeff: np.array = None
         ee_sf_coeff: np.array = None
-
 
     def kernel(self, init_guess=None, eris=None, coupled_fragments=None, t_diagnostic=True):
 

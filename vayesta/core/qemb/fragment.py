@@ -41,7 +41,7 @@ class QEmbeddingFragment:
         t2_fp: np.ndarray = None    # Fragment-projected CC double amplitudes
         l1_fp: np.ndarray = None    # Fragment-projected CC single Lambda-amplitudes
         l2_fp: np.ndarray = None    # Fragment-projected CC double Lambda-amplitudes
-        # Density-matrix
+        # Cluster density-matrices
         dm1: np.ndarray = None      # One-particle reduced density matrix (dm1[i,j] = <0| i^+ j |0>
         dm2: np.ndarray = None      # Two-particle reduced density matrix (dm2[i,j,k,l] = <0| i^+ k^+ l j |0>)
 
@@ -322,6 +322,14 @@ class QEmbeddingFragment:
         else:
             return self.sym_parent.results
 
+    def reset(self):
+        self.log.debugv("Resetting fragment %s", self)
+        self._c_active_occ = None
+        self._c_active_vir = None
+        self._c_frozen_occ = None
+        self._c_frozen_vir = None
+        self._results = None
+
     def couple_to_fragment(self, frag):
         if frag is self:
             raise RuntimeError("Cannot couple fragment with itself.")
@@ -471,7 +479,7 @@ class QEmbeddingFragment:
         dm = np.linalg.multi_dot((sc.T, self.mf.make_rdm1(), sc)) / 2
         e, v = np.linalg.eigh(dm)
         if tol and not np.allclose(np.fmin(abs(e), abs(e-1)), 0, atol=tol, rtol=0):
-            raise RuntimeError("Error while diagonalizing cluster DM: eigenvalues not all close to 0 or 1:\n%s", e)
+            raise RuntimeError("Error while diagonalizing cluster DM: eigenvalues not all close to 0 or 1:\n%s" % e)
         e, v = e[::-1], v[:,::-1]
         c_clt = np.dot(c_clt, v)
         nocc = sum(e >= 0.5)
@@ -710,7 +718,7 @@ class QEmbeddingFragment:
         if partition is None: partition = self.opts.wf_partition
 
         if np.ndim(c) not in (2, 4):
-            raise NotImplementedError()
+            raise NotImplementedError("C.shape= %r" % c.shape)
         partition = partition.lower()
         if partition not in ('first-occ', 'occ-2', 'first-vir', 'democratic'):
             raise ValueError("Unknown partitioning of amplitudes: %r" % partition)
@@ -892,6 +900,36 @@ class QEmbeddingFragment:
             fragments.append(f)
 
         return fragments
+
+    # --- Results
+    # ===========
+
+    def get_fragment_dmet_energy(self, dm1=None, dm2=None, eris=None):
+        """Get fragment contribution to whole system DMET energy.
+
+        After fragment summation, the nuclear-nuclear repulsion must be added to get the total energy!
+        """
+        if dm1 is None: dm1 = self.results.dm1
+        if dm2 is None: dm2 = self.results.dm2
+        if dm1 is None: raise RuntimeError("DM1 not found for %s" % self)
+        if dm2 is None: raise RuntimeError("DM2 not found for %s" % self)
+        c_act = self.c_active
+        if eris is None:
+            eris = self.base.get_eris(c_act)
+
+        # Get effective core potential
+        occ = np.s_[:self.n_active_occ]
+        f_act = dot(c_act.T, self.base.get_fock(), c_act)
+        v_act = 2*einsum('iipq->pq', eris[occ,occ]) - einsum('iqpi->pq', eris[occ,:,:,occ])
+        h_eff = (f_act - v_act)
+        h_core = dot(c_act.T, self.base.get_hcore(), c_act)
+
+        # Evaluate energy
+        p_frag = self.get_fragment_projector(c_act)
+        e1b = einsum('xj,xi,ij->', (h_core + h_eff), p_frag, dm1)/2
+        e2b = einsum('xjkl,xi,ijkl->', eris, p_frag, dm2)/2
+        return self.opts.sym_factor*(e1b + e2b)
+
 
     # --- Counterpoise
     # ================

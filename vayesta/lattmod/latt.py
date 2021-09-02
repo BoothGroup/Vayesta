@@ -296,7 +296,7 @@ class LatticeMF(pyscf.scf.hf.RHF):
 
     def __init__(self, mol, *args, **kwargs):
         super().__init__(mol, *args, **kwargs)
-        self._eri = mol.get_eri()
+        #self._eri = mol.get_eri()
 
     @property
     def cell(self):
