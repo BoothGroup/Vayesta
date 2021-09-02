@@ -38,16 +38,12 @@ class FCISolver(ClusterSolver):
         c_act = self.mo_coeff[:,self.get_active_slice()]
 
         if eris is None:
-            # Temporary implementation
-            import pyscf.ao2mo
             t0 = timer()
-            eris = pyscf.ao2mo.full(self.mf._eri, c_act, compact=False).reshape(4*[self.nactive])
+            eris = self.base.get_eris(c_act)
             self.log.timing("Time for AO->MO of (ij|kl):  %s", time_string(timer()-t0))
 
         nocc = self.nocc - self.nocc_frozen
         occ = np.s_[:nocc]
-        vir = np.s_[nocc:]
-
         f_act = np.linalg.multi_dot((c_act.T, self.base.get_fock(), c_act))
         v_act = 2*einsum('iipq->pq', eris[occ,occ]) - einsum('iqpi->pq', eris[occ,:,:,occ])
         h_eff = f_act - v_act

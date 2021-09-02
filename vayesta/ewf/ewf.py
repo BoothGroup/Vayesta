@@ -237,30 +237,33 @@ class EWF(QEmbeddingMethod):
         """Total energy."""
         return self.e_mf + self.e_corr
 
-    def get_e_tot(self):
-        return self.e_mf + self.get_e_corr()
+    def get_total_energy(self):
+        return self.e_mf + self.get_corr_energy()
 
-    def get_e_corr(self):
+    def get_corr_energy(self):
         e_corr = 0.0
         for f in self.fragments:
             e_corr += f.results.e_corr
         return e_corr
 
-    def get_e_corr_new(self):
-        e_corr = 0.0
-        t1 = self.get_t12(calc_t2=False)[0]
-        for f in self.fragments:
-            e_corr += (f.results.e1b + f.results.e2b_conn)
-            ro, rv = f.get_rot_to_mf()
+    get_e_tot = get_total_energy
+    get_e_corr = get_corr_energy
 
-            #e_corr_2 += einsum('jb,pj,qb,pq->', t1, ro, rv, f.results.e2b_disc)
-            cc = pyscf.cc.CCSD(self.mf)
-            eris = cc.ao2mo()
-            gov = eris.ovvo[:]
-            gov = 2*gov - gov.transpose(3, 1, 2, 0)
-            rf = dot(f.c_frag.T, self.get_ovlp(), self.mo_coeff_occ)
-            e_corr += einsum('xa,JB,xI,aA,IABJ->', f.results.t1_pf, t1, rf, rv, gov)
-        return e_corr
+    #def get_e_corr_new(self):
+    #    e_corr = 0.0
+    #    t1 = self.get_t12(calc_t2=False)[0]
+    #    for f in self.fragments:
+    #        e_corr += (f.results.e1b + f.results.e2b_conn)
+    #        ro, rv = f.get_rot_to_mf()
+
+    #        #e_corr_2 += einsum('jb,pj,qb,pq->', t1, ro, rv, f.results.e2b_disc)
+    #        cc = pyscf.cc.CCSD(self.mf)
+    #        eris = cc.ao2mo()
+    #        gov = eris.ovvo[:]
+    #        gov = 2*gov - gov.transpose(3, 1, 2, 0)
+    #        rf = dot(f.c_frag.T, self.get_ovlp(), self.mo_coeff_occ)
+    #        e_corr += einsum('xa,JB,xI,aA,IABJ->', f.results.t1_pf, t1, rf, rv, gov)
+    #    return e_corr
 
     def get_wf_cisd(self, intermediate_norm=False, c0=None):
         c0_target = c0
@@ -475,8 +478,13 @@ class EWF(QEmbeddingMethod):
             for frag2 in frag.loop_fragments(exclude_self=True):
                 frag.add_tailor_fragment(frag2)
 
+    #def kernel(self, bno_threshold=None):
+    #    # If with_scmf is set, go via the SCMF kernel instead:
+    #    if self.with_scmf is not None:
+    #        return self.with_scmf.kernel(bno_threshold=bno_threshold)
+    #    return self.kernel_one_iteration(bno_threshold=bno_threshold)
 
-    def kernel(self, bno_threshold=None):
+    def kernel_one_iteration(self, bno_threshold=None):
         """Run EWF.
 
         Parameters
@@ -484,6 +492,7 @@ class EWF(QEmbeddingMethod):
         bno_threshold : float or list, optional
             Bath natural orbital threshold. Default: 1e-8.
         """
+
 
         if MPI: MPI_comm.Barrier()
         t_start = timer()
@@ -712,7 +721,6 @@ class EWF(QEmbeddingMethod):
     #    self.log.info("E(corr)= %+16.8f Ha", self.e_corr)
     #    self.log.info("E(tot)=  %+16.8f Ha", self.e_tot)
 
-
     def print_results(self, results):
         self.log.info("Energies")
         self.log.info("========")
@@ -725,7 +733,6 @@ class EWF(QEmbeddingMethod):
         self.log.output(fmt, 'E(nuc)=', self.mol.energy_nuc())
         self.log.output(fmt, 'E(tot)=', self.e_tot)
 
-
     def get_energies(self):
         """Get total energy."""
         return [(self.e_mf + r.e_corr) for r in self.results]
@@ -735,7 +742,6 @@ class EWF(QEmbeddingMethod):
     #    for i, frag in enumerate(self.loop()):
     #        sizes[i] = frag.n_active
     #    return sizes
-
 
     def print_clusters(self):
         """Print fragments of calculations."""

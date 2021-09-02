@@ -28,8 +28,10 @@ from vayesta.core.util import *
 from vayesta.core.ao2mo.dfccsd import make_eris as make_eris_ccsd
 from vayesta.core.ao2mo.kao2gmo import gdf_to_pyscf_eris
 from vayesta.misc.gdf import GDF
+from vayesta import lattmod
 
 from .fragment import QEmbeddingFragment
+from .scmf import PDMET_SCMF, Brueckner_SCMF
 
 
 class QEmbeddingMethod:
@@ -169,8 +171,9 @@ class QEmbeddingMethod:
         idterr = self.mo_coeff.T.dot(self.get_ovlp()).dot(self.mo_coeff) - np.eye(self.nmo)
         self.log.log(logging.ERROR if np.linalg.norm(idterr) > 1e-5 else logging.DEBUG,
                 "Orthogonality error of MF orbitals: L(2)= %.2e  L(inf)= %.2e", np.linalg.norm(idterr), abs(idterr).max())
-        self.log.debugv("MO energies (occ):\n%r", self.mo_energy[self.mo_occ > 0])
-        self.log.debugv("MO energies (vir):\n%r", self.mo_energy[self.mo_occ == 0])
+        if self.mo_energy is not None:
+            self.log.debugv("MO energies (occ):\n%r", self.mo_energy[self.mo_occ > 0])
+            self.log.debugv("MO energies (vir):\n%r", self.mo_energy[self.mo_occ == 0])
 
         # 3) Fragments
         # ------------
@@ -180,7 +183,8 @@ class QEmbeddingMethod:
 
         # 4) Other
         # --------
-        self.c_lo = None  # Local orthogonal orbitals (e.g. Lowdin)
+        self.with_scmf = None   # Self-consistent mean-field
+        self.c_lo = None        # Local orthogonal orbitals (e.g. Lowdin)
 
 
     # --- Basic properties and methods
@@ -273,7 +277,7 @@ class QEmbeddingMethod:
     @property
     def nmo(self):
         """Total number of molecular orbitals (MOs)."""
-        return len(self.mo_energy)
+        return self.mo_coeff.shape[-1]
 
     @property
     def nocc(self):
@@ -360,7 +364,7 @@ class QEmbeddingMethod:
         """Fock matrix in AO basis."""
         return self.get_hcore() + self.get_veff()
 
-    def get_eris(self, cm):
+    def get_eris(self, mo_or_cm):
         """Get ERIS for post-HF methods.
 
         For unfolded PBC calculations, this folds the MO back into k-space
@@ -368,15 +372,37 @@ class QEmbeddingMethod:
 
         Parameters
         ----------
-        cm: pyscf.mp.mp2.MP2, pyscf.cc.ccsd.CCSD, or pyscf.cc.rccsd.RCCSD
-            Correlated method, must have mo_coeff set.
+        mo_or_cm: array or one of the following post-HF methods:
+                pyscf.mp.mp2.MP2,
+                pyscf.cc.ccsd.CCSD,
+                or pyscf.cc.rccsd.RCCSD
+                or pyscf.cc.dfccsd.DFCCSD
+            MO coefficients or correlated method with mo_coeff set.
 
         Returns
         -------
-        eris: pyscf.mp.mp2._ChemistsERIs, pyscf.cc.ccsd._ChemistsERIs, or pyscf.cc.rccsd._ChemistsERIs
+        eris: array or cm._ChemistsERIs
             ERIs which can be used for the respective correlated method.
         """
+        # 1) Input = MO coefficients
+        # ==========================
+        if isinstance(mo_or_cm, np.ndarray):
+            mo = mo_or_cm
+            # Temporary fix for Hubbard-models with only onsite repulsion!
+            if isinstance(self.mol, lattmod.Hubbard):
+                return self.mol.hubbard_u * einsum('ai,aj,ak,al->ijkl', mo, mo, mo, mo)
+            # TODO: k-DF...?
+            if hasattr(self.mf, 'with_df') and self.mf.with_df is not None:
+                eris = self.mf.with_df.ao2mo(mo, compact=False)
+            else:
+                eri_or_mol = (self.mf._eri if self.mf._eri is not None else self.mol)
+                eris = pyscf.ao2mo.full(eri_or_mol, mo, compact=False)
+            eris = eris.reshape(4*[mo.shape[-1]])
+            return eris
+        # 2) Input = Correlated method
+        # ============================
         # Molecules or supercell:
+        cm = mo_or_cm
         if self.kdf is None:
             self.log.debugv("ao2mo method: %r", cm.ao2mo)
             # For PBC DFCCSD calculation we need to use the right Fock matrix (without exxdiv correction!)
@@ -397,6 +423,17 @@ class QEmbeddingMethod:
         # k-point sampled primitive cell:
         eris = gdf_to_pyscf_eris(self.mf, self.kdf, cm, fock=self.get_fock())
         return eris
+
+
+    def kernel(self, *args, **kwargs):
+        # If with_scmf is set, go via the SCMF kernel instead:
+        if self.with_scmf is not None:
+            return self.with_scmf.kernel(*args, **kwargs)
+        return self.kernel_one_iteration(*args, **kwargs)
+
+    def kernel_one_iteration(self, *args, **kwargs):
+        raise NotImplementedError("Abstract method")
+
 
     # Fragmentation specific routines
     # -------------------------------
@@ -467,6 +504,44 @@ class QEmbeddingMethod:
     # Results
     # -------
 
+    def get_dmet_energy(self):
+        e_dmet = self.mol.energy_nuc()
+        for f in self.fragments:
+            e_dmet += f.get_fragment_dmet_energy()
+        return e_dmet
+
+    def get_t1(self, get_lambda=False, partition=None):
+        """Get global CCSD T1- or L1-amplitudes from fragment calculations.
+
+        Parameters
+        ----------
+        partition: ['first-occ', 'first-vir', 'democratic']
+            Partitioning scheme of the T amplitudes. Default: 'first-occ'.
+
+        Returns
+        -------
+        t1: (n(occ), n(vir)) array
+            Global T1- or L1-amplitudes.
+        """
+        if partition is None: partition = self.opts.wf_partition
+        t1 = np.zeros((self.nocc, self.nvir))
+        ovlp = self.get_ovlp()
+        # Add fragment WFs in intermediate normalization
+        for f in self.fragments:
+            self.log.debugv("Now adding projected %s-amplitudes of fragment %s", ("L" if get_lambda else "T"), f)
+            ro, rv = f.get_rot_to_mf()
+            if get_lambda:
+                t1f = f.results.l1
+            elif f.results.t1 is not None:
+                t1f = f.results.t1
+            elif f.results.c1 is not None:
+                t1f = f.results.c1 / f.results.c0
+            else:
+                raise RuntimeError("Amplitudes not found for %s" % f)
+            t1f = f.project_amplitude_to_fragment(t1f, partition=partition)
+            t1 += einsum('ia,iI,aA->IA', t1f, ro, rv)
+        return t1
+
     def get_t12(self, calc_t1=True, calc_t2=True, get_lambda=False, partition=None, symmetrize=True):
         """Get global CCSD wave function (T1 and T2 amplitudes) from fragment calculations.
 
@@ -491,13 +566,26 @@ class QEmbeddingMethod:
             self.log.debugv("Now adding projected %s-amplitudes of fragment %s", ("L" if get_lambda else "T"), f)
             ro, rv = f.get_rot_to_mf()
             if calc_t1:
-                t1f = (f.results.l1 if get_lambda else f.results.t1)
-                if t1f is None: raise RuntimeError("Amplitudes not found for fragment %s" % f)
+                if get_lambda:
+                    t1f = f.results.l1
+                elif f.results.t1 is not None:
+                    t1f = f.results.t1
+                elif f.results.c1 is not None:
+                    t1f = f.results.c1 / f.results.c0
+                else:
+                    raise RuntimeError("Amplitudes not found for %s" % f)
                 t1f = f.project_amplitude_to_fragment(t1f, partition=partition)
                 t1 += einsum('ia,iI,aA->IA', t1f, ro, rv)
             if calc_t2:
-                t2f = (f.results.l2 if get_lambda else f.results.t2)
-                if t2f is None: raise RuntimeError("Amplitudes not found for fragment %s" % f)
+                if get_lambda:
+                    t2f = f.results.l2
+                elif f.results.t2 is not None:
+                    t2f = f.results.t2
+                elif f.results.c2 is not None:
+                    c1 = f.results.c1 / f.results.c0
+                    t2f = f.results.c2/f.results.c0 - einsum('ia,jb->ijab', c1, c1)
+                else:
+                    raise RuntimeError("Amplitudes not found for %s" % f)
                 t2f = f.project_amplitude_to_fragment(t2f, partition=partition, symmetrize=symmetrize)
                 t2 += einsum('ijab,iI,jJ,aA,bB->IJAB', t2f, ro, ro, rv, rv)
         #t2 = (t2 + t2.transpose(1,0,3,2))/2
@@ -841,3 +929,18 @@ class QEmbeddingMethod:
             f.close()
         return pop, chg
 
+    # --- Mean-field updates
+
+    def reset_fragments(self, *args, **kwargs):
+        for f in self.fragments:
+            f.reset(*args, **kwargs)
+
+    def pdmet_scmf(self, *args, **kwargs):
+        """Decorator for p-DMET."""
+        self.with_scmf = PDMET_SCMF(self, *args, **kwargs)
+        return self
+
+    def brueckner_scmf(self, *args, **kwargs):
+        """Decorator for Brueckner-DMET."""
+        self.with_scmf = Brueckner_SCMF(self, *args, **kwargs)
+        return self

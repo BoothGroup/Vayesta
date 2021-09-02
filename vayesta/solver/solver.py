@@ -144,7 +144,7 @@ class ClusterSolver:
                 if err < 0:
                     bounds[1] *= 2
                 else:
-                    bounds[2] *= 2
+                    bounds[0] *= 2
                 self.log.debug("Bounds for chemical potential search too small. New bounds: [%f %f]", *bounds)
                 continue
             # Could not convergence in bracket:
@@ -159,7 +159,7 @@ class ClusterSolver:
                 self.log.critical(errmsg)
                 raise RuntimeError(errmsg)
         else:
-            errmsg = "Could not find chemical potential within [%f %f]" % (lower_bound, upper_bound)
+            errmsg = ("Could not find chemical potential within [%f %f]" % bounds)
             self.log.critical(errmsg)
             raise RuntimeError(errmsg)
 

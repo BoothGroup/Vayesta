@@ -43,6 +43,7 @@ def update_mf(mf, dm1, canonicalize=True, inplace=False, damping=0.0, diis=None)
         mo_coeff[:,vir] = np.dot(mo_coeff[:,vir], rv)
 
     mf.mo_coeff = mo_coeff
+    mf.mo_energy = None
     mf.e_tot = mf.energy_tot()
     return mf
 

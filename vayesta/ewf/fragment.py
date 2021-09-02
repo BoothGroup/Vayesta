@@ -138,6 +138,15 @@ class EWFFragment(QEmbeddingFragment):
     #    idx = np.argmin(self.bno_threshold)
     #    return self.e_corrs[idx]
 
+    def reset(self):
+        super().reset()
+        self.c_cluster_occ = None
+        self.c_cluster_vir = None
+        self.c_no_occ = None
+        self.c_no_vir = None
+        self.n_no_occ = None
+        self.n_no_vir = None
+
     def init_orbital_plot(self):
         if self.boundary_cond == 'open':
             raise NotImplementedError()

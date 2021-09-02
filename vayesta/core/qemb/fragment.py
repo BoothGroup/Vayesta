@@ -322,6 +322,14 @@ class QEmbeddingFragment:
         else:
             return self.sym_parent.results
 
+    def reset(self):
+        self.log.debugv("Resetting fragment %s", self)
+        self._c_active_occ = None
+        self._c_active_vir = None
+        self._c_frozen_occ = None
+        self._c_frozen_vir = None
+        self._results = None
+
     def couple_to_fragment(self, frag):
         if frag is self:
             raise RuntimeError("Cannot couple fragment with itself.")
@@ -892,6 +900,36 @@ class QEmbeddingFragment:
             fragments.append(f)
 
         return fragments
+
+    # --- Results
+    # ===========
+
+    def get_fragment_dmet_energy(self, dm1=None, dm2=None, eris=None):
+        """Get fragment contribution to whole system DMET energy.
+
+        After fragment summation, the nuclear-nuclear repulsion must be added to get the total energy!
+        """
+        if dm1 is None: dm1 = self.results.dm1
+        if dm2 is None: dm2 = self.results.dm2
+        if dm1 is None: raise RuntimeError("DM1 not found for %s" % self)
+        if dm2 is None: raise RuntimeError("DM2 not found for %s" % self)
+        c_act = self.c_active
+        if eris is None:
+            eris = self.base.get_eris(c_act)
+
+        # Get effective core potential
+        occ = np.s_[:self.n_active_occ]
+        f_act = dot(c_act.T, self.base.get_fock(), c_act)
+        v_act = 2*einsum('iipq->pq', eris[occ,occ]) - einsum('iqpi->pq', eris[occ,:,:,occ])
+        h_eff = (f_act - v_act)
+        h_core = dot(c_act.T, self.base.get_hcore(), c_act)
+
+        # Evaluate energy
+        p_frag = self.get_fragment_projector(c_act)
+        e1b = einsum('xj,xi,ij->', (h_core + h_eff), p_frag, dm1)/2
+        e2b = einsum('xjkl,xi,ijkl->', eris, p_frag, dm2)/2
+        return self.opts.sym_factor*(e1b + e2b)
+
 
     # --- Counterpoise
     # ================
