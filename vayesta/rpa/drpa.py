@@ -48,7 +48,6 @@ class dRPA:
         self.freqs_sf = (AmB[:self.ov], AmB[self.ov:])
         return self.ecorr
 
-
     def _gen_arrays(self):
         # Only have diagonal components in canonical basis.
         eps = np.zeros((self.nocc, self.nvir))
@@ -68,6 +67,17 @@ class dRPA:
 
         M = np.einsum("p,pq,q->pq", AmB**(0.5), M, AmB**(0.5))
         return M, AmB, v
+
+    def gen_moms(self, max_mom):
+        res = {}
+        for x in range(max_mom+1):
+            # Have different spin components in general; these are alpha-alpha, alpha-beta and beta-beta.
+            res[x] = (
+                np.einsum("pn,n,qn->pq", self.XpY_ss[0], self.freqs_ss ** x, self.XpY_ss[0]),
+                np.einsum("pn,n,qn->pq", self.XpY_ss[0], self.freqs_ss ** x, self.XpY_ss[1]),
+                np.einsum("pn,n,qn->pq", self.XpY_ss[1], self.freqs_ss ** x, self.XpY_ss[1]),
+            )
+        return res
 
     @property
     def mo_coeff(self):
