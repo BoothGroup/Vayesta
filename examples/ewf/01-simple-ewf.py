@@ -6,10 +6,13 @@ import vayesta
 import vayesta.ewf
 
 mol = pyscf.gto.Mole()
-mol.atom = ['Li 0.0 0.0 0.0', 'H 0.0, 0.0, 1.4']
-mol.basis = 'aug-cc-pvdz'
-mol.verbose = 10
-mol.output = 'pyscf_out.txt'
+mol.atom = """
+O  0.0000   0.0000   0.1173
+H  0.0000   0.7572  -0.4692
+H  0.0000  -0.7572  -0.4692
+"""
+mol.basis = 'cc-pVDZ'
+mol.output = 'pyscf-01.out'
 mol.build()
 
 # Hartree-Fock
@@ -19,6 +22,7 @@ mf.kernel()
 ecc = vayesta.ewf.EWF(mf, bno_threshold=1e-6)
 ecc.make_atom_fragment(0)
 ecc.make_atom_fragment(1)
+ecc.make_atom_fragment(2)
 # Alternative: ecc.make_all_atom_fragments()
 ecc.kernel()
 

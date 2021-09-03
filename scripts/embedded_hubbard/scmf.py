@@ -137,7 +137,6 @@ class SelfConsistentMF:
             return self.update_mf_brueckner(*args, **kwargs)
         raise ValueError("Unknown self-consistency type: %r", self.sc_type)
 
-
     def update_mf_pdmet(self, mf, frags, diis):
         # Get combined DM
         dm = np.zeros((self.nsite, self.nsite))
@@ -148,7 +147,6 @@ class SelfConsistentMF:
         dm = (dm + dm.T)/2  # Symmetrize DM
         mf = pdmet.update_mf(mf, dm1=dm, damping=self.damping, diis=diis)
         return mf
-
 
     def update_mf_brueckner(self, mf, frags, diis):
         # Get combined T1 amplitudes

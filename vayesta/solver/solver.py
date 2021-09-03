@@ -106,7 +106,7 @@ class ClusterSolver:
     def c_active(self):
         return self.mo_coeff[:,self.get_active_slice()]
 
-    def kernel_optimize_cpt(self, nelectron_target, *args, bounds=[-1.0, 1.0], tol=1e-8, **kwargs):
+    def kernel_optimize_cpt(self, nelectron_target, *args, tol=1e-8, search_radius=1.0, **kwargs):
 
         mf = self.base.mf
         # Save current hcore to restore later
@@ -122,49 +122,63 @@ class ClusterSolver:
         self.opts.make_rdm1 = True
         results = None
         err = None
+        cpt_opt = None
+
+        class CptFound(RuntimeError):
+            """Raise when electron error is below tolerance."""
+            pass
 
         def electron_err(cpt):
-            nonlocal results, err
-            mf.get_hcore = lambda *args : (h0 - cpt*p_frag)
-            # Important: delete cache of QuantumEmbeddingMethod:
-            self.base._hcore = None
+            nonlocal results, err, cpt_opt
+            if cpt:
+                mf.get_hcore = lambda *args : (h0 + cpt*p_frag)
+                self.base._hcore = None
             results = self.kernel(*args, **kwargs)
+            # Restore get_hcore
+            if cpt:
+                mf.get_hcore = hfunc0
+                self.base._hcore = hcache0
             if not results.converged:
                 raise ConvergenceError()
             ne_frag = einsum('xi,ij,xj->', csc, results.dm1, csc)
             err = (ne_frag - nelectron_target)
-            self.log.debugv("Electron number in fragment= %.8f  target=  %.8f  error= %.8f  chem. pot.=  %16.8f Ha", ne_frag, nelectron_target, err, cpt)
+            self.log.debugv("Electron number in fragment= %.8f  target=  %.8f  error= %+.3e  chem. pot.=  %+12.8f Ha", ne_frag, nelectron_target, err, cpt)
+            if abs(err) < tol:
+                cpt_opt = cpt
+                raise CptFound()
             return err
 
+        # First run without cpt:
+        try:
+            err0 = electron_err(0)
+        except CptFound:
+            self.log.debugv("Chemical potential 0 leads to insignificant electron error: %.3e", err)
+            return results
+
+        # Not enough electrons in fragment space -> lower fragment chemical potential:
+        if err0 < 0:
+            bounds = np.asarray([-search_radius, 0.0])
+        # Too many electrons in fragment space -> raise fragment chemical potential:
+        else:
+            bounds = np.asarray([0.0, search_radius])
         for ndouble in range(5):
             try:
-                cpt, res = scipy.optimize.brentq(electron_err, a=bounds[0], b=bounds[1], xtol=tol, full_output=True)
+                cpt, res = scipy.optimize.brentq(electron_err, a=bounds[0], b=bounds[1], xtol=1e-8, full_output=True)
+            except CptFound:
+                break
             # Could not find chemical potential in bracket:
             except ValueError:
-                if err < 0:
-                    bounds[1] *= 2
-                else:
-                    bounds[0] *= 2
-                self.log.debug("Bounds for chemical potential search too small. New bounds: [%f %f]", *bounds)
+                bounds *= 2
+                self.log.debug("Interval for chemical potential search too small. New search interval: [%f %f]", *bounds)
                 continue
             # Could not convergence in bracket:
             except ConvergenceError:
-                bounds[0], bounds[1] = bounds[0]/2, bounds[1]/2
-                self.log.debug("Solver did not converge. New bounds: [%f %f]", *bounds)
-
-            if res.converged:
-                break
-            else:
-                errmsg = "Correct chemical potential not found."
-                self.log.critical(errmsg)
-                raise RuntimeError(errmsg)
+                bounds /= 2
+                self.log.debug("Solver did not converge. New search interval: [%f %f]", *bounds)
         else:
-            errmsg = ("Could not find chemical potential within [%f %f]" % bounds)
+            errmsg = ("Could not find chemical potential within interval [%f %f]!" % (bounds[0], bounds[1]))
             self.log.critical(errmsg)
             raise RuntimeError(errmsg)
 
-        self.log.info("Optimized chemical potential= % 16.8f Ha", cpt)
-        # Restore hcore
-        mf.get_hcore = hfunc0
-        self.base._hcore = hcache0
+        self.log.info("Optimized chemical potential= %+16.8f Ha", cpt_opt)
         return results

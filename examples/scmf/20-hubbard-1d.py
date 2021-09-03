@@ -12,7 +12,7 @@ import vayesta.lattmod
 
 nsite = 10
 nelectron = nsite
-nfrag = 1
+nfrag = 2
 
 for hubbard_u in np.arange(0, 12.1, 1):
     mol = vayesta.lattmod.Hubbard1D(nsite, nelectron=nelectron, hubbard_u=hubbard_u, output='pyscf.out')
