@@ -31,7 +31,7 @@ class LatticeMole(pyscf.pbc.gto.Cell):
     unit
     """
 
-    def __init__(self, nsite, order=None, incore_anyway=False, verbose=0, output=None):
+    def __init__(self, nsite, order=None, incore_anyway=True, verbose=0, output=None):
         """
         Parameters
         ----------
