@@ -10,6 +10,8 @@ import pyscf.scf
 import pyscf.lib
 from pyscf.lib.parameters import BOHR
 
+from vayesta.core.util import *
+
 log = logging.getLogger(__name__)
 
 class LatticeMole(pyscf.pbc.gto.Cell):
