@@ -303,7 +303,7 @@ def load_spinfree_1_2rdm_from_m7(h5_fname, nelec):
     rdm2_restored = restore_perm_syms(rdm2, True, False)
     rdm2_sf = spin_resolved_to_spinfree(rdm2_restored, True)
     rdm1_sf = one_from_two_rdm(rdm2_sf, nelec)
-    return unreorder_rdm12(rdm1_sf, rdm2_sf, False)
+    return rdm1_sf, rdm2_sf
 
 
 if __name__=='__main__':
