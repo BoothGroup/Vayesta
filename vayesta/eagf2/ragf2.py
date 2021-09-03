@@ -470,6 +470,13 @@ class RAGF2:
         self.log.info("Built %d virtual auxiliaries", se_vir.naux)
         self.log.changeIndentLevel(-1)
 
+        nh = self.nocc-self.frozen[0]
+        wt = lambda v: np.sum(v * v)
+        self.log.infov("Total weights of coupling blocks:")
+        self.log.infov("        %6s  %6s", "2h1p", "1h2p")
+        self.log.infov("    1h  %6.4f  %6.4f", wt(se_occ.coupling[:nh]), wt(se_occ.coupling[nh:]))
+        self.log.infov("    1p  %6.4f  %6.4f", wt(se_vir.coupling[:nh]), wt(se_vir.coupling[nh:]))
+
 
         se = self._combine_se(se_occ, se_vir, gf=gf)
 
@@ -539,10 +546,6 @@ class RAGF2:
 
         if fock is None:
             fock = self.get_fock(gf=gf, with_frozen=False)
-        else:
-            if fock.shape == (self.nmo, self.nmo):
-                fock = fock[self.act, self.act]
-            assert fock.shape == (self.nact, self.nact)
 
         e = se.energy
         v = se.coupling
@@ -565,7 +568,7 @@ class RAGF2:
         return w, v
 
 
-    def fock_loop(self, gf=None, se=None, fock=None):
+    def fock_loop(self, gf=None, se=None, fock=None, project_gf=True):
         ''' Do the self-consistent Fock loop
         '''
 
@@ -581,7 +584,10 @@ class RAGF2:
             # Just solve Dyson eqn
             self.log.info("Solving Dyson equation")
             w, v = self.solve_dyson(se=se, gf=gf, fock=fock)
-            gf = agf2.GreensFunction(w, v[:self.nact], chempot=se.chempot)
+            if project_gf:
+                gf = agf2.GreensFunction(w, v[:self.nact], chempot=se.chempot)
+            else:
+                gf = agf2.GreensFunction(w, v, chempot=se.chempot)
             gf.chempot = se.chempot = agf2.chempot.binsearch_chempot((w, v), self.nact, nelec)[0]
             return gf, se, True
 
@@ -631,6 +637,9 @@ class RAGF2:
             if abs(derr) < self.opts.conv_tol_rdm1 and abs(nerr) < self.opts.conv_tol_nelec:
                 converged = True
                 break
+
+        if not project_gf:
+            gf = agf2.GreensFunction(w, v, chempot=se.chempot)
 
         (self.log.info if converged else self.log.warning)("Converged = %r", converged)
         self.log.info("μ = %.9g", se.chempot)
