@@ -203,7 +203,6 @@ class EAGF2Fragment(QEmbeddingFragment):
         self.log.timing("Time for EwDMET bath:  %s", time_string(timer() - t0))
         self.log.changeIndentLevel(-1)
 
-        c_env_occ, c_env_vir = c_env_occ, c_env_vir
         c_cluster_occ, c_cluster_vir = self.diagonalize_cluster_dm(
                 self.c_frag,
                 c_bath,
@@ -283,13 +282,14 @@ class EAGF2Fragment(QEmbeddingFragment):
             return self.make_dmet_mp2_bath()
 
 
-    def democratic_partition(self, matrix, mo_coeff=None):
+    def democratic_partition(self, matrix, mo_coeff=None, ovlp=None):
         ''' Democratically partition a matrix.
         '''
 
         if mo_coeff is None:
             mo_coeff = self.c_active
-        ovlp = self.mf.get_ovlp()
+        if ovlp is None:
+            ovlp = self.mf.get_ovlp()
 
         c = pyscf.lib.einsum('pa,pq,qi->ai', mo_coeff.conj(), ovlp, self.c_frag)
         p_frag = np.dot(c, c.T.conj())
