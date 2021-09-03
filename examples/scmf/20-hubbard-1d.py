@@ -59,3 +59,35 @@ for hubbard_u in np.arange(0, 12.1, 1):
         energies = (e_hf, e_fci, e_pwf_1, e_pwf_sc, e_pdm_1, e_pdm_sc)
         fmt = '%4.1f' + len(energies)*'  %+16.8f' + '\n'
         f.write(fmt % (hubbard_u, *energies))
+
+qmc_solver = vayesta.ewf.EWF(mf, solver="FCIQMC", bno_threshold=np.inf, fragment_type='Site', make_rdm1=True, make_rdm2=True)
+
+frag_index = 0.0
+for site in range(0, nsite, nimp):
+    f_qmc = qmc_solver.make_atom_fragment(list(range(site, site+nimp)))
+    f_qmc.kernel() # Automatically creates FCIDUMP/PKL for FCIQMC
+    #fragment_H.to_pickle('Hubbard_Hamiltonian%d.pkl'%frag_index)
+    #fragment_H.write_fcidump( fname='FCIDUMP_frag%d'%frag_index)
+    
+
+    frag_index += 1
+
+# Here the code assumes M7 has solved the above Hamiltonians outside of
+# script and returned FCI amplitudes in "init_fname" .pkl files
+# Perform energy calculation for each fragment
+
+
+# Combine fragment energies
+qmc_amp_energy = (qmc_solver.get_e_tot()) /nelectron
+qmc_rdm_energy = (get_energy(mf, qmc_solver.fragments))/nelectron
+# Comparison of energy per electron
+print('Energy per e- comparison')
+print('------------------------')
+print('QMC energy [t] %1.12f (Vayesta + FCIQMC / Amplitude)'% qmc_amp_energy)
+print('EWF energy [t] %1.12f (Vayesta + FCI / Amplitude)'% e_tot_amp_ewf)
+print()
+print('QMC energy [t] %1.12f (Vayesta + FCIQMC / Redduced DM)'% qmc_rdm_energy)
+print('RDM energy [t] %1.12f (Vayesta + FCI / Reduced DM)'% e_tot_rdm_ewf)
+print()
+print('FCI energy [t] %1.12f (Vayesta/EWF) '% e_tot_fci_1)
+print('FCI energy [t] %1.12f (PySCF/direct_spin1) '% e_tot_fci_2)

@@ -100,9 +100,6 @@ mol.build()
 mf = vayesta.lattmod.LatticeMF(mol)
 mf.kernel()
 
-# Verify mf.get_hcore() are site-basis 1/2 particle Hamiltonians
-print('h1e', mf.get_hcore())
-print('eri shape', mf._eri.shape)
 
 #print(mf.get_hcore().shape, mf.get_hcore())
 #print(mf._eri.shape, mf._eri)
@@ -131,7 +128,7 @@ e_tot_fci_1 = fci_solver.e_tot / nelectron
 
 # Run FCI reference calculation using PySCF
 e_tot_fci_2 = \
-fci.direct_spin1.kernel(h1e=mf.get_hcore(), eri=mf._eri, nelec=nelectron,norb=nelectron, verbose=6)[0] / nelectron
+fci.direct_spin1.kernel(h1e=mf.get_hcore(), eri=mf.mol.get_eri(), nelec=nelectron,norb=nelectron, verbose=6)[0] / nelectron
 
 # Prepare FCIQMC Hamiltonians for each fragment:
 

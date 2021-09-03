@@ -49,7 +49,7 @@ class FCIQMCSolver(ClusterSolver):
             # Temporary implementation
             import pyscf.ao2mo
             t0 = timer()
-            eris = pyscf.ao2mo.full(self.mf._eri, c_act, compact=False).reshape(4*[self.nactive])
+            eris = self.base.get_eris(c_act).reshape(4*[self.nactive])
             self.log.timing("Time for AO->MO of (ij|kl):  %s", time_string(timer()-t0))
 
         nocc = self.nocc - self.nocc_frozen
@@ -101,8 +101,11 @@ class FCIQMCSolver(ClusterSolver):
         M7_config_obj.M7_config_dict['wavefunction']['load_balancing']['period'] = 100
         M7_config_obj.M7_config_dict['wavefunction']['load_balancing']['nnull_updates_deactivate'] = 8
         M7_config_obj.M7_config_dict['propagator']['nw_target'] = 30000
+        M7_config_obj.M7_config_dict['propagator']['stochastic'] = False
 
         M7_config_obj.M7_config_dict['av_ests']['delay'] = 1000
+        #M7_config_obj.M7_config_dict['av_ests']['stochastic'] = False
+
         M7_config_obj.M7_config_dict['av_ests']['ncycle'] = 5000
         M7_config_obj.M7_config_dict['av_ests']['ref_excits']['max_exlvl'] = 2
         M7_config_obj.M7_config_dict['av_ests']['ref_excits']['archive']['save'] = 'yes'
@@ -159,7 +162,7 @@ class FCIQMCSolver(ClusterSolver):
             print(stderr)
             assert 0
         
-        '''
+        
         t0 = timer()
         e_fci, wf = fcisolver.kernel(h_eff, eris, self.nactive, nelec)
         print('e_fci', e_fci)
@@ -178,8 +181,11 @@ class FCIQMCSolver(ClusterSolver):
         c2 /= c0
         c0 /= c0
         
+        print(e_fci, e_qmc)
+        assert 0
         
         
+        '''
         results = self.Results(
                 converged=fcisolver.converged, e_corr=e_corr, c_occ=self.c_active_occ, c_vir=self.c_active_vir, eris=eris,
                 c0=c0_qmc, c1=c1, c2=c2)
@@ -202,7 +208,7 @@ class FCIQMCSolver(ClusterSolver):
             print(np.diag(np.einsum('ijkk->ij',results.dm2))/(nelec-1))
             print(np.diag(results.dm1))
             
-            assert 0
+            #assert 0
 
         elif self.opts.make_rdm1:
             results.dm1 = load_spinfree_1rdm_from_m7(h5_name)

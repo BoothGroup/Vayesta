@@ -4860,3 +4860,8 @@ nocc = 2, nmo = 7
 frozen orbitals [0, 1, 2]
 max_memory 4000 MB (current use 0 MB)
 E(MP2) = -8.1683643301884  E_corr = -0.224092420189241
+<class 'vayesta.lattmod.latt.Hubbard1D'> does not have attributes  boundary order v_nn hubbard_t nsites h1e nsite hubbard_u
+arg.atm = []
+arg.bas = []
+arg.env = [0. 0. 0. 0. 0. 0. 0. 0. 0. 0. 0. 0. 0. 0. 0. 0. 0. 0. 0. 0.]
+ecpbas  = []
