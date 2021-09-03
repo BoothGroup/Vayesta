@@ -82,7 +82,7 @@ def orthonormalise(c, s, mo_coeff, remove_lindep=False, tol=LIN_DEP_THRESHOLD):
     return np.dot(mo_coeff, v)
 
 
-def make_ewdmet_bath(frag, c_env, nmom=0, svd_full=False, svd_tol=SVD_THRESHOLD, env_tol=ENV_THRESHOLD):
+def make_ewdmet_bath(frag, c_env, nmom=0, svd_full=False, svd_tol=SVD_THRESHOLD, env_tol=ENV_THRESHOLD, verbose=True):
     ''' Calculate EwDMET bath orbitals
 
     Parameters
@@ -105,6 +105,8 @@ def make_ewdmet_bath(frag, c_env, nmom=0, svd_full=False, svd_tol=SVD_THRESHOLD,
         Threshold in eigenvalues of the complement to the cluster space
         to be considered zero (default value is `ENV_THRESHOLD`).
         Warning: algorithm may be sensitive to this parameter.
+    verbose : bool, optional
+        Verbose keyword for `make_dmet_bath` (default value is True).
 
     Returns
     -------
@@ -128,7 +130,7 @@ def make_ewdmet_bath(frag, c_env, nmom=0, svd_full=False, svd_tol=SVD_THRESHOLD,
     c_ewdmet_vir = []
 
     # n = 0
-    c_dmet, c_env_occ, c_env_vir = frag.make_dmet_bath(frag.c_env)
+    c_dmet, c_env_occ, c_env_vir = frag.make_dmet_bath(c_env, verbose=verbose)
     c_cls_occ, c_cls_vir = frag.diagonalize_cluster_dm(c_frag, c_dmet)
     c_bath = c_dmet.copy()
 
