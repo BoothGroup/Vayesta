@@ -50,6 +50,21 @@ class QEmbeddingFragment:
             self.t2 = self.c2/self.c0 - einsum('ia,jb->ijab', self.t1, self.t1)
             return self.t1, self.t2
 
+        def get_t1(self):
+            if self.t1 is not None:
+                return self.t1
+            if self.c1 is not None:
+                return self.c1 / self.c0
+            return None
+
+        def get_t2(self):
+            if self.t2 is not None:
+                return self.t2
+            if self.c2 is not None:
+                c1 = self.c1/self.c0
+                return self.c2/self.c0 - einsum('ia,jb->ijab', c1, c1)
+            return None
+
 
     class Exit(Exception):
         """Raise for controlled early exit."""

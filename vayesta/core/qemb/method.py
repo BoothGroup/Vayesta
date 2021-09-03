@@ -389,14 +389,13 @@ class QEmbeddingMethod:
         if isinstance(mo_or_cm, np.ndarray):
             mo = mo_or_cm
             # Temporary fix for Hubbard-models with only onsite repulsion!
-            if isinstance(self.mol, lattmod.Hubbard):
-                return self.mol.hubbard_u * einsum('ai,aj,ak,al->ijkl', mo, mo, mo, mo)
             # TODO: k-DF...?
             if hasattr(self.mf, 'with_df') and self.mf.with_df is not None:
                 eris = self.mf.with_df.ao2mo(mo, compact=False)
+            elif self.mf._eri is not None:
+                eris = pyscf.ao2mo.full(self.mf._eri, mo, compact=False)
             else:
-                eri_or_mol = (self.mf._eri if self.mf._eri is not None else self.mol)
-                eris = pyscf.ao2mo.full(eri_or_mol, mo, compact=False)
+                eris = self.mol.ao2mo(mo, compact=False)
             eris = eris.reshape(4*[mo.shape[-1]])
             return eris
         # 2) Input = Correlated method
@@ -530,14 +529,8 @@ class QEmbeddingMethod:
         for f in self.fragments:
             self.log.debugv("Now adding projected %s-amplitudes of fragment %s", ("L" if get_lambda else "T"), f)
             ro, rv = f.get_rot_to_mf()
-            if get_lambda:
-                t1f = f.results.l1
-            elif f.results.t1 is not None:
-                t1f = f.results.t1
-            elif f.results.c1 is not None:
-                t1f = f.results.c1 / f.results.c0
-            else:
-                raise RuntimeError("Amplitudes not found for %s" % f)
+            t1f = (f.results.l1 if get_lambda else f.results.get_t1())
+            if t1f is None: raise RuntimeError("Amplitudes not found for %s" % f)
             t1f = f.project_amplitude_to_fragment(t1f, partition=partition)
             t1 += einsum('ia,iI,aA->IA', t1f, ro, rv)
         return t1
@@ -566,26 +559,13 @@ class QEmbeddingMethod:
             self.log.debugv("Now adding projected %s-amplitudes of fragment %s", ("L" if get_lambda else "T"), f)
             ro, rv = f.get_rot_to_mf()
             if calc_t1:
-                if get_lambda:
-                    t1f = f.results.l1
-                elif f.results.t1 is not None:
-                    t1f = f.results.t1
-                elif f.results.c1 is not None:
-                    t1f = f.results.c1 / f.results.c0
-                else:
-                    raise RuntimeError("Amplitudes not found for %s" % f)
+                t1f = (f.results.l1 if get_lambda else f.results.get_t1())
+                if t1f is None: raise RuntimeError("Amplitudes not found for %s" % f)
                 t1f = f.project_amplitude_to_fragment(t1f, partition=partition)
                 t1 += einsum('ia,iI,aA->IA', t1f, ro, rv)
             if calc_t2:
-                if get_lambda:
-                    t2f = f.results.l2
-                elif f.results.t2 is not None:
-                    t2f = f.results.t2
-                elif f.results.c2 is not None:
-                    c1 = f.results.c1 / f.results.c0
-                    t2f = f.results.c2/f.results.c0 - einsum('ia,jb->ijab', c1, c1)
-                else:
-                    raise RuntimeError("Amplitudes not found for %s" % f)
+                t2f = (f.results.l2 if get_lambda else f.results.get_t2())
+                if t2f is None: raise RuntimeError("Amplitudes not found for %s" % f)
                 t2f = f.project_amplitude_to_fragment(t2f, partition=partition, symmetrize=symmetrize)
                 t2 += einsum('ijab,iI,jJ,aA,bB->IJAB', t2f, ro, ro, rv, rv)
         #t2 = (t2 + t2.transpose(1,0,3,2))/2
@@ -680,8 +660,8 @@ class QEmbeddingMethod:
 
         else:
             # T1/L1-amplitudes can be summed directly
-            t1 = self.get_t12(calc_t2=False, partition=partition)[0]
-            l1 = (t1 if t_as_lambda else self.get_t12(calc_t2=False, get_lambda=True, partition=partition)[0])
+            t1 = self.get_t1(partition=partition)
+            l1 = (t1 if t_as_lambda else self.get_t1(get_lambda=True, partition=partition))
 
             # --- Preconstruct some C^T.S.C rotation matrices:
             # Fragment orbital projectors
@@ -709,14 +689,16 @@ class QEmbeddingMethod:
             dvv = np.zeros((nvir, nvir))
             dov = (t1 + l1 - einsum('ie,me,ma->ia', t1, l1, t1))
             for i1, f1 in enumerate(self.fragments):
-                theta = (2*f1.results.t2 - f1.results.t2.transpose(0,1,3,2))
+                theta = f1.results.get_t2()
+                theta = (2*theta - theta.transpose(0,1,3,2))
                 theta = f1.project_amplitude_to_fragment(theta, partition=partition)
                 # Intermediates [leave left index in cluster basis]:
                 doo_f1 = np.zeros((f1.n_active_occ, nocc))
                 dvv_f1 = np.zeros((f1.n_active_vir, nvir))
                 dov += einsum('imae,ip,mM,aq,eE,ME->pq', theta, f2mfo[i1], f2mfo[i1], f2mfv[i1], f2mfv[i1], l1)
                 for i2, f2 in enumerate(self.fragments):
-                    l2 = (f2.results.t2 if t_as_lambda else f2.results.l2)
+                    #l2 = (f2.results.t2 if t_as_lambda else f2.results.l2)
+                    l2 = (f2.results.get_t2() if t_as_lambda else f2.results.l2)
                     l2 = f2.project_amplitude_to_fragment(l2, partition=partition)
                     ## Theta_jk^ab * l_ik^ab -> ij
                     #doo -= einsum('jkab,IKAB,jp,kK,aA,bB,Iq->pq', theta_f1, l2_f2,

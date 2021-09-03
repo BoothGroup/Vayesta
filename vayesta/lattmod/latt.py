@@ -29,7 +29,7 @@ class LatticeMole(pyscf.pbc.gto.Cell):
     unit
     """
 
-    def __init__(self, nsite, order=None, verbose=0, output=None):
+    def __init__(self, nsite, order=None, incore_anyway=False, verbose=0, output=None):
         """
         Parameters
         ----------
@@ -40,7 +40,7 @@ class LatticeMole(pyscf.pbc.gto.Cell):
         self.nsite = nsite
         self._basis = {self.atom_symbol(i) : None for i in range(self.nsite)}
         self._built = True
-        self.incore_anyway = True
+        self.incore_anyway = incore_anyway
         self.order = order
 
     def __getattr__(self, attr):
@@ -72,9 +72,8 @@ class LatticeMole(pyscf.pbc.gto.Cell):
 class Hubbard(LatticeMole):
     """Abstract Hubbard model class."""
 
-    def __init__(self, nsite, nelectron=None, hubbard_t=1.0, hubbard_u=0.0, v_nn=0.0,
-            order=None, verbose=0, output=None):
-        super().__init__(nsite, order=order, verbose=verbose, output=output)
+    def __init__(self, nsite, nelectron=None, hubbard_t=1.0, hubbard_u=0.0, v_nn=0.0, **kwargs):
+        super().__init__(nsite, **kwargs)
         if nelectron is None:
             nelectron = nsite
         self.nelectron = nelectron
@@ -88,6 +87,17 @@ class Hubbard(LatticeMole):
         aorange[:,1] += 1
         aorange[:,3] += 1
         return aorange
+
+    def ao2mo(self, mo_coeffs, compact=False):
+        if compact: raise NotImplementedError()
+        if self.v_nn: raise NotImplementedError()
+
+        if isinstance(mo_coeffs, np.ndarray) and mo_coeffs.ndim == 2:
+            eris = self.hubbard_u*einsum('ai,aj,ak,al->ijkl', mo_coeffs, mo_coeffs, mo_coeffs, mo_coeffs)
+        else:
+            eris = self.hubbard_u*einsum('ai,aj,ak,al->ijkl', *mo_coeffs)
+        eris = eris.reshape(eris.shape[0]*eris.shape[1], eris.shape[2]*eris.shape[3])
+        return eris
 
 
 class Hubbard1D(Hubbard):
@@ -291,12 +301,38 @@ class Hubbard2D(Hubbard):
         return order
 
 
+class HubbardDF:
+
+    def __init__(self, mol):
+        if mol.v_nn: raise NotImplementedError()
+        self.mol = mol
+        self.blockdim = self.get_naoaux()
+
+    def ao2mo(self, *args, **kwargs):
+        return self.mol.ao2mo(*args, **kwargs)
+
+    def get_naoaux(self):
+        return self.mol.nsite
+
+    def loop(self, blksize=None):
+        """Note that blksize is ignored."""
+        nsite = self.mol.nsite
+        j3c = np.zeros((nsite, nsite, nsite))
+        np.fill_diagonal(j3c, np.sqrt(self.mol.hubbard_u))
+        # Pack (Q|ab) -> (Q|A)
+        j3c = pyscf.lib.pack_tril(j3c)
+        yield j3c
+
+
 class LatticeMF(pyscf.scf.hf.RHF):
 #class LatticeMF(pyscf.pbc.scf.hf.RHF):
 
     def __init__(self, mol, *args, **kwargs):
         super().__init__(mol, *args, **kwargs)
-        #self._eri = mol.get_eri()
+        if self.mol.incore_anyway:
+            self._eri = mol.get_eri()
+        else:
+            self.density_fit()
 
     @property
     def cell(self):
@@ -362,11 +398,8 @@ class LatticeMF(pyscf.scf.hf.RHF):
 
         return self.e_tot
 
-    #class with_df:
-    #    """Dummy density-fitting"""
-
-    #    @classmethod
-    #    def ao2mo(cls, mo_coeff):
-    #        pass
+    def density_fit(self):
+        self.with_df = HubbardDF(self.mol)
+        return self
 
     kernel = kernel_hubbard

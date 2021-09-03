@@ -64,10 +64,11 @@ class CCSDSolver(ClusterSolver):
         # For 2D-systems the Coulomb repulsion is not PSD
         # Density-fitted CCSD does not support non-PSD three-center integrals,
         # thus we need a four-center formulation, where non PSD elements can be summed in
-        if self.base.boundary_cond in ('periodic-1D', 'periodic-2D') or not hasattr(self.mf, 'with_df'):
-            cls = pyscf.cc.ccsd.CCSD
-        else:
+        if (self.base.boundary_cond not in ('periodic-1D', 'periodic-2D')
+                and hasattr(self.mf, 'with_df') and self.mf.with_df is not None):
             cls = pyscf.cc.dfccsd.RCCSD
+        else:
+            cls = pyscf.cc.ccsd.CCSD
         self.log.debug("CCSD class= %r" % cls)
         cc = cls(self.mf, mo_coeff=self.mo_coeff, mo_occ=self.mo_occ, frozen=self.get_frozen_indices())
         if self.opts.maxiter is not None: cc.max_cycle = self.opts.maxiter
