@@ -34,7 +34,7 @@ class dRPA:
         At level of dRPA this is the only contribution to correlation energy; introduction of exchange will lead to
         spin-flip contributions.
         """
-        M, AmB, v = self._gen_arrays()
+        M, AmB, ApB, v = self._gen_arrays()
         e, c = np.linalg.eigh(M)
         self.freqs_ss = e ** (0.5)
         assert (all(e > 1e-12))
@@ -61,12 +61,12 @@ class dRPA:
         # Get coulomb interaction in occupied-virtual space.
         v = eris[:self.nocc, self.nocc:, :self.nocc, self.nocc:].reshape((self.ov,self.ov))
 
-        M = np.zeros((self.ov*2, self.ov*2))
-        M[:self.ov, :self.ov] = M[:self.ov, self.ov:] = M[self.ov:, :self.ov] = M[self.ov:, self.ov:] = 2 * v
-        M[np.diag_indices_from(M)] += AmB
+        ApB = np.zeros((self.ov*2, self.ov*2))
+        ApB[:self.ov, :self.ov] = ApB[:self.ov, self.ov:] = ApB[self.ov:, :self.ov] = ApB[self.ov:, self.ov:] = 2 * v
+        ApB[np.diag_indices_from(ApB)] += AmB
 
-        M = np.einsum("p,pq,q->pq", AmB**(0.5), M, AmB**(0.5))
-        return M, AmB, v
+        M = np.einsum("p,pq,q->pq", AmB**(0.5), ApB, AmB**(0.5))
+        return M, AmB, ApB, v
 
     def gen_moms(self, max_mom):
         res = {}
@@ -77,6 +77,12 @@ class dRPA:
                 np.einsum("pn,n,qn->pq", self.XpY_ss[0], self.freqs_ss ** x, self.XpY_ss[1]),
                 np.einsum("pn,n,qn->pq", self.XpY_ss[1], self.freqs_ss ** x, self.XpY_ss[1]),
             )
+        # Don't want to regenerate these, so use a hideous interface hack to get them to where we need them...
+        M, AmB, ApB, v = self._gen_arrays()
+        res["AmB"] = AmB
+        res["v"] = v
+        res["ApB"] = ApB
+
         return res
 
     @property
