@@ -109,6 +109,9 @@ class FCIQMCSolver(ClusterSolver):
         rdm_ranks = []
         if self.opts.make_rdm1: rdm_ranks.append('1')
         if self.opts.make_rdm2: rdm_ranks.append('2')
+        # adding the pure boson number-conserving 1RDM (0011) since it is a prerequisite of variational energy estimation
+        if self.opts.make_rdm_ladder: rdm_ranks.extend(['1110', '1101', '0011'])
+        M7_config_obj.M7_config_dict['hamiltonian']['nboson_max'] = self.opts.nboson_max
         
         M7_config_obj.M7_config_dict['av_ests']['rdm']['ranks'] = rdm_ranks
         if (len(rdm_ranks)):
@@ -206,7 +209,12 @@ class FCIQMCSolver(ClusterSolver):
 
         elif self.opts.make_rdm1:
             results.dm1 = load_spinfree_1rdm_from_m7(h5_name)
-        
+
+        elif self.opts.make_rdm_ladder:
+            rdm_1110 = load_spinfree_ladder_rdm_from_m7(h5_fname, True)
+            rdm_1101 = load_spinfree_ladder_rdm_from_m7(h5_fname, False)
+            # average over arrays that are equivalent due to hermiticity symmetry
+            results.dm_ladder = (rdm_1110 + rdm_1101.transpose(0, 2, 1))/2.0
         return results
 
 
