@@ -22,12 +22,15 @@ class EDMETResults:
     cluster_sizes: np.ndarray = None
     e_corr: float = None
 
-VALID_SOLVERS = ["FCI", "FCIQMC"]
 
 class EDMET(DMET):
 
     Fragment = EDMETFragment
 
+    VALID_SOLVERS = ["EBFCI"]  # , "EBFCIQMC"]
+
+    def __init__(self, mf, bno_threshold=np.inf, solver='EBFCI', options=None, log=None, **kwargs):
+        super().__init__(mf, bno_threshold, solver, options, log, **kwargs)
 
     def kernel(self):
 

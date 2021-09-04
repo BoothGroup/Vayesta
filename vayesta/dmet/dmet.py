@@ -26,7 +26,6 @@ class DMETResults:
     cluster_sizes: np.ndarray = None
     e_corr: float = None
 
-VALID_SOLVERS = [None, "", "MP2", "CISD", "CCSD", 'TCCSD', "CCSD(T)", 'FCI', "FCI-spin0", "FCI-spin1"]
 
 class DMET(QEmbeddingMethod):
 
@@ -76,6 +75,8 @@ class DMET(QEmbeddingMethod):
 
     Fragment = DMETFragment
 
+    VALID_SOLVERS = [None, "", "MP2", "CISD", "CCSD", 'TCCSD', "CCSD(T)", 'FCI', "FCI-spin0", "FCI-spin1"]
+
     def __init__(self, mf, bno_threshold=np.inf, solver='CCSD', options=None, log=None, **kwargs):
         """Density matrix embedding theory (DMET) calculation object.
 
@@ -101,7 +102,7 @@ class DMET(QEmbeddingMethod):
             else:
                 self.log.error("Mean-field calculation not converged.")
         self.bno_threshold = bno_threshold
-        if solver not in VALID_SOLVERS:
+        if solver not in self.VALID_SOLVERS:
             raise ValueError("Unknown solver: %s" % solver)
         self.solver = solver
 

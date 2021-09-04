@@ -24,6 +24,11 @@ class EDMETFragment(DMETFragment):
     class Options(DMETFragment.Options):
         pass
 
+    @dataclasses.dataclass
+    class Results(DMETFragment.Results):
+        dm_eb: np.array = None
+
+
 #    def __init__(self, *args, solver=None, **kwargs):
 #        super().__init__(*args, solver, **kwargs)
 
@@ -41,7 +46,7 @@ class EDMETFragment(DMETFragment):
         loc_transform_occ = np.dot(self.c_active_occ.T, np.dot(s, c_occ))
         loc_transform_vir = np.dot(self.c_active_vir.T, np.dot(s, c_vir))
 
-        print("transforms:", np.linalg.svd(loc_transform_occ)[1], np.linalg.svd(loc_transform_vir)[1])
+        #print("transforms:", np.linalg.svd(loc_transform_occ)[1], np.linalg.svd(loc_transform_vir)[1])
 
         nocc_loc = loc_transform_occ.shape[0]
         nvir_loc = loc_transform_vir.shape[0]
@@ -51,7 +56,7 @@ class EDMETFragment(DMETFragment):
         ov_full = loc_transform_ov.shape[1]
         # Now grab null space of this, giving all environmental excitations.
         env_transform_ov = scipy.linalg.null_space(loc_transform_ov).T
-        print(m0_aa.shape, loc_transform_ov.shape, env_transform_ov.shape)
+        #print(m0_aa.shape, loc_transform_ov.shape, env_transform_ov.shape)
         nspat_env = env_transform_ov.shape[0]
         m0_a_interaction = np.concatenate(
             (einsum("pq,rp,sq->rs", m0_aa, loc_transform_ov, env_transform_ov),
@@ -70,7 +75,8 @@ class EDMETFragment(DMETFragment):
         u, s, v = np.linalg.svd(m0_interaction, full_matrices=False)
         want = s > 1e-8
         nbos = sum(want)
-        print("NBOSONS:", nbos)
+        self.log.info("Zeroth moment matching generated {:2d} cluster bosons".format(nbos))
+        #print("NBOSONS:", nbos)
         #print(s)
         # v gives rotation of environmental excitations to obtain effective bosonic degree of freedom.
         bosrot = v[want,:]
@@ -128,8 +134,10 @@ class EDMETFragment(DMETFragment):
         #print("Alternative AmB calculation:", rpa_moms["AmB"].shape, locrot.shape)
         #print(einsum("pn,n,qn->pq",locrot, rpa_moms["AmB"], locrot))
 
-        print("Maximum deviation from exact irreducible polarisation propagator: {:6.4e}".format(
-              abs(AmB_new[:2*ov_loc,:2*ov_loc] -  einsum("pn,n,qn->pq",locrot, rpa_moms["AmB"], locrot)).max()))
+        maxdev = abs(AmB_new[:2*ov_loc,:2*ov_loc] -  einsum("pn,n,qn->pq",locrot, rpa_moms["AmB"], locrot)).max()
+        if maxdev > 1e-8:
+            self.log.fatal("Unexpected deviation from exact irreducible polarisation propagator: {:6.4e}".format(maxdev))
+            raise EDMETFragmentExit
 
         # Now grab our bosonic parameters.
         Va = np.zeros((nbos, self.n_active, self.n_active))
@@ -167,9 +175,9 @@ class EDMETFragment(DMETFragment):
         # Transform our couplings.
         Va = np.einsum("npq,nm->mpq", Va, X) + np.einsum("npq,nm->mqp", Va, Y)
         Vb = np.einsum("npq,nm->mpq", Vb, X) + np.einsum("npq,nm->mqp", Vb, Y)
-        print("Cluster Bosons frequencies:",freqs)
-        print(np.einsum("npq,rp,sq->nrs", Va, self.c_active, self.c_active))
-        print(np.einsum("npq,rp,sq->nrs", Vb, self.c_active, self.c_active))
+        self.log.info("Cluster Bosons frequencies: " + str(freqs))
+        #print(np.einsum("npq,rp,sq->nrs", Va, self.c_active, self.c_active))
+        #print(np.einsum("npq,rp,sq->nrs", Vb, self.c_active, self.c_active))
         return freqs, Va, Vb
 
     def kernel(self, rpa_moms, bno_threshold = None, bno_number = None, solver=None, init_guess=None, eris=None, construct_bath = False):
@@ -178,7 +186,7 @@ class EDMETFragment(DMETFragment):
                             self.set_up_orbitals(bno_threshold, bno_number, construct_bath)
 
         # Now generate bosonic bath.
-        self.construct_bosons(rpa_moms)
+        freqs, Va, Vb = self.construct_bosons(rpa_moms)
 
         solver = solver or self.solver
 
@@ -191,7 +199,7 @@ class EDMETFragment(DMETFragment):
 
         cluster_solver_cls = get_solver_class(solver)
         cluster_solver = cluster_solver_cls(
-            self, mo_coeff, mo_occ, nocc_frozen=nocc_frozen, nvir_frozen=nvir_frozen, **solver_opts)
+            freqs, (Va, Vb), self, mo_coeff, mo_occ, nocc_frozen=nocc_frozen, nvir_frozen=nvir_frozen, **solver_opts)
         solver_results = cluster_solver.kernel(init_guess=init_guess, eris=eris)
         self.log.timing("Time for %s solver:  %s", solver, time_string(timer()-t0))
 
@@ -200,9 +208,10 @@ class EDMETFragment(DMETFragment):
                 bno_threshold=bno_threshold,
                 n_active=nactive,
                 converged=solver_results.converged,
-        #        e_corr=e_corr,
+                e_corr=solver_results.e_corr,
                 dm1 = solver_results.dm1,
-                dm2 = solver_results.dm2)
+                dm2 = solver_results.dm2,
+                dm_eb = solver_results.rdm_eb)
 
         self.solver_results = solver_results
         self._results = results

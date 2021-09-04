@@ -99,7 +99,7 @@ class DMETFragment(QEmbeddingFragment):
 
         if solver is None:
             solver = self.base.solver
-        if solver not in dmet.VALID_SOLVERS:
+        if solver not in self.base.VALID_SOLVERS:
             raise ValueError("Unknown solver: %s" % solver)
         self.solver = solver
         self.log.infov('  > %-24s %r', 'Solver:', self.solver)
