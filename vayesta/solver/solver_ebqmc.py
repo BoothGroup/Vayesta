@@ -4,8 +4,9 @@ import dataclasses
 from .solver_qmc import FCIQMCSolver
 from .rdm_utils import load_spinfree_ladder_rdm_from_m7
 
-
 import numpy as np
+from vayesta.core.util import *
+
 
 
 header = ''' &FCI NORB= {}
@@ -19,6 +20,7 @@ class EBFCIQMCSolver(FCIQMCSolver):
         threads: int = 1
         lindep: float = None
         conv_tol: float = None
+        bos_occ_cutoff: int = NotSet
         make_rdm_ladder: bool = True
 
     @dataclasses.dataclass
@@ -44,6 +46,7 @@ class EBFCIQMCSolver(FCIQMCSolver):
         if self.opts.make_rdm_ladder:
             M7_config_obj.M7_config_dict['av_ests']['rdm']['ranks'] .extend(['1110', '1101', '0011'])
             M7_config_obj.M7_config_dict['av_ests']['rdm']['archive']['save'] = 'yes'
+        M7_config_obj.M7_config_dict['hamiltonian']['nboson_max'] = self.opts.bos_occ_cutoff
 
     def gen_M7_results(self, h5_name, *args):# ham_pkl_name, M7_config_obj, coeff_pkl_name, eris):
         """Generate M7 results object."""

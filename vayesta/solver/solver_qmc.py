@@ -25,7 +25,7 @@ from .rdm_utils import load_spinfree_1rdm_from_m7, load_spinfree_1_2rdm_from_m7
 
 class FCIQMCSolver(ClusterSolver):
 
-
+    @dataclasses.dataclass
     class Options(ClusterSolver.Options):
         threads: int = 1
         lindep: float = None
@@ -102,9 +102,6 @@ class FCIQMCSolver(ClusterSolver):
         M7_config_obj.M7_config_dict['av_ests']['rdm']['ranks'] = rdm_ranks
         if (len(rdm_ranks)):
             M7_config_obj.M7_config_dict['av_ests']['rdm']['archive']['save'] = 'yes'
-
-        M7_config_obj.M7_config_dict['hamiltonian']['nboson_max'] = self.opts.nboson_max
-
 
         M7_config_obj.M7_config_dict['archive']['save_path'] = h5_name
         M7_config_obj.M7_config_dict['hamiltonian']['fcidump']['path'] = FCIDUMP_name
