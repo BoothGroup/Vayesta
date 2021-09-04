@@ -26,8 +26,8 @@ class EDMETFragment(DMETFragment):
 
     @dataclasses.dataclass
     class Results(DMETFragment.Results):
-        dm_eb: np.array = None
-
+        dm_eb: np.ndarray = None
+        eb_couplings: np.ndarray = None
 
 #    def __init__(self, *args, solver=None, **kwargs):
 #        super().__init__(*args, solver, **kwargs)
@@ -176,6 +176,12 @@ class EDMETFragment(DMETFragment):
         Va = np.einsum("npq,nm->mpq", Va, X) + np.einsum("npq,nm->mqp", Va, Y)
         Vb = np.einsum("npq,nm->mpq", Vb, X) + np.einsum("npq,nm->mqp", Vb, Y)
         self.log.info("Cluster Bosons frequencies: " + str(freqs))
+        # Check couplings are spin symmetric; this can be relaxed once we're using UHF and appropriate solvers.
+        spin_deviation = abs(Va - Vb).max()
+        if spin_deviation > 1e-6:
+            self.log.warning("Boson couplings to different spin channels are significantly different; "
+                             "largest deviation {:6.4e}".format(spin_deviation))
+
         #print(np.einsum("npq,rp,sq->nrs", Va, self.c_active, self.c_active))
         #print(np.einsum("npq,rp,sq->nrs", Vb, self.c_active, self.c_active))
         return freqs, Va, Vb
@@ -211,7 +217,8 @@ class EDMETFragment(DMETFragment):
                 e_corr=solver_results.e_corr,
                 dm1 = solver_results.dm1,
                 dm2 = solver_results.dm2,
-                dm_eb = solver_results.rdm_eb)
+                dm_eb = solver_results.rdm_eb,
+                eb_couplings=np.array((Va,Vb)))
 
         self.solver_results = solver_results
         self._results = results
@@ -223,6 +230,21 @@ class EDMETFragment(DMETFragment):
         self.log.debugv("GC deleted %d objects and freed %.3f MB of memory", ndel, (get_used_memory()-m0)/1e6)
 
         return results
+
+    def get_edmet_energy_contrib(self):
+        """Generate EDMET energy contribution, according to expression given in appendix of EDMET preprint"""
+        e1, e2 = self.get_dmet_energy_contrib()
+        c_act = self.c_active
+        P_imp = self.get_fragment_projector(c_act)
+        # Taken spin-averaged couplings for now; should actually be spin symmetric.
+        couplings = (self._results.eb_couplings[0] + self._results.eb_couplings[1]) / 2
+        dm_eb = self._results.dm_eb
+        efb = 0.5 * (
+            np.einsum("pr,npq,rqn", P_imp, couplings, dm_eb) +
+            np.einsum("qr,npq,prn", P_imp, couplings, dm_eb)
+        )
+        return e1, e2, efb
+
 
 
 

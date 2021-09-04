@@ -102,6 +102,7 @@ class EBFCISolver(ClusterSolver):
             results.dm1 = ebfci_slow.make_rdm1e(wf, self.nactive, nelec)
 
         if self.opts.make_rdm_ladder:
-            results.rdm_eb = ebfci_slow.make_eb_rdm(wf, self.nactive, nelec, self.nbos, self.opts.bos_occ_cutoff)
+            # For now, generate spin-integrated DM as this is what we'll get from FCIQMC.
+            results.rdm_eb = 2 * ebfci_slow.make_eb_rdm(wf, self.nactive, nelec, self.nbos, self.opts.bos_occ_cutoff)[::2,::2]
 
         return results

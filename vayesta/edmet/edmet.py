@@ -7,6 +7,7 @@ import scipy.linalg
 
 from timeit import default_timer as timer
 import copy
+from vayesta.core.util import *
 
 from .fragment import EDMETFragment, EDMETFragmentExit
 
@@ -131,9 +132,21 @@ class EDMET(DMET):
         else:
             self.log.info("Previous chemical potential still suitable")
 
+        e1, e2, efb = 0.0, 0.0, 0.0
+        for x, frag in enumerate(sym_parents):
+            e1_contrib, e2_contrib, efb_contrib = frag.get_edmet_energy_contrib()
+            e1 += e1_contrib * nsym[x]
+            e2 += e2_contrib * nsym[x]
+            efb += efb_contrib * nsym[x]
+        self.e_dmet = e1 + e2 + efb
+        self.log.info("Total EDMET energy {:8.4f}".format(self.e_tot))
+        self.log.info("Energy Contributions: 1-body={:8.4f}, 2-body={:8.4f}, coupled-boson={:8.4f}".format(e1,e2,efb))
 
         # Now have final results.
+        self.print_results()
 
+        self.log.info("Total wall time:  %s", time_string(timer()-t_start))
+        self.log.info("All done.")
 
 
     def calc_electron_number_defect(self, chempot, bno_thr, nelec_target, parent_fragments, nsym, rpa_moms, construct_bath = True):

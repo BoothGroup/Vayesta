@@ -284,6 +284,7 @@ class DMET(QEmbeddingMethod):
                 e2 += e2_contrib * nsym[x]
             self.e_dmet = e1 + e2
             self.log.info("Total DMET energy {:8.4f}".format(self.e_tot))
+            self.log.info("Energy Contributions: 1-body={:8.4f}, 2-body={:8.4f}".format(e1, e2))
 
             curr_rdms, delta_rdms = self.updater.update(self.hl_rdms)
             self.log.info("Change in high-level RDMs: {:6.4e}".format(delta_rdms))
