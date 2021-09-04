@@ -26,6 +26,10 @@ class EDMETResults:
 
 class EDMET(DMET):
 
+    @dataclasses.dataclass
+    class Options(DMET.Options):
+        bos_occ_cutoff: int = 2
+
     Fragment = EDMETFragment
 
     VALID_SOLVERS = ["EBFCI"]  # , "EBFCIQMC"]

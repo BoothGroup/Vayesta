@@ -22,11 +22,12 @@ class EBFCISolver(ClusterSolver):
     """[TODO] rewrite this as a subclass of FCISolver? What benefits does this provide, given most functionality is
     in kernel method? Maybe could abstract """
 
+    @dataclasses.dataclass
     class Options(ClusterSolver.Options):
         threads: int = 1
         lindep: float = None
         conv_tol: float = None
-        bos_occ_cutoff: int = 2
+        bos_occ_cutoff: int = NotSet
         make_rdm_ladder: bool = True
 
     @dataclasses.dataclass
@@ -79,6 +80,8 @@ class EBFCISolver(ClusterSolver):
             conv_tol = 1e-12
 
         t0 = timer()
+
+        self.log.info("Running FCI with boson occupation cutoff of {:d}".format(self.opts.bos_occ_cutoff))
 
         e_fci, wf = ebfci_slow.kernel(h_eff, eris, self.eb_coupling, np.diag(self.bos_freqs), self.nactive, nelec,
                         self.nbos, self.opts.bos_occ_cutoff, tol=conv_tol)
