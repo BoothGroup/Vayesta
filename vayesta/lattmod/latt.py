@@ -347,10 +347,15 @@ class LatticeMF(pyscf.scf.hf.RHF):
         if mol is None: mol = self.mol
         if dm is None: dm = self.make_rdm1()
         if self.mol.v_nn is not None and mol.v_nn != 0:
-            raise NotImplementedError()
+            if self.mol.incore_anyway:
+                # If self._eri is allocated can use standard functionality.
+                return super().get_veff(mol=mol, dm=dm)
+            else:
+                raise NotImplementedError("Mean field calculations for the extended Hubbard model are only implemented"
+                                "when eris are explicitly allocated; please set `incore_anyway` in the mol object.")
         return np.diag(np.diag(dm))*mol.hubbard_u/2
 
-    def get_ovlp(self):
+    def get_ovlp(self, mol=None):
         return np.eye(self.mol.nsite)
 
     def kernel_hubbard(self):
@@ -405,3 +410,15 @@ class LatticeMF(pyscf.scf.hf.RHF):
         return self
 
     kernel = kernel_hubbard
+    # This is only for the 1D EHM, but in practice charge-symmetry breaking doesn't occur in 1D with careful choice
+    # of BCs. This means that the kernel_hubbard can also be used in this case, as ERIs only couple the fixed density.
+    #def orig_kernel(self):
+    #    assert(self.mol.incore_anyway)
+    #    return super().kernel()
+
+    #def get_init_guess(self, mol=None, key='minao'):
+    #    assert(self.mol.dimension == 1)
+    #    dm = np.eye(self.mol.nsite)
+    #    for x in range(self.mol.nsite):
+    #        dm[x,x] += 0.01 * (-1) ** (x%2)
+    #    return dm
