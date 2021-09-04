@@ -10,6 +10,8 @@ import pyscf.scf
 import pyscf.lib
 from pyscf.lib.parameters import BOHR
 
+from vayesta.core.util import *
+
 log = logging.getLogger(__name__)
 
 class LatticeMole(pyscf.pbc.gto.Cell):
@@ -29,7 +31,7 @@ class LatticeMole(pyscf.pbc.gto.Cell):
     unit
     """
 
-    def __init__(self, nsite, order=None, verbose=0, output=None):
+    def __init__(self, nsite, order=None, incore_anyway=True, verbose=0, output=None):
         """
         Parameters
         ----------
@@ -40,7 +42,7 @@ class LatticeMole(pyscf.pbc.gto.Cell):
         self.nsite = nsite
         self._basis = {self.atom_symbol(i) : None for i in range(self.nsite)}
         self._built = True
-        self.incore_anyway = True
+        self.incore_anyway = incore_anyway
         self.order = order
 
     def __getattr__(self, attr):
@@ -72,9 +74,8 @@ class LatticeMole(pyscf.pbc.gto.Cell):
 class Hubbard(LatticeMole):
     """Abstract Hubbard model class."""
 
-    def __init__(self, nsite, nelectron=None, hubbard_t=1.0, hubbard_u=0.0, v_nn=0.0,
-            order=None, verbose=0, output=None):
-        super().__init__(nsite, order=order, verbose=verbose, output=output)
+    def __init__(self, nsite, nelectron=None, hubbard_t=1.0, hubbard_u=0.0, v_nn=0.0, **kwargs):
+        super().__init__(nsite, **kwargs)
         if nelectron is None:
             nelectron = nsite
         self.nelectron = nelectron
@@ -88,6 +89,17 @@ class Hubbard(LatticeMole):
         aorange[:,1] += 1
         aorange[:,3] += 1
         return aorange
+
+    def ao2mo(self, mo_coeffs, compact=False):
+        if compact: raise NotImplementedError()
+        if self.v_nn: raise NotImplementedError()
+
+        if isinstance(mo_coeffs, np.ndarray) and mo_coeffs.ndim == 2:
+            eris = self.hubbard_u*einsum('ai,aj,ak,al->ijkl', mo_coeffs, mo_coeffs, mo_coeffs, mo_coeffs)
+        else:
+            eris = self.hubbard_u*einsum('ai,aj,ak,al->ijkl', *mo_coeffs)
+        eris = eris.reshape(eris.shape[0]*eris.shape[1], eris.shape[2]*eris.shape[3])
+        return eris
 
 
 class Hubbard1D(Hubbard):
@@ -291,12 +303,38 @@ class Hubbard2D(Hubbard):
         return order
 
 
+class HubbardDF:
+
+    def __init__(self, mol):
+        if mol.v_nn: raise NotImplementedError()
+        self.mol = mol
+        self.blockdim = self.get_naoaux()
+
+    def ao2mo(self, *args, **kwargs):
+        return self.mol.ao2mo(*args, **kwargs)
+
+    def get_naoaux(self):
+        return self.mol.nsite
+
+    def loop(self, blksize=None):
+        """Note that blksize is ignored."""
+        nsite = self.mol.nsite
+        j3c = np.zeros((nsite, nsite, nsite))
+        np.fill_diagonal(j3c, np.sqrt(self.mol.hubbard_u))
+        # Pack (Q|ab) -> (Q|A)
+        j3c = pyscf.lib.pack_tril(j3c)
+        yield j3c
+
+
 class LatticeMF(pyscf.scf.hf.RHF):
 #class LatticeMF(pyscf.pbc.scf.hf.RHF):
 
     def __init__(self, mol, *args, **kwargs):
         super().__init__(mol, *args, **kwargs)
-        self._eri = mol.get_eri()
+        if self.mol.incore_anyway:
+            self._eri = mol.get_eri()
+        else:
+            self.density_fit()
 
     @property
     def cell(self):
@@ -309,10 +347,15 @@ class LatticeMF(pyscf.scf.hf.RHF):
         if mol is None: mol = self.mol
         if dm is None: dm = self.make_rdm1()
         if self.mol.v_nn is not None and mol.v_nn != 0:
-            raise NotImplementedError()
+            if self.mol.incore_anyway:
+                # If self._eri is allocated can use standard functionality.
+                return super().get_veff(mol=mol, dm=dm)
+            else:
+                raise NotImplementedError("Mean field calculations for the extended Hubbard model are only implemented"
+                                "when eris are explicitly allocated; please set `incore_anyway` in the mol object.")
         return np.diag(np.diag(dm))*mol.hubbard_u/2
 
-    def get_ovlp(self):
+    def get_ovlp(self, mol=None):
         return np.eye(self.mol.nsite)
 
     def kernel_hubbard(self):
@@ -362,11 +405,20 @@ class LatticeMF(pyscf.scf.hf.RHF):
 
         return self.e_tot
 
-    #class with_df:
-    #    """Dummy density-fitting"""
-
-    #    @classmethod
-    #    def ao2mo(cls, mo_coeff):
-    #        pass
+    def density_fit(self):
+        self.with_df = HubbardDF(self.mol)
+        return self
 
     kernel = kernel_hubbard
+    # This is only for the 1D EHM, but in practice charge-symmetry breaking doesn't occur in 1D.
+    # This means that the kernel_hubbard can also be used in this case, as ERIs only couple the density which is fixed.
+    #def orig_kernel(self):
+    #    assert(self.mol.incore_anyway)
+    #    return super().kernel()
+
+    #def get_init_guess(self, mol=None, key='minao'):
+    #    assert(self.mol.dimension == 1)
+    #    dm = np.eye(self.mol.nsite)
+    #    for x in range(self.mol.nsite):
+    #        dm[x,x] += 0.01 * (-1) ** (x%2)
+    #    return dm

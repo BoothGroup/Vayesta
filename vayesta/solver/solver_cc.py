@@ -18,10 +18,10 @@ class CCSDSolver(ClusterSolver):
     class Options(ClusterSolver.Options):
         # Convergence
         maxiter: int = 100              # Max number of iterations
-        conv_etol: float = None     # Convergence energy tolerance
-        conv_ttol: float = None     # Convergence amplitude tolerance
-        #conv_etol: float = 1e-12        # Convergence energy tolerance
-        #conv_ttol: float = 1e-10        # Convergence amplitude tolerance
+        conv_etol: float = None         # Convergence energy tolerance
+        conv_ttol: float = None         # Convergence amplitude tolerance
+        #conv_etol: float = 1e-10       # Convergence energy tolerance
+        #conv_ttol: float = 1e-8        # Convergence amplitude tolerance
 
         # Self-consistent mode
         sc_mode: int = NotSet
@@ -56,7 +56,6 @@ class CCSDSolver(ClusterSolver):
         ee_t_coeff: np.array = None
         ee_sf_coeff: np.array = None
 
-
     def kernel(self, init_guess=None, eris=None, coupled_fragments=None, t_diagnostic=True):
 
         if coupled_fragments is None:
@@ -65,10 +64,11 @@ class CCSDSolver(ClusterSolver):
         # For 2D-systems the Coulomb repulsion is not PSD
         # Density-fitted CCSD does not support non-PSD three-center integrals,
         # thus we need a four-center formulation, where non PSD elements can be summed in
-        if self.base.boundary_cond in ('periodic-1D', 'periodic-2D') or not hasattr(self.mf, 'with_df'):
-            cls = pyscf.cc.ccsd.CCSD
-        else:
+        if (self.base.boundary_cond not in ('periodic-1D', 'periodic-2D')
+                and hasattr(self.mf, 'with_df') and self.mf.with_df is not None):
             cls = pyscf.cc.dfccsd.RCCSD
+        else:
+            cls = pyscf.cc.ccsd.CCSD
         self.log.debug("CCSD class= %r" % cls)
         cc = cls(self.mf, mo_coeff=self.mo_coeff, mo_occ=self.mo_occ, frozen=self.get_frozen_indices())
         if self.opts.maxiter is not None: cc.max_cycle = self.opts.maxiter

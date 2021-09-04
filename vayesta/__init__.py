@@ -111,3 +111,6 @@ def new_log(logname, fmt=None, remove_existing=True):
         for hdl in log.handlers[:]:
             log.removeHandler(hdl)
     log.addHandler(vlog.VFileHandler(logname, formatter=fmt))
+
+# --- NumPy
+numpy.set_printoptions(linewidth=120)
