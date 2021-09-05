@@ -15,7 +15,7 @@ header = ''' &FCI NORB= {}
 
 
 class EBFCIQMCSolver(FCIQMCSolver):
-
+    @dataclasses.dataclass
     class Options(FCIQMCSolver.Options):
         threads: int = 1
         lindep: float = None
@@ -29,6 +29,8 @@ class EBFCIQMCSolver(FCIQMCSolver):
         c0: float = None
         c1: np.array = None
         c2: np.array = None
+        rdm_eb: np.array = None
+
 
     def __init__(self, freqs, couplings, *args, **kwargs):
         super().__init__(*args, **kwargs)
