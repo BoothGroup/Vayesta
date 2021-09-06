@@ -9,6 +9,10 @@ exclude_lines =
     pragma: no cover
     raise RuntimeError
     raise NotImplementedError
+    raise AssertionError
     pass
     if __name__ == .__main__.:
     except ImportError:
+    def __repr__
+    log.error
+    log.critical
