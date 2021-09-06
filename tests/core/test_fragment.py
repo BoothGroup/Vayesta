@@ -140,6 +140,13 @@ class MolFragmentTests(unittest.TestCase):
 
         self.assertAlmostEqual(frag.get_fragment_mf_energy(), -72.99138042535633, 8)
 
+    def test_iao_atom_aos(self):
+        qemb = QEmbeddingMethod(self.mf)
+        qemb.init_fragmentation('iao')
+        frag = qemb.make_atom_fragment([0], aos=['1s', '2s'])
+
+        self.assertAlmostEqual(frag.get_fragment_mf_energy(), -72.99138042535633, 8)
+
     def test_lowdin_atoms(self):
         qemb = QEmbeddingMethod(self.mf)
         qemb.init_fragmentation('lowdin-ao')
