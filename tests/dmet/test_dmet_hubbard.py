@@ -23,7 +23,7 @@ def make_test_hub1d(n, nelectron, U, nimp, known_values):
             del cls.mol, cls.mf, cls.dmet
 
         def test_energy(self):
-            self.assertAlmostEqual(self.dmet.e_tot, known_values['e_tot'])
+            self.assertAlmostEqual(self.dmet.e_tot, known_values['e_tot'], 6)
 
     return Hubbard1DTests
 
@@ -48,7 +48,7 @@ def make_test_hub2d(n, nelectron, U, impshape, boundary, known_values):
             del cls.mol, cls.mf, cls.dmet
 
         def test_energy(self):
-            self.assertAlmostEqual(self.dmet.e_tot, known_values['e_tot'])
+            self.assertAlmostEqual(self.dmet.e_tot, known_values['e_tot'], 6)
 
     return Hubbard2DTests
 
