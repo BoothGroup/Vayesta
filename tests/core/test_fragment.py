@@ -40,7 +40,7 @@ class MolFragmentTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.mol = pyscf.gto.Mole()
-        cls.mol.atom = 'O 0 0 0.118; O 0 0.755 -0.471; O 0 -0.755 -0.471'
+        cls.mol.atom = 'O1 0 0 0.118; O2 0 0.755 -0.471; O3 0 -0.755 -0.471'
         cls.mol.basis = 'cc-pvdz'
         cls.mol.verbose = 0
         cls.mol.build()
@@ -143,7 +143,7 @@ class MolFragmentTests(unittest.TestCase):
     def test_lowdin_atoms(self):
         qemb = QEmbeddingMethod(self.mf)
         qemb.init_fragmentation('lowdin-ao')
-        frags = qemb.make_all_atom_fragments()
+        frags = [qemb.make_atom_fragment(['O%d'%x]) for x in range(1, 4)]
 
         self.assertAlmostEqual(frags[0].get_fragment_mf_energy(), -108.51371286149299, 8)
         self.assertAlmostEqual(frags[1].get_fragment_mf_energy(), -104.23470603227311, 8)
