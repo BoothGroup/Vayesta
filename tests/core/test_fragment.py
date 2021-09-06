@@ -115,15 +115,15 @@ class MolFragmentTests(unittest.TestCase):
             dm1 = np.random.random((nocc+nvir, nocc+nvir))
             dm2 = np.random.random((nocc+nvir, nocc+nvir, nocc+nvir, nocc+nvir))
             eris = np.random.random(dm2.shape)
-        t1_frag = frags[2].project_amplitude_to_fragment(t1, c_occ=c_occ, c_vir=c_vir)
-        t2_frag = frags[2].project_amplitude_to_fragment(t2, c_occ=c_occ, c_vir=c_vir)
+        t1_frag = frags[2].project_amplitude_to_fragment(t1, c_occ=c_occ, c_vir=c_vir, symmetrize=False)
+        t2_frag = frags[2].project_amplitude_to_fragment(t2, c_occ=c_occ, c_vir=c_vir, symmetrize=False)
         with lib.temporary_env(frags[2], _c_active_occ=c_occ, _c_active_vir=c_vir):
             e_dmet = frags[2].get_fragment_dmet_energy(dm1=dm1, dm2=dm2, eris=eris)
         self.assertAlmostEqual(tr(c_bath), 7.357949737669514, 8)
         self.assertAlmostEqual(tr(c_occenv), 5.4998286299420664, 8)
         self.assertAlmostEqual(tr(c_virenv), 349.9785855174961, 8)
         self.assertAlmostEqual(lib.fp(t1_frag), 0.5133386586630577, 8)
-        self.assertAlmostEqual(lib.fp(t2_frag), -1.7578890433904704, 8)
+        self.assertAlmostEqual(lib.fp(t2_frag), -4.914295967188966, 8)
         self.assertAlmostEqual(e_dmet, 190.97612324426052, 8)
 
         for frag in frags[0].loop_fragments():
