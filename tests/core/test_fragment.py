@@ -136,15 +136,11 @@ class MolFragmentTests(unittest.TestCase):
     def test_iao_aos(self):
         qemb = QEmbeddingMethod(self.mf)
         qemb.init_fragmentation('iao')
-        frag = qemb.make_ao_fragment([0, 1])
 
+        frag = qemb.make_ao_fragment([0, 1])
         self.assertAlmostEqual(frag.get_fragment_mf_energy(), -72.99138042535633, 8)
 
-    def test_iao_atom_aos(self):
-        qemb = QEmbeddingMethod(self.mf)
-        qemb.init_fragmentation('iao')
         frag = qemb.make_atom_fragment([0], aos=['1s', '2s'])
-
         self.assertAlmostEqual(frag.get_fragment_mf_energy(), -72.99138042535633, 8)
 
     def test_lowdin_atoms(self):
@@ -159,9 +155,32 @@ class MolFragmentTests(unittest.TestCase):
     def test_lowdin_aos(self):
         qemb = QEmbeddingMethod(self.mf)
         qemb.init_fragmentation('lowdin-ao')
-        frag = qemb.make_ao_fragment([0, 1])
 
+        frag = qemb.make_ao_fragment([0, 1])
         self.assertAlmostEqual(frag.get_fragment_mf_energy(), -66.82653212162008, 8)
+
+        frag = qemb.make_ao_fragment(0)
+        self.assertAlmostEqual(frag.get_fragment_mf_energy(), -57.71353451461683, 8)
+
+        frag = qemb.make_ao_fragment('1s')
+        self.assertAlmostEqual(frag.get_fragment_mf_energy(), -170.7807235289751, 8)
+
+    def test_ghost_atoms(self):
+        mol = self.mol.copy()
+        mol.atom = 'ghost 0 0 0; %s' % self.mol.atom
+        mol.basis = {'O1': 'cc-pvdz', 'O2': 'cc-pvdz', 'O3': 'cc-pvdz', 'ghost': pyscf.gto.basis.load('sto3g', 'H')}
+        mol.build()
+
+        mf = pyscf.scf.RHF(mol)
+        mf = mf.density_fit()
+        mf.conv_tol = 1e-12
+        mf.kernel()
+
+        qemb = QEmbeddingMethod(mf)
+        qemb.init_fragmentation('iao')
+
+        frag = qemb.make_ao_fragment([0, 1])
+        self.assertAlmostEqual(frag.get_fragment_mf_energy(), -72.98871119377974, 8)
 
 
 class CellFragmentTests(unittest.TestCase):
