@@ -5,12 +5,34 @@ import pyscf.scf
 import pyscf.pbc.gto
 import pyscf.pbc.scf
 import pyscf.pbc.tools
+from pyscf import lib
 from vayesta.misc import gdf
 from vayesta.core import QEmbeddingFragment, QEmbeddingMethod
 
-#TODO: these can probably be deprecated by tests on the methods inheriting
-#      the abstract base classes, as long as those tests are thorough
 #TODO: fragment_type = 'ao' after bugs are fixed
+#TODO: convert_amp_c_to_t
+#TODO: get_t1
+#TODO: get_t2
+#TODO: cover properties
+#TODO: get_rot_to_mf
+#TODO: get_rot_to_fragment
+#TODO: couple_to_fragment(s)
+#TODO: inverse get_fragment_project
+#TODO: project_ref_orbitals
+#TODO: lots of conditions in make_dmet_bath
+#TODO: c_ref in dmet bath?
+#TODO: 'occ-2' in project_amplitude_to_fragment
+#TODO: make_counterpoise_mol
+
+
+class temporary_seed:
+    def __init__(self, seed):
+        self.seed, self.state = seed, None
+    def __enter__(self):
+        self.state = np.random.get_state()
+        np.random.seed(self.seed)
+    def __exit__(self, *args):
+        np.random.set_state(self.state)
 
 
 class MolFragmentTests(unittest.TestCase):
@@ -43,19 +65,73 @@ class MolFragmentTests(unittest.TestCase):
         tr = lambda c: np.einsum('xi,xi->', c, c.conj())
 
         c_bath, c_occenv, c_virenv = frags[0].make_dmet_bath(frags[0].c_env)
+        c_occ, c_vir = frags[0].diagonalize_cluster_dm(frags[0].c_frag, c_bath)
+        nocc, nvir = c_occ.shape[1], c_vir.shape[1]
+        with temporary_seed(0):
+            t1 = np.random.random((nocc, nvir))
+            t2 = np.random.random((nocc, nocc, nvir, nvir))
+            dm1 = np.random.random((nocc+nvir, nocc+nvir))
+            dm2 = np.random.random((nocc+nvir, nocc+nvir, nocc+nvir, nocc+nvir))
+            eris = np.random.random(dm2.shape)
+        t1_frag = frags[0].project_amplitude_to_fragment(t1, c_occ=c_occ, c_vir=c_vir)
+        t2_frag = frags[0].project_amplitude_to_fragment(t2, c_occ=c_occ, c_vir=c_vir)
+        with lib.temporary_env(frags[0], _c_active_occ=c_occ, _c_active_vir=c_vir):
+            e_dmet = frags[0].get_fragment_dmet_energy(dm1=dm1, dm2=dm2, eris=eris)
         self.assertAlmostEqual(tr(c_bath), 5.305607912416594, 8)
         self.assertAlmostEqual(tr(c_occenv), 6.0044522544970995, 8)
         self.assertAlmostEqual(tr(c_virenv), 349.9785855174963, 8)
+        self.assertAlmostEqual(lib.fp(t1_frag), 1.4273125207747517, 8)
+        self.assertAlmostEqual(lib.fp(t2_frag), -2.1428651381402077, 8)
+        self.assertAlmostEqual(e_dmet, 120.3594994998486, 8)
 
+        frags[1].opts.wf_partition = 'first-vir'
         c_bath, c_occenv, c_virenv = frags[1].make_dmet_bath(frags[1].c_env)
+        c_occ, c_vir = frags[1].diagonalize_cluster_dm(frags[1].c_frag, c_bath)
+        nocc, nvir = c_occ.shape[1], c_vir.shape[1]
+        with temporary_seed(0):
+            t1 = np.random.random((nocc, nvir))
+            t2 = np.random.random((nocc, nocc, nvir, nvir))
+            dm1 = np.random.random((nocc+nvir, nocc+nvir))
+            dm2 = np.random.random((nocc+nvir, nocc+nvir, nocc+nvir, nocc+nvir))
+            eris = np.random.random(dm2.shape)
+        t1_frag = frags[1].project_amplitude_to_fragment(t1, c_occ=c_occ, c_vir=c_vir)
+        t2_frag = frags[1].project_amplitude_to_fragment(t2, c_occ=c_occ, c_vir=c_vir)
+        with lib.temporary_env(frags[1], _c_active_occ=c_occ, _c_active_vir=c_vir):
+            e_dmet = frags[1].get_fragment_dmet_energy(dm1=dm1, dm2=dm2, eris=eris)
         self.assertAlmostEqual(tr(c_bath), 7.357949737669514, 8)
         self.assertAlmostEqual(tr(c_occenv), 5.4998286299420664, 8)
         self.assertAlmostEqual(tr(c_virenv), 349.9785855174961, 8)
+        self.assertAlmostEqual(lib.fp(t1_frag), 0.29415860199116933, 8)
+        self.assertAlmostEqual(lib.fp(t2_frag), -0.5746412346745327, 8)
+        self.assertAlmostEqual(e_dmet, 360.49471415017837, 8)
 
+        frags[2].opts.wf_partition = 'democratic'
         c_bath, c_occenv, c_virenv = frags[2].make_dmet_bath(frags[2].c_env)
+        c_occ, c_vir = frags[2].diagonalize_cluster_dm(frags[2].c_frag, c_bath)
+        nocc, nvir = c_occ.shape[1], c_vir.shape[1]
+        with temporary_seed(0):
+            t1 = np.random.random((nocc, nvir))
+            t2 = np.random.random((nocc, nocc, nvir, nvir))
+            dm1 = np.random.random((nocc+nvir, nocc+nvir))
+            dm2 = np.random.random((nocc+nvir, nocc+nvir, nocc+nvir, nocc+nvir))
+            eris = np.random.random(dm2.shape)
+        t1_frag = frags[2].project_amplitude_to_fragment(t1, c_occ=c_occ, c_vir=c_vir)
+        t2_frag = frags[2].project_amplitude_to_fragment(t2, c_occ=c_occ, c_vir=c_vir)
+        with lib.temporary_env(frags[2], _c_active_occ=c_occ, _c_active_vir=c_vir):
+            e_dmet = frags[2].get_fragment_dmet_energy(dm1=dm1, dm2=dm2, eris=eris)
         self.assertAlmostEqual(tr(c_bath), 7.357949737669514, 8)
         self.assertAlmostEqual(tr(c_occenv), 5.4998286299420664, 8)
         self.assertAlmostEqual(tr(c_virenv), 349.9785855174961, 8)
+        self.assertAlmostEqual(lib.fp(t1_frag), 0.5133386586630577, 8)
+        self.assertAlmostEqual(lib.fp(t2_frag), -1.7578890433904704, 8)
+        self.assertAlmostEqual(e_dmet, 190.97612324426052, 8)
+
+        for frag in frags[0].loop_fragments():
+            frag.reset()
+            self.assertTrue(frag._c_active_occ is None)
+            self.assertTrue(frag._c_active_vir is None)
+            self.assertTrue(frag._c_frozen_occ is None)
+            self.assertTrue(frag._c_frozen_vir is None)
 
     def test_iao_aos(self):
         qemb = QEmbeddingMethod(self.mf)
@@ -115,7 +191,7 @@ class CellFragmentTests(unittest.TestCase):
         frag = qemb.make_atom_fragment([0, 1])
         frags = [frag,] + frag.make_tsymmetric_fragments([2,2,2])
 
-        for frag in frags:
+        for frag in frags[0].loop_fragments():
             self.assertAlmostEqual(frag.get_fragment_mf_energy().real, -4.261995344528774, 8)
 
         tr = lambda c: np.einsum('xi,xi->', c, c.conj())
