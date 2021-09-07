@@ -120,6 +120,14 @@ LiH_ccpvdz_lowdin_aos_Test = make_test(
         name='LiH_ccpvdz_lowdin_aos_Test',
 )
 
+LiH_ccpvdz_lowdin_atoms_Test = make_test(
+        'Li 0 0 0; H 0 0 1.4', 'cc-pvdz',
+        {'fragment_type': 'lowdin-ao', 'bath_type': 'none'},
+        lambda ewf: ewf.make_all_atom_fragments(),
+        {'e_tot': -7.99502192669842},
+        name='LiH_ccpvdz_lowdin_atoms_Test',
+)
+
 N2_augccpvdz_stretched_FCI_Test = make_test(
         'N 0 0 0; N 0 0 2', 'aug-cc-pvdz',
         {'solver': 'FCI', 'bno_threshold': 100},
@@ -128,13 +136,30 @@ N2_augccpvdz_stretched_FCI_Test = make_test(
         name='N2_augccpvdz_stretched_FCI_Test',
 )
 
-N2_ccpvdz_TCCSD_Test = make_test(
+N2_ccpvdz_tccsd_Test = make_test(
         'N1 0 0 0; N2 0 0 1.1', 'cc-pvdz',
         {'solver': 'TCCSD', 'bno_threshold': 1e-4},
         lambda ewf: ewf.make_atom_fragment('N1', sym_factor=2),
         {'e_tot': -109.27077981413623},
-        name='N2_ccpvdz_TCCSD_Test',
+        name='N2_ccpvdz_tccsd_Test',
 )
+
+N2_ccpvdz_tccsd_cas_iaos_Test = make_test(
+        'N1 0 0 0; N2 0 0 1.1', 'cc-pvdz',
+        {'solver': 'TCCSD', 'bno_threshold': 1e-4, 'fragment_type': 'iao'},
+        lambda ewf: ewf.make_atom_fragment('N1', sym_factor=2).set_cas(['0 N1 2p']),
+        {'e_tot': -109.27252621439553},
+        name='N2_ccpvdz_tccsd_cas_iaos_Test',
+)
+
+#FIXME: bugged
+#N2_ccpvdz_tccsd_cas_lowdin_Test = make_test(
+#        'N1 0 0 0; N2 0 0 1.1', 'cc-pvdz',
+#        {'solver': 'TCCSD', 'bno_threshold': 1e-4, 'fragment_type': 'lowdin-ao'},
+#        lambda ewf: ewf.make_atom_fragment('N1', sym_factor=2).set_cas(['0 N1 2p']),
+#        {'e_tot': -109.27252621439553},
+#        name='N2_ccpvdz_tccsd_cas_lowdin_Test',
+#)
 
 N2_ccpvdz_sc_Test = make_test(
         'N1 0 0 0; N2 0 0 1.1', 'cc-pvdz',
@@ -143,6 +168,65 @@ N2_ccpvdz_sc_Test = make_test(
         {'e_tot': -109.26013012932687},
         name='N2_ccpvdz_sc_Test',
 )
+
+class MiscMoleculeEWFTests(unittest.TestCase):
+
+    @classmethod
+    def setUpClass(cls):
+        cls.mol = gto.Mole()
+        cls.mol.atom = 'N 0 0 0; N 0 0 1'
+        cls.mol.basis = 'cc-pvdz'
+        cls.mol.verbose = 0
+        cls.mol.max_memory = 1e9
+        cls.mol.build()
+        cls.mf = scf.RHF(cls.mol)
+        cls.mf.conv_tol = 1e-12
+        cls.mf.kernel()
+
+    @classmethod
+    def tearDownClss(cls):
+        del cls.mol, cls.mf
+
+    def test_reset(self):
+        emb = ewf.EWF(self.mf, solver_options={'conv_tol': 1e-10})
+        frag = emb.make_atom_fragment(0)
+        frag.kernel()
+        for key in ['c_cluster_occ', 'c_cluster_vir', 'c_no_occ', 'c_no_vir', 'n_no_occ', 'n_no_vir']:
+            self.assertTrue(getattr(frag, key) is not None)
+        frag.reset()
+        for key in ['c_cluster_occ', 'c_cluster_vir', 'c_no_occ', 'c_no_vir', 'n_no_occ', 'n_no_vir']:
+            self.assertTrue(getattr(frag, key) is None)
+
+    def test_eom(self):
+        emb = ewf.EWF(
+                self.mf,
+                solver_options={'conv_tol': 1e-10},
+                bno_threshold=1e-6,
+                eom_ccsd=['IP', 'EA', 'EE-S', 'EE-T', 'EE-SF'],
+                eom_ccsd_nroots=5,
+        )
+        frag = emb.make_atom_fragment(0)
+        frag.kernel()  #FIXME using this to build the cluster orbs, repeats solver calculation
+        from vayesta.solver.solver_cc import CCSDSolver  #TODO move this to solver tests?
+        from pyscf import cc
+        nocc = frag.c_cluster_occ.shape[1]
+        nvir = frag.c_cluster_vir.shape[1]
+        nocc_frozen = np.sum(self.mf.mo_occ > 0) - nocc
+        nvir_frozen = np.sum(self.mf.mo_occ == 0) - nvir
+        solver = CCSDSolver(frag, self.mf.mo_coeff, self.mf.mo_occ, nocc_frozen, nvir_frozen)
+        res = solver.kernel()
+
+        self.assertAlmostEqual(res.ip_energy[0], 0.5810398549938971, 8)
+        self.assertAlmostEqual(res.ea_energy[0], 0.2527482232750386, 8)
+        self.assertAlmostEqual(res.ee_s_energy[0], 0.4302596246755637, 8)
+        self.assertAlmostEqual(res.ee_t_energy[0], 0.3755142786878773, 8)
+        self.assertAlmostEqual(res.ee_sf_energy[0], 0.3755142904509986, 8)
+
+        self.assertAlmostEqual(np.linalg.norm(res.ip_coeff[0][:nocc]), 0.9805776450121361, 8)
+        self.assertAlmostEqual(np.linalg.norm(res.ea_coeff[0][:nvir]), 0.9978012299430233, 8)
+        self.assertAlmostEqual(np.linalg.norm(res.ee_s_coeff[0][:nocc*nvir]), 0.6878077752215053, 8)
+        self.assertAlmostEqual(np.linalg.norm(res.ee_t_coeff[0][:nocc*nvir]), 0.6932475285290554, 8)
+        self.assertAlmostEqual(np.linalg.norm(res.ee_sf_coeff[0][:nocc*nvir]), 0.6932475656707386, 8)
 
 
 if __name__ == '__main__':
