@@ -3,6 +3,8 @@ import numpy as np
 from pyscf import gto, scf, lib
 from vayesta import ewf
 
+#TODO tighten thresholds once solver interface is finished
+
 
 def make_test(atom, basis, kwargs, fragmentation, known_values, name=None):
 
@@ -21,7 +23,7 @@ def make_test(atom, basis, kwargs, fragmentation, known_values, name=None):
             cls.mf = scf.RHF(cls.mol)
             cls.mf.conv_tol = 1e-12
             cls.mf.kernel()
-            cls.ewf = ewf.EWF(cls.mf, solver_options={'conv_tol': 1e-10}, **kwargs)
+            cls.ewf = ewf.EWF(cls.mf, solver_options={'conv_tol': 1e-10, 'conv_etol': 1e-10}, **kwargs)
             fragmentation(cls.ewf)
             cls.ewf.kernel()
 
@@ -46,11 +48,11 @@ def make_test(atom, basis, kwargs, fragmentation, known_values, name=None):
             del cls.mol, cls.mf, cls.ewf
 
         def test_energy(self):
-            self.assertAlmostEqual(self.ewf.e_tot, known_values['e_tot'], 8)
+            self.assertAlmostEqual(self.ewf.e_tot, known_values['e_tot'], 6)
 
         def test_dmet_energy(self):
             if 'e_dmet' in known_values:
-                self.assertAlmostEqual(self.ewf.get_dmet_energy(), known_values['e_dmet'], 8)
+                self.assertAlmostEqual(self.ewf.get_dmet_energy(), known_values['e_dmet'], 6)
 
         def test_t1(self):
             if 't1' in known_values:
@@ -216,17 +218,17 @@ class MiscMoleculeEWFTests(unittest.TestCase):
         solver = CCSDSolver(frag, self.mf.mo_coeff, self.mf.mo_occ, nocc_frozen, nvir_frozen)
         res = solver.kernel()
 
-        self.assertAlmostEqual(res.ip_energy[0], 0.5810398549938971, 8)
-        self.assertAlmostEqual(res.ea_energy[0], 0.2527482232750386, 8)
-        self.assertAlmostEqual(res.ee_s_energy[0], 0.4302596246755637, 8)
-        self.assertAlmostEqual(res.ee_t_energy[0], 0.3755142786878773, 8)
-        self.assertAlmostEqual(res.ee_sf_energy[0], 0.3755142904509986, 8)
+        self.assertAlmostEqual(res.ip_energy[0], 0.5810398549938971, 6)
+        self.assertAlmostEqual(res.ea_energy[0], 0.2527482232750386, 6)
+        self.assertAlmostEqual(res.ee_s_energy[0], 0.4302596246755637, 6)
+        self.assertAlmostEqual(res.ee_t_energy[0], 0.3755142786878773, 6)
+        self.assertAlmostEqual(res.ee_sf_energy[0], 0.3755142904509986, 6)
 
-        self.assertAlmostEqual(np.linalg.norm(res.ip_coeff[0][:nocc]), 0.9805776450121361, 8)
-        self.assertAlmostEqual(np.linalg.norm(res.ea_coeff[0][:nvir]), 0.9978012299430233, 8)
-        self.assertAlmostEqual(np.linalg.norm(res.ee_s_coeff[0][:nocc*nvir]), 0.6878077752215053, 8)
-        self.assertAlmostEqual(np.linalg.norm(res.ee_t_coeff[0][:nocc*nvir]), 0.6932475285290554, 8)
-        self.assertAlmostEqual(np.linalg.norm(res.ee_sf_coeff[0][:nocc*nvir]), 0.6932475656707386, 8)
+        self.assertAlmostEqual(np.linalg.norm(res.ip_coeff[0][:nocc]), 0.9805776450121361, 6)
+        self.assertAlmostEqual(np.linalg.norm(res.ea_coeff[0][:nvir]), 0.9978012299430233, 6)
+        self.assertAlmostEqual(np.linalg.norm(res.ee_s_coeff[0][:nocc*nvir]), 0.6878077752215053, 6)
+        self.assertAlmostEqual(np.linalg.norm(res.ee_t_coeff[0][:nocc*nvir]), 0.6932475285290554, 6)
+        self.assertAlmostEqual(np.linalg.norm(res.ee_sf_coeff[0][:nocc*nvir]), 0.6932475656707386, 6)
 
 
 if __name__ == '__main__':
