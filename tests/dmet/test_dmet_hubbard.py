@@ -13,7 +13,7 @@ def make_test_hub1d(n, nelectron, U, nimp, known_values, name=None):
             cls.mol = lattmod.Hubbard1D(n, hubbard_u=U, nelectron=nelectron)
             cls.mf = lattmod.LatticeMF(cls.mol)
             cls.mf.kernel()
-            cls.dmet = dmet.DMET(cls.mf, solver='FCI', fragment_type='Site', charge_consistent = False, maxiter=20)
+            cls.dmet = dmet.DMET(cls.mf, solver='FCI', fragment_type='Site', charge_consistent = False)
             # Ensure that we don't spam with output.
             cls.dmet.log.setLevel(50)
             f = cls.dmet.make_atom_fragment(list(range(nimp)))
@@ -25,6 +25,7 @@ def make_test_hub1d(n, nelectron, U, nimp, known_values, name=None):
             del cls.mol, cls.mf, cls.dmet
 
         def test_energy(self):
+            self.assertTrue(self.dmet.converged)
             self.assertAlmostEqual(self.dmet.e_tot, known_values['e_tot'], 6)
 
     return Hubbard1DTests
@@ -40,7 +41,7 @@ def make_test_hub2d(n, nelectron, U, impshape, boundary, known_values, name=None
             cls.mol = lattmod.Hubbard2D(n, hubbard_u=U, nelectron=nelectron, tiles = impshape, boundary=boundary)
             cls.mf = lattmod.LatticeMF(cls.mol)
             cls.mf.kernel()
-            cls.dmet = dmet.DMET(cls.mf, solver='FCI', fragment_type='Site', charge_consistent = False, maxiter=20)
+            cls.dmet = dmet.DMET(cls.mf, solver='FCI', fragment_type='Site', charge_consistent = False)
             # Ensure that we don't spam with output.
             cls.dmet.log.setLevel(50)
             f = cls.dmet.make_atom_fragment(list(range(impshape[0] * impshape[1])))
@@ -52,6 +53,7 @@ def make_test_hub2d(n, nelectron, U, impshape, boundary, known_values, name=None
             del cls.mol, cls.mf, cls.dmet
 
         def test_energy(self):
+            self.assertTrue(self.dmet.converged)
             self.assertAlmostEqual(self.dmet.e_tot, known_values['e_tot'], 6)
 
     return Hubbard2DTests

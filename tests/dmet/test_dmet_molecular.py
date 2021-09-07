@@ -37,6 +37,7 @@ def make_test_molecular(atoms, basis, solver, fragment_type, cc, known_values, f
             del cls.mol, cls.mf, cls.dmet
 
         def test_energy(self):
+            self.assertTrue(self.dmet.converged)
             self.assertAlmostEqual(self.dmet.e_tot, known_values['e_tot'], 6)
 
     return DMETMolecularTests
