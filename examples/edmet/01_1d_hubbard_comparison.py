@@ -50,4 +50,4 @@ def gen_comparison(hubbard_u, nimp=2, ehubbard_v = 0.0):
     leg = plt.legend()
     plt.show()
 
-gen_comparison(2.0, 2, 4.0)
+gen_comparison(2.0, 2, 1.0)
