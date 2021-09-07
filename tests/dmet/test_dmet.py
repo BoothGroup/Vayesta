@@ -7,9 +7,11 @@ from vayesta import lattmod, dmet
 #       -> check sum(x.trace() for x in qemb.hl_rdms) == mol.nelectron
 
 
-def make_mol_tests(atom, basis, known_values):
+def make_mol_tests(atom, basis, known_values, name=None):
 
     class MoleDMETTests(unittest.TestCase):
+
+        shortDescription = lambda self: name
 
         @classmethod
         def setUpClass(cls):
@@ -46,9 +48,11 @@ def make_mol_tests(atom, basis, known_values):
     return MoleDMETTests
 
 
-def make_lattice_tests(n, nelectron, U, known_values):
+def make_lattice_tests(n, nelectron, U, known_values, name=None):
 
     class LatticeDMETTests(unittest.TestCase):
+
+        shortDescription = lambda self: name
 
         @classmethod
         def setUpClass(cls):
@@ -85,6 +89,7 @@ LiH_631g_DMETTests = make_mol_tests(
             'iao_atoms_ccsd': -6.388451806770724,
             'lowdin_aos_ccsdt': -6.213660391384988,
         },
+        name='LiH_631g_DMETTests',
 )
 
 N10_U0_DMETTests = make_lattice_tests(
@@ -92,6 +97,7 @@ N10_U0_DMETTests = make_lattice_tests(
         {
             'fci_pairs': -12.944271909999154,
         },
+        name='N10_U0_DMETTests',
 )
 
 N20_U0_DMETTests = make_lattice_tests(
@@ -99,6 +105,7 @@ N20_U0_DMETTests = make_lattice_tests(
         {
             'fci_pairs': -25.569812885998644,
         },
+        name='N20_U0_DMETTests',
 )
 
 N10_U4_DMETTests = make_lattice_tests(
@@ -106,6 +113,7 @@ N10_U4_DMETTests = make_lattice_tests(
         {
             'fci_pairs': -5.982495317262652,
         },
+        name='N10_U4_DMETTests',
 )
 
 N10_U8_DMETTests = make_lattice_tests(
@@ -113,6 +121,7 @@ N10_U8_DMETTests = make_lattice_tests(
         {
             'fci_pairs': -3.3633614776094047,
         },
+        name='N10_U8_DMETTests',
 )
         
 

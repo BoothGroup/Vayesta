@@ -5,15 +5,18 @@ import pyscf.gto
 import pyscf.scf
 import pyscf.tools.ring
 
-def make_test_molecular(atoms, basis, solver, fragment_type, cc, known_values, fragments=None, **kwargs):
+def make_test_molecular(atoms, basis, solver, fragment_type, cc, known_values, fragments=None, name=None, **kwargs):
 
     class DMETMolecularTests(unittest.TestCase):
+
+        shortDescription = lambda self: name
 
         @classmethod
         def setUpClass(cls):
             cls.mol = pyscf.gto.Mole()
             cls.mol.atom = atoms
             cls.mol.basis = basis
+            cls.mol.verbose = 0
             cls.mol.build()
 
             cls.mf = pyscf.scf.RHF(cls.mol)
@@ -45,52 +48,10 @@ def make_test_Hring(natom, d, fragsize, *args, **kwargs):
     return make_test_molecular(atom, *args, fragments=fragments, **kwargs)
 
 
-dmet_Hring_sto6g_FCI_IAO_cc_Test = make_test_Hring(
-        10,
-        1.0,
-        2,
-        "sto-6g",
-        "FCI",
-        "IAO",
-        True,
-        {'e_tot': -5.421103410208376},
-)
-
-dmet_Hring_sto6g_FCI_IAO_nocc_Test = make_test_Hring(
-        10,
-        1.0,
-        2,
-        "sto-6g",
-        "FCI",
-        "IAO",
-        False,
-        {'e_tot': -5.421192647967002},
-)
-
-dmet_Hring_sto6g_FCI_IAO_all_nocc_Test = make_test_Hring(
-        10,
-        1.0,
-        2,
-        "sto-6g",
-        "FCI",
-        "IAO",
-        False,
-        {'e_tot': -5.422668582405825},
-        bath_type='ALL',
-)
-
-dmet_Hring_sto6g_FCI_IAO_BNO_nocc_Test = make_test_Hring(
-        10,
-        1.0,
-        2,
-        "sto-6g",
-        "FCI",
-        "IAO",
-        False,
-        {'e_tot': -5.421192648085972},
-        bath_type='MP2-BNO',
-        bno_threshold=np.inf,
-)
+dmet_Hring_sto6g_FCI_IAO_cc_Test = make_test_Hring(10, 1.0, 2, "sto-6g", "FCI", "IAO", True, {'e_tot': -5.421103410208376}, name='dmet_Hring_sto6g_FCI_IAO_cc_Test')
+dmet_Hring_sto6g_FCI_IAO_nocc_Test = make_test_Hring(10, 1.0, 2, "sto-6g", "FCI", "IAO", False, {'e_tot': -5.421192647967002}, name='dmet_Hring_sto6g_FCI_IAO_nocc_Test')
+dmet_Hring_sto6g_FCI_IAO_all_nocc_Test = make_test_Hring(10, 1.0, 2, "sto-6g", "FCI", "IAO", False, {'e_tot': -5.422668582405825}, bath_type='ALL', name='dmet_Hring_sto6g_FCI_IAO_all_nocc_Test')
+dmet_Hring_sto6g_FCI_IAO_BNO_nocc_Test = make_test_Hring(10, 1.0, 2, "sto-6g", "FCI", "IAO", False, {'e_tot': -5.421192648085972}, bath_type='MP2-BNO', bno_threshold=np.inf, name='dmet_Hring_sto6g_FCI_IAO_BNO_nocc_Test')
 
 
 if __name__ == '__main__':
