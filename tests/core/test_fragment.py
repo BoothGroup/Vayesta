@@ -80,8 +80,8 @@ class MolFragmentTests(unittest.TestCase):
         self.assertAlmostEqual(tr(c_bath), 5.305607912416594, 8)
         self.assertAlmostEqual(tr(c_occenv), 6.0044522544970995, 8)
         self.assertAlmostEqual(tr(c_virenv), 349.9785855174963, 8)
-        self.assertAlmostEqual(lib.fp(t1_frag), 1.4273125207747517, 8)
-        self.assertAlmostEqual(lib.fp(t2_frag), -2.1428651381402077, 8)
+        self.assertAlmostEqual(np.linalg.norm(t1_frag), 2.1168926697822203, 8)
+        self.assertAlmostEqual(np.linalg.norm(t2_frag), 6.50968650268247, 8)
         self.assertAlmostEqual(e_dmet, 120.3594994998486, 8)
 
         frags[1].opts.wf_partition = 'first-vir'
@@ -101,8 +101,8 @@ class MolFragmentTests(unittest.TestCase):
         self.assertAlmostEqual(tr(c_bath), 7.357949737669514, 8)
         self.assertAlmostEqual(tr(c_occenv), 5.4998286299420664, 8)
         self.assertAlmostEqual(tr(c_virenv), 349.9785855174961, 8)
-        self.assertAlmostEqual(lib.fp(t1_frag), 0.29415860199116933, 8)
-        self.assertAlmostEqual(lib.fp(t2_frag), -0.5746412346745327, 8)
+        self.assertAlmostEqual(np.linalg.norm(t1_frag), 0.9286126246449455, 8)
+        self.assertAlmostEqual(np.linalg.norm(t2_frag), 2.807250288268023, 8)
         self.assertAlmostEqual(e_dmet, 360.49471415017837, 8)
 
         frags[2].opts.wf_partition = 'democratic'
@@ -122,8 +122,8 @@ class MolFragmentTests(unittest.TestCase):
         self.assertAlmostEqual(tr(c_bath), 7.357949737669514, 8)
         self.assertAlmostEqual(tr(c_occenv), 5.4998286299420664, 8)
         self.assertAlmostEqual(tr(c_virenv), 349.9785855174961, 8)
-        self.assertAlmostEqual(lib.fp(t1_frag), 0.5133386586630577, 8)
-        self.assertAlmostEqual(lib.fp(t2_frag), -4.914295967188966, 8)
+        self.assertAlmostEqual(np.linalg.norm(t1_frag), 1.2467875327397622, 8)
+        self.assertAlmostEqual(np.linalg.norm(t2_frag), 6.388974468566638, 8)
         self.assertAlmostEqual(e_dmet, 190.97612324426052, 8)
 
         for frag in frags[0].loop_fragments():
