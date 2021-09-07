@@ -30,10 +30,10 @@ def make_test(atom, basis, kwargs, fragmentation, known_values, name=None):
             #TODO keeping this here for now in case we want more:
             #print(cls.ewf.e_tot)
             #print(cls.ewf.get_dmet_energy())
-            #print(lib.fp(cls.ewf.get_t1()))
-            #print(lib.fp(cls.ewf.get_t1(get_lambda=True)))
-            #print(lib.fp(cls.ewf.get_t12()[1]))
-            #print(lib.fp(cls.ewf.get_t12(get_lambda=True)[1]))
+            #print(np.linalg.norm(cls.ewf.get_t1()))
+            #print(np.linalg.norm(cls.ewf.get_t1(get_lambda=True)))
+            #print(np.linalg.norm(cls.ewf.get_t12()[1]))
+            #print(np.linalg.norm(cls.ewf.get_t12(get_lambda=True)[1]))
             #print(np.trace(cls.ewf.make_rdm1_demo()))
             #print(np.trace(cls.ewf.make_rdm1_demo(ao_basis=True)))
             #print(np.trace(cls.ewf.make_rdm1_ccsd()))
@@ -56,15 +56,15 @@ def make_test(atom, basis, kwargs, fragmentation, known_values, name=None):
 
         def test_t1(self):
             if 't1' in known_values:
-                self.assertAlmostEqual(lib.fp(self.ewf.get_t1()), known_values['t1'], 8)
+                self.assertAlmostEqual(np.linalg.norm(self.ewf.get_t1()), known_values['t1'], 8)
             if 'l1' in known_values:
-                self.assertAlmostEqual(lib.fp(self.ewf.get_t1(get_lambda=True)), known_values['l1'], 8)
+                self.assertAlmostEqual(np.linalg.norm(self.ewf.get_t1(get_lambda=True)), known_values['l1'], 8)
 
         def test_t2(self):
             if 't2' in known_values:
-                self.assertAlmostEqual(lib.fp(self.ewf.get_t12()[1]), known_values['t2'], 8)
+                self.assertAlmostEqual(np.linalg.norm(self.ewf.get_t12()[1]), known_values['t2'], 8)
             if 'l2' in known_values:
-                self.assertAlmostEqual(lib.fp(self.ewf.get_t12(get_lambda=True)[1]), known_values['l2'], 8)
+                self.assertAlmostEqual(np.linalg.norm(self.ewf.get_t12(get_lambda=True)[1]), known_values['l2'], 8)
 
         def test_rdm1(self):
             if 'rdm1_demo' in known_values:
@@ -98,10 +98,10 @@ LiH_ccpvdz_iao_atoms_Test = make_test(
         {
             'e_tot':  -8.008269603007381,
             'e_dmet': -7.97664320557861,
-            't1': -0.0037332701674217044,
-            'l1': -0.003431346419365344,
-            't2':  0.010158010207677414,
-            'l2':  0.010579418095111528,
+            't1': 0.020041132110973907,
+            'l1': 0.019095485495677657,
+            't2': 0.15951192869005756,
+            'l2': 0.15539614532743415,
             'rdm1_demo':    3.967390566642664,
             'rdm1_demo_ao': 2.8599690310182355,
             'rdm1_ccsd':    4.0,
