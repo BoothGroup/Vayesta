@@ -49,6 +49,7 @@ class EBFCIQMCSolver(FCIQMCSolver):
             M7_config_obj.M7_config_dict['av_ests']['rdm']['ranks'] .extend(['1110', '1101', '0011'])
             M7_config_obj.M7_config_dict['av_ests']['rdm']['archive']['save'] = 'yes'
         M7_config_obj.M7_config_dict['hamiltonian']['nboson_max'] = self.opts.bos_occ_cutoff
+        return M7_config_obj
 
     def gen_M7_results(self, h5_name, *args):# ham_pkl_name, M7_config_obj, coeff_pkl_name, eris):
         """Generate M7 results object."""
@@ -57,7 +58,7 @@ class EBFCIQMCSolver(FCIQMCSolver):
             rdm_1110 = load_spinfree_ladder_rdm_from_m7(h5_name, True)
             rdm_1101 = load_spinfree_ladder_rdm_from_m7(h5_name, False)
             # average over arrays that are equivalent due to hermiticity symmetry
-            results.dm_ladder = (rdm_1110 + rdm_1101.transpose(0, 2, 1)) / 2.0
+            results.rdm_eb = ((rdm_1110 + rdm_1101.transpose(0, 2, 1)) / 2.0).transpose(1,2,0)
         return results
 
 def write_ebdump(v, v_unc=None, fname='EBDUMP'):
