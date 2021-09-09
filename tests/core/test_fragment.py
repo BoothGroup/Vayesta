@@ -65,66 +65,20 @@ class MolFragmentTests(unittest.TestCase):
         tr = lambda c: np.einsum('xi,xi->', c, c.conj())
 
         c_bath, c_occenv, c_virenv = frags[0].make_dmet_bath(frags[0].c_env)
-        c_occ, c_vir = frags[0].diagonalize_cluster_dm(frags[0].c_frag, c_bath)
-        nocc, nvir = c_occ.shape[1], c_vir.shape[1]
-        with temporary_seed(0):
-            t1 = np.random.random((nocc, nvir))
-            t2 = np.random.random((nocc, nocc, nvir, nvir))
-            dm1 = np.random.random((nocc+nvir, nocc+nvir))
-            dm2 = np.random.random((nocc+nvir, nocc+nvir, nocc+nvir, nocc+nvir))
-            eris = np.random.random(dm2.shape)
-        t1_frag = frags[0].project_amplitude_to_fragment(t1, c_occ=c_occ, c_vir=c_vir)
-        t2_frag = frags[0].project_amplitude_to_fragment(t2, c_occ=c_occ, c_vir=c_vir)
-        with lib.temporary_env(frags[0], _c_active_occ=c_occ, _c_active_vir=c_vir):
-            e_dmet = frags[0].get_fragment_dmet_energy(dm1=dm1, dm2=dm2, eris=eris)
         self.assertAlmostEqual(tr(c_bath), 5.305607912416594, 8)
         self.assertAlmostEqual(tr(c_occenv), 6.0044522544970995, 8)
         self.assertAlmostEqual(tr(c_virenv), 349.9785855174963, 8)
-        self.assertAlmostEqual(np.linalg.norm(t1_frag), 2.1168926697822203, 8)
-        self.assertAlmostEqual(np.linalg.norm(t2_frag), 6.50968650268247, 8)
-        self.assertAlmostEqual(e_dmet, 120.3594994998486, 8)
 
         frags[1].opts.wf_partition = 'first-vir'
-        c_bath, c_occenv, c_virenv = frags[1].make_dmet_bath(frags[1].c_env)
-        c_occ, c_vir = frags[1].diagonalize_cluster_dm(frags[1].c_frag, c_bath)
-        nocc, nvir = c_occ.shape[1], c_vir.shape[1]
-        with temporary_seed(0):
-            t1 = np.random.random((nocc, nvir))
-            t2 = np.random.random((nocc, nocc, nvir, nvir))
-            dm1 = np.random.random((nocc+nvir, nocc+nvir))
-            dm2 = np.random.random((nocc+nvir, nocc+nvir, nocc+nvir, nocc+nvir))
-            eris = np.random.random(dm2.shape)
-        t1_frag = frags[1].project_amplitude_to_fragment(t1, c_occ=c_occ, c_vir=c_vir)
-        t2_frag = frags[1].project_amplitude_to_fragment(t2, c_occ=c_occ, c_vir=c_vir)
-        with lib.temporary_env(frags[1], _c_active_occ=c_occ, _c_active_vir=c_vir):
-            e_dmet = frags[1].get_fragment_dmet_energy(dm1=dm1, dm2=dm2, eris=eris)
         self.assertAlmostEqual(tr(c_bath), 7.357949737669514, 8)
         self.assertAlmostEqual(tr(c_occenv), 5.4998286299420664, 8)
         self.assertAlmostEqual(tr(c_virenv), 349.9785855174961, 8)
-        self.assertAlmostEqual(np.linalg.norm(t1_frag), 0.9286126246449455, 8)
-        self.assertAlmostEqual(np.linalg.norm(t2_frag), 2.807250288268023, 8)
-        self.assertAlmostEqual(e_dmet, 360.49471415017837, 8)
 
         frags[2].opts.wf_partition = 'democratic'
         c_bath, c_occenv, c_virenv = frags[2].make_dmet_bath(frags[2].c_env)
-        c_occ, c_vir = frags[2].diagonalize_cluster_dm(frags[2].c_frag, c_bath)
-        nocc, nvir = c_occ.shape[1], c_vir.shape[1]
-        with temporary_seed(0):
-            t1 = np.random.random((nocc, nvir))
-            t2 = np.random.random((nocc, nocc, nvir, nvir))
-            dm1 = np.random.random((nocc+nvir, nocc+nvir))
-            dm2 = np.random.random((nocc+nvir, nocc+nvir, nocc+nvir, nocc+nvir))
-            eris = np.random.random(dm2.shape)
-        t1_frag = frags[2].project_amplitude_to_fragment(t1, c_occ=c_occ, c_vir=c_vir, symmetrize=False)
-        t2_frag = frags[2].project_amplitude_to_fragment(t2, c_occ=c_occ, c_vir=c_vir, symmetrize=False)
-        with lib.temporary_env(frags[2], _c_active_occ=c_occ, _c_active_vir=c_vir):
-            e_dmet = frags[2].get_fragment_dmet_energy(dm1=dm1, dm2=dm2, eris=eris)
         self.assertAlmostEqual(tr(c_bath), 7.357949737669514, 8)
         self.assertAlmostEqual(tr(c_occenv), 5.4998286299420664, 8)
         self.assertAlmostEqual(tr(c_virenv), 349.9785855174961, 8)
-        self.assertAlmostEqual(np.linalg.norm(t1_frag), 1.2467875327397622, 8)
-        self.assertAlmostEqual(np.linalg.norm(t2_frag), 6.388974468566638, 8)
-        self.assertAlmostEqual(e_dmet, 190.97612324426052, 8)
 
         for frag in frags[0].loop_fragments():
             frag.reset()
