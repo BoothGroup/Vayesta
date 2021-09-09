@@ -70,6 +70,7 @@ class MolFragmentTests(unittest.TestCase):
         self.assertAlmostEqual(tr(c_virenv), 349.9785855174963, 8)
 
         frags[1].opts.wf_partition = 'first-vir'
+        c_bath, c_occenv, c_virenv = frags[1].make_dmet_bath(frags[1].c_env)
         self.assertAlmostEqual(tr(c_bath), 7.357949737669514, 8)
         self.assertAlmostEqual(tr(c_occenv), 5.4998286299420664, 8)
         self.assertAlmostEqual(tr(c_virenv), 349.9785855174961, 8)
