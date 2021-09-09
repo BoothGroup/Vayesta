@@ -29,6 +29,7 @@ class EDMET(DMET):
     @dataclasses.dataclass
     class Options(DMET.Options):
         bos_occ_cutoff: int = 2
+        maxiter: int = 1
 
     Fragment = EDMETFragment
 
@@ -36,6 +37,8 @@ class EDMET(DMET):
 
     def __init__(self, mf, bno_threshold=np.inf, solver='EBFCI', options=None, log=None, **kwargs):
         super().__init__(mf, bno_threshold, solver, options, log, **kwargs)
+        if self.opts.maxiter > 1:
+            raise NotImplementedError("EDMET does not yet support self-consistency of any description.")
 
     def kernel(self):
 
