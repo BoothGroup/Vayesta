@@ -568,7 +568,7 @@ class RAGF2:
         return w, v
 
 
-    def fock_loop(self, gf=None, se=None, fock=None, project_gf=True):
+    def fock_loop(self, gf=None, se=None, fock=None, project_gf=True, return_fock=False):
         ''' Do the self-consistent Fock loop
         '''
 
@@ -610,7 +610,7 @@ class RAGF2:
             )
 
             for niter2 in range(1, self.opts.max_cycle_inner+1):
-                w, v = self.solve_dyson(se=se, gf=gf, fock=fock)
+                w, v = self.solve_dyson(se=se, fock=fock)
                 se.chempot, nerr = agf2.chempot.binsearch_chempot((w, v), self.nact, nelec)
                 gf = agf2.GreensFunction(w, v[:self.nact], chempot=se.chempot)
 
@@ -645,7 +645,10 @@ class RAGF2:
         self.log.info("μ = %.9g", se.chempot)
         self.log.timing('Time for fock loop:  %s', time_string(timer() - t0))
 
-        return gf, se, converged
+        if not return_fock:
+            return gf, se, converged
+        else:
+            return gf, se, converged, fock
 
 
     def get_fock(self, gf=None, rdm1=None, with_frozen=True):
