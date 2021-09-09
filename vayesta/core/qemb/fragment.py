@@ -12,7 +12,6 @@ import pyscf.lo
 from vayesta.core.util import *
 from vayesta.core import helper, tsymmetry
 
-
 class QEmbeddingFragment:
 
 
@@ -65,13 +64,18 @@ class QEmbeddingFragment:
                 return self.c2/self.c0 - einsum('ia,jb->ijab', c1, c1)
             return None
 
-
     class Exit(Exception):
         """Raise for controlled early exit."""
         pass
 
+    @staticmethod
+    def stack_mo(*mo_coeff):
+        return np.hstack(mo_coeff)
+
     def __init__(self, base, fid, name, c_frag, c_env, fragment_type, atoms=None, aos=None,
             sym_parent=None, sym_op=None,
+            c_locvir=None,  # Local virtuals
+            c_nloc=None,    # Non-locals
             log=None, options=None, **kwargs):
         """Abstract base class for quantum embedding fragments.
 
@@ -153,6 +157,8 @@ class QEmbeddingFragment:
 
         self.c_frag = c_frag
         self.c_env = c_env
+        self.c_locvir = c_locvir
+        self.c_nloc = c_nloc
         self.fragment_type = fragment_type
         self.sym_factor = self.opts.sym_factor
         self.sym_parent = sym_parent
@@ -208,7 +214,7 @@ class QEmbeddingFragment:
     def nelectron(self):
         """Number of mean-field electrons."""
         sc = np.dot(self.base.get_ovlp(), self.c_frag)
-        ne = np.einsum("ai,ab,bi->", sc, self.mf.make_rdm1(), sc)
+        ne = einsum('ai,ab,bi->', sc, self.mf.make_rdm1(), sc)
         return ne
 
     def trimmed_name(self, length=10, add_dots=True):
@@ -235,7 +241,7 @@ class QEmbeddingFragment:
         """Active orbital coefficients."""
         if self.c_active_occ is None:
             return None
-        return np.hstack((self.c_active_occ, self.c_active_vir))
+        return self.stack_mo(self.c_active_occ, self.c_active_vir)
 
     @property
     def c_active_occ(self):
@@ -275,7 +281,7 @@ class QEmbeddingFragment:
         """Frozen orbital coefficients."""
         if self.c_frozen_occ is None:
             return None
-        return np.hstack((self.c_frozen_occ, self.c_frozen_vir))
+        return self.stack_mo(self.c_frozen_occ, self.c_frozen_vir)
 
     @property
     def c_frozen_occ(self):
@@ -312,7 +318,8 @@ class QEmbeddingFragment:
 
     @property
     def mo_coeff(self):
-        return np.hstack((self.c_frozen_occ, self.c_active_occ, self.c_active_vir, self.c_frozen_vir))
+        return self.stack_mo(self.c_frozen_occ, self.c_active_occ,
+                             self.c_active_vir, self.c_frozen_vir)
 
     # Rotation matrices
 
@@ -414,7 +421,6 @@ class QEmbeddingFragment:
             p = np.eye(p.shape[-1]) - p
         return p
 
-
     def get_mo_occupation(self, *mo_coeff):
         """Get mean-field occupation numbers (diagonal of 1-RDM) of orbitals.
 
@@ -457,8 +463,8 @@ class QEmbeddingFragment:
         rot : ndarray
             Rotation matrix: np.dot(mo_coeff, rot) = mo_canon.
         """
-        mo_coeff = np.hstack(mo_coeff)
-        fock = np.linalg.multi_dot((mo_coeff.T, self.base.get_fock(), mo_coeff))
+        mo_coeff = self.stack_mo(*mo_coeff)
+        fock = dot(mo_coeff.T, self.base.get_fock(), mo_coeff)
         mo_energy, rot = np.linalg.eigh(fock)
         mo_can = np.dot(mo_coeff, rot)
         if sign_convention:
@@ -488,7 +494,6 @@ class QEmbeddingFragment:
         c_virclt : ndarray
             Virtual cluster orbitals.
         """
-        #c_clt = np.hstack((self.c_frag, c_bath))
         c_clt = np.hstack(mo_coeff)
         sc = np.dot(self.base.get_ovlp(), c_clt)
         dm = np.linalg.multi_dot((sc.T, self.mf.make_rdm1(), sc)) / 2

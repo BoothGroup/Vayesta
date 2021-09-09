@@ -106,7 +106,7 @@ class ClusterSolver:
     def c_active(self):
         return self.mo_coeff[:,self.get_active_slice()]
 
-    def kernel_optimize_cpt(self, nelectron_target, *args, tol=1e-8, search_radius=1.0, **kwargs):
+    def kernel_optimize_cpt(self, nelectron_target, cpt_guess=0.0, *args, tol=1e-8, cpt_radius=1.0, **kwargs):
 
         mf = self.base.mf
         # Save current hcore to restore later
@@ -148,19 +148,20 @@ class ClusterSolver:
                 raise CptFound()
             return err
 
-        # First run without cpt:
+        # First run with cpt_guess:
         try:
-            err0 = electron_err(0)
+            err0 = electron_err(cpt_guess)
         except CptFound:
-            self.log.debugv("Chemical potential 0 leads to insignificant electron error: %.3e", err)
+            self.log.debugv("Chemical potential= %.6f leads to electron error= %.3e within tolerance of %.2e", cpt_guess, err, tol)
             return results
 
         # Not enough electrons in fragment space -> lower fragment chemical potential:
+        assert (cpt_radius > 0)
         if err0 < 0:
-            bounds = np.asarray([-search_radius, 0.0])
+            bounds = np.asarray([cpt_guess-cpt_radius, cpt_guess])
         # Too many electrons in fragment space -> raise fragment chemical potential:
         else:
-            bounds = np.asarray([0.0, search_radius])
+            bounds = np.asarray([cpt_guess, cpt_guess+cpt_radius])
         for ndouble in range(5):
             try:
                 cpt, res = scipy.optimize.brentq(electron_err, a=bounds[0], b=bounds[1], xtol=1e-8, full_output=True)

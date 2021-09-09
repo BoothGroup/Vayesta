@@ -50,6 +50,8 @@ class EWFFragment(QEmbeddingFragment):
         nelectron_target: int = NotSet                  # If set, adjust bath chemical potential until electron number in fragment equals nelectron_target
         # Bath type
         bath_type: str = NotSet
+        bno_number: int = None         # Set a fixed number of BNOs
+        local_virtuals: bool = NotSet
         # Additional fragment specific options:
         bno_threshold_factor: float = 1.0
         # CAS methods
@@ -191,7 +193,11 @@ class EWFFragment(QEmbeddingFragment):
         self.log.info("Making DMET Bath")
         self.log.info("----------------")
         self.log.changeIndentLevel(1)
-        c_dmet, c_env_occ, c_env_vir = self.make_dmet_bath(self.c_env, tol=self.opts.dmet_threshold)
+        if not self.opts.local_virtuals:
+            c_dmet, c_env_occ, c_env_vir = self.make_dmet_bath(self.c_env, tol=self.opts.dmet_threshold)
+        else:
+            c_dmet, c_env_occ, c_env_vir = self.make_dmet_bath(self.c_nloc, tol=self.opts.dmet_threshold)
+
         self.log.timing("Time for DMET bath:  %s", time_string(timer()-t0))
         # Add DMET orbitals for cube file plots
         if self.opts.plot_orbitals:
@@ -201,8 +207,13 @@ class EWFFragment(QEmbeddingFragment):
         # Add additional orbitals to cluster [optional]
         #c_dmet, c_env_occ, c_env_vir = self.additional_bath_for_cluster(c_dmet, c_env_occ, c_env_vir)
 
+        cluster = [self.c_frag, c_dmet]
+        if self.opts.local_virtuals:
+            self.log.info("Adding %d local virtual states to cluster", self.c_locvir.shape[-1])
+            cluster.append(self.c_locvir)
+
         # Diagonalize cluster DM to separate cluster occupied and virtual
-        c_cluster_occ, c_cluster_vir = self.diagonalize_cluster_dm(self.c_frag, c_dmet, tol=2*self.opts.dmet_threshold)
+        c_cluster_occ, c_cluster_vir = self.diagonalize_cluster_dm(*cluster, tol=2*self.opts.dmet_threshold)
         self.log.info("Cluster orbitals:  n(occ)= %3d  n(vir)= %3d", c_cluster_occ.shape[-1], c_cluster_vir.shape[-1])
 
         # Add cluster orbitals to plot
@@ -349,7 +360,9 @@ class EWFFragment(QEmbeddingFragment):
         -------
         results : self.Results
         """
-        if (bno_threshold is None and bno_number is None):
+        if bno_number is None:
+            bno_number = self.opts.bno_number
+        if bno_number is None and bno_threshold is None:
             bno_threshold = self.base.bno_threshold
 
         if np.ndim(bno_threshold) == 0:

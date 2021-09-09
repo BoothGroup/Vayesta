@@ -30,11 +30,13 @@ timer = default_timer
 def dot(*args, **kwargs):
     return np.linalg.multi_dot(args, **kwargs)
 
-
 def einsum(*args, **kwargs):
     kwargs['optimize'] = kwargs.pop('optimize', True)
-    return np.einsum(*args, **kwargs)
-
+    res = np.einsum(*args, **kwargs)
+    # Unpack scalars (for optimize = True):
+    if isinstance(res, np.ndarray) and res.ndim == 0:
+        res = res[()]
+    return res
 
 def cached_method(cachename, use_cache_default=True, store_cache_default=True):
     """Cache the return value of a class method.

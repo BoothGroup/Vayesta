@@ -1,6 +1,5 @@
 import numpy as np
 
-
 def diamond(atoms=['C', 'C'], a=3.57):
     amat = a * np.asarray([
         [0.5, 0.5, 0.0],
@@ -9,7 +8,6 @@ def diamond(atoms=['C', 'C'], a=3.57):
     coords = a * np.asarray([[0, 0, 0], [1, 1, 1]])/4
     atom = _make_atom(atoms, coords)
     return amat, atom
-
 
 def graphene(atoms=['C', 'C'], a=2.46, c=20.0):
     amat = np.asarray([
@@ -22,7 +20,6 @@ def graphene(atoms=['C', 'C'], a=2.46, c=20.0):
     coords = np.dot(coords_internal, amat)
     atom = _make_atom(atoms, coords)
     return amat, atom
-
 
 def graphite(atoms=['C', 'C', 'C', 'C'], a=2.461, c=6.708):
     """a = 2.461 A , c = 6.708 A"""
@@ -39,7 +36,6 @@ def graphite(atoms=['C', 'C', 'C', 'C'], a=2.461, c=6.708):
     atom = _make_atom(atoms, coords)
     return amat, atom
 
-
 def perovskite(atoms=['Sr', 'Ti', 'O'], a=3.905):
     if len(atoms) == 3:
         atoms = [atoms[0], atoms[1]] + 3*[atoms[2]]
@@ -53,7 +49,6 @@ def perovskite(atoms=['Sr', 'Ti', 'O'], a=3.905):
                 ])
     atom = _make_atom(atoms, coords)
     return amat, atom
-
 
 def perovskite_tetragonal(atoms=['Sr', 'Ti', 'O'], a=5.507, c=7.796, u=0.241):
     """This is the crystallographic ('quadruple') cell, not the primitive ('double') cell.
@@ -127,7 +122,6 @@ def perovskite_tetragonal(atoms=['Sr', 'Ti', 'O'], a=5.507, c=7.796, u=0.241):
 
     atom = _make_atom(atoms, coords)
     return amat, atom
-
 
 def _make_atom(atoms, coords):
     atom = []

@@ -46,8 +46,7 @@ def init_fragmentation(self, fragment_type, **kwargs):
         return self.init_site_fragmentation(**kwargs)
     raise ValueError("Unknown fragment_type: %s", fragment_type)
 
-
-def init_iao_fragmentation(self, minao='minao'):
+def init_iao_fragmentation(self, minao='minao', make_pao=True):
     """This needs to be called before any IAO fragments can be added.
 
     The following attributes will be defined:
@@ -66,7 +65,7 @@ def init_iao_fragmentation(self, minao='minao'):
     self.log.info("Making IAOs for minimal basis set %s.", minao)
     iao_coeff, iao_rest_coeff = self.make_iao_coeffs(minao)
     iao_labels = self.get_iao_labels(minao)
-    iao_occup = self.get_fragment_occupancy(iao_coeff, iao_labels)
+    iao_occup = self.get_fragment_occupancy(iao_coeff, labels=iao_labels)
     # Define fragmentation specific attributes
     self.default_fragment_type = 'IAO'
     self.iao_minao = minao
@@ -74,7 +73,28 @@ def init_iao_fragmentation(self, minao='minao'):
     self.iao_coeff = iao_coeff
     self.iao_rest_coeff = iao_rest_coeff
     self.iao_occup = iao_occup
-
+    # NEW: GET LOCAL VIRTUALS!
+    if make_pao:
+        # List of Rydberg-AOs:
+        core, valence, rydberg = pyscf.lo.nao._core_val_ryd_list(self.mol)
+        # "Representation of Rydberg-AOs in terms of AOs"
+        c_ryd = np.eye(self.nao)[:,rydberg]
+        # Project AOs onto non-IAO space:
+        # (S^-1 - C.CT) . S = (1 - C.CT.S)
+        ovlp = self.get_ovlp()
+        p_vir = np.eye(self.nao) - dot(self.iao_coeff, self.iao_coeff.T, ovlp)
+        c_ryd = np.dot(p_vir, c_ryd)
+        # Orthonormalize
+        c_ryd = pyscf.lo.vec_lowdin(c_ryd, ovlp)
+        # Check orthogonality
+        c_all = np.hstack((self.iao_coeff, c_ryd))
+        assert (c_all.shape[-1] == self.mf.mo_coeff.shape[-1])
+        err = abs(dot(c_all.T, ovlp, c_all) - np.eye(c_all.shape[-1])).max()
+        if err > 1e-10:
+            self.log.error("IAOs+PAOs non orthogonal: %.3e !", err)
+        self.iao_ryd_coeff = c_ryd
+        # Rydberg labels
+        self.iao_ryd_labels = (np.asarray(self.mol.ao_labels(None), dtype=object)[rydberg]).tolist()
 
 def init_lowdin_fragmentation(self):
     """This needs to be called before any Lowdin-AO fragments can be added.
@@ -90,13 +110,12 @@ def init_lowdin_fragmentation(self):
     self.log.info("Making Lowdin-AOs")
     lao_coeff = pyscf.lo.vec_lowdin(np.eye(self.nao), self.get_ovlp())
     lao_labels = self.mol.ao_labels(None)
-    lao_occup = self.get_fragment_occupancy(lao_coeff, lao_labels)
+    lao_occup = self.get_fragment_occupancy(lao_coeff, labels=lao_labels)
     # Define fragmentation specific attributes
     self.default_fragment_type = 'Lowdin-AO'
     self.lao_labels = lao_labels
     self.lao_coeff = lao_coeff
     self.lao_occup = lao_occup
-
 
 def init_ao_fragmentation(self):
     """This needs to be called before any AO fragments can be added.
@@ -113,7 +132,6 @@ def init_ao_fragmentation(self):
     self.default_fragment_type = 'AO'
     self.ao_labels = ao_labels
 
-
 def init_site_fragmentation(self):
     """This needs to be called before any site fragments can be added.
 
@@ -126,7 +144,6 @@ def init_site_fragmentation(self):
     # Define fragmentation specific attributes
     self.default_fragment_type = 'Site'
     self.site_labels = site_labels
-
 
 # Fragmentation methods
 # ---------------------
@@ -171,6 +188,7 @@ def make_atom_fragment(self, atoms, aos=None, name=None, fragment_type=None, **k
                 raise ValueError("Atom with label %s not in molecule." % atom_label)
         atom_indices = np.nonzero(np.isin(all_atom_labels, atom_labels))[0]
     #assert len(atom_indices) == len(atom_labels)
+    self.log.debugv("atom_indices= %r", atom_indices)
 
     # Generate cluster name if not given
     if name is None:
@@ -182,6 +200,7 @@ def make_atom_fragment(self, atoms, aos=None, name=None, fragment_type=None, **k
         iao_atoms = [iao[0] for iao in self.iao_labels]
         # Indices of IAOs based at atoms
         frag_iaos = np.nonzero(np.isin(iao_atoms, atom_indices))[0]
+        self.log.debugv("Fragment IAOs:\n%r", frag_iaos)
         refmol = pyscf.lo.iao.reference_mol(self.mol, minao=self.iao_minao)
         if aos is not None:
             for ao in aos:
@@ -195,6 +214,19 @@ def make_atom_fragment(self, atoms, aos=None, name=None, fragment_type=None, **k
         #rest_iaos = np.asarray([i for i in np.arange(self.iao_coeff.shape[-1]) if i not in frag_iaos])
         rest_iaos = np.setdiff1d(range(self.iao_coeff.shape[-1]), frag_iaos)
         c_env = np.hstack((self.iao_coeff[:,rest_iaos], self.iao_rest_coeff))
+        # NEW: add fragment local virtuals!
+        ryd_atoms = [ryd[0] for ryd in self.iao_ryd_labels]
+        self.log.debugv("Rydberg atoms:\n%r", ryd_atoms)
+        ryd_mask = np.isin(ryd_atoms, atom_indices)
+        locvir = np.nonzero(ryd_mask)[0]
+        self.log.debugv("Local virtuals:\n%r", locvir)
+        c_locvir = self.iao_ryd_coeff[:,locvir]
+        kwargs['c_locvir'] = c_locvir
+        # c_nlenv
+        nlocvir = np.nonzero(~ryd_mask)[0]
+        c_nloc = np.hstack((self.iao_coeff[:,rest_iaos], self.iao_ryd_coeff[:,nlocvir]))
+        kwargs['c_nloc'] = c_nloc
+
     elif fragment_type == 'LOWDIN-AO':
         # Base atom for each LowdinAO
         lao_atoms = [lao[0] for lao in self.lao_labels]
@@ -229,7 +261,6 @@ def make_atom_fragment(self, atoms, aos=None, name=None, fragment_type=None, **k
     frag = self.add_fragment(name, c_frag, c_env, fragment_type=fragment_type, atoms=atom_indices, **kwargs)
     return frag
 
-
 def get_ao_labels(self, ao_indices, fragment_type=None):
     fragment_type = (fragment_type or self.default_fragment_type).upper()
     if fragment_type in ('LOWDIN-AO', 'AO'):
@@ -238,7 +269,6 @@ def get_ao_labels(self, ao_indices, fragment_type=None):
         mol = pyscf.lo.iao.reference_mol(self.mol, minao=self.iao_minao)
     ao_labels = np.asarray(mol.ao_labels())[ao_indices]
     return ao_labels
-
 
 def get_ao_indices(self, ao_labels, fragment_type=None):
     fragment_type = (fragment_type or self.default_fragment_type).upper()
@@ -364,12 +394,15 @@ def add_fragment(self, name, c_frag, c_env, fragment_type, sym_factor=1.0, **kwa
         Fragment object of type self.Fragment.
     """
     fid = self._nfrag_tot + 1   # Get new fragment ID
+    # TODO: Temporary fix for UHF - will not generally work for IAOs!
+    if self.is_uhf:
+        c_frag = (c_frag, c_frag)
+        c_env = (c_env, c_env)
     frag = self.Fragment(self, fid=fid, name=name, c_frag=c_frag, c_env=c_env,
             fragment_type=fragment_type, sym_factor=sym_factor, **kwargs)
     self.fragments.append(frag)
     self._nfrag_tot += 1
     return frag
-
 
 def make_all_atom_fragments(self, **kwargs):
     """Create a fragment for each atom in the molecule."""
@@ -378,8 +411,6 @@ def make_all_atom_fragments(self, **kwargs):
         frag = self.make_atom_fragment(atom, **kwargs)
         fragments.append(frag)
     return fragments
-
-
 
 # IAO fragmentation specific
 # --------------------------
@@ -474,7 +505,7 @@ def make_iao_coeffs(self, minao='minao', return_rest=True):
     return c_iao, c_rest
 
 
-def get_fragment_occupancy(self, coeff, labels=None, verbose=True):
+def get_fragment_occupancy(self, coeff, dm=None, labels=None, verbose=True):
     """Get electron occupancy of all fragment orbitals.
 
     This can be used for any orthogonal fragment basis (IAO, LowdinAO)
@@ -494,8 +525,15 @@ def get_fragment_occupancy(self, coeff, labels=None, verbose=True):
     occup : (nFO,) array
         Occupation of fragment orbitals.
     """
+    if dm is None:
+        dm = self.mf.make_rdm1()
+    if np.ndim(dm) == 3:
+        occup = (self.get_fragment_occupancy(coeff, dm[0], labels=labels, verbose=verbose),
+                 self.get_fragment_occupancy(coeff, dm[1], labels=labels, verbose=verbose))
+        return occup
+
     sc = np.dot(self.get_ovlp(), coeff)
-    occup = einsum('ai,ab,bi->i', sc, self.mf.make_rdm1(), sc)
+    occup = einsum('ai,ab,bi->i', sc, dm, sc)
     if not verbose:
         return occup
 
@@ -531,7 +569,6 @@ def get_fragment_occupancy(self, coeff, labels=None, verbose=True):
         self.log.info(fmt, a, self.mol.atom_symbol(a), np.sum(occup_atom[a]), *vals)
 
     return occup
-
 
 def get_iao_labels(self, minao):
     """Get labels of IAOs

@@ -32,7 +32,6 @@ except ImportError:
     from timeit import default_timer as timer
 
 
-
 @dataclasses.dataclass
 class EWFResults:
     bno_threshold: float = None
@@ -44,6 +43,8 @@ VALID_SOLVERS = [None, "", "MP2", "CISD", "CCSD", 'TCCSD', "CCSD(T)", 'FCI', "FC
 
 class EWF(QEmbeddingMethod):
 
+    Fragment = EWFFragment
+
     @dataclasses.dataclass
     class Options(QEmbeddingMethod.Options):
         """Options for EWF calculations."""
@@ -53,6 +54,7 @@ class EWF(QEmbeddingMethod):
         iao_minao : str = 'auto'            # Minimal basis for IAOs
         # --- Bath settings
         bath_type: str = 'MP2-BNO'
+        local_virtuals: bool = False
         dmet_threshold: float = 1e-8
         orbfile: str = None                 # Filename for orbital coefficients
         # If multiple bno thresholds are to be calculated, we can project integrals and amplitudes from a previous larger cluster:
@@ -86,7 +88,6 @@ class EWF(QEmbeddingMethod):
         #energy_partitioning: str = 'first-occ'
         strict: bool = False                # Stop if cluster not converged
 
-    Fragment = EWFFragment
 
     def __init__(self, mf, bno_threshold=1e-8, solver='CCSD', options=None, log=None, **kwargs):
         """Embedded wave function (EWF) calculation object.
@@ -122,20 +123,7 @@ class EWF(QEmbeddingMethod):
             raise ValueError("Unknown solver: %s" % solver)
         self.solver = solver
 
-        # Orthogonalize insufficiently orthogonal MOs
-        # (For example as a result of k2gamma conversion with low cell.precision)
-        c = self.mo_coeff.copy()
-        assert np.all(c.imag == 0), "max|Im(C)|= %.2e" % abs(c.imag).max()
-        ctsc = np.linalg.multi_dot((c.T, self.get_ovlp(), c))
-        nonorth = abs(ctsc - np.eye(ctsc.shape[-1])).max()
-        self.log.info("Max. non-orthogonality of input orbitals= %.2e%s", nonorth, " (!!!)" if nonorth > 1e-5 else "")
-        if self.opts.orthogonal_mo_tol and nonorth > self.opts.orthogonal_mo_tol:
-            t0 = timer()
-            self.log.info("Orthogonalizing orbitals...")
-            self.mo_coeff = helper.orthogonalize_mo(c, self.get_ovlp())
-            change = abs(np.diag(np.linalg.multi_dot((self.mo_coeff.T, self.get_ovlp(), c)))-1)
-            self.log.info("Max. orbital change= %.2e%s", change.max(), " (!!!)" if change.max() > 1e-4 else "")
-            self.log.timing("Time for orbital orthogonalization: %s", time_string(timer()-t0))
+        self.mo_coeff = self.get_init_mo_coeff()
 
         # Prepare fragments
         t0 = timer()
@@ -149,7 +137,6 @@ class EWF(QEmbeddingMethod):
             fragkw['minao'] = self.opts.iao_minao
         self.init_fragmentation(self.opts.fragment_type, **fragkw)
         self.log.timing("Time for fragment initialization: %s", time_string(timer()-t0))
-
         self.log.timing("Time for EWF setup: %s", time_string(timer()-t_start))
 
         # Intermediate and output attributes
@@ -165,7 +152,6 @@ class EWF(QEmbeddingMethod):
         self.cluster_results = {}
         self.results = []
         self.e_corr = 0.0
-
 
     def __repr__(self):
         keys = ['mf', 'bno_threshold', 'solver']
@@ -231,6 +217,29 @@ class EWF(QEmbeddingMethod):
     #        #create_orbital_file(self.mol, self.local_orbital_type, coeffs, names, directory="fragment-localized")
     #        create_orbital_file(self.mol, self.opts.fragment_type, coeffs, names, directory="fragment-localized", filetype="cube")
 
+    def get_init_mo_coeff(self, mo_coeff=None):
+        """Orthogonalize insufficiently orthogonal MOs.
+
+        (For example as a result of k2gamma conversion with low cell.precision)
+        """
+        if mo_coeff is None: mo_coeff = self.mo_coeff
+        c = mo_coeff.copy()
+        ovlp = self.get_ovlp()
+        assert np.all(c.imag == 0), "max|Im(C)|= %.2e" % abs(c.imag).max()
+        err = abs(dot(c.T, ovlp, c) - np.eye(c.shape[-1])).max()
+        if err > 1e-5:
+            self.log.error("Orthogonality error of MOs= %.2e !!!", err)
+        else:   
+            self.log.debug("Orthogonality error of MOs= %.2e", err)
+        if self.opts.orthogonal_mo_tol and err > self.opts.orthogonal_mo_tol:
+            t0 = timer()
+            self.log.info("Orthogonalizing orbitals...")
+            c_orth = helper.orthogonalize_mo(c, ovlp)
+            change = abs(einsum('ai,ab,bi->i', c_orth, ovlp, c)-1)
+            self.log.info("Max. orbital change= %.2e%s", change.max(), " (!!!)" if change.max() > 1e-4 else "")
+            self.log.timing("Time for orbital orthogonalization: %s", time_string(timer()-t0))
+            c = c_orth
+        return c
 
     @property
     def e_tot(self):
@@ -471,18 +480,10 @@ class EWF(QEmbeddingMethod):
 
     #    return frag
 
-
-
     def tailor_all_fragments(self):
         for frag in self.fragments:
             for frag2 in frag.loop_fragments(exclude_self=True):
                 frag.add_tailor_fragment(frag2)
-
-    #def kernel(self, bno_threshold=None):
-    #    # If with_scmf is set, go via the SCMF kernel instead:
-    #    if self.with_scmf is not None:
-    #        return self.with_scmf.kernel(bno_threshold=bno_threshold)
-    #    return self.kernel_one_iteration(bno_threshold=bno_threshold)
 
     def kernel_one_iteration(self, bno_threshold=None):
         """Run EWF.
@@ -492,7 +493,6 @@ class EWF(QEmbeddingMethod):
         bno_threshold : float or list, optional
             Bath natural orbital threshold. Default: 1e-8.
         """
-
 
         if MPI: MPI_comm.Barrier()
         t_start = timer()

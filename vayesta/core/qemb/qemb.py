@@ -34,16 +34,15 @@ from .fragment import QEmbeddingFragment
 from .scmf import PDMET_SCMF, Brueckner_SCMF
 
 
-class QEmbeddingMethod:
+class QEmbedding:
 
-    # Shadow these in inherited methods:
+    # Shadow this in inherited methods:
     Fragment = QEmbeddingFragment
 
     @dataclasses.dataclass
     class Options(OptionsBase):
         recalc_vhf: bool = True
         wf_partition: str = 'first-occ'     # ['first-occ', 'first-vir', 'democratic']
-
 
     def __init__(self, mf, options=None, log=None, **kwargs):
         """Abstract base class for quantum embedding methods.
@@ -153,27 +152,38 @@ class QEmbeddingMethod:
         # Cached AO integral matrices (to improve efficiency):
         self._ovlp = None
         self._hcore = None
-        self._veff = None
-        # HF potential
-        if self.opts.recalc_vhf:
-            self.log.debug("Recalculating HF potential from MF object.")
-        else:
-            self.log.debug("Determining HF potential from MO energies and coefficients.")
-            cs = np.dot(self.mo_coeff.T, self.get_ovlp())
-            fock = np.dot(cs.T*self.mo_energy, cs)
-            self._veff = fock - self.get_hcore()
+        self._veff = self.init_vhf()    # HF potential
         # Some MF output
         if self.mf.converged:
             self.log.info("E(MF)= %+16.8f Ha", self.e_mf)
         else:
             self.log.warning("E(MF)= %+16.8f Ha (not converged!)", self.e_mf)
-        self.log.info("n(AO)= %4d  n(MO)= %4d  n(linear dep.)= %4d", self.nao, self.nmo, self.nao-self.nmo)
-        idterr = self.mo_coeff.T.dot(self.get_ovlp()).dot(self.mo_coeff) - np.eye(self.nmo)
-        self.log.log(logging.ERROR if np.linalg.norm(idterr) > 1e-5 else logging.DEBUG,
-                "Orthogonality error of MF orbitals: L(2)= %.2e  L(inf)= %.2e", np.linalg.norm(idterr), abs(idterr).max())
+        if self.is_rhf:
+            self.log.info("n(AO)= %4d  n(MO)= %4d  n(linear dep.)= %4d", self.nao, self.nmo, self.nao-self.nmo)
+        else:
+            self.log.info("n(AO)= %4d  n(alpha/beta-MO)= %4d / %4d  n(linear dep.)= %4d / %4d",
+                    self.nao, *self.nmo, self.nao-self.nmo[0], self.nao-self.nmo[1])
+
+        if self.is_rhf:
+            diff = dot(self.mo_coeff.T, self.get_ovlp(), self.mo_coeff) - np.eye(self.nmo)
+            self.log.log(logging.ERROR if np.linalg.norm(diff) > 1e-5 else logging.DEBUG,
+                    "MO orthogonality error: L(2)= %.2e  L(inf)= %.2e", np.linalg.norm(diff), abs(diff).max())
+        else:
+            ovlp = self.get_ovlp()
+            for s, spin in enumerate(('alpha', 'beta')):
+                diff = dot(self.mo_coeff[s].T, self.get_ovlp(), self.mo_coeff[s]) - np.eye(self.nmo[s])
+                self.log.log(logging.ERROR if np.linalg.norm(diff) > 1e-5 else logging.DEBUG,
+                    "%s-MO orthogonality error: L(2)= %.2e  L(inf)= %.2e", spin, np.linalg.norm(diff), abs(diff).max())
+
         if self.mo_energy is not None:
-            self.log.debugv("MO energies (occ):\n%r", self.mo_energy[self.mo_occ > 0])
-            self.log.debugv("MO energies (vir):\n%r", self.mo_energy[self.mo_occ == 0])
+            if self.is_rhf:
+                self.log.debugv("MO energies (occ):\n%r", self.mo_energy[self.mo_occ > 0])
+                self.log.debugv("MO energies (vir):\n%r", self.mo_energy[self.mo_occ == 0])
+            else:
+                self.log.debugv("alpha-MO energies (occ):\n%r", self.mo_energy[0][self.mo_occ[0] > 0])
+                self.log.debugv("beta-MO energies (occ):\n%r", self.mo_energy[1][self.mo_occ[1] > 0])
+                self.log.debugv("alpha-MO energies (vir):\n%r", self.mo_energy[0][self.mo_occ[0] == 0])
+                self.log.debugv("beta-MO energies (vir):\n%r", self.mo_energy[1][self.mo_occ[1] == 0])
 
         # 3) Fragments
         # ------------
@@ -235,6 +245,23 @@ class QEmbeddingMethod:
         return len(self.kpts)
 
     # Mean-field properties
+
+    def init_vhf(self):
+        if self.opts.recalc_vhf:
+            self.log.debug("Recalculating HF potential from MF object.")
+            return None
+        self.log.debug("Determining HF potential from MO energies and coefficients.")
+        cs = np.dot(self.mo_coeff.T, self.get_ovlp())
+        fock = np.dot(cs.T*self.mo_energy, cs)
+        return (fock - self.get_hcore())
+
+    @property
+    def is_rhf(self):
+        return not self.is_uhf
+
+    @property
+    def is_uhf(self):
+        return (self.mo_coeff.ndim == 3)
 
     @property
     def mo_energy(self):
@@ -926,3 +953,5 @@ class QEmbeddingMethod:
         """Decorator for Brueckner-DMET."""
         self.with_scmf = Brueckner_SCMF(self, *args, **kwargs)
         return self
+
+QEmbeddingMethod = QEmbedding

@@ -100,7 +100,7 @@ class SCMF:
             self.qemb.reset_fragments()
 
         else:
-            self.log.warning("SCMF not converged in %d iterations!", self.iteration)
+            self.log.warning("SCMF did not converge in %d iterations!", self.iteration)
         return res
 
 
@@ -164,6 +164,7 @@ class Brueckner_SCMF(SCMF):
 
     def update_mo_coeff(self, mf, diis=None):
         t1 = self.get_t1()
+        self.log.debug("Norm of T1: L(2)= %.3e  L(inf)= %.3e", np.linalg.norm(t1), abs(t1).max())
         nocc, nvir = t1.shape
         nmo = (nocc + nvir)
         occ, vir = np.s_[:nocc], np.s_[nocc:]

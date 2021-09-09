@@ -133,7 +133,6 @@ def gdf_to_eris(gdf, mo_coeff, nocc, only_ovov=False, real_j3c=True, symmetry=Fa
         If True, do not perform contraction (vv|L)(L|vv)->(vv|vv) and instead store three-center
         elements (vv|L). This is needed for the pyscf.cc.dfccsd.RCCSD class. Default: False.
 
-
     Returns
     -------
     eris : dict
