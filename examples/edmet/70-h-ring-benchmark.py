@@ -12,11 +12,12 @@ import logging
 from pyscf import ao2mo
 
 natom = 10
-frags = [[x,x+1] for x in range(0, natom, 2)]
+nimp = 1
+frags = [[x+i for i in range(nimp)] for x in range(0, natom, nimp)]
 basis = "STO-6G"
-efile = "energies_h{:d}_{:s}.txt".format(natom, basis)
-doccfile = "docc_h{:d}_{:s}.txt".format(natom, basis)
-nnfile = "nn_h{:d}_{:s}.txt".format(natom, basis)
+efile = "energies_h{:d}_{:s}_{:d}imp.txt".format(natom, basis, nimp)
+doccfile = "docc_h{:d}_{:s}_{:d}imp.txt".format(natom, basis, nimp)
+nnfile = "nn_h{:d}_{:s}_{:d}imp.txt".format(natom, basis, nimp)
 
 
 for filename in [efile, doccfile, nnfile]:
@@ -30,9 +31,12 @@ def get_correlators(qemb):
     return rdm_to_correlators(f.results.dm2, c)
 
 def rdm_to_correlators(dm2, c):
-    correlators = np.einsum("ijkl,xi,xj,yk,yl->xy", dm2, *(4*[c.T]))/
+    correlators = np.einsum("ijkl,xi,xj,yk,yl->xy", dm2, *(4*[c.T]))
     docc = correlators[0, 0]
-    nn = correlators[0, 1]
+    try:
+        nn = correlators[0, 1]
+    except IndexError:
+        nn = np.nan
     return docc, nn
 
 for d in np.arange(0.5, 3.0001, 0.25):
@@ -69,7 +73,7 @@ for d in np.arange(0.5, 3.0001, 0.25):
     dmet_diis = vayesta.dmet.DMET(mf, solver='FCI', fragment_type='IAO', charge_consistent=True, diis=True,
                                   max_elec_err=1e-6)
     edmet_oneshot = vayesta.edmet.EDMET(mf, solver='EBFCI', fragment_type='IAO', max_elec_err=1e-6, maxiter=1,
-                                       bos_occ_cutoff=2)
+                                       bos_occ_cutoff=10)
 
     for f in frags:
         dmet_oneshot.make_atom_fragment(f)
