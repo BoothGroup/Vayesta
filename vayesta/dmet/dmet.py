@@ -26,7 +26,6 @@ class DMETResults:
     cluster_sizes: np.ndarray = None
     e_corr: float = None
 
-VALID_SOLVERS = [None, "", "MP2", "CISD", "CCSD", 'TCCSD', "CCSD(T)", 'FCI', "FCI-spin0", "FCI-spin1"]
 
 class DMET(QEmbeddingMethod):
 
@@ -76,6 +75,8 @@ class DMET(QEmbeddingMethod):
 
     Fragment = DMETFragment
 
+    VALID_SOLVERS = [None, "", "MP2", "CISD", "CCSD", 'TCCSD', "CCSD(T)", 'FCI', "FCI-spin0", "FCI-spin1"]
+
     def __init__(self, mf, bno_threshold=np.inf, solver='CCSD', options=None, log=None, **kwargs):
         """Density matrix embedding theory (DMET) calculation object.
 
@@ -101,7 +102,7 @@ class DMET(QEmbeddingMethod):
             else:
                 self.log.error("Mean-field calculation not converged.")
         self.bno_threshold = bno_threshold
-        if solver not in VALID_SOLVERS:
+        if solver not in self.VALID_SOLVERS:
             raise ValueError("Unknown solver: %s" % solver)
         self.solver = solver
 
@@ -283,6 +284,7 @@ class DMET(QEmbeddingMethod):
                 e2 += e2_contrib * nsym[x]
             self.e_dmet = e1 + e2
             self.log.info("Total DMET energy {:8.4f}".format(self.e_tot))
+            self.log.info("Energy Contributions: 1-body={:8.4f}, 2-body={:8.4f}".format(e1, e2))
 
             curr_rdms, delta_rdms = self.updater.update(self.hl_rdms)
             self.log.info("Change in high-level RDMs: {:6.4e}".format(delta_rdms))
