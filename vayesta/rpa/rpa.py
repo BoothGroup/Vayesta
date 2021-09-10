@@ -11,7 +11,7 @@ from pyscf import ao2mo
 from vayesta.core.util import *
 from timeit import default_timer as timer
 import scipy.linalg
-
+import logging
 
 class RPA:
     """Approach based on equations expressed succinctly in the appendix of
@@ -19,9 +19,9 @@ class RPA:
     WARNING: Should only be used with canonical mean-field orbital coefficients in mf.mo_coeff and RHF.
     """
 
-    def __init__(self, mf, log):
+    def __init__(self, mf, log = None):
         self.mf = mf
-        self.log = log
+        self.log = log or logging.getLogger(__name__)
 
     @property
     def nocc(self):
