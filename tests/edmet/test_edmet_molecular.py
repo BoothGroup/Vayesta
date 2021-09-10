@@ -5,49 +5,62 @@ import pyscf.gto
 import pyscf.scf
 import pyscf.tools.ring
 
-def make_test_molecular(atoms, basis, solver, fragment_type, bos_occ_cutoff, known_values, fragments = None):
 
-    class EDMETMolecularTests(unittest.TestCase):
+class MolecularEDMETTest:
+    ''' Abstract base class for molecular EDMET tests.
+    '''
 
-        @classmethod
-        def setUpClass(cls):
-            cls.mol = pyscf.gto.Mole()
-            cls.mol.atom = atoms
-            cls.mol.basis = basis
-            cls.mol.build()
+    @classmethod
+    def setUpClass(cls):
+        cls.mol = None
+        cls.mf = None
+        cls.edmet = None
+        cls.known_values = None
 
-            cls.mf = pyscf.scf.RHF(cls.mol)
-            cls.mf.kernel()
+    @classmethod
+    def tearDownClass(cls):
+        del cls.mol, cls.mf, cls.edmet, cls.known_values
 
-            cls.edmet = edmet.EDMET(cls.mf, solver=solver, fragment_type=fragment_type, bos_occ_cutoff = bos_occ_cutoff)
-            # Ensure that we don't spam with output.
-            cls.edmet.log.setLevel(50)
-            if fragments is None:
-                cls.edmet.make_all_atom_fragments()
-            else:
-                for x in fragments:
-                    cls.edmet.make_atom_fragment(x)
-            cls.edmet.kernel()
+    def test_energy(self):
+        self.assertAlmostEqual(self.edmet.e_tot, self.known_values['e_tot'], 6)
 
-        @classmethod
-        def tearDownClass(cls):
-            del cls.mol, cls.mf, cls.edmet
 
-        def test_energy(self):
-            self.assertAlmostEqual(self.edmet.e_tot, known_values['e_tot'])
+class MolecularEDMETTest_H6_sto6g_EBFCI_IAO_1occ(unittest.TestCase, MolecularEDMETTest):
+    @classmethod
+    def setUpClass(cls):
+        cls.mol = pyscf.gto.Mole()
+        cls.mol.atom = [('H %f %f %f' % xyz) for xyz in pyscf.tools.ring.make(6, 1.0)]
+        cls.mol.basis = 'sto-6g'
+        cls.mol.build()
 
-    return EDMETMolecularTests
+        cls.mf = pyscf.scf.RHF(cls.mol)
+        cls.mf.kernel()
 
-def make_test_Hring(natom, d, fragsize, *args, maxiter = 20):
-    ring = pyscf.tools.ring.make(natom, d)
-    atom = [('H %f %f %f' % xyz) for xyz in ring]
-    fragments = [list(range(x, x+fragsize)) for x in range(0, natom, fragsize)]
-    return make_test_molecular(atom, *args, fragments = fragments)
+        cls.edmet = edmet.EDMET(cls.mf, solver='EBFCI', fragment_type='IAO', bos_occ_cutoff=1)
+        for i in range(cls.mol.natm//2):
+            cls.edmet.make_atom_fragment([i*2, i*2+1])
+        cls.edmet.kernel()
 
-edmet_Hring_sto6g_EBFCI_1occ_IAO_nocc_Test = make_test_Hring(6, 1.0, 2, "sto-6g", "EBFCI", "IAO", 1,
-                                            {'e_tot': -3.2607921167146703})
-edmet_Hring_sto6g_EBFCI_2occ_IAO_nocc_Test = make_test_Hring(6, 1.0, 2, "sto-6g", "EBFCI", "IAO", 2,
-                                            {'e_tot': -3.259282652607757})
+        cls.known_values = {'e_tot': -3.2607921167146703}
+
+
+class MolecularEDMETTest_H6_sto6g_EBFCI_IAO_2occ(unittest.TestCase, MolecularEDMETTest):
+    @classmethod
+    def setUpClass(cls):
+        cls.mol = pyscf.gto.Mole()
+        cls.mol.atom = [('H %f %f %f' % xyz) for xyz in pyscf.tools.ring.make(6, 1.0)]
+        cls.mol.basis = 'sto-6g'
+        cls.mol.build()
+
+        cls.mf = pyscf.scf.RHF(cls.mol)
+        cls.mf.kernel()
+
+        cls.edmet = edmet.EDMET(cls.mf, solver='EBFCI', fragment_type='IAO', bos_occ_cutoff=2)
+        for i in range(cls.mol.natm//2):
+            cls.edmet.make_atom_fragment([i*2, i*2+1])
+        cls.edmet.kernel()
+
+        cls.known_values = {'e_tot': -3.259282652607757}
 
 
 if __name__ == '__main__':
