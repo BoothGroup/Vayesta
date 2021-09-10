@@ -28,6 +28,15 @@ class dRPA:
     @property
     def ov(self):
         return self.nocc * self.nvir
+    @property
+    def e_corr(self):
+        try:
+            return self.e_corr_ss
+        except AttributeError as e:
+            self.log.critical("Can only access rpa.e_corr after running rpa.kernel.")
+    @property
+    def e_tot(self):
+        return self.mf.e_tot + self.e_corr
 
     def kernel(self):
         """Solve same-spin component of dRPA response.
@@ -38,7 +47,7 @@ class dRPA:
         e, c = np.linalg.eigh(M)
         self.freqs_ss = e ** (0.5)
         assert (all(e > 1e-12))
-        self.ecorr = 0.5 * (sum(self.freqs_ss) - 2 * v.trace() - sum(AmB))
+        self.e_corr_ss = 0.5 * (sum(self.freqs_ss) - 2 * v.trace() - sum(AmB))
 
         XpY = np.einsum("n,p,pn->pn", self.freqs_ss ** (-0.5), AmB ** (0.5), c)
         XmY = np.einsum("n,p,pn->pn", self.freqs_ss ** (0.5), AmB ** (-0.5), c)
@@ -46,7 +55,7 @@ class dRPA:
         self.XmY_ss = (XmY[:self.ov], XmY[self.ov:])
 
         self.freqs_sf = (AmB[:self.ov], AmB[self.ov:])
-        return self.ecorr
+        return self.e_corr_ss
 
     def _gen_arrays(self):
         # Only have diagonal components in canonical basis.

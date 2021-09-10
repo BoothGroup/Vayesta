@@ -32,6 +32,15 @@ class RPA:
     @property
     def ov(self):
         return self.nocc * self.nvir
+    @property
+    def e_corr(self):
+        try:
+            return self.e_corr_ss + self.e_corr_sf
+        except AttributeError as e:
+            self.log.critical("Can only access rpa.e_corr after running rpa.kernel.")
+    @property
+    def e_tot(self):
+        return self.mf.e_tot + self.e_corr
 
     def kernel(self, interaction_kernel = "rpax"):
         """Solve for RPA response; solve same-spin (ss) and spin-flip (sf) separately.
@@ -50,15 +59,15 @@ class RPA:
             XmY = np.einsum("n,pn->pn", freqs ** (0.5), np.dot(np.linalg.inv(AmB_rt), c))
             return freqs, ecorr_contrib, (XpY[:self.ov], XpY[self.ov:]), (XmY[:self.ov], XmY[self.ov:])
 
-        self.freqs_ss, self.ecorr_ss, self.XpY_ss, self.XmY_ss = solve_RPA_problem(ApB_ss, AmB_ss)
-        self.freqs_sf, self.ecorr_sf, self.XpY_sf, self.XmY_sf = solve_RPA_problem(ApB_sf, AmB_sf)
+        self.freqs_ss, self.e_corr_ss, self.XpY_ss, self.XmY_ss = solve_RPA_problem(ApB_ss, AmB_ss)
+        self.freqs_sf, self.e_corr_sf, self.XpY_sf, self.XmY_sf = solve_RPA_problem(ApB_sf, AmB_sf)
 
         if interaction_kernel == "rpax":
             # Additional factor of 0.5.
-            self.ecorr_ss *= 0.5
-            self.ecorr_sf *= 0.5
+            self.e_corr_ss *= 0.5
+            self.e_corr_sf *= 0.5
 
-        return self.ecorr_ss + self.ecorr_sf
+        return self.e_corr
 
 
     def _build_arrays(self, interaction="rpax"):
