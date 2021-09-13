@@ -536,10 +536,11 @@ class DMETFragment(QEmbeddingFragment):
         c_act = self.c_active
 
         # Temporary implementation
-        import pyscf.ao2mo
         t0 = timer()
-        eris = pyscf.ao2mo.full(self.mf._eri, c_act, compact=False).reshape(4 * [c_act.shape[1]])
+        eris = self.base.get_eris(c_act)
         self.log.timing("Time for AO->MO of (ij|kl):  %s", time_string(timer() - t0))
+
+
 
         nocc = self.c_active_occ.shape[1]
         occ = np.s_[:nocc]
