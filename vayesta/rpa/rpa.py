@@ -46,6 +46,8 @@ class RPA:
         """Solve for RPA response; solve same-spin (ss) and spin-flip (sf) separately.
         If doing dRPA spin-flip is trivial, so for large calculations use dRPA specific
         """
+        t_start = timer()
+
         ApB_ss, AmB_ss, ApB_sf, AmB_sf = self._build_arrays(interaction_kernel)
 
         def solve_RPA_problem(ApB, AmB):
@@ -59,18 +61,23 @@ class RPA:
             XmY = np.einsum("n,pn->pn", freqs ** (0.5), np.dot(np.linalg.inv(AmB_rt), c))
             return freqs, ecorr_contrib, (XpY[:self.ov], XpY[self.ov:]), (XmY[:self.ov], XmY[self.ov:])
 
+        t0 = timer()
         self.freqs_ss, self.e_corr_ss, self.XpY_ss, self.XmY_ss = solve_RPA_problem(ApB_ss, AmB_ss)
         self.freqs_sf, self.e_corr_sf, self.XpY_sf, self.XmY_sf = solve_RPA_problem(ApB_sf, AmB_sf)
+        self.log.timing("Time to solve RPA problems: %s", time_string(timer() - t0))
 
         if interaction_kernel == "rpax":
             # Additional factor of 0.5.
             self.e_corr_ss *= 0.5
             self.e_corr_sf *= 0.5
 
+        self.log.info("Total RPA wall time:  %s", time_string(timer()-t_start))
+
         return self.e_corr
 
 
     def _build_arrays(self, interaction="rpax"):
+        t0 = timer()
         # Only have diagonal components in canonical basis.
         eps = np.zeros((self.nocc, self.nvir))
         eps = eps + self.mf.mo_energy[self.nocc:]
@@ -97,6 +104,7 @@ class RPA:
         ApB_sf[ix_diag] += fulleps
         AmB_ss[ix_diag] += fulleps
         AmB_sf[ix_diag] += fulleps
+        self.log.timing("Time to build RPA arrays: %s", time_string(timer() - t0))
 
         return ApB_ss, AmB_ss, ApB_sf, AmB_sf
 
@@ -115,6 +123,7 @@ class RPA:
         If TDA is specified all appropriate couplings will be zeroed.
         """
         if interaction.lower() == "drpa":
+            self.log.info("RPA using coulomb interaction kernel.")
             eris = self.ao2mo()
 
             v = eris[:self.nocc, self.nocc:, :self.nocc, self.nocc:].reshape((self.ov,self.ov))
@@ -139,6 +148,7 @@ class RPA:
             )
 
         elif interaction.lower() == "rpax":
+            self.log.info("RPA using coulomb-exchange interaction kernel.")
             eris = self.ao2mo()
             v = eris[:self.nocc, self.nocc:, :self.nocc, self.nocc:]
             ka = np.einsum("ijab->iajb", eris[:self.nocc, :self.nocc, self.nocc:, self.nocc:]
@@ -165,6 +175,7 @@ class RPA:
             )
 
         else:
+            self.log.info("RPA using provided arbitrary interaction kernel.")
             assert(len(interaction) == 4)
             kernel = interaction
 
