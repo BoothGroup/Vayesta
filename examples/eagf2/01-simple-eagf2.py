@@ -14,7 +14,7 @@ mol.build()
 mf = pyscf.scf.RHF(mol)
 mf.kernel()
 
-egf2 = vayesta.eagf2.EAGF2(mf, bno_threshold=1e-6)
+egf2 = vayesta.eagf2.EAGF2(mf, max_bath_order=1)
 egf2.make_atom_fragment(0)
 egf2.make_atom_fragment(1)
 egf2.kernel()

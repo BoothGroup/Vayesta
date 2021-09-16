@@ -1,18 +1,16 @@
 import dataclasses
-import gc
 
 import numpy as np
-import scipy.linalg
 
 import pyscf
 import pyscf.lib
 import pyscf.agf2
 import pyscf.ao2mo
 
-from vayesta.core.util import OptionsBase, NotSet, get_used_memory, time_string
-from vayesta.core import QEmbeddingFragment, kao2gmo, linalg
+from vayesta.core.util import OptionsBase, NotSet, time_string
+from vayesta.core import QEmbeddingFragment
 from vayesta.core.helper import orbital_sign_convention
-from vayesta.eagf2 import ragf2, helper
+from vayesta.eagf2 import helper
 
 try:
     from mpi4py import MPI
@@ -189,13 +187,40 @@ class EAGF2Fragment(QEmbeddingFragment):
         raise NotImplementedError  #TODO
 
 
+    def make_complete_bath(self, c_frag=None, c_env=None):
+        ''' Build a complete bath.
+        '''
+
+        if c_frag is None:
+            c_frag = self.c_frag
+        if c_env is None:
+            c_env = self.c_env
+
+        nmo = c_frag.shape[0]
+
+        c_cluster_occ, c_cluster_vir = self.diagonalize_cluster_dm(
+                c_frag,
+                c_env,
+                tol=2*self.opts.dmet_threshold,
+        )
+        self.log.info(
+                "Cluster orbitals:  n(occ) = %d  n(vir) = %d",
+                c_cluster_occ.shape[-1], c_cluster_vir.shape[-1],
+        )
+
+        c_env_occ = np.zeros((nmo, 0))
+        c_env_vir = np.zeros((nmo, 0))
+
+        return c_cluster_occ, c_cluster_vir, c_env_occ, c_env_vir
+
+
     def make_bath(self, c_frag=None, c_env=None):
         if self.opts.bath_type.lower() == 'none':
             return self.make_dmet_bath(c_frag=c_frag, c_env=c_env)
         elif self.opts.bath_type.lower() == 'power':
             return self.make_power_bath(c_frag=c_frag, c_env=c_env)
         elif self.opts.bath_type.lower() == 'all':
-            return self.make_power_bath(c_frag=c_frag, c_env=c_env, max_order=np.inf)  #TODO test
+            return self.make_complete_bath(c_frag=c_frag, c_env=c_env)
         elif self.opts.bath_type.lower() == 'mp2-bno':
             return self.make_bno_bath(self, c_frag=c_frag, c_env=c_env)
 
@@ -204,38 +229,25 @@ class EAGF2Fragment(QEmbeddingFragment):
         ''' Print the character of the power orbitals including auxiliaries.
         '''
 
-        nmo = self.mf.mo_occ.size
-        nocc = np.sum(self.mf.mo_occ > 0)
-        nocc_aux = self.se.get_occupied().naux
-        naux = self.se.naux
-        labels = []
-        for i in range(nmo+naux):
-            if i < nocc:
-                labels.append('%3d %6s' % (i, '(1h)'))
-            elif i < nmo:
-                labels.append('%3d %6s' % (i, '(1p)'))
-            elif i < (nmo+nocc_aux):
-                labels.append('%3d %6s' % (i, '(2h1p)'))
-            else:
-                labels.append('%3d %6s' % (i, '(2p1h)'))
-
         self.log.info("Bath states")
         self.log.info("***********")
         self.log.changeIndentLevel(1)
 
-        self.log.info("%4s %s", "Bath", "Dominant MOs and auxiliaries")
+        nmo = self.mf.mo_occ.size
+        nocc = np.sum(self.mf.mo_occ > 0)
+        nocc_aux = self.se.get_occupied().naux
+
+        self.log.info("%4s  %7s    %7s    %7s    %7s", "Bath", "1h", "1p", "2h1p", "1h2p")
+        parts = np.hsplit(c_bath, [nocc, nmo, nmo+nocc_aux])
         for i in range(c_bath.shape[-1]):
-            wt_phys = np.linalg.norm(c_bath[:nmo, i])**2
-            char_string = ""
-            num = 0
-            for j in np.argsort(c_bath[:, i]**2):
-                if c_bath[j, i]**2 > self.base.opts.excitation_tol:
-                    if num == 3:
-                        char_string += " ..."
-                        break
-                    char_string += "%11s (%7.3f %%) " % (labels[j], (c_bath[j, i]**2)*100)
-                    num += 1
-            self.log.info("%4d %s", i, char_string)
+            self.log.debugv(
+                    "%4d  %7.3f %%  %7.3f %%  %7.3f %%  %7.3f %%",
+                    i, *(100*np.linalg.norm(v[i])**2 for v in parts),
+            )
+        self.log.info(
+                "%4s  %7.3f %%  %7.3f %%  %7.3f %%  %7.3f %%",
+                "Mean", *(100*np.linalg.norm(v)**2/c_bath.shape[-1] for v in parts),
+        )
 
         self.log.changeIndentLevel(-1)
 
@@ -318,9 +330,10 @@ class EAGF2Fragment(QEmbeddingFragment):
         e, v = np.linalg.eigh(dm)
 
         if tol and not np.allclose(np.fmin(abs(e), abs(e-1)), 0, atol=tol, rtol=0):
-            raise RuntimeError("Error while diagonalizing cluster DM: eigenvalues not all close to 0 or 1:\n%s", e)
+            raise RuntimeError("Error while diagonalizing cluster DM: eigenvalues not "
+                               "all close to 0 or 1:\n%s", e)
 
-        e, v = e[::-1], v[:,::-1]
+        e, v = e[::-1], v[:, ::-1]
         c_cls = np.dot(c_cls, v)
         nocc = sum(e >= 0.5)
         c_cls_occ, c_cls_vir = np.hsplit(c_cls, [nocc])

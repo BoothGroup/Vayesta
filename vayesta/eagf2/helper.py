@@ -28,7 +28,7 @@ def make_dmet_bath(frag, c_frag=None, c_env=None, tol=1e-5):
         frag.log.warning("Min eigenvalue of env. DM = %.6e", eig.min())
     if (eig.max()-1) > 1e-9:
         frag.log.warning("Max eigenvalue of env. DM = %.6e", eig.max())
-    
+
     c_env = np.dot(c_env, r)
 
     mask_bath = np.logical_and(eig >= tol, eig <= 1-tol)
@@ -80,7 +80,7 @@ def make_dmet_bath(frag, c_frag=None, c_env=None, tol=1e-5):
     return c_bath, c_env_occ, c_env_vir
 
 
-def make_power_bath(frag, max_order=0, tol=1e-16, c_frag=None, c_env=None):
+def make_power_bath(frag, max_order=0, svd_tol=0.0, c_frag=None, c_env=None):
     ''' Make power bath orbitals up to a maximum order.
     '''
 
@@ -101,7 +101,7 @@ def make_power_bath(frag, max_order=0, tol=1e-16, c_frag=None, c_env=None):
             c = np.hstack((c_frag, c_env))
             f = np.linalg.multi_dot((c.T.conj(), fock, c))
             b, sv, orders = linalg.recursive_block_svd(f, n=c_frag.shape[1], maxblock=max_order)
-            c_power.append(np.dot(c_env, b[:, sv > tol]))
+            c_power.append(np.dot(c_env, b[:, sv >= svd_tol]))
 
     c_bath = np.hstack((c_dmet, *c_power))
     p_bath = np.linalg.multi_dot((qmo_coeff.T.conj(), c_bath, c_bath.T.conj(), qmo_coeff))

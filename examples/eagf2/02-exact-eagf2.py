@@ -9,17 +9,24 @@ import vayesta.eagf2
 
 mol = pyscf.gto.Mole()
 mol.atom = 'Li 0 0 0; H 0 0 1.4'
-mol.basis = 'aug-cc-pvdz'
+mol.basis = 'cc-pvdz'
 mol.verbose = 10
 mol.build()
 
 mf = pyscf.scf.RHF(mol)
 mf.kernel()
 
-gf2 = vayesta.eagf2.RAGF2(mf)
-gf2.kernel()
+options = {
+    'conv_tol': 1e-6,
+    'conv_tol_rdm1': 1e-14,
+    'conv_tol_nelec': 1e-12,
+}
 
-egf2 = vayesta.eagf2.EAGF2(mf, bno_threshold=-1)
+gf2 = vayesta.eagf2.RAGF2(mf, **options)
+gf2.kernel()
+gf2.gf, gf2.se, _ = gf2.fock_loop()
+
+egf2 = vayesta.eagf2.EAGF2(mf, max_bath_order=100, **options)
 egf2.make_atom_fragment(0)
 egf2.make_atom_fragment(1)
 egf2.kernel()

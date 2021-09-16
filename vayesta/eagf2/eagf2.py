@@ -1,6 +1,4 @@
-import logging
 import dataclasses
-import types
 import copy
 
 import numpy as np
@@ -11,10 +9,9 @@ import pyscf.lib
 import pyscf.agf2
 
 import vayesta
-import vayesta.ewf
 from vayesta.ewf import helper
 from vayesta.core import QEmbeddingMethod
-from vayesta.core.util import OptionsBase, time_string, NotSet
+from vayesta.core.util import time_string
 from vayesta.eagf2.fragment import EAGF2Fragment
 from vayesta.eagf2.ragf2 import RAGF2, RAGF2Options, DIIS
 
@@ -357,12 +354,12 @@ class EAGF2(QEmbeddingMethod):
         if self.opts.dump_cubefiles:
             #TODO test
             self.log.debug("Dumping orbitals to .cube files")
-            gf_occ, gf_vir = self.gf.get_occupied(), self.gf.get_virtual()
+            gf_occ, gf_vir = solver.gf.get_occupied(), solver.gf.get_virtual()
             for i in range(self.opts.dump_cubefiles):
                 if (gf_occ.naux-1-i) >= 0:
-                    self.dump_cube(gf_occ.naux-1-i, cubefile="hoqmo%d.cube"%i)
-                if (gf_occ.naux+i) < gf.naux:
-                    self.dump_cube(gf_occ.naux+i, cubefile="luqmo%d.cube"%i)
+                    self.dump_cube(gf_occ.naux-1-i, cubefile="hoqmo%d.cube" % i)
+                if (gf_vir.naux+i) < solver.gf.naux:
+                    self.dump_cube(gf_vir.naux+i, cubefile="luqmo%d.cube" % i)
 
         solver.print_energies(output=True)
 
@@ -370,7 +367,7 @@ class EAGF2(QEmbeddingMethod):
 
         return self.results
 
-    
+
     def run(self):
         ''' Run self.kernel and return self
 
