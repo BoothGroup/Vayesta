@@ -2,15 +2,17 @@ import dataclasses
 import gc
 
 import numpy as np
+import scipy.linalg
 
 import pyscf
 import pyscf.lib
 import pyscf.agf2
+import pyscf.ao2mo
 
-from vayesta.ewf.fragment import EWFFragment
 from vayesta.core.util import OptionsBase, NotSet, get_used_memory, time_string
-from vayesta.core import QEmbeddingFragment, kao2gmo
-from vayesta.eagf2 import ragf2, ewdmet_bath
+from vayesta.core import QEmbeddingFragment, kao2gmo, linalg
+from vayesta.core.helper import orbital_sign_convention
+from vayesta.eagf2 import ragf2, helper
 
 try:
     from mpi4py import MPI
@@ -26,14 +28,10 @@ class EAGF2FragmentOptions(OptionsBase):
 
     # --- Bath settings
     bath_type: str = NotSet
-    nmom_bath: int = NotSet
+    max_bath_order: int = NotSet
     bno_threshold: float = NotSet
     bno_threshold_factor: float = NotSet
     dmet_threshold: float = 1e-4
-    ewdmet_threshold: float = 1e-4
-
-    # --- Solver settings
-    solver_options: dict = NotSet
 
     # --- Appease EWF inheritance
     plot_orbitals: bool = False
@@ -51,10 +49,6 @@ class EAGF2FragmentResults:
         Fragment ID.
     n_active : int
         Number of active orbitals.
-    converged : bool
-        Whether the cluster calculation converged successfully.
-    c_frozen : np.ndarray
-        Frozen cluster orbital coefficients.
     c_active : np.ndarray
         Active cluster orbital coefficients.
     e_corr : float
@@ -63,38 +57,18 @@ class EAGF2FragmentResults:
         One-body part of total energy, including nuclear repulsion.
     e_2b : float
         Two-body part of total energy.
-    ip : float
+    e_ip : float
         Ionisation potential.
-    ea : float
+    e_ea : float
         Electron affinity.
-    rdm1 : np.ndarray
-        Reduced one-body density matrix, democratically partitioned and
-        transformed into the MO basis.
-    fock : np.ndarray
-        Fock matrix, democratically partitioned and transformed into the
-        MO basis.
-    t_occ : np.ndarray
-        Occupied self-energy moments, democratically partitioned and 
-        transformed into the into the MO basis.
-    t_vir : np.ndarray
-        Virtual self-energy moments, democratically partitioned and 
-        transformed into the into the MO basis.
+    moms : np.ndarray
+        Occupied and virtual self-energy moments in the cluster basis.
     '''
 
     fid: int = None
     n_active: int = None
-    converged: bool = None
-    c_frozen: np.ndarray = None
     c_active: np.ndarray = None
-    e_corr: float = None
-    e_1b: float = None
-    e_2b: float = None
-    ip: float = None
-    ea: float = None
-    rdm1: np.ndarray = None
-    fock: np.ndarray = None
-    t_occ: np.ndarray = None
-    t_vir: np.ndarray = None
+    moms: np.ndarray = None
 
 
 class EAGF2Fragment(QEmbeddingFragment):
@@ -102,8 +76,6 @@ class EAGF2Fragment(QEmbeddingFragment):
     Options = EAGF2FragmentOptions
     Results = EAGF2FragmentResults
 
-    #def __init__(self, base, fid, name, c_frag, c_env, fragment_type, 
-    #             atoms=None, aos=None, log=None, options=None, **kwargs):
     def __init__(self, *args, **kwargs):
         ''' Embedded AGF2 fragment.
 
@@ -142,28 +114,26 @@ class EAGF2Fragment(QEmbeddingFragment):
                 self.log.info('  > %-24s %3s %r', key + ':', '(*)', val)
             else:
                 self.log.debugv('  > %-24s %3s %r', key + ':', '', val)
-        self.solver = ragf2.RAGF2
-        #self.log.infov("  > %-24s %r", 'Solver:', self.solver)
 
         self.c_env_occ = None
         self.c_env_vir = None
         self.c_cluster_occ = None
         self.c_cluster_vir = None
 
-    @property
-    def e_corr(self):
-        idx = np.argmin(self.bno_threshold)
-        return self.e_corrs[idx]
-
-    make_dmet_bath = EWFFragment.make_dmet_bath
-    make_bno_bath = EWFFragment.make_bno_bath
-    truncate_bno = EWFFragment.truncate_bno
-    project_amplitude_to_fragment = EWFFragment.project_amplitude_to_fragment
-    project_amplitudes_to_fragment = EWFFragment.project_amplitudes_to_fragment
+        # Initialise with no auxiliary space:
+        self.se = pyscf.agf2.SelfEnergy([], [[],]*self.mf.mo_occ.size)
+        self.fock = np.diag(self.mf.mo_energy)
+        self.qmo_energy, self.qmo_coeff = np.linalg.eigh(self.fock)
+        self.qmo_occ = self.mf.get_occ(self.qmo_energy, self.qmo_coeff)
 
 
-    def make_ewdmet_bath(self):
-        ''' Make EwDMET bath orbitals.
+    def make_power_bath(self, max_order=None, c_frag=None, c_env=None):
+        ''' Make power bath orbitals.
+
+        Arguments
+        ---------
+        max_order : int
+            Maximum order of power orbital.
 
         Returns
         -------
@@ -179,34 +149,29 @@ class EAGF2Fragment(QEmbeddingFragment):
 
         t0 = timer()
 
-        self.log.info("Making EwDMET bath")
-        self.log.info("******************")
+        self.log.info("Building power orbitals")
+        self.log.info("***********************")
         self.log.changeIndentLevel(1)
 
-        c_bath, c_env_occ, c_env_vir = ewdmet_bath.make_ewdmet_bath(
+        if max_order is None:
+            max_order = self.opts.max_bath_order
+
+        c_bath, c_env_occ, c_env_vir = helper.make_power_bath(
                 self,
-                self.c_env,
-                nmom=self.opts.nmom_bath,
+                max_order=max_order,
+                c_frag=c_frag,
+                c_env=c_env,
         )
 
-        self.log.info("EwDMET bath character:")
-        s = self.mf.get_ovlp()
-        for i in range(c_bath.shape[-1]):
-            s_bath = np.linalg.multi_dot((c_bath[:, i].T.conj(), s, c_bath[:, [i]]))
-            arg = np.argsort(-s_bath)
-            s_bath = s_bath[arg]
-            n = np.amin((len(s_bath), 6))
-            labels = np.asarray(self.mol.ao_labels())[arg][:n]
-            lines = [("%s = %.5f" % (labels[i].strip(), s_bath[i])) for i in range(n)]
-            self.log.info("  > %2d:  %s", i+1, '  '.join(lines))
-
-        self.log.timing("Time for EwDMET bath:  %s", time_string(timer() - t0))
+        self.log.timing("Time for power orbital bath:  %s", time_string(timer() - t0))
         self.log.changeIndentLevel(-1)
 
+        self.print_power_orbital_character(c_bath)
+
         c_cluster_occ, c_cluster_vir = self.diagonalize_cluster_dm(
-                self.c_frag,
+                c_frag if c_frag is not None else self.c_frag,
                 c_bath,
-                tol=2*self.opts.ewdmet_threshold,
+                tol=2*self.opts.dmet_threshold,
         )
         self.log.info(
                 "Cluster orbitals:  n(occ) = %d  n(vir) = %d",
@@ -216,293 +181,186 @@ class EAGF2Fragment(QEmbeddingFragment):
         return c_cluster_occ, c_cluster_vir, c_env_occ, c_env_vir
 
 
-    def make_dmet_mp2_bath(self):
-        ''' Make DMET + MP2 BNO bath orbitals.
+    def make_dmet_bath(self, c_frag=None, c_env=None):
+        return self.make_power_bath(max_order=0, c_frag=c_frag, c_env=c_env)
 
-        Returns
-        -------
-        c_cluster_occ : np.ndarray
-            Occupied cluster coefficients.
-        c_cluster_vir : np.ndarray
-            Virtual cluster coefficients.
-        c_env_occ : np.ndarray
-            Occupied environment coefficients.
-        c_env_vir : np.ndarray
-            Virtual environment coefficients.
+
+    def make_bno_bath(self, c_frag=None, c_env=None):
+        raise NotImplementedError  #TODO
+
+
+    def make_bath(self, c_frag=None, c_env=None):
+        if self.opts.bath_type.lower() == 'none':
+            return self.make_dmet_bath(c_frag=c_frag, c_env=c_env)
+        elif self.opts.bath_type.lower() == 'power':
+            return self.make_power_bath(c_frag=c_frag, c_env=c_env)
+        elif self.opts.bath_type.lower() == 'all':
+            return self.make_power_bath(c_frag=c_frag, c_env=c_env, max_order=np.inf)  #TODO test
+        elif self.opts.bath_type.lower() == 'mp2-bno':
+            return self.make_bno_bath(self, c_frag=c_frag, c_env=c_env)
+
+
+    def print_power_orbital_character(self, c_bath):
+        ''' Print the character of the power orbitals including auxiliaries.
         '''
 
-        t0 = timer()
+        nmo = self.mf.mo_occ.size
+        nocc = np.sum(self.mf.mo_occ > 0)
+        nocc_aux = self.se.get_occupied().naux
+        naux = self.se.naux
+        labels = []
+        for i in range(nmo+naux):
+            if i < nocc:
+                labels.append('%3d %6s' % (i, '(1h)'))
+            elif i < nmo:
+                labels.append('%3d %6s' % (i, '(1p)'))
+            elif i < (nmo+nocc_aux):
+                labels.append('%3d %6s' % (i, '(2h1p)'))
+            else:
+                labels.append('%3d %6s' % (i, '(2p1h)'))
 
-        self.log.info("Making DMET+MP2 bath")
-        self.log.info("*******************")
+        self.log.info("Bath states")
+        self.log.info("***********")
         self.log.changeIndentLevel(1)
 
-        c_cluster_occ, c_cluster_vir, \
-                c_no_occ, n_no_occ, c_no_vir, n_no_vir = EWFFragment.make_bath(self)
+        self.log.info("%4s %s", "Bath", "Dominant MOs and auxiliaries")
+        for i in range(c_bath.shape[-1]):
+            wt_phys = np.linalg.norm(c_bath[:nmo, i])**2
+            char_string = ""
+            num = 0
+            for j in np.argsort(c_bath[:, i]**2):
+                if c_bath[j, i]**2 > self.base.opts.excitation_tol:
+                    if num == 3:
+                        char_string += " ..."
+                        break
+                    char_string += "%11s (%7.3f %%) " % (labels[j], (c_bath[j, i]**2)*100)
+                    num += 1
+            self.log.info("%4d %s", i, char_string)
 
-        self.log.info("Making occupied BNO bath")
-        self.log.info("------------------------")
-        c_nbo_occ, c_env_occ = \
-                self.truncate_bno(c_no_occ, n_no_occ, self.opts.bno_threshold)
-
-        self.log.info("Making virtual BNO bath")
-        self.log.info("-----------------------")
-        c_nbo_vir, c_env_vir = \
-                self.truncate_bno(c_no_vir, n_no_vir, self.opts.bno_threshold)
-
-        c_env_occ = c_env_occ
-        c_env_vir = c_env_vir
-        c_cluster_occ = self.canonicalize_mo(c_cluster_occ, c_nbo_occ)[0]
-        c_cluster_vir = self.canonicalize_mo(c_cluster_vir, c_nbo_vir)[0]
-
-        self.log.timing("Time for DMET+MP2 bath:  %s", time_string(timer() - t0))
         self.log.changeIndentLevel(-1)
 
-        return c_cluster_occ, c_cluster_vir, c_env_occ, c_env_vir
 
-
-    def make_bath(self):
-        ''' Make bath orbitals.
-
-        Returns
-        -------
-        c_cluster_occ : np.ndarray
-            Occupied cluster coefficients.
-        c_cluster_vir : np.ndarray
-            Virtual cluster coefficients.
-        c_env_occ : np.ndarray
-            Occupied environment coefficients.
-        c_env_vir : np.ndarray
-            Virtual environment coefficients.
-        '''
-
-        if self.opts.bath_type.upper() in ['EWDMET', 'POWER']:
-            return self.make_ewdmet_bath()
-        else:
-            return self.make_dmet_mp2_bath()
-
-
-    def democratic_partition(self, matrix, mo_coeff=None, ovlp=None):
+    def democratic_partition(self, m, c=None):
         ''' Democratically partition a matrix.
         '''
 
-        if mo_coeff is None:
-            mo_coeff = self.c_active
-        if ovlp is None:
-            ovlp = self.mf.get_ovlp()
+        if c is None:
+            c = np.dot(self.results.c_active.T.conj(), self.c_frag)
 
-        c = pyscf.lib.einsum('pa,pq,qi->ai', mo_coeff.conj(), ovlp, self.c_frag)
         p_frag = np.dot(c, c.T.conj())
 
-        c_full = np.hstack((self.c_frag, self.c_env))
-        c = pyscf.lib.einsum('pa,pq,qi->ai', mo_coeff.conj(), ovlp, c_full)
-        p_full = np.dot(c, c.T.conj())
+        m_demo = (
+                + 0.5 * np.einsum('...pq,pi->...iq', m, p_frag)
+                + 0.5 * np.einsum('...pq,qj->...pj', m, p_frag)
+        )
 
-        m = pyscf.lib.einsum('...pq,pi,qj->...ij', matrix, p_frag, p_full)
-        m = 0.5 * (m + m.swapaxes(m.ndim-1, m.ndim-2).conj())
-
-        return m
+        return m_demo
 
 
-    #def project_to_fragment(self, cluster_solver, mo_coeff):
-    #    ''' Project quantities back onto the fragment space.
-
-    #    Parameters
-    #    ----------
-    #    cluster_solver : vayesta.eagf2.ragf2.RAGF2
-    #        RAGF2 cluster solver object.
-    #    mo_coeff : np.ndarray
-    #        MO coefficients corresponding to the active orbitals of the
-    #        basis used in `cluster_solver`.
-
-    #    Returns
-    #    -------
-    #    rdm1 : np.ndarray
-    #        Reduced one-body density matrix, democratically partitioned and
-    #        transformed into the MO basis.
-    #    fock : np.ndarray
-    #        Fock matrix, democratically partitioned and transformed into the
-    #        MO basis.
-    #    t_occ : np.ndarray
-    #        Occupied self-energy moments, democratically partitioned and 
-    #        transformed into the into the MO basis.
-    #    t_vir : np.ndarray
-    #        Virtual self-energy moments, democratically partitioned and 
-    #        transformed into the into the MO basis.
-    #    '''
-
-    #    rdm1 = cluster_solver.make_rdm1(with_frozen=False)
-    #    fock = cluster_solver.get_fock(with_frozen=False)
-    #    se = cluster_solver.se
-    #    ovlp = self.mf.get_ovlp()
-
-    #    #TODO move democratic partitioning to external function
-    #    c = pyscf.lib.einsum('pa,pq,qi->ai', mo_coeff.conj(), ovlp, self.c_frag)
-    #    p_frag = np.dot(c, c.T.conj())
-
-    #    c_full = np.hstack((self.c_frag, self.c_env))
-    #    c = pyscf.lib.einsum('pa,pq,qi->ai', mo_coeff.conj(), ovlp, c_full)
-    #    p_full = np.dot(c, c.T.conj())
-
-    #    def democratic_part(matrix):
-    #        m = pyscf.lib.einsum('...pq,pi,qj->...ij', matrix, p_frag, p_full)
-    #        m = 0.5 * (m + m.swapaxes(m.ndim-1, m.ndim-2).conj())
-    #        return m
-
-    #    rdm1 = democratic_part(rdm1)
-    #    fock = democratic_part(fock)
-    #    t_occ = democratic_part(se.get_occupied().moment([0, 1], squeeze=False))
-    #    t_vir = democratic_part(se.get_virtual().moment([0, 1], squeeze=False))
-    #    #TODO higher moments?
-
-    #    return rdm1, fock, t_occ, t_vir
-
-
-    def kernel(self, eris=None):
-        ''' Run solver.
+    def canonicalize_qmo(self, *qmo_coeff, eigvals=True, sign_convention=True):
+        ''' Diagonalize Fock matrix within subspace, including auxiliaries.
 
         Parameters
         ----------
-        eri : np.ndarray
-            Four- or three-centre ERI array, if None then calculate
-            inside cluster solver (default value is None).
+        *qmo_coeff : ndarrays
+            Orbital coefficients.
+        eigvals : bool
+            Return energies of canonicalized QMOs.
 
         Returns
         -------
-        results : EAGF2FragmentResults
-            Object contained results of `EAGF2Fragment`, see 
-            `EAGF2FragmentResults` for a list of attributes.
+        c_canon : ndarray
+            Canonicalized QMO coefficients.
+        rot : ndarray
+            Rotation matrix.
+        e_canon : ndarray
+            Canonicalized QMO energies, if `eigvals==True`.
         '''
 
-        if self.c_cluster_occ is None:
-            self.c_cluster_occ, self.c_cluster_vir, self.c_env_occ, self.c_env_vir = \
-                    self.make_bath()
+        qmo_coeff = np.hstack(qmo_coeff)
+        fock = np.linalg.multi_dot((qmo_coeff.T.conj(), self.se.get_array(self.fock), qmo_coeff))
+        energy, rot = np.linalg.eigh(fock)
+        canon = np.dot(qmo_coeff, rot)
 
-        c_occ = np.hstack((self.c_env_occ, self.c_cluster_occ))
-        c_vir = np.hstack((self.c_cluster_vir, self.c_env_vir))
-        nactive = self.c_cluster_occ.shape[-1] + self.c_cluster_vir.shape[-1]
-        nocc, nvir = c_occ.shape[-1], c_vir.shape[-1]
-        nocc_frozen = self.c_env_occ.shape[-1]
-        nvir_frozen = self.c_env_vir.shape[-1]
-        mo_coeff = np.hstack((c_occ, c_vir))
+        if sign_convention:
+            canon, signs = orbital_sign_convention(canon)
+            rot *= signs[None]
 
-        # Check occupations
-        n_occ = self.get_mo_occupation(c_occ)
-        if not np.allclose(n_occ, 2, atol=2*self.opts.dmet_threshold):
-            raise RuntimeError("Incorrect occupation of occupied orbitals:\n%r" % n_occ)
-        n_vir = self.get_mo_occupation(c_vir)
-        if not np.allclose(n_vir, 0, atol=2*self.opts.dmet_threshold):
-            raise RuntimeError("Incorrect occupation of virtual orbitals:\n%r" % n_vir)
-        mo_occ = np.asarray(nocc*[2] + nvir*[0])
+        if eigvals:
+            return canon, rot, energy
+        return canon, rot
 
-        #mo_energy, mo_coeff = self.mf.canonicalize(mo_coeff, mo_occ)
-        mo_coeff, _, mo_energy = self.canonicalize_mo(mo_coeff, eigvals=True)
-        c_active = mo_coeff[:, list(range(nocc_frozen, nocc+nvir-nvir_frozen))]
-        c_frozen = mo_coeff[:, list(range(nocc_frozen)) + 
-                               list(range(nocc+nvir-nvir_frozen, nocc+nvir))]
 
-        # Get ERIs
-        if eris is None:
-            if self.base.kdf is None:
-                if getattr(self.mf, 'with_df', None) is None:
-                    eri = pyscf.ao2mo.incore.full(self.mf._eri, c_active, compact=False)
-                    eri = eri.reshape((c_active.shape[1],) * 4)
-                else:
-                    if self.mf.with_df._cderi is None:
-                        self.mf.with_df.build()
-                    eri = np.concatenate([x for x in self.mf.with_df.loop()])
-                    eri = np.asarray(pyscf.lib.unpack_tril(eri, axis=-1))
-                    eri = ragf2._ao2mo_3c(eri, c_active, c_active)
-            else:
-                #TODO Three-center?
-                #TODO this is hacky!
-                #c = np.concatenate((c_active, c_active), axis=1)
-                #eri = kao2gmo.gdf_to_eris(self.base.kdf, c, nactive, only_ovov=True)['ovov']
+    def diagonalize_cluster_dm(self, *qmo_coeff, tol=1e-4):
+        '''
+        Diagoanlize cluster (fragment_bath) DM to get fully occupied and
+        virtual orbitals, including auxiliary space.
 
-                #ints3c = kao2gmo.ThreeCenterInts.init_from_gdf(self.base.kdf)
-                #iden = np.array([np.eye(self.base.kcell.nao),] * len(self.base.kdf.kpts))
-                #eri = kao2gmo.j3c_kao2gmo(ints3c, iden, iden, only_ov=True, driver='python')['ov']
-                #eri = eri.reshape(eri.shape[0]*eri.shape[1], eri.shape[2], eri.shape[3])
-                #eri = np.einsum('Lpq,pi,qj->Lij', eri, c_active.conj(), c_active)
-                #eri = np.ascontiguousarray(eri)
+        Parameters
+        ----------
+        *qmo_coeff : ndarrays
+            QMO coefficients.
+        tol : float, optional
+            If set, check that all eigenvalues of the cluster DM are close
+            to 0 or 1, with the tolerance given by tol. Default= 1e-4.
 
-                eri = kao2gmo.gdf_to_eris(
-                        self.base.kdf,
-                        np.hstack((c_active, c_active)),
-                        c_active.shape[-1],
-                        only_ovov=True,
-                )
-                eri = eri['ovov']
+        Returns
+        -------
+        c_occclt : ndarray
+            Occupied cluster orbitals.
+        c_virclt : ndarray
+            Virtual cluster orbitals.
+        '''
 
-        # Get Veff due to frozen density
-        if self.base.kdf is None:
-            veff = None  # Just let RAGF2 code get it
-        else:
-            from pyscf.pbc.tools import k2gamma
-            #TODO clean, sort of repeated in eagf2._get_veff_unfolded
-            scell, phase = k2gamma.get_phase(self.base.kcell, self.base.kpts)
-            nr, nk = phase.shape
-            nao = self.base.kcell.nao
+        c_cls = np.hstack(qmo_coeff)
+        dm = self.mf.make_rdm1(self.qmo_coeff, self.qmo_occ)
+        dm = np.linalg.multi_dot((c_cls.T.conj(), dm, c_cls)) / 2
+        e, v = np.linalg.eigh(dm)
 
-            dm_froz = np.dot(self.c_env_occ, self.c_env_occ.T.conj()) * 2
-            dm_froz = dm_froz.reshape(nr, nao, nr, nao)
-            dm_froz_kpts = np.einsum('risj,rk,sk->kij', dm_froz, phase.conj(), phase)
-            #dm_froz_kpts = dm_froz_kpts.real  #FIXME don't think so
+        if tol and not np.allclose(np.fmin(abs(e), abs(e-1)), 0, atol=tol, rtol=0):
+            raise RuntimeError("Error while diagonalizing cluster DM: eigenvalues not all close to 0 or 1:\n%s", e)
 
-            vj_kpts, vk_kpts = self.base.kdf.get_jk(dm_froz_kpts)
-            veff_kpts = [vj-0.5*vk for vj,vk in zip(vj_kpts, vk_kpts)]
-            veff = np.einsum('kij,rk,sk->risj', veff_kpts, phase, phase.conj())
-            veff = veff.reshape(nr*nao, nr*nao)
-            assert np.max(np.abs(veff.imag)) < 1e-7
-            veff = veff.real
+        e, v = e[::-1], v[:,::-1]
+        c_cls = np.dot(c_cls, v)
+        nocc = sum(e >= 0.5)
+        c_cls_occ, c_cls_vir = np.hsplit(c_cls, [nocc])
 
-        # Run solver
-        cluster_solver = self.solver(
-                self.mf,
-                mo_energy=mo_energy,
-                mo_coeff=mo_coeff,
-                mo_occ=mo_occ,
-                frozen=(nocc_frozen, nvir_frozen),
-                log=self.base.quiet_log,
-                eri=eri,
-                veff=veff,
-                dump_chkfile=False,
-                options=self.opts.solver_options,
-        )
-        cluster_solver.kernel()
+        return c_cls_occ, c_cls_vir
 
-        e_corr = cluster_solver.e_corr
-        #rdm1, fock, t_occ, t_vir = self.project_to_fragment(cluster_solver, c_active)
-        rdm1 = cluster_solver.make_rdm1(with_frozen=False)
-        fock = cluster_solver.get_fock(with_frozen=False)
-        t_occ = cluster_solver.se.get_occupied().moment([0, 1], squeeze=False)
-        t_vir = cluster_solver.se.get_virtual().moment([0, 1], squeeze=False)
+
+    def kernel(self, solver, se, fock, c_frag=None, c_env=None):
+        ''' Run the solver for the fragment.
+        '''
+
+        self.se = se
+        self.fock = fock
+        self.qmo_energy, self.qmo_coeff = se.eig(fock)
+        self.qmo_occ = np.array([2.0 * (x < se.chempot) for x in self.qmo_energy])
+
+        c_cls_occ, c_cls_vir, c_env_occ, c_env_vir = self.make_bath(c_frag=c_frag, c_env=c_env)
+
+        mo_coeff_act_occ, _, mo_energy_act_occ = self.canonicalize_qmo(c_cls_occ, eigvals=True)
+        mo_coeff_act_vir, _, mo_energy_act_vir = self.canonicalize_qmo(c_cls_vir, eigvals=True)
+        mo_coeff_act = np.hstack((mo_coeff_act_occ, mo_coeff_act_vir))
+
+        c_occ = np.dot(self.mf.mo_coeff, mo_coeff_act_occ[:solver.nact])
+        c_vir = np.dot(self.mf.mo_coeff, mo_coeff_act_vir[:solver.nact])
+
+        with helper.QMOIntegrals(self, c_occ, c_vir, 'xija') as xija:
+            t_occ = solver._build_moments(mo_energy_act_occ, mo_energy_act_vir, xija)
+        with helper.QMOIntegrals(self, c_occ, c_vir, 'xabi') as xabi:
+            t_vir = solver._build_moments(mo_energy_act_vir, mo_energy_act_occ, xabi)
+
+        moms_frag = np.array([t_occ, t_vir])
 
         results = EAGF2FragmentResults(
                 fid=self.id,
-                n_active=nactive,
-                converged=cluster_solver.converged,
-                c_frozen=c_frozen,
-                c_active=c_active,
-                e_corr=e_corr,
-                e_1b=cluster_solver.e_1b,
-                e_2b=cluster_solver.e_2b,
-                ip=cluster_solver.e_ip,
-                ea=cluster_solver.e_ea,
-                rdm1=rdm1,
-                fock=fock,
-                t_occ=t_occ,
-                t_vir=t_vir,
+                n_active=mo_coeff_act.shape[-1],
+                c_active=mo_coeff_act,
+                moms=moms_frag,
         )
 
         self._results = results
-
-        # Force GC to free memory
-        m0 = get_used_memory()
-        del cluster_solver
-        ndel = gc.collect()
-        self.log.debugv("GC deleted %d objects and freed %.3f MB of memory",
-                        ndel, (get_used_memory()-m0)/1e6)
 
         return results
 

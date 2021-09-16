@@ -1,8 +1,10 @@
 import logging
 import dataclasses
 import types
+import copy
 
 import numpy as np
+import scipy.linalg
 
 import pyscf
 import pyscf.lib
@@ -14,7 +16,7 @@ from vayesta.ewf import helper
 from vayesta.core import QEmbeddingMethod
 from vayesta.core.util import OptionsBase, time_string, NotSet
 from vayesta.eagf2.fragment import EAGF2Fragment
-from vayesta.eagf2.ragf2 import RAGF2, RAGF2Options
+from vayesta.eagf2.ragf2 import RAGF2, RAGF2Options, DIIS
 
 try:
     from mpi4py import MPI
@@ -22,12 +24,10 @@ try:
 except ImportError:
     from timeit import default_timer as timer
 
-#TODO ragf2 as solver
-
 
 @dataclasses.dataclass
-class EAGF2Options(OptionsBase):
-    ''' Options for EAGF2 calculations - see `EAGF2`.
+class EAGF2Options(RAGF2Options):
+    ''' Options for EAGF2 calculations - see `RAGF2Options`.
     '''
 
     # --- Fragment settings
@@ -35,23 +35,17 @@ class EAGF2Options(OptionsBase):
     iao_minao: str = 'auto'
 
     # --- Bath settings
-    bath_type: str = 'MP2-BNO'    # 'MP2-BNO', 'EWDMET' == 'POWER', 'ALL', 'NONE'
-    nmom_bath: int = 2
+    bath_type: str = 'POWER'    # 'MP2-BNO', 'POWER', 'ALL', 'NONE'
+    max_bath_order: int = 2
     bno_threshold: float = 1e-8
     bno_threshold_factor: float = 1.0
     dmet_threshold: float = 1e-4
-    ewdmet_threshold: float = 1e-4
-
-    # --- Solver settings
-    solver_options: dict = dataclasses.field(default_factory=dict)
-    fock_loop_options: dict = NotSet
 
     # --- Other
     strict: bool = False
     orthogonal_mo_tol: float = 1e-10
     recalc_veff: bool = False
     copy_mf: bool = False
-    quiet_solver: bool = True
 
 
 @dataclasses.dataclass
@@ -60,6 +54,8 @@ class EAGF2Results:
 
     Attributes
     ----------
+    converged : bool
+        Convergence flag.
     e_corr : float
         Correlation energy.
     e_1b : float
@@ -70,39 +66,17 @@ class EAGF2Results:
         Green's function object.
     se: pyscf.agf2.SelfEnergy
         Self-energy object.
+    solver: RAGF2
+        RAGF2 solver object.
     '''
 
+    converged: bool = None
     e_corr: float = None
     e_1b: float = None
     e_2b: float = None
     gf: pyscf.agf2.GreensFunction = None
     se: pyscf.agf2.SelfEnergy = None
-
-
-def _get_veff_unfolded(eagf2):
-    ''' Get the `get_veff` function using unfolding.
-    '''
-    #TODO clean, repeated in fragment kernel
-
-    from pyscf.pbc.tools import k2gamma
-    scell, phase = k2gamma.get_phase(eagf2.kcell, eagf2.kpts)
-    nr, nk = phase.shape
-    nao = eagf2.kcell.nao
-
-    def get_veff(self, dm, *args, **kwargs):
-        dm_kpts = np.einsum('risj,rk,sk->kij', dm.reshape(nr, nao, nr, nao), phase.conj(), phase)
-        #dm_kpts = dm_kpts.real
-
-        vj_kpts, vk_kpts = eagf2.kdf.get_jk(dm_kpts)
-        veff_kpts = [vj-0.5*vk for vj, vk in zip(vj_kpts, vk_kpts)]
-        veff = np.einsum('kij,rk,sk->risj', veff_kpts, phase, phase.conj())
-        veff = veff.reshape(nr*nao, nr*nao)
-        assert np.max(np.abs(veff.imag)) < 1e-7
-        veff = veff.real
-
-        return veff
-
-    return get_veff
+    solver: RAGF2 = None
 
 
 class EAGF2(QEmbeddingMethod):
@@ -110,9 +84,10 @@ class EAGF2(QEmbeddingMethod):
     Options = EAGF2Options
     Results = EAGF2Results
     Fragment = EAGF2Fragment
+    DIIS = DIIS
 
     def __init__(self, mf, options=None, log=None, **kwargs):
-        ''' Embedded AGF2 calculation
+        ''' Embedded AGF2 calculation.
 
         Parameters
         ----------
@@ -127,11 +102,10 @@ class EAGF2(QEmbeddingMethod):
             Fragmentation method (default value is 'Lowdin-AO').
         iao_minao : str
             Minimal basis for IAOs (default value is 'auto').
-        bath_type : {'MP2-BNO', 'EWDMET', 'POWER', 'ALL', 'NONE'}
-            Bath orbital method (default value is 'MP2-BNO'). 'EWDMET'
-            and 'POWER' are equivalent.
-        nmom_bath : int
-            Number of moments for power orbitals (default value is 2).
+        bath_type : {'MP2-BNO', 'POWER', 'ALL', 'NONE'}
+            Bath orbital method (default value is 'POWER').
+        max_bath_order : int
+            Maximum order of power orbitals (default value is 2).
         bno_threshold : float
             Threshold for BNO cutoff when `bath_type` is 'MP2-BNO'
             (default value is 1e-8).
@@ -140,21 +114,14 @@ class EAGF2(QEmbeddingMethod):
         dmet_threshold : float
             Threshold for idempotency of cluster DM in DMET bath
             construction (default value is 1e-4).
-        ewdmet_threshold : float
-            Threshold for idempotency of cluster DM in power orbital
-            bath construction (default value is 1e-4).
-        solver_options : dataclass.field
-            Options passed to solver on each cluster, see
-            `vayesta.eagf2.ragf2.RAGF2` for options.
-        fock_loop_options : dataclass.field
-            Options passed to Fock loop on combined system. If NotSet
-            then use solver_options.
         strict : bool
             Force convergence in the mean-field calculations (default
             value is True).
         orthogonal_mo_tol : float
             Threshold for orthogonality in molecular orbitals (default
             value is 1e-9).
+
+        Plus any keyword argument from RAGF2Options.
 
         Attributes
         ----------
@@ -174,6 +141,7 @@ class EAGF2(QEmbeddingMethod):
         super().__init__(mf, log=log)
         t0 = timer()
 
+        # --- Options for EAGF2
         self.opts = options
         if self.opts is None:
             self.opts = EAGF2Options(**kwargs)
@@ -181,33 +149,7 @@ class EAGF2(QEmbeddingMethod):
             self.opts = self.opts.replace(kwargs)
         self.log.info("EAGF2 parameters:")
         for key, val in self.opts.items():
-            if key == 'solver_options' or key == 'fock_loop_options':
-                continue
             self.log.info("  > %-24s %r", key + ":", val)
-
-        # --- Quiet logger for AGF2 calculations on the clusters
-        if self.opts.quiet_solver:
-            self.quiet_log = logging.Logger('quiet')
-            self.quiet_log.setLevel(logging.CRITICAL)
-        else:
-            self.quiet_log = self.log
-
-        # --- Options for RAGF2 solver
-        solver_options = RAGF2Options(**self.opts.solver_options)
-        self.opts.solver_options = solver_options
-        self.log.info("RAGF2 solver parameters:")
-        for key, val in self.opts.solver_options.items():
-            self.log.info("  > %-24s %r", key + ":", val)
-
-        # --- Options for final Fock loop
-        if not (self.opts.fock_loop_options is NotSet):
-            fock_loop_options = RAGF2Options(**self.opts.fock_loop_options)
-            self.opts.fock_loop_options = fock_loop_options.replace({'fock_basis': 'ao'})
-            self.log.info("RAGF2 Fock loop parameters:")
-            for key, val in self.opts.fock_loop_options.items():
-                self.log.info("  > %-24s %r", key + ":", val)
-        else:
-            self.opts.fock_loop_options = solver_options.replace({'fock_basis': 'ao'})
 
         # --- Check input
         if not mf.converged:
@@ -216,7 +158,7 @@ class EAGF2(QEmbeddingMethod):
             else:
                 self.log.error("Mean-field calculation not converged.")
 
-        # Orthogonalize insufficiently orthogonal MOs
+        # --- Orthogonalize insufficiently orthogonal MOs
         # (For example as a result of k2gamma conversion with low cell.precision)
         c = self.mo_coeff.copy()
         assert np.all(c.imag == 0), "max|Im(C)|= %.2e" % abs(c.imag).max()
@@ -233,7 +175,7 @@ class EAGF2(QEmbeddingMethod):
                           " (!!!)" if change.max() > 1e-4 else "")
             self.log.timing("Time for orbital orthogonalization: %s", time_string(timer()-t0))
 
-        # Prepare fragments
+        # --- Prepare fragments
         t1 = timer()
         fragkw = {}
         if self.opts.fragment_type.upper() == 'IAO':
@@ -270,6 +212,10 @@ class EAGF2(QEmbeddingMethod):
     def e_ea(self):
         return self.results.gf.get_virtual().energy.min()
 
+    @property
+    def converged(self):
+        return self.results.converged
+
 
     def kernel(self):
         ''' Run the EAGF2 calculation.
@@ -291,122 +237,146 @@ class EAGF2(QEmbeddingMethod):
         if abs(nelec_frags - np.rint(nelec_frags)) > 1e-4:
             self.log.warning("Number of electrons not integer!")
 
-        nmo = self.mf.mo_occ.size
-        rdm1 = np.zeros((nmo, nmo))
-        fock = np.zeros((nmo, nmo))
-        t_occ = np.zeros((2, nmo, nmo))  #TODO higher moments?
-        t_vir = np.zeros((2, nmo, nmo))
+        self.log.info("Initialising solver:")
+        self.log.changeIndentLevel(1)
+        solver = RAGF2(
+                self.mf,
+                eri=np.empty(()),
+                veff=np.empty(()),
+                log=self.log,
+                options=self.opts,
+                fock_basis='ao',
+        )
+        solver.log = self.log
+        self.log.changeIndentLevel(-1)
 
-        for x, frag in enumerate(self.fragments):
-            self.log.info("Now running %s", frag)
-            self.log.info("************%s", len(str(frag))*"*")
+        diis = self.DIIS(space=self.opts.diis_space, min_space=self.opts.diis_min_space)
+        solver.se = pyscf.agf2.aux.SelfEnergy(np.empty((0)), np.empty((solver.nact, 0)))
+        fock = np.diag(self.mf.mo_energy)
+        fock_mo = fock.copy()
+
+        converged = False
+        for niter in range(0, self.opts.max_cycle+1):
+            t1 = timer()
+            self.log.info("Iteration %d" % niter)
+            self.log.info("**********%s" % ('*'*len(str(niter))))
             self.log.changeIndentLevel(1)
 
-            if frag.sym_parent is None:
-                results = frag.kernel()
-                self.cluster_results[frag.id] = results
+            se_prev = copy.deepcopy(solver.se)
+            e_prev = solver.e_tot
 
-                self.log.info("E(corr) = %20.12f", results.e_corr)
-                self.log.info("IP      = %20.12f", results.ip)
-                self.log.info("EA      = %20.12f", results.ea)
-                self.log.info("Gap     = %20.12f", results.ip + results.ea)
-                if not results.converged:
-                    self.log.error("%s is not converged", frag)
-                    if self.opts.strict:
-                        raise RuntimeError
-                else:
+            moms_demo = 0
+            for x, frag in enumerate(self.fragments):
+                self.log.info("Fragment %d" % x)
+                self.log.info("---------%s" % ('-'*len(str(x))))
+                self.log.changeIndentLevel(1)
+
+                n = frag.c_frag.shape[0]
+                sc = np.dot(self.get_ovlp(), self.mf.mo_coeff)
+                c = np.dot(sc.T.conj(), frag.c_frag)
+                p_frag = np.zeros((solver.nact+solver.se.naux, solver.nact+solver.se.naux))
+                p_frag[:n, :n] += np.dot(c, c.T.conj())
+                c_frag = scipy.linalg.orth(p_frag)
+                c_env = scipy.linalg.null_space(p_frag)
+                assert c_env.shape[-1] == (solver.nact + solver.se.naux - c_frag.shape[1])
+
+                if frag.sym_parent is None:
+                    results = frag.kernel(solver, solver.se, fock, c_frag=c_frag, c_env=c_env)
+                    self.cluster_results[frag.id] = results
                     self.log.info("%s is done.", frag)
+                else:
+                    self.log.info("Fragment is symmetry related, parent: %s", frag.sym_parent)
+                    results = self.cluster_results[frag.sym_parent.id]
 
-            else:
-                self.log.info("Fragment is symmetry related, parent: %s", frag.sym_parent)
-                results = self.cluster_results[frag.sym_parent.id]
+                c = np.dot(results.c_active.T.conj(), c_frag)
+                moms = frag.democratic_partition(results.moms, c=c)
 
-            rdm1_frag = frag.democratic_partition(results.rdm1, mo_coeff=results.c_active)
-            fock_frag = frag.democratic_partition(results.fock, mo_coeff=results.c_active)
-            t_occ_frag = frag.democratic_partition(results.t_occ, mo_coeff=results.c_active)
-            t_vir_frag = frag.democratic_partition(results.t_vir, mo_coeff=results.c_active)
+                c = results.c_active[:solver.nact].T.conj()
+                moms_demo += np.einsum('...pq,pi,qj->...ij', moms, c, c)
 
-            ovlp = frag.mf.get_ovlp()
-            c = pyscf.lib.einsum('pa,pq,qi->ai', results.c_active.conj(), ovlp, frag.mf.mo_coeff)
+                self.log.changeIndentLevel(-1)
 
-            rdm1 += pyscf.lib.einsum('pq,pi,qj->ij', rdm1_frag, c.conj(), c)
-            fock += pyscf.lib.einsum('pq,pi,qj->ij', fock_frag, c.conj(), c)
-            t_occ += pyscf.lib.einsum('...pq,pi,qj->...ij', t_occ_frag, c.conj(), c)
-            t_vir += pyscf.lib.einsum('...pq,pi,qj->...ij', t_vir_frag, c.conj(), c)
+            se_occ, se_vir = (solver._build_se_from_moments(m) for m in moms_demo)
+            solver.se = solver._combine_se(se_occ, se_vir)
+
+            if niter != 0:
+                solver.run_diis(solver.se, None, diis, se_prev=se_prev)
+
+            w, v = solver.solve_dyson(fock=fock_mo)
+            solver.gf = pyscf.agf2.aux.GreensFunction(w, v[:solver.nact])
+            solver.gf, solver.se, fconv, fock = solver.fock_loop(fock=fock_mo, return_fock=True)
+            solver.gf.remove_uncoupled(tol=1e-12)
+
+            solver.e_1b = solver.energy_1body()
+            solver.e_2b = solver.energy_2body()
+            solver.print_energies()
+            solver.print_excitations()
+
+            deltas = solver._convergence_checks(se=solver.se, se_prev=se_prev, e_prev=e_prev)
+
+            self.log.info("Change in energy:     %10.3g", deltas[0])
+            self.log.info("Change in 0th moment: %10.3g", deltas[1])
+            self.log.info("Change in 1st moment: %10.3g", deltas[2])
+
+            if self.opts.dump_chkfile and solver.chkfile is not None:
+                self.log.debug("Dumping current iteration to chkfile")
+                solver.dump_chk()
+
+            self.log.timing("Time for AGF2 iteration:  %s", time_string(timer() - t1))
 
             self.log.changeIndentLevel(-1)
 
+            if deltas[0] < self.opts.conv_tol \
+                    and deltas[1] < self.opts.conv_tol_t0 \
+                    and deltas[2] < self.opts.conv_tol_t1:
+                converged = True
+                break
 
-        gf2 = RAGF2(self.mf,
-                eri=np.empty(()),
-                veff=np.empty(()),
-                log=self.quiet_log,
-                options=options,
+        solver.gf.remove_uncoupled(tol=1e-12)
+        solver.e_1b = solver.energy_1body()
+        solver.e_2b = solver.energy_2body()
+
+        self.results = EAGF2Results(
+                converged=converged,
+                e_corr=solver.e_corr,
+                e_1b=solver.e_1b,
+                e_2b=solver.e_2b,
+                gf=solver.gf,
+                se=solver.se,
+                solver=solver,
         )
 
-        w_occ = np.linalg.eigvalsh(t_occ[0])
-        se_occ = gf2._build_se_from_moments(t_occ)
-        if np.any(w_occ < -1e-10):
-            self.log.warning("Large negative eigenvalue of occupied 0th moment:  %.3g", w_occ.min())
-            self.log.warning("EAGF2 may not recover full embedded self-energy!")
-        else:
-            t_occ_emb = se_occ.moment(range(2), squeeze=False)
-            if not np.allclose(t_occ_emb, t_occ):
-                self.log.error("EAGF2 did not recover full embedded occupied self-energy!")
-                self.log.error("Error = %.3g", np.max(np.abs(t_occ - t_occ_emb)))
+        (self.log.info if converged else self.log.warning)("Converged = %r", converged)
 
-        w_vir = np.linalg.eigvalsh(t_vir[0])
-        se_vir = gf2._build_se_from_moments(t_vir)
-        if np.any(w_vir < -1e-10):
-            self.log.warning("Large negative eigenvalue of virtual 0th moment:  %.3g", w_vir.min())
-            self.log.warning("EAGF2 may not recover full embedded self-energy!")
-        else:
-            t_vir_emb = se_vir.moment(range(2), squeeze=False)
-            if not np.allclose(t_vir_emb, t_vir):
-                self.log.error("EAGF2 did not recover full embedded virtual self-energy!")
-                self.log.error("Error = %.3g", np.max(np.abs(t_vir - t_vir_emb)))
+        if self.opts.pop_analysis:
+            solver.population_analysis()
 
-        gf2.se = pyscf.agf2.aux.combine(se_occ, se_vir)
-        gf2.se.chempot = 0.5 * (se_occ.energy.max() + se_vir.energy.min())
+        if self.opts.dip_moment:
+            solver.dip_moment()
 
-        w, v = gf2.solve_dyson(se=gf2.se, gf=gf2.gf, fock=fock)
-        gf2.gf = pyscf.agf2.GreensFunction(w, v[:gf2.nmo])
-        gf2.gf, gf2.se, fconv = gf2.fock_loop(gf=gf2.gf, se=gf2.se, fock=fock)
+        if self.opts.dump_cubefiles:
+            #TODO test
+            self.log.debug("Dumping orbitals to .cube files")
+            gf_occ, gf_vir = self.gf.get_occupied(), self.gf.get_virtual()
+            for i in range(self.opts.dump_cubefiles):
+                if (gf_occ.naux-1-i) >= 0:
+                    self.dump_cube(gf_occ.naux-1-i, cubefile="hoqmo%d.cube"%i)
+                if (gf_occ.naux+i) < gf.naux:
+                    self.dump_cube(gf_occ.naux+i, cubefile="luqmo%d.cube"%i)
 
-        if not fconv:
-            self.log.warning("Full system Fock loop did not converge.")
-            if self.opts.strict:
-                raise RuntimeError
+        solver.print_energies(output=True)
 
-        gf2.e_1b  = 0.5 * np.sum(rdm1 * (gf2.h1e + fock))
-        gf2.e_1b += gf2.e_nuc
-        gf2.e_2b  = gf2.energy_2body(gf=gf2.gf, se=gf2.se)
+        self.log.info("Time elapsed:  %s", time_string(timer() - t0))
 
-        results = EAGF2Results(
-                e_corr=gf2.e_corr,
-                e_1b=gf2.e_1b,
-                e_2b=gf2.e_2b,
-                gf=gf2.gf,
-                se=gf2.se,
-        )
-        self.results = results
+        return self.results
 
-        with pyscf.lib.temporary_env(gf2, log=self.log):
-            gf2.print_excitations()
-            gf2.print_energies(output=True)
-
-        self.log.info("Total wall time:  %s", time_string(timer() - t0))
-        self.log.info("All done.")
-
-        return results
-
-
+    
     def run(self):
-        ''' Run self.kernel and return self.
+        ''' Run self.kernel and return self
 
         Returns
         -------
-        eagf2 : EAGF2
+        self: EAGF2
             `EAGF2` object containing calculation results.
         '''
 
@@ -429,54 +399,37 @@ class EAGF2(QEmbeddingMethod):
         return fmt % (self.__class__.__name__, *[x for y in zip(keys, values) for x in y])
 
 
-
 if __name__ == '__main__':
-    bno_threshold = 0.0
-    fragment_type = 'Lowdin-AO'
+    from pyscf import gto, scf
 
-    mol = pyscf.gto.Mole()
-    #mol.atom = 'He 0 0 0; He 0 0 1'
-    #mol.basis = '6-31g'
-    mol.atom = 'O 0 0 0.11779; H 0 0.755453 -0.471161; H 0 -0.755453 -0.471161'
-    mol.basis = 'cc-pvdz'
+    mol = gto.Mole()
+    mol.atom = ';'.join(['H 0 0 %d' % x for x in range(10)])
+    mol.basis = 'sto6g'
     mol.verbose = 0
-    mol.max_memory = 1e9
     mol.build()
 
-    mf = pyscf.scf.RHF(mol)
-    mf.conv_tol = 1e-14
-    mf.conv_tol_grad = 1e-10
-    mf.run()
+    mf = scf.RHF(mol)
+    mf = mf.density_fit(auxbasis='aug-cc-pvqz-ri')
+    mf.conv_tol = 1e-12
+    mf.kernel()
+    assert mf.converged
 
-    gf2_params = {
-        'conv_tol': 1e-10,
-        'conv_tol_rdm1': 1e-14,
-        'conv_tol_nelec': 1e-12,
-        'max_cycle_inner': 200,
-        'weight_tol': 0,
-        #'fock_loop': False,
+    opts = {
+        'conv_tol': 1e-8,
+        'conv_tol_rdm1': 1e-12,
+        'conv_tol_nelec': 1e-10,
+        'conv_tol_nelec_factor': 1e-4,
     }
 
-    ip_mf = -mf.mo_energy[mf.mo_occ > 0].max()
-    ea_mf = mf.mo_energy[mf.mo_occ == 0].min()
+    eagf2 = EAGF2(mf, fragment_type='Lowdin-AO', max_bath_order=20)
+    for i in range(mol.natm//2):
+        eagf2.make_atom_fragment([i*2, i*2+1])
+    eagf2.kernel()
+    assert eagf2.converged
 
-    eagf2 = EAGF2(mf,
-            bno_threshold=bno_threshold,
-            fragment_type=fragment_type,
-            bath_type='ALL',
-            solver_options=gf2_params,
-    )
-    for i in range(mol.natm):
-        frag = eagf2.make_atom_fragment(i)
-        frag.make_bath()
-    eagf2.run()
-
-    vayesta.log.setLevel(logging.OUTPUT)
-    agf2 = RAGF2(mf, **gf2_params)
-    agf2.kernel()
-    #fock = agf2.get_fock()
-    #w, v = agf2.solve_dyson(se=agf2.se, gf=agf2.gf, fock=fock)
-    #gf = pyscf.agf2.GreensFunction(w, v[:agf2.nmo])
-    #gf, se = agf2.fock_loop(gf=gf, se=agf2.se)
-    #print(gf.get_occupied().energy.max())
-    vayesta.log.setLevel(logging.INFO)
+    from vayesta import log
+    log.info("Full AGF2:")
+    log.setLevel(25)
+    gf2 = RAGF2(mf, log=log)
+    gf2.kernel()
+    assert gf2.converged
