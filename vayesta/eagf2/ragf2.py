@@ -939,7 +939,7 @@ class RAGF2:
         self.log.info("***********")
         self.log.changeIndentLevel(1)
 
-        self.log.infov("%2s %12s %12s %s", "IP", "Energy", "QP weight", " Dominant MOs")
+        self.log.info("%2s %12s %12s %s", "IP", "Energy", "QP weight", " Dominant MOs")
         for n in range(min(gf_occ.naux, self.opts.excitation_number)):
             en = -gf_occ.energy[-n-1]
             vn = gf_occ.coupling[:, -n-1]
@@ -951,11 +951,11 @@ class RAGF2:
                     if num == 3:
                         char_string += " ..."
                         break
-                    char_string += "%3d (%7.3f %%) " % (i, (np.abs(vn[i])**2)*100)
+                    char_string += "%3d (%7.3f %%) " % (i, (vn[i]**2)*100)
                     num += 1
-            self.log.infov("%2d %12.6f %12.6f  %s", n, en, qpwt, char_string)
+            self.log.info("%2d %12.6f %12.6f  %s", n, en, qpwt, char_string)
 
-        self.log.infov("%2s %12s %12s %s", "EA", "Energy", "QP weight", " Dominant MOs")
+        self.log.info("%2s %12s %12s %s", "EA", "Energy", "QP weight", " Dominant MOs")
         for n in range(min(gf_vir.naux, self.opts.excitation_number)):
             en = gf_vir.energy[n]
             vn = gf_vir.coupling[:, n]
@@ -967,9 +967,9 @@ class RAGF2:
                     if num == 3:
                         char_string += " ..."
                         break
-                    char_string += "%3d (%7.3f %%) " % (i, (np.abs(vn[i])**2)*100)
+                    char_string += "%3d (%7.3f %%) " % (i, (vn[i]**2)*100)
                     num += 1
-            self.log.infov("%2d %12.6f %12.6f  %s", n, en, qpwt, char_string)
+            self.log.info("%2d %12.6f %12.6f  %s", n, en, qpwt, char_string)
 
         self.log.changeIndentLevel(-1)
 
