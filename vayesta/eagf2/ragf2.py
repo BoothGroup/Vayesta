@@ -627,7 +627,7 @@ class RAGF2:
                 derr = np.max(np.absolute(rdm1 - rdm1_prev))
                 rdm1_prev = rdm1.copy()
 
-                self.log.debug('%12s %9s %12.4g %12.4g', '(*) %d'%niter1, '-> %d'%niter2, nerr, derr)
+                self.log.debugv('%12s %9s %12.4g %12.4g', '(*) %d'%niter1, '-> %d'%niter2, nerr, derr)
 
                 if abs(derr) < self.opts.conv_tol_rdm1:
                     break
