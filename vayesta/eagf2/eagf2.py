@@ -176,6 +176,7 @@ class EAGF2(QEmbeddingMethod):
         t1 = timer()
         fragkw = {}
         if self.opts.fragment_type.upper() == 'IAO':
+            raise NotImplementedError("IAOs are not yet supported for EAGF2")
             if self.opts.iao_minao == 'auto':
                 self.opts.iao_minao = helper.get_minimal_basis(self.mol.basis)
                 self.log.warning("Minimal basis set '%s' for IAOs was selected automatically.",
