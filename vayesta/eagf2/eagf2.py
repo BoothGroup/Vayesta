@@ -41,7 +41,7 @@ class EAGF2Options(RAGF2Options):
     # --- Other
     strict: bool = False
     orthogonal_mo_tol: float = 1e-10
-    recalc_veff: bool = False
+    recalc_vhf: bool = False
     copy_mf: bool = False
 
 

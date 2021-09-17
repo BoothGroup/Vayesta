@@ -4,7 +4,8 @@ import scipy.linalg
 from pyscf import ao2mo, lib
 
 from vayesta.eagf2 import ragf2
-from vayesta.core import kao2gmo, linalg
+from vayesta.core import linalg
+from vayesta.core.ao2mo import kao2gmo
 
 
 def make_dmet_bath(frag, c_frag=None, c_env=None, tol=1e-5):
