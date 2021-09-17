@@ -12,25 +12,20 @@ import logging
 import numpy as np
 # PySCF
 import pyscf
-import pyscf.cc  #FIXME
+import pyscf.mp
+import pyscf.cc
 import pyscf.lib
+import pyscf.mp
+import pyscf.cc
 from pyscf.mp.mp2 import _mo_without_core
 import pyscf.pbc
 import pyscf.pbc.df
 import pyscf.pbc.tools
 from pyscf.pbc.lib import kpts_helper
 # Package
-from vayesta.core.util import NotSetType  #FIXME
 from vayesta.core.util import *
-from vayesta.misc import gdf
 import vayesta.libs
 
-# RSGDF [Berkelback et al.]
-try:
-    from pyscf.pbc.df.rsdf import RSGDF
-except ImportError:
-    #RSGDF = vayesta.core.util.NotSetType  #FIXME
-    RSGDF = NotSetType
 
 log = logging.getLogger(__name__)
 
@@ -436,7 +431,7 @@ class ThreeCenterInts:
             nkuniq = j3c.shape[0]
             log.info("Nkuniq= %3d", nkuniq)
             # Check map
-            _get_kpt_hash = gdf._get_kpt_hash
+            _get_kpt_hash = pyscf.pbc.df.df_incore._get_kpt_hash
             kuniq_map = np.zeros((self.nk, self.nk), dtype=np.int)
             # 2D systems not supported in incore version:
             j3c_neg = None

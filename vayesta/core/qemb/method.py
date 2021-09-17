@@ -15,6 +15,7 @@ import pyscf.pbc
 import pyscf.pbc.df
 import pyscf.pbc.tools
 import pyscf.lib
+from pyscf.mp.mp2 import _mo_without_core
 try:
     import pyscf.pbc.df.df_incore
     from pyscf.pbc.df.df_incore import IncoreGDF
@@ -24,10 +25,13 @@ except:
 from vayesta.core import vlog
 from vayesta.core.k2bvk import UnfoldedSCF, unfold_scf
 from vayesta.core.util import *
-from vayesta.core.kao2gmo import gdf_to_pyscf_eris
+from vayesta.core.ao2mo.dfccsd import make_eris as make_eris_ccsd
+from vayesta.core.ao2mo.kao2gmo import gdf_to_pyscf_eris
 from vayesta.misc.gdf import GDF
+from vayesta import lattmod
 
 from .fragment import QEmbeddingFragment
+from .scmf import PDMET_SCMF, Brueckner_SCMF
 
 
 class QEmbeddingMethod:
@@ -37,7 +41,7 @@ class QEmbeddingMethod:
 
     @dataclasses.dataclass
     class Options(OptionsBase):
-        recalc_veff: bool = False
+        recalc_vhf: bool = True
         wf_partition: str = 'first-occ'     # ['first-occ', 'first-vir', 'democratic']
 
 
@@ -151,10 +155,10 @@ class QEmbeddingMethod:
         self._hcore = None
         self._veff = None
         # HF potential
-        if self.opts.recalc_veff:
-            self.log.debug("Recalculating effective potential from MF object.")
+        if self.opts.recalc_vhf:
+            self.log.debug("Recalculating HF potential from MF object.")
         else:
-            self.log.debug("Determining effective potential from MOs.")
+            self.log.debug("Determining HF potential from MO energies and coefficients.")
             cs = np.dot(self.mo_coeff.T, self.get_ovlp())
             fock = np.dot(cs.T*self.mo_energy, cs)
             self._veff = fock - self.get_hcore()
@@ -167,8 +171,9 @@ class QEmbeddingMethod:
         idterr = self.mo_coeff.T.dot(self.get_ovlp()).dot(self.mo_coeff) - np.eye(self.nmo)
         self.log.log(logging.ERROR if np.linalg.norm(idterr) > 1e-5 else logging.DEBUG,
                 "Orthogonality error of MF orbitals: L(2)= %.2e  L(inf)= %.2e", np.linalg.norm(idterr), abs(idterr).max())
-        self.log.debugv("MO energies (occ):\n%r", self.mo_energy[self.mo_occ > 0])
-        self.log.debugv("MO energies (vir):\n%r", self.mo_energy[self.mo_occ == 0])
+        if self.mo_energy is not None:
+            self.log.debugv("MO energies (occ):\n%r", self.mo_energy[self.mo_occ > 0])
+            self.log.debugv("MO energies (vir):\n%r", self.mo_energy[self.mo_occ == 0])
 
         # 3) Fragments
         # ------------
@@ -178,7 +183,8 @@ class QEmbeddingMethod:
 
         # 4) Other
         # --------
-        self.c_lo = None  # Local orthogonal orbitals (e.g. Lowdin)
+        self.with_scmf = None   # Self-consistent mean-field
+        self.c_lo = None        # Local orthogonal orbitals (e.g. Lowdin)
 
 
     # --- Basic properties and methods
@@ -271,7 +277,7 @@ class QEmbeddingMethod:
     @property
     def nmo(self):
         """Total number of molecular orbitals (MOs)."""
-        return len(self.mo_energy)
+        return self.mo_coeff.shape[-1]
 
     @property
     def nocc(self):
@@ -358,7 +364,7 @@ class QEmbeddingMethod:
         """Fock matrix in AO basis."""
         return self.get_hcore() + self.get_veff()
 
-    def get_eris(self, cm):
+    def get_eris(self, mo_or_cm):
         """Get ERIS for post-HF methods.
 
         For unfolded PBC calculations, this folds the MO back into k-space
@@ -366,18 +372,49 @@ class QEmbeddingMethod:
 
         Parameters
         ----------
-        cm: pyscf.mp.mp2.MP2, pyscf.cc.ccsd.CCSD, or pyscf.cc.rccsd.RCCSD
-            Correlated method, must have mo_coeff set.
+        mo_or_cm: array or one of the following post-HF methods:
+                pyscf.mp.mp2.MP2,
+                pyscf.cc.ccsd.CCSD,
+                or pyscf.cc.rccsd.RCCSD
+                or pyscf.cc.dfccsd.DFCCSD
+            MO coefficients or correlated method with mo_coeff set.
 
         Returns
         -------
-        eris: pyscf.mp.mp2._ChemistsERIs, pyscf.cc.ccsd._ChemistsERIs, or pyscf.cc.rccsd._ChemistsERIs
+        eris: array or cm._ChemistsERIs
             ERIs which can be used for the respective correlated method.
         """
+        # 1) Input = MO coefficients
+        # ==========================
+        if isinstance(mo_or_cm, np.ndarray):
+            mo = mo_or_cm
+            # Temporary fix for Hubbard-models with only onsite repulsion!
+            # TODO: k-DF...?
+            if hasattr(self.mf, 'with_df') and self.mf.with_df is not None:
+                eris = self.mf.with_df.ao2mo(mo, compact=False)
+            elif self.mf._eri is not None:
+                eris = pyscf.ao2mo.full(self.mf._eri, mo, compact=False)
+            else:
+                eris = self.mol.ao2mo(mo, compact=False)
+            eris = eris.reshape(4*[mo.shape[-1]])
+            return eris
+        # 2) Input = Correlated method
+        # ============================
         # Molecules or supercell:
+        cm = mo_or_cm
         if self.kdf is None:
             self.log.debugv("ao2mo method: %r", cm.ao2mo)
-            if isinstance(cm, pyscf.mp.dfmp2.DFMP2):
+            # For PBC DFCCSD calculation we need to use the right Fock matrix (without exxdiv correction!)
+            # -> use custom ao2mo
+            if self.boundary_cond.startswith('periodic') and isinstance(cm, pyscf.cc.ccsd.CCSD):
+                c_act = _mo_without_core(cm, cm.mo_coeff)
+                fock = dot(c_act.T, self.get_fock(), c_act)
+                mo_energy = fock.diagonal().copy()
+                madelung = pyscf.pbc.tools.madelung(self.mol, self.mf.kpt)
+                for i in range(cm.get_nocc()):
+                    fock[i,i] += madelung
+                return make_eris_ccsd(cm, fock=fock, mo_energy=mo_energy)
+            elif isinstance(cm, pyscf.mp.dfmp2.DFMP2):
                 # TODO: This is a hack, requiring modified PySCF - normal DFMP2 does not store 4c (ov|ov) integrals
                 return cm.ao2mo(store_eris=True)
             else:
@@ -385,6 +422,17 @@ class QEmbeddingMethod:
         # k-point sampled primitive cell:
         eris = gdf_to_pyscf_eris(self.mf, self.kdf, cm, fock=self.get_fock())
         return eris
+
+
+    def kernel(self, *args, **kwargs):
+        # If with_scmf is set, go via the SCMF kernel instead:
+        if self.with_scmf is not None:
+            return self.with_scmf.kernel(*args, **kwargs)
+        return self.kernel_one_iteration(*args, **kwargs)
+
+    def kernel_one_iteration(self, *args, **kwargs):
+        raise NotImplementedError("Abstract method")
+
 
     # Fragmentation specific routines
     # -------------------------------
@@ -455,8 +503,39 @@ class QEmbeddingMethod:
     # Results
     # -------
 
+    def get_dmet_energy(self):
+        e_dmet = self.mol.energy_nuc()
+        for f in self.fragments:
+            e_dmet += f.get_fragment_dmet_energy()
+        return e_dmet
 
-    def get_wf_ccsd(self, get_lambda=False, partition=None):
+    def get_t1(self, get_lambda=False, partition=None):
+        """Get global CCSD T1- or L1-amplitudes from fragment calculations.
+
+        Parameters
+        ----------
+        partition: ['first-occ', 'first-vir', 'democratic']
+            Partitioning scheme of the T amplitudes. Default: 'first-occ'.
+
+        Returns
+        -------
+        t1: (n(occ), n(vir)) array
+            Global T1- or L1-amplitudes.
+        """
+        if partition is None: partition = self.opts.wf_partition
+        t1 = np.zeros((self.nocc, self.nvir))
+        ovlp = self.get_ovlp()
+        # Add fragment WFs in intermediate normalization
+        for f in self.fragments:
+            self.log.debugv("Now adding projected %s-amplitudes of fragment %s", ("L" if get_lambda else "T"), f)
+            ro, rv = f.get_rot_to_mf()
+            t1f = (f.results.l1 if get_lambda else f.results.get_t1())
+            if t1f is None: raise RuntimeError("Amplitudes not found for %s" % f)
+            t1f = f.project_amplitude_to_fragment(t1f, partition=partition)
+            t1 += einsum('ia,iI,aA->IA', t1f, ro, rv)
+        return t1
+
+    def get_t12(self, calc_t1=True, calc_t2=True, get_lambda=False, partition=None, symmetrize=True):
         """Get global CCSD wave function (T1 and T2 amplitudes) from fragment calculations.
 
         Parameters
@@ -472,44 +551,37 @@ class QEmbeddingMethod:
             Global T2 amplitudes.
         """
         if partition is None: partition = self.opts.wf_partition
-        t1 = np.zeros((self.nocc, self.nvir))
-        t2 = np.zeros((self.nocc, self.nocc, self.nvir, self.nvir))
+        t1 = np.zeros((self.nocc, self.nvir)) if calc_t1 else None
+        t2 = np.zeros((self.nocc, self.nocc, self.nvir, self.nvir)) if calc_t2 else None
         ovlp = self.get_ovlp()
         # Add fragment WFs in intermediate normalization
         for f in self.fragments:
-            if f.results.t2 is not None and not get_lambda:
-                a1, a2 = f.results.t1, f.results.t2
-            elif f.results.l2 is not None and get_lambda:
-                a1, a2 = f.results.l1, f.results.l2
-            elif f.results.c2 is not None:
-                a1, a2 = f.results.convert_amp_c_to_t()
-            else:
-                raise RuntimeError("No amplitudes found for fragment %s" % f)
-            a1 = f.project_amplitude_to_fragment(a1, partition=partition)
-            a2 = f.project_amplitude_to_fragment(a2, partition=partition, symmetrize=True)
-            ro = np.linalg.multi_dot((f.c_active_occ.T, ovlp, self.mo_coeff_occ))
-            rv = np.linalg.multi_dot((f.c_active_vir.T, ovlp, self.mo_coeff_vir))
-            t1 += einsum('ia,iI,aA->IA', a1, ro, rv)
-            t2 += einsum('ijab,iI,jJ,aA,bB->IJAB', a2, ro, ro, rv, rv)
+            self.log.debugv("Now adding projected %s-amplitudes of fragment %s", ("L" if get_lambda else "T"), f)
+            ro, rv = f.get_rot_to_mf()
+            if calc_t1:
+                t1f = (f.results.l1 if get_lambda else f.results.get_t1())
+                if t1f is None: raise RuntimeError("Amplitudes not found for %s" % f)
+                t1f = f.project_amplitude_to_fragment(t1f, partition=partition)
+                t1 += einsum('ia,iI,aA->IA', t1f, ro, rv)
+            if calc_t2:
+                t2f = (f.results.l2 if get_lambda else f.results.get_t2())
+                if t2f is None: raise RuntimeError("Amplitudes not found for %s" % f)
+                t2f = f.project_amplitude_to_fragment(t2f, partition=partition, symmetrize=symmetrize)
+                t2 += einsum('ijab,iI,jJ,aA,bB->IJAB', t2f, ro, ro, rv, rv)
+        #t2 = (t2 + t2.transpose(1,0,3,2))/2
+        #assert np.allclose(t2, t2.transpose(1,0,3,2))
         return t1, t2
 
+    #get_wf_ccsd = get_ccsd_t12
 
-    def make_rdm1(self, partition='dm', ao_basis=False, add_mf=True, symmetrize=True,
-            wf_partition=None):
-        """Recreate global one-particle reduced density-matrix from fragment calculations.
+    def make_rdm1_demo(self, ao_basis=False, add_mf=True, symmetrize=True):
+        """Make democratically partitioned one-particle reduced density-matrix from fragment calculations.
 
         Warning: A democratically partitioned DM is only expected to yield good results
         for Lowdin-AO or site fragmentation.
 
         Parameters
         ----------
-        partition: ['dm', 'wf-ccsd']
-            Type of density-matrix partioning:
-                'dm': The density-matrix of each cluster is projected in it's first index
-                      onto the corresponding fragment space.
-                'wf-t12': The wave-function amplitudes (only T1, T2) of each cluster are projected in it's first
-                      occupied index onto the corresponding fragment space.
-            Default: 'dm'
         ao_basis: bool, optional
             Return the density-matrix in the AO basis. Default: False.
         add_mf: bool, optional
@@ -523,68 +595,164 @@ class QEmbeddingMethod:
         dm1: (n, n) array
             One-particle reduced density matrix in AO (if `ao_basis=True`) or MO basis (default).
         """
-        partition = partition.lower()
-        if partition == 'dm':
-            if add_mf:
-                #sc = np.dot(self.get_ovlp(), self.mo_coeff)
-                sc = np.dot(self.get_ovlp(), self.mf.mo_coeff)
-                dm1_mf = np.linalg.multi_dot((sc.T, self.mf.make_rdm1(), sc))
-                dm1 = dm1_mf.copy()
-            else:
-                dm1 = np.zeros((self.nmo, self.nmo))
-            for f in self.fragments:
-                if f.results.dm1 is None:
-                    raise RuntimeError("DM1 not calculated for fragment %s!" % f)
-                if self.opts.dm_with_frozen:
-                    cf = f.mo_coeff
-                else:
-                    cf = f.c_active
-                #rf = np.linalg.multi_dot((self.mo_coeff.T, self.get_ovlp(), cf))
-                rf = np.linalg.multi_dot((self.mf.mo_coeff.T, self.get_ovlp(), cf))
-                if add_mf:
-                    # Subtract double counting:
-                    ddm = (f.results.dm1 - np.linalg.multi_dot((rf.T, dm1_mf, rf)))
-                else:
-                    ddm = f.results.dm1
-                pf = f.get_fragment_projector(cf)
-                dm1 += einsum('xi,ij,px,qj->pq', pf, ddm, rf, rf)
-        elif partition.startswith('wf-t12'):
-            t1, t2 = self.get_wf_ccsd(partition=wf_partition)
-            cc = pyscf.cc.ccsd.CCSD(self.mf)
-            if 'l12_full' in partition:
-                l1 = l2 = None
-            elif 'l12' in partition:
-                l1, l2 = self.get_wf_ccsd(get_lambda=True, partition=wf_partition)
-            else:
-                l1, l2 = t1, t2
-            dm1 = cc.make_rdm1(t1=t1, t2=t2, l1=l1, l2=l2, with_frozen=False)
+        if add_mf:
+            sc = np.dot(self.get_ovlp(), self.mo_coeff)
+            dm1_mf = dot(sc.T, self.mf.make_rdm1(), sc)
+            dm1 = dm1_mf.copy()
         else:
-            raise NotImplementedError("Unknown make_rdm1 partition= %r", partition)
-
+            dm1 = np.zeros((self.nmo, self.nmo))
+        for f in self.fragments:
+            self.log.debugv("Now adding projected DM of fragment %s", f)
+            if f.results.dm1 is None:
+                raise RuntimeError("DM1 not calculated for fragment %s!" % f)
+            if self.opts.dm_with_frozen:
+                cf = f.mo_coeff
+            else:
+                cf = f.c_active
+            rf = dot(self.mo_coeff.T, self.get_ovlp(), cf)
+            if add_mf:
+                # Subtract double counting:
+                ddm = (f.results.dm1 - dot(rf.T, dm1_mf, rf))
+            else:
+                ddm = f.results.dm1
+            pf = f.get_fragment_projector(cf)
+            dm1 += einsum('xi,ij,px,qj->pq', pf, ddm, rf, rf)
         if ao_basis:
-            #dm1 = np.linalg.multi_dot((self.mo_coeff, dm1, self.mo_coeff.T))
-            dm1 = np.linalg.multi_dot((self.mf.mo_coeff, dm1, self.mf.mo_coeff.T))
+            dm1 = dot(self.mo_coeff, dm1, self.mo_coeff.T)
         if symmetrize:
             dm1 = (dm1 + dm1.T)/2
         return dm1
 
+    def make_rdm1_ccsd(self, ao_basis=False, symmetrize=True, partition=None, t_as_lambda=False, slow=False):
+        """Make one-particle reduced density-matrix from partitioned fragment CCSD wave functions.
 
-    def make_rdm2(self, partition='dm', ao_basis=False, add_mf=True, symmetrize=True,
-            wf_partition=None):
-        """Recreate global two-particle reduced density-matrix from fragment calculations.
+        Parameters
+        ----------
+        ao_basis: bool, optional
+            Return the density-matrix in the AO basis. Default: False.
+        symmetrize: bool, optional
+            Symmetrize the density-matrix at the end of the calculation. Default: True.
+        partition: ['first-occ', 'first-vir', 'democratic']
+        t_as_lambda: bool, optional
+            Use T-amplitudes instead of Lambda-amplitudes for CCSD density matrix. Default: False.
+        slow: bool, optional
+            Combine to global CCSD wave function first, then build density matrix.
+            Equivalent, but does not scale well. Default: False
+
+        Returns
+        -------
+        dm1: (n, n) array
+            One-particle reduced density matrix in AO (if `ao_basis=True`) or MO basis (default).
+        """
+
+        if slow:
+            t1, t2 = self.get_t12(partition=partition)
+            cc = pyscf.cc.ccsd.CCSD(self.mf)
+            #cc.conv_tol = 1e-12
+            #cc.conv_tol_normt = 1e-10
+            #if 'full-l' in partition:
+            #    l1 = l2 = None
+            if t_as_lambda:
+                l1, l2 = t1, t2
+            else:
+                l1, l2 = self.get_t12(get_lambda=True, partition=partition)
+            dm1 = cc.make_rdm1(t1=t1, t2=t2, l1=l1, l2=l2, with_frozen=False)
+
+        else:
+            # T1/L1-amplitudes can be summed directly
+            t1 = self.get_t1(partition=partition)
+            l1 = (t1 if t_as_lambda else self.get_t1(get_lambda=True, partition=partition))
+
+            # --- Preconstruct some C^T.S.C rotation matrices:
+            # Fragment orbital projectors
+            pf = []
+            # Fragment to mean-field occupied/virtual
+            f2mfo = []
+            f2mfv = []
+            # Fragment to other fragment occupied/virtual
+            f2fo = [[] for i in range(self.nfrag)]
+            f2fv = [[] for i in range(self.nfrag)]
+            ovlp = self.get_ovlp()
+            for i1, f1 in enumerate(self.fragments):
+                pf.append(f1.get_fragment_projector(f1.c_active_occ))
+                cso = np.dot(f1.c_active_occ.T, ovlp)
+                csv = np.dot(f1.c_active_vir.T, ovlp)
+                f2mfo.append(np.dot(cso, self.mo_coeff_occ))
+                f2mfv.append(np.dot(csv, self.mo_coeff_vir))
+                for i2, f2 in enumerate(self.fragments):
+                    f2fo[i1].append(np.dot(cso, f2.c_active_occ))
+                    f2fv[i1].append(np.dot(csv, f2.c_active_vir))
+
+            # --- Loop over pairs of fragments and add projected density-matrix contributions
+            nocc, nvir = t1.shape
+            doo = np.zeros((nocc, nocc))
+            dvv = np.zeros((nvir, nvir))
+            dov = (t1 + l1 - einsum('ie,me,ma->ia', t1, l1, t1))
+            for i1, f1 in enumerate(self.fragments):
+                theta = f1.results.get_t2()
+                theta = (2*theta - theta.transpose(0,1,3,2))
+                theta = f1.project_amplitude_to_fragment(theta, partition=partition)
+                # Intermediates [leave left index in cluster basis]:
+                doo_f1 = np.zeros((f1.n_active_occ, nocc))
+                dvv_f1 = np.zeros((f1.n_active_vir, nvir))
+                dov += einsum('imae,ip,mM,aq,eE,ME->pq', theta, f2mfo[i1], f2mfo[i1], f2mfv[i1], f2mfv[i1], l1)
+                for i2, f2 in enumerate(self.fragments):
+                    #l2 = (f2.results.t2 if t_as_lambda else f2.results.l2)
+                    l2 = (f2.results.get_t2() if t_as_lambda else f2.results.l2)
+                    l2 = f2.project_amplitude_to_fragment(l2, partition=partition)
+                    ## Theta_jk^ab * l_ik^ab -> ij
+                    #doo -= einsum('jkab,IKAB,jp,kK,aA,bB,Iq->pq', theta_f1, l2_f2,
+                    #        f2mfo[i1], f2fo[i1][i2], f2fv[i1][i2], f2fv[i1][i2], f2mfo[i2])
+                    ## Theta_ji^ca * l_ji^cb -> ab
+                    #dvv += einsum('jica,JICB,jJ,iI,cC,ap,Bq->pq', theta_f1, l2_f2,
+                    #        f2fo[i1][i2], f2fo[i1][i2], f2fv[i1][i2], f2mfv[i1], f2mfv[i2])
+
+                    # Theta_jk^ab * l_ik^ab -> ij
+                    doo_f1 -= einsum('jkab,IKAB,kK,aA,bB,Iq->jq', theta, l2,
+                            f2fo[i1][i2], f2fv[i1][i2], f2fv[i1][i2], f2mfo[i2])
+                    # Theta_ji^ca * l_ji^cb -> ab
+                    dvv_f1 += einsum('jica,JICB,jJ,iI,cC,Bq->aq', theta, l2,
+                            f2fo[i1][i2], f2fo[i1][i2], f2fv[i1][i2], f2mfv[i2])
+
+                    # Theta_jk^ab * l_ik^ab -> ij
+                    #doo -= einsum('jx,Iy,jkab,IKAB,xp,kK,aA,bB,yq->pq',
+                    #        pf[i1], pf[i2], theta_f1, l2_f2,
+                    #        f2mfo[i1], f2fo[i1][i2], f2fv[i1][i2], f2fv[i1][i2], f2mfo[i2])
+                    ### Theta_ji^ca * l_ji^cb -> ab
+                    #dvv += einsum('jx,Jy,jica,JICB,xy,iI,cC,ap,Bq->pq',
+                    #        pf[i1], pf[i2], theta_f1, l2_f2,
+                    #        f2fo[i1][i2], f2fo[i1][i2], f2fv[i1][i2], f2mfv[i1], f2mfv[i2])
+                doo += np.dot(f2mfo[i1].T, doo_f1)
+                dvv += np.dot(f2mfv[i1].T, dvv_f1)
+
+            dov += einsum('im,ma->ia', doo, t1)
+            dov -= einsum('ie,ae->ia', t1, dvv)
+            doo -= einsum('ja,ia->ij', t1, l1)
+            dvv += einsum('ia,ib->ab', t1, l1)
+
+            nmo = (nocc + nvir)
+            occ, vir = np.s_[:nocc], np.s_[nocc:]
+            dm1 = np.zeros((nmo, nmo))
+            dm1[occ,occ] = (doo + doo.T)
+            dm1[vir,vir] = (dvv + dvv.T)
+            dm1[occ,vir] = dov
+            dm1[vir,occ] = dov.T
+            dm1[np.diag_indices(nocc)] += 2
+
+        if ao_basis:
+            dm1 = dot(self.mo_coeff, dm1, self.mo_coeff.T)
+        if symmetrize:
+            dm1 = (dm1 + dm1.T)/2
+        return dm1
+
+    def make_rdm2_demo(self, ao_basis=False, add_mf=True, symmetrize=True):
+        """Make democratically partitioned two-particle reduced density-matrix from fragment calculations.
 
         Warning: A democratically partitioned DM is only expected to yield good results
         for Lowdin-AO or site fragmentation.
 
         Parameters
         ----------
-        partition: ['dm', 'wf-t12', 'wf-t12-l12', 'wf-t12-l12_full']
-            Type of density-matrix partioning:
-                'dm': The density-matrix of each cluster is projected in it's first index
-                      onto the corresponding fragment space.
-                'wf-t12': The wave-function amplitudes (only T1, T2) of each cluster are projected in it's first
-                      occupied index onto the corresponding fragment space.
-            Default: 'dm'
         ao_basis: bool, optional
             Return the density-matrix in the AO basis. Default: False.
         add_mf: bool, optional
@@ -598,49 +766,75 @@ class QEmbeddingMethod:
         dm2: (n, n, n, n) array
             Two-particle reduced density matrix in AO (if `ao_basis=True`) or MO basis (default).
         """
-        partition = partition.lower()
-        if partition == 'dm':
-            if add_mf:
-                #dm2_mf = np.zeros(4*[self.nmo])
-                #for i in range(self.nocc):
-                #    for j in range(self.nocc):
-                #        dm2_mf[i,i,j,j] += 4.0
-                #        dm2_mf[i,j,j,i] -= 2.0
-                sc = np.dot(self.get_ovlp(), self.mo_coeff)
-                dm1_mf = np.linalg.multi_dot((sc.T, self.mf.make_rdm1(), sc))
-                dm2_mf = einsum('ij,kl->ijkl', dm1_mf, dm1_mf) - einsum('il,jk->ijkl', dm1_mf, dm1_mf)/2
-                dm2 = dm2_mf.copy()
-            else:
-                dm2 = np.zeros((self.nmo, self.nmo, self.nmo, self.nmo))
+        if add_mf:
+            #dm2_mf = np.zeros(4*[self.nmo])
+            #for i in range(self.nocc):
+            #    for j in range(self.nocc):
+            #        dm2_mf[i,i,j,j] += 4.0
+            #        dm2_mf[i,j,j,i] -= 2.0
+            sc = np.dot(self.get_ovlp(), self.mo_coeff)
+            dm1_mf = np.linalg.multi_dot((sc.T, self.mf.make_rdm1(), sc))
+            dm2_mf = einsum('ij,kl->ijkl', dm1_mf, dm1_mf) - einsum('il,jk->ijkl', dm1_mf, dm1_mf)/2
+            dm2 = dm2_mf.copy()
+        else:
+            dm2 = np.zeros((self.nmo, self.nmo, self.nmo, self.nmo))
 
-            for f in self.fragments:
-                if f.results.dm2 is None:
-                    raise RuntimeError("DM2 not calculated for fragment %s!" % f)
-                if self.opts.dm_with_frozen:
-                    cf = f.mo_coeff
-                else:
-                    cf = f.c_active
-                rf = np.linalg.multi_dot((self.mo_coeff.T, self.get_ovlp(), cf))
-                if add_mf:
-                    # Subtract double counting:
-                    ddm = (f.results.dm2 - einsum('IJKL,Ii,Jj,Kk,Ll->ijkl', dm2_mf, rf, rf, rf, rf))
-                else:
-                    ddm = f.results.dm2
-                pf = f.get_fragment_projector(cf)
-                dm2 += einsum('xi,ijkl,px,qj,rk,sl->pqrs', pf, ddm, rf, rf, rf, rf)
-        elif partition.startswith('wf-t12'):
-            t1, t2 = self.get_wf_ccsd(partition=wf_partition)
-            cc = pyscf.cc.ccsd.CCSD(self.mf)
-            if 'l12_full' in partition:
-                l1 = l2 = None
-            elif 'l12' in partition:
-                l1, l2 = self.get_wf_ccsd(get_lambda=True, partition=wf_partition)
+        for f in self.fragments:
+            if f.results.dm2 is None:
+                raise RuntimeError("DM2 not calculated for fragment %s!" % f)
+            if self.opts.dm_with_frozen:
+                cf = f.mo_coeff
             else:
+                cf = f.c_active
+            rf = np.linalg.multi_dot((self.mo_coeff.T, self.get_ovlp(), cf))
+            if add_mf:
+                # Subtract double counting:
+                ddm = (f.results.dm2 - einsum('IJKL,Ii,Jj,Kk,Ll->ijkl', dm2_mf, rf, rf, rf, rf))
+            else:
+                ddm = f.results.dm2
+            pf = f.get_fragment_projector(cf)
+            dm2 += einsum('xi,ijkl,px,qj,rk,sl->pqrs', pf, ddm, rf, rf, rf, rf)
+        if ao_basis:
+            dm2 = einsum('ijkl,pi,qj,rk,sl->pqrs', dm2, *(4*[self.mo_coeff]))
+        if symmetrize:
+            dm2 = (dm2 + dm2.transpose(1,0,3,2))/2
+        return dm2
+
+
+    def make_rdm2_ccsd(self, ao_basis=False, symmetrize=True, partition=None, t_as_lambda=False, slow=True):
+        """Recreate global two-particle reduced density-matrix from fragment calculations.
+
+        Parameters
+        ----------
+        ao_basis: bool, optional
+            Return the density-matrix in the AO basis. Default: False.
+        symmetrize: bool, optional
+            Symmetrize the density-matrix at the end of the calculation. Default: True.
+        partition: ['first-occ', 'first-vir', 'democratic']
+        t_as_lambda: bool, optional
+            Use T-amplitudes instead of Lambda-amplitudes for CCSD density matrix. Default: False.
+        slow: bool, optional
+            Combine to global CCSD wave function first, then build density matrix.
+            Equivalent, but does not scale well. Default: True.
+
+        Returns
+        -------
+        dm2: (n, n, n, n) array
+            Two-particle reduced density matrix in AO (if `ao_basis=True`) or MO basis (default).
+        """
+
+        if slow:
+            t1, t2 = self.get_t12(partition=partition)
+            cc = pyscf.cc.ccsd.CCSD(self.mf)
+            #if 'l12_full' in partition:
+            #    l1 = l2 = None
+            if t_as_lambda:
                 l1, l2 = t1, t2
+            else:
+                l1, l2 = self.get_t12(get_lambda=True, partition=partition)
             dm2 = cc.make_rdm2(t1=t1, t2=t2, l1=l1, l2=l2, with_frozen=False)
         else:
-            raise NotImplementedError("Unknown make_rdm2 partition= %r", partition)
-
+            raise NotImplementedError()
         if ao_basis:
             dm2 = einsum('ijkl,pi,qj,rk,sl->pqrs', dm2, *(4*[self.mo_coeff]))
         if symmetrize:
@@ -681,7 +875,7 @@ class QEmbeddingMethod:
             cs = np.dot(c_lo.T, self.get_ovlp())
             pop = einsum('ia,ab,ib->i', cs, dm1, cs)
         else:
-            raise ValueError("Unknown population analysis kind: %s" % kind)
+            raise ValueError("Unknown population analysis kind: %r" % kind)
         # Get atomic charges
         elecs = np.zeros(self.mol.natm)
         for i, label in enumerate(self.mol.ao_labels(fmt=None)):
@@ -717,3 +911,18 @@ class QEmbeddingMethod:
             f.close()
         return pop, chg
 
+    # --- Mean-field updates
+
+    def reset_fragments(self, *args, **kwargs):
+        for f in self.fragments:
+            f.reset(*args, **kwargs)
+
+    def pdmet_scmf(self, *args, **kwargs):
+        """Decorator for p-DMET."""
+        self.with_scmf = PDMET_SCMF(self, *args, **kwargs)
+        return self
+
+    def brueckner_scmf(self, *args, **kwargs):
+        """Decorator for Brueckner-DMET."""
+        self.with_scmf = Brueckner_SCMF(self, *args, **kwargs)
+        return self

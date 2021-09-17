@@ -1,9 +1,4 @@
-# Standard libaries
-import os
-import os.path
-from collections import OrderedDict
-import functools
-from datetime import datetime
+
 from timeit import default_timer as timer
 import dataclasses
 import copy
@@ -25,15 +20,12 @@ from vayesta.core import QEmbeddingFragment
 # We might want to move the useful things from here into core, since they seem pretty general.
 from vayesta.ewf import helper, psubspace
 
-
 from . import dmet
 from vayesta.solver import get_solver_class
 from vayesta.ewf import mp2_bath
 
-
 class DMETFragmentExit(Exception):
     pass
-
 
 class DMETFragment(QEmbeddingFragment):
 
@@ -48,6 +40,8 @@ class DMETFragment(QEmbeddingFragment):
         eom_ccsd: bool = NotSet
         energy_partitioning: str = NotSet
         sc_mode: int = NotSet
+        # Bath type
+        bath_type: str = NotSet
         # Additional fragment specific options:
         bno_threshold_factor: float = 1.0
         # CAS methods
@@ -102,7 +96,7 @@ class DMETFragment(QEmbeddingFragment):
 
         if solver is None:
             solver = self.base.solver
-        if solver not in dmet.VALID_SOLVERS:
+        if solver not in self.base.VALID_SOLVERS:
             raise ValueError("Unknown solver: %s" % solver)
         self.solver = solver
         self.log.infov('  > %-24s %r', 'Solver:', self.solver)
@@ -134,74 +128,71 @@ class DMETFragment(QEmbeddingFragment):
         idx = np.argmin(self.bno_threshold)
         return self.e_corrs[idx]
 
-    def make_bath(self):
+    def make_bath(self, bath_type=NotSet):
         """Make DMET and MP2 bath natural orbitals."""
+        if bath_type is NotSet:
+            bath_type = self.opts.bath_type
         t0_bath = t0 = timer()
         self.log.info("Making DMET Bath")
-        self.log.info("****************")
+        self.log.info("----------------")
         self.log.changeIndentLevel(1)
         c_dmet, c_env_occ, c_env_vir = self.make_dmet_bath(self.c_env, tol=self.opts.dmet_threshold)
-        # DMET bath analysis
-        self.log.info("DMET bath character:")
-        for i in range(c_dmet.shape[-1]):
-            ovlp = einsum('a,b,ba->a', c_dmet[:,i], c_dmet[:,i], self.base.get_ovlp())
-            sort = np.argsort(-ovlp)
-            ovlp = ovlp[sort]
-            #n = np.amin((np.count_nonzero(ovlp >= 0.2), 5))
-            n = np.amin((len(ovlp), 6))
-            labels = np.asarray(self.mol.ao_labels())[sort][:n]
-            lines = [("%s= %.5f" % (labels[i].strip(), ovlp[i])) for i in range(n)]
-            self.log.info("  > %2d:  %s", i+1, '  '.join(lines))
-
         self.log.timing("Time for DMET bath:  %s", time_string(timer()-t0))
+
         self.log.changeIndentLevel(-1)
 
-        # Add additional orbitals to cluster [optional]
-        #c_dmet, c_env_occ, c_env_vir = self.additional_bath_for_cluster(c_dmet, c_env_occ, c_env_vir)
-
         # Diagonalize cluster DM to separate cluster occupied and virtual
-        self.c_cluster_occ, self.c_cluster_vir = self.diagonalize_cluster_dm(self.c_frag, c_dmet, tol=2*self.opts.dmet_threshold)
-        self.log.info("Cluster orbitals:  n(occ)= %3d  n(vir)= %3d", self.c_cluster_occ.shape[-1], self.c_cluster_vir.shape[-1])
+        c_cluster_occ, c_cluster_vir = self.diagonalize_cluster_dm(self.c_frag, c_dmet, tol=2*self.opts.dmet_threshold)
+        self.log.info("Cluster orbitals:  n(occ)= %3d  n(vir)= %3d", c_cluster_occ.shape[-1], c_cluster_vir.shape[-1])
 
-
-        if c_env_occ.shape[-1] > 0:
-            self.log.info("Making Occupied Bath NOs")
-            self.log.info("------------------------")
-            t0 = timer()
-            self.log.changeIndentLevel(1)
-            self.c_no_occ, self.n_no_occ = mp2_bath.make_mp2_bno(
-                    self, "occ", self.c_cluster_occ, self.c_cluster_vir, c_env_occ, c_env_vir)
-            self.log.timing("Time for occupied BNOs:  %s", time_string(timer()-t0))
-            if len(self.n_no_occ) > 0:
-                self.log.info("Occupied Bath NO Histogram")
-                self.log.info("--------------------------")
-                for line in helper.plot_histogram(self.n_no_occ):
-                    self.log.info(line)
-            self.log.changeIndentLevel(-1)
+        self.log.debugv("bath_type= %r", bath_type)
+        if bath_type is None or bath_type.upper() == 'NONE':
+            c_no_occ = c_env_occ
+            c_no_vir = c_env_vir
+            n_no_occ = np.full((c_no_occ.shape[-1],), -np.inf)
+            n_no_vir = np.full((c_no_vir.shape[-1],), -np.inf)
+        elif bath_type.upper() == 'ALL':
+            c_no_occ = c_env_occ
+            c_no_vir = c_env_vir
+            n_no_occ = np.full((c_no_occ.shape[-1],), np.inf)
+            n_no_vir = np.full((c_no_vir.shape[-1],), np.inf)
+        elif bath_type.upper() == 'MP2-BNO':
+            c_no_occ, n_no_occ = self.make_bno_bath(c_cluster_occ, c_cluster_vir, c_env_occ, c_env_vir, 'occ')
+            c_no_vir, n_no_vir = self.make_bno_bath(c_cluster_occ, c_cluster_vir, c_env_occ, c_env_vir, 'vir')
         else:
-            self.c_no_occ = c_env_occ
-            self.n_no_occ = np.zeros((0,))
-
-        if c_env_vir.shape[-1] > 0:
-            self.log.info("Making Virtual Bath NOs")
-            self.log.info("-----------------------")
-            t0 = timer()
-            self.log.changeIndentLevel(1)
-            self.c_no_vir, self.n_no_vir = mp2_bath.make_mp2_bno(
-                    self, "vir", self.c_cluster_occ, self.c_cluster_vir, c_env_occ, c_env_vir)
-            self.log.timing("Time for virtual BNOs:   %s", time_string(timer()-t0))
-            if len(self.n_no_vir) > 0:
-                self.log.info("Virtual Bath NO Histogram")
-                self.log.info("-------------------------")
-                for line in helper.plot_histogram(self.n_no_vir):
-                    self.log.info(line)
-            self.log.changeIndentLevel(-1)
-        else:
-            self.c_no_vir = c_env_vir
-            self.n_no_vir = np.zeros((0,))
-
+            raise ValueError("Unknown bath type: '%s'" % bath_type)
 
         self.log.timing("Time for bath:  %s", time_string(timer()-t0_bath))
+
+        return c_cluster_occ, c_cluster_vir, c_no_occ, n_no_occ, c_no_vir, n_no_vir
+
+
+
+    def make_bno_bath(self, c_cluster_occ, c_cluster_vir, c_env_occ, c_env_vir, kind):
+        assert kind in ('occ', 'vir')
+        c_env = c_env_occ if (kind == 'occ') else c_env_vir
+        if c_env.shape[-1] == 0:
+            return c_env, np.zeros((0,))
+
+        name = {'occ': "occupied", 'vir': "virtual"}[kind]
+
+        self.log.info("Making %s Bath NOs", name.capitalize())
+        self.log.info("-------%s---------", len(name)*'-')
+        self.log.changeIndentLevel(1)
+        t0 = timer()
+        c_no, n_no = mp2_bath.make_mp2_bno(
+                self, kind, c_cluster_occ, c_cluster_vir, c_env_occ, c_env_vir)
+        self.log.debugv('BNO eigenvalues:\n%r', n_no)
+        if len(n_no) > 0:
+            self.log.info("%s Bath NO Histogram", name.capitalize())
+            self.log.info("%s------------------", len(name)*'-')
+            for line in helper.plot_histogram(n_no):
+                self.log.info(line)
+
+        self.log.timing("Time for %s BNOs:  %s", name, time_string(timer()-t0))
+        self.log.changeIndentLevel(-1)
+
+        return c_no, n_no
 
     def set_cas(self, iaos=None, c_occ=None, c_vir=None):
         if iaos is not None:
@@ -232,43 +223,36 @@ class DMETFragment(QEmbeddingFragment):
         self.opts.c_cas_vir = c_cas_vir
         return c_cas_occ, c_cas_vir
 
+    def set_up_orbitals(self, bno_threshold =None, bno_number = None, construct_bath = False):
 
-    def kernel(self, bno_threshold, solver=None, init_guess=None, eris=None, construct_bath = False):
-        """Run solver for a single BNO threshold.
+        if np.ndim(bno_threshold) == 0:
+            bno_threshold = 2*[bno_threshold]
+        if np.ndim(bno_number) == 0:
+            bno_number = 2*[bno_number]
 
-        Parameters
-        ----------
-        bno_threshold : float
-            Bath natural orbital (BNO) thresholds.
-        solver : {'MP2', 'CISD', 'CCSD', 'CCSD(T)', 'FCI'}, optional
-            Correlated solver.
-
-        Returns
-        -------
-        results : DMETFragmentResults
-        """
-        solver = solver or self.solver
         # We always want to regenerate our bath orbitals.
-        if construct_bath:#self.c_cluster_occ is None:
-            self.make_bath()
+        if self.c_cluster_occ is None or construct_bath:
+            self.c_cluster_occ, self.c_cluster_vir, self.c_no_occ, self.n_no_occ, self.c_no_vir, self.n_no_vir = \
+                                        self.make_bath()
 
-        #self.e_delta_mp2 = e_delta_occ + e_delta_vir
-        #self.log.debug("MP2 correction = %.8g", self.e_delta_mp2)
 
         assert (self.c_no_occ is not None)
         assert (self.c_no_vir is not None)
 
-        bno_thr = self.opts.bno_threshold_factor * bno_threshold
         self.log.info("Occupied BNOs:")
-        c_nbo_occ, c_frozen_occ = self.apply_bno_threshold(self.c_no_occ, self.n_no_occ, bno_thr)
+        c_nbo_occ, c_frozen_occ = self.truncate_bno(self.c_no_occ, self.n_no_occ, bno_threshold[0], bno_number[0])
         self.log.info("Virtual BNOs:")
-        c_nbo_vir, c_frozen_vir = self.apply_bno_threshold(self.c_no_vir, self.n_no_vir, bno_thr)
+        c_nbo_vir, c_frozen_vir = self.truncate_bno(self.c_no_vir, self.n_no_vir, bno_threshold[1], bno_number[1])
 
         # Canonicalize orbitals
         c_active_occ = self.canonicalize_mo(self.c_cluster_occ, c_nbo_occ)[0]
         c_active_vir = self.canonicalize_mo(self.c_cluster_vir, c_nbo_vir)[0]
         # Do not overwrite self.c_active_occ/vir yet - we still need the previous coefficients
         # to generate an intial guess
+
+        # TODO: Do not store these!
+        self._c_frozen_occ = c_frozen_occ
+        self._c_frozen_vir = c_frozen_vir
 
         # Combine, important to keep occupied orbitals first!
         # Put frozen (occenv, virenv) orbitals to the front and back
@@ -304,18 +288,31 @@ class DMETFragment(QEmbeddingFragment):
         #    self.converged = True
         #    return 0, nactive, None, None
 
-
-        # For self-consistent calculations, we can reuse ERIs:
-        if eris is None:
-            if self.base.opts.project_eris and self.results is not None:
-                t0 = timer()
-                self.log.debugv("Projecting previous ERIs onto subspace")
-                eris = psubspace.project_eris(self.results.eris, c_active_occ, c_active_vir, ovlp=self.base.get_ovlp())
-                self.log.timingv("Time to project ERIs:  %s", time_string(timer()-t0))
-
         # We can now overwrite the orbitals from last BNO run:
         self._c_active_occ = c_active_occ
         self._c_active_vir = c_active_vir
+        return mo_coeff, mo_occ, nocc_frozen, nvir_frozen, nactive
+
+
+    def kernel(self, bno_threshold = None, bno_number = None, solver=None, init_guess=None, eris=None, construct_bath = False):
+        """Run solver for a single BNO threshold.
+
+        Parameters
+        ----------
+        bno_threshold : float
+            Bath natural orbital (BNO) thresholds.
+        solver : {'MP2', 'CISD', 'CCSD', 'CCSD(T)', 'FCI'}, optional
+            Correlated solver.
+
+        Returns
+        -------
+        results : DMETFragmentResults
+        """
+        mo_coeff, mo_occ, nocc_frozen, nvir_frozen, nactive = \
+                            self.set_up_orbitals(bno_threshold, bno_number, construct_bath)
+
+
+        solver = solver or self.solver
 
         # Create solver object
         t0 = timer()
@@ -338,10 +335,16 @@ class DMETFragment(QEmbeddingFragment):
             self.log.info("Weight of reference determinant= %.8g", abs(solver_results.c0))
             c1 = solver_results.c1 / solver_results.c0
             c2 = solver_results.c2 / solver_results.c0
-        p1 = self.project_amplitude_to_fragment(c1, c_active_occ, c_active_vir)
-        p2 = self.project_amplitude_to_fragment(c2, c_active_occ, c_active_vir)
-        e_corr = self.get_fragment_energy(p1, p2, eris=solver_results.eris)
-        self.log.info("BNO threshold= %.1e :  E(corr)= %+14.8f Ha", bno_threshold, e_corr)
+        #p1 = self.project_amplitude_to_fragment(c1, c_active_occ, c_active_vir)
+        #p2 = self.project_amplitude_to_fragment(c2, c_active_occ, c_active_vir)
+        #e_corr = self.get_fragment_energy(p1, p2, eris=solver_results.eris)
+        #if bno_threshold[0] is not None:
+        #    if bno_threshold[0] == bno_threshold[1]:
+        #        self.log.info("BNO threshold= %.1e :  E(corr)= %+14.8f Ha", bno_threshold[0], e_corr)
+        #    else:
+        #        self.log.info("BNO threshold= %.1e / %.1e :  E(corr)= %+14.8f Ha", *bno_threshold, e_corr)
+        #else:
+        #    self.log.info("BNO number= %3d / %3d:  E(corr)= %+14.8f Ha", *bno_number, e_corr)
 
 
         results = self.Results(
@@ -349,16 +352,9 @@ class DMETFragment(QEmbeddingFragment):
                 bno_threshold=bno_threshold,
                 n_active=nactive,
                 converged=solver_results.converged,
-                e_corr=e_corr,
+        #        e_corr=e_corr,
                 dm1 = solver_results.dm1,
                 dm2 = solver_results.dm2)
-
-        # EOM analysis
-        if self.opts.eom_ccsd in (True, 'IP'):
-            results.ip_energy, _ = self.eom_analysis(cluster_solver, 'IP')
-        if self.opts.eom_ccsd in (True, 'EA'):
-            results.ea_energy, _ = self.eom_analysis(cluster_solver, 'EA')
-
 
         # Keep Lambda-Amplitudes
         if results.l1 is not None:
@@ -378,10 +374,16 @@ class DMETFragment(QEmbeddingFragment):
 
         return results
 
-
-    def apply_bno_threshold(self, c_no, n_no, bno_thr):
+    def truncate_bno(self, c_no, n_no, bno_threshold=None, bno_number=None):
         """Split natural orbitals (NO) into bath and rest."""
-        n_bno = np.count_nonzero(n_no >= bno_thr)
+        if bno_number is not None:
+            pass
+        elif bno_threshold is not None:
+            bno_threshold *= self.opts.bno_threshold_factor
+            bno_number = np.count_nonzero(n_no >= bno_threshold)
+        else:
+            raise ValueError()
+
         # Logging
         fmt = "  > %4s: N= %4d  max= % 9.3g  min= % 9.3g  sum= % 9.3g ( %7.3f %%)"
         def log(name, n_part):
@@ -390,11 +392,11 @@ class DMETFragment(QEmbeddingFragment):
                     self.log.info(fmt, name, len(n_part), max(n_part), min(n_part), np.sum(n_part),
                             100*np.sum(n_part)/np.sum(n_no))
             else:
-                self.log.info(fmt[:fmt.index('max')], name, 0)
-        log("Bath", n_no[:n_bno])
-        log("Rest", n_no[n_bno:])
+                self.log.info(fmt[:fmt.index('max')].rstrip(), name, 0)
+        log("Bath", n_no[:bno_number])
+        log("Rest", n_no[bno_number:])
 
-        c_bno, c_rest = np.hsplit(c_no, [n_bno])
+        c_bno, c_rest = np.hsplit(c_no, [bno_number])
         return c_bno, c_rest
 
     def project_amplitudes_to_fragment(self, cm, c1, c2, **kwargs):

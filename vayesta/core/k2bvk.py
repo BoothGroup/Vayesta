@@ -69,14 +69,14 @@ class UnfoldedSCF:
         hcore = k2bvk_2d(hk, self.kphase)
         return hcore
 
-    def get_veff(self, dm=None, *args, **kwargs):
+    def get_veff(self, mol=None, dm=None, *args, **kwargs):
+        assert (mol is None or mol is self.mol)
         if dm is not None:
             # Fold DM into k-space
             dm = bvk2k_2d(dm, self.kphase)
         vk = self.kmf.get_veff(dm_kpts=dm, *args, **kwargs)
         veff = k2bvk_2d(vk, self.kphase)
         return veff
-
 
 class UnfoldedRHF(UnfoldedSCF, pyscf.pbc.scf.hf.RHF):
     __doc__ = UnfoldedSCF.__doc__
@@ -87,7 +87,7 @@ class UnfoldedRHF(UnfoldedSCF, pyscf.pbc.scf.hf.RHF):
         self.mo_energy, self.mo_coeff, self.mo_occ = \
                 unfold_mos(kmf.mo_energy, kmf.mo_coeff, kmf.mo_occ, self.kphase, self.get_ovlp())
         log.timing("Time for MO unfolding: %s", time_string(timer()-t0))
-
+        assert np.all(self.mo_coeff.imag == 0)
 
 class UnfoldedUHF(UnfoldedSCF, pyscf.pbc.scf.uhf.UHF):
     __doc__ = UnfoldedSCF.__doc__
@@ -100,8 +100,8 @@ class UnfoldedUHF(UnfoldedSCF, pyscf.pbc.scf.uhf.UHF):
                 unfold_mos(kmf.mo_energy[0], kmf.mo_coeff[0], kmf.mo_occ[0], self.kphase, ovlp),
                 unfold_mos(kmf.mo_energy[1], kmf.mo_coeff[1], kmf.mo_occ[1], self.kphase, ovlp))
         log.timing("Time for MO unfolding: %s", time_string(timer()-t0))
-
-
+        assert np.all(self.mo_coeff[0].imag == 0)
+        assert np.all(self.mo_coeff[1].imag == 0)
 
 def unfold_mos(kmo_energy, kmo_coeff, kmo_occ, kphase, ovlp, make_real=True):
     # --- MO energy and occupations
@@ -136,7 +136,7 @@ def make_mo_coeff_real(mo_energy, mo_coeff, ovlp, imag_tol=1e-10):
     im = (np.linalg.norm(mo_coeff.imag, axis=0) > imag_tol)
     log.debugv("%d complex MOs found. L(2)= %.2e", np.count_nonzero(im), np.linalg.norm(mo_coeff.imag))
     if not np.any(im):
-        return mo_coeff
+        return mo_coeff.real
     shift = 1.0 - min(mo_energy[im])
     sc = np.dot(ovlp, mo_coeff[:,im])
     fock = np.dot(sc*(mo_energy[im]+shift), sc.T.conj())
@@ -167,7 +167,6 @@ def make_mo_coeff_real(mo_energy, mo_coeff, ovlp, imag_tol=1e-10):
     mo_coeff[:,im] = v
     assert np.all(np.linalg.norm(mo_coeff.imag, axis=0) <= imag_tol)
     return mo_coeff.real
-
 
 # ==========================
 # From PySCF, modified
