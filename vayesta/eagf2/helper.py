@@ -165,12 +165,12 @@ class QMOIntegrals:
         #TODO test conjugation
         eri = kao2gmo.gdf_to_eris(self.frag.base.kdf, self.c_full, self.c_occ.shape[-1])
         if self.which == 'xija':
-            ooov = eri['ovoo'].transpose(2, 3, 0, 1).conj()
-            voov = eri['ovov'].transpose(1, 0, 2, 3).conj()
+            ooov = eri['ovoo'].transpose(2, 3, 0, 1)
+            voov = eri['ovvo'].transpose(1, 0, 3, 2).conj()
             self.eri = np.concatenate((ooov, voov), axis=0)
         else:
             ovvo = eri['ovvo']
-            vvvo = eri['ovvv'].transpose(3, 2, 0, 1)
+            vvvo = eri['ovvv'].transpose(3, 2, 1, 0).conj()
             self.eri = np.concatenate((ovvo, vvvo), axis=0)
 
     def build_3c_pbc(self):
@@ -181,3 +181,4 @@ class QMOIntegrals:
 
     def __exit__(self, *args):
         del self.eri
+
