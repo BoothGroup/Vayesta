@@ -92,6 +92,10 @@ class EWFFragment(QEmbeddingFragment):
 
         super().__init__(*args, **kwargs)
 
+        #if self.c_locvir is not None:
+        #    self.c_frag = np.hstack((self.c_frag, self.c_locvir))
+        #    self.c_locvir = None
+
         if self.opts.pop_analysis:
             self.opts.make_rdm1 = True
 
@@ -197,6 +201,7 @@ class EWFFragment(QEmbeddingFragment):
             c_dmet, c_env_occ, c_env_vir = self.make_dmet_bath(self.c_env, tol=self.opts.dmet_threshold)
         else:
             c_dmet, c_env_occ, c_env_vir = self.make_dmet_bath(self.c_nloc, tol=self.opts.dmet_threshold)
+        #self.c_dmet = c_dmet
 
         self.log.timing("Time for DMET bath:  %s", time_string(timer()-t0))
         # Add DMET orbitals for cube file plots
@@ -208,9 +213,16 @@ class EWFFragment(QEmbeddingFragment):
         #c_dmet, c_env_occ, c_env_vir = self.additional_bath_for_cluster(c_dmet, c_env_occ, c_env_vir)
 
         cluster = [self.c_frag, c_dmet]
-        if self.opts.local_virtuals:
+        if self.opts.local_virtuals and self.c_locvir is not None:
             self.log.info("Adding %d local virtual states to cluster", self.c_locvir.shape[-1])
             cluster.append(self.c_locvir)
+        # Check orthogonality
+        c = np.hstack(cluster)
+        err = abs(dot(c.T, self.base.get_ovlp(), c) - np.eye(c.shape[-1])).max()
+        if err > 1e-8:
+            self.log.warning("Cluster MOs not orthonormal: %.3e", err)
+        else:
+            self.log.debug("Cluster MOs non-orthonormality: %.3e", err)
 
         # Diagonalize cluster DM to separate cluster occupied and virtual
         c_cluster_occ, c_cluster_vir = self.diagonalize_cluster_dm(*cluster, tol=2*self.opts.dmet_threshold)
@@ -448,7 +460,7 @@ class EWFFragment(QEmbeddingFragment):
         # --- Project initial guess and integrals from previous cluster calculation with smaller eta:
         # Use initial guess from previous calculations
         # For self-consistent calculations, we can restart calculation:
-        if init_guess is None:
+        if init_guess is None and 'ccsd' in solver.lower():
             if self.base.opts.sc_mode and self.base.iteration > 1:
                 self.log.debugv("Restarting using T1,T2 from previous iteration")
                 init_guess = {'t1' : self.results.t1, 't2' : self.results.t2}
@@ -468,7 +480,7 @@ class EWFFragment(QEmbeddingFragment):
                 #t1, t2 = init_guess.pop('t1'), init_guess.pop('t2')
                 t1, t2 = helper.transform_amplitudes(self.results.t1, self.results.t2, p_occ, p_vir)
                 init_guess = {'t1' : t1, 't2' : t2}
-
+        if init_guess is None: init_guess = {}
 
         # For self-consistent calculations, we can reuse ERIs:
         if eris is None:
@@ -507,13 +519,12 @@ class EWFFragment(QEmbeddingFragment):
             solver_opts['c_cas_vir'] = self.opts.c_cas_vir
             solver_opts['tcc_fci_opts'] = self.opts.tcc_fci_opts
 
-
         cluster_solver_cls = get_solver_class(solver)
         cluster_solver = cluster_solver_cls(self, mo_coeff, mo_occ, nocc_frozen=nocc_frozen, nvir_frozen=nvir_frozen, **solver_opts)
         if self.opts.nelectron_target is None:
-            solver_results = cluster_solver.kernel(init_guess=init_guess, eris=eris)
+            solver_results = cluster_solver.kernel(eris=eris, **init_guess)
         else:
-            solver_results = cluster_solver.kernel_optimize_cpt(self.opts.nelectron_target, init_guess=init_guess, eris=eris)
+            solver_results = cluster_solver.kernel_optimize_cpt(self.opts.nelectron_target, eris=eris, **init_guess)
         self.log.timing("Time for %s solver:  %s", solver, time_string(timer()-t0))
 
         # Get projected amplitudes ('p1', 'p2')
@@ -592,6 +603,12 @@ class EWFFragment(QEmbeddingFragment):
             results.eris = solver_results.eris
 
         self._results = results
+
+        # DMET energy
+        if solver_results.dm1 is not None and solver_results.dm2 is not None:
+            #pass
+            results.e_dmet = self.get_fragment_dmet_energy(
+                    dm1=results.dm1, dm2=results.dm2, eris=solver_results.eris)
 
         # Force GC to free memory
         m0 = get_used_memory()
@@ -759,21 +776,6 @@ class EWFFragment(QEmbeddingFragment):
             self.log.warning("WARNING: Large E[C1] component!")
         e_frag = self.opts.energy_factor * self.sym_factor * (e1 + e2)
         return e_frag
-
-    #def get_fragment_dmet_energy(self, p_frag, dm1=None, dm2=None, eris=None):
-    #    if dm1 is None:
-    #        dm1 = self.results.dm1
-    #    if dm2 is None:
-    #        dm2 = self.results.dm2
-    #    if eris is None:
-    #        eris = self.results.eris
-    #    if None in [dm1, dm2, eris]:
-    #        self.log.error("Calculation of DMET energy requires dm1, dm2, and eris")
-    #        return None
-    #    h1e = self.base.get_hcore()
-    #    e1 = einsum('ij,ix,xj->', h1e, p_frag, dm1)
-    #    e2 = einsum('ijkl,ix,xj->', eris, p_frag, dm1)
-
 
     def eom_analysis(self, csolver, kind, filename=None, mode="a", sort_weight=True, r1_min=1e-2):
         kind = kind.upper()

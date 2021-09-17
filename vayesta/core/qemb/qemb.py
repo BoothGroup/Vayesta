@@ -30,6 +30,12 @@ from vayesta.core.ao2mo.kao2gmo import gdf_to_pyscf_eris
 from vayesta.misc.gdf import GDF
 from vayesta import lattmod
 
+# Fragmentations
+from vayesta.core.fragmentation import SAO_Fragmentation
+from vayesta.core.fragmentation import IAO_Fragmentation
+from vayesta.core.fragmentation import IAOPAO_Fragmentation
+from vayesta.core.fragmentation import Site_Fragmentation
+
 from .fragment import QEmbeddingFragment
 from .scmf import PDMET_SCMF, Brueckner_SCMF
 
@@ -140,19 +146,37 @@ class QEmbedding:
         # 2) Mean-field
         # -------------
         self._mf_orig = mf      # Keep track of original mean-field object - be careful not to modify in any way, to avoid side effects!
+        # Create shallow copy of mean-field object; this way it can be updated without side effects outside the quantum
+        # embedding method if attributes are replaced in their entirety
+        # (eg. `mf.mo_coeff = mo_new` instead of `mf.mo_coeff[:] = mo_new`).
         mf = copy.copy(mf)
         self.log.debug("type(MF)= %r", type(mf))
+        # If the mean-field has k-points, automatically unfold to the supercell:
         if hasattr(mf, 'kpts') and mf.kpts is not None:
-            mf = unfold_scf(mf)
+            with log_time(self.log.timing, "Time for MO unfolding: %s"):
+                mf = unfold_scf(mf)
         if isinstance(mf, UnfoldedSCF):
             self.kcell, self.kpts, self.kdf = mf.kmf.mol, mf.kmf.kpts, mf.kmf.with_df
         else:
             self.kcell = self.kpts = self.kdf = None
         self.mf = mf
-        # Cached AO integral matrices (to improve efficiency):
-        self._ovlp = None
-        self._hcore = None
-        self._veff = self.init_vhf()    # HF potential
+        if not (self.is_rhf or self.is_uhf):
+            raise ValueError("Cannot deduce RHF or UHF")
+        # Original mean-field integrals - do not change these!
+        with log_time(self.log.timingv, "Time for overlap: %s"):
+            self._ovlp_orig = self.mf.get_ovlp()
+        with log_time(self.log.timingv, "Time for hcore: %s"):
+            self._hcore_orig = self.mf.get_hcore()
+        # Do not call self.mf.get_veff() here: if mf is a converged HF calculation,
+        # the potential can be deduced from mf.mo_energy and mf.mo_coeff.
+        # Set recalc_vhf = False to use this feature.
+        with log_time(self.log.timingv, "Time for veff: %s"):
+            self._veff_orig = self.get_init_veff()
+        # Cached integrals - these can be changed!
+        self._ovlp = self._ovlp_orig
+        self._hcore = self._hcore_orig
+        self._veff = self._veff_orig
+
         # Some MF output
         if self.mf.converged:
             self.log.info("E(MF)= %+16.8f Ha", self.e_mf)
@@ -187,6 +211,7 @@ class QEmbedding:
 
         # 3) Fragments
         # ------------
+        self.fragmentation = None
         self.default_fragment_type = None
         self.fragments = []
         self._nfrag_tot = 0 # Total number of fragments created with `add_fragment` method.
@@ -195,7 +220,6 @@ class QEmbedding:
         # --------
         self.with_scmf = None   # Self-consistent mean-field
         self.c_lo = None        # Local orthogonal orbitals (e.g. Lowdin)
-
 
     # --- Basic properties and methods
     # ================================
@@ -222,6 +246,29 @@ class QEmbedding:
         #return hasattr(self.mol, 'lattice_vectors')
 
     @property
+    def has_exxdiv(self):
+        """Correction for divergent exact-exchange potential."""
+        return (hasattr(self.mf, 'exxdiv') and self.mf.exxdiv is not None)
+
+    def get_exxdiv(self):
+        """Get divergent exact-exchange (exxdiv) energy correction and potential.
+
+        Returns
+        -------
+        e_exxdiv: float
+            Divergent exact-exchange energy correction per unit cell.
+        v_exxdiv: array
+            Divergent exact-exchange potential correction in AO basis.
+        """
+        if not self.has_exxdiv: return 0, None
+        sc = np.dot(self.get_ovlp(), self.mo_coeff[:,:self.nocc])
+        madelung = pyscf.pbc.tools.madelung(self.mol, self.mf.kpt)
+        e_exxdiv = -madelung * self.nocc/self.ncells
+        v_exxdiv = -madelung * np.dot(sc, sc.T)
+        self.log.debug("Divergent exact-exchange (exxdiv) correction= %+16.8f Ha", self.e_exxdiv)
+        return e_exxdiv, v_exxdiv
+
+    @property
     def boundary_cond(self):
         """Type of boundary condition."""
         if not self.has_lattice_vectors:
@@ -240,28 +287,27 @@ class QEmbedding:
     @property
     def ncells(self):
         """Number of primitive cells within supercell."""
-        if self.kpts is None:
-            return 1
+        if self.kpts is None: return 1
         return len(self.kpts)
-
-    # Mean-field properties
-
-    def init_vhf(self):
-        if self.opts.recalc_vhf:
-            self.log.debug("Recalculating HF potential from MF object.")
-            return None
-        self.log.debug("Determining HF potential from MO energies and coefficients.")
-        cs = np.dot(self.mo_coeff.T, self.get_ovlp())
-        fock = np.dot(cs.T*self.mo_energy, cs)
-        return (fock - self.get_hcore())
 
     @property
     def is_rhf(self):
-        return not self.is_uhf
+        return (self.mo_coeff.ndim == 2)
 
     @property
     def is_uhf(self):
-        return (self.mo_coeff.ndim == 3)
+        return (self.mo_coeff[0].ndim == 2)
+
+    # Mean-field properties
+
+    def get_init_veff(self):
+        if self.opts.recalc_vhf:
+            self.log.debug("Recalculating HF potential from MF object.")
+            return self.mf.get_veff()
+        self.log.debug("Determining HF potential from MO energies and coefficients.")
+        cs = np.dot(self.mo_coeff.T, self.get_ovlp())
+        fock = np.dot(cs.T*self.mo_energy, cs)
+        return fock - self.get_hcore()
 
     @property
     def mo_energy(self):
@@ -280,26 +326,26 @@ class QEmbedding:
 
     # MOs setters:
 
-    @mo_energy.setter
-    def mo_energy(self, mo_energy):
-        """Updating the MOs resets the effective potential cache `_veff`."""
-        self.log.debugv("MF attribute 'mo_energy' is updated; deleting cached _veff.")
-        self._veff = None
-        self.mf.mo_energy = mo_energy
+    #@mo_energy.setter
+    #def mo_energy(self, mo_energy):
+    #    """Updating the MOs resets the effective potential cache `_veff`."""
+    #    self.log.debugv("MF attribute 'mo_energy' is updated; deleting cached _veff.")
+    #    #self._veff = None
+    #    self.mf.mo_energy = mo_energy
 
-    @mo_coeff.setter
-    def mo_coeff(self, mo_coeff):
-        """Updating the MOs resets the effective potential cache `_veff`."""
-        self.log.debugv("MF attribute 'mo_coeff' is updated; deleting chached _veff.")
-        self._veff = None
-        self.mf.mo_coeff = mo_coeff
+    #@mo_coeff.setter
+    #def mo_coeff(self, mo_coeff):
+    #    """Updating the MOs resets the effective potential cache `_veff`."""
+    #    self.log.debugv("MF attribute 'mo_coeff' is updated; deleting chached _veff.")
+    #    #self._veff = None
+    #    self.mf.mo_coeff = mo_coeff
 
-    @mo_occ.setter
-    def mo_occ(self, mo_occ):
-        """Updating the MOs resets the effective potential cache `_veff`."""
-        self.log.debugv("MF attribute 'mo_occ' is updated; deleting chached _veff.")
-        self._veff = None
-        self.mf.mo_occ = mo_occ
+    #@mo_occ.setter
+    #def mo_occ(self, mo_occ):
+    #    """Updating the MOs resets the effective potential cache `_veff`."""
+    #    self.log.debugv("MF attribute 'mo_occ' is updated; deleting chached _veff.")
+    #    #self._veff = None
+    #    self.mf.mo_occ = mo_occ
 
     @property
     def nmo(self):
@@ -328,11 +374,16 @@ class QEmbedding:
 
     @property
     def e_mf(self):
-        """Total mean-field energy per unit cell (not unfolded supercell!).
+        """Total mean-field energy per unit cell (not unfolded supercell).
         Note that the input unit cell itself can be a supercell, in which case
         `e_mf` refers to this cell.
         """
         return self.mf.e_tot/self.ncells
+
+    @property
+    def e_nuc(self):
+        """Nuclear-repulsion energy per unit cell (not unfolded supercell)."""
+        return self.mol.energy_nuc()/self.ncells
 
     # Embedding properties
 
@@ -349,9 +400,77 @@ class QEmbedding:
     # --- Integral methods
     # ====================
 
-    @cached_method('_ovlp')
-    def get_ovlp(self, *args, **kwargs):
-        return self.mf.get_ovlp(*args, **kwargs)
+    # Integrals of the original mean-field object - these cannot be changed:
+
+    def get_ovlp_orig(self):
+        return self._ovlp_orig
+
+    def get_hcore_orig(self):
+        return self._hcore_orig
+
+    def get_veff_orig(self, with_exxdiv=True):
+        if not with_exxdiv and self.has_exxdiv:
+            v_exxdiv = self.get_exxdiv()[1]
+            return self.get_veff_orig() - v_exxdiv
+        return self._veff_orig
+
+    def get_fock_orig(self, with_exxdiv=True):
+        return (self.get_hcore_orig() + self.get_veff_orig(with_exxdiv=with_exxdiv))
+
+    # Integrals which change with mean-field updates or chemical potential shifts:
+
+    def get_ovlp(self):
+        """AO-overlap matrix."""
+        return self._ovlp
+
+    def get_hcore(self):
+        """Core Hamiltonian (kinetic energy plus nuclear-electron attraction)."""
+        return self._hcore
+
+    def get_veff(self, with_exxdiv=True):
+        """Hartree-Fock Coulomb and exchange potential in AO basis."""
+        if not with_exxdiv and self.has_exxdiv:
+            v_exxdiv = self.get_exxdiv()[1]
+            return self.get_veff() - v_exxdiv
+        return self._veff
+
+    def get_fock(self, with_exxdiv=True):
+        """Fock matrix in AO basis."""
+        return self.get_hcore() + self.get_veff(with_exxdiv=with_exxdiv)
+
+    def set_ovlp(self, value):
+        self.log.debug("Changing ovlp matrix.")
+        self._ovlp = value
+
+    def set_hcore(self, value):
+        self.log.debug("Changing hcore matrix.")
+        self._hcore = value
+
+    def set_veff(self, value):
+        self.log.debug("Changing veff matrix.")
+        self._veff = value
+
+    def set_fock(self, value, h1e=None):
+        """Update Fock matrix - this is only for convenience, really veff is updated."""
+        if h1e is None: h1e = self.get_hcore()
+        self.set_veff(value - h1e)
+
+    def update_mf(self, mo_coeff, mo_energy=None, hcore=None, veff=None):
+        self.mf.mo_coeff = mo_coeff
+        dm = self.mf.make_rdm1(mo_coeff=mo_coeff)
+        if hcore is None:
+            hcore = self.get_hcore()
+        else:
+            self.set_hcore(hcore)
+        if veff is None: veff = self.mf.get_veff(dm=dm)
+        self.set_veff(veff)
+        if mo_energy is None:
+            # Use diagonal of Fock matrix as approximate MO energies
+            mo_energy = einsum('ai,ab,bi->i', mo_coeff, self.get_fock(), mo_coeff)
+        self.mf.mo_energy = mo_energy
+        self.mf.e_tot = self.mf.energy_tot(dm=dm, h1e=hcore, vhf=veff)
+
+    # Other integral methods:
 
     def get_ovlp_power(self, power):
         """get power of AO overlap matrix.
@@ -377,19 +496,6 @@ class QEmbedding:
         spowk = einsum('kai,ki,kbi->kab', vk, ek**power, vk.conj())
         spow = pyscf.pbc.tools.k2gamma.to_supercell_ao_integrals(self.kcell, self.kpts, spowk)
         return spow
-
-    @cached_method('_hcore')
-    def get_hcore(self, *args, **kwargs):
-        return self.mf.get_hcore(*args, **kwargs)
-
-    @cached_method('_veff')
-    def get_veff(self, *args, **kwargs):
-        """Hartree-Fock Coulomb and exchange potential."""
-        return self.mf.get_veff(*args, **kwargs)
-
-    def get_fock(self, recalc=False):
-        """Fock matrix in AO basis."""
-        return self.get_hcore() + self.get_veff()
 
     def get_eris(self, mo_or_cm):
         """Get ERIS for post-HF methods.
@@ -463,22 +569,22 @@ class QEmbedding:
 
     # Fragmentation specific routines
     # -------------------------------
-    from .fragmentation import init_fragmentation
-    from .fragmentation import init_iao_fragmentation
-    from .fragmentation import init_lowdin_fragmentation
-    from .fragmentation import init_ao_fragmentation
-    from .fragmentation import init_site_fragmentation
-    from .fragmentation import make_atom_fragment
-    from .fragmentation import get_ao_labels
-    from .fragmentation import get_ao_indices
-    from .fragmentation import make_ao_fragment
-    from .fragmentation import add_fragment
-    from .fragmentation import make_all_atom_fragments
-    from .fragmentation import make_iao_coeffs
-    from .fragmentation import get_fragment_occupancy
-    from .fragmentation import get_iao_labels
-    from .fragmentation import get_subset_ao_projector
-    from .fragmentation import get_ao_projector
+    #from .fragmentation import init_fragmentation
+    #from .fragmentation import init_iao_fragmentation
+    #from .fragmentation import init_lowdin_fragmentation
+    #from .fragmentation import init_ao_fragmentation
+    #from .fragmentation import init_site_fragmentation
+    #from .fragmentation import make_atom_fragment
+    #from .fragmentation import get_ao_labels
+    #from .fragmentation import get_ao_indices
+    #from .fragmentation import make_ao_fragment
+    #from .fragmentation import add_fragment
+    #from .fragmentation import make_all_atom_fragments
+    #from .fragmentation import make_iao_coeffs
+    #from .fragmentation import get_fragment_occupancy
+    #from .fragmentation import get_iao_labels
+    #from .fragmentation import get_subset_ao_projector
+    #from .fragmentation import get_ao_projector
 
     # Symmetry between fragments
     # --------------------------
@@ -530,10 +636,27 @@ class QEmbedding:
     # Results
     # -------
 
-    def get_dmet_energy(self):
-        e_dmet = self.mol.energy_nuc()
+    def get_dmet_energy(self, with_nuc=True, with_exxdiv=True):
+        """
+
+        Parameters
+        ----------
+        with_nuc: bool, optional
+            Include nuclear-repulsion energy. Default: True.
+        with_exxdiv: bool, optional
+            Include divergent exact-exchange correction. Default: True.
+        """
+        e_dmet = 0.0
         for f in self.fragments:
-            e_dmet += f.get_fragment_dmet_energy()
+            if f.results.e_dmet is not None:
+                e_dmet += f.results.e_dmet
+            else:
+                self.log.info("Calculating DMET energy of %s", f)
+                e_dmet += f.get_fragment_dmet_energy()
+        if with_nuc:
+            e_dmet += self.e_nuc
+        if self.has_exxdiv and with_exxdiv:
+            e_dmet += self.get_exxdiv()[0]
         return e_dmet
 
     def get_t1(self, get_lambda=False, partition=None):
@@ -938,6 +1061,156 @@ class QEmbedding:
             f.close()
         return pop, chg
 
+    # --- Fragmentation methods
+
+    def iao_fragmentation(self, minao='minao'):
+        """Initialize the quantum embedding method for the use of IAO fragments.
+
+        Parameters
+        ----------
+        minao: str, optional
+            IAO reference basis set. Default: 'minao'
+
+        Returns
+        -------
+        fragmentation: IAO_Fragmentation
+            IAO Fragmentation object.
+        """
+        self.fragmentation = IAO_Fragmentation(self, minao).kernel()
+
+    def iaopao_fragmentation(self, minao='minao'):
+        """Initialize the quantum embedding method for the use of IAO+PAO fragments.
+
+        Parameters
+        ----------
+        minao: str, optional
+            IAO reference basis set. Default: 'minao'
+
+        Returns
+        -------
+        fragmentation: IAOPAO_Fragmentation
+            IAO+PAO Fragmentation object.
+        """
+        self.fragmentation = IAOPAO_Fragmentation(self, minao).kernel()
+
+    def sao_fragmentation(self):
+        """Initialize the quantum embedding method for the use of SAO (Lowdin-AO) fragments.
+
+        Returns
+        -------
+        fragmentation: SAO_Fragmentation
+            SAO Fragmentation object.
+        """
+        self.fragmentation = SAO_Fragmentation(self).kernel()
+
+    def site_fragmentation(self):
+        """Initialize the quantum embedding method for the use of site fragments.
+
+        Returns
+        -------
+        fragmentation: Site_Fragmentation
+            Site Fragmentation object.
+        """
+        self.fragmentation = Site_Fragmentation(self).kernel()
+
+    def add_atomic_fragment(self, atoms, orbital_filter=None, name=None, **kwargs):
+        """Create a fragment of one or multiple atoms, which will be solved by the embedding method.
+
+        Parameters
+        ----------
+        atoms: int, str, list[int], or list[str]
+            Atom indices or symbols which should be included in the fragment.
+        name: str, optional
+            Name for the fragment. If None, a name is automatically generated from the chosen atoms. Default: None.
+        **kwargs:
+            Additional keyword arguments are passed through to the fragment constructor.
+
+        Returns
+        -------
+        Fragment:
+            Fragment object.
+        """
+        if self.fragmentation is None:
+            raise RuntimeError("No fragmentation defined. Call method x_fragmentation() where x=[iao, iaopao, sao, site].")
+        name, indices = self.fragmentation.get_atomic_fragment_indices(atoms, orbital_filter=orbital_filter, name=name)
+        return self._add_fragment(indices, name, **kwargs)
+
+    def add_orbital_fragment(self, orbitals, atom_filter=None, name=None, **kwargs):
+        """Create a fragment of one or multiple orbitals, which will be solved by the embedding method.
+
+        Parameters
+        ----------
+        orbitals: int, str, list[int], or list[str]
+            Orbital indices or labels which should be included in the fragment.
+        name: str, optional
+            Name for the fragment. If None, a name is automatically generated from the chosen orbitals. Default: None.
+        **kwargs:
+            Additional keyword arguments are passed through to the fragment constructor.
+
+        Returns
+        -------
+        Fragment:
+            Fragment object.
+        """
+        if self.fragmentation is None:
+            raise RuntimeError("No fragmentation defined. Call method x_fragmentation() where x=[iao, iaopao, sao, site].")
+        name, indices = self.fragmentation.get_orbital_fragment_indices(orbitals, atom_filter=atom_filter, name=name)
+        return self._add_fragment(indices, name, **kwargs)
+
+    def _add_fragment(self, indices, name, **kwargs):
+        c_frag = self.fragmentation.get_frag_coeff(indices)
+        c_env = self.fragmentation.get_env_coeff(indices)
+        fid = self.fragmentation.get_next_fid()
+        frag = self.Fragment(self, fid, name, c_frag, c_env, self.fragmentation.name, **kwargs)
+        self.fragments.append(frag)
+        return frag
+
+    def add_all_atomic_fragments(self, **kwargs):
+        """Create a single fragment for each atom in the system.
+
+        Parameters
+        ----------
+        **kwargs:
+            Additional keyword arguments are passed through to each fragment constructor.
+        """
+        fragments = []
+        for atom in range(self.mol.natm):
+            frag = self.add_atomic_fragment(atom, **kwargs)
+            fragments.append(frag)
+        return fragments
+
+    # --- Backwards compatibility:
+
+    def make_atom_fragment(self, *args, **kwargs):
+        """Deprecated. Do not use."""
+        self.log.warning("make_atom_fragment is deprecated. Use add_atomic_fragment.")
+        kwargs['aos'] = kwargs.get('orbital_filter', None)
+        return self.add_atomic_fragment(*args, **kwargs)
+
+    def make_all_atom_fragments(self, *args, **kwargs):
+        """Deprecated. Do not use."""
+        self.log.warning("make_all_atom_fragments is deprecated. Use add_all_atomic_fragments.")
+        return self.add_all_atomic_fragments(*args, **kwargs)
+
+    def make_ao_fragment(self, *args, **kwargs):
+        """Deprecated. Do not use."""
+        self.log.warning("make_ao_fragment is deprecated. Use add_orbital_fragment.")
+        return self.add_orbital_fragment(*args, **kwargs)
+
+    def init_fragmentation(self, ftype, **kwargs):
+        """Deprecated. Do not use."""
+        self.log.warning("init_fragmentation is deprecated. Use X_fragmentation(), where X=[iao, iaopao, sao, site].")
+        ftype = ftype.lower()
+        if ftype == 'iao':
+            return self.iao_fragmentation(**kwargs)
+        if ftype == 'lowdin-ao':
+            return self.sao_fragmentation(**kwargs)
+        if ftype == 'site':
+            return self.site_fragmentation(**kwargs)
+        if ftype == 'ao':
+            raise ValueError("AO fragmentation is no longer supported")
+        raise ValueError("Unknown fragment type: %r", ftype)
+
     # --- Mean-field updates
 
     def reset_fragments(self, *args, **kwargs):
@@ -947,11 +1220,9 @@ class QEmbedding:
     def pdmet_scmf(self, *args, **kwargs):
         """Decorator for p-DMET."""
         self.with_scmf = PDMET_SCMF(self, *args, **kwargs)
-        return self
 
     def brueckner_scmf(self, *args, **kwargs):
         """Decorator for Brueckner-DMET."""
         self.with_scmf = Brueckner_SCMF(self, *args, **kwargs)
-        return self
 
 QEmbeddingMethod = QEmbedding

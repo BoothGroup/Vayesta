@@ -123,7 +123,7 @@ class EWF(QEmbeddingMethod):
             raise ValueError("Unknown solver: %s" % solver)
         self.solver = solver
 
-        self.mo_coeff = self.get_init_mo_coeff()
+        #self._mo_coeff = self.get_init_mo_coeff()
 
         # Prepare fragments
         t0 = timer()
@@ -136,6 +136,7 @@ class EWF(QEmbeddingMethod):
             self.log.info("Minimal basis=       %s", self.opts.iao_minao)
             fragkw['minao'] = self.opts.iao_minao
         self.init_fragmentation(self.opts.fragment_type, **fragkw)
+        #self.iao_fragmentation(**fragkw)
         self.log.timing("Time for fragment initialization: %s", time_string(timer()-t0))
         self.log.timing("Time for EWF setup: %s", time_string(timer()-t_start))
 

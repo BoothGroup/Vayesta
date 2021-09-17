@@ -5,6 +5,7 @@ import copy
 import psutil
 from functools import wraps
 from timeit import default_timer
+from contextlib import contextmanager
 
 import numpy as np
 import scipy
@@ -15,7 +16,8 @@ log = logging.getLogger(__name__)
 # util module can be imported as *, such that the following is imported:
 __all__ = ['NotSet', 'dot', 'einsum',
         'cached_method', 'ConvergenceError', 'get_used_memory',
-        'timer', 'time_string', 'memory_string', 'OptionsBase']
+        'timer', 'time_string', 'log_time', 'memory_string',
+        'OptionsBase', 'StashBase']
 
 class NotSetType:
     def __repr__(self):
@@ -26,6 +28,27 @@ in cases where `None` itself is a valid setting.
 NotSet = NotSetType()
 
 timer = default_timer
+
+@contextmanager
+def log_time(logger, message, *args, **kwargs):
+    """Log time to execute the body of a with-statement.
+
+    Use as:
+        >>> with log_time(log.info, 'Time for hcore: %s'):
+        >>>     hcore = mf.get_hcore()
+
+    Parameters
+    ----------
+    logger
+    message
+    """
+    try:
+        t0 = timer()
+        yield t0
+    finally:
+        t = (timer()-t0)
+        logger(message, time_string(t), *args, **kwargs)
+    return t
 
 def dot(*args, **kwargs):
     return np.linalg.multi_dot(args, **kwargs)
@@ -181,6 +204,9 @@ class OptionsBase:
             other = updates
 
         return dataclasses.replace(self, **other)
+
+class StashBase:
+    pass
 
 if __name__ == '__main__':
 

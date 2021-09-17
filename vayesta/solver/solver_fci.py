@@ -23,14 +23,16 @@ class FCISolver(ClusterSolver):
         lindep: float = None
         conv_tol: float = None
 
-
     @dataclasses.dataclass
     class Results(ClusterSolver.Results):
         # CI coefficients
+        civec: np.array = None
         c0: float = None
         c1: np.array = None
         c2: np.array = None
 
+        def get_init_guess(self):
+            return {'ci0' : self.civec}
 
     def kernel(self, init_guess=None, eris=None):
         """Run FCI kernel."""
@@ -60,7 +62,7 @@ class FCISolver(ClusterSolver):
 
         nelec = sum(self.mo_occ[self.get_active_slice()])
         t0 = timer()
-        e_fci, wf = fcisolver.kernel(h_eff, eris, self.nactive, nelec)
+        e_fci, civec = fcisolver.kernel(h_eff, eris, self.nactive, nelec)
         self.log.debug("FCI done. converged: %r", fcisolver.converged)
         if not fcisolver.converged:
             self.log.error("FCI not converged!")
@@ -68,17 +70,17 @@ class FCISolver(ClusterSolver):
         # TODO: This requires the E_core energy (and nuc-nuc repulsion)
         e_corr = np.nan
 
-        cisdvec = pyscf.ci.cisd.from_fcivec(wf, self.nactive, nelec)
+        cisdvec = pyscf.ci.cisd.from_fcivec(civec, self.nactive, nelec)
         c0, c1, c2 = pyscf.ci.cisd.cisdvec_to_amplitudes(cisdvec, self.nactive, nocc)
 
         results = self.Results(
                 converged=fcisolver.converged, e_corr=e_corr, c_occ=self.c_active_occ, c_vir=self.c_active_vir, eris=eris,
-                c0=c0, c1=c1, c2=c2)
+                civec=civec, c0=c0, c1=c1, c2=c2)
 
         if self.opts.make_rdm2:
-            results.dm1, results.dm2 = fcisolver.make_rdm12(wf, self.nactive, nelec)
+            results.dm1, results.dm2 = fcisolver.make_rdm12(civec, self.nactive, nelec)
         elif self.opts.make_rdm1:
-            results.dm1 = fcisolver.make_rdm1(wf, self.nactive, nelec)
+            results.dm1 = fcisolver.make_rdm1(civec, self.nactive, nelec)
 
         return results
 

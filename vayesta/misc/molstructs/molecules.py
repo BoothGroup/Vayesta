@@ -1,4 +1,20 @@
+import os.path
 import numpy as np
+
+def load_datafile(filename):
+    datafile = os.path.join(os.path.dirname(__file__), os.path.join("data", filename))
+    data = np.loadtxt(datafile, dtype=[("atoms", object), ("coords", np.float64, (3,))])
+    #return data["atoms"], data["coords"]
+    atoms = data["atoms"]
+    coords = data["coords"]
+    atom = [[atoms[i], coords[i]] for i in range(len(atoms))]
+    return atom
+
+def water(atoms=['O', 'H']):
+    atom = [(atoms[0], (0.0000,  0.0000,  0.1173)),
+            (atoms[1], (0.0000,  0.7572, -0.4692)),
+            (atoms[1], (0.0000, -0.7572, -0.4692))]
+    return atom
 
 def alkane(n, atoms=['C', 'H'], cc_bond=1.54, ch_bond=1.09, numbering=False):
 
@@ -48,7 +64,6 @@ def alkane(n, atoms=['C', 'H'], cc_bond=1.54, ch_bond=1.09, numbering=False):
 
     return atom
 
-
 def arene(n, atoms=['C', 'H'], cc_bond=1.39, ch_bond=1.09):
     """Bond length for benzene."""
 
@@ -60,4 +75,35 @@ def arene(n, atoms=['C', 'H'], cc_bond=1.39, ch_bond=1.09):
         phi = 2*i*np.pi/n
         atom.append((atoms[0], (r1*np.cos(phi), r1*np.sin(phi), z)))
         atom.append((atoms[1], (r2*np.cos(phi), r2*np.sin(phi), z)))
+    return atom
+
+def neopentane():
+    """Structure from B3LYP aug-cc-pVTZ, not experimental!"""
+    atom = [
+        ('C', (0.0000000  , 0.0000000   , 0.0000000  )),
+        ('C', (0.8868390  , 0.8868390   , 0.8868390  )),
+        ('C', (-0.8868390 , -0.8868390  , 0.8868390  )),
+        ('C', (-0.8868390 , 0.8868390   , -0.8868390 )),
+        ('C', (0.8868390  , -0.8868390  , -0.8868390 )),
+        ('H', (1.5295970  , 0.2819530   , 1.5295970  )),
+        ('H', (1.5295970  , 1.5295970   , 0.2819530  )),
+        ('H', (0.2819530  , 1.5295970   , 1.5295970  )),
+        ('H', (-1.5295970 , -1.5295970  , 0.2819530  )),
+        ('H', (-0.2819530 , -1.5295970  , 1.5295970  )),
+        ('H', (-1.5295970 , -0.2819530  , 1.5295970  )),
+        ('H', (-1.5295970 , 0.2819530   , -1.5295970 )),
+        ('H', (-1.5295970 , 1.5295970   , -0.2819530 )),
+        ('H', (-0.2819530 , 1.5295970   , -1.5295970 )),
+        ('H', (1.5295970  , -1.5295970  , -0.2819530 )),
+        ('H', (0.2819530  , -1.5295970  , -1.5295970 )),
+        ('H', (1.5295970  , -0.2819530  , -1.5295970 )),
+        ]
+    return atom
+
+def boronene():
+    atom = load_datafile('boronene.dat')
+    return atom
+
+def coronene():
+    atom = load_datafile('coronene.dat')
     return atom

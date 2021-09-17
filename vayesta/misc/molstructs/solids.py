@@ -36,6 +36,38 @@ def graphite(atoms=['C', 'C', 'C', 'C'], a=2.461, c=6.708):
     atom = _make_atom(atoms, coords)
     return amat, atom
 
+def rocksalt(atoms=['Na', 'Cl'], a=5.6402, primitive=False):
+    """
+    LiF: a=4.0351
+    """
+    if primitive:
+        amat = a * np.asarray([
+            [0.5, 0.5, 0.0],
+            [0.0, 0.5, 0.5],
+            [0.5, 0.0, 0.5]])
+        internal = np.asarray([
+            [0.0, 0.0, 0.0],
+            [0.5, 0.5, 0.5]])
+        coords = np.dot(internal, amat)
+        atom = _make_atom(atoms, coords)
+        return amat, atom
+
+    amat = a*np.eye(3)
+    internal = np.asarray([
+        # Atom 1:
+        [0, 0, 0],
+        [0, 1/2, 1/2],
+        [1/2, 0, 1/2],
+        [1/2, 1/2, 0],
+        # Atom 2:
+        [0, 0, 1/2],
+        [0, 1/2, 0],
+        [1/2, 0, 0],
+        [1/2, 1/2, 1/2]])
+    coords = np.dot(internal, amat)
+    atom = _make_atom(4*[atoms[0]]+4*[atoms[1]], coords)
+    return amat, atom
+
 def perovskite(atoms=['Sr', 'Ti', 'O'], a=3.905):
     if len(atoms) == 3:
         atoms = [atoms[0], atoms[1]] + 3*[atoms[2]]

@@ -56,7 +56,24 @@ class CCSDSolver(ClusterSolver):
         ee_t_coeff: np.array = None
         ee_sf_coeff: np.array = None
 
-    def kernel(self, init_guess=None, eris=None, coupled_fragments=None, t_diagnostic=True):
+        def get_init_guess(self):
+            """Get initial guess for another CCSD calculations from results."""
+            return {'t1' : self.t1 , 't2' : self.t2, 'l1' : self.l1, 'l2' : self.l2}
+
+    def kernel(self, t1=None, t2=None, eris=None, l1=None, l2=None, coupled_fragments=None, t_diagnostic=True):
+        """
+
+        Parameters
+        ----------
+        t1: array, optional
+            Initial guess for T1 amplitudes. Default: None.
+        t2: array, optional
+            Initial guess for T2 amplitudes. Default: None.
+        l1: array, optional
+            Initial guess for L1 amplitudes. Default: None.
+        l2: array, optional
+            Initial guess for L2 amplitudes. Default: None.
+        """
 
         if coupled_fragments is None:
             coupled_fragments = self.fragment.opts.coupled_fragments
@@ -109,12 +126,9 @@ class CCSDSolver(ClusterSolver):
                     coupled_fragments=coupled_fragments).__get__(cc)
 
         t0 = timer()
-        if init_guess:
-            self.log.info("Running CCSD with initial guess for %r..." % list(init_guess.keys()))
-            cc.kernel(eris=eris, **init_guess)
-        else:
-            self.log.info("Running CCSD...")
-            cc.kernel(eris=eris)
+        self.log.info("Running CCSD...")
+        self.log.debug("Initial guess for T1= %r T2= %r", (t1 is not None), (t2 is not None))
+        cc.kernel(t1=t1, t2=t2, eris=eris)
         (self.log.info if cc.converged else self.log.error)("CCSD done. converged: %r", cc.converged)
         self.log.debug("E(full corr)= % 16.8f Ha", cc.e_corr)
         self.log.timing("Time for CCSD:  %s", time_string(timer()-t0))
@@ -135,8 +149,10 @@ class CCSDSolver(ClusterSolver):
         if solve_lambda:
             t0 = timer()
             self.log.info("Solving lambda equations...")
+            self.log.debug("Initial guess for L1= %r L2= %r", (l1 is not None), (l2 is not None))
             # This automatically sets cc.l1, cc.l2:
-            results.l1, results.l2 = cc.solve_lambda(cc.t1, cc.t2, eris=eris)
+            #results.l1, results.l2 = cc.solve_lambda(t1=cc.t1, t2=cc.t2, l1=l1, l2=l2, eris=eris)
+            results.l1, results.l2 = cc.solve_lambda(l1=l1, l2=l2, eris=eris)
             self.log.info("Lambda equations done. Lambda converged: %r", cc.converged_lambda)
             if not cc.converged_lambda:
                 self.log.error("Solution of lambda equation not converged!")
@@ -180,10 +196,7 @@ class CCSDSolver(ClusterSolver):
         if 'EE-SF' in self.opts.eom_ccsd:
             results.ee_sf_energy, results.ee_sf_coeff = run_eom_ccsd('EE-SF')
 
-
         return results
-
-
 
     def t_diagnostic(self, cc):
         self.log.info("T-Diagnostic")

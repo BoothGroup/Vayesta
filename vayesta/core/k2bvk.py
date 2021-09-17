@@ -83,10 +83,8 @@ class UnfoldedRHF(UnfoldedSCF, pyscf.pbc.scf.hf.RHF):
 
     def __init__(self, kmf, *args, **kwargs):
         super().__init__(kmf, *args, **kwargs)
-        t0 = timer()
         self.mo_energy, self.mo_coeff, self.mo_occ = \
                 unfold_mos(kmf.mo_energy, kmf.mo_coeff, kmf.mo_occ, self.kphase, self.get_ovlp())
-        log.timing("Time for MO unfolding: %s", time_string(timer()-t0))
         assert np.all(self.mo_coeff.imag == 0)
 
 class UnfoldedUHF(UnfoldedSCF, pyscf.pbc.scf.uhf.UHF):
@@ -94,12 +92,10 @@ class UnfoldedUHF(UnfoldedSCF, pyscf.pbc.scf.uhf.UHF):
 
     def __init__(self, kmf, *args, **kwargs):
         super().__init__(kmf, *args, **kwargs)
-        t0 = timer()
         ovlp = self.get_ovlp()
         self.mo_energy, self.mo_coeff, self.mo_occ = zip(
                 unfold_mos(kmf.mo_energy[0], kmf.mo_coeff[0], kmf.mo_occ[0], self.kphase, ovlp),
                 unfold_mos(kmf.mo_energy[1], kmf.mo_coeff[1], kmf.mo_occ[1], self.kphase, ovlp))
-        log.timing("Time for MO unfolding: %s", time_string(timer()-t0))
         assert np.all(self.mo_coeff[0].imag == 0)
         assert np.all(self.mo_coeff[1].imag == 0)
 
@@ -124,10 +120,10 @@ def unfold_mos(kmo_energy, kmo_coeff, kmo_occ, kphase, ovlp, make_real=True):
         mo_coeff = make_mo_coeff_real(mo_energy, mo_coeff, ovlp)
     # Check orthonormality of unfolded MOs
     err = abs(np.linalg.multi_dot((mo_coeff.T.conj(), ovlp, mo_coeff)) - np.eye(mo_coeff.shape[-1])).max()
-    if err > 1e-10:
+    if err > 1e-7:
         raise RuntimeError("Unfolded MOs not orthonormal! L(inf)= %.3e" % err)
     else:
-        log.debugv("Unfolded MOs orthonrmality error: L(inf)= %.3e" % err)
+        log.debugv("Unfolded MOs orthonormality error: L(inf)= %.3e" % err)
 
     return mo_energy, mo_coeff, mo_occ
 
