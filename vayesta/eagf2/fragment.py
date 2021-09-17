@@ -252,18 +252,20 @@ class EAGF2Fragment(QEmbeddingFragment):
         self.log.changeIndentLevel(-1)
 
 
-    def democratic_partition(self, m, c=None):
+    def democratic_partition(self, m, p1=None, p2=None):
         ''' Democratically partition a matrix.
         '''
 
-        if c is None:
+        if p1 is None:
             c = np.dot(self.results.c_active.T.conj(), self.c_frag)
-
-        p_frag = np.dot(c, c.T.conj())
+            p1 = np.dot(c, c.T.conj())
+        if p2 is None:
+            c = np.dot(self.results.c_active.T.conj(), np.hstack((self.c_frag, self.c_env)))
+            p2 = np.dot(c, c.T.conj())
 
         m_demo = (
-                + 0.5 * np.einsum('...pq,pi->...iq', m, p_frag)
-                + 0.5 * np.einsum('...pq,qj->...pj', m, p_frag)
+                + 0.5 * np.einsum('...pq,pi,qj->...ij', m, p1, p2)
+                + 0.5 * np.einsum('...pq,pi,qj->...ij', m, p2, p1)
         )
 
         return m_demo

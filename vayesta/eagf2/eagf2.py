@@ -276,18 +276,21 @@ class EAGF2(QEmbeddingMethod):
                 p_frag[:n, :n] += np.dot(c, c.T.conj())
                 c_frag = scipy.linalg.orth(p_frag)
                 c_env = scipy.linalg.null_space(p_frag)
+                c_full = np.hstack((c_frag, c_env))
                 assert c_env.shape[-1] == (solver.nact + solver.se.naux - c_frag.shape[1])
 
                 if frag.sym_parent is None:
                     results = frag.kernel(solver, solver.se, fock, c_frag=c_frag, c_env=c_env)
+                    c_active = results.c_active
                     self.cluster_results[frag.id] = results
                     self.log.info("%s is done.", frag)
                 else:
                     self.log.info("Fragment is symmetry related, parent: %s", frag.sym_parent)
                     results = self.cluster_results[frag.sym_parent.id]
 
-                c = np.dot(results.c_active.T.conj(), c_frag)
-                moms = frag.democratic_partition(results.moms, c=c)
+                p_frag = np.linalg.multi_dot((c_active.T.conj(), c_frag, c_frag.T.conj(), c_active))
+                p_full = np.linalg.multi_dot((c_active.T.conj(), c_full, c_full.T.conj(), c_active))
+                moms = frag.democratic_partition(results.moms, p1=p_frag, p2=p_full)
 
                 c = results.c_active[:solver.nact].T.conj()
                 moms_demo += np.einsum('...pq,pi,qj->...ij', moms, c, c)
