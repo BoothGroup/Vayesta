@@ -41,7 +41,7 @@ class FCISolver(ClusterSolver):
 
         if eris is None:
             t0 = timer()
-            eris = self.base.get_eris(c_act)
+            eris = self.base.get_eris_array(c_act)
             self.log.timing("Time for AO->MO of (ij|kl):  %s", time_string(timer()-t0))
 
         nocc = self.nocc - self.nocc_frozen

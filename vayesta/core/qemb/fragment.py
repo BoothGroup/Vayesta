@@ -979,6 +979,19 @@ class QEmbeddingFragment:
     # --- Results
     # ===========
 
+    def get_fragment_mo_energy(self, c_active=None, fock=None):
+        """Returns approximate MO energies, using the the diagonal of the Fock matrix.
+
+        Parameters
+        ----------
+        c_active: array, optional
+        fock: array, optional
+        """
+        if c_active is None: c_active = self.c_active
+        if fock is None: fock = self.base.get_fock()
+        mo_energy = einsum('ai,ab,bi->i', c_active, fock, c_active)
+        return mo_energy
+
     def get_fragment_dmet_energy(self, dm1=None, dm2=None, h1e_eff=None, eris=None):
         """Get fragment contribution to whole system DMET energy.
 
@@ -1005,7 +1018,7 @@ class QEmbeddingFragment:
         c_act = self.c_active
         t0 = timer()
         if eris is None:
-            eris = self.base.get_eris(c_act)
+            eris = self.base.get_eris_array(c_act)
         elif not isinstance(eris, np.ndarray):
             self.log.debugv("Extracting ERI array from CCSD ERIs object.")
             eris = vayesta.core.ao2mo.helper.get_full_array(eris, c_act)

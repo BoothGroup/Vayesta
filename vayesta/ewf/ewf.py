@@ -126,18 +126,18 @@ class EWF(QEmbeddingMethod):
         #self._mo_coeff = self.get_init_mo_coeff()
 
         # Prepare fragments
-        t0 = timer()
-        fragkw = {}
-        if self.opts.fragment_type.upper() == 'IAO':
-            if self.opts.iao_minao == 'auto':
-                self.opts.iao_minao = helper.get_minimal_basis(self.mol.basis)
-                self.log.warning("Minimal basis set '%s' for IAOs was selected automatically.",  self.opts.iao_minao)
-            self.log.info("Computational basis= %s", self.mol.basis)
-            self.log.info("Minimal basis=       %s", self.opts.iao_minao)
-            fragkw['minao'] = self.opts.iao_minao
-        self.init_fragmentation(self.opts.fragment_type, **fragkw)
-        #self.iao_fragmentation(**fragkw)
-        self.log.timing("Time for fragment initialization: %s", time_string(timer()-t0))
+        ##t0 = timer()
+        ##fragkw = {}
+        ##if self.opts.fragment_type.upper() == 'IAO':
+        ##    if self.opts.iao_minao == 'auto':
+        ##        self.opts.iao_minao = helper.get_minimal_basis(self.mol.basis)
+        ##        self.log.warning("Minimal basis set '%s' for IAOs was selected automatically.",  self.opts.iao_minao)
+        ##    self.log.info("Computational basis= %s", self.mol.basis)
+        ##    self.log.info("Minimal basis=       %s", self.opts.iao_minao)
+        ##    fragkw['minao'] = self.opts.iao_minao
+        ##self.init_fragmentation(self.opts.fragment_type, **fragkw)
+        ###self.iao_fragmentation(**fragkw)
+        ##self.log.timing("Time for fragment initialization: %s", time_string(timer()-t0))
         self.log.timing("Time for EWF setup: %s", time_string(timer()-t_start))
 
         # Intermediate and output attributes
@@ -486,7 +486,7 @@ class EWF(QEmbeddingMethod):
             for frag2 in frag.loop_fragments(exclude_self=True):
                 frag.add_tailor_fragment(frag2)
 
-    def kernel_one_iteration(self, bno_threshold=None):
+    def kernel(self, bno_threshold=None):
         """Run EWF.
 
         Parameters

@@ -95,11 +95,11 @@ class CCSDSolver(ClusterSolver):
         # Integral transformation
         if eris is None:
             t0 = timer()
-            eris = self.base.get_eris(cc)
+            eris = self.base.get_eris_object(cc)
             self.log.timing("Time for AO->MO of (ij|kl):  %s", time_string(timer()-t0))
         #else:
         #    # DEBUG:
-        #    eris = self.base.get_eris(cc)
+        #    eris = self.base.get_eris_object(cc)
         #    for kind in ["oooo", "ovoo", "ovvo", "oovv", "ovov", "ovvv", "vvvv"]:
         #        diff = getattr(self._eris, kind) - getattr(eris, kind)
         #        log.debug("Difference (%2s|%2s): max= %.2e norm= %.2e", kind[:2], kind[2:], abs(diff).max(), np.linalg.norm(diff))

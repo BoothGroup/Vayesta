@@ -23,9 +23,10 @@ except:
     IncoreGDF = pyscf.pbc.df.GDF
 
 from vayesta.core import vlog
-from vayesta.core.k2bvk import UnfoldedSCF, unfold_scf
+from vayesta.core.foldscf import FoldedSCF, fold_scf
 from vayesta.core.util import *
-from vayesta.core.ao2mo.dfccsd import make_eris as make_eris_ccsd
+#from vayesta.core.ao2mo.dfccsd import make_eris as make_eris_ccsd
+from vayesta.core.ao2mo.postscf_ao2mo import postscf_ao2mo
 from vayesta.core.ao2mo.kao2gmo import gdf_to_pyscf_eris
 from vayesta.misc.gdf import GDF
 from vayesta import lattmod
@@ -37,8 +38,7 @@ from vayesta.core.fragmentation import IAOPAO_Fragmentation
 from vayesta.core.fragmentation import Site_Fragmentation
 
 from .fragment import QEmbeddingFragment
-from .scmf import PDMET_SCMF, Brueckner_SCMF
-
+from vayesta.core.scmf import PDMET_SCMF, Brueckner_SCMF
 
 class QEmbedding:
 
@@ -85,48 +85,14 @@ class QEmbedding:
         self.fragments : list
             List of fragments for embedding calculation.
         self.kcell : pyscf.pbc.gto.Cell
-            For k-point sampled mean-field calculation, which have been unfolded to the supercell,
+            For k-point sampled mean-field calculation, which have been folded to the supercell,
             this will hold the original primitive unit cell.
         self.kpts : (nK, 3) array
-            For k-point sampled mean-field calculation, which have been unfolded to the supercell,
+            For k-point sampled mean-field calculation, which have been folded to the supercell,
             this will hold the original k-points.
         self.kdf : pyscf.pbc.df.GDF
-            For k-point sampled mean-field calculation, which have been unfolded to the supercell,
+            For k-point sampled mean-field calculation, which have been folded to the supercell,
             this will hold the original Gaussian density-fitting object.
-
-        Depending on which fragmentation is initialized, the following attributes my also be present:
-
-        IAO
-        ---
-        iao_minao : str
-            Minimal reference basis set for IAOs.
-        iao_labels : list
-            IAO labels.
-        iao_coeff : (nAO, nIAO) array
-            IAO coefficients.
-        iao_rest_coeff : (nAO, nRest) array
-            Remaining MO coefficients
-        iao_occup : (nIAO) array
-            IAO occupation numbers.
-
-        Lowdin-AO
-        ---------
-        lao_labels : list
-            Lowdin-AO labels.
-        lao_coeff : (nAO, nLAO) array
-            Lowdin-AO coefficients.
-        lao_occup : (nLAO) array
-            Lowdin-AO occupation numbers.
-
-        AO
-        --
-        ao_labels : list
-            AO labels.
-
-        Site
-        ----
-        site_labels : list
-            Site labels.
         """
 
         # 1) Logging
@@ -151,11 +117,11 @@ class QEmbedding:
         # (eg. `mf.mo_coeff = mo_new` instead of `mf.mo_coeff[:] = mo_new`).
         mf = copy.copy(mf)
         self.log.debug("type(MF)= %r", type(mf))
-        # If the mean-field has k-points, automatically unfold to the supercell:
+        # If the mean-field has k-points, automatically fold to the supercell:
         if hasattr(mf, 'kpts') and mf.kpts is not None:
-            with log_time(self.log.timing, "Time for MO unfolding: %s"):
-                mf = unfold_scf(mf)
-        if isinstance(mf, UnfoldedSCF):
+            with log_time(self.log.timing, "Time for k->G folding of MOs: %s"):
+                mf = fold_scf(mf)
+        if isinstance(mf, FoldedSCF):
             self.kcell, self.kpts, self.kdf = mf.kmf.mol, mf.kmf.kpts, mf.kmf.with_df
         else:
             self.kcell = self.kpts = self.kdf = None
@@ -265,7 +231,7 @@ class QEmbedding:
         madelung = pyscf.pbc.tools.madelung(self.mol, self.mf.kpt)
         e_exxdiv = -madelung * self.nocc/self.ncells
         v_exxdiv = -madelung * np.dot(sc, sc.T)
-        self.log.debug("Divergent exact-exchange (exxdiv) correction= %+16.8f Ha", self.e_exxdiv)
+        self.log.debug("Divergent exact-exchange (exxdiv) correction= %+16.8f Ha", e_exxdiv)
         return e_exxdiv, v_exxdiv
 
     @property
@@ -374,7 +340,7 @@ class QEmbedding:
 
     @property
     def e_mf(self):
-        """Total mean-field energy per unit cell (not unfolded supercell).
+        """Total mean-field energy per unit cell (not folded supercell).
         Note that the input unit cell itself can be a supercell, in which case
         `e_mf` refers to this cell.
         """
@@ -382,7 +348,7 @@ class QEmbedding:
 
     @property
     def e_nuc(self):
-        """Nuclear-repulsion energy per unit cell (not unfolded supercell)."""
+        """Nuclear-repulsion energy per unit cell (not folded supercell)."""
         return self.mol.energy_nuc()/self.ncells
 
     # Embedding properties
@@ -450,32 +416,12 @@ class QEmbedding:
         self.log.debug("Changing veff matrix.")
         self._veff = value
 
-    def set_fock(self, value, h1e=None):
-        """Update Fock matrix - this is only for convenience, really veff is updated."""
-        if h1e is None: h1e = self.get_hcore()
-        self.set_veff(value - h1e)
-
-    def update_mf(self, mo_coeff, mo_energy=None, hcore=None, veff=None):
-        self.mf.mo_coeff = mo_coeff
-        dm = self.mf.make_rdm1(mo_coeff=mo_coeff)
-        if hcore is None:
-            hcore = self.get_hcore()
-        else:
-            self.set_hcore(hcore)
-        if veff is None: veff = self.mf.get_veff(dm=dm)
-        self.set_veff(veff)
-        if mo_energy is None:
-            # Use diagonal of Fock matrix as approximate MO energies
-            mo_energy = einsum('ai,ab,bi->i', mo_coeff, self.get_fock(), mo_coeff)
-        self.mf.mo_energy = mo_energy
-        self.mf.e_tot = self.mf.energy_tot(dm=dm, h1e=hcore, vhf=veff)
-
     # Other integral methods:
 
     def get_ovlp_power(self, power):
         """get power of AO overlap matrix.
 
-        For unfolded calculations, this uses the k-point sampled overlap, for better performance and accuracy.
+        For folded calculations, this uses the k-point sampled overlap, for better performance and accuracy.
 
         Parameters
         ----------
@@ -497,75 +443,72 @@ class QEmbedding:
         spow = pyscf.pbc.tools.k2gamma.to_supercell_ao_integrals(self.kcell, self.kpts, spowk)
         return spow
 
-    def get_eris(self, mo_or_cm):
-        """Get ERIS for post-HF methods.
+    def get_eris_array(self, mo_coeff, compact=False):
+        """Get electron-repulsion integrals in MO basis as a NumPy array.
 
-        For unfolded PBC calculations, this folds the MO back into k-space
+        Parameters
+        ----------
+        mo_coeff: (n(AO), n(MO)) array
+            MO coefficients.
+
+        Returns
+        -------
+        eris: (n(MO), n(MO), n(MO), n(MO)) array
+            Electron-repulsion integrals in MO basis.
+        """
+        # TODO: check self.kdf and fold
+        if hasattr(self.mf, 'with_df') and self.mf.with_df is not None:
+            eris = self.mf.with_df.ao2mo(mo_coeff, compact=compact)
+        elif self.mf._eri is not None:
+            eris = pyscf.ao2mo.full(self.mf._eri, mo_coeff, compact=compact)
+        else:
+            eris = self.mol.ao2mo(mo_coeff, compact=compact)
+        if not compact:
+            eris = eris.reshape(4*[mo_coeff.shape[-1]])
+        return eris
+
+    def get_eris_object(self, posthf):
+        """Get ERIs for post-HF methods.
+
+        For folded PBC calculations, this folds the MO back into k-space
         and contracts with the k-space three-center integrals..
 
         Parameters
         ----------
-        mo_or_cm: array or one of the following post-HF methods:
-                pyscf.mp.mp2.MP2,
-                pyscf.cc.ccsd.CCSD,
-                or pyscf.cc.rccsd.RCCSD
-                or pyscf.cc.dfccsd.DFCCSD
-            MO coefficients or correlated method with mo_coeff set.
+        posthf: one of the following post-HF methods: MP2, CCSD, RCCSD, DFCCSD
+            Post-HF method with attribute mo_coeff set.
 
         Returns
         -------
-        eris: array or cm._ChemistsERIs
-            ERIs which can be used for the respective correlated method.
+        eris: _ChemistsERIs
+            ERIs which can be used for the respective post-HF method.
         """
-        # 1) Input = MO coefficients
-        # ==========================
-        if isinstance(mo_or_cm, np.ndarray):
-            mo = mo_or_cm
-            # Temporary fix for Hubbard-models with only onsite repulsion!
-            # TODO: k-DF...?
-            if hasattr(self.mf, 'with_df') and self.mf.with_df is not None:
-                eris = self.mf.with_df.ao2mo(mo, compact=False)
-            elif self.mf._eri is not None:
-                eris = pyscf.ao2mo.full(self.mf._eri, mo, compact=False)
-            else:
-                eris = self.mol.ao2mo(mo, compact=False)
-            eris = eris.reshape(4*[mo.shape[-1]])
+        c_act = _mo_without_core(posthf, posthf.mo_coeff)
+        if isinstance(posthf, pyscf.mp.mp2.MP2):
+            fock = self.get_fock()
+        elif isinstance(posthf, pyscf.cc.ccsd.CCSD):
+            fock = self.get_fock(with_exxdiv=False)
+        else:
+            raise ValueError("Unknown post-HF method: %r", type(posthf))
+        mo_energy = einsum('ai,ab,bi->i', c_act, self.get_fock(), c_act)
+        e_hf = self.mf.e_tot
+
+        # 1) Fold MOs into k-point sampled primitive cell, to perform efficient AO->MO transformation:
+        if self.kdf is not None:
+            eris = gdf_to_pyscf_eris(self.mf, self.kdf, posthf, fock=fock, mo_energy=mo_energy, e_hf=e_hf)
             return eris
-        # 2) Input = Correlated method
-        # ============================
-        # Molecules or supercell:
-        cm = mo_or_cm
-        if self.kdf is None:
-            self.log.debugv("ao2mo method: %r", cm.ao2mo)
-            # For PBC DFCCSD calculation we need to use the right Fock matrix (without exxdiv correction!)
-            # -> use custom ao2mo
-            if self.boundary_cond.startswith('periodic') and isinstance(cm, pyscf.cc.ccsd.CCSD):
-                c_act = _mo_without_core(cm, cm.mo_coeff)
-                fock = dot(c_act.T, self.get_fock(), c_act)
-                mo_energy = fock.diagonal().copy()
-                madelung = pyscf.pbc.tools.madelung(self.mol, self.mf.kpt)
-                for i in range(cm.get_nocc()):
-                    fock[i,i] += madelung
-                return make_eris_ccsd(cm, fock=fock, mo_energy=mo_energy)
-            elif isinstance(cm, pyscf.mp.dfmp2.DFMP2):
-                # TODO: This is a hack, requiring modified PySCF - normal DFMP2 does not store 4c (ov|ov) integrals
-                return cm.ao2mo(store_eris=True)
-            else:
-                return cm.ao2mo()
-        # k-point sampled primitive cell:
-        eris = gdf_to_pyscf_eris(self.mf, self.kdf, cm, fock=self.get_fock())
+        # 2) Regular AO->MO transformation
+        eris = postscf_ao2mo(posthf, fock=fock, mo_energy=mo_energy, e_hf=e_hf)
         return eris
 
+    #def kernel(self, *args, **kwargs):
+    #    # If with_scmf is set, go via the SCMF kernel instead:
+    #    if self.with_scmf is not None:
+    #        return self.with_scmf.kernel(*args, **kwargs)
+    #    return self.kernel_one_iteration(*args, **kwargs)
 
-    def kernel(self, *args, **kwargs):
-        # If with_scmf is set, go via the SCMF kernel instead:
-        if self.with_scmf is not None:
-            return self.with_scmf.kernel(*args, **kwargs)
-        return self.kernel_one_iteration(*args, **kwargs)
-
-    def kernel_one_iteration(self, *args, **kwargs):
-        raise NotImplementedError("Abstract method")
-
+    #def kernel_one_iteration(self, *args, **kwargs):
+    #    raise NotImplementedError("Abstract method")
 
     # Fragmentation specific routines
     # -------------------------------
@@ -721,8 +664,6 @@ class QEmbedding:
         #t2 = (t2 + t2.transpose(1,0,3,2))/2
         #assert np.allclose(t2, t2.transpose(1,0,3,2))
         return t1, t2
-
-    #get_wf_ccsd = get_ccsd_t12
 
     def make_rdm1_demo(self, ao_basis=False, add_mf=True, symmetrize=True):
         """Make democratically partitioned one-particle reduced density-matrix from fragment calculations.
@@ -1063,13 +1004,13 @@ class QEmbedding:
 
     # --- Fragmentation methods
 
-    def iao_fragmentation(self, minao='minao'):
+    def iao_fragmentation(self, minao='auto'):
         """Initialize the quantum embedding method for the use of IAO fragments.
 
         Parameters
         ----------
         minao: str, optional
-            IAO reference basis set. Default: 'minao'
+            IAO reference basis set. Default: 'auto'
 
         Returns
         -------
@@ -1078,13 +1019,13 @@ class QEmbedding:
         """
         self.fragmentation = IAO_Fragmentation(self, minao).kernel()
 
-    def iaopao_fragmentation(self, minao='minao'):
+    def iaopao_fragmentation(self, minao='auto'):
         """Initialize the quantum embedding method for the use of IAO+PAO fragments.
 
         Parameters
         ----------
         minao: str, optional
-            IAO reference basis set. Default: 'minao'
+            IAO reference basis set. Default: 'auto'
 
         Returns
         -------
@@ -1179,7 +1120,45 @@ class QEmbedding:
             fragments.append(frag)
         return fragments
 
+    # --- Mean-field updates
+
+    def reset_fragments(self, *args, **kwargs):
+        for f in self.fragments:
+            f.reset(*args, **kwargs)
+
+    def update_mf(self, mo_coeff, mo_energy=None, hcore=None, veff=None):
+        self.mf.mo_coeff = mo_coeff
+        dm = self.mf.make_rdm1(mo_coeff=mo_coeff)
+        if hcore is None:
+            hcore = self.get_hcore()
+        else:
+            self.set_hcore(hcore)
+        if veff is None: veff = self.mf.get_veff(dm=dm)
+        self.set_veff(veff)
+        if mo_energy is None:
+            # Use diagonal of Fock matrix as MO energies
+            mo_energy = einsum('ai,ab,bi->i', mo_coeff, self.get_fock(), mo_coeff)
+        self.mf.mo_energy = mo_energy
+        self.mf.e_tot = self.mf.energy_tot(dm=dm, h1e=hcore, vhf=veff)
+
+    def pdmet_scmf(self, *args, **kwargs):
+        """Decorator for p-DMET."""
+        self.with_scmf = PDMET_SCMF(self, *args, **kwargs)
+        self.kernel = self.with_scmf.kernel.__get__(self)
+
+    def brueckner_scmf(self, *args, **kwargs):
+        """Decorator for Brueckner-DMET."""
+        self.with_scmf = Brueckner_SCMF(self, *args, **kwargs)
+        self.kernel = self.with_scmf.kernel.__get__(self)
+
     # --- Backwards compatibility:
+
+    def get_eris(self, mo_or_cm, *args, **kwargs):
+        """For backwards compatibility only!"""
+        self.log.warning("get_eris is deprecated!")
+        if isinstance(mo_or_cm, np.ndarray):
+            return self.get_eris_array(mo_or_cm, *args, **kwargs)
+        return self.get_eris_object(mo_or_cm, *args, **kwargs)
 
     def make_atom_fragment(self, *args, **kwargs):
         """Deprecated. Do not use."""
@@ -1210,19 +1189,5 @@ class QEmbedding:
         if ftype == 'ao':
             raise ValueError("AO fragmentation is no longer supported")
         raise ValueError("Unknown fragment type: %r", ftype)
-
-    # --- Mean-field updates
-
-    def reset_fragments(self, *args, **kwargs):
-        for f in self.fragments:
-            f.reset(*args, **kwargs)
-
-    def pdmet_scmf(self, *args, **kwargs):
-        """Decorator for p-DMET."""
-        self.with_scmf = PDMET_SCMF(self, *args, **kwargs)
-
-    def brueckner_scmf(self, *args, **kwargs):
-        """Decorator for Brueckner-DMET."""
-        self.with_scmf = Brueckner_SCMF(self, *args, **kwargs)
 
 QEmbeddingMethod = QEmbedding

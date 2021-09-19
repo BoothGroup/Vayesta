@@ -23,6 +23,8 @@ class SCMF:
         self.damping = damping
         self.diis = diis
         self.iteration = 0
+        # Save original kernel
+        self._kernel_orig = self.qemb.kernel
         # Save original orbitals
         self._mo_orig = self.mf.mo_coeff
         # Output
@@ -73,9 +75,9 @@ class SCMF:
             self.log.info("==================")
 
             # Run clusters, save results
-            #res = self._kernel_orig(*args, **kwargs)
+            res = self._kernel_orig(*args, **kwargs)
             #res = self.qemb.kernel(*args, **kwargs)
-            res = self.qemb.kernel_one_iteration(*args, **kwargs)
+            #res = self.qemb.kernel_one_iteration(*args, **kwargs)
             e_mf = self.mf.e_tot
             e_corr = self.qemb.get_e_corr()
             e_tot = (e_mf + e_corr)

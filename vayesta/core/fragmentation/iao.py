@@ -1,3 +1,4 @@
+import os.path
 import numpy as np
 
 import pyscf
@@ -6,12 +7,35 @@ import pyscf.lo
 from vayesta.core.util import *
 from .fragmentation import Fragmentation
 
+# Load default minimal basis set on module initialization
+default_minao = {}
+path = os.path.dirname(__file__)
+with open(os.path.join(path, 'minao.dat'), 'r') as f:
+    for line in f:
+        if line.startswith('#'): continue
+        (basis, minao) = line.split()
+        if minao == 'none': minao = None
+        default_minao[basis] = minao
+
+def get_default_minao(basis):
+    # TODO: Add more to data file
+    bas = basis.replace('-', '').lower()
+    minao = default_minao.get(bas, 'minao')
+    if minao is None:
+        raise ValueError("Could not chose minimal basis for basis %s automatically!", basis)
+    return minao
+
 class IAO_Fragmentation(Fragmentation):
 
     name = "IAO"
 
-    def __init__(self, qemb, minao='minao'):
+    def __init__(self, qemb, minao='auto'):
         super().__init__(qemb)
+        if minao.lower() == 'auto':
+            minao = get_default_minao(self.mol.basis)
+            self.log.info("IAO:  computational basis= %s  minimal reference basis= %s (automatically chosen)", self.mol.basis, minao)
+        else:
+            self.log.debug("IAO:  computational basis= %s  minimal reference basis= %s", self.mol.basis, minao)
         self.minao = minao
 
     def get_refmol(self):

@@ -15,6 +15,7 @@ log = logging.getLogger(__name__)
 
 # util module can be imported as *, such that the following is imported:
 __all__ = ['NotSet', 'dot', 'einsum',
+        'replace_attr',
         'cached_method', 'ConvergenceError', 'get_used_memory',
         'timer', 'time_string', 'log_time', 'memory_string',
         'OptionsBase', 'StashBase']
@@ -28,6 +29,23 @@ in cases where `None` itself is a valid setting.
 NotSet = NotSetType()
 
 timer = default_timer
+
+@contextmanager
+def replace_attr(obj, **kwargs):
+    """Temporary replace attributes and methods of object."""
+    orig = {}
+    try:
+        for name, attr in kwargs.items():
+            orig[name] = getattr(obj, name)             # Save originals
+            if callable(attr):
+                setattr(obj, name, attr.__get__(obj))   # For functions: replace and bind as method
+            else:
+                setattr(obj, name, attr)                # Just set otherwise
+        yield obj
+    finally:
+        # Restore originals
+        for name, attr in orig.items():
+            setattr(obj, name, attr)
 
 @contextmanager
 def log_time(logger, message, *args, **kwargs):
@@ -48,7 +66,6 @@ def log_time(logger, message, *args, **kwargs):
     finally:
         t = (timer()-t0)
         logger(message, time_string(t), *args, **kwargs)
-    return t
 
 def dot(*args, **kwargs):
     return np.linalg.multi_dot(args, **kwargs)
@@ -207,22 +224,3 @@ class OptionsBase:
 
 class StashBase:
     pass
-
-if __name__ == '__main__':
-
-    class TestClass:
-
-        def __init__(self):
-            self.val = 2
-
-        @cached_method('_test_method')
-        def test_method(self):
-            print("Calculating...")
-            return self.val
-
-    test = TestClass()
-    test.test_method()
-    test.test_method()
-
-    test2 = TestClass()
-    test2.test_method()

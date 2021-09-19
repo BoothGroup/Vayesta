@@ -12,7 +12,6 @@ class Fragmentation:
         self.nfrag_tot = 0
         self.coeff = None
         self.labels = None
-        self.atoms = None
 
     # --- For convenience pass through some attributes to the embedding method:
 
@@ -59,7 +58,6 @@ class Fragmentation:
         """The kernel needs to be called after initializing the fragmentation."""
         self.coeff = self.get_coeff()
         self.labels = self.get_labels()
-        self.atoms = self.get_atoms()
         return self
 
     def get_atoms(self):
@@ -133,13 +131,13 @@ class Fragmentation:
         self.log.debugv("Atom symbols of fragment %s: %r", name, atom_symbols)
 
         # Indices of IAOs based at atoms
-        indices = np.nonzero(np.isin(self.atoms, atom_indices))[0]
+        indices = np.nonzero(np.isin(self.get_atoms(), atom_indices))[0]
         # Some output
         self.log.debugv("Fragment %ss:\n%r", self.name, indices)
         self.log.debug("Fragment %ss of fragment %s:", self.name, name)
         for a, sym, nl, ml in np.asarray(self.labels)[indices]:
             if ml:
-                self.log.debug("  %3s %4s %2s_%s", a, sym, nl, ml)
+                self.log.debug("  %3s %4s %2s-%s", a, sym, nl, ml)
             else:
                 self.log.debug("  %3s %4s %2s", a, sym, nl)
 
@@ -152,7 +150,7 @@ class Fragmentation:
         if isinstance(orbitals[0], (int, np.integer)):
             orbital_indices = orbitals
             orbital_labels = (np.asarray(self.labels, dtype=object)[orbitals]).tolist()
-            orbital_labels = [('%d%3s %s%-4s' % tuple(l)).strip() for l in orbital_labels]
+            orbital_labels = [('%d%3s %s%-s' % tuple(l)).strip() for l in orbital_labels]
             return orbital_indices, orbital_labels
         if isinstance(orbitals[0], str):
             orbital_labels = orbitals

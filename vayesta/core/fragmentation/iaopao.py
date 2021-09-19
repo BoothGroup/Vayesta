@@ -8,9 +8,9 @@ from .iao import IAO_Fragmentation
 
 class IAOPAO_Fragmentation(IAO_Fragmentation):
 
-    name = "IAO/PAOs"
+    name = "IAO/PAO"
 
-    def __init__(self, qemb, minao='minao'):
+    def __init__(self, qemb, minao='auto'):
         super().__init__(qemb, minao=minao)
 
     def get_coeff(self):
