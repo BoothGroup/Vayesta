@@ -305,7 +305,8 @@ class EAGF2(QEmbeddingMethod):
 
             w, v = solver.solve_dyson(fock=fock_mo)
             solver.gf = pyscf.agf2.aux.GreensFunction(w, v[:solver.nact])
-            solver.gf, solver.se, fconv, fock = solver.fock_loop(fock=fock_mo, return_fock=True)
+            if self.opts.fock_loop:
+                solver.gf, solver.se, fconv, fock = solver.fock_loop(fock=fock_mo, return_fock=True)
             solver.gf.remove_uncoupled(tol=1e-12)
 
             solver.e_1b = solver.energy_1body()

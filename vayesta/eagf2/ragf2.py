@@ -6,6 +6,7 @@ import sys
 
 # NumPy
 import numpy as np
+import scipy.linalg
 
 # PySCF
 from pyscf import lib, agf2, ao2mo
@@ -16,6 +17,7 @@ from pyscf.agf2 import chkfile as chkutil
 # Vayesta
 import vayesta
 from vayesta.core.util import time_string, OptionsBase, NotSet
+from vayesta.eagf2 import helper
 
 # Timings
 if mpi_helper.mpi == None:
@@ -148,6 +150,86 @@ def _ao2mo_4c(eri, ci, cj, ck, cl):
     mpi_helper.allreduce_safe_inplace(ijkl)
 
     return ijkl
+
+
+def second_order_singles(agf2, gf=None, eri=None):
+    ''' Compute the second-order correction to the singles part.
+    '''
+
+    if gf is None:
+        gf = agf2.gf
+    if eri is None:
+        eri = agf2.eri
+
+    gf_occ = gf.get_occupied()
+    gf_vir = gf.get_virtual()
+    e_occ, c_occ = gf_occ.energy, gf_occ.coupling
+    e_vir, c_vir = gf_vir.energy, gf_vir.coupling
+
+    if agf2.opts.non_dyson:
+        e_full_occ, c_full_occ = e_occ, c_occ
+        e_full_vir, c_full_vir = e_vir, c_vir
+    else:
+        e_full_occ, c_full_occ = gf.energy, gf.coupling
+        e_full_vir, c_full_vir = gf.energy, gf.coupling
+
+    h_2h1p = 0.0
+    h_1h2p = 0.0
+
+    if eri.ndim == 4:
+        Δ = 1.0 / lib.direct_sum('x-i+a-j->xiaj', e_full_vir, e_occ, e_vir, e_occ)
+        v = _ao2mo_4c(eri, c_full_vir, c_occ, c_vir, c_occ)
+
+        h_2h1p  = lib.einsum('xiaj,yiaj,xiaj->xy', v, v, Δ)
+        h_2h1p -= lib.einsum('xiaj,yjai,xiaj->xy', v, v, Δ) * 0.5
+        h_2h1p  = lib.hermi_sum(h_2h1p)
+
+        del v, Δ
+
+        v = _ao2mo_4c(eri, c_full_occ, c_vir, c_occ, c_vir)
+        Δ = 1.0 / lib.direct_sum('x-a+i-b->xaib', e_full_occ, e_vir, e_occ, e_vir)
+
+        h_1h2p  = lib.einsum('xaib,yaib,xaib->xy', v, v, Δ)
+        h_1h2p -= lib.einsum('xaib,ybia,xaib->xy', v, v, Δ) * 0.5
+        h_1h2p  = lib.hermi_sum(h_1h2p)
+
+        del v, Δ
+
+    elif eri.ndim == 3:
+        Lxi = _ao2mo_3c(eri, c_full_vir, c_occ)
+        Laj = _ao2mo_3c(eri, c_vir, c_occ)
+        for i in range(gf_occ.naux):
+            v1 = lib.einsum('Lx,Laj->xaj', Lxi[:, :, i], Laj)
+            v2 = lib.einsum('Lxi,La->xia', Lxi, Laj[:, : ,i])
+            Δ = 1.0 / (lib.direct_sum('x+a-j->xaj', e_full_vir, e_vir, e_occ) - e_occ[i])
+
+            h_2h1p_part  = lib.einsum('xaj,yaj,xaj->xy', v1, v1, Δ)
+            h_2h1p_part -= lib.einsum('xaj,yja,xaj->xy', v1, v2, Δ) * 0.5
+            h_2h1p += lib.hermi_sum(h_2h1p_part)
+
+            del v1, v2, Δ
+
+        Lxa = _ao2mo_3c(eri, c_full_occ, c_vir)
+        Lib = _ao2mo_3c(eri, c_occ, c_vir)
+        for a in range(gf_vir.naux):
+            v1 = lib.einsum('Lx,Lib->xib', Lxa[:, :, a], Lib)
+            v2 = lib.einsum('Lxa,Li->xai', Lxa, Lib[:, :, a])
+            Δ = 1.0 / (lib.direct_sum('x+i-b->xib', e_full_occ, e_occ, e_vir) - e_vir[a])
+
+            h_1h2p_part  = lib.einsum('xib,yib,xib->xy', v1, v1, Δ)
+            h_1h2p_part -= lib.einsum('xib,ybi,xib->xy', v1, v2, Δ) * 0.5
+            h_1h2p += lib.hermi_sum(h_1h2p_part)
+
+            del v1, v2, Δ
+
+    if agf2.opts.non_dyson:
+        h = scipy.linalg.block_diag(h_1h2p, h_2h1p)
+    else:
+        h = h_2h1p + h_1h2p
+
+    h = np.linalg.multi_dot((gf.coupling.T.conj(), h, gf.coupling))
+
+    return h
 
 
 class RAGF2:
@@ -325,9 +407,8 @@ class RAGF2:
             v = np.dot(b.T.conj(), v[:nphys])
 
         else:
-            import dyson
-            m, b = dyson.block_lanczos_se.block_lanczos(t, self.opts.nmom_lanczos)
-            h_tri = dyson.linalg.build_block_tridiagonal(m, b)
+            m, b = helper.block_lanczos(t)
+            h_tri = helper.block_tridiagonal(m, b)
             e, v = np.linalg.eigh(h_tri[nphys:, nphys:])
             v = np.dot(b[0].T.conj(), v[:nphys])
 
@@ -658,6 +739,9 @@ class RAGF2:
 
         if self.opts.fock_basis.lower() == 'ao':
             return self._get_fock_via_ao(gf=gf, rdm1=rdm1, with_frozen=with_frozen)
+        elif self.opts.fock_basis.lower() == 'adc':
+            h2 = second_order_singles(self, gf=gf)
+            return np.diag(self.mo_energy) + h2
 
         t0 = timer()
         self.log.debugv("Building Fock matrix")
@@ -1114,6 +1198,66 @@ class RAGF2:
         self.log.info("Time elapsed:  %s", time_string(timer() - t0))
 
         return se, gf, converged
+
+
+    def kernel_adc(self):
+        ''' 
+        Kernel for an ADC-like calculation.
+
+        Only max_cycle = 0 is implicit, other options to convert the
+        solver to ADC must be provided, i.e.:
+
+            non_dyson = True
+            nmom_lanczos = 10
+            fock_basis = 'adc'
+            fock_loop = False
+        '''
+
+        t0 = timer()
+
+        if self.gf is None:
+            gf = self.gf = self.g0 = self.build_init_greens_function()
+        else:
+            gf = self.gf
+            self.log.info("Initial GF was already initialised")
+
+        if self.se is None:
+            se = self.se = self.build_self_energy(gf)
+        else:
+            se = self.se
+            self.log.info("Initial SE was already initialised")
+
+        e_mp2 = self.e_init = self.energy_mp2(se=se)
+        self.log.info("Initial energies")
+        self.log.info("****************")
+        self.log.info("E(nuc)  = %20.12f", self.e_nuc)
+        self.log.info("E(MF)   = %20.12f", self.e_mf)
+        self.log.info("E(corr) = %20.12f", e_mp2)
+        self.log.info("E(tot)  = %20.12f", self.mf.e_tot + e_mp2)
+
+        gf, se, _ = self.gf, self.se, fconv = self.fock_loop(gf=gf, se=se)
+
+        if self.opts.pop_analysis:
+            self.population_analysis()
+
+        if self.opts.dip_moment:
+            self.dip_moment()
+
+        if self.opts.dump_cubefiles:
+            #TODO test, generalise for periodic
+            self.log.debug("Dumping orbitals to .cube files")
+            gf_occ, gf_vir = self.gf.get_occupied(), self.gf.get_virtual()
+            for i in range(self.opts.dump_cubefiles):
+                if (gf_occ.naux-1-i) >= 0:
+                    self.dump_cube(gf_occ.naux-1-i, cubefile="hoqmo%d.cube"%i)
+                if (gf_occ.naux+i) < gf.naux:
+                    self.dump_cube(gf_occ.naux+i, cubefile="luqmo%d.cube"%i)
+
+        self.print_energies(output=True)
+
+        self.log.info("Time elapsed:  %s", time_string(timer() - t0))
+
+        return se, gf, True
 
 
     def run(self):

@@ -183,3 +183,144 @@ class QMOIntegrals:
     def __exit__(self, *args):
         del self.eri
 
+
+def block_lanczos(moments, tol=None):
+    '''
+    Perform the block Lanczos algorithm for an auxiliary space using
+    the moments of the spectral function. Scales as O(N^3) where the
+    moments have shape (N, N).
+    '''
+
+    assert all(m.dtype == np.float64 for m in moments)
+
+    nmo = moments[0].shape[0]
+    nmom = (len(moments) - 2) // 2
+    nblock = nmom + 1
+
+    if tol is None:
+        tol = np.finfo(np.float64).eps * nmo
+
+    def sqrt_and_inv(x):
+        try:
+            w, v = np.linalg.eigh(x)
+        except np.linalg.LinAlgError:
+            w, v = scipy.linalg.eigh(x)
+        w, v = w[w > tol], v[:, w > tol]
+        bi = np.dot(v * w[None]**0.5, v.T)
+        binv = np.dot(v * w[None]**-0.5, v.T)
+        return bi, binv
+
+    class C(dict):
+        def __getitem__(self, key):
+            i, n, j = key
+            if i == 0 or j == 0:
+                return np.zeros((nmo, nmo))
+            elif i < j:
+                return super().__getitem__((j, n, i)).T
+            else:
+                return super().__getitem__((i, n, j))
+
+        def __setitem__(self, key, val):
+            i, n, j = key
+            if i < j:
+                super().__setitem__((j, n, i), val.T)
+            else:
+                super().__setitem__((i, n, j), val)
+
+    class CB(dict):
+        def __getitem__(self, key):
+            i, n, j = key
+            if (i, n, j) not in self:
+                self[i, n, j] = np.dot(c[i, n, j], b[j])
+            return super().__getitem__((i, n, j))
+
+    class MC(dict):
+        def __getitem__(self, key):
+            i, n, j = key
+            if (i, n, j) not in mc:
+                self[i, n, j] = np.dot(c[i, 1, i], c[i, n, j])
+            return super().__getitem__((i, n, j))
+
+    m = np.zeros((nblock+1, nmo, nmo))
+    b = np.zeros((nblock,   nmo, nmo))
+    c = C()
+    cb = CB()
+    mc = MC()
+
+    def cIi(i, n):
+        tmp  = c[i, n+1, i].copy()
+        tmp -= cb[i, n, i-1].T
+        tmp -= mc[i, n, i]
+        c[i+1, n, i] = np.dot(binv, tmp)
+
+    def cII(i, n):
+        tmp  = c[i, n+2, i].copy()
+        tmp -= lib.hermi_sum(cb[i, n+1, i-1])
+        tmp -= lib.hermi_sum(mc[i, n+1, i])
+        tmp += lib.hermi_sum(np.dot(c[i, 1, i], cb[i, n, i-1]))
+        tmp += np.dot(b[i-1], cb[i-1, n, i-1])
+        tmp += np.dot(mc[i, n, i], c[i, 1, i].T)
+        c[i+1, n, i+1] = np.linalg.multi_dot((binv, tmp, binv))
+
+    def b2(i):
+        b2  = c[i, 2, i].copy()
+        b2 -= lib.hermi_sum(cb[i, 1, i-1])
+        b2 -= np.dot(c[i, 1, i], c[i, 1, i].T)
+        if i > 1: b2 += np.dot(b[i-1], b[i-1].T)
+        return b2
+
+    b[0], binv = sqrt_and_inv(moments[0])
+
+    # Orthogonalise the moments:
+    for n in range(2*nmom+2):
+        c[1, n, 1] = np.linalg.multi_dot((binv, moments[n], binv))
+
+    for i in range(1, nblock):
+        # Build b^1/2 and b^-1/2:
+        b[i], binv = sqrt_and_inv(b2(i))
+
+        # Force orthogonality in n == 0:
+        n = 0
+        c[i+1, n, i] = np.zeros((nmo, nmo))
+        c[i+1, n, i+1] = np.eye(nmo)
+
+        # Begin recursions:
+        for n in range(1, 2*(nblock-i)-1):
+            # Compute C_{i+1, i, n}:
+            cIi(i, n)
+
+            # Compute C_{i+1, i+1, n}:
+            cII(i, n)
+
+        # Compute C_{i+1, i+1, 2*(nblock-i)-1}:
+        cII(i, n+1)
+
+    # Exact M blocks, M_{i} = C_{i, i, 1}
+    for i in range(nblock+1):
+        m[i] = c[i, 1, i]
+
+    return m, b
+
+
+def block_tridiagonal(m, b):
+    ''' Build a block tridiagonal matrix from a list of on- (m) and off-
+        diagonal (b) blocks of matrices.
+    '''
+
+    nphys = m[0].shape[0]
+    dtype = np.result_type(*([x.dtype for x in m] + [x.dtype for x in b]))
+
+    assert all([x.shape == (nphys, nphys) for x in m])
+    assert all([x.shape == (nphys, nphys) for x in b])
+    assert len(m) == len(b)+1
+
+    zero = np.zeros((nphys, nphys), dtype=dtype)
+
+    h = np.block([[m[i]          if i == j   else
+                   b[j]          if j == i-1 else
+                   b[i].T.conj() if i == j-1 else
+                   zero
+                   for j in range(len(m))]
+                   for i in range(len(m))])
+
+    return h
