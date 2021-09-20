@@ -63,7 +63,8 @@ def recursive_block_svd(a, n, tol=1e-10, maxblock=100):
             break
         assert (ndone < (size - n))
     else:
-        log.warning("Found %d out of %d bath orbitals in %d recursions", ndone, size-n, maxblock)
+        #log.warning("Found %d out of %d bath orbitals in %d recursions", ndone, size-n, maxblock)
+        pass
 
     coeff = coeff[n:,n:]
     assert np.allclose(np.dot(coeff.T, coeff)-np.eye(coeff.shape[-1]), 0)
