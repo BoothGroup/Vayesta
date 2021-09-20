@@ -14,11 +14,18 @@ import scipy.optimize
 log = logging.getLogger(__name__)
 
 # util module can be imported as *, such that the following is imported:
-__all__ = ['NotSet', 'dot', 'einsum',
-        'replace_attr',
-        'cached_method', 'ConvergenceError', 'get_used_memory',
-        'timer', 'time_string', 'log_time', 'memory_string',
-        'OptionsBase', 'StashBase']
+__all__ = [
+        # General
+        'NotSet', 'OptionsBase', 'StashBase',
+        # NumPy replacements
+        'dot', 'einsum', 'hstack',
+        # New exceptions
+        'ConvergenceError',
+        # Time & memory
+        'timer', 'time_string', 'log_time', 'memory_string', 'get_used_memory',
+        # Other
+        'replace_attr', 'cached_method',
+        ]
 
 class NotSetType:
     def __repr__(self):
@@ -67,7 +74,10 @@ def log_time(logger, message, *args, **kwargs):
         t = (timer()-t0)
         logger(message, time_string(t), *args, **kwargs)
 
+# --- NumPy
+
 def dot(*args, **kwargs):
+    """Like NumPy's multi_dot, but variadic."""
     return np.linalg.multi_dot(args, **kwargs)
 
 def einsum(*args, **kwargs):
@@ -77,6 +87,11 @@ def einsum(*args, **kwargs):
     if isinstance(res, np.ndarray) and res.ndim == 0:
         res = res[()]
     return res
+
+def hstack(*args):
+    """Like NumPy's hstack, but variadic and ignores any arguments which are None."""
+    args = [x for x in args if x is not None]
+    return np.hstack(args)
 
 def cached_method(cachename, use_cache_default=True, store_cache_default=True):
     """Cache the return value of a class method.

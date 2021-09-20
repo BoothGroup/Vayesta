@@ -38,6 +38,7 @@ class MoleculeEWFTest_LiH_ccpvdz_IAO_atoms(unittest.TestCase, MoleculeEWFTest):
         cls.mf = scf.RHF(cls.mol)
         cls.mf.conv_tol = 1e-12
         cls.mf.kernel()
+        assert cls.mf.converged
 
         cls.ewf = ewf.EWF(
                 cls.mf,
@@ -50,6 +51,7 @@ class MoleculeEWFTest_LiH_ccpvdz_IAO_atoms(unittest.TestCase, MoleculeEWFTest):
                     'conv_etol': 1e-10,
                 },
         )
+        cls.ewf.iao_fragmentation()
         cls.ewf.make_all_atom_fragments()
         cls.ewf.kernel()
 
@@ -121,6 +123,7 @@ class MoleculeEWFTest_LiH_ccpvdz_Lowdin_AOs(unittest.TestCase, MoleculeEWFTest):
                     'conv_etol': 1e-10,
                 },
         )
+        cls.ewf.sao_fragmentation()
         cls.ewf.make_ao_fragment([0, 1])
         cls.ewf.make_ao_fragment([2, 3, 4])
         cls.ewf.kernel()
@@ -151,6 +154,7 @@ class MoleculeEWFTest_LiH_ccpvdz_Lowdin_atoms(unittest.TestCase, MoleculeEWFTest
                     'conv_etol': 1e-10,
                 },
         )
+        cls.ewf.sao_fragmentation()
         cls.ewf.make_all_atom_fragments()
         cls.ewf.kernel()
 
@@ -161,7 +165,7 @@ class MoleculeEWFTest_N2_augccpvdz_stretched_FCI(unittest.TestCase, MoleculeEWFT
     @classmethod
     def setUpClass(cls):
         cls.mol = gto.Mole()
-        cls.mol.atom = 'N 0 0 0; N 0 0 2'
+        cls.mol.atom = 'N 0 0 0; N 0 0 2.0'
         cls.mol.basis = 'aug-cc-pvdz'
         cls.mol.verbose = 0
         cls.mol.max_memory = 1e9
@@ -180,6 +184,7 @@ class MoleculeEWFTest_N2_augccpvdz_stretched_FCI(unittest.TestCase, MoleculeEWFT
                     'conv_etol': 1e-10,
                 },
         )
+        cls.ewf.iao_fragmentation()
         cls.ewf.make_atom_fragment(0, sym_factor=2)
         cls.ewf.kernel()
 
@@ -209,6 +214,7 @@ class MoleculeEWFTest_N2_ccpvdz_TCCSD(unittest.TestCase, MoleculeEWFTest):
                     'conv_etol': 1e-10,
                 },
         )
+        cls.ewf.iao_fragmentation()
         cls.ewf.make_atom_fragment('N1', sym_factor=2)
         cls.ewf.kernel()
 
@@ -239,6 +245,7 @@ class MoleculeEWFTest_N2_ccpvdz_TCCSD_CAS(unittest.TestCase, MoleculeEWFTest):
                     'conv_etol': 1e-10,
                 },
         )
+        cls.ewf.iao_fragmentation()
         cls.ewf.make_atom_fragment('N1', sym_factor=2)
         cls.ewf.fragments[0].set_cas(['0 N1 2p'])
         cls.ewf.kernel()
@@ -270,6 +277,7 @@ class MoleculeEWFTest_N2_ccpvdz_sc(unittest.TestCase, MoleculeEWFTest):
                     'conv_etol': 1e-10,
                 },
         )
+        cls.ewf.iao_fragmentation()
         cls.ewf.make_atom_fragment(0, sym_factor=2)
         cls.ewf.kernel()
 
@@ -298,6 +306,7 @@ class MiscMoleculeEWFTests(unittest.TestCase):
 
     def test_reset(self):
         emb = ewf.EWF(self.mf, solver_options={'conv_tol': 1e-10})
+        emb.iao_fragmentation()
         frag = emb.make_atom_fragment(0)
         frag.kernel()
         for key in ['c_cluster_occ', 'c_cluster_vir', 'c_no_occ', 'c_no_vir', 'n_no_occ', 'n_no_vir']:
@@ -314,6 +323,7 @@ class MiscMoleculeEWFTests(unittest.TestCase):
                 eom_ccsd=['IP', 'EA', 'EE-S', 'EE-T', 'EE-SF'],
                 eom_ccsd_nroots=5,
         )
+        emb.iao_fragmentation()
         frag = emb.make_atom_fragment(0)
         frag.kernel()  #FIXME using this to build the cluster orbs, repeats solver calculation
         from vayesta.solver.solver_cc import CCSDSolver  #TODO move this to solver tests?

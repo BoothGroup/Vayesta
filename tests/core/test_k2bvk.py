@@ -2,7 +2,7 @@ import unittest
 import numpy as np
 from pyscf.pbc import gto, scf, tools
 from vayesta.misc import gdf
-from vayesta.core import k2bvk
+from vayesta.core import foldscf as k2bvk
 
 #TODO: make_mo_coeff_real
 
@@ -29,7 +29,7 @@ class K2BVK_RHF_Tests(unittest.TestCase):
         cls.kmf.with_df.linear_dep_threshold = 1e-7
         cls.kmf.with_df.build()
         cls.kmf.kernel()
-        cls.mf = k2bvk.unfold_scf(cls.kmf)
+        cls.mf = k2bvk.fold_scf(cls.kmf)
         cls.smf = scf.RHF(cls.scell)
         cls.smf.conv_tol = 1e-12
         cls.smf = cls.smf.density_fit()
@@ -80,7 +80,7 @@ class K2BVK_UHF_Tests(unittest.TestCase):
         cls.kmf.with_df.linear_dep_threshold = 1e-7
         cls.kmf.with_df.build()
         cls.kmf.kernel()
-        cls.mf = k2bvk.unfold_scf(cls.kmf)
+        cls.mf = k2bvk.fold_scf(cls.kmf)
         cls.smf = scf.UHF(cls.scell)
         cls.smf.conv_tol = 1e-12
         cls.smf = cls.smf.density_fit()

@@ -23,6 +23,7 @@ from pyscf.pbc.tools import cubegen
 from vayesta.core.util import *
 from vayesta.core import QEmbeddingFragment
 from vayesta.solver import get_solver_class
+from vayesta.core.fragmentation import IAO_Fragmentation
 
 from . import ewf
 from .mp2_bath import make_mp2_bno
@@ -324,37 +325,30 @@ class EWFFragment(QEmbeddingFragment):
 
         return c_no, n_no
 
-
-    def set_cas(self, iaos=None, c_occ=None, c_vir=None):
-        """For TCCSD"""
+    def set_cas(self, iaos=None, c_occ=None, c_vir=None, minao='auto', dmet_threshold=None):
+        """Set complete active space for tailored CCSD"""
+        if dmet_threshold is None:
+            dmet_threshold = 2*self.opts.dmet_threshold
         if iaos is not None:
-            # Convert to index array
-            iaos = self.base.get_ao_indices(iaos, 'IAO')
-            c_iao = self.base.iao_coeff[:,iaos]
-            rest_iaos = np.setdiff1d(range(self.base.iao_coeff.shape[-1]), iaos)
-            # Combine remaining IAOs and rest virtual space (`iao_rest_coeff`)
-            c_env = np.hstack((self.base.iao_coeff[:,rest_iaos], self.base.iao_rest_coeff))
-            c_dmet = self.make_dmet_bath(c_env, tol=self.opts.dmet_threshold)[0]
-
-            c_iao_occ, c_iao_vir = self.diagonalize_cluster_dm(c_iao, c_dmet, tol=2*self.opts.dmet_threshold)
+            if isinstance(self.base.fragmentation, IAO_Fragmentation):
+                fragmentation = self.base.fragmentation
+            # Create new IAO fragmentation
+            else:
+                fragmentation = IAO_Fragmentation(self, minao=minao).kernel()
+            # Get IAO and environment coefficients from fragmentation
+            indices = fragmentation.get_orbital_fragment_indices(iaos)[1]
+            c_iao = fragmentation.get_frag_coeff(indices)
+            c_env = fragmentation.get_env_coeff(indices)
+            c_dmet = self.make_dmet_bath(c_env, tol=dmet_threshold)[0]
+            c_iao_occ, c_iao_vir = self.diagonalize_cluster_dm(c_iao, c_dmet, tol=2*dmet_threshold)
         else:
             c_iao_occ = c_iao_vir = None
 
-        def combine(c1, c2):
-            if c1 is not None and c2 is not None:
-                return np.hstack((c1, c2))
-            if c1 is not None:
-                return c1
-            if c2 is not None:
-                return c2
-            raise ValueError()
-
-        c_cas_occ = combine(c_occ, c_iao_occ)
-        c_cas_vir = combine(c_vir, c_iao_vir)
+        c_cas_occ = hstack(c_occ, c_iao_occ)
+        c_cas_vir = hstack(c_vir, c_iao_vir)
         self.opts.c_cas_occ = c_cas_occ
         self.opts.c_cas_vir = c_cas_vir
         return c_cas_occ, c_cas_vir
-
 
     def kernel(self, bno_threshold=None, bno_number=None, solver=None, init_guess=None, eris=None):
         """Run solver for a single BNO threshold.

@@ -13,6 +13,10 @@ class IAOPAO_Fragmentation(IAO_Fragmentation):
     def __init__(self, qemb, minao='auto'):
         super().__init__(qemb, minao=minao)
 
+    def search_ao_labels(self, labels):
+        raise NotImplementedError()
+        #return self.mol.search_ao_label(labels)
+
     def get_coeff(self):
         """Make projected atomic orbitals (PAOs)."""
         iao_coeff = super().get_coeff(add_virtuals=False)

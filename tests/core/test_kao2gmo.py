@@ -47,7 +47,7 @@ class KAO2GMOTests(unittest.TestCase):
         cm = mp.mp2.MP2(mf)
         mo_coeff_occ = mf.mo_coeff[:, mf.mo_occ > 0]
         mo_coeff_vir = mf.mo_coeff[:, mf.mo_occ == 0]
-        eri0 = kao2gmo.gdf_to_pyscf_eris(mf, self.mf.with_df, cm)
+        eri0 = kao2gmo.gdf_to_pyscf_eris(mf, self.mf.with_df, cm, fock=mf.get_fock(), mo_energy=mf.mo_energy, e_hf=mf.e_tot)
         for key in ['ovov']:
             coeffs = tuple([mo_coeff_occ, mo_coeff_vir][k == 'v'] for k in key)
             eri1 = mf.with_df.ao2mo(coeffs, compact=False).reshape([c.shape[1] for c in coeffs])
@@ -58,7 +58,7 @@ class KAO2GMOTests(unittest.TestCase):
         cm = cc.rccsd.RCCSD(mf)
         mo_coeff_occ = mf.mo_coeff[:, mf.mo_occ > 0]
         mo_coeff_vir = mf.mo_coeff[:, mf.mo_occ == 0]
-        eri0 = kao2gmo.gdf_to_pyscf_eris(mf, self.mf.with_df, cm)
+        eri0 = kao2gmo.gdf_to_pyscf_eris(mf, self.mf.with_df, cm, fock=mf.get_fock(), mo_energy=mf.mo_energy, e_hf=mf.e_tot)
         for key in ['ovov', 'oovv', 'ovvo', 'ovoo', 'oooo', 'ovvv', 'vvvv']:
             coeffs = tuple([mo_coeff_occ, mo_coeff_vir][k == 'v'] for k in key)
             eri1 = mf.with_df.ao2mo(coeffs, compact=False).reshape([c.shape[1] for c in coeffs])
@@ -69,7 +69,7 @@ class KAO2GMOTests(unittest.TestCase):
         cm = cc.dfccsd.RCCSD(mf)
         mo_coeff_occ = mf.mo_coeff[:, mf.mo_occ > 0]
         mo_coeff_vir = mf.mo_coeff[:, mf.mo_occ == 0]
-        eri0 = kao2gmo.gdf_to_pyscf_eris(mf, self.mf.with_df, cm)
+        eri0 = kao2gmo.gdf_to_pyscf_eris(mf, self.mf.with_df, cm, fock=mf.get_fock(), mo_energy=mf.mo_energy, e_hf=mf.e_tot)
         for key in ['ovov', 'oovv', 'ovvo', 'ovoo', 'oooo']:
             coeffs = tuple([mo_coeff_occ, mo_coeff_vir][k == 'v'] for k in key)
             eri1 = mf.with_df.ao2mo(coeffs, compact=False).reshape([c.shape[1] for c in coeffs])
@@ -90,7 +90,7 @@ class KAO2GMOTests(unittest.TestCase):
         cm = cc.ccsd.CCSD(mf)
         mo_coeff_occ = mf.mo_coeff[:, mf.mo_occ > 0]
         mo_coeff_vir = mf.mo_coeff[:, mf.mo_occ == 0]
-        eri0 = kao2gmo.gdf_to_pyscf_eris(mf, self.mf.with_df, cm)
+        eri0 = kao2gmo.gdf_to_pyscf_eris(mf, self.mf.with_df, cm, fock=mf.get_fock(), mo_energy=mf.mo_energy, e_hf=mf.e_tot)
         for key in ['ovov', 'oovv', 'ovvo', 'ovoo', 'oooo']:
             coeffs = tuple([mo_coeff_occ, mo_coeff_vir][k == 'v'] for k in key)
             eri1 = mf.with_df.ao2mo(coeffs, compact=False).reshape([c.shape[1] for c in coeffs])

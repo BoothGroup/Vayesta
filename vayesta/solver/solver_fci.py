@@ -8,6 +8,7 @@ import pyscf.ao2mo
 import pyscf.ci
 import pyscf.mcscf
 import pyscf.fci
+import pyscf.fci.addons
 #import pyscf.fci.direct_spin0
 #import pyscf.fci.direct_spin1
 
@@ -21,7 +22,12 @@ class FCISolver(ClusterSolver):
     class Options(ClusterSolver.Options):
         threads: int = 1
         lindep: float = None
-        conv_tol: float = None
+        #conv_tol: float = None
+        conv_tol: float = 1e-12
+        fix_spin: float = None
+        #fix_spin: float = 0.0
+        solver_spin: bool = True
+        #solver_spin: bool = False
 
     @dataclasses.dataclass
     class Results(ClusterSolver.Results):
@@ -55,10 +61,18 @@ class FCISolver(ClusterSolver):
         #v_core = self.mf.get_veff(dm=dm_core)
         #h_eff = np.linalg.multi_dot((c_act.T, self.base.get_hcore()+v_core, c_act))
 
-        fcisolver = pyscf.fci.direct_spin1.FCISolver(self.mol)
+        if self.opts.solver_spin:
+            fcisolver = pyscf.fci.direct_spin1.FCISolver(self.mol)
+        else:
+            fcisolver = pyscf.fci.direct_spin0.FCISolver(self.mol)
         if self.opts.threads is not None: fcisolver.threads = self.opts.threads
         if self.opts.conv_tol is not None: fcisolver.conv_tol = self.opts.conv_tol
         if self.opts.lindep is not None: fcisolver.lindep = self.opts.lindep
+
+        if self.opts.fix_spin is not None:
+            spin = self.opts.fix_spin
+            self.log.debugv("Fixing spin of FCI solver to S^2= %f", spin)
+            fcisolver = pyscf.fci.addons.fix_spin_(fcisolver, ss=spin)
 
         nelec = sum(self.mo_occ[self.get_active_slice()])
         t0 = timer()
@@ -69,6 +83,8 @@ class FCISolver(ClusterSolver):
         self.log.timing("Time for FCI: %s", time_string(timer()-t0))
         # TODO: This requires the E_core energy (and nuc-nuc repulsion)
         e_corr = np.nan
+        s2, mult = fcisolver.spin_square(civec, self.nactive, nelec)
+        self.log.info("FCI: S^2= %.10f  multiplicity= %.10f", s2, mult)
 
         cisdvec = pyscf.ci.cisd.from_fcivec(civec, self.nactive, nelec)
         c0, c1, c2 = pyscf.ci.cisd.cisdvec_to_amplitudes(cisdvec, self.nactive, nocc)

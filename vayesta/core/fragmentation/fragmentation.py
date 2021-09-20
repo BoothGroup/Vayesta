@@ -97,12 +97,12 @@ class Fragmentation:
         if isinstance(atoms[0], str):
             atom_symbols = atoms
             all_atom_symbols = [self.mol.atom_symbol(atm) for atm in range(self.mol.natm)]
-            for sym in atom_symbol:
+            for sym in atom_symbols:
                 if sym not in all_atom_symbols:
                     raise ValueError("Cannot find atom with symbol %s in system." % sym)
             atom_indices = np.nonzero(np.isin(all_atom_symbols, atom_symbols))[0]
             return atom_indices, atom_symbols
-        raise ValueError("A list of integers or string is required! atoms= %r", atoms)
+        raise ValueError("A list of integers or string is required! atoms= %r" % atoms)
 
     def get_atomic_fragment_indices(self, atoms, orbital_filter=None, name=None):
         """Get fragment indices for one atom or a set of atoms.
@@ -123,8 +123,8 @@ class Fragmentation:
         indices: list
             List of fragment orbitals indices, with coefficients corresponding to `self.coeff[:,indices]`.
         """
-        if orbital_filter is not None:
-            raise NotImplementedError()
+        #if orbital_filter is not None:
+        #    raise NotImplementedError()
         atom_indices, atom_symbols = self.get_atom_indices_symbols(atoms)
         if name is None: name = '/'.join(atom_symbols)
         self.log.debugv("Atom indices of fragment %s: %r", name, atom_indices)
@@ -132,6 +132,11 @@ class Fragmentation:
 
         # Indices of IAOs based at atoms
         indices = np.nonzero(np.isin(self.get_atoms(), atom_indices))[0]
+        # Filter orbital types
+        if orbital_filter is not None:
+            keep = self.search_ao_labels(orbital_filter)
+            indices = [i for i in indices if i in keep]
+
         # Some output
         self.log.debugv("Fragment %ss:\n%r", self.name, indices)
         self.log.debug("Fragment %ss of fragment %s:", self.name, name)
@@ -142,6 +147,9 @@ class Fragmentation:
                 self.log.debug("  %3s %4s %2s", a, sym, nl)
 
         return name, indices
+
+    def search_ao_labels(self, labels):
+        return self.mol.search_ao_label(labels)
 
     def get_orbital_indices_labels(self, orbitals):
         """Convert a list of integer or strings to orbital indices and labels."""
@@ -154,14 +162,13 @@ class Fragmentation:
             return orbital_indices, orbital_labels
         if isinstance(orbitals[0], str):
             orbital_labels = orbitals
-            raise NotImplementedError()
-            #all_atom_symbols = [self.mol.atom_symbol(atm) for atm in range(self.mol.natm)]
-            #for sym in atom_symbol:
-            #    if sym not in all_atom_symbols:
-            #        raise ValueError("Cannot find atom with symbol %s in system." % sym)
-            #atom_indices = np.nonzero(np.isin(all_atom_symbols, atom_symbols))[0]
-            #return atom_indices, atom_symbols
-        raise ValueError("A list of integers or string is required! orbitals= %r", orbitals)
+            # Check labels
+            for l in orbital_labels:
+                if len(self.search_ao_labels(l)) == 0:
+                    raise ValueError("Cannot find orbital with label %s in system." % l)
+            orbital_indices = self.search_ao_labels(orbital_labels)
+            return orbital_indices, orbital_labels
+        raise ValueError("A list of integers or string is required! orbitals= %r" % orbitals)
 
     def get_orbital_fragment_indices(self, orbitals, atom_filter=None, name=None):
         if atom_filter is not None:

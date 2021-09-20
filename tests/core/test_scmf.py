@@ -24,8 +24,9 @@ class SCMFTests(unittest.TestCase):
 
     def test_pdmet(self):
         emb = ewf.EWF(self.mf, make_rdm1=True, fragment_type='Lowdin-AO', bath_type=None)
+        emb.sao_fragmentation()
         emb.make_all_atom_fragments()
-        emb = emb.pdmet_scmf(etol=1e-10, dtol=1e-8)
+        emb.pdmet_scmf(etol=1e-10, dtol=1e-8)
         emb.kernel()
 
         self.assertTrue(emb.with_scmf.converged)
@@ -34,8 +35,9 @@ class SCMFTests(unittest.TestCase):
 
     def test_brueckner(self):
         emb = ewf.EWF(self.mf, make_rdm1=True, fragment_type='Lowdin-AO', bath_type=None)
+        emb.sao_fragmentation()
         emb.make_all_atom_fragments()
-        emb = emb.brueckner_scmf(etol=1e-10, dtol=1e-8)
+        emb.brueckner_scmf(etol=1e-10, dtol=1e-8)
         emb.kernel()
 
         self.assertTrue(emb.with_scmf.converged)

@@ -19,6 +19,8 @@ with open(os.path.join(path, 'minao.dat'), 'r') as f:
 
 def get_default_minao(basis):
     # TODO: Add more to data file
+    if not isinstance(basis, str):
+        return 'minao'
     bas = basis.replace('-', '').lower()
     minao = default_minao.get(bas, 'minao')
     if minao is None:
@@ -37,10 +39,10 @@ class IAO_Fragmentation(Fragmentation):
         else:
             self.log.debug("IAO:  computational basis= %s  minimal reference basis= %s", self.mol.basis, minao)
         self.minao = minao
+        self.refmol = pyscf.lo.iao.reference_mol(self.mol, minao=self.minao)
 
-    def get_refmol(self):
-        refmol = pyscf.lo.iao.reference_mol(self.mol, minao=self.minao)
-        return refmol
+    def search_ao_labels(self, labels):
+        return self.refmol.search_ao_label(labels)
 
     def get_coeff(self, add_virtuals=True):
         """Make intrinsic atomic orbitals (IAOs).
@@ -89,10 +91,9 @@ class IAO_Fragmentation(Fragmentation):
         iao_labels : list of length nIAO
             Orbital label (atom-id, atom symbol, nl string, m string) for each IAO.
         """
-        refmol = self.get_refmol()
-        iao_labels_refmol = refmol.ao_labels(None)
+        iao_labels_refmol = self.refmol.ao_labels(None)
         self.log.debugv('iao_labels_refmol: %r', iao_labels_refmol)
-        if refmol.natm == self.mol.natm:
+        if self.refmol.natm == self.mol.natm:
             iao_labels = iao_labels_refmol
         # If there are ghost atoms in the system, they will be removed in refmol.
         # For this reason, the atom IDs of mol and refmol will not agree anymore.
@@ -100,8 +101,8 @@ class IAO_Fragmentation(Fragmentation):
         # (they will no longer be contiguous integers).
         else:
             ref2mol = []
-            for refatm in range(refmol.natm):
-                ref_coords = refmol.atom_coord(refatm)
+            for refatm in range(self.refmol.natm):
+                ref_coords = self.refmol.atom_coord(refatm)
                 for atm in range(self.mol.natm):
                     coords = self.mol.atom_coord(atm)
                     if np.allclose(coords, ref_coords):

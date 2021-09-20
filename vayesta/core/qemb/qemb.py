@@ -1160,11 +1160,10 @@ class QEmbedding:
             return self.get_eris_array(mo_or_cm, *args, **kwargs)
         return self.get_eris_object(mo_or_cm, *args, **kwargs)
 
-    def make_atom_fragment(self, *args, **kwargs):
+    def make_atom_fragment(self, *args, aos=None, **kwargs):
         """Deprecated. Do not use."""
         self.log.warning("make_atom_fragment is deprecated. Use add_atomic_fragment.")
-        kwargs['aos'] = kwargs.get('orbital_filter', None)
-        return self.add_atomic_fragment(*args, **kwargs)
+        return self.add_atomic_fragment(*args, orbital_filter=aos, **kwargs)
 
     def make_all_atom_fragments(self, *args, **kwargs):
         """Deprecated. Do not use."""

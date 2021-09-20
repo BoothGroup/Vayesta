@@ -379,7 +379,7 @@ class ThreeCenterInts:
             if kptsym:
                 nkij = self.nk*(self.nk+1)//2
                 j3c = np.zeros((nkij, self.naux, self.nao, self.nao), dtype=complex)
-                kuniq_map = np.zeros((self.nk, self.nk), dtype=np.int)
+                kuniq_map = np.zeros((self.nk, self.nk), dtype=int)
             else:
                 j3c = np.zeros((self.nk, self.nk, self.naux, self.nao, self.nao), dtype=complex)
                 kuniq_map = None
@@ -429,7 +429,7 @@ class ThreeCenterInts:
             log.info("Nkuniq= %3d", nkuniq)
             # Check map
             _get_kpt_hash = pyscf.pbc.df.df_incore._get_kpt_hash
-            kuniq_map = np.zeros((self.nk, self.nk), dtype=np.int)
+            kuniq_map = np.zeros((self.nk, self.nk), dtype=int)
             # 2D systems not supported in incore version:
             j3c_neg = None
             for ki in range(self.nk):

@@ -58,6 +58,8 @@ class MolFragmentTests(unittest.TestCase):
         qemb.init_fragmentation('iao')
         frags = qemb.make_all_atom_fragments()
 
+        e_elec = sum([f.get_fragment_mf_energy() for f in frags])
+        self.assertAlmostEqual(e_elec + self.mf.energy_nuc(), self.mf.e_tot, 8)
         self.assertAlmostEqual(frags[0].get_fragment_mf_energy(), -107.09600995056937, 8)
         self.assertAlmostEqual(frags[1].get_fragment_mf_energy(), -104.94355748773579, 8)
         self.assertAlmostEqual(frags[2].get_fragment_mf_energy(), -104.94355748773579, 8)
