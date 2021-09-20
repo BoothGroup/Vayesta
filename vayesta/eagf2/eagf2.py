@@ -44,6 +44,14 @@ class EAGF2Options(RAGF2Options):
     recalc_vhf: bool = False
     copy_mf: bool = False
 
+    # --- Different defaults for some RAGF2 settings
+    conv_tol: float = 1e-6
+    conv_tol_rdm1: float = 1e-10
+    conv_tol_nelec: float = 1e-8
+    conv_tol_nelec_factor: float = 1e-2
+    max_cycle_inner: int = 200
+    max_cycle_outer: int = 20
+
 
 @dataclasses.dataclass
 class EAGF2Results:
