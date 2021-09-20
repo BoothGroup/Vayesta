@@ -48,6 +48,7 @@ class RAGF2Options(OptionsBase):
     damping: float = 0.0                # damping of AGF2 iterations
     diis_space: int = 6                 # size of AGF2 DIIS space
     diis_min_space: int = 1             # minimum AGF2 DIIS space before extrapolation
+    as_adc: bool = False                # convert to ADC(2) solver, see kernel_adc
 
     # --- Fock loop convergence parameters
     fock_basis: str = 'MO'              # basis to perform Fock build in
@@ -1107,6 +1108,9 @@ class RAGF2:
     def kernel(self):
         ''' Driving function for RAGF2
         '''
+
+        if self.opts.as_adc:
+            return self.kernel_adc()
 
         t0 = timer()
 
