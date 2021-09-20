@@ -81,7 +81,7 @@ def make_dmet_bath(frag, c_frag=None, c_env=None, tol=1e-5):
     return c_bath, c_env_occ, c_env_vir
 
 
-def make_power_bath(frag, max_order=0, svd_tol=0.0, c_frag=None, c_env=None):
+def make_power_bath(frag, max_order=0, svd_tol=1e-16, c_frag=None, c_env=None):
     ''' Make power bath orbitals up to a maximum order.
     '''
 
