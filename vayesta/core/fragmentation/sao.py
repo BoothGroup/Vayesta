@@ -7,9 +7,6 @@ class SAO_Fragmentation(Fragmentation):
 
     name = "SAO"
 
-    def __init__(self, qemb):
-        super().__init__(qemb)
-
     def get_coeff(self):
         ovlp = self.get_ovlp()
         idt = np.eye(self.nao)

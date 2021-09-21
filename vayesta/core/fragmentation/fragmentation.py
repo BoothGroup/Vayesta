@@ -7,44 +7,39 @@ from vayesta.core.util import *
 class Fragmentation:
     """Fragmentation for a quantum embedding method class."""
 
-    def __init__(self, qemb):
-        self.qemb = qemb
+    def __init__(self, mf, log):
+        self.mf = mf
+        self.log = log
+        self.ovlp = self.mf.get_ovlp()
+        #
         self.nfrag_tot = 0
         self.coeff = None
         self.labels = None
 
-    # --- For convenience pass through some attributes to the embedding method:
-
-    @property
-    def log(self):
-        return self.qemb.log
+    # --- For convenience:
 
     @property
     def mol(self):
-        return self.qemb.mol
+        return self.mf.mol
 
     @property
     def nao(self):
-        return self.qemb.nao
+        return self.mol.nao_nr()
 
     @property
     def nmo(self):
-        return self.qemb.nmo
-
-    @property
-    def mf(self):
-        return self.qemb.mf
+        return self.mf.mo_coeff.shape[-1]
 
     def get_ovlp(self):
-        return self.qemb.get_ovlp()
+        return self.ovlp
 
     @property
     def mo_coeff(self):
-        return self.qemb.mo_coeff
+        return self.mf.mo_coeff
 
     @property
     def mo_occ(self):
-        return self.qemb.mo_occ
+        return self.mf.mo_occ
 
     # ---
 
@@ -59,6 +54,14 @@ class Fragmentation:
         self.coeff = self.get_coeff()
         self.labels = self.get_labels()
         return self
+
+    def get_coeff(self):
+        """Abstract method."""
+        raise NotImplementedError()
+
+    def get_labels(self):
+        """Abstract method."""
+        raise NotImplementedError()
 
     def get_atoms(self):
         """Get the base atom for each fragment orbital."""
@@ -123,8 +126,6 @@ class Fragmentation:
         indices: list
             List of fragment orbitals indices, with coefficients corresponding to `self.coeff[:,indices]`.
         """
-        #if orbital_filter is not None:
-        #    raise NotImplementedError()
         atom_indices, atom_symbols = self.get_atom_indices_symbols(atoms)
         if name is None: name = '/'.join(atom_symbols)
         self.log.debugv("Atom indices of fragment %s: %r", name, atom_indices)

@@ -31,8 +31,8 @@ class IAO_Fragmentation(Fragmentation):
 
     name = "IAO"
 
-    def __init__(self, qemb, minao='auto'):
-        super().__init__(qemb)
+    def __init__(self, *args, minao='auto', **kwargs):
+        super().__init__(*args, **kwargs)
         if minao.lower() == 'auto':
             minao = get_default_minao(self.mol.basis)
             self.log.info("IAO:  computational basis= %s  minimal reference basis= %s (automatically chosen)", self.mol.basis, minao)

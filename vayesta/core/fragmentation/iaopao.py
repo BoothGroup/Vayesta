@@ -10,9 +10,6 @@ class IAOPAO_Fragmentation(IAO_Fragmentation):
 
     name = "IAO/PAO"
 
-    def __init__(self, qemb, minao='auto'):
-        super().__init__(qemb, minao=minao)
-
     def search_ao_labels(self, labels):
         raise NotImplementedError()
         #return self.mol.search_ao_label(labels)

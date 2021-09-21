@@ -62,7 +62,6 @@ class EWF(QEmbeddingMethod):
         project_init_guess: bool = True     # Project converted T1,T2 amplitudes from a previous larger cluster
         orthogonal_mo_tol: float = False
         # --- Solver settings
-        solver_options: dict = dataclasses.field(default_factory=dict)
         make_rdm1: bool = False
         make_rdm2: bool = False
         dm_with_frozen: bool = False        # Add frozen parts to cluster DMs
@@ -102,8 +101,8 @@ class EWF(QEmbeddingMethod):
             See class `Options` for additional options.
         """
 
-        super().__init__(mf, options=options, log=log, **kwargs)
         t_start = timer()
+        super().__init__(mf, options=options, log=log, **kwargs)
 
         # Options
         if self.opts.pop_analysis:
@@ -125,26 +124,6 @@ class EWF(QEmbeddingMethod):
 
         #self._mo_coeff = self.get_init_mo_coeff()
 
-        # Prepare fragments
-        ##t0 = timer()
-        ##fragkw = {}
-        ##if self.opts.fragment_type.upper() == 'IAO':
-        ##    if self.opts.iao_minao == 'auto':
-        ##        self.opts.iao_minao = helper.get_minimal_basis(self.mol.basis)
-        ##        self.log.warning("Minimal basis set '%s' for IAOs was selected automatically.",  self.opts.iao_minao)
-        ##    self.log.info("Computational basis= %s", self.mol.basis)
-        ##    self.log.info("Minimal basis=       %s", self.opts.iao_minao)
-        ##    fragkw['minao'] = self.opts.iao_minao
-        ##self.init_fragmentation(self.opts.fragment_type, **fragkw)
-        ###self.iao_fragmentation(**fragkw)
-        ##self.log.timing("Time for fragment initialization: %s", time_string(timer()-t0))
-        self.log.timing("Time for EWF setup: %s", time_string(timer()-t_start))
-
-        # Intermediate and output attributes
-        #self.e_corr = 0.0           # Correlation energy
-        #self.e_pert_t = 0.0         # CCSD(T) correction
-        #self.e_delta_mp2 = 0.0      # MP2 correction
-
         # Population analysis
         self.pop_mf = None
         #self.pop_mf_chg = None
@@ -153,6 +132,7 @@ class EWF(QEmbeddingMethod):
         self.cluster_results = {}
         self.results = []
         self.e_corr = 0.0
+        self.log.timing("Time for EWF setup: %s", time_string(timer()-t_start))
 
     def __repr__(self):
         keys = ['mf', 'bno_threshold', 'solver']

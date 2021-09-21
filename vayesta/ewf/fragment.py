@@ -58,6 +58,8 @@ class EWFFragment(QEmbeddingFragment):
         # CAS methods
         c_cas_occ: np.ndarray = None
         c_cas_vir: np.ndarray = None
+        #
+        dm_with_frozen: bool = NotSet
         # --- Orbital plots
         plot_orbitals: list = NotSet
         plot_orbitals_exit: bool = NotSet            # Exit immediately after all orbital plots have been generated
@@ -497,9 +499,18 @@ class EWFFragment(QEmbeddingFragment):
 
         # Create solver object
         t0 = timer()
+        # TODO: fix this mess...
         solver_opts = {}
-        solver_opts['make_rdm1'] = self.opts.make_rdm1
-        solver_opts['make_rdm2'] = self.opts.make_rdm2
+        solver_opts.update(self.opts.solver_options)
+        #solver_opts['make_rdm1'] = self.opts.make_rdm1
+        #solver_opts['make_rdm2'] = self.opts.make_rdm2
+        pass_through = ['make_rdm1', 'make_rdm2']
+        if 'CCSD' in solver.upper():
+            pass_through += ['sc_mode', 'dm_with_frozen', 'eom_ccsd', 'eom_ccsd_nroots']
+        for attr in pass_through:
+            self.log.debugv("Passing fragment option %s to solver.", attr)
+            solver_opts[attr] = getattr(self.opts, attr)
+
         if solver.upper() == 'TCCSD':
             solver_opts['tcc'] = True
             # Set CAS orbitals
@@ -515,6 +526,9 @@ class EWFFragment(QEmbeddingFragment):
 
         cluster_solver_cls = get_solver_class(solver)
         cluster_solver = cluster_solver_cls(self, mo_coeff, mo_occ, nocc_frozen=nocc_frozen, nvir_frozen=nvir_frozen, **solver_opts)
+        if eris is None:
+            eris = cluster_solver.get_eris()
+
         if self.opts.nelectron_target is None:
             solver_results = cluster_solver.kernel(eris=eris, **init_guess)
         else:
@@ -532,7 +546,8 @@ class EWFFragment(QEmbeddingFragment):
         p1 = self.project_amplitude_to_fragment(c1, c_active_occ, c_active_vir)
         p2 = self.project_amplitude_to_fragment(c2, c_active_occ, c_active_vir)
 
-        e_corr = self.get_fragment_energy(p1, p2, eris=solver_results.eris)
+        #e_corr = self.get_fragment_energy(p1, p2, eris=solver_results.eris)
+        e_corr = self.get_fragment_energy(p1, p2, eris=eris)
         if bno_threshold[0] is not None:
             if bno_threshold[0] == bno_threshold[1]:
                 self.log.info("BNO threshold= %.1e :  E(corr)= %+14.8f Ha", bno_threshold[0], e_corr)
@@ -594,7 +609,8 @@ class EWFFragment(QEmbeddingFragment):
             results.l2 = solver_results.l2
         # Keep ERIs [optional]
         if self.base.opts.project_eris or self.opts.sc_mode:
-            results.eris = solver_results.eris
+            #results.eris = solver_results.eris
+            results.eris = eris
 
         self._results = results
 
@@ -602,7 +618,9 @@ class EWFFragment(QEmbeddingFragment):
         if solver_results.dm1 is not None and solver_results.dm2 is not None:
             #pass
             results.e_dmet = self.get_fragment_dmet_energy(
-                    dm1=results.dm1, dm2=results.dm2, eris=solver_results.eris)
+                    dm1=results.dm1, dm2=results.dm2,
+                    #eris=solver_results.eris)
+                    eris=eris)
 
         # Force GC to free memory
         m0 = get_used_memory()
@@ -753,7 +771,7 @@ class EWFFragment(QEmbeddingFragment):
             if hasattr(eris, 'fock'):
                 f = eris.fock[occ,vir]
             else:
-                f = np.linalg.multi_dot((self.c_active_occ.T, self.base.get_fock(), self.c_active_vir))
+                f = dot(self.c_active_occ.T, self.base.get_fock(), self.c_active_vir)
             e1 = 2*np.sum(f * p1)
         # E2
         if hasattr(eris, 'ovvo'):

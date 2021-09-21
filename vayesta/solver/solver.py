@@ -13,19 +13,18 @@ class ClusterSolver:
 
     @dataclasses.dataclass
     class Options(OptionsBase):
-        make_rdm1: bool = NotSet
-        make_rdm2: bool = NotSet
+        make_rdm1: bool = False
+        make_rdm2: bool = False
+        cpt_frag: float = None          # Chemical potential on fragment space
 
     @dataclasses.dataclass
     class Results:
-        converged: bool = False
-        e_corr: float = 0.0
-        c_occ: np.array = None
-        c_vir: np.array = None
-        # Density matrix in MO representation:
-        dm1: np.array = None
-        dm2: np.array = None
-        eris: 'typing.Any' = None
+        converged: bool = False         # Indicates convergence of iterative solvers, such as CCSD or FCI
+        e_corr: float = 0.0             # Cluster correlation energy
+        c_occ: np.array = None          # Occupied active orbitals
+        c_vir: np.array = None          # Virtual active orbitals
+        dm1: np.array = None            # 1-particle reducied density matrix in active orbital representation
+        dm2: np.array = None            # 2-particle reducied density matrix in active orbital representation
 
         def get_init_guess(self, *args, **kwargs):
             """Return initial guess to restart kernel.
@@ -35,7 +34,6 @@ class ClusterSolver:
             >>> solver.kernel(**init_guess)
             """
             raise NotImplementedError()
-            #return {}
 
     def __init__(self, fragment, mo_coeff, mo_occ, nocc_frozen, nvir_frozen,
             options=None, log=None, **kwargs):
@@ -59,8 +57,10 @@ class ClusterSolver:
             options = self.Options(**kwargs)
         else:
             options = options.replace(kwargs)
-        options = options.replace(self.base.opts, select=NotSet)
         self.opts = options
+        self.log.debug("Solver options:")
+        for key, val in self.opts.items():
+            self.log.debug('  > %-24s %r', key + ':', val)
 
         # Check MO orthogonality
         err = abs(dot(mo_coeff.T, self.base.get_ovlp(), mo_coeff) - np.eye(mo_coeff.shape[-1])).max()
@@ -126,6 +126,24 @@ class ClusterSolver:
     def c_active(self):
         return self.mo_coeff[:,self.get_active_slice()]
 
+    def get_eris(self):
+        """Abstract method."""
+        raise NotImplementedError()
+
+    def get_v_frag(self, cpt=None, c_frag=None):
+        """Potential due to fragment chemical potential in AO basis."""
+        if cpt is None: cpt = self.opts.cpt_frag
+        if c_frag is None: c_frag = self.fragment.c_proj
+        cs = np.dot(c_proj.T, self.base.get_ovlp())
+        p_frag = np.dot(cs.T, cs)
+        return cpt * p_frag
+
+    def get_nelec_frag(self, dm1, c_frag=None):
+        if c_frag is None: c_frag = self.fragment.c_proj
+        csc = dot(c_proj.T, self.base.get_ovlp(), self.c_active)
+        ne_frag = einsum('xi,ij,xj->', csc, dm1, csc)
+        return ne_frag
+
     def kernel_optimize_cpt(self, nelectron_target, cpt_guess=0, atol=1e-8, rtol=1e-8, cpt_radius=0.1, **kwargs):
         """Optimize a chemical potential within the fragment space to get the target number of electrons.
 
@@ -152,13 +170,11 @@ class ClusterSolver:
 
         mf = self.base.mf
         # Save current hcore to restore later
-        hfunc0 = mf.get_hcore
-        hcache0 = self.base._hcore
+        #hfunc0 = mf.get_hcore
+        #hcache0 = self.base._hcore
         # Unmodified hcore
         h0 = self.base.get_hcore()
         # Fragment projector
-        #cs = np.dot(self.fragment.c_frag.T, self.base.get_ovlp())
-        #cs = np.dot(self.fragment.c_local.T, self.base.get_ovlp())
         cs = np.dot(self.fragment.c_proj.T, self.base.get_ovlp())
         p_proj = np.dot(cs.T, cs)
         csc = np.dot(cs, self.c_active)
@@ -174,19 +190,25 @@ class ClusterSolver:
         iterations = 0
         init_guess = {}
 
+        #eris = kwargs.pop('eris', self.get_eris())
+        eris = kwargs.pop('eris')
+
         def electron_err(cpt):
             nonlocal results, err, cpt_opt, iterations, init_guess
             if cpt:
-                mf.get_hcore = lambda *args : (h0 + cpt*p_proj)
-                self.base._hcore = None
+                #mf.get_hcore = lambda *args : (h0 + cpt*p_proj)
+                #self.base._hcore = None
+                self.base.set_hcore(h0 + cpt*p_proj)
             kwargs.update(init_guess)
-            self.log.debugv("**kwarg keys for solver: %r", kwargs.keys())
+            self.log.debugv("kwargs keys for solver: %r", kwargs.keys())
             results = self.kernel(**kwargs)
+            #results = self.kernel(eris=eris, **kwargs)
             init_guess = results.get_init_guess()
             # Restore get_hcore
             if cpt:
-                mf.get_hcore = hfunc0
-                self.base._hcore = hcache0
+                self.base.set_hcore(h0)
+                #mf.get_hcore = hfunc0
+                #self.base._hcore = hcache0
             if not results.converged:
                 raise ConvergenceError()
             ne_frag = einsum('xi,ij,xj->', csc, results.dm1, csc)
@@ -212,7 +234,7 @@ class ClusterSolver:
         # Too many electrons in fragment space -> raise fragment chemical potential:
         else:
             bounds = np.asarray([cpt_guess, cpt_guess+cpt_radius])
-        for ntry in range(5):
+        for ntry in range(3):
             try:
                 cpt, res = scipy.optimize.brentq(electron_err, a=bounds[0], b=bounds[1], xtol=1e-12, full_output=True)
                 if res.converged:

@@ -1,5 +1,6 @@
 import dataclasses
 import itertools
+import copy
 
 import numpy as np
 import scipy
@@ -19,6 +20,7 @@ class QEmbeddingFragment:
 
     @dataclasses.dataclass
     class Options(OptionsBase):
+        solver_options: dict = NotSet
         coupled_fragments: list = dataclasses.field(default_factory=list)
         # Symmetry
         sym_factor: float = 1.0
@@ -84,7 +86,6 @@ class QEmbeddingFragment:
         return np.hstack(mo_coeff)
 
     def __init__(self, base, fid, name, c_frag, c_env, fragment_type,
-            c_locvir=None, c_nloc=None,
             atoms=None, aos=None,
             sym_parent=None, sym_op=None,
             log=None, options=None, **kwargs):
@@ -168,8 +169,6 @@ class QEmbeddingFragment:
 
         self.c_frag = c_frag
         self.c_env = c_env
-        self.c_locvir = c_locvir
-        self.c_nloc = c_nloc
         self.fragment_type = fragment_type
         self.sym_factor = self.opts.sym_factor
         self.sym_parent = sym_parent
@@ -179,19 +178,19 @@ class QEmbeddingFragment:
         self.aos = aos
 
         # This set of orbitals is used in the projection to evaluate expectation value contributions
-        # of the fragment. By default it is equal to `self.c_local`.
-        self.c_proj = self.c_local
+        # of the fragment. By default it is equal to `self.c_frag`.
+        self.c_proj = self.c_frag
 
         # Some output
-        fmt = '  > %-24s     %r'
-        self.log.info(fmt, "Fragment type:", self.fragment_type)
-        self.log.info(fmt, "Fragment orbitals:", self.n_frag)
-        self.log.info(fmt, "Symmetry factor:", self.sym_factor)
-        self.log.info(fmt, "Number of electrons:", self.nelectron)
+        fmt = '  > %-24s     '
+        self.log.info(fmt+'%r', "Fragment type:", self.fragment_type)
+        self.log.info(fmt+'%r', "Fragment orbitals:", self.n_frag)
+        self.log.info(fmt+'%r', "Symmetry factor:", self.sym_factor)
+        self.log.info(fmt+'%.10f', "Number of electrons:", self.nelectron)
         if self.atoms is not None:
-            self.log.info(fmt, "Associated atoms:", self.atoms)
+            self.log.info(fmt+'%r', "Associated atoms:", self.atoms)
         if self.aos is not None:
-            self.log.info(fmt, "Associated AOs:", self.aos)
+            self.log.info(fmt+'%r', "Associated AOs:", self.aos)
 
         # Final cluster active orbitals
         self._c_active_occ = None
@@ -229,27 +228,6 @@ class QEmbeddingFragment:
         return self.c_frag.shape[-1]
 
     @property
-    def c_local(self):
-        """Return all local (fragment + local virtual) orbitals."""
-        if self.c_locvir is None:
-            return self.c_frag
-        return self.stack_mo(self.c_frag, self.c_locvir)
-
-    @property
-    def n_locvir(self):
-        """Number of local virtual orbitals."""
-        if self.c_locvir is None:
-            return 0
-        return self.c_locvir.shape[-1]
-
-    @property
-    def n_local(self):
-        """Number of local (fragment + local virtual) orbitals."""
-        if self.c_locvir is None:
-            return self.n_frag
-        return (self.n_frag + self.n_locvir)
-
-    @property
     def size(self):
         self.log.warning("fragment.size is deprecated!")
         return self.n_frag
@@ -257,7 +235,7 @@ class QEmbeddingFragment:
     @property
     def nelectron(self):
         """Number of mean-field electrons."""
-        sc = np.dot(self.base.get_ovlp(), self.c_local)
+        sc = np.dot(self.base.get_ovlp(), self.c_frag)
         ne = einsum('ai,ab,bi->', sc, self.mf.make_rdm1(), sc)
         return ne
 
@@ -411,26 +389,21 @@ class QEmbeddingFragment:
 
         Does not include nuclear-nuclear repulsion!
         """
-        #h1e = np.linalg.multi_dot((self.base.mo_coeff.T, self.mf.get_hcore(), self.base.mo_coeff))
-        #h1e += np.diag(self.base.mo_energy)
         px = self.get_fragment_projector(self.base.mo_coeff)
         hveff = dot(px, self.base.mo_coeff.T, 2*self.base.get_hcore()+self.base.get_veff(), self.base.mo_coeff)
         occ = (self.base.mo_occ > 0)
         e_mf = np.sum(np.diag(hveff)[occ])
         return e_mf
 
-    def get_fragment_projector(self, coeff, ao_ptype='right', inverse=False):
+    def get_fragment_projector(self, coeff, inverse=False):
         """Projector for one index of amplitudes local energy expression.
 
         Cost: N^2 if O(1) coeffs , N^3 if O(N) coeffs
 
         Parameters
         ----------
-        coeff : ndarray, shape(nAO, n)
+        coeff : ndarray, shape(n(AO), N)
             Occupied or virtual orbital coefficients.
-        ao_ptype : {'right', 'left', 'symmetric'}, optional
-            Defines were the projector is restricted to AO indices. Is only used
-            of `self.fragment_type == 'AO'`. Default: 'right'.
         inverse : bool, optional
             Return 1-p instead. Default: False.
 
@@ -439,34 +412,9 @@ class QEmbeddingFragment:
         p : (n, n) array
             Projection matrix.
         """
-        self.log.debugv("Get fragment projector type %s", self.fragment_type)
-        ftype = self.fragment_type.upper()
-        c_proj = self.c_proj
-        r = dot(coeff.T, self.base.get_ovlp(), c_proj)
+        r = dot(coeff.T, self.base.get_ovlp(), self.c_proj)
         p = np.dot(r, r.T)
-
-        #if ftype == 'SITE':
-        #    r = np.dot(coeff.T, c_proj)
-        #    p = np.dot(r, r.T)
-        #elif ftype in ('IAO', 'LOWDIN-AO'):
-        #    r = dot(coeff.T, self.base.get_ovlp(), c_proj)
-        #    p = np.dot(r, r.T)
-        #elif ftype == 'AO':
-        #    if self.aos is None:
-        #        raise ValueError("Cannot obtain local projector for fragment_type 'AO', if attribute `aos` is not set.")
-        #    if ao_ptype == 'right':
-        #        p = dot(coeff.T, self.base.get_ovlp()[:,self.aos], c_proj[self.aos])
-        #    elif ao_ptype == 'right':
-        #        p = dot(coeff[self.aos].T, self.base.get_ovlp()[self.aos], c_proj)
-        #    elif ao_ptype == 'symmetric':
-        #        shalf = scipy.linalg.fractional_matrix_power(self.get_ovlp, 0.5)
-        #        assert np.allclose(s.half.imag, 0)
-        #        shalf = shalf.real
-        #        p = dot(C.T, shalf[:,self.aos], s[self.aos], C)
-        #else:
-        #    raise ValueError("Unknown fragment type: %r" % ftype)
-        if inverse:
-            p = np.eye(p.shape[-1]) - p
+        if inverse: p = (np.eye(p.shape[-1]) - p)
         return p
 
     def get_mo_occupation(self, *mo_coeff):

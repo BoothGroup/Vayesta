@@ -215,25 +215,20 @@ class OptionsBase:
         **kwargs :
             Additional keyword arguments will be added to `other`
         """
-
+        other = copy.deepcopy(other)
         if isinstance(other, OptionsBase):
             other = other.asdict()
         if kwargs:
             other.update(kwargs)
 
-        def _repr(a, maxlen=30):
-            r = a.__repr__()
-            if len(r) > maxlen:
-                r = r[:(maxlen-3)] + '...'
-            return r
-
-        # Only replace values which are in select
+        # Only replace values which are equal to select
         if select is not SelectNotSet:
-            updates = {}
+            keep = {}
             for key, val in self.items():
-                if val is select:
-                    updates[key] = copy.copy(other[key])
-            other = updates
+                if (val is select) and (key in other):
+                    #updates[key] = copy.copy(other[key])
+                    keep[key] = other[key]
+            other = keep
 
         return dataclasses.replace(self, **other)
 

@@ -1,11 +1,13 @@
+from .solver_cc import CCSDSolver
+from .solver_fci import FCISolver
+from .solver_ebfci import EBFCISolver
+
 def get_solver_class(solver):
-    if solver.upper() in ('CCSD', 'CCSD(T)', 'TCCSD'):
-        from .solver_cc import CCSDSolver
+    solver = solver.upper()
+    if solver in ('CCSD', 'CCSD(T)', 'TCCSD'):
         return CCSDSolver
-    if solver.upper() == 'FCI':
-        from .solver_fci import FCISolver
+    if solver == 'FCI':
         return FCISolver
-    if solver.upper() == 'EBFCI':
-        from .solver_ebfci import EBFCISolver
+    if solver == 'EBFCI':
         return EBFCISolver
-    raise NotImplementedError("Unknown solver %s" % solver)
+    raise ValueError("Unknown solver: %s" % solver)

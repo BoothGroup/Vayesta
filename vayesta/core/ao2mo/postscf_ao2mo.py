@@ -5,13 +5,7 @@ import pyscf
 import pyscf.mp
 import pyscf.cc
 
-#from pyscf.cc.ccsd import _ChemistERIs as CCSD_ERIs
-#from pyscf.cc.rccsd import _ChemistERIs as RCCSD_ERIs
-#from pyscf.cc.dfccsd import _ChemistERIs as DFCCSD_ERIs
-#from pyscf.mp.mp2 import _ChemistERIs as MP2_ERIs
-
 from vayesta.core.util import *
-
 
 def postscf_ao2mo(postscf, mo_coeff=None, fock=None, mo_energy=None, e_hf=None):
     """Use as ao2mo(cc, mo_coeff) (instead of cc.ao2mo(mo_coeff))
@@ -46,11 +40,3 @@ def postscf_ao2mo(postscf, mo_coeff=None, fock=None, mo_energy=None, e_hf=None):
         eris.mo_energy = mo_energy
 
     return eris
-
-    ## Important: Check specialised classes before parent classes (since DFCCSD is also CCSD!)
-    #if isinstance(postscf, cc.dfccsd.DFCCSD):
-    #    eris = DFCCSD_ERIs()
-    #if isinstance(postscf, cc.rccsd.RCCSD):
-    #if isinstance(postscf, cc.ccsd.CCSD):
-    #if isinstance(postscf, mp.mp2.DFMP2):
-    #if isinstance(postscf, mp.mp2.MP2):

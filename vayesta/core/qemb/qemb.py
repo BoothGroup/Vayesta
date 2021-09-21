@@ -48,6 +48,7 @@ class QEmbedding:
     @dataclasses.dataclass
     class Options(OptionsBase):
         recalc_vhf: bool = True
+        solver_options: dict = dataclasses.field(default_factory=dict)
         wf_partition: str = 'first-occ'     # ['first-occ', 'first-vir', 'democratic']
 
     def __init__(self, mf, options=None, log=None, **kwargs):
@@ -580,7 +581,7 @@ class QEmbedding:
     # -------
 
     def get_dmet_energy(self, with_nuc=True, with_exxdiv=True):
-        """
+        """Calculate DMET energy via democratically partitioned density-matrices.
 
         Parameters
         ----------
@@ -588,6 +589,11 @@ class QEmbedding:
             Include nuclear-repulsion energy. Default: True.
         with_exxdiv: bool, optional
             Include divergent exact-exchange correction. Default: True.
+
+        Returns
+        -------
+        e_dmet: float
+            DMET energy.
         """
         e_dmet = 0.0
         for f in self.fragments:
@@ -598,7 +604,7 @@ class QEmbedding:
                 e_dmet += f.get_fragment_dmet_energy()
         if with_nuc:
             e_dmet += self.e_nuc
-        if self.has_exxdiv and with_exxdiv:
+        if with_exxdiv and self.has_exxdiv:
             e_dmet += self.get_exxdiv()[0]
         return e_dmet
 
@@ -617,7 +623,6 @@ class QEmbedding:
         """
         if partition is None: partition = self.opts.wf_partition
         t1 = np.zeros((self.nocc, self.nvir))
-        ovlp = self.get_ovlp()
         # Add fragment WFs in intermediate normalization
         for f in self.fragments:
             self.log.debugv("Now adding projected %s-amplitudes of fragment %s", ("L" if get_lambda else "T"), f)
@@ -646,7 +651,6 @@ class QEmbedding:
         if partition is None: partition = self.opts.wf_partition
         t1 = np.zeros((self.nocc, self.nvir)) if calc_t1 else None
         t2 = np.zeros((self.nocc, self.nocc, self.nvir, self.nvir)) if calc_t2 else None
-        ovlp = self.get_ovlp()
         # Add fragment WFs in intermediate normalization
         for f in self.fragments:
             self.log.debugv("Now adding projected %s-amplitudes of fragment %s", ("L" if get_lambda else "T"), f)
@@ -668,8 +672,8 @@ class QEmbedding:
     def make_rdm1_demo(self, ao_basis=False, add_mf=True, symmetrize=True):
         """Make democratically partitioned one-particle reduced density-matrix from fragment calculations.
 
-        Warning: A democratically partitioned DM is only expected to yield good results
-        for Lowdin-AO or site fragmentation.
+        Warning: A democratically partitioned DM is only expected to yield reasonable results
+        for full fragmentations (eg, Lowdin-AO or IAO+PAO fragmentation).
 
         Parameters
         ----------
@@ -839,8 +843,8 @@ class QEmbedding:
     def make_rdm2_demo(self, ao_basis=False, add_mf=True, symmetrize=True):
         """Make democratically partitioned two-particle reduced density-matrix from fragment calculations.
 
-        Warning: A democratically partitioned DM is only expected to yield good results
-        for Lowdin-AO or site fragmentation.
+        Warning: A democratically partitioned DM is only expected to yield reasonable results
+        for full fragmentations (eg, Lowdin-AO or IAO+PAO fragmentation).
 
         Parameters
         ----------
@@ -1011,13 +1015,8 @@ class QEmbedding:
         ----------
         minao: str, optional
             IAO reference basis set. Default: 'auto'
-
-        Returns
-        -------
-        fragmentation: IAO_Fragmentation
-            IAO Fragmentation object.
         """
-        self.fragmentation = IAO_Fragmentation(self, minao).kernel()
+        self.fragmentation = IAO_Fragmentation(self.mf, log=self.log, minao=minao).kernel()
 
     def iaopao_fragmentation(self, minao='auto'):
         """Initialize the quantum embedding method for the use of IAO+PAO fragments.
@@ -1026,33 +1025,16 @@ class QEmbedding:
         ----------
         minao: str, optional
             IAO reference basis set. Default: 'auto'
-
-        Returns
-        -------
-        fragmentation: IAOPAO_Fragmentation
-            IAO+PAO Fragmentation object.
         """
-        self.fragmentation = IAOPAO_Fragmentation(self, minao).kernel()
+        self.fragmentation = IAOPAO_Fragmentation(self.mf, log=self.log, minao=minao).kernel()
 
     def sao_fragmentation(self):
-        """Initialize the quantum embedding method for the use of SAO (Lowdin-AO) fragments.
-
-        Returns
-        -------
-        fragmentation: SAO_Fragmentation
-            SAO Fragmentation object.
-        """
-        self.fragmentation = SAO_Fragmentation(self).kernel()
+        """Initialize the quantum embedding method for the use of SAO (Lowdin-AO) fragments."""
+        self.fragmentation = SAO_Fragmentation(self.mf, log=self.log).kernel()
 
     def site_fragmentation(self):
-        """Initialize the quantum embedding method for the use of site fragments.
-
-        Returns
-        -------
-        fragmentation: Site_Fragmentation
-            Site Fragmentation object.
-        """
-        self.fragmentation = Site_Fragmentation(self).kernel()
+        """Initialize the quantum embedding method for the use of site fragments."""
+        self.fragmentation = Site_Fragmentation(self.mf, log=self.log).kernel()
 
     def add_atomic_fragment(self, atoms, orbital_filter=None, name=None, **kwargs):
         """Create a fragment of one or multiple atoms, which will be solved by the embedding method.
