@@ -458,6 +458,7 @@ class QEmbedding:
             Electron-repulsion integrals in MO basis.
         """
         # TODO: check self.kdf and fold
+        t0 = timer()
         if hasattr(self.mf, 'with_df') and self.mf.with_df is not None:
             eris = self.mf.with_df.ao2mo(mo_coeff, compact=compact)
         elif self.mf._eri is not None:
@@ -466,6 +467,7 @@ class QEmbedding:
             eris = self.mol.ao2mo(mo_coeff, compact=compact)
         if not compact:
             eris = eris.reshape(4*[mo_coeff.shape[-1]])
+        self.log.timing("Time for AO->MO of ERIs:  %s", time_string(timer()-t0))
         return eris
 
     def get_eris_object(self, posthf):
@@ -484,6 +486,7 @@ class QEmbedding:
         eris: _ChemistsERIs
             ERIs which can be used for the respective post-HF method.
         """
+        t0 = timer()
         c_act = _mo_without_core(posthf, posthf.mo_coeff)
         if isinstance(posthf, pyscf.mp.mp2.MP2):
             fock = self.get_fock()
@@ -500,6 +503,7 @@ class QEmbedding:
             return eris
         # 2) Regular AO->MO transformation
         eris = postscf_ao2mo(posthf, fock=fock, mo_energy=mo_energy, e_hf=e_hf)
+        self.log.timing("Time for AO->MO of ERIs:  %s", time_string(timer()-t0))
         return eris
 
     #def kernel(self, *args, **kwargs):

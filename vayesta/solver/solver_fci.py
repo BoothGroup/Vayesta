@@ -69,13 +69,11 @@ class FCISolver(ClusterSolver):
         #dm_core = 2*np.dot(self.mo_coeff[:,core], self.mo_coeff[:,core].T)
         #v_core = self.mf.get_veff(dm=dm_core)
         #h_eff = np.linalg.multi_dot((self.c_active.T, self.base.get_hcore()+v_core, self.c_active))
-
-        # Add chemical potential to fragment space
-        if self.opts.cpt_frag is not None:
-            h_eff += self.get_v_frag()
+        if self.v_ext is not None:
+            h_eff += self.v_ext
         return h_eff
 
-    def kernel(self, init_guess=None, eris=None):
+    def kernel(self, ci0=None, eris=None):
         """Run FCI kernel."""
 
         if eris is None: eris = self.get_eris()
@@ -83,7 +81,7 @@ class FCISolver(ClusterSolver):
         nelec = sum(self.mo_occ[self.get_active_slice()])
 
         t0 = timer()
-        e_fci, civec = self.solver.kernel(heff, eris, self.nactive, nelec)
+        e_fci, civec = self.solver.kernel(heff, eris, self.nactive, nelec, ci0=ci0)
         if not self.solver.converged:
             self.log.error("FCI not converged!")
         else:

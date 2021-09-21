@@ -502,8 +502,6 @@ class EWFFragment(QEmbeddingFragment):
         # TODO: fix this mess...
         solver_opts = {}
         solver_opts.update(self.opts.solver_options)
-        #solver_opts['make_rdm1'] = self.opts.make_rdm1
-        #solver_opts['make_rdm2'] = self.opts.make_rdm2
         pass_through = ['make_rdm1', 'make_rdm2']
         if 'CCSD' in solver.upper():
             pass_through += ['sc_mode', 'dm_with_frozen', 'eom_ccsd', 'eom_ccsd_nroots']
@@ -529,10 +527,10 @@ class EWFFragment(QEmbeddingFragment):
         if eris is None:
             eris = cluster_solver.get_eris()
 
-        if self.opts.nelectron_target is None:
-            solver_results = cluster_solver.kernel(eris=eris, **init_guess)
-        else:
-            solver_results = cluster_solver.kernel_optimize_cpt(self.opts.nelectron_target, eris=eris, **init_guess)
+        if self.opts.nelectron_target is not None:
+            cluster_solver.optimize_cpt(self.opts.nelectron_target, c_frag=self.c_proj)
+        solver_results = cluster_solver.kernel(eris=eris, **init_guess)
+
         self.log.timing("Time for %s solver:  %s", solver, time_string(timer()-t0))
 
         # Get projected amplitudes ('p1', 'p2')

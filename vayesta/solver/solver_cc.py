@@ -1,4 +1,5 @@
 import dataclasses
+import copy
 from timeit import default_timer as timer
 
 import numpy as np
@@ -21,6 +22,7 @@ class CCSDSolver(ClusterSolver):
         conv_tol: float = None          # Convergence energy tolerance
         conv_tol_normt: float = None    # Convergence amplitude tolerance
 
+        solve_lambda: bool = False      # Solve lambda-equations
         # Self-consistent mode
         #sc_mode: int = NotSet
         sc_mode: int = None
@@ -82,9 +84,7 @@ class CCSDSolver(ClusterSolver):
         self.solver = solver
 
     def get_eris(self):
-        t0 = timer()
         eris = self.base.get_eris_object(self.solver)
-        self.log.timing("Time for AO->MO of ERIs:  %s", time_string(timer()-t0))
         return eris
 
     def kernel(self, t1=None, t2=None, eris=None, l1=None, l2=None, coupled_fragments=None, t_diagnostic=True):
@@ -107,6 +107,12 @@ class CCSDSolver(ClusterSolver):
 
         # Integral transformation
         if eris is None: eris = self.get_eris()
+
+        # Add additional potential
+        if self.v_ext is not None:
+            # Make sure there are no side effects:
+            eris = copy.copy(eris)
+            eris.fock = (eris.fock + self.v_ext)
         self.log.debugv("sum(eris.mo_energy)= %.8e", sum(eris.mo_energy))
         self.log.debugv("Tr(eris.fock)= %.8e", np.trace(eris.fock))
 
@@ -149,7 +155,7 @@ class CCSDSolver(ClusterSolver):
                 converged=self.solver.converged, e_corr=self.solver.e_corr, c_occ=self.c_active_occ, c_vir=self.c_active_vir,
                 t1=self.solver.t1, t2=self.solver.t2)
 
-        solve_lambda = (self.opts.make_rdm1 or self.opts.make_rdm2)
+        solve_lambda = (self.opts.solve_lambda or self.opts.make_rdm1 or self.opts.make_rdm2)
         if solve_lambda:
             t0 = timer()
             self.log.info("Solving lambda equations...")

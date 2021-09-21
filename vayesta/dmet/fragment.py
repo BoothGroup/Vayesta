@@ -324,7 +324,8 @@ class DMETFragment(QEmbeddingFragment):
         cluster_solver_cls = get_solver_class(solver)
         cluster_solver = cluster_solver_cls(
             self, mo_coeff, mo_occ, nocc_frozen=nocc_frozen, nvir_frozen=nvir_frozen, **solver_opts)
-        solver_results = cluster_solver.kernel(init_guess=init_guess, eris=eris)
+        #solver_results = cluster_solver.kernel(init_guess=init_guess, eris=eris)
+        solver_results = cluster_solver.kernel(eris=eris, **(init_guess or {}))
         self.log.timing("Time for %s solver:  %s", solver, time_string(timer()-t0))
 
         # Get projected amplitudes ('p1', 'p2')

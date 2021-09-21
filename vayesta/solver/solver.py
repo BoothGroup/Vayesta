@@ -1,5 +1,6 @@
 import dataclasses
 from timeit import default_timer as timer
+import copy
 
 import numpy as np
 import scipy
@@ -15,7 +16,6 @@ class ClusterSolver:
     class Options(OptionsBase):
         make_rdm1: bool = False
         make_rdm2: bool = False
-        cpt_frag: float = None          # Chemical potential on fragment space
 
     @dataclasses.dataclass
     class Results:
@@ -35,7 +35,7 @@ class ClusterSolver:
             """
             raise NotImplementedError()
 
-    def __init__(self, fragment, mo_coeff, mo_occ, nocc_frozen, nvir_frozen,
+    def __init__(self, fragment, mo_coeff, mo_occ, nocc_frozen, nvir_frozen, v_ext=None,
             options=None, log=None, **kwargs):
         """
 
@@ -48,6 +48,7 @@ class ClusterSolver:
         """
         self.log = log or fragment.log
         self.fragment = fragment
+        self.mf = fragment.mf
         self.mo_coeff = mo_coeff
         self.mo_occ = mo_occ
         self.nocc_frozen = nocc_frozen
@@ -70,6 +71,9 @@ class ClusterSolver:
             self.log.warning("MOs are not orthonormal: %.3e", err)
         assert (err < 1e-6), ("MO not orthogonal: %.3e" % err)
 
+        # Additional external potential
+        self.v_ext = v_ext
+
         # Results
         self.results = None
 
@@ -78,12 +82,8 @@ class ClusterSolver:
         return self.fragment.base
 
     @property
-    def mf(self):
-        return self.fragment.mf
-
-    @property
     def mol(self):
-        return self.fragment.mol
+        return self.mf.mol
 
     @property
     def nmo(self):
@@ -92,6 +92,7 @@ class ClusterSolver:
 
     @property
     def nocc(self):
+        """Total number occupied of occupied orbitals (including frozen)."""
         return np.count_nonzero(self.mo_occ > 0)
 
     @property
@@ -130,29 +131,15 @@ class ClusterSolver:
         """Abstract method."""
         raise NotImplementedError()
 
-    def get_v_frag(self, cpt=None, c_frag=None):
-        """Potential due to fragment chemical potential in AO basis."""
-        if cpt is None: cpt = self.opts.cpt_frag
-        if c_frag is None: c_frag = self.fragment.c_proj
-        cs = np.dot(c_proj.T, self.base.get_ovlp())
-        p_frag = np.dot(cs.T, cs)
-        return cpt * p_frag
-
-    def get_nelec_frag(self, dm1, c_frag=None):
-        if c_frag is None: c_frag = self.fragment.c_proj
-        csc = dot(c_proj.T, self.base.get_ovlp(), self.c_active)
-        ne_frag = einsum('xi,ij,xj->', csc, dm1, csc)
-        return ne_frag
-
-    def kernel_optimize_cpt(self, nelectron_target, cpt_guess=0, atol=1e-8, rtol=1e-8, cpt_radius=0.1, **kwargs):
-        """Optimize a chemical potential within the fragment space to get the target number of electrons.
-
-        Additional keyword arguments are passed to the solver kernel.
+    def optimize_cpt(self, nelectron, c_frag, cpt_guess=0, atol=1e-6, rtol=1e-6, cpt_radius=1):
+        """Enables chemical potential optimization to match a number of electrons in the fragment space.
 
         Parameters
         ----------
-        nelectron_target: int
+        nelectron: float
             Target number of electrons.
+        c_frag: array
+            Fragment orbitals.
         cpt_guess: float, optional
             Initial guess for fragment chemical potential. Default: 0.
         atol: float, optional
@@ -168,96 +155,92 @@ class ClusterSolver:
             Solver results.
         """
 
-        mf = self.base.mf
-        # Save current hcore to restore later
-        #hfunc0 = mf.get_hcore
-        #hcache0 = self.base._hcore
-        # Unmodified hcore
-        h0 = self.base.get_hcore()
-        # Fragment projector
-        cs = np.dot(self.fragment.c_proj.T, self.base.get_ovlp())
-        p_proj = np.dot(cs.T, cs)
-        csc = np.dot(cs, self.c_active)
+        kernel_orig = self.kernel
+        r_frag = dot(self.c_active.T, self.mf.get_ovlp(), c_frag)
+        p_frag = np.dot(r_frag, r_frag.T)     # Projector into fragment space
+        self.opts.make_rdm1 = True
 
         class CptFound(RuntimeError):
             """Raise when electron error is below tolerance."""
             pass
 
-        self.opts.make_rdm1 = True
-        results = None
-        err = None
-        cpt_opt = None
-        iterations = 0
-        init_guess = {}
+        def kernel(self, *args, **kwargs):
+            results = None
+            err = None
+            cpt_opt = None
+            iterations = 0
+            init_guess = {}
 
-        #eris = kwargs.pop('eris', self.get_eris())
-        eris = kwargs.pop('eris')
+            # Avoid calculating the ERIs multiple times:
+            eris = kwargs.pop('eris', self.get_eris())
 
-        def electron_err(cpt):
-            nonlocal results, err, cpt_opt, iterations, init_guess
-            if cpt:
-                #mf.get_hcore = lambda *args : (h0 + cpt*p_proj)
-                #self.base._hcore = None
-                self.base.set_hcore(h0 + cpt*p_proj)
-            kwargs.update(init_guess)
-            self.log.debugv("kwargs keys for solver: %r", kwargs.keys())
-            results = self.kernel(**kwargs)
-            #results = self.kernel(eris=eris, **kwargs)
-            init_guess = results.get_init_guess()
-            # Restore get_hcore
-            if cpt:
-                self.base.set_hcore(h0)
-                #mf.get_hcore = hfunc0
-                #self.base._hcore = hcache0
-            if not results.converged:
-                raise ConvergenceError()
-            ne_frag = einsum('xi,ij,xj->', csc, results.dm1, csc)
-            err = (ne_frag - nelectron_target)
-            self.log.debugv("Fragment chemical potential= %+12.8f Ha:  electrons in fragment= %.8f  error= %+.3e", cpt, ne_frag, err)
-            iterations += 1
-            if abs(err) < (atol + rtol*nelectron_target):
-                cpt_opt = cpt
-                raise CptFound()
-            return err
+            def electron_err(cpt):
+                nonlocal results, err, cpt_opt, iterations, init_guess
+                v_ext0 = self.v_ext
+                if cpt:
+                    if self.v_ext is None:
+                        self.v_ext = -cpt * p_frag
+                    else:
+                        self.v_ext += -cpt * p_frag
+                kwargs.update(init_guess)
+                self.log.debugv("kwargs keys for solver: %r", kwargs.keys())
+                results = kernel_orig(eris=eris, **kwargs)
+                self.v_ext = v_ext0     # Reset v_ext
+                if not results.converged:
+                    raise ConvergenceError()
+                ne_frag = einsum('xi,ij,xj->', p_frag, results.dm1, p_frag)
+                err = (ne_frag - nelectron)
+                self.log.debugv("Fragment chemical potential= %+12.8f Ha:  electrons= %.8f  error= %+.3e", cpt, ne_frag, err)
+                iterations += 1
+                if abs(err) < (atol + rtol*nelectron):
+                    cpt_opt = cpt
+                    raise CptFound()
+                # Initial guess for next chemical potential
+                init_guess = results.get_init_guess()
+                return err
 
-        # First run with cpt_guess:
-        try:
-            err0 = electron_err(cpt_guess)
-        except CptFound:
-            self.log.debug("Chemical potential= %.6f leads to electron error= %.3e within tolerance (atol= %.1e, rtol= %.1e)", cpt_guess, err, atol, rtol)
+            # First run with cpt_guess:
+            try:
+                err0 = electron_err(cpt_guess)
+            except CptFound:
+                self.log.debug("Chemical potential= %.6f leads to electron error= %.3e within tolerance (atol= %.1e, rtol= %.1e)", cpt_guess, err, atol, rtol)
+                return results
+
+            # Not enough electrons in fragment space -> raise fragment chemical potential:
+            assert (cpt_radius > 0)
+            if err0 < 0:
+                bounds = np.asarray([cpt_guess, cpt_guess+cpt_radius])
+            # Too many electrons in fragment space -> lower fragment chemical potential:
+            else:
+                bounds = np.asarray([cpt_guess-cpt_radius, cpt_guess])
+            for ntry in range(5):
+                try:
+                    cpt, res = scipy.optimize.brentq(electron_err, a=bounds[0], b=bounds[1], xtol=1e-12, full_output=True)
+                    if res.converged:
+                        raise RuntimeError("Chemical potential converged to %+16.8f, but electron error is still %.3e" % (cpt, err))
+                        #self.log.warning("Chemical potential converged to %+16.8f, but electron error is still %.3e", cpt, err)
+                        #cpt_opt = cpt
+                        #raise CptFound
+                except CptFound:
+                    break
+                # Could not find chemical potential in bracket:
+                except ValueError:
+                    bounds *= 2
+                    self.log.warning("Interval for chemical potential search too small. New search interval: [%f %f]", *bounds)
+                    continue
+                # Could not convergence in bracket:
+                except ConvergenceError:
+                    bounds /= 2
+                    self.log.warning("Solver did not converge. New search interval: [%f %f]", *bounds)
+                    continue
+                raise RuntimeError("Invalid state: electron error= %.3e" % err)
+            else:
+                errmsg = ("Could not find chemical potential within interval [%f %f]!" % (bounds[0], bounds[1]))
+                self.log.critical(errmsg)
+                raise RuntimeError(errmsg)
+
+            self.log.info("Chemical potential optimized in %d iterations= %+16.8f Ha", iterations, cpt_opt)
             return results
 
-        # Not enough electrons in fragment space -> lower fragment chemical potential:
-        assert (cpt_radius > 0)
-        if err0 < 0:
-            bounds = np.asarray([cpt_guess-cpt_radius, cpt_guess])
-        # Too many electrons in fragment space -> raise fragment chemical potential:
-        else:
-            bounds = np.asarray([cpt_guess, cpt_guess+cpt_radius])
-        for ntry in range(3):
-            try:
-                cpt, res = scipy.optimize.brentq(electron_err, a=bounds[0], b=bounds[1], xtol=1e-12, full_output=True)
-                if res.converged:
-                    self.log.warning("Chemical potential converged to %+16.8f, but electron error is still %.3e", cpt, err)
-                    cpt_opt = cpt
-                    raise CptFound
-            except CptFound:
-                break
-            # Could not find chemical potential in bracket:
-            except ValueError:
-                bounds *= 10
-                self.log.warning("Interval for chemical potential search too small. New search interval: [%f %f]", *bounds)
-                continue
-            # Could not convergence in bracket:
-            except ConvergenceError:
-                bounds /= 2
-                self.log.warning("Solver did not converge. New search interval: [%f %f]", *bounds)
-                continue
-            raise RuntimeError("Invalid state: electron error= %.3e" % err)
-        else:
-            errmsg = ("Could not find chemical potential within interval [%f %f]!" % (bounds[0], bounds[1]))
-            self.log.critical(errmsg)
-            raise RuntimeError(errmsg)
-
-        self.log.info("Chemical potential optimized in %d iterations= %+16.8f Ha", iterations, cpt_opt)
-        return results
+        # Replace kernel:
+        self.kernel = kernel.__get__(self)
