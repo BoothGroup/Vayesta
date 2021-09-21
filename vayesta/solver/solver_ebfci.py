@@ -29,6 +29,7 @@ class EBFCISolver(ClusterSolver):
         conv_tol: float = None
         bos_occ_cutoff: int = NotSet
         make_rdm_ladder: bool = True
+        make_01_dd_mom: bool = False
 
     @dataclasses.dataclass
     class Results(ClusterSolver.Results):
@@ -37,6 +38,8 @@ class EBFCISolver(ClusterSolver):
         c1: np.array = None
         c2: np.array = None
         rdm_eb: np.array = None
+        dd_mom0: np.array = None
+        dd_mom1: np.array = None
 
     def __init__(self, freqs, couplings, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -99,7 +102,17 @@ class EBFCISolver(ClusterSolver):
                 converged=True, e_corr=e_fci, c_occ=self.c_active_occ, c_vir=self.c_active_vir, eris=eris)
                 #c0=c0, c1=c1, c2=c2)
         # Grab all required dms.
-        if self.opts.make_rdm2:
+        if self.opts.make_01_dd_mom:
+            results.dm1, results.dm2 = ebfci_slow.make_rdm12e(wf, self.nactive, nelec)
+            # Calculating only the components of the dd response moments we needs cuts down on calculation time.
+            frag_coeffs = np.linalg.multi_dot([self.fragment.c_active.T, self.base.get_ovlp(), self.fragment.c_frag])
+            dd_moms = ebfci_slow.calc_dd_response_moment_spatial(wf, e_fci, 1, self.nactive, nelec,
+                                                        self.nbos, h_eff, eris, self.bos_freqs, self.eb_coupling,
+                                                        self.opts.bos_occ_cutoff, results.dm1, trace = True,
+                                                        coeffs = frag_coeffs)
+            results.dd_mom0 = dd_moms[0]
+            results.dd_mom1 = dd_moms[1]
+        elif self.opts.make_rdm2:
             results.dm1, results.dm2 = ebfci_slow.make_rdm12e(wf, self.nactive, nelec)
         elif self.opts.make_rdm1:
             results.dm1 = ebfci_slow.make_rdm1e(wf, self.nactive, nelec)

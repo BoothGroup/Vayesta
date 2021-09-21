@@ -505,6 +505,193 @@ def make_eb_rdm(fcivec, norb, nelec, nbosons, max_occ):
                 ).reshape((nspinorb,nspinorb,nbosons))
     return rdm_fb
 
+def calc_dd_response_moment(ci0, e0, max_mom, norb, nel, nbos, h1e, eri, hbb, heb, max_boson_occ, rdm1, trace=False,
+                            coeffs = None, **kwargs):
+    """
+    Calculate up to the mth moment of the dd response.
+    :param m: maximum moment order of response to return.
+    :param hfbas: whether to return the moment in the HF basis. Otherwise returns in the basis in the underlying
+            orthogonal basis hfbas is specified in (defaults to False).
+    :return:
+    """
+    hop = kernel(h1e, eri, heb, hbb, norb, nel, nbos, max_boson_occ, returnhop=True, **kwargs)[0]
+
+    nspinorb = 2 * norb
+    spincoeffs = coeffs
+    if not (spincoeffs is None):
+        if spincoeffs.shape[0] == norb:
+            # Given spatial orbital coeffs; convert to spin.
+            spincoeffs = numpy.zeros([2*x for x in coeffs.shape])
+            spincoeffs[::2,::2] = coeffs
+            spincoeffs[1::2,1::2] = coeffs
+
+    if isinstance(nel, (int, numpy.integer)):
+        nelecb = nel//2
+        neleca = nel - nelecb
+    else:
+        neleca, nelecb = nel
+    link_indexa = cistring.gen_linkstr_index(range(norb), neleca)
+    link_indexb = cistring.gen_linkstr_index(range(norb), nelecb)
+    cishape = make_shape(nel, norb, nbos, max_boson_occ)
+
+    t1 = numpy.zeros((nspinorb,nspinorb)+cishape, dtype = numpy.dtype(numpy.float64))
+    for str0, tab in enumerate(link_indexa):
+        for a, i, str1, sign in tab:
+            t1[2*a,2*i,str1] += sign * ci0[str0]
+    for str0, tab in enumerate(link_indexb):
+        for a, i, str1, sign in tab:
+            t1[2*a+1,2*i+1,:,str1] += sign * ci0[:,str0]
+    # If we want not in HF basis we can perform transformation at this stage.
+    t1 = t1.reshape((nspinorb,nspinorb,-1))
+    if not spincoeffs is None:
+        t1 = numpy.einsum("ia...,ip,aq->pq...", t1, spincoeffs, spincoeffs)
+        del coeffs, spincoeffs
+    if trace:
+        t1 = numpy.einsum("ii...->i...", t1)
+    # From this we'll obtain our moments through dot products, thanks to the Hermiticity of our expression.
+    max_intermed = numpy.ceil(max_mom/2).astype(int)
+    intermeds = {0:t1}
+    for iinter in range(max_intermed):
+        intermeds[iinter+1] = numpy.zeros_like(t1)
+        for i in range(nspinorb):
+            if trace:
+                intermeds[iinter + 1][i] = hop(intermeds[iinter][i]).reshape(-1) - \
+                                              e0 * intermeds[iinter][i]
+            else:
+                for a in range(nspinorb):
+                    intermeds[iinter + 1][a,i] = hop(intermeds[iinter][a,i]).reshape(-1) - \
+                                                e0 * intermeds[iinter][a,i]
+    # Need to adjust zeroth moment to remove ground state contributions; in all higher moments this is achieved by
+    # deducting the reference energy.
+    # Now take appropriate dot products to get moments.
+    moments = {}
+    for imom in range(max_mom+1):
+        rintermed = min(imom, max_intermed)
+        lintermed = imom - rintermed
+        #print(imom, rintermed, lintermed, max_intermed)
+        if trace:
+            moments[imom] = numpy.einsum("pn,qn->pq", intermeds[lintermed], intermeds[rintermed])
+        else:
+            moments[imom] = numpy.einsum("pqn,rsn->pqsr", intermeds[lintermed], intermeds[rintermed])
+    # Need to add additional adjustment for zeroth moment, as there is a nonzero ground state
+    # contribution in this case (the current value is in fact the double occupancy <0|n_{pq} n_{sr}|0>).
+    if trace:
+        moments[0] = moments[0] - numpy.einsum("pp,qq->pq", rdm1, rdm1)
+    else:
+        moments[0] = moments[0] - numpy.einsum("pq,rs->pqrs", rdm1, rdm1)
+    return moments
+
+
+def calc_dd_response_moment_spatial(ci0, e0, max_mom, norb, nel, nbos, h1e, eri, hbb, heb, max_boson_occ, rdm1, trace=False,
+                            coeffs = None, **kwargs):
+    """
+    Calculate up to the mth moment of the dd response, dealing with all spin components separately. To replace
+    preceding function.
+    :param m: maximum moment order of response to return.
+    :param hfbas: whether to return the moment in the HF basis. Otherwise returns in the basis in the underlying
+            orthogonal basis hfbas is specified in (defaults to False).
+    :return:
+    """
+    # Note that we must stay in the same spin sector in this approach; if we want to get the nonzero components of the
+    # spin-density response (rather than charge-density) we'll need to use commutation relations to relate to the
+    # equivalent charge-density response.
+    hop = kernel(h1e, eri, heb, hbb, norb, nel, nbos, max_boson_occ, returnhop=True, **kwargs)[0]
+
+    if isinstance(nel, (int, numpy.integer)):
+        nelecb = nel//2
+        neleca = nel - nelecb
+    else:
+        neleca, nelecb = nel
+    link_indexa = cistring.gen_linkstr_index(range(norb), neleca)
+    link_indexb = cistring.gen_linkstr_index(range(norb), nelecb)
+    cishape = make_shape(nel, norb, nbos, max_boson_occ)
+
+    t1a = numpy.zeros((norb,norb)+cishape, dtype = numpy.dtype(numpy.float64))
+    t1b = numpy.zeros_like(t1a)
+
+
+    for str0, tab in enumerate(link_indexa):
+        for a, i, str1, sign in tab:
+            t1a[a,i,str1] += sign * ci0[str0]
+    for str0, tab in enumerate(link_indexb):
+        for a, i, str1, sign in tab:
+            t1b[a,i,:,str1] += sign * ci0[:,str0]
+    # If we want not in HF basis we can perform transformation at this stage.
+    t1a = t1a.reshape((norb,norb,-1))
+    t1b = t1b.reshape((norb, norb, -1))
+    if not (coeffs is None):
+        if type(coeffs) == tuple:
+            coeffsa, coeffsb = coeffs
+        else:
+            coeffsa = coeffsb = coeffs
+        t1a = numpy.einsum("ia...,ip,aq->pq...", t1a, coeffsa, coeffsa)
+        t1b = numpy.einsum("ia...,ip,aq->pq...", t1b, coeffsb, coeffsb)
+        del coeffs, coeffsa, coeffsb
+    if trace:
+        t1a = numpy.einsum("ii...->i...", t1a)
+        t1b = numpy.einsum("ii...->i...", t1b)
+    # From this we'll obtain our moments through dot products, thanks to the Hermiticity of our expression.
+    max_intermed = numpy.ceil(max_mom/2).astype(int)
+    aintermeds = {0:t1a}
+    bintermeds = {0: t1b}
+    for iinter in range(max_intermed):
+        aintermeds[iinter+1] = numpy.zeros_like(t1a)
+        bintermeds[iinter + 1] = numpy.zeros_like(t1b)
+        for i in range(norb):
+            if trace:
+                aintermeds[iinter + 1][i] = hop(aintermeds[iinter][i]).reshape(-1) - \
+                                              e0 * aintermeds[iinter][i]
+                bintermeds[iinter + 1][i] = hop(bintermeds[iinter][i]).reshape(-1) - \
+                                            e0 * bintermeds[iinter][i]
+            else:
+                for a in range(norb):
+                    aintermeds[iinter + 1][a,i] = hop(aintermeds[iinter][a,i]).reshape(-1) - \
+                                                e0 * aintermeds[iinter][a,i]
+                    bintermeds[iinter + 1][a, i] = hop(bintermeds[iinter][a, i]).reshape(-1) - \
+                                                   e0 * bintermeds[iinter][a, i]
+    # Need to adjust zeroth moment to remove ground state contributions; in all higher moments this is achieved by
+    # deducting the reference energy.
+    # Now take appropriate dot products to get moments.
+    moments = {}
+    for imom in range(max_mom+1):
+        r_ind = min(imom, max_intermed)
+        l_ind = imom - r_ind
+
+        aintermed_r = aintermeds[r_ind]
+        bintermed_r = bintermeds[r_ind]
+        aintermed_l = aintermeds[l_ind]
+        bintermed_l = bintermeds[l_ind]
+
+        if trace:
+            moments[imom] = (
+                numpy.dot(aintermed_l, aintermed_r.T),
+                numpy.dot(aintermed_l, bintermed_r.T),
+                numpy.dot(bintermed_l, bintermed_r.T)
+            )
+        else:
+            moments[imom] = (
+                numpy.tensordot(aintermed_l, aintermed_r.T, (2,2)),
+                numpy.tensordot(aintermed_l, bintermed_r.T, (2,2)),
+                numpy.tensordot(bintermed_l, bintermed_r.T, (2,2))
+            )
+    # Need to add additional adjustment for zeroth moment, as there is a nonzero ground state
+    # contribution in this case (the current value is in fact the double occupancy <0|n_{pq} n_{sr}|0>).
+    if type(rdm1) == tuple:
+        rdma, rdmb = rdm1
+    else:
+        rdma = rdmb = rdm1
+    moments[0] = list(moments[0])
+    if trace:
+        moments[0][0] = moments[0][0] - numpy.einsum("pp,qq->pq", rdma, rdma)
+        moments[0][1] = moments[0][1] - numpy.einsum("pp,qq->pq", rdma, rdmb)
+        moments[0][2] = moments[0][2] - numpy.einsum("pp,qq->pq", rdmb, rdmb)
+    else:
+        moments[0][0] = moments[0][0] - numpy.einsum("pq,rs->pqrs", rdma, rdma)
+        moments[0][1] = moments[0][1] - numpy.einsum("pq,rs->pqrs", rdma, rdmb)
+        moments[0][2] = moments[0][2] - numpy.einsum("pq,rs->pqrs", rdmb, rdmb)
+    moments[0] = tuple(moments[0])
+    return moments
+
 def run(nelec, h1e, eri, hpp, hep, max_occ, returnhop=False, nroots = 1, **kwargs):
     """run a calculation using a pyscf mf object.
     """
