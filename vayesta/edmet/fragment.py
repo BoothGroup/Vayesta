@@ -22,7 +22,7 @@ class EDMETFragment(DMETFragment):
 
     @dataclasses.dataclass
     class Options(DMETFragment.Options):
-        pass
+        bos_occ_cutoff: int = NotSet
 
     @dataclasses.dataclass
     class Results(DMETFragment.Results):
@@ -186,7 +186,7 @@ class EDMETFragment(DMETFragment):
         #print(np.einsum("npq,rp,sq->nrs", Vb, self.c_active, self.c_active))
         return freqs, Va, Vb
 
-    def kernel(self, rpa_moms, bno_threshold = None, bno_number = None, solver=None, init_guess=None, eris=None, construct_bath = False):
+    def kernel(self, rpa_moms, bno_threshold=None, bno_number=None, solver=None, eris=None, construct_bath=False):
         # First set up fermionic degrees of freedom
         mo_coeff, mo_occ, nocc_frozen, nvir_frozen, nactive = \
                             self.set_up_orbitals(bno_threshold, bno_number, construct_bath)
@@ -202,11 +202,10 @@ class EDMETFragment(DMETFragment):
         solver_opts['make_rdm1'] = self.opts.make_rdm1
         solver_opts['make_rdm2'] = self.opts.make_rdm2
 
-
         cluster_solver_cls = get_solver_class(solver)
         cluster_solver = cluster_solver_cls(
             freqs, (Va, Vb), self, mo_coeff, mo_occ, nocc_frozen=nocc_frozen, nvir_frozen=nvir_frozen, **solver_opts)
-        solver_results = cluster_solver.kernel(init_guess=init_guess, eris=eris)
+        solver_results = cluster_solver.kernel(bos_occ_cutoff=self.opts.bos_occ_cutoff, eris=eris)
         self.log.timing("Time for %s solver:  %s", solver, time_string(timer()-t0))
 
         results = self.Results(

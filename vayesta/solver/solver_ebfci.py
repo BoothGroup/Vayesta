@@ -27,7 +27,6 @@ class EBFCISolver(ClusterSolver):
         threads: int = 1
         lindep: float = None
         conv_tol: float = None
-        bos_occ_cutoff: int = NotSet
         make_rdm_ladder: bool = True
 
     @dataclasses.dataclass
@@ -37,6 +36,7 @@ class EBFCISolver(ClusterSolver):
         c1: np.array = None
         c2: np.array = None
         rdm_eb: np.array = None
+        eris: np.array = None
 
     def __init__(self, freqs, couplings, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -47,8 +47,11 @@ class EBFCISolver(ClusterSolver):
     def nbos(self):
         return len(self.bos_freqs)
 
-    def kernel(self, init_guess=None, eris=None):
+    def kernel(self, bos_occ_cutoff=None, eris=None):
         """Run FCI kernel."""
+
+        if bos_occ_cutoff is None:
+            bos_occ_cutoff = self.fragment.opts.bos_occ_cutoff
 
         c_act = self.mo_coeff[:,self.get_active_slice()]
 
@@ -81,10 +84,10 @@ class EBFCISolver(ClusterSolver):
 
         t0 = timer()
 
-        self.log.info("Running FCI with boson occupation cutoff of {:d}".format(self.opts.bos_occ_cutoff))
+        self.log.info("Running FCI with boson occupation cutoff of %d", bos_occ_cutoff)
 
         e_fci, wf = ebfci_slow.kernel(h_eff, eris, self.eb_coupling, np.diag(self.bos_freqs), self.nactive, nelec,
-                        self.nbos, self.opts.bos_occ_cutoff, tol=conv_tol)
+                        self.nbos, bos_occ_cutoff, tol=conv_tol)
 
         # For now assuming good convergence, to avoid interface difference between davidson and davidson1.
         self.log.debug("FCI done")#. converged: %r", fcisolver.converged)
@@ -106,6 +109,6 @@ class EBFCISolver(ClusterSolver):
 
         if self.opts.make_rdm_ladder:
             # For now, generate spin-integrated DM as this is what we'll get from FCIQMC.
-            results.rdm_eb = 2 * ebfci_slow.make_eb_rdm(wf, self.nactive, nelec, self.nbos, self.opts.bos_occ_cutoff)[::2,::2]
+            results.rdm_eb = 2 * ebfci_slow.make_eb_rdm(wf, self.nactive, nelec, self.nbos, bos_occ_cutoff)[::2,::2]
 
         return results
