@@ -49,7 +49,7 @@ class EWF(QEmbeddingMethod):
     class Options(QEmbeddingMethod.Options):
         """Options for EWF calculations."""
         # --- Fragment settings
-        fragment_type: str = 'IAO'
+        #fragment_type: str = 'IAO'
         localize_fragment: bool = False     # Perform numerical localization on fragment orbitals
         iao_minao : str = 'auto'            # Minimal basis for IAOs
         # --- Bath settings

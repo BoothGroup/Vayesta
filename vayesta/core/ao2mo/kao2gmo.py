@@ -25,7 +25,8 @@ from pyscf.pbc.lib import kpts_helper
 # Package
 from vayesta.core.util import *
 import vayesta.libs
-
+import vayesta.misc
+import vayesta.misc.gdf
 
 log = logging.getLogger(__name__)
 
@@ -428,7 +429,8 @@ class ThreeCenterInts:
             nkuniq = j3c.shape[0]
             log.info("Nkuniq= %3d", nkuniq)
             # Check map
-            _get_kpt_hash = pyscf.pbc.df.df_incore._get_kpt_hash
+            #_get_kpt_hash = pyscf.pbc.df.df_incore._get_kpt_hash
+            _get_kpt_hash = vayesta.misc.gdf._get_kpt_hash
             kuniq_map = np.zeros((self.nk, self.nk), dtype=int)
             # 2D systems not supported in incore version:
             j3c_neg = None

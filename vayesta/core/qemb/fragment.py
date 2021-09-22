@@ -85,7 +85,7 @@ class QEmbeddingFragment:
     def stack_mo(*mo_coeff):
         return np.hstack(mo_coeff)
 
-    def __init__(self, base, fid, name, c_frag, c_env, fragment_type,
+    def __init__(self, base, fid, name, c_frag, c_env, #fragment_type,
             atoms=None, aos=None,
             sym_parent=None, sym_op=None,
             log=None, options=None, **kwargs):
@@ -169,7 +169,7 @@ class QEmbeddingFragment:
 
         self.c_frag = c_frag
         self.c_env = c_env
-        self.fragment_type = fragment_type
+        #self.fragment_type = fragment_type
         self.sym_factor = self.opts.sym_factor
         self.sym_parent = sym_parent
         self.sym_op = sym_op
@@ -183,7 +183,7 @@ class QEmbeddingFragment:
 
         # Some output
         fmt = '  > %-24s     '
-        self.log.info(fmt+'%r', "Fragment type:", self.fragment_type)
+        #self.log.info(fmt+'%r', "Fragment type:", self.fragment_type)
         self.log.info(fmt+'%r', "Fragment orbitals:", self.n_frag)
         self.log.info(fmt+'%r', "Symmetry factor:", self.sym_factor)
         self.log.info(fmt+'%.10f', "Number of electrons:", self.nelectron)
@@ -206,7 +206,7 @@ class QEmbeddingFragment:
 
 
     def __repr__(self):
-        keys = ['id', 'name', 'fragment_type', 'atoms', 'aos']
+        keys = ['id', 'name', 'atoms', 'aos']
         fmt = ('%s(' + len(keys)*'%s: %r, ')[:-2] + ')'
         values = [self.__dict__[k] for k in keys]
         return fmt % (self.__class__.__name__, *[x for y in zip(keys, values) for x in y])
@@ -414,7 +414,8 @@ class QEmbeddingFragment:
         """
         r = dot(coeff.T, self.base.get_ovlp(), self.c_proj)
         p = np.dot(r, r.T)
-        if inverse: p = (np.eye(p.shape[-1]) - p)
+        if inverse:
+            p = (np.eye(p.shape[-1]) - p)
         return p
 
     def get_mo_occupation(self, *mo_coeff):
@@ -436,7 +437,7 @@ class QEmbeddingFragment:
         return occ
 
     def loop_fragments(self, exclude_self=False):
-        """Loop over all fragments."""
+        """Loop over all fragments of the base quantum embedding method."""
         for frag in self.base.fragments:
             if (exclude_self and frag is self):
                 continue
@@ -472,35 +473,39 @@ class QEmbeddingFragment:
             return mo_can, rot, mo_energy
         return mo_can, rot
 
-    def diagonalize_cluster_dm(self, *mo_coeff, tol=1e-4):
+    def diagonalize_cluster_dm(self, *mo_coeff, dm1=None, tol=1e-4):
         """Diagonalize cluster (fragment+bath) DM to get fully occupied and virtual orbitals.
 
         Parameters
         ----------
-        *mo_coeff : ndarrays
-            Orbital coefficients.
-        tol : float, optional
+        *mo_coeff: array or list of arrays
+            Orbital coefficients. If multiple are given, they will be stacked along their second dimension.
+        dm1: array, optional
+            Mean-field density matrix, used to separate occupied and virtual cluster orbitals.
+            If None, `self.mf.make_rdm1()` is used. Default: None.
+        tol: float, optional
             If set, check that all eigenvalues of the cluster DM are close
-            to 0 or 1, with the tolerance given by tol. Default= 1e-4.
+            to 0 or 2, with the tolerance given by tol. Default= 1e-4.
 
         Returns
         -------
-        c_occclt : ndarray
-            Occupied cluster orbitals.
-        c_virclt : ndarray
-            Virtual cluster orbitals.
+        c_cluster_occ: (n(AO), n(occ cluster)) array
+            Occupied cluster orbital coefficients.
+        c_cluster_vir: (n(AO), n(vir cluster)) array
+            Virtual cluster orbital coefficients.
         """
-        c_clt = np.hstack(mo_coeff)
-        sc = np.dot(self.base.get_ovlp(), c_clt)
-        dm = np.linalg.multi_dot((sc.T, self.mf.make_rdm1(), sc)) / 2
-        e, v = np.linalg.eigh(dm)
-        if tol and not np.allclose(np.fmin(abs(e), abs(e-1)), 0, atol=tol, rtol=0):
-            raise RuntimeError("Error while diagonalizing cluster DM: eigenvalues not all close to 0 or 1:\n%s" % e)
-        e, v = e[::-1], v[:,::-1]
-        c_clt = np.dot(c_clt, v)
-        nocc = sum(e >= 0.5)
-        c_occclt, c_virclt = np.hsplit(c_clt, [nocc])
-        return c_occclt, c_virclt
+        if dm1 is None: dm1 = self.mf.make_rdm1()
+        c_cluster = np.hstack(mo_coeff)
+        sc = np.dot(self.base.get_ovlp(), c_cluster)
+        dm = dot(sc.T, dm1, sc)
+        e, r = np.linalg.eigh(dm)
+        if tol and not np.allclose(np.fmin(abs(e), abs(e-2)), 0, atol=tol, rtol=0):
+            raise RuntimeError("Error while diagonalizing cluster DM: eigenvalues not all close to 0 or 2:\n%s" % e)
+        e, r = e[::-1], r[:,::-1]
+        c_cluster = np.dot(c_cluster, r)
+        nocc = np.count_nonzero(e >= 1)
+        c_cluster_occ, c_cluster_vir = np.hsplit(c_cluster, [nocc])
+        return c_cluster_occ, c_cluster_vir
 
     def project_ref_orbitals(self, c_ref, c):
         """Project reference orbitals into available space in new geometry.
@@ -912,12 +917,13 @@ class QEmbeddingFragment:
             sym_op = tsymmetry.make_sym_op(reorder, phases)
             # Deprecated:
             if hasattr(self.base, 'add_fragment'):
-                frag = self.base.add_fragment(name, c_frag, c_env, fragment_type=self.fragment_type,
+                frag = self.base.add_fragment(name, c_frag, c_env, #fragment_type=self.fragment_type,
                         options=self.opts,
                         sym_parent=self, sym_op=sym_op)
             else:
                 fid = self.base.fragmentation.get_next_fid()
-                frag = self.base.Fragment(self.base, fid, name, c_frag, c_env, self.fragment_type, options=self.opts,
+                frag = self.base.Fragment(self.base, fid, name, c_frag, c_env, #self.fragment_type,
+                        options=self.opts,
                         sym_parent=self, sym_op=sym_op)
                 self.base.fragments.append(frag)
             fragments.append(frag)

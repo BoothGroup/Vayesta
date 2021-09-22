@@ -44,7 +44,6 @@ class MoleculeEWFTest_LiH_ccpvdz_IAO_atoms(unittest.TestCase, MoleculeEWFTest):
 
         cls.ewf = ewf.EWF(
                 cls.mf,
-                fragment_type='iao',
                 bath_type='all',
                 make_rdm1=True,
                 make_rdm2=True,
@@ -117,7 +116,6 @@ class MoleculeEWFTest_LiH_ccpvdz_Lowdin_AOs(unittest.TestCase, MoleculeEWFTest):
 
         cls.ewf = ewf.EWF(
                 cls.mf,
-                fragment_type='lowdin-ao',
                 bno_threshold=1e-5,
                 solver_options={
                     'conv_tol': EWF_CONV_TOL,
@@ -147,7 +145,6 @@ class MoleculeEWFTest_LiH_ccpvdz_Lowdin_atoms(unittest.TestCase, MoleculeEWFTest
 
         cls.ewf = ewf.EWF(
                 cls.mf,
-                fragment_type='lowdin-ao',
                 bath_type=None,
                 solver_options={
                     'conv_tol': EWF_CONV_TOL,
@@ -237,7 +234,6 @@ class MoleculeEWFTest_N2_ccpvdz_TCCSD_CAS(unittest.TestCase, MoleculeEWFTest):
                 cls.mf,
                 solver='TCCSD',
                 bno_threshold=1e-4,
-                fragment_type='iao',
                 solver_options={
                     'conv_tol': EWF_CONV_TOL,
                 },

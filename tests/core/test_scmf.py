@@ -23,7 +23,7 @@ class SCMFTests(unittest.TestCase):
         del cls.mol, cls.mf
 
     def test_pdmet(self):
-        emb = ewf.EWF(self.mf, make_rdm1=True, fragment_type='Lowdin-AO', bath_type=None)
+        emb = ewf.EWF(self.mf, make_rdm1=True, bath_type=None)
         emb.sao_fragmentation()
         emb.make_all_atom_fragments()
         emb.pdmet_scmf(etol=1e-10, dtol=1e-8)
@@ -34,7 +34,7 @@ class SCMFTests(unittest.TestCase):
         self.assertAlmostEqual(emb.with_scmf.e_tot, -109.06845425753974, 8)
 
     def test_brueckner(self):
-        emb = ewf.EWF(self.mf, make_rdm1=True, fragment_type='Lowdin-AO', bath_type=None)
+        emb = ewf.EWF(self.mf, make_rdm1=True, bath_type=None)
         emb.sao_fragmentation()
         emb.make_all_atom_fragments()
         emb.brueckner_scmf(etol=1e-10, dtol=1e-8)

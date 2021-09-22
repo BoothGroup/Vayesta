@@ -33,7 +33,7 @@ class DMET(QEmbeddingMethod):
     class Options(QEmbeddingMethod.Options):
         """Options for EWF calculations."""
         # --- Fragment settings
-        fragment_type: str = 'IAO'
+        #fragment_type: str = 'IAO'
         localize_fragment: bool = False  # Perform numerical localization on fragment orbitals
         iao_minao: str = 'auto'  # Minimal basis for IAOs
         # --- Bath settings
@@ -123,16 +123,16 @@ class DMET(QEmbeddingMethod):
 
         # Prepare fragments
         t0 = timer()
-        fragkw = {}
-        if self.opts.fragment_type.upper() == 'IAO':
-            if self.opts.iao_minao == 'auto':
-                self.opts.iao_minao = helper.get_minimal_basis(self.mol.basis)
-                self.log.warning("Minimal basis set '%s' for IAOs was selected automatically.",  self.opts.iao_minao)
-            self.log.info("Computational basis= %s", self.mol.basis)
-            self.log.info("Minimal basis=       %s", self.opts.iao_minao)
-            fragkw['minao'] = self.opts.iao_minao
-        self.init_fragmentation(self.opts.fragment_type, **fragkw)
-        self.log.timing("Time for fragment initialization: %s", time_string(timer()-t0))
+        #fragkw = {}
+        #if self.opts.fragment_type.upper() == 'IAO':
+        #    if self.opts.iao_minao == 'auto':
+        #        self.opts.iao_minao = helper.get_minimal_basis(self.mol.basis)
+        #        self.log.warning("Minimal basis set '%s' for IAOs was selected automatically.",  self.opts.iao_minao)
+        #    self.log.info("Computational basis= %s", self.mol.basis)
+        #    self.log.info("Minimal basis=       %s", self.opts.iao_minao)
+        #    fragkw['minao'] = self.opts.iao_minao
+        #self.init_fragmentation(self.opts.fragment_type, **fragkw)
+        #self.log.timing("Time for fragment initialization: %s", time_string(timer()-t0))
 
         self.log.timing("Time for EWF setup: %s", time_string(timer()-t_start))
 

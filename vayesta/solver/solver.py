@@ -143,11 +143,11 @@ class ClusterSolver:
         cpt_guess: float, optional
             Initial guess for fragment chemical potential. Default: 0.
         atol: float, optional
-            Absolute electron number tolerance. Default: 1e-8.
+            Absolute electron number tolerance. Default: 1e-6.
         rtol: float, optional
-            Relative electron number tolerance. Default: 1e-8
+            Relative electron number tolerance. Default: 1e-6
         cpt_radius: float, optional
-            Search radius for chemical potential. Default: 0.1.
+            Search radius for chemical potential. Default: 1.
 
         Returns
         -------
@@ -190,7 +190,7 @@ class ClusterSolver:
                     raise ConvergenceError()
                 ne_frag = einsum('xi,ij,xj->', p_frag, results.dm1, p_frag)
                 err = (ne_frag - nelectron)
-                self.log.debugv("Fragment chemical potential= %+12.8f Ha:  electrons= %.8f  error= %+.3e", cpt, ne_frag, err)
+                self.log.debug("Fragment chemical potential= %+12.8f Ha:  electrons= %.8f  error= %+.3e", cpt, ne_frag, err)
                 iterations += 1
                 if abs(err) < (atol + rtol*nelectron):
                     cpt_opt = cpt
@@ -209,10 +209,10 @@ class ClusterSolver:
             # Not enough electrons in fragment space -> raise fragment chemical potential:
             assert (cpt_radius > 0)
             if err0 < 0:
-                bounds = np.asarray([cpt_guess, cpt_guess+cpt_radius])
+                bounds = np.asarray([cpt_guess, cpt_guess+cpt_radius], dtype=float)
             # Too many electrons in fragment space -> lower fragment chemical potential:
             else:
-                bounds = np.asarray([cpt_guess-cpt_radius, cpt_guess])
+                bounds = np.asarray([cpt_guess-cpt_radius, cpt_guess], dtype=float)
             for ntry in range(5):
                 try:
                     cpt, res = scipy.optimize.brentq(electron_err, a=bounds[0], b=bounds[1], xtol=1e-12, full_output=True)
