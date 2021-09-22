@@ -22,7 +22,7 @@ class EDMETFragment(DMETFragment):
 
     @dataclasses.dataclass
     class Options(DMETFragment.Options):
-        make_dd_moments: bool = False
+        make_dd_moments: bool = True
 
     @dataclasses.dataclass
     class Results(DMETFragment.Results):
@@ -260,7 +260,7 @@ class EDMETFragment(DMETFragment):
         # Get the ApB, AmB and m0 for this cluster. Note that this is pre-boson decoupling, but we don't actually care
         # about that here and it shouldn't change our answer.
         ApB_orig = self.ApB_new
-        AmB_orig = self.ApB_new
+        AmB_orig = self.AmB_new
         m0_orig = self.m0_new
 
         m0_new = self.results.dd_mom0
@@ -288,9 +288,9 @@ class EDMETFragment(DMETFragment):
             generate the updated value of the appropriate block."""
             # Generate difference in local, two-point excitation basis.
             diff = update - np.linalg.multi_dot([rot_lf, orig, rot_lf.T])
-            return orig + np.linalg.multi_dot([rot_fl, diff, rot_fl])
+            return orig + np.linalg.multi_dot([rot_fl, diff, rot_fl.T])
 
-        def get_updated_spincomponents(orig, update, rot_lf, rot_fl):
+        def get_updated_spincomponents(orig, update, rot_loc_frag, rot_frag_loc):
             newmat = orig.copy()
 
             newmat[:ov_loc, :ov_loc] = get_updated(newmat[:ov_loc, :ov_loc], update[0], rot_loc_frag, rot_frag_loc)
@@ -312,7 +312,7 @@ class EDMETFragment(DMETFragment):
         loc_eps = einsum("ia,ji,ba,ki,ca->jbkc", epsilon, r_occ, r_vir, r_occ, r_vir).reshape((ov_loc, ov_loc))
         # We want to actually consider the difference from the dRPA kernel. This is just the local eris in an OV basis.
         if eris is None:
-            eris = self.fragment.base.get_eris(self.fragment.c_active)
+            eris = self.base.get_eris(self.c_active)
 
         v = eris[:nocc_loc, nocc_loc:, :nocc_loc, nocc_loc:].reshape((ov_loc, ov_loc))
 

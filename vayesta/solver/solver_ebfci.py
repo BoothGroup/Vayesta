@@ -102,7 +102,7 @@ class EBFCISolver(ClusterSolver):
             # Calculating only the components of the dd response moments we needs cuts down on calculation time.
             frag_coeffs = np.linalg.multi_dot([self.fragment.c_active.T, self.base.get_ovlp(), self.fragment.c_frag])
             dd_moms = ebfci_slow.calc_dd_response_moment_spatial(wf, e_fci, 1, self.nactive, nelec,
-                                                        self.nbos, h_eff, eris, self.bos_freqs, self.eb_coupling,
+                                                        self.nbos, h_eff, eris, np.diag(self.bos_freqs), self.eb_coupling,
                                                         self.opts.bos_occ_cutoff, results.dm1, trace = True,
                                                         coeffs = frag_coeffs)
             results.dd_mom0 = dd_moms[0]

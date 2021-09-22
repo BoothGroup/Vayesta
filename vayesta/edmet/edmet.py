@@ -40,7 +40,7 @@ class EDMET(DMET):
     def __init__(self, mf, bno_threshold=np.inf, solver='EBFCI', options=None, log=None, **kwargs):
         super().__init__(mf, bno_threshold, solver, options, log, **kwargs)
         # Need to calculate dd moments for self-consistency to work.
-        self.opts.make_dd_moments = self.opts.maxiter > 1
+        self.opts.make_dd_moments = True #self.opts.maxiter > 1
         if self.opts.maxiter > 1:
             raise NotImplementedError("EDMET does not yet support self-consistency of any description.")
 
@@ -165,9 +165,6 @@ class EDMET(DMET):
 
         k = self.get_updated_correlation_kernel()
 
-
-
-
         # Now have final results.
         self.print_results()
 
@@ -230,12 +227,14 @@ class EDMET(DMET):
         eps = (eps.T - self.ll_mf.mo_energy[:self.nocc]).T
         eps = eps - self.ll_mf.mo_energy[self.nocc:]
         # Separate into spin components; in RHF case we still expect aaaa and aabb components to differ.
-        k = tuple([np.zeros([self.nao]*4) for x in range(3)])
+        k = [np.zeros([self.nao]*4) for x in range(3)]
         for frag in self.fragments:
-            contrib = frag.get_correlation_kernel(eps)
+            contrib = frag.get_correlation_kernel_contrib(eps)
             k[0] += contrib[0]
             k[1] += contrib[1]
             k[2] += contrib[2]
-        print(k)
-        return k
+        print(np.einsum("ppqq->pq",k[0]))
+        print(np.einsum("ppqq->pq", k[1]))
+        print(np.einsum("ppqq->pq", k[2]))
+        return tuple(k)
 

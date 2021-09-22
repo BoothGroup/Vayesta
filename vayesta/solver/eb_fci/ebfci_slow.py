@@ -480,7 +480,7 @@ def make_eb_rdm(fcivec, norb, nelec, nbosons, max_occ):
     nspinorb = 2*norb
 
     # Just so we get a sensible result in pure fermionic case.
-    if nbosons is 0:
+    if nbosons == 0:
         return numpy.zeros((nspinorb, nspinorb, 0))
 
     ci0 = fcivec.reshape(cishape)
@@ -619,36 +619,42 @@ def calc_dd_response_moment_spatial(ci0, e0, max_mom, norb, nel, nbos, h1e, eri,
     # If we want not in HF basis we can perform transformation at this stage.
     t1a = t1a.reshape((norb,norb,-1))
     t1b = t1b.reshape((norb, norb, -1))
+    na  = nb = norb
     if not (coeffs is None):
         if type(coeffs) == tuple:
             coeffsa, coeffsb = coeffs
         else:
             coeffsa = coeffsb = coeffs
+        na, nb = coeffsa.shape[1], coeffsb.shape[1]
         t1a = numpy.einsum("ia...,ip,aq->pq...", t1a, coeffsa, coeffsa)
         t1b = numpy.einsum("ia...,ip,aq->pq...", t1b, coeffsb, coeffsb)
-        del coeffs, coeffsa, coeffsb
     if trace:
         t1a = numpy.einsum("ii...->i...", t1a)
         t1b = numpy.einsum("ii...->i...", t1b)
     # From this we'll obtain our moments through dot products, thanks to the Hermiticity of our expression.
     max_intermed = numpy.ceil(max_mom/2).astype(int)
     aintermeds = {0:t1a}
-    bintermeds = {0: t1b}
+    bintermeds = {0:t1b}
     for iinter in range(max_intermed):
         aintermeds[iinter+1] = numpy.zeros_like(t1a)
         bintermeds[iinter + 1] = numpy.zeros_like(t1b)
-        for i in range(norb):
+        for i in range(na):
             if trace:
                 aintermeds[iinter + 1][i] = hop(aintermeds[iinter][i]).reshape(-1) - \
                                               e0 * aintermeds[iinter][i]
+            else:
+                for a in range(na):
+                    aintermeds[iinter + 1][a,i] = hop(aintermeds[iinter][a,i]).reshape(-1) - \
+                                                e0 * aintermeds[iinter][a,i]
+        for i in range(nb):
+            if trace:
                 bintermeds[iinter + 1][i] = hop(bintermeds[iinter][i]).reshape(-1) - \
                                             e0 * bintermeds[iinter][i]
             else:
-                for a in range(norb):
-                    aintermeds[iinter + 1][a,i] = hop(aintermeds[iinter][a,i]).reshape(-1) - \
-                                                e0 * aintermeds[iinter][a,i]
+                for a in range(nb):
                     bintermeds[iinter + 1][a, i] = hop(bintermeds[iinter][a, i]).reshape(-1) - \
                                                    e0 * bintermeds[iinter][a, i]
+
     # Need to adjust zeroth moment to remove ground state contributions; in all higher moments this is achieved by
     # deducting the reference energy.
     # Now take appropriate dot products to get moments.
@@ -680,6 +686,10 @@ def calc_dd_response_moment_spatial(ci0, e0, max_mom, norb, nel, nbos, h1e, eri,
         rdma, rdmb = rdm1
     else:
         rdma = rdmb = rdm1
+    if not (coeffs is None):
+        rdma = coeffsa.T.dot(rdma).dot(coeffsa)
+        rdmb = coeffsb.T.dot(rdmb).dot(coeffsb)
+
     moments[0] = list(moments[0])
     if trace:
         moments[0][0] = moments[0][0] - numpy.einsum("pp,qq->pq", rdma, rdma)
