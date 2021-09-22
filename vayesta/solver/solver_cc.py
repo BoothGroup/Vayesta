@@ -112,6 +112,7 @@ class CCSDSolver(ClusterSolver):
         if self.v_ext is not None:
             # Make sure there are no side effects:
             eris = copy.copy(eris)
+            # Replace fock instead of modifying it!
             eris.fock = (eris.fock + self.v_ext)
         self.log.debugv("sum(eris.mo_energy)= %.8e", sum(eris.mo_energy))
         self.log.debugv("Tr(eris.fock)= %.8e", np.trace(eris.fock))

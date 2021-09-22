@@ -12,7 +12,7 @@ class Fragmentation:
         self.log = log
         self.ovlp = self.mf.get_ovlp()
         #
-        self.nfrag_tot = 0
+        self.nfrag = 0
         self.coeff = None
         self.labels = None
 
@@ -45,8 +45,8 @@ class Fragmentation:
 
     def get_next_fid(self):
         """Get next free fragment ID."""
-        fid = self.nfrag_tot
-        self.nfrag_tot += 1
+        fid = self.nfrag
+        self.nfrag += 1
         return fid
 
     def kernel(self):

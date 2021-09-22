@@ -179,14 +179,14 @@ class MoleculeEWFTest_N2_augccpvdz_stretched_FCI(unittest.TestCase, MoleculeEWFT
                 solver='FCI',
                 bno_threshold=100,
                 solver_options={
-                    'fix_spin' : False,
+                    'conv_tol' : 1e-14,
+                    'fix_spin' : 0.0,
                     }
         )
         cls.ewf.iao_fragmentation()
         cls.ewf.make_atom_fragment(0, sym_factor=2)
         cls.ewf.kernel()
 
-        #cls.known_values = {'e_tot': -108.7770182190321}
         cls.known_values = {'e_tot': -108.7770291262215}
 
 

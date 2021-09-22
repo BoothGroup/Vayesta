@@ -58,7 +58,7 @@ class FCISolver(ClusterSolver):
         self.log.timing("Time for AO->MO of ERIs:  %s", time_string(timer()-t0))
         return eris
 
-    def get_heff(self, eris):
+    def get_heff(self, eris, with_vext=True):
         nocc = self.nocc - self.nocc_frozen
         occ = np.s_[:nocc]
         f_act = np.linalg.multi_dot((self.c_active.T, self.base.get_fock(), self.c_active))
@@ -69,7 +69,7 @@ class FCISolver(ClusterSolver):
         #dm_core = 2*np.dot(self.mo_coeff[:,core], self.mo_coeff[:,core].T)
         #v_core = self.mf.get_veff(dm=dm_core)
         #h_eff = np.linalg.multi_dot((self.c_active.T, self.base.get_hcore()+v_core, self.c_active))
-        if self.v_ext is not None:
+        if with_vext and self.v_ext is not None:
             h_eff += self.v_ext
         return h_eff
 

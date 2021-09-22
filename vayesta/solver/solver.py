@@ -64,7 +64,7 @@ class ClusterSolver:
             self.log.debug('  > %-24s %r', key + ':', val)
 
         # Check MO orthogonality
-        err = abs(dot(mo_coeff.T, self.base.get_ovlp(), mo_coeff) - np.eye(mo_coeff.shape[-1])).max()
+        err = abs(dot(mo_coeff.T, self.mf.get_ovlp(), mo_coeff) - np.eye(mo_coeff.shape[-1])).max()
         if err > 1e-4:
             self.log.error("MOs are not orthonormal: %.3e !", err)
         elif err > 1e-8:
