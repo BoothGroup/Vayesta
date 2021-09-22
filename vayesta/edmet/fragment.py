@@ -22,12 +22,15 @@ class EDMETFragment(DMETFragment):
 
     @dataclasses.dataclass
     class Options(DMETFragment.Options):
-        pass
+        make_dd_moments: bool = False
 
     @dataclasses.dataclass
     class Results(DMETFragment.Results):
         dm_eb: np.ndarray = None
         eb_couplings: np.ndarray = None
+        boson_freqs: np.ndarray = None
+        dd_mom0: np.ndarray = None
+        dd_mom1: np.ndarray = None
 
 #    def __init__(self, *args, solver=None, **kwargs):
 #        super().__init__(*args, solver, **kwargs)
@@ -48,8 +51,8 @@ class EDMETFragment(DMETFragment):
 
         #print("transforms:", np.linalg.svd(loc_transform_occ)[1], np.linalg.svd(loc_transform_vir)[1])
 
-        nocc_loc = loc_transform_occ.shape[0]
-        nvir_loc = loc_transform_vir.shape[0]
+        nocc_loc = self.n_active_occ
+        nvir_loc = self.n_active_vir
         ov_loc = nocc_loc * nvir_loc
         # Local transform of overall p-h excitation space.
         loc_transform_ov = einsum("ij,ab->iajb", loc_transform_occ, loc_transform_vir).reshape((ov_loc, -1))
@@ -66,8 +69,8 @@ class EDMETFragment(DMETFragment):
             (einsum("pq,rp,sq->rs", m0_ab.T, loc_transform_ov, env_transform_ov),
              einsum("pq,rp,sq->rs", m0_bb, loc_transform_ov, env_transform_ov)
              ), axis=1)
-        # Could now svd alpha and beta excitations separately; do together to ensure orthogonality
-
+        # Could now svd alpha and beta excitations separately; do together to ensure orthogonality of resultant degrees
+        # of freedom.
         #ua, sa, va = np.linalg.svd(m0_a_interaction)
         #ub, sb, vb = np.linalg.svd(m0_b_interaction)
         m0_interaction = np.concatenate((m0_a_interaction, m0_b_interaction), axis = 0)
@@ -76,7 +79,6 @@ class EDMETFragment(DMETFragment):
         want = s > 1e-8
         nbos = sum(want)
         self.log.info("Zeroth moment matching generated {:2d} cluster bosons".format(nbos))
-        #print("NBOSONS:", nbos)
         #print(s)
         # v gives rotation of environmental excitations to obtain effective bosonic degree of freedom.
         bosrot = v[want,:]
@@ -94,7 +96,7 @@ class EDMETFragment(DMETFragment):
         #print(m0_loc)
 
         # Check that interaction block is correctly structured.
-        m0_interact = dot(m0_interaction,v.T)#bosrot.T)
+        #m0_interact = dot(m0_interaction,v.T)#bosrot.T)
         #print("m0 interact", m0_interact.shape, m0_interaction.shape, v.shape)
         #print(m0_interact)
         # Projection of the full alpha excitation space into bosons.
@@ -125,6 +127,9 @@ class EDMETFragment(DMETFragment):
         ApB_new = np.dot(fullrot, np.dot(rpa_moms["ApB"], fullrot.T))
 
         AmB_new = np.dot(m0_new, np.dot(ApB_new, m0_new))
+        self.ApB_new = ApB_new
+        self.AmB_new = AmB_new
+        self.m0_new = m0_new
         #print("M0:")
         #print(m0_new)
         #print("ApB:")
@@ -166,7 +171,7 @@ class EDMETFragment(DMETFragment):
         M = np.dot(rt_AmB_bos, np.dot(ApB_bos, rt_AmB_bos))
         # Th
         e,c = np.linalg.eigh(M)
-        freqs =  e ** (0.5)
+        freqs = e ** (0.5)
 
         XpY = np.einsum("n,qp,pn->qn", freqs ** (-0.5), rt_AmB_bos, c)
         XmY = np.einsum("n,qp,pn->qn", freqs ** (0.5), np.linalg.inv(rt_AmB_bos), c)
@@ -181,7 +186,6 @@ class EDMETFragment(DMETFragment):
         if spin_deviation > 1e-6:
             self.log.warning("Boson couplings to different spin channels are significantly different; "
                              "largest deviation {:6.4e}".format(spin_deviation))
-
         #print(np.einsum("npq,rp,sq->nrs", Va, self.c_active, self.c_active))
         #print(np.einsum("npq,rp,sq->nrs", Vb, self.c_active, self.c_active))
         return freqs, Va, Vb
@@ -201,7 +205,7 @@ class EDMETFragment(DMETFragment):
         solver_opts = {}
         solver_opts['make_rdm1'] = self.opts.make_rdm1
         solver_opts['make_rdm2'] = self.opts.make_rdm2
-
+        solver_opts['make_01_dd_mom'] = self.opts.make_dd_moments
 
         cluster_solver_cls = get_solver_class(solver)
         cluster_solver = cluster_solver_cls(
@@ -218,7 +222,11 @@ class EDMETFragment(DMETFragment):
                 dm1 = solver_results.dm1,
                 dm2 = solver_results.dm2,
                 dm_eb = solver_results.rdm_eb,
-                eb_couplings=np.array((Va,Vb)))
+                eb_couplings=np.array((Va,Vb)),
+                boson_freqs=freqs,
+                dd_mom0=solver_results.dd_mom0,
+                dd_mom1=solver_results.dd_mom1,
+        )
 
         self.solver_results = solver_results
         self._results = results
@@ -245,6 +253,99 @@ class EDMETFragment(DMETFragment):
         )
         return e1, e2, efb
 
+    def get_correlation_kernel_contrib(self, epsilon, eris = None):
+        """
+        Generate the contribution to the correlation kernel arising from this fragment.
+        """
+        # Get the ApB, AmB and m0 for this cluster. Note that this is pre-boson decoupling, but we don't actually care
+        # about that here and it shouldn't change our answer.
+        ApB_orig = self.ApB_new
+        AmB_orig = self.ApB_new
+        m0_orig = self.m0_new
+
+        m0_new = self.results.dd_mom0
+        m1_new = self.results.dd_mom1
 
 
+        nocc_loc = self.n_active_occ
+        nvir_loc = self.n_active_vir
+        ov_loc = nocc_loc * nvir_loc
 
+        # Now want to construct rotations defining which degrees of freedom contribute to two-point quantities.
+        occ_frag_rot = np.linalg.multi_dot([self.c_frag.T, self.base.get_ovlp(), self.c_active_occ])
+        vir_frag_rot = np.linalg.multi_dot([self.c_frag.T, self.base.get_ovlp(), self.c_active_vir])
+        # Then get projectors to local quantities in ov-basis. Note this needs to be stacked to apply to each spin
+        # pairing separately.
+        rot_loc_frag = np.einsum("pi,pa->pia", occ_frag_rot, vir_frag_rot).reshape((-1, ov_loc))
+        # Get pseudo-inverse to map from frag to loc. Since occupied-virtual excitations aren't spanning this isn't a
+        # simple transpose.
+        rot_frag_loc = np.linalg.pinv(rot_loc_frag)
+
+        #newmat = AmB_orig.copy()
+
+        def get_updated(orig, update, rot_lf, rot_fl):
+            """Given the original value of a block, the updated solver value, and rotations between appropriate spaces
+            generate the updated value of the appropriate block."""
+            # Generate difference in local, two-point excitation basis.
+            diff = update - np.linalg.multi_dot([rot_lf, orig, rot_lf.T])
+            return orig + np.linalg.multi_dot([rot_fl, diff, rot_fl])
+
+        def get_updated_spincomponents(orig, update, rot_lf, rot_fl):
+            newmat = orig.copy()
+
+            newmat[:ov_loc, :ov_loc] = get_updated(newmat[:ov_loc, :ov_loc], update[0], rot_loc_frag, rot_frag_loc)
+            newmat[:ov_loc, ov_loc:2*ov_loc] = get_updated(newmat[:ov_loc, ov_loc:2*ov_loc], update[1], rot_loc_frag, rot_frag_loc)
+            newmat[ov_loc:2*ov_loc, :ov_loc] = newmat[:ov_loc, ov_loc:2 * ov_loc].T
+            newmat[ov_loc:2*ov_loc, ov_loc:2*ov_loc] = get_updated(newmat[ov_loc:2*ov_loc, ov_loc:2*ov_loc], update[2], rot_loc_frag, rot_frag_loc)
+            return newmat
+        new_AmB = get_updated_spincomponents(AmB_orig, m1_new, rot_loc_frag, rot_frag_loc)
+        new_m0 = get_updated_spincomponents(m0_orig, m0_new, rot_loc_frag, rot_frag_loc)
+        new_m0_inv = np.linalg.inv(new_m0)
+        new_ApB = np.linalg.multi_dot([new_m0_inv, new_AmB, new_m0_inv])
+
+        new_A = 0.5 * (new_ApB + new_AmB)
+        new_B = 0.5 * (new_ApB - new_AmB)
+
+        r_occ, r_vir =  self.get_rot_to_mf()
+        # Given that our active orbitals are also canonical this should be diagonal, but calculating the whole
+        # thing isn't prohibitive and might save pain.
+        loc_eps = einsum("ia,ji,ba,ki,ca->jbkc", epsilon, r_occ, r_vir, r_occ, r_vir).reshape((ov_loc, ov_loc))
+        # We want to actually consider the difference from the dRPA kernel. This is just the local eris in an OV basis.
+        if eris is None:
+            eris = self.fragment.base.get_eris(self.fragment.c_active)
+
+        v = eris[:nocc_loc, nocc_loc:, :nocc_loc, nocc_loc:].reshape((ov_loc, ov_loc))
+
+        occ_proj = self.get_fragment_projector(self.c_active_occ)
+        vir_proj = self.get_fragment_projector(self.c_active_vir)
+        def proj_all_indices(mat):
+            """Obtains average over all possible projections of provided matrix, giving contribution to democratic
+            partitioning from this cluster.
+            """
+            return (einsum("iajb,ik->kajb",mat, occ_proj) +
+                  einsum("iajb,jk->iakb", mat, occ_proj) +
+                  einsum("iajb,ac->icjb", mat, vir_proj) +
+                  einsum("iajb,bc->iajc", mat, vir_proj)) / 4.0
+
+        # Now calculate all spin components; could double check spin symmetry of ab terms if wanted.
+        # This deducts the equivalent values at the level of dRPA, reshapes into fermionic indices, and performs
+        # projection to only the fragment portions of all indices.
+        newshape = (nocc_loc, nvir_loc, nocc_loc, nvir_loc)
+        V_A_aa = proj_all_indices((new_A[:ov_loc, :ov_loc] - loc_eps - v).reshape(newshape))
+        V_A_bb = proj_all_indices((new_A[ov_loc : 2 * ov_loc, ov_loc : 2 * ov_loc] - loc_eps - v).reshape(newshape))
+        V_A_ab = proj_all_indices((new_A[:ov_loc:, ov_loc: 2 * ov_loc] - v).reshape(newshape))
+        V_B_aa = proj_all_indices((new_B[:ov_loc, :ov_loc] - v).reshape(newshape))
+        V_B_bb = proj_all_indices((new_B[ov_loc: 2 * ov_loc, ov_loc: 2 * ov_loc] - v).reshape(newshape))
+        V_B_ab = proj_all_indices((new_B[:ov_loc:, ov_loc: 2 * ov_loc] - v).reshape(newshape))
+
+        # Now need to project back out to full space. This requires an additional factor of the overlap in our
+        # coefficients.
+        c_occ = np.dot(self.base.get_ovlp(), self.c_active_occ)
+        c_vir = np.dot(self.base.get_ovlp(), self.c_active_vir)
+        V_aa = einsum("iajb,pi,qa,rj,sb->pqrs", V_A_aa, c_occ, c_vir, c_occ, c_vir) + \
+               einsum("iajb,pi,qa,rj,sb->pqsr", V_B_aa, c_occ, c_vir, c_occ, c_vir)
+        V_ab = einsum("iajb,pi,qa,rj,sb->pqrs", V_A_ab, c_occ, c_vir, c_occ, c_vir) + \
+               einsum("iajb,pi,qa,rj,sb->pqsr", V_B_ab, c_occ, c_vir, c_occ, c_vir)
+        V_bb = einsum("iajb,pi,qa,rj,sb->pqrs", V_A_bb, c_occ, c_vir, c_occ, c_vir) + \
+               einsum("iajb,pi,qa,rj,sb->pqsr", V_B_bb, c_occ, c_vir, c_occ, c_vir)
+        return V_aa, V_ab, V_bb

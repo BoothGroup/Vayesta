@@ -10,6 +10,8 @@ import copy
 from vayesta.core.util import *
 
 from .fragment import EDMETFragment, EDMETFragmentExit
+from vayesta.dmet.sdp_sc import perform_SDP_fit
+
 
 from vayesta.dmet import DMET
 from vayesta.rpa import dRPA
@@ -30,15 +32,18 @@ class EDMET(DMET):
     class Options(DMET.Options):
         bos_occ_cutoff: int = 2
         maxiter: int = 1
-
+        make_dd_moments: bool = NotSet
     Fragment = EDMETFragment
 
     VALID_SOLVERS = ["EBFCI"]  # , "EBFCIQMC"]
 
     def __init__(self, mf, bno_threshold=np.inf, solver='EBFCI', options=None, log=None, **kwargs):
         super().__init__(mf, bno_threshold, solver, options, log, **kwargs)
+        # Need to calculate dd moments for self-consistency to work.
+        self.opts.make_dd_moments = self.opts.maxiter > 1
         if self.opts.maxiter > 1:
             raise NotImplementedError("EDMET does not yet support self-consistency of any description.")
+
 
     def kernel(self):
 
@@ -149,6 +154,20 @@ class EDMET(DMET):
         self.log.info("Total EDMET energy {:8.4f}".format(self.e_tot))
         self.log.info("Energy Contributions: 1-body={:8.4f}, 2-body={:8.4f}, coupled-boson={:8.4f}".format(e1,e2,efb))
 
+        curr_rdms, delta_rdms = self.updater.update(self.hl_rdms)
+        self.log.info("Change in high-level RDMs: {:6.4e}".format(delta_rdms))
+        # Now for the DMET self-consistency!
+        self.log.info("Now running DMET correlation potential fitting")
+        vcorr_new = perform_SDP_fit(self.mol.nelec[0], fock, impurity_projectors, [x / 2 for x in curr_rdms],
+                                    self.get_ovlp(), self.log)
+        delta = sum((vcorr_new - self.vcorr).reshape(-1) ** 2) ** (0.5)
+        self.log.info("Delta Vcorr {:6.4e}".format(delta))
+
+        k = self.get_updated_correlation_kernel()
+
+
+
+
         # Now have final results.
         self.print_results()
 
@@ -202,3 +221,21 @@ class EDMET(DMET):
         self.log.info("Chemical Potential {:8.6e} gives Total electron deviation {:6.4e}".format(
                         chempot, nelec_hl - nelec_target))
         return nelec_hl - nelec_target
+
+    def get_updated_correlation_kernel(self):
+        """
+        Generate the update to our RPA exchange-correlation kernel this iteration.
+        """
+        eps = np.zeros((self.nocc, self.nvir))
+        eps = (eps.T - self.ll_mf.mo_energy[:self.nocc]).T
+        eps = eps - self.ll_mf.mo_energy[self.nocc:]
+        # Separate into spin components; in RHF case we still expect aaaa and aabb components to differ.
+        k = tuple([np.zeros([self.nao]*4) for x in range(3)])
+        for frag in self.fragments:
+            contrib = frag.get_correlation_kernel(eps)
+            k[0] += contrib[0]
+            k[1] += contrib[1]
+            k[2] += contrib[2]
+        print(k)
+        return k
+
