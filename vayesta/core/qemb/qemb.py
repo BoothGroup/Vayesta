@@ -729,7 +729,8 @@ class QEmbedding:
         minao: str, optional
             IAO reference basis set. Default: 'auto'
         """
-        self.fragmentation = IAO_Fragmentation(self.mf, log=self.log, minao=minao).kernel()
+        self.fragmentation = IAO_Fragmentation(self.mf, log=self.log, minao=minao)
+        self.fragmentation.kernel()
 
     def iaopao_fragmentation(self, minao='auto'):
         """Initialize the quantum embedding method for the use of IAO+PAO fragments.
@@ -739,15 +740,18 @@ class QEmbedding:
         minao: str, optional
             IAO reference basis set. Default: 'auto'
         """
-        self.fragmentation = IAOPAO_Fragmentation(self.mf, log=self.log, minao=minao).kernel()
+        self.fragmentation = IAOPAO_Fragmentation(self.mf, log=self.log, minao=minao)
+        self.fragmentation.kernel()
 
     def sao_fragmentation(self):
         """Initialize the quantum embedding method for the use of SAO (Lowdin-AO) fragments."""
-        self.fragmentation = SAO_Fragmentation(self.mf, log=self.log).kernel()
+        self.fragmentation = SAO_Fragmentation(self.mf, log=self.log)
+        self.fragmentation.kernel()
 
     def site_fragmentation(self):
         """Initialize the quantum embedding method for the use of site fragments."""
-        self.fragmentation = Site_Fragmentation(self.mf, log=self.log).kernel()
+        self.fragmentation = Site_Fragmentation(self.mf, log=self.log)
+        self.fragmentation.kernel()
 
     def add_atomic_fragment(self, atoms, orbital_filter=None, name=None, **kwargs):
         """Create a fragment of one or multiple atoms, which will be solved by the embedding method.

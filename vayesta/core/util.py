@@ -20,7 +20,7 @@ __all__ = [
         # NumPy replacements
         'dot', 'einsum', 'hstack',
         # New exceptions
-        'ConvergenceError',
+        'AbstractMethodError', 'ConvergenceError',
         # Time & memory
         'timer', 'time_string', 'log_time', 'memory_string', 'get_used_memory',
         # Other
@@ -121,14 +121,18 @@ def cached_method(cachename, use_cache_default=True, store_cache_default=True):
         return wrapper
     return cached_function
 
-class ConvergenceError(RuntimeError):
+
+# --- Exceptions
+
+class AbstractMethodError(NotImplementedError):
     pass
 
+class ConvergenceError(RuntimeError):
+    pass
 
 def get_used_memory():
     process = psutil.Process(os.getpid())
     return(process.memory_info().rss)  # in bytes
-
 
 def time_string(seconds, show_zeros=False):
     """String representation of seconds."""

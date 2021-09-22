@@ -41,9 +41,6 @@ class IAO_Fragmentation(Fragmentation):
         self.minao = minao
         self.refmol = pyscf.lo.iao.reference_mol(self.mol, minao=self.minao)
 
-    def search_ao_labels(self, labels):
-        return self.refmol.search_ao_label(labels)
-
     def get_coeff(self, add_virtuals=True):
         """Make intrinsic atomic orbitals (IAOs).
 
@@ -117,6 +114,9 @@ class IAO_Fragmentation(Fragmentation):
         self.log.debugv('iao_labels: %r', iao_labels)
         assert (len(iao_labels_refmol) == len(iao_labels))
         return iao_labels
+
+    def search_labels(self, labels):
+        return self.refmol.search_ao_label(labels)
 
     def get_virtual_coeff(self, c_iao):
 

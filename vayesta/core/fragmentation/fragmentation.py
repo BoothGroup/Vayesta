@@ -41,19 +41,11 @@ class Fragmentation:
     def mo_occ(self):
         return self.mf.mo_occ
 
-    # ---
-
-    def get_next_fid(self):
-        """Get next free fragment ID."""
-        fid = self.nfrag
-        self.nfrag += 1
-        return fid
-
     def kernel(self):
-        """The kernel needs to be called after initializing the fragmentation."""
         self.coeff = self.get_coeff()
         self.labels = self.get_labels()
-        return self
+
+    # --- These need to be implemented
 
     def get_coeff(self):
         """Abstract method."""
@@ -62,6 +54,18 @@ class Fragmentation:
     def get_labels(self):
         """Abstract method."""
         raise NotImplementedError()
+
+    def search_labels(self, labels):
+        """Abstract method."""
+        raise NotImplementedError()
+
+    # ---
+
+    def get_next_fid(self):
+        """Get next free fragment ID."""
+        fid = self.nfrag
+        self.nfrag += 1
+        return fid
 
     def get_atoms(self):
         """Get the base atom for each fragment orbital."""
@@ -135,7 +139,7 @@ class Fragmentation:
         indices = np.nonzero(np.isin(self.get_atoms(), atom_indices))[0]
         # Filter orbital types
         if orbital_filter is not None:
-            keep = self.search_ao_labels(orbital_filter)
+            keep = self.search_labels(orbital_filter)
             indices = [i for i in indices if i in keep]
 
         # Some output
@@ -148,9 +152,6 @@ class Fragmentation:
                 self.log.debug("  %3s %4s %2s", a, sym, nl)
 
         return name, indices
-
-    def search_ao_labels(self, labels):
-        return self.mol.search_ao_label(labels)
 
     def get_orbital_indices_labels(self, orbitals):
         """Convert a list of integer or strings to orbital indices and labels."""
@@ -165,9 +166,9 @@ class Fragmentation:
             orbital_labels = orbitals
             # Check labels
             for l in orbital_labels:
-                if len(self.search_ao_labels(l)) == 0:
+                if len(self.search_labels(l)) == 0:
                     raise ValueError("Cannot find orbital with label %s in system." % l)
-            orbital_indices = self.search_ao_labels(orbital_labels)
+            orbital_indices = self.search_labels(orbital_labels)
             return orbital_indices, orbital_labels
         raise ValueError("A list of integers or string is required! orbitals= %r" % orbitals)
 

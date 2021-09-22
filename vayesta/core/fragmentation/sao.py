@@ -21,3 +21,6 @@ class SAO_Fragmentation(Fragmentation):
 
     def get_labels(self):
         return self.mol.ao_labels(None)
+
+    def search_labels(self, labels):
+        return self.mol.search_ao_label(labels)
