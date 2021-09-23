@@ -49,6 +49,7 @@ class QEmbedding:
 
     @dataclasses.dataclass
     class Options(OptionsBase):
+        dmet_threshold: float = 1e-8
         recalc_vhf: bool = True
         solver_options: dict = dataclasses.field(default_factory=dict)
         wf_partition: str = 'first-occ'     # ['first-occ', 'first-vir', 'democratic']
@@ -155,7 +156,7 @@ class QEmbedding:
             self.log.info("n(AO)= %4d  n(alpha/beta-MO)= %4d / %4d  n(linear dep.)= %4d / %4d",
                     self.nao, *self.nmo, self.nao-self.nmo[0], self.nao-self.nmo[1])
 
-        self.check_orthonormal(self.mo_coeff, 'MO')
+        self.check_orthonormal(self.mo_coeff, mo_name='MO')
 
         if self.mo_energy is not None:
             if self.is_rhf:
@@ -644,8 +645,9 @@ class QEmbedding:
     # Utility
     # -------
 
-    def check_orthonormal(self, mo_coeff, mo_name='', tol=1e-7):
+    def check_orthonormal(self, *mo_coeff, mo_name='', tol=1e-7):
         """Check orthonormality of mo_coeff."""
+        mo_coeff = hstack(*mo_coeff)
         err = dot(mo_coeff.T, self.get_ovlp(), mo_coeff) - np.eye(mo_coeff.shape[-1])
         l2 = np.linalg.norm(err)
         linf = abs(err).max()

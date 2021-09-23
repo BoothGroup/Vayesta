@@ -230,7 +230,7 @@ class CellFragmentTests(unittest.TestCase):
 
         tr = lambda c: np.einsum('xi,xi->', c, c.conj())
 
-        c_bath, c_occenv, c_virenv = frags[0].make_dmet_bath(frags[0].c_env)
+        c_bath, c_occenv, c_virenv = frags[0].make_dmet_bath(frags[0].c_env, dmet_threshold=1e-5)
         self.assertAlmostEqual(tr(c_bath), 0.0, 8)
         self.assertAlmostEqual(tr(c_occenv), 8.60025893931295, 8)
         self.assertAlmostEqual(tr(c_virenv), 38.23956182500303, 8)

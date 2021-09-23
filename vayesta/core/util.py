@@ -50,9 +50,15 @@ def einsum(*args, **kwargs):
     return res
 
 def hstack(*args):
-    """Like NumPy's hstack, but variadic and ignores any arguments which are None."""
+    """Like NumPy's hstack, but variadic, ignores any arguments which are None and improved error message."""
     args = [x for x in args if x is not None]
-    return np.hstack(args)
+    try:
+        return np.hstack(args)
+    except ValueError as e:
+        log.critical("Exception while trying to stack the following objects:")
+        for x in args:
+            log.critical("type= %r  shape= %r", type(x), x.shape if hasattr(x, 'shape') else "None")
+        raise e
 
 def cached_method(cachename, use_cache_default=True, store_cache_default=True):
     """Cache the return value of a class method.

@@ -3,6 +3,8 @@ import numpy as np
 from .qemb import QEmbedding
 from .ufragment import UFragment
 
+from vayesta.core.util import *
+
 class UEmbedding(QEmbedding):
     """Spin unrestricted quantum embedding."""
 
@@ -17,6 +19,12 @@ class UEmbedding(QEmbedding):
         cs = einsum('...ai,ab->...ib', self.mo_coeff, self.get_ovlp())
         fock = einsum('...ia,...i,...ib->ab', cs, self.mo_energy, cs)
         return (fock - self.get_hcore())
+
+    @staticmethod
+    def stack_mo(*mo_coeff):
+        mo_coeff = (hstack(*[c[0] for c in mo_coeff]),
+                    hstack(*[c[1] for c in mo_coeff]))
+        return mo_coeff
 
     @property
     def nmo(self):
@@ -48,11 +56,12 @@ class UEmbedding(QEmbedding):
         return (self.mo_coeff[0][:,self.nocc[0]:],
                 self.mo_coeff[1][:,self.nocc[1]:])
 
-    def check_orthonormal(self, mo_coeff, mo_name='', *args, **kwargs):
+    def check_orthonormal(self, *mo_coeff, mo_name='', **kwargs):
+        mo_coeff = self.stack_mo(*mo_coeff)
         results = []
         for s, spin in enumerate(('alpha', ' beta')):
             name_s = '-'.join([spin, mo_name])
-            res_s = super().check_orthonormal(mo_coeff[s], name_s, *args, **kwargs)
+            res_s = super().check_orthonormal(mo_coeff[s], mo_name=name_s, **kwargs)
             results.append(res_s)
         return tuple(zip(*results))
 

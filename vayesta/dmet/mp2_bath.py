@@ -9,8 +9,7 @@ import pyscf.pbc
 import pyscf.pbc.mp
 
 from vayesta.core.util import *
-from vayesta.core.linalg import recursive_block_svd
-from .psubspace import transform_mp2_eris
+from vayesta.ewf.psubspace import transform_mp2_eris
 
 def make_mp2_bno(self, kind, c_cluster_occ, c_cluster_vir, c_env_occ, c_env_vir,
         canonicalize=True, local_dm=False, eris=None):
@@ -156,12 +155,6 @@ def make_mp2_bno(self, kind, c_cluster_occ, c_cluster_vir, c_env_occ, c_env_vir,
 
     clt, env = np.s_[:ncluster], np.s_[ncluster:]
 
-    # TEST SVD BATH:
-    #coeff, sv, order = recursive_block_svd(dm, n=ncluster)
-    #c_no = np.dot(c_env, coeff)
-    #n_no = 1/order
-    #self.log.debugv("n_no= %r", n_no)
-
     self.log.debugv("Tr[D]= %r", np.trace(dm))
     self.log.debugv("Tr[D(cluster,cluster)]= %r", np.trace(dm[clt,clt]))
     self.log.debugv("Tr[D(env,env)]= %r", np.trace(dm[env,env]))
@@ -180,69 +173,6 @@ def get_mp2_correction(self, Co1, Cv1, Co2, Cv2):
     self.log.debug("MP2 correction: all=%.4g, active=%.4g, correction=%+.4g",
             e_mp2_all, e_mp2_act, e_delta_mp2)
     return e_delta_mp2
-
-
-
-#def get_svd_orbitals(a, ncluster, threshold=1e-10, nsteps=100):
-#    #norb = a.shape[-1]
-#    #coeff = np.zeros((norb, norb))
-#
-#    #def block_svd(a, nsmall, ndone=0):
-#    #    todo = np.s_[ndone:]
-#    #    block = a[todo,todo]
-#    #    small, big = np.s_[:nsmall], np.s_[nsmall:]
-#    #    u, s, vh = np.linalg.svd(block[small,big])
-#    #    s = np.sqrt(s)
-#    #    v = vh.T
-#    #    add = (s > threshold)
-#    #    nadd = np.count_nonzero(add)
-#    #    self.log.debug("Step= %3d sqrt(s)= %r n(add)= %d", i, s, nadd)
-#
-#    #    # Rotate a
-#    #    arot = a.copy()
-#    #    arot[:,env] = np.dot(arot[:,env], coeff)
-#    #    arot[env,:] = np.dot(coeff.T, arot[env,:])
-#
-#    #    return s, v
-#
-#    def block_svd(block, nsmall):
-#        small, big = np.s_[:nsmall], np.s_[nsmall:]
-#        u, s, vh = np.linalg.svd(block[small,big])
-#        s = np.sqrt(s)
-#        v = vh.T
-#        add = (s > threshold)
-#        nadd = np.count_nonzero(add)
-#        return s, v, nadd
-#
-#    clt, env = np.s_[:ncluster], np.s_[ncluster:]
-#    sml, big = clt, env
-#
-#    block = a
-#    nsmall = ncluster
-#    for step in range(1, nsteps+1):
-#        #clt, env = np.s_[:n], np.s_[n:]
-#
-#        s, v, nadd = block_svd(block, nsmall)
-#        self.log.debug("Step= %3d Sqrt(s)= %r Adding %d orbitals", i, s, nadd)
-#
-#        if step == 1:
-#            coeff = v
-#        else:
-#            coeff[:,big] = np.dot(coeff[:,big], v)
-#
-#        # Update block
-#        block = a.copy()
-#        block[:,big] = np.dot(block[:,big], coeff)
-#        block[big,:] = np.dot(block.T, block[big,:])
-#
-#        block = block[
-#
-#        sml
-#        big 
-#
-#        n += nadd
-#
-#    return coeff, blocks
 
 
 # ================================================================================================ #
@@ -333,4 +263,3 @@ def get_mp2_correction(self, Co1, Cv1, Co2, Cv2):
 #                self.cubefile.add_density(dm, dset_idx=dset_idx)
 #
 #    return c_no, n_no
-#

@@ -22,7 +22,7 @@ from vayesta.ewf import helper, psubspace
 
 from . import dmet
 from vayesta.solver import get_solver_class
-from vayesta.ewf import mp2_bath
+from . import mp2_bath
 
 class DMETFragmentExit(Exception):
     pass
@@ -136,7 +136,7 @@ class DMETFragment(QEmbeddingFragment):
         self.log.info("Making DMET Bath")
         self.log.info("----------------")
         self.log.changeIndentLevel(1)
-        c_dmet, c_env_occ, c_env_vir = self.make_dmet_bath(self.c_env, tol=self.opts.dmet_threshold)
+        c_dmet, c_env_occ, c_env_vir = self.make_dmet_bath(self.c_env, dmet_threshold=self.opts.dmet_threshold)
         self.log.timing("Time for DMET bath:  %s", time_string(timer()-t0))
 
         self.log.changeIndentLevel(-1)
