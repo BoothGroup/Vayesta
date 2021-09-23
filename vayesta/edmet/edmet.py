@@ -170,16 +170,12 @@ class EDMET(DMET):
             self.log.info(len(msg) * "*")
             self.log.changeIndentLevel(1)
 
-            self.mf.get_hcore = lambda *args: self.mf.get_hcore(*args) - chempot * np.dot(frag.c_frag, frag.c_frag.T)
-            self._hcore = self.mf.get_hcore()
-
             try:
-                result = frag.kernel(rpa_moms, bno_threshold=bno_thr, construct_bath=construct_bath)
+                result = frag.kernel(rpa_moms, bno_threshold=bno_thr, construct_bath=construct_bath, chempot = chempot)
             except EDMETFragmentExit as e:
                 exit = True
                 self.log.info("Exiting %s", frag)
                 self.log.changeIndentLevel(-1)
-                self.mf.get_hcore = saved_hcore
                 raise e
 
             self.cluster_results[frag.id] = result
@@ -195,9 +191,6 @@ class EDMET(DMET):
                 frag.c_frag.T, self.mf.get_ovlp(), np.hstack((frag.c_active_occ, frag.c_active_vir))))
             hl_rdms[x] = np.linalg.multi_dot((c, frag.results.dm1, c.T))# / 2
             nelec_hl += hl_rdms[x].trace() * nsym[x]
-        # Set hcore back to original calculation.
-        self.mf.get_hcore = saved_hcore
-        self._hcore = self.mf.get_hcore()
         self.hl_rdms = hl_rdms
         self.log.info("Chemical Potential {:8.6e} gives Total electron deviation {:6.4e}".format(
                         chempot, nelec_hl - nelec_target))

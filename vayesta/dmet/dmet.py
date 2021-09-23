@@ -340,7 +340,6 @@ class DMET(QEmbeddingMethod):
             c = dot(frag.c_frag.T, self.mf.get_ovlp(), np.hstack((frag.c_active_occ, frag.c_active_vir)))
             hl_rdms[x] = dot(c, frag.results.dm1, c.T)# / 2
             nelec_hl += hl_rdms[x].trace() * nsym[x]
-        # Set hcore back to original calculation.
         self.hl_rdms = hl_rdms
         self.log.info("Chemical Potential {:8.6e} gives Total electron deviation {:6.4e}".format(
                         chempot, nelec_hl - nelec_target))
