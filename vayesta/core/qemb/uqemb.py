@@ -1,13 +1,13 @@
 import numpy as np
 
 from .qemb import QEmbedding
-from .ufragment import UQEmbeddingFragment
+from .ufragment import UFragment
 
-class UQEmbedding(QEmbedding):
+class UEmbedding(QEmbedding):
     """Spin unrestricted quantum embedding."""
 
     # Shadow this in inherited methods:
-    Fragment = UQEmbeddingFragment
+    Fragment = UFragment
 
     def init_vhf(self):
         if self.opts.recalc_vhf:
@@ -48,6 +48,14 @@ class UQEmbedding(QEmbedding):
         return (self.mo_coeff[0][:,self.nocc[0]:],
                 self.mo_coeff[1][:,self.nocc[1]:])
 
+    def check_orthonormal(self, mo_coeff, mo_name='', *args, **kwargs):
+        results = []
+        for s, spin in enumerate(('alpha', ' beta')):
+            name_s = '-'.join([spin, mo_name])
+            res_s = super().check_orthonormal(mo_coeff[s], name_s, *args, **kwargs)
+            results.append(res_s)
+        return tuple(zip(*results))
+
     # TODO:
 
     def get_t1(self, *args, **kwargs):
@@ -70,5 +78,3 @@ class UQEmbedding(QEmbedding):
 
     def pop_analysis(self, *args, **kwargs):
         raise NotImplementedError()
-
-UQEmbeddingMethod = UQEmbedding

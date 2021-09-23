@@ -30,6 +30,14 @@ from .mp2_bath import make_mp2_bno
 from . import helper
 from . import psubspace
 
+@dataclasses.dataclass
+class Cluster:
+    c_active_occ: np.ndarray = None
+    c_active_vir: np.ndarray = None
+    c_frozen_occ: np.ndarray = None
+    c_frozen_vir: np.ndarray = None
+
+
 
 class EWFFragment(QEmbeddingFragment):
 
@@ -80,6 +88,7 @@ class EWFFragment(QEmbeddingFragment):
         #e2b_conn: float = None
         #e2b_disc: float = None
 
+
     def __init__(self, *args, solver=None, **kwargs):
 
         """
@@ -94,10 +103,6 @@ class EWFFragment(QEmbeddingFragment):
         """
 
         super().__init__(*args, **kwargs)
-
-        #if self.c_locvir is not None:
-        #    self.c_frag = np.hstack((self.c_frag, self.c_locvir))
-        #    self.c_locvir = None
 
         if self.opts.pop_analysis:
             self.opts.make_rdm1 = True
@@ -220,16 +225,17 @@ class EWFFragment(QEmbeddingFragment):
             self.log.info("Adding %d local virtual states to cluster", self.c_locvir.shape[-1])
             cluster.append(self.c_locvir)
         # Check orthogonality
-        c = np.hstack(cluster)
-        err = abs(dot(c.T, self.base.get_ovlp(), c) - np.eye(c.shape[-1])).max()
-        if err > 1e-8:
-            self.log.warning("Cluster MOs not orthonormal: %.3e", err)
-        else:
-            self.log.debug("Cluster MOs non-orthonormality: %.3e", err)
+        #c = np.hstack(cluster)
+        c_all = self.stack_mo(*cluster)
+        self.base.check_orthonormal(c_all, 'cluster MO')
 
         # Diagonalize cluster DM to separate cluster occupied and virtual
         c_cluster_occ, c_cluster_vir = self.diagonalize_cluster_dm(*cluster, tol=2*self.opts.dmet_threshold)
-        self.log.info("Cluster orbitals:  n(occ)= %3d  n(vir)= %3d", c_cluster_occ.shape[-1], c_cluster_vir.shape[-1])
+        if self.base.is_rhf:
+            self.log.info("Cluster orbitals:  n(occ)= %3d  n(vir)= %3d", c_cluster_occ.shape[-1], c_cluster_vir.shape[-1])
+        else:
+            self.log.info("Alpha-cluster orbitals:  n(occ)= %3d  n(vir)= %3d", c_cluster_occ[0].shape[-1], c_cluster_vir[0].shape[-1])
+            self.log.info(" Beta-cluster orbitals:  n(occ)= %3d  n(vir)= %3d", c_cluster_occ[1].shape[-1], c_cluster_vir[1].shape[-1])
 
         # Add cluster orbitals to plot
         if self.opts.plot_orbitals:
@@ -261,17 +267,27 @@ class EWFFragment(QEmbeddingFragment):
         #    C_occclst, C_virclst = self.diagonalize_cluster_dm(C_bath)
         #self.C_bath = C_bath
 
+
+        # TODO: clean
         self.log.debugv("bath_type= %r", bath_type)
         if bath_type is None or bath_type.upper() == 'NONE':
             c_no_occ = c_env_occ
             c_no_vir = c_env_vir
-            n_no_occ = np.full((c_no_occ.shape[-1],), -np.inf)
-            n_no_vir = np.full((c_no_vir.shape[-1],), -np.inf)
+            if self.base.is_rhf:
+                n_no_occ = np.full((c_no_occ.shape[-1],), -np.inf)
+                n_no_vir = np.full((c_no_vir.shape[-1],), -np.inf)
+            else:
+                n_no_occ = np.full((2, c_no_occ[0].shape[-1]), -np.inf)
+                n_no_vir = np.full((2, c_no_vir[1].shape[-1]), -np.inf)
         elif bath_type.upper() == 'ALL':
             c_no_occ = c_env_occ
             c_no_vir = c_env_vir
-            n_no_occ = np.full((c_no_occ.shape[-1],), np.inf)
-            n_no_vir = np.full((c_no_vir.shape[-1],), np.inf)
+            if self.base.is_rhf:
+                n_no_occ = np.full((c_no_occ.shape[-1],), np.inf)
+                n_no_vir = np.full((c_no_vir.shape[-1],), np.inf)
+            else:
+                n_no_occ = np.full((2, c_no_occ[0].shape[-1]), np.inf)
+                n_no_vir = np.full((2, c_no_vir[1].shape[-1]), np.inf)
         elif bath_type.upper() == 'MP2-BNO':
             c_no_occ, n_no_occ = self.make_bno_bath(c_cluster_occ, c_cluster_vir, c_env_occ, c_env_vir, 'occ')
             c_no_vir, n_no_vir = self.make_bno_bath(c_cluster_occ, c_cluster_vir, c_env_occ, c_env_vir, 'vir')
@@ -395,7 +411,6 @@ class EWFFragment(QEmbeddingFragment):
         self.log.info("Virtual BNOs:")
         c_nbo_vir, c_frozen_vir = self.truncate_bno(self.c_no_vir, self.n_no_vir, bno_threshold[1], bno_number[1])
 
-
         # Canonicalize orbitals
         c_active_occ = self.canonicalize_mo(self.c_cluster_occ, c_nbo_occ)[0]
         c_active_vir = self.canonicalize_mo(self.c_cluster_vir, c_nbo_vir)[0]
@@ -422,30 +437,52 @@ class EWFFragment(QEmbeddingFragment):
         # Combine, important to keep occupied orbitals first!
         # Put frozen (occenv, virenv) orbitals to the front and back
         # and active orbitals (occact, viract) in the middle
-        c_occ = np.hstack((c_frozen_occ, c_active_occ))
-        c_vir = np.hstack((c_active_vir, c_frozen_vir))
-        nocc, nvir = c_occ.shape[-1], c_vir.shape[-1]
-        mo_coeff = np.hstack((c_occ, c_vir))
+        c_occ = self.stack_mo(c_frozen_occ, c_active_occ)
+        c_vir = self.stack_mo(c_active_vir, c_frozen_vir)
+        mo_coeff = self.stack_mo(c_occ, c_vir)
 
         # Check occupations
+        # TODO: Clean this
         n_occ = self.get_mo_occupation(c_occ)
-        if not np.allclose(n_occ, 2, atol=2*self.opts.dmet_threshold):
-            raise RuntimeError("Incorrect occupation of occupied orbitals:\n%r" % n_occ)
         n_vir = self.get_mo_occupation(c_vir)
-        if not np.allclose(n_vir, 0, atol=2*self.opts.dmet_threshold):
-            raise RuntimeError("Incorrect occupation of virtual orbitals:\n%r" % n_vir)
-        mo_occ = np.asarray(nocc*[2] + nvir*[0])
+        if self.base.is_rhf:
+            if not np.allclose(n_occ, 2, atol=2*self.opts.dmet_threshold):
+                raise RuntimeError("Incorrect occupation of occupied orbitals:\n%r" % n_occ)
+            if not np.allclose(n_vir, 0, atol=2*self.opts.dmet_threshold):
+                raise RuntimeError("Incorrect occupation of virtual orbitals:\n%r" % n_vir)
+            nocc, nvir = c_occ.shape[-1], c_vir.shape[-1]
+            mo_occ = np.asarray(nocc*[2] + nvir*[0])
 
-        nocc_frozen = c_frozen_occ.shape[-1]
-        nvir_frozen = c_frozen_vir.shape[-1]
-        nfrozen = nocc_frozen + nvir_frozen
-        nactive = c_active_occ.shape[-1] + c_active_vir.shape[-1]
+            nocc_frozen = c_frozen_occ.shape[-1]
+            nvir_frozen = c_frozen_vir.shape[-1]
+            nfrozen = nocc_frozen + nvir_frozen
+            nactive = c_active_occ.shape[-1] + c_active_vir.shape[-1]
 
-        self.log.info("Orbitals for %s", self)
-        self.log.info("-------------" + len(str(self))*"-")
-        self.log.info("  > Active:   n(occ)= %5d  n(vir)= %5d  n(tot)= %5d", c_active_occ.shape[-1], c_active_vir.shape[-1], nactive)
-        self.log.info("  > Frozen:   n(occ)= %5d  n(vir)= %5d  n(tot)= %5d", nocc_frozen, nvir_frozen, nfrozen)
-        self.log.info("  > Total:    n(occ)= %5d  n(vir)= %5d  n(tot)= %5d", c_occ.shape[-1], c_vir.shape[-1], mo_coeff.shape[-1])
+            self.log.info("Orbitals for %s", self)
+            self.log.info("-------------" + len(str(self))*"-")
+            self.log.info("  > Active:   n(occ)= %5d  n(vir)= %5d  n(tot)= %5d", c_active_occ.shape[-1], c_active_vir.shape[-1], nactive)
+            self.log.info("  > Frozen:   n(occ)= %5d  n(vir)= %5d  n(tot)= %5d", nocc_frozen, nvir_frozen, nfrozen)
+            self.log.info("  > Total:    n(occ)= %5d  n(vir)= %5d  n(tot)= %5d", c_occ.shape[-1], c_vir.shape[-1], mo_coeff.shape[-1])
+
+        else:
+            mo_occ = []
+            for s, spin in enumerate(('alpha', 'beta')):
+                if not np.allclose(n_occ[s], 1, atol=2*self.opts.dmet_threshold):
+                    raise RuntimeError("Incorrect occupation of occupied %s-orbitals:\n%r" % (spin, n_occ[s]))
+                if not np.allclose(n_vir[s], 0, atol=2*self.opts.dmet_threshold):
+                    raise RuntimeError("Incorrect occupation of virtual %s-orbitals:\n%r" % (spin, n_vir[s]))
+                nocc, nvir = c_occ[s].shape[-1], c_vir[s].shape[-1]
+                mo_occ.append(np.asarray(nocc*[2] + nvir*[0]))
+
+                self.log.info("Orbitals for %s", self)
+                self.log.info("-------------" + len(str(self))*"-")
+                self.log.info("  > Active:   n(occ)= %5d  n(vir)= %5d  n(tot)= %5d", c_active_occ.shape[-1], c_active_vir.shape[-1], nactive)
+                self.log.info("  > Frozen:   n(occ)= %5d  n(vir)= %5d  n(tot)= %5d", nocc_frozen, nvir_frozen, nfrozen)
+                self.log.info("  > Total:    n(occ)= %5d  n(vir)= %5d  n(tot)= %5d", c_occ.shape[-1], c_vir.shape[-1], mo_coeff.shape[-1])
+
+            mo_occ = tuple(mo_occ)
+
+        # SPLIT HERE?
 
         ## --- Do nothing if solver is not set
         #if not solver:
@@ -471,8 +508,8 @@ class EWFFragment(QEmbeddingFragment):
             elif self.base.opts.project_init_guess and self.results is not None:
                 self.log.debugv("Restarting using projected previous T1,T2")
                 # Projectors for occupied and virtual orbitals
-                p_occ = np.linalg.multi_dot((self.c_active_occ.T, self.base.get_ovlp(), c_active_occ))
-                p_vir = np.linalg.multi_dot((self.c_active_vir.T, self.base.get_ovlp(), c_active_vir))
+                p_occ = dot(self.c_active_occ.T, self.base.get_ovlp(), c_active_occ)
+                p_vir = dot(self.c_active_vir.T, self.base.get_ovlp(), c_active_vir)
                 #t1, t2 = init_guess.pop('t1'), init_guess.pop('t2')
                 t1, t2 = helper.transform_amplitudes(self.results.t1, self.results.t2, p_occ, p_vir)
                 init_guess = {'t1' : t1, 't2' : t2}
@@ -627,6 +664,189 @@ class EWFFragment(QEmbeddingFragment):
 
         return results
 
+    #def run_solver(self, solver, init_guess=None):
+    #    ## --- Do nothing if solver is not set
+    #    #if not solver:
+    #    #    self.log.info("Solver set to None. Skipping calculation.")
+    #    #    self.converged = True
+    #    #    return 0, nactive, None, None
+
+    #    # --- Project initial guess and integrals from previous cluster calculation with smaller eta:
+    #    # Use initial guess from previous calculations
+    #    # For self-consistent calculations, we can restart calculation:
+    #    if init_guess is None and 'ccsd' in solver.lower():
+    #        if self.base.opts.sc_mode and self.base.iteration > 1:
+    #            self.log.debugv("Restarting using T1,T2 from previous iteration")
+    #            init_guess = {'t1' : self.results.t1, 't2' : self.results.t2}
+    #        #elif self.base.opts.project_init_guess and init_guess is not None:
+    #        #    # Projectors for occupied and virtual orbitals
+    #        #    p_occ = np.linalg.multi_dot((self.c_active_occ.T, self.base.get_ovlp(), c_active_occ))
+    #        #    p_vir = np.linalg.multi_dot((self.c_active_vir.T, self.base.get_ovlp(), c_active_vir))
+    #        #    t1, t2 = init_guess.pop('t1'), init_guess.pop('t2')
+    #        #    t1, t2 = helper.transform_amplitudes(t1, t2, p_occ, p_vir)
+    #        #    init_guess['t1'] = t1
+    #        #    init_guess['t2'] = t2
+    #        elif self.base.opts.project_init_guess and self.results is not None:
+    #            self.log.debugv("Restarting using projected previous T1,T2")
+    #            # Projectors for occupied and virtual orbitals
+    #            p_occ = dot(self.c_active_occ.T, self.base.get_ovlp(), c_active_occ)
+    #            p_vir = dot(self.c_active_vir.T, self.base.get_ovlp(), c_active_vir)
+    #            #t1, t2 = init_guess.pop('t1'), init_guess.pop('t2')
+    #            t1, t2 = helper.transform_amplitudes(self.results.t1, self.results.t2, p_occ, p_vir)
+    #            init_guess = {'t1' : t1, 't2' : t2}
+    #    if init_guess is None: init_guess = {}
+
+    #    # For self-consistent calculations, we can reuse ERIs:
+    #    if eris is None:
+    #        if self.base.opts.sc_mode and self.base.iteration > 1:
+    #            self.log.debugv("Reusing ERIs from previous iteration")
+    #            eris = self.results.eris
+    #        # If superspace ERIs were calculated before, they can be transformed and used again:
+    #        elif self.base.opts.project_eris and self.results is not None:
+    #            t0 = timer()
+    #            self.log.debugv("Projecting previous ERIs onto subspace")
+    #            eris = psubspace.project_eris(self.results.eris, c_active_occ, c_active_vir, ovlp=self.base.get_ovlp())
+    #            self.log.timingv("Time to project ERIs:  %s", time_string(timer()-t0))
+
+    #    # We can now overwrite the orbitals from last BNO run:
+    #    self._c_active_occ = c_active_occ
+    #    self._c_active_vir = c_active_vir
+
+    #    if solver is None:
+    #        return None
+
+    #    # Create solver object
+    #    t0 = timer()
+    #    # TODO: fix this mess...
+    #    solver_opts = {}
+    #    solver_opts.update(self.opts.solver_options)
+    #    pass_through = ['make_rdm1', 'make_rdm2']
+    #    if 'CCSD' in solver.upper():
+    #        pass_through += ['sc_mode', 'dm_with_frozen', 'eom_ccsd', 'eom_ccsd_nroots']
+    #    for attr in pass_through:
+    #        self.log.debugv("Passing fragment option %s to solver.", attr)
+    #        solver_opts[attr] = getattr(self.opts, attr)
+
+    #    if solver.upper() == 'TCCSD':
+    #        solver_opts['tcc'] = True
+    #        # Set CAS orbitals
+    #        if self.opts.c_cas_occ is None:
+    #            self.log.warning("Occupied CAS orbitals not set. Setting to occupied DMET cluster orbitals.")
+    #            self.opts.c_cas_occ = self.c_cluster_occ
+    #        if self.opts.c_cas_vir is None:
+    #            self.log.warning("Virtual CAS orbitals not set. Setting to virtual DMET cluster orbitals.")
+    #            self.opts.c_cas_vir = self.c_cluster_vir
+    #        solver_opts['c_cas_occ'] = self.opts.c_cas_occ
+    #        solver_opts['c_cas_vir'] = self.opts.c_cas_vir
+    #        solver_opts['tcc_fci_opts'] = self.opts.tcc_fci_opts
+
+    #    cluster_solver_cls = get_solver_class(solver)
+    #    cluster_solver = cluster_solver_cls(self, mo_coeff, mo_occ, nocc_frozen=nocc_frozen, nvir_frozen=nvir_frozen, **solver_opts)
+    #    if self.opts.nelectron_target is not None:
+    #        cluster_solver.optimize_cpt(self.opts.nelectron_target, c_frag=self.c_proj)
+    #    if eris is None:
+    #        eris = cluster_solver.get_eris()
+    #    solver_results = cluster_solver.kernel(eris=eris, **init_guess)
+
+    #    self.log.timing("Time for %s solver:  %s", solver, time_string(timer()-t0))
+
+    #    # Get projected amplitudes ('p1', 'p2')
+    #    if hasattr(solver_results, 't1'):
+    #        c1 = solver_results.t1
+    #        c2 = solver_results.t2 + einsum('ia,jb->ijab', c1, c1)
+    #    elif hasattr(solver_results, 'c1'):
+    #        self.log.info("Weight of reference determinant= %.8g", abs(solver_results.c0))
+    #        c1 = solver_results.c1 / solver_results.c0
+    #        c2 = solver_results.c2 / solver_results.c0
+    #    p1 = self.project_amplitude_to_fragment(c1, c_active_occ, c_active_vir)
+    #    p2 = self.project_amplitude_to_fragment(c2, c_active_occ, c_active_vir)
+
+    #    #e_corr = self.get_fragment_energy(p1, p2, eris=solver_results.eris)
+    #    e_corr = self.get_fragment_energy(p1, p2, eris=eris)
+    #    if bno_threshold[0] is not None:
+    #        if bno_threshold[0] == bno_threshold[1]:
+    #            self.log.info("BNO threshold= %.1e :  E(corr)= %+14.8f Ha", bno_threshold[0], e_corr)
+    #        else:
+    #            self.log.info("BNO threshold= %.1e / %.1e :  E(corr)= %+14.8f Ha", *bno_threshold, e_corr)
+    #    else:
+    #        self.log.info("BNO number= %3d / %3d:  E(corr)= %+14.8f Ha", *bno_number, e_corr)
+
+    #    # --- Population analysis
+    #    if self.opts.pop_analysis:
+    #        try:
+    #            if isinstance(self.base.opts.pop_analysis, str):
+    #                filename = self.base.opts.pop_analysis.rsplit('.', 1)
+    #                if len(filename) > 1:
+    #                    filename, ext = filename
+    #                else:
+    #                    ext = 'txt'
+    #                filename = '%s-%s.%s' % (filename, self.id_name, ext)
+    #            else:
+    #                filename = None
+    #            # Add frozen states and transform to AO
+    #            dm1 = np.zeros(2*[self.base.nao])
+    #            nocc = np.count_nonzero(self.mf.mo_occ > 0)
+    #            dm1[np.diag_indices(nocc)] = 2
+    #            a = cluster_solver.get_active_slice()
+    #            dm1[a,a] = solver_results.dm1
+    #            self.base.pop_analysis(dm1, mo_coeff=mo_coeff, filename=filename)
+    #        except Exception as e:
+    #            self.log.error("Exception in population analysis: %s", e)
+
+    #    results = self.Results(
+    #            fid=self.id,
+    #            bno_threshold=bno_threshold,
+    #            n_active=nactive,
+    #            converged=solver_results.converged,
+    #            e_corr=e_corr,
+    #            dm1=solver_results.dm1, dm2=solver_results.dm2)
+
+    #    #(results.t1_pf, results.t2_pf), (results.e1b, results.e2b_conn, results.e2b_disc) = self.project_solver_results(solver_results)
+
+    #    # EOM analysis
+    #    #if 'IP' in self.opts.eom_ccsd:
+    #    #    results.ip_energy, _ = self.eom_analysis(cluster_solver, 'IP')
+    #    #if 'EA' in self.opts.eom_ccsd:
+    #    #    results.ea_energy, _ = self.eom_analysis(cluster_solver, 'EA')
+
+    #    # Keep Amplitudes [optional]
+    #    if self.base.opts.project_init_guess or self.opts.sc_mode:
+    #        if hasattr(solver_results, 't2'):
+    #            results.t1 = solver_results.t1
+    #            results.t2 = solver_results.t2
+    #        if hasattr(solver_results, 'c2'):
+    #            results.c0 = solver_results.c0
+    #            results.c1 = solver_results.c1
+    #            results.c2 = solver_results.c2
+    #    # Keep Lambda-Amplitudes
+    #    if hasattr(solver_results, 'l2') and solver_results.l2 is not None:
+    #        results.l1 = solver_results.l1
+    #        results.l2 = solver_results.l2
+    #    # Keep ERIs [optional]
+    #    if self.base.opts.project_eris or self.opts.sc_mode:
+    #        #results.eris = solver_results.eris
+    #        results.eris = eris
+
+    #    self._results = results
+
+    #    # DMET energy
+    #    if solver_results.dm1 is not None and solver_results.dm2 is not None:
+    #        #pass
+    #        results.e_dmet = self.get_fragment_dmet_energy(
+    #                dm1=results.dm1, dm2=results.dm2,
+    #                #eris=solver_results.eris)
+    #                eris=eris)
+
+    #    # Force GC to free memory
+    #    m0 = get_used_memory()
+    #    del cluster_solver, solver_results
+    #    ndel = gc.collect()
+    #    self.log.debugv("GC deleted %d objects and freed %.3f MB of memory", ndel, (get_used_memory()-m0)/1e6)
+
+    #    return results
+
+
+
 
     def truncate_bno(self, c_no, n_no, bno_threshold=None, bno_number=None):
         """Split natural orbitals (NO) into bath and rest."""
@@ -652,11 +872,6 @@ class EWFFragment(QEmbeddingFragment):
 
         c_bno, c_rest = np.hsplit(c_no, [bno_number])
         return c_bno, c_rest
-
-
-    # Register frunctions of dmet_bath.py as methods
-    #make_dmet_bath = make_dmet_bath
-
 
     def additional_bath_for_cluster(self, c_bath, c_occenv, c_virenv):
         """Add additional bath orbitals to cluster (fragment+DMET bath)."""

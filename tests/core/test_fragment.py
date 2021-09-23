@@ -8,6 +8,8 @@ import pyscf.pbc.tools
 from pyscf import lib
 from vayesta.misc import gdf
 from vayesta.core import QEmbeddingFragment, QEmbeddingMethod
+# UHF:
+from vayesta.core import UEmbedding, UFragment
 
 #TODO: fragment_type = 'ao' after bugs are fixed
 #TODO: convert_amp_c_to_t
@@ -48,6 +50,13 @@ class MolFragmentTests(unittest.TestCase):
         cls.mf = cls.mf.density_fit()
         cls.mf.conv_tol = 1e-12
         cls.mf.kernel()
+        assert cls.mf.converged
+        # UHF
+        cls.uhf = pyscf.scf.UHF(cls.mol)
+        cls.uhf = cls.uhf.density_fit()
+        cls.uhf.conv_tol = 1e-12
+        cls.uhf.kernel()
+        assert cls.uhf.converged
 
     @classmethod
     def tearDownClass(cls):
@@ -102,7 +111,7 @@ class MolFragmentTests(unittest.TestCase):
 
     def test_lowdin_atoms(self):
         qemb = QEmbeddingMethod(self.mf)
-        qemb.init_fragmentation('lowdin-ao')
+        qemb.sao_fragmentation()
         frags = [qemb.make_atom_fragment(['O%d'%x]) for x in range(1, 4)]
 
         self.assertAlmostEqual(frags[0].get_fragment_mf_energy(), -108.51371286149299, 8)
@@ -110,6 +119,17 @@ class MolFragmentTests(unittest.TestCase):
         self.assertAlmostEqual(frags[2].get_fragment_mf_energy(), -104.23470603227311, 8)
         e_mf = sum([f.get_fragment_mf_energy() for f in frags])
         self.assertAlmostEqual(e_mf, (self.mf.e_tot-self.mf.energy_nuc()), 8)
+
+    def test_sao_atomic_fragment_uhf(self):
+        qemb = UEmbedding(self.uhf)
+        qemb.sao_fragmentation()
+        frags = [qemb.add_atomic_fragment(['O%d'%x]) for x in range(1, 4)]
+
+        self.assertAlmostEqual(frags[0].get_fragment_mf_energy(), -108.51371286149299, 6)
+        self.assertAlmostEqual(frags[1].get_fragment_mf_energy(), -104.23470603227311, 6)
+        self.assertAlmostEqual(frags[2].get_fragment_mf_energy(), -104.23470603227311, 6)
+        e_mf = sum([f.get_fragment_mf_energy() for f in frags])
+        self.assertAlmostEqual(e_mf, (self.uhf.e_tot-self.uhf.energy_nuc()), 8)
 
     def test_lowdin_aos(self):
         qemb = QEmbeddingMethod(self.mf)

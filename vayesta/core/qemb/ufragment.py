@@ -4,16 +4,27 @@ from vayesta.core.util import *
 
 from .fragment import QEmbeddingFragment
 
-class UQEmbeddingFragment(QEmbeddingFragment):
+class UFragment(QEmbeddingFragment):
+
+    def log_info(self):
+        # Some output
+        fmt = '  > %-24s     '
+        self.log.info(fmt+'%d , %d', "Fragment orbitals:", *self.n_frag)
+        self.log.info(fmt+'%f', "Symmetry factor:", self.sym_factor)
+        self.log.info(fmt+'%.10f , %.10f', "Number of electrons:", *self.nelectron)
+        if self.atoms is not None:
+            self.log.info(fmt+'%r', "Associated atoms:", self.atoms)
+        if self.aos is not None:
+            self.log.info(fmt+'%r', "Associated AOs:", self.aos)
 
     @staticmethod
     def stack_mo(*mo_coeff):
-        mo_coeff = (np.hstack([c[0] for c in mo_coeff]),
-                    np.hstack([c[1] for c in mo_coeff]))
+        mo_coeff = (hstack(*[c[0] for c in mo_coeff]),
+                    hstack(*[c[1] for c in mo_coeff]))
         return mo_coeff
 
     @property
-    def size(self):
+    def n_frag(self):
         """Number of fragment orbitals."""
         return (self.c_frag[0].shape[-1],
                 self.c_frag[1].shape[-1])
@@ -22,11 +33,11 @@ class UQEmbeddingFragment(QEmbeddingFragment):
     def nelectron(self):
         """Number of mean-field electrons."""
         ovlp = self.base.get_ovlp()
-        dm_ao = self.mf.make_rdm1()
+        dm = self.mf.make_rdm1()
         ne = []
         for s in range(2):
-            sc = einsum('ab,bi->ai', ovlp, self.c_frag[s])
-            ne.append(dot(sc.T, dm_ao[s], sc))
+            sc = np.dot(ovlp, self.c_frag[s])
+            ne.append(einsum('ai,ab,bi->', sc, dm[s], sc))
         return tuple(ne)
 
     @property
@@ -65,7 +76,7 @@ class UQEmbeddingFragment(QEmbeddingFragment):
         return (self.c_frozen_vir[0].shape[-1],
                 self.c_frozen_vir[1].shape[-1])
 
-    def get_mo_occupation(self, *mo_coeff):
+    def get_mo_occupation(self, *mo_coeff, dm1=None, **kwargs):
         """Get mean-field occupation numbers (diagonal of 1-RDM) of orbitals.
 
         Parameters
@@ -79,15 +90,13 @@ class UQEmbeddingFragment(QEmbeddingFragment):
             Occupation numbers of orbitals.
         """
         mo_coeff = self.stack_mo(*mo_coeff)
-        ovlp = self.base.get_ovlp()
-        dm_ao = self.mf.make_rdm1()
-        occ = []
-        for s in range(2):
-            sc = np.dot(ovlp, mo_coeff[s])
-            occ.append(einsum('ai,ab,bi->i', sc, dm[s], sc))
-        return tuple(occ)
+        if dm1 is None: dm1 = self.mf.make_rdm1()
+        results = []
+        for s, spin in enumerate(('alpha', 'beta')):
+            results.append(super().get_mo_occupation(mo_coeff[s], dm1=dm1[s], **kwargs))
+        return tuple(results)
 
-    def canonicalize_mo(self, *mo_coeff, eigvals=False, sign_convention=True):
+    def canonicalize_mo(self, *mo_coeff, fock=None, **kwargs):
         """Diagonalize Fock matrix within subspace.
 
         Parameters
@@ -104,26 +113,14 @@ class UQEmbeddingFragment(QEmbeddingFragment):
         rot : ndarray
             Rotation matrix: np.dot(mo_coeff, rot) = mo_canon.
         """
+        if fock is None: fock = self.base.get_fock()
         mo_coeff = self.stack_mo(*mo_coeff)
-        f_ao = self.base.get_fock()
         results = []
-        for s in range(2):
-            fock = dot(mo_coeff[s].T, f_ao[s], mo_coeff[s])
-            mo_energy, rot = np.linalg.eigh(fock)
-            mo_can = np.dot(mo_coeff[s], rot)
-            if sign_convention:
-                mo_can, signs = helper.orbital_sign_convention(mo_can)
-                rot = rot*signs[np.newaxis]
-            assert np.allclose(np.dot(mo_coeff, rot), mo_can)
-            assert np.allclose(np.dot(mo_can, rot.T), mo_coeff)
-            if eigvals:
-                results.append((mo_can, rot, mo_energy))
-            else:
-                results.append((mo_can, rot))
-            resu
+        for s, spin in enumerate(('alpha', 'beta')):
+            results.append(super().canonicalize_mo(mo_coeff[s], fock=fock[s], **kwargs))
         return tuple(zip(*results))
 
-    def diagonalize_cluster_dm(self, *mo_coeff, tol=1e-4):
+    def diagonalize_cluster_dm(self, *mo_coeff, dm1=None, norm=1, **kwargs):
         """Diagonalize cluster (fragment+bath) DM to get fully occupied and virtual orbitals.
 
         Parameters
@@ -142,35 +139,37 @@ class UQEmbeddingFragment(QEmbeddingFragment):
             Virtual cluster orbitals.
         """
         mo_coeff = self.stack_mo(*mo_coeff)
-        ovlp = self.base.get_ovlp()
-        dm_ao = self.mf.make_rdm1()
-        c_cluster_occ = []
-        c_cluster_vir = []
-        for s in range(2):
-            sc = np.dot(ovlp, mo_coeff[s])
-            dm = dot(sc.T, dm_ao[s], sc) 
-            e, v = np.linalg.eigh(dm)
-            if tol and not np.allclose(np.fmin(abs(e), abs(e-1)), 0, atol=tol, rtol=0):
-                raise RuntimeError("Error while diagonalizing cluster DM: eigenvalues not all close to 0 or 1:\n%s" % e)
-            e, v = e[::-1], v[:,::-1]
-            c_cluster = np.dot(mo_coeff, v)
-            nocc = sum(e >= 0.5)
-            c_occ_s, c_vir_s = np.hsplit(c_cluster, [nocc])
-            c_cluster_occ.append(c_occ_s)
-            c_cluster_vir.append(c_vir_s)
-        return tuple(c_cluster_occ), tuple(c_cluster_vir)
+        if dm1 is None: dm1 = self.mf.make_rdm1()
+        results = []
+        for s, spin in enumerate(('alpha', 'beta')):
+            res_s = super().diagonalize_cluster_dm(mo_coeff[s], dm1=dm1[s], norm=norm, **kwargs)
+            results.append(res_s)
+        return tuple(zip(*results))
 
     def make_dmet_bath(self, c_env, dm1=None, **kwargs):
         if dm1 is None: dm1 = self.mf.make_rdm1()
         results = []
         for s, spin in enumerate(('alpha', 'beta')):
-            self.log("Making %s-DMET bath", spin)
+            self.log.info("Making %s-DMET bath", spin)
             # Use restricted DMET bath routine for each spin:
             results.append(super().make_dmet_bath(c_env[s], dm1=2*dm1[s], **kwargs))
         return tuple(zip(*results))
 
-    def get_fragment_projector(self, coeff, **kwargs):
+    def get_fragment_projector(self, coeff, c_proj=None, **kwargs):
+        if c_proj is None: c_proj = self.c_proj
         projectors = []
         for s in range(2):
-            projectors.append(super().get_fragment_projector(coeff[s], **kwargs))
+            projectors.append(super().get_fragment_projector(coeff[s], c_proj=c_proj[s], **kwargs))
         return tuple(projectors)
+
+    def get_fragment_mf_energy(self):
+        """Calculate the part of the mean-field energy associated with the fragment.
+
+        Does not include nuclear-nuclear repulsion!
+        """
+        pa, pb = self.get_fragment_projector(self.base.mo_coeff)
+        hveff = (dot(pa, self.base.mo_coeff[0].T, self.base.get_hcore()+self.base.get_veff()[0]/2, self.base.mo_coeff[0]),
+                 dot(pb, self.base.mo_coeff[1].T, self.base.get_hcore()+self.base.get_veff()[1]/2, self.base.mo_coeff[1]))
+        occ = ((self.base.mo_occ[0] > 0), (self.base.mo_occ[1] > 0))
+        e_mf = np.sum(np.diag(hveff[0])[occ[0]]) + np.sum(np.diag(hveff[1])[occ[1]])
+        return e_mf

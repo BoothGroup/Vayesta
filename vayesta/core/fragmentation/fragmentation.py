@@ -30,7 +30,7 @@ class Fragmentation:
 
     @property
     def nmo(self):
-        return self.mf.mo_coeff.shape[-1]
+        return self.mo_coeff.shape[-1]
 
     def get_ovlp(self):
         return self.ovlp

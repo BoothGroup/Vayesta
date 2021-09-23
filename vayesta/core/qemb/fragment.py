@@ -83,7 +83,12 @@ class QEmbeddingFragment:
 
     @staticmethod
     def stack_mo(*mo_coeff):
-        return np.hstack(mo_coeff)
+        """
+        Use stack_mo in parts of the code which are used both in RHF and UHF.
+        Use hstack in parts of the code which are only used in RHF, but may be called
+        from UHF per spin channel.
+        """
+        return hstack(*mo_coeff)
 
     def __init__(self, base, fid, name, c_frag, c_env, #fragment_type,
             atoms=None, aos=None,
@@ -181,17 +186,6 @@ class QEmbeddingFragment:
         # of the fragment. By default it is equal to `self.c_frag`.
         self.c_proj = self.c_frag
 
-        # Some output
-        fmt = '  > %-24s     '
-        #self.log.info(fmt+'%r', "Fragment type:", self.fragment_type)
-        self.log.info(fmt+'%r', "Fragment orbitals:", self.n_frag)
-        self.log.info(fmt+'%r', "Symmetry factor:", self.sym_factor)
-        self.log.info(fmt+'%.10f', "Number of electrons:", self.nelectron)
-        if self.atoms is not None:
-            self.log.info(fmt+'%r', "Associated atoms:", self.atoms)
-        if self.aos is not None:
-            self.log.info(fmt+'%r', "Associated AOs:", self.aos)
-
         # Final cluster active orbitals
         self._c_active_occ = None
         self._c_active_vir = None
@@ -204,6 +198,7 @@ class QEmbeddingFragment:
         # Intermediates
         self.stash = self.Stash()
 
+        self.log_info()
 
     def __repr__(self):
         keys = ['id', 'name', 'atoms', 'aos']
@@ -213,6 +208,17 @@ class QEmbeddingFragment:
 
     def __str__(self):
         return '%s %d: %s' % (self.__class__.__name__, self.id, self.trimmed_name())
+
+    def log_info(self):
+        # Some output
+        fmt = '  > %-24s     '
+        self.log.info(fmt+'%d', "Fragment orbitals:", self.n_frag)
+        self.log.info(fmt+'%f', "Symmetry factor:", self.sym_factor)
+        self.log.info(fmt+'%.10f', "Number of electrons:", self.nelectron)
+        if self.atoms is not None:
+            self.log.info(fmt+'%r', "Associated atoms:", self.atoms)
+        if self.aos is not None:
+            self.log.info(fmt+'%r', "Associated AOs:", self.aos)
 
     @property
     def mol(self):
@@ -227,10 +233,10 @@ class QEmbeddingFragment:
         """Number of fragment orbitals."""
         return self.c_frag.shape[-1]
 
-    @property
-    def size(self):
-        self.log.warning("fragment.size is deprecated!")
-        return self.n_frag
+    #@property
+    #def size(self):
+    #    self.log.warning("fragment.size is deprecated!")
+    #    return self.n_frag
 
     @property
     def nelectron(self):
@@ -395,7 +401,7 @@ class QEmbeddingFragment:
         e_mf = np.sum(np.diag(hveff)[occ])
         return e_mf
 
-    def get_fragment_projector(self, coeff, inverse=False):
+    def get_fragment_projector(self, coeff, c_proj=None, inverse=False):
         """Projector for one index of amplitudes local energy expression.
 
         Cost: N^2 if O(1) coeffs , N^3 if O(N) coeffs
@@ -412,13 +418,14 @@ class QEmbeddingFragment:
         p : (n, n) array
             Projection matrix.
         """
-        r = dot(coeff.T, self.base.get_ovlp(), self.c_proj)
+        if c_proj is None: c_proj = self.c_proj
+        r = dot(coeff.T, self.base.get_ovlp(), c_proj)
         p = np.dot(r, r.T)
         if inverse:
             p = (np.eye(p.shape[-1]) - p)
         return p
 
-    def get_mo_occupation(self, *mo_coeff):
+    def get_mo_occupation(self, *mo_coeff, dm1=None):
         """Get mean-field occupation numbers (diagonal of 1-RDM) of orbitals.
 
         Parameters
@@ -431,9 +438,10 @@ class QEmbeddingFragment:
         occ : ndarray, shape(M)
             Occupation numbers of orbitals.
         """
-        mo_coeff = np.hstack(mo_coeff)
+        mo_coeff = hstack(*mo_coeff)        # Do NOT use self.stack_mo!
+        if dm1 is None: dm1 = self.mf.make_rdm1()
         sc = np.dot(self.base.get_ovlp(), mo_coeff)
-        occ = einsum('ai,ab,bi->i', sc, self.mf.make_rdm1(), sc)
+        occ = einsum('ai,ab,bi->i', sc, dm1, sc)
         return occ
 
     def loop_fragments(self, exclude_self=False):
@@ -443,7 +451,7 @@ class QEmbeddingFragment:
                 continue
             yield frag
 
-    def canonicalize_mo(self, *mo_coeff, eigvals=False, sign_convention=True):
+    def canonicalize_mo(self, *mo_coeff, fock=None, eigvals=False, sign_convention=True):
         """Diagonalize Fock matrix within subspace.
 
         Parameters
@@ -460,8 +468,9 @@ class QEmbeddingFragment:
         rot : ndarray
             Rotation matrix: np.dot(mo_coeff, rot) = mo_canon.
         """
-        mo_coeff = self.stack_mo(*mo_coeff)
-        fock = dot(mo_coeff.T, self.base.get_fock(), mo_coeff)
+        if fock is None: fock = self.base.get_fock()
+        mo_coeff = hstack(*mo_coeff)    # Called from UHF: do NOT use stack_mo!
+        fock = dot(mo_coeff.T, fock, mo_coeff)
         mo_energy, rot = np.linalg.eigh(fock)
         mo_can = np.dot(mo_coeff, rot)
         if sign_convention:
@@ -473,7 +482,7 @@ class QEmbeddingFragment:
             return mo_can, rot, mo_energy
         return mo_can, rot
 
-    def diagonalize_cluster_dm(self, *mo_coeff, dm1=None, tol=1e-4):
+    def diagonalize_cluster_dm(self, *mo_coeff, dm1=None, norm=2, tol=1e-4):
         """Diagonalize cluster (fragment+bath) DM to get fully occupied and virtual orbitals.
 
         Parameters
@@ -495,15 +504,15 @@ class QEmbeddingFragment:
             Virtual cluster orbital coefficients.
         """
         if dm1 is None: dm1 = self.mf.make_rdm1()
-        c_cluster = np.hstack(mo_coeff)
+        c_cluster = hstack(*mo_coeff)
         sc = np.dot(self.base.get_ovlp(), c_cluster)
         dm = dot(sc.T, dm1, sc)
         e, r = np.linalg.eigh(dm)
-        if tol and not np.allclose(np.fmin(abs(e), abs(e-2)), 0, atol=tol, rtol=0):
-            raise RuntimeError("Error while diagonalizing cluster DM: eigenvalues not all close to 0 or 2:\n%s" % e)
+        if tol and not np.allclose(np.fmin(abs(e), abs(e-norm)), 0, atol=tol, rtol=0):
+            raise RuntimeError("Eigenvalues of cluster-DM not all close to 0 or %d:\n%s" % (e, norm))
         e, r = e[::-1], r[:,::-1]
         c_cluster = np.dot(c_cluster, r)
-        nocc = np.count_nonzero(e >= 1)
+        nocc = np.count_nonzero(e >= (norm/2))
         c_cluster_occ, c_cluster_vir = np.hsplit(c_cluster, [nocc])
         return c_cluster_occ, c_cluster_vir
 

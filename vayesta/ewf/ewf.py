@@ -17,7 +17,7 @@ from vayesta.core.util import *
 from vayesta.core import QEmbeddingMethod
 
 from . import helper
-from .fragment import EWFFragment
+from .fragment import EWFFragment as Fragment
 
 try:
     from mpi4py import MPI
@@ -43,7 +43,7 @@ VALID_SOLVERS = [None, "", "MP2", "CISD", "CCSD", 'TCCSD', "CCSD(T)", 'FCI', "FC
 
 class EWF(QEmbeddingMethod):
 
-    Fragment = EWFFragment
+    Fragment = Fragment
 
     @dataclasses.dataclass
     class Options(QEmbeddingMethod.Options):
@@ -515,10 +515,17 @@ class EWF(QEmbeddingMethod):
                 filename = None
             self.pop_mf = self.pop_analysis(dm1, filename=filename)[0]
 
-        nelec_frags = sum([f.sym_factor*f.nelectron for f in self.loop()])
-        self.log.info("Total number of mean-field electrons over all fragments= %.8f", nelec_frags)
-        if abs(nelec_frags - np.rint(nelec_frags)) > 1e-4:
-            self.log.warning("Number of electrons not integer!")
+        if self.is_rhf:
+            nelec_frags = sum([f.sym_factor*f.nelectron for f in self.loop()])
+            self.log.info("Total number of mean-field electrons over all fragments= %.8f", nelec_frags)
+            if abs(nelec_frags - np.rint(nelec_frags)) > 1e-4:
+                self.log.warning("Number of electrons not integer!")
+        else:
+            nelec_frags = (sum([f.sym_factor*f.nelectron[0] for f in self.loop()]),
+                           sum([f.sym_factor*f.nelectron[1] for f in self.loop()]))
+            self.log.info("Total number of mean-field electrons over all fragments= %.8f , %.8f", *nelec_frags)
+            if abs(nelec_frags[0] - np.rint(nelec_frags[0])) > 1e-4 or abs(nelec_frags[1] - np.rint(nelec_frags[1])) > 1e-4:
+                self.log.warning("Number of electrons not integer!")
 
         exit = False
         for i, bno_thr in enumerate(bno_threshold):
@@ -545,7 +552,7 @@ class EWF(QEmbeddingMethod):
                     self.log.changeIndentLevel(1)
                     try:
                         result = frag.kernel(bno_threshold=bno_thr)
-                    except EWFFragment.Exit:
+                    except Fragment.Exit:
                         exit = True
                         self.log.info("Exiting %s", frag)
                         self.log.changeIndentLevel(-1)

@@ -27,10 +27,10 @@ from vayesta import lattmod
 from vayesta.core.scmf import PDMET_SCMF, Brueckner_SCMF
 
 # Fragmentations
-from vayesta.core.fragmentation import SAO_Fragmentation
-from vayesta.core.fragmentation import IAO_Fragmentation
-from vayesta.core.fragmentation import IAOPAO_Fragmentation
-from vayesta.core.fragmentation import Site_Fragmentation
+from vayesta.core.fragmentation import make_sao_fragmentation
+from vayesta.core.fragmentation import make_iao_fragmentation
+from vayesta.core.fragmentation import make_iaopao_fragmentation
+from vayesta.core.fragmentation import make_site_fragmentation
 
 # --- This Package
 
@@ -155,16 +155,7 @@ class QEmbedding:
             self.log.info("n(AO)= %4d  n(alpha/beta-MO)= %4d / %4d  n(linear dep.)= %4d / %4d",
                     self.nao, *self.nmo, self.nao-self.nmo[0], self.nao-self.nmo[1])
 
-        if self.is_rhf:
-            diff = dot(self.mo_coeff.T, self.get_ovlp(), self.mo_coeff) - np.eye(self.nmo)
-            self.log.log(logging.ERROR if np.linalg.norm(diff) > 1e-5 else logging.DEBUG,
-                    "MO orthogonality error: L(2)= %.2e  L(inf)= %.2e", np.linalg.norm(diff), abs(diff).max())
-        else:
-            ovlp = self.get_ovlp()
-            for s, spin in enumerate(('alpha', 'beta')):
-                diff = dot(self.mo_coeff[s].T, self.get_ovlp(), self.mo_coeff[s]) - np.eye(self.nmo[s])
-                self.log.log(logging.ERROR if np.linalg.norm(diff) > 1e-5 else logging.DEBUG,
-                    "%s-MO orthogonality error: L(2)= %.2e  L(inf)= %.2e", spin, np.linalg.norm(diff), abs(diff).max())
+        self.check_orthonormal(self.mo_coeff, 'MO')
 
         if self.mo_energy is not None:
             if self.is_rhf:
@@ -257,7 +248,7 @@ class QEmbedding:
 
     @property
     def is_rhf(self):
-        return (self.mo_coeff.ndim == 2)
+        return (np.ndim(self.mo_coeff) == 2)
 
     @property
     def is_uhf(self):
@@ -653,6 +644,19 @@ class QEmbedding:
     # Utility
     # -------
 
+    def check_orthonormal(self, mo_coeff, mo_name='', tol=1e-7):
+        """Check orthonormality of mo_coeff."""
+        err = dot(mo_coeff.T, self.get_ovlp(), mo_coeff) - np.eye(mo_coeff.shape[-1])
+        l2 = np.linalg.norm(err)
+        linf = abs(err).max()
+        if mo_name:
+            mo_name = (' of %ss' % mo_name)
+        if max(l2, linf) > tol:
+            self.log.error("Orthogonality error%s: L(2)= %.2e  L(inf)= %.2e !", mo_name, l2, linf)
+        else:
+            self.log.debug("Orthogonality error%s: L(2)= %.2e  L(inf)= %.2e", mo_name, l2, linf)
+        return l2, linf
+
     def pop_analysis(self, dm1, mo_coeff=None, kind='lo', c_lo=None, filename=None, filemode='a', verbose=True):
         """
         Parameters
@@ -721,6 +725,16 @@ class QEmbedding:
 
     # --- Fragmentation methods
 
+    def sao_fragmentation(self):
+        """Initialize the quantum embedding method for the use of SAO (Lowdin-AO) fragments."""
+        self.fragmentation = make_sao_fragmentation(self.mf, log=self.log)
+        self.fragmentation.kernel()
+
+    def site_fragmentation(self):
+        """Initialize the quantum embedding method for the use of site fragments."""
+        self.fragmentation = make_site_fragmentation(self.mf, log=self.log)
+        self.fragmentation.kernel()
+
     def iao_fragmentation(self, minao='auto'):
         """Initialize the quantum embedding method for the use of IAO fragments.
 
@@ -729,7 +743,7 @@ class QEmbedding:
         minao: str, optional
             IAO reference basis set. Default: 'auto'
         """
-        self.fragmentation = IAO_Fragmentation(self.mf, log=self.log, minao=minao)
+        self.fragmentation = make_iao_fragmentation(self.mf, log=self.log, minao=minao)
         self.fragmentation.kernel()
 
     def iaopao_fragmentation(self, minao='auto'):
@@ -740,17 +754,7 @@ class QEmbedding:
         minao: str, optional
             IAO reference basis set. Default: 'auto'
         """
-        self.fragmentation = IAOPAO_Fragmentation(self.mf, log=self.log, minao=minao)
-        self.fragmentation.kernel()
-
-    def sao_fragmentation(self):
-        """Initialize the quantum embedding method for the use of SAO (Lowdin-AO) fragments."""
-        self.fragmentation = SAO_Fragmentation(self.mf, log=self.log)
-        self.fragmentation.kernel()
-
-    def site_fragmentation(self):
-        """Initialize the quantum embedding method for the use of site fragments."""
-        self.fragmentation = Site_Fragmentation(self.mf, log=self.log)
+        self.fragmentation = make_iaopao_fragmentation(self.mf, log=self.log, minao=minao)
         self.fragmentation.kernel()
 
     def add_atomic_fragment(self, atoms, orbital_filter=None, name=None, **kwargs):

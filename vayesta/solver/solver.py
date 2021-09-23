@@ -131,7 +131,7 @@ class ClusterSolver:
         """Abstract method."""
         raise NotImplementedError()
 
-    def optimize_cpt(self, nelectron, c_frag, cpt_guess=0, atol=1e-6, rtol=1e-6, cpt_radius=1):
+    def optimize_cpt(self, nelectron, c_frag, cpt_guess=0, atol=1e-6, rtol=1e-6, cpt_radius=0.5):
         """Enables chemical potential optimization to match a number of electrons in the fragment space.
 
         Parameters
@@ -147,7 +147,7 @@ class ClusterSolver:
         rtol: float, optional
             Relative electron number tolerance. Default: 1e-6
         cpt_radius: float, optional
-            Search radius for chemical potential. Default: 1.
+            Search radius for chemical potential. Default: 0.5.
 
         Returns
         -------

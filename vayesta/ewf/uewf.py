@@ -1,14 +1,14 @@
 import numpy as np
 
-from vayesta.core import UQEmbeddingMethod
+from vayesta.core import UEmbedding
 from vayesta.core.util import *
 
 from vayesta.ewf import EWF
-from vayesta.ewf.ufragment import UEWFFragment
+from vayesta.ewf.ufragment import UEWFFragment as Fragment
 
-class UEWF(EWF, UQEmbeddingMethod):
+class UEWF(EWF, UEmbedding):
 
-    Fragment = UEWFFragment
+    Fragment = Fragment
 
     def get_init_mo_coeff(self, mo_coeff=None):
         """Orthogonalize insufficiently orthogonal MOs.

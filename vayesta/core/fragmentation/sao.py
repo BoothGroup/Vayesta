@@ -2,6 +2,7 @@ import numpy as np
 
 from vayesta.core.util import *
 from .fragmentation import Fragmentation
+from .ufragmentation import Fragmentation_UHF
 
 class SAO_Fragmentation(Fragmentation):
 
@@ -25,3 +26,9 @@ class SAO_Fragmentation(Fragmentation):
 
     def search_labels(self, labels):
         return self.mol.search_ao_label(labels)
+
+class SAO_Fragmentation_UHF(Fragmentation_UHF, SAO_Fragmentation):
+
+    def get_coeff(self):
+        x = super().get_coeff()
+        return (x, x)

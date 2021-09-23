@@ -35,45 +35,6 @@ in cases where `None` itself is a valid setting.
 """
 NotSet = NotSetType()
 
-timer = default_timer
-
-@contextmanager
-def replace_attr(obj, **kwargs):
-    """Temporary replace attributes and methods of object."""
-    orig = {}
-    try:
-        for name, attr in kwargs.items():
-            orig[name] = getattr(obj, name)             # Save originals
-            if callable(attr):
-                setattr(obj, name, attr.__get__(obj))   # For functions: replace and bind as method
-            else:
-                setattr(obj, name, attr)                # Just set otherwise
-        yield obj
-    finally:
-        # Restore originals
-        for name, attr in orig.items():
-            setattr(obj, name, attr)
-
-@contextmanager
-def log_time(logger, message, *args, **kwargs):
-    """Log time to execute the body of a with-statement.
-
-    Use as:
-        >>> with log_time(log.info, 'Time for hcore: %s'):
-        >>>     hcore = mf.get_hcore()
-
-    Parameters
-    ----------
-    logger
-    message
-    """
-    try:
-        t0 = timer()
-        yield t0
-    finally:
-        t = (timer()-t0)
-        logger(message, time_string(t), *args, **kwargs)
-
 # --- NumPy
 
 def dot(*args, **kwargs):
@@ -130,9 +91,29 @@ class AbstractMethodError(NotImplementedError):
 class ConvergenceError(RuntimeError):
     pass
 
-def get_used_memory():
-    process = psutil.Process(os.getpid())
-    return(process.memory_info().rss)  # in bytes
+# --- Time and memory
+
+timer = default_timer
+
+@contextmanager
+def log_time(logger, message, *args, **kwargs):
+    """Log time to execute the body of a with-statement.
+
+    Use as:
+        >>> with log_time(log.info, 'Time for hcore: %s'):
+        >>>     hcore = mf.get_hcore()
+
+    Parameters
+    ----------
+    logger
+    message
+    """
+    try:
+        t0 = timer()
+        yield t0
+    finally:
+        t = (timer()-t0)
+        logger(message, time_string(t), *args, **kwargs)
 
 def time_string(seconds, show_zeros=False):
     """String representation of seconds."""
@@ -145,6 +126,9 @@ def time_string(seconds, show_zeros=False):
         tstr = "%.2f s" % s
     return tstr
 
+def get_used_memory():
+    process = psutil.Process(os.getpid())
+    return(process.memory_info().rss)  # in bytes
 
 def memory_string(nbytes, fmt='6.2f'):
     """String representation of nbytes"""
@@ -167,6 +151,24 @@ def memory_string(nbytes, fmt='6.2f'):
         unit = "TB"
     return "{:{fmt}} {unit}".format(val, unit=unit, fmt=fmt)
 
+# ---
+
+@contextmanager
+def replace_attr(obj, **kwargs):
+    """Temporary replace attributes and methods of object."""
+    orig = {}
+    try:
+        for name, attr in kwargs.items():
+            orig[name] = getattr(obj, name)             # Save originals
+            if callable(attr):
+                setattr(obj, name, attr.__get__(obj))   # For functions: replace and bind as method
+            else:
+                setattr(obj, name, attr)                # Just set otherwise
+        yield obj
+    finally:
+        # Restore originals
+        for name, attr in orig.items():
+            setattr(obj, name, attr)
 
 class SelectNotSetType:
     """Sentinel for implementation of `select` in `Options.replace`.
