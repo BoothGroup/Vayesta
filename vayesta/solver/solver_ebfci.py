@@ -36,7 +36,6 @@ class EBFCISolver(ClusterSolver):
         c1: np.array = None
         c2: np.array = None
         rdm_eb: np.array = None
-        eris: np.array = None
 
     def __init__(self, freqs, couplings, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -99,7 +98,7 @@ class EBFCISolver(ClusterSolver):
         #c0, c1, c2 = pyscf.ci.cisd.cisdvec_to_amplitudes(cisdvec, self.nactive, nocc)
 
         results = self.Results(
-                converged=True, e_corr=e_fci, c_occ=self.c_active_occ, c_vir=self.c_active_vir, eris=eris)
+                converged=True, e_corr=e_fci, c_occ=self.c_active_occ, c_vir=self.c_active_vir)
                 #c0=c0, c1=c1, c2=c2)
         # Grab all required dms.
         if self.opts.make_rdm2:
