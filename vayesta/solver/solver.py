@@ -164,7 +164,7 @@ class ClusterSolver:
             """Raise when electron error is below tolerance."""
             pass
 
-        def kernel(self, *args, **kwargs):
+        def kernel(self, *args, eris=None, **kwargs):
             results = None
             err = None
             cpt_opt = None
@@ -172,7 +172,8 @@ class ClusterSolver:
             init_guess = {}
 
             # Avoid calculating the ERIs multiple times:
-            eris = kwargs.pop('eris', self.get_eris())
+            if eris is None:
+                eris = self.get_eris()
 
             def electron_err(cpt):
                 nonlocal results, err, cpt_opt, iterations, init_guess

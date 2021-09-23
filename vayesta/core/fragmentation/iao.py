@@ -59,11 +59,11 @@ class IAO_Fragmentation(Fragmentation):
                 mo_coeff.shape[0], mo_coeff.shape[-1], c_occ.shape[-1], n_iao)
 
         # Orthogonalize IAO using symmetric (Lowdin) orthogonalization
-        x, e_min = self.get_lowdin_orth_x(c_iao, ovlp)
+        x, e_min = self.symmetric_orth(c_iao, ovlp)
         self.log.debug("Lowdin orthogonalization of IAOs: n(in)= %3d -> n(out)= %3d , e(min)= %.3e",
                 x.shape[0], x.shape[1], e_min)
         if e_min < 1e-12:
-            self.log.warning("Small eigenvalue in Lowdin-orthogonalization: %.3e !", e_min)
+            self.log.warning("Small eigenvalue in Lowdin orthogonalization: %.3e !", e_min)
         c_iao = np.dot(c_iao, x)
 
         # Check that all electrons are in IAO space
@@ -77,7 +77,7 @@ class IAO_Fragmentation(Fragmentation):
             c_vir = self.get_virtual_coeff(c_iao)
             c_iao = np.hstack((c_iao, c_vir))
         # Test orthogonality of IAO
-        self.check_orth(c_iao, "IAO")
+        self.check_orth(c_iao)
         return c_iao
 
     def get_labels(self):

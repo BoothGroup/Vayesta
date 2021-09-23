@@ -20,7 +20,7 @@ class IAOPAO_Fragmentation(IAO_Fragmentation):
         for l in ao_labels:
             idx = iaopao_labels.index(l)
             order.append(idx)
-        assert np.all(np.asarray(iaopao_labels)[order] == ao_labels)
+        assert np.all([tuple(l) for l in (np.asarray(iaopao_labels, dtype=object)[order])] == ao_labels)
         self.order = order
 
     def get_coeff(self, order=None):
@@ -42,17 +42,17 @@ class IAOPAO_Fragmentation(IAO_Fragmentation):
         pao_coeff = np.dot(p_pao, pao_coeff)
 
         # Orthogonalize PAOs:
-        x, e_min = self.get_lowdin_orth_x(pao_coeff, ovlp)
+        x, e_min = self.symmetric_orth(pao_coeff, ovlp)
         self.log.debug("Lowdin orthogonalization of PAOs: n(in)= %3d -> n(out)= %3d , e(min)= %.3e",
                 x.shape[0], x.shape[1], e_min)
         if e_min < 1e-12:
-            self.log.warning("Small eigenvalue in Lowdin-orthogonalization: %.3e !", e_min)
+            self.log.warning("Small eigenvalue in Lowdin orthogonalization: %.3e !", e_min)
         pao_coeff = np.dot(pao_coeff, x)
 
         coeff = np.hstack((iao_coeff, pao_coeff))
         assert (coeff.shape[-1] == self.mf.mo_coeff.shape[-1])
         # Test orthogonality of IAO+PAO
-        self.check_orth(coeff, "IAO+PAO")
+        self.check_orth(coeff)
 
         if order is not None:
             return coeff[:,order]
@@ -65,7 +65,7 @@ class IAOPAO_Fragmentation(IAO_Fragmentation):
         pao_labels = [tuple(x) for x in np.asarray(self.mol.ao_labels(None), dtype=tuple)[rydberg]]
         labels = iao_labels + pao_labels
         if order is not None:
-            return [tuple(l) for l in np.asarray(labels)[order]]
+            return [tuple(l) for l in np.asarray(labels, dtype=object)[order]]
         return labels
 
     def search_labels(self, labels):

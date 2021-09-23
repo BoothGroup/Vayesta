@@ -7,6 +7,8 @@ from vayesta.core.util import *
 class Fragmentation:
     """Fragmentation for a quantum embedding method class."""
 
+    name = "<not set>"
+
     def __init__(self, mf, log):
         self.mf = mf
         self.log = log
@@ -71,7 +73,7 @@ class Fragmentation:
         """Get the base atom for each fragment orbital."""
         return [l[0] for l in self.labels]
 
-    def get_lowdin_orth_x(self, mo_coeff, ovlp=None, tol=1e-15):
+    def symmetric_orth(self, mo_coeff, ovlp=None, tol=1e-15):
         """Use as mo_coeff = np.dot(mo_coeff, x) to get orthonormal orbitals."""
         if ovlp is None: ovlp = self.get_ovlp()
         m = dot(mo_coeff.T, ovlp, mo_coeff)
@@ -82,15 +84,16 @@ class Fragmentation:
         x = dot(v/np.sqrt(e), v.T)
         return x, e_min
 
-    def check_orth(self, mo_coeff, mo_name, tol=1e-8):
+    def check_orth(self, mo_coeff, mo_name=None, tol=1e-7):
         """Check orthonormality of mo_coeff."""
         err = dot(mo_coeff.T, self.get_ovlp(), mo_coeff) - np.eye(mo_coeff.shape[-1])
         l2 = np.linalg.norm(err)
         linf = abs(err).max()
+        if mo_name is None: mo_name = self.name
         if max(l2, linf) > tol:
-            self.log.error("Orthogonality error of %s: L(2)= %.2e  L(inf)= %.2e !", mo_name, l2, linf)
+            self.log.error("Orthogonality error of %ss: L(2)= %.2e  L(inf)= %.2e !", mo_name, l2, linf)
         else:
-            self.log.debugv("Orthogonality error of %s: L(2)= %.2e  L(inf)= %.2e", mo_name, l2, linf)
+            self.log.debugv("Orthogonality error of %ss: L(2)= %.2e  L(inf)= %.2e", mo_name, l2, linf)
         return l2, linf
 
     def get_atom_indices_symbols(self, atoms):

@@ -524,11 +524,10 @@ class EWFFragment(QEmbeddingFragment):
 
         cluster_solver_cls = get_solver_class(solver)
         cluster_solver = cluster_solver_cls(self, mo_coeff, mo_occ, nocc_frozen=nocc_frozen, nvir_frozen=nvir_frozen, **solver_opts)
-        if eris is None:
-            eris = cluster_solver.get_eris()
-
         if self.opts.nelectron_target is not None:
             cluster_solver.optimize_cpt(self.opts.nelectron_target, c_frag=self.c_proj)
+        if eris is None:
+            eris = cluster_solver.get_eris()
         solver_results = cluster_solver.kernel(eris=eris, **init_guess)
 
         self.log.timing("Time for %s solver:  %s", solver, time_string(timer()-t0))

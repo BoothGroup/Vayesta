@@ -108,6 +108,8 @@ class MolFragmentTests(unittest.TestCase):
         self.assertAlmostEqual(frags[0].get_fragment_mf_energy(), -108.51371286149299, 8)
         self.assertAlmostEqual(frags[1].get_fragment_mf_energy(), -104.23470603227311, 8)
         self.assertAlmostEqual(frags[2].get_fragment_mf_energy(), -104.23470603227311, 8)
+        e_mf = sum([f.get_fragment_mf_energy() for f in frags])
+        self.assertAlmostEqual(e_mf, (self.mf.e_tot-self.mf.energy_nuc()), 8)
 
     def test_lowdin_aos(self):
         qemb = QEmbeddingMethod(self.mf)
@@ -121,6 +123,13 @@ class MolFragmentTests(unittest.TestCase):
 
         frag = qemb.make_ao_fragment('1s')
         self.assertAlmostEqual(frag.get_fragment_mf_energy(), -170.7807235289751, 8)
+
+    def test_iaopao_atoms(self):
+        qemb = QEmbeddingMethod(self.mf)
+        qemb.iaopao_fragmentation()
+        frags = [qemb.add_atomic_fragment(['O%d'%x]) for x in range(1, 4)]
+        e_mf = sum([f.get_fragment_mf_energy() for f in frags])
+        self.assertAlmostEqual(e_mf, (self.mf.e_tot-self.mf.energy_nuc()), 8)
 
     def test_ghost_atoms(self):
         mol = self.mol.copy()
