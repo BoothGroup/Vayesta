@@ -131,7 +131,7 @@ class ClusterSolver:
         """Abstract method."""
         raise NotImplementedError()
 
-    def optimize_cpt(self, nelectron, c_frag, cpt_guess=0, atol=1e-6, rtol=1e-6, cpt_radius=0.5):
+    def optimize_cpt(self, nelectron, c_frag, cpt_guess=0, atol=1e-6, rtol=1e-6, cpt_radius=0.3):
         """Enables chemical potential optimization to match a number of electrons in the fragment space.
 
         Parameters
@@ -159,6 +159,9 @@ class ClusterSolver:
         r_frag = dot(self.c_active.T, self.mf.get_ovlp(), c_frag)
         p_frag = np.dot(r_frag, r_frag.T)     # Projector into fragment space
         self.opts.make_rdm1 = True
+        # During the optimization, we can use the Lambda=T approximation:
+        #solve_lambda0 = self.opts.solve_lambda
+        #self.opts.solve_lambda = False
 
         class CptFound(RuntimeError):
             """Raise when electron error is below tolerance."""
@@ -170,13 +173,18 @@ class ClusterSolver:
             cpt_opt = None
             iterations = 0
             init_guess = {}
+            err0 = None
 
             # Avoid calculating the ERIs multiple times:
             if eris is None:
                 eris = self.get_eris()
 
             def electron_err(cpt):
-                nonlocal results, err, cpt_opt, iterations, init_guess
+                nonlocal results, err, err0, cpt_opt, iterations, init_guess
+                # Avoid recalculation of cpt=0.0 in SciPy:
+                if (cpt == 0) and (err0 is not None):
+                    self.log.debugv("Chemical potential %f already calculated - returning error= %.8f", cpt, err0)
+                    return err0
                 v_ext0 = self.v_ext
                 if cpt:
                     if self.v_ext is None:
@@ -208,12 +216,26 @@ class ClusterSolver:
                 return results
 
             # Not enough electrons in fragment space -> raise fragment chemical potential:
-            assert (cpt_radius > 0)
             if err0 < 0:
-                bounds = np.asarray([cpt_guess, cpt_guess+cpt_radius], dtype=float)
+                lower = cpt_guess
+                upper = cpt_guess+cpt_radius
             # Too many electrons in fragment space -> lower fragment chemical potential:
             else:
-                bounds = np.asarray([cpt_guess-cpt_radius, cpt_guess], dtype=float)
+                lower = cpt_guess-cpt_radius
+                upper = cpt_guess
+
+            #dcpt = 0.1
+            #if err0 < 0:
+            #    err1 = electron_err(cpt_guess + dcpt)
+            #    lower = cpt_guess+dcpt if err1 < 0 else cpt_guess
+            #    upper = cpt_guess + 1.2*(err0 - err1)/dcpt
+            #else:
+            #    err1 = electron_err(cpt_guess - dcpt)
+            #    upper = cpt_guess-dcpt if err1 >= 0 else cpt_guess
+            #    lower = cpt_guess + 1.2*(err1 - err0)/dcpt
+            self.log.debugv("Estimated bounds: %.3e %.3e", lower, upper)
+            bounds = np.asarray([lower, upper], dtype=float)
+
             for ntry in range(5):
                 try:
                     cpt, res = scipy.optimize.brentq(electron_err, a=bounds[0], b=bounds[1], xtol=1e-12, full_output=True)

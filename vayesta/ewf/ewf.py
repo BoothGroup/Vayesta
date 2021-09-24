@@ -63,6 +63,7 @@ class EWF(QEmbeddingMethod):
         # --- Solver settings
         make_rdm1: bool = False
         make_rdm2: bool = False
+        solve_lambda: bool = 'auto'         # If False, use T-amplitudes inplace of Lambda-amplitudes
         dm_with_frozen: bool = False        # Add frozen parts to cluster DMs
         pop_analysis: str = False           # Do population analysis
         eom_ccsd: list = dataclasses.field(default_factory=list)  # Perform EOM-CCSD in each cluster by default

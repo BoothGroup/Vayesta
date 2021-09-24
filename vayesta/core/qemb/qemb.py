@@ -807,7 +807,7 @@ class QEmbedding:
         c_frag = self.fragmentation.get_frag_coeff(indices)
         c_env = self.fragmentation.get_env_coeff(indices)
         fid = self.fragmentation.get_next_fid()
-        frag = self.Fragment(self, fid, name, c_frag, c_env, self.fragmentation.name, **kwargs)
+        frag = self.Fragment(self, fid, name, c_frag, c_env, **kwargs)
         self.fragments.append(frag)
         return frag
 

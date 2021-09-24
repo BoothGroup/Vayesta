@@ -1,5 +1,6 @@
 import dataclasses
 import copy
+from typing import Union
 from timeit import default_timer as timer
 
 import numpy as np
@@ -21,8 +22,11 @@ class CCSDSolver(ClusterSolver):
         maxiter: int = 100              # Max number of iterations
         conv_tol: float = None          # Convergence energy tolerance
         conv_tol_normt: float = None    # Convergence amplitude tolerance
-
-        solve_lambda: bool = False      # Solve lambda-equations
+        # solve_lambda:
+        # True:     Always solve lambda eq.
+        # 'auto':   solve lambda eq. if DMs are requested via make_rdm1 or make_rdm2
+        # False:    Never solve lambda eq. If DMs are requested, they are build with Lambda=T approximation
+        solve_lambda: Union[bool, str] = 'auto'
         # Self-consistent mode
         #sc_mode: int = NotSet
         sc_mode: int = None
@@ -47,6 +51,7 @@ class CCSDSolver(ClusterSolver):
         t2: np.array = None
         l1: np.array = None
         l2: np.array = None
+        solved_lambda: bool = False
         # EOM-CCSD
         ip_energy: np.array = None
         ip_coeff: np.array = None
@@ -156,23 +161,34 @@ class CCSDSolver(ClusterSolver):
                 converged=self.solver.converged, e_corr=self.solver.e_corr, c_occ=self.c_active_occ, c_vir=self.c_active_vir,
                 t1=self.solver.t1, t2=self.solver.t2)
 
-        solve_lambda = (self.opts.solve_lambda or self.opts.make_rdm1 or self.opts.make_rdm2)
+        if self.opts.solve_lambda == 'auto':
+            solve_lambda = (self.opts.make_rdm1 or self.opts.make_rdm2)
+        else:
+            solve_lambda = self.opts.solve_lambda
+
         if solve_lambda:
             t0 = timer()
             self.log.info("Solving lambda equations...")
             self.log.debug("Initial guess for L1= %r L2= %r", (l1 is not None), (l2 is not None))
-            results.l1, results.l2 = self.solver.solve_lambda(l1=l1, l2=l2, eris=eris)
+            l1, l2 = self.solver.solve_lambda(l1=l1, l2=l2, eris=eris)
             self.log.info("Lambda equations done. Lambda converged: %r", self.solver.converged_lambda)
-            if not self.solver.converged_lambda:
+            if self.solver.converged_lambda:
+                results.solved_lambda = True
+            else:
                 self.log.error("Solution of lambda equation not converged!")
             self.log.timing("Time for lambda-equations: %s", time_string(timer()-t0))
+        # Use Lambda=T approximation
+        else:
+            l1 = self.solver.t1
+            l2 = self.solver.t2
+        results.l1, results.l2 = l1, l2
 
         if self.opts.make_rdm1:
             self.log.debug("Making RDM1...")
-            results.dm1 = self.solver.make_rdm1(with_frozen=self.opts.dm_with_frozen)
+            results.dm1 = self.solver.make_rdm1(l1=l1, l2=l2, with_frozen=self.opts.dm_with_frozen)
         if self.opts.make_rdm2:
             self.log.debug("Making RDM2...")
-            results.dm2 = self.solver.make_rdm2(with_frozen=self.opts.dm_with_frozen)
+            results.dm2 = self.solver.make_rdm2(l1=l1, l2=l2, with_frozen=self.opts.dm_with_frozen)
 
         if 'IP' in self.opts.eom_ccsd:
             results.ip_energy, results.ip_coeff = self.eom_ccsd('IP', eris)

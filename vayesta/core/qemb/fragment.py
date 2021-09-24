@@ -876,7 +876,6 @@ class Fragment:
         import vayesta.misc
         return vayesta.misc.counterpoise.make_mol(self.mol, self.atoms[1], rmax=rmax, nimages=nimages, unit=unit, **kwargs)
 
-
     # --- Deprecated
     # --------------
 
