@@ -36,12 +36,13 @@ class MolecularEDMETTest_H6_sto6g_EBFCI_IAO_1occ(unittest.TestCase, MolecularEDM
         cls.mf = pyscf.scf.RHF(cls.mol)
         cls.mf.kernel()
 
-        cls.edmet = edmet.EDMET(cls.mf, solver='EBFCI', fragment_type='IAO', bos_occ_cutoff=1)
+        cls.edmet = edmet.EDMET(cls.mf, solver='EBFCI', bos_occ_cutoff=1)
+        cls.edmet.iao_fragmentation()
         for i in range(cls.mol.natm//2):
             cls.edmet.make_atom_fragment([i*2, i*2+1])
         cls.edmet.kernel()
 
-        cls.known_values = {'e_tot': -3.2607921167146703}
+        cls.known_values = {'e_tot': -3.258336016231219 }
 
 
 class MolecularEDMETTest_H6_sto6g_EBFCI_IAO_2occ(unittest.TestCase, MolecularEDMETTest):
@@ -55,12 +56,13 @@ class MolecularEDMETTest_H6_sto6g_EBFCI_IAO_2occ(unittest.TestCase, MolecularEDM
         cls.mf = pyscf.scf.RHF(cls.mol)
         cls.mf.kernel()
 
-        cls.edmet = edmet.EDMET(cls.mf, solver='EBFCI', fragment_type='IAO', bos_occ_cutoff=2)
+        cls.edmet = edmet.EDMET(cls.mf, solver='EBFCI', bos_occ_cutoff=2)
+        cls.edmet.iao_fragmentation()
         for i in range(cls.mol.natm//2):
             cls.edmet.make_atom_fragment([i*2, i*2+1])
         cls.edmet.kernel()
 
-        cls.known_values = {'e_tot': -3.259282652607757}
+        cls.known_values = {'e_tot':  -3.259289706885438}
 
 
 if __name__ == '__main__':

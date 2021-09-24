@@ -56,7 +56,7 @@ class EDMET(DMET):
         #rdm = self.mf.make_rdm1()
         fock = self.get_fock()
         cpt = 0.0
-        mf = self.ll_mf
+        mf = self.mf
 
         sym_parents = self.get_symmetry_parent_fragments()
         sym_children = self.get_symmetry_child_fragments()
@@ -88,7 +88,7 @@ class EDMET(DMET):
 
         # Then optimise chemical potential to match local electron number...
         nelec_mf = 0.0
-        rdm = self.ll_mf.make_rdm1()
+        rdm = self.mf.make_rdm1()
         # This could loop over parents and multiply. Leave simple for now.
         for x, frag in enumerate(self.fragments):
             c = frag.c_frag.T @ self.get_ovlp()  # / np.sqrt(2)
@@ -175,7 +175,7 @@ class EDMET(DMET):
     def calc_electron_number_defect(self, chempot, bno_thr, nelec_target, parent_fragments, nsym, rpa_moms, construct_bath = True):
         self.log.info("Running chemical potential={:8.6e}".format(chempot))
         # Save original one-body hamiltonian calculation.
-        saved_hcore = self.ll_mf.get_hcore
+        saved_hcore = self.mf.get_hcore
 
         hl_rdms = [None] * len(parent_fragments)
         nelec_hl = 0.0
@@ -186,16 +186,12 @@ class EDMET(DMET):
             self.log.info(len(msg) * "*")
             self.log.changeIndentLevel(1)
 
-            self.ll_mf.get_hcore = lambda *args: self.mf.get_hcore(*args) - chempot * np.dot(frag.c_frag, frag.c_frag.T)
-            self._hcore = self.ll_mf.get_hcore()
-
             try:
-                result = frag.kernel(rpa_moms, bno_threshold=bno_thr, construct_bath=construct_bath)
+                result = frag.kernel(rpa_moms, bno_threshold=bno_thr, construct_bath=construct_bath, chempot = chempot)
             except EDMETFragmentExit as e:
                 exit = True
                 self.log.info("Exiting %s", frag)
                 self.log.changeIndentLevel(-1)
-                self.ll_mf.get_hcore = saved_hcore
                 raise e
 
             self.cluster_results[frag.id] = result
@@ -211,9 +207,6 @@ class EDMET(DMET):
                 frag.c_frag.T, self.mf.get_ovlp(), np.hstack((frag.c_active_occ, frag.c_active_vir))))
             hl_rdms[x] = np.linalg.multi_dot((c, frag.results.dm1, c.T))# / 2
             nelec_hl += hl_rdms[x].trace() * nsym[x]
-        # Set hcore back to original calculation.
-        self.ll_mf.get_hcore = saved_hcore
-        self._hcore = self.ll_mf.get_hcore()
         self.hl_rdms = hl_rdms
         self.log.info("Chemical Potential {:8.6e} gives Total electron deviation {:6.4e}".format(
                         chempot, nelec_hl - nelec_target))
@@ -224,8 +217,8 @@ class EDMET(DMET):
         Generate the update to our RPA exchange-correlation kernel this iteration.
         """
         eps = np.zeros((self.nocc, self.nvir))
-        eps = (eps.T - self.ll_mf.mo_energy[:self.nocc]).T
-        eps = eps - self.ll_mf.mo_energy[self.nocc:]
+        eps = (eps.T - self.mf.mo_energy[:self.nocc]).T
+        eps = eps - self.mf.mo_energy[self.nocc:]
         # Separate into spin components; in RHF case we still expect aaaa and aabb components to differ.
         k = [np.zeros([self.nao]*4) for x in range(3)]
         for frag in self.fragments:

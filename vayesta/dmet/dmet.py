@@ -33,7 +33,7 @@ class DMET(QEmbeddingMethod):
     class Options(QEmbeddingMethod.Options):
         """Options for EWF calculations."""
         # --- Fragment settings
-        fragment_type: str = 'IAO'
+        #fragment_type: str = 'IAO'
         localize_fragment: bool = False  # Perform numerical localization on fragment orbitals
         iao_minao: str = 'auto'  # Minimal basis for IAOs
         # --- Bath settings
@@ -87,7 +87,7 @@ class DMET(QEmbeddingMethod):
 
         super().__init__(mf, options=options, log=log, **kwargs)
         # Set up
-        self.ll_mf = copy.copy(mf)
+        self.mf = copy.copy(mf)
 
         t_start = timer()
 
@@ -123,16 +123,16 @@ class DMET(QEmbeddingMethod):
 
         # Prepare fragments
         t0 = timer()
-        fragkw = {}
-        if self.opts.fragment_type.upper() == 'IAO':
-            if self.opts.iao_minao == 'auto':
-                self.opts.iao_minao = helper.get_minimal_basis(self.mol.basis)
-                self.log.warning("Minimal basis set '%s' for IAOs was selected automatically.",  self.opts.iao_minao)
-            self.log.info("Computational basis= %s", self.mol.basis)
-            self.log.info("Minimal basis=       %s", self.opts.iao_minao)
-            fragkw['minao'] = self.opts.iao_minao
-        self.init_fragmentation(self.opts.fragment_type, **fragkw)
-        self.log.timing("Time for fragment initialization: %s", time_string(timer()-t0))
+        #fragkw = {}
+        #if self.opts.fragment_type.upper() == 'IAO':
+        #    if self.opts.iao_minao == 'auto':
+        #        self.opts.iao_minao = helper.get_minimal_basis(self.mol.basis)
+        #        self.log.warning("Minimal basis set '%s' for IAOs was selected automatically.",  self.opts.iao_minao)
+        #    self.log.info("Computational basis= %s", self.mol.basis)
+        #    self.log.info("Minimal basis=       %s", self.opts.iao_minao)
+        #    fragkw['minao'] = self.opts.iao_minao
+        #self.init_fragmentation(self.opts.fragment_type, **fragkw)
+        #self.log.timing("Time for fragment initialization: %s", time_string(timer()-t0))
 
         self.log.timing("Time for EWF setup: %s", time_string(timer()-t_start))
 
@@ -150,7 +150,7 @@ class DMET(QEmbeddingMethod):
         self.iteration = 0
         self.cluster_results = {}
         self.results = []
-        self.e_dmet = self.e_mf - self.ll_mf.energy_nuc()
+        self.e_dmet = self.e_mf - self.mf.energy_nuc()
 
     def __repr__(self):
         keys = ['mf', 'bno_threshold', 'solver']
@@ -161,13 +161,12 @@ class DMET(QEmbeddingMethod):
     @property
     def e_corr(self):
         """Total energy."""
-        return self.e_dmet - self.e_mf + self.ll_mf.energy_nuc()
+        return self.e_tot - self.e_mf
 
     @property
     def e_tot(self):
         """Total energy."""
-        return self.e_mf + self.e_corr
-
+        return self.e_dmet + self.mf.energy_nuc()
 
     def kernel(self, bno_threshold=None):
         """Run DMET calculation.
@@ -186,7 +185,7 @@ class DMET(QEmbeddingMethod):
         #rdm = self.mf.make_rdm1()
         fock = self.get_fock()
         cpt = 0.0
-        mf = self.ll_mf
+        mf = self.mf
 
         sym_parents = self.get_symmetry_parent_fragments()
         sym_children = self.get_symmetry_child_fragments()
@@ -219,7 +218,7 @@ class DMET(QEmbeddingMethod):
             # Need to optimise a global chemical potential to ensure electron number is converged.
 
             nelec_mf = 0.0
-            rdm = self.ll_mf.make_rdm1()
+            rdm = self.mf.make_rdm1()
             # This could loop over parents and multiply. Leave simple for now.
             for x, frag in enumerate(self.fragments):
                 c = frag.c_frag.T @ self.get_ovlp()# / np.sqrt(2)
@@ -282,6 +281,8 @@ class DMET(QEmbeddingMethod):
                 e1_contrib, e2_contrib = frag.get_dmet_energy_contrib()
                 e1 += e1_contrib * nsym[x]
                 e2 += e2_contrib * nsym[x]
+                #print(e1 + e2, e1, e2)
+                #print(frag.get_fragment_dmet_energy())
             self.e_dmet = e1 + e2
             self.log.info("Total DMET energy {:8.4f}".format(self.e_tot))
             self.log.info("Energy Contributions: 1-body={:8.4f}, 2-body={:8.4f}".format(e1, e2))
@@ -309,8 +310,6 @@ class DMET(QEmbeddingMethod):
 
     def calc_electron_number_defect(self, chempot, bno_thr, nelec_target, parent_fragments, nsym, construct_bath = True):
         self.log.info("Running chemical potential={:8.6e}".format(chempot))
-        # Save original one-body hamiltonian calculation.
-        saved_hcore = self.ll_mf.get_hcore
 
         hl_rdms = [None] * len(parent_fragments)
         nelec_hl = 0.0
@@ -321,16 +320,12 @@ class DMET(QEmbeddingMethod):
             self.log.info(len(msg) * "*")
             self.log.changeIndentLevel(1)
 
-            self.ll_mf.get_hcore = lambda *args: self.mf.get_hcore(*args) - chempot * np.dot(frag.c_frag, frag.c_frag.T)
-            self._hcore = self.ll_mf.get_hcore()
-
             try:
-                result = frag.kernel(bno_threshold=bno_thr, construct_bath=construct_bath)
+                result = frag.kernel(bno_threshold=bno_thr, construct_bath=construct_bath, chempot = chempot)
             except DMETFragmentExit as e:
                 exit = True
                 self.log.info("Exiting %s", frag)
                 self.log.changeIndentLevel(-1)
-                self.ll_mf.get_hcore = saved_hcore
                 raise e
 
             self.cluster_results[frag.id] = result
@@ -342,13 +337,9 @@ class DMET(QEmbeddingMethod):
             if exit:
                 break
             # Project rdm into fragment space; currently in cluster canonical orbitals.
-            c = np.linalg.multi_dot((
-                frag.c_frag.T, self.mf.get_ovlp(), np.hstack((frag.c_active_occ, frag.c_active_vir))))
-            hl_rdms[x] = np.linalg.multi_dot((c, frag.results.dm1, c.T))# / 2
+            c = dot(frag.c_frag.T, self.mf.get_ovlp(), np.hstack((frag.c_active_occ, frag.c_active_vir)))
+            hl_rdms[x] = dot(c, frag.results.dm1, c.T)# / 2
             nelec_hl += hl_rdms[x].trace() * nsym[x]
-        # Set hcore back to original calculation.
-        self.ll_mf.get_hcore = saved_hcore
-        self._hcore = self.ll_mf.get_hcore()
         self.hl_rdms = hl_rdms
         self.log.info("Chemical Potential {:8.6e} gives Total electron deviation {:6.4e}".format(
                         chempot, nelec_hl - nelec_target))

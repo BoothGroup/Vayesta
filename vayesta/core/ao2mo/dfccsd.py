@@ -7,7 +7,6 @@ from pyscf.mp.mp2 import _mo_without_core
 from pyscf.cc import ccsd
 from pyscf.cc.dfccsd import _ChemistsERIs
 
-
 def init_eris(cc, fock, mo_energy=None):
     """Initialize ERIs directly, without calling _common_init_."""
     eris = _ChemistsERIs()

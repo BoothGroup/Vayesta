@@ -55,8 +55,11 @@ class LatticeMole(pyscf.pbc.gto.Cell):
     def nao_nr(self):
         return self.nsite
 
-    def ao_labels(self, *args):
-        return ['X%d' % i for i in range(self.nsite)]
+    def ao_labels(self, fmt=True):
+        if fmt:
+            return ['%s%d' % (self.atom_pure_symbol(i), i) for i in range(self.nsite)]
+        elif fmt is None:
+            return [(i, self.atom_pure_symbol(i) , '', '') for i in range(self.nsite)]
 
     def atom_symbol(self, site):
         return '%s%d' % (self.atom_pure_symbol(site), site)

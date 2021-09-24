@@ -23,6 +23,8 @@ class SCMF:
         self.damping = damping
         self.diis = diis
         self.iteration = 0
+        # Save original kernel
+        self._kernel_orig = self.qemb.kernel
         # Save original orbitals
         self._mo_orig = self.mf.mo_coeff
         # Output
@@ -49,15 +51,20 @@ class SCMF:
         """Must be implemented for any SCMF method."""
         raise NotImplementedError()
 
+    #def update_mf(self, mo_coeff):
+    #    if not np.allclose(dot(mo_coeff.T, self.mf.get_ovlp(), mo_coeff) - np.eye(mo_coeff.shape[-1]), 0):
+    #        raise ValueError("Input MO coefficients not orthonormal!")
+    #    mf_new = copy.copy(self.mf)
+    #    mf_new.mo_coeff = mo_coeff
+    #    mf_new.mo_energy = None
+    #    mf_new.e_tot = mf_new.energy_tot()
+
+    #    return mf_new
+
     def update_mf(self, mo_coeff):
         if not np.allclose(dot(mo_coeff.T, self.mf.get_ovlp(), mo_coeff) - np.eye(mo_coeff.shape[-1]), 0):
             raise ValueError("Input MO coefficients not orthonormal!")
-        mf_new = copy.copy(self.mf)
-        mf_new.mo_coeff = mo_coeff
-        mf_new.mo_energy = None
-        mf_new.e_tot = mf_new.energy_tot()
-
-        return mf_new
+        self.qemb.update_mf(mo_coeff)
 
     def kernel(self, *args, **kwargs):
         diis = (self.get_diis() if self.diis else None)
@@ -68,9 +75,9 @@ class SCMF:
             self.log.info("==================")
 
             # Run clusters, save results
-            #res = self._kernel_orig(*args, **kwargs)
+            res = self._kernel_orig(*args, **kwargs)
             #res = self.qemb.kernel(*args, **kwargs)
-            res = self.qemb.kernel_one_iteration(*args, **kwargs)
+            #res = self.qemb.kernel_one_iteration(*args, **kwargs)
             e_mf = self.mf.e_tot
             e_corr = self.qemb.get_e_corr()
             e_tot = (e_mf + e_corr)
@@ -78,8 +85,9 @@ class SCMF:
 
             # Update MF
             mo_coeff = self.update_mo_coeff(self.mf, diis=diis)
-            mf = self.update_mf(mo_coeff)
-            self.qemb.mf = mf
+            self.update_mf(mo_coeff)
+            #mf = self.update_mf(mo_coeff)
+            #self.qemb.mf = mf
 
             # Check convergence
             dm1 = self.mf.make_rdm1()
@@ -96,11 +104,11 @@ class SCMF:
                 self.converged = True
                 break
 
-            self.qemb._veff = None
+            #self.qemb._veff = None
             self.qemb.reset_fragments()
 
         else:
-            self.log.warning("SCMF not converged in %d iterations!", self.iteration)
+            self.log.warning("SCMF did not converge in %d iterations!", self.iteration)
         return res
 
 
@@ -164,6 +172,7 @@ class Brueckner_SCMF(SCMF):
 
     def update_mo_coeff(self, mf, diis=None):
         t1 = self.get_t1()
+        self.log.debug("Norm of T1: L(2)= %.3e  L(inf)= %.3e", np.linalg.norm(t1), abs(t1).max())
         nocc, nvir = t1.shape
         nmo = (nocc + nvir)
         occ, vir = np.s_[:nocc], np.s_[nocc:]

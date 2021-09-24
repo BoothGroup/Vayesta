@@ -5,6 +5,7 @@ import copy
 import psutil
 from functools import wraps
 from timeit import default_timer
+from contextlib import contextmanager
 
 import numpy as np
 import scipy
@@ -13,9 +14,18 @@ import scipy.optimize
 log = logging.getLogger(__name__)
 
 # util module can be imported as *, such that the following is imported:
-__all__ = ['NotSet', 'dot', 'einsum',
-        'cached_method', 'ConvergenceError', 'get_used_memory',
-        'timer', 'time_string', 'memory_string', 'OptionsBase']
+__all__ = [
+        # General
+        'NotSet', 'OptionsBase', 'StashBase',
+        # NumPy replacements
+        'dot', 'einsum', 'hstack',
+        # New exceptions
+        'ConvergenceError',
+        # Time & memory
+        'timer', 'time_string', 'log_time', 'memory_string', 'get_used_memory',
+        # Other
+        'replace_attr', 'cached_method',
+        ]
 
 class NotSetType:
     def __repr__(self):
@@ -27,14 +37,61 @@ NotSet = NotSetType()
 
 timer = default_timer
 
-def dot(*args, **kwargs):
-    return np.linalg.multi_dot(args, **kwargs)
+@contextmanager
+def replace_attr(obj, **kwargs):
+    """Temporary replace attributes and methods of object."""
+    orig = {}
+    try:
+        for name, attr in kwargs.items():
+            orig[name] = getattr(obj, name)             # Save originals
+            if callable(attr):
+                setattr(obj, name, attr.__get__(obj))   # For functions: replace and bind as method
+            else:
+                setattr(obj, name, attr)                # Just set otherwise
+        yield obj
+    finally:
+        # Restore originals
+        for name, attr in orig.items():
+            setattr(obj, name, attr)
 
+@contextmanager
+def log_time(logger, message, *args, **kwargs):
+    """Log time to execute the body of a with-statement.
+
+    Use as:
+        >>> with log_time(log.info, 'Time for hcore: %s'):
+        >>>     hcore = mf.get_hcore()
+
+    Parameters
+    ----------
+    logger
+    message
+    """
+    try:
+        t0 = timer()
+        yield t0
+    finally:
+        t = (timer()-t0)
+        logger(message, time_string(t), *args, **kwargs)
+
+# --- NumPy
+
+def dot(*args, **kwargs):
+    """Like NumPy's multi_dot, but variadic."""
+    return np.linalg.multi_dot(args, **kwargs)
 
 def einsum(*args, **kwargs):
     kwargs['optimize'] = kwargs.pop('optimize', True)
-    return np.einsum(*args, **kwargs)
+    res = np.einsum(*args, **kwargs)
+    # Unpack scalars (for optimize = True):
+    if isinstance(res, np.ndarray) and res.ndim == 0:
+        res = res[()]
+    return res
 
+def hstack(*args):
+    """Like NumPy's hstack, but variadic and ignores any arguments which are None."""
+    args = [x for x in args if x is not None]
+    return np.hstack(args)
 
 def cached_method(cachename, use_cache_default=True, store_cache_default=True):
     """Cache the return value of a class method.
@@ -158,43 +215,22 @@ class OptionsBase:
         **kwargs :
             Additional keyword arguments will be added to `other`
         """
-
+        other = copy.deepcopy(other)
         if isinstance(other, OptionsBase):
             other = other.asdict()
         if kwargs:
             other.update(kwargs)
 
-        def _repr(a, maxlen=30):
-            r = a.__repr__()
-            if len(r) > maxlen:
-                r = r[:(maxlen-3)] + '...'
-            return r
-
-        # Only replace values which are in select
+        # Only replace values which are equal to select
         if select is not SelectNotSet:
-            updates = {}
+            keep = {}
             for key, val in self.items():
-                if val is select:
-                    updates[key] = copy.copy(other[key])
-            other = updates
+                if (val is select) and (key in other):
+                    #updates[key] = copy.copy(other[key])
+                    keep[key] = other[key]
+            other = keep
 
         return dataclasses.replace(self, **other)
 
-if __name__ == '__main__':
-
-    class TestClass:
-
-        def __init__(self):
-            self.val = 2
-
-        @cached_method('_test_method')
-        def test_method(self):
-            print("Calculating...")
-            return self.val
-
-    test = TestClass()
-    test.test_method()
-    test.test_method()
-
-    test2 = TestClass()
-    test2.test_method()
+class StashBase:
+    pass

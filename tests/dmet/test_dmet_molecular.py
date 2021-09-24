@@ -45,13 +45,13 @@ class MolecularDMETTest_H10_sto6g_FCI_IAO_cc(unittest.TestCase, MolecularDMETTes
                 solver='FCI',
                 charge_consistent=True,
                 bath_type=None,
-                fragment_type='IAO',
         )
+        cls.dmet.iao_fragmentation()
         for x in range(5):
             cls.dmet.make_atom_fragment([x*2, x*2+1])
         cls.dmet.kernel()
 
-        cls.known_values = {'e_tot': -5.421103410208376}
+        cls.known_values = {'e_tot':  -5.423200844839533}
 
 
 class MolecularDMETTest_H10_sto6g_FCI_IAO_nocc(unittest.TestCase, MolecularDMETTest):
@@ -71,13 +71,13 @@ class MolecularDMETTest_H10_sto6g_FCI_IAO_nocc(unittest.TestCase, MolecularDMETT
                 solver='FCI',
                 charge_consistent=False,
                 bath_type=None,
-                fragment_type='IAO',
         )
+        cls.dmet.iao_fragmentation()
         for x in range(5):
             cls.dmet.make_atom_fragment([x*2, x*2+1])
         cls.dmet.kernel()
 
-        cls.known_values = {'e_tot': -5.421192647967002}
+        cls.known_values = {'e_tot': -5.423278988804418}
 
 
 class MolecularDMETTest_H10_sto6g_FCI_IAO_all(unittest.TestCase, MolecularDMETTest):
@@ -97,8 +97,8 @@ class MolecularDMETTest_H10_sto6g_FCI_IAO_all(unittest.TestCase, MolecularDMETTe
                 solver='FCI',
                 charge_consistent=False,
                 bath_type='all',
-                fragment_type='IAO',
         )
+        cls.dmet.iao_fragmentation()
         for x in range(5):
             cls.dmet.make_atom_fragment([x*2, x*2+1])
         cls.dmet.kernel()
@@ -124,13 +124,13 @@ class MolecularDMETTest_H10_sto6g_FCI_IAO_BNO(unittest.TestCase, MolecularDMETTe
                 charge_consistent=False,
                 bath_type='MP2-BNO',
                 bno_threshold=np.inf,
-                fragment_type='IAO',
         )
+        cls.dmet.iao_fragmentation()
         for x in range(5):
             cls.dmet.make_atom_fragment([x*2, x*2+1])
         cls.dmet.kernel()
 
-        cls.known_values = {'e_tot': -5.421192648085972}
+        cls.known_values = {'e_tot': -5.423278988687956}
 
 
 if __name__ == '__main__':

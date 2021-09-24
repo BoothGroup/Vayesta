@@ -1,4 +1,5 @@
 import dataclasses
+import copy
 from timeit import default_timer as timer
 
 import numpy as np
@@ -18,18 +19,21 @@ class CCSDSolver(ClusterSolver):
     class Options(ClusterSolver.Options):
         # Convergence
         maxiter: int = 100              # Max number of iterations
-        conv_etol: float = None         # Convergence energy tolerance
-        conv_ttol: float = None         # Convergence amplitude tolerance
-        #conv_etol: float = 1e-10       # Convergence energy tolerance
-        #conv_ttol: float = 1e-8        # Convergence amplitude tolerance
+        conv_tol: float = None          # Convergence energy tolerance
+        conv_tol_normt: float = None    # Convergence amplitude tolerance
 
+        solve_lambda: bool = False      # Solve lambda-equations
         # Self-consistent mode
-        sc_mode: int = NotSet
+        #sc_mode: int = NotSet
+        sc_mode: int = None
         # DM
-        dm_with_frozen: bool = NotSet
+        #dm_with_frozen: bool = NotSet
+        dm_with_frozen: bool = False
         # EOM CCSD
-        eom_ccsd: list = NotSet  # {'IP', 'EA', 'EE-S', 'EE-D', 'EE-SF'}
-        eom_ccsd_nroots: int = NotSet
+        #eom_ccsd: list = NotSet  # {'IP', 'EA', 'EE-S', 'EE-D', 'EE-SF'}
+        eom_ccsd: list = dataclasses.field(default_factory=list)
+        #eom_ccsd_nroots: int = NotSet
+        eom_ccsd_nroots: int = 3
         # Tailored-CCSD
         tcc: bool = False
         tcc_fci_opts: dict = dataclasses.field(default_factory=dict)
@@ -56,10 +60,12 @@ class CCSDSolver(ClusterSolver):
         ee_t_coeff: np.array = None
         ee_sf_coeff: np.array = None
 
-    def kernel(self, init_guess=None, eris=None, coupled_fragments=None, t_diagnostic=True):
+        def get_init_guess(self):
+            """Get initial guess for another CCSD calculations from results."""
+            return {'t1' : self.t1 , 't2' : self.t2, 'l1' : self.l1, 'l2' : self.l2}
 
-        if coupled_fragments is None:
-            coupled_fragments = self.fragment.opts.coupled_fragments
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
 
         # For 2D-systems the Coulomb repulsion is not PSD
         # Density-fitted CCSD does not support non-PSD three-center integrals,
@@ -70,128 +76,124 @@ class CCSDSolver(ClusterSolver):
         else:
             cls = pyscf.cc.ccsd.CCSD
         self.log.debug("CCSD class= %r" % cls)
-        cc = cls(self.mf, mo_coeff=self.mo_coeff, mo_occ=self.mo_occ, frozen=self.get_frozen_indices())
-        if self.opts.maxiter is not None: cc.max_cycle = self.opts.maxiter
-        if self.opts.conv_etol is not None: cc.conv_tol = self.opts.conv_etol
-        if self.opts.conv_ttol is not None: cc.conv_tol_normt = self.opts.conv_ttol
+        solver = cls(self.mf, mo_coeff=self.mo_coeff, mo_occ=self.mo_occ, frozen=self.get_frozen_indices())
+        # Options
+        if self.opts.maxiter is not None: solver.max_cycle = self.opts.maxiter
+        if self.opts.conv_tol is not None: solver.conv_tol = self.opts.conv_tol
+        if self.opts.conv_tol_normt is not None: solver.conv_tol_normt = self.opts.conv_tol_normt
+        self.solver = solver
+
+    def get_eris(self):
+        eris = self.base.get_eris_object(self.solver)
+        return eris
+
+    def kernel(self, t1=None, t2=None, eris=None, l1=None, l2=None, coupled_fragments=None, t_diagnostic=True):
+        """
+
+        Parameters
+        ----------
+        t1: array, optional
+            Initial guess for T1 amplitudes. Default: None.
+        t2: array, optional
+            Initial guess for T2 amplitudes. Default: None.
+        l1: array, optional
+            Initial guess for L1 amplitudes. Default: None.
+        l2: array, optional
+            Initial guess for L2 amplitudes. Default: None.
+        """
+
+        if coupled_fragments is None:
+            coupled_fragments = self.fragment.opts.coupled_fragments
 
         # Integral transformation
-        if eris is None:
-            t0 = timer()
-            eris = self.base.get_eris(cc)
-            self.log.timing("Time for AO->MO of (ij|kl):  %s", time_string(timer()-t0))
-        #else:
-        #    # DEBUG:
-        #    eris = self.base.get_eris(cc)
-        #    for kind in ["oooo", "ovoo", "ovvo", "oovv", "ovov", "ovvv", "vvvv"]:
-        #        diff = getattr(self._eris, kind) - getattr(eris, kind)
-        #        log.debug("Difference (%2s|%2s): max= %.2e norm= %.2e", kind[:2], kind[2:], abs(diff).max(), np.linalg.norm(diff))
-        self.log.debugv("eris.mo_energy:\n%r", eris.mo_energy)
+        if eris is None: eris = self.get_eris()
+
+        # Add additional potential
+        if self.v_ext is not None:
+            # Make sure there are no side effects:
+            eris = copy.copy(eris)
+            # Replace fock instead of modifying it!
+            eris.fock = (eris.fock + self.v_ext)
         self.log.debugv("sum(eris.mo_energy)= %.8e", sum(eris.mo_energy))
-        self.log.debugv("Tr(eris.Fock)= %.8e", np.trace(eris.fock))
+        self.log.debugv("Tr(eris.fock)= %.8e", np.trace(eris.fock))
 
         # Tailored CC
         if self.opts.tcc:
             self.log.info("Adding tailor function to CCSD.")
-            cc.tailor_func = coupling.make_cas_tcc_function(
-                    self, c_cas_occ=self.opts.c_cas_occ, c_cas_vir=self.opts.c_cas_vir, eris=eris).__get__(cc)
+            self.solver.tailor_func = coupling.make_cas_tcc_function(
+                    self, c_cas_occ=self.opts.c_cas_occ, c_cas_vir=self.opts.c_cas_vir, eris=eris).__get__(self.solver)
 
         elif self.opts.sc_mode and self.base.iteration > 1:
-            # __get__(cc) to bind the tailor function as a method,
-            # rather than just a callable attribute
+            # __get__(self.solver) to bind the tailor function as a method, rather than just a callable attribute
             self.log.info("Adding tailor function to CCSD.")
-            cc.tailor_func = coupling.make_cross_fragment_tcc_function(self, mode=self.opts.sc_mode).__get__(cc)
+            self.solver.tailor_func = coupling.make_cross_fragment_tcc_function(self, mode=self.opts.sc_mode).__get__(self.solver)
 
         # This should include the SC mode?
         elif coupled_fragments and np.all([x.results is not None for x in coupled_fragments]):
             self.log.info("Adding tailor function to CCSD.")
-            cc.tailor_func = coupling.make_cross_fragment_tcc_function(self, mode=(self.opts.sc_mode or 3),
-                    coupled_fragments=coupled_fragments).__get__(cc)
+            self.solver.tailor_func = coupling.make_cross_fragment_tcc_function(self, mode=(self.opts.sc_mode or 3),
+                    coupled_fragments=coupled_fragments).__get__(self.solver)
 
         t0 = timer()
-        if init_guess:
-            self.log.info("Running CCSD with initial guess for %r..." % list(init_guess.keys()))
-            cc.kernel(eris=eris, **init_guess)
+        self.log.info("Running CCSD...")
+        self.log.debug("Initial guess for T1= %r T2= %r", (t1 is not None), (t2 is not None))
+        self.solver.kernel(t1=t1, t2=t2, eris=eris)
+        if not self.solver.converged:
+            self.log.error("CCSD not converged!")
         else:
-            self.log.info("Running CCSD...")
-            cc.kernel(eris=eris)
-        (self.log.info if cc.converged else self.log.error)("CCSD done. converged: %r", cc.converged)
-        self.log.debug("E(full corr)= % 16.8f Ha", cc.e_corr)
+            self.log.debugv("CCSD converged.")
+
+        self.log.debug("Cluster: E(corr)= % 16.8f Ha", self.solver.e_corr)
         self.log.timing("Time for CCSD:  %s", time_string(timer()-t0))
 
-        if hasattr(cc, '_norm_dt1'):
-            self.log.debug("Tailored CC: |dT1|= %.2e |dT2|= %.2e", cc._norm_dt1, cc._norm_dt2)
-            del cc._norm_dt1
-            del cc._norm_dt2
+        if hasattr(self.solver, '_norm_dt1'):
+            self.log.debug("Tailored CC: |dT1|= %.2e |dT2|= %.2e", self.solver._norm_dt1, self.solver._norm_dt2)
+            del self.solver._norm_dt1, self.solver._norm_dt2
 
-        if t_diagnostic:
-            self.t_diagnostic(cc)
+        if t_diagnostic: self.t_diagnostic()
 
         results = self.Results(
-                converged=cc.converged, e_corr=cc.e_corr, c_occ=self.c_active_occ, c_vir=self.c_active_vir, eris=eris,
-                t1=cc.t1, t2=cc.t2)
+                converged=self.solver.converged, e_corr=self.solver.e_corr, c_occ=self.c_active_occ, c_vir=self.c_active_vir,
+                t1=self.solver.t1, t2=self.solver.t2)
 
-        solve_lambda = (self.opts.make_rdm1 or self.opts.make_rdm2)
+        solve_lambda = (self.opts.solve_lambda or self.opts.make_rdm1 or self.opts.make_rdm2)
         if solve_lambda:
             t0 = timer()
             self.log.info("Solving lambda equations...")
-            # This automatically sets cc.l1, cc.l2:
-            results.l1, results.l2 = cc.solve_lambda(cc.t1, cc.t2, eris=eris)
-            self.log.info("Lambda equations done. Lambda converged: %r", cc.converged_lambda)
-            if not cc.converged_lambda:
+            self.log.debug("Initial guess for L1= %r L2= %r", (l1 is not None), (l2 is not None))
+            results.l1, results.l2 = self.solver.solve_lambda(l1=l1, l2=l2, eris=eris)
+            self.log.info("Lambda equations done. Lambda converged: %r", self.solver.converged_lambda)
+            if not self.solver.converged_lambda:
                 self.log.error("Solution of lambda equation not converged!")
             self.log.timing("Time for lambda-equations: %s", time_string(timer()-t0))
 
         if self.opts.make_rdm1:
-            self.log.info("Making RDM1...")
-            #results.dm1 = cc.make_rdm1(eris=eris, ao_repr=True)
-            results.dm1 = cc.make_rdm1(with_frozen=self.opts.dm_with_frozen)
+            self.log.debug("Making RDM1...")
+            results.dm1 = self.solver.make_rdm1(with_frozen=self.opts.dm_with_frozen)
         if self.opts.make_rdm2:
-            self.log.info("Making RDM2...")
-            results.dm2 = cc.make_rdm2(with_frozen=self.opts.dm_with_frozen)
-
-        def run_eom_ccsd(kind, nroots=None):
-            nroots = nroots or self.opts.eom_ccsd_nroots
-            kind = kind.upper()
-            assert kind in ('IP', 'EA', 'EE-S', 'EE-T', 'EE-SF')
-            self.log.info("Running %s-EOM-CCSD (nroots=%d)...", kind, nroots)
-            eom_funcs = {
-                    'IP' : cc.ipccsd , 'EA' : cc.eaccsd,
-                    'EE-S' : cc.eomee_ccsd_singlet,
-                    'EE-T' : cc.eomee_ccsd_triplet,
-                    'EE-SF' : cc.eomsf_ccsd,}
-            t0 = timer()
-            e, c = eom_funcs[kind](nroots=nroots, eris=eris)
-            self.log.timing("Time for %s-EOM-CCSD:  %s", kind, time_string(timer()-t0))
-            if nroots == 1:
-                e, c = np.asarray([e]), np.asarray([c])
-            fmt = "%s-EOM-CCSD energies:" + len(e) * "  %+14.8f"
-            self.log.info(fmt, kind, *e)
-            return e, c
+            self.log.debug("Making RDM2...")
+            results.dm2 = self.solver.make_rdm2(with_frozen=self.opts.dm_with_frozen)
 
         if 'IP' in self.opts.eom_ccsd:
-            results.ip_energy, results.ip_coeff = run_eom_ccsd('IP')
+            results.ip_energy, results.ip_coeff = self.eom_ccsd('IP', eris)
         if 'EA' in self.opts.eom_ccsd:
-            results.ea_energy, results.ea_coeff = run_eom_ccsd('EA')
+            results.ea_energy, results.ea_coeff = self.eom_ccsd('EA', eris)
         if 'EE-S' in self.opts.eom_ccsd:
-            results.ee_s_energy, results.ee_s_coeff = run_eom_ccsd('EE-S')
+            results.ee_s_energy, results.ee_s_coeff = self.eom_ccsd('EE-S', eris)
         if 'EE-T' in self.opts.eom_ccsd:
-            results.ee_t_energy, results.ee_t_coeff = run_eom_ccsd('EE-T')
+            results.ee_t_energy, results.ee_t_coeff = self.eom_ccsd('EE-T', eris)
         if 'EE-SF' in self.opts.eom_ccsd:
-            results.ee_sf_energy, results.ee_sf_coeff = run_eom_ccsd('EE-SF')
-
+            results.ee_sf_energy, results.ee_sf_coeff = self.eom_ccsd('EE-SF', eris)
 
         return results
 
-
-
-    def t_diagnostic(self, cc):
+    def t_diagnostic(self):
         self.log.info("T-Diagnostic")
         self.log.info("------------")
         try:
-            dg_t1 = cc.get_t1_diagnostic()
-            dg_d1 = cc.get_d1_diagnostic()
-            dg_d2 = cc.get_d2_diagnostic()
+            dg_t1 = self.solver.get_t1_diagnostic()
+            dg_d1 = self.solver.get_d1_diagnostic()
+            dg_d2 = self.solver.get_d2_diagnostic()
             self.log.info("  (T1<0.02: good / D1<0.02: good, D1<0.05: fair / D2<0.15: good, D2<0.18: fair)")
             self.log.info("  (good: MP2~CCSD~CCSD(T) / fair: use MP2/CCSD with caution)")
             dg_t1_msg = "good" if dg_t1 <= 0.02 else "inadequate!"
@@ -205,3 +207,23 @@ class CCSDSolver(ClusterSolver):
                 self.log.warning("  some diagnostic(s) indicate CCSD may not be adequate.")
         except Exception as e:
             self.log.error("Exception in T-diagnostic: %s", e)
+
+    def eom_ccsd(self, kind, eris, nroots=None):
+        nroots = nroots or self.opts.eom_ccsd_nroots
+        kind = kind.upper()
+        assert kind in ('IP', 'EA', 'EE-S', 'EE-T', 'EE-SF')
+        self.log.info("Running %s-EOM-CCSD (nroots=%d)...", kind, nroots)
+        cc = self.solver
+        eom_funcs = {
+                'IP' : cc.ipccsd , 'EA' : cc.eaccsd,
+                'EE-S' : cc.eomee_ccsd_singlet,
+                'EE-T' : cc.eomee_ccsd_triplet,
+                'EE-SF' : cc.eomsf_ccsd,}
+        t0 = timer()
+        e, c = eom_funcs[kind](nroots=nroots, eris=eris)
+        self.log.timing("Time for %s-EOM-CCSD:  %s", kind, time_string(timer()-t0))
+        if nroots == 1:
+            e, c = np.asarray([e]), np.asarray([c])
+        fmt = "%s-EOM-CCSD energies:" + len(e) * "  %+14.8f"
+        self.log.info(fmt, kind, *e)
+        return e, c

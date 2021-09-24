@@ -24,12 +24,14 @@ cc = pyscf.cc.CCSD(mf)
 cc.kernel()
 
 # Test exact limit using bno_threshold = -1
+# (Alternative: bath_type='all', to avoid going through MP2 routines)
 ecc = vayesta.ewf.EWF(mf, bno_threshold=-1)
-ecc.make_all_atom_fragments()
+ecc.iao_fragmentation()
+ecc.add_all_atomic_fragments()
 ecc.kernel()
 
-print("E%-11s %+16.8f Ha" % ('(HF)=', mf.e_tot))
-print("E%-11s %+16.8f Ha" % ('(CCSD)=', cc.e_tot))
-print("E%-11s %+16.8f Ha" % ('(EWF-CCSD)=', ecc.e_tot))
+print("E(HF)=     %+16.8f Ha" % mf.e_tot)
+print("E(-CCSD)=  %+16.8f Ha" % cc.e_tot)
+print("E(E-CCSD)= %+16.8f Ha" % ecc.e_tot)
 
 assert np.allclose(cc.e_tot, ecc.e_tot)
