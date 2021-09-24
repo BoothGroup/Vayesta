@@ -120,7 +120,7 @@ class DMETFragment(QEmbeddingFragment):
     @property
     def mf(self):
         """Current mean-field, which the fragment is linked to. Not the original."""
-        return self.base.ll_mf
+        return self.base.mf
 
     @property
     def e_corr(self):
@@ -294,7 +294,8 @@ class DMETFragment(QEmbeddingFragment):
         return mo_coeff, mo_occ, nocc_frozen, nvir_frozen, nactive
 
 
-    def kernel(self, bno_threshold = None, bno_number = None, solver=None, init_guess=None, eris=None, construct_bath = False):
+    def kernel(self, bno_threshold = None, bno_number = None, solver=None, init_guess=None, eris=None,
+               construct_bath = False, chempot = None):
         """Run solver for a single BNO threshold.
 
         Parameters
@@ -320,10 +321,11 @@ class DMETFragment(QEmbeddingFragment):
         solver_opts['make_rdm1'] = self.opts.make_rdm1
         solver_opts['make_rdm2'] = self.opts.make_rdm2
 
+        v_ext = None if chempot is None else - chempot * self.get_fragment_projector(self.c_active)
 
         cluster_solver_cls = get_solver_class(solver)
         cluster_solver = cluster_solver_cls(
-            self, mo_coeff, mo_occ, nocc_frozen=nocc_frozen, nvir_frozen=nvir_frozen, **solver_opts)
+            self, mo_coeff, mo_occ, nocc_frozen=nocc_frozen, nvir_frozen=nvir_frozen, v_ext = v_ext, **solver_opts)
         #solver_results = cluster_solver.kernel(init_guess=init_guess, eris=eris)
         solver_results = cluster_solver.kernel(eris=eris, **(init_guess or {}))
         self.log.timing("Time for %s solver:  %s", solver, time_string(timer()-t0))
@@ -546,15 +548,15 @@ class DMETFragment(QEmbeddingFragment):
         nocc = self.c_active_occ.shape[1]
         occ = np.s_[:nocc]
         # Calculate the effective onebody interaction within the cluster.
-        f_act = np.linalg.multi_dot((c_act.T, self.base.ll_mf.get_fock(), c_act))
+        f_act = np.linalg.multi_dot((c_act.T, self.mf.get_fock(), c_act))
         v_act = 2*np.einsum('iipq->pq', eris[occ,occ]) - np.einsum('iqpi->pq', eris[occ,:,:,occ])
         h_eff = f_act - v_act
         h_bare = np.linalg.multi_dot((c_act.T, self.base.get_hcore(), c_act))
 
-        e1 = 0.5 * np.linalg.multi_dot((P_imp, h_bare + h_eff, self.results.dm1)).trace()
+        e1 = 0.5 * dot(P_imp, h_bare + h_eff, self.results.dm1).trace()
         e2 = 0.5 * np.einsum('pt,tqrs,pqrs->', P_imp, eris, self.results.dm2)
         # Code to generate the HF energy contribution for testing purposes.
-        #mf_dm1 = np.linalg.multi_dot((c_act.T, self.base.get_ovlp(), self.base.ll_mf.make_rdm1(),\
+        #mf_dm1 = np.linalg.multi_dot((c_act.T, self.base.get_ovlp(), self.mf.make_rdm1(),\
         #                               self.base.get_ovlp(), c_act))
         #e_hf = np.linalg.multi_dot((P_imp, 0.5 * (h_bare + f_act), mf_dm1)).trace()
         return e1, e2
