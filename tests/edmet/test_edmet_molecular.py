@@ -42,7 +42,7 @@ class MolecularEDMETTest_H6_sto6g_EBFCI_IAO_1occ(unittest.TestCase, MolecularEDM
             cls.edmet.make_atom_fragment([i*2, i*2+1])
         cls.edmet.kernel()
 
-        cls.known_values = {'e_tot': -3.2607921167146703}
+        cls.known_values = {'e_tot': -3.258336016231219 }
 
 
 class MolecularEDMETTest_H6_sto6g_EBFCI_IAO_2occ(unittest.TestCase, MolecularEDMETTest):
@@ -62,7 +62,7 @@ class MolecularEDMETTest_H6_sto6g_EBFCI_IAO_2occ(unittest.TestCase, MolecularEDM
             cls.edmet.make_atom_fragment([i*2, i*2+1])
         cls.edmet.kernel()
 
-        cls.known_values = {'e_tot': -3.259282652607757}
+        cls.known_values = {'e_tot':  -3.259289706885438}
 
 
 if __name__ == '__main__':
