@@ -1,8 +1,8 @@
-from .solver_cc import CCSDSolver
-from .solver_fci import FCISolver
-from .solver_ebfci import EBFCISolver
+from .ccsd import CCSDSolver
+from .fci import FCISolver
+from .ebfci import EBFCISolver
 
-def get_solver_class(solver):
+def get_solver_class(mf, solver):
     solver = solver.upper()
     if solver in ('CCSD', 'CCSD(T)', 'TCCSD'):
         return CCSDSolver

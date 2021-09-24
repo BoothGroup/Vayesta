@@ -94,7 +94,6 @@ class UFragment(QEmbeddingFragment):
         results = []
         for s, spin in enumerate(('alpha', 'beta')):
             results.append(super().get_mo_occupation(mo_coeff[s], dm1=dm1[s], **kwargs))
-        return tuple(results)
 
     def canonicalize_mo(self, *mo_coeff, fock=None, **kwargs):
         """Diagonalize Fock matrix within subspace.

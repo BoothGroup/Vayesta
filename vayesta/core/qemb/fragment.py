@@ -446,14 +446,21 @@ class Fragment:
 
         Returns
         -------
-        occ : ndarray, shape(M)
+        occup : ndarray, shape(M)
             Occupation numbers of orbitals.
         """
         mo_coeff = hstack(*mo_coeff)        # Do NOT use self.stack_mo!
         if dm1 is None: dm1 = self.mf.make_rdm1()
         sc = np.dot(self.base.get_ovlp(), mo_coeff)
-        occ = einsum('ai,ab,bi->i', sc, dm1, sc)
-        return occ
+        occup = einsum('ai,ab,bi->i', sc, dm1, sc)
+        return occup
+
+    def check_mo_occupation(self, expected, *mo_coeff, tol=None):
+        if tol is None: tol = 2*self.opts.dmet_threshold
+        occup = self.get_mo_occupation(*mo_coeff)
+        if not np.allclose(occup, expected, atol=tol):
+            raise RuntimeError("Incorrect occupation of orbitals (expected %f):\n%r" % (expected, occup))
+        return occup
 
     def loop_fragments(self, exclude_self=False):
         """Loop over all fragments of the base quantum embedding method."""

@@ -321,7 +321,7 @@ class DMETFragment(QEmbeddingFragment):
         solver_opts['make_rdm2'] = self.opts.make_rdm2
 
 
-        cluster_solver_cls = get_solver_class(solver)
+        cluster_solver_cls = get_solver_class(self.mf, solver)
         cluster_solver = cluster_solver_cls(
             self, mo_coeff, mo_occ, nocc_frozen=nocc_frozen, nvir_frozen=nvir_frozen, **solver_opts)
         #solver_results = cluster_solver.kernel(init_guess=init_guess, eris=eris)

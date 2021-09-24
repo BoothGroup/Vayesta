@@ -317,15 +317,6 @@ class EWFFragment(QEmbeddingFragment):
         self.bath = bath
         return bath
 
-    def check_occupation(self, c_occ, c_vir, tol=None):
-        if tol is None: tol = 2*self.opts.dmet_threshold
-        n_occ = self.get_mo_occupation(c_occ)
-        n_vir = self.get_mo_occupation(c_vir)
-        if not np.allclose(n_occ, 2, atol=tol):
-            raise RuntimeError("Incorrect occupation of occupied orbitals:\n%r" % n_occ)
-        if not np.allclose(n_vir, 0, atol=tol):
-            raise RuntimeError("Incorrect occupation of virtual orbitals:\n%r" % n_vir)
-
     def kernel(self, bno_threshold=None, bno_number=None, solver=None, init_guess=None, eris=None):
         """Run solver for a single BNO threshold.
 
@@ -386,7 +377,8 @@ class EWFFragment(QEmbeddingFragment):
 
         # Check occupations
         # TODO: Clean this
-        self.check_occupation(c_occ, c_vir)
+        self.check_mo_occupation((2 if self.base.is_rhf else 1), c_occ)
+        self.check_mo_occupation(0, c_vir)
         if self.base.is_rhf:
             nocc, nvir = c_occ.shape[-1], c_vir.shape[-1]
             mo_occ = np.asarray(nocc*[2] + nvir*[0])
@@ -462,7 +454,7 @@ class EWFFragment(QEmbeddingFragment):
 
         # Create solver object
         t0 = timer()
-        solver_cls = get_solver_class(solver)
+        solver_cls = get_solver_class(self.mf, solver)
         solver_opts = self.get_solver_options(solver)
         cluster_solver = solver_cls(self, mo_coeff, mo_occ, nocc_frozen=nocc_frozen, nvir_frozen=nvir_frozen, **solver_opts)
         if self.opts.nelectron_target is not None:

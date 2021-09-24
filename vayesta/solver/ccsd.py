@@ -115,6 +115,7 @@ class CCSDSolver(ClusterSolver):
 
         # Add additional potential
         if self.v_ext is not None:
+            self.log.debugv("Adding self.v_ext to eris.fock")
             # Make sure there are no side effects:
             eris = copy.copy(eris)
             # Replace fock instead of modifying it!
@@ -140,8 +141,7 @@ class CCSDSolver(ClusterSolver):
                     coupled_fragments=coupled_fragments).__get__(self.solver)
 
         t0 = timer()
-        self.log.info("Running CCSD...")
-        self.log.debug("Initial guess for T1= %r T2= %r", (t1 is not None), (t2 is not None))
+        self.log.info("Solving CCSD-equations %s initial guess...", "with" if (t2 is not None) else "without")
         self.solver.kernel(t1=t1, t2=t2, eris=eris)
         if not self.solver.converged:
             self.log.error("CCSD not converged!")
@@ -168,14 +168,13 @@ class CCSDSolver(ClusterSolver):
 
         if solve_lambda:
             t0 = timer()
-            self.log.info("Solving lambda equations...")
-            self.log.debug("Initial guess for L1= %r L2= %r", (l1 is not None), (l2 is not None))
+            self.log.info("Solving lambda-equations %s initial guess...", "with" if (l2 is not None) else "without")
             l1, l2 = self.solver.solve_lambda(l1=l1, l2=l2, eris=eris)
             self.log.info("Lambda equations done. Lambda converged: %r", self.solver.converged_lambda)
             if self.solver.converged_lambda:
                 results.solved_lambda = True
             else:
-                self.log.error("Solution of lambda equation not converged!")
+                self.log.error("Solution of lambda-equation not converged!")
             self.log.timing("Time for lambda-equations: %s", time_string(timer()-t0))
         # Use Lambda=T approximation
         else:
