@@ -38,6 +38,9 @@ class EAGF2Options(RAGF2Options):
     bno_threshold_factor: float = 1.0
     dmet_threshold: float = 1e-4
 
+    # --- Moment settings
+    democratic: bool = True
+
     # --- Other
     strict: bool = False
     orthogonal_mo_tol: float = 1e-10
@@ -222,7 +225,16 @@ class EAGF2(QEmbeddingMethod):
     def converged(self):
         return self.results.converged
 
+    #TODO other properties assuming AO c_frag?
+    @property
+    def nelectron(self):
+        #TODO check this
+        rdm1 = np.linalg.multi_dot((self.mf.mo_coeff.T.conj(), self.mf.make_rdm1(), self.mf.mo_coeff))
+        ne = np.einsum('ai,ab,bi->', self.c_frag.conj(), rdm1, self.c_frag)
+        return ne
 
+
+    #TODO break up into functions
     def kernel(self):
         ''' Run the EAGF2 calculation.
 
@@ -271,41 +283,113 @@ class EAGF2(QEmbeddingMethod):
             se_prev = copy.deepcopy(solver.se)
             e_prev = solver.e_tot
 
-            moms_demo = 0
             for x, frag in enumerate(self.fragments):
-                self.log.info("Fragment %d" % x)
-                self.log.info("---------%s" % ('-'*len(str(x))))
+                self.log.info("Building cluster space for fragment %d", x)
                 self.log.changeIndentLevel(1)
 
                 n = frag.c_frag.shape[0]
-                sc = np.dot(self.get_ovlp(), self.mf.mo_coeff)
-                c = np.dot(sc.T.conj(), frag.c_frag)
                 p_frag = np.zeros((solver.nact+solver.se.naux, solver.nact+solver.se.naux))
-                p_frag[:n, :n] += np.dot(c, c.T.conj())
+                p_frag[:n, :n] += np.dot(frag.c_frag, frag.c_frag.T.conj())
                 c_frag = scipy.linalg.orth(p_frag)
                 c_env = scipy.linalg.null_space(p_frag)
-                c_full = np.hstack((c_frag, c_env))
                 assert c_env.shape[-1] == (solver.nact + solver.se.naux - c_frag.shape[1])
 
-                if frag.sym_parent is None:
-                    results = frag.kernel(solver, solver.se, fock, c_frag=c_frag, c_env=c_env)
-                    c_active = results.c_active
-                    self.cluster_results[frag.id] = results
-                    self.log.info("%s is done.", frag)
-                else:
-                    self.log.info("Fragment is symmetry related, parent: %s", frag.sym_parent)
-                    results = self.cluster_results[frag.sym_parent.id]
+                frag.c_frag, frag.c_env = c_frag, c_env
 
-                p_frag = np.linalg.multi_dot((c_active.T.conj(), c_frag, c_frag.T.conj(), c_active))
-                p_full = np.linalg.multi_dot((c_active.T.conj(), c_full, c_full.T.conj(), c_active))
-                moms = frag.democratic_partition(results.moms, p1=p_frag, p2=p_full)
+                frag.se = solver.se
+                frag.fock = fock
+                frag.qmo_energy, frag.qmo_coeff = solver.se.eig(fock)
+                frag.qmo_occ = np.array([2.0 * (x < solver.se.chempot) for x in frag.qmo_energy])
 
-                c = results.c_active[:solver.nact].T.conj()
-                moms_demo += np.einsum('...pq,pi,qj->...ij', moms, c, c)
+                coeffs = frag.make_bath()
+                frag.c_cls_occ, frag.c_cls_vir, frag.c_env_occ, frag.c_env_vir = coeffs
 
                 self.log.changeIndentLevel(-1)
 
-            se_occ, se_vir = (solver._build_se_from_moments(m) for m in moms_demo)
+            moms = 0
+            if self.opts.democratic:
+                for x, frag in enumerate(self.fragments):
+                    if frag.sym_parent is None:
+                        results = frag.kernel(solver)
+                        self.cluster_results[frag.id] = results
+                        self.log.info("%s is done.", frag)
+                    else:
+                        self.log.info("%s is symmetry related, parent: %s", frag, frag.sym_parent)
+                        results = self.cluster_results[frag.sym_parent.id]
+
+                    c = np.dot(frag.c_frag.T.conj(), results.c_active)
+                    p_frag = np.dot(c.T.conj(), c)
+                    p_full = np.eye(p_frag.shape[0])
+                    moms_cls = frag.democratic_partition(results.moms, p_frag, p_full)
+
+                    c = results.c_active[:solver.nact].T.conj()
+                    moms += np.einsum('...pq,pi,qj->...ij', moms_cls, c, c)
+            else:
+                for x, frag in enumerate(self.fragments):
+                    for y, other in enumerate(self.fragments):
+                        if frag.sym_parent is None and other.sym_parent is None:
+                            results = frag.kernel(solver, other_frag=other)
+                            self.cluster_results[frag.id, other.id] = results
+                            self.log.debugv("%s - %s is done.", frag, other)
+                        else:
+                            for f in [frag, other]:
+                                self.log.debugv("%s is symmetry related, parent: %s", f, f.sym_parent)
+                            results = self.cluster_results[frag.sym_parent.id, other.sym_parent.id]
+
+                        c = np.dot(frag.c_frag.T.conj(), results.c_active)
+                        p_frag = np.dot(c.T.conj(), c)
+
+                        c = np.dot(other.c_frag.T.conj(), results.c_active_other)
+                        p_other = np.dot(c.T.conj(), c)
+
+                        moms_cls = np.einsum('...pq,pi,qj->...ij', results.moms, p_frag, p_other)
+
+                        c_cls_frag = results.c_active[:solver.nact].T.conj()
+                        c_cls_other = results.c_active_other[:solver.nact].T.conj()
+                        moms += np.einsum('...pq,pi,qj->...ij', moms_cls, c_cls_frag, c_cls_other)
+
+                    self.log.info("%s is done.", frag)
+
+
+            # === Occupied:
+
+            self.log.info("Occupied self-energy:")
+            self.log.changeIndentLevel(1)
+            se_occ = solver._build_se_from_moments(moms[0])
+            w = np.linalg.eigvalsh(moms[0][0])
+            wmin, wmax = w.min(), w.max()
+            if wmin < 1e-8:
+                raise ValueError  #FIXME
+            (self.log.warning if wmin < 1e-8 else self.log.debug)(
+                    'Eigenvalue range:  %.5g -> %.5g', wmin, wmax,
+            )
+            self.log.info("Built %d occupied auxiliaries", se_occ.naux)
+            self.log.changeIndentLevel(-1)
+
+
+            # === Virtual:
+            
+            self.log.info("Virtual self-energy:")
+            self.log.changeIndentLevel(1)
+            se_vir = solver._build_se_from_moments(moms[1])
+            w = np.linalg.eigvalsh(moms[1][0])
+            wmin, wmax = w.min(), w.max()
+            if wmin < 1e-8:
+                raise ValueError  #FIXME
+            (self.log.warning if wmin < 1e-8 else self.log.debug)(
+                    'Eigenvalue range:  %.5g -> %.5g', wmin, wmax,
+            )
+            self.log.info("Built %d virtual auxiliaries", se_vir.naux)
+            self.log.changeIndentLevel(-1)
+
+            nh = solver.nocc-solver.frozen[0]
+            wt = lambda v: np.sum(v * v)
+            self.log.infov("Total weights of coupling blocks:")
+            self.log.infov("        %6s  %6s", "2h1p", "1h2p")
+            self.log.infov("    1h  %6.4f  %6.4f", wt(se_occ.coupling[:nh]), wt(se_occ.coupling[nh:]))
+            self.log.infov("    1p  %6.4f  %6.4f", wt(se_vir.coupling[:nh]), wt(se_vir.coupling[nh:]))
+
+
             solver.se = solver._combine_se(se_occ, se_vir)
 
             if niter != 0:

@@ -31,6 +31,9 @@ class EAGF2FragmentOptions(OptionsBase):
     bno_threshold_factor: float = NotSet
     dmet_threshold: float = 1e-4
 
+    # --- Moment settings
+    democratic: bool = NotSet
+
     # --- Appease EWF inheritance
     plot_orbitals: bool = False
     wf_partition: str = 'first-occ'
@@ -66,6 +69,8 @@ class EAGF2FragmentResults:
     fid: int = None
     n_active: int = None
     c_active: np.ndarray = None
+    n_active_other: int = None
+    c_active_other: np.ndarray = None
     moms: np.ndarray = None
 
 
@@ -113,10 +118,15 @@ class EAGF2Fragment(QEmbeddingFragment):
             else:
                 self.log.debugv('  > %-24s %3s %r', key + ':', '', val)
 
+        # Convert fragment and environment orbitals to MO basis:
+        self.c_frag = np.linalg.multi_dot((self.mf.mo_coeff.T, self.base.get_ovlp(), self.c_frag))
+        self.c_env = np.linalg.multi_dot((self.mf.mo_coeff.T, self.base.get_ovlp(), self.c_env))
+
+        # Cluster and environment orbitals:
         self.c_env_occ = None
         self.c_env_vir = None
-        self.c_cluster_occ = None
-        self.c_cluster_vir = None
+        self.c_cls_occ = None
+        self.c_cls_vir = None
 
         # Initialise with no auxiliary space:
         self.se = pyscf.agf2.SelfEnergy([], [[],]*self.mf.mo_occ.size)
@@ -147,6 +157,11 @@ class EAGF2Fragment(QEmbeddingFragment):
 
         t0 = timer()
 
+        if c_frag is None:
+            c_frag = self.c_frag
+        if c_env is None:
+            c_env = self.c_env
+
         self.log.info("Building power orbitals")
         self.log.info("***********************")
         self.log.changeIndentLevel(1)
@@ -167,7 +182,7 @@ class EAGF2Fragment(QEmbeddingFragment):
         self.print_power_orbital_character(c_bath)
 
         c_cluster_occ, c_cluster_vir = self.diagonalize_cluster_dm(
-                c_frag if c_frag is not None else self.c_frag,
+                c_frag,
                 c_bath,
                 tol=2*self.opts.dmet_threshold,
         )
@@ -252,16 +267,9 @@ class EAGF2Fragment(QEmbeddingFragment):
         self.log.changeIndentLevel(-1)
 
 
-    def democratic_partition(self, m, p1=None, p2=None):
+    def democratic_partition(self, m, p1, p2):
         ''' Democratically partition a matrix.
         '''
-
-        if p1 is None:
-            c = np.dot(self.results.c_active.T.conj(), self.c_frag)
-            p1 = np.dot(c, c.T.conj())
-        if p2 is None:
-            c = np.dot(self.results.c_active.T.conj(), np.hstack((self.c_frag, self.c_env)))
-            p2 = np.dot(c, c.T.conj())
 
         m_demo = (
                 + 0.5 * np.einsum('...pq,pi,qj->...ij', m, p1, p2)
@@ -343,36 +351,116 @@ class EAGF2Fragment(QEmbeddingFragment):
         return c_cls_occ, c_cls_vir
 
 
-    def kernel(self, solver, se, fock, c_frag=None, c_env=None):
+    def kernel(self, solver, se=None, fock=None, other_frag=None):
         ''' Run the solver for the fragment.
         '''
 
-        self.se = se
-        self.fock = fock
-        self.qmo_energy, self.qmo_coeff = se.eig(fock)
-        self.qmo_occ = np.array([2.0 * (x < se.chempot) for x in self.qmo_energy])
+        other_frag = other_frag or self
 
-        c_cls_occ, c_cls_vir, c_env_occ, c_env_vir = self.make_bath(c_frag=c_frag, c_env=c_env)
+        if se is not None:
+            self.se = se
+        if fock is not None:
+            self.fock = fock
+        if se is not None or fock is not None:
+            self.qmo_energy, self.qmo_coeff = se.eig(fock)
+            self.qmo_occ = np.array([2.0 * (x < se.chempot) for x in self.qmo_energy])
 
-        mo_coeff_act_occ, _, mo_energy_act_occ = self.canonicalize_qmo(c_cls_occ, eigvals=True)
-        mo_coeff_act_vir, _, mo_energy_act_vir = self.canonicalize_qmo(c_cls_vir, eigvals=True)
-        mo_coeff_act = np.hstack((mo_coeff_act_occ, mo_coeff_act_vir))
+        if other_frag is not None:
+            for attr in ['se', 'fock', 'qmo_energy', 'qmo_coeff', 'qmo_occ']:
+                setattr(other_frag, attr, getattr(self, attr))
 
-        c_occ = np.dot(self.mf.mo_coeff, mo_coeff_act_occ[:solver.nact])
-        c_vir = np.dot(self.mf.mo_coeff, mo_coeff_act_vir[:solver.nact])
+        if self.c_cls_occ is None:
+            coeffs = self.make_bath()
+            self.c_cls_occ, self.c_cls_vir, self.c_env_occ, self.c_env_vir = coeffs
 
-        with helper.QMOIntegrals(self, c_occ, c_vir, 'xija') as xija:
-            t_occ = solver._build_moments(mo_energy_act_occ, mo_energy_act_vir, xija)
-        with helper.QMOIntegrals(self, c_occ, c_vir, 'xabi') as xabi:
-            t_vir = solver._build_moments(mo_energy_act_vir, mo_energy_act_occ, xabi)
+        mo_coeff_occ, _, mo_energy_occ = self.canonicalize_qmo(self.c_cls_occ, eigvals=True)
+        mo_coeff_vir, _, mo_energy_vir = self.canonicalize_qmo(self.c_cls_vir, eigvals=True)
+        mo_coeff = np.hstack((mo_coeff_occ, mo_coeff_vir))
 
-        moms_frag = np.array([t_occ, t_vir])
+        c_occ = np.dot(self.mf.mo_coeff, mo_coeff_occ[:solver.nact])
+        c_vir = np.dot(self.mf.mo_coeff, mo_coeff_vir[:solver.nact])
+
+        if other_frag is self:
+            with helper.QMOIntegrals(self, c_occ, c_vir, 'xija') as xija:
+                t_occ = solver._build_moments(mo_energy_occ, mo_energy_vir, xija)
+
+            with helper.QMOIntegrals(self, c_occ, c_vir, 'xabi') as xabi:
+                t_vir = solver._build_moments(mo_energy_vir, mo_energy_occ, xabi)
+
+            mo_coeff_other = mo_coeff
+
+        else:
+            if other_frag.c_cls_occ is None:
+                coeffs = other_frag.make_bath()
+                other_frag.c_cls_occ, other_frag.c_cls_vir, \
+                        other_frag.c_env_occ, other_frag.c_env_vir = coeffs
+
+            mo_coeff_occ_other, _, mo_energy_occ_other = \
+                    other_frag.canonicalize_qmo(other_frag.c_cls_occ, eigvals=True)
+            mo_coeff_vir_other, _, mo_energy_vir_other = \
+                    other_frag.canonicalize_qmo(other_frag.c_cls_vir, eigvals=True)
+            mo_coeff_other = np.hstack((mo_coeff_occ_other, mo_coeff_vir_other))
+
+            c_occ_other = np.dot(self.mf.mo_coeff, mo_coeff_occ_other[:solver.nact])
+            c_vir_other = np.dot(self.mf.mo_coeff, mo_coeff_vir_other[:solver.nact])
+
+            q_occ = np.dot(mo_coeff_occ_other.T, mo_coeff_occ)
+            q_vir = np.dot(mo_coeff_vir_other.T, mo_coeff_vir)
+
+            #TODO allow different left and right vectors in moment construction code
+            eija = pyscf.lib.direct_sum('i+j-a->ija', mo_energy_occ, mo_energy_occ, mo_energy_vir)
+            cx = np.hstack((c_occ, c_vir))
+            ci = c_occ
+            ca = c_vir
+            xija = pyscf.ao2mo.incore.general(self.mf._eri, (cx, ci, ci, ca), compact=False)
+            xija = xija.reshape([x.shape[1] for x in (cx, ci, ci, ca)])
+            cx = np.hstack((c_occ_other, c_vir_other))
+            ci = np.dot(c_occ_other, q_occ) 
+            ca = np.dot(c_vir_other, q_vir)
+            yija = pyscf.ao2mo.incore.general(self.mf._eri, (cx, ci, ci, ca), compact=False)
+            yija = yija.reshape([x.shape[1] for x in (cx, ci, ci, ca)])
+            t_occ = [
+                (
+                    + 2.0 * pyscf.lib.einsum('xija,yija->xy', xija, yija)
+                    - 1.0 * pyscf.lib.einsum('xija,yjia->xy', xija, yija)
+                ),
+                (
+                    + 2.0 * pyscf.lib.einsum('xija,yija,ija->xy', xija, yija, eija)
+                    - 1.0 * pyscf.lib.einsum('xija,yjia,ija->xy', xija, yija, eija)
+                )
+            ]
+            del xija, yija, eija
+
+            eabi = pyscf.lib.direct_sum('a+b-i->abi', mo_energy_vir, mo_energy_vir, mo_energy_occ)
+            cx = np.hstack((c_occ, c_vir))
+            ca = c_vir
+            ci = c_occ
+            xabi = pyscf.ao2mo.incore.general(self.mf._eri, (cx, ca, ca, ci), compact=False)
+            xabi = xabi.reshape([x.shape[1] for x in (cx, ca, ca, ci)])
+            cx = np.hstack((c_occ_other, c_vir_other))
+            ca = np.dot(c_vir_other, q_vir)
+            ci = np.dot(c_occ_other, q_occ)
+            yabi = pyscf.ao2mo.incore.general(self.mf._eri, (cx, ca, ca, ci), compact=False)
+            yabi = yabi.reshape([x.shape[1] for x in (cx, ca, ca, ci)])
+            t_vir = [
+                (
+                    + 2.0 * pyscf.lib.einsum('xabi,yabi->xy', xabi, yabi)
+                    - 1.0 * pyscf.lib.einsum('xabi,ybai->xy', xabi, yabi)
+                ),
+                (
+                    + 2.0 * pyscf.lib.einsum('xabi,yabi,abi->xy', xabi, yabi, eabi)
+                    - 1.0 * pyscf.lib.einsum('xabi,ybai,abi->xy', xabi, yabi, eabi)
+                )
+            ]
+            del xabi, yabi, eabi
 
         results = EAGF2FragmentResults(
                 fid=self.id,
-                n_active=mo_coeff_act.shape[-1],
-                c_active=mo_coeff_act,
-                moms=moms_frag,
+                n_active=mo_coeff.shape[-1],
+                c_active=mo_coeff,
+                n_active_other=mo_coeff_other.shape[-1],
+                c_active_other=mo_coeff_other,
+                moms=np.array([t_occ, t_vir]),
         )
 
         self._results = results
