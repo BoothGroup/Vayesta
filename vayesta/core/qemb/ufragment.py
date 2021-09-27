@@ -17,6 +17,10 @@ class UFragment(QEmbeddingFragment):
         if self.aos is not None:
             self.log.info(fmt+'%r', "Associated AOs:", self.aos)
 
+    def __repr__(self):
+        return '%s(id= %d, name= %s, n_frag= (%d, %d), n_elec= (%d, %d), sym_factor= %f)' % (self.__class__.__name__,
+                self.id, self.name, *self.n_frag, *self.nelectron, self.sym_factor)
+
     @staticmethod
     def stack_mo(*mo_coeff):
         mo_coeff = (hstack(*[c[0] for c in mo_coeff]),
@@ -94,6 +98,7 @@ class UFragment(QEmbeddingFragment):
         results = []
         for s, spin in enumerate(('alpha', 'beta')):
             results.append(super().get_mo_occupation(mo_coeff[s], dm1=dm1[s], **kwargs))
+        return results
 
     def canonicalize_mo(self, *mo_coeff, fock=None, **kwargs):
         """Diagonalize Fock matrix within subspace.
@@ -145,14 +150,14 @@ class UFragment(QEmbeddingFragment):
             results.append(res_s)
         return tuple(zip(*results))
 
-    def make_dmet_bath(self, c_env, dm1=None, **kwargs):
-        if dm1 is None: dm1 = self.mf.make_rdm1()
-        results = []
-        for s, spin in enumerate(('alpha', 'beta')):
-            self.log.info("Making %s-DMET bath", spin)
-            # Use restricted DMET bath routine for each spin:
-            results.append(super().make_dmet_bath(c_env[s], dm1=2*dm1[s], **kwargs))
-        return tuple(zip(*results))
+    #def make_dmet_bath(self, c_env, dm1=None, **kwargs):
+    #    if dm1 is None: dm1 = self.mf.make_rdm1()
+    #    results = []
+    #    for s, spin in enumerate(('alpha', 'beta')):
+    #        self.log.info("Making %s-DMET bath", spin)
+    #        # Use restricted DMET bath routine for each spin:
+    #        results.append(super().make_dmet_bath(c_env[s], dm1=2*dm1[s], **kwargs))
+    #    return tuple(zip(*results))
 
     def get_fragment_projector(self, coeff, c_proj=None, **kwargs):
         if c_proj is None: c_proj = self.c_proj

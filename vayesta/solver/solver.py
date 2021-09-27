@@ -59,9 +59,8 @@ class ClusterSolver:
         else:
             options = options.replace(kwargs)
         self.opts = options
-        self.log.debug("Solver options:")
-        for key, val in self.opts.items():
-            self.log.debug('  > %-24s %r', key + ':', val)
+        self.log.info("Parameters of %s:" % self.__class__.__name__)
+        self.log.info(break_into_lines(str(self.opts), newline='\n    '))
 
         # Check MO orthogonality
         err = abs(dot(mo_coeff.T, self.mf.get_ovlp(), mo_coeff) - np.eye(mo_coeff.shape[-1])).max()

@@ -137,23 +137,12 @@ class Fragmentation:
         if name is None: name = '/'.join(atom_symbols)
         self.log.debugv("Atom indices of fragment %s: %r", name, atom_indices)
         self.log.debugv("Atom symbols of fragment %s: %r", name, atom_symbols)
-
         # Indices of IAOs based at atoms
         indices = np.nonzero(np.isin(self.get_atoms(), atom_indices))[0]
         # Filter orbital types
         if orbital_filter is not None:
             keep = self.search_labels(orbital_filter)
             indices = [i for i in indices if i in keep]
-
-        # Some output
-        self.log.debugv("Fragment %ss:\n%r", self.name, indices)
-        self.log.debug("Fragment %ss of fragment %s:", self.name, name)
-        for a, sym, nl, ml in np.asarray(self.labels)[indices]:
-            if ml:
-                self.log.debug("  %3s %4s %2s-%s", a, sym, nl, ml)
-            else:
-                self.log.debug("  %3s %4s %2s", a, sym, nl)
-
         return name, indices
 
     def get_orbital_indices_labels(self, orbitals):

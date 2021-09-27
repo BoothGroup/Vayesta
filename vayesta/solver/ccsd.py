@@ -14,7 +14,7 @@ from vayesta.ewf import coupling
 from .solver import ClusterSolver
 
 
-class CCSDSolver(ClusterSolver):
+class CCSD_Solver(ClusterSolver):
 
     @dataclasses.dataclass
     class Options(ClusterSolver.Options):
@@ -69,6 +69,9 @@ class CCSDSolver(ClusterSolver):
             """Get initial guess for another CCSD calculations from results."""
             return {'t1' : self.t1 , 't2' : self.t2, 'l1' : self.l1, 'l2' : self.l2}
 
+    SOLVER_CLS = pyscf.cc.ccsd.CCSD
+    SOLVER_CLS_DF = pyscf.cc.dfccsd.RCCSD
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
@@ -77,9 +80,9 @@ class CCSDSolver(ClusterSolver):
         # thus we need a four-center formulation, where non PSD elements can be summed in
         if (self.base.boundary_cond not in ('periodic-1D', 'periodic-2D')
                 and hasattr(self.mf, 'with_df') and self.mf.with_df is not None):
-            cls = pyscf.cc.dfccsd.RCCSD
+            cls = self.SOLVER_CLS_DF
         else:
-            cls = pyscf.cc.ccsd.CCSD
+            cls = self.SOLVER_CLS
         self.log.debug("CCSD class= %r" % cls)
         solver = cls(self.mf, mo_coeff=self.mo_coeff, mo_occ=self.mo_occ, frozen=self.get_frozen_indices())
         # Options

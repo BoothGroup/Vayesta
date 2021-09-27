@@ -77,12 +77,6 @@ class EWF(QEmbeddingMethod):
         sc_energy_tol: float = 1e-6
         sc_mode: int = 0
         nelectron_target: int = None
-        # --- Orbital plots
-        plot_orbitals: list = dataclasses.field(default_factory=dict)
-        plot_orbitals_exit: bool = False            # Exit immediately after all orbital plots have been generated
-        plot_orbitals_dir: str = 'orbitals'
-        plot_orbitals_kwargs: dict = dataclasses.field(default_factory=dict)
-        plot_orbitals_gridsize: tuple = dataclasses.field(default_factory=lambda: (128, 128, 128))
         # --- Other
         #energy_partitioning: str = 'first-occ'
         strict: bool = False                # Stop if cluster not converged
@@ -107,9 +101,8 @@ class EWF(QEmbeddingMethod):
         # Options
         if self.opts.pop_analysis:
             self.opts.make_rdm1 = True
-        self.log.info("EWF parameters:")
-        for key, val in self.opts.items():
-            self.log.info('  > %-24s %r', key + ':', val)
+        self.log.info("Parameters of %s:", self.__class__.__name__)
+        self.log.info(break_into_lines(str(self.opts), newline='\n    '))
 
         # --- Check input
         if not mf.converged:
@@ -613,11 +606,10 @@ class EWF(QEmbeddingMethod):
         bno_min = np.min(bno_threshold)
         #self.e_corr = sum([results[(f.id, bno_min)].e_corr for f in self.fragments])
         self.e_corr = self.results[0].e_corr
-        fmt = "%-8s %+16.8f Ha"
-        self.log.output(fmt, 'E(nuc)=', self.mol.energy_nuc())
-        self.log.output(fmt, 'E(MF)=', self.e_mf)
-        self.log.output(fmt, 'E(corr)=', self.e_corr)
-        self.log.output(fmt, 'E(tot)=', self.e_tot)
+        self.log.output('E(nuc)=  %s', energy_string(self.mol.energy_nuc()))
+        self.log.output('E(MF)=   %s', energy_string(self.e_mf))
+        self.log.output('E(corr)= %s', energy_string(self.e_corr))
+        self.log.output('E(tot)=  %s', energy_string(self.e_tot))
 
         #attributes = ["converged", "e_corr", "e_delta_mp2", "e_pert_t"]
 
@@ -709,17 +701,29 @@ class EWF(QEmbeddingMethod):
     #    self.log.info("E(corr)= %+16.8f Ha", self.e_corr)
     #    self.log.info("E(tot)=  %+16.8f Ha", self.e_tot)
 
+    #def print_results(self, results):
+    #    self.log.info("Energies")
+    #    self.log.info("========")
+    #    fmt = "%-20s %+16.8f Ha"
+    #    for i, frag in enumerate(self.loop()):
+    #        e_corr = results["e_corr"][i]
+    #        self.log.output(fmt, 'E(corr)[' + frag.trimmed_name() + ']=', e_corr)
+    #    self.log.output(fmt, 'E(corr)=', self.e_corr)
+    #    self.log.output(fmt, 'E(MF)=', self.e_mf)
+    #    self.log.output(fmt, 'E(nuc)=', self.mol.energy_nuc())
+    #    self.log.output(fmt, 'E(tot)=', self.e_tot)
+
     def print_results(self, results):
         self.log.info("Energies")
         self.log.info("========")
-        fmt = "%-20s %+16.8f Ha"
+        fmt = "%-20s %s"
         for i, frag in enumerate(self.loop()):
             e_corr = results["e_corr"][i]
-            self.log.output(fmt, 'E(corr)[' + frag.trimmed_name() + ']=', e_corr)
-        self.log.output(fmt, 'E(corr)=', self.e_corr)
-        self.log.output(fmt, 'E(MF)=', self.e_mf)
-        self.log.output(fmt, 'E(nuc)=', self.mol.energy_nuc())
-        self.log.output(fmt, 'E(tot)=', self.e_tot)
+            self.log.output('E(corr)[' + frag.trimmed_name() + ']= %s', energy_string(e_corr))
+        self.log.output('E(corr)= %s', energy_string(self.e_corr))
+        self.log.output('E(MF)=   %s', energy_string(self.e_mf))
+        self.log.output('E(nuc)=  %s', energy_string(self.mol.energy_nuc()))
+        self.log.output('E(tot)=  %s', energy_string(self.e_tot))
 
     def get_energies(self):
         """Get total energy."""

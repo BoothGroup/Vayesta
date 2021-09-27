@@ -13,7 +13,7 @@ from vayesta.core.util import *
 from .solver import ClusterSolver
 
 
-class FCISolver(ClusterSolver):
+class FCI_Solver(ClusterSolver):
 
     @dataclasses.dataclass
     class Options(ClusterSolver.Options):
@@ -79,6 +79,8 @@ class FCISolver(ClusterSolver):
         if eris is None: eris = self.get_eris()
         heff = self.get_heff(eris)
         nelec = sum(self.mo_occ[self.get_active_slice()])
+        assert np.isclose(nelec, np.rint(nelec))
+        nelec = int(np.rint(nelec))
 
         t0 = timer()
         e_fci, civec = self.solver.kernel(heff, eris, self.nactive, nelec, ci0=ci0)

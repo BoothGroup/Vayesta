@@ -18,7 +18,7 @@ from vayesta.core.util import *
 from .solver import ClusterSolver
 
 
-class EBFCISolver(ClusterSolver):
+class EBFCI_Solver(ClusterSolver):
     """[TODO] rewrite this as a subclass of FCISolver? What benefits does this provide, given most functionality is
     in kernel method? Maybe could abstract """
 

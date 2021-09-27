@@ -40,6 +40,7 @@ from .rdm import make_rdm1_demo
 from .rdm import make_rdm2_demo
 from .rdm import make_rdm1_ccsd
 from .rdm import make_rdm2_ccsd
+from . import helper
 
 
 class QEmbedding:
@@ -146,10 +147,11 @@ class QEmbedding:
         self._veff = self._veff_orig
 
         # Some MF output
+        #FIXME (no RHF/UHF dependent code here)
         if self.mf.converged:
-            self.log.info("E(MF)= %+16.8f Ha", self.e_mf)
+            self.log.info("E(MF)= %s", energy_string(self.e_mf))
         else:
-            self.log.warning("E(MF)= %+16.8f Ha (not converged!)", self.e_mf)
+            self.log.warning("E(MF)= %s (not converged!)", energy_string(self.e_mf))
         if self.is_rhf:
             self.log.info("n(AO)= %4d  n(MO)= %4d  n(linear dep.)= %4d", self.nao, self.nmo, self.nao-self.nmo)
         else:
@@ -809,6 +811,11 @@ class QEmbedding:
         fid = self.fragmentation.get_next_fid()
         frag = self.Fragment(self, fid, name, c_frag, c_env, **kwargs)
         self.fragments.append(frag)
+        # Log fragment orbitals:
+        self.log.debugv("Fragment %ss:\n%r", self.fragmentation.name, indices)
+        self.log.debug("Fragment %ss of fragment %s:", self.fragmentation.name, name)
+        labels = np.asarray(self.fragmentation.labels)[indices]
+        helper.log_orbitals(self.log.debug, labels)
         return frag
 
     def add_all_atomic_fragments(self, **kwargs):

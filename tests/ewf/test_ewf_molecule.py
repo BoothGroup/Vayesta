@@ -340,13 +340,13 @@ class MiscMoleculeEWFTests(unittest.TestCase):
         emb.iao_fragmentation()
         frag = emb.make_atom_fragment(0)
         frag.kernel()  #FIXME using this to build the cluster orbs, repeats solver calculation
-        from vayesta.solver.ccsd import CCSDSolver  #TODO move this to solver tests?
+        from vayesta.solver.ccsd import CCSD_Solver  #TODO move this to solver tests?
         from pyscf import cc
         nocc = frag.c_cluster_occ.shape[1]
         nvir = frag.c_cluster_vir.shape[1]
         nocc_frozen = np.sum(self.mf.mo_occ > 0) - nocc
         nvir_frozen = np.sum(self.mf.mo_occ == 0) - nvir
-        solver = CCSDSolver(frag, self.mf.mo_coeff, self.mf.mo_occ, nocc_frozen, nvir_frozen,
+        solver = CCSD_Solver(frag, self.mf.mo_coeff, self.mf.mo_occ, nocc_frozen, nvir_frozen,
                 eom_ccsd=['IP', 'EA', 'EE-S', 'EE-T', 'EE-SF'], eom_ccsd_nroots=5)
         res = solver.kernel()
 

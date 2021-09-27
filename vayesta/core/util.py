@@ -21,10 +21,12 @@ __all__ = [
         'dot', 'einsum', 'hstack',
         # New exceptions
         'AbstractMethodError', 'ConvergenceError',
+        # Energy
+        'energy_string',
         # Time & memory
         'timer', 'time_string', 'log_time', 'memory_string', 'get_used_memory',
         # Other
-        'replace_attr', 'cached_method',
+        'replace_attr', 'cached_method', 'break_into_lines',
         ]
 
 class NotSetType:
@@ -96,6 +98,14 @@ class AbstractMethodError(NotImplementedError):
 
 class ConvergenceError(RuntimeError):
     pass
+
+# --- Energy
+
+def energy_string(energy, unit='Ha'):
+    if unit == 'eV':
+        energy *= 27.211386245988
+    if unit: unit = ' %s' % unit
+    return '%+16.8f%s' % (energy, unit)
 
 # --- Time and memory
 
@@ -184,6 +194,18 @@ class SelectNotSetType:
         return 'SelectNotSet'
 SelectNotSet = SelectNotSetType()
 
+def break_into_lines(string, linelength=80, sep=None, newline='\n'):
+    """Break a long string into multiple lines"""
+    split = string.split(sep)
+    lines = [split[0]]
+    for s in split[1:]:
+        if (len(lines[-1]) + 1 + len(s)) > linelength:
+            # Start new line
+            lines.append(s)
+        else:
+            lines[-1] += ' ' + s
+    return newline.join(lines)
+
 class OptionsBase:
     """Abstract base class for Option dataclasses.
 
@@ -193,6 +215,9 @@ class OptionsBase:
     and also the method `replace`, in order to update options from another Option object
     or dictionary.
     """
+
+    def __repr__(self):
+        return "Options(%r)" % self.asdict()
 
     def get(self, attr, default=None):
         """Dictionary-like access to attributes.

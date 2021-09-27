@@ -9,7 +9,7 @@ import pyscf.pbc
 import pyscf.pbc.mp
 
 from vayesta.core.util import *
-from vayesta.ewf.psubspace import transform_mp2_eris
+from vayesta.core.bath.helper import transform_mp2_eris
 
 def make_mp2_bno(self, kind, c_cluster_occ, c_cluster_vir, c_env_occ, c_env_vir,
         canonicalize=True, local_dm=False, eris=None):

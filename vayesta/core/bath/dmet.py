@@ -41,12 +41,12 @@ class DMET_Bath:
 
     def get_occupied_bath(self, *args, **kwargs):
         """Inherited bath classes can overwrite this to return additional occupied bath orbitals."""
-        nao = self.c_env_occ.shape[0]
+        nao = self.mol.nao_nr()
         return np.zeros((nao, 0)), self.c_env_occ
 
     def get_virtual_bath(self, *args, **kwargs):
         """Inherited bath classes can overwrite this to return additional virtual bath orbitals."""
-        nao = self.c_env_vir.shape[0]
+        nao = self.mol.nao_nr()
         return np.zeros((nao, 0)), self.c_env_vir
 
     def kernel(self):

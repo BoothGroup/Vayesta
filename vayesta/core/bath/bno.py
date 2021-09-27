@@ -9,10 +9,11 @@ import pyscf.pbc.mp
 
 from vayesta.core.util import *
 from vayesta.core.linalg import recursive_block_svd
-from .psubspace import transform_mp2_eris
+#from vayesta.ewf.psubspace import transform_mp2_eris
+#from vayesta.ewf import helper
 from . import helper
 
-from vayesta.core.qemb.bath import DMET_Bath
+from .dmet import DMET_Bath
 
 class BNO_Bath(DMET_Bath):
 
@@ -29,18 +30,12 @@ class BNO_Bath(DMET_Bath):
     def kernel(self, bath_type='mp2-bno'):
         # --- DMET bath
         super().kernel()
-        # Add DMET orbitals for cube file plots TODO
-        if self.fragment.opts.plot_orbitals:
-            self.fragment.add_orbital_plot('dmet', self.c_dmet, dset_idx=1001)
 
         # Add cluster orbitals to plot
         c_env_occ = self.c_env_occ
         c_env_vir = self.c_env_vir
         c_cluster_occ = self.c_cluster_occ
         c_cluster_vir = self.c_cluster_vir
-        if self.fragment.opts.plot_orbitals:
-            self.fragment.add_orbital_plot('cluster', c_cluster_occ, dset_idx=2001, keep_in_list=True)
-            self.fragment.add_orbital_plot('cluster', c_cluster_vir, dset_idx=3001)
 
         # TODO: clean
         self.log.debugv("bath_type= %r", bath_type)
@@ -93,17 +88,6 @@ class BNO_Bath(DMET_Bath):
             self.log.info("%s------------------", len(name)*'-')
             for line in helper.plot_histogram(n_no):
                 self.log.info(line)
-        # Orbital plot
-        if self.fragment.opts.plot_orbitals:
-            idx = 0
-            for key in self.fragment.opts.plot_orbitals.copy():
-                if key.startswith('bno-%s-' % kind):
-                    itvl = key[key.find('[')+1:key.find(']')]
-                    low, high = [float(x) for x in itvl.split(',')]
-                    mask = np.logical_and(n_no >= low, n_no < high)
-                    dm = np.dot(c_no[:,mask], c_no[:,mask].T)
-                    self.fragment.add_orbital_plot(key, dm=dm, dset_idx=(4001 if kind=='occ' else 5001)+idx)
-                    idx += 1
         self.log.timing("Time for %s BNOs:  %s", name, time_string(timer()-t0))
         self.log.changeIndentLevel(-1)
 

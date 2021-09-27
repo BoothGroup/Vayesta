@@ -1,6 +1,7 @@
 import dataclasses
 import itertools
 import copy
+import os.path
 
 import numpy as np
 import scipy
@@ -14,7 +15,8 @@ from vayesta.core.util import *
 from vayesta.core import helper, tsymmetry
 import vayesta.core.ao2mo
 import vayesta.core.ao2mo.helper
-from vayesta.core.qemb.bath import DMET_Bath
+from vayesta.core.bath import DMET_Bath
+from vayesta.misc.cubefile import CubeFile
 
 class Fragment:
 
@@ -161,8 +163,9 @@ class Fragment:
         self.log = log or base.log
         self.id = fid
         self.name = name
-        self.log.info("Initializing %s" % self)
-        self.log.info("-------------%s" % (len(str(self))*"-"))
+        #self.log.info("Initializing %s" % self)
+        #self.log.info("-------------%s" % (len(str(self))*"-"))
+
 
         # Options
         self.base = base
@@ -183,6 +186,7 @@ class Fragment:
         self.atoms = atoms
         self.aos = aos
 
+
         # This set of orbitals is used in the projection to evaluate expectation value contributions
         # of the fragment. By default it is equal to `self.c_frag`.
         self.c_proj = self.c_frag
@@ -202,13 +206,16 @@ class Fragment:
         # Intermediates
         self.stash = self.Stash()
 
-        self.log_info()
+        self.log.info("Creating %r", self)
+        #self.log.info(break_into_lines(str(self.opts), newline='\n    '))
 
     def __repr__(self):
-        keys = ['id', 'name', 'atoms', 'aos']
-        fmt = ('%s(' + len(keys)*'%s: %r, ')[:-2] + ')'
-        values = [self.__dict__[k] for k in keys]
-        return fmt % (self.__class__.__name__, *[x for y in zip(keys, values) for x in y])
+        #keys = ['id', 'name']
+        #fmt = ('%s(' + len(keys)*'%s: %r, ')[:-2] + ')'
+        #values = [self.__dict__[k] for k in keys]
+        #return fmt % (self.__class__.__name__, *[x for y in zip(keys, values) for x in y])
+        return '%s(id= %d, name= %s, n_frag= %d, n_elec= %d, sym_factor= %f)' % (self.__class__.__name__,
+                self.id, self.name, self.n_frag, self.nelectron, self.sym_factor)
 
     def __str__(self):
         return '%s %d: %s' % (self.__class__.__name__, self.id, self.trimmed_name())
@@ -882,6 +889,19 @@ class Fragment:
             raise NotImplementedError()
         import vayesta.misc
         return vayesta.misc.counterpoise.make_mol(self.mol, self.atoms[1], rmax=rmax, nimages=nimages, unit=unit, **kwargs)
+
+    # --- Orbital plotting
+    # --------------------
+
+    def plot3d(self, filename, gridsize=(100, 100, 100), **kwargs):
+        """Write cube density data of fragment orbitals to file."""
+        nx, ny, nz = gridsize
+        directory = os.path.dirname(filename)
+        if directory:
+            os.makedirs(directory, exist_ok=True)
+        cube = CubeFile(self.mol, filename=filename, nx=nx, ny=ny, nz=nz, **kwargs)
+        cube.add_orbital(self.c_frag)
+        cube.write()
 
     # --- Deprecated
     # --------------

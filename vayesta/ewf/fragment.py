@@ -25,114 +25,12 @@ from vayesta.core import QEmbeddingFragment
 from vayesta.solver import get_solver_class
 from vayesta.core.fragmentation import IAO_Fragmentation
 
-from vayesta.core.qemb.bath import DMET_Bath, CompleteBath
+from vayesta.core.bath import DMET_Bath, BNO_Bath, CompleteBath
+from vayesta.core.actspace import ActiveSpace
 
 from . import ewf
-from .bath import BNO_Bath
 from . import helper
 from . import psubspace
-
-class Cluster:
-
-    def __init__(self):
-        self._c_active_occ = None
-        self._c_active_vir = None
-        self._c_frozen_occ = None
-        self._c_frozen_vir = None
-        self.sym_op = None
-        self.sym_parent = None
-
-    @property
-    def nmo(self):
-        return self.nocc + self.nvir
-
-    @property
-    def nocc(self):
-        return self.n_active_occ + self.n_frozen_occ
-
-    @property
-    def nvir(self):
-        return self.n_active_vir + self.n_frozen_vir
-
-    # --- Active
-
-    @property
-    def c_active(self):
-        """Active orbital coefficients."""
-        if self.c_active_occ is None:
-            return None
-        return hstack(self.c_active_occ, self.c_active_vir)
-
-    @property
-    def c_active_occ(self):
-        """Active occupied orbital coefficients."""
-        if self.sym_parent is None:
-            return self._c_active_occ
-        else:
-            return self.sym_op(self.sym_parent.c_active_occ)
-
-    @property
-    def c_active_vir(self):
-        """Active virtual orbital coefficients."""
-        if self.sym_parent is None:
-            return self._c_active_vir
-        else:
-            return self.sym_op(self.sym_parent.c_active_vir)
-
-    @property
-    def nactive(self):
-        """Number of active orbitals."""
-        return (self.n_active_occ + self.n_active_vir)
-
-    @property
-    def nactive_occ(self):
-        """Number of active occupied orbitals."""
-        return self.c_active_occ.shape[-1]
-
-    @property
-    def nactive_vir(self):
-        """Number of active virtual orbitals."""
-        return self.c_active_vir.shape[-1]
-
-    # --- Frozen
-
-    @property
-    def c_frozen(self):
-        """Frozen orbital coefficients."""
-        if self.c_frozen_occ is None:
-            return None
-        return hstack(self.c_frozen_occ, self.c_frozen_vir)
-
-    @property
-    def c_frozen_occ(self):
-        """Frozen occupied orbital coefficients."""
-        if self.sym_parent is None:
-            return self._c_frozen_occ
-        else:
-            return self.sym_op(self.sym_parent.c_frozen_occ)
-
-    @property
-    def c_frozen_vir(self):
-        """Frozen virtual orbital coefficients."""
-        if self.sym_parent is None:
-            return self._c_frozen_vir
-        else:
-            return self.sym_op(self.sym_parent.c_frozen_vir)
-
-    @property
-    def nfrozen(self):
-        """Number of frozen orbitals."""
-        return (self.n_frozen_occ + self.n_frozen_vir)
-
-    @property
-    def nfrozen_occ(self):
-        """Number of frozen occupied orbitals."""
-        return self.c_frozen_occ.shape[-1]
-
-    @property
-    def nfrozen_vir(self):
-        """Number of frozen virtual orbitals."""
-        return self.c_frozen_vir.shape[-1]
 
 
 class EWFFragment(QEmbeddingFragment):
@@ -166,12 +64,6 @@ class EWFFragment(QEmbeddingFragment):
         calculate_e_dmet: bool = 'auto'
         #
         dm_with_frozen: bool = NotSet
-        # --- Orbital plots
-        plot_orbitals: list = NotSet
-        plot_orbitals_exit: bool = NotSet            # Exit immediately after all orbital plots have been generated
-        plot_orbitals_dir: str = NotSet
-        plot_orbitals_kwargs: dict = NotSet
-        plot_orbitals_gridsize: tuple = NotSet
         # --- Solver options
         tcc_fci_opts: dict = dataclasses.field(default_factory=dict)
 
@@ -206,19 +98,18 @@ class EWFFragment(QEmbeddingFragment):
             self.opts.make_rdm1 = True
 
         # Default options:
-        defaults = self.Options().replace(self.base.Options(), select=NotSet)
-        for key, val in self.opts.items():
-            if val != getattr(defaults, key):
-                self.log.info('  > %-24s %3s %r', key + ':', '(*)', val)
-            else:
-                self.log.debugv('  > %-24s %3s %r', key + ':', '', val)
+        #defaults = self.Options().replace(self.base.Options(), select=NotSet)
+        #for key, val in self.opts.items():
+        #    if val != getattr(defaults, key):
+        #        self.log.info('  > %-24s %3s %r', key + ':', '(*)', val)
+        #    else:
+        #        self.log.debugv('  > %-24s %3s %r', key + ':', '', val)
 
         if solver is None:
             solver = self.base.solver
         if solver not in ewf.VALID_SOLVERS:
             raise ValueError("Unknown solver: %s" % solver)
         self.solver = solver
-        self.log.infov('  > %-24s %3s %r', 'Solver:', '', self.solver)
 
         # For self-consistent mode
         self.solver_results = None
@@ -242,37 +133,6 @@ class EWFFragment(QEmbeddingFragment):
     def reset(self):
         super().reset()
 
-    def init_orbital_plot(self):
-        if self.boundary_cond == 'open':
-            raise NotImplementedError()
-        os.makedirs(self.opts.plot_orbitals_dir, exist_ok=True)
-        name = "%s.cube" % os.path.join(self.opts.plot_orbitals_dir, self.id_name)
-        nx, ny, nz = self.opts.plot_orbitals_gridsize
-        cubefile = cubegen.CubeFile(self.mol, filename=name, nx=nx, ny=ny, nz=nz,
-                **self.base.opts.plot_orbitals_kwargs)
-        return cubefile
-
-    def add_orbital_plot(self, name, mo_coeff=None, dm=None, dset_idx=None, keep_in_list=False):
-        if mo_coeff is None and dm is None:
-            raise ValueError("set mo_coeff or dm")
-        if name in self.opts.plot_orbitals:
-            if not keep_in_list:
-                self.opts.plot_orbitals.remove(name)
-            if mo_coeff is not None:
-                self.log.debugv("Adding %s orbitals to cube file.", name)
-                self.cubefile.add_orbital(mo_coeff.copy(), dset_idx=dset_idx)
-            else:
-                self.log.debugv("Adding %s density to cube file.", name)
-                self.cubefile.add_density(dm.copy(), dset_idx=dset_idx)
-            if not self.opts.plot_orbitals:
-                self.write_orbital_plot()
-
-    def write_orbital_plot(self):
-        self.log.debug("Writing cube file.")
-        self.cubefile.write()
-        if self.opts.plot_orbitals_exit:
-            raise self.Exit("All plots done")
-
     def set_cas(self, iaos=None, c_occ=None, c_vir=None, minao='auto', dmet_threshold=None):
         """Set complete active space for tailored CCSD"""
         if dmet_threshold is None:
@@ -282,7 +142,8 @@ class EWFFragment(QEmbeddingFragment):
                 fragmentation = self.base.fragmentation
             # Create new IAO fragmentation
             else:
-                fragmentation = IAO_Fragmentation(self, minao=minao).kernel()
+                fragmentation = IAO_Fragmentation(self, minao=minao)
+                fragmentation.kernel()
             # Get IAO and environment coefficients from fragmentation
             indices = fragmentation.get_orbital_fragment_indices(iaos)[1]
             c_iao = fragmentation.get_frag_coeff(indices)
@@ -311,9 +172,7 @@ class EWFFragment(QEmbeddingFragment):
         # MP2 bath natural orbitals
         elif bath_type.lower() == 'mp2-bno':
             bath = BNO_Bath(self, dmet_threshold=self.opts.dmet_threshold)
-
         bath.kernel()
-
         self.bath = bath
         return bath
 
@@ -355,19 +214,6 @@ class EWFFragment(QEmbeddingFragment):
         # Do not overwrite self.c_active_occ/vir yet - we still need the previous coefficients
         # to generate an intial guess
 
-        # Active/frozen density plotting
-        if 'active' in self.opts.plot_orbitals:
-            dm = 2*(np.dot(c_active_occ, c_active_occ.T)
-                  + np.dot(c_active_vir, c_active_vir.T))
-            self.add_orbital_plot('active', dm=dm, dset_idx=(6001))
-        if 'frozen' in self.opts.plot_orbitals:
-            dm = 2*(np.dot(c_frozen_occ, c_frozen_occ.T)
-                  + np.dot(c_frozen_vir, c_frozen_vir.T))
-            self.add_orbital_plot('frozen', dm=dm, dset_idx=(7001))
-        if self.opts.plot_orbitals:
-            self.log.warning("The following orbital/densities could not be plotted: %r", self.opts.plot_orbitals)
-            self.write_orbital_plot(cubefile)
-
         # Combine, important to keep occupied orbitals first!
         # Put frozen (occenv, virenv) orbitals to the front and back
         # and active orbitals (occact, viract) in the middle
@@ -379,32 +225,19 @@ class EWFFragment(QEmbeddingFragment):
         # TODO: Clean this
         self.check_mo_occupation((2 if self.base.is_rhf else 1), c_occ)
         self.check_mo_occupation(0, c_vir)
-        if self.base.is_rhf:
-            nocc, nvir = c_occ.shape[-1], c_vir.shape[-1]
-            mo_occ = np.asarray(nocc*[2] + nvir*[0])
 
-            nocc_frozen = c_frozen_occ.shape[-1]
-            nvir_frozen = c_frozen_vir.shape[-1]
-            nfrozen = nocc_frozen + nvir_frozen
-            nactive = c_active_occ.shape[-1] + c_active_vir.shape[-1]
+        cluster = ActiveSpace(self.mf, c_active_occ, c_active_vir, c_frozen_occ, c_frozen_vir)
+        cluster.log_sizes(self.log.info, header="Orbitals for %s" % self)
 
-            self.log.info("Orbitals for %s", self)
-            self.log.info("-------------" + len(str(self))*"-")
-            self.log.info("  > Active:   n(occ)= %5d  n(vir)= %5d  n(tot)= %5d", c_active_occ.shape[-1], c_active_vir.shape[-1], nactive)
-            self.log.info("  > Frozen:   n(occ)= %5d  n(vir)= %5d  n(tot)= %5d", nocc_frozen, nvir_frozen, nfrozen)
-            self.log.info("  > Total:    n(occ)= %5d  n(vir)= %5d  n(tot)= %5d", c_occ.shape[-1], c_vir.shape[-1], mo_coeff.shape[-1])
-
-        else:
-            mo_occ = []
-            for s, spin in enumerate(('alpha', 'beta')):
-                nocc, nvir = c_occ[s].shape[-1], c_vir[s].shape[-1]
-                mo_occ.append(np.asarray(nocc*[2] + nvir*[0]))
-                self.log.info("Orbitals for %s", self)
-                self.log.info("-------------" + len(str(self))*"-")
-                self.log.info("  > Active:   n(occ)= %5d  n(vir)= %5d  n(tot)= %5d", c_active_occ.shape[-1], c_active_vir.shape[-1], nactive)
-                self.log.info("  > Frozen:   n(occ)= %5d  n(vir)= %5d  n(tot)= %5d", nocc_frozen, nvir_frozen, nfrozen)
-                self.log.info("  > Total:    n(occ)= %5d  n(vir)= %5d  n(tot)= %5d", c_occ.shape[-1], c_vir.shape[-1], mo_coeff.shape[-1])
-            mo_occ = tuple(mo_occ)
+        #if self.base.is_rhf:
+        #    mo_occ = np.asarray(cluster.nocc*[2] + cluster.nvir*[0])
+        #else:
+        #    mo_occ = []
+        #    for s, spin in enumerate(('alpha', 'beta')):
+        #        nocc, nvir = c_occ[s].shape[-1], c_vir[s].shape[-1]
+        #        mo_occ.append(np.asarray(nocc*[2] + nvir*[0]))
+        #    mo_occ = tuple(mo_occ)
+        mo_occ = self.mf.mo_occ
 
         # SPLIT HERE?
 
@@ -456,7 +289,7 @@ class EWFFragment(QEmbeddingFragment):
         t0 = timer()
         solver_cls = get_solver_class(self.mf, solver)
         solver_opts = self.get_solver_options(solver)
-        cluster_solver = solver_cls(self, mo_coeff, mo_occ, nocc_frozen=nocc_frozen, nvir_frozen=nvir_frozen, **solver_opts)
+        cluster_solver = solver_cls(self, mo_coeff, mo_occ, nocc_frozen=cluster.nocc_frozen, nvir_frozen=cluster.nvir_frozen, **solver_opts)
         if self.opts.nelectron_target is not None:
             cluster_solver.optimize_cpt(self.opts.nelectron_target, c_frag=self.c_proj)
         if eris is None:
@@ -511,7 +344,7 @@ class EWFFragment(QEmbeddingFragment):
         results = self.Results(
                 fid=self.id,
                 bno_threshold=bno_threshold,
-                n_active=nactive,
+                n_active=cluster.norb_active,
                 converged=solver_results.converged,
                 e_corr=e_corr,
                 dm1=solver_results.dm1, dm2=solver_results.dm2)

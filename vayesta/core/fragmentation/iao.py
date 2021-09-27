@@ -157,5 +157,5 @@ class IAO_Fragmentation(Fragmentation):
             raise RuntimeError("Incorrect number of remaining virtual orbitals")
         c_rest = np.dot(mo_coeff, c[:,mask_rest])        # Transform back to AO basis
 
-        self.check_orth(np.hstack((c_iao, c_rest)), "IAO+virtual orbitals")
+        self.check_orth(np.hstack((c_iao, c_rest)), "IAO+virtual orbital")
         return c_rest
