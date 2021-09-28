@@ -2,6 +2,7 @@
 
 import logging
 import os
+import contextlib
 
 try:
     from mpi4py import MPI
@@ -180,5 +181,17 @@ def init_logging():
         root.indentLevel = max(root.indentLevel + delta, 0)
         return root.indentLevel
 
+    class withIndentLevel(contextlib.ContextDecorator):
+        def __init__(self, delta):
+            self.delta = delta
+            self.root = logging.getLogger()
+
+        def __enter__(self):
+            self.root.indentLevel = max(self.root.indentLevel + self.delta, 0)
+
+        def __exit__(self, *args):
+            self.root.indentLevel = max(self.root.indentLevel - self.delta, 0)
+
     logging.Logger.setIndentLevel = setIndentLevel
     logging.Logger.changeIndentLevel = changeIndentLevel
+    logging.Logger.withIndentLevel = withIndentLevel

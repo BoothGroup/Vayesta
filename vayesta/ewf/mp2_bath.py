@@ -91,7 +91,7 @@ def make_mp2_bno(self, kind, c_cluster_occ, c_cluster_vir, c_env_occ, c_env_vir,
     # Integral transformation
     t0 = timer()
     if eris is None:
-        eris = self.base.get_eris(mp2)
+        eris = self.base.get_eris_object(mp2)
     # Reuse previously obtained integral transformation into N^2 sized quantity (rather than N^4)
     else:
         self.log.debug("Transforming previous eris.")
@@ -100,7 +100,7 @@ def make_mp2_bno(self, kind, c_cluster_occ, c_cluster_vir, c_env_occ, c_env_vir,
     assert (eris.ovov is not None)
 
     t0 = timer()
-    e_mp2_full, t2 = mp2.kernel(eris=eris, hf_reference=True)
+    e_mp2_full, t2 = mp2.kernel(eris=eris)
     nocc, nvir = t2.shape[0], t2.shape[2]
     assert (c_occ.shape[-1] == nocc)
     assert (c_vir.shape[-1] == nvir)

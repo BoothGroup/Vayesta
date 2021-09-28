@@ -76,7 +76,7 @@ def make_cas_tcc_function(solver, c_cas_occ, c_cas_vir, eris):
                 naux = eris.vvL.shape[-1]
                 vvl = pyscf.lib.unpack_tril(eris.vvL, axis=0).reshape(nvir,nvir,naux)
             else:
-                vvl = eris.vvl
+                vvl = eris.vvL
             vvl = einsum('IJQ,Ii,Jj->ijQ', vvl, rv, rv)
             g_cas[v,v,v,v] = einsum('ijQ,klQ->ijkl', vvl.conj(), vvl)
         else:

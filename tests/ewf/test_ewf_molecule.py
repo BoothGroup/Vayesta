@@ -5,6 +5,8 @@ from vayesta import ewf
 
 #TODO tighten thresholds once solver interface is finished
 
+# Use default conv_tol
+EWF_CONV_TOL = None
 
 class MoleculeEWFTest:
     ''' Abstract base class for molecular EWF tests.
@@ -38,18 +40,18 @@ class MoleculeEWFTest_LiH_ccpvdz_IAO_atoms(unittest.TestCase, MoleculeEWFTest):
         cls.mf = scf.RHF(cls.mol)
         cls.mf.conv_tol = 1e-12
         cls.mf.kernel()
+        assert cls.mf.converged
 
         cls.ewf = ewf.EWF(
                 cls.mf,
-                fragment_type='iao',
                 bath_type='all',
                 make_rdm1=True,
                 make_rdm2=True,
                 solver_options={
-                    'conv_tol': 1e-10,
-                    'conv_etol': 1e-10,
+                    'conv_tol': EWF_CONV_TOL,
                 },
         )
+        cls.ewf.iao_fragmentation()
         cls.ewf.make_all_atom_fragments()
         cls.ewf.kernel()
 
@@ -114,13 +116,12 @@ class MoleculeEWFTest_LiH_ccpvdz_Lowdin_AOs(unittest.TestCase, MoleculeEWFTest):
 
         cls.ewf = ewf.EWF(
                 cls.mf,
-                fragment_type='lowdin-ao',
                 bno_threshold=1e-5,
                 solver_options={
-                    'conv_tol': 1e-10,
-                    'conv_etol': 1e-10,
+                    'conv_tol': EWF_CONV_TOL,
                 },
         )
+        cls.ewf.sao_fragmentation()
         cls.ewf.make_ao_fragment([0, 1])
         cls.ewf.make_ao_fragment([2, 3, 4])
         cls.ewf.kernel()
@@ -144,13 +145,12 @@ class MoleculeEWFTest_LiH_ccpvdz_Lowdin_atoms(unittest.TestCase, MoleculeEWFTest
 
         cls.ewf = ewf.EWF(
                 cls.mf,
-                fragment_type='lowdin-ao',
                 bath_type=None,
                 solver_options={
-                    'conv_tol': 1e-10,
-                    'conv_etol': 1e-10,
+                    'conv_tol': EWF_CONV_TOL,
                 },
         )
+        cls.ewf.sao_fragmentation()
         cls.ewf.make_all_atom_fragments()
         cls.ewf.kernel()
 
@@ -161,7 +161,7 @@ class MoleculeEWFTest_N2_augccpvdz_stretched_FCI(unittest.TestCase, MoleculeEWFT
     @classmethod
     def setUpClass(cls):
         cls.mol = gto.Mole()
-        cls.mol.atom = 'N 0 0 0; N 0 0 2'
+        cls.mol.atom = 'N 0 0 0; N 0 0 2.0'
         cls.mol.basis = 'aug-cc-pvdz'
         cls.mol.verbose = 0
         cls.mol.max_memory = 1e9
@@ -176,14 +176,15 @@ class MoleculeEWFTest_N2_augccpvdz_stretched_FCI(unittest.TestCase, MoleculeEWFT
                 solver='FCI',
                 bno_threshold=100,
                 solver_options={
-                    'conv_tol': 1e-10,
-                    'conv_etol': 1e-10,
-                },
+                    'conv_tol' : 1e-14,
+                    'fix_spin' : 0.0,
+                    }
         )
+        cls.ewf.iao_fragmentation()
         cls.ewf.make_atom_fragment(0, sym_factor=2)
         cls.ewf.kernel()
 
-        cls.known_values = {'e_tot': -108.7770182190321}
+        cls.known_values = {'e_tot': -108.7770291262215}
 
 
 class MoleculeEWFTest_N2_ccpvdz_TCCSD(unittest.TestCase, MoleculeEWFTest):
@@ -205,10 +206,10 @@ class MoleculeEWFTest_N2_ccpvdz_TCCSD(unittest.TestCase, MoleculeEWFTest):
                 solver='TCCSD',
                 bno_threshold=1e-4,
                 solver_options={
-                    'conv_tol': 1e-10,
-                    'conv_etol': 1e-10,
+                    'conv_tol': EWF_CONV_TOL,
                 },
         )
+        cls.ewf.iao_fragmentation()
         cls.ewf.make_atom_fragment('N1', sym_factor=2)
         cls.ewf.kernel()
 
@@ -233,12 +234,11 @@ class MoleculeEWFTest_N2_ccpvdz_TCCSD_CAS(unittest.TestCase, MoleculeEWFTest):
                 cls.mf,
                 solver='TCCSD',
                 bno_threshold=1e-4,
-                fragment_type='iao',
                 solver_options={
-                    'conv_tol': 1e-10,
-                    'conv_etol': 1e-10,
+                    'conv_tol': EWF_CONV_TOL,
                 },
         )
+        cls.ewf.iao_fragmentation()
         cls.ewf.make_atom_fragment('N1', sym_factor=2)
         cls.ewf.fragments[0].set_cas(['0 N1 2p'])
         cls.ewf.kernel()
@@ -266,10 +266,10 @@ class MoleculeEWFTest_N2_ccpvdz_sc(unittest.TestCase, MoleculeEWFTest):
                 sc_mode=1,
                 sc_energy_tol=1e-9,
                 solver_options={
-                    'conv_tol': 1e-10,
-                    'conv_etol': 1e-10,
+                    'conv_tol': EWF_CONV_TOL,
                 },
         )
+        cls.ewf.iao_fragmentation()
         cls.ewf.make_atom_fragment(0, sym_factor=2)
         cls.ewf.kernel()
 
@@ -298,6 +298,7 @@ class MiscMoleculeEWFTests(unittest.TestCase):
 
     def test_reset(self):
         emb = ewf.EWF(self.mf, solver_options={'conv_tol': 1e-10})
+        emb.iao_fragmentation()
         frag = emb.make_atom_fragment(0)
         frag.kernel()
         for key in ['c_cluster_occ', 'c_cluster_vir', 'c_no_occ', 'c_no_vir', 'n_no_occ', 'n_no_vir']:
@@ -309,11 +310,12 @@ class MiscMoleculeEWFTests(unittest.TestCase):
     def test_eom(self):
         emb = ewf.EWF(
                 self.mf,
-                solver_options={'conv_tol': 1e-10},
+                solver_options={'conv_tol': EWF_CONV_TOL},
                 bno_threshold=1e-6,
                 eom_ccsd=['IP', 'EA', 'EE-S', 'EE-T', 'EE-SF'],
                 eom_ccsd_nroots=5,
         )
+        emb.iao_fragmentation()
         frag = emb.make_atom_fragment(0)
         frag.kernel()  #FIXME using this to build the cluster orbs, repeats solver calculation
         from vayesta.solver.solver_cc import CCSDSolver  #TODO move this to solver tests?
@@ -322,7 +324,8 @@ class MiscMoleculeEWFTests(unittest.TestCase):
         nvir = frag.c_cluster_vir.shape[1]
         nocc_frozen = np.sum(self.mf.mo_occ > 0) - nocc
         nvir_frozen = np.sum(self.mf.mo_occ == 0) - nvir
-        solver = CCSDSolver(frag, self.mf.mo_coeff, self.mf.mo_occ, nocc_frozen, nvir_frozen)
+        solver = CCSDSolver(frag, self.mf.mo_coeff, self.mf.mo_occ, nocc_frozen, nvir_frozen,
+                eom_ccsd=['IP', 'EA', 'EE-S', 'EE-T', 'EE-SF'], eom_ccsd_nroots=5)
         res = solver.kernel()
 
         self.assertAlmostEqual(res.ip_energy[0], 0.5810398549938971, 6)

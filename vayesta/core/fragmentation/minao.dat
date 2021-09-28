@@ -1,0 +1,26 @@
+# --- pbc.gto.basis
+# GTH
+gthszv              gth-szv
+gthdzv              gth-szv
+gthdzvp             gth-szv
+gthtzvp             gth-szv
+gthtzv2p            gth-szv
+gthqzv3p            gth-szv
+# GTH augmented
+gthaugdzvp          gth-szv
+gthaugtzvp          gth-szv
+gthaugtzv2p         gth-szv
+gthaugqzv2p         gth-szv
+gthaugqzv3p         gth-szv
+# GTH molopt
+gthszvmolopt        gth-szv-molopt
+gthdzvpmolopt       gth-szv-molopt
+gthtzvpmolopt       gth-szv-molopt
+gthtzv2pmolopt      gth-szv-molopt
+# GTH molopt short-range
+gthszvmoloptsr      gth-szv-molopt-sr
+gthdzvpmoloptsr     gth-szv-molopt-sr
+# GTH cc ...?
+gthccdzvp           none
+gthcctzvp           none
+gthccqzvp           none

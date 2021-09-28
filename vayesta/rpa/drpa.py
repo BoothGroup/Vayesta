@@ -7,7 +7,7 @@ from pyscf import ao2mo
 
 from vayesta.core.util import *
 from timeit import default_timer as timer
-
+import logging
 
 class dRPA:
     """Approach based on equations expressed succinctly in the appendix of
@@ -15,9 +15,9 @@ class dRPA:
     WARNING: Should only be used with canonical mean-field orbital coefficients in mf.mo_coeff and RHF.
     """
 
-    def __init__(self, mf, log):
+    def __init__(self, mf, log=None):
         self.mf = mf
-        self.log = log
+        self.log = log or logging.getLogger(__name__)
 
     @property
     def nocc(self):
@@ -28,17 +28,30 @@ class dRPA:
     @property
     def ov(self):
         return self.nocc * self.nvir
+    @property
+    def e_corr(self):
+        try:
+            return self.e_corr_ss
+        except AttributeError as e:
+            self.log.critical("Can only access rpa.e_corr after running rpa.kernel.")
+    @property
+    def e_tot(self):
+        return self.mf.e_tot + self.e_corr
 
     def kernel(self):
         """Solve same-spin component of dRPA response.
         At level of dRPA this is the only contribution to correlation energy; introduction of exchange will lead to
         spin-flip contributions.
         """
+        t_start = timer()
+
         M, AmB, ApB, v = self._gen_arrays()
+        t0 = timer()
+
         e, c = np.linalg.eigh(M)
         self.freqs_ss = e ** (0.5)
         assert (all(e > 1e-12))
-        self.ecorr = 0.5 * (sum(self.freqs_ss) - 2 * v.trace() - sum(AmB))
+        self.e_corr_ss = 0.5 * (sum(self.freqs_ss) - 2 * v.trace() - sum(AmB))
 
         XpY = np.einsum("n,p,pn->pn", self.freqs_ss ** (-0.5), AmB ** (0.5), c)
         XmY = np.einsum("n,p,pn->pn", self.freqs_ss ** (0.5), AmB ** (-0.5), c)
@@ -46,9 +59,14 @@ class dRPA:
         self.XmY_ss = (XmY[:self.ov], XmY[self.ov:])
 
         self.freqs_sf = (AmB[:self.ov], AmB[self.ov:])
-        return self.ecorr
+        self.log.timing("Time to solve RPA problem: %s", time_string(timer() - t0))
+
+        self.log.info("Total RPA wall time:  %s", time_string(timer()-t_start))
+
+        return self.e_corr_ss
 
     def _gen_arrays(self):
+        t0 = timer()
         # Only have diagonal components in canonical basis.
         eps = np.zeros((self.nocc, self.nvir))
         eps = eps + self.mf.mo_energy[self.nocc:]
@@ -66,6 +84,7 @@ class dRPA:
         ApB[np.diag_indices_from(ApB)] += AmB
 
         M = np.einsum("p,pq,q->pq", AmB**(0.5), ApB, AmB**(0.5))
+        self.log.timing("Time to build RPA arrays: %s", time_string(timer() - t0))
         return M, AmB, ApB, v
 
     def gen_moms(self, max_mom):

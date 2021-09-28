@@ -25,11 +25,12 @@ from pyscf.pbc.lib import kpts_helper
 # Package
 from vayesta.core.util import *
 import vayesta.libs
-
+import vayesta.misc
+import vayesta.misc.gdf
 
 log = logging.getLogger(__name__)
 
-def gdf_to_pyscf_eris(mf, gdf, cm, fock=None):
+def gdf_to_pyscf_eris(mf, gdf, cm, fock, mo_energy, e_hf):
     """Get supercell MO eris from k-point sampled GDF.
 
     This folds the MO back into k-space
@@ -43,8 +44,10 @@ def gdf_to_pyscf_eris(mf, gdf, cm, fock=None):
         Gaussian density-fit object of primitive cell (with k-points)
     cm: `pyscf.mp.mp2.MP2`, `pyscf.cc.dfccdf.RCCSD`, or `pyscf.cc.ccsd.CCSD`
         Correlated method, must have `mo_coeff` set.
-    fock: (N,N) array, optional
-        Fock matrix. If None, calculated via `mf.get_fock()`.
+    fock: (n(AO),n(AO)) array
+        Fock matrix
+    mo_energy: (n(MO),) array
+        MO energies.
 
     Returns
     -------
@@ -53,45 +56,41 @@ def gdf_to_pyscf_eris(mf, gdf, cm, fock=None):
     """
     log.debugv("Correlated method in gdf_to_pyscf_eris= %s", type(cm))
 
-    if fock is None: fock = mf.get_fock()
-
     only_ovov = False
     store_vvl = False
-    # MP2 ERIS
+    # MP2 ERIs
     if isinstance(cm, pyscf.mp.mp2.MP2):
         from pyscf.mp.mp2 import _ChemistsERIs
-        eris = _ChemistsERIs()
         sym = False
         only_ovov = True
-    # Coupled-cluster ERIS
+    # Coupled-cluster ERIs
     elif isinstance(cm, pyscf.cc.rccsd.RCCSD):
         from pyscf.cc.rccsd import _ChemistsERIs
-        eris = _ChemistsERIs()
         sym = False
     elif isinstance(cm, pyscf.cc.dfccsd.RCCSD):
         from pyscf.cc.dfccsd import _ChemistsERIs
-        eris = _ChemistsERIs()
         store_vvl = True
         sym = True
     elif isinstance(cm, pyscf.cc.ccsd.CCSD):
         from pyscf.cc.ccsd import _ChemistsERIs
-        eris = _ChemistsERIs()
         sym = True
     else:
         raise NotImplementedError("Unknown correlated method= %s" % type(cm))
 
+    eris = _ChemistsERIs()
     mo_coeff = _mo_without_core(cm, cm.mo_coeff)
     eris.mo_coeff = mo_coeff
     eris.nocc = cm.nocc
-    eris.e_hf = cm._scf.e_tot
-    eris.fock = np.linalg.multi_dot((mo_coeff.T, fock, mo_coeff))
-    eris.mo_energy = eris.fock.diagonal().copy()
+    eris.e_hf = e_hf
+    fock = fock() if callable(fock) else fock
+    eris.fock = dot(mo_coeff.T, fock, mo_coeff)
+    eris.mo_energy = mo_energy
 
     # Remove EXXDIV correction from Fock matrix (necessary for CCSD)
-    if mf.exxdiv and isinstance(cm, pyscf.cc.ccsd.CCSD):
-        madelung = pyscf.pbc.tools.madelung(mf.mol, mf.kpt)
-        for i in range(eris.nocc):
-            eris.fock[i,i] += madelung
+    #if mf.exxdiv and isinstance(cm, pyscf.cc.ccsd.CCSD):
+    #    madelung = pyscf.pbc.tools.madelung(mf.mol, mf.kpt)
+    #    for i in range(eris.nocc):
+    #        eris.fock[i,i] += madelung
 
     # TEST: compare real_j3c = True and False
     #g_r = gdf_to_eris(gdf, mo_coeff, cm.nocc, only_ovov=only_ovov, real_j3c=True)
@@ -132,7 +131,6 @@ def gdf_to_eris(gdf, mo_coeff, nocc, only_ovov=False, real_j3c=True, symmetry=Fa
     store_vvl : bool, optional
         If True, do not perform contraction (vv|L)(L|vv)->(vv|vv) and instead store three-center
         elements (vv|L). This is needed for the pyscf.cc.dfccsd.RCCSD class. Default: False.
-
 
     Returns
     -------
@@ -382,7 +380,7 @@ class ThreeCenterInts:
             if kptsym:
                 nkij = self.nk*(self.nk+1)//2
                 j3c = np.zeros((nkij, self.naux, self.nao, self.nao), dtype=complex)
-                kuniq_map = np.zeros((self.nk, self.nk), dtype=np.int)
+                kuniq_map = np.zeros((self.nk, self.nk), dtype=int)
             else:
                 j3c = np.zeros((self.nk, self.nk, self.naux, self.nao, self.nao), dtype=complex)
                 kuniq_map = None
@@ -431,8 +429,9 @@ class ThreeCenterInts:
             nkuniq = j3c.shape[0]
             log.info("Nkuniq= %3d", nkuniq)
             # Check map
-            _get_kpt_hash = pyscf.pbc.df.df_incore._get_kpt_hash
-            kuniq_map = np.zeros((self.nk, self.nk), dtype=np.int)
+            #_get_kpt_hash = pyscf.pbc.df.df_incore._get_kpt_hash
+            _get_kpt_hash = vayesta.misc.gdf._get_kpt_hash
+            kuniq_map = np.zeros((self.nk, self.nk), dtype=int)
             # 2D systems not supported in incore version:
             j3c_neg = None
             for ki in range(self.nk):

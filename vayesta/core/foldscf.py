@@ -16,21 +16,24 @@ except ImportError:
 
 log = logging.getLogger(__name__)
 
-def unfold_scf(kmf, *args, **kwargs):
-    """Unfold k-point sampled mean-field object to Born-von Karman (BVK) supercell.
-    See also :class:`UnfoldedSCF`."""
+def fold_scf(kmf, *args, **kwargs):
+    """Fold k-point sampled mean-field object to Born-von Karman (BVK) supercell.
+    See also :class:`FoldedSCF`."""
     if isinstance(kmf, pyscf.pbc.scf.khf.KRHF):
-        return UnfoldedRHF(kmf, *args, **kwargs)
+        return FoldedRHF(kmf, *args, **kwargs)
     if isinstance(kmf, pyscf.pbc.scf.kuhf.KUHF):
-        return UnfoldedUHF(kmf, *args, **kwargs)
+        return FoldedUHF(kmf, *args, **kwargs)
     raise NotImplementedError("Mean-field type= %r" % kmf)
 
-class UnfoldedSCF:
-    """Unfold k-point sampled KRHF calculation to the BVK (Born-von Karman) supercell.
+class FoldedSCF:
+    """Fold k-point sampled SCF calculation to the BVK (Born-von Karman) supercell.
 
     This class automatically updates the attributes `mo_energy`, `mo_coeff`, `mo_occ`, `e_tot`, and `converged`.
     It also overwrites the methods `get_ovlp`, `get_hcore`, and `get_veff`,
-    calling its more efficient k-space variant first and unfolding the result to the supercell.
+    calling its more efficient k-space variant first and folding the result to the supercell.
+
+    Since `get_hcore` and `get_veff` are implemented, `get_fock` is supported automatically,
+    if the inherited base SCF class implements it.
 
     Attributes
     ----------
@@ -71,39 +74,34 @@ class UnfoldedSCF:
 
     def get_veff(self, mol=None, dm=None, *args, **kwargs):
         assert (mol is None or mol is self.mol)
-        if dm is not None:
-            # Fold DM into k-space
-            dm = bvk2k_2d(dm, self.kphase)
+        # Unfold DM into k-space
+        if dm is not None: dm = bvk2k_2d(dm, self.kphase)
         vk = self.kmf.get_veff(dm_kpts=dm, *args, **kwargs)
         veff = k2bvk_2d(vk, self.kphase)
         return veff
 
-class UnfoldedRHF(UnfoldedSCF, pyscf.pbc.scf.hf.RHF):
-    __doc__ = UnfoldedSCF.__doc__
+class FoldedRHF(FoldedSCF, pyscf.pbc.scf.hf.RHF):
+    __doc__ = FoldedSCF.__doc__
 
     def __init__(self, kmf, *args, **kwargs):
         super().__init__(kmf, *args, **kwargs)
-        t0 = timer()
         self.mo_energy, self.mo_coeff, self.mo_occ = \
-                unfold_mos(kmf.mo_energy, kmf.mo_coeff, kmf.mo_occ, self.kphase, self.get_ovlp())
-        log.timing("Time for MO unfolding: %s", time_string(timer()-t0))
+                fold_mos(kmf.mo_energy, kmf.mo_coeff, kmf.mo_occ, self.kphase, self.get_ovlp())
         assert np.all(self.mo_coeff.imag == 0)
 
-class UnfoldedUHF(UnfoldedSCF, pyscf.pbc.scf.uhf.UHF):
-    __doc__ = UnfoldedSCF.__doc__
+class FoldedUHF(FoldedSCF, pyscf.pbc.scf.uhf.UHF):
+    __doc__ = FoldedSCF.__doc__
 
     def __init__(self, kmf, *args, **kwargs):
         super().__init__(kmf, *args, **kwargs)
-        t0 = timer()
         ovlp = self.get_ovlp()
         self.mo_energy, self.mo_coeff, self.mo_occ = zip(
-                unfold_mos(kmf.mo_energy[0], kmf.mo_coeff[0], kmf.mo_occ[0], self.kphase, ovlp),
-                unfold_mos(kmf.mo_energy[1], kmf.mo_coeff[1], kmf.mo_occ[1], self.kphase, ovlp))
-        log.timing("Time for MO unfolding: %s", time_string(timer()-t0))
+                fold_mos(kmf.mo_energy[0], kmf.mo_coeff[0], kmf.mo_occ[0], self.kphase, ovlp),
+                fold_mos(kmf.mo_energy[1], kmf.mo_coeff[1], kmf.mo_occ[1], self.kphase, ovlp))
         assert np.all(self.mo_coeff[0].imag == 0)
         assert np.all(self.mo_coeff[1].imag == 0)
 
-def unfold_mos(kmo_energy, kmo_coeff, kmo_occ, kphase, ovlp, make_real=True):
+def fold_mos(kmo_energy, kmo_coeff, kmo_occ, kphase, ovlp, make_real=True):
     # --- MO energy and occupations
     mo_energy = np.hstack(kmo_energy)
     mo_occ = np.hstack(kmo_occ)
@@ -122,12 +120,12 @@ def unfold_mos(kmo_energy, kmo_coeff, kmo_occ, kphase, ovlp, make_real=True):
     # --- Make MOs real
     if make_real:
         mo_coeff = make_mo_coeff_real(mo_energy, mo_coeff, ovlp)
-    # Check orthonormality of unfolded MOs
+    # Check orthonormality of folded MOs
     err = abs(np.linalg.multi_dot((mo_coeff.T.conj(), ovlp, mo_coeff)) - np.eye(mo_coeff.shape[-1])).max()
-    if err > 1e-10:
+    if err > 1e-7:
         raise RuntimeError("Unfolded MOs not orthonormal! L(inf)= %.3e" % err)
     else:
-        log.debugv("Unfolded MOs orthonrmality error: L(inf)= %.3e" % err)
+        log.debugv("Unfolded MOs orthonormality error: L(inf)= %.3e" % err)
 
     return mo_energy, mo_coeff, mo_occ
 
@@ -214,7 +212,6 @@ def bvk2k_2d(ag, phase):
     ag = ag.reshape(shape)
     ak = einsum('kR,...RiSj,kS->...kij', phase.conj(), ag, phase)
     return ak
-
 
 
 #def rotate_mo_to_real(cell, mo_energy, mo_coeff, degen_tol=1e-3, rotate_degen=True):
@@ -448,7 +445,7 @@ if __name__ == '__main__':
     khf = khf.density_fit(auxbasis='cc-pvdz-jkfit')
     khf.kernel()
 
-    hf = unfold_scf(khf)
+    hf = fold_scf(khf)
 
     scell = pyscf.pbc.tools.super_cell(cell, kmesh)
     shf = scf.RHF(scell)
