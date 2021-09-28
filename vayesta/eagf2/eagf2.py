@@ -27,10 +27,6 @@ class EAGF2Options(RAGF2Options):
     ''' Options for EAGF2 calculations - see `RAGF2Options`.
     '''
 
-    # --- Fragment settings
-    fragment_type: str = 'Lowdin-AO'
-    iao_minao: str = 'auto'
-
     # --- Bath settings
     bath_type: str = 'POWER'    # 'MP2-BNO', 'POWER', 'ALL', 'NONE'
     max_bath_order: int = 2
@@ -182,22 +178,6 @@ class EAGF2(QEmbeddingMethod):
             self.log.info("Max. orbital change= %.2e%s", change.max(),
                           " (!!!)" if change.max() > 1e-4 else "")
             self.log.timing("Time for orbital orthogonalization: %s", time_string(timer()-t0))
-
-        # --- Prepare fragments
-        t1 = timer()
-        fragkw = {}
-        if self.opts.fragment_type.upper() == 'IAO':
-            raise NotImplementedError("IAOs are not yet supported for EAGF2")
-            if self.opts.iao_minao == 'auto':
-                self.opts.iao_minao = helper.get_minimal_basis(self.mol.basis)
-                self.log.warning("Minimal basis set '%s' for IAOs was selected automatically.",
-                                 self.opts.iao_minao)
-            self.log.info("Computational basis= %s", self.mol.basis)
-            self.log.info("Minimal basis=       %s", self.opts.iao_minao)
-            fragkw['minao'] = self.opts.iao_minao
-        self.init_fragmentation(self.opts.fragment_type, **fragkw)
-        self.symfrags = []
-        self.log.timing("Time for fragment initialization: %s", time_string(timer() - t1))
 
         self.log.timing("Time for EAGF2 setup: %s", time_string(timer() - t0))
 
