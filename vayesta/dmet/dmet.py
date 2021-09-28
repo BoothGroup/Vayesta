@@ -145,7 +145,7 @@ class DMET(QEmbeddingMethod):
         self.pop_mf = None
         #self.pop_mf_chg = None
 
-        self.vcorr = np.zeros_like(self.mf.get_ovlp())
+        self.vcorr = None
 
         self.iteration = 0
         self.cluster_results = {}
@@ -184,6 +184,8 @@ class DMET(QEmbeddingMethod):
                                       " not work properly for self-consistent calculations.")
         #rdm = self.mf.make_rdm1()
         fock = self.get_fock()
+        self.vcorr = np.zeros((self.nao,)*2)
+
         cpt = 0.0
         mf = self.mf
 
@@ -191,16 +193,13 @@ class DMET(QEmbeddingMethod):
         sym_children = self.get_symmetry_child_fragments()
         nsym = [len(x) + 1 for x in sym_children]
 
-
-        if self.opts.mixing_variable == "hl rdm":
-            param_shape =  [(x.c_frag.shape[1],x.c_frag.shape[1]) for x in sym_parents]
-        else:
+        if not self.opts.mixing_variable == "hl rdm":
             raise ValueError("Only DIIS extrapolation of the high-level rdms is current implemented.")
 
         if self.opts.diis:
-            self.updater = DIISUpdate(param_shape)
+            self.updater = DIISUpdate()
         else:
-            self.updater = MixUpdate(param_shape, self.opts.mixing_param)
+            self.updater = MixUpdate(self.opts.mixing_param)
 
         impurity_projectors = [
             [parent.c_frag] + [c.c_frag for c in children] for (parent, children) in zip(sym_parents, sym_children)

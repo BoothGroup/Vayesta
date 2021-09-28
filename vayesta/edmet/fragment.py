@@ -259,7 +259,7 @@ class EDMETFragment(DMETFragment):
         )
         return e1, e2, efb
 
-    def get_correlation_kernel_contrib(self, epsilon, eris = None):
+    def construct_correlation_kernel_contrib(self, epsilon, m0_new, m1_new, eris = None):
         """
         Generate the contribution to the correlation kernel arising from this fragment.
         """
@@ -269,8 +269,8 @@ class EDMETFragment(DMETFragment):
         AmB_orig = self.AmB_new
         m0_orig = self.m0_new
 
-        m0_new = self.results.dd_mom0
-        m1_new = self.results.dd_mom1
+        #m0_new = self.results.dd_mom0
+        #m1_new = self.results.dd_mom1
 
 
         nocc_loc = self.n_active_occ
@@ -344,7 +344,17 @@ class EDMETFragment(DMETFragment):
         V_B_bb = proj_all_indices((new_B[ov_loc: 2 * ov_loc, ov_loc: 2 * ov_loc] - v).reshape(newshape))
         V_B_ab = proj_all_indices((new_B[:ov_loc:, ov_loc: 2 * ov_loc] - v).reshape(newshape))
 
-        # Now need to project back out to full space. This requires an additional factor of the overlap in our
+        return V_A_aa, V_A_ab, V_A_bb, V_B_aa, V_B_ab, V_B_bb
+
+    def get_correlation_kernel_contrib(self, epsilon, dd0, dd1, eris = None):
+
+        if self.sym_parent is None:
+            V_A_aa, V_A_ab, V_A_bb, V_B_aa, V_B_ab, V_B_bb = self.construct_correlation_kernel_contrib(
+                                                                                    epsilon, dd0, dd1, eris)
+        else:
+            V_A_aa, V_A_ab, V_A_bb, V_B_aa, V_B_ab, V_B_bb = self.sym_parent.construct_correlation_kernel_contrib(
+                                                                                    epsilon, dd0, dd1, eris)
+        # Now need to project back out to full space. This requires an additional factor of the overlap in ou
         # coefficients.
         c_occ = np.dot(self.base.get_ovlp(), self.c_active_occ)
         c_vir = np.dot(self.base.get_ovlp(), self.c_active_vir)
