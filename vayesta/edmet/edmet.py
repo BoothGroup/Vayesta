@@ -14,7 +14,7 @@ from vayesta.dmet.sdp_sc import perform_SDP_fit
 
 
 from vayesta.dmet import DMET
-from vayesta.rpa import dRPA
+from vayesta.rpa import ssRPA
 
 from vayesta.dmet.updates import MixUpdate, DIISUpdate
 
@@ -42,8 +42,6 @@ class EDMET(DMET):
         self.interaction_kernel = None
         # Need to calculate dd moments for self-consistency to work.
         self.opts.make_dd_moments = True #self.opts.maxiter > 1
-        if self.opts.maxiter > 1:
-            raise NotImplementedError("EDMET does not yet support self-consistency of any description.")
 
 
     def kernel(self):
@@ -59,7 +57,7 @@ class EDMET(DMET):
         # Initialise parameters for self-consistency iteration
         fock = self.get_fock()
         self.vcorr = np.zeros((self.nao,)*2)
-        self.xc_kernel = np.zeros((self.nao,)*4)
+        self.xc_kernel = [np.zeros((self.nao,)*4)]*3
 
         cpt = 0.0
         mf = self.mf
@@ -93,12 +91,13 @@ class EDMET(DMET):
             # Need to optimise a global chemical potential to ensure electron number is converged.
 
 
-            # First, set up and run RPA.
-            rpa = dRPA(self.mf, self.log)
-            rpa.kernel()
+            # First, set up and run RPA. Note that we don't have to use RPAX, as our self-consistency only couples
+            # same-spin excitations.
+            rpa = ssRPA(self.mf, self.log)
+            rpa.kernel(xc_kernel = self.xc_kernel)
 
             # Then generate RPA moments, currently just up to mean.
-            rpa_moms = rpa.gen_moms(1)
+            rpa_moms = rpa.gen_moms(1, self.xc_kernel)
 
             # Then optimise chemical potential to match local electron number...
             nelec_mf = 0.0

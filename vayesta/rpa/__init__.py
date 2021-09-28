@@ -3,5 +3,5 @@ Author: Charles Scott
 email:  cjcargillscott@gmail.com
 """
 
-from .drpa import dRPA
+from .ssrpa import ssRPA
 from .rpa import RPA

@@ -53,7 +53,7 @@ class HubbarddRPATest_N30_U8(unittest.TestCase, HubbarddRPATest):
         cls.mol, cls.mf = set_up_1D_Hubbard(30, 8.0, 30)
         cls.rpa = rpa.RPA(cls.mf)
         cls.rpa.kernel("drpa")
-        cls.rpa2 = rpa.dRPA(cls.mf)
+        cls.rpa2 = rpa.ssRPA(cls.mf)
         cls.rpa2.kernel()
         cls.known_values = {"e_tot": -1.2875037735538157}
 
@@ -71,7 +71,7 @@ class HubbarddRPAXTest_N6x6_U2_26elec(unittest.TestCase, HubbarddRPATest):
         cls.mol, cls.mf = set_up_2D_Hubbard((6,6), 6.0, 26)
         cls.rpa = rpa.RPA(cls.mf)
         cls.rpa.kernel("drpa")
-        cls.rpa2 = rpa.dRPA(cls.mf)
+        cls.rpa2 = rpa.ssRPA(cls.mf)
         cls.rpa2.kernel()
         cls.known_values = {"e_tot": -41.069807438783826}
 

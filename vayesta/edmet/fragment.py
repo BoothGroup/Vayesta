@@ -139,8 +139,7 @@ class EDMETFragment(DMETFragment):
         #print(AmB_new)
         #print("Alternative AmB calculation:", rpa_moms["AmB"].shape, locrot.shape)
         #print(einsum("pn,n,qn->pq",locrot, rpa_moms["AmB"], locrot))
-
-        maxdev = abs(AmB_new[:2*ov_loc,:2*ov_loc] -  einsum("pn,n,qn->pq",locrot, rpa_moms["AmB"], locrot)).max()
+        maxdev = abs(AmB_new[:2*ov_loc,:2*ov_loc] - einsum("pn,nm,qm->pq",locrot, rpa_moms["AmB"], locrot)).max()
         if maxdev > 1e-8:
             self.log.fatal("Unexpected deviation from exact irreducible polarisation propagator: {:6.4e}".format(maxdev))
             raise EDMETFragmentExit
