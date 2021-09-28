@@ -135,6 +135,17 @@ class EAGF2Fragment(QEmbeddingFragment):
         self.qmo_occ = self.mf.get_occ(self.qmo_energy, self.qmo_coeff)
 
 
+    #TODO other properties assuming AO c_frag?
+    #FIXME wrong value is printed during initialization, but accurate afterward because ao->mo
+    @property
+    def nelectron(self):
+        #TODO check this
+        c = np.dot(self.base.get_ovlp(), self.mf.mo_coeff)
+        rdm1 = np.linalg.multi_dot((c.T.conj(), self.mf.make_rdm1(), c))
+        ne = np.einsum('ai,ab,bi->', self.c_frag.conj(), rdm1, self.c_frag)
+        return ne
+
+
     def make_power_bath(self, max_order=None, c_frag=None, c_env=None):
         ''' Make power bath orbitals.
 

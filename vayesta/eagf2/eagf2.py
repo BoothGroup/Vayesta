@@ -225,14 +225,6 @@ class EAGF2(QEmbeddingMethod):
     def converged(self):
         return self.results.converged
 
-    #TODO other properties assuming AO c_frag?
-    @property
-    def nelectron(self):
-        #TODO check this
-        rdm1 = np.linalg.multi_dot((self.mf.mo_coeff.T.conj(), self.mf.make_rdm1(), self.mf.mo_coeff))
-        ne = np.einsum('ai,ab,bi->', self.c_frag.conj(), rdm1, self.c_frag)
-        return ne
-
 
     #TODO break up into functions
     def kernel(self):
