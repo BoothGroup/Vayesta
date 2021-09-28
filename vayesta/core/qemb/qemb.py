@@ -132,16 +132,16 @@ class QEmbedding:
         # Original mean-field integrals - do not change these!
         with log_time(self.log.timingv, "Time for overlap: %s"):
             self._ovlp_orig = self.mf.get_ovlp()
+        self._ovlp = self._ovlp_orig
         with log_time(self.log.timingv, "Time for hcore: %s"):
             self._hcore_orig = self.mf.get_hcore()
+        self._hcore = self._hcore_orig
         # Do not call self.mf.get_veff() here: if mf is a converged HF calculation,
         # the potential can be deduced from mf.mo_energy and mf.mo_coeff.
         # Set recalc_vhf = False to use this feature.
         with log_time(self.log.timingv, "Time for veff: %s"):
             self._veff_orig = self.get_init_veff()
         # Cached integrals - these can be changed!
-        self._ovlp = self._ovlp_orig
-        self._hcore = self._hcore_orig
         self._veff = self._veff_orig
 
         # Some MF output
