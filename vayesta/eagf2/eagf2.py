@@ -32,7 +32,7 @@ class EAGF2Options(RAGF2Options):
     max_bath_order: int = 2
     bno_threshold: float = 1e-8
     bno_threshold_factor: float = 1.0
-    dmet_threshold: float = 1e-4
+    dmet_threshold: float = 1e-8
 
     # --- Moment settings
     democratic: bool = True

@@ -29,7 +29,7 @@ class EAGF2FragmentOptions(OptionsBase):
     max_bath_order: int = NotSet
     bno_threshold: float = NotSet
     bno_threshold_factor: float = NotSet
-    dmet_threshold: float = 1e-4
+    dmet_threshold: float = NotSet
 
     # --- Moment settings
     democratic: bool = NotSet
@@ -185,6 +185,7 @@ class EAGF2Fragment(QEmbeddingFragment):
                 max_order=max_order,
                 c_frag=c_frag,
                 c_env=c_env,
+                tol=self.opts.dmet_threshold,
         )
 
         self.log.timing("Time for power orbital bath:  %s", time_string(timer() - t0))
