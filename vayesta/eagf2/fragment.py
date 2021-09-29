@@ -2,10 +2,7 @@ import dataclasses
 
 import numpy as np
 
-import pyscf
-import pyscf.lib
-import pyscf.agf2
-import pyscf.ao2mo
+from pyscf import lib, agf2, ao2mo
 
 from vayesta.core.util import OptionsBase, NotSet, time_string
 from vayesta.core import QEmbeddingFragment
@@ -17,6 +14,67 @@ try:
     timer = MPI.Wtime
 except ImportError:
     from timeit import default_timer as timer
+
+
+def build_moments(
+        frag,
+        mo_coeff_occ, mo_coeff_vir,
+        mo_coeff_occ_other, mo_coeff_vir_other,
+        which='occupied',
+):
+    '''
+    Construct the first two moments of the occupied self-energy due to
+    a pair of clusters.
+    '''
+
+    ci_p = np.dot(frag.mf.mo_coeff, mo_coeff_occ)
+    ca_p = np.dot(frag.mf.mo_coeff, mo_coeff_vir)
+    c_p = np.hstack((ci_p, ca_p))
+
+    ci_q = np.dot(frag.mf.mo_coeff, mo_coeff_occ_other)
+    ca_q = np.dot(frag.mf.mo_coeff, mo_coeff_vir_other)
+    c_q = np.hstack((ci_q, ca_q))
+
+    occ = slice(None, frag.mf.mol.nelectron // 2)
+    vir = slice(frag.mf.mol.nelectron // 2, None)
+    if which.lower().startswith('vir'):
+        ci_p, ca_p = ca_p, ci_p
+        ci_q, ca_q = ca_q, ci_q
+        occ, vir = vir, occ
+
+    ci = frag.mf.mo_coeff[:, occ]
+    ca = frag.mf.mo_coeff[:, vir]
+
+    ei = frag.mf.mo_energy[occ]
+    ea = frag.mf.mo_energy[vir]
+
+    pija = ao2mo.general(frag.mf._eri, (c_p, ci_p, ci, ca), compact=False)
+    pija = pija.reshape([c.shape[1] for c in (c_p, ci_p, ci, ca)])
+
+    qija = ao2mo.general(frag.mf._eri, (c_q, ci_q, ci, ca), compact=False)
+    qija = qija.reshape([c.shape[1] for c in (c_q, ci_q, ci, ca)])
+
+    qjia = ao2mo.general(frag.mf._eri, (c_q, ci, ci_q, ca), compact=False)
+    qjia = qjia.reshape([c.shape[1] for c in (c_q, ci, ci_q, ca)])
+
+    eija = lib.direct_sum('i+j-a->ija', ei, ei, ea)
+    eija = lib.einsum('ija,ik,il->klja', eija, ci_p[occ], ci_q[occ])
+
+    c_pq = np.dot(ci_p.T, ci_q)
+
+    t0 = (
+        + 2.0 * lib.einsum('pika,qjka,ij->pq', pija, qija, c_pq)
+        - 1.0 * lib.einsum('pika,qkja,ij->pq', pija, qjia, c_pq)
+    )
+
+    pija = lib.einsum('pika,ijka->pjka', pija, eija)
+
+    t1 = (
+        + 2.0 * lib.einsum('pija,qija->pq', pija, qija)
+        - 1.0 * lib.einsum('pija,qjia->pq', pija, qjia)
+    )
+
+    return np.array([t0, t1])
 
 
 @dataclasses.dataclass
@@ -129,7 +187,7 @@ class EAGF2Fragment(QEmbeddingFragment):
         self.c_cls_vir = None
 
         # Initialise with no auxiliary space:
-        self.se = pyscf.agf2.SelfEnergy([], [[],]*self.mf.mo_occ.size)
+        self.se = agf2.SelfEnergy([], [[],]*self.mf.mo_occ.size)
         self.fock = np.diag(self.mf.mo_energy)
         self.qmo_energy, self.qmo_coeff = np.linalg.eigh(self.fock)
         self.qmo_occ = self.mf.get_occ(self.qmo_energy, self.qmo_coeff)
@@ -413,58 +471,72 @@ class EAGF2Fragment(QEmbeddingFragment):
                     other_frag.canonicalize_qmo(other_frag.c_cls_vir, eigvals=True)
             mo_coeff_other = np.hstack((mo_coeff_occ_other, mo_coeff_vir_other))
 
-            c_occ_other = np.dot(self.mf.mo_coeff, mo_coeff_occ_other[:solver.nact])
-            c_vir_other = np.dot(self.mf.mo_coeff, mo_coeff_vir_other[:solver.nact])
+            #c_occ_other = np.dot(self.mf.mo_coeff, mo_coeff_occ_other[:solver.nact])
+            #c_vir_other = np.dot(self.mf.mo_coeff, mo_coeff_vir_other[:solver.nact])
 
-            q_occ = np.dot(mo_coeff_occ_other.T, mo_coeff_occ)
-            q_vir = np.dot(mo_coeff_vir_other.T, mo_coeff_vir)
+            #q_occ = np.dot(mo_coeff_occ_other.T, mo_coeff_occ)
+            #q_vir = np.dot(mo_coeff_vir_other.T, mo_coeff_vir)
 
-            #TODO allow different left and right vectors in moment construction code
-            eija = pyscf.lib.direct_sum('i+j-a->ija', mo_energy_occ, mo_energy_occ, mo_energy_vir)
-            cx = np.hstack((c_occ, c_vir))
-            ci = c_occ
-            ca = c_vir
-            xija = pyscf.ao2mo.incore.general(self.mf._eri, (cx, ci, ci, ca), compact=False)
-            xija = xija.reshape([x.shape[1] for x in (cx, ci, ci, ca)])
-            cx = np.hstack((c_occ_other, c_vir_other))
-            ci = np.dot(c_occ_other, q_occ) 
-            ca = np.dot(c_vir_other, q_vir)
-            yija = pyscf.ao2mo.incore.general(self.mf._eri, (cx, ci, ci, ca), compact=False)
-            yija = yija.reshape([x.shape[1] for x in (cx, ci, ci, ca)])
-            t_occ = [
-                (
-                    + 2.0 * pyscf.lib.einsum('xija,yija->xy', xija, yija)
-                    - 1.0 * pyscf.lib.einsum('xija,yjia->xy', xija, yija)
-                ),
-                (
-                    + 2.0 * pyscf.lib.einsum('xija,yija,ija->xy', xija, yija, eija)
-                    - 1.0 * pyscf.lib.einsum('xija,yjia,ija->xy', xija, yija, eija)
-                )
-            ]
-            del xija, yija, eija
+            ##TODO allow different left and right vectors in moment construction code
+            #eija = pyscf.lib.direct_sum('i+j-a->ija', mo_energy_occ, mo_energy_occ, mo_energy_vir)
+            #cx = np.hstack((c_occ, c_vir))
+            #ci = c_occ
+            #ca = c_vir
+            #xija = pyscf.ao2mo.incore.general(self.mf._eri, (cx, ci, ci, ca), compact=False)
+            #xija = xija.reshape([x.shape[1] for x in (cx, ci, ci, ca)])
+            #cx = np.hstack((c_occ_other, c_vir_other))
+            #ci = np.dot(c_occ_other, q_occ) 
+            #ca = np.dot(c_vir_other, q_vir)
+            #yija = pyscf.ao2mo.incore.general(self.mf._eri, (cx, ci, ci, ca), compact=False)
+            #yija = yija.reshape([x.shape[1] for x in (cx, ci, ci, ca)])
+            #t_occ = [
+            #    (
+            #        + 2.0 * pyscf.lib.einsum('xija,yija->xy', xija, yija)
+            #        - 1.0 * pyscf.lib.einsum('xija,yjia->xy', xija, yija)
+            #    ),
+            #    (
+            #        + 2.0 * pyscf.lib.einsum('xija,yija,ija->xy', xija, yija, eija)
+            #        - 1.0 * pyscf.lib.einsum('xija,yjia,ija->xy', xija, yija, eija)
+            #    )
+            #]
+            #del xija, yija, eija
 
-            eabi = pyscf.lib.direct_sum('a+b-i->abi', mo_energy_vir, mo_energy_vir, mo_energy_occ)
-            cx = np.hstack((c_occ, c_vir))
-            ca = c_vir
-            ci = c_occ
-            xabi = pyscf.ao2mo.incore.general(self.mf._eri, (cx, ca, ca, ci), compact=False)
-            xabi = xabi.reshape([x.shape[1] for x in (cx, ca, ca, ci)])
-            cx = np.hstack((c_occ_other, c_vir_other))
-            ca = np.dot(c_vir_other, q_vir)
-            ci = np.dot(c_occ_other, q_occ)
-            yabi = pyscf.ao2mo.incore.general(self.mf._eri, (cx, ca, ca, ci), compact=False)
-            yabi = yabi.reshape([x.shape[1] for x in (cx, ca, ca, ci)])
-            t_vir = [
-                (
-                    + 2.0 * pyscf.lib.einsum('xabi,yabi->xy', xabi, yabi)
-                    - 1.0 * pyscf.lib.einsum('xabi,ybai->xy', xabi, yabi)
-                ),
-                (
-                    + 2.0 * pyscf.lib.einsum('xabi,yabi,abi->xy', xabi, yabi, eabi)
-                    - 1.0 * pyscf.lib.einsum('xabi,ybai,abi->xy', xabi, yabi, eabi)
-                )
-            ]
-            del xabi, yabi, eabi
+            #eabi = pyscf.lib.direct_sum('a+b-i->abi', mo_energy_vir, mo_energy_vir, mo_energy_occ)
+            #cx = np.hstack((c_occ, c_vir))
+            #ca = c_vir
+            #ci = c_occ
+            #xabi = pyscf.ao2mo.incore.general(self.mf._eri, (cx, ca, ca, ci), compact=False)
+            #xabi = xabi.reshape([x.shape[1] for x in (cx, ca, ca, ci)])
+            #cx = np.hstack((c_occ_other, c_vir_other))
+            #ca = np.dot(c_vir_other, q_vir)
+            #ci = np.dot(c_occ_other, q_occ)
+            #yabi = pyscf.ao2mo.incore.general(self.mf._eri, (cx, ca, ca, ci), compact=False)
+            #yabi = yabi.reshape([x.shape[1] for x in (cx, ca, ca, ci)])
+            #t_vir = [
+            #    (
+            #        + 2.0 * pyscf.lib.einsum('xabi,yabi->xy', xabi, yabi)
+            #        - 1.0 * pyscf.lib.einsum('xabi,ybai->xy', xabi, yabi)
+            #    ),
+            #    (
+            #        + 2.0 * pyscf.lib.einsum('xabi,yabi,abi->xy', xabi, yabi, eabi)
+            #        - 1.0 * pyscf.lib.einsum('xabi,ybai,abi->xy', xabi, yabi, eabi)
+            #    )
+            #]
+            #del xabi, yabi, eabi
+
+            t_occ = build_moments(
+                    self,
+                    mo_coeff_occ, mo_coeff_vir,
+                    mo_coeff_occ_other, mo_coeff_vir_other,
+                    'occupied',
+            )
+
+            t_vir = build_moments(
+                    self,
+                    mo_coeff_occ, mo_coeff_vir,
+                    mo_coeff_occ_other, mo_coeff_vir_other,
+                    'virtual',
+            )
 
         results = EAGF2FragmentResults(
                 fid=self.id,
