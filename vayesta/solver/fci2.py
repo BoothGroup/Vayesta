@@ -50,9 +50,17 @@ class FCI_Solver(ClusterSolver):
         else:
             return pyscf.fci.direct_spin0.FCISolver(self.mol)
 
+    #@property
+    #def cas(self):
+    #    return self.cluster.get_cas_size()
+
     @property
-    def cas(self):
-        return self.cluster.get_cas_size()
+    def ncas(self):
+        return self.cluster.norb_active
+
+    @property
+    def nelec(self):
+        return 2*self.cluster.nocc_active
 
     def get_init_guess(self):
         return {'ci0' : self.civec}
@@ -70,6 +78,7 @@ class FCI_Solver(ClusterSolver):
     def get_eris(self):
         with log_time(self.log.timing, "Time for AO->MO of ERIs:  %s"):
             eris = self.base.get_eris_array(self.cluster.c_active)
+            #self.base.debug_eris = eris
         return eris
 
     def get_heff(self, eris, with_vext=True):
@@ -92,11 +101,10 @@ class FCI_Solver(ClusterSolver):
 
         if eris is None: eris = self.get_eris()
         heff = self.get_heff(eris)
-        cas = self.cas
 
         t0 = timer()
         #self.solver.verbose = 10
-        e_fci, self.civec = self.solver.kernel(heff, eris, cas[1], cas[0], ci0=ci0)
+        e_fci, self.civec = self.solver.kernel(heff, eris, self.ncas, self.nelec, ci0=ci0)
         if not self.solver.converged:
             self.log.error("FCI not converged!")
         else:
@@ -106,27 +114,25 @@ class FCI_Solver(ClusterSolver):
         # TODO: This requires the E_core energy (and nuc-nuc repulsion)
         self.e_corr = np.nan
         self.converged = self.solver.converged
-        s2, mult = self.solver.spin_square(self.civec, cas[1], cas[0])
+        s2, mult = self.solver.spin_square(self.civec, self.ncas, self.nelec)
         self.log.info("FCI: S^2= %.10f  multiplicity= %.10f", s2, mult)
         self.c0, self.c1, self.c2 = self.get_cisd_amps(self.civec)
 
     def get_cisd_amps(self, civec):
-        cas = self.cas
-        cisdvec = pyscf.ci.cisd.from_fcivec(civec, cas[1], cas[0])
-        c0, c1, c2 = pyscf.ci.cisd.cisdvec_to_amplitudes(cisdvec, cas[1], self.cluster.nocc_active)
-        self.c0 = c0
-        self.c1 = c1/c0
-        self.c2 = c2/c0
+        cisdvec = pyscf.ci.cisd.from_fcivec(civec, self.ncas, self.nelec)
+        c0, c1, c2 = pyscf.ci.cisd.cisdvec_to_amplitudes(cisdvec, self.ncas, self.cluster.nocc_active)
+        c1 = c1/c0
+        c2 = c2/c0
         return c0, c1, c2
 
     def make_rdm1(self, civec=None):
         if civec is None: civec = self.civec
-        self.dm1 = self.solver.make_rdm1(civec, self.cas[1], self.cas[0])
+        self.dm1 = self.solver.make_rdm1(civec, self.ncas, self.nelec)
         return self.dm1
 
     def make_rdm12(self, civec=None):
         if civec is None: civec = self.civec
-        self.dm1, self.dm2 = self.solver.make_rdm12(civec, self.cas[1], self.cas[0])
+        self.dm1, self.dm2 = self.solver.make_rdm12(civec, self.ncas, self.nelec)
         return self.dm1, self.dm2
 
     def make_rdm2(self, civec=None):

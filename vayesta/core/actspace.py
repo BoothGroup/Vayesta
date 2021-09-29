@@ -252,6 +252,23 @@ class ActiveSpace_UHF(ActiveSpace_RHF):
         return (list(range(self.nocc_frozen[0])) + list(range(self.norb[0]-self.nvir_frozen[0], self.norb[0])),
                 list(range(self.nocc_frozen[1])) + list(range(self.norb[1]-self.nvir_frozen[1], self.norb[1])))
 
+    # --- Electron numbers:
+
+    @property
+    def nelectron(self):
+        """Total number of electrons in the system."""
+        return self.nocc
+
+    @property
+    def nelectron_active(self):
+        """Number of active electrons in the system."""
+        return self.nocc_active
+
+    @property
+    def nelectron_frozen(self):
+        """Number of frozen electrons in the system."""
+        return self.nocc_frozen
+
     # --- Other:
 
     def log_sizes(self, logger, header=None):
