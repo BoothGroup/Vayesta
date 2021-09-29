@@ -1,5 +1,5 @@
 '''
-Functionally equivalent to PySCF GDF, with all storage incore and
+Functionally Eq.ivalent to PySCF GDF, with all storage incore and
 MPI parallelism.
 
 Adapted from pyscf.pbc.df.df
@@ -9,15 +9,19 @@ J. Chem. Phys. 147, 164119 (2017)
 '''
 
 import time
+import copy
 import collections
 import numpy as np
 import scipy.linalg
 
-from pyscf import lib, ao2mo, __config__
+from pyscf import __config__
+from pyscf import gto, lib, ao2mo
 from pyscf.lib import logger
+from pyscf.df import addons
 from pyscf.agf2 import mpi_helper
 from pyscf.ao2mo.outcore import balance_partition
 from pyscf.ao2mo.incore import iden_coeffs, _conc_mos
+from pyscf.pbc.gto.cell import _estimate_rcut
 from pyscf.pbc.df import df, incore, ft_ao
 from pyscf.pbc.df.df_jk import _ewald_exxdiv_for_G0, _format_dms
 from pyscf.pbc.lib.kpts_helper import is_zero, gamma_point, unique, KPT_DIFF_TOL, get_kconserv
@@ -25,6 +29,188 @@ from pyscf.pbc.df.fft_ao2mo import _iskconserv, _format_kpts
 
 
 COMPACT = getattr(__config__, 'pbc_df_ao2mo_get_eri_compact', True)
+
+
+def make_auxcell(cell, auxbasis=None, drop_eta=None):
+    '''
+    Build the cell corresponding to the auxiliary functions.
+
+    Note: almost identical to pyscf.pyscf.pbc.df.df.make_modrho_basis
+    '''
+
+    auxcell = addons.make_auxmol(cell, auxbasis)
+
+    steep_shls = []
+    ndrop = 0
+    rcut = []
+    _env = auxcell._env.copy()
+
+    for ib in range(len(auxcell._bas)):
+        l = auxcell.bas_angular(ib)
+        nprim = auxcell.bas_nprim(ib)
+        nctr = auxcell.bas_nctr(ib)
+        exps = auxcell.bas_exp(ib)
+        ptr_coeffs = auxcell._bas[ib, gto.PTR_COEFF]
+        coeffs = auxcell._env[ptr_coeffs:ptr_coeffs+nprim*nctr].reshape(nctr, nprim).T
+
+        if drop_eta is not None and np.any(exps < drop_eta):
+            mask = es >= drop_eta
+            coeffs = coeffs[mask]
+            exps = exps[mask]
+            nprim, ndrop = len(exps), ndrop+nprim-len(exps)
+
+        if nprim > 0:
+            ptr_exps = auxcell._bas[ib, gto.PTR_EXP]
+            auxcell._bas[ib, gto.NPRIM_OF] = nprim
+            _env[ptr_exps:ptr_exps+nprim] = exps
+
+            int1 = gto.gaussian_int(l*2+2, exps)
+            s = np.einsum('pi,p->i', coeffs, int1)
+
+            coeffs = np.einsum('pi,i->pi', coeffs, 1/s) * np.sqrt(0.25 / np.pi)
+            _env[ptr_coeffs:ptr_coeffs+nprim*nctr] = coeffs.T.ravel()
+
+            steep_shls.append(ib)
+
+            r = _estimate_rcut(exps, l, np.abs(coeffs).max(axis=1), cell.precision)
+            rcut.append(r.max())
+
+    auxcell._env = _env
+    auxcell.rcut = max(rcut)
+
+    auxcell._bas = np.asarray(auxcell._bas[steep_shls], order='C')
+
+    logger.info(cell, "Dropped %d primitive fitting functions.", ndrop)
+    logger.info(cell, "Auxiliary basis: shells = %d  cGTOs = %d", auxcell.nbas, auxcell.nao_nr())
+    logger.info(cell, "auxcell.rcut = %s", auxcell.rcut)
+
+    return auxcell
+
+
+def make_chgcell(auxcell, smooth_eta):
+    '''
+    Build the cell corresponding to the smooth Gaussian functions.
+
+    Note: almost identical to pyscf.pyscf.pbc.df.df.make_modchg_basis
+    '''
+
+    chgcell = copy.copy(auxcell)
+    chg_bas = []
+    chg_env = [smooth_eta]
+    ptr_eta = auxcell._env.size
+    ptr = ptr_eta + 1
+    l_max = auxcell._bas[:, gto.ANG_OF].max()
+    norms = [gto.gaussian_int(l*2+2, smooth_eta) * 0.5 * np.sqrt(np.pi) for l in range(l_max+1)]
+
+    for ia in range(auxcell.natm):
+        for l in set(auxcell._bas[auxcell._bas[:, gto.ATOM_OF] == ia, gto.ANG_OF]):
+            chg_bas.append([ia, l, 1, 1, 0, ptr_eta, ptr, 0])
+            chg_env.append(norms[l])
+            ptr += 1
+
+    chgcell._atm = auxcell._atm
+    chgcell._bas = np.asarray(chg_bas, dtype=np.int32).reshape(-1, gto.BAS_SLOTS)
+    chgcell._env = np.hstack(auxcell._env, chg_env)
+
+    # _estimate_rcut is too tight for the model charge
+    rcut = with_df.rcut_smooth
+    chgcell.rcut = np.sqrt(np.log(4 * np.pi * rcut**2 / auxcell.precision) / smooth_eta)
+
+    logger.info(auxcell, "Compensating basis: shells = %d  cGTOs = %d", chgcell.nbas, chgcell.nao_nr())
+    logger.info(auxcell, "chgcell.rcut = %s", chgcell.rcut)
+
+    return chgcell
+
+
+def fuse_auxcell(with_df, auxcell):
+    '''
+    Fuse the cells responsible for the auxiliary functions and smooth
+    Gaussian functions used to carry the charge.
+
+    Note: almost identical to pyscf.pyscf.pbc.df.df.fuse_auxcell
+    '''
+
+    chgcell = make_chgcell(auxcell, with_df.eta)
+    fused_cell = copy.copy(auxcell)
+    fused_cell._atm, fusd_cell._bas, fused_cell._env = gto.conc_env(
+            auxcell._atm, auxcell._bas, auxcell._env,
+            chgcell._atm, chgcell._bas, chgcell._env,
+    )
+    fused_cell.rcut = max(auxcell.rcut, chgcell.rcut)
+
+    aux_loc = auxcell.ao_loc_nr()
+    naux = aux_loc[-1]
+    modchg_offset = -np.ones((chgcell.natm, 8), dtype=int)
+    smooth_loc = chgcell.ao_loc_nr()
+
+    for i in range(chgcell.nbas):
+        ia = chgcell.bas_atom(i)
+        l = chgcell.bas_angular(i)
+        modchg_offset[ia, l] = smooth_loc[i]
+
+    if auxcell.cart:
+        # See pyscf.pyscf.pbc.df.df.fuse_auxcell
+
+        c2s_fn = gto.moleintor.libcgto.CINTc2s_ket_sph
+        aux_loc_sph = auxcell.ao_loc_nr(cart=False)
+        naux_sph = aux_loc_sph[-1]
+
+        def fuse(Lpq):
+            Lpq, Lpq_chg = Lpq[:naux], Lpq[naux:]
+            if Lpq.ndim == 1:
+                npq = 1
+                Lpq_sph = np.empty((naux_sph), dtype=Lpq.dtype)
+            else:
+                npq = Lpq.shape[1]
+                Lpq_sph = np.empty((naux_sph, npq), dtype=Lpq.dtype)
+
+            if Lpq.dtype == np.complex128:
+                npq *= 2
+
+            for i in range(auxcell.nbas):
+                ia = auxcell.bas_atom(i)
+                l = auxcell.bas_angular(i)
+                p0 = modchg_offset[ia, l]
+
+                if p0 >= 0:
+                    nd = (l+1) * (l+2) // 2
+                    c0, c1 = aux_loc[i], aux_loc[i+1]
+                    s0, s1 = aux_loc_sph[i], aux_loc_sph[i+1]
+
+                    for i0, i1 in lib.prange(c0, c1, nd):
+                        Lpq[i0:i1] -= Lpq_chg[p0:p0+nd]
+
+                    if l < 2:
+                        Lpq_sph[s0:s1] = Lpq[c0:c1]
+                    else:
+                        Lpq_cart = np.asarray(Lpq[c0:c1], order='C')
+                        c2s_fn(
+                            Lpq_sph[s0:s1].ctypes.data_as(ctypes.c_void_p),
+                            ctypes.c_int(npq * auxcell.bas_nctr(i)),
+                            Lpq_cart.ctypes.data_as(ctypes.c_void_p),
+                            ctpyes.c_int(l),
+                        )
+
+            return Lpq_sph
+
+    else:
+        def fuse(Lpq):
+            Lpq, Lpq_chg = Lpq[:naux], Lpq[naux:]
+
+            for i in range(auxcell.nbas):
+                ia = auxcell.bas_atom(i)
+                l = auxcell.bas_angular(i)
+                p0 = modchg_offset[ia, l]
+
+                if p0 >= 0:
+                    nd = l * 2 + 1
+
+                    for i0, i1 in lib.prange(aux_loc[i], aux_loc[i+1], nd):
+                        Lpq[i0:i1] -= Lpq_chg[p0:p0+nd]
+
+            return Lpq
+
+    return fused_cell, fuse
 
 
 def _get_kpt_hash(kpt, tol=KPT_DIFF_TOL):
@@ -44,10 +230,10 @@ def _kconserve_indices(cell, uniq_kpts, kpt):
 
     a = cell.lattice_vectors() / (2*np.pi)
 
-    kdif = np.einsum('wx,ix->wi', a, uniq_kpts + kpt)
+    kdif = np.dot(a, (uniq_kpts + kpt).T)
     kdif_int = np.rint(kdif)
 
-    mask = np.einsum('wi->i', abs(kdif - kdif_int)) < KPT_DIFF_TOL
+    mask = np.sum(np.abs(kdif - kdif_int), axis=0) < KPT_DIFF_TOL
     uniq_kptji_ids = np.where(mask)[0]
 
     return uniq_kptji_ids
@@ -75,28 +261,21 @@ def _get_3c2e(cell, fused_cell, kptij_lst, log):
     nkij = len(kptij_lst)
     nao = cell.nao_nr()
     ngrids = fused_cell.nao_nr()
-    aux_loc = fused_cell.ao_loc_nr(fused_cell.cart)
 
-    int3c2e = np.zeros((nkij, ngrids, nao*nao), dtype=np.complex128)
+    log.debug2('3c2e [%d -> %d]' % (0, fused_cell.nbas))
 
-    for p0, p1 in mpi_helper.prange(0, fused_cell.nbas, fused_cell.nbas):
-        log.debug2('3c2e part [%d -> %d] of %d' % (p0, p1, fused_cell.nbas))
+    shls_slice = (0, cell.nbas, 0, cell.nbas, 0, fused_cell.nbas)
+    int3c2e = incore.aux_e2(cell, fused_cell, 'int3c2e', aosym='s2',
+                            kptij_lst=kptij_lst, shls_slice=shls_slice)
+    int3c2e = lib.transpose(int3c2e, axes=(0, 2, 1))
 
-        shls_slice = (0, cell.nbas, 0, cell.nbas, p0, p1)
-        q0, q1 = aux_loc[p0], aux_loc[p1]
+    if int3c2e.shape[-1] != nao*nao:
+        assert int3c2e.shape[-1] == nao*(nao+1)//2
+        int3c2e = lib.unpack_tril(int3c2e, lib.HERMITIAN, axis=-1)
 
-        int3c2e_part = incore.aux_e2(cell, fused_cell, 'int3c2e', aosym='s2',
-                                     kptij_lst=kptij_lst, shls_slice=shls_slice)
-        int3c2e_part = lib.transpose(int3c2e_part, axes=(0, 2, 1))
+    int3c2e = int3c2e.reshape((nkij, ngrids, nao*nao))
 
-        if int3c2e_part.shape[-1] != nao*nao:
-            assert int3c2e_part.shape[-1] == nao*(nao+1)//2
-            int3c2e_part = lib.unpack_tril(int3c2e_part, lib.HERMITIAN, axis=-1)
-
-        int3c2e_part = int3c2e_part.reshape((nkij, q1-q0, nao*nao))
-        int3c2e[:, q0:q1] = int3c2e_part
-
-        log.timer_debug1('3c2e part', *t1)
+    log.timer_debug1('3c2e part', *t1)
 
     mpi_helper.allreduce_safe_inplace(int3c2e)
     mpi_helper.barrier()
@@ -110,65 +289,58 @@ def _get_j2c(with_df, cell, auxcell, fused_cell, fuse, int2c2e, uniq_kpts, log):
     '''
 
     naux = auxcell.nao_nr()
-    mesh = with_df.mesh
-    Gv, Gvbase, kws = cell.get_Gv_weights(mesh)
+    Gv, Gvbase, kws = cell.get_Gv_weights(with_df.mesh)
     gxyz = lib.cartesian_prod([np.arange(len(x)) for x in Gvbase])
     b = cell.reciprocal_vectors()
 
-    j2c = int2c2e.copy()
+    j2c = int2c2e
 
     for k, kpt in enumerate(uniq_kpts):
-        coulG = with_df.weighted_coulG(kpt, False, mesh)
-        aoaux = ft_ao.ft_ao(fused_cell, Gv, None, b, gxyz, Gvbase, kpt).T
-        LkR = np.asarray(aoaux.real, order='C')
-        LkI = np.asarray(aoaux.imag, order='C')
-        aoaux = None
+        G_chg = ft_ao.ft_ao(fused_cell, Gv, b=b, gxyz=gxyz, Gvbase=Gvbase, kpt=kpt).T
+        G_aux = G_chg[naux:] * with_df.weighted_coulG(kpt)
 
-        # eq. 31 final three terms:
-        if is_zero(kpt):  # kpti == kptj
-            j2c[k][naux:] = int2c2e[k][naux:] + (
-                    - lib.ddot(LkR[naux:]*coulG, LkR.T)
-                    - lib.ddot(LkI[naux:]*coulG, LkI.T)
-            )
-            j2c[k][:naux, naux:] = j2c[k][naux:, :naux].T
-        else:
-            j2cR, j2cI = df.df_jk.zdotCN(LkR[naux:]*coulG, LkI[naux:]*coulG, LkR.T, LkI.T)
-            j2c[k][naux:] = int2c2e[k][naux:] - (j2cR + j2cI * 1j)
-            j2c[k][:naux, naux:] = j2c[k][naux:, :naux].T.conj()
+        # Eq. 32 final three terms:
+        j2c_comp = np.dot(G_aux.conj(), G_chg.T)
+        if is_zero(kpt):
+            j2c_comp = j2c_comp.real
+        j2c[k][naux:] -= j2c_comp
+        j2c[k][:naux, naux:] = j2c[k][naux:, :naux].T.conj()
 
-        LkR = LkI = None
-        coulG = None
         j2c[k] = fuse(fuse(j2c[k]).T).T
+
+        del G_chg, G_aux
 
     return j2c
 
 
 def _cholesky_decomposed_metric(with_df, cell, j2c, uniq_kptji_id, log):
     '''
-    Get the Cholesky decomposed j2c.
+    Get a function which applies the Cholesky decomposed j2c.
     '''
 
     j2c_kpt = j2c[uniq_kptji_id]
 
     try:
         j2c_kpt = scipy.linalg.cholesky(j2c_kpt, lower=True)
-        j2ctag = 'CD'
+        j2c_chol = lambda x: scipy.linalg.solve_triangular(j2c_kpt, x, lower=True, overwrite_b=True)
+
     except scipy.linalg.LinAlgError:
         w, v = scipy.linalg.eigh(j2c_kpt)
-        cond = w[-1] / w[0]
+        cond = w.max() / w.min()
         mask = w > with_df.linear_dep_threshold
+
         log.debug('DF metric linear dependency for kpt %s', uniq_kptji_id)
         log.debug('cond = %.4g, drop %d bfns', cond, np.sum(mask))
-        v1 = v[:, mask].conj().T
-        v1 /= np.sqrt(w[mask])[:, None]
-        j2c_kpt = v1
-        w = v = None
-        j2ctag = 'eig'
 
-    return j2c_kpt, j2ctag
+        j2c_kpt = v[:, mask].conj().T
+        j2c_kpt /= np.sqrt(w[mask])[:, None]
+        j2c_chol = lambda x: lib.dot(j2c_kpt, x)
+        del w, v
+
+    return j2c_chol
 
 
-def _get_j3c(with_df, cell, auxcell, fused_cell, fuse, j2c_k, int3c2e,
+def _get_j3c(with_df, cell, auxcell, fused_cell, fuse, j2c, int3c2e,
              uniq_kpts, uniq_inverse_dict, kptij_lst, log, out=None):
     '''
     Build j2c using the 2c2e interaction, int2c2e, Eq. 31, and then
@@ -181,7 +353,7 @@ def _get_j3c(with_df, cell, auxcell, fused_cell, fuse, j2c_k, int3c2e,
     gxyz = lib.cartesian_prod([np.arange(len(x)) for x in Gvbase])
     ngrids = gxyz.shape[0]
     b = cell.reciprocal_vectors()
-    j2c = j2ctag = None
+    j2c_chol = lambda v: v
     kpts = with_df.kpts
     nkpts = len(kpts)
 
@@ -190,81 +362,62 @@ def _get_j3c(with_df, cell, auxcell, fused_cell, fuse, j2c_k, int3c2e,
 
     for uniq_kpt_ji_id in mpi_helper.nrange(len(uniq_kpts)):
         kpt = uniq_kpts[uniq_kpt_ji_id]
-        log.debug1("Constructing j3c for kpt %s", uniq_kpt_ji_id)
-        log.debug1('kpt = %s', kpt)
-
-        if j2c_k is not None:
-            log.debug1('Cholesky decomposition for j2c at kpt %s', uniq_kpt_ji_id)
-            kptji_id = _kconserve_indices(cell, uniq_kpts, -kpt)[0]
-            j2c, j2ctag = _cholesky_decomposed_metric(with_df, cell, j2c_k, kptji_id, log)
-
         adapted_ji_idx = uniq_inverse_dict[uniq_kpt_ji_id]
         adapted_kptjs = kptij_lst[:, 1][adapted_ji_idx]
+
+        log.debug1("Constructing j3c for kpt %s", uniq_kpt_ji_id)
+        log.debug1('kpt = %s', kpt)
         log.debug1('adapted_ji_idx = %s', adapted_ji_idx)
 
-        shls_slice = (auxcell.nbas, fused_cell.nbas)
-        Gaux = ft_ao.ft_ao(fused_cell, Gv, shls_slice, b, gxyz, Gvbase, kpt)
-        Gaux *= with_df.weighted_coulG(kpt, False, with_df.mesh).ravel()[:, None]
-        kLR = Gaux.real.copy('C')
-        kLI = Gaux.imag.copy('C')
-        del Gaux
+        # Prepare cholesky decomposition of j2c
+        if j2c is not None:
+            log.debug1('Cholesky decomposition for j2c at kpt %s', uniq_kpt_ji_id)
+            kptji_id = _kconserve_indices(cell, uniq_kpts, -kpt)[0]
+            j2c_chol = _cholesky_decomposed_metric(with_df, cell, j2c, kptji_id, log)
 
+        # Eq. 33
+        shls_slice = (auxcell.nbas, fused_cell.nbas)
+        G_chg  = ft_ao.ft_ao(fused_cell, Gv, shls_slice=shls_slice,
+                             b=b, gxyz=gxyz, Gvbase=Gvbase, kpt=kpt)
+        G_chg *= with_df.weighted_coulG(kpt).ravel()[:, None]
+
+        # Eq. 26
         if is_zero(kpt):
             vbar = fuse(with_df.auxbar(fused_cell))
             ovlp = cell.pbc_intor('int1e_ovlp', hermi=0, kpts=adapted_kptjs)
             ovlp = [np.ravel(s) for s in ovlp]
 
-        shranges = balance_partition(cell.ao_loc_nr()*nao, nao*nao)
-        pqkRbuf = np.empty(nao*nao*ngrids)
-        pqkIbuf = np.empty(nao*nao*ngrids)
-        buf = np.empty(len(adapted_kptjs)*nao*nao*ngrids, dtype=np.complex128)
-
-        bstart, bend, ncol = shranges[0]
+        # Eq. 24
+        bstart, bend, ncol = balance_partition(cell.ao_loc_nr()*nao, nao*nao)[0]
         shls_slice = (bstart, bend, 0, cell.nbas)
-        dat = ft_ao.ft_aopair_kpts(cell, Gv, shls_slice, 's1', b, gxyz,
-                                   Gvbase, kpt, adapted_kptjs, out=buf)
+        G_ao = ft_ao.ft_aopair_kpts(cell, Gv, shls_slice=shls_slice, aosym='s1', b=b,
+                                    gxyz=gxyz, Gvbase=Gvbase, q=kpt, kptjs=adapted_kptjs)
+        G_ao = G_ao.reshape(-1, ngrids, ncol)
 
         for kji, ji in enumerate(adapted_ji_idx):
-            # eq. 31 second term:
+            # Eq. 31 first term:
             v = int3c2e[ji]
+
+            # Eq. 31 second term
             if is_zero(kpt):
                 for i in np.where(vbar != 0)[0]:
                     v[i] -= vbar[i] * ovlp[kji]
 
-            j3cR = np.asarray(v.real, order='C')
-            if not (is_zero(kpt) and gamma_point(adapted_kptjs[kji])):
-                j3cI = np.asarray(v.imag, order='C')
+            # Eq. 31 third term
+            v[naux:] -= np.dot(G_chg.T.conj(), G_ao[kji])
 
-            pqkR = np.ndarray((ncol, ngrids), buffer=pqkRbuf)
-            pqkI = np.ndarray((ncol, ngrids), buffer=pqkIbuf)
-            pqkR[:] = dat[kji].reshape(ngrids, ncol).T.real
-            pqkI[:] = dat[kji].reshape(ngrids, ncol).T.imag
+            v = fuse(v)
 
-            # eq. 31 final term:
-            lib.dot(kLR.T, pqkR.T, -1, j3cR[naux:], 1)
-            lib.dot(kLI.T, pqkI.T, -1, j3cR[naux:], 1)
-            if not (is_zero(kpt) and gamma_point(adapted_kptjs[kji])):
-                lib.dot(kLR.T, pqkI.T, -1, j3cI[naux:], 1)
-                lib.dot(kLI.T, pqkR.T,  1, j3cI[naux:], 1)
-
-            if is_zero(kpt) and gamma_point(adapted_kptjs[kji]):
-                v = fuse(j3cR)
-            else:
-                v = fuse(j3cR + j3cI * 1j)
-
-            if j2ctag == 'CD':
-                v = scipy.linalg.solve_triangular(j2c, v, lower=True, overwrite_b=True)
-            elif j2ctag == 'eig':
-                v = lib.dot(j2c, v)
+            # Cholesky decompose Eq. 29
+            v = j2c_chol(v)
             v = v.reshape(-1, nao, nao)
 
+            # Sum into all symmetry-related k-points
             for ki in with_df.kpt_hash[_get_kpt_hash(kptij_lst[ji][0])]:
                 for kj in with_df.kpt_hash[_get_kpt_hash(kptij_lst[ji][1])]:
                     out[ki, kj, :v.shape[0]] += v
                     if ki != kj:
                         out[kj, ki, :v.shape[0]] += lib.transpose(v, axes=(0, 2, 1)).conj()
-
-        del j3cR, j3cI
 
     mpi_helper.allreduce_safe_inplace(out)
     mpi_helper.barrier()
@@ -332,6 +485,12 @@ class GDF(df.GDF):
     ''' Incore Gaussian density fitting.
     '''
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        
+        self.rcut_smooth = 15.0
+        self._keys.update(['rcut_smooth'])
+
     def build(self, j_only=None, with_j3c=True, kpts_band=None):
         j_only = j_only or self._j_only
         if j_only:
@@ -346,7 +505,7 @@ class GDF(df.GDF):
         self.check_sanity()
         self.dump_flags()
 
-        self.auxcell = df.make_modrho_basis(self.cell, self.auxbasis, self.exp_to_discard)
+        self.auxcell = make_auxcell(self.cell, auxbasis=self.auxbasis, drop_eta=self.exp_to_discard)
 
         self._get_nuc = None
         self._get_pp = None
@@ -637,7 +796,7 @@ if __name__ == '__main__':
     cell.verbose = 0
     cell.build()
 
-    kpts = cell.make_kpts([2, 2, 2])
+    kpts = cell.make_kpts([3, 2, 1])
 
     t0 = time.time()
 
