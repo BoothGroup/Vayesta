@@ -3,12 +3,15 @@ from timeit import default_timer as timer
 from datetime import datetime
 import dataclasses
 import copy
+import os
+import os.path
 
 import numpy as np
 
 import pyscf
 import pyscf.gto
 import pyscf.mp
+import pyscf.ci
 import pyscf.cc
 import pyscf.lo
 import pyscf.pbc
@@ -130,7 +133,7 @@ class QEmbedding:
             self.kcell = self.kpts = self.kdf = None
         self.mf = mf
         if not (self.is_rhf or self.is_uhf):
-            raise ValueError("Cannot deduce RHF or UHF")
+            raise ValueError("Cannot deduce RHF or UHF!")
         # Original mean-field integrals - do not change these!
         with log_time(self.log.timingv, "Time for overlap: %s"):
             self._ovlp_orig = self.mf.get_ovlp()
@@ -454,11 +457,15 @@ class QEmbedding:
         if hasattr(self.mf, 'with_df') and self.mf.with_df is not None:
             eris = self.mf.with_df.ao2mo(mo_coeff, compact=compact)
         elif self.mf._eri is not None:
-            eris = pyscf.ao2mo.full(self.mf._eri, mo_coeff, compact=compact)
+            eris = pyscf.ao2mo.kernel(self.mf._eri, mo_coeff, compact=compact)
         else:
             eris = self.mol.ao2mo(mo_coeff, compact=compact)
         if not compact:
-            eris = eris.reshape(4*[mo_coeff.shape[-1]])
+            if isinstance(mo_coeff, np.ndarray) and mo_coeff.ndim == 2:
+                shape = 4*[mo_coeff.shape[-1]]
+            else:
+                shape = [mo.shape[-1] for mo in mo_coeff]
+            eris = eris.reshape(shape)
         self.log.timing("Time for AO->MO of ERIs:  %s", time_string(timer()-t0))
         return eris
 
@@ -482,7 +489,7 @@ class QEmbedding:
         c_act = _mo_without_core(posthf, posthf.mo_coeff)
         if isinstance(posthf, pyscf.mp.mp2.MP2):
             fock = self.get_fock()
-        elif isinstance(posthf, pyscf.cc.ccsd.CCSD):
+        elif isinstance(posthf, (pyscf.ci.cisd.CISD, pyscf.cc.ccsd.CCSD)):
             fock = self.get_fock(with_exxdiv=False)
         else:
             raise ValueError("Unknown post-HF method: %r", type(posthf))
@@ -706,6 +713,9 @@ class QEmbedding:
             write("%s population analysis", name)
             write("%s--------------------", len(name)*'-')
         else:
+            dirname = os.path.dirname(filename)
+            if dirname: os.makedirs(dirname, exist_ok=True)
+
             f = open(filename, filemode)
             write = lambda fmt, *args : f.write((fmt+'\n') % args)
             tstamp = datetime.now()

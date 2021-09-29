@@ -10,7 +10,7 @@ import pyscf.fci
 import pyscf.fci.addons
 
 from vayesta.core.util import *
-from .solver import ClusterSolver
+from .solver2 import ClusterSolver
 
 
 class FCI_Solver(ClusterSolver):
@@ -23,24 +23,10 @@ class FCI_Solver(ClusterSolver):
         solver_spin: bool = True    # Use direct_spin1 if True, or direct_spin0 otherwise
         fix_spin: float = 0.0       # If set to a number, the given S^2 value will be enforced
 
-    @dataclasses.dataclass
-    class Results(ClusterSolver.Results):
-        # CI coefficients
-        civec: np.array = None      # Vector of all CI-coefficients
-        c0: float = None            # C0 coefficient
-        c1: np.array = None         # C1 coefficients
-        c2: np.array = None         # C2 coefficients
-
-        def get_init_guess(self):
-            return {'ci0' : self.civec}
-
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-        if self.opts.solver_spin:
-            solver = pyscf.fci.direct_spin1.FCISolver(self.mol)
-        else:
-            solver = pyscf.fci.direct_spin0.FCISolver(self.mol)
+        solver = self.get_solver()
         self.log.debugv("type(solver)= %r", type(solver))
         # Set options
         if self.opts.threads is not None: solver.threads = self.opts.threads
@@ -52,16 +38,44 @@ class FCI_Solver(ClusterSolver):
             solver = pyscf.fci.addons.fix_spin_(solver, ss=spin)
         self.solver = solver
 
+        # --- Results
+        self.civec = None
+        self.c0 = None
+        self.c1 = None      # In intermediate normalization!
+        self.c2 = None      # In intermediate normalization!
+
+    def get_solver(self):
+        if self.opts.solver_spin:
+            return pyscf.fci.direct_spin1.FCISolver(self.mol)
+        else:
+            return pyscf.fci.direct_spin0.FCISolver(self.mol)
+
+    @property
+    def cas(self):
+        return self.cluster.get_cas_size()
+
+    def get_init_guess(self):
+        return {'ci0' : self.civec}
+
+    def get_c1(self):
+        return self.c1
+
+    def get_c2(self):
+        return self.c2
+
+    def get_c2e(self, *args, **kwargs):
+        """C2 used for energy."""
+        return self.get_c2(*args, **kwargs)
+
     def get_eris(self):
-        t0 = timer()
-        eris = self.base.get_eris_array(self.c_active)
-        self.log.timing("Time for AO->MO of ERIs:  %s", time_string(timer()-t0))
+        with log_time(self.log.timing, "Time for AO->MO of ERIs:  %s"):
+            eris = self.base.get_eris_array(self.cluster.c_active)
         return eris
 
     def get_heff(self, eris, with_vext=True):
-        nocc = self.nocc - self.nocc_frozen
-        occ = np.s_[:nocc]
-        f_act = np.linalg.multi_dot((self.c_active.T, self.base.get_fock(), self.c_active))
+        #nocc = self.nocc - self.nocc_frozen
+        f_act = dot(self.cluster.c_active.T, self.base.get_fock(), self.cluster.c_active)
+        occ = np.s_[:self.cluster.nocc_active]
         v_act = 2*einsum('iipq->pq', eris[occ,occ]) - einsum('iqpi->pq', eris[occ,:,:,occ])
         h_eff = f_act - v_act
         # This should be equivalent to:
@@ -78,37 +92,45 @@ class FCI_Solver(ClusterSolver):
 
         if eris is None: eris = self.get_eris()
         heff = self.get_heff(eris)
-        nelec = sum(self.mo_occ[self.get_active_slice()])
-        assert np.isclose(nelec, round(nelec))
-        nelec = int(round(nelec))
+        cas = self.cas
 
         t0 = timer()
-        e_fci, civec = self.solver.kernel(heff, eris, self.nactive, nelec, ci0=ci0)
+        #self.solver.verbose = 10
+        e_fci, self.civec = self.solver.kernel(heff, eris, cas[1], cas[0], ci0=ci0)
         if not self.solver.converged:
             self.log.error("FCI not converged!")
         else:
             self.log.debugv("FCI converged.")
         self.log.timing("Time for FCI: %s", time_string(timer()-t0))
+        self.log.debugv("E(CAS)= %s", energy_string(e_fci))
         # TODO: This requires the E_core energy (and nuc-nuc repulsion)
-        e_corr = np.nan
-        s2, mult = self.solver.spin_square(civec, self.nactive, nelec)
+        self.e_corr = np.nan
+        self.converged = self.solver.converged
+        s2, mult = self.solver.spin_square(self.civec, cas[1], cas[0])
         self.log.info("FCI: S^2= %.10f  multiplicity= %.10f", s2, mult)
+        self.c0, self.c1, self.c2 = self.get_cisd_amps(self.civec)
 
-        nocc = self.nocc - self.nocc_frozen
-        cisdvec = pyscf.ci.cisd.from_fcivec(civec, self.nactive, nelec)
-        c0, c1, c2 = pyscf.ci.cisd.cisdvec_to_amplitudes(cisdvec, self.nactive, nocc)
+    def get_cisd_amps(self, civec):
+        cas = self.cas
+        cisdvec = pyscf.ci.cisd.from_fcivec(civec, cas[1], cas[0])
+        c0, c1, c2 = pyscf.ci.cisd.cisdvec_to_amplitudes(cisdvec, cas[1], self.cluster.nocc_active)
+        self.c0 = c0
+        self.c1 = c1/c0
+        self.c2 = c2/c0
+        return c0, c1, c2
 
-        results = self.Results(
-                converged=self.solver.converged, e_corr=e_corr, c_occ=self.c_active_occ, c_vir=self.c_active_vir,
-                civec=civec, c0=c0, c1=c1, c2=c2)
+    def make_rdm1(self, civec=None):
+        if civec is None: civec = self.civec
+        self.dm1 = self.solver.make_rdm1(civec, self.cas[1], self.cas[0])
+        return self.dm1
 
-        if self.opts.make_rdm2:
-            results.dm1, results.dm2 = self.solver.make_rdm12(civec, self.nactive, nelec)
-        elif self.opts.make_rdm1:
-            results.dm1 = self.solver.make_rdm1(civec, self.nactive, nelec)
+    def make_rdm12(self, civec=None):
+        if civec is None: civec = self.civec
+        self.dm1, self.dm2 = self.solver.make_rdm12(civec, self.cas[1], self.cas[0])
+        return self.dm1, self.dm2
 
-        return results
-
+    def make_rdm2(self, civec=None):
+        return self.make_rdm12(civec=civec)[1]
 
     def kernel_casci(self, init_guess=None, eris=None):
         """Old kernel function, using an CASCI object."""
@@ -149,7 +171,8 @@ class FCI_Solver(ClusterSolver):
             pass
 
         results = self.Results(
-                converged=casci.converged, e_corr=e_corr, c_occ=self.c_active_occ, c_vir=self.c_active_vir, eris=eris,
+                converged=casci.converged, e_corr=e_corr,
+                c_occ=self.cluster.c_active_occ, c_vir=self.cluster.c_active_vir, eris=eris,
                 c0=c0, c1=c1, c2=c2)
 
         if self.opts.make_rdm2:

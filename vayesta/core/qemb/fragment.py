@@ -594,7 +594,8 @@ class Fragment:
         pc: array
             Projected CI coefficients or CC amplitudes.
         """
-
+        if c_occ is None: c_occ = self.c_active_occ
+        if c_vir is None: c_vir = self.c_active_vir
         if partition is None: partition = self.opts.wf_partition
 
         if np.ndim(c) not in (2, 4):
@@ -602,9 +603,6 @@ class Fragment:
         partition = partition.lower()
         if partition not in ('first-occ', 'occ-2', 'first-vir', 'democratic'):
             raise ValueError("Unknown partitioning of amplitudes: %r" % partition)
-
-        if c_occ is None: c_occ = self.c_active_occ
-        if c_vir is None: c_vir = self.c_active_vir
 
         # Projectors into fragment occupied and virtual space
         if partition in ('first-occ', 'occ-2', 'democratic'):

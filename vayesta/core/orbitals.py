@@ -16,15 +16,15 @@ def stack_coeffs(*coeffs):
     return (hstack(*[c[0] for c in coeffs]),
             hstack(*[c[1] for c in coeffs]))
 
-class BaseOrbitals:
+class BaseOrbitalSpace:
     pass
 
-def Orbitals(coeff, name):
+def OrbitalSpace(coeff, name):
     if is_rhf(coeff):
-        return SpatialOrbitals(coeff, name=name)
-    return SpinOrbitals(coeff, name=name)
+        return SpatialOrbitalSpace(coeff, name=name)
+    return SpinOrbitalSpace(coeff, name=name)
 
-class SpatialOrbitals(BaseOrbitals):
+class SpatialOrbitalSpace(BaseOrbitalSpace):
 
     def __init__(self, coeff, name=''):
         self.coeff = coeff
@@ -48,11 +48,11 @@ class SpatialOrbitals(BaseOrbitals):
     def copy(self, name=''):
         return type(self)(self.coeff.copy(), name=(name or self.name))
 
-class SpinOrbitals(BaseOrbitals):
+class SpinOrbitalSpace(BaseOrbitalSpace):
 
     def __init__(self, coeff, name=''):
-        self.alpha = SpatialOrbitals(coeff[0], 'alpha')
-        self.beta = SpatialOrbitals(coeff[1], 'beta')
+        self.alpha = SpatialOrbitalSpace(coeff[0], 'alpha')
+        self.beta = SpatialOrbitalSpace(coeff[1], 'beta')
         self.name = name
 
     def __repr__(self):
@@ -60,7 +60,7 @@ class SpinOrbitals(BaseOrbitals):
 
     @property
     def size(self):
-        return (self.alpha.size, self.beta.size)
+        return np.asarray([self.alpha.size, self.beta.size])
 
     @property
     def coeff(self):

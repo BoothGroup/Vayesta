@@ -22,7 +22,7 @@ from pyscf.pbc.tools import cubegen
 # Local modules
 from vayesta.core.util import *
 from vayesta.core import QEmbeddingFragment
-from vayesta.solver import get_solver_class
+from vayesta.solver import get_solver_class2 as get_solver_class
 from vayesta.core.fragmentation import IAO_Fragmentation
 
 from vayesta.core.bath import DMET_Bath, BNO_Bath, CompleteBath
@@ -42,14 +42,14 @@ class EWFFragment(QEmbeddingFragment):
         dmet_threshold: float = NotSet
         make_rdm1: bool = NotSet
         make_rdm2: bool = NotSet
-        solve_lambda: bool = NotSet                 # If False, use T-amplitudes inplace of Lambda-amplitudes
+        #solve_lambda: bool = NotSet                 # If False, use T-amplitudes inplace of Lambda-amplitudes
+        t_as_lambda: bool = NotSet                  # If True, use T-amplitudes inplace of Lambda-amplitudes
         eom_ccsd: list = NotSet
         eom_ccsd_nroots: int = NotSet
         bsse_correction: bool = NotSet
         bsse_rmax: float = NotSet
         energy_factor: float = 1.0
         #energy_partitioning: str = NotSet
-        pop_analysis: str = NotSet
         sc_mode: int = NotSet
         nelectron_target: int = NotSet                  # If set, adjust bath chemical potential until electron number in fragment equals nelectron_target
         # Bath type
@@ -94,9 +94,6 @@ class EWFFragment(QEmbeddingFragment):
 
         super().__init__(*args, **kwargs)
 
-        if self.opts.pop_analysis:
-            self.opts.make_rdm1 = True
-
         # Default options:
         #defaults = self.Options().replace(self.base.Options(), select=NotSet)
         #for key, val in self.opts.items():
@@ -111,10 +108,10 @@ class EWFFragment(QEmbeddingFragment):
             raise ValueError("Unknown solver: %s" % solver)
         self.solver = solver
 
+        self.cluster = None
+
         # For self-consistent mode
         self.solver_results = None
-        # For orbital plotting
-        self.cubefile = None
 
     #@property
     #def e_corr(self):
@@ -176,6 +173,45 @@ class EWFFragment(QEmbeddingFragment):
         self.bath = bath
         return bath
 
+    def make_cluster(self, bath, bno_threshold=None, bno_number=None):
+
+        c_bno_occ, c_frozen_occ = bath.get_occupied_bath(bno_threshold[0], bno_number[0])
+        c_bno_vir, c_frozen_vir = bath.get_virtual_bath(bno_threshold[1], bno_number[1])
+
+        # Canonicalize orbitals
+        c_active_occ = self.canonicalize_mo(bath.c_cluster_occ, c_bno_occ)[0]
+        c_active_vir = self.canonicalize_mo(bath.c_cluster_vir, c_bno_vir)[0]
+        # Do not overwrite self.c_active_occ/vir yet - we still need the previous coefficients
+        # to generate an intial guess
+
+        cluster = ActiveSpace(self.mf, c_active_occ, c_active_vir, c_frozen_occ=c_frozen_occ, c_frozen_vir=c_frozen_vir)
+
+        # Check occupations
+        self.check_mo_occupation((2 if self.base.is_rhf else 1), cluster.c_occ)
+        self.check_mo_occupation(0, cluster.c_vir)
+        self.cluster = cluster
+        return cluster
+
+    def get_init_guess(self, init_guess, solver, cluster):
+        # TODO: clean
+        # --- Project initial guess and integrals from previous cluster calculation with smaller eta:
+        # Use initial guess from previous calculations
+        # For self-consistent calculations, we can restart calculation:
+        if init_guess is None and 'ccsd' in solver.lower():
+            if self.base.opts.sc_mode and self.base.iteration > 1:
+                self.log.debugv("Restarting using T1,T2 from previous iteration")
+                init_guess = {'t1' : self.results.t1, 't2' : self.results.t2}
+            elif self.base.opts.project_init_guess and self.results is not None:
+                self.log.debugv("Restarting using projected previous T1,T2")
+                # Projectors for occupied and virtual orbitals
+                p_occ = dot(self.c_active_occ.T, self.base.get_ovlp(), cluster.c_active_occ)
+                p_vir = dot(self.c_active_vir.T, self.base.get_ovlp(), cluster.c_active_vir)
+                #t1, t2 = init_guess.pop('t1'), init_guess.pop('t2')
+                t1, t2 = helper.transform_amplitudes(self.results.t1, self.results.t2, p_occ, p_vir)
+                init_guess = {'t1' : t1, 't2' : t2}
+        if init_guess is None: init_guess = {}
+        return init_guess
+
     def kernel(self, bno_threshold=None, bno_number=None, solver=None, init_guess=None, eris=None):
         """Run solver for a single BNO threshold.
 
@@ -200,71 +236,16 @@ class EWFFragment(QEmbeddingFragment):
             bno_threshold = 2*[bno_threshold]
         if np.ndim(bno_number) == 0:
             bno_number = 2*[bno_number]
+
         if solver is None:
             solver = self.solver
         if self.bath is None:
             self.make_bath()
 
-        c_bno_occ, c_frozen_occ = self.bath.get_occupied_bath(bno_threshold[0], bno_number[0])
-        c_bno_vir, c_frozen_vir = self.bath.get_virtual_bath(bno_threshold[1], bno_number[1])
-
-        # Canonicalize orbitals
-        c_active_occ = self.canonicalize_mo(self.bath.c_cluster_occ, c_bno_occ)[0]
-        c_active_vir = self.canonicalize_mo(self.bath.c_cluster_vir, c_bno_vir)[0]
-        # Do not overwrite self.c_active_occ/vir yet - we still need the previous coefficients
-        # to generate an intial guess
-
-        # Combine, important to keep occupied orbitals first!
-        # Put frozen (occenv, virenv) orbitals to the front and back
-        # and active orbitals (occact, viract) in the middle
-        c_occ = self.stack_mo(c_frozen_occ, c_active_occ)
-        c_vir = self.stack_mo(c_active_vir, c_frozen_vir)
-        mo_coeff = self.stack_mo(c_occ, c_vir)
-
-        # Check occupations
-        # TODO: Clean this
-        self.check_mo_occupation((2 if self.base.is_rhf else 1), c_occ)
-        self.check_mo_occupation(0, c_vir)
-
-        cluster = ActiveSpace(self.mf, c_active_occ, c_active_vir, c_frozen_occ, c_frozen_vir)
+        cluster = self.make_cluster(self.bath, bno_threshold=bno_threshold, bno_number=bno_number)
         cluster.log_sizes(self.log.info, header="Orbitals for %s" % self)
 
-        #if self.base.is_rhf:
-        #    mo_occ = np.asarray(cluster.nocc*[2] + cluster.nvir*[0])
-        #else:
-        #    mo_occ = []
-        #    for s, spin in enumerate(('alpha', 'beta')):
-        #        nocc, nvir = c_occ[s].shape[-1], c_vir[s].shape[-1]
-        #        mo_occ.append(np.asarray(nocc*[2] + nvir*[0]))
-        #    mo_occ = tuple(mo_occ)
-        mo_occ = self.mf.mo_occ
-
-        # SPLIT HERE?
-
-        # --- Project initial guess and integrals from previous cluster calculation with smaller eta:
-        # Use initial guess from previous calculations
-        # For self-consistent calculations, we can restart calculation:
-        if init_guess is None and 'ccsd' in solver.lower():
-            if self.base.opts.sc_mode and self.base.iteration > 1:
-                self.log.debugv("Restarting using T1,T2 from previous iteration")
-                init_guess = {'t1' : self.results.t1, 't2' : self.results.t2}
-            #elif self.base.opts.project_init_guess and init_guess is not None:
-            #    # Projectors for occupied and virtual orbitals
-            #    p_occ = np.linalg.multi_dot((self.c_active_occ.T, self.base.get_ovlp(), c_active_occ))
-            #    p_vir = np.linalg.multi_dot((self.c_active_vir.T, self.base.get_ovlp(), c_active_vir))
-            #    t1, t2 = init_guess.pop('t1'), init_guess.pop('t2')
-            #    t1, t2 = helper.transform_amplitudes(t1, t2, p_occ, p_vir)
-            #    init_guess['t1'] = t1
-            #    init_guess['t2'] = t2
-            elif self.base.opts.project_init_guess and self.results is not None:
-                self.log.debugv("Restarting using projected previous T1,T2")
-                # Projectors for occupied and virtual orbitals
-                p_occ = dot(self.c_active_occ.T, self.base.get_ovlp(), c_active_occ)
-                p_vir = dot(self.c_active_vir.T, self.base.get_ovlp(), c_active_vir)
-                #t1, t2 = init_guess.pop('t1'), init_guess.pop('t2')
-                t1, t2 = helper.transform_amplitudes(self.results.t1, self.results.t2, p_occ, p_vir)
-                init_guess = {'t1' : t1, 't2' : t2}
-        if init_guess is None: init_guess = {}
+        init_guess = self.get_init_guess(init_guess, solver, cluster)
 
         # For self-consistent calculations, we can reuse ERIs:
         if eris is None:
@@ -275,41 +256,37 @@ class EWFFragment(QEmbeddingFragment):
             elif self.base.opts.project_eris and self.results is not None:
                 t0 = timer()
                 self.log.debugv("Projecting previous ERIs onto subspace")
-                eris = psubspace.project_eris(self.results.eris, c_active_occ, c_active_vir, ovlp=self.base.get_ovlp())
+                eris = psubspace.project_eris(self.results.eris, cluster.c_active_occ, cluster.c_active_vir, ovlp=self.base.get_ovlp())
                 self.log.timingv("Time to project ERIs:  %s", time_string(timer()-t0))
 
         # We can now overwrite the orbitals from last BNO run:
-        self._c_active_occ = c_active_occ
-        self._c_active_vir = c_active_vir
+        self._c_active_occ = cluster.c_active_occ
+        self._c_active_vir = cluster.c_active_vir
 
         if solver is None:
             return None
 
         # Create solver object
-        t0 = timer()
         solver_cls = get_solver_class(self.mf, solver)
         solver_opts = self.get_solver_options(solver)
-        cluster_solver = solver_cls(self, mo_coeff, mo_occ, nocc_frozen=cluster.nocc_frozen, nvir_frozen=cluster.nvir_frozen, **solver_opts)
+        # OLD CALL:
+        #cluster_solver = solver_cls(self, mo_coeff, mo_occ, nocc_frozen=cluster.nocc_frozen, nvir_frozen=cluster.nvir_frozen, **solver_opts)
+        # NEW CALL:
+        cluster_solver = solver_cls(self, cluster, **solver_opts)
         if self.opts.nelectron_target is not None:
             cluster_solver.optimize_cpt(self.opts.nelectron_target, c_frag=self.c_proj)
         if eris is None:
             eris = cluster_solver.get_eris()
-        solver_results = cluster_solver.kernel(eris=eris, **init_guess)
-
-        self.log.timing("Time for %s solver:  %s", solver, time_string(timer()-t0))
+        with log_time(self.log.info, ("Time for %s solver:" % solver) + " %s"):
+            cluster_solver.kernel(eris=eris, **init_guess)
 
         # Get projected amplitudes ('p1', 'p2')
-        if hasattr(solver_results, 't1'):
-            c1 = solver_results.t1
-            c2 = solver_results.t2 + einsum('ia,jb->ijab', c1, c1)
-        elif hasattr(solver_results, 'c1'):
-            self.log.info("Weight of reference determinant= %.8g", abs(solver_results.c0))
-            c1 = solver_results.c1 / solver_results.c0
-            c2 = solver_results.c2 / solver_results.c0
-        p1 = self.project_amplitude_to_fragment(c1, c_active_occ, c_active_vir)
-        p2 = self.project_amplitude_to_fragment(c2, c_active_occ, c_active_vir)
+        if hasattr(cluster_solver, 'c0'):
+            self.log.info("Weight of reference determinant= %.8g", abs(cluster_solver.c0))
+        # C1 and C2 are in intermediate normalization:
+        p1 = self.project_amplitude_to_fragment(cluster_solver.get_c1(), cluster.c_active_occ, cluster.c_active_vir)
+        p2 = self.project_amplitude_to_fragment(cluster_solver.get_c2e(), cluster.c_active_occ, cluster.c_active_vir)
 
-        #e_corr = self.get_fragment_energy(p1, p2, eris=solver_results.eris)
         e_corr = self.get_fragment_energy(p1, p2, eris=eris)
         if bno_threshold[0] is not None:
             if bno_threshold[0] == bno_threshold[1]:
@@ -319,51 +296,28 @@ class EWFFragment(QEmbeddingFragment):
         else:
             self.log.info("BNO number= %3d / %3d:  E(corr)= %+14.8f Ha", *bno_number, e_corr)
 
-        # --- Population analysis
-        if self.opts.pop_analysis:
-            try:
-                if isinstance(self.base.opts.pop_analysis, str):
-                    filename = self.base.opts.pop_analysis.rsplit('.', 1)
-                    if len(filename) > 1:
-                        filename, ext = filename
-                    else:
-                        ext = 'txt'
-                    filename = '%s-%s.%s' % (filename, self.id_name, ext)
-                else:
-                    filename = None
-                # Add frozen states and transform to AO
-                dm1 = np.zeros(2*[self.base.nao])
-                nocc = np.count_nonzero(self.mf.mo_occ > 0)
-                dm1[np.diag_indices(nocc)] = 2
-                a = cluster_solver.get_active_slice()
-                dm1[a,a] = solver_results.dm1
-                self.base.pop_analysis(dm1, mo_coeff=mo_coeff, filename=filename)
-            except Exception as e:
-                self.log.error("Exception in population analysis: %s", e)
-
-        results = self.Results(
-                fid=self.id,
-                bno_threshold=bno_threshold,
-                n_active=cluster.norb_active,
-                converged=solver_results.converged,
-                e_corr=e_corr,
-                dm1=solver_results.dm1, dm2=solver_results.dm2)
+        results = self.Results(fid=self.id, bno_threshold=bno_threshold, n_active=cluster.norb_active,
+                converged=cluster_solver.converged, e_corr=e_corr)
+        if self.opts.make_rdm1:
+            results.dm1 = cluster_solver.make_rdm1()
+        if self.opts.make_rdm2:
+            results.dm2 = cluster_solver.make_rdm2()
 
         #(results.t1_pf, results.t2_pf), (results.e1b, results.e2b_conn, results.e2b_disc) = self.project_solver_results(solver_results)
 
         # Keep Amplitudes [optional]
         if self.base.opts.project_init_guess or self.opts.sc_mode:
-            if hasattr(solver_results, 't2'):
-                results.t1 = solver_results.t1
-                results.t2 = solver_results.t2
-            if hasattr(solver_results, 'c2'):
-                results.c0 = solver_results.c0
-                results.c1 = solver_results.c1
-                results.c2 = solver_results.c2
+            if hasattr(cluster_solver, 't2'):
+                results.t1 = cluster_solver.t1
+                results.t2 = cluster_solver.t2
+            if hasattr(cluster_solver, 'c2'):
+                results.c0 = cluster_solver.c0
+                results.c1 = cluster_solver.c1
+                results.c2 = cluster_solver.c2
         # Keep Lambda-Amplitudes
-        if hasattr(solver_results, 'l2') and solver_results.l2 is not None:
-            results.l1 = solver_results.l1
-            results.l2 = solver_results.l2
+        if hasattr(cluster_solver, 'l2') and cluster_solver.l2 is not None:
+            results.l1 = cluster_solver.l1
+            results.l2 = cluster_solver.l2
         # Keep ERIs [optional]
         if self.base.opts.project_eris or self.opts.sc_mode:
             results.eris = eris
@@ -373,15 +327,16 @@ class EWFFragment(QEmbeddingFragment):
         # DMET energy
         calc_dmet = self.opts.calculate_e_dmet
         if calc_dmet == 'auto':
-            calc_dmet = (solver_results.dm1 is not None and solver_results.dm2 is not None)
+            calc_dmet = (results.dm1 is not None and results.dm2 is not None)
         if calc_dmet:
             results.e_dmet = self.get_fragment_dmet_energy(dm1=results.dm1, dm2=results.dm2, eris=eris)
 
         # Force GC to free memory
-        #m0 = get_used_memory()
-        #del cluster_solver, solver_results
-        #ndel = gc.collect()
-        #self.log.debugv("GC deleted %d objects and freed %.3f MB of memory", ndel, (get_used_memory()-m0)/1e6)
+        if False:
+            m0 = get_used_memory()
+            del cluster_solver#, solver_results
+            ndel = gc.collect()
+            self.log.debugv("GC deleted %d objects and freed %.3f MB of memory", ndel, (get_used_memory()-m0)/1e6)
 
         return results
 
@@ -389,9 +344,10 @@ class EWFFragment(QEmbeddingFragment):
         # TODO: fix this mess...
         solver_opts = {}
         solver_opts.update(self.opts.solver_options)
-        pass_through = ['make_rdm1', 'make_rdm2']
+        #pass_through = ['make_rdm1', 'make_rdm2']
+        pass_through = []
         if 'CCSD' in solver.upper():
-            pass_through += ['solve_lambda', 'sc_mode', 'dm_with_frozen', 'eom_ccsd', 'eom_ccsd_nroots']
+            pass_through += ['t_as_lambda', 'sc_mode', 'dm_with_frozen', 'eom_ccsd', 'eom_ccsd_nroots']
         for attr in pass_through:
             self.log.debugv("Passing fragment option %s to solver.", attr)
             solver_opts[attr] = getattr(self.opts, attr)
@@ -483,20 +439,20 @@ class EWFFragment(QEmbeddingFragment):
         e_frag : float
             Fragment energy contribution.
         """
-        if self.opts.energy_factor == 0:
-            return 0
+        if self.opts.energy_factor == 0: return 0
 
         nocc, nvir = p2.shape[1:3]
         occ = np.s_[:nocc]
         vir = np.s_[nocc:]
-        # E1
-        e1 = 0
+        # Singles energy (for non-HF reference)
         if p1 is not None:
             if hasattr(eris, 'fock'):
                 f = eris.fock[occ,vir]
             else:
                 f = dot(self.c_active_occ.T, self.base.get_fock(), self.c_active_vir)
-            e1 = 2*np.sum(f * p1)
+            e_s = 2*np.sum(f * p1)
+        else:
+            e_s = 0
         # E2
         if hasattr(eris, 'ovvo'):
             g_ovvo = eris.ovvo[:]
@@ -506,12 +462,21 @@ class EWFFragment(QEmbeddingFragment):
         else:
             g_ovvo = eris[occ,vir,vir,occ]
 
-        e2 = 2*einsum('ijab,iabj', p2, g_ovvo) - einsum('ijab,jabi', p2, g_ovvo)
-        self.log.info("Energy components: E[C1]= % 16.8f Ha, E[C2]= % 16.8f Ha", e1, e2)
-        if e1 > 1e-4 and 10*e1 > e2:
-            self.log.warning("WARNING: Large E[C1] component!")
-        e_frag = self.opts.energy_factor * self.sym_factor * (e1 + e2)
+        e_d = 2*einsum('ijab,iabj', p2, g_ovvo) - einsum('ijab,jabi', p2, g_ovvo)
+        self.log.debug("Energy components: E(singles)= %s, E(doubles)= %s",
+                energy_string(e_s), energy_string(e_d))
+        if e_s > 0.1*e_d and e_s > 1e-4:
+            self.log.warning("Large E(singles) component!")
+        e_frag = self.opts.energy_factor * self.sym_factor * (e_s + e_d)
         return e_frag
+
+    def pop_analysis(self, cluster=None, dm1=None, **kwargs):
+        if cluster is None: cluster = self.cluster
+        if dm1 is None: dm1 = self.results.dm1
+        if dm1 is None: raise ValueError()
+        # Add frozen mean-field contribution:
+        dm1 = cluster.add_frozen_rdm1(dm1)
+        return self.base.pop_analysis(dm1, mo_coeff=cluster.coeff, **kwargs)
 
     def eom_analysis(self, csolver, kind, filename=None, mode="a", sort_weight=True, r1_min=1e-2):
         kind = kind.upper()

@@ -1,10 +1,16 @@
+import dataclasses
+
 import numpy as np
 
 from vayesta.core.util import *
 
-from .fragment import QEmbeddingFragment
+from .fragment import Fragment
 
-class UFragment(QEmbeddingFragment):
+class UFragment(Fragment):
+
+    @dataclasses.dataclass
+    class Result(Fragment.Results):
+        pass
 
     def log_info(self):
         # Some output
@@ -165,6 +171,28 @@ class UFragment(QEmbeddingFragment):
         for s in range(2):
             projectors.append(super().get_fragment_projector(coeff[s], c_proj=c_proj[s], **kwargs))
         return tuple(projectors)
+
+    def project_amplitude_to_fragment(self, c, c_occ=None, c_vir=None, partition=None, symmetrize=True):
+        if c_occ is None: c_occ = self.c_active_occ
+        if c_vir is None: c_vir = self.c_active_vir
+        if partition is None: partition = self.opts.wf_partition
+        if partition != 'first-occ': raise NotImplementedError()
+
+        p_occ = self.get_fragment_projector(c_occ)
+
+        if np.ndim(c[0]) == 2:
+            ca = np.dot(p_occ[0], c[0])
+            cb = np.dot(p_occ[1], c[1])
+            return (ca, cb)
+        if np.ndim(c[0]) == 4:
+            caa = np.tensordot(p_occ[0], c[0], axes=1)
+            cab = np.tensordot(p_occ[0], c[1], axes=1)
+            #cab = (np.tensordot(p_occ[0], c[1], axes=1) + einsum('xj,ijab->ixab', p_occ[1], c[1]))/2
+            cbb = np.tensordot(p_occ[1], c[1], axes=1)
+            if symmetrize:
+                caa = (caa + caa.transpose(1,0,3,2))/2
+                cbb = (cbb + cbb.transpose(1,0,3,2))/2
+            return (caa, cab, cbb)
 
     def get_fragment_mf_energy(self):
         """Calculate the part of the mean-field energy associated with the fragment.

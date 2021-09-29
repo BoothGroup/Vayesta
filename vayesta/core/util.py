@@ -112,7 +112,7 @@ def energy_string(energy, unit='Ha'):
 timer = default_timer
 
 @contextmanager
-def log_time(logger, message, *args, **kwargs):
+def log_time(logger, message, *args, mintime=None, **kwargs):
     """Log time to execute the body of a with-statement.
 
     Use as:
@@ -129,7 +129,8 @@ def log_time(logger, message, *args, **kwargs):
         yield t0
     finally:
         t = (timer()-t0)
-        logger(message, time_string(t), *args, **kwargs)
+        if mintime is None or t >= mintime:
+            logger(message, time_string(t), *args, **kwargs)
 
 def time_string(seconds, show_zeros=False):
     """String representation of seconds."""

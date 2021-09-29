@@ -11,7 +11,8 @@ import pyscf.cc.dfccsd
 
 from vayesta.core.util import *
 from vayesta.ewf import coupling
-from .solver import ClusterSolver
+#from .solver import ClusterSolver
+from .solver2 import ClusterSolver
 
 
 class CCSD_Solver(ClusterSolver):
@@ -26,7 +27,7 @@ class CCSD_Solver(ClusterSolver):
         # True:     Always solve lambda eq.
         # 'auto':   solve lambda eq. if DMs are requested via make_rdm1 or make_rdm2
         # False:    Never solve lambda eq. If DMs are requested, they are build with Lambda=T approximation
-        solve_lambda: Union[bool, str] = 'auto'
+        t_as_lambda: bool = False
         # Self-consistent mode
         #sc_mode: int = NotSet
         sc_mode: int = None
@@ -45,30 +46,6 @@ class CCSD_Solver(ClusterSolver):
         c_cas_occ: np.array = None
         c_cas_vir: np.array = None
 
-    @dataclasses.dataclass
-    class Results(ClusterSolver.Results):
-        t1: np.array = None
-        t2: np.array = None
-        l1: np.array = None
-        l2: np.array = None
-        solved_lambda: bool = False
-        # EOM-CCSD
-        ip_energy: np.array = None
-        ip_coeff: np.array = None
-        ea_energy: np.array = None
-        ea_coeff: np.array = None
-        # EE
-        ee_s_energy: np.array = None
-        ee_t_energy: np.array = None
-        ee_sf_energy: np.array = None
-        ee_s_coeff: np.array = None
-        ee_t_coeff: np.array = None
-        ee_sf_coeff: np.array = None
-
-        def get_init_guess(self):
-            """Get initial guess for another CCSD calculations from results."""
-            return {'t1' : self.t1 , 't2' : self.t2, 'l1' : self.l1, 'l2' : self.l2}
-
     SOLVER_CLS = pyscf.cc.ccsd.CCSD
     SOLVER_CLS_DF = pyscf.cc.dfccsd.RCCSD
 
@@ -84,16 +61,80 @@ class CCSD_Solver(ClusterSolver):
         else:
             cls = self.SOLVER_CLS
         self.log.debug("CCSD class= %r" % cls)
-        solver = cls(self.mf, mo_coeff=self.mo_coeff, mo_occ=self.mo_occ, frozen=self.get_frozen_indices())
+        frozen = self.cluster.get_frozen_indices()
+        self.log.debugv("frozen= %r", frozen)
+        mo_coeff = self.cluster.all.coeff
+        solver = cls(self.mf, mo_coeff=mo_coeff, mo_occ=self.mf.mo_occ, frozen=frozen)
         # Options
         if self.opts.maxiter is not None: solver.max_cycle = self.opts.maxiter
         if self.opts.conv_tol is not None: solver.conv_tol = self.opts.conv_tol
         if self.opts.conv_tol_normt is not None: solver.conv_tol_normt = self.opts.conv_tol_normt
         self.solver = solver
 
+        # --- Results
+        self.eris = None
+        # EOM-CCSD
+        self.ip_energy = None
+        self.ip_coeff = None
+        self.ea_energy = None
+        self.ea_coeff = None
+        # EE-EOM-CCSD
+        self.ee_s_energy = None
+        self.ee_t_energy = None
+        self.ee_sf_energyy = None
+        self.ee_s_coeff = None
+        self.ee_t_coeff = None
+        self.ee_sf_coeff = None
+
+    @property
+    def t1(self):
+        return self.solver.t1
+
+    @property
+    def t2(self):
+        return self.solver.t2
+
+    @property
+    def l1(self):
+        return self.solver.l1
+
+    @property
+    def l2(self):
+        return self.solver.l2
+
+    def get_l1(self):
+        if self.opts.t_as_lambda:
+            return self.t1
+        if self.l1 is None:
+            self.solve_lambda()
+        return self.l1
+
+    def get_l2(self):
+        if self.opts.t_as_lambda:
+            return self.t2
+        if self.l2 is None:
+            self.solve_lambda()
+        return self.l2
+
+    def get_c1(self):
+        """C1 in intermediate normalization."""
+        return self.solver.t1
+
+    def get_c2(self):
+        """C2 in intermediate normalization."""
+        return self.solver.t2 + einsum('ia,jb->ijab', self.t1, self.t1)
+
+    def get_c2e(self, *args, **kwargs):
+        """C2 used for energy."""
+        return self.get_c2(*args, **kwargs)
+
     def get_eris(self):
-        eris = self.base.get_eris_object(self.solver)
-        return eris
+        self.log.debugv("Getting ERIs for type(self.solver)= %r", type(self.solver))
+        self.eris = self.base.get_eris_object(self.solver)
+        return self.eris
+
+    def get_init_guess(self):
+        return {'t1' : self.t1 , 't2' : self.t2}
 
     def kernel(self, t1=None, t2=None, eris=None, l1=None, l2=None, coupled_fragments=None, t_diagnostic=True):
         """
@@ -123,8 +164,8 @@ class CCSD_Solver(ClusterSolver):
             eris = copy.copy(eris)
             # Replace fock instead of modifying it!
             eris.fock = (eris.fock + self.opts.v_ext)
-        self.log.debugv("sum(eris.mo_energy)= %.8e", sum(eris.mo_energy))
-        self.log.debugv("Tr(eris.fock)= %.8e", np.trace(eris.fock))
+        #self.log.debugv("sum(eris.mo_energy)= %.8e", sum(eris.mo_energy))
+        #self.log.debugv("Tr(eris.fock)= %.8e", np.trace(eris.fock))
 
         # Tailored CC
         if self.opts.tcc:
@@ -147,9 +188,11 @@ class CCSD_Solver(ClusterSolver):
         self.log.info("Solving CCSD-equations %s initial guess...", "with" if (t2 is not None) else "without")
         self.solver.kernel(t1=t1, t2=t2, eris=eris)
         if not self.solver.converged:
-            self.log.error("CCSD not converged!")
+            self.log.error("%s not converged!", self.__class__.__name__)
         else:
-            self.log.debugv("CCSD converged.")
+            self.log.debugv("%s converged.", self.__class__.__name__)
+        self.e_corr = self.solver.e_corr
+        self.converged = self.solver.converged
 
         self.log.debug("Cluster: E(corr)= % 16.8f Ha", self.solver.e_corr)
         self.log.timing("Time for CCSD:  %s", time_string(timer()-t0))
@@ -160,50 +203,40 @@ class CCSD_Solver(ClusterSolver):
 
         if t_diagnostic: self.t_diagnostic()
 
-        results = self.Results(
-                converged=self.solver.converged, e_corr=self.solver.e_corr, c_occ=self.c_active_occ, c_vir=self.c_active_vir,
-                t1=self.solver.t1, t2=self.solver.t2)
+        if 'IP' in self.opts.eom_ccsd:
+            self.ip_energy, self.ip_coeff = self.eom_ccsd('IP', eris)
+        if 'EA' in self.opts.eom_ccsd:
+            self.ea_energy, self.ea_coeff = self.eom_ccsd('EA', eris)
+        if 'EE-S' in self.opts.eom_ccsd:
+            self.ee_s_energy, self.ee_s_coeff = self.eom_ccsd('EE-S', eris)
+        if 'EE-T' in self.opts.eom_ccsd:
+            self.ee_t_energy, self.ee_t_coeff = self.eom_ccsd('EE-T', eris)
+        if 'EE-SF' in self.opts.eom_ccsd:
+            self.ee_sf_energy, self.ee_sf_coeff = self.eom_ccsd('EE-SF', eris)
 
-        if self.opts.solve_lambda == 'auto':
-            solve_lambda = (self.opts.make_rdm1 or self.opts.make_rdm2)
-        else:
-            solve_lambda = self.opts.solve_lambda
-
-        if solve_lambda:
-            t0 = timer()
+    def solve_lambda(self, l1=None, l2=None, eris=None):
+        if eris is None: eris = self.eris
+        with log_time(self.log.info, "Time for lambda-equations: %s"):
             self.log.info("Solving lambda-equations %s initial guess...", "with" if (l2 is not None) else "without")
             l1, l2 = self.solver.solve_lambda(l1=l1, l2=l2, eris=eris)
             self.log.info("Lambda equations done. Lambda converged: %r", self.solver.converged_lambda)
-            if self.solver.converged_lambda:
-                results.solved_lambda = True
-            else:
+            if not self.solver.converged_lambda:
                 self.log.error("Solution of lambda-equation not converged!")
-            self.log.timing("Time for lambda-equations: %s", time_string(timer()-t0))
-        # Use Lambda=T approximation
-        else:
-            l1 = self.solver.t1
-            l2 = self.solver.t2
-        results.l1, results.l2 = l1, l2
+        return l1, l2
 
-        if self.opts.make_rdm1:
-            self.log.debug("Making RDM1...")
-            results.dm1 = self.solver.make_rdm1(l1=l1, l2=l2, with_frozen=self.opts.dm_with_frozen)
-        if self.opts.make_rdm2:
-            self.log.debug("Making RDM2...")
-            results.dm2 = self.solver.make_rdm2(l1=l1, l2=l2, with_frozen=self.opts.dm_with_frozen)
+    def make_rdm1(self, l1=None, l2=None, with_frozen=False):
+        if l1 is None: l1 = self.get_l1()
+        if l2 is None: l2 = self.get_l2()
+        self.log.debug("Making RDM1...")
+        self.dm1 = self.solver.make_rdm1(l1=l1, l2=l2, with_frozen=with_frozen)
+        return self.dm1
 
-        if 'IP' in self.opts.eom_ccsd:
-            results.ip_energy, results.ip_coeff = self.eom_ccsd('IP', eris)
-        if 'EA' in self.opts.eom_ccsd:
-            results.ea_energy, results.ea_coeff = self.eom_ccsd('EA', eris)
-        if 'EE-S' in self.opts.eom_ccsd:
-            results.ee_s_energy, results.ee_s_coeff = self.eom_ccsd('EE-S', eris)
-        if 'EE-T' in self.opts.eom_ccsd:
-            results.ee_t_energy, results.ee_t_coeff = self.eom_ccsd('EE-T', eris)
-        if 'EE-SF' in self.opts.eom_ccsd:
-            results.ee_sf_energy, results.ee_sf_coeff = self.eom_ccsd('EE-SF', eris)
-
-        return results
+    def make_rdm2(self, l1=None, l2=None, with_frozen=False):
+        if l1 is None: l1 = self.get_l1()
+        if l2 is None: l2 = self.get_l2()
+        self.log.debug("Making RDM2...")
+        self.dm2 = self.solver.make_rdm2(l1=l1, l2=l2, with_frozen=with_frozen)
+        return self.dm2
 
     def t_diagnostic(self):
         self.log.info("T-Diagnostic")

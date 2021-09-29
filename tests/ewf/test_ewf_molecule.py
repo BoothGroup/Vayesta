@@ -1,6 +1,7 @@
 import unittest
 import numpy as np
 from pyscf import gto, scf, lib
+import pyscf.cc
 from vayesta import ewf
 
 #TODO tighten thresholds once solver interface is finished
@@ -155,28 +156,6 @@ class MoleculeEWFTest_LiH_ccpvdz_Lowdin_atoms(unittest.TestCase, MoleculeEWFTest
         cls.ewf.kernel()
 
         cls.known_values = {'e_tot': -7.99502192669842}
-
-class MoleculeEWFTest_LiH_SAO_UHF(unittest.TestCase, MoleculeEWFTest):
-    @classmethod
-    def setUpClass(cls):
-        cls.mol = gto.Mole()
-        cls.mol.atom = 'Li 0 0 0; H 0 0 1.4'
-        cls.mol.basis = 'cc-pvdz'
-        cls.mol.verbose = 0
-        cls.mol.max_memory = 1e9
-        cls.mol.build()
-
-        cls.mf = scf.UHF(cls.mol)
-        cls.mf.conv_tol = 1e-12
-        cls.mf.kernel()
-        assert cls.mf.converged
-
-        cls.ewf = ewf.UEWF(cls.mf, bath_type=None, solver_options={'conv_tol': EWF_CONV_TOL})
-        cls.ewf.sao_fragmentation()
-        cls.ewf.add_all_atomic_fragments()
-        cls.ewf.kernel()
-        cls.known_values = {'e_tot': -7.99502192669842}
-
 
 class MoleculeEWFTest_N2_augccpvdz_stretched_FCI(unittest.TestCase, MoleculeEWFTest):
     @classmethod

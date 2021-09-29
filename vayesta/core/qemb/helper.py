@@ -1,6 +1,6 @@
 
 
-def log_orbitals(logger, labels, ncol=10):
+def log_orbitals(logger, labels, ncol=8):
     # Group orbitals by atom - list(dict.fromkeys(...)) to only get unique atom indices:
     atoms = list(dict.fromkeys([l[0] for l in labels]))
     labels = [[l for l in labels if (l[0] == atom)] for atom in atoms]
@@ -9,7 +9,7 @@ def log_orbitals(logger, labels, ncol=10):
         # Print up to ncol orbitals per line:
         for idx in range(0, len(atom), ncol):
             line = atom[idx:idx+ncol]
-            fmt = '  %13s ' + len(line)*' %6s'
+            fmt = '  %14s ' + len(line)*' %8s'
             # Preformat
             orbs = [('%s-%s' % (nl, ml) if ml else nl) for a, sym, nl, ml in line]
             logger(fmt, prefix, *orbs)

@@ -63,9 +63,9 @@ class EWF(QEmbeddingMethod):
         # --- Solver settings
         make_rdm1: bool = False
         make_rdm2: bool = False
-        solve_lambda: bool = 'auto'         # If False, use T-amplitudes inplace of Lambda-amplitudes
+        #solve_lambda: bool = 'auto'         # If False, use T-amplitudes inplace of Lambda-amplitudes
+        t_as_lambda: bool = False           # If True, use T-amplitudes inplace of Lambda-amplitudes
         dm_with_frozen: bool = False        # Add frozen parts to cluster DMs
-        pop_analysis: str = False           # Do population analysis
         eom_ccsd: list = dataclasses.field(default_factory=list)  # Perform EOM-CCSD in each cluster by default
         eom_ccsd_nroots: int = 5            # Perform EOM-CCSD in each cluster by default
         eomfile: str = 'eom-ccsd'           # Filename for EOM-CCSD states
@@ -99,8 +99,6 @@ class EWF(QEmbeddingMethod):
         super().__init__(mf, options=options, log=log, **kwargs)
 
         # Options
-        if self.opts.pop_analysis:
-            self.opts.make_rdm1 = True
         self.log.info("Parameters of %s:", self.__class__.__name__)
         self.log.info(break_into_lines(str(self.opts), newline='\n    '))
 
@@ -116,10 +114,6 @@ class EWF(QEmbeddingMethod):
         self.solver = solver
 
         #self._mo_coeff = self.get_init_mo_coeff()
-
-        # Population analysis
-        self.pop_mf = None
-        #self.pop_mf_chg = None
 
         self.iteration = 0
         self.cluster_results = {}
@@ -498,15 +492,6 @@ class EWF(QEmbeddingMethod):
                 # Loop over AO
                 for i in range(self.iao_coeff.shape[0]):
                     f.write(fmtline % (ao_labels[i], *self.iao_coeff[i]))
-
-        # Mean-field population analysis
-        if self.opts.pop_analysis:
-            dm1 = self.mf.make_rdm1()
-            if isinstance(self.opts.pop_analysis, str):
-                filename = self.opts.pop_analysis
-            else:
-                filename = None
-            self.pop_mf = self.pop_analysis(dm1, filename=filename)[0]
 
         if self.is_rhf:
             nelec_frags = sum([f.sym_factor*f.nelectron for f in self.loop()])
