@@ -16,13 +16,14 @@ import scipy.linalg
 
 from pyscf import __config__
 from pyscf import gto, lib, ao2mo
+from pyscf.pbc import tools
 from pyscf.lib import logger
 from pyscf.df import addons
 from pyscf.agf2 import mpi_helper
 from pyscf.ao2mo.outcore import balance_partition
 from pyscf.ao2mo.incore import iden_coeffs, _conc_mos
 from pyscf.pbc.gto.cell import _estimate_rcut
-from pyscf.pbc.df import df, incore, ft_ao
+from pyscf.pbc.df import df, incore, ft_ao, aft
 from pyscf.pbc.df.df_jk import _ewald_exxdiv_for_G0, _format_dms
 from pyscf.pbc.lib.kpts_helper import is_zero, gamma_point, unique, KPT_DIFF_TOL, get_kconserv
 from pyscf.pbc.df.fft_ao2mo import _iskconserv, _format_kpts
@@ -67,7 +68,8 @@ def make_auxcell(cell, auxbasis=None, drop_eta=None):
             int1 = gto.gaussian_int(l*2+2, exps)
             s = np.einsum('pi,p->i', coeffs, int1)
 
-            coeffs = np.einsum('pi,i->pi', coeffs, 1/s) * np.sqrt(0.25 / np.pi)
+            coeffs *= np.sqrt(0.25 / np.pi)
+            coeffs /= s[None]
             _env[ptr_coeffs:ptr_coeffs+nprim*nctr] = coeffs.T.ravel()
 
             steep_shls.append(ib)
@@ -485,22 +487,87 @@ class GDF(df.GDF):
     ''' Incore Gaussian density fitting.
     '''
 
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        
-        self.rcut_smooth = 15.0
-        self._keys.update(['rcut_smooth'])
+    def __init__(self, cell, kpts=np.zeros((1, 3))):
+        if not cell.dimension == 3:
+            raise ValueError('%s does not support low dimension systems' % self.__class__)
 
-    def build(self, j_only=None, with_j3c=True, kpts_band=None):
+        self.cell = cell
+        self.kpts = kpts
+        self._auxbasis = None
+
+        self.eta, self.mesh = self.build_mesh()
+        self.exp_to_discard = cell.exp_to_discard
+        self.rcut_smooth = 15.0
+        self.linear_dep_threshold = 1e-9
+        self.linear_dep_method = 'regularize'
+        self.linear_dep_always = False
+
+        # The follow attributes are not input options.
+        self.exxdiv = None
+        self.auxcell = None
+        self.blockdim = None
+        self.kpts_band = None
+        self._j_only = False
+        self._cderi = None
+        self._rsh_df = {}
+        self._keys = set(self.__dict__.keys())
+
+    def build_mesh(self):
+        '''
+        Search for optimised eta and mesh.
+        '''
+
+        cell = self.cell
+
+        ke_cutoff = tools.mesh_to_cutoff(cell.lattice_vectors(), cell.mesh)
+        ke_cutoff = ke_cutoff[:cell.dimension].min()
+
+        eta_cell = aft.estimate_eta_for_ke_cutoff(cell, ke_cutoff, cell.precision)
+        eta_guess = aft.estimate_eta(cell, cell.precision)
+
+        logger.debug3(self, "eta_guess = %s", eta_guess)
+
+        if eta_cell < eta_guess:
+            eta, mesh = eta_cell, cell.mesh
+        else:
+            eta = eta_guess
+            ke_cuttoff = aft.estimate_ke_cutoff_for_eta(cell, eta, cell.precision)
+            mesh = tools.cutoff_to_mesh(cell.lattice_vectors(), ke_cutoff)
+
+        return eta, df._round_off_to_odd_mesh(mesh)
+
+    def reset(self, cell=None):
+        if cell is not None:
+            self.cell = cell
+        self.auxcell = None
+        self._cderi = None
+        self._rsh_df = {}
+        return self
+
+    def dump_flags(self):
+        log = logger.new_logger(self)
+        log.info('\n')
+        log.info('******** %s ********', self.__class__)
+        log.info('mesh = %s (%d PWs)', self.mesh, np.prod(self.mesh))
+        log.info('auxbasis = %s', self.auxbasis if self.auxcell is None else self.auxcell.basis)
+        log.info('eta = %s', self.eta)
+        log.info('exp_to_discard = %s', self.exp_to_discard)
+        log.info('rcut_smooth = %s', self.rcut_smooth)
+        log.info('len(kpts) = %d', len(self.kpts))
+        log.debug1('    kpts = %s', self.kpts)
+        log.info('linear_dep_threshold', self.linear_dep_threshold)
+        log.info('linear_dep_method', self.linear_dep_method)
+        log.info('linear_dep_always', self.linear_dep_always)
+        return self
+
+    def build(self, j_only=None, with_j3c=True):
         j_only = j_only or self._j_only
         if j_only:
-            raise ValueError('%s does not support j_only=%s' % (self.__class__, j_only))
+            logger.warn(self, 'j_only=True has not effect on overhead in %s' % self.__class__)
         if not with_j3c:
-            raise ValueError('%s does not support with_j3c=%s' % (self.__class__, with_j3c))
-        if kpts_band is not None:
-            raise ValueError('%s does not support kpts_band=%s' % (self.__class__, kpts_band))
-        if self.cell.dimension < 3 and self.cell.low_dim_ft_type != 'inf_vacuum':
-            raise NotImplementedError('%s for low dimensionality systems' % self.__class__)
+            raise ValueError('%s does not support with_j3c' % self.__class__)
+        if self.kpts_band is not None:
+            raise ValueError('%s does not support kwarg kpts_band' % self.__class__)
 
         self.check_sanity()
         self.dump_flags()
