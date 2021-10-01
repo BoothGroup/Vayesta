@@ -3,21 +3,21 @@ import numpy as np
 import pyscf.cc
 import pyscf.fci
 import pyscf.tools
-import pyscf.tools.ring
 
 import vayesta.dmet
 import vayesta.edmet
 
-natom = 6
+natom = 10
 
-for d in np.arange(0.5, 3.0001, 0.25):
+for d in np.arange(1.0, 3.7, 0.2):
 
-    ring = pyscf.tools.ring.make(natom, d)
-    atom = [('H %f %f %f' % xyz) for xyz in ring]
+    pos = [(d * x, 0, 0) for x in range(natom)]
+    atom = [('H %f %f %f' % xyz) for xyz in pos]
 
     mol = pyscf.gto.Mole()
     mol.atom = atom
-    mol.basis = '6-31G'
+    mol.basis = 'cc-pvdz'
+    mol.unit = "Bohr"
     #mol.verbose = 10
     #mol.output = 'pyscf_out.txt'
     mol.build()
@@ -30,8 +30,8 @@ for d in np.arange(0.5, 3.0001, 0.25):
     mycc = pyscf.cc.CCSD(mf)
     mycc.kernel()
 
-    myfci = pyscf.fci.FCI(mf)
-    myfci.kernel()
+    #myfci = pyscf.fci.FCI(mf)
+    #myfci.kernel()
 
     # Single-shot
     dmet_oneshot = vayesta.dmet.DMET(mf, solver='FCI', max_elec_err=1e-6, maxiter=1)
@@ -59,12 +59,11 @@ for d in np.arange(0.5, 3.0001, 0.25):
     e_cc = mycc.e_tot if mycc.converged else np.NaN
     print("E%-14s %+16.8f Ha" % ('(HF)=', mf.e_tot))
     print("E%-14s %+16.8f Ha" % ('(CCSD)=', e_cc))
-    print("E%-14s %+16.8f Ha" % ('(FCI)=', myfci.e_tot))
     print("E%-14s %+16.8f Ha" % ('(DMET-FCI)=', dmet_oneshot.e_tot))
     #print("E%-14s %+16.8f Ha" % ('(DMET-FCI)=', dmet_diis.e_tot))
     print("E%-14s %+16.8f Ha" % ('(EDMET-FCI-Oneshot)=', edmet_oneshot.e_tot))
     print("E%-14s %+16.8f Ha" % ('(EDMET-FCI)=', e_sc_edmet))
 
-    with open("energies_scEDMET_h6.txt", "a") as f:
-        f.write("%.2f  % 16.8f  % 16.8f  % 16.8f  %16.8f  %16.8f  %16.8f\n" % (d, mf.e_tot, e_cc, myfci.e_tot, dmet_oneshot.e_tot,
+    with open("energies_h10_ccpvdz.txt", "a") as f:
+        f.write("%.2f  % 16.8f  % 16.8f  %16.8f  %16.8f  %16.8f\n" % (d, mf.e_tot, e_cc, dmet_oneshot.e_tot,
                                                                edmet_oneshot.e_tot, e_sc_edmet))
