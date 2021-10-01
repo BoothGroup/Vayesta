@@ -187,7 +187,8 @@ class EDMET(DMET):
             else:
                 self.vcorr = vcorr_new
                 self.xc_kernel = xc_kernel_new
-
+        else:
+            self.log.error("Self-consistency not reached in {} iterations.".format(maxiter))
         # Now have final results.
         self.print_results()
 

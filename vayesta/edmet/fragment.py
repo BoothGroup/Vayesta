@@ -29,7 +29,7 @@ class EDMETFragment(DMETFragment):
     class Results(DMETFragment.Results):
         dm_eb: np.ndarray = None
         eb_couplings: np.ndarray = None
-        boson_freqs: np.ndarray = None
+        boson_freqs: tuple = None
         dd_mom0: np.ndarray = None
         dd_mom1: np.ndarray = None
 
@@ -227,7 +227,7 @@ class EDMETFragment(DMETFragment):
                 dm1 = solver_results.dm1,
                 dm2 = solver_results.dm2,
                 dm_eb = solver_results.rdm_eb,
-                eb_couplings=np.array((Va,Vb)),
+                eb_couplings=(Va,Vb),
                 boson_freqs=freqs,
                 dd_mom0=solver_results.dd_mom0,
                 dd_mom1=solver_results.dd_mom1,
