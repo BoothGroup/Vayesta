@@ -27,51 +27,50 @@ def build_moments(
     a pair of clusters.
     '''
 
-    ci_p = np.dot(frag.mf.mo_coeff, mo_coeff_occ)
-    ca_p = np.dot(frag.mf.mo_coeff, mo_coeff_vir)
+    ci_p = np.linalg.multi_dot((frag.mf.mo_coeff, frag.qmo_coeff[:frag.mol.nao], mo_coeff_occ))
+    ca_p = np.linalg.multi_dot((frag.mf.mo_coeff, frag.qmo_coeff[:frag.mol.nao], mo_coeff_vir))
     c_p = np.hstack((ci_p, ca_p))
 
-    ci_q = np.dot(frag.mf.mo_coeff, mo_coeff_occ_other)
-    ca_q = np.dot(frag.mf.mo_coeff, mo_coeff_vir_other)
+    ci_q = np.linalg.multi_dot((frag.mf.mo_coeff, frag.qmo_coeff[:frag.mol.nao], mo_coeff_occ_other))
+    ca_q = np.linalg.multi_dot((frag.mf.mo_coeff, frag.qmo_coeff[:frag.mol.nao], mo_coeff_vir_other))
     c_q = np.hstack((ci_q, ca_q))
 
-    occ = slice(None, frag.mf.mol.nelectron // 2)
-    vir = slice(frag.mf.mol.nelectron // 2, None)
+    nocc = np.sum(frag.qmo_occ > 0)
+    occ = slice(None, nocc)
+    vir = slice(nocc, None)
     if which.lower().startswith('vir'):
+        mo_coeff_occ, mo_coeff_vir = mo_coeff_vir, mo_coeff_occ
+        mo_coeff_occ_other, mo_coeff_vir_other = mo_coeff_vir_other, mo_coeff_occ_other
         ci_p, ca_p = ca_p, ci_p
         ci_q, ca_q = ca_q, ci_q
         occ, vir = vir, occ
 
-    ci = frag.mf.mo_coeff[:, occ]
-    ca = frag.mf.mo_coeff[:, vir]
+    ei = frag.qmo_energy[occ]
+    ea = frag.qmo_energy[vir]
 
-    ei = frag.mf.mo_energy[occ]
-    ea = frag.mf.mo_energy[vir]
+    cj = np.linalg.multi_dot((frag.mf.mo_coeff, frag.qmo_coeff[:frag.mol.nao, occ], mo_coeff_occ[occ], mo_coeff_occ[occ].T))
+    ca = np.linalg.multi_dot((frag.mf.mo_coeff, frag.qmo_coeff[:frag.mol.nao, vir], mo_coeff_vir[vir], mo_coeff_vir[vir].T))
+    pija = ao2mo.general(frag.mf._eri, (c_p, ci_p, cj, ca), compact=False)
+    pija = pija.reshape([c.shape[1] for c in (c_p, ci_p, cj, ca)])
 
-    pija = ao2mo.general(frag.mf._eri, (c_p, ci_p, ci, ca), compact=False)
-    pija = pija.reshape([c.shape[1] for c in (c_p, ci_p, ci, ca)])
-
-    qija = ao2mo.general(frag.mf._eri, (c_q, ci_q, ci, ca), compact=False)
-    qija = qija.reshape([c.shape[1] for c in (c_q, ci_q, ci, ca)])
-
-    qjia = ao2mo.general(frag.mf._eri, (c_q, ci, ci_q, ca), compact=False)
-    qjia = qjia.reshape([c.shape[1] for c in (c_q, ci, ci_q, ca)])
-
-    eija = lib.direct_sum('i+j-a->ija', ei, ei, ea)
-    eija = lib.einsum('ija,ik,il->klja', eija, ci_p[occ], ci_q[occ])
-
-    c_pq = np.dot(ci_p.T, ci_q)
+    cj = np.linalg.multi_dot((frag.mf.mo_coeff, frag.qmo_coeff[:frag.mol.nao, occ], mo_coeff_occ_other[occ], mo_coeff_occ_other[occ].T))
+    ca = np.linalg.multi_dot((frag.mf.mo_coeff, frag.qmo_coeff[:frag.mol.nao, vir], mo_coeff_vir_other[vir], mo_coeff_vir_other[vir].T))
+    qija = ao2mo.general(frag.mf._eri, (c_q, ci_q, cj, ca), compact=False)
+    qjia = ao2mo.general(frag.mf._eri, (c_q, cj, ci_q, ca), compact=False)
+    qija = qija.reshape([c.shape[1] for c in (c_q, ci_q, cj, ca)])
+    qjia = qjia.reshape([c.shape[1] for c in (c_q, cj, ci_q, ca)])
 
     t0 = (
-        + 2.0 * lib.einsum('pika,qjka,ij->pq', pija, qija, c_pq)
-        - 1.0 * lib.einsum('pika,qkja,ij->pq', pija, qjia, c_pq)
+        + 2.0 * lib.einsum('pkja,qlja,ik,il->pq', pija, qija, mo_coeff_occ[occ], mo_coeff_occ_other[occ])
+        - 1.0 * lib.einsum('pkja,qjla,ik,il->pq', pija, qjia, mo_coeff_occ[occ], mo_coeff_occ_other[occ])
     )
 
-    pija = lib.einsum('pika,ijka->pjka', pija, eija)
+    delta = lib.direct_sum('i+j-a->ija', ei, ei, ea)
+    delta = lib.einsum('ija,ik,il->klja', delta, mo_coeff_occ[occ], mo_coeff_occ_other[occ])
 
     t1 = (
-        + 2.0 * lib.einsum('pija,qija->pq', pija, qija)
-        - 1.0 * lib.einsum('pija,qjia->pq', pija, qjia)
+        + 2.0 * lib.einsum('pkja,qlja,klja->pq', pija, qija, delta)
+        - 1.0 * lib.einsum('pkja,qjla,klja->pq', pija, qjia, delta)
     )
 
     return np.array([t0, t1])

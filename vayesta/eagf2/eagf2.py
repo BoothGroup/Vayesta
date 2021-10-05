@@ -322,6 +322,11 @@ class EAGF2(QEmbeddingMethod):
 
                     self.log.info("%s is done.", frag)
 
+            assert np.allclose(moms[0,0], moms[0,0].T.conj())
+            assert np.allclose(moms[0,1], moms[0,1].T.conj())
+            assert np.allclose(moms[1,0], moms[1,0].T.conj())
+            assert np.allclose(moms[1,1], moms[1,1].T.conj())
+
 
             # === Occupied:
 
@@ -330,8 +335,6 @@ class EAGF2(QEmbeddingMethod):
             se_occ = solver._build_se_from_moments(moms[0])
             w = np.linalg.eigvalsh(moms[0][0])
             wmin, wmax = w.min(), w.max()
-            if wmin < 1e-8:
-                raise ValueError  #FIXME
             (self.log.warning if wmin < 1e-8 else self.log.debug)(
                     'Eigenvalue range:  %.5g -> %.5g', wmin, wmax,
             )
@@ -346,8 +349,6 @@ class EAGF2(QEmbeddingMethod):
             se_vir = solver._build_se_from_moments(moms[1])
             w = np.linalg.eigvalsh(moms[1][0])
             wmin, wmax = w.min(), w.max()
-            if wmin < 1e-8:
-                raise ValueError  #FIXME
             (self.log.warning if wmin < 1e-8 else self.log.debug)(
                     'Eigenvalue range:  %.5g -> %.5g', wmin, wmax,
             )
