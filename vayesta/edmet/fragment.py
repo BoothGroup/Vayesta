@@ -1,6 +1,8 @@
 
 import gc
 import scipy.linalg
+import pyscf.lib
+
 
 from vayesta.dmet.fragment import DMETFragment
 from vayesta.core.util import *
@@ -24,6 +26,7 @@ class EDMETFragment(DMETFragment):
     class Options(DMETFragment.Options):
         make_dd_moments: bool = True
         bos_occ_cutoff: int = NotSet
+        old_sc_condition: bool = NotSet
 
     @dataclasses.dataclass
     class Results(DMETFragment.Results):
@@ -218,6 +221,12 @@ class EDMETFragment(DMETFragment):
         solver_results = cluster_solver.kernel(bos_occ_cutoff=self.opts.bos_occ_cutoff, eris=eris)
         self.log.timing("Time for %s solver:  %s", solver, time_string(timer()-t0))
 
+        dd0 = solver_results.dd_mom0
+        dd1 = solver_results.dd_mom1
+        if self.opts.old_sc_condition:
+            dd0 = [np.einsum("ppqq->pq", x) for x in dd0]
+            dd1 = [np.einsum("ppqq->pq", x) for x in dd1]
+
         results = self.Results(
                 fid=self.id,
                 bno_threshold=bno_threshold,
@@ -229,8 +238,8 @@ class EDMETFragment(DMETFragment):
                 dm_eb = solver_results.rdm_eb,
                 eb_couplings=(Va,Vb),
                 boson_freqs=freqs,
-                dd_mom0=solver_results.dd_mom0,
-                dd_mom1=solver_results.dd_mom1,
+                dd_mom0=dd0,
+                dd_mom1=dd1,
         )
 
         self.solver_results = solver_results
@@ -279,32 +288,54 @@ class EDMETFragment(DMETFragment):
         # Now want to construct rotations defining which degrees of freedom contribute to two-point quantities.
         occ_frag_rot = np.linalg.multi_dot([self.c_frag.T, self.base.get_ovlp(), self.c_active_occ])
         vir_frag_rot = np.linalg.multi_dot([self.c_frag.T, self.base.get_ovlp(), self.c_active_vir])
-        # Then get projectors to local quantities in ov-basis. Note this needs to be stacked to apply to each spin
-        # pairing separately.
-        rot_loc_frag = np.einsum("pi,pa->pia", occ_frag_rot, vir_frag_rot).reshape((-1, ov_loc))
-        # Get pseudo-inverse to map from frag to loc. Since occupied-virtual excitations aren't spanning this isn't a
-        # simple transpose.
-        rot_frag_loc = np.linalg.pinv(rot_loc_frag)
 
+        if self.opts.old_sc_condition:
+            # Then get projectors to local quantities in ov-basis. Note this needs to be stacked to apply to each spin
+            # pairing separately.
+            rot_ov_frag = np.einsum("pi,pa->pia", occ_frag_rot, vir_frag_rot).reshape((-1, ov_loc))
+            # Get pseudo-inverse to map from frag to loc. Since occupied-virtual excitations aren't spanning this isn't a
+            # simple transpose.
+            rot_frag_ov = np.linalg.pinv(rot_ov_frag)
+        else:
+            # First, grab rotations from particle-hole excitations to fragment degrees of freedom, ignoring reordering
+            rot_ov_frag = np.einsum("pi,qa->pqia", occ_frag_rot, vir_frag_rot).reshape((-1, ov_loc))
+            # Set up matrix to map down to only a single index ordering.
+            proj_to_order = np.zeros((self.n_frag,)*4)
+            for p in range(self.n_frag):
+                for q in range(p+1):
+                    proj_to_order[p,q,p,q] = proj_to_order[q,p,p,q] = 1.0
+            proj_to_order = proj_to_order.reshape((self.n_frag**2, self.n_frag, self.n_frag))
+            # Now restrict to triangular portion of array
+            proj_to_order = pyscf.lib.pack_tril(proj_to_order)
+            proj_from_order = np.linalg.pinv(proj_to_order)
+            # Now have rotation between single fragment ordering, and fragment particle-hole excits.
+            rot_ov_frag = dot(proj_to_order.T, rot_ov_frag)
+            # Get pseudo-inverse to map from frag to loc. Since occupied-virtual excitations aren't spanning this isn't a
+            # simple transpose.
+            rot_frag_ov = np.linalg.pinv(rot_ov_frag)
+            m0_new = [dot(proj_to_order.T, x.reshape((self.n_frag**2,)*2), proj_to_order) for x in m0_new]
+            m1_new = [dot(proj_to_order.T, x.reshape((self.n_frag**2,)*2), proj_to_order) for x in m1_new]
         #newmat = AmB_orig.copy()
 
-        def get_updated(orig, update, rot_lf, rot_fl):
+        def get_updated(orig, update, rot_ovf, rot_fov):
             """Given the original value of a block, the updated solver value, and rotations between appropriate spaces
             generate the updated value of the appropriate block."""
             # Generate difference in local, two-point excitation basis.
-            diff = update - np.linalg.multi_dot([rot_lf, orig, rot_lf.T])
-            return orig + np.linalg.multi_dot([rot_fl, diff, rot_fl.T])
+            diff = update - np.linalg.multi_dot([rot_ovf, orig, rot_ovf.T])
+            return orig + np.linalg.multi_dot([rot_fov, diff, rot_fov.T])
 
-        def get_updated_spincomponents(orig, update, rot_loc_frag, rot_frag_loc):
+        def get_updated_spincomponents(orig, update, rot_ov_frag, rot_frag_ov):
             newmat = orig.copy()
 
-            newmat[:ov_loc, :ov_loc] = get_updated(newmat[:ov_loc, :ov_loc], update[0], rot_loc_frag, rot_frag_loc)
-            newmat[:ov_loc, ov_loc:2*ov_loc] = get_updated(newmat[:ov_loc, ov_loc:2*ov_loc], update[1], rot_loc_frag, rot_frag_loc)
+            newmat[:ov_loc, :ov_loc] = get_updated(newmat[:ov_loc, :ov_loc], update[0], rot_ov_frag, rot_frag_ov)
+            newmat[:ov_loc, ov_loc:2*ov_loc] = get_updated(newmat[:ov_loc, ov_loc:2*ov_loc], update[1], rot_ov_frag,
+                                                           rot_frag_ov)
             newmat[ov_loc:2*ov_loc, :ov_loc] = newmat[:ov_loc, ov_loc:2 * ov_loc].T
-            newmat[ov_loc:2*ov_loc, ov_loc:2*ov_loc] = get_updated(newmat[ov_loc:2*ov_loc, ov_loc:2*ov_loc], update[2], rot_loc_frag, rot_frag_loc)
+            newmat[ov_loc:2*ov_loc, ov_loc:2*ov_loc] = get_updated(newmat[ov_loc:2*ov_loc, ov_loc:2*ov_loc], update[2],
+                                                                   rot_ov_frag, rot_frag_ov)
             return newmat
-        new_AmB = get_updated_spincomponents(AmB_orig, m1_new, rot_loc_frag, rot_frag_loc)
-        new_m0 = get_updated_spincomponents(m0_orig, m0_new, rot_loc_frag, rot_frag_loc)
+        new_AmB = get_updated_spincomponents(AmB_orig, m1_new, rot_ov_frag, rot_frag_ov)
+        new_m0 = get_updated_spincomponents(m0_orig, m0_new, rot_ov_frag, rot_frag_ov)
         new_m0_inv = np.linalg.inv(new_m0)
         new_ApB = np.linalg.multi_dot([new_m0_inv, new_AmB, new_m0_inv])
 

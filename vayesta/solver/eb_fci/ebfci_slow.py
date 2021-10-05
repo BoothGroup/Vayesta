@@ -676,9 +676,9 @@ def calc_dd_response_moment_spatial(ci0, e0, max_mom, norb, nel, nbos, h1e, eri,
             )
         else:
             moments[imom] = (
-                numpy.tensordot(aintermed_l, aintermed_r.T, (2,2)),
-                numpy.tensordot(aintermed_l, bintermed_r.T, (2,2)),
-                numpy.tensordot(bintermed_l, bintermed_r.T, (2,2))
+                numpy.tensordot(aintermed_l, aintermed_r, (2,2)),
+                numpy.tensordot(aintermed_l, bintermed_r, (2,2)),
+                numpy.tensordot(bintermed_l, bintermed_r, (2,2))
             )
     # Need to add additional adjustment for zeroth moment, as there is a nonzero ground state
     # contribution in this case (the current value is in fact the double occupancy <0|n_{pq} n_{sr}|0>).

@@ -93,7 +93,7 @@ class EBFCISolver(FCISolver):
             frag_coeffs = np.linalg.multi_dot([self.fragment.c_active.T, self.base.get_ovlp(), self.fragment.c_frag])
             dd_moms = ebfci_slow.calc_dd_response_moment_spatial(civec, e_fci, 1, self.nactive, nelec,
                                                         self.nbos, heff, eris, np.diag(self.bos_freqs), self.eb_coupling,
-                                                        bos_occ_cutoff, results.dm1, trace = True,
+                                                        bos_occ_cutoff, results.dm1, trace = False,
                                                         coeffs = frag_coeffs)
             results.dd_mom0 = dd_moms[0]
             results.dd_mom1 = dd_moms[1]

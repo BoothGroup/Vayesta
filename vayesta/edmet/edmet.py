@@ -25,7 +25,6 @@ class EDMETResults:
     cluster_sizes: np.ndarray = None
     e_corr: float = None
 
-
 class EDMET(DMET):
 
     @dataclasses.dataclass
@@ -33,6 +32,7 @@ class EDMET(DMET):
         bos_occ_cutoff: int = 2
         maxiter: int = 1
         make_dd_moments: bool = NotSet
+        old_sc_condition: bool = False
     Fragment = EDMETFragment
 
     VALID_SOLVERS = ["EBFCI"]  # , "EBFCIQMC"]
