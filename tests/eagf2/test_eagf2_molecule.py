@@ -66,8 +66,9 @@ class LiH_ccpvdz_Lowdin_all_exact_Test(ExactMoleculeEAGF2Test, unittest.TestCase
                 'weight_tol': 0.0,
         }
 
-        cls.eagf2 = eagf2.EAGF2(cls.mf, fragment_type='Lowdin-AO', bath_type='all', **options)
-        cls.eagf2.make_all_atom_fragments()
+        cls.eagf2 = eagf2.EAGF2(cls.mf, bath_type='all', **options)
+        cls.eagf2.sao_fragmentation()
+        cls.eagf2.add_all_atomic_fragments()
         cls.eagf2.kernel()
 
         cls.agf2 = ragf2.RAGF2(cls.mf, **options)
@@ -98,8 +99,9 @@ class N2_631g_Lowdin_power_exact_Test(ExactMoleculeEAGF2Test, unittest.TestCase)
                 'weight_tol': 0.0,
         }
 
-        cls.eagf2 = eagf2.EAGF2(cls.mf, fragment_type='Lowdin-AO', bath_type='power', max_bath_order=100, **options)
-        cls.eagf2.make_all_atom_fragments()
+        cls.eagf2 = eagf2.EAGF2(cls.mf, bath_type='power', max_bath_order=100, **options)
+        cls.eagf2.sao_fragmentation()
+        cls.eagf2.add_all_atomic_fragments()
         cls.eagf2.kernel()
 
         cls.agf2 = ragf2.RAGF2(cls.mf, **options)
