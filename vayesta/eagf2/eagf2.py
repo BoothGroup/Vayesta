@@ -48,8 +48,8 @@ class EAGF2Options(RAGF2Options):
     conv_tol_rdm1: float = 1e-10
     conv_tol_nelec: float = 1e-8
     conv_tol_nelec_factor: float = 1e-2
-    max_cycle_inner: int = 200
-    max_cycle_outer: int = 20
+    max_cycle_inner: int = 50
+    max_cycle_outer: int = 25
 
 
 @dataclasses.dataclass
@@ -236,6 +236,7 @@ class EAGF2(QEmbeddingMethod):
                 log=self.log,
                 options=self.opts,
                 fock_basis='ao',
+                weight_tol=0.0,  #NOTE dimension errors without this...
         )
         solver.log = self.log
         self.log.changeIndentLevel(-1)
@@ -260,11 +261,12 @@ class EAGF2(QEmbeddingMethod):
                 self.log.changeIndentLevel(1)
 
                 n = frag.c_frag.shape[0]
-                p_frag = np.zeros((solver.nact+solver.se.naux, solver.nact+solver.se.naux))
+                nqmo = solver.nact + solver.se.naux
+                p_frag = np.zeros((nqmo, nqmo))
                 p_frag[:n, :n] += np.dot(frag.c_frag, frag.c_frag.T.conj())
                 c_frag = scipy.linalg.orth(p_frag)
                 c_env = scipy.linalg.null_space(p_frag)
-                assert c_env.shape[-1] == (solver.nact + solver.se.naux - c_frag.shape[1])
+                assert c_env.shape[-1] == (nqmo - c_frag.shape[1])
 
                 frag.c_frag, frag.c_env = c_frag, c_env
 
@@ -335,6 +337,7 @@ class EAGF2(QEmbeddingMethod):
             se_occ = solver._build_se_from_moments(moms[0])
             w = np.linalg.eigvalsh(moms[0][0])
             wmin, wmax = w.min(), w.max()
+            if wmin < 0: raise ValueError()
             (self.log.warning if wmin < 1e-8 else self.log.debug)(
                     'Eigenvalue range:  %.5g -> %.5g', wmin, wmax,
             )
@@ -349,6 +352,7 @@ class EAGF2(QEmbeddingMethod):
             se_vir = solver._build_se_from_moments(moms[1])
             w = np.linalg.eigvalsh(moms[1][0])
             wmin, wmax = w.min(), w.max()
+            if wmin < 0: raise ValueError()
             (self.log.warning if wmin < 1e-8 else self.log.debug)(
                     'Eigenvalue range:  %.5g -> %.5g', wmin, wmax,
             )
