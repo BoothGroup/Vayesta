@@ -1,5 +1,5 @@
 '''
-Functionally Eq.ivalent to PySCF GDF, with all storage incore and
+Functionally equivalent to PySCF GDF, with all storage incore and
 MPI parallelism.
 
 Adapted from pyscf.pbc.df.df
