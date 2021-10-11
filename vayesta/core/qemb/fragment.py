@@ -836,10 +836,10 @@ class Fragment:
 
         # Get effective core potential
         if h1e_eff is None:
-            occ = np.s_[:self.n_active_occ]
             # Use the original Hcore (without chemical potential modifications), but updated mf-potential!
             h1e_eff = self.base.get_hcore_orig() + self.base.get_veff(with_exxdiv=False)/2
             h1e_eff = dot(c_act.T, h1e_eff, c_act)
+            occ = np.s_[:self.n_active_occ]
             v_act = einsum('iipq->pq', eris[occ,occ,:,:]) - einsum('iqpi->pq', eris[occ,:,:,occ])/2
             h1e_eff -= v_act
 

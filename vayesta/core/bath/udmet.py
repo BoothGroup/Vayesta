@@ -22,3 +22,14 @@ class UDMET_Bath(DMET_Bath):
             # Use restricted DMET bath routine for each spin:
             results.append(super().make_dmet_bath(c_env[s], dm1=2*dm1[s], **kwargs))
         return tuple(zip(*results))
+
+class UCompleteBath(UDMET_Bath):
+    """Complete bath for testing purposes."""
+
+    def get_occupied_bath(self, *args, **kwargs):
+        nao = self.c_env_occ[0].shape[0]
+        return self.c_env_occ, tuple(2*[np.zeros((nao, 0))])
+
+    def get_virtual_bath(self, *args, **kwargs):
+        nao = self.c_env_vir[0].shape[0]
+        return self.c_env_vir, tuple(2*[np.zeros((nao, 0))])

@@ -52,7 +52,7 @@ class IAOPAO_Fragmentation(IAO_Fragmentation):
         coeff = np.hstack((iao_coeff, pao_coeff))
         assert (coeff.shape[-1] == self.mf.mo_coeff.shape[-1])
         # Test orthogonality of IAO+PAO
-        self.check_orth(coeff)
+        self.check_orthonormal(coeff)
 
         if order is not None:
             return coeff[:,order]

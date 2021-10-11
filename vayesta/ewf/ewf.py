@@ -725,3 +725,5 @@ class EWF(QEmbeddingMethod):
         self.log.info("%3s  %20s  %8s  %4s", "ID", "Name", "Solver", "Size")
         for frag in self.loop():
             self.log.info("%3d  %20s  %8s  %4d", frag.id, frag.name, frag.solver, frag.size)
+
+REWF = EWF

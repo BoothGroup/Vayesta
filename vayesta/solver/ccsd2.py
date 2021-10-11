@@ -124,10 +124,6 @@ class CCSD_Solver(ClusterSolver):
         """C2 in intermediate normalization."""
         return self.solver.t2 + einsum('ia,jb->ijab', self.t1, self.t1)
 
-    def get_c2e(self, *args, **kwargs):
-        """C2 used for energy."""
-        return self.get_c2(*args, **kwargs)
-
     def get_eris(self):
         self.log.debugv("Getting ERIs for type(self.solver)= %r", type(self.solver))
         self.eris = self.base.get_eris_object(self.solver)

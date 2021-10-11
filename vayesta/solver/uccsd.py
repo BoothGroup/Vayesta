@@ -21,15 +21,6 @@ class UCCSD_Solver(CCSD_Solver):
         cab = tab + einsum('ia,jb->ijab', ta, tb)
         return (caa, cab, cbb)
 
-    def get_c2e(self):
-        """C2 used for energy"""
-        ta, tb = self.t1
-        taa, tab, tbb = self.t2
-        caa = taa + 2*einsum('ia,jb->ijab', ta, ta) - 2*einsum('ib,ja->ijab', ta, ta)
-        cbb = tbb + 2*einsum('ia,jb->ijab', tb, tb) - 2*einsum('ib,ja->ijab', tb, tb)
-        cab = tab +   einsum('ia,jb->ijab', ta, tb)
-        return (caa, cab, cbb)
-
     def t_diagnostic(self):
         """T diagnostic not implemented for UCCSD in PySCF."""
         self.log.info("T diagnostic not implemented for UCCSD in PySCF.")

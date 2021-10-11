@@ -164,11 +164,13 @@ class EWFFragment(QEmbeddingFragment):
         if bath_type is None or bath_type.lower() == 'dmet':
             bath = DMET_Bath(self, dmet_threshold=self.opts.dmet_threshold)
         # All environment orbitals as bath
-        elif bath_type.lower() in ('all', 'complete'):
+        elif bath_type.lower() in ('all', 'full'):
             bath = CompleteBath(self, dmet_threshold=self.opts.dmet_threshold)
         # MP2 bath natural orbitals
         elif bath_type.lower() == 'mp2-bno':
             bath = BNO_Bath(self, dmet_threshold=self.opts.dmet_threshold)
+        else:
+            raise ValueError("Unknown bath_type: %r" % bath_type)
         bath.kernel()
         self.bath = bath
         return bath
@@ -285,7 +287,7 @@ class EWFFragment(QEmbeddingFragment):
             self.log.info("Weight of reference determinant= %.8g", abs(cluster_solver.c0))
         # C1 and C2 are in intermediate normalization:
         p1 = self.project_amplitude_to_fragment(cluster_solver.get_c1(), cluster.c_active_occ, cluster.c_active_vir)
-        p2 = self.project_amplitude_to_fragment(cluster_solver.get_c2e(), cluster.c_active_occ, cluster.c_active_vir)
+        p2 = self.project_amplitude_to_fragment(cluster_solver.get_c2(), cluster.c_active_occ, cluster.c_active_vir)
 
         e_corr = self.get_fragment_energy(p1, p2, eris=eris)
         if bno_threshold[0] is not None:

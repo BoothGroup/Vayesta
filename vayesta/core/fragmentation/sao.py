@@ -18,7 +18,7 @@ class SAO_Fragmentation(Fragmentation):
                 x.shape[0], x.shape[1], e_min)
         if e_min < 1e-12:
             self.log.warning("Small eigenvalue in Lowdin orthogonalization: %.3e !", e_min)
-        self.check_orth(x)
+        self.check_orthonormal(x)
         return x
 
     def get_labels(self):

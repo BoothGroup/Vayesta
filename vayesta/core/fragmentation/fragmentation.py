@@ -4,6 +4,27 @@ import scipy.linalg
 
 from vayesta.core.util import *
 
+def check_orthonormal(log, mo_coeff, ovlp, mo_name="orbital", tol=1e-7):
+    """Check orthonormality of mo_coeff.
+
+    Supports both RHF and UHF.
+    """
+    # RHF
+    if np.ndim(mo_coeff[0]) == 1:
+        err = dot(mo_coeff.T, ovlp, mo_coeff) - np.eye(mo_coeff.shape[-1])
+        l2 = np.linalg.norm(err)
+        linf = abs(err).max()
+        if max(l2, linf) > tol:
+            log.error("Orthogonality error of %ss: L(2)= %.2e  L(inf)= %.2e !", mo_name, l2, linf)
+        else:
+            log.debugv("Orthogonality error of %ss: L(2)= %.2e  L(inf)= %.2e", mo_name, l2, linf)
+        return l2, linf
+    # UHF
+    l2a, linfa = check_orthonormal(log, mo_coeff[0], ovlp, mo_name='alpha-%s' % mo_name, tol=tol)
+    l2b, linfb = check_orthonormal(log, mo_coeff[1], ovlp, mo_name='beta-%s' % mo_name, tol=tol)
+    return (l2a, l2b), (linfa, linfb)
+
+
 class Fragmentation:
     """Fragmentation for a quantum embedding method class."""
 
@@ -84,17 +105,21 @@ class Fragmentation:
         x = dot(v/np.sqrt(e), v.T)
         return x, e_min
 
-    def check_orth(self, mo_coeff, mo_name=None, tol=1e-7):
-        """Check orthonormality of mo_coeff."""
-        err = dot(mo_coeff.T, self.get_ovlp(), mo_coeff) - np.eye(mo_coeff.shape[-1])
-        l2 = np.linalg.norm(err)
-        linf = abs(err).max()
+    #def check_orth(self, mo_coeff, mo_name=None, tol=1e-7):
+    #    """Check orthonormality of mo_coeff."""
+    #    err = dot(mo_coeff.T, self.get_ovlp(), mo_coeff) - np.eye(mo_coeff.shape[-1])
+    #    l2 = np.linalg.norm(err)
+    #    linf = abs(err).max()
+    #    if mo_name is None: mo_name = self.name
+    #    if max(l2, linf) > tol:
+    #        self.log.error("Orthogonality error of %ss: L(2)= %.2e  L(inf)= %.2e !", mo_name, l2, linf)
+    #    else:
+    #        self.log.debugv("Orthogonality error of %ss: L(2)= %.2e  L(inf)= %.2e", mo_name, l2, linf)
+    #    return l2, linf
+
+    def check_orthonormal(self, mo_coeff, mo_name=None, tol=1e-7):
         if mo_name is None: mo_name = self.name
-        if max(l2, linf) > tol:
-            self.log.error("Orthogonality error of %ss: L(2)= %.2e  L(inf)= %.2e !", mo_name, l2, linf)
-        else:
-            self.log.debugv("Orthogonality error of %ss: L(2)= %.2e  L(inf)= %.2e", mo_name, l2, linf)
-        return l2, linf
+        return check_orthonormal(self.log, mo_coeff, self.get_ovlp(), mo_name=mo_name, tol=tol)
 
     def get_atom_indices_symbols(self, atoms):
         """Convert a list of integer or strings to atom indices and symbols."""
