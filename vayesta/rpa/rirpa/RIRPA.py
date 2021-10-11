@@ -3,7 +3,7 @@ from vayesta.core.util import *
 from vayesta.rpa.rirpa import opt_NI_grid
 
 
-def eval_eta0(cderi, cd_xc, D, target_rot):
+def eval_eta0(D, cderi, ri_xc, target_rot):
     """Given the RI decompositions for our ERIs and XC kernel, along with a 1D representation of the irreducible
     polarisation propagator, evaluate the zeroth moment of the dd response. This involves performing a numerical
     integration with an optimised quadrature grid."""
@@ -11,7 +11,7 @@ def eval_eta0(cderi, cd_xc, D, target_rot):
     rik_MP_L, rik_MP_R, rik_PP_L, rik_PP_R = cderi
 
 
-    grid, weights = opt_NI_grid.get_grid()
+    grid, weights = opt_NI_grid.get_grid(rik_MP_L, rik_MP_R, rik_PP_L, rik_PP_R, D, target_rot)
 
     res = np.zeros(D.shape*2)
     for point, weight in zip(grid, weights):
@@ -21,9 +21,6 @@ def eval_eta0(cderi, cd_xc, D, target_rot):
     res = res
     # Now have our resulting estimate of the zeroth moment!
     return res + np.eye(D.shape[0])
-
-
-
 
 def eval_eta0_contrib(freq, rik_MP_L, rik_MP_R, rik_PP_L, rik_PP_R, D, target_rot):
     """Evaluate contribution to RI integral at a particular frequency point.
@@ -55,6 +52,13 @@ def eval_eta0_contrib(freq, rik_MP_L, rik_MP_R, rik_PP_L, rik_PP_R, D, target_ro
 def construct_G(freq, D):
     """Evaulate G = D (D**2 + \omega**2 I)**(-1), given frequency and diagonal of D."""
     return np.multiply(D, (D ** 2 + freq ** 2) ** (-1))
+
+
+def get_RI_MP_PP(D, cderi, ri_xc):
+    """Given D and low-rank expressions for eris and xc kernel, construct low-rank expressions for MP and PP."""
+    # First construct low-rank representation for M and P, then for products.
+    # Only have eri contrib to P.
+    pass
 
 def construct_product_RI(D, cderi_1, cderi_2):
     """Given two matrices expressed as low-rank modifications, cderi_1 and cderi_2, of some full-rank matrix D,
