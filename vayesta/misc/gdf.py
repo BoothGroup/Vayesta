@@ -429,8 +429,7 @@ def _cholesky_decomposed_metric(with_df, j2c, uniq_kptji_id, log=None):
 
 def _get_j3c(with_df, j2c, int3c2e, uniq_kpts, uniq_inverse_dict, kptij_lst, log=None, out=None):
     '''
-    Build j2c using the 2c2e interaction, int2c2e, Eq. 31, and then
-    contract with the Cholesky decomposed j2c.
+    Use j2c and int3c2e to construct j3c.
     '''
 
     log = log or logging.getLogger(__name__)
