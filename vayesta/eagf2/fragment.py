@@ -1,6 +1,7 @@
 import dataclasses
 
 import numpy as np
+import scipy.linalg
 
 from pyscf import lib, agf2, ao2mo
 
@@ -114,19 +115,83 @@ def build_moments(
     qija = ao2mo.general(frag.mf._eri, (c_q, c_q_occ, c_q_occ, c_q_vir), compact=False)
     qija = qija.reshape([c.shape[1] for c in (c_q, c_q_occ, c_q_occ, c_q_vir)])
 
-    t0 = lib.einsum(
-            'pija,qija->pq',
-            pija,
-            2*qija-qija.swapaxes(1,2),
+    eija = lib.direct_sum('i+j-a->ija', frag.qmo_energy[occ], frag.qmo_energy[occ], frag.qmo_energy[vir])
+    qija = 2.0 * qija - qija.swapaxes(1, 2).copy()
+
+    t0 = np.dot(
+            np.reshape(pija, (-1, eija.size)),
+            np.reshape(qija, (-1, eija.size)).T,
     )
 
-    eija = lib.direct_sum('i+j-a->ija', frag.qmo_energy[occ], frag.qmo_energy[occ], frag.qmo_energy[vir])
+    qija *= eija[None]
 
-    t1 = lib.einsum(
-            'pija,qija,ija->pq',
-            pija,
-            2*qija-qija.swapaxes(1,2),
-            eija,
+    t1 = np.dot(
+            np.reshape(pija, (-1, eija.size)),
+            np.reshape(qija, (-1, eija.size)).T,
+    )
+
+    #ei = frag.qmo_energy[occ]
+    #ej = frag.qmo_energy[occ]
+    #ea = frag.qmo_energy[vir]
+    #t0, t1 = helper.build_moments(ei, ej, ea, pija, qija)
+
+    return np.array([t0, t1])
+
+def _build_moments(
+        frag,
+        mo_coeff_occ, mo_coeff_vir,
+        mo_coeff_other_occ, mo_coeff_other_vir,
+        which='occupied',
+):
+    c_p = np.linalg.multi_dot((frag.mf.mo_coeff, np.hstack((mo_coeff_occ, mo_coeff_vir))[:frag.mol.nao]))
+    c_q = np.linalg.multi_dot((frag.mf.mo_coeff, np.hstack((mo_coeff_other_occ, mo_coeff_other_vir))[:frag.mol.nao]))
+
+    # Projectors in the basis of MO+aux:
+    proj_occ = np.dot(mo_coeff_occ, mo_coeff_occ.T.conj())
+    proj_vir = np.dot(mo_coeff_vir, mo_coeff_vir.T.conj())
+    proj_other_occ = np.dot(mo_coeff_other_occ, mo_coeff_other_occ.T.conj())
+    proj_other_vir = np.dot(mo_coeff_other_vir, mo_coeff_other_vir.T.conj())
+
+    # Find the basis spanning the union of the cluster spaces:
+    c_occ = scipy.linalg.orth(proj_occ + proj_other_occ)
+    c_vir = scipy.linalg.orth(proj_vir + proj_other_vir)
+    #w, c_occ = np.linalg.eigh(proj_occ + proj_other_occ)
+    #c_occ = c_occ[:, np.abs(w) > 1e-10]
+    #w, c_vir = np.linalg.eigh(proj_vir + proj_other_vir)
+    #c_vir = c_vir[:, np.abs(w) > 1e-10]
+    c_occ, _, e_occ = frag.canonicalize_qmo(c_occ, eigvals=True)
+    c_vir, _, e_vir = frag.canonicalize_qmo(c_vir, eigvals=True)
+
+    # Transform orbitals into AO rotations:
+    c_occ = np.dot(frag.mf.mo_coeff, c_occ[:frag.mol.nao])
+    c_vir = np.dot(frag.mf.mo_coeff, c_vir[:frag.mol.nao])
+
+    # If virtual required, swap:
+    if which.lower().startswith('vir'):
+        c_occ, c_vir = c_vir, c_occ
+        e_occ, e_vir = e_vir, e_occ
+
+    # Transform integrals:
+    pija = ao2mo.general(frag.mf._eri, (c_p, c_occ, c_occ, c_vir), compact=False)
+    pija = pija.reshape([c.shape[1] for c in (c_p, c_occ, c_occ, c_vir)])
+
+    qija = ao2mo.general(frag.mf._eri, (c_q, c_occ, c_occ, c_vir), compact=False)
+    qija = qija.reshape([c.shape[1] for c in (c_q, c_occ, c_occ, c_vir)])
+
+    # Build moments:
+    eija = lib.direct_sum('i+j-a->ija', e_occ, e_occ, e_vir)
+    qija = 2.0 * qija - qija.swapaxes(1, 2).copy()
+
+    t0 = np.dot(
+            np.reshape(pija, (-1, eija.size)),
+            np.reshape(qija, (-1, eija.size)).T,
+    )
+
+    qija *= eija[None]
+
+    t1 = np.dot(
+            np.reshape(pija, (-1, eija.size)),
+            np.reshape(qija, (-1, eija.size)).T,
     )
 
     return np.array([t0, t1])

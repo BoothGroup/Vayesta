@@ -1,8 +1,11 @@
 import numpy as np
 import scipy.linalg
+import ctypes
 
 from pyscf import ao2mo, lib
+from pyscf.agf2 import mpi_helper
 
+from vayesta import libs
 from vayesta.eagf2 import ragf2
 from vayesta.core import linalg
 from vayesta.core.ao2mo import kao2gmo
@@ -324,3 +327,71 @@ def block_tridiagonal(m, b):
                    for i in range(len(m))])
 
     return h
+
+
+def build_moments(ei, ej, ea, xija, yija, os_factor=1.0, ss_factor=1.0):
+    '''
+    Construct the moments via compiled code. Generalised for asymmetry
+    in i/j and x/y.
+
+     (0)    
+    T    = Σ    (xi|ja) [ 2 (yi|ja) - (yj|ia) ]
+     x,y    ija
+
+     (1)    
+    T    = Σ    (xi|ja) [ 2 (yi|ja) - (yj|ia) ] (ε_i + ε_j - ε_a)
+     x,y    ija
+    '''
+    raise NotImplementedError("Broken")
+
+    if isinstance(xija, tuple):
+        raise NotImplementedError  #TODO
+
+    libeagf2 = libs.load_library('eagf2')
+    pointer = lambda array: array.ctypes.data_as(ctypes.c_void_p)
+
+    nx, ni, nj, na = xija.shape
+    ny = yija.shape[0]
+    assert xija.shape[1:] == yija.shape[1:]
+
+    xija = np.asarray(xija, order='C')
+    yija = np.asarray(yija, order='C')
+
+    ei = np.asarray(ei, order='C')
+    ej = np.asarray(ej, order='C')
+    ea = np.asarray(ea, order='C')
+
+    t0 = np.zeros((nx * ny))
+    t1 = np.zeros((nx * ny))
+
+    rank, size = mpi_helper.rank, mpi_helper.size
+    istart = rank * ni // size
+    iend = ni if rank == (size-1) else (rank+1) * ni // size
+
+    libeagf2.AGF2ee_vv_vev_asymm_islice(
+            pointer(xija),
+            pointer(yija),
+            pointer(ei),
+            pointer(ej),
+            pointer(ea),
+            ctypes.c_double(os_factor),
+            ctypes.c_double(ss_factor),
+            ctypes.c_int(nx),
+            ctypes.c_int(ny),
+            ctypes.c_int(ni),
+            ctypes.c_int(nj),
+            ctypes.c_int(na),
+            ctypes.c_int(istart),
+            ctypes.c_int(iend),
+            pointer(t0),
+            pointer(t1),
+    )
+
+    t0 = t0.reshape(nx, ny)
+    t1 = t1.reshape(nx, ny)
+
+    mpi_helper.barrier()
+    mpi_helper.allreduce_safe_inplace(t0)
+    mpi_helper.allreduce_safe_inplace(t1)
+
+    return t0, t1

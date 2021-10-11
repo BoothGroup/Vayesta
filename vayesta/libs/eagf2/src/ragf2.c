@@ -504,3 +504,91 @@ void AGF2df_vv_vev_islice_lowmem(double *qxi,
     free(vev_priv);
 }
 }
+
+
+/*
+ *  asymmetric exact ERI
+ *  vv_xy = (xi|ja) [2(yi|ja) - (yj|ia)]
+ *  vev_xy = (xi|ja) [2(yi|ja) - (yj|ia)] (ei + ej - ea)
+ */
+void AGF2ee_vv_vev_asymm_islice(double *xija,
+                                double *yija,
+                                double *e_i,
+                                double *e_j,
+                                double *e_a,
+                                double os_factor,
+                                double ss_factor,
+                                int nx,
+                                int ny,
+                                int ni,
+                                int nj,
+                                int na,
+                                int istart,
+                                int iend,
+                                double *vv,
+                                double *vev)
+{
+    const double D1 = 1;
+    const char TRANS_T = 'T';
+    const char TRANS_N = 'N';
+
+    const int nja = nj * na;
+    const int nxi = nx * ni;
+    const int nyi = ny * ni;
+    const double fpos = os_factor + ss_factor;
+    const double fneg = -1.0 * ss_factor;
+
+#pragma omp parallel
+{
+    double *eja = calloc(nj*na, sizeof(double));
+    double *xja = calloc(nx*ni*na, sizeof(double));
+    double *yja = calloc(ny*ni*na, sizeof(double));
+    double *yia = calloc(ny*ni*na, sizeof(double));
+
+    double *vv_priv = calloc(nx*ny, sizeof(double));
+    double *vev_priv = calloc(nx*ny, sizeof(double));
+
+    int i;
+
+#pragma omp for
+    for (i = istart; i < iend; i++) {
+        // build xija
+        AGF2slice_0i2(xija, nx, ni, nja, i, xja);
+
+        // build yija
+        AGF2slice_0i2(yija, ny, ni, nja, i, yja);
+
+        // build yjia
+        AGF2slice_0i2(yija, nyi, nj, na, i, yia);
+
+        // build eija = ei + ej - ea
+        AGF2sum_inplace_ener(e_i[i], e_j, e_a, nj, na, eja);
+
+        // inplace xjia = 2 * xija - xjia
+        AGF2sum_inplace(yja, yia, ny*nja, fpos, fneg);
+
+        // vv_xy += xija * (2 yija - yjia)
+        dgemm_(&TRANS_T, &TRANS_N, &nx, &ny, &nja, &D1, xja, &nja, yja, &nja, &D1, vv_priv, &nx);
+
+        // inplace yija = eija * yija
+        AGF2prod_inplace_ener(eja, yja, ny, nja);
+
+        // vev_xy += xija * eija * (2 yija - yjia)
+        dgemm_(&TRANS_T, &TRANS_N, &nx, &ny, &nja, &D1, xja, &nja, yja, &nja, &D1, vev_priv, &nx);
+    }
+
+    free(eja);
+    free(xja);
+    free(yja);
+    free(yia);
+
+#pragma omp critical
+    for (i = 0; i < (nx*ny); i++) {
+        vv[i] += vv_priv[i];
+        vev[i] += vev_priv[i];
+    }
+
+    free(vv_priv);
+    free(vev_priv);
+}
+}

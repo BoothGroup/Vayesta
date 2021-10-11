@@ -300,7 +300,7 @@ class EAGF2(QEmbeddingMethod):
                     moms += np.einsum('...pq,pi,qj->...ij', moms_cls, c, c)
             else:
                 for x, frag in enumerate(self.fragments):
-                    for y, other in enumerate(self.fragments):
+                    for y, other in enumerate(self.fragments[:x+1]):
                         if frag.sym_parent is None and other.sym_parent is None:
                             results = frag.kernel(solver, other_frag=other)
                             self.cluster_results[frag.id, other.id] = results
@@ -320,7 +320,11 @@ class EAGF2(QEmbeddingMethod):
 
                         c_cls_frag = results.c_active[:solver.nact].T.conj()
                         c_cls_other = results.c_active_other[:solver.nact].T.conj()
-                        moms += np.einsum('...pq,pi,qj->...ij', moms_cls, c_cls_frag, c_cls_other)
+                        moms_cls = np.einsum('...pq,pi,qj->...ij', moms_cls, c_cls_frag, c_cls_other)
+
+                        moms += moms_cls
+                        if x != y:
+                            moms += moms_cls.swapaxes(2, 3)
 
                     self.log.info("%s is done.", frag)
 
@@ -337,7 +341,6 @@ class EAGF2(QEmbeddingMethod):
             se_occ = solver._build_se_from_moments(moms[0])
             w = np.linalg.eigvalsh(moms[0][0])
             wmin, wmax = w.min(), w.max()
-            if wmin < 0: raise ValueError()
             (self.log.warning if wmin < 1e-8 else self.log.debug)(
                     'Eigenvalue range:  %.5g -> %.5g', wmin, wmax,
             )
@@ -352,7 +355,6 @@ class EAGF2(QEmbeddingMethod):
             se_vir = solver._build_se_from_moments(moms[1])
             w = np.linalg.eigvalsh(moms[1][0])
             wmin, wmax = w.min(), w.max()
-            if wmin < 0: raise ValueError()
             (self.log.warning if wmin < 1e-8 else self.log.debug)(
                     'Eigenvalue range:  %.5g -> %.5g', wmin, wmax,
             )
