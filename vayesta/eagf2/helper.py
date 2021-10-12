@@ -120,10 +120,14 @@ def make_power_bath(frag, max_order=0, svd_tol=1e-16, c_frag=None, c_env=None, t
 
 
 class QMOIntegrals:
-    def __init__(self, frag, c_occ, c_vir, which='xija', keep_3c=False):
+    def __init__(self, frag, c_occ, c_vir, c_full=None, which='xija', keep_3c=False):
         self.frag = frag
         self.which = which
-        self.c_full = np.hstack((c_occ, c_vir))
+
+        if c_full is None:
+            self.c_full = np.hstack((c_occ, c_vir))
+        else:
+            self.c_full = c_full
 
         if which == 'xija':
             self.c_occ, self.c_vir = c_occ, c_vir
@@ -167,6 +171,7 @@ class QMOIntegrals:
 
     def build_4c_pbc(self):
         #TODO test conjugation
+        #TODO FIXME
         eri = kao2gmo.gdf_to_eris(self.frag.base.kdf, self.c_full, self.c_occ.shape[-1])
         if self.which == 'xija':
             ooov = eri['ovoo'].transpose(2, 3, 0, 1)

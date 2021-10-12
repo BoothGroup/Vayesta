@@ -278,6 +278,11 @@ class EAGF2(QEmbeddingMethod):
                 coeffs = frag.make_bath()
                 frag.c_cls_occ, frag.c_cls_vir, frag.c_env_occ, frag.c_env_vir = coeffs
 
+                if not self.opts.democratic:
+                    rotations = frag.make_rotations()
+                    frag.c_ao_cls, frag.c_qmo_occ, frag.c_qmo_vir, \
+                            frag.c_ao_qmo_proj_occ, frag.c_ao_qmo_proj_vir = rotations
+
                 self.log.changeIndentLevel(-1)
 
             moms = 0

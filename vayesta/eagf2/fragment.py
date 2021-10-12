@@ -17,184 +17,58 @@ except ImportError:
     from timeit import default_timer as timer
 
 
-#def build_moments(
-#        frag,
-#        mo_coeff_occ, mo_coeff_vir,
-#        mo_coeff_occ_other, mo_coeff_vir_other,
-#        which='occupied',
-#):
-#    '''
-#    Construct the first two moments of the occupied self-energy due to
-#    a pair of clusters.
-#    '''
-#
-#    ci_p = np.linalg.multi_dot((frag.mf.mo_coeff, frag.qmo_coeff[:frag.mol.nao], mo_coeff_occ))
-#    ca_p = np.linalg.multi_dot((frag.mf.mo_coeff, frag.qmo_coeff[:frag.mol.nao], mo_coeff_vir))
-#    c_p = np.hstack((ci_p, ca_p))
-#
-#    ci_q = np.linalg.multi_dot((frag.mf.mo_coeff, frag.qmo_coeff[:frag.mol.nao], mo_coeff_occ_other))
-#    ca_q = np.linalg.multi_dot((frag.mf.mo_coeff, frag.qmo_coeff[:frag.mol.nao], mo_coeff_vir_other))
-#    c_q = np.hstack((ci_q, ca_q))
-#
-#    nocc = np.sum(frag.qmo_occ > 0)
-#    occ = slice(None, nocc)
-#    vir = slice(nocc, None)
-#    if which.lower().startswith('vir'):
-#        mo_coeff_occ, mo_coeff_vir = mo_coeff_vir, mo_coeff_occ
-#        mo_coeff_occ_other, mo_coeff_vir_other = mo_coeff_vir_other, mo_coeff_occ_other
-#        ci_p, ca_p = ca_p, ci_p
-#        ci_q, ca_q = ca_q, ci_q
-#        occ, vir = vir, occ
-#
-#    ei = frag.qmo_energy[occ]
-#    ea = frag.qmo_energy[vir]
-#
-#    cj = np.linalg.multi_dot((frag.mf.mo_coeff, frag.qmo_coeff[:frag.mol.nao, occ], mo_coeff_occ[occ], mo_coeff_occ[occ].T))
-#    ca = np.linalg.multi_dot((frag.mf.mo_coeff, frag.qmo_coeff[:frag.mol.nao, vir], mo_coeff_vir[vir], mo_coeff_vir[vir].T))
-#    pija = ao2mo.general(frag.mf._eri, (c_p, ci_p, cj, ca), compact=False)
-#    pija = pija.reshape([c.shape[1] for c in (c_p, ci_p, cj, ca)])
-#
-#    cj = np.linalg.multi_dot((frag.mf.mo_coeff, frag.qmo_coeff[:frag.mol.nao, occ], mo_coeff_occ_other[occ], mo_coeff_occ_other[occ].T))
-#    ca = np.linalg.multi_dot((frag.mf.mo_coeff, frag.qmo_coeff[:frag.mol.nao, vir], mo_coeff_vir_other[vir], mo_coeff_vir_other[vir].T))
-#    qija = ao2mo.general(frag.mf._eri, (c_q, ci_q, cj, ca), compact=False)
-#    qjia = ao2mo.general(frag.mf._eri, (c_q, cj, ci_q, ca), compact=False)
-#    qija = qija.reshape([c.shape[1] for c in (c_q, ci_q, cj, ca)])
-#    qjia = qjia.reshape([c.shape[1] for c in (c_q, cj, ci_q, ca)])
-#
-#    t0 = (
-#        + 2.0 * lib.einsum('pkja,qlja,ik,il->pq', pija, qija, mo_coeff_occ[occ], mo_coeff_occ_other[occ])
-#        - 1.0 * lib.einsum('pkja,qjla,ik,il->pq', pija, qjia, mo_coeff_occ[occ], mo_coeff_occ_other[occ])
-#    )
-#
-#    delta = lib.direct_sum('i+j-a->ija', ei, ei, ea)
-#    delta = lib.einsum('ija,ik,il->klja', delta, mo_coeff_occ[occ], mo_coeff_occ_other[occ])
-#
-#    t1 = (
-#        + 2.0 * lib.einsum('pkja,qlja,klja->pq', pija, qija, delta)
-#        - 1.0 * lib.einsum('pkja,qjla,klja->pq', pija, qjia, delta)
-#    )
-#
-#    return np.array([t0, t1])
+def build_moments(frag, other):
+    # Find the basis spanning the union of the occupied cluster spaces:
+    c = np.hstack((frag.c_qmo_occ, other.c_qmo_occ))
+    c_occ, sv, _ = np.linalg.svd(c, full_matrices=False)
+    tol = np.finfo(c.dtype).eps * np.max(c.shape) * np.max(sv)
+    c_occ = c_occ[:, np.abs(sv) > tol]
+    e_occ, r_occ = np.linalg.eigh(np.dot(c_occ.T.conj() * frag.qmo_energy[None], c_occ))
+    c_occ = np.dot(c_occ, r_occ)
+    del r_occ
 
-def build_moments(
-        frag,
-        mo_coeff_occ, mo_coeff_vir,
-        mo_coeff_other_occ, mo_coeff_other_vir,
-        which='occupied',
-):
-    c_p = np.linalg.multi_dot((frag.mf.mo_coeff, np.hstack((mo_coeff_occ, mo_coeff_vir))[:frag.mol.nao]))
-    c_q = np.linalg.multi_dot((frag.mf.mo_coeff, np.hstack((mo_coeff_other_occ, mo_coeff_other_vir))[:frag.mol.nao]))
-    occ = slice(None, np.sum(frag.qmo_occ > 0))
-    vir = slice(np.sum(frag.qmo_occ > 0), None)
+    # Find the basis spanning the union of the virtual cluster spaces:
+    c = np.hstack((frag.c_qmo_vir, other.c_qmo_vir))
+    c_vir, sv, _ = np.linalg.svd(c, full_matrices=False)
+    tol = np.finfo(c.dtype).eps * np.max(c.shape) * np.max(sv)
+    c_vir = c_vir[:, np.abs(sv) > tol]
+    e_vir, r_vir = np.linalg.eigh(np.dot(c_vir.T.conj() * frag.qmo_energy[None], c_vir))
+    c_vir = np.dot(c_vir, r_vir)
+    del r_vir
 
-    # In the basis of MO+aux:
-    proj_occ = np.dot(mo_coeff_occ, mo_coeff_occ.T.conj())
-    proj_vir = np.dot(mo_coeff_vir, mo_coeff_vir.T.conj())
-    proj_other_occ = np.dot(mo_coeff_other_occ, mo_coeff_other_occ.T.conj())
-    proj_other_vir = np.dot(mo_coeff_other_vir, mo_coeff_other_vir.T.conj())
+    # Find rotations from AOs into the new space:
+    c_occ_p = np.dot(frag.c_ao_qmo_proj_occ, c_occ)
+    c_vir_p = np.dot(frag.c_ao_qmo_proj_vir, c_vir)
+    c_occ_q = np.dot(other.c_ao_qmo_proj_occ, c_occ)
+    c_vir_q = np.dot(other.c_ao_qmo_proj_vir, c_vir)
+    c_p = frag.c_ao_cls
+    c_q = other.c_ao_cls
 
-    # In the basis of QMOs:
-    proj_occ = np.linalg.multi_dot((frag.qmo_coeff[:, occ].T.conj(), proj_occ, frag.qmo_coeff[:, occ]))
-    proj_vir = np.linalg.multi_dot((frag.qmo_coeff[:, vir].T.conj(), proj_vir, frag.qmo_coeff[:, vir]))
-    proj_other_occ = np.linalg.multi_dot((frag.qmo_coeff[:, occ].T.conj(), proj_other_occ, frag.qmo_coeff[:, occ]))
-    proj_other_vir = np.linalg.multi_dot((frag.qmo_coeff[:, vir].T.conj(), proj_other_vir, frag.qmo_coeff[:, vir]))
+    def _build_part(ei, ea, pija, qija):
+        eija = lib.direct_sum('i+j-a->ija', ei, ei, ea).ravel()
 
-    c_p_occ = np.linalg.multi_dot((frag.mf.mo_coeff, frag.qmo_coeff[:frag.mol.nao, occ], proj_occ))
-    c_p_vir = np.linalg.multi_dot((frag.mf.mo_coeff, frag.qmo_coeff[:frag.mol.nao, vir], proj_vir))
-    c_q_occ = np.linalg.multi_dot((frag.mf.mo_coeff, frag.qmo_coeff[:frag.mol.nao, occ], proj_other_occ))
-    c_q_vir = np.linalg.multi_dot((frag.mf.mo_coeff, frag.qmo_coeff[:frag.mol.nao, vir], proj_other_vir))
+        if not isinstance(pija, tuple):
+            qija = 2.0 * qija - qija.swapaxes(1, 2)
+            pija = pija.reshape(-1, eija.size)
+            qija = qija.reshape(-1, eija.size)
 
-    if which.lower().startswith('vir'):
-        c_p_occ, c_p_vir = c_p_vir, c_p_occ
-        c_q_occ, c_q_vir = c_q_vir, c_q_occ
-        occ, vir = vir, occ
+            t0 = np.dot(pija, qija.T.conj())
+            t1 = np.dot(pija * eija[None], qija.T.conj())
 
-    pija = ao2mo.general(frag.mf._eri, (c_p, c_p_occ, c_p_occ, c_p_vir), compact=False)
-    pija = pija.reshape([c.shape[1] for c in (c_p, c_p_occ, c_p_occ, c_p_vir)])
+        else:
+            raise NotImplementedError
 
-    qija = ao2mo.general(frag.mf._eri, (c_q, c_q_occ, c_q_occ, c_q_vir), compact=False)
-    qija = qija.reshape([c.shape[1] for c in (c_q, c_q_occ, c_q_occ, c_q_vir)])
+        return np.array([t0, t1])
 
-    eija = lib.direct_sum('i+j-a->ija', frag.qmo_energy[occ], frag.qmo_energy[occ], frag.qmo_energy[vir])
-    qija = 2.0 * qija - qija.swapaxes(1, 2).copy()
+    with helper.QMOIntegrals(frag, c_occ_p, c_vir_p, c_p, which='xija', keep_3c=True) as pija:
+        with helper.QMOIntegrals(frag, c_occ_q, c_vir_q, c_q, which='xija', keep_3c=True) as qija:
+            t_occ = _build_part(e_occ, e_vir, pija, qija)
 
-    t0 = np.dot(
-            np.reshape(pija, (-1, eija.size)),
-            np.reshape(qija, (-1, eija.size)).T,
-    )
+    with helper.QMOIntegrals(frag, c_occ_p, c_vir_p, c_p, which='xabi', keep_3c=True) as pabi:
+        with helper.QMOIntegrals(frag, c_occ_q, c_vir_q, c_q, which='xabi', keep_3c=True) as qabi:
+            t_vir = _build_part(e_vir, e_occ, pabi, qabi)
 
-    qija *= eija[None]
-
-    t1 = np.dot(
-            np.reshape(pija, (-1, eija.size)),
-            np.reshape(qija, (-1, eija.size)).T,
-    )
-
-    #ei = frag.qmo_energy[occ]
-    #ej = frag.qmo_energy[occ]
-    #ea = frag.qmo_energy[vir]
-    #t0, t1 = helper.build_moments(ei, ej, ea, pija, qija)
-
-    return np.array([t0, t1])
-
-def _build_moments(
-        frag,
-        mo_coeff_occ, mo_coeff_vir,
-        mo_coeff_other_occ, mo_coeff_other_vir,
-        which='occupied',
-):
-    c_p = np.linalg.multi_dot((frag.mf.mo_coeff, np.hstack((mo_coeff_occ, mo_coeff_vir))[:frag.mol.nao]))
-    c_q = np.linalg.multi_dot((frag.mf.mo_coeff, np.hstack((mo_coeff_other_occ, mo_coeff_other_vir))[:frag.mol.nao]))
-
-    # Projectors in the basis of MO+aux:
-    proj_occ = np.dot(mo_coeff_occ, mo_coeff_occ.T.conj())
-    proj_vir = np.dot(mo_coeff_vir, mo_coeff_vir.T.conj())
-    proj_other_occ = np.dot(mo_coeff_other_occ, mo_coeff_other_occ.T.conj())
-    proj_other_vir = np.dot(mo_coeff_other_vir, mo_coeff_other_vir.T.conj())
-
-    # Find the basis spanning the union of the cluster spaces:
-    c_occ = scipy.linalg.orth(proj_occ + proj_other_occ)
-    c_vir = scipy.linalg.orth(proj_vir + proj_other_vir)
-    #w, c_occ = np.linalg.eigh(proj_occ + proj_other_occ)
-    #c_occ = c_occ[:, np.abs(w) > 1e-10]
-    #w, c_vir = np.linalg.eigh(proj_vir + proj_other_vir)
-    #c_vir = c_vir[:, np.abs(w) > 1e-10]
-    c_occ, _, e_occ = frag.canonicalize_qmo(c_occ, eigvals=True)
-    c_vir, _, e_vir = frag.canonicalize_qmo(c_vir, eigvals=True)
-
-    # Transform orbitals into AO rotations:
-    c_occ = np.dot(frag.mf.mo_coeff, c_occ[:frag.mol.nao])
-    c_vir = np.dot(frag.mf.mo_coeff, c_vir[:frag.mol.nao])
-
-    # If virtual required, swap:
-    if which.lower().startswith('vir'):
-        c_occ, c_vir = c_vir, c_occ
-        e_occ, e_vir = e_vir, e_occ
-
-    # Transform integrals:
-    pija = ao2mo.general(frag.mf._eri, (c_p, c_occ, c_occ, c_vir), compact=False)
-    pija = pija.reshape([c.shape[1] for c in (c_p, c_occ, c_occ, c_vir)])
-
-    qija = ao2mo.general(frag.mf._eri, (c_q, c_occ, c_occ, c_vir), compact=False)
-    qija = qija.reshape([c.shape[1] for c in (c_q, c_occ, c_occ, c_vir)])
-
-    # Build moments:
-    eija = lib.direct_sum('i+j-a->ija', e_occ, e_occ, e_vir)
-    qija = 2.0 * qija - qija.swapaxes(1, 2).copy()
-
-    t0 = np.dot(
-            np.reshape(pija, (-1, eija.size)),
-            np.reshape(qija, (-1, eija.size)).T,
-    )
-
-    qija *= eija[None]
-
-    t1 = np.dot(
-            np.reshape(pija, (-1, eija.size)),
-            np.reshape(qija, (-1, eija.size)).T,
-    )
-
-    return np.array([t0, t1])
+    return np.array([t_occ, t_vir])
 
 
 @dataclasses.dataclass
@@ -311,6 +185,13 @@ class EAGF2Fragment(QEmbeddingFragment):
         self.fock = np.diag(self.mf.mo_energy)
         self.qmo_energy, self.qmo_coeff = np.linalg.eigh(self.fock)
         self.qmo_occ = self.mf.get_occ(self.qmo_energy, self.qmo_coeff)
+
+        # Rotations used for non-democratic partitioning:
+        self.c_ao_cls = None
+        self.c_qmo_occ = None
+        self.c_qmo_vir = None
+        self.c_ao_qmo_proj_occ = None
+        self.c_ao_qmo_proj_vir = None
 
 
     #TODO other properties assuming AO c_frag?
@@ -541,13 +422,43 @@ class EAGF2Fragment(QEmbeddingFragment):
         return c_cls_occ, c_cls_vir
 
 
+    #TODO better name, no rotations here any more
+    def make_rotations(self):
+        '''
+        Build the rotations and projections required for non-democratic
+        partitioning for the current fragment.
+        '''
+
+        nmo = self.mol.nao
+        mo_coeff = self.mf.mo_coeff
+
+        c_cls_occ, _ = self.canonicalize_qmo(self.c_cls_occ, eigvals=False)
+        c_cls_vir, _ = self.canonicalize_qmo(self.c_cls_vir, eigvals=False)
+
+        c_cls = np.hstack((c_cls_occ, c_cls_vir))
+        c_ao_cls = np.dot(mo_coeff, c_cls[:nmo])
+
+        c_qmo_occ = np.dot(self.qmo_coeff.T.conj(), c_cls_occ)
+        proj_qmo_occ = np.dot(c_qmo_occ, c_qmo_occ.T.conj())
+
+        c_qmo_vir = np.dot(self.qmo_coeff.T.conj(), c_cls_vir)
+        proj_qmo_vir = np.dot(c_qmo_vir, c_qmo_vir.T.conj())
+
+        c_ao_qmo_proj_occ = np.linalg.multi_dot((mo_coeff, self.qmo_coeff[:nmo], proj_qmo_occ))
+        c_ao_qmo_proj_vir = np.linalg.multi_dot((mo_coeff, self.qmo_coeff[:nmo], proj_qmo_vir))
+
+        return c_ao_cls, c_qmo_occ, c_qmo_vir, c_ao_qmo_proj_occ, c_ao_qmo_proj_vir
+
+
     def kernel(self, solver, se=None, fock=None, other_frag=None):
         ''' Run the solver for the fragment.
         '''
+        #TODO: make auxiliary and QMO spaces stored in parent instead of fragment?
 
         if not self.opts.democratic:
             assert other_frag is not None
 
+        # Set auxiliary and QMO space if not set:
         if se is not None:
             self.se = se
         if fock is not None:
@@ -556,55 +467,64 @@ class EAGF2Fragment(QEmbeddingFragment):
             self.qmo_energy, self.qmo_coeff = se.eig(fock)
             self.qmo_occ = np.array([2.0 * (x < se.chempot) for x in self.qmo_energy])
 
-        if other_frag is not None:
-            for attr in ['se', 'fock', 'qmo_energy', 'qmo_coeff', 'qmo_occ']:
-                setattr(other_frag, attr, getattr(self, attr))
-
+        # Set bath if not set:
         if self.c_cls_occ is None:
             coeffs = self.make_bath()
             self.c_cls_occ, self.c_cls_vir, self.c_env_occ, self.c_env_vir = coeffs
 
-        mo_coeff_occ, _, mo_energy_occ = self.canonicalize_qmo(self.c_cls_occ, eigvals=True)
-        mo_coeff_vir, _, mo_energy_vir = self.canonicalize_qmo(self.c_cls_vir, eigvals=True)
-        mo_coeff = np.hstack((mo_coeff_occ, mo_coeff_vir))
+        if not self.opts.democratic:
+            # Set other auxiliary and QMO space:
+            other_frag.se, other_frag.fock = self.se, self.fock
+            other_frag.qmo_energy, other_frag.qmo_coeff, other_frag.qmo_occ = \
+                    self.qmo_energy, self.qmo_coeff, self.qmo_occ
+
+            # Set other bath space if not set:
+            if other_frag.c_cls_occ is None:
+                coeffs = other_frag.make_bath()
+                other_frag.c_cls_occ, other_frag.c_cls_vir, \
+                        other_frag.c_env_occ, other_frag.c_env_vir = coeffs
+
+            # Set rotations if not set:
+            if self.c_ao_cls is None:
+                rotations = frag.make_rotations()
+                self.c_ao_cls, self.c_qmo_occ, self.c_qmo_vir, \
+                        self.c_ao_qmo_proj_occ, self.c_ao_qmo_proj_vir = rotations
+
+            # Set other rotations if not set:
+            if other_frag.c_ao_cls is None:
+                rotations = other_frag.make_rotations()
+                other_frag.c_ao_cls, other_frag.c_qmo_occ, other_frag.c_qmo_vir, \
+                        other_frag.c_ao_qmo_proj_occ, other_frag.c_ao_qmo_proj_vir = rotations
 
         if self.opts.democratic:
+            mo_coeff_occ, _, mo_energy_occ = self.canonicalize_qmo(self.c_cls_occ, eigvals=True)
+            mo_coeff_vir, _, mo_energy_vir = self.canonicalize_qmo(self.c_cls_vir, eigvals=True)
+            mo_coeff = np.hstack((mo_coeff_occ, mo_coeff_vir))
+
+            mo_coeff_other = mo_coeff
+
             c_occ = np.dot(self.mf.mo_coeff, mo_coeff_occ[:solver.nact])
             c_vir = np.dot(self.mf.mo_coeff, mo_coeff_vir[:solver.nact])
 
+            #TODO replace
             with helper.QMOIntegrals(self, c_occ, c_vir, 'xija') as xija:
                 t_occ = solver._build_moments(mo_energy_occ, mo_energy_vir, xija)
 
             with helper.QMOIntegrals(self, c_occ, c_vir, 'xabi') as xabi:
                 t_vir = solver._build_moments(mo_energy_vir, mo_energy_occ, xabi)
 
-            mo_coeff_other = mo_coeff
+            moms = np.array([t_occ, t_vir])
 
         else:
-            if other_frag.c_cls_occ is None:
-                coeffs = other_frag.make_bath()
-                other_frag.c_cls_occ, other_frag.c_cls_vir, \
-                        other_frag.c_env_occ, other_frag.c_env_vir = coeffs
+            mo_coeff_occ, _ = self.canonicalize_qmo(self.c_cls_occ, eigvals=False)
+            mo_coeff_vir, _ = self.canonicalize_qmo(self.c_cls_vir, eigvals=False)
+            mo_coeff = np.hstack((mo_coeff_occ, mo_coeff_vir))
 
-            mo_coeff_occ_other, _, mo_energy_occ_other = \
-                    other_frag.canonicalize_qmo(other_frag.c_cls_occ, eigvals=True)
-            mo_coeff_vir_other, _, mo_energy_vir_other = \
-                    other_frag.canonicalize_qmo(other_frag.c_cls_vir, eigvals=True)
+            mo_coeff_occ_other, _ = other_frag.canonicalize_qmo(other_frag.c_cls_occ, eigvals=False)
+            mo_coeff_vir_other, _ = other_frag.canonicalize_qmo(other_frag.c_cls_vir, eigvals=False)
             mo_coeff_other = np.hstack((mo_coeff_occ_other, mo_coeff_vir_other))
 
-            t_occ = build_moments(
-                    self,
-                    mo_coeff_occ, mo_coeff_vir,
-                    mo_coeff_occ_other, mo_coeff_vir_other,
-                    'occupied',
-            )
-
-            t_vir = build_moments(
-                    self,
-                    mo_coeff_occ, mo_coeff_vir,
-                    mo_coeff_occ_other, mo_coeff_vir_other,
-                    'virtual',
-            )
+            moms = build_moments(self, other_frag)
 
         results = EAGF2FragmentResults(
                 fid=self.id,
@@ -612,7 +532,7 @@ class EAGF2Fragment(QEmbeddingFragment):
                 c_active=mo_coeff,
                 n_active_other=mo_coeff_other.shape[-1],
                 c_active_other=mo_coeff_other,
-                moms=np.array([t_occ, t_vir]),
+                moms=moms,
         )
 
         self._results = results
