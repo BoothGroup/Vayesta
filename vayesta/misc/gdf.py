@@ -751,7 +751,7 @@ class GDF(df.GDF):
         naux = Lpq.shape[2]
         vj = vk = None
 
-        max_memory = self.cell.max_memory - lib.current_memory()[0]
+        max_memory = self.max_memory - lib.current_memory()[0]
         blksize = max(100, min(naux, int(max_memory*.9e6/8/(nao*nao*naux))))
 
         # ijkl,lk->ij
@@ -963,6 +963,10 @@ class GDF(df.GDF):
         return Lij
 
     get_mo_3c_eri = ao2mo_3c
+
+    @property
+    def max_memory(self):
+        return self.cell.max_memory
 
     def get_nuc(self, kpts=None):
         if not (kpts is None or kpts is self.kpts or np.allclose(kpts, self.kpts)):
