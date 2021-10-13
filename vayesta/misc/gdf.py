@@ -68,12 +68,12 @@ def make_auxcell(cell, auxbasis=None, drop_eta=None, log=None):
             coeffs = auxcell._env[ptr_coeffs:ptr_coeffs+nprim*nctr].reshape(nctr, nprim).T
 
             mask = exps >= (drop_eta or -np.inf)
-            log.debug(
-                    "Auxiliary function %4d (L = %2d):"
+            log.debug if np.sum(~mask) > 0 else log.debugv(
+                    "Auxiliary function %4d (L = %2d): "
                     "dropped %d functions.", ib, l, np.sum(~mask),
             )
 
-            if drop_eta is not None and np.any(exps < drop_eta):
+            if drop_eta is not None and np.sum(~mask) > 0:
                 for k in np.where(mask == 0)[0]:
                     log.debug(" > %3d : coeff = %12.6f    exp = %12.6g", k, coeffs[k], exps[k])
                 coeffs = coeffs[mask]
@@ -675,6 +675,7 @@ class GDF(df.GDF):
         self.auxcell = make_auxcell(self.cell, auxbasis=self.auxbasis, drop_eta=self.exp_to_discard)
         self.chgcell = make_chgcell(self.auxcell, self.eta, rcut=self.rcut_smooth)
         self.fused_cell, self.fuse = fuse_auxcell(self.auxcell, self.chgcell)
+        self.kconserv = get_kconserv(self.cell, self.kpts)
 
         self._get_nuc = None
         self._get_pp = None
@@ -740,43 +741,77 @@ class GDF(df.GDF):
         if hermi != 1 or kpts_band is not None or omega is not None:
             raise ValueError('%s.get_jk only supports the default keyword arguments:\n'
                              '\thermi=1\n\tkpts_band=None\n\tomega=None' % self.__class__)
-        if kpts is not None and not np.allclose(kpts, self.kpts):
+        if not (kpts is None or kpts is self.kpts):
             raise ValueError('%s.get_jk only supports kpts=None or kpts=GDF.kpts' % self.__class__)
 
         kpts = self.kpts
         nkpts = len(kpts)
         nao = self.cell.nao_nr()
-        kconserv = get_kconserv(self.cell, kpts)
         Lpq = self._cderi
-
+        naux = Lpq.shape[2]
         vj = vk = None
+
+        max_memory = self.cell.max_memory - lib.current_memory()[0]
+        blksize = max(100, min(naux, int(max_memory*.9e6/8/(nao*nao*naux))))
+
+        # ijkl,lk->ij
         if with_j:
-            vj = np.zeros((nkpts, nao, nao), dtype=np.complex128)
+            vj = np.zeros((nkpts, 1, nao*nao), dtype=np.complex128)
+
+            for p0, p1 in mpi_helper.prange(0, naux, naux):
+                buf = np.empty((min(p1-p0, naux), 1), dtype=np.complex128)
+
+                for ki in range(nkpts):
+                    buf = lib.dot(
+                            Lpq[ki, ki, p0:p1].reshape(-1, nao*nao),
+                            dm[ki].reshape(-1, 1),
+                            c=buf,
+                    )
+
+                    for kk in range(nkpts):
+                        kl = self.kconserv[ki, ki, kk]
+
+                        vj[kk] = lib.dot(
+                                buf.reshape(1, -1),
+                                Lpq[kk, kl, p0:p1].reshape(-1, nao*nao),
+                                c=vj[kk],
+                                beta=1,
+                        )
+
+                del buf
+
+            vj /= nkpts
+            vj = vj.reshape(nkpts, nao, nao)
+
+            mpi_helper.barrier()
+            mpi_helper.allreduce_safe_inplace(vj)
+
+        # ilkj,lk->ij
         if with_k:
             vk = np.zeros((nkpts, nao, nao), dtype=np.complex128)
 
-        for kik in mpi_helper.nrange(nkpts**2):
-            ki, kk = divmod(kik, nkpts)
-            kj = ki
-            kl = kconserv[ki, kj, kk]
+            for p0, p1 in mpi_helper.prange(0, naux, naux):
+                buf = np.empty((min(p1-p0, naux)*nao, nao), dtype=np.complex128)
 
-            # ijkl,lk->ij
-            if with_j:
-                buf = np.dot(Lpq[kk, kl].reshape(-1, nao*nao), dm[kl].ravel())
-                vj[ki] += np.dot(Lpq[ki, kj].T, buf).reshape(nao, nao)
+                for ki in range(nkpts):
+                    for kk in range(nkpts):
+                        kl = self.kconserv[ki, ki, kk]
 
-            # ilkj,lk->ij
-            if with_k:
-                buf = np.dot(Lpq[ki, kl].reshape(-1, nao), dm[kl])
-                buf = buf.reshape(-1, nao, nao).swapaxes(1, 2).reshape(-1, nao)
-                vk[ki] += np.dot(buf.T, Lpq[kk, kj].reshape(-1, nao)).conj()
+                        buf = lib.dot(
+                                Lpq[kk, ki, p0:p1].reshape(-1, nao),
+                                dm[ki],
+                                c=buf,
+                        )
 
-        mpi_helper.barrier()
-        if with_j:
-            mpi_helper.allreduce_safe_inplace(vj[ki])
-            vj /= nkpts
-        if with_k:
-            mpi_helper.allreduce_safe_inplace(vk[ki])
+                        vk[kk] = lib.dot(
+                                buf.reshape(-1, nao, nao).swapaxes(1, 2).reshape(-1, nao).T,
+                                Lpq[ki, kl, p0:p1].reshape(-1, nao),
+                                c=vk[kk],
+                                beta=1,
+                        )
+
+                del buf
+
             vk /= nkpts
 
         if with_k and exxdiv == 'ewald':
