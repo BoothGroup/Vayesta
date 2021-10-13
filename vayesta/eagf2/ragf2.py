@@ -102,7 +102,7 @@ def _active_slices(nmo, frozen):
     return focc, fvir, act
 
 
-def _ao2mo_3c(eri, ci, cj):
+def _ao2mo_3c(eri, ci, cj, mpi=True):
     ''' AO2MO for three-centre integrals
     '''
 
@@ -115,7 +115,9 @@ def _ao2mo_3c(eri, ci, cj):
     dtype = np.result_type(eri.dtype, ci.dtype, cj.dtype)
     qij = np.zeros((naux, ni*nj), dtype=dtype)
 
-    for p0, p1 in mpi_helper.prange(0, naux, naux):
+    prange = mpi_helper.prange if mpi else lib.prange
+
+    for p0, p1 in prange(0, naux, naux):
         eri0 = eri[p0:p1]
         if dtype is np.complex128:
             cij = np.asarray(cij, dtype=np.complex128)
@@ -123,13 +125,14 @@ def _ao2mo_3c(eri, ci, cj):
         else:
             qij[p0:p1] = ao2mo._ao2mo.nr_e2(eri0, cij, sij, out=qij[p0:p1], **sym)
 
-    mpi_helper.barrier()
-    mpi_helper.allreduce_safe_inplace(qij)
+    if mpi:
+        mpi_helper.barrier()
+        mpi_helper.allreduce_safe_inplace(qij)
 
     return qij.reshape(naux, ni, nj)
 
 
-def _ao2mo_4c(eri, ci, cj, ck, cl):
+def _ao2mo_4c(eri, ci, cj, ck, cl, mpi=True):
     ''' AO2MO for four-centre integrals
     '''
 
@@ -139,7 +142,9 @@ def _ao2mo_4c(eri, ci, cj, ck, cl):
     dtype = np.result_type(*(x.dtype for x in (eri, cj, ck, cl)))
     ijkl = np.zeros((ni, cj.shape[1], ck.shape[1], cl.shape[1]))
 
-    for p0, p1 in mpi_helper.prange(0, nao, nao):
+    prange = mpi_helper.prange if mpi else lib.prange
+
+    for p0, p1 in prange(0, nao, nao):
         tmp = lib.einsum('pqrs,qj,rk,sl->pjkl', eri[p0:p1], cj, ck.conj(), cl)
 
         if ci is not None:
@@ -147,8 +152,9 @@ def _ao2mo_4c(eri, ci, cj, ck, cl):
         else:
             ijkl[p0:p1] = tmp
 
-    mpi_helper.barrier()
-    mpi_helper.allreduce_safe_inplace(ijkl)
+    if mpi:
+        mpi_helper.barrier()
+        mpi_helper.allreduce_safe_inplace(ijkl)
 
     return ijkl
 
@@ -870,7 +876,7 @@ class RAGF2:
         return agf2.ragf2.energy_mp2(None, mo_energy[self.act], se)
 
 
-    def energy_1body(self, gf=None):
+    def energy_1body(self, gf=None, e_nuc=None):
         ''' Calculate the one-body energy
         '''
 
@@ -879,8 +885,7 @@ class RAGF2:
         h1e = self.h1e
 
         e1b  = 0.5 * np.sum(rdm1 * (h1e + fock))
-        e1b += self.e_nuc
-        #FIXME: frozen correction?
+        e1b += e_nuc if e_nuc is None else self.e_nuc
 
         return e1b
 

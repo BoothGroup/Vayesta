@@ -4,9 +4,7 @@ import copy
 import numpy as np
 import scipy.linalg
 
-import pyscf
-import pyscf.lib
-import pyscf.agf2
+from pyscf.agf2 import mpi_helper, aux
 
 import vayesta
 from vayesta.ewf import helper
@@ -78,8 +76,8 @@ class EAGF2Results:
     e_corr: float = None
     e_1b: float = None
     e_2b: float = None
-    gf: pyscf.agf2.GreensFunction = None
-    se: pyscf.agf2.SelfEnergy = None
+    gf: aux.GreensFunction = None
+    se: aux.SelfEnergy = None
     solver: RAGF2 = None
 
 
@@ -242,9 +240,10 @@ class EAGF2(QEmbeddingMethod):
         self.log.changeIndentLevel(-1)
 
         diis = self.DIIS(space=self.opts.diis_space, min_space=self.opts.diis_min_space)
-        solver.se = pyscf.agf2.aux.SelfEnergy(np.empty((0)), np.empty((solver.nact, 0)))
+        solver.se = aux.SelfEnergy(np.empty((0)), np.empty((solver.nact, 0)))
         fock = np.diag(self.mf.mo_energy)
         fock_mo = fock.copy()
+        e_nuc = solver.e_nuc
 
         converged = False
         for niter in range(0, self.opts.max_cycle+1):
@@ -275,6 +274,9 @@ class EAGF2(QEmbeddingMethod):
                 frag.qmo_energy, frag.qmo_coeff = solver.se.eig(fock)
                 frag.qmo_occ = np.array([2.0 * (x < solver.se.chempot) for x in frag.qmo_energy])
 
+            for x in mpi_helper.nrange(len(self.fragments)):
+                frag = self.fragments[x]
+
                 coeffs = frag.make_bath()
                 frag.c_cls_occ, frag.c_cls_vir, frag.c_env_occ, frag.c_env_vir = coeffs
 
@@ -285,9 +287,19 @@ class EAGF2(QEmbeddingMethod):
 
                 self.log.changeIndentLevel(-1)
 
-            moms = 0
+            # For non-democratic partitioning, we require all fragments to have these values:
             if self.opts.democratic:
                 for x, frag in enumerate(self.fragments):
+                    root = x % mpi_helper.size
+                    for attr in ['c_cls_occ', 'c_cls_vir', 'c_env_occ', 'c_env_vir', 'c_ao_cls', \
+                                 'c_qmo_occ', 'c_qmo_vir', 'c_ao_qmo_proj_occ', 'c_ao_qmo_proj_vir']:
+                        setattr(frag, attr, mpi_helper.bcast(getattr(frag, attr), root=root))
+
+            moms = 0
+            if self.opts.democratic:
+                for x in mpi_helper.nrange(len(self.fragments)):
+                    frag = self.fragments[x]
+
                     if frag.sym_parent is None:
                         results = frag.kernel(solver)
                         self.cluster_results[frag.id] = results
@@ -303,17 +315,23 @@ class EAGF2(QEmbeddingMethod):
 
                     c = results.c_active[:solver.nact].T.conj()
                     moms += np.einsum('...pq,pi,qj->...ij', moms_cls, c, c)
+
             else:
                 for x, frag in enumerate(self.fragments):
                     for y, other in enumerate(self.fragments[:x+1]):
+                        if (x * (x+1) // 2 + y) % mpi_helper.size != 0:
+                            continue
+
                         if frag.sym_parent is None and other.sym_parent is None:
                             results = frag.kernel(solver, other_frag=other)
                             self.cluster_results[frag.id, other.id] = results
                             self.log.debugv("%s - %s is done.", frag, other)
                         else:
-                            for f in [frag, other]:
-                                self.log.debugv("%s is symmetry related, parent: %s", f, f.sym_parent)
-                            results = self.cluster_results[frag.sym_parent.id, other.sym_parent.id]
+                            frag_parent = frag if frag.sym_parent is None else frag.sym_parent
+                            other_parent = other if other.sym_parent is None else other.sym_parent
+                            self.log.debugv("%s - %s is symmetry related, parent: %s - %s",
+                                            frag, other, frag_parent, other_parent)
+                            results = self.cluster_results[frag_parent.id, other_parent.id]
 
                         c = np.dot(frag.c_frag.T.conj(), results.c_active)
                         p_frag = np.dot(c.T.conj(), c)
@@ -332,6 +350,9 @@ class EAGF2(QEmbeddingMethod):
                             moms += moms_cls.swapaxes(2, 3)
 
                     self.log.info("%s is done.", frag)
+
+            mpi_helper.barrier()
+            mpi_helper.allreduce_safe_inplace(moms)
 
             assert np.allclose(moms[0,0], moms[0,0].T.conj())
             assert np.allclose(moms[0,1], moms[0,1].T.conj())
@@ -380,12 +401,12 @@ class EAGF2(QEmbeddingMethod):
                 solver.run_diis(solver.se, None, diis, se_prev=se_prev)
 
             w, v = solver.solve_dyson(fock=fock_mo)
-            solver.gf = pyscf.agf2.aux.GreensFunction(w, v[:solver.nact])
+            solver.gf = aux.GreensFunction(w, v[:solver.nact])
             if self.opts.fock_loop:
                 solver.gf, solver.se, fconv, fock = solver.fock_loop(fock=fock_mo, return_fock=True)
             solver.gf.remove_uncoupled(tol=1e-12)
 
-            solver.e_1b = solver.energy_1body()
+            solver.e_1b = solver.energy_1body(e_nuc=e_nuc)
             solver.e_2b = solver.energy_2body()
             solver.print_energies()
             solver.print_excitations()

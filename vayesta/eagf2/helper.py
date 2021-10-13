@@ -4,6 +4,8 @@ import ctypes
 
 from pyscf import ao2mo, lib
 from pyscf.agf2 import mpi_helper
+from pyscf.pbc.lib import kpts_helper
+from pyscf.pbc.tools.k2gamma import get_phase
 
 from vayesta import libs
 from vayesta.eagf2 import ragf2
@@ -120,7 +122,7 @@ def make_power_bath(frag, max_order=0, svd_tol=1e-16, c_frag=None, c_env=None, t
 
 
 class QMOIntegrals:
-    def __init__(self, frag, c_occ, c_vir, c_full=None, which='xija', keep_3c=False):
+    def __init__(self, frag, c_occ, c_vir, c_full=None, which='xija', keep_3c=True, make_real=True):
         self.frag = frag
         self.which = which
 
@@ -135,55 +137,56 @@ class QMOIntegrals:
             self.c_occ, self.c_vir = c_vir, c_occ
 
         has_kpts = getattr(self.frag.base, 'kpts', None) is not None
-        if has_kpts:
-            has_df = getattr(self.frag.base, 'kdf', None) is not None
-        else:
+        if not has_kpts:
             has_df = getattr(self.frag.mf, 'with_df', None) is not None
 
-        if not has_df and not has_kpts:
-            self.build_4c()
-        elif has_df and not has_kpts:
-            self.build_3c(keep_3c)
-        elif has_df and has_kpts and keep_3c:
-            self.build_3c_pbc()
-        elif has_df and has_kpts and not keep_3c:
-            self.build_4c_pbc()
+        if not has_kpts:
+            if has_df:
+                self.build_3c(keep_3c)
+            else:
+                self.build_4c()
         else:
-            raise NotImplementedError
+            self.build_pbc(keep_3c, make_real)
 
     def build_4c(self):
         coeffs = (self.c_full, self.c_occ, self.c_occ, self.c_vir)
         self.eri = ao2mo.incore.general(self.frag.mf._eri, coeffs, compact=False)
         self.eri = self.eri.reshape([c.shape[1] for c in coeffs])
 
-    def build_3c(self, keep_3c=False):
+    def build_3c(self, keep_3c=True):
         if self.frag.mf.with_df._cderi is None:
             with lib.temporary_env(self.frag.mf.with_df, max_memory=1e9):
                 self.frag.mf.with_df.build()
         Lpq = np.concatenate([block for block in self.frag.mf.with_df.loop()])
         Lpq = np.asarray(lib.unpack_tril(Lpq, axis=-1))
-        Lxo = ragf2._ao2mo_3c(Lpq, self.c_full, self.c_occ)
-        Lov = ragf2._ao2mo_3c(Lpq, self.c_occ, self.c_vir)
+        Lxo = ragf2._ao2mo_3c(Lpq, self.c_full, self.c_occ, mpi=False)
+        Lov = ragf2._ao2mo_3c(Lpq, self.c_occ, self.c_vir, mpi=False)
         if keep_3c:
             self.eri = (Lxo, Lov)
         else:
             self.eri = lib.einsum('Lxi,Lja->xija', Lxo, Lov)
 
-    def build_4c_pbc(self):
-        #TODO test conjugation
-        #TODO FIXME
-        eri = kao2gmo.gdf_to_eris(self.frag.base.kdf, self.c_full, self.c_occ.shape[-1])
-        if self.which == 'xija':
-            ooov = eri['ovoo'].transpose(2, 3, 0, 1)
-            voov = eri['ovvo'].transpose(1, 0, 3, 2).conj()
-            self.eri = np.concatenate((ooov, voov), axis=0)
-        else:
-            ovvo = eri['ovvo']
-            vvvo = eri['ovvv'].transpose(3, 2, 1, 0).conj()
-            self.eri = np.concatenate((ovvo, vvvo), axis=0)
+    def build_pbc(self, keep_3c=True, make_real=True):
+        ints3c = kao2gmo.ThreeCenterInts.init_from_gdf(self.frag.base.kdf)
+        phase = get_phase(ints3c.cell, ints3c.kpts)[1]
 
-    def build_3c_pbc(self):
-        raise NotImplementedError
+        cx = self.c_full.reshape(ints3c.nk, ints3c.nao, -1)
+        ci = self.c_occ.reshape(ints3c.nk, ints3c.nao, -1)
+        ca = self.c_vir.reshape(ints3c.nk, ints3c.nao, -1)
+
+        cx = lib.einsum('rk,rai->kai', phase.conj(), cx) / np.power(ints3c.nk, 0.25)
+        ci = lib.einsum('rk,rai->kai', phase.conj(), ci) / np.power(ints3c.nk, 0.25)
+        ca = lib.einsum('rk,rai->kai', phase.conj(), ca) / np.power(ints3c.nk, 0.25)
+
+        Lxi = kao2gmo.j3c_kao2gmo(ints3c, cx, ci, only_ov=True, make_real=make_real)['ov']
+        Lxi = Lxi.reshape(-1, cx.shape[-1], ci.shape[-1])
+        Lja = kao2gmo.j3c_kao2gmo(ints3c, ci, ca, only_ov=True, make_real=make_real)['ov']
+        Lja = Lja.reshape(-1, ci.shape[-1], ca.shape[-1])
+
+        if keep_3c:
+            self.eri = (Lxi, Lja)
+        else:
+            self.eri = lib.einsum('Lxi,Lja->xija')
 
     def __enter__(self):
         return self.eri

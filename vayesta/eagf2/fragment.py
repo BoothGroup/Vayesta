@@ -45,18 +45,45 @@ def build_moments(frag, other):
     c_q = other.c_ao_cls
 
     def _build_part(ei, ea, pija, qija):
-        eija = lib.direct_sum('i+j-a->ija', ei, ei, ea).ravel()
+        nocc, nvir = ei.size, ea.size
 
         if not isinstance(pija, tuple):
+            ncp, ncq = pija.shape[0], qija.shape[0]
             qija = 2.0 * qija - qija.swapaxes(1, 2)
-            pija = pija.reshape(-1, eija.size)
-            qija = qija.reshape(-1, eija.size)
+            pija = pija.reshape(ncp, nocc*nocc*nvir)
+            qija = qija.reshape(ncp, nocc*nocc*nvir)
+            eija = lib.direct_sum('i+j-a->ija', ei, ei, ea).ravel()
 
             t0 = np.dot(pija, qija.T.conj())
             t1 = np.dot(pija * eija[None], qija.T.conj())
 
         else:
-            raise NotImplementedError
+            ncp, ncq = pija[0].shape[1], qija[0].shape[1]
+            max_memory = max(0, frag.mol.max_memory - lib.current_memory()[0])
+            max_memory = max_memory * .9e6 / 8
+            blksize = max_memory / (nocc*nvir*(ncp+2*ncq+1))
+            blksize = max(min(blksize, nocc), 1)
+            dtype = np.result_type(*pija, *qija)
+
+            t0 = np.zeros((ncp, ncq), dtype=dtype)
+            t1 = np.zeros((ncp, ncq), dtype=dtype)
+
+            for i0, i1 in lib.prange(0, nocc, blksize):
+                qja = lib.einsum('Lqi,Lja->qija', qija[0][:, :, i0:i1], qija[1])
+                if i0 == 0 and i1 == nocc:
+                    qja = 2.0 * qja - qja.swapaxes(1, 2)
+                else:
+                    qia = lib.einsum('Lqi,Lja->qjia', qija[0], qija[1][:, i0:i1])
+                    qja = 2.0 * qja - qia
+                    del qia
+                pja = lib.einsum('Lpi,Lja->pija', pija[0][:, :, i0:i1], pija[1])
+                eja = lib.direct_sum('i+j-a->ija', ei[i0:i1], ei, ea).ravel()
+
+                pja = pja.reshape(ncp, (i1-i0)*nocc*nvir)
+                qja = qja.reshape(ncq, (i1-i0)*nocc*nvir)
+
+                t0 += np.dot(pja, qja.T.conj())
+                t1 += np.dot(pja * eja[None], qja.T.conj())
 
         return np.array([t0, t1])
 
@@ -507,10 +534,10 @@ class EAGF2Fragment(QEmbeddingFragment):
             c_vir = np.dot(self.mf.mo_coeff, mo_coeff_vir[:solver.nact])
 
             #TODO replace
-            with helper.QMOIntegrals(self, c_occ, c_vir, 'xija') as xija:
+            with helper.QMOIntegrals(self, c_occ, c_vir, which='xija') as xija:
                 t_occ = solver._build_moments(mo_energy_occ, mo_energy_vir, xija)
 
-            with helper.QMOIntegrals(self, c_occ, c_vir, 'xabi') as xabi:
+            with helper.QMOIntegrals(self, c_occ, c_vir, which='xabi') as xabi:
                 t_vir = solver._build_moments(mo_energy_vir, mo_energy_occ, xabi)
 
             moms = np.array([t_occ, t_vir])
