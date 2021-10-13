@@ -118,7 +118,7 @@ class EWF(QEmbeddingMethod):
         self.iteration = 0
         self.cluster_results = {}
         self.results = []
-        self.e_corr = 0.0
+        #self.e_corr = 0.0
         self.log.timing("Time for EWF setup: %s", time_string(timer()-t_start))
 
     def __repr__(self):
@@ -212,19 +212,21 @@ class EWF(QEmbeddingMethod):
     @property
     def e_tot(self):
         """Total energy."""
-        return self.e_mf + self.e_corr
+        return self.get_e_tot()
 
-    def get_total_energy(self):
-        return self.e_mf + self.get_corr_energy()
+    @property
+    def e_corr(self):
+        """Correlation energy."""
+        return self.get_e_corr()
 
-    def get_corr_energy(self):
+    def get_e_tot(self):
+        return self.e_mf + self.get_e_corr()
+
+    def get_e_corr(self):
         e_corr = 0.0
         for f in self.fragments:
             e_corr += f.results.e_corr
         return e_corr
-
-    get_e_tot = get_total_energy
-    get_e_corr = get_corr_energy
 
     #def get_e_corr_new(self):
     #    e_corr = 0.0
@@ -590,7 +592,7 @@ class EWF(QEmbeddingMethod):
 
         bno_min = np.min(bno_threshold)
         #self.e_corr = sum([results[(f.id, bno_min)].e_corr for f in self.fragments])
-        self.e_corr = self.results[0].e_corr
+        #self.e_corr = self.results[0].e_corr
         self.log.output('E(nuc)=  %s', energy_string(self.mol.energy_nuc()))
         self.log.output('E(MF)=   %s', energy_string(self.e_mf))
         self.log.output('E(corr)= %s', energy_string(self.e_corr))

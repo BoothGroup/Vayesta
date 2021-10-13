@@ -5,6 +5,7 @@ import numpy as np
 from vayesta.core.util import *
 
 from .fragment import Fragment
+from vayesta.core import tsymmetry
 
 class UFragment(Fragment):
 
@@ -280,3 +281,111 @@ class UFragment(Fragment):
         self.log.debug("Fragment E(DMET)= %+16.8f Ha", e_dmet)
         self.log.timing("Time for DMET energy: %s", time_string(timer()-t0))
         return e_dmet
+
+    # --- Symmetry
+    # ============
+
+    def add_tsymmetric_fragments(self, tvecs, unit='Ang', charge_tol=1e-6, spin_tol=1e-6):
+        """
+
+        Parameters
+        ----------
+        tvecs: (3,3) float array or (3,) integer array
+            Translational symmetry vectors. If an array with shape (3,3) is passed, each row represents
+            a translation vector in cartesian coordinates, in units defined by the parameter `unit`.
+            If an array with shape (3,) is passed, each element represent the number of
+            translation vector corresponding to the a0, a1, and a2 lattice vectors of the cell.
+        unit: ['Ang', 'Bohr'], optional
+            Units of translation vectors. Only used if a (3, 3) array is passed. Default: 'Ang'.
+        charge_tol: float, optional
+            Tolerance for the error of the mean-field density matrix between symmetry related fragments.
+            If the largest absolute difference in the density-matrix is above this value,
+            and exception will be raised. Default: 1e-6.
+        spin_tol: float, optional
+            Tolerance for the error of the mean-field density matrix between symmetry related fragments.
+            If the largest absolute difference in the density-matrix is above this value,
+            and exception will be raised. Default: 1e-6.
+
+        Returns
+        -------
+        fragments: list
+            List of T-symmetry related fragments. These will be automatically added to base.fragments and
+            have the attributes `sym_parent` and `sym_op` set.
+        """
+        #if self.boundary_cond == 'open': return []
+
+        ovlp = self.base.get_ovlp()
+        dm1 = self.mf.make_rdm1()
+
+        fragments = []
+        for (dx, dy, dz), tvec in tsymmetry.loop_tvecs(self.mol, tvecs, unit=unit):
+
+            sym_op = tsymmetry.get_tsymmetry_op(self.mol, tvec, unit='Bohr')
+            if sym_op is None:
+                self.log.error("No T-symmetric fragment found for translation (%d,%d,%d) of fragment %s", dx, dy, dz, self.name)
+                continue
+            # Name for translationally related fragments
+            name = '%s_T(%d,%d,%d)' % (self.name, dx, dy, dz)
+            # Translated coefficients
+            c_frag_t = sym_op(self.c_frag)
+            c_env_t = sym_op(self.c_env)
+
+            # Check that translated fragment does not overlap with current fragment:
+            fragovlp = max(abs(dot(self.c_frag[0].T, ovlp, c_frag_t[0])).max(),
+                           abs(dot(self.c_frag[1].T, ovlp, c_frag_t[1])).max())
+            if fragovlp > 1e-9:
+                self.log.error("Translation (%d,%d,%d) of fragment %s not orthogonal to original fragment (overlap= %.3e)!",
+                            dx, dy, dz, self.name, fragovlp)
+            # Deprecated:
+            if hasattr(self.base, 'add_fragment'):
+                frag = self.base.add_fragment(name, c_frag_t, c_env_t, options=self.opts,
+                        sym_parent=self, sym_op=sym_op)
+            else:
+                fid = self.base.fragmentation.get_next_fid()
+                frag = self.base.Fragment(self.base, fid, name, c_frag_t, c_env_t, options=self.opts,
+                        sym_parent=self, sym_op=sym_op)
+                self.base.fragments.append(frag)
+
+            # Check symmetry
+            charge_err, spin_err = self.get_tsymmetry_error(frag, dm1=dm1)
+            if charge_err > charge_tol or spin_err > spin_tol:
+                self.log.critical("Mean-field DM not symmetric for translation (%d,%d,%d) of %s (charge error= %.3e spin error= %.3e)!",
+                    dx, dy, dz, self.name, charge_err, spin_err)
+                raise RuntimeError("MF not symmetric under translation (%d,%d,%d)" % (dx, dy, dz))
+            else:
+                self.log.debugv("Mean-field DM symmetry error for translation (%d,%d,%d) of %s charge= %.3e spin= %.3e",
+                    dx, dy, dz, self.name, charge_err, spin_err)
+
+            fragments.append(frag)
+
+        return fragments
+
+    def get_tsymmetry_error(self, frag, dm1=None):
+        """Get translational symmetry error between two fragments."""
+        if dm1 is None: dm1 = self.mf.make_rdm1()
+        dma, dmb = dm1
+        ovlp = self.base.get_ovlp()
+        # This fragment (x)
+        cxa, cxb = self.stack_mo(self.c_frag, self.c_env)
+        dmxa = dot(cxa.T, ovlp, dma, ovlp, cxa)
+        dmxb = dot(cxb.T, ovlp, dmb, ovlp, cxb)
+        # Other fragment (y)
+        cya, cyb = self.stack_mo(frag.c_frag, frag.c_env)
+        dmya = dot(cya.T, ovlp, dma, ovlp, cya)
+        dmyb = dot(cyb.T, ovlp, dmb, ovlp, cyb)
+        charge_err = abs(dmxa+dmxb-dmya-dmyb).max()
+        spin_err = abs(dmxa-dmxb-dmya+dmyb).max()
+        return (charge_err, spin_err)
+
+
+    # --- Rotation matrices
+    # ---------------------
+
+    def get_rot_to_mf(self):
+        """Get rotation matrices from occupied/virtual active space to MF orbitals."""
+        ovlp = self.base.get_ovlp()
+        r_occ_a = dot(self.c_active_occ[0].T, ovlp, self.base.mo_coeff_occ[0])
+        r_occ_b = dot(self.c_active_occ[1].T, ovlp, self.base.mo_coeff_occ[1])
+        r_vir_a = dot(self.c_active_vir[0].T, ovlp, self.base.mo_coeff_vir[0])
+        r_vir_b = dot(self.c_active_vir[1].T, ovlp, self.base.mo_coeff_vir[1])
+        return (r_occ_a, r_occ_b), (r_vir_a, r_vir_b)

@@ -27,7 +27,7 @@ from vayesta.core.ao2mo.postscf_ao2mo import postscf_ao2mo
 from vayesta.core.ao2mo.kao2gmo import gdf_to_pyscf_eris
 from vayesta.misc.gdf import GDF
 from vayesta import lattmod
-from vayesta.core.scmf import PDMET_SCMF, Brueckner_SCMF
+from vayesta.core.scmf import PDMET, Brueckner
 
 # Fragmentations
 from vayesta.core.fragmentation import make_sao_fragmentation
@@ -38,6 +38,10 @@ from vayesta.core.fragmentation import make_site_fragmentation
 # --- This Package
 
 from .fragment import QEmbeddingFragment
+# Amplitudes
+from .amplitudes import get_t1
+from .amplitudes import get_t2
+from .amplitudes import get_t12
 # Density-matrices
 from .rdm import make_rdm1_demo
 from .rdm import make_rdm2_demo
@@ -582,66 +586,12 @@ class QEmbedding:
             e_dmet += self.get_exxdiv()[0]
         return e_dmet
 
-    def get_t1(self, get_lambda=False, partition=None):
-        """Get global CCSD T1- or L1-amplitudes from fragment calculations.
+    # --- CC Amplitudes
+    # -----------------
 
-        Parameters
-        ----------
-        partition: ['first-occ', 'first-vir', 'democratic']
-            Partitioning scheme of the T amplitudes. Default: 'first-occ'.
-
-        Returns
-        -------
-        t1: (n(occ), n(vir)) array
-            Global T1- or L1-amplitudes.
-        """
-        if partition is None: partition = self.opts.wf_partition
-        t1 = np.zeros((self.nocc, self.nvir))
-        # Add fragment WFs in intermediate normalization
-        for f in self.fragments:
-            self.log.debugv("Now adding projected %s-amplitudes of fragment %s", ("L" if get_lambda else "T"), f)
-            ro, rv = f.get_rot_to_mf()
-            t1f = (f.results.l1 if get_lambda else f.results.get_t1())
-            if t1f is None: raise RuntimeError("Amplitudes not found for %s" % f)
-            t1f = f.project_amplitude_to_fragment(t1f, partition=partition)
-            t1 += einsum('ia,iI,aA->IA', t1f, ro, rv)
-        return t1
-
-    def get_t12(self, calc_t1=True, calc_t2=True, get_lambda=False, partition=None, symmetrize=True):
-        """Get global CCSD wave function (T1 and T2 amplitudes) from fragment calculations.
-
-        Parameters
-        ----------
-        partition: ['first-occ', 'first-vir', 'democratic']
-            Partitioning scheme of the T amplitudes. Default: 'first-occ'.
-
-        Returns
-        -------
-        t1: (n(occ), n(vir)) array
-            Global T1 amplitudes.
-        t2: (n(occ), n(occ), n(vir), n(vir)) array
-            Global T2 amplitudes.
-        """
-        if partition is None: partition = self.opts.wf_partition
-        t1 = np.zeros((self.nocc, self.nvir)) if calc_t1 else None
-        t2 = np.zeros((self.nocc, self.nocc, self.nvir, self.nvir)) if calc_t2 else None
-        # Add fragment WFs in intermediate normalization
-        for f in self.fragments:
-            self.log.debugv("Now adding projected %s-amplitudes of fragment %s", ("L" if get_lambda else "T"), f)
-            ro, rv = f.get_rot_to_mf()
-            if calc_t1:
-                t1f = (f.results.l1 if get_lambda else f.results.get_t1())
-                if t1f is None: raise RuntimeError("Amplitudes not found for %s" % f)
-                t1f = f.project_amplitude_to_fragment(t1f, partition=partition)
-                t1 += einsum('ia,iI,aA->IA', t1f, ro, rv)
-            if calc_t2:
-                t2f = (f.results.l2 if get_lambda else f.results.get_t2())
-                if t2f is None: raise RuntimeError("Amplitudes not found for %s" % f)
-                t2f = f.project_amplitude_to_fragment(t2f, partition=partition, symmetrize=symmetrize)
-                t2 += einsum('ijab,iI,jJ,aA,bB->IJAB', t2f, ro, ro, rv, rv)
-        #t2 = (t2 + t2.transpose(1,0,3,2))/2
-        #assert np.allclose(t2, t2.transpose(1,0,3,2))
-        return t1, t2
+    get_t1 = get_t1
+    get_t2 = get_t2
+    get_t12 = get_t12
 
     # --- Density-matrices
     # --------------------
@@ -848,29 +798,41 @@ class QEmbedding:
         for f in self.fragments:
             f.reset(*args, **kwargs)
 
-    def update_mf(self, mo_coeff, mo_energy=None, hcore=None, veff=None):
+    def update_mf(self, mo_coeff, mo_energy=None, veff=None):
+        """Update underlying mean-field object."""
+        # Chech orthonormal MOs
+        if not np.allclose(dot(mo_coeff.T, self.get_ovlp(), mo_coeff) - np.eye(mo_coeff.shape[-1]), 0):
+            raise ValueError("MO coefficients not orthonormal!")
         self.mf.mo_coeff = mo_coeff
         dm = self.mf.make_rdm1(mo_coeff=mo_coeff)
-        if hcore is None:
-            hcore = self.get_hcore()
-        else:
-            self.set_hcore(hcore)
-        if veff is None: veff = self.mf.get_veff(dm=dm)
+        if veff is None:
+            veff = self.mf.get_veff(dm=dm)
         self.set_veff(veff)
         if mo_energy is None:
             # Use diagonal of Fock matrix as MO energies
             mo_energy = einsum('ai,ab,bi->i', mo_coeff, self.get_fock(), mo_coeff)
         self.mf.mo_energy = mo_energy
-        self.mf.e_tot = self.mf.energy_tot(dm=dm, h1e=hcore, vhf=veff)
+        self.mf.e_tot = self.mf.energy_tot(dm=dm, h1e=self.get_hcore(), vhf=veff)
+
+    def check_fragment_symmetry(self, dm1, charge_tol=1e-6, spin_tol=1e-6):
+        frags = self.get_symmetry_child_fragments(include_parents=True)
+        for group in frags:
+            parent, children = group[0], group[1:]
+            for child in children:
+                charge_err = parent.get_tsymmetry_error(child, dm1=dm1)
+                if (charge_err > charge_tol):
+                    raise RuntimeError("%s and %s not symmetric: charge error= %.3e !"
+                            % (parent.name, child.name, charge_err))
+                self.log.debugv("Symmetry between %s and %s: charge error= %.3e", parent.name, child.name, charge_err)
 
     def pdmet_scmf(self, *args, **kwargs):
         """Decorator for p-DMET."""
-        self.with_scmf = PDMET_SCMF(self, *args, **kwargs)
+        self.with_scmf = PDMET(self, *args, **kwargs)
         self.kernel = self.with_scmf.kernel.__get__(self)
 
     def brueckner_scmf(self, *args, **kwargs):
         """Decorator for Brueckner-DMET."""
-        self.with_scmf = Brueckner_SCMF(self, *args, **kwargs)
+        self.with_scmf = Brueckner(self, *args, **kwargs)
         self.kernel = self.with_scmf.kernel.__get__(self)
 
     # --- Backwards compatibility:

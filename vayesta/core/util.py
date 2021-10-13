@@ -39,9 +39,9 @@ NotSet = NotSetType()
 
 # --- NumPy
 
-def dot(*args, **kwargs):
-    """Like NumPy's multi_dot, but variadic."""
-    return np.linalg.multi_dot(args, **kwargs)
+def dot(*args, out=None):
+    """Like NumPy's multi_dot, but variadic"""
+    return np.linalg.multi_dot(args, out=out)
 
 def einsum(*args, **kwargs):
     kwargs['optimize'] = kwargs.pop('optimize', True)

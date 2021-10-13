@@ -8,6 +8,14 @@ from .ufragment import UFragment
 from vayesta.core.ao2mo.postscf_ao2mo import postscf_ao2mo
 from vayesta.core.util import *
 
+# Amplitudes
+from .amplitudes import get_t1_uhf
+from .amplitudes import get_t2_uhf
+from .amplitudes import get_t12_uhf
+
+# Density-matrices
+from .urdm import make_rdm1_demo
+
 class UEmbedding(QEmbedding):
     """Spin unrestricted quantum embedding."""
 
@@ -145,23 +153,60 @@ class UEmbedding(QEmbedding):
         self.log.timing("Time for AO->MO of ERIs:  %s", time_string(timer()-t0))
         return eris
 
-    def get_t1(self, *args, **kwargs):
+    def update_mf(self, mo_coeff, mo_energy=None, veff=None):
+        """Update underlying mean-field object."""
+        # Chech orthonormal MOs
+        if not (np.allclose(dot(mo_coeff[0].T, self.get_ovlp(), mo_coeff[0]) - np.eye(mo_coeff[0].shape[-1]), 0)
+            and np.allclose(dot(mo_coeff[1].T, self.get_ovlp(), mo_coeff[1]) - np.eye(mo_coeff[1].shape[-1]), 0)):
+                raise ValueError("MO coefficients not orthonormal!")
+        self.mf.mo_coeff = mo_coeff
+        dm = self.mf.make_rdm1(mo_coeff=mo_coeff)
+        if veff is None:
+            veff = self.mf.get_veff(dm=dm)
+        self.set_veff(veff)
+        if mo_energy is None:
+            # Use diagonal of Fock matrix as MO energies
+            fock = self.get_fock()
+            mo_energy = (einsum('ai,ab,bi->i', mo_coeff[0], fock[0], mo_coeff[0]),
+                         einsum('ai,ab,bi->i', mo_coeff[1], fock[1], mo_coeff[1]))
+        self.mf.mo_energy = mo_energy
+        self.mf.e_tot = self.mf.energy_tot(dm=dm, h1e=self.get_hcore(), vhf=veff)
+
+    def check_fragment_symmetry(self, dm1, charge_tol=1e-6, spin_tol=1e-6):
+        frags = self.get_symmetry_child_fragments(include_parents=True)
+        for group in frags:
+            parent, children = group[0], group[1:]
+            for child in children:
+                charge_err, spin_err = parent.get_tsymmetry_error(child, dm1=dm1)
+                if (charge_err > charge_tol) or (spin_err > spin_tol):
+                    raise RuntimeError("%s and %s not symmetric: charge error= %.3e spin error= %.3e !"
+                            % (parent.name, child.name, charge_err, spin_err))
+                self.log.debugv("Symmetry between %s and %s: charge error= %.3e spin error= %.3e", parent.name, child.name, charge_err, spin_err)
+
+    # --- CC Amplitudes
+    # -----------------
+
+    get_t1 = get_t1_uhf
+    get_t2 = get_t2_uhf
+    get_t12 = get_t12_uhf
+
+    # --- Density-matrices
+    # --------------------
+
+    make_rdm1_demo = make_rdm1_demo
+
+    # TODO:
+    def make_rdm1_ccsd(self, *args, **kwargs):
         raise NotImplementedError()
 
-    def get_t12(self, *args, **kwargs):
+    def make_rdm2_demo(self, *args, **kwargs):
         raise NotImplementedError()
 
-    def get_rdm1_demo(self, *args, **kwargs):
+    def make_rdm2_ccsd(self, *args, **kwargs):
         raise NotImplementedError()
 
-    def get_rdm1_ccsd(self, *args, **kwargs):
-        raise NotImplementedError()
-
-    def get_rdm2_demo(self, *args, **kwargs):
-        raise NotImplementedError()
-
-    def get_rdm2_ccsd(self, *args, **kwargs):
-        raise NotImplementedError()
+    # --- Other
+    # ---------
 
     def pop_analysis(self, *args, **kwargs):
         raise NotImplementedError()

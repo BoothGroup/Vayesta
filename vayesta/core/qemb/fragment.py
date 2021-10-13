@@ -72,14 +72,6 @@ class Fragment:
                 return self.c2/self.c0 - einsum('ia,jb->ijab', c1, c1)
             return None
 
-    @dataclasses.dataclass
-    class Stash(StashBase):
-        """Dataclass to stash intermediate results."""
-        eris: 'typing.Any' = None
-
-        def clear(self):
-            self.eris = None
-
     class Exit(Exception):
         """Raise for controlled early exit."""
         pass
@@ -163,9 +155,6 @@ class Fragment:
         self.log = log or base.log
         self.id = fid
         self.name = name
-        #self.log.info("Initializing %s" % self)
-        #self.log.info("-------------%s" % (len(str(self))*"-"))
-
 
         # Options
         self.base = base
@@ -178,19 +167,19 @@ class Fragment:
 
         self.c_frag = c_frag
         self.c_env = c_env
-        #self.fragment_type = fragment_type
         self.sym_factor = self.opts.sym_factor
         self.sym_parent = sym_parent
         self.sym_op = sym_op
         # For some embeddings, it may be necessary to keep track of any associated atoms or basis functions (AOs)
+        # TODO: Is this still used?
         self.atoms = atoms
         self.aos = aos
-
 
         # This set of orbitals is used in the projection to evaluate expectation value contributions
         # of the fragment. By default it is equal to `self.c_frag`.
         self.c_proj = self.c_frag
 
+        # TODO: Move to cluster object
         # Final cluster active orbitals
         self._c_active_occ = None
         self._c_active_vir = None
@@ -200,11 +189,9 @@ class Fragment:
         # Final results
         self._results = None
 
-        # Bath
+        # Bath and cluster
         self.bath = None
-
-        # Intermediates
-        self.stash = self.Stash()
+        self.cluster = None
 
         self.log.info("Creating %r", self)
         #self.log.info(break_into_lines(str(self.opts), newline='\n    '))
@@ -244,11 +231,6 @@ class Fragment:
         """Number of fragment orbitals."""
         return self.c_frag.shape[-1]
 
-    #@property
-    #def size(self):
-    #    self.log.warning("fragment.size is deprecated!")
-    #    return self.n_frag
-
     @property
     def nelectron(self):
         """Number of mean-field electrons."""
@@ -274,6 +256,7 @@ class Fragment:
         return self.base.boundary_cond
 
     # --- Active orbitals
+    # TODO: Cluster object
 
     @property
     def c_active(self):
@@ -360,7 +343,8 @@ class Fragment:
         return self.stack_mo(self.c_frozen_occ, self.c_active_occ,
                              self.c_active_vir, self.c_frozen_vir)
 
-    # Rotation matrices
+    # --- Rotation matrices
+    # ---------------------
 
     def get_rot_to_mf(self):
         """Get rotation matrices from occupied/virtual active space to MF orbitals."""
@@ -386,11 +370,13 @@ class Fragment:
     def reset(self):
         self.log.debugv("Resetting fragment %s", self)
         self.bath = None
+        self.cluster = None
+        self._results = None
+        # TODO: Remove these:
         self._c_active_occ = None
         self._c_active_vir = None
         self._c_frozen_occ = None
         self._c_frozen_vir = None
-        self._results = None
 
     def couple_to_fragment(self, frag):
         if frag is self:
@@ -705,7 +691,7 @@ class Fragment:
     # --- Symmetry
     # ============
 
-    def make_tsymmetric_fragments(self, tvecs, unit='Ang', mf_tol=1e-6):
+    def add_tsymmetric_fragments(self, tvecs, unit='Ang', charge_tol=1e-6):
         """
 
         Parameters
@@ -717,10 +703,10 @@ class Fragment:
             translation vector corresponding to the a0, a1, and a2 lattice vectors of the cell.
         unit: ['Ang', 'Bohr'], optional
             Units of translation vectors. Only used if a (3, 3) array is passed. Default: 'Ang'.
-        mf_tol: float, optional
+        charge_tol: float, optional
             Tolerance for the error of the mean-field density matrix between symmetry related fragments.
-            If the largest absolute difference in the density-matrix is above `mf_tol`,
-            the translated fragment is not considered as symmetry related. Default: 1e-6.
+            If the largest absolute difference in the density-matrix is above this value,
+            and exception will be raised. Default: 1e-6.
 
         Returns
         -------
@@ -730,62 +716,89 @@ class Fragment:
         """
         #if self.boundary_cond == 'open': return []
 
-        mesh, tvecs = tsymmetry.get_mesh_tvecs(self.mol, tvecs, unit)
-        self.log.debugv("nx= %d ny= %d nz= %d", *mesh)
-        self.log.debugv("tvecs=\n%r", tvecs)
-
         ovlp = self.base.get_ovlp()
-        sds = np.linalg.multi_dot((ovlp, self.mf.make_rdm1(), ovlp))
-        c_all = np.hstack((self.c_frag, self.c_env))
-        dm0 = np.linalg.multi_dot((c_all.T, sds, c_all))
+        dm1 = self.mf.make_rdm1()
 
         fragments = []
-        # last index is fastest looping - change x first, then y, then z:
-        for dz, dy, dx in itertools.product(range(mesh[2]), range(mesh[1]), range(mesh[0])):
-            if abs(dx) + abs(dy) + abs(dz) == 0:
+        for (dx, dy, dz), tvec in tsymmetry.loop_tvecs(self.mol, tvecs, unit=unit):
+            sym_op = tsymmetry.get_tsymmetry_op(self.mol, tvec, unit='Bohr')
+            if sym_op is None:
+                self.log.error("No T-symmetric fragment found for translation (%d,%d,%d) of fragment %s", dx, dy, dz, self.name)
                 continue
-            t = dx*tvecs[0] + dy*tvecs[1] + dz*tvecs[2]
-            reorder, inverse, phases = tsymmetry.reorder_aos(self.mol, t, unit='Bohr')
-            self.log.debugv("reorder=\n%r", reorder)
-            self.log.debugv("inverse=\n%r", inverse)
-            self.log.debugv("phases=\n%r", phases)
-            if reorder is None:
-                self.log.error("No T-symmetric fragment found for translation [%d %d %d] of fragment %s", dx, dy, dz, self.name)
-                continue
-            name = '%s.t%d.%d.%d' % (self.name, dx, dy, dz)
-            c_frag = self.c_frag[reorder]*phases[:,None]
-            c_env = self.c_env[reorder]*phases[:,None]
+            # Name for translationally related fragments
+            name = '%s_T(%d,%d,%d)' % (self.name, dx, dy, dz)
+            # Translated coefficients
+            c_frag_t = sym_op(self.c_frag)
+            c_env_t = sym_op(self.c_env)
             # Check that translated fragment does not overlap with current fragment:
-            ovlp = np.linalg.norm(np.linalg.multi_dot((self.c_frag.T, self.base.get_ovlp(), c_frag)))
-            if ovlp > 1e-10:
-                self.log.error("Translation [%d %d %d] of fragment %s not orthogonal to original fragment (overlap= %.3e)!",
-                            dx, dy, dz, self.name, ovlp)
-            # Check that MF solution has lattice periodicity:
-            c_all = np.hstack((c_frag, c_env))
-            dm = np.linalg.multi_dot((c_all.T, sds, c_all))
-            err = abs(dm - dm0).max()
-            if err > mf_tol:
-                self.log.error("Mean-field not T-symmetric for translation [%d %d %d] of fragment space %s (error= %.3e)!",
-                        dx, dy, dz, self.name, err)
-                continue
-            else:
-                self.log.debugv("Mean-field T-symmetry error for translation [%d %d %d]= %.3e", dx, dy, dz, err)
-
-            sym_op = tsymmetry.make_sym_op(reorder, phases)
+            fragovlp = abs(dot(self.c_frag.T, ovlp, c_frag_t)).max()
+            if fragovlp > 1e-9:
+                self.log.critical("Translation (%d,%d,%d) of fragment %s not orthogonal to original fragment (overlap= %.3e)!",
+                            dx, dy, dz, self.name, fragovlp)
+                raise RuntimeError("Overlapping fragment spaces.")
             # Deprecated:
             if hasattr(self.base, 'add_fragment'):
-                frag = self.base.add_fragment(name, c_frag, c_env, #fragment_type=self.fragment_type,
-                        options=self.opts,
+                frag = self.base.add_fragment(name, c_frag_t, c_env_t, options=self.opts,
                         sym_parent=self, sym_op=sym_op)
             else:
                 fid = self.base.fragmentation.get_next_fid()
-                frag = self.base.Fragment(self.base, fid, name, c_frag, c_env, #self.fragment_type,
-                        options=self.opts,
+                frag = self.base.Fragment(self.base, fid, name, c_frag_t, c_env_t, options=self.opts,
                         sym_parent=self, sym_op=sym_op)
                 self.base.fragments.append(frag)
-            fragments.append(frag)
 
+            # Check symmetry
+            charge_err = self.get_tsymmetry_error(frag, dm1=dm1)
+            if charge_err > charge_tol:
+                self.log.critical("Mean-field DM not symmetric for translation (%d,%d,%d) of %s (charge error= %.3e)!",
+                    dx, dy, dz, self.name, charge_err)
+                raise RuntimeError("MF not symmetric under translation (%d,%d,%d)" % (dx, dy, dz))
+            else:
+                self.log.debugv("Mean-field DM symmetry error for translation (%d,%d,%d) of %s = %.3e",
+                    dx, dy, dz, self.name, charge_err)
+
+            fragments.append(frag)
         return fragments
+
+    def make_tsymmetric_fragments(self, *args, **kwargs):
+        self.log.warning("make_tsymmetric_fragments is deprecated - use add_tsymmetric_fragments")
+        return self.add_tsymmetric_fragments(*args, **kwargs)
+
+    def get_symmetry_children(self):
+        children = []
+        for frag in self.loop_fragments(exclude_self=True):
+            if (frag.sym_parent.id == self.id):
+                children.append(frag)
+        return children
+
+    def get_tsymmetry_error(self, frag, dm1=None):
+        """Get translational symmetry error between two fragments."""
+        if dm1 is None: dm1 = self.mf.make_rdm1()
+        ovlp = self.base.get_ovlp()
+        # This fragment (x)
+        cx = np.hstack((self.c_frag, self.c_env))
+        dmx = dot(cx.T, ovlp, dm1, ovlp, cx)
+        # Other fragment (y)
+        cy = np.hstack((frag.c_frag, frag.c_env))
+        dmy = dot(cy.T, ovlp, dm1, ovlp, cy)
+        err = abs(dmx - dmy).max()
+        return err
+
+    #def check_mf_tsymmetry(self):
+    #    """Check translational symmetry of the mean-field between fragment and its children."""
+    #    ovlp = self.base.get_ovlp()
+    #    sds = dot(ovlp, self.mf.make_rdm1(), ovlp)
+    #    c0 = np.hstack((self.c_frag, self.c_env))
+    #    dm0 = dot(c0.T, sds, c0)
+    #    for frag in self.get_symmetry_children():
+    #        c1 = np.hstack((frag.c_frag, frag.c_env))
+    #        dm1 = dot(c1.T, sds, c1)
+    #        err = abs(dm1 - dm0).max()
+    #        if err > mf_tol:
+    #            self.log.error("Mean-field not T-symmetric between %s and %s (error= %.3e)!",
+    #                    self.name, frag.name, err)
+    #            continue
+    #        else:
+    #            self.log.debugv("Mean-field T-symmetry error between %s and %s = %.3e", self.name, frag.name, err)
 
     # --- Results
     # ===========

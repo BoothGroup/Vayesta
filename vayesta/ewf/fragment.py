@@ -108,8 +108,6 @@ class EWFFragment(QEmbeddingFragment):
             raise ValueError("Unknown solver: %s" % solver)
         self.solver = solver
 
-        self.cluster = None
-
         # For self-consistent mode
         self.solver_results = None
 
@@ -126,9 +124,6 @@ class EWFFragment(QEmbeddingFragment):
     @property
     def c_cluster_vir(self):
         return self.bath.c_cluster_vir
-
-    def reset(self):
-        super().reset()
 
     def set_cas(self, iaos=None, c_occ=None, c_vir=None, minao='auto', dmet_threshold=None):
         """Set complete active space for tailored CCSD"""
