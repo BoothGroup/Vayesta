@@ -15,7 +15,6 @@ import pyscf.fci
 
 from vayesta.core.util import *
 from vayesta.solver.solver_fci import FCISolver
-from .solver import ClusterSolver
 
 
 class EBFCISolver(FCISolver):

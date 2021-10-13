@@ -1,14 +1,14 @@
 import numpy as np
 
-from vayesta.core import UQEmbeddingMethod
+from vayesta.core import UEmbedding
 from vayesta.core.util import *
 
-from vayesta.ewf import EWF
-from vayesta.ewf.ufragment import UEWFFragment
+from vayesta.ewf import REWF
+from vayesta.ewf.ufragment import UEWFFragment as Fragment
 
-class UEWF(EWF, UQEmbeddingMethod):
+class UEWF(REWF, UEmbedding):
 
-    Fragment = UEWFFragment
+    Fragment = Fragment
 
     def get_init_mo_coeff(self, mo_coeff=None):
         """Orthogonalize insufficiently orthogonal MOs.
@@ -24,7 +24,7 @@ class UEWF(EWF, UQEmbeddingMethod):
             err = abs(dot(c[s].T, ovlp, c[s]) - np.eye(c[s].shape[-1])).max()
             if err > 1e-5:
                 self.log.error("Orthogonality error of %s-MOs= %.2e !!!", spin, err)
-            else:   
+            else:
                 self.log.debug("Orthogonality error of %s-MOs= %.2e", spin, err)
         if self.opts.orthogonal_mo_tol and err > self.opts.orthogonal_mo_tol:
             raise NotImplementedError()

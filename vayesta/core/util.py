@@ -20,11 +20,13 @@ __all__ = [
         # NumPy replacements
         'dot', 'einsum', 'hstack',
         # New exceptions
-        'ConvergenceError',
+        'AbstractMethodError', 'ConvergenceError',
+        # Energy
+        'energy_string',
         # Time & memory
         'timer', 'time_string', 'log_time', 'memory_string', 'get_used_memory',
         # Other
-        'replace_attr', 'cached_method',
+        'replace_attr', 'cached_method', 'break_into_lines',
         ]
 
 class NotSetType:
@@ -35,50 +37,11 @@ in cases where `None` itself is a valid setting.
 """
 NotSet = NotSetType()
 
-timer = default_timer
-
-@contextmanager
-def replace_attr(obj, **kwargs):
-    """Temporary replace attributes and methods of object."""
-    orig = {}
-    try:
-        for name, attr in kwargs.items():
-            orig[name] = getattr(obj, name)             # Save originals
-            if callable(attr):
-                setattr(obj, name, attr.__get__(obj))   # For functions: replace and bind as method
-            else:
-                setattr(obj, name, attr)                # Just set otherwise
-        yield obj
-    finally:
-        # Restore originals
-        for name, attr in orig.items():
-            setattr(obj, name, attr)
-
-@contextmanager
-def log_time(logger, message, *args, **kwargs):
-    """Log time to execute the body of a with-statement.
-
-    Use as:
-        >>> with log_time(log.info, 'Time for hcore: %s'):
-        >>>     hcore = mf.get_hcore()
-
-    Parameters
-    ----------
-    logger
-    message
-    """
-    try:
-        t0 = timer()
-        yield t0
-    finally:
-        t = (timer()-t0)
-        logger(message, time_string(t), *args, **kwargs)
-
 # --- NumPy
 
-def dot(*args, **kwargs):
-    """Like NumPy's multi_dot, but variadic."""
-    return np.linalg.multi_dot(args, **kwargs)
+def dot(*args, out=None):
+    """Like NumPy's multi_dot, but variadic"""
+    return np.linalg.multi_dot(args, out=out)
 
 def einsum(*args, **kwargs):
     kwargs['optimize'] = kwargs.pop('optimize', True)
@@ -89,9 +52,15 @@ def einsum(*args, **kwargs):
     return res
 
 def hstack(*args):
-    """Like NumPy's hstack, but variadic and ignores any arguments which are None."""
+    """Like NumPy's hstack, but variadic, ignores any arguments which are None and improved error message."""
     args = [x for x in args if x is not None]
-    return np.hstack(args)
+    try:
+        return np.hstack(args)
+    except ValueError as e:
+        log.critical("Exception while trying to stack the following objects:")
+        for x in args:
+            log.critical("type= %r  shape= %r", type(x), x.shape if hasattr(x, 'shape') else "None")
+        raise e
 
 def cached_method(cachename, use_cache_default=True, store_cache_default=True):
     """Cache the return value of a class method.
@@ -121,14 +90,47 @@ def cached_method(cachename, use_cache_default=True, store_cache_default=True):
         return wrapper
     return cached_function
 
+
+# --- Exceptions
+
+class AbstractMethodError(NotImplementedError):
+    pass
+
 class ConvergenceError(RuntimeError):
     pass
 
+# --- Energy
 
-def get_used_memory():
-    process = psutil.Process(os.getpid())
-    return(process.memory_info().rss)  # in bytes
+def energy_string(energy, unit='Ha'):
+    if unit == 'eV':
+        energy *= 27.211386245988
+    if unit: unit = ' %s' % unit
+    return '%+16.8f%s' % (energy, unit)
 
+# --- Time and memory
+
+timer = default_timer
+
+@contextmanager
+def log_time(logger, message, *args, mintime=None, **kwargs):
+    """Log time to execute the body of a with-statement.
+
+    Use as:
+        >>> with log_time(log.info, 'Time for hcore: %s'):
+        >>>     hcore = mf.get_hcore()
+
+    Parameters
+    ----------
+    logger
+    message
+    """
+    try:
+        t0 = timer()
+        yield t0
+    finally:
+        t = (timer()-t0)
+        if mintime is None or t >= mintime:
+            logger(message, time_string(t), *args, **kwargs)
 
 def time_string(seconds, show_zeros=False):
     """String representation of seconds."""
@@ -141,6 +143,9 @@ def time_string(seconds, show_zeros=False):
         tstr = "%.2f s" % s
     return tstr
 
+def get_used_memory():
+    process = psutil.Process(os.getpid())
+    return(process.memory_info().rss)  # in bytes
 
 def memory_string(nbytes, fmt='6.2f'):
     """String representation of nbytes"""
@@ -163,6 +168,24 @@ def memory_string(nbytes, fmt='6.2f'):
         unit = "TB"
     return "{:{fmt}} {unit}".format(val, unit=unit, fmt=fmt)
 
+# ---
+
+@contextmanager
+def replace_attr(obj, **kwargs):
+    """Temporary replace attributes and methods of object."""
+    orig = {}
+    try:
+        for name, attr in kwargs.items():
+            orig[name] = getattr(obj, name)             # Save originals
+            if callable(attr):
+                setattr(obj, name, attr.__get__(obj))   # For functions: replace and bind as method
+            else:
+                setattr(obj, name, attr)                # Just set otherwise
+        yield obj
+    finally:
+        # Restore originals
+        for name, attr in orig.items():
+            setattr(obj, name, attr)
 
 class SelectNotSetType:
     """Sentinel for implementation of `select` in `Options.replace`.
@@ -171,6 +194,18 @@ class SelectNotSetType:
     def __repr__(self):
         return 'SelectNotSet'
 SelectNotSet = SelectNotSetType()
+
+def break_into_lines(string, linelength=80, sep=None, newline='\n'):
+    """Break a long string into multiple lines"""
+    split = string.split(sep)
+    lines = [split[0]]
+    for s in split[1:]:
+        if (len(lines[-1]) + 1 + len(s)) > linelength:
+            # Start new line
+            lines.append(s)
+        else:
+            lines[-1] += ' ' + s
+    return newline.join(lines)
 
 class OptionsBase:
     """Abstract base class for Option dataclasses.
@@ -181,6 +216,9 @@ class OptionsBase:
     and also the method `replace`, in order to update options from another Option object
     or dictionary.
     """
+
+    def __repr__(self):
+        return "Options(%r)" % self.asdict()
 
     def get(self, attr, default=None):
         """Dictionary-like access to attributes.

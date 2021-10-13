@@ -6,6 +6,7 @@ import pyscf.lo
 
 from vayesta.core.util import *
 from .fragmentation import Fragmentation
+from .ufragmentation import Fragmentation_UHF
 
 # Load default minimal basis set on module initialization
 default_minao = {}
@@ -41,10 +42,7 @@ class IAO_Fragmentation(Fragmentation):
         self.minao = minao
         self.refmol = pyscf.lo.iao.reference_mol(self.mol, minao=self.minao)
 
-    def search_ao_labels(self, labels):
-        return self.refmol.search_ao_label(labels)
-
-    def get_coeff(self, add_virtuals=True):
+    def get_coeff(self, mo_coeff=None, mo_occ=None, add_virtuals=True):
         """Make intrinsic atomic orbitals (IAOs).
 
         Returns
@@ -52,36 +50,43 @@ class IAO_Fragmentation(Fragmentation):
         c_iao : (n(AO), n(IAO)) array
             Orthonormalized IAO coefficients.
         """
-        mo_coeff = self.mo_coeff
+        if mo_coeff is None: mo_coeff = self.mo_coeff
+        if mo_occ is None: mo_occ = self.mo_occ
         ovlp = self.get_ovlp()
 
-        c_occ = self.mo_coeff[:,self.mo_occ>0]
+        c_occ = mo_coeff[:,mo_occ>0]
         c_iao = pyscf.lo.iao.iao(self.mol, c_occ, minao=self.minao)
         n_iao = c_iao.shape[-1]
         self.log.info("n(AO)= %4d  n(MO)= %4d  n(occ-MO)= %4d  n(IAO)= %4d",
                 mo_coeff.shape[0], mo_coeff.shape[-1], c_occ.shape[-1], n_iao)
 
         # Orthogonalize IAO using symmetric (Lowdin) orthogonalization
-        x, e_min = self.get_lowdin_orth_x(c_iao, ovlp)
-        self.log.debug("Lowdin orthogonalization of IAOs: n(in)= %3d -> n(out)= %3d , e(min)= %.3e",
-                x.shape[0], x.shape[1], e_min)
+        x, e_min = self.symmetric_orth(c_iao, ovlp)
+        self.log.debug("Lowdin orthogonalization of IAOs: n(in)= %3d -> n(out)= %3d , e(min)= %.3e", x.shape[0], x.shape[1], e_min)
         if e_min < 1e-12:
-            self.log.warning("Small eigenvalue in Lowdin-orthogonalization: %.3e !", e_min)
+            self.log.warning("Small eigenvalue in Lowdin orthogonalization: %.3e !", e_min)
         c_iao = np.dot(c_iao, x)
-
         # Check that all electrons are in IAO space
-        ne_iao = einsum('ai,ab,bc,cd,di->', c_iao, ovlp, self.mf.make_rdm1(), ovlp, c_iao)
-        if abs(ne_iao - self.mol.nelectron) > 1e-8:
-            self.log.error("IAOs do not contain the correct number of electrons: %.8f", ne_iao)
-        else:
-            self.log.debugv("Number of electrons in IAOs: %.8f", ne_iao)
-
+        self.check_nelectron(c_iao, c_occ)
         if add_virtuals:
-            c_vir = self.get_virtual_coeff(c_iao)
+            c_vir = self.get_virtual_coeff(c_iao, mo_coeff=mo_coeff)
             c_iao = np.hstack((c_iao, c_vir))
         # Test orthogonality of IAO
-        self.check_orth(c_iao, "IAO")
+        self.check_orthonormal(c_iao)
         return c_iao
+
+    def check_nelectron(self, c_iao, c_occ):
+        dm = np.dot(c_occ, c_occ.T)
+        ovlp = self.get_ovlp()
+        #print(c_occ.shape)
+        #print(c_iao.shape)
+        ne_iao = einsum('ai,ab,bc,cd,di->', c_iao, ovlp, dm, ovlp, c_iao)
+        ne_tot = einsum('ab,ab->', dm, ovlp)
+        if abs(ne_iao - ne_tot) > 1e-8:
+            self.log.error("IAOs do not contain the correct number of electrons: IAO= %.8f  total= %.8f", ne_iao, ne_tot)
+        else:
+            self.log.debugv("Number of electrons: IAO= %.8f  total= %.8f", ne_iao, ne_tot)
+        return ne_iao
 
     def get_labels(self):
         """Get labels of IAOs.
@@ -118,9 +123,11 @@ class IAO_Fragmentation(Fragmentation):
         assert (len(iao_labels_refmol) == len(iao_labels))
         return iao_labels
 
-    def get_virtual_coeff(self, c_iao):
+    def search_labels(self, labels):
+        return self.refmol.search_ao_label(labels)
 
-        mo_coeff = self.mo_coeff
+    def get_virtual_coeff(self, c_iao, mo_coeff=None):
+        if mo_coeff is None: mo_coeff = self.mo_coeff
         ovlp = self.get_ovlp()
         # Add remaining virtual space, work in MO space, so that we automatically get the
         # correct linear dependency treatment, if n(MO) < n(AO)
@@ -157,5 +164,17 @@ class IAO_Fragmentation(Fragmentation):
             raise RuntimeError("Incorrect number of remaining virtual orbitals")
         c_rest = np.dot(mo_coeff, c[:,mask_rest])        # Transform back to AO basis
 
-        self.check_orth(np.hstack((c_iao, c_rest)), "IAO+virtual orbitals")
+        self.check_orthonormal(np.hstack((c_iao, c_rest)), "IAO+virtual orbital")
         return c_rest
+
+class IAO_Fragmentation_UHF(Fragmentation_UHF, IAO_Fragmentation):
+
+    def get_coeff(self, mo_coeff=None, mo_occ=None, add_virtuals=True):
+        if mo_coeff is None: mo_coeff = self.mo_coeff
+        if mo_occ is None: mo_occ = self.mo_occ
+
+        self.log.info("Alpha-IAOs:")
+        c_iao_a = super().get_coeff(mo_coeff=mo_coeff[0], mo_occ=mo_occ[0], add_virtuals=add_virtuals)
+        self.log.info(" Beta-IAOs:")
+        c_iao_b = super().get_coeff(mo_coeff=mo_coeff[1], mo_occ=mo_occ[1], add_virtuals=add_virtuals)
+        return (c_iao_a, c_iao_b)

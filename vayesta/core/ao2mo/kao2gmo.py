@@ -282,8 +282,6 @@ def contract_j3c(j3c, kind, symmetry=None):
     l, r = j3c[left], j3c[right_t]
     if right == 'vo':
         r = r.transpose(0, 2, 1)
-    # Allow ~1GB working memory
-    mem = 1e9
     # Four-fold permutation symmetry
     if symmetry == 4:
         l = pyscf.lib.pack_tril(l)  # Lij->LI
@@ -309,6 +307,8 @@ def contract_j3c(j3c, kind, symmetry=None):
         r = r.T
 
     # We loop over blocks here, to avoid allocating another 4c-sized array
+    # Allow ~1GB working memory
+    mem = 1e9
     if symmetry == 4:
         l = pyscf.lib.pack_tril(l)
         r = pyscf.lib.pack_tril(r)

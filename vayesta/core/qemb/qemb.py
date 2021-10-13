@@ -3,12 +3,15 @@ from timeit import default_timer as timer
 from datetime import datetime
 import dataclasses
 import copy
+import os
+import os.path
 
 import numpy as np
 
 import pyscf
 import pyscf.gto
 import pyscf.mp
+import pyscf.ci
 import pyscf.cc
 import pyscf.lo
 import pyscf.pbc
@@ -24,22 +27,27 @@ from vayesta.core.ao2mo.postscf_ao2mo import postscf_ao2mo
 from vayesta.core.ao2mo.kao2gmo import gdf_to_pyscf_eris
 from vayesta.misc.gdf import GDF
 from vayesta import lattmod
-from vayesta.core.scmf import PDMET_SCMF, Brueckner_SCMF
+from vayesta.core.scmf import PDMET, Brueckner
 
 # Fragmentations
-from vayesta.core.fragmentation import SAO_Fragmentation
-from vayesta.core.fragmentation import IAO_Fragmentation
-from vayesta.core.fragmentation import IAOPAO_Fragmentation
-from vayesta.core.fragmentation import Site_Fragmentation
+from vayesta.core.fragmentation import make_sao_fragmentation
+from vayesta.core.fragmentation import make_iao_fragmentation
+from vayesta.core.fragmentation import make_iaopao_fragmentation
+from vayesta.core.fragmentation import make_site_fragmentation
 
 # --- This Package
 
 from .fragment import QEmbeddingFragment
+# Amplitudes
+from .amplitudes import get_t1
+from .amplitudes import get_t2
+from .amplitudes import get_t12
 # Density-matrices
 from .rdm import make_rdm1_demo
 from .rdm import make_rdm2_demo
 from .rdm import make_rdm1_ccsd
 from .rdm import make_rdm2_ccsd
+from . import helper
 
 
 class QEmbedding:
@@ -49,6 +57,7 @@ class QEmbedding:
 
     @dataclasses.dataclass
     class Options(OptionsBase):
+        dmet_threshold: float = 1e-8
         recalc_vhf: bool = True
         solver_options: dict = dataclasses.field(default_factory=dict)
         wf_partition: str = 'first-occ'     # ['first-occ', 'first-vir', 'democratic']
@@ -128,7 +137,7 @@ class QEmbedding:
             self.kcell = self.kpts = self.kdf = None
         self.mf = mf
         if not (self.is_rhf or self.is_uhf):
-            raise ValueError("Cannot deduce RHF or UHF")
+            raise ValueError("Cannot deduce RHF or UHF!")
         # Original mean-field integrals - do not change these!
         with log_time(self.log.timingv, "Time for overlap: %s"):
             self._ovlp_orig = self.mf.get_ovlp()
@@ -145,26 +154,18 @@ class QEmbedding:
         self._veff = self._veff_orig
 
         # Some MF output
+        #FIXME (no RHF/UHF dependent code here)
         if self.mf.converged:
-            self.log.info("E(MF)= %+16.8f Ha", self.e_mf)
+            self.log.info("E(MF)= %s", energy_string(self.e_mf))
         else:
-            self.log.warning("E(MF)= %+16.8f Ha (not converged!)", self.e_mf)
+            self.log.warning("E(MF)= %s (not converged!)", energy_string(self.e_mf))
         if self.is_rhf:
             self.log.info("n(AO)= %4d  n(MO)= %4d  n(linear dep.)= %4d", self.nao, self.nmo, self.nao-self.nmo)
         else:
             self.log.info("n(AO)= %4d  n(alpha/beta-MO)= %4d / %4d  n(linear dep.)= %4d / %4d",
                     self.nao, *self.nmo, self.nao-self.nmo[0], self.nao-self.nmo[1])
 
-        if self.is_rhf:
-            diff = dot(self.mo_coeff.T, self.get_ovlp(), self.mo_coeff) - np.eye(self.nmo)
-            self.log.log(logging.ERROR if np.linalg.norm(diff) > 1e-5 else logging.DEBUG,
-                    "MO orthogonality error: L(2)= %.2e  L(inf)= %.2e", np.linalg.norm(diff), abs(diff).max())
-        else:
-            ovlp = self.get_ovlp()
-            for s, spin in enumerate(('alpha', 'beta')):
-                diff = dot(self.mo_coeff[s].T, self.get_ovlp(), self.mo_coeff[s]) - np.eye(self.nmo[s])
-                self.log.log(logging.ERROR if np.linalg.norm(diff) > 1e-5 else logging.DEBUG,
-                    "%s-MO orthogonality error: L(2)= %.2e  L(inf)= %.2e", spin, np.linalg.norm(diff), abs(diff).max())
+        self.check_orthonormal(self.mo_coeff, mo_name='MO')
 
         if self.mo_energy is not None:
             if self.is_rhf:
@@ -257,7 +258,7 @@ class QEmbedding:
 
     @property
     def is_rhf(self):
-        return (self.mo_coeff.ndim == 2)
+        return (np.ndim(self.mo_coeff) == 2)
 
     @property
     def is_uhf(self):
@@ -460,11 +461,15 @@ class QEmbedding:
         if hasattr(self.mf, 'with_df') and self.mf.with_df is not None:
             eris = self.mf.with_df.ao2mo(mo_coeff, compact=compact)
         elif self.mf._eri is not None:
-            eris = pyscf.ao2mo.full(self.mf._eri, mo_coeff, compact=compact)
+            eris = pyscf.ao2mo.kernel(self.mf._eri, mo_coeff, compact=compact)
         else:
             eris = self.mol.ao2mo(mo_coeff, compact=compact)
         if not compact:
-            eris = eris.reshape(4*[mo_coeff.shape[-1]])
+            if isinstance(mo_coeff, np.ndarray) and mo_coeff.ndim == 2:
+                shape = 4*[mo_coeff.shape[-1]]
+            else:
+                shape = [mo.shape[-1] for mo in mo_coeff]
+            eris = eris.reshape(shape)
         self.log.timing("Time for AO->MO of ERIs:  %s", time_string(timer()-t0))
         return eris
 
@@ -488,7 +493,7 @@ class QEmbedding:
         c_act = _mo_without_core(posthf, posthf.mo_coeff)
         if isinstance(posthf, pyscf.mp.mp2.MP2):
             fock = self.get_fock()
-        elif isinstance(posthf, pyscf.cc.ccsd.CCSD):
+        elif isinstance(posthf, (pyscf.ci.cisd.CISD, pyscf.cc.ccsd.CCSD)):
             fock = self.get_fock(with_exxdiv=False)
         else:
             raise ValueError("Unknown post-HF method: %r", type(posthf))
@@ -581,66 +586,12 @@ class QEmbedding:
             e_dmet += self.get_exxdiv()[0]
         return e_dmet
 
-    def get_t1(self, get_lambda=False, partition=None):
-        """Get global CCSD T1- or L1-amplitudes from fragment calculations.
+    # --- CC Amplitudes
+    # -----------------
 
-        Parameters
-        ----------
-        partition: ['first-occ', 'first-vir', 'democratic']
-            Partitioning scheme of the T amplitudes. Default: 'first-occ'.
-
-        Returns
-        -------
-        t1: (n(occ), n(vir)) array
-            Global T1- or L1-amplitudes.
-        """
-        if partition is None: partition = self.opts.wf_partition
-        t1 = np.zeros((self.nocc, self.nvir))
-        # Add fragment WFs in intermediate normalization
-        for f in self.fragments:
-            self.log.debugv("Now adding projected %s-amplitudes of fragment %s", ("L" if get_lambda else "T"), f)
-            ro, rv = f.get_rot_to_mf()
-            t1f = (f.results.l1 if get_lambda else f.results.get_t1())
-            if t1f is None: raise RuntimeError("Amplitudes not found for %s" % f)
-            t1f = f.project_amplitude_to_fragment(t1f, partition=partition)
-            t1 += einsum('ia,iI,aA->IA', t1f, ro, rv)
-        return t1
-
-    def get_t12(self, calc_t1=True, calc_t2=True, get_lambda=False, partition=None, symmetrize=True):
-        """Get global CCSD wave function (T1 and T2 amplitudes) from fragment calculations.
-
-        Parameters
-        ----------
-        partition: ['first-occ', 'first-vir', 'democratic']
-            Partitioning scheme of the T amplitudes. Default: 'first-occ'.
-
-        Returns
-        -------
-        t1: (n(occ), n(vir)) array
-            Global T1 amplitudes.
-        t2: (n(occ), n(occ), n(vir), n(vir)) array
-            Global T2 amplitudes.
-        """
-        if partition is None: partition = self.opts.wf_partition
-        t1 = np.zeros((self.nocc, self.nvir)) if calc_t1 else None
-        t2 = np.zeros((self.nocc, self.nocc, self.nvir, self.nvir)) if calc_t2 else None
-        # Add fragment WFs in intermediate normalization
-        for f in self.fragments:
-            self.log.debugv("Now adding projected %s-amplitudes of fragment %s", ("L" if get_lambda else "T"), f)
-            ro, rv = f.get_rot_to_mf()
-            if calc_t1:
-                t1f = (f.results.l1 if get_lambda else f.results.get_t1())
-                if t1f is None: raise RuntimeError("Amplitudes not found for %s" % f)
-                t1f = f.project_amplitude_to_fragment(t1f, partition=partition)
-                t1 += einsum('ia,iI,aA->IA', t1f, ro, rv)
-            if calc_t2:
-                t2f = (f.results.l2 if get_lambda else f.results.get_t2())
-                if t2f is None: raise RuntimeError("Amplitudes not found for %s" % f)
-                t2f = f.project_amplitude_to_fragment(t2f, partition=partition, symmetrize=symmetrize)
-                t2 += einsum('ijab,iI,jJ,aA,bB->IJAB', t2f, ro, ro, rv, rv)
-        #t2 = (t2 + t2.transpose(1,0,3,2))/2
-        #assert np.allclose(t2, t2.transpose(1,0,3,2))
-        return t1, t2
+    get_t1 = get_t1
+    get_t2 = get_t2
+    get_t12 = get_t12
 
     # --- Density-matrices
     # --------------------
@@ -652,6 +603,20 @@ class QEmbedding:
 
     # Utility
     # -------
+
+    def check_orthonormal(self, *mo_coeff, mo_name='', tol=1e-7):
+        """Check orthonormality of mo_coeff."""
+        mo_coeff = hstack(*mo_coeff)
+        err = dot(mo_coeff.T, self.get_ovlp(), mo_coeff) - np.eye(mo_coeff.shape[-1])
+        l2 = np.linalg.norm(err)
+        linf = abs(err).max()
+        if mo_name:
+            mo_name = (' of %ss' % mo_name)
+        if max(l2, linf) > tol:
+            self.log.error("Orthogonality error%s: L(2)= %.2e  L(inf)= %.2e !", mo_name, l2, linf)
+        else:
+            self.log.debug("Orthogonality error%s: L(2)= %.2e  L(inf)= %.2e", mo_name, l2, linf)
+        return l2, linf
 
     def pop_analysis(self, dm1, mo_coeff=None, kind='lo', c_lo=None, filename=None, filemode='a', verbose=True):
         """
@@ -698,6 +663,9 @@ class QEmbedding:
             write("%s population analysis", name)
             write("%s--------------------", len(name)*'-')
         else:
+            dirname = os.path.dirname(filename)
+            if dirname: os.makedirs(dirname, exist_ok=True)
+
             f = open(filename, filemode)
             write = lambda fmt, *args : f.write((fmt+'\n') % args)
             tstamp = datetime.now()
@@ -721,6 +689,16 @@ class QEmbedding:
 
     # --- Fragmentation methods
 
+    def sao_fragmentation(self):
+        """Initialize the quantum embedding method for the use of SAO (Lowdin-AO) fragments."""
+        self.fragmentation = make_sao_fragmentation(self.mf, log=self.log)
+        self.fragmentation.kernel()
+
+    def site_fragmentation(self):
+        """Initialize the quantum embedding method for the use of site fragments."""
+        self.fragmentation = make_site_fragmentation(self.mf, log=self.log)
+        self.fragmentation.kernel()
+
     def iao_fragmentation(self, minao='auto'):
         """Initialize the quantum embedding method for the use of IAO fragments.
 
@@ -729,7 +707,8 @@ class QEmbedding:
         minao: str, optional
             IAO reference basis set. Default: 'auto'
         """
-        self.fragmentation = IAO_Fragmentation(self.mf, log=self.log, minao=minao).kernel()
+        self.fragmentation = make_iao_fragmentation(self.mf, log=self.log, minao=minao)
+        self.fragmentation.kernel()
 
     def iaopao_fragmentation(self, minao='auto'):
         """Initialize the quantum embedding method for the use of IAO+PAO fragments.
@@ -739,15 +718,8 @@ class QEmbedding:
         minao: str, optional
             IAO reference basis set. Default: 'auto'
         """
-        self.fragmentation = IAOPAO_Fragmentation(self.mf, log=self.log, minao=minao).kernel()
-
-    def sao_fragmentation(self):
-        """Initialize the quantum embedding method for the use of SAO (Lowdin-AO) fragments."""
-        self.fragmentation = SAO_Fragmentation(self.mf, log=self.log).kernel()
-
-    def site_fragmentation(self):
-        """Initialize the quantum embedding method for the use of site fragments."""
-        self.fragmentation = Site_Fragmentation(self.mf, log=self.log).kernel()
+        self.fragmentation = make_iaopao_fragmentation(self.mf, log=self.log, minao=minao)
+        self.fragmentation.kernel()
 
     def add_atomic_fragment(self, atoms, orbital_filter=None, name=None, **kwargs):
         """Create a fragment of one or multiple atoms, which will be solved by the embedding method.
@@ -797,8 +769,13 @@ class QEmbedding:
         c_frag = self.fragmentation.get_frag_coeff(indices)
         c_env = self.fragmentation.get_env_coeff(indices)
         fid = self.fragmentation.get_next_fid()
-        frag = self.Fragment(self, fid, name, c_frag, c_env, self.fragmentation.name, **kwargs)
+        frag = self.Fragment(self, fid, name, c_frag, c_env, **kwargs)
         self.fragments.append(frag)
+        # Log fragment orbitals:
+        self.log.debugv("Fragment %ss:\n%r", self.fragmentation.name, indices)
+        self.log.debug("Fragment %ss of fragment %s:", self.fragmentation.name, name)
+        labels = np.asarray(self.fragmentation.labels)[indices]
+        helper.log_orbitals(self.log.debug, labels)
         return frag
 
     def add_all_atomic_fragments(self, **kwargs):
@@ -821,29 +798,41 @@ class QEmbedding:
         for f in self.fragments:
             f.reset(*args, **kwargs)
 
-    def update_mf(self, mo_coeff, mo_energy=None, hcore=None, veff=None):
+    def update_mf(self, mo_coeff, mo_energy=None, veff=None):
+        """Update underlying mean-field object."""
+        # Chech orthonormal MOs
+        if not np.allclose(dot(mo_coeff.T, self.get_ovlp(), mo_coeff) - np.eye(mo_coeff.shape[-1]), 0):
+            raise ValueError("MO coefficients not orthonormal!")
         self.mf.mo_coeff = mo_coeff
         dm = self.mf.make_rdm1(mo_coeff=mo_coeff)
-        if hcore is None:
-            hcore = self.get_hcore()
-        else:
-            self.set_hcore(hcore)
-        if veff is None: veff = self.mf.get_veff(dm=dm)
+        if veff is None:
+            veff = self.mf.get_veff(dm=dm)
         self.set_veff(veff)
         if mo_energy is None:
             # Use diagonal of Fock matrix as MO energies
             mo_energy = einsum('ai,ab,bi->i', mo_coeff, self.get_fock(), mo_coeff)
         self.mf.mo_energy = mo_energy
-        self.mf.e_tot = self.mf.energy_tot(dm=dm, h1e=hcore, vhf=veff)
+        self.mf.e_tot = self.mf.energy_tot(dm=dm, h1e=self.get_hcore(), vhf=veff)
+
+    def check_fragment_symmetry(self, dm1, charge_tol=1e-6, spin_tol=1e-6):
+        frags = self.get_symmetry_child_fragments(include_parents=True)
+        for group in frags:
+            parent, children = group[0], group[1:]
+            for child in children:
+                charge_err = parent.get_tsymmetry_error(child, dm1=dm1)
+                if (charge_err > charge_tol):
+                    raise RuntimeError("%s and %s not symmetric: charge error= %.3e !"
+                            % (parent.name, child.name, charge_err))
+                self.log.debugv("Symmetry between %s and %s: charge error= %.3e", parent.name, child.name, charge_err)
 
     def pdmet_scmf(self, *args, **kwargs):
         """Decorator for p-DMET."""
-        self.with_scmf = PDMET_SCMF(self, *args, **kwargs)
+        self.with_scmf = PDMET(self, *args, **kwargs)
         self.kernel = self.with_scmf.kernel.__get__(self)
 
     def brueckner_scmf(self, *args, **kwargs):
         """Decorator for Brueckner-DMET."""
-        self.with_scmf = Brueckner_SCMF(self, *args, **kwargs)
+        self.with_scmf = Brueckner(self, *args, **kwargs)
         self.kernel = self.with_scmf.kernel.__get__(self)
 
     # --- Backwards compatibility:
