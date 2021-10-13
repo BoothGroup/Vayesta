@@ -58,9 +58,6 @@ class CISD_Solver(CCSD_Solver):
     def get_c2(self):
         return self.c2
 
-    def get_c2e(self, *args, **kwargs):
-        return self.get_c2(*args, **kwargs)
-
     def get_init_guess(self):
         return {'c1' : self.c1 , 't2' : self.c2}
 
@@ -68,9 +65,3 @@ class UCISD_Solver(CISD_Solver):
 
     SOLVER_CLS = pyscf.ci.ucisd.UCISD
     SOLVER_CLS_DF = SOLVER_CLS # No DF version for CISD
-
-
-#del CISD_Solver.t1
-#del CISD_Solver.t2
-#del CISD_Solver.l1
-#del CISD_Solver.l2

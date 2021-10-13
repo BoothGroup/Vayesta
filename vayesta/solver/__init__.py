@@ -6,10 +6,12 @@ from .ebfci import EBFCI_Solver
 
 # New solver interface
 from .ccsd2 import CCSD_Solver as CCSD_Solver2
-from .uccsd import UCCSD_Solver
+from .ccsd2 import UCCSD_Solver
 from .fci2 import FCI_Solver as FCI_Solver2
-from .ufci import UFCI_Solver
-from .cisd import CISD_Solver, UCISD_Solver
+from .fci2 import UFCI_Solver
+from .cisd import CISD_Solver
+from .cisd import UCISD_Solver
+
 
 def is_uhf(mf):
     return (np.ndim(mf.mo_coeff[0]) == 2)

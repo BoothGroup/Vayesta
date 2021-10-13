@@ -88,6 +88,9 @@ class SCMF:
             self.log.info("%s iteration %3d", self.name, self.iteration)
             self.log.info("%s==============", len(self.name)*"=")
 
+            if self.iteration > 1:
+                self.emb.reset_fragments()
+
             # Run clusters, save results
             res = self.kernel_orig(*args, **kwargs)
             e_mf = self.mf.e_tot
@@ -114,8 +117,6 @@ class SCMF:
                 break
             e_last, dm1_last = e_tot, dm1
 
-            # Reset
-            self.emb.reset_fragments()
         else:
             self.log.warning("%s did not converge in %d iterations!", self.name, self.iteration)
         return res
@@ -207,18 +208,18 @@ class PDMET_UHF(PDMET_RHF):
         mo_occ_b, rot_b = mo_occ_b[::-1], rot_b[:,::-1]
         nocc_a = np.count_nonzero(mf.mo_occ[0] > 0)
         nocc_b = np.count_nonzero(mf.mo_occ[1] > 0)
+
+        def log_occupation(logger):
+            logger("p-DMET MO occupation numbers (alpha-occupied):\n%s", mo_occ_a[:nocc_a])
+            logger("p-DMET MO occupation numbers (beta-occupied):\n%s", mo_occ_b[:nocc_b])
+            logger("p-DMET MO occupation numbers (alpha-virtual):\n%s", mo_occ_a[nocc_a:])
+            logger("p-DMET MO occupation numbers (beta-virtual):\n%s", mo_occ_b[nocc_b:])
         if min(abs(mo_occ_a[nocc_a-1] - mo_occ_a[nocc_a]),
                abs(mo_occ_b[nocc_b-1] - mo_occ_b[nocc_b])) < 1e-8:
-            self.log.critical("p-DMET MO occupation numbers (alpha-occupied):\n%s", mo_occ_a[:nocc_a])
-            self.log.critical("p-DMET MO occupation numbers (beta-occupied):\n%s", mo_occ_b[:nocc_b])
-            self.log.critical("p-DMET MO occupation numbers (alpha-virtual):\n%s", mo_occ_a[nocc_a:])
-            self.log.critical("p-DMET MO occupation numbers (beta-virtual):\n%s", mo_occ_b[nocc_b:])
+            log_occupation(self.log.critical)
             raise RuntimeError("Degeneracy in MO occupation!")
-        else:
-            self.log.debug("p-DMET MO occupation numbers (alpha-occupied):\n%s", mo_occ_a[:nocc_a])
-            self.log.debug("p-DMET MO occupation numbers (beta-occupied):\n%s", mo_occ_b[:nocc_b])
-            self.log.debug("p-DMET MO occupation numbers (alpha-virtual):\n%s", mo_occ_a[nocc_a:])
-            self.log.debug("p-DMET MO occupation numbers (beta-virtual):\n%s", mo_occ_b[nocc_b:])
+        log_occupation(self.log.debugv)
+
         mo_coeff_a = np.dot(self._mo_orig[0], rot_a)
         mo_coeff_b = np.dot(self._mo_orig[1], rot_b)
         return (mo_coeff_a, mo_coeff_b)

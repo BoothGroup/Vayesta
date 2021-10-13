@@ -23,21 +23,13 @@ class CCSD_Solver(ClusterSolver):
         maxiter: int = 100              # Max number of iterations
         conv_tol: float = None          # Convergence energy tolerance
         conv_tol_normt: float = None    # Convergence amplitude tolerance
-        # solve_lambda:
-        # True:     Always solve lambda eq.
-        # 'auto':   solve lambda eq. if DMs are requested via make_rdm1 or make_rdm2
-        # False:    Never solve lambda eq. If DMs are requested, they are build with Lambda=T approximation
-        t_as_lambda: bool = False
+        t_as_lambda: bool = False       # If true, use Lambda=T approximation
         # Self-consistent mode
-        #sc_mode: int = NotSet
         sc_mode: int = None
         # DM
-        #dm_with_frozen: bool = NotSet
         dm_with_frozen: bool = False
         # EOM CCSD
-        #eom_ccsd: list = NotSet  # {'IP', 'EA', 'EE-S', 'EE-D', 'EE-SF'}
         eom_ccsd: list = dataclasses.field(default_factory=list)
-        #eom_ccsd_nroots: int = NotSet
         eom_ccsd_nroots: int = 3
         # Tailored-CCSD
         tcc: bool = False
@@ -274,3 +266,23 @@ class CCSD_Solver(ClusterSolver):
         fmt = "%s-EOM-CCSD energies:" + len(e) * "  %+14.8f"
         self.log.info(fmt, kind, *e)
         return e, c
+
+
+class UCCSD_Solver(CCSD_Solver):
+
+    SOLVER_CLS = pyscf.cc.uccsd.UCCSD
+    SOLVER_CLS_DF = SOLVER_CLS      # No DF-UCCSD in PySCF
+
+    def get_c2(self):
+        """C2 in intermediate normalization."""
+        ta, tb = self.t1
+        taa, tab, tbb = self.t2
+        caa = taa + einsum('ia,jb->ijab', ta, ta) - einsum('ib,ja->ijab', ta, ta)
+        cbb = tbb + einsum('ia,jb->ijab', tb, tb) - einsum('ib,ja->ijab', tb, tb)
+        cab = tab + einsum('ia,jb->ijab', ta, tb)
+        return (caa, cab, cbb)
+
+    def t_diagnostic(self):
+        """T diagnostic not implemented for UCCSD in PySCF."""
+        self.log.info("T diagnostic not implemented for UCCSD in PySCF.")
+        return None
