@@ -603,6 +603,12 @@ class GDF(df.GDF):
         self.linear_dep_method = 'regularize'
         self.linear_dep_always = False
 
+        # Cached properties:
+        self._get_nuc = None
+        self._get_pp = None
+        self._ovlp = None
+        self._madelung = None
+
         # The follow attributes are not input options.
         self.exxdiv = None
         self.auxcell = None
@@ -649,6 +655,10 @@ class GDF(df.GDF):
         self.auxcell = None
         self._cderi = None
         self._rsh_df = {}
+        self._get_nuc = None
+        self._get_pp = None
+        self._ovlp = None
+        self._madelung = None
         return self
 
     def dump_flags(self):
@@ -676,9 +686,6 @@ class GDF(df.GDF):
         self.chgcell = make_chgcell(self.auxcell, self.eta, rcut=self.rcut_smooth)
         self.fused_cell, self.fuse = fuse_auxcell(self.auxcell, self.chgcell)
         self.kconserv = get_kconserv(self.cell, self.kpts)
-
-        self._get_nuc = None
-        self._get_pp = None
 
         kpts = np.asarray(self.kpts)[unique(self.kpts)[1]]
         kptij_lst = [(ki, kpts[j]) for i, ki in enumerate(kpts) for j in range(i+1)]
@@ -816,9 +823,10 @@ class GDF(df.GDF):
             vk /= nkpts
 
         if with_k and exxdiv == 'ewald':
-            vk = vk[None]
-            _ewald_exxdiv_for_G0(self.cell, kpts, _format_dms(dm, kpts), vk)
-            vk = vk[0]
+            s = self.get_ovlp()
+            madelung = self.madelung
+            for k, kpt in enumerate(kpts):
+                vk[k] += madelung * np.linalg.multi_dot((s[k], dm[k], s[k]))
 
         return vj, vk
 
@@ -969,6 +977,9 @@ class GDF(df.GDF):
     def max_memory(self):
         return self.cell.max_memory
 
+
+    # Cached properties:
+
     def get_nuc(self, kpts=None):
         if not (kpts is None or kpts is self.kpts or np.allclose(kpts, self.kpts)):
             return super().get_nuc(kpts)
@@ -983,6 +994,17 @@ class GDF(df.GDF):
             self._get_pp = super().get_pp(kpts)
         return self._get_pp
 
+    @property
+    def get_ovlp(self):
+        if self._ovlp is None:
+            self._ovlp = self.cell.pbc_intor('int1e_ovlp', hermi=1, kpts=self.kpts)
+        return self._ovlp
+
+    @property
+    def madelung(self):
+        if self._madelung is None:
+            self._madelung = tools.pbc.madelung(self.cell, self.kpts)
+        return self._madelung
 
 DF = GDF
 
