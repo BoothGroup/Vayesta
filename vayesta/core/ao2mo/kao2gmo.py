@@ -423,30 +423,37 @@ class ThreeCenterInts:
                 assert np.all(kuniq_map < nkij)
                 assert np.all(kuniq_map > -nkij)
 
+        # Old, deprecated code - keeping for now in case I reimplement ki/kj symmetry
         # In IncoreGDF, we can access the array directly
-        elif hasattr(self.df._cderi, '__getitem__') and 'j3c' in self.df._cderi:
-            j3c = self.df._cderi["j3c"].reshape(-1, self.naux, self.nao, self.nao)
-            nkuniq = j3c.shape[0]
-            log.info("Nkuniq= %3d", nkuniq)
-            # Check map
-            #_get_kpt_hash = pyscf.pbc.df.df_incore._get_kpt_hash
-            _get_kpt_hash = vayesta.misc.gdf._get_kpt_hash
-            kuniq_map = np.zeros((self.nk, self.nk), dtype=int)
-            # 2D systems not supported in incore version:
+        #elif hasattr(self.df._cderi, '__getitem__') and 'j3c' in self.df._cderi:
+        #    j3c = self.df._cderi["j3c"].reshape(-1, self.naux, self.nao, self.nao)
+        #    nkuniq = j3c.shape[0]
+        #    log.info("Nkuniq= %3d", nkuniq)
+        #    # Check map
+        #    #_get_kpt_hash = pyscf.pbc.df.df_incore._get_kpt_hash
+        #    _get_kpt_hash = vayesta.misc.gdf._get_kpt_hash
+        #    kuniq_map = np.zeros((self.nk, self.nk), dtype=int)
+        #    # 2D systems not supported in incore version:
+        #    j3c_neg = None
+        #    for ki in range(self.nk):
+        #        for kj in range(self.nk):
+        #            kij = np.asarray((self.kpts[ki], self.kpts[kj]))
+        #            kij_id = self.df._cderi['j3c-kptij-hash'].get(_get_kpt_hash(kij), [None])
+        #            assert len(kij_id) == 1
+        #            kij_id = kij_id[0]
+        #            if kij_id is None:
+        #                kij_id = self.df._cderi['j3c-kptij-hash'][_get_kpt_hash(kij[[1,0]])]
+        #                assert len(kij_id) == 1
+        #                # negative to indicate transpose needed
+        #                kij_id = -kij_id[0]
+        #            assert (abs(kij_id) < nkuniq)
+        #            kuniq_map[ki,kj] = kij_id
+
+        elif isinstance(self.df._cderi, np.ndarray):
+            j3c = self.df._cderi
             j3c_neg = None
-            for ki in range(self.nk):
-                for kj in range(self.nk):
-                    kij = np.asarray((self.kpts[ki], self.kpts[kj]))
-                    kij_id = self.df._cderi['j3c-kptij-hash'].get(_get_kpt_hash(kij), [None])
-                    assert len(kij_id) == 1
-                    kij_id = kij_id[0]
-                    if kij_id is None:
-                        kij_id = self.df._cderi['j3c-kptij-hash'][_get_kpt_hash(kij[[1,0]])]
-                        assert len(kij_id) == 1
-                        # negative to indicate transpose needed
-                        kij_id = -kij_id[0]
-                    assert (abs(kij_id) < nkuniq)
-                    kuniq_map[ki,kj] = kij_id
+            kuniq_map = None
+
         else:
             raise ValueError("Unknown DF type: %r" % type(self.df))
 
