@@ -16,6 +16,7 @@ class ClusterSolver:
     class Options(OptionsBase):
         make_rdm1: bool = False
         make_rdm2: bool = False
+        v_ext: np.array = None      # Additional, external potential
 
     @dataclasses.dataclass
     class Results:
@@ -35,7 +36,7 @@ class ClusterSolver:
             """
             raise NotImplementedError()
 
-    def __init__(self, fragment, mo_coeff, mo_occ, nocc_frozen, nvir_frozen, v_ext=None,
+    def __init__(self, fragment, mo_coeff, mo_occ, nocc_frozen, nvir_frozen,
             options=None, log=None, **kwargs):
         """
 
@@ -59,9 +60,8 @@ class ClusterSolver:
         else:
             options = options.replace(kwargs)
         self.opts = options
-        self.log.debug("Solver options:")
-        for key, val in self.opts.items():
-            self.log.debug('  > %-24s %r', key + ':', val)
+        self.log.info("Parameters of %s:" % self.__class__.__name__)
+        self.log.info(break_into_lines(str(self.opts), newline='\n    '))
 
         # Check MO orthogonality
         err = abs(dot(mo_coeff.T, self.mf.get_ovlp(), mo_coeff) - np.eye(mo_coeff.shape[-1])).max()
@@ -70,9 +70,6 @@ class ClusterSolver:
         elif err > 1e-8:
             self.log.warning("MOs are not orthonormal: %.3e", err)
         assert (err < 1e-6), ("MO not orthogonal: %.3e" % err)
-
-        # Additional external potential
-        self.v_ext = v_ext
 
         # Results
         self.results = None
@@ -131,7 +128,7 @@ class ClusterSolver:
         """Abstract method."""
         raise NotImplementedError()
 
-    def optimize_cpt(self, nelectron, c_frag, cpt_guess=0, atol=1e-6, rtol=1e-6, cpt_radius=1):
+    def optimize_cpt(self, nelectron, c_frag, cpt_guess=0, atol=1e-6, rtol=1e-6, cpt_radius=0.3):
         """Enables chemical potential optimization to match a number of electrons in the fragment space.
 
         Parameters
@@ -147,7 +144,7 @@ class ClusterSolver:
         rtol: float, optional
             Relative electron number tolerance. Default: 1e-6
         cpt_radius: float, optional
-            Search radius for chemical potential. Default: 1.
+            Search radius for chemical potential. Default: 0.5.
 
         Returns
         -------
@@ -159,33 +156,42 @@ class ClusterSolver:
         r_frag = dot(self.c_active.T, self.mf.get_ovlp(), c_frag)
         p_frag = np.dot(r_frag, r_frag.T)     # Projector into fragment space
         self.opts.make_rdm1 = True
+        # During the optimization, we can use the Lambda=T approximation:
+        #solve_lambda0 = self.opts.solve_lambda
+        #self.opts.solve_lambda = False
 
         class CptFound(RuntimeError):
             """Raise when electron error is below tolerance."""
             pass
 
-        def kernel(self, *args, **kwargs):
+        def kernel(self, *args, eris=None, **kwargs):
             results = None
             err = None
             cpt_opt = None
             iterations = 0
             init_guess = {}
+            err0 = None
 
             # Avoid calculating the ERIs multiple times:
-            eris = kwargs.pop('eris', self.get_eris())
+            if eris is None:
+                eris = self.get_eris()
 
             def electron_err(cpt):
-                nonlocal results, err, cpt_opt, iterations, init_guess
-                v_ext0 = self.v_ext
+                nonlocal results, err, err0, cpt_opt, iterations, init_guess
+                # Avoid recalculation of cpt=0.0 in SciPy:
+                if (cpt == 0) and (err0 is not None):
+                    self.log.debugv("Chemical potential %f already calculated - returning error= %.8f", cpt, err0)
+                    return err0
+                v_ext0 = self.opts.v_ext
                 if cpt:
-                    if self.v_ext is None:
-                        self.v_ext = -cpt * p_frag
+                    if self.opts.v_ext is None:
+                        self.opts.v_ext = -cpt * p_frag
                     else:
-                        self.v_ext += -cpt * p_frag
+                        self.opts.v_ext += -cpt * p_frag
                 kwargs.update(init_guess)
                 self.log.debugv("kwargs keys for solver: %r", kwargs.keys())
                 results = kernel_orig(eris=eris, **kwargs)
-                self.v_ext = v_ext0     # Reset v_ext
+                self.opts.v_ext = v_ext0     # Reset v_ext
                 if not results.converged:
                     raise ConvergenceError()
                 ne_frag = einsum('xi,ij,xj->', p_frag, results.dm1, p_frag)
@@ -207,12 +213,26 @@ class ClusterSolver:
                 return results
 
             # Not enough electrons in fragment space -> raise fragment chemical potential:
-            assert (cpt_radius > 0)
             if err0 < 0:
-                bounds = np.asarray([cpt_guess, cpt_guess+cpt_radius], dtype=float)
+                lower = cpt_guess
+                upper = cpt_guess+cpt_radius
             # Too many electrons in fragment space -> lower fragment chemical potential:
             else:
-                bounds = np.asarray([cpt_guess-cpt_radius, cpt_guess], dtype=float)
+                lower = cpt_guess-cpt_radius
+                upper = cpt_guess
+
+            #dcpt = 0.1
+            #if err0 < 0:
+            #    err1 = electron_err(cpt_guess + dcpt)
+            #    lower = cpt_guess+dcpt if err1 < 0 else cpt_guess
+            #    upper = cpt_guess + 1.2*(err0 - err1)/dcpt
+            #else:
+            #    err1 = electron_err(cpt_guess - dcpt)
+            #    upper = cpt_guess-dcpt if err1 >= 0 else cpt_guess
+            #    lower = cpt_guess + 1.2*(err1 - err0)/dcpt
+            self.log.debugv("Estimated bounds: %.3e %.3e", lower, upper)
+            bounds = np.asarray([lower, upper], dtype=float)
+
             for ntry in range(5):
                 try:
                     cpt, res = scipy.optimize.brentq(electron_err, a=bounds[0], b=bounds[1], xtol=1e-12, full_output=True)

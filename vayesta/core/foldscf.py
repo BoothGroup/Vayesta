@@ -121,13 +121,24 @@ def fold_mos(kmo_energy, kmo_coeff, kmo_occ, kphase, ovlp, make_real=True):
     if make_real:
         mo_coeff = make_mo_coeff_real(mo_energy, mo_coeff, ovlp)
     # Check orthonormality of folded MOs
-    err = abs(np.linalg.multi_dot((mo_coeff.T.conj(), ovlp, mo_coeff)) - np.eye(mo_coeff.shape[-1])).max()
+    err = abs(dot(mo_coeff.T.conj(), ovlp, mo_coeff) - np.eye(mo_coeff.shape[-1])).max()
     if err > 1e-7:
         raise RuntimeError("Unfolded MOs not orthonormal! L(inf)= %.3e" % err)
     else:
         log.debugv("Unfolded MOs orthonormality error: L(inf)= %.3e" % err)
 
     return mo_energy, mo_coeff, mo_occ
+
+def log_error_norms(msg, err, error_tol=1e-3, warn_tol=1e-6):
+    l2 = np.linalg.norm(err)
+    linf = abs(err).max()
+    lmax = max(l2, linf)
+    if lmax > error_tol:
+        log.error(msg+" !!!", l2, linf)
+    elif lmax > warn_tol:
+        log.warning(msg+" !", l2, linf)
+    else:
+        log.debug(msg, l2, linf)
 
 def make_mo_coeff_real(mo_energy, mo_coeff, ovlp, imag_tol=1e-10):
     mo_coeff = mo_coeff.copy()
@@ -138,12 +149,7 @@ def make_mo_coeff_real(mo_energy, mo_coeff, ovlp, imag_tol=1e-10):
     shift = 1.0 - min(mo_energy[im])
     sc = np.dot(ovlp, mo_coeff[:,im])
     fock = np.dot(sc*(mo_energy[im]+shift), sc.T.conj())
-    imnorm_inf = abs(fock.imag).max()
-    imnorm_l2 = np.linalg.norm(fock.imag)
-    if max(imnorm_inf, imnorm_l2) > 1e-6:
-        log.warning("Large imaginary part in Fock matrix! L(2)= %.2e L(inf)= %.2e", imnorm_inf, imnorm_l2)
-    else:
-        log.debug("Imaginary part in Fock matrix: L(2)= %.2e L(inf)= %.2e", imnorm_inf, imnorm_l2)
+    log_error_norms("Imaginary part in folded Fock matrix: L(2)= %.2e L(inf)= %.2e", fock.imag)
     # Diagonalize subspace Fock matrix
     # TODO: eigensolver for linear dependencies...
     eigh = scipy.linalg.eigh
@@ -154,13 +160,7 @@ def make_mo_coeff_real(mo_energy, mo_coeff, ovlp, imag_tol=1e-10):
     mask = (e > 0.5)
     assert np.count_nonzero(mask) == len(mo_energy[im])
     e, v = e[mask], v[:,mask]
-    e_delta = mo_energy[im] - (e-shift)
-    enorm_inf = abs(e_delta).max()
-    enorm_l2 = np.linalg.norm(e_delta)
-    if max(enorm_inf, enorm_l2) > 1e-6:
-        log.warning("Large change in MO energies! L(2)= %.2e L(inf)= %.2e", enorm_inf, enorm_l2)
-    else:
-        log.debug("Change in MO energies: L(2)= %.2e L(inf)= %.2e", enorm_inf, enorm_l2)
+    log_error_norms("Error in folded MO energies: L(2)= %.2e L(inf)= %.2e", mo_energy[im]-(e-shift))
 
     mo_coeff[:,im] = v
     assert np.all(np.linalg.norm(mo_coeff.imag, axis=0) <= imag_tol)

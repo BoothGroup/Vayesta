@@ -4,8 +4,31 @@ import scipy.linalg
 
 from vayesta.core.util import *
 
+def check_orthonormal(log, mo_coeff, ovlp, mo_name="orbital", tol=1e-7):
+    """Check orthonormality of mo_coeff.
+
+    Supports both RHF and UHF.
+    """
+    # RHF
+    if np.ndim(mo_coeff[0]) == 1:
+        err = dot(mo_coeff.T, ovlp, mo_coeff) - np.eye(mo_coeff.shape[-1])
+        l2 = np.linalg.norm(err)
+        linf = abs(err).max()
+        if max(l2, linf) > tol:
+            log.error("Orthogonality error of %ss: L(2)= %.2e  L(inf)= %.2e !", mo_name, l2, linf)
+        else:
+            log.debugv("Orthogonality error of %ss: L(2)= %.2e  L(inf)= %.2e", mo_name, l2, linf)
+        return l2, linf
+    # UHF
+    l2a, linfa = check_orthonormal(log, mo_coeff[0], ovlp, mo_name='alpha-%s' % mo_name, tol=tol)
+    l2b, linfb = check_orthonormal(log, mo_coeff[1], ovlp, mo_name='beta-%s' % mo_name, tol=tol)
+    return (l2a, l2b), (linfa, linfb)
+
+
 class Fragmentation:
     """Fragmentation for a quantum embedding method class."""
+
+    name = "<not set>"
 
     def __init__(self, mf, log):
         self.mf = mf
@@ -28,7 +51,7 @@ class Fragmentation:
 
     @property
     def nmo(self):
-        return self.mf.mo_coeff.shape[-1]
+        return self.mo_coeff.shape[-1]
 
     def get_ovlp(self):
         return self.ovlp
@@ -41,19 +64,11 @@ class Fragmentation:
     def mo_occ(self):
         return self.mf.mo_occ
 
-    # ---
-
-    def get_next_fid(self):
-        """Get next free fragment ID."""
-        fid = self.nfrag
-        self.nfrag += 1
-        return fid
-
     def kernel(self):
-        """The kernel needs to be called after initializing the fragmentation."""
         self.coeff = self.get_coeff()
         self.labels = self.get_labels()
-        return self
+
+    # --- These need to be implemented
 
     def get_coeff(self):
         """Abstract method."""
@@ -63,11 +78,23 @@ class Fragmentation:
         """Abstract method."""
         raise NotImplementedError()
 
+    def search_labels(self, labels):
+        """Abstract method."""
+        raise NotImplementedError()
+
+    # ---
+
+    def get_next_fid(self):
+        """Get next free fragment ID."""
+        fid = self.nfrag
+        self.nfrag += 1
+        return fid
+
     def get_atoms(self):
         """Get the base atom for each fragment orbital."""
         return [l[0] for l in self.labels]
 
-    def get_lowdin_orth_x(self, mo_coeff, ovlp=None, tol=1e-15):
+    def symmetric_orth(self, mo_coeff, ovlp=None, tol=1e-15):
         """Use as mo_coeff = np.dot(mo_coeff, x) to get orthonormal orbitals."""
         if ovlp is None: ovlp = self.get_ovlp()
         m = dot(mo_coeff.T, ovlp, mo_coeff)
@@ -78,16 +105,21 @@ class Fragmentation:
         x = dot(v/np.sqrt(e), v.T)
         return x, e_min
 
-    def check_orth(self, mo_coeff, mo_name, tol=1e-8):
-        """Check orthonormality of mo_coeff."""
-        err = dot(mo_coeff.T, self.get_ovlp(), mo_coeff) - np.eye(mo_coeff.shape[-1])
-        l2 = np.linalg.norm(err)
-        linf = abs(err).max()
-        if max(l2, linf) > tol:
-            self.log.error("Orthogonality error of %s: L(2)= %.2e  L(inf)= %.2e !", mo_name, l2, linf)
-        else:
-            self.log.debugv("Orthogonality error of %s: L(2)= %.2e  L(inf)= %.2e", mo_name, l2, linf)
-        return l2, linf
+    #def check_orth(self, mo_coeff, mo_name=None, tol=1e-7):
+    #    """Check orthonormality of mo_coeff."""
+    #    err = dot(mo_coeff.T, self.get_ovlp(), mo_coeff) - np.eye(mo_coeff.shape[-1])
+    #    l2 = np.linalg.norm(err)
+    #    linf = abs(err).max()
+    #    if mo_name is None: mo_name = self.name
+    #    if max(l2, linf) > tol:
+    #        self.log.error("Orthogonality error of %ss: L(2)= %.2e  L(inf)= %.2e !", mo_name, l2, linf)
+    #    else:
+    #        self.log.debugv("Orthogonality error of %ss: L(2)= %.2e  L(inf)= %.2e", mo_name, l2, linf)
+    #    return l2, linf
+
+    def check_orthonormal(self, mo_coeff, mo_name=None, tol=1e-7):
+        if mo_name is None: mo_name = self.name
+        return check_orthonormal(self.log, mo_coeff, self.get_ovlp(), mo_name=mo_name, tol=tol)
 
     def get_atom_indices_symbols(self, atoms):
         """Convert a list of integer or strings to atom indices and symbols."""
@@ -130,27 +162,13 @@ class Fragmentation:
         if name is None: name = '/'.join(atom_symbols)
         self.log.debugv("Atom indices of fragment %s: %r", name, atom_indices)
         self.log.debugv("Atom symbols of fragment %s: %r", name, atom_symbols)
-
         # Indices of IAOs based at atoms
         indices = np.nonzero(np.isin(self.get_atoms(), atom_indices))[0]
         # Filter orbital types
         if orbital_filter is not None:
-            keep = self.search_ao_labels(orbital_filter)
+            keep = self.search_labels(orbital_filter)
             indices = [i for i in indices if i in keep]
-
-        # Some output
-        self.log.debugv("Fragment %ss:\n%r", self.name, indices)
-        self.log.debug("Fragment %ss of fragment %s:", self.name, name)
-        for a, sym, nl, ml in np.asarray(self.labels)[indices]:
-            if ml:
-                self.log.debug("  %3s %4s %2s-%s", a, sym, nl, ml)
-            else:
-                self.log.debug("  %3s %4s %2s", a, sym, nl)
-
         return name, indices
-
-    def search_ao_labels(self, labels):
-        return self.mol.search_ao_label(labels)
 
     def get_orbital_indices_labels(self, orbitals):
         """Convert a list of integer or strings to orbital indices and labels."""
@@ -165,9 +183,9 @@ class Fragmentation:
             orbital_labels = orbitals
             # Check labels
             for l in orbital_labels:
-                if len(self.search_ao_labels(l)) == 0:
+                if len(self.search_labels(l)) == 0:
                     raise ValueError("Cannot find orbital with label %s in system." % l)
-            orbital_indices = self.search_ao_labels(orbital_labels)
+            orbital_indices = self.search_labels(orbital_labels)
             return orbital_indices, orbital_labels
         raise ValueError("A list of integers or string is required! orbitals= %r" % orbitals)
 

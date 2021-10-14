@@ -13,7 +13,7 @@ from vayesta.core.util import *
 from .solver import ClusterSolver
 
 
-class FCISolver(ClusterSolver):
+class FCI_Solver(ClusterSolver):
 
     @dataclasses.dataclass
     class Options(ClusterSolver.Options):
@@ -69,8 +69,8 @@ class FCISolver(ClusterSolver):
         #dm_core = 2*np.dot(self.mo_coeff[:,core], self.mo_coeff[:,core].T)
         #v_core = self.mf.get_veff(dm=dm_core)
         #h_eff = np.linalg.multi_dot((self.c_active.T, self.base.get_hcore()+v_core, self.c_active))
-        if with_vext and self.v_ext is not None:
-            h_eff += self.v_ext
+        if with_vext and self.opts.v_ext is not None:
+            h_eff += self.opts.v_ext
         return h_eff
 
     def kernel(self, ci0=None, eris=None):
@@ -79,6 +79,8 @@ class FCISolver(ClusterSolver):
         if eris is None: eris = self.get_eris()
         heff = self.get_heff(eris)
         nelec = sum(self.mo_occ[self.get_active_slice()])
+        assert np.isclose(nelec, round(nelec))
+        nelec = int(round(nelec))
 
         t0 = timer()
         e_fci, civec = self.solver.kernel(heff, eris, self.nactive, nelec, ci0=ci0)

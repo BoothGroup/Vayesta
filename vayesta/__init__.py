@@ -40,26 +40,11 @@ log.info("| Vayesta %s |", __version__)
 log.info("|%s|", (len(__version__)+10)*'_')
 log.info("")
 
-def get_git_hash(dir):
-    git_dir = os.path.join(dir, '.git')
-    cmd = ['git', '--git-dir=%s' % git_dir, 'rev-parse', '--short', 'HEAD']
-    try:
-        githash = subprocess.check_output(cmd, universal_newlines=True, stderr=subprocess.STDOUT).rstrip()
-    except subprocess.CalledProcessError:
-        githash = "<Not Found>"
-    return githash
-
-# Print git commit hash
-vdir = os.path.dirname(os.path.dirname(__file__))
-vhash = get_git_hash(vdir)
-log.info("Git hash: %s", vhash)
-log.info("")
-
 # Required modules
 log.debug("Required modules:")
 
 # NumPy
-fmt = '  > %-10s  v%-8s  found at  %s'
+fmt = '  * %-10s  v%-8s  location: %s'
 try:
     import numpy
     log.debug(fmt, 'NumPy', numpy.__version__, os.path.dirname(numpy.__file__))
@@ -84,9 +69,6 @@ except ImportError:
 try:
     import pyscf
     log.debug(fmt, 'PySCF', pyscf.__version__, os.path.dirname(pyscf.__file__))
-    pyscf_dir = os.path.dirname(os.path.dirname(pyscf.__file__))
-    pyscf_hash = get_git_hash(pyscf_dir)
-    log.info("    PySCF Git hash: %s", pyscf_hash)
 except ImportError:
     log.critical("PySCF not found.")
     raise
@@ -95,14 +77,42 @@ try:
     import mpi4py
     log.debug(fmt, 'mpi4py', mpi4py.__version__, os.path.dirname(mpi4py.__file__))
     from mpi4py import MPI
+except ImportError:
+    MPI = False
+    log.debug("mpi4py not found.")
+
+#log.debug("")
+
+# --- Git hashes
+
+def get_git_hash(dir):
+    git_dir = os.path.join(dir, '.git')
+    cmd = ['git', '--git-dir=%s' % git_dir, 'rev-parse', '--short', 'HEAD']
+    try:
+        githash = subprocess.check_output(cmd, universal_newlines=True, stderr=subprocess.STDOUT).rstrip()
+    except subprocess.CalledProcessError:
+        githash = "<Not Found>"
+    return githash
+
+log.debug("Git hashes:")
+vdir = os.path.dirname(os.path.dirname(__file__))
+vhash = get_git_hash(vdir)
+log.debug("  * Vayesta:  %s", vhash)
+pdir = os.path.dirname(os.path.dirname(pyscf.__file__))
+phash = get_git_hash(pdir)
+log.debug("  * PySCF:    %s", phash)
+
+# --- MPI info
+# TODO Add MPI implementation info
+if MPI:
     MPI_comm = MPI.COMM_WORLD
     MPI_rank = MPI_comm.Get_rank()
     MPI_size = MPI_comm.Get_size()
-    log.debug("    MPI(rank= %d , size= %d)", MPI_rank, MPI_size)
-except ImportError:
-    log.debug("mpi4py not found.")
-
+    log.debug("MPI info:")
+    log.debug("  * rank %d / %d", MPI_rank, MPI_size)
 log.debug("")
+
+# ---
 
 def new_log(logname, fmt=None, remove_existing=True):
     if fmt is None:
