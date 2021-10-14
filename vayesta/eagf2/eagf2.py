@@ -226,18 +226,17 @@ class EAGF2(QEmbeddingMethod):
             self.log.warning("Number of electrons not integer!")
 
         self.log.info("Initialising solver:")
-        self.log.changeIndentLevel(1)
-        solver = RAGF2(
-                self.mf,
-                eri=np.empty(()),
-                veff=np.empty(()),
-                log=self.log,
-                options=self.opts,
-                fock_basis='ao',
-                weight_tol=0.0,  #NOTE dimension errors without this...
-        )
-        solver.log = self.log
-        self.log.changeIndentLevel(-1)
+        with self.log.withIndentLevel(1):
+            solver = RAGF2(
+                    self.mf,
+                    eri=np.empty(()),
+                    veff=np.empty(()),
+                    log=self.log,
+                    options=self.opts,
+                    fock_basis='ao',
+                    weight_tol=0.0,  #NOTE dimension errors without this...
+            )
+            solver.log = self.log
 
         diis = self.DIIS(space=self.opts.diis_space, min_space=self.opts.diis_min_space)
         solver.se = aux.SelfEnergy(np.empty((0)), np.empty((solver.nact, 0)))
@@ -250,178 +249,172 @@ class EAGF2(QEmbeddingMethod):
             t1 = timer()
             self.log.info("Iteration %d" % niter)
             self.log.info("**********%s" % ('*'*len(str(niter))))
-            self.log.changeIndentLevel(1)
+            with self.log.withIndentLevel(1):
 
-            se_prev = copy.deepcopy(solver.se)
-            e_prev = solver.e_tot
+                se_prev = copy.deepcopy(solver.se)
+                e_prev = solver.e_tot
 
-            for x, frag in enumerate(self.fragments):
-                self.log.info("Building cluster space for fragment %d", x)
-                self.log.changeIndentLevel(1)
-
-                n = frag.c_frag.shape[0]
-                nqmo = solver.nact + solver.se.naux
-                p_frag = np.zeros((nqmo, nqmo))
-                p_frag[:n, :n] += np.dot(frag.c_frag, frag.c_frag.T.conj())
-                c_frag = scipy.linalg.orth(p_frag)
-                c_env = scipy.linalg.null_space(p_frag)
-                assert c_env.shape[-1] == (nqmo - c_frag.shape[1])
-
-                frag.c_frag, frag.c_env = c_frag, c_env
-
-                frag.se = solver.se
-                frag.fock = fock
-                frag.qmo_energy, frag.qmo_coeff = solver.se.eig(fock)
-                frag.qmo_occ = np.array([2.0 * (x < solver.se.chempot) for x in frag.qmo_energy])
-
-            for x in mpi_helper.nrange(len(self.fragments)):
-                frag = self.fragments[x]
-
-                coeffs = frag.make_bath()
-                frag.c_cls_occ, frag.c_cls_vir, frag.c_env_occ, frag.c_env_vir = coeffs
-
-                if not self.opts.democratic:
-                    qmos = frag.make_qmo_integrals()
-                    frag.pija, frag.pabi, frag.c_qmo_occ, frag.c_qmo_vir = qmos
-
-                self.log.changeIndentLevel(-1)
-
-            # For non-democratic partitioning, we require all fragments to have these values:
-            if self.opts.democratic:
                 for x, frag in enumerate(self.fragments):
-                    root = x % mpi_helper.size
-                    for attr in ['pija', 'pabi', 'c_qmo_occ', 'c_qmo_vir']:
-                        setattr(frag, attr, mpi_helper.bcast(getattr(frag, attr), root=root))
+                    self.log.info("Building cluster space for fragment %d", x)
+                    with self.log.withIndentLevel(1):
 
-            moms = 0
-            if self.opts.democratic:
+                        n = frag.c_frag.shape[0]
+                        nqmo = solver.nact + solver.se.naux
+                        p_frag = np.zeros((nqmo, nqmo))
+                        p_frag[:n, :n] += np.dot(frag.c_frag, frag.c_frag.T.conj())
+                        c_frag = scipy.linalg.orth(p_frag)
+                        c_env = scipy.linalg.null_space(p_frag)
+                        assert c_env.shape[-1] == (nqmo - c_frag.shape[1])
+
+                        frag.c_frag, frag.c_env = c_frag, c_env
+
+                        frag.se = solver.se
+                        frag.fock = fock
+                        frag.qmo_energy, frag.qmo_coeff = solver.se.eig(fock)
+                        frag.qmo_occ = np.array([2.0 * (x < solver.se.chempot) for x in frag.qmo_energy])
+
                 for x in mpi_helper.nrange(len(self.fragments)):
                     frag = self.fragments[x]
 
-                    if frag.sym_parent is None:
-                        results = frag.kernel(solver)
-                        self.cluster_results[frag.id] = results
-                        self.log.info("%s is done.", frag)
-                    else:
-                        self.log.info("%s is symmetry related, parent: %s", frag, frag.sym_parent)
-                        results = self.cluster_results[frag.sym_parent.id]
+                    coeffs = frag.make_bath()
+                    frag.c_cls_occ, frag.c_cls_vir, frag.c_env_occ, frag.c_env_vir = coeffs
 
-                    c = np.dot(frag.c_frag.T.conj(), results.c_active)
-                    p_frag = np.dot(c.T.conj(), c)
-                    p_full = np.eye(p_frag.shape[0])
-                    moms_cls = frag.democratic_partition(results.moms, p_frag, p_full)
+                    if not self.opts.democratic:
+                        qmos = frag.make_qmo_integrals()
+                        frag.pija, frag.pabi, frag.c_qmo_occ, frag.c_qmo_vir = qmos
 
-                    c = results.c_active[:solver.nact].T.conj()
-                    moms += np.einsum('...pq,pi,qj->...ij', moms_cls, c, c)
+                # For non-democratic partitioning, we require all fragments to have these values:
+                if self.opts.democratic:
+                    for x, frag in enumerate(self.fragments):
+                        root = x % mpi_helper.size
+                        for attr in ['pija', 'pabi', 'c_qmo_occ', 'c_qmo_vir']:
+                            setattr(frag, attr, mpi_helper.bcast(getattr(frag, attr), root=root))
 
-            else:
-                for x, frag in enumerate(self.fragments):
-                    for y, other in enumerate(self.fragments[:x+1]):
-                        if (x * (x+1) // 2 + y) % mpi_helper.size != 0:
-                            continue
+                moms = 0
+                if self.opts.democratic:
+                    for x in mpi_helper.nrange(len(self.fragments)):
+                        frag = self.fragments[x]
 
-                        if frag.sym_parent is None and other.sym_parent is None:
-                            results = frag.kernel(solver, other_frag=other)
-                            self.cluster_results[frag.id, other.id] = results
-                            self.log.debugv("%s - %s is done.", frag, other)
+                        if frag.sym_parent is None:
+                            results = frag.kernel(solver)
+                            self.cluster_results[frag.id] = results
+                            self.log.info("%s is done.", frag)
                         else:
-                            frag_parent = frag if frag.sym_parent is None else frag.sym_parent
-                            other_parent = other if other.sym_parent is None else other.sym_parent
-                            self.log.debugv("%s - %s is symmetry related, parent: %s - %s",
-                                            frag, other, frag_parent, other_parent)
-                            results = self.cluster_results[frag_parent.id, other_parent.id]
+                            self.log.info("%s is symmetry related, parent: %s", frag, frag.sym_parent)
+                            results = self.cluster_results[frag.sym_parent.id]
 
                         c = np.dot(frag.c_frag.T.conj(), results.c_active)
                         p_frag = np.dot(c.T.conj(), c)
+                        p_full = np.eye(p_frag.shape[0])
+                        moms_cls = frag.democratic_partition(results.moms, p_frag, p_full)
 
-                        c = np.dot(other.c_frag.T.conj(), results.c_active_other)
-                        p_other = np.dot(c.T.conj(), c)
+                        c = results.c_active[:solver.nact].T.conj()
+                        moms += np.einsum('...pq,pi,qj->...ij', moms_cls, c, c)
 
-                        moms_cls = np.einsum('...pq,pi,qj->...ij', results.moms, p_frag, p_other)
+                else:
+                    for x, frag in enumerate(self.fragments):
+                        for y, other in enumerate(self.fragments[:x+1]):
+                            if (x * (x+1) // 2 + y) % mpi_helper.size != 0:
+                                continue
 
-                        c_cls_frag = results.c_active[:solver.nact].T.conj()
-                        c_cls_other = results.c_active_other[:solver.nact].T.conj()
-                        moms_cls = np.einsum('...pq,pi,qj->...ij', moms_cls, c_cls_frag, c_cls_other)
+                            if frag.sym_parent is None and other.sym_parent is None:
+                                results = frag.kernel(solver, other_frag=other)
+                                self.cluster_results[frag.id, other.id] = results
+                                self.log.debugv("%s - %s is done.", frag, other)
+                            else:
+                                frag_parent = frag if frag.sym_parent is None else frag.sym_parent
+                                other_parent = other if other.sym_parent is None else other.sym_parent
+                                self.log.debugv("%s - %s is symmetry related, parent: %s - %s",
+                                                frag, other, frag_parent, other_parent)
+                                results = self.cluster_results[frag_parent.id, other_parent.id]
 
-                        moms += moms_cls
-                        if x != y:
-                            moms += moms_cls.swapaxes(2, 3)
+                            c = np.dot(frag.c_frag.T.conj(), results.c_active)
+                            p_frag = np.dot(c.T.conj(), c)
 
-                    self.log.info("%s is done.", frag)
+                            c = np.dot(other.c_frag.T.conj(), results.c_active_other)
+                            p_other = np.dot(c.T.conj(), c)
 
-            mpi_helper.barrier()
-            mpi_helper.allreduce_safe_inplace(moms)
+                            moms_cls = np.einsum('...pq,pi,qj->...ij', results.moms, p_frag, p_other)
 
-            assert np.allclose(moms[0,0], moms[0,0].T.conj())
-            assert np.allclose(moms[0,1], moms[0,1].T.conj())
-            assert np.allclose(moms[1,0], moms[1,0].T.conj())
-            assert np.allclose(moms[1,1], moms[1,1].T.conj())
+                            c_cls_frag = results.c_active[:solver.nact].T.conj()
+                            c_cls_other = results.c_active_other[:solver.nact].T.conj()
+                            moms_cls = np.einsum('...pq,pi,qj->...ij', moms_cls, c_cls_frag, c_cls_other)
 
+                            moms += moms_cls
+                            if x != y:
+                                moms += moms_cls.swapaxes(2, 3)
 
-            # === Occupied:
+                        self.log.info("%s is done.", frag)
 
-            self.log.info("Occupied self-energy:")
-            self.log.changeIndentLevel(1)
-            se_occ = solver._build_se_from_moments(moms[0])
-            w = np.linalg.eigvalsh(moms[0][0])
-            wmin, wmax = w.min(), w.max()
-            (self.log.warning if wmin < 1e-8 else self.log.debug)(
-                    'Eigenvalue range:  %.5g -> %.5g', wmin, wmax,
-            )
-            self.log.info("Built %d occupied auxiliaries", se_occ.naux)
-            self.log.changeIndentLevel(-1)
+                mpi_helper.barrier()
+                mpi_helper.allreduce_safe_inplace(moms)
 
-
-            # === Virtual:
-            
-            self.log.info("Virtual self-energy:")
-            self.log.changeIndentLevel(1)
-            se_vir = solver._build_se_from_moments(moms[1])
-            w = np.linalg.eigvalsh(moms[1][0])
-            wmin, wmax = w.min(), w.max()
-            (self.log.warning if wmin < 1e-8 else self.log.debug)(
-                    'Eigenvalue range:  %.5g -> %.5g', wmin, wmax,
-            )
-            self.log.info("Built %d virtual auxiliaries", se_vir.naux)
-            self.log.changeIndentLevel(-1)
-
-            nh = solver.nocc-solver.frozen[0]
-            wt = lambda v: np.sum(v * v)
-            self.log.infov("Total weights of coupling blocks:")
-            self.log.infov("        %6s  %6s", "2h1p", "1h2p")
-            self.log.infov("    1h  %6.4f  %6.4f", wt(se_occ.coupling[:nh]), wt(se_occ.coupling[nh:]))
-            self.log.infov("    1p  %6.4f  %6.4f", wt(se_vir.coupling[:nh]), wt(se_vir.coupling[nh:]))
+                assert np.allclose(moms[0,0], moms[0,0].T.conj())
+                assert np.allclose(moms[0,1], moms[0,1].T.conj())
+                assert np.allclose(moms[1,0], moms[1,0].T.conj())
+                assert np.allclose(moms[1,1], moms[1,1].T.conj())
 
 
-            solver.se = solver._combine_se(se_occ, se_vir)
+                # === Occupied:
 
-            if niter != 0:
-                solver.run_diis(solver.se, None, diis, se_prev=se_prev)
+                self.log.info("Occupied self-energy:")
+                with self.log.withIndentLevel(1):
+                    se_occ = solver._build_se_from_moments(moms[0])
+                    w = np.linalg.eigvalsh(moms[0][0])
+                    wmin, wmax = w.min(), w.max()
+                    (self.log.warning if wmin < 1e-8 else self.log.debug)(
+                            'Eigenvalue range:  %.5g -> %.5g', wmin, wmax,
+                    )
+                    self.log.info("Built %d occupied auxiliaries", se_occ.naux)
 
-            w, v = solver.solve_dyson(fock=fock_mo)
-            solver.gf = aux.GreensFunction(w, v[:solver.nact])
-            if self.opts.fock_loop:
-                solver.gf, solver.se, fconv, fock = solver.fock_loop(fock=fock_mo, return_fock=True)
-            solver.gf.remove_uncoupled(tol=1e-12)
 
-            solver.e_1b = solver.energy_1body(e_nuc=e_nuc)
-            solver.e_2b = solver.energy_2body()
-            solver.print_energies()
-            solver.print_excitations()
+                # === Virtual:
+                
+                self.log.info("Virtual self-energy:")
+                with self.log.withIndentLevel(1):
+                    se_vir = solver._build_se_from_moments(moms[1])
+                    w = np.linalg.eigvalsh(moms[1][0])
+                    wmin, wmax = w.min(), w.max()
+                    (self.log.warning if wmin < 1e-8 else self.log.debug)(
+                            'Eigenvalue range:  %.5g -> %.5g', wmin, wmax,
+                    )
+                    self.log.info("Built %d virtual auxiliaries", se_vir.naux)
 
-            deltas = solver._convergence_checks(se=solver.se, se_prev=se_prev, e_prev=e_prev)
+                nh = solver.nocc-solver.frozen[0]
+                wt = lambda v: np.sum(v * v)
+                self.log.infov("Total weights of coupling blocks:")
+                self.log.infov("        %6s  %6s", "2h1p", "1h2p")
+                self.log.infov("    1h  %6.4f  %6.4f", wt(se_occ.coupling[:nh]), wt(se_occ.coupling[nh:]))
+                self.log.infov("    1p  %6.4f  %6.4f", wt(se_vir.coupling[:nh]), wt(se_vir.coupling[nh:]))
 
-            self.log.info("Change in energy:     %10.3g", deltas[0])
-            self.log.info("Change in 0th moment: %10.3g", deltas[1])
-            self.log.info("Change in 1st moment: %10.3g", deltas[2])
 
-            if self.opts.dump_chkfile and solver.chkfile is not None:
-                self.log.debug("Dumping current iteration to chkfile")
-                solver.dump_chk()
+                solver.se = solver._combine_se(se_occ, se_vir)
 
-            self.log.timing("Time for AGF2 iteration:  %s", time_string(timer() - t1))
+                if niter != 0:
+                    solver.run_diis(solver.se, None, diis, se_prev=se_prev)
 
-            self.log.changeIndentLevel(-1)
+                w, v = solver.solve_dyson(fock=fock_mo)
+                solver.gf = aux.GreensFunction(w, v[:solver.nact])
+                if self.opts.fock_loop:
+                    solver.gf, solver.se, fconv, fock = solver.fock_loop(fock=fock_mo, return_fock=True)
+                solver.gf.remove_uncoupled(tol=1e-12)
+
+                solver.e_1b = solver.energy_1body(e_nuc=e_nuc)
+                solver.e_2b = solver.energy_2body()
+                solver.print_energies()
+                solver.print_excitations()
+
+                deltas = solver._convergence_checks(se=solver.se, se_prev=se_prev, e_prev=e_prev)
+
+                self.log.info("Change in energy:     %10.3g", deltas[0])
+                self.log.info("Change in 0th moment: %10.3g", deltas[1])
+                self.log.info("Change in 1st moment: %10.3g", deltas[2])
+
+                if self.opts.dump_chkfile and solver.chkfile is not None:
+                    self.log.debug("Dumping current iteration to chkfile")
+                    solver.dump_chk()
+
+                self.log.timing("Time for AGF2 iteration:  %s", time_string(timer() - t1))
 
             if deltas[0] < self.opts.conv_tol \
                     and deltas[1] < self.opts.conv_tol_t0 \
