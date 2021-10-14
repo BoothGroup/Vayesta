@@ -885,7 +885,7 @@ class RAGF2:
         h1e = self.h1e
 
         e1b  = 0.5 * np.sum(rdm1 * (h1e + fock))
-        e1b += e_nuc if e_nuc is None else self.e_nuc
+        e1b += e_nuc if e_nuc is not None else self.e_nuc
 
         return e1b
 

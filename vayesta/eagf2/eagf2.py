@@ -281,9 +281,8 @@ class EAGF2(QEmbeddingMethod):
                 frag.c_cls_occ, frag.c_cls_vir, frag.c_env_occ, frag.c_env_vir = coeffs
 
                 if not self.opts.democratic:
-                    rotations = frag.make_rotations()
-                    frag.c_ao_cls, frag.c_qmo_occ, frag.c_qmo_vir, \
-                            frag.c_ao_qmo_proj_occ, frag.c_ao_qmo_proj_vir = rotations
+                    qmos = frag.make_qmo_integrals()
+                    frag.pija, frag.pabi, frag.c_qmo_occ, frag.c_qmo_vir = qmos
 
                 self.log.changeIndentLevel(-1)
 
