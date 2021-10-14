@@ -181,7 +181,7 @@ class EAGF2Fragment(QEmbeddingFragment):
     Options = EAGF2FragmentOptions
     Results = EAGF2FragmentResults
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, base, fid, name, c_frag, c_env, **kwargs):
         ''' Embedded AGF2 fragment.
 
         Parameters
@@ -211,7 +211,10 @@ class EAGF2Fragment(QEmbeddingFragment):
             Additional arguments passed to `EAGF2FragmentOptions`.
         '''
 
-        super().__init__(*args, **kwargs)
+        # Convert fragment and environment orbitals to MO basis:
+        c_frag = np.linalg.multi_dot((base.mf.mo_coeff.T.conj(), base.get_ovlp(), c_frag))
+        c_env = np.linalg.multi_dot((base.mf.mo_coeff.T.conj(), base.get_ovlp(), c_env))
+        super().__init__(base, fid, name, c_frag, c_env, **kwargs)
 
         defaults = self.Options().replace(self.base.Options(), select=NotSet)
         for key, val in self.opts.items():
@@ -219,10 +222,6 @@ class EAGF2Fragment(QEmbeddingFragment):
                 self.log.info('  > %-24s %3s %r', key + ':', '(*)', val)
             else:
                 self.log.debugv('  > %-24s %3s %r', key + ':', '', val)
-
-        # Convert fragment and environment orbitals to MO basis:
-        self.c_frag = np.linalg.multi_dot((self.mf.mo_coeff.T, self.base.get_ovlp(), self.c_frag))
-        self.c_env = np.linalg.multi_dot((self.mf.mo_coeff.T, self.base.get_ovlp(), self.c_env))
 
         # Cluster and environment orbitals:
         self.c_env_occ = None
@@ -243,15 +242,29 @@ class EAGF2Fragment(QEmbeddingFragment):
         self.c_qmo_vir = None
 
 
+    #TODO go back to AO? idk
     #TODO other properties assuming AO c_frag?
-    #FIXME wrong value is printed during initialization, but accurate afterward because ao->mo
     @property
     def nelectron(self):
-        #TODO check this
         c = np.dot(self.base.get_ovlp(), self.mf.mo_coeff)
         rdm1 = np.linalg.multi_dot((c.T.conj(), self.mf.make_rdm1(), c))
         ne = np.einsum('ai,ab,bi->', self.c_frag.conj(), rdm1, self.c_frag)
         return ne
+
+    def get_rot_to_mf(self):
+        raise NotImplementedError
+
+    def get_rot_to_fragment(self, frgment):
+        raise NotImplementedError
+
+    def make_tsymmetric_fragments(self, tvecs, unit='Ang', mf_tol=1e-6):
+        #TODO: this will not work with auxiliaries #FIXME
+        with lib.temporary_env(
+                self,
+                c_frag=np.dot(self.mf.mo_coeff, self.c_frag),
+                c_env=np.dot(self.mf.mo_coeff, self.c_env),
+        ):
+            return super().make_tsymmetric_fragments(tvecs, unit=unit, mf_tol=mf_tol)
 
 
     def make_power_bath(self, max_order=None, c_frag=None, c_env=None):
