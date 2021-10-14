@@ -255,7 +255,11 @@ class EAGF2(QEmbeddingMethod):
                 e_prev = solver.e_tot
 
                 for x, frag in enumerate(self.fragments):
-                    self.log.info("Building cluster space for fragment %d", x)
+                    #TODO is this needed? are the projectors the same as the sym_parent ones?
+                    #if frag.sym_parent is not None:
+                    #    continue
+                    self.log.info("Building fragment space for fragment %d", x)
+
                     with self.log.withIndentLevel(1):
 
                         n = frag.c_frag.shape[0]
@@ -273,8 +277,10 @@ class EAGF2(QEmbeddingMethod):
                         frag.qmo_energy, frag.qmo_coeff = solver.se.eig(fock)
                         frag.qmo_occ = np.array([2.0 * (x < solver.se.chempot) for x in frag.qmo_energy])
 
-                for x in mpi_helper.nrange(len(self.fragments)):
-                    frag = self.fragments[x]
+                for x, frag in enumerate(self.fragments):
+                    if frag.sym_parent is not None:
+                        continue
+                    self.log.info("Building cluster space for fragment %d", x)
 
                     coeffs = frag.make_bath()
                     frag.c_cls_occ, frag.c_cls_vir, frag.c_env_occ, frag.c_env_vir = coeffs
@@ -283,14 +289,7 @@ class EAGF2(QEmbeddingMethod):
                         qmos = frag.make_qmo_integrals()
                         frag.pija, frag.pabi, frag.c_qmo_occ, frag.c_qmo_vir = qmos
 
-                # For non-democratic partitioning, we require all fragments to have these values:
-                if self.opts.democratic:
-                    for x, frag in enumerate(self.fragments):
-                        root = x % mpi_helper.size
-                        for attr in ['pija', 'pabi', 'c_qmo_occ', 'c_qmo_vir']:
-                            setattr(frag, attr, mpi_helper.bcast(getattr(frag, attr), root=root))
-
-                moms = 0
+                moms = np.zeros((2, 2, self.nmo, self.nmo))  #TODO higher orders
                 if self.opts.democratic:
                     for x in mpi_helper.nrange(len(self.fragments)):
                         frag = self.fragments[x]
@@ -314,9 +313,6 @@ class EAGF2(QEmbeddingMethod):
                 else:
                     for x, frag in enumerate(self.fragments):
                         for y, other in enumerate(self.fragments[:x+1]):
-                            if (x * (x+1) // 2 + y) % mpi_helper.size != 0:
-                                continue
-
                             if frag.sym_parent is None and other.sym_parent is None:
                                 results = frag.kernel(solver, other_frag=other)
                                 self.cluster_results[frag.id, other.id] = results
@@ -324,30 +320,26 @@ class EAGF2(QEmbeddingMethod):
                             else:
                                 frag_parent = frag if frag.sym_parent is None else frag.sym_parent
                                 other_parent = other if other.sym_parent is None else other.sym_parent
+                                results = self.cluster_results[frag_parent.id, other_parent.id]
                                 self.log.debugv("%s - %s is symmetry related, parent: %s - %s",
                                                 frag, other, frag_parent, other_parent)
-                                results = self.cluster_results[frag_parent.id, other_parent.id]
 
                             c = np.dot(frag.c_frag.T.conj(), results.c_active)
-                            p_frag = np.dot(c.T.conj(), c)
+                            p = np.dot(c.T.conj(), c)
+                            p_frag = np.dot(p, results.c_active[:self.nmo].T.conj())
 
                             c = np.dot(other.c_frag.T.conj(), results.c_active_other)
-                            p_other = np.dot(c.T.conj(), c)
+                            p = np.dot(c.T.conj(), c)
+                            p_other = np.dot(p, results.c_active_other[:self.nmo].T.conj())
 
-                            moms_cls = np.einsum('...pq,pi,qj->...ij', results.moms, p_frag, p_other)
-
-                            c_cls_frag = results.c_active[:solver.nact].T.conj()
-                            c_cls_other = results.c_active_other[:solver.nact].T.conj()
-                            moms_cls = np.einsum('...pq,pi,qj->...ij', moms_cls, c_cls_frag, c_cls_other)
-
-                            moms += moms_cls
-                            if x != y:
-                                moms += moms_cls.swapaxes(2, 3)
+                            for i in range(results.moms.shape[0]):
+                                for j in range(results.moms.shape[1]):
+                                    m = np.linalg.multi_dot((p_frag.T.conj(), results.moms[i, j], p_other))
+                                    moms[i, j] += m
+                                    if x != y:
+                                        moms[i, j] += m.T.conj()
 
                         self.log.info("%s is done.", frag)
-
-                mpi_helper.barrier()
-                mpi_helper.allreduce_safe_inplace(moms)
 
                 assert np.allclose(moms[0,0], moms[0,0].T.conj())
                 assert np.allclose(moms[0,1], moms[0,1].T.conj())

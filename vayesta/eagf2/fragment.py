@@ -257,14 +257,33 @@ class EAGF2Fragment(QEmbeddingFragment):
     def get_rot_to_fragment(self, frgment):
         raise NotImplementedError
 
-    def make_tsymmetric_fragments(self, tvecs, unit='Ang', mf_tol=1e-6):
-        #TODO: this will not work with auxiliaries #FIXME
-        with lib.temporary_env(
-                self,
-                c_frag=np.dot(self.mf.mo_coeff, self.c_frag),
-                c_env=np.dot(self.mf.mo_coeff, self.c_env),
-        ):
-            return super().make_tsymmetric_fragments(tvecs, unit=unit, mf_tol=mf_tol)
+    def add_tsymmetric_fragments(self, tvecs, unit='Ang', charge_tol=1e-6):
+        if self.se.naux != 0:
+            raise NotImplementedError("Translational symmetry of fragments which alreayd have "
+                                      "an auxiliary space is not supported.")
+
+        c_ao_frag = np.dot(self.base.mf.mo_coeff, self.c_frag)
+        c_ao_env = np.dot(self.base.mf.mo_coeff, self.c_env)
+
+        with lib.temporary_env(self, c_frag=c_ao_frag, c_env=c_ao_env):
+            return super().add_tsymmetric_fragments(tvecs, unit=unit, charge_tol=charge_tol)
+
+    #FIXME: this is a mess. self temporary has c_frag and c_env in AO basis, but frag doesn't
+    def get_tsymmetry_error(self, frag, dm1=None):
+        if dm1 is None:
+            dm1 = self.mf.make_rdm1()
+
+        sc = np.dot(self.base.get_ovlp(), self.mf.mo_coeff)
+        dm1 = np.linalg.multi_dot((sc.T.conj(), dm1, sc))
+
+        cx = np.hstack((self.c_frag, self.c_env))
+        cx = np.dot(sc.T.conj(), cx)
+        dmx = np.linalg.multi_dot((cx.T.conj(), dm1, cx))
+
+        cy = np.hstack((frag.c_frag, frag.c_env))
+        dmy = np.linalg.multi_dot((cy.T.conj(), dm1, cy))
+
+        return np.max(np.abs(dmx - dmy))
 
 
     def make_power_bath(self, max_order=None, c_frag=None, c_env=None):
