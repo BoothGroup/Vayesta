@@ -994,7 +994,6 @@ class GDF(df.GDF):
             self._get_pp = super().get_pp(kpts)
         return self._get_pp
 
-    @property
     def get_ovlp(self):
         if self._ovlp is None:
             self._ovlp = self.cell.pbc_intor('int1e_ovlp', hermi=1, kpts=self.kpts)
