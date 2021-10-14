@@ -730,13 +730,16 @@ class GDF(df.GDF):
         if blksize is None:
             blksize = naux
 
-        for p0, p1 in lib.prange(0, naux, blksize):
-            LpqR = Lpq[ki, kj, p0:p1].real
-            LpqI = Lpq[ki, kj, p0:p1].imag
+        for q0, q1 in lib.prange(0, naux, blksize):
+            LpqR = Lpq[ki, kj, q0:q1].real
+            LpqI = Lpq[ki, kj, q0:q1].imag
             if compact:
-                LpqR = lib.pack_tril(LpqR)
-                LpqI = lib.pack_tril(LpqI)
+                LpqR = lib.pack_tril(LpqR, axis=-1)
+                LpqI = lib.pack_tril(LpqI, axis=-1)
+            LpqR = np.asarray(LpqR.reshape(min(q1-q0, naux), -1), order='C')
+            LpqI = np.asarray(LpqI.reshape(min(q1-q0, naux), -1), order='C')
             yield LpqR, LpqI, 1
+            LpqR = LpqI = None
 
     def get_jk(self, dm, hermi=1, kpts=None, kpts_band=None,
                with_j=True, with_k=True, omega=None, exxdiv=None):
