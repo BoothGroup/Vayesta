@@ -33,7 +33,7 @@ class EAGF2Options(RAGF2Options):
     dmet_threshold: float = 1e-8
 
     # --- Moment settings
-    democratic: bool = True
+    democratic: bool = False
 
     # --- Other
     strict: bool = False
