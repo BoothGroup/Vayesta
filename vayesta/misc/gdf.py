@@ -750,6 +750,7 @@ class GDF(df.GDF):
         Lpq = self._cderi
         naux = Lpq.shape[2]
         vj = vk = None
+        dm = np.asarray(dm, order='C')
 
         max_memory = self.max_memory - lib.current_memory()[0]
         blksize = max(100, min(naux, int(max_memory*.9e6/8/(nao*nao*naux))))
