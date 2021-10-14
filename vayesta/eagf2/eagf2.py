@@ -290,8 +290,7 @@ class EAGF2(QEmbeddingMethod):
             if self.opts.democratic:
                 for x, frag in enumerate(self.fragments):
                     root = x % mpi_helper.size
-                    for attr in ['c_cls_occ', 'c_cls_vir', 'c_env_occ', 'c_env_vir', 'c_ao_cls', \
-                                 'c_qmo_occ', 'c_qmo_vir', 'c_ao_qmo_proj_occ', 'c_ao_qmo_proj_vir']:
+                    for attr in ['pija', 'pabi', 'c_qmo_occ', 'c_qmo_vir']:
                         setattr(frag, attr, mpi_helper.bcast(getattr(frag, attr), root=root))
 
             moms = 0

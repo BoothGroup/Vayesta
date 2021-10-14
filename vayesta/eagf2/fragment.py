@@ -9,7 +9,6 @@ from vayesta.core.util import OptionsBase, NotSet, time_string
 from vayesta.core import QEmbeddingFragment
 from vayesta.core.helper import orbital_sign_convention
 from vayesta.eagf2 import helper
-from vayesta.eagf2.ragf2 import _ao2mo_3c
 
 try:
     from mpi4py import MPI
@@ -55,7 +54,7 @@ def build_moments(frag, other):
         else:
             Lxi, Lja = pija
             Lxi = lib.einsum('Qxi,ik->Qxk', Lxi, ci)
-            Lja = _ao2mo_3c(Lja, ci, ca, mpi=False)
+            Lja = lib.einsum('Qja,jl,ab->Qlb', Lja, ci, ca)
             pija = (Lxi, Lja)
         return pija
 
@@ -535,12 +534,12 @@ class EAGF2Fragment(QEmbeddingFragment):
                         other_frag.c_env_occ, other_frag.c_env_vir = coeffs
 
             # Set rotations if not set:
-            if self.c_ao_cls is None:
+            if self.pija is None:
                 qmos = self.make_qmo_integrals()
                 self.pija, self.pabi, self.c_qmo_occ, self.c_qmo_vir = qmos
 
             # Set other rotations if not set:
-            if other_frag.c_ao_cls is None:
+            if other_frag.pija is None:
                 qmos = other_frag.make_qmo_integrals()
                 other_frag.pija, other_frag.pabi, other_frag.c_qmo_occ, other_frag.c_qmo_vir = qmos
 
