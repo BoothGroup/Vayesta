@@ -27,7 +27,12 @@ def eval_eta0(D, ri_P, ri_M, target_rot, npoints = 100, ainit = 1.0):
     #print("Pinv:")
     #print(np.diag(D ** -1) + dot(ri_Pinv.T, ri_Pinv))
     # This only optimises wrt the trace of the desired quantity, so should have a lower scaling than other steps.
-    grid, weights = opt_NI_grid.get_grid(rik_MP_L, rik_MP_R, rik_PP_L, rik_PP_R, D, target_rot, npoints, ainit)
+    #grid, weights = opt_NI_grid.get_grid(rik_MP_L, rik_MP_R, rik_PP_L, rik_PP_R, D, target_rot, npoints, ainit)
+
+#    grid, weights = opt_NI_grid.get_grid_opt_integral_diff1(rik_MP_L, rik_MP_R, rik_PP_L, rik_PP_R, D, target_rot, npoints, ainit)
+    grid, weights = opt_NI_grid.get_grid_opt_integral_nodiff(rik_MP_L, rik_MP_R, D, target_rot, npoints, ainit)
+
+
 
     integral = np.zeros(D.shape*2)
     for point, weight in zip(grid, weights):
