@@ -1,5 +1,8 @@
 import numpy as np
 from vayesta.core.util import *
+from vayesta.rpa.rirpa import momzero_calculation
+
+
 from pyscf.ao2mo import _ao2mo
 import pyscf.lib
 
@@ -42,6 +45,15 @@ class ssRPA:
         """Virtual MO coefficients."""
         return self.mo_coeff[:,self.nocc:]
     @property
+    def mo_energy(self):
+        return self.mf.mo_energy
+    @property
+    def mo_energy_occ(self):
+        return self.mo_energy[:self.nocc]
+    @property
+    def mo_energy_vir(self):
+        return self.mo_energy[self.nocc:]
+    @property
     def e_corr(self):
         try:
             return self.e_corr_ss
@@ -54,9 +66,17 @@ class ssRPA:
     def kernel(self, maxmom = 0):
         pass
 
-    def kernel_moms(self, maxmom = 0):
+    def kernel_moms(self, maxmom = 0, npoints = 100, ainit=200):
 
-        pass
+        eps = np.zeros((self.nocc, self.nvir))
+        eps = eps + self.mo_energy_vir
+        eps = (eps.T - self.mo_energy_occ).T
+        eps = eps.reshape((self.ov,))
+        D = np.concatenate([eps, eps])
+
+        ri_ApB, ri_AmB = self.construct_RI_AB()
+
+        return momzero_calculation.eval_eta0(D, ri_ApB, ri_AmB, np.eye(2*self.ov), npoints, ainit)
 
     def kernel_energy(self):
 
@@ -68,10 +88,11 @@ class ssRPA:
         # This needs to be optimised, but will do for now.
         v = pyscf.lib.unpack_tril(self.mf._cderi)
         Lov = einsum("npq,pi,qa->nia", v, self.mo_coeff_occ, self.mo_coeff_vir).reshape((self.naux, self.ov))
-        ri_ApB = np.zeros((self.naux*4, self.ov*2))
-        ri_ApB[:self.naux,:self.ov] = Lov
-
-
+        ri_ApB = np.zeros((self.naux, self.ov*2))
+        # Need to include factor of two since eris appear in both A and B.
+        ri_ApB[:,:self.ov] = ri_ApB[:,self.ov:2*self.ov] = np.sqrt(2) * Lov
+        # Use empty AmB contrib initially; this is the dRPA contrib.
+        ri_AmB = np.zeros((0, self.ov*2))
         return ri_ApB, ri_AmB
 
 
