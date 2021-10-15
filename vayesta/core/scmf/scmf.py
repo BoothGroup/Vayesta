@@ -293,5 +293,72 @@ class Brueckner_UHF(Brueckner_RHF):
 
     def update_mo_coeff(self, mf, diis=None):
         t1a, t1b = self.get_t1()
-        # ...
-        raise NotImplementedError()
+        self.log.debug("Norm of T1-alpha: L(2)= %.3e  L(inf)= %.3e", np.linalg.norm(t1a), abs(t1a).max())
+        self.log.debug("Norm of T1-beta : L(2)= %.3e  L(inf)= %.3e", np.linalg.norm(t1b), abs(t1b).max())
+        nocca, nvira = t1a.shape
+        noccb, nvirb = t1b.shape
+        nmoa, nmob = nocca + nvira, noccb + nvirb
+        occa, vira = np.s_[:nocca], np.s_[nocca:]
+        occb, virb = np.s_[:noccb], np.s_[noccb:]
+        ovlp = self.emb.get_ovlp()
+
+        # Perform DIIS in original MO basis, then transform back:
+        if diis and self.diis_obj == 't1':
+            roa = dot(mf.mo_coeff[0][:,occa].T, ovlp, self._mo_orig[0])
+            rob = dot(mf.mo_coeff[1][:,occb].T, ovlp, self._mo_orig[1])
+            rva = dot(mf.mo_coeff[0][:,vira].T, ovlp, self._mo_orig[0])
+            rvb = dot(mf.mo_coeff[1][:,virb].T, ovlp, self._mo_orig[1])
+
+            t1a = dot(roa.T, t1a, rva)
+            t1b = dot(rob.T, t1b, rvb)
+            t1a, t1b = diis.update(np.asarry((t1a,t1b)), xerr=np.asarray((t1a,t1b)))
+            #t1b = diis.update(t1b, xerr=t1b)
+            ## Transform back
+            t1a = dot(roa, t1a, rva.T)
+            t1b = dot(rob, t1b, rvb.T)
+
+        mo_change_a = (1-self.damping)*np.dot(mf.mo_coeff[0][:,vira], t1a.T)
+        mo_change_b = (1-self.damping)*np.dot(mf.mo_coeff[1][:,virb], t1b.T)
+        self.log.debug("Change of occupied Brueckner orbitals (alpha)= %.3e", np.linalg.norm(mo_change_a))
+        self.log.debug("Change of occupied Brueckner orbitals  (beta)= %.3e", np.linalg.norm(mo_change_b))
+        bmo_occ_a = (mf.mo_coeff[0][:,occa] + mo_change_a)
+        bmo_occ_b = (mf.mo_coeff[1][:,occb] + mo_change_b)
+
+        # Orthogonalize occupied orbitals
+        # If there was no AO-overlap matrix:  bmo_occ = np.linalg.qr(bmo_occ)[0]
+        dm_occ_a = np.dot(bmo_occ_a, bmo_occ_a.T)
+        dm_occ_b = np.dot(bmo_occ_b, bmo_occ_b.T)
+        ea, va = scipy.linalg.eigh(dm_occ_a, b=ovlp, type=2)
+        eb, vb = scipy.linalg.eigh(dm_occ_b, b=ovlp, type=2)
+        bmo_occ_a = va[:,-nocca:]
+        bmo_occ_b = vb[:,-noccb:]
+
+        # DIIS of occupied density
+        if diis and self.diis_obj == 'dm1':
+            dm_occ_a = np.dot(bmo_occ_a, bmo_occ_a.T)
+            dm_occ_b = np.dot(bmo_occ_b, bmo_occ_b.T)
+            ra = np.dot(ovlp, self._mo_orig[0])
+            rb = np.dot(ovlp, self._mo_orig[1])
+            dm_occ_a = dot(ra.T, dm_occ_a, ra)
+            dm_occ_b = dot(rb.T, dm_occ_b, rb)
+            #dm_occ_a = diis.update(dm_occ_a)
+            #dm_occ_b = diis.update(dm_occ_b)
+            dm_occ_a, dm_occ_b = diis.update(np.asarray((dm_occ_a, dm_occ_b)))
+            ea, va = np.linalg.eigh(dm_occ_a)
+            eb, vb = np.linalg.eigh(dm_occ_b)
+            bmo_occ_a = np.dot(self._mo_orig[0], va)[:,-nocca:]
+            bmo_occ_b = np.dot(self._mo_orig[1], vb)[:,-noccb:]
+
+        # Virtual space
+        dm_vir_a = (np.linalg.inv(ovlp) - np.dot(bmo_occ_a, bmo_occ_a.T))
+        dm_vir_b = (np.linalg.inv(ovlp) - np.dot(bmo_occ_b, bmo_occ_b.T))
+        ea, va = scipy.linalg.eigh(dm_vir_a, b=ovlp, type=2)
+        eb, vb = scipy.linalg.eigh(dm_vir_b, b=ovlp, type=2)
+        bmo_vir_a = va[:,-nvira:]
+        bmo_vir_b = vb[:,-nvirb:]
+
+        assert (bmo_occ_a.shape[-1] == nocca) and (bmo_vir_a.shape[-1] == nvira)
+        assert (bmo_occ_b.shape[-1] == noccb) and (bmo_vir_b.shape[-1] == nvirb)
+        mo_coeff_a = np.hstack((bmo_occ_a, bmo_vir_a))
+        mo_coeff_b = np.hstack((bmo_occ_b, bmo_vir_b))
+        return (mo_coeff_a, mo_coeff_b)
