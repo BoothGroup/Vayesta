@@ -4,7 +4,7 @@ used in TDHF approaches."""
 import numpy as np
 import scipy.linalg
 
-from pyscf import ao2mo
+import pyscf.ao2mo
 
 from vayesta.core.util import *
 from timeit import default_timer as timer
@@ -178,12 +178,15 @@ class ssRPA:
     def ao2mo(self):
         """Get the ERIs in MO basis
         """
+        mo_coeff = self.mo_coeff
 
         t0 = timer()
-        self.log.info("ERIs will be four centered")
-        mo_coeff = self.mo_coeff
-        self.eri = ao2mo.incore.full(self.mf._eri, mo_coeff, compact=False)
-        self.eri = self.eri.reshape((self.nao,) * 4)
-        self.log.timing("Time for AO->MO:  %s", time_string(timer() - t0))
-
-        return self.eri
+        if hasattr(self.mf, 'with_df') and self.mf.with_df is not None:
+            eris = self.mf.with_df.ao2mo(mo_coeff, compact=False)
+        elif self.mf._eri is not None:
+            eris = pyscf.ao2mo.full(self.mf._eri, mo_coeff, compact=False)
+        else:
+            eris = self.mol.ao2mo(mo_coeff, compact=False)
+        eris = eris.reshape(4*[mo_coeff.shape[-1]])
+        self.log.timing("Time for AO->MO of ERIs:  %s", time_string(timer()-t0))
+        return eris
