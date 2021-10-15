@@ -38,7 +38,7 @@ class UEWFFragment(UFragment, EWFFragment):
         self.bath = bath
         return bath
 
-    def get_fragment_energy(self, c1, c2, eris):
+    def get_fragment_energy(self, c1, c2, eris, solver):
         if (self.opts.energy_factor*self.sym_factor) == 0: return 0
 
         nocc = (c1[0].shape[0], c1[1].shape[0])
@@ -81,7 +81,7 @@ class UEWFFragment(UFragment, EWFFragment):
 
         self.log.debug("Energy components: E(singles)= %s, E(doubles)= %s",
                 energy_string(e_s), energy_string(e_d))
-        if e_s > 0.1*e_d and e_s > 1e-4:
+        if solver != 'FCI' and (e_s > 0.1*e_d and e_s > 1e-4):
             self.log.warning("Large E(singles) component!")
         e_frag = self.opts.energy_factor * self.sym_factor * (e_s + e_d)
         return e_frag

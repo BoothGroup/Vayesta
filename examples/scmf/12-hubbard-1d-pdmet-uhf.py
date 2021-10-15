@@ -41,5 +41,5 @@ for hubbard_u in range(0, 13):
 
     fmt = '%4.1f' + 3*'  %+16.8f' + '\n'
     energies = np.asarray([uhf.e_tot, udmet.e_tot, e_udmet]) / nelectron
-    with open("energies-imp-%d-uhf.txt", 'a') as f:
+    with open("energies-imp-%d-uhf.txt" % nimp, 'a') as f:
         f.write(fmt % (hubbard_u, *energies))

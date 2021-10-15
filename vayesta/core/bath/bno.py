@@ -290,6 +290,7 @@ class BNO_Bath(DMET_Bath):
         n_no, c_no = np.linalg.eigh(dm[env,env])
         n_no, c_no = n_no[::-1], c_no[:,::-1]
         c_no = np.dot(c_env, c_no)
+        c_no = fix_orbital_sign(c_no)[0]
 
         return c_no, n_no
 
