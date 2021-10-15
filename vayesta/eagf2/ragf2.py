@@ -17,6 +17,7 @@ from pyscf.agf2 import chkfile as chkutil
 # Vayesta
 import vayesta
 from vayesta.core.util import time_string, OptionsBase, NotSet
+from vayesta.core import foldscf
 from vayesta.eagf2 import helper
 
 # Timings
@@ -245,7 +246,7 @@ class RAGF2:
     DIIS = DIIS
 
     def __init__(self, mf, log=None, options=None, frozen=(0, 0), eri=None,
-                 mo_energy=None, mo_coeff=None, mo_occ=None, veff=None, **kwargs):
+                 mo_energy=None, mo_coeff=None, mo_occ=None, veff=None, rsjk=None, **kwargs):
         ''' 
         Restricted auxiliary second-order Green's function perturbation theory
         '''
@@ -272,6 +273,7 @@ class RAGF2:
         self.mo_occ = mo_occ if mo_occ is not None else mf.get_occ(self.mo_energy, self.mo_coeff)
         self.h1e = self._get_h1e(self.mo_coeff)
         self.eri = eri
+        self.rsjk = rsjk
         self.gf = self.se = None
         self.e_init = 0.0
         self.e_1b = self.mf.e_tot
@@ -739,7 +741,7 @@ class RAGF2:
             return gf, se, converged, fock
 
 
-    def get_fock(self, gf=None, rdm1=None, with_frozen=True):
+    def get_fock(self, gf=None, rdm1=None, with_frozen=True, fock_last=None):
         ''' Get the Fock matrix including all frozen contributions
         '''
         #TODO check these expressions for complex ERIs
@@ -749,6 +751,9 @@ class RAGF2:
         elif self.opts.fock_basis.lower() == 'adc':
             h2 = second_order_singles(self, gf=gf)
             return np.diag(self.mo_energy) + h2
+        elif self.opts.fock_basis.lower() == 'rsjk':
+            return self._get_fock_via_rsjk(
+                    gf=gf, rdm1=rdm1, with_frozen=with_frozen, fock_last=fock_last)
 
         t0 = timer()
         self.log.debugv("Building Fock matrix")
@@ -819,6 +824,51 @@ class RAGF2:
 
         self.log.timingv("Time for Fock matrix:  %s", time_string(timer() - t0))
         
+        return fock
+
+
+    def _get_fock_via_rsjk(self, gf=None, rdm1=None, with_frozen=True, rdm1_last=None, fock_last=None):
+        '''
+        Get the Fock matrix via unfolding the Fock matrix calculated
+        in the Born-van Karman supercell using a range-separation JK
+        builder. Supports direct calculations.
+        '''
+
+        t0 = timer()
+        self.log.debugv("Building Fock matrix via RSJK")
+
+        gf = gf or self.gf
+        mo_coeff = self.mo_coeff
+        if rdm1 is None:
+            rdm1 = self.make_rdm1(gf=gf, with_frozen=True)
+        rdm1_ao = np.linalg.multi_dot((mo_coeff, rdm1, mo_coeff.T.conj()))
+
+        if rdm1_last is not None:
+            if rdm1_last.shape != rdm1.shape:
+                # rdm1_last is frozen - pad with zeros
+                rdm1_last_ = np.zeros_like(rdm1)
+                rdm1_last_[self.act, self.act] = rdm1_last
+                rdm1_last = rdm1_last_
+            rdm1_last_ao = np.linalg.multi_dot((mo_coeff, rdm1_last, mo_coeff.T.conj()))
+            veff_last = fock_last - self.h1e
+        else:
+            rdm1_last_ao = veff_last = 0
+
+        rdm1_ao_kpts = foldscf.bvk2k_2d(rdm1_ao - rdm1_last_ao, self.rsjk.phase)
+        vj_ao_kpts, vk_ao_kpts = self.rsjk.get_jk(rdm1_ao_kpts)
+        veff_ao_kpts = vj_ao_kpts - 0.5 * vk_ao_kpts
+        veff_ao = foldscf.k2bvk_2d(veff_ao_kpts, self.rsjk.phase)
+
+        veff = np.linalg.multi_dot((mo_coeff.T.conj(), veff_ao, mo_coeff))
+        veff += veff_last
+
+        fock = self.h1e + veff
+
+        if not with_frozen:
+            fock = fock[self.act, self.act]
+
+        self.log.timingv("Time for Fock matrix:  %s", time_string(timer() - t0))
+
         return fock
         
 

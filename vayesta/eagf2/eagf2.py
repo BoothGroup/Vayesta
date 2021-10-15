@@ -5,6 +5,7 @@ import numpy as np
 import scipy.linalg
 
 from pyscf.agf2 import mpi_helper, aux
+from pyscf.pbc.scf.rsjk import RangeSeparationJKBuilder
 
 import vayesta
 from vayesta.ewf import helper
@@ -40,6 +41,7 @@ class EAGF2Options(RAGF2Options):
     orthogonal_mo_tol: float = 1e-10
     recalc_vhf: bool = False
     copy_mf: bool = False
+    with_rsjk: bool = False
 
     # --- Different defaults for some RAGF2 settings
     conv_tol: float = 1e-6
@@ -233,10 +235,16 @@ class EAGF2(QEmbeddingMethod):
                     veff=np.empty(()),
                     log=self.log,
                     options=self.opts,
-                    fock_basis='ao',
+                    fock_basis='ao' if not self.opts.with_rsjk else 'rsjk',
                     weight_tol=0.0,  #NOTE dimension errors without this...
             )
             solver.log = self.log
+
+        if self.opts.with_rsjk:
+            rsjk = RangeSeparationJKBuilder(self.kcell, self.kpts)
+            rsjk.verbose = self.kcell.verbose
+            rsjk.build(direct_scf_tol=self.opts.conv_tol_rdm1)
+            solver.rsjk = rsjk
 
         diis = self.DIIS(space=self.opts.diis_space, min_space=self.opts.diis_min_space)
         solver.se = aux.SelfEnergy(np.empty((0)), np.empty((solver.nact, 0)))
