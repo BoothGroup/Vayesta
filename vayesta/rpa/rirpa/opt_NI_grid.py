@@ -32,7 +32,7 @@ def get_grid_opt_integral_nodiff(rik_MP_L, rik_MP_R, D, target_rot, npoints, ain
 
     def get_val(a):
         res= sum(eval_diag_approx_val(a, npoints, mat) - mat**(0.5))
-        print(a,res)
+        #print(a,res)
         return res
     def get_deriv1(a):
         return sum(eval_diag_approx_deriv1(a, npoints, mat))
@@ -49,11 +49,6 @@ def get_grid_opt_integral_nodiff(rik_MP_L, rik_MP_R, D, target_rot, npoints, ain
     print("!",solve)
     return gen_ClenCur_quad(solve, npoints, True)
 
-    #return gen_ClenCur_quad(ainit, npoints, even = True)
-
-
-
-
 def get_grid_opt_integral_diff1(rik_MP_L, rik_MP_R, rik_PP_L, rik_PP_R, D, target_rot, npoints, ainit = 1.0, ):
     """Generate optimal quadrature grid via minimising difference in a diagonal approximation to our matrices."""
     mat = D**2 + einsum("np,np->p",rik_MP_L, rik_MP_R)
@@ -61,7 +56,7 @@ def get_grid_opt_integral_diff1(rik_MP_L, rik_MP_R, rik_PP_L, rik_PP_R, D, targe
 
     def get_val(a):
         res = sum(eval_diag_approx_val(a, npoints, mat) - mat**(0.5) - eval_diag_approx_val(a, npoints, mat2) + mat2**(0.5))
-        print(a,res)
+        #print(a,res)
         return res
     def get_deriv1(a):
         return sum(eval_diag_approx_deriv1(a, npoints, mat) - eval_diag_approx_deriv1(a, npoints, mat2))
@@ -74,30 +69,61 @@ def get_grid_opt_integral_diff1(rik_MP_L, rik_MP_R, rik_PP_L, rik_PP_R, D, targe
     print("Testing derivs...")
     print(get_deriv1(ainit), (get_val(ainit+delta) - get_val(ainit - delta)) / (2*delta))
     print(get_deriv2(ainit), (get_deriv1(ainit + delta) - get_deriv1(ainit - delta)) / (2*delta))
-    print("Mat1 deriv:")
-    print(eval_diag_approx_deriv1(ainit, npoints, mat))
-    print((eval_diag_approx_val(ainit+delta, npoints, mat) - eval_diag_approx_val(ainit, npoints, mat))/delta)
-    print("Mat2 deriv:")
-    print(eval_diag_approx_deriv1(ainit, npoints, mat2))
-    print((eval_diag_approx_val(ainit + delta, npoints, mat2) - eval_diag_approx_val(ainit, npoints, mat2)) / delta)
-    print("Mat1 deriv2")
-    print(eval_diag_approx_deriv2(ainit, npoints, mat))
-    print((eval_diag_approx_deriv1(ainit+delta, npoints, mat) - eval_diag_approx_deriv1(ainit, npoints, mat))/delta)
-    print("Mat2 deriv2")
-    print(eval_diag_approx_deriv2(ainit, npoints, mat2))
-    print((eval_diag_approx_deriv1(ainit+delta, npoints, mat2) - eval_diag_approx_deriv1(ainit, npoints, mat2))/delta)
+    #print("Mat1 deriv:")
+    #print(eval_diag_approx_deriv1(ainit, npoints, mat))
+    #print((eval_diag_approx_val(ainit+delta, npoints, mat) - eval_diag_approx_val(ainit, npoints, mat))/delta)
+    #print("Mat2 deriv:")
+    #print(eval_diag_approx_deriv1(ainit, npoints, mat2))
+    #print((eval_diag_approx_val(ainit + delta, npoints, mat2) - eval_diag_approx_val(ainit, npoints, mat2)) / delta)
+    #print("Mat1 deriv2")
+    #print(eval_diag_approx_deriv2(ainit, npoints, mat))
+    #print((eval_diag_approx_deriv1(ainit+delta, npoints, mat) - eval_diag_approx_deriv1(ainit, npoints, mat))/delta)
+    #print("Mat2 deriv2")
+    #print(eval_diag_approx_deriv2(ainit, npoints, mat2))
+    #print((eval_diag_approx_deriv1(ainit+delta, npoints, mat2) - eval_diag_approx_deriv1(ainit, npoints, mat2))/delta)
+
+    solve = scipy.optimize.newton(get_val, x0=ainit, fprime=get_deriv1, fprime2=get_deriv2)
+    print("Optimised quadrature grid with a={:4.2e}".format(solve))
+    return gen_ClenCur_quad(solve, npoints, True)
+
+def get_grid_opt_integral_diff2(rik_MP_L, rik_MP_R, D, target_rot, npoints, ainit = 1.0, ):
+    """Generate optimal quadrature grid via minimising difference in a diagonal approximation to our matrices."""
+    mat = D**2 + einsum("np,np->p",rik_MP_L, rik_MP_R)
+    # In this approach, we only treat the dominant diagonal contribution to P approximately.
+    mat2 = D**2
+
+    def get_val(a):
+        res = sum(eval_diag_approx_val(a, npoints, mat) - mat**(0.5) - eval_diag_approx_val(a, npoints, mat2) + mat2**(0.5))
+        #print(a,res)
+        return res
+    def get_deriv1(a):
+        return sum(eval_diag_approx_deriv1(a, npoints, mat) - eval_diag_approx_deriv1(a, npoints, mat2))
+    def get_deriv2(a):
+        return sum(eval_diag_approx_deriv2(a, npoints, mat) - eval_diag_approx_deriv2(a, npoints, mat2))
 
 
-    res = scipy.optimize.newton(get_val, x0=ainit)#, fprime=get_deriv1), fprime2=get_deriv2)
-    print(res)
-    return res
-    #return gen_ClenCur_quad(ainit, npoints, even = True)
+    delta = 1e-6
+    print(get_val(ainit))
+    print("Testing derivs...")
+    print(get_deriv1(ainit), (get_val(ainit+delta) - get_val(ainit - delta)) / (2*delta))
+    print(get_deriv2(ainit), (get_deriv1(ainit + delta) - get_deriv1(ainit - delta)) / (2*delta))
+    #print("Mat1 deriv:")
+    #print(eval_diag_approx_deriv1(ainit, npoints, mat))
+    #print((eval_diag_approx_val(ainit+delta, npoints, mat) - eval_diag_approx_val(ainit, npoints, mat))/delta)
+    #print("Mat2 deriv:")
+    #print(eval_diag_approx_deriv1(ainit, npoints, mat2))
+    #print((eval_diag_approx_val(ainit + delta, npoints, mat2) - eval_diag_approx_val(ainit, npoints, mat2)) / delta)
+    #print("Mat1 deriv2")
+    #print(eval_diag_approx_deriv2(ainit, npoints, mat))
+    #print((eval_diag_approx_deriv1(ainit+delta, npoints, mat) - eval_diag_approx_deriv1(ainit, npoints, mat))/delta)
+    #print("Mat2 deriv2")
+    #print(eval_diag_approx_deriv2(ainit, npoints, mat2))
+    #print((eval_diag_approx_deriv1(ainit+delta, npoints, mat2) - eval_diag_approx_deriv1(ainit, npoints, mat2))/delta)
 
+    solve = scipy.optimize.newton(get_val, x0=ainit, fprime=get_deriv1, fprime2=get_deriv2)
+    print(solve)
+    return gen_ClenCur_quad(solve, npoints, True)
 
-
-
-
-    return gen_ClenCur_quad(ainit, npoints, even = True)
 
 def eval_diag_approx_derivs(a, npoints, D):
     points, weights = gen_ClenCur_quad(a, npoints, even=True)

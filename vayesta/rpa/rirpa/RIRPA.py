@@ -66,7 +66,7 @@ class ssRPA:
     def kernel(self, maxmom = 0):
         pass
 
-    def kernel_moms(self, maxmom = 0, npoints = 100, ainit=200):
+    def kernel_moms(self, maxmom = 0, npoints = 100, ainit=1.0, integral_deduct = "D"):
 
         eps = np.zeros((self.nocc, self.nvir))
         eps = eps + self.mo_energy_vir
@@ -76,7 +76,7 @@ class ssRPA:
 
         ri_ApB, ri_AmB = self.construct_RI_AB()
 
-        return momzero_calculation.eval_eta0(D, ri_ApB, ri_AmB, np.eye(2*self.ov), npoints, ainit)
+        return momzero_calculation.eval_eta0(D, ri_ApB, ri_AmB, np.eye(2*self.ov), npoints, ainit, integral_deduct=integral_deduct)
 
     def kernel_energy(self):
 
