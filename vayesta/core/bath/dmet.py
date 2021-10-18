@@ -138,6 +138,7 @@ class DMET_Bath:
         if ((eig.max()-1) > 1e-9):
             self.log.warning("Max eigenvalue of env. DM = %.6e", eig.max())
         c_env = np.dot(c_env, r)
+        c_env = fix_orbital_sign(c_env)[0]
 
         if nbath is not None:
             # Work out tolerance which leads to nbath bath orbitals. This overwrites `tol`.

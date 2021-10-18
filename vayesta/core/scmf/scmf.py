@@ -166,7 +166,9 @@ class PDMET_RHF(SCMF):
             self.log.debug("p-DMET MO occupation numbers (occupied):\n%s", mo_occ[:nocc])
             self.log.debug("p-DMET MO occupation numbers (virtual):\n%s", mo_occ[nocc:])
         mo_coeff = np.dot(self._mo_orig, rot)
+        mo_coeff = fix_orbital_sign(mo_coeff)[0]
         return mo_coeff
+
 
 class PDMET_UHF(PDMET_RHF):
 
@@ -222,6 +224,8 @@ class PDMET_UHF(PDMET_RHF):
 
         mo_coeff_a = np.dot(self._mo_orig[0], rot_a)
         mo_coeff_b = np.dot(self._mo_orig[1], rot_b)
+        mo_coeff_a = fix_orbital_sign(mo_coeff_a)[0]
+        mo_coeff_b = fix_orbital_sign(mo_coeff_b)[0]
         return (mo_coeff_a, mo_coeff_b)
 
 
@@ -287,6 +291,7 @@ class Brueckner_RHF(SCMF):
 
         assert (bmo_occ.shape[-1] == nocc) and (bmo_vir.shape[-1] == nvir)
         mo_coeff = np.hstack((bmo_occ, bmo_vir))
+        mo_coeff = fix_orbital_sign(mo_coeff)[0]
         return mo_coeff
 
 class Brueckner_UHF(Brueckner_RHF):

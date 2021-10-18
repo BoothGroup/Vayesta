@@ -8,6 +8,7 @@ def ActiveSpace(mf, *args, **kwargs):
         return ActiveSpace_RHF(mf, *args, **kwargs)
     return ActiveSpace_UHF(mf, *args, **kwargs)
 
+
 class ActiveSpace_RHF:
 
     def __init__(self, mf, c_active_occ, c_active_vir, c_frozen_occ=None, c_frozen_vir=None):

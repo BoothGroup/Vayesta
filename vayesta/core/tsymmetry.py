@@ -139,6 +139,7 @@ def reorder_atoms(cell, tvec, boundary=None, unit='Ang', check_basis=True):
     log.debugv("lattice vectors=\n%r", rvecs)
     log.debugv("inverse lattice vectors=\n%r", bvecs)
     atom_coords = np.dot(cell.atom_coords(), bvecs.T)
+    log.debugv("Atom coordinates:")
     for atm, coords in enumerate(atom_coords):
         log.debugv("%3d %f %f %f", atm, *coords)
     log.debugv("boundary= %r", boundary)
@@ -170,12 +171,12 @@ def reorder_atoms(cell, tvec, boundary=None, unit='Ang', check_basis=True):
     reorder = np.full((natm,), -1)
     inverse = np.full((natm,), -1)
     phases = np.full((natm,), 0)
-    tvec = np.dot(tvec, bvecs.T)
+    tvec_internal = np.dot(tvec, bvecs.T)
     for atm0 in range(cell.natm):
-        atm1, phase = get_atom_at(atom_coords[atm0] + tvec)
+        atm1, phase = get_atom_at(atom_coords[atm0] + tvec_internal)
         if atm1 is None or not compare_atoms(cell, atm0, atm1, check_basis=check_basis):
             return None, None, None
-        log.debugv("atom %d T-symmetric to atom %d for translation %r", atm1, atm0, tvec)
+        log.debugv("atom %d T-symmetric to atom %d for translation %s", atm1, atm0, tvec)
         reorder[atm1] = atm0
         inverse[atm0] = atm1
         phases[atm0] = phase

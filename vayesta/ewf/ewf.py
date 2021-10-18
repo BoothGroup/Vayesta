@@ -197,7 +197,7 @@ class EWF(QEmbeddingMethod):
         err = abs(dot(c.T, ovlp, c) - np.eye(c.shape[-1])).max()
         if err > 1e-5:
             self.log.error("Orthogonality error of MOs= %.2e !!!", err)
-        else:   
+        else:
             self.log.debug("Orthogonality error of MOs= %.2e", err)
         if self.opts.orthogonal_mo_tol and err > self.opts.orthogonal_mo_tol:
             t0 = timer()
@@ -525,6 +525,12 @@ class EWF(QEmbeddingMethod):
                 for x, frag in enumerate(self.fragments):
                     if MPI_rank != (x % MPI_size):
                         continue
+                    # Do not calculate symmetry children
+                    if frag.sym_parent is not None:
+                        self.log.debugv("Skipping %s with symmetry parent %s", frag.name, frag.sym_parent.name)
+                        self.cluster_results[(frag.id, bno_thr)] = frag.results
+                        continue
+
                     mpi_info = (" on MPI process %d" % MPI_rank) if MPI_size > 1 else ""
                     msg = "Now running %s%s" % (frag, mpi_info)
                     self.log.info(msg)

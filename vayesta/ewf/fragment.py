@@ -170,17 +170,24 @@ class EWFFragment(QEmbeddingFragment):
         self.bath = bath
         return bath
 
-    def make_cluster(self, bath, bno_threshold=None, bno_number=None):
+    def make_cluster(self, bath=None, bno_threshold=None, bno_number=None):
+        if bath is None:
+            bath = self.bath
+        if bath is None:
+            raise ValueError("make_cluster requires bath.")
 
-        c_bno_occ, c_frozen_occ = bath.get_occupied_bath(bno_threshold[0], bno_number[0])
-        c_bno_vir, c_frozen_vir = bath.get_virtual_bath(bno_threshold[1], bno_number[1])
+        if isinstance(bath, BNO_Bath):
+            c_bno_occ, c_frozen_occ = bath.get_occupied_bath(bno_threshold[0], bno_number[0])
+            c_bno_vir, c_frozen_vir = bath.get_virtual_bath(bno_threshold[1], bno_number[1])
+        else:
+            c_bno_occ, c_frozen_occ = bath.get_occupied_bath()
+            c_bno_vir, c_frozen_vir = bath.get_virtual_bath()
 
         # Canonicalize orbitals
         c_active_occ = self.canonicalize_mo(bath.c_cluster_occ, c_bno_occ)[0]
         c_active_vir = self.canonicalize_mo(bath.c_cluster_vir, c_bno_vir)[0]
         # Do not overwrite self.c_active_occ/vir yet - we still need the previous coefficients
         # to generate an intial guess
-
         cluster = ActiveSpace(self.mf, c_active_occ, c_active_vir, c_frozen_occ=c_frozen_occ, c_frozen_vir=c_frozen_vir)
 
         # Check occupations
@@ -284,7 +291,7 @@ class EWFFragment(QEmbeddingFragment):
         p1 = self.project_amplitude_to_fragment(cluster_solver.get_c1(), cluster.c_active_occ, cluster.c_active_vir)
         p2 = self.project_amplitude_to_fragment(cluster_solver.get_c2(), cluster.c_active_occ, cluster.c_active_vir)
 
-        e_corr = self.get_fragment_energy(p1, p2, eris=eris)
+        e_corr = self.get_fragment_energy(p1, p2, eris=eris, solver=solver)
         if bno_threshold[0] is not None:
             if bno_threshold[0] == bno_threshold[1]:
                 self.log.info("BNO threshold= %.1e :  E(corr)= %+14.8f Ha", bno_threshold[0], e_corr)
@@ -419,7 +426,7 @@ class EWFFragment(QEmbeddingFragment):
     #    #e_frag = self.opts.energy_factor * self.sym_factor * (e1 + e2)
     #    return (t1_pf, t2_pf), (e1b, e2b_conn, e2b_disc)
 
-    def get_fragment_energy(self, p1, p2, eris):
+    def get_fragment_energy(self, p1, p2, eris, solver):
         """Calculate fragment correlation energy contribution from porjected C1, C2.
 
         Parameters
@@ -462,7 +469,7 @@ class EWFFragment(QEmbeddingFragment):
         e_d = 2*einsum('ijab,iabj', p2, g_ovvo) - einsum('ijab,jabi', p2, g_ovvo)
         self.log.debug("Energy components: E(singles)= %s, E(doubles)= %s",
                 energy_string(e_s), energy_string(e_d))
-        if e_s > 0.1*e_d and e_s > 1e-4:
+        if solver != 'FCI' and (e_s > 0.1*e_d and e_s > 1e-4):
             self.log.warning("Large E(singles) component!")
         e_frag = self.opts.energy_factor * self.sym_factor * (e_s + e_d)
         return e_frag
