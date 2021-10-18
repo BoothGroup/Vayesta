@@ -28,6 +28,7 @@ from pyscf.pbc.df.df_jk import _ewald_exxdiv_for_G0, _format_dms
 from pyscf.pbc.df.fft_ao2mo import _iskconserv, _format_kpts
 from pyscf.pbc.lib.kpts_helper import is_zero, gamma_point, unique, KPT_DIFF_TOL, get_kconserv
 
+from vayesta import libs
 from vayesta.core.util import time_string
 
 try:
@@ -410,7 +411,6 @@ def _cholesky_decomposed_metric(with_df, j2c, uniq_kptji_id, log=None):
             pass
 
     if j2c_chol is None:
-        raise NotImplementedError("This may be broken")
         w, v = scipy.linalg.eigh(j2c[uniq_kptji_id])
         cond = w.max() / w.min()
         mask = w > with_df.linear_dep_threshold
@@ -754,76 +754,113 @@ class GDF(df.GDF):
         if not (kpts is None or kpts is self.kpts):
             raise ValueError('%s.get_jk only supports kpts=None or kpts=GDF.kpts' % self.__class__)
 
-        kpts = self.kpts
-        nkpts = len(kpts)
+        nkpts = len(self.kpts)
         nao = self.cell.nao_nr()
-        Lpq = self._cderi
-        naux = Lpq.shape[2]
-        vj = vk = None
+        naux = self.get_naoaux()
+        naux_slice = (
+                mpi_helper.rank * naux // mpi_helper.size,
+                (mpi_helper.rank+1) * naux // mpi_helper.size,
+        )
+
+        kconserv = np.asarray(self.kconserv, order='C')
+        cderi = np.asarray(self._cderi, order='C')
         dm = np.asarray(dm, order='C')
+        vj = vk = None
 
-        max_memory = self.max_memory - lib.current_memory()[0]
-        blksize = max(100, min(naux, int(max_memory*.9e6/8/(nao*nao*naux))))
-
-        # ijkl,lk->ij
         if with_j:
-            vj = np.zeros((nkpts, 1, nao*nao), dtype=np.complex128)
-
-            for p0, p1 in mpi_helper.prange(0, naux, naux):
-                buf = np.empty((min(p1-p0, naux), 1), dtype=np.complex128)
-
-                for ki in range(nkpts):
-                    buf = lib.dot(
-                            Lpq[ki, ki, p0:p1].reshape(-1, nao*nao),
-                            dm[ki].reshape(-1, 1),
-                            c=buf,
-                    )
-
-                    for kk in range(nkpts):
-                        kl = self.kconserv[ki, ki, kk]
-
-                        vj[kk] = lib.dot(
-                                buf.reshape(1, -1),
-                                Lpq[kk, kl, p0:p1].reshape(-1, nao*nao),
-                                c=vj[kk],
-                                beta=1,
-                        )
-
-                del buf
-
-            vj /= nkpts
-            vj = vj.reshape(nkpts, nao, nao)
-
-            mpi_helper.barrier()
-            mpi_helper.allreduce_safe_inplace(vj)
-
-        # ilkj,lk->ij
+            vj = np.zeros((nkpts, nao, nao), dtype=np.complex128)
         if with_k:
             vk = np.zeros((nkpts, nao, nao), dtype=np.complex128)
 
-            for p0, p1 in mpi_helper.prange(0, naux, naux):
-                buf = np.empty((min(p1-p0, naux)*nao, nao), dtype=np.complex128)
+        libcore = libs.load_library('core')
+        libcore.j3c_jk(
+                ctypes.c_int64(nkpts),
+                ctypes.c_int64(nao),
+                ctypes.c_int64(naux),
+                (ctypes.c_int64*2)(*naux_slice),
+                cderi.ctypes.data_as(ctypes.c_void_p),
+                dm.ctypes.data_as(ctypes.c_void_p),
+                ctypes.c_bool(with_j),
+                ctypes.c_bool(with_k),
+                vj.ctypes.data_as(ctypes.c_void_p) if vj is not None \
+                        else ctypes.POINTER(ctypes.c_void_p)(),
+                vk.ctypes.data_as(ctypes.c_void_p) if vk is not None \
+                        else ctypes.POINTER(ctypes.c_void_p)(),
+        )
 
-                for ki in range(nkpts):
-                    for kk in range(nkpts):
-                        kl = self.kconserv[ki, ki, kk]
+        mpi_helper.barrier()
+        mpi_helper.allreduce_safe_inplace(vj)
+        mpi_helper.allreduce_safe_inplace(vk)
 
-                        buf = lib.dot(
-                                Lpq[kk, ki, p0:p1].reshape(-1, nao),
-                                dm[ki],
-                                c=buf,
-                        )
+        #kpts = self.kpts
+        #nkpts = len(kpts)
+        #nao = self.cell.nao_nr()
+        #Lpq = self._cderi
+        #naux = Lpq.shape[2]
+        #vj = vk = None
 
-                        vk[kk] = lib.dot(
-                                buf.reshape(-1, nao, nao).swapaxes(1, 2).reshape(-1, nao).T,
-                                Lpq[ki, kl, p0:p1].reshape(-1, nao),
-                                c=vk[kk],
-                                beta=1,
-                        )
+        #max_memory = self.max_memory - lib.current_memory()[0]
+        #blksize = max(100, min(naux, int(max_memory*.9e6/8/(nao*nao*naux))))
 
-                del buf
+        ## ijkl,lk->ij
+        #if with_j:
+        #    vj = np.zeros((nkpts, 1, nao*nao), dtype=np.complex128)
 
-            vk /= nkpts
+        #    for p0, p1 in mpi_helper.prange(0, naux, naux):
+        #        buf = np.empty((min(p1-p0, naux), 1), dtype=np.complex128)
+
+        #        for ki in range(nkpts):
+        #            buf = lib.dot(
+        #                    Lpq[ki, ki, p0:p1].reshape(-1, nao*nao),
+        #                    dm[ki].T.reshape(-1, 1),
+        #                    c=buf,
+        #            )
+
+        #            for kk in range(nkpts):
+        #                kl = self.kconserv[ki, ki, kk]
+
+        #                vj[kk] = lib.dot(
+        #                        buf.reshape(1, -1),
+        #                        Lpq[kk, kl, p0:p1].reshape(-1, nao*nao),
+        #                        c=vj[kk],
+        #                        beta=1,
+        #                )
+
+        #        del buf
+
+        #    vj /= nkpts
+        #    vj = vj.reshape(nkpts, nao, nao)
+
+        #    mpi_helper.barrier()
+        #    mpi_helper.allreduce_safe_inplace(vj)
+
+        ## ilkj,lk->ij
+        #if with_k:
+        #    vk = np.zeros((nkpts, nao, nao), dtype=np.complex128)
+
+        #    for p0, p1 in mpi_helper.prange(0, naux, naux):
+        #        buf = np.empty((min(p1-p0, naux)*nao, nao), dtype=np.complex128)
+
+        #        for ki in range(nkpts):
+        #            for kk in range(nkpts):
+        #                kl = self.kconserv[ki, ki, kk]
+
+        #                buf = lib.dot(
+        #                        Lpq[kk, ki, p0:p1].reshape(-1, nao),
+        #                        dm[ki],
+        #                        c=buf,
+        #                )
+
+        #                vk[kk] = lib.dot(
+        #                        buf.reshape(-1, nao, nao).swapaxes(1, 2).reshape(-1, nao).T,
+        #                        Lpq[ki, kl, p0:p1].reshape(-1, nao),
+        #                        c=vk[kk],
+        #                        beta=1,
+        #                )
+
+        #        del buf
+
+        #    vk /= nkpts
 
         if with_k and exxdiv == 'ewald':
             s = self.get_ovlp()
