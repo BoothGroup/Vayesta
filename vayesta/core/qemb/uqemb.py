@@ -1,3 +1,7 @@
+import os
+import os.path
+from datetime import datetime
+
 import numpy as np
 
 import pyscf
@@ -75,6 +79,27 @@ class UEmbedding(QEmbedding):
             res_s = super().check_orthonormal(mo_coeff[s], mo_name=name_s, **kwargs)
             results.append(res_s)
         return tuple(zip(*results))
+
+    def get_exxdiv(self):
+        """Get divergent exact-exchange (exxdiv) energy correction and potential.
+
+        Returns
+        -------
+        e_exxdiv: float
+            Divergent exact-exchange energy correction per unit cell.
+        v_exxdiv: array
+            Divergent exact-exchange potential correction in AO basis.
+        """
+        if not self.has_exxdiv: return 0, None
+        ovlp = self.get_ovlp()
+        sca = np.dot(ovlp, self.mo_coeff[0][:,:self.nocc[0]])
+        scb = np.dot(ovlp, self.mo_coeff[1][:,:self.nocc[1]])
+        madelung = pyscf.pbc.tools.madelung(self.mol, self.mf.kpt)
+        e_exxdiv = -madelung * (self.nocc[0]+self.nocc[1]) / (2*self.ncells)
+        v_exxdiv_a = -madelung * np.dot(sca, sca.T)
+        v_exxdiv_b = -madelung * np.dot(scb, scb.T)
+        self.log.debug("Divergent exact-exchange (exxdiv) correction= %+16.8f Ha", e_exxdiv)
+        return e_exxdiv, (v_exxdiv_a, v_exxdiv_b)
 
     # TODO:
 
@@ -208,5 +233,21 @@ class UEmbedding(QEmbedding):
     # --- Other
     # ---------
 
-    def pop_analysis(self, *args, **kwargs):
-        raise NotImplementedError()
+    def pop_analysis(self, dm1, mo_coeff=None, write=True, **kwargs):
+        pop = []
+        for s, spin in enumerate(('alpha', 'beta')):
+            mo = mo_coeff[s] if mo_coeff is not None else None
+            pop.append(super().pop_analysis(dm1[s], mo_coeff=mo, write=False, **kwargs))
+        pop = tuple(pop)
+        if write:
+            self.write_population(pop, **kwargs)
+        return pop
+
+    def get_atomic_charges(self, pop):
+        charges = np.zeros(self.mol.natm)
+        spins = np.zeros(self.mol.natm)
+        for i, label in enumerate(self.mol.ao_labels(fmt=None)):
+            charges[label[0]] -= (pop[0][i] + pop[1][i])
+            spins[label[0]] += (pop[0][i] - pop[1][i])
+        charges += self.mol.atom_charges()
+        return charges, spins

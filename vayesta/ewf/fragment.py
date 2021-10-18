@@ -191,8 +191,21 @@ class EWFFragment(QEmbeddingFragment):
         cluster = ActiveSpace(self.mf, c_active_occ, c_active_vir, c_frozen_occ=c_frozen_occ, c_frozen_vir=c_frozen_vir)
 
         # Check occupations
-        self.check_mo_occupation((2 if self.base.is_rhf else 1), cluster.c_occ)
-        self.check_mo_occupation(0, cluster.c_vir)
+        #self.check_mo_occupation((2 if self.base.is_rhf else 1), cluster.c_occ)
+        #self.check_mo_occupation(0, cluster.c_vir)
+
+        def check_occupation(mo_coeff, expected):
+            occup = self.get_mo_occupation(mo_coeff)
+            # RHF
+            if np.ndim(occup[0]) == 0:
+                assert np.allclose(occup, 2*expected, rtol=0, atol=2*self.opts.dmet_threshold)
+            else:
+                assert np.allclose(occup[0], expected, rtol=0, atol=self.opts.dmet_threshold)
+                assert np.allclose(occup[1], expected, rtol=0, atol=self.opts.dmet_threshold)
+
+        check_occupation(cluster.c_occ, 1)
+        check_occupation(cluster.c_vir, 0)
+
         self.cluster = cluster
         return cluster
 

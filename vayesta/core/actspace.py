@@ -242,12 +242,12 @@ class ActiveSpace_UHF(ActiveSpace_RHF):
     # --- Indices and slices
 
     def get_active_slice(self):
-        return (np.s_[self.nocc_frozen[0]:self.nocc_frozen[0]+self.nactive[0]],
-                np.s_[self.nocc_frozen[1]:self.nocc_frozen[1]+self.nactive[1]])
+        return (np.s_[self.nocc_frozen[0]:self.nocc_frozen[0]+self.norb_active[0]],
+                np.s_[self.nocc_frozen[1]:self.nocc_frozen[1]+self.norb_active[1]])
 
     def get_active_indices(self):
-        return (list(range(self.nocc_frozen[0], self.nocc_frozen[0]+self.nactive[0])),
-                list(range(self.nocc_frozen[1], self.nocc_frozen[1]+self.nactive[1])))
+        return (list(range(self.nocc_frozen[0], self.nocc_frozen[0]+self.norb_active[0])),
+                list(range(self.nocc_frozen[1], self.nocc_frozen[1]+self.norb_active[1])))
 
     def get_frozen_indices(self):
         return (list(range(self.nocc_frozen[0])) + list(range(self.norb[0]-self.nvir_frozen[0], self.norb[0])),
@@ -271,6 +271,20 @@ class ActiveSpace_UHF(ActiveSpace_RHF):
         return self.nocc_frozen
 
     # --- Other:
+
+    def add_frozen_rdm1(self, dm1_active):
+        if (dm1_active[0].shape != (self.norb_active[0], self.norb_active[0])
+         or dm1_active[1].shape != (self.norb_active[1], self.norb_active[1])):
+            raise ValueError("Invalid DM shape: %r %r. N(active)= %d %d" % (
+                list(dm1_active[0].shape), list(dm1_active[1].shape), *self.norb_active))
+        dm1a = np.zeros((self.norb[0], self.norb[0]))
+        dm1b = np.zeros((self.norb[1], self.norb[1]))
+        dm1a[np.diag_indices(self.nocc[0])] = 1
+        dm1b[np.diag_indices(self.nocc[1])] = 1
+        acta, actb = self.get_active_slice()
+        dm1a[acta,acta] = dm1_active[0]
+        dm1b[actb,actb] = dm1_active[1]
+        return (dm1a, dm1b)
 
     def log_sizes(self, logger, header=None):
         if header:

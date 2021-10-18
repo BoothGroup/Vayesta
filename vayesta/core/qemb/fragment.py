@@ -201,7 +201,7 @@ class Fragment:
         #fmt = ('%s(' + len(keys)*'%s: %r, ')[:-2] + ')'
         #values = [self.__dict__[k] for k in keys]
         #return fmt % (self.__class__.__name__, *[x for y in zip(keys, values) for x in y])
-        return '%s(id= %d, name= %s, n_frag= %d, n_elec= %d, sym_factor= %f)' % (self.__class__.__name__,
+        return '%s(id= %d, name= %s, n_frag= %d, n_elec= %.8f, sym_factor= %f)' % (self.__class__.__name__,
                 self.id, self.name, self.n_frag, self.nelectron, self.sym_factor)
 
     def __str__(self):
@@ -448,12 +448,12 @@ class Fragment:
         occup = einsum('ai,ab,bi->i', sc, dm1, sc)
         return occup
 
-    def check_mo_occupation(self, expected, *mo_coeff, tol=None):
-        if tol is None: tol = 2*self.opts.dmet_threshold
-        occup = self.get_mo_occupation(*mo_coeff)
-        if not np.allclose(occup, expected, atol=tol):
-            raise RuntimeError("Incorrect occupation of orbitals (expected %f):\n%r" % (expected, occup))
-        return occup
+    #def check_mo_occupation(self, expected, *mo_coeff, tol=None):
+    #    if tol is None: tol = 2*self.opts.dmet_threshold
+    #    occup = self.get_mo_occupation(*mo_coeff)
+    #    if not np.allclose(occup, expected, atol=tol):
+    #        raise RuntimeError("Incorrect occupation of orbitals (expected %f):\n%r" % (expected, occup))
+    #    return occup
 
     def loop_fragments(self, exclude_self=False):
         """Loop over all fragments of the base quantum embedding method."""

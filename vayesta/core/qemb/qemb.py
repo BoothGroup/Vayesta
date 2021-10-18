@@ -57,7 +57,7 @@ class QEmbedding:
 
     @dataclasses.dataclass
     class Options(OptionsBase):
-        dmet_threshold: float = 1e-8
+        dmet_threshold: float = 1e-6
         recalc_vhf: bool = True
         solver_options: dict = dataclasses.field(default_factory=dict)
         wf_partition: str = 'first-occ'     # ['first-occ', 'first-vir', 'democratic']
@@ -618,7 +618,10 @@ class QEmbedding:
             self.log.debug("Orthogonality error%s: L(2)= %.2e  L(inf)= %.2e", mo_name, l2, linf)
         return l2, linf
 
-    def pop_analysis(self, dm1, mo_coeff=None, kind='lo', c_lo=None, filename=None, filemode='a', verbose=True):
+    # --- Population analysis
+    # -----------------------
+
+    def pop_analysis(self, dm1, mo_coeff=None, kind='lo', c_lo=None, write=True, filename=None, filemode='a', full=False):
         """
         Parameters
         ----------
@@ -649,44 +652,47 @@ class QEmbedding:
             pop = einsum('ia,ab,ib->i', cs, dm1, cs)
         else:
             raise ValueError("Unknown population analysis kind: %r" % kind)
-        # Get atomic charges
-        elecs = np.zeros(self.mol.natm)
-        for i, label in enumerate(self.mol.ao_labels(fmt=None)):
-            elecs[label[0]] += pop[i]
-        chg = self.mol.atom_charges() - elecs
 
-        if not verbose:
-            return pop, chg
+        if write:
+            self.write_population(pop, filename=filename, filemode=filemode, full=full)
+        return pop
+
+    def get_atomic_charges(self, pop):
+        charges = np.zeros(self.mol.natm)
+        spins = np.zeros(self.mol.natm)
+        for i, label in enumerate(self.mol.ao_labels(None)):
+            charges[label[0]] -= pop[i]
+        charges += self.mol.atom_charges()
+        return charges, spins
+
+    def write_population(self, pop, filename=None, filemode='a', full=False):
+        charges, spins = self.get_atomic_charges(pop)
+        if full:
+            aoslices = self.mol.aoslice_by_atom()[:,2:]
+            aolabels = self.mol.ao_labels()
 
         if filename is None:
             write = lambda *args : self.log.info(*args)
-            write("%s population analysis", name)
-            write("%s--------------------", len(name)*'-')
         else:
             dirname = os.path.dirname(filename)
             if dirname: os.makedirs(dirname, exist_ok=True)
-
             f = open(filename, filemode)
             write = lambda fmt, *args : f.write((fmt+'\n') % args)
             tstamp = datetime.now()
-            self.log.info("[%s] Writing population analysis to file \"%s\"", tstamp, filename)
-            write("[%s] %s population analysis" % (tstamp, name))
-            write("-%s--%s--------------------" % (26*'-', len(name)*'-'))
+            self.log.info("Writing population analysis to file \"%s\". Time-stamp: %s", filename, tstamp)
+            write("Time-stamp: %s", tstamp)
 
-        aoslices = self.mol.aoslice_by_atom()[:,2:]
-        aolabels = self.mol.ao_labels()
-
-        for atom in range(self.mol.natm):
-            write("> Charge of atom %d%-6s= % 11.8f (% 11.8f electrons)", atom, self.mol.atom_symbol(atom), chg[atom], elecs[atom])
-            aos = aoslices[atom]
-            for ao in range(aos[0], aos[1]):
-                label = aolabels[ao]
-                write("    %4d %-16s= % 11.8f" % (ao, label, pop[ao]))
-
+        write("Population analysis")
+        write("-------------------")
+        for atom, charge in enumerate(charges):
+            write("%3d %-7s  q= % 11.8f  s= % 11.8f", atom, self.mol.atom_symbol(atom) + ':', charge, spins[atom])
+            if full:
+                aos = aoslices[atom]
+                for ao in range(aos[0], aos[1]):
+                    label = aolabels[ao]
+                    write("    %4d %-16s= % 11.8f  % 11.8f" % (ao, label, pop[ao][0], pop[ao][1]))
         if filename is not None:
             f.close()
-        return pop, chg
-
     # --- Fragmentation methods
 
     def sao_fragmentation(self):
