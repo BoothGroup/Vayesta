@@ -293,8 +293,8 @@ class Brueckner_UHF(Brueckner_RHF):
 
     def update_mo_coeff(self, mf, diis=None):
         t1a, t1b = self.get_t1()
-        self.log.debug("Norm of T1-alpha: L(2)= %.3e  L(inf)= %.3e", np.linalg.norm(t1a), abs(t1a).max())
-        self.log.debug("Norm of T1-beta : L(2)= %.3e  L(inf)= %.3e", np.linalg.norm(t1b), abs(t1b).max())
+        self.log.debug("Norm of alpha/beta-T1 L(2)= %.3e %.3e L(inf)= %.3e %.3e",
+                np.linalg.norm(t1a), np.linalg.norm(t1b), abs(t1a).max(), abs(t1b).max())
         nocca, nvira = t1a.shape
         noccb, nvirb = t1b.shape
         nmoa, nmob = nocca + nvira, noccb + nvirb
@@ -319,8 +319,8 @@ class Brueckner_UHF(Brueckner_RHF):
 
         mo_change_a = (1-self.damping)*np.dot(mf.mo_coeff[0][:,vira], t1a.T)
         mo_change_b = (1-self.damping)*np.dot(mf.mo_coeff[1][:,virb], t1b.T)
-        self.log.debug("Change of occupied Brueckner orbitals (alpha)= %.3e", np.linalg.norm(mo_change_a))
-        self.log.debug("Change of occupied Brueckner orbitals  (beta)= %.3e", np.linalg.norm(mo_change_b))
+        self.log.debug("Change of alpha/beta occupied Brueckner orbitals= %.3e %.3e",
+                np.linalg.norm(mo_change_a), np.linalg.norm(mo_change_b))
         bmo_occ_a = (mf.mo_coeff[0][:,occa] + mo_change_a)
         bmo_occ_b = (mf.mo_coeff[1][:,occb] + mo_change_b)
 

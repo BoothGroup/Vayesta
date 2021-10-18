@@ -102,7 +102,7 @@ class ClusterSolver:
         kernel_orig = self.kernel
         r_frag = dot(self.cluster.c_active.T, self.mf.get_ovlp(), c_frag)
         p_frag = np.dot(r_frag, r_frag.T)     # Projector into fragment space
-        self.opts.make_rdm1 = True
+        #self.opts.make_rdm1 = True
         # During the optimization, we can use the Lambda=T approximation:
         #solve_lambda0 = self.opts.solve_lambda
         #self.opts.solve_lambda = False
@@ -141,7 +141,8 @@ class ClusterSolver:
                 self.opts.v_ext = v_ext0     # Reset v_ext
                 if not self.converged:
                     raise ConvergenceError()
-                ne_frag = einsum('xi,ij,xj->', p_frag, self.dm1, p_frag)
+                dm1 = self.make_rdm1()
+                ne_frag = einsum('xi,ij,xj->', p_frag, dm1, p_frag)
                 err = (ne_frag - nelectron)
                 self.log.debug("Fragment chemical potential= %+12.8f Ha:  electrons= %.8f  error= %+.3e", cpt, ne_frag, err)
                 iterations += 1
