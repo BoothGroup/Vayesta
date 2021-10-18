@@ -411,7 +411,6 @@ def _cholesky_decomposed_metric(with_df, j2c, uniq_kptji_id, log=None):
             pass
 
     if j2c_chol is None:
-        raise NotImplementedError("This may be broken")
         w, v = scipy.linalg.eigh(j2c[uniq_kptji_id])
         cond = w.max() / w.min()
         mask = w > with_df.linear_dep_threshold
