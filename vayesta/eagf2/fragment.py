@@ -405,11 +405,11 @@ class EAGF2Fragment(QEmbeddingFragment):
         nocc_aux = self.se.get_occupied().naux
 
         self.log.info("%4s  %7s    %7s    %7s    %7s", "Bath", "1h", "1p", "2h1p", "1h2p")
-        parts = np.hsplit(c_bath, [nocc, nmo, nmo+nocc_aux])
+        parts = np.split(c_bath, [nocc, nmo, nmo+nocc_aux])
         for i in range(c_bath.shape[-1]):
             self.log.debugv(
                     "%4d  %7.3f %%  %7.3f %%  %7.3f %%  %7.3f %%",
-                    i, *(100*np.linalg.norm(v[i])**2 for v in parts),
+                    i, *(100*np.linalg.norm(v[:, i])**2 for v in parts),
             )
         self.log.info(
                 "%4s  %7.3f %%  %7.3f %%  %7.3f %%  %7.3f %%",
