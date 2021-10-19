@@ -9,7 +9,7 @@ import numpy as np
 import scipy.linalg
 
 # PySCF
-from pyscf import lib, ao2mo
+from pyscf import lib, agf2, ao2mo
 from pyscf.scf import _vhf
 from pyscf.agf2 import mpi_helper, _agf2
 from pyscf.agf2 import chkfile as chkutil
