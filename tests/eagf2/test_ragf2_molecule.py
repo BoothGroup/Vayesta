@@ -57,67 +57,67 @@ class ADCMoleculeRAGF2Test(MoleculeRAGF2Test):
         self.assertAlmostEqual(self.ragf2.e_ea, adc.radc.RADCEA(self.ragf2_ref).kernel(nroots=5)[0][0], 5)
 
 
-#class LiH_ccpvdz_Test(KnownMoleculeRAGF2Test, unittest.TestCase):
-#    @classmethod
-#    def setUpClass(cls):
-#        cls.mol = gto.Mole()
-#        cls.mol.atom = 'Li 0 0 0; H 0 0 1.4'
-#        cls.mol.basis = 'cc-pvdz'
-#        cls.mol.max_memory = 1e9
-#        cls.mol.verbose = 0
-#        cls.mol.build()
-#
-#        cls.mf = scf.RHF(cls.mol)
-#        cls.mf.conv_tol = 1e-12
-#        cls.mf.kernel()
-#
-#        cls.ragf2 = ragf2.RAGF2(cls.mf)
-#        cls.ragf2.opts.conv_tol = 1e-10
-#        cls.ragf2.opts.conv_tol_rdm1 = 1e-12
-#        cls.ragf2.opts.conv_tol_nelec = 1e-12
-#        cls.ragf2.opts.conv_tol_nelec_factor = 1e-4
-#        cls.ragf2.kernel()
-#
-#        cls.ragf2_ref = None
-#
-#        cls.known_values = {
-#                'e_tot': -7.998013606039682,
-#                'e_ip': 0.3068625478488375,
-#                'e_ea': 0.0022960662769273463,
-#        }
-#
-#
-#class N2_ccpvdz_DF_Test(ComparedMoleculeRAGF2Test, unittest.TestCase):
-#    @classmethod
-#    def setUpClass(cls):
-#        cls.mol = gto.Mole()
-#        cls.mol.atom = 'N 0 0 0; N 0 0 1.1'
-#        cls.mol.basis = 'cc-pvdz'
-#        cls.mol.max_memory = 1e9
-#        cls.mol.verbose = 0
-#        cls.mol.build()
-#
-#        cls.mf = scf.RHF(cls.mol)
-#        cls.mf = cls.mf.density_fit()
-#        cls.mf.conv_tol = 1e-12
-#        cls.mf.kernel()
-#
-#        cls.ragf2 = ragf2.RAGF2(cls.mf)
-#        cls.ragf2.opts.conv_tol = 1e-10
-#        cls.ragf2.opts.conv_tol_rdm1 = 1e-12
-#        cls.ragf2.opts.conv_tol_nelec = 1e-12
-#        cls.ragf2.opts.conv_tol_nelec_factor = 1e-4
-#        cls.ragf2.kernel()
-#
-#        cls.ragf2_ref = agf2.RAGF2(cls.mf)
-#        cls.ragf2_ref.conv_tol = 1e-10
-#        cls.ragf2_ref.conv_tol_rdm1 = 1e-12
-#        cls.ragf2_ref.conv_tol_nelec = 1e-12
-#        cls.ragf2_ref.kernel()
-#
-#        cls.known_values = None
-#
-#
+class LiH_ccpvdz_Test(KnownMoleculeRAGF2Test, unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.mol = gto.Mole()
+        cls.mol.atom = 'Li 0 0 0; H 0 0 1.4'
+        cls.mol.basis = 'cc-pvdz'
+        cls.mol.max_memory = 1e9
+        cls.mol.verbose = 0
+        cls.mol.build()
+
+        cls.mf = scf.RHF(cls.mol)
+        cls.mf.conv_tol = 1e-12
+        cls.mf.kernel()
+
+        cls.ragf2 = ragf2.RAGF2(cls.mf)
+        cls.ragf2.opts.conv_tol = 1e-10
+        cls.ragf2.opts.conv_tol_rdm1 = 1e-12
+        cls.ragf2.opts.conv_tol_nelec = 1e-12
+        cls.ragf2.opts.conv_tol_nelec_factor = 1e-4
+        cls.ragf2.kernel()
+
+        cls.ragf2_ref = None
+
+        cls.known_values = {
+                'e_tot': -7.998013606039682,
+                'e_ip': 0.3068625478488375,
+                'e_ea': 0.0022960662769273463,
+        }
+
+
+class N2_ccpvdz_DF_Test(ComparedMoleculeRAGF2Test, unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.mol = gto.Mole()
+        cls.mol.atom = 'N 0 0 0; N 0 0 1.1'
+        cls.mol.basis = 'cc-pvdz'
+        cls.mol.max_memory = 1e9
+        cls.mol.verbose = 0
+        cls.mol.build()
+
+        cls.mf = scf.RHF(cls.mol)
+        cls.mf = cls.mf.density_fit()
+        cls.mf.conv_tol = 1e-12
+        cls.mf.kernel()
+
+        cls.ragf2 = ragf2.RAGF2(cls.mf)
+        cls.ragf2.opts.conv_tol = 1e-10
+        cls.ragf2.opts.conv_tol_rdm1 = 1e-12
+        cls.ragf2.opts.conv_tol_nelec = 1e-12
+        cls.ragf2.opts.conv_tol_nelec_factor = 1e-4
+        cls.ragf2.kernel()
+
+        cls.ragf2_ref = agf2.RAGF2(cls.mf)
+        cls.ragf2_ref.conv_tol = 1e-10
+        cls.ragf2_ref.conv_tol_rdm1 = 1e-12
+        cls.ragf2_ref.conv_tol_nelec = 1e-12
+        cls.ragf2_ref.kernel()
+
+        cls.known_values = None
+
+
 class LiH_ADC_ccpvdz_Test(ADCMoleculeRAGF2Test, unittest.TestCase):
     @classmethod
     def setUpClass(cls):
