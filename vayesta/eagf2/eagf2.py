@@ -161,6 +161,8 @@ class EAGF2(QEmbeddingMethod):
                 raise RuntimeError("Mean-field calculation not converged.")
             else:
                 self.log.error("Mean-field calculation not converged.")
+        if getattr(mf, 'with_df', None) is None:
+            self.log.warning("EAGF2 will not scale well without density fitting.")
 
         # --- Orthogonalize insufficiently orthogonal MOs
         # (For example as a result of k2gamma conversion with low cell.precision)
