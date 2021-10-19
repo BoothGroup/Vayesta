@@ -27,7 +27,8 @@ class FCI_Solver(ClusterSolver):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-        solver = self.get_solver()
+        solver_cls = self.get_solver_class()
+        solver = solver_cls(self.mol)
         self.log.debugv("type(solver)= %r", type(solver))
         # Set options
         if self.opts.threads is not None: solver.threads = self.opts.threads
@@ -45,11 +46,10 @@ class FCI_Solver(ClusterSolver):
         self.c1 = None      # In intermediate normalization!
         self.c2 = None      # In intermediate normalization!
 
-    def get_solver(self):
+    def get_solver_class(self):
         if self.opts.solver_spin:
-            return pyscf.fci.direct_spin1.FCISolver(self.mol)
-        else:
-            return pyscf.fci.direct_spin0.FCISolver(self.mol)
+            return pyscf.fci.direct_spin1.FCISolver
+        return pyscf.fci.direct_spin0.FCISolver
 
     @property
     def ncas(self):
@@ -161,8 +161,8 @@ class UFCI_Solver(FCI_Solver):
     def nelec(self):
         return self.cluster.nocc_active
 
-    def get_solver(self):
-        return pyscf.fci.direct_uhf.FCISolver(self.mol)
+    def get_solver_class(self):
+        return pyscf.fci.direct_uhf.FCISolver
 
     def get_heff(self, eris, with_vext=True):
         c_active = self.cluster.c_active

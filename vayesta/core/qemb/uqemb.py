@@ -155,7 +155,8 @@ class UEmbedding(QEmbedding):
             ERIs which can be used for the respective post-HF method.
         """
         t0 = timer()
-        #c_act = _mo_without_core(posthf, posthf.mo_coeff)
+
+        # Get required quantities:
         active = posthf.get_frozen_mask()
         c_act = (posthf.mo_coeff[0][:,active[0]], posthf.mo_coeff[1][:,active[1]])
         if isinstance(posthf, pyscf.mp.mp2.MP2):

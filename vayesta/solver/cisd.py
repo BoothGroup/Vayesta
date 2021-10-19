@@ -7,10 +7,6 @@ from .ccsd2 import CCSD_Solver
 
 class CISD_Solver(CCSD_Solver):
 
-    SOLVER_CLS = pyscf.ci.cisd.CISD
-    SOLVER_CLS_DF = SOLVER_CLS # No DF version for CISD
-
-
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         # Results
@@ -51,6 +47,9 @@ class CISD_Solver(CCSD_Solver):
         self.c1 = c1/c0
         self.c2 = c2/c0
 
+    def get_solver_class(self):
+        # No DF version for CISD
+        return pyscf.ci.cisd.CISD
 
     def get_c1(self):
         return self.c1
@@ -63,5 +62,6 @@ class CISD_Solver(CCSD_Solver):
 
 class UCISD_Solver(CISD_Solver):
 
-    SOLVER_CLS = pyscf.ci.ucisd.UCISD
-    SOLVER_CLS_DF = SOLVER_CLS # No DF version for CISD
+    def get_solver_class(self):
+        # No DF version for UCISD
+        return pyscf.ci.ucisd.UCISD

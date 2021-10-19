@@ -8,6 +8,7 @@ import numpy as np
 import pyscf
 import pyscf.cc
 import pyscf.cc.dfccsd
+import pyscf.pbc
 
 from vayesta.core.util import *
 from vayesta.ewf import coupling
@@ -38,25 +39,15 @@ class CCSD_Solver(ClusterSolver):
         c_cas_occ: np.array = None
         c_cas_vir: np.array = None
 
-    SOLVER_CLS = pyscf.cc.ccsd.CCSD
-    SOLVER_CLS_DF = pyscf.cc.dfccsd.RCCSD
-
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-        # For 2D-systems the Coulomb repulsion is not PSD
-        # Density-fitted CCSD does not support non-PSD three-center integrals,
-        # thus we need a four-center formulation, where non PSD elements can be summed in
-        if (self.base.boundary_cond not in ('periodic-1D', 'periodic-2D')
-                and hasattr(self.mf, 'with_df') and self.mf.with_df is not None):
-            cls = self.SOLVER_CLS_DF
-        else:
-            cls = self.SOLVER_CLS
-        self.log.debug("CCSD class= %r" % cls)
+        solver_cls = self.get_solver_class()
+        self.log.debug("CCSD PySCF class= %r" % solver_cls)
         frozen = self.cluster.get_frozen_indices()
         self.log.debugv("frozen= %r", frozen)
         mo_coeff = self.cluster.all.coeff
-        solver = cls(self.mf, mo_coeff=mo_coeff, mo_occ=self.mf.mo_occ, frozen=frozen)
+        solver = solver_cls(self.mf, mo_coeff=mo_coeff, mo_occ=self.mf.mo_occ, frozen=frozen)
         # Options
         if self.opts.maxiter is not None: solver.max_cycle = self.opts.maxiter
         if self.opts.conv_tol is not None: solver.conv_tol = self.opts.conv_tol
@@ -77,6 +68,16 @@ class CCSD_Solver(ClusterSolver):
         self.ee_s_coeff = None
         self.ee_t_coeff = None
         self.ee_sf_coeff = None
+
+    def get_solver_class(self):
+        # For 2D-systems the Coulomb repulsion is not PSD
+        # Density-fitted CCSD does not support non-PSD three-center integrals,
+        # thus we need a four-center formulation, where non PSD elements can be summed in
+        if self.base.boundary_cond in ('periodic-1D', 'periodic-2D'):
+            return pyscf.cc.ccsd.CCSD
+        if hasattr(self.mf, 'with_df') and self.mf.with_df is not None:
+            return pyscf.cc.dfccsd.RCCSD
+        return pyscf.cc.ccsd.CCSD
 
     @property
     def t1(self):
@@ -270,8 +271,12 @@ class CCSD_Solver(ClusterSolver):
 
 class UCCSD_Solver(CCSD_Solver):
 
-    SOLVER_CLS = pyscf.cc.uccsd.UCCSD
-    SOLVER_CLS_DF = SOLVER_CLS      # No DF-UCCSD in PySCF
+    def get_solver_class(self):
+        # No DF-UCCSD class in PySCF
+        # Molecular UCCSD does not support DF either!
+        if self.base.boundary_cond.startswith('periodic'):
+            return pyscf.pbc.cc.UCCSD
+        return pyscf.cc.uccsd.UCCSD
 
     def get_c2(self):
         """C2 in intermediate normalization."""

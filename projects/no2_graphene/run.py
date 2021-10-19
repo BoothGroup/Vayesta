@@ -9,15 +9,23 @@ import pyscf.lo
 import vayesta
 import vayesta.ewf
 
-import structure
+from structure import NO2_Graphene
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--kmesh', type=int, nargs=2, default=False)
 parser.add_argument('--basis', default='cc-pVDZ')
 parser.add_argument('--auxbasis', default='cc-pVDZ-ri')
-parser.add_argument('--gate', type=float, default=0.0)
-parser.add_argument('--gate-range', type=float, nargs=3, default=[-0.16, 0.04, 0.2])
-parser.add_argument('--nc', type=int, default=0)
+#parser.add_argument('--gate', type=float, default=0.0)
+parser.add_argument('--gate-range', type=float, nargs=3, default=[0.00, -0.101, -0.02])
+parser.add_argument('--nc', type=int, default=4)
+parser.add_argument('--supercell', type=int, nargs=2, default=[3, 3])
+parser.add_argument('--vacuum-size', type=float, default=20.0)
+parser.add_argument('--z-graphene', type=float, default=10.0)
+parser.add_argument('--verbose', type=int, default=10)
+parser.add_argument('--dimension', type=int, default=2)
+parser.add_argument('--spin', type=int, default=1)
+parser.add_argument('--lindep-threshold', type=float)
+parser.add_argument('--scf-conv-tol', type=float, default=1e-8)
 args = parser.parse_args()
 
 # Cell
@@ -26,12 +34,13 @@ for gate in np.arange(*args.gate_range):
     print("Now calculating gate %.2f" % gate)
 
     cell = pyscf.pbc.gto.Cell()
-    #cell.a, cell.atom = structure.get_3x3()
-    cell.a, cell.atom = structure.get_5x5()
-    cell.spin = 1
-    cell.dimension = 2
-    cell.verbose = 10
+    no2_graphene = NO2_Graphene(args.supercell, vacuum_size=args.vacuum_size, z_graphene=args.z_graphene)
+    cell.a, cell.atom = no2_graphene.get_amat_atom()
+    cell.dimension = args.dimension
+    cell.spin = args.spin
+    cell.verbose = args.verbose
     cell.basis = args.basis
+    cell.lindep_threshold = args.lindep_threshold
     cell.build()
 
     # MF
@@ -41,6 +50,8 @@ for gate in np.arange(*args.gate_range):
     else:
         kpts = None
         mf = pyscf.pbc.scf.UHF(cell)
+    mf.conv_tol = args.scf_conv_tol
+    mf.max_cycle = 100
 
     mf = mf.density_fit(auxbasis=args.auxbasis)
 
@@ -66,6 +77,8 @@ for gate in np.arange(*args.gate_range):
 
     # Run MF
     mf.kernel()
+    assert mf.converged
+    print("type(mf._eri)= %r" % type(mf._eri))
 
     # Embedding
     ecc = vayesta.ewf.EWF(mf, bath_type=None, make_rdm1=True)
