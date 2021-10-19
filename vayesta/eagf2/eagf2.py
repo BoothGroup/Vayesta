@@ -236,7 +236,6 @@ class EAGF2(QEmbeddingMethod):
                     log=self.log,
                     options=self.opts,
                     fock_basis='ao' if not self.opts.with_rsjk else 'rsjk',
-                    weight_tol=0.0,  #NOTE dimension errors without this...
             )
             solver.log = self.log
 
