@@ -78,6 +78,17 @@ class ssRPA:
 
         return momzero_calculation.eval_eta0(D, ri_ApB, ri_AmB, np.eye(2*self.ov), npoints, ainit, integral_deduct=integral_deduct)
 
+    def check_new(self, npoints = 100, ainit=1.0):
+        eps = np.zeros((self.nocc, self.nvir))
+        eps = eps + self.mo_energy_vir
+        eps = (eps.T - self.mo_energy_occ).T
+        eps = eps.reshape((self.ov,))
+        D = np.concatenate([eps, eps])
+
+        ri_ApB, ri_AmB = self.construct_RI_AB()
+
+        return momzero_calculation.check_SST_integral(ri_ApB, ri_AmB, D, npoints, ainit)
+
     def kernel_energy(self):
 
         pass

@@ -25,7 +25,7 @@ def eval_eta0(D, ri_P, ri_M, target_rot, npoints = 100, ainit = 1.0, integral_de
         rik_PP_L, rik_PP_R = construct_product_RI(D, ri_P, ri_P)
 
 
-    if False:
+    if True:
         grid, weights = opt_NI_grid.gen_ClenCur_quad(ainit, npoints, True)
     elif integral_deduct is None:
         grid, weights = opt_NI_grid.get_grid_opt_integral_nodiff(rik_MP_L, rik_MP_R, D, target_rot, npoints, ainit)
@@ -47,6 +47,8 @@ def eval_eta0(D, ri_P, ri_M, target_rot, npoints = 100, ainit = 1.0, integral_de
             contrib = eval_eta0_contrib_diff1(point, rik_MP_L, rik_MP_R, rik_PP_L, rik_PP_R, D, target_rot)
         elif integral_deduct == "D":
             contrib = eval_eta0_contrib_diff2(point, rik_MP_L, rik_MP_R, D, target_rot)
+        elif integral_deduct == "Scaled":
+            contrib = eval_eta0_contrib_diff3(point, rik_MP_L, rik_MP_R, D, target_rot)
         else:
             raise ValueError("Unknown quantity to deduct from numerical integration specified.")
         #print("!",point)
@@ -66,18 +68,24 @@ def eval_eta0(D, ri_P, ri_M, target_rot, npoints = 100, ainit = 1.0, integral_de
         # In these cases we're actually evaluating (eta_0 - I).
         # Rotate the identity into our target basis.
         moment_offset = einsum("pn,n->pn", target_rot, np.full_like(D, fill_value=1.0))
-
-    print("Integral Offset:")
-    print(integral_offset)
-    print("Moment Offset:")
-    print(moment_offset)
-
+    elif integral_deduct == "Scaled":
+        mat = np.zeros(D.shape * 2)
+        mat = mat + D
+        mat = (mat.T + D).T
+        integral_offset = - einsum("rp,pq,np,nq->rq", target_rot, mat**(-1), rik_MP_L, rik_MP_R)
+        integral_offset -= einsum("pn,n->pn", target_rot, D)
     # Now need to multiply by the inverse of P, using low-rank expression we've already constructed.
     # Note ri contrib is negative.
     #print(integral.shape, ri_Pinv.shape, ri_P.shape)
     mom0 = einsum("pq,q->pq",integral - integral_offset,D**(-1)) - np.dot(np.dot(integral - integral_offset,ri_Pinv.T), ri_Pinv)
+    mom0 += moment_offset
+    print("Maximum absolute values of integral:", abs(integral).max())
+    print("                    integral offset:", abs(integral_offset).max())
+    print("                             moment:", abs(mom0).max())
+    print("                      moment offset:", abs(moment_offset).max())
+
     # Now have our resulting estimate of the zeroth moment!
-    return mom0 + moment_offset, integral
+    return mom0, integral
 
 def eval_eta0_contrib_nodiff(freq, rik_MP_L, rik_MP_R, D, target_rot):
     """Evaluate contribution to RI integral at a particular frequency point.
@@ -148,6 +156,70 @@ def eval_eta0_contrib_diff2(freq, rik_MP_L, rik_MP_R, D, target_rot):
     # expensive.
     return (1 / np.pi) * (freq ** 2) * np.dot(
         np.dot(np.dot(lrot, rik_MP_L.T), np.linalg.inv(np.eye(n_aux_MP) + Q_MP)), einsum("np,p->np", rik_MP_R, rrot))
+
+def eval_eta0_contrib_diff3(freq, rik_MP_L, rik_MP_R, D, target_rot):
+    """Evaluate contribution to RI integral at a particular frequency point.
+    This step scales with the grid size, so should be efficiently parallelised.
+    We only obtain a contribution to a target rotation of the excitation space, so reducing the scaling of this
+    procedure.
+    """
+    G = construct_G(freq, D)
+    n_aux_MP = rik_MP_L.shape[0]
+
+    # Construct rotation required for LHS of our expression; the number of contributions we seek determines the
+    # computational scaling of evaluating our contributions from their initial low-rank representations.
+    # If the full space is required evaluation scales as O(N^5), while for reduced scaling it only requires O(N^4) or
+    # O(N^3) for a linear or constant number of degrees of freedom.
+    lrot = einsum("pn,n,n->pn", target_rot, D**(-1), G)
+    rrot = np.multiply(G, D**(-1))
+
+    # Construction of these intermediates is one of the limiting steps of the entire procedure (scales as O(N^4) at
+    # each frequency point, due to summing over all excitations). Could be alleviated with pre-screening, but not for
+    # now.
+    Q_MP = einsum("np,p,mp->nm", rik_MP_R, rrot, rik_MP_L)
+
+    # Don't use multidot or similar here to ensure index spanning full space is contracted last, as otherwise more
+    # expensive.
+    return (1 / np.pi) * (freq ** 2) * np.dot(
+        np.dot(np.dot(lrot, rik_MP_L.T), (np.linalg.inv(np.eye(n_aux_MP) + Q_MP) - np.eye(n_aux_MP))),
+                                        einsum("np,p->np", rik_MP_R, rrot))
+
+
+def check_SST_integral(ri_P, ri_M, D, npoints = 100, ainit = 10):
+    """This is checking the value of the integral GSS^TG by comparing numerical integration with proposed exact
+    expressions from contour integration."""
+
+    # Some steps of this construction are O(N^4), but only need to be performed once.
+    rik_MP_L, rik_MP_R = construct_product_RI(D, ri_M, ri_P)
+
+    grid, weights = opt_NI_grid.gen_ClenCur_quad(ainit, npoints, True)
+
+    integral = np.zeros(D.shape * 2)
+    for point, weight in zip(grid, weights):
+        contrib = calc_SST_contrib(point, rik_MP_L, rik_MP_R, D)
+        integral += weight * contrib
+
+    # This construction currently requires an N^4 intermediate, which is obviously not a goer, but might be alleviated
+    # by a nonunit target rotation...
+
+    mat = np.zeros(D.shape*2)
+    mat = mat + D
+    mat = (mat.T + D).T
+    mat = (mat ** (-1))
+    print(mat)
+
+    exact = np.pi * einsum("p,pq,np,nq,q->pq",D,mat,rik_MP_L, rik_MP_R,D)
+
+    print("Maximum deviation between numerical and exact estimates:", abs(integral - exact).max())
+
+    return integral, exact
+
+def calc_SST_contrib(freq, rik_MP_L, rik_MP_R, D):
+    G = construct_G(freq, D)
+    n_aux_MP = rik_MP_L.shape[0]
+
+    return (freq ** 2) * einsum("p,np,nq,q->pq",G, rik_MP_L, rik_MP_R, G)
+
 
 def construct_G(freq, D):
     """Evaluate G = D (D**2 + \omega**2 I)**(-1), given frequency and diagonal of D."""
