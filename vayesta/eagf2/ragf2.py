@@ -9,7 +9,7 @@ import numpy as np
 import scipy.linalg
 
 # PySCF
-from pyscf import lib, agf2, ao2mo
+from pyscf import lib, ao2mo
 from pyscf.scf import _vhf
 from pyscf.agf2 import mpi_helper, _agf2
 from pyscf.agf2 import chkfile as chkutil
@@ -916,14 +916,27 @@ class RAGF2:
         return rdm2
 
 
-    def energy_mp2(self, mo_energy=None, se=None):
+    def energy_mp2(self, mo_energy=None, se=None, flip=False):
         ''' Calculate the MP2 energy
         '''
 
         mo_energy = mo_energy if mo_energy is not None else self.mo_energy
         se = se or self.se
 
-        return agf2.ragf2.energy_mp2(None, mo_energy[self.act], se)
+        if not flip:
+            mo = mo_energy < se.chempot
+            se = se.get_virtual()
+        else:
+            mo = mo_energy >= se.chempot
+            se = se.get_occupied()
+
+        v_se = se.coupling[mo]
+        Δ = lib.direct_sum('x,k->xk', mo_energy[mo], -se.energy)
+
+        e_mp2 = np.sum(v_se * v_se.conj() / Δ)
+        e_mp2 = e_mp2.real
+
+        return e_mp2
 
 
     def energy_1body(self, gf=None, e_nuc=None):
@@ -940,14 +953,30 @@ class RAGF2:
         return e1b
 
 
-    def energy_2body(self, gf=None, se=None):
+    def energy_2body(self, gf=None, se=None, flip=False):
         ''' Calculate the two-body energy
         '''
 
         gf = gf or self.gf
         se = se or self.se
 
-        e_2b = agf2.ragf2.energy_2body(None, gf, se)
+        if not flip:
+            gf = gf.get_occupied()
+            se = se.get_virtual()
+        else:
+            gf = gf.get_virtual()
+            se = se.get_occupied()
+
+        e_2b = 0.0
+        for i in range(gf.naux):
+            v_gf = gf.coupling[:, i]
+            v_se = se.coupling
+            v_dyson = v_se * v_gf[:, None]
+            Δ = gf.energy[i] - se.energy
+
+            e_2b += np.sum(np.dot(v_dyson / Δ[None], v_dyson.T.conj())).real
+
+        e_2b *= 2.0
 
         return e_2b
 
