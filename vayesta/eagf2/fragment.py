@@ -582,8 +582,8 @@ class EAGF2Fragment(QEmbeddingFragment):
 
             mo_coeff_other = mo_coeff
 
-            c_occ = np.dot(self.mf.mo_coeff, mo_coeff_occ[:solver.nact])
-            c_vir = np.dot(self.mf.mo_coeff, mo_coeff_vir[:solver.nact])
+            c_occ = np.dot(self.mf.mo_coeff, mo_coeff_occ[:self.nmo])
+            c_vir = np.dot(self.mf.mo_coeff, mo_coeff_vir[:self.nmo])
 
             with helper.QMOIntegrals(self, c_occ, c_vir, which='xija') as xija:
                 t_occ = solver._build_moments(mo_energy_occ, mo_energy_vir, xija)

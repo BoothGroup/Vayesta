@@ -246,7 +246,7 @@ class EAGF2(QEmbeddingMethod):
             solver.rsjk = rsjk
 
         diis = self.DIIS(space=self.opts.diis_space, min_space=self.opts.diis_min_space)
-        solver.se = aux.SelfEnergy(np.empty((0)), np.empty((solver.nact, 0)))
+        solver.se = aux.SelfEnergy(np.empty((0)), np.empty((self.nmo, 0)))
         fock = np.diag(self.mf.mo_energy)
         fock_mo = fock.copy()
         e_nuc = solver.e_nuc
@@ -270,7 +270,7 @@ class EAGF2(QEmbeddingMethod):
                     with self.log.withIndentLevel(1):
 
                         n = frag.c_frag.shape[0]
-                        nqmo = solver.nact + solver.se.naux
+                        nqmo = self.nmo + solver.se.naux
                         p_frag = np.zeros((nqmo, nqmo))
                         p_frag[:n, :n] += np.dot(frag.c_frag, frag.c_frag.T.conj())
                         c_frag = scipy.linalg.orth(p_frag)
@@ -314,7 +314,7 @@ class EAGF2(QEmbeddingMethod):
                         p_full = np.eye(p_frag.shape[0])
                         moms_cls = frag.democratic_partition(results.moms, p_frag, p_full)
 
-                        c = results.c_active[:solver.nact].T.conj()
+                        c = results.c_active[:self.nmo].T.conj()
                         moms += np.einsum('...pq,pi,qj->...ij', moms_cls, c, c)
 
                 else:
@@ -388,15 +388,16 @@ class EAGF2(QEmbeddingMethod):
 
 
                 solver.se = solver._combine_se(se_occ, se_vir)
+                solver.se.remove_uncoupled(tol=self.opts.weight_tol)
 
                 if niter != 0:
                     solver.run_diis(solver.se, None, diis, se_prev=se_prev)
 
                 w, v = solver.solve_dyson(fock=fock_mo)
-                solver.gf = aux.GreensFunction(w, v[:solver.nact])
+                solver.gf = aux.GreensFunction(w, v[:self.nmo])
                 if self.opts.fock_loop:
                     solver.gf, solver.se, fconv, fock = solver.fock_loop(fock=fock_mo, return_fock=True)
-                solver.gf.remove_uncoupled(tol=1e-12)
+                solver.gf.remove_uncoupled(tol=self.opts.weight_tol)
 
                 solver.e_1b = solver.energy_1body(e_nuc=e_nuc)
                 solver.e_2b = solver.energy_2body()
@@ -421,7 +422,6 @@ class EAGF2(QEmbeddingMethod):
                 converged = True
                 break
 
-        solver.gf.remove_uncoupled(tol=1e-12)
         solver.e_1b = solver.energy_1body()
         solver.e_2b = solver.energy_2body()
 
