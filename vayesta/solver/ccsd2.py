@@ -9,6 +9,7 @@ import pyscf
 import pyscf.cc
 import pyscf.cc.dfccsd
 import pyscf.pbc
+import pyscf.pbc.cc
 
 from vayesta.core.util import *
 from vayesta.ewf import coupling
