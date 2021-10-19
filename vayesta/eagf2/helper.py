@@ -337,6 +337,34 @@ def block_tridiagonal(m, b):
     return h
 
 
+def _orth(p, tol=None, nvecs=None):
+    w, v = np.linalg.eigh(p)
+
+    if tol is None:
+        if nvecs is not None:
+            arg = np.argsort(np.abs(w))
+            mask = arg[(w.size-nvecs):]
+        else:
+            tol = np.max(p.shape) * np.max(np.abs(w)) * np.finfo(v.dtype).eps
+            mask = np.abs(w) > tol
+
+    return v[:, mask]
+
+
+def orth(v, tol=None, nvecs=None):
+    ''' Orthonormalise vectors.
+    '''
+
+    return _orth(np.dot(v, v.T.conj()), tol=tol, nvecs=nvecs)
+
+
+def null_space(v, tol=None, nvecs=None):
+    ''' Construct orthonormal vectors for null space of subspace formed of v. 
+    '''
+
+    return _orth(np.eye(v.shape[0]) - np.dot(v, v.T.conj()), tol=tol, nvecs=nvecs)
+
+
 def build_moments(ei, ej, ea, xija, yija, os_factor=1.0, ss_factor=1.0):
     '''
     Construct the moments via compiled code. Generalised for asymmetry

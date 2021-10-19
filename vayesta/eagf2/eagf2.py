@@ -8,9 +8,10 @@ from pyscf.agf2 import mpi_helper, aux
 from pyscf.pbc.scf.rsjk import RangeSeparationJKBuilder
 
 import vayesta
-from vayesta.ewf import helper
+from vayesta.ewf.helper import orthogonalize_mo
 from vayesta.core import QEmbeddingMethod
 from vayesta.core.util import time_string
+from vayesta.eagf2 import helper
 from vayesta.eagf2.fragment import EAGF2Fragment
 from vayesta.eagf2.ragf2 import RAGF2, RAGF2Options, DIIS
 
@@ -175,7 +176,7 @@ class EAGF2(QEmbeddingMethod):
         if self.opts.orthogonal_mo_tol and nonorth > self.opts.orthogonal_mo_tol:
             t0 = timer()
             self.log.info("Orthogonalizing orbitals...")
-            self.mo_coeff = helper.orthogonalize_mo(c, self.get_ovlp())
+            self.mo_coeff = orthogonalize_mo(c, self.get_ovlp())
             change = abs(np.diag(np.linalg.multi_dot((self.mo_coeff.T, self.get_ovlp(), c)))-1)
             self.log.info("Max. orbital change= %.2e%s", change.max(),
                           " (!!!)" if change.max() > 1e-4 else "")
@@ -273,11 +274,9 @@ class EAGF2(QEmbeddingMethod):
 
                         n = frag.c_frag.shape[0]
                         nqmo = self.nmo + solver.se.naux
-                        p_frag = np.zeros((nqmo, nqmo))
-                        p_frag[:n, :n] += np.dot(frag.c_frag, frag.c_frag.T.conj())
-                        c_frag = scipy.linalg.orth(p_frag)
-                        c_env = scipy.linalg.null_space(p_frag)
-                        assert c_env.shape[-1] == (nqmo - c_frag.shape[1])
+                        c_frag = np.zeros((nqmo, frag.c_frag.shape[-1]))
+                        c_frag[:self.nmo] = frag.c_frag[:self.nmo]
+                        c_env = helper.null_space(c_frag, nvecs=nqmo-c_frag.shape[-1])
 
                         frag.c_frag, frag.c_env = c_frag, c_env
 
