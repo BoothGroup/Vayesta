@@ -133,9 +133,6 @@ class EAGF2FragmentOptions(OptionsBase):
     bno_threshold_factor: float = NotSet
     dmet_threshold: float = NotSet
 
-    # --- Moment settings
-    democratic: bool = NotSet
-
     # --- Appease EWF inheritance
     plot_orbitals: bool = False
     wf_partition: str = 'first-occ'
@@ -235,7 +232,7 @@ class EAGF2Fragment(QEmbeddingFragment):
         self.qmo_energy, self.qmo_coeff = np.linalg.eigh(self.fock)
         self.qmo_occ = self.mf.get_occ(self.qmo_energy, self.qmo_coeff)
 
-        # QMO integrals and rotations for non-democratic partitioning:
+        # QMO integrals and rotations:
         self.pija = None
         self.pabi = None
         self.c_qmo_occ = None
@@ -419,18 +416,6 @@ class EAGF2Fragment(QEmbeddingFragment):
         self.log.changeIndentLevel(-1)
 
 
-    def democratic_partition(self, m, p1, p2):
-        ''' Democratically partition a matrix.
-        '''
-
-        m_demo = (
-                + 0.5 * np.einsum('...pq,pi,qj->...ij', m, p1, p2)
-                + 0.5 * np.einsum('...pq,pi,qj->...ij', m, p2, p1)
-        )
-
-        return m_demo
-
-
     def canonicalize_qmo(self, *qmo_coeff, eigvals=True, sign_convention=True):
         ''' Diagonalize Fock matrix within subspace, including auxiliaries.
 
@@ -505,8 +490,8 @@ class EAGF2Fragment(QEmbeddingFragment):
 
     def make_qmo_integrals(self):
         '''
-        Build the rotations and projections required for non-democratic
-        partitioning for the current fragment.
+        Build the rotations and projections required for partitioning
+        for the current fragment.
         '''
 
         nmo = self.mol.nao
@@ -536,8 +521,8 @@ class EAGF2Fragment(QEmbeddingFragment):
         '''
         #TODO: make auxiliary and QMO spaces stored in parent instead of fragment?
 
-        if not self.opts.democratic:
-            assert other_frag is not None
+        if other_frag is None:
+            other_frag = self
 
         # Set auxiliary and QMO space if not set:
         if se is not None:
@@ -553,56 +538,39 @@ class EAGF2Fragment(QEmbeddingFragment):
             coeffs = self.make_bath()
             self.c_cls_occ, self.c_cls_vir, self.c_env_occ, self.c_env_vir = coeffs
 
-        if not self.opts.democratic:
-            # Set other auxiliary and QMO space:
-            other_frag.se, other_frag.fock = self.se, self.fock
-            other_frag.qmo_energy, other_frag.qmo_coeff, other_frag.qmo_occ = \
-                    self.qmo_energy, self.qmo_coeff, self.qmo_occ
+        # Set other auxiliary and QMO space:
+        other_frag.se, other_frag.fock = self.se, self.fock
+        other_frag.qmo_energy, other_frag.qmo_coeff, other_frag.qmo_occ = \
+                self.qmo_energy, self.qmo_coeff, self.qmo_occ
 
-            # Set other bath space if not set:
-            if other_frag.c_cls_occ is None:
-                coeffs = other_frag.make_bath()
-                other_frag.c_cls_occ, other_frag.c_cls_vir, \
-                        other_frag.c_env_occ, other_frag.c_env_vir = coeffs
+        # Set other bath space if not set:
+        if other_frag.c_cls_occ is None:
+            coeffs = other_frag.make_bath()
+            other_frag.c_cls_occ, other_frag.c_cls_vir, \
+                    other_frag.c_env_occ, other_frag.c_env_vir = coeffs
 
-            # Set rotations if not set:
-            if self.pija is None:
-                qmos = self.make_qmo_integrals()
-                self.pija, self.pabi, self.c_qmo_occ, self.c_qmo_vir = qmos
+        # Set rotations if not set:
+        if self.pija is None:
+            qmos = self.make_qmo_integrals()
+            self.pija, self.pabi, self.c_qmo_occ, self.c_qmo_vir = qmos
 
-            # Set other rotations if not set:
-            if other_frag.pija is None:
-                qmos = other_frag.make_qmo_integrals()
-                other_frag.pija, other_frag.pabi, other_frag.c_qmo_occ, other_frag.c_qmo_vir = qmos
+        # Set other rotations if not set:
+        if other_frag.pija is None:
+            qmos = other_frag.make_qmo_integrals()
+            other_frag.pija, other_frag.pabi, other_frag.c_qmo_occ, other_frag.c_qmo_vir = qmos
 
-        if self.opts.democratic:
-            mo_coeff_occ, _, mo_energy_occ = self.canonicalize_qmo(self.c_cls_occ, eigvals=True)
-            mo_coeff_vir, _, mo_energy_vir = self.canonicalize_qmo(self.c_cls_vir, eigvals=True)
-            mo_coeff = np.hstack((mo_coeff_occ, mo_coeff_vir))
+        # Generate cluster coefficients for current fragment:
+        mo_coeff_occ, _ = self.canonicalize_qmo(self.c_cls_occ, eigvals=False)
+        mo_coeff_vir, _ = self.canonicalize_qmo(self.c_cls_vir, eigvals=False)
+        mo_coeff = np.hstack((mo_coeff_occ, mo_coeff_vir))
 
-            mo_coeff_other = mo_coeff
+        # Generate cluster coefficients for other fragment:
+        mo_coeff_occ_other, _ = other_frag.canonicalize_qmo(other_frag.c_cls_occ, eigvals=False)
+        mo_coeff_vir_other, _ = other_frag.canonicalize_qmo(other_frag.c_cls_vir, eigvals=False)
+        mo_coeff_other = np.hstack((mo_coeff_occ_other, mo_coeff_vir_other))
 
-            c_occ = np.dot(self.mf.mo_coeff, mo_coeff_occ[:self.nmo])
-            c_vir = np.dot(self.mf.mo_coeff, mo_coeff_vir[:self.nmo])
-
-            with helper.QMOIntegrals(self, c_occ, c_vir, which='xija') as xija:
-                t_occ = solver._build_moments(mo_energy_occ, mo_energy_vir, xija)
-
-            with helper.QMOIntegrals(self, c_occ, c_vir, which='xabi') as xabi:
-                t_vir = solver._build_moments(mo_energy_vir, mo_energy_occ, xabi)
-
-            moms = np.array([t_occ, t_vir])
-
-        else:
-            mo_coeff_occ, _ = self.canonicalize_qmo(self.c_cls_occ, eigvals=False)
-            mo_coeff_vir, _ = self.canonicalize_qmo(self.c_cls_vir, eigvals=False)
-            mo_coeff = np.hstack((mo_coeff_occ, mo_coeff_vir))
-
-            mo_coeff_occ_other, _ = other_frag.canonicalize_qmo(other_frag.c_cls_occ, eigvals=False)
-            mo_coeff_vir_other, _ = other_frag.canonicalize_qmo(other_frag.c_cls_vir, eigvals=False)
-            mo_coeff_other = np.hstack((mo_coeff_occ_other, mo_coeff_vir_other))
-
-            moms = build_moments(self, other_frag)
+        # Build moments and return:
+        moms = build_moments(self, other_frag)
 
         results = EAGF2FragmentResults(
                 fid=self.id,

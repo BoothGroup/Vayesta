@@ -34,9 +34,6 @@ class EAGF2Options(RAGF2Options):
     bno_threshold_factor: float = 1.0
     dmet_threshold: float = 1e-8
 
-    # --- Moment settings
-    democratic: bool = False
-
     # --- Other
     strict: bool = False
     orthogonal_mo_tol: float = 1e-10
@@ -293,61 +290,39 @@ class EAGF2(QEmbeddingMethod):
                     coeffs = frag.make_bath()
                     frag.c_cls_occ, frag.c_cls_vir, frag.c_env_occ, frag.c_env_vir = coeffs
 
-                    if not self.opts.democratic:
-                        qmos = frag.make_qmo_integrals()
-                        frag.pija, frag.pabi, frag.c_qmo_occ, frag.c_qmo_vir = qmos
+                    qmos = frag.make_qmo_integrals()
+                    frag.pija, frag.pabi, frag.c_qmo_occ, frag.c_qmo_vir = qmos
 
                 moms = np.zeros((2, 2, self.nmo, self.nmo))  #TODO higher orders
-                if self.opts.democratic:
-                    for x in mpi_helper.nrange(len(self.fragments)):
-                        frag = self.fragments[x]
-
-                        if frag.sym_parent is None:
-                            results = frag.kernel(solver)
-                            self.cluster_results[frag.id] = results
-                            self.log.info("%s is done.", frag)
+                for x, frag in enumerate(self.fragments):
+                    for y, other in enumerate(self.fragments[:x+1]):
+                        if frag.sym_parent is None and other.sym_parent is None:
+                            results = frag.kernel(solver, other_frag=other)
+                            self.cluster_results[frag.id, other.id] = results
+                            self.log.debugv("%s - %s is done.", frag, other)
                         else:
-                            self.log.info("%s is symmetry related, parent: %s", frag, frag.sym_parent)
-                            results = self.cluster_results[frag.sym_parent.id]
+                            frag_parent = frag if frag.sym_parent is None else frag.sym_parent
+                            other_parent = other if other.sym_parent is None else other.sym_parent
+                            results = self.cluster_results[frag_parent.id, other_parent.id]
+                            self.log.debugv("%s - %s is symmetry related, parent: %s - %s",
+                                            frag, other, frag_parent, other_parent)
 
                         c = np.dot(frag.c_frag.T.conj(), results.c_active)
-                        p_frag = np.dot(c.T.conj(), c)
-                        p_full = np.eye(p_frag.shape[0])
-                        moms_cls = frag.democratic_partition(results.moms, p_frag, p_full)
+                        p = np.dot(c.T.conj(), c)
+                        p_frag = np.dot(p, results.c_active[:self.nmo].T.conj())
 
-                        c = results.c_active[:self.nmo].T.conj()
-                        moms += np.einsum('...pq,pi,qj->...ij', moms_cls, c, c)
+                        c = np.dot(other.c_frag.T.conj(), results.c_active_other)
+                        p = np.dot(c.T.conj(), c)
+                        p_other = np.dot(p, results.c_active_other[:self.nmo].T.conj())
 
-                else:
-                    for x, frag in enumerate(self.fragments):
-                        for y, other in enumerate(self.fragments[:x+1]):
-                            if frag.sym_parent is None and other.sym_parent is None:
-                                results = frag.kernel(solver, other_frag=other)
-                                self.cluster_results[frag.id, other.id] = results
-                                self.log.debugv("%s - %s is done.", frag, other)
-                            else:
-                                frag_parent = frag if frag.sym_parent is None else frag.sym_parent
-                                other_parent = other if other.sym_parent is None else other.sym_parent
-                                results = self.cluster_results[frag_parent.id, other_parent.id]
-                                self.log.debugv("%s - %s is symmetry related, parent: %s - %s",
-                                                frag, other, frag_parent, other_parent)
+                        for i in range(results.moms.shape[0]):
+                            for j in range(results.moms.shape[1]):
+                                m = np.linalg.multi_dot((p_frag.T.conj(), results.moms[i, j], p_other))
+                                moms[i, j] += m
+                                if x != y:
+                                    moms[i, j] += m.T.conj()
 
-                            c = np.dot(frag.c_frag.T.conj(), results.c_active)
-                            p = np.dot(c.T.conj(), c)
-                            p_frag = np.dot(p, results.c_active[:self.nmo].T.conj())
-
-                            c = np.dot(other.c_frag.T.conj(), results.c_active_other)
-                            p = np.dot(c.T.conj(), c)
-                            p_other = np.dot(p, results.c_active_other[:self.nmo].T.conj())
-
-                            for i in range(results.moms.shape[0]):
-                                for j in range(results.moms.shape[1]):
-                                    m = np.linalg.multi_dot((p_frag.T.conj(), results.moms[i, j], p_other))
-                                    moms[i, j] += m
-                                    if x != y:
-                                        moms[i, j] += m.T.conj()
-
-                        self.log.info("%s is done.", frag)
+                    self.log.info("%s is done.", frag)
 
                 assert np.allclose(moms[0,0], moms[0,0].T.conj())
                 assert np.allclose(moms[0,1], moms[0,1].T.conj())
