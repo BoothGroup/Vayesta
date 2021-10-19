@@ -51,6 +51,13 @@ class FCI_Solver(ClusterSolver):
             return pyscf.fci.direct_spin1.FCISolver
         return pyscf.fci.direct_spin0.FCISolver
 
+    def reset(self):
+        super().reset()
+        self.civec = None
+        self.c0 = None
+        self.c1 = None
+        self.c2 = None
+
     @property
     def ncas(self):
         return self.cluster.norb_active
@@ -177,6 +184,9 @@ class UFCI_Solver(FCI_Solver):
         vb = (einsum('iipq->pq', gbb[ob,ob]) + einsum('iipq->pq', gab[oa,oa])       # Coulomb
             - einsum('ipqi->pq', gbb[ob,:,:,ob]))                                   # Exchange
         h_eff = (fa-va, fb-vb)
+        if with_vext and self.opts.v_ext is not None:
+            h_eff = ((h_eff[0] + self.opts.v_ext[0]),
+                     (h_eff[1] + self.opts.v_ext[1]))
         return h_eff
 
     #def get_cisd_amps(self, civec):

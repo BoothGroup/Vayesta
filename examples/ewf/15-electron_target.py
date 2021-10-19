@@ -52,7 +52,7 @@ print("E%-11s %+16.8f Ha" % ('(EWF-CCSD)=', ecc.e_tot))
 
 ecc2 = vayesta.ewf.EWF(mf, bno_threshold=bno)
 ecc2.sao_fragmentation()
-ecc2.add_atomic_fragment(0, nelectron_target=9)
+ecc2.add_atomic_fragment(0, nelectron_target=8)
 ecc2.add_atomic_fragment(1, nelectron_target=1)
 ecc2.add_atomic_fragment(2, nelectron_target=1)
 ecc2.kernel()

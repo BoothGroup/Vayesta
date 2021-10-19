@@ -185,7 +185,7 @@ class QEmbedding:
         # 4) Other
         # --------
         self.with_scmf = None   # Self-consistent mean-field
-        self.c_lo = None        # Local orthogonal orbitals (e.g. Lowdin)
+
 
     # --- Basic properties and methods
     # ================================
@@ -621,37 +621,48 @@ class QEmbedding:
     # --- Population analysis
     # -----------------------
 
-    def pop_analysis(self, dm1, mo_coeff=None, kind='lo', c_lo=None, write=True, filename=None, filemode='a', full=False):
+    def get_lo_coeff(self, local_orbitals='lowdin', minao='auto'):
+        if local_orbitals.lower() == 'lowdin':
+            # Avoid pre_orth_ao step!
+            #self.c_lo = c_lo = pyscf.lo.orth_ao(self.mol, 'lowdin')
+            #self.c_lo = c_lo = pyscf.lo.orth_ao(self.mol, 'meta-lowdin', pre_orth_ao=None)
+            return self.get_ovlp_power(power=-0.5)
+        elif local_orbitals.lower() == 'iao+pao':
+            return make_iaopao_fragmentation(self.mf, log=self.log, minao=minao).get_coeff()
+        raise ValueError("Unknown local orbitals: %r" % local_orbitals)
+
+    def pop_analysis(self, dm1, mo_coeff=None, local_orbitals='lowdin', minao='auto', write=True, filename=None, filemode='a', full=False):
         """
         Parameters
         ----------
         dm1 : (N, N) array
             If `mo_coeff` is None, AO representation is assumed!
-        kind : {'mulliken', 'lo'}
-            Kind of population analysis. Default: 'lo'.
-        c_lo :
-            Local orbital coefficients, only used if kind=='lo'. Default: Lowdin AOs.
+        local_orbitals : {'lowdin', 'mulliken', 'iao+pao'} or array
+            Kind of population analysis. Default: 'lowdin'.
+
+        Returns
+        -------
+        popp : (N) array
+            Poulation of orbitals.
         """
         if mo_coeff is not None:
             dm1 = einsum('ai,ij,bj->ab', mo_coeff, dm1, mo_coeff)
-        if kind.lower() == 'mulliken':
-            pop = einsum('ab,ba->a', dm1, self.get_ovlp())
-            name = "Mulliken"
-        elif kind.lower() == 'lo':
-            name = "Local orbital"
-            if c_lo is None:
-                c_lo = self.c_lo
-                name = "Lowdin"
-            if c_lo is None:
-                # Lowdin population analysis:
-                # Avoid pre_orth_ao step!
-                #self.c_lo = c_lo = pyscf.lo.orth_ao(self.mol, 'lowdin')
-                #self.c_lo = c_lo = pyscf.lo.orth_ao(self.mol, 'meta-lowdin', pre_orth_ao=None)
-                self.c_lo = c_lo = self.get_ovlp_power(power=-0.5)
-            cs = np.dot(c_lo.T, self.get_ovlp())
-            pop = einsum('ia,ab,ib->i', cs, dm1, cs)
+
+        ovlp = self.get_ovlp()
+        if isinstance(local_orbitals, str):
+            lo = local_orbitals.lower()
+            if lo == 'mulliken':
+                c_lo = None
+            else:
+                c_lo = self.get_lo_coeff(lo, minao=minao)
         else:
-            raise ValueError("Unknown population analysis kind: %r" % kind)
+            c_lo = local_orbitals
+
+        if c_lo is None:
+            pop = einsum('ab,ba->a', dm1, ovlp)
+        else:
+            cs = np.dot(c_lo.T, ovlp)
+            pop = einsum('ia,ab,ib->i', cs, dm1, cs)
 
         if write:
             self.write_population(pop, filename=filename, filemode=filemode, full=full)
@@ -673,6 +684,8 @@ class QEmbedding:
 
         if filename is None:
             write = lambda *args : self.log.info(*args)
+            write("Population analysis")
+            write("-------------------")
         else:
             dirname = os.path.dirname(filename)
             if dirname: os.makedirs(dirname, exist_ok=True)
@@ -680,17 +693,20 @@ class QEmbedding:
             write = lambda fmt, *args : f.write((fmt+'\n') % args)
             tstamp = datetime.now()
             self.log.info("Writing population analysis to file \"%s\". Time-stamp: %s", filename, tstamp)
-            write("Time-stamp: %s", tstamp)
+            write("# Time-stamp: %s", tstamp)
+            write("# Population analysis")
+            write("# -------------------")
 
-        write("Population analysis")
-        write("-------------------")
         for atom, charge in enumerate(charges):
             write("%3d %-7s  q= % 11.8f  s= % 11.8f", atom, self.mol.atom_symbol(atom) + ':', charge, spins[atom])
             if full:
                 aos = aoslices[atom]
                 for ao in range(aos[0], aos[1]):
                     label = aolabels[ao]
-                    write("    %4d %-16s= % 11.8f  % 11.8f" % (ao, label, pop[ao][0], pop[ao][1]))
+                    if np.ndim(pop[0]) == 1:
+                        write("    %4d %-16s= % 11.8f  % 11.8f" % (ao, label, pop[0][ao], pop[1][ao]))
+                    else:
+                        write("    %4d %-16s= % 11.8f" % (ao, label, pop[ao]))
         if filename is not None:
             f.close()
     # --- Fragmentation methods

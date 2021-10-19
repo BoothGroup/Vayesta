@@ -25,7 +25,10 @@ from vayesta.core import QEmbeddingFragment
 from vayesta.solver import get_solver_class2 as get_solver_class
 from vayesta.core.fragmentation import IAO_Fragmentation
 
-from vayesta.core.bath import DMET_Bath, BNO_Bath, CompleteBath
+from vayesta.core.bath import DMET_Bath
+from vayesta.core.bath import BNO_Bath
+from vayesta.core.bath import MP2_BNO_Bath
+from vayesta.core.bath import CompleteBath
 from vayesta.core.actspace import ActiveSpace
 
 from . import ewf
@@ -163,7 +166,7 @@ class EWFFragment(QEmbeddingFragment):
             bath = CompleteBath(self, dmet_threshold=self.opts.dmet_threshold)
         # MP2 bath natural orbitals
         elif bath_type.lower() == 'mp2-bno':
-            bath = BNO_Bath(self, dmet_threshold=self.opts.dmet_threshold)
+            bath = MP2_BNO_Bath(self, dmet_threshold=self.opts.dmet_threshold)
         else:
             raise ValueError("Unknown bath_type: %r" % bath_type)
         bath.kernel()

@@ -27,6 +27,7 @@ __all__ = [
         'timer', 'time_string', 'log_time', 'memory_string', 'get_used_memory',
         # Other
         'replace_attr', 'cached_method', 'break_into_lines', 'fix_orbital_sign',
+        'stack_mo_coeffs',
         ]
 
 class NotSetType:
@@ -61,6 +62,15 @@ def hstack(*args):
         for x in args:
             log.critical("type= %r  shape= %r", type(x), x.shape if hasattr(x, 'shape') else "None")
         raise e
+
+def stack_mo_coeffs(*mo_coeffs):
+    # RHF
+    if np.ndim(mo_coeffs[0][0]) == 1:
+        return hstack(*mo_coeffs)
+    # UHF
+    return (hstack(*[c[0] for c in mo_coeffs]),
+            hstack(*[c[1] for c in mo_coeffs]))
+
 
 def cached_method(cachename, use_cache_default=True, store_cache_default=True):
     """Cache the return value of a class method.

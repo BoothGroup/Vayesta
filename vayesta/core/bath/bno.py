@@ -1,4 +1,3 @@
-"""These functions take a cluster instance as first argument ("self")."""
 
 import numpy as np
 
@@ -9,64 +8,34 @@ import pyscf.pbc.mp
 
 from vayesta.core.util import *
 from vayesta.core.linalg import recursive_block_svd
-#from vayesta.ewf.psubspace import transform_mp2_eris
-#from vayesta.ewf import helper
 from . import helper
 
 from .dmet import DMET_Bath
 
 class BNO_Bath(DMET_Bath):
+    """DMET + Bath natural orbitals."""
 
-    def __init__(self, fragment, *args, canonicalize=True, local_dm=False, **kwargs):
+    def __init__(self, fragment, *args, **kwargs):
         super().__init__(fragment, *args, **kwargs)
-        self.canonicalize = canonicalize
-        self.local_dm = local_dm
-        # Output
+        # Results
         self.c_no_occ = None
         self.c_no_vir = None
         self.n_no_occ = None
         self.n_no_vir = None
 
-    def kernel(self, bath_type='mp2-bno'):
+    def kernel(self):
         # --- DMET bath
         super().kernel()
-
-        # Add cluster orbitals to plot
+        # --- Natural environment orbitals:
         c_env_occ = self.c_env_occ
         c_env_vir = self.c_env_vir
         c_cluster_occ = self.c_cluster_occ
         c_cluster_vir = self.c_cluster_vir
+        self.c_no_occ, self.n_no_occ = self.make_bno_bath(c_cluster_occ, c_cluster_vir, c_env_occ, c_env_vir, 'occ')
+        self.c_no_vir, self.n_no_vir = self.make_bno_bath(c_cluster_occ, c_cluster_vir, c_env_occ, c_env_vir, 'vir')
 
-        # TODO: clean
-        self.log.debugv("bath_type= %r", bath_type)
-        if bath_type is None or bath_type.upper() == 'NONE':
-            c_no_occ = c_env_occ
-            c_no_vir = c_env_vir
-            if self.base.is_rhf:
-                n_no_occ = np.full((c_no_occ.shape[-1],), -np.inf)
-                n_no_vir = np.full((c_no_vir.shape[-1],), -np.inf)
-            else:
-                n_no_occ = np.full((2, c_no_occ[0].shape[-1]), -np.inf)
-                n_no_vir = np.full((2, c_no_vir[1].shape[-1]), -np.inf)
-        elif bath_type.upper() == 'ALL':
-            c_no_occ = c_env_occ
-            c_no_vir = c_env_vir
-            if self.base.is_rhf:
-                n_no_occ = np.full((c_no_occ.shape[-1],), np.inf)
-                n_no_vir = np.full((c_no_vir.shape[-1],), np.inf)
-            else:
-                n_no_occ = np.full((2, c_no_occ[0].shape[-1]), np.inf)
-                n_no_vir = np.full((2, c_no_vir[1].shape[-1]), np.inf)
-        elif bath_type.upper() == 'MP2-BNO':
-            c_no_occ, n_no_occ = self.make_bno_bath(c_cluster_occ, c_cluster_vir, c_env_occ, c_env_vir, 'occ')
-            c_no_vir, n_no_vir = self.make_bno_bath(c_cluster_occ, c_cluster_vir, c_env_occ, c_env_vir, 'vir')
-        else:
-            raise ValueError("Unknown bath type: '%s'" % bath_type)
-
-        self.c_no_occ = c_no_occ
-        self.c_no_vir = c_no_vir
-        self.n_no_occ = n_no_occ
-        self.n_no_vir = n_no_vir
+    def make_bno_coeff(self, *args, **kwargs):
+        raise AbstractMethodError()
 
     def make_bno_bath(self, c_cluster_occ, c_cluster_vir, c_env_occ, c_env_vir, kind):
         assert kind in ('occ', 'vir')
@@ -80,7 +49,7 @@ class BNO_Bath(DMET_Bath):
         self.log.info("-------%s---------", len(name)*'-')
         self.log.changeIndentLevel(1)
         t0 = timer()
-        c_no, n_no = self.make_mp2_bno(
+        c_no, n_no = self.make_bno_coeff(
                 kind, c_cluster_occ, c_cluster_vir, c_env_occ, c_env_vir)
         self.log.debugv('BNO eigenvalues:\n%r', n_no)
         if len(n_no) > 0:
@@ -126,7 +95,15 @@ class BNO_Bath(DMET_Bath):
         c_bno, c_rest = np.hsplit(c_no, [bno_number])
         return c_bno, c_rest
 
-    def make_mp2_bno(self, kind, c_cluster_occ, c_cluster_vir,
+
+class MP2_BNO_Bath(BNO_Bath):
+
+    def __init__(self, *args, local_dm=False, canonicalize=True, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.local_dm = local_dm
+        self.canonicalize = canonicalize
+
+    def make_bno_coeff(self, kind, c_cluster_occ, c_cluster_vir,
             c_env_occ=None, c_env_vir=None, canonicalize=None, local_dm=None, eris=None):
         """Select virtual space from MP2 natural orbitals (NOs) according to occupation number.
 
@@ -278,12 +255,6 @@ class BNO_Bath(DMET_Bath):
 
         clt, env = np.s_[:ncluster], np.s_[ncluster:]
 
-        # TEST SVD BATH:
-        #coeff, sv, order = recursive_block_svd(dm, n=ncluster)
-        #c_no = np.dot(c_env, coeff)
-        #n_no = 1/order
-        #self.log.debugv("n_no= %r", n_no)
-
         self.log.debugv("Tr[D]= %r", np.trace(dm))
         self.log.debugv("Tr[D(cluster,cluster)]= %r", np.trace(dm[clt,clt]))
         self.log.debugv("Tr[D(env,env)]= %r", np.trace(dm[env,env]))
@@ -294,91 +265,12 @@ class BNO_Bath(DMET_Bath):
 
         return c_no, n_no
 
-#    def get_mp2_correction(self, Co1, Cv1, Co2, Cv2):
-#        """Calculate delta MP2 correction."""
-#        e_mp2_all, eris = self.run_mp2(Co1, Cv1)[:2]
-#        e_mp2_act = self.run_mp2(Co2, Cv2, eris=eris)[0]
-#        e_delta_mp2 = e_mp2_all - e_mp2_act
-#        self.log.debug("MP2 correction: all=%.4g, active=%.4g, correction=%+.4g",
-#                e_mp2_all, e_mp2_act, e_delta_mp2)
-#        return e_delta_mp2
-#
-#
+
+
+
 
 # ================================================================================================ #
 
-#def make_mp2_bath(self, c_cluster_occ, c_cluster_vir, c_env_occ, c_env_vir,
-#        kind, mp2_correction=None):
-#    """Select occupied or virtual bath space from MP2 natural orbitals.
-#
-#    The natural orbitals are calculated only including the local virtual (occupied)
-#    cluster orbitals when calculating occupied (virtual) bath orbitals, i.e. they do not correspond
-#    to the full system MP2 natural orbitals and are different for every cluster.
-#
-#    Parameters
-#    ----------
-#    c_cluster_occ : ndarray
-#        Occupied cluster (fragment + DMET bath) orbitals.
-#    c_cluster_vir : ndarray
-#        Virtual cluster (fragment + DMET bath) orbitals.
-#    C_env : ndarray
-#        Environment orbitals. These need to be off purely occupied character if kind=="occ"
-#        and of purely virtual character if kind=="vir".
-#    kind : str ["occ", "vir"]
-#        Calculate occupied or virtual bath orbitals.
-#
-#    Returns
-#    -------
-#    c_no : ndarray
-#        MP2 natural orbitals.
-#    n_no : ndarray
-#        Natural occupation numbers.
-#    e_delta_mp2 : float
-#        MP2 correction energy (0 if self.mp2_correction == False)
-#    """
-#    if kind not in ("occ", "vir"):
-#        raise ValueError("Unknown kind: %s", kind)
-#    if mp2_correction is None: mp2_correction = self.mp2_correction[0 if kind == "occ" else 1]
-#    kindname = {"occ": "occupied", "vir" : "virtual"}[kind]
-#
-#    # All occupied and virtual orbitals
-#    c_all_occ = np.hstack((c_cluster_occ, c_env_occ))
-#    c_all_vir = np.hstack((c_cluster_vir, c_env_vir))
-#
-#    # All occupied orbitals, only cluster virtual orbitals
-#    if kind == "occ":
-#        c_occ = np.hstack((c_cluster_occ, c_env_occ))
-#        c_vir = c_cluster_vir
-#        ... = self.run_mp2(c_occ=c_occ, c_vir=c_vir, c_vir_frozen=c_env_vir)
-#        ncluster = c_occclst.shape[-1]
-#        nenv = c_occ.shape[-1] - ncluster
-#
-#    # All virtual orbitals, only cluster occupied orbitals
-#    elif kind == "vir":
-#        c_occ = c_cluster_occ
-#        c_vir = np.hstack((c_cluster_vir, c_env_vir))
-#        ... = self.run_mp(c_occ, c_vir, c_occenv=c_occenv, c_virenv=None)
-#        ncluster = c_virclst.shape[-1]
-#        nenv = c_vir.shape[-1] - ncluster
-#
-#    # Diagonalize environment-environment block of MP2 DM correction
-#    # and rotate into natural orbital basis, with the orbitals sorted
-#    # with decreasing (absolute) occupation change
-#    # [Note that dm_occ is minus the change of the occupied DM]
-#
-#    env = np.s_[ncluster:]
-#    dm = dm[env,env]
-#    dm_occ, dm_rot = np.linalg.eigh(dm)
-#    assert (len(dm_occ) == nenv)
-#    if np.any(dm_occ < -1e-12):
-#        raise RuntimeError("Negative occupation values detected: %r" % dm_occ[dm_occ < -1e-12])
-#    dm_occ, dm_rot = dm_occ[::-1], dm_rot[:,::-1]
-#    c_rot = np.dot(c_env, dm_rot)
-#
-#    with open("mp2-bath-occupation.txt", "ab") as f:
-#        #np.savetxt(f, dm_occ[np.newaxis], header="MP2 bath orbital occupation of cluster %s" % self.name)
-#        np.savetxt(f, dm_occ, fmt="%.10e", header="%s MP2 bath orbital occupation of cluster %s" % (kindname.title(), self.name))
-#
 #    if self.opts.plot_orbitals:
 #        #bins = np.hstack((-np.inf, np.self.logspace(-9, -3, 9-3+1), np.inf))
 #        bins = np.hstack((1, np.self.logspace(-3, -9, 9-3+1), -1))
@@ -391,5 +283,3 @@ class BNO_Bath(DMET_Bath):
 #                dm = np.dot(coeff, coeff.T)
 #                dset_idx = (4001 if kind == "occ" else 5001) + idx
 #                self.cubefile.add_density(dm, dset_idx=dset_idx)
-#
-#    return c_no, n_no

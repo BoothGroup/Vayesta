@@ -179,7 +179,7 @@ class IAO_Fragmentation_UHF(Fragmentation_UHF, IAO_Fragmentation):
         if mo_occ is None: mo_occ = self.mo_occ
 
         self.log.info("Alpha-IAOs:")
-        c_iao_a = super().get_coeff(mo_coeff=mo_coeff[0], mo_occ=mo_occ[0], add_virtuals=add_virtuals)
+        c_iao_a = IAO_Fragmentation.get_coeff(self, mo_coeff=mo_coeff[0], mo_occ=mo_occ[0], add_virtuals=add_virtuals)
         self.log.info(" Beta-IAOs:")
-        c_iao_b = super().get_coeff(mo_coeff=mo_coeff[1], mo_occ=mo_occ[1], add_virtuals=add_virtuals)
+        c_iao_b = IAO_Fragmentation.get_coeff(self, mo_coeff=mo_coeff[1], mo_occ=mo_occ[1], add_virtuals=add_virtuals)
         return (c_iao_a, c_iao_b)

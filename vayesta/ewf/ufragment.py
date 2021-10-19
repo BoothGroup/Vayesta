@@ -11,13 +11,6 @@ class UEWFFragment(UFragment, EWFFragment):
     def set_cas(self, *args, **kwargs):
         raise NotImplementedError()
 
-    def truncate_bno(self, c_no, n_no, *args, **kwargs):
-        results = []
-        for s, spin in enumerate(('alpha', 'beta')):
-            self.log.info("%s:", spin.capitalize())
-            results.append(super().truncate_bno(c_no[s], n_no[s], *args, **kwargs))
-        return tuple(zip(*results))
-
     def make_bath(self, bath_type=NotSet):
         if bath_type is NotSet:
             bath_type = self.opts.bath_type
