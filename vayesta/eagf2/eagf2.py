@@ -248,7 +248,6 @@ class EAGF2(QEmbeddingMethod):
         diis = self.DIIS(space=self.opts.diis_space, min_space=self.opts.diis_min_space)
         solver.se = aux.SelfEnergy(np.empty((0)), np.empty((self.nmo, 0)))
         fock = np.diag(self.mf.mo_energy)
-        fock_mo = fock.copy()
         e_nuc = solver.e_nuc
 
         converged = False
@@ -334,7 +333,7 @@ class EAGF2(QEmbeddingMethod):
 
                 self.log.info("Occupied self-energy:")
                 with self.log.withIndentLevel(1):
-                    se_occ = solver._build_se_from_moments(moms[0])
+                    se_occ = solver._build_se_from_moments(moms[0], eps=self.opts.weight_tol)
                     w = np.linalg.eigvalsh(moms[0][0])
                     wmin, wmax = w.min(), w.max()
                     (self.log.warning if wmin < 1e-8 else self.log.debug)(
@@ -347,7 +346,7 @@ class EAGF2(QEmbeddingMethod):
                 
                 self.log.info("Virtual self-energy:")
                 with self.log.withIndentLevel(1):
-                    se_vir = solver._build_se_from_moments(moms[1])
+                    se_vir = solver._build_se_from_moments(moms[1], eps=self.opts.weight_tol)
                     w = np.linalg.eigvalsh(moms[1][0])
                     wmin, wmax = w.min(), w.max()
                     (self.log.warning if wmin < 1e-8 else self.log.debug)(
@@ -364,15 +363,17 @@ class EAGF2(QEmbeddingMethod):
 
 
                 solver.se = solver._combine_se(se_occ, se_vir)
-                solver.se.remove_uncoupled(tol=self.opts.weight_tol)
 
                 if niter != 0:
                     solver.run_diis(solver.se, None, diis, se_prev=se_prev)
+                    solver.se.remove_uncoupled(tol=self.opts.weight_tol)
 
-                w, v = solver.solve_dyson(fock=fock_mo)
+                w, v = solver.solve_dyson(fock=fock)
                 solver.gf = aux.GreensFunction(w, v[:self.nmo])
+                solver.gf.remove_uncoupled(tol=self.opts.weight_tol)
+
                 if self.opts.fock_loop:
-                    solver.gf, solver.se, fconv, fock = solver.fock_loop(fock=fock_mo, return_fock=True)
+                    solver.gf, solver.se, fconv, fock = solver.fock_loop(fock=fock, return_fock=True)
                 solver.gf.remove_uncoupled(tol=self.opts.weight_tol)
 
                 solver.e_1b = solver.energy_1body(e_nuc=e_nuc)

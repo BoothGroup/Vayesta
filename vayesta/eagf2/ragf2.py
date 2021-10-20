@@ -409,7 +409,8 @@ class RAGF2:
         
         if self.opts.nmom_lanczos == 0:
             w, v = np.linalg.eigh(t[0])
-            w[w < eps] = eps
+            mask = w > eps
+            w, v = w[mask], v[:, mask]
             b = np.dot(v * w[None]**0.5, v.T.conj())
             b_inv = np.dot(v * w[None]**-0.5, v.T.conj())
             e, v = np.linalg.eigh(np.linalg.multi_dot((b_inv.T.conj(), t[1], b_inv)))
