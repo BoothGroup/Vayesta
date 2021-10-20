@@ -127,6 +127,10 @@ class EWF(QEmbeddingMethod):
         return fmt % (self.__class__.__name__, *[x for y in zip(keys, values) for x in y])
 
 
+    def get_fock_for_energy(self, *args, **kwargs):
+        """Overriding this allows to use a different Fock-matrix for the energy evaluation."""
+        return self.get_fock(*args, **kwargs)
+
     #def init_fragments(self):
     #    if self.opts.fragment_type.upper() == "IAO":
     #        #self.C_ao, self.C_env, self.iao_labels = self.make_iao_coeffs(minao=self.opts.iao_minao)

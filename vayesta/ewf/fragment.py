@@ -304,10 +304,18 @@ class EWFFragment(QEmbeddingFragment):
         if hasattr(cluster_solver, 'c0'):
             self.log.info("Weight of reference determinant= %.8g", abs(cluster_solver.c0))
         # C1 and C2 are in intermediate normalization:
-        p1 = self.project_amplitude_to_fragment(cluster_solver.get_c1(), cluster.c_active_occ, cluster.c_active_vir)
-        p2 = self.project_amplitude_to_fragment(cluster_solver.get_c2(), cluster.c_active_occ, cluster.c_active_vir)
+        c1 = self.project_amplitude_to_fragment(cluster_solver.get_c1(), cluster.c_active_occ, cluster.c_active_vir)
+        c2 = self.project_amplitude_to_fragment(cluster_solver.get_c2(), cluster.c_active_occ, cluster.c_active_vir)
 
-        e_corr = self.get_fragment_energy(p1, p2, eris=eris, solver=solver)
+        e_singles, e_doubles, e_corr = self.get_fragment_energy(c1, c2, eris=eris)
+        if (solver != 'FCI' and (e_singles > max(0.1*e_doubles, 1e-4))):
+            self.log.warning("Large singles energy component: E(S)= %s, E(D)= %s",
+                    energy_string(e_singles), energy_string(e_doubles))
+        else:
+            self.log.debug("Energy components: E(S)= %s, E(D)= %s",
+                    energy_string(e_singles), energy_string(e_doubles))
+
+
         if bno_threshold[0] is not None:
             if bno_threshold[0] == bno_threshold[1]:
                 self.log.info("BNO threshold= %.1e :  E(corr)= %+14.8f Ha", bno_threshold[0], e_corr)
@@ -442,38 +450,47 @@ class EWFFragment(QEmbeddingFragment):
     #    #e_frag = self.opts.energy_factor * self.sym_factor * (e1 + e2)
     #    return (t1_pf, t2_pf), (e1b, e2b_conn, e2b_disc)
 
-    def get_fragment_energy(self, p1, p2, eris, solver):
-        """Calculate fragment correlation energy contribution from porjected C1, C2.
+    def get_fragment_energy(self, c1, c2, eris, fock=None):
+        """Calculate fragment correlation energy contribution from projected C1, C2.
 
         Parameters
         ----------
-        p1 : (n(occ), n(vir)) array
-            Locally projected C1 amplitudes.
-        p2 : (n(occ), n(occ), n(vir), n(vir)) array
-            Locally projected C2 amplitudes.
-        eris :
-            PySCF eris object as returned by cm.ao2mo()
+        c1: (n(occ-CO), n(vir-CO)) array
+            Fragment projected C1-amplitudes.
+        c2: (n(occ-CO), n(occ-CO), n(vir-CO), n(vir-CO)) array
+            Fragment projected C2-amplitudes.
+        eris: array or PySCF _ChemistERIs object
+            Electron repulsion integrals as returned by ccsd.ao2mo().
+        fock: (n(AO), n(AO)) array, optional
+            Fock matrix in AO representation. If None, self.base.get_fock_for_energy()
+            is used. Default: None.
 
         Returns
         -------
-        e_frag : float
-            Fragment energy contribution.
+        e_singles: float
+            Fragment correlation energy contribution from single excitations.
+        e_doubles: float
+            Fragment correlation energy contribution from double excitations.
+        e_corr: float
+            Total fragment correlation energy contribution.
         """
-        if self.opts.energy_factor == 0: return 0
+        if (self.opts.energy_factor*self.sym_factor) == 0: return 0
 
-        nocc, nvir = p2.shape[1:3]
-        occ = np.s_[:nocc]
-        vir = np.s_[nocc:]
-        # Singles energy (for non-HF reference)
-        if p1 is not None:
-            if hasattr(eris, 'fock'):
-                f = eris.fock[occ,vir]
-            else:
-                f = dot(self.c_active_occ.T, self.base.get_fock(), self.c_active_vir)
-            e_s = 2*np.sum(f * p1)
+        nocc, nvir = c2.shape[1:3]
+        occ, vir = np.s_[:nocc], np.s_[nocc:]
+        # --- Singles energy (zero for HF-reference)
+        if c1 is not None:
+            if fock is None:
+                fock = self.base.get_fock_for_energy()
+            fov =  dot(self.c_active_occ.T, fock, self.c_active_vir)
+            #if hasattr(eris, 'fock'):
+            #    f = eris.fock[occ,vir]
+            #else:
+            #    f = dot(self.c_active_occ.T, self.base.get_fock(), self.c_active_vir)
+            e_singles = 2*np.sum(fov*c1)
         else:
-            e_s = 0
-        # E2
+            e_singles = 0
+        # --- Doubles energy
         if hasattr(eris, 'ovvo'):
             g_ovvo = eris.ovvo[:]
         elif hasattr(eris, 'ovov'):
@@ -481,14 +498,12 @@ class EWFFragment(QEmbeddingFragment):
             g_ovvo = eris.ovov[:].reshape(nocc,nvir,nocc,nvir).transpose(0, 1, 3, 2).conj()
         else:
             g_ovvo = eris[occ,vir,vir,occ]
+        e_doubles = 2*einsum('ijab,iabj', c2, g_ovvo) - einsum('ijab,jabi', c2, g_ovvo)
 
-        e_d = 2*einsum('ijab,iabj', p2, g_ovvo) - einsum('ijab,jabi', p2, g_ovvo)
-        self.log.debug("Energy components: E(singles)= %s, E(doubles)= %s",
-                energy_string(e_s), energy_string(e_d))
-        if solver != 'FCI' and (e_s > 0.1*e_d and e_s > 1e-4):
-            self.log.warning("Large E(singles) component!")
-        e_frag = self.opts.energy_factor * self.sym_factor * (e_s + e_d)
-        return e_frag
+        e_singles = (self.opts.energy_factor*self.sym_factor * e_singles)
+        e_doubles = (self.opts.energy_factor*self.sym_factor * e_doubles)
+        e_corr = (e_singles + e_doubles)
+        return e_singles, e_doubles, e_corr
 
     def pop_analysis(self, cluster=None, dm1=None, **kwargs):
         if cluster is None: cluster = self.cluster
