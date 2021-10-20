@@ -212,9 +212,13 @@ class UEmbedding(QEmbedding):
     # --- CC Amplitudes
     # -----------------
 
+    # T-amplitudes
     get_t1 = get_t1_uhf
     get_t2 = get_t2_uhf
     get_t12 = get_t12_uhf
+
+    # Lambda-amplitudes
+    # get_l1, get_l2, and get_l12 are inherited from EWF.
 
     # --- Density-matrices
     # --------------------

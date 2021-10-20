@@ -589,9 +589,20 @@ class QEmbedding:
     # --- CC Amplitudes
     # -----------------
 
+    # T-amplitudes
     get_t1 = get_t1
     get_t2 = get_t2
     get_t12 = get_t12
+
+    # Lambda-amplitudes
+    def get_l1(self, *args, **kwargs):
+        return self.get_t1(*args, get_lambda=True, **kwargs)
+
+    def get_l2(self, *args, **kwargs):
+        return self.get_t2(*args, get_lambda=True, **kwargs)
+
+    def get_l12(self, *args, **kwargs):
+        return self.get_t12(*args, get_lambda=True, **kwargs)
 
     # --- Density-matrices
     # --------------------

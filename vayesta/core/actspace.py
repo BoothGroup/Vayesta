@@ -17,16 +17,38 @@ class ActiveSpace_RHF:
         self._active_occ = OrbitalSpace(c_active_occ, name="active-occupied")
         self._active_vir = OrbitalSpace(c_active_vir, name="active-virtual")
         # Frozen
+        if c_frozen_occ is 0:
+            c_frozen_occ = np.zeros((self.nao, 0))
+            if self.is_uhf:
+                c_frozen_occ = (c_frozen_occ, c_frozen_occ)
         if c_frozen_occ is not None:
             self._frozen_occ = OrbitalSpace(c_frozen_occ, name="frozen-occupied")
         else:
             self._frozen_occ = None
+        if c_frozen_vir is 0:
+            c_frozen_vir = np.zeros((self.nao, 0))
+            if self.is_uhf:
+                c_frozen_vir = (c_frozen_vir, c_frozen_vir)
         if c_frozen_vir is not None:
             self._frozen_vir = OrbitalSpace(c_frozen_vir, name="frozen-virtual")
         else:
             self._frozen_vir = None
 
+    # --- General
+
+    def __repr__(self):
+        return ("ActiveSpace(nocc_active= %d, nvir_active= %d, nocc_frozen= %d, nvir_frozen= %d)" %
+            (self.nocc_active, self.nvir_active, self.nocc_frozen, self.nvir_frozen))
+
     # --- Mean-field:
+
+    @property
+    def is_rhf(self):
+        return True
+
+    @property
+    def is_uhf(self):
+        return False
 
     @property
     def mol(self):
@@ -223,6 +245,18 @@ class ActiveSpace_RHF:
     #    assert self.nvir_active == self.active.virtual.size == self.active.virtual.coeff.shape[-1]
 
 class ActiveSpace_UHF(ActiveSpace_RHF):
+
+    def __repr__(self):
+        return ("ActiveSpace(nocc_active= (%d, %d), nvir_active= (%d, %d), nocc_frozen= (%d, %d), nvir_frozen= (%d, %d))" %
+            (*self.nocc_active, *self.nvir_active, *self.nocc_frozen, *self.nvir_frozen))
+
+    @property
+    def is_rhf(self):
+        return False
+
+    @property
+    def is_uhf(self):
+        return True
 
     @property
     def norb(self):
