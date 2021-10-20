@@ -393,11 +393,12 @@ class EAGF2(QEmbeddingMethod):
 
                 self.log.timing("Time for AGF2 iteration:  %s", time_string(timer() - t1))
 
-            if deltas[0] < self.opts.conv_tol \
-                    and deltas[1] < self.opts.conv_tol_t0 \
-                    and deltas[2] < self.opts.conv_tol_t1:
-                converged = True
-                break
+            if niter > 0:
+                if deltas[0] < self.opts.conv_tol \
+                        and deltas[1] < self.opts.conv_tol_t0 \
+                        and deltas[2] < self.opts.conv_tol_t1:
+                    converged = True
+                    break
 
         solver.e_1b = solver.energy_1body()
         solver.e_2b = solver.energy_2body()
