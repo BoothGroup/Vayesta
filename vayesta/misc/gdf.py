@@ -612,8 +612,12 @@ class GDF(df.GDF):
         # The follow attributes are not input options.
         self.exxdiv = None
         self.auxcell = None
+        self.chgcell = None
+        self.fused_cell = None
+        self.kconserv = None
         self.blockdim = None
         self.kpts_band = None
+        self.kpt_hash = None
         self._j_only = False
         self._cderi = None
         self._rsh_df = {}
@@ -653,6 +657,10 @@ class GDF(df.GDF):
         if cell is not None:
             self.cell = cell
         self.auxcell = None
+        self.chgcell = None
+        self.fused_cell = None
+        self.kconserv = None
+        self.kpt_hash = None
         self._cderi = None
         self._rsh_df = {}
         self._get_nuc = None
@@ -674,8 +682,6 @@ class GDF(df.GDF):
         j_only = j_only or self._j_only
         if j_only:
             self.log.warn('j_only=True has not effect on overhead in %s', self.__class__)
-        if not with_j3c:
-            raise ValueError('%s does not support with_j3c' % self.__class__)
         if self.kpts_band is not None:
             raise ValueError('%s does not support kwarg kpts_band' % self.__class__)
 
@@ -701,7 +707,8 @@ class GDF(df.GDF):
             val = _get_kpt_hash(kpt)
             self.kptij_hash[val].append(k)
 
-        self._cderi = self._make_j3c(kptij_lst)
+        if with_j3c:
+            self._cderi = self._make_j3c(kptij_lst)
 
         return self
 
@@ -942,6 +949,34 @@ class GDF(df.GDF):
         return Lij
 
     get_mo_3c_eri = ao2mo_3c
+
+    def save(self, file):
+        ''' Dump the integrals to disk.
+        '''
+
+        if self._cderi is None:
+            raise ValueError('_cderi must have been built in order to save to disk.')
+
+        with open(file, 'wb') as f:
+            np.save(f, self._cderi)
+
+        return self
+
+    def load(self, file):
+        ''' Load the integrals from disk. Must have called self.build() first.
+        '''
+
+        if self.auxcell is None:
+            raise ValueError('Must call GDF.build() before loading integrals from disk - use '
+                             'keyword with_j3c=False to avoid re-building the integrals.')
+
+        with open(file, 'rb') as f:
+            _cderi = np.load(f)
+
+        self._cderi = _cderi
+
+        return self
+
 
     @property
     def max_memory(self):
