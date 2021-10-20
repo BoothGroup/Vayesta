@@ -18,10 +18,10 @@ class BNO_Bath(DMET_Bath):
     def __init__(self, fragment, *args, **kwargs):
         super().__init__(fragment, *args, **kwargs)
         # Results
-        self.c_no_occ = None
-        self.c_no_vir = None
-        self.n_no_occ = None
-        self.n_no_vir = None
+        self.c_bno_occ = None
+        self.c_bno_vir = None
+        self.n_bno_occ = None
+        self.n_bno_vir = None
 
     def kernel(self):
         # --- DMET bath
@@ -31,14 +31,20 @@ class BNO_Bath(DMET_Bath):
         c_env_vir = self.c_env_vir
         c_cluster_occ = self.c_cluster_occ
         c_cluster_vir = self.c_cluster_vir
-        self.c_no_occ, self.n_no_occ = self.make_bno_bath(c_cluster_occ, c_cluster_vir, c_env_occ, c_env_vir, 'occ')
-        self.c_no_vir, self.n_no_vir = self.make_bno_bath(c_cluster_occ, c_cluster_vir, c_env_occ, c_env_vir, 'vir')
+        self.c_bno_occ, self.n_bno_occ = self.make_bno_bath('occ', c_cluster_occ, c_cluster_vir, c_env_occ, c_env_vir)
+        self.c_bno_vir, self.n_bno_vir = self.make_bno_bath('vir', c_cluster_occ, c_cluster_vir, c_env_occ, c_env_vir)
 
     def make_bno_coeff(self, *args, **kwargs):
         raise AbstractMethodError()
 
-    def make_bno_bath(self, c_cluster_occ, c_cluster_vir, c_env_occ, c_env_vir, kind):
-        assert kind in ('occ', 'vir')
+    def make_bno_bath(self, kind, c_cluster_occ=None, c_cluster_vir=None, c_env_occ=None, c_env_vir=None):
+        if kind not in ('occ', 'vir'):
+            raise ValueError("kind not in ['occ', 'vir']: %r" % kind)
+        if c_cluster_occ is None: c_cluster_occ = self.c_cluster_occ
+        if c_cluster_vir is None: c_cluster_vir = self.c_cluster_vir
+        if c_env_occ is None: c_env_occ = self.c_env_occ
+        if c_env_vir is None: c_env_vir = self.c_env_vir
+
         c_env = c_env_occ if (kind == 'occ') else c_env_vir
         if c_env.shape[-1] == 0:
             return c_env, np.zeros((0,))
@@ -49,34 +55,34 @@ class BNO_Bath(DMET_Bath):
         self.log.info("-------%s---------", len(name)*'-')
         self.log.changeIndentLevel(1)
         t0 = timer()
-        c_no, n_no = self.make_bno_coeff(
+        c_bno, n_bno = self.make_bno_coeff(
                 kind, c_cluster_occ, c_cluster_vir, c_env_occ, c_env_vir)
-        self.log.debugv('BNO eigenvalues:\n%r', n_no)
-        if len(n_no) > 0:
+        self.log.debugv("BNO eigenvalues:\n%r", n_bno)
+        if len(n_bno) > 0:
             self.log.info("%s Bath NO Histogram", name.capitalize())
             self.log.info("%s------------------", len(name)*'-')
-            for line in helper.plot_histogram(n_no):
+            for line in helper.plot_histogram(n_bno):
                 self.log.info(line)
         self.log.timing("Time for %s BNOs:  %s", name, time_string(timer()-t0))
         self.log.changeIndentLevel(-1)
 
-        return c_no, n_no
+        return c_bno, n_bno
 
     def get_occupied_bath(self, bno_threshold=None, bno_number=None):
         self.log.info("Occupied BNOs:")
-        return self.truncate_bno(self.c_no_occ, self.n_no_occ, bno_threshold=bno_threshold, bno_number=bno_number)
+        return self.truncate_bno(self.c_bno_occ, self.n_bno_occ, bno_threshold=bno_threshold, bno_number=bno_number)
 
     def get_virtual_bath(self, bno_threshold=None, bno_number=None):
         self.log.info("Virtual BNOs:")
-        return self.truncate_bno(self.c_no_vir, self.n_no_vir, bno_threshold=bno_threshold, bno_number=bno_number)
+        return self.truncate_bno(self.c_bno_vir, self.n_bno_vir, bno_threshold=bno_threshold, bno_number=bno_number)
 
-    def truncate_bno(self, c_no, n_no, bno_threshold=None, bno_number=None):
+    def truncate_bno(self, c_bno, n_bno, bno_threshold=None, bno_number=None):
         """Split natural orbitals (NO) into bath and rest."""
         if bno_number is not None:
             pass
         elif bno_threshold is not None:
             bno_threshold *= self.fragment.opts.bno_threshold_factor
-            bno_number = np.count_nonzero(n_no >= bno_threshold)
+            bno_number = np.count_nonzero(n_bno >= bno_threshold)
         else:
             raise ValueError()
 
@@ -86,13 +92,13 @@ class BNO_Bath(DMET_Bath):
             if len(n_part) > 0:
                 with np.errstate(invalid='ignore'): # supress 0/0=nan warning
                     self.log.info(fmt, name, len(n_part), max(n_part), min(n_part), np.sum(n_part),
-                            100*np.sum(n_part)/np.sum(n_no))
+                            100*np.sum(n_part)/np.sum(n_bno))
             else:
                 self.log.info(fmt[:fmt.index('max')].rstrip(), name, 0)
-        log("Bath", n_no[:bno_number])
-        log("Rest", n_no[bno_number:])
+        log("Bath", n_bno[:bno_number])
+        log("Rest", n_bno[bno_number:])
 
-        c_bno, c_rest = np.hsplit(c_no, [bno_number])
+        c_bno, c_rest = np.hsplit(c_bno, [bno_number])
         return c_bno, c_rest
 
 
@@ -101,10 +107,12 @@ class MP2_BNO_Bath(BNO_Bath):
     def __init__(self, *args, local_dm=False, canonicalize=True, **kwargs):
         super().__init__(*args, **kwargs)
         self.local_dm = local_dm
+        # Canonicalization can be set separately for occupied and virtual:
+        if canonicalize in (True, False):
+            canonicalize = 2*[canonicalize]
         self.canonicalize = canonicalize
 
-    def make_bno_coeff(self, kind, c_cluster_occ, c_cluster_vir,
-            c_env_occ=None, c_env_vir=None, canonicalize=None, local_dm=None, eris=None):
+    def make_bno_coeff(self, kind, c_cluster_occ=None, c_cluster_vir=None, c_env_occ=None, c_env_vir=None, eris=None):
         """Select virtual space from MP2 natural orbitals (NOs) according to occupation number.
 
         Parameters
@@ -117,21 +125,18 @@ class MP2_BNO_Bath(BNO_Bath):
             Frozen occupied orbitals.
         c_vir_frozen : ndarray, optional
             Frozen virtual orbitals.
-        canonicalize : bool, tuple(2), optional
-            Canonicalize occupied/virtual active orbitals.
         eris: TODO
 
         Returns
         -------
-        c_no
-        n_no
+        c_bno: (n(AO), n(BNO)) array
+            Bath natural orbital coefficients.
+        n_bno: (n(BNO)) array
+            Bath natural orbital occupation numbers.
         """
-        if canonicalize is None: canonicalize = self.canonicalize
-        if local_dm is None: local_dm = self.local_dm
 
-        if self.c_dmet is None:
-            raise RuntimeError("MP2 bath requires DMET bath.")
-
+        if c_cluster_occ is None: c_cluster_occ = self.c_cluster_occ
+        if c_cluster_vir is None: c_cluster_vir = self.c_cluster_vir
         if c_env_occ is None: c_env_occ = self.c_env_occ
         if c_env_vir is None: c_env_vir = self.c_env_vir
 
@@ -154,13 +159,11 @@ class MP2_BNO_Bath(BNO_Bath):
         self.log.debugv("n(cluster)= %d", ncluster)
 
         # Canonicalization [optional]
-        if canonicalize in (True, False):
-            canonicalize = 2*[canonicalize]
-        self.log.debugv("canonicalize: occ= %r vir= %r", *canonicalize)
-        if canonicalize[0]:
+        self.log.debugv("canonicalize: occ= %r vir= %r", *self.canonicalize)
+        if self.canonicalize[0]:
             c_occ, r_occ, e_occ = self.fragment.canonicalize_mo(c_occ, eigvals=True)
             self.log.debugv("eigenvalues (occ):\n%r", e_occ)
-        if canonicalize[1]:
+        if self.canonicalize[1]:
             c_vir, r_vir, e_vir = self.fragment.canonicalize_mo(c_vir, eigvals=True)
             self.log.debugv("eigenvalues (vir):\n%r", e_vir)
 
@@ -215,22 +218,22 @@ class MP2_BNO_Bath(BNO_Bath):
 
         # MP2 density matrix
         #dm_occ = dm_vir = None
-        if local_dm is False:
+        if self.local_dm is False:
             self.log.debug("Constructing DM from full T2 amplitudes.")
             t2l = t2r = t2
             # This is equivalent to:
             # do, dv = pyscf.mp.mp2._gamma1_intermediates(mp2, eris=eris)
             # do, dv = -2*do, 2*dv
-        elif local_dm is True:
+        elif self.local_dm is True:
             # LOCAL DM IS NOT RECOMMENDED - USE SEMI OR FALSE
             self.log.warning("Using local_dm = True is not recommended - use 'semi' or False")
             self.log.debug("Constructing DM from local T2 amplitudes.")
             t2l = t2r = t2loc
-        elif local_dm == "semi":
+        elif self.local_dm == "semi":
             self.log.debug("Constructing DM from semi-local T2 amplitudes.")
             t2l, t2r = t2loc, t2
         else:
-            raise ValueError("Unknown value for local_dm: %r" % local_dm)
+            raise ValueError("Unknown value for local_dm: %r" % self.local_dm)
 
         if kind == 'occ':
             dm = 2*(2*einsum('ikab,jkab->ij', t2l, t2r)
@@ -241,15 +244,15 @@ class MP2_BNO_Bath(BNO_Bath):
         else:
             dm = 2*(2*einsum('ijac,ijbc->ab', t2l, t2r)
                     - einsum('ijac,ijcb->ab', t2l, t2r))
-        if local_dm == 'semi':
+        if self.local_dm == 'semi':
             dm = (dm + dm.T)/2
         assert np.allclose(dm, dm.T)
 
         # Undo canonicalization
-        if kind == 'occ' and canonicalize[0]:
+        if kind == 'occ' and self.canonicalize[0]:
             dm = dot(r_occ, dm, r_occ.T)
             self.log.debugv("Undoing occupied canonicalization")
-        elif kind == 'vir' and canonicalize[1]:
+        elif kind == 'vir' and self.canonicalize[1]:
             dm = dot(r_vir, dm, r_vir.T)
             self.log.debugv("Undoing virtual canonicalization")
 
@@ -258,14 +261,12 @@ class MP2_BNO_Bath(BNO_Bath):
         self.log.debugv("Tr[D]= %r", np.trace(dm))
         self.log.debugv("Tr[D(cluster,cluster)]= %r", np.trace(dm[clt,clt]))
         self.log.debugv("Tr[D(env,env)]= %r", np.trace(dm[env,env]))
-        n_no, c_no = np.linalg.eigh(dm[env,env])
-        n_no, c_no = n_no[::-1], c_no[:,::-1]
-        c_no = np.dot(c_env, c_no)
-        c_no = fix_orbital_sign(c_no)[0]
+        n_bno, c_bno = np.linalg.eigh(dm[env,env])
+        n_bno, c_bno = n_bno[::-1], c_bno[:,::-1]
+        c_bno = np.dot(c_env, c_bno)
+        c_bno = fix_orbital_sign(c_bno)[0]
 
-        return c_no, n_no
-
-
+        return c_bno, n_bno
 
 
 
