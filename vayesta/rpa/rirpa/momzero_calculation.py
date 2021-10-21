@@ -47,8 +47,10 @@ def eval_eta0(D, ri_P, ri_M, target_rot, npoints = 100, ainit = 1.0, integral_de
             contrib = eval_eta0_contrib_diff1(point, rik_MP_L, rik_MP_R, rik_PP_L, rik_PP_R, D, target_rot)
         elif integral_deduct == "D":
             contrib = eval_eta0_contrib_diff2(point, rik_MP_L, rik_MP_R, D, target_rot)
-        elif integral_deduct == "Scaled":
+        elif integral_deduct == "ScaledExact":
             contrib = eval_eta0_contrib_diff3(point, rik_MP_L, rik_MP_R, D, target_rot)
+        elif integral_deduct == "ScaledApprox":
+            contrib = eval_eta0_contrib_diff4(point, rik_MP_L, rik_MP_R, D, target_rot)
         else:
             raise ValueError("Unknown quantity to deduct from numerical integration specified.")
         #print("!",point)
@@ -68,12 +70,17 @@ def eval_eta0(D, ri_P, ri_M, target_rot, npoints = 100, ainit = 1.0, integral_de
         # In these cases we're actually evaluating (eta_0 - I).
         # Rotate the identity into our target basis.
         moment_offset = einsum("pn,n->pn", target_rot, np.full_like(D, fill_value=1.0))
-    elif integral_deduct == "Scaled":
+    elif integral_deduct == "ScaledExact":
         mat = np.zeros(D.shape * 2)
         mat = mat + D
         mat = (mat.T + D).T
         integral_offset = - einsum("rp,pq,np,nq->rq", target_rot, mat**(-1), rik_MP_L, rik_MP_R)
         integral_offset -= einsum("pn,n->pn", target_rot, D)
+    elif integral_deduct == "ScaledApprox":
+        lrot = einsum("pn,n->pn", target_rot, D**(-0.5))
+        integral_offset = - einsum("pq,q->pq",np.dot(np.dot(lrot, rik_MP_L.T), rik_MP_R), D**(-0.5))/2
+        integral_offset -= einsum("pn,n->pn", target_rot, D)
+
     # Now need to multiply by the inverse of P, using low-rank expression we've already constructed.
     # Note ri contrib is negative.
     #print(integral.shape, ri_Pinv.shape, ri_P.shape)
@@ -184,6 +191,39 @@ def eval_eta0_contrib_diff3(freq, rik_MP_L, rik_MP_R, D, target_rot):
         np.dot(np.dot(lrot, rik_MP_L.T), (np.linalg.inv(np.eye(n_aux_MP) + Q_MP) - np.eye(n_aux_MP))),
                                         einsum("np,p->np", rik_MP_R, rrot))
 
+def eval_eta0_contrib_diff4(freq, rik_MP_L, rik_MP_R, D, target_rot):
+    """Evaluate contribution to RI integral at a particular frequency point.
+    This step scales with the grid size, so should be efficiently parallelised.
+    We only obtain a contribution to a target rotation of the excitation space, so reducing the scaling of this
+    procedure.
+    """
+    G = construct_G(freq, D)
+    n_aux_MP = rik_MP_L.shape[0]
+
+    # Construct rotation required for LHS of our expression; the number of contributions we seek determines the
+    # computational scaling of evaluating our contributions from their initial low-rank representations.
+    # If the full space is required evaluation scales as O(N^5), while for reduced scaling it only requires O(N^4) or
+    # O(N^3) for a linear or constant number of degrees of freedom.
+    lrot = einsum("pn,n,n->pn", target_rot, D**(-1), G)
+    rrot = np.multiply(G, D**(-1))
+
+    # Construction of these intermediates is one of the limiting steps of the entire procedure (scales as O(N^4) at
+    # each frequency point, due to summing over all excitations). Could be alleviated with pre-screening, but not for
+    # now.
+    Q_MP = einsum("np,p,mp->nm", rik_MP_R, rrot, rik_MP_L)
+
+    # Don't use multidot or similar here to ensure index spanning full space is contracted last, as otherwise more
+    # expensive.
+    contrib1 = np.dot(np.dot(np.dot(lrot, rik_MP_L.T), np.linalg.inv(np.eye(n_aux_MP) + Q_MP)),
+                                        einsum("np,p->np", rik_MP_R, rrot))
+    # This approximates the arithmetic mean weighting resulting from contour integration with the geometric mean.
+    contrib2 = (
+                np.dot(einsum("pq,q,nq->pn",lrot, D ** (-0.5), rik_MP_L), einsum("np,p,p->np", rik_MP_R, D ** (0.5), rrot)) +
+                np.dot(einsum("pq,q,nq->pn", lrot, D ** (0.5), rik_MP_L), einsum("np,p,p->np", rik_MP_R, D ** (-0.5), rrot))
+                ) / 2
+
+
+    return (1 / np.pi) * (freq ** 2) * (contrib1 - contrib2)
 
 def check_SST_integral(ri_P, ri_M, D, npoints = 100, ainit = 10):
     """This is checking the value of the integral GSS^TG by comparing numerical integration with proposed exact
