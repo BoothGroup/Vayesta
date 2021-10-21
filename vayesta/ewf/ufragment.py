@@ -2,7 +2,9 @@ import numpy as np
 
 from vayesta.core.util import *
 from vayesta.core.qemb import UFragment
-from vayesta.core.bath import UDMET_Bath, UCompleteBath
+from vayesta.core.bath import UDMET_Bath
+from vayesta.core.bath import UCompleteBath
+from vayesta.core.bath import UMP2_BNO_Bath
 from .fragment import EWFFragment
 
 
@@ -23,8 +25,7 @@ class UEWFFragment(UFragment, EWFFragment):
             bath = UCompleteBath(self, dmet_threshold=self.opts.dmet_threshold)
         # MP2 bath natural orbitals
         elif bath_type.lower() == 'mp2-bno':
-            raise NotImplementedError()
-            #bath = BNO_Bath(self, dmet_threshold=self.opts.dmet_threshold)
+            bath = UMP2_BNO_Bath(self, dmet_threshold=self.opts.dmet_threshold)
         else:
             raise ValueError("Unknown bath_type: %r" % bath_type)
         bath.kernel()

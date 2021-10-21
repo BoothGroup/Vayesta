@@ -92,7 +92,8 @@ class CCSD_Solver(ClusterSolver):
         self.solver = solver
 
     def get_eris(self):
-        eris = self.base.get_eris_object(self.solver)
+        with log_time(self.log.timing, "Time for AO->MO transformation: %s"):
+            eris = self.base.get_eris_object(self.solver)
         return eris
 
     def kernel(self, t1=None, t2=None, eris=None, l1=None, l2=None, coupled_fragments=None, t_diagnostic=True):

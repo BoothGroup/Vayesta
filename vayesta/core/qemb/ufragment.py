@@ -30,6 +30,7 @@ class UFragment(Fragment):
 
     @staticmethod
     def stack_mo(*mo_coeff):
+        """Stack MOs in each spin channel."""
         mo_coeff = (hstack(*[c[0] for c in mo_coeff]),
                     hstack(*[c[1] for c in mo_coeff]))
         return mo_coeff
@@ -237,7 +238,8 @@ class UFragment(Fragment):
         c_act = self.c_active
         t0 = timer()
         if eris is None:
-            eris = self.base.get_eris_array(c_act)
+            with log_time(self.log.timing, "Time for AO->MO transformation: %s"):
+                eris = self.base.get_eris_array(c_act)
         elif isinstance(eris, tuple) and len(eris) == 3:
             pass
         else:

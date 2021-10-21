@@ -483,6 +483,7 @@ class Fragment:
         mo_coeff = hstack(*mo_coeff)    # Called from UHF: do NOT use stack_mo!
         fock = dot(mo_coeff.T, fock, mo_coeff)
         mo_energy, rot = np.linalg.eigh(fock)
+        self.log.debugv("Canonicalized MO energies:\n%r", mo_energy)
         mo_can = np.dot(mo_coeff, rot)
         if sign_convention:
             mo_can, signs = fix_orbital_sign(mo_can)
@@ -843,7 +844,8 @@ class Fragment:
         c_act = self.c_active
         t0 = timer()
         if eris is None:
-            eris = self.base.get_eris_array(c_act)
+            with log_time(self.log.timing, "Time for AO->MO transformation: %s"):
+                eris = self.base.get_eris_array(c_act)
         elif not isinstance(eris, np.ndarray):
             self.log.debugv("Extracting ERI array from CCSD ERIs object.")
             eris = vayesta.core.ao2mo.helper.get_full_array(eris, c_act)

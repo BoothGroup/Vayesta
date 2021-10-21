@@ -53,9 +53,8 @@ class FCI_Solver(ClusterSolver):
         self.solver = solver
 
     def get_eris(self):
-        t0 = timer()
-        eris = self.base.get_eris_array(self.c_active)
-        self.log.timing("Time for AO->MO of ERIs:  %s", time_string(timer()-t0))
+        with log_time(self.log.timing, "Time for AO->MO transformation: %s"):
+            eris = self.base.get_eris_array(self.c_active)
         return eris
 
     def get_heff(self, eris, with_vext=True):
