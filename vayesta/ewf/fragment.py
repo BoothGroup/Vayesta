@@ -450,6 +450,9 @@ class EWFFragment(QEmbeddingFragment):
     #    #e_frag = self.opts.energy_factor * self.sym_factor * (e1 + e2)
     #    return (t1_pf, t2_pf), (e1b, e2b_conn, e2b_disc)
 
+    def get_energy_prefactor(self):
+        return self.sym_factor * self.opts.energy_factor
+
     def get_fragment_energy(self, c1, c2, eris, fock=None):
         """Calculate fragment correlation energy contribution from projected C1, C2.
 
@@ -474,7 +477,7 @@ class EWFFragment(QEmbeddingFragment):
         e_corr: float
             Total fragment correlation energy contribution.
         """
-        if (self.opts.energy_factor*self.sym_factor) == 0: return 0
+        if not self.get_energy_prefactor(): return 0, 0, 0
 
         nocc, nvir = c2.shape[1:3]
         occ, vir = np.s_[:nocc], np.s_[nocc:]
@@ -500,8 +503,8 @@ class EWFFragment(QEmbeddingFragment):
             g_ovvo = eris[occ,vir,vir,occ]
         e_doubles = 2*einsum('ijab,iabj', c2, g_ovvo) - einsum('ijab,jabi', c2, g_ovvo)
 
-        e_singles = (self.opts.energy_factor*self.sym_factor * e_singles)
-        e_doubles = (self.opts.energy_factor*self.sym_factor * e_doubles)
+        e_singles = (self.get_energy_prefactor() * e_singles)
+        e_doubles = (self.get_energy_prefactor() * e_doubles)
         e_corr = (e_singles + e_doubles)
         return e_singles, e_doubles, e_corr
 

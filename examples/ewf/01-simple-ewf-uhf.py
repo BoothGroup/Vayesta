@@ -32,6 +32,6 @@ print("E(HF)=     %+16.8f Ha" % mf.e_tot)
 print("E(E-CCSD)= %+16.8f Ha" % ecc.e_tot)
 
 # Reference full system CCSD:
-cc = pyscf.cc.CCSD(mf)
+cc = pyscf.cc.UCCSD(mf)
 cc.kernel()
 print("E(CCSD)=   %+16.8f Ha" % cc.e_tot)

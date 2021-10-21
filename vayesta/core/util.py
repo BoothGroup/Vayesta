@@ -64,10 +64,12 @@ def hstack(*args):
         raise e
 
 def stack_mo_coeffs(*mo_coeffs):
+    ndim = np.ndim(mo_coeffs[0][0]) + 1
     # RHF
-    if np.ndim(mo_coeffs[0][0]) == 1:
+    if ndim == 2:
         return hstack(*mo_coeffs)
     # UHF
+    assert (ndim == 3)
     return (hstack(*[c[0] for c in mo_coeffs]),
             hstack(*[c[1] for c in mo_coeffs]))
 
