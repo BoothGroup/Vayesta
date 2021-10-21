@@ -1121,7 +1121,7 @@ class RAGF2:
                     if num == 3:
                         char_string += " ..."
                         break
-                    char_string += "%3d (%7.3f %%) " % (i, (vn[i]**2)*100)
+                    char_string += "%3d (%7.3f %%) " % (i, np.abs(vn[i]**2)*100)
                     num += 1
             self.log.info("%2d %12.6f %12.6f  %s", n, en, qpwt, char_string)
 
@@ -1137,7 +1137,7 @@ class RAGF2:
                     if num == 3:
                         char_string += " ..."
                         break
-                    char_string += "%3d (%7.3f %%) " % (i, (vn[i]**2)*100)
+                    char_string += "%3d (%7.3f %%) " % (i, np.abs(vn[i]**2)*100)
                     num += 1
             self.log.info("%2d %12.6f %12.6f  %s", n, en, qpwt, char_string)
 

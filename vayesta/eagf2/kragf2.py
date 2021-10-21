@@ -602,7 +602,7 @@ class KRAGF2(RAGF2):
         return ws, vs
 
 
-    def fock_loop(self, gf=None, se=None, fock=None):
+    def fock_loop(self, gf=None, se=None, fock=None, project_gf=True, return_fock=False):
         ''' Do the self-consistent Fock loop
         '''
 
@@ -620,7 +620,10 @@ class KRAGF2(RAGF2):
             gf = []
             for i in range(self.nkpts):
                 nact = self.nact[i]
-                gf.append(agf2.GreensFunction(w[i], v[i][:nact], chempot=se[i].chempot))
+                if project_gf:
+                    gf.append(agf2.GreensFunction(w[i], v[i][:nact], chempot=se[i].chempot))
+                else:
+                    gf.append(agf2.GreensFunction(w[i], v[i], chempot=se[i].chempot))
                 gf[i].chempot = se[i].chempot = \
                         agf2.chempot.binsearch_chempot((w[i], v[i]), nact, nelec[i])[0]
             return gf, se
@@ -670,10 +673,16 @@ class KRAGF2(RAGF2):
                 converged = True
                 break
 
+        if not project_gf:
+            gf = [agf2.GreensFunction(*wv, chempot=s.chempot) for wv in zip(w, v, se)]
+
         (self.log.info if converged else self.log.warning)("Converged = %r", converged)
         self.log.timing('Time for fock loop:  %s', time_string(timer() - t0))
 
-        return gf, se
+        if not return_fock:
+            return gf, se, converged
+        else:
+            return gf, se, converged, fock
 
 
     def get_fock(self, gf=None, rdm1=None, with_frozen=True):
