@@ -1,4 +1,13 @@
-"""Vayesta"""
+
+__version__ = '0.0.0'
+
+logo = """\
+__    __ ___ __    __ ___ ____ _______ ___
+\ \  / // _ ## \  / // __/ __//__  __// _ #
+ \ \/ // /_\ ## \/ // __/\__ \  / /  / /_\ #
+  \__//_/   \_##  //____//___/ /_/  /_/   \_#
+   ************/ /****************************
+              /_/""".replace('#', '\\')
 
 import sys
 import os.path
@@ -7,8 +16,6 @@ import subprocess
 
 from .core import cmdargs
 from .core import vlog
-
-__version__ = 'v0.0.0'
 
 # Command line arguments
 args = cmdargs.parse_cmd_args()
@@ -34,11 +41,8 @@ if (args.output or args.log):
     logname = args.output or args.log
     log.addHandler(vlog.VFileHandler(logname, formatter=fmt))
 
-log.info(" %s", (len(__version__)+10)*'_')
-log.info("|%s|", (len(__version__)+10)*' ')
-log.info("| Vayesta %s |", __version__)
-log.info("|%s|", (len(__version__)+10)*'_')
-log.info("")
+# Print Logo
+log.info(logo + (' Version %s' % __version__) + '\n')
 
 # Required modules
 log.debug("Required modules:")

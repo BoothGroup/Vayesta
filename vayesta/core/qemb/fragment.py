@@ -12,7 +12,7 @@ import pyscf.lib
 import pyscf.lo
 
 from vayesta.core.util import *
-from vayesta.core import helper, tsymmetry
+from vayesta.core import tsymmetry
 import vayesta.core.ao2mo
 import vayesta.core.ao2mo.helper
 from vayesta.core.bath import DMET_Bath
@@ -201,11 +201,11 @@ class Fragment:
         #fmt = ('%s(' + len(keys)*'%s: %r, ')[:-2] + ')'
         #values = [self.__dict__[k] for k in keys]
         #return fmt % (self.__class__.__name__, *[x for y in zip(keys, values) for x in y])
-        return '%s(id= %d, name= %s, n_frag= %d, n_elec= %d, sym_factor= %f)' % (self.__class__.__name__,
+        return '%s(id= %d, name= %s, n_frag= %d, n_elec= %.8f, sym_factor= %f)' % (self.__class__.__name__,
                 self.id, self.name, self.n_frag, self.nelectron, self.sym_factor)
 
     def __str__(self):
-        return '%s %d: %s' % (self.__class__.__name__, self.id, self.trimmed_name())
+        return '%s %d: %s' % (self.__class__.__name__, self.id, self.name)
 
     def log_info(self):
         # Some output
@@ -448,12 +448,12 @@ class Fragment:
         occup = einsum('ai,ab,bi->i', sc, dm1, sc)
         return occup
 
-    def check_mo_occupation(self, expected, *mo_coeff, tol=None):
-        if tol is None: tol = 2*self.opts.dmet_threshold
-        occup = self.get_mo_occupation(*mo_coeff)
-        if not np.allclose(occup, expected, atol=tol):
-            raise RuntimeError("Incorrect occupation of orbitals (expected %f):\n%r" % (expected, occup))
-        return occup
+    #def check_mo_occupation(self, expected, *mo_coeff, tol=None):
+    #    if tol is None: tol = 2*self.opts.dmet_threshold
+    #    occup = self.get_mo_occupation(*mo_coeff)
+    #    if not np.allclose(occup, expected, atol=tol):
+    #        raise RuntimeError("Incorrect occupation of orbitals (expected %f):\n%r" % (expected, occup))
+    #    return occup
 
     def loop_fragments(self, exclude_self=False):
         """Loop over all fragments of the base quantum embedding method."""
@@ -485,7 +485,7 @@ class Fragment:
         mo_energy, rot = np.linalg.eigh(fock)
         mo_can = np.dot(mo_coeff, rot)
         if sign_convention:
-            mo_can, signs = helper.orbital_sign_convention(mo_can)
+            mo_can, signs = fix_orbital_sign(mo_can)
             rot = rot*signs[np.newaxis]
         assert np.allclose(np.dot(mo_coeff, rot), mo_can)
         assert np.allclose(np.dot(mo_can, rot.T), mo_coeff)
@@ -523,6 +523,7 @@ class Fragment:
             raise RuntimeError("Eigenvalues of cluster-DM not all close to 0 or %d:\n%s" % (e, norm))
         e, r = e[::-1], r[:,::-1]
         c_cluster = np.dot(c_cluster, r)
+        c_cluster = fix_orbital_sign(c_cluster)[0]
         nocc = np.count_nonzero(e >= (norm/2))
         c_cluster_occ, c_cluster_vir = np.hsplit(c_cluster, [nocc])
         return c_cluster_occ, c_cluster_vir

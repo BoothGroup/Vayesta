@@ -7,13 +7,10 @@ from .ccsd2 import CCSD_Solver
 
 class CISD_Solver(CCSD_Solver):
 
-    SOLVER_CLS = pyscf.ci.cisd.CISD
-    SOLVER_CLS_DF = SOLVER_CLS # No DF version for CISD
-
-
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         # Results
+        self.civec = None
         self.c0 = None
         self.c1 = None      # In intermediate normalization!
         self.c2 = None      # In intermediate normalization!
@@ -46,11 +43,15 @@ class CISD_Solver(CCSD_Solver):
             self.converged = self.solver.converged
             self.log.debug("Cluster: E(corr)= % 16.8f Ha", self.solver.e_corr)
 
-        c0, c1, c2 = self.solver.cisdvec_to_amplitudes(self.solver.ci)
+        self.civec = self.solver.ci
+        c0, c1, c2 = self.solver.cisdvec_to_amplitudes(self.civec)
         self.c0 = c0
         self.c1 = c1/c0
         self.c2 = c2/c0
 
+    def get_solver_class(self):
+        # No DF version for CISD
+        return pyscf.ci.cisd.CISD
 
     def get_c1(self):
         return self.c1
@@ -61,7 +62,14 @@ class CISD_Solver(CCSD_Solver):
     def get_init_guess(self):
         return {'c1' : self.c1 , 't2' : self.c2}
 
+    def make_rdm1(self, *args, **kwargs):
+        raise NotImplementedError()
+
+    def make_rdm2(self, *args, **kwargs):
+        raise NotImplementedError()
+
 class UCISD_Solver(CISD_Solver):
 
-    SOLVER_CLS = pyscf.ci.ucisd.UCISD
-    SOLVER_CLS_DF = SOLVER_CLS # No DF version for CISD
+    def get_solver_class(self):
+        # No DF version for UCISD
+        return pyscf.ci.ucisd.UCISD

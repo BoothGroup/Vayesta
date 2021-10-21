@@ -51,8 +51,13 @@ class FoldedSCF:
         self.kmf = kmf
         scell, self.kphase = get_phase(self.kcell, kmf.kpts)
         super().__init__(scell, *args, **kwargs)
-        self.converged = self.kmf.converged
+
+        # Copy attributes from k-point MF
         self.e_tot = self.ncells * self.kmf.e_tot
+        self.converged = self.kmf.converged
+        self.exxdiv = self.kmf.exxdiv
+        self.conv_tol = self.kmf.conv_tol
+        self.conv_tol_grad = self.kmf.conv_tol_grad
 
     @property
     def ncells(self):

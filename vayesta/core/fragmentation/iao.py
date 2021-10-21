@@ -42,6 +42,10 @@ class IAO_Fragmentation(Fragmentation):
         self.minao = minao
         self.refmol = pyscf.lo.iao.reference_mol(self.mol, minao=self.minao)
 
+    @property
+    def n_iao(self):
+        return self.refmol.nao
+
     def get_coeff(self, mo_coeff=None, mo_occ=None, add_virtuals=True):
         """Make intrinsic atomic orbitals (IAOs).
 
@@ -163,6 +167,7 @@ class IAO_Fragmentation(Fragmentation):
             self.log.critical("Total number of orbitals = %d", mo_coeff.shape[-1])
             raise RuntimeError("Incorrect number of remaining virtual orbitals")
         c_rest = np.dot(mo_coeff, c[:,mask_rest])        # Transform back to AO basis
+        c_rest = fix_orbital_sign(c_rest)[0]
 
         self.check_orthonormal(np.hstack((c_iao, c_rest)), "IAO+virtual orbital")
         return c_rest
@@ -174,7 +179,7 @@ class IAO_Fragmentation_UHF(Fragmentation_UHF, IAO_Fragmentation):
         if mo_occ is None: mo_occ = self.mo_occ
 
         self.log.info("Alpha-IAOs:")
-        c_iao_a = super().get_coeff(mo_coeff=mo_coeff[0], mo_occ=mo_occ[0], add_virtuals=add_virtuals)
+        c_iao_a = IAO_Fragmentation.get_coeff(self, mo_coeff=mo_coeff[0], mo_occ=mo_occ[0], add_virtuals=add_virtuals)
         self.log.info(" Beta-IAOs:")
-        c_iao_b = super().get_coeff(mo_coeff=mo_coeff[1], mo_occ=mo_occ[1], add_virtuals=add_virtuals)
+        c_iao_b = IAO_Fragmentation.get_coeff(self, mo_coeff=mo_coeff[1], mo_occ=mo_occ[1], add_virtuals=add_virtuals)
         return (c_iao_a, c_iao_b)

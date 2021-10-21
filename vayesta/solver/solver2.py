@@ -14,6 +14,7 @@ class ClusterSolver:
 
     @dataclasses.dataclass
     class Options(OptionsBase):
+        # TODO: move v_ext out of options
         v_ext: np.array = None      # Additional, external potential
 
     def __init__(self, fragment, cluster, options=None, log=None, **kwargs):
@@ -56,12 +57,26 @@ class ClusterSolver:
         return self.cluster.mf
 
     @property
+    def is_rhf(self):
+        return np.ndim(self.mf.mo_coeff[0]) == 1
+
+    @property
+    def is_uhf(self):
+        return np.ndim(self.mf.mo_coeff[0]) == 2
+
+    @property
     def mol(self):
         return self.mf.mol
 
     def get_eris(self):
         """Abstract method."""
         raise AbstractMethodError()
+
+    def reset(self):
+        self.converged = False
+        self.e_corr = 0
+        self.dm1 = None
+        self.dm2 = None
 
     #@property
     #def c_active(self):
@@ -75,7 +90,7 @@ class ClusterSolver:
     #def c_active_vir(self):
     #    return self.cluster.c_active_vir
 
-    def optimize_cpt(self, nelectron, c_frag, cpt_guess=0, atol=1e-6, rtol=1e-6, cpt_radius=0.3):
+    def optimize_cpt(self, nelectron, c_frag, cpt_guess=0, atol=1e-6, rtol=1e-6, cpt_radius=0.5):
         """Enables chemical potential optimization to match a number of electrons in the fragment space.
 
         Parameters
@@ -100,9 +115,18 @@ class ClusterSolver:
         """
 
         kernel_orig = self.kernel
-        r_frag = dot(self.cluster.c_active.T, self.mf.get_ovlp(), c_frag)
-        p_frag = np.dot(r_frag, r_frag.T)     # Projector into fragment space
-        self.opts.make_rdm1 = True
+        ovlp = self.mf.get_ovlp()
+        # Make projector into fragment space
+        if self.is_rhf:
+            r_frag = dot(self.cluster.c_active.T, ovlp, c_frag)
+            p_frag = np.dot(r_frag, r_frag.T)
+        else:
+            r_frag = (dot(self.cluster.c_active[0].T, ovlp, c_frag[0]),
+                      dot(self.cluster.c_active[1].T, ovlp, c_frag[1]))
+            p_frag = (np.dot(r_frag[0], r_frag[0].T),
+                      np.dot(r_frag[1], r_frag[1].T))
+
+        #self.opts.make_rdm1 = True
         # During the optimization, we can use the Lambda=T approximation:
         #solve_lambda0 = self.opts.solve_lambda
         #self.opts.solve_lambda = False
@@ -129,19 +153,32 @@ class ClusterSolver:
                 if (cpt == 0) and (err0 is not None):
                     self.log.debugv("Chemical potential %f already calculated - returning error= %.8f", cpt, err0)
                     return err0
-                v_ext0 = self.opts.v_ext
-                if cpt:
-                    if self.opts.v_ext is None:
-                        self.opts.v_ext = -cpt * p_frag
-                    else:
-                        self.opts.v_ext += -cpt * p_frag
+
                 kwargs.update(init_guess)
                 self.log.debugv("kwargs keys for solver: %r", kwargs.keys())
-                results = kernel_orig(eris=eris, **kwargs)
-                self.opts.v_ext = v_ext0     # Reset v_ext
+
+                replace = {}
+                if cpt:
+                    v_ext_0 = (self.opts.v_ext if self.opts.v_ext is not None else 0)
+                    if self.is_rhf:
+                        replace['v_ext'] =  v_ext_0 - cpt*p_frag
+                    else:
+                        if v_ext_0 == 0:
+                            v_ext_0 = (v_ext_0, v_ext_0)
+                        replace['v_ext'] =  (v_ext_0[0] - cpt*p_frag[0], v_ext_0[1] - cpt*p_frag[1])
+
+                self.reset()
+                with replace_attr(self.opts, **replace):
+                    results = kernel_orig(eris=eris, **kwargs)
                 if not self.converged:
                     raise ConvergenceError()
-                ne_frag = einsum('xi,ij,xj->', p_frag, self.dm1, p_frag)
+                dm1 = self.make_rdm1()
+                if self.is_rhf:
+                    ne_frag = einsum('xi,ij,xj->', p_frag, dm1, p_frag)
+                else:
+                    ne_frag = (einsum('xi,ij,xj->', p_frag[0], dm1[0], p_frag[0])
+                             + einsum('xi,ij,xj->', p_frag[1], dm1[1], p_frag[1]))
+
                 err = (ne_frag - nelectron)
                 self.log.debug("Fragment chemical potential= %+12.8f Ha:  electrons= %.8f  error= %+.3e", cpt, ne_frag, err)
                 iterations += 1

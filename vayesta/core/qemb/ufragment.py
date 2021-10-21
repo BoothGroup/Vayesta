@@ -25,7 +25,7 @@ class UFragment(Fragment):
             self.log.info(fmt+'%r', "Associated AOs:", self.aos)
 
     def __repr__(self):
-        return '%s(id= %d, name= %s, n_frag= (%d, %d), n_elec= (%d, %d), sym_factor= %f)' % (self.__class__.__name__,
+        return '%s(id= %d, name= %s, n_frag= (%d, %d), n_elec= (%.8f, %.8f), sym_factor= %f)' % (self.__class__.__name__,
                 self.id, self.name, *self.n_frag, *self.nelectron, self.sym_factor)
 
     @staticmethod

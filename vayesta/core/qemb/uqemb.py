@@ -1,3 +1,7 @@
+import os
+import os.path
+from datetime import datetime
+
 import numpy as np
 
 import pyscf
@@ -76,6 +80,27 @@ class UEmbedding(QEmbedding):
             results.append(res_s)
         return tuple(zip(*results))
 
+    def get_exxdiv(self):
+        """Get divergent exact-exchange (exxdiv) energy correction and potential.
+
+        Returns
+        -------
+        e_exxdiv: float
+            Divergent exact-exchange energy correction per unit cell.
+        v_exxdiv: array
+            Divergent exact-exchange potential correction in AO basis.
+        """
+        if not self.has_exxdiv: return 0, None
+        ovlp = self.get_ovlp()
+        sca = np.dot(ovlp, self.mo_coeff[0][:,:self.nocc[0]])
+        scb = np.dot(ovlp, self.mo_coeff[1][:,:self.nocc[1]])
+        madelung = pyscf.pbc.tools.madelung(self.mol, self.mf.kpt)
+        e_exxdiv = -madelung * (self.nocc[0]+self.nocc[1]) / (2*self.ncells)
+        v_exxdiv_a = -madelung * np.dot(sca, sca.T)
+        v_exxdiv_b = -madelung * np.dot(scb, scb.T)
+        self.log.debug("Divergent exact-exchange (exxdiv) correction= %+16.8f Ha", e_exxdiv)
+        return e_exxdiv, (v_exxdiv_a, v_exxdiv_b)
+
     # TODO:
 
     def get_eris_array(self, mo_coeff, compact=False):
@@ -130,7 +155,8 @@ class UEmbedding(QEmbedding):
             ERIs which can be used for the respective post-HF method.
         """
         t0 = timer()
-        #c_act = _mo_without_core(posthf, posthf.mo_coeff)
+
+        # Get required quantities:
         active = posthf.get_frozen_mask()
         c_act = (posthf.mo_coeff[0][:,active[0]], posthf.mo_coeff[1][:,active[1]])
         if isinstance(posthf, pyscf.mp.mp2.MP2):
@@ -186,9 +212,13 @@ class UEmbedding(QEmbedding):
     # --- CC Amplitudes
     # -----------------
 
+    # T-amplitudes
     get_t1 = get_t1_uhf
     get_t2 = get_t2_uhf
     get_t12 = get_t12_uhf
+
+    # Lambda-amplitudes
+    # get_l1, get_l2, and get_l12 are inherited from EWF.
 
     # --- Density-matrices
     # --------------------
@@ -208,5 +238,24 @@ class UEmbedding(QEmbedding):
     # --- Other
     # ---------
 
-    def pop_analysis(self, *args, **kwargs):
-        raise NotImplementedError()
+    def pop_analysis(self, dm1, mo_coeff=None, local_orbitals='lowdin', write=True, minao='auto', **kwargs):
+        if isinstance(local_orbitals, str) and local_orbitals.lower() == 'iao+pao':
+            local_orbitals = self.get_lo_coeff('iao+pao', minao=minao)
+        pop = []
+        for s, spin in enumerate(('alpha', 'beta')):
+            mo = (mo_coeff[s] if mo_coeff is not None else None)
+            lo = (local_orbitals if isinstance(local_orbitals, str) else local_orbitals[s])
+            pop.append(super().pop_analysis(dm1[s], mo_coeff=mo, local_orbitals=lo, write=False, **kwargs))
+        pop = tuple(pop)
+        if write:
+            self.write_population(pop, **kwargs)
+        return pop
+
+    def get_atomic_charges(self, pop):
+        charges = np.zeros(self.mol.natm)
+        spins = np.zeros(self.mol.natm)
+        for i, label in enumerate(self.mol.ao_labels(fmt=None)):
+            charges[label[0]] -= (pop[0][i] + pop[1][i])
+            spins[label[0]] += (pop[0][i] - pop[1][i])
+        charges += self.mol.atom_charges()
+        return charges, spins

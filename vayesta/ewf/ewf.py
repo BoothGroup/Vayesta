@@ -54,7 +54,6 @@ class EWF(QEmbeddingMethod):
         iao_minao : str = 'auto'            # Minimal basis for IAOs
         # --- Bath settings
         bath_type: str = 'MP2-BNO'
-        dmet_threshold: float = 1e-8
         orbfile: str = None                 # Filename for orbital coefficients
         # If multiple bno thresholds are to be calculated, we can project integrals and amplitudes from a previous larger cluster:
         project_eris: bool = False          # Project ERIs from a pervious larger cluster (corresponding to larger eta), can result in a loss of accuracy especially for large basis sets!
@@ -128,6 +127,10 @@ class EWF(QEmbeddingMethod):
         return fmt % (self.__class__.__name__, *[x for y in zip(keys, values) for x in y])
 
 
+    def get_fock_for_energy(self, *args, **kwargs):
+        """Overriding this allows to use a different Fock-matrix for the energy evaluation."""
+        return self.get_fock(*args, **kwargs)
+
     #def init_fragments(self):
     #    if self.opts.fragment_type.upper() == "IAO":
     #        #self.C_ao, self.C_env, self.iao_labels = self.make_iao_coeffs(minao=self.opts.iao_minao)
@@ -197,7 +200,7 @@ class EWF(QEmbeddingMethod):
         err = abs(dot(c.T, ovlp, c) - np.eye(c.shape[-1])).max()
         if err > 1e-5:
             self.log.error("Orthogonality error of MOs= %.2e !!!", err)
-        else:   
+        else:
             self.log.debug("Orthogonality error of MOs= %.2e", err)
         if self.opts.orthogonal_mo_tol and err > self.opts.orthogonal_mo_tol:
             t0 = timer()
@@ -525,6 +528,12 @@ class EWF(QEmbeddingMethod):
                 for x, frag in enumerate(self.fragments):
                     if MPI_rank != (x % MPI_size):
                         continue
+                    # Do not calculate symmetry children
+                    if frag.sym_parent is not None:
+                        self.log.debugv("Skipping %s with symmetry parent %s", frag.name, frag.sym_parent.name)
+                        self.cluster_results[(frag.id, bno_thr)] = frag.results
+                        continue
+
                     mpi_info = (" on MPI process %d" % MPI_rank) if MPI_size > 1 else ""
                     msg = "Now running %s%s" % (frag, mpi_info)
                     self.log.info(msg)

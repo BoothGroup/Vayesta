@@ -26,7 +26,8 @@ __all__ = [
         # Time & memory
         'timer', 'time_string', 'log_time', 'memory_string', 'get_used_memory',
         # Other
-        'replace_attr', 'cached_method', 'break_into_lines',
+        'replace_attr', 'cached_method', 'break_into_lines', 'fix_orbital_sign',
+        'stack_mo_coeffs',
         ]
 
 class NotSetType:
@@ -61,6 +62,17 @@ def hstack(*args):
         for x in args:
             log.critical("type= %r  shape= %r", type(x), x.shape if hasattr(x, 'shape') else "None")
         raise e
+
+def stack_mo_coeffs(*mo_coeffs):
+    ndim = np.ndim(mo_coeffs[0][0]) + 1
+    # RHF
+    if ndim == 2:
+        return hstack(*mo_coeffs)
+    # UHF
+    assert (ndim == 3)
+    return (hstack(*[c[0] for c in mo_coeffs]),
+            hstack(*[c[1] for c in mo_coeffs]))
+
 
 def cached_method(cachename, use_cache_default=True, store_cache_default=True):
     """Cache the return value of a class method.
@@ -272,3 +284,19 @@ class OptionsBase:
 
 class StashBase:
     pass
+
+def fix_orbital_sign(mo_coeff, inplace=True):
+    # UHF
+    if np.ndim(mo_coeff[0]) == 2:
+        mo_coeff_a, sign_a = fix_orbital_sign(mo_coeff[0], inplace=inplace)
+        mo_coeff_b, sign_b = fix_orbital_sign(mo_coeff[1], inplace=inplace)
+        return (mo_coeff_a, mo_coeff_b), (sign_a, sign_b)
+    if not inplace:
+        mo_coeff = mo_coeff.copy()
+    absmax = np.argmax(abs(mo_coeff), axis=0)
+    nmo = mo_coeff.shape[-1]
+    swap = mo_coeff[absmax,np.arange(nmo)] < 0
+    mo_coeff[:,swap] *= -1
+    signs = np.ones((nmo,), dtype=int)
+    signs[swap] = -1
+    return mo_coeff, signs

@@ -103,6 +103,7 @@ class Fragmentation:
         keep = (e >= tol)
         e, v = e[keep], v[:,keep]
         x = dot(v/np.sqrt(e), v.T)
+        x = fix_orbital_sign(x)[0]
         return x, e_min
 
     #def check_orth(self, mo_coeff, mo_name=None, tol=1e-7):
