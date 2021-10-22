@@ -25,7 +25,7 @@ from pyscf.ao2mo.incore import iden_coeffs, _conc_mos
 from pyscf.pbc.gto.cell import _estimate_rcut
 from pyscf.pbc.df import df, incore, ft_ao, aft
 from pyscf.pbc.df.df_jk import _ewald_exxdiv_for_G0, _format_dms
-from pyscf.pbc.df.fft_ao2mo import _iskconserv, _format_kpts
+from pyscf.pbc.df.fft_ao2mo import _iskconserv
 from pyscf.pbc.lib.kpts_helper import is_zero, gamma_point, unique, KPT_DIFF_TOL, get_kconserv
 
 from vayesta import libs
@@ -39,6 +39,17 @@ except ImportError:
 
 
 COMPACT = getattr(__config__, 'pbc_df_ao2mo_get_eri_compact', True)
+
+
+def _format_kpts(kpts, n=4):
+    if kpts is None:
+        return np.zeros((n, 3))
+    else:
+        kpts = np.asarray(kpts)
+        if kpts.size == 3 and n != 1:
+            return np.vstack([kpts]*n).reshape(4, 3)
+        else:
+            return kpts.reshape(n, 3)
 
 
 def make_auxcell(cell, auxbasis=None, drop_eta=None, log=None):
@@ -226,7 +237,7 @@ def fuse_auxcell(auxcell, chgcell, log=None):
                                 Lpq_sph[s0:s1].ctypes.data_as(ctypes.c_void_p),
                                 ctypes.c_int(npq * auxcell.bas_nctr(i)),
                                 Lpq_cart.ctypes.data_as(ctypes.c_void_p),
-                                ctpyes.c_int(l),
+                                ctypes.c_int(l),
                             )
 
                 return Lpq_sph
@@ -740,7 +751,7 @@ class GDF(df.GDF):
         for q0, q1 in lib.prange(0, naux, blksize):
             LpqR = Lpq[ki, kj, q0:q1].real
             LpqI = Lpq[ki, kj, q0:q1].imag
-            if compact:
+            if compact and is_zero(kpti-kptj):
                 LpqR = lib.pack_tril(LpqR, axis=-1)
                 LpqI = lib.pack_tril(LpqI, axis=-1)
             LpqR = np.asarray(LpqR.reshape(min(q1-q0, naux), -1), order='C')
@@ -802,12 +813,12 @@ class GDF(df.GDF):
         if with_k and exxdiv == 'ewald':
             s = self.get_ovlp()
             madelung = self.madelung
-            for k, kpt in enumerate(kpts):
+            for k in range(len(vk)):
                 vk[k] += madelung * np.linalg.multi_dot((s[k], dm[k], s[k]))
 
         return vj, vk
 
-    def get_eri(self, kpts=None, compact=COMPACT):
+    def get_eri(self, kpts, compact=COMPACT):
         '''
         Get the four-center AO electronic repulsion integrals at a
         given k-point.
@@ -818,9 +829,7 @@ class GDF(df.GDF):
 
         nao = self.cell.nao_nr()
         naux = self.get_naoaux()
-        if kpts is None:
-            kpts = self.kpts
-        kptijkl = _format_kpts(kpts)
+        kptijkl = _format_kpts(kpts, n=4)
         if not _iskconserv(self.cell, kptijkl):
             self.log.warning(self.cell, 'Momentum conservation not found in '
                                         'the given k-points %s', kptijkl)
@@ -844,7 +853,7 @@ class GDF(df.GDF):
 
     get_ao_eri = get_eri
 
-    def ao2mo(self, mo_coeffs, kpts=None, compact=COMPACT):
+    def ao2mo(self, mo_coeffs, kpts, compact=COMPACT):
         '''
         Get the four-center MO electronic repulsion integrals at a
         given k-point.
@@ -855,9 +864,7 @@ class GDF(df.GDF):
 
         nao = self.cell.nao_nr()
         naux = self.get_naoaux()
-        if kpts is None:
-            kpts = self.kpts
-        kptijkl = _format_kpts(kpts)
+        kptijkl = _format_kpts(kpts, n=4)
         if not _iskconserv(self.cell, kptijkl):
             self.log.warning(self.cell, 'Momentum conservation not found in '
                                         'the given k-points %s', kptijkl)
@@ -886,7 +893,7 @@ class GDF(df.GDF):
 
     get_mo_eri = ao2mo
 
-    def get_3c_eri(self, kpts=None, compact=COMPACT):
+    def get_3c_eri(self, kpts, compact=COMPACT):
         '''
         Get the three-center AO  electronic repulsion integrals at a
         given k-point.
@@ -896,14 +903,8 @@ class GDF(df.GDF):
             self.build()
 
         naux = self.get_naoaux()
-        if kpts is None:
-            kpts = self.nkpts
-        kptij = _format_kpts(kpts)
-        if not _iskconserv(self.cell, kptij):
-            self.log.warning(self.cell, 'Momentum conservation not found in '
-                                        'the given k-points %s', kptij)
-            return np.zeros_like(self._cderi)
-        ki, kj = (self.kpts_hash[_get_kpt_hash(kpt)][0] for kpt in kptij)
+        kptij = _format_kpts(kpts, n=2)
+        ki, kj = (self.kpt_hash[_get_kpt_hash(kpt)][0] for kpt in kptij)
 
         Lpq = self._cderi[ki, kj]
         if gamma_point(kptij):
@@ -916,7 +917,7 @@ class GDF(df.GDF):
 
     get_ao_3c_eri = get_3c_eri
 
-    def ao2mo_3c(self, mo_coeffs, kpts=None, compact=COMPACT):
+    def ao2mo_3c(self, mo_coeffs, kpts, compact=COMPACT):
         '''
         Get the three-center MO electronic repulsion integrals at a
         given k-point.
@@ -926,14 +927,8 @@ class GDF(df.GDF):
             self.build()
 
         naux = self.get_naoaux()
-        if kpts is None:
-            kpts = self.nkpts
-        kptij = _format_kpts(kpts)
-        if not _iskconserv(self.cell, kptij):
-            self.log.warning(self.cell, 'Momentum conservation not found in '
-                                        'the given k-points %s', kptij)
-            return np.zeros_like(self._cderi)
-        ki, kj = (self.kpts_hash[_get_kpt_hash(kpt)][0] for kpt in kptij)
+        kptij = _format_kpts(kpts, n=2)
+        ki, kj = (self.kpt_hash[_get_kpt_hash(kpt)][0] for kpt in kptij)
 
         if isinstance(mo_coeffs, np.ndarray) and mo_coeffs.ndim == 2:
             mo_coeffs = (mo_coeffs,) * 2
