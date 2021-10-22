@@ -779,31 +779,35 @@ class GDF(df.GDF):
                 (mpi_helper.rank+1) * naux // mpi_helper.size,
         )
 
+        dms = dm.reshape(-1, nkpts, nao, nao)
+        ndm = dms.shape[0]
+
         kconserv = np.asarray(self.kconserv, order='C')
         cderi = np.asarray(self._cderi, order='C')
-        dm = np.asarray(dm, order='C', dtype=np.complex128)
+        dms = np.asarray(dms, order='C', dtype=np.complex128)
         vj = vk = None
 
         if with_j:
-            vj = np.zeros((nkpts, nao, nao), dtype=np.complex128)
+            vj = np.zeros((ndm, nkpts, nao, nao), dtype=np.complex128)
         if with_k:
-            vk = np.zeros((nkpts, nao, nao), dtype=np.complex128)
+            vk = np.zeros((ndm, nkpts, nao, nao), dtype=np.complex128)
 
-        libcore = libs.load_library('core')
-        libcore.j3c_jk(
-                ctypes.c_int64(nkpts),
-                ctypes.c_int64(nao),
-                ctypes.c_int64(naux),
-                (ctypes.c_int64*2)(*naux_slice),
-                cderi.ctypes.data_as(ctypes.c_void_p),
-                dm.ctypes.data_as(ctypes.c_void_p),
-                ctypes.c_bool(with_j),
-                ctypes.c_bool(with_k),
-                vj.ctypes.data_as(ctypes.c_void_p) if vj is not None \
-                        else ctypes.POINTER(ctypes.c_void_p)(),
-                vk.ctypes.data_as(ctypes.c_void_p) if vk is not None \
-                        else ctypes.POINTER(ctypes.c_void_p)(),
-        )
+        for i in range(ndm):
+            libcore = libs.load_library('core')
+            libcore.j3c_jk(
+                    ctypes.c_int64(nkpts),
+                    ctypes.c_int64(nao),
+                    ctypes.c_int64(naux),
+                    (ctypes.c_int64*2)(*naux_slice),
+                    cderi.ctypes.data_as(ctypes.c_void_p),
+                    dms[i].ctypes.data_as(ctypes.c_void_p),
+                    ctypes.c_bool(with_j),
+                    ctypes.c_bool(with_k),
+                    vj.ctypes.data_as(ctypes.c_void_p) if vj is not None \
+                            else ctypes.POINTER(ctypes.c_void_p)(),
+                    vk.ctypes.data_as(ctypes.c_void_p) if vk is not None \
+                            else ctypes.POINTER(ctypes.c_void_p)(),
+            )
 
         mpi_helper.barrier()
         mpi_helper.allreduce_safe_inplace(vj)
@@ -812,8 +816,12 @@ class GDF(df.GDF):
         if with_k and exxdiv == 'ewald':
             s = self.get_ovlp()
             madelung = self.madelung
-            for k in range(len(vk)):
-                vk[k] += madelung * np.linalg.multi_dot((s[k], dm[k], s[k]))
+            for i in range(ndm):
+                for k in range(nkpts):
+                    vk[i,k] += madelung * np.linalg.multi_dot((s[k], dms[i,k], s[k]))
+
+        vj = vj.reshape(dm.shape)
+        vk = vk.reshape(dm.shape)
 
         return vj, vk
 
