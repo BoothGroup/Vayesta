@@ -626,7 +626,6 @@ class GDF(df.GDF):
         self.chgcell = None
         self.fused_cell = None
         self.kconserv = None
-        self.blockdim = None
         self.kpts_band = None
         self.kpt_hash = None
         self._j_only = False
@@ -976,6 +975,10 @@ class GDF(df.GDF):
     @property
     def max_memory(self):
         return self.cell.max_memory
+
+    @property
+    def blockdim(self):
+        return self.get_naoaux()
 
 
     # Cached properties:
