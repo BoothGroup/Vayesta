@@ -1061,7 +1061,7 @@ class RAGF2:
         if chkfile is None:
             return self
 
-        chkutil.dump_agf2(self, chkfile=self.mf.chkfile)
+        chkutil.dump_agf2(self, chkfile=chkfile)
 
         return self
 
