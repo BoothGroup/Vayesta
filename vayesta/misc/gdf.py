@@ -803,7 +803,7 @@ class GDF(df.GDF):
             self.build()
         return self._cderi.shape[2]
 
-    def sr_loop(self, kpti_kptj=np.zeros((2, 3)), compact=True, blksize=None, **kwargs):
+    def sr_loop(self, kpti_kptj=np.zeros((2, 3)), max_memory=None, compact=True, blksize=None):
         '''
         Short-range part.
 
@@ -908,9 +908,9 @@ class GDF(df.GDF):
                     dms[i].ctypes.data_as(ctypes.c_void_p),
                     ctypes.c_bool(with_j),
                     ctypes.c_bool(with_k),
-                    vj.ctypes.data_as(ctypes.c_void_p) if vj is not None
+                    vj[i].ctypes.data_as(ctypes.c_void_p) if vj is not None
                                       else ctypes.POINTER(ctypes.c_void_p)(),
-                    vk.ctypes.data_as(ctypes.c_void_p) if vk is not None
+                    vk[i].ctypes.data_as(ctypes.c_void_p) if vk is not None
                                       else ctypes.POINTER(ctypes.c_void_p)(),
             )
 
