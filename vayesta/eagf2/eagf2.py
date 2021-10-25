@@ -397,7 +397,7 @@ class EAGF2(QEmbeddingMethod):
                 if deltas[0] < self.opts.conv_tol \
                         and deltas[1] < self.opts.conv_tol_t0 \
                         and deltas[2] < self.opts.conv_tol_t1:
-                    converged = True
+                    converged = solver.converged = True
                     break
 
         solver.e_1b = solver.energy_1body()
@@ -412,6 +412,10 @@ class EAGF2(QEmbeddingMethod):
                 se=solver.se,
                 solver=solver,
         )
+
+        if self.opts.dump_chkfile and solver.chkfile is not None:
+            self.log.debug("Dumping output to chkfile")
+            solver.dump_chk()
 
         (self.log.info if converged else self.log.warning)("Converged = %r", converged)
 
