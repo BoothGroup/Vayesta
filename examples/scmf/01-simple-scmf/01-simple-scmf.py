@@ -29,15 +29,13 @@ cc.kernel()
 ecc = vayesta.ewf.EWF(mf, make_rdm1=True, bno_threshold=1e-4)
 ecc.sao_fragmentation()
 ecc.add_all_atomic_fragments()
-#ecc.pdmet_scmf()
-ecc.pdmet_scmf(dm_type='pwf-ccsd')
+ecc.pdmet_scmf()
+# or:
 #ecc.brueckner_scmf()
 ecc.kernel()
 assert ecc.with_scmf.converged
-e_0 = ecc.with_scmf.e_tot_oneshot
-e_sc = ecc.with_scmf.e_tot
 
 print("E(HF)=           %+16.8f Ha" % mf.e_tot)
 print("E(CCSD)=         %+16.8f Ha" % cc.e_tot)
-print("E(E-CCSD)=       %+16.8f Ha" % e_0)
-print("E(sc-E-CCSD)=    %+16.8f Ha" % e_sc)
+print("E(E-CCSD)=       %+16.8f Ha" % ecc.with_scmf.e_tot_oneshot)
+print("E(sc-E-CCSD)=    %+16.8f Ha" % ecc.e_tot)

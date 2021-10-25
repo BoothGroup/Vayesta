@@ -14,18 +14,17 @@ import pyscf.fci
 #import pyscf.fci.direct_spin1
 
 from vayesta.core.util import *
-from vayesta.solver.solver_fci import FCISolver
-from .solver import ClusterSolver
+from vayesta.solver.fci import FCI_Solver
 
 
-class EBFCISolver(FCISolver):
+class EBFCI_Solver(FCI_Solver):
 
     @dataclasses.dataclass
-    class Options(FCISolver.Options):
+    class Options(FCI_Solver.Options):
         make_rdm_eb: bool = True
 
     @dataclasses.dataclass
-    class Results(FCISolver.Results):
+    class Results(FCI_Solver.Results):
         # CI coefficients
         c0: float = None
         c1: np.array = None

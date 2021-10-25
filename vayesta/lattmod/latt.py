@@ -5,7 +5,6 @@ import numpy as np
 import pyscf
 import pyscf.pbc
 import pyscf.pbc.gto
-#import pyscf.gto
 import pyscf.scf
 import pyscf.lib
 from pyscf.lib.parameters import BOHR
@@ -31,7 +30,7 @@ class LatticeMole(pyscf.pbc.gto.Cell):
     unit
     """
 
-    def __init__(self, nsite, order=None, incore_anyway=True, verbose=0, output=None):
+    def __init__(self, nsite, nelectron=None, spin=0, order=None, incore_anyway=True, verbose=0, output=None):
         """
         Parameters
         ----------
@@ -40,6 +39,9 @@ class LatticeMole(pyscf.pbc.gto.Cell):
         """
         super().__init__(verbose=verbose, output=output)
         self.nsite = nsite
+        if nelectron is None: nelectron = nsite
+        self.nelectron = nelectron
+        self.spin = spin
         self._basis = {self.atom_symbol(i) : None for i in range(self.nsite)}
         self._built = True
         self.incore_anyway = incore_anyway
@@ -77,11 +79,8 @@ class LatticeMole(pyscf.pbc.gto.Cell):
 class Hubbard(LatticeMole):
     """Abstract Hubbard model class."""
 
-    def __init__(self, nsite, nelectron=None, hubbard_t=1.0, hubbard_u=0.0, v_nn=0.0, **kwargs):
-        super().__init__(nsite, **kwargs)
-        if nelectron is None:
-            nelectron = nsite
-        self.nelectron = nelectron
+    def __init__(self, nsite, nelectron=None, spin=0, hubbard_t=1.0, hubbard_u=0.0, v_nn=0.0, **kwargs):
+        super().__init__(nsite, nelectron=nelectron, spin=spin, **kwargs)
         self.hubbard_t = hubbard_t
         self.hubbard_u = hubbard_u
         self.v_nn = v_nn
@@ -97,7 +96,7 @@ class Hubbard(LatticeMole):
         if compact: raise NotImplementedError()
         if self.v_nn: raise NotImplementedError()
 
-        if isinstance(mo_coeffs, np.ndarray) and mo_coeffs.ndim == 2:
+        if isinstance(mo_coeffs, np.ndarray) and np.ndim(mo_coeffs) == 2:
             eris = self.hubbard_u*einsum('ai,aj,ak,al->ijkl', mo_coeffs, mo_coeffs, mo_coeffs, mo_coeffs)
         else:
             eris = self.hubbard_u*einsum('ai,aj,ak,al->ijkl', *mo_coeffs)
@@ -108,8 +107,8 @@ class Hubbard(LatticeMole):
 class Hubbard1D(Hubbard):
     """Hubbard model in 1D."""
 
-    def __init__(self, nsite, nelectron=None, hubbard_t=1.0, hubbard_u=0.0, v_nn=0.0, boundary='auto', **kwargs):
-        super().__init__(nsite, nelectron, hubbard_t, hubbard_u, v_nn=v_nn, **kwargs)
+    def __init__(self, nsite, nelectron=None, spin=0, hubbard_t=1.0, hubbard_u=0.0, v_nn=0.0, boundary='auto', **kwargs):
+        super().__init__(nsite, nelectron, spin, hubbard_t, hubbard_u, v_nn=v_nn, **kwargs)
 
         self.nsites = [nsite]
         self.dimension = 1
@@ -133,7 +132,6 @@ class Hubbard1D(Hubbard):
         if self.order is not None:
             h1e = h1e[self.order][:,self.order]
         self.h1e = h1e
-
 
     def get_eri(self, hubbard_u=None, v_nn=None):
         if hubbard_u is None:
@@ -174,12 +172,12 @@ class Hubbard1D(Hubbard):
 
 class Hubbard2D(Hubbard):
 
-    def __init__(self, nsites, nelectron=None, hubbard_t=1.0, hubbard_u=0.0, boundary='auto',
+    def __init__(self, nsites, nelectron=None, spin=0, hubbard_t=1.0, hubbard_u=0.0, boundary='auto',
             tiles=(1, 1), order=None, **kwargs):
         nsite = nsites[0]*nsites[1]
         if order is None and tiles != (1, 1):
             order = self.get_tiles_order(nsites, tiles)
-        super().__init__(nsite, nelectron, hubbard_t, hubbard_u, order=order, **kwargs)
+        super().__init__(nsite, nelectron, spin, hubbard_t, hubbard_u, order=order, **kwargs)
 
         self.nsites = nsites
         self.dimension = 2
@@ -243,7 +241,6 @@ class Hubbard2D(Hubbard):
             h1e = h1e[self.order][:,self.order]
         self.h1e = h1e
 
-
     def get_eri(self, hubbard_u=None, v_nn=None):
         if hubbard_u is None:
             hubbard_u = self.hubbard_u
@@ -282,7 +279,6 @@ class Hubbard2D(Hubbard):
         if self.order is not None:
             coords = coords[self.order]
         return coords / BOHR
-
 
     @staticmethod
     def get_tiles_order(nsites, tiles):
@@ -329,8 +325,7 @@ class HubbardDF:
         yield j3c
 
 
-class LatticeMF(pyscf.scf.hf.RHF):
-#class LatticeMF(pyscf.pbc.scf.hf.RHF):
+class LatticeSCF:
 
     def __init__(self, mol, *args, **kwargs):
         super().__init__(mol, *args, **kwargs)
@@ -346,65 +341,99 @@ class LatticeMF(pyscf.scf.hf.RHF):
     def get_hcore(self, *args, **kwargs):
         return self.mol.h1e
 
-    def get_veff(self, mol=None, dm=None, *args, **kwargs):
-        if mol is None: mol = self.mol
-        if dm is None: dm = self.make_rdm1()
-        if self.mol.v_nn is not None and mol.v_nn != 0:
-            raise NotImplementedError()
-        return np.diag(np.diag(dm))*mol.hubbard_u/2
-
-    def get_ovlp(self):
+    def get_ovlp(self, mol=None):
         return np.eye(self.mol.nsite)
-
-    def kernel_hubbard(self):
-        mo_energy, mo_coeff = np.linalg.eigh(self.mol.h1e)
-        nocc = self.mol.nelectron//2
-        occ = np.s_[:nocc]
-        dm0 = 2*np.dot(mo_coeff[:,occ], mo_coeff[:,occ].T)
-        veff = self.get_veff(dm=dm0)
-        fock = self.get_hcore() + veff
-        mo_energy, mo_coeff = np.linalg.eigh(fock)
-        nvir = self.mol.nsite - nocc
-        self.mo_energy = mo_energy
-        log.info("MO energies:")
-        for i in range(0, len(mo_energy), 5):
-            e = mo_energy[i:i+5]
-            fmt = '  ' + len(e)*'  %+16.8f'
-            log.info(fmt, *e)
-        if nocc > 0:
-            homo = self.mo_energy[nocc-1]
-        else:
-            homo = np.nan
-        if nvir > 0:
-            lumo = self.mo_energy[nocc]
-        else:
-            lumo = np.nan
-        gap = (lumo-homo)
-        log.info("HOMO= %+16.8f  LUMO= %+16.8f  gap= %+16.8f", homo, lumo, gap)
-        if gap < 1e-8:
-            log.critical("Zero HOMO-LUMO gap!")
-            raise RuntimeError("Zero HOMO-LUMO gap!")
-        elif gap < 1e-2:
-            log.warning("Small HOMO-LUMO gap!")
-
-        self.mo_coeff = mo_coeff
-        self.mo_occ = np.asarray((nocc*[2] + nvir*[0]))
-
-        # Check lattice symmetry
-        dm = self.make_rdm1()
-        occ = np.diag(dm)
-        if not np.all(np.isclose(occ[0], occ)):
-            log.warning("Mean-field not lattice symmetric! Site occupations=\n%r", occ)
-        else:
-            log.debug("Mean-field site occupations=\n%r", occ)
-        veff = self.get_veff()
-        self.e_tot = np.einsum('ab,ba->', (self.get_hcore() + veff/2), dm)
-        self.converged = True
-
-        return self.e_tot
 
     def density_fit(self):
         self.with_df = HubbardDF(self.mol)
         return self
 
-    kernel = kernel_hubbard
+class LatticeRHF(LatticeSCF, pyscf.scf.hf.RHF):
+
+    def get_init_guess(self, mol=None, key=None):
+        e, c = np.linalg.eigh(self.get_hcore())
+        nocc = self.mol.nelectron // 2
+        dm = 2*np.dot(c[:,:nocc], c[:,:nocc].T)
+        return dm
+
+    def get_jk(self, mol=None, dm=None, *args, **kwargs):
+        if mol is None: mol = self.mol
+        if dm is None: dm = self.make_rdm1()
+        if self.mol.v_nn is not None and mol.v_nn != 0:
+            raise NotImplementedError()
+        j = np.diag(np.diag(dm))*mol.hubbard_u
+        k = j
+        return j, k
+
+    def check_lattice_symmetry(self, dm=None):
+        if dm is None: dm = self.make_rdm1()
+        occ = np.diag(dm)
+        if not np.all(np.isclose(occ[0], occ)):
+            log.warning("Mean-field not lattice symmetric! Site occupations=\n%r", occ)
+        else:
+            log.debugv("Mean-field site occupations=\n%r", occ)
+
+    #def kernel_hubbard(self):
+    #    mo_energy, mo_coeff = np.linalg.eigh(self.mol.h1e)
+    #    nocc = self.mol.nelectron//2
+    #    occ = np.s_[:nocc]
+    #    dm0 = 2*np.dot(mo_coeff[:,occ], mo_coeff[:,occ].T)
+    #    veff = self.get_veff(dm=dm0)
+    #    fock = self.get_hcore() + veff
+    #    mo_energy, mo_coeff = np.linalg.eigh(fock)
+    #    nvir = self.mol.nsite - nocc
+    #    self.mo_energy = mo_energy
+    #    log.info("MO energies:")
+    #    for i in range(0, len(mo_energy), 5):
+    #        e = mo_energy[i:i+5]
+    #        fmt = '  ' + len(e)*'  %+16.8f'
+    #        log.info(fmt, *e)
+    #    if nocc > 0:
+    #        homo = self.mo_energy[nocc-1]
+    #    else:
+    #        homo = np.nan
+    #    if nvir > 0:
+    #        lumo = self.mo_energy[nocc]
+    #    else:
+    #        lumo = np.nan
+    #    gap = (lumo-homo)
+    #    log.info("HOMO= %+16.8f  LUMO= %+16.8f  gap= %+16.8f", homo, lumo, gap)
+    #    if gap < 1e-8:
+    #        log.critical("Zero HOMO-LUMO gap!")
+    #        raise RuntimeError("Zero HOMO-LUMO gap!")
+    #    elif gap < 1e-2:
+    #        log.warning("Small HOMO-LUMO gap!")
+
+    #    self.mo_coeff = mo_coeff
+    #    self.mo_occ = np.asarray((nocc*[2] + nvir*[0]))
+
+    #    # Check lattice symmetry
+    #    dm = self.make_rdm1()
+    #    self.check_lattice_symmetry(dm)
+    #    veff = self.get_veff()
+    #    self.e_tot = np.einsum('ab,ba->', (self.get_hcore() + veff/2), dm)
+    #    self.converged = True
+
+    #    return self.e_tot
+
+    #kernel = kernel_hubbard
+
+class LatticeUHF(LatticeSCF, pyscf.scf.uhf.UHF):
+
+    def get_init_guess(self, mol=None, key=None):
+        e, c = np.linalg.eigh(self.get_hcore())
+        nocc = self.mol.nelec
+        dma = np.dot(c[:,:nocc[0]], c[:,:nocc[0]].T)
+        dmb = np.dot(c[:,:nocc[1]], c[:,:nocc[1]].T)
+        return (dma, dmb)
+
+    def get_jk(self, mol=None, dm=None, *args, **kwargs):
+        if mol is None: mol = self.mol
+        if dm is None: dm = self.make_rdm1()
+        if self.mol.v_nn is not None and mol.v_nn != 0:
+            raise NotImplementedError()
+        dma, dmb = dm
+        ja = np.diag(np.diag(dma))*mol.hubbard_u
+        jb = np.diag(np.diag(dmb))*mol.hubbard_u
+        ka, kb = ja, jb
+        return (ja, jb), (ka, kb)

@@ -29,13 +29,15 @@ def get_mesh_tvecs(cell, tvecs, unit='Ang'):
         raise ValueError("Unknown set of T-vectors: %r" % tvecs)
     return mesh, tvecs
 
-
-def make_sym_op(reorder, phases):
-    def sym_op(a, axis=0):
-        bc = tuple(axis*[None] + [slice(None, None, None)] + (a.ndim-axis-1)*[None])
-        return np.take(a, reorder, axis=axis) * phases[bc]
-    return sym_op
-
+def loop_tvecs(cell, tvecs, unit='Ang', include_origin=False):
+    mesh, tvecs = get_mesh_tvecs(cell, tvecs, unit)
+    log.debugv("nx= %d ny= %d nz= %d", *mesh)
+    log.debugv("tvecs=\n%r", tvecs)
+    for dz, dy, dx in itertools.product(range(mesh[2]), range(mesh[1]), range(mesh[0])):
+        if not include_origin and (abs(dx) + abs(dy) + abs(dz) == 0):
+            continue
+        t = dx*tvecs[0] + dy*tvecs[1] + dz*tvecs[2]
+        yield (dx, dy, dz), t
 
 def tsymmetric_atoms(cell, rvecs, xtol=1e-8, unit='Ang', check_element=True, check_basis=True):
     """Get indices of translationally symmetric atoms.
@@ -94,7 +96,6 @@ def tsymmetric_atoms(cell, rvecs, xtol=1e-8, unit='Ang', check_element=True, che
 
     return indices
 
-
 def compare_atoms(cell, atm1, atm2, check_basis=True):
     type1 = cell.atom_pure_symbol(atm1)
     type2 = cell.atom_pure_symbol(atm2)
@@ -107,7 +108,6 @@ def compare_atoms(cell, atm1, atm2, check_basis=True):
     if bas1 != bas2:
         return False
     return True
-
 
 def reorder_atoms(cell, tvec, boundary=None, unit='Ang', check_basis=True):
     """Reordering of atoms for a given translation.
@@ -139,6 +139,7 @@ def reorder_atoms(cell, tvec, boundary=None, unit='Ang', check_basis=True):
     log.debugv("lattice vectors=\n%r", rvecs)
     log.debugv("inverse lattice vectors=\n%r", bvecs)
     atom_coords = np.dot(cell.atom_coords(), bvecs.T)
+    log.debugv("Atom coordinates:")
     for atm, coords in enumerate(atom_coords):
         log.debugv("%3d %f %f %f", atm, *coords)
     log.debugv("boundary= %r", boundary)
@@ -170,12 +171,12 @@ def reorder_atoms(cell, tvec, boundary=None, unit='Ang', check_basis=True):
     reorder = np.full((natm,), -1)
     inverse = np.full((natm,), -1)
     phases = np.full((natm,), 0)
-    tvec = np.dot(tvec, bvecs.T)
+    tvec_internal = np.dot(tvec, bvecs.T)
     for atm0 in range(cell.natm):
-        atm1, phase = get_atom_at(atom_coords[atm0] + tvec)
+        atm1, phase = get_atom_at(atom_coords[atm0] + tvec_internal)
         if atm1 is None or not compare_atoms(cell, atm0, atm1, check_basis=check_basis):
             return None, None, None
-        log.debugv("atom %d T-symmetric to atom %d for translation %r", atm1, atm0, tvec)
+        log.debugv("atom %d T-symmetric to atom %d for translation %s", atm1, atm0, tvec)
         reorder[atm1] = atm0
         inverse[atm0] = atm1
         phases[atm0] = phase
@@ -211,6 +212,21 @@ def reorder_aos(cell, tvec, unit='Ang'):
 
     return reorder, inverse, phases
 
+def _make_reorder_op(reorder, phases):
+    def reorder_op(a, axis=0):
+        if isinstance(a, (tuple, list)):
+            return tuple([reorder_op(x, axis=axis) for x in a])
+        bc = tuple(axis*[None] + [slice(None, None, None)] + (a.ndim-axis-1)*[None])
+        return np.take(a, reorder, axis=axis) * phases[bc]
+    return reorder_op
+
+def get_tsymmetry_op(cell, tvec, unit='Ang'):
+    reorder, inverse, phases = reorder_aos(cell, tvec, unit=unit)
+    if reorder is None:
+        # Not a valid symmetry
+        return None
+    tsym_op = _make_reorder_op(reorder, phases)
+    return tsym_op
 
 if __name__ == '__main__':
     import pyscf
