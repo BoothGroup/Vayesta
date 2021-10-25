@@ -56,6 +56,8 @@ class FoldedSCF:
         self.e_tot = self.ncells * self.kmf.e_tot
         self.converged = self.kmf.converged
         self.exxdiv = self.kmf.exxdiv
+        self.verbose = self.kmf.verbose
+        self.max_memory = self.kmf.max_memory
         self.conv_tol = self.kmf.conv_tol
         self.conv_tol_grad = self.kmf.conv_tol_grad
 

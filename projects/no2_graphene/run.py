@@ -13,6 +13,7 @@ import vayesta.ewf
 from structures import NO2_Graphene
 
 parser = argparse.ArgumentParser()
+parser.add_argument('--structure', type=int, default=-1)
 parser.add_argument('--kmesh', type=int, nargs=2, default=False)
 parser.add_argument('--basis', default='cc-pVDZ')
 parser.add_argument('--auxbasis', default='cc-pVDZ-ri')
@@ -77,7 +78,7 @@ for idx, gate in enumerate(gates):
     print("Now calculating gate %.3f" % gate)
 
     cell = pyscf.pbc.gto.Cell()
-    no2_graphene = NO2_Graphene(args.supercell, vacuum_size=args.vacuum_size, z_graphene=args.z_graphene)
+    no2_graphene = NO2_Graphene(args.supercell, structure=args.structure, vacuum_size=args.vacuum_size, z_graphene=args.z_graphene)
     cell.a, cell.atom = no2_graphene.get_amat_atom()
     cell.dimension = args.dimension
     cell.spin = args.spin

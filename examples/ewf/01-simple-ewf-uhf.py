@@ -13,15 +13,15 @@ H  0.0000   0.7572  -0.4692
 H  0.0000  -0.7572  -0.4692
 """
 mol.basis = 'cc-pVDZ'
-mol.output = 'pyscf-01.out'
+mol.output = 'pyscf.out'
 mol.build()
 
 # Hartree-Fock
 mf = pyscf.scf.UHF(mol)
 mf.kernel()
 
-ecc = vayesta.ewf.EWF(mf, bath_type='full')
-ecc.iaopao_fragmentation()
+ecc = vayesta.ewf.EWF(mf, bno_threshold=1e-6)
+ecc.iao_fragmentation()
 ecc.add_atomic_fragment(0)
 ecc.add_atomic_fragment(1)
 ecc.add_atomic_fragment(2)

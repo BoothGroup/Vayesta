@@ -10,21 +10,18 @@ def load_from_file(filename):
 
 class NO2_Graphene:
 
-    def __init__(self, supercell, distance=None, vacuum_size=None, z_graphene=None):
+    def __init__(self, supercell, structure=-1, distance=None, vacuum_size=None, z_graphene=None):
         supercell = tuple(supercell)
         if supercell not in ((3, 3), (4,4), (5,5), (10, 10)):
             raise ValueError()
         self.supercell = supercell
+        self.structure = structure
         self.distance = distance
         self.vacuum_size = vacuum_size
         self.z_graphene = z_graphene
 
     def get_amat_coords(self):
-        if self.supercell in [(5,5), (10, 10)]:
-            amat, coords = load_from_file('no2_graphene_q-1_%dx%d.dat' % self.supercell)
-        else:
-            dat = data[self.supercell]
-            amat, coords = dat['amat'].copy(), dat['coords'].copy()
+        amat, coords = load_from_file('no2_graphene_q%d_%dx%d.dat' % (self.structure, *self.supercell))
         if self.distance is not None:
             coords[:3,2] += (self.distance - 3.0)
         if self.vacuum_size is not None:
@@ -43,7 +40,12 @@ class NO2_Graphene:
 
 
 if __name__ == '__main__':
+    supercell = (5, 5)
 
-    cell = NO2_Graphene((4, 4))
+    cell = NO2_Graphene(supercell)
     print(cell.get_amat_atom()[0])
-    print(cell.get_amat_atom()[1])
+    print(cell.get_amat_atom()[1][:5])
+
+    cell = NO2_Graphene(supercell, 0)
+    print(cell.get_amat_atom()[0])
+    print(cell.get_amat_atom()[1][:5])

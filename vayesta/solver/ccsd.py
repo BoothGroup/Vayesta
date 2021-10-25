@@ -19,7 +19,7 @@ class CCSD_Solver(ClusterSolver):
     @dataclasses.dataclass
     class Options(ClusterSolver.Options):
         # Convergence
-        maxiter: int = 100              # Max number of iterations
+        maxiter: int = 200              # Max number of iterations
         conv_tol: float = None          # Convergence energy tolerance
         conv_tol_normt: float = None    # Convergence amplitude tolerance
         # solve_lambda:
