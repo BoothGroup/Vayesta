@@ -21,18 +21,27 @@ parser.add_argument('--gate-range', type=float, nargs=3, default=[-0.01, 0.01, 0
 parser.add_argument('--invert-scan', action='store_true')
 parser.add_argument('--trace', action='store_true')
 parser.add_argument('--gate-index', type=int)
-parser.add_argument('--nc', type=int, default=4)
 parser.add_argument('--supercell', type=int, nargs=2, default=[5, 5])
-parser.add_argument('--vacuum-size', type=float, default=20.0)
-parser.add_argument('--z-graphene', type=float, default=10.0)
+parser.add_argument('--vacuum-size', type=float, default=30.0)
+parser.add_argument('--z-graphene', type=float)
 parser.add_argument('--verbose', type=int, default=10)
 parser.add_argument('--dimension', type=int, default=2)
 parser.add_argument('--spin', type=int, default=1)
 parser.add_argument('--lindep-threshold', type=float)
-parser.add_argument('--scf-conv-tol', type=float, default=1e-8)
+# --- MF
 parser.add_argument('--xc', default=None)
 parser.add_argument('--mf-only', action='store_true')
-args = parser.parse_args()
+parser.add_argument('--scf-conv-tol', type=float, default=1e-9)
+# --- Embedding
+parser.add_argument('--fragment-type', default='iao')
+parser.add_argument('--nc', type=int, default=0)
+parser.add_argument('--eta', type=float)
+parser.add_argument('--augmented-basis', type=int, default=1)
+parser.add_argument('--dmet-threshold', type=float, default=1e-6)
+args =parser.parse_args()
+
+if args.z_graphene is None:
+    args.z_graphene = args.vacuum_size / 2
 
 # Cell
 
@@ -65,7 +74,7 @@ for idx, gate in enumerate(gates):
     if args.gate_index is not None and idx != args.gate_index:
         continue
 
-    print("Now calculating gate %.2f" % gate)
+    print("Now calculating gate %.3f" % gate)
 
     cell = pyscf.pbc.gto.Cell()
     no2_graphene = NO2_Graphene(args.supercell, vacuum_size=args.vacuum_size, z_graphene=args.z_graphene)
@@ -73,10 +82,14 @@ for idx, gate in enumerate(gates):
     cell.dimension = args.dimension
     cell.spin = args.spin
     cell.verbose = args.verbose
-    cell.basis = args.basis
+    if args.augmented_basis:
+        cell.basis = {'N' : 'aug-%s' % args.basis,
+                      'O' : 'aug-%s' % args.basis,
+                      'C' : args.basis}
+    else:
+        cell.basis = args.basis
     cell.lindep_threshold = args.lindep_threshold
     cell.build()
-    1/0
 
     # MF
     if args.kmesh:
@@ -122,15 +135,25 @@ for idx, gate in enumerate(gates):
     print("E(MF)= % 16.8f Ha  E(MF+gate)= % 16.8f Ha" % (mf.e_tot, e_mf_gate))
 
     # Embedding
-
-    ecc = vayesta.ewf.EWF(mf, bath_type=None, make_rdm1=True)
+    opts = {'make_rdm1' : True, 'dmet_threshold' : args.dmet_threshold}
+    if args.eta is None:
+        ecc = vayesta.ewf.EWF(mf, bath_type=None, **opts)
+    else:
+        ecc = vayesta.ewf.EWF(mf, bno_threshold=args.eta, **opts)
 
     ecc.pop_analysis(dm1=dm1_mf, local_orbitals='mulliken', filename='mulliken-mf-%.3f.pop' % gate)
     ecc.pop_analysis(dm1=dm1_mf, local_orbitals='lowdin',   filename='lowdin-mf-%.3f.pop' % gate)
     ecc.pop_analysis(dm1=dm1_mf, local_orbitals='iao+pao',  filename='iao+pao-mf-%.3f.pop' % gate)
 
     if not args.mf_only:
-        ecc.sao_fragmentation()
+
+        if args.fragment_type == 'iao':
+            ecc.iao_fragmentation()
+        elif args.fragment_type == 'iaopao':
+            ecc.iaopao_fragmentation()
+        elif args.fragment_type == 'sao':
+            ecc.sao_fragmentation()
+
         if v_gate is not None:
             ecc.get_fock_for_energy = lambda *args : (ecc.get_fock(*args) + v_gate)
 
