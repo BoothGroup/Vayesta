@@ -50,11 +50,11 @@ def build_moments(frag, other):
 
     def _ao2mo(pija, ci, ca):
         if not isinstance(pija, tuple):
-            pija = lib.einsum('pija,ik,jl,ab->pklb', pija, ci, ci, ca)
+            pija = lib.einsum('pija,ik,jl,ab->pklb', pija, ci, ci.conj(), ca)
         else:
             Lxi, Lja = pija
             Lxi = lib.einsum('Qxi,ik->Qxk', Lxi, ci)
-            Lja = lib.einsum('Qja,jl,ab->Qlb', Lja, ci, ca)
+            Lja = lib.einsum('Qja,jl,ab->Qlb', Lja, ci.conj(), ca)
             pija = (Lxi, Lja)
         return pija
 

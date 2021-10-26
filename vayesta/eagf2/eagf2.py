@@ -246,6 +246,7 @@ class EAGF2(QEmbeddingMethod):
             solver.rsjk = rsjk
 
         diis = self.DIIS(space=self.opts.diis_space, min_space=self.opts.diis_min_space)
+        solver.gf = solver.build_init_greens_function()
         solver.se = aux.SelfEnergy(np.empty((0)), np.empty((self.nmo, 0)))
         fock = np.diag(self.mf.mo_energy)
         e_nuc = solver.e_nuc
@@ -364,16 +365,11 @@ class EAGF2(QEmbeddingMethod):
 
                 solver.se = solver._combine_se(se_occ, se_vir)
 
-                if niter != 0:
+                if niter < 2:
                     solver.run_diis(solver.se, None, diis, se_prev=se_prev)
                     solver.se.remove_uncoupled(tol=self.opts.weight_tol)
 
-                w, v = solver.solve_dyson(fock=fock)
-                solver.gf = aux.GreensFunction(w, v[:self.nmo])
-                solver.gf.remove_uncoupled(tol=self.opts.weight_tol)
-
-                if self.opts.fock_loop:
-                    solver.gf, solver.se, fconv, fock = solver.fock_loop(fock=fock, return_fock=True)
+                solver.gf, solver.se, fconv, fock = solver.fock_loop(fock=fock, return_fock=True)
                 solver.gf.remove_uncoupled(tol=self.opts.weight_tol)
 
                 solver.e_1b = solver.energy_1body(e_nuc=e_nuc)

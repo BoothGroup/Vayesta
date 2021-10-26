@@ -642,7 +642,7 @@ class KRAGF2(RAGF2):
                 se[i], opt = agf2.chempot.minimize_chempot(
                         se[i], fock[i], nelec[i],
                         x0=se[i].chempot,
-                        tol=self.opts.conv_tol_nelec*1e-2,  #FIXME - may change after rediagonalisation
+                        tol=self.opts.conv_tol_nelec*self.opts.conv_tol_nelec_factor,
                         maxiter=self.opts.max_cycle_inner,
                 )
 
@@ -804,7 +804,7 @@ class KRAGF2(RAGF2):
             for i in range(self.nkpts):
                 act = self.act[i]
                 sc = np.dot(ovlp[i], self.mo_coeff[i])
-                rdm1_ref = np.linalg.multi_dot((sc.T, rdm1_hf[i], sc))
+                rdm1_ref = np.linalg.multi_dot((sc.T, rdm1_hf[i], sc)).astype(rdm1[i].dtype)
                 rdm1_ref[act, act] = rdm1[i]
                 rdm1[i] = rdm1_ref
 
@@ -1083,6 +1083,7 @@ class KRAGF2(RAGF2):
 
 if __name__ == '__main__':
     from pyscf.pbc import gto, scf
+    from vayesta.misc import gdf
     from vayesta import log
     log.setLevel(25)
 
@@ -1105,7 +1106,11 @@ if __name__ == '__main__':
     #cell.exp_to_discard = 0.1
     #cell.build()
 
-    mf = scf.KRHF(cell, cell.make_kpts([2,2,2])).density_fit().run()
+    mf = scf.KRHF(cell, cell.make_kpts([2,2,2]))
+    mf.exxdiv = None
+    mf.with_df = gdf.GDF(cell, mf.kpts)
+    mf.with_df.build()
+    mf.kernel()
 
     gf2 = KRAGF2(
             mf,
