@@ -308,13 +308,19 @@ class MP2_BNO_Bath(BNO_Bath):
             self.log.debugv("tr(alpha-dm[env,env])= %g", np.trace(dm[0]))
             self.log.debugv("tr( beta-dm[env,env])= %g", np.trace(dm[1]))
 
-        n_bno, c_bno = eigh_s(dm)
         if self.spin_restricted:
+            n_bno, c_bno = np.linalg.eigh(dm)
             n_bno = n_bno[::-1]
             c_bno = c_bno[:,::-1]
         else:
-            n_bno = (n_bno[0][::-1], n_bno[1][::-1])
-            c_bno = (c_bno[0][:,::-1], c_bno[1][:,::-1])
+            n_bno_a, c_bno_a = np.linalg.eigh(dm[0])
+            n_bno_b, c_bno_b = np.linalg.eigh(dm[1])
+            n_bno_a = n_bno_a[::-1]
+            c_bno_a = c_bno_a[:,::-1]
+            n_bno_b = n_bno_b[::-1]
+            c_bno_b = c_bno_b[:,::-1]
+            c_bno = (c_bno_a, c_bno_b)
+            n_bno = (n_bno_a, n_bno_b)
 
         c_bno = dot_s(c_env, c_bno)
         c_bno = fix_orbital_sign(c_bno)[0]
