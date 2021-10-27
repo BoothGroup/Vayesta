@@ -252,6 +252,7 @@ class EAGF2(QEmbeddingMethod):
         e_nuc = solver.e_nuc
 
         converged = False
+        converged_prev = False
         for niter in range(0, self.opts.max_cycle+1):
             t1 = timer()
             self.log.info("Iteration %d" % niter)
@@ -393,8 +394,14 @@ class EAGF2(QEmbeddingMethod):
                 if deltas[0] < self.opts.conv_tol \
                         and deltas[1] < self.opts.conv_tol_t0 \
                         and deltas[2] < self.opts.conv_tol_t1:
-                    converged = solver.converged = True
-                    break
+                    if self.opts.extra_cycle and not converged_prev:
+                        converged_prev = True
+                    else:
+                        converged = solver.converged = True
+                        break
+                else:
+                    if self.opts.extra_cycle and converged_prev:
+                        converged_prev = False
 
         solver.e_1b = solver.energy_1body()
         solver.e_2b = solver.energy_2body()

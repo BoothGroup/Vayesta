@@ -527,6 +527,8 @@ class KRAGF2(RAGF2):
             s.get_occupied().moment(range(2*self.opts.nmom_lanczos+2)),
             s.get_virtual().moment(range(2*self.opts.nmom_lanczos+2)),
         )) for s in se]
+        self.log.debug("Summed trace of moments:")
+        self.log.debug(" > Initial :  %.5g", np.einsum('konii->', t))
 
         if self.opts.damping and se_prev:
             t_prev = [np.array((
@@ -537,8 +539,10 @@ class KRAGF2(RAGF2):
             for i in range(len(t)):
                 t[i] *= (1.0 - self.opts.damping)
                 t[i] += self.opts.damping * t_prev[i]
+            self.log.debug(" > Damping :  %.5g", np.einsum('konii->', t))
 
         t = diis.update(t)
+        self.log.debug(" > DIIS    :  %.5g", np.einsum('konii->', t))
 
         se_occ = []
         se_vir = []
@@ -598,6 +602,18 @@ class KRAGF2(RAGF2):
 
             ws.append(w)
             vs.append(v)
+
+        self.log.debugv("Solved Dyson equation, eigenvalue ranges:")
+        self.log.debugv(
+                " > Occupied :  %.5g -> %.5g",
+                np.min([np.min(w[w < s.chempot]) for w,s in zip(ws, se)]),
+                np.max([np.max(w[w < s.chempot]) for w,s in zip(ws, se)]),
+        )
+        self.log.debugv(
+                " > Virtual  :  %.5g -> %.5g",
+                np.min([np.min(w[w >= s.chempot]) for w,s in zip(ws, se)]),
+                np.max([np.max(w[w >= s.chempot]) for w,s in zip(ws, se)]),
+        )
 
         return ws, vs
 

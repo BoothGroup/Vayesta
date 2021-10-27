@@ -50,6 +50,7 @@ class RAGF2Options(OptionsBase):
     diis_space: int = 6                 # size of AGF2 DIIS space
     diis_min_space: int = 1             # minimum AGF2 DIIS space before extrapolation
     as_adc: bool = False                # convert to ADC(2) solver, see kernel_adc
+    extra_cycle: bool = True            # if True, ensure convergence with extra cycle
 
     # --- Fock loop convergence parameters
     fock_basis: str = 'MO'              # basis to perform Fock build in
@@ -1222,6 +1223,7 @@ class RAGF2:
         self.log.info("E(tot)  = %20.12f", self.mf.e_tot + e_mp2)
 
         converged = self.converged = False
+        converged_prev = False
         se_prev = None
         for niter in range(1, self.opts.max_cycle+1):
             t1 = timer()
@@ -1261,8 +1263,14 @@ class RAGF2:
             if deltas[0] < self.opts.conv_tol \
                     and deltas[1] < self.opts.conv_tol_t0 \
                     and deltas[2] < self.opts.conv_tol_t1:
-                converged = self.converged = True
-                break
+                if self.opts.extra_cycle and not converged_prev:
+                    converged_prev = True
+                else:
+                    converged = self.converged = True
+                    break
+            else:
+                if self.opts.extra_cycle and converged_prev:
+                    converged_prev = False
 
         (self.log.info if converged else self.log.warning)("Converged = %r", converged)
 
