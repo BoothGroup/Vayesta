@@ -18,11 +18,13 @@ parser.add_argument('--kmesh', type=int, nargs=2, default=False)
 parser.add_argument('--basis', default='cc-pVDZ')
 parser.add_argument('--auxbasis', default='cc-pVDZ-ri')
 parser.add_argument('--gate-range', type=float, nargs=3, default=[-0.01, 0.01, 0.002])
+parser.add_argument('--gates', type=float, nargs='*', default=[0.0])
 #parser.add_argument('--gate-range', type=float, nargs=3, default=[-0.004, 0.004, 0.002])
 parser.add_argument('--invert-scan', action='store_true')
 parser.add_argument('--trace', action='store_true')
 parser.add_argument('--gate-index', type=int)
 parser.add_argument('--supercell', type=int, nargs=2, default=[5, 5])
+#parser.add_argument('--supercell', type=int, nargs=2, default=[6, 6])
 parser.add_argument('--vacuum-size', type=float, default=30.0)
 parser.add_argument('--z-graphene', type=float)
 parser.add_argument('--verbose', type=int, default=10)
@@ -38,7 +40,7 @@ parser.add_argument('--fragment-type', default='iao')
 parser.add_argument('--nc', type=int, default=0)
 parser.add_argument('--eta', type=float)
 parser.add_argument('--augmented-basis', type=int, default=1)
-parser.add_argument('--dmet-threshold', type=float, default=1e-6)
+parser.add_argument('--dmet-threshold', type=float, default=1e-4)
 args =parser.parse_args()
 
 if args.z_graphene is None:
@@ -65,7 +67,10 @@ def get_gate_potential(mf, gate):
     v_gate = gate*np.dot(sc, sc.T)
     return v_gate
 
-gates = np.arange(args.gate_range[0], args.gate_range[1]+1e-12, args.gate_range[2])
+if args.gates is not None:
+    gates = args.gates
+else:
+    gates = np.arange(args.gate_range[0], args.gate_range[1]+1e-12, args.gate_range[2])
 if args.invert_scan:
     gates = gates[::-1]
 
