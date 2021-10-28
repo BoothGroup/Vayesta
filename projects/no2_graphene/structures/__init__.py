@@ -84,26 +84,37 @@ class NO2_Graphene:
         return amat, atom
 
 if __name__ == '__main__':
+
+    import pyscf
+    import pyscf.pbc
+    import pyscf.pbc.gto
+
     #supercell = (10, 10)
-    supercell = (5, 5)
+    #supercell = (3, 3)
+    supercell = (9, 9)
 
     cell = NO2_Graphene(supercell, -1)
-    print(cell.amat)
-    print(cell.atom[:5])
+    mol = pyscf.pbc.gto.Cell()
+    mol.a, mol.atom = cell.amat, cell.atom
+    mol.spin = 1
+    mol.build()
 
-    subcell = (4,4)
-    amat, atom = cell.make_subcell(subcell)
+    #print(cell.amat)
+    #print(cell.atom[:5])
 
-    cell = NO2_Graphene(subcell, -1)
+    #subcell = (4,4)
+    #amat, atom = cell.make_subcell(subcell)
 
-    print(amat)
-    print(cell.amat)
+    #cell = NO2_Graphene(subcell, -1)
 
-    for idx, at in enumerate(atom):
-        try:
-            print("%s %-40s - %s %-40s  ---- %r" % (*at, *cell.atom[idx], np.allclose(at[1], cell.atom[idx][1])))
-        except:
-            print("%s %-40s" % (at[0], at[1]))
+    #print(amat)
+    #print(cell.amat)
+
+    #for idx, at in enumerate(atom):
+    #    try:
+    #        print("%s %-40s - %s %-40s  ---- %r" % (*at, *cell.atom[idx], np.allclose(at[1], cell.atom[idx][1])))
+    #    except:
+    #        print("%s %-40s" % (at[0], at[1]))
 
     #assert np.allclose(amat, cell.amat)
     #for idx, at in enumerate(atom):
