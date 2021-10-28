@@ -76,6 +76,8 @@ def eval_eta0(D, ri_P, ri_M, target_rot, npoints = 100, ainit = 1.0, integral_de
         mat = (mat.T + D).T
         integral_offset = - einsum("rp,pq,np,nq->rq", target_rot, mat**(-1), rik_MP_L, rik_MP_R)
         integral_offset -= einsum("pn,n->pn", target_rot, D)
+        integral_offset2 = iterative_eval_exact_correction(D, rik_MP_L, rik_MP_R, target_rot)
+        print("Max iterative error:", abs(integral_offset - integral_offset2).max())
     elif integral_deduct == "ScaledApprox":
         lrot = einsum("pn,n->pn", target_rot, D**(-0.5))
         integral_offset = - einsum("pq,q->pq",np.dot(np.dot(lrot, rik_MP_L.T), rik_MP_R), D**(-0.5))/2
@@ -304,3 +306,50 @@ def construct_inverse_RI(D, ri):
         return einsum("p,np,nm->mp", D ** (-1), ri_L, Urt)
     else:
         return einsum("p,np,nm->mp", D ** (-1), ri_L, Urt), einsum("p,np,nm->mp", D ** (-1), ri_R, Urt.T)
+
+def iterative_eval_exact_correction(D, rik_MP_L, rik_MP_R, target_rot, tol=1e-6):
+    """Given RI decomposition for (MP-D^2) find decomposition for
+        J = \int_-\inf^\inf d\omega D^{-1}G (MP-D^2) G D^{-1}
+    via iterative approach.
+    This can be obtained by assuming a low-rank expression for J (= Q_L Q_R^T) and using the relation
+        (MP - D^2) = DJ + JD
+    so
+        Q_L Q_R^T = (S_L S_R^T - D Q_L Q_R^T) D^{-1}
+    """
+    (Naux, Nex) = rik_MP_L.shape
+    QL = np.copy(rik_MP_L)
+    QR = np.copy(rik_MP_R)
+
+    for iiter in range(30):
+        new_L = np.concatenate([rik_MP_L, -np.einsum("np,p->np", QL, D)], axis=0)
+        new_R = np.concatenate([rik_MP_R, QR], axis=0)
+        sav1 = new_L.shape[0]
+        # First SVD LHS, and rotate to remove redundant degrees of freedom.
+        ul,sl,vl = np.linalg.svd(new_L)
+        rot = ul[:, sl > tol]
+        new_L = einsum("nm,np->mp", rot, new_L)
+        new_R = einsum("nm,np->mp", rot, new_R)
+        sav2 = new_L.shape[0]
+        ur,sr,vr = np.linalg.svd(new_R)
+        rot = ur[:, sr > tol]
+        new_L = einsum("nm,np->mp", rot, new_L)
+        new_R = einsum("nm,np->mp", rot, new_R)
+        sav3 = new_L.shape[0]
+
+        print("iter:",iiter,":", sav1, "->", sav2, "->", sav3)
+        new_R = np.einsum("np,p->np", new_R, D**(-1))
+        if QR.shape == new_R.shape:
+            deltaL = ((new_L - QL).reshape(-1)**2)**(0.5)
+            deltaR = ((new_R - QR).reshape(-1)**2)**(0.5)
+            print("L2 diffs:", deltaL, deltaR)
+            if deltaR < tol and deltaL < tol:
+                print("Success!")
+                break
+        QR = new_R
+        QL = new_L
+    else:
+        raise Exception("Iterative determinanation did not converge")
+
+    # If successful Q_L Q_R^T is a (hopefully) low-rank representation of our desired integral.
+    # Now just project left index then contract!
+    return dot(dot(target_rot, QL.T), QR)
