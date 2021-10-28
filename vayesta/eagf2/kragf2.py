@@ -259,7 +259,7 @@ class KRAGF2(RAGF2):
             self.log.info("General MOs:   %6d %6d %6d", nact,           nfroz,     nmo)
 
 
-    def _build_moments(self, ei, ej, ea, xija, xjia, os_factor=None, ss_factor=None):
+    def _build_moments(self, ei, ea, ej, xiaj, xjai, os_factor=None, ss_factor=None):
         ''' Build the occupied or virtual self-energy moments for a single kpt
         '''
 
@@ -267,57 +267,60 @@ class KRAGF2(RAGF2):
         ss_factor = ss_factor or self.opts.ss_factor
         facs = {'os_factor': os_factor, 'ss_factor': ss_factor}
 
-        if isinstance(xija, tuple):
-            xija = lib.einsum('Qij,Qkl->ijkl', xija[0], xija[1])
-        if isinstance(xjia, tuple):
-            xjia = lib.einsum('Qij,Qkl->ijkl', xjia[0], xjia[1])
-        elif xjia is None:
-            xjia = xija
+        if isinstance(xiaj, tuple):
+            xiaj = lib.einsum('Qij,Qkl->ijkl', xiaj[0], xiaj[1])
+        if isinstance(xjai, tuple):
+            xjai = lib.einsum('Qij,Qkl->ijkl', xjai[0], xjai[1])
+        elif xjai is None:
+            xjai = xiaj
 
-        nphys = xija.shape[0]
+        xjai = xjai.swapaxes(1, 3)
+
+        nphys = xiaj.shape[0]
         t = np.zeros((2*self.opts.nmom_lanczos+2, nphys, nphys), dtype=np.complex128)  #TODO can I be real?
 
-        if self.opts.nmom_lanczos == 0 and not self.opts.diagonal_se:
-            xija = np.asarray(xija, order='C', dtype=np.complex128)
-            xjia = np.asarray(xjia, order='C', dtype=np.complex128)
-            ei = np.asarray(ei, order='C')
-            ej = np.asarray(ej, order='C')
-            ea = np.asarray(ea, order='C')
-            libeagf2.KAGF2ee_vv_vev_islice(
-                    xija.ctypes.data_as(ctypes.c_void_p),
-                    xjia.ctypes.data_as(ctypes.c_void_p),
-                    ei.ctypes.data_as(ctypes.c_void_p),
-                    ej.ctypes.data_as(ctypes.c_void_p),
-                    ea.ctypes.data_as(ctypes.c_void_p),
-                    ctypes.c_double(os_factor),
-                    ctypes.c_double(ss_factor),
-                    ctypes.c_int(nphys),
-                    ctypes.c_int(ei.size),
-                    ctypes.c_int(ej.size),
-                    ctypes.c_int(ea.size),
-                    ctypes.c_int(0),
-                    ctypes.c_int(ei.size),
-                    t[0].ctypes.data_as(ctypes.c_void_p),
-                    t[1].ctypes.data_as(ctypes.c_void_p),
-            )
-        else:
-            dtype = xija.dtype
-            ija = lib.direct_sum('i+j-a->ija', ei, ej, ea)
-            fpos = os_factor + ss_factor
-            fneg = -ss_factor
+        #FIXME
+        #if self.opts.nmom_lanczos == 0 and not self.opts.diagonal_se:
+        #    xija = np.asarray(xija, order='C', dtype=np.complex128)
+        #    xjia = np.asarray(xjia, order='C', dtype=np.complex128)
+        #    ei = np.asarray(ei, order='C')
+        #    ej = np.asarray(ej, order='C')
+        #    ea = np.asarray(ea, order='C')
+        #    libeagf2.KAGF2ee_vv_vev_islice(
+        #            xija.ctypes.data_as(ctypes.c_void_p),
+        #            xjia.ctypes.data_as(ctypes.c_void_p),
+        #            ei.ctypes.data_as(ctypes.c_void_p),
+        #            ej.ctypes.data_as(ctypes.c_void_p),
+        #            ea.ctypes.data_as(ctypes.c_void_p),
+        #            ctypes.c_double(os_factor),
+        #            ctypes.c_double(ss_factor),
+        #            ctypes.c_int(nphys),
+        #            ctypes.c_int(ei.size),
+        #            ctypes.c_int(ej.size),
+        #            ctypes.c_int(ea.size),
+        #            ctypes.c_int(0),
+        #            ctypes.c_int(ei.size),
+        #            t[0].ctypes.data_as(ctypes.c_void_p),
+        #            t[1].ctypes.data_as(ctypes.c_void_p),
+        #    )
+        #else:
+        dtype = xiaj.dtype
+        iaj = lib.direct_sum('i+j-a->iaj', ei, ej, ea).ravel()
+        fpos = os_factor + ss_factor
+        fneg = -ss_factor
 
-            for n in range(2*self.opts.nmom_lanczos+2):
-                xija_n = xija.reshape(nphys, -1) * np.ravel(ija**n)[None]
-                if not self.opts.diagonal_se:
-                    t[n] += (
-                        + fpos * np.dot(xija_n, xija.reshape(nphys, -1).T.conj())
-                        + fneg * np.dot(xija_n, xjia.reshape(nphys, -1).T.conj())
-                    )
-                else:
-                    t[n][np.diag_indices_from(t[n])] += (
-                        + fpos * np.sum(xija_n * xija.conj(), axis=1)
-                        + fneg * np.sum(xija_n * xjia.conj(), axis=1)
-                    )
+        for n in range(2*self.opts.nmom_lanczos+2):
+            xiaj_n = xiaj.reshape(nphys, -1) * np.ravel(iaj**n)[None]
+            if not self.opts.diagonal_se:
+                t[n] += (
+                    + fpos * np.dot(xiaj_n, xiaj.reshape(nphys, -1).T.conj())
+                    + fneg * np.dot(xiaj_n, xjai.reshape(nphys, -1).T.conj())
+                )
+            else:
+                t[n][np.diag_indices_from(t[n])] += (
+                    + fpos * np.sum(xiaj_n * xiaj.conj(), axis=1)
+                    + fneg * np.sum(xiaj_n * xjai.conj(), axis=1)
+                )
 
         return t
 
@@ -401,38 +404,35 @@ class KRAGF2(RAGF2):
 
             if self.eri.ndim == 7:
                 #TODO xija == xjia.swapaxes(1,2) ?
-                xija = lib.einsum('pqrs,pi,qj,rk,sl->ijkl',
+                xiaj = lib.einsum('pqrs,pi,qj,rk,sl->ijkl',
                         self.eri[ka, kb, kc],
-                        ca_x[:, xa_o].conj(), cb_o, cc_o.conj(), cd_v,
+                        ca_x[:, xa_o].conj(), cb_o, cc_v.conj(), cd_o,
                 )
-                xjia = lib.einsum('pqrs,pi,qj,rk,sl->ijkl',
-                        self.eri[ka, kc, kb],
-                        ca_x[:, xa_o].conj(), cc_o, cb_o.conj(), cd_v,
+                xjai = lib.einsum('pqrs,pi,qj,rk,sl->ijkl',
+                        self.eri[ka, kd, kc],
+                        ca_x[:, xa_o].conj(), cd_o, cc_v.conj(), cb_o,
                 )
-                xabi = lib.einsum('pqrs,pi,qj,rk,sl->ijkl',
+                xaib = lib.einsum('pqrs,pi,qj,rk,sl->ijkl',
                         self.eri[ka, kb, kc],
-                        ca_x[:, xa_v].conj(), cb_v, cc_v.conj(), cd_o,
+                        ca_x[:, xa_v].conj(), cb_v, cc_o.conj(), cd_v,
                 )
-                xbai = lib.einsum('pqrs,pi,qj,rk,sl->ijkl',
-                        self.eri[ka, kc, kb],
-                        ca_x[:, xa_v].conj(), cc_v, cb_v.conj(), cd_o,
+                xbia = lib.einsum('pqrs,pi,qj,rk,sl->ijkl',
+                        self.eri[ka, kd, kc],
+                        ca_x[:, xa_v].conj(), cd_v, cc_o.conj(), cb_v,
                 )
             else:
                 qxi = _fao2mo(self.eri[ka, kb], ca_x[:, xa_o], cb_o, dtype)
-                qxj = _fao2mo(self.eri[ka, kc], ca_x[:, xa_o], cc_o, dtype)
-                qja = _fao2mo(self.eri[kc, kd], cc_o, cd_v, dtype)
-                qia = _fao2mo(self.eri[kb, kd], cb_o, cd_v, dtype)
+                qaj = _fao2mo(self.eri[kc, kd], cc_v, cd_o, dtype)
+                qxj = _fao2mo(self.eri[ka, kd], ca_x[:, xa_o], cd_o, dtype)
+                qai = _fao2mo(self.eri[kc, kb], cc_v, cb_o, dtype)
                 qxa = _fao2mo(self.eri[ka, kb], ca_x[:, xa_v], cb_v, dtype)
-                qxb = _fao2mo(self.eri[ka, kc], ca_x[:, xa_v], cc_v, dtype)
-                #TODO yes?
-                #qbi = qja.swapaxes(qja.ndim-1, qja.ndim-2)
-                #qai = qia.swapaxes(qia.ndim-1, qia.ndim-2)
-                qbi = _fao2mo(self.eri[kc, kd], cc_v, cd_o, dtype)
-                qai = _fao2mo(self.eri[kb, kd], cb_v, cd_o, dtype)
-                xija = (qxi, qja)
-                xjia = (qxj, qia)
-                xabi = (qxa, qbi)
-                xbai = (qxb, qai)
+                qib = _fao2mo(self.eri[kc, kd], cc_o, cd_v, dtype)
+                qxb = _fao2mo(self.eri[ka, kd], ca_x[:, xa_v], cd_v, dtype)
+                qia = _fao2mo(self.eri[kc, kb], cc_o, cb_v, dtype)
+                xiaj = (qxi, qaj)
+                xjai = (qxj, qai)
+                xaib = (qxa, qib)
+                xbia = (qxb, qia)
 
             self.log.timingv(
                     "Time for MO->QMO (%d,%d,%d,%d):  %s",
@@ -440,10 +440,10 @@ class KRAGF2(RAGF2):
             )
             t1 = timer()
 
-            t_occ[ka][:, xa_o, xa_o] += self._build_moments(eb_o, ec_o, ed_v, xija, xjia)
-            t_vir[ka][:, xa_v, xa_v] += self._build_moments(eb_v, ec_v, ed_o, xabi, xbai)
+            t_occ[ka][:, xa_o, xa_o] += self._build_moments(eb_o, ec_v, ed_o, xiaj, xjai)
+            t_vir[ka][:, xa_v, xa_v] += self._build_moments(eb_v, ec_o, ed_v, xaib, xbia)
 
-            del xija, xjia, xabi, xbai
+            del xiaj, xjai, xaib, xbia
 
         kptlist_inv = np.ones((self.nkpts,), dtype=bool)
         kptlist_inv[kptlist] = False
@@ -820,7 +820,8 @@ class KRAGF2(RAGF2):
             for i in range(self.nkpts):
                 act = self.act[i]
                 sc = np.dot(ovlp[i], self.mo_coeff[i])
-                rdm1_ref = np.linalg.multi_dot((sc.T, rdm1_hf[i], sc)).astype(rdm1[i].dtype)
+                rdm1_ref = np.linalg.multi_dot((sc.T, rdm1_hf[i], sc))
+                rdm1_ref = rdm1_ref.astype(np.result_type(rdm1[i], rdm1_ref))
                 rdm1_ref[act, act] = rdm1[i]
                 rdm1[i] = rdm1_ref
 
