@@ -1229,7 +1229,6 @@ class RAGF2:
         self.log.info("E(tot)  = %20.12f", self.mf.e_tot + e_mp2)
 
         converged = self.converged = False
-        converged_prev = False
         se_prev = None
         for niter in range(1, self.opts.max_cycle+1):
             t1 = timer()
@@ -1266,17 +1265,21 @@ class RAGF2:
 
             self.log.changeIndentLevel(-1)
 
-            if deltas[0] < self.opts.conv_tol \
-                    and deltas[1] < self.opts.conv_tol_t0 \
-                    and deltas[2] < self.opts.conv_tol_t1:
-                if self.opts.extra_cycle and not converged_prev:
-                    converged_prev = True
-                else:
+            checks = all([
+                    deltas[0] < self.opts.conv_tol,
+                    deltas[1] < self.opts.conv_tol_t0,
+                    deltas[2] < self.opts.conv_tol_t1,
+            ])
+
+            if self.opts.extra_cycle:
+                if converged and checks:
                     converged = self.converged = True
                     break
+                converged = self.converged = checks
             else:
-                if self.opts.extra_cycle and converged_prev:
-                    converged_prev = False
+                if checks:
+                    converged = self.converged = True
+                    break
 
         (self.log.info if converged else self.log.warning)("Converged = %r", converged)
 

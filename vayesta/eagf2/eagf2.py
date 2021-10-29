@@ -412,8 +412,7 @@ class EAGF2(QEmbeddingMethod):
         self.log.info("E(corr) = %20.12f", e_mp2)
         self.log.info("E(tot)  = %20.12f", self.mf.e_tot + e_mp2)
 
-        converged = solver.converged = False
-        converged_prev = False
+        converged = False
         se_prev = None
         for niter in range(1, self.opts.max_cycle+1):
             t1 = timer()
@@ -448,19 +447,21 @@ class EAGF2(QEmbeddingMethod):
 
                 self.log.timing("Time for AGF2 iteration:  %s", time_string(timer() - t1))
 
-            if deltas[0] < self.opts.conv_tol \
-                    and deltas[1] < self.opts.conv_tol_t0 \
-                    and deltas[2] < self.opts.conv_tol_t1:
-                if self.opts.extra_cycle and not converged_prev:
-                    converged_prev = True
-                else:
-                    converged = solver.converged = True
+            checks = all([
+                    deltas[0] < self.opts.conv_tol,
+                    deltas[1] < self.opts.conv_tol_t0,
+                    deltas[2] < self.opts.conv_tol_t1,
+            ])
+
+            if self.opts.extra_cycle:
+                if converged and checks:
+                    converged = True
                     break
+                converged = checks
             else:
-                if self.opts.extra_cycle and converged_prev:
-                    converged_prev = False
-
-        (self.log.info if converged else self.log.warning)("Converegd = %r", converged)
+                if checks:
+                    converged = True
+                    break
 
         self.results = EAGF2Results(
                 converged=converged,
@@ -477,135 +478,6 @@ class EAGF2(QEmbeddingMethod):
         if self.opts.dump_chkfile and solver.chkfile is not None:
             self.log.debug("Dumping output to chkfile")
             solver.dump_chk()
-
-        if self.opts.pop_analysis:
-            solver.population_analysis()
-
-        if self.opts.dip_moment:
-            solver.dip_moment()
-
-        if self.opts.dump_cubefiles:
-            #TODO test
-            self.log.debug("Dumping orbitals to .cube files")
-            gf_occ, gf_vir = solver.gf.get_occupied(), solver.gf.get_virtual()
-            for i in range(self.opts.dump_cubefiles):
-                if (gf_occ.naux-1-i) >= 0:
-                    self.dump_cube(gf_occ.naux-1-i, cubefile="hoqmo%d.cube" % i)
-                if (gf_vir.naux+i) < solver.gf.naux:
-                    self.dump_cube(gf_vir.naux+i, cubefile="luqmo%d.cube" % i)
-
-        solver.print_energies(output=True)
-
-        self.log.info("Time elapsed:  %s", time_string(timer() - t0))
-
-        return self.results
-
-
-    #TODO break up into functions
-    def kernel_(self):
-        ''' Run the EAGF2 calculation.
-
-        Returns
-        -------
-        results : EAGF2Results
-            Object containing results of `EAGF2` calculation, see
-            `EAGF2Results` for a list of attributes.
-        '''
-
-        t0 = timer()
-
-        if self.nfrag == 0:
-            raise ValueError("No fragments defined for calculation.")
-
-        nelec_frags = sum([f.sym_factor*f.nelectron for f in self.loop()])
-        self.log.info("Total number of mean-field electrons over all fragments= %.8f", nelec_frags)
-        if abs(nelec_frags - np.rint(nelec_frags)) > 1e-4:
-            self.log.warning("Number of electrons not integer!")
-
-        self.log.info("Initialising solver:")
-        with self.log.withIndentLevel(1):
-            solver = RAGF2(
-                    self.mf,
-                    eri=np.empty(()),
-                    veff=np.empty(()),
-                    log=self.log,
-                    options=self.opts,
-                    fock_basis='ao',
-            )
-            solver.log = self.log
-
-        diis = self.DIIS(space=self.opts.diis_space, min_space=self.opts.diis_min_space)
-        solver.gf = solver.build_init_greens_function()
-        solver.se = aux.SelfEnergy(np.empty((0)), np.empty((self.nmo, 0)))
-        fock = np.diag(self.mf.mo_energy)
-        e_nuc = solver.e_nuc
-
-        converged = False
-        converged_prev = False
-        for niter in range(0, self.opts.max_cycle+1):
-            t1 = timer()
-            self.log.info("Iteration %d" % niter)
-            self.log.info("**********%s" % ('*'*len(str(niter))))
-            with self.log.withIndentLevel(1):
-
-                se_prev = copy.deepcopy(solver.se)
-                e_prev = solver.e_tot
-
-                solver.se = self.build_self_energy(solver, fock)
-
-                if niter > 2:
-                    solver.se = self.run_diis(solver, diis, se_prev=se_prev)
-
-                solver.gf, solver.se, fconv, fock = self.fock_loop(solver, fock)
-
-                solver.e_1b = solver.energy_1body(e_nuc=e_nuc)
-                solver.e_2b = solver.energy_2body()
-                solver.print_energies()
-                solver.print_excitations()
-
-                deltas = solver._convergence_checks(se=solver.se, se_prev=se_prev, e_prev=e_prev)
-
-                self.log.info("Change in energy:     %10.3g", deltas[0])
-                self.log.info("Change in 0th moment: %10.3g", deltas[1])
-                self.log.info("Change in 1st moment: %10.3g", deltas[2])
-
-                if self.opts.dump_chkfile and solver.chkfile is not None:
-                    self.log.debug("Dumping current iteration to chkfile")
-                    solver.dump_chk()
-
-                self.log.timing("Time for AGF2 iteration:  %s", time_string(timer() - t1))
-
-            if niter > 0:
-                if deltas[0] < self.opts.conv_tol \
-                        and deltas[1] < self.opts.conv_tol_t0 \
-                        and deltas[2] < self.opts.conv_tol_t1:
-                    if self.opts.extra_cycle and not converged_prev:
-                        converged_prev = True
-                    else:
-                        converged = solver.converged = True
-                        break
-                else:
-                    if self.opts.extra_cycle and converged_prev:
-                        converged_prev = False
-
-        solver.e_1b = solver.energy_1body()
-        solver.e_2b = solver.energy_2body()
-
-        self.results = EAGF2Results(
-                converged=converged,
-                e_corr=solver.e_corr,
-                e_1b=solver.e_1b,
-                e_2b=solver.e_2b,
-                gf=solver.gf,
-                se=solver.se,
-                solver=solver,
-        )
-
-        if self.opts.dump_chkfile and solver.chkfile is not None:
-            self.log.debug("Dumping output to chkfile")
-            solver.dump_chk()
-
-        (self.log.info if converged else self.log.warning)("Converged = %r", converged)
 
         if self.opts.pop_analysis:
             solver.population_analysis()
