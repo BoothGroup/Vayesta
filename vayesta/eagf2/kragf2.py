@@ -544,12 +544,20 @@ class KRAGF2(RAGF2):
             mpi_helper.allreduce_safe_inplace(t_occ[i])
             mpi_helper.allreduce_safe_inplace(t_vir[i])
 
-        if not all([np.allclose(t, t.swapaxes(1, 2).conj()) for t in t_occ]):
-            error = max([np.max(np.abs(t - t.swapaxes(1, 2).conj())) for t in t_occ])
-            self.log.debug("Error in hermiticity of moments:  %.3g", error)
-        if not all([np.allclose(t, t.swapaxes(1, 2).conj()) for t in t_vir]):
-            error = max([np.max(np.abs(t - t.swapaxes(1, 2).conj())) for t in t_vir])
-            self.log.debug("Error in hermiticity of moments:  %.3g", error)
+        for k in range(self.nkpts):
+            for i in range(2*self.opts.nmom_lanczos+2):
+                if not np.allclose(t_occ[k][i], t_occ[k][i].T.conj()):
+                    error = np.max(np.abs(t_occ[k][i] - t_occ[k][i].T.conj()))
+                    self.log.warning(
+                            "Occupied n=%d kpt=%d moment not hermitian, error = %.6g", i, k, error)
+                if not np.allclose(t_vir[k][i], t_vir[k][i].T.conj()):
+                    error = np.max(np.abs(t_vir[k][i] - t_vir[k][i].T.conj()))
+                    self.log.warning(
+                            "Virtual n=%d kpt=%d moment not hermitian, error = %.6g", i, k, error)
+                self.log.debug(
+                        "Trace of n=%d kpt=%d moments:  Occupied = %.5g  Virtual = %.5g",
+                        i, k, np.trace(t_occ[k][i]).real, np.trace(t_vir[k][i]).real,
+                )
 
         t_occ = [0.5 * (t + t.swapaxes(1, 2).conj()) for t in t_occ]
         t_vir = [0.5 * (t + t.swapaxes(1, 2).conj()) for t in t_vir]
@@ -597,15 +605,15 @@ class KRAGF2(RAGF2):
         self.log.info("Built %d virtual auxiliaries", sum([x.naux for x in se_vir]))
         self.log.changeIndentLevel(-1)
 
-        wt = lambda v: np.sum(v * v)
+        wt = lambda v: np.einsum('pk,pk->', v, v.conj()).real
         self.log.infov("Total weights of coupling blocks:")
         self.log.infov("        %6s  %6s", "2h1p", "1h2p")
         self.log.infov("     1h %6.4f  %6.4f", 
                 sum([wt(s.coupling[:n-f[0]]) for s, n, f in zip(se_occ, self.nocc, self.frozen)]),
-                sum([wt(s.coupling[n-f[0]:]) for s, n, f in zip(se_occ, self.nocc, self.frozen)]),
+                sum([wt(s.coupling[:n-f[0]]) for s, n, f in zip(se_vir, self.nocc, self.frozen)]),
         )
         self.log.infov("     1p %6.4f  %6.4f",
-                sum([wt(s.coupling[:n-f[0]]) for s, n, f in zip(se_vir, self.nocc, self.frozen)]),
+                sum([wt(s.coupling[n-f[0]:]) for s, n, f in zip(se_occ, self.nocc, self.frozen)]),
                 sum([wt(s.coupling[n-f[0]:]) for s, n, f in zip(se_vir, self.nocc, self.frozen)]),
         )
 
@@ -632,7 +640,7 @@ class KRAGF2(RAGF2):
             s.get_virtual().moment(range(2*self.opts.nmom_lanczos+2)),
         )) for s in se]
         self.log.debug("Summed trace of moments:")
-        self.log.debug(" > Initial :  %.5g", np.einsum('konii->', t))
+        self.log.debug(" > Initial :  %.5g", np.einsum('konii->', t).real)
 
         if self.opts.damping and se_prev:
             t_prev = [np.array((
@@ -643,10 +651,10 @@ class KRAGF2(RAGF2):
             for i in range(len(t)):
                 t[i] *= (1.0 - self.opts.damping)
                 t[i] += self.opts.damping * t_prev[i]
-            self.log.debug(" > Damping :  %.5g", np.einsum('konii->', t))
+            self.log.debug(" > Damping :  %.5g", np.einsum('konii->', t).real)
 
         t = diis.update(t)
-        self.log.debug(" > DIIS    :  %.5g", np.einsum('konii->', t))
+        self.log.debug(" > DIIS    :  %.5g", np.einsum('konii->', t).real)
 
         se_occ = []
         se_vir = []
@@ -677,7 +685,7 @@ class KRAGF2(RAGF2):
 
         self.log.info(
                 "Number of active electrons in G0:  %s",
-                sum([np.trace(g.make_rdm1()) for g in gf]),
+                sum([np.trace(g.make_rdm1()).real for g in gf]),
         )
 
         return gf

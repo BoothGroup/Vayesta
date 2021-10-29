@@ -523,7 +523,7 @@ class RAGF2:
         for i in range(2*self.opts.nmom_lanczos+2):
             self.log.debug(
                     "Trace of n=%d moments:  Occupied = %.5g  Virtual = %.5g",
-                    i, np.trace(t_occ[i]), np.trace(t_vir[i]),
+                    i, np.trace(t_occ[i]).real, np.trace(t_vir[i]).real,
             )
 
 
@@ -566,8 +566,8 @@ class RAGF2:
         wt = lambda v: np.sum(v * v)
         self.log.infov("Total weights of coupling blocks:")
         self.log.infov("        %6s  %6s", "2h1p", "1h2p")
-        self.log.infov("    1h  %6.4f  %6.4f", wt(se_occ.coupling[:nh]), wt(se_occ.coupling[nh:]))
-        self.log.infov("    1p  %6.4f  %6.4f", wt(se_vir.coupling[:nh]), wt(se_vir.coupling[nh:]))
+        self.log.infov("    1h  %6.4f  %6.4f", wt(se_occ.coupling[:nh]), wt(se_vir.coupling[:nh]))
+        self.log.infov("    1p  %6.4f  %6.4f", wt(se_occ.coupling[nh:]), wt(se_vir.coupling[nh:]))
 
 
         se = self._combine_se(se_occ, se_vir, gf=gf)
@@ -1279,6 +1279,10 @@ class RAGF2:
                     converged_prev = False
 
         (self.log.info if converged else self.log.warning)("Converged = %r", converged)
+
+        if self.opts.dump_chkfile and self.chkfile is not None:
+            self.log.debug("Dumping output to chkfile")
+            self.dump_chk()
 
         if self.opts.pop_analysis:
             self.population_analysis()
