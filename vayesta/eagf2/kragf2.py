@@ -40,7 +40,6 @@ class KRAGF2Options(RAGF2Options):
 
     # --- Additional k-space parameters
     kptlist: 'typing.Any' = None    # list of k-points for self-consistency TODO test
-    direct: bool = True             # do not store full 4c ERI tensor
     keep_exxdiv: bool = False       # keep exxdiv when building Fock matrix
 
 
@@ -58,50 +57,6 @@ class kDIIS(DIIS):
         xout = [xout[i:j].reshape(s) for i,j,s in zip(locs[:-1], locs[1:], shapes)]
 
         return xout
-
-
-def _make_mo_eris(self, mo_coeff=None):
-    ''' Get the three-center ERIs
-    '''
-
-    with_df = self.mf.with_df
-    if mo_coeff is None:
-        mo_coeff = self.mo_coeff
-    nmo = self.nmo  #TODO support frozen?
-    npair = nmo * (nmo+1) // 2
-
-    kpts, nkpts = self.kpts, self.nkpts
-    khelper = self.khelper
-    kconserv = khelper.kconserv
-
-    if kpts_helper.gamma_point(kpts):
-        dtype = np.float64
-    else:
-        dtype = np.complex128
-    dtype = np.result_type(dtype, *[x.dtype for x in mo_coeff])
-
-    eri = np.empty((nkpts, nkpts, nkpts, nmo, nmo, nmo, nmo), dtype=dtype)
-
-    for kpqr in mpi_helper.nrange(nkpts**3):
-        kpq, kr = divmod(kpqr, nkpts)
-        kp, kq = divmod(kpq, nkpts)
-        ks = kconserv[kp,kq,kr]
-
-        coeffs = [mo_coeff[k] for k in (kp, kq, kr, ks)]
-        kijkl = kpts[[kp,kq,kr,ks]]
-
-        eri_kpt = with_df.ao2mo(coeffs, kijkl, compact=False)
-        eri_kpt = eri_kpt.reshape(nmo, nmo, nmo, nmo)
-
-        if dtype is np.float64:
-            eri_kpt = eri_kpt.real
-
-        eri[kp,kq,kr] = eri_kpt / nkpts
-
-    mpi_helper.barrier()
-    mpi_helper.allreduce_safe_inplace(eri)
-
-    return eri
 
 
 def _fao2mo(eri, cp, cq, dtype, out=None):
@@ -127,8 +82,8 @@ def _fao2mo(eri, cp, cq, dtype, out=None):
     return out
 
 
-def _make_mo_eris_direct(self, mo_coeff=None):
-    ''' Get the four-center ERIs
+def _make_mo_eris(self, mo_coeff=None):
+    ''' Get the three-center ERIs
     '''
 
     cell = self.cell
@@ -354,15 +309,6 @@ class KRAGF2(RAGF2):
         ss_factor = ss_factor or self.opts.ss_factor
         facs = {'os_factor': os_factor, 'ss_factor': ss_factor}
 
-        if isinstance(xiaj, tuple):
-            xiaj = lib.einsum('Qij,Qkl->ijkl', xiaj[0], xiaj[1])
-        if isinstance(xjai, tuple):
-            xjai = lib.einsum('Qij,Qkl->ijkl', xjai[0], xjai[1])
-        elif xjai is None:
-            xjai = xiaj
-
-        xjai = xjai.swapaxes(1, 3)
-
         nphys = xiaj.shape[0]
         t = np.zeros((2*self.opts.nmom_lanczos+2, nphys, nphys), dtype=np.complex128)  #TODO can I be real?
 
@@ -424,12 +370,7 @@ class KRAGF2(RAGF2):
 
         mo_coeff_act = [mo[:, act] for mo, act in zip(self.mo_coeff, self.act)]
 
-        if self.opts.direct:
-            self.log.info("ERIs will be direct")
-            self.eri = _make_mo_eris_direct(self, mo_coeff=mo_coeff_act)
-        else:
-            self.log.info("ERIs will be four-centered")
-            self.eri = _make_mo_eris(self, mo_coeff=mo_coeff_act)
+        self.eri = _make_mo_eris(self, mo_coeff=mo_coeff_act)
 
         # --- Remove non-commutative inconsistency in hybrid parallel regimes
         mpi_helper.barrier()
@@ -489,37 +430,19 @@ class KRAGF2(RAGF2):
             else:
                 xa_o = xa_v = slice(None)
 
-            if self.eri.ndim == 7:
-                #TODO xija == xjia.swapaxes(1,2) ?
-                xiaj = lib.einsum('pqrs,pi,qj,rk,sl->ijkl',
-                        self.eri[ka, kb, kc],
-                        ca_x[:, xa_o].conj(), cb_o, cc_v.conj(), cd_o,
-                )
-                xjai = lib.einsum('pqrs,pi,qj,rk,sl->ijkl',
-                        self.eri[ka, kd, kc],
-                        ca_x[:, xa_o].conj(), cd_o, cc_v.conj(), cb_o,
-                )
-                xaib = lib.einsum('pqrs,pi,qj,rk,sl->ijkl',
-                        self.eri[ka, kb, kc],
-                        ca_x[:, xa_v].conj(), cb_v, cc_o.conj(), cd_v,
-                )
-                xbia = lib.einsum('pqrs,pi,qj,rk,sl->ijkl',
-                        self.eri[ka, kd, kc],
-                        ca_x[:, xa_v].conj(), cd_v, cc_o.conj(), cb_v,
-                )
-            else:
-                qxi = _fao2mo(self.eri[ka, kb], ca_x[:, xa_o], cb_o, dtype)
-                qaj = _fao2mo(self.eri[kc, kd], cc_v, cd_o, dtype)
-                qxj = _fao2mo(self.eri[ka, kd], ca_x[:, xa_o], cd_o, dtype)
-                qai = _fao2mo(self.eri[kc, kb], cc_v, cb_o, dtype)
-                qxa = _fao2mo(self.eri[ka, kb], ca_x[:, xa_v], cb_v, dtype)
-                qib = _fao2mo(self.eri[kc, kd], cc_o, cd_v, dtype)
-                qxb = _fao2mo(self.eri[ka, kd], ca_x[:, xa_v], cd_v, dtype)
-                qia = _fao2mo(self.eri[kc, kb], cc_o, cb_v, dtype)
-                xiaj = (qxi, qaj)
-                xjai = (qxj, qai)
-                xaib = (qxa, qib)
-                xbia = (qxb, qia)
+            #TODO symmetries etc.
+            qxi = _fao2mo(self.eri[ka, kb], ca_x[:, xa_o], cb_o, dtype)
+            qaj = _fao2mo(self.eri[kc, kd], cc_v, cd_o, dtype)
+            qxj = _fao2mo(self.eri[ka, kd], ca_x[:, xa_o], cd_o, dtype)
+            qai = _fao2mo(self.eri[kc, kb], cc_v, cb_o, dtype)
+            qxa = _fao2mo(self.eri[ka, kb], ca_x[:, xa_v], cb_v, dtype)
+            qib = _fao2mo(self.eri[kc, kd], cc_o, cd_v, dtype)
+            qxb = _fao2mo(self.eri[ka, kd], ca_x[:, xa_v], cd_v, dtype)
+            qia = _fao2mo(self.eri[kc, kb], cc_o, cb_v, dtype)
+            xiaj = lib.einsum('Lij,Lkl->ijkl', qxi, qaj)
+            xjai = lib.einsum('Lij,Lkl->ilkj', qxj, qai)
+            xaib = lib.einsum('Lij,Lkl->ijkl', qxa, qib)
+            xbia = lib.einsum('Lij,Lkl->ilkj', qxb, qia)
 
             self.log.timingv(
                     "Time for MO->QMO (%d,%d,%d,%d):  %s",
@@ -843,28 +766,22 @@ class KRAGF2(RAGF2):
             ka, kc = divmod(kac, self.nkpts)
             kb = ka
             kd = kconserv[ka, kb, kc]
-            if self.eri.ndim == 7:
-                vj[ka] += lib.einsum('ijkl,lk->ij', eri[ka, kb, kc], rdm1[kd].conj())
-                vk[ka] += lib.einsum('ilkj,lk->ij', eri[ka, kd, kc], rdm1[kd].conj())
-                #TODO yes?
-                #vj[ka] += lib.einsum('ijkl,kl->ij', eri[ka, kb, kc], rdm1[kc])
-                #vk[ka] += lib.einsum('ilkj,kl->ij', eri[ka, kd, kc], rdm1[kc])
-            else:
-                buf = lib.einsum('Qij,ij->Q', eri[kc, kd], rdm1[kd])
-                vj[ka] += lib.einsum('Qij,Q->ij', eri[ka, kb], buf)
 
-                buf = lib.einsum('Qij,jk->Qki', eri[ka, kd], rdm1[kd].conj())
-                vk[ka] += lib.einsum('Qki,Qkj->ij', buf, eri[kc, kb]).T.conj()
+            buf = lib.einsum('Qij,ij->Q', eri[kc, kd], rdm1[kd])
+            vj[ka] += lib.einsum('Qij,Q->ij', eri[ka, kb], buf)
 
-                #tmp = lib.einsum('Qkl,lk->Q', eri[kc, kd], rdm1[kd].conj())
-                #vj[ka] += lib.einsum('Qij,Q->ij', eri[ka, kb], tmp)
-                #tmp = lib.einsum('Qil,lk->Qki', eri[ka, kd], rdm1[kd].conj())
-                #vk[ka] += lib.einsum('Qki,Qkj->ij', tmp, eri[kc, kb])
+            buf = lib.einsum('Qij,jk->Qki', eri[ka, kd], rdm1[kd].conj())
+            vk[ka] += lib.einsum('Qki,Qkj->ij', buf, eri[kc, kb]).T.conj()
 
-                #tmp = lib.einsum('Qkl,kl->Q', eri[:, kc, kd], rdm1[kc])
-                #vj[ka] += lib.einsum('Qij,Q->ij', eri[:, ka, kb], tmp)
-                #tmp = lib.einsum('Qil,kl->Qki', eri[:, ka, kd], rdm1[kc])
-                #vk[ka] += lib.einsum('Qki,Qkj->ij', tmp, eri[:, kb, kc])
+            #tmp = lib.einsum('Qkl,lk->Q', eri[kc, kd], rdm1[kd].conj())
+            #vj[ka] += lib.einsum('Qij,Q->ij', eri[ka, kb], tmp)
+            #tmp = lib.einsum('Qil,lk->Qki', eri[ka, kd], rdm1[kd].conj())
+            #vk[ka] += lib.einsum('Qki,Qkj->ij', tmp, eri[kc, kb])
+
+            #tmp = lib.einsum('Qkl,kl->Q', eri[:, kc, kd], rdm1[kc])
+            #vj[ka] += lib.einsum('Qij,Q->ij', eri[:, ka, kb], tmp)
+            #tmp = lib.einsum('Qil,kl->Qki', eri[:, ka, kd], rdm1[kc])
+            #vk[ka] += lib.einsum('Qki,Qkj->ij', tmp, eri[:, kb, kc])
 
         for ka in range(self.nkpts):
             mpi_helper.barrier()
