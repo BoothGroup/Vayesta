@@ -572,6 +572,10 @@ class RAGF2:
 
         se = self._combine_se(se_occ, se_vir, gf=gf)
 
+        self.log.debugv("Auxiliary energies:")
+        with self.log.withIndentLevel(1):
+            for p0, p1 in lib.prange(0, se.naux, 6):
+                self.log.debugv("%12.6f " * (p1-p0), *se.energy[p0:p1])
         self.log.info("Number of auxiliaries built:  %s", se.naux)
         self.log.timing("Time for self-energy build:  %s", time_string(timer() - t0))
 
@@ -629,7 +633,7 @@ class RAGF2:
         return gf
 
 
-    def solve_dyson(self, se=None, gf=None, fock=None):
+    def solve_dyson(self, se=None, gf=None, fock=None, verbose=True):
         ''' Solve the Dyson equation
         '''
 
@@ -645,17 +649,17 @@ class RAGF2:
         f_ext = np.block([[fock, v], [v.T.conj(), np.diag(e)]])
         w, v = np.linalg.eigh(f_ext)
 
-        self.log.debugv("Solved Dyson equation, eigenvalue ranges:")
-        self.log.debugv(
-                " > Occupied :  %.5g -> %.5g",
-                np.min(w[w < se.chempot]),
-                np.max(w[w < se.chempot]),
-        )
-        self.log.debugv(
-                " > Virtual  :  %.5g -> %.5g",
-                np.min(w[w >= se.chempot]),
-                np.max(w[w >= se.chempot]),
-        )
+        #self.log.debugv("Solved Dyson equation, eigenvalue ranges:")
+        #self.log.debugv(
+        #        " > Occupied :  %.5g -> %.5g",
+        #        np.min(w[w < se.chempot]),
+        #        np.max(w[w < se.chempot]),
+        #)
+        #self.log.debugv(
+        #        " > Virtual  :  %.5g -> %.5g",
+        #        np.min(w[w >= se.chempot]),
+        #        np.max(w[w >= se.chempot]),
+        #)
 
         return w, v
 
@@ -696,7 +700,6 @@ class RAGF2:
         for niter1 in range(1, self.opts.max_cycle_outer+1):
             se, opt = agf2.chempot.minimize_chempot(
                     se, fock, nelec,
-                    x0=se.chempot,
                     tol=self.opts.conv_tol_nelec*self.opts.conv_tol_nelec_factor,
                     maxiter=self.opts.max_cycle_inner,
             )
@@ -736,6 +739,9 @@ class RAGF2:
         (self.log.info if converged else self.log.warning)("Converged = %r", converged)
         self.log.info("μ = %.9g", se.chempot)
         self.log.timing('Time for fock loop:  %s', time_string(timer() - t0))
+        self.log.debugv("QMO energies:")
+        for p0, p1 in lib.prange(0, gf.naux, 6):
+            self.log.debugv("%12.6f " * (p1-p0), *gf.energy[p0:p1])
 
         if not return_fock:
             return gf, se, converged
@@ -758,7 +764,7 @@ class RAGF2:
                     gf=gf, rdm1=rdm1, with_frozen=with_frozen, fock_last=fock_last)
 
         t0 = timer()
-        self.log.debugv("Building Fock matrix")
+        #self.log.debugv("Building Fock matrix")
 
         gf = gf or self.gf
         if rdm1 is None:
@@ -795,7 +801,7 @@ class RAGF2:
             fock_ref[self.act, self.act] = fock
             fock = fock_ref
 
-        self.log.timingv("Time for Fock matrix:  %s", time_string(timer() - t0))
+        #self.log.timingv("Time for Fock matrix:  %s", time_string(timer() - t0))
         
         return fock
 
@@ -808,7 +814,7 @@ class RAGF2:
         #TODO Δdm algorithm for integral-direct
 
         t0 = timer()
-        self.log.debugv("Building Fock matrix via AO integrals")
+        #self.log.debugv("Building Fock matrix via AO integrals")
 
         gf = gf or self.gf
         mo_coeff = self.mo_coeff
@@ -824,7 +830,7 @@ class RAGF2:
         if not with_frozen:
             fock = fock[self.act, self.act]
 
-        self.log.timingv("Time for Fock matrix:  %s", time_string(timer() - t0))
+        #self.log.timingv("Time for Fock matrix:  %s", time_string(timer() - t0))
         
         return fock
 
@@ -837,7 +843,7 @@ class RAGF2:
         '''
 
         t0 = timer()
-        self.log.debugv("Building Fock matrix via RSJK")
+        #self.log.debugv("Building Fock matrix via RSJK")
 
         gf = gf or self.gf
         mo_coeff = self.mo_coeff
@@ -869,7 +875,7 @@ class RAGF2:
         if not with_frozen:
             fock = fock[self.act, self.act]
 
-        self.log.timingv("Time for Fock matrix:  %s", time_string(timer() - t0))
+        #self.log.timingv("Time for Fock matrix:  %s", time_string(timer() - t0))
 
         return fock
         
@@ -1099,15 +1105,15 @@ class RAGF2:
         return self
 
 
-    def print_excitations(self, gf=None):
+    def print_excitations(self, gf=None, title='Excitations'):
         ''' Print the excitations and some information on their character
         '''
 
         gf = gf or self.gf
         gf_occ, gf_vir = gf.get_occupied(), gf.get_virtual()
 
-        self.log.info("Excitations")
-        self.log.info("***********")
+        self.log.info(title)
+        self.log.info("*" * len(title))
         self.log.changeIndentLevel(1)
 
         self.log.info("%2s %12s %12s %s", "IP", "Energy", "QP weight", " Dominant MOs")
@@ -1145,12 +1151,12 @@ class RAGF2:
         self.log.changeIndentLevel(-1)
 
 
-    def print_energies(self, output=False):
+    def print_energies(self, output=False, title='Energies'):
         ''' Print the energies
         '''
 
-        self.log.info("Energies")
-        self.log.info("********")
+        self.log.info(title)
+        self.log.info("*" * len(title))
         self.log.changeIndentLevel(1)
 
         logger = self.log.output if output else self.log.info

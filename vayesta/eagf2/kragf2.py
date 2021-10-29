@@ -6,6 +6,7 @@ import sys
 
 # NumPy
 import numpy as np
+import scipy.optimize
 
 # PySCF
 from pyscf import lib, ao2mo, agf2
@@ -18,6 +19,7 @@ import vayesta
 from vayesta import libs
 from vayesta.eagf2.ragf2 import RAGF2Options, RAGF2, DIIS
 from vayesta.core.util import time_string, OptionsBase, NotSet
+from vayesta.core.foldscf import get_phase
 from vayesta.misc import gdf
 
 # Timings
@@ -176,6 +178,91 @@ def _make_mo_eris_direct(self, mo_coeff=None):
     mpi_helper.allreduce_safe_inplace(qij)
 
     return qij
+
+
+def _gradient(x, se, fock, nelec, phase, occupancy=2, buf=None):
+    '''
+    Gradient function for the shift in auxiliary energies.
+    '''
+    #FIXME: may require lots of memory
+    #FIXME: binsearch_chempot calls not actually needed...
+
+    ws = []
+    vs = []
+    nkpts = len(fock)
+    nmo = fock[0].shape[0]
+    nr = phase.shape[1]
+    dtype = np.result_type(*[s.coupling.dtype for s in se], *[f.dtype for f in fock])
+    ddm = np.zeros((nkpts, nmo, nmo), dtype=dtype)
+    assert phase.shape == (nkpts, nkpts)
+
+    for i, s in enumerate(se):
+        buf_ = buf
+        if buf_ is not None:
+            buf_ = buf.ravel()[:(nmo+s.naux)**2].reshape(nmo+s.naux, nmo+s.naux)
+        w, v = s.eig(fock[i], chempot=x, out=buf_)
+        ws.append(w)
+        vs.append(v)
+
+        nocc = np.sum(w < s.chempot)
+
+        h1 = -np.dot(v[nmo:, nocc:].T.conj(), v[nmo:, :nocc])
+        zai = -h1 / lib.direct_sum('i,a->ai', w[:nocc], -w[nocc:])
+
+        c_occ = np.dot(v[:nmo, nocc:], zai)
+        ddm[i] = np.dot(v[:nmo, :nocc], c_occ.T.conj()) * 4
+
+    # vs are (mo + aux | qmo)
+    # ddm are (mo | mo)
+    # Transform from k-space to supercell:
+    v_gamma = []
+    for i in range(nkpts):
+        v_k = np.einsum('R,um->Rum', phase[i], vs[i][:nmo])
+        v_k = v_k.reshape(nkpts*nmo, -1)
+        v_gamma.append(v_k)
+    v_gamma = np.hstack(v_gamma)
+    w_gamma = np.concatenate(ws)
+    mask = np.argsort(w_gamma)
+    w_gamma, v_gamma = w_gamma[mask], v_gamma[:, mask]
+    ddm_gamma = np.einsum('kij,kR,kS->RiSj', ddm, phase, phase.conj())
+    ddm_gamma = ddm_gamma.reshape(nkpts*nmo, nkpts*nmo)
+
+    chempot, error = agf2.chempot.binsearch_chempot((w_gamma, v_gamma), nkpts*nmo,
+                                                    sum(nelec), occupancy=occupancy)
+
+    ne = np.trace(ddm_gamma).real
+    d = occupancy * error * ne
+
+    return error**2, d
+
+
+def minimize_chempot(se, fock, nelec, phase, occupancy=2, x0=0.0, tol=1e-6, maxiter=200):
+    '''
+    Optimises the shift in the auxiliaries energies to satisfy the
+    electron number, ensuring that the same shift is applied at all
+    k-points.
+    '''
+
+    tol = tol**2
+    dtype = np.result_type(*[s.coupling.dtype for s in se], *[f.dtype for f in fock])
+    nkpts = len(se)
+    nphys = max([s.nphys for s in se])
+    naux = max([s.naux for s in se])
+    buf = np.zeros(((nphys + naux)**2,), dtype=dtype)
+    fargs = (se, fock, nelec, phase, occupancy, buf)
+
+    options = dict(maxiter=maxiter, ftol=tol, xtol=tol, gtol=tol)
+    kwargs = dict(x0=x0, method='TNC', jac=True, options=options)
+    fun = _gradient
+
+    opt = scipy.optimize.minimize(fun, args=fargs, **kwargs)
+
+    for i, s in enumerate(se):
+        s.energy -= opt.x
+        s.chempot = agf2.chempot.binsearch_chempot(s.eig(fock[i]), s.nphys, nelec[i],
+                                                   occupancy=occupancy)[0]
+
+    return se, opt
 
 
 class KRAGF2(RAGF2):
@@ -488,7 +575,7 @@ class KRAGF2(RAGF2):
         for i in range(self.nkpts):
             se_occ.append(self._build_se_from_moments(t_occ[i], chempot=gf[i].chempot))
 
-        self.log.info("Build %d occupied auxiliaries", sum([x.naux for x in se_occ]))
+        self.log.info("Built %d occupied auxiliaries", sum([x.naux for x in se_occ]))
         self.log.changeIndentLevel(-1)
 
 
@@ -507,12 +594,29 @@ class KRAGF2(RAGF2):
         for i in range(self.nkpts):
             se_vir.append(self._build_se_from_moments(t_vir[i], chempot=gf[i].chempot))
 
-        self.log.info("Build %d virtual auxiliaries", sum([x.naux for x in se_vir]))
+        self.log.info("Built %d virtual auxiliaries", sum([x.naux for x in se_vir]))
         self.log.changeIndentLevel(-1)
+
+        wt = lambda v: np.sum(v * v)
+        self.log.infov("Total weights of coupling blocks:")
+        self.log.infov("        %6s  %6s", "2h1p", "1h2p")
+        self.log.infov("     1h %6.4f  %6.4f", 
+                sum([wt(s.coupling[:n-f[0]]) for s, n, f in zip(se_occ, self.nocc, self.frozen)]),
+                sum([wt(s.coupling[n-f[0]:]) for s, n, f in zip(se_occ, self.nocc, self.frozen)]),
+        )
+        self.log.infov("     1p %6.4f  %6.4f",
+                sum([wt(s.coupling[:n-f[0]]) for s, n, f in zip(se_vir, self.nocc, self.frozen)]),
+                sum([wt(s.coupling[n-f[0]:]) for s, n, f in zip(se_vir, self.nocc, self.frozen)]),
+        )
 
 
         se = [self._combine_se(o, v, gf=g) for o, v, g in zip(se_occ, se_vir, gf)]
 
+        self.log.debugv("Auxiliary energies:")
+        with self.log.withIndentLevel(1):
+            energy = np.sort(np.concatenate([s.energy for s in se]))
+            for p0, p1 in lib.prange(0, len(energy), 6):
+                self.log.debugv("%12.6f " * (p1-p0), *energy[p0:p1])
         self.log.info("Number of auxiliaries built:  %s", sum([x.naux for x in se]))
         self.log.timing("Time for self-energy build:  %s", time_string(timer() - t0))
 
@@ -603,17 +707,17 @@ class KRAGF2(RAGF2):
             ws.append(w)
             vs.append(v)
 
-        self.log.debugv("Solved Dyson equation, eigenvalue ranges:")
-        self.log.debugv(
-                " > Occupied :  %.5g -> %.5g",
-                np.min([np.min(w[w < s.chempot]) for w,s in zip(ws, se)]),
-                np.max([np.max(w[w < s.chempot]) for w,s in zip(ws, se)]),
-        )
-        self.log.debugv(
-                " > Virtual  :  %.5g -> %.5g",
-                np.min([np.min(w[w >= s.chempot]) for w,s in zip(ws, se)]),
-                np.max([np.max(w[w >= s.chempot]) for w,s in zip(ws, se)]),
-        )
+        #self.log.debugv("Solved Dyson equation, eigenvalue ranges:")
+        #self.log.debugv(
+        #        " > Occupied :  %.5g -> %.5g",
+        #        np.min([np.min(w[w < s.chempot]) for w,s in zip(ws, se)]),
+        #        np.max([np.max(w[w < s.chempot]) for w,s in zip(ws, se)]),
+        #)
+        #self.log.debugv(
+        #        " > Virtual  :  %.5g -> %.5g",
+        #        np.min([np.min(w[w >= s.chempot]) for w,s in zip(ws, se)]),
+        #        np.max([np.max(w[w >= s.chempot]) for w,s in zip(ws, se)]),
+        #)
 
         return ws, vs
 
@@ -650,17 +754,15 @@ class KRAGF2(RAGF2):
         diis = self.DIIS(space=self.opts.fock_diis_space, min_space=self.opts.fock_diis_min_space)
         rdm1_prev = [np.zeros_like(f) for f in fock]
         converged = False
+        conv_tol_nelec_target = self.opts.conv_tol_nelec * self.opts.conv_tol_nelec_factor 
+        phase = get_phase(self.cell, self.kpts)[1]
 
         self.log.infov('%12s %9s %12s %12s', 'Iteration', 'Cycles', 'Nelec error', 'DM change')
 
         for niter1 in range(1, self.opts.max_cycle_outer+1):
-            for i in range(self.nkpts):
-                se[i], opt = agf2.chempot.minimize_chempot(
-                        se[i], fock[i], nelec[i],
-                        x0=se[i].chempot,
-                        tol=self.opts.conv_tol_nelec*self.opts.conv_tol_nelec_factor,
-                        maxiter=self.opts.max_cycle_inner,
-                )
+            se, opt = minimize_chempot(se, fock, nelec, phase, tol=conv_tol_nelec_target,
+                                       maxiter=self.opts.max_cycle_inner,
+            )
 
             for niter2 in range(1, self.opts.max_cycle_inner+1):
                 w, v = self.solve_dyson(se=se, gf=gf, fock=fock)
@@ -680,6 +782,8 @@ class KRAGF2(RAGF2):
                 derr = max([np.max(np.absolute(x-y)) for x,y in zip(rdm1, rdm1_prev)])
                 rdm1_prev = [x.copy() for x in rdm1]
 
+                self.log.debugv("%12s %9s %12.4g %12.4g", "(*) %d"%niter1, "-> %d"%niter2, nerr, derr)
+
                 if derr < self.opts.conv_tol_rdm1:
                     break
 
@@ -693,7 +797,13 @@ class KRAGF2(RAGF2):
             gf = [agf2.GreensFunction(*wv, chempot=s.chempot) for wv in zip(w, v, se)]
 
         (self.log.info if converged else self.log.warning)("Converged = %r", converged)
+        self.log.info("μ (at kpt 0) = %.9g", se[i].chempot)
         self.log.timing('Time for fock loop:  %s', time_string(timer() - t0))
+        self.log.debugv("QMO energies:")
+        with self.log.withIndentLevel(1):
+            energy = np.sort(np.concatenate([g.energy for g in gf]))
+            for p0, p1 in lib.prange(0, len(energy), 6):
+                self.log.debugv("%12.6f " * (p1-p0), *energy[p0:p1])
 
         if not return_fock:
             return gf, se, converged
@@ -709,7 +819,7 @@ class KRAGF2(RAGF2):
             return self._get_fock_via_ao(gf=gf, rdm1=rdm1, with_frozen=with_frozen)
 
         t0 = timer()
-        self.log.debugv("Building Fock matrix")
+        #self.log.debugv("Building Fock matrix")
 
         gf = gf or self.gf
         if rdm1 is None:
@@ -774,7 +884,7 @@ class KRAGF2(RAGF2):
                 fock_ref[i][act, act] = fock[i]
             fock = fock_ref
 
-        self.log.timingv("Time for Fock matrix:  %s", time_string(timer() - t0))
+        #self.log.timingv("Time for Fock matrix:  %s", time_string(timer() - t0))
 
         return fock
 
@@ -786,7 +896,7 @@ class KRAGF2(RAGF2):
         '''
 
         t0 = timer()
-        self.log.debugv("Build Fock matrix via AO integrals")
+        #self.log.debugv("Build Fock matrix via AO integrals")
 
         gf = gf or self.gf
         mo_coeff = self.mo_coeff
@@ -802,7 +912,7 @@ class KRAGF2(RAGF2):
         if not with_frozen:
             fock = [f[act, act] for f,act in zip(fock, self.act)]
 
-        self.log.timingv("Time for Fock matrix:  %s", time_string(timer() - t0))
+        #self.log.timingv("Time for Fock matrix:  %s", time_string(timer() - t0))
 
         return fock
 
@@ -1010,7 +1120,7 @@ class KRAGF2(RAGF2):
         if isinstance(gf, (tuple, list)):
             gf = gf[kpt_index]
 
-        RAGF2.print_excitations(self, gf=gf)
+        RAGF2.print_excitations(self, gf=gf, title='Excitations (at kpt %d)' % kpt_index)
 
 
     def _convergence_checks(self, se=None, se_prev=None, e_prev=None):
