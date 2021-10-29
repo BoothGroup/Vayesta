@@ -5,7 +5,7 @@ import numpy as np
 import scipy.linalg
 
 from pyscf import lib
-from pyscf.agf2 import mpi_helper, aux
+from pyscf.agf2 import mpi_helper, aux, chempot
 
 import vayesta
 from vayesta.ewf.helper import orthogonalize_mo
@@ -213,11 +213,10 @@ class EAGF2(QEmbeddingMethod):
         '''
 
         t0 = timer()
-        self.log.info("Building the self-energy")
-        self.log.info("************************")
 
         qmo_energy, qmo_coeff = solver.se.eig(fock)
-        qmo_occ = np.array([2.0 * (x < solver.se.chempot) for x in qmo_energy])
+        cpt = chempot.binsearch_chempot((qmo_energy, qmo_coeff), self.nmo, self.nocc*2)[0]
+        qmo_occ = 2.0 * (qmo_energy < cpt)
         nqmo = qmo_energy.size
 
         for x, frag in enumerate(self.fragments):
@@ -274,8 +273,8 @@ class EAGF2(QEmbeddingMethod):
                 p = np.dot(c.T.conj(), c)
                 p_other = np.dot(p, results.c_active_other[:self.nmo].T.conj())
 
-                for i in range(results.moms.shape[0]):
-                    for j in range(results.moms.shape[1]):
+                for i in range(2):
+                    for j in range(2*self.opts.nmom_lanczos+2):
                         m = np.linalg.multi_dot((p_frag.T.conj(), results.moms[i, j], p_other))
                         moms[i, j] += m
                         if x != y:
@@ -283,18 +282,21 @@ class EAGF2(QEmbeddingMethod):
 
             self.log.info("%s is done.", frag)
 
+        self.log.info("Building the self-energy")
+        self.log.info("************************")
+
         t_occ, t_vir = moms
 
         for i in range(2*self.opts.nmom_lanczos+2):
             if not np.allclose(t_occ[i], t_occ[i].T.conj()):
                 error = np.max(np.abs(t_occ[i] - t_occ[i].T.conj()))
-                self.log.warning("Occupied n=%d moment not hermitian, error = %.6g", error)
+                self.log.warning("Occupied n=%d moment not hermitian, error = %.6g", i, error)
             if not np.allclose(t_vir[i], t_vir[i].T.conj()):
                 error = np.max(np.abs(t_vir[i] - t_vir[i].T.conj()))
-                self.log.warning("Virtual n=%d moment not hermitian, error = %.6g", error)
+                self.log.warning("Virtual n=%d moment not hermitian, error = %.6g", i, error)
             self.log.debug(
                     "Trace of n=%d moments:  Occupied = %.5g  Virtual = %.5g",
-                    i, np.trace(t_occ[i]), np.trace(t_vir[i]),
+                    i, np.trace(t_occ[i]).real, np.trace(t_vir[i]).real,
             )
 
 
@@ -331,11 +333,12 @@ class EAGF2(QEmbeddingMethod):
         wt = lambda v: np.sum(v * v)
         self.log.infov("Total weights of coupling blocks:")
         self.log.infov("        %6s  %6s", "2h1p", "1h2p")
-        self.log.infov("    1h  %6.4f  %6.4f", wt(se_occ.coupling[:nh]), wt(se_occ.coupling[nh:]))
-        self.log.infov("    1p  %6.4f  %6.4f", wt(se_vir.coupling[:nh]), wt(se_vir.coupling[nh:]))
+        self.log.infov("    1h  %6.4f  %6.4f", wt(se_occ.coupling[:nh]), wt(se_vir.coupling[:nh]))
+        self.log.infov("    1p  %6.4f  %6.4f", wt(se_occ.coupling[nh:]), wt(se_vir.coupling[nh:]))
 
 
         se = solver._combine_se(se_occ, se_vir)
+        se.chempot = cpt
 
         self.log.debugv("Auxiliary energies:")
         with self.log.withIndentLevel(1):
@@ -347,8 +350,159 @@ class EAGF2(QEmbeddingMethod):
         return se
 
 
-    #TODO break up into functions
+    def fock_loop(self, solver, fock):
+        ''' Run the Fock loop.
+        '''
+
+        gf, se, fconv, fock = solver.fock_loop(fock=fock, return_fock=True)
+        gf.remove_uncoupled(tol=self.opts.weight_tol)
+
+        return gf, se, fconv, fock
+
+
+    def run_diis(self, solver, diis, se_prev=None):
+        ''' Run DIIS and damping.
+        '''
+
+        
+        #TODO: use an option for delaying start
+        se = solver.run_diis(solver.se, None, diis, se_prev=se_prev)
+        se.remove_uncoupled(tol=self.opts.weight_tol)
+
+        return se
+
+
     def kernel(self):
+        ''' Run EAGF2.
+        '''
+
+        t0 = timer()
+
+        if self.nfrag == 0:
+            raise ValueError("No fragments defined for calculation.")
+
+        nelec_frags = sum([f.sym_factor*f.nelectron for f in self.loop()])
+        self.log.info("Total number of mean-field electrons over all fragments= %.8f", nelec_frags)
+        if abs(nelec_frags - np.rint(nelec_frags)) > 1e-4:
+            self.log.warning("Number of electrons not integer!")
+
+        self.log.info("Initialising solver:")
+        with self.log.withIndentLevel(1):
+            eri = np.empty(())
+            veff = np.empty(())
+            kwargs = dict(eri=eri, veff=veff, log=self.log, fock_basis='ao')
+            solver = RAGF2(self.mf, options=self.opts, **kwargs)
+
+        #TODO allow GF input
+        solver.gf = solver.g0 = solver.build_init_greens_function()
+        fock = np.diag(self.mf.mo_energy)
+
+        #TODO allow SE input
+        solver.se = aux.SelfEnergy(np.empty((0,)), np.empty((self.nmo, 0)))
+        solver.se = self.build_self_energy(solver, fock)
+
+        diis = self.DIIS(space=self.opts.diis_space, min_space=self.opts.diis_min_space)
+
+        e_mp2 = solver.e_init = solver.energy_mp2()
+        e_nuc = solver.e_nuc
+        self.log.info("Initial energies")
+        self.log.info("****************")
+        self.log.info("E(nuc)  = %20.12f", self.e_nuc)
+        self.log.info("E(MF)   = %20.12f", self.e_mf)
+        self.log.info("E(corr) = %20.12f", e_mp2)
+        self.log.info("E(tot)  = %20.12f", self.mf.e_tot + e_mp2)
+
+        converged = solver.converged = False
+        converged_prev = False
+        se_prev = None
+        for niter in range(1, self.opts.max_cycle+1):
+            t1 = timer()
+            self.log.info("Iteration %d", niter)
+            self.log.info("**********%s", "*" * len(str(niter)))
+            with self.log.withIndentLevel(1):
+
+                se_prev = copy.deepcopy(solver.se)
+                e_prev = solver.e_tot
+                
+                # one-body terms
+                solver.gf, solver.se, fconv, fock = self.fock_loop(solver, fock)
+                solver.e_1b = solver.energy_1body(e_nuc=e_nuc)
+
+                # two-body terms
+                solver.se = self.build_self_energy(solver, fock)
+                solver.se = self.run_diis(solver, diis, se_prev=se_prev)
+                solver.e_2b = solver.energy_2body()
+
+                solver.print_excitations()
+                solver.print_energies()
+
+                deltas = solver._convergence_checks(se=solver.se, se_prev=se_prev, e_prev=e_prev)
+
+                self.log.info("Change in energy:     %10.3g", deltas[0])
+                self.log.info("Change in 0th moment: %10.3g", deltas[1])
+                self.log.info("Change in 1st moment: %10.3g", deltas[2])
+
+                if self.opts.dump_chkfile and solver.chkfile is not None:
+                    self.log.debug("Dumping current iteration to chkfile")
+                    solver.dump_chk()
+
+                self.log.timing("Time for AGF2 iteration:  %s", time_string(timer() - t1))
+
+            if deltas[0] < self.opts.conv_tol \
+                    and deltas[1] < self.opts.conv_tol_t0 \
+                    and deltas[2] < self.opts.conv_tol_t1:
+                if self.opts.extra_cycle and not converged_prev:
+                    converged_prev = True
+                else:
+                    converged = solver.converged = True
+                    break
+            else:
+                if self.opts.extra_cycle and converged_prev:
+                    converged_prev = False
+
+        (self.log.info if converged else self.log.warning)("Converegd = %r", converged)
+
+        self.results = EAGF2Results(
+                converged=converged,
+                e_corr=solver.e_corr,
+                e_1b=solver.e_1b,
+                e_2b=solver.e_2b,
+                gf=solver.gf,
+                se=solver.se,
+                solver=solver,
+        )
+
+        (self.log.info if converged else self.log.warning)("Converged = %r", converged)
+
+        if self.opts.dump_chkfile and solver.chkfile is not None:
+            self.log.debug("Dumping output to chkfile")
+            solver.dump_chk()
+
+        if self.opts.pop_analysis:
+            solver.population_analysis()
+
+        if self.opts.dip_moment:
+            solver.dip_moment()
+
+        if self.opts.dump_cubefiles:
+            #TODO test
+            self.log.debug("Dumping orbitals to .cube files")
+            gf_occ, gf_vir = solver.gf.get_occupied(), solver.gf.get_virtual()
+            for i in range(self.opts.dump_cubefiles):
+                if (gf_occ.naux-1-i) >= 0:
+                    self.dump_cube(gf_occ.naux-1-i, cubefile="hoqmo%d.cube" % i)
+                if (gf_vir.naux+i) < solver.gf.naux:
+                    self.dump_cube(gf_vir.naux+i, cubefile="luqmo%d.cube" % i)
+
+        solver.print_energies(output=True)
+
+        self.log.info("Time elapsed:  %s", time_string(timer() - t0))
+
+        return self.results
+
+
+    #TODO break up into functions
+    def kernel_(self):
         ''' Run the EAGF2 calculation.
 
         Returns
@@ -399,12 +553,10 @@ class EAGF2(QEmbeddingMethod):
 
                 solver.se = self.build_self_energy(solver, fock)
 
-                if niter < 2:
-                    solver.run_diis(solver.se, None, diis, se_prev=se_prev)
-                    solver.se.remove_uncoupled(tol=self.opts.weight_tol)
+                if niter > 2:
+                    solver.se = self.run_diis(solver, diis, se_prev=se_prev)
 
-                solver.gf, solver.se, fconv, fock = solver.fock_loop(fock=fock, return_fock=True)
-                solver.gf.remove_uncoupled(tol=self.opts.weight_tol)
+                solver.gf, solver.se, fconv, fock = self.fock_loop(solver, fock)
 
                 solver.e_1b = solver.energy_1body(e_nuc=e_nuc)
                 solver.e_2b = solver.energy_2body()
