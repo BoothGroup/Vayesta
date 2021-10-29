@@ -4,6 +4,7 @@ import copy
 import numpy as np
 import scipy.linalg
 
+from pyscf import lib
 from pyscf.agf2 import mpi_helper, aux
 from pyscf.pbc.scf.rsjk import RangeSeparationJKBuilder
 
@@ -206,6 +207,148 @@ class EAGF2(QEmbeddingMethod):
         return self.results.converged
 
 
+    def build_self_energy(self, solver, fock):
+        '''
+        Build the self-energy using the current Green's function.
+
+        Changes values stored in self.fragments.
+        '''
+
+        t0 = timer()
+        self.log.info("Building the self-energy")
+        self.log.info("************************")
+
+        qmo_energy, qmo_coeff = solver.se.eig(fock)
+        qmo_occ = np.array([2.0 * (x < solver.se.chempot) for x in qmo_energy])
+        nqmo = qmo_energy.size
+
+        for x, frag in enumerate(self.fragments):
+            #TODO is this needed? are the projectors the same as the sym_parent ones?
+            #if frag.sym_parent is not None:
+            #    continue
+            self.log.info("Building fragment space for fragments %d", x)
+
+            with self.log.withIndentLevel(1):
+                n = frag.c_frag.shape[0]
+                c_frag = np.zeros((nqmo, frag.c_frag.shape[-1]))
+                c_frag[:self.nmo] = frag.c_frag[:self.nmo]
+                c_env = helper.null_space(c_frag, nvecs=nqmo-c_frag.shape[-1])
+
+                frag.c_frag, frag.c_env = c_frag, c_env
+
+                frag.se = solver.se
+                frag.fock = fock
+                frag.qmo_energy = qmo_energy
+                frag.qmo_coeff = qmo_coeff
+                frag.qmo_occ = qmo_occ
+
+        for x, frag in enumerate(self.fragments):
+            if frag.sym_parent is not None:
+                continue
+            self.log.info("Building cluster space for fragment %d", x)
+
+            coeffs = frag.make_bath()
+            frag.c_cls_occ, frag.c_cls_vir, frag.c_env_occ, frag.c_env_vir = coeffs
+
+            qmos = frag.make_qmo_integrals()
+            frag.pija, frag.pabi, frag.c_qmo_occ, frag.c_qmo_vir = qmos
+
+        moms = np.zeros((2, 2, self.nmo, self.nmo))  #TODO higher orders
+        for x, frag in enumerate(self.fragments):
+            for y, other in enumerate(self.fragments[:x+1]):
+                if frag.sym_parent is None and other.sym_parent is None:
+                    results = frag.kernel(solver, other_frag=other)
+                    self.cluster_results[frag.id, other.id] = results
+                    self.log.debugv("%s - %s is done", frag, other)
+
+                else:
+                    frag_parent = frag if frag.sym_parent is None else frag.sym_parent
+                    other_parent = other if other.sym_parent is None else other.sym_parent
+                    results = self.cluster_results[frag_parent.id, other_parent.id]
+                    self.log.debugv("%s - %s is symmetry related, parent: %s - %s",
+                                    frag, other, frag_parent, other_parent)
+
+                c = np.dot(frag.c_frag.T.conj(), results.c_active)
+                p = np.dot(c.T.conj(), c)
+                p_frag = np.dot(p, results.c_active[:self.nmo].T.conj())
+
+                c = np.dot(other.c_frag.T.conj(), results.c_active_other)
+                p = np.dot(c.T.conj(), c)
+                p_other = np.dot(p, results.c_active_other[:self.nmo].T.conj())
+
+                for i in range(results.moms.shape[0]):
+                    for j in range(results.moms.shape[1]):
+                        m = np.linalg.multi_dot((p_frag.T.conj(), results.moms[i, j], p_other))
+                        moms[i, j] += m
+                        if x != y:
+                            moms[i, j] += m.T.conj()
+
+            self.log.info("%s is done.", frag)
+
+        t_occ, t_vir = moms
+
+        for i in range(2*self.opts.nmom_lanczos+2):
+            if not np.allclose(t_occ[i], t_occ[i].T.conj()):
+                error = np.max(np.abs(t_occ[i] - t_occ[i].T.conj()))
+                self.log.warning("Occupied n=%d moment not hermitian, error = %.6g", error)
+            if not np.allclose(t_vir[i], t_vir[i].T.conj()):
+                error = np.max(np.abs(t_vir[i] - t_vir[i].T.conj()))
+                self.log.warning("Virtual n=%d moment not hermitian, error = %.6g", error)
+            self.log.debug(
+                    "Trace of n=%d moments:  Occupied = %.5g  Virtual = %.5g",
+                    i, np.trace(t_occ[i]), np.trace(t_vir[i]),
+            )
+
+
+        # === Occupied:
+
+        self.log.info("Occupied self-energy:")
+        with self.log.withIndentLevel(1):
+            w = np.linalg.eigvalsh(t_occ[0])
+            wmin, wmax = w.min(), w.max()
+            (self.log.warning if wmin < 1e-8 else self.log.debug)(
+                    'Eigenvalue range:  %.5g -> %.5g', wmin, wmax,
+            )
+
+            se_occ = solver._build_se_from_moments(t_occ, eps=self.opts.weight_tol)
+
+            self.log.info("Built %d occupied auxiliaries", se_occ.naux)
+
+
+        # === Virtual:
+        
+        self.log.info("Virtual self-energy:")
+        with self.log.withIndentLevel(1):
+            w = np.linalg.eigvalsh(t_vir[0])
+            wmin, wmax = w.min(), w.max()
+            (self.log.warning if wmin < 1e-8 else self.log.debug)(
+                    'Eigenvalue range:  %.5g -> %.5g', wmin, wmax,
+            )
+
+            se_vir = solver._build_se_from_moments(t_vir, eps=self.opts.weight_tol)
+
+            self.log.info("Built %d virtual auxiliaries", se_vir.naux)
+
+        nh = solver.nocc-solver.frozen[0]
+        wt = lambda v: np.sum(v * v)
+        self.log.infov("Total weights of coupling blocks:")
+        self.log.infov("        %6s  %6s", "2h1p", "1h2p")
+        self.log.infov("    1h  %6.4f  %6.4f", wt(se_occ.coupling[:nh]), wt(se_occ.coupling[nh:]))
+        self.log.infov("    1p  %6.4f  %6.4f", wt(se_vir.coupling[:nh]), wt(se_vir.coupling[nh:]))
+
+
+        se = solver._combine_se(se_occ, se_vir)
+
+        self.log.debugv("Auxiliary energies:")
+        with self.log.withIndentLevel(1):
+            for p0, p1 in lib.prange(0, se.naux, 6):
+                self.log.debugv("%12.6f " * (p1-p0), *se.energy[p0:p1])
+        self.log.info("Number of auxiliaries built:  %s", se.naux)
+        self.log.timing("Time for self-energy build:  %s", time_string(timer() - t0))
+
+        return se
+
+
     #TODO break up into functions
     def kernel(self):
         ''' Run the EAGF2 calculation.
@@ -262,109 +405,7 @@ class EAGF2(QEmbeddingMethod):
                 se_prev = copy.deepcopy(solver.se)
                 e_prev = solver.e_tot
 
-                for x, frag in enumerate(self.fragments):
-                    #TODO is this needed? are the projectors the same as the sym_parent ones?
-                    #if frag.sym_parent is not None:
-                    #    continue
-                    self.log.info("Building fragment space for fragment %d", x)
-
-                    with self.log.withIndentLevel(1):
-
-                        n = frag.c_frag.shape[0]
-                        nqmo = self.nmo + solver.se.naux
-                        c_frag = np.zeros((nqmo, frag.c_frag.shape[-1]))
-                        c_frag[:self.nmo] = frag.c_frag[:self.nmo]
-                        c_env = helper.null_space(c_frag, nvecs=nqmo-c_frag.shape[-1])
-
-                        frag.c_frag, frag.c_env = c_frag, c_env
-
-                        frag.se = solver.se
-                        frag.fock = fock
-                        frag.qmo_energy, frag.qmo_coeff = solver.se.eig(fock)
-                        frag.qmo_occ = np.array([2.0 * (x < solver.se.chempot) for x in frag.qmo_energy])
-
-                for x, frag in enumerate(self.fragments):
-                    if frag.sym_parent is not None:
-                        continue
-                    self.log.info("Building cluster space for fragment %d", x)
-
-                    coeffs = frag.make_bath()
-                    frag.c_cls_occ, frag.c_cls_vir, frag.c_env_occ, frag.c_env_vir = coeffs
-
-                    qmos = frag.make_qmo_integrals()
-                    frag.pija, frag.pabi, frag.c_qmo_occ, frag.c_qmo_vir = qmos
-
-                moms = np.zeros((2, 2, self.nmo, self.nmo))  #TODO higher orders
-                for x, frag in enumerate(self.fragments):
-                    for y, other in enumerate(self.fragments[:x+1]):
-                        if frag.sym_parent is None and other.sym_parent is None:
-                            results = frag.kernel(solver, other_frag=other)
-                            self.cluster_results[frag.id, other.id] = results
-                            self.log.debugv("%s - %s is done.", frag, other)
-                        else:
-                            frag_parent = frag if frag.sym_parent is None else frag.sym_parent
-                            other_parent = other if other.sym_parent is None else other.sym_parent
-                            results = self.cluster_results[frag_parent.id, other_parent.id]
-                            self.log.debugv("%s - %s is symmetry related, parent: %s - %s",
-                                            frag, other, frag_parent, other_parent)
-
-                        c = np.dot(frag.c_frag.T.conj(), results.c_active)
-                        p = np.dot(c.T.conj(), c)
-                        p_frag = np.dot(p, results.c_active[:self.nmo].T.conj())
-
-                        c = np.dot(other.c_frag.T.conj(), results.c_active_other)
-                        p = np.dot(c.T.conj(), c)
-                        p_other = np.dot(p, results.c_active_other[:self.nmo].T.conj())
-
-                        for i in range(results.moms.shape[0]):
-                            for j in range(results.moms.shape[1]):
-                                m = np.linalg.multi_dot((p_frag.T.conj(), results.moms[i, j], p_other))
-                                moms[i, j] += m
-                                if x != y:
-                                    moms[i, j] += m.T.conj()
-
-                    self.log.info("%s is done.", frag)
-
-                assert np.allclose(moms[0,0], moms[0,0].T.conj())
-                assert np.allclose(moms[0,1], moms[0,1].T.conj())
-                assert np.allclose(moms[1,0], moms[1,0].T.conj())
-                assert np.allclose(moms[1,1], moms[1,1].T.conj())
-
-
-                # === Occupied:
-
-                self.log.info("Occupied self-energy:")
-                with self.log.withIndentLevel(1):
-                    se_occ = solver._build_se_from_moments(moms[0], eps=self.opts.weight_tol)
-                    w = np.linalg.eigvalsh(moms[0][0])
-                    wmin, wmax = w.min(), w.max()
-                    (self.log.warning if wmin < 1e-8 else self.log.debug)(
-                            'Eigenvalue range:  %.5g -> %.5g', wmin, wmax,
-                    )
-                    self.log.info("Built %d occupied auxiliaries", se_occ.naux)
-
-
-                # === Virtual:
-                
-                self.log.info("Virtual self-energy:")
-                with self.log.withIndentLevel(1):
-                    se_vir = solver._build_se_from_moments(moms[1], eps=self.opts.weight_tol)
-                    w = np.linalg.eigvalsh(moms[1][0])
-                    wmin, wmax = w.min(), w.max()
-                    (self.log.warning if wmin < 1e-8 else self.log.debug)(
-                            'Eigenvalue range:  %.5g -> %.5g', wmin, wmax,
-                    )
-                    self.log.info("Built %d virtual auxiliaries", se_vir.naux)
-
-                nh = solver.nocc-solver.frozen[0]
-                wt = lambda v: np.sum(v * v)
-                self.log.infov("Total weights of coupling blocks:")
-                self.log.infov("        %6s  %6s", "2h1p", "1h2p")
-                self.log.infov("    1h  %6.4f  %6.4f", wt(se_occ.coupling[:nh]), wt(se_occ.coupling[nh:]))
-                self.log.infov("    1p  %6.4f  %6.4f", wt(se_vir.coupling[:nh]), wt(se_vir.coupling[nh:]))
-
-
-                solver.se = solver._combine_se(se_occ, se_vir)
+                solver.se = self.build_self_energy(solver, fock)
 
                 if niter < 2:
                     solver.run_diis(solver.se, None, diis, se_prev=se_prev)
