@@ -12,6 +12,8 @@ from vayesta.eagf2 import ragf2
 from vayesta.core import linalg
 from vayesta.core.ao2mo import kao2gmo
 
+libeagf2 = libs.load_library('eagf2')
+
 
 def make_dmet_bath(frag, c_frag=None, c_env=None, tol=1e-5):
     ''' Make DMET bath orbitals.
@@ -365,6 +367,84 @@ def null_space(v, tol=None, nvecs=None):
     return _orth(np.eye(v.shape[0]) - np.dot(v, v.T.conj()), tol=tol, nvecs=nvecs)
 
 
+class CGreensFunction(ctypes.Structure):
+    '''
+    C structure for the pyscf.agf2.aux.GreensFunction object.
+    '''
+
+    _fields_ = [
+            ('nocc', ctypes.c_int32),
+            ('nvir', ctypes.c_int32),
+            ('ei', ctypes.POINTER(ctypes.c_double)),
+            ('ea', ctypes.POINTER(ctypes.c_double)),
+            ('ci', ctypes.POINTER(ctypes.c_double)),
+            ('ca', ctypes.POINTER(ctypes.c_double)),
+    ]
+
+    @classmethod
+    def build(struct, gf):
+        gf_occ = gf.get_occupied()
+        gf_vir = gf.get_virtual()
+
+        c_occ = np.array(gf_occ.coupling.ravel(), order='C', dtype=np.complex128)
+        c_vir = np.array(gf_vir.coupling.ravel(), order='C', dtype=np.complex128)
+
+        cgf = struct(
+                ctypes.c_int32(gf_occ.naux),
+                ctypes.c_int32(gf_vir.naux),
+                np.ctypeslib.as_ctypes(gf_occ.energy),
+                np.ctypeslib.as_ctypes(gf_vir.energy),
+                np.ctypeslib.as_ctypes(c_occ.view(np.float64)),
+                np.ctypeslib.as_ctypes(c_vir.view(np.float64)),
+        )
+
+        return cgf
+
+
+def build_moments_kagf2(gf, eri, kconserv, nmom, kptlist=None):
+    '''
+    Construct the moments via compiled code for KAGF2.
+    '''
+
+    nkpts, _, naux, nmo, _ = eri.shape
+
+    if kptlist is None:
+        kptlist = list(range(nkpts))
+
+    t_occ = np.zeros((nkpts, nmom, nmo, nmo), dtype=np.complex128)
+    t_vir = np.zeros((nkpts, nmom, nmo, nmo), dtype=np.complex128)
+
+    eri = np.asarray(eri, dtype=np.complex128, order='C')
+    kconserv = np.asarray(kconserv, dtype=np.int32, order='C')
+    kptlist = np.asarray(kptlist, dtype=np.int32, order='C')
+    nk3 = kptlist.size * nkpts**2
+    krange = np.array(list(mpi_helper.prange(0, nk3, nk3)), dtype=np.int32)
+    cgf = [CGreensFunction.build(g) for g in gf]
+
+    pointer = lambda x: x.ctypes.data_as(ctypes.POINTER(ctypes.c_void_p))
+
+    libeagf2.construct_moments_kagf2(
+            ctypes.c_int32(nmo),
+            ctypes.c_int32(naux),
+            ctypes.c_int32(nkpts),
+            ctypes.c_int32(kptlist.size),
+            ctypes.c_int32(nmom),
+            (CGreensFunction * len(gf))(*cgf),
+            pointer(eri),
+            pointer(kconserv),
+            pointer(kptlist),
+            pointer(krange),
+            pointer(t_occ),
+            pointer(t_vir),
+    )
+
+    mpi_helper.barrier()
+    mpi_helper.allreduce_safe_inplace(t_occ)
+    mpi_helper.allreduce_safe_inplace(t_vir)
+
+    return t_occ, t_vir
+
+
 def build_moments(ei, ej, ea, xija, yija, os_factor=1.0, ss_factor=1.0):
     '''
     Construct the moments via compiled code. Generalised for asymmetry
@@ -378,56 +458,5 @@ def build_moments(ei, ej, ea, xija, yija, os_factor=1.0, ss_factor=1.0):
     T    = Σ    (xi|ja) [ 2 (yi|ja) - (yj|ia) ] (ε_i + ε_j - ε_a)
      x,y    ija
     '''
-    raise NotImplementedError("Broken")
 
-    if isinstance(xija, tuple):
-        raise NotImplementedError  #TODO
-
-    libeagf2 = libs.load_library('eagf2')
-    pointer = lambda array: array.ctypes.data_as(ctypes.c_void_p)
-
-    nx, ni, nj, na = xija.shape
-    ny = yija.shape[0]
-    assert xija.shape[1:] == yija.shape[1:]
-
-    xija = np.asarray(xija, order='C')
-    yija = np.asarray(yija, order='C')
-
-    ei = np.asarray(ei, order='C')
-    ej = np.asarray(ej, order='C')
-    ea = np.asarray(ea, order='C')
-
-    t0 = np.zeros((nx * ny))
-    t1 = np.zeros((nx * ny))
-
-    rank, size = mpi_helper.rank, mpi_helper.size
-    istart = rank * ni // size
-    iend = ni if rank == (size-1) else (rank+1) * ni // size
-
-    libeagf2.AGF2ee_vv_vev_asymm_islice(
-            pointer(xija),
-            pointer(yija),
-            pointer(ei),
-            pointer(ej),
-            pointer(ea),
-            ctypes.c_double(os_factor),
-            ctypes.c_double(ss_factor),
-            ctypes.c_int(nx),
-            ctypes.c_int(ny),
-            ctypes.c_int(ni),
-            ctypes.c_int(nj),
-            ctypes.c_int(na),
-            ctypes.c_int(istart),
-            ctypes.c_int(iend),
-            pointer(t0),
-            pointer(t1),
-    )
-
-    t0 = t0.reshape(nx, ny)
-    t1 = t1.reshape(nx, ny)
-
-    mpi_helper.barrier()
-    mpi_helper.allreduce_safe_inplace(t0)
-    mpi_helper.allreduce_safe_inplace(t1)
-
-    return t0, t1
+    raise NotImplementedError()  #TODO

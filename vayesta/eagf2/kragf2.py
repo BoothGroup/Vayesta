@@ -17,6 +17,7 @@ from pyscf.pbc.lib import kpts_helper
 # Vayesta
 import vayesta
 from vayesta import libs
+from vayesta.eagf2 import helper
 from vayesta.eagf2.ragf2 import RAGF2Options, RAGF2, DIIS
 from vayesta.core.util import time_string, OptionsBase, NotSet
 from vayesta.core.foldscf import get_phase
@@ -391,69 +392,17 @@ class KRAGF2(RAGF2):
         self.log.info("************************")
 
         kconserv = self.khelper.kconserv
-
         nmom = self.opts.nmom_lanczos
-        dtype = np.result_type(self.eri.dtype, *[g.coupling.dtype for g in gf])
-        t_occ = [np.zeros((2*nmom+2, nact, nact), dtype=dtype) for nact in self.nact]
-        t_vir = [np.zeros((2*nmom+2, nact, nact), dtype=dtype) for nact in self.nact]
+
+        if not all([nact == self.nmo for nact in self.nact]):
+            raise NotImplementedError
 
         if kptlist is None:
             kptlist = self.opts.kptlist
             if kptlist is None or se_prev is None:
                 kptlist = list(range(self.nkpts))
 
-        for kabd in mpi_helper.nrange(len(kptlist) * self.nkpts**2):
-            t1 = timer()
-            kab, kd = divmod(kabd, self.nkpts)
-            a, kb = divmod(kab, self.nkpts)
-            ka = kptlist[a]
-            kc = kconserv[ka, kb, kd]
-
-            ca_x = np.eye(self.nact[ka])
-            cb_o = gf[kb].get_occupied().coupling
-            cc_o = gf[kc].get_occupied().coupling
-            cd_o = gf[kd].get_occupied().coupling
-            cb_v = gf[kb].get_virtual().coupling
-            cc_v = gf[kc].get_virtual().coupling
-            cd_v = gf[kd].get_virtual().coupling
-
-            eb_o = gf[kb].get_occupied().energy
-            ec_o = gf[kc].get_occupied().energy
-            ed_o = gf[kd].get_occupied().energy
-            eb_v = gf[kb].get_virtual().energy
-            ec_v = gf[kc].get_virtual().energy
-            ed_v = gf[kd].get_virtual().energy
-
-            if self.opts.non_dyson:
-                xa_o = slice(None, self.nocc[ka]-self.frozen[ka][0])
-                xa_v = slice(self.nocc[ka]-self.frozen[ka][0], None)
-            else:
-                xa_o = xa_v = slice(None)
-
-            #TODO symmetries etc.
-            qxi = _fao2mo(self.eri[ka, kb], ca_x[:, xa_o], cb_o, dtype)
-            qaj = _fao2mo(self.eri[kc, kd], cc_v, cd_o, dtype)
-            qxj = _fao2mo(self.eri[ka, kd], ca_x[:, xa_o], cd_o, dtype)
-            qai = _fao2mo(self.eri[kc, kb], cc_v, cb_o, dtype)
-            qxa = _fao2mo(self.eri[ka, kb], ca_x[:, xa_v], cb_v, dtype)
-            qib = _fao2mo(self.eri[kc, kd], cc_o, cd_v, dtype)
-            qxb = _fao2mo(self.eri[ka, kd], ca_x[:, xa_v], cd_v, dtype)
-            qia = _fao2mo(self.eri[kc, kb], cc_o, cb_v, dtype)
-            xiaj = lib.einsum('Lij,Lkl->ijkl', qxi, qaj)
-            xjai = lib.einsum('Lij,Lkl->ilkj', qxj, qai)
-            xaib = lib.einsum('Lij,Lkl->ijkl', qxa, qib)
-            xbia = lib.einsum('Lij,Lkl->ilkj', qxb, qia)
-
-            self.log.timingv(
-                    "Time for MO->QMO (%d,%d,%d,%d):  %s",
-                    ka, kb, kc, kd, time_string(timer() - t1),
-            )
-            t1 = timer()
-
-            t_occ[ka][:, xa_o, xa_o] += self._build_moments(eb_o, ec_v, ed_o, xiaj, xjai)
-            t_vir[ka][:, xa_v, xa_v] += self._build_moments(eb_v, ec_o, ed_v, xaib, xbia)
-
-            del xiaj, xjai, xaib, xbia
+        t_occ, t_vir = helper.build_moments_kagf2(gf, self.eri, kconserv, 2*nmom+2, kptlist=kptlist)
 
         kptlist_inv = np.ones((self.nkpts,), dtype=bool)
         kptlist_inv[kptlist] = False
