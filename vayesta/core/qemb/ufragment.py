@@ -199,6 +199,7 @@ class UFragment(Fragment):
                 cbb = (cbb + cbb.transpose(1,0,3,2))/2
             return (caa, cab, cbb)
 
+
     def get_fragment_mf_energy(self):
         """Calculate the part of the mean-field energy associated with the fragment.
 
@@ -388,4 +389,13 @@ class UFragment(Fragment):
         r_occ_b = dot(self.c_active_occ[1].T, ovlp, self.base.mo_coeff_occ[1])
         r_vir_a = dot(self.c_active_vir[0].T, ovlp, self.base.mo_coeff_vir[0])
         r_vir_b = dot(self.c_active_vir[1].T, ovlp, self.base.mo_coeff_vir[1])
+        return (r_occ_a, r_occ_b), (r_vir_a, r_vir_b)
+
+    def get_rot_to_fragment(self, fragment):
+        """Get rotation matrices between occupied/virtual active space of this and another fragment."""
+        ovlp = self.base.get_ovlp()
+        r_occ_a = dot(self.c_active_occ[0].T, ovlp, fragment.c_active_occ[0])
+        r_occ_b = dot(self.c_active_occ[1].T, ovlp, fragment.c_active_occ[1])
+        r_vir_a = dot(self.c_active_vir[0].T, ovlp, fragment.c_active_vir[0])
+        r_vir_b = dot(self.c_active_vir[1].T, ovlp, fragment.c_active_vir[1])
         return (r_occ_a, r_occ_b), (r_vir_a, r_vir_b)
