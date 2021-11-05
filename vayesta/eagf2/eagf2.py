@@ -9,7 +9,7 @@ from pyscf.agf2 import mpi_helper, aux, chempot
 
 import vayesta
 from vayesta.ewf.helper import orthogonalize_mo
-from vayesta.core import QEmbeddingMethod
+from vayesta.core import QEmbeddingMethod, foldscf
 from vayesta.core.util import time_string
 from vayesta.eagf2 import helper
 from vayesta.eagf2.fragment import EAGF2Fragment
@@ -47,6 +47,7 @@ class EAGF2Options(RAGF2Options):
     conv_tol_nelec_factor: float = 1e-2
     max_cycle_inner: int = 50
     max_cycle_outer: int = 25
+    fock_basis: str = 'ao'
 
 
 @dataclasses.dataclass
@@ -78,6 +79,81 @@ class EAGF2Results:
     gf: aux.GreensFunction = None
     se: aux.SelfEnergy = None
     solver: RAGF2 = None
+
+
+class RAGF2Solver(RAGF2):
+    ''' Solver class with some necessary adjustments.
+    '''
+
+    def __init__(self, emb):
+        eri = np.empty(())
+        veff = np.empty(())
+        super().__init__(emb.mf, eri=eri, veff=veff, log=emb.log, options=emb.opts)
+
+    def solve_dyson(self, se=None, gf=None, fock=None, verbose=True):
+        '''
+        Solve the Dyson equation. For calculations on a FoldedSCF mean-field
+        object, fold the Fock matrix and self-energy back to k-space to find
+        the eigenvalues and eigenvectors, and then unfold the latter.
+        '''
+
+        return super().solve_dyson(se=se, gf=gf, fock=fock)
+
+        if getattr(self.mf, 'kphase', None) is None:
+            return super().solve_dyson(se=se, gf=gf, fock=fock)
+
+        se = se or self.se
+        gf = gf or self.gf
+
+        if fock is None:
+            fock = self.get_fock(gf=gf, with_frozen=False)
+        fock_k = foldscf.bvk2k_2d(fock, self.mf.kphase)
+
+        nmom = 2 * self.opts.nmom_lanczos + 2
+
+        mom_occ = se.get_occupied().moment(range(nmom), squeeze=False)
+        mom_occ_k = [foldscf.bvk2k_2d(m, self.mf.kphase) for m in mom_occ]
+        mom_occ_k = np.array(mom_occ_k).swapaxes(0, 1)
+        se_occ_k = [self._build_se_from_moments(m) for m in mom_occ_k]
+
+        mom_vir = se.get_virtual().moment(range(nmom), squeeze=False)
+        mom_vir_k = [foldscf.bvk2k_2d(m, self.mf.kphase) for m in mom_vir]
+        mom_vir_k = np.array(mom_vir_k).swapaxes(0, 1)
+        se_vir_k = [self._build_se_from_moments(m) for m in mom_vir_k]
+
+        se_k = [self._combine_se(o, v) for o, v in zip(se_occ_k, se_vir_k)]
+
+        #coup = se.coupling.reshape(self.mf.kphase.shape[1], se.nphys//self.mf.kphase.shape[1], se.naux)
+        #coup_k = np.einsum('kR,Rpi->kpi', self.mf.kphase.conj(), coup)
+        ##coup_k = coup_k.reshape(coup_k.shape[0], coup_k.shape[1], coup_k.shape[2]*coup_k.shape[3])
+        #se_k = [se.__class__(se.energy, coup, chempot=se.chempot) for coup in coup_k]
+
+        w_k, v_k = zip(*[s.eig(f) for s, f in zip(se_k, fock_k)])
+        w = np.concatenate(w_k)
+        #v = np.einsum('kR,kpi->Rpi', self.mf.kphase, v_k)
+        #v = np.einsum('kR,kpi->Rpki', self.mf.kphase, v_k)
+        v = np.einsum('kR,kS,kpi->RpSi', self.mf.kphase, self.mf.kphase.conj(), v_k)
+        v = v.reshape(v.shape[0]*v.shape[1], v.shape[2]*v.shape[3])
+        #v = foldscf.k2bvk_2d(np.array(v_k), self.mf.kphase)
+
+        mask = np.argsort(w)
+        w = w[mask]
+        v = v[:, mask]
+
+        w_ref, v_ref = super().solve_dyson(se=se, gf=gf, fock=fock)
+        v = v.real
+        print(w)
+        print(w_ref)
+        print(w.size, w_ref.size, fock.shape[0]+se.naux)
+        print()
+        print(lib.fp(np.dot(v, v.T)), lib.fp(np.dot(v_ref, v_ref.T)))
+        print(lib.fp(np.dot(v*w[None], v.T)), lib.fp(np.dot(v_ref*w_ref[None], v_ref.T)))
+        print()
+        print(np.trace(np.dot(v[:self.nmo], v[:self.nmo].T)), np.trace(np.dot(v_ref[:self.nmo], v_ref[:self.nmo].T)))
+        print(np.trace(np.dot(v[:self.nmo]*w[None], v[:self.nmo].T)), np.trace(np.dot(v_ref[:self.nmo]*w_ref[None], v_ref[:self.nmo].T)))
+        1/0
+
+        return w, v
 
 
 class EAGF2(QEmbeddingMethod):
@@ -214,7 +290,7 @@ class EAGF2(QEmbeddingMethod):
 
         t0 = timer()
 
-        qmo_energy, qmo_coeff = solver.se.eig(fock)
+        qmo_energy, qmo_coeff = solver.solve_dyson(se=solver.se, fock=fock)
         cpt = chempot.binsearch_chempot((qmo_energy, qmo_coeff), self.nmo, self.nocc*2)[0]
         qmo_occ = 2.0 * (qmo_energy < cpt)
         nqmo = qmo_energy.size
@@ -364,7 +440,6 @@ class EAGF2(QEmbeddingMethod):
         ''' Run DIIS and damping.
         '''
 
-        
         #TODO: use an option for delaying start
         se = solver.run_diis(solver.se, None, diis, se_prev=se_prev)
         se.remove_uncoupled(tol=self.opts.weight_tol)
@@ -388,10 +463,11 @@ class EAGF2(QEmbeddingMethod):
 
         self.log.info("Initialising solver:")
         with self.log.withIndentLevel(1):
-            eri = np.empty(())
-            veff = np.empty(())
-            kwargs = dict(eri=eri, veff=veff, log=self.log, fock_basis='ao')
-            solver = RAGF2(self.mf, options=self.opts, **kwargs)
+            solver = RAGF2Solver(self)
+            #eri = np.empty(())
+            #veff = np.empty(())
+            #kwargs = dict(eri=eri, veff=veff, log=self.log, fock_basis='ao')
+            #solver = RAGF2(self.mf, options=self.opts, **kwargs)
 
         #TODO allow GF input
         solver.gf = solver.g0 = solver.build_init_greens_function()

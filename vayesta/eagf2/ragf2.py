@@ -633,7 +633,7 @@ class RAGF2:
         return gf
 
 
-    def solve_dyson(self, se=None, gf=None, fock=None, verbose=True):
+    def solve_dyson(self, se=None, gf=None, fock=None):
         ''' Solve the Dyson equation
         '''
 
