@@ -2,7 +2,6 @@
 import numpy as np
 import scipy
 from vayesta.core.util import *
-from vayesta.rpa.rirpa import opt_NI_grid
 
 from vayesta.rpa.rirpa import opt_NI_grid
 

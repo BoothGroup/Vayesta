@@ -1,7 +1,7 @@
 import numpy as np
 from vayesta.core.util import *
 from vayesta.rpa.rirpa import momzero_calculation
-
+from vayesta.rpa.rirpa import momzero_NI
 
 from pyscf.ao2mo import _ao2mo
 import pyscf.lib
@@ -62,21 +62,37 @@ class ssRPA:
     @property
     def e_tot(self):
         return self.mf.e_tot + self.e_corr
-
-    def kernel(self, maxmom = 0):
-        pass
-
-    def kernel_moms(self, maxmom = 0, npoints = 100, ainit=1.0, integral_deduct = "D"):
-
+    @property
+    def D(self):
         eps = np.zeros((self.nocc, self.nvir))
         eps = eps + self.mo_energy_vir
         eps = (eps.T - self.mo_energy_occ).T
         eps = eps.reshape((self.ov,))
         D = np.concatenate([eps, eps])
+        return D
+    def kernel(self, maxmom = 0):
+        pass
+
+
+
+    def kernel_moms(self, target_rot = None, npoints = 100, integral_deduct = "D"):
+        if target_rot is None:
+            print("Warning; generating full moment rather than local component. Will scale as O(N^5).")
+            target_rot = np.eye(2*ov)
+        ri_ApB, ri_AmB = self.construct_RI_AB()
+
+        if integral_deduct == "D":
+            NIworker = momzero_NI.MomzeroDeductD(self.D, ri_ApB, ri_ApB, target_rot, npoints)
+        elif integral_deduct == None:
+            NIworker = momzero_NI.MomzeroDeductNone(self.D, ri_ApB, ri_ApB, target_rot, npoints)
+        else:
+            raise ValueError("Unknown integral offset specification.`")
+
+    def kernel_moms_old(self, maxmom = 0, npoints = 100, ainit=1.0, integral_deduct = "D"):
 
         ri_ApB, ri_AmB = self.construct_RI_AB()
 
-        return momzero_calculation.eval_eta0(D, ri_ApB, ri_AmB, np.eye(2*self.ov), npoints, ainit, integral_deduct=integral_deduct)
+        return momzero_calculation.eval_eta0(self.D, ri_ApB, ri_AmB, np.eye(2*self.ov), npoints, ainit, integral_deduct=integral_deduct)
 
     def check_new(self, npoints = 100, ainit=1.0):
         eps = np.zeros((self.nocc, self.nvir))
@@ -107,3 +123,4 @@ class ssRPA:
         return ri_ApB, ri_AmB
 
 
+/

@@ -1,18 +1,18 @@
 import numpy as np
 import scipy.optimize
 
-from vayesta.rpa.rirpa.opt_NI_grid import gen_ClenCur_quad
-
-class NumericalIntegrator:
-    """Abstract base class for numerical integration; when subclassing need to replace:
+class NumericalIntegratorClenCur:
+    """Abstract base class for numerical integration of even functions from -infty to +infty; subclasses
+    need to define:
         .eval_contrib
         .eval_diag_contrib
         .eval_diag_deriv_contrib
         .eval_diag_deriv2_contrib
         .eval_diag_exact
-    as well as implement a new __init__ assigning any required attributes.
-    Could write this as a factory class, but this'll do for now.
-        """
+    A new .__init__ assigning any required attributes and a .fix_params may also be required, depending upon the
+    particular form of the integral to be approximated.
+    Might be able to write this as a factory class, but this'll do for now.
+    """
     def __init__(self, out_shape, diag_shape, npoints):
         self.out_shape = out_shape
         self.diag_shape = diag_shape
@@ -108,11 +108,28 @@ class NumericalIntegrator:
         print("!", solve)
         return solve
 
+    def fix_params(self):
+        """If required set parameters within ansatz; defined to ensure hook for functionality in future, will
+        not always be needed."""
+        pass
+
     def kernel(self, a = 1.0, opt_quad = True):
-        """Perform numerical integration. Put simply, optimise quadrature grid to ensure diagonal approximation is
-        exactly integrated then evaluate full expression."""
+        """Perform numerical integration. Put simply, fix any arbitrary parameters in the integral to be evaluated,
+        optimise the quadrature grid to ensure a diagonal approximation is exactly integrated then evaluate full
+        expression."""
+        self.fix_params()
         if opt_quad:
             a = self.opt_quadrature_diag(a)
         return self.eval_NI_approx(a)
+
+def gen_ClenCur_quad(a, npoints, even = False):
+    symfac = 1.0 + even
+    # If even we only want points up to t <= pi/2
+    tvals = [(j/npoints) * (np.pi / symfac ) for j in range(1, npoints+1)]
+
+    points = [a/np.tan(t) for t in tvals]
+    weights = [a * np.pi * symfac / (2 * npoints * (np.sin(t)**2)) for t in tvals]
+    if even: weights[-1] /= 2
+    return points, weights
 
 
