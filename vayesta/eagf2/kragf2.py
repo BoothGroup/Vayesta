@@ -411,11 +411,6 @@ class KRAGF2(RAGF2):
                 t_occ[ka] = se_prev[ka].get_occupied().moment(range(2*nmom+2), squeeze=False)
                 t_vir[ka] = se_prev[ka].get_virtual().moment(range(2*nmom+2), squeeze=False)
 
-        for i in range(self.nkpts):
-            mpi_helper.barrier()
-            mpi_helper.allreduce_safe_inplace(t_occ[i])
-            mpi_helper.allreduce_safe_inplace(t_vir[i])
-
         for k in range(self.nkpts):
             for i in range(2*self.opts.nmom_lanczos+2):
                 if not np.allclose(t_occ[k][i], t_occ[k][i].T.conj()):
@@ -534,7 +529,8 @@ class KRAGF2(RAGF2):
         for i in range(self.nkpts):
             se_occ.append(self._build_se_from_moments(t[i][0], chempot=se[i].chempot))
             se_vir.append(self._build_se_from_moments(t[i][1], chempot=se[i].chempot))
-            se_out.append(self._combine_se(se_occ[-1], se_vir[-1], gf=gf[i]))
+            g = gf[i] if gf is not None else None
+            se_out.append(self._combine_se(se_occ[-1], se_vir[-1], gf=g))
 
         return se_out
 
@@ -835,7 +831,7 @@ class KRAGF2(RAGF2):
         return e_mp2
 
 
-    def energy_1body(self, gf=None):
+    def energy_1body(self, gf=None, e_nuc=None):
         ''' Calculate the one-body energy
         '''
 
@@ -848,7 +844,7 @@ class KRAGF2(RAGF2):
             e_1b += 0.5 * np.sum(d * (h + f)).real
 
         e_1b /= self.nkpts
-        e_1b += self.e_nuc
+        e_1b += e_nuc if e_nuc is not None else self.e_nuc
 
         return e_1b
 
