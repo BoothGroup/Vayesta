@@ -83,7 +83,7 @@ for key in keys:
     mf.with_df = GDF(cell, mf.kpts)
     mf.with_df.build()
     mf.exxdiv = exxdiv
-    mf.chkfile = '%s_%s_%s_%s%s%s.chk' % (method_name, key, basis, *nk)
+    mf.chkfile = '%s_%s_%s_%s%s%s.chk' % (method_name, key, basis, *nk) if mpi_helper.rank == 0 else None
     mf.kernel()
 
     for k in range(mpi_helper.size):
