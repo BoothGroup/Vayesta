@@ -10,6 +10,9 @@ from vayesta.eagf2 import KRAGF2
 from vayesta.misc.gdf import GDF
 from vayesta import log, vlog
 
+# Standard library
+import os
+
 # Test set
 from gmtkn import sets
 systems = sets['GAPS'].systems
@@ -66,6 +69,7 @@ for key in keys:
         continue
 
     log.handlers.clear()
+    os.remove('%s_%s_%s_%s%s%s.out' % (method_name, key, basis, *nk))
     log.addHandler(vlog.VFileHandler('%s_%s_%s_%s%s%s.out' % (method_name, key, basis, *nk), formatter=fmt))
 
     mf = scf.KRHF(cell)
