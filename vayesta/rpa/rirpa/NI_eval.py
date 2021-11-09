@@ -89,6 +89,16 @@ class NumericalIntegratorClenCur:
         return self._NI_eval_deriv(a, self.diag_shape, get_deriv2_contrib)
 
     def test_diag_derivs(self, a, delta=1e-6):
+        freq = np.random.rand() * a
+        print("Testing gradients w.r.t variation of omega at random frequency point={:8.6e}:".format(freq))
+        grad_1 = self.eval_diag_deriv_contrib(freq)
+        deriv2_1 = self.eval_diag_deriv2_contrib(freq)
+        grad_2 = (self.eval_diag_contrib(freq + delta / 2) - self.eval_diag_contrib(freq - delta / 2)) / delta
+        deriv2_2 = (self.eval_diag_deriv_contrib(freq + delta / 2) - self.eval_diag_deriv_contrib(freq - delta / 2)) / delta
+        print("Max Grad Error={:6.4e}".format(abs(grad_1 - grad_2).max()))
+        print("Max Deriv2 Error={:6.4e}".format(abs(deriv2_1 - deriv2_2).max()))
+
+        print("Testing ensemble gradients w.r.t variation of a:")
         grad_1 = self.eval_diag_NI_approx_grad(a)
         deriv2_1 = self.eval_diag_NI_approx_deriv2(a)
         grad_2 = (self.eval_diag_NI_approx(a+delta/2) - self.eval_diag_NI_approx(a-delta/2))/delta
@@ -104,7 +114,7 @@ class NumericalIntegratorClenCur:
             return self.eval_diag_NI_approx_grad(a).sum()
         def get_deriv2(a):
             return self.eval_diag_NI_approx_deriv2(a).sum()
-        solve = scipy.optimize.newton(get_val, x0=ainit, fprime=get_grad, fprime2=get_deriv2)
+        solve = scipy.optimize.newton(get_val, x0=ainit, fprime=get_grad, fprime2=get_deriv2, tol=1e-4)
         print("!", solve)
         return solve
 
@@ -130,6 +140,14 @@ def gen_ClenCur_quad(a, npoints, even = False):
     points = [a/np.tan(t) for t in tvals]
     weights = [a * np.pi * symfac / (2 * npoints * (np.sin(t)**2)) for t in tvals]
     if even: weights[-1] /= 2
-    return points, weights
+    return zip(points, weights)
 
 
+class NICheck(NumericalIntegratorClenCur):
+    def __init__(self, exponent, npoints):
+        super().__init__((), (), npoints)
+        self.exponent = exponent
+
+    def eval_contrib(self, freq):
+        #return np.array(np.exp(-freq*self.exponent))
+        return np.array((freq + 0.1)**(-self.exponent))

@@ -52,8 +52,6 @@ def eval_eta0(D, ri_P, ri_M, target_rot, npoints = 100, ainit = 1.0, integral_de
             contrib = eval_eta0_contrib_diff4(point, rik_MP_L, rik_MP_R, D, target_rot)
         else:
             raise ValueError("Unknown quantity to deduct from numerical integration specified.")
-        #print("!",point)
-        #print(contrib)
         integral += weight * contrib
     # NB define our final moment as
     # moment = (integral - integral_offset) P^{-1} + moment_offset
