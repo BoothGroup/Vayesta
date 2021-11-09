@@ -76,7 +76,8 @@ class ssRPA:
     def kernel(self, maxmom = 0):
         pass
 
-    def kernel_moms(self, target_rot = None, npoints = 100, ainit = 10, integral_deduct = "D", opt_quad = True):
+    def kernel_moms(self, target_rot = None, npoints = 100, ainit = 10, integral_deduct = "D", opt_quad = True,
+                    adaptive_quad = False):
         if target_rot is None:
             print("Warning; generating full moment rather than local component. Will scale as O(N^5).")
             target_rot = np.eye(2*self.ov)
@@ -99,7 +100,11 @@ class ssRPA:
         else:
             raise ValueError("Unknown integral offset specification.`")
         NIworker.test_diag_derivs(4.0)
-        integral = NIworker.kernel(a=ainit, opt_quad=opt_quad)
+        if adaptive_quad:
+            # Can also make use of scipy adaptive quadrature routines; this is likely more expensive but more reliable.
+            integral = NIworker.kernel_adaptive()
+        else:
+            integral = NIworker.kernel(a=ainit, opt_quad=opt_quad)
         # Need to construct RI representation of P^{-1}
         ri_ApB_inv = construct_inverse_RI(self.D, ri_ApB)
 

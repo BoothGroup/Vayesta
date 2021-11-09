@@ -1,5 +1,9 @@
 import numpy as np
 import scipy.optimize
+import scipy.integrate
+
+class NIException(BaseException):
+    pass
 
 class NumericalIntegratorClenCur:
     """Abstract base class for numerical integration of even functions from -infty to +infty; subclasses
@@ -131,6 +135,16 @@ class NumericalIntegratorClenCur:
         if opt_quad:
             a = self.opt_quadrature_diag(a)
         return self.eval_NI_approx(a)
+
+    def kernel_adaptive(self):
+        self.fix_params()
+        integral, err, info = scipy.integrate.quad_vec(self.eval_contrib, a = 0.0, b = np.inf, norm = "max",
+                                                       epsabs=1e-4, epsrel=1e-200, full_output=True)
+        if not info.success:
+            raise NIException("Adaptive gaussian quadrature could not compute integral.")
+        else:
+            print("Successfully computed integral via adaptive quadrature using {:d} evaluations with estimated error of {:6.4e}".format(info.neval, err))
+        return 2 * integral
 
 def gen_ClenCur_quad(a, npoints, even = False):
     symfac = 1.0 + even
