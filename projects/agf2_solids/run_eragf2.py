@@ -6,11 +6,12 @@ from pyscf.agf2 import mpi_helper
 import numpy as np
 
 # Vayesta
-from vayesta.eagf2 import KRAGF2
+from vayesta.eagf2 import EAGF2
 from vayesta.misc.gdf import GDF
 from vayesta import log, vlog
 
 # Standard library
+import sys
 import os
 
 # Test set
@@ -26,8 +27,9 @@ precision = 1e-9
 exxdiv = None
 basis = 'gth-dzvp-molopt-sr'
 pseudo = 'gth-pade'
-method_name = 'kragf2'
-method = KRAGF2
+max_order = int(sys.argv[1])
+method_name = 'eragf2-sao-%d' % max_order
+method = EAGF2
 
 options = dict(
         log=log,
@@ -44,6 +46,7 @@ options = dict(
         conv_tol_rdm1=1e-10,
         conv_tol_nelec=1e-6,
         conv_tol_nelec_factor=1e-3,
+        max_bath_order=max_order,
 )
 
 log.handlers.clear()
@@ -90,6 +93,9 @@ for key in keys:
 
     try:
         gf2 = method(mf, **options)
+        gf2.sao_fragmentation()
+        f = gf2.add_atomic_fragment(list(range(cell.natm)))
+        f.add_tsymmetric_fragments(tvecs=nk)
         gf2.kernel()
     except Exception as e:
         print(key, e)
