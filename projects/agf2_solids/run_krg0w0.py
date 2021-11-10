@@ -27,7 +27,7 @@ exxdiv = None
 basis = 'gth-dzvp-molopt-sr'
 pseudo = 'gth-pade'
 xc = sys.argv[1]
-method_name = 'krag0w0-%s' % xc
+method_name = 'krg0w0-%s' % xc
 method = KRGWAC
 
 log.handlers.clear()
@@ -72,7 +72,7 @@ for key in keys:
         hf.with_df = mf.with_df
         hf.exxdiv = exxdiv
         hf.kernel()
-        mf.__dict__.update([getattr(mf, key) for key in ['e_tot', 'mo_energy', 'mo_coeff', 'mo_occ', 'converged']])
+        mf.__dict__.update({key: getattr(mf, key) for key in ['e_tot', 'mo_energy', 'mo_coeff', 'mo_occ', 'converged']})
         mf.dump_chk(mf.__dict__)
 
     else:
