@@ -27,7 +27,7 @@ exxdiv = None
 basis = 'gth-dzvp-molopt-sr'
 pseudo = 'gth-pade'
 xc = sys.argv[1]
-method_name = 'kag0w0'
+method_name = 'kag0w0-%s' % xc
 method = KRGWAC
 
 log.handlers.clear()
