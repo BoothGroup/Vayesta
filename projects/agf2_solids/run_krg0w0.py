@@ -19,7 +19,7 @@ systems = sets['GAPS'].systems
 keys = sorted(systems.keys())
 
 
-nk = [3, 3, 3]
+nk = [1, 1, 2]
 nao = (0, 32)
 exp_to_discard = 0.0
 precision = 1e-9
@@ -68,7 +68,7 @@ for key in keys:
     mf.kernel()
 
     try:
-        kgw = KRGWAC(cell)
+        kgw = KRGWAC(mf)
         kgw.ac = 'pade'
         kgw.linearized = False
         kgw.fc = exxdiv is not None
