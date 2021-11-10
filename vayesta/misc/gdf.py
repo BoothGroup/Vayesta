@@ -772,12 +772,8 @@ class GDF(df.GDF):
         kconserv = np.asarray(self.kconserv, order='C')
         cderi = np.asarray(self._cderi, order='C')
         dm = np.asarray(dm, order='C', dtype=np.complex128)
-        vj = vk = None
-
-        if with_j:
-            vj = np.zeros((nkpts, nao, nao), dtype=np.complex128)
-        if with_k:
-            vk = np.zeros((nkpts, nao, nao), dtype=np.complex128)
+        vj = np.zeros((nkpts, nao, nao), dtype=np.complex128)
+        vk = np.zeros((nkpts, nao, nao), dtype=np.complex128)
 
         libcore = libs.load_library('core')
         libcore.j3c_jk(
