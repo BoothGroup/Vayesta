@@ -69,10 +69,6 @@ for key in keys:
         continue
 
     log.handlers.clear()
-    try:
-        os.remove('%s_%s_%s_%s%s%s.out' % (method_name, key, basis, *nk))
-    except:
-        pass
     log.addHandler(vlog.VFileHandler('%s_%s_%s_%s%s%s.out' % (method_name, key, basis, *nk), formatter=fmt))
 
     mf = scf.KRHF(cell)
