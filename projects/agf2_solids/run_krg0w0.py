@@ -1,4 +1,5 @@
 # PySCF
+from pyscf import lib
 from pyscf.pbc import gto, scf, dft, gw
 from pyscf.pbc.gw.krgw_ac import KRGWAC
 
@@ -19,7 +20,7 @@ systems = sets['GAPS'].systems
 keys = sorted(systems.keys())
 
 
-nk = [1, 1, 1]
+nk = [3, 3, 3]
 nao = (0, 32)
 exp_to_discard = 0.0
 precision = 1e-9
@@ -71,9 +72,9 @@ for key in keys:
         start = min(kgw.nocc-3, 0)
         end = max(kgw.nocc+3, kgw.nmo)
         kgw.kernel(kptlist=[0], orbs=range(start, end))
-        chkfile.dump(mf.chkfile, 'kgw/mo_energy', kgw.mo_energy[0])
-        chkfile.dump(mf.chkfile, 'kgw/mo_coeff', kgw.mo_coeff[0])
-        chkfile.dump(mf.chkfile, 'kgw/mo_occ', kgw.mo_occ[0])
+        lib.chkfile.dump(mf.chkfile, 'kgw/mo_energy', kgw.mo_energy[0])
+        lib.chkfile.dump(mf.chkfile, 'kgw/mo_coeff', kgw.mo_coeff[0])
+        lib.chkfile.dump(mf.chkfile, 'kgw/mo_occ', kgw.mo_occ[0])
     except Exception as e:
         print(key, e)
         continue
