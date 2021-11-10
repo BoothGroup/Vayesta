@@ -59,24 +59,13 @@ for key in keys:
         pass
     log.addHandler(vlog.VFileHandler('%s_%s_%s_%s%s%s.out' % (method_name, key, basis, *nk), formatter=fmt))
 
-    mf = dft.KRKS(cell)
+    mf = dft.KRKS(cell, xc=xc)
     mf.kpts = cell.make_kpts(nk)
     mf.with_df = GDF(cell, mf.kpts)
     mf.with_df.build()
     mf.exxdiv = exxdiv
     mf.chkfile = '%s_%s_%s_%s%s%s.chk' % (method_name, key, basis, *nk)
-
-    if xc == 'hf':
-        hf = scf.KRHF(cell)
-        hf.kpts = cell.make_kpts(nk)
-        hf.with_df = mf.with_df
-        hf.exxdiv = exxdiv
-        hf.kernel()
-        mf.__dict__.update({key: getattr(mf, key) for key in ['e_tot', 'mo_energy', 'mo_coeff', 'mo_occ', 'converged']})
-        mf.dump_chk(mf.__dict__)
-
-    else:
-        mf.kernel()
+    mf.kernel()
 
     try:
         kgw = KRGWAC(cell)
