@@ -64,7 +64,7 @@ for key in keys:
     mf.with_df = GDF(cell, mf.kpts)
     mf.with_df.build()
     mf.exxdiv = exxdiv
-    mf.chkfile = '%s_%s_%s_%s%s%s.chk' % (method_name, key, basis, *nk) if mpi_helper.rank == 0 else None
+    mf.chkfile = '%s_%s_%s_%s%s%s.chk' % (method_name, key, basis, *nk)
 
     if xc == 'hf':
         hf = scf.KRHF(cell)
@@ -73,16 +73,10 @@ for key in keys:
         hf.exxdiv = exxdiv
         hf.kernel()
         mf.__dict__.update([getattr(mf, key) for key in ['e_tot', 'mo_energy', 'mo_coeff', 'mo_occ', 'converged']])
-        if mpi_helper.rank == 0:
-            mf.dump_chk(mf.__dict__)
+        mf.dump_chk(mf.__dict__)
 
     else:
         mf.kernel()
-    
-    for k in range(mpi_helper.size):
-        mf.mo_energy[k] = mpi_helper.bcast_dict(mf.mo_energy[k])
-        mf.mo_coeff[k] = mpi_helper.bcast_dict(mf.mo_coeff[k])
-        mf.e_tot = mpi_helper.bcast_dict(mf.e_tot)
 
     try:
         kgw = KRGWAC(cell)
