@@ -27,7 +27,7 @@ exxdiv = None
 basis = 'gth-dzvp-molopt-sr'
 pseudo = 'gth-pade'
 xc = sys.argv[1]
-method_name = 'kag0w0-%s' % xc
+method_name = 'krag0w0-%s' % xc
 method = KRGWAC
 
 log.handlers.clear()
@@ -92,6 +92,9 @@ for key in keys:
         start = min(gw.nocc-3, 0)
         end = max(gw.nocc+3, gw.nmo)
         gw.kernel(kptlist=[0], orbs=range(start, end))
+        chkfile.dump(mf.chkfile, 'gw/mo_energy', gw.mo_energy[0])
+        chkfile.dump(mf.chkfile, 'gw/mo_coeff', gw.mo_coeff[0])
+        chkfile.dump(mf.chkfile, 'gw/mo_occ', gw.mo_occ[0])
     except Exception as e:
         print(key, e)
         continue
