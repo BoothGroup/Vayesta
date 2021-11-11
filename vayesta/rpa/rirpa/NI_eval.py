@@ -127,6 +127,9 @@ class NumericalIntegratorClenCur:
         not always be needed."""
         pass
 
+    def get_offset(self):
+        return np.zeros(self.out_shape)
+
     def kernel(self, a = 1.0, opt_quad = True):
         """Perform numerical integration. Put simply, fix any arbitrary parameters in the integral to be evaluated,
         optimise the quadrature grid to ensure a diagonal approximation is exactly integrated then evaluate full
@@ -134,7 +137,7 @@ class NumericalIntegratorClenCur:
         self.fix_params()
         if opt_quad:
             a = self.opt_quadrature_diag(a)
-        return self.eval_NI_approx(a)
+        return self.eval_NI_approx(a) + self.get_offset()
 
     def kernel_adaptive(self):
         self.fix_params()
@@ -144,7 +147,7 @@ class NumericalIntegratorClenCur:
             raise NIException("Adaptive gaussian quadrature could not compute integral.")
         else:
             print("Successfully computed integral via adaptive quadrature using {:d} evaluations with estimated error of {:6.4e}".format(info.neval, err))
-        return 2 * integral
+        return integral + self.get_offset()
 
 def gen_ClenCur_quad(a, npoints, even = False):
     symfac = 1.0 + even

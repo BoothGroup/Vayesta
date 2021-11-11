@@ -1,6 +1,5 @@
 """Functionality to calculate zeroth moment via numerical integration """
-
-
+import scipy.optimize
 
 from vayesta.rpa.rirpa.NI_eval import NumericalIntegratorClenCur
 from vayesta.rpa.rirpa import momzero_calculation
@@ -23,8 +22,8 @@ class NIMomZero(NumericalIntegratorClenCur):
         assert(self.S_L.shape == self.S_R.shape)
         return self.S_L.shape[0]
 
-    def get_G(self, freq):
-        return construct_G(freq, self.D)
+    def get_F(self, freq):
+        return (self.D ** 2 + freq ** 2) ** (-1)
 
     def get_Q(self, freq):
         return construct_Q(freq, self.D, self.S_L, self.S_R)
@@ -50,7 +49,6 @@ class MomzeroDeductNone(NIMomZero):
             val -= diag_sqrt_grad(self.diagmat2, freq)
         return val
 
-
     def eval_diag_deriv2_contrib(self, freq):
         val = diag_sqrt_deriv2(self.diagmat1, freq)
         if not (self.diagmat2 is None):
@@ -67,11 +65,10 @@ class MomzeroDeductNone(NIMomZero):
         if not (self.diagmat2 is None):
             raise ValueError("Diagonal deducted quantity specified without being included in full contribution "
                              "evaluation; please update overwrite .eval_contrib() for subclass.")
-        D = self.D
-        G = self.get_G(freq)
+        F = self.get_F(freq)
         Q = self.get_Q(freq)
 
-        rrot = np.multiply(G, D**(-1))
+        rrot = F
         lrot = einsum("lq,q->lq", self.target_rot, rrot)
         val_aux = np.linalg.inv(np.eye(self.n_aux) + Q)
         lres = np.dot(lrot, self.S_L.T)
@@ -85,30 +82,90 @@ class MomzeroDeductD(MomzeroDeductNone):
         return self.D
 
     def eval_contrib(self, freq):
-        D = self.D
-        G = self.get_G(freq)
         Q = self.get_Q(freq)
+        F = self.get_F(freq)
 
-        rrot = np.multiply(G, D**(-1))
-        lrot = einsum("lq,q->lq", self.target_rot, rrot)
+        rrot = F
+        lrot = einsum("lq,q->lq", self.target_rot, F)
         val_aux = np.linalg.inv(np.eye(self.n_aux) + Q)
-        lrot = dot(lrot, self.S_L.T)
-        res = dot(dot(lrot, val_aux), einsum("np,p->np", self.S_R, rrot))
+        res = dot(dot(dot(lrot, self.S_L.T), val_aux), einsum("np,p->np", self.S_R, rrot))
         res = (freq ** 2) * res / np.pi
 #        diff = abs(res - momzero_calculation.eval_eta0_contrib_diff2(freq, self.S_L, self.S_R, self.D, self.target_rot)).max()
         return res
 
+class MomzeroDeductHigherOrder(MomzeroDeductNone):
+
+    def eval_contrib(self, freq):
+        Q = self.get_Q(freq)
+        F = self.get_F(freq)
+
+        rrot = F
+        lrot = einsum("lq,q->lq", self.target_rot, F)
+        val_aux = np.linalg.inv(np.eye(self.n_aux) + Q) - np.eye(self.n_aux)
+        res = dot(dot(dot(lrot, self.S_L.T), val_aux), einsum("np,p->np", self.S_R, rrot))
+        res = (freq ** 2) * res / np.pi
+        return res
+
+class MomzeroOffsetCalc(MomzeroDeductNone):
+
+    def __init__(self, *args):
+        super().__init__(*args)
+        self.alpha = None
+        self.diagRI = einsum("np,np->p", self.S_L, self.S_R)
+
+    def fix_params(self):
+        def get_penalty(alpha):
+            intermed = (2*self.D)**(-1) - \
+                       2 * (self.D + alpha * np.full_like(self.D, fill_value=1.0))**(-1) - \
+                       0.5 * (alpha)**(-1) * np.full_like(self.D, fill_value=1.0)
+            return sum(np.multiply(intermed, self.diagRI))
+        def get_grad(alpha):
+            intermed = +2 * (self.D + alpha * np.full_like(self.D, fill_value=1.0))**(-2) + \
+                       0.5 * (alpha)**(-2) * np.full_like(self.D, fill_value=1.0)
+            return sum(np.multiply(intermed, self.diagRI))
+        def get_deriv2(alpha):
+            intermed = -4 * (self.D + alpha * np.full_like(self.D, fill_value=1.0))**(-3) - \
+                       1.0 * (
+                           alpha)**(-3) * np.full_like(self.D, fill_value=1.0)
+            return sum(np.multiply(intermed, self.diagRI))
+        self.alpha = self.D.mean()
+
+        root, res = scipy.optimize.newton(get_penalty, x0=self.alpha, fprime = get_grad, fprime2 = get_deriv2,
+                                          full_output=True)
+        if res.converged:
+            print("Optimal exponential offset determined as {:6.4e}".format(root))
+            self.alpha = root
+        else:
+            self.alpha = self.D.mean()
+            print("Could not find optimal exponential offset; using mean-field average instead ({:6.4e})".format(
+                self.alpha))
+
+    def get_offset(self):
+        res = dot(self.target_rot, self.S_L.T, einsum("np,p->np", self.S_R, (self.D+self.alpha)**(-1)))
+        res += dot(self.target_rot, einsum("np,p->pn", self.S_L, (self.D+self.alpha)**(-1)), self.S_R)
+        res -= self.alpha**(-1) * dot(dot(self.target_rot, self.S_L.T), self.S_R) / 2
+        return res
+
+    def eval_contrib(self, freq):
+        expval = np.exp(-freq * self.D) - np.full_like(self.D, fill_value=np.exp(- freq * self.alpha))
+        lrot = einsum("lp,p->lp", self.target_rot, expval)
+        rrot = expval
+        res = dot(dot(lrot, self.S_L.T), einsum("np,p->np", self.S_R, rrot))
+        return res
+
+
+def construct_F(freq, D):
+    return (D ** 2 + freq ** 2) ** (-1)
 
 def construct_G(freq, D):
     """Evaluate G = D (D**2 + \omega**2 I)**(-1), given frequency and diagonal of D."""
-    return np.multiply(D, (D ** 2 + freq ** 2) ** (-1))
+    return np.multiply(D, construct_F(freq, D))
 
 def construct_Q(freq, D, S_L, S_R):
     """Efficiently construct Q = S_R (D^{-1} G) S_L^T
     This is generally the limiting
     """
-    intermed = np.multiply(construct_G(freq, D), D ** (-1))
-    S_L = einsum("np,p->np", S_L, intermed)
+    S_L = einsum("np,p->np", S_L, construct_F(freq, D))
     return dot(S_R,S_L.T)
 
 def diag_sqrt_contrib(D, freq):

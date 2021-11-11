@@ -84,32 +84,47 @@ class ssRPA:
         ri_ApB, ri_AmB = self.construct_RI_AB()
         ri_MP = construct_product_RI(self.D, ri_AmB, ri_ApB)
         # We our integral as
-        #   integral = (MP)^{1/2} - (moment_offset) P + integral_offset
+        #   integral = (MP)^{1/2} - (moment_offset) P - integral_offset
         # and so
-        #   eta0 = (integral - integral_offset) P^{-1} + moment_offset
+        #   eta0 = (integral + integral_offset) P^{-1} + moment_offset
         if integral_deduct == "D":
             # Evaluate (MP)^{1/2} - D,
             NIworker = momzero_NI.MomzeroDeductD(self.D, ri_MP[0], ri_MP[1], target_rot, npoints)
-            integral_offset = dot(dot(target_rot, ri_ApB.T), ri_ApB)
-            moment_offset = dot(target_rot, np.eye(target_rot.shape[1]))
+            integral_offset = einsum("lp,p->lp", target_rot, self.D)
+            moment_offset = np.zeros_like(target_rot)
         elif integral_deduct is None:
             # Explicitly evaluate (MP)^{1/2}, with no offsets.
             NIworker = momzero_NI.MomzeroDeductNone(self.D, ri_MP[0], ri_MP[1], target_rot, npoints)
             integral_offset = np.zeros_like(target_rot)
             moment_offset = np.zeros_like(target_rot)
+        elif integral_deduct == "Exact":
+            assert(adaptive_quad)
+            NIworker = momzero_NI.MomzeroDeductHigherOrder(self.D, ri_MP[0], ri_MP[1], target_rot, npoints)
+            estval = momzero_NI.MomzeroOffsetCalc(
+                                self.D, ri_MP[0], ri_MP[1], target_rot, npoints).kernel_adaptive()
+            # This computes the required value analytically, but at N^5 cost. Just for debugging.
+            #mat = np.zeros(self.D.shape * 2)
+            #mat = mat + self.D
+            #mat = (mat.T + self.D).T
+            #estval2 = einsum("rp,pq,np,nq->rq", target_rot, mat ** (-1), ri_MP[0], ri_MP[1])
+            #print(abs(estval - estval2).max())
+
+            integral_offset = einsum("lp,p->lp", target_rot, self.D) + estval
+            print(abs(estval).max(),abs(integral_offset).max())
+            moment_offset = np.zeros_like(target_rot)
         else:
             raise ValueError("Unknown integral offset specification.`")
-        NIworker.test_diag_derivs(4.0)
+        #NIworker.test_diag_derivs(4.0)
         if adaptive_quad:
             # Can also make use of scipy adaptive quadrature routines; this is likely more expensive but more reliable.
-            integral = NIworker.kernel_adaptive()
+            integral = 2 * NIworker.kernel_adaptive()
         else:
             integral = NIworker.kernel(a=ainit, opt_quad=opt_quad)
         # Need to construct RI representation of P^{-1}
         ri_ApB_inv = construct_inverse_RI(self.D, ri_ApB)
 
-        mom0 = einsum("pq,q->pq", integral - integral_offset, self.D ** (-1)) - np.dot(
-            np.dot(integral - integral_offset, ri_ApB_inv.T), ri_ApB_inv)
+        mom0 = einsum("pq,q->pq", integral + integral_offset, self.D ** (-1)) - np.dot(
+            np.dot(integral + integral_offset, ri_ApB_inv.T), ri_ApB_inv)
         return mom0 + moment_offset, integral, NIworker
 
     def kernel_moms_old(self, maxmom = 0, npoints = 100, ainit=1.0, integral_deduct = "D"):
