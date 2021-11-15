@@ -149,6 +149,13 @@ class NumericalIntegratorClenCur:
             print("Successfully computed integral via adaptive quadrature using {:d} evaluations with estimated error of {:6.4e}".format(info.neval, err))
         return integral + self.get_offset()
 
+    def l2_scan(self, freqs):
+        return [sum(self.eval_contrib(x).reshape(-1)**2)**(0.5) for x in freqs]
+
+    def max_scan(self, freqs):
+        return [abs(self.eval_contrib(x)).max() for x in freqs]
+
+
 def gen_ClenCur_quad(a, npoints, even = False):
     symfac = 1.0 + even
     # If even we only want points up to t <= pi/2

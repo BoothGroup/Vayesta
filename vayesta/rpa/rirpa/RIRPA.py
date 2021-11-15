@@ -87,6 +87,7 @@ class ssRPA:
         #   integral = (MP)^{1/2} - (moment_offset) P - integral_offset
         # and so
         #   eta0 = (integral + integral_offset) P^{-1} + moment_offset
+        offsetNIworker = None
         if integral_deduct == "D":
             # Evaluate (MP)^{1/2} - D,
             NIworker = momzero_NI.MomzeroDeductD(self.D, ri_MP[0], ri_MP[1], target_rot, npoints)
@@ -98,10 +99,10 @@ class ssRPA:
             integral_offset = np.zeros_like(target_rot)
             moment_offset = np.zeros_like(target_rot)
         elif integral_deduct == "Exact":
-            assert(adaptive_quad)
+            assert(not opt_quad)
             NIworker = momzero_NI.MomzeroDeductHigherOrder(self.D, ri_MP[0], ri_MP[1], target_rot, npoints)
-            estval = momzero_NI.MomzeroOffsetCalc(
-                                self.D, ri_MP[0], ri_MP[1], target_rot, npoints).kernel_adaptive()
+            offsetNIworker = momzero_NI.MomzeroOffsetCalc(self.D, ri_MP[0], ri_MP[1], target_rot, npoints)
+            estval = offsetNIworker.kernel_adaptive()
             # This computes the required value analytically, but at N^5 cost. Just for debugging.
             #mat = np.zeros(self.D.shape * 2)
             #mat = mat + self.D
@@ -125,7 +126,7 @@ class ssRPA:
 
         mom0 = einsum("pq,q->pq", integral + integral_offset, self.D ** (-1)) - np.dot(
             np.dot(integral + integral_offset, ri_ApB_inv.T), ri_ApB_inv)
-        return mom0 + moment_offset, integral, NIworker
+        return mom0 + moment_offset, integral, (NIworker, offsetNIworker)
 
     def kernel_moms_old(self, maxmom = 0, npoints = 100, ainit=1.0, integral_deduct = "D"):
 
