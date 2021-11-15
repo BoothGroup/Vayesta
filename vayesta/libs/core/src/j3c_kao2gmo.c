@@ -335,3 +335,183 @@ EXIT:
 
     return ierr;
 }
+
+
+/* TODO */
+
+///* Transform three-center integrals from k-AOs to Gamma-MOs */
+//int64_t j3c_kao2gmo_general(
+//        /* In */
+//        int64_t nk,                 // Number of k-points
+//        int64_t nao,                // Number of atomic orbitals in primitive cells
+//        int64_t nmo1,               // Number of output (molecular, cluster,...) orbitals in supercell
+//        int64_t nmo2,               // Number of output (molecular, cluster,...) orbitals in supercell
+//        int64_t naux,               // Number of auxiliary basis functions in primitive cell
+//        int64_t *kconserv,          // (nk, nk) Momentum conserving k-point for each ki,kj
+//        int64_t *kuniqmap,          // (nk, nk) mapping from (ki,kj) -> unique(ki-kj); if NULL, ki*nk+kj is used
+//        double complex *mo_coeff1,  // (nk, nao, nmo1) MO coefficients in k-space representation
+//        double complex *mo_coeff2,  // (nk, nao, nmo2) MO coefficients in k-space representation
+//        double complex *j3c_ao,     // (nkuniq, naux, nao, nao) k-point sampled 3c-integrals. nkuniq is nk**2 if kuniqmap==NULL, or nk*(nk+1)/2 else
+//        /* Out */
+//        double complex *j3c_mo      // (nk,naux,nmo1,nmo2) Three-center integrals (kL|ia)
+//        )
+//{
+//    int64_t ierr = 0;
+//
+//#pragma omp parallel
+//    {
+//    /* Dummy indices */
+//    size_t k1, k2, k3;  // k-points
+//    int64_t k12;        // composite (k1, k2) index
+//    double complex *work = malloc(MAX(nmo1, nmo2)*nao * sizeof(double complex));
+//    double complex *work2 = malloc(nao*nao * sizeof(double complex));
+//    if (!(work && work2)) {
+//        printf("Error allocating temporary memory in j3c_kao2gamma_general. Exiting.\n");
+//        ierr = -1;
+//    }
+//// Do not perform calculation if any threads did not get memory
+//#pragma omp barrier
+//    if (ierr != 0) goto EXIT;
+//
+//#pragma omp for
+//    for (k1 = 0; k1 < nk; k1++) {
+//    for (k2 = 0; k2 < nk; k2++) {
+//
+//        k12 = k1*nk + k2;
+//        k3 = kconserv[k12];
+//        if (kuniqmap) k12 = kuniqmap[k12];
+//
+//        j3c_kao2mo_k12(
+//                /* In */
+//                nao, nmo1, nmo2, naux,
+//                &mo_coeff1[k1*nao*nmo1], &mo_coeff2[k2*nao*nmo2],
+//                &j3c_ao[labs(k12)*naux*nao*nao], (bool)(k12 < 0),
+//                work, work2,
+//                /* out */
+//                &j3c_mo[k3*naux*nmo1*nmo2])
+//
+//    }} // loop over k1,k2
+//
+//    //TODO
+//    ///* Rotate to real values */
+//    //if (phase) {
+//    //    *work = realloc(nk*nmax*nmax * sizeof(double complex));
+//    //    for (ki = 0; ki < nk; ki++) {
+//    //        memcpy(&(work[ki*nocc*nvir]), &(j3c_ov[(ki*naux + l)*nocc*nvir]), nocc*nvir * sizeof(double complex));
+//    //    }
+//    //    cblas_zgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans, nk, nocc*nvir, nk,
+//    //            &Z1, phase, nk, work, nocc*nvir,
+//    //            &Z1, j3c_oc, nao);
+//    //}
+//
+//EXIT:
+//    free(work);
+//    free(work2);
+//    } // end of parallel region
+//
+//    return ierr;
+//}
+//
+//int64_t j3c_kao2gmo_k12(
+//        /* In */
+//        int64_t nao,                // Number of atomic orbitals in primitive cells
+//        int64_t nmo1,               // Number of output (molecular, cluster,...) orbitals in supercell
+//        int64_t nmo2,               // Number of output (molecular, cluster,...) orbitals in supercell
+//        int64_t naux,               // Number of auxiliary basis functions in primitive cell
+//        double complex *mo_coeff1,  // (nao, nmo1) MO coefficients in k-space representation at k1
+//        double complex *mo_coeff2,  // (nao, nmo2) MO coefficients in k-space representation at k2
+//        double complex *j3c_ao,     // (naux, nao, nao) k-point sampled 3c-integrals at k12(k1,k2)
+//        bool transpose              // transpose j3c_ao
+//        double complex *work,
+//        double complex *work2,
+//        /* Out */
+//        double complex *j3c_mo      // (naux,nmo1,nmo2) Three-center integrals (kL|ia)
+//        )
+//{
+//    int64_t ierr = 0;
+//
+//    /* Dummy indices */
+//    size_t l;           // DF basis function
+//    size_t a, b;        // atomic orbitals
+//#ifdef USE_BLAS
+//    const double complex Z0 = 0.0;
+//    const double complex Z1 = 1.0;
+//#else
+//    /* Dummy indices */
+//    size_t i, j;        // molecular orbital indices
+//#endif
+//    double complex *j3c_pt = NULL;
+//
+//    for (l = 0; l < naux; l++) {
+//
+//        j3c_pt = &(j3c_ao[(labs(k12)*naux + l)*nao*nao]);
+//
+//        // Tranpose AOs if k12 negative
+//        if (k12 < 0) {
+//            for (a = 0; a < nao; a++) {
+//            for (b = 0; b < nao; b++) {
+//                work2[b*nao+a] = conj(j3c_pt[a*nao+b]);
+//            }}
+//            j3c_pt = work2;
+//        }
+//#ifdef USE_BLAS
+//        /* Contract MO1 then MO2 */
+//        if (nmo1 < nmo2) {
+//            //memset(work, 0, nmo1*nao * sizeof(double complex));
+//            // (L|ao,ao) -> (L|mo1,ao)
+//            cblas_zgemm(CblasRowMajor, CblasConjTrans, CblasNoTrans, nmo1, nao, nao,
+//                    &Z1, mo_coeff1, nmo1, j3c_pt, nao,
+//                    &Z0, work, nao);
+//            // (L|mo1,ao) -> (L|mo1,mo2)
+//            cblas_zgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans, nmo1, nmo2, nao,
+//                    &Z1, work, nao, mo_coeff2, nmo2,
+//                    &Z1, &(j3c_mo[l*nmo1*nmo2]), nmo2);
+//        } else {
+//            //memset(work, 0, nao*nmo2 * sizeof(double complex));
+//            // (L|ao,ao) -> (L|ao,mo2)
+//            cblas_zgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans, nao, nmo2, nao,
+//                    &Z1, j3c_pt, nao, mo_coeff2, nmo2,
+//                    &Z0, work, nmo2);
+//            // (L|ao,mo2) -> (L|mo1,mo2)
+//            cblas_zgemm(CblasRowMajor, CblasConjTrans, CblasNoTrans, nmo1, nmo2, nao,
+//                    &Z1, mo_coeff1, nmo1, work, nmo2,
+//                    &Z1, &(j3c_mo[l*nmo1*nmo2]), nmo2);
+//        }
+//#else
+//        /* Contract MO1 then MO2 */
+//        if (nmo1 < nmo2) {
+//            memset(work, 0, nmo1*nao * sizeof(double complex));
+//            // (L|ao,ao) -> (L|mo1,ao)
+//            for (a = 0; a < nao; a++) {
+//            for (b = 0; b < nao; b++) {
+//            for (i = 0; i < nmo1; i++) {
+//                work[i*nao + b] += j3c_pt[a*nao + b] * conj(mo_coeff1[a*nmo1 + i]);
+//            }}}
+//            // (L|mo1,ao) -> (L|mo1,mo2)
+//            for (b = 0; b < nao; b++) {
+//            for (i = 0; i < nmo1; i++) {
+//            for (j = 0; j < nmo2; j++) {
+//                j3c_mo[l*nmo1*nmo2 + i*nmo2 + j] += work[i*nao + b] * mo_coeff2[b*nmo2 + j];
+//            }}}
+//        /* Contract MO2, then MO1 */
+//        } else {
+//            memset(work, 0, nao*nmo2 * sizeof(double complex));
+//            // (L|ao,ao) -> (L|ao,mo2)
+//            for (a = 0; a < nao; a++) {
+//            for (b = 0; b < nao; b++) {
+//            for (j = 0; j < nmo2; j++) {
+//                work[a*nmo2 + j] += j3c_pt[a*nao + b] * mo_coeff2[b*nmo2 + j];
+//            }}}
+//            // (L|ao,mo2) -> (L|mo1,mo2)
+//            for (a = 0; a < nao; a++) {
+//            for (i = 0; i < nmo1; i++) {
+//            for (j = 0; j < nmo2; j++) {
+//                j3c_mo[l*nmo1*nmo2 + i*nmo2 + j] += work[a*nmo2 + j] * conj(mo_coeff1[a*nmo1 + i]);
+//            }}}
+//        }
+//#endif
+//    } // loop over l
+//
+//    return ierr;
+//}
+//

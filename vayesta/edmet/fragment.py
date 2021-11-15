@@ -7,7 +7,6 @@ from vayesta.core.util import *
 import dataclasses
 
 from vayesta.solver import get_solver_class
-from vayesta.ewf import helper, psubspace
 
 from timeit import default_timer as timer
 

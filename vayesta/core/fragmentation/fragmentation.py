@@ -35,7 +35,6 @@ class Fragmentation:
         self.log = log
         self.ovlp = self.mf.get_ovlp()
         #
-        self.nfrag = 0
         self.coeff = None
         self.labels = None
 
@@ -83,12 +82,6 @@ class Fragmentation:
         raise NotImplementedError()
 
     # ---
-
-    def get_next_fid(self):
-        """Get next free fragment ID."""
-        fid = self.nfrag
-        self.nfrag += 1
-        return fid
 
     def get_atoms(self):
         """Get the base atom for each fragment orbital."""

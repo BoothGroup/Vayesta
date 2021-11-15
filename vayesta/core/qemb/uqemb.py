@@ -117,7 +117,6 @@ class UEmbedding(QEmbedding):
             Electron-repulsion integrals in MO basis.
         """
         # TODO: check self.kdf and fold
-        #t0 = timer()
         #if hasattr(self.mf, 'with_df') and self.mf.with_df is not None:
         #    eris_aa = self.mf.with_df.ao2mo(mo_coeff[0], compact=compact)
         #    eris_bb = self.mf.with_df.ao2mo(mo_coeff[1], compact=compact)
@@ -130,11 +129,11 @@ class UEmbedding(QEmbedding):
         #    eris = eris.reshape(4*[mo_coeff.shape[-1]])
         #self.log.timing("Time for AO->MO of ERIs:  %s", time_string(timer()-t0))
         #return eris
-        self.log.debugv("Making alpha-alpha ERIs...")
+        self.log.debugv("Making (aa|aa) ERIs...")
         eris_aa = super().get_eris_array(mo_coeff[0], compact=compact)
-        self.log.debugv("Making beta-beta ERIs...")
+        self.log.debugv("Making (bb|bb) ERIs...")
         eris_bb = super().get_eris_array(mo_coeff[1], compact=compact)
-        self.log.debugv("Making alpha-beta ERIs...")
+        self.log.debugv("Making (aa|bb) ERIs...")
         eris_ab = super().get_eris_array(2*[mo_coeff[0]] + 2*[mo_coeff[1]], compact=compact)
         return (eris_aa, eris_ab, eris_bb)
 
@@ -154,8 +153,6 @@ class UEmbedding(QEmbedding):
         eris: _ChemistsERIs
             ERIs which can be used for the respective post-HF method.
         """
-        t0 = timer()
-
         # Get required quantities:
         active = posthf.get_frozen_mask()
         c_act = (posthf.mo_coeff[0][:,active[0]], posthf.mo_coeff[1][:,active[1]])
@@ -176,7 +173,6 @@ class UEmbedding(QEmbedding):
             #return eris
         # 2) Regular AO->MO transformation
         eris = postscf_ao2mo(posthf, fock=fock, mo_energy=mo_energy, e_hf=e_hf)
-        self.log.timing("Time for AO->MO of ERIs:  %s", time_string(timer()-t0))
         return eris
 
     def update_mf(self, mo_coeff, mo_energy=None, veff=None):

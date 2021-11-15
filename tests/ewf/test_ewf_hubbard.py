@@ -32,7 +32,8 @@ class HubbardEWFTest_N10_U0_1imp(unittest.TestCase, HubbardEWFTest):
         cls.mf.kernel()
         cls.ewf = ewf.EWF(
                 cls.mf,
-                bno_threshold=1e-8,
+                #bno_threshold=1e-8,
+                bno_threshold=0.5e-8,
                 solver_options={
                     'conv_tol': EWF_CONV_TOL,
                 },
@@ -52,7 +53,8 @@ class HubbardEWFTest_N10_U0_2imp(unittest.TestCase, HubbardEWFTest):
         cls.mf.kernel()
         cls.ewf = ewf.EWF(
                 cls.mf,
-                bno_threshold=1e-8,
+                #bno_threshold=1e-8,
+                bno_threshold=0.5e-8,
                 solver_options={
                     'conv_tol': EWF_CONV_TOL,
                 },
@@ -72,7 +74,8 @@ class HubbardEWFTest_N10_U4_1imp(unittest.TestCase, HubbardEWFTest):
         cls.mf.kernel()
         cls.ewf = ewf.EWF(
                 cls.mf,
-                bno_threshold=1e-8,
+                #bno_threshold=1e-8,
+                bno_threshold=0.5e-8,
                 solver_options={
                     'conv_tol': EWF_CONV_TOL,
                 },
@@ -92,7 +95,8 @@ class HubbardEWFTest_N6_U6_2imp(unittest.TestCase, HubbardEWFTest):
         cls.mf.kernel()
         cls.ewf = ewf.EWF(
                 cls.mf,
-                bno_threshold=1e-6,
+                #bno_threshold=1e-6,
+                bno_threshold=0.5e-6,
                 sc_mode=1,
                 sc_energy_tol=1e-9,
                 solver_options={

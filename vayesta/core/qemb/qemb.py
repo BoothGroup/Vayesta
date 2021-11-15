@@ -28,6 +28,8 @@ from vayesta.core.ao2mo.kao2gmo import gdf_to_pyscf_eris
 from vayesta.misc.gdf import GDF
 from vayesta import lattmod
 from vayesta.core.scmf import PDMET, Brueckner
+from vayesta.core.mpi import mpi
+from .register import FragmentRegister
 
 # Fragmentations
 from vayesta.core.fragmentation import make_sao_fragmentation
@@ -46,6 +48,7 @@ from .amplitudes import get_t12
 from .rdm import make_rdm1_demo
 from .rdm import make_rdm2_demo
 from .rdm import make_rdm1_ccsd
+from .rdm import make_rdm1_ccsd_new
 from .rdm import make_rdm2_ccsd
 from . import helper
 
@@ -61,6 +64,7 @@ class QEmbedding:
         recalc_vhf: bool = True
         solver_options: dict = dataclasses.field(default_factory=dict)
         wf_partition: str = 'first-occ'     # ['first-occ', 'first-vir', 'democratic']
+        store_eris: bool = False            # If True, ERIs will be stored in Fragment._eris
 
     def __init__(self, mf, options=None, log=None, **kwargs):
         """Abstract base class for quantum embedding methods.
@@ -119,8 +123,14 @@ class QEmbedding:
             options = options.replace(kwargs)
         self.opts = options
 
+        self.register = FragmentRegister()
+
         # 2) Mean-field
         # -------------
+        if mpi:
+            e_mf = mpi.world.allgather(mf.e_tot)
+            if not np.allclose(e_mf, e_mf[0]):
+                raise RuntimeError("E(MF) is not equal on each MPI process: %r !" % e_mf)
         self._mf_orig = mf      # Keep track of original mean-field object - be careful not to modify in any way, to avoid side effects!
         # Create shallow copy of mean-field object; this way it can be updated without side effects outside the quantum
         # embedding method if attributes are replaced in their entirety
@@ -457,7 +467,6 @@ class QEmbedding:
             Electron-repulsion integrals in MO basis.
         """
         # TODO: check self.kdf and fold
-        t0 = timer()
         if hasattr(self.mf, 'with_df') and self.mf.with_df is not None:
             eris = self.mf.with_df.ao2mo(mo_coeff, compact=compact)
         elif self.mf._eri is not None:
@@ -470,7 +479,6 @@ class QEmbedding:
             else:
                 shape = [mo.shape[-1] for mo in mo_coeff]
             eris = eris.reshape(shape)
-        self.log.timing("Time for AO->MO of ERIs:  %s", time_string(timer()-t0))
         return eris
 
     def get_eris_object(self, posthf):
@@ -489,7 +497,6 @@ class QEmbedding:
         eris: _ChemistsERIs
             ERIs which can be used for the respective post-HF method.
         """
-        t0 = timer()
         c_act = _mo_without_core(posthf, posthf.mo_coeff)
         if isinstance(posthf, pyscf.mp.mp2.MP2):
             fock = self.get_fock()
@@ -506,7 +513,6 @@ class QEmbedding:
             return eris
         # 2) Regular AO->MO transformation
         eris = postscf_ao2mo(posthf, fock=fock, mo_energy=mo_energy, e_hf=e_hf)
-        self.log.timing("Time for AO->MO of ERIs:  %s", time_string(timer()-t0))
         return eris
 
     # Symmetry between fragments
@@ -555,8 +561,71 @@ class QEmbedding:
             children[idx].append(f)
         return children
 
+    def get_fragments(self, **kwargs):
+        """Return all fragments which obey the specified conditions.
+
+        Arguments
+        ---------
+        **kwargs:
+            List of returned fragmens will be filtered according to specified
+            keyword arguments.
+
+        Returns
+        -------
+        fragments: list
+            List of fragments.
+
+        Examples
+        --------
+
+        Only returns fragments with mpi_rank 0, 1, or 2:
+
+        >>> self.get_fragments(mpi_rank=[0,1,2])
+
+        Only returns fragments with no symmetry parent:
+
+        >>> self.get_fragments(sym_parent=None)
+        """
+        filters = {key : np.atleast_1d(kwargs[key]) for key in kwargs}
+        fragments = []
+        for frag in self.fragments:
+            skip = False
+            for key, filt in filters.items():
+                val = getattr(frag, key)
+                if val not in filt:
+                    skip = True
+                    break
+            if skip:
+                self.log.debugv("Skipping %s: attribute %s= %r, filter= %r", frag, key, val, filt)
+                continue
+            self.log.debugv("Returning %s: attribute %s= %r, filter= %r", frag, key, val, filt)
+            fragments.append(frag)
+        return fragments
+
     # Results
     # -------
+
+    def get_fragment_nelectron(self):
+        nelectron = [f.sym_factor*f.nelectron for f in self.fragments]
+
+    @mpi.with_allreduce()
+    def get_dmet_energy_elec(self):
+        """Calculate electronic DMET energy via democratically partitioned density-matrices.
+
+        Returns
+        -------
+        e_dmet: float
+            Electronic DMET energy.
+        """
+        e_dmet = 0.0
+        for f in self.get_fragments(mpi_rank=mpi.rank):
+            if f.results.e_dmet is not None:
+                e_dmet += f.results.e_dmet
+            else:
+                self.log.info("Calculating DMET energy of %s", f)
+                e_dmet += f.get_fragment_dmet_energy()
+        self.log.debugv("E_elec(DMET)= %s", energy_string(e_dmet))
+        return e_dmet
 
     def get_dmet_energy(self, with_nuc=True, with_exxdiv=True):
         """Calculate DMET energy via democratically partitioned density-matrices.
@@ -573,13 +642,7 @@ class QEmbedding:
         e_dmet: float
             DMET energy.
         """
-        e_dmet = 0.0
-        for f in self.fragments:
-            if f.results.e_dmet is not None:
-                e_dmet += f.results.e_dmet
-            else:
-                self.log.info("Calculating DMET energy of %s", f)
-                e_dmet += f.get_fragment_dmet_energy()
+        e_dmet = self.get_dmet_energy_elec()
         if with_nuc:
             e_dmet += self.e_nuc
         if with_exxdiv and self.has_exxdiv:
@@ -611,6 +674,8 @@ class QEmbedding:
     make_rdm2_demo = make_rdm2_demo
     make_rdm1_ccsd = make_rdm1_ccsd
     make_rdm2_ccsd = make_rdm2_ccsd
+
+    make_rdm1_ccsd_new = make_rdm1_ccsd_new
 
     # Utility
     # -------
@@ -801,8 +866,8 @@ class QEmbedding:
     def _add_fragment(self, indices, name, **kwargs):
         c_frag = self.fragmentation.get_frag_coeff(indices)
         c_env = self.fragmentation.get_env_coeff(indices)
-        fid = self.fragmentation.get_next_fid()
-        frag = self.Fragment(self, fid, name, c_frag, c_env, **kwargs)
+        fid, mpirank = self.register.get_next()
+        frag = self.Fragment(self, fid, name, c_frag, c_env, mpi_rank=mpirank, **kwargs)
         self.fragments.append(frag)
         # Log fragment orbitals:
         self.log.debugv("Fragment %ss:\n%r", self.fragmentation.name, indices)

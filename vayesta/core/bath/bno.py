@@ -12,6 +12,7 @@ from vayesta.core.linalg import recursive_block_svd
 from . import helper
 
 from .dmet import DMET_Bath
+from .dmet import UDMET_Bath
 
 class BNO_Bath(DMET_Bath):
     """DMET + Bath natural orbitals."""
@@ -43,54 +44,72 @@ class BNO_Bath(DMET_Bath):
             raise ValueError("kind not in ['occ', 'vir']: %r" % kind)
 
         c_env = self.c_env_occ if (kind == 'occ') else self.c_env_vir
-        if c_env.shape[-1] == 0:
+        if self.spin_restricted and (c_env.shape[-1] == 0):
             return c_env, np.zeros((0,))
+        elif self.spin_unrestricted and (c_env[0].shape[-1] + c_env[1].shape[-1] == 0):
+            return c_env, 2*[np.zeros((0,))]
 
         name = {'occ': "occupied", 'vir': "virtual"}[kind]
 
         self.log.info("Making %s Bath NOs", name.capitalize())
         self.log.info("-------%s---------", len(name)*'-')
         self.log.changeIndentLevel(1)
-        t0 = timer()
-        c_bno, n_bno = self.make_bno_coeff(kind)
-        self.log.debugv("BNO eigenvalues:\n%r", n_bno)
-        if len(n_bno) > 0:
-            self.log.info("%s Bath NO Histogram", name.capitalize())
-            self.log.info("%s------------------", len(name)*'-')
-            for line in helper.plot_histogram(n_bno):
-                self.log.info(line)
-        self.log.timing("Time for %s BNOs:  %s", name, time_string(timer()-t0))
+        with log_time(self.log.timing, "Time for %s BNOs: %s", name):
+            c_bno, n_bno = self.make_bno_coeff(kind)
+            self.log_histogram(n_bno, name=name)
         self.log.changeIndentLevel(-1)
 
         return c_bno, n_bno
 
+    def log_histogram(self, n_bno, name):
+        if not len(n_bno):
+            return
+        if np.ndim(n_bno[0]) == 1:
+            self.log_histogram(n_bno[0], name='Alpha-%s' % name)
+            self.log_histogram(n_bno[1], name='Beta-%s' % name)
+            return
+        self.log.info("%s BNO histogram", name.capitalize())
+        self.log.info("%s--------------", len(name)*'-')
+        for line in helper.plot_histogram(n_bno):
+            self.log.info(line)
+
     def get_occupied_bath(self, bno_threshold=None, bno_number=None):
-        self.log.info("Occupied BNOs:")
-        return self.truncate_bno(self.c_bno_occ, self.n_bno_occ, bno_threshold=bno_threshold, bno_number=bno_number)
+        return self.truncate_bno(self.c_bno_occ, self.n_bno_occ, bno_threshold=bno_threshold,
+                bno_number=bno_number, header="occupied BNOs:")
 
     def get_virtual_bath(self, bno_threshold=None, bno_number=None):
-        self.log.info("Virtual BNOs:")
-        return self.truncate_bno(self.c_bno_vir, self.n_bno_vir, bno_threshold=bno_threshold, bno_number=bno_number)
+        return self.truncate_bno(self.c_bno_vir, self.n_bno_vir, bno_threshold=bno_threshold,
+                bno_number=bno_number, header="virtual BNOs:")
 
-    def truncate_bno(self, c_bno, n_bno, bno_threshold=None, bno_number=None):
+    def truncate_bno(self, c_bno, n_bno, bno_threshold=None, bno_number=None, header=None):
         """Split natural orbitals (NO) into bath and rest."""
+
+        if np.ndim(c_bno[0]) == 2:
+            c_bno_a, c_rest_a = self.truncate_bno(c_bno[0], n_bno[0], bno_threshold=bno_threshold,
+                    bno_number=bno_number, header='Alpha %s' % header)
+            c_bno_b, c_rest_b = self.truncate_bno(c_bno[1], n_bno[1], bno_threshold=bno_threshold,
+                    bno_number=bno_number, header='Beta %s' % header)
+            return (c_bno_a, c_bno_b), (c_rest_a, c_rest_b)
+
         if bno_number is not None:
             pass
         elif bno_threshold is not None:
             bno_threshold *= self.fragment.opts.bno_threshold_factor
             bno_number = np.count_nonzero(n_bno >= bno_threshold)
         else:
-            raise ValueError()
+            raise ValueError("Either bno_threshold or bno_number needs to be specified.")
 
         # Logging
+        if header:
+            self.log.info(header.capitalize())
         fmt = "  > %4s: N= %4d  max= % 9.3g  min= % 9.3g  sum= % 9.3g ( %7.3f %%)"
         def log(name, n_part):
-            if len(n_part) > 0:
-                with np.errstate(invalid='ignore'): # supress 0/0=nan warning
-                    self.log.info(fmt, name, len(n_part), max(n_part), min(n_part), np.sum(n_part),
-                            100*np.sum(n_part)/np.sum(n_bno))
-            else:
+            if len(n_part) == 0:
                 self.log.info(fmt[:fmt.index('max')].rstrip(), name, 0)
+                return
+            with np.errstate(invalid='ignore'): # supress 0/0 warning
+                self.log.info(fmt, name, len(n_part), max(n_part), min(n_part), np.sum(n_part),
+                        100*np.sum(n_part)/np.sum(n_bno))
         log("Bath", n_bno[:bno_number])
         log("Rest", n_bno[bno_number:])
 
@@ -113,8 +132,8 @@ class MP2_BNO_Bath(BNO_Bath):
             return pyscf.mp.MP2
         return pyscf.pbc.mp.MP2
 
-    def make_dm1(self, kind, t2, t2loc):
-        """MP2 density matrix"""
+    def make_delta_dm1(self, kind, t2, t2loc):
+        """Delta MP2 density matrix"""
         if self.local_dm is False:
             self.log.debug("Constructing DM from full T2-amplitudes.")
             t2l = t2r = t2
@@ -132,15 +151,17 @@ class MP2_BNO_Bath(BNO_Bath):
         else:
             raise ValueError("Unknown value for local_dm: %r" % self.local_dm)
 
+        #norm = 2
+        norm = 1
         if kind == 'occ':
-            dm = 2*(2*einsum('ikab,jkab->ij', t2l, t2r)
-                    - einsum('ikab,kjab->ij', t2l, t2r))
+            dm = norm*(2*einsum('ikab,jkab->ij', t2l, t2r)
+                       - einsum('ikab,kjab->ij', t2l, t2r))
             # Note that this is equivalent to:
             #dm = 2*(2*einsum("kiba,kjba->ij", t2l, t2r)
             #        - einsum("kiba,kjab->ij", t2l, t2r))
         else:
-            dm = 2*(2*einsum('ijac,ijbc->ab', t2l, t2r)
-                    - einsum('ijac,ijcb->ab', t2l, t2r))
+            dm = norm*(2*einsum('ijac,ijbc->ab', t2l, t2r)
+                       - einsum('ijac,ijcb->ab', t2l, t2r))
         if self.local_dm == 'semi':
             dm = (dm + dm.T)/2
         assert np.allclose(dm, dm.T)
@@ -162,6 +183,8 @@ class MP2_BNO_Bath(BNO_Bath):
     def make_bno_coeff(self, kind, eris=None):
         """Construct MP2 bath natural orbital coefficients and occupation numbers.
 
+        This routine works for both for spin-restricted and unrestricted.
+
         Parameters
         ----------
         kind: ['occ', 'vir']
@@ -176,26 +199,16 @@ class MP2_BNO_Bath(BNO_Bath):
         """
 
         actspace_orig = self.get_active_space(kind)
-        if kind == 'occ':
-            c_env = self.c_env_occ
-            ncluster = self.c_cluster_occ.shape[-1]
-        elif kind == 'vir':
-            c_env = self.c_env_vir
-            ncluster = self.c_cluster_vir.shape[-1]
-
-        self.log.debugv("n(cluster)= %d", ncluster)
 
         # --- Canonicalization [optional]
         if self.canonicalize[0]:
             self.log.debugv("Canonicalizing occupied orbitals")
             c_active_occ, r_occ, e_occ = self.fragment.canonicalize_mo(actspace_orig.c_active_occ, eigvals=True)
-            self.log.debugv("Occupied eigenvalues:\n%r", e_occ)
         else:
             c_active_occ = actspace_orig.c_active_occ
         if self.canonicalize[1]:
             self.log.debugv("Canonicalizing virtual orbitals")
             c_active_vir, r_vir, e_vir = self.fragment.canonicalize_mo(actspace_orig.c_active_vir, eigvals=True)
-            self.log.debugv("Virtual eigenvalues:\n%r", e_vir)
         else:
             c_active_vir = actspace_orig.c_active_vir
         actspace = ActiveSpace(self.mf, c_active_occ, c_active_vir,
@@ -203,6 +216,7 @@ class MP2_BNO_Bath(BNO_Bath):
 
         # --- Setup PySCF MP2 object
         cls = self.get_mp2_class()
+        self.log.debugv("MP2 class: %r", cls)
         mo_coeff = actspace.coeff
         self.log.debugv('%r', actspace)
         frozen_indices = actspace.get_frozen_indices()
@@ -210,52 +224,139 @@ class MP2_BNO_Bath(BNO_Bath):
         mp2 = cls(self.mf, mo_coeff=mo_coeff, frozen=frozen_indices)
 
         # -- Integral transformation
-        t0 = timer()
         if eris is None:
-            eris = self.base.get_eris_object(mp2)
+            with log_time(self.log.timing, "Time for AO->MO transformation: %s"):
+                eris = self.base.get_eris_object(mp2)
         # Reuse previously obtained integral transformation into N^2 sized quantity (rather than N^4)
         else:
             self.log.debug("Transforming previous eris.")
             eris = transform_mp2_eris(eris, actspace.c_active_occ, actspace.c_active_vir, ovlp=self.base.get_ovlp())
-        self.log.timing("Time for integral transformation:  %s", time_string(timer()-t0))
         assert (eris.ovov is not None)
 
         # --- Kernel
-        t0 = timer()
-        e_mp2_full, t2 = mp2.kernel(eris=eris)
-        nocc, nvir = t2.shape[0], t2.shape[2]
-        assert (actspace.nocc_active == nocc)
-        assert (actspace.nvir_active == nvir)
-        self.log.timing("Time for MP2 kernel:  %s", time_string(timer()-t0))
+        with log_time(self.log.timing, "Time for MP2 kernel: %s"):
+            e_mp2_full, t2 = mp2.kernel(eris=eris)
 
         # --- MP2 energies
         e_mp2_full *= self.fragment.get_energy_prefactor()
         # Symmetrize irrelevant?
-        t2loc = self.fragment.project_amplitudes_to_fragment(mp2, None, t2)[1]
+        #t2loc = self.fragment.project_amplitudes_to_fragment(mp2, None, t2)[1]
+        t2loc = self.fragment.project_amplitude_to_fragment(t2, c_occ=actspace.c_active_occ)
         e_mp2 = self.fragment.get_energy_prefactor() * mp2.energy(t2loc, eris)
         self.log.debug("MP2 bath energy:  E(Cluster)= %+16.8f Ha  E(Fragment)= %+16.8f Ha", e_mp2_full, e_mp2)
 
-        dm = self.make_dm1(kind, t2, t2loc)
+        dm = self.make_delta_dm1(kind, t2, t2loc)
+
+        # TEST normalization
+        #dm1 = mp2.make_rdm1(eris=eris, with_frozen=False)
+        #nocc = mp2.get_nocc()
+        #if kind == 'occ':
+        #    occ = np.s_[:nocc]
+        #    dm1 = dm1[occ,occ]
+        #    dm1 = dot(r_occ, dm1, r_occ.T)
+        #    e, v = np.linalg.eigh(dm1[env,env])
+        #    self.log.debugv("BNO occ eigenvalues:\n%r", e)
+        #elif kind == 'vir':
+        #    vir = np.s_[nocc:]
+        #    dm1 = dm1[vir,vir]
+        #    dm1 = dot(r_vir, dm1, r_vir.T)
+        #    e, v = np.linalg.eigh(dm1[env,env])
+        #    self.log.debugv("BNO vir eigenvalues:\n%r", e)
 
         # --- Undo canonicalization
         if kind == 'occ' and self.canonicalize[0]:
-            dm = dot(r_occ, dm, r_occ.T)
             self.log.debugv("Undoing occupied canonicalization")
+            if self.spin_restricted:
+                dm = dot(r_occ, dm, r_occ.T)
+            else:
+                dm = (dot(r_occ[0], dm[0], r_occ[0].T),
+                      dot(r_occ[1], dm[1], r_occ[1].T))
         elif kind == 'vir' and self.canonicalize[1]:
-            dm = dot(r_vir, dm, r_vir.T)
             self.log.debugv("Undoing virtual canonicalization")
+            if self.spin_restricted:
+                dm = dot_s(r_vir, dm, r_vir.T)
+            else:
+                dm = (dot(r_vir[0], dm[0], r_vir[0].T),
+                      dot(r_vir[1], dm[1], r_vir[1].T))
 
-        # --- Diagonalize
-        clt, env = np.s_[:ncluster], np.s_[ncluster:]
-        self.log.debugv("Tr[D]= %r", np.trace(dm))
-        self.log.debugv("Tr[D(cluster,cluster)]= %r", np.trace(dm[clt,clt]))
-        self.log.debugv("Tr[D(env,env)]= %r", np.trace(dm[env,env]))
-        n_bno, c_bno = np.linalg.eigh(dm[env,env])
-        n_bno, c_bno = n_bno[::-1], c_bno[:,::-1]
-        c_bno = np.dot(c_env, c_bno)
+        # --- Diagonalize environment-environment block
+        if kind == 'occ':
+            c_env = self.c_env_occ
+            if self.spin_restricted:
+                ncluster = self.c_cluster_occ.shape[-1]
+            else:
+                ncluster_a = self.c_cluster_occ[0].shape[-1]
+                ncluster_b = self.c_cluster_occ[1].shape[-1]
+        elif kind == 'vir':
+            c_env = self.c_env_vir
+            if self.spin_restricted:
+                ncluster = self.c_cluster_vir.shape[-1]
+            else:
+                ncluster_a = self.c_cluster_vir[0].shape[-1]
+                ncluster_b = self.c_cluster_vir[1].shape[-1]
+
+        if self.spin_restricted:
+            self.log.debugv("n(cluster)= %d", ncluster)
+            self.log.debugv("tr(dm)= %g", np.trace(dm))
+            dm = dm[ncluster:,ncluster:]
+            self.log.debugv("tr(dm[env,env])= %g", np.trace(dm))
+        else:
+            self.log.debugv("n(cluster)= (%d, %d)", ncluster_a, ncluster_b)
+            self.log.debugv("tr(alpha-dm)= %g", np.trace(dm[0]))
+            self.log.debugv("tr( beta-dm)= %g", np.trace(dm[1]))
+            dm = (dm[0][ncluster_a:,ncluster_a:], dm[1][ncluster_b:,ncluster_b:])
+            self.log.debugv("tr(alpha-dm[env,env])= %g", np.trace(dm[0]))
+            self.log.debugv("tr( beta-dm[env,env])= %g", np.trace(dm[1]))
+
+        if self.spin_restricted:
+            n_bno, c_bno = np.linalg.eigh(dm)
+            n_bno = n_bno[::-1]
+            c_bno = c_bno[:,::-1]
+        else:
+            n_bno_a, c_bno_a = np.linalg.eigh(dm[0])
+            n_bno_b, c_bno_b = np.linalg.eigh(dm[1])
+            n_bno_a = n_bno_a[::-1]
+            c_bno_a = c_bno_a[:,::-1]
+            n_bno_b = n_bno_b[::-1]
+            c_bno_b = c_bno_b[:,::-1]
+            c_bno = (c_bno_a, c_bno_b)
+            n_bno = (n_bno_a, n_bno_b)
+
+        c_bno = dot_s(c_env, c_bno)
         c_bno = fix_orbital_sign(c_bno)[0]
 
         return c_bno, n_bno
+
+
+class UMP2_BNO_Bath(MP2_BNO_Bath, UDMET_Bath):
+
+    def __init__(self, *args, local_dm=False, **kwargs):
+        if local_dm:
+            raise NotImplementedError()
+        super().__init__(*args, local_dm=local_dm, **kwargs)
+
+    def get_mp2_class(self):
+        if self.base.boundary_cond == 'open':
+            return pyscf.mp.UMP2
+        return pyscf.pbc.mp.UMP2
+
+    def make_delta_dm1(self, kind, t2, t2loc):
+        taa, tab, tbb = t2
+        # Construct occupied-occupied DM
+        if kind == 'occ':
+            dma  = (einsum('imef,jmef->ij', taa.conj(), taa)/2
+                  + einsum('imef,jmef->ij', tab.conj(), tab))
+            dmb  = (einsum('imef,jmef->ij', tbb.conj(), tbb)/2
+                  + einsum('mief,mjef->ij', tab.conj(), tab))
+        # Construct virtual-virtual DM
+        elif kind == 'vir':
+            dma  = (einsum('mnae,mnbe->ba', taa.conj(), taa)/2
+                  + einsum('mnae,mnbe->ba', tab.conj(), tab))
+            dmb  = (einsum('mnae,mnbe->ba', tbb.conj(), tbb)/2
+                  + einsum('mnea,mneb->ba', tab.conj(), tab))
+        assert np.allclose(dma, dma.T)
+        assert np.allclose(dmb, dmb.T)
+        return (dma, dmb)
 
 
 # ================================================================================================ #

@@ -117,7 +117,8 @@ class MoleculeEWFTest_LiH_ccpvdz_Lowdin_AOs(unittest.TestCase, MoleculeEWFTest):
 
         cls.ewf = ewf.EWF(
                 cls.mf,
-                bno_threshold=1e-5,
+                #bno_threshold=1e-5,
+                bno_threshold=0.5e-5,
                 solver_options={
                     'conv_tol': EWF_CONV_TOL,
                 },
@@ -204,7 +205,8 @@ class MoleculeEWFTest_N2_ccpvdz_TCCSD(unittest.TestCase, MoleculeEWFTest):
         cls.ewf = ewf.EWF(
                 cls.mf,
                 solver='TCCSD',
-                bno_threshold=1e-4,
+                #bno_threshold=1e-4,
+                bno_threshold=0.5e-4,
                 solver_options={
                     'conv_tol': EWF_CONV_TOL,
                 },
@@ -233,7 +235,8 @@ class MoleculeEWFTest_N2_ccpvdz_TCCSD_CAS(unittest.TestCase, MoleculeEWFTest):
         cls.ewf = ewf.EWF(
                 cls.mf,
                 solver='TCCSD',
-                bno_threshold=1e-4,
+                #bno_threshold=1e-4,
+                bno_threshold=0.5e-4,
                 solver_options={
                     'conv_tol': EWF_CONV_TOL,
                 },
@@ -262,7 +265,8 @@ class MoleculeEWFTest_N2_ccpvdz_sc(unittest.TestCase, MoleculeEWFTest):
 
         cls.ewf = ewf.EWF(
                 cls.mf,
-                bno_threshold=1e-4,
+                #bno_threshold=1e-4,
+                bno_threshold=0.5e-4,
                 sc_mode=1,
                 sc_energy_tol=1e-9,
                 solver_options={
@@ -312,7 +316,8 @@ class MiscMoleculeEWFTests(unittest.TestCase):
         emb = ewf.EWF(
                 self.mf,
                 solver_options={'conv_tol': EWF_CONV_TOL},
-                bno_threshold=1e-6,
+                #bno_threshold=1e-6,
+                bno_threshold=0.5e-6,
                 eom_ccsd=['IP', 'EA', 'EE-S', 'EE-T', 'EE-SF'],
                 eom_ccsd_nroots=5,
         )

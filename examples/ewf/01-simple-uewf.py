@@ -8,24 +8,22 @@ import vayesta.ewf
 
 mol = pyscf.gto.Mole()
 mol.atom = """
-O  0.0000   0.0000   0.1173
-H  0.0000   0.7572  -0.4692
-H  0.0000  -0.7572  -0.4692
+N   0.0000   0.0000	0.0000
+O   0.0000   1.0989	0.4653
+O   0.0000  -1.0989     0.4653
 """
 mol.basis = 'cc-pVDZ'
-mol.output = 'pyscf-01.out'
+mol.output = 'pyscf.out'
+mol.spin = 1
 mol.build()
 
 # Hartree-Fock
 mf = pyscf.scf.UHF(mol)
 mf.kernel()
 
-ecc = vayesta.ewf.EWF(mf, bath_type='full')
-ecc.iaopao_fragmentation()
-ecc.add_atomic_fragment(0)
-ecc.add_atomic_fragment(1)
-ecc.add_atomic_fragment(2)
-# Alternative: ecc.make_all_atom_fragments()
+ecc = vayesta.ewf.EWF(mf, bno_threshold=1e-6)
+ecc.iao_fragmentation()
+ecc.make_all_atom_fragments()
 ecc.kernel()
 
 print("E(HF)=     %+16.8f Ha" % mf.e_tot)

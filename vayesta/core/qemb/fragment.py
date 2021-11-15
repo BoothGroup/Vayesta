@@ -17,6 +17,12 @@ import vayesta.core.ao2mo
 import vayesta.core.ao2mo.helper
 from vayesta.core.bath import DMET_Bath
 from vayesta.misc.cubefile import CubeFile
+from vayesta.core.mpi import mpi
+
+
+# Get MPI rank of fragment
+get_fragment_mpi_rank = lambda *args : args[0].mpi_rank
+
 
 class Fragment:
 
@@ -28,11 +34,13 @@ class Fragment:
         # Symmetry
         sym_factor: float = 1.0
         wf_partition: str = NotSet  # ['first-occ', 'first-vir', 'democratic']
+        store_eris: bool = NotSet   # If True, ERIs will be stored in Fragment._eris
 
     @dataclasses.dataclass
     class Results:
         fid: int = None             # Fragment ID
         converged: bool = None      # True, if solver reached convergence criterion or no convergence required (eg. MP2 solver)
+        # --- Energies
         e_corr: float = None        # Fragment correlation energy contribution
         e_dmet: float = None        # DMET energy contribution
         # --- Wave-function
@@ -43,34 +51,76 @@ class Fragment:
         t2: np.ndarray = None       # CC double amplitudes
         l1: np.ndarray = None       # CC single Lambda-amplitudes
         l2: np.ndarray = None       # CC double Lambda-amplitudes
-        # Fragment-projected ("fp") amplitudes:
-        t1_fp: np.ndarray = None    # Fragment-projected CC single amplitudes
-        t2_fp: np.ndarray = None    # Fragment-projected CC double amplitudes
-        l1_fp: np.ndarray = None    # Fragment-projected CC single Lambda-amplitudes
-        l2_fp: np.ndarray = None    # Fragment-projected CC double Lambda-amplitudes
-        # Cluster density-matrices
+        # Fragment-projected amplitudes:
+        c1x: np.ndarray = None      # Fragment-projected CI single coefficients
+        c2x: np.ndarray = None      # Fragment-projected CI double coefficients
+        t1x: np.ndarray = None      # Fragment-projected CC single amplitudes
+        t2x: np.ndarray = None      # Fragment-projected CC double amplitudes
+        l1x: np.ndarray = None      # Fragment-projected CC single Lambda-amplitudes
+        l2x: np.ndarray = None      # Fragment-projected CC double Lambda-amplitudes
+        # --- Density-matrices
         dm1: np.ndarray = None      # One-particle reduced density matrix (dm1[i,j] = <0| i^+ j |0>
         dm2: np.ndarray = None      # Two-particle reduced density matrix (dm2[i,j,k,l] = <0| i^+ k^+ l j |0>)
 
-        def convert_amp_c_to_t(self):
-            self.t1 = self.c1/self.c0
-            self.t2 = self.c2/self.c0 - einsum('ia,jb->ijab', self.t1, self.t1)
-            return self.t1, self.t2
+        #def convert_amp_c_to_t(self):
+        #    self.t1 = self.c1/self.c0
+        #    self.t2 = self.c2/self.c0 - einsum('ia,jb->ijab', self.t1, self.t1)
+        #    return self.t1, self.t2
 
-        def get_t1(self):
+        def get_t1(self, default=None):
             if self.t1 is not None:
                 return self.t1
             if self.c1 is not None:
                 return self.c1 / self.c0
-            return None
+            return default
 
-        def get_t2(self):
+        def get_t2(self, default=None):
             if self.t2 is not None:
                 return self.t2
-            if self.c2 is not None:
+            if self.c0 is not None and self.c1 is not None and self.c2 is not None:
                 c1 = self.c1/self.c0
                 return self.c2/self.c0 - einsum('ia,jb->ijab', c1, c1)
-            return None
+            return default
+
+        def get_c1(self, intermed_norm=False, default=None):
+            if self.c1 is not None:
+                norm = 1/self.c0 if intermed_norm else 1
+                return norm * self.c1
+            if self.t1 is not None:
+                if not intermed_norm:
+                    raise ValueError("Cannot deduce C1 amplitudes from T1: normalization not known.")
+                return self.t1
+            return default
+
+        def get_c2(self, intermed_norm=False, default=None):
+            if self.c2 is not None:
+                norm = 1/self.c0 if intermed_norm else 1
+                return norm * self.c2
+            if self.t1 is not None and self.t2 is not None:
+                if not intermed_norm:
+                    raise ValueError("Cannot deduce C2 amplitudes from T1,T2: normalization not known.")
+                return self.t2 + einsum('ia,jb->ijab', self.t1, self.t1)
+            return default
+
+        #def get_t1x(self, default=None):
+        #    if self.t1x is not None:
+        #        return self.t1x
+        #    return default
+
+        #def get_t2x(self, default=None):
+        #    if self.t2x is not None:
+        #        return self.t2x
+        #    return default
+
+        #def get_l1x(self, default=None):
+        #    if self.l1x is not None:
+        #        return self.l1x
+        #    return default
+
+        #def get_l2x(self, default=None):
+        #    if self.l2x is not None:
+        #        return self.l2x
+        #    return default
 
     class Exit(Exception):
         """Raise for controlled early exit."""
@@ -88,6 +138,7 @@ class Fragment:
     def __init__(self, base, fid, name, c_frag, c_env, #fragment_type,
             atoms=None, aos=None,
             sym_parent=None, sym_op=None,
+            mpi_rank=0,
             log=None, options=None, **kwargs):
         """Abstract base class for quantum embedding fragments.
 
@@ -175,6 +226,9 @@ class Fragment:
         self.atoms = atoms
         self.aos = aos
 
+        # MPI
+        self.mpi_rank = mpi_rank
+
         # This set of orbitals is used in the projection to evaluate expectation value contributions
         # of the fragment. By default it is equal to `self.c_frag`.
         self.c_proj = self.c_frag
@@ -193,6 +247,9 @@ class Fragment:
         self.bath = None
         self.cluster = None
 
+        # In some cases we want to keep ERIs stored after the calculation
+        self._eris = None
+
         self.log.info("Creating %r", self)
         #self.log.info(break_into_lines(str(self.opts), newline='\n    '))
 
@@ -201,8 +258,9 @@ class Fragment:
         #fmt = ('%s(' + len(keys)*'%s: %r, ')[:-2] + ')'
         #values = [self.__dict__[k] for k in keys]
         #return fmt % (self.__class__.__name__, *[x for y in zip(keys, values) for x in y])
-        return '%s(id= %d, name= %s, n_frag= %d, n_elec= %.8f, sym_factor= %f)' % (self.__class__.__name__,
-                self.id, self.name, self.n_frag, self.nelectron, self.sym_factor)
+        return '%s(id= %d, name= %s, mpi_rank= %d, n_frag= %d, n_elec= %.8f, sym_factor= %f)' % (
+                self.__class__.__name__, self.id, self.name, self.mpi_rank,
+                self.n_frag, self.nelectron, self.sym_factor)
 
     def __str__(self):
         return '%s %d: %s' % (self.__class__.__name__, self.id, self.name)
@@ -483,6 +541,7 @@ class Fragment:
         mo_coeff = hstack(*mo_coeff)    # Called from UHF: do NOT use stack_mo!
         fock = dot(mo_coeff.T, fock, mo_coeff)
         mo_energy, rot = np.linalg.eigh(fock)
+        self.log.debugv("Canonicalized MO energies:\n%r", mo_energy)
         mo_can = np.dot(mo_coeff, rot)
         if sign_convention:
             mo_can, signs = fix_orbital_sign(mo_can)
@@ -559,6 +618,37 @@ class Fragment:
 
     # Amplitude projection
     # --------------------
+
+    # NEW:
+
+    def get_occ2frag_projector(self):
+        ovlp = self.base.get_ovlp()
+        projector = dot(self.c_proj.T, ovlp, self.c_active_occ)
+        return projector
+
+    def project_amp1_to_fragment(self, amp1, projector=None):
+        """Can be used to project C1, T1, or L1 amplitudes."""
+        if projector is None:
+            projector = self.get_occ2frag_projector()
+        return np.dot(projector, amp1)
+
+    def project_amp2_to_fragment(self, amp2, projector=None, axis=0):
+        """Can be used to project C2, T2, or L2 amplitudes."""
+        if projector is None:
+            projector = self.get_occ2frag_projector()
+        if axis == 0:
+            # TEST
+            #c1 = einsum('xi,i...->x...', projector, amp2)
+            #c2 = einsum('xj,ij...->ix...', projector, amp2)
+            #assert np.allclose(c1, c2.transpose(1,0,2,3))
+            #assert np.allclose(c2, c1.transpose(1,0,2,3))
+            #
+            return einsum('xi,i...->x...', projector, amp2)
+        if axis == 1:
+            return einsum('xj,ij...->ix...', projector, amp2)
+        raise ValueError("axis needs to be 0 or 1")
+
+    # OLD:
 
     def project_amplitude_to_fragment(self, c, c_occ=None, c_vir=None, partition=None, symmetrize=True):
         """Get fragment contribution of CI coefficients or CC amplitudes.
@@ -685,6 +775,8 @@ class Fragment:
 
         # Note that the energy should be invariant to symmetrization
         if symmetrize:
+            #sym_err = np.linalg.norm(pc - pc.transpose(1,0,3,2))
+            #self.log.debugv("Symmetry error= %e", sym_err)
             pc = (pc + pc.transpose(1,0,3,2)) / 2
 
         return pc
@@ -742,9 +834,10 @@ class Fragment:
                 frag = self.base.add_fragment(name, c_frag_t, c_env_t, options=self.opts,
                         sym_parent=self, sym_op=sym_op)
             else:
-                fid = self.base.fragmentation.get_next_fid()
-                frag = self.base.Fragment(self.base, fid, name, c_frag_t, c_env_t, options=self.opts,
-                        sym_parent=self, sym_op=sym_op)
+                #fid = self.base.fragmentation.get_next_fid()
+                frag_id = self.base.register.get_next_id()
+                frag = self.base.Fragment(self.base, frag_id, name, c_frag_t, c_env_t, options=self.opts,
+                        sym_parent=self, sym_op=sym_op, mpi_rank=self.mpi_rank)
                 self.base.fragments.append(frag)
 
             # Check symmetry
@@ -817,6 +910,7 @@ class Fragment:
         mo_energy = einsum('ai,ab,bi->i', c_active, fock, c_active)
         return mo_energy
 
+    @mpi.with_send(source=get_fragment_mpi_rank)
     def get_fragment_dmet_energy(self, dm1=None, dm2=None, h1e_eff=None, eris=None):
         """Get fragment contribution to whole system DMET energy.
 
@@ -836,6 +930,7 @@ class Fragment:
         e_dmet: float
             Electronic fragment DMET energy.
         """
+        assert (mpi.rank == self.mpi_rank)
         if dm1 is None: dm1 = self.results.dm1
         if dm2 is None: dm2 = self.results.dm2
         if dm1 is None: raise RuntimeError("DM1 not found for %s" % self)
@@ -843,7 +938,8 @@ class Fragment:
         c_act = self.c_active
         t0 = timer()
         if eris is None:
-            eris = self.base.get_eris_array(c_act)
+            with log_time(self.log.timing, "Time for AO->MO transformation: %s"):
+                eris = self.base.get_eris_array(c_act)
         elif not isinstance(eris, np.ndarray):
             self.log.debugv("Extracting ERI array from CCSD ERIs object.")
             eris = vayesta.core.ao2mo.helper.get_full_array(eris, c_act)

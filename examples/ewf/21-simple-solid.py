@@ -12,7 +12,7 @@ cell = pyscf.pbc.gto.Cell()
 cell.atom = ['He 0.0 0.0 0.0']
 cell.a = 1.4 * np.eye(3)
 cell.basis = 'def2-svp'
-cell.output = 'pyscf-20.out'
+cell.output = 'pyscf.out'
 cell.build()
 
 kpts = cell.make_kpts([2,2,2])
