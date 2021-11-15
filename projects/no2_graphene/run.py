@@ -12,41 +12,50 @@ import vayesta.ewf
 
 from structures import NO2_Graphene
 
-parser = argparse.ArgumentParser()
-parser.add_argument('--structure', type=int, default=-1)
-parser.add_argument('--kmesh', type=int, nargs=2, default=False)
-parser.add_argument('--basis', default='cc-pVDZ')
-parser.add_argument('--auxbasis', default='cc-pVDZ-ri')
-parser.add_argument('--gate-range', type=float, nargs=3, default=[-0.01, 0.01, 0.002])
-parser.add_argument('--gates', type=float, nargs='*', default=[0.0])
-#parser.add_argument('--gate-range', type=float, nargs=3, default=[-0.004, 0.004, 0.002])
-parser.add_argument('--invert-scan', action='store_true')
-parser.add_argument('--trace', action='store_true')
-parser.add_argument('--gate-index', type=int)
-parser.add_argument('--supercell', type=int, nargs=2, default=[5, 5])
-#parser.add_argument('--supercell', type=int, nargs=2, default=[6, 6])
-parser.add_argument('--vacuum-size', type=float, default=30.0)
-parser.add_argument('--z-graphene', type=float)
-parser.add_argument('--verbose', type=int, default=10)
-parser.add_argument('--dimension', type=int, default=2)
-parser.add_argument('--spin', type=int, default=1)
-parser.add_argument('--lindep-threshold', type=float)
-# --- MF
-parser.add_argument('--xc', default=None)
-parser.add_argument('--mf-only', action='store_true')
-parser.add_argument('--scf-conv-tol', type=float, default=1e-9)
-# --- Embedding
-parser.add_argument('--fragment-type', default='iao')
-parser.add_argument('--nc', type=int, default=0)
-parser.add_argument('--eta', type=float)
-parser.add_argument('--augmented-basis', type=int, default=1)
-parser.add_argument('--dmet-threshold', type=float, default=1e-4)
-args =parser.parse_args()
+def get_args():
 
-if args.z_graphene is None:
-    args.z_graphene = args.vacuum_size / 2
+    parser = argparse.ArgumentParser(fromfile_prefix_chars='@')
+    # --- Cell
+    parser.add_argument('--structure', type=int, default=-1)
+    parser.add_argument('--basis', default='cc-pVDZ')
+    parser.add_argument('--augmented-basis', type=int, default=1)
+    parser.add_argument('--auxbasis', default='cc-pVDZ-ri')
+    parser.add_argument('--supercell', type=int, nargs=2, default=[5, 5])
+    #parser.add_argument('--supercell', type=int, nargs=2, default=[6, 6])
+    #parser.add_argument('--supercell', type=int, nargs=2, default=[9, 9])
+    parser.add_argument('--vacuum-size', type=float, default=30.0)
+    parser.add_argument('--z-graphene', type=float)
+    parser.add_argument('--dimension', type=int, default=2)
+    parser.add_argument('--spin', type=int, default=1)
+    parser.add_argument('--verbose', type=int, default=10)
+    parser.add_argument('--lindep-threshold', type=float)
 
-# Cell
+    # --- Gate voltage
+    #parser.add_argument('--gate-range', type=float, nargs=3, default=[-0.01, 0.01, 0.002])
+    #parser.add_argument('--gate-range', type=float, nargs=3, default=[-0.05, 0.05, 0.01])
+    parser.add_argument('--gate-range', type=float, nargs=3, default=[-0.1, 0.1, 0.01])
+    parser.add_argument('--gates', type=float, nargs='*', default=None)
+    parser.add_argument('--invert-scan', action='store_true')
+    parser.add_argument('--trace', type=int, default=1)
+    parser.add_argument('--gate-index', type=int)
+
+    # --- Mean-field
+    parser.add_argument('--kmesh', type=int, nargs=2, default=False)
+    parser.add_argument('--xc', default=None)
+    parser.add_argument('--mf-only', action='store_true')
+    parser.add_argument('--scf-conv-tol', type=float)
+
+    # --- Embedding
+    parser.add_argument('--fragment-type', default='iao')
+    parser.add_argument('--dmet-threshold', type=float, default=1e-4)
+    parser.add_argument('--nc', type=int, default=0)
+    parser.add_argument('--eta', type=float)
+
+    args = parser.parse_args()
+
+    if args.z_graphene is None:
+        args.z_graphene = args.vacuum_size / 2
+    return args
 
 def get_gate_potential(mf, gate):
     """In AO basis"""
@@ -66,6 +75,10 @@ def get_gate_potential(mf, gate):
     sc = np.dot(ovlp, c_lo[:,layer])
     v_gate = gate*np.dot(sc, sc.T)
     return v_gate
+
+# ---
+
+args = get_args()
 
 if args.gates is not None:
     gates = args.gates
@@ -108,9 +121,9 @@ for idx, gate in enumerate(gates):
         else:
             mf = pyscf.pbc.dft.UKS(cell)
             mf.xc = args.xc
-    mf.conv_tol = args.scf_conv_tol
+    if args.scf_conv_tol is not None:
+        mf.conv_tol = args.scf_conv_tol
     mf.max_cycle = 100
-
     mf = mf.density_fit(auxbasis=args.auxbasis)
 
     # Gate potential
@@ -124,6 +137,7 @@ for idx, gate in enumerate(gates):
         hcore_orig = hcore_gate = mf.get_hcore
 
     # Run MF
+    mf.chkfile = 'scf-%.3f.chk' % gate
     if args.trace:
         print("Running HF with initial guess")
         mf.kernel(dm0=dm1_mf)
