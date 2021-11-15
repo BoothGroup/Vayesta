@@ -32,7 +32,7 @@ class UEWFFragment(UFragment, EWFFragment):
         self.bath = bath
         return bath
 
-    def get_fragment_energy(self, c1, c2, eris, fock=None):
+    def get_fragment_energy(self, c1, c2, eris, fock=None, axis1='cluster'):
         """Calculate fragment correlation energy contribution from projected C1, C2.
 
         Parameters
@@ -62,6 +62,8 @@ class UEWFFragment(UFragment, EWFFragment):
         nvir = (c1[0].shape[1], c1[1].shape[1])
         oa, ob = np.s_[:nocc[0]], np.s_[:nocc[1]]
         va, vb = np.s_[nocc[0]:], np.s_[nocc[1]:]
+        if axis1 == 'fragment':
+            pxa, pxb = self.get_occ2frag_projector()
 
         # --- Singles energy (zero for HF-reference)
         if c1 is not None:
@@ -77,7 +79,11 @@ class UEWFFragment(UFragment, EWFFragment):
             fova = dot(self.c_active_occ[0].T, fock[0], self.c_active_vir[0])
             fovb = dot(self.c_active_occ[1].T, fock[1], self.c_active_vir[1])
             ca, cb = c1
-            e_singles = np.sum(fova*ca) + np.sum(fovb*cb)
+            if axis1 == 'fragment':
+                e_singles = (einsum('ia,xi,xa->', fova, pxa, ca)
+                           + einsum('ia,xi,xa->', fovb, pxb, cb))
+            else:
+                e_singles = np.sum(fova*ca) + np.sum(fovb*cb)
         else:
             e_singles = 0
         # Doubles energy
@@ -93,15 +99,23 @@ class UEWFFragment(UFragment, EWFFragment):
             gab = eris[1][oa,va,ob,vb]
             gbb = eris[2][ob,vb,ob,vb]
 
-        caa, cab, cbb = c2
         #caa = caa + einsum('ia,jb->ijab', ca, ca) - einsum('ib,ja->ijab', ca, ca)
         #cbb = cbb + einsum('ia,jb->ijab', cb, cb) - einsum('ib,ja->ijab', cb, cb)
         #e_d = (einsum('ijab,iajb', caa, gaa)/4
         #     + einsum('ijab,iajb', cbb, gbb)/4
         #     + einsum('ijab,iajb', cab, gab))
-        e_doubles = (einsum('ijab,iajb', caa, gaa)/4 - einsum('ijab,ibja', caa, gaa)/4
-                   + einsum('ijab,iajb', cbb, gbb)/4 - einsum('ijab,ibja', cbb, gbb)/4
-                   + einsum('ijab,iajb', cab, gab))
+        if axis1 == 'fragment':
+            caa, cab, cba, cbb = c2
+            e_doubles = (einsum('xi,xjab,iajb', pxa, caa, gaa)/4 - einsum('xi,xjab,ibja', pxa, caa, gaa)/4
+                       + einsum('xi,xjab,iajb', pxb, cbb, gbb)/4 - einsum('xi,xjab,ibja', pxb, cbb, gbb)/4
+                       #+ einsum('ijab,iajb', cab, gab))
+                       + einsum('xi,xjab,iajb', pxa, cab, gab)/2
+                       + einsum('xi,xjab,jbia', pxb, cba, gab)/2)
+        else:
+            caa, cab, cbb = c2
+            e_doubles = (einsum('ijab,iajb', caa, gaa)/4 - einsum('ijab,ibja', caa, gaa)/4
+                       + einsum('ijab,iajb', cbb, gbb)/4 - einsum('ijab,ibja', cbb, gbb)/4
+                       + einsum('ijab,iajb', cab, gab))
 
         e_singles = (self.opts.energy_factor*self.sym_factor * e_singles)
         e_doubles = (self.opts.energy_factor*self.sym_factor * e_doubles)

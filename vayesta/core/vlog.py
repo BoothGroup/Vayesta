@@ -4,11 +4,7 @@ import logging
 import os
 import contextlib
 
-try:
-    from mpi4py import MPI
-    MPI_rank = MPI.COMM_WORLD.Get_rank()
-except ModuleNotFoundError:
-    MPI_rank = 0
+from vayesta.core.mpi import mpi
 
 """
 Log levels (* are non-standard):
@@ -133,7 +129,7 @@ def get_logname(basename, ext='log'):
         ext = '.' + ext
     else:
         ext = ''
-    name = '%s%s%s' % (basename, (('.mpi%d' % MPI_rank) if MPI_rank > 0 else ''), ext)
+    name = '%s%s%s' % (basename, (('.mpi%d' % mpi.rank) if mpi.rank > 0 else ''), ext)
     return name
 
 

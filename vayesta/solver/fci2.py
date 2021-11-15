@@ -43,8 +43,8 @@ class FCI_Solver(ClusterSolver):
         # --- Results
         self.civec = None
         self.c0 = None
-        self.c1 = None      # In intermediate normalization!
-        self.c2 = None      # In intermediate normalization!
+        self.c1 = None
+        self.c2 = None
 
     def get_solver_class(self):
         if self.opts.solver_spin:
@@ -69,11 +69,25 @@ class FCI_Solver(ClusterSolver):
     def get_init_guess(self):
         return {'ci0' : self.civec}
 
-    def get_c1(self):
-        return self.c1
+    def get_t1(self):
+        return self.get_c1(intermed_norm=True)
 
-    def get_c2(self):
-        return self.c2
+    def get_t2(self):
+        return (self.c2 - einsum('ia,jb->ijab', self.c1, self.c1))/self.c0
+
+    def get_c1(self, intermed_norm=False):
+        norm = 1/self.c0 if intermed_norm else 1
+        return norm*self.c1
+
+    def get_c2(self, intermed_norm=False):
+        norm = 1/self.c0 if intermed_norm else 1
+        return norm*self.c2
+
+    def get_l1(self, **kwargs):
+        return None
+
+    def get_l2(self, **kwargs):
+        return None
 
     def get_eris(self):
         with log_time(self.log.timing, "Time for AO->MO of ERIs:  %s"):
@@ -123,7 +137,7 @@ class FCI_Solver(ClusterSolver):
     #    c2 = c2/c0
     #    return c0, c1, c2
 
-    def get_cisd_amps(self, civec):
+    def get_cisd_amps(self, civec, intermed_norm=False):
         nocc, nvir = self.cluster.nocc_active, self.cluster.nvir_active
         t1addr, t1sign = pyscf.ci.cisd.t1strs(self.ncas, nocc)
         c0 = civec[0,0]
@@ -131,8 +145,10 @@ class FCI_Solver(ClusterSolver):
         c2 = einsum('i,j,ij->ij', t1sign, t1sign, civec[t1addr[:,None],t1addr])
         c1 = c1.reshape(nocc,nvir)
         c2 = c2.reshape(nocc,nvir,nocc,nvir).transpose(0,2,1,3)
-        c1 = c1/c0
-        c2 = c2/c0
+        if intermed_norm:
+            c1 = c1/c0
+            c2 = c2/c0
+            c0 = 1.0
         return c0, c1, c2
 
     def make_rdm1(self, civec=None):
@@ -188,6 +204,22 @@ class UFCI_Solver(FCI_Solver):
                      (h_eff[1] + self.opts.v_ext[1]))
         return h_eff
 
+    def get_t2(self):
+        ca, cb = self.get_c1(intermed_norm=True)
+        caa, cab, cbb = self.get_c2(intermed_norm=True)
+        taa = caa - einsum('ia,jb->ijab', ca, ca) + einsum('ib,ja->ijab', ca, ca)
+        tbb = cbb - einsum('ia,jb->ijab', cb, cb) + einsum('ib,ja->ijab', cb, cb)
+        tab = cab - einsum('ia,jb->ijab', ca, cb)
+        return (taa, tab, tbb)
+
+    def get_c1(self, intermed_norm=False):
+        norm = 1/self.c0 if intermed_norm else 1
+        return (norm*self.c1[0], norm*self.c1[1])
+
+    def get_c2(self, intermed_norm=False):
+        norm = 1/self.c0 if intermed_norm else 1
+        return (norm*self.c2[0], norm*self.c2[1], norm*self.c2[2])
+
     #def get_cisd_amps(self, civec):
     #    cisdvec = pyscf.ci.ucisd.from_fcivec(civec, self.ncas, self.nelec)
     #    c0, (c1a, c1b), (c2aa, c2ab, c2bb) = pyscf.ci.ucisd.cisdvec_to_amplitudes(cisdvec, 2*[self.ncas], self.nelec)
@@ -198,7 +230,7 @@ class UFCI_Solver(FCI_Solver):
     #    c2bb = c2bb/c0
     #    return c0, (c1a, c1b), (c2aa, c2ab, c2bb)
 
-    def get_cisd_amps(self, civec):
+    def get_cisd_amps(self, civec, intermed_norm=False):
         norba, norbb = self.cluster.norb_active
         nocca, noccb = self.cluster.nocc_active
         nvira, nvirb = self.cluster.nvir_active
@@ -227,11 +259,13 @@ class UFCI_Solver(FCI_Solver):
         c2ab = c2ab.reshape(nocca,nvira,noccb,nvirb).transpose(0,2,1,3)
 
         # C1 and C2 in intermediate normalization:
-        c1a = c1a/c0
-        c1b = c1b/c0
-        c2aa = c2aa/c0
-        c2ab = c2ab/c0
-        c2bb = c2bb/c0
+        if intermed_norm:
+            c1a = c1a/c0
+            c1b = c1b/c0
+            c2aa = c2aa/c0
+            c2ab = c2ab/c0
+            c2bb = c2bb/c0
+            c0 = 1.0
         return c0, (c1a, c1b), (c2aa, c2ab, c2bb)
 
     def make_rdm1(self, civec=None):

@@ -187,7 +187,7 @@ def time_string(seconds, show_zeros=False):
     elif seconds >= 60:
         tstr = "%.0f min %.1f s" % (m, s)
     else:
-        tstr = "%.2f s" % s
+        tstr = "%.3f s" % s
     return tstr
 
 def get_used_memory():

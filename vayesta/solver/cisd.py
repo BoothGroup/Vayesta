@@ -44,23 +44,34 @@ class CISD_Solver(CCSD_Solver):
             self.log.debug("Cluster: E(corr)= % 16.8f Ha", self.solver.e_corr)
 
         self.civec = self.solver.ci
-        c0, c1, c2 = self.solver.cisdvec_to_amplitudes(self.civec)
-        self.c0 = c0
-        self.c1 = c1/c0
-        self.c2 = c2/c0
+        self.c0, self.c1, self.c2 = self.solver.cisdvec_to_amplitudes(self.civec)
 
     def get_solver_class(self):
         # No DF version for CISD
         return pyscf.ci.cisd.CISD
 
-    def get_c1(self):
-        return self.c1
+    def get_t1(self):
+        return self.get_c1(intermed_norm=True)
 
-    def get_c2(self):
-        return self.c2
+    def get_t2(self):
+        return (self.c2 - einsum('ia,jb->ijab', self.c1, self.c1))/self.c0
+
+    def get_c1(self, intermed_norm=False):
+        norm = 1/self.c0 if intermed_norm else 1
+        return norm*self.c1
+
+    def get_c2(self, intermed_norm=False):
+        norm = 1/self.c0 if intermed_norm else 1
+        return norm*self.c2
+
+    def get_l1(self, **kwargs):
+        return None
+
+    def get_l2(self, **kwargs):
+        return None
 
     def get_init_guess(self):
-        return {'c1' : self.c1 , 't2' : self.c2}
+        return {'c0' : self.c0, 'c1' : self.c1 , 'c2' : self.c2}
 
     def make_rdm1(self, *args, **kwargs):
         raise NotImplementedError()
@@ -73,3 +84,19 @@ class UCISD_Solver(CISD_Solver):
     def get_solver_class(self):
         # No DF version for UCISD
         return pyscf.ci.ucisd.UCISD
+
+    def get_t2(self):
+        ca, cb = self.get_c1(intermed_norm=True)
+        caa, cab, cbb = self.get_c2(intermed_norm=True)
+        taa = caa - einsum('ia,jb->ijab', ca, ca) + einsum('ib,ja->ijab', ca, ca)
+        tbb = cbb - einsum('ia,jb->ijab', cb, cb) + einsum('ib,ja->ijab', cb, cb)
+        tab = cab - einsum('ia,jb->ijab', ca, cb)
+        return (taa, tab, tbb)
+
+    def get_c1(self, intermed_norm=False):
+        norm = 1/self.c0 if intermed_norm else 1
+        return (norm*self.c1[0], norm*self.c1[1])
+
+    def get_c2(self, intermed_norm=False):
+        norm = 1/self.c0 if intermed_norm else 1
+        return (norm*self.c2[0], norm*self.c2[1], norm*self.c2[2])

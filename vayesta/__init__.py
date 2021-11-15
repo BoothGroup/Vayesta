@@ -16,6 +16,7 @@ import subprocess
 
 from .core import cmdargs
 from .core import vlog
+from .core.mpi import mpi
 
 # Command line arguments
 args = cmdargs.parse_cmd_args()
@@ -27,7 +28,7 @@ log.setLevel(args.loglevel)
 
 fmt = vlog.VFormatter(indent=True)
 # Log to stream
-if args.output is None:
+if (args.output is None) and (mpi.is_master):
     # Everything except logging.OUTPUT goes to stderr:
     errh = vlog.VStreamHandler(sys.stderr, formatter=fmt)
     errh.addFilter(vlog.LevelExcludeFilter(exclude=[logging.OUTPUT]))
@@ -37,8 +38,8 @@ if args.output is None:
     outh.addFilter(vlog.LevelIncludeFilter(include=[logging.OUTPUT]))
     log.addHandler(outh)
 # Log to file
-if (args.output or args.log):
-    logname = args.output or args.log
+if (args.output or args.log or (not mpi.is_master)):
+    logname = (args.output or args.log) or "vayesta"
     log.addHandler(vlog.VFileHandler(logname, formatter=fmt))
 
 # Print Logo
@@ -80,10 +81,8 @@ except ImportError:
 try:
     import mpi4py
     log.debug(fmt, 'mpi4py', mpi4py.__version__, os.path.dirname(mpi4py.__file__))
-    from mpi4py import MPI
 except ImportError:
-    MPI = False
-    log.debug("mpi4py not found.")
+    log.warning("mpi4py not found.")
 
 #log.debug("")
 
@@ -107,13 +106,9 @@ phash = get_git_hash(pdir)
 log.debug("  * PySCF:    %s", phash)
 
 # --- MPI info
-# TODO Add MPI implementation info
-if MPI:
-    MPI_comm = MPI.COMM_WORLD
-    MPI_rank = MPI_comm.Get_rank()
-    MPI_size = MPI_comm.Get_size()
-    log.debug("MPI info:")
-    log.debug("  * rank %d / %d", MPI_rank, MPI_size)
+if mpi:
+    log.debug("MPI:  rank= %d  size= %d", mpi.rank, mpi.size)
+
 log.debug("")
 
 # ---

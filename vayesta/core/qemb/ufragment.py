@@ -167,6 +167,41 @@ class UFragment(Fragment):
     #        results.append(super().make_dmet_bath(c_env[s], dm1=2*dm1[s], **kwargs))
     #    return tuple(zip(*results))
 
+    # Amplitude projection
+    # --------------------
+
+    # NEW:
+
+    def get_occ2frag_projector(self):
+        ovlp = self.base.get_ovlp()
+        projector = (dot(self.c_proj[0].T, ovlp, self.c_active_occ[0]),
+                     dot(self.c_proj[1].T, ovlp, self.c_active_occ[1]))
+        return projector
+
+    def project_amp1_to_fragment(self, amp1, projector=None):
+        """Can be used to project C1, T1, or L1 amplitudes."""
+        if projector is None:
+            projector = self.get_occ2frag_projector()
+        return (np.dot(projector[0], amp1[0]),
+                np.dot(projector[1], amp1[1]))
+
+    def project_amp2_to_fragment(self, amp2, projector=None, axis=0):
+        """Can be used to project C2, T2, or L2 amplitudes."""
+        if projector is None:
+            projector = self.get_occ2frag_projector()
+        if axis == 0:
+            caa, cab, cbb = amp2
+            caax = einsum('xi,i...->x...', projector[0], caa)
+            cabx = einsum('xi,i...->x...', projector[0], cab)
+            cbax = einsum('xj,ijab->xiba', projector[1], cab)
+            cbbx = einsum('xi,i...->x...', projector[1], cbb)
+            return (caax, cabx, cbax, cbbx)
+        if axis == 1:
+            raise NotImplementedError()
+        raise ValueError("axis needs to be 0 or 1")
+
+    # OLD:
+
     def get_fragment_projector(self, coeff, c_proj=None, **kwargs):
         if c_proj is None: c_proj = self.c_proj
         projectors = []

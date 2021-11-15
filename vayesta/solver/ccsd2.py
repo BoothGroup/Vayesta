@@ -104,25 +104,43 @@ class CCSD_Solver(ClusterSolver):
         self.ee_t_coeff = None
         self.ee_sf_coeff = None
 
-    def get_c1(self):
+    def get_t1(self):
+        return self.t1
+
+    def get_t2(self):
+        return self.t2
+
+    def get_c1(self, intermed_norm=True):
         """C1 in intermediate normalization."""
-        return self.solver.t1
+        if not intermed_norm:
+            raise ValueError()
+        return self.t1
 
-    def get_c2(self):
+    def get_c2(self, intermed_norm=True):
         """C2 in intermediate normalization."""
-        return self.solver.t2 + einsum('ia,jb->ijab', self.t1, self.t1)
+        if not intermed_norm:
+            raise ValueError()
+        return self.t2 + einsum('ia,jb->ijab', self.t1, self.t1)
 
-    def get_l1(self):
-        if self.opts.t_as_lambda:
+    def get_l1(self, t_as_lambda=None, solve_lambda=True):
+        if t_as_lambda is None:
+            t_as_lambda = self.opts.t_as_lambda
+        if t_as_lambda:
             return self.t1
         if self.l1 is None:
+            if not solve_lambda:
+                return None
             self.solve_lambda()
         return self.l1
 
-    def get_l2(self):
-        if self.opts.t_as_lambda:
+    def get_l2(self, t_as_lambda=None, solve_lambda=True):
+        if t_as_lambda is None:
+            t_as_lambda = self.opts.t_as_lambda
+        if t_as_lambda:
             return self.t2
         if self.l2 is None:
+            if not solve_lambda:
+                return None
             self.solve_lambda()
         return self.l2
 
@@ -298,8 +316,10 @@ class UCCSD_Solver(CCSD_Solver):
             return pyscf.pbc.cc.ccsd.UCCSD
         return pyscf.cc.uccsd.UCCSD
 
-    def get_c2(self):
+    def get_c2(self, intermed_norm=True):
         """C2 in intermediate normalization."""
+        if not intermed_norm:
+            raise ValueError()
         ta, tb = self.t1
         taa, tab, tbb = self.t2
         caa = taa + einsum('ia,jb->ijab', ta, ta) - einsum('ib,ja->ijab', ta, ta)
