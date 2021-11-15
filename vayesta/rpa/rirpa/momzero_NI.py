@@ -112,108 +112,23 @@ class MomzeroOffsetCalc(MomzeroDeductNone):
         super().__init__(*args)
         self.alpha = None
         self.diagRI = einsum("np,np->p", self.S_L, self.S_R)
+        self.tar_RI = dot(dot(self.target_rot, self.S_L.T), self.S_R)
 
     def fix_params(self):
-
-        try:
-            self.alpha = self.opt_alpha()
-        except ConvergenceError:
-            self.alpha = self.D.mean()
-            print(
-                "Failed to find stationary point for alpha optimisation; falling back to heuristic value {:6.4e}.".format(
-                    self.alpha))
-
-    def opt_alpha(self):
-        def get_penalty(alpha):
-            intermed = (2*self.D)**(-1) - \
-                       2 * (self.D + alpha * np.full_like(self.D, fill_value=1.0))**(-1) + \
-                       0.5 * (alpha)**(-1) * np.full_like(self.D, fill_value=1.0)
-            return sum(np.multiply(intermed, self.diagRI))
-        def get_grad(alpha):
-            intermed = +2 * (self.D + alpha * np.full_like(self.D, fill_value=1.0))**(-2) - \
-                       0.5 * (alpha)**(-2) * np.full_like(self.D, fill_value=1.0)
-            return sum(np.multiply(intermed, self.diagRI))
-        def get_deriv2(alpha):
-            intermed = -4 * (self.D + alpha * np.full_like(self.D, fill_value=1.0))**(-3) + \
-                       1.0 * (
-                           alpha)**(-3) * np.full_like(self.D, fill_value=1.0)
-            return sum(np.multiply(intermed, self.diagRI))
-        #delta = 1e-6
-        #print(self.alpha,get_penalty(self.alpha),get_penalty(self.alpha/2), get_penalty(self.alpha*2))
-        #print((get_penalty(self.alpha + delta) - get_penalty(self.alpha - delta)) / (2 * delta), get_grad(self.alpha))
-        #print((get_grad(self.alpha + delta) - get_grad(self.alpha - delta)) / (2 * delta), get_deriv2(self.alpha))
-
-        #print("Test:")
-        #print(get_penalty(self.D.min()), get_penalty(self.D.max()))
-        #print(get_grad(self.D.min()), get_grad(self.D.max()))
-        #print(get_penalty(1e6))
-
-        # Want to minimise the trace of the integral to be evaluated; our penalty function here computes this value.
-        # Seek minimum for alpha>0; can show that gradient will have opposite sign at minimum and maximum values of D.
-        trRI = self.diagRI.sum()
-        baretr = np.multiply(self.diagRI, 0.5 * self.D**(-1)).sum()
-        lo, hi = self.D.min(), self.D.max()
-        gradlo, gradhi = get_grad(lo), get_grad(hi)
-        i=0
-        while gradlo * trRI > 0:
-            print("Shifted lo for grad!")
-            print(lo,gradlo, trRI)
-            lo = lo / 10
-            gradlo = get_grad(lo)
-            i += 1
-            if i > 5:
-                raise ConvergenceError
-        i=0
-        while gradhi * trRI < 0:
-            print("Shifted hi for grad!")
-            print(hi,gradhi, trRI)
-            hi *= 10
-            gradhi = get_grad(hi)
-            i += 1
-            if i > 5:
-                raise ConvergenceError
-
-        root, res = scipy.optimize.brentq(get_grad, lo, hi, full_output=True)
-
-        if not res.converged:
-            raise ConvergenceError
-        # Check if our stationary point trace value has a different sign to the original one; if so then we need to
-        # find the root where integrand becomes traceless.
-        penroot = get_penalty(root)
-
-        if penroot * baretr > 0:
-            print("Alpha set to {:6.4e} to minimise integral trace from {:6.4e} to {:6.4e}.".format(
-                root, baretr, penroot))
-            return root
-        else:
-            # Sign change in trace; can find a root!
-            # There will in fact be two roots, one on either side of the stationary point, as the penalty function is
-            # positive at both 0 and +infinity. For now we choose the lower value, corresponding to a larger offset,
-            # since the penalty rises steeply for alpha->0 but slowly for alpha->infinity.
-            penlo = get_penalty(lo)
-            while penlo * baretr < 0:
-                print("Shifted lo for pen!")
-                print(lo, penlo, baretr)
-                lo = lo / 10
-                penlo = get_penalty(lo)
-
-            root2, res = scipy.optimize.brentq(get_penalty, lo, root, full_output=True)
-            if not res.converged:
-                raise ConvergenceError
-            print("Alpha set to {:6.4e} to make integral traceless.".format(root2))
-            return root2
+        baretr = sum(self.diagRI)
+        offsettr = sum(np.multiply(self.diagRI, self.D ** (-1)))
+        self.alpha = baretr / offsettr
+        print("Set alpha to {:6.4e} to make integrand traceless.".format(self.alpha))
 
     def get_offset(self):
-        res = dot(self.target_rot, self.S_L.T, einsum("np,p->np", self.S_R, (self.D+self.alpha)**(-1)))
-        res += dot(self.target_rot, einsum("np,p->pn", self.S_L, (self.D+self.alpha)**(-1)), self.S_R)
-        res -= self.alpha**(-1) * dot(dot(self.target_rot, self.S_L.T), self.S_R) / 2
-        return res
+        return self.alpha**(-1) * self.tar_RI / 2
 
     def eval_contrib(self, freq):
-        expval = np.exp(-freq * self.D) - np.full_like(self.D, fill_value=np.exp(- freq * self.alpha))
+        expval = np.exp(-freq * self.D)
         lrot = einsum("lp,p->lp", self.target_rot, expval)
         rrot = expval
-        res = dot(dot(lrot, self.S_L.T), einsum("np,p->np", self.S_R, rrot))
+        offsetexpval = np.exp(-2 * freq * self.alpha)
+        res = dot(dot(lrot, self.S_L.T), einsum("np,p->np", self.S_R, rrot)) - offsetexpval * self.tar_RI
         return res
 
 
