@@ -20,7 +20,8 @@ else()
 endif()
 
 # HDF5
-find_package(HDF5 REQUIRED COMPONENTS C HL)
+#find_package(HDF5 REQUIRED COMPONENTS C HL)
+find_package(HDF5 REQUIRED)
 message(STATUS "HDF5 libraries: ${HDF5_LIBRARIES}")
 
 # C FLAGS
