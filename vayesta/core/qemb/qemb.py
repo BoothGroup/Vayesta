@@ -61,7 +61,7 @@ class QEmbedding:
     @dataclasses.dataclass
     class Options(OptionsBase):
         dmet_threshold: float = 1e-6
-        recalc_vhf: bool = True
+        #recalc_vhf: bool = True
         solver_options: dict = dataclasses.field(default_factory=dict)
         wf_partition: str = 'first-occ'     # ['first-occ', 'first-vir', 'democratic']
         store_eris: bool = False            # If True, ERIs will be stored in Fragment._eris
@@ -127,16 +127,40 @@ class QEmbedding:
 
         # 2) Mean-field
         # -------------
+        with log_time(self.log.timingv, "Time for mean-field setup: %s"):
+            self.init_mf(mf)
+
+        # 3) Fragments
+        # ------------
+        self.fragmentation = None
+        self.fragments = []
+
+        # 4) Other
+        # --------
+        self.with_scmf = None   # Self-consistent mean-field
+
+    def init_mf(self, mf):
         if mpi:
-            e_mf = mpi.world.allgather(mf.e_tot)
-            if not np.allclose(e_mf, e_mf[0]):
-                raise RuntimeError("E(MF) is not equal on each MPI process: %r !" % e_mf)
+            # Check if all MPI ranks have the same mean-field MOs
+            mo_energy = mpi.world.gather(mf.mo_energy)
+            if mpi.is_master:
+                err = np.max([abs(mo_energy[i] - mf.mo_energy).max() for i in range(len(mpi))])
+                if err > 1e-6:
+                    self.log.warning("Large difference of MO energies between MPI ranks= %.3e !", err)
+                else:
+                    self.log.debugv("Largest difference of MO energies between MPI ranks= %.3e", err)
+            # Use MOs of master process
+            mo_energy = mpi.world.bcast(mf.mo_energy, root=0)
+            mo_coeff = mpi.world.bcast(mf.mo_coeff, root=0)
+            mf.mo_energy = mo_energy
+            mf.mo_coeff = mo_coeff
+
         self._mf_orig = mf      # Keep track of original mean-field object - be careful not to modify in any way, to avoid side effects!
         # Create shallow copy of mean-field object; this way it can be updated without side effects outside the quantum
         # embedding method if attributes are replaced in their entirety
         # (eg. `mf.mo_coeff = mo_new` instead of `mf.mo_coeff[:] = mo_new`).
         mf = copy.copy(mf)
-        self.log.debug("type(MF)= %r", type(mf))
+        self.log.debugv("type(mf)= %r", type(mf))
         # If the mean-field has k-points, automatically fold to the supercell:
         if hasattr(mf, 'kpts') and mf.kpts is not None:
             with log_time(self.log.timing, "Time for k->G folding of MOs: %s"):
@@ -149,26 +173,32 @@ class QEmbedding:
         if not (self.is_rhf or self.is_uhf):
             raise ValueError("Cannot deduce RHF or UHF!")
         # Original mean-field integrals - do not change these!
-        with log_time(self.log.timingv, "Time for overlap: %s"):
-            self._ovlp_orig = self.mf.get_ovlp()
-        self._ovlp = self._ovlp_orig
-        with log_time(self.log.timingv, "Time for hcore: %s"):
-            self._hcore_orig = self.mf.get_hcore()
-        self._hcore = self._hcore_orig
-        # Do not call self.mf.get_veff() here: if mf is a converged HF calculation,
-        # the potential can be deduced from mf.mo_energy and mf.mo_coeff.
-        # Set recalc_vhf = False to use this feature.
-        with log_time(self.log.timingv, "Time for veff: %s"):
-            self._veff_orig = self.get_init_veff()
+        self._ovlp_orig = self.mf.get_ovlp()
+        self._hcore_orig = self.mf.get_hcore()
+        self._veff_orig = self.mf.get_veff()
         # Cached integrals - these can be changed!
+        self._ovlp = self._ovlp_orig
+        self._hcore = self._hcore_orig
         self._veff = self._veff_orig
 
+        # Hartree-Fock energy - this can be different from mf.e_tot, when the mean-field
+        # is not a converged HF calculations
+        h1e_energy = self.get_hcore_for_energy()
+        vhf_energy = self.get_veff_for_energy()
+        e_hf = mf.energy_tot(h1e=h1e_energy, vhf=vhf_energy)
+        if abs(mf.e_tot - e_hf) > 1e-8:
+            self.log.info("Changing mf.e_tot from %s to %s", energy_string(mf.e_tot), energy_string(e_hf))
+        else:
+            self.log.debugv("Changing mf.e_tot from %s to %s", energy_string(mf.e_tot), energy_string(e_hf))
+        self.mf.e_tot = e_hf
+
         # Some MF output
-        #FIXME (no RHF/UHF dependent code here)
         if self.mf.converged:
             self.log.info("E(MF)= %s", energy_string(self.e_mf))
         else:
             self.log.warning("E(MF)= %s (not converged!)", energy_string(self.e_mf))
+
+        #FIXME (no RHF/UHF dependent code here)
         if self.is_rhf:
             self.log.info("n(AO)= %4d  n(MO)= %4d  n(linear dep.)= %4d", self.nao, self.nmo, self.nao-self.nmo)
         else:
@@ -186,15 +216,6 @@ class QEmbedding:
                 self.log.debugv("beta-MO energies (occ):\n%r", self.mo_energy[1][self.mo_occ[1] > 0])
                 self.log.debugv("alpha-MO energies (vir):\n%r", self.mo_energy[0][self.mo_occ[0] == 0])
                 self.log.debugv("beta-MO energies (vir):\n%r", self.mo_energy[1][self.mo_occ[1] == 0])
-
-        # 3) Fragments
-        # ------------
-        self.fragmentation = None
-        self.fragments = []
-
-        # 4) Other
-        # --------
-        self.with_scmf = None   # Self-consistent mean-field
 
 
     # --- Basic properties and methods
@@ -276,14 +297,19 @@ class QEmbedding:
 
     # Mean-field properties
 
-    def get_init_veff(self):
-        if self.opts.recalc_vhf:
-            self.log.debug("Recalculating HF potential from MF object.")
-            return self.mf.get_veff()
-        self.log.debug("Determining HF potential from MO energies and coefficients.")
-        cs = np.dot(self.mo_coeff.T, self.get_ovlp())
-        fock = np.dot(cs.T*self.mo_energy, cs)
-        return fock - self.get_hcore()
+    #def init_vhf_ehf(self):
+    #    """Get Hartree-Fock potential and energy."""
+    #    if self.opts.recalc_vhf:
+    #        self.log.debug("Calculating HF potential from mean-field object.")
+    #        vhf = self.mf.get_veff()
+    #    else:
+    #        self.log.debug("Calculating HF potential from MOs.")
+    #        cs = np.dot(self.mo_coeff.T, self.get_ovlp())
+    #        fock = np.dot(cs.T*self.mo_energy, cs)
+    #        vhf = (fock - self.get_hcore())
+    #    h1e = self.get_hcore_for_energy()
+    #    ehf = self.mf.energy_tot(h1e=h1e, vhf=vhf)
+    #    return vhf, ehf
 
     @property
     def mo_energy(self):
@@ -425,6 +451,19 @@ class QEmbedding:
     def set_veff(self, value):
         self.log.debug("Changing veff matrix.")
         self._veff = value
+
+    # Integrals for energy evaluation
+    # Overwriting these allows using different integrals for the energy evaluation
+
+    def get_hcore_for_energy(self):
+        return self.get_hcore()
+
+    def get_veff_for_energy(self, with_exxdiv=True):
+        return self.get_veff(with_exxdiv=with_exxdiv)
+
+    def get_fock_for_energy(self, with_exxdiv=True):
+        return self.get_hcore_for_energy() + self.get_veff_for_energy(with_exxdiv=with_exxdiv)
+
 
     # Other integral methods:
 

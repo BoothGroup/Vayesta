@@ -26,14 +26,17 @@ class UEmbedding(QEmbedding):
     # Shadow this in inherited methods:
     Fragment = UFragment
 
-    def init_vhf(self):
-        if self.opts.recalc_vhf:
-            self.log.debug("Recalculating HF potential from MF object.")
-            return None
-        self.log.debug("Determining HF potential from MO energies and coefficients.")
-        cs = einsum('...ai,ab->...ib', self.mo_coeff, self.get_ovlp())
-        fock = einsum('...ia,...i,...ib->ab', cs, self.mo_energy, cs)
-        return (fock - self.get_hcore())
+    #def get_init_veff(self):
+    #    if self.opts.recalc_vhf:
+    #        self.log.debug("Recalculating HF potential from MF object.")
+    #        veff = self.mf.get_veff()
+    #    else:
+    #        self.log.debug("Determining HF potential from MO energies and coefficients.")
+    #        cs = einsum('...ai,ab->...ib', self.mo_coeff, self.get_ovlp())
+    #        fock = einsum('...ia,...i,...ib->ab', cs, self.mo_energy, cs)
+    #        veff = (fock - self.get_hcore())
+    #    e_hf = self.mf.energy_tot(vhf=veff)
+    #    return veff, e_hf
 
     @staticmethod
     def stack_mo(*mo_coeff):

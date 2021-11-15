@@ -49,11 +49,15 @@ class MPI_Interface:
         return self.size
 
     def __bool__(self):
-        return self.active
+        return self.enabled
 
     @property
-    def active(self):
+    def enabled(self):
         return (self.size > 1)
+
+    @property
+    def disabled(self):
+        return not self.enabled
 
     @property
     def is_master(self):
@@ -69,7 +73,7 @@ class MPI_Interface:
     def with_reduce(self, **mpi_kwargs):
         def decorator(func):
             # No MPI:
-            if not self.active:
+            if self.disabled:
                 return func
             @functools.wraps(func)
             def wrapper(*args, **kwargs):
@@ -82,7 +86,7 @@ class MPI_Interface:
     def with_allreduce(self, **mpi_kwargs):
         def decorator(func):
             # No MPI:
-            if not self.active:
+            if self.disabled:
                 return func
             @functools.wraps(func)
             def wrapper(*args, **kwargs):
@@ -98,7 +102,7 @@ class MPI_Interface:
     def with_send(self, source, dest=0, tag=None, **mpi_kwargs):
         def decorator(func):
             # No MPI:
-            if not self.active:
+            if self.disabled:
                 return func
             # With MPI:
             tag2 = self.get_new_tag() if tag is None else tag
