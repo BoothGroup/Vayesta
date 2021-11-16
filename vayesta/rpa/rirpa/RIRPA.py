@@ -76,7 +76,7 @@ class ssRPA:
     def kernel(self, maxmom = 0):
         pass
 
-    def kernel_moms(self, target_rot = None, npoints = 100, ainit = 10, integral_deduct = "D", opt_quad = True,
+    def kernel_moms(self, target_rot = None, npoints = 100, ainit = 10, integral_deduct = "HO", opt_quad = True,
                     adaptive_quad = False):
         if target_rot is None:
             print("Warning; generating full moment rather than local component. Will scale as O(N^5).")
@@ -98,7 +98,7 @@ class ssRPA:
             NIworker = momzero_NI.MomzeroDeductNone(self.D, ri_MP[0], ri_MP[1], target_rot, npoints)
             integral_offset = np.zeros_like(target_rot)
             moment_offset = np.zeros_like(target_rot)
-        elif integral_deduct == "Exact":
+        elif integral_deduct == "HO":
             NIworker = momzero_NI.MomzeroDeductHigherOrder(self.D, ri_MP[0], ri_MP[1], target_rot, npoints)
             offsetNIworker = momzero_NI.MomzeroOffsetCalcGaussLag(self.D, ri_MP[0], ri_MP[1], target_rot, npoints)
             estval = offsetNIworker.kernel()
