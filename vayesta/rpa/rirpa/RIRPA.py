@@ -99,10 +99,9 @@ class ssRPA:
             integral_offset = np.zeros_like(target_rot)
             moment_offset = np.zeros_like(target_rot)
         elif integral_deduct == "Exact":
-            assert(not opt_quad)
             NIworker = momzero_NI.MomzeroDeductHigherOrder(self.D, ri_MP[0], ri_MP[1], target_rot, npoints)
             offsetNIworker = momzero_NI.MomzeroOffsetCalcGaussLag(self.D, ri_MP[0], ri_MP[1], target_rot, npoints)
-            estval = offsetNIworker.kernel_adaptive()
+            estval = offsetNIworker.kernel()
             # This computes the required value analytically, but at N^5 cost. Just for debugging.
             #mat = np.zeros(self.D.shape * 2)
             #mat = mat + self.D
@@ -111,7 +110,6 @@ class ssRPA:
             #print(abs(estval - estval2).max())
 
             integral_offset = einsum("lp,p->lp", target_rot, self.D) + estval
-            print(abs(estval).max(),abs(integral_offset).max())
             moment_offset = np.zeros_like(target_rot)
         else:
             raise ValueError("Unknown integral offset specification.`")

@@ -3,10 +3,11 @@ import scipy.optimize
 
 from vayesta.rpa.rirpa.NI_eval import NumericalIntegratorClenCurInfinite,\
     NumericalIntegratorClenCurSemiInfinite, NumericalIntegratorGaussianSemiInfinite, NumericalIntegratorBase
-from vayesta.rpa.rirpa import momzero_calculation
 from vayesta.core.util import *
 
 import numpy as np
+
+
 
 class NIMomZero(NumericalIntegratorClenCurInfinite):
     def __init__(self,  D, S_L, S_R, target_rot, npoints):
@@ -33,7 +34,7 @@ class MomzeroDeductNone(NIMomZero):
 
     @property
     def diagmat1(self):
-        return self.D + einsum("np,np->p", self.S_L, self.S_R)
+        return self.D**2 + einsum("np,np->p", self.S_L, self.S_R)
     @property
     def diagmat2(self):
         return None
@@ -80,7 +81,7 @@ class MomzeroDeductD(MomzeroDeductNone):
 
     @property
     def diagmat2(self):
-        return self.D
+        return self.D**2
 
     def eval_contrib(self, freq):
         Q = self.get_Q(freq)
@@ -94,7 +95,39 @@ class MomzeroDeductD(MomzeroDeductNone):
 #        diff = abs(res - momzero_calculation.eval_eta0_contrib_diff2(freq, self.S_L, self.S_R, self.D, self.target_rot)).max()
         return res
 
-class MomzeroDeductHigherOrder(MomzeroDeductNone):
+class MomzeroDeductHigherOrder(MomzeroDeductD):
+
+    def __init__(self, *args):
+        super().__init__(*args)
+        self.diagRI = einsum("np,np->p", self.S_L, self.S_R)
+
+    # Just calculate diagonals via expression for D-deducted quantity, minus diagonal approximation for higher-order
+    # terms.
+    def eval_diag_contrib(self, freq):
+        Dval = super().eval_diag_contrib(freq)
+        F = self.get_F(freq)
+        HOval = (freq ** 2) * (F**2)
+        HOval = np.multiply(HOval, self.diagRI) / np.pi
+        return Dval - HOval
+
+    def eval_diag_deriv_contrib(self, freq):
+        Dval = super().eval_diag_deriv_contrib(freq)
+        F = self.get_F(freq)
+        HOval = (2 * freq * (F**2)) - (4 * (freq ** 3) * (F ** 3))
+        HOval = np.multiply(HOval, self.diagRI) / np.pi
+        return Dval - HOval
+
+    def eval_diag_deriv2_contrib(self, freq):
+        Dval = super().eval_diag_deriv2_contrib(freq)
+        F = self.get_F(freq)
+        HOval = 2 * F**2 - 20 * freq ** 2 * F ** 3 + 24 * freq ** 4 * F ** 4
+        HOval = np.multiply(HOval, self.diagRI) / np.pi
+        return Dval - HOval
+
+    def eval_diag_exact(self):
+        Dval = super().eval_diag_exact()
+        HOval = 0.5 * np.multiply(self.D **(-1), self.diagRI)
+        return Dval - HOval
 
     def eval_contrib(self, freq):
         Q = self.get_Q(freq)
