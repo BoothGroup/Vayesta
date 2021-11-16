@@ -92,7 +92,6 @@ class MomzeroDeductD(MomzeroDeductNone):
         val_aux = np.linalg.inv(np.eye(self.n_aux) + Q)
         res = dot(dot(dot(lrot, self.S_L.T), val_aux), einsum("np,p->np", self.S_R, rrot))
         res = (freq ** 2) * res / np.pi
-#        diff = abs(res - momzero_calculation.eval_eta0_contrib_diff2(freq, self.S_L, self.S_R, self.D, self.target_rot)).max()
         return res
 
 class MomzeroDeductHigherOrder(MomzeroDeductD):
@@ -150,41 +149,34 @@ class BaseMomzeroOffset(NumericalIntegratorBase):
         out_shape = self.target_rot.shape
         diag_shape = self.D.shape
         super().__init__(out_shape, diag_shape, npoints)
-        self.alpha = None
         self.diagRI = einsum("np,np->p", self.S_L, self.S_R)
         self.tar_RI = dot(dot(self.target_rot, self.S_L.T), self.S_R)
 
-    def fix_params(self):
-        baretr = sum(self.diagRI)
-        offsettr = sum(np.multiply(self.diagRI, self.D ** (-1)))
-        self.alpha = baretr / offsettr
-        print("Set alpha to {:6.4e} to make integrand traceless.".format(self.alpha))
 
     def get_offset(self):
-        return np.zeros(self.out_shape)#self.alpha**(-1) * self.tar_RI / 2
+        return np.zeros(self.out_shape)
 
     def eval_contrib(self, freq):
         expval = np.exp(-freq * self.D)
         lrot = einsum("lp,p->lp", self.target_rot, expval)
         rrot = expval
-        offsetexpval = np.exp(-2 * freq * self.alpha)
-        res = dot(dot(lrot, self.S_L.T), einsum("np,p->np", self.S_R, rrot)) #- offsetexpval * self.tar_RI
+        res = dot(dot(lrot, self.S_L.T), einsum("np,p->np", self.S_R, rrot))
         return res
 
     def eval_diag_contrib(self, freq):
-        expval = np.exp(-2 * freq * self.D) #- np.exp(-2 * freq * self.alpha)
+        expval = np.exp(-2 * freq * self.D)
         return np.multiply(expval, self.diagRI)
 
     def eval_diag_deriv_contrib(self, freq):
-        expval = -2 * (np.multiply(self.D, np.exp(-2 * freq * self.D)) )#- self.alpha * np.exp(-2 * freq * self.alpha))
+        expval = -2 * (np.multiply(self.D, np.exp(-2 * freq * self.D)) )
         return np.multiply(expval, self.diagRI)
 
     def eval_diag_deriv2_contrib(self, freq):
-        expval = 4 * (np.multiply(self.D**2, np.exp(-2 * freq * self.D)))# - self.alpha**2 * np.exp(-2 * freq * self.alpha))
+        expval = 4 * (np.multiply(self.D**2, np.exp(-2 * freq * self.D)))
         return np.multiply(expval, self.diagRI)
 
     def eval_diag_exact(self):
-        return 0.5 * np.multiply(self.D**(-1), self.diagRI) #- 0.5 * self.alpha**(-1) * self.diagRI
+        return 0.5 * np.multiply(self.D**(-1), self.diagRI)
 
 class MomzeroOffsetCalcGaussLag(BaseMomzeroOffset, NumericalIntegratorGaussianSemiInfinite):
     pass
