@@ -5,9 +5,11 @@ import scipy.integrate
 class NIException(BaseException):
     pass
 
-class NumericalIntegratorClenCur:
-    """Abstract base class for numerical integration of even functions from -infty to +infty; subclasses
-    need to define:
+class NumericalIntegratorBase:
+    """Abstract base class for numerical integration over semi-infinite and infinite limits.
+    Subclasses implementing a specific quadrature need to define
+
+    Subclasses implementing specific evaluations need to define:
         .eval_contrib
         .eval_diag_contrib
         .eval_diag_deriv_contrib
@@ -22,9 +24,16 @@ class NumericalIntegratorClenCur:
         self.diag_shape = diag_shape
         self.npoints = npoints
 
+    @property
+    def npoints(self):
+        return self._npoints
+    @npoints.setter
+    def npoints(self, value):
+        self._npoints = value
+
     def get_quad(self, a):
-        """Generate the Clenshaw-Curtis quadrature with a cot distribution function."""
-        return gen_ClenCur_quad(a, self.npoints, even=True)
+        """Generate the appropriate Clenshaw-Curtis quadrature points and weights."""
+        return NotImplementedError
 
     def eval_contrib(self, freq):
         """Evaluate contribution to numerical integral of result at given frequency point."""
@@ -52,7 +61,7 @@ class NumericalIntegratorClenCur:
         """Base function to perform numerical integration with provided quadrature grid."""
         quadrature = self.get_quad(a)
         integral = np.zeros(res_shape)
-        for point, weight in quadrature:
+        for point, weight in zip(*quadrature):
             contrib = evaluator(point)
             assert(contrib.shape == res_shape)
             integral += weight * contrib
@@ -62,7 +71,7 @@ class NumericalIntegratorClenCur:
         """Base function to perform numerical integration with provided quadrature grid."""
         quadrature = self.get_quad(a)
         integral = np.zeros(res_shape)
-        for point, weight in quadrature:
+        for point, weight in zip(*quadrature):
             contrib = evaluator(point, weight, a)
             assert(contrib.shape == res_shape)
             integral += contrib
@@ -77,7 +86,9 @@ class NumericalIntegratorClenCur:
         return self._NI_eval(a, self.diag_shape, self.eval_diag_contrib)
 
     def eval_diag_NI_approx_grad(self, a):
-        """Evaluate the gradient w.r.t a of NI diagonal expression."""
+        """Evaluate the gradient w.r.t a of NI diagonal expression.
+        Note that for all quadratures the weights and quadrature point positions are proportional to the arbitrary
+        parameter `a', so we can use the same expressions for the derivatives."""
         def get_grad_contrib(freq, weight, a):
             contrib = self.eval_diag_contrib(freq)
             deriv = self.eval_diag_deriv_contrib(freq)
@@ -85,7 +96,9 @@ class NumericalIntegratorClenCur:
         return self._NI_eval_deriv(a, self.diag_shape, get_grad_contrib)
 
     def eval_diag_NI_approx_deriv2(self, a):
-        """Evaluate the second derivative w.r.t a of NI diagonal expression."""
+        """Evaluate the second derivative w.r.t a of NI diagonal expression.
+        Note that for all quadratures the weights and quadrature point positions are proportional to the arbitrary
+        parameter `a', so we can use the same expressions for the derivatives."""
         def get_deriv2_contrib(freq, weight, a):
             deriv = self.eval_diag_deriv_contrib(freq)
             deriv2 = self.eval_diag_deriv2_contrib(freq)
@@ -110,15 +123,61 @@ class NumericalIntegratorClenCur:
         print("Max Grad Error={:6.4e}".format(abs(grad_1 - grad_2).max()))
         print("Max Deriv2 Error={:6.4e}".format(abs(deriv2_1 - deriv2_2).max()))
 
-    def opt_quadrature_diag(self, ainit=1.0):
+    def opt_quadrature_diag(self, ainit=None):
         """Optimise the quadrature to exactly integrate a diagonal approximation to the integral"""
         def get_val(a):
-            return (self.eval_diag_NI_approx(a) - self.eval_diag_exact()).sum()
+            val = (self.eval_diag_NI_approx(a) - self.eval_diag_exact()).sum()
+            #print("^^^",a, val)
+            return val
         def get_grad(a):
             return self.eval_diag_NI_approx_grad(a).sum()
         def get_deriv2(a):
             return self.eval_diag_NI_approx_deriv2(a).sum()
-        solve = scipy.optimize.newton(get_val, x0=ainit, fprime=get_grad, fprime2=get_deriv2, tol=1e-4)
+        def find_good_start(ainit = 1e-6, scale_fac = 50, tarthresh = 0.7):
+            """Find a good starting value of a via starting from (numerically) zero, and increasing exponentially
+            until the absolute function value falls.
+            """
+            initval = abs(self.eval_diag_exact().sum())
+            if initval < 1e-8:
+                raise ZeroDivisionError("Cannot optimise quadrature for function with zero exact value.")
+            a = ainit
+            while a < 1e8:
+                a *= scale_fac
+                val = abs(get_val(a))
+                if (( val / initval) < tarthresh) or val > 1.05*initval:
+                    # Target value has decreased by the target amount, or started diverging.
+                    return a
+            else:
+                raise NIException("Cannot find starting point for quadrature optimisation; please provide a value of a.")
+        if ainit is None: ainit = find_good_start(1e-6, 60, 0.7)
+        opt_min = False
+        print("%", ainit)
+        try:
+            solve = scipy.optimize.newton(get_val, x0=ainit, fprime=get_grad, tol=1e-8, maxiter=30, fprime2=get_deriv2)
+        except RuntimeError:
+            opt_min = True
+        else:
+            if solve < 1e-10:
+                opt_min = True
+        if opt_min:
+            mini, maxi = 1e-8, 1e8
+            fmin = abs(get_val(mini))
+            fmax = abs(get_val(maxi))
+            fmid = abs(get_val(ainit))
+            if (fmid<fmin and fmid<fmax):
+                res = scipy.optimize.minimize_scalar(lambda freq: abs(get_val(freq)),
+                                                     bracket=(mini, ainit, maxi), method="brent")
+            else:
+                res = scipy.optimize.minimize_scalar(lambda freq: abs(get_val(freq)),
+                                                     bounds=(mini, maxi), method="bounded")
+            if not res.success:
+                raise NIException("Could not optimise `a' value.")
+            solve = res.x
+            print(
+                "Used minimisation to optimise quadrature grid; resulting penalty value: {:6.4e}"
+                "(the closer to zero better)".format(res.fun))
+
+
         print("!", solve)
         return solve
 
@@ -130,13 +189,17 @@ class NumericalIntegratorClenCur:
     def get_offset(self):
         return np.zeros(self.out_shape)
 
-    def kernel(self, a = 1.0, opt_quad = True):
+    def kernel(self, a = None, opt_quad = True):
         """Perform numerical integration. Put simply, fix any arbitrary parameters in the integral to be evaluated,
         optimise the quadrature grid to ensure a diagonal approximation is exactly integrated then evaluate full
         expression."""
         self.fix_params()
         if opt_quad:
             a = self.opt_quadrature_diag(a)
+        else:
+            if a is None:
+                raise ValueError("A value for the quadrature scaling parameter a must be provided if optimisation is not"
+                                 "permitted.")
         return self.eval_NI_approx(a) + self.get_offset()
 
     def kernel_adaptive(self):
@@ -150,13 +213,53 @@ class NumericalIntegratorClenCur:
         return integral + self.get_offset()
 
     def l2_scan(self, freqs):
-        return [sum(self.eval_contrib(x).reshape(-1)**2)**(0.5) for x in freqs]
+        return [np.linalg.norm(self.eval_contrib(x)) for x in freqs]
 
     def max_scan(self, freqs):
         return [abs(self.eval_contrib(x)).max() for x in freqs]
 
+    def get_quad_vals(self, a, l2norm = True):
+        quadrature = self.get_quad(a)
+        getnorm = np.linalg.norm if l2norm else lambda x: abs(x).max()
+        points = [x[0] for x in quadrature]
+        vals = [getnorm(self.eval_contrib(p)) for p in points]
+        return points, vals
 
-def gen_ClenCur_quad(a, npoints, even = False):
+
+class NumericalIntegratorClenCurInfinite(NumericalIntegratorBase):
+    def __init__(self, out_shape, diag_shape, npoints, even):
+        super().__init__(out_shape, diag_shape, npoints)
+        self.even = even
+
+    def get_quad(self, a):
+        return gen_ClenCur_quad_inf(a, self.npoints, self.even)
+
+class NumericalIntegratorClenCurSemiInfinite(NumericalIntegratorBase):
+    def __init__(self, out_shape, diag_shape, npoints):
+        super().__init__(out_shape, diag_shape, npoints)
+
+    def get_quad(self, a):
+        return gen_ClenCur_quad_semiinf(a, self.npoints)
+
+class NumericalIntegratorGaussianSemiInfinite(NumericalIntegratorBase):
+    def __init__(self, out_shape, diag_shape, npoints):
+        super().__init__(out_shape, diag_shape, npoints)
+    @property
+    def npoints(self):
+        return self._npoints
+    @npoints.setter
+    def npoints(self, value):
+        """For Gaussian quadrature recalculating the points and weights every time won't be performant;
+        instead lets cache them each time npoints is changed."""
+        self._points, self._weights = np.polynomial.laguerre.laggauss(value)
+        self._weights = np.array([w * np.exp(p) for (p,w) in zip(self._points, self._weights)])
+        self._npoints = value
+
+    def get_quad(self, a):
+        return a * self._points, a * self._weights
+
+def gen_ClenCur_quad_inf(a, npoints, even = False):
+    """Generate quadrature points and weights for Clenshaw-Curtis quadrature over infinite range (-inf to +inf)"""
     symfac = 1.0 + even
     # If even we only want points up to t <= pi/2
     tvals = [(j/npoints) * (np.pi / symfac ) for j in range(1, npoints+1)]
@@ -164,14 +267,23 @@ def gen_ClenCur_quad(a, npoints, even = False):
     points = [a/np.tan(t) for t in tvals]
     weights = [a * np.pi * symfac / (2 * npoints * (np.sin(t)**2)) for t in tvals]
     if even: weights[-1] /= 2
-    return zip(points, weights)
+    return points, weights
 
+def gen_ClenCur_quad_semiinf(a, npoints):
+    """Generate quadrature points and weights for Clenshaw-Curtis quadrature over semiinfinite range (0 to +inf)"""
+    tvals = [(np.pi * j/(npoints + 1)) for j in range(1, npoints+1)]
+    points = [a/(np.tan(t/2)**2) for t in tvals]
+    jsums = [sum([np.sin(j * t) * (1 - np.cos(j * np.pi))/j for j in range(1, npoints+1)]) for t in tvals]
+    weights = [a * (4 * np.sin(t) / ((npoints + 1) * (1 - np.cos(t))**2)) * s for (t,s) in zip(tvals, jsums)]
+    return points, weights
 
-class NICheck(NumericalIntegratorClenCur):
+class NICheckInf(NumericalIntegratorClenCurInfinite):
     def __init__(self, exponent, npoints):
-        super().__init__((), (), npoints)
+        super().__init__((), (), npoints, even=True)
         self.exponent = exponent
 
     def eval_contrib(self, freq):
         #return np.array(np.exp(-freq*self.exponent))
         return np.array((freq + 0.1)**(-self.exponent))
+
+

@@ -101,7 +101,7 @@ class ssRPA:
         elif integral_deduct == "Exact":
             assert(not opt_quad)
             NIworker = momzero_NI.MomzeroDeductHigherOrder(self.D, ri_MP[0], ri_MP[1], target_rot, npoints)
-            offsetNIworker = momzero_NI.MomzeroOffsetCalc(self.D, ri_MP[0], ri_MP[1], target_rot, npoints)
+            offsetNIworker = momzero_NI.MomzeroOffsetCalcGaussLag(self.D, ri_MP[0], ri_MP[1], target_rot, npoints)
             estval = offsetNIworker.kernel_adaptive()
             # This computes the required value analytically, but at N^5 cost. Just for debugging.
             #mat = np.zeros(self.D.shape * 2)

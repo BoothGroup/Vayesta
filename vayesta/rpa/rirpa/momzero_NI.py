@@ -1,13 +1,14 @@
 """Functionality to calculate zeroth moment via numerical integration """
 import scipy.optimize
 
-from vayesta.rpa.rirpa.NI_eval import NumericalIntegratorClenCur
+from vayesta.rpa.rirpa.NI_eval import NumericalIntegratorClenCurInfinite,\
+    NumericalIntegratorClenCurSemiInfinite, NumericalIntegratorGaussianSemiInfinite, NumericalIntegratorBase
 from vayesta.rpa.rirpa import momzero_calculation
 from vayesta.core.util import *
 
 import numpy as np
 
-class NIMomZero(NumericalIntegratorClenCur):
+class NIMomZero(NumericalIntegratorClenCurInfinite):
     def __init__(self,  D, S_L, S_R, target_rot, npoints):
         self.D = D
         self.S_L = S_L
@@ -15,7 +16,7 @@ class NIMomZero(NumericalIntegratorClenCur):
         self.target_rot = target_rot
         out_shape = self.target_rot.shape
         diag_shape = self.D.shape
-        super().__init__(out_shape, diag_shape, npoints)
+        super().__init__(out_shape, diag_shape, npoints, True)
 
     @property
     def n_aux(self):
@@ -106,10 +107,16 @@ class MomzeroDeductHigherOrder(MomzeroDeductNone):
         res = (freq ** 2) * res / np.pi
         return res
 
-class MomzeroOffsetCalc(MomzeroDeductNone):
-
-    def __init__(self, *args):
-        super().__init__(*args)
+class BaseMomzeroOffset(NumericalIntegratorBase):
+    """NB this is an abstract class!"""
+    def __init__(self, D, S_L, S_R, target_rot, npoints):
+        self.D = D
+        self.S_L = S_L
+        self.S_R = S_R
+        self.target_rot = target_rot
+        out_shape = self.target_rot.shape
+        diag_shape = self.D.shape
+        super().__init__(out_shape, diag_shape, npoints)
         self.alpha = None
         self.diagRI = einsum("np,np->p", self.S_L, self.S_R)
         self.tar_RI = dot(dot(self.target_rot, self.S_L.T), self.S_R)
@@ -121,16 +128,36 @@ class MomzeroOffsetCalc(MomzeroDeductNone):
         print("Set alpha to {:6.4e} to make integrand traceless.".format(self.alpha))
 
     def get_offset(self):
-        return self.alpha**(-1) * self.tar_RI / 2
+        return np.zeros(self.out_shape)#self.alpha**(-1) * self.tar_RI / 2
 
     def eval_contrib(self, freq):
         expval = np.exp(-freq * self.D)
         lrot = einsum("lp,p->lp", self.target_rot, expval)
         rrot = expval
         offsetexpval = np.exp(-2 * freq * self.alpha)
-        res = dot(dot(lrot, self.S_L.T), einsum("np,p->np", self.S_R, rrot)) - offsetexpval * self.tar_RI
+        res = dot(dot(lrot, self.S_L.T), einsum("np,p->np", self.S_R, rrot)) #- offsetexpval * self.tar_RI
         return res
 
+    def eval_diag_contrib(self, freq):
+        expval = np.exp(-2 * freq * self.D) #- np.exp(-2 * freq * self.alpha)
+        return np.multiply(expval, self.diagRI)
+
+    def eval_diag_deriv_contrib(self, freq):
+        expval = -2 * (np.multiply(self.D, np.exp(-2 * freq * self.D)) )#- self.alpha * np.exp(-2 * freq * self.alpha))
+        return np.multiply(expval, self.diagRI)
+
+    def eval_diag_deriv2_contrib(self, freq):
+        expval = 4 * (np.multiply(self.D**2, np.exp(-2 * freq * self.D)))# - self.alpha**2 * np.exp(-2 * freq * self.alpha))
+        return np.multiply(expval, self.diagRI)
+
+    def eval_diag_exact(self):
+        return 0.5 * np.multiply(self.D**(-1), self.diagRI) #- 0.5 * self.alpha**(-1) * self.diagRI
+
+class MomzeroOffsetCalcGaussLag(BaseMomzeroOffset, NumericalIntegratorGaussianSemiInfinite):
+    pass
+
+class MomzeroOffsetCalcCC(BaseMomzeroOffset, NumericalIntegratorClenCurSemiInfinite):
+    pass
 
 def construct_F(freq, D):
     return (D ** 2 + freq ** 2) ** (-1)
