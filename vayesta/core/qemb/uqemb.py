@@ -11,6 +11,7 @@ from .ufragment import UFragment
 
 from vayesta.core.ao2mo.postscf_ao2mo import postscf_ao2mo
 from vayesta.core.util import *
+from vayesta.core.mpi import mpi
 
 # Amplitudes
 from .amplitudes import get_t1_uhf
@@ -37,6 +38,22 @@ class UEmbedding(QEmbedding):
     #        veff = (fock - self.get_hcore())
     #    e_hf = self.mf.energy_tot(vhf=veff)
     #    return veff, e_hf
+
+    def _mpi_bcast_mf(self, mf):
+        """Use mo_energy and mo_coeff from master MPI rank only."""
+        # Check if all MPI ranks have the same mean-field MOs
+        mo_energy = mpi.world.gather(mf.mo_energy)
+        if mpi.is_master:
+            moerra = np.max([abs(mo_energy[i][0] - mo_energy[0][0]).max() for i in range(len(mpi))])
+            moerrb = np.max([abs(mo_energy[i][1] - mo_energy[0][1]).max() for i in range(len(mpi))])
+            moerr = max(moerra, moerrb)
+            if moerr > 1e-6:
+                self.log.warning("Large difference of MO energies between MPI ranks= %.2e !", moerr)
+            else:
+                self.log.debugv("Largest difference of MO energies between MPI ranks= %.2e", moerr)
+        # Use MOs of master process
+        mf.mo_energy = mpi.world.bcast(mf.mo_energy, root=0)
+        mf.mo_coeff = mpi.world.bcast(mf.mo_coeff, root=0)
 
     @staticmethod
     def stack_mo(*mo_coeff):
@@ -97,10 +114,9 @@ class UEmbedding(QEmbedding):
         ovlp = self.get_ovlp()
         sca = np.dot(ovlp, self.mo_coeff[0][:,:self.nocc[0]])
         scb = np.dot(ovlp, self.mo_coeff[1][:,:self.nocc[1]])
-        madelung = pyscf.pbc.tools.madelung(self.mol, self.mf.kpt)
-        e_exxdiv = -madelung * (self.nocc[0]+self.nocc[1]) / (2*self.ncells)
-        v_exxdiv_a = -madelung * np.dot(sca, sca.T)
-        v_exxdiv_b = -madelung * np.dot(scb, scb.T)
+        e_exxdiv = -self.madelung * (self.nocc[0]+self.nocc[1]) / (2*self.ncells)
+        v_exxdiv_a = -self.madelung * np.dot(sca, sca.T)
+        v_exxdiv_b = -self.madelung * np.dot(scb, scb.T)
         self.log.debug("Divergent exact-exchange (exxdiv) correction= %+16.8f Ha", e_exxdiv)
         return e_exxdiv, (v_exxdiv_a, v_exxdiv_b)
 

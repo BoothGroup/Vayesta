@@ -194,7 +194,7 @@ class DMET_Bath:
                             name = names[j]
                             break
                     if name:
-                        self.log.info("  > %-34s  n= %12.6g  1-n= %12.6g", name, e, 1-e)
+                        self.log.info("  > %-34s  n= %12.6g  1-n= %12.6g  n*(1-n)= %12.6g", name, e, 1-e, e*(1-e))
 
             # DMET bath analysis
             self.log.info("DMET bath character:")

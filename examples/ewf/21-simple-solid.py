@@ -3,7 +3,6 @@ import numpy as np
 import pyscf
 import pyscf.pbc
 import pyscf.pbc.scf
-import pyscf.pbc.df
 
 import vayesta
 import vayesta.ewf

@@ -491,15 +491,6 @@ class EWFFragment(QEmbeddingFragment):
         e_corr = (e_singles + e_doubles)
         return e_singles, e_doubles, e_corr
 
-    @mpi.with_send(source=get_fragment_mpi_rank)
-    def pop_analysis(self, cluster=None, dm1=None, **kwargs):
-        if cluster is None: cluster = self.cluster
-        if dm1 is None: dm1 = self.results.dm1
-        if dm1 is None: raise ValueError("DM1 not found for %s" % self)
-        # Add frozen mean-field contribution:
-        dm1 = cluster.add_frozen_rdm1(dm1)
-        return self.base.pop_analysis(dm1, mo_coeff=cluster.coeff, **kwargs)
-
     def eom_analysis(self, csolver, kind, filename=None, mode="a", sort_weight=True, r1_min=1e-2):
         kind = kind.upper()
         assert kind in ("IP", "EA")

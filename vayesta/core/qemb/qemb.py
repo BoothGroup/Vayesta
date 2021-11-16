@@ -67,7 +67,7 @@ class QEmbedding:
         wf_partition: str = 'first-occ'     # ['first-occ', 'first-vir', 'democratic']
         store_eris: bool = False            # If True, ERIs will be stored in Fragment._eris
 
-    def __init__(self, mf, options=None, log=None, **kwargs):
+    def __init__(self, mf, options=None, log=None, overwrite=None, **kwargs):
         """Abstract base class for quantum embedding methods.
 
         Parameters
@@ -116,46 +116,64 @@ class QEmbedding:
         self.log.info("Initializing %s" % self.__class__.__name__)
         self.log.info("=============%s" % (len(str(self.__class__.__name__))*"="))
 
-        # Options
-        # -------
+        # 2) Options
+        # ----------
         if options is None:
             options = self.Options(**kwargs)
         else:
             options = options.replace(kwargs)
         self.opts = options
 
-        self.register = FragmentRegister()
+        # 3) Overwrite methods/attributes
+        # -------------------------------
+        if overwrite is not None:
+            for name, attr in overwrite.items():
+                if callable(attr):
+                    self.log.info("Overwriting method %s of %s", name, self.__class__.__name__)
+                    setattr(self, name, attr.__get__(self))
+                else:
+                    self.log.info("Overwriting attribute %s of %s", name, self.__class__.__name__)
+                    setattr(self, name, attr)
 
-        # 2) Mean-field
+        # 4) Mean-field
         # -------------
+        self.mf = None
+        self.kcell = None
+        self.kpts = None
+        self.kdf = None
+        self.madelung = None
         with log_time(self.log.timingv, "Time for mean-field setup: %s"):
             self.init_mf(mf)
 
-        # 3) Fragments
+        # 5) Fragments
         # ------------
+        self.register = FragmentRegister()
         self.fragmentation = None
         self.fragments = []
 
-        # 4) Other
+        # 6) Other
         # --------
         self.with_scmf = None   # Self-consistent mean-field
 
+
+    def _mpi_bcast_mf(self, mf):
+        """Use mo_energy and mo_coeff from master MPI rank only."""
+        # Check if all MPI ranks have the same mean-field MOs
+        mo_energy = mpi.world.gather(mf.mo_energy)
+        if mpi.is_master:
+            moerr = np.max([abs(mo_energy[i] - mo_energy[0]).max() for i in range(len(mpi))])
+            if moerr > 1e-6:
+                self.log.warning("Large difference of MO energies between MPI ranks= %.2e !", moerr)
+            else:
+                self.log.debugv("Largest difference of MO energies between MPI ranks= %.2e", moerr)
+        # Use MOs of master process
+        mf.mo_energy = mpi.world.bcast(mf.mo_energy, root=0)
+        mf.mo_coeff = mpi.world.bcast(mf.mo_coeff, root=0)
+
     def init_mf(self, mf):
         if mpi:
-            self.log.debugv("Comparing mean-field between MPI ranks")
-            # Check if all MPI ranks have the same mean-field MOs
-            mo_energy = mpi.world.gather(mf.mo_energy)
-            if mpi.is_master:
-                err = np.max([abs(mo_energy[i] - mf.mo_energy).max() for i in range(len(mpi))])
-                if err > 1e-6:
-                    self.log.warning("Large difference of MO energies between MPI ranks= %.3e !", err)
-                else:
-                    self.log.debugv("Largest difference of MO energies between MPI ranks= %.3e", err)
-            # Use MOs of master process
-            mo_energy = mpi.world.bcast(mf.mo_energy, root=0)
-            mo_coeff = mpi.world.bcast(mf.mo_coeff, root=0)
-            mf.mo_energy = mo_energy
-            mf.mo_coeff = mo_coeff
+            with log_time(self.log.timing, "Time to broadcast mean-field to all MPI ranks: %s"):
+                self._mpi_bcast_mf(mf)
 
         self._mf_orig = mf      # Keep track of original mean-field object - be careful not to modify in any way, to avoid side effects!
         # Create shallow copy of mean-field object; this way it can be updated without side effects outside the quantum
@@ -169,11 +187,14 @@ class QEmbedding:
                 mf = fold_scf(mf)
         if isinstance(mf, FoldedSCF):
             self.kcell, self.kpts, self.kdf = mf.kmf.mol, mf.kmf.kpts, mf.kmf.with_df
-        else:
-            self.kcell = self.kpts = self.kdf = None
         self.mf = mf
         if not (self.is_rhf or self.is_uhf):
             raise ValueError("Cannot deduce RHF or UHF!")
+
+        # Evaluating the Madelung constant is expensive - cache result
+        if self.has_exxdiv:
+            self.madelung = pyscf.pbc.tools.madelung(self.mol, self.mf.kpt)
+
         # Original mean-field integrals - do not change these!
         self._ovlp_orig = self.mf.get_ovlp()
         self._hcore_orig = self.mf.get_hcore()
@@ -189,27 +210,27 @@ class QEmbedding:
         vhf_energy = self.get_veff_for_energy()
         e_hf = mf.energy_tot(h1e=h1e_energy, vhf=vhf_energy)
         if abs((mf.e_tot - e_hf)/mf.e_tot) > 0.01:
-            self.log.warning("Non Hartree-Fock mean-field detected. Large change of mean-field energy: E(mf)= %s -> E(HF)= %s !",
-                    energy_string(mf.e_tot), energy_string(e_hf))
+            self.log.warning("Non Hartree-Fock mean-field? Large change of energy: E(mf)= %s -> E(HF)= %s (dE= %s) !",
+                    *map(energy_string, (mf.e_tot, e_hf, e_hf-mf.e_tot)))
         elif abs(mf.e_tot - e_hf) > 1e-7:
-            self.log.info("Non Hartree-Fock mean-field detected. Change of mean-field energy: E(mf)= %s -> E(HF)= %s",
-                    energy_string(mf.e_tot), energy_string(e_hf))
+            self.log.info("Non Hartree-Fock mean-field detected. Change of energy: E(mf)= %s -> E(HF)= %s (dE= %s)",
+                    *map(energy_string, (mf.e_tot, e_hf, e_hf-mf.e_tot)))
         else:
-            self.log.warning("Non Hartree-Fock mean-field detected. Change of mean-field energy: E(mf)= %s -> E(HF)= %s",
-                    energy_string(mf.e_tot), energy_string(e_hf))
+            self.log.debugv("Change of energy: E(mf)= %s -> E(HF)= %s (dE= %s)",
+                    *map(energy_string, (mf.e_tot, e_hf, e_hf-mf.e_tot)))
         self.mf.e_tot = e_hf
 
         # Some MF output
         if self.mf.converged:
-            self.log.info("E(MF)= %s", energy_string(self.e_mf))
+            self.log.info("E(mf)= %s", energy_string(self.e_mf))
         else:
-            self.log.warning("E(MF)= %s (not converged!)", energy_string(self.e_mf))
+            self.log.warning("E(mf)= %s (not converged!)", energy_string(self.e_mf))
 
         #FIXME (no RHF/UHF dependent code here)
         if self.is_rhf:
             self.log.info("n(AO)= %4d  n(MO)= %4d  n(linear dep.)= %4d", self.nao, self.nmo, self.nao-self.nmo)
         else:
-            self.log.info("n(AO)= %4d  n(alpha/beta-MO)= %4d / %4d  n(linear dep.)= %4d / %4d",
+            self.log.info("n(AO)= %4d  n(alpha/beta-MO)= (%4d, %4d)  n(linear dep.)= (%4d, %4d)",
                     self.nao, *self.nmo, self.nao-self.nmo[0], self.nao-self.nmo[1])
 
         self.check_orthonormal(self.mo_coeff, mo_name='MO')
@@ -266,9 +287,8 @@ class QEmbedding:
         """
         if not self.has_exxdiv: return 0, None
         sc = np.dot(self.get_ovlp(), self.mo_coeff[:,:self.nocc])
-        madelung = pyscf.pbc.tools.madelung(self.mol, self.mf.kpt)
-        e_exxdiv = -madelung * self.nocc/self.ncells
-        v_exxdiv = -madelung * np.dot(sc, sc.T)
+        e_exxdiv = -self.madelung * self.nocc/self.ncells
+        v_exxdiv = -self.madelung * np.dot(sc, sc.T)
         self.log.debug("Divergent exact-exchange (exxdiv) correction= %+16.8f Ha", e_exxdiv)
         return e_exxdiv, v_exxdiv
 
@@ -469,7 +489,7 @@ class QEmbedding:
         return self.get_veff(with_exxdiv=with_exxdiv)
 
     def get_fock_for_energy(self, with_exxdiv=True):
-        return self.get_hcore_for_energy() + self.get_veff_for_energy(with_exxdiv=with_exxdiv)
+        return (self.get_hcore_for_energy() + self.get_veff_for_energy(with_exxdiv=with_exxdiv))
 
 
     # Other integral methods:
@@ -607,7 +627,7 @@ class QEmbedding:
             children[idx].append(f)
         return children
 
-    def get_fragments(self, **kwargs):
+    def get_fragments(self, **filters):
         """Return all fragments which obey the specified conditions.
 
         Arguments
@@ -632,19 +652,21 @@ class QEmbedding:
 
         >>> self.get_fragments(sym_parent=None)
         """
-        filters = {key : np.atleast_1d(kwargs[key]) for key in kwargs}
+        if not filters:
+            return self.fragments
+        filters = {key : np.atleast_1d(filters[key]) for key in filters}
         fragments = []
         for frag in self.fragments:
             skip = False
-            for key, filt in filters.items():
+            for key, filtr in filters.items():
                 val = getattr(frag, key)
-                if val not in filt:
+                if val not in filtr:
                     skip = True
                     break
             if skip:
-                self.log.debugv("Skipping %s: attribute %s= %r, filter= %r", frag, key, val, filt)
+                self.log.debugv("Skipping %s: attribute %s= %r, filter= %r", frag, key, val, filtr)
                 continue
-            self.log.debugv("Returning %s: attribute %s= %r, filter= %r", frag, key, val, filt)
+            self.log.debugv("Returning %s: attribute %s= %r, filter= %r", frag, key, val, filtr)
             fragments.append(frag)
         return fragments
 

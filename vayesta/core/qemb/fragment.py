@@ -1001,6 +1001,15 @@ class Fragment:
     # --- Orbital plotting
     # --------------------
 
+    @mpi.with_send(source=get_fragment_mpi_rank)
+    def pop_analysis(self, cluster=None, dm1=None, **kwargs):
+        if cluster is None: cluster = self.cluster
+        if dm1 is None: dm1 = self.results.dm1
+        if dm1 is None: raise ValueError("DM1 not found for %s" % self)
+        # Add frozen mean-field contribution:
+        dm1 = cluster.add_frozen_rdm1(dm1)
+        return self.base.pop_analysis(dm1, mo_coeff=cluster.coeff, **kwargs)
+
     def plot3d(self, filename, gridsize=(100, 100, 100), **kwargs):
         """Write cube density data of fragment orbitals to file."""
         nx, ny, nz = gridsize

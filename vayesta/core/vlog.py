@@ -27,7 +27,7 @@ LVL_PREFIX = {
    "CRITICAL" : "CRITICAL",
    "ERROR" : "ERROR",
    "WARNING" : "WARNING",
-   "OUTPUT" : "OUTPUT",
+   "OUT" : "OUTPUT",
    "DEBUGV" : "DEBUG",
    }
 
