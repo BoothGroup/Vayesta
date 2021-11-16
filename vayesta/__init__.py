@@ -18,6 +18,7 @@ from .core import cmdargs
 from .core import vlog
 from .core.mpi import mpi
 
+
 # Command line arguments
 args = cmdargs.parse_cmd_args()
 

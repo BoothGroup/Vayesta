@@ -20,6 +20,7 @@ import pyscf.pbc.tools
 import pyscf.lib
 from pyscf.mp.mp2 import _mo_without_core
 
+import vayesta
 from vayesta.core import vlog
 from vayesta.core.foldscf import FoldedSCF, fold_scf
 from vayesta.core.util import *
@@ -141,6 +142,7 @@ class QEmbedding:
 
     def init_mf(self, mf):
         if mpi:
+            self.log.debugv("Comparing mean-field between MPI ranks")
             # Check if all MPI ranks have the same mean-field MOs
             mo_energy = mpi.world.gather(mf.mo_energy)
             if mpi.is_master:
@@ -186,10 +188,15 @@ class QEmbedding:
         h1e_energy = self.get_hcore_for_energy()
         vhf_energy = self.get_veff_for_energy()
         e_hf = mf.energy_tot(h1e=h1e_energy, vhf=vhf_energy)
-        if abs(mf.e_tot - e_hf) > 1e-8:
-            self.log.info("Changing mf.e_tot from %s to %s", energy_string(mf.e_tot), energy_string(e_hf))
+        if abs((mf.e_tot - e_hf)/mf.e_tot) > 0.01:
+            self.log.warning("Non Hartree-Fock mean-field detected. Large change of mean-field energy: E(mf)= %s -> E(HF)= %s !",
+                    energy_string(mf.e_tot), energy_string(e_hf))
+        elif abs(mf.e_tot - e_hf) > 1e-7:
+            self.log.info("Non Hartree-Fock mean-field detected. Change of mean-field energy: E(mf)= %s -> E(HF)= %s",
+                    energy_string(mf.e_tot), energy_string(e_hf))
         else:
-            self.log.debugv("Changing mf.e_tot from %s to %s", energy_string(mf.e_tot), energy_string(e_hf))
+            self.log.warning("Non Hartree-Fock mean-field detected. Change of mean-field energy: E(mf)= %s -> E(HF)= %s",
+                    energy_string(mf.e_tot), energy_string(e_hf))
         self.mf.e_tot = e_hf
 
         # Some MF output
@@ -719,7 +726,7 @@ class QEmbedding:
     # Utility
     # -------
 
-    def check_orthonormal(self, *mo_coeff, mo_name='', tol=1e-7):
+    def check_orthonormal(self, *mo_coeff, mo_name='', crit_tol=1e-2, err_tol=1e-7):
         """Check orthonormality of mo_coeff."""
         mo_coeff = hstack(*mo_coeff)
         err = dot(mo_coeff.T, self.get_ovlp(), mo_coeff) - np.eye(mo_coeff.shape[-1])
@@ -727,10 +734,13 @@ class QEmbedding:
         linf = abs(err).max()
         if mo_name:
             mo_name = (' of %ss' % mo_name)
-        if max(l2, linf) > tol:
-            self.log.error("Orthogonality error%s: L(2)= %.2e  L(inf)= %.2e !", mo_name, l2, linf)
+        if max(l2, linf) > crit_tol:
+            self.log.critical("Orthonormality error%s: L(2)= %.2e  L(inf)= %.2e !", mo_name, l2, linf)
+            raise OrthonormalityError("Orbitals not orhonormal!")
+        elif max(l2, linf) > err_tol:
+            self.log.error("Orthonormality error%s: L(2)= %.2e  L(inf)= %.2e !", mo_name, l2, linf)
         else:
-            self.log.debug("Orthogonality error%s: L(2)= %.2e  L(inf)= %.2e", mo_name, l2, linf)
+            self.log.debugv("Orthonormality error%s: L(2)= %.2e  L(inf)= %.2e", mo_name, l2, linf)
         return l2, linf
 
     # --- Population analysis

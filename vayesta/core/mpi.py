@@ -18,7 +18,6 @@ except (ModuleNotFoundError, ImportError):
     mpi_size = 1
     mpi_timer = default_timer
 
-
 class MPI_Operators:
     pass
 
@@ -27,7 +26,6 @@ for op in ['max', 'min', 'sum', 'prod', 'land', 'lor', 'band', 'bor', 'maxloc', 
     setattr(mpi_ops, op, getattr(MPI, op.upper()) if MPI is not None else None)
 
 class MPI_Interface:
-
 
     MPI = MPI
     world = mpi_world
@@ -38,11 +36,6 @@ class MPI_Interface:
     op = mpi_ops
 
     def __init__(self):
-        #self.MPI = MPI
-        #self.world = mpi_world
-        #self.rank = mpi_rank
-        #self.size = mpi_size
-        #self.timer = mpi_timer
         self._tag = -1
 
     def __len__(self):
@@ -129,17 +122,5 @@ class MPI_Interface:
                 return None
             return wrapper
         return decorator
-
-
-#class SharedData:
-#
-#    def __init__(self, data, source):
-#        self._data = data
-#        self._source = source
-#
-#    def __getattr__(self, attr, **kwargs):
-#        if mpi_rank == self._source:
-#            return getattr(self._data, attr, **kwargs)
-
 
 mpi = MPI_Interface()
