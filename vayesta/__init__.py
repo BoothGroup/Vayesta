@@ -13,6 +13,7 @@ import sys
 import os.path
 import logging
 import subprocess
+import platform
 
 from .core import cmdargs
 from .core import vlog
@@ -108,7 +109,7 @@ log.debug("  * PySCF:    %s", phash)
 
 # --- MPI info
 if mpi:
-    log.debug("MPI:  rank= %d  size= %d", mpi.rank, mpi.size)
+    log.debug("MPI:  rank= %d  size= %d  node= %s", mpi.rank, mpi.size, platform.node())
 
 log.debug("")
 

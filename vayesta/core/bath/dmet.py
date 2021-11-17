@@ -210,7 +210,7 @@ class DMET_Bath:
         # Calculate entanglement entropy
         entropy = np.sum(eig * (1-eig))
         entropy_bath = np.sum(eig[mask_bath] * (1-eig[mask_bath]))
-        self.log.info("Entanglement entropy: total= %.6e  bath= %.6e  captured=  %.2f %%",
+        self.log.info("Entanglement entropy: total= %.6e  bath= %.6e (%.2f %%)",
                 entropy, entropy_bath, 100.0*entropy_bath/entropy)
 
         # Complete DMET orbital space using reference orbitals

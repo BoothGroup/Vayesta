@@ -199,16 +199,17 @@ class MP2_BNO_Bath(BNO_Bath):
         """
 
         actspace_orig = self.get_active_space(kind)
+        fock = self.fragment.base.get_fock_for_bno()
 
         # --- Canonicalization [optional]
         if self.canonicalize[0]:
             self.log.debugv("Canonicalizing occupied orbitals")
-            c_active_occ, r_occ, e_occ = self.fragment.canonicalize_mo(actspace_orig.c_active_occ, eigvals=True)
+            c_active_occ, r_occ = self.fragment.canonicalize_mo(actspace_orig.c_active_occ, fock=fock)
         else:
             c_active_occ = actspace_orig.c_active_occ
         if self.canonicalize[1]:
             self.log.debugv("Canonicalizing virtual orbitals")
-            c_active_vir, r_vir, e_vir = self.fragment.canonicalize_mo(actspace_orig.c_active_vir, eigvals=True)
+            c_active_vir, r_vir = self.fragment.canonicalize_mo(actspace_orig.c_active_vir, fock=fock)
         else:
             c_active_vir = actspace_orig.c_active_vir
         actspace = ActiveSpace(self.mf, c_active_occ, c_active_vir,
@@ -226,11 +227,11 @@ class MP2_BNO_Bath(BNO_Bath):
         # -- Integral transformation
         if eris is None:
             with log_time(self.log.timing, "Time for AO->MO transformation: %s"):
-                eris = self.base.get_eris_object(mp2)
+                eris = self.base.get_eris_object(mp2, fock=fock)
         # Reuse previously obtained integral transformation into N^2 sized quantity (rather than N^4)
-        else:
-            self.log.debug("Transforming previous eris.")
-            eris = transform_mp2_eris(eris, actspace.c_active_occ, actspace.c_active_vir, ovlp=self.base.get_ovlp())
+        #else:
+        #    self.log.debug("Transforming previous eris.")
+        #    eris = transform_mp2_eris(eris, actspace.c_active_occ, actspace.c_active_vir, ovlp=self.base.get_ovlp())
         assert (eris.ovov is not None)
 
         # --- Kernel

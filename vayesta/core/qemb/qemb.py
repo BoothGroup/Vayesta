@@ -209,7 +209,7 @@ class QEmbedding:
         h1e_energy = self.get_hcore_for_energy()
         vhf_energy = self.get_veff_for_energy()
         e_hf = mf.energy_tot(h1e=h1e_energy, vhf=vhf_energy)
-        if abs((mf.e_tot - e_hf)/mf.e_tot) > 0.01:
+        if abs((mf.e_tot - e_hf)/mf.e_tot) > 1e-3:
             self.log.warning("Non Hartree-Fock mean-field? Large change of energy: E(mf)= %s -> E(HF)= %s (dE= %s) !",
                     *map(energy_string, (mf.e_tot, e_hf, e_hf-mf.e_tot)))
         elif abs(mf.e_tot - e_hf) > 1e-7:
@@ -491,6 +491,9 @@ class QEmbedding:
     def get_fock_for_energy(self, with_exxdiv=True):
         return (self.get_hcore_for_energy() + self.get_veff_for_energy(with_exxdiv=with_exxdiv))
 
+    def get_fock_for_bno(self):
+        """Fock matrix used for MP2 bath natural orbitals."""
+        return self.get_fock()
 
     # Other integral methods:
 
@@ -547,7 +550,7 @@ class QEmbedding:
             eris = eris.reshape(shape)
         return eris
 
-    def get_eris_object(self, posthf):
+    def get_eris_object(self, posthf, fock=None):
         """Get ERIs for post-HF methods.
 
         For folded PBC calculations, this folds the MO back into k-space
@@ -564,12 +567,14 @@ class QEmbedding:
             ERIs which can be used for the respective post-HF method.
         """
         c_act = _mo_without_core(posthf, posthf.mo_coeff)
-        if isinstance(posthf, pyscf.mp.mp2.MP2):
-            fock = self.get_fock()
-        elif isinstance(posthf, (pyscf.ci.cisd.CISD, pyscf.cc.ccsd.CCSD)):
-            fock = self.get_fock(with_exxdiv=False)
-        else:
-            raise ValueError("Unknown post-HF method: %r", type(posthf))
+
+        if fock is None:
+            if isinstance(posthf, pyscf.mp.mp2.MP2):
+                fock = self.get_fock()
+            elif isinstance(posthf, (pyscf.ci.cisd.CISD, pyscf.cc.ccsd.CCSD)):
+                fock = self.get_fock(with_exxdiv=False)
+            else:
+                raise ValueError("Unknown post-HF method: %r", type(posthf))
         mo_energy = einsum('ai,ab,bi->i', c_act, self.get_fock(), c_act)
         e_hf = self.mf.e_tot
 
