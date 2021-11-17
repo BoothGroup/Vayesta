@@ -1347,6 +1347,10 @@ class RAGF2:
 
         gf, se, _ = self.gf, self.se, fconv = self.fock_loop(gf=gf, se=se)
 
+        if self.opts.dump_chkfile and self.chkfile is not None:
+            self.log.debug("Dumping output to chkfile")
+            self.dump_chk()
+
         if self.opts.pop_analysis:
             self.population_analysis()
 
