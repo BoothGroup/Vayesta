@@ -1367,6 +1367,7 @@ class RAGF2:
                 if (gf_occ.naux+i) < gf.naux:
                     self.dump_cube(gf_occ.naux+i, cubefile="luqmo%d.cube"%i)
 
+        self.print_excitations()
         self.print_energies(output=True)
 
         self.log.info("Time elapsed:  %s", time_string(timer() - t0))
