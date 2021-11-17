@@ -171,11 +171,8 @@ class QEmbedding:
         mf.mo_coeff = mpi.world.bcast(mf.mo_coeff, root=0)
 
     def init_mf(self, mf):
-        if mpi:
-            with log_time(self.log.timing, "Time to broadcast mean-field to all MPI ranks: %s"):
-                self._mpi_bcast_mf(mf)
-
         self._mf_orig = mf      # Keep track of original mean-field object - be careful not to modify in any way, to avoid side effects!
+
         # Create shallow copy of mean-field object; this way it can be updated without side effects outside the quantum
         # embedding method if attributes are replaced in their entirety
         # (eg. `mf.mo_coeff = mo_new` instead of `mf.mo_coeff[:] = mo_new`).
@@ -187,6 +184,10 @@ class QEmbedding:
                 mf = fold_scf(mf)
         if isinstance(mf, FoldedSCF):
             self.kcell, self.kpts, self.kdf = mf.kmf.mol, mf.kmf.kpts, mf.kmf.with_df
+        # Make sure that all MPI ranks use the same MOs`:
+        if mpi:
+            with log_time(self.log.timing, "Time to broadcast mean-field to all MPI ranks: %s"):
+                self._mpi_bcast_mf(mf)
         self.mf = mf
         if not (self.is_rhf or self.is_uhf):
             raise ValueError("Cannot deduce RHF or UHF!")

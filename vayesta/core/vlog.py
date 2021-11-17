@@ -102,7 +102,6 @@ class VFormatter(logging.Formatter):
             lines = [((prefix + "  " + line) if line else prefix) for line in lines]
         return "\n".join(lines)
 
-
 class VStreamHandler(logging.StreamHandler):
     """Default stream handler with IndentedFormatter"""
 
@@ -111,7 +110,6 @@ class VStreamHandler(logging.StreamHandler):
         if formatter is None:
             formatter = VFormatter()
         self.setFormatter(formatter)
-
 
 class VFileHandler(logging.FileHandler):
     """Default file handler with IndentedFormatter"""
@@ -123,7 +121,6 @@ class VFileHandler(logging.FileHandler):
             formatter = VFormatter()
         self.setFormatter(formatter)
 
-
 def get_logname(basename, ext='log'):
     if ext and '.' not in basename:
         ext = '.' + ext
@@ -131,7 +128,6 @@ def get_logname(basename, ext='log'):
         ext = ''
     name = '%s%s%s' % (basename, (('.mpi%d' % mpi.rank) if mpi.rank > 0 else ''), ext)
     return name
-
 
 def init_logging():
     """Call this to initialize and configure logging, when importing Vayesta.
