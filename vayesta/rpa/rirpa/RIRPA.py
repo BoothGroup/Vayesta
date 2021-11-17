@@ -30,7 +30,7 @@ class ssRPA:
         return len(self.mf.mo_occ) - self.nocc
     @property
     def naux(self):
-        return self.mf._cderi.shape[0]
+        return self.mf.with_df.get_naoaux()
     @property
     def ov(self):
         return self.nocc * self.nvir
@@ -151,7 +151,7 @@ class ssRPA:
         """Construct the RI expressions for the deviation of A+B and A-B from D."""
         # Coulomb integrals only contribute to A+B.
         # This needs to be optimised, but will do for now.
-        v = pyscf.lib.unpack_tril(self.mf._cderi)
+        v = self.get_3c_integrals()#pyscf.lib.unpack_tril(self.mf._cderi)
         Lov = einsum("npq,pi,qa->nia", v, self.mo_coeff_occ, self.mo_coeff_vir).reshape((self.naux, self.ov))
         ri_ApB = np.zeros((self.naux, self.ov*2))
         # Need to include factor of two since eris appear in both A and B.
@@ -159,6 +159,9 @@ class ssRPA:
         # Use empty AmB contrib initially; this is the dRPA contrib.
         ri_AmB = np.zeros((0, self.ov*2))
         return ri_ApB, ri_AmB
+
+    def get_3c_integrals(self):
+        return pyscf.lib.unpack_tril(next(self.mf.with_df.loop(blksize=self.naux)))
 
 def construct_product_RI(D, ri_1, ri_2):
     """Given two matrices expressed as low-rank modifications, cderi_1 and cderi_2, of some full-rank matrix D,
