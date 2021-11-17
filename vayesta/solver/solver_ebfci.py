@@ -85,6 +85,7 @@ class EBFCISolver(ClusterSolver):
 
         e_fci, wf = ebfci_slow.kernel(h_eff, eris, self.eb_coupling, np.diag(self.bos_freqs), self.nactive, nelec,
                         self.nbos, self.opts.bos_occ_cutoff, tol=conv_tol)
+        print(f"FCI energy: {e_fci}")
 
         # For now assuming good convergence, to avoid interface difference between davidson and davidson1.
         self.log.debug("FCI done")#. converged: %r", fcisolver.converged)

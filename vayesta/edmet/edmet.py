@@ -36,6 +36,7 @@ class EDMET(DMET):
 
     def __init__(self, mf, bno_threshold=np.inf, solver='EBFCI', options=None, log=None, **kwargs):
         super().__init__(mf, bno_threshold, solver, options, log, **kwargs)
+        self.opts.bos_occ_cutoff = kwargs['bos_occ_cutoff']
 
     def kernel(self):
 

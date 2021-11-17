@@ -179,9 +179,10 @@ def three_from_four_rdm(four_rdm, nelec):
     three_rdm /= (np.sum(nelec)-3)
     return three_rdm
 
-reorder_rdm12 = pyscf.fci.rdm.reorder_dm12
-reorder_rdm123 = pyscf.fci.rdm.reorder_dm123
-reorder_rdm1234 = pyscf.fci.rdm.reorder_dm1234
+from pyscf import fci
+reorder_rdm12 = fci.rdm.reorder_dm12
+reorder_rdm123 = fci.rdm.reorder_dm123
+reorder_rdm1234 = fci.rdm.reorder_dm1234
 
 '''
 "unreorder" methods do the opposite of the "reorder" methods in pyscf/fci/rdm.py,
@@ -311,20 +312,21 @@ def load_spinfree_1_2rdm_from_m7(h5_fname, nelec=None):
 
 def load_spinfree_ladder_rdm_from_m7(fname, cre):
     archive = h5py.File(fname, 'r')['archive']
-    nsite = int(archive['propagator']['nsite'])
-    norm = float(archive = h5py.File(fname, 'r')['archive']['rdm']['norm'][()])
+    nsite = int(archive['propagator']['nsite'][()])
+    norm = float(h5py.File(fname, 'r')['archive']['rdms']['norm'][()])
 
     label = '1110' if cre else '1101'
 
-    rdm = np.zeros((nspinorb,)*(rank*2))
+    rdm = np.zeros((nsite,)*3)
     data = archive['rdms'][label]
     ndata = data['indices'][:,:].shape[0]
+    print(f'number of {label}-rdm elements in HDF5 file {ndata}')
     for idata in range(ndata):
-        imode, ispinorb, jspinorb = data['indices'][idata, :]
+        ispinorb, jspinorb, imode = data['indices'][idata, :]
         assert (ispinorb < nsite) == (jspinorb < nsite), "Sz non-conservation is incompatible with spin averaging"
         isite = ispinorb%nsite
         jsite = jspinorb%nsite
-        rdm[imode, isite, jsite] = data['values'][idata]
+        rdm[isite, jsite, imode] += data['values'][idata]
     rdm /= norm
     return rdm
 
