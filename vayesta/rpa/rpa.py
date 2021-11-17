@@ -53,7 +53,7 @@ class RPA:
         self.freqs_ss, self.ecorr_ss, self.XpY_ss, self.XmY_ss = solve_RPA_problem(ApB_ss, AmB_ss)
         self.freqs_sf, self.ecorr_sf, self.XpY_sf, self.XmY_sf = solve_RPA_problem(ApB_sf, AmB_sf)
 
-        if interaction_kernel is "rpax":
+        if interaction_kernel == "rpax":
             # Additional factor of 0.5.
             self.ecorr_ss *= 0.5
             self.ecorr_sf *= 0.5

@@ -24,10 +24,11 @@ def dict_to_yaml(file, dictionary):
         write_dictionary(f, dictionary)
 
 class M7_config_to_dict:
+    M7_config_dict = {}
     
     def __init__(self, path_to_M7):
         self.path_to_M7 = path_to_M7
-        process = Popen('./release | less -RC', stdout=PIPE, stderr=PIPE, \
+        process = Popen('./release', stdout=PIPE, stderr=PIPE, \
                         shell=True, cwd=self.path_to_M7+'/build/src')
         self.stdout, self.stderr = process.communicate()
         self.stdout = self.stdout.decode()

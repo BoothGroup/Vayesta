@@ -20,7 +20,7 @@ class EBFCIQMCSolver(FCIQMCSolver):
         threads: int = 1
         lindep: float = None
         conv_tol: float = None
-        bos_occ_cutoff: int = NotSet
+        bos_occ_cutoff: int = 1
         make_rdm_ladder: bool = True
 
     @dataclasses.dataclass
@@ -39,15 +39,18 @@ class EBFCIQMCSolver(FCIQMCSolver):
         M7_config_obj = super().setup_M7(*args)
 
         write_bosdump(self.bos_freqs)
-        write_ebdump(self.eb_couplings)
+        assert np.allclose(self.eb_couplings[0], self.eb_couplings[1])
+        write_ebdump(self.eb_couplings[0])
 
 
         # adding the pure boson number-conserving 1RDM (0011) since it is a prerequisite of variational energy estimation
         if self.opts.make_rdm_ladder:
-            M7_config_obj.M7_config_dict['av_ests']['rdm']['ranks'] .extend(['1110', '1101', '0011'])
+            M7_config_obj.M7_config_dict['av_ests']['rdm']['ranks'] = ['1', '2', '1110', '1101', '0011']
             M7_config_obj.M7_config_dict['av_ests']['rdm']['archive']['save'] = 'yes'
         M7_config_obj.M7_config_dict['hamiltonian']['nboson_max'] = self.opts.bos_occ_cutoff
+        return M7_config_obj
 
+    '''
     def gen_M7_results(self, h5_name, *args):# ham_pkl_name, M7_config_obj, coeff_pkl_name, eris):
         """Generate M7 results object."""
         results = super().gen_M7_results(h5_name, *args)
@@ -56,6 +59,21 @@ class EBFCIQMCSolver(FCIQMCSolver):
             rdm_1101 = load_spinfree_ladder_rdm_from_m7(h5_name, False)
             # average over arrays that are equivalent due to hermiticity symmetry
             results.dm_ladder = (rdm_1110 + rdm_1101.transpose(0, 2, 1)) / 2.0
+        return results
+    '''
+
+    def gen_M7_results(self, h5_name, eris):
+        """Generate M7 results object."""
+        print(h5_name)
+        h5_name = 'M7.cluster1.1.h5'
+        results = super().gen_M7_results(h5_name, eris)
+        if self.opts.make_rdm_ladder:
+            rdm_1110 = load_spinfree_ladder_rdm_from_m7(h5_name, True)
+            rdm_1101 = load_spinfree_ladder_rdm_from_m7(h5_name, False)
+            # only holds for stochastic: no
+            # assert np.allclose(rdm_1110, rdm_1101.transpose(1,0,2))
+            # average over arrays that are equivalent due to hermiticity symmetry
+            results.rdm_eb = (rdm_1110 + rdm_1101.transpose(1,0,2))/2.0
         return results
 
 def write_ebdump(v, v_unc=None, fname='EBDUMP'):
@@ -95,7 +113,7 @@ def write_bosdump(w, fname='BOSDUMP'):
     ndim = len(w.shape)
     assert ndim == 2
     with open(fname, 'w') as f:
-        f.write(header)
+        f.write(header.format(nsite))
         for n in range(nsite):
             for m in range(nsite):
                 if (w[n, m] == 0.0): continue
