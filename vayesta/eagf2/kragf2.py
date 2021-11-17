@@ -622,7 +622,7 @@ class KRAGF2(RAGF2):
                     gf.append(agf2.GreensFunction(w[i], v[i], chempot=se[i].chempot))
                 gf[i].chempot = se[i].chempot = \
                         agf2.chempot.binsearch_chempot((w[i], v[i]), nact, nelec[i])[0]
-            return gf, se
+            return gf, se, True
 
         self.log.info("Fock loop")
         self.log.info("*********")
