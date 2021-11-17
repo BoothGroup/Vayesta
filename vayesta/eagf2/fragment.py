@@ -32,13 +32,13 @@ def _orth(*coeffs):
 def build_moments(frag, other):
     # Find the basis spanning the union of the occupied cluster spaces:
     c_occ = _orth(frag.c_qmo_occ, other.c_qmo_occ)
-    e_occ, r_occ = np.linalg.eigh(np.dot(c_occ.T.conj() * frag.qmo_energy[None], c_occ))
+    e_occ, r_occ = np.linalg.eigh(np.dot(c_occ.T.conj() * frag.base.qmo_energy[None], c_occ))  #TODO scaling?
     c_occ = np.dot(c_occ, r_occ)
     del r_occ
 
     # Find the basis spanning the union of the virtual cluster spaces:
     c_vir = _orth(frag.c_qmo_vir, other.c_qmo_vir)
-    e_vir, r_vir = np.linalg.eigh(np.dot(c_vir.T.conj() * frag.qmo_energy[None], c_vir))
+    e_vir, r_vir = np.linalg.eigh(np.dot(c_vir.T.conj() * frag.base.qmo_energy[None], c_vir))  #TODO scaling?
     c_vir = np.dot(c_vir, r_vir)
     del r_vir
 
@@ -104,6 +104,23 @@ def build_moments(frag, other):
 
     pija = _ao2mo(frag.pija, c_occ_p, c_vir_p)
     qija = _ao2mo(other.pija, c_occ_q, c_vir_q)
+    if frag.c_cls_occ.shape == (4, 2):
+        f = np.dot(frag.base.qmo_coeff * frag.base.qmo_energy, frag.base.qmo_coeff.T.conj())
+        fii = np.linalg.multi_dot((c_occ.T.conj(), f, c_occ))
+        faa = np.linalg.multi_dot((c_vir.T.conj(), f, c_vir))
+        c = frag.c_ao_cls
+        pk = np.einsum('Lpq,Lrs->pqrs', *pija)
+        ek = lib.direct_sum('i+j-a->ija', e_occ, e_occ, e_vir)
+        t0 = np.einsum('pija,qija->pq', pk, 2*pk-pk.swapaxes(1,2))
+        t0 = np.einsum('pq,ip,jq->ij', t0, c, c.conj())
+        t0[np.abs(t0) < 1e-10] = 0
+        #t1 = np.einsum('pija,qija,ija->pq', pk, np.conj(2*pk-pk.swapaxes(1,2)), ek)
+        t1 = np.einsum('pija,qklb,ijaklb->pq', pk, np.conj(2*pk-pk.swapaxes(1,2)), lib.direct_sum('ik+jl-ab->ijaklb', fii, fii, faa))
+        t1 = np.einsum('pq,ip,jq->ij', t1, c, c.conj())
+        t1[np.abs(t1) < 1e-10] = 0
+        np.set_printoptions(linewidth=180, precision=6)
+        print(t0)
+        print(t1)
 
     t_occ = _build_part(e_occ, e_vir, pija, qija)
 
@@ -226,12 +243,6 @@ class EAGF2Fragment(QEmbeddingFragment):
         self.c_cls_occ = None
         self.c_cls_vir = None
 
-        # Initialise with no auxiliary space:
-        self.se = agf2.SelfEnergy([], [[],]*self.mf.mo_occ.size)
-        self.fock = np.diag(self.mf.mo_energy)
-        self.qmo_energy, self.qmo_coeff = np.linalg.eigh(self.fock)
-        self.qmo_occ = self.mf.get_occ(self.qmo_energy, self.qmo_coeff)
-
         # QMO integrals and rotations:
         self.pija = None
         self.pabi = None
@@ -255,9 +266,7 @@ class EAGF2Fragment(QEmbeddingFragment):
         raise NotImplementedError
 
     def add_tsymmetric_fragments(self, tvecs, unit='Ang', charge_tol=1e-6):
-        if self.se.naux != 0:
-            raise NotImplementedError("Translational symmetry of fragments which alreayd have "
-                                      "an auxiliary space is not supported.")
+        #TODO doesn't work with auxiliary space already attached
 
         c_ao_frag = np.dot(self.base.mf.mo_coeff, self.c_frag)
         c_ao_env = np.dot(self.base.mf.mo_coeff, self.c_env)
@@ -399,7 +408,7 @@ class EAGF2Fragment(QEmbeddingFragment):
 
         nmo = self.mf.mo_occ.size
         nocc = np.sum(self.mf.mo_occ > 0)
-        nocc_aux = self.se.get_occupied().naux
+        nocc_aux = nmo + nocc  #FIXME this can change with higher moments or <tol weighted aux...
 
         self.log.info("%4s  %7s    %7s    %7s    %7s", "Bath", "1h", "1p", "2h1p", "1h2p")
         parts = np.split(c_bath, [nocc, nmo, nmo+nocc_aux])
@@ -437,7 +446,8 @@ class EAGF2Fragment(QEmbeddingFragment):
         '''
 
         qmo_coeff = np.hstack(qmo_coeff)
-        fock = np.linalg.multi_dot((qmo_coeff.T.conj(), self.se.get_array(self.fock), qmo_coeff))
+        fock = np.dot(self.base.qmo_coeff * self.base.qmo_energy[None], self.base.qmo_coeff.T.conj())
+        fock = np.linalg.multi_dot((qmo_coeff.T.conj(), fock, qmo_coeff))
         energy, rot = np.linalg.eigh(fock)
         canon = np.dot(qmo_coeff, rot)
 
@@ -472,7 +482,7 @@ class EAGF2Fragment(QEmbeddingFragment):
         '''
 
         c_cls = np.hstack(qmo_coeff)
-        dm = self.mf.make_rdm1(self.qmo_coeff, self.qmo_occ)
+        dm = self.mf.make_rdm1(self.base.qmo_coeff, self.base.qmo_occ)
         dm = np.linalg.multi_dot((c_cls.T.conj(), dm, c_cls)) / 2
         e, v = np.linalg.eigh(dm)
 
@@ -503,45 +513,41 @@ class EAGF2Fragment(QEmbeddingFragment):
         c_cls = np.hstack((c_cls_occ, c_cls_vir))
         c_ao_cls = np.dot(mo_coeff, c_cls[:nmo])
 
-        c_qmo_occ = np.dot(self.qmo_coeff.T.conj(), c_cls_occ)
-        c_qmo_vir = np.dot(self.qmo_coeff.T.conj(), c_cls_vir)
+        c_qmo_occ = np.dot(self.base.qmo_coeff.T.conj(), c_cls_occ)
+        c_qmo_vir = np.dot(self.base.qmo_coeff.T.conj(), c_cls_vir)
 
-        c_ao_qmo = np.dot(mo_coeff, self.qmo_coeff[:nmo])
+        c_ao_qmo = np.dot(mo_coeff, self.base.qmo_coeff[:nmo])
         co = np.dot(c_ao_qmo, c_qmo_occ)
         cv = np.dot(c_ao_qmo, c_qmo_vir)
 
+        #TODO move to solver - messy
         pija = helper.QMOIntegrals(self, co, cv, c_full=c_ao_cls, which='xija', keep_3c=True).eri
         pabi = helper.QMOIntegrals(self, co, cv, c_full=c_ao_cls, which='xabi', keep_3c=True).eri
+        #TODO remove
+        if c_cls_occ.shape == (4, 2):
+            self.c_ao_cls = c_ao_cls
+            c_ao_cls = np.hstack((c_cls_occ, c_cls_vir))
+            #print(c_ao_cls)
+            #pk = np.einsum('Lpq,Lrs->pqrs', *pija)
+            #t = np.einsum('pija,qija->pq', pk, 2*pk-pk.swapaxes(1,2))
+            #t = np.einsum('pq,ip,jq->ij', t, c_ao_cls, c_ao_cls.conj())
+            #t[np.abs(t) < 1e-10] = 0
+            #print(t)
 
         return pija, pabi, c_qmo_occ, c_qmo_vir
 
 
-    def kernel(self, solver, se=None, fock=None, other_frag=None):
-        ''' Run the solver for the fragment.
-        '''
-        #TODO: make auxiliary and QMO spaces stored in parent instead of fragment?
+    def kernel(self, other_frag=None):
+        #TODO: make auxiliary and QMO spaces stored in parent instead of fragment
+        #TODO: QMO space currently MUST be set in parent class!!!
 
         if other_frag is None:
             other_frag = self
-
-        # Set auxiliary and QMO space if not set:
-        if se is not None:
-            self.se = se
-        if fock is not None:
-            self.fock = fock
-        if se is not None or fock is not None:
-            self.qmo_energy, self.qmo_coeff = se.eig(fock)
-            self.qmo_occ = np.array([2.0 * (x < se.chempot) for x in self.qmo_energy])
 
         # Set bath if not set:
         if self.c_cls_occ is None:
             coeffs = self.make_bath()
             self.c_cls_occ, self.c_cls_vir, self.c_env_occ, self.c_env_vir = coeffs
-
-        # Set other auxiliary and QMO space:
-        other_frag.se, other_frag.fock = self.se, self.fock
-        other_frag.qmo_energy, other_frag.qmo_coeff, other_frag.qmo_occ = \
-                self.qmo_energy, self.qmo_coeff, self.qmo_occ
 
         # Set other bath space if not set:
         if other_frag.c_cls_occ is None:

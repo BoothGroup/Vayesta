@@ -23,7 +23,7 @@ def make_dmet_bath(frag, c_frag=None, c_env=None, tol=1e-5):
         nmo = c_env.shape[0]
         return np.zeros((nmo, 0)), np.zeros((nmo, 0)), np.zeros((nmo, 0))
 
-    dm = frag.mf.make_rdm1(frag.qmo_coeff, frag.qmo_occ)
+    dm = frag.mf.make_rdm1(frag.base.qmo_coeff, frag.base.qmo_occ)
     dm_env = np.linalg.multi_dot((c_env.T.conj(), dm, c_env)) / 2
 
     try:
@@ -95,8 +95,9 @@ def make_power_bath(frag, max_order=0, svd_tol=1e-16, c_frag=None, c_env=None, t
     if c_frag is None: c_frag = frag.c_frag
     if c_env is None: c_env = frag.c_env
 
-    fock = frag.se.get_array(frag.fock)
-    qmo_coeff = frag.qmo_coeff
+    qmo_energy = frag.base.qmo_energy
+    qmo_coeff = frag.base.qmo_coeff
+    fock = np.dot(qmo_coeff * qmo_energy[None], qmo_coeff.T.conj())
 
     c_dmet, c_env_occ, c_env_vir = make_dmet_bath(frag, c_frag=c_frag, c_env=c_env, tol=tol)
 
@@ -124,7 +125,7 @@ def make_power_bath(frag, max_order=0, svd_tol=1e-16, c_frag=None, c_env=None, t
 
 
 class QMOIntegrals:
-    def __init__(self, frag, c_occ, c_vir, c_full=None, which='xija', keep_3c=True, make_real=True):
+    def __init__(self, frag, c_occ, c_vir, c_full=None, which='xija', keep_3c=True, make_real=True, fourier_transform=True):
         self.frag = frag
         self.which = which
 
@@ -148,7 +149,7 @@ class QMOIntegrals:
             else:
                 self.build_4c()
         else:
-            self.build_pbc(keep_3c, make_real)
+            self.build_pbc(keep_3c, make_real, fourier_transform)
 
     def build_4c(self):
         coeffs = (self.c_full, self.c_occ, self.c_occ, self.c_vir)
@@ -168,27 +169,31 @@ class QMOIntegrals:
         else:
             self.eri = lib.einsum('Lxi,Lja->xija', Lxo, Lov)
 
-    def build_pbc(self, keep_3c=True, make_real=True):
+    def build_pbc(self, keep_3c=True, make_real=True, fourier_transform=True):
         ints3c = kao2gmo.ThreeCenterInts.init_from_gdf(self.frag.base.kdf)
-        phase = get_phase(ints3c.cell, ints3c.kpts)[1]
 
         cx = self.c_full.reshape(ints3c.nk, ints3c.nao, -1)
         ci = self.c_occ.reshape(ints3c.nk, ints3c.nao, -1)
         ca = self.c_vir.reshape(ints3c.nk, ints3c.nao, -1)
 
-        cx = lib.einsum('rk,rai->kai', phase.conj(), cx) / np.power(ints3c.nk, 0.25)
-        ci = lib.einsum('rk,rai->kai', phase.conj(), ci) / np.power(ints3c.nk, 0.25)
-        ca = lib.einsum('rk,rai->kai', phase.conj(), ca) / np.power(ints3c.nk, 0.25)
+        if fourier_transform:
+            phase = get_phase(ints3c.cell, ints3c.kpts)[1]
+            cx = lib.einsum('rk,rai->kai', phase.conj(), cx)
+            ci = lib.einsum('rk,rai->kai', phase.conj(), ci)
+            ca = lib.einsum('rk,rai->kai', phase.conj(), ca)
 
         Lxi = kao2gmo.j3c_kao2gmo(ints3c, cx, ci, only_ov=True, make_real=make_real)['ov']
         Lxi = Lxi.reshape(-1, cx.shape[-1], ci.shape[-1])
         Lja = kao2gmo.j3c_kao2gmo(ints3c, ci, ca, only_ov=True, make_real=make_real)['ov']
         Lja = Lja.reshape(-1, ci.shape[-1], ca.shape[-1])
 
+        Lxi /= np.sqrt(ints3c.nk)
+        Lja /= np.sqrt(ints3c.nk)
+
         if keep_3c:
             self.eri = (Lxi, Lja)
         else:
-            self.eri = lib.einsum('Lxi,Lja->xija')
+            self.eri = lib.einsum('Lxi,Lja->xija', Lxi, Lja)
 
     def __enter__(self):
         return self.eri

@@ -13,13 +13,139 @@ from vayesta.core import QEmbeddingMethod, foldscf
 from vayesta.core.util import time_string
 from vayesta.eagf2 import helper
 from vayesta.eagf2.fragment import EAGF2Fragment
-from vayesta.eagf2.ragf2 import RAGF2, RAGF2Options, DIIS
+from vayesta.eagf2.ragf2 import RAGF2, RAGF2Options
+from vayesta.eagf2.kragf2 import KRAGF2
 
 try:
     from mpi4py import MPI
     timer = MPI.Wtime
 except ImportError:
     from timeit import default_timer as timer
+
+
+class RAGF2Solver(RAGF2):
+    def __init__(self, emb):
+        eri = np.empty(())
+        veff = np.empty(())
+        super().__init__(emb.mf, eri=eri, veff=veff, log=emb.log, options=emb.opts)
+
+    def get_supercell_qmos(self, qmo_energy, qmo_coeff, qmo_occ=None, se=None, imag_tol=1e-8):
+        ''' For compatibility.
+        '''
+
+        if qmo_occ is None:
+            return qmo_energy, qmo_coeff
+        else:
+            return qmo_energy, qmo_coeff, qmo_occ
+
+    def build_empty_self_energy(self):
+        return aux.SelfEnergy(np.empty((0,)), np.empty((self.nmo, 0)))
+
+    def _build_kspace_se_from_moments(self, *args, **kwargs):
+        return super()._build_se_from_moments(*args, **kwargs)
+
+
+class KRAGF2Solver(KRAGF2):
+    def __init__(self, emb):
+        eri = np.empty(())
+        veff = np.empty(())
+        self.phase = emb.mf.kphase
+        super().__init__(emb.mf.kmf, eri=eri, veff=veff, log=emb.log, options=emb.opts)
+
+    def get_supercell_qmos(self, qmo_energy, qmo_coeff, qmo_occ=None, se=None, imag_tol=1e-8):
+        ''' Convert QMOs from k-space to supercell.
+        '''
+
+        return_occ = qmo_occ is not None
+        if qmo_occ is None:
+            qmo_occ = np.zeros_like(qmo_energy)
+
+        ovlp = np.eye(sum([c.shape[0] for c in qmo_coeff]))
+        qmo_energy_sc, qmo_coeff_sc, qmo_occ_sc = \
+                foldscf.fold_mos(qmo_energy, qmo_coeff, qmo_occ, self.phase, ovlp)
+
+        # Reorder physical and auxiliary part:
+        #  +--------------+      +--------------+
+        #  | phys (kpt 0) |      | phys (kpt 0) |
+        #  | aux (kpt 0)  |      | phys (kpt 1) |
+        #  | phys (kpt 1) | ---\ |      ...     |
+        #  | aux (kpt 1)  | ---/ | aux (kpt 0)  |
+        #  |      ...     |      | aux (kpt 1)  |
+        #  |      ...     |      |      ...     |
+        #  +--------------+      +--------------+
+        phys = []
+        aux = []
+        tot = 0
+        for c in qmo_coeff:
+            phys.append(list(range(tot, tot+self.nmo)))
+            aux.append(list(range(tot+self.nmo, tot+c.shape[0])))
+            tot += c.shape[0]
+        mask = np.array(sum(phys + aux, []))
+        assert np.allclose(np.sort(mask), list(range(tot)))
+        qmo_coeff_sc = qmo_coeff_sc[mask]
+
+        # Reorder physical part:
+        #  +-------------+      +-------------+
+        #  | occ (kpt 0) |      | occ (kpt 0) |
+        #  | vir (kpt 0) |      | occ (kpt 1) |
+        #  | occ (kpt 1) | ---\ |      ...    |
+        #  | vir (kpt 1) | ---/ | vir (kpt 0) |
+        #  |      ...    |      | vir (kpt 1) |
+        #  |      ...    |      |      ...    |
+        #  +-------------+      +-------------+
+        mask = np.argsort(np.argsort(np.concatenate(self.mf.mo_energy)))
+        nmo = self.nmo * self.nkpts
+        qmo_coeff_sc[:nmo] = qmo_coeff_sc[:nmo][mask]
+
+        # Reorder auxiliary part:
+        #  +-------------+      +-------------+
+        #  | occ (kpt 0) |      | occ (kpt 0) |
+        #  | vir (kpt 0) |      | occ (kpt 1) |
+        #  | occ (kpt 1) | ---\ |      ...    |
+        #  | vir (kpt 1) | ---/ | vir (kpt 0) |
+        #  |      ...    |      | vir (kpt 1) |
+        #  |      ...    |      |      ...    |
+        #  +-------------+      +-------------+
+        if qmo_coeff_sc.shape[0] != nmo:
+            if se is None:
+                c_aux = qmo_coeff_sc[nmo:]
+                aux_energy = np.einsum('xi,xi,i->x', c_aux, c_aux.conj(), qmo_energy_sc)
+            else:
+                aux_energy = np.concatenate([s.energy for s in se])
+            mask = np.argsort(np.argsort(aux_energy))
+            qmo_coeff_sc[nmo:] = qmo_coeff_sc[nmo:][mask]
+
+        if return_occ:
+            return qmo_energy_sc, qmo_coeff_sc, qmo_occ_sc
+        else:
+            return qmo_energy_sc, qmo_coeff_sc
+
+    def _build_kspace_se_from_moments(self, t, chempot=0.0, eps=1e-16, debug=True):
+        '''
+        Build the occupied or virtual self-energy in k-space from the
+        supercell moments.
+        '''
+
+        phase = self.phase
+        nkpts, nr = phase.shape
+        t = t.reshape(2*self.opts.nmom_lanczos+2, nr, self.nmo, nr, self.nmo)
+        t = np.einsum('nRiSj,kR,kS->knij', t, phase.conj(), phase)
+
+        se = [RAGF2._build_se_from_moments(self, tk, chempot=chempot, eps=eps) for tk in t]
+
+        return se
+
+    def _combine_se(self, se_occ, se_vir, gf=None):
+        if isinstance(se_occ, (list, tuple)):
+            if gf is None:
+                return [RAGF2._combine_se(self, o, v) for o, v in zip(se_occ, se_vir)]
+            else:
+                return [RAGF2._combine_se(self, o, v, gf=g) for o, v, g in zip(se_occ, se_vir, gf)]
+        else:
+            return RAGF2._combine_se(self, se_occ, se_vir, gf=gf)
+
+    def build_empty_self_energy(self):
+        return [aux.SelfEnergy(np.empty((0,)), np.empty((self.nmo, 0))) for k in self.kpts]
 
 
 @dataclasses.dataclass
@@ -39,6 +165,7 @@ class EAGF2Options(RAGF2Options):
     orthogonal_mo_tol: float = 1e-10
     recalc_vhf: bool = False
     copy_mf: bool = False
+    solver: 'typing.Any' = RAGF2Solver
 
     # --- Different defaults for some RAGF2 settings
     conv_tol: float = 1e-6
@@ -81,87 +208,11 @@ class EAGF2Results:
     solver: RAGF2 = None
 
 
-class RAGF2Solver(RAGF2):
-    ''' Solver class with some necessary adjustments.
-    '''
-
-    def __init__(self, emb):
-        eri = np.empty(())
-        veff = np.empty(())
-        super().__init__(emb.mf, eri=eri, veff=veff, log=emb.log, options=emb.opts)
-
-    def solve_dyson(self, se=None, gf=None, fock=None, verbose=True):
-        '''
-        Solve the Dyson equation. For calculations on a FoldedSCF mean-field
-        object, fold the Fock matrix and self-energy back to k-space to find
-        the eigenvalues and eigenvectors, and then unfold the latter.
-        '''
-
-        return super().solve_dyson(se=se, gf=gf, fock=fock)
-
-        if getattr(self.mf, 'kphase', None) is None:
-            return super().solve_dyson(se=se, gf=gf, fock=fock)
-
-        se = se or self.se
-        gf = gf or self.gf
-
-        if fock is None:
-            fock = self.get_fock(gf=gf, with_frozen=False)
-        fock_k = foldscf.bvk2k_2d(fock, self.mf.kphase)
-
-        nmom = 2 * self.opts.nmom_lanczos + 2
-
-        mom_occ = se.get_occupied().moment(range(nmom), squeeze=False)
-        mom_occ_k = [foldscf.bvk2k_2d(m, self.mf.kphase) for m in mom_occ]
-        mom_occ_k = np.array(mom_occ_k).swapaxes(0, 1)
-        se_occ_k = [self._build_se_from_moments(m) for m in mom_occ_k]
-
-        mom_vir = se.get_virtual().moment(range(nmom), squeeze=False)
-        mom_vir_k = [foldscf.bvk2k_2d(m, self.mf.kphase) for m in mom_vir]
-        mom_vir_k = np.array(mom_vir_k).swapaxes(0, 1)
-        se_vir_k = [self._build_se_from_moments(m) for m in mom_vir_k]
-
-        se_k = [self._combine_se(o, v) for o, v in zip(se_occ_k, se_vir_k)]
-
-        #coup = se.coupling.reshape(self.mf.kphase.shape[1], se.nphys//self.mf.kphase.shape[1], se.naux)
-        #coup_k = np.einsum('kR,Rpi->kpi', self.mf.kphase.conj(), coup)
-        ##coup_k = coup_k.reshape(coup_k.shape[0], coup_k.shape[1], coup_k.shape[2]*coup_k.shape[3])
-        #se_k = [se.__class__(se.energy, coup, chempot=se.chempot) for coup in coup_k]
-
-        w_k, v_k = zip(*[s.eig(f) for s, f in zip(se_k, fock_k)])
-        w = np.concatenate(w_k)
-        #v = np.einsum('kR,kpi->Rpi', self.mf.kphase, v_k)
-        #v = np.einsum('kR,kpi->Rpki', self.mf.kphase, v_k)
-        v = np.einsum('kR,kS,kpi->RpSi', self.mf.kphase, self.mf.kphase.conj(), v_k)
-        v = v.reshape(v.shape[0]*v.shape[1], v.shape[2]*v.shape[3])
-        #v = foldscf.k2bvk_2d(np.array(v_k), self.mf.kphase)
-
-        mask = np.argsort(w)
-        w = w[mask]
-        v = v[:, mask]
-
-        w_ref, v_ref = super().solve_dyson(se=se, gf=gf, fock=fock)
-        v = v.real
-        print(w)
-        print(w_ref)
-        print(w.size, w_ref.size, fock.shape[0]+se.naux)
-        print()
-        print(lib.fp(np.dot(v, v.T)), lib.fp(np.dot(v_ref, v_ref.T)))
-        print(lib.fp(np.dot(v*w[None], v.T)), lib.fp(np.dot(v_ref*w_ref[None], v_ref.T)))
-        print()
-        print(np.trace(np.dot(v[:self.nmo], v[:self.nmo].T)), np.trace(np.dot(v_ref[:self.nmo], v_ref[:self.nmo].T)))
-        print(np.trace(np.dot(v[:self.nmo]*w[None], v[:self.nmo].T)), np.trace(np.dot(v_ref[:self.nmo]*w_ref[None], v_ref[:self.nmo].T)))
-        1/0
-
-        return w, v
-
-
 class EAGF2(QEmbeddingMethod):
 
     Options = EAGF2Options
     Results = EAGF2Results
     Fragment = EAGF2Fragment
-    DIIS = DIIS
 
     def __init__(self, mf, options=None, log=None, **kwargs):
         ''' Embedded AGF2 calculation.
@@ -256,6 +307,11 @@ class EAGF2(QEmbeddingMethod):
 
         self.log.timing("Time for EAGF2 setup: %s", time_string(timer() - t0))
 
+        # --- Initialise QMOs:
+        self.qmo_energy = self.mf.mo_energy
+        self.qmo_coeff = np.eye(self.qmo_energy.size)
+        self.qmo_occ = self.mf.get_occ(self.qmo_energy, self.qmo_coeff)
+
         self.cluster_results = {}
         self.results = None
 
@@ -270,11 +326,17 @@ class EAGF2(QEmbeddingMethod):
 
     @property
     def e_ip(self):
-        return -self.results.gf.get_occupied().energy.max()
+        if isinstance(self.results.gf, (list, tuple)):
+            return np.min([-g.get_occupied().energy.max() for g in self.results.gf])
+        else:
+            return -self.results.gf.get_occupied().energy.max()
 
     @property
     def e_ea(self):
-        return self.results.gf.get_virtual().energy.min()
+        if isinstance(self.results.gf, (list, tuple)):
+            return np.min([g.get_virtual().energy.min() for g in self.results.gf])
+        else:
+            return self.results.gf.get_virtual().energy.min()
 
     @property
     def converged(self):
@@ -285,15 +347,20 @@ class EAGF2(QEmbeddingMethod):
         '''
         Build the self-energy using the current Green's function.
 
-        Changes values stored in self.fragments.
+        Updates the QMO quantities in self.
         '''
 
         t0 = timer()
 
         qmo_energy, qmo_coeff = solver.solve_dyson(se=solver.se, fock=fock)
+        qmo_energy, qmo_coeff = solver.get_supercell_qmos(qmo_energy, qmo_coeff, se=solver.se)
         cpt = chempot.binsearch_chempot((qmo_energy, qmo_coeff), self.nmo, self.nocc*2)[0]
         qmo_occ = 2.0 * (qmo_energy < cpt)
         nqmo = qmo_energy.size
+
+        self.qmo_energy = qmo_energy
+        self.qmo_coeff = qmo_coeff
+        self.qmo_occ = qmo_occ
 
         for x, frag in enumerate(self.fragments):
             #TODO is this needed? are the projectors the same as the sym_parent ones?
@@ -306,14 +373,7 @@ class EAGF2(QEmbeddingMethod):
                 c_frag = np.zeros((nqmo, frag.c_frag.shape[-1]))
                 c_frag[:self.nmo] = frag.c_frag[:self.nmo]
                 c_env = helper.null_space(c_frag, nvecs=nqmo-c_frag.shape[-1])
-
                 frag.c_frag, frag.c_env = c_frag, c_env
-
-                frag.se = solver.se
-                frag.fock = fock
-                frag.qmo_energy = qmo_energy
-                frag.qmo_coeff = qmo_coeff
-                frag.qmo_occ = qmo_occ
 
         for x, frag in enumerate(self.fragments):
             if frag.sym_parent is not None:
@@ -330,7 +390,7 @@ class EAGF2(QEmbeddingMethod):
         for x, frag in enumerate(self.fragments):
             for y, other in enumerate(self.fragments[:x+1]):
                 if frag.sym_parent is None and other.sym_parent is None:
-                    results = frag.kernel(solver, other_frag=other)
+                    results = frag.kernel(other_frag=other)
                     self.cluster_results[frag.id, other.id] = results
                     self.log.debugv("%s - %s is done", frag, other)
 
@@ -376,51 +436,56 @@ class EAGF2(QEmbeddingMethod):
             )
 
 
+        #TODO:
         # === Occupied:
 
         self.log.info("Occupied self-energy:")
         with self.log.withIndentLevel(1):
-            w = np.linalg.eigvalsh(t_occ[0])
-            wmin, wmax = w.min(), w.max()
-            (self.log.warning if wmin < 1e-8 else self.log.debug)(
-                    'Eigenvalue range:  %.5g -> %.5g', wmin, wmax,
-            )
+            #w = np.linalg.eigvalsh(t_occ[0])
+            #wmin, wmax = w.min(), w.max()
+            #(self.log.warning if wmin < 1e-8 else self.log.debug)(
+            #        'Eigenvalue range:  %.5g -> %.5g', wmin, wmax,
+            #)
 
-            se_occ = solver._build_se_from_moments(t_occ, eps=self.opts.weight_tol)
+            se_occ = solver._build_kspace_se_from_moments(t_occ, eps=self.opts.weight_tol, chempot=cpt)
 
-            self.log.info("Built %d occupied auxiliaries", se_occ.naux)
+            #self.log.info("Built %d occupied auxiliaries", se_occ.naux)
 
 
         # === Virtual:
         
         self.log.info("Virtual self-energy:")
         with self.log.withIndentLevel(1):
-            w = np.linalg.eigvalsh(t_vir[0])
-            wmin, wmax = w.min(), w.max()
-            (self.log.warning if wmin < 1e-8 else self.log.debug)(
-                    'Eigenvalue range:  %.5g -> %.5g', wmin, wmax,
-            )
+            #w = np.linalg.eigvalsh(t_vir[0])
+            #wmin, wmax = w.min(), w.max()
+            #(self.log.warning if wmin < 1e-8 else self.log.debug)(
+            #        'Eigenvalue range:  %.5g -> %.5g', wmin, wmax,
+            #)
 
-            se_vir = solver._build_se_from_moments(t_vir, eps=self.opts.weight_tol)
+            se_vir = solver._build_kspace_se_from_moments(t_vir, eps=self.opts.weight_tol, chempot=cpt)
 
-            self.log.info("Built %d virtual auxiliaries", se_vir.naux)
+            #self.log.info("Built %d virtual auxiliaries", se_vir.naux)
 
-        nh = solver.nocc-solver.frozen[0]
-        wt = lambda v: np.sum(v * v)
-        self.log.infov("Total weights of coupling blocks:")
-        self.log.infov("        %6s  %6s", "2h1p", "1h2p")
-        self.log.infov("    1h  %6.4f  %6.4f", wt(se_occ.coupling[:nh]), wt(se_vir.coupling[:nh]))
-        self.log.infov("    1p  %6.4f  %6.4f", wt(se_occ.coupling[nh:]), wt(se_vir.coupling[nh:]))
+        #nh = solver.nocc-solver.frozen[0]
+        #wt = lambda v: np.sum(v * v)
+        #self.log.infov("Total weights of coupling blocks:")
+        #self.log.infov("        %6s  %6s", "2h1p", "1h2p")
+        #self.log.infov("    1h  %6.4f  %6.4f", wt(se_occ.coupling[:nh]), wt(se_vir.coupling[:nh]))
+        #self.log.infov("    1p  %6.4f  %6.4f", wt(se_occ.coupling[nh:]), wt(se_vir.coupling[nh:]))
 
 
         se = solver._combine_se(se_occ, se_vir)
-        se.chempot = cpt
 
+        #FIXME
         self.log.debugv("Auxiliary energies:")
+        if isinstance(se, (list, tuple)):
+            energy = np.sort(np.concatenate([s.energy for s in se]))
+        else:
+            energy = se.energy
         with self.log.withIndentLevel(1):
-            for p0, p1 in lib.prange(0, se.naux, 6):
-                self.log.debugv("%12.6f " * (p1-p0), *se.energy[p0:p1])
-        self.log.info("Number of auxiliaries built:  %s", se.naux)
+            for p0, p1 in lib.prange(0, energy.size, 6):
+                self.log.debugv("%12.6f " * (p1-p0), *energy[p0:p1])
+        self.log.info("Number of auxiliaries built:  %s", energy.size)
         self.log.timing("Time for self-energy build:  %s", time_string(timer() - t0))
 
         return se
@@ -431,7 +496,12 @@ class EAGF2(QEmbeddingMethod):
         '''
 
         gf, se, fconv, fock = solver.fock_loop(fock=fock, return_fock=True)
-        gf.remove_uncoupled(tol=self.opts.weight_tol)
+
+        #FIXME
+        if isinstance(gf, list):
+            [g.remove_uncoupled(tol=self.opts.weight_tol) for g in gf]
+        else:
+            gf.remove_uncoupled(tol=self.opts.weight_tol)
 
         return gf, se, fconv, fock
 
@@ -442,7 +512,11 @@ class EAGF2(QEmbeddingMethod):
 
         #TODO: use an option for delaying start
         se = solver.run_diis(solver.se, None, diis, se_prev=se_prev)
-        se.remove_uncoupled(tol=self.opts.weight_tol)
+
+        if isinstance(se, list):
+            [s.remove_uncoupled(tol=self.opts.weight_tol) for s in se]
+        else:
+            se.remove_uncoupled(tol=self.opts.weight_tol)
 
         return se
 
@@ -463,21 +537,17 @@ class EAGF2(QEmbeddingMethod):
 
         self.log.info("Initialising solver:")
         with self.log.withIndentLevel(1):
-            solver = RAGF2Solver(self)
-            #eri = np.empty(())
-            #veff = np.empty(())
-            #kwargs = dict(eri=eri, veff=veff, log=self.log, fock_basis='ao')
-            #solver = RAGF2(self.mf, options=self.opts, **kwargs)
+            solver = self.opts.solver(self)
 
         #TODO allow GF input
         solver.gf = solver.g0 = solver.build_init_greens_function()
-        fock = np.diag(self.mf.mo_energy)
+        fock = solver.get_fock()
 
         #TODO allow SE input
-        solver.se = aux.SelfEnergy(np.empty((0,)), np.empty((self.nmo, 0)))
+        solver.se = solver.build_empty_self_energy()
         solver.se = self.build_self_energy(solver, fock)
 
-        diis = self.DIIS(space=self.opts.diis_space, min_space=self.opts.diis_min_space)
+        diis = solver.DIIS(space=self.opts.diis_space, min_space=self.opts.diis_min_space)
 
         e_mp2 = solver.e_init = solver.energy_mp2()
         e_nuc = solver.e_nuc
