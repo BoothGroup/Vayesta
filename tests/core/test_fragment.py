@@ -8,23 +8,9 @@ import pyscf.pbc.tools
 from pyscf import lib
 from vayesta.misc import gdf
 from vayesta.core import QEmbeddingFragment, QEmbeddingMethod
+from vayesta.core.bath import DMET_Bath
 # UHF:
 from vayesta.core import UEmbedding, UFragment
-
-#TODO: fragment_type = 'ao' after bugs are fixed
-#TODO: convert_amp_c_to_t
-#TODO: get_t1
-#TODO: get_t2
-#TODO: cover properties
-#TODO: get_rot_to_mf
-#TODO: get_rot_to_fragment
-#TODO: couple_to_fragment(s)
-#TODO: inverse get_fragment_project
-#TODO: project_ref_orbitals
-#TODO: lots of conditions in make_dmet_bath
-#TODO: c_ref in dmet bath?
-#TODO: 'occ-2' in project_amplitude_to_fragment
-#TODO: make_counterpoise_mol
 
 
 class temporary_seed:
@@ -64,8 +50,8 @@ class MolFragmentTests(unittest.TestCase):
 
     def test_iao_atoms(self):
         qemb = QEmbeddingMethod(self.mf)
-        qemb.init_fragmentation('iao')
-        frags = qemb.make_all_atom_fragments()
+        qemb.iao_fragmentation()
+        frags = qemb.add_all_atomic_fragments()
 
         e_elec = sum([f.get_fragment_mf_energy() for f in frags])
         self.assertAlmostEqual(e_elec + self.mf.energy_nuc(), self.mf.e_tot, 8)
@@ -75,19 +61,19 @@ class MolFragmentTests(unittest.TestCase):
 
         tr = lambda c: np.einsum('xi,xi->', c, c.conj())
 
-        c_bath, c_occenv, c_virenv = frags[0].make_dmet_bath(frags[0].c_env)
+        c_bath, c_occenv, c_virenv = DMET_Bath(frags[0], frags[0].opts.dmet_threshold).make_dmet_bath(frags[0].c_env)
         self.assertAlmostEqual(tr(c_bath), 5.305607912416594, 8)
         self.assertAlmostEqual(tr(c_occenv), 6.0044522544970995, 8)
         self.assertAlmostEqual(tr(c_virenv), 349.9785855174963, 8)
 
         frags[1].opts.wf_partition = 'first-vir'
-        c_bath, c_occenv, c_virenv = frags[1].make_dmet_bath(frags[1].c_env)
+        c_bath, c_occenv, c_virenv = DMET_Bath(frags[1], frags[1].opts.dmet_threshold).make_dmet_bath(frags[1].c_env)
         self.assertAlmostEqual(tr(c_bath), 7.357949737669514, 8)
         self.assertAlmostEqual(tr(c_occenv), 5.4998286299420664, 8)
         self.assertAlmostEqual(tr(c_virenv), 349.9785855174961, 8)
 
         frags[2].opts.wf_partition = 'democratic'
-        c_bath, c_occenv, c_virenv = frags[2].make_dmet_bath(frags[2].c_env)
+        c_bath, c_occenv, c_virenv = DMET_Bath(frags[2], frags[2].opts.dmet_threshold).make_dmet_bath(frags[2].c_env)
         self.assertAlmostEqual(tr(c_bath), 7.357949737669514, 8)
         self.assertAlmostEqual(tr(c_occenv), 5.4998286299420664, 8)
         self.assertAlmostEqual(tr(c_virenv), 349.9785855174961, 8)
@@ -101,18 +87,18 @@ class MolFragmentTests(unittest.TestCase):
 
     def test_iao_aos(self):
         qemb = QEmbeddingMethod(self.mf)
-        qemb.init_fragmentation('iao')
+        qemb.iao_fragmentation()
 
-        frag = qemb.make_ao_fragment([0, 1])
+        frag = qemb.add_orbital_fragment([0, 1])
         self.assertAlmostEqual(frag.get_fragment_mf_energy(), -72.99138042535633, 8)
 
-        frag = qemb.make_atom_fragment([0], aos=['1s', '2s'])
+        frag = qemb.add_atomic_fragment([0], orbital_filter=['1s', '2s'])
         self.assertAlmostEqual(frag.get_fragment_mf_energy(), -72.99138042535633, 8)
 
     def test_lowdin_atoms(self):
         qemb = QEmbeddingMethod(self.mf)
         qemb.sao_fragmentation()
-        frags = [qemb.make_atom_fragment(['O%d'%x]) for x in range(1, 4)]
+        frags = [qemb.add_atomic_fragment(['O%d'%x]) for x in range(1, 4)]
 
         self.assertAlmostEqual(frags[0].get_fragment_mf_energy(), -108.51371286149299, 8)
         self.assertAlmostEqual(frags[1].get_fragment_mf_energy(), -104.23470603227311, 8)
@@ -133,15 +119,15 @@ class MolFragmentTests(unittest.TestCase):
 
     def test_lowdin_aos(self):
         qemb = QEmbeddingMethod(self.mf)
-        qemb.init_fragmentation('lowdin-ao')
+        qemb.sao_fragmentation()
 
-        frag = qemb.make_ao_fragment([0, 1])
+        frag = qemb.add_orbital_fragment([0, 1])
         self.assertAlmostEqual(frag.get_fragment_mf_energy(), -66.82653212162008, 8)
 
-        frag = qemb.make_ao_fragment(0)
+        frag = qemb.add_orbital_fragment(0)
         self.assertAlmostEqual(frag.get_fragment_mf_energy(), -57.71353451461683, 8)
 
-        frag = qemb.make_ao_fragment('1s')
+        frag = qemb.add_orbital_fragment('1s')
         self.assertAlmostEqual(frag.get_fragment_mf_energy(), -170.7807235289751, 8)
 
     def test_iaopao_atoms(self):
@@ -163,9 +149,9 @@ class MolFragmentTests(unittest.TestCase):
         mf.kernel()
 
         qemb = QEmbeddingMethod(mf)
-        qemb.init_fragmentation('iao')
+        qemb.iao_fragmentation()
 
-        frag = qemb.make_ao_fragment([0, 1])
+        frag = qemb.add_orbital_fragment([0, 1])
         self.assertAlmostEqual(frag.get_fragment_mf_energy(), -72.98871119377974, 8)
 
 
@@ -199,46 +185,46 @@ class CellFragmentTests(unittest.TestCase):
 
     def test_iao_atoms(self):
         qemb = QEmbeddingMethod(self.mf)
-        qemb.init_fragmentation('iao')
-        frag = qemb.make_atom_fragment([0, 1])
-        frags = [frag,] + frag.make_tsymmetric_fragments([2,2,2])
+        qemb.iao_fragmentation()
+        frag = qemb.add_atomic_fragment([0, 1])
+        frags = [frag,] + frag.add_tsymmetric_fragments([2,2,2])
 
         for frag in frags[0].loop_fragments():
             self.assertAlmostEqual(frag.get_fragment_mf_energy().real, -4.261995344528774, 8)
 
         tr = lambda c: np.einsum('xi,xi->', c, c.conj())
 
-        c_bath, c_occenv, c_virenv = frags[0].make_dmet_bath(frags[0].c_env)
+        c_bath, c_occenv, c_virenv = DMET_Bath(frags[0], frags[0].opts.dmet_threshold).make_dmet_bath(frags[0].c_env)
         self.assertAlmostEqual(tr(c_bath), 0.0, 8)
         self.assertAlmostEqual(tr(c_occenv), 8.600258699380264, 8)
         self.assertAlmostEqual(tr(c_virenv), 43.70235664564082, 8)
 
     def test_iao_aos(self):
         qemb = QEmbeddingMethod(self.mf)
-        qemb.init_fragmentation('iao')
-        frag = qemb.make_ao_fragment([0, 1])
+        qemb.iao_fragmentation()
+        frag = qemb.add_orbital_fragment([0, 1])
 
         self.assertAlmostEqual(frag.get_fragment_mf_energy().real, -4.261995344528774, 8)
 
     def test_lowdin_atoms(self):
         qemb = QEmbeddingMethod(self.mf)
-        qemb.init_fragmentation('lowdin-ao')
-        frags = [qemb.make_atom_fragment([i*2, i*2+1]) for i in range(len(self.kpts))]
+        qemb.sao_fragmentation()
+        frags = [qemb.add_atomic_fragment([i*2, i*2+1]) for i in range(len(self.kpts))]
 
         for frag in frags:
             self.assertAlmostEqual(frag.get_fragment_mf_energy().real, -4.261995344528774, 8)
 
         tr = lambda c: np.einsum('xi,xi->', c, c.conj())
 
-        c_bath, c_occenv, c_virenv = frags[0].make_dmet_bath(frags[0].c_env, dmet_threshold=1e-5)
+        c_bath, c_occenv, c_virenv = DMET_Bath(frags[0], 1e-5).make_dmet_bath(frags[0].c_env)
         self.assertAlmostEqual(tr(c_bath), 0.0, 8)
         self.assertAlmostEqual(tr(c_occenv), 8.60025893931295, 8)
         self.assertAlmostEqual(tr(c_virenv), 38.23956182500303, 8)
 
     def test_lowdin_aos(self):
         qemb = QEmbeddingMethod(self.mf)
-        qemb.init_fragmentation('lowdin-ao')
-        frag = qemb.make_ao_fragment([0, 1, 2, 3])
+        qemb.sao_fragmentation()
+        frag = qemb.add_orbital_fragment([0, 1, 2, 3])
 
         self.assertAlmostEqual(frag.get_fragment_mf_energy().real, -4.261995344528774, 8)
 
