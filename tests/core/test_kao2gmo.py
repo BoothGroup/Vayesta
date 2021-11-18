@@ -2,6 +2,7 @@ import unittest
 import numpy as np
 from pyscf import mp, cc
 from pyscf.pbc import gto, scf, tools
+from pyscf.cc import dfccsd
 from vayesta.core.ao2mo import kao2gmo
 from vayesta.misc import gdf
 
@@ -39,11 +40,43 @@ class KAO2GMOTests(unittest.TestCase):
         mf = self.gmf
         mo_coeff_occ = mf.mo_coeff[:, mf.mo_occ > 0]
         mo_coeff_vir = mf.mo_coeff[:, mf.mo_occ == 0]
-        eri0 = kao2gmo.gdf_to_eris(self.mf.with_df, mf.mo_coeff, nocc=mo_coeff_occ.shape[1], only_ovov=False)
+
+        eri0 = kao2gmo.gdf_to_eris(self.mf.with_df, mf.mo_coeff, nocc=mo_coeff_occ.shape[1], only_ovov=False, j3c_threshold=1e-12)
+        eri1 = kao2gmo.gdf_to_eris(self.mf.with_df, mf.mo_coeff, nocc=mo_coeff_occ.shape[1], only_ovov=False, real_j3c=False)
         for key in eri0.keys():
             coeffs = tuple([mo_coeff_occ, mo_coeff_vir][k == 'v'] for k in key)
-            eri1 = mf.with_df.ao2mo(coeffs, compact=False).reshape([c.shape[1] for c in coeffs])
-            self.assertAlmostEqual(np.max(np.abs(eri0[key]-eri1)), 0.0, PLACES_ERIS)
+            eri2 = mf.with_df.ao2mo(coeffs, compact=False).reshape([c.shape[1] for c in coeffs])
+            self.assertAlmostEqual(np.max(np.abs(eri0[key]-eri2)), 0.0, PLACES_ERIS)
+            self.assertAlmostEqual(np.max(np.abs(eri1[key]-eri2)), 0.0, PLACES_ERIS)
+
+    def test_gdf_to_eris_2d(self):
+        L = 4.0
+        cell = gto.Cell()
+        cell.unit = 'B'
+        cell.atom = 'H 0 0 0; H 0 0 1.8'
+        cell.basis = 'sto3g'
+        cell.a = [[L, 0, 0], [0, L, 0], [0, 0, 30]]
+        cell.dimension = 2
+        cell.verbose = 0
+        cell.build()
+        kpts = cell.make_kpts([3, 3, 1])
+        mf = scf.KRHF(cell, kpts)
+        mf = mf.density_fit()
+        mf.conv_tol = 1e-12
+        mf.kernel()
+        assert mf.converged
+        gmf = tools.k2gamma.k2gamma(mf)
+        gmf = gmf.density_fit()
+        mo_coeff_occ = gmf.mo_coeff[:, gmf.mo_occ > 0]
+        mo_coeff_vir = gmf.mo_coeff[:, gmf.mo_occ == 0]
+
+        eri0 = kao2gmo.gdf_to_eris(mf.with_df, gmf.mo_coeff, nocc=mo_coeff_occ.shape[1], only_ovov=False)
+        eri1 = kao2gmo.gdf_to_eris(mf.with_df, gmf.mo_coeff, nocc=mo_coeff_occ.shape[1], only_ovov=False, real_j3c=False)
+        for key in eri0.keys():
+            coeffs = tuple([mo_coeff_occ, mo_coeff_vir][k == 'v'] for k in key)
+            eri2 = gmf.with_df.ao2mo(coeffs, compact=False).reshape([c.shape[1] for c in coeffs])
+            self.assertAlmostEqual(np.max(np.abs(eri0[key]-eri2)), 0.0, PLACES_ERIS)
+            self.assertAlmostEqual(np.max(np.abs(eri1[key]-eri2)), 0.0, PLACES_ERIS)
 
     def test_mp2_eris(self):
         mf = self.gmf
@@ -69,7 +102,7 @@ class KAO2GMOTests(unittest.TestCase):
 
     def test_dfccsd_eris(self):
         mf = self.gmf
-        cm = cc.dfccsd.RCCSD(mf)
+        cm = dfccsd.RCCSD(mf)
         mo_coeff_occ = mf.mo_coeff[:, mf.mo_occ > 0]
         mo_coeff_vir = mf.mo_coeff[:, mf.mo_occ == 0]
         eri0 = kao2gmo.gdf_to_pyscf_eris(mf, self.mf.with_df, cm, fock=mf.get_fock(), mo_energy=mf.mo_energy, e_hf=mf.e_tot)
