@@ -870,29 +870,29 @@ class QEmbedding:
 
     # --- Backwards compatibility:
 
-    def get_eris(self, mo_or_cm, *args, **kwargs):
+    def get_eris(self, mo_or_cm, *args, **kwargs):  # pragma: no cover
         """For backwards compatibility only!"""
         self.log.warning("get_eris is deprecated!")
         if isinstance(mo_or_cm, np.ndarray):
             return self.get_eris_array(mo_or_cm, *args, **kwargs)
         return self.get_eris_object(mo_or_cm, *args, **kwargs)
 
-    def make_atom_fragment(self, *args, aos=None, **kwargs):
+    def make_atom_fragment(self, *args, aos=None, **kwargs):  # pragma: no cover
         """Deprecated. Do not use."""
         self.log.warning("make_atom_fragment is deprecated. Use add_atomic_fragment.")
         return self.add_atomic_fragment(*args, orbital_filter=aos, **kwargs)
 
-    def make_all_atom_fragments(self, *args, **kwargs):
+    def make_all_atom_fragments(self, *args, **kwargs):  # pragma: no cover
         """Deprecated. Do not use."""
         self.log.warning("make_all_atom_fragments is deprecated. Use add_all_atomic_fragments.")
         return self.add_all_atomic_fragments(*args, **kwargs)
 
-    def make_ao_fragment(self, *args, **kwargs):
+    def make_ao_fragment(self, *args, **kwargs):  # pragma: no cover
         """Deprecated. Do not use."""
         self.log.warning("make_ao_fragment is deprecated. Use add_orbital_fragment.")
         return self.add_orbital_fragment(*args, **kwargs)
 
-    def init_fragmentation(self, ftype, **kwargs):
+    def init_fragmentation(self, ftype, **kwargs):  # pragma: no cover
         """Deprecated. Do not use."""
         self.log.warning("init_fragmentation is deprecated. Use X_fragmentation(), where X=[iao, iaopao, sao, site].")
         ftype = ftype.lower()
