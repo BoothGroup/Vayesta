@@ -3,7 +3,7 @@ import logging
 import dataclasses
 import copy
 import psutil
-from functools import wraps
+import functools
 from timeit import default_timer
 from contextlib import contextmanager
 
@@ -29,6 +29,7 @@ __all__ = [
         # RHF/UHF abstraction
         'dot_s', 'eigh_s', 'stack_mo_coeffs',
         # Other
+        'deprecated',
         'replace_attr', 'cached_method', 'break_into_lines', 'fix_orbital_sign',
         ]
 
@@ -256,6 +257,23 @@ def break_into_lines(string, linelength=80, sep=None, newline='\n'):
         else:
             lines[-1] += ' ' + s
     return newline.join(lines)
+
+def deprecated(message=None):
+    """This is a decorator which can be used to mark functions
+    as deprecated. It will result in a warning being emitted
+    when the function is used."""
+    def decorator(func):
+        if message is None:
+            msg = "Function %s is deprecated!" % func.__name__
+        else:
+            msg = message
+
+        @functools.wraps(func)
+        def wrapped(*args, **kwargs):
+            log.warning(msg)
+            return func(*args, **kwargs)
+        return wrapped
+    return decorator
 
 class OptionsBase:
     """Abstract base class for Option dataclasses.

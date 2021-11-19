@@ -415,14 +415,23 @@ class UFragment(Fragment):
         return (charge_err, spin_err)
 
 
-    # --- Rotation matrices
-    # ---------------------
+    # --- Overlap matrices
+    # --------------------
 
-    def get_rot_to_mf(self):
+    #def get_rot_to_mf(self):
+    #    """Get rotation matrices from occupied/virtual active space to MF orbitals."""
+    #    ovlp = self.base.get_ovlp()
+    #    r_occ_a = dot(self.c_active_occ[0].T, ovlp, self.base.mo_coeff_occ[0])
+    #    r_occ_b = dot(self.c_active_occ[1].T, ovlp, self.base.mo_coeff_occ[1])
+    #    r_vir_a = dot(self.c_active_vir[0].T, ovlp, self.base.mo_coeff_vir[0])
+    #    r_vir_b = dot(self.c_active_vir[1].T, ovlp, self.base.mo_coeff_vir[1])
+    #    return (r_occ_a, r_occ_b), (r_vir_a, r_vir_b)
+
+    def get_overlap_m2c(self):
         """Get rotation matrices from occupied/virtual active space to MF orbitals."""
         ovlp = self.base.get_ovlp()
-        r_occ_a = dot(self.c_active_occ[0].T, ovlp, self.base.mo_coeff_occ[0])
-        r_occ_b = dot(self.c_active_occ[1].T, ovlp, self.base.mo_coeff_occ[1])
-        r_vir_a = dot(self.c_active_vir[0].T, ovlp, self.base.mo_coeff_vir[0])
-        r_vir_b = dot(self.c_active_vir[1].T, ovlp, self.base.mo_coeff_vir[1])
+        r_occ_a = dot(self.base.mo_coeff_occ[0].T, ovlp, self.c_active_occ[0])
+        r_occ_b = dot(self.base.mo_coeff_occ[1].T, ovlp, self.c_active_occ[1])
+        r_vir_a = dot(self.base.mo_coeff_vir[0].T, ovlp, self.c_active_vir[0])
+        r_vir_b = dot(self.base.mo_coeff_vir[1].T, ovlp, self.c_active_vir[1])
         return (r_occ_a, r_occ_b), (r_vir_a, r_vir_b)

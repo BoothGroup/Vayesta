@@ -308,13 +308,13 @@ class EWFFragment(QEmbeddingFragment):
         # Get projected amplitudes ('p1', 'p2')
         if hasattr(cluster_solver, 'c0'):
             self.log.info("Weight of reference determinant= %.8g", abs(cluster_solver.c0))
-        # C1 and C2 are in intermediate normalization:
-        c1 = cluster_solver.get_c1(intermed_norm=True)
-        c2 = cluster_solver.get_c2(intermed_norm=True)
-        c1 = self.project_amplitude_to_fragment(c1, cluster.c_active_occ, cluster.c_active_vir)
-        c2 = self.project_amplitude_to_fragment(c2, cluster.c_active_occ, cluster.c_active_vir)
         # --- Calculate energy
         with log_time(self.log.info, ("Time for fragment energy= %s")):
+        # C1 and C2 are in intermediate normalization:
+            c1 = cluster_solver.get_c1(intermed_norm=True)
+            c2 = cluster_solver.get_c2(intermed_norm=True)
+            c1 = self.project_amplitude_to_fragment(c1, cluster.c_active_occ, cluster.c_active_vir)
+            c2 = self.project_amplitude_to_fragment(c2, cluster.c_active_occ, cluster.c_active_vir)
             e_singles, e_doubles, e_corr = self.get_fragment_energy(c1, c2, eris=eris, axis1='cluster')
 
         # In future:
@@ -339,7 +339,6 @@ class EWFFragment(QEmbeddingFragment):
         results = self.Results(fid=self.id, bno_threshold=bno_threshold, n_active=cluster.norb_active,
                 converged=cluster_solver.converged, e_corr=e_corr)
 
-        solve_lambda = np.any([(getattr(self.opts, 'store_%s' % s) is True) for s in ['l1', 'l2', 'l1x', 'l2x']])
         # Store density-matrix
         if self.opts.store_dm1 is True or self.opts.make_rdm1:
             results.dm1 = cluster_solver.make_rdm1()
@@ -350,6 +349,7 @@ class EWFFragment(QEmbeddingFragment):
             results.t1 = cluster_solver.get_t1()
         if self.opts.store_t2:
             results.t2 = cluster_solver.get_t2()
+        solve_lambda = np.any([(getattr(self.opts, 'store_%s' % s) is True) for s in ['l1', 'l2', 'l1x', 'l2x']])
         if self.opts.store_l1:
             l1 = cluster_solver.get_l1(solve_lambda=solve_lambda)
             if l1 is not None:

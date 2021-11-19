@@ -19,7 +19,7 @@ class RPA:
     WARNING: Should only be used with canonical mean-field orbital coefficients in mf.mo_coeff and RHF.
     """
 
-    def __init__(self, mf, log = None):
+    def __init__(self, mf, log=None):
         self.mf = mf
         self.log = log or logging.getLogger(__name__)
 

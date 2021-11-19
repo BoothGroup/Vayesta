@@ -55,7 +55,8 @@ class T_Amplitudes(unittest.TestCase):
 
     def test_t12(self):
         atol = 1e-8
-        t1, t2 = self.ecc.get_t12()
+        t1 = self.ecc.get_t1()
+        t2 = self.ecc.get_t2()
         self.assertIsNone(np.testing.assert_allclose(t1, self.ccsd.t1, atol=atol))
         self.assertIsNone(np.testing.assert_allclose(t2, self.ccsd.t2, atol=atol))
 
@@ -124,7 +125,8 @@ class T_Amplitudes_UHF(unittest.TestCase):
 
     def test_t12(self):
         atol = 1e-6
-        (t1a, t1b), (t2aa, t2ab, t2bb) = self.ecc.get_t12()
+        (t1a, t1b) = self.ecc.get_t1()
+        (t2aa, t2ab, t2bb) = self.ecc.get_t2()
         self.assertIsNone(np.testing.assert_allclose(t1a, self.ccsd.t1[0], atol=atol))
         self.assertIsNone(np.testing.assert_allclose(t1b, self.ccsd.t1[1], atol=atol))
         self.assertIsNone(np.testing.assert_allclose(t2aa, self.ccsd.t2[0], atol=atol))

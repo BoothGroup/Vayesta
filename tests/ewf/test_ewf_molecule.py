@@ -84,8 +84,8 @@ class MoleculeEWFTest_LiH_ccpvdz_IAO_atoms(unittest.TestCase, MoleculeEWFTest):
         self.assertAlmostEqual(np.linalg.norm(self.ewf.get_t1(get_lambda=True)), self.known_values['l1'], 8)
 
     def test_t2(self):
-        self.assertAlmostEqual(np.linalg.norm(self.ewf.get_t12()[1]), self.known_values['t2'], 8)
-        self.assertAlmostEqual(np.linalg.norm(self.ewf.get_t12(get_lambda=True)[1]), self.known_values['l2'], 8)
+        self.assertAlmostEqual(np.linalg.norm(self.ewf.get_t2()), self.known_values['t2'], 8)
+        self.assertAlmostEqual(np.linalg.norm(self.ewf.get_t2(get_lambda=True)), self.known_values['l2'], 8)
 
     def test_rdm1(self):
         self.assertAlmostEqual(np.trace(self.ewf.make_rdm1_demo()), self.known_values['rdm1_demo'], 8)

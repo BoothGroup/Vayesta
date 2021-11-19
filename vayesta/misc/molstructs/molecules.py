@@ -115,3 +115,7 @@ def no2():
 	('O', (0.0000, -1.0989, 0.4653)),
 	]
     return atom
+
+def ethanol():
+    atom = _load_datafile('ethanol.dat')
+    return atom

@@ -14,9 +14,8 @@ from vayesta.core.util import *
 from vayesta.core.mpi import mpi
 
 # Amplitudes
-from .amplitudes import get_t1_uhf
-from .amplitudes import get_t2_uhf
-from .amplitudes import get_t12_uhf
+from .amplitudes import get_global_t1_uhf
+from .amplitudes import get_global_t2_uhf
 
 # Density-matrices
 from .urdm import make_rdm1_demo
@@ -156,7 +155,7 @@ class UEmbedding(QEmbedding):
         eris_ab = super().get_eris_array(2*[mo_coeff[0]] + 2*[mo_coeff[1]], compact=compact)
         return (eris_aa, eris_ab, eris_bb)
 
-    def get_eris_object(self, posthf):
+    def get_eris_object(self, posthf, fock=None):
         """Get ERIs for post-HF methods.
 
         For folded PBC calculations, this folds the MO back into k-space
@@ -175,12 +174,14 @@ class UEmbedding(QEmbedding):
         # Get required quantities:
         active = posthf.get_frozen_mask()
         c_act = (posthf.mo_coeff[0][:,active[0]], posthf.mo_coeff[1][:,active[1]])
-        if isinstance(posthf, pyscf.mp.mp2.MP2):
-            fock = self.get_fock()
-        elif isinstance(posthf, (pyscf.ci.cisd.CISD, pyscf.cc.ccsd.CCSD)):
-            fock = self.get_fock(with_exxdiv=False)
-        else:
-            raise ValueError("Unknown post-HF method: %r", type(posthf))
+        if fock is None:
+            if isinstance(posthf, pyscf.mp.mp2.MP2):
+                fock = self.get_fock()
+            elif isinstance(posthf, (pyscf.ci.cisd.CISD, pyscf.cc.ccsd.CCSD)):
+                fock = self.get_fock(with_exxdiv=False)
+            else:
+                raise ValueError("Unknown post-HF method: %r", type(posthf))
+        # For MO energies, always use get_fock():
         mo_energy = (einsum('ai,ab,bi->i', c_act[0], self.get_fock()[0], c_act[0]),
                      einsum('ai,ab,bi->i', c_act[1], self.get_fock()[1], c_act[1]))
         e_hf = self.mf.e_tot
@@ -228,12 +229,8 @@ class UEmbedding(QEmbedding):
     # -----------------
 
     # T-amplitudes
-    get_t1 = get_t1_uhf
-    get_t2 = get_t2_uhf
-    get_t12 = get_t12_uhf
-
-    # Lambda-amplitudes
-    # get_l1, get_l2, and get_l12 are inherited from EWF.
+    get_global_t1 = get_global_t1_uhf
+    get_global_t2 = get_global_t2_uhf
 
     # --- Density-matrices
     # --------------------
