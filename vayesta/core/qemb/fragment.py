@@ -419,19 +419,6 @@ class Fragment:
         r_vir = dot(self.base.mo_coeff_vir.T, ovlp, self.c_proj)
         return r_occ, r_vir
 
-
-    #def get_overlap_with_fragment(self):
-
-
-    #def get_rot_to_mf(self):
-
-    #def get_rot_to_fragment(self, fragment):
-    #    """Get rotation matrices between occupied/virtual active space of this and another fragment."""
-    #    ovlp = self.base.get_ovlp()
-    #    r_occ = dot(self.c_active_occ.T, ovlp, fragment.c_active_occ)
-    #    r_vir = dot(self.c_active_vir.T, ovlp, fragment.c_active_vir)
-    #    return r_occ, r_vir
-
     @property
     def results(self):
         if self.sym_parent is None:

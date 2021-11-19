@@ -48,10 +48,10 @@ from .amplitudes import get_global_t2_rhf
 from .rdm import make_rdm1_demo
 from .rdm import make_rdm2_demo
 from .rdm import make_rdm1_ccsd
-# NEW
+from .rdm import make_rdm2_ccsd
+# TODO
 from .rdm import make_rdm1_ccsd_new
 from .rdm import make_rdm1_ccsd_new2
-from .rdm import make_rdm2_ccsd
 from . import helper
 
 
@@ -114,6 +114,7 @@ class QEmbedding:
         # 1) Logging
         # ----------
         self.log = log or logging.getLogger(__name__)
+        self.log.info("")
         self.log.info("Initializing %s" % self.__class__.__name__)
         self.log.info("=============%s" % (len(str(self.__class__.__name__))*"="))
 
@@ -820,6 +821,7 @@ class QEmbedding:
     make_rdm1_ccsd = make_rdm1_ccsd
     make_rdm2_ccsd = make_rdm2_ccsd
 
+    # TODO
     make_rdm1_ccsd_new = make_rdm1_ccsd_new
     make_rdm1_ccsd_new2 = make_rdm1_ccsd_new2
 

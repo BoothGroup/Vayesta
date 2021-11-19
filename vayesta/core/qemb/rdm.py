@@ -317,8 +317,10 @@ def make_rdm1_ccsd_new(emb, ao_basis=False, t_as_lambda=False, slow=False, symme
 
     return finalize(dm1)
 
-def make_rdm1_ccsd_new2(emb, ao_basis=False, t_as_lambda=False, symmetrize=True, slow=False, mpi_target=None):
+def make_rdm1_ccsd_new2(emb, ao_basis=False, t_as_lambda=False, symmetrize=True, with_mf=True, mpi_target=None):
     """Make one-particle reduced density-matrix from partitioned fragment CCSD wave functions.
+
+    MPI parallelized.
 
     Parameters
     ----------
@@ -326,9 +328,6 @@ def make_rdm1_ccsd_new2(emb, ao_basis=False, t_as_lambda=False, symmetrize=True,
         Return the density-matrix in the AO basis. Default: False.
     t_as_lambda: bool, optional
         Use T-amplitudes instead of Lambda-amplitudes for CCSD density matrix. Default: False.
-    slow: bool, optional
-        Combine to global CCSD wave function first, then build density matrix.
-        Equivalent, but does not scale well. Default: False
 
     Returns
     -------
@@ -339,54 +338,43 @@ def make_rdm1_ccsd_new2(emb, ao_basis=False, t_as_lambda=False, symmetrize=True,
     # --- Fast algorithm via fragment-fragment loop:
     # T1/L1-amplitudes can be summed directly
     t1 = emb.get_global_t1()
-    l1 = (t1 if t_as_lambda else emb.get_global_l1())
-
-    # --- Preconstruct some C^T.S.C-type rotation matrices:
+    l1 = emb.get_global_l1() if not t_as_lambda else t1
 
     # --- Loop over pairs of fragments and add projected density-matrix contributions:
     nocc, nvir = t1.shape
     doo = np.zeros((nocc, nocc))
     dvv = np.zeros((nvir, nvir))
-    #dov = (t1 + l1 - einsum('ie,me,ma->ia', t1, l1, t1))
     dov = np.zeros((nocc, nvir))
-    for i1, f1 in enumerate(emb.get_fragments(mpi_rank=mpi.rank)):
-        th2x = f1.results.t2x
+    # MPI loop
+    for frag in emb.get_fragments(mpi_rank=mpi.rank):
+        th2x = frag.results.t2x
         th2x = (2*th2x - th2x.transpose(0,1,3,2))
-        l2x = (f1.results.t2x if t_as_lambda else f1.results.l2x)
-        # Mean-field to cluster:
-        co, cv = f1.get_overlap_m2c()
-        # Mean-field to fragment:
-        fo = f1.get_overlap_m2f()[0]
-
-        # Intermediates - leave left index in cluster basis:
-        doox = np.zeros((f1.n_active_occ, nocc))
-        dvvx = np.zeros((f1.n_active_vir, nvir))
+        l2x = frag.results.l2x if not t_as_lambda else frag.results.t2x
+        # Mean-field to cluster (occupied/virtual):
+        co, cv = frag.get_overlap_m2c()
+        # Mean-field to fragment (occupied):
+        fo = frag.get_overlap_m2f()[0]
+        doo -= einsum('kiba,kjba,Ii,Jj->IJ', th2x, l2x, co, co)
         if symmetrize:
-            dov += einsum('Px,xmae,Mm,Qa,Ee,ME->PQ', fo, th2x, co, cv, cv, l1) / 2
-            dov += einsum('mpea,Mm,Pp,Qa,Ee,ME->PQ', th2x, fo, co, cv, cv, l1) / 2
+            dvv += einsum('jica,jicb,Aa,Bb->AB', th2x, l2x, cv, cv) / 2
+            dvv += einsum('ijac,ijbc,Aa,Bb->AB', th2x, l2x, cv, cv) / 2
+            dov += einsum('ijab,Ii,Jj,Aa,Bb,JB->IA', th2x, fo, co, cv, cv, l1) / 2
+            dov += einsum('jiba,Jj,Ii,Aa,Bb,JB->IA', th2x, fo, co, cv, cv, l1) / 2
         else:
-            dov += einsum('Px,xmae,Mm,Qa,Ee,ME->PQ', fo, th2x, co, cv, cv, l1)
-        # Theta_jk^ab * l_ik^ab -> ij
-        doox -= einsum('kjba,kiba,Qi->jQ', th2x, l2x, co)
-        # Theta_ji^ca * l_ji^cb -> ab
-        if symmetrize:
-            dvvx += einsum('jica,jicb,Qb->aQ', th2x, l2x, cv) / 2
-            dvvx += einsum('ijac,ijbc,Qb->aQ', th2x, l2x, cv) / 2
-        else:
-            dvvx += einsum('jica,jicb,Qb->aQ', th2x, l2x, cv)
+            dvv += einsum('ijca,ijcb,Aa,Bb->AB', th2x, l2x, cv, cv)
+            dov += einsum('ijab,Ii,Jj,Aa,Bb,JB->IA', th2x, fo, co, cv, cv, l1)
+    dov += einsum('IJ,JA->IA', doo, t1)
+    dov -= einsum('IB,AB->IA', t1, dvv)
 
-        doo += np.dot(co, doox)
-        dvv += np.dot(cv, dvvx)
-
-    dov += einsum('im,ma->ia', doo, t1)
-    dov -= einsum('ie,ae->ia', t1, dvv)
-
+    # MPI reduce here; the remaining terms involve L1/T1 only
     if mpi:
         doo, dvv, dov = _mpi_reduce(emb.log, doo, dvv, dov, mpi_target=mpi_target)
+        if mpi_target not in (None, mpi.rank):
+            return None
 
-    doo -= einsum('ja,ia->ij', t1, l1)
-    dvv += einsum('ia,ib->ab', t1, l1)
-    dov += (t1 + l1 - einsum('ie,me,ma->ia', t1, l1, t1))
+    doo -= einsum('IA,JA->IJ', l1, t1)
+    dvv += einsum('IA,IB->AB', t1, l1)
+    dov += (t1 + l1 - einsum('IB,JB,JA->IA', t1, l1, t1))
 
     nmo = (nocc + nvir)
     occ, vir = np.s_[:nocc], np.s_[nocc:]
@@ -395,8 +383,8 @@ def make_rdm1_ccsd_new2(emb, ao_basis=False, t_as_lambda=False, symmetrize=True,
     dm1[vir,vir] = (dvv + dvv.T)
     dm1[occ,vir] = dov
     dm1[vir,occ] = dov.T
-    dm1[np.diag_indices(nocc)] += 2
-
+    if with_mf:
+        dm1[np.diag_indices(nocc)] += 2.0
     if ao_basis:
         dm1 = dot(emb.mo_coeff, dm1, emb.mo_coeff.T)
 
