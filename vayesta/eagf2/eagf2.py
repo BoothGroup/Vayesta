@@ -61,8 +61,20 @@ class KRAGF2Solver(KRAGF2):
             qmo_occ = np.zeros_like(qmo_energy)
 
         ovlp = np.eye(sum([c.shape[0] for c in qmo_coeff]))
-        qmo_energy_sc, qmo_coeff_sc, qmo_occ_sc = \
-                foldscf.fold_mos(qmo_energy, qmo_coeff, qmo_occ, self.phase, ovlp)
+        #qmo_energy_sc, qmo_coeff_sc, qmo_occ_sc = \
+        #        foldscf.fold_mos(qmo_energy, qmo_coeff, qmo_occ, self.phase, ovlp)
+
+        qmo_energy_sc = np.hstack(qmo_energy)
+        qmo_coeff_sc = np.einsum('kij,kR,kS->RiSj', qmo_coeff, self.phase.conj(), self.phase)
+        qmo_coeff_sc = qmo_coeff_sc.reshape(qmo_coeff_sc.shape[0]*qmo_coeff_sc.shape[1], -1)
+        qmo_occ_sc = np.hstack(qmo_occ)
+
+        mask = np.argsort(qmo_energy_sc)
+        qmo_energy_sc = qmo_energy_sc[mask]
+        qmo_coeff_sc = qmo_coeff_sc[:, mask]
+        qmo_occ_sc = qmo_occ_sc[mask]
+
+        qmo_coeff_sc = foldscf.make_mo_coeff_real(qmo_energy_sc, qmo_coeff_sc, ovlp)
 
         # Reorder physical and auxiliary part:
         #  +--------------+      +--------------+
