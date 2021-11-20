@@ -4,6 +4,10 @@ source = vayesta
 omit = 
         */libs/*
         */test_*.py
+        */core/k2gamma.py
+        */dmet/pdmet.py
+        */misc/brueckner.py
+        */misc/counterpoise.py
 
 [report]
 exclude_lines =

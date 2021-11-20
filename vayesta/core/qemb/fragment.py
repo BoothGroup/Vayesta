@@ -738,7 +738,7 @@ class Fragment:
                             dx, dy, dz, self.name, fragovlp)
                 raise RuntimeError("Overlapping fragment spaces.")
             # Deprecated:
-            if hasattr(self.base, 'add_fragment'):
+            if hasattr(self.base, 'add_fragment'):  # pragma: no cover
                 frag = self.base.add_fragment(name, c_frag_t, c_env_t, options=self.opts,
                         sym_parent=self, sym_op=sym_op)
             else:
@@ -760,7 +760,7 @@ class Fragment:
             fragments.append(frag)
         return fragments
 
-    def make_tsymmetric_fragments(self, *args, **kwargs):
+    def make_tsymmetric_fragments(self, *args, **kwargs):  # pragma: no cover
         self.log.warning("make_tsymmetric_fragments is deprecated - use add_tsymmetric_fragments")
         return self.add_tsymmetric_fragments(*args, **kwargs)
 
@@ -918,7 +918,7 @@ class Fragment:
     # --- Deprecated
     # --------------
 
-    def make_dmet_bath(self, *args, dmet_threshold=None, **kwargs):
+    def make_dmet_bath(self, *args, dmet_threshold=None, **kwargs):  # pragma: no cover
         self.log.warning("make_dmet_bath is deprecated. Use self.bath.make_dmet_bath.")
         if dmet_threshold is None:
             dmet_threshold = self.opts.dmet_threshold
