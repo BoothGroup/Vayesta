@@ -4,6 +4,7 @@ from vayesta import lattmod, ewf
 
 # Use default conv_tol
 EWF_CONV_TOL = None
+EWF_PLACES = 7
 
 class HubbardEWFTest:
     ''' Abstract base class for Hubbard model EWF tests.
@@ -21,7 +22,7 @@ class HubbardEWFTest:
         del cls.mol, cls.mf, cls.ewf, cls.known_values
 
     def test_energy(self):
-        self.assertAlmostEqual(self.ewf.e_tot, self.known_values['e_tot'], 8)
+        self.assertAlmostEqual(self.ewf.e_tot, self.known_values['e_tot'], EWF_PLACES)
 
 
 class HubbardEWFTest_N10_U0_1imp(unittest.TestCase, HubbardEWFTest):
@@ -104,6 +105,28 @@ class HubbardEWFTest_N6_U6_2imp(unittest.TestCase, HubbardEWFTest):
         f.make_tsymmetric_fragments(tvecs=[3, 1, 1])
         cls.ewf.kernel()
         cls.known_values = {'e_tot': -3.1985807202795167}
+
+
+class HubbardEWFTest_N6_U2_1imp(unittest.TestCase, HubbardEWFTest):
+    @classmethod
+    def setUpClass(cls):
+        cls.mol = lattmod.Hubbard1D(6, hubbard_u=2.0, nelectron=6)
+        cls.mf = lattmod.LatticeMF(cls.mol)
+        cls.mf.kernel()
+        cls.ewf = ewf.EWF(
+                cls.mf,
+                bno_threshold=1e-6,
+                sc_mode=1,
+                sc_energy_tol=1e-9,
+                solver_options={
+                    'conv_tol': EWF_CONV_TOL,
+                },
+        )
+        cls.ewf.site_fragmentation()
+        f = cls.ewf.make_atom_fragment(0, nelectron_target=1)
+        f.make_tsymmetric_fragments(tvecs=[6, 1, 1])
+        cls.ewf.kernel()
+        cls.known_values = {'e_tot': -5.408955909645092}
 
 
 if __name__ == '__main__':
