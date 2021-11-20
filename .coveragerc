@@ -14,7 +14,7 @@ exclude_lines =
     raise ValueError
     pass
     if __name__ == .__main__.:
-    except ImportError:
+    except ImportError
     def __repr__
     log.error
     log.critical
