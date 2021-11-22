@@ -45,11 +45,8 @@ class EBFCI_Solver(FCI_Solver):
     def nbos(self):
         return len(self.bos_freqs)
 
-    def kernel(self, bos_occ_cutoff=None, eris=None):
+    def kernel(self, eris=None):
         """Run FCI kernel."""
-
-        if bos_occ_cutoff is None:
-            bos_occ_cutoff = self.fragment.opts.bos_occ_cutoff
 
         if eris is None: eris = self.get_eris()
         heff = self.get_heff(eris)
@@ -68,10 +65,8 @@ class EBFCI_Solver(FCI_Solver):
 
         t0 = timer()
 
-        self.log.info("Running FCI with boson occupation cutoff of %d", bos_occ_cutoff)
-
         e_fci, civec = ebfci_slow.kernel(heff, eris, self.eb_coupling, np.diag(self.bos_freqs), self.nactive, nelec,
-                        self.nbos, bos_occ_cutoff, tol=conv_tol)
+                        self.nbos, self.opts.bos_occ_cutoff, tol=conv_tol)
 
         # For now assuming good convergence, to avoid interface difference between davidson and davidson1.
         self.log.debug("FCI done")#. converged: %r", fcisolver.converged)
@@ -92,7 +87,7 @@ class EBFCI_Solver(FCI_Solver):
             frag_coeffs = np.linalg.multi_dot([self.fragment.c_active.T, self.base.get_ovlp(), self.fragment.c_frag])
             dd_moms = ebfci_slow.calc_dd_response_moment_spatial(civec, e_fci, 1, self.nactive, nelec,
                                                         self.nbos, heff, eris, np.diag(self.bos_freqs), self.eb_coupling,
-                                                        bos_occ_cutoff, results.dm1, trace = False,
+                                                        self.opts.bos_occ_cutoff, results.dm1, trace = False,
                                                         coeffs = frag_coeffs)
             results.dd_mom0 = dd_moms[0]
             results.dd_mom1 = dd_moms[1]
@@ -103,6 +98,7 @@ class EBFCI_Solver(FCI_Solver):
 
         if self.opts.make_rdm_eb:
             # For now, generate spin-integrated DM as this is what we'll get from FCIQMC.
-            results.rdm_eb = 2 * ebfci_slow.make_eb_rdm(civec, self.nactive, nelec, self.nbos, bos_occ_cutoff)[::2,::2]
-
+            rdm_eb = ebfci_slow.make_eb_rdm(
+                civec, self.nactive, nelec, self.nbos, self.opts.bos_occ_cutoff)
+            results.rdm_eb = rdm_eb[::2,::2] + rdm_eb[1::2,1::2]
         return results

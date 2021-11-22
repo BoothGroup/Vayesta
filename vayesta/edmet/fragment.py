@@ -188,7 +188,7 @@ class EDMETFragment(DMETFragment):
         spin_deviation = abs(Va - Vb).max()
         if spin_deviation > 1e-6:
             self.log.warning("Boson couplings to different spin channels are significantly different; "
-                             "largest deviation {:6.4e}".format(spin_deviation))
+                             "largest deviation %6.4e", spin_deviation)
         #print(np.einsum("npq,rp,sq->nrs", Va, self.c_active, self.c_active))
         #print(np.einsum("npq,rp,sq->nrs", Vb, self.c_active, self.c_active))
         return freqs, Va, Vb
@@ -217,8 +217,8 @@ class EDMETFragment(DMETFragment):
         cluster_solver_cls = get_solver_class(self.mf, solver)
         cluster_solver = cluster_solver_cls(
             freqs, (Va, Vb), self, mo_coeff, mo_occ, nocc_frozen=nocc_frozen, nvir_frozen=nvir_frozen, v_ext = v_ext,
-            **solver_opts)
-        solver_results = cluster_solver.kernel(bos_occ_cutoff=self.opts.bos_occ_cutoff, eris=eris)
+            bos_occ_cutoff = self.opts.bos_occ_cutoff, **solver_opts)
+        solver_results = cluster_solver.kernel(eris=eris)
         self.log.timing("Time for %s solver:  %s", solver, time_string(timer()-t0))
 
         dd0 = solver_results.dd_mom0
@@ -348,7 +348,7 @@ class EDMETFragment(DMETFragment):
         loc_eps = einsum("ia,ji,ba,ki,ca->jbkc", epsilon, r_occ, r_vir, r_occ, r_vir).reshape((ov_loc, ov_loc))
         # We want to actually consider the difference from the dRPA kernel. This is just the local eris in an OV basis.
         if eris is None:
-            eris = self.base.get_eris(self.c_active)
+            eris = self.base.get_eris_array(self.c_active)
 
         v = eris[:nocc_loc, nocc_loc:, :nocc_loc, nocc_loc:].reshape((ov_loc, ov_loc))
 
