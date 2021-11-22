@@ -193,10 +193,10 @@ class MolFragmentTests(unittest.TestCase):
         self.assertAlmostEqual(lib.fp(f), -764.3221494218335, 8)
 
         f = frag.project_amplitude_to_fragment(c_ijab, c_occ=c_occ, c_vir=c_vir, partition='democratic')
-        self.assertAlmostEqual(lib.fp(f), 674831740.969954, 8)
+        self.assertAlmostEqual(lib.fp(f), 674831740.969954, 4)
 
         f = frag.project_amplitude_to_fragment(c_ijab, c_occ=c_occ, c_vir=c_vir, partition='democratic', symmetrize=False)
-        self.assertAlmostEqual(lib.fp(f), 674820355.3385825, 8)
+        self.assertAlmostEqual(lib.fp(f), 674820355.3385825, 4)
 
     def test_project_ref_orbitals(self):
         qemb = QEmbeddingMethod(self.mf)
