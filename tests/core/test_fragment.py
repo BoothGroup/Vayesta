@@ -154,6 +154,50 @@ class MolFragmentTests(unittest.TestCase):
         frag = qemb.add_orbital_fragment([0, 1])
         self.assertAlmostEqual(frag.get_fragment_mf_energy(), -72.98871119377974, 8)
 
+    def test_project_amplitude_to_fragment(self):
+        qemb = QEmbeddingMethod(self.mf)
+        qemb.sao_fragmentation()
+        frag = qemb.add_atomic_fragment(0)
+
+        nocc = np.sum(self.mf.mo_occ > 0)
+        nvir = np.sum(self.mf.mo_occ == 0)
+        nmo = nocc + nvir
+
+        with temporary_seed(1):
+            c_ij = np.random.random((nocc, nvir))
+            c_ijab = np.random.random((nocc, nocc, nvir, nvir))
+            c_occ = np.random.random((nmo, nocc))
+            c_vir = np.random.random((nmo, nvir))
+
+
+        f = frag.project_amplitude_to_fragment(c_ij, c_occ=c_occ, c_vir=c_vir, partition='first-occ')
+        self.assertAlmostEqual(lib.fp(f), 147.69445873300094, 8)
+
+        f = frag.project_amplitude_to_fragment(c_ij, c_occ=c_occ, c_vir=c_vir, partition='first-vir')
+        self.assertAlmostEqual(lib.fp(f), 151.60598331376818, 8)
+
+        f = frag.project_amplitude_to_fragment(c_ij, c_occ=c_occ, c_vir=c_vir, partition='occ-2')
+        self.assertAlmostEqual(lib.fp(f), 147.69445873300094, 8)
+
+        f = frag.project_amplitude_to_fragment(c_ij, c_occ=c_occ, c_vir=c_vir, partition='democratic')
+        self.assertAlmostEqual(lib.fp(f), 149.65022102336877, 8)
+
+
+        f = frag.project_amplitude_to_fragment(c_ijab, c_occ=c_occ, c_vir=c_vir, partition='first-occ')
+        self.assertAlmostEqual(lib.fp(f), -253.9226566096766, 8)
+
+        f = frag.project_amplitude_to_fragment(c_ijab, c_occ=c_occ, c_vir=c_vir, partition='first-vir')
+        self.assertAlmostEqual(lib.fp(f), 62.534014837251874, 8)
+
+        f = frag.project_amplitude_to_fragment(c_ijab, c_occ=c_occ, c_vir=c_vir, partition='occ-2')
+        self.assertAlmostEqual(lib.fp(f), -764.3221494218335, 8)
+
+        f = frag.project_amplitude_to_fragment(c_ijab, c_occ=c_occ, c_vir=c_vir, partition='democratic')
+        self.assertAlmostEqual(lib.fp(f), 674831740.969954, 8)
+
+        f = frag.project_amplitude_to_fragment(c_ijab, c_occ=c_occ, c_vir=c_vir, partition='democratic', symmetrize=False)
+        self.assertAlmostEqual(lib.fp(f), 674820355.3385825, 8)
+
 
 class CellFragmentTests(unittest.TestCase):
 
