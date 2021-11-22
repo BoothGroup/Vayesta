@@ -19,10 +19,11 @@ class NumericalIntegratorBase:
     particular form of the integral to be approximated.
     Might be able to write this as a factory class, but this'll do for now.
     """
-    def __init__(self, out_shape, diag_shape, npoints):
+    def __init__(self, out_shape, diag_shape, npoints, log):
         self.out_shape = out_shape
         self.diag_shape = diag_shape
         self.npoints = npoints
+        self.log = log
 
     @property
     def npoints(self):
@@ -107,27 +108,26 @@ class NumericalIntegratorBase:
 
     def test_diag_derivs(self, a, delta=1e-6):
         freq = np.random.rand() * a
-        print("Testing gradients w.r.t variation of omega at random frequency point={:8.6e}:".format(freq))
+        self.log.info("Testing gradients w.r.t variation of omega at random frequency point=%8.6e:",freq)
         grad_1 = self.eval_diag_deriv_contrib(freq)
         deriv2_1 = self.eval_diag_deriv2_contrib(freq)
         grad_2 = (self.eval_diag_contrib(freq + delta / 2) - self.eval_diag_contrib(freq - delta / 2)) / delta
         deriv2_2 = (self.eval_diag_deriv_contrib(freq + delta / 2) - self.eval_diag_deriv_contrib(freq - delta / 2)) / delta
-        print("Max Grad Error={:6.4e}".format(abs(grad_1 - grad_2).max()))
-        print("Max Deriv2 Error={:6.4e}".format(abs(deriv2_1 - deriv2_2).max()))
+        self.log.info("Max Grad Error=%6.4e",abs(grad_1 - grad_2).max())
+        self.log.info("Max Deriv2 Error=%6.4e",abs(deriv2_1 - deriv2_2).max())
 
-        print("Testing ensemble gradients w.r.t variation of a:")
+        self.log.info("Testing ensemble gradients w.r.t variation of a:")
         grad_1 = self.eval_diag_NI_approx_grad(a)
         deriv2_1 = self.eval_diag_NI_approx_deriv2(a)
         grad_2 = (self.eval_diag_NI_approx(a+delta/2) - self.eval_diag_NI_approx(a-delta/2))/delta
         deriv2_2 = (self.eval_diag_NI_approx_grad(a + delta / 2) - self.eval_diag_NI_approx_grad(a - delta / 2)) / delta
-        print("Max Grad Error={:6.4e}".format(abs(grad_1 - grad_2).max()))
-        print("Max Deriv2 Error={:6.4e}".format(abs(deriv2_1 - deriv2_2).max()))
+        self.log.info("Max Grad Error=%6.4e",abs(grad_1 - grad_2).max())
+        self.log.info("Max Deriv2 Error=%6.4e",abs(deriv2_1 - deriv2_2).max())
 
     def opt_quadrature_diag(self, ainit=None):
         """Optimise the quadrature to exactly integrate a diagonal approximation to the integral"""
         def get_val(a):
             val = (self.eval_diag_NI_approx(a) - self.eval_diag_exact()).sum()
-            #print("^^^",a, val)
             return val
         def get_grad(a):
             return self.eval_diag_NI_approx_grad(a).sum()
@@ -151,7 +151,6 @@ class NumericalIntegratorBase:
                 raise NIException("Cannot find starting point for quadrature optimisation; please provide a value of a.")
         if ainit is None: ainit = find_good_start(1e-6, 60, 0.7)
         opt_min = False
-        print("%", ainit)
         try:
             solve = scipy.optimize.newton(get_val, x0=ainit, fprime=get_grad, tol=1e-8, maxiter=30, fprime2=get_deriv2)
         except RuntimeError:
@@ -173,12 +172,9 @@ class NumericalIntegratorBase:
             if not res.success:
                 raise NIException("Could not optimise `a' value.")
             solve = res.x
-            print(
-                "Used minimisation to optimise quadrature grid; resulting penalty value: {:6.4e}"
-                "(the closer to zero better)".format(res.fun))
-
-
-        print("!", solve)
+            self.log.info(
+                "Used minimisation to optimise quadrature grid; resulting penalty value: %4.2e"
+                "(the closer to zero better)", res.fun)
         return solve
 
     def fix_params(self):
@@ -209,7 +205,7 @@ class NumericalIntegratorBase:
         if not info.success:
             raise NIException("Adaptive gaussian quadrature could not compute integral.")
         else:
-            print("Successfully computed integral via adaptive quadrature using {:d} evaluations with estimated error of {:6.4e}".format(info.neval, err))
+            self.log.info("Successfully computed integral via adaptive quadrature using %d evaluations with estimated error of %6.4e",info.neval, err)
         return integral + self.get_offset()
 
     def l2_scan(self, freqs):
@@ -227,23 +223,23 @@ class NumericalIntegratorBase:
 
 
 class NumericalIntegratorClenCurInfinite(NumericalIntegratorBase):
-    def __init__(self, out_shape, diag_shape, npoints, even):
-        super().__init__(out_shape, diag_shape, npoints)
+    def __init__(self, out_shape, diag_shape, npoints, log, even):
+        super().__init__(out_shape, diag_shape, npoints, log)
         self.even = even
 
     def get_quad(self, a):
         return gen_ClenCur_quad_inf(a, self.npoints, self.even)
 
 class NumericalIntegratorClenCurSemiInfinite(NumericalIntegratorBase):
-    def __init__(self, out_shape, diag_shape, npoints):
-        super().__init__(out_shape, diag_shape, npoints)
+    def __init__(self, out_shape, diag_shape, npoints, log):
+        super().__init__(out_shape, diag_shape, npoints, log)
 
     def get_quad(self, a):
         return gen_ClenCur_quad_semiinf(a, self.npoints)
 
 class NumericalIntegratorGaussianSemiInfinite(NumericalIntegratorBase):
-    def __init__(self, out_shape, diag_shape, npoints):
-        super().__init__(out_shape, diag_shape, npoints)
+    def __init__(self, out_shape, diag_shape, npoints, log):
+        super().__init__(out_shape, diag_shape, npoints, log)
     @property
     def npoints(self):
         return self._npoints

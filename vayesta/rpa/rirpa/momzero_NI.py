@@ -10,14 +10,14 @@ import numpy as np
 
 
 class NIMomZero(NumericalIntegratorClenCurInfinite):
-    def __init__(self,  D, S_L, S_R, target_rot, npoints):
+    def __init__(self,  D, S_L, S_R, target_rot, npoints, log):
         self.D = D
         self.S_L = S_L
         self.S_R = S_R
         self.target_rot = target_rot
         out_shape = self.target_rot.shape
         diag_shape = self.D.shape
-        super().__init__(out_shape, diag_shape, npoints, True)
+        super().__init__(out_shape, diag_shape, npoints, log, True)
 
     @property
     def n_aux(self):
@@ -141,14 +141,14 @@ class MomzeroDeductHigherOrder(MomzeroDeductD):
 
 class BaseMomzeroOffset(NumericalIntegratorBase):
     """NB this is an abstract class!"""
-    def __init__(self, D, S_L, S_R, target_rot, npoints):
+    def __init__(self, D, S_L, S_R, target_rot, npoints, log):
         self.D = D
         self.S_L = S_L
         self.S_R = S_R
         self.target_rot = target_rot
         out_shape = self.target_rot.shape
         diag_shape = self.D.shape
-        super().__init__(out_shape, diag_shape, npoints)
+        super().__init__(out_shape, diag_shape, npoints, log)
         self.diagRI = einsum("np,np->p", self.S_L, self.S_R)
         self.tar_RI = dot(dot(self.target_rot, self.S_L.T), self.S_R)
 

@@ -2,10 +2,8 @@ import numpy as np
 import scipy
 
 from vayesta.core.util import *
-from vayesta.rpa.rirpa import momzero_calculation
 from vayesta.rpa.rirpa import momzero_NI
 
-from pyscf.ao2mo import _ao2mo
 import pyscf.lib
 
 
@@ -79,7 +77,7 @@ class ssRPA:
     def kernel_moms(self, target_rot = None, npoints = 100, ainit = 10, integral_deduct = "HO", opt_quad = True,
                     adaptive_quad = False):
         if target_rot is None:
-            print("Warning; generating full moment rather than local component. Will scale as O(N^5).")
+            self.log.warning("Warning; generating full moment rather than local component. Will scale as O(N^5).")
             target_rot = np.eye(2*self.ov)
         ri_ApB, ri_AmB = self.construct_RI_AB()
         ri_MP = construct_product_RI(self.D, ri_AmB, ri_ApB)
@@ -88,27 +86,27 @@ class ssRPA:
         # and so
         #   eta0 = (integral + integral_offset) P^{-1} + moment_offset
         offsetNIworker = None
+        inputs = (self.D, ri_MP[0], ri_MP[1], target_rot, npoints, self.log)
         if integral_deduct == "D":
             # Evaluate (MP)^{1/2} - D,
-            NIworker = momzero_NI.MomzeroDeductD(self.D, ri_MP[0], ri_MP[1], target_rot, npoints)
+            NIworker = momzero_NI.MomzeroDeductD(*inputs)
             integral_offset = einsum("lp,p->lp", target_rot, self.D)
             moment_offset = np.zeros_like(target_rot)
         elif integral_deduct is None:
             # Explicitly evaluate (MP)^{1/2}, with no offsets.
-            NIworker = momzero_NI.MomzeroDeductNone(self.D, ri_MP[0], ri_MP[1], target_rot, npoints)
+            NIworker = momzero_NI.MomzeroDeductNone(*inputs)
             integral_offset = np.zeros_like(target_rot)
             moment_offset = np.zeros_like(target_rot)
         elif integral_deduct == "HO":
-            NIworker = momzero_NI.MomzeroDeductHigherOrder(self.D, ri_MP[0], ri_MP[1], target_rot, npoints)
-            offsetNIworker = momzero_NI.MomzeroOffsetCalcGaussLag(self.D, ri_MP[0], ri_MP[1], target_rot, npoints)
+            NIworker = momzero_NI.MomzeroDeductHigherOrder(*inputs)
+            offsetNIworker = momzero_NI.MomzeroOffsetCalcGaussLag(*inputs)
             estval = offsetNIworker.kernel()
-            # This computes the required value analytically, but at N^5 cost. Just for debugging.
+            # This computes the required value analytically, but at N^5 cost. Just keeping around for debugging.
             #mat = np.zeros(self.D.shape * 2)
             #mat = mat + self.D
             #mat = (mat.T + self.D).T
             #estval2 = einsum("rp,pq,np,nq->rq", target_rot, mat ** (-1), ri_MP[0], ri_MP[1])
-            #print(abs(estval - estval2).max())
-
+            #self.log.info("Error in numerical Offset Approximation=%6.4e",abs(estval - estval2).max())
             integral_offset = einsum("lp,p->lp", target_rot, self.D) + estval
             moment_offset = np.zeros_like(target_rot)
         else:
@@ -125,23 +123,6 @@ class ssRPA:
         mom0 = einsum("pq,q->pq", integral + integral_offset, self.D ** (-1)) - np.dot(
             np.dot(integral + integral_offset, ri_ApB_inv.T), ri_ApB_inv)
         return mom0 + moment_offset, integral, (NIworker, offsetNIworker)
-
-    def kernel_moms_old(self, maxmom = 0, npoints = 100, ainit=1.0, integral_deduct = "D"):
-
-        ri_ApB, ri_AmB = self.construct_RI_AB()
-
-        return momzero_calculation.eval_eta0(self.D, ri_ApB, ri_AmB, np.eye(2*self.ov), npoints, ainit, integral_deduct=integral_deduct)
-
-    def check_new(self, npoints = 100, ainit=1.0):
-        eps = np.zeros((self.nocc, self.nvir))
-        eps = eps + self.mo_energy_vir
-        eps = (eps.T - self.mo_energy_occ).T
-        eps = eps.reshape((self.ov,))
-        D = np.concatenate([eps, eps])
-
-        ri_ApB, ri_AmB = self.construct_RI_AB()
-
-        return momzero_calculation.check_SST_integral(ri_ApB, ri_AmB, D, npoints, ainit)
 
     def kernel_energy(self):
 
