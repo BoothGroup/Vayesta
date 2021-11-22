@@ -198,6 +198,22 @@ class MolFragmentTests(unittest.TestCase):
         f = frag.project_amplitude_to_fragment(c_ijab, c_occ=c_occ, c_vir=c_vir, partition='democratic', symmetrize=False)
         self.assertAlmostEqual(lib.fp(f), 674820355.3385825, 8)
 
+    def test_project_ref_orbitals(self):
+        qemb = QEmbeddingMethod(self.mf)
+        qemb.sao_fragmentation()
+        frag = qemb.add_atomic_fragment(0)
+
+        nmo = self.mf.mo_occ.size
+
+        with temporary_seed(1):
+            c_ref = np.random.random((nmo, nmo))
+            c = np.random.random((nmo, nmo))
+
+        w, v = frag.project_ref_orbitals(c_ref, c)
+
+        self.assertAlmostEqual(lib.fp(w), 8.187018538830218, 8)
+        self.assertAlmostEqual(lib.fp(v), 694.4976696239447, 8)
+
 
 class CellFragmentTests(unittest.TestCase):
 
