@@ -18,11 +18,11 @@ from pyscf.pbc.tools import cubegen
 from vayesta.core.util import *
 from vayesta.core import QEmbeddingFragment
 # We might want to move the useful things from here into core, since they seem pretty general.
-from vayesta.ewf import helper, psubspace
 
 from . import dmet
 from vayesta.solver import get_solver_class
-from vayesta.ewf import mp2_bath
+from vayesta.core.bath import helper
+from . import mp2_bath
 
 class DMETFragmentExit(Exception):
     pass
@@ -136,7 +136,7 @@ class DMETFragment(QEmbeddingFragment):
         self.log.info("Making DMET Bath")
         self.log.info("----------------")
         self.log.changeIndentLevel(1)
-        c_dmet, c_env_occ, c_env_vir = self.make_dmet_bath(self.c_env, tol=self.opts.dmet_threshold)
+        c_dmet, c_env_occ, c_env_vir = self.make_dmet_bath(self.c_env, dmet_threshold=self.opts.dmet_threshold)
         self.log.timing("Time for DMET bath:  %s", time_string(timer()-t0))
 
         self.log.changeIndentLevel(-1)
@@ -323,7 +323,7 @@ class DMETFragment(QEmbeddingFragment):
 
         v_ext = None if chempot is None else - chempot * self.get_fragment_projector(self.c_active)
 
-        cluster_solver_cls = get_solver_class(solver)
+        cluster_solver_cls = get_solver_class(self.mf, solver)
         cluster_solver = cluster_solver_cls(
             self, mo_coeff, mo_occ, nocc_frozen=nocc_frozen, nvir_frozen=nvir_frozen, v_ext = v_ext, **solver_opts)
         #solver_results = cluster_solver.kernel(init_guess=init_guess, eris=eris)

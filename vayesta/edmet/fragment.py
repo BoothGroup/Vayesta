@@ -214,7 +214,7 @@ class EDMETFragment(DMETFragment):
 
         v_ext = None if chempot is None else - chempot * self.get_fragment_projector(self.c_active)
 
-        cluster_solver_cls = get_solver_class(solver)
+        cluster_solver_cls = get_solver_class(self.mf, solver)
         cluster_solver = cluster_solver_cls(
             freqs, (Va, Vb), self, mo_coeff, mo_occ, nocc_frozen=nocc_frozen, nvir_frozen=nvir_frozen, v_ext = v_ext,
             **solver_opts)

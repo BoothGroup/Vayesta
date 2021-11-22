@@ -17,7 +17,7 @@ from vayesta.core.util import *
 from vayesta.core import QEmbeddingMethod
 
 from . import helper
-from .fragment import EWFFragment
+from .fragment import EWFFragment as Fragment
 
 try:
     from mpi4py import MPI
@@ -43,7 +43,7 @@ VALID_SOLVERS = [None, "", "MP2", "CISD", "CCSD", 'TCCSD', "CCSD(T)", 'FCI', "FC
 
 class EWF(QEmbeddingMethod):
 
-    Fragment = EWFFragment
+    Fragment = Fragment
 
     @dataclasses.dataclass
     class Options(QEmbeddingMethod.Options):
@@ -54,8 +54,6 @@ class EWF(QEmbeddingMethod):
         iao_minao : str = 'auto'            # Minimal basis for IAOs
         # --- Bath settings
         bath_type: str = 'MP2-BNO'
-        local_virtuals: bool = False
-        dmet_threshold: float = 1e-8
         orbfile: str = None                 # Filename for orbital coefficients
         # If multiple bno thresholds are to be calculated, we can project integrals and amplitudes from a previous larger cluster:
         project_eris: bool = False          # Project ERIs from a pervious larger cluster (corresponding to larger eta), can result in a loss of accuracy especially for large basis sets!
@@ -64,8 +62,9 @@ class EWF(QEmbeddingMethod):
         # --- Solver settings
         make_rdm1: bool = False
         make_rdm2: bool = False
+        #solve_lambda: bool = 'auto'         # If False, use T-amplitudes inplace of Lambda-amplitudes
+        t_as_lambda: bool = False           # If True, use T-amplitudes inplace of Lambda-amplitudes
         dm_with_frozen: bool = False        # Add frozen parts to cluster DMs
-        pop_analysis: str = False           # Do population analysis
         eom_ccsd: list = dataclasses.field(default_factory=list)  # Perform EOM-CCSD in each cluster by default
         eom_ccsd_nroots: int = 5            # Perform EOM-CCSD in each cluster by default
         eomfile: str = 'eom-ccsd'           # Filename for EOM-CCSD states
@@ -77,12 +76,6 @@ class EWF(QEmbeddingMethod):
         sc_energy_tol: float = 1e-6
         sc_mode: int = 0
         nelectron_target: int = None
-        # --- Orbital plots
-        plot_orbitals: list = dataclasses.field(default_factory=dict)
-        plot_orbitals_exit: bool = False            # Exit immediately after all orbital plots have been generated
-        plot_orbitals_dir: str = 'orbitals'
-        plot_orbitals_kwargs: dict = dataclasses.field(default_factory=dict)
-        plot_orbitals_gridsize: tuple = dataclasses.field(default_factory=lambda: (128, 128, 128))
         # --- Other
         #energy_partitioning: str = 'first-occ'
         strict: bool = False                # Stop if cluster not converged
@@ -105,11 +98,8 @@ class EWF(QEmbeddingMethod):
         super().__init__(mf, options=options, log=log, **kwargs)
 
         # Options
-        if self.opts.pop_analysis:
-            self.opts.make_rdm1 = True
-        self.log.info("EWF parameters:")
-        for key, val in self.opts.items():
-            self.log.info('  > %-24s %r', key + ':', val)
+        self.log.info("Parameters of %s:", self.__class__.__name__)
+        self.log.info(break_into_lines(str(self.opts), newline='\n    '))
 
         # --- Check input
         if not mf.converged:
@@ -124,14 +114,10 @@ class EWF(QEmbeddingMethod):
 
         #self._mo_coeff = self.get_init_mo_coeff()
 
-        # Population analysis
-        self.pop_mf = None
-        #self.pop_mf_chg = None
-
         self.iteration = 0
         self.cluster_results = {}
         self.results = []
-        self.e_corr = 0.0
+        #self.e_corr = 0.0
         self.log.timing("Time for EWF setup: %s", time_string(timer()-t_start))
 
     def __repr__(self):
@@ -140,6 +126,10 @@ class EWF(QEmbeddingMethod):
         values = [self.__dict__[k] for k in keys]
         return fmt % (self.__class__.__name__, *[x for y in zip(keys, values) for x in y])
 
+
+    def get_fock_for_energy(self, *args, **kwargs):
+        """Overriding this allows to use a different Fock-matrix for the energy evaluation."""
+        return self.get_fock(*args, **kwargs)
 
     #def init_fragments(self):
     #    if self.opts.fragment_type.upper() == "IAO":
@@ -210,7 +200,7 @@ class EWF(QEmbeddingMethod):
         err = abs(dot(c.T, ovlp, c) - np.eye(c.shape[-1])).max()
         if err > 1e-5:
             self.log.error("Orthogonality error of MOs= %.2e !!!", err)
-        else:   
+        else:
             self.log.debug("Orthogonality error of MOs= %.2e", err)
         if self.opts.orthogonal_mo_tol and err > self.opts.orthogonal_mo_tol:
             t0 = timer()
@@ -225,19 +215,21 @@ class EWF(QEmbeddingMethod):
     @property
     def e_tot(self):
         """Total energy."""
-        return self.e_mf + self.e_corr
+        return self.get_e_tot()
 
-    def get_total_energy(self):
-        return self.e_mf + self.get_corr_energy()
+    @property
+    def e_corr(self):
+        """Correlation energy."""
+        return self.get_e_corr()
 
-    def get_corr_energy(self):
+    def get_e_tot(self):
+        return self.e_mf + self.get_e_corr()
+
+    def get_e_corr(self):
         e_corr = 0.0
         for f in self.fragments:
             e_corr += f.results.e_corr
         return e_corr
-
-    get_e_tot = get_total_energy
-    get_e_corr = get_corr_energy
 
     #def get_e_corr_new(self):
     #    e_corr = 0.0
@@ -506,19 +498,17 @@ class EWF(QEmbeddingMethod):
                 for i in range(self.iao_coeff.shape[0]):
                     f.write(fmtline % (ao_labels[i], *self.iao_coeff[i]))
 
-        # Mean-field population analysis
-        if self.opts.pop_analysis:
-            dm1 = self.mf.make_rdm1()
-            if isinstance(self.opts.pop_analysis, str):
-                filename = self.opts.pop_analysis
-            else:
-                filename = None
-            self.pop_mf = self.pop_analysis(dm1, filename=filename)[0]
-
-        nelec_frags = sum([f.sym_factor*f.nelectron for f in self.loop()])
-        self.log.info("Total number of mean-field electrons over all fragments= %.8f", nelec_frags)
-        if abs(nelec_frags - np.rint(nelec_frags)) > 1e-4:
-            self.log.warning("Number of electrons not integer!")
+        if self.is_rhf:
+            nelec_frags = sum([f.sym_factor*f.nelectron for f in self.loop()])
+            self.log.info("Total number of mean-field electrons over all fragments= %.8f", nelec_frags)
+            if abs(nelec_frags - np.rint(nelec_frags)) > 1e-4:
+                self.log.warning("Number of electrons not integer!")
+        else:
+            nelec_frags = (sum([f.sym_factor*f.nelectron[0] for f in self.loop()]),
+                           sum([f.sym_factor*f.nelectron[1] for f in self.loop()]))
+            self.log.info("Total number of mean-field electrons over all fragments= %.8f , %.8f", *nelec_frags)
+            if abs(nelec_frags[0] - np.rint(nelec_frags[0])) > 1e-4 or abs(nelec_frags[1] - np.rint(nelec_frags[1])) > 1e-4:
+                self.log.warning("Number of electrons not integer!")
 
         exit = False
         for i, bno_thr in enumerate(bno_threshold):
@@ -538,6 +528,12 @@ class EWF(QEmbeddingMethod):
                 for x, frag in enumerate(self.fragments):
                     if MPI_rank != (x % MPI_size):
                         continue
+                    # Do not calculate symmetry children
+                    if frag.sym_parent is not None:
+                        self.log.debugv("Skipping %s with symmetry parent %s", frag.name, frag.sym_parent.name)
+                        self.cluster_results[(frag.id, bno_thr)] = frag.results
+                        continue
+
                     mpi_info = (" on MPI process %d" % MPI_rank) if MPI_size > 1 else ""
                     msg = "Now running %s%s" % (frag, mpi_info)
                     self.log.info(msg)
@@ -545,7 +541,7 @@ class EWF(QEmbeddingMethod):
                     self.log.changeIndentLevel(1)
                     try:
                         result = frag.kernel(bno_threshold=bno_thr)
-                    except EWFFragment.Exit:
+                    except Fragment.Exit:
                         exit = True
                         self.log.info("Exiting %s", frag)
                         self.log.changeIndentLevel(-1)
@@ -605,12 +601,11 @@ class EWF(QEmbeddingMethod):
 
         bno_min = np.min(bno_threshold)
         #self.e_corr = sum([results[(f.id, bno_min)].e_corr for f in self.fragments])
-        self.e_corr = self.results[0].e_corr
-        fmt = "%-8s %+16.8f Ha"
-        self.log.output(fmt, 'E(nuc)=', self.mol.energy_nuc())
-        self.log.output(fmt, 'E(MF)=', self.e_mf)
-        self.log.output(fmt, 'E(corr)=', self.e_corr)
-        self.log.output(fmt, 'E(tot)=', self.e_tot)
+        #self.e_corr = self.results[0].e_corr
+        self.log.output('E(nuc)=  %s', energy_string(self.mol.energy_nuc()))
+        self.log.output('E(MF)=   %s', energy_string(self.e_mf))
+        self.log.output('E(corr)= %s', energy_string(self.e_corr))
+        self.log.output('E(tot)=  %s', energy_string(self.e_tot))
 
         #attributes = ["converged", "e_corr", "e_delta_mp2", "e_pert_t"]
 
@@ -702,17 +697,29 @@ class EWF(QEmbeddingMethod):
     #    self.log.info("E(corr)= %+16.8f Ha", self.e_corr)
     #    self.log.info("E(tot)=  %+16.8f Ha", self.e_tot)
 
+    #def print_results(self, results):
+    #    self.log.info("Energies")
+    #    self.log.info("========")
+    #    fmt = "%-20s %+16.8f Ha"
+    #    for i, frag in enumerate(self.loop()):
+    #        e_corr = results["e_corr"][i]
+    #        self.log.output(fmt, 'E(corr)[' + frag.trimmed_name() + ']=', e_corr)
+    #    self.log.output(fmt, 'E(corr)=', self.e_corr)
+    #    self.log.output(fmt, 'E(MF)=', self.e_mf)
+    #    self.log.output(fmt, 'E(nuc)=', self.mol.energy_nuc())
+    #    self.log.output(fmt, 'E(tot)=', self.e_tot)
+
     def print_results(self, results):
         self.log.info("Energies")
         self.log.info("========")
-        fmt = "%-20s %+16.8f Ha"
+        fmt = "%-20s %s"
         for i, frag in enumerate(self.loop()):
             e_corr = results["e_corr"][i]
-            self.log.output(fmt, 'E(corr)[' + frag.trimmed_name() + ']=', e_corr)
-        self.log.output(fmt, 'E(corr)=', self.e_corr)
-        self.log.output(fmt, 'E(MF)=', self.e_mf)
-        self.log.output(fmt, 'E(nuc)=', self.mol.energy_nuc())
-        self.log.output(fmt, 'E(tot)=', self.e_tot)
+            self.log.output('E(corr)[' + frag.trimmed_name() + ']= %s', energy_string(e_corr))
+        self.log.output('E(corr)= %s', energy_string(self.e_corr))
+        self.log.output('E(MF)=   %s', energy_string(self.e_mf))
+        self.log.output('E(nuc)=  %s', energy_string(self.mol.energy_nuc()))
+        self.log.output('E(tot)=  %s', energy_string(self.e_tot))
 
     def get_energies(self):
         """Get total energy."""
@@ -729,3 +736,5 @@ class EWF(QEmbeddingMethod):
         self.log.info("%3s  %20s  %8s  %4s", "ID", "Name", "Solver", "Size")
         for frag in self.loop():
             self.log.info("%3d  %20s  %8s  %4d", frag.id, frag.name, frag.solver, frag.size)
+
+REWF = EWF

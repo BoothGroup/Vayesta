@@ -1,7 +1,7 @@
 import os.path
 import numpy as np
 
-def load_datafile(filename):
+def _load_datafile(filename):
     datafile = os.path.join(os.path.dirname(__file__), os.path.join("data", filename))
     data = np.loadtxt(datafile, dtype=[("atoms", object), ("coords", np.float64, (3,))])
     #return data["atoms"], data["coords"]
@@ -101,9 +101,17 @@ def neopentane():
     return atom
 
 def boronene():
-    atom = load_datafile('boronene.dat')
+    atom = _load_datafile('boronene.dat')
     return atom
 
 def coronene():
-    atom = load_datafile('coronene.dat')
+    atom = _load_datafile('coronene.dat')
+    return atom
+
+def no2():
+    atom = [
+	('N', (0.0000,  0.0000, 0.0000)),
+	('O', (0.0000,  1.0989, 0.4653)),
+	('O', (0.0000, -1.0989, 0.4653)),
+	]
     return atom

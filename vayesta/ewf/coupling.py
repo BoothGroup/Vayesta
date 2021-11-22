@@ -6,13 +6,14 @@ import pyscf.ao2mo
 import pyscf.ci
 import pyscf.fci
 
-
 from vayesta.core.util import *
 from . import helper
 
 
 def make_cas_tcc_function(solver, c_cas_occ, c_cas_vir, eris):
     """Make tailor function for Tailored CC."""
+
+    cluster = solver.cluster
 
     ncasocc = c_cas_occ.shape[-1]
     ncasvir = c_cas_vir.shape[-1]
@@ -25,15 +26,15 @@ def make_cas_tcc_function(solver, c_cas_occ, c_cas_vir, eris):
     ovlp = solver.base.get_ovlp()
 
     # Rotation & projection into CAS
-    ro = np.linalg.multi_dot((solver.c_active_occ.T, ovlp, c_cas_occ))
-    rv = np.linalg.multi_dot((solver.c_active_vir.T, ovlp, c_cas_vir))
+    ro = dot(cluster.c_active_occ.T, ovlp, c_cas_occ)
+    rv = dot(cluster.c_active_vir.T, ovlp, c_cas_vir)
     r = np.block([[ro, np.zeros((ro.shape[0], rv.shape[1]))],
-                [np.zeros((rv.shape[0], ro.shape[1])), rv]])
+                  [np.zeros((rv.shape[0], ro.shape[1])), rv]])
 
     o = np.s_[:ncasocc]
     v = np.s_[ncasocc:]
 
-    def make_cas_eris():
+    def make_cas_eris(eris):
         """Make 4c ERIs in CAS."""
         t0 = timer()
         g_cas = np.zeros(4*[ncas])
@@ -52,8 +53,8 @@ def make_cas_tcc_function(solver, c_cas_occ, c_cas_vir, eris):
         g_cas[o,v,v,o] = einsum('IJKL,Ii,Jj,Kk,Ll->ijkl', eris.ovvo[:], ro, rv, rv, ro)
         g_cas[v,o,o,v] = g_cas[o,v,v,o].transpose(2,3,0,1)
         # 3 v
-        nocc = solver.c_active_occ.shape[-1]
-        nvir = solver.c_active_vir.shape[-1]
+        nocc = cluster.nocc_active
+        nvir = cluster.nvir_active
         if eris.ovvv.ndim == 3:
             nvir_pair = nvir*(nvir+1)//2
             g_ovvv = pyscf.lib.unpack_tril(eris.ovvv.reshape(nocc*nvir, nvir_pair)).reshape(nocc,nvir,nvir,nvir)
@@ -84,7 +85,7 @@ def make_cas_tcc_function(solver, c_cas_occ, c_cas_vir, eris):
         solver.log.timingv("Time to make CAS ERIs: %s", time_string(timer()-t0))
         return g_cas
 
-    g_cas = make_cas_eris()
+    g_cas = make_cas_eris(eris)
     # For the FCI, we need an effective one-electron Hamiltonian,
     # which contains Coulomb and exchange interaction to all frozen occupied orbitals
     # To calculate this, we would in principle need the whole-system 4c-integrals
@@ -92,7 +93,7 @@ def make_cas_tcc_function(solver, c_cas_occ, c_cas_vir, eris):
     # and subtract the parts NOT due to the frozen core density:
     # This Fock matrix does NOT contain exxdiv correction!
     #f_act = np.linalg.multi_dot((c_cas.T, eris.fock, c_cas))
-    f_act = np.linalg.multi_dot((r.T, eris.fock, r))
+    f_act = dot(r.T, eris.fock, r)
     v_act = 2*einsum('iipq->pq', g_cas[o,o]) - einsum('iqpi->pq', g_cas[o,:,:,o])
     h_eff = f_act - v_act
 
@@ -177,9 +178,10 @@ def make_cross_fragment_tcc_function(solver, mode, coupled_fragments=None, corre
     if mode not in (1, 2, 3):
         raise ValueError()
     solver.log.debugv("TCC mode= %d", mode)
+    cluster = solver.cluster
     ovlp = solver.base.get_ovlp()     # AO overlap matrix
-    c_occ = solver.c_active_occ       # Occupied active orbitals of current cluster
-    c_vir = solver.c_active_vir       # Virtual  active orbitals of current cluster
+    c_occ = cluster.c_active_occ       # Occupied active orbitals of current cluster
+    c_vir = cluster.c_active_vir       # Virtual  active orbitals of current cluster
 
     if coupled_fragments is None:
         coupled_fragments = solver.fragment.opts.coupled_fragments

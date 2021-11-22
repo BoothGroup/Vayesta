@@ -1,4 +1,3 @@
-#import copy
 import numpy as np
 
 import pyscf
@@ -6,6 +5,7 @@ import pyscf.mp
 import pyscf.cc
 
 from vayesta.core.util import *
+
 
 def postscf_ao2mo(postscf, mo_coeff=None, fock=None, mo_energy=None, e_hf=None):
     """Use as ao2mo(cc, mo_coeff) (instead of cc.ao2mo(mo_coeff))
