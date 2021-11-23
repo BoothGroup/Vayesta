@@ -404,7 +404,6 @@ class Fragment:
     # --- Overlap matrices
     # --------------------
 
-
     def get_overlap_m2c(self):
         """Get overlap matrices from mean-field to occupied/virtual active space."""
         ovlp = self.base.get_ovlp()

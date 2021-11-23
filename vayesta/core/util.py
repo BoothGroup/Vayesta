@@ -21,7 +21,7 @@ __all__ = [
         # NumPy replacements
         'dot', 'einsum', 'hstack',
         # New exceptions
-        'AbstractMethodError', 'ConvergenceError', 'OrthonormalityError',
+        'AbstractMethodError', 'ConvergenceError', 'OrthonormalityError', 'ImaginaryPartError',
         # Energy
         'energy_string',
         # Time & memory
@@ -145,6 +145,9 @@ class AbstractMethodError(NotImplementedError):
     pass
 
 class ConvergenceError(RuntimeError):
+    pass
+
+class ImaginaryPartError(RuntimeError):
     pass
 
 class OrthonormalityError(RuntimeError):

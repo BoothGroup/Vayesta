@@ -306,11 +306,12 @@ class EWF(QEmbeddingMethod):
             self.log.info(msg)
             self.log.info(len(msg)*"-")
             self.log.changeIndentLevel(1)
-            res = frag.kernel(bno_threshold=bno_threshold)
-            if not res.converged:
-                self.log.error("%s is not converged!", frag)
-            else:
-                self.log.info("%s is done.", frag)
+            frag.kernel(bno_threshold=bno_threshold)
+            #res = frag.kernel(bno_threshold=bno_threshold)
+            #if not res.converged:
+            #    self.log.error("%s is not converged!", frag)
+            #else:
+            #    self.log.info("%s is done.", frag)
             self.log.changeIndentLevel(-1)
 
         self.log.output('E(nuc)=  %s', energy_string(self.mol.energy_nuc()))

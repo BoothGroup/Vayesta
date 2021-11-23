@@ -119,3 +119,7 @@ def no2():
 def ethanol():
     atom = _load_datafile('ethanol.dat')
     return atom
+
+def chloroethanol():
+    atom = _load_datafile('chloroethanol.dat')
+    return atom

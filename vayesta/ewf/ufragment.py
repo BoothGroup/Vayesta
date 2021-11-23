@@ -108,9 +108,8 @@ class UEWFFragment(UFragment, EWFFragment):
             caa, cab, cba, cbb = c2
             e_doubles = (einsum('xi,xjab,iajb', pxa, caa, gaa)/4 - einsum('xi,xjab,ibja', pxa, caa, gaa)/4
                        + einsum('xi,xjab,iajb', pxb, cbb, gbb)/4 - einsum('xi,xjab,ibja', pxb, cbb, gbb)/4
-                       #+ einsum('ijab,iajb', cab, gab))
                        + einsum('xi,xjab,iajb', pxa, cab, gab)/2
-                       + einsum('xi,xjab,jbia', pxb, cba, gab)/2)
+                       + einsum('xj,ixab,iajb', pxb, cba, gab)/2)
         else:
             caa, cab, cbb = c2
             e_doubles = (einsum('ijab,iajb', caa, gaa)/4 - einsum('ijab,ibja', caa, gaa)/4

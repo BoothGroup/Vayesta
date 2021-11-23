@@ -275,8 +275,6 @@ class EWFFragment(QEmbeddingFragment):
         cluster = self.make_cluster(self.bath, bno_threshold=bno_threshold, bno_number=bno_number)
         cluster.log_sizes(self.log.info, header="Orbitals for %s" % self)
 
-        init_guess = self.get_init_guess(init_guess, solver, cluster)
-
         # For self-consistent calculations, we can reuse ERIs:
         if eris is None:
             eris = self._eris
@@ -290,6 +288,8 @@ class EWFFragment(QEmbeddingFragment):
 
         if solver is None:
             return None
+
+        init_guess = self.get_init_guess(init_guess, solver, cluster)
 
         # Create solver object
         solver_cls = get_solver_class(self.mf, solver)
@@ -321,7 +321,9 @@ class EWFFragment(QEmbeddingFragment):
         #c1x = self.project_amp1_to_fragment(cluster_solver.get_c1())
         #c2x = self.project_amp2_to_fragment(cluster_solver.get_c2())
         #with log_time(self.log.info, ("Time for fragment energy= %s")):
-        #    e_singles, e_doubles, e_corr = self.get_fragment_energy(c1x, c2x, eris=eris)
+        #    #e_singles, e_doubles, e_corr = self.get_fragment_energy(c1x, c2x, eris=eris)
+        #    e_singles_2, e_doubles_2, e_corr_2 = self.get_fragment_energy(c1x, c2x, eris=eris, axis1='fragment')
+        #    assert abs(e_corr - e_corr_2) < 1e-12
         if (solver != 'FCI' and (e_singles > max(0.1*e_doubles, 1e-4))):
             self.log.warning("Large singles energy component: E(S)= %s, E(D)= %s",
                     energy_string(e_singles), energy_string(e_doubles))

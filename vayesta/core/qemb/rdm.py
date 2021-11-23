@@ -355,26 +355,25 @@ def make_rdm1_ccsd_new2(emb, ao_basis=False, t_as_lambda=False, symmetrize=True,
         # Mean-field to fragment (occupied):
         fo = frag.get_overlap_m2f()[0]
         doo -= einsum('kiba,kjba,Ii,Jj->IJ', th2x, l2x, co, co)
-        if symmetrize:
+        if not symmetrize:
+            dvv += einsum('ijca,ijcb,Aa,Bb->AB', th2x, l2x, cv, cv)
+            dov += einsum('ijab,Ii,Jj,Aa,Bb,JB->IA', th2x, fo, co, cv, cv, l1)
+        else:
             dvv += einsum('jica,jicb,Aa,Bb->AB', th2x, l2x, cv, cv) / 2
             dvv += einsum('ijac,ijbc,Aa,Bb->AB', th2x, l2x, cv, cv) / 2
             dov += einsum('ijab,Ii,Jj,Aa,Bb,JB->IA', th2x, fo, co, cv, cv, l1) / 2
             dov += einsum('jiba,Jj,Ii,Aa,Bb,JB->IA', th2x, fo, co, cv, cv, l1) / 2
-        else:
-            dvv += einsum('ijca,ijcb,Aa,Bb->AB', th2x, l2x, cv, cv)
-            dov += einsum('ijab,Ii,Jj,Aa,Bb,JB->IA', th2x, fo, co, cv, cv, l1)
-    dov += einsum('IJ,JA->IA', doo, t1)
-    dov -= einsum('IB,AB->IA', t1, dvv)
 
-    # MPI reduce here; the remaining terms involve L1/T1 only
     if mpi:
         doo, dvv, dov = _mpi_reduce(emb.log, doo, dvv, dov, mpi_target=mpi_target)
         if mpi_target not in (None, mpi.rank):
             return None
 
+    dov += einsum('IJ,JA->IA', doo, t1)
+    dov -= einsum('IB,AB->IA', t1, dvv)
+    dov += (t1 + l1 - einsum('IA,JA,JB->IB', t1, l1, t1))
     doo -= einsum('IA,JA->IJ', l1, t1)
     dvv += einsum('IA,IB->AB', t1, l1)
-    dov += (t1 + l1 - einsum('IB,JB,JA->IA', t1, l1, t1))
 
     nmo = (nocc + nvir)
     occ, vir = np.s_[:nocc], np.s_[nocc:]

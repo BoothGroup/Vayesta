@@ -863,14 +863,14 @@ class QEmbedding:
         Parameters
         ----------
         dm1 : (N, N) array
-            If `mo_coeff` is None, AO representation is assumed!
+            If `mo_coeff` is None, AO representation is assumed.
         local_orbitals : {'lowdin', 'mulliken', 'iao+pao'} or array
             Kind of population analysis. Default: 'lowdin'.
 
         Returns
         -------
-        popp : (N) array
-            Poulation of orbitals.
+        pop : (N) array
+            Population of atomic orbitals.
         """
         if mo_coeff is not None:
             dm1 = einsum('ai,ij,bj->ab', mo_coeff, dm1, mo_coeff)
@@ -898,6 +898,9 @@ class QEmbedding:
     def get_atomic_charges(self, pop):
         charges = np.zeros(self.mol.natm)
         spins = np.zeros(self.mol.natm)
+        if len(pop) != self.mol.nao:
+            raise ValueError("n(AO)= %d n(Pop)= %d" % (self.mol.nao, len(pop)))
+
         for i, label in enumerate(self.mol.ao_labels(None)):
             charges[label[0]] -= pop[i]
         charges += self.mol.atom_charges()
@@ -936,6 +939,7 @@ class QEmbedding:
                         write("    %4d %-16s= % 11.8f" % (ao, label, pop[ao]))
         if filename is not None:
             f.close()
+
     # --- Fragmentation methods
 
     def sao_fragmentation(self):

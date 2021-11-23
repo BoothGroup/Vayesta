@@ -193,7 +193,7 @@ class UFragment(Fragment):
             caa, cab, cbb = amp2
             caax = einsum('xi,i...->x...', projector[0], caa)
             cabx = einsum('xi,i...->x...', projector[0], cab)
-            cbax = einsum('xj,ijab->xiba', projector[1], cab)
+            cbax = einsum('xj,ij...->ix...', projector[1], cab)
             cbbx = einsum('xi,i...->x...', projector[1], cbb)
             return (caax, cabx, cbax, cbbx)
         if axis == 1:
@@ -425,4 +425,13 @@ class UFragment(Fragment):
         r_occ_b = dot(self.base.mo_coeff_occ[1].T, ovlp, self.c_active_occ[1])
         r_vir_a = dot(self.base.mo_coeff_vir[0].T, ovlp, self.c_active_vir[0])
         r_vir_b = dot(self.base.mo_coeff_vir[1].T, ovlp, self.c_active_vir[1])
+        return (r_occ_a, r_occ_b), (r_vir_a, r_vir_b)
+
+    def get_overlap_m2f(self):
+        """Get overlap matrices from mean-field to fragment orbitals."""
+        ovlp = self.base.get_ovlp()
+        r_occ_a = dot(self.base.mo_coeff_occ[0].T, ovlp, self.c_proj[0])
+        r_occ_b = dot(self.base.mo_coeff_occ[1].T, ovlp, self.c_proj[1])
+        r_vir_a = dot(self.base.mo_coeff_vir[0].T, ovlp, self.c_proj[0])
+        r_vir_b = dot(self.base.mo_coeff_vir[1].T, ovlp, self.c_proj[1])
         return (r_occ_a, r_occ_b), (r_vir_a, r_vir_b)
