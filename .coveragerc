@@ -16,6 +16,7 @@ exclude_lines =
     raise NotImplementedError
     raise AssertionError
     raise ValueError
+    raise AbstractMethodError
     pass
     if __name__ == .__main__.:
     except ImportError
