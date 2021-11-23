@@ -30,7 +30,7 @@ class MolFragmentTests(unittest.TestCase):
 
     PLACES = 8
     Embedding = QEmbeddingMethod
-    HF = pyscf.scf.RHF
+    HF = pyscf.scf.hf.RHF
     DMET_Bath = DMET_Bath
 
     @classmethod
