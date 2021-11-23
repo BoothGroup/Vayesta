@@ -39,6 +39,20 @@ class EDMETFragment(DMETFragment):
 #    def __init__(self, *args, solver=None, **kwargs):
 #        super().__init__(*args, solver, **kwargs)
 
+    @property
+    def ov_active(self):
+        return self.n_active_occ * self.n_active_vir
+    @property
+    def ov_mf(self):
+        return self.base.nocc * self.base.nvir
+
+    def get_rot_to_mf_ov(self):
+        r_o, r_v = self.get_rot_to_mf()
+        spat_rot = einsum("ij,ab->iajb", r_o, r_v).reshape((self.ov_active, self.ov_mf))
+        res = np.zeros((2*self.ov_active, 2*self.ov_mf()))
+        res[:self.ov_active, :self.ov_mf] = res[self.ov_active:2*self.ov_active, self.ov_mf:2*self.ov_f] = spat_rot
+        return res
+
     def construct_bosons(self, rpa_moms):
 
         m0_aa, m0_ab, m0_bb = rpa_moms[0]
@@ -192,6 +206,38 @@ class EDMETFragment(DMETFragment):
         #print(np.einsum("npq,rp,sq->nrs", Va, self.c_active, self.c_active))
         #print(np.einsum("npq,rp,sq->nrs", Vb, self.c_active, self.c_active))
         return freqs, Va, Vb
+
+    def set_up_fermionic_bath(self, bno_threshold=None, bno_number=None):
+        """Set up the fermionic bath orbitals"""
+        mo_coeff, mo_occ, nocc_frozen, nvir_frozen, nactive = \
+                            self.set_up_orbitals(bno_threshold, bno_number, construct_bath=True)
+        # Want to return the rotation of the canonical HF orbitals which produce the cluster canonical orbitals.
+        return self.get_rot_to_mf_ov()
+
+    def define_bosons(self, rpa_mom, rot_ov, tol = 1e-8):
+        """Given the fermionic bath orbitals, define the degrees of freedom defining our bosons.
+        Note that this doesn't define our bosonic frequencies, since we don't yet have the required portion of our zeroth moment.
+        """
+        # Need to remove fermionic degrees of freedom from moment contribution. Null space of rotation matrix is size
+        # N^4, so instead deduct projection onto fermionic space.
+        env_mom = rpa_mom - dot(rpa_mom, rot_ov.T, np.linalg.pinv(rot_ov.T))
+        # v defines the rotation of the mean-field excitation space specifying our bosons.
+        u,s,v = np.linalg.svd(env_mom)
+        want = s > tol
+        nbos = sum(want)
+        self.log.info("Zeroth moment matching generated %d cluster bosons. Largest discarded singular value: %4.2e",nbos,s[~want].max())
+
+        # Calculate the relevant components of the zeroth moment- we don't want to recalculate these.
+        self.r_bos = v[want,:]
+        self.eta0_ferm = np.dot(rpa_mom, rot_ov.T)
+        self.eta0_coupling = np.dot(env_mom, self.r_bos.T)
+        return self.r_bos
+
+    def construct_boson_hamil(self, eta0_bos):
+        self.eta0_bos = np.dot(eta0_bos, self.r_bos.T)
+
+
+
 
     def kernel(self, rpa_moms, bno_threshold=None, bno_number=None, solver=None, eris=None, construct_bath=False,
                chempot = None):

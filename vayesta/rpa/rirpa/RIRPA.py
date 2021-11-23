@@ -87,7 +87,7 @@ class ssRIRPA:
     def kernel(self, maxmom=0):
         pass
 
-    def kernel_moms(self, target_rot=None, npoints=100, ainit=10, integral_deduct="HO", opt_quad=True,
+    def kernel_moms(self, target_rot=None, npoints=48, ainit=10, integral_deduct="HO", opt_quad=True,
                     adaptive_quad=False):
         if target_rot is None:
             self.log.warning("Warning; generating full moment rather than local component. Will scale as O(N^5).")
@@ -110,6 +110,7 @@ class ssRIRPA:
             niworker = momzero_NI.MomzeroDeductNone(*inputs)
             integral_offset = np.zeros_like(target_rot)
             moment_offset = np.zeros_like(target_rot)
+
         elif integral_deduct == "HO":
             niworker = momzero_NI.MomzeroDeductHigherOrder(*inputs)
             offset_niworker = momzero_NI.MomzeroOffsetCalcGaussLag(*inputs)
@@ -132,7 +133,6 @@ class ssRIRPA:
             integral, err = niworker.kernel(a=ainit, opt_quad=opt_quad)
         # Need to construct RI representation of P^{-1}
         ri_apb_inv = construct_inverse_RI(self.D, ri_apb)
-
         mom0 = einsum("pq,q->pq", integral + integral_offset, self.D ** (-1)) - np.dot(
             np.dot(integral + integral_offset, ri_apb_inv.T), ri_apb_inv)
         # Also need to convert error estimate of the integral into one for the actual evaluated quantity.

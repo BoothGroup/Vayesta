@@ -14,7 +14,7 @@ from vayesta.dmet.sdp_sc import perform_SDP_fit
 
 
 from vayesta.dmet import DMET
-from vayesta.rpa import ssRPA
+from vayesta.rpa import ssRPA, ssRIRPA
 
 from vayesta.dmet.updates import MixUpdate, DIISUpdate
 
@@ -93,11 +93,26 @@ class EDMET(DMET):
 
             # First, set up and run RPA. Note that we don't have to use RPAX, as our self-consistency only couples
             # same-spin excitations.
-            rpa = ssRPA(self.mf, self.log)
-            rpa.kernel(xc_kernel = self.xc_kernel)
+            if hasattr(self.mf, "with_df"):
+                rpa = ssRIRPA(self.mf, self.log, rixc = self.xc_kernel)
+                # Set up fermionic baths and get required rotations of the mean-field excitation space.
+                ovs_active = [f.ov_active for f in sym_parents]
+                ovs_active_slices = [slice(sum(ovs_active[:i]), sum(ovs_active[:i+1])) for i in range(len(sym_parents))]
+                rot_ovs = [f.set_up_fermionic_bath() for f in sym_parents]
+                mom0_interact = rpa.kernel_moms(np.concatenate(rot_ovs, axis=0), npoints=48)
+                rot_bos = [f.define_bosons(mom0_interact[sl,:]) for (f,sl) in zip(sym_parents, ovs_active_slices)]
+                nbos = [x.shape[0] for x in rot_bos]
+                bos_slices = [slice(sum(nbos[:i]), sum(nbos[:i+1])) for i in range(len(sym_parents))]
+                mom0_bos = rpa.kernel_moms(np.concatenate(rot_bos, axis=0), npoints=48)
+                for f, sl in zip(sym_parents, bos_slices):
+                    f.construct_boson_hamil(mom0_bos[sl,:])
 
-            # Then generate RPA moments, currently just up to mean.
-            rpa_moms = rpa.gen_moms(1, self.xc_kernel)
+            else:
+                rpa = ssRPA(self.mf, self.log)
+                rpa.kernel(xc_kernel = self.xc_kernel)
+
+                # Then generate RPA moments, currently just up to mean.
+                rpa_moms = rpa.gen_moms(1, self.xc_kernel)
 
             # Then optimise chemical potential to match local electron number...
             nelec_mf = 0.0
