@@ -372,53 +372,6 @@ def null_space(v, tol=None, nvecs=None):
     return _orth(np.eye(v.shape[0]) - np.dot(v, v.T.conj()), tol=tol, nvecs=nvecs)
 
 
-def eigh_via_sc(m, phase):
-    ''' Diagonalise a supercell matrix by folding to k-space.
-    '''
-
-    m_k = foldscf.bvk2k_2d(m, phase)
-    w_k, v_k = np.linalg.eigh(m_k)
-
-    w = np.concatenate(w_k)
-    v = np.einsum('kR,kpi->Rpi', v_k, phase)
-    v = np.hstack(v)
-
-    mask = np.argsort(w)
-    w = w[mask]
-    v = v[:, mask]
-
-    return w, v
-
-
-def se_eig_via_sc(se, fock, phase):
-    ''' Diagonalise a supercell self-energy by folding to k-space.
-    '''
-
-    nr = phase.shape[1]
-    nmo = se.nphys // nr
-    nmom = 2 * self.opts.nmom_lanczos + 2
-
-    fock_k = foldscf.bvk2k_2d(fock, phase)
-    mom_k = [foldscf.bvk2k_2d(m, phase) for m in se.moment(range(nmom), squeeze=False)]
-    e_k, v_k = zip(*[self._build_se_from_moments(m) for m in mom_k])
-
-    f_ext_k = np.array([
-            np.block([[f, v], [v.T.conj(), np.diag(se.energy)]])
-            for f, v in zip(fock_k, v_k)
-    ])
-    w_k, v_k = np.linalg.eigh(f_ext_k)
-
-    w = np.concatenate(w_k)
-    print(phase.shape, v_k.shape, se.coupling.shape)
-    v = np.einsum('kR,kpi->Rpi', phase, v_k).reshape(se.nphys, se.naux)
-
-    mask = np.argsort(w)
-    w = w[mask]
-    v = v[:, mask]
-
-    return w, v
-
-
 class CGreensFunction(ctypes.Structure):
     '''
     C structure for the pyscf.agf2.aux.GreensFunction object.
