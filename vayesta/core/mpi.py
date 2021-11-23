@@ -91,6 +91,19 @@ class MPI_Interface:
             return wrapper
         return decorator
 
+    def only_master(self):
+        def decorator(func):
+            # No MPI:
+            if self.disabled:
+                return func
+            @functools.wraps(func)
+            def wrapper(*args, **kwargs):
+                if not mpi.is_master:
+                    return None
+                return func(*args, **kwargs)
+            return wrapper
+        return decorator
+
     # --- Function wrapper at fragment level
     # --------------------------------------
 

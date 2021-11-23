@@ -4,6 +4,7 @@ import logging
 import vayesta
 import vayesta.core
 from vayesta.core.mpi import mpi
+from vayesta.core.util import *
 
 
 log = logging.getLogger(__name__)
@@ -25,14 +26,15 @@ def scf_with_mpi(mf, mpi_rank=0):
             res = None
 
         # Broadcast results
-        res = bcast(res)
-        if hasattr(self, 'with_df'):
-            self.with_df._cderi = bcast(self.with_df._cderi)
-        self.converged = bcast(self.converged)
-        self.e_tot = bcast(self.e_tot)
-        self.mo_energy = bcast(self.mo_energy)
-        self.mo_occ = bcast(self.mo_occ)
-        self.mo_coeff = bcast(self.mo_coeff)
+        with log_time(log.timing, "Time for MPI broadcast of SCF results: %s"):
+            res = bcast(res)
+            if hasattr(self, 'with_df'):
+                self.with_df._cderi = bcast(self.with_df._cderi)
+            self.converged = bcast(self.converged)
+            self.e_tot = bcast(self.e_tot)
+            self.mo_energy = bcast(self.mo_energy)
+            self.mo_occ = bcast(self.mo_occ)
+            self.mo_coeff = bcast(self.mo_coeff)
         return res
 
     mf.kernel = mpi_kernel.__get__(mf)

@@ -250,7 +250,7 @@ class UEmbedding(QEmbedding):
     # --- Other
     # ---------
 
-    def pop_analysis(self, dm1, mo_coeff=None, local_orbitals='lowdin', write=True, minao='auto', **kwargs):
+    def pop_analysis(self, dm1, mo_coeff=None, local_orbitals='lowdin', write=True, minao='auto', mpi_rank=0, **kwargs):
         if isinstance(local_orbitals, str) and local_orbitals.lower() == 'iao+pao':
             local_orbitals = self.get_lo_coeff('iao+pao', minao=minao)
         pop = []
@@ -259,7 +259,7 @@ class UEmbedding(QEmbedding):
             lo = (local_orbitals if isinstance(local_orbitals, str) else local_orbitals[s])
             pop.append(super().pop_analysis(dm1[s], mo_coeff=mo, local_orbitals=lo, write=False, **kwargs))
         pop = tuple(pop)
-        if write:
+        if write and (mpi.rank == mpi_rank):
             self.write_population(pop, **kwargs)
         return pop
 

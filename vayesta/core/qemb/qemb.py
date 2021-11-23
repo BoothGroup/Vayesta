@@ -858,7 +858,8 @@ class QEmbedding:
             return make_iaopao_fragmentation(self.mf, log=self.log, minao=minao).get_coeff()
         raise ValueError("Unknown local orbitals: %r" % local_orbitals)
 
-    def pop_analysis(self, dm1, mo_coeff=None, local_orbitals='lowdin', minao='auto', write=True, filename=None, filemode='a', full=False):
+    def pop_analysis(self, dm1, mo_coeff=None, local_orbitals='lowdin', minao='auto', write=True, filename=None, filemode='a',
+            full=False, mpi_rank=0):
         """
         Parameters
         ----------
@@ -891,7 +892,7 @@ class QEmbedding:
             cs = np.dot(c_lo.T, ovlp)
             pop = einsum('ia,ab,ib->i', cs, dm1, cs)
 
-        if write:
+        if write and (mpi.rank == mpi_rank):
             self.write_population(pop, filename=filename, filemode=filemode, full=full)
         return pop
 
