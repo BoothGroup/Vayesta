@@ -275,8 +275,6 @@ class EWFFragment(QEmbeddingFragment):
         cluster = self.make_cluster(self.bath, bno_threshold=bno_threshold, bno_number=bno_number)
         cluster.log_sizes(self.log.info, header="Orbitals for %s" % self)
 
-        init_guess = self.get_init_guess(init_guess, solver, cluster)
-
         # For self-consistent calculations, we can reuse ERIs:
         if eris is None:
             eris = self._eris
@@ -290,6 +288,8 @@ class EWFFragment(QEmbeddingFragment):
 
         if solver is None:
             return None
+
+        init_guess = self.get_init_guess(init_guess, solver, cluster)
 
         # Create solver object
         solver_cls = get_solver_class(self.mf, solver)
@@ -308,20 +308,22 @@ class EWFFragment(QEmbeddingFragment):
         # Get projected amplitudes ('p1', 'p2')
         if hasattr(cluster_solver, 'c0'):
             self.log.info("Weight of reference determinant= %.8g", abs(cluster_solver.c0))
-        # C1 and C2 are in intermediate normalization:
-        c1 = cluster_solver.get_c1(intermed_norm=True)
-        c2 = cluster_solver.get_c2(intermed_norm=True)
-        c1 = self.project_amplitude_to_fragment(c1, cluster.c_active_occ, cluster.c_active_vir)
-        c2 = self.project_amplitude_to_fragment(c2, cluster.c_active_occ, cluster.c_active_vir)
         # --- Calculate energy
         with log_time(self.log.info, ("Time for fragment energy= %s")):
+        # C1 and C2 are in intermediate normalization:
+            c1 = cluster_solver.get_c1(intermed_norm=True)
+            c2 = cluster_solver.get_c2(intermed_norm=True)
+            c1 = self.project_amplitude_to_fragment(c1, cluster.c_active_occ, cluster.c_active_vir)
+            c2 = self.project_amplitude_to_fragment(c2, cluster.c_active_occ, cluster.c_active_vir)
             e_singles, e_doubles, e_corr = self.get_fragment_energy(c1, c2, eris=eris, axis1='cluster')
 
         # In future:
         #c1x = self.project_amp1_to_fragment(cluster_solver.get_c1())
         #c2x = self.project_amp2_to_fragment(cluster_solver.get_c2())
         #with log_time(self.log.info, ("Time for fragment energy= %s")):
-        #    e_singles, e_doubles, e_corr = self.get_fragment_energy(c1x, c2x, eris=eris)
+        #    #e_singles, e_doubles, e_corr = self.get_fragment_energy(c1x, c2x, eris=eris)
+        #    e_singles_2, e_doubles_2, e_corr_2 = self.get_fragment_energy(c1x, c2x, eris=eris, axis1='fragment')
+        #    assert abs(e_corr - e_corr_2) < 1e-12
         if (solver != 'FCI' and (e_singles > max(0.1*e_doubles, 1e-4))):
             self.log.warning("Large singles energy component: E(S)= %s, E(D)= %s",
                     energy_string(e_singles), energy_string(e_doubles))
@@ -339,7 +341,6 @@ class EWFFragment(QEmbeddingFragment):
         results = self.Results(fid=self.id, bno_threshold=bno_threshold, n_active=cluster.norb_active,
                 converged=cluster_solver.converged, e_corr=e_corr)
 
-        solve_lambda = np.any([(getattr(self.opts, 'store_%s' % s) is True) for s in ['l1', 'l2', 'l1x', 'l2x']])
         # Store density-matrix
         if self.opts.store_dm1 is True or self.opts.make_rdm1:
             results.dm1 = cluster_solver.make_rdm1()
@@ -350,6 +351,7 @@ class EWFFragment(QEmbeddingFragment):
             results.t1 = cluster_solver.get_t1()
         if self.opts.store_t2:
             results.t2 = cluster_solver.get_t2()
+        solve_lambda = np.any([(getattr(self.opts, 'store_%s' % s) is True) for s in ['l1', 'l2', 'l1x', 'l2x']])
         if self.opts.store_l1:
             l1 = cluster_solver.get_l1(solve_lambda=solve_lambda)
             if l1 is not None:

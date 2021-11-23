@@ -107,7 +107,7 @@ class DMET_Bath:
         c_ref : ndarray, optional
             Reference DMET bath orbitals from previous calculation.
         nbath : int, optional
-            Number of DMET bath orbitals. If set, the paramter `tol` is ignored. Default: None.
+            Number of DMET bath orbitals. If set, the parameter `tol` is ignored. Default: None.
         tol : float, optional
             Tolerance for DMET orbitals in eigendecomposition of density-matrix. Default: 1e-5.
         reftol : float, optional
@@ -142,13 +142,15 @@ class DMET_Bath:
         # Sort: occ. env -> DMET bath -> vir. env
         eig, r = eig[::-1], r[:,::-1]
         if (eig.min() < -1e-9):
-            self.log.warning("Min eigenvalue of env. DM = %.6e", eig.min())
+            self.log.error("Min eigenvalue of env. DM = %.6e !", eig.min())
         if ((eig.max()-1) > 1e-9):
-            self.log.warning("Max eigenvalue of env. DM = %.6e", eig.max())
+            self.log.error("Max eigenvalue of env. DM = %.6e !", eig.max())
         c_env = np.dot(c_env, r)
         c_env = fix_orbital_sign(c_env)[0]
 
         if nbath is not None:
+            # FIXME
+            raise NotImplementedError()
             # Work out tolerance which leads to nbath bath orbitals. This overwrites `tol`.
             abseig = abs(eig[np.argsort(abs(eig-0.5))])
             low, up = abseig[nbath-1], abseig[nbath]

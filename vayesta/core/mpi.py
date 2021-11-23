@@ -6,6 +6,8 @@ log = logging.getLogger(__name__)
 
 try:
     #raise ImportError()
+    import mpi4py
+    mpi4py.rc.threads = False
     from mpi4py import MPI
     mpi_world = MPI.COMM_WORLD
     mpi_rank = mpi_world.Get_rank()

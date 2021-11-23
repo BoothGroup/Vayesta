@@ -75,10 +75,14 @@ class EWF(QEmbeddingMethod):
         store_t2:  Union[bool,str] = True   # in future: False
         store_l1:  Union[bool,str] = 'auto'
         store_l2:  Union[bool,str] = 'auto' # in future: False
-        store_t1x: Union[bool,str] = False  # in future: True
-        store_t2x: Union[bool,str] = False  # in future: True
-        store_l1x: Union[bool,str] = False  # in future: 'auto'
-        store_l2x: Union[bool,str] = False  # in future: 'auto'
+        #store_t1x: Union[bool,str] = False  # in future: True
+        #store_t2x: Union[bool,str] = False  # in future: True
+        #store_l1x: Union[bool,str] = False  # in future: 'auto'
+        #store_l2x: Union[bool,str] = False  # in future: 'auto'
+        store_t1x: Union[bool,str] = True
+        store_t2x: Union[bool,str] = True
+        store_l1x: Union[bool,str] = 'auto'
+        store_l2x: Union[bool,str] = 'auto'
         store_dm1: Union[bool,str] = 'auto'
         store_dm2: Union[bool,str] = 'auto'
 
@@ -302,11 +306,12 @@ class EWF(QEmbeddingMethod):
             self.log.info(msg)
             self.log.info(len(msg)*"-")
             self.log.changeIndentLevel(1)
-            res = frag.kernel(bno_threshold=bno_threshold)
-            if not res.converged:
-                self.log.error("%s is not converged!", frag)
-            else:
-                self.log.info("%s is done.", frag)
+            frag.kernel(bno_threshold=bno_threshold)
+            #res = frag.kernel(bno_threshold=bno_threshold)
+            #if not res.converged:
+            #    self.log.error("%s is not converged!", frag)
+            #else:
+            #    self.log.info("%s is done.", frag)
             self.log.changeIndentLevel(-1)
 
         self.log.output('E(nuc)=  %s', energy_string(self.mol.energy_nuc()))
@@ -316,24 +321,6 @@ class EWF(QEmbeddingMethod):
 
         self.log.info("Total wall time:  %s", time_string(timer()-t_start))
         return self.e_tot
-
-
-
-    #def get_e_corr_new(self):
-    #    e_corr = 0.0
-    #    t1 = self.get_t12(calc_t2=False)[0]
-    #    for f in self.fragments:
-    #        e_corr += (f.results.e1b + f.results.e2b_conn)
-    #        ro, rv = f.get_rot_to_mf()
-
-    #        #e_corr_2 += einsum('jb,pj,qb,pq->', t1, ro, rv, f.results.e2b_disc)
-    #        cc = pyscf.cc.CCSD(self.mf)
-    #        eris = cc.ao2mo()
-    #        gov = eris.ovvo[:]
-    #        gov = 2*gov - gov.transpose(3, 1, 2, 0)
-    #        rf = dot(f.c_frag.T, self.get_ovlp(), self.mo_coeff_occ)
-    #        e_corr += einsum('xa,JB,xI,aA,IABJ->', f.results.t1_pf, t1, rf, rv, gov)
-    #    return e_corr
 
     def get_wf_cisd(self, intermediate_norm=False, c0=None):
         c0_target = c0

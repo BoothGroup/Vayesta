@@ -401,21 +401,21 @@ class Fragment:
         return self.stack_mo(self.c_frozen_occ, self.c_active_occ,
                              self.c_active_vir, self.c_frozen_vir)
 
-    # --- Rotation matrices
-    # ---------------------
+    # --- Overlap matrices
+    # --------------------
 
-    def get_rot_to_mf(self):
-        """Get rotation matrices from occupied/virtual active space to MF orbitals."""
+    def get_overlap_m2c(self):
+        """Get overlap matrices from mean-field to occupied/virtual active space."""
         ovlp = self.base.get_ovlp()
-        r_occ = dot(self.c_active_occ.T, ovlp, self.base.mo_coeff_occ)
-        r_vir = dot(self.c_active_vir.T, ovlp, self.base.mo_coeff_vir)
+        r_occ = dot(self.base.mo_coeff_occ.T, ovlp, self.c_active_occ)
+        r_vir = dot(self.base.mo_coeff_vir.T, ovlp, self.c_active_vir)
         return r_occ, r_vir
 
-    def get_rot_to_fragment(self, fragment):
-        """Get rotation matrices between occupied/virtual active space of this and another fragment."""
+    def get_overlap_m2f(self):
+        """Get overlap matrices from mean-field to fragment orbitals."""
         ovlp = self.base.get_ovlp()
-        r_occ = dot(self.c_active_occ.T, ovlp, fragment.c_active_occ)
-        r_vir = dot(self.c_active_vir.T, ovlp, fragment.c_active_vir)
+        r_occ = dot(self.base.mo_coeff_occ.T, ovlp, self.c_proj)
+        r_vir = dot(self.base.mo_coeff_vir.T, ovlp, self.c_proj)
         return r_occ, r_vir
 
     @property

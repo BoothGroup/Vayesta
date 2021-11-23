@@ -42,15 +42,16 @@ from vayesta.core.fragmentation import make_site_fragmentation
 
 from .fragment import QEmbeddingFragment
 # Amplitudes
-from .amplitudes import get_t1
-from .amplitudes import get_t2
-from .amplitudes import get_t12
+from .amplitudes import get_global_t1_rhf
+from .amplitudes import get_global_t2_rhf
 # Density-matrices
 from .rdm import make_rdm1_demo
 from .rdm import make_rdm2_demo
 from .rdm import make_rdm1_ccsd
-from .rdm import make_rdm1_ccsd_new
 from .rdm import make_rdm2_ccsd
+# TODO
+from .rdm import make_rdm1_ccsd_new
+from .rdm import make_rdm1_ccsd_new2
 from . import helper
 
 
@@ -113,6 +114,7 @@ class QEmbedding:
         # 1) Logging
         # ----------
         self.log = log or logging.getLogger(__name__)
+        self.log.info("")
         self.log.info("Initializing %s" % self.__class__.__name__)
         self.log.info("=============%s" % (len(str(self.__class__.__name__))*"="))
 
@@ -576,6 +578,7 @@ class QEmbedding:
                 fock = self.get_fock(with_exxdiv=False)
             else:
                 raise ValueError("Unknown post-HF method: %r", type(posthf))
+        # For MO energies, always use get_fock():
         mo_energy = einsum('ai,ab,bi->i', c_act, self.get_fock(), c_act)
         e_hf = self.mf.e_tot
 
@@ -586,6 +589,66 @@ class QEmbedding:
         # 2) Regular AO->MO transformation
         eris = postscf_ao2mo(posthf, fock=fock, mo_energy=mo_energy, e_hf=e_hf)
         return eris
+
+    # Overlap matrices
+    # ----------------
+
+    def get_overlap_c2c(emb, tril=True, fragments=None):
+        """Get cluster to cluster overlaps for occupied and virtual orbitals."""
+        ovlp = emb.get_ovlp()
+        if fragments is None:
+            fragments = emb.fragments
+        nfrag = len(fragments)
+        po = [[] for i in range(nfrag)]
+        pv = [[] for i in range(nfrag)]
+        for i1, f1 in enumerate(fragments):
+            cso = np.dot(f1.c_active_occ.T, ovlp)   # N(f) x N(AO)^2
+            csv = np.dot(f1.c_active_vir.T, ovlp)
+            for i2, f2 in enumerate((fragments[:i1+1] if tril else fragments)):
+                po[i1].append(np.dot(cso, f2.c_active_occ))   # N(f)^2 x N(AO)
+                pv[i1].append(np.dot(csv, f2.c_active_vir))
+        return po, pv
+
+    def get_overlap_c2f(emb, fragments=None):
+        """Get cluster to fragment overlaps for occupied and virtual orbitals."""
+        ovlp = emb.get_ovlp()
+        if fragments is None:
+            fragments = emb.fragments
+        nfrag = len(fragments)
+        po = [[] for i in range(nfrag)]
+        pv = [[] for i in range(nfrag)]
+        for i1, f1 in enumerate(fragments):
+            cso = np.dot(f1.c_active_occ.T, ovlp)   # N(f) x N(AO)^2
+            csv = np.dot(f1.c_active_vir.T, ovlp)
+            for i2, f2 in enumerate(fragments):
+                po[i1].append(np.dot(cso, f2.c_proj))   # N(f)^2 x N(AO)
+                pv[i1].append(np.dot(csv, f2.c_proj))
+        return po, pv
+
+    def get_overlap_m2c(emb, fragments=None):
+        """Get mean-field to cluster overlaps for occupied and virtual orbitals."""
+        ovlp = emb.get_ovlp()
+        if fragments is None:
+            fragments = emb.fragments
+        po = []
+        pv = []
+        for frag in fragments:
+            fo, fv = frag.get_overlap_m2c() # N(f) x N(AO)^2
+            po.append(fo)
+            pv.append(fv)
+        return po, pv
+
+    def get_overlap_m2f(emb, fragments=None):
+        """Get mean-field to fragment overlaps for occupied and virtual orbitals."""
+        ovlp = emb.get_ovlp()
+        if fragments is None:
+            fragments = emb.fragments
+        po = []
+        pv = []
+        for frag in fragments:
+            po.append(dot(emb.mo_coeff_occ.T, ovlp, frag.c_proj))    # N(f) x N(AO)^2
+            pv.append(dot(emb.mo_coeff_vir.T, ovlp, frag.c_proj))
+        return po, pv
 
     # Symmetry between fragments
     # --------------------------
@@ -727,19 +790,28 @@ class QEmbedding:
     # -----------------
 
     # T-amplitudes
-    get_t1 = get_t1
-    get_t2 = get_t2
-    get_t12 = get_t12
+    get_global_t1 = get_global_t1_rhf
+    get_global_t2 = get_global_t2_rhf
 
     # Lambda-amplitudes
+    def get_global_l1(self, *args, **kwargs):
+        return self.get_global_t1(*args, get_lambda=True, **kwargs)
+    def get_global_l2(self, *args, **kwargs):
+        return self.get_global_t2(*args, get_lambda=True, **kwargs)
+
+    # --- Bardwards compatibility:
+    @deprecated("get_t1 is deprecated - use get_global_t1 instead.")
+    def get_t1(self, *args, **kwargs):
+        return self.get_global_t1(*args, **kwargs)
+    @deprecated("get_t2 is deprecated - use get_global_t2 instead.")
+    def get_t2(self, *args, **kwargs):
+        return self.get_global_t2(*args, **kwargs)
+    @deprecated("get_l1 is deprecated - use get_global_l1 instead.")
     def get_l1(self, *args, **kwargs):
-        return self.get_t1(*args, get_lambda=True, **kwargs)
-
+        return self.get_global_l1(*args, **kwargs)
+    @deprecated("get_l2 is deprecated - use get_global_l2 instead.")
     def get_l2(self, *args, **kwargs):
-        return self.get_t2(*args, get_lambda=True, **kwargs)
-
-    def get_l12(self, *args, **kwargs):
-        return self.get_t12(*args, get_lambda=True, **kwargs)
+        return self.get_global_l2(*args, **kwargs)
 
     # --- Density-matrices
     # --------------------
@@ -749,7 +821,9 @@ class QEmbedding:
     make_rdm1_ccsd = make_rdm1_ccsd
     make_rdm2_ccsd = make_rdm2_ccsd
 
+    # TODO
     make_rdm1_ccsd_new = make_rdm1_ccsd_new
+    make_rdm1_ccsd_new2 = make_rdm1_ccsd_new2
 
     # Utility
     # -------
@@ -789,14 +863,14 @@ class QEmbedding:
         Parameters
         ----------
         dm1 : (N, N) array
-            If `mo_coeff` is None, AO representation is assumed!
+            If `mo_coeff` is None, AO representation is assumed.
         local_orbitals : {'lowdin', 'mulliken', 'iao+pao'} or array
             Kind of population analysis. Default: 'lowdin'.
 
         Returns
         -------
-        popp : (N) array
-            Poulation of orbitals.
+        pop : (N) array
+            Population of atomic orbitals.
         """
         if mo_coeff is not None:
             dm1 = einsum('ai,ij,bj->ab', mo_coeff, dm1, mo_coeff)
@@ -824,6 +898,9 @@ class QEmbedding:
     def get_atomic_charges(self, pop):
         charges = np.zeros(self.mol.natm)
         spins = np.zeros(self.mol.natm)
+        if len(pop) != self.mol.nao:
+            raise ValueError("n(AO)= %d n(Pop)= %d" % (self.mol.nao, len(pop)))
+
         for i, label in enumerate(self.mol.ao_labels(None)):
             charges[label[0]] -= pop[i]
         charges += self.mol.atom_charges()
@@ -862,6 +939,7 @@ class QEmbedding:
                         write("    %4d %-16s= % 11.8f" % (ao, label, pop[ao]))
         if filename is not None:
             f.close()
+
     # --- Fragmentation methods
 
     def sao_fragmentation(self):

@@ -221,7 +221,7 @@ def gdf_to_eris(gdf, mo_coeff, nocc, only_ovov=False, real_j3c=True, symmetry=Fa
             prune_aux_basis('oo')
             prune_aux_basis('vv')
 
-    # Contract (ij|L)(L|kl)->(ij|kl)
+    # Contract (L|ij)(L|kl)->(ij|kl)
     eris = {}
     t0 = timer()
     if not only_ovov:
@@ -274,7 +274,7 @@ def gdf_to_eris(gdf, mo_coeff, nocc, only_ovov=False, real_j3c=True, symmetry=Fa
 
 
 def contract_j3c(j3c, kind, symmetry=None):
-    """Contract (ij|L)(L|kl) -> (ij|kl)"""
+    """Contract (L|ij)(L|kl) -> (ij|kl)"""
     t0 = timer()
     left, right = kind[:2], kind[2:]
     # We do not store "vo" only "ov":
@@ -290,7 +290,7 @@ def contract_j3c(j3c, kind, symmetry=None):
     # Permutation symmetry only on right side
     elif symmetry == 2:
         r = pyscf.lib.pack_tril(r)
-        c = einsum('Lij,Lk->ijk', l.conj(), r)
+        c = einsum('Lij,LK->ijK', l.conj(), r)
     # No permutation symmetry
     else:
         c = np.tensordot(l.conj(), r, axes=(0, 0))
@@ -594,3 +594,43 @@ def j3c_kao2gmo(ints3c, cocc, cvir, only_ov=False, make_real=True, driver='c'):
         log.timingv("Time to rotate to real:  %s", time_string(timer()-t0))
 
     return j3c
+
+
+
+def kao2gmo_gdf(gdf, mo_coeffs, make_real=True, driver='python', out=None):
+
+    cell = gdf.cell
+    nao = cell.nao
+    nmo1 = mo_coeffs[0].shape[-1]
+    nmo2 = mo_coeffs[1].shape[-1]
+    naux = gdf.auxcell.nao_nr()
+    kpts = gdf.kpts
+    nk = len(kpts)
+    kconserv = kpts_helper.get_kconserv(cell, kpts, n=2)
+
+    # Fourier transform MOs from supercell Gamma point to primitive cell k-points
+    phase = (pyscf.pbc.tools.k2gamma.get_phase(cell, kpts)[1]).T
+    norm = 1/np.power(nk, 1/4)
+    mo1 = norm*einsum('kR,Rai->kai', phase, mo_coeffs[0].reshape(nk,nao,nmo1))
+    mo2 = norm*einsum('kR,Rai->kai', phase, mo_coeffs[1].reshape(nk,nao,nmo2))
+
+    if out is None:
+        out = np.zeros(nk,naux,nmo1,nmo2)
+
+    for ki in range(nk):
+        for kj in range(nk):
+            kk = kkonserv[ki,kj]
+            # Load entire 3c-integrals at k-point pair (ki, kj) into memory:
+            kpts_ij = (kpts[ki], kpts[kj])
+            j3c_kij = next(gdf.sr_loop(kpts_ij, compact=False, blksize=int(1e9)))
+
+            if driver == 'python':
+                out[kk] += einsum('Lab,ai,bj->Lij', j3c_kij, mo1[ki].conj(), mo2[kj])      # O[n(k)^2 * n(AO) * max(n(MO1), n(MO2))]
+    if make_real:
+        # kR,kLij->RLij
+        out = np.tensordot(phase.conj(), out, axes=1)
+        assert abs(out.imag).max() < 1e-8
+        out = np.asarray(out.imag, order='C')
+
+    return out
+
