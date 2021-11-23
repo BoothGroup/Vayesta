@@ -2,7 +2,7 @@ import unittest
 import numpy as np
 from pyscf.pbc import gto, scf, tools
 from vayesta.misc import gdf
-from vayesta.core import foldscf as k2bvk
+from vayesta.core import foldscf as k2bvk  #FIXME
 
 #TODO: make_mo_coeff_real
 
