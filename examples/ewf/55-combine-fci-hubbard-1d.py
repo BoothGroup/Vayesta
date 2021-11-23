@@ -12,8 +12,8 @@ mf = vayesta.lattmod.LatticeMF(mol)
 mf.kernel()
 
 ecc = vayesta.ewf.EWF(mf, solver='FCI', fragment_type='Site')
-f1 = ecc.make_atom_fragment(0)
-f2 = ecc.make_atom_fragment(1)
+f1 = ecc.add_atomic_fragment(0)
+f2 = ecc.add_atomic_fragment(1)
 results1 = f1.kernel(np.inf)
 results2 = f2.kernel(np.inf)
 
@@ -46,7 +46,7 @@ c2 = np.zeros(4*[nsite])
 # 6) Use full c1, c2 to tailor a CCSD calculation
 # TODO: Tailored CC
 ecc = vayesta.ewf.EWF(mf, solver='CCSD', bno_threshold=-np.inf, fragment_type='Site')
-ecc.make_atom_fragment(list(range(nsite)))
+ecc.add_atomic_fragment(list(range(nsite)))
 ecc.kernel()
 
 print("E%-11s %+16.8f Ha" % ('(HF)=', mf.e_tot))

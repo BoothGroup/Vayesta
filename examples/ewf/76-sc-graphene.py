@@ -51,7 +51,7 @@ for d in dists:
     kmf.kernel()
 
     ecc = vayesta.ewf.EWF(kmf, bno_threshold=bno_threshold)
-    ecc.make_atom_fragment(0, sym_factor=2)
+    ecc.add_atomic_fragment(0, sym_factor=2)
     ecc.kernel()
 
     with open('ewf-ccsd.txt', 'a') as f:
@@ -60,7 +60,7 @@ for d in dists:
         f.write(fmt % (d, *energies))
 
     scecc = vayesta.ewf.EWF(kmf, bno_threshold=bno_threshold, sc_mode=sc_mode)
-    scecc.make_all_atom_fragments(sym_factor=0.25)
+    scecc.add_all_atomic_fragments(sym_factor=0.25)
     scecc.tailor_all_fragments()
     scecc.kernel()
 

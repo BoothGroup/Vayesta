@@ -49,7 +49,7 @@ for n in range(1, 10):
 
     ecc = vayesta.ewf.EWF(mf, bno_threshold=bno, make_rdm1=True)
     # Alternative:
-    ecc.make_all_atom_fragments()
+    ecc.add_all_atomic_fragments()
     ecc.kernel()
 
     print("E%-16s %+16.8f Ha" % ('(HF)=', mf.e_tot / n))

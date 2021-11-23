@@ -25,7 +25,7 @@ class SCMFTests(unittest.TestCase):
     def test_pdmet(self):
         emb = ewf.EWF(self.mf, make_rdm1=True, bath_type=None)
         emb.sao_fragmentation()
-        emb.make_all_atom_fragments()
+        emb.add_all_atomic_fragments()
         emb.pdmet_scmf(etol=1e-10, dtol=1e-8)
         emb.kernel()
 
@@ -36,7 +36,7 @@ class SCMFTests(unittest.TestCase):
     def test_brueckner(self):
         emb = ewf.EWF(self.mf, make_rdm1=True, bath_type=None)
         emb.sao_fragmentation()
-        emb.make_all_atom_fragments()
+        emb.add_all_atomic_fragments()
         emb.brueckner_scmf(etol=1e-10, dtol=1e-8)
         emb.kernel()
 

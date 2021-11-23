@@ -27,7 +27,7 @@ print("HF stable!")
 # Activate population analysis for all fragments and write to file:
 ecc = vayesta.ewf.EWF(mf, bath_type='full', make_rdm1=True)
 ecc.iao_fragmentation()
-frag = ecc.make_atom_fragment([0,1])
+frag = ecc.add_atomic_fragment([0, 1])
 ecc.kernel()
 
 # Mean-field

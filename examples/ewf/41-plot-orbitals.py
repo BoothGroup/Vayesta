@@ -26,8 +26,8 @@ kmf.kernel()
 # Embedded calculation will automatically unfold the k-point sampled mean-field
 orbitals = ['fragment', 'dmet', 'bno-occ-[1e-6,1e-4]', 'bno-vir-[1,1e-4]', 'active', 'frozen']
 ecc = vayesta.ewf.EWF(kmf, bno_threshold=1e-6, plot_orbitals=orbitals, plot_orbitals_gridsize=3*[80], plot_orbitals_exit=True)
-ecc.make_atom_fragment(0)
-ecc.make_atom_fragment(1)
+ecc.add_atomic_fragment(0)
+ecc.add_atomic_fragment(1)
 ecc.kernel()
 
 print("E%-11s %+16.8f Ha" % ('(HF)=', kmf.e_tot))

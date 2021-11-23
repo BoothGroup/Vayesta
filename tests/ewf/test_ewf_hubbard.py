@@ -38,7 +38,7 @@ class HubbardEWFTest_N10_U0_1imp(unittest.TestCase, HubbardEWFTest):
                 },
         )
         cls.ewf.site_fragmentation()
-        f = cls.ewf.make_atom_fragment(0)
+        f = cls.ewf.add_atomic_fragment(0)
         f.make_tsymmetric_fragments(tvecs=[10, 1, 1])
         cls.ewf.kernel()
         cls.known_values = {'e_tot': -12.94427190999916}
@@ -58,7 +58,7 @@ class HubbardEWFTest_N10_U0_2imp(unittest.TestCase, HubbardEWFTest):
                 },
         )
         cls.ewf.site_fragmentation()
-        f = cls.ewf.make_atom_fragment([0, 1])
+        f = cls.ewf.add_atomic_fragment([0, 1])
         f.make_tsymmetric_fragments(tvecs=[5, 1, 1])
         cls.ewf.kernel()
         cls.known_values = {'e_tot': -12.94427190999916}
@@ -78,7 +78,7 @@ class HubbardEWFTest_N10_U4_1imp(unittest.TestCase, HubbardEWFTest):
                 },
         )
         cls.ewf.site_fragmentation()
-        f = cls.ewf.make_atom_fragment(0)
+        f = cls.ewf.add_atomic_fragment(0)
         f.make_tsymmetric_fragments(tvecs=[10, 1, 1])
         cls.ewf.kernel()
         cls.known_values = {'e_tot': -6.133885588519993}
@@ -100,7 +100,7 @@ class HubbardEWFTest_N6_U6_2imp(unittest.TestCase, HubbardEWFTest):
                 },
         )
         cls.ewf.site_fragmentation()
-        f = cls.ewf.make_atom_fragment([0, 1])
+        f = cls.ewf.add_atomic_fragment([0, 1])
         f.make_tsymmetric_fragments(tvecs=[3, 1, 1])
         cls.ewf.kernel()
         cls.known_values = {'e_tot': -3.1985807202795167}

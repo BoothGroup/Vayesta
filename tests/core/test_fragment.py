@@ -65,7 +65,7 @@ class MolFragmentTests(unittest.TestCase):
     def test_iao_atoms(self):
         qemb = QEmbeddingMethod(self.mf)
         qemb.init_fragmentation('iao')
-        frags = qemb.make_all_atom_fragments()
+        frags = qemb.add_all_atomic_fragments()
 
         e_elec = sum([f.get_fragment_mf_energy() for f in frags])
         self.assertAlmostEqual(e_elec + self.mf.energy_nuc(), self.mf.e_tot, 8)
@@ -106,13 +106,13 @@ class MolFragmentTests(unittest.TestCase):
         frag = qemb.make_ao_fragment([0, 1])
         self.assertAlmostEqual(frag.get_fragment_mf_energy(), -72.99138042535633, 8)
 
-        frag = qemb.make_atom_fragment([0], aos=['1s', '2s'])
+        frag = qemb.add_atomic_fragment([0], aos=['1s', '2s'])
         self.assertAlmostEqual(frag.get_fragment_mf_energy(), -72.99138042535633, 8)
 
     def test_lowdin_atoms(self):
         qemb = QEmbeddingMethod(self.mf)
         qemb.sao_fragmentation()
-        frags = [qemb.make_atom_fragment(['O%d'%x]) for x in range(1, 4)]
+        frags = [qemb.add_atomic_fragment(['O%d' % x]) for x in range(1, 4)]
 
         self.assertAlmostEqual(frags[0].get_fragment_mf_energy(), -108.51371286149299, 8)
         self.assertAlmostEqual(frags[1].get_fragment_mf_energy(), -104.23470603227311, 8)
@@ -200,7 +200,7 @@ class CellFragmentTests(unittest.TestCase):
     def test_iao_atoms(self):
         qemb = QEmbeddingMethod(self.mf)
         qemb.init_fragmentation('iao')
-        frag = qemb.make_atom_fragment([0, 1])
+        frag = qemb.add_atomic_fragment([0, 1])
         frags = [frag,] + frag.make_tsymmetric_fragments([2,2,2])
 
         for frag in frags[0].loop_fragments():
@@ -223,7 +223,7 @@ class CellFragmentTests(unittest.TestCase):
     def test_lowdin_atoms(self):
         qemb = QEmbeddingMethod(self.mf)
         qemb.init_fragmentation('lowdin-ao')
-        frags = [qemb.make_atom_fragment([i*2, i*2+1]) for i in range(len(self.kpts))]
+        frags = [qemb.add_atomic_fragment([i * 2, i * 2 + 1]) for i in range(len(self.kpts))]
 
         for frag in frags:
             self.assertAlmostEqual(frag.get_fragment_mf_energy().real, -4.261995344528774, 8)

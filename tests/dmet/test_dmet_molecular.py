@@ -48,7 +48,7 @@ class MolecularDMETTest_H10_sto6g_FCI_IAO_cc(unittest.TestCase, MolecularDMETTes
         )
         cls.dmet.iao_fragmentation()
         for x in range(5):
-            cls.dmet.make_atom_fragment([x*2, x*2+1])
+            cls.dmet.add_atomic_fragment([x * 2, x * 2 + 1])
         cls.dmet.kernel()
 
         cls.known_values = {'e_tot':  -5.423200844839533}
@@ -74,7 +74,7 @@ class MolecularDMETTest_H10_sto6g_FCI_IAO_nocc(unittest.TestCase, MolecularDMETT
         )
         cls.dmet.iao_fragmentation()
         for x in range(5):
-            cls.dmet.make_atom_fragment([x*2, x*2+1])
+            cls.dmet.add_atomic_fragment([x * 2, x * 2 + 1])
         cls.dmet.kernel()
 
         cls.known_values = {'e_tot': -5.423278988804418}
@@ -100,7 +100,7 @@ class MolecularDMETTest_H10_sto6g_FCI_IAO_all(unittest.TestCase, MolecularDMETTe
         )
         cls.dmet.iao_fragmentation()
         for x in range(5):
-            cls.dmet.make_atom_fragment([x*2, x*2+1])
+            cls.dmet.add_atomic_fragment([x * 2, x * 2 + 1])
         cls.dmet.kernel()
 
         cls.known_values = {'e_tot': -5.422668582405825}
@@ -127,7 +127,7 @@ class MolecularDMETTest_H10_sto6g_FCI_IAO_BNO(unittest.TestCase, MolecularDMETTe
         )
         cls.dmet.iao_fragmentation()
         for x in range(5):
-            cls.dmet.make_atom_fragment([x*2, x*2+1])
+            cls.dmet.add_atomic_fragment([x * 2, x * 2 + 1])
         cls.dmet.kernel()
 
         cls.known_values = {'e_tot': -5.423278988687956}
