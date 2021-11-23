@@ -137,11 +137,11 @@ class RHF_vs_UHF_H2O(unittest.TestCase):
         self.assertIsNone(np.testing.assert_allclose(t2ab, t2, atol=atol))
         self.assertIsNone(np.testing.assert_allclose(t2bb, t2 - t2.transpose(0,1,3,2), atol=atol))
 
-    def test_dm1_new2(self):
+    def test_dm1(self):
         atol = 1e-8
         rdm1 = self.remb.make_rdm1_ccsd_new2()
-        #dm1a, dm1b = self.uemb.make_rdm1_ccsd_new2(symmetrize=False)
-        dm1a, dm1b = self.uemb.make_rdm1_ccsd_new2()
+        #dm1a, dm1b = self.uemb.make_rdm1_ccsd(symmetrize=False)
+        dm1a, dm1b = self.uemb.make_rdm1_ccsd()
         udm1 = (dm1a + dm1b)
         self.assertAlmostEqual(np.trace(udm1), self.mol.nelectron)
         self.assertAlmostEqual(np.trace(dm1a-dm1b), self.mol.spin)
@@ -152,9 +152,6 @@ class RHF_vs_UHF_H2O(unittest.TestCase):
         e0, e1 = np.linalg.eigh(dm1b)[0][[0,-1]]
         self.assertGreater(e0, -atol)
         self.assertLess(e1, 1+atol)
-
-        norm = np.linalg.norm(rdm1 - udm1)
-        print(norm)
 
         self.assertIsNone(np.testing.assert_allclose(rdm1, udm1, atol=atol))
 
@@ -215,10 +212,10 @@ class UHF_NO2(unittest.TestCase):
         self.assertIsNone(np.testing.assert_allclose(t2ab, self.ccsd.t2[1], atol=atol))
         self.assertIsNone(np.testing.assert_allclose(t2bb, self.ccsd.t2[2], atol=atol))
 
-    def test_dm1_new2(self):
+    def test_dm1(self):
         atol = 1e-8
-        #dm1a, dm1b = self.ecc.make_rdm1_ccsd_new2(symmetrize=False)
-        dm1a, dm1b = self.ecc.make_rdm1_ccsd_new2()
+        #dm1a, dm1b = self.ecc.make_rdm1_ccsd(symmetrize=False)
+        dm1a, dm1b = self.ecc.make_rdm1_ccsd()
 
         nocca = np.count_nonzero(self.mf.mo_occ[0] > 0)
         noccb = np.count_nonzero(self.mf.mo_occ[1] > 0)

@@ -71,7 +71,7 @@ def make_rdm1_demo(emb, ao_basis=False, add_mf=False, symmetrize=True):
         dm1b = (dm1b + dm1b.T)/2
     return (dm1a, dm1b)
 
-def make_rdm1_ccsd_new2(emb, ao_basis=False, t_as_lambda=False, symmetrize=True, with_mf=True, mpi_target=None):
+def make_rdm1_ccsd(emb, ao_basis=False, t_as_lambda=False, symmetrize=True, with_mf=True, mpi_target=None):
     """Make one-particle reduced density-matrix from partitioned fragment CCSD wave functions.
 
     MPI parallelized.

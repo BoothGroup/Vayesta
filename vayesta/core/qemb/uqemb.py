@@ -19,7 +19,7 @@ from .amplitudes import get_global_t2_uhf
 
 # Density-matrices
 from .urdm import make_rdm1_demo
-from .urdm import make_rdm1_ccsd_new2
+from .urdm import make_rdm1_ccsd
 
 class UEmbedding(QEmbedding):
     """Spin unrestricted quantum embedding."""
@@ -238,13 +238,9 @@ class UEmbedding(QEmbedding):
 
     make_rdm1_demo = make_rdm1_demo
 
+    make_rdm1_ccsd = make_rdm1_ccsd
+
     # TODO
-    make_rdm1_ccsd_new2 = make_rdm1_ccsd_new2
-
-    # TODO:
-    def make_rdm1_ccsd(self, *args, **kwargs):
-        raise NotImplementedError()
-
     def make_rdm2_demo(self, *args, **kwargs):
         raise NotImplementedError()
 
