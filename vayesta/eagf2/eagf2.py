@@ -32,6 +32,7 @@ class RAGF2Solver(RAGF2):
     def get_supercell_qmos(self, qmo_energy, qmo_coeff, qmo_occ=None, se=None, imag_tol=1e-8):
         ''' For compatibility.
         '''
+        self.log.info("%s", (np.abs(np.dot(qmo_coeff * qmo_energy, qmo_coeff.T.conj())) > 1e-14).astype(int))
 
         if qmo_occ is None:
             return qmo_energy, qmo_coeff
@@ -50,6 +51,7 @@ class KRAGF2Solver(KRAGF2):
         eri = np.empty(())
         veff = np.empty(())
         self.phase = emb.mf.kphase
+        self._mf = emb.mf
         super().__init__(emb.mf.kmf, eri=eri, veff=veff, log=emb.log, options=emb.opts)
 
     def get_supercell_qmos(self, qmo_energy, qmo_coeff, qmo_occ=None, se=None, imag_tol=1e-8):
@@ -58,22 +60,22 @@ class KRAGF2Solver(KRAGF2):
 
         return_occ = qmo_occ is not None
         if qmo_occ is None:
-            qmo_occ = np.zeros_like(qmo_energy)
-
-        ovlp = np.eye(sum([c.shape[0] for c in qmo_coeff]))
-        #qmo_energy_sc, qmo_coeff_sc, qmo_occ_sc = \
-        #        foldscf.fold_mos(qmo_energy, qmo_coeff, qmo_occ, self.phase, ovlp)
+            qmo_occ = 2.0 * (np.array(qmo_energy) < 0)
 
         qmo_energy_sc = np.hstack(qmo_energy)
-        qmo_coeff_sc = np.einsum('kij,kR,kS->RiSj', qmo_coeff, self.phase.conj(), self.phase)
-        qmo_coeff_sc = qmo_coeff_sc.reshape(qmo_coeff_sc.shape[0]*qmo_coeff_sc.shape[1], -1)
         qmo_occ_sc = np.hstack(qmo_occ)
+
+        #qmo_coeff_sc = np.einsum('kij,kR,kS->RiSj', qmo_coeff, self.phase.conj(), self.phase)
+        #qmo_coeff_sc = np.einsum('kij,kR->Rikj', qmo_coeff, self.phase.conj())
+        #qmo_coeff_sc = qmo_coeff_sc.reshape(qmo_coeff_sc.shape[0]*qmo_coeff_sc.shape[1], -1)
+        qmo_coeff_sc = scipy.linalg.block_diag(*qmo_coeff)
 
         mask = np.argsort(qmo_energy_sc)
         qmo_energy_sc = qmo_energy_sc[mask]
         qmo_coeff_sc = qmo_coeff_sc[:, mask]
         qmo_occ_sc = qmo_occ_sc[mask]
 
+        ovlp = np.eye(sum([c.shape[0] for c in qmo_coeff]))
         qmo_coeff_sc = foldscf.make_mo_coeff_real(qmo_energy_sc, qmo_coeff_sc, ovlp)
 
         # Reorder physical and auxiliary part:
@@ -105,7 +107,7 @@ class KRAGF2Solver(KRAGF2):
         #  |      ...    |      | vir (kpt 1) |
         #  |      ...    |      |      ...    |
         #  +-------------+      +-------------+
-        mask = np.argsort(np.argsort(np.concatenate(self.mf.mo_energy)))
+        mask = np.argsort(np.concatenate(self.mf.mo_energy))
         nmo = self.nmo * self.nkpts
         qmo_coeff_sc[:nmo] = qmo_coeff_sc[:nmo][mask]
 
@@ -124,8 +126,10 @@ class KRAGF2Solver(KRAGF2):
                 aux_energy = np.einsum('xi,xi,i->x', c_aux, c_aux.conj(), qmo_energy_sc)
             else:
                 aux_energy = np.concatenate([s.energy for s in se])
-            mask = np.argsort(np.argsort(aux_energy))
+            mask = np.argsort(aux_energy)
             qmo_coeff_sc[nmo:] = qmo_coeff_sc[nmo:][mask]
+
+        self.log.info("%s", (np.abs(np.dot(qmo_coeff_sc * qmo_energy_sc, qmo_coeff_sc.T.conj())) > 1e-14).astype(int))
 
         if return_occ:
             return qmo_energy_sc, qmo_coeff_sc, qmo_occ_sc
@@ -140,8 +144,15 @@ class KRAGF2Solver(KRAGF2):
 
         phase = self.phase
         nkpts, nr = phase.shape
-        t = t.reshape(2*self.opts.nmom_lanczos+2, nr, self.nmo, nr, self.nmo)
-        t = np.einsum('nRiSj,kR,kS->knij', t, phase.conj(), phase)
+
+        t = t.reshape(-1, nr*self.nmo, nr*self.nmo)
+        t = np.einsum('nij,pi,qj->npq', t, self._mf.mo_coeff, self._mf.mo_coeff.conj())
+
+        t = t.reshape(2*self.opts.nmom_lanczos+2, nr, self.mf.cell.nao, nr, self.mf.cell.nao)
+        t = np.einsum('nRpSq,kR,kS->knpq', t, phase.conj(), phase)
+
+        c = np.einsum('kpq,kqi->kpi', self.mf.get_ovlp(), self.mf.mo_coeff)
+        t = np.einsum('knpq,kpi,kqj->knij', t, c.conj(), c)
 
         se = [RAGF2._build_se_from_moments(self, tk, chempot=chempot, eps=eps) for tk in t]
 
@@ -366,9 +377,10 @@ class EAGF2(QEmbeddingMethod):
 
         qmo_energy, qmo_coeff = solver.solve_dyson(se=solver.se, fock=fock)
         qmo_energy, qmo_coeff = solver.get_supercell_qmos(qmo_energy, qmo_coeff, se=solver.se)
-        cpt = chempot.binsearch_chempot((qmo_energy, qmo_coeff), self.nmo, self.nocc*2)[0]
+        cpt = chempot.binsearch_chempot((qmo_energy, qmo_coeff), self.nmo, self.nocc*2)[0]  #TODO in k-space
         qmo_occ = 2.0 * (qmo_energy < cpt)
         nqmo = qmo_energy.size
+        dtype = qmo_coeff.dtype
 
         self.qmo_energy = qmo_energy
         self.qmo_coeff = qmo_coeff
@@ -382,7 +394,7 @@ class EAGF2(QEmbeddingMethod):
 
             with self.log.withIndentLevel(1):
                 n = frag.c_frag.shape[0]
-                c_frag = np.zeros((nqmo, frag.c_frag.shape[-1]))
+                c_frag = np.zeros((nqmo, frag.c_frag.shape[-1]), dtype=dtype)
                 c_frag[:self.nmo] = frag.c_frag[:self.nmo]
                 c_env = helper.null_space(c_frag, nvecs=nqmo-c_frag.shape[-1])
                 frag.c_frag, frag.c_env = c_frag, c_env
@@ -398,7 +410,7 @@ class EAGF2(QEmbeddingMethod):
             qmos = frag.make_qmo_integrals()
             frag.pija, frag.pabi, frag.c_qmo_occ, frag.c_qmo_vir = qmos
 
-        moms = np.zeros((2, 2, self.nmo, self.nmo))  #TODO higher orders
+        moms = np.zeros((2, 2, self.nmo, self.nmo), dtype=dtype)  #TODO higher orders
         for x, frag in enumerate(self.fragments):
             for y, other in enumerate(self.fragments[:x+1]):
                 if frag.sym_parent is None and other.sym_parent is None:
@@ -461,7 +473,11 @@ class EAGF2(QEmbeddingMethod):
 
             se_occ = solver._build_kspace_se_from_moments(t_occ, eps=self.opts.weight_tol, chempot=cpt)
 
-            #self.log.info("Built %d occupied auxiliaries", se_occ.naux)
+            #FIXME
+            if isinstance(se_occ, (list, tuple)):
+                self.log.info("Built %d occupied auxiliaries", sum([s.naux for s in se_occ]))
+            else:
+                self.log.info("Built %d occupied auxiliaries", se_occ.naux)
 
 
         # === Virtual:
@@ -476,17 +492,34 @@ class EAGF2(QEmbeddingMethod):
 
             se_vir = solver._build_kspace_se_from_moments(t_vir, eps=self.opts.weight_tol, chempot=cpt)
 
-            #self.log.info("Built %d virtual auxiliaries", se_vir.naux)
-
-        #nh = solver.nocc-solver.frozen[0]
-        #wt = lambda v: np.sum(v * v)
-        #self.log.infov("Total weights of coupling blocks:")
-        #self.log.infov("        %6s  %6s", "2h1p", "1h2p")
-        #self.log.infov("    1h  %6.4f  %6.4f", wt(se_occ.coupling[:nh]), wt(se_vir.coupling[:nh]))
-        #self.log.infov("    1p  %6.4f  %6.4f", wt(se_occ.coupling[nh:]), wt(se_vir.coupling[nh:]))
+            #FIXME
+            if isinstance(se_vir, (list, tuple)):
+                self.log.info("Built %d virtual auxiliaries", sum([s.naux for s in se_vir]))
+            else:
+                self.log.info("Built %d virtual auxiliaries", se_vir.naux)
 
 
         se = solver._combine_se(se_occ, se_vir)
+
+        #FIXME
+        wt = lambda v: np.einsum('pk,pk->', v, v.conj()).real
+        if isinstance(se, (list, tuple)):
+            self.log.infov("Total weights of coupling blocks:")
+            self.log.infov("        %6s  %6s", "2h1p", "1h2p")
+            self.log.infov("     1h %6.4f  %6.4f", 
+                    sum([wt(s.coupling[:n-f[0]]) for s, n, f in zip(se_occ, solver.nocc, solver.frozen)]),
+                    sum([wt(s.coupling[:n-f[0]]) for s, n, f in zip(se_vir, solver.nocc, solver.frozen)]),
+            )
+            solver.log.infov("     1p %6.4f  %6.4f",
+                    sum([wt(s.coupling[n-f[0]:]) for s, n, f in zip(se_occ, solver.nocc, solver.frozen)]),
+                    sum([wt(s.coupling[n-f[0]:]) for s, n, f in zip(se_vir, solver.nocc, solver.frozen)]),
+            )
+        else:
+            nh = solver.nocc-solver.frozen[0]
+            self.log.infov("Total weights of coupling blocks:")
+            self.log.infov("        %6s  %6s", "2h1p", "1h2p")
+            self.log.infov("    1h  %6.4f  %6.4f", wt(se_occ.coupling[:nh]), wt(se_vir.coupling[:nh]))
+            self.log.infov("    1p  %6.4f  %6.4f", wt(se_occ.coupling[nh:]), wt(se_vir.coupling[nh:]))
 
         #FIXME
         self.log.debugv("Auxiliary energies:")

@@ -104,21 +104,18 @@ def build_moments(frag, other):
 
     pija = _ao2mo(frag.pija, c_occ_p, c_vir_p)
     qija = _ao2mo(other.pija, c_occ_q, c_vir_q)
-    if frag.c_cls_occ.shape == (4, 2):
-        f = np.dot(frag.base.qmo_coeff * frag.base.qmo_energy, frag.base.qmo_coeff.T.conj())
-        fii = np.linalg.multi_dot((c_occ.T.conj(), f, c_occ))
-        faa = np.linalg.multi_dot((c_vir.T.conj(), f, c_vir))
+    globals()['x%d'%id(frag.base)] = globals().get('x%d'%id(frag.base), 0) + 1
+    if globals()['x%d'%id(frag.base)] < 3:
         c = frag.c_ao_cls
         pk = np.einsum('Lpq,Lrs->pqrs', *pija)
         ek = lib.direct_sum('i+j-a->ija', e_occ, e_occ, e_vir)
-        t0 = np.einsum('pija,qija->pq', pk, 2*pk-pk.swapaxes(1,2))
+        t0 = np.einsum('pija,qija->pq', pk, np.conj(2*pk-pk.swapaxes(1,2)))
         t0 = np.einsum('pq,ip,jq->ij', t0, c, c.conj())
         t0[np.abs(t0) < 1e-10] = 0
-        #t1 = np.einsum('pija,qija,ija->pq', pk, np.conj(2*pk-pk.swapaxes(1,2)), ek)
-        t1 = np.einsum('pija,qklb,ijaklb->pq', pk, np.conj(2*pk-pk.swapaxes(1,2)), lib.direct_sum('ik+jl-ab->ijaklb', fii, fii, faa))
+        t1 = np.einsum('pija,qija,ija->pq', pk, np.conj(2*pk-pk.swapaxes(1,2)), ek)
         t1 = np.einsum('pq,ip,jq->ij', t1, c, c.conj())
         t1[np.abs(t1) < 1e-10] = 0
-        np.set_printoptions(linewidth=180, precision=6)
+        np.set_printoptions(linewidth=180, precision=5)
         print(t0)
         print(t1)
 
@@ -521,18 +518,11 @@ class EAGF2Fragment(QEmbeddingFragment):
         cv = np.dot(c_ao_qmo, c_qmo_vir)
 
         #TODO move to solver - messy
-        pija = helper.QMOIntegrals(self, co, cv, c_full=c_ao_cls, which='xija', keep_3c=True).eri
-        pabi = helper.QMOIntegrals(self, co, cv, c_full=c_ao_cls, which='xabi', keep_3c=True).eri
+        pija = helper.QMOIntegrals(self, co, cv, c_full=c_ao_cls, which='xija', keep_3c=True, make_real=self.base.qmo_coeff.dtype == np.float64).eri
+        pabi = helper.QMOIntegrals(self, co, cv, c_full=c_ao_cls, which='xabi', keep_3c=True, make_real=self.base.qmo_coeff.dtype == np.float64).eri
+
         #TODO remove
-        if c_cls_occ.shape == (4, 2):
-            self.c_ao_cls = c_ao_cls
-            c_ao_cls = np.hstack((c_cls_occ, c_cls_vir))
-            #print(c_ao_cls)
-            #pk = np.einsum('Lpq,Lrs->pqrs', *pija)
-            #t = np.einsum('pija,qija->pq', pk, 2*pk-pk.swapaxes(1,2))
-            #t = np.einsum('pq,ip,jq->ij', t, c_ao_cls, c_ao_cls.conj())
-            #t[np.abs(t) < 1e-10] = 0
-            #print(t)
+        self.c_ao_cls = c_ao_cls
 
         return pija, pabi, c_qmo_occ, c_qmo_vir
 
