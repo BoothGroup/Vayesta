@@ -4,6 +4,7 @@ import numpy as np
 
 import pyscf
 import pyscf.pbc
+import pyscf.pbc.scf
 import pyscf.pbc.dft
 import pyscf.lo
 
@@ -17,8 +18,11 @@ parser.add_argument('--structure', type=int, default=-1)
 parser.add_argument('--kmesh', type=int, nargs=2, default=False)
 parser.add_argument('--basis', default='cc-pVDZ')
 parser.add_argument('--auxbasis', default='cc-pVDZ-ri')
-parser.add_argument('--gate-range', type=float, nargs=3, default=[-0.01, 0.01, 0.002])
-parser.add_argument('--gates', type=float, nargs='*', default=[0.0])
+#parser.add_argument('--gate-range', type=float, nargs=3, default=[-0.01, 0.01, 0.002])
+#parser.add_argument('--gate-range', type=float, nargs=3, default=[-0.1, 0.1, 0.02])
+parser.add_argument('--gate-range', type=float, nargs=3, default=[-0.2, 0.2, 0.05])
+
+parser.add_argument('--gates', type=float, nargs='*', default=None)
 #parser.add_argument('--gate-range', type=float, nargs=3, default=[-0.004, 0.004, 0.002])
 parser.add_argument('--invert-scan', action='store_true')
 parser.add_argument('--trace', action='store_true')
@@ -141,7 +145,16 @@ for idx, gate in enumerate(gates):
     print("E(MF)= % 16.8f Ha  E(MF+gate)= % 16.8f Ha" % (mf.e_tot, e_mf_gate))
 
     # Embedding
-    opts = {'make_rdm1' : True, 'dmet_threshold' : args.dmet_threshold}
+
+    # CCSD wants HF object
+    if args.xc is not None:
+        mf_hf = pyscf.pbc.scf.UHF(cell)
+        mf_hf.__dict__.update(mf.__dict__)
+        mf = mf_hf
+
+    opts = dict(make_rdm1=True, dmet_threshold=args.dmet_threshold)
+    if v_gate is not None:
+        opts['overwrite'] = dict(get_hcore_for_energy=hcore_orig)
     if args.eta is None:
         ecc = vayesta.ewf.EWF(mf, bath_type=None, **opts)
     else:
@@ -160,8 +173,10 @@ for idx, gate in enumerate(gates):
         elif args.fragment_type == 'sao':
             ecc.sao_fragmentation()
 
-        if v_gate is not None:
-            ecc.get_fock_for_energy = lambda *args : (ecc.get_fock(*args) + v_gate)
+        #if v_gate is not None:
+            #ecc.get_fock_for_energy = lambda *args : (ecc.get_fock(*args) + v_gate)
+            #ecc.get_hcore_for_energy = lambda : (ecc.get_hcore() + v_gate)
+        #    ecc.get_hcore_for_energy = hcore_orig
 
         # Define fragment
         def get_closest_atom(point, exclude):
@@ -187,4 +202,4 @@ for idx, gate in enumerate(gates):
         e_cc = np.nan
 
     with open('energies.txt', 'a') as f:
-        f.write('%.4f  % 16.8f  % 16.8f\n' % (gate, mf.e_tot, e_cc))
+        f.write('%.4f  % 16.8f  % 16.8f  % 16.8f\n' % (gate, mf.e_tot, ecc.e_mf, e_cc))
