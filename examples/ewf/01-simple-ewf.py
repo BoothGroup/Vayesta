@@ -21,15 +21,15 @@ mf = pyscf.scf.RHF(mol)
 mf.kernel()
 
 ecc = vayesta.ewf.EWF(mf, bno_threshold=1e-6)
-ecc.iao_fragmentation()
-ecc.add_atomic_fragment(0)
-ecc.add_atomic_fragment(1)
-ecc.add_atomic_fragment(2)
-# Alternative: ecc.make_all_atom_fragments()
-ecc.kernel()
+emb.iao_fragmentation()
+emb.add_atomic_fragment(0)
+emb.add_atomic_fragment(1)
+emb.add_atomic_fragment(2)
+# Alternative: emb.make_all_atom_fragments()
+emb.kernel()
 
-print("E(HF)=     %+16.8f Ha" % mf.e_tot)
-print("E(E-CCSD)= %+16.8f Ha" % ecc.e_tot)
+print("E(HF)=        %+16.8f Ha" % mf.e_tot)
+print("E(Emb. CCSD)= %+16.8f Ha" % emb.e_tot)
 
 # Reference full system CCSD:
 cc = pyscf.cc.CCSD(mf)

@@ -126,7 +126,7 @@ def get_logname(basename, ext='log'):
         ext = '.' + ext
     else:
         ext = ''
-    name = '%s%s%s' % (basename, (('.mpi%d' % mpi.rank) if mpi.rank > 0 else ''), ext)
+    name = '%s%s%s' % (basename, (('.mpi%d' % mpi.rank) if mpi else ''), ext)
     return name
 
 def init_logging():

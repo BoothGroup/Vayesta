@@ -112,47 +112,44 @@ def make_rdm1_ccsd(emb, ao_basis=False, t_as_lambda=False, symmetrize=True, with
         (coa, cob), (cva, cvb) = frag.get_overlap_m2c()
         # Mean-field to fragment (occupied):
         foa, fob = frag.get_overlap_m2f()[0]
+
+        # D(occ,occ) and D(vir,vir)
+        # aa/bb -> dooa/doob
         dooa -= einsum('kiab,kjab,Ii,Jj->IJ', l2xaa, t2xaa, coa, coa) / 2
         doob -= einsum('kiab,kjab,Ii,Jj->IJ', l2xbb, t2xbb, cob, cob) / 2
+        # ba/ab -> dooa/doob
         dooa -= einsum('ikab,jkab,Ii,Jj->IJ', l2xba, t2xba, coa, coa)
         doob -= einsum('kiab,kjab,Ii,Jj->IJ', l2xab, t2xab, cob, cob)
+        # aa/bb - > dvva/dvvb
+        dvva += einsum('ijac,ijbc,Aa,Bb->AB', t2xaa, l2xaa, cva, cva) / 2
+        dvvb += einsum('ijac,ijbc,Aa,Bb->AB', t2xbb, l2xbb, cvb, cvb) / 2
+        # We cannot symmetrize the ba/ab -> dooa/doob part between t/l2xab and t/l2xba (and keep a single fragment loop);
+        # instead dooa only uses the "ba" amplitudes and doob only the "ab" amplitudes.
+        # In order to ensure the correct number of alpha and beta electrons, we should use the same choice for the
+        # virtual-virtual parts (even though here we could symmetrize them as:
+        #dvva += einsum('ijac,ijbc,Aa,Bb->AB', t2xba, l2xba, cva, cva) / 2
+        #dvva += einsum('ijac,ijbc,Aa,Bb->AB', t2xab, l2xab, cva, cva) / 2
+        #dvvb += einsum('ijca,ijcb,Aa,Bb->AB', t2xab, l2xab, cvb, cvb) / 2
+        #dvvb += einsum('ijca,ijcb,Aa,Bb->AB', t2xba, l2xba, cvb, cvb) / 2
+        # ba/ab -> dooa/doob
+        dvva += einsum('ijac,ijbc,Aa,Bb->AB', t2xba, l2xba, cva, cva)
+        dvvb += einsum('ijca,ijcb,Aa,Bb->AB', t2xab, l2xab, cvb, cvb)
 
+        # D(occ,vir)
         if not symmetrize:
-            # vv 1)
-            dvva += einsum('ijac,ijbc,Aa,Bb->AB', t2xaa, l2xaa, cva, cva) / 2
-            dvvb += einsum('ijac,ijbc,Aa,Bb->AB', t2xbb, l2xbb, cvb, cvb) / 2
-            # vv 2)
-            dvva += einsum('ijac,ijbc,Aa,Bb->AB', t2xab, l2xab, cva, cva)
-            dvvb += einsum('ijca,ijcb,Aa,Bb->AB', t2xba, l2xba, cvb, cvb)
-            # OR:
-            #dvva += einsum('ijac,ijbc,Aa,Bb->AB', t2xba, l2xba, cva, cva)
-            #dvvb += einsum('ijca,ijcb,Aa,Bb->AB', t2xab, l2xab, cvb, cvb)
-            # ov 1)
+            # aa/bb
             dova += einsum('ijab,Ii,Jj,Aa,Bb,JB->IA', t2xaa, foa, coa, cva, cva, l1a)
             dovb += einsum('ijab,Ii,Jj,Aa,Bb,JB->IA', t2xbb, fob, cob, cvb, cvb, l1b)
-            # ov 2)
+            # ab/ba
             dova += einsum('ijab,Ii,Jj,Aa,Bb,JB->IA', t2xab, foa, cob, cva, cvb, l1b)
             dovb += einsum('jiba,Ii,Jj,Aa,Bb,JB->IA', t2xba, fob, coa, cvb, cva, l1a)
         else:
-            # vv 1)
-            #dvva += einsum('ijac,ijbc,Aa,Bb->AB', t2xaa, l2xaa, cva, cva) / 4
-            #dvva += einsum('jica,jicb,Aa,Bb->AB', t2xaa, l2xaa, cva, cva) / 4
-            #dvvb += einsum('ijac,ijbc,Aa,Bb->AB', t2xbb, l2xbb, cvb, cvb) / 4
-            #dvvb += einsum('jica,jicb,Aa,Bb->AB', t2xbb, l2xbb, cvb, cvb) / 4
-            # This symmetrization does not seem to do anything for UHF... Do same as above:
-            dvva += einsum('ijac,ijbc,Aa,Bb->AB', t2xaa, l2xaa, cva, cva) / 2
-            dvvb += einsum('ijac,ijbc,Aa,Bb->AB', t2xbb, l2xbb, cvb, cvb) / 2
-            # vv 2)
-            dvva += einsum('ijac,ijbc,Aa,Bb->AB', t2xab, l2xab, cva, cva) / 2
-            dvva += einsum('ijac,ijbc,Aa,Bb->AB', t2xba, l2xba, cva, cva) / 2
-            dvvb += einsum('ijca,ijcb,Aa,Bb->AB', t2xab, l2xab, cvb, cvb) / 2
-            dvvb += einsum('ijca,ijcb,Aa,Bb->AB', t2xba, l2xba, cvb, cvb) / 2
-            # ov 1)
+            # aa/bb
             dova += einsum('ijab,Ii,Jj,Aa,Bb,JB->IA', t2xaa, foa, coa, cva, cva, l1a) / 2
             dova += einsum('jiba,Jj,Ii,Aa,Bb,JB->IA', t2xaa, foa, coa, cva, cva, l1a) / 2
             dovb += einsum('ijab,Ii,Jj,Aa,Bb,JB->IA', t2xbb, fob, cob, cvb, cvb, l1b) / 2
             dovb += einsum('jiba,Jj,Ii,Aa,Bb,JB->IA', t2xbb, fob, cob, cvb, cvb, l1b) / 2
-            # ov 2)
+            # ab/baAA (here we can use t2xab and t2xba in a symmetric fashion:
             dova += einsum('ijab,Ii,Jj,Aa,Bb,JB->IA', t2xab, foa, cob, cva, cvb, l1b) / 2
             dova += einsum('ijab,Jj,Ii,Aa,Bb,JB->IA', t2xba, fob, coa, cva, cvb, l1b) / 2
             dovb += einsum('jiba,Ii,Jj,Aa,Bb,JB->IA', t2xba, fob, coa, cvb, cva, l1a) / 2
