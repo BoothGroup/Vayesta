@@ -215,8 +215,10 @@ class EDMETFragment(DMETFragment):
         return self.get_rot_to_mf_ov()
 
     def define_bosons(self, rpa_mom, rot_ov, tol = 1e-8):
-        """Given the fermionic bath orbitals, define the degrees of freedom defining our bosons.
-        Note that this doesn't define our bosonic frequencies, since we don't yet have the required portion of our zeroth moment.
+        """Given the RPA zeroth moment between the fermionic cluster excitations and the rest of the space, define
+        our cluster bosons.
+        Note that this doesn't define our Hamiltonian, since we don't yet have the required portion of our
+        zeroth moment for the bosonic degrees of freedom.
         """
         # Need to remove fermionic degrees of freedom from moment contribution. Null space of rotation matrix is size
         # N^4, so instead deduct projection onto fermionic space.
@@ -225,7 +227,11 @@ class EDMETFragment(DMETFragment):
         u,s,v = np.linalg.svd(env_mom)
         want = s > tol
         nbos = sum(want)
-        self.log.info("Zeroth moment matching generated %d cluster bosons. Largest discarded singular value: %4.2e",nbos,s[~want].max())
+        if nbos < len(s):
+            self.log.info("Zeroth moment matching generated %d cluster bosons.Largest discarded singular value: %4.2e.",
+                      nbos,s[~want].max())
+        else:
+            self.log.info("Zeroth moment matching generated %d cluster bosons.", nbos)
 
         # Calculate the relevant components of the zeroth moment- we don't want to recalculate these.
         self.r_bos = v[want,:]
@@ -234,16 +240,38 @@ class EDMETFragment(DMETFragment):
         return self.r_bos
 
     def construct_boson_hamil(self, eta0_bos):
+        """Given the zeroth moment coupling of our bosons to the remainder of the space, along with stored information,
+        generate the components of our interacting electron-boson Hamiltonian.
+        """
         self.eta0_bos = np.dot(eta0_bos, self.r_bos.T)
 
 
+    def get_eri_couplings(self, rot):
 
+        if hasattr(self.base.mf, "with_df"):
+            # Convert rot from full-space particle-hole excitations into AO pairs.
+            rot = einsum("lia,pi,qa->lpq", rot.reshape((-1, self.base.nocc, self.base.nvir)),
+                         dot(self.base.get_ovlp(), self.base.mo_coeff_occ),
+                         dot(self.base.get_ovlp(), self.base.mo_coeff_vir))
+            # Loop through cderis
+            res = np.zeros((rot.shape[0], rot.shape[0]))
+            for eri1 in  self.mf.with_df.loop():
+                L = einsum("npq,lpq->nl", pyscf.lib.unpack_tril(eri1), rot)
+                res += dot(L.T, L)
+            return res
+        else:
+            if self.mf._eri is not None:
+                eris = pyscf.ao2mo.full(self.mf._eri, self.mf.mo_coeff, compact=False)
+            else:
+                eris = self.mol.ao2mo(self.mf.mo_coeff, compact=False)
+            eris = eris[:self.base.nocc, self.base.nocc:, :self.base.nocc, self.base.nocc:].reshape(
+                            (self.ov_mf, self.ov_mf))
+            return dot(rot, eris, rot.T)
 
     def kernel(self, rpa_moms, bno_threshold=None, bno_number=None, solver=None, eris=None, construct_bath=False,
                chempot = None):
+        """Solve the fragment with the specified solver and chemical potential."""
         # First set up fermionic degrees of freedom
-        mo_coeff, mo_occ, nocc_frozen, nvir_frozen, nactive = \
-                            self.set_up_orbitals(bno_threshold, bno_number, construct_bath)
 
         # Now generate bosonic bath.
         freqs, Va, Vb = self.construct_bosons(rpa_moms)
@@ -262,7 +290,7 @@ class EDMETFragment(DMETFragment):
 
         cluster_solver_cls = get_solver_class(self.mf, solver)
         cluster_solver = cluster_solver_cls(
-            freqs, (Va, Vb), self, mo_coeff, mo_occ, nocc_frozen=nocc_frozen, nvir_frozen=nvir_frozen, v_ext = v_ext,
+            freqs, (Va, Vb), self, mo_coeff, mo_occ, nocc_frozen=self.n_frozen_occ, nvir_frozen=self.n_frozen_vir, v_ext = v_ext,
             bos_occ_cutoff = self.opts.bos_occ_cutoff, **solver_opts)
         solver_results = cluster_solver.kernel(eris=eris)
         self.log.timing("Time for %s solver:  %s", solver, time_string(timer()-t0))
