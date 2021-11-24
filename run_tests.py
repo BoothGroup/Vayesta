@@ -56,7 +56,7 @@ prof.enable()
 # Perform the tests:
 loader = unittest.TestLoader()
 runner = unittest.TextTestRunner(verbosity=2)
-suite = loader.discover('tests/')
+suite = loader.discover('vayesta/tests/')
 runner.run(suite)
 
 # End the profiler:
