@@ -1,4 +1,3 @@
-
 import dataclasses
 
 import numpy as np
@@ -12,12 +11,10 @@ from vayesta.core.util import *
 from .fragment import EDMETFragment, EDMETFragmentExit
 from vayesta.dmet.sdp_sc import perform_SDP_fit
 
-
 from vayesta.dmet import DMET
 from vayesta.rpa import ssRPA, ssRIRPA
 
 from vayesta.dmet.updates import MixUpdate, DIISUpdate
-
 
 
 @dataclasses.dataclass
@@ -25,14 +22,15 @@ class EDMETResults:
     cluster_sizes: np.ndarray = None
     e_corr: float = None
 
-class EDMET(DMET):
 
+class EDMET(DMET):
     @dataclasses.dataclass
     class Options(DMET.Options):
         bos_occ_cutoff: int = 2
         maxiter: int = 1
         make_dd_moments: bool = NotSet
         old_sc_condition: bool = False
+
     Fragment = EDMETFragment
 
     VALID_SOLVERS = ["EBFCI"]  # , "EBFCIQMC"]
@@ -41,8 +39,7 @@ class EDMET(DMET):
         super().__init__(mf, bno_threshold, solver, options, log, **kwargs)
         self.interaction_kernel = None
         # Need to calculate dd moments for self-consistency to work.
-        self.opts.make_dd_moments = True #self.opts.maxiter > 1
-
+        self.opts.make_dd_moments = True  # self.opts.maxiter > 1
 
     def kernel(self):
 
@@ -52,12 +49,12 @@ class EDMET(DMET):
             raise ValueError("No fragments defined for calculation.")
 
         maxiter = self.opts.maxiter
-        #rdm = self.mf.make_rdm1()
+        # rdm = self.mf.make_rdm1()
 
         # Initialise parameters for self-consistency iteration
         fock = self.get_fock()
-        self.vcorr = np.zeros((self.nao,)*2)
-        self.xc_kernel = [np.zeros((self.nao,)*4)]*3
+        self.vcorr = np.zeros((self.nao,) * 2)
+        self.xc_kernel = [np.zeros((self.nao,) * 4)] * 3
 
         cpt = 0.0
         mf = self.mf
@@ -65,7 +62,6 @@ class EDMET(DMET):
         sym_parents = self.get_symmetry_parent_fragments()
         sym_children = self.get_symmetry_child_fragments()
         nsym = [len(x) + 1 for x in sym_children]
-
 
         if not self.opts.mixing_variable == "hl rdm":
             raise ValueError("Only DIIS extrapolation of the high-level rdms is current implemented.")
@@ -90,7 +86,6 @@ class EDMET(DMET):
             if self.opts.charge_consistent: fock = mf.get_fock()
             # Need to optimise a global chemical potential to ensure electron number is converged.
 
-
             # First, set up and run RPA. Note that we don't have to use RPAX, as our self-consistency only couples
             # same-spin excitations.
             if hasattr(self.mf, "with_df"):
@@ -98,26 +93,26 @@ class EDMET(DMET):
                 rpa = ssRIRPA(self.mf, self.xc_kernel, self.log)
                 # Set up fermionic baths and get required rotations of the mean-field excitation space.
                 ovs_active = [f.ov_active for f in sym_parents]
-                ovs_active_slices = [slice(sum(ovs_active[:i]), sum(ovs_active[:i+1])) for i in range(len(sym_parents))]
+                ovs_active_slices = [slice(sum(ovs_active[:i]), sum(ovs_active[:i + 1])) for i in
+                                     range(len(sym_parents))]
                 # Get fermionic bath set up, and calculate the cluster excitation space.
                 rot_ovs = [f.set_up_fermionic_bath() for f in sym_parents]
                 mom0_interact = rpa.kernel_moms(np.concatenate(rot_ovs, axis=0), npoints=48)
                 # Use interaction component of moment to generate bosonic degrees of freedom.
-                rot_bos = [f.define_bosons(mom0_interact[sl,:]) for (f,sl) in zip(sym_parents, ovs_active_slices)]
+                rot_bos = [f.define_bosons(mom0_interact[sl, :]) for (f, sl) in zip(sym_parents, ovs_active_slices)]
                 nbos = [x.shape[0] for x in rot_bos]
-                bos_slices = [slice(sum(nbos[:i]), sum(nbos[:i+1])) for i in range(len(sym_parents))]
+                bos_slices = [slice(sum(nbos[:i]), sum(nbos[:i + 1])) for i in range(len(sym_parents))]
                 # Calculate zeroth moment of bosonic degrees of freedom.
                 mom0_bos = rpa.kernel_moms(np.concatenate(rot_bos, axis=0), npoints=48)
                 # Can then invert relation to generate coupled electron-boson Hamiltonian.
                 for f, sl in zip(sym_parents, bos_slices):
-                    f.construct_boson_hamil(mom0_bos[sl,:])
+                    f.construct_boson_hamil(mom0_bos[sl, :])
             else:
                 rpa = ssRPA(self.mf, self.log)
                 # We need to explicitly solve RPA equations before anything.
-                rpa.kernel(xc_kernel = self.xc_kernel)
-
-                # Then generate RPA moments, currently just up to mean.
-                rpa_moms = rpa.gen_moms(1, self.xc_kernel)
+                rpa.kernel(xc_kernel=self.xc_kernel)
+                # Then generate full RPA moments.
+                rpa_moms = rpa.gen_moms(0, self.xc_kernel)
 
             # Then optimise chemical potential to match local electron number...
             nelec_mf = 0.0
@@ -171,7 +166,8 @@ class EDMET(DMET):
                 # If we've got to here we've found a bracket.
                 [lo, hi] = sorted([cpt, new_cpt])
                 cpt, res = scipy.optimize.brentq(electron_err, a=lo, b=hi, full_output=True,
-                                                 xtol=self.opts.max_elec_err * nelec_mf)  # self.opts.max_elec_err * nelec_mf)
+                                                 xtol=self.opts.max_elec_err * nelec_mf)
+                # self.opts.max_elec_err * nelec_mf)
                 self.log.info("Converged chemical potential: {:6.4e}".format(cpt))
 
             else:
@@ -185,8 +181,8 @@ class EDMET(DMET):
                 efb += efb_contrib * nsym[x]
             self.e_dmet = e1 + e2 + efb
             self.log.info("Total EDMET energy {:8.4f}".format(self.e_tot))
-            self.log.info("Energy Contributions: 1-body={:8.4f}, 2-body={:8.4f}, coupled-boson={:8.4f}".format(e1,e2,efb))
-
+            self.log.info(
+                "Energy Contributions: 1-body={:8.4f}, 2-body={:8.4f}, coupled-boson={:8.4f}".format(e1, e2, efb))
 
             # Want to do coupled DIIS optimisation of high-level rdms and local dd response moments.
             [curr_rdms, curr_dd0, curr_dd1], delta_prop = self.updater.update([self.hl_rdms, self.hl_dd0, self.hl_dd1])
@@ -212,11 +208,11 @@ class EDMET(DMET):
         # Now have final results.
         self.print_results()
 
-        self.log.info("Total wall time:  %s", time_string(timer()-t_start))
+        self.log.info("Total wall time:  %s", time_string(timer() - t_start))
         self.log.info("All done.")
 
-
-    def calc_electron_number_defect(self, chempot, bno_thr, nelec_target, parent_fragments, nsym, rpa_moms, construct_bath = True):
+    def calc_electron_number_defect(self, chempot, bno_thr, nelec_target, parent_fragments, nsym, rpa_moms,
+                                    construct_bath=True):
         self.log.info("Running chemical potential={:8.6e}".format(chempot))
         # Save original one-body hamiltonian calculation.
         saved_hcore = self.mf.get_hcore
@@ -233,7 +229,7 @@ class EDMET(DMET):
             self.log.changeIndentLevel(1)
 
             try:
-                result = frag.kernel(rpa_moms, bno_threshold=bno_thr, construct_bath=construct_bath, chempot = chempot)
+                result = frag.kernel(rpa_moms, bno_threshold=bno_thr, construct_bath=construct_bath, chempot=chempot)
             except EDMETFragmentExit as e:
                 exit = True
                 self.log.info("Exiting %s", frag)
@@ -250,7 +246,7 @@ class EDMET(DMET):
                 break
             # Project rdm into fragment space; currently in cluster canonical orbitals.
             c = dot(frag.c_frag.T, self.mf.get_ovlp(), frag.c_active)
-            hl_rdms[x] = dot(c, frag.results.dm1, c.T)# / 2
+            hl_rdms[x] = dot(c, frag.results.dm1, c.T)  # / 2
             nelec_hl += hl_rdms[x].trace() * nsym[x]
             # dd moments are already in fragment basis
             hl_dd0[x] = frag.results.dd_mom0
@@ -259,7 +255,7 @@ class EDMET(DMET):
         self.hl_dd0 = hl_dd0
         self.hl_dd1 = hl_dd1
         self.log.info("Chemical Potential {:8.6e} gives Total electron deviation {:6.4e}".format(
-                        chempot, nelec_hl - nelec_target))
+            chempot, nelec_hl - nelec_target))
         return nelec_hl - nelec_target
 
     def get_updated_correlation_kernel(self, curr_dd0, curr_dd1, sym_parents, sym_children):
@@ -271,20 +267,21 @@ class EDMET(DMET):
             (V_A_aa, V_A_ab, V_A_bb, V_B_aa, V_B_ab, V_B_bb) = local_contrib
             c_occ = np.dot(self.get_ovlp(), frag.c_active_occ)
             c_vir = np.dot(self.get_ovlp(), frag.c_active_vir)
-            V_aa = einsum("iajb,pi,qa,rj,sb->pqrs", V_A_aa, c_occ, c_vir, c_occ, c_vir) + \
-                   einsum("iajb,pi,qa,rj,sb->pqsr", V_B_aa, c_occ, c_vir, c_occ, c_vir)
-            V_ab = einsum("iajb,pi,qa,rj,sb->pqrs", V_A_ab, c_occ, c_vir, c_occ, c_vir) + \
-                   einsum("iajb,pi,qa,rj,sb->pqsr", V_B_ab, c_occ, c_vir, c_occ, c_vir)
-            V_bb = einsum("iajb,pi,qa,rj,sb->pqrs", V_A_bb, c_occ, c_vir, c_occ, c_vir) + \
-                   einsum("iajb,pi,qa,rj,sb->pqsr", V_B_bb, c_occ, c_vir, c_occ, c_vir)
-            # Within our RPA formalism we assume the coupling satisfies K_pqrs = K_qpsr; this maybe be relaxed, as
-            # physically speaking having different behaviour for the
-            return V_aa + V_aa.transpose([1,0,3,2]), V_ab + V_ab.transpose([1,0,3,2]), V_bb + V_bb.transpose([1,0,3,2])
+            v_aa = (einsum("iajb,pi,qa,rj,sb->pqrs", V_A_aa, c_occ, c_vir, c_occ, c_vir) +
+                    einsum("iajb,pi,qa,rj,sb->pqsr", V_B_aa, c_occ, c_vir, c_occ, c_vir))
+            v_ab = (einsum("iajb,pi,qa,rj,sb->pqrs", V_A_ab, c_occ, c_vir, c_occ, c_vir) +
+                    einsum("iajb,pi,qa,rj,sb->pqsr", V_B_ab, c_occ, c_vir, c_occ, c_vir))
+            v_bb = (einsum("iajb,pi,qa,rj,sb->pqrs", V_A_bb, c_occ, c_vir, c_occ, c_vir) +
+                    einsum("iajb,pi,qa,rj,sb->pqsr", V_B_bb, c_occ, c_vir, c_occ, c_vir))
+            # Within the RPA formalism we assume the coupling satisfies K_pqrs = K_qpsr.
+            return v_aa + v_aa.transpose([1, 0, 3, 2]), v_ab + v_ab.transpose([1, 0, 3, 2]), v_bb + v_bb.transpose(
+                [1, 0, 3, 2])
+
         eps = np.zeros((self.nocc, self.nvir))
         eps = (eps.T - self.mf.mo_energy[:self.nocc]).T
         eps = eps - self.mf.mo_energy[self.nocc:]
         # Separate into spin components; in RHF case we still expect aaaa and aabb components to differ.
-        k = [np.zeros([self.nao]*4) for x in range(3)]
+        k = [np.zeros([self.nao] * 4) for x in range(3)]
         for frag, d0, d1, parent, children in zip(self.fragments, curr_dd0, curr_dd1, sym_parents, sym_children):
             local_contrib = frag.construct_correlation_kernel_contrib(eps, d0, d1)
             contrib = get_contrib(local_contrib, parent)
@@ -298,4 +295,3 @@ class EDMET(DMET):
                 k[1] += contrib[1]
                 k[2] += contrib[2]
         return tuple(k)
-
