@@ -75,7 +75,6 @@ class RPA:
 
         return self.e_corr
 
-
     def _build_arrays(self, xc_kernel="rpax"):
         t0 = timer()
         # Only have diagonal components in canonical basis.
@@ -180,7 +179,6 @@ class RPA:
             kernel = xc_kernel
 
         return kernel
-
 
     @property
     def mo_coeff(self):

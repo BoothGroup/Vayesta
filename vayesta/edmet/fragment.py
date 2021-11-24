@@ -47,7 +47,8 @@ class EDMETFragment(DMETFragment):
         r_o, r_v = self.get_rot_to_mf()
         spat_rot = einsum("ij,ab->iajb", r_o, r_v).reshape((self.ov_active, self.ov_mf))
         res = np.zeros((2 * self.ov_active, 2 * self.ov_mf()))
-        res[:self.ov_active, :self.ov_mf] = res[self.ov_active:2 * self.ov_active, self.ov_mf:2 * self.ov_mf] = spat_rot
+        res[:self.ov_active, :self.ov_mf] = spat_rot
+        res[self.ov_active:2 * self.ov_active, self.ov_mf:2 * self.ov_mf] = spat_rot
         return res
 
     def construct_bosons(self, rpa_moms):
@@ -236,11 +237,18 @@ class EDMETFragment(DMETFragment):
         self.eta0_coupling = np.dot(env_mom, self.r_bos.T)
         return self.r_bos
 
-    def construct_boson_hamil(self, eta0_bos):
+    def construct_boson_hamil(self, eta0_bos, eps, xc_kernel):
         """Given the zeroth moment coupling of our bosons to the remainder of the space, along with stored information,
         generate the components of our interacting electron-boson Hamiltonian.
         """
         self.eta0_bos = np.dot(eta0_bos, self.r_bos.T)
+        ov_rot = self.get_rot_to_mf_ov()
+        # Get couplings between all fermionic and boson degrees of freedom.
+        eris = self.get_eri_couplings(np.concatenate([ov_rot, self.r_bos], axis=0))
+        xc_apb, xc_amb = self.get_xc_couplings(xc_kernel, np.concatenate([ov_rot, self.r_bos], axis=0))
+        eps_loc = self.get_loc_eps(eps, np.concatenate([ov_rot, self.r_bos], axis=0))
+        apb = eps_loc + 2 * eris + xc_apb
+        amb = eps_loc + xc_amb
 
     def get_eri_couplings(self, rot):
 
@@ -252,8 +260,8 @@ class EDMETFragment(DMETFragment):
             # Loop through cderis
             res = np.zeros((rot.shape[0], rot.shape[0]))
             for eri1 in self.mf.with_df.loop():
-                L = einsum("npq,lpq->nl", pyscf.lib.unpack_tril(eri1), rot)
-                res += dot(L.T, L)
+                l = einsum("npq,lpq->nl", pyscf.lib.unpack_tril(eri1), rot)
+                res += dot(l.T, l)
             return res
         else:
             if self.mf._eri is not None:
@@ -263,6 +271,12 @@ class EDMETFragment(DMETFragment):
             eris = eris[:self.base.nocc, self.base.nocc:, :self.base.nocc, self.base.nocc:].reshape(
                 (self.ov_mf, self.ov_mf))
             return dot(rot, eris, rot.T)
+
+    def get_xc_couplings(self, xc_kernel, rot):
+        pass
+
+    def get_loc_eps(self, eps, rot):
+        pass
 
     def kernel(self, rpa_moms, bno_threshold=None, bno_number=None, solver=None, eris=None, construct_bath=False,
                chempot=None):

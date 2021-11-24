@@ -83,38 +83,10 @@ class EDMET(DMET):
             mf.mo_energy, mf.mo_coeff = mf.eig(fock + self.vcorr, self.get_ovlp())
             mf.mo_occ = self.mf.get_occ(mf.mo_energy, mf.mo_coeff)
 
-            if self.opts.charge_consistent: fock = mf.get_fock()
+            if self.opts.charge_consistent:
+                fock = mf.get_fock()
+            self.set_up_fragments(sym_parents)
             # Need to optimise a global chemical potential to ensure electron number is converged.
-
-            # First, set up and run RPA. Note that we don't have to use RPAX, as our self-consistency only couples
-            # same-spin excitations.
-            if hasattr(self.mf, "with_df"):
-                # Set up for RIRPPA zeroth moment calculation.
-                rpa = ssRIRPA(self.mf, self.xc_kernel, self.log)
-                # Set up fermionic baths and get required rotations of the mean-field excitation space.
-                ovs_active = [f.ov_active for f in sym_parents]
-                ovs_active_slices = [slice(sum(ovs_active[:i]), sum(ovs_active[:i + 1])) for i in
-                                     range(len(sym_parents))]
-                # Get fermionic bath set up, and calculate the cluster excitation space.
-                rot_ovs = [f.set_up_fermionic_bath() for f in sym_parents]
-                mom0_interact = rpa.kernel_moms(np.concatenate(rot_ovs, axis=0), npoints=48)
-                # Use interaction component of moment to generate bosonic degrees of freedom.
-                rot_bos = [f.define_bosons(mom0_interact[sl, :]) for (f, sl) in zip(sym_parents, ovs_active_slices)]
-                nbos = [x.shape[0] for x in rot_bos]
-                bos_slices = [slice(sum(nbos[:i]), sum(nbos[:i + 1])) for i in range(len(sym_parents))]
-                # Calculate zeroth moment of bosonic degrees of freedom.
-                mom0_bos = rpa.kernel_moms(np.concatenate(rot_bos, axis=0), npoints=48)
-                # Can then invert relation to generate coupled electron-boson Hamiltonian.
-                for f, sl in zip(sym_parents, bos_slices):
-                    f.construct_boson_hamil(mom0_bos[sl, :])
-            else:
-                rpa = ssRPA(self.mf, self.log)
-                # We need to explicitly solve RPA equations before anything.
-                rpa.kernel(xc_kernel=self.xc_kernel)
-                # Then generate full RPA moments.
-                rpa_moms = rpa.gen_moms(0, self.xc_kernel)
-
-            # Then optimise chemical potential to match local electron number...
             nelec_mf = 0.0
             rdm = self.mf.make_rdm1()
             # This could loop over parents and multiply. Leave simple for now.
@@ -210,6 +182,50 @@ class EDMET(DMET):
 
         self.log.info("Total wall time:  %s", time_string(timer() - t_start))
         self.log.info("All done.")
+
+    def set_up_fragments(self, sym_parents):
+        def get_eps():
+            eps = np.zeros((self.nocc, self.nvir))
+            eps = eps + self.mo_energy[self.nocc:]
+            eps = (eps.T - self.mo_energy[:self.nocc]).T
+            eps = eps.reshape(-1)
+            return np.concatenate([eps, eps])
+
+        # First, set up and run RPA. Note that we don't have to use RPAX, as our self-consistency only couples
+        # same-spin excitations.
+        if hasattr(self.mf, "with_df"):
+            # Set up for RIRPPA zeroth moment calculation.
+            rpa = ssRIRPA(self.mf, self.xc_kernel, self.log)
+            # Get fermionic bath set up, and calculate the cluster excitation space.
+            rot_ovs = [f.set_up_fermionic_bath() for f in sym_parents]
+            mom0_interact = rpa.kernel_moms(np.concatenate(rot_ovs, axis=0), npoints=48)
+            # Get appropriate slices to obtain required active spaces.
+            ovs_active = [f.ov_active for f in sym_parents]
+            ovs_active_slices = [slice(sum(ovs_active[:i]), sum(ovs_active[:i + 1])) for i in
+                                 range(len(sym_parents))]
+            # Use interaction component of moment to generate bosonic degrees of freedom.
+            rot_bos = [f.define_bosons(mom0_interact[sl, :]) for (f, sl) in zip(sym_parents, ovs_active_slices)]
+            nbos = [x.shape[0] for x in rot_bos]
+            bos_slices = [slice(sum(nbos[:i]), sum(nbos[:i + 1])) for i in range(len(sym_parents))]
+            # Calculate zeroth moment of bosonic degrees of freedom.
+            mom0_bos = rpa.kernel_moms(np.concatenate(rot_bos, axis=0), npoints=48)
+            eps = get_eps()
+            # Can then invert relation to generate coupled electron-boson Hamiltonian.
+            for f, sl in zip(sym_parents, bos_slices):
+                f.construct_boson_hamil(mom0_bos[sl, :], eps, self.xc_kernel)
+        else:
+            rpa = ssRPA(self.mf, self.log)
+            # We need to explicitly solve RPA equations before anything.
+            rpa.kernel(xc_kernel=self.xc_kernel)
+            # Then generate full RPA moments.
+            mom0 = rpa.gen_moms(0, self.xc_kernel)[0]
+            eps = get_eps()
+            for f in sym_parents:
+                rot_ov = f.set_up_fermionic_bath()
+                mom0_interact = dot(rot_ov, mom0)
+                rot_bos = f.define_bosons(mom0_interact)
+                mom0_bos = dot(rot_bos, mom0)
+                f.construct_boson_hamil(mom0_bos)
 
     def calc_electron_number_defect(self, chempot, bno_thr, nelec_target, parent_fragments, nsym, rpa_moms,
                                     construct_bath=True):

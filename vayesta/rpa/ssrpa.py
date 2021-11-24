@@ -69,7 +69,6 @@ class ssRPA:
         eps = (eps.T - self.mf.mo_energy[:self.nocc]).T
         eps = eps.reshape((self.ov,))
 
-
         self.e_corr_ss = 0.5 * (sum(self.freqs_ss) - 2 * v.trace() - 2*sum(eps))
 
         if xc_kernel is None:
