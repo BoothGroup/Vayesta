@@ -31,7 +31,6 @@ class temporary_seed:
 
 
 class MolFragmentTests(unittest.TestCase):
-
     key = 'h2o_ccpvdz_df'
     mf_key = 'rhf'
     PLACES = 8
@@ -71,7 +70,7 @@ class MolFragmentTests(unittest.TestCase):
 
         e_elec = sum([f.get_fragment_mf_energy() for f in frags])
         self.assertAlmostEqual(e_elec + mols[self.key][self.mf_key].energy_nuc(), mols[self.key][self.mf_key].e_tot, self.PLACES)
-        self.assertAlmostEqual(frags[0].get_fragment_mf_energy(), -81.55618063907355, self.PLACES)
+        self.assertAlmostEqual(frags[0].get_fragment_mf_energy(), -81.55618063172534, self.PLACES)
         self.assertAlmostEqual(frags[1].get_fragment_mf_energy(),  -1.83005213220285, self.PLACES)
         self.assertAlmostEqual(frags[2].get_fragment_mf_energy(),  -1.83005213220285, self.PLACES)
 
@@ -83,10 +82,10 @@ class MolFragmentTests(unittest.TestCase):
         qemb.iao_fragmentation()
 
         frag = qemb.add_orbital_fragment([0, 1])
-        self.assertAlmostEqual(frag.get_fragment_mf_energy(), -61.40491054071134, self.PLACES)
+        self.assertAlmostEqual(frag.get_fragment_mf_energy(), -61.40491055875449, self.PLACES)
 
         frag = qemb.add_atomic_fragment([0], orbital_filter=['1s', '2s'])
-        self.assertAlmostEqual(frag.get_fragment_mf_energy(), -61.40491054071134, self.PLACES)
+        self.assertAlmostEqual(frag.get_fragment_mf_energy(), -61.40491055875449, self.PLACES)
 
     def test_iao_minao(self):
         """Test IAO fragmentation with a custom `minao` keyword.
@@ -96,7 +95,7 @@ class MolFragmentTests(unittest.TestCase):
         qemb.iao_fragmentation(minao='sto3g')
         frag = qemb.add_atomic_fragment(0)
 
-        self.assertAlmostEqual(frag.get_fragment_mf_energy(), -80.8244967591169, self.PLACES)
+        self.assertAlmostEqual(frag.get_fragment_mf_energy(), -80.8244967526962, self.PLACES)
 
     def test_sao_atoms(self):
         """Test SAO atomic fragmentation.
@@ -107,7 +106,7 @@ class MolFragmentTests(unittest.TestCase):
         frags  = [qemb.add_atomic_fragment(['O'])]
         frags += [qemb.add_atomic_fragment(i) for i in [1, 2]]
 
-        self.assertAlmostEqual(frags[0].get_fragment_mf_energy(), -78.51384198253616, self.PLACES)
+        self.assertAlmostEqual(frags[0].get_fragment_mf_energy(), -78.51384197417300, self.PLACES)
         self.assertAlmostEqual(frags[1].get_fragment_mf_energy(),  -3.35122146047156, self.PLACES)
         self.assertAlmostEqual(frags[2].get_fragment_mf_energy(),  -3.35122146047156, self.PLACES)
         e_mf = sum([f.get_fragment_mf_energy() for f in frags])
@@ -121,13 +120,13 @@ class MolFragmentTests(unittest.TestCase):
         qemb.sao_fragmentation()
 
         frag = qemb.add_orbital_fragment([0, 1])
-        self.assertAlmostEqual(frag.get_fragment_mf_energy(), -56.62602303262458, self.PLACES)
+        self.assertAlmostEqual(frag.get_fragment_mf_energy(), -56.62602304567066, self.PLACES)
 
         frag = qemb.add_orbital_fragment(0)
-        self.assertAlmostEqual(frag.get_fragment_mf_energy(), -50.92864008769873, self.PLACES)
+        self.assertAlmostEqual(frag.get_fragment_mf_energy(), -50.92864009746159, self.PLACES)
 
         frag = qemb.add_orbital_fragment('1s')
-        self.assertAlmostEqual(frag.get_fragment_mf_energy(), -54.56972350175742, self.PLACES)
+        self.assertAlmostEqual(frag.get_fragment_mf_energy(), -54.5697235132222, self.PLACES)
 
     def test_iaopao_atoms(self):
         """Test IAO+PAO atomic fragmentation.
@@ -315,7 +314,6 @@ class MolFragmentTests(unittest.TestCase):
 
 
 class UMolFragmentTests(MolFragmentTests):
-
     mf_key = 'uhf'
     PLACES = 6
     Embedding = UEmbedding
@@ -335,8 +333,8 @@ class UMolFragmentTests(MolFragmentTests):
 
 
 class CellFragmentTests(unittest.TestCase):
-
-    key = 'he2_ccpvdz_222'
+    key = 'he2_631g_222'
+    PLACES = 8
 
     def trace(self, c):
         return np.einsum('xi,xi->', c, c.conj())
@@ -348,10 +346,10 @@ class CellFragmentTests(unittest.TestCase):
         qemb = QEmbeddingMethod(cells[self.key]['rhf'])
         qemb.iao_fragmentation()
         frag = qemb.add_atomic_fragment([0, 1])
-        frags = [frag,] + frag.add_tsymmetric_fragments([2, 2, 2])
+        frags = [frag] + frag.add_tsymmetric_fragments([2, 2, 2])
 
         for frag in frags[0].loop_fragments():
-            self.assertAlmostEqual(frag.get_fragment_mf_energy().real, -4.261997589296356, 8)
+            self.assertAlmostEqual(frag.get_fragment_mf_energy().real, -4.261995344528813, self.PLACES)
 
     def test_iao_aos(self):
         """Test IAO orbital fragmentation.
@@ -361,7 +359,7 @@ class CellFragmentTests(unittest.TestCase):
         qemb.iao_fragmentation()
         frag = qemb.add_orbital_fragment([0, 1])
 
-        self.assertAlmostEqual(frag.get_fragment_mf_energy().real, -4.261997589296356, 8)
+        self.assertAlmostEqual(frag.get_fragment_mf_energy().real, -4.261995344528813, self.PLACES)
 
     def test_sao_atoms(self):
         qemb = QEmbeddingMethod(cells[self.key]['rhf'])
@@ -369,7 +367,7 @@ class CellFragmentTests(unittest.TestCase):
         frags = [qemb.add_atomic_fragment([i*2, i*2+1]) for i in range(len(qemb.kpts))]
 
         for frag in frags:
-            self.assertAlmostEqual(frag.get_fragment_mf_energy().real, -4.261997589296352, 8)
+            self.assertAlmostEqual(frag.get_fragment_mf_energy().real, -4.261995344528689, self.PLACES)
 
     def test_sao_aos(self):
         """Test SAO orbital fragmentation.
@@ -379,7 +377,7 @@ class CellFragmentTests(unittest.TestCase):
         qemb.sao_fragmentation()
         frag = qemb.add_orbital_fragment([0, 1, 2, 3])
 
-        self.assertAlmostEqual(frag.get_fragment_mf_energy().real, -2.130998605308573, 8)
+        self.assertAlmostEqual(frag.get_fragment_mf_energy().real, -4.261995344528689, self.PLACES)
 
     def test_dmet_bath(self):
         """Test the DMET bath.
@@ -388,19 +386,19 @@ class CellFragmentTests(unittest.TestCase):
         qemb = QEmbeddingMethod(cells[self.key]['rhf'])
         qemb.sao_fragmentation()
         frag = qemb.add_atomic_fragment([0])
-        frags = [frag,] + frag.add_tsymmetric_fragments([2, 2, 2])
+        frags = [frag] + frag.add_tsymmetric_fragments([2, 2, 2])
 
         bath = DMET_Bath(frags[1], frags[1].opts.dmet_threshold)
         c_bath, c_occenv, c_virenv = bath.make_dmet_bath(frags[0].c_env)
-        self.assertAlmostEqual(self.trace(c_bath),    3.30703579288843, 8)
-        self.assertAlmostEqual(self.trace(c_occenv),  8.60108764820888, 8)
-        self.assertAlmostEqual(self.trace(c_virenv), 83.27964350816293, 8)
+        self.assertAlmostEqual(self.trace(c_bath),    3.34569601263718, self.PLACES)
+        self.assertAlmostEqual(self.trace(c_occenv),  8.60026059294578, self.PLACES)
+        self.assertAlmostEqual(self.trace(c_virenv), 38.23956564189844, self.PLACES)
 
         #bath = DMET_Bath(frags[0], frags[0].opts.dmet_threshold)
-        #c_bath, c_occenv, c_virenv = bath.make_dmet_bath(frags[0].c_env, nbath=c_bath.shape[-1])  #FIXME bug #5
-        #self.assertAlmostEqual(self.trace(c_bath),    3.30703579288843, 8)
-        #self.assertAlmostEqual(self.trace(c_occenv),  8.60108764820888, 8)
-        #self.assertAlmostEqual(self.trace(c_virenv), 83.27964350816293, 8)
+        #c_bath, c_occenv, c_virenv = bath.make_dmet_bath(frags[0].c_env, nbath=c_bath.shape[-1])  #FIXME bug #5 (these values are old)
+        #self.assertAlmostEqual(self.trace(c_bath),    3.30703579288843, self.PLACES)
+        #self.assertAlmostEqual(self.trace(c_occenv),  8.60108764820888, self.PLACES)
+        #self.assertAlmostEqual(self.trace(c_virenv), self.PLACES3.27964350816293, self.PLACES)
 
         qemb = QEmbeddingMethod(cells[self.key]['rhf'])
         qemb.sao_fragmentation()
@@ -408,9 +406,9 @@ class CellFragmentTests(unittest.TestCase):
 
         bath = DMET_Bath(frags[0], 1e-5)
         c_bath, c_occenv, c_virenv = bath.make_dmet_bath(frags[0].c_env, verbose=False)
-        self.assertAlmostEqual(self.trace(c_bath),    0.00000000000000, 8)
-        self.assertAlmostEqual(self.trace(c_occenv),  8.60108602101449, 8)
-        self.assertAlmostEqual(self.trace(c_virenv), 80.24082979829498, 8)
+        self.assertAlmostEqual(self.trace(c_bath),    0.00000000000000, self.PLACES)
+        self.assertAlmostEqual(self.trace(c_occenv),  8.60025893931299, self.PLACES)
+        self.assertAlmostEqual(self.trace(c_virenv), 38.23956182500297, self.PLACES)
 
     def test_mp2_bno_bath(self):
         #TODO

@@ -1,50 +1,93 @@
 import unittest
 import numpy as np
-from pyscf import gto, scf, lib
-import pyscf.cc
+
 from vayesta import ewf
+from vayesta.tests.cache import mols
 
 #TODO tighten thresholds once solver interface is finished
 
 # Use default conv_tol
 EWF_CONV_TOL = None
 
-class MoleculeEWFTest:
-    ''' Abstract base class for molecular EWF tests.
-    '''
 
-    @classmethod
-    def setUpClass(cls):
-        cls.mol = None
-        cls.mf = None
-        cls.ewf = None
-        cls.known_values = None
+class MoleculeEWFTests(unittest.TestCase):
 
-    @classmethod
-    def tearDownClass(cls):
-        del cls.mol, cls.mf, cls.ewf, cls.known_values
+    ENERGY_PLACES = 6
+    T_PLACES = 8
+    DM_PLACES = 8
 
-    def test_energy(self):
-        self.assertAlmostEqual(self.ewf.e_tot, self.known_values['e_tot'], 6)
+    def _test_energy(self, emb, known_values):
+        """Tests the EWF energy.
+        """
 
+        self.assertAlmostEqual(emb.e_tot, known_values['e_tot'], self.ENERGY_PLACES)
 
-class MoleculeEWFTest_LiH_ccpvdz_IAO_atoms(unittest.TestCase, MoleculeEWFTest):
-    @classmethod
-    def setUpClass(cls):
-        cls.mol = gto.Mole()
-        cls.mol.atom = 'Li 0 0 0; H 0 0 1.4'
-        cls.mol.basis = 'cc-pvdz'
-        cls.mol.verbose = 0
-        cls.mol.max_memory = 1e9
-        cls.mol.build()
+    def _test_dmet_energy(self, emb, known_values):
+        """Tests the DMET energy.
+        """
 
-        cls.mf = scf.RHF(cls.mol)
-        cls.mf.conv_tol = 1e-12
-        cls.mf.kernel()
-        assert cls.mf.converged
+        self.assertAlmostEqual(emb.get_dmet_energy(), known_values['e_dmet'], self.ENERGY_PLACES)
 
-        cls.ewf = ewf.EWF(
-                cls.mf,
+    def _test_t1(self, emb, known_values):
+        """Tests the T1 and L1 amplitudes.
+        """
+
+        t1 = emb.get_t1()
+        l1 = emb.get_t1(get_lambda=True)
+
+        self.assertAlmostEqual(np.linalg.norm(t1), known_values['t1'], self.T_PLACES)
+        self.assertAlmostEqual(np.linalg.norm(l1), known_values['l1'], self.T_PLACES)
+
+    def _test_t2(self, emb, known_values):
+        """Tests the T2 and L2 amplitudes.
+        """
+
+        t2 = emb.get_t12()[1]
+        l2 = emb.get_t12(get_lambda=True)[1]
+
+        self.assertAlmostEqual(np.linalg.norm(t2), known_values['t2'], self.T_PLACES)
+        self.assertAlmostEqual(np.linalg.norm(l2), known_values['l2'], self.T_PLACES)
+
+    def _test_rdm1(self, emb, known_values):
+        """Tests the traces of the first-order density matrices.
+        """
+
+        dm = emb.make_rdm1_demo()
+        self.assertAlmostEqual(np.trace(dm), known_values['rdm1_demo'], self.DM_PLACES)
+
+        dm = emb.make_rdm1_demo(ao_basis=True)
+        self.assertAlmostEqual(np.trace(dm), known_values['rdm1_demo_ao'], self.DM_PLACES)
+
+        dm = emb.make_rdm1_ccsd()
+        self.assertAlmostEqual(np.trace(dm), known_values['rdm1_ccsd'], self.DM_PLACES)
+
+        dm = emb.make_rdm1_ccsd(ao_basis=True)
+        self.assertAlmostEqual(np.trace(dm), known_values['rdm1_ccsd_ao'], self.DM_PLACES)
+
+    def _test_rdm2(self, emb, known_values):
+        """Tests the traces of the second-order density matrices.
+        """
+
+        trace = lambda m: np.einsum('iiii->', m)
+
+        dm = emb.make_rdm2_demo()
+        self.assertAlmostEqual(trace(dm), known_values['rdm2_demo'], self.DM_PLACES)
+
+        dm = emb.make_rdm2_demo(ao_basis=True)
+        self.assertAlmostEqual(trace(dm), known_values['rdm2_demo_ao'], self.DM_PLACES)
+
+        dm = emb.make_rdm2_ccsd()
+        self.assertAlmostEqual(trace(dm), known_values['rdm2_ccsd'], self.DM_PLACES)
+
+        dm = emb.make_rdm2_ccsd(ao_basis=True)
+        self.assertAlmostEqual(trace(dm), known_values['rdm2_ccsd_ao'], self.DM_PLACES)
+
+    def test_lih_ccpvdz_iao_atoms(self):
+        """Tests EWF for LiH cc-pvdz with IAO atomic fragmentation.
+        """
+
+        emb = ewf.EWF(
+                mols['lih_ccpvdz']['rhf'],
                 bath_type='all',
                 make_rdm1=True,
                 make_rdm2=True,
@@ -52,11 +95,11 @@ class MoleculeEWFTest_LiH_ccpvdz_IAO_atoms(unittest.TestCase, MoleculeEWFTest):
                     'conv_tol': EWF_CONV_TOL,
                 },
         )
-        cls.ewf.iao_fragmentation()
-        cls.ewf.make_all_atom_fragments()
-        cls.ewf.kernel()
+        emb.iao_fragmentation()
+        emb.make_all_atom_fragments()
+        emb.kernel()
 
-        cls.known_values = {
+        known_values = {
             'e_tot':  -8.008269603007381,
             'e_dmet': -7.97664320557861,
             't1': 0.020041132110973907,
@@ -73,195 +116,124 @@ class MoleculeEWFTest_LiH_ccpvdz_IAO_atoms(unittest.TestCase, MoleculeEWFTest):
             'rdm2_ccsd_ao': 2.0677163999542425,
         }
 
+        self._test_energy(emb, known_values)
+        self._test_dmet_energy(emb, known_values)
+        self._test_t1(emb, known_values)
+        self._test_t2(emb, known_values)
+        self._test_rdm1(emb, known_values)
+        self._test_rdm2(emb, known_values)
 
-    # Extra tests for this system:
+    def test_lih_ccpvdz_sao_orbitals(self):
+        """Tests EWF for LiH cc-pvdz with SAO orbital fragmentation.
+        """
 
-    def test_dmet_energy(self):
-        self.assertAlmostEqual(self.ewf.get_dmet_energy(), self.known_values['e_dmet'], 6)
-
-    def test_t1(self):
-        self.assertAlmostEqual(np.linalg.norm(self.ewf.get_t1()), self.known_values['t1'], 8)
-        self.assertAlmostEqual(np.linalg.norm(self.ewf.get_t1(get_lambda=True)), self.known_values['l1'], 8)
-
-    def test_t2(self):
-        self.assertAlmostEqual(np.linalg.norm(self.ewf.get_t12()[1]), self.known_values['t2'], 8)
-        self.assertAlmostEqual(np.linalg.norm(self.ewf.get_t12(get_lambda=True)[1]), self.known_values['l2'], 8)
-
-    def test_rdm1(self):
-        self.assertAlmostEqual(np.trace(self.ewf.make_rdm1_demo()), self.known_values['rdm1_demo'], 8)
-        self.assertAlmostEqual(np.trace(self.ewf.make_rdm1_demo(ao_basis=True)), self.known_values['rdm1_demo_ao'], 8)
-        self.assertAlmostEqual(np.trace(self.ewf.make_rdm1_ccsd()), self.known_values['rdm1_ccsd'], 8)
-        self.assertAlmostEqual(np.trace(self.ewf.make_rdm1_ccsd(ao_basis=True)), self.known_values['rdm1_ccsd_ao'], 8)
-
-    def test_rdm2(self):
-        trace = lambda m: np.einsum('iiii->', m)
-        self.assertAlmostEqual(trace(self.ewf.make_rdm2_demo()), self.known_values['rdm2_demo'], 8)
-        self.assertAlmostEqual(trace(self.ewf.make_rdm2_demo(ao_basis=True)), self.known_values['rdm2_demo_ao'], 8)
-        self.assertAlmostEqual(trace(self.ewf.make_rdm2_ccsd()), self.known_values['rdm2_ccsd'], 8)
-        self.assertAlmostEqual(trace(self.ewf.make_rdm2_ccsd(ao_basis=True)), self.known_values['rdm2_ccsd_ao'], 8)
-
-
-class MoleculeEWFTest_LiH_ccpvdz_Lowdin_AOs(unittest.TestCase, MoleculeEWFTest):
-    @classmethod
-    def setUpClass(cls):
-        cls.mol = gto.Mole()
-        cls.mol.atom = 'Li 0 0 0; H 0 0 1.4'
-        cls.mol.basis = 'cc-pvdz'
-        cls.mol.verbose = 0
-        cls.mol.max_memory = 1e9
-        cls.mol.build()
-
-        cls.mf = scf.RHF(cls.mol)
-        cls.mf.conv_tol = 1e-12
-        cls.mf.kernel()
-
-        cls.ewf = ewf.EWF(
-                cls.mf,
+        emb = ewf.EWF(
+                mols['lih_ccpvdz']['rhf'],
                 bno_threshold=1e-5,
                 solver_options={
                     'conv_tol': EWF_CONV_TOL,
                 },
         )
-        cls.ewf.sao_fragmentation()
-        cls.ewf.make_ao_fragment([0, 1])
-        cls.ewf.make_ao_fragment([2, 3, 4])
-        cls.ewf.kernel()
+        emb.sao_fragmentation()
+        emb.make_ao_fragment([0, 1])
+        emb.make_ao_fragment([2, 3, 4])
+        emb.kernel()
 
-        cls.known_values = {'e_tot': -7.98424889149862}
+        known_values = {'e_tot': -7.98424889149862}
 
+        self._test_energy(emb, known_values)
 
-class MoleculeEWFTest_LiH_ccpvdz_Lowdin_atoms(unittest.TestCase, MoleculeEWFTest):
-    @classmethod
-    def setUpClass(cls):
-        cls.mol = gto.Mole()
-        cls.mol.atom = 'Li 0 0 0; H 0 0 1.4'
-        cls.mol.basis = 'cc-pvdz'
-        cls.mol.verbose = 0
-        cls.mol.max_memory = 1e9
-        cls.mol.build()
+    def test_lih_ccpvdz_sao_atoms(self):
+        """Tests EWF for LiH cc-pvdz with SAO atomic fragmentation.
+        """
 
-        cls.mf = scf.RHF(cls.mol)
-        cls.mf.conv_tol = 1e-12
-        cls.mf.kernel()
-
-        cls.ewf = ewf.EWF(
-                cls.mf,
+        emb = ewf.EWF(
+                mols['lih_ccpvdz']['rhf'],
                 bath_type=None,
                 solver_options={
                     'conv_tol': EWF_CONV_TOL,
                 },
         )
-        cls.ewf.sao_fragmentation()
-        cls.ewf.make_all_atom_fragments()
-        cls.ewf.kernel()
+        emb.sao_fragmentation()
+        emb.make_all_atom_fragments()
+        emb.kernel()
 
-        cls.known_values = {'e_tot': -7.99502192669842}
+        known_values = {'e_tot': -7.99502192669842}
 
-class MoleculeEWFTest_N2_augccpvdz_stretched_FCI(unittest.TestCase, MoleculeEWFTest):
-    @classmethod
-    def setUpClass(cls):
-        cls.mol = gto.Mole()
-        cls.mol.atom = 'N 0 0 0; N 0 0 2.0'
-        cls.mol.basis = 'aug-cc-pvdz'
-        cls.mol.verbose = 0
-        cls.mol.max_memory = 1e9
-        cls.mol.build()
+        self._test_energy(emb, known_values)
 
-        cls.mf = scf.RHF(cls.mol)
-        cls.mf.conv_tol = 1e-12
-        cls.mf.kernel()
+    def test_h2o_ccpvdz_FCI(self):
+        """Tests EWF for H2O cc-pvdz with FCI solver.
+        """
 
-        cls.ewf = ewf.EWF(
-                cls.mf,
+        emb = ewf.EWF(
+                mols['h2o_ccpvdz']['rhf'],
+                bath_type=None,
                 solver='FCI',
                 bno_threshold=100,
                 solver_options={
-                    'conv_tol' : 1e-14,
-                    'fix_spin' : 0.0,
-                    }
+                    'conv_tol': EWF_CONV_TOL,
+                    'fix_spin': 0.0,
+                }
         )
-        cls.ewf.iao_fragmentation()
-        cls.ewf.make_atom_fragment(0, sym_factor=2)
-        cls.ewf.kernel()
+        emb.iao_fragmentation()
+        emb.make_atom_fragment(0)
+        emb.make_atom_fragment(1, sym_factor=2)
+        emb.kernel()
 
-        cls.known_values = {'e_tot': -108.7770291262215}
+        known_values = {'e_tot': -76.06365118513072}
 
+        self._test_energy(emb, known_values)
 
-class MoleculeEWFTest_N2_ccpvdz_TCCSD(unittest.TestCase, MoleculeEWFTest):
-    @classmethod
-    def setUpClass(cls):
-        cls.mol = gto.Mole()
-        cls.mol.atom = 'N1 0 0 0; N2 0 0 1.1'
-        cls.mol.basis = 'cc-pvdz'
-        cls.mol.verbose = 0
-        cls.mol.max_memory = 1e9
-        cls.mol.build()
+    def test_h2o_ccpvdz_TCCSD(self):
+        """Tests EWF for H2O cc-pvdz with FCI solver.
+        """
 
-        cls.mf = scf.RHF(cls.mol)
-        cls.mf.conv_tol = 1e-12
-        cls.mf.kernel()
-
-        cls.ewf = ewf.EWF(
-                cls.mf,
+        emb = ewf.EWF(
+                mols['h2o_ccpvdz']['rhf'],
                 solver='TCCSD',
                 bno_threshold=1e-4,
                 solver_options={
                     'conv_tol': EWF_CONV_TOL,
                 },
         )
-        cls.ewf.iao_fragmentation()
-        cls.ewf.make_atom_fragment('N1', sym_factor=2)
-        cls.ewf.kernel()
+        emb.iao_fragmentation()
+        emb.make_atom_fragment(0)
+        emb.make_atom_fragment(1, sym_factor=2)
+        emb.kernel()
 
-        cls.known_values = {'e_tot': -109.27077981413623}
+        known_values = {'e_tot': -76.23613568648057}
 
+        self._test_energy(emb, known_values)
 
-class MoleculeEWFTest_N2_ccpvdz_TCCSD_CAS(unittest.TestCase, MoleculeEWFTest):
-    @classmethod
-    def setUpClass(cls):
-        cls.mol = gto.Mole()
-        cls.mol.atom = 'N1 0 0 0; N2 0 0 1.1'
-        cls.mol.basis = 'cc-pvdz'
-        cls.mol.verbose = 0
-        cls.mol.max_memory = 1e9
-        cls.mol.build()
+    def test_h2o_ccpvdz_TCCSD_CAS(self):
+        """Tests EWF for H2O cc-pvdz with TCCSD solver and CAS picker.
+        """
 
-        cls.mf = scf.RHF(cls.mol)
-        cls.mf.conv_tol = 1e-12
-        cls.mf.kernel()
-
-        cls.ewf = ewf.EWF(
-                cls.mf,
+        emb = ewf.EWF(
+                mols['h2o_ccpvdz']['rhf'],
                 solver='TCCSD',
                 bno_threshold=1e-4,
                 solver_options={
                     'conv_tol': EWF_CONV_TOL,
                 },
         )
-        cls.ewf.iao_fragmentation()
-        cls.ewf.make_atom_fragment('N1', sym_factor=2)
-        cls.ewf.fragments[0].set_cas(['0 N1 2p'])
-        cls.ewf.kernel()
+        emb.iao_fragmentation()
+        emb.make_atom_fragment(0)
+        emb.make_atom_fragment(1, sym_factor=2)
+        emb.fragments[0].set_cas(['0 O 2p'])
+        emb.kernel()
 
-        cls.known_values = {'e_tot': -109.27252621439553}
+        known_values = {'e_tot': -76.23559827815198}
 
+        self._test_energy(emb, known_values)
 
-class MoleculeEWFTest_N2_ccpvdz_sc(unittest.TestCase, MoleculeEWFTest):
-    @classmethod
-    def setUpClass(cls):
-        cls.mol = gto.Mole()
-        cls.mol.atom = 'N1 0 0 0; N2 0 0 1.1'
-        cls.mol.basis = 'cc-pvdz'
-        cls.mol.verbose = 0
-        cls.mol.max_memory = 1e9
-        cls.mol.build()
+    def test_h2o_ccpvdz_sc(self):
+        """Tests EWF for H2O cc-pvdz with self-consistency.
+        """
 
-        cls.mf = scf.RHF(cls.mol)
-        cls.mf.conv_tol = 1e-12
-        cls.mf.kernel()
-
-        cls.ewf = ewf.EWF(
-                cls.mf,
+        emb = ewf.EWF(
+                mols['h2o_ccpvdz']['rhf'],
                 bno_threshold=1e-4,
                 sc_mode=1,
                 sc_energy_tol=1e-9,
@@ -269,77 +241,59 @@ class MoleculeEWFTest_N2_ccpvdz_sc(unittest.TestCase, MoleculeEWFTest):
                     'conv_tol': EWF_CONV_TOL,
                 },
         )
-        cls.ewf.iao_fragmentation()
-        cls.ewf.make_atom_fragment(0, sym_factor=2)
-        cls.ewf.kernel()
+        emb.iao_fragmentation()
+        emb.make_atom_fragment(0)
+        emb.make_atom_fragment(1, sym_factor=2)
+        emb.kernel()
 
-        cls.known_values = {'e_tot': -109.26013012932687}
+        known_values = {'e_tot': -76.23147227604929}
 
-
-class MiscMoleculeEWFTests(unittest.TestCase):
-    ''' Tests for miscellaneous features that don't fit MoleculeEWFTests.
-    '''
-
-    @classmethod
-    def setUpClass(cls):
-        cls.mol = gto.Mole()
-        cls.mol.atom = 'N 0 0 0; N 0 0 1'
-        cls.mol.basis = 'cc-pvdz'
-        cls.mol.verbose = 0
-        cls.mol.max_memory = 1e9
-        cls.mol.build()
-        cls.mf = scf.RHF(cls.mol)
-        cls.mf.conv_tol = 1e-12
-        cls.mf.kernel()
-
-    @classmethod
-    def tearDownClss(cls):
-        del cls.mol, cls.mf
-
-    # TODO
-    #def test_reset(self):
-    #    emb = ewf.EWF(self.mf, solver_options={'conv_tol': 1e-10})
-    #    emb.iao_fragmentation()
-    #    frag = emb.make_atom_fragment(0)
-    #    frag.kernel()
-    #    for key in ['c_cluster_occ', 'c_cluster_vir', 'c_no_occ', 'c_no_vir', 'n_no_occ', 'n_no_vir']:
-    #        self.assertTrue(getattr(frag, key) is not None)
-    #    frag.reset()
-    #    for key in ['c_cluster_occ', 'c_cluster_vir', 'c_no_occ', 'c_no_vir', 'n_no_occ', 'n_no_vir']:
-    #        self.assertTrue(getattr(frag, key) is None)
+        self._test_energy(emb, known_values)
 
     def test_eom(self):
+        """Tests EWF EOM-CCSD support.
+        """
+
         emb = ewf.EWF(
-                self.mf,
-                solver_options={'conv_tol': EWF_CONV_TOL},
+                mols['n2_631g']['rhf'],
                 bno_threshold=1e-6,
                 eom_ccsd=['IP', 'EA', 'EE-S', 'EE-T', 'EE-SF'],
                 eom_ccsd_nroots=5,
+                solver_options={
+                    'conv_tol': EWF_CONV_TOL,
+                },
         )
         emb.iao_fragmentation()
         frag = emb.make_atom_fragment(0)
-        frag.kernel()  #FIXME using this to build the cluster orbs, repeats solver calculation
+        frag.kernel()
+
         from vayesta.solver.ccsd import CCSD_Solver  #TODO move this to solver tests?
-        from pyscf import cc
         nocc = frag.c_cluster_occ.shape[1]
         nvir = frag.c_cluster_vir.shape[1]
-        nocc_frozen = np.sum(self.mf.mo_occ > 0) - nocc
-        nvir_frozen = np.sum(self.mf.mo_occ == 0) - nvir
-        solver = CCSD_Solver(frag, self.mf.mo_coeff, self.mf.mo_occ, nocc_frozen, nvir_frozen,
-                eom_ccsd=['IP', 'EA', 'EE-S', 'EE-T', 'EE-SF'], eom_ccsd_nroots=5)
+        nocc_frozen = np.sum(mols['n2_631g']['rhf'].mo_occ > 0) - nocc
+        nvir_frozen = np.sum(mols['n2_631g']['rhf'].mo_occ == 0) - nvir
+        solver = CCSD_Solver(
+                frag,
+                mols['n2_631g']['rhf'].mo_coeff,
+                mols['n2_631g']['rhf'].mo_occ,
+                nocc_frozen,
+                nvir_frozen,
+                eom_ccsd=['IP', 'EA', 'EE-S', 'EE-T', 'EE-SF'],
+                eom_ccsd_nroots=5,
+        )
         res = solver.kernel()
 
-        self.assertAlmostEqual(res.ip_energy[0], 0.5810398549938971, 6)
-        self.assertAlmostEqual(res.ea_energy[0], 0.2527482232750386, 6)
-        self.assertAlmostEqual(res.ee_s_energy[0], 0.4302596246755637, 6)
-        self.assertAlmostEqual(res.ee_t_energy[0], 0.3755142786878773, 6)
-        self.assertAlmostEqual(res.ee_sf_energy[0], 0.3755142904509986, 6)
+        self.assertAlmostEqual(res.ip_energy[0],    0.57188303464319880, self.ENERGY_PLACES)
+        self.assertAlmostEqual(res.ea_energy[0],    0.18735362996670174, self.ENERGY_PLACES)
+        self.assertAlmostEqual(res.ee_s_energy[0],  0.34472451128191955, self.ENERGY_PLACES)
+        self.assertAlmostEqual(res.ee_t_energy[0],  0.29463644214328730, self.ENERGY_PLACES)
+        self.assertAlmostEqual(res.ee_sf_energy[0], 0.29463644349001655, self.ENERGY_PLACES)
 
-        self.assertAlmostEqual(np.linalg.norm(res.ip_coeff[0][:nocc]), 0.9805776450121361, 6)
-        self.assertAlmostEqual(np.linalg.norm(res.ea_coeff[0][:nvir]), 0.9978012299430233, 6)
-        self.assertAlmostEqual(np.linalg.norm(res.ee_s_coeff[0][:nocc*nvir]), 0.6878077752215053, 6)
-        self.assertAlmostEqual(np.linalg.norm(res.ee_t_coeff[0][:nocc*nvir]), 0.6932475285290554, 6)
-        self.assertAlmostEqual(np.linalg.norm(res.ee_sf_coeff[0][:nocc*nvir]), 0.6932475656707386, 6)
+        self.assertAlmostEqual(np.linalg.norm(res.ip_coeff[0][:nocc]),         0.9782629400729406, self.ENERGY_PLACES)
+        self.assertAlmostEqual(np.linalg.norm(res.ea_coeff[0][:nvir]),         0.9979110706595700, self.ENERGY_PLACES)
+        self.assertAlmostEqual(np.linalg.norm(res.ee_s_coeff[0][:nocc*nvir]),  0.6846761442905756, self.ENERGY_PLACES)
+        self.assertAlmostEqual(np.linalg.norm(res.ee_t_coeff[0][:nocc*nvir]),  0.9990012466882306, self.ENERGY_PLACES)
+        self.assertAlmostEqual(np.linalg.norm(res.ee_sf_coeff[0][:nocc*nvir]), 0.9990012297986601, self.ENERGY_PLACES)
 
 
 if __name__ == '__main__':

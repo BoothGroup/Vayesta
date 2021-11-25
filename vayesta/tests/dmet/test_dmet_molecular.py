@@ -1,119 +1,114 @@
 import unittest
 import numpy as np
 
-import pyscf.gto
-import pyscf.scf
-
 from vayesta import dmet
 from vayesta.tests.cache import mols
 
-#TODO: increase precision
 
+class MolecularDMETTest(unittest.TestCase):
+    ENERGY_PLACES = 7
+    CONV_TOL = 1e-9
 
-class MolecularDMETTest:
-
-    key = None
-    mf_key = None
-    PLACES = 7
-
-    @classmethod
-    def setUpClass(cls):
-        cls.dmet = None
-        cls.known_values = None
-
-    @classmethod
-    def tearDownClass(cls):
-        del cls.dmet, cls.known_values
-
-    def test_converged(self):
+    def _test_converged(self, emb, known_values=None):
         """Test that the DMET has converged.
         """
 
-        self.assertTrue(self.dmet.converged)
+        self.assertTrue(emb.converged)
 
-    def test_energy(self):
+    def _test_energy(self, emb, known_values):
         """Test that the energy matches a known value.
         """
 
-        self.assertAlmostEqual(self.dmet.e_tot, self.known_values['e_tot'], self.PLACES)
+        self.assertAlmostEqual(emb.e_tot, known_values['e_tot'], self.ENERGY_PLACES)
 
+    def test_h6_sto6g_FCI_IAO_cc(self):
+        """Test H6 STO-6G with FCI solver, IAO fragmentation and charge consistency.
+        """
 
-class MolecularDMETTest_H6_sto6g_FCI_IAO_cc(unittest.TestCase, MolecularDMETTest):
-
-    key = 'h6_sto6g'
-    mf_key = 'rhf'
-
-    @classmethod
-    def setUpClass(cls):
-        cls.dmet = dmet.DMET(
-                mols[cls.key][cls.mf_key],
+        emb = dmet.DMET(
+                mols['h6_sto6g']['rhf'],
                 solver='FCI',
                 charge_consistent=True,
                 bath_type=None,
-                conv_tol=1e-9,
+                conv_tol=self.CONV_TOL,
         )
-        cls.dmet.iao_fragmentation()
-        for x in range(3):
-            cls.dmet.make_atom_fragment([x*2, x*2+1])
-        cls.dmet.kernel()
+        emb.iao_fragmentation()
+        emb.add_atomic_fragment([0, 1])
+        emb.add_atomic_fragment([2, 3])
+        emb.add_atomic_fragment([4, 5])
+        emb.kernel()
 
-        cls.known_values = {'e_tot': -3.2596560444286524}
+        known_values = {'e_tot': -3.2596560444286524}
 
+        self._test_converged(emb)
+        self._test_energy(emb, known_values)
 
-class MolecularDMETTest_H6_sto6g_FCI_IAO_nocc(MolecularDMETTest_H6_sto6g_FCI_IAO_cc):
+    def test_h6_sto6g_FCI_IAO_nocc(self):
+        """Test H6 STO-6G with FCI solver, IAO fragmentation and no charge consistency.
+        """
 
-    @classmethod
-    def setUpClass(cls):
-        cls.dmet = dmet.DMET(
-                mols[cls.key][cls.mf_key],
+        emb = dmet.DMET(
+                mols['h6_sto6g']['rhf'],
                 solver='FCI',
                 charge_consistent=False,
                 bath_type=None,
-                conv_tol=1e-9,
+                conv_tol=self.CONV_TOL,
         )
-        cls.dmet.iao_fragmentation()
-        for x in range(3):
-            cls.dmet.make_atom_fragment([x*2, x*2+1])
-        cls.dmet.kernel()
+        emb.iao_fragmentation()
+        emb.add_atomic_fragment([0, 1])
+        emb.add_atomic_fragment([2, 3])
+        emb.add_atomic_fragment([4, 5])
+        emb.kernel()
 
-        cls.known_values = {'e_tot': -3.2596414844443995}
+        known_values = {'e_tot': -3.2596414844443995}
 
+        self._test_converged(emb)
+        self._test_energy(emb, known_values)
 
-class MolecularDMETTest_H6_sto6g_FCI_IAO_all(MolecularDMETTest_H6_sto6g_FCI_IAO_cc):
-    @classmethod
-    def setUpClass(cls):
-        cls.dmet = dmet.DMET(
-                mols[cls.key][cls.mf_key],
+    def test_h6_sto6g_FCI_IAO_all(self):
+        """Test H6 STO-6G with FCI solver, IAO fragmentation and complete bath.
+        """
+
+        emb = dmet.DMET(
+                mols['h6_sto6g']['rhf'],
                 solver='FCI',
                 charge_consistent=False,
                 bath_type='all',
-                conv_tol=1e-9,
+                conv_tol=self.CONV_TOL,
         )
-        cls.dmet.iao_fragmentation()
-        for x in range(3):
-            cls.dmet.make_atom_fragment([x*2, x*2+1])
-        cls.dmet.kernel()
+        emb.iao_fragmentation()
+        emb.add_atomic_fragment([0, 1])
+        emb.add_atomic_fragment([2, 3])
+        emb.add_atomic_fragment([4, 5])
+        emb.kernel()
 
-        cls.known_values = {'e_tot': -3.2585986118561703}
+        known_values = {'e_tot': -3.2585986118561703}
 
+        self._test_converged(emb)
+        self._test_energy(emb, known_values)
 
-class MolecularDMETTest_H6_sto6g_FCI_IAO_BNO(MolecularDMETTest_H6_sto6g_FCI_IAO_cc):
-    @classmethod
-    def setUpClass(cls):
-        cls.dmet = dmet.DMET(
-                mols[cls.key][cls.mf_key],
+    def test_h6_sto6g_FCI_IAO_BNO(self):
+        """Test H6 STO-6G with FCI solver, IAO fragmentation and complete BNO bath.
+        """
+
+        emb = dmet.DMET(
+                mols['h6_sto6g']['rhf'],
                 solver='FCI',
                 charge_consistent=False,
                 bath_type='MP2-BNO',
                 bno_threshold=np.inf,
-                conv_tol=1e-9,
+                conv_tol=self.CONV_TOL,
         )
-        cls.dmet.iao_fragmentation()
-        for x in range(3):
-            cls.dmet.make_atom_fragment([x*2, x*2+1])
-        cls.dmet.kernel()
+        emb.iao_fragmentation()
+        emb.add_atomic_fragment([0, 1])
+        emb.add_atomic_fragment([2, 3])
+        emb.add_atomic_fragment([4, 5])
+        emb.kernel()
 
-        cls.known_values = {'e_tot': -3.2596414844443995}
+        known_values = {'e_tot': -3.2596414844443995}
+
+        self._test_converged(emb)
+        self._test_energy(emb, known_values)
 
 
 if __name__ == '__main__':

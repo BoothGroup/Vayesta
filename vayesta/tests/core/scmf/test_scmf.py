@@ -5,10 +5,11 @@ from vayesta.tests.cache import mols
 
 
 class SCMFTests(unittest.TestCase):
-
     key = 'n2_631g'
     mf_key = 'rhf'
-    PLACES = 8
+    PLACES = 7
+    CONV_TOL_E = 1e-10
+    CONV_TOL_D = 1e-8
 
     def test_pdmet(self):
         """Test p-DMET.
@@ -17,7 +18,7 @@ class SCMFTests(unittest.TestCase):
         emb = ewf.EWF(mols[self.key][self.mf_key], make_rdm1=True, bath_type=None)
         emb.sao_fragmentation()
         emb.make_all_atom_fragments()
-        emb.pdmet_scmf(etol=1e-10, dtol=1e-8)
+        emb.pdmet_scmf(etol=self.CONV_TOL_E, dtol=self.CONV_TOL_D)
         emb.kernel()
 
         self.assertTrue(emb.with_scmf.converged)
@@ -31,7 +32,7 @@ class SCMFTests(unittest.TestCase):
         emb = ewf.EWF(mols[self.key][self.mf_key], make_rdm1=True, bath_type=None)
         emb.sao_fragmentation()
         emb.make_all_atom_fragments()
-        emb.brueckner_scmf(etol=1e-10, dtol=1e-8)
+        emb.brueckner_scmf(etol=self.CONV_TOL_E, dtol=self.CONV_TOL_D)
         emb.kernel()
 
         self.assertTrue(emb.with_scmf.converged)
@@ -40,7 +41,6 @@ class SCMFTests(unittest.TestCase):
 
 
 class USCMFTests(SCMFTests):
-
     key = 'n2_631g'
     mf_key = 'uhf'
     PLACES = 7

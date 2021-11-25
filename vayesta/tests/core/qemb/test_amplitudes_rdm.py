@@ -10,8 +10,7 @@ import vayesta.ewf
 from vayesta.tests.cache import mols
 
 
-class T_Amplitudes(unittest.TestCase):
-
+class T_Amplitudes_Tests(unittest.TestCase):
     key = 'h2o_ccpvdz'
 
     @classmethod
@@ -70,8 +69,7 @@ class T_Amplitudes(unittest.TestCase):
         self.assertIsNone(np.testing.assert_allclose(dm2, self.dm2, atol=atol))
 
 
-class T_Amplitudes_UHF(unittest.TestCase):
-
+class T_Amplitudes_UHF_Tests(unittest.TestCase):
     key = 'h2o_ccpvdz'
 
     @classmethod

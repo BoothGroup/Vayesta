@@ -1,68 +1,57 @@
 import unittest
 import numpy as np
-from vayesta import lattmod, edmet
+
 import pyscf.gto
 import pyscf.scf
 import pyscf.tools.ring
 
-
-class MolecularEDMETTest:
-    ''' Abstract base class for molecular EDMET tests.
-    '''
-
-    @classmethod
-    def setUpClass(cls):
-        cls.mol = None
-        cls.mf = None
-        cls.edmet = None
-        cls.known_values = None
-
-    @classmethod
-    def tearDownClass(cls):
-        del cls.mol, cls.mf, cls.edmet, cls.known_values
-
-    def test_energy(self):
-        self.assertAlmostEqual(self.edmet.e_tot, self.known_values['e_tot'], 6)
+from vayesta import edmet
+from vayesta.tests.cache import mols
 
 
-class MolecularEDMETTest_H6_sto6g_EBFCI_IAO_1occ(unittest.TestCase, MolecularEDMETTest):
-    @classmethod
-    def setUpClass(cls):
-        cls.mol = pyscf.gto.Mole()
-        cls.mol.atom = [('H %f %f %f' % xyz) for xyz in pyscf.tools.ring.make(6, 1.0)]
-        cls.mol.basis = 'sto-6g'
-        cls.mol.build()
+class MolecularEDMETTest(unittest.TestCase):
+    ENERGY_PLACES = 7
+    CONV_TOL = 1e-9
 
-        cls.mf = pyscf.scf.RHF(cls.mol)
-        cls.mf.kernel()
+    def _test_energy(self, emb, known_values):
+        """Tests that the energy matfhes a known values.
+        """
 
-        cls.edmet = edmet.EDMET(cls.mf, solver='EBFCI', bos_occ_cutoff=1)
-        cls.edmet.iao_fragmentation()
-        for i in range(cls.mol.natm//2):
-            cls.edmet.make_atom_fragment([i*2, i*2+1])
-        cls.edmet.kernel()
+        self.assertAlmostEqual(emb.e_tot, known_values['e_tot'], self.ENERGY_PLACES)
 
-        cls.known_values = {'e_tot': -3.258336016231219 }
+    def test_h6_sto6g_EBFCI_IAO_1occ(self):
+        emb = edmet.EDMET(
+                mols['h6_sto6g']['rhf'],
+                solver='EBFCI',
+                bos_occ_cutoff=1,
+                conv_tol=self.CONV_TOL,
+        )
+        emb.iao_fragmentation()
+        emb.add_atomic_fragment([0, 1])
+        emb.add_atomic_fragment([2, 3])
+        emb.add_atomic_fragment([4, 5])
+        emb.kernel()
 
+        known_values = {'e_tot': -3.258336016231219}
 
-class MolecularEDMETTest_H6_sto6g_EBFCI_IAO_2occ(unittest.TestCase, MolecularEDMETTest):
-    @classmethod
-    def setUpClass(cls):
-        cls.mol = pyscf.gto.Mole()
-        cls.mol.atom = [('H %f %f %f' % xyz) for xyz in pyscf.tools.ring.make(6, 1.0)]
-        cls.mol.basis = 'sto-6g'
-        cls.mol.build()
+        self._test_energy(emb, known_values)
 
-        cls.mf = pyscf.scf.RHF(cls.mol)
-        cls.mf.kernel()
+    def test_h6_sto6g_EBFCI_IAO_2occ(self):
+        emb = edmet.EDMET(
+                mols['h6_sto6g']['rhf'],
+                solver='EBFCI',
+                bos_occ_cutoff=2,
+                conv_tol=self.CONV_TOL,
+        )
+        emb.iao_fragmentation()
+        emb.add_atomic_fragment([0, 1])
+        emb.add_atomic_fragment([2, 3])
+        emb.add_atomic_fragment([4, 5])
+        emb.kernel()
 
-        cls.edmet = edmet.EDMET(cls.mf, solver='EBFCI', bos_occ_cutoff=2)
-        cls.edmet.iao_fragmentation()
-        for i in range(cls.mol.natm//2):
-            cls.edmet.make_atom_fragment([i*2, i*2+1])
-        cls.edmet.kernel()
+        known_values = {'e_tot': -3.259289706885438}
 
-        cls.known_values = {'e_tot':  -3.259289706885438}
+        self._test_energy(emb, known_values)
 
 
 if __name__ == '__main__':

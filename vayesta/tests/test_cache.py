@@ -5,7 +5,6 @@ from vayesta.tests.cache import mols, cells, allowed_keys_mol, allowed_keys_cell
 
 
 class MolTests:
-
     key = None
     mf_key = 'rhf'
     cache = mols
@@ -70,7 +69,6 @@ class MolTests:
 
 
 class UMolTests(MolTests):
-
     mf_key = 'uhf'
     PLACES_SPIN = 10
 
@@ -109,7 +107,6 @@ class UMolTests(MolTests):
 
 
 class CellTests(MolTests):
-
     cache = cells
 
     def test_canonical(self):
@@ -143,7 +140,6 @@ class CellTests(MolTests):
 
 
 class UCellTests(CellTests, UMolTests):
-
     def test_canonical(self):
         """Test that the reference is canonical.
         """
@@ -276,11 +272,6 @@ class he2_631g_222_rhf_Tests(unittest.TestCase, CellTests):
     known_values = {'e_tot': -5.711761178431758}
 
 
-class he2_ccpvdz_222_rhf_Tests(unittest.TestCase, CellTests):
-    key = 'he2_ccpvdz_222'
-    known_values = {'e_tot': -5.7117634231993035}
-
-
 class he_631g_222_rhf_Tests(unittest.TestCase, CellTests):
     key = 'he_631g_222'
     known_values = {'e_tot': -2.8584823308467895}
@@ -303,6 +294,11 @@ class he2_631g_222_uhf_Tests(unittest.TestCase, UCellTests):
 for key in allowed_keys_mol:
     for mf_key in ['rhf', 'uhf']:
         if mols[key][mf_key] is not False:
+            assert ('%s_%s_Tests' % (key, mf_key)) in globals(), ('%s_%s_Tests' % (key, mf_key))
+
+for key in allowed_keys_cell:
+    for mf_key in ['rhf', 'uhf']:
+        if cells[key][mf_key] is not False:
             assert ('%s_%s_Tests' % (key, mf_key)) in globals(), ('%s_%s_Tests' % (key, mf_key))
 
 

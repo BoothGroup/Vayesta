@@ -8,12 +8,10 @@ from pyscf.cc import dfccsd
 from vayesta.core.ao2mo import kao2gmo
 from vayesta.tests import cache
 
-PLACES_ERIS = 8
-
 
 class KAO2GMOTests(unittest.TestCase):
-
     key = 'he_631g_222'
+    PLACES_ERIS = 8
 
     @classmethod
     def setUpClass(cls):
@@ -38,8 +36,8 @@ class KAO2GMOTests(unittest.TestCase):
         for key in eri0.keys():
             coeffs = tuple([mo_coeff_occ, mo_coeff_vir][k == 'v'] for k in key)
             eri2 = gmf.with_df.ao2mo(coeffs, compact=False).reshape([c.shape[1] for c in coeffs])
-            self.assertAlmostEqual(np.max(np.abs(eri0[key]-eri2)), 0.0, PLACES_ERIS)
-            self.assertAlmostEqual(np.max(np.abs(eri1[key]-eri2)), 0.0, PLACES_ERIS)
+            self.assertAlmostEqual(np.max(np.abs(eri0[key]-eri2)), 0.0, self.PLACES_ERIS)
+            self.assertAlmostEqual(np.max(np.abs(eri1[key]-eri2)), 0.0, self.PLACES_ERIS)
 
     def test_mp2_eris(self):
         """Test agreement between unfolded and gamma-point integrals
@@ -56,7 +54,7 @@ class KAO2GMOTests(unittest.TestCase):
         for key in ['ovov']:
             coeffs = tuple([mo_coeff_occ, mo_coeff_vir][k == 'v'] for k in key)
             eri1 = gmf.with_df.ao2mo(coeffs, compact=False).reshape([c.shape[1] for c in coeffs])
-            self.assertAlmostEqual(np.max(np.abs(getattr(eri0, key)-eri1)), 0.0, PLACES_ERIS)
+            self.assertAlmostEqual(np.max(np.abs(getattr(eri0, key)-eri1)), 0.0, self.PLACES_ERIS)
 
     def test_rccsd_eris(self):
         """Test agreement between unfolded and gamma-point integrals
@@ -73,7 +71,7 @@ class KAO2GMOTests(unittest.TestCase):
         for key in ['ovov', 'oovv', 'ovvo', 'ovoo', 'oooo', 'ovvv', 'vvvv']:
             coeffs = tuple([mo_coeff_occ, mo_coeff_vir][k == 'v'] for k in key)
             eri1 = gmf.with_df.ao2mo(coeffs, compact=False).reshape([c.shape[1] for c in coeffs])
-            self.assertAlmostEqual(np.max(np.abs(getattr(eri0, key)-eri1)), 0.0, PLACES_ERIS)
+            self.assertAlmostEqual(np.max(np.abs(getattr(eri0, key)-eri1)), 0.0, self.PLACES_ERIS)
 
     def test_dfccsd_eris(self):
         """Test agreement between unfolded and gamma-point integrals
@@ -90,19 +88,19 @@ class KAO2GMOTests(unittest.TestCase):
         for key in ['ovov', 'oovv', 'ovvo', 'ovoo', 'oooo']:
             coeffs = tuple([mo_coeff_occ, mo_coeff_vir][k == 'v'] for k in key)
             eri1 = gmf.with_df.ao2mo(coeffs, compact=False).reshape([c.shape[1] for c in coeffs])
-            self.assertAlmostEqual(np.max(np.abs(getattr(eri0, key)-eri1)), 0.0, PLACES_ERIS)
+            self.assertAlmostEqual(np.max(np.abs(getattr(eri0, key)-eri1)), 0.0, self.PLACES_ERIS)
 
         # ovvv is compressed with sym=True:
         coeffs = [mo_coeff_occ, mo_coeff_vir, mo_coeff_vir, mo_coeff_vir]
         eri1 = gmf.with_df.ao2mo(coeffs, compact=True)
         eri1 = eri1.reshape([coeffs[0].shape[1], coeffs[1].shape[1], -1])
-        self.assertAlmostEqual(np.max(np.abs(eri0.ovvv-eri1)), 0.0, PLACES_ERIS)
+        self.assertAlmostEqual(np.max(np.abs(eri0.ovvv-eri1)), 0.0, self.PLACES_ERIS)
 
         # (vv|L)(L|vv) -> (vv|vv) contraction is performed late:
         coeffs = [mo_coeff_vir, mo_coeff_vir, mo_coeff_vir, mo_coeff_vir]
         eri1 = gmf.with_df.ao2mo(coeffs, compact=True)
         eri0_vvvv = np.dot(eri0.vvL, eri0.vvL.T)
-        self.assertAlmostEqual(np.max(np.abs(eri0_vvvv-eri1)), 0.0, PLACES_ERIS)
+        self.assertAlmostEqual(np.max(np.abs(eri0_vvvv-eri1)), 0.0, self.PLACES_ERIS)
 
     def test_ccsd_eris(self):
         """Test agreement between unfolded and gamma-point integrals
@@ -119,16 +117,16 @@ class KAO2GMOTests(unittest.TestCase):
         for key in ['ovov', 'oovv', 'ovvo', 'ovoo', 'oooo']:
             coeffs = tuple([mo_coeff_occ, mo_coeff_vir][k == 'v'] for k in key)
             eri1 = gmf.with_df.ao2mo(coeffs, compact=False).reshape([c.shape[1] for c in coeffs])
-            self.assertAlmostEqual(np.max(np.abs(getattr(eri0, key)-eri1)), 0.0, PLACES_ERIS)
+            self.assertAlmostEqual(np.max(np.abs(getattr(eri0, key)-eri1)), 0.0, self.PLACES_ERIS)
 
         # ovvv and vvvv are compressed with sym=True:
         coeffs = [mo_coeff_occ, mo_coeff_vir, mo_coeff_vir, mo_coeff_vir]
         eri1 = gmf.with_df.ao2mo(coeffs, compact=True)
         eri1 = eri1.reshape([coeffs[0].shape[1], coeffs[1].shape[1], -1])
-        self.assertAlmostEqual(np.max(np.abs(eri0.ovvv-eri1)), 0.0, PLACES_ERIS)
+        self.assertAlmostEqual(np.max(np.abs(eri0.ovvv-eri1)), 0.0, self.PLACES_ERIS)
         coeffs = [mo_coeff_vir, mo_coeff_vir, mo_coeff_vir, mo_coeff_vir]
         eri1 = gmf.with_df.ao2mo(coeffs, compact=True)
-        self.assertAlmostEqual(np.max(np.abs(eri0.vvvv-eri1)), 0.0, PLACES_ERIS)
+        self.assertAlmostEqual(np.max(np.abs(eri0.vvvv-eri1)), 0.0, self.PLACES_ERIS)
 
 
 class KAO2GMO2dTests(KAO2GMOTests):

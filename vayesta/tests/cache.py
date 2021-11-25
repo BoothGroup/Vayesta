@@ -17,7 +17,7 @@ allowed_keys_mol = [
 
 
 allowed_keys_cell = [
-        'he2_631g_222', 'he2_ccpvdz_222', 'he_631g_222', 'h2_sto3g_331_2d',
+        'he2_631g_222', 'he_631g_222', 'h2_sto3g_331_2d',
 ]
 
 
@@ -140,14 +140,6 @@ def register_system_cell(cache, key):
         cell.mesh = [11, 11, 11]
         kpts = cell.make_kpts([2, 2, 2])
         rhf = uhf = True
-    elif key == 'he2_ccpvdz_222':
-        cell.atom = 'He 3 2 3; He 1 1 1'
-        cell.basis = 'cc-pvdz'
-        cell.exp_to_discard = 0.1
-        cell.a = np.eye(3) * 5
-        cell.mesh = [11, 11, 11]
-        kpts = cell.make_kpts([2, 2, 2])
-        rhf = True
     elif key == 'he_631g_222':
         cell.atom = 'He 0 0 0'
         cell.basis = '6-31g'

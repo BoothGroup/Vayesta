@@ -5,7 +5,6 @@ from vayesta.core import linalg
 
 
 class LinalgTests(unittest.TestCase):
-
     def test_recursive_block_svd(self):
         """Test the recursive_block_svd function.
         """
