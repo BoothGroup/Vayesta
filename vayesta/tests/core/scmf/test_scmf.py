@@ -1,90 +1,49 @@
 import unittest
-import numpy as np
-from pyscf import gto, scf
+
 from vayesta import ewf
+from vayesta.tests.cache import mols
 
 
 class SCMFTests(unittest.TestCase):
 
-    @classmethod
-    def setUpClass(cls):
-        cls.mol = gto.Mole()
-        cls.mol.atom = 'N 0 0 0; N 0 0 1.1'
-        cls.mol.basis = '6-31g'
-        cls.mol.verbose = 0
-        cls.mol.max_memory = 1e9
-        cls.mol.build()
-        cls.mf = scf.RHF(cls.mol)
-        cls.mf.conv_tol = 1e-12
-        cls.mf.kernel()
-
-    @classmethod
-    def tearDownClass(cls):
-        del cls.mol, cls.mf
+    key = 'n2_631g'
+    mf_key = 'rhf'
+    PLACES = 8
 
     def test_pdmet(self):
-        emb = ewf.EWF(self.mf, make_rdm1=True, bath_type=None)
+        """Test p-DMET.
+        """
+
+        emb = ewf.EWF(mols[self.key][self.mf_key], make_rdm1=True, bath_type=None)
         emb.sao_fragmentation()
         emb.make_all_atom_fragments()
         emb.pdmet_scmf(etol=1e-10, dtol=1e-8)
         emb.kernel()
 
         self.assertTrue(emb.with_scmf.converged)
-        self.assertAlmostEqual(emb.with_scmf.e_tot_oneshot, -109.06727638760327, 8)
-        self.assertAlmostEqual(emb.with_scmf.e_tot, -109.06845425753974, 8)
+        self.assertAlmostEqual(emb.with_scmf.e_tot_oneshot, -109.06727638760327, self.PLACES)
+        self.assertAlmostEqual(emb.with_scmf.e_tot,         -109.06845425753974, self.PLACES)
 
     def test_brueckner(self):
-        emb = ewf.EWF(self.mf, make_rdm1=True, bath_type=None)
+        """Test Brueckner DMET.
+        """
+
+        emb = ewf.EWF(mols[self.key][self.mf_key], make_rdm1=True, bath_type=None)
         emb.sao_fragmentation()
         emb.make_all_atom_fragments()
         emb.brueckner_scmf(etol=1e-10, dtol=1e-8)
         emb.kernel()
 
         self.assertTrue(emb.with_scmf.converged)
-        self.assertAlmostEqual(emb.with_scmf.e_tot_oneshot, -109.06727638760327, 8)
-        self.assertAlmostEqual(emb.with_scmf.e_tot, -109.06844454464843, 8)
+        self.assertAlmostEqual(emb.with_scmf.e_tot_oneshot, -109.06727638760327, self.PLACES)
+        self.assertAlmostEqual(emb.with_scmf.e_tot,         -109.06844454464843, self.PLACES)
 
 
 class USCMFTests(unittest.TestCase):
 
-    @classmethod
-    def setUpClass(cls):
-        cls.mol = gto.Mole()
-        cls.mol.atom = 'Be 0 0 0; H 0 0 1'
-        cls.mol.basis = '6-31g'
-        cls.mol.spin = 1
-        cls.mol.verbose = 0
-        cls.mol.max_memory = 1e9
-        cls.mol.build()
-        cls.mf = scf.UHF(cls.mol)
-        cls.mf.conv_tol = 1e-12
-        cls.mf.kernel()
-
-    @classmethod
-    def tearDownClass(cls):
-        del cls.mol, cls.mf
-
-    def test_pdmet(self):
-        emb = ewf.EWF(self.mf, make_rdm1=True, bath_type=None)
-        emb.sao_fragmentation()
-        emb.make_all_atom_fragments()
-        emb.pdmet_scmf(etol=1e-10, dtol=1e-8)
-        emb.kernel()
-
-        self.assertTrue(emb.with_scmf.converged)
-        self.assertAlmostEqual(emb.with_scmf.e_tot_oneshot, -15.102484998592503, 8)
-        self.assertAlmostEqual(emb.with_scmf.e_tot, -15.102388080235999, 8)
-
-    def test_brueckner(self):
-        emb = ewf.EWF(self.mf, make_rdm1=True, bath_type=None)
-        emb.sao_fragmentation()
-        emb.make_all_atom_fragments()
-        emb.brueckner_scmf(etol=1e-10, dtol=1e-8)
-        emb.kernel()
-
-        self.assertTrue(emb.with_scmf.converged)
-        self.assertAlmostEqual(emb.with_scmf.e_tot_oneshot, -15.102484998592503, 8)
-        self.assertAlmostEqual(emb.with_scmf.e_tot, -15.10241716615656, 8)
+    key = 'n2_631g'
+    mf_key = 'uhf'
+    PLACES = 7
 
 
 if __name__ == '__main__':

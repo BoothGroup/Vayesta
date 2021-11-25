@@ -9,14 +9,10 @@ import numpy as np
 from vayesta.misc import molstructs, gdf
 from vayesta import log
 
-#TODO check stability
-#TODO check spin_square for UHF ([0] > 1e-2 ?)
-
 
 allowed_keys_mol = [
-        'h2_ccpvdz', 'h2_ccpvdz_stretch', 'h2_ccpvdz_diss', 'h2o_ccpvdz',
-        'h2o_ccpvdz_df', 'h2o_augccpvdz_df', 'n2_ccpvdz_df', 'lih_ccpvdz',
-        'h6_sto6g', 'h10_sto6g',
+        'h2_ccpvdz', 'h2o_ccpvdz', 'h2o_ccpvdz_df', 'h2o_augccpvdz_df',
+        'n2_631g', 'n2_ccpvdz_df', 'lih_ccpvdz', 'h6_sto6g', 'h10_sto6g',
 ]
 
 
@@ -76,6 +72,10 @@ def register_system_mol(cache, key):
         mol.basis = 'aug-cc-pvdz'
         rhf = uhf = True
         df = True
+    elif key == 'n2_631g':
+        mol.atom = 'N1 0 0 0; N2 0 0 1.1'
+        mol.basis = '6-31g'
+        rhf = uhf = True
     elif key == 'n2_ccpvdz_df':
         mol.atom = 'N1 0 0 0; N2 0 0 1.1'
         mol.basis = 'cc-pvdz'
@@ -108,14 +108,14 @@ def register_system_mol(cache, key):
         rhf = pyscf.scf.RHF(mol)
         if df:
             rhf = rhf.density_fit()
-        rhf.conv_tol = 1e-12
+        rhf.conv_tol = 1e-14
         rhf.kernel()
 
     if uhf:
         uhf = pyscf.scf.UHF(mol)
         if df:
             uhf = uhf.density_fit()
-        uhf.conv_tol = 1e-12
+        uhf.conv_tol = 1e-14
         uhf.kernel()
 
     cache._cache[key] = {
@@ -139,7 +139,7 @@ def register_system_cell(cache, key):
         cell.a = np.eye(3) * 5
         cell.mesh = [11, 11, 11]
         kpts = cell.make_kpts([2, 2, 2])
-        rhf = True
+        rhf = uhf = True
     elif key == 'he2_ccpvdz_222':
         cell.atom = 'He 3 2 3; He 1 1 1'
         cell.basis = 'cc-pvdz'
@@ -172,7 +172,7 @@ def register_system_cell(cache, key):
     cell.build()
 
     if rhf:
-        rhf = pyscf.pbc.scf.KRHF(cell)
+        rhf = pyscf.pbc.scf.KRHF(cell, kpts)
         rhf.conv_tol = 1e-12
         if cell.dimension == 3:
             rhf.with_df = gdf.GDF(cell, kpts)
@@ -182,7 +182,7 @@ def register_system_cell(cache, key):
         rhf.kernel()
 
     if uhf:
-        uhf = pyscf.pbc.scf.KUHF(cell)
+        uhf = pyscf.pbc.scf.KUHF(cell, kpts)
         uhf.conv_tol = 1e-12
         if rhf:
             uhf.with_df = rhf.with_df
