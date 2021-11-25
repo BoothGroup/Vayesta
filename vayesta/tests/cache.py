@@ -10,12 +10,13 @@ from vayesta.misc import molstructs, gdf
 from vayesta import log
 
 #TODO check stability
-#TODO check spin_square for UHF
+#TODO check spin_square for UHF ([0] > 1e-2 ?)
 
 
 allowed_keys_mol = [
-        'h2_ccpvdz', 'h2_ccpvdz_stretch', 'h2o_ccpvdz', 'h2o_augccpvdz',
-        'n2_ccpvdz', 'lih_ccpvdz', 'h6_sto6g', 'h10_sto6g',
+        'h2_ccpvdz', 'h2_ccpvdz_stretch', 'h2_ccpvdz_diss', 'h2o_ccpvdz',
+        'h2o_ccpvdz_df', 'h2o_augccpvdz_df', 'n2_ccpvdz_df', 'lih_ccpvdz',
+        'h6_sto6g', 'h10_sto6g',
 ]
 
 
@@ -46,7 +47,8 @@ def register_system_mol(cache, key):
     """
 
     mol = pyscf.gto.Mole()
-    rhf = uhf = rhf_df = uhf_df = False
+    rhf = uhf = False
+    df = False
 
     if key == 'h2_ccpvdz':
         mol.atom = 'H1 0 0 0; H2 0 0 1'
@@ -56,18 +58,29 @@ def register_system_mol(cache, key):
         mol.atom = 'H1 0 0 0; H2 0 0 1.4'
         mol.basis = 'cc-pvdz'
         rhf = uhf = True
+    elif key == 'h2_ccpvdz_diss':
+        mol.atom = 'H1 0 0 0; H2 0 0 5.0'
+        mol.basis = 'cc-pvdz'
+        uhf = True
     elif key == 'h2o_ccpvdz':
         mol.atom = molstructs.water()
         mol.basis = 'cc-pvdz'
-        rhf = uhf = rhf_df = uhf_df = True
-    elif key == 'h2o_augccpvdz':
+        rhf = uhf = True
+    elif key == 'h2o_ccpvdz_df':
+        mol.atom = molstructs.water()
+        mol.basis = 'cc-pvdz'
+        rhf = uhf = True
+        df = True
+    elif key == 'h2o_augccpvdz_df':
         mol.atom = molstructs.water()
         mol.basis = 'aug-cc-pvdz'
-        rhf_df = uhf_df = True
-    elif key == 'n2_ccpvdz':
+        rhf = uhf = True
+        df = True
+    elif key == 'n2_ccpvdz_df':
         mol.atom = 'N1 0 0 0; N2 0 0 1.1'
         mol.basis = 'cc-pvdz'
-        rhf = uhf = rhf_df = uhf_df = True
+        rhf = uhf = True
+        df = True
     elif key == 'lih_ccpvdz':
         mol.atom = 'Li 0 0 0; H 0 0 1.4'
         mol.basis = 'cc-pvdz'
@@ -93,32 +106,22 @@ def register_system_mol(cache, key):
     #TODO check stability
     if rhf:
         rhf = pyscf.scf.RHF(mol)
+        if df:
+            rhf = rhf.density_fit()
         rhf.conv_tol = 1e-12
         rhf.kernel()
 
     if uhf:
         uhf = pyscf.scf.UHF(mol)
+        if df:
+            uhf = uhf.density_fit()
         uhf.conv_tol = 1e-12
         uhf.kernel()
-
-    if rhf_df:
-        rhf_df = pyscf.scf.RHF(mol)
-        rhf_df = rhf_df.density_fit()
-        rhf_df.conv_tol = 1e-12
-        rhf_df.kernel()
-
-    if uhf_df is not None:
-        uhf_df = pyscf.scf.UHF(mol)
-        uhf_df = uhf_df.density_fit()
-        uhf_df.conv_tol = 1e-12
-        uhf_df.kernel()
 
     cache._cache[key] = {
         'mol': mol,
         'rhf': rhf,
         'uhf': uhf,
-        'rhf_df': rhf_df,
-        'uhf_df': uhf_df,
     }
 
 
