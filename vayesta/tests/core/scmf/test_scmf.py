@@ -39,7 +39,7 @@ class SCMFTests(unittest.TestCase):
         self.assertAlmostEqual(emb.with_scmf.e_tot,         -109.06844454464843, self.PLACES)
 
 
-class USCMFTests(unittest.TestCase):
+class USCMFTests(SCMFTests):
 
     key = 'n2_631g'
     mf_key = 'uhf'

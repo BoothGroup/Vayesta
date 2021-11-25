@@ -72,7 +72,7 @@ class T_Amplitudes(unittest.TestCase):
 
 class T_Amplitudes_UHF(unittest.TestCase):
 
-    key = 'h2_ccpvdz_diss'
+    key = 'h2o_ccpvdz'
 
     @classmethod
     def setUpClass(cls):
@@ -113,7 +113,7 @@ class T_Amplitudes_UHF(unittest.TestCase):
         self.assertIsNone(np.testing.assert_allclose(t2ab, self.ccsd.t2[1], atol=atol))
         self.assertIsNone(np.testing.assert_allclose(t2bb, self.ccsd.t2[2], atol=atol))
 
-    def test_t12(self)
+    def test_t12(self):
         """Test T1 and T2 amplitudes.
         """
         atol = 1e-6

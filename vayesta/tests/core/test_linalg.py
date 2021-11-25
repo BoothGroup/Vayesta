@@ -1,19 +1,15 @@
 import unittest
 import numpy as np
+
 from vayesta.core import linalg
 
 
 class LinalgTests(unittest.TestCase):
 
-    @classmethod
-    def setUpClass(cls):
-        pass
+    def test_recursive_block_svd(self):
+        """Test the recursive_block_svd function.
+        """
 
-    @classmethod
-    def tearDownClass(cls):
-        pass
-
-    def test_recursive_svd(self):
         n = 100
         np.random.seed(1)
         dm = np.random.random((n, n)) - 0.5
@@ -28,7 +24,7 @@ class LinalgTests(unittest.TestCase):
         mo_svd = np.dot(c_env, vh.T)
         ncpl = len(s)
 
-        dmocc2 = np.linalg.multi_dot((mo_svd[:,:ncpl].T, fock, mo_svd[:,ncpl:]))
+        dmocc2 = np.linalg.multi_dot((mo_svd[:, :ncpl].T, fock, mo_svd[:, ncpl:]))
         u, s, vh = np.linalg.svd(dmocc2)
 
         nimp = c_frag.shape[-1]

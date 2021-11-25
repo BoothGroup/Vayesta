@@ -11,29 +11,6 @@ from vayesta.tests import cache
 PLACES_ERIS = 8
 
 
-#class KAO2GMO2dTests(unittest.TestCase):
-#
-#    key = 'h2_sto3g_331_2d'
-#
-#    def test_gdf_to_eris_2d(self):
-#        """Test agreement between unfolded and gamma-point integrals.
-#        """
-#
-#        mf = cache.cells[self.key]['rhf']
-#        gmf = tools.k2gamma.k2gamma(mf)
-#        gmf = gmf.density_fit()
-#        mo_coeff_occ = gmf.mo_coeff[:, gmf.mo_occ > 0]
-#        mo_coeff_vir = gmf.mo_coeff[:, gmf.mo_occ == 0]
-#
-#        eri0 = kao2gmo.gdf_to_eris(mf.with_df, gmf.mo_coeff, nocc=mo_coeff_occ.shape[1], only_ovov=False)
-#        eri1 = kao2gmo.gdf_to_eris(mf.with_df, gmf.mo_coeff, nocc=mo_coeff_occ.shape[1], only_ovov=False, real_j3c=False)
-#        for key in eri0.keys():
-#            coeffs = tuple([mo_coeff_occ, mo_coeff_vir][k == 'v'] for k in key)
-#            eri2 = gmf.with_df.ao2mo(coeffs, compact=False).reshape([c.shape[1] for c in coeffs])
-#            self.assertAlmostEqual(np.max(np.abs(eri0[key]-eri2)), 0.0, PLACES_ERIS)
-#            self.assertAlmostEqual(np.max(np.abs(eri1[key]-eri2)), 0.0, PLACES_ERIS)
-
-
 class KAO2GMOTests(unittest.TestCase):
 
     key = 'he_631g_222'
