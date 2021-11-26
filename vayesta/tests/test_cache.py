@@ -1,13 +1,15 @@
 import unittest
 import numpy as np
 
-from vayesta.tests.cache import mols, cells, allowed_keys_mol, allowed_keys_cell
+from vayesta.tests.cache import moles, allowed_keys_mole
+from vayesta.tests.cache import cells, allowed_keys_cell
+from vayesta.tests.cache import latts, allowed_keys_latt
 
 
 class MolTests:
     key = None
     mf_key = 'rhf'
-    cache = mols
+    cache = moles
     known_values = {
     }
     ENERGY_PLACES = 10
@@ -59,10 +61,10 @@ class MolTests:
         """Test that the mean-field solution is stable.
         """
 
-        mo0 = mols[self.key][self.mf_key].mo_coeff
+        mo0 = self.cache[self.key][self.mf_key].mo_coeff
         mo0 = np.array(mo0)
 
-        mo1 = mols[self.key][self.mf_key].stability()[0]
+        mo1 = self.cache[self.key][self.mf_key].stability()[0]
         mo1 = np.array(mo1)
 
         self.assertAlmostEqual(np.max(np.abs(mo0-mo1)), 0.0, self.STABLE_PLACES)
@@ -171,47 +173,39 @@ class UCellTests(CellTests, UMolTests):
     test_stability = None
 
 
+class LattTests(MolTests):
+    cache = latts
+
+
 # RHF molecules:
 
 class h2_ccpvdz_rhf_Tests(unittest.TestCase, MolTests):
     key = 'h2_ccpvdz'
     known_values = {'e_tot': -1.1001537648784097}
 
-
 class h2o_ccpvdz_rhf_Tests(unittest.TestCase, MolTests):
     key = 'h2o_ccpvdz'
     known_values = {'e_tot': -76.0267720533941}
-
 
 class h2o_ccpvdz_df_rhf_Tests(unittest.TestCase, MolTests):
     key = 'h2o_ccpvdz_df'
     known_values = {'e_tot': -76.0267511405444}
 
-
-class h2o_augccpvdz_df_rhf_Tests(unittest.TestCase, MolTests):
-    key = 'h2o_augccpvdz_df'
-    known_values = {'e_tot': -76.04137330890157}
-
-
 class n2_631g_rhf_Tests(unittest.TestCase, MolTests):
     key = 'n2_631g'
     known_values = {'e_tot': -108.8676183730583}
-
 
 class n2_ccpvdz_df_rhf_Tests(unittest.TestCase, MolTests):
     key = 'n2_ccpvdz_df'
     known_values = {'e_tot': -108.95348837904693}
 
-
 class lih_ccpvdz_rhf_Tests(unittest.TestCase, MolTests):
     key = 'lih_ccpvdz'
     known_values = {'e_tot': -7.9763539426740895}
 
-
 class h6_sto6g_rhf_Tests(unittest.TestCase, MolTests):
     key = 'h6_sto6g'
     known_values = {'e_tot': -3.1775491323759173}
-
 
 class h10_sto6g_rhf_Tests(unittest.TestCase, MolTests):
     key = 'h10_sto6g'
@@ -224,41 +218,29 @@ class h2_ccpvdz_uhf_Tests(unittest.TestCase, UMolTests):
     key = 'h2_ccpvdz'
     known_values = {'e_tot': -1.1001537648784097}
 
-
 class h2o_ccpvdz_uhf_Tests(unittest.TestCase, UMolTests):
     key = 'h2o_ccpvdz'
     known_values = {'e_tot': -76.02677205339408}
-
 
 class h2o_ccpvdz_df_uhf_Tests(unittest.TestCase, UMolTests):
     key = 'h2o_ccpvdz_df'
     known_values = {'e_tot': -76.02675114054428}
 
-
-class h2o_augccpvdz_df_uhf_Tests(unittest.TestCase, UMolTests):
-    key = 'h2o_augccpvdz_df'
-    known_values = {'e_tot': -76.04137330890143}
-
-
 class n2_631g_uhf_Tests(unittest.TestCase, UMolTests):
     key = 'n2_631g'
     known_values = {'e_tot': -108.86761837305833}
-
 
 class n2_ccpvdz_df_uhf_Tests(unittest.TestCase, UMolTests):
     key = 'n2_ccpvdz_df'
     known_values = {'e_tot': -108.95348837904693}
 
-
 class lih_ccpvdz_uhf_Tests(unittest.TestCase, UMolTests):
     key = 'lih_ccpvdz'
     known_values = {'e_tot': -7.976353942674095}
 
-
 class h6_sto6g_uhf_Tests(unittest.TestCase, UMolTests):
     key = 'h6_sto6g'
     known_values = {'e_tot': -3.177549132375921}
-
 
 class h10_sto6g_uhf_Tests(unittest.TestCase, UMolTests):
     key = 'h10_sto6g'
@@ -271,11 +253,9 @@ class he2_631g_222_rhf_Tests(unittest.TestCase, CellTests):
     key = 'he2_631g_222'
     known_values = {'e_tot': -5.711761178431758}
 
-
 class he_631g_222_rhf_Tests(unittest.TestCase, CellTests):
     key = 'he_631g_222'
     known_values = {'e_tot': -2.8584823308467895}
-
 
 class h2_sto3g_331_2d_rhf_Tests(unittest.TestCase, CellTests):
     key = 'h2_sto3g_331_2d'
@@ -289,16 +269,56 @@ class he2_631g_222_uhf_Tests(unittest.TestCase, UCellTests):
     known_values = {'e_tot': -5.7117611784317575}
 
 
+# RHF lattices:
+
+class hubb_6_u0_rhf_Tests(unittest.TestCase, LattTests):
+    key = 'hubb_6_u0'
+    known_values = {'e_tot': -8.0}
+
+class hubb_10_u2_rhf_Tests(unittest.TestCase, LattTests):
+    key = 'hubb_10_u2'
+    known_values = {'e_tot': -7.9442719099991566}
+
+class hubb_16_u4_rhf_Tests(unittest.TestCase, LattTests):
+    key = 'hubb_16_u4'
+    known_values = {'e_tot': 17.991547869638765}
+
+class hubb_6x6_u0_1x1imp_rhf_Tests(unittest.TestCase, LattTests):
+    key = 'hubb_6x6_u0_1x1imp'
+    known_values = {'e_tot': -56.0}
+
+class hubb_6x6_u2_1x1imp_rhf_Tests(unittest.TestCase, LattTests):
+    key = 'hubb_6x6_u2_1x1imp'
+    known_values = {'e_tot': -46.6111111111112}
+
+class hubb_6x6_u6_1x1imp_rhf_Tests(unittest.TestCase, LattTests):
+    key = 'hubb_6x6_u6_1x1imp'
+    known_values = {'e_tot': -27.8333333333334}
+
+class hubb_8x8_u2_2x2imp_rhf_Tests(unittest.TestCase, LattTests):
+    key = 'hubb_8x8_u2_2x2imp'
+    known_values = {'e_tot': -81.72358399593925}
+
+class hubb_8x8_u2_2x1imp_rhf_Tests(unittest.TestCase, LattTests):
+    key = 'hubb_8x8_u2_2x1imp'
+    known_values = {'e_tot': -81.72358399593925}
+
+
 # Check they're all there:
 
-for key in allowed_keys_mol:
+for key in allowed_keys_mole:
     for mf_key in ['rhf', 'uhf']:
-        if mols[key][mf_key] is not False:
+        if moles[key][mf_key] is not False:
             assert ('%s_%s_Tests' % (key, mf_key)) in globals(), ('%s_%s_Tests' % (key, mf_key))
 
 for key in allowed_keys_cell:
     for mf_key in ['rhf', 'uhf']:
         if cells[key][mf_key] is not False:
+            assert ('%s_%s_Tests' % (key, mf_key)) in globals(), ('%s_%s_Tests' % (key, mf_key))
+
+for key in allowed_keys_latt:
+    for mf_key in ['rhf', 'uhf']:
+        if latts[key][mf_key] is not False:
             assert ('%s_%s_Tests' % (key, mf_key)) in globals(), ('%s_%s_Tests' % (key, mf_key))
 
 

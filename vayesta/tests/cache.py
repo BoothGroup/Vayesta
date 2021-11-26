@@ -7,17 +7,25 @@ import pyscf.tools.ring
 import numpy as np
 
 from vayesta.misc import molstructs, gdf
+from vayesta.lattmod import latt
 from vayesta import log
 
 
-allowed_keys_mol = [
-        'h2_ccpvdz', 'h2o_ccpvdz', 'h2o_ccpvdz_df', 'h2o_augccpvdz_df',
-        'n2_631g', 'n2_ccpvdz_df', 'lih_ccpvdz', 'h6_sto6g', 'h10_sto6g',
+allowed_keys_mole = [
+        'h2_ccpvdz', 'h2o_ccpvdz', 'h2o_ccpvdz_df', 'n2_631g',
+        'n2_ccpvdz_df', 'lih_ccpvdz', 'h6_sto6g', 'h10_sto6g',
 ]
 
 
 allowed_keys_cell = [
         'he2_631g_222', 'he_631g_222', 'h2_sto3g_331_2d',
+]
+
+
+allowed_keys_latt = [
+        'hubb_6_u0', 'hubb_10_u2', 'hubb_16_u4', 'hubb_6x6_u0_1x1imp',
+        'hubb_6x6_u2_1x1imp', 'hubb_6x6_u6_1x1imp', 'hubb_8x8_u2_2x2imp',
+        'hubb_8x8_u2_2x1imp',
 ]
 
 
@@ -38,7 +46,7 @@ class Cache:
             self.register_system(key)
 
 
-def register_system_mol(cache, key):
+def register_system_mole(cache, key):
     """Register one of the preset molecular test systems in the cache.
     """
 
@@ -65,11 +73,6 @@ def register_system_mol(cache, key):
     elif key == 'h2o_ccpvdz_df':
         mol.atom = molstructs.water()
         mol.basis = 'cc-pvdz'
-        rhf = uhf = True
-        df = True
-    elif key == 'h2o_augccpvdz_df':
-        mol.atom = molstructs.water()
-        mol.basis = 'aug-cc-pvdz'
         rhf = uhf = True
         df = True
     elif key == 'n2_631g':
@@ -194,11 +197,63 @@ def register_system_cell(cache, key):
     }
 
 
-class MoleculeCache(Cache):
-    register_system = register_system_mol
-    allowed_keys = allowed_keys_mol
+def register_system_latt(cache, key):
+    """Register on the preset lattice test systems in the cache.
+    """
 
-mols = MoleculeCache()
+    cell = None
+    rhf = uhf = False
+
+    if key == 'hubb_6_u0':
+        cell = latt.Hubbard1D(6, hubbard_u=0.0, nelectron=6)
+        rhf = True
+    elif key == 'hubb_10_u2':
+        cell = latt.Hubbard1D(10, hubbard_u=2.0, nelectron=10)
+        rhf = True
+    elif key == 'hubb_16_u4':
+        cell = latt.Hubbard1D(10, hubbard_u=4.0, nelectron=16, boundary='apbc')
+        rhf = True
+    elif key == 'hubb_6x6_u0_1x1imp':
+        cell = latt.Hubbard2D((6, 6), hubbard_u=0.0, nelectron=26, tiles=(1, 1), boundary='pbc')
+        rhf = True
+    elif key == 'hubb_6x6_u2_1x1imp':
+        cell = latt.Hubbard2D((6, 6), hubbard_u=2.0, nelectron=26, tiles=(1, 1), boundary='pbc')
+        rhf = True
+    elif key == 'hubb_6x6_u6_1x1imp':
+        cell = latt.Hubbard2D((6, 6), hubbard_u=6.0, nelectron=26, tiles=(1, 1), boundary='pbc')
+        rhf = True
+    elif key == 'hubb_8x8_u2_2x2imp':
+        cell = latt.Hubbard2D((8, 8), hubbard_u=2.0, nelectron=50, tiles=(2, 2), boundary='pbc')
+        rhf = True
+    elif key == 'hubb_8x8_u2_2x1imp':
+        cell = latt.Hubbard2D((8, 8), hubbard_u=2.0, nelectron=50, tiles=(2, 1), boundary='pbc')
+        rhf = True
+    else:
+        log.error("No system with key '%s'", key)
+        return {}
+
+    if rhf:
+        rhf = latt.LatticeRHF(cell)
+        rhf.conv_tol = 1e-12
+        rhf.kernel()
+
+    if uhf:
+        uhf = latt.LatticeUHF(cell)
+        uhf.conv_tol = 1e-12
+        uhf.kernel()
+
+    cache._cache[key] = {
+        'latt': cell,
+        'rhf': rhf,
+        'uhf': uhf,
+    }
+
+
+class MoleculeCache(Cache):
+    register_system = register_system_mole
+    allowed_keys = allowed_keys_mole
+
+moles = MoleculeCache()
 
 
 class SolidCache(Cache):
@@ -206,3 +261,10 @@ class SolidCache(Cache):
     allowed_keys = allowed_keys_cell
 
 cells = SolidCache()
+
+
+class LatticeCache(Cache):
+    register_system = register_system_latt
+    allowed_keys = allowed_keys_latt
+
+latts = LatticeCache()

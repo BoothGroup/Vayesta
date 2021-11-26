@@ -1,7 +1,7 @@
 import unittest
 
 from vayesta import ewf
-from vayesta.tests.cache import mols
+from vayesta.tests.cache import moles
 
 
 class SCMFTests(unittest.TestCase):
@@ -15,9 +15,9 @@ class SCMFTests(unittest.TestCase):
         """Test p-DMET.
         """
 
-        emb = ewf.EWF(mols[self.key][self.mf_key], make_rdm1=True, bath_type=None)
+        emb = ewf.EWF(moles[self.key][self.mf_key], make_rdm1=True, bath_type=None)
         emb.sao_fragmentation()
-        emb.make_all_atom_fragments()
+        emb.add_all_atomic_fragments()
         emb.pdmet_scmf(etol=self.CONV_TOL_E, dtol=self.CONV_TOL_D)
         emb.kernel()
 
@@ -29,9 +29,9 @@ class SCMFTests(unittest.TestCase):
         """Test Brueckner DMET.
         """
 
-        emb = ewf.EWF(mols[self.key][self.mf_key], make_rdm1=True, bath_type=None)
+        emb = ewf.EWF(moles[self.key][self.mf_key], make_rdm1=True, bath_type=None)
         emb.sao_fragmentation()
-        emb.make_all_atom_fragments()
+        emb.add_all_atomic_fragments()
         emb.brueckner_scmf(etol=self.CONV_TOL_E, dtol=self.CONV_TOL_D)
         emb.kernel()
 

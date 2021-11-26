@@ -1,132 +1,118 @@
 import unittest
-import numpy as np
-from vayesta import lattmod, ewf
 
-# Use default conv_tol
-EWF_CONV_TOL = None
-EWF_PLACES = 7
-
-class HubbardEWFTest:
-    ''' Abstract base class for Hubbard model EWF tests.
-    '''
-
-    @classmethod
-    def setUpClass(cls):
-        cls.mol = None
-        cls.mf = None
-        cls.ewf = None
-        cls.known_values = None
-
-    @classmethod
-    def teardownClass(cls):
-        del cls.mol, cls.mf, cls.ewf, cls.known_values
-
-    def test_energy(self):
-        self.assertAlmostEqual(self.ewf.e_tot, self.known_values['e_tot'], EWF_PLACES)
+from vayesta import ewf
+from vayesta.tests.cache import latts
 
 
-class HubbardEWFTest_N10_U0_1imp(unittest.TestCase, HubbardEWFTest):
-    @classmethod
-    def setUpClass(cls):
-        cls.mol = lattmod.Hubbard1D(10, hubbard_u=0.0, nelectron=10)
-        cls.mf = lattmod.LatticeMF(cls.mol)
-        cls.mf.kernel()
-        cls.ewf = ewf.EWF(
-                cls.mf,
+class HubbardEWFTests(unittest.TestCase):
+    PLACES_ENERGY = 6
+    CONV_TOL = None  #FIXME
+
+    def _test_energy(self, emb, known_values):
+        """Tests the EWF energy.
+        """
+
+        self.assertAlmostEqual(emb.e_tot, known_values['e_tot'], self.PLACES_ENERGY)
+
+    def test_6_u0_1imp(self):
+        """Tests for N=6 U=0 Hubbard model with single site impurities.
+        """
+
+        emb = ewf.EWF(
+                latts['hubb_6_u0']['rhf'],
                 bno_threshold=1e-8,
                 solver_options={
-                    'conv_tol': EWF_CONV_TOL,
+                    'conv_tol': self.CONV_TOL,
                 },
         )
-        cls.ewf.site_fragmentation()
-        f = cls.ewf.make_atom_fragment(0)
-        f.make_tsymmetric_fragments(tvecs=[10, 1, 1])
-        cls.ewf.kernel()
-        cls.known_values = {'e_tot': -12.94427190999916}
+        emb.site_fragmentation()
+        frag = emb.add_atomic_fragment(0)
+        frag.add_tsymmetric_fragments(tvecs=[6, 1, 1])
+        emb.kernel()
 
+        known_values = {'e_tot': -8.0}
 
-class HubbardEWFTest_N10_U0_2imp(unittest.TestCase, HubbardEWFTest):
-    @classmethod
-    def setUpClass(cls):
-        cls.mol = lattmod.Hubbard1D(10, hubbard_u=0.0, nelectron=10)
-        cls.mf = lattmod.LatticeMF(cls.mol)
-        cls.mf.kernel()
-        cls.ewf = ewf.EWF(
-                cls.mf,
+        self._test_energy(emb, known_values)
+
+    def test_10_u2_2imp(self):
+        """Tests for N=10 U=2 Hubbard model with double site impurities.
+        """
+
+        emb = ewf.EWF(
+                latts['hubb_10_u2']['rhf'],
                 bno_threshold=1e-8,
                 solver_options={
-                    'conv_tol': EWF_CONV_TOL,
+                    'conv_tol': self.CONV_TOL,
                 },
         )
-        cls.ewf.site_fragmentation()
-        f = cls.ewf.make_atom_fragment([0, 1])
-        f.make_tsymmetric_fragments(tvecs=[5, 1, 1])
-        cls.ewf.kernel()
-        cls.known_values = {'e_tot': -12.94427190999916}
+        emb.site_fragmentation()
+        frag = emb.add_atomic_fragment([0, 1])
+        frag.add_tsymmetric_fragments(tvecs=[5, 1, 1])
+        emb.kernel()
 
+        known_values = {'e_tot': -8.633958869633286}
 
-class HubbardEWFTest_N10_U4_1imp(unittest.TestCase, HubbardEWFTest):
-    @classmethod
-    def setUpClass(cls):
-        cls.mol = lattmod.Hubbard1D(10, hubbard_u=4.0, nelectron=10)
-        cls.mf = lattmod.LatticeMF(cls.mol)
-        cls.mf.kernel()
-        cls.ewf = ewf.EWF(
-                cls.mf,
+        self._test_energy(emb, known_values)
+
+    def test_6x6_u0_1x1imp(self):
+        """Tests for 6x6 U=0 Hubbard model with single site impurities.
+        """
+
+        emb = ewf.EWF(
+                latts['hubb_6x6_u0_1x1imp']['rhf'],
                 bno_threshold=1e-8,
                 solver_options={
-                    'conv_tol': EWF_CONV_TOL,
+                    'conv_tol': self.CONV_TOL,
                 },
         )
-        cls.ewf.site_fragmentation()
-        f = cls.ewf.make_atom_fragment(0)
-        f.make_tsymmetric_fragments(tvecs=[10, 1, 1])
-        cls.ewf.kernel()
-        cls.known_values = {'e_tot': -6.133885588519993}
+        emb.site_fragmentation()
+        frag = emb.add_atomic_fragment([0])
+        frag.add_tsymmetric_fragments(tvecs=[6, 6, 1])
+        emb.kernel()
 
+        known_values = {'e_tot': -56.0}
 
-class HubbardEWFTest_N6_U6_2imp(unittest.TestCase, HubbardEWFTest):
-    @classmethod
-    def setUpClass(cls):
-        cls.mol = lattmod.Hubbard1D(6, hubbard_u=6.0, nelectron=6)
-        cls.mf = lattmod.LatticeMF(cls.mol)
-        cls.mf.kernel()
-        cls.ewf = ewf.EWF(
-                cls.mf,
-                bno_threshold=1e-6,
-                sc_mode=1,
-                sc_energy_tol=1e-9,
+        self._test_energy(emb, known_values)
+
+    def test_6x6_u6_1x1imp(self):
+        """Tests for 6x6 U=6 Hubbard model with single site impurities.
+        """
+
+        emb = ewf.EWF(
+                latts['hubb_6x6_u6_1x1imp']['rhf'],
+                bno_threshold=1e-8,
                 solver_options={
-                    'conv_tol': EWF_CONV_TOL,
+                    'conv_tol': self.CONV_TOL,
                 },
         )
-        cls.ewf.site_fragmentation()
-        f = cls.ewf.make_atom_fragment([0, 1])
-        f.make_tsymmetric_fragments(tvecs=[3, 1, 1])
-        cls.ewf.kernel()
-        cls.known_values = {'e_tot': -3.1985807202795167}
+        emb.site_fragmentation()
+        frag = emb.add_atomic_fragment([0])
+        frag.add_tsymmetric_fragments(tvecs=[6, 6, 1])
+        emb.kernel()
 
+        known_values = {'e_tot': -37.71020224582783}
 
-class HubbardEWFTest_N6_U2_1imp(unittest.TestCase, HubbardEWFTest):
-    @classmethod
-    def setUpClass(cls):
-        cls.mol = lattmod.Hubbard1D(6, hubbard_u=2.0, nelectron=6)
-        cls.mf = lattmod.LatticeMF(cls.mol)
-        cls.mf.kernel()
-        cls.ewf = ewf.EWF(
-                cls.mf,
-                bno_threshold=1e-6,
-                sc_mode=1,
-                sc_energy_tol=1e-9,
+        self._test_energy(emb, known_values)
+
+    def test_8x8_u2_2x2imp(self):
+        """Tests for 8x8 U=2 Hubbard model with 2x2 impurities.
+        """
+
+        emb = ewf.EWF(
+                latts['hubb_8x8_u2_2x2imp']['rhf'],
+                bno_threshold=1e-8,
                 solver_options={
-                    'conv_tol': EWF_CONV_TOL,
+                    'conv_tol': self.CONV_TOL,
                 },
         )
-        cls.ewf.site_fragmentation()
-        f = cls.ewf.make_atom_fragment(0, nelectron_target=1)
-        f.make_tsymmetric_fragments(tvecs=[6, 1, 1])
-        cls.ewf.kernel()
-        cls.known_values = {'e_tot': -5.408955909645092}
+        emb.site_fragmentation()
+        frag = emb.add_atomic_fragment([0, 1, 2, 3])
+        frag.add_tsymmetric_fragments(tvecs=[4, 4, 1])
+        emb.kernel()
+
+        known_values = {'e_tot': -84.3268698533661}
+
+        self._test_energy(emb, known_values)
 
 
 if __name__ == '__main__':

@@ -7,7 +7,7 @@ import pyscf.cc
 
 import vayesta
 import vayesta.ewf
-from vayesta.tests.cache import mols
+from vayesta.tests.cache import moles
 
 
 class T_Amplitudes_Tests(unittest.TestCase):
@@ -16,14 +16,14 @@ class T_Amplitudes_Tests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         # CCSD
-        cls.ccsd = pyscf.cc.CCSD(mols[cls.key]['rhf'])
+        cls.ccsd = pyscf.cc.CCSD(moles[cls.key]['rhf'])
         cls.ccsd.kernel()
         assert cls.ccsd.converged
         cls.dm1 = cls.ccsd.make_rdm1()
         cls.dm2 = cls.ccsd.make_rdm2()
 
         # Emb-CCSD
-        cls.ecc = vayesta.ewf.EWF(mols[cls.key]['rhf'], bath_type='full', make_rdm1=True, make_rdm2=True)
+        cls.ecc = vayesta.ewf.EWF(moles[cls.key]['rhf'], bath_type='full', make_rdm1=True, make_rdm2=True)
         cls.ecc.iao_fragmentation()
         cls.ecc.add_all_atomic_fragments()
         cls.ecc.kernel()
@@ -75,7 +75,7 @@ class T_Amplitudes_UHF_Tests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         # CCSD
-        cls.ccsd = pyscf.cc.UCCSD(mols[cls.key]['uhf'])
+        cls.ccsd = pyscf.cc.UCCSD(moles[cls.key]['uhf'])
         cls.ccsd.conv_tol = 1e-12
         cls.ccsd.conv_tol_normt = 1e-6
         cls.ccsd.kernel()
@@ -85,7 +85,7 @@ class T_Amplitudes_UHF_Tests(unittest.TestCase):
 
         # Emb-UCCSD
         opts = {'conv_tol': 1e-12, 'conv_tol_normt': 1e-6}
-        cls.ecc = vayesta.ewf.EWF(mols[cls.key]['uhf'], bath_type='full', solver_options=opts)
+        cls.ecc = vayesta.ewf.EWF(moles[cls.key]['uhf'], bath_type='full', solver_options=opts)
         cls.ecc.iao_fragmentation()
         cls.ecc.add_all_atomic_fragments()
         cls.ecc.kernel()

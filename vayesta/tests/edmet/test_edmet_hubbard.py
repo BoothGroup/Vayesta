@@ -1,108 +1,145 @@
 import unittest
-from vayesta import lattmod, edmet
+
+from vayesta import edmet
+from vayesta.tests.cache import latts
 
 
-class HubbardEDMETTest:
-    ''' Abstract base class for Hubbard model EDMET tests.
-    '''
+class HubbardEDMETTests(unittest.TestCase):
+    PLACES_ENERGY = 6
 
-    @classmethod
-    def setUpClass(cls):
-        cls.mol = None
-        cls.mf = None
-        cls.edmet = None
-        cls.known_values = None
+    def _test_energy(self, emb, known_values):
+        """Test that the energy matches a known value.
+        """
 
-    @classmethod
-    def tearDownClass(cls):
-        del cls.mol, cls.mf, cls.edmet, cls.known_values
+        self.assertAlmostEqual(emb.e_tot, known_values['e_tot'], self.PLACES_ENERGY)
 
-    def test_energy(self):
-        self.assertAlmostEqual(self.edmet.e_tot, self.known_values['e_tot'], 6)
+    #FIXME bug #9
+    #def test_6_u0_1imp_1occ(self):
+    #    """Tests for N=6 U=0 Hubbard model with single site impurities.
+    #    """
 
+    #    emb = edmet.EDMET(
+    #            latts['hubb_6_u0']['rhf'],
+    #            solver='EBFCI',
+    #            bos_occ_cutoff=1,
+    #    )
+    #    emb.site_fragmentation()
+    #    frag = emb.add_atomic_fragment(0)
+    #    frag.add_tsymmetric_fragments(tvecs=[6, 1, 1])
+    #    emb.kernel()
 
-class HubbardEDMETTest_N10_U4_1imp_1occ(unittest.TestCase, HubbardEDMETTest):
-    @classmethod
-    def setUpClass(cls):
-        cls.mol = lattmod.Hubbard1D(10, hubbard_u=4.0, nelectron=10)
-        cls.mf = lattmod.LatticeMF(cls.mol)
-        cls.mf.kernel()
-        cls.edmet = edmet.EDMET(cls.mf, solver='EBFCI', bos_occ_cutoff=1)
-        cls.edmet.site_fragmentation()
-        f = cls.edmet.make_atom_fragment(0)
-        symfrags = f.make_tsymmetric_fragments(tvecs=[10, 1, 1])
-        cls.edmet.kernel()
-        cls.known_values = {'e_tot': -6.118248173618246}
+    #    known_values = {'e_tot': -8.0}
 
+    #    self._test_energy(emb, known_values)
 
-class HubbardEDMETTest_N10_U4_1imp_10occ(unittest.TestCase, HubbardEDMETTest):
-    @classmethod
-    def setUpClass(cls):
-        cls.mol = lattmod.Hubbard1D(10, hubbard_u=4.0, nelectron=10)
-        cls.mf = lattmod.LatticeMF(cls.mol)
-        cls.mf.kernel()
-        cls.edmet = edmet.EDMET(cls.mf, solver='EBFCI', bos_occ_cutoff=10)
-        cls.edmet.site_fragmentation()
-        f = cls.edmet.make_atom_fragment(0)
-        symfrags = f.make_tsymmetric_fragments(tvecs=[10, 1, 1])
-        cls.edmet.kernel()
-        cls.known_values = {'e_tot': -6.1181667874754035}
+    #def test_6_u0_2imp_6occ(self):
+    #    """Tests for N=6 U=0 Hubbard model with double site impurities.
+    #    """
 
+    #    emb = edmet.EDMET(
+    #            latts['hubb_6_u0']['rhf'],
+    #            solver='EBFCI',
+    #            bos_occ_cutoff=6,
+    #    )
+    #    emb.site_fragmentation()
+    #    frag = emb.add_atomic_fragment([0, 1])
+    #    frag.add_tsymmetric_fragments(tvecs=[3, 1, 1])
+    #    emb.kernel()
 
-class HubbardEDMETTest_N10_U4_2imp_2occ(unittest.TestCase, HubbardEDMETTest):
-    @classmethod
-    def setUpClass(cls):
-        cls.mol = lattmod.Hubbard1D(10, hubbard_u=0.5, nelectron=10)
-        cls.mf = lattmod.LatticeMF(cls.mol)
-        cls.mf.kernel()
-        cls.edmet = edmet.EDMET(cls.mf, solver='EBFCI', bos_occ_cutoff=2)
-        cls.edmet.site_fragmentation()
-        f = cls.edmet.make_atom_fragment([0, 1])
-        symfrags = f.make_tsymmetric_fragments(tvecs=[5, 1, 1])
-        cls.edmet.kernel()
-        cls.known_values = {'e_tot': -11.74139024719132}
+    #    known_values = {'e_tot': -8.0}
 
+    #    self._test_energy(emb, known_values)
 
-class HubbardEDMETTest_N6x6_U4_2x1imp_2occ(unittest.TestCase, HubbardEDMETTest):
-    @classmethod
-    def setUpClass(cls):
-        cls.mol = lattmod.Hubbard2D((6, 6), hubbard_u=4.0, nelectron=26, tiles=(2,1), boundary="PBC")
-        cls.mf = lattmod.LatticeMF(cls.mol)
-        cls.mf.kernel()
-        cls.edmet = edmet.EDMET(cls.mf, solver='EBFCI', bos_occ_cutoff=2)
-        cls.edmet.site_fragmentation()
-        f = cls.edmet.make_atom_fragment([0, 1])
-        symfrags = f.make_tsymmetric_fragments(tvecs=[3, 6, 1])
-        cls.edmet.kernel()
-        cls.known_values = {'e_tot': -43.387417397200636}
+    def test_10_u2_2imp_2occ(self):
+        """Tests for N=10 U=2 Hubbard model with double site impurities.
+        """
 
+        emb = edmet.EDMET(
+                latts['hubb_10_u2']['rhf'],
+                solver='EBFCI',
+                bos_occ_cutoff=2,
+        )
+        emb.site_fragmentation()
+        frag = emb.add_atomic_fragment([0, 1])
+        frag.add_tsymmetric_fragments(tvecs=[5, 1, 1])
+        emb.kernel()
 
-class HubbardEDMETTest_N6x6_U6_1x1imp_5occ(unittest.TestCase, HubbardEDMETTest):
-    @classmethod
-    def setUpClass(cls):
-        cls.mol = lattmod.Hubbard2D((6, 6), hubbard_u=6.0, nelectron=26, tiles=(1,1), boundary="PBC")
-        cls.mf = lattmod.LatticeMF(cls.mol)
-        cls.mf.kernel()
-        cls.edmet = edmet.EDMET(cls.mf, solver='EBFCI', bos_occ_cutoff=5)
-        cls.edmet.site_fragmentation()
-        f = cls.edmet.make_atom_fragment(0)
-        symfrags = f.make_tsymmetric_fragments(tvecs=[6, 6, 1])
-        cls.edmet.kernel()
-        cls.known_values = {'e_tot': -41.295421512183374}
+        known_values = {'e_tot': -8.682074457504335}
 
+        self._test_energy(emb, known_values)
 
-class HubbardEDMETTest_N8x8_U2_1x2imp_5occ(unittest.TestCase, HubbardEDMETTest):
-    @classmethod
-    def setUpClass(cls):
-        cls.mol = lattmod.Hubbard2D((8, 8), hubbard_u=2.0, nelectron=50, tiles=(1,2), boundary="PBC")
-        cls.mf = lattmod.LatticeMF(cls.mol)
-        cls.mf.kernel()
-        cls.edmet = edmet.EDMET(cls.mf, solver='EBFCI', bos_occ_cutoff=5)
-        cls.edmet.site_fragmentation()
-        f = cls.edmet.make_atom_fragment([0, 1])
-        symfrags = f.make_tsymmetric_fragments(tvecs=[8, 4, 1])
-        cls.edmet.kernel()
-        cls.known_values = {'e_tot': -84.96249789942502}
+    def test_16_u4_2imp_4occ(self):
+        """Tests for N=10 U=2 Hubbard model with double site impurities.
+        """
+
+        emb = edmet.EDMET(
+                latts['hubb_10_u2']['rhf'],
+                solver='EBFCI',
+                bos_occ_cutoff=4,
+        )
+        emb.site_fragmentation()
+        frag = emb.add_atomic_fragment([0, 1])
+        frag.add_tsymmetric_fragments(tvecs=[8, 1, 1])
+        emb.kernel()
+
+        known_values = {'e_tot': -3.472834250801909}
+
+        self._test_energy(emb, known_values)
+
+    #FIXME bug #9
+    #def test_6x6_u0_1x1imp_2occ(self):
+    #    """Tests for 6x6 U=0 Hubbard model with single site impurities.
+    #    """
+
+    #    emb = edmet.EDMET(
+    #            latts['hubb_6x6_u0_1x1imp']['rhf'],
+    #            solver='EBFCI',
+    #            bos_occ_cutoff=2,
+    #    )
+    #    emb.site_fragmentation()
+    #    frag = emb.add_atomic_fragment([0])
+    #    frag.add_tsymmetric_fragments(tvecs=[6, 6, 1])
+    #    emb.kernel()
+
+    #    known_values = {'e_tot': -56.0}
+
+    #    self._test_energy(emb, known_values)
+
+    def test_6x6_u6_1x1imp_2occ(self):
+        """Tests for 6x6 U=6 Hubbard model with single site impurities.
+        """
+
+        emb = edmet.EDMET(
+                latts['hubb_6x6_u6_1x1imp']['rhf'],
+                solver='EBFCI',
+                bos_occ_cutoff=2,
+        )
+        emb.site_fragmentation()
+        frag = emb.add_atomic_fragment([0])
+        frag.add_tsymmetric_fragments(tvecs=[6, 6, 1])
+        emb.kernel()
+
+        known_values = {'e_tot': -41.29530580982776}
+
+        self._test_energy(emb, known_values)
+
+    def test_8x8_u2_2x1imp_5occ(self):
+        """Tests for 8x8 U=2 Hubbard model with 2x1 impurities.
+        """
+
+        emb = edmet.EDMET(
+                latts['hubb_8x8_u2_2x1imp']['rhf'],
+                solver='EBFCI',
+                bos_occ_cutoff=5,
+        )
+        emb.site_fragmentation()
+        frag = emb.add_atomic_fragment([0, 1])
+        frag.add_tsymmetric_fragments(tvecs=[4, 8, 1])
+        emb.kernel()
+
+        known_values = {'e_tot': -84.96249789942502}
+
+        self._test_energy(emb, known_values)
 
 
 if __name__ == '__main__':

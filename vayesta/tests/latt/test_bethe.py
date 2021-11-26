@@ -1,59 +1,54 @@
 import unittest
 import numpy as np
+
 from vayesta.lattmod import bethe
 
 
-class BetheTests:
+class BetheTests(unittest.TestCase):
+    PLACES_ENERGY = 8
+    PLACES_DOCC = 8
 
-    @classmethod
-    def setUpClass(cls):
-        cls.t = None
-        cls.u = None
-        cls.known_values = {}
+    def _test_bethe(self, t, u, known_values):
+        """Test the Bethe lattice for a given T, U.
+        """
 
-    @classmethod
-    def tearDownClass(cls):
-        del cls.t, cls.u, cls.known_values
+        e = bethe.hubbard1d_bethe_energy(t, u)
+        self.assertAlmostEqual(e, known_values['energy'], self.PLACES_ENERGY)
 
-    def test_energy(self):
-        e = bethe.hubbard1d_bethe_energy(self.t, self.u)
-        self.assertAlmostEqual(e, self.known_values['energy'], 8)
+        d = bethe.hubbard1d_bethe_docc(t, u)
+        self.assertAlmostEqual(d, known_values['docc'], self.PLACES_DOCC)
 
-    def test_double_occ(self):
-        d = bethe.hubbard1d_bethe_docc(self.t, self.u)
-        self.assertAlmostEqual(d, self.known_values['docc'], 8)
+        d1 = bethe.hubbard1d_bethe_docc_numdiff(t, u, du=1e-12, order=1)
+        self.assertAlmostEqual(d1, known_values['docc-numdiff1'], self.PLACES_DOCC)
 
-    def test_double_occ_numdiff(self):
-        d1 = bethe.hubbard1d_bethe_docc_numdiff(self.t, self.u, du=1e-12, order=1)
-        d2 = bethe.hubbard1d_bethe_docc_numdiff(self.t, self.u, du=1e-12, order=2)
-        self.assertAlmostEqual(d1, self.known_values['docc-numdiff1'], 8)
-        self.assertAlmostEqual(d2, self.known_values['docc-numdiff2'], 8)
+        d2 = bethe.hubbard1d_bethe_docc_numdiff(t, u, du=1e-12, order=2)
+        self.assertAlmostEqual(d2, known_values['docc-numdiff2'], self.PLACES_DOCC)
 
+    def test_bethe_T1_U0(self):
+        """Test the T=1, U=0 Bethe lattice.
+        """
 
-class Bethe_T1_U0_Tests(unittest.TestCase, BetheTests):
-    @classmethod
-    def setUpClass(cls):
-        cls.t = 1.0
-        cls.u = 0.0
-        cls.known_values = {
+        known_values = {
                 'energy': -1.2732565954632262,
                 'docc': 0.2499999972419595,
                 'docc-numdiff1': 0.25002222514558525,
                 'docc-numdiff2': 0.2500916140846243,
         }
 
+        self._test_bethe(1.0, 0.0, known_values)
 
-class Bethe_T2_U4_Tests(unittest.TestCase, BetheTests):
-    @classmethod
-    def setUpClass(cls):
-        cls.t = 2.0
-        cls.u = 4.0
-        cls.known_values = {
+    def test_bethe_T2_U4(self):
+        """Test the T=2, U=4 Bethe lattice.
+        """
+
+        known_values = {
                 'energy': -1.688748682251278,
                 'docc': 0.17545254464835117,
                 'docc-numdiff1': 0.17530421558831222,
                 'docc-numdiff2': 0.17510992655900282,
         }
+
+        self._test_bethe(2.0, 4.0, known_values)
 
 
 if __name__ == '__main__':

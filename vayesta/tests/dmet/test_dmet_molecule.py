@@ -2,11 +2,11 @@ import unittest
 import numpy as np
 
 from vayesta import dmet
-from vayesta.tests.cache import mols
+from vayesta.tests.cache import moles
 
 
-class MolecularDMETTest(unittest.TestCase):
-    ENERGY_PLACES = 7
+class MoleculeDMETTest(unittest.TestCase):
+    PLACES_ENERGY = 7
     CONV_TOL = 1e-9
 
     def _test_converged(self, emb, known_values=None):
@@ -19,14 +19,14 @@ class MolecularDMETTest(unittest.TestCase):
         """Test that the energy matches a known value.
         """
 
-        self.assertAlmostEqual(emb.e_tot, known_values['e_tot'], self.ENERGY_PLACES)
+        self.assertAlmostEqual(emb.e_tot, known_values['e_tot'], self.PLACES_ENERGY)
 
     def test_h6_sto6g_FCI_IAO_cc(self):
         """Test H6 STO-6G with FCI solver, IAO fragmentation and charge consistency.
         """
 
         emb = dmet.DMET(
-                mols['h6_sto6g']['rhf'],
+                moles['h6_sto6g']['rhf'],
                 solver='FCI',
                 charge_consistent=True,
                 bath_type=None,
@@ -48,7 +48,7 @@ class MolecularDMETTest(unittest.TestCase):
         """
 
         emb = dmet.DMET(
-                mols['h6_sto6g']['rhf'],
+                moles['h6_sto6g']['rhf'],
                 solver='FCI',
                 charge_consistent=False,
                 bath_type=None,
@@ -70,7 +70,7 @@ class MolecularDMETTest(unittest.TestCase):
         """
 
         emb = dmet.DMET(
-                mols['h6_sto6g']['rhf'],
+                moles['h6_sto6g']['rhf'],
                 solver='FCI',
                 charge_consistent=False,
                 bath_type='all',
@@ -92,7 +92,7 @@ class MolecularDMETTest(unittest.TestCase):
         """
 
         emb = dmet.DMET(
-                mols['h6_sto6g']['rhf'],
+                moles['h6_sto6g']['rhf'],
                 solver='FCI',
                 charge_consistent=False,
                 bath_type='MP2-BNO',

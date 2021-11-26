@@ -6,7 +6,7 @@ import pyscf.scf
 import pyscf.tools.ring
 
 from vayesta import edmet
-from vayesta.tests.cache import mols
+from vayesta.tests.cache import moles
 
 
 class MolecularEDMETTest(unittest.TestCase):
@@ -21,7 +21,7 @@ class MolecularEDMETTest(unittest.TestCase):
 
     def test_h6_sto6g_EBFCI_IAO_1occ(self):
         emb = edmet.EDMET(
-                mols['h6_sto6g']['rhf'],
+                moles['h6_sto6g']['rhf'],
                 solver='EBFCI',
                 bos_occ_cutoff=1,
                 conv_tol=self.CONV_TOL,
@@ -38,7 +38,7 @@ class MolecularEDMETTest(unittest.TestCase):
 
     def test_h6_sto6g_EBFCI_IAO_2occ(self):
         emb = edmet.EDMET(
-                mols['h6_sto6g']['rhf'],
+                moles['h6_sto6g']['rhf'],
                 solver='EBFCI',
                 bos_occ_cutoff=2,
                 conv_tol=self.CONV_TOL,
