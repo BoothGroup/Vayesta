@@ -20,14 +20,15 @@ class NumericalIntegratorBase:
     Might be able to write this as a factory class, but this'll do for now.
     """
     def __init__(self, out_shape, diag_shape, npoints, log):
+        self.log = log
         self.out_shape = out_shape
         self.diag_shape = diag_shape
         self.npoints = npoints
-        self.log = log
 
     @property
     def npoints(self):
         return self._npoints
+
     @npoints.setter
     def npoints(self, value):
         self._npoints = value
@@ -68,6 +69,9 @@ class NumericalIntegratorBase:
             integral += weight * contrib
         return integral
 
+    def _NI_eval_w_error(self, *args):
+        raise NotImplementedError("Error estimation only available with naturally nested quadratures (current just Clenshaw-Curtis).")
+
     def _NI_eval_deriv(self, a, res_shape, evaluator):
         """Base function to perform numerical integration with provided quadrature grid."""
         quadrature = self.get_quad(a)
@@ -80,7 +84,7 @@ class NumericalIntegratorBase:
 
     def eval_NI_approx(self, a):
         """Evaluate the NI approximation of the integral with a provided quadrature."""
-        return self._NI_eval(a, self.out_shape, self.eval_contrib)
+        return self._NI_eval(a, self.out_shape, self.eval_contrib), None
 
     def eval_diag_NI_approx(self, a):
         """Evaluate the NI approximation to the diagonal approximation of the integral."""
@@ -196,7 +200,8 @@ class NumericalIntegratorBase:
             if a is None:
                 raise ValueError("A value for the quadrature scaling parameter a must be provided if optimisation is not"
                                  "permitted.")
-        return self.eval_NI_approx(a) + self.get_offset()
+        integral, errors = self.eval_NI_approx(a)
+        return integral + self.get_offset(), errors
 
     def kernel_adaptive(self):
         self.fix_params()
@@ -206,7 +211,7 @@ class NumericalIntegratorBase:
             raise NIException("Adaptive gaussian quadrature could not compute integral.")
         else:
             self.log.info("Successfully computed integral via adaptive quadrature using %d evaluations with estimated error of %6.4e",info.neval, err)
-        return integral + self.get_offset()
+        return integral + self.get_offset(), err
 
     def l2_scan(self, freqs):
         return [np.linalg.norm(self.eval_contrib(x)) for x in freqs]
@@ -222,7 +227,51 @@ class NumericalIntegratorBase:
         return points, vals
 
 
-class NumericalIntegratorClenCurInfinite(NumericalIntegratorBase):
+class NumericalIntegratorClenCur(NumericalIntegratorBase):
+
+    @property
+    def npoints(self):
+        return self._npoints
+
+    @npoints.setter
+    def npoints(self, value):
+        if value%4 != 0:
+            value += 4 - value%4
+            self.log.warning("Npoints increased to next multiple of 4 (%d) to allow error estimation.", value)
+        self._npoints = value
+
+    def _NI_eval_w_error(self, a, res_shape, evaluator):
+        """Base function to perform numerical integration with provided quadrature grid.
+        Since Clenshaw-Curtis quadrature is naturally nested, we can generate an error estimate straightforwardly."""
+        quadrature = self.get_quad(a)
+        integral = np.zeros(res_shape)
+        integral_half = np.zeros(res_shape)
+        integral_quarter = np.zeros(res_shape)
+
+        for i, (point, weight) in enumerate(zip(*quadrature)):
+            contrib = evaluator(point)
+            assert(contrib.shape == res_shape)
+            integral += weight * contrib
+            if i%2 == 0:
+                integral_half += 2 * weight * contrib
+                if i%4 == 0:
+                    integral_quarter += 4 * weight * contrib
+
+        a = scipy.linalg.norm(integral_quarter - integral)
+        b = scipy.linalg.norm(integral_half - integral)
+
+        error = b ** 3 / a ** 2
+        error_error = b ** 2 / (a ** 2 + b ** 2)
+        self.log.info("Numerical Integration performed with estimated error L2 norm %6.4e and error error of %6.4e",
+                      error, error_error)
+        return integral, (error, error_error)
+
+    def eval_NI_approx(self, a):
+        """Evaluate the NI approximation of the integral with a provided quadrature."""
+        return self._NI_eval_w_error(a, self.out_shape, self.eval_contrib)
+
+
+class NumericalIntegratorClenCurInfinite(NumericalIntegratorClenCur):
     def __init__(self, out_shape, diag_shape, npoints, log, even):
         super().__init__(out_shape, diag_shape, npoints, log)
         self.even = even
@@ -230,7 +279,7 @@ class NumericalIntegratorClenCurInfinite(NumericalIntegratorBase):
     def get_quad(self, a):
         return gen_ClenCur_quad_inf(a, self.npoints, self.even)
 
-class NumericalIntegratorClenCurSemiInfinite(NumericalIntegratorBase):
+class NumericalIntegratorClenCurSemiInfinite(NumericalIntegratorClenCur):
     def __init__(self, out_shape, diag_shape, npoints, log):
         super().__init__(out_shape, diag_shape, npoints, log)
 

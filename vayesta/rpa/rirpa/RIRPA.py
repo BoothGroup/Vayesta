@@ -100,7 +100,7 @@ class ssRPA:
         elif integral_deduct == "HO":
             NIworker = momzero_NI.MomzeroDeductHigherOrder(*inputs)
             offsetNIworker = momzero_NI.MomzeroOffsetCalcGaussLag(*inputs)
-            estval = offsetNIworker.kernel()
+            estval, offset_err = offsetNIworker.kernel()
             # This computes the required value analytically, but at N^5 cost. Just keeping around for debugging.
             #mat = np.zeros(self.D.shape * 2)
             #mat = mat + self.D
@@ -114,9 +114,9 @@ class ssRPA:
         #NIworker.test_diag_derivs(4.0)
         if adaptive_quad:
             # Can also make use of scipy adaptive quadrature routines; this is likely more expensive but more reliable.
-            integral = 2 * NIworker.kernel_adaptive()
+            integral, err = 2 * NIworker.kernel_adaptive()
         else:
-            integral = NIworker.kernel(a=ainit, opt_quad=opt_quad)
+            integral, err = NIworker.kernel(a=ainit, opt_quad=opt_quad)
         # Need to construct RI representation of P^{-1}
         ri_ApB_inv = construct_inverse_RI(self.D, ri_ApB)
 
