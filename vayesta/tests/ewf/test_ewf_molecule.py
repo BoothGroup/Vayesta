@@ -203,7 +203,7 @@ class MoleculeEWFTests(unittest.TestCase):
         emb.make_atom_fragment(1, sym_factor=2)
         emb.kernel()
 
-        known_values = {'e_tot': -76.23613568648057}
+        known_values = {'e_tot': -76.23613576956096}
 
         self._test_energy(emb, known_values)
 
