@@ -4,4 +4,4 @@ email:  cjcargillscott@gmail.com
 """
 
 from .ssrpa import ssRPA
-from .rpa import RPA
+from .rirpa import ssRIRPA

@@ -1,1 +1,1 @@
-from vayesta.rpa.rirpa.RIRPA import ssRPA
+from vayesta.rpa.rirpa.RIRPA import ssRIRPA
