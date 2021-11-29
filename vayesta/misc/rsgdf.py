@@ -12,8 +12,8 @@ import collections
 import numpy as np
 
 from pyscf import lib
+from pyscf.gto import moleintor
 from pyscf.data.nist import BOHR
-from pyscf.pbc import gto
 from pyscf.pbc.df import ft_ao, rsdf, rsdf_helper
 from pyscf.pbc.lib.kpts_helper import unique, is_zero, gamma_point, KPT_DIFF_TOL, get_kconserv
 from pyscf.ao2mo.outcore import balance_partition
@@ -114,8 +114,8 @@ def _aux_e2_nospltbas(
     if precision is None:
         precision = cell.precision
 
-    kpti = kptij_lst[:,0]
-    kptj = kptij_lst[:,1]
+    kptis = kptij_lst[:,0]
+    kptjs = kptij_lst[:,1]
     nkptij = len(kptij_lst)
 
     if gamma_point(kptij_lst):
@@ -170,7 +170,7 @@ def _aux_e2_nospltbas(
 
     # Collect prescreening data:
     Ls = rsdf_helper.get_Lsmin(cell, atom_Rcuts, uniq_atms)
-    prescreening_data = (
+    prescreen = (
             refuniqshl_map, auxuniqshl_map, len(uniq_basaux), bas_exps,
             dcuts**2, dstep/BOHR, Rcuts**2, dijs_loc, Ls,
     )
@@ -180,7 +180,7 @@ def _aux_e2_nospltbas(
     log.debug("    keep %d imgs", Ls.shape[0])
 
     # Get the intor:
-    intor, comp = gto.moleintor._get_intor_and_comp(cell._add_suffix('int3c2e'), None)
+    intor, comp = moleintor._get_intor_and_comp(cell._add_suffix('int3c2e'), None)
 
     if shls_slice is None:
         shls_slice = (0, cell.nbas, 0, cell.nbas, 0, auxcell.nbas)
@@ -203,7 +203,7 @@ def _aux_e2_nospltbas(
         nao_pair = nij
 
     int3c = rsdf_helper.wrap_int3c_nospltbas(
-            cell, auxcell, omega, shlpr_mask, prescreening_data,
+            cell, auxcell, omega, shlpr_mask, prescreen,
             intor=intor,
             aosym='s2ij',
             comp=comp,
@@ -362,8 +362,8 @@ def _get_j3c(with_df, j2c, int3c2e, uniq_kpts, uniq_inverse_dict, kptij_lst, log
                         out[ki, kj, :v.shape[0]] += v
                         log.debug("Filled j3c for kpt [%d, %d]", ki, kj)
                         if ki != kj:
-                            out[ki, kj, :v.shape[0]] += lib.transpose(v, axes=(0, 2, 1)).conj()
-                            log.debug("Filed j3c for kpt [%d, %d]", kj, ki)
+                            out[kj, ki, :v.shape[0]] += lib.transpose(v, axes=(0, 2, 1)).conj()
+                            log.debug("Filled j3c for kpt [%d, %d]", kj, ki)
 
             log.timingv("Time for j3c [kpt %d]:  %s", uniq_kpt_ji_id, time_string(timer()-t1))
 
@@ -499,6 +499,7 @@ if __name__ == '__main__':
     cell.build()
 
     kpts = cell.make_kpts([3, 1, 1])
+    kpts += 1e-4
 
     with_df_0 = rsdf.RSDF(cell, kpts)
     with_df_0.build()
@@ -509,9 +510,11 @@ if __name__ == '__main__':
     dm = np.random.random((len(kpts), cell.nao, cell.nao))
     dm += dm.swapaxes(1,2).conj()
 
-    for (r1, i1, _), (r2, i2, _) in zip(
-            list(with_df_0.sr_loop()),
-            list(with_df_1.sr_loop()),
-    ):
-        assert np.allclose(r1, r2)
-        assert np.allclose(i1, i2)
+    for ki, kpti in enumerate(kpts):
+        for kj, kptj in enumerate(kpts):
+            for (r1, i1, _), (r2, i2, _) in zip(
+                    list(with_df_0.sr_loop((kpti, kptj))),
+                    list(with_df_1.sr_loop((kpti, kptj))),
+            ):
+                assert np.allclose(r1, r2), (lib.fp(r1), lib.fp(r2))
+                assert np.allclose(i1, i2), (lib.fp(i1), lib.fp(i2))
