@@ -56,7 +56,7 @@ def _get_j2c(with_df, int2c2e, uniq_kpts, log=None):
     log = log or logging.getLogger(__name__)
 
     qaux = rsdf.get_aux_chg(with_df.auxcell)
-    g0_j2c = np.pi / with_df.omega_j2c**2 / cell.vol
+    g0_j2c = np.pi / with_df.omega_j2c**2 / with_df.cell.vol
     mesh_j2c = with_df.mesh_j2c
     Gv, Gvbase, kws = with_df.cell.get_Gv_weights(mesh_j2c)
     gxyz = lib.cartesian_prod([np.arange(len(x)) for x in Gvbase])
@@ -74,10 +74,11 @@ def _get_j2c(with_df, int2c2e, uniq_kpts, log=None):
         G_chg = ft_ao.ft_ao(with_df.auxcell, Gv, b=b, gxyz=gxyz, Gvbase=Gvbase, kpt=kpt).T
         G_aux = G_chg * coulG_lr
 
-        j2c_comp = np.dot(G_aux.conj(), G_chg.T)
         if is_zero(kpt):
-            j2c_comp = j2c_comp.real
-        j2c[k] += j2c_comp  #TODO why is this sign different?
+            j2c[k] += np.dot(G_aux.real, G_chg.T.real)
+            j2c[k] += np.dot(G_aux.imag, G_chg.T.imag)
+        else:
+            j2c[k] += np.dot(G_aux.conj(), G_chg.T)
 
         del G_chg, G_aux
 
@@ -118,7 +119,7 @@ def _aux_e2_nospltbas(
     nkptij = len(kptij_lst)
 
     if gamma_point(kptij_lst):
-        dtype = np.double
+        dtype = np.float64
     else:
         dtype = np.complex128
 
@@ -192,7 +193,14 @@ def _aux_e2_nospltbas(
     ni = ao_loc[shls_slice[1]] - ao_loc[shls_slice[0]]
     nj = ao_loc[shls_slice[3]] - ao_loc[shls_slice[2]]
     ngrids = aux_loc[shls_slice[5]] - aux_loc[shls_slice[4]]
-    nao_pair = ni * nj
+    nij = ni * nj
+    nii = (ao_loc[shls_slice[1]]*(ao_loc[shls_slice[1]]+1)//2 -
+           ao_loc[shls_slice[0]]*(ao_loc[shls_slice[0]]+1)//2)
+
+    if gamma_point(kptij_lst):
+        nao_pair = nii
+    else:
+        nao_pair = nij
 
     int3c = rsdf_helper.wrap_int3c_nospltbas(
             cell, auxcell, omega, shlpr_mask, prescreening_data,
@@ -203,7 +211,7 @@ def _aux_e2_nospltbas(
             bvk_kmesh=bvk_kmesh,
     )
 
-    int3c2e = np.zeros((nkptij, ngrids, nao_pair), dtype=dtype)
+    int3c2e = np.zeros((nkptij, ngrids, nij), dtype=dtype)
 
     for p0, p1 in mpi_helper.prange(shls_slice[4], shls_slice[5], shls_slice[5]-shls_slice[4]):
         shls_slice_part = shls_slice[:4] + (shls_slice[4]+p0, shls_slice[4]+p1)
@@ -213,10 +221,11 @@ def _aux_e2_nospltbas(
         int3c2e_part = int3c(shls_slice_part, int3c2e_part)
         int3c2e_part = lib.transpose(int3c2e_part, axes=(0, 2, 1))
 
-        if int3c2e_part.shape[-1] != nao_pair:
-            int3c2e_part = lib.unpacktril(int3c2e_part, lib.HERMITIAN, axis=-1)
+        if int3c2e_part.shape[-1] != nij:
+            int3c2e_part = int3c2e_part.reshape(-1, nii)
+            int3c2e_part = lib.unpack_tril(int3c2e_part, lib.HERMITIAN, axis=-1)
 
-        int3c2e_part = int3c2e_part.reshape(nkptij, q1-q0, nao_pair)
+        int3c2e_part = int3c2e_part.reshape(nkptij, q1-q0, nij)
         int3c2e[:, q0:q1] = int3c2e_part
 
     mpi_helper.allreduce_safe_inplace(int3c2e)
@@ -234,7 +243,7 @@ def _get_3c2e(with_df, kptij_list, log=None):
     log = log or logging.getLogger(__name__)
 
     if with_df.use_bvk:
-        bvk_kmesh = rsdf.kpts_to_kmesh(cell, with_df.kpts)
+        bvk_kmesh = rsdf.kpts_to_kmesh(with_df.cell, with_df.kpts)
         if bvk_kmesh is None:
             log.debug("Non-Gamma-inclusive k-mesh is found. bvk_kmesh is not used.")
         else:
@@ -280,6 +289,13 @@ def _get_j3c(with_df, j2c, int3c2e, uniq_kpts, uniq_inverse_dict, kptij_lst, log
     qaux = rsdf.get_aux_chg(with_df.auxcell)
     g0 = np.pi / with_df.omega**2 / cell.vol
 
+    #FIXME for Γ
+    dtype = np.complex128
+    #if gamma_point(kptij_lst):
+    #    dtype = np.double
+    #else:
+    #    dtype = np.complex128
+
     if with_df.use_bvk:
         bvk_kmesh = rsdf.kpts_to_kmesh(cell, with_df.kpts)
         if bvk_kmesh is None:
@@ -290,7 +306,7 @@ def _get_j3c(with_df, j2c, int3c2e, uniq_kpts, uniq_inverse_dict, kptij_lst, log
         bvk_kmesh = None
 
     if out is None:
-        out = np.zeros((nkpts, nkpts, naux, nao, nao), dtype=np.complex128)
+        out = np.zeros((nkpts, nkpts, naux, nao, nao), dtype=dtype)
 
     for uniq_kpt_ji_id in mpi_helper.nrange(len(uniq_kpts)):
         t1 = timer()
@@ -331,7 +347,7 @@ def _get_j3c(with_df, j2c, int3c2e, uniq_kpts, uniq_inverse_dict, kptij_lst, log
             log.debugv("Norm of FT for AO cell:  %.12g", np.linalg.norm(G_ao))
 
             for kji, ji in enumerate(adapted_ji_idx):
-                v = int3c2e[ji]
+                v = int3c2e[ji].astype(out.dtype)
 
                 if is_zero(kpt):
                     for i in np.where(vbar != 0)[0]:

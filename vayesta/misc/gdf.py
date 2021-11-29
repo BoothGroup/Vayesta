@@ -611,11 +611,11 @@ def _make_j3c(with_df, kptij_lst):
     log.info("Number of unique kpts (kj - ki): %d", len(uniq_kpts))
     log.debugv("uniq_kpts:\n%s", uniq_kpts)
 
-    # Get the 3c2e interaction:
-    int3c2e = _get_3c2e(with_df, kptij_lst, log=with_df.log)
-
     # Get the 2c2e interaction:
     int2c2e = _get_2c2e(with_df, uniq_kpts, log=with_df.log)
+
+    # Get the 3c2e interaction:
+    int3c2e = _get_3c2e(with_df, kptij_lst, log=with_df.log)
 
     # Get j2c:
     j2c = _get_j2c(with_df, int2c2e, uniq_kpts, log=with_df.log)
