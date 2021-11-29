@@ -135,11 +135,15 @@ class ssRIRPA:
 
         mom0 = einsum("pq,q->pq", integral + integral_offset, self.D ** (-1)) - np.dot(
             np.dot(integral + integral_offset, ri_apb_inv.T), ri_apb_inv)
-
+        # Also need to convert error estimate of the integral into one for the actual evaluated quantity.
+        # Use Cauchy-Schwartz to both obtain an upper bound on resulting mom0 error, and efficiently obtain upper bound
+        # on norm of low-rank portion of P^{-1}.
+        pinv_norm = (sum(self.D ** (-2)) + 2 * einsum("p,np,np->", self.D ** (-1), ri_apb_inv, ri_apb_inv) +
+                     np.linalg.norm(ri_apb_inv) ** 4) ** (0.5)
+        mom0_err = err * pinv_norm
         if not ((err is None) or adaptive_quad):
-            self.check_errors(err, target_rot.size)
-
-        return mom0 + moment_offset, err  # integral, (niworker, offset_niworker),
+            self.check_errors(mom0_err, target_rot.size)
+        return mom0 + moment_offset, mom0_err  # integral, (niworker, offset_niworker),
 
     def kernel_energy(self):
 
