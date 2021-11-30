@@ -10,6 +10,9 @@ import pyscf.lo
 
 import vayesta
 import vayesta.ewf
+from vayesta.misc import scf_with_mpi
+import vayesta.core
+from vayesta.core.mpi import mpi
 
 from structures import NO2_Graphene
 
@@ -17,7 +20,8 @@ parser = argparse.ArgumentParser()
 parser.add_argument('--structure', type=int, default=-1)
 parser.add_argument('--kmesh', type=int, nargs=2, default=False)
 parser.add_argument('--basis', default='cc-pVDZ')
-parser.add_argument('--auxbasis', default='cc-pVDZ-ri')
+#parser.add_argument('--auxbasis', default='cc-pVDZ-ri')
+parser.add_argument('--auxbasis', default=None)
 #parser.add_argument('--gate-range', type=float, nargs=3, default=[-0.01, 0.01, 0.002])
 #parser.add_argument('--gate-range', type=float, nargs=3, default=[-0.1, 0.1, 0.02])
 parser.add_argument('--gate-range', type=float, nargs=3, default=[-0.2, 0.2, 0.05])
@@ -39,9 +43,11 @@ parser.add_argument('--lindep-threshold', type=float)
 parser.add_argument('--xc', default=None)
 parser.add_argument('--mf-only', action='store_true')
 parser.add_argument('--scf-conv-tol', type=float, default=1e-9)
+parser.add_argument('--scf-with-mpi', action='store_true')
 # --- Embedding
 parser.add_argument('--fragment-type', default='iao')
 parser.add_argument('--nc', type=int, default=0)
+parser.add_argument('--atomic-fragments', action='store_true')
 parser.add_argument('--eta', type=float)
 parser.add_argument('--augmented-basis', type=int, default=1)
 parser.add_argument('--dmet-threshold', type=float, default=1e-4)
@@ -81,6 +87,8 @@ if args.invert_scan:
 dm1_mf = None
 for idx, gate in enumerate(gates):
 
+    vayesta.new_log('gate-%.3f' % gate)
+
     if args.gate_index is not None and idx != args.gate_index:
         continue
 
@@ -99,6 +107,7 @@ for idx, gate in enumerate(gates):
     else:
         cell.basis = args.basis
     cell.lindep_threshold = args.lindep_threshold
+    cell.output = ('pyscf.mpi%d.txt' % mpi.rank)
     cell.build()
 
     # MF
@@ -115,7 +124,16 @@ for idx, gate in enumerate(gates):
     mf.conv_tol = args.scf_conv_tol
     mf.max_cycle = 100
 
-    mf = mf.density_fit(auxbasis=args.auxbasis)
+
+    if args.auxbasis is not None:
+        auxbasis = args.auxbasis
+    else:
+        if isinstance(args.basis, dict):
+            auxbasis = {key : ('%s-ri' % args.basis[key]) for key in args.basis}
+        else:
+            auxbasis = '%s-ri' % args.basis
+    print("RI basis: %s" % auxbasis)
+    mf = mf.density_fit(auxbasis=auxbasis)
 
     # Gate potential
     if gate:
@@ -126,6 +144,9 @@ for idx, gate in enumerate(gates):
     else:
         v_gate = None
         hcore_orig = hcore_gate = mf.get_hcore
+
+    if args.scf_with_mpi:
+        mf = scf_with_mpi(mf)
 
     # Run MF
     if args.trace:
@@ -156,50 +177,72 @@ for idx, gate in enumerate(gates):
     if v_gate is not None:
         opts['overwrite'] = dict(get_hcore_for_energy=hcore_orig)
     if args.eta is None:
-        ecc = vayesta.ewf.EWF(mf, bath_type=None, **opts)
+        emb = vayesta.ewf.EWF(mf, bath_type=None, **opts)
     else:
-        ecc = vayesta.ewf.EWF(mf, bno_threshold=args.eta, **opts)
+        emb = vayesta.ewf.EWF(mf, bno_threshold=args.eta, **opts)
 
-    ecc.pop_analysis(dm1=dm1_mf, local_orbitals='mulliken', filename='mulliken-mf-%.3f.pop' % gate)
-    ecc.pop_analysis(dm1=dm1_mf, local_orbitals='lowdin',   filename='lowdin-mf-%.3f.pop' % gate)
-    ecc.pop_analysis(dm1=dm1_mf, local_orbitals='iao+pao',  filename='iao+pao-mf-%.3f.pop' % gate)
+    emb.pop_analysis(dm1=dm1_mf, local_orbitals='mulliken', filename='mulliken-mf-%.3f.pop' % gate)
+    emb.pop_analysis(dm1=dm1_mf, local_orbitals='lowdin',   filename='lowdin-mf-%.3f.pop' % gate)
+    emb.pop_analysis(dm1=dm1_mf, local_orbitals='iao+pao',  filename='iao+pao-mf-%.3f.pop' % gate)
 
     if not args.mf_only:
 
         if args.fragment_type == 'iao':
-            ecc.iao_fragmentation()
+            emb.iao_fragmentation()
         elif args.fragment_type == 'iaopao':
-            ecc.iaopao_fragmentation()
+            emb.iaopao_fragmentation()
         elif args.fragment_type == 'sao':
-            ecc.sao_fragmentation()
+            emb.sao_fragmentation()
 
         #if v_gate is not None:
-            #ecc.get_fock_for_energy = lambda *args : (ecc.get_fock(*args) + v_gate)
-            #ecc.get_hcore_for_energy = lambda : (ecc.get_hcore() + v_gate)
-        #    ecc.get_hcore_for_energy = hcore_orig
+            #emb.get_fock_for_energy = lambda *args : (emb.get_fock(*args) + v_gate)
+            #emb.get_hcore_for_energy = lambda : (emb.get_hcore() + v_gate)
+        #    emb.get_hcore_for_energy = hcore_orig
 
-        # Define fragment
-        def get_closest_atom(point, exclude):
-            coords = cell.atom_coords().copy()
-            distances = np.linalg.norm(coords - point, axis=1)
-            distances[exclude] = np.inf
-            return np.argmin(distances)
-        fragment_atoms = [0, 1, 2]
-        for i in range(args.nc):
-            idx = get_closest_atom(cell.atom_coord(0), exclude=fragment_atoms)
-            print("Adding atom %d at %r" % (idx, cell.atom_coord(idx)))
-            fragment_atoms.append(idx)
+        if args.atomic_fragments:
+            emb.add_all_atomic_fragments()
+            emb.kernel()
+            # NEW CCSD DM:
+            dm1 = emb.make_rdm1_ccsd()
 
-        frag = ecc.add_atomic_fragment(fragment_atoms)
-        ecc.kernel()
+            # Check DM
+            if mpi.is_master:
+                nelec = np.trace(dm1[0] + dm1[1])
+                print("Nelec= %.8f tr(DM)= %.8f err= %.8f" % (cell.nelectron, nelec, nelec-cell.nelectron))
+                spin = np.trace(dm1[0] - dm1[1])
+                print("spin= %.8f tr(DM)= %.8f err= %.8f" % (cell.spin, spin, spin-cell.spin))
+                e, v = np.linalg.eigh(dm1[0])
+                print("alpha: min(n)= %.8f max(n)= %.8f" % (e[0], e[-1]))
+                e, v = np.linalg.eigh(dm1[1])
+                print("alpha: min(n)= %.8f max(n)= %.8f" % (e[0], e[-1]))
 
-        frag.pop_analysis(local_orbitals='mulliken', filename='mulliken-cc-%.3f.pop' % gate)
-        frag.pop_analysis(local_orbitals='lowdin',   filename='lowdin-cc-%.3f.pop' % gate)
-        frag.pop_analysis(local_orbitals='iao+pao',  filename='iao+pao-cc-%.3f.pop' % gate)
+            emb.pop_analysis(dm1, mo_coeff=mf.mo_coeff, local_orbitals='mulliken', filename='mulliken-cc-%.3f.pop' % gate)
+            emb.pop_analysis(dm1, mo_coeff=mf.mo_coeff, local_orbitals='lowdin', filename='lowdin-cc-%.3f.pop' % gate)
+            emb.pop_analysis(dm1, mo_coeff=mf.mo_coeff, local_orbitals='iao+pao', filename='iao+pao-cc-%.3f.pop' % gate)
+        else:
+            # Define fragment
+            def get_closest_atom(point, exclude):
+                coords = cell.atom_coords().copy()
+                distances = np.linalg.norm(coords - point, axis=1)
+                distances[exclude] = np.inf
+                return np.argmin(distances)
+            fragment_atoms = [0, 1, 2]
+            for i in range(args.nc):
+                idx = get_closest_atom(cell.atom_coord(0), exclude=fragment_atoms)
+                print("Adding atom %d at %r" % (idx, cell.atom_coord(idx)))
+                fragment_atoms.append(idx)
 
-        e_cc = ecc.e_tot
+            frag = emb.add_atomic_fragment(fragment_atoms)
+            emb.kernel()
+
+            frag.pop_analysis(local_orbitals='mulliken', filename='mulliken-cc-%.3f.pop' % gate)
+            frag.pop_analysis(local_orbitals='lowdin',   filename='lowdin-cc-%.3f.pop' % gate)
+            frag.pop_analysis(local_orbitals='iao+pao',  filename='iao+pao-cc-%.3f.pop' % gate)
+
+        e_cc = emb.e_tot
     else:
         e_cc = np.nan
 
-    with open('energies.txt', 'a') as f:
-        f.write('%.4f  % 16.8f  % 16.8f  % 16.8f\n' % (gate, mf.e_tot, ecc.e_mf, e_cc))
+    if mpi.is_master:
+        with open('energies.txt', 'a') as f:
+            f.write('%.4f  % 16.8f  % 16.8f  % 16.8f\n' % (gate, mf.e_tot, emb.e_mf, e_cc))
