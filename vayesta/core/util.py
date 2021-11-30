@@ -29,6 +29,7 @@ __all__ = [
         # RHF/UHF abstraction
         'dot_s', 'eigh_s', 'stack_mo_coeffs',
         # Other
+        'brange',
         'deprecated',
         'replace_attr', 'cached_method', 'break_into_lines', 'fix_orbital_sign',
         ]
@@ -109,6 +110,21 @@ def stack_mo_coeffs(*mo_coeffs):
             hstack(*[c[1] for c in mo_coeffs]))
 
 #
+
+def brange(start, stop, step, minstep=1, maxstep=None):
+    """Similar to PySCF's prange, but returning a slice instead.
+
+    Start, stop, and blocksize can be accessed from each slice blk as
+    blk.start, blk.stop, and blk.step.
+    """
+    if stop <= start:
+        return
+    if maxstep is None:
+        maxstep = (stop-start)
+    step = np.clip(step, minstep, maxstep)
+    for i in range(start, stop, step):
+        blk = np.s_[i:min(i+step, stop)]
+        yield blk
 
 def cached_method(cachename, use_cache_default=True, store_cache_default=True):
     """Cache the return value of a class method.

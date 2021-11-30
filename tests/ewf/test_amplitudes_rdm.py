@@ -138,6 +138,7 @@ class RHF_vs_UHF_H2O(unittest.TestCase):
         self.assertIsNone(np.testing.assert_allclose(t2bb, t2 - t2.transpose(0,1,3,2), atol=atol))
 
     def test_dm1(self):
+        # TODO, currently fails
         atol = 1e-8
         rdm1 = self.remb.make_rdm1_ccsd_new2()
         #dm1a, dm1b = self.uemb.make_rdm1_ccsd(symmetrize=False)

@@ -12,9 +12,8 @@
 #include <math.h>
 #include <assert.h>
 
-//#include "omp.h"
 #if defined _OPENMP
-#include <omp.h>
+#include "omp.h"
 #else
 #define omp_get_thread_num() 0
 #define omp_get_num_threads() 1
@@ -412,106 +411,101 @@ EXIT:
 //    return ierr;
 //}
 //
-//int64_t j3c_kao2gmo_k12(
-//        /* In */
-//        int64_t nao,                // Number of atomic orbitals in primitive cells
-//        int64_t nmo1,               // Number of output (molecular, cluster,...) orbitals in supercell
-//        int64_t nmo2,               // Number of output (molecular, cluster,...) orbitals in supercell
-//        int64_t naux,               // Number of auxiliary basis functions in primitive cell
-//        double complex *mo_coeff1,  // (nao, nmo1) MO coefficients in k-space representation at k1
-//        double complex *mo_coeff2,  // (nao, nmo2) MO coefficients in k-space representation at k2
-//        double complex *j3c_ao,     // (naux, nao, nao) k-point sampled 3c-integrals at k12(k1,k2)
-//        bool transpose              // transpose j3c_ao
-//        double complex *work,
-//        double complex *work2,
-//        /* Out */
-//        double complex *j3c_mo      // (naux,nmo1,nmo2) Three-center integrals (kL|ia)
-//        )
-//{
-//    int64_t ierr = 0;
-//
-//    /* Dummy indices */
-//    size_t l;           // DF basis function
-//    size_t a, b;        // atomic orbitals
-//#ifdef USE_BLAS
-//    const double complex Z0 = 0.0;
-//    const double complex Z1 = 1.0;
-//#else
-//    /* Dummy indices */
-//    size_t i, j;        // molecular orbital indices
-//#endif
-//    double complex *j3c_pt = NULL;
-//
-//    for (l = 0; l < naux; l++) {
-//
-//        j3c_pt = &(j3c_ao[(labs(k12)*naux + l)*nao*nao]);
-//
-//        // Tranpose AOs if k12 negative
-//        if (k12 < 0) {
-//            for (a = 0; a < nao; a++) {
-//            for (b = 0; b < nao; b++) {
-//                work2[b*nao+a] = conj(j3c_pt[a*nao+b]);
-//            }}
-//            j3c_pt = work2;
-//        }
-//#ifdef USE_BLAS
-//        /* Contract MO1 then MO2 */
-//        if (nmo1 < nmo2) {
-//            //memset(work, 0, nmo1*nao * sizeof(double complex));
-//            // (L|ao,ao) -> (L|mo1,ao)
-//            cblas_zgemm(CblasRowMajor, CblasConjTrans, CblasNoTrans, nmo1, nao, nao,
-//                    &Z1, mo_coeff1, nmo1, j3c_pt, nao,
-//                    &Z0, work, nao);
-//            // (L|mo1,ao) -> (L|mo1,mo2)
-//            cblas_zgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans, nmo1, nmo2, nao,
-//                    &Z1, work, nao, mo_coeff2, nmo2,
-//                    &Z1, &(j3c_mo[l*nmo1*nmo2]), nmo2);
-//        } else {
-//            //memset(work, 0, nao*nmo2 * sizeof(double complex));
-//            // (L|ao,ao) -> (L|ao,mo2)
-//            cblas_zgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans, nao, nmo2, nao,
-//                    &Z1, j3c_pt, nao, mo_coeff2, nmo2,
-//                    &Z0, work, nmo2);
-//            // (L|ao,mo2) -> (L|mo1,mo2)
-//            cblas_zgemm(CblasRowMajor, CblasConjTrans, CblasNoTrans, nmo1, nmo2, nao,
-//                    &Z1, mo_coeff1, nmo1, work, nmo2,
-//                    &Z1, &(j3c_mo[l*nmo1*nmo2]), nmo2);
-//        }
-//#else
-//        /* Contract MO1 then MO2 */
-//        if (nmo1 < nmo2) {
-//            memset(work, 0, nmo1*nao * sizeof(double complex));
-//            // (L|ao,ao) -> (L|mo1,ao)
-//            for (a = 0; a < nao; a++) {
-//            for (b = 0; b < nao; b++) {
-//            for (i = 0; i < nmo1; i++) {
-//                work[i*nao + b] += j3c_pt[a*nao + b] * conj(mo_coeff1[a*nmo1 + i]);
-//            }}}
-//            // (L|mo1,ao) -> (L|mo1,mo2)
-//            for (b = 0; b < nao; b++) {
-//            for (i = 0; i < nmo1; i++) {
-//            for (j = 0; j < nmo2; j++) {
-//                j3c_mo[l*nmo1*nmo2 + i*nmo2 + j] += work[i*nao + b] * mo_coeff2[b*nmo2 + j];
-//            }}}
-//        /* Contract MO2, then MO1 */
-//        } else {
-//            memset(work, 0, nao*nmo2 * sizeof(double complex));
-//            // (L|ao,ao) -> (L|ao,mo2)
-//            for (a = 0; a < nao; a++) {
-//            for (b = 0; b < nao; b++) {
-//            for (j = 0; j < nmo2; j++) {
-//                work[a*nmo2 + j] += j3c_pt[a*nao + b] * mo_coeff2[b*nmo2 + j];
-//            }}}
-//            // (L|ao,mo2) -> (L|mo1,mo2)
-//            for (a = 0; a < nao; a++) {
-//            for (i = 0; i < nmo1; i++) {
-//            for (j = 0; j < nmo2; j++) {
-//                j3c_mo[l*nmo1*nmo2 + i*nmo2 + j] += work[a*nmo2 + j] * conj(mo_coeff1[a*nmo1 + i]);
-//            }}}
-//        }
-//#endif
-//    } // loop over l
-//
-//    return ierr;
-//}
-//
+
+/* AO->MO Transform 3c integrals */
+int64_t ao2mo_cderi(
+        /* In */
+        int64_t nao,                // Number of atomic orbitals
+        int64_t nmo1,               // Number of output (molecular, cluster,...)
+        int64_t nmo2,               // Number of output (molecular, cluster,...)
+        int64_t naux,               // Number of auxiliary basis functions
+        double complex *mo_coeff1,  // (nao, nmo1) MO coefficients
+        double complex *mo_coeff2,  // (nao, nmo2) MO coefficients
+        double complex *cderi,      // (naux, nao, nao) CDERI-integrals
+        /* Out */
+        double complex *cderi_mo    // (naux,nmo1,nmo2) Three-center integrals (kL|ia)
+        )
+{
+    int64_t ierr = 0;
+    size_t l;           // DF basis function
+    const size_t nmo_min = MIN(nmo1, nmo2);
+#ifdef USE_BLAS
+    const double complex Z0 = 0.0;
+    const double complex Z1 = 1.0;
+#endif
+
+
+#pragma omp parallel
+    {
+    double complex *cderi_pt = NULL;
+    double complex *work = malloc(nao*nmo_min * sizeof(double complex));
+
+#pragma omp for
+    for (l = 0; l < naux; l++) {
+
+        cderi_pt = &(cderi[l*nao*nao]);
+
+#ifdef USE_BLAS
+        /* Contract MO1 then MO2 */
+        if (nmo1 < nmo2) {
+            //memset(work, 0, nmo1*nao * sizeof(double complex));
+            // (L|ao,ao) -> (L|mo1,ao)
+            cblas_zgemm(CblasRowMajor, CblasTrans, CblasNoTrans, nmo1, nao, nao,
+                    &Z1, mo_coeff1, nmo1, cderi_pt, nao,
+                    &Z0, work, nao);
+            // (L|mo1,ao) -> (L|mo1,mo2)
+            cblas_zgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans, nmo1, nmo2, nao,
+                    &Z1, work, nao, mo_coeff2, nmo2,
+                    &Z1, &(cderi_mo[l*nmo1*nmo2]), nmo2);
+        } else {
+            //memset(work, 0, nao*nmo2 * sizeof(double complex));
+            // (L|ao,ao) -> (L|ao,mo2)
+            cblas_zgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans, nao, nmo2, nao,
+                    &Z1, cderi_pt, nao, mo_coeff2, nmo2,
+                    &Z0, work, nmo2);
+            // (L|ao,mo2) -> (L|mo1,mo2)
+            cblas_zgemm(CblasRowMajor, CblasTrans, CblasNoTrans, nmo1, nmo2, nao,
+                    &Z1, mo_coeff1, nmo1, work, nmo2,
+                    &Z1, &(cderi_mo[l*nmo1*nmo2]), nmo2);
+        }
+#else
+        /* Contract MO1 then MO2 */
+        if (nmo1 <= nmo2) {
+            memset(work, 0, nmo1*nao * sizeof(double complex));
+            // (L|ao,ao) -> (L|mo1,ao)
+            for (size_t a = 0; a < nao; a++) {
+            for (size_t b = 0; b < nao; b++) {
+            for (size_t i = 0; i < nmo1; i++) {
+                work[i*nao + b] += cderi_pt[a*nao + b] * mo_coeff1[a*nmo1 + i];
+            }}}
+            // (L|mo1,ao) -> (L|mo1,mo2)
+            for (size_t b = 0; b < nao; b++) {
+            for (size_t i = 0; i < nmo1; i++) {
+            for (size_t j = 0; j < nmo2; j++) {
+                cderi_mo[l*nmo1*nmo2 + i*nmo2 + j] += work[i*nao + b] * mo_coeff2[b*nmo2 + j];
+            }}}
+        /* Contract MO2, then MO1 */
+        } else {
+            memset(work, 0, nao*nmo2 * sizeof(double complex));
+            // (L|ao,ao) -> (L|ao,mo2)
+            for (size_t a = 0; a < nao; a++) {
+            for (size_t b = 0; b < nao; b++) {
+            for (size_t j = 0; j < nmo2; j++) {
+                work[a*nmo2 + j] += cderi_pt[a*nao + b] * mo_coeff2[b*nmo2 + j];
+            }}}
+            // (L|ao,mo2) -> (L|mo1,mo2)
+            for (size_t a = 0; a < nao; a++) {
+            for (size_t i = 0; i < nmo1; i++) {
+            for (size_t j = 0; j < nmo2; j++) {
+                cderi_mo[l*nmo1*nmo2 + i*nmo2 + j] += work[a*nmo2 + j] * mo_coeff1[a*nmo1 + i];
+            }}}
+        }
+#endif
+    } // loop over l
+    free(work);
+    } // OMP parallel
+
+
+    return ierr;
+}
+

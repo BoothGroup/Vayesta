@@ -25,6 +25,7 @@ from vayesta.core import vlog
 from vayesta.core.foldscf import FoldedSCF, fold_scf
 from vayesta.core.util import *
 from vayesta.core.ao2mo.postscf_ao2mo import postscf_ao2mo
+from vayesta.core.ao2mo.postscf_ao2mo import postscf_kao2gmo
 from vayesta.core.ao2mo.kao2gmo import gdf_to_pyscf_eris
 from vayesta.misc.gdf import GDF
 from vayesta import lattmod
@@ -553,41 +554,56 @@ class QEmbedding:
             eris = eris.reshape(shape)
         return eris
 
-    def get_eris_object(self, posthf, fock=None):
-        """Get ERIs for post-HF methods.
+    def get_eris_object(self, postscf, fock=None):
+        """Get ERIs for post-SCF methods.
 
         For folded PBC calculations, this folds the MO back into k-space
         and contracts with the k-space three-center integrals..
 
         Parameters
         ----------
-        posthf: one of the following post-HF methods: MP2, CCSD, RCCSD, DFCCSD
-            Post-HF method with attribute mo_coeff set.
+        postscf: one of the following PySCF methods: MP2, CCSD, RCCSD, DFCCSD
+            Post-SCF method with attribute mo_coeff set.
 
         Returns
         -------
         eris: _ChemistsERIs
-            ERIs which can be used for the respective post-HF method.
+            ERIs which can be used for the respective post-scf method.
         """
-        c_act = _mo_without_core(posthf, posthf.mo_coeff)
-
         if fock is None:
-            if isinstance(posthf, pyscf.mp.mp2.MP2):
+            if isinstance(postscf, pyscf.mp.mp2.MP2):
                 fock = self.get_fock()
-            elif isinstance(posthf, (pyscf.ci.cisd.CISD, pyscf.cc.ccsd.CCSD)):
+            elif isinstance(postscf, (pyscf.ci.cisd.CISD, pyscf.cc.ccsd.CCSD)):
                 fock = self.get_fock(with_exxdiv=False)
             else:
-                raise ValueError("Unknown post-HF method: %r", type(posthf))
+                raise ValueError("Unknown post-SCF method: %r", type(postscf))
         # For MO energies, always use get_fock():
-        mo_energy = einsum('ai,ab,bi->i', c_act, self.get_fock(), c_act)
+        mo_act = _mo_without_core(postscf, postscf.mo_coeff)
+        mo_energy = einsum('ai,ab,bi->i', mo_act, self.get_fock(), mo_act)
         e_hf = self.mf.e_tot
 
-        # 1) Fold MOs into k-point sampled primitive cell, to perform efficient AO->MO transformation:
+        # Fold MOs into k-point sampled primitive cell, to perform efficient AO->MO transformation:
         if self.kdf is not None:
-            eris = gdf_to_pyscf_eris(self.mf, self.kdf, posthf, fock=fock, mo_energy=mo_energy, e_hf=e_hf)
+            eris = postscf_kao2gmo(postscf, self.kdf, fock=fock, mo_energy=mo_energy, e_hf=e_hf)
+            ## COMPARISON:
+            ## OLD:
+            #with log_time(self.log.timing, "Time OLD: %s"):
+            #    eris_old = gdf_to_pyscf_eris(self.mf, self.kdf, postscf, fock=fock, mo_energy=mo_energy, e_hf=e_hf)
+            ## NEW:
+            #with log_time(self.log.timing, "Time NEW: %s"):
+            #    eris = postscf_kao2gmo(postscf, self.kdf, fock=fock, mo_energy=mo_energy, e_hf=e_hf)
+
+            #for key in ['oooo', 'ovoo', 'ovvo', 'oovv', 'ovov', 'ovvv', 'vvvv', 'vvL']:
+            #    if not hasattr(eris, key) or (getattr(eris, key) is None):
+            #        continue
+            #    old = getattr(eris_old, key)
+            #    new = getattr(eris, key)
+            #    close = np.allclose(old, new)
+            #    assert close
+            #    assert old.shape == new.shape
             return eris
-        # 2) Regular AO->MO transformation
-        eris = postscf_ao2mo(posthf, fock=fock, mo_energy=mo_energy, e_hf=e_hf)
+        # Regular AO->MO transformation
+        eris = postscf_ao2mo(postscf, fock=fock, mo_energy=mo_energy, e_hf=e_hf)
         return eris
 
     # Overlap matrices

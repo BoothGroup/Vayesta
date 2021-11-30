@@ -20,7 +20,7 @@ mol.build()
 mf = pyscf.scf.RHF(mol)
 mf.kernel()
 
-ecc = vayesta.ewf.EWF(mf, bno_threshold=1e-6)
+emb = vayesta.ewf.EWF(mf, bno_threshold=1e-6)
 emb.iao_fragmentation()
 emb.add_atomic_fragment(0)
 emb.add_atomic_fragment(1)

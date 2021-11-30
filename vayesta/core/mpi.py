@@ -12,13 +12,13 @@ try:
     mpi_world = MPI.COMM_WORLD
     mpi_rank = mpi_world.Get_rank()
     mpi_size = mpi_world.Get_size()
-    mpi_timer = MPI.Wtime
+    timer = MPI.Wtime
 except (ModuleNotFoundError, ImportError):
     MPI = None
     mpi_world = None
     mpi_rank = 0
     mpi_size = 1
-    mpi_timer = default_timer
+    timer = default_timer
 
 class MPI_Operators:
     pass
@@ -33,7 +33,7 @@ class MPI_Interface:
     world = mpi_world
     rank = mpi_rank
     size = mpi_size
-    timer = mpi_timer
+    timer = timer
 
     op = mpi_ops
 

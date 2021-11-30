@@ -15,8 +15,8 @@ def get_full_array(eris, mo_coeff=None, out=None):
     """Get dense ERI array from CCSD _ChemistEris object."""
     if mo_coeff is not None and not np.allclose(mo_coeff, eris.mo_coeff):
         raise NotImplementedError()
-    nmo = eris.fock.shape[-1]
-    nocc = eris.nocc
+    nocc, nvir = eris.ovoo.shape[:2]
+    nmo = nocc + nvir
     o, v = np.s_[:nocc], np.s_[nocc:]
     if out is None:
         out = np.zeros(4*[nmo])
@@ -112,6 +112,7 @@ def project_ccsd_eris(eris, mo_coeff, nocc, ovlp, check_subspace=True):
     eris : _ChemistERIs or None
         ERIs with transformed integral values, as well as transformed attributes
         `mo_coeff`, `fock`, and `mo_energy`.
+
     """
     # New subspace MO coefficients:
     c_occ, c_vir = np.hsplit(mo_coeff, [nocc])

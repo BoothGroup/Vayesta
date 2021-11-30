@@ -12,6 +12,7 @@ from .ufragment import UFragment
 from vayesta.core.ao2mo.postscf_ao2mo import postscf_ao2mo
 from vayesta.core.util import *
 from vayesta.core.mpi import mpi
+from vayesta.core.ao2mo.postscf_ao2mo import postscf_kao2gmo_uhf
 
 # Amplitudes
 from .amplitudes import get_global_t1_uhf
@@ -156,44 +157,42 @@ class UEmbedding(QEmbedding):
         eris_ab = super().get_eris_array(2*[mo_coeff[0]] + 2*[mo_coeff[1]], compact=compact)
         return (eris_aa, eris_ab, eris_bb)
 
-    def get_eris_object(self, posthf, fock=None):
-        """Get ERIs for post-HF methods.
+    def get_eris_object(self, postscf, fock=None):
+        """Get ERIs for post-SCF methods.
 
         For folded PBC calculations, this folds the MO back into k-space
         and contracts with the k-space three-center integrals..
 
         Parameters
         ----------
-        posthf: one of the following post-HF methods: MP2, CCSD, RCCSD, DFCCSD
-            Post-HF method with attribute mo_coeff set.
+        postscf: one of the following post-SCF methods: MP2, CCSD, RCCSD, DFCCSD
+            Post-SCF method with attribute mo_coeff set.
 
         Returns
         -------
         eris: _ChemistsERIs
-            ERIs which can be used for the respective post-HF method.
+            ERIs which can be used for the respective post-SCF method.
         """
-        # Get required quantities:
-        active = posthf.get_frozen_mask()
-        c_act = (posthf.mo_coeff[0][:,active[0]], posthf.mo_coeff[1][:,active[1]])
         if fock is None:
-            if isinstance(posthf, pyscf.mp.mp2.MP2):
+            if isinstance(postscf, pyscf.mp.mp2.MP2):
                 fock = self.get_fock()
-            elif isinstance(posthf, (pyscf.ci.cisd.CISD, pyscf.cc.ccsd.CCSD)):
+            elif isinstance(postscf, (pyscf.ci.cisd.CISD, pyscf.cc.ccsd.CCSD)):
                 fock = self.get_fock(with_exxdiv=False)
             else:
-                raise ValueError("Unknown post-HF method: %r", type(posthf))
+                raise ValueError("Unknown post-HF method: %r", type(postscf))
         # For MO energies, always use get_fock():
-        mo_energy = (einsum('ai,ab,bi->i', c_act[0], self.get_fock()[0], c_act[0]),
-                     einsum('ai,ab,bi->i', c_act[1], self.get_fock()[1], c_act[1]))
+        act = postscf.get_frozen_mask()
+        mo_act = (postscf.mo_coeff[0][:,act[0]], postscf.mo_coeff[1][:,act[1]])
+        mo_energy = (einsum('ai,ab,bi->i', mo_act[0], self.get_fock()[0], mo_act[0]),
+                     einsum('ai,ab,bi->i', mo_act[1], self.get_fock()[1], mo_act[1]))
         e_hf = self.mf.e_tot
 
         # 1) Fold MOs into k-point sampled primitive cell, to perform efficient AO->MO transformation:
         if self.kdf is not None:
-            raise NotImplementedError()
-            #eris = gdf_to_pyscf_eris(self.mf, self.kdf, posthf, fock=fock, mo_energy=mo_energy, e_hf=e_hf)
-            #return eris
+            eris = postscf_kao2gmo_uhf(postscf, self.kdf, fock=fock, mo_energy=mo_energy, e_hf=e_hf)
+            return eris
         # 2) Regular AO->MO transformation
-        eris = postscf_ao2mo(posthf, fock=fock, mo_energy=mo_energy, e_hf=e_hf)
+        eris = postscf_ao2mo(postscf, fock=fock, mo_energy=mo_energy, e_hf=e_hf)
         return eris
 
     def update_mf(self, mo_coeff, mo_energy=None, veff=None):
