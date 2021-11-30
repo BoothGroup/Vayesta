@@ -10,6 +10,7 @@ Ref:
 import logging
 import collections
 import numpy as np
+import types
 
 from pyscf import lib
 from pyscf.gto import moleintor
@@ -19,7 +20,7 @@ from pyscf.pbc.lib.kpts_helper import unique, is_zero, gamma_point, KPT_DIFF_TOL
 from pyscf.ao2mo.outcore import balance_partition
 from pyscf.agf2 import mpi_helper
 
-import vayesta
+from vayesta import libs
 from vayesta.misc.gdf import _kconserve_indices, _cholesky_decomposed_metric, _get_kpt_hash, make_chgcell, fuse_auxcell, GDF
 from vayesta.core.util import time_string
 
@@ -205,7 +206,7 @@ def _aux_e2_nospltbas(
     int3c = rsdf_helper.wrap_int3c_nospltbas(
             cell, auxcell, omega, shlpr_mask, prescreen,
             intor=intor,
-            aosym='s2ij',
+            aosym='s1',  #FIXME s2ij doesn't work for direct
             comp=comp,
             kptij_lst=kptij_lst,
             bvk_kmesh=bvk_kmesh,
@@ -234,7 +235,7 @@ def _aux_e2_nospltbas(
     return int3c2e 
 
 
-def _get_3c2e(with_df, kptij_list, log=None):
+def _get_3c2e(with_df, kptij_list, shls_slice=None, log=None):
     '''
     Get the bare three-center two-electron interaction
     '''
@@ -257,6 +258,7 @@ def _get_3c2e(with_df, kptij_list, log=None):
             with_df.omega,
             kptij_list,
             #max_memory=with_df.max_memory,  #TODO
+            shls_slice=shls_slice,
             bvk_kmesh=bvk_kmesh,
             precision=with_df.precision_R,
     )
@@ -266,7 +268,7 @@ def _get_3c2e(with_df, kptij_list, log=None):
     return int3c2e
 
 
-def _get_j3c(with_df, j2c, int3c2e, uniq_kpts, uniq_inverse_dict, kptij_lst, log=None, out=None):
+def _get_j3c(with_df, j2c, int3c2e, uniq_kpts, uniq_inverse_dict, kptij_lst, kij_symmetry=True, shls_slice=None, log=None, out=None):
     '''
     Use j2c and int3c2e to construct j3c.
     '''
@@ -277,8 +279,19 @@ def _get_j3c(with_df, j2c, int3c2e, uniq_kpts, uniq_inverse_dict, kptij_lst, log
     cell = with_df.cell
     auxcell = with_df.auxcell
 
-    nao = cell.nao_nr()
-    naux = auxcell.nao_nr()
+    if shls_slice is None:
+        shls_slice = (0, cell.nbas, 0, cell.nbas, 0, auxcell.nbas)
+
+    # Get AO slices due to shell slices:
+    ni0, ni1 = cell.nao_nr_range(*shls_slice[:2])
+    nj0, nj1 = cell.nao_nr_range(*shls_slice[2:4])
+    ni = ni1 - ni0
+    nj = nj1 - nj0
+
+    # Get auxiliary slices due to shell slices:
+    naux0, naux1 = auxcell.nao_nr_range(*shls_slice[4:])
+    naux = naux1 - naux0
+
     Gv, Gvbase, kws = cell.get_Gv_weights(with_df.mesh_j2c)
     gxyz = lib.cartesian_prod([np.arange(len(x)) for x in Gvbase])
     ngrids = gxyz.shape[0]
@@ -286,7 +299,7 @@ def _get_j3c(with_df, j2c, int3c2e, uniq_kpts, uniq_inverse_dict, kptij_lst, log
     j2c_chol = lambda v: v
     kpts = with_df.kpts
     nkpts = len(kpts)
-    qaux = rsdf.get_aux_chg(with_df.auxcell)
+    qaux = rsdf.get_aux_chg(with_df.auxcell)[naux0:naux1]  #TODO don't compute full array
     g0 = np.pi / with_df.omega**2 / cell.vol
 
     #FIXME for Γ
@@ -306,7 +319,7 @@ def _get_j3c(with_df, j2c, int3c2e, uniq_kpts, uniq_inverse_dict, kptij_lst, log
         bvk_kmesh = None
 
     if out is None:
-        out = np.zeros((nkpts, nkpts, naux, nao, nao), dtype=dtype)
+        out = np.zeros((nkpts, nkpts, naux, ni, nj), dtype=dtype)
 
     for uniq_kpt_ji_id in mpi_helper.nrange(len(uniq_kpts)):
         t1 = timer()
@@ -326,8 +339,7 @@ def _get_j3c(with_df, j2c, int3c2e, uniq_kpts, uniq_inverse_dict, kptij_lst, log
                 j2c_chol = _cholesky_decomposed_metric(with_df, j2c, kptji_id, log)
                 log.debug("kptji_id = %s", kptji_id)
 
-            shls_slice = (0, auxcell.nbas)
-            G_chg = ft_ao.ft_ao(auxcell, Gv, shls_slice=shls_slice, 
+            G_chg = ft_ao.ft_ao(auxcell, Gv, shls_slice=shls_slice[4:], 
                                 b=b, gxyz=gxyz, Gvbase=Gvbase, kpt=kpt)
             G_chg *= rsdf.weighted_coulG(cell, with_df.omega, kpt, False, with_df.mesh_j2c).reshape(-1, 1)
             log.debugv("Norm of FT for RS cell:  %.12g", np.linalg.norm(G_chg))
@@ -335,15 +347,13 @@ def _get_j3c(with_df, j2c, int3c2e, uniq_kpts, uniq_inverse_dict, kptij_lst, log
             if is_zero(kpt):
                 log.debug("Including net charge of AO products")
                 vbar = qaux * g0
-                ovlp = cell.pbc_intor('int1e_ovlp', hermi=0, kpts=adapted_kptjs)
+                ovlp = cell.pbc_intor('int1e_ovlp', hermi=0, kpts=adapted_kptjs, shls_slice=shls_slice[:4])
                 ovlp = [np.ravel(s) for s in ovlp]
 
-            bstart, bend, ncol = balance_partition(cell.ao_loc_nr()*nao, nao*nao)[0]
-            shls_slice = (bstart, bend, 0, cell.nbas)
-            G_ao = ft_ao.ft_aopair_kpts(cell, Gv, shls_slice=shls_slice, aosym='s1', 
+            G_ao = ft_ao.ft_aopair_kpts(cell, Gv, shls_slice=shls_slice[:4], aosym='s1', 
                                         b=b, gxyz=gxyz, Gvbase=Gvbase, q=kpt, 
                                         kptjs=adapted_kptjs, bvk_kmesh=bvk_kmesh)
-            G_ao = G_ao.reshape(-1, ngrids, ncol)
+            G_ao = G_ao.reshape(-1, ngrids, ni*nj)
             log.debugv("Norm of FT for AO cell:  %.12g", np.linalg.norm(G_ao))
 
             for kji, ji in enumerate(adapted_ji_idx):
@@ -355,13 +365,13 @@ def _get_j3c(with_df, j2c, int3c2e, uniq_kpts, uniq_inverse_dict, kptij_lst, log
 
                 v += np.dot(G_chg.T.conj(), G_ao[kji])
                 v = j2c_chol(v)
-                v = v.reshape(-1, nao, nao)
+                v = v.reshape(-1, ni, nj)
 
                 for ki in with_df.kpt_hash[_get_kpt_hash(kptij_lst[ji][0])]:
                     for kj in with_df.kpt_hash[_get_kpt_hash(kptij_lst[ji][1])]:
                         out[ki, kj, :v.shape[0]] += v
                         log.debug("Filled j3c for kpt [%d, %d]", ki, kj)
-                        if ki != kj:
+                        if kij_symmetry and ki != kj:
                             out[kj, ki, :v.shape[0]] += lib.transpose(v, axes=(0, 2, 1)).conj()
                             log.debug("Filled j3c for kpt [%d, %d]", kj, ki)
 
@@ -374,7 +384,7 @@ def _get_j3c(with_df, j2c, int3c2e, uniq_kpts, uniq_inverse_dict, kptij_lst, log
 
     return out
 
-def _make_j3c(with_df, kptij_lst):
+def _make_j3c(with_df, kptij_lst, kij_symmetry=True, shls_slice=None):
     '''
     Build the j3c array.
     '''
@@ -401,10 +411,10 @@ def _make_j3c(with_df, kptij_lst):
     j2c = _get_j2c(with_df, int2c2e, uniq_kpts, log=log)
 
     # Get the 3c2e interaction:
-    int3c2e = _get_3c2e(with_df, kptij_lst, log=log)
+    int3c2e = _get_3c2e(with_df, kptij_lst, log=log, shls_slice=shls_slice)
 
     # Get j3c:
-    j3c = _get_j3c(with_df, j2c, int3c2e, uniq_kpts, uniq_inverse_dict, kptij_lst, log=log)
+    j3c = _get_j3c(with_df, j2c, int3c2e, uniq_kpts, uniq_inverse_dict, kptij_lst, shls_slice=shls_slice, kij_symmetry=kij_symmetry, log=log)
 
     log.timing("Total time for j3c construction:  %s", time_string(timer()-t0))
 
@@ -451,6 +461,27 @@ class RSGDF(GDF):
 
     _make_j3c = _make_j3c
 
+    def _build_kpts(self, kij_symmetry=True):
+        kpts = np.asarray(self.kpts)[unique(self.kpts)[1]]
+
+        if kij_symmetry:
+            kptij_lst = [(ki, kpts[j]) for i, ki in enumerate(kpts) for j in range(i+1)]
+        else:
+            kptij_lst = [(ki, kj) for ki in kpts for kj in kpts]
+        kptij_lst = np.asarray(kptij_lst)
+
+        self.kpt_hash = collections.defaultdict(list)
+        for k, kpt in enumerate(self.kpts):
+            val = _get_kpt_hash(kpt)
+            self.kpt_hash[val].append(k)
+
+        self.kptij_hash = collections.defaultdict(list)
+        for k, kpt in enumerate(kptij_lst):
+            val = _get_kpt_hash(kpt)
+            self.kptij_hash[val].append(k)
+
+        return kptij_lst
+
     def build(self, j_only=None, with_j3c=True):
         j_only = j_only or self._j_only
         if j_only:
@@ -466,24 +497,97 @@ class RSGDF(GDF):
         self.chgcell = make_chgcell(self.auxcell, self.eta, rcut=self.rcut_smooth)
         self.kconserv = get_kconserv(self.cell, self.kpts)
 
-        kpts = np.asarray(self.kpts)[unique(self.kpts)[1]]
-        kptij_lst = [(ki, kpts[j]) for i, ki in enumerate(kpts) for j in range(i+1)]
-        kptij_lst = np.asarray(kptij_lst)
-
-        self.kpt_hash = collections.defaultdict(list)
-        for k, kpt in enumerate(self.kpts):
-            val = _get_kpt_hash(kpt)
-            self.kpt_hash[val].append(k)
-
-        self.kptij_hash = collections.defaultdict(list)
-        for k, kpt in enumerate(kptij_lst):
-            val = _get_kpt_hash(kpt)
-            self.kptij_hash[val].append(k)
+        kptij_lst = self._build_kpts()
 
         if with_j3c:
             self._cderi = self._make_j3c(kptij_lst)
 
         return self
+
+
+class DirectRSGDF(RSGDF):
+    def build(self, j_only=None, with_j3c=True):
+        j_only = j_only or self._j_only
+        if j_only:
+            self.log.warn('j_only=True has not effect on overhead in %s', self.__class__)
+        if self.kpts_band is not None:
+            raise ValueError('%s does not support kwarg kpts_band' % self.__class__)
+
+        self.check_sanity()
+        self.dump_flags()
+
+        rsdf.RSDF._rsh_build(self)
+
+        self.chgcell = make_chgcell(self.auxcell, self.eta, rcut=self.rcut_smooth)
+        self.kconserv = get_kconserv(self.cell, self.kpts)
+
+        return self
+
+    def iter(self):
+        cell = self.cell
+        auxcell = self.auxcell
+
+        kptij_lst = self._build_kpts(kij_symmetry=False)
+
+        tasks = []
+        for p0, p1 in lib.prange(0, cell.nbas, 1):
+            for q0, q1 in lib.prange(0, cell.nbas, 1):
+                tasks.append((p0, p1, q0, q1))
+
+        for (p0, p1, q0, q1) in tasks:
+            shls_slice = (p0, p1, q0, q1, 0, auxcell.nbas)
+            pao = cell.nao_nr_range(p0, p1)
+            qao = cell.nao_nr_range(q0, q1)
+
+            self._cderi = self._make_j3c(kptij_lst, shls_slice=shls_slice, kij_symmetry=False)
+
+            yield pao, qao
+
+    #def get_jk(self, dm, hermi=1, kpts=None, kpts_band=None,
+    #           with_j=True, with_k=True, omega=None, exxdiv=None):
+
+    #    if hermi != 1 or kpts_band is not None or omega is not None:
+    #        raise ValueError('%s.get_jk only supports the default keyword arguments:\n'
+    #                         '\thermi=1\n\tkpts_band=None\n\tomega=None' % self.__class__)
+    #    if not (kpts is None or kpts is self.kpts):
+    #        raise ValueError('%s.get_jk only supports kpts=None or kpts=GDF.kpts' % self.__class__)
+
+    #    nao = cell.nao_nr()
+    #    nkpts = len(self.kpts)
+    #    naux = self.get_naoaux()
+
+    #    dms = dm.reshape(-1, nkpts, nao, nao)
+    #    ndm = dms.shape[0]
+    #    libcore = libs.load_library('core')
+
+    #    vj = vk = None
+    #    if with_j:
+    #        vj = np.zeros((ndm, nkpts, nao, nao), dtype=np.complex128)
+    #    if with_k:
+    #        vk = np.zeros((ndm, nkpts, nao, nao), dtype=np.complex128)
+
+    #    for (p0, p1), (q0, q1) in self.iter():
+    #        for i in range(ndm):
+    #            dm0 = np.array(dms[i, :, p0:p1, q0:q1], order='C', dtype=np.complex128)
+
+    #            pass
+
+    #            if with_j:
+    #                vj[i, :, p0:p1, q0:q1] = vj0
+    #            if with_k:
+    #                vk[i, :, p0:p1, q0:q1] = vk0
+
+    #    if with_k and exxdiv == 'ewald':
+    #        s = self.get_ovlp()
+    #        madelung = self.madelung
+    #        for i in range(ndm):
+    #            for k in range(nkpts):
+    #                vk[i, k] += madelung * np.linalg.multi_dot((s[k], dms[i, k], s[k]))
+
+    #    vj = vj.reshape(dm.shape)
+    #    vk = vk.reshape(dm.shape)
+
+    #    return vj, vk
 
 
 if __name__ == '__main__':
@@ -518,3 +622,17 @@ if __name__ == '__main__':
             ):
                 assert np.allclose(r1, r2), (lib.fp(r1), lib.fp(r2))
                 assert np.allclose(i1, i2), (lib.fp(i1), lib.fp(i2))
+
+    with_df_2 = DirectRSGDF(cell, kpts)
+    with_df_2.build()
+
+    a = with_df_1._cderi
+    b = np.zeros_like(a)
+    for (p0, p1), (q0, q1) in with_df_2.iter():
+        b[:, :, :, p0:p1, q0:q1] = with_df_2._cderi
+    assert np.allclose(a, b)
+
+    vj1, vk1 = with_df_1.get_jk(dm)
+    vj2, vk2 = with_df_2.get_jk(dm)
+    assert np.allclose(vj1, vj2)
+    assert np.allclose(vk1, vk2)

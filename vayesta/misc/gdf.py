@@ -890,6 +890,7 @@ class GDF(df.GDF):
 
         cderi = np.asarray(self._cderi, order='C')
         dms = np.asarray(dms, order='C', dtype=np.complex128)
+        libcore = libs.load_library('core')
         vj = vk = None
 
         if with_j:
@@ -898,7 +899,6 @@ class GDF(df.GDF):
             vk = np.zeros((ndm, nkpts, nao, nao), dtype=np.complex128)
 
         for i in range(ndm):
-            libcore = libs.load_library('core')
             libcore.j3c_jk(
                     ctypes.c_int64(nkpts),
                     ctypes.c_int64(nao),

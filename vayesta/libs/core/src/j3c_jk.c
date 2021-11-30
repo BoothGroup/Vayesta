@@ -14,6 +14,7 @@
 #endif
 
 #define SQUARE(x) ((x) * (x))
+#define MAX(x, y) ((x) > (y) ? (x) : (y))
 
 
 /*
@@ -81,14 +82,14 @@ int64_t j3c_jk(
     // Auxiliary slice
     const int64_t l0 = naux_slice[0];
     const int64_t l1 = naux_slice[1];
-    const int64_t Q = l1 - l0;
+    const int64_t M = l1 - l0;
 
     // Constant length products
     const int64_t N2 = N * N;
     const int64_t K2 = K * K;
-    const int64_t QN = Q * N;
+    const int64_t MN = M * N;
     const int64_t LN2 = L * N2;
-    const int64_t QN2 = Q * N2;
+    const int64_t MN2 = M * N2;
     const int64_t KN2 = K * N2;
     const int64_t KLN2 = K * LN2;
 
@@ -107,9 +108,9 @@ int64_t j3c_jk(
 #pragma omp parallel private(i)
     {
         // Work arrays
-        double complex *work1 = calloc(Q, sizeof(double complex));
-        double complex *work2 = calloc(QN2, sizeof(double complex));
-        double complex *work3 = calloc(QN2, sizeof(double complex));
+        double complex *work1 = calloc(M, sizeof(double complex));
+        double complex *work2 = calloc(MN2, sizeof(double complex));
+        double complex *work3 = calloc(MN2, sizeof(double complex));
         double complex *vj_priv = calloc(KN2, sizeof(double complex));
         double complex *vk_priv = calloc(KN2, sizeof(double complex));
         size_t i, j, ij;
@@ -118,13 +119,13 @@ int64_t j3c_jk(
 #pragma omp for reduction(+:ierr)
             for (i = 0; i < K; i++) {
                 // cderi(i,i,l,p,q) dm(i,p,q)* -> work1(l)
-                cblas_zgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans, Q, I1, N2, &Z1,
+                cblas_zgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans, M, I1, N2, &Z1,
                             &(cderi[i*KLN2 + i*LN2 + l0*N2]), N2, &(dm_conj[i*N2]), I1, &Z0, work1, I1);
 
                 for (j = 0; j < K; j++) {
                     // work1(l) cderi(j,j,l,r,s) -> vj_priv(j,r,s)
-                    cblas_zgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans, I1, N2, Q, &Z1,
-                                work1, Q, &(cderi[j*KLN2 + j*LN2 + l0*N2]), N2, &Z1, &(vj_priv[j*N2]), N2);
+                    cblas_zgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans, I1, N2, M, &Z1,
+                                work1, M, &(cderi[j*KLN2 + j*LN2 + l0*N2]), N2, &Z1, &(vj_priv[j*N2]), N2);
                 }
             }
         }
@@ -136,15 +137,15 @@ int64_t j3c_jk(
                 j = ij % K;
 
                 // cderi(j,i,l,r,p) dm(i,p,q) -> work2(l,r,q)
-                cblas_zgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans, QN, N, N, &Z1,
+                cblas_zgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans, MN, N, N, &Z1,
                             &(cderi[j*KLN2 + i*LN2 + l0*N2]), N, &(dm[i*N2]), N, &Z0, work2, N);
 
                 // work2(l,r,q) -> work3(r,l,q)
-                transpose_102(Q, N, N, &(work2[0]), &(work3[0]));
+                transpose_102(M, N, N, &(work2[0]), &(work3[0]));
 
                 // work3(r,l,q) cderi(i,j,l,q,s) -> vk_priv(j,r,s)
-                cblas_zgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans, N, N, QN, &Z1,
-                            work3, QN, &(cderi[i*KLN2 + j*LN2 + l0*N2]), N, &Z1, &(vk_priv[j*N2]), N);
+                cblas_zgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans, N, N, MN, &Z1,
+                            work3, MN, &(cderi[i*KLN2 + j*LN2 + l0*N2]), N, &Z1, &(vk_priv[j*N2]), N);
             }
         }
 
