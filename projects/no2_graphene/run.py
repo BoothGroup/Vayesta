@@ -18,7 +18,7 @@ from structures import NO2_Graphene
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--structure', type=int, default=-1)
-parser.add_argument('--kmesh', type=int, nargs=2, default=False)
+parser.add_argument('--kmesh', type=int, nargs=3, default=False)
 parser.add_argument('--basis', default='cc-pVDZ')
 #parser.add_argument('--auxbasis', default='cc-pVDZ-ri')
 parser.add_argument('--auxbasis', default=None)
@@ -61,7 +61,11 @@ if args.z_graphene is None:
 def get_gate_potential(mf, gate):
     """In AO basis"""
     # Lowdin orbitals
-    ovlp = mf.get_ovlp()
+    if hasattr(mf, 'kpts'):
+        # Gamma point only
+        ovlp = mf.get_ovlp()[0]
+    else:
+        ovlp = mf.get_ovlp()
     e, v = np.linalg.eigh(ovlp)
     c_lo = np.dot(v*(e**-0.5), v.T.conj())
 
@@ -113,7 +117,11 @@ for idx, gate in enumerate(gates):
     # MF
     if args.kmesh:
         kpts = cell.get_kpts(args.kmesh)
-        mf = pyscf.pbc.scf.KUHF(cell, kpts)
+        if args.xc is None:
+            mf = pyscf.pbc.scf.KUHF(cell, kpts)
+        else:
+            mf = pyscf.pbc.dft.KUKS(cell, kpts)
+            mf.xc = args.xc
     else:
         kpts = None
         if args.xc is None:
@@ -139,7 +147,14 @@ for idx, gate in enumerate(gates):
     if gate:
         v_gate = get_gate_potential(mf, gate)
         hcore_orig = mf.get_hcore
-        hcore_gate = lambda *args : (hcore_orig(*args) + v_gate)
+        if hasattr(mf, 'kpts'):
+            def hcore_gate(*args):
+                h1e = hcore_orig(*args)
+                # Only shift Gamma point
+                h1e[0] += v_gate
+                return h1e
+        else:
+            hcore_gate = lambda *args : (hcore_orig(*args) + v_gate)
         mf.get_hcore = hcore_gate
     else:
         v_gate = None
