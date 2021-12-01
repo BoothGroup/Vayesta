@@ -167,6 +167,7 @@ class NumericalIntegratorBase:
             else:
                 raise NIException(
                     "Cannot find starting point for quadrature optimisation; please provide a value of a.")
+
         solve = 1
         if ainit is None:
             ainit = find_good_start(1e-6, 60, 0.7)
@@ -294,17 +295,14 @@ class NumericalIntegratorClenCur(NumericalIntegratorBase):
         This also overestimates the error since it doesn't account for the effect of quadrature grid optimisation, which
         leads to our actual estimates converging more rapidly than they would with a static grid spacing parameter.
         """
-        roots = np.roots([1, 0, a / (a-b), - b / (a-b)])
+        roots = np.roots([1, 0, a / (a - b), - b / (a - b)])
         # Need to choose root with no imaginary part and real part between zero and one; if there are multiple (if this
         # is even possible) take the largest.
         wanted_root = roots[(abs(roots.imag) < 1e-10) & (roots.real <= 1.0) & (roots.real >= 0)].real[-1]
         exp_beta_n = wanted_root ** 4
         # alpha = a * (exp_beta_n + exp_beta_n**(1/4))**(-1)
-        error = a * (1 + exp_beta_n**(-3/4))**(-1)
+        error = a * (1 + exp_beta_n ** (-3 / 4)) ** (-1)
         return error
-
-
-
 
     def eval_NI_approx(self, a):
         """Evaluate the NI approximation of the integral with a provided quadrature."""

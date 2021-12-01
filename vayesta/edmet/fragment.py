@@ -224,12 +224,12 @@ class EDMETFragment(DMETFragment):
         # v defines the rotation of the mean-field excitation space specifying our bosons.
         u, s, v = np.linalg.svd(env_mom)
         want = s > tol
-        nbos = sum(want)
-        if nbos < len(s):
+        self.nbos = sum(want)
+        if self.nbos < len(s):
             self.log.info("Zeroth moment matching generated %d cluster bosons.Largest discarded singular value: %4.2e.",
-                          nbos, s[~want].max())
+                          self.nbos, s[~want].max())
         else:
-            self.log.info("Zeroth moment matching generated %d cluster bosons.", nbos)
+            self.log.info("Zeroth moment matching generated %d cluster bosons.", self.nbos)
 
         # Calculate the relevant components of the zeroth moment- we don't want to recalculate these.
         self.r_bos = v[want, :]
@@ -245,13 +245,54 @@ class EDMETFragment(DMETFragment):
         ov_rot = self.get_rot_to_mf_ov()
         # Get couplings between all fermionic and boson degrees of freedom.
         eris = self.get_eri_couplings(np.concatenate([ov_rot, self.r_bos], axis=0))
+        # Depending upon the specifics of our construction we may need to deduct the contribution from this cluster
+        # in the previous iteration to avoid double counting in future.
         xc_apb, xc_amb = self.get_xc_couplings(xc_kernel, np.concatenate([ov_rot, self.r_bos], axis=0))
         eps_loc = self.get_loc_eps(eps, np.concatenate([ov_rot, self.r_bos], axis=0))
         apb = eps_loc + 2 * eris + xc_apb
+        # This is the bare amb.
         amb = eps_loc + xc_amb
+        eta0 = np.zeros_Like(apb)
+        eta0[:2 * self.ov_active, :2 * self.ov_active] = self.eta0_ferm
+        eta0[:2 * self.ov_active, 2 * self.ov_active:] = self.eta0_coupling
+        eta0[2 * self.ov_active:, :2 * self.ov_active] = self.eta0_coupling.T
+        eta0[:2 * self.ov_active, :2 * self.ov_active] = self.eta0_bos
+
+        renorm_amb = dot(eta0, apb, eta0)
+        self.log.info("Maximum deviation in irreducible polarisation propagator=%6,4e",
+                      abs(amb - renorm_amb)[:2 * self.ov_active, :2 * self.ov_active].max())
+        a = 0.5 * (apb + renorm_amb)
+        b = 0.5 * (apb - renorm_amb)
+        couplings_aa = np.zeros((self.nbos, self.n_active, self.n_active))
+        couplings_bb = np.zeros((self.nbos, self.n_active, self.n_active))
+
+        couplings_aa[:, :self.n_active_occ, self.n_active_occ:] = a[2 * self.ov_active:, :self.ov_active].reshape(
+            self.nbos, self.n_active_occ, self.n_active_vir)
+        couplings_aa[:, self.n_active_occ:, :self.n_active_occ] = b[2 * self.ov_active:, :self.ov_active].reshape(
+            self.nbos, self.n_active_occ, self.n_active_vir).transpose([0, 2, 1])
+        couplings_bb[:, :self.n_active_occ, self.n_active_occ:] = \
+            a[2 * self.ov_active:, self.ov_active:2 * self.ov_active].reshape(
+                self.nbos, self.n_active_occ, self.n_active_vir)
+        couplings_bb[:, self.n_active_occ:, :self.n_active_occ] = \
+            b[2 * self.ov_active:, self.ov_active:2 * self.ov_active].reshape(
+                self.nbos, self.n_active_occ, self.n_active_vir).transpose([0, 2, 1])
+
+        a_bos = a[2 * self.ov_active:, 2 * self.ov_active:]
+        b_bos = b[2 * self.ov_active:, 2 * self.ov_active:]
+        self.bos_freqs, x, y = bogoliubov_decouple(a_bos + b_bos, a_bos - b_bos)
+
+        self.couplings_aa = einsum("npq,nm->mpq", couplings_aa, x) + einsum("npq,nm->mqp", couplings_aa, y)
+        self.couplings_bb = np.einsum("npq,nm->mpq", couplings_bb, x) + np.einsum("npq,nm->mqp", couplings_bb, y)
+        # These are currently the quantities before decoupling- shouldn't make any difference.
+        self.apb = apb
+        self.amb = renorm_amb
+        self.eta0 = eta0
 
     def get_eri_couplings(self, rot):
-
+        """Obtain eri in a space defined by an arbitrary rotation of the mean-field particle-hole excitations of our
+        systems. Note that this should only really be used in the case that such a rotation cannot be described by a
+        rotation of the underlying single-particle basis, since highly efficient routines already exist for this case..
+        """
         if hasattr(self.base.mf, "with_df"):
             # Convert rot from full-space particle-hole excitations into AO pairs.
             rot = einsum("lia,pi,qa->lpq", rot.reshape((-1, self.base.nocc, self.base.nvir)),
@@ -260,8 +301,8 @@ class EDMETFragment(DMETFragment):
             # Loop through cderis
             res = np.zeros((rot.shape[0], rot.shape[0]))
             for eri1 in self.mf.with_df.loop():
-                l = einsum("npq,lpq->nl", pyscf.lib.unpack_tril(eri1), rot)
-                res += dot(l.T, l)
+                l_ = einsum("npq,lpq->nl", pyscf.lib.unpack_tril(eri1), rot)
+                res += dot(l_.T, l_)
             return res
         else:
             if self.mf._eri is not None:
@@ -273,19 +314,33 @@ class EDMETFragment(DMETFragment):
             return dot(rot, eris, rot.T)
 
     def get_xc_couplings(self, xc_kernel, rot):
-        pass
+        # Convert rot from full-space particle-hole excitations into AO pairs.
+        rot = einsum("lia,pi,qa->lpq", rot.reshape((-1, self.base.nocc, self.base.nvir)),
+                     dot(self.base.get_ovlp(), self.base.mo_coeff_occ),
+                     dot(self.base.get_ovlp(), self.base.mo_coeff_vir))
+        if hasattr(self.base.mf, "with_df"):
+            # Store low-rank expression for xc kernel.
+            # The contribution coupling just has an index change in our summation.
+            la = einsum("npq,lpq->nl", xc_kernel, rot)
+            lb = einsum("npq,lqp->nl", xc_kernel, rot)
+            acontrib = dot(la.T, la)
+            bcontrib = dot(la.T, lb)
+            apb = acontrib + bcontrib
+            amb = acontrib - bcontrib
+        else:
+            # Have full-rank expression for xc kernel.
+            acontrib = einsum("lpq,pqrs,mrs->lm", rot, xc_kernel, rot)
+            bcontrib = einsum("lpq,pqrs,msr->lm", rot, xc_kernel, rot)
+            apb = acontrib + bcontrib
+            amb = acontrib - bcontrib
+        return apb, amb
 
     def get_loc_eps(self, eps, rot):
-        pass
+        return einsum("ln,n,mn->lm", rot, eps, rot)
 
-    def kernel(self, rpa_moms, bno_threshold=None, bno_number=None, solver=None, eris=None, construct_bath=False,
+    def kernel(self, bno_threshold=None, bno_number=None, solver=None, eris=None, construct_bath=False,
                chempot=None):
         """Solve the fragment with the specified solver and chemical potential."""
-        # First set up fermionic degrees of freedom
-
-        # Now generate bosonic bath.
-        freqs, va, vb = self.construct_bosons(rpa_moms)
-
         solver = solver or self.solver
 
         # Create solver object
@@ -300,7 +355,8 @@ class EDMETFragment(DMETFragment):
 
         cluster_solver_cls = get_solver_class(self.mf, solver)
         cluster_solver = cluster_solver_cls(
-            freqs, (va, vb), self, mo_coeff, mo_occ, nocc_frozen=self.n_frozen_occ, nvir_frozen=self.n_frozen_vir,
+            self.bos_freqs, (self.couplings_aa, self.couplings_bb), self, self.mo_coeff, self.mf.mo_occ,
+            nocc_frozen=self.n_frozen_occ, nvir_frozen=self.n_frozen_vir,
             v_ext=v_ext,
             bos_occ_cutoff=self.opts.bos_occ_cutoff, **solver_opts)
         solver_results = cluster_solver.kernel(eris=eris)
@@ -315,14 +371,14 @@ class EDMETFragment(DMETFragment):
         results = self.Results(
             fid=self.id,
             bno_threshold=bno_threshold,
-            n_active=nactive,
+            n_active=self.n_active,
             converged=solver_results.converged,
             e_corr=solver_results.e_corr,
             dm1=solver_results.dm1,
             dm2=solver_results.dm2,
             dm_eb=solver_results.rdm_eb,
-            eb_couplings=np.array((va, vb)),
-            boson_freqs=freqs,
+            eb_couplings=np.array((self.couplings_aa, self.couplings_bb)),
+            boson_freqs=self.bos_freqs,
             dd_mom0=dd0,
             dd_mom1=dd1,
         )
@@ -358,9 +414,9 @@ class EDMETFragment(DMETFragment):
         """
         # Get the ApB, AmB and m0 for this cluster. Note that this is pre-boson decoupling, but we don't actually care
         # about that here and it shouldn't change our answer.
-        apb_orig = self.ApB_new
-        amb_orig = self.AmB_new
-        m0_orig = self.m0_new
+        apb_orig = self.apb
+        amb_orig = self.amb
+        m0_orig = self.eta0
 
         # m0_new = self.results.dd_mom0
         # m1_new = self.results.dd_mom1
@@ -477,12 +533,26 @@ class EDMETFragment(DMETFragment):
         c_occ = np.dot(self.base.get_ovlp(), self.c_active_occ)
         c_vir = np.dot(self.base.get_ovlp(), self.c_active_vir)
         v_aa = (
-                    einsum("iajb,pi,qa,rj,sb->pqrs", v_a_aa, c_occ, c_vir, c_occ, c_vir) +
-                    einsum("iajb,pi,qa,rj,sb->pqsr", v_b_aa, c_occ, c_vir, c_occ, c_vir))
+                einsum("iajb,pi,qa,rj,sb->pqrs", v_a_aa, c_occ, c_vir, c_occ, c_vir) +
+                einsum("iajb,pi,qa,rj,sb->pqsr", v_b_aa, c_occ, c_vir, c_occ, c_vir))
         v_ab = (
-                    einsum("iajb,pi,qa,rj,sb->pqrs", v_a_ab, c_occ, c_vir, c_occ, c_vir) +
-                    einsum("iajb,pi,qa,rj,sb->pqsr", v_b_ab, c_occ, c_vir, c_occ, c_vir))
+                einsum("iajb,pi,qa,rj,sb->pqrs", v_a_ab, c_occ, c_vir, c_occ, c_vir) +
+                einsum("iajb,pi,qa,rj,sb->pqsr", v_b_ab, c_occ, c_vir, c_occ, c_vir))
         v_bb = (
-                    einsum("iajb,pi,qa,rj,sb->pqrs", v_a_bb, c_occ, c_vir, c_occ, c_vir) +
-                    einsum("iajb,pi,qa,rj,sb->pqsr", v_b_bb, c_occ, c_vir, c_occ, c_vir))
+                einsum("iajb,pi,qa,rj,sb->pqrs", v_a_bb, c_occ, c_vir, c_occ, c_vir) +
+                einsum("iajb,pi,qa,rj,sb->pqsr", v_b_bb, c_occ, c_vir, c_occ, c_vir))
         return v_aa, v_ab, v_bb
+
+
+def bogoliubov_decouple(apb, amb):
+    # Perform quick bogliubov transform to decouple our bosons.
+    rt_amb = scipy.linalg.sqrtm(amb)
+    m = dot(rt_amb, apb, rt_amb)
+    e, c = np.linalg.eigh(m)
+    freqs = e ** (0.5)
+
+    xpy = np.einsum("n,qp,pn->qn", freqs ** (-0.5), rt_amb, c)
+    xmy = np.einsum("n,qp,pn->qn", freqs ** (0.5), np.linalg.inv(rt_amb), c)
+    x = 0.5 * (xpy + xmy)
+    y = 0.5 * (xpy - xmy)
+    return freqs, x, y

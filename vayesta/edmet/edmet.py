@@ -98,7 +98,7 @@ class EDMET(DMET):
                 # print(np.linalg.multi_dot((c, rdm, c.T)).trace())
 
             def electron_err(cpt):
-                err = self.calc_electron_number_defect(cpt, np.inf, nelec_mf, sym_parents, nsym, rpa_moms)
+                err = self.calc_electron_number_defect(cpt, np.inf, nelec_mf, sym_parents, nsym)
                 return err
 
             err = electron_err(cpt)
@@ -140,7 +140,7 @@ class EDMET(DMET):
                 cpt, res = scipy.optimize.brentq(electron_err, a=lo, b=hi, full_output=True,
                                                  xtol=self.opts.max_elec_err * nelec_mf)
                 # self.opts.max_elec_err * nelec_mf)
-                self.log.info("Converged chemical potential: {:6.4e}".format(cpt))
+                self.log.info("Converged chemical potential: %6.4e",cpt)
 
             else:
                 self.log.info("Previous chemical potential still suitable")
@@ -191,8 +191,8 @@ class EDMET(DMET):
             eps = eps.reshape(-1)
             return np.concatenate([eps, eps])
 
-        # First, set up and run RPA. Note that we don't have to use RPAX, as our self-consistency only couples
-        # same-spin excitations.
+        # First, set up and run RPA. Note that our self-consistency only couples same-spin excitations so we can
+        # solve a subset of the RPA equations.
         if hasattr(self.mf, "with_df"):
             # Set up for RIRPPA zeroth moment calculation.
             rpa = ssRIRPA(self.mf, self.xc_kernel, self.log)
@@ -227,7 +227,7 @@ class EDMET(DMET):
                 mom0_bos = dot(rot_bos, mom0)
                 f.construct_boson_hamil(mom0_bos)
 
-    def calc_electron_number_defect(self, chempot, bno_thr, nelec_target, parent_fragments, nsym, rpa_moms,
+    def calc_electron_number_defect(self, chempot, bno_thr, nelec_target, parent_fragments, nsym,
                                     construct_bath=True):
         self.log.info("Running chemical potential={:8.6e}".format(chempot))
         # Save original one-body hamiltonian calculation.
@@ -245,7 +245,7 @@ class EDMET(DMET):
             self.log.changeIndentLevel(1)
 
             try:
-                result = frag.kernel(rpa_moms, bno_threshold=bno_thr, construct_bath=construct_bath, chempot=chempot)
+                result = frag.kernel(bno_threshold=bno_thr, construct_bath=construct_bath, chempot=chempot)
             except EDMETFragmentExit as e:
                 exit = True
                 self.log.info("Exiting %s", frag)

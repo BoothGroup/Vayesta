@@ -153,11 +153,11 @@ class ssRPA:
         res = {}
         for x in range(max_mom+1):
             # Have different spin components in general; these are alpha-alpha, alpha-beta and beta-beta.
-            res[x] = (
-                np.einsum("pn,n,qn->pq", self.XpY_ss[0], self.freqs_ss ** x, self.XpY_ss[0]),
-                np.einsum("pn,n,qn->pq", self.XpY_ss[0], self.freqs_ss ** x, self.XpY_ss[1]),
-                np.einsum("pn,n,qn->pq", self.XpY_ss[1], self.freqs_ss ** x, self.XpY_ss[1]),
-            )
+            res[x] = np.zeros((2*self.ov,2*self.ov))
+            res[x][:self.ov, :self.ov] = np.einsum("pn,n,qn->pq", self.XpY_ss[0], self.freqs_ss ** x, self.XpY_ss[0])
+            res[x][self.ov:, self.ov:] = np.einsum("pn,n,qn->pq", self.XpY_ss[1], self.freqs_ss ** x, self.XpY_ss[1])
+            res[x][:self.ov, self.ov:] = np.einsum("pn,n,qn->pq", self.XpY_ss[0], self.freqs_ss ** x, self.XpY_ss[1])
+            res[x][self.ov:, :self.ov] = res[x][:self.ov, self.ov:].T
         # Don't want to regenerate these, so use a hideous interface hack to get them to where we need them...
         M, AmB, ApB, v = self._gen_arrays(xc_kernel)
         res["AmB"] = AmB
