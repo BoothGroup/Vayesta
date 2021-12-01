@@ -24,8 +24,8 @@ import vayesta
 from vayesta.core import vlog
 from vayesta.core.foldscf import FoldedSCF, fold_scf
 from vayesta.core.util import *
-from vayesta.core.ao2mo.postscf_ao2mo import postscf_ao2mo
-from vayesta.core.ao2mo.postscf_ao2mo import postscf_kao2gmo
+from vayesta.core.ao2mo import postscf_ao2mo
+from vayesta.core.ao2mo import postscf_kao2gmo
 from vayesta.core.ao2mo.kao2gmo import gdf_to_pyscf_eris
 from vayesta.misc.gdf import GDF
 from vayesta import lattmod

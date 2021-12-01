@@ -12,7 +12,7 @@ from .ufragment import UFragment
 from vayesta.core.ao2mo.postscf_ao2mo import postscf_ao2mo
 from vayesta.core.util import *
 from vayesta.core.mpi import mpi
-from vayesta.core.ao2mo.postscf_ao2mo import postscf_kao2gmo_uhf
+from vayesta.core.ao2mo import postscf_kao2gmo_uhf
 
 # Amplitudes
 from .amplitudes import get_global_t1_uhf

@@ -197,6 +197,7 @@ def postscf_kao2gmo_uhf(postscf, gdf, fock, mo_energy, e_hf, mo_coeff=None):
         eris = UCCSD_ChemistsERIs()
         mo_coeffs_a = (moa, moa)
         mo_coeffs_b = (mob, mob)
+        pack = True
     else:
         raise NotImplementedError("Unknown post-SCF method= %s" % type(postscf))
 
@@ -226,29 +227,29 @@ def postscf_kao2gmo_uhf(postscf, gdf, fock, mo_energy, e_hf, mo_coeff=None):
         eris.ovvo = _contract_cderi(cderia, cderia_neg, block='ovvo', nocc=nocca)
         eris.oovv = _contract_cderi(cderia, cderia_neg, block='oovv', nocc=nocca)
         eris.ovov = _contract_cderi(cderia, cderia_neg, block='ovov', nocc=nocca)
-        eris.ovvv = _contract_cderi(cderia, cderia_neg, block='ovvv', nocc=nocca)
-        eris.vvvv = _contract_cderi(cderia, cderia_neg, block='vvvv', nocc=nocca)
+        eris.ovvv = _contract_cderi(cderia, cderia_neg, block='ovvv', nocc=nocca, pack_right=pack)
+        eris.vvvv = _contract_cderi(cderia, cderia_neg, block='vvvv', nocc=nocca, pack_left=pack, pack_right=pack)
         # Beta-beta:
         eris.OOOO = _contract_cderi(cderib, cderib_neg, block='oooo', nocc=noccb)
         eris.OVOO = _contract_cderi(cderib, cderib_neg, block='ovoo', nocc=noccb)
         eris.OVVO = _contract_cderi(cderib, cderib_neg, block='ovvo', nocc=noccb)
         eris.OOVV = _contract_cderi(cderib, cderib_neg, block='oovv', nocc=noccb)
         eris.OVOV = _contract_cderi(cderib, cderib_neg, block='ovov', nocc=noccb)
-        eris.OVVV = _contract_cderi(cderib, cderib_neg, block='ovvv', nocc=noccb)
-        eris.VVVV = _contract_cderi(cderib, cderib_neg, block='vvvv', nocc=noccb)
+        eris.OVVV = _contract_cderi(cderib, cderib_neg, block='ovvv', nocc=noccb, pack_right=pack)
+        eris.VVVV = _contract_cderi(cderib, cderib_neg, block='vvvv', nocc=noccb, pack_left=pack, pack_right=pack)
         # Alpha-beta:
         eris.ooOO = _contract_cderi_mixed(cderi, cderi_neg, block='ooOO', nocc=nocc)
         eris.ovOO = _contract_cderi_mixed(cderi, cderi_neg, block='ovOO', nocc=nocc)
         eris.ovVO = _contract_cderi_mixed(cderi, cderi_neg, block='ovVO', nocc=nocc)
         eris.ooVV = _contract_cderi_mixed(cderi, cderi_neg, block='ooVV', nocc=nocc)
         eris.ovOV = _contract_cderi_mixed(cderi, cderi_neg, block='ovOV', nocc=nocc)
-        eris.ovVV = _contract_cderi_mixed(cderi, cderi_neg, block='ovVV', nocc=nocc)
-        eris.vvVV = _contract_cderi_mixed(cderi, cderi_neg, block='vvVV', nocc=nocc)
+        eris.ovVV = _contract_cderi_mixed(cderi, cderi_neg, block='ovVV', nocc=nocc, pack_right=pack)
+        eris.vvVV = _contract_cderi_mixed(cderi, cderi_neg, block='vvVV', nocc=nocc, pack_left=pack, pack_right=pack)
         # Beta-Alpha:
         eris.OVoo = _contract_cderi_mixed(cderi[::-1], cderi_neg[::-1], block='OVoo', nocc=nocc)
         eris.OOvv = _contract_cderi_mixed(cderi[::-1], cderi_neg[::-1], block='OOvv', nocc=nocc)
         eris.OVvo = _contract_cderi_mixed(cderi[::-1], cderi_neg[::-1], block='OVvo', nocc=nocc)
-        eris.OVvv = _contract_cderi_mixed(cderi[::-1], cderi_neg[::-1], block='OVvv', nocc=nocc)
+        eris.OVvv = _contract_cderi_mixed(cderi[::-1], cderi_neg[::-1], block='OVvv', nocc=nocc, pack_right=pack)
 
     return eris
 
@@ -292,7 +293,7 @@ def _contract_cderi(cderi, cderi_neg, block=None, nocc=None, pack_left=False, pa
     assert (eri.size == 0) or (abs(eri.imag).max() < imag_tol)
     return eri
 
-def _contract_cderi_mixed(cderi, cderi_neg, block=None, nocc=None, imag_tol=1e-8):
+def _contract_cderi_mixed(cderi, cderi_neg, block=None, nocc=None, pack_left=False, pack_right=False, imag_tol=1e-8):
     if block is not None:
         noccl, noccr = nocc
         slices = {'o': np.s_[:noccl], 'v': np.s_[noccl:], 'O': np.s_[:noccr], 'V': np.s_[noccr:]}
@@ -305,6 +306,10 @@ def _contract_cderi_mixed(cderi, cderi_neg, block=None, nocc=None, imag_tol=1e-8
     # Positive part
     cderi_left = cderi[0][:,si,sj].copy()
     cderi_right = cderi[1][:,sk,sl].copy()
+    if pack_left:
+        cderi_left = pyscf.lib.pack_tril(cderi_left)
+    if pack_right:
+        cderi_right = pyscf.lib.pack_tril(cderi_right)
     eri = np.tensordot(cderi_left.conj(), cderi_right, axes=(0, 0))
     #log.debugv("Final shape of (%s|%s)= %r", block[:2], block[2:], list(eri.shape))
     if cderi_neg[0] is None:
@@ -313,6 +318,10 @@ def _contract_cderi_mixed(cderi, cderi_neg, block=None, nocc=None, imag_tol=1e-8
     # Negative part (for 2D systems)
     cderi_left = cderi_neg[0][:,si,sj]
     cderi_right = cderi_neg[1][:,sk,sl]
+    if pack_left:
+        cderi_left = pyscf.lib.pack_tril(cderi_left)
+    if pack_right:
+        cderi_right = pyscf.lib.pack_tril(cderi_right)
     # Avoid allocating another N^4 object:
     max_memory = int(1e8) # 100 MB
     nblks = int((eri.size * 8 * (1+np.iscomplexobj(eri)))/max_memory)
