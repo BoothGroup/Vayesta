@@ -18,7 +18,6 @@ from vayesta.core.ao2mo import postscf_kao2gmo_uhf
 class PostSCF_KAO2GMO_Tests(unittest.TestCase):
 
     def test_rhf(self):
-        return True
         cell = pyscf.pbc.gto.Cell()
         cell.atom = 'He 0 0 0'
         cell.basis = 'def2-svp'
@@ -84,7 +83,6 @@ class PostSCF_KAO2GMO_Tests(unittest.TestCase):
                     self.assertIsNone(np.testing.assert_almost_equal(val, expected))
 
     def test_rhf_2d(self):
-        return True
         cell = pyscf.pbc.gto.Cell()
         cell.atom = 'He 0 0 0'
         cell.basis = 'def2-svp'
@@ -154,11 +152,12 @@ class PostSCF_KAO2GMO_Tests(unittest.TestCase):
                     self.assertIsNone(np.testing.assert_almost_equal(val, expected))
 
     def test_uhf(self):
-        # TODO: Use a system with spin-polarization
         cell = pyscf.pbc.gto.Cell()
-        cell.atom = 'He 0 0 0'
+        cell.atom = 'Li 0 0 0'
         cell.basis = 'def2-svp'
         cell.a = 5.0*np.eye(3)
+        cell.spin = 3
+        cell.exp_to_discard = 0.1
         cell.build()
         kmesh = [3, 1, 1]
         kpts = cell.make_kpts(kmesh)
@@ -171,6 +170,8 @@ class PostSCF_KAO2GMO_Tests(unittest.TestCase):
         khf.kernel()
 
         scell = pyscf.pbc.tools.super_cell(cell, kmesh)
+        assert (scell.spin == cell.spin)
+        assert (scell.exp_to_discard == cell.exp_to_discard)
         shf = pyscf.pbc.scf.UHF(scell)
         gdf_sc = pyscf.pbc.df.GDF(scell)
         gdf_sc.auxbasis = 'def2-svp-ri'

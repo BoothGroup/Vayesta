@@ -43,15 +43,15 @@ class UEmbedding(QEmbedding):
     def _mpi_bcast_mf(self, mf):
         """Use mo_energy and mo_coeff from master MPI rank only."""
         # Check if all MPI ranks have the same mean-field MOs
-        mo_energy = mpi.world.gather(mf.mo_energy)
-        if mpi.is_master:
-            moerra = np.max([abs(mo_energy[i][0] - mo_energy[0][0]).max() for i in range(len(mpi))])
-            moerrb = np.max([abs(mo_energy[i][1] - mo_energy[0][1]).max() for i in range(len(mpi))])
-            moerr = max(moerra, moerrb)
-            if moerr > 1e-6:
-                self.log.warning("Large difference of MO energies between MPI ranks= %.2e !", moerr)
-            else:
-                self.log.debugv("Largest difference of MO energies between MPI ranks= %.2e", moerr)
+        #mo_energy = mpi.world.gather(mf.mo_energy)
+        #if mpi.is_master:
+        #    moerra = np.max([abs(mo_energy[i][0] - mo_energy[0][0]).max() for i in range(len(mpi))])
+        #    moerrb = np.max([abs(mo_energy[i][1] - mo_energy[0][1]).max() for i in range(len(mpi))])
+        #    moerr = max(moerra, moerrb)
+        #    if moerr > 1e-6:
+        #        self.log.warning("Large difference of MO energies between MPI ranks= %.2e !", moerr)
+        #    else:
+        #        self.log.debugv("Largest difference of MO energies between MPI ranks= %.2e", moerr)
         # Use MOs of master process
         mf.mo_energy = mpi.world.bcast(mf.mo_energy, root=0)
         mf.mo_coeff = mpi.world.bcast(mf.mo_coeff, root=0)
