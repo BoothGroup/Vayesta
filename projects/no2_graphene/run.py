@@ -20,6 +20,7 @@ parser = argparse.ArgumentParser()
 parser.add_argument('--structure', type=int, default=-1)
 parser.add_argument('--kmesh', type=int, nargs=3, default=False)
 parser.add_argument('--basis', default='cc-pVDZ')
+parser.add_argument('--basis-no2', default='aug-cc-pVTZ')
 #parser.add_argument('--auxbasis', default='cc-pVDZ-ri')
 parser.add_argument('--auxbasis', default=None)
 #parser.add_argument('--gate-range', type=float, nargs=3, default=[-0.01, 0.01, 0.002])
@@ -49,7 +50,6 @@ parser.add_argument('--fragment-type', default='iao')
 parser.add_argument('--nc', type=int, default=0)
 parser.add_argument('--atomic-fragments', action='store_true')
 parser.add_argument('--eta', type=float)
-parser.add_argument('--augmented-basis', type=int, default=1)
 parser.add_argument('--dmet-threshold', type=float, default=1e-4)
 args =parser.parse_args()
 
@@ -102,14 +102,12 @@ for idx, gate in enumerate(gates):
     no2_graphene = NO2_Graphene(args.supercell, structure=args.structure, vacuum_size=args.vacuum_size, z_graphene=args.z_graphene)
     cell.a, cell.atom = no2_graphene.get_amat_atom()
     cell.dimension = args.dimension
-    cell.spin = args.spin
+    nkpts = np.product(args.kmesh) if args.kmesh else 1
+    cell.spin = (args.spin * nkpts)    # Spin is always defined for supercell, even for k-point samling!
     cell.verbose = args.verbose
-    if args.augmented_basis:
-        cell.basis = {'N' : 'aug-%s' % args.basis,
-                      'O' : 'aug-%s' % args.basis,
-                      'C' : args.basis}
-    else:
-        cell.basis = args.basis
+    cell.basis = {'N' : args.basis_no2,
+                  'O' : args.basis_no2,
+                  'C' : args.basis}
     cell.lindep_threshold = args.lindep_threshold
     cell.output = ('pyscf.mpi%d.txt' % mpi.rank)
     cell.build()
@@ -131,7 +129,6 @@ for idx, gate in enumerate(gates):
             mf.xc = args.xc
     mf.conv_tol = args.scf_conv_tol
     mf.max_cycle = 100
-
 
     if args.auxbasis is not None:
         auxbasis = args.auxbasis
@@ -184,7 +181,10 @@ for idx, gate in enumerate(gates):
 
     # CCSD wants HF object
     if args.xc is not None:
-        mf_hf = pyscf.pbc.scf.UHF(cell)
+        if kpts is None:
+            mf_hf = pyscf.pbc.scf.UHF(cell)
+        else:
+            mf_hf = pyscf.pbc.scf.KUHF(cell)
         mf_hf.__dict__.update(mf.__dict__)
         mf = mf_hf
 
