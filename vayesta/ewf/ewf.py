@@ -232,7 +232,7 @@ class EWF(QEmbeddingMethod):
         # Only loop over fragments of own MPI rank
         for f in self.get_fragments(mpi_rank=mpi.rank):
             e_corr += f.results.e_corr
-        return e_corr
+        return e_corr / self.ncells
 
     def tailor_all_fragments(self):
         for frag in self.fragments:

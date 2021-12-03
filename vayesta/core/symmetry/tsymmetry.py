@@ -4,9 +4,17 @@ import itertools
 
 import numpy as np
 
-from .helper import to_bohr
+import pyscf
+from pyscf.lib.parameters import BOHR
 
 log = logging.getLogger(__name__)
+
+def to_bohr(a, unit):
+    if unit[0].upper() == 'A':
+        return  a/BOHR
+    if unit[0].upper() == 'B':
+        return a
+    raise ValueError("Unknown unit: %s" % unit)
 
 
 def get_mesh_tvecs(cell, tvecs, unit='Ang'):
@@ -188,8 +196,7 @@ def reorder_atoms(cell, tvec, boundary=None, unit='Ang', check_basis=True):
 
     return reorder, inverse, phases
 
-def reorder_aos(cell, tvec, unit='Ang'):
-    atom_reorder, atom_inverse, atom_phases = reorder_atoms(cell, tvec, unit=unit)
+def reorder_atoms2aos(cell, atom_reorder, atom_phases):
     if atom_reorder is None:
         return None, None, None
     aoslice = cell.aoslice_by_atom()[:,2:]
@@ -212,6 +219,32 @@ def reorder_aos(cell, tvec, unit='Ang'):
 
     return reorder, inverse, phases
 
+
+def reorder_aos(cell, tvec, unit='Ang'):
+    atom_reorder, atom_inverse, atom_phases = reorder_atoms(cell, tvec, unit=unit)
+    return reorder_atoms2aos(cell, atom_reorder, atom_phases)
+    #if atom_reorder is None:
+    #    return None, None, None
+    #aoslice = cell.aoslice_by_atom()[:,2:]
+    #nao = cell.nao_nr()
+    #reorder = np.full((nao,), -1)
+    #inverse = np.full((nao,), -1)
+    #phases = np.full((nao,), 0)
+    #for atm0 in range(cell.natm):
+    #    atm1 = atom_reorder[atm0]
+    #    aos0 = list(range(aoslice[atm0,0], aoslice[atm0,1]))
+    #    aos1 = list(range(aoslice[atm1,0], aoslice[atm1,1]))
+    #    reorder[aos0[0]:aos0[-1]+1] = aos1
+    #    inverse[aos1[0]:aos1[-1]+1] = aos0
+    #    phases[aos0[0]:aos0[-1]+1] = atom_phases[atm1]
+    #assert not np.any(reorder == -1)
+    #assert not np.any(inverse == -1)
+    #assert not np.any(phases == 0)
+
+    #assert np.all(np.arange(nao)[reorder][inverse] == np.arange(nao))
+
+    #return reorder, inverse, phases
+
 def _make_reorder_op(reorder, phases):
     def reorder_op(a, axis=0):
         if isinstance(a, (tuple, list)):
@@ -229,12 +262,15 @@ def get_tsymmetry_op(cell, tvec, unit='Ang'):
     return tsym_op
 
 if __name__ == '__main__':
+    import vayesta
+    log = vayesta.log
+
     import pyscf
     import pyscf.pbc.gto
     import pyscf.pbc.tools
 
     cell = pyscf.pbc.gto.Cell()
-    cell.atom='H 0 0 0'
+    cell.atom='H 0 0 0, H 0 1 2'
     cell.basis='sto-3g'
     cell.a = np.eye(3)
     cell.dimension = 1

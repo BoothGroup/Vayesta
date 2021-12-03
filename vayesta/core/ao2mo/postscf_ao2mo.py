@@ -287,7 +287,6 @@ def _contract_cderi(cderi, cderi_neg, block=None, nocc=None, pack_left=False, pa
     size = cderi_left.shape[1]
     blksize = int(size/max(nblks, 1))
     for blk in brange(0, size, blksize):
-        print(blk.start, blk.stop)
         eri[blk] -= np.tensordot(cderi_left[:,blk].conj(), cderi_right, axes=(0, 0))
     #eri -= np.tensordot(cderi_left.conj(), cderi_right, axes=(0, 0))
     assert (eri.size == 0) or (abs(eri.imag).max() < imag_tol)

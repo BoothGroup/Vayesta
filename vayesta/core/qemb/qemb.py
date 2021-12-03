@@ -33,6 +33,10 @@ from vayesta.core.scmf import PDMET, Brueckner
 from vayesta.core.mpi import mpi
 from .register import FragmentRegister
 
+# Symmetry
+#import vayesta.core.symmetry
+#from vayesta.core.symmetry import Symmetry
+
 # Fragmentations
 from vayesta.core.fragmentation import make_sao_fragmentation
 from vayesta.core.fragmentation import make_iao_fragmentation
@@ -145,8 +149,10 @@ class QEmbedding:
         self.kpts = None
         self.kdf = None
         self.madelung = None
-        with log_time(self.log.timingv, "Time for mean-field setup: %s"):
+        with log_time(self.log.timing, "Time for mean-field setup: %s"):
             self.init_mf(mf)
+        #with log_time(self.log.timing, "Time for symmetry setup: %s"):
+        #    self.symmetry = Symmetry(self.mf)
 
         # 5) Fragments
         # ------------
@@ -991,7 +997,7 @@ class QEmbedding:
         self.fragmentation = make_iaopao_fragmentation(self.mf, log=self.log, minao=minao)
         self.fragmentation.kernel()
 
-    def add_atomic_fragment(self, atoms, orbital_filter=None, name=None, **kwargs):
+    def add_atomic_fragment(self, atoms, orbital_filter=None, name=None, add_symmetric=True, **kwargs):
         """Create a fragment of one or multiple atoms, which will be solved by the embedding method.
 
         Parameters
@@ -1000,6 +1006,8 @@ class QEmbedding:
             Atom indices or symbols which should be included in the fragment.
         name: str, optional
             Name for the fragment. If None, a name is automatically generated from the chosen atoms. Default: None.
+        add_symmetric: bool, optional
+            Add symmetry equivalent fragments. Default: True.
         **kwargs:
             Additional keyword arguments are passed through to the fragment constructor.
 
@@ -1011,7 +1019,7 @@ class QEmbedding:
         if self.fragmentation is None:
             raise RuntimeError("No fragmentation defined. Call method x_fragmentation() where x=[iao, iaopao, sao, site].")
         name, indices = self.fragmentation.get_atomic_fragment_indices(atoms, orbital_filter=orbital_filter, name=name)
-        return self._add_fragment(indices, name, **kwargs)
+        return self._add_fragment(indices, name, add_symmetric=add_symmetric, **kwargs)
 
     def add_orbital_fragment(self, orbitals, atom_filter=None, name=None, **kwargs):
         """Create a fragment of one or multiple orbitals, which will be solved by the embedding method.
@@ -1035,7 +1043,7 @@ class QEmbedding:
         name, indices = self.fragmentation.get_orbital_fragment_indices(orbitals, atom_filter=atom_filter, name=name)
         return self._add_fragment(indices, name, **kwargs)
 
-    def _add_fragment(self, indices, name, **kwargs):
+    def _add_fragment(self, indices, name, add_symmetric=False, **kwargs):
         c_frag = self.fragmentation.get_frag_coeff(indices)
         c_env = self.fragmentation.get_env_coeff(indices)
         fid, mpirank = self.register.get_next()
@@ -1046,6 +1054,15 @@ class QEmbedding:
         self.log.debug("Fragment %ss of fragment %s:", self.fragmentation.name, name)
         labels = np.asarray(self.fragmentation.labels)[indices]
         helper.log_orbitals(self.log.debug, labels)
+
+        if add_symmetric:
+            # Translational symmetry
+            #nsubcells = self.symmetry.nsubcells
+            #if nsubcells is not None and np.any(np.asarray(nsubcells) > 1):
+            nsubcells = getattr(self.mf, 'nsubcells', None)
+            if nsubcells is not None and np.any(np.asarray(nsubcells) > 1):
+                frag.add_tsymmetric_fragments(nsubcells)
+
         return frag
 
     def add_all_atomic_fragments(self, **kwargs):
@@ -1057,7 +1074,9 @@ class QEmbedding:
             Additional keyword arguments are passed through to each fragment constructor.
         """
         fragments = []
-        for atom in range(self.mol.natm):
+        #for atom in self.symmetry.get_unique_atoms():
+        natom = self.kcell.natm if self.kcell is not None else self.mol.natm
+        for atom in range(natom):
             frag = self.add_atomic_fragment(atom, **kwargs)
             fragments.append(frag)
         return fragments

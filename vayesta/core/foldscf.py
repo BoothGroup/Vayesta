@@ -53,6 +53,8 @@ class FoldedSCF:
 
     def __init__(self, kmf, *args, **kwargs):
         self.kmf = kmf
+        self.nsubcells = kpts_to_kmesh(self.kmf.cell, kmf.kpts)
+
         scell, self.kphase = get_phase(self.kcell, kmf.kpts)
         super().__init__(scell, *args, **kwargs)
 

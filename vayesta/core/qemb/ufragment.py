@@ -5,7 +5,7 @@ import numpy as np
 from vayesta.core.util import *
 
 from .fragment import Fragment
-from vayesta.core import tsymmetry
+from vayesta.core.symmetry import tsymmetry
 
 class UFragment(Fragment):
 

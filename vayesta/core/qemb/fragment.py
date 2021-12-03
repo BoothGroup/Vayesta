@@ -12,7 +12,7 @@ import pyscf.lib
 import pyscf.lo
 
 from vayesta.core.util import *
-from vayesta.core import tsymmetry
+from vayesta.core.symmetry import tsymmetry
 import vayesta.core.ao2mo
 import vayesta.core.ao2mo.helper
 from vayesta.core.bath import DMET_Bath
