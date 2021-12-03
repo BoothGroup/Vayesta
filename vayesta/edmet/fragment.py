@@ -281,8 +281,9 @@ class EDMETFragment(DMETFragment):
         b_bos = b[2 * self.ov_active:, 2 * self.ov_active:]
         self.bos_freqs, x, y = bogoliubov_decouple(a_bos + b_bos, a_bos - b_bos)
 
-        self.couplings_aa = einsum("npq,nm->mpq", couplings_aa, x) + einsum("npq,nm->mqp", couplings_aa, y)
-        self.couplings_bb = np.einsum("npq,nm->mpq", couplings_bb, x) + np.einsum("npq,nm->mqp", couplings_bb, y)
+        couplings_aa = einsum("npq,nm->mpq", couplings_aa, x) + einsum("npq,nm->mqp", couplings_aa, y)
+        couplings_bb = np.einsum("npq,nm->mpq", couplings_bb, x) + np.einsum("npq,nm->mqp", couplings_bb, y)
+        self.couplings = (couplings_aa, couplings_bb)
         # These are currently the quantities before decoupling- shouldn't make any difference.
         self.apb = apb
         self.amb = renorm_amb
@@ -377,7 +378,7 @@ class EDMETFragment(DMETFragment):
             dm1=solver_results.dm1,
             dm2=solver_results.dm2,
             dm_eb=solver_results.rdm_eb,
-            eb_couplings=np.array((self.couplings_aa, self.couplings_bb)),
+            eb_couplings=np.array(self.couplings),
             boson_freqs=self.bos_freqs,
             dd_mom0=dd0,
             dd_mom1=dd1,
