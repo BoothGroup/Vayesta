@@ -254,6 +254,13 @@ class EWF(QEmbeddingMethod):
         bno_threshold : float or iterable, optional
             Bath natural orbital threshold. If `None`, self.opts.bno_threshold is used. Default: None.
         """
+        if self.fragmentation is None:
+            self.log.info("No fragmentation found. Using IAO fragmentation.")
+            self.iao_fragmentation()
+        if len(self.fragments) == 0:
+            self.log.info("No fragments found. Using all atomic fragments.")
+            self.add_all_atomic_fragments()
+
         if bno_threshold is None: bno_threshold = self.bno_threshold
         self.check_fragment_nelectron()
         if np.ndim(bno_threshold) == 0:
