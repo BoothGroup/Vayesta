@@ -17,10 +17,10 @@ cell.a = np.asarray([
     [0, a/2, a/2],
     [a/2, 0, a/2]])
 cell.basis = 'def2-svp'
-cell.output = 'pyscf-22.out'
+cell.output = 'pyscf.out'
 cell.build()
 
-kmesh = [2,2,2]
+kmesh = [1,1,2]
 kpts = cell.make_kpts(kmesh)
 
 # Hartree-Fock with k-points
@@ -40,18 +40,18 @@ ecc.kernel()
 
 # Hartree-Fock in supercell
 scell = pyscf.pbc.tools.super_cell(cell, kmesh)
-ncells = np.product(kmesh)
 mf_sc = pyscf.pbc.scf.RHF(scell)
 mf_sc = mf_sc.density_fit(auxbasis='def2-svp-ri')
 mf_sc.kernel()
 
 ecc_sc = vayesta.ewf.EWF(mf_sc, bno_threshold=1e-6)
 ecc_sc.iao_fragmentation()
+ncells = np.product(kmesh)
 ecc_sc.add_atomic_fragment(0, sym_factor=2*ncells)
 ecc_sc.kernel()
 
-print("E(k-HF)=             %+16.8f Ha" % kmf.e_tot)
-print("E(k-CCSD)=           %+16.8f Ha" % kcc.e_tot)
-print("E(EWF-CCSD@k-HF)=    %+16.8f Ha" % ecc.e_tot)
-print("E(sc-HF)=            %+16.8f Ha" % (mf_sc.e_tot/ncells))
-print("E(EWF-CCSD@sc-HF)=   %+16.8f Ha" % (ecc_sc.e_tot/ncells))
+print("E(k-HF)=            %+16.8f Ha" % kmf.e_tot)
+print("E(sc-HF)=           %+16.8f Ha" % (mf_sc.e_tot/ncells))
+print("E(EWF-CCSD@k-HF)=   %+16.8f Ha" % ecc.e_tot)
+print("E(EWF-CCSD@sc-HF)=  %+16.8f Ha" % (ecc_sc.e_tot/ncells))
+print("E(k-CCSD)=          %+16.8f Ha" % kcc.e_tot)

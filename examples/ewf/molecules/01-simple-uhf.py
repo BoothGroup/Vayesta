@@ -21,15 +21,14 @@ mol.build()
 mf = pyscf.scf.UHF(mol)
 mf.kernel()
 
+# Embedded CCSD
 emb = vayesta.ewf.EWF(mf, bno_threshold=1e-6)
-emb.iao_fragmentation()
-emb.make_all_atom_fragments()
 emb.kernel()
-
-print("E(HF)=        %+16.8f Ha" % mf.e_tot)
-print("E(Emb. CCSD)= %+16.8f Ha" % emb.e_tot)
 
 # Reference full system CCSD:
 cc = pyscf.cc.UCCSD(mf)
 cc.kernel()
-print("E(CCSD)=   %+16.8f Ha" % cc.e_tot)
+
+print("E(HF)=        %+16.8f Ha" % mf.e_tot)
+print("E(Emb. CCSD)= %+16.8f Ha" % emb.e_tot)
+print("E(CCSD)=      %+16.8f Ha" % cc.e_tot)

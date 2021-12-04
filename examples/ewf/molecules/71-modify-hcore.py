@@ -18,7 +18,6 @@ mol.basis = 'cc-pVDZ'
 mol.output = 'pyscf.out'
 mol.build()
 
-
 def get_v_mod(mf, shift):
     """Get potential on oxygen atom."""
     ovlp = mf.get_ovlp()

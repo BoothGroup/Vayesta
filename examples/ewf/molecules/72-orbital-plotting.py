@@ -17,7 +17,7 @@ cell.a = np.asarray([
     [0, a/2, a/2],
     [a/2, 0, a/2]])
 cell.basis = 'cc-pVDZ'
-cell.output = 'pyscf-99.out'
+cell.output = 'pyscf.out'
 cell.build()
 
 kmesh = [2,2,2]
@@ -29,22 +29,22 @@ kmf = kmf.density_fit(auxbasis='cc-pVDZ-ri')
 kmf.kernel()
 
 # Embedded calculation will automatically fold the k-point sampled mean-field to the supercell
-ecc = vayesta.ewf.EWF(kmf, bno_threshold=1e-6)
-ecc.iao_fragmentation()
-# Use ecc.mol instead of mol, since this is the supercell with 2*(2x2x2)=16 atoms:
-plot = CubeFile(ecc.mol, gridsize=(100, 100, 100))
+emb = vayesta.ewf.EWF(kmf, bno_threshold=1e-6)
+emb.iao_fragmentation()
+# Use emb.mol instead of mol, since this is the supercell with 2*(2x2x2)=16 atoms:
+plot = CubeFile(emb.mol, gridsize=(100, 100, 100))
 for atom in range(3):   # Only add the first 3 atomic fragments
-    f = ecc.add_atomic_fragment(atom)
+    f = emb.add_atomic_fragment(atom)
     plot.add_orbital(f.c_frag)
 # The filename can also be set in the initialization of the CubeFile
 plot.write('iao/fragments.cube')
 
 # The same with IAO+PAO fragmentation and with CubeFile as context manager:
-ecc = vayesta.ewf.EWF(kmf, bno_threshold=1e-6)
-ecc.iaopao_fragmentation()
+emb = vayesta.ewf.EWF(kmf, bno_threshold=1e-6)
+emb.iaopao_fragmentation()
 # Note that in the context manager form,
 # the filename always needs to be set in the initialization of CubeFile!
-with CubeFile(ecc.mol, filename='iao+pao/fragments.cube', gridsize=(100, 100, 100)) as plot:
+with CubeFile(emb.mol, filename='iao+pao/fragments.cube', gridsize=(100, 100, 100)) as plot:
     for atom in range(3):
-        f = ecc.add_atomic_fragment(atom)
+        f = emb.add_atomic_fragment(atom)
         plot.add_orbital(f.c_frag)

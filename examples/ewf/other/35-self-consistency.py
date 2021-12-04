@@ -1,3 +1,5 @@
+# BROKEN
+
 import pyscf
 import pyscf.gto
 import pyscf.scf
@@ -23,7 +25,6 @@ cc.kernel()
 
 # Reference one-shot EWF-CCSD
 ecc = vayesta.ewf.EWF(mf, bno_threshold=1e-4)
-ecc.make_all_atom_fragments()
 ecc.kernel()
 
 # Enable self-consistency (SC) mode by setting sc_mode:
@@ -32,6 +33,7 @@ ecc.kernel()
 # sc_mode = 2: Project only the first occupied index of other's fragment T2-amplitude onto it's fragment space
 # (more substantional external correction)
 scecc = vayesta.ewf.EWF(mf, bno_threshold=1e-4, sc_mode=1)
+scecc.iao_fragmentation()
 f0 = scecc.make_atom_fragment(0)
 f1 = scecc.make_atom_fragment(1)
 # Additional we need to define which fragment is considered in the tailoring of each other fragment:
