@@ -52,42 +52,6 @@ class UFragment(Fragment):
             ne.append(einsum('ai,ab,bi->', sc, dm[s], sc))
         return tuple(ne)
 
-    @property
-    def n_active(self):
-        """Number of active orbitals."""
-        return (self.n_active_occ[0] + self.n_active_vir[0],
-                self.n_active_occ[1] + self.n_active_vir[1])
-
-    @property
-    def n_active_occ(self):
-        """Number of active occupied orbitals."""
-        return (self.c_active_occ[0].shape[-1],
-                self.c_active_occ[1].shape[-1])
-
-    @property
-    def n_active_vir(self):
-        """Number of active virtual orbitals."""
-        return (self.c_active_vir[0].shape[-1],
-                self.c_active_vir[1].shape[-1])
-
-    @property
-    def n_frozen(self):
-        """Number of frozen orbitals."""
-        return (self.n_frozen_occ[0] + self.n_frozen_vir[0],
-                self.n_frozen_occ[1] + self.n_frozen_vir[1])
-
-    @property
-    def n_frozen_occ(self):
-        """Number of frozen occupied orbitals."""
-        return (self.c_frozen_occ[0].shape[-1],
-                self.c_frozen_occ[1].shape[-1])
-
-    @property
-    def n_frozen_vir(self):
-        """Number of frozen virtual orbitals."""
-        return (self.c_frozen_vir[0].shape[-1],
-                self.c_frozen_vir[1].shape[-1])
-
     def get_mo_occupation(self, *mo_coeff, dm1=None, **kwargs):
         """Get mean-field occupation numbers (diagonal of 1-RDM) of orbitals.
 
@@ -174,8 +138,8 @@ class UFragment(Fragment):
 
     def get_occ2frag_projector(self):
         ovlp = self.base.get_ovlp()
-        projector = (dot(self.c_proj[0].T, ovlp, self.c_active_occ[0]),
-                     dot(self.c_proj[1].T, ovlp, self.c_active_occ[1]))
+        projector = (dot(self.c_proj[0].T, ovlp, self.cluster.c_active_occ[0]),
+                     dot(self.c_proj[1].T, ovlp, self.cluster.c_active_occ[1]))
         return projector
 
     def project_amp1_to_fragment(self, amp1, projector=None):
@@ -210,8 +174,8 @@ class UFragment(Fragment):
         return tuple(projectors)
 
     def project_amplitude_to_fragment(self, c, c_occ=None, c_vir=None, partition=None, symmetrize=True):
-        if c_occ is None: c_occ = self.c_active_occ
-        if c_vir is None: c_vir = self.c_active_vir
+        if c_occ is None: c_occ = self.cluster.c_active_occ
+        if c_vir is None: c_vir = self.cluster.c_active_vir
         if partition is None: partition = self.opts.wf_partition
         if partition != 'first-occ': raise NotImplementedError()
 
@@ -270,7 +234,7 @@ class UFragment(Fragment):
         if dm2 is None: dm2 = self.results.dm2
         if dm1 is None: raise RuntimeError("DM1 not found for %s" % self)
         if dm2 is None: raise RuntimeError("DM2 not found for %s" % self)
-        c_act = self.c_active
+        c_act = self.cluster.c_active
         t0 = timer()
         if eris is None:
             with log_time(self.log.timing, "Time for AO->MO transformation: %s"):
@@ -293,8 +257,8 @@ class UFragment(Fragment):
             h1e_eff = self.base.get_hcore_orig() + self.base.get_veff(with_exxdiv=False)
             h1e_eff = (dot(c_act[0].T, h1e_eff[0], c_act[0]),
                        dot(c_act[1].T, h1e_eff[1], c_act[1]))
-            oa = np.s_[:self.n_active_occ[0]]
-            ob = np.s_[:self.n_active_occ[1]]
+            oa = np.s_[:self.cluster.nocc_active[0]]
+            ob = np.s_[:self.cluster.nocc_active[1]]
             va = (einsum('iipq->pq', gaa[oa,oa,:,:]) + einsum('pqii->pq', gab[:,:,ob,ob])
                 - einsum('ipqi->pq', gaa[oa,:,:,oa]))
             vb = (einsum('iipq->pq', gbb[ob,ob,:,:]) + einsum('iipq->pq', gab[oa,oa,:,:])
@@ -421,10 +385,10 @@ class UFragment(Fragment):
     def get_overlap_m2c(self):
         """Get rotation matrices from occupied/virtual active space to MF orbitals."""
         ovlp = self.base.get_ovlp()
-        r_occ_a = dot(self.base.mo_coeff_occ[0].T, ovlp, self.c_active_occ[0])
-        r_occ_b = dot(self.base.mo_coeff_occ[1].T, ovlp, self.c_active_occ[1])
-        r_vir_a = dot(self.base.mo_coeff_vir[0].T, ovlp, self.c_active_vir[0])
-        r_vir_b = dot(self.base.mo_coeff_vir[1].T, ovlp, self.c_active_vir[1])
+        r_occ_a = dot(self.base.mo_coeff_occ[0].T, ovlp, self.cluster.c_active_occ[0])
+        r_occ_b = dot(self.base.mo_coeff_occ[1].T, ovlp, self.cluster.c_active_occ[1])
+        r_vir_a = dot(self.base.mo_coeff_vir[0].T, ovlp, self.cluster.c_active_vir[0])
+        r_vir_b = dot(self.base.mo_coeff_vir[1].T, ovlp, self.cluster.c_active_vir[1])
         return (r_occ_a, r_occ_b), (r_vir_a, r_vir_b)
 
     def get_overlap_m2f(self):

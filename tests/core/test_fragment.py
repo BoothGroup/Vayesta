@@ -92,13 +92,6 @@ class MolFragmentTests(unittest.TestCase):
         self.assertAlmostEqual(tr(c_occenv), 5.4998286299420664, 8)
         self.assertAlmostEqual(tr(c_virenv), 349.9785855174961, 8)
 
-        for frag in frags[0].loop_fragments():
-            frag.reset()
-            self.assertTrue(frag._c_active_occ is None)
-            self.assertTrue(frag._c_active_vir is None)
-            self.assertTrue(frag._c_frozen_occ is None)
-            self.assertTrue(frag._c_frozen_vir is None)
-
     def test_iao_aos(self):
         qemb = QEmbeddingMethod(self.mf)
         qemb.init_fragmentation('iao')

@@ -76,8 +76,8 @@ class UEWFFragment(UFragment, EWFFragment):
             #    fb = dot(self.c_active_occ[1].T, fock[1], self.c_active_vir[1])
             if fock is None:
                 fock = self.base.get_fock_for_energy()
-            fova = dot(self.c_active_occ[0].T, fock[0], self.c_active_vir[0])
-            fovb = dot(self.c_active_occ[1].T, fock[1], self.c_active_vir[1])
+            fova = dot(self.cluster.c_active_occ[0].T, fock[0], self.cluster.c_active_vir[0])
+            fovb = dot(self.cluster.c_active_occ[1].T, fock[1], self.cluster.c_active_vir[1])
             ca, cb = c1
             if axis1 == 'fragment':
                 e_singles = (einsum('ia,xi,xa->', fova, pxa, ca)

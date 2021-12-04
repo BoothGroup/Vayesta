@@ -5,21 +5,6 @@ import numpy as np
 from vayesta.core.util import *
 from vayesta.core.mpi import mpi
 
-
-#def get_global_t1(emb, get_lambda=False, mpi_target=None):
-#    if emb.is_rhf:
-#        func = get_global_t1_rhf
-#    else:
-#        func = get_global_t1_uhf
-#    return func(emb, get_lambda=get_lambda, mpi_target=mpi_target)
-#
-#def get_global_t2(emb, get_lambda=False, symmetrize=True, mpi_target=None):
-#    if emb.is_rhf:
-#        func = get_global_t2_rhf
-#    else:
-#        func = get_global_t2_uhf
-#    return func(emb, get_lambda=get_lambda, symmetrize=symmetrize, mpi_target=mpi_target)
-
 def _mpi_reduce(log, *args, mpi_target=None):
     if mpi_target is None:
         with log_time(log.timingv, "Time for MPI allreduce: %s"):

@@ -223,24 +223,25 @@ class EWFFragment(QEmbeddingFragment):
         return cluster
 
     def get_init_guess(self, init_guess, solver, cluster):
-        # TODO: clean
+        # FIXME
+        return {}
         # --- Project initial guess and integrals from previous cluster calculation with smaller eta:
         # Use initial guess from previous calculations
         # For self-consistent calculations, we can restart calculation:
-        if init_guess is None and 'ccsd' in solver.lower():
-            if self.base.opts.sc_mode and self.base.iteration > 1:
-                self.log.debugv("Restarting using T1,T2 from previous iteration")
-                init_guess = {'t1' : self.results.t1, 't2' : self.results.t2}
-            elif self.base.opts.project_init_guess and self.results is not None:
-                self.log.debugv("Restarting using projected previous T1,T2")
-                # Projectors for occupied and virtual orbitals
-                p_occ = dot(self.c_active_occ.T, self.base.get_ovlp(), cluster.c_active_occ)
-                p_vir = dot(self.c_active_vir.T, self.base.get_ovlp(), cluster.c_active_vir)
-                #t1, t2 = init_guess.pop('t1'), init_guess.pop('t2')
-                t1, t2 = helper.transform_amplitudes(self.results.t1, self.results.t2, p_occ, p_vir)
-                init_guess = {'t1' : t1, 't2' : t2}
-        if init_guess is None: init_guess = {}
-        return init_guess
+        #if init_guess is None and 'ccsd' in solver.lower():
+        #    if self.base.opts.sc_mode and self.base.iteration > 1:
+        #        self.log.debugv("Restarting using T1,T2 from previous iteration")
+        #        init_guess = {'t1' : self.results.t1, 't2' : self.results.t2}
+        #    elif self.base.opts.project_init_guess and self.results.t2 is not None:
+        #        self.log.debugv("Restarting using projected previous T1,T2")
+        #        # Projectors for occupied and virtual orbitals
+        #        p_occ = dot(self.c_active_occ.T, self.base.get_ovlp(), cluster.c_active_occ)
+        #        p_vir = dot(self.c_active_vir.T, self.base.get_ovlp(), cluster.c_active_vir)
+        #        #t1, t2 = init_guess.pop('t1'), init_guess.pop('t2')
+        #        t1, t2 = helper.transform_amplitudes(self.results.t1, self.results.t2, p_occ, p_vir)
+        #        init_guess = {'t1' : t1, 't2' : t2}
+        #if init_guess is None: init_guess = {}
+        #return init_guess
 
     def kernel(self, bno_threshold=None, bno_number=None, solver=None, init_guess=None, eris=None):
         """Run solver for a single BNO threshold.
@@ -283,8 +284,8 @@ class EWFFragment(QEmbeddingFragment):
             eris = ao2mo.helper.project_ccsd_eris(eris, cluster.c_active, cluster.nocc_active, ovlp=self.base.get_ovlp())
 
         # We can now overwrite the orbitals from last BNO run:
-        self._c_active_occ = cluster.c_active_occ
-        self._c_active_vir = cluster.c_active_vir
+        #self._c_active_occ = cluster.c_active_occ
+        #self._c_active_vir = cluster.c_active_vir
 
         if solver is None:
             return None
@@ -337,9 +338,12 @@ class EWFFragment(QEmbeddingFragment):
         else:
             self.log.info("BNO number= %3d / %3d:  E(corr)= %+14.8f Ha", *bno_number, e_corr)
 
-        # --- Create results
-        results = self.Results(fid=self.id, bno_threshold=bno_threshold, n_active=cluster.norb_active,
-                converged=cluster_solver.converged, e_corr=e_corr)
+        # --- Add to results
+        results = self._results
+        results.bno_threshold = bno_threshold
+        results.n_active = cluster.norb_active
+        results.converged = cluster_solver.converged
+        results.e_corr = e_corr
 
         # Store density-matrix
         if self.opts.store_dm1 is True or self.opts.make_rdm1:
@@ -467,7 +471,7 @@ class EWFFragment(QEmbeddingFragment):
         if c1 is not None:
             if fock is None:
                 fock = self.base.get_fock_for_energy()
-            fov =  dot(self.c_active_occ.T, fock, self.c_active_vir)
+            fov =  dot(self.cluster.c_active_occ.T, fock, self.cluster.c_active_vir)
             if axis1 == 'fragment':
                 e_singles = 2*einsum('ia,xi,xa->', fov, px, c1)
             else:

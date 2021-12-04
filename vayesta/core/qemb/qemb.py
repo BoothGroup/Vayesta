@@ -624,11 +624,11 @@ class QEmbedding:
         po = [[] for i in range(nfrag)]
         pv = [[] for i in range(nfrag)]
         for i1, f1 in enumerate(fragments):
-            cso = np.dot(f1.c_active_occ.T, ovlp)   # N(f) x N(AO)^2
-            csv = np.dot(f1.c_active_vir.T, ovlp)
+            cso = np.dot(f1.cluster.c_active_occ.T, ovlp)   # N(f) x N(AO)^2
+            csv = np.dot(f1.cluster.c_active_vir.T, ovlp)
             for i2, f2 in enumerate((fragments[:i1+1] if tril else fragments)):
-                po[i1].append(np.dot(cso, f2.c_active_occ))   # N(f)^2 x N(AO)
-                pv[i1].append(np.dot(csv, f2.c_active_vir))
+                po[i1].append(np.dot(cso, f2.cluster.c_active_occ))   # N(f)^2 x N(AO)
+                pv[i1].append(np.dot(csv, f2.cluster.c_active_vir))
         return po, pv
 
     def get_overlap_c2f(emb, fragments=None):
@@ -640,8 +640,8 @@ class QEmbedding:
         po = [[] for i in range(nfrag)]
         pv = [[] for i in range(nfrag)]
         for i1, f1 in enumerate(fragments):
-            cso = np.dot(f1.c_active_occ.T, ovlp)   # N(f) x N(AO)^2
-            csv = np.dot(f1.c_active_vir.T, ovlp)
+            cso = np.dot(f1.cluster.c_active_occ.T, ovlp)   # N(f) x N(AO)^2
+            csv = np.dot(f1.cluster.c_active_vir.T, ovlp)
             for i2, f2 in enumerate(fragments):
                 po[i1].append(np.dot(cso, f2.c_proj))   # N(f)^2 x N(AO)
                 pv[i1].append(np.dot(csv, f2.c_proj))
@@ -1057,11 +1057,11 @@ class QEmbedding:
 
         if add_symmetric:
             # Translational symmetry
-            #nsubcells = self.symmetry.nsubcells
-            #if nsubcells is not None and np.any(np.asarray(nsubcells) > 1):
-            nsubcells = getattr(self.mf, 'nsubcells', None)
-            if nsubcells is not None and np.any(np.asarray(nsubcells) > 1):
-                frag.add_tsymmetric_fragments(nsubcells)
+            #subcellmesh = self.symmetry.nsubcells
+            #if subcellmesh is not None and np.any(np.asarray(subcellmesh) > 1):
+            subcellmesh = getattr(self.mf, 'subcellmesh', None)
+            if subcellmesh is not None and np.any(np.asarray(subcellmesh) > 1):
+                frag.add_tsymmetric_fragments(subcellmesh)
 
         return frag
 

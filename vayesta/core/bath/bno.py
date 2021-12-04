@@ -242,7 +242,7 @@ class MP2_BNO_Bath(BNO_Bath):
         e_mp2_full *= self.fragment.get_energy_prefactor()
         # Symmetrize irrelevant?
         #t2loc = self.fragment.project_amplitudes_to_fragment(mp2, None, t2)[1]
-        t2loc = self.fragment.project_amplitude_to_fragment(t2, c_occ=actspace.c_active_occ)
+        t2loc = self.fragment.project_amplitude_to_fragment(t2, c_occ=actspace.c_active_occ, c_vir=False)
         e_mp2 = self.fragment.get_energy_prefactor() * mp2.energy(t2loc, eris)
         self.log.debug("MP2 bath energy:  E(Cluster)= %+16.8f Ha  E(Fragment)= %+16.8f Ha", e_mp2_full, e_mp2)
 

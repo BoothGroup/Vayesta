@@ -57,7 +57,7 @@ def make_rdm1_demo(emb, ao_basis=False, add_mf=False, symmetrize=True):
         if emb.opts.dm_with_frozen:
             cf = f.mo_coeff
         else:
-            cf = f.c_active
+            cf = f.cluster.c_active
         rf = dot(mo_coeff.T, ovlp, cf)
         if add_mf:
             # Subtract double counting:
@@ -137,8 +137,8 @@ def make_rdm1_ccsd(emb, ao_basis=False, t_as_lambda=False, slow=False,
         theta = (2*theta - theta.transpose(0,1,3,2))
         theta = f1.project_amplitude_to_fragment(theta, symmetrize=symmetrize)
         # Intermediates - leave left index in cluster basis:
-        doo_f1 = np.zeros((f1.n_active_occ, nocc))
-        dvv_f1 = np.zeros((f1.n_active_vir, nvir))
+        doo_f1 = np.zeros((f1.cluster.nocc_active, nocc))
+        dvv_f1 = np.zeros((f1.cluster.nvir_active, nvir))
         dov += einsum('imae,Pi,Mm,Qa,Ee,ME->PQ', theta, f2mo[i1], f2mo[i1], f2mv[i1], f2mv[i1], l1)
         for i2, f2 in enumerate(fragments):
             if i1 >= i2:
@@ -430,7 +430,7 @@ def make_rdm2_demo(emb, ao_basis=False, add_mf=True, symmetrize=True):
         if emb.opts.dm_with_frozen:
             cf = f.mo_coeff
         else:
-            cf = f.c_active
+            cf = f.cluster.c_active
         rf = np.linalg.multi_dot((emb.mo_coeff.T, emb.get_ovlp(), cf))
         if add_mf:
             # Subtract double counting:

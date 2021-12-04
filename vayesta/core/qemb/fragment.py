@@ -233,22 +233,15 @@ class Fragment:
         # of the fragment. By default it is equal to `self.c_frag`.
         self.c_proj = self.c_frag
 
-        # TODO: Move to cluster object
-        # Final cluster active orbitals
-        self._c_active_occ = None
-        self._c_active_vir = None
-        # Final cluster frozen orbitals (Avoid storing these, as they scale as N^2 per cluster)
-        self._c_frozen_occ = None
-        self._c_frozen_vir = None
-        # Final results
-        self._results = None
-
         # Bath and cluster
         self.bath = None
         self.cluster = None
 
         # In some cases we want to keep ERIs stored after the calculation
         self._eris = None
+
+        # Final results
+        self._results = self.Results(fid=self.id)
 
         self.log.info("Creating %r", self)
         #self.log.info(break_into_lines(str(self.opts), newline='\n    '))
@@ -313,102 +306,14 @@ class Fragment:
     def boundary_cond(self):
         return self.base.boundary_cond
 
-    # --- Active orbitals
-    # TODO: Cluster object
-
-    @property
-    def c_active(self):
-        """Active orbital coefficients."""
-        if self.c_active_occ is None:
-            return None
-        return self.stack_mo(self.c_active_occ, self.c_active_vir)
-
-    @property
-    def c_active_occ(self):
-        """Active occupied orbital coefficients."""
-        if self.sym_parent is None:
-            return self._c_active_occ
-        else:
-            return self.sym_op(self.sym_parent.c_active_occ)
-
-    @property
-    def c_active_vir(self):
-        """Active virtual orbital coefficients."""
-        if self.sym_parent is None:
-            return self._c_active_vir
-        else:
-            return self.sym_op(self.sym_parent.c_active_vir)
-
-    @property
-    def n_active(self):
-        """Number of active orbitals."""
-        return (self.n_active_occ + self.n_active_vir)
-
-    @property
-    def n_active_occ(self):
-        """Number of active occupied orbitals."""
-        return self.c_active_occ.shape[-1]
-
-    @property
-    def n_active_vir(self):
-        """Number of active virtual orbitals."""
-        return self.c_active_vir.shape[-1]
-
-    # --- Frozen orbitals
-
-    @property
-    def c_frozen(self):
-        """Frozen orbital coefficients."""
-        if self.c_frozen_occ is None:
-            return None
-        return self.stack_mo(self.c_frozen_occ, self.c_frozen_vir)
-
-    @property
-    def c_frozen_occ(self):
-        """Frozen occupied orbital coefficients."""
-        if self.sym_parent is None:
-            return self._c_frozen_occ
-        else:
-            return self.sym_op(self.sym_parent.c_frozen_occ)
-
-    @property
-    def c_frozen_vir(self):
-        """Frozen virtual orbital coefficients."""
-        if self.sym_parent is None:
-            return self._c_frozen_vir
-        else:
-            return self.sym_op(self.sym_parent.c_frozen_vir)
-
-    @property
-    def n_frozen(self):
-        """Number of frozen orbitals."""
-        return (self.n_frozen_occ + self.n_frozen_vir)
-
-    @property
-    def n_frozen_occ(self):
-        """Number of frozen occupied orbitals."""
-        return self.c_frozen_occ.shape[-1]
-
-    @property
-    def n_frozen_vir(self):
-        """Number of frozen virtual orbitals."""
-        return self.c_frozen_vir.shape[-1]
-
-    # --- All orbitals
-
-    @property
-    def mo_coeff(self):
-        return self.stack_mo(self.c_frozen_occ, self.c_active_occ,
-                             self.c_active_vir, self.c_frozen_vir)
-
     # --- Overlap matrices
     # --------------------
 
     def get_overlap_m2c(self):
         """Get overlap matrices from mean-field to occupied/virtual active space."""
         ovlp = self.base.get_ovlp()
-        r_occ = dot(self.base.mo_coeff_occ.T, ovlp, self.c_active_occ)
-        r_vir = dot(self.base.mo_coeff_vir.T, ovlp, self.c_active_vir)
+        r_occ = dot(self.base.mo_coeff_occ.T, ovlp, self.cluster.c_active_occ)
+        r_vir = dot(self.base.mo_coeff_vir.T, ovlp, self.cluster.c_active_vir)
         return r_occ, r_vir
 
     def get_overlap_m2f(self):
@@ -429,12 +334,7 @@ class Fragment:
         self.log.debugv("Resetting fragment %s", self)
         self.bath = None
         self.cluster = None
-        self._results = None
-        # TODO: Remove these:
-        self._c_active_occ = None
-        self._c_active_vir = None
-        self._c_frozen_occ = None
-        self._c_frozen_vir = None
+        self._results = self.Results(fid=self.id)
 
     def couple_to_fragment(self, frag):
         if frag is self:
@@ -623,7 +523,7 @@ class Fragment:
 
     def get_occ2frag_projector(self):
         ovlp = self.base.get_ovlp()
-        projector = dot(self.c_proj.T, ovlp, self.c_active_occ)
+        projector = dot(self.c_proj.T, ovlp, self.cluster.c_active_occ)
         return projector
 
     def project_amp1_to_fragment(self, amp1, projector=None):
@@ -658,9 +558,9 @@ class Fragment:
         c: (n(occ), n(vir)) or (n(occ), n(occ), n(vir), n(vir)) array
             CI coefficients or CC amplitudes.
         c_occ: (n(AO), n(MO)) array, optional
-            Occupied MO coefficients. If `None`, `self.c_active_occ` is used. Default: `None`.
+            Occupied MO coefficients. If `None`, `self.cluster.c_active_occ` is used. Default: `None`.
         c_vir: (n(AO), n(MO)) array, optional
-            Virtual MO coefficients. If `None`, `self.c_active_vir` is used. Default: `None`.
+            Virtual MO coefficients. If `None`, `self.cluster.c_active_vir` is used. Default: `None`.
         partition: ['first-occ', 'first-vir', 'democractic'], optional
             Partitioning scheme of amplitudes. Default: 'first-occ'.
         symmetrize: bool, optional
@@ -671,8 +571,8 @@ class Fragment:
         pc: array
             Projected CI coefficients or CC amplitudes.
         """
-        if c_occ is None: c_occ = self.c_active_occ
-        if c_vir is None: c_vir = self.c_active_vir
+        if c_occ is None: c_occ = self.cluster.c_active_occ
+        if c_vir is None: c_vir = self.cluster.c_active_vir
         if partition is None: partition = self.opts.wf_partition
 
         if np.ndim(c) not in (2, 4):
@@ -905,7 +805,7 @@ class Fragment:
         c_active: array, optional
         fock: array, optional
         """
-        if c_active is None: c_active = self.c_active
+        if c_active is None: c_active = self.cluster.c_active
         if fock is None: fock = self.base.get_fock()
         mo_energy = einsum('ai,ab,bi->i', c_active, fock, c_active)
         return mo_energy
@@ -935,7 +835,7 @@ class Fragment:
         if dm2 is None: dm2 = self.results.dm2
         if dm1 is None: raise RuntimeError("DM1 not found for %s" % self)
         if dm2 is None: raise RuntimeError("DM2 not found for %s" % self)
-        c_act = self.c_active
+        c_act = self.cluster.c_active
         t0 = timer()
         if eris is None:
             with log_time(self.log.timing, "Time for AO->MO transformation: %s"):
@@ -949,7 +849,7 @@ class Fragment:
             # Use the original Hcore (without chemical potential modifications), but updated mf-potential!
             h1e_eff = self.base.get_hcore_orig() + self.base.get_veff(with_exxdiv=False)/2
             h1e_eff = dot(c_act.T, h1e_eff, c_act)
-            occ = np.s_[:self.n_active_occ]
+            occ = np.s_[:self.cluster.nocc_active]
             v_act = einsum('iipq->pq', eris[occ,occ,:,:]) - einsum('iqpi->pq', eris[occ,:,:,occ])/2
             h1e_eff -= v_act
 
