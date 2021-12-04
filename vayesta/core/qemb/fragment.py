@@ -233,15 +233,13 @@ class Fragment:
         # of the fragment. By default it is equal to `self.c_frag`.
         self.c_proj = self.c_frag
 
-        # Bath and cluster
+        # Bath, cluster, and final results
         self.bath = None
-        self.cluster = None
+        self._cluster = None
+        self._results = self.Results(fid=self.id)
 
         # In some cases we want to keep ERIs stored after the calculation
         self._eris = None
-
-        # Final results
-        self._results = self.Results(fid=self.id)
 
         self.log.info("Creating %r", self)
         #self.log.info(break_into_lines(str(self.opts), newline='\n    '))
@@ -325,10 +323,27 @@ class Fragment:
 
     @property
     def results(self):
-        if self.sym_parent is None:
-            return self._results
-        else:
+        if self.sym_parent is not None:
             return self.sym_parent.results
+        return self._results
+
+    @results.setter
+    def results(self, value):
+        if self.sym_parent is not None:
+            raise RuntimeError("Cannot set attribute results in symmetry derived fragment.")
+        self._results = value
+
+    @property
+    def cluster(self):
+        if self.sym_parent is not None:
+            return self.sym_parent.cluster.transform(self.sym_op)
+        return self._cluster
+
+    @cluster.setter
+    def cluster(self, value):
+        if self.sym_parent is not None:
+            raise RuntimeError("Cannot set attribute cluster in symmetry derived fragment.")
+        self._cluster = value
 
     def reset(self):
         self.log.debugv("Resetting fragment %s", self)
@@ -734,7 +749,6 @@ class Fragment:
                 frag = self.base.add_fragment(name, c_frag_t, c_env_t, options=self.opts,
                         sym_parent=self, sym_op=sym_op)
             else:
-                #fid = self.base.fragmentation.get_next_fid()
                 frag_id = self.base.register.get_next_id()
                 frag = self.base.Fragment(self.base, frag_id, name, c_frag_t, c_env_t, options=self.opts,
                         sym_parent=self, sym_op=sym_op, mpi_rank=self.mpi_rank)

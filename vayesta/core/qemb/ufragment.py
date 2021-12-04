@@ -342,8 +342,8 @@ class UFragment(Fragment):
                 frag = self.base.add_fragment(name, c_frag_t, c_env_t, options=self.opts,
                         sym_parent=self, sym_op=sym_op)
             else:
-                fid = self.base.fragmentation.get_next_fid()
-                frag = self.base.Fragment(self.base, fid, name, c_frag_t, c_env_t, options=self.opts,
+                frag_id = self.base.register.get_next_id()
+                frag = self.base.Fragment(self.base, frag_id, name, c_frag_t, c_env_t, options=self.opts,
                         sym_parent=self, sym_op=sym_op)
                 self.base.fragments.append(frag)
 

@@ -8,7 +8,6 @@ def ActiveSpace(mf, *args, **kwargs):
         return ActiveSpace_RHF(mf, *args, **kwargs)
     return ActiveSpace_UHF(mf, *args, **kwargs)
 
-
 class ActiveSpace_RHF:
 
     def __init__(self, mf, c_active_occ, c_active_vir, c_frozen_occ=None, c_frozen_vir=None):
@@ -226,6 +225,22 @@ class ActiveSpace_RHF:
 
     def get_cas_size(self):
         return (self.nelectron_active, self.norb_active)
+
+    # --- Modify
+
+    def copy(self):
+        copy = ActiveSpace(self.mf, self.c_active_occ, self.c_active_vir, self.c_frozen_occ, self.c_frozen_vir)
+        return copy
+
+    def transform(self, trafo):
+        cp = self.copy()
+        cp._active_occ.transform(trafo, inplace=True)
+        cp._active_vir.transform(trafo, inplace=True)
+        if cp._frozen_occ is not None:
+            cp._frozen_occ.transform(trafo, inplace=True)
+        if cp._frozen_vir is not None:
+            cp._frozen_vir.transform(trafo, inplace=True)
+        return cp
 
     def log_sizes(self, logger, header=None):
         if header:

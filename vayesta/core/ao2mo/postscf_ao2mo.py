@@ -325,7 +325,7 @@ def _contract_cderi_mixed(cderi, cderi_neg, block=None, nocc=None, pack_left=Fal
     max_memory = int(1e8) # 100 MB
     nblks = int((eri.size * 8 * (1+np.iscomplexobj(eri)))/max_memory)
     size = cderi_left.shape[1]
-    blksize = int(size/nblks)
+    blksize = int(size/max(nblks, 1))
     for blk in brange(0, size, blksize):
         eri[blk] -= np.tensordot(cderi_left[:,blk].conj(), cderi_right, axes=(0, 0))
     #eri -= np.tensordot(cderi_left.conj(), cderi_right, axes=(0, 0))

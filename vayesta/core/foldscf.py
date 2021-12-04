@@ -1,6 +1,7 @@
 import logging
 from timeit import default_timer as timer
 import copy
+import tempfile
 
 import numpy as np
 import scipy
@@ -12,6 +13,7 @@ import pyscf
 from pyscf import lib
 from pyscf.pbc import tools
 from pyscf.pbc import scf
+import pyscf.pbc.df
 
 try:
     from .util import *
@@ -52,26 +54,51 @@ class FoldedSCF:
         Transformation matrix between k-point and BVK quantities.
     """
 
+    # Propagate the following attributes to the k-point mean-field:
+    _from_kmf = ['e_tot', 'converged', 'exxdiv', 'verbose', 'max_memory', 'conv_tol', 'conv_tol_grad',
+            'stdout']
 
-    def __init__(self, kmf, *args, **kwargs):
+    def __init__(self, kmf, kpt=np.zeros(3), **kwargs):
         # Create a copy, so that the original mean-field object does not get modified
         self.kmf = copy.copy(kmf)
         self.subcellmesh = kpts_to_kmesh(self.kmf.cell, kmf.kpts)
-        scell, self.kphase = get_phase(self.kcell, self.kmf.kpts)
-        super().__init__(scell, *args, **kwargs)
+        cell, self.kphase = get_phase(self.kcell, self.kmf.kpts)
 
-    # Propagate the following attributes to the k-point mean-field:
-    __FROM_KMF = ['e_tot', 'converged', 'exxdiv', 'verbose', 'max_memory', 'conv_tol', 'conv_tol_grad']
+        # We cannot call the PySCF __init__....
+        #super().__init__(scell, **kwargs)
+        # ... so we have to intialize a few attributes here:
+        self.mol = self.cell = cell
+
+        # From scf/hf.py:
+        self.callback = None
+        self.scf_summary = {}
+        self._chkfile = tempfile.NamedTemporaryFile(dir=lib.param.TMPDIR)
+        self.chkfile = self._chkfile.name
+
+        # from pbc/scf/hf.py:
+        self.with_df = pyscf.pbc.df.FFTDF(cell)
+        self.rsjk = None
+        self.kpt = kpt
+        if not np.allclose(kpt, 0):
+            raise NotImplementedError()
 
     def __getattr__(self, name):
-        if name in self.__FROM_KMF:
+        if name in self._from_kmf:
             return getattr(self.kmf, name)
         raise AttributeError("'%s' object has no attribute '%s'" % (self.__class__.__name__, name))
 
     def __setattr__(self, name, value):
-        if name in self.__FROM_KMF:
+        if name in self._from_kmf:
             return setattr(self.kmf, name, value)
         return super().__setattr__(name, value)
+
+    @property
+    def e_tot(self):
+        return (self.ncells * self.kmf.e_tot)
+
+    @e_tot.setter
+    def e_tot(self, value):
+        self.kmf.e_tot = (value / self.ncells)
 
     @property
     def ncells(self):
@@ -143,6 +170,9 @@ class FoldedUHF(FoldedSCF, pyscf.pbc.scf.uhf.UHF):
 
     def __init__(self, kmf, *args, **kwargs):
         super().__init__(kmf, *args, **kwargs)
+
+        #self.nelec = None
+
         ovlp = self.get_ovlp()
         #hcore = self.get_hcore()
         hcore = None
