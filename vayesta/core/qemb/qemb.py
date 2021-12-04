@@ -46,19 +46,9 @@ from vayesta.core.fragmentation import make_site_fragmentation
 # --- This Package
 
 from .fragment import QEmbeddingFragment
-# Amplitudes
-from .amplitudes import get_global_t1_rhf
-from .amplitudes import get_global_t2_rhf
-# Density-matrices
-from .rdm import make_rdm1_demo
-from .rdm import make_rdm2_demo
-from .rdm import make_rdm1_ccsd
-from .rdm import make_rdm2_ccsd
-# TODO
-from .rdm import make_rdm1_ccsd_new
-from .rdm import make_rdm1_ccsd_new2
 from . import helper
-
+from .rdm import make_rdm1_demo_rhf
+from .rdm import make_rdm2_demo_rhf
 
 class QEmbedding:
 
@@ -764,6 +754,9 @@ class QEmbedding:
     # Results
     # -------
 
+    make_rdm1_demo = make_rdm1_demo_rhf
+    make_rdm2_demo = make_rdm2_demo_rhf
+
     def get_fragment_nelectron(self):
         nelectron = [f.sym_factor*f.nelectron for f in self.fragments]
 
@@ -807,45 +800,6 @@ class QEmbedding:
         if with_exxdiv and self.has_exxdiv:
             e_dmet += self.get_exxdiv()[0]
         return e_dmet
-
-    # --- CC Amplitudes
-    # -----------------
-
-    # T-amplitudes
-    get_global_t1 = get_global_t1_rhf
-    get_global_t2 = get_global_t2_rhf
-
-    # Lambda-amplitudes
-    def get_global_l1(self, *args, **kwargs):
-        return self.get_global_t1(*args, get_lambda=True, **kwargs)
-    def get_global_l2(self, *args, **kwargs):
-        return self.get_global_t2(*args, get_lambda=True, **kwargs)
-
-    # --- Bardwards compatibility:
-    @deprecated("get_t1 is deprecated - use get_global_t1 instead.")
-    def get_t1(self, *args, **kwargs):
-        return self.get_global_t1(*args, **kwargs)
-    @deprecated("get_t2 is deprecated - use get_global_t2 instead.")
-    def get_t2(self, *args, **kwargs):
-        return self.get_global_t2(*args, **kwargs)
-    @deprecated("get_l1 is deprecated - use get_global_l1 instead.")
-    def get_l1(self, *args, **kwargs):
-        return self.get_global_l1(*args, **kwargs)
-    @deprecated("get_l2 is deprecated - use get_global_l2 instead.")
-    def get_l2(self, *args, **kwargs):
-        return self.get_global_l2(*args, **kwargs)
-
-    # --- Density-matrices
-    # --------------------
-
-    make_rdm1_demo = make_rdm1_demo
-    make_rdm2_demo = make_rdm2_demo
-    make_rdm1_ccsd = make_rdm1_ccsd
-    make_rdm2_ccsd = make_rdm2_ccsd
-
-    # TODO
-    make_rdm1_ccsd_new = make_rdm1_ccsd_new
-    make_rdm1_ccsd_new2 = make_rdm1_ccsd_new2
 
     # Utility
     # -------

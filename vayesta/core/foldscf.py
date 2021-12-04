@@ -1,5 +1,6 @@
 import logging
 from timeit import default_timer as timer
+import copy
 
 import numpy as np
 import scipy
@@ -51,22 +52,26 @@ class FoldedSCF:
         Transformation matrix between k-point and BVK quantities.
     """
 
-    def __init__(self, kmf, *args, **kwargs):
-        self.kmf = kmf
-        self.subcellmesh = kpts_to_kmesh(self.kmf.cell, kmf.kpts)
 
-        scell, self.kphase = get_phase(self.kcell, kmf.kpts)
+    def __init__(self, kmf, *args, **kwargs):
+        # Create a copy, so that the original mean-field object does not get modified
+        self.kmf = copy.copy(kmf)
+        self.subcellmesh = kpts_to_kmesh(self.kmf.cell, kmf.kpts)
+        scell, self.kphase = get_phase(self.kcell, self.kmf.kpts)
         super().__init__(scell, *args, **kwargs)
 
-        # Copy attributes from k-point MF
-        self.e_tot = self.ncells * self.kmf.e_tot
-        self.converged = self.kmf.converged
-        self.exxdiv = self.kmf.exxdiv
-        self.verbose = self.kmf.verbose
-        self.max_memory = self.kmf.max_memory
-        self.conv_tol = self.kmf.conv_tol
-        self.conv_tol_grad = self.kmf.conv_tol_grad
+    # Propagate the following attributes to the k-point mean-field:
+    __FROM_KMF = ['e_tot', 'converged', 'exxdiv', 'verbose', 'max_memory', 'conv_tol', 'conv_tol_grad']
 
+    def __getattr__(self, name):
+        if name in self.__FROM_KMF:
+            return getattr(self.kmf, name)
+        raise AttributeError("'%s' object has no attribute '%s'" % (self.__class__.__name__, name))
+
+    def __setattr__(self, name, value):
+        if name in self.__FROM_KMF:
+            return setattr(self.kmf, name, value)
+        return super().__setattr__(name, value)
 
     @property
     def ncells(self):

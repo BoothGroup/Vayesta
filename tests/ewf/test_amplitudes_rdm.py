@@ -62,14 +62,14 @@ class RHF_H2O(unittest.TestCase):
         self.assertLess(e1, 2+atol)
         self.assertIsNone(np.testing.assert_allclose(dm1, self.dm1, atol=atol))
 
-    def test_dm1_new2(self):
-        atol = 1e-8
-        dm1 = self.ecc.make_rdm1_ccsd_new2()
-        self.assertAlmostEqual(np.trace(dm1), self.mol.nelectron)
-        e0, e1 = np.linalg.eigh(dm1)[0][[0,-1]]
-        self.assertGreater(e0, -atol)
-        self.assertLess(e1, 2+atol)
-        self.assertIsNone(np.testing.assert_allclose(dm1, self.dm1, atol=atol))
+    #def test_dm1_new2(self):
+    #    atol = 1e-8
+    #    dm1 = self.ecc.make_rdm1_ccsd_new2()
+    #    self.assertAlmostEqual(np.trace(dm1), self.mol.nelectron)
+    #    e0, e1 = np.linalg.eigh(dm1)[0][[0,-1]]
+    #    self.assertGreater(e0, -atol)
+    #    self.assertLess(e1, 2+atol)
+    #    self.assertIsNone(np.testing.assert_allclose(dm1, self.dm1, atol=atol))
 
     def test_dm2(self):
         atol = 1e-8
@@ -138,10 +138,9 @@ class RHF_vs_UHF_H2O(unittest.TestCase):
         self.assertIsNone(np.testing.assert_allclose(t2bb, t2 - t2.transpose(0,1,3,2), atol=atol))
 
     def test_dm1(self):
-        # TODO, currently fails
+        # TODO, currently fails - reason asymmetric use of alpha and beta fragment projector in UHF?
         atol = 1e-8
-        rdm1 = self.remb.make_rdm1_ccsd_new2()
-        #dm1a, dm1b = self.uemb.make_rdm1_ccsd(symmetrize=False)
+        rdm1 = self.remb.make_rdm1_ccsd()
         dm1a, dm1b = self.uemb.make_rdm1_ccsd()
         udm1 = (dm1a + dm1b)
         self.assertAlmostEqual(np.trace(udm1), self.mol.nelectron)
@@ -190,9 +189,6 @@ class UHF_NO2(unittest.TestCase):
         #        solver_options={'conv_tol' : cc_conv_tol, 'conv_tol_normt' : cc_conv_tol_normt})
         cls.ecc = vayesta.ewf.EWF(cls.mf, store_l1=True, store_l2=True,
                 solver_options={'conv_tol' : cc_conv_tol, 'conv_tol_normt' : cc_conv_tol_normt})
-
-        cls.ecc.iao_fragmentation()
-        cls.ecc.add_all_atomic_fragments()
         #cls.ecc.kernel(bno_threshold=1e-4)
         cls.ecc.kernel(bno_threshold=-1)
 
@@ -215,7 +211,6 @@ class UHF_NO2(unittest.TestCase):
 
     def test_dm1(self):
         atol = 1e-8
-        #dm1a, dm1b = self.ecc.make_rdm1_ccsd(symmetrize=False)
         dm1a, dm1b = self.ecc.make_rdm1_ccsd()
 
         nocca = np.count_nonzero(self.mf.mo_occ[0] > 0)

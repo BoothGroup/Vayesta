@@ -10,67 +10,6 @@ from vayesta.core.mpi import mpi
 from .rdm import _mpi_reduce
 
 
-def make_rdm1_demo(emb, ao_basis=False, add_mf=False, symmetrize=True):
-    """Make democratically partitioned one-particle reduced density-matrix from fragment calculations.
-
-    Warning: A democratically partitioned DM is only expected to yield reasonable results
-    for full fragmentations (eg, Lowdin-AO or IAO+PAO fragmentation).
-
-    Parameters
-    ----------
-    ao_basis: bool, optional
-        Return the density-matrix in the AO basis. Default: False.
-    add_mf: bool, optional
-        Add the mean-field contribution to the density-matrix (double counting is accounted for).
-        Is only used if `partition = 'dm'`. Default: False.
-    symmetrize: bool, optional
-        Symmetrize the density-matrix at the end of the calculation. Default: True.
-
-    Returns
-    -------
-    dm1: tuple of (n, n) arrays
-        Alpha- and beta one-particle reduced density matrix in AO (if `ao_basis=True`) or MO basis (default).
-    """
-    ovlp = emb.get_ovlp()
-    mo_coeff = emb.mo_coeff
-    if add_mf:
-        sca = np.dot(ovlp, mo_coeff[0])
-        scb = np.dot(ovlp, mo_coeff[1])
-        dm1a_mf, dm1b_mf = emb.mf.make_rdm1()
-        dm1a_mf = dot(sca.T, dm1a_mf, sca)
-        dm1b_mf = dot(scb.T, dm1b_mf, scb)
-        dm1a = dm1a_mf.copy()
-        dm1b = dm1b_mf.copy()
-    else:
-        dm1a = np.zeros((emb.nmo[0], emb.nmo[0]))
-        dm1b = np.zeros((emb.nmo[1], emb.nmo[1]))
-    for f in emb.fragments:
-        emb.log.debugv("Now adding projected DM of fragment %s", f)
-        if f.results.dm1 is None:
-            raise RuntimeError("DM1 not calculated for fragment %s!" % f)
-        if emb.opts.dm_with_frozen:
-            cf = f.mo_coeff
-        else:
-            cf = f.c_active
-        rfa = dot(mo_coeff[0].T, ovlp, cf[0])
-        rfb = dot(mo_coeff[1].T, ovlp, cf[1])
-        if add_mf:
-            # Subtract double counting:
-            ddma = (f.results.dm1[0] - dot(rfa.T, dm1a_mf, rfa))
-            ddmb = (f.results.dm1[1] - dot(rfb.T, dm1b_mf, rfb))
-        else:
-            ddma, ddmb = f.results.dm1
-        pfa, pfb = f.get_fragment_projector(cf)
-        dm1a += einsum('xi,ij,px,qj->pq', pfa, ddma, rfa, rfa)
-        dm1b += einsum('xi,ij,px,qj->pq', pfb, ddmb, rfb, rfb)
-    if ao_basis:
-        dm1a = dot(mo_coeff[0], dm1a, mo_coeff[0].T)
-        dm1b = dot(mo_coeff[1], dm1b, mo_coeff[1].T)
-    if symmetrize:
-        dm1a = (dm1a + dm1a.T)/2
-        dm1b = (dm1b + dm1b.T)/2
-    return (dm1a, dm1b)
-
 def make_rdm1_ccsd(emb, ao_basis=False, t_as_lambda=False, symmetrize=True, with_mf=True, mpi_target=None):
     """Make one-particle reduced density-matrix from partitioned fragment CCSD wave functions.
 
@@ -82,11 +21,18 @@ def make_rdm1_ccsd(emb, ao_basis=False, t_as_lambda=False, symmetrize=True, with
         Return the density-matrix in the AO basis. Default: False.
     t_as_lambda: bool, optional
         Use T-amplitudes instead of Lambda-amplitudes for CCSD density matrix. Default: False.
+    symmetrize: bool, optional
+        Use Symemtrized equations, if possible. Default: True.
+    with_mf: bool, optional
+        If False, only the difference to the mean-field density-matrix is returned. Default: True.
+    mpi_target: integer, optional
+        If set to an integer, the density-matrix will only be constructed on the corresponding MPI rank.
+        Default: None.
 
     Returns
     -------
-    dm1: (n, n) array
-        One-particle reduced density matrix in AO (if `ao_basis=True`) or MO basis (default).
+    dm1: tuple(2) of (n, n) arrays
+        (alpha, beta) one-particle reduced density matrix in AO (if `ao_basis=True`) or MO basis (default).
     """
 
     # --- Fast algorithm via fragment-fragment loop:

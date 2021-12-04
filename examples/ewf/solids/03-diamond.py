@@ -33,10 +33,10 @@ kcc = pyscf.pbc.cc.KCCSD(kmf)
 kcc.kernel()
 
 # Embedded calculation will automatically fold the k-point sampled mean-field to the supercell
-ecc = vayesta.ewf.EWF(kmf, bno_threshold=1e-6)
-ecc.iao_fragmentation()
-ecc.add_atomic_fragment(0, sym_factor=2) # 2 C-atoms per unit cell
-ecc.kernel()
+emb = vayesta.ewf.EWF(kmf, bno_threshold=1e-6)
+emb.iao_fragmentation()
+emb.add_atomic_fragment(0, sym_factor=2) # 2 C-atoms per unit cell
+emb.kernel()
 
 # Hartree-Fock in supercell
 scell = pyscf.pbc.tools.super_cell(cell, kmesh)
@@ -44,14 +44,14 @@ mf_sc = pyscf.pbc.scf.RHF(scell)
 mf_sc = mf_sc.density_fit(auxbasis='def2-svp-ri')
 mf_sc.kernel()
 
-ecc_sc = vayesta.ewf.EWF(mf_sc, bno_threshold=1e-6)
-ecc_sc.iao_fragmentation()
+emb_sc = vayesta.ewf.EWF(mf_sc, bno_threshold=1e-6)
+emb_sc.iao_fragmentation()
 ncells = np.product(kmesh)
-ecc_sc.add_atomic_fragment(0, sym_factor=2*ncells)
-ecc_sc.kernel()
+emb_sc.add_atomic_fragment(0, sym_factor=2*ncells)
+emb_sc.kernel()
 
-print("E(k-HF)=            %+16.8f Ha" % kmf.e_tot)
-print("E(sc-HF)=           %+16.8f Ha" % (mf_sc.e_tot/ncells))
-print("E(EWF-CCSD@k-HF)=   %+16.8f Ha" % ecc.e_tot)
-print("E(EWF-CCSD@sc-HF)=  %+16.8f Ha" % (ecc_sc.e_tot/ncells))
-print("E(k-CCSD)=          %+16.8f Ha" % kcc.e_tot)
+print("E(k-HF)=             %+16.8f Ha" % kmf.e_tot)
+print("E(sc-HF)=            %+16.8f Ha" % (mf_sc.e_tot/ncells))
+print("E(Emb. CCSD @k-HF)=  %+16.8f Ha" % emb.e_tot)
+print("E(Emb. CCSD @sc-HF)= %+16.8f Ha" % (emb_sc.e_tot/ncells))
+print("E(k-CCSD)=           %+16.8f Ha" % kcc.e_tot)

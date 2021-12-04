@@ -3,3 +3,6 @@
 Symmetry related fragments are now added automatically
 Removed fragment.c_active, c_active_occ, ..., c_frozen, ..., n_active, ... - Use instead: fragment.cluster.c_active, ...
 Nwe 3center integral folding routines in core/ao2mo/kao2gmo_new.py
+moved amplitudes.py from core/qemb to ewf
+moved make_rdm_ccsd from core/qemb/rdm.py to ewf/rdm.py
+Adds passing through attributes such as exxdiv to kmf in FoldSCF

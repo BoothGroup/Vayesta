@@ -1,26 +1,30 @@
+# --- Standard
 import os.path
 import functools
 from datetime import datetime
 import dataclasses
 from typing import Union
-
+# --- External
 import numpy as np
 import scipy
 import scipy.linalg
-
 import pyscf
 import pyscf.lo
 import pyscf.scf
 import pyscf.pbc
 import pyscf.pbc.tools
-
+# --- Internal
 from vayesta.core.util import *
 from vayesta.core import QEmbeddingMethod
-
+from vayesta.core.mpi import mpi
+# --- Package
 from . import helper
 from .fragment import EWFFragment as Fragment
+from .amplitudes import get_global_t1_rhf
+from .amplitudes import get_global_t2_rhf
+from .rdm import make_rdm1_ccsd
+from .rdm import make_rdm2_ccsd
 
-from vayesta.core.mpi import mpi
 timer = mpi.timer
 
 
@@ -328,6 +332,39 @@ class EWF(QEmbeddingMethod):
 
         self.log.info("Total wall time:  %s", time_string(timer()-t_start))
         return self.e_tot
+
+    # --- CC Amplitudes
+    # -----------------
+
+    # T-amplitudes
+    get_global_t1 = get_global_t1_rhf
+    get_global_t2 = get_global_t2_rhf
+
+    # Lambda-amplitudes
+    def get_global_l1(self, *args, **kwargs):
+        return self.get_global_t1(*args, get_lambda=True, **kwargs)
+    def get_global_l2(self, *args, **kwargs):
+        return self.get_global_t2(*args, get_lambda=True, **kwargs)
+
+    # --- Bardwards compatibility:
+    @deprecated("get_t1 is deprecated - use get_global_t1 instead.")
+    def get_t1(self, *args, **kwargs):
+        return self.get_global_t1(*args, **kwargs)
+    @deprecated("get_t2 is deprecated - use get_global_t2 instead.")
+    def get_t2(self, *args, **kwargs):
+        return self.get_global_t2(*args, **kwargs)
+    @deprecated("get_l1 is deprecated - use get_global_l1 instead.")
+    def get_l1(self, *args, **kwargs):
+        return self.get_global_l1(*args, **kwargs)
+    @deprecated("get_l2 is deprecated - use get_global_l2 instead.")
+    def get_l2(self, *args, **kwargs):
+        return self.get_global_l2(*args, **kwargs)
+
+    # --- Density-matrices
+    # --------------------
+
+    make_rdm1_ccsd = make_rdm1_ccsd
+    make_rdm2_ccsd = make_rdm2_ccsd
 
     def get_wf_cisd(self, intermediate_norm=False, c0=None):
         c0_target = c0

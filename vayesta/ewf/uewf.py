@@ -6,6 +6,13 @@ from vayesta.core.util import *
 from vayesta.ewf import REWF
 from vayesta.ewf.ufragment import UEWFFragment as Fragment
 
+# Amplitudes
+from .amplitudes import get_global_t1_uhf
+from .amplitudes import get_global_t2_uhf
+# Density-matrices
+from .urdm import make_rdm1_ccsd
+
+
 class UEWF(REWF, UEmbedding):
 
     Fragment = Fragment
@@ -44,3 +51,19 @@ class UEWF(REWF, UEmbedding):
         if abs(nelec_frags[0] - np.rint(nelec_frags[0])) > 1e-4 or abs(nelec_frags[1] - np.rint(nelec_frags[1])) > 1e-4:
             self.log.warning("Number of electrons not integer!")
         return nelec_frags
+
+    # --- CC Amplitudes
+    # -----------------
+
+    # T-amplitudes
+    get_global_t1 = get_global_t1_uhf
+    get_global_t2 = get_global_t2_uhf
+
+    # --- Density-matrices
+    # --------------------
+
+    make_rdm1_ccsd = make_rdm1_ccsd
+
+    # TODO
+    def make_rdm2_ccsd(self, *args, **kwargs):
+        raise NotImplementedError()

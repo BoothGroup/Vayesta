@@ -1,10 +1,9 @@
-import os
-import os.path
-from datetime import datetime
-
 import numpy as np
 
 import pyscf
+import pyscf.mp
+import pyscf.ci
+import pyscf.cc
 
 from .qemb import QEmbedding
 from .ufragment import UFragment
@@ -14,13 +13,7 @@ from vayesta.core.util import *
 from vayesta.core.mpi import mpi
 from vayesta.core.ao2mo import postscf_kao2gmo_uhf
 
-# Amplitudes
-from .amplitudes import get_global_t1_uhf
-from .amplitudes import get_global_t2_uhf
-
-# Density-matrices
-from .urdm import make_rdm1_demo
-from .urdm import make_rdm1_ccsd
+from .rdm import make_rdm1_demo_uhf
 
 class UEmbedding(QEmbedding):
     """Spin unrestricted quantum embedding."""
@@ -121,8 +114,6 @@ class UEmbedding(QEmbedding):
         self.log.debug("Divergent exact-exchange (exxdiv) correction= %+16.8f Ha", e_exxdiv)
         return e_exxdiv, (v_exxdiv_a, v_exxdiv_b)
 
-    # TODO:
-
     def get_eris_array(self, mo_coeff, compact=False):
         """Get electron-repulsion integrals in MO basis as a NumPy array.
 
@@ -136,25 +127,13 @@ class UEmbedding(QEmbedding):
         eris: (n(MO), n(MO), n(MO), n(MO)) array
             Electron-repulsion integrals in MO basis.
         """
-        # TODO: check self.kdf and fold
-        #if hasattr(self.mf, 'with_df') and self.mf.with_df is not None:
-        #    eris_aa = self.mf.with_df.ao2mo(mo_coeff[0], compact=compact)
-        #    eris_bb = self.mf.with_df.ao2mo(mo_coeff[1], compact=compact)
-        #    eris_ab = self.mf.with_df.ao2mo((mo_coeff[0], mo_coeff[0], mo_coeff[1], mo_coeff[1]), compact=compact)
-        #elif self.mf._eri is not None:
-        #    eris = pyscf.ao2mo.full(self.mf._eri, mo_coeff[0], compact=compact)
-        #else:
-        #    eris = self.mol.ao2mo(mo_coeff, compact=compact)
-        #if not compact:
-        #    eris = eris.reshape(4*[mo_coeff.shape[-1]])
-        #self.log.timing("Time for AO->MO of ERIs:  %s", time_string(timer()-t0))
-        #return eris
+        # Call three-times to spin-restricted embedding
         self.log.debugv("Making (aa|aa) ERIs...")
         eris_aa = super().get_eris_array(mo_coeff[0], compact=compact)
         self.log.debugv("Making (bb|bb) ERIs...")
         eris_bb = super().get_eris_array(mo_coeff[1], compact=compact)
         self.log.debugv("Making (aa|bb) ERIs...")
-        eris_ab = super().get_eris_array(2*[mo_coeff[0]] + 2*[mo_coeff[1]], compact=compact)
+        eris_ab = super().get_eris_array((mo_coeff[0], mo_coeff[0], mo_coeff[1], mo_coeff[1]), compact=compact)
         return (eris_aa, eris_ab, eris_bb)
 
     def get_eris_object(self, postscf, fock=None):
@@ -225,29 +204,14 @@ class UEmbedding(QEmbedding):
                             % (parent.name, child.name, charge_err, spin_err))
                 self.log.debugv("Symmetry between %s and %s: charge error= %.3e spin error= %.3e", parent.name, child.name, charge_err, spin_err)
 
-    # --- CC Amplitudes
-    # -----------------
+    # --- Other
+    # ---------
 
-    # T-amplitudes
-    get_global_t1 = get_global_t1_uhf
-    get_global_t2 = get_global_t2_uhf
-
-    # --- Density-matrices
-    # --------------------
-
-    make_rdm1_demo = make_rdm1_demo
-
-    make_rdm1_ccsd = make_rdm1_ccsd
+    make_rdm1_demo = make_rdm1_demo_uhf
 
     # TODO
     def make_rdm2_demo(self, *args, **kwargs):
         raise NotImplementedError()
-
-    def make_rdm2_ccsd(self, *args, **kwargs):
-        raise NotImplementedError()
-
-    # --- Other
-    # ---------
 
     def pop_analysis(self, dm1, mo_coeff=None, local_orbitals='lowdin', write=True, minao='auto', mpi_rank=0, **kwargs):
         if isinstance(local_orbitals, str) and local_orbitals.lower() == 'iao+pao':
