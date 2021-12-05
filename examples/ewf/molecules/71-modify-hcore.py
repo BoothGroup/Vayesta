@@ -33,16 +33,16 @@ def get_v_mod(mf, shift):
 # Hartree-Fock
 mf = pyscf.scf.RHF(mol)
 # Save original H_core function and overwrite mean-field
-hcore = mf.get_hcore()
+hcore_orig = mf.get_hcore
 # Shift oxygen atom by -1 Hartree -> electrons move to oxygen
 v_mod = get_v_mod(mf, -1.0)
-mf.get_hcore = lambda *args : hcore + v_mod
+mf.get_hcore = (lambda mf, *args : hcore_orig(*args) + v_mod).__get__(mf)
 mf.kernel()
 
 # get_hcore_for_energy must be overwritten with original H_core function,
 # if the energy should be calculated without the shift
 emb = vayesta.ewf.EWF(mf, bno_threshold=1e-6, store_dm1=True,
-        overwrite=dict(get_hcore_for_energy=(lambda emb : hcore)))
+        overwrite=dict(get_hcore_for_energy=(lambda emb, *args : hcore_orig())))
 emb.iao_fragmentation()
 emb.add_all_atomic_fragments()
 emb.kernel()

@@ -71,7 +71,7 @@ def kao2gmo_cderi(gdf, mo_coeffs, make_real=True, blksize=None, tril_kij=True, d
 
     if blksize is None:
         max_memory = int(1e9)   # 1 GB
-        max_size = int(max_memory / (naux*nao**2 * 16))
+        max_size = int(max_memory / (nao**2 * 16)) # how many naux fit in max_memory
         blksize = np.clip(max_size, 1, int(1e9))
         log.debugv("max_memory= %.3f MB  max_size= %d  blksize= %d", max_memory/1e6, max_size, blksize)
 

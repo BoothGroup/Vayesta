@@ -282,10 +282,11 @@ def _contract_cderi(cderi, cderi_neg, block=None, nocc=None, pack_left=False, pa
     if pack_right:
         cderi_right = pyscf.lib.pack_tril(cderi_right)
     # Avoid allocating another N^4 object:
-    max_memory = int(1e8) # 100 MB
+    max_memory = int(3e8) # 300 MB
     nblks = int((eri.size * 8 * (1+np.iscomplexobj(eri)))/max_memory)
     size = cderi_left.shape[1]
     blksize = int(size/max(nblks, 1))
+    log.debugv("max_memory= %d MB  nblks= %d  size= %d  blksize= %d", max_memory/1e6, nblks, size, blksize)
     for blk in brange(0, size, blksize):
         eri[blk] -= np.tensordot(cderi_left[:,blk].conj(), cderi_right, axes=(0, 0))
     #eri -= np.tensordot(cderi_left.conj(), cderi_right, axes=(0, 0))
@@ -322,10 +323,11 @@ def _contract_cderi_mixed(cderi, cderi_neg, block=None, nocc=None, pack_left=Fal
     if pack_right:
         cderi_right = pyscf.lib.pack_tril(cderi_right)
     # Avoid allocating another N^4 object:
-    max_memory = int(1e8) # 100 MB
+    max_memory = int(3e8) # 300 MB
     nblks = int((eri.size * 8 * (1+np.iscomplexobj(eri)))/max_memory)
     size = cderi_left.shape[1]
     blksize = int(size/max(nblks, 1))
+    log.debugv("max_memory= %d MB  nblks= %d  size= %d  blksize= %d", max_memory/1e6, nblks, size, blksize)
     for blk in brange(0, size, blksize):
         eri[blk] -= np.tensordot(cderi_left[:,blk].conj(), cderi_right, axes=(0, 0))
     #eri -= np.tensordot(cderi_left.conj(), cderi_right, axes=(0, 0))
