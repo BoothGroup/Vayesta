@@ -344,7 +344,7 @@ class UFragment(Fragment):
             else:
                 frag_id = self.base.register.get_next_id()
                 frag = self.base.Fragment(self.base, frag_id, name, c_frag_t, c_env_t, options=self.opts,
-                        sym_parent=self, sym_op=sym_op)
+                        sym_parent=self, sym_op=sym_op, mpi_rank=self.mpi_rank)
                 self.base.fragments.append(frag)
 
             # Check symmetry
