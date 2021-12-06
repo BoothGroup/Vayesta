@@ -337,7 +337,7 @@ class UFragment(Fragment):
                 self.log.error("Translation (%d,%d,%d) of fragment %s not orthogonal to original fragment (overlap= %.3e)!",
                             dx, dy, dz, self.name, fragovlp)
             # Deprecated:
-            if hasattr(self.base, 'add_fragment'):
+            if hasattr(self.base, 'add_fragment'):  # pragma: no cover
                 frag = self.base.add_fragment(name, c_frag_t, c_env_t, options=self.opts,
                         sym_parent=self, sym_op=sym_op)
             else:

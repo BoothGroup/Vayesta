@@ -491,7 +491,7 @@ def j3c_kao2gmo(ints3c, cocc, cvir, only_ov=False, make_real=True, driver='c'):
         j3c["oo"] = np.zeros((nk, naux, nocc, nocc), dtype=complex)
         j3c["vv"] = np.zeros((nk, naux, nvir, nvir), dtype=complex)
 
-    if driver.lower() == 'python':
+    if driver.lower() == 'python':  # pragma: no cover
 
         if cell.dimension < 3:
             j3c["ov-"] = np.zeros((nocc, nvir), dtype=complex)
