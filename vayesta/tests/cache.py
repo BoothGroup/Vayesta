@@ -111,14 +111,14 @@ def register_system_mole(cache, key):
         rhf = pyscf.scf.RHF(mol)
         if df:
             rhf = rhf.density_fit()
-        rhf.conv_tol = 1e-14
+        rhf.conv_tol = 1e-12
         rhf.kernel()
 
     if uhf:
         uhf = pyscf.scf.UHF(mol)
         if df:
             uhf = uhf.density_fit()
-        uhf.conv_tol = 1e-14
+        uhf.conv_tol = 1e-12
         uhf.kernel()
 
     cache._cache[key] = {
