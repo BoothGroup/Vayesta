@@ -334,7 +334,7 @@ class UFragment(Fragment):
             # Check that translated fragment does not overlap with current fragment:
             fragovlp = max(abs(dot(self.c_frag[0].T, ovlp, c_frag_t[0])).max(),
                            abs(dot(self.c_frag[1].T, ovlp, c_frag_t[1])).max())
-            if fragovlp > 1e-9:
+            if (fragovlp > 1e-8):
                 self.log.error("Translation (%d,%d,%d) of fragment %s not orthogonal to original fragment (overlap= %.3e)!",
                             dx, dy, dz, self.name, fragovlp)
             # Deprecated:

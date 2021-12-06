@@ -740,7 +740,7 @@ class Fragment:
             c_env_t = sym_op(self.c_env)
             # Check that translated fragment does not overlap with current fragment:
             fragovlp = abs(dot(self.c_frag.T, ovlp, c_frag_t)).max()
-            if fragovlp > 1e-9:
+            if (fragovlp > 1e-8):
                 self.log.critical("Translation (%d,%d,%d) of fragment %s not orthogonal to original fragment (overlap= %.3e)!",
                             dx, dy, dz, self.name, fragovlp)
                 raise RuntimeError("Overlapping fragment spaces.")
