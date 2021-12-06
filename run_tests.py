@@ -1,12 +1,12 @@
 '''
 Runs unit tests, and do the following:
- ⋅ Produce a coverage report (.coverage)
- ⋅ Produce a profile report (.profile)
- ⋅ Produce a codestyle report (.codestyle)
+ * Produce a coverage report (.coverage)
+ * Produce a profile report (.profile)
+ * Produce a codestyle report (.codestyle)
 For post-processing:
- ⋅ `firefox htmlcov/index.html`
- ⋅ `snakeviz .profile`
- ⋅ `vi .codestyle`
+ * `firefox htmlcov/index.html`
+ * `snakeviz .profile`
+ * `vi .codestyle`
 '''
 
 # Imports:
