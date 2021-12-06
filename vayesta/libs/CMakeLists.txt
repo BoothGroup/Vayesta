@@ -19,6 +19,10 @@ else()
     message(STATUS "BLAS libraries: ${BLAS_LIBRARIES}")
 endif()
 
+# HDF5
+find_package(HDF5 REQUIRED COMPONENTS C HL)
+message(STATUS "HDF5 libraries: ${HDF5_LIBRARIES}")
+
 # C FLAGS
 set(CMAKE_C_FLAGS "-Wall ${CMAKE_C_FLAGS}")
 #set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fopenmp")
@@ -27,3 +31,4 @@ set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Ofast")
 #set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -funroll-loops -ftree-vectorize")
 
 add_subdirectory(core)
+#add_subdirectory(df)

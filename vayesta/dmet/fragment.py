@@ -608,3 +608,28 @@ class DMETFragment(QEmbeddingFragment):
         e_frag = self.opts.energy_factor * self.sym_factor * (e1 + e2)
         return e_frag
 
+    # --- FIXME: Remove these
+
+    @property
+    def c_active_occ(self):
+        return self._c_active_occ
+
+    @property
+    def c_active_vir(self):
+        return self._c_active_vir
+
+    @property
+    def c_active(self):
+        return np.hstack((self.c_active_occ, self.c_active_vir))
+
+    @property
+    def n_active(self):
+        return self.c_active.shape[-1]
+
+    @property
+    def n_active_occ(self):
+        return self.c_active_occ.shape[-1]
+
+    @property
+    def n_active_vir(self):
+        return self.c_active_vir.shape[-1]

@@ -19,7 +19,7 @@ class CCSD_Solver(ClusterSolver):
     @dataclasses.dataclass
     class Options(ClusterSolver.Options):
         # Convergence
-        maxiter: int = 100              # Max number of iterations
+        maxiter: int = 200              # Max number of iterations
         conv_tol: float = None          # Convergence energy tolerance
         conv_tol_normt: float = None    # Convergence amplitude tolerance
         # solve_lambda:
@@ -92,7 +92,8 @@ class CCSD_Solver(ClusterSolver):
         self.solver = solver
 
     def get_eris(self):
-        eris = self.base.get_eris_object(self.solver)
+        with log_time(self.log.timing, "Time for AO->MO transformation: %s"):
+            eris = self.base.get_eris_object(self.solver)
         return eris
 
     def kernel(self, t1=None, t2=None, eris=None, l1=None, l2=None, coupled_fragments=None, t_diagnostic=True):
