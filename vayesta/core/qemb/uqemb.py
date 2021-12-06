@@ -214,6 +214,7 @@ class UEmbedding(QEmbedding):
         raise NotImplementedError()
 
     def pop_analysis(self, dm1, mo_coeff=None, local_orbitals='lowdin', write=True, minao='auto', mpi_rank=0, **kwargs):
+        # IAO / PAOs are spin dependent - we need to build them here:
         if isinstance(local_orbitals, str) and local_orbitals.lower() == 'iao+pao':
             local_orbitals = self.get_lo_coeff('iao+pao', minao=minao)
         pop = []

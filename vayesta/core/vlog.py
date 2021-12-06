@@ -7,11 +7,12 @@ import contextlib
 from vayesta.core.mpi import mpi
 
 """
-Log levels (* are non-standard):
+Log levels (* are custom levels):
 
 Name            Level           Usage
 ----            -----           -----
-CRITICAL        50              For immediate, non-recoverable errors
+FATAL   (*)     100             For errors which will raise a non-recoverable Exception
+CRITICAL        50              For errors which will are non-recoverable
 ERROR           40              For errors which are likely non-recoverable
 WARNING         30              For possible errors and important information
 OUTPUT  (*)     25              Main result level - the only level which by default gets streamed to stdout
@@ -21,14 +22,17 @@ TIMING  (*)     12  (-vv)       Timing information for primary routines
 DEBUG           10  (-vv)       Debugging information, indented for developers
 DEBUGV  (*)      5  (-vvv)      Verbose debugging information
 TIMINGV (*)      2  (-vvv)      Verbose timings information for secondary subroutines
+TRACE   (*)      1  (-vvv)      To trace function flow
 """
 
 LVL_PREFIX = {
+   "FATAL" : "FATAL",
    "CRITICAL" : "CRITICAL",
    "ERROR" : "ERROR",
    "WARNING" : "WARNING",
    "OUT" : "OUTPUT",
    "DEBUGV" : "DEBUG",
+   "TRACE" : "TRACE",
    }
 
 
@@ -151,11 +155,13 @@ def init_logging():
             logging.log(level, message, *args, **kwargs)
         setattr(logging.getLoggerClass(), name, logForLevel)
         setattr(logging, name, logToRoot)
+    add_log_level(100, "fatal")
     add_log_level(25, "output")
     add_log_level(15, "infov")
     add_log_level(12, "timing")
     add_log_level(5, "debugv")
     add_log_level(2, "timingv")
+    add_log_level(1, "trace")
 
     # Add indentation support
     # -----------------------

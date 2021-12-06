@@ -6,7 +6,7 @@ import vayesta
 import vayesta.ewf
 
 mol = pyscf.gto.Mole()
-mol.atom = ['H 0 0 0', 'F 0 0 4']
+mol.atom = ['H 0 0 0', 'F 0 0 3']
 mol.basis = 'aug-cc-pVDZ'
 mol.output = 'pyscf.out'
 mol.build()

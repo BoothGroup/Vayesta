@@ -236,8 +236,8 @@ class EWF(QEmbeddingMethod):
         # Only loop over fragments of own MPI rank
         for f in self.get_fragments(mpi_rank=mpi.rank):
             if f.results.e_corr is None:
-                self.log.error("No E(corr) found for %s! Skipping fragment.", f)
-                continue
+                self.log.critical("No fragment E(corr) found for %s! Returning total E(corr)=NaN", f)
+                return np.nan
             e_corr += f.results.e_corr
         return e_corr / self.ncells
 

@@ -1,11 +1,16 @@
 import os
+import sys
 import logging
 import dataclasses
 import copy
-import psutil
 import functools
 from timeit import default_timer
 from contextlib import contextmanager
+
+try:
+    import psutil
+except (ModuleNotFoundError, ImportError):
+    psutil = None
 
 import numpy as np
 import scipy
@@ -214,8 +219,15 @@ def time_string(seconds, show_zeros=False):
     return tstr
 
 def get_used_memory():
-    process = psutil.Process(os.getpid())
-    return(process.memory_info().rss)  # in bytes
+    if psutil is not None:
+        process = psutil.Process(os.getpid())
+        return(process.memory_info().rss)  # in bytes
+    # Fallback: use os module
+    if sys.platform.startswith('linux'):
+        pagesize = os.sysconf("SC_PAGE_SIZE")
+        with open("/proc/%s/statm" % os.getpid()) as f:
+            return int(f.readline().split()[1])*pagesize
+    return 0
 
 def memory_string(nbytes, fmt='6.2f'):
     """String representation of nbytes"""
