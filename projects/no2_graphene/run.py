@@ -13,6 +13,7 @@ import vayesta.ewf
 from vayesta.misc import scf_with_mpi
 import vayesta.core
 from vayesta.core.mpi import mpi
+from vayesta.core import foldscf
 
 from structures import NO2_Graphene
 
@@ -43,6 +44,7 @@ parser.add_argument('--lindep-threshold', type=float)
 # --- MF
 parser.add_argument('--xc', default=None)
 parser.add_argument('--mf-only', action='store_true')
+parser.add_argument('--scf-max-cycle', type=int, default=100)
 parser.add_argument('--scf-conv-tol', type=float, default=1e-9)
 parser.add_argument('--scf-with-mpi', action='store_true')
 # --- Embedding
@@ -128,7 +130,7 @@ for idx, gate in enumerate(gates):
             mf = pyscf.pbc.dft.UKS(cell)
             mf.xc = args.xc
     mf.conv_tol = args.scf_conv_tol
-    mf.max_cycle = 100
+    mf.max_cycle = args.scf_max_cycle
 
     if args.auxbasis is not None:
         auxbasis = args.auxbasis
@@ -139,20 +141,22 @@ for idx, gate in enumerate(gates):
             auxbasis = '%s-ri' % args.basis
     print("RI basis: %s" % auxbasis)
     mf = mf.density_fit(auxbasis=auxbasis)
+    mf.with_df._j_only = False
 
     # Gate potential
     if gate:
         v_gate = get_gate_potential(mf, gate)
         hcore_orig = mf.get_hcore
         if hasattr(mf, 'kpts'):
-            def hcore_gate(*args):
+            def hcore_gate(mf, *args):
+                for arg in args:
                 h1e = hcore_orig(*args)
                 # Only shift Gamma point
                 h1e[0] += v_gate
                 return h1e
         else:
-            hcore_gate = lambda *args : (hcore_orig(*args) + v_gate)
-        mf.get_hcore = hcore_gate
+            hcore_gate = lambda mf, *args : (hcore_orig(*args) + v_gate)
+        mf.get_hcore = hcore_gate.__get__(mf)
     else:
         v_gate = None
         hcore_orig = hcore_gate = mf.get_hcore
@@ -190,15 +194,24 @@ for idx, gate in enumerate(gates):
 
     opts = dict(make_rdm1=True, dmet_threshold=args.dmet_threshold)
     if v_gate is not None:
-        opts['overwrite'] = dict(get_hcore_for_energy=hcore_orig)
+        # At this point we need to fold the hcore_orig to the supercell
+        if kpts is not None:
+            scell, phase = foldscf.get_phase(cell, kpts)
+            #hcore_for_energy = lambda emb, *args : foldscf.k2bvk_2d(hcore_orig(*args), phase)
+            def hcore_for_energy(emb, *args):
+                for arg in args:
+                return foldscf.k2bvk_2d(hcore_orig(*args), phase)
+        else:
+            hcore_for_energy = lambda emb, *args : hcore_orig(*args)
+        opts['overwrite'] = dict(get_hcore_for_energy=hcore_for_energy)
     if args.eta is None:
         emb = vayesta.ewf.EWF(mf, bath_type=None, **opts)
     else:
         emb = vayesta.ewf.EWF(mf, bno_threshold=args.eta, **opts)
 
-    emb.pop_analysis(dm1=dm1_mf, local_orbitals='mulliken', filename='mulliken-mf-%.3f.pop' % gate)
-    emb.pop_analysis(dm1=dm1_mf, local_orbitals='lowdin',   filename='lowdin-mf-%.3f.pop' % gate)
-    emb.pop_analysis(dm1=dm1_mf, local_orbitals='iao+pao',  filename='iao+pao-mf-%.3f.pop' % gate)
+    emb.pop_analysis(dm1=emb.mf.make_rdm1(), local_orbitals='mulliken', filename='mulliken-mf-%.3f.pop' % gate)
+    emb.pop_analysis(dm1=emb.mf.make_rdm1(), local_orbitals='lowdin',   filename='lowdin-mf-%.3f.pop' % gate)
+    emb.pop_analysis(dm1=emb.mf.make_rdm1(), local_orbitals='iao+pao',  filename='iao+pao-mf-%.3f.pop' % gate)
 
     if not args.mf_only:
 
@@ -215,8 +228,9 @@ for idx, gate in enumerate(gates):
         #    emb.get_hcore_for_energy = hcore_orig
 
         if args.atomic_fragments:
-            emb.add_all_atomic_fragments()
+            emb.add_all_atomic_fragments()  # Primitive cell only!
             emb.kernel()
+
             # NEW CCSD DM:
             dm1 = emb.make_rdm1_ccsd()
 
@@ -231,9 +245,9 @@ for idx, gate in enumerate(gates):
                 e, v = np.linalg.eigh(dm1[1])
                 print("alpha: min(n)= %.8f max(n)= %.8f" % (e[0], e[-1]))
 
-            emb.pop_analysis(dm1, mo_coeff=mf.mo_coeff, local_orbitals='mulliken', filename='mulliken-cc-%.3f.pop' % gate)
-            emb.pop_analysis(dm1, mo_coeff=mf.mo_coeff, local_orbitals='lowdin', filename='lowdin-cc-%.3f.pop' % gate)
-            emb.pop_analysis(dm1, mo_coeff=mf.mo_coeff, local_orbitals='iao+pao', filename='iao+pao-cc-%.3f.pop' % gate)
+            emb.pop_analysis(dm1, mo_coeff=emb.mf.mo_coeff, local_orbitals='mulliken', filename='mulliken-cc-%.3f.pop' % gate)
+            emb.pop_analysis(dm1, mo_coeff=emb.mf.mo_coeff, local_orbitals='lowdin', filename='lowdin-cc-%.3f.pop' % gate)
+            emb.pop_analysis(dm1, mo_coeff=emb.mf.mo_coeff, local_orbitals='iao+pao', filename='iao+pao-cc-%.3f.pop' % gate)
         else:
             # Define fragment
             def get_closest_atom(point, exclude):
