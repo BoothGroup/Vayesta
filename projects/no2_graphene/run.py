@@ -149,7 +149,6 @@ for idx, gate in enumerate(gates):
         hcore_orig = mf.get_hcore
         if hasattr(mf, 'kpts'):
             def hcore_gate(mf, *args):
-                for arg in args:
                 h1e = hcore_orig(*args)
                 # Only shift Gamma point
                 h1e[0] += v_gate
