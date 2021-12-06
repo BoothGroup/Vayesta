@@ -2,6 +2,8 @@ import pyscf.gto
 import pyscf.scf
 import pyscf.pbc.gto
 import pyscf.pbc.scf
+import pyscf.pbc.df
+import pyscf.pbc.tools
 import pyscf.tools.ring
 
 import numpy as np
@@ -128,9 +130,78 @@ def register_system_mole(cache, key):
     }
 
 
+def _make_cell(a, atom, supercell=None, verbose=0, max_memory=int(1e9), **kwargs):
+    cell = pyscf.pbc.gto.Cell()
+    cell.atom = atom
+    if np.isscalar(a):
+        a = a*np.eye(3)
+    cell.a = a
+    cell.verbose = verbose
+    cell.max_memory = max_memory
+    for key, val in kwargs.items():
+        setattr(cell, key, val)
+    cell.build()
+    if supercell is not None:
+        cell = pyscf.pbc.tools.super_cell(cell, supercell)
+    return cell
+
+def _make_pbc_mf(cell, kpts=None, df=None, xc=None, restricted=None, **kwargs):
+    if restricted is None:
+        restricted = (cell.spin == 0)
+    pack = getattr(pyscf.pbc, ('scf' if xc is None else 'dft'))
+    spin = ('r' if restricted else 'u')
+    veff = ('hf' if xc is None else 'ks')
+    kp = ('k' if kpts is not None else '')
+    mod = getattr(pack, '%s%s%s' % (kp, spin, veff))
+    cls = getattr(mod, ('%s%s%s' % (kp, spin, veff)).upper())
+    mf = cls(cell, kpts) if kpts is not None else cls(cell)
+    if df is not None:
+        mf.with_df = df
+    mf.conv_tol = kwargs.get('conv_tol', 1e-12)
+    mf.kernel()
+    assert mf.converged
+    return mf
+
+
 def register_system_cell(cache, key):
     """Register one of the preset solid test systems in the cache.
     """
+
+    # Rocksalt LiH
+    if key == 'lih_k221':
+        cell = _make_cell(*molstructs.rocksalt(atoms=['Li', 'H']), basis='def2-svp', xc='svwn',
+                exp_to_discard=0.1)
+        kpts = cell.make_kpts([2,2,1])
+        df = pyscf.pbc.df.GDF(cell, kpts)
+        df.auxbasis = 'def2-svp-ri'
+        mf = _make_pbc_mf(cell, kpts, df=df)
+        cache._cache[key] = {'cell': cell, 'kpts': kpts, 'rhf': mf, 'uhf': None}
+        return
+    if key == 'lih_g221':
+        cell = _make_cell(*molstructs.rocksalt(atoms=['Li', 'H']), basis='def2-svp', xc='svwn',
+                exp_to_discard=0.1, supercell=[2,2,1])
+        df = pyscf.pbc.df.GDF(cell)
+        df.auxbasis = 'def2-svp-ri'
+        mf = _make_pbc_mf(cell, df=df)
+        cache._cache[key] = {'cell': cell, 'kpts': None, 'rhf': mf, 'uhf': None}
+        return
+    # Primitive cubic Boron, k-points and supercell
+    if key == 'boron_cp_k321':
+        cell = _make_cell(5.0, 'B 0 0 0', basis='def2-svp', xc='svwn', spin=6, exp_to_discard=0.1)
+        kpts = cell.make_kpts([3,2,1])
+        df = pyscf.pbc.df.GDF(cell, kpts)
+        df.auxbasis = 'def2-svp-ri'
+        mf = _make_pbc_mf(cell, kpts, df=df)
+        cache._cache[key] = {'cell': cell, 'kpts': kpts, 'rhf': None, 'uhf': mf}
+        return
+    if key == 'boron_cp_g321':
+        cell = _make_cell(5.0, 'B 0 0 0', basis='def2-svp', xc='svwn', spin=6, exp_to_discard=0.1, supercell=[3,2,1])
+        df = pyscf.pbc.df.GDF(cell)
+        df.auxbasis = 'def2-svp-ri'
+        mf = _make_pbc_mf(cell, df=df)
+        cache._cache[key] = {'cell': cell, 'kpts': None, 'rhf': None, 'uhf': mf}
+        return
+
 
     cell = pyscf.pbc.gto.Cell()
     kpts = None
