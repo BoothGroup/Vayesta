@@ -40,7 +40,7 @@ def make_rdm1_demo_rhf(emb, ao_basis=False, add_mf=False, symmetrize=True):
         if f.results.dm1 is None:
             raise RuntimeError("DM1 not calculated for fragment %s!" % f)
         if emb.opts.dm_with_frozen:
-            cf = f.mo_coeff
+            cf = f.cluster.coeff
         else:
             cf = f.cluster.c_active
         rf = dot(mo_coeff.T, ovlp, cf)
@@ -96,9 +96,9 @@ def make_rdm1_demo_uhf(emb, ao_basis=False, add_mf=False, symmetrize=True):
         if f.results.dm1 is None:
             raise RuntimeError("DM1 not calculated for fragment %s!" % f)
         if emb.opts.dm_with_frozen:
-            cf = f.mo_coeff
+            cf = f.cluster.coeff
         else:
-            cf = f.c_active
+            cf = f.cluster.c_active
         rfa = dot(mo_coeff[0].T, ovlp, cf[0])
         rfb = dot(mo_coeff[1].T, ovlp, cf[1])
         if add_mf:
@@ -159,7 +159,7 @@ def make_rdm2_demo_rhf(emb, ao_basis=False, add_mf=True, symmetrize=True):
         if f.results.dm2 is None:
             raise RuntimeError("DM2 not calculated for fragment %s!" % f)
         if emb.opts.dm_with_frozen:
-            cf = f.mo_coeff
+            cf = f.cluster.coeff
         else:
             cf = f.cluster.c_active
         rf = np.linalg.multi_dot((emb.mo_coeff.T, emb.get_ovlp(), cf))

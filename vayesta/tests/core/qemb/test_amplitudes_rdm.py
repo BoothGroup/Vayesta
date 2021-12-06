@@ -36,21 +36,22 @@ class T_Amplitudes_Tests(unittest.TestCase):
         """Test T1 amplitudes.
         """
         atol = 1e-8
-        t1 = self.ecc.get_t1()
+        t1 = self.ecc.get_global_t1()
         self.assertIsNone(np.testing.assert_allclose(t1, self.ccsd.t1, atol=atol))
 
     def test_t2(self):
         """Test T2 amplitudes.
         """
         atol = 1e-8
-        t2 = self.ecc.get_t2()
+        t2 = self.ecc.get_global_t2()
         self.assertIsNone(np.testing.assert_allclose(t2, self.ccsd.t2, atol=atol))
 
     def test_t12(self):
         """Test T1 and T2 amplitudes.
         """
         atol = 1e-8
-        t1, t2 = self.ecc.get_t12()
+        t1 = self.ecc.get_global_t1()
+        t2 = self.ecc.get_global_t2()
         self.assertIsNone(np.testing.assert_allclose(t1, self.ccsd.t1, atol=atol))
         self.assertIsNone(np.testing.assert_allclose(t2, self.ccsd.t2, atol=atol))
 
@@ -115,7 +116,8 @@ class T_Amplitudes_UHF_Tests(unittest.TestCase):
         """Test T1 and T2 amplitudes.
         """
         atol = 1e-6
-        (t1a, t1b), (t2aa, t2ab, t2bb) = self.ecc.get_t12()
+        t1a, t1b = self.ecc.get_global_t1()
+        t2aa, t2ab, t2bb = self.ecc.get_global_t2()
         self.assertIsNone(np.testing.assert_allclose(t1a, self.ccsd.t1[0], atol=atol))
         self.assertIsNone(np.testing.assert_allclose(t1b, self.ccsd.t1[1], atol=atol))
         self.assertIsNone(np.testing.assert_allclose(t2aa, self.ccsd.t2[0], atol=atol))
