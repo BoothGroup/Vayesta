@@ -227,7 +227,8 @@ class EDMET(DMET):
                 mom0_interact = dot(rot_ov, mom0)
                 rot_bos = f.define_bosons(mom0_interact)
                 mom0_bos = dot(rot_bos, mom0)
-                f.construct_boson_hamil(mom0_bos)
+                eps = get_eps()
+                f.construct_boson_hamil(mom0_bos, eps, self.xc_kernel)
 
     def calc_electron_number_defect(self, chempot, bno_thr, nelec_target, parent_fragments, nsym,
                                     construct_bath=True):

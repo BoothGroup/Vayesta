@@ -53,183 +53,34 @@ class EDMETFragment(DMETFragment):
     def get_rot_to_mf_ov(self):
         r_o, r_v = self.get_rot_to_mf()
         spat_rot = einsum("ij,ab->iajb", r_o, r_v).reshape((self.ov_active, self.ov_mf))
-        res = np.zeros((2 * self.ov_active, 2 * self.ov_mf()))
+        res = np.zeros((2 * self.ov_active, 2 * self.ov_mf))
         res[:self.ov_active, :self.ov_mf] = spat_rot
         res[self.ov_active:2 * self.ov_active, self.ov_mf:2 * self.ov_mf] = spat_rot
         return res
 
-    def construct_bosons(self, rpa_moms):
-
-        m0_aa, m0_ab, m0_bb = rpa_moms[0]
-        m1_aa, m1_ab, m1_bb = rpa_moms[1]
-
-        # Now just need to transform appropriately, svd as required and have bosonic degrees of freedom.
-        # First, original coeffs.
-        c_occ = self.mf.mo_coeff[:, self.mf.mo_occ > 0]
-        c_vir = self.mf.mo_coeff[:, self.mf.mo_occ == 0]
-        s = self.mf.get_ovlp()
-        # Generate transformations of hf orbitals to generate cluster orbitals
-        loc_transform_occ = np.dot(self.c_active_occ.T, np.dot(s, c_occ))
-        loc_transform_vir = np.dot(self.c_active_vir.T, np.dot(s, c_vir))
-
-        # print("transforms:", np.linalg.svd(loc_transform_occ)[1], np.linalg.svd(loc_transform_vir)[1])
-
-        nocc_loc = self.n_active_occ
-        nvir_loc = self.n_active_vir
-        ov_loc = nocc_loc * nvir_loc
-        # Local transform of overall p-h excitation space.
-        loc_transform_ov = einsum("ij,ab->iajb", loc_transform_occ, loc_transform_vir).reshape((ov_loc, -1))
-        ov_full = loc_transform_ov.shape[1]
-        # Now grab null space of this, giving all environmental excitations.
-        env_transform_ov = scipy.linalg.null_space(loc_transform_ov).T
-        # print(m0_aa.shape, loc_transform_ov.shape, env_transform_ov.shape)
-        nspat_env = env_transform_ov.shape[0]
-        m0_a_interaction = np.concatenate(
-            (einsum("pq,rp,sq->rs", m0_aa, loc_transform_ov, env_transform_ov),
-             einsum("pq,rp,sq->rs", m0_ab, loc_transform_ov, env_transform_ov)
-             ), axis=1)
-        m0_b_interaction = np.concatenate(
-            (einsum("pq,rp,sq->rs", m0_ab.T, loc_transform_ov, env_transform_ov),
-             einsum("pq,rp,sq->rs", m0_bb, loc_transform_ov, env_transform_ov)
-             ), axis=1)
-        # Could now svd alpha and beta excitations separately; do together to ensure orthogonality of resultant degrees
-        # of freedom.
-        # ua, sa, va = np.linalg.svd(m0_a_interaction)
-        # ub, sb, vb = np.linalg.svd(m0_b_interaction)
-        m0_interaction = np.concatenate((m0_a_interaction, m0_b_interaction), axis=0)
-        # print(m0_a_interaction.shape, m0_b_interaction.shape, m0_interaction.shape)
-        u, s, v = np.linalg.svd(m0_interaction, full_matrices=False)
-        want = s > 1e-8
-        nbos = sum(want)
-        self.log.info("Zeroth moment matching generated {:2d} cluster bosons".format(nbos))
-        # print(s)
-        # v gives rotation of environmental excitations to obtain effective bosonic degree of freedom.
-        bosrot = v[want, :]
-
-        # A-B = eta_0 (A+B) eta_0
-
-        m0_loc = np.zeros((2 * ov_loc, 2 * ov_loc))
-        # print(loc_transform_ov.shape, bosrot.shape, np.linalg.svd(loc_transform_ov)[1])
-        m0_loc[:ov_loc, :ov_loc] = einsum("pq,rp,sq->rs", m0_aa, loc_transform_ov, loc_transform_ov)
-        m0_loc[ov_loc:, ov_loc:] = einsum("pq,rp,sq->rs", m0_bb, loc_transform_ov, loc_transform_ov)
-        m0_loc[:ov_loc, ov_loc:] = einsum("pq,rp,sq->rs", m0_ab, loc_transform_ov, loc_transform_ov)
-        m0_loc[ov_loc:, :ov_loc] = m0_loc[:ov_loc, ov_loc:].T
-
-        # print("m0 loc", m0_loc.shape)
-        # print(m0_loc)
-
-        # Check that interaction block is correctly structured.
-        # m0_interact = dot(m0_interaction,v.T)#bosrot.T)
-        # print("m0 interact", m0_interact.shape, m0_interaction.shape, v.shape)
-        # print(m0_interact)
-        # Projection of the full alpha excitation space into bosons.
-        # print(ov_full, bosrot.shape, env_transform_ov.shape)
-        bos_proj_a = np.dot(bosrot[:, :nspat_env], env_transform_ov)  # (nbos, ov_full)
-        bos_proj_b = np.dot(bosrot[:, nspat_env:], env_transform_ov)  # (nbos, ov_full)
-        bos_proj = np.concatenate((bos_proj_a, bos_proj_b), axis=1)
-        # print(bos_proj.shape, np.linalg.svd(bos_proj)[1])
-
-        # Define full rotation
-        locrot = np.concatenate((np.concatenate((loc_transform_ov, np.zeros_like(loc_transform_ov)), axis=1),
-                                 np.concatenate((np.zeros_like(loc_transform_ov), loc_transform_ov), axis=1)), axis=0)
-        fullrot = np.concatenate((locrot,
-                                  bos_proj), axis=0)
-        # print("fullrot", fullrot.shape)
-        # print(fullrot)
-        m0_full = np.zeros((2 * ov_full, 2 * ov_full))
-        m0_full[:ov_full, :ov_full] = m0_aa
-        m0_full[ov_full:, ov_full:] = m0_bb
-        m0_full[:ov_full, ov_full:] = m0_ab
-        m0_full[ov_full:, :ov_full] = m0_ab.T
-
-        n = scipy.linalg.null_space(fullrot)
-        # print("Rotated m0:")
-        # print(np.dot(fullrot, np.dot(m0_full, n)))
-
-        m0_new = np.dot(fullrot, np.dot(m0_full, fullrot.T))
-        apb_new = np.dot(fullrot, np.dot(rpa_moms["ApB"], fullrot.T))
-
-        amb_new = np.dot(m0_new, np.dot(apb_new, m0_new))
-        self.ApB_new = apb_new
-        self.AmB_new = amb_new
-        self.m0_new = m0_new
-        # print("M0:")
-        # print(m0_new)
-        # print("ApB:")
-        # print(apb_new)
-        # print("AmB:")
-        # print(amb_new)
-        # print("Alternative AmB calculation:", rpa_moms["AmB"].shape, locrot.shape)
-        # print(einsum("pn,n,qn->pq",locrot, rpa_moms["AmB"], locrot))
-        maxdev = abs(amb_new[:2 * ov_loc, :2 * ov_loc] - einsum("pn,nm,qm->pq", locrot, rpa_moms["AmB"], locrot)).max()
-        if maxdev > 1e-8:
-            self.log.fatal(
-                "Unexpected deviation from exact irreducible polarisation propagator: {:6.4e}".format(maxdev))
-            raise EDMETFragmentExit
-
-        # Now grab our bosonic parameters.
-        va = np.zeros((nbos, self.n_active, self.n_active))
-        vb = np.zeros((nbos, self.n_active, self.n_active))
-
-        amb_bos = amb_new[2 * ov_loc:, 2 * ov_loc:]
-        apb_bos = apb_new[2 * ov_loc:, 2 * ov_loc:]
-        amb_eb = amb_new[2 * ov_loc:, :2 * ov_loc]
-        apb_eb = apb_new[2 * ov_loc:, :2 * ov_loc]
-
-        a_eb = 0.5 * (apb_eb + amb_eb)
-        b_eb = 0.5 * (apb_eb - amb_eb)
-
-        # Grab the bosonic couplings.
-        va[:, :self.n_active_occ, self.n_active_occ:] = \
-            a_eb[:, :ov_loc].reshape(nbos, self.n_active_occ, self.n_active_vir)
-        vb[:, :self.n_active_occ, self.n_active_occ:] = \
-            a_eb[:, ov_loc:2 * ov_loc].reshape(nbos, self.n_active_occ, self.n_active_vir)
-        va[:, self.n_active_occ:, :self.n_active_occ] = \
-            b_eb[:, :ov_loc].reshape(nbos, self.n_active_occ, self.n_active_vir).transpose([0, 2, 1])
-        vb[:, self.n_active_occ:, :self.n_active_occ] = \
-            b_eb[:, ov_loc:2 * ov_loc].reshape(nbos, self.n_active_occ, self.n_active_vir).transpose([0, 2, 1])
-
-        # Perform quick bogliubov transform to decouple our bosons.
-        rt_amb_bos = scipy.linalg.sqrtm(amb_bos)
-        m = np.dot(rt_amb_bos, np.dot(apb_bos, rt_amb_bos))
-        e, c = np.linalg.eigh(m)
-        freqs = e ** (0.5)
-
-        xpy = np.einsum("n,qp,pn->qn", freqs ** (-0.5), rt_amb_bos, c)
-        xmy = np.einsum("n,qp,pn->qn", freqs ** (0.5), np.linalg.inv(rt_amb_bos), c)
-        x = 0.5 * (xpy + xmy)
-        y = 0.5 * (xpy - xmy)
-        # Transform our couplings.
-        va = np.einsum("npq,nm->mpq", va, x) + np.einsum("npq,nm->mqp", va, y)
-        vb = np.einsum("npq,nm->mpq", vb, x) + np.einsum("npq,nm->mqp", vb, y)
-        self.log.info("Cluster Bosons frequencies: " + str(freqs))
-        # Check couplings are spin symmetric; this can be relaxed once we're using UHF and appropriate solvers.
-        spin_deviation = abs(va - vb).max()
-        if spin_deviation > 1e-6:
-            self.log.warning("Boson couplings to different spin channels are significantly different; "
-                             "largest deviation %6.4e", spin_deviation)
-        # print(np.einsum("np8q,rp,sq->nrs", va, self.c_active, self.c_active))
-        # print(np.einsum("npq,rp,sq->nrs", vb, self.c_active, self.c_active))
-        return freqs, va, vb
-
     def set_up_fermionic_bath(self, bno_threshold=None, bno_number=None):
         """Set up the fermionic bath orbitals"""
-        mo_coeff, mo_occ, nocc_frozen, nvir_frozen, nactive = \
-            self.set_up_orbitals(bno_threshold, bno_number, construct_bath=True)
+        self.make_bath()
+        cluster = self.make_cluster(self.bath, bno_threshold=bno_threshold, bno_number=bno_number)
+        cluster.log_sizes(self.log.info, header="Orbitals for %s" % self)
+        self._c_active_occ = cluster.c_active_occ
+        self._c_active_vir = cluster.c_active_vir
         # Want to return the rotation of the canonical HF orbitals which produce the cluster canonical orbitals.
         return self.get_rot_to_mf_ov()
 
-    def define_bosons(self, rpa_mom, rot_ov, tol=1e-8):
+    def define_bosons(self, rpa_mom, rot_ov=None, tol=1e-8):
         """Given the RPA zeroth moment between the fermionic cluster excitations and the rest of the space, define
         our cluster bosons.
         Note that this doesn't define our Hamiltonian, since we don't yet have the required portion of our
         zeroth moment for the bosonic degrees of freedom.
         """
+        if rot_ov is None:
+            rot_ov = self.get_rot_to_mf_ov()
         # Need to remove fermionic degrees of freedom from moment contribution. Null space of rotation matrix is size
         # N^4, so instead deduct projection onto fermionic space.
         env_mom = rpa_mom - dot(rpa_mom, rot_ov.T, np.linalg.pinv(rot_ov.T))
         # v defines the rotation of the mean-field excitation space specifying our bosons.
-        u, s, v = np.linalg.svd(env_mom)
+        u, s, v = np.linalg.svd(env_mom, full_matrices=False)
         want = s > tol
         self.nbos = sum(want)
         if self.nbos < len(s):
@@ -301,6 +152,7 @@ class EDMETFragment(DMETFragment):
         systems. Note that this should only really be used in the case that such a rotation cannot be described by a
         rotation of the underlying single-particle basis, since highly efficient routines already exist for this case..
         """
+        rota, rotb = rot[:, :self.ov_mf], rot[:, self.ov_mf:2 * self.ov_mf]
         if hasattr(self.base.mf, "with_df"):
             # Convert rot from full-space particle-hole excitations into AO pairs.
             rot = einsum("lia,pi,qa->lpq", rot.reshape((-1, self.base.nocc, self.base.nvir)),
@@ -313,15 +165,14 @@ class EDMETFragment(DMETFragment):
                 res += dot(l_.T, l_)
             return res
         else:
-            if self.mf._eri is not None:
-                eris = pyscf.ao2mo.full(self.mf._eri, self.mf.mo_coeff, compact=False)
-            else:
-                eris = self.mol.ao2mo(self.mf.mo_coeff, compact=False)
+            # This is painful to do for each fragment, but comes from working with 4-index eris.
+            eris = self.base.get_eris_array(self.mf.mo_coeff)
             eris = eris[:self.base.nocc, self.base.nocc:, :self.base.nocc, self.base.nocc:].reshape(
                 (self.ov_mf, self.ov_mf))
-            return dot(rot, eris, rot.T)
+            return dot(rota, eris, rota.T) + dot(rotb, eris, rota.T) + dot(rota, eris, rotb.T) + dot(rotb, eris, rotb.T)
 
     def get_xc_couplings(self, xc_kernel, rot):
+
         # Convert rot from full-space particle-hole excitations into AO pairs.
         rot = einsum("lia,pi,qa->lpq", rot.reshape((-1, self.base.nocc, self.base.nvir)),
                      dot(self.base.get_ovlp(), self.base.mo_coeff_occ),
@@ -336,7 +187,7 @@ class EDMETFragment(DMETFragment):
             apb = acontrib + bcontrib
             amb = acontrib - bcontrib
         else:
-            # Have full-rank expression for xc kernel.
+            # Have full-rank expression for xc kernel, but separate spin channels.
             acontrib = einsum("lpq,pqrs,mrs->lm", rot, xc_kernel, rot)
             bcontrib = einsum("lpq,pqrs,msr->lm", rot, xc_kernel, rot)
             apb = acontrib + bcontrib
