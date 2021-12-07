@@ -58,9 +58,9 @@ def import_package(name, required=True):
         return package
     except ImportError:
         if required:
-            log.critical("%s not found.", package)
+            log.critical("%s not found.", name)
             raise
-        log.warning("%s not found.", package)
+        log.warning("%s not found.", name)
         return None
 
 log.debug("Required packages:")
