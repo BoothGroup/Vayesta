@@ -2,6 +2,7 @@ import pyscf.gto
 import pyscf.scf
 import pyscf.pbc.gto
 import pyscf.pbc.scf
+import pyscf.pbc.dft
 import pyscf.pbc.df
 import pyscf.pbc.tools
 import pyscf.tools.ring
@@ -152,14 +153,23 @@ def _make_pbc_mf(cell, kpts=None, df=None, xc=None, restricted=None, **kwargs):
     spin = ('r' if restricted else 'u')
     veff = ('hf' if xc is None else 'ks')
     kp = ('k' if kpts is not None else '')
-    mod = getattr(pack, '%s%s%s' % (kp, spin, veff))
-    cls = getattr(mod, ('%s%s%s' % (kp, spin, veff)).upper())
+    mod = getattr(pack, '%s%s%s' % (kp, spin, veff))            # mod = pyscf.pbc.scf.[k][r|u][hf|ks]
+    cls = getattr(mod, ('%s%s%s' % (kp, spin, veff)).upper())   # cls = mod.[K][R|U][HF|KS]
     mf = cls(cell, kpts) if kpts is not None else cls(cell)
+    if xc is not None:
+        mf.xc = xc
     if df is not None:
         mf.with_df = df
     mf.conv_tol = kwargs.get('conv_tol', 1e-12)
     mf.kernel()
     assert mf.converged
+    # PySCF-SCF calculations require HF object (do not use mf.to_[k][r|u]hf(), as the
+    # periodic boundary conditions will be removed!)
+    if xc is not None:
+        mod = getattr(pyscf.pbc.scf, '%s%shf' % (kp, spin))
+        hf = getattr(mod, ('%s%shf' % (kp, spin)).upper())(cell)
+        hf.__dict__.update(mf.__dict__)
+        mf = hf
     return mf
 
 
@@ -169,7 +179,7 @@ def register_system_cell(cache, key):
 
     # Rocksalt LiH
     if key == 'lih_k221':
-        cell = _make_cell(*molstructs.rocksalt(atoms=['Li', 'H']), basis='def2-svp', xc='svwn',
+        cell = _make_cell(*molstructs.rocksalt(atoms=['Li', 'H']), basis='def2-svp',
                 exp_to_discard=0.1)
         kpts = cell.make_kpts([2,2,1])
         df = pyscf.pbc.df.GDF(cell, kpts)
@@ -178,7 +188,7 @@ def register_system_cell(cache, key):
         cache._cache[key] = {'cell': cell, 'kpts': kpts, 'rhf': mf, 'uhf': None}
         return
     if key == 'lih_g221':
-        cell = _make_cell(*molstructs.rocksalt(atoms=['Li', 'H']), basis='def2-svp', xc='svwn',
+        cell = _make_cell(*molstructs.rocksalt(atoms=['Li', 'H']), basis='def2-svp',
                 exp_to_discard=0.1, supercell=[2,2,1])
         df = pyscf.pbc.df.GDF(cell)
         df.auxbasis = 'def2-svp-ri'
@@ -187,7 +197,7 @@ def register_system_cell(cache, key):
         return
     # Primitive cubic Boron, k-points and supercell
     if key == 'boron_cp_k321':
-        cell = _make_cell(5.0, 'B 0 0 0', basis='def2-svp', xc='svwn', spin=6, exp_to_discard=0.1)
+        cell = _make_cell(5.0, 'B 0 0 0', basis='def2-svp', spin=6, exp_to_discard=0.1)
         kpts = cell.make_kpts([3,2,1])
         df = pyscf.pbc.df.GDF(cell, kpts)
         df.auxbasis = 'def2-svp-ri'
@@ -195,13 +205,12 @@ def register_system_cell(cache, key):
         cache._cache[key] = {'cell': cell, 'kpts': kpts, 'rhf': None, 'uhf': mf}
         return
     if key == 'boron_cp_g321':
-        cell = _make_cell(5.0, 'B 0 0 0', basis='def2-svp', xc='svwn', spin=6, exp_to_discard=0.1, supercell=[3,2,1])
+        cell = _make_cell(5.0, 'B 0 0 0', basis='def2-svp', spin=6, exp_to_discard=0.1, supercell=[3,2,1])
         df = pyscf.pbc.df.GDF(cell)
         df.auxbasis = 'def2-svp-ri'
         mf = _make_pbc_mf(cell, df=df)
         cache._cache[key] = {'cell': cell, 'kpts': None, 'rhf': None, 'uhf': mf}
         return
-
 
     cell = pyscf.pbc.gto.Cell()
     kpts = None

@@ -12,9 +12,10 @@ from vayesta.tests.cache import cells
 class SolidEWFTests(unittest.TestCase):
 
     def test_lih(self):
+        """Tests restriced EWF for a solid, binary system with and without k-point folding."""
         # Mean-field
-        kmf = cells['lih_k221']['rhf']
-        gmf = cells['lih_g221']['rhf']
+        kmf = cells['lih_k221']['rhf']  # Primitive cell and k-points
+        gmf = cells['lih_g221']['rhf']  # Supercell and Gamma-point
         nk = len(kmf.kpts)
         self.assertAlmostEqual(kmf.e_tot, gmf.e_tot/nk)
         # PySCF
@@ -35,15 +36,14 @@ class SolidEWFTests(unittest.TestCase):
         self.assertAlmostEqual(kccsd.e_tot, -8.069261598354077)
 
     def test_boron(self):
-        """Odd electron, UHF test"""
-
+        """Tests unrestriced EWF for a solid, odd electron system with and without k-point folding."""
         # Mean-field
-        kmf = cells['boron_cp_k321']['uhf']
-        gmf = cells['boron_cp_g321']['uhf']
+        kmf = cells['boron_cp_k321']['uhf'] # Primitive cell and k-points
+        gmf = cells['boron_cp_g321']['uhf'] # Supercell and Gamma-point
         nk = len(kmf.kpts)
         self.assertAlmostEqual(kmf.e_tot, gmf.e_tot/nk)
-        # Do not compare to KUCCSD:
-        # PySCF KUCCSD and KRCCSD are different by the exxdiv correction (this is a PySCF bug)
+        # Do not compare to KUCCSD
+        # PySCF KUCCSD and KRCCSD differ by the exxdiv correction (this is a PySCF bug in KUCCSD)
         #kccsd = pyscf.pbc.cc.KUCCSD(kmf)
         #kccsd.kernel()
         # k-points
