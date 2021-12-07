@@ -198,7 +198,6 @@ for idx, gate in enumerate(gates):
             scell, phase = foldscf.get_phase(cell, kpts)
             #hcore_for_energy = lambda emb, *args : foldscf.k2bvk_2d(hcore_orig(*args), phase)
             def hcore_for_energy(emb, *args):
-                for arg in args:
                 return foldscf.k2bvk_2d(hcore_orig(*args), phase)
         else:
             hcore_for_energy = lambda emb, *args : hcore_orig(*args)
