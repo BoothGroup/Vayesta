@@ -44,11 +44,16 @@ class EDMETFragment(DMETFragment):
 
     @property
     def ov_active(self):
-        return self.n_active_occ * self.n_active_vir
+        return self.cluster.nocc_active * self.cluster.nvir_active
 
     @property
     def ov_mf(self):
         return self.base.nocc * self.base.nvir
+
+    def get_rot_to_mf(self):
+        r_o = dot(self.cluster.c_active_occ.T, self.base.get_ovlp(), self.base.mo_coeff_occ)
+        r_v = dot(self.cluster.c_active_vir.T, self.base.get_ovlp(), self.base.mo_coeff_vir)
+        return r_o, r_v
 
     def get_rot_to_mf_ov(self):
         r_o, r_v = self.get_rot_to_mf()
@@ -121,19 +126,19 @@ class EDMETFragment(DMETFragment):
                       abs(amb - renorm_amb)[:2 * self.ov_active, :2 * self.ov_active].max())
         a = 0.5 * (apb + renorm_amb)
         b = 0.5 * (apb - renorm_amb)
-        couplings_aa = np.zeros((self.nbos, self.n_active, self.n_active))
-        couplings_bb = np.zeros((self.nbos, self.n_active, self.n_active))
+        couplings_aa = np.zeros((self.nbos, self.cluster.norb_active, self.cluster.norb_active))
+        couplings_bb = np.zeros((self.nbos, self.cluster.norb_active, self.cluster.norb_active))
 
-        couplings_aa[:, :self.n_active_occ, self.n_active_occ:] = a[2 * self.ov_active:, :self.ov_active].reshape(
-            self.nbos, self.n_active_occ, self.n_active_vir)
-        couplings_aa[:, self.n_active_occ:, :self.n_active_occ] = b[2 * self.ov_active:, :self.ov_active].reshape(
-            self.nbos, self.n_active_occ, self.n_active_vir).transpose([0, 2, 1])
-        couplings_bb[:, :self.n_active_occ, self.n_active_occ:] = \
+        couplings_aa[:, :self.cluster.nocc_active, self.cluster.nocc_active:] = a[2 * self.ov_active:, :self.ov_active].reshape(
+            self.nbos, self.cluster.nocc_active, self.cluster.nvir_active)
+        couplings_aa[:, self.cluster.nocc_active:, :self.cluster.nocc_active] = b[2 * self.ov_active:, :self.ov_active].reshape(
+            self.nbos, self.cluster.nocc_active, self.cluster.nvir_active).transpose([0, 2, 1])
+        couplings_bb[:, :self.cluster.nocc_active, self.cluster.nocc_active:] = \
             a[2 * self.ov_active:, self.ov_active:2 * self.ov_active].reshape(
-                self.nbos, self.n_active_occ, self.n_active_vir)
-        couplings_bb[:, self.n_active_occ:, :self.n_active_occ] = \
+                self.nbos, self.cluster.nocc_active, self.cluster.nvir_active)
+        couplings_bb[:, self.cluster.nocc_active:, :self.cluster.nocc_active] = \
             b[2 * self.ov_active:, self.ov_active:2 * self.ov_active].reshape(
-                self.nbos, self.n_active_occ, self.n_active_vir).transpose([0, 2, 1])
+                self.nbos, self.cluster.nocc_active, self.cluster.nvir_active).transpose([0, 2, 1])
 
         a_bos = a[2 * self.ov_active:, 2 * self.ov_active:]
         b_bos = b[2 * self.ov_active:, 2 * self.ov_active:]
@@ -222,12 +227,12 @@ class EDMETFragment(DMETFragment):
         solver_opts['make_rdm_eb'] = self.opts.make_rdm1
         solver_opts['make_01_dd_mom'] = self.opts.make_dd_moments
 
-        v_ext = None if chempot is None else - chempot * self.get_fragment_projector(self.c_active)
+        v_ext = None if chempot is None else - chempot * self.get_fragment_projector(self.cluster.c_active)
 
         cluster_solver_cls = get_solver_class(self.mf, solver)
         cluster_solver = cluster_solver_cls(
-            self.bos_freqs, self.couplings, self, self.mo_coeff, self.mf.mo_occ,
-            nocc_frozen=self.n_frozen_occ, nvir_frozen=self.n_frozen_vir,
+            self.bos_freqs, self.couplings, self, self.base.mo_coeff, self.mf.mo_occ,
+            nocc_frozen=self.cluster.nocc_frozen, nvir_frozen=self.cluster.nvir_frozen,
             v_ext=v_ext,
             bos_occ_cutoff=self.opts.bos_occ_cutoff, **solver_opts)
         solver_results = cluster_solver.kernel(eris=eris)
@@ -242,7 +247,7 @@ class EDMETFragment(DMETFragment):
         results = self.Results(
             fid=self.id,
             bno_threshold=bno_threshold,
-            n_active=self.n_active,
+            n_active=self.cluster.norb_active,
             converged=solver_results.converged,
             e_corr=solver_results.e_corr,
             dm1=solver_results.dm1,
@@ -268,7 +273,7 @@ class EDMETFragment(DMETFragment):
     def get_edmet_energy_contrib(self):
         """Generate EDMET energy contribution, according to expression given in appendix of EDMET preprint"""
         e1, e2 = self.get_dmet_energy_contrib()
-        c_act = self.c_active
+        c_act = self.cluster.c_active
         p_imp = self.get_fragment_projector(c_act)
         # Taken spin-averaged couplings for now; should actually be spin symmetric.
         couplings = (self._results.eb_couplings[0] + self._results.eb_couplings[1]) / 2
@@ -292,13 +297,13 @@ class EDMETFragment(DMETFragment):
         # m0_new = self.results.dd_mom0
         # m1_new = self.results.dd_mom1
 
-        nocc_loc = self.n_active_occ
-        nvir_loc = self.n_active_vir
+        nocc_loc = self.cluster.nocc_active
+        nvir_loc = self.cluster.nvir_active
         ov_loc = nocc_loc * nvir_loc
 
         # Now want to construct rotations defining which degrees of freedom contribute to two-point quantities.
-        occ_frag_rot = np.linalg.multi_dot([self.c_frag.T, self.base.get_ovlp(), self.c_active_occ])
-        vir_frag_rot = np.linalg.multi_dot([self.c_frag.T, self.base.get_ovlp(), self.c_active_vir])
+        occ_frag_rot = np.linalg.multi_dot([self.c_frag.T, self.base.get_ovlp(), self.cluster.c_active_occ])
+        vir_frag_rot = np.linalg.multi_dot([self.c_frag.T, self.base.get_ovlp(), self.cluster.c_active_vir])
 
         if self.opts.old_sc_condition:
             # Then get projectors to local quantities in ov-basis. Note this needs to be stacked to apply to each spin
@@ -362,12 +367,12 @@ class EDMETFragment(DMETFragment):
         loc_eps = einsum("ia,ji,ba,ki,ca->jbkc", epsilon, r_occ, r_vir, r_occ, r_vir).reshape((ov_loc, ov_loc))
         # We want to actually consider the difference from the dRPA kernel. This is just the local eris in an OV basis.
         if eris is None:
-            eris = self.base.get_eris_array(self.c_active)
+            eris = self.base.get_eris_array(self.cluster.c_active)
 
         v = eris[:nocc_loc, nocc_loc:, :nocc_loc, nocc_loc:].reshape((ov_loc, ov_loc))
 
-        occ_proj = self.get_fragment_projector(self.c_active_occ)
-        vir_proj = self.get_fragment_projector(self.c_active_vir)
+        occ_proj = self.get_fragment_projector(self.cluster.c_active_occ)
+        vir_proj = self.get_fragment_projector(self.cluster.c_active_vir)
 
         def proj_all_indices(mat):
             """Obtains average over all possible projections of provided matrix, giving contribution to democratic
@@ -401,8 +406,8 @@ class EDMETFragment(DMETFragment):
                 epsilon, dd0, dd1, eris)
         # Now need to project back out to full space. This requires an additional factor of the overlap in ou
         # coefficients.
-        c_occ = np.dot(self.base.get_ovlp(), self.c_active_occ)
-        c_vir = np.dot(self.base.get_ovlp(), self.c_active_vir)
+        c_occ = np.dot(self.base.get_ovlp(), self.cluster.c_active_occ)
+        c_vir = np.dot(self.base.get_ovlp(), self.cluster.c_active_vir)
         v_aa = (
                 einsum("iajb,pi,qa,rj,sb->pqrs", v_a_aa, c_occ, c_vir, c_occ, c_vir) +
                 einsum("iajb,pi,qa,rj,sb->pqsr", v_b_aa, c_occ, c_vir, c_occ, c_vir))

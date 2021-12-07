@@ -140,7 +140,7 @@ class DMETFragment(QEmbeddingFragment):
         # Canonicalize orbitals
         c_active_occ = self.canonicalize_mo(bath.c_cluster_occ, c_bno_occ)[0]
         c_active_vir = self.canonicalize_mo(bath.c_cluster_vir, c_bno_vir)[0]
-        # Do not overwrite self.c_active_occ/vir yet - we still need the previous coefficients
+        # Do not overwrite self.cluster.c_active_occ/vir yet - we still need the previous coefficients
         # to generate an intial guess
         cluster = ActiveSpace(self.mf, c_active_occ, c_active_vir, c_frozen_occ=c_frozen_occ, c_frozen_vir=c_frozen_vir)
 
@@ -229,22 +229,22 @@ class DMETFragment(QEmbeddingFragment):
             self.log.debugv("Passing fragment option %s to solver.", attr)
             solver_opts[attr] = getattr(self.opts, attr)
 
-        solver_opts["v_ext"] = None if chempot is None else - chempot * self.get_fragment_projector(self.c_active)
+        solver_opts["v_ext"] = None if chempot is None else - chempot * self.get_fragment_projector(self.cluster.c_active)
 
         return solver_opts
 
     def get_dmet_energy_contrib(self):
         """Calculate the contribution of this fragment to the overall DMET energy."""
         # Projector to the impurity in the active basis.
-        P_imp = self.get_fragment_projector(self.c_active)
-        c_act = self.c_active
+        P_imp = self.get_fragment_projector(self.cluster.c_active)
+        c_act = self.cluster.c_active
 
         # Temporary implementation
         t0 = timer()
         eris = self.base.get_eris_array(c_act)
         self.log.timing("Time for AO->MO of (ij|kl):  %s", time_string(timer() - t0))
 
-        nocc = self.c_active_occ.shape[1]
+        nocc = self.cluster.c_active_occ.shape[1]
         occ = np.s_[:nocc]
         # Calculate the effective onebody interaction within the cluster.
         f_act = np.linalg.multi_dot((c_act.T, self.mf.get_fock(), c_act))
@@ -311,7 +311,7 @@ class DMETFragment(QEmbeddingFragment):
             if hasattr(eris, 'fock'):
                 f = eris.fock[occ, vir]
             else:
-                f = np.linalg.multi_dot((self.c_active_occ.T, self.base.get_fock(), self.c_active_vir))
+                f = np.linalg.multi_dot((self.cluster.c_active_occ.T, self.base.get_fock(), self.cluster.c_active_vir))
             e1 = 2 * np.sum(f * p1)
         # E2
         if hasattr(eris, 'ovvo'):
@@ -328,29 +328,3 @@ class DMETFragment(QEmbeddingFragment):
             self.log.warning("WARNING: Large E[C1] component!")
         e_frag = self.opts.energy_factor * self.sym_factor * (e1 + e2)
         return e_frag
-
-    # --- FIXME: Remove these
-
-    @property
-    def c_active_occ(self):
-        return self._c_active_occ
-
-    @property
-    def c_active_vir(self):
-        return self._c_active_vir
-
-    @property
-    def c_active(self):
-        return np.hstack((self.c_active_occ, self.c_active_vir))
-
-    @property
-    def n_active(self):
-        return self.c_active.shape[-1]
-
-    @property
-    def n_active_occ(self):
-        return self.c_active_occ.shape[-1]
-
-    @property
-    def n_active_vir(self):
-        return self.c_active_vir.shape[-1]

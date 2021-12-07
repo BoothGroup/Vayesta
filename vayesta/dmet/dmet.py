@@ -11,7 +11,7 @@ from vayesta.core.util import *
 from vayesta.core import QEmbeddingMethod
 
 from vayesta.ewf import helper
-from .fragment import DMETFragment, DMETFragmentExit
+from .fragment import VALID_SOLVERS, DMETFragment, DMETFragmentExit
 from .sdp_sc import perform_SDP_fit
 from .updates import MixUpdate, DIISUpdate
 
@@ -23,8 +23,6 @@ import copy
 class DMETResults:
     cluster_sizes: np.ndarray = None
     e_corr: float = None
-
-
 
 
 class DMET(QEmbeddingMethod):
@@ -289,7 +287,7 @@ class DMET(QEmbeddingMethod):
             if exit:
                 break
             # Project rdm into fragment space; currently in cluster canonical orbitals.
-            c = dot(frag.c_frag.T, self.mf.get_ovlp(), np.hstack((frag.c_active_occ, frag.c_active_vir)))
+            c = dot(frag.c_frag.T, self.mf.get_ovlp(), frag.cluster.c_active)
             hl_rdms[x] = dot(c, frag.results.dm1, c.T)  # / 2
             nelec_hl += hl_rdms[x].trace() * nsym[x]
         self.hl_rdms = hl_rdms
