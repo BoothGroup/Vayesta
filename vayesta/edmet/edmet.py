@@ -56,7 +56,12 @@ class EDMET(DMET):
         # Initialise parameters for self-consistency iteration
         fock = self.get_fock()
         self.vcorr = np.zeros((self.nao,) * 2)
-        self.xc_kernel = [np.zeros((self.nao,) * 4)] * 3
+        if hasattr(self.mf, "with_df"):
+            # Store alpha and beta components separately.
+            self.xc_kernel = [np.zeros((0, self.nao, self.nao))] * 2
+        else:
+            # Store alpha-alpha, alpha-beta and beta-beta components separately.
+            self.xc_kernel = [np.zeros((self.nao,) * 4)] * 3
 
         cpt = 0.0
         mf = self.mf
@@ -200,9 +205,9 @@ class EDMET(DMET):
             rpa = ssRIRPA(self.mf, self.xc_kernel, self.log)
             # Get fermionic bath set up, and calculate the cluster excitation space.
             rot_ovs = [f.set_up_fermionic_bath() for f in sym_parents]
-            mom0_interact = rpa.kernel_moms(np.concatenate(rot_ovs, axis=0), npoints=48)
+            mom0_interact, est_error = rpa.kernel_moms(np.concatenate(rot_ovs, axis=0), npoints=48)
             # Get appropriate slices to obtain required active spaces.
-            ovs_active = [f.ov_active for f in sym_parents]
+            ovs_active = [2*f.ov_active for f in sym_parents]
             ovs_active_slices = [slice(sum(ovs_active[:i]), sum(ovs_active[:i + 1])) for i in
                                  range(len(sym_parents))]
             # Use interaction component of moment to generate bosonic degrees of freedom.
@@ -210,7 +215,7 @@ class EDMET(DMET):
             nbos = [x.shape[0] for x in rot_bos]
             bos_slices = [slice(sum(nbos[:i]), sum(nbos[:i + 1])) for i in range(len(sym_parents))]
             # Calculate zeroth moment of bosonic degrees of freedom.
-            mom0_bos = rpa.kernel_moms(np.concatenate(rot_bos, axis=0), npoints=48)
+            mom0_bos, est_error = rpa.kernel_moms(np.concatenate(rot_bos, axis=0), npoints=48)
             eps = get_eps()
             # Can then invert relation to generate coupled electron-boson Hamiltonian.
             for f, sl in zip(sym_parents, bos_slices):

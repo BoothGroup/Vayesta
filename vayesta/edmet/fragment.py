@@ -110,14 +110,14 @@ class EDMETFragment(DMETFragment):
         apb = eps_loc + 2 * eris + xc_apb
         # This is the bare amb.
         amb = eps_loc + xc_amb
-        eta0 = np.zeros_Like(apb)
+        eta0 = np.zeros_like(apb)
         eta0[:2 * self.ov_active, :2 * self.ov_active] = self.eta0_ferm
         eta0[:2 * self.ov_active, 2 * self.ov_active:] = self.eta0_coupling
         eta0[2 * self.ov_active:, :2 * self.ov_active] = self.eta0_coupling.T
-        eta0[:2 * self.ov_active, :2 * self.ov_active] = self.eta0_bos
+        eta0[2 * self.ov_active:, 2 * self.ov_active:] = self.eta0_bos
 
         renorm_amb = dot(eta0, apb, eta0)
-        self.log.info("Maximum deviation in irreducible polarisation propagator=%6,4e",
+        self.log.info("Maximum deviation in irreducible polarisation propagator=%6.4e",
                       abs(amb - renorm_amb)[:2 * self.ov_active, :2 * self.ov_active].max())
         a = 0.5 * (apb + renorm_amb)
         b = 0.5 * (apb - renorm_amb)
@@ -154,14 +154,19 @@ class EDMETFragment(DMETFragment):
         """
         rota, rotb = rot[:, :self.ov_mf], rot[:, self.ov_mf:2 * self.ov_mf]
         if hasattr(self.base.mf, "with_df"):
-            # Convert rot from full-space particle-hole excitations into AO pairs.
-            rot = einsum("lia,pi,qa->lpq", rot.reshape((-1, self.base.nocc, self.base.nvir)),
-                         dot(self.base.get_ovlp(), self.base.mo_coeff_occ),
-                         dot(self.base.get_ovlp(), self.base.mo_coeff_vir))
+            # Convert rots from full-space particle-hole excitations into AO pairs.
+            def conv_to_aos(r):
+                return einsum("lia,pi,qa->lpq", r.reshape((-1, self.base.nocc, self.base.nvir)),
+                              dot(self.base.get_ovlp(), self.base.mo_coeff_occ),
+                              dot(self.base.get_ovlp(), self.base.mo_coeff_vir))
+
+            rota, rotb = conv_to_aos(rota), conv_to_aos(rotb)
             # Loop through cderis
             res = np.zeros((rot.shape[0], rot.shape[0]))
             for eri1 in self.mf.with_df.loop():
-                l_ = einsum("npq,lpq->nl", pyscf.lib.unpack_tril(eri1), rot)
+                unpacked = pyscf.lib.unpack_tril(eri1)
+                l_ = einsum("npq,lpq->nl", pyscf.lib.unpack_tril(eri1), rota+rotb)
+
                 res += dot(l_.T, l_)
             return res
         else:
@@ -169,27 +174,34 @@ class EDMETFragment(DMETFragment):
             eris = self.base.get_eris_array(self.mf.mo_coeff)
             eris = eris[:self.base.nocc, self.base.nocc:, :self.base.nocc, self.base.nocc:].reshape(
                 (self.ov_mf, self.ov_mf))
-            return dot(rota, eris, rota.T) + dot(rotb, eris, rota.T) + dot(rota, eris, rotb.T) + dot(rotb, eris, rotb.T)
+            return dot(rota+rotb, eris, rota.T + rotb.T)
+            #return dot(rota, eris, rota.T) + dot(rotb, eris, rota.T) + dot(rota, eris, rotb.T) + dot(rotb, eris, rotb.T)
 
     def get_xc_couplings(self, xc_kernel, rot):
-
-        # Convert rot from full-space particle-hole excitations into AO pairs.
-        rot = einsum("lia,pi,qa->lpq", rot.reshape((-1, self.base.nocc, self.base.nvir)),
+        rota, rotb = rot[:, :self.ov_mf], rot[:, self.ov_mf:2 * self.ov_mf]
+        # Convert rots from full-space particle-hole excitations into AO pairs.
+        def conv_to_aos(r):
+            return einsum("lia,pi,qa->lpq", r.reshape((-1, self.base.nocc, self.base.nvir)),
                      dot(self.base.get_ovlp(), self.base.mo_coeff_occ),
                      dot(self.base.get_ovlp(), self.base.mo_coeff_vir))
+        rota, rotb = conv_to_aos(rota), conv_to_aos(rotb)
         if hasattr(self.base.mf, "with_df"):
             # Store low-rank expression for xc kernel.
-            # The contribution coupling just has an index change in our summation.
-            la = einsum("npq,lpq->nl", xc_kernel, rot)
-            lb = einsum("npq,lqp->nl", xc_kernel, rot)
+            # Store alpha and beta-spin xc-kernel contributions separately, so need to treat separately.
+            la = einsum("npq,lpq->nl", xc_kernel[0], rota) + einsum("npq,lpq->nl", xc_kernel[1], rotb)
+            lb = einsum("npq,lqp->nl", xc_kernel[0], rota) + einsum("npq,lqp->nl", xc_kernel[1], rotb)
             acontrib = dot(la.T, la)
             bcontrib = dot(la.T, lb)
             apb = acontrib + bcontrib
             amb = acontrib - bcontrib
         else:
             # Have full-rank expression for xc kernel, but separate spin channels.
-            acontrib = einsum("lpq,pqrs,mrs->lm", rot, xc_kernel, rot)
-            bcontrib = einsum("lpq,pqrs,msr->lm", rot, xc_kernel, rot)
+            acontrib = einsum("lpq,pqrs,mrs->lm", rota, xc_kernel[1], rotb)
+            acontrib += acontrib.T + einsum("lpq,pqrs,mrs->lm", rota, xc_kernel[0], rota) + einsum("lpq,pqrs,mrs->lm", rotb, xc_kernel[2], rotb)
+
+            bcontrib = einsum("lpq,pqrs,msr->lm", rota, xc_kernel[1], rotb)
+            bcontrib += bcontrib.T + einsum("lpq,pqrs,msr->lm", rota, xc_kernel[0], rota) + einsum("lpq,pqrs,msr->lm", rotb, xc_kernel[2], rotb)
+
             apb = acontrib + bcontrib
             amb = acontrib - bcontrib
         return apb, amb
@@ -214,7 +226,7 @@ class EDMETFragment(DMETFragment):
 
         cluster_solver_cls = get_solver_class(self.mf, solver)
         cluster_solver = cluster_solver_cls(
-            self.bos_freqs, (self.couplings_aa, self.couplings_bb), self, self.mo_coeff, self.mf.mo_occ,
+            self.bos_freqs, self.couplings, self, self.mo_coeff, self.mf.mo_occ,
             nocc_frozen=self.n_frozen_occ, nvir_frozen=self.n_frozen_vir,
             v_ext=v_ext,
             bos_occ_cutoff=self.opts.bos_occ_cutoff, **solver_opts)
