@@ -78,11 +78,12 @@ def get_gate_potential_kpts(mf, gate, atoms='C'):
     nk = len(mf.kpts)
     v_gate = []
     for k in range(nk):
-        e, v = np.linalg.eigh(ovlp[k])
+        ovlpk = ovlp[k]
+        e, v = np.linalg.eigh(ovlpk)
         c_lo = np.dot(v*(e**-0.5), v.T.conj())
         # Graphene layer orbitals:
         layer = [l[1].startswith(atoms) for l in mf.mol.ao_labels(None)]
-        sc = np.dot(ovlp, c_lo[:,layer])
+        sc = np.dot(ovlpk, c_lo[:,layer])
         v_gate.append(gate*np.dot(sc, sc.T.conj()))
     return np.asarray(v_gate)
 
