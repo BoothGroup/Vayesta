@@ -12,11 +12,17 @@ import pyscf.lib
 import pyscf.lo
 
 from vayesta.core.util import *
-from vayesta.core import tsymmetry
+from vayesta.core.symmetry import tsymmetry
 import vayesta.core.ao2mo
 import vayesta.core.ao2mo.helper
 from vayesta.core.bath import DMET_Bath
 from vayesta.misc.cubefile import CubeFile
+from vayesta.core.mpi import mpi
+
+
+# Get MPI rank of fragment
+get_fragment_mpi_rank = lambda *args : args[0].mpi_rank
+
 
 class Fragment:
 
@@ -28,11 +34,13 @@ class Fragment:
         # Symmetry
         sym_factor: float = 1.0
         wf_partition: str = NotSet  # ['first-occ', 'first-vir', 'democratic']
+        store_eris: bool = NotSet   # If True, ERIs will be stored in Fragment._eris
 
     @dataclasses.dataclass
     class Results:
         fid: int = None             # Fragment ID
         converged: bool = None      # True, if solver reached convergence criterion or no convergence required (eg. MP2 solver)
+        # --- Energies
         e_corr: float = None        # Fragment correlation energy contribution
         e_dmet: float = None        # DMET energy contribution
         # --- Wave-function
@@ -43,34 +51,76 @@ class Fragment:
         t2: np.ndarray = None       # CC double amplitudes
         l1: np.ndarray = None       # CC single Lambda-amplitudes
         l2: np.ndarray = None       # CC double Lambda-amplitudes
-        # Fragment-projected ("fp") amplitudes:
-        t1_fp: np.ndarray = None    # Fragment-projected CC single amplitudes
-        t2_fp: np.ndarray = None    # Fragment-projected CC double amplitudes
-        l1_fp: np.ndarray = None    # Fragment-projected CC single Lambda-amplitudes
-        l2_fp: np.ndarray = None    # Fragment-projected CC double Lambda-amplitudes
-        # Cluster density-matrices
+        # Fragment-projected amplitudes:
+        c1x: np.ndarray = None      # Fragment-projected CI single coefficients
+        c2x: np.ndarray = None      # Fragment-projected CI double coefficients
+        t1x: np.ndarray = None      # Fragment-projected CC single amplitudes
+        t2x: np.ndarray = None      # Fragment-projected CC double amplitudes
+        l1x: np.ndarray = None      # Fragment-projected CC single Lambda-amplitudes
+        l2x: np.ndarray = None      # Fragment-projected CC double Lambda-amplitudes
+        # --- Density-matrices
         dm1: np.ndarray = None      # One-particle reduced density matrix (dm1[i,j] = <0| i^+ j |0>
         dm2: np.ndarray = None      # Two-particle reduced density matrix (dm2[i,j,k,l] = <0| i^+ k^+ l j |0>)
 
-        def convert_amp_c_to_t(self):
-            self.t1 = self.c1/self.c0
-            self.t2 = self.c2/self.c0 - einsum('ia,jb->ijab', self.t1, self.t1)
-            return self.t1, self.t2
+        #def convert_amp_c_to_t(self):
+        #    self.t1 = self.c1/self.c0
+        #    self.t2 = self.c2/self.c0 - einsum('ia,jb->ijab', self.t1, self.t1)
+        #    return self.t1, self.t2
 
-        def get_t1(self):
+        def get_t1(self, default=None):
             if self.t1 is not None:
                 return self.t1
             if self.c1 is not None:
                 return self.c1 / self.c0
-            return None
+            return default
 
-        def get_t2(self):
+        def get_t2(self, default=None):
             if self.t2 is not None:
                 return self.t2
-            if self.c2 is not None:
+            if self.c0 is not None and self.c1 is not None and self.c2 is not None:
                 c1 = self.c1/self.c0
                 return self.c2/self.c0 - einsum('ia,jb->ijab', c1, c1)
-            return None
+            return default
+
+        def get_c1(self, intermed_norm=False, default=None):
+            if self.c1 is not None:
+                norm = 1/self.c0 if intermed_norm else 1
+                return norm * self.c1
+            if self.t1 is not None:
+                if not intermed_norm:
+                    raise ValueError("Cannot deduce C1 amplitudes from T1: normalization not known.")
+                return self.t1
+            return default
+
+        def get_c2(self, intermed_norm=False, default=None):
+            if self.c2 is not None:
+                norm = 1/self.c0 if intermed_norm else 1
+                return norm * self.c2
+            if self.t1 is not None and self.t2 is not None:
+                if not intermed_norm:
+                    raise ValueError("Cannot deduce C2 amplitudes from T1,T2: normalization not known.")
+                return self.t2 + einsum('ia,jb->ijab', self.t1, self.t1)
+            return default
+
+        #def get_t1x(self, default=None):
+        #    if self.t1x is not None:
+        #        return self.t1x
+        #    return default
+
+        #def get_t2x(self, default=None):
+        #    if self.t2x is not None:
+        #        return self.t2x
+        #    return default
+
+        #def get_l1x(self, default=None):
+        #    if self.l1x is not None:
+        #        return self.l1x
+        #    return default
+
+        #def get_l2x(self, default=None):
+        #    if self.l2x is not None:
+        #        return self.l2x
+        #    return default
 
     class Exit(Exception):
         """Raise for controlled early exit."""
@@ -88,6 +138,7 @@ class Fragment:
     def __init__(self, base, fid, name, c_frag, c_env, #fragment_type,
             atoms=None, aos=None,
             sym_parent=None, sym_op=None,
+            mpi_rank=0,
             log=None, options=None, **kwargs):
         """Abstract base class for quantum embedding fragments.
 
@@ -175,23 +226,20 @@ class Fragment:
         self.atoms = atoms
         self.aos = aos
 
+        # MPI
+        self.mpi_rank = mpi_rank
+
         # This set of orbitals is used in the projection to evaluate expectation value contributions
         # of the fragment. By default it is equal to `self.c_frag`.
         self.c_proj = self.c_frag
 
-        # TODO: Move to cluster object
-        # Final cluster active orbitals
-        self._c_active_occ = None
-        self._c_active_vir = None
-        # Final cluster frozen orbitals (Avoid storing these, as they scale as N^2 per cluster)
-        self._c_frozen_occ = None
-        self._c_frozen_vir = None
-        # Final results
-        self._results = None
-
-        # Bath and cluster
+        # Bath, cluster, and final results
         self.bath = None
-        self.cluster = None
+        self._cluster = None
+        self._results = self.Results(fid=self.id)
+
+        # In some cases we want to keep ERIs stored after the calculation
+        self._eris = None
 
         self.log.info("Creating %r", self)
         #self.log.info(break_into_lines(str(self.opts), newline='\n    '))
@@ -201,8 +249,9 @@ class Fragment:
         #fmt = ('%s(' + len(keys)*'%s: %r, ')[:-2] + ')'
         #values = [self.__dict__[k] for k in keys]
         #return fmt % (self.__class__.__name__, *[x for y in zip(keys, values) for x in y])
-        return '%s(id= %d, name= %s, n_frag= %d, n_elec= %.8f, sym_factor= %f)' % (self.__class__.__name__,
-                self.id, self.name, self.n_frag, self.nelectron, self.sym_factor)
+        return '%s(id= %d, name= %s, mpi_rank= %d, n_frag= %d, n_elec= %.8f, sym_factor= %f)' % (
+                self.__class__.__name__, self.id, self.name, self.mpi_rank,
+                self.n_frag, self.nelectron, self.sym_factor)
 
     def __str__(self):
         return '%s %d: %s' % (self.__class__.__name__, self.id, self.name)
@@ -255,128 +304,52 @@ class Fragment:
     def boundary_cond(self):
         return self.base.boundary_cond
 
-    # --- Active orbitals
-    # TODO: Cluster object
+    # --- Overlap matrices
+    # --------------------
 
-    @property
-    def c_active(self):
-        """Active orbital coefficients."""
-        if self.c_active_occ is None:
-            return None
-        return self.stack_mo(self.c_active_occ, self.c_active_vir)
-
-    @property
-    def c_active_occ(self):
-        """Active occupied orbital coefficients."""
-        if self.sym_parent is None:
-            return self._c_active_occ
-        else:
-            return self.sym_op(self.sym_parent.c_active_occ)
-
-    @property
-    def c_active_vir(self):
-        """Active virtual orbital coefficients."""
-        if self.sym_parent is None:
-            return self._c_active_vir
-        else:
-            return self.sym_op(self.sym_parent.c_active_vir)
-
-    @property
-    def n_active(self):
-        """Number of active orbitals."""
-        return (self.n_active_occ + self.n_active_vir)
-
-    @property
-    def n_active_occ(self):
-        """Number of active occupied orbitals."""
-        return self.c_active_occ.shape[-1]
-
-    @property
-    def n_active_vir(self):
-        """Number of active virtual orbitals."""
-        return self.c_active_vir.shape[-1]
-
-    # --- Frozen orbitals
-
-    @property
-    def c_frozen(self):
-        """Frozen orbital coefficients."""
-        if self.c_frozen_occ is None:
-            return None
-        return self.stack_mo(self.c_frozen_occ, self.c_frozen_vir)
-
-    @property
-    def c_frozen_occ(self):
-        """Frozen occupied orbital coefficients."""
-        if self.sym_parent is None:
-            return self._c_frozen_occ
-        else:
-            return self.sym_op(self.sym_parent.c_frozen_occ)
-
-    @property
-    def c_frozen_vir(self):
-        """Frozen virtual orbital coefficients."""
-        if self.sym_parent is None:
-            return self._c_frozen_vir
-        else:
-            return self.sym_op(self.sym_parent.c_frozen_vir)
-
-    @property
-    def n_frozen(self):
-        """Number of frozen orbitals."""
-        return (self.n_frozen_occ + self.n_frozen_vir)
-
-    @property
-    def n_frozen_occ(self):
-        """Number of frozen occupied orbitals."""
-        return self.c_frozen_occ.shape[-1]
-
-    @property
-    def n_frozen_vir(self):
-        """Number of frozen virtual orbitals."""
-        return self.c_frozen_vir.shape[-1]
-
-    # --- All orbitals
-
-    @property
-    def mo_coeff(self):
-        return self.stack_mo(self.c_frozen_occ, self.c_active_occ,
-                             self.c_active_vir, self.c_frozen_vir)
-
-    # --- Rotation matrices
-    # ---------------------
-
-    def get_rot_to_mf(self):
-        """Get rotation matrices from occupied/virtual active space to MF orbitals."""
+    def get_overlap_m2c(self):
+        """Get overlap matrices from mean-field to occupied/virtual active space."""
         ovlp = self.base.get_ovlp()
-        r_occ = dot(self.c_active_occ.T, ovlp, self.base.mo_coeff_occ)
-        r_vir = dot(self.c_active_vir.T, ovlp, self.base.mo_coeff_vir)
+        r_occ = dot(self.base.mo_coeff_occ.T, ovlp, self.cluster.c_active_occ)
+        r_vir = dot(self.base.mo_coeff_vir.T, ovlp, self.cluster.c_active_vir)
         return r_occ, r_vir
 
-    def get_rot_to_fragment(self, fragment):
-        """Get rotation matrices between occupied/virtual active space of this and another fragment."""
+    def get_overlap_m2f(self):
+        """Get overlap matrices from mean-field to fragment orbitals."""
         ovlp = self.base.get_ovlp()
-        r_occ = dot(self.c_active_occ.T, ovlp, fragment.c_active_occ)
-        r_vir = dot(self.c_active_vir.T, ovlp, fragment.c_active_vir)
+        r_occ = dot(self.base.mo_coeff_occ.T, ovlp, self.c_proj)
+        r_vir = dot(self.base.mo_coeff_vir.T, ovlp, self.c_proj)
         return r_occ, r_vir
 
     @property
     def results(self):
-        if self.sym_parent is None:
-            return self._results
-        else:
+        if self.sym_parent is not None:
             return self.sym_parent.results
+        return self._results
+
+    @results.setter
+    def results(self, value):
+        if self.sym_parent is not None:
+            raise RuntimeError("Cannot set attribute results in symmetry derived fragment.")
+        self._results = value
+
+    @property
+    def cluster(self):
+        if self.sym_parent is not None:
+            return self.sym_parent.cluster.transform(self.sym_op)
+        return self._cluster
+
+    @cluster.setter
+    def cluster(self, value):
+        if self.sym_parent is not None:
+            raise RuntimeError("Cannot set attribute cluster in symmetry derived fragment.")
+        self._cluster = value
 
     def reset(self):
         self.log.debugv("Resetting fragment %s", self)
         self.bath = None
         self.cluster = None
-        self._results = None
-        # TODO: Remove these:
-        self._c_active_occ = None
-        self._c_active_vir = None
-        self._c_frozen_occ = None
-        self._c_frozen_vir = None
+        self._results = self.Results(fid=self.id)
 
     def couple_to_fragment(self, frag):
         if frag is self:
@@ -483,6 +456,7 @@ class Fragment:
         mo_coeff = hstack(*mo_coeff)    # Called from UHF: do NOT use stack_mo!
         fock = dot(mo_coeff.T, fock, mo_coeff)
         mo_energy, rot = np.linalg.eigh(fock)
+        self.log.debugv("Canonicalized MO energies:\n%r", mo_energy)
         mo_can = np.dot(mo_coeff, rot)
         if sign_convention:
             mo_can, signs = fix_orbital_sign(mo_can)
@@ -520,7 +494,7 @@ class Fragment:
         dm = dot(sc.T, dm1, sc)
         e, r = np.linalg.eigh(dm)
         if tol and not np.allclose(np.fmin(abs(e), abs(e-norm)), 0, atol=tol, rtol=0):
-            raise RuntimeError("Eigenvalues of cluster-DM not all close to 0 or %d:\n%s" % (e, norm))
+            raise RuntimeError("Eigenvalues of cluster-DM not all close to 0 or %d:\n%s" % (norm, e))
         e, r = e[::-1], r[:,::-1]
         c_cluster = np.dot(c_cluster, r)
         c_cluster = fix_orbital_sign(c_cluster)[0]
@@ -560,6 +534,37 @@ class Fragment:
     # Amplitude projection
     # --------------------
 
+    # NEW:
+
+    def get_occ2frag_projector(self):
+        ovlp = self.base.get_ovlp()
+        projector = dot(self.c_proj.T, ovlp, self.cluster.c_active_occ)
+        return projector
+
+    def project_amp1_to_fragment(self, amp1, projector=None):
+        """Can be used to project C1, T1, or L1 amplitudes."""
+        if projector is None:
+            projector = self.get_occ2frag_projector()
+        return np.dot(projector, amp1)
+
+    def project_amp2_to_fragment(self, amp2, projector=None, axis=0):
+        """Can be used to project C2, T2, or L2 amplitudes."""
+        if projector is None:
+            projector = self.get_occ2frag_projector()
+        if axis == 0:
+            # TEST
+            #c1 = einsum('xi,i...->x...', projector, amp2)
+            #c2 = einsum('xj,ij...->ix...', projector, amp2)
+            #assert np.allclose(c1, c2.transpose(1,0,2,3))
+            #assert np.allclose(c2, c1.transpose(1,0,2,3))
+            #
+            return einsum('xi,i...->x...', projector, amp2)
+        if axis == 1:
+            return einsum('xj,ij...->ix...', projector, amp2)
+        raise ValueError("axis needs to be 0 or 1")
+
+    # OLD:
+
     def project_amplitude_to_fragment(self, c, c_occ=None, c_vir=None, partition=None, symmetrize=True):
         """Get fragment contribution of CI coefficients or CC amplitudes.
 
@@ -568,9 +573,9 @@ class Fragment:
         c: (n(occ), n(vir)) or (n(occ), n(occ), n(vir), n(vir)) array
             CI coefficients or CC amplitudes.
         c_occ: (n(AO), n(MO)) array, optional
-            Occupied MO coefficients. If `None`, `self.c_active_occ` is used. Default: `None`.
+            Occupied MO coefficients. If `None`, `self.cluster.c_active_occ` is used. Default: `None`.
         c_vir: (n(AO), n(MO)) array, optional
-            Virtual MO coefficients. If `None`, `self.c_active_vir` is used. Default: `None`.
+            Virtual MO coefficients. If `None`, `self.cluster.c_active_vir` is used. Default: `None`.
         partition: ['first-occ', 'first-vir', 'democractic'], optional
             Partitioning scheme of amplitudes. Default: 'first-occ'.
         symmetrize: bool, optional
@@ -581,8 +586,8 @@ class Fragment:
         pc: array
             Projected CI coefficients or CC amplitudes.
         """
-        if c_occ is None: c_occ = self.c_active_occ
-        if c_vir is None: c_vir = self.c_active_vir
+        if c_occ is None: c_occ = self.cluster.c_active_occ
+        if c_vir is None: c_vir = self.cluster.c_active_vir
         if partition is None: partition = self.opts.wf_partition
 
         if np.ndim(c) not in (2, 4):
@@ -685,6 +690,8 @@ class Fragment:
 
         # Note that the energy should be invariant to symmetrization
         if symmetrize:
+            #sym_err = np.linalg.norm(pc - pc.transpose(1,0,3,2))
+            #self.log.debugv("Symmetry error= %e", sym_err)
             pc = (pc + pc.transpose(1,0,3,2)) / 2
 
         return pc
@@ -733,18 +740,18 @@ class Fragment:
             c_env_t = sym_op(self.c_env)
             # Check that translated fragment does not overlap with current fragment:
             fragovlp = abs(dot(self.c_frag.T, ovlp, c_frag_t)).max()
-            if fragovlp > 1e-9:
+            if (fragovlp > 1e-8):
                 self.log.critical("Translation (%d,%d,%d) of fragment %s not orthogonal to original fragment (overlap= %.3e)!",
                             dx, dy, dz, self.name, fragovlp)
                 raise RuntimeError("Overlapping fragment spaces.")
             # Deprecated:
-            if hasattr(self.base, 'add_fragment'):
+            if hasattr(self.base, 'add_fragment'):  # pragma: no cover
                 frag = self.base.add_fragment(name, c_frag_t, c_env_t, options=self.opts,
                         sym_parent=self, sym_op=sym_op)
             else:
-                fid = self.base.fragmentation.get_next_fid()
-                frag = self.base.Fragment(self.base, fid, name, c_frag_t, c_env_t, options=self.opts,
-                        sym_parent=self, sym_op=sym_op)
+                frag_id = self.base.register.get_next_id()
+                frag = self.base.Fragment(self.base, frag_id, name, c_frag_t, c_env_t, options=self.opts,
+                        sym_parent=self, sym_op=sym_op, mpi_rank=self.mpi_rank)
                 self.base.fragments.append(frag)
 
             # Check symmetry
@@ -760,7 +767,7 @@ class Fragment:
             fragments.append(frag)
         return fragments
 
-    def make_tsymmetric_fragments(self, *args, **kwargs):
+    def make_tsymmetric_fragments(self, *args, **kwargs):  # pragma: no cover
         self.log.warning("make_tsymmetric_fragments is deprecated - use add_tsymmetric_fragments")
         return self.add_tsymmetric_fragments(*args, **kwargs)
 
@@ -812,11 +819,12 @@ class Fragment:
         c_active: array, optional
         fock: array, optional
         """
-        if c_active is None: c_active = self.c_active
+        if c_active is None: c_active = self.cluster.c_active
         if fock is None: fock = self.base.get_fock()
         mo_energy = einsum('ai,ab,bi->i', c_active, fock, c_active)
         return mo_energy
 
+    @mpi.with_send(source=get_fragment_mpi_rank)
     def get_fragment_dmet_energy(self, dm1=None, dm2=None, h1e_eff=None, eris=None):
         """Get fragment contribution to whole system DMET energy.
 
@@ -836,14 +844,16 @@ class Fragment:
         e_dmet: float
             Electronic fragment DMET energy.
         """
+        assert (mpi.rank == self.mpi_rank)
         if dm1 is None: dm1 = self.results.dm1
         if dm2 is None: dm2 = self.results.dm2
         if dm1 is None: raise RuntimeError("DM1 not found for %s" % self)
         if dm2 is None: raise RuntimeError("DM2 not found for %s" % self)
-        c_act = self.c_active
+        c_act = self.cluster.c_active
         t0 = timer()
         if eris is None:
-            eris = self.base.get_eris_array(c_act)
+            with log_time(self.log.timing, "Time for AO->MO transformation: %s"):
+                eris = self.base.get_eris_array(c_act)
         elif not isinstance(eris, np.ndarray):
             self.log.debugv("Extracting ERI array from CCSD ERIs object.")
             eris = vayesta.core.ao2mo.helper.get_full_array(eris, c_act)
@@ -853,7 +863,7 @@ class Fragment:
             # Use the original Hcore (without chemical potential modifications), but updated mf-potential!
             h1e_eff = self.base.get_hcore_orig() + self.base.get_veff(with_exxdiv=False)/2
             h1e_eff = dot(c_act.T, h1e_eff, c_act)
-            occ = np.s_[:self.n_active_occ]
+            occ = np.s_[:self.cluster.nocc_active]
             v_act = einsum('iipq->pq', eris[occ,occ,:,:]) - einsum('iqpi->pq', eris[occ,:,:,occ])/2
             h1e_eff -= v_act
 
@@ -905,6 +915,15 @@ class Fragment:
     # --- Orbital plotting
     # --------------------
 
+    @mpi.with_send(source=get_fragment_mpi_rank)
+    def pop_analysis(self, cluster=None, dm1=None, **kwargs):
+        if cluster is None: cluster = self.cluster
+        if dm1 is None: dm1 = self.results.dm1
+        if dm1 is None: raise ValueError("DM1 not found for %s" % self)
+        # Add frozen mean-field contribution:
+        dm1 = cluster.add_frozen_rdm1(dm1)
+        return self.base.pop_analysis(dm1, mo_coeff=cluster.coeff, **kwargs)
+
     def plot3d(self, filename, gridsize=(100, 100, 100), **kwargs):
         """Write cube density data of fragment orbitals to file."""
         nx, ny, nz = gridsize
@@ -918,7 +937,7 @@ class Fragment:
     # --- Deprecated
     # --------------
 
-    def make_dmet_bath(self, *args, dmet_threshold=None, **kwargs):
+    def make_dmet_bath(self, *args, dmet_threshold=None, **kwargs):  # pragma: no cover
         self.log.warning("make_dmet_bath is deprecated. Use self.bath.make_dmet_bath.")
         if dmet_threshold is None:
             dmet_threshold = self.opts.dmet_threshold

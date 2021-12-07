@@ -20,14 +20,22 @@ import pyscf.pbc.tools
 import pyscf.lib
 from pyscf.mp.mp2 import _mo_without_core
 
+import vayesta
 from vayesta.core import vlog
 from vayesta.core.foldscf import FoldedSCF, fold_scf
 from vayesta.core.util import *
-from vayesta.core.ao2mo.postscf_ao2mo import postscf_ao2mo
+from vayesta.core.ao2mo import postscf_ao2mo
+from vayesta.core.ao2mo import postscf_kao2gmo
 from vayesta.core.ao2mo.kao2gmo import gdf_to_pyscf_eris
 from vayesta.misc.gdf import GDF
 from vayesta import lattmod
 from vayesta.core.scmf import PDMET, Brueckner
+from vayesta.core.mpi import mpi
+from .register import FragmentRegister
+
+# Symmetry
+#import vayesta.core.symmetry
+#from vayesta.core.symmetry import Symmetry
 
 # Fragmentations
 from vayesta.core.fragmentation import make_sao_fragmentation
@@ -38,17 +46,9 @@ from vayesta.core.fragmentation import make_site_fragmentation
 # --- This Package
 
 from .fragment import QEmbeddingFragment
-# Amplitudes
-from .amplitudes import get_t1
-from .amplitudes import get_t2
-from .amplitudes import get_t12
-# Density-matrices
-from .rdm import make_rdm1_demo
-from .rdm import make_rdm2_demo
-from .rdm import make_rdm1_ccsd
-from .rdm import make_rdm2_ccsd
 from . import helper
-
+from .rdm import make_rdm1_demo_rhf
+from .rdm import make_rdm2_demo_rhf
 
 class QEmbedding:
 
@@ -58,11 +58,12 @@ class QEmbedding:
     @dataclasses.dataclass
     class Options(OptionsBase):
         dmet_threshold: float = 1e-6
-        recalc_vhf: bool = True
+        #recalc_vhf: bool = True
         solver_options: dict = dataclasses.field(default_factory=dict)
         wf_partition: str = 'first-occ'     # ['first-occ', 'first-vir', 'democratic']
+        store_eris: bool = False            # If True, ERIs will be stored in Fragment._eris
 
-    def __init__(self, mf, options=None, log=None, **kwargs):
+    def __init__(self, mf, options=None, log=None, overwrite=None, **kwargs):
         """Abstract base class for quantum embedding methods.
 
         Parameters
@@ -108,61 +109,128 @@ class QEmbedding:
         # 1) Logging
         # ----------
         self.log = log or logging.getLogger(__name__)
+        self.log.info("")
         self.log.info("Initializing %s" % self.__class__.__name__)
         self.log.info("=============%s" % (len(str(self.__class__.__name__))*"="))
 
-        # Options
-        # -------
+        # 2) Options
+        # ----------
         if options is None:
             options = self.Options(**kwargs)
         else:
             options = options.replace(kwargs)
         self.opts = options
 
-        # 2) Mean-field
+        # 3) Overwrite methods/attributes
+        # -------------------------------
+        if overwrite is not None:
+            for name, attr in overwrite.items():
+                if callable(attr):
+                    self.log.info("Overwriting method %s of %s", name, self.__class__.__name__)
+                    setattr(self, name, attr.__get__(self))
+                else:
+                    self.log.info("Overwriting attribute %s of %s", name, self.__class__.__name__)
+                    setattr(self, name, attr)
+
+        # 4) Mean-field
         # -------------
+        self.mf = None
+        self.kcell = None
+        self.kpts = None
+        self.kdf = None
+        self.madelung = None
+        with log_time(self.log.timing, "Time for mean-field setup: %s"):
+            self.init_mf(mf)
+        #with log_time(self.log.timing, "Time for symmetry setup: %s"):
+        #    self.symmetry = Symmetry(self.mf)
+
+        # 5) Fragments
+        # ------------
+        self.register = FragmentRegister()
+        self.fragmentation = None
+        self.fragments = []
+
+        # 6) Other
+        # --------
+        self.with_scmf = None   # Self-consistent mean-field
+
+
+    def _mpi_bcast_mf(self, mf):
+        """Use mo_energy and mo_coeff from master MPI rank only."""
+        # Check if all MPI ranks have the same mean-field MOs
+        #mo_energy = mpi.world.gather(mf.mo_energy)
+        #if mpi.is_master:
+        #    moerr = np.max([abs(mo_energy[i] - mo_energy[0]).max() for i in range(len(mpi))])
+        #    if moerr > 1e-6:
+        #        self.log.warning("Large difference of MO energies between MPI ranks= %.2e !", moerr)
+        #    else:
+        #        self.log.debugv("Largest difference of MO energies between MPI ranks= %.2e", moerr)
+        # Use MOs of master process
+        mf.mo_energy = mpi.world.bcast(mf.mo_energy, root=0)
+        mf.mo_coeff = mpi.world.bcast(mf.mo_coeff, root=0)
+
+    def init_mf(self, mf):
         self._mf_orig = mf      # Keep track of original mean-field object - be careful not to modify in any way, to avoid side effects!
+
         # Create shallow copy of mean-field object; this way it can be updated without side effects outside the quantum
         # embedding method if attributes are replaced in their entirety
         # (eg. `mf.mo_coeff = mo_new` instead of `mf.mo_coeff[:] = mo_new`).
         mf = copy.copy(mf)
-        self.log.debug("type(MF)= %r", type(mf))
+        self.log.debugv("type(mf)= %r", type(mf))
         # If the mean-field has k-points, automatically fold to the supercell:
         if hasattr(mf, 'kpts') and mf.kpts is not None:
             with log_time(self.log.timing, "Time for k->G folding of MOs: %s"):
                 mf = fold_scf(mf)
         if isinstance(mf, FoldedSCF):
             self.kcell, self.kpts, self.kdf = mf.kmf.mol, mf.kmf.kpts, mf.kmf.with_df
-        else:
-            self.kcell = self.kpts = self.kdf = None
+        # Make sure that all MPI ranks use the same MOs`:
+        if mpi:
+            with log_time(self.log.timing, "Time to broadcast mean-field to all MPI ranks: %s"):
+                self._mpi_bcast_mf(mf)
         self.mf = mf
         if not (self.is_rhf or self.is_uhf):
             raise ValueError("Cannot deduce RHF or UHF!")
+
+        # Evaluating the Madelung constant is expensive - cache result
+        if self.has_exxdiv:
+            self.madelung = pyscf.pbc.tools.madelung(self.mol, self.mf.kpt)
+
         # Original mean-field integrals - do not change these!
-        with log_time(self.log.timingv, "Time for overlap: %s"):
-            self._ovlp_orig = self.mf.get_ovlp()
-        self._ovlp = self._ovlp_orig
-        with log_time(self.log.timingv, "Time for hcore: %s"):
-            self._hcore_orig = self.mf.get_hcore()
-        self._hcore = self._hcore_orig
-        # Do not call self.mf.get_veff() here: if mf is a converged HF calculation,
-        # the potential can be deduced from mf.mo_energy and mf.mo_coeff.
-        # Set recalc_vhf = False to use this feature.
-        with log_time(self.log.timingv, "Time for veff: %s"):
-            self._veff_orig = self.get_init_veff()
+        self._ovlp_orig = self.mf.get_ovlp()
+        self._hcore_orig = self.mf.get_hcore()
+        self._veff_orig = self.mf.get_veff()
         # Cached integrals - these can be changed!
+        self._ovlp = self._ovlp_orig
+        self._hcore = self._hcore_orig
         self._veff = self._veff_orig
 
-        # Some MF output
-        #FIXME (no RHF/UHF dependent code here)
-        if self.mf.converged:
-            self.log.info("E(MF)= %s", energy_string(self.e_mf))
+        # Hartree-Fock energy - this can be different from mf.e_tot, when the mean-field
+        # is not a converged HF calculations
+        h1e_energy = self.get_hcore_for_energy()
+        vhf_energy = self.get_veff_for_energy()
+        e_hf = mf.energy_tot(h1e=h1e_energy, vhf=vhf_energy)
+        if abs((mf.e_tot - e_hf)/mf.e_tot) > 1e-3:
+            self.log.warning("Non Hartree-Fock mean-field? Large change of energy: E(mf)= %s -> E(HF)= %s (dE= %s) !",
+                    *map(energy_string, (mf.e_tot, e_hf, e_hf-mf.e_tot)))
+        elif abs(mf.e_tot - e_hf) > 1e-7:
+            self.log.info("Non Hartree-Fock mean-field detected. Change of energy: E(mf)= %s -> E(HF)= %s (dE= %s)",
+                    *map(energy_string, (mf.e_tot, e_hf, e_hf-mf.e_tot)))
         else:
-            self.log.warning("E(MF)= %s (not converged!)", energy_string(self.e_mf))
+            self.log.debugv("Change of energy: E(mf)= %s -> E(HF)= %s (dE= %s)",
+                    *map(energy_string, (mf.e_tot, e_hf, e_hf-mf.e_tot)))
+        self.mf.e_tot = e_hf
+
+        # Some MF output
+        if self.mf.converged:
+            self.log.info("E(mf)= %s", energy_string(self.e_mf))
+        else:
+            self.log.warning("E(mf)= %s (not converged!)", energy_string(self.e_mf))
+
+        #FIXME (no RHF/UHF dependent code here)
         if self.is_rhf:
             self.log.info("n(AO)= %4d  n(MO)= %4d  n(linear dep.)= %4d", self.nao, self.nmo, self.nao-self.nmo)
         else:
-            self.log.info("n(AO)= %4d  n(alpha/beta-MO)= %4d / %4d  n(linear dep.)= %4d / %4d",
+            self.log.info("n(AO)= %4d  n(alpha/beta-MO)= (%4d, %4d)  n(linear dep.)= (%4d, %4d)",
                     self.nao, *self.nmo, self.nao-self.nmo[0], self.nao-self.nmo[1])
 
         self.check_orthonormal(self.mo_coeff, mo_name='MO')
@@ -176,15 +244,6 @@ class QEmbedding:
                 self.log.debugv("beta-MO energies (occ):\n%r", self.mo_energy[1][self.mo_occ[1] > 0])
                 self.log.debugv("alpha-MO energies (vir):\n%r", self.mo_energy[0][self.mo_occ[0] == 0])
                 self.log.debugv("beta-MO energies (vir):\n%r", self.mo_energy[1][self.mo_occ[1] == 0])
-
-        # 3) Fragments
-        # ------------
-        self.fragmentation = None
-        self.fragments = []
-
-        # 4) Other
-        # --------
-        self.with_scmf = None   # Self-consistent mean-field
 
 
     # --- Basic properties and methods
@@ -228,9 +287,8 @@ class QEmbedding:
         """
         if not self.has_exxdiv: return 0, None
         sc = np.dot(self.get_ovlp(), self.mo_coeff[:,:self.nocc])
-        madelung = pyscf.pbc.tools.madelung(self.mol, self.mf.kpt)
-        e_exxdiv = -madelung * self.nocc/self.ncells
-        v_exxdiv = -madelung * np.dot(sc, sc.T)
+        e_exxdiv = -self.madelung * self.nocc/self.ncells
+        v_exxdiv = -self.madelung * np.dot(sc, sc.T)
         self.log.debug("Divergent exact-exchange (exxdiv) correction= %+16.8f Ha", e_exxdiv)
         return e_exxdiv, v_exxdiv
 
@@ -266,14 +324,19 @@ class QEmbedding:
 
     # Mean-field properties
 
-    def get_init_veff(self):
-        if self.opts.recalc_vhf:
-            self.log.debug("Recalculating HF potential from MF object.")
-            return self.mf.get_veff()
-        self.log.debug("Determining HF potential from MO energies and coefficients.")
-        cs = np.dot(self.mo_coeff.T, self.get_ovlp())
-        fock = np.dot(cs.T*self.mo_energy, cs)
-        return fock - self.get_hcore()
+    #def init_vhf_ehf(self):
+    #    """Get Hartree-Fock potential and energy."""
+    #    if self.opts.recalc_vhf:
+    #        self.log.debug("Calculating HF potential from mean-field object.")
+    #        vhf = self.mf.get_veff()
+    #    else:
+    #        self.log.debug("Calculating HF potential from MOs.")
+    #        cs = np.dot(self.mo_coeff.T, self.get_ovlp())
+    #        fock = np.dot(cs.T*self.mo_energy, cs)
+    #        vhf = (fock - self.get_hcore())
+    #    h1e = self.get_hcore_for_energy()
+    #    ehf = self.mf.energy_tot(h1e=h1e, vhf=vhf)
+    #    return vhf, ehf
 
     @property
     def mo_energy(self):
@@ -416,6 +479,22 @@ class QEmbedding:
         self.log.debug("Changing veff matrix.")
         self._veff = value
 
+    # Integrals for energy evaluation
+    # Overwriting these allows using different integrals for the energy evaluation
+
+    def get_hcore_for_energy(self):
+        return self.get_hcore()
+
+    def get_veff_for_energy(self, with_exxdiv=True):
+        return self.get_veff(with_exxdiv=with_exxdiv)
+
+    def get_fock_for_energy(self, with_exxdiv=True):
+        return (self.get_hcore_for_energy() + self.get_veff_for_energy(with_exxdiv=with_exxdiv))
+
+    def get_fock_for_bno(self):
+        """Fock matrix used for MP2 bath natural orbitals."""
+        return self.get_fock()
+
     # Other integral methods:
 
     def get_ovlp_power(self, power):
@@ -457,7 +536,6 @@ class QEmbedding:
             Electron-repulsion integrals in MO basis.
         """
         # TODO: check self.kdf and fold
-        t0 = timer()
         if hasattr(self.mf, 'with_df') and self.mf.with_df is not None:
             eris = self.mf.with_df.ao2mo(mo_coeff, compact=compact)
         elif self.mf._eri is not None:
@@ -470,44 +548,119 @@ class QEmbedding:
             else:
                 shape = [mo.shape[-1] for mo in mo_coeff]
             eris = eris.reshape(shape)
-        self.log.timing("Time for AO->MO of ERIs:  %s", time_string(timer()-t0))
         return eris
 
-    def get_eris_object(self, posthf):
-        """Get ERIs for post-HF methods.
+    def get_eris_object(self, postscf, fock=None):
+        """Get ERIs for post-SCF methods.
 
         For folded PBC calculations, this folds the MO back into k-space
         and contracts with the k-space three-center integrals..
 
         Parameters
         ----------
-        posthf: one of the following post-HF methods: MP2, CCSD, RCCSD, DFCCSD
-            Post-HF method with attribute mo_coeff set.
+        postscf: one of the following PySCF methods: MP2, CCSD, RCCSD, DFCCSD
+            Post-SCF method with attribute mo_coeff set.
 
         Returns
         -------
         eris: _ChemistsERIs
-            ERIs which can be used for the respective post-HF method.
+            ERIs which can be used for the respective post-scf method.
         """
-        t0 = timer()
-        c_act = _mo_without_core(posthf, posthf.mo_coeff)
-        if isinstance(posthf, pyscf.mp.mp2.MP2):
-            fock = self.get_fock()
-        elif isinstance(posthf, (pyscf.ci.cisd.CISD, pyscf.cc.ccsd.CCSD)):
-            fock = self.get_fock(with_exxdiv=False)
-        else:
-            raise ValueError("Unknown post-HF method: %r", type(posthf))
-        mo_energy = einsum('ai,ab,bi->i', c_act, self.get_fock(), c_act)
+        if fock is None:
+            if isinstance(postscf, pyscf.mp.mp2.MP2):
+                fock = self.get_fock()
+            elif isinstance(postscf, (pyscf.ci.cisd.CISD, pyscf.cc.ccsd.CCSD)):
+                fock = self.get_fock(with_exxdiv=False)
+            else:
+                raise ValueError("Unknown post-SCF method: %r", type(postscf))
+        # For MO energies, always use get_fock():
+        mo_act = _mo_without_core(postscf, postscf.mo_coeff)
+        mo_energy = einsum('ai,ab,bi->i', mo_act, self.get_fock(), mo_act)
         e_hf = self.mf.e_tot
 
-        # 1) Fold MOs into k-point sampled primitive cell, to perform efficient AO->MO transformation:
+        # Fold MOs into k-point sampled primitive cell, to perform efficient AO->MO transformation:
         if self.kdf is not None:
-            eris = gdf_to_pyscf_eris(self.mf, self.kdf, posthf, fock=fock, mo_energy=mo_energy, e_hf=e_hf)
+            eris = postscf_kao2gmo(postscf, self.kdf, fock=fock, mo_energy=mo_energy, e_hf=e_hf)
+            ## COMPARISON:
+            ## OLD:
+            #with log_time(self.log.timing, "Time OLD: %s"):
+            #    eris_old = gdf_to_pyscf_eris(self.mf, self.kdf, postscf, fock=fock, mo_energy=mo_energy, e_hf=e_hf)
+            ## NEW:
+            #with log_time(self.log.timing, "Time NEW: %s"):
+            #    eris = postscf_kao2gmo(postscf, self.kdf, fock=fock, mo_energy=mo_energy, e_hf=e_hf)
+
+            #for key in ['oooo', 'ovoo', 'ovvo', 'oovv', 'ovov', 'ovvv', 'vvvv', 'vvL']:
+            #    if not hasattr(eris, key) or (getattr(eris, key) is None):
+            #        continue
+            #    old = getattr(eris_old, key)
+            #    new = getattr(eris, key)
+            #    close = np.allclose(old, new)
+            #    assert close
+            #    assert old.shape == new.shape
             return eris
-        # 2) Regular AO->MO transformation
-        eris = postscf_ao2mo(posthf, fock=fock, mo_energy=mo_energy, e_hf=e_hf)
-        self.log.timing("Time for AO->MO of ERIs:  %s", time_string(timer()-t0))
+        # Regular AO->MO transformation
+        eris = postscf_ao2mo(postscf, fock=fock, mo_energy=mo_energy, e_hf=e_hf)
         return eris
+
+    # Overlap matrices
+    # ----------------
+
+    def get_overlap_c2c(emb, tril=True, fragments=None):
+        """Get cluster to cluster overlaps for occupied and virtual orbitals."""
+        ovlp = emb.get_ovlp()
+        if fragments is None:
+            fragments = emb.fragments
+        nfrag = len(fragments)
+        po = [[] for i in range(nfrag)]
+        pv = [[] for i in range(nfrag)]
+        for i1, f1 in enumerate(fragments):
+            cso = np.dot(f1.cluster.c_active_occ.T, ovlp)   # N(f) x N(AO)^2
+            csv = np.dot(f1.cluster.c_active_vir.T, ovlp)
+            for i2, f2 in enumerate((fragments[:i1+1] if tril else fragments)):
+                po[i1].append(np.dot(cso, f2.cluster.c_active_occ))   # N(f)^2 x N(AO)
+                pv[i1].append(np.dot(csv, f2.cluster.c_active_vir))
+        return po, pv
+
+    def get_overlap_c2f(emb, fragments=None):
+        """Get cluster to fragment overlaps for occupied and virtual orbitals."""
+        ovlp = emb.get_ovlp()
+        if fragments is None:
+            fragments = emb.fragments
+        nfrag = len(fragments)
+        po = [[] for i in range(nfrag)]
+        pv = [[] for i in range(nfrag)]
+        for i1, f1 in enumerate(fragments):
+            cso = np.dot(f1.cluster.c_active_occ.T, ovlp)   # N(f) x N(AO)^2
+            csv = np.dot(f1.cluster.c_active_vir.T, ovlp)
+            for i2, f2 in enumerate(fragments):
+                po[i1].append(np.dot(cso, f2.c_proj))   # N(f)^2 x N(AO)
+                pv[i1].append(np.dot(csv, f2.c_proj))
+        return po, pv
+
+    def get_overlap_m2c(emb, fragments=None):
+        """Get mean-field to cluster overlaps for occupied and virtual orbitals."""
+        ovlp = emb.get_ovlp()
+        if fragments is None:
+            fragments = emb.fragments
+        po = []
+        pv = []
+        for frag in fragments:
+            fo, fv = frag.get_overlap_m2c() # N(f) x N(AO)^2
+            po.append(fo)
+            pv.append(fv)
+        return po, pv
+
+    def get_overlap_m2f(emb, fragments=None):
+        """Get mean-field to fragment overlaps for occupied and virtual orbitals."""
+        ovlp = emb.get_ovlp()
+        if fragments is None:
+            fragments = emb.fragments
+        po = []
+        pv = []
+        for frag in fragments:
+            po.append(dot(emb.mo_coeff_occ.T, ovlp, frag.c_proj))    # N(f) x N(AO)^2
+            pv.append(dot(emb.mo_coeff_vir.T, ovlp, frag.c_proj))
+        return po, pv
 
     # Symmetry between fragments
     # --------------------------
@@ -555,8 +708,76 @@ class QEmbedding:
             children[idx].append(f)
         return children
 
+    def get_fragments(self, **filters):
+        """Return all fragments which obey the specified conditions.
+
+        Arguments
+        ---------
+        **kwargs:
+            List of returned fragmens will be filtered according to specified
+            keyword arguments.
+
+        Returns
+        -------
+        fragments: list
+            List of fragments.
+
+        Examples
+        --------
+
+        Only returns fragments with mpi_rank 0, 1, or 2:
+
+        >>> self.get_fragments(mpi_rank=[0,1,2])
+
+        Only returns fragments with no symmetry parent:
+
+        >>> self.get_fragments(sym_parent=None)
+        """
+        if not filters:
+            return self.fragments
+        filters = {key : np.atleast_1d(filters[key]) for key in filters}
+        fragments = []
+        for frag in self.fragments:
+            skip = False
+            for key, filtr in filters.items():
+                val = getattr(frag, key)
+                if val not in filtr:
+                    skip = True
+                    break
+            if skip:
+                self.log.debugv("Skipping %s: attribute %s= %r, filter= %r", frag, key, val, filtr)
+                continue
+            self.log.debugv("Returning %s: attribute %s= %r, filter= %r", frag, key, val, filtr)
+            fragments.append(frag)
+        return fragments
+
     # Results
     # -------
+
+    make_rdm1_demo = make_rdm1_demo_rhf
+    make_rdm2_demo = make_rdm2_demo_rhf
+
+    def get_fragment_nelectron(self):
+        nelectron = [f.sym_factor*f.nelectron for f in self.fragments]
+
+    @mpi.with_allreduce()
+    def get_dmet_energy_elec(self):
+        """Calculate electronic DMET energy via democratically partitioned density-matrices.
+
+        Returns
+        -------
+        e_dmet: float
+            Electronic DMET energy.
+        """
+        e_dmet = 0.0
+        for f in self.get_fragments(mpi_rank=mpi.rank):
+            if f.results.e_dmet is not None:
+                e_dmet += f.results.e_dmet
+            else:
+                self.log.info("Calculating DMET energy of %s", f)
+                e_dmet += f.get_fragment_dmet_energy()
+        self.log.debugv("E_elec(DMET)= %s", energy_string(e_dmet))
+        return e_dmet
 
     def get_dmet_energy(self, with_nuc=True, with_exxdiv=True):
         """Calculate DMET energy via democratically partitioned density-matrices.
@@ -573,49 +794,17 @@ class QEmbedding:
         e_dmet: float
             DMET energy.
         """
-        e_dmet = 0.0
-        for f in self.fragments:
-            if f.results.e_dmet is not None:
-                e_dmet += f.results.e_dmet
-            else:
-                self.log.info("Calculating DMET energy of %s", f)
-                e_dmet += f.get_fragment_dmet_energy()
+        e_dmet = self.get_dmet_energy_elec()
         if with_nuc:
             e_dmet += self.e_nuc
         if with_exxdiv and self.has_exxdiv:
             e_dmet += self.get_exxdiv()[0]
         return e_dmet
 
-    # --- CC Amplitudes
-    # -----------------
-
-    # T-amplitudes
-    get_t1 = get_t1
-    get_t2 = get_t2
-    get_t12 = get_t12
-
-    # Lambda-amplitudes
-    def get_l1(self, *args, **kwargs):
-        return self.get_t1(*args, get_lambda=True, **kwargs)
-
-    def get_l2(self, *args, **kwargs):
-        return self.get_t2(*args, get_lambda=True, **kwargs)
-
-    def get_l12(self, *args, **kwargs):
-        return self.get_t12(*args, get_lambda=True, **kwargs)
-
-    # --- Density-matrices
-    # --------------------
-
-    make_rdm1_demo = make_rdm1_demo
-    make_rdm2_demo = make_rdm2_demo
-    make_rdm1_ccsd = make_rdm1_ccsd
-    make_rdm2_ccsd = make_rdm2_ccsd
-
     # Utility
     # -------
 
-    def check_orthonormal(self, *mo_coeff, mo_name='', tol=1e-7):
+    def check_orthonormal(self, *mo_coeff, mo_name='', crit_tol=1e-2, err_tol=1e-7):
         """Check orthonormality of mo_coeff."""
         mo_coeff = hstack(*mo_coeff)
         err = dot(mo_coeff.T, self.get_ovlp(), mo_coeff) - np.eye(mo_coeff.shape[-1])
@@ -623,10 +812,13 @@ class QEmbedding:
         linf = abs(err).max()
         if mo_name:
             mo_name = (' of %ss' % mo_name)
-        if max(l2, linf) > tol:
-            self.log.error("Orthogonality error%s: L(2)= %.2e  L(inf)= %.2e !", mo_name, l2, linf)
+        if max(l2, linf) > crit_tol:
+            self.log.critical("Orthonormality error%s: L(2)= %.2e  L(inf)= %.2e !", mo_name, l2, linf)
+            raise OrthonormalityError("Orbitals not orhonormal!")
+        elif max(l2, linf) > err_tol:
+            self.log.error("Orthonormality error%s: L(2)= %.2e  L(inf)= %.2e !", mo_name, l2, linf)
         else:
-            self.log.debug("Orthogonality error%s: L(2)= %.2e  L(inf)= %.2e", mo_name, l2, linf)
+            self.log.debugv("Orthonormality error%s: L(2)= %.2e  L(inf)= %.2e", mo_name, l2, linf)
         return l2, linf
 
     # --- Population analysis
@@ -642,19 +834,20 @@ class QEmbedding:
             return make_iaopao_fragmentation(self.mf, log=self.log, minao=minao).get_coeff()
         raise ValueError("Unknown local orbitals: %r" % local_orbitals)
 
-    def pop_analysis(self, dm1, mo_coeff=None, local_orbitals='lowdin', minao='auto', write=True, filename=None, filemode='a', full=False):
+    def pop_analysis(self, dm1, mo_coeff=None, local_orbitals='lowdin', minao='auto', write=True, filename=None, filemode='a',
+            full=False, mpi_rank=0):
         """
         Parameters
         ----------
         dm1 : (N, N) array
-            If `mo_coeff` is None, AO representation is assumed!
+            If `mo_coeff` is None, AO representation is assumed.
         local_orbitals : {'lowdin', 'mulliken', 'iao+pao'} or array
             Kind of population analysis. Default: 'lowdin'.
 
         Returns
         -------
-        popp : (N) array
-            Poulation of orbitals.
+        pop : (N) array
+            Population of atomic orbitals.
         """
         if mo_coeff is not None:
             dm1 = einsum('ai,ij,bj->ab', mo_coeff, dm1, mo_coeff)
@@ -675,13 +868,16 @@ class QEmbedding:
             cs = np.dot(c_lo.T, ovlp)
             pop = einsum('ia,ab,ib->i', cs, dm1, cs)
 
-        if write:
+        if write and (mpi.rank == mpi_rank):
             self.write_population(pop, filename=filename, filemode=filemode, full=full)
         return pop
 
     def get_atomic_charges(self, pop):
         charges = np.zeros(self.mol.natm)
         spins = np.zeros(self.mol.natm)
+        if len(pop) != self.mol.nao:
+            raise ValueError("n(AO)= %d n(Pop)= %d" % (self.mol.nao, len(pop)))
+
         for i, label in enumerate(self.mol.ao_labels(None)):
             charges[label[0]] -= pop[i]
         charges += self.mol.atom_charges()
@@ -720,6 +916,7 @@ class QEmbedding:
                         write("    %4d %-16s= % 11.8f" % (ao, label, pop[ao]))
         if filename is not None:
             f.close()
+
     # --- Fragmentation methods
 
     def sao_fragmentation(self):
@@ -754,7 +951,7 @@ class QEmbedding:
         self.fragmentation = make_iaopao_fragmentation(self.mf, log=self.log, minao=minao)
         self.fragmentation.kernel()
 
-    def add_atomic_fragment(self, atoms, orbital_filter=None, name=None, **kwargs):
+    def add_atomic_fragment(self, atoms, orbital_filter=None, name=None, add_symmetric=True, **kwargs):
         """Create a fragment of one or multiple atoms, which will be solved by the embedding method.
 
         Parameters
@@ -763,6 +960,8 @@ class QEmbedding:
             Atom indices or symbols which should be included in the fragment.
         name: str, optional
             Name for the fragment. If None, a name is automatically generated from the chosen atoms. Default: None.
+        add_symmetric: bool, optional
+            Add symmetry equivalent fragments. Default: True.
         **kwargs:
             Additional keyword arguments are passed through to the fragment constructor.
 
@@ -774,7 +973,7 @@ class QEmbedding:
         if self.fragmentation is None:
             raise RuntimeError("No fragmentation defined. Call method x_fragmentation() where x=[iao, iaopao, sao, site].")
         name, indices = self.fragmentation.get_atomic_fragment_indices(atoms, orbital_filter=orbital_filter, name=name)
-        return self._add_fragment(indices, name, **kwargs)
+        return self._add_fragment(indices, name, add_symmetric=add_symmetric, **kwargs)
 
     def add_orbital_fragment(self, orbitals, atom_filter=None, name=None, **kwargs):
         """Create a fragment of one or multiple orbitals, which will be solved by the embedding method.
@@ -798,17 +997,26 @@ class QEmbedding:
         name, indices = self.fragmentation.get_orbital_fragment_indices(orbitals, atom_filter=atom_filter, name=name)
         return self._add_fragment(indices, name, **kwargs)
 
-    def _add_fragment(self, indices, name, **kwargs):
+    def _add_fragment(self, indices, name, add_symmetric=False, **kwargs):
         c_frag = self.fragmentation.get_frag_coeff(indices)
         c_env = self.fragmentation.get_env_coeff(indices)
-        fid = self.fragmentation.get_next_fid()
-        frag = self.Fragment(self, fid, name, c_frag, c_env, **kwargs)
+        fid, mpirank = self.register.get_next()
+        frag = self.Fragment(self, fid, name, c_frag, c_env, mpi_rank=mpirank, **kwargs)
         self.fragments.append(frag)
         # Log fragment orbitals:
         self.log.debugv("Fragment %ss:\n%r", self.fragmentation.name, indices)
         self.log.debug("Fragment %ss of fragment %s:", self.fragmentation.name, name)
         labels = np.asarray(self.fragmentation.labels)[indices]
         helper.log_orbitals(self.log.debug, labels)
+
+        if add_symmetric:
+            # Translational symmetry
+            #subcellmesh = self.symmetry.nsubcells
+            #if subcellmesh is not None and np.any(np.asarray(subcellmesh) > 1):
+            subcellmesh = getattr(self.mf, 'subcellmesh', None)
+            if subcellmesh is not None and np.any(np.asarray(subcellmesh) > 1):
+                frag.add_tsymmetric_fragments(subcellmesh)
+
         return frag
 
     def add_all_atomic_fragments(self, **kwargs):
@@ -820,7 +1028,9 @@ class QEmbedding:
             Additional keyword arguments are passed through to each fragment constructor.
         """
         fragments = []
-        for atom in range(self.mol.natm):
+        #for atom in self.symmetry.get_unique_atoms():
+        natom = self.kcell.natm if self.kcell is not None else self.mol.natm
+        for atom in range(natom):
             frag = self.add_atomic_fragment(atom, **kwargs)
             fragments.append(frag)
         return fragments
@@ -870,29 +1080,29 @@ class QEmbedding:
 
     # --- Backwards compatibility:
 
-    def get_eris(self, mo_or_cm, *args, **kwargs):
+    def get_eris(self, mo_or_cm, *args, **kwargs):  # pragma: no cover
         """For backwards compatibility only!"""
         self.log.warning("get_eris is deprecated!")
         if isinstance(mo_or_cm, np.ndarray):
             return self.get_eris_array(mo_or_cm, *args, **kwargs)
         return self.get_eris_object(mo_or_cm, *args, **kwargs)
 
-    def make_atom_fragment(self, *args, aos=None, **kwargs):
+    def make_atom_fragment(self, *args, aos=None, add_symmetric=True, **kwargs):    # pragma: no cover
         """Deprecated. Do not use."""
         self.log.warning("make_atom_fragment is deprecated. Use add_atomic_fragment.")
-        return self.add_atomic_fragment(*args, orbital_filter=aos, **kwargs)
+        return self.add_atomic_fragment(*args, orbital_filter=aos, add_symmetric=add_symmetric, **kwargs)
 
-    def make_all_atom_fragments(self, *args, **kwargs):
+    def make_all_atom_fragments(self, *args, **kwargs):  # pragma: no cover
         """Deprecated. Do not use."""
         self.log.warning("make_all_atom_fragments is deprecated. Use add_all_atomic_fragments.")
         return self.add_all_atomic_fragments(*args, **kwargs)
 
-    def make_ao_fragment(self, *args, **kwargs):
+    def make_ao_fragment(self, *args, **kwargs):  # pragma: no cover
         """Deprecated. Do not use."""
         self.log.warning("make_ao_fragment is deprecated. Use add_orbital_fragment.")
         return self.add_orbital_fragment(*args, **kwargs)
 
-    def init_fragmentation(self, ftype, **kwargs):
+    def init_fragmentation(self, ftype, **kwargs):  # pragma: no cover
         """Deprecated. Do not use."""
         self.log.warning("init_fragmentation is deprecated. Use X_fragmentation(), where X=[iao, iaopao, sao, site].")
         ftype = ftype.lower()

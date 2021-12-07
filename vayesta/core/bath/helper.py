@@ -22,7 +22,7 @@ def plot_histogram(values, bins=None, maxbarlength=50):
         lines.append("  %5.0e - %5.0e  %4d   |%s" % (bins[i+1], bins[i], cumsum, bar))
     return lines
 
-def transform_mp2_eris(eris, c_occ, c_vir, ovlp):
+def transform_mp2_eris(eris, c_occ, c_vir, ovlp):  # pragma: no cover
     """Transform eris of kind (ov|ov) (occupied-virtual-occupied-virtual)
 
     OBSOLETE: replaced by transform_eris

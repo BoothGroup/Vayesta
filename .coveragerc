@@ -1,9 +1,13 @@
 [run]
 branch = True
 source = vayesta
-omit = 
+omit =
         */libs/*
         */test_*.py
+        */core/k2gamma.py
+        */dmet/pdmet.py
+        */misc/brueckner.py
+        */misc/counterpoise.py
 
 [report]
 exclude_lines =
@@ -12,9 +16,10 @@ exclude_lines =
     raise NotImplementedError
     raise AssertionError
     raise ValueError
+    raise AbstractMethodError
     pass
     if __name__ == .__main__.:
-    except ImportError:
+    except ImportError
     def __repr__
     log.error
     log.critical

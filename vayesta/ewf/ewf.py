@@ -1,35 +1,31 @@
+# --- Standard
 import os.path
 import functools
 from datetime import datetime
 import dataclasses
-
+from typing import Union
+# --- External
 import numpy as np
 import scipy
 import scipy.linalg
-
 import pyscf
 import pyscf.lo
 import pyscf.scf
 import pyscf.pbc
 import pyscf.pbc.tools
-
+# --- Internal
 from vayesta.core.util import *
 from vayesta.core import QEmbeddingMethod
-
+from vayesta.core.mpi import mpi
+# --- Package
 from . import helper
 from .fragment import EWFFragment as Fragment
+from .amplitudes import get_global_t1_rhf
+from .amplitudes import get_global_t2_rhf
+from .rdm import make_rdm1_ccsd
+from .rdm import make_rdm2_ccsd
 
-try:
-    from mpi4py import MPI
-    MPI_comm = MPI.COMM_WORLD
-    MPI_rank = MPI_comm.Get_rank()
-    MPI_size = MPI_comm.Get_size()
-    timer = MPI.Wtime
-except ImportError:
-    MPI = False
-    MPI_rank = 0
-    MPI_size = 1
-    from timeit import default_timer as timer
+timer = mpi.timer
 
 
 @dataclasses.dataclass
@@ -54,7 +50,6 @@ class EWF(QEmbeddingMethod):
         iao_minao : str = 'auto'            # Minimal basis for IAOs
         # --- Bath settings
         bath_type: str = 'MP2-BNO'
-        orbfile: str = None                 # Filename for orbital coefficients
         # If multiple bno thresholds are to be calculated, we can project integrals and amplitudes from a previous larger cluster:
         project_eris: bool = False          # Project ERIs from a pervious larger cluster (corresponding to larger eta), can result in a loss of accuracy especially for large basis sets!
         project_init_guess: bool = True     # Project converted T1,T2 amplitudes from a previous larger cluster
@@ -79,6 +74,21 @@ class EWF(QEmbeddingMethod):
         # --- Other
         #energy_partitioning: str = 'first-occ'
         strict: bool = False                # Stop if cluster not converged
+        # --- Storage [True=store and force calculation, 'auto'=store if present, False=do not store]
+        store_t1:  Union[bool,str] = True
+        store_t2:  Union[bool,str] = True   # in future: False
+        store_l1:  Union[bool,str] = 'auto'
+        store_l2:  Union[bool,str] = 'auto' # in future: False
+        #store_t1x: Union[bool,str] = False  # in future: True
+        #store_t2x: Union[bool,str] = False  # in future: True
+        #store_l1x: Union[bool,str] = False  # in future: 'auto'
+        #store_l2x: Union[bool,str] = False  # in future: 'auto'
+        store_t1x: Union[bool,str] = True
+        store_t2x: Union[bool,str] = True
+        store_l1x: Union[bool,str] = 'auto'
+        store_l2x: Union[bool,str] = 'auto'
+        store_dm1: Union[bool,str] = 'auto'
+        store_dm2: Union[bool,str] = 'auto'
 
 
     def __init__(self, mf, bno_threshold=1e-8, solver='CCSD', options=None, log=None, **kwargs):
@@ -127,11 +137,6 @@ class EWF(QEmbeddingMethod):
         return fmt % (self.__class__.__name__, *[x for y in zip(keys, values) for x in y])
 
 
-    def get_fock_for_energy(self, *args, **kwargs):
-        """Overriding this allows to use a different Fock-matrix for the energy evaluation."""
-        return self.get_fock(*args, **kwargs)
-
-    #def init_fragments(self):
     #    if self.opts.fragment_type.upper() == "IAO":
     #        #self.C_ao, self.C_env, self.iao_labels = self.make_iao_coeffs(minao=self.opts.iao_minao)
     #        minao=self.opts.iao_minao
@@ -225,27 +230,144 @@ class EWF(QEmbeddingMethod):
     def get_e_tot(self):
         return self.e_mf + self.get_e_corr()
 
+    @mpi.with_allreduce()
     def get_e_corr(self):
         e_corr = 0.0
-        for f in self.fragments:
+        # Only loop over fragments of own MPI rank
+        for f in self.get_fragments(mpi_rank=mpi.rank):
+            if f.results.e_corr is None:
+                self.log.critical("No fragment E(corr) found for %s! Returning total E(corr)=NaN", f)
+                return np.nan
             e_corr += f.results.e_corr
-        return e_corr
+        return e_corr / self.ncells
 
-    #def get_e_corr_new(self):
-    #    e_corr = 0.0
-    #    t1 = self.get_t12(calc_t2=False)[0]
-    #    for f in self.fragments:
-    #        e_corr += (f.results.e1b + f.results.e2b_conn)
-    #        ro, rv = f.get_rot_to_mf()
+    def tailor_all_fragments(self):
+        for frag in self.fragments:
+            for frag2 in frag.loop_fragments(exclude_self=True):
+                frag.add_tailor_fragment(frag2)
 
-    #        #e_corr_2 += einsum('jb,pj,qb,pq->', t1, ro, rv, f.results.e2b_disc)
-    #        cc = pyscf.cc.CCSD(self.mf)
-    #        eris = cc.ao2mo()
-    #        gov = eris.ovvo[:]
-    #        gov = 2*gov - gov.transpose(3, 1, 2, 0)
-    #        rf = dot(f.c_frag.T, self.get_ovlp(), self.mo_coeff_occ)
-    #        e_corr += einsum('xa,JB,xI,aA,IABJ->', f.results.t1_pf, t1, rf, rv, gov)
-    #    return e_corr
+    def check_fragment_nelectron(self):
+        nelec_frags = sum([f.sym_factor*f.nelectron for f in self.loop()])
+        self.log.info("Total number of mean-field electrons over all fragments= %.8f", nelec_frags)
+        if abs(nelec_frags - np.rint(nelec_frags)) > 1e-4:
+            self.log.warning("Number of electrons not integer!")
+        return nelec_frags
+
+    def kernel(self, bno_threshold=None):
+        """Run EWF.
+
+        Parameters
+        ----------
+        bno_threshold : float or iterable, optional
+            Bath natural orbital threshold. If `None`, self.opts.bno_threshold is used. Default: None.
+        """
+        if self.fragmentation is None:
+            self.log.info("No fragmentation found. Using IAO fragmentation.")
+            self.iao_fragmentation()
+        if len(self.fragments) == 0:
+            self.log.info("No fragments found. Using all atomic fragments.")
+            self.add_all_atomic_fragments()
+
+        if bno_threshold is None: bno_threshold = self.bno_threshold
+        self.check_fragment_nelectron()
+        if np.ndim(bno_threshold) == 0:
+            return self.kernel_single_threshold(bno_threshold=bno_threshold)
+        return self.kernel_multiple_thresholds(bno_thresholds=bno_threshold)
+
+    def kernel_multiple_thresholds(self, bno_thresholds):
+        results = []
+        for i, bno in enumerate(bno_thresholds):
+            self.log.info("Now running BNO threshold= %.2e", bno)
+            self.log.info("===================================")
+
+            # Store ERIs so they can be reused in the next iteration
+            # (only if this is not the last calculation and the next calculation uses a larger or equal threshold)
+            store_eris = (i+1 < len(bno_thresholds)) and (bno <= bno_thresholds[i+1])
+            # Note that if opts.store_eris has been set to True elsewhere, we do not want to overwrite this,
+            # even if store_eris was evaluated as False. For this reason we add `or self.opts.store_eris`.
+            with replace_attr(self.opts, store_eris=(store_eris or self.opts.store_eris)):
+                res = self.kernel_single_threshold(bno_threshold=bno)
+            results.append(res)
+
+        # Output
+        for i, bno in enumerate(bno_thresholds):
+            self.log.info("BNO threshold= %.2e  E(tot)= %s", bno, energy_string(results[i]))
+
+        return results
+
+    def kernel_single_threshold(self, bno_threshold):
+        """Run EWF.
+
+        Parameters
+        ----------
+        bno_threshold : float,
+            Bath natural orbital threshold.
+        """
+
+        if self.nfrag == 0:
+            raise ValueError("No fragments defined for calculation.")
+        assert (not np.ndim(bno_threshold))
+
+        if mpi: mpi.world.Barrier()
+        t_start = timer()
+
+        # Loop over fragments with no symmetry parent and with own MPI rank
+        for frag in self.get_fragments(sym_parent=None, mpi_rank=mpi.rank):
+
+            msg = "Now running %s" % frag
+            if mpi:
+                msg += " on MPI process %d" % mpi.rank
+            self.log.info(msg)
+            self.log.info(len(msg)*"-")
+            self.log.changeIndentLevel(1)
+            frag.kernel(bno_threshold=bno_threshold)
+            #res = frag.kernel(bno_threshold=bno_threshold)
+            #if not res.converged:
+            #    self.log.error("%s is not converged!", frag)
+            #else:
+            #    self.log.info("%s is done.", frag)
+            self.log.changeIndentLevel(-1)
+
+        self.log.output('E(nuc)=  %s', energy_string(self.mol.energy_nuc()))
+        self.log.output('E(MF)=   %s', energy_string(self.e_mf))
+        self.log.output('E(corr)= %s', energy_string(self.e_corr))
+        self.log.output('E(tot)=  %s', energy_string(self.e_tot))
+
+        self.log.info("Total wall time:  %s", time_string(timer()-t_start))
+        return self.e_tot
+
+    # --- CC Amplitudes
+    # -----------------
+
+    # T-amplitudes
+    get_global_t1 = get_global_t1_rhf
+    get_global_t2 = get_global_t2_rhf
+
+    # Lambda-amplitudes
+    def get_global_l1(self, *args, **kwargs):
+        return self.get_global_t1(*args, get_lambda=True, **kwargs)
+    def get_global_l2(self, *args, **kwargs):
+        return self.get_global_t2(*args, get_lambda=True, **kwargs)
+
+    # --- Bardwards compatibility:
+    @deprecated("get_t1 is deprecated - use get_global_t1 instead.")
+    def get_t1(self, *args, **kwargs):
+        return self.get_global_t1(*args, **kwargs)
+    @deprecated("get_t2 is deprecated - use get_global_t2 instead.")
+    def get_t2(self, *args, **kwargs):
+        return self.get_global_t2(*args, **kwargs)
+    @deprecated("get_l1 is deprecated - use get_global_l1 instead.")
+    def get_l1(self, *args, **kwargs):
+        return self.get_global_l1(*args, **kwargs)
+    @deprecated("get_l2 is deprecated - use get_global_l2 instead.")
+    def get_l2(self, *args, **kwargs):
+        return self.get_global_l2(*args, **kwargs)
+
+    # --- Density-matrices
+    # --------------------
+
+    make_rdm1_ccsd = make_rdm1_ccsd
+    make_rdm2_ccsd = make_rdm2_ccsd
 
     def get_wf_cisd(self, intermediate_norm=False, c0=None):
         c0_target = c0
@@ -453,206 +575,26 @@ class EWF(QEmbeddingMethod):
 
     #    return frag
 
-    def tailor_all_fragments(self):
-        for frag in self.fragments:
-            for frag2 in frag.loop_fragments(exclude_self=True):
-                frag.add_tailor_fragment(frag2)
+    #def collect_results(self, *attributes):
+    #    """Use MPI to collect results from all fragments."""
 
-    def kernel(self, bno_threshold=None):
-        """Run EWF.
+    #    #self.log.debug("Collecting attributes %r from all clusters", (attributes,))
+    #    fragments = self.fragments
 
-        Parameters
-        ----------
-        bno_threshold : float or list, optional
-            Bath natural orbital threshold. Default: 1e-8.
-        """
+    #    if mpi:
+    #        def reduce_fragment(attr, op=mpi.MPI.SUM, root=0):
+    #            res = mpi.world.reduce(np.asarray([getattr(f, attr) for f in fragments]), op=op, root=root)
+    #            return res
+    #    else:
+    #        def reduce_fragment(attr):
+    #            res = np.asarray([getattr(f, attr) for f in fragments])
+    #            return res
 
-        if MPI: MPI_comm.Barrier()
-        t_start = timer()
+    #    results = {}
+    #    for attr in attributes:
+    #        results[attr] = reduce_fragment(attr)
 
-        if bno_threshold is None: bno_threshold = self.bno_threshold
-        if np.ndim(bno_threshold) == 0: bno_threshold = [bno_threshold]
-        bno_threshold = np.sort(np.asarray(bno_threshold))
-
-        if self.nfrag == 0:
-            raise ValueError("No fragments defined for calculation.")
-
-        # TODO: clean this up
-        if self.opts.orbfile:
-            filename = "%s.txt" % self.opts.orbfile
-            tstamp = datetime.now()
-            nfo = self.iao_coeff.shape[-1]
-            #ao_labels = ["-".join(x) for x in self.mol.ao_labels(None)]
-            ao_labels = ["-".join([str(xi) for xi in x]) for x in self.mol.ao_labels(None)]
-            iao_labels = ["-".join([str(xi) for xi in x]) for x in self.iao_labels]
-            #iao_labels = ["-".join(x) for x in self.iao_labels]
-            self.log.info("[%s] Writing fragment orbitals to file \"%s\"", tstamp, filename)
-            with open(filename, "a") as f:
-                f.write("[%s] Fragment Orbitals\n" % tstamp)
-                f.write("*%s-------------------\n" % (26*"-"))
-                # Header
-                fmtline = "%20s" + nfo*"   %20s" + "\n"
-                f.write(fmtline % ("AO", *iao_labels))
-                fmtline = "%20s" + nfo*"   %+20.8e" + "\n"
-                # Loop over AO
-                for i in range(self.iao_coeff.shape[0]):
-                    f.write(fmtline % (ao_labels[i], *self.iao_coeff[i]))
-
-        if self.is_rhf:
-            nelec_frags = sum([f.sym_factor*f.nelectron for f in self.loop()])
-            self.log.info("Total number of mean-field electrons over all fragments= %.8f", nelec_frags)
-            if abs(nelec_frags - np.rint(nelec_frags)) > 1e-4:
-                self.log.warning("Number of electrons not integer!")
-        else:
-            nelec_frags = (sum([f.sym_factor*f.nelectron[0] for f in self.loop()]),
-                           sum([f.sym_factor*f.nelectron[1] for f in self.loop()]))
-            self.log.info("Total number of mean-field electrons over all fragments= %.8f , %.8f", *nelec_frags)
-            if abs(nelec_frags[0] - np.rint(nelec_frags[0])) > 1e-4 or abs(nelec_frags[1] - np.rint(nelec_frags[1])) > 1e-4:
-                self.log.warning("Number of electrons not integer!")
-
-        exit = False
-        for i, bno_thr in enumerate(bno_threshold):
-            e_corr_1 = 0.0
-            e_corr_last = 0.0
-            # Self consistency loop
-            maxiter = (self.opts.sc_maxiter if self.opts.sc_mode else 1)
-            for iteration in range(1, maxiter+1):
-                self.iteration = iteration
-                if self.opts.sc_mode:
-                    self.log.info("Now running BNO threshold= %.2e - Iteration= %2d", bno_thr, iteration)
-                    self.log.info("====================================================")
-                else:
-                    self.log.info("Now running BNO threshold= %.2e", bno_thr)
-                    self.log.info("===================================")
-
-                for x, frag in enumerate(self.fragments):
-                    if MPI_rank != (x % MPI_size):
-                        continue
-                    # Do not calculate symmetry children
-                    if frag.sym_parent is not None:
-                        self.log.debugv("Skipping %s with symmetry parent %s", frag.name, frag.sym_parent.name)
-                        self.cluster_results[(frag.id, bno_thr)] = frag.results
-                        continue
-
-                    mpi_info = (" on MPI process %d" % MPI_rank) if MPI_size > 1 else ""
-                    msg = "Now running %s%s" % (frag, mpi_info)
-                    self.log.info(msg)
-                    self.log.info(len(msg)*"-")
-                    self.log.changeIndentLevel(1)
-                    try:
-                        result = frag.kernel(bno_threshold=bno_thr)
-                    except Fragment.Exit:
-                        exit = True
-                        self.log.info("Exiting %s", frag)
-                        self.log.changeIndentLevel(-1)
-                        continue
-
-                    self.cluster_results[(frag.id, bno_thr)] = result
-                    if not result.converged:
-                        self.log.error("%s is not converged!", frag)
-                    else:
-                        self.log.info("%s is done.", frag)
-                    self.log.changeIndentLevel(-1)
-                if exit:
-                    break
-
-                e_corr = sum([self.cluster_results[(f.id, bno_thr)].e_corr for f in self.fragments])
-                if iteration == 1:
-                    e_corr_1 = e_corr
-                de = (e_corr - e_corr_last)
-                e_corr_last = e_corr
-                if self.opts.sc_mode:
-                    self.log.info("Iteration %d: E(corr)= % 12.8f Ha (dE= % 12.8f Ha)", iteration, e_corr, de)
-                else:
-                    self.log.info("E(corr)= % 12.8f Ha", e_corr)
-                if (self.opts.sc_mode and (abs(de) < self.opts.sc_energy_tol)):
-                    self.log.info("Self-consistency reached in %d iterations", iteration)
-                    break
-                e_corr0 = e_corr
-            else:
-                if self.opts.sc_mode:
-                    self.log.error("Self-consistency not reached!")
-            if exit:
-                break
-
-            if self.opts.sc_mode:
-                self.log.info("E(corr)[SC]= % 12.8f Ha  E(corr)[1]= % 12.8f Ha  (diff= % 12.8f Ha)", e_corr, e_corr_1, (e_corr-e_corr_1))
-
-            result = EWFResults(bno_threshold=bno_thr, e_corr=e_corr)
-            self.results.append(result)
-        if exit:
-            return
-
-        self.log.info("Fragment Correlation Energies")
-        self.log.info("-----------------------------")
-        self.log.info("%13s:" + self.nfrag*" %16s", "BNO threshold", *[f.id_name for f in self.fragments])
-        # TODO
-        fmt = "%13.2e:" + self.nfrag*" %13.8f Ha"
-        #fmt0 = self.nfrag*" %13.8f Ha"
-        for bno_thr in bno_threshold[::-1]:
-            #for n in range(0, self.nfrag, 5):
-            #    energies = [self.cluster_results[(f.id, bno_thr)].e_corr for f in self.fragments[n:n+5])
-            #    if n == 0:
-            #        fmt = ("%13.2e:" % bno_thr) + fmt0
-            #    else:
-            #        fmt = 13*" " + fmt0
-            #    self.log.info(fmt, *energies)
-            self.log.info(fmt, bno_thr, *[self.cluster_results[(f.id, bno_thr)].e_corr for f in self.fragments])
-
-        bno_min = np.min(bno_threshold)
-        #self.e_corr = sum([results[(f.id, bno_min)].e_corr for f in self.fragments])
-        #self.e_corr = self.results[0].e_corr
-        self.log.output('E(nuc)=  %s', energy_string(self.mol.energy_nuc()))
-        self.log.output('E(MF)=   %s', energy_string(self.e_mf))
-        self.log.output('E(corr)= %s', energy_string(self.e_corr))
-        self.log.output('E(tot)=  %s', energy_string(self.e_tot))
-
-        #attributes = ["converged", "e_corr", "e_delta_mp2", "e_pert_t"]
-
-        #results = self.collect_results(*attributes)
-        #if MPI_rank == 0 and not np.all(results["converged"]):
-        #    self.log.critical("The following fragments did not converge:")
-        #    for i, frag in enumerate(self.loop()):
-        #        if not results["converged"][i]:
-        #            self.log.critical("%3d %s solver= %s", frag.id, frag.name, frag.solver)
-        #    if self.opts.strict:
-        #        raise RuntimeError("Not all fragments converged")
-
-        #self.e_corr = sum(results["e_corr"])
-        ##self.e_pert_t = sum(results["e_pert_t"])
-        ##self.e_pert_t2 = sum(results["e_pert_t2"])
-        #self.e_delta_mp2 = sum(results["e_delta_mp2"])
-
-        #self.e_corr_full = sum(results["e_corr_full"])
-
-        #if MPI_rank == 0:
-        #    self.print_results(results)
-
-        #if MPI: MPI_comm.Barrier()
-        self.log.info("Total wall time:  %s", time_string(timer()-t_start))
-        self.log.info("All done.")
-
-
-    def collect_results(self, *attributes):
-        """Use MPI to collect results from all fragments."""
-
-        #self.log.debug("Collecting attributes %r from all clusters", (attributes,))
-        fragments = self.fragments
-
-        if MPI:
-            def reduce_fragment(attr, op=MPI.SUM, root=0):
-                res = MPI_comm.reduce(np.asarray([getattr(f, attr) for f in fragments]), op=op, root=root)
-                return res
-        else:
-            def reduce_fragment(attr):
-                res = np.asarray([getattr(f, attr) for f in fragments])
-                return res
-
-        results = {}
-        for attr in attributes:
-            results[attr] = reduce_fragment(attr)
-
-        return results
+    #    return results
 
     #def show_cluster_sizes(self, results, show_largest=True):
     #    self.log.info("Cluster Sizes")
@@ -709,21 +651,21 @@ class EWF(QEmbeddingMethod):
     #    self.log.output(fmt, 'E(nuc)=', self.mol.energy_nuc())
     #    self.log.output(fmt, 'E(tot)=', self.e_tot)
 
-    def print_results(self, results):
-        self.log.info("Energies")
-        self.log.info("========")
-        fmt = "%-20s %s"
-        for i, frag in enumerate(self.loop()):
-            e_corr = results["e_corr"][i]
-            self.log.output('E(corr)[' + frag.trimmed_name() + ']= %s', energy_string(e_corr))
-        self.log.output('E(corr)= %s', energy_string(self.e_corr))
-        self.log.output('E(MF)=   %s', energy_string(self.e_mf))
-        self.log.output('E(nuc)=  %s', energy_string(self.mol.energy_nuc()))
-        self.log.output('E(tot)=  %s', energy_string(self.e_tot))
+    #def print_results(self, results):
+    #    self.log.info("Energies")
+    #    self.log.info("========")
+    #    fmt = "%-20s %s"
+    #    for i, frag in enumerate(self.loop()):
+    #        e_corr = results["e_corr"][i]
+    #        self.log.output('E(corr)[' + frag.trimmed_name() + ']= %s', energy_string(e_corr))
+    #    self.log.output('E(corr)= %s', energy_string(self.e_corr))
+    #    self.log.output('E(MF)=   %s', energy_string(self.e_mf))
+    #    self.log.output('E(nuc)=  %s', energy_string(self.mol.energy_nuc()))
+    #    self.log.output('E(tot)=  %s', energy_string(self.e_tot))
 
-    def get_energies(self):
-        """Get total energy."""
-        return [(self.e_mf + r.e_corr) for r in self.results]
+    #def get_energies(self):
+    #    """Get total energy."""
+    #    return [(self.e_mf + r.e_corr) for r in self.results]
 
     #def get_cluster_sizes(self)
     #    sizes = np.zeros((self.nfrag, self.ncalc), dtype=np.int)
@@ -731,10 +673,10 @@ class EWF(QEmbeddingMethod):
     #        sizes[i] = frag.n_active
     #    return sizes
 
-    def print_clusters(self):
-        """Print fragments of calculations."""
-        self.log.info("%3s  %20s  %8s  %4s", "ID", "Name", "Solver", "Size")
-        for frag in self.loop():
-            self.log.info("%3d  %20s  %8s  %4d", frag.id, frag.name, frag.solver, frag.size)
+    #def print_clusters(self):
+    #    """Print fragments of calculations."""
+    #    self.log.info("%3s  %20s  %8s  %4s", "ID", "Name", "Solver", "Size")
+    #    for frag in self.loop():
+    #        self.log.info("%3d  %20s  %8s  %4d", frag.id, frag.name, frag.solver, frag.size)
 
 REWF = EWF

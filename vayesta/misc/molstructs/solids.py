@@ -36,7 +36,7 @@ def graphite(atoms=['C', 'C', 'C', 'C'], a=2.461, c=6.708):
     atom = _make_atom(atoms, coords)
     return amat, atom
 
-def rocksalt(atoms=['Na', 'Cl'], a=5.6402, primitive=False):
+def rocksalt(atoms=['Na', 'Cl'], a=5.6402, primitive=True):
     """
     LiF: a=4.0351
     """

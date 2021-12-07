@@ -1,14 +1,20 @@
 import os
+import sys
 import logging
 import dataclasses
 import copy
-import psutil
-from functools import wraps
+import functools
 from timeit import default_timer
 from contextlib import contextmanager
 
+try:
+    import psutil
+except (ModuleNotFoundError, ImportError):
+    psutil = None
+
 import numpy as np
 import scipy
+import scipy.linalg
 import scipy.optimize
 
 log = logging.getLogger(__name__)
@@ -20,14 +26,17 @@ __all__ = [
         # NumPy replacements
         'dot', 'einsum', 'hstack',
         # New exceptions
-        'AbstractMethodError', 'ConvergenceError',
+        'AbstractMethodError', 'ConvergenceError', 'OrthonormalityError', 'ImaginaryPartError',
         # Energy
         'energy_string',
         # Time & memory
         'timer', 'time_string', 'log_time', 'memory_string', 'get_used_memory',
+        # RHF/UHF abstraction
+        'dot_s', 'eigh_s', 'stack_mo_coeffs',
         # Other
+        'brange',
+        'deprecated',
         'replace_attr', 'cached_method', 'break_into_lines', 'fix_orbital_sign',
-        'stack_mo_coeffs',
         ]
 
 class NotSetType:
@@ -63,6 +72,38 @@ def hstack(*args):
             log.critical("type= %r  shape= %r", type(x), x.shape if hasattr(x, 'shape') else "None")
         raise e
 
+# RHF / UHF abstraction
+
+def dot_s(*args, out=None):
+    """Generalizes dot with or without spin channel: ij,jk->ik or Sij,Sjk->Sik
+
+    Additional non spin-dependent matrices can be present, eg. Sij,jk,Skl->Skl.
+
+    Note that unlike numpy.dot, this does not support vectors."""
+    maxdim = np.max([np.ndim(x[0]) for x in args]) + 1
+    # No spin-dependent arguments present
+    if maxdim == 2:
+        return dot(*args, out=out)
+    # Spin-dependent arguments present
+    assert maxdim == 3
+    if out is None:
+        out = (None, None)
+    args_a = [(x if np.ndim(x[0]) < 2 else x[0]) for x in args]
+    args_b = [(x if np.ndim(x[1]) < 2 else x[1]) for x in args]
+    return (dot(*args_a, out=out[0]), dot(*args_b, out=out[1]))
+
+def eigh_s(a, b=None, *args, **kwargs):
+    ndim = np.ndim(a[0]) + 1
+    # RHF
+    if ndim == 2:
+        return scipy.linalg.eigh(a, b=b, *args, **kwargs)
+    # UHF
+    if b is None or np.ndim(b[0]) == 1:
+        b = (b, b)
+    results = (scipy.linalg.eigh(a[0], b=b[0], *args, **kwargs),
+               scipy.linalg.eigh(a[1], b=b[1], *args, **kwargs))
+    return tuple(zip(*results))
+
 def stack_mo_coeffs(*mo_coeffs):
     ndim = np.ndim(mo_coeffs[0][0]) + 1
     # RHF
@@ -73,6 +114,22 @@ def stack_mo_coeffs(*mo_coeffs):
     return (hstack(*[c[0] for c in mo_coeffs]),
             hstack(*[c[1] for c in mo_coeffs]))
 
+#
+
+def brange(start, stop, step, minstep=1, maxstep=None):
+    """Similar to PySCF's prange, but returning a slice instead.
+
+    Start, stop, and blocksize can be accessed from each slice blk as
+    blk.start, blk.stop, and blk.step.
+    """
+    if stop <= start:
+        return
+    if maxstep is None:
+        maxstep = (stop-start)
+    step = np.clip(step, minstep, maxstep)
+    for i in range(start, stop, step):
+        blk = np.s_[i:min(i+step, stop)]
+        yield blk
 
 def cached_method(cachename, use_cache_default=True, store_cache_default=True):
     """Cache the return value of a class method.
@@ -111,6 +168,12 @@ class AbstractMethodError(NotImplementedError):
 class ConvergenceError(RuntimeError):
     pass
 
+class ImaginaryPartError(RuntimeError):
+    pass
+
+class OrthonormalityError(RuntimeError):
+    pass
+
 # --- Energy
 
 def energy_string(energy, unit='Ha'):
@@ -142,7 +205,7 @@ def log_time(logger, message, *args, mintime=None, **kwargs):
     finally:
         t = (timer()-t0)
         if mintime is None or t >= mintime:
-            logger(message, time_string(t), *args, **kwargs)
+            logger(message, *args, time_string(t), **kwargs)
 
 def time_string(seconds, show_zeros=False):
     """String representation of seconds."""
@@ -152,12 +215,19 @@ def time_string(seconds, show_zeros=False):
     elif seconds >= 60:
         tstr = "%.0f min %.1f s" % (m, s)
     else:
-        tstr = "%.2f s" % s
+        tstr = "%.3f s" % s
     return tstr
 
 def get_used_memory():
-    process = psutil.Process(os.getpid())
-    return(process.memory_info().rss)  # in bytes
+    if psutil is not None:
+        process = psutil.Process(os.getpid())
+        return(process.memory_info().rss)  # in bytes
+    # Fallback: use os module
+    if sys.platform.startswith('linux'):
+        pagesize = os.sysconf("SC_PAGE_SIZE")
+        with open("/proc/%s/statm" % os.getpid()) as f:
+            return int(f.readline().split()[1])*pagesize
+    return 0
 
 def memory_string(nbytes, fmt='6.2f'):
     """String representation of nbytes"""
@@ -218,6 +288,23 @@ def break_into_lines(string, linelength=80, sep=None, newline='\n'):
         else:
             lines[-1] += ' ' + s
     return newline.join(lines)
+
+def deprecated(message=None):
+    """This is a decorator which can be used to mark functions
+    as deprecated. It will result in a warning being emitted
+    when the function is used."""
+    def decorator(func):
+        if message is None:
+            msg = "Function %s is deprecated!" % func.__name__
+        else:
+            msg = message
+
+        @functools.wraps(func)
+        def wrapped(*args, **kwargs):
+            log.warning(msg)
+            return func(*args, **kwargs)
+        return wrapped
+    return decorator
 
 class OptionsBase:
     """Abstract base class for Option dataclasses.
@@ -300,3 +387,45 @@ def fix_orbital_sign(mo_coeff, inplace=True):
     signs = np.ones((nmo,), dtype=int)
     signs[swap] = -1
     return mo_coeff, signs
+
+if __name__ == '__main__':
+    a1 = np.random.rand(2, 3)
+    a2 = np.random.rand(2, 3)
+    s = np.random.rand(3, 3)
+    b1 = np.random.rand(3, 4)
+    b2 = np.random.rand(3, 4)
+
+    c1, c2 = dot_s((a1, a2), s, (b1, b2))
+    assert np.allclose(c1, dot(a1, s, b1))
+    assert np.allclose(c2, dot(a2, s, b2))
+
+    ha = np.random.rand(3,3)
+    hb = np.random.rand(3,3)
+    ba = np.random.rand(3,3)
+    bb = np.random.rand(3,3)
+    ba = np.dot(ba, ba.T)
+    bb = np.dot(bb, bb.T)
+    #b =b a
+
+    ea, va = scipy.linalg.eigh(ha, b=ba)
+    eb, vb = scipy.linalg.eigh(hb, b=ba)
+
+    h = (ha, hb)
+    e, v = eigh_s(h, ba)
+    print(ea)
+    print(eb)
+    print(e)
+
+    assert np.allclose(e[0], ea)
+    assert np.allclose(e[1], eb)
+
+
+
+    #d1, d2 = einsum('[s]ij,jk,[s]kl->[S]il', (a1, a2), s, (b1, b2))
+    #d1, d2 = einsum('?ij,jk,?kl->?il', (a1, a2), s, (b1, b2))
+    #print(d1.shape)
+    #print(c1.shape)
+    #assert np.allclose(d1, c1)
+    #assert np.allclose(d2, c2)
+    #assert np.allclose(d1, dot(a1, s, b1))
+    #assert np.allclose(d2, dot(a2, s, b2))

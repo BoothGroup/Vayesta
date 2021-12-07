@@ -48,6 +48,11 @@ class SpatialOrbitalSpace(BaseOrbitalSpace):
     def copy(self, name=''):
         return type(self)(self.coeff.copy(), name=(name or self.name))
 
+    def transform(self, trafo, inplace=False):
+        copy = self.copy() if not inplace else self
+        copy.coeff = trafo(copy.coeff)
+        return copy
+
 class SpinOrbitalSpace(BaseOrbitalSpace):
 
     def __init__(self, coeff, name=''):
@@ -78,6 +83,13 @@ class SpinOrbitalSpace(BaseOrbitalSpace):
     def copy(self, name=''):
         return type(self)((self.alpha.coeff.copy(), self.beta.coeff.copy()), name=(name or self.name))
 
+    def transform(self, trafo, inplace=False):
+        if not hasattr(trafo, '__len__'):
+            trafo = (trafo, trafo)
+        copy = self.copy() if not inplace else self
+        copy.alpha.transform(trafo[0], inplace=True)
+        copy.beta.transform(trafo[1], inplace=True)
+        return copy
 
 #class OrbitalCollection(BaseOrbitals):
 #
