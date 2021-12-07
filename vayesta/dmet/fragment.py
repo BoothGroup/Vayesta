@@ -21,11 +21,13 @@ from vayesta.core import QEmbeddingFragment
 from vayesta.core.bath import DMET_Bath, BNO_Bath, MP2_BNO_Bath, CompleteBath
 from vayesta.core.actspace import ActiveSpace
 from vayesta.solver import get_solver_class2 as get_solver_class
-from . import dmet
 
 
 class DMETFragmentExit(Exception):
     pass
+
+
+VALID_SOLVERS = [None, "", "MP2", "CISD", "CCSD", "CCSD(T)", 'FCI', "FCI-spin0", "FCI-spin1"]
 
 
 class DMETFragment(QEmbeddingFragment):
@@ -88,12 +90,13 @@ class DMETFragment(QEmbeddingFragment):
 
         if solver is None:
             solver = self.base.solver
-        if solver not in dmet.VALID_SOLVERS:
-            raise ValueError("Unknown solver: %s" % solver)
+        self.check_solver(solver)
         self.solver = solver
-
-        # For self-consistent mode
         self.solver_results = None
+
+    def check_solver(self, solver):
+        if solver not in VALID_SOLVERS:
+            raise ValueError("Unknown solver: %s" % solver)
 
     @property
     def c_cluster_occ(self):

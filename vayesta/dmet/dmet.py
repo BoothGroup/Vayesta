@@ -25,7 +25,6 @@ class DMETResults:
     e_corr: float = None
 
 
-VALID_SOLVERS = [None, "", "MP2", "CISD", "CCSD", "CCSD(T)", 'FCI', "FCI-spin0", "FCI-spin1"]
 
 
 class DMET(QEmbeddingMethod):
@@ -68,8 +67,6 @@ class DMET(QEmbeddingMethod):
 
     Fragment = DMETFragment
 
-    VALID_SOLVERS = [None, "", "MP2", "CISD", "CCSD", 'TCCSD', "CCSD(T)", 'FCI', "FCI-spin0", "FCI-spin1"]
-
     def __init__(self, mf, bno_threshold=np.inf, solver='CCSD', options=None, log=None, **kwargs):
         """Density matrix embedding theory (DMET) calculation object.
 
@@ -92,27 +89,8 @@ class DMET(QEmbeddingMethod):
             else:
                 self.log.error("Mean-field calculation not converged.")
         self.bno_threshold = bno_threshold
-        if solver not in self.VALID_SOLVERS:
-            raise ValueError("Unknown solver: %s" % solver)
+        self.check_solver(solver)
         self.solver = solver
-
-        # Orthogonalize insufficiently orthogonal MOs
-        # (For example as a result of k2gamma conversion with low cell.precision)
-        c = self.mo_coeff.copy()
-        assert np.all(c.imag == 0), "max|Im(C)|= %.2e" % abs(c.imag).max()
-        ctsc = np.linalg.multi_dot((c.T, self.get_ovlp(), c))
-        nonorth = abs(ctsc - np.eye(ctsc.shape[-1])).max()
-        self.log.info("Max. non-orthogonality of input orbitals= %.2e%s", nonorth, " (!!!)" if nonorth > 1e-5 else "")
-        if self.opts.orthogonal_mo_tol and nonorth > self.opts.orthogonal_mo_tol:
-            t0 = timer()
-            self.log.info("Orthogonalizing orbitals...")
-            self.mo_coeff = helper.orthogonalize_mo(c, self.get_ovlp())
-            change = abs(np.diag(np.linalg.multi_dot((self.mo_coeff.T, self.get_ovlp(), c))) - 1)
-            self.log.info("Max. orbital change= %.2e%s", change.max(), " (!!!)" if change.max() > 1e-4 else "")
-            self.log.timing("Time for orbital orthogonalization: %s", time_string(timer() - t0))
-
-        self.log.timing("Time for DMET setup: %s", time_string(timer() - t_start))
-
 
         self.vcorr = None
 
@@ -120,6 +98,12 @@ class DMET(QEmbeddingMethod):
         self.cluster_results = {}
         self.results = []
         self.e_dmet = self.e_mf - self.mf.energy_nuc()
+
+        self.log.timing("Time for DMET setup: %s", time_string(timer() - t_start))
+
+    def check_solver(self, solver):
+        if solver not in VALID_SOLVERS:
+            raise ValueError("Unknown solver: %s" % solver)
 
     def __repr__(self):
         keys = ['mf', 'bno_threshold', 'solver']

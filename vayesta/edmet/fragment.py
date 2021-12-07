@@ -17,6 +17,9 @@ class EDMETFragmentExit(Exception):
     pass
 
 
+VALID_SOLVERS = ["EBFCI"]  # , "EBFCIQMC"]
+
+
 class EDMETFragment(DMETFragment):
     @dataclasses.dataclass
     class Options(DMETFragment.Options):
@@ -34,6 +37,10 @@ class EDMETFragment(DMETFragment):
 
     #    def __init__(self, *args, solver=None, **kwargs):
     #        super().__init__(*args, solver, **kwargs)
+
+    def check_solver(self, solver):
+        if solver not in VALID_SOLVERS:
+            raise ValueError("Unknown solver: %s" % solver)
 
     @property
     def ov_active(self):

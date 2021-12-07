@@ -8,7 +8,7 @@ from timeit import default_timer as timer
 import copy
 from vayesta.core.util import *
 
-from .fragment import EDMETFragment, EDMETFragmentExit
+from .fragment import VALID_SOLVERS, EDMETFragment, EDMETFragmentExit
 from vayesta.dmet.sdp_sc import perform_SDP_fit
 
 from vayesta.dmet import DMET
@@ -33,13 +33,15 @@ class EDMET(DMET):
 
     Fragment = EDMETFragment
 
-    VALID_SOLVERS = ["EBFCI"]  # , "EBFCIQMC"]
-
     def __init__(self, mf, bno_threshold=np.inf, solver='EBFCI', options=None, log=None, **kwargs):
         super().__init__(mf, bno_threshold, solver, options, log, **kwargs)
         self.interaction_kernel = None
         # Need to calculate dd moments for self-consistency to work.
         self.opts.make_dd_moments = True  # self.opts.maxiter > 1
+
+    def check_solver(self, solver):
+        if solver not in VALID_SOLVERS:
+            raise ValueError("Unknown solver: %s" % solver)
 
     def kernel(self):
 
@@ -140,7 +142,7 @@ class EDMET(DMET):
                 cpt, res = scipy.optimize.brentq(electron_err, a=lo, b=hi, full_output=True,
                                                  xtol=self.opts.max_elec_err * nelec_mf)
                 # self.opts.max_elec_err * nelec_mf)
-                self.log.info("Converged chemical potential: %6.4e",cpt)
+                self.log.info("Converged chemical potential: %6.4e", cpt)
 
             else:
                 self.log.info("Previous chemical potential still suitable")
