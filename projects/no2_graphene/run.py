@@ -59,29 +59,32 @@ if args.z_graphene is None:
     args.z_graphene = args.vacuum_size / 2
 
 # Cell
-
-def get_gate_potential(mf, gate):
+def get_gate_potential(mf, gate, atoms='C'):
     """In AO basis"""
     # Lowdin orbitals
-    if hasattr(mf, 'kpts'):
-        # Gamma point only
-        ovlp = mf.get_ovlp()[0]
-    else:
-        ovlp = mf.get_ovlp()
+    ovlp = mf.get_ovlp()
     e, v = np.linalg.eigh(ovlp)
     c_lo = np.dot(v*(e**-0.5), v.T.conj())
-
-    #c_lo2 = pyscf.lo.orth_ao(cell, 'lowdin')
-    #c_lo2 = pyscf.lo.orth_ao(cell, 'lowdin', pre_orth_ao=None)
-    #for i in range(c_lo.shape[-1]):
-    #    assert (np.allclose(c_lo[:,i], c_lo2[:,i]) or np.allclose(c_lo[:,i], -c_lo2[:,i])), "%r %r" % (c_lo[:,i], c_lo2[:,i])
-    #1/0
-
     # Graphene layer orbitals:
-    layer = [l[1].startswith('C') for l in mf.mol.ao_labels(None)]
+    layer = [l[1].startswith(atoms) for l in mf.mol.ao_labels(None)]
     sc = np.dot(ovlp, c_lo[:,layer])
-    v_gate = gate*np.dot(sc, sc.T)
+    v_gate = gate*np.dot(sc, sc.T.conj())
     return v_gate
+
+def get_gate_potential_kpts(mf, gate, atoms='C'):
+    """In AO basis"""
+    # Lowdin orbitals
+    ovlp = mf.get_ovlp()
+    nk = len(mf.kpts)
+    v_gate = []
+    for k in range(nk):
+        e, v = np.linalg.eigh(ovlp[k])
+        c_lo = np.dot(v*(e**-0.5), v.T.conj())
+        # Graphene layer orbitals:
+        layer = [l[1].startswith(atoms) for l in mf.mol.ao_labels(None)]
+        sc = np.dot(ovlp, c_lo[:,layer])
+        v_gate.append(gate*np.dot(sc, sc.T.conj()))
+    return np.asarray(v_gate)
 
 if args.gates is not None:
     gates = args.gates
@@ -145,16 +148,12 @@ for idx, gate in enumerate(gates):
 
     # Gate potential
     if gate:
-        v_gate = get_gate_potential(mf, gate)
         hcore_orig = mf.get_hcore
         if hasattr(mf, 'kpts'):
-            def hcore_gate(mf, *args):
-                h1e = hcore_orig(*args)
-                # Only shift Gamma point
-                h1e[0] += v_gate
-                return h1e
+            v_gate = get_gate_potential_kpts(mf, gate)
         else:
-            hcore_gate = lambda mf, *args : (hcore_orig(*args) + v_gate)
+            v_gate = get_gate_potential(mf, gate)
+        hcore_gate = lambda mf, *args : (hcore_orig(*args) + v_gate)
         mf.get_hcore = hcore_gate.__get__(mf)
     else:
         v_gate = None

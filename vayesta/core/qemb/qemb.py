@@ -157,17 +157,22 @@ class QEmbedding:
 
     def _mpi_bcast_mf(self, mf):
         """Use mo_energy and mo_coeff from master MPI rank only."""
-        # Check if all MPI ranks have the same mean-field MOs
-        #mo_energy = mpi.world.gather(mf.mo_energy)
-        #if mpi.is_master:
-        #    moerr = np.max([abs(mo_energy[i] - mo_energy[0]).max() for i in range(len(mpi))])
-        #    if moerr > 1e-6:
-        #        self.log.warning("Large difference of MO energies between MPI ranks= %.2e !", moerr)
-        #    else:
-        #        self.log.debugv("Largest difference of MO energies between MPI ranks= %.2e", moerr)
-        # Use MOs of master process
-        mf.mo_energy = mpi.world.bcast(mf.mo_energy, root=0)
-        mf.mo_coeff = mpi.world.bcast(mf.mo_coeff, root=0)
+        # If vayesta.misc.scf_with_mpi was used, we do not need broadcast
+        # as the MO coefficients will already be the same
+        if getattr(mf, 'with_mpi', False):
+            return
+        with log_time(self.log.timing, "Time to broadcast mean-field to all MPI ranks: %s"):
+            # Check if all MPI ranks have the same mean-field MOs
+            #mo_energy = mpi.world.gather(mf.mo_energy)
+            #if mpi.is_master:
+            #    moerr = np.max([abs(mo_energy[i] - mo_energy[0]).max() for i in range(len(mpi))])
+            #    if moerr > 1e-6:
+            #        self.log.warning("Large difference of MO energies between MPI ranks= %.2e !", moerr)
+            #    else:
+            #        self.log.debugv("Largest difference of MO energies between MPI ranks= %.2e", moerr)
+            # Use MOs of master process
+            mf.mo_energy = mpi.world.bcast(mf.mo_energy, root=0)
+            mf.mo_coeff = mpi.world.bcast(mf.mo_coeff, root=0)
 
     def init_mf(self, mf):
         self._mf_orig = mf      # Keep track of original mean-field object - be careful not to modify in any way, to avoid side effects!
@@ -185,8 +190,7 @@ class QEmbedding:
             self.kcell, self.kpts, self.kdf = mf.kmf.mol, mf.kmf.kpts, mf.kmf.with_df
         # Make sure that all MPI ranks use the same MOs`:
         if mpi:
-            with log_time(self.log.timing, "Time to broadcast mean-field to all MPI ranks: %s"):
-                self._mpi_bcast_mf(mf)
+            self._mpi_bcast_mf(mf)
         self.mf = mf
         if not (self.is_rhf or self.is_uhf):
             raise ValueError("Cannot deduce RHF or UHF!")

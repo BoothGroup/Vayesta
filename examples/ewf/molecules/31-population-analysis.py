@@ -29,10 +29,10 @@ emb.kernel()
 
 # Population analysis of mean-field density-matrix
 dm1 = mf.make_rdm1()
-emb.pop_analysis(dm1, local_orbitals='mulliken', filename='mulliken-mf.pop', full=True)
-emb.pop_analysis(dm1, local_orbitals='lowdin',   filename='lowdin-mf.pop',   full=True)
-emb.pop_analysis(dm1, local_orbitals='iao+pao',  filename='iaopao-mf.pop',   full=True)
+emb.pop_analysis(dm1, local_orbitals='mulliken', filename='mulliken-pop-mf.txt', full=True)
+emb.pop_analysis(dm1, local_orbitals='lowdin',   filename='lowdin-pop-mf.txt',   full=True)
+emb.pop_analysis(dm1, local_orbitals='iao+pao',  filename='iaopao-pop-mf.txt',   full=True)
 
 # Population analysis if the CCSD density-matrix
 # This is equivalent to frag.pop_analysis(dm1=frag.results.dm1, ...)
-frag.pop_analysis(filename='cluster.pop', local_orbitals='iao+pao', full=True)
+frag.pop_analysis(filename='iaopao-pop-cluster.txt', local_orbitals='iao+pao', full=True)
