@@ -26,18 +26,18 @@ class EDMETResults:
 class EDMET(DMET):
     @dataclasses.dataclass
     class Options(DMET.Options):
-        bos_occ_cutoff: int = 2
         maxiter: int = 1
         make_dd_moments: bool = NotSet
         old_sc_condition: bool = False
 
     Fragment = EDMETFragment
 
-    def __init__(self, mf, bno_threshold=np.inf, solver='EBFCI', options=None, log=None, **kwargs):
+    def __init__(self, mf, bno_threshold=np.inf, solver='EBFCI', options=None, log=None, max_boson_occ=2, **kwargs):
         super().__init__(mf, bno_threshold, solver, options, log, **kwargs)
         self.interaction_kernel = None
         # Need to calculate dd moments for self-consistency to work.
         self.opts.make_dd_moments = True  # self.opts.maxiter > 1
+        self.opts.solver_options["max_boson_occ"] = max_boson_occ
 
     def check_solver(self, solver):
         if solver not in VALID_SOLVERS:

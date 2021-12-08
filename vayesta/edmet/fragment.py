@@ -6,7 +6,7 @@ from vayesta.dmet.fragment import DMETFragment
 from vayesta.core.util import *
 import dataclasses
 
-from vayesta.solver import get_solver_class
+from vayesta.solver import get_solver_class2 as get_solver_class
 
 from timeit import default_timer as timer
 
@@ -24,7 +24,6 @@ class EDMETFragment(DMETFragment):
     @dataclasses.dataclass
     class Options(DMETFragment.Options):
         make_dd_moments: bool = True
-        bos_occ_cutoff: int = NotSet
         old_sc_condition: bool = NotSet
 
     @dataclasses.dataclass
@@ -221,20 +220,17 @@ class EDMETFragment(DMETFragment):
 
         # Create solver object
         t0 = timer()
-        solver_opts = {}
-        solver_opts['make_rdm1'] = self.opts.make_rdm1
-        solver_opts['make_rdm2'] = self.opts.make_rdm2
-        solver_opts['make_rdm_eb'] = self.opts.make_rdm1
-        solver_opts['make_01_dd_mom'] = self.opts.make_dd_moments
+        solver_opts = self.get_solver_options(solver, chempot)
 
-        v_ext = None if chempot is None else - chempot * self.get_fragment_projector(self.cluster.c_active)
+        solver_cls = get_solver_class(self.mf, solver)
 
-        cluster_solver_cls = get_solver_class(self.mf, solver)
-        cluster_solver = cluster_solver_cls(
-            self.bos_freqs, self.couplings, self, self.base.mo_coeff, self.mf.mo_occ,
-            nocc_frozen=self.cluster.nocc_frozen, nvir_frozen=self.cluster.nvir_frozen,
-            v_ext=v_ext,
-            bos_occ_cutoff=self.opts.bos_occ_cutoff, **solver_opts)
+        cluster_solver = solver_cls(self, self.cluster, **solver_opts)
+
+        #cluster_solver = cluster_solver_cls(
+        #    self.bos_freqs, self.couplings, self, self.base.mo_coeff, self.mf.mo_occ,
+        #    nocc_frozen=self.cluster.nocc_frozen, nvir_frozen=self.cluster.nvir_frozen,
+        #    v_ext=v_ext,
+        #    bos_occ_cutoff=self.opts.bos_occ_cutoff, **solver_opts)
         solver_results = cluster_solver.kernel(eris=eris)
         self.log.timing("Time for %s solver:  %s", solver, time_string(timer() - t0))
 
@@ -269,6 +265,23 @@ class EDMETFragment(DMETFragment):
         self.log.debugv("GC deleted %d objects and freed %.3f MB of memory", ndel, (get_used_memory() - m0) / 1e6)
 
         return results
+
+    def get_solver_options(self, solver, chempot):
+        # TODO: fix this mess...
+        solver_opts = {}
+        solver_opts.update(self.opts.solver_options)
+        #pass_through = ['make_rdm1', 'make_rdm2']
+        pass_through = []
+        for attr in pass_through:
+            self.log.debugv("Passing fragment option %s to solver.", attr)
+            solver_opts[attr] = getattr(self.opts, attr)
+
+        solver_opts["v_ext"] = None if chempot is None else - chempot * self.get_fragment_projector(self.cluster.c_active)
+
+
+        return solver_opts
+
+
 
     def get_edmet_energy_contrib(self):
         """Generate EDMET energy contribution, according to expression given in appendix of EDMET preprint"""

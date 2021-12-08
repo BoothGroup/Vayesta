@@ -12,14 +12,14 @@ import pyscf.fci.addons
 
 from vayesta.core.util import *
 from .solver2 import ClusterSolver
-from vayesta.solver.fci2 import FCI_Solver, UFCI_Solver
+from vayesta.solver.fci2 import FCI_Solver
 from .eb_fci import ebfci_slow
 
 
 class EBFCI_Solver(FCI_Solver):
     @dataclasses.dataclass
     class Options(FCI_Solver.Options):
-        bos_occ_cutoff: int = NotSet
+        max_boson_occ: int = NotSet
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -48,7 +48,7 @@ class EBFCI_Solver(FCI_Solver):
 
         t0 = timer()
         e_fci, civec = ebfci_slow.kernel(heff, eris, self.fragment.couplings, np.diag(self.fragment.bos_freqs),
-                                         self.ncas, self.nelec, self.nbos, self.opts.bos_occ_cutoff)
+                                         self.ncas, self.nelec, self.nbos, self.opts.max_boson_occ)
 
         if not self.solver.converged:
             self.log.error("EBFCI not converged!")

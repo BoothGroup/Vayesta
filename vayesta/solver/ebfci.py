@@ -21,7 +21,7 @@ class EBFCI_Solver(FCI_Solver):
 
     @dataclasses.dataclass
     class Options(FCI_Solver.Options):
-        bos_occ_cutoff: int = NotSet
+        max_boson_occ: int = NotSet
         make_rdm_eb: bool = True
         make_01_dd_mom: bool = False
 
