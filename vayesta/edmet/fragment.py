@@ -23,6 +23,7 @@ VALID_SOLVERS = ["EBFCI"]  # , "EBFCIQMC"]
 class EDMETFragment(DMETFragment):
     @dataclasses.dataclass
     class Options(DMETFragment.Options):
+        make_rdm_eb: bool = True
         make_dd_moments: bool = True
         old_sc_condition: bool = NotSet
 
@@ -226,51 +227,34 @@ class EDMETFragment(DMETFragment):
 
         cluster_solver = solver_cls(self, self.cluster, **solver_opts)
 
-        #cluster_solver = cluster_solver_cls(
-        #    self.bos_freqs, self.couplings, self, self.base.mo_coeff, self.mf.mo_occ,
-        #    nocc_frozen=self.cluster.nocc_frozen, nvir_frozen=self.cluster.nvir_frozen,
-        #    v_ext=v_ext,
-        #    bos_occ_cutoff=self.opts.bos_occ_cutoff, **solver_opts)
-        solver_results = cluster_solver.kernel(eris=eris)
-        self.log.timing("Time for %s solver:  %s", solver, time_string(timer() - t0))
+        with log_time(self.log.info, ("Time for %s solver:" % solver) + " %s"):
+            cluster_solver.kernel(eris=eris)
 
-        dd0 = solver_results.dd_mom0
-        dd1 = solver_results.dd_mom1
-        if self.opts.old_sc_condition:
-            dd0 = [np.einsum("ppqq->pq", x) for x in dd0]
-            dd1 = [np.einsum("ppqq->pq", x) for x in dd1]
+        results = self._results
+        results.bno_threshold = bno_threshold
+        results.n_active = self.cluster.norb_active
+        # Need to rewrite EBFCI solver to expose this properly...
+        results.converged = True
 
-        results = self.Results(
-            fid=self.id,
-            bno_threshold=bno_threshold,
-            n_active=self.cluster.norb_active,
-            converged=solver_results.converged,
-            e_corr=solver_results.e_corr,
-            dm1=solver_results.dm1,
-            dm2=solver_results.dm2,
-            dm_eb=solver_results.rdm_eb,
-            eb_couplings=np.array(self.couplings),
-            boson_freqs=self.bos_freqs,
-            dd_mom0=dd0,
-            dd_mom1=dd1,
-        )
-
-        self.solver_results = solver_results
-        self._results = results
-
-        # Force GC to free memory
-        m0 = get_used_memory()
-        del cluster_solver, solver_results
-        ndel = gc.collect()
-        self.log.debugv("GC deleted %d objects and freed %.3f MB of memory", ndel, (get_used_memory() - m0) / 1e6)
-
+        if self.opts.make_rdm2:
+            results.dm1, results.dm2 = cluster_solver.make_rdm12()
+        elif self.opts.make_rdm1:
+            results.dm1 = cluster_solver.make_rdm1()
+        if self.opts.make_rdm_eb:
+            results.dm_eb = cluster_solver.make_rdm_eb()
+        if self.opts.make_dd_moments:
+            ddmoms = cluster_solver.make_dd_moms(1)
+            if self.opts.old_sc_condition:
+                ddmoms[0] = [np.einsum("ppqq->pq", x) for x in ddmoms[0]]
+                ddmoms[1] = [np.einsum("ppqq->pq", x) for x in ddmoms[1]]
+            results.dd_mom0 = ddmoms[0]
+            results.dd_mom1 = ddmoms[1]
         return results
 
     def get_solver_options(self, solver, chempot):
         # TODO: fix this mess...
         solver_opts = {}
         solver_opts.update(self.opts.solver_options)
-        #pass_through = ['make_rdm1', 'make_rdm2']
         pass_through = []
         for attr in pass_through:
             self.log.debugv("Passing fragment option %s to solver.", attr)
@@ -278,10 +262,7 @@ class EDMETFragment(DMETFragment):
 
         solver_opts["v_ext"] = None if chempot is None else - chempot * self.get_fragment_projector(self.cluster.c_active)
 
-
         return solver_opts
-
-
 
     def get_edmet_energy_contrib(self):
         """Generate EDMET energy contribution, according to expression given in appendix of EDMET preprint"""

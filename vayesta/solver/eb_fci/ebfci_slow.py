@@ -365,7 +365,7 @@ def kernel_multiroot(h1e, g2e, hep, hpp, norb, nelec, nbosons, max_occ,
 
 
 # dm_pq = <|p^+ q|>
-def make_rdm1e(fcivec, norb, nelec):
+def make_rdm1(fcivec, norb, nelec):
     '''1-electron density matrix dm_pq = <|p^+ q|>'''
     neleca, nelecb = _unpack_nelec(nelec)
     link_indexa = cistring.gen_linkstr_index(range(norb), neleca)
@@ -386,7 +386,7 @@ def make_rdm1e(fcivec, norb, nelec):
     return rdm1
 
 
-def make_rdm12e(fcivec, norb, nelec):
+def make_rdm12(fcivec, norb, nelec):
     '''1-electron and 2-electron density matrices
     dm_qp = <|q^+ p|>
     dm_{pqrs} = <|p^+ r^+ s q|>
@@ -419,7 +419,7 @@ def make_rdm12e(fcivec, norb, nelec):
     return rdm1, rdm2
 
 
-def make_rdm12e_spinresolved(fcivec, norb, nelec):
+def make_rdm12s(fcivec, norb, nelec):
     '''1-electron and 2-electron spin-resolved density matrices
     dm_qp = <|q^+ p|>
     dm_{pqrs} = <|p^+ r^+ s q|>
