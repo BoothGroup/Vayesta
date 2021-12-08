@@ -3,6 +3,7 @@ Based on the fci_slow.py code within pyscf.
 """
 
 import numpy
+import numpy as np
 from pyscf import lib
 from pyscf import ao2mo
 from pyscf.fci import cistring
@@ -502,26 +503,28 @@ def make_eb_rdm(fcivec, norb, nelec, nbosons, max_occ):
         return numpy.zeros((nspinorb, nspinorb, 0))
 
     ci0 = fcivec.reshape(cishape)
-    t1 = numpy.zeros((nspinorb, nspinorb) + cishape, dtype=fcivec.dtype)
+    t1a = numpy.zeros((norb, norb) + cishape, dtype=fcivec.dtype)
+    t1b = numpy.zeros_like(t1a)
 
     for str0, tab in enumerate(link_indexa):
         for a, i, str1, sign in link_indexa[str0]:
-            t1[2 * a, 2 * i, str1] += sign * ci0[str0]
+            t1a[a, i, str1] += sign * ci0[str0]
     for str0, tab in enumerate(link_indexb):
         for a, i, str1, sign in link_indexb[str0]:
-            t1[2 * a + 1, 2 * i + 1, :, str1] += sign * ci0[:, str0]
+            t1b[a, i, :, str1] += sign * ci0[:, str0]
     bos_cre = numpy.sqrt(numpy.arange(1, max_occ + 1))
-    temp = numpy.zeros((nspinorb, nspinorb, nbosons) + ci0.shape)
+    tempa = numpy.zeros((norb, norb, nbosons) + ci0.shape)
+    tempb = np.zeros_like(tempa)
     for ibos in range(nbosons):
         # We could tidy this up with nicer slicing and einsum, but it works for now.
         for iocc in range(0, max_occ):
             ex_slice = (slice(None, None, None),) * 2 + (ibos,) + slices_for_cre(ibos, nbosons, iocc)
             norm_slice = (slice(None, None, None),) * 2 + slices_for(ibos, nbosons, iocc)
-            temp[ex_slice] += t1[norm_slice] * bos_cre[iocc]
-    rdm_fb = numpy.dot(
-        temp.reshape((nspinorb ** 2 * nbosons, -1)), ci0.reshape(-1)
-    ).reshape((nspinorb, nspinorb, nbosons))
-    return rdm_fb
+            tempa[ex_slice] += t1a[norm_slice] * bos_cre[iocc]
+            tempb[ex_slice] += t1b[norm_slice] * bos_cre[iocc]
+    rdm_fba = numpy.dot(tempa.reshape((norb ** 2 * nbosons, -1)), ci0.reshape(-1)).reshape((norb, norb, nbosons))
+    rdm_fbb = numpy.dot(tempb.reshape((norb ** 2 * nbosons, -1)), ci0.reshape(-1)).reshape((norb, norb, nbosons))
+    return rdm_fba, rdm_fbb
 
 
 def calc_dd_response_moment(ci0, e0, max_mom, norb, nel, nbos, h1e, eri, hbb, heb, max_boson_occ, rdm1, trace=False,

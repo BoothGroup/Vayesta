@@ -92,7 +92,7 @@ class EBFCI_Solver(FCI_Solver):
 
         self.dd_moms = ebfci_slow.calc_dd_response_moment_spatial(
             civec, self.e_fci, max_mom, self.ncas, self.nelec, self.nbos, heff, eris,
-            np.diag(self.fragment.bos_freqs), self.fragment.coupling, self.opts.max_boson_occ, dm1)
+            np.diag(self.fragment.bos_freqs), self.fragment.couplings, self.opts.max_boson_occ, dm1)
         return self.dd_moms
 
     def make_rdm_eb(self, civec=None):

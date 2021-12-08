@@ -269,7 +269,7 @@ class EDMET(DMET):
             if exit:
                 break
             # Project rdm into fragment space; currently in cluster canonical orbitals.
-            c = dot(frag.c_frag.T, self.mf.get_ovlp(), frag.c_active)
+            c = dot(frag.c_frag.T, self.mf.get_ovlp(), frag.cluster.c_active)
             hl_rdms[x] = dot(c, frag.results.dm1, c.T)  # / 2
             nelec_hl += hl_rdms[x].trace() * nsym[x]
             # dd moments are already in fragment basis
@@ -289,8 +289,9 @@ class EDMET(DMET):
 
         def get_contrib(local_contrib, frag):
             (V_A_aa, V_A_ab, V_A_bb, V_B_aa, V_B_ab, V_B_bb) = local_contrib
-            c_occ = np.dot(self.get_ovlp(), frag.c_active_occ)
-            c_vir = np.dot(self.get_ovlp(), frag.c_active_vir)
+            c_occ = frag.get_fragment_projector()
+            c_occ = np.dot(self.get_ovlp(), frag.cluster.c_active_occ)
+            c_vir = np.dot(self.get_ovlp(), frag.cluster.c_active_vir)
             v_aa = (einsum("iajb,pi,qa,rj,sb->pqrs", V_A_aa, c_occ, c_vir, c_occ, c_vir) +
                     einsum("iajb,pi,qa,rj,sb->pqsr", V_B_aa, c_occ, c_vir, c_occ, c_vir))
             v_ab = (einsum("iajb,pi,qa,rj,sb->pqrs", V_A_ab, c_occ, c_vir, c_occ, c_vir) +

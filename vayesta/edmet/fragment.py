@@ -269,12 +269,13 @@ class EDMETFragment(DMETFragment):
         e1, e2 = self.get_dmet_energy_contrib()
         c_act = self.cluster.c_active
         p_imp = self.get_fragment_projector(c_act)
-        # Taken spin-averaged couplings for now; should actually be spin symmetric.
-        couplings = (self._results.eb_couplings[0] + self._results.eb_couplings[1]) / 2
         dm_eb = self._results.dm_eb
+
         efb = 0.5 * (
-                np.einsum("pr,npq,rqn", p_imp, couplings, dm_eb) +
-                np.einsum("qr,npq,prn", p_imp, couplings, dm_eb)
+                np.einsum("pr,npq,rqn", p_imp, self.couplings[0], dm_eb[0]) +
+                np.einsum("qr,npq,prn", p_imp, self.couplings[0], dm_eb[0]) +
+                np.einsum("pr,npq,rqn", p_imp, self.couplings[1], dm_eb[1]) +
+                np.einsum("qr,npq,prn", p_imp, self.couplings[1], dm_eb[1])
         )
         return e1, e2, efb
 
