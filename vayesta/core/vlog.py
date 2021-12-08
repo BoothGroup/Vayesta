@@ -80,11 +80,20 @@ class LevelExcludeFilter(logging.Filter):
 class VFormatter(logging.Formatter):
     """Formatter which adds a prefix column and indentation."""
 
-    def __init__(self, *args, prefix=True, prefix_width=10, prefix_sep='|',
+    def __init__(self, *args,
+            show_level=True, show_mpi_rank=False, prefix_sep='|',
             indent=False, indent_char=' ', indent_width=4, **kwargs):
         super().__init__(*args, **kwargs)
-        self.prefix = prefix
-        self.prefix_width = prefix_width
+
+        self.show_level = show_level
+        self.show_mpi_rank = show_mpi_rank
+
+        self.prefix_width = 0
+        if show_level:
+            self.prefix_width += len(max(LVL_PREFIX.values(), key=len)) + 2
+        if show_mpi_rank:
+            self.prefix_width += len(str(mpi.size-1)) + 6
+
         self.prefix_sep = prefix_sep
         self.indent = indent
         self.indent_char = indent_char
@@ -93,11 +102,13 @@ class VFormatter(logging.Formatter):
     def format(self, record):
         message = record.msg % record.args
         indent = prefix = ""
-        if self.prefix:
+        if self.show_level:
             prefix = LVL_PREFIX.get(record.levelname, "")
             if prefix:
-                prefix = "[%s]" % prefix
-            prefix = "%-*s%s" % (self.prefix_width, prefix, self.prefix_sep)
+                prefix = '[%s]' % prefix
+        if self.show_mpi_rank:
+            prefix += '[MPI %d]' % mpi.rank
+        prefix = '%-*s%s' % (self.prefix_width, prefix, self.prefix_sep)
         if self.indent:
             root = logging.getLogger()
             indent = root.indentLevel * self.indent_width * self.indent_char
@@ -118,19 +129,18 @@ class VStreamHandler(logging.StreamHandler):
 class VFileHandler(logging.FileHandler):
     """Default file handler with IndentedFormatter"""
 
-    def __init__(self, filename, mode='a', formatter=None, **kwargs):
-        filename = get_logname(filename)
+    def __init__(self, filename, mode='a', formatter=None, add_mpi_rank=True, **kwargs):
+        filename = get_logname(filename, add_mpi_rank=add_mpi_rank)
         super().__init__(filename, mode=mode, **kwargs)
         if formatter is None:
             formatter = VFormatter()
         self.setFormatter(formatter)
 
-def get_logname(basename, ext='log'):
-    if ext and '.' not in basename:
-        ext = '.' + ext
-    else:
-        ext = ''
-    name = '%s%s%s' % (basename, (('.mpi%d' % mpi.rank) if mpi else ''), ext)
+def get_logname(name, add_mpi_rank=True, ext='log'):
+    if mpi and add_mpi_rank:
+        name = '%s.mpi%d' % (name, mpi.rank)
+    if ext:
+        name = '%s.%s' % (name, ext)
     return name
 
 def init_logging():

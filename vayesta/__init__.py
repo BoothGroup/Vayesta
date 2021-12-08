@@ -44,6 +44,13 @@ if (args.output is None) and (mpi.is_master):
 if (args.output or args.log or (not mpi.is_master)):
     logname = (args.output or args.log) or "vayesta"
     log.addHandler(vlog.VFileHandler(logname, formatter=fmt))
+# Error log
+errlog = args.errlog
+if errlog:
+    errfmt = vlog.VFormatter(show_mpi_rank=True, indent=False)
+    errhandler = vlog.VFileHandler(errlog, formatter=errfmt, add_mpi_rank=False)
+    errhandler.setLevel(args.errlog_level)
+    log.addHandler(errhandler)
 
 # Print Logo
 log.info(logo + (' Version %s' % __version__) + '\n')
