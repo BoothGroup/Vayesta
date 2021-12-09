@@ -1,4 +1,5 @@
 import argparse
+import string
 
 import numpy as np
 
@@ -146,6 +147,7 @@ for idx, gate in enumerate(gates):
     print("RI basis: %s" % auxbasis)
     mf = mf.density_fit(auxbasis=auxbasis)
     mf.with_df._j_only = False
+    mf.with_df._cderi_to_save = 'cderi-%s' % ''.join(random.choice(string.ascii_lowercase) for i in range(10))
 
     # Gate potential
     if gate:
