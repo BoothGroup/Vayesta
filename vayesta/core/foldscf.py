@@ -339,7 +339,9 @@ def k2bvk_2d(ak, phase, make_real=True, imag_tol=1e-6):
     ag = einsum('kR,...kij,kS->...RiSj', phase, ak, phase.conj())
     imag_norm = abs(ag.imag).max()
     if make_real and (imag_norm > imag_tol):
-        raise ImaginaryPartError("Imaginary part of supercell integrals: %.2e (tolerance= %.2e)" % (imag_norm, imag_tol))
+        msg = "Imaginary part of supercell integrals: %.2e (tolerance= %.2e)"
+        log.fatal(msg, imag_norm, imag_tol)
+        raise ImaginaryPartError(msg % (imag_norm, imag_tol))
     nr, nao = phase.shape[1], ak.shape[-1]
     shape = (*ag.shape[:-4], nr*nao, nr*nao)
     ag = ag.reshape(shape)
