@@ -527,86 +527,9 @@ def make_eb_rdm(fcivec, norb, nelec, nbosons, max_occ):
     return rdm_fba, rdm_fbb
 
 
-def calc_dd_response_moment(ci0, e0, max_mom, norb, nel, nbos, h1e, eri, hbb, heb, max_boson_occ, rdm1, trace=False,
-                            coeffs=None, **kwargs):
-    """
-    Calculate up to the mth moment of the dd response.
-    :param m: maximum moment order of response to return.
-    :param hfbas: whether to return the moment in the HF basis. Otherwise returns in the basis in the underlying
-            orthogonal basis hfbas is specified in (defaults to False).
-    :return:
-    """
-    hop = kernel(h1e, eri, heb, hbb, norb, nel, nbos, max_boson_occ, returnhop=True, **kwargs)[0]
-
-    nspinorb = 2 * norb
-    spincoeffs = coeffs
-    if not (spincoeffs is None):
-        if spincoeffs.shape[0] == norb:
-            # Given spatial orbital coeffs; convert to spin.
-            spincoeffs = numpy.zeros([2 * x for x in coeffs.shape])
-            spincoeffs[::2, ::2] = coeffs
-            spincoeffs[1::2, 1::2] = coeffs
-
-    if isinstance(nel, (int, numpy.integer)):
-        nelecb = nel // 2
-        neleca = nel - nelecb
-    else:
-        neleca, nelecb = nel
-    link_indexa = cistring.gen_linkstr_index(range(norb), neleca)
-    link_indexb = cistring.gen_linkstr_index(range(norb), nelecb)
-    cishape = make_shape(nel, norb, nbos, max_boson_occ)
-
-    t1 = numpy.zeros((nspinorb, nspinorb) + cishape, dtype=numpy.dtype(numpy.float64))
-    for str0, tab in enumerate(link_indexa):
-        for a, i, str1, sign in tab:
-            t1[2 * a, 2 * i, str1] += sign * ci0[str0]
-    for str0, tab in enumerate(link_indexb):
-        for a, i, str1, sign in tab:
-            t1[2 * a + 1, 2 * i + 1, :, str1] += sign * ci0[:, str0]
-    # If we want not in HF basis we can perform transformation at this stage.
-    t1 = t1.reshape((nspinorb, nspinorb, -1))
-    if not spincoeffs is None:
-        t1 = numpy.einsum("ia...,ip,aq->pq...", t1, spincoeffs, spincoeffs)
-        del coeffs, spincoeffs
-    if trace:
-        t1 = numpy.einsum("ii...->i...", t1)
-    # From this we'll obtain our moments through dot products, thanks to the Hermiticity of our expression.
-    max_intermed = numpy.ceil(max_mom / 2).astype(int)
-    intermeds = {0: t1}
-    for iinter in range(max_intermed):
-        intermeds[iinter + 1] = numpy.zeros_like(t1)
-        for i in range(nspinorb):
-            if trace:
-                intermeds[iinter + 1][i] = hop(intermeds[iinter][i]).reshape(-1) - \
-                                           e0 * intermeds[iinter][i]
-            else:
-                for a in range(nspinorb):
-                    intermeds[iinter + 1][a, i] = hop(intermeds[iinter][a, i]).reshape(-1) - \
-                                                  e0 * intermeds[iinter][a, i]
-    # Need to adjust zeroth moment to remove ground state contributions; in all higher moments this is achieved by
-    # deducting the reference energy.
-    # Now take appropriate dot products to get moments.
-    moments = {}
-    for imom in range(max_mom + 1):
-        rintermed = min(imom, max_intermed)
-        lintermed = imom - rintermed
-        # print(imom, rintermed, lintermed, max_intermed)
-        if trace:
-            moments[imom] = numpy.einsum("pn,qn->pq", intermeds[lintermed], intermeds[rintermed])
-        else:
-            moments[imom] = numpy.einsum("pqn,rsn->pqsr", intermeds[lintermed], intermeds[rintermed])
-    # Need to add additional adjustment for zeroth moment, as there is a nonzero ground state
-    # contribution in this case (the current value is in fact the double occupancy <0|n_{pq} n_{sr}|0>).
-    if trace:
-        moments[0] = moments[0] - numpy.einsum("pp,qq->pq", rdm1, rdm1)
-    else:
-        moments[0] = moments[0] - numpy.einsum("pq,rs->pqrs", rdm1, rdm1)
-    return moments
-
-
-def calc_dd_response_moment_spatial(ci0, e0, max_mom, norb, nel, nbos, h1e, eri, hbb, heb, max_boson_occ, rdm1,
-                                    trace=False,
-                                    coeffs=None, **kwargs):
+def calc_dd_resp_mom(ci0, e0, max_mom, norb, nel, nbos, h1e, eri, hbb, heb, max_boson_occ, rdm1,
+                     trace=False,
+                     coeffs=None, **kwargs):
     """
     Calculate up to the mth moment of the dd response, dealing with all spin components separately. To replace
     preceding function.

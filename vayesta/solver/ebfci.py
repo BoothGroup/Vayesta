@@ -85,10 +85,10 @@ class EBFCI_Solver(FCI_Solver):
             results.dm1, results.dm2 = ebfci_slow.make_rdm12e(civec, self.nactive, nelec)
             # Calculating only the components of the dd response moments we needs cuts down on calculation time.
             frag_coeffs = np.linalg.multi_dot([self.fragment.c_active.T, self.base.get_ovlp(), self.fragment.c_frag])
-            dd_moms = ebfci_slow.calc_dd_response_moment_spatial(civec, e_fci, 1, self.nactive, nelec,
-                                                        self.nbos, heff, eris, np.diag(self.bos_freqs), self.eb_coupling,
-                                                        self.opts.bos_occ_cutoff, results.dm1, trace = False,
-                                                        coeffs = frag_coeffs)
+            dd_moms = ebfci_slow.calc_dd_resp_mom(civec, e_fci, 1, self.nactive, nelec,
+                                                  self.nbos, heff, eris, np.diag(self.bos_freqs), self.eb_coupling,
+                                                  self.opts.bos_occ_cutoff, results.dm1, trace = False,
+                                                  coeffs = frag_coeffs)
             results.dd_mom0 = dd_moms[0]
             results.dd_mom1 = dd_moms[1]
         elif self.opts.make_rdm2:

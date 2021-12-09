@@ -162,7 +162,7 @@ class BaseMomzeroOffset(NumericalIntegratorBase):
 
     def eval_contrib(self, freq):
         # This should be real currently, so can safely do this.
-        expval = np.exp(-freq * self.D).real
+        expval = np.exp(-freq * self.D)
         lrot = einsum("lp,p->lp", self.target_rot, expval)
         rrot = expval
         res = dot(dot(lrot, self.S_L.T), einsum("np,p->np", self.S_R, rrot))

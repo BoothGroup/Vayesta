@@ -90,7 +90,7 @@ class EBFCI_Solver(FCI_Solver):
         except AttributeError:
             dm1 = self.make_rdm1(civec)
 
-        self.dd_moms = ebfci_slow.calc_dd_response_moment_spatial(
+        self.dd_moms = ebfci_slow.calc_dd_resp_mom(
             civec, self.e_fci, max_mom, self.ncas, self.nelec, self.nbos, heff, eris,
             np.diag(self.fragment.bos_freqs), self.fragment.couplings, self.opts.max_boson_occ, dm1)
         return self.dd_moms

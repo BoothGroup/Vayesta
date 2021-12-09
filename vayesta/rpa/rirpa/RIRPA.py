@@ -110,7 +110,6 @@ class ssRIRPA:
             niworker = momzero_NI.MomzeroDeductNone(*inputs)
             integral_offset = np.zeros_like(target_rot)
             moment_offset = np.zeros_like(target_rot)
-
         elif integral_deduct == "HO":
             niworker = momzero_NI.MomzeroDeductHigherOrder(*inputs)
             offset_niworker = momzero_NI.MomzeroOffsetCalcGaussLag(*inputs)
@@ -208,6 +207,11 @@ def construct_inverse_RI(D, ri):
     # This inversion and square root should only scale as O(N^3).
     U = np.linalg.inv(np.eye(naux) + U)
     Urt = scipy.linalg.sqrtm(U)
+    if Urt.dtype == complex:
+        if abs(Urt.imag).max() > 1e-8:
+            raise ImaginaryPartError("Complex square root occured in RIRPA calculation.")
+        else:
+            Urt = Urt.real
     # Evaluate the resulting RI
     if type(ri) == np.ndarray:
         return einsum("p,np,nm->mp", D ** (-1), ri_L, Urt)

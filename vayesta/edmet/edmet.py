@@ -205,7 +205,8 @@ class EDMET(DMET):
             rpa = ssRIRPA(self.mf, self.xc_kernel, self.log)
             # Get fermionic bath set up, and calculate the cluster excitation space.
             rot_ovs = [f.set_up_fermionic_bath() for f in sym_parents]
-            mom0_interact, est_error = rpa.kernel_moms(np.concatenate(rot_ovs, axis=0), npoints=48)
+            target_rot = np.concatenate(rot_ovs, axis=0)
+            mom0_interact, est_error = rpa.kernel_moms(target_rot, npoints=48)
             # Get appropriate slices to obtain required active spaces.
             ovs_active = [2*f.ov_active for f in sym_parents]
             ovs_active_slices = [slice(sum(ovs_active[:i]), sum(ovs_active[:i + 1])) for i in
@@ -232,7 +233,6 @@ class EDMET(DMET):
                 mom0_interact = dot(rot_ov, mom0)
                 rot_bos = f.define_bosons(mom0_interact)
                 mom0_bos = dot(rot_bos, mom0)
-                eps = get_eps()
                 f.construct_boson_hamil(mom0_bos, eps, self.xc_kernel)
 
     def calc_electron_number_defect(self, chempot, bno_thr, nelec_target, parent_fragments, nsym,

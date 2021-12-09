@@ -76,9 +76,11 @@ class EDMETFragment(DMETFragment):
         """
         if rot_ov is None:
             rot_ov = self.get_rot_to_mf_ov()
+        self.rpa_mom = rpa_mom
         # Need to remove fermionic degrees of freedom from moment contribution. Null space of rotation matrix is size
         # N^4, so instead deduct projection onto fermionic space.
-        env_mom = rpa_mom - dot(rpa_mom, rot_ov.T, np.linalg.pinv(rot_ov.T))
+        rot_ov_pinv = np.linalg.pinv(rot_ov.T)
+        env_mom = rpa_mom - dot(rpa_mom, rot_ov.T, rot_ov_pinv)
         # v defines the rotation of the mean-field excitation space specifying our bosons.
         u, s, v = np.linalg.svd(env_mom, full_matrices=False)
         want = s > tol
@@ -88,7 +90,6 @@ class EDMETFragment(DMETFragment):
                           self.nbos, s[~want].max())
         else:
             self.log.info("Zeroth moment matching generated %d cluster bosons.", self.nbos)
-
         # Calculate the relevant components of the zeroth moment- we don't want to recalculate these.
         self.r_bos = v[want, :]
         self.eta0_ferm = np.dot(rpa_mom, rot_ov.T)
@@ -254,7 +255,6 @@ class EDMETFragment(DMETFragment):
         return results
 
     def get_solver_options(self, solver, chempot):
-        # TODO: fix this mess...
         solver_opts = {}
         solver_opts.update(self.opts.solver_options)
         pass_through = []
