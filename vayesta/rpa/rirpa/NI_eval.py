@@ -70,6 +70,7 @@ class NumericalIntegratorBase:
             contrib = evaluator(point)
             assert (contrib.shape == res_shape)
             integral += weight * contrib
+
         return integral
 
     def _NI_eval_w_error(self, *args):
