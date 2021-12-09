@@ -349,6 +349,29 @@ class EWF(QEmbeddingMethod):
     def get_global_l2(self, *args, **kwargs):
         return self.get_global_t2(*args, get_lambda=True, **kwargs)
 
+    def t1_diagnostic(self, warn_tol=0.02):
+        # Per cluster
+        for f in self.get_fragments(mpi_rank=mpi.rank):
+            t1 = f.results.t1
+            if t1 is None:
+                self.log.error("No T1 amplitudes found for %s.", f)
+                continue
+            nelec = 2*t1.shape[0]
+            t1diag = np.linalg.norm(t1) / np.sqrt(nelec)
+            if t1diag > warn_tol:
+                self.log.warning("T1 diagnostic for %-20s %.5f", str(f)+':', t1diag)
+            else:
+                self.log.info("T1 diagnostic for %-20s %.5f", str(f)+':', t1diag)
+        # Global
+        t1 = self.get_global_t1(mpi_target=0)
+        if mpi.is_master:
+            nelec = 2*t1.shape[0]
+            t1diag = np.linalg.norm(t1) / np.sqrt(nelec)
+            if t1diag > warn_tol:
+                self.log.warning("Global T1 diagnostic: %.5f", t1diag)
+            else:
+                self.log.info("Global T1 diagnostic: %.5f", t1diag)
+
     # --- Bardwards compatibility:
     @deprecated("get_t1 is deprecated - use get_global_t1 instead.")
     def get_t1(self, *args, **kwargs):

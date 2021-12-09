@@ -225,11 +225,6 @@ for idx, gate in enumerate(gates):
         elif args.fragment_type == 'sao':
             emb.sao_fragmentation()
 
-        #if v_gate is not None:
-            #emb.get_fock_for_energy = lambda *args : (emb.get_fock(*args) + v_gate)
-            #emb.get_hcore_for_energy = lambda : (emb.get_hcore() + v_gate)
-        #    emb.get_hcore_for_energy = hcore_orig
-
         if args.atomic_fragments:
             emb.add_all_atomic_fragments()  # Primitive cell only!
             emb.kernel()
@@ -271,6 +266,7 @@ for idx, gate in enumerate(gates):
             frag.pop_analysis(local_orbitals='lowdin',   filename='lowdin-cc-%.3f.pop' % gate)
             frag.pop_analysis(local_orbitals='iao+pao',  filename='iao+pao-cc-%.3f.pop' % gate)
 
+        emb.t1_diagnostic()
         e_cc = emb.e_tot
     else:
         e_cc = np.nan
