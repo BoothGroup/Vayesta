@@ -32,7 +32,7 @@ class UEWFFragment(UFragment, EWFFragment):
         self.bath = bath
         return bath
 
-    def get_fragment_energy(self, c1, c2, eris, fock=None, axis1='cluster'):
+    def get_fragment_energy(self, c1, c2, eris, fock=None, axis1='fragment'):
         """Calculate fragment correlation energy contribution from projected C1, C2.
 
         Parameters
@@ -58,8 +58,9 @@ class UEWFFragment(UFragment, EWFFragment):
         """
         if (self.opts.energy_factor*self.sym_factor) == 0: return 0
 
-        nocc = (c1[0].shape[0], c1[1].shape[0])
-        nvir = (c1[0].shape[1], c1[1].shape[1])
+        nocc = (c2[0].shape[1], c2[-1].shape[1])
+        nvir = (c2[0].shape[2], c2[-1].shape[2])
+        self.log.debugv("nocc= %d, %d nvir= %d, %d", *nocc, *nvir)
         oa, ob = np.s_[:nocc[0]], np.s_[:nocc[1]]
         va, vb = np.s_[nocc[0]:], np.s_[nocc[1]:]
         if axis1 == 'fragment':
@@ -78,6 +79,7 @@ class UEWFFragment(UFragment, EWFFragment):
                 fock = self.base.get_fock_for_energy()
             fova = dot(self.cluster.c_active_occ[0].T, fock[0], self.cluster.c_active_vir[0])
             fovb = dot(self.cluster.c_active_occ[1].T, fock[1], self.cluster.c_active_vir[1])
+            assert (len(c1) == 2)
             ca, cb = c1
             if axis1 == 'fragment':
                 e_singles = (einsum('ia,xi,xa->', fova, pxa, ca)
@@ -95,6 +97,7 @@ class UEWFFragment(UFragment, EWFFragment):
             gbb = eris.OVOV
             #gbb = eris.OVOV - eris.OVOV.transpose(0,3,2,1)
         else:
+            assert (len(eris) == 3)
             gaa = eris[0][oa,va,oa,va]
             gab = eris[1][oa,va,ob,vb]
             gbb = eris[2][ob,vb,ob,vb]
@@ -105,15 +108,21 @@ class UEWFFragment(UFragment, EWFFragment):
         #     + einsum('ijab,iajb', cbb, gbb)/4
         #     + einsum('ijab,iajb', cab, gab))
         if axis1 == 'fragment':
+            assert len(c2) == 4
             caa, cab, cba, cbb = c2
-            e_doubles = (einsum('xi,xjab,iajb', pxa, caa, gaa)/4 - einsum('xi,xjab,ibja', pxa, caa, gaa)/4
-                       + einsum('xi,xjab,iajb', pxb, cbb, gbb)/4 - einsum('xi,xjab,ibja', pxb, cbb, gbb)/4
+            e_doubles = (einsum('xi,xjab,iajb', pxa, caa, gaa)/4
+                       - einsum('xi,xjab,ibja', pxa, caa, gaa)/4
+                       + einsum('xi,xjab,iajb', pxb, cbb, gbb)/4
+                       - einsum('xi,xjab,ibja', pxb, cbb, gbb)/4
                        + einsum('xi,xjab,iajb', pxa, cab, gab)/2
                        + einsum('xj,ixab,iajb', pxb, cba, gab)/2)
         else:
+            assert len(c2) == 3
             caa, cab, cbb = c2
-            e_doubles = (einsum('ijab,iajb', caa, gaa)/4 - einsum('ijab,ibja', caa, gaa)/4
-                       + einsum('ijab,iajb', cbb, gbb)/4 - einsum('ijab,ibja', cbb, gbb)/4
+            e_doubles = (einsum('ijab,iajb', caa, gaa)/4
+                       - einsum('ijab,ibja', caa, gaa)/4
+                       + einsum('ijab,iajb', cbb, gbb)/4
+                       - einsum('ijab,ibja', cbb, gbb)/4
                        + einsum('ijab,iajb', cab, gab))
 
         e_singles = (self.opts.energy_factor*self.sym_factor * e_singles)

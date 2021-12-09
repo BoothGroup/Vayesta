@@ -154,6 +154,7 @@ class UFragment(Fragment):
         if projector is None:
             projector = self.get_occ2frag_projector()
         if axis == 0:
+            assert (len(amp2) == 3)
             caa, cab, cbb = amp2
             caax = einsum('xi,i...->x...', projector[0], caa)
             cabx = einsum('xi,i...->x...', projector[0], cab)

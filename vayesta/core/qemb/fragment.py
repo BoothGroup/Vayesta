@@ -552,12 +552,6 @@ class Fragment:
         if projector is None:
             projector = self.get_occ2frag_projector()
         if axis == 0:
-            # TEST
-            #c1 = einsum('xi,i...->x...', projector, amp2)
-            #c2 = einsum('xj,ij...->ix...', projector, amp2)
-            #assert np.allclose(c1, c2.transpose(1,0,2,3))
-            #assert np.allclose(c2, c1.transpose(1,0,2,3))
-            #
             return einsum('xi,i...->x...', projector, amp2)
         if axis == 1:
             return einsum('xj,ij...->ix...', projector, amp2)

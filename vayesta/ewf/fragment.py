@@ -311,20 +311,11 @@ class EWFFragment(QEmbeddingFragment):
             self.log.info("Weight of reference determinant= %.8g", abs(cluster_solver.c0))
         # --- Calculate energy
         with log_time(self.log.info, ("Time for fragment energy= %s")):
-        # C1 and C2 are in intermediate normalization:
-            c1 = cluster_solver.get_c1(intermed_norm=True)
-            c2 = cluster_solver.get_c2(intermed_norm=True)
-            c1 = self.project_amplitude_to_fragment(c1, cluster.c_active_occ, cluster.c_active_vir)
-            c2 = self.project_amplitude_to_fragment(c2, cluster.c_active_occ, cluster.c_active_vir)
-            e_singles, e_doubles, e_corr = self.get_fragment_energy(c1, c2, eris=eris, axis1='cluster')
+            c1x = self.project_amp1_to_fragment(cluster_solver.get_c1(intermed_norm=True))
+            c2x = self.project_amp2_to_fragment(cluster_solver.get_c2(intermed_norm=True))
+            e_singles, e_doubles, e_corr = self.get_fragment_energy(c1x, c2x, eris=eris)
+            del c1x, c2x
 
-        # In future:
-        #c1x = self.project_amp1_to_fragment(cluster_solver.get_c1())
-        #c2x = self.project_amp2_to_fragment(cluster_solver.get_c2())
-        #with log_time(self.log.info, ("Time for fragment energy= %s")):
-        #    #e_singles, e_doubles, e_corr = self.get_fragment_energy(c1x, c2x, eris=eris)
-        #    e_singles_2, e_doubles_2, e_corr_2 = self.get_fragment_energy(c1x, c2x, eris=eris, axis1='fragment')
-        #    assert abs(e_corr - e_corr_2) < 1e-12
         if (solver != 'FCI' and (e_singles > max(0.1*e_doubles, 1e-4))):
             self.log.warning("Large singles energy component: E(S)= %s, E(D)= %s",
                     energy_string(e_singles), energy_string(e_doubles))
@@ -436,7 +427,7 @@ class EWFFragment(QEmbeddingFragment):
     def get_energy_prefactor(self):
         return self.sym_factor * self.opts.energy_factor
 
-    def get_fragment_energy(self, c1, c2, eris, fock=None, axis1='cluster'):
+    def get_fragment_energy(self, c1, c2, eris, fock=None, axis1='fragment'):
         """Calculate fragment correlation energy contribution from projected C1, C2.
 
         Parameters
@@ -461,7 +452,6 @@ class EWFFragment(QEmbeddingFragment):
             Total fragment correlation energy contribution.
         """
         if not self.get_energy_prefactor(): return (0, 0, 0)
-
         nocc, nvir = c2.shape[1:3]
         occ, vir = np.s_[:nocc], np.s_[nocc:]
         if axis1 == 'fragment':
