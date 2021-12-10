@@ -12,6 +12,7 @@ Installation
     - NumPy
     - SciPy
     - PySCF
+    - CVXPY (for DMET functionality)
 
 * Installation
     1. Clone from Git repository: `git clone git@github.com:BoothGroup/Vayesta.git`
