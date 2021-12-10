@@ -246,7 +246,8 @@ class EDMETFragment(DMETFragment):
         if self.opts.make_rdm_eb:
             results.dm_eb = cluster_solver.make_rdm_eb()
         if self.opts.make_dd_moments:
-            ddmoms = cluster_solver.make_dd_moms(1)
+            ddmoms = cluster_solver.make_dd_moms(1, coeffs=dot(self.cluster.c_active.T, self.base.get_ovlp(),
+                                                               self.c_frag))
             if self.opts.old_sc_condition:
                 ddmoms[0] = [np.einsum("ppqq->pq", x) for x in ddmoms[0]]
                 ddmoms[1] = [np.einsum("ppqq->pq", x) for x in ddmoms[1]]
@@ -350,7 +351,6 @@ class EDMETFragment(DMETFragment):
                                                                        update[2],
                                                                        rot_ov_frag, rot_frag_ov)
             return newmat
-
         new_amb = get_updated_spincomponents(amb_orig, m1_new, rot_ov_frag, rot_frag_ov)
         new_m0 = get_updated_spincomponents(m0_orig, m0_new, rot_ov_frag, rot_frag_ov)
         new_m0_inv = np.linalg.inv(new_m0)
@@ -362,7 +362,7 @@ class EDMETFragment(DMETFragment):
         r_occ, r_vir = self.get_overlap_m2c()
         # Given that our active orbitals are also canonical this should be diagonal, but calculating the whole
         # thing isn't prohibitive and might save pain.
-        loc_eps = einsum("ia,ji,ba,ki,ca->jbkc", epsilon, r_occ, r_vir, r_occ, r_vir).reshape((ov_loc, ov_loc))
+        loc_eps = einsum("ia,ij,ab,ik,ac->jbkc", epsilon, r_occ, r_vir, r_occ, r_vir).reshape((ov_loc, ov_loc))
         # We want to actually consider the difference from the dRPA kernel. This is just the local eris in an OV basis.
         if eris is None:
             eris = self.base.get_eris_array(self.cluster.c_active)

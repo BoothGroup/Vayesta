@@ -289,7 +289,6 @@ class EDMET(DMET):
 
         def get_contrib(local_contrib, frag):
             (V_A_aa, V_A_ab, V_A_bb, V_B_aa, V_B_ab, V_B_bb) = local_contrib
-            c_occ = frag.get_fragment_projector()
             c_occ = np.dot(self.get_ovlp(), frag.cluster.c_active_occ)
             c_vir = np.dot(self.get_ovlp(), frag.cluster.c_active_vir)
             v_aa = (einsum("iajb,pi,qa,rj,sb->pqrs", V_A_aa, c_occ, c_vir, c_occ, c_vir) +

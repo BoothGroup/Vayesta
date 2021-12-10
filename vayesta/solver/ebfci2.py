@@ -78,7 +78,7 @@ class EBFCI_Solver(FCI_Solver):
         self.dm1, self.dm2 = ebfci_slow.make_rdm12(civec, self.ncas, self.nelec)
         return self.dm2
 
-    def make_dd_moms(self, max_mom, civec=None, eris=None):
+    def make_dd_moms(self, max_mom, coeffs, civec=None, eris=None):
         if civec is None:
             civec = self.civec
         if eris is None:
@@ -92,7 +92,8 @@ class EBFCI_Solver(FCI_Solver):
 
         self.dd_moms = ebfci_slow.calc_dd_resp_mom(
             civec, self.e_fci, max_mom, self.ncas, self.nelec, self.nbos, heff, eris,
-            np.diag(self.fragment.bos_freqs), self.fragment.couplings, self.opts.max_boson_occ, dm1)
+            np.diag(self.fragment.bos_freqs), self.fragment.couplings, self.opts.max_boson_occ, dm1,
+            coeffs=coeffs)
         return self.dd_moms
 
     def make_rdm_eb(self, civec=None):
