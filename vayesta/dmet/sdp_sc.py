@@ -1,9 +1,6 @@
 import cvxpy as cp
 import numpy as np
-from pyscf.lib import diis
-from .fragment import DMETFragmentExit
 
-solver = cp.MOSEK#cp.SCS
 
 def perform_SDP_fit(nelec, fock, impurity_projectors, target_rdms, ovlp, log):
     """Given all required information about the system, generate the correlation potential reproducing the local DM
