@@ -55,7 +55,13 @@ def dot(*args, out=None):
 
 def einsum(*args, **kwargs):
     kwargs['optimize'] = kwargs.pop('optimize', True)
-    res = np.einsum(*args, **kwargs)
+    try:
+        res = np.einsum(*args, **kwargs)
+    except ValueError:
+        log.fatal("einsum('%s',...) failed. shapes of arguments:", args[0])
+        for i, arg in enumerate(args[1:]):
+            log.fatal('%d: %r', i, list(arg.shape))
+        raise
     # Unpack scalars (for optimize = True):
     if isinstance(res, np.ndarray) and res.ndim == 0:
         res = res[()]

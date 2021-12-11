@@ -58,7 +58,7 @@ def register_system_mole(cache, key):
     df = False
 
     if key == 'h2_ccpvdz':
-        mol.atom = 'H1 0 0 0; H2 0 0 1'
+        mol.atom = 'H1 0 0 0; H2 0 0 1.0'
         mol.basis = 'cc-pvdz'
         rhf = uhf = True
     elif key == 'h2_ccpvdz_stretch':

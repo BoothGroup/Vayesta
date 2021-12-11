@@ -273,6 +273,8 @@ for idx, gate in enumerate(gates):
             frag.pop_analysis(local_orbitals='lowdin',   filename='lowdin-cc-%.3f.pop' % gate)
             frag.pop_analysis(local_orbitals='iao+pao',  filename='iao+pao-cc-%.3f.pop' % gate)
 
+        emb.t1_diagnostic()
+
         # Energy including gate
         e_hf_gate = emb.e_mf
         e_cc_gate = emb.e_tot

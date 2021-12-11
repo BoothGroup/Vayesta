@@ -50,6 +50,7 @@ class EWF(QEmbeddingMethod):
         iao_minao : str = 'auto'            # Minimal basis for IAOs
         # --- Bath settings
         bath_type: str = 'MP2-BNO'
+        bno_threshold: float = 1e-8
         # If multiple bno thresholds are to be calculated, we can project integrals and amplitudes from a previous larger cluster:
         project_eris: bool = False          # Project ERIs from a pervious larger cluster (corresponding to larger eta), can result in a loss of accuracy especially for large basis sets!
         project_init_guess: bool = True     # Project converted T1,T2 amplitudes from a previous larger cluster
@@ -91,7 +92,7 @@ class EWF(QEmbeddingMethod):
         store_dm2: Union[bool,str] = 'auto'
 
 
-    def __init__(self, mf, bno_threshold=1e-8, solver='CCSD', options=None, log=None, **kwargs):
+    def __init__(self, mf, solver='CCSD', options=None, log=None, **kwargs):
         """Embedded wave function (EWF) calculation object.
 
         Parameters
@@ -103,8 +104,7 @@ class EWF(QEmbeddingMethod):
         **kwargs :
             See class `Options` for additional options.
         """
-
-        t_start = timer()
+        t0 = timer()
         super().__init__(mf, options=options, log=log, **kwargs)
 
         # Options
@@ -117,21 +117,17 @@ class EWF(QEmbeddingMethod):
                 raise RuntimeError("Mean-field calculation not converged.")
             else:
                 self.log.error("Mean-field calculation not converged.")
-        self.bno_threshold = bno_threshold
         if solver not in VALID_SOLVERS:
             raise ValueError("Unknown solver: %s" % solver)
         self.solver = solver
 
-        #self._mo_coeff = self.get_init_mo_coeff()
-
         self.iteration = 0
         self.cluster_results = {}
         self.results = []
-        #self.e_corr = 0.0
-        self.log.timing("Time for EWF setup: %s", time_string(timer()-t_start))
+        self.log.info("Time for %s setup: %s", self.__class__.__name__, timer()-t0)
 
     def __repr__(self):
-        keys = ['mf', 'bno_threshold', 'solver']
+        keys = ['mf', 'solver']
         fmt = ('%s(' + len(keys)*'%s: %r, ')[:-2] + ')'
         values = [self.__dict__[k] for k in keys]
         return fmt % (self.__class__.__name__, *[x for y in zip(keys, values) for x in y])
@@ -261,6 +257,7 @@ class EWF(QEmbeddingMethod):
         bno_threshold : float or iterable, optional
             Bath natural orbital threshold. If `None`, self.opts.bno_threshold is used. Default: None.
         """
+        # Automatic fragmentation
         if self.fragmentation is None:
             self.log.info("No fragmentation found. Using IAO fragmentation.")
             self.iao_fragmentation()
@@ -268,13 +265,12 @@ class EWF(QEmbeddingMethod):
             self.log.info("No fragments found. Using all atomic fragments.")
             self.add_all_atomic_fragments()
 
-        if bno_threshold is None: bno_threshold = self.bno_threshold
         self.check_fragment_nelectron()
         if np.ndim(bno_threshold) == 0:
-            return self.kernel_single_threshold(bno_threshold=bno_threshold)
-        return self.kernel_multiple_thresholds(bno_thresholds=bno_threshold)
+            return self._kernel_single_threshold(bno_threshold=bno_threshold)
+        return self._kernel_multiple_thresholds(bno_thresholds=bno_threshold)
 
-    def kernel_multiple_thresholds(self, bno_thresholds):
+    def _kernel_multiple_thresholds(self, bno_thresholds):
         results = []
         for i, bno in enumerate(bno_thresholds):
             self.log.info("Now running BNO threshold= %.2e", bno)
@@ -295,18 +291,18 @@ class EWF(QEmbeddingMethod):
 
         return results
 
-    def kernel_single_threshold(self, bno_threshold):
+    def _kernel_single_threshold(self, bno_threshold=None):
         """Run EWF.
 
         Parameters
         ----------
-        bno_threshold : float,
+        bno_threshold : float, optional
             Bath natural orbital threshold.
         """
 
         if self.nfrag == 0:
             raise ValueError("No fragments defined for calculation.")
-        assert (not np.ndim(bno_threshold))
+        assert (np.ndim(bno_threshold) == 0)
 
         if mpi: mpi.world.Barrier()
         t_start = timer()
@@ -348,6 +344,29 @@ class EWF(QEmbeddingMethod):
         return self.get_global_t1(*args, get_lambda=True, **kwargs)
     def get_global_l2(self, *args, **kwargs):
         return self.get_global_t2(*args, get_lambda=True, **kwargs)
+
+    def t1_diagnostic(self, warn_tol=0.02):
+        # Per cluster
+        for f in self.get_fragments(mpi_rank=mpi.rank):
+            t1 = f.results.t1
+            if t1 is None:
+                self.log.error("No T1 amplitudes found for %s.", f)
+                continue
+            nelec = 2*t1.shape[0]
+            t1diag = np.linalg.norm(t1) / np.sqrt(nelec)
+            if t1diag > warn_tol:
+                self.log.warning("T1 diagnostic for %-20s %.5f", str(f)+':', t1diag)
+            else:
+                self.log.info("T1 diagnostic for %-20s %.5f", str(f)+':', t1diag)
+        # Global
+        t1 = self.get_global_t1(mpi_target=0)
+        if mpi.is_master:
+            nelec = 2*t1.shape[0]
+            t1diag = np.linalg.norm(t1) / np.sqrt(nelec)
+            if t1diag > warn_tol:
+                self.log.warning("Global T1 diagnostic: %.5f", t1diag)
+            else:
+                self.log.info("Global T1 diagnostic: %.5f", t1diag)
 
     # --- Bardwards compatibility:
     @deprecated("get_t1 is deprecated - use get_global_t1 instead.")

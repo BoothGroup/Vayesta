@@ -44,7 +44,7 @@ if (args.output is None) and (mpi.is_master):
 if (args.output or args.log or (not mpi.is_master)):
     logname = (args.output or args.log) or "vayesta"
     log.addHandler(vlog.VFileHandler(logname, formatter=fmt))
-# Error log
+# Error handler
 errlog = args.errlog
 if errlog:
     errfmt = vlog.VFormatter(show_mpi_rank=True, indent=False)
@@ -116,6 +116,9 @@ def new_log(logname, fmt=None, remove_existing=True):
         fmt = vlog.VFormatter(indent=True)
     if remove_existing:
         for hdl in log.handlers[:]:
+            # Do not remove error handler
+            if hdl is errhandler:
+                continue
             log.removeHandler(hdl)
     log.addHandler(vlog.VFileHandler(logname, formatter=fmt))
 

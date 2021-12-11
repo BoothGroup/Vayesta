@@ -58,11 +58,10 @@ class EWFFragment(QEmbeddingFragment):
         #energy_partitioning: str = NotSet
         sc_mode: int = NotSet
         nelectron_target: int = NotSet                  # If set, adjust bath chemical potential until electron number in fragment equals nelectron_target
-        # Bath type
+        # Bath
         bath_type: str = NotSet
-        bno_number: int = None         # Set a fixed number of BNOs
-        # Additional fragment specific options:
-        bno_threshold_factor: float = 1.0
+        bno_threshold: float = NotSet
+        bno_number: int = None              # Set a fixed number of BNOs
         # CAS methods
         c_cas_occ: np.ndarray = None
         c_cas_vir: np.ndarray = None
@@ -199,13 +198,7 @@ class EWFFragment(QEmbeddingFragment):
         # Canonicalize orbitals
         c_active_occ = self.canonicalize_mo(bath.c_cluster_occ, c_bno_occ)[0]
         c_active_vir = self.canonicalize_mo(bath.c_cluster_vir, c_bno_vir)[0]
-        # Do not overwrite self.c_active_occ/vir yet - we still need the previous coefficients
-        # to generate an intial guess
         cluster = ActiveSpace(self.mf, c_active_occ, c_active_vir, c_frozen_occ=c_frozen_occ, c_frozen_vir=c_frozen_vir)
-
-        # Check occupations
-        #self.check_mo_occupation((2 if self.base.is_rhf else 1), cluster.c_occ)
-        #self.check_mo_occupation(0, cluster.c_vir)
 
         def check_occupation(mo_coeff, expected):
             occup = self.get_mo_occupation(mo_coeff)
@@ -252,7 +245,7 @@ class EWFFragment(QEmbeddingFragment):
             Bath natural orbital (BNO) thresholds.
         bno_number : int, optional
             Number of bath natural orbitals. Default: None.
-        solver : {'MP2', 'CISD', 'CCSD', 'CCSD(T)', 'FCI'}, optional
+        solver : {'MP2', 'CISD', 'CCSD', 'FCI'}, optional
             Correlated solver.
 
         Returns
@@ -262,7 +255,7 @@ class EWFFragment(QEmbeddingFragment):
         if bno_number is None:
             bno_number = self.opts.bno_number
         if bno_number is None and bno_threshold is None:
-            bno_threshold = self.base.bno_threshold
+            bno_threshold = self.opts.bno_threshold
         if np.ndim(bno_threshold) == 0:
             bno_threshold = 2*[bno_threshold]
         if np.ndim(bno_number) == 0:
@@ -274,7 +267,7 @@ class EWFFragment(QEmbeddingFragment):
             self.make_bath()
 
         cluster = self.make_cluster(self.bath, bno_threshold=bno_threshold, bno_number=bno_number)
-        cluster.log_sizes(self.log.info, header="Orbitals for %s" % self)
+        cluster.log_sizes(self.log.info, header="Orbitals for %s (BNO threshold= %.1e)" % (self, bno_threshold[0]))
 
         # For self-consistent calculations, we can reuse ERIs:
         if eris is None:
@@ -311,20 +304,11 @@ class EWFFragment(QEmbeddingFragment):
             self.log.info("Weight of reference determinant= %.8g", abs(cluster_solver.c0))
         # --- Calculate energy
         with log_time(self.log.info, ("Time for fragment energy= %s")):
-        # C1 and C2 are in intermediate normalization:
-            c1 = cluster_solver.get_c1(intermed_norm=True)
-            c2 = cluster_solver.get_c2(intermed_norm=True)
-            c1 = self.project_amplitude_to_fragment(c1, cluster.c_active_occ, cluster.c_active_vir)
-            c2 = self.project_amplitude_to_fragment(c2, cluster.c_active_occ, cluster.c_active_vir)
-            e_singles, e_doubles, e_corr = self.get_fragment_energy(c1, c2, eris=eris, axis1='cluster')
+            c1x = self.project_amp1_to_fragment(cluster_solver.get_c1(intermed_norm=True))
+            c2x = self.project_amp2_to_fragment(cluster_solver.get_c2(intermed_norm=True))
+            e_singles, e_doubles, e_corr = self.get_fragment_energy(c1x, c2x, eris=eris)
+            del c1x, c2x
 
-        # In future:
-        #c1x = self.project_amp1_to_fragment(cluster_solver.get_c1())
-        #c2x = self.project_amp2_to_fragment(cluster_solver.get_c2())
-        #with log_time(self.log.info, ("Time for fragment energy= %s")):
-        #    #e_singles, e_doubles, e_corr = self.get_fragment_energy(c1x, c2x, eris=eris)
-        #    e_singles_2, e_doubles_2, e_corr_2 = self.get_fragment_energy(c1x, c2x, eris=eris, axis1='fragment')
-        #    assert abs(e_corr - e_corr_2) < 1e-12
         if (solver != 'FCI' and (e_singles > max(0.1*e_doubles, 1e-4))):
             self.log.warning("Large singles energy component: E(S)= %s, E(D)= %s",
                     energy_string(e_singles), energy_string(e_doubles))
@@ -436,7 +420,7 @@ class EWFFragment(QEmbeddingFragment):
     def get_energy_prefactor(self):
         return self.sym_factor * self.opts.energy_factor
 
-    def get_fragment_energy(self, c1, c2, eris, fock=None, axis1='cluster'):
+    def get_fragment_energy(self, c1, c2, eris, fock=None, axis1='fragment'):
         """Calculate fragment correlation energy contribution from projected C1, C2.
 
         Parameters
@@ -461,7 +445,6 @@ class EWFFragment(QEmbeddingFragment):
             Total fragment correlation energy contribution.
         """
         if not self.get_energy_prefactor(): return (0, 0, 0)
-
         nocc, nvir = c2.shape[1:3]
         occ, vir = np.s_[:nocc], np.s_[nocc:]
         if axis1 == 'fragment':
