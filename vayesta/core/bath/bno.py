@@ -84,6 +84,7 @@ class BNO_Bath(DMET_Bath):
     def truncate_bno(self, c_bno, n_bno, bno_threshold=None, bno_number=None, header=None):
         """Split natural orbitals (NO) into bath and rest."""
 
+        # For UHF, call recursively:
         if np.ndim(c_bno[0]) == 2:
             c_bno_a, c_rest_a = self.truncate_bno(c_bno[0], n_bno[0], bno_threshold=bno_threshold,
                     bno_number=bno_number, header='Alpha %s' % header)
@@ -94,10 +95,9 @@ class BNO_Bath(DMET_Bath):
         if bno_number is not None:
             pass
         elif bno_threshold is not None:
-            bno_threshold *= self.fragment.opts.bno_threshold_factor
             bno_number = np.count_nonzero(n_bno >= bno_threshold)
         else:
-            raise ValueError("Either bno_threshold or bno_number needs to be specified.")
+            raise ValueError("Either `bno_threshold` or `bno_number` needs to be specified.")
 
         # Logging
         if header:

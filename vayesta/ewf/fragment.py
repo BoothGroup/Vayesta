@@ -58,11 +58,10 @@ class EWFFragment(QEmbeddingFragment):
         #energy_partitioning: str = NotSet
         sc_mode: int = NotSet
         nelectron_target: int = NotSet                  # If set, adjust bath chemical potential until electron number in fragment equals nelectron_target
-        # Bath type
+        # Bath
         bath_type: str = NotSet
-        bno_number: int = None         # Set a fixed number of BNOs
-        # Additional fragment specific options:
-        bno_threshold_factor: float = 1.0
+        bno_threshold: float = NotSet
+        bno_number: int = None              # Set a fixed number of BNOs
         # CAS methods
         c_cas_occ: np.ndarray = None
         c_cas_vir: np.ndarray = None
@@ -199,13 +198,7 @@ class EWFFragment(QEmbeddingFragment):
         # Canonicalize orbitals
         c_active_occ = self.canonicalize_mo(bath.c_cluster_occ, c_bno_occ)[0]
         c_active_vir = self.canonicalize_mo(bath.c_cluster_vir, c_bno_vir)[0]
-        # Do not overwrite self.c_active_occ/vir yet - we still need the previous coefficients
-        # to generate an intial guess
         cluster = ActiveSpace(self.mf, c_active_occ, c_active_vir, c_frozen_occ=c_frozen_occ, c_frozen_vir=c_frozen_vir)
-
-        # Check occupations
-        #self.check_mo_occupation((2 if self.base.is_rhf else 1), cluster.c_occ)
-        #self.check_mo_occupation(0, cluster.c_vir)
 
         def check_occupation(mo_coeff, expected):
             occup = self.get_mo_occupation(mo_coeff)
@@ -252,7 +245,7 @@ class EWFFragment(QEmbeddingFragment):
             Bath natural orbital (BNO) thresholds.
         bno_number : int, optional
             Number of bath natural orbitals. Default: None.
-        solver : {'MP2', 'CISD', 'CCSD', 'CCSD(T)', 'FCI'}, optional
+        solver : {'MP2', 'CISD', 'CCSD', 'FCI'}, optional
             Correlated solver.
 
         Returns
@@ -262,7 +255,7 @@ class EWFFragment(QEmbeddingFragment):
         if bno_number is None:
             bno_number = self.opts.bno_number
         if bno_number is None and bno_threshold is None:
-            bno_threshold = self.base.bno_threshold
+            bno_threshold = self.opts.bno_threshold
         if np.ndim(bno_threshold) == 0:
             bno_threshold = 2*[bno_threshold]
         if np.ndim(bno_number) == 0:
@@ -274,7 +267,7 @@ class EWFFragment(QEmbeddingFragment):
             self.make_bath()
 
         cluster = self.make_cluster(self.bath, bno_threshold=bno_threshold, bno_number=bno_number)
-        cluster.log_sizes(self.log.info, header="Orbitals for %s" % self)
+        cluster.log_sizes(self.log.info, header="Orbitals for %s (BNO threshold= %.1e)" % (self, bno_threshold[0]))
 
         # For self-consistent calculations, we can reuse ERIs:
         if eris is None:
