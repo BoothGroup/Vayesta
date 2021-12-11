@@ -27,7 +27,6 @@ from vayesta.core.util import *
 from vayesta.core.ao2mo import postscf_ao2mo
 from vayesta.core.ao2mo import postscf_kao2gmo
 from vayesta.core.ao2mo.kao2gmo import gdf_to_pyscf_eris
-from vayesta.misc.gdf import GDF
 from vayesta import lattmod
 from vayesta.core.scmf import PDMET, Brueckner
 from vayesta.core.mpi import mpi
