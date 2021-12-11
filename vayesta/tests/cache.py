@@ -9,7 +9,9 @@ import pyscf.tools.ring
 
 import numpy as np
 
-from vayesta.misc import molstructs, gdf
+from vayesta.misc import molecules
+from vayesta.misc import solids
+from vayesta.misc import gdf
 from vayesta.lattmod import latt
 from vayesta import log
 
@@ -70,11 +72,11 @@ def register_system_mole(cache, key):
         mol.basis = 'cc-pvdz'
         uhf = True
     elif key == 'h2o_ccpvdz':
-        mol.atom = molstructs.water()
+        mol.atom = molecules.water()
         mol.basis = 'cc-pvdz'
         rhf = uhf = True
     elif key == 'h2o_ccpvdz_df':
-        mol.atom = molstructs.water()
+        mol.atom = molecules.water()
         mol.basis = 'cc-pvdz'
         rhf = uhf = True
         df = True
@@ -179,7 +181,7 @@ def register_system_cell(cache, key):
 
     # Rocksalt LiH
     if key == 'lih_k221':
-        cell = _make_cell(*molstructs.rocksalt(atoms=['Li', 'H']), basis='def2-svp',
+        cell = _make_cell(*solids.rocksalt(atoms=['Li', 'H']), basis='def2-svp',
                 exp_to_discard=0.1)
         kpts = cell.make_kpts([2,2,1])
         df = pyscf.pbc.df.GDF(cell, kpts)
@@ -188,7 +190,7 @@ def register_system_cell(cache, key):
         cache._cache[key] = {'cell': cell, 'kpts': kpts, 'rhf': mf, 'uhf': None}
         return
     if key == 'lih_g221':
-        cell = _make_cell(*molstructs.rocksalt(atoms=['Li', 'H']), basis='def2-svp',
+        cell = _make_cell(*solids.rocksalt(atoms=['Li', 'H']), basis='def2-svp',
                 exp_to_discard=0.1, supercell=[2,2,1])
         df = pyscf.pbc.df.GDF(cell)
         df.auxbasis = 'def2-svp-ri'
