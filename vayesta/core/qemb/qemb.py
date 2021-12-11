@@ -209,16 +209,17 @@ class QEmbedding:
 
         # Hartree-Fock energy - this can be different from mf.e_tot, when the mean-field
         # is not a converged HF calculations
+        e_mf = mf.e_tot / self.ncells
         e_hf = self.e_mf
-        if abs((mf.e_tot - e_hf)/mf.e_tot) > 1e-3:
+        if abs((e_mf - e_hf)/e_mf) > 1e-3:
             self.log.warning("Non Hartree-Fock mean-field? Large change of energy: E(mf)= %s -> E(HF)= %s (dE= %s) !",
-                    *map(energy_string, (mf.e_tot, e_hf, e_hf-mf.e_tot)))
-        elif abs(mf.e_tot - e_hf) > 1e-7:
+                    *map(energy_string, (e_mf, e_hf, e_hf-e_mf)))
+        elif abs(e_mf - e_hf) > 1e-7:
             self.log.info("Non Hartree-Fock mean-field detected. Change of energy: E(mf)= %s -> E(HF)= %s (dE= %s)",
-                    *map(energy_string, (mf.e_tot, e_hf, e_hf-mf.e_tot)))
+                    *map(energy_string, (e_mf, e_hf, e_hf-e_mf)))
         else:
             self.log.debugv("Change of energy: E(mf)= %s -> E(HF)= %s (dE= %s)",
-                    *map(energy_string, (mf.e_tot, e_hf, e_hf-mf.e_tot)))
+                    *map(energy_string, (e_mf, e_hf, e_hf-e_mf)))
         if self.mf.converged:
             self.log.info("E(HF)= %s", energy_string(e_hf))
         else:
