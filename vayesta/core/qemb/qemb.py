@@ -210,9 +210,7 @@ class QEmbedding:
 
         # Hartree-Fock energy - this can be different from mf.e_tot, when the mean-field
         # is not a converged HF calculations
-        h1e_energy = self.get_hcore_for_energy()
-        vhf_energy = self.get_veff_for_energy()
-        e_hf = mf.energy_tot(h1e=h1e_energy, vhf=vhf_energy)
+        e_hf = self.e_mf
         if abs((mf.e_tot - e_hf)/mf.e_tot) > 1e-3:
             self.log.warning("Non Hartree-Fock mean-field? Large change of energy: E(mf)= %s -> E(HF)= %s (dE= %s) !",
                     *map(energy_string, (mf.e_tot, e_hf, e_hf-mf.e_tot)))
@@ -222,13 +220,10 @@ class QEmbedding:
         else:
             self.log.debugv("Change of energy: E(mf)= %s -> E(HF)= %s (dE= %s)",
                     *map(energy_string, (mf.e_tot, e_hf, e_hf-mf.e_tot)))
-        self.mf.e_tot = e_hf
-
-        # Some MF output
         if self.mf.converged:
-            self.log.info("E(mf)= %s", energy_string(self.e_mf))
+            self.log.info("E(HF)= %s", energy_string(e_hf))
         else:
-            self.log.warning("E(mf)= %s (not converged!)", energy_string(self.e_mf))
+            self.log.warning("E(HF)= %s (not converged!)", energy_string(e_hf))
 
         #FIXME (no RHF/UHF dependent code here)
         if self.is_rhf:
@@ -411,7 +406,10 @@ class QEmbedding:
         Note that the input unit cell itself can be a supercell, in which case
         `e_mf` refers to this cell.
         """
-        return self.mf.e_tot/self.ncells
+        h1e = self.get_hcore_for_energy()
+        vhf = self.get_veff_for_energy()
+        e_mf = self.mf.energy_tot(h1e=h1e, vhf=vhf)
+        return e_mf/self.ncells
 
     @property
     def e_nuc(self):
