@@ -3,15 +3,14 @@ import scipy
 import scipy.linalg
 
 from vayesta.core.util import *
+from .bath import FragmentBath
 
 DEFAULT_DMET_THRESHOLD = 1e-6
 
-class DMET_Bath:
-
-    spin_restricted = True
+class DMET_Bath(FragmentBath):
 
     def __init__(self, fragment, dmet_threshold=DEFAULT_DMET_THRESHOLD):
-        self.fragment = fragment
+        super().__init__(fragment)
         self.dmet_threshold = dmet_threshold
         # Output
         self.c_dmet = None
@@ -19,30 +18,6 @@ class DMET_Bath:
         self.c_cluster_vir = None
         self.c_env_occ = None
         self.c_env_vir = None
-
-    @property
-    def spin_unrestricted(self):
-        return not self.spin_restricted
-
-    @property
-    def mf(self):
-        return self.fragment.mf
-
-    @property
-    def mol(self):
-        return self.fragment.mol
-
-    @property
-    def log(self):
-        return self.fragment.log
-
-    @property
-    def base(self):
-        return self.fragment.base
-
-    @property
-    def c_frag(self):
-        return self.fragment.c_frag
 
     def get_dmet_bath(self):
         return self.c_dmet
@@ -58,7 +33,6 @@ class DMET_Bath:
         return np.zeros((nao, 0)), self.c_env_vir
 
     def kernel(self):
-
         # --- DMET bath
         self.log.info("Making DMET Bath")
         self.log.info("----------------")
@@ -279,8 +253,6 @@ class CompleteBath(DMET_Bath):
 # --- Spin unrestricted
 
 class UDMET_Bath(DMET_Bath):
-
-    spin_restricted = False
 
     def get_occupied_bath(self, *args, **kwargs):
         """Inherited bath classes can overwrite this to return additional occupied bath orbitals."""

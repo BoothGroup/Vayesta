@@ -53,10 +53,11 @@ def alkane(n, atoms=['C', 'H'], cc_bond=1.54, ch_bond=1.09, numbering=False):
         dy = sign * dchc
         atom.append([get_symbol(atoms[1]), [x+dchs, y+dy, z]])
         atom.append([get_symbol(atoms[1]), [x-dchs, y+dy, z]])
-        # Terminal Hydrogen atoms
+        # Terminal hydrogen atom 1
         if (i == 0):
             atom.append([get_symbol(atoms[1]), [0.0, y-dchc, z-dchs]])
-        # Not elif, if n == 1 (Methane)
+        # Terminal hydrogen atom 2
+        # Do not use elif, since for n=1 (Methane), we need to add both terminal hydrogen atoms:
         if (i == n-1):
             atom.append([get_symbol(atoms[1]), [0.0, y-sign*dchc, z+dchs]])
         if numbering == 'unit':
@@ -66,7 +67,6 @@ def alkane(n, atoms=['C', 'H'], cc_bond=1.54, ch_bond=1.09, numbering=False):
 
 def arene(n, atoms=['C', 'H'], cc_bond=1.39, ch_bond=1.09):
     """Bond length for benzene."""
-
     r1 = cc_bond/(2*np.sin(np.pi/n))
     r2 = r1 + ch_bond
     z = 0.0
@@ -78,26 +78,8 @@ def arene(n, atoms=['C', 'H'], cc_bond=1.39, ch_bond=1.09):
     return atom
 
 def neopentane():
-    """Structure from B3LYP aug-cc-pVTZ, not experimental!"""
-    atom = [
-        ('C', (0.0000000  , 0.0000000   , 0.0000000  )),
-        ('C', (0.8868390  , 0.8868390   , 0.8868390  )),
-        ('C', (-0.8868390 , -0.8868390  , 0.8868390  )),
-        ('C', (-0.8868390 , 0.8868390   , -0.8868390 )),
-        ('C', (0.8868390  , -0.8868390  , -0.8868390 )),
-        ('H', (1.5295970  , 0.2819530   , 1.5295970  )),
-        ('H', (1.5295970  , 1.5295970   , 0.2819530  )),
-        ('H', (0.2819530  , 1.5295970   , 1.5295970  )),
-        ('H', (-1.5295970 , -1.5295970  , 0.2819530  )),
-        ('H', (-0.2819530 , -1.5295970  , 1.5295970  )),
-        ('H', (-1.5295970 , -0.2819530  , 1.5295970  )),
-        ('H', (-1.5295970 , 0.2819530   , -1.5295970 )),
-        ('H', (-1.5295970 , 1.5295970   , -0.2819530 )),
-        ('H', (-0.2819530 , 1.5295970   , -1.5295970 )),
-        ('H', (1.5295970  , -1.5295970  , -0.2819530 )),
-        ('H', (0.2819530  , -1.5295970  , -1.5295970 )),
-        ('H', (1.5295970  , -0.2819530  , -1.5295970 )),
-        ]
+    """Structure from B3LYP//aug-cc-pVTZ."""
+    atom = _load_datafile('neopentane.dat')
     return atom
 
 def boronene():

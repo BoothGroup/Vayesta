@@ -62,6 +62,7 @@ class EWFFragment(QEmbeddingFragment):
         bath_type: str = NotSet
         bno_threshold: float = NotSet
         bno_number: int = None              # Set a fixed number of BNOs
+        bno_projected_dm: bool = NotSet
         # CAS methods
         c_cas_occ: np.ndarray = None
         c_cas_vir: np.ndarray = None
@@ -175,7 +176,14 @@ class EWFFragment(QEmbeddingFragment):
             bath = CompleteBath(self, dmet_threshold=self.opts.dmet_threshold)
         # MP2 bath natural orbitals
         elif bath_type.lower() == 'mp2-bno':
-            bath = MP2_BNO_Bath(self, dmet_threshold=self.opts.dmet_threshold)
+            dmet_bath = DMET_Bath(self, dmet_threshold=self.opts.dmet_threshold)
+            dmet_bath.kernel()
+            bath = MP2_BNO_Bath(self, dmet_bath=dmet_bath)
+            #if self.opts.bno_projected_dm:
+            #    raise NotImplementedError()
+            #    #bath = MP2_BNO_Bath(self, dmet_threshold=self.opts.dmet_threshold, local_dm=self.bno_local_dm)
+            #else:
+            #    bath = MP2_BNO_Bath(self, dmet_threshold=self.opts.dmet_threshold)
         else:
             raise ValueError("Unknown bath_type: %r" % bath_type)
         bath.kernel()
@@ -187,17 +195,11 @@ class EWFFragment(QEmbeddingFragment):
             bath = self.bath
         if bath is None:
             raise ValueError("make_cluster requires bath.")
-
-        if isinstance(bath, BNO_Bath):
-            c_bno_occ, c_frozen_occ = bath.get_occupied_bath(bno_threshold[0], bno_number[0])
-            c_bno_vir, c_frozen_vir = bath.get_virtual_bath(bno_threshold[1], bno_number[1])
-        else:
-            c_bno_occ, c_frozen_occ = bath.get_occupied_bath()
-            c_bno_vir, c_frozen_vir = bath.get_virtual_bath()
-
+        c_bath_occ, c_frozen_occ = bath.get_occupied_bath(bno_threshold=bno_threshold[0], bno_number=bno_number[0])
+        c_bath_vir, c_frozen_vir = bath.get_virtual_bath(bno_threshold=bno_threshold[1], bno_number=bno_number[1])
         # Canonicalize orbitals
-        c_active_occ = self.canonicalize_mo(bath.c_cluster_occ, c_bno_occ)[0]
-        c_active_vir = self.canonicalize_mo(bath.c_cluster_vir, c_bno_vir)[0]
+        c_active_occ = self.canonicalize_mo(bath.c_cluster_occ, c_bath_occ)[0]
+        c_active_vir = self.canonicalize_mo(bath.c_cluster_vir, c_bath_vir)[0]
         cluster = ActiveSpace(self.mf, c_active_occ, c_active_vir, c_frozen_occ=c_frozen_occ, c_frozen_vir=c_frozen_vir)
 
         def check_occupation(mo_coeff, expected):
@@ -266,8 +268,17 @@ class EWFFragment(QEmbeddingFragment):
         if self.bath is None:
             self.make_bath()
 
+        if bno_number[0] is not None:
+            bno_string = 'BNO number= %d' % bno_number[0]
+            if bno_number[1] != bno_number[0]:
+                bno_string += ', %d' % bno_number[1]
+        else:
+            bno_string = 'BNO threshold= %.1e' % bno_threshold[0]
+            if bno_threshold[1] != bno_threshold[0]:
+                bno_string += ', %.1e' % bno_threshold[1]
+
         cluster = self.make_cluster(self.bath, bno_threshold=bno_threshold, bno_number=bno_number)
-        cluster.log_sizes(self.log.info, header="Orbitals for %s (BNO threshold= %.1e)" % (self, bno_threshold[0]))
+        cluster.log_sizes(self.log.info, header="Orbitals for %s (%s)" % (self, bno_string))
 
         # For self-consistent calculations, we can reuse ERIs:
         if eris is None:
@@ -314,13 +325,7 @@ class EWFFragment(QEmbeddingFragment):
                     energy_string(e_singles), energy_string(e_doubles))
         else:
             self.log.debug("Energy components: E(S)= %s, E(D)= %s", energy_string(e_singles), energy_string(e_doubles))
-        if bno_threshold[0] is not None:
-            if bno_threshold[0] == bno_threshold[1]:
-                self.log.info("BNO threshold= %.1e :  E(corr)= %+14.8f Ha", bno_threshold[0], e_corr)
-            else:
-                self.log.info("BNO threshold= %.1e / %.1e :  E(corr)= %+14.8f Ha", *bno_threshold, e_corr)
-        else:
-            self.log.info("BNO number= %3d / %3d:  E(corr)= %+14.8f Ha", *bno_number, e_corr)
+        self.log.info("%s:  E(corr)= %+14.8f Ha", bno_string, e_corr)
 
         # --- Add to results
         results = self._results

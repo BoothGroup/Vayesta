@@ -485,17 +485,20 @@ class QEmbedding:
     # Overwriting these allows using different integrals for the energy evaluation
 
     def get_hcore_for_energy(self):
+        """Core Hamiltonian used for energy evaluation."""
         return self.get_hcore()
 
     def get_veff_for_energy(self, with_exxdiv=True):
+        """Hartree-Fock potential used for energy evaluation."""
         return self.get_veff(with_exxdiv=with_exxdiv)
 
     def get_fock_for_energy(self, with_exxdiv=True):
+        """Fock matrix used for energy evaluation."""
         return (self.get_hcore_for_energy() + self.get_veff_for_energy(with_exxdiv=with_exxdiv))
 
-    def get_fock_for_bno(self):
-        """Fock matrix used for MP2 bath natural orbitals."""
-        return self.get_fock()
+    def get_fock_for_bath(self, with_exxdiv=True):
+        """Fock matrix used for bath orbitals."""
+        return self.get_fock(with_exxdiv=with_exxdiv)
 
     # Other integral methods:
 

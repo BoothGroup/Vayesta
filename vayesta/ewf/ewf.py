@@ -51,6 +51,7 @@ class EWF(QEmbeddingMethod):
         # --- Bath settings
         bath_type: str = 'MP2-BNO'
         bno_threshold: float = 1e-8
+        bno_projected_dm: bool = False
         # If multiple bno thresholds are to be calculated, we can project integrals and amplitudes from a previous larger cluster:
         project_eris: bool = False          # Project ERIs from a pervious larger cluster (corresponding to larger eta), can result in a loss of accuracy especially for large basis sets!
         project_init_guess: bool = True     # Project converted T1,T2 amplitudes from a previous larger cluster
@@ -244,9 +245,10 @@ class EWF(QEmbeddingMethod):
 
     def check_fragment_nelectron(self):
         nelec_frags = sum([f.sym_factor*f.nelectron for f in self.loop()])
-        self.log.info("Total number of mean-field electrons over all fragments= %.8f", nelec_frags)
-        if abs(nelec_frags - np.rint(nelec_frags)) > 1e-4:
-            self.log.warning("Number of electrons not integer!")
+        nelec = (self.kcell if self.kcell is not None else self.mol).nelectron
+        self.log.info("Number of electrons over all fragments= %.8f , system= %.8f", nelec_frags, nelec)
+        if abs(nelec_frags - nelec) > 1e-6:
+            self.log.warning("Number of electrons over all fragments not equal to the system's number of electrons.")
         return nelec_frags
 
     def kernel(self, bno_threshold=None):
@@ -282,7 +284,7 @@ class EWF(QEmbeddingMethod):
             # Note that if opts.store_eris has been set to True elsewhere, we do not want to overwrite this,
             # even if store_eris was evaluated as False. For this reason we add `or self.opts.store_eris`.
             with replace_attr(self.opts, store_eris=(store_eris or self.opts.store_eris)):
-                res = self.kernel_single_threshold(bno_threshold=bno)
+                res = self._kernel_single_threshold(bno_threshold=bno)
             results.append(res)
 
         # Output

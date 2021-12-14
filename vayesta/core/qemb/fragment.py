@@ -307,6 +307,13 @@ class Fragment:
     # --- Overlap matrices
     # --------------------
 
+    def get_overlap_c2f(self):
+        """Get overlap matrices from cluster to fragment space."""
+        ovlp = self.base.get_ovlp()
+        r_occ = dot(self.cluster.c_active_occ.T, ovlp, self.c_proj)
+        r_vir = dot(self.cluster.c_active_vir.T, ovlp, self.c_proj)
+        return r_occ, r_vir
+
     def get_overlap_m2c(self):
         """Get overlap matrices from mean-field to occupied/virtual active space."""
         ovlp = self.base.get_ovlp()
@@ -537,8 +544,12 @@ class Fragment:
     # NEW:
 
     def get_occ2frag_projector(self):
+        """TODO: REMOVE"""
         ovlp = self.base.get_ovlp()
         projector = dot(self.c_proj.T, ovlp, self.cluster.c_active_occ)
+        # TEST
+        #px = self.get_overlap_c2f()[0]
+        #assert np.allclose(px.T, projector)
         return projector
 
     def project_amp1_to_fragment(self, amp1, projector=None):

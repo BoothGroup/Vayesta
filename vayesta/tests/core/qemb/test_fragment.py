@@ -240,7 +240,8 @@ class MolFragmentTests(unittest.TestCase):
             t2b = np.random.random((nocc, nocc, nvir, nvir)) - 0.5
             t2b = 0.25 * (t2b + t2b.swapaxes(0, 1) + t2b.swapaxes(2, 3) + t2b.transpose(1, 0, 3, 2))
 
-        bath = MP2_BNO_Bath(frags[0])
+        dmet_bath = DMET_Bath(frags[0])
+        bath = MP2_BNO_Bath(frags[0], dmet_bath)
         dm1o = bath.make_delta_dm1('occ', t2a, t2b)
         dm1v = bath.make_delta_dm1('vir', t2a, t2b)
         self.assertIs(bath.get_mp2_class(), pyscf.mp.MP2)
@@ -256,14 +257,14 @@ class MolFragmentTests(unittest.TestCase):
         self.assertIs(bath.base,   frags[0].base)
         self.assertIs(bath.c_frag, frags[0].c_frag)
 
-        bath = MP2_BNO_Bath(frags[0], local_dm='semi', canonicalize=False)
+        bath = MP2_BNO_Bath(frags[0], dmet_bath, local_dm='semi', canonicalize=False)
         dm1o = bath.make_delta_dm1('occ', t2a, t2b)
         dm1v = bath.make_delta_dm1('vir', t2a, t2b)
         self.assertIs(bath.get_mp2_class(), pyscf.mp.MP2)
         self.assertAlmostEqual(lib.fp(dm1o),  -11.0426240019808/2, self.PLACES)
         self.assertAlmostEqual(lib.fp(dm1v),   11.2234922296148/2, self.PLACES)
 
-        bath = MP2_BNO_Bath(frags[0], local_dm=True, canonicalize=False)
+        bath = MP2_BNO_Bath(frags[0], dmet_bath, local_dm=True, canonicalize=False)
         dm1o = bath.make_delta_dm1('occ', t2a, t2b)
         dm1v = bath.make_delta_dm1('vir', t2a, t2b)
         self.assertIs(bath.get_mp2_class(), pyscf.mp.MP2)

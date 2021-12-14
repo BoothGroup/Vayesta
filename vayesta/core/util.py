@@ -32,7 +32,7 @@ __all__ = [
         # Time & memory
         'timer', 'time_string', 'log_time', 'memory_string', 'get_used_memory',
         # RHF/UHF abstraction
-        'dot_s', 'eigh_s', 'stack_mo_coeffs',
+        'dot_s', 'eigh_s', 'stack_mo', 'stack_mo_coeffs',
         # Other
         'brange',
         'deprecated',
@@ -91,9 +91,9 @@ def dot_s(*args, out=None):
     if maxdim == 2:
         return dot(*args, out=out)
     # Spin-dependent arguments present
-    assert maxdim == 3
+    assert (maxdim == 3)
     if out is None:
-        out = (None, None)
+        out = 2*[None]
     args_a = [(x if np.ndim(x[0]) < 2 else x[0]) for x in args]
     args_b = [(x if np.ndim(x[1]) < 2 else x[1]) for x in args]
     return (dot(*args_a, out=out[0]), dot(*args_b, out=out[1]))
@@ -110,17 +110,18 @@ def eigh_s(a, b=None, *args, **kwargs):
                scipy.linalg.eigh(a[1], b=b[1], *args, **kwargs))
     return tuple(zip(*results))
 
-def stack_mo_coeffs(*mo_coeffs):
+def stack_mo(*mo_coeffs):
     ndim = np.ndim(mo_coeffs[0][0]) + 1
     # RHF
     if ndim == 2:
         return hstack(*mo_coeffs)
     # UHF
-    assert (ndim == 3)
-    return (hstack(*[c[0] for c in mo_coeffs]),
-            hstack(*[c[1] for c in mo_coeffs]))
+    if ndim == 3:
+        return (hstack(*[c[0] for c in mo_coeffs]),
+                hstack(*[c[1] for c in mo_coeffs]))
+    raise ValueError("Unknown shape of MO coefficients: ndim= %d" % ndim)
 
-#
+stack_mo_coeffs = stack_mo
 
 def brange(start, stop, step, minstep=1, maxstep=None):
     """Similar to PySCF's prange, but returning a slice instead.

@@ -25,7 +25,9 @@ class UEWFFragment(UFragment, EWFFragment):
             bath = UCompleteBath(self, dmet_threshold=self.opts.dmet_threshold)
         # MP2 bath natural orbitals
         elif bath_type.lower() == 'mp2-bno':
-            bath = UMP2_BNO_Bath(self, dmet_threshold=self.opts.dmet_threshold)
+            dmet_bath = UDMET_Bath(self, dmet_threshold=self.opts.dmet_threshold)
+            dmet_bath.kernel()
+            bath = UMP2_BNO_Bath(self, dmet_bath)
         else:
             raise ValueError("Unknown bath_type: %r" % bath_type)
         bath.kernel()
