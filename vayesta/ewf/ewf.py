@@ -15,7 +15,7 @@ import pyscf.pbc
 import pyscf.pbc.tools
 # --- Internal
 from vayesta.core.util import *
-from vayesta.core import QEmbeddingMethod
+from vayesta.core import Embedding
 from vayesta.core.mpi import mpi
 # --- Package
 from . import helper
@@ -37,12 +37,12 @@ class EWFResults:
 
 VALID_SOLVERS = [None, "", "MP2", "CISD", "CCSD", 'TCCSD', "CCSD(T)", 'FCI', "FCI-spin0", "FCI-spin1"]
 
-class EWF(QEmbeddingMethod):
+class EWF(Embedding):
 
     Fragment = Fragment
 
     @dataclasses.dataclass
-    class Options(QEmbeddingMethod.Options):
+    class Options(Embedding.Options):
         """Options for EWF calculations."""
         # --- Fragment settings
         #fragment_type: str = 'IAO'

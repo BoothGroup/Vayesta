@@ -5,7 +5,7 @@ import pyscf.mp
 import pyscf.ci
 import pyscf.cc
 
-from .qemb import QEmbedding
+from .qemb import Embedding
 from .ufragment import UFragment
 
 from vayesta.core.ao2mo.postscf_ao2mo import postscf_ao2mo
@@ -15,7 +15,7 @@ from vayesta.core.ao2mo import postscf_kao2gmo_uhf
 
 from .rdm import make_rdm1_demo_uhf
 
-class UEmbedding(QEmbedding):
+class UEmbedding(Embedding):
     """Spin unrestricted quantum embedding."""
 
     # Shadow this in inherited methods:

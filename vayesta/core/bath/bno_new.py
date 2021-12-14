@@ -17,11 +17,13 @@ class BNO_Bath(FragmentBath):
     """Bath natural orbital (BNO) bath, requires DMET bath."""
 
     def __init__(self, fragment, dmet_bath, *args, **kwargs):
-        super().__init__(fragment)
+        super().__init__(fragment, *args, **kwargs)
         self.dmet_bath = dmet_bath
         # Results
+        # Bath orbital coefficients:
         self.c_bno_occ = None
         self.c_bno_vir = None
+        # Bath orbital natural occupation numbers:
         self.n_bno_occ = None
         self.n_bno_vir = None
 
@@ -80,11 +82,11 @@ class BNO_Bath(FragmentBath):
         for line in helper.plot_histogram(n_bno):
             self.log.info(line)
 
-    def get_occupied_bath(self, bno_threshold=None, bno_number=None):
+    def get_occupied_bath(self, bno_threshold=None, bno_number=None, **kwargs):
         return self.truncate_bno(self.c_bno_occ, self.n_bno_occ, bno_threshold=bno_threshold,
                 bno_number=bno_number, header="occupied BNOs:")
 
-    def get_virtual_bath(self, bno_threshold=None, bno_number=None):
+    def get_virtual_bath(self, bno_threshold=None, bno_number=None, **kwargs):
         return self.truncate_bno(self.c_bno_vir, self.n_bno_vir, bno_threshold=bno_threshold,
                 bno_number=bno_number, header="virtual BNOs:")
 

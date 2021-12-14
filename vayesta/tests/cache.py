@@ -101,6 +101,10 @@ def register_system_mole(cache, key):
         mol.atom = ['H %f %f %f' % xyz for xyz in pyscf.tools.ring.make(10, 1.0)]
         mol.basis = 'sto-6g'
         rhf = uhf = True
+    elif key == 'ethanol_ccpvdz':
+        mol.atom = molecules.ethanol()
+        mol.basis = 'cc-pVDZ'
+        rhf = True
     else:
         log.error("No system with key '%s'", key)
         return {}

@@ -21,11 +21,12 @@ from pyscf.pbc.tools import cubegen
 
 # Local modules
 from vayesta.core.util import *
-from vayesta.core import QEmbeddingFragment
+from vayesta.core import Fragment
 from vayesta.solver import get_solver_class2 as get_solver_class
 from vayesta.core.fragmentation import IAO_Fragmentation
 
 from vayesta.core.bath import DMET_Bath
+from vayesta.core.bath import EwDMET_Bath
 from vayesta.core.bath import BNO_Bath
 from vayesta.core.bath import MP2_BNO_Bath
 from vayesta.core.bath import CompleteBath
@@ -39,10 +40,10 @@ from . import helper
 # Get MPI rank of fragment
 get_fragment_mpi_rank = lambda *args : args[0].mpi_rank
 
-class EWFFragment(QEmbeddingFragment):
+class EWFFragment(Fragment):
 
     @dataclasses.dataclass
-    class Options(QEmbeddingFragment.Options):
+    class Options(Fragment.Options):
         """Attributes set to `NotSet` inherit their value from the parent EWF object."""
         # Options also present in `base`:
         dmet_threshold: float = NotSet
@@ -86,7 +87,7 @@ class EWFFragment(QEmbeddingFragment):
 
 
     @dataclasses.dataclass
-    class Results(QEmbeddingFragment.Results):
+    class Results(Fragment.Results):
         bno_threshold: float = None
         n_active: int = None
         ip_energy: np.ndarray = None
@@ -171,6 +172,10 @@ class EWFFragment(QEmbeddingFragment):
         # DMET bath only
         if bath_type is None or bath_type.lower() == 'dmet':
             bath = DMET_Bath(self, dmet_threshold=self.opts.dmet_threshold)
+        elif bath_type.lower() == 'ewdmet':
+            dmet_bath = DMET_Bath(self, dmet_threshold=self.opts.dmet_threshold)
+            dmet_bath.kernel()
+            bath = EwDMET_Bath(self, dmet_bath)
         # All environment orbitals as bath
         elif bath_type.lower() in ('all', 'full'):
             bath = CompleteBath(self, dmet_threshold=self.opts.dmet_threshold)
@@ -195,6 +200,7 @@ class EWFFragment(QEmbeddingFragment):
             bath = self.bath
         if bath is None:
             raise ValueError("make_cluster requires bath.")
+
         c_bath_occ, c_frozen_occ = bath.get_occupied_bath(bno_threshold=bno_threshold[0], bno_number=bno_number[0])
         c_bath_vir, c_frozen_vir = bath.get_virtual_bath(bno_threshold=bno_threshold[1], bno_number=bno_number[1])
         # Canonicalize orbitals

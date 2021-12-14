@@ -147,7 +147,7 @@ class Fragment:
 
         Parameters
         ----------
-        base : QEmbeddingMethod
+        base : Embedding
             Quantum embedding method the fragment is part of.
         fid : int
             Fragment ID.
@@ -182,7 +182,7 @@ class Fragment:
         boundary_cond
         log : logging.Logger
             Logger object.
-        base : QEmbeddingMethod
+        base : Embedding
             Quantum embedding method, the fragment is part of.
         id : int
             Unique fragment ID.
@@ -948,5 +948,3 @@ class Fragment:
             dmet_threshold = self.opts.dmet_threshold
         bath = DMET_Bath(self, dmet_threshold=dmet_threshold)
         return bath.make_dmet_bath(*args, **kwargs)
-
-QEmbeddingFragment = Fragment

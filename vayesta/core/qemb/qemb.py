@@ -44,15 +44,15 @@ from vayesta.core.fragmentation import make_site_fragmentation
 
 # --- This Package
 
-from .fragment import QEmbeddingFragment
+from .fragment import Fragment
 from . import helper
 from .rdm import make_rdm1_demo_rhf
 from .rdm import make_rdm2_demo_rhf
 
-class QEmbedding:
+class Embedding:
 
     # Shadow this in inherited methods:
-    Fragment = QEmbeddingFragment
+    Fragment = Fragment
 
     @dataclasses.dataclass
     class Options(OptionsBase):
@@ -1120,5 +1120,3 @@ class QEmbedding:
         if ftype == 'ao':
             raise ValueError("AO fragmentation is no longer supported")
         raise ValueError("Unknown fragment type: %r", ftype)
-
-QEmbeddingMethod = QEmbedding

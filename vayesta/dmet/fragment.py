@@ -16,7 +16,7 @@ from pyscf.pbc.tools import cubegen
 
 # Local modules
 from vayesta.core.util import *
-from vayesta.core import QEmbeddingFragment
+from vayesta.core import Fragment
 # We might want to move the useful things from here into core, since they seem pretty general.
 
 from . import dmet
@@ -27,10 +27,10 @@ from . import mp2_bath
 class DMETFragmentExit(Exception):
     pass
 
-class DMETFragment(QEmbeddingFragment):
+class DMETFragment(Fragment):
 
     @dataclasses.dataclass
-    class Options(QEmbeddingFragment.Options):
+    class Options(Fragment.Options):
         """Attributes set to `NotSet` inherit their value from the parent EWF object."""
         # Options also present in `base`:
         dmet_threshold: float = NotSet
@@ -49,7 +49,7 @@ class DMETFragment(QEmbeddingFragment):
         c_cas_vir: np.ndarray = None
 
     @dataclasses.dataclass
-    class Results(QEmbeddingFragment.Results):
+    class Results(Fragment.Results):
         fid: int = None
         bno_threshold: float = None
         n_active: int = None
