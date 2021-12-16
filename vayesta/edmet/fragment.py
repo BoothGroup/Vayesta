@@ -189,13 +189,17 @@ class EDMETFragment(DMETFragment):
             return einsum("nia,pi,qa->npq", r, self.base.mo_coeff_occ, self.base.mo_coeff_vir)
 
         rota, rotb = conv_to_aos(rota), conv_to_aos(rotb)
-        if hasattr(self.base.mf, "with_df"):
+        if self.base.with_df:
             # Store low-rank expression for xc kernel.
             # Store alpha and beta-spin xc-kernel contributions separately, so need to treat separately.
-            la = einsum("npq,lpq->nl", xc_kernel[0], rota) + einsum("npq,lpq->nl", xc_kernel[1], rotb)
-            lb = einsum("npq,lqp->nl", xc_kernel[0], rota) + einsum("npq,lqp->nl", xc_kernel[1], rotb)
-            acontrib = dot(la.T, la)
-            bcontrib = dot(la.T, lb)
+            la_l = einsum("npq,lpq->nl", xc_kernel[0][0], rota) + einsum("npq,lpq->nl", xc_kernel[1][0], rotb)
+            la_r = einsum("npq,lpq->nl", xc_kernel[0][1], rota) + einsum("npq,lpq->nl", xc_kernel[1][1], rotb)
+
+            lb_l = einsum("npq,lqp->nl", xc_kernel[0][0], rota) + einsum("npq,lqp->nl", xc_kernel[1][0], rotb)
+            lb_r = einsum("npq,lqp->nl", xc_kernel[0][1], rota) + einsum("npq,lqp->nl", xc_kernel[1][1], rotb)
+
+            acontrib = dot(la_l.T, la_r)
+            bcontrib = dot(la_l.T, lb_r)
             apb = acontrib + bcontrib
             amb = acontrib - bcontrib
         else:
@@ -285,7 +289,8 @@ class EDMETFragment(DMETFragment):
 
     def construct_correlation_kernel_contrib(self, epsilon, m0_new, m1_new, eris=None):
         """
-        Generate the contribution to the correlation kernel arising from this fragment.
+        Generate the contribution to the correlation kernel arising from this fragment, in terms of local degrees of
+        freedom (ie cluster orbitals and bosons).
         """
         # Get the ApB, AmB and m0 for this cluster. Note that this is pre-boson decoupling, but we don't actually care
         # about that here and it shouldn't change our answer.
@@ -351,6 +356,7 @@ class EDMETFragment(DMETFragment):
                                                                        update[2],
                                                                        rot_ov_frag, rot_frag_ov)
             return newmat
+
         new_amb = get_updated_spincomponents(amb_orig, m1_new, rot_ov_frag, rot_frag_ov)
         new_m0 = get_updated_spincomponents(m0_orig, m0_new, rot_ov_frag, rot_frag_ov)
         new_m0_inv = np.linalg.inv(new_m0)
@@ -369,54 +375,93 @@ class EDMETFragment(DMETFragment):
 
         v = eris[:nocc_loc, nocc_loc:, :nocc_loc, nocc_loc:].reshape((ov_loc, ov_loc))
 
-        occ_proj = self.get_fragment_projector(self.cluster.c_active_occ)
-        vir_proj = self.get_fragment_projector(self.cluster.c_active_vir)
+        fr_proj = self.get_fragment_projector(self.cluster.c_active)
+
+        ncl = self.cluster.norb_active
+        no = self.cluster.nocc_active
+
+        def map_to_full(mat):
+            """Given a matrix in only the occupied-virtual subspace, expand to full hf basis.
+            Assumes and applies symmetry v_{pqrs} = v_{qpsr}."""
+            fullmat = np.zeros((ncl, ncl, ncl, ncl))
+            fullmat[:no, no:, :no, no:] = mat
+            fullmat[no:, :no, no:, :no] = mat.transpose([1, 0, 3, 2])
+            return fullmat
 
         def proj_all_indices(mat):
             """Obtains average over all possible projections of provided matrix, giving contribution to democratic
             partitioning from this cluster.
             """
-            return (einsum("iajb,ik->kajb", mat, occ_proj) +
-                    einsum("iajb,jk->iakb", mat, occ_proj) +
-                    einsum("iajb,ac->icjb", mat, vir_proj) +
-                    einsum("iajb,bc->iajc", mat, vir_proj)) / 4.0
+            return (einsum("pqrs,pt->tqrs", mat, fr_proj) +
+                    einsum("pqrs,qt->ptrs", mat, fr_proj) +
+                    einsum("pqrs,rt->pqts", mat, fr_proj) +
+                    einsum("pqrs,st->pqrt", mat, fr_proj)) / 4.0
 
         # Now calculate all spin components; could double check spin symmetry of ab terms if wanted.
         # This deducts the equivalent values at the level of dRPA, reshapes into fermionic indices, and performs
         # projection to only the fragment portions of all indices.
         newshape = (nocc_loc, nvir_loc, nocc_loc, nvir_loc)
-        v_a_aa = proj_all_indices((new_a[:ov_loc, :ov_loc] - loc_eps - v).reshape(newshape))
-        v_a_bb = proj_all_indices((new_a[ov_loc: 2 * ov_loc, ov_loc: 2 * ov_loc] - loc_eps - v).reshape(newshape))
-        v_a_ab = proj_all_indices((new_a[:ov_loc:, ov_loc: 2 * ov_loc] - v).reshape(newshape))
-        v_b_aa = proj_all_indices((new_b[:ov_loc, :ov_loc] - v).reshape(newshape))
-        v_b_bb = proj_all_indices((new_b[ov_loc: 2 * ov_loc, ov_loc: 2 * ov_loc] - v).reshape(newshape))
-        v_b_ab = proj_all_indices((new_b[:ov_loc:, ov_loc: 2 * ov_loc] - v).reshape(newshape))
+        v_a_aa = map_to_full((new_a[:ov_loc, :ov_loc] - loc_eps - v).reshape(newshape))
+        v_a_bb = map_to_full((new_a[ov_loc: 2 * ov_loc, ov_loc: 2 * ov_loc] - loc_eps - v).reshape(newshape))
+        v_a_ab = map_to_full((new_a[:ov_loc:, ov_loc: 2 * ov_loc] - v).reshape(newshape))
+        v_b_aa = map_to_full((new_b[:ov_loc, :ov_loc] - v).reshape(newshape)).transpose((0, 1, 3, 2))
+        v_b_bb = map_to_full((new_b[ov_loc: 2 * ov_loc, ov_loc: 2 * ov_loc] - v).reshape(newshape)).transpose(
+            (0, 1, 3, 2))
+        v_b_ab = map_to_full((new_b[:ov_loc:, ov_loc: 2 * ov_loc] - v).reshape(newshape)).transpose((0, 1, 3, 2))
 
-        return v_a_aa, v_a_ab, v_a_bb, v_b_aa, v_b_ab, v_b_bb
+        v_aa = proj_all_indices(v_a_aa + v_b_aa)
+        v_ab = proj_all_indices(v_a_ab + v_b_ab)
+        v_bb = proj_all_indices(v_a_bb + v_b_bb)
 
-    def get_correlation_kernel_contrib(self, epsilon, dd0, dd1, eris=None):
+        self.save = (v_aa, v_ab, v_bb)
 
-        if self.sym_parent is None:
-            v_a_aa, v_a_ab, v_a_bb, v_b_aa, v_b_ab, v_b_bb = self.construct_correlation_kernel_contrib(
-                epsilon, dd0, dd1, eris)
+        if self.base.with_df:
+            # If using RI we can now perform an svd to generate a low-rank representation in the cluster.
+            def construct_low_rank_rep(vaa, vab, vbb):
+                """Generates low-rank representation of kernel. Note that this will usually be non-PSD, so a real
+                representation will be necessarily asymmetric. Once code is generalised for complex numbers can
+                use symmetric decomposition..."""
+                na, nb = vaa.shape[0], vbb.shape[0]
+                vaa = vaa.reshape((na**2, na**2))
+                vbb = vbb.reshape((nb**2, nb**2))
+                vab = vab.reshape((na**2, nb**2))
+
+                fullv = np.zeros((na**2 + nb**2, na**2 + nb**2))
+                fullv[:na**2, :na**2] = vaa
+                fullv[na**2:, na**2:] = vbb
+                fullv[:na**2, na**2:] = vab
+                fullv[na**2:, :na**2] = vab.T
+                u, s, v = np.linalg.svd(fullv, full_matrices=False)
+                want = s > 1e-8
+                nwant = sum(want)
+                print(s)
+                print(len(s), nwant)
+                print(np.linalg.eigvalsh(fullv))
+                self.log.info("Fragment %d gives rank %d xc-kernel contribution.", self.id, nwant)
+                repr_l = einsum("n,np->np", s[:nwant]**(0.5), v[:nwant])
+                repr_r = einsum("n,pn->np", s[:nwant]**(0.5), u[:,:nwant])
+
+                repa = (repr_l[:, :na**2].reshape((nwant, na, na)), repr_r[:, :na**2].reshape((nwant, na, na)))
+                repb = (repr_l[:, na**2:].reshape((nwant, nb, nb)), repr_r[:, na**2:].reshape((nwant, nb, nb)))
+                return repa, repb
+
+            return construct_low_rank_rep(v_aa, v_ab, v_bb)
         else:
-            v_a_aa, v_a_ab, v_a_bb, v_b_aa, v_b_ab, v_b_bb = self.sym_parent.construct_correlation_kernel_contrib(
-                epsilon, dd0, dd1, eris)
-        # Now need to project back out to full space. This requires an additional factor of the overlap in ou
-        # coefficients.
-        c_occ = np.dot(self.base.get_ovlp(), self.cluster.c_active_occ)
-        c_vir = np.dot(self.base.get_ovlp(), self.cluster.c_active_vir)
-        v_aa = (
-                einsum("iajb,pi,qa,rj,sb->pqrs", v_a_aa, c_occ, c_vir, c_occ, c_vir) +
-                einsum("iajb,pi,qa,rj,sb->pqsr", v_b_aa, c_occ, c_vir, c_occ, c_vir))
-        v_ab = (
-                einsum("iajb,pi,qa,rj,sb->pqrs", v_a_ab, c_occ, c_vir, c_occ, c_vir) +
-                einsum("iajb,pi,qa,rj,sb->pqsr", v_b_ab, c_occ, c_vir, c_occ, c_vir))
-        v_bb = (
-                einsum("iajb,pi,qa,rj,sb->pqrs", v_a_bb, c_occ, c_vir, c_occ, c_vir) +
-                einsum("iajb,pi,qa,rj,sb->pqsr", v_b_bb, c_occ, c_vir, c_occ, c_vir))
-        return v_aa, v_ab, v_bb
+            return v_aa, v_ab, v_bb
 
+    def get_correlation_kernel_contrib(self, contrib):
+        """Gets contribution to xc kernel in full space of system."""
+
+        c = dot(self.base.get_ovlp(), self.cluster.c_active)
+
+        if self.base.with_df:
+            return [tuple([einsum("nij,pi,qj->npq", x, c, c) for x in y]) for y in contrib]
+        else:
+            v_aa, v_ab, v_bb = contrib
+            v_aa = einsum("ijkl,pi,qj,rk,sl->pqrs", v_aa, c, c, c, c)
+            v_ab = einsum("ijkl,pi,qj,rk,sl->pqrs", v_ab, c, c, c, c)
+            v_bb = einsum("ijkl,pi,qj,rk,sl->pqrs", v_bb, c, c, c, c)
+            return v_aa, v_ab, v_bb
 
 def bogoliubov_decouple(apb, amb):
     # Perform quick bogliubov transform to decouple our bosons.

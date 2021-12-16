@@ -39,6 +39,11 @@ class EDMET(DMET):
         self.opts.make_dd_moments = True  # self.opts.maxiter > 1
         self.opts.solver_options["max_boson_occ"] = max_boson_occ
 
+    @property
+    def with_df(self):
+        return hasattr(self.mf, "with_df")
+
+
     def check_solver(self, solver):
         if solver not in VALID_SOLVERS:
             raise ValueError("Unknown solver: %s" % solver)
@@ -56,9 +61,9 @@ class EDMET(DMET):
         # Initialise parameters for self-consistency iteration
         fock = self.get_fock()
         self.vcorr = np.zeros((self.nao,) * 2)
-        if hasattr(self.mf, "with_df"):
+        if self.with_df:
             # Store alpha and beta components separately.
-            self.xc_kernel = [np.zeros((0, self.nao, self.nao))] * 2
+            self.xc_kernel = [[np.zeros((0, self.nao, self.nao))] * 2] * 2
         else:
             # Store alpha-alpha, alpha-beta and beta-beta components separately.
             self.xc_kernel = [np.zeros((self.nao,) * 4)] * 3
@@ -200,7 +205,7 @@ class EDMET(DMET):
 
         # First, set up and run RPA. Note that our self-consistency only couples same-spin excitations so we can
         # solve a subset of the RPA equations.
-        if hasattr(self.mf, "with_df"):
+        if self.with_df:
             # Set up for RIRPPA zeroth moment calculation.
             rpa = ssRIRPA(self.mf, self.xc_kernel, self.log)
             # Get fermionic bath set up, and calculate the cluster excitation space.
@@ -287,35 +292,25 @@ class EDMET(DMET):
         Generate the update to our RPA exchange-correlation kernel this iteration.
         """
 
-        def get_contrib(local_contrib, frag):
-            (V_A_aa, V_A_ab, V_A_bb, V_B_aa, V_B_ab, V_B_bb) = local_contrib
-            c_occ = np.dot(self.get_ovlp(), frag.cluster.c_active_occ)
-            c_vir = np.dot(self.get_ovlp(), frag.cluster.c_active_vir)
-            v_aa = (einsum("iajb,pi,qa,rj,sb->pqrs", V_A_aa, c_occ, c_vir, c_occ, c_vir) +
-                    einsum("iajb,pi,qa,rj,sb->pqsr", V_B_aa, c_occ, c_vir, c_occ, c_vir))
-            v_ab = (einsum("iajb,pi,qa,rj,sb->pqrs", V_A_ab, c_occ, c_vir, c_occ, c_vir) +
-                    einsum("iajb,pi,qa,rj,sb->pqsr", V_B_ab, c_occ, c_vir, c_occ, c_vir))
-            v_bb = (einsum("iajb,pi,qa,rj,sb->pqrs", V_A_bb, c_occ, c_vir, c_occ, c_vir) +
-                    einsum("iajb,pi,qa,rj,sb->pqsr", V_B_bb, c_occ, c_vir, c_occ, c_vir))
-            # Within the RPA formalism we assume the coupling satisfies K_pqrs = K_qpsr.
-            return v_aa + v_aa.transpose([1, 0, 3, 2]), v_ab + v_ab.transpose([1, 0, 3, 2]), v_bb + v_bb.transpose(
-                [1, 0, 3, 2])
-
         eps = np.zeros((self.nocc, self.nvir))
         eps = (eps.T - self.mf.mo_energy[:self.nocc]).T
         eps = eps - self.mf.mo_energy[self.nocc:]
         # Separate into spin components; in RHF case we still expect aaaa and aabb components to differ.
-        k = [np.zeros([self.nao] * 4) for x in range(3)]
-        for frag, d0, d1, parent, children in zip(self.fragments, curr_dd0, curr_dd1, sym_parents, sym_children):
-            local_contrib = frag.construct_correlation_kernel_contrib(eps, d0, d1)
-            contrib = get_contrib(local_contrib, parent)
-            k[0] += contrib[0]
-            k[1] += contrib[1]
-            k[2] += contrib[2]
+        if self.with_df:
+            k = [[np.zeros((0, self.nao, self.nao))]*2, [np.zeros((0, self.nao, self.nao))]*2]
 
+            def combine(old, new):
+                return [[np.concatenate([a,b], axis=0) for a, b in zip(x, y)] for (x, y) in zip(old, new)]
+        else:
+            k = [np.zeros([self.nao] * 4) for x in range(3)]
+
+            def combine(old, new):
+                return [old[x] + new[x] for x in range(3)]
+        for d0, d1, parent, children in zip(curr_dd0, curr_dd1, sym_parents, sym_children):
+            local_contrib = parent.construct_correlation_kernel_contrib(eps, d0, d1, eris=None)
+            contrib = parent.get_correlation_kernel_contrib(local_contrib)
+            k = combine(k, contrib)
             for child in children:
-                contrib = get_contrib(local_contrib, child)
-                k[0] += contrib[0]
-                k[1] += contrib[1]
-                k[2] += contrib[2]
+                contrib = child.get_correlation_kernel_contrib(local_contrib)
+                k = combine(k, contrib)
         return tuple(k)
