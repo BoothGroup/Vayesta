@@ -30,7 +30,7 @@ class ssRIRPA:
         return len(self.mf.mo_occ) - self.nocc
 
     @property
-    def naux(self):
+    def naux_eri(self):
         return self.mf.with_df.get_naoaux()
 
     @property
@@ -126,25 +126,25 @@ class ssRIRPA:
             raise ValueError("Unknown integral offset specification.`")
         # niworker.test_diag_derivs(4.0)
         if adaptive_quad:
-            # Can also make use of scipy adaptive quadrature routines; this is likely more expensive but more reliable.
+            # Can also make use of scipy adaptive quadrature routines; this is more expensive but a good sense-check.
             integral, err = 2 * niworker.kernel_adaptive()
         else:
             integral, err = niworker.kernel(a=ainit, opt_quad=opt_quad)
         # Need to construct RI representation of P^{-1}
         ri_apb_inv = construct_inverse_RI(self.D, ri_apb)
         mom0 = einsum("pq,q->pq", integral + integral_offset, self.D ** (-1)) - np.dot(
-            np.dot(integral + integral_offset, ri_apb_inv.T), ri_apb_inv)
+            np.dot(integral + integral_offset, ri_apb_inv[0].T), ri_apb_inv[1])
         # Also need to convert error estimate of the integral into one for the actual evaluated quantity.
         # Use Cauchy-Schwartz to both obtain an upper bound on resulting mom0 error, and efficiently obtain upper bound
         # on norm of low-rank portion of P^{-1}.
         if err is not None:
-            pinv_norm = (sum(self.D ** (-2)) + 2 * einsum("p,np,np->", self.D ** (-1), ri_apb_inv, ri_apb_inv) +
+            pinv_norm = (sum(self.D ** (-2)) + 2 * einsum("p,np,np->", self.D ** (-1), ri_apb_inv[0], ri_apb_inv[1]) +
                          np.linalg.norm(ri_apb_inv) ** 4) ** (0.5)
             mom0_err = err * pinv_norm
             self.check_errors(mom0_err, target_rot.size)
         else:
             mom0_err = None
-        return mom0 + moment_offset, mom0_err  # integral, (niworker, offset_niworker),
+        return mom0 + moment_offset, mom0_err
 
     def kernel_energy(self):
 
@@ -155,21 +155,51 @@ class ssRIRPA:
             self.log.warning("Estimated error per element exceeded tolerance %6.4e. Please increase number of points.",
                              error / nelements)
 
-    def construct_RI_AB(self):
+    def construct_RI_AB(self, tol=1e-8):
         """Construct the RI expressions for the deviation of A+B and A-B from D."""
         # Coulomb integrals only contribute to A+B.
         # This needs to be optimised, but will do for now.
         v = self.get_3c_integrals()  # pyscf.lib.unpack_tril(self.mf._cderi)
-        Lov = einsum("npq,pi,qa->nia", v, self.mo_coeff_occ, self.mo_coeff_vir).reshape((self.naux, self.ov))
-        ri_ApB = np.zeros((self.naux, self.ov * 2))
+        Lov = einsum("npq,pi,qa->nia", v, self.mo_coeff_occ, self.mo_coeff_vir).reshape((self.naux_eri, self.ov))
+        ri_apb_eri = np.zeros((self.naux_eri, self.ov * 2))
+
         # Need to include factor of two since eris appear in both A and B.
-        ri_ApB[:, :self.ov] = ri_ApB[:, self.ov:2 * self.ov] = np.sqrt(2) * Lov
+        ri_apb_eri[:, :self.ov] = ri_apb_eri[:, self.ov:2 * self.ov] = np.sqrt(2) * Lov
         # Use empty AmB contrib initially; this is the dRPA contrib.
-        ri_AmB = np.zeros((0, self.ov * 2))
-        return ri_ApB, ri_AmB
+        ri_amb_eri = np.zeros((0, self.ov * 2))
+        if self.rixc is not None:
+            # Have low-rank representation for interactions over and above coulomb interaction.
+            # Note that this is usually asymmetric, as correction is non-PSD.
+            ri_a_aa = [einsum("npq,pi,qa->nia", x, self.mo_coeff_occ, self.mo_coeff_vir).reshape((-1, self.ov)) for x in
+                       self.rixc[0]]
+            ri_a_bb = [einsum("npq,pi,qa->nia", x, self.mo_coeff_occ, self.mo_coeff_vir).reshape((-1, self.ov)) for x in
+                       self.rixc[1]]
+
+            ri_b_aa = [ri_a_aa[0],
+                       einsum("npq,qi,pa->nia", self.rixc[0][1], self.mo_coeff_occ, self.mo_coeff_vir).reshape(
+                           (-1, self.ov))]
+            ri_b_bb = [ri_a_bb[0],
+                       einsum("npq,qi,pa->nia", self.rixc[1][1], self.mo_coeff_occ, self.mo_coeff_vir).reshape(
+                           (-1, self.ov))]
+
+            ri_a_xc = [np.concatenate([x, y], axis=1) for x, y in zip(ri_a_aa, ri_a_bb)]
+            ri_b_xc = [np.concatenate([x, y], axis=1) for x, y in zip(ri_b_aa, ri_b_bb)]
+
+            ri_apb_xc = [np.concatenate([ri_a_xc[0], ri_b_xc[0]], axis=0), np.concatenate([ri_a_xc[1], ri_b_xc[1]],
+                                                                                          axis=0)]
+            ri_amb_xc = [np.concatenate([ri_a_xc[0], ri_b_xc[0]], axis=0), np.concatenate([ri_a_xc[1], -ri_b_xc[1]],
+                                                                                          axis=0)]
+        else:
+            ri_apb_xc = [np.zeros((0, self.ov * 2))] * 2
+            ri_amb_xc = [np.zeros((0, self.ov * 2))] * 2
+
+        ri_apb = compress_low_rank(*[np.concatenate([ri_apb_eri, x], axis=0) for x in ri_apb_xc], tol=tol)
+        ri_amb = compress_low_rank(*[np.concatenate([ri_amb_eri, x], axis=0) for x in ri_amb_xc], tol=tol)
+
+        return ri_apb, ri_amb
 
     def get_3c_integrals(self):
-        return pyscf.lib.unpack_tril(next(self.mf.with_df.loop(blksize=self.naux)))
+        return pyscf.lib.unpack_tril(next(self.mf.with_df.loop(blksize=self.naux_eri)))
 
 
 def construct_product_RI(D, ri_1, ri_2):
@@ -204,7 +234,7 @@ def construct_inverse_RI(D, ri):
     naux = ri_R.shape[0]
     # This construction scales as O(N^4).
     U = einsum("np,p,mp->nm", ri_R, D ** (-1), ri_L)
-    # This inversion and square root should only scale as O(N^3).
+    # This inversion and square root should only s          cale as O(N^3).
     U = np.linalg.inv(np.eye(naux) + U)
     Urt = scipy.linalg.sqrtm(U)
     if Urt.dtype == complex:
@@ -213,7 +243,21 @@ def construct_inverse_RI(D, ri):
         else:
             Urt = Urt.real
     # Evaluate the resulting RI
-    if type(ri) == np.ndarray:
-        return einsum("p,np,nm->mp", D ** (-1), ri_L, Urt)
-    else:
-        return einsum("p,np,nm->mp", D ** (-1), ri_L, Urt), einsum("p,np,nm->mp", D ** (-1), ri_R, Urt.T)
+    return einsum("p,np,nm->mp", D ** (-1), ri_L, Urt), einsum("p,np,nm->mp", D ** (-1), ri_R, Urt.T)
+
+
+def compress_low_rank(ri_l, ri_r, tol=1e-8):
+    naux_init = ri_l.shape[0]
+    u, s, v = np.linalg.svd(ri_l, full_matrices=False)
+    nwant = sum(s > tol)
+    rot = u[:, :nwant]
+    ri_l = dot(rot.T, ri_l)
+    ri_r = dot(rot.T, ri_r)
+    u, s, v = np.linalg.svd(ri_r, full_matrices=False)
+    nwant = sum(s > tol)
+    rot = u[:, :nwant]
+    ri_l = dot(rot.T, ri_l)
+    ri_r = dot(rot.T, ri_r)
+    if nwant < naux_init:
+        print("Compressed low-rank representation from {:d} dimensions to {:d} dimensions.".format(naux_init, nwant))
+    return ri_l, ri_r

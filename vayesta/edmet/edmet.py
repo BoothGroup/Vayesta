@@ -300,7 +300,7 @@ class EDMET(DMET):
             k = [[np.zeros((0, self.nao, self.nao))]*2, [np.zeros((0, self.nao, self.nao))]*2]
 
             def combine(old, new):
-                return [[np.concatenate([a,b], axis=0) for a, b in zip(x, y)] for (x, y) in zip(old, new)]
+                return [[np.concatenate([a, b], axis=0) for a, b in zip(x, y)] for (x, y) in zip(old, new)]
         else:
             k = [np.zeros([self.nao] * 4) for x in range(3)]
 

@@ -59,6 +59,7 @@ class ssRPA:
         t_start = timer()
 
         M, AmB, ApB, v = self._gen_arrays(xc_kernel)
+
         t0 = timer()
 
         e, c = np.linalg.eigh(M)
@@ -69,7 +70,11 @@ class ssRPA:
         eps = (eps.T - self.mf.mo_energy[:self.nocc]).T
         eps = eps.reshape((self.ov,))
 
-        self.e_corr_ss = 0.5 * (sum(self.freqs_ss) - 2 * v.trace() - 2*sum(eps))
+        if xc_kernel is None:
+            self.e_corr_ss = 0.5 * (sum(self.freqs_ss) - 2 * v.trace() - 2*sum(eps))
+        else:
+            # Take this with a pinch of salt...
+            self.e_corr_ss = 0.5 * (sum(self.freqs_ss) - 0.5 * (ApB + AmB).trace())
 
         if xc_kernel is None:
             XpY = np.einsum("n,p,pn->pn", self.freqs_ss ** (-0.5), AmB ** (0.5), c)

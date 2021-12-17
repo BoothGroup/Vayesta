@@ -195,11 +195,11 @@ class EDMETFragment(DMETFragment):
             la_l = einsum("npq,lpq->nl", xc_kernel[0][0], rota) + einsum("npq,lpq->nl", xc_kernel[1][0], rotb)
             la_r = einsum("npq,lpq->nl", xc_kernel[0][1], rota) + einsum("npq,lpq->nl", xc_kernel[1][1], rotb)
 
-            lb_l = einsum("npq,lqp->nl", xc_kernel[0][0], rota) + einsum("npq,lqp->nl", xc_kernel[1][0], rotb)
+            lb_l = einsum("npq,lpq->nl", xc_kernel[0][0], rota) + einsum("npq,lpq->nl", xc_kernel[1][0], rotb)
             lb_r = einsum("npq,lqp->nl", xc_kernel[0][1], rota) + einsum("npq,lqp->nl", xc_kernel[1][1], rotb)
 
             acontrib = dot(la_l.T, la_r)
-            bcontrib = dot(la_l.T, lb_r)
+            bcontrib = dot(lb_l.T, lb_r)
             apb = acontrib + bcontrib
             amb = acontrib - bcontrib
         else:
