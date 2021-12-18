@@ -102,6 +102,10 @@ def ethanol():
     atom = _load_datafile('ethanol.dat')
     return atom
 
+def propanol():
+    atom = _load_datafile('propanol.dat')
+    return atom
+
 def chloroethanol():
     atom = _load_datafile('chloroethanol.dat')
     return atom

@@ -123,17 +123,29 @@ def stack_mo(*mo_coeffs):
 
 stack_mo_coeffs = stack_mo
 
-def brange(start, stop, step, minstep=1, maxstep=None):
+def brange(*args, minstep=1, maxstep=None):
     """Similar to PySCF's prange, but returning a slice instead.
 
     Start, stop, and blocksize can be accessed from each slice blk as
     blk.start, blk.stop, and blk.step.
     """
+    if len(args) == 1:
+        stop = args[0]
+        start = 0
+        step = 1
+    elif len(args) == 2:
+        start, stop = args[:2]
+        step = 1
+    elif len(args) == 3:
+        start, stop, step = args
+    else:
+        raise ValueError()
+
     if stop <= start:
         return
     if maxstep is None:
         maxstep = (stop-start)
-    step = np.clip(step, minstep, maxstep)
+    step = int(np.clip(step, minstep, maxstep))
     for i in range(start, stop, step):
         blk = np.s_[i:min(i+step, stop)]
         yield blk

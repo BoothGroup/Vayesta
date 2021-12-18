@@ -24,6 +24,7 @@ import vayesta
 from vayesta.core import vlog
 from vayesta.core.foldscf import FoldedSCF, fold_scf
 from vayesta.core.util import *
+from vayesta.core.ao2mo import kao2gmo_cderi
 from vayesta.core.ao2mo import postscf_ao2mo
 from vayesta.core.ao2mo import postscf_kao2gmo
 from vayesta.core.ao2mo.kao2gmo import gdf_to_pyscf_eris
@@ -321,6 +322,18 @@ class Embedding:
     def is_uhf(self):
         return (self.mo_coeff[0].ndim == 2)
 
+    @property
+    def has_df(self):
+        return (self.df is not None) or (self.kdf is not None)
+
+    @property
+    def df(self):
+        #if self.kdf is not None:
+        #    return self.kdf
+        if hasattr(self.mf, 'with_df') and self.mf.with_df is not None:
+            return self.mf.with_df
+        return None
+
     # Mean-field properties
 
     #def init_vhf_ehf(self):
@@ -527,12 +540,53 @@ class Embedding:
         spow = pyscf.pbc.tools.k2gamma.to_supercell_ao_integrals(self.kcell, self.kpts, spowk)
         return spow
 
+    def get_cderi(self, mo_coeff, compact=False, blksize=None):
+        """Get density-fitted three-center integrals in MO basis."""
+        if compact:
+            raise NotImplementedError()
+        if self.kdf is not None:
+            return kao2gmo_cderi(self.kdf, mo_coeff)
+
+        if np.ndim(mo_coeff[0]) == 1:
+            mo_coeff = (mo_coeff, mo_coeff)
+
+        nao = self.mol.nao
+        naux = (self.df.auxcell.nao if hasattr(self.df, 'auxcell') else self.df.auxmol.nao)
+        cderi = np.zeros((naux, mo_coeff[0].shape[-1], mo_coeff[1].shape[-1]))
+        cderi_neg = None
+        if blksize is None:
+            blksize = int(1e9 / naux*nao*nao * 8)
+        # PBC:
+        if hasattr(self.df, 'sr_loop'):
+            blk0 = 0
+            for labr, labi, sign in self.df.sr_loop(compact=False, blksize=blksize):
+                assert np.allclose(labi, 0)
+                assert (cderi_neg is None)  # There should be only one block with sign -1
+                labr = labr.reshape(-1, nao, nao)
+                if (sign == 1):
+                    blk1 = (blk0 + labr.shape[0])
+                    blk = np.s_[blk0:blk1]
+                    blk0 = blk1
+                    cderi[blk] = einsum('Lab,ai,bj->Lij', labr, mo_coeff[0], mo_coeff[1])
+                elif (sign == -1):
+                    cderi_neg = einsum('Lab,ai,bj->Lij', labr, mo_coeff[0], mo_coeff[1])
+            return cderi, cderi_neg
+        # No PBC:
+        blk0 = 0
+        for lab  in self.df.loop(blksize=blksize):
+            blk1 = (blk0 + lab.shape[0])
+            blk = np.s_[blk0:blk1]
+            blk0 = blk1
+            lab = pyscf.lib.unpack_tril(lab)
+            cderi[blk] = einsum('Lab,ai,bj->Lij', lab, mo_coeff[0], mo_coeff[1])
+        return cderi, None
+
     def get_eris_array(self, mo_coeff, compact=False):
         """Get electron-repulsion integrals in MO basis as a NumPy array.
 
         Parameters
         ----------
-        mo_coeff: (n(AO), n(MO)) array
+        mo_coeff: [list(4) of] (n(AO), n(MO)) array
             MO coefficients.
 
         Returns
@@ -540,7 +594,20 @@ class Embedding:
         eris: (n(MO), n(MO), n(MO), n(MO)) array
             Electron-repulsion integrals in MO basis.
         """
-        # TODO: check self.kdf and fold
+        # PBC with k-points:
+        if self.kdf is not None:
+            if np.ndim(mo_coeff[0]) == 1:
+                mo_coeff = 4*[mo_coeff]
+            cderi1, cderi1_neg = kao2gmo_cderi(self.kdf, mo_coeff[:2])
+            if (mo_coeff[0] is mo_coeff[2]) and (mo_coeff[1] is mo_coeff[3]):
+                cderi2, cderi2_neg = cderi1, cderi1_neg
+            else:
+                cderi2, cderi2_neg = kao2gmo_cderi(self.kdf, mo_coeff[2:])
+            eris = einsum('Lij,Lkl->ijkl', cderi1.conj(), cderi2)
+            if cderi1_neg is not None:
+                eris -= einsum('Lij,Lkl->ijkl', cderi1_neg.conj(), cderi2_neg)
+            return eris
+        # Molecules and Gamma-point PBC:
         if hasattr(self.mf, 'with_df') and self.mf.with_df is not None:
             eris = self.mf.with_df.ao2mo(mo_coeff, compact=compact)
         elif self.mf._eri is not None:
@@ -921,6 +988,15 @@ class Embedding:
                         write("    %4d %-16s= % 11.8f" % (ao, label, pop[ao]))
         if filename is not None:
             f.close()
+
+    def check_fragment_nelectron(self):
+        nelec_frags = sum([f.sym_factor*f.nelectron for f in self.fragments])
+        #nelec = (self.kcell if self.kcell is not None else self.mol).nelectron
+        nelec = self.mol.nelectron
+        self.log.info("Number of electrons over all fragments= %.8f , system= %.8f", nelec_frags, nelec)
+        if abs(nelec_frags - nelec) > 1e-6:
+            self.log.warning("Number of electrons over all fragments not equal to the system's number of electrons.")
+        return nelec_frags
 
     # --- Fragmentation methods
 

@@ -63,7 +63,8 @@ class EWFFragment(Fragment):
         bath_type: str = NotSet
         bno_threshold: float = NotSet
         bno_number: int = None              # Set a fixed number of BNOs
-        bno_projected_dm: bool = NotSet
+        bno_project_t2: bool = NotSet
+        ewdmet_max_order: int = NotSet
         # CAS methods
         c_cas_occ: np.ndarray = None
         c_cas_vir: np.ndarray = None
@@ -169,31 +170,38 @@ class EWFFragment(Fragment):
     def make_bath(self, bath_type=NotSet):
         if bath_type is NotSet:
             bath_type = self.opts.bath_type
+
+        # All environment orbitals as bath (for testing purposes)
+        if bath_type.lower() == 'full':
+            self.bath = CompleteBath(self, dmet_threshold=self.opts.dmet_threshold)
+            self.bath.kernel()
+            return self.bath
+
+        dmet_bath = DMET_Bath(self, dmet_threshold=self.opts.dmet_threshold)
+        dmet_bath.kernel()
         # DMET bath only
-        if bath_type is None or bath_type.lower() == 'dmet':
-            bath = DMET_Bath(self, dmet_threshold=self.opts.dmet_threshold)
-        elif bath_type.lower() == 'ewdmet':
-            dmet_bath = DMET_Bath(self, dmet_threshold=self.opts.dmet_threshold)
-            dmet_bath.kernel()
-            bath = EwDMET_Bath(self, dmet_bath)
-        # All environment orbitals as bath
-        elif bath_type.lower() in ('all', 'full'):
-            bath = CompleteBath(self, dmet_threshold=self.opts.dmet_threshold)
+        if bath_type.lower() == 'dmet':
+            self.bath = dmet_bath
+            return self.bath
+        # Energy-weighted (Ew) DMET bath
+        if bath_type.lower() == 'ewdmet':
+            self.bath = EwDMET_Bath(self, dmet_bath, max_order=self.opts.ewdmet_max_order)
+            self.bath.kernel()
+            return self.bath
         # MP2 bath natural orbitals
-        elif bath_type.lower() == 'mp2-bno':
-            dmet_bath = DMET_Bath(self, dmet_threshold=self.opts.dmet_threshold)
-            dmet_bath.kernel()
-            bath = MP2_BNO_Bath(self, dmet_bath=dmet_bath)
-            #if self.opts.bno_projected_dm:
-            #    raise NotImplementedError()
-            #    #bath = MP2_BNO_Bath(self, dmet_threshold=self.opts.dmet_threshold, local_dm=self.bno_local_dm)
-            #else:
+        if bath_type.lower() == 'mp2-bno':
+            self.bath = MP2_BNO_Bath(self, ref_bath=dmet_bath, project_t2=self.opts.bno_project_t2)
+            self.bath.kernel()
+            return self.bath
+        if bath_type.lower() == 'mp2-bno-ewdmet':
+            ewdmet_bath = EwDMET_Bath(self, dmet_bath, max_order=self.opts.ewdmet_max_order)
+            ewdmet_bath.kernel()
+            self.bath = MP2_BNO_Bath(self, ref_bath=ewdmet_bath, project_t2=self.opts.bno_project_t2)
+            self.bath.kernel()
+            return self.bath
+
             #    bath = MP2_BNO_Bath(self, dmet_threshold=self.opts.dmet_threshold)
-        else:
-            raise ValueError("Unknown bath_type: %r" % bath_type)
-        bath.kernel()
-        self.bath = bath
-        return bath
+        raise ValueError("Unknown bath_type: %r" % bath_type)
 
     def make_cluster(self, bath=None, bno_threshold=None, bno_number=None):
         if bath is None:
@@ -204,8 +212,8 @@ class EWFFragment(Fragment):
         c_bath_occ, c_frozen_occ = bath.get_occupied_bath(bno_threshold=bno_threshold[0], bno_number=bno_number[0])
         c_bath_vir, c_frozen_vir = bath.get_virtual_bath(bno_threshold=bno_threshold[1], bno_number=bno_number[1])
         # Canonicalize orbitals
-        c_active_occ = self.canonicalize_mo(bath.c_cluster_occ, c_bath_occ)[0]
-        c_active_vir = self.canonicalize_mo(bath.c_cluster_vir, c_bath_vir)[0]
+        c_active_occ = self.canonicalize_mo(bath.dmet_bath.c_cluster_occ, c_bath_occ)[0]
+        c_active_vir = self.canonicalize_mo(bath.dmet_bath.c_cluster_vir, c_bath_vir)[0]
         cluster = ActiveSpace(self.mf, c_active_occ, c_active_vir, c_frozen_occ=c_frozen_occ, c_frozen_vir=c_frozen_vir)
 
         def check_occupation(mo_coeff, expected):

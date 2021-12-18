@@ -218,7 +218,6 @@ class MolFragmentTests(unittest.TestCase):
         self.assertIs(bath.log,    frag.log)
         self.assertIs(bath.base,   frag.base)
         self.assertIs(bath.c_frag, frag.c_frag)
-        self.assertIs(bath.get_dmet_bath(), bath.c_dmet)
         self.assertIs(bath.get_environment()[0], bath.c_env_occ)
         self.assertIs(bath.get_environment()[1], bath.c_env_vir)
 
@@ -257,19 +256,19 @@ class MolFragmentTests(unittest.TestCase):
         self.assertIs(bath.base,   frags[0].base)
         self.assertIs(bath.c_frag, frags[0].c_frag)
 
-        bath = MP2_BNO_Bath(frags[0], dmet_bath, local_dm='semi', canonicalize=False)
-        dm1o = bath.make_delta_dm1('occ', t2a, t2b)
-        dm1v = bath.make_delta_dm1('vir', t2a, t2b)
-        self.assertIs(bath.get_mp2_class(), pyscf.mp.MP2)
-        self.assertAlmostEqual(lib.fp(dm1o),  -11.0426240019808/2, self.PLACES)
-        self.assertAlmostEqual(lib.fp(dm1v),   11.2234922296148/2, self.PLACES)
+        #bath = MP2_BNO_Bath(frags[0], dmet_bath, local_dm='semi', canonicalize=False)
+        #dm1o = bath.make_delta_dm1('occ', t2a, t2b)
+        #dm1v = bath.make_delta_dm1('vir', t2a, t2b)
+        #self.assertIs(bath.get_mp2_class(), pyscf.mp.MP2)
+        #self.assertAlmostEqual(lib.fp(dm1o),  -11.0426240019808/2, self.PLACES)
+        #self.assertAlmostEqual(lib.fp(dm1v),   11.2234922296148/2, self.PLACES)
 
-        bath = MP2_BNO_Bath(frags[0], dmet_bath, local_dm=True, canonicalize=False)
-        dm1o = bath.make_delta_dm1('occ', t2a, t2b)
-        dm1v = bath.make_delta_dm1('vir', t2a, t2b)
-        self.assertIs(bath.get_mp2_class(), pyscf.mp.MP2)
-        self.assertAlmostEqual(lib.fp(dm1o), 382.7366604206307/2, self.PLACES)
-        self.assertAlmostEqual(lib.fp(dm1v),  16.0277297008466/2, self.PLACES)
+        #bath = MP2_BNO_Bath(frags[0], dmet_bath, local_dm=True, canonicalize=False)
+        #dm1o = bath.make_delta_dm1('occ', t2a, t2b)
+        #dm1v = bath.make_delta_dm1('vir', t2a, t2b)
+        #self.assertIs(bath.get_mp2_class(), pyscf.mp.MP2)
+        #self.assertAlmostEqual(lib.fp(dm1o), 382.7366604206307/2, self.PLACES)
+        #self.assertAlmostEqual(lib.fp(dm1v),  16.0277297008466/2, self.PLACES)
 
         #FIXME: bugs #6 and #7 - then add to CellFragmentTests
         #NOTE these values were for an old system

@@ -139,7 +139,7 @@ class VFileHandler(logging.FileHandler):
 def get_logname(name, add_mpi_rank=True, ext='log'):
     if mpi and add_mpi_rank:
         name = '%s.mpi%d' % (name, mpi.rank)
-    if ext:
+    if ext and not name.endswith('.%s' % ext):
         name = '%s.%s' % (name, ext)
     return name
 

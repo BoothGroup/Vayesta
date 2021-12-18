@@ -21,9 +21,6 @@ class EwDMET_Bath_Test(unittest.TestCase):
         dmet_bath = DMET_Bath(frag, dmet_threshold=1e-8)
         dmet_bath.kernel()
 
-        ewdmet_bath = EwDMET_Bath(frag, dmet_bath)
-        ewdmet_bath.kernel()
-
         # Exact moments
         ovlp = mf.get_ovlp()
         moments = np.arange(12)
@@ -33,12 +30,11 @@ class EwDMET_Bath_Test(unittest.TestCase):
 
         # Test bath orbitals up to kmax = 4
         for kmax in range(0, 4):
-            c_bath_occ, c_rest_occ = ewdmet_bath.get_occupied_bath(kmax=kmax)
-            c_bath_vir, c_rest_vir = ewdmet_bath.get_virtual_bath(kmax=kmax)
 
-            c_cluster = np.hstack((
-                ewdmet_bath.dmet_bath.c_cluster_occ, c_bath_occ,
-                c_bath_vir, ewdmet_bath.dmet_bath.c_cluster_vir))
+            ewdmet_bath = EwDMET_Bath(frag, dmet_bath, max_order=kmax)
+            ewdmet_bath.kernel()
+
+            c_cluster = np.hstack((ewdmet_bath.c_cluster_occ, ewdmet_bath.c_cluster_vir))
             n_cluster = c_cluster.shape[-1]
             assert np.allclose(np.linalg.multi_dot((c_cluster.T, ovlp, c_cluster)) - np.eye(n_cluster), 0)
 

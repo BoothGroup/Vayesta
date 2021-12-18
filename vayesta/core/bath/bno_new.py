@@ -16,9 +16,9 @@ from .bath import FragmentBath
 class BNO_Bath(FragmentBath):
     """Bath natural orbital (BNO) bath, requires DMET bath."""
 
-    def __init__(self, fragment, dmet_bath, *args, **kwargs):
+    def __init__(self, fragment, ref_bath, *args, **kwargs):
         super().__init__(fragment, *args, **kwargs)
-        self.dmet_bath = dmet_bath
+        self.ref_bath = ref_bath
         # Results
         # Bath orbital coefficients:
         self.c_bno_occ = None
@@ -30,12 +30,12 @@ class BNO_Bath(FragmentBath):
     @property
     def c_cluster_occ(self):
         """Occupied DMET cluster orbitals."""
-        return self.dmet_bath.c_cluster_occ
+        return self.ref_bath.c_cluster_occ
 
     @property
     def c_cluster_vir(self):
         """Virtual DMET cluster orbitals."""
-        return self.dmet_bath.c_cluster_vir
+        return self.ref_bath.c_cluster_vir
 
     def kernel(self):
         """Make bath natural orbitals."""
@@ -44,6 +44,16 @@ class BNO_Bath(FragmentBath):
 
     def make_bno_coeff(self, *args, **kwargs):
         raise AbstractMethodError()
+
+    @property
+    def dmet_bath(self):
+        """The BNO bath can be build on top of a EwDMET bath. This returns the pure DMET bath in this case.
+
+        Use two attributes here:
+        Of the BNO bath is build on top of a EwDMET bath, self.dmet will be the EwDMET bath,
+        but self.dmet_bath.dmet_bath will be the DMET bath only!
+        """
+        return self.ref_bath.dmet_bath
 
     def make_bno_bath(self, kind):
         if kind == 'occ':
@@ -96,9 +106,9 @@ class BNO_Bath(FragmentBath):
         # For UHF, call recursively:
         if np.ndim(c_bno[0]) == 2:
             c_bno_a, c_rest_a = self.truncate_bno(c_bno[0], n_bno[0], bno_threshold=bno_threshold,
-                    bno_number=bno_number, header='Alpha %s' % header)
+                    bno_number=bno_number, header='Alpha-%s' % header)
             c_bno_b, c_rest_b = self.truncate_bno(c_bno[1], n_bno[1], bno_threshold=bno_threshold,
-                    bno_number=bno_number, header='Beta %s' % header)
+                    bno_number=bno_number, header='Beta-%s' % header)
             return (c_bno_a, c_bno_b), (c_rest_a, c_rest_b)
 
         if bno_number is not None:
@@ -110,7 +120,7 @@ class BNO_Bath(FragmentBath):
 
         # Logging
         if header:
-            self.log.info(header.capitalize())
+            self.log.info(header[0].upper() + header[1:])
         fmt = "  %4s: N= %4d  max= % 9.3g  min= % 9.3g  sum= % 9.3g ( %7.3f %%)"
         def log_space(name, n_part):
             if len(n_part) == 0:
@@ -126,16 +136,19 @@ class BNO_Bath(FragmentBath):
         return c_bno, c_rest
 
     def get_active_space(self, kind):
+        ref_bath = self.ref_bath
         dmet_bath = self.dmet_bath
         nao = self.mol.nao
         zero_space = np.zeros((nao, 0)) if self.spin_restricted else np.zeros((2, nao, 0))
         if kind == 'occ':
-            c_active_occ = stack_mo(self.c_cluster_occ, dmet_bath.c_env_occ)
+            c_active_occ = stack_mo(dmet_bath.c_cluster_occ, dmet_bath.c_env_occ)
             c_frozen_occ = zero_space
-            c_active_vir, c_frozen_vir = self.c_cluster_vir, dmet_bath.c_env_vir
+            c_active_vir = ref_bath.c_cluster_vir
+            c_frozen_vir = ref_bath.c_env_vir
         elif kind == 'vir':
-            c_active_occ, c_frozen_occ = self.c_cluster_occ, self.dmet_bath.c_env_occ
-            c_active_vir = stack_mo(self.c_cluster_vir, self.dmet_bath.c_env_vir)
+            c_active_occ = ref_bath.c_cluster_occ
+            c_frozen_occ = ref_bath.c_env_occ
+            c_active_vir = stack_mo(dmet_bath.c_cluster_vir, dmet_bath.c_env_vir)
             c_frozen_vir = zero_space
         else:
             raise ValueError("Unknown kind: %r" % kind)
@@ -146,14 +159,11 @@ class BNO_Bath(FragmentBath):
         self.log.debugv("Undoing canonicalization")
         return dot(rot, dm, rot.T)
 
-    def _get_dmet_cluster_size(self):
-        return (self.c_cluster_occ.shape[-1], self.c_cluster_vir.shape[-1])
-
     def _dm_take_env(self, dm, kind):
         if kind == 'occ':
-            ncluster = self._get_dmet_cluster_size()[0]
+            ncluster = self.dmet_bath.c_cluster_occ.shape[-1]
         elif kind == 'vir':
-            ncluster = self._get_dmet_cluster_size()[1]
+            ncluster = self.dmet_bath.c_cluster_vir.shape[-1]
         self.log.debugv("n(cluster)= %d", ncluster)
         self.log.debugv("tr(D)= %g", np.trace(dm))
         dm = dm[ncluster:,ncluster:]
@@ -175,15 +185,11 @@ class BNO_Bath_UHF(BNO_Bath):
         return (dot(rot[0], dm[0], rot[0].T),
                 dot(rot[1], dm[1], rot[1].T))
 
-    def _get_dmet_cluster_size(self):
-        return ((self.c_cluster_occ[0].shape[-1], self.c_cluster_vir[0].shape[-1]),
-                (self.c_cluster_occ[1].shape[-1], self.c_cluster_vir[1].shape[-1]))
-
     def _dm_take_env(self, dm, kind):
         if kind == 'occ':
-            ncluster = self._get_dmet_cluster_size()[0]
+            ncluster = (self.dmet_bath.c_cluster_occ[0].shape[-1], self.dmet_bath.c_cluster_occ[1].shape[-1])
         elif kind == 'vir':
-            ncluster = self._get_dmet_cluster_size()[1]
+            ncluster = (self.dmet_bath.c_cluster_vir[0].shape[-1], self.dmet_bath.c_cluster_vir[1].shape[-1])
         self.log.debugv("n(cluster)= (%d, %d)", ncluster[0], ncluster[1])
         self.log.debugv("tr(alpha-D)= %g", np.trace(dm[0]))
         self.log.debugv("tr( beta-D)= %g", np.trace(dm[1]))
@@ -200,19 +206,61 @@ class BNO_Bath_UHF(BNO_Bath):
 
 class MP2_BNO_Bath(BNO_Bath):
 
-    def __init__(self, *args, local_dm=False, canonicalize=True, **kwargs):
+    def __init__(self, *args, project_t2=False, canonicalize=True, **kwargs):
         super().__init__(*args, **kwargs)
-        self.local_dm = local_dm
+        self.project_t2 = project_t2
         # Canonicalization can be set separately for occupied and virtual:
         if np.ndim(canonicalize) == 0:
             canonicalize = 2*[canonicalize]
         self.canonicalize = canonicalize
 
-    def get_mp2_class(self):
-        """TODO: Do not use PySCF MP2 classes."""
-        if self.base.boundary_cond == 'open':
-            return pyscf.mp.MP2
-        return pyscf.pbc.mp.MP2
+    def _make_t2(self, mo_energy, eris=None, cderi=None, cderi_neg=None, blksize=None):
+        """Make T2 amplitudes"""
+        # (ov|ov)
+        if eris is not None:
+            self.log.debugv("Making T2 amplitudes from ERIs")
+            assert (eris.ndim == 4)
+            nocc, nvir = eris.shape[:2]
+        # (L|ov)
+        elif cderi is not None:
+            self.log.debugv("Making T2 amplitudes from CD-ERIs")
+            assert (cderi.ndim == 3)
+            assert (cderi_neg is None or cderi_neg.ndim == 3)
+            nocc, nvir = cderi.shape[1:]
+        else:
+            raise ValueError()
+
+        t2 = np.empty((nocc, nocc, nvir, nvir))
+        eia = (mo_energy[:nocc,None] - mo_energy[None,nocc:])
+        if blksize is None:
+            blksize = int(1e9 / max(nocc*nvir*nvir * 8, 1))
+        for blk in brange(0, nocc, blksize):
+            if eris is not None:
+                gijab = eris[blk].transpose(0,2,1,3)
+            else:
+                gijab = einsum('Lia,Ljb->ijab', cderi[:,blk], cderi)
+                if cderi_neg is not None:
+                    gijab -= einsum('Lia,Ljb->ijab', cderi_neg[:,blk], cderi_neg)
+            eijab = (eia[blk][:,None,:,None] + eia[None,:,None,:])
+            t2[blk] = (gijab / eijab)
+        return t2
+
+    def _get_mo_energy(self, fock, actspace):
+        c_act = actspace.c_active
+        mo_energy = einsum('ai,ab,bi->i', c_act, fock, c_act)
+        return mo_energy
+
+    def _get_eris(self, actspace):
+        # We only need the (ov|ov) block for MP2:
+        mo_coeff = 2*[actspace.c_active_occ, actspace.c_active_vir]
+        eris = self.base.get_eris_array(mo_coeff)
+        return eris
+
+    def _get_cderi(self, actspace):
+        # We only need the (L|ov) block for MP2:
+        mo_coeff = (actspace.c_active_occ, actspace.c_active_vir)
+        cderi, cderi_neg = self.base.get_cderi(mo_coeff)
+        return cderi, cderi_neg
 
     def make_delta_dm1_old(self, kind, t2, t2loc):
         """Delta MP2 density matrix"""
@@ -252,7 +300,7 @@ class MP2_BNO_Bath(BNO_Bath):
     def make_delta_dm1(self, kind, t2, actspace):
         """Delta MP2 density matrix"""
         norm = 1
-        if self.local_dm is False:
+        if not self.project_t2:
             self.log.debug("Constructing DM from full T2-amplitudes.")
             # This is equivalent to:
             # do, dv = pyscf.mp.mp2._gamma1_intermediates(mp2, eris=eris)
@@ -260,9 +308,6 @@ class MP2_BNO_Bath(BNO_Bath):
             if kind == 'occ':
                 dm = norm*(2*einsum('ikab,jkab->ij', t2, t2)
                            - einsum('ikab,kjab->ij', t2, t2))
-                # Note that this is equivalent to:
-                #dm = 2*(2*einsum("kiba,kjba->ij", t2l, t2r)
-                #        - einsum("kiba,kjab->ij", t2l, t2r))
             else:
                 dm = norm*(2*einsum('ijac,ijbc->ab', t2, t2)
                            - einsum('ijac,ijcb->ab', t2, t2))
@@ -271,22 +316,23 @@ class MP2_BNO_Bath(BNO_Bath):
 
         # Project one T-amplitude onto fragment
         self.log.debug("Constructing DM from projected T2-amplitudes.")
-        #px = self.fragment.get_overlap_c2f()[0]
-        #t2x = self.fragment.project_amp2_to_fragment(t2)
         ovlp = self.fragment.base.get_ovlp()
-        px = dot(actspace.c_active_occ.T, ovlp, self.fragment.c_proj)
-
-        t2x = einsum('ix,ijab->xjab', px, t2)
-        #t2x = t2
         if kind == 'occ':
-            #dm = norm*(2*einsum('ikab,jkab->ij', t2x, t2x)
-            #           - einsum('ikab,kjab->ij', t2x, t2x))
-            dm = norm*(2*einsum('kiab,kjab->ij', t2x, t2x)
-                       - einsum('kiab,kjba->ij', t2x, t2x))
+            px = dot(actspace.c_active_vir.T, ovlp, self.dmet_bath.c_cluster_vir)
+            t2x = einsum('ax,ijab->ijxb', px, t2)
+            dm = norm*(2*einsum('ikab,jkab->ij', t2x, t2x)
+                       - einsum('ikab,kjab->ij', t2x, t2x)
+                     + 2*einsum('kiba,kjba->ij', t2x, t2x)
+                       - einsum('kiba,jkba->ij', t2x, t2x))/2
         else:
+            px = dot(actspace.c_active_occ.T, ovlp, self.dmet_bath.c_cluster_occ)
+            t2x = einsum('ix,ijab->xjab', px, t2)
             dm = norm*(2*einsum('ijac,ijbc->ab', t2x, t2x)
-                       - einsum('ijac,ijcb->ab', t2x, t2x))
-        dm = (dm + dm.T) / 2
+                       - einsum('ijac,ijcb->ab', t2x, t2x)
+                     + 2*einsum('jica,jicb->ab', t2x, t2x)
+                       - einsum('jica,jibc->ab', t2x, t2x))/2
+
+        assert np.allclose(dm, dm.T)
         return dm
 
     def make_bno_coeff(self, kind, eris=None):
@@ -326,38 +372,27 @@ class MP2_BNO_Bath(BNO_Bath):
         actspace = ActiveSpace(self.mf, c_active_occ, c_active_vir,
                 actspace_orig.c_frozen_occ, actspace_orig.c_frozen_vir)
 
-        # --- Setup PySCF MP2 object
-        cls = self.get_mp2_class()
-        self.log.debugv("MP2 class= %r actspace= %r", cls, actspace)
-        mp2 = cls(self.mf, mo_coeff=actspace.coeff, frozen=actspace.get_frozen_indices())
-
         # -- Integral transformation
         if eris is None:
+            eris = cderi = cderi_neg = None
             with log_time(self.log.timing, "Time for AO->MO transformation: %s"):
-                eris = self.base.get_eris_object(mp2, fock=fock)
+                if self.fragment.base.has_df:
+                    cderi, cderi_neg = self._get_cderi(actspace)
+                else:
+                    eris = self._get_eris(actspace)
         # Reuse previously obtained integral transformation into N^2 sized quantity (rather than N^4)
         #else:
         #    self.log.debug("Transforming previous eris.")
         #    eris = transform_mp2_eris(eris, actspace.c_active_occ, actspace.c_active_vir, ovlp=self.base.get_ovlp())
         # TODO: DF-MP2
-        assert (eris.ovov is not None)
+        #assert (eris.ovov is not None)
+        #nocc = actspace.nocc_active
+        #nvir = actspace.nvir_active
 
-        # --- Kernel
-        with log_time(self.log.timing, "Time for MP2 kernel: %s"):
-            e_mp2_full, t2 = mp2.kernel(eris=eris)
+        mo_energy = self._get_mo_energy(fock, actspace)
+        with log_time(self.log.timing, "Time for MP2 T-amplitudes: %s"):
+            t2 = self._make_t2(mo_energy, eris=eris, cderi=cderi, cderi_neg=cderi_neg)
 
-        # --- MP2 energies
-        #e_mp2_full *= self.fragment.get_energy_prefactor()
-        ## Symmetrize irrelevant?
-        ##t2loc = self.fragment.project_amplitudes_to_fragment(mp2, None, t2)[1]
-        #t2loc = self.fragment.project_amplitude_to_fragment(t2, c_occ=actspace.c_active_occ, c_vir=False)
-        #e_mp2 = self.fragment.get_energy_prefactor() * mp2.energy(t2loc, eris)
-        #self.log.debug("MP2 bath energy:  E(Cluster)= %+16.8f Ha  E(Fragment)= %+16.8f Ha", e_mp2_full, e_mp2)
-
-        e_mp2_full *= self.fragment.get_energy_prefactor()
-        self.log.debug("MP2 cluster energy= %s", energy_string(e_mp2_full))
-
-        #dm = self.make_delta_dm1(kind, t2, t2loc)
         dm = self.make_delta_dm1(kind, t2, actspace)
 
         # --- Undo canonicalization
@@ -378,17 +413,102 @@ class MP2_BNO_Bath(BNO_Bath):
 
 class UMP2_BNO_Bath(MP2_BNO_Bath, BNO_Bath_UHF):
 
-    def __init__(self, *args, local_dm=False, **kwargs):
-        super().__init__(*args, local_dm=local_dm, **kwargs)
+    def _get_mo_energy(self, fock, actspace):
+        c_act_a, c_act_b = actspace.c_active
+        mo_energy_a = einsum('ai,ab,bi->i', c_act_a, fock[0], c_act_a)
+        mo_energy_b = einsum('ai,ab,bi->i', c_act_b, fock[1], c_act_b)
+        return (mo_energy_a, mo_energy_b)
 
-    def get_mp2_class(self):
-        if self.base.boundary_cond == 'open':
-            return pyscf.mp.UMP2
-        return pyscf.pbc.mp.UMP2
+    def _get_eris(self, actspace):
+        # We only need the (ov|ov) block for MP2:
+        mo_ov_a = [actspace.c_active_occ[0], actspace.c_active_vir[0]]
+        mo_ov_b = [actspace.c_active_occ[1], actspace.c_active_vir[1]]
+        mo_aa = mo_ov_a + mo_ov_a
+        mo_ab = mo_ov_a + mo_ov_b
+        mo_bb = mo_ov_b + mo_ov_b
+        eris_aa = self.base.get_eris_array(mo_aa)
+        eris_ab = self.base.get_eris_array(mo_ab)
+        eris_bb = self.base.get_eris_array(mo_bb)
+        return (eris_aa, eris_ab, eris_bb)
+
+    def _get_cderi(self, actspace):
+        # We only need the (ov|ov) block for MP2:
+        mo_a = [actspace.c_active_occ[0], actspace.c_active_vir[0]]
+        mo_b = [actspace.c_active_occ[1], actspace.c_active_vir[1]]
+        cderi_a, cderi_neg_a = self.base.get_cderi(mo_a)
+        cderi_b, cderi_neg_b = self.base.get_cderi(mo_b)
+        return (cderi_a, cderi_b), (cderi_neg_a, cderi_neg_b)
+
+    def _make_t2(self, mo_energy, eris=None, cderi=None, cderi_neg=None, blksize=None):
+        """Make T2 amplitudes"""
+        # (ov|ov)
+        if eris is not None:
+            assert len(eris) == 3
+            assert (eris[0].ndim == 4)
+            assert (eris[1].ndim == 4)
+            assert (eris[2].ndim == 4)
+            nocca, nvira = eris[0].shape[:2]
+            noccb, nvirb = eris[2].shape[:2]
+        # (L|ov)
+        elif cderi is not None:
+            assert len(cderi) == 2
+            assert (cderi[0].ndim == 3)
+            assert (cderi[1].ndim == 3)
+            nocca, nvira = cderi[0].shape[1:]
+            noccb, nvirb = cderi[1].shape[1:]
+        else:
+            raise ValueError()
+
+        t2aa = np.empty((nocca, nocca, nvira, nvira))
+        t2ab = np.empty((nocca, noccb, nvira, nvirb))
+        t2bb = np.empty((noccb, noccb, nvirb, nvirb))
+        eia_a = (mo_energy[0][:nocca,None] - mo_energy[0][None,nocca:])
+        eia_b = (mo_energy[1][:noccb,None] - mo_energy[1][None,noccb:])
+
+        # Alpha-alpha and Alpha-beta:
+        if blksize is None:
+            blksize_a = int(1e9 / max(nocca*nvira*nvira * 8, 1))
+        else:
+            blksize_a = blksize
+        for blk in brange(0, nocca, blksize_a):
+            # Alpha-alpha
+            if eris is not None:
+                gijab = eris[0][blk].transpose(0,2,1,3)
+            else:
+                gijab = einsum('Lia,Ljb->ijab', cderi[0][:,blk], cderi[0])
+                if cderi_neg[0] is not None:
+                    gijab -= einsum('Lia,Ljb->ijab', cderi_neg[0][:,blk], cderi_neg[0])
+            eijab = (eia_a[blk][:,None,:,None] + eia_a[None,:,None,:])
+            t2aa[blk] = (gijab / eijab)
+            # Alpha-beta
+            if eris is not None:
+                gijab = eris[1][blk].transpose(0,2,1,3)
+            else:
+                gijab = einsum('Lia,Ljb->ijab', cderi[0][:,blk], cderi[1])
+                if cderi_neg[0] is not None:
+                    gijab -= einsum('Lia,Ljb->ijab', cderi_neg[0][:,blk], cderi_neg[1])
+            eijab = (eia_a[blk][:,None,:,None] + eia_b[None,:,None,:])
+            t2ab[blk] = (gijab / eijab)
+        # Beta-beta:
+        if blksize is None:
+            blksize_b = int(1e9 / max(noccb*nvirb*nvirb * 8, 1))
+        else:
+            blksize_b = blksize
+        for blk in brange(0, noccb, blksize_b):
+            if eris is not None:
+                gijab = eris[2][blk].transpose(0,2,1,3)
+            else:
+                gijab = einsum('Lia,Ljb->ijab', cderi[1][:,blk], cderi[1])
+                if cderi_neg[0] is not None:
+                    gijab -= einsum('Lia,Ljb->ijab', cderi_neg[1][:,blk], cderi_neg[1])
+            eijab = (eia_b[blk][:,None,:,None] + eia_b[None,:,None,:])
+            t2bb[blk] = (gijab / eijab)
+
+        return (t2aa, t2ab, t2bb)
 
     def make_delta_dm1(self, kind, t2, actspace):
         taa, tab, tbb = t2
-        if self.local_dm is False:
+        if not self.project_t2:
             # Construct occupied-occupied DM
             if kind == 'occ':
                 dma  = (einsum('imef,jmef->ij', taa.conj(), taa)/2

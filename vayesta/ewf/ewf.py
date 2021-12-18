@@ -51,7 +51,8 @@ class EWF(Embedding):
         # --- Bath settings
         bath_type: str = 'MP2-BNO'
         bno_threshold: float = 1e-8
-        bno_projected_dm: bool = False
+        bno_project_t2: bool = False
+        ewdmet_max_order: int = 1
         # If multiple bno thresholds are to be calculated, we can project integrals and amplitudes from a previous larger cluster:
         project_eris: bool = False          # Project ERIs from a pervious larger cluster (corresponding to larger eta), can result in a loss of accuracy especially for large basis sets!
         project_init_guess: bool = True     # Project converted T1,T2 amplitudes from a previous larger cluster
@@ -125,7 +126,7 @@ class EWF(Embedding):
         self.iteration = 0
         self.cluster_results = {}
         self.results = []
-        self.log.info("Time for %s setup: %s", self.__class__.__name__, timer()-t0)
+        self.log.info("Time for %s setup: %s", self.__class__.__name__, time_string(timer()-t0))
 
     def __repr__(self):
         keys = ['mf', 'solver']
@@ -242,14 +243,6 @@ class EWF(Embedding):
         for frag in self.fragments:
             for frag2 in frag.loop_fragments(exclude_self=True):
                 frag.add_tailor_fragment(frag2)
-
-    def check_fragment_nelectron(self):
-        nelec_frags = sum([f.sym_factor*f.nelectron for f in self.loop()])
-        nelec = (self.kcell if self.kcell is not None else self.mol).nelectron
-        self.log.info("Number of electrons over all fragments= %.8f , system= %.8f", nelec_frags, nelec)
-        if abs(nelec_frags - nelec) > 1e-6:
-            self.log.warning("Number of electrons over all fragments not equal to the system's number of electrons.")
-        return nelec_frags
 
     def kernel(self, bno_threshold=None):
         """Run EWF.

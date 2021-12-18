@@ -247,7 +247,7 @@ class Brueckner_RHF(SCMF):
 
     def get_t1(self):
         """Get global T1 amplitudes from quantum embedding calculation."""
-        return self.emb.get_t1()
+        return self.emb.get_global_t1()
 
     def update_mo_coeff(self, mf, diis=None):
         """Get new MO coefficients."""

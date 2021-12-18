@@ -239,9 +239,12 @@ class UFragment(Fragment):
         t0 = timer()
         if eris is None:
             with log_time(self.log.timing, "Time for AO->MO transformation: %s"):
-                eris = self.base.get_eris_array(c_act)
+                #eris = self.base.get_eris_array(c_act)
+                gaa = self.base.get_eris_array(c_act[0])
+                gab = self.base.get_eris_array((c_act[0], c_act[0], c_act[1], c_act[1]))
+                gbb = self.base.get_eris_array(c_act[1])
         elif isinstance(eris, tuple) and len(eris) == 3:
-            pass
+            gaa, gab, gbb = eris
         else:
             #TODO
             raise NotImplementedError()
@@ -250,7 +253,6 @@ class UFragment(Fragment):
             #    eris = vayesta.core.ao2mo.helper.get_full_array(eris, c_act)
         dm1a, dm1b = dm1
         dm2aa, dm2ab, dm2bb = dm2
-        gaa, gab, gbb = eris
 
         # Get effective core potential
         if h1e_eff is None:

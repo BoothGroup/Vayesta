@@ -186,6 +186,14 @@ class UFCI_Solver(FCI_Solver):
     def get_solver_class(self):
         return pyscf.fci.direct_uhf.FCISolver
 
+    def get_eris(self):
+        c_act = self.cluster.c_active
+        with log_time(self.log.timing, "Time for AO->MO of ERIs:  %s"):
+            eris_aa = self.base.get_eris_array(c_act[0])
+            eris_ab = self.base.get_eris_array((c_act[0], c_act[0], c_act[1], c_act[1]))
+            eris_bb = self.base.get_eris_array(c_act[1])
+        return (eris_aa, eris_ab, eris_bb)
+
     def get_heff(self, eris, with_vext=True):
         c_active = self.cluster.c_active
         fock = self.base.get_fock()

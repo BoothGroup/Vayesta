@@ -58,6 +58,7 @@ def register_system_mole(cache, key):
     mol = pyscf.gto.Mole()
     rhf = uhf = False
     df = False
+    spin = None
 
     if key == 'h2_ccpvdz':
         mol.atom = 'H1 0 0 0; H2 0 0 1.0'
@@ -80,6 +81,17 @@ def register_system_mole(cache, key):
         mol.basis = 'cc-pvdz'
         rhf = uhf = True
         df = True
+    elif key == 'no2_ccpvdz':
+        mol.atom = molecules.no2()
+        mol.basis = 'cc-pvdz'
+        uhf = True
+        spin = 1
+    elif key == 'no2_ccpvdz_df':
+        mol.atom = molecules.no2()
+        mol.basis = 'cc-pvdz'
+        uhf = True
+        df = True
+        spin = 1
     elif key == 'n2_631g':
         mol.atom = 'N1 0 0 0; N2 0 0 1.1'
         mol.basis = '6-31g'
@@ -113,6 +125,8 @@ def register_system_mole(cache, key):
 
     mol.verbose = 0
     mol.max_memory = 1e9
+    if spin is not None:
+        mol.spin = spin
     mol.build()
 
     #TODO check stability
@@ -137,13 +151,14 @@ def register_system_mole(cache, key):
     }
 
 
-def _make_cell(a, atom, supercell=None, verbose=0, max_memory=int(1e9), **kwargs):
+def _make_cell(a, atom, supercell=None, verbose=10, max_memory=int(1e9), **kwargs):
     cell = pyscf.pbc.gto.Cell()
     cell.atom = atom
     if np.isscalar(a):
         a = a*np.eye(3)
     cell.a = a
     cell.verbose = verbose
+    cell.output = 'pyscf.out'
     cell.max_memory = max_memory
     for key, val in kwargs.items():
         setattr(cell, key, val)
@@ -217,6 +232,44 @@ def register_system_cell(cache, key):
         mf = _make_pbc_mf(cell, df=df)
         cache._cache[key] = {'cell': cell, 'kpts': None, 'rhf': None, 'uhf': mf}
         return
+    # 2D Graphene, k-points and supercell
+    if key == 'graphene_k221':
+        cell = _make_cell(*solids.graphene(c=30.0), dimension=2, basis='def2-svp', exp_to_discard=0.1, precision=1e-12)
+        kpts = cell.make_kpts([2,2,1])
+        df = pyscf.pbc.df.GDF(cell, kpts)
+        df.auxbasis = 'def2-svp-ri'
+        mf = _make_pbc_mf(cell, kpts, df=df)
+        cache._cache[key] = {'cell': cell, 'kpts': kpts, 'rhf': mf, 'uhf': None}
+        return
+    if key == 'graphene_g221':
+        cell = _make_cell(*solids.graphene(c=30.0), dimension=2, basis='def2-svp', exp_to_discard=0.1, supercell=[2,2,1], precision=1e-12)
+        df = pyscf.pbc.df.GDF(cell)
+        df.auxbasis = 'def2-svp-ri'
+        mf = _make_pbc_mf(cell, df=df)
+        cache._cache[key] = {'cell': cell, 'kpts': None, 'rhf': mf, 'uhf': None}
+        return
+    # Boron-doped Graphene, k-points and supercell
+    # (Large unit cell, since otherwise the systems dimerizes into larger supercells)
+    if key == 'hydrogen_cubic_2d_k221':
+        amat = 2*np.eye(3)
+        amat[2,2] = 20.0
+        cell = _make_cell(amat, 'H', dimension=2, spin=4, basis='def2-svp', exp_to_discard=0.1)
+        kpts = cell.make_kpts([2,2,1])
+        df = pyscf.pbc.df.GDF(cell, kpts)
+        df.auxbasis = 'def2-svp-ri'
+        mf = _make_pbc_mf(cell, kpts, df=df)
+        cache._cache[key] = {'cell': cell, 'kpts': kpts, 'rhf': None, 'uhf': mf}
+        return
+    if key == 'hydrogen_cubic_2d_g221':
+        amat = 2*np.eye(3)
+        amat[2,2] = 20.0
+        cell = _make_cell(amat, 'H', dimension=2, spin=4, basis='def2-svp', exp_to_discard=0.1, supercell=[2,2,1])
+        df = pyscf.pbc.df.GDF(cell)
+        df.auxbasis = 'def2-svp-ri'
+        mf = _make_pbc_mf(cell, df=df)
+        cache._cache[key] = {'cell': cell, 'kpts': None, 'rhf': None, 'uhf': mf}
+        return
+
 
     cell = pyscf.pbc.gto.Cell()
     kpts = None

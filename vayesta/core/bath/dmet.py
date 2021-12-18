@@ -19,8 +19,7 @@ class DMET_Bath(FragmentBath):
         self.c_env_occ = None
         self.c_env_vir = None
 
-    def get_dmet_bath(self):
-        return self.c_dmet
+        self.dmet_bath = self
 
     def get_occupied_bath(self, *args, **kwargs):
         """Inherited bath classes can overwrite this to return additional occupied bath orbitals."""
