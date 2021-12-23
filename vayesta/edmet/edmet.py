@@ -29,6 +29,7 @@ class EDMET(DMET):
         maxiter: int = 1
         make_dd_moments: bool = NotSet
         old_sc_condition: bool = False
+        max_bos: int = np.inf
 
     Fragment = EDMETFragment
 
@@ -211,7 +212,10 @@ class EDMET(DMET):
             # Get fermionic bath set up, and calculate the cluster excitation space.
             rot_ovs = [f.set_up_fermionic_bath() for f in sym_parents]
             target_rot = np.concatenate(rot_ovs, axis=0)
-            mom0_interact, est_error = rpa.kernel_moms(target_rot, npoints=48)
+            if target_rot.shape[0] > 0:
+                mom0_interact, est_error = rpa.kernel_moms(target_rot, npoints=48)
+            else:
+                mom0_interact = np.zeros_like(target_rot)
             # Get appropriate slices to obtain required active spaces.
             ovs_active = [2*f.ov_active for f in sym_parents]
             ovs_active_slices = [slice(sum(ovs_active[:i]), sum(ovs_active[:i + 1])) for i in
@@ -220,8 +224,11 @@ class EDMET(DMET):
             rot_bos = [f.define_bosons(mom0_interact[sl, :]) for (f, sl) in zip(sym_parents, ovs_active_slices)]
             nbos = [x.shape[0] for x in rot_bos]
             bos_slices = [slice(sum(nbos[:i]), sum(nbos[:i + 1])) for i in range(len(sym_parents))]
-            # Calculate zeroth moment of bosonic degrees of freedom.
-            mom0_bos, est_error = rpa.kernel_moms(np.concatenate(rot_bos, axis=0), npoints=48)
+            if sum(nbos) > 0:
+                # Calculate zeroth moment of bosonic degrees of freedom.
+                mom0_bos, est_error = rpa.kernel_moms(np.concatenate(rot_bos, axis=0), npoints=48)
+            else:
+                mom0_bos = np.zeros((sum(nbos), mom0_interact.shape[1]))
             eps = get_eps()
             # Can then invert relation to generate coupled electron-boson Hamiltonian.
             for f, sl in zip(sym_parents, bos_slices):
@@ -230,6 +237,7 @@ class EDMET(DMET):
             rpa = ssRPA(self.mf, self.log)
             # We need to explicitly solve RPA equations before anything.
             rpa.kernel(xc_kernel=self.xc_kernel)
+            self.log.info("RPA particle-hole gap %4.2e", rpa.freqs_ss.min())
             # Then generate full RPA moments.
             mom0 = rpa.gen_moms(0, self.xc_kernel)[0]
             eps = get_eps()

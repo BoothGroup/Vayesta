@@ -26,6 +26,7 @@ class EDMETFragment(DMETFragment):
         make_rdm_eb: bool = True
         make_dd_moments: bool = True
         old_sc_condition: bool = NotSet
+        max_bos: int = NotSet
 
     @dataclasses.dataclass
     class Results(DMETFragment.Results):
@@ -52,7 +53,7 @@ class EDMETFragment(DMETFragment):
 
     def get_rot_to_mf_ov(self):
         r_o, r_v = self.get_overlap_m2c()
-        spat_rot = einsum("ij,ab->iajb", r_o, r_v).reshape((self.ov_active, self.ov_mf))
+        spat_rot = einsum("iJ,aB->iaJB", r_o, r_v).reshape((self.ov_mf, self.ov_active)).T
         res = np.zeros((2 * self.ov_active, 2 * self.ov_mf))
         res[:self.ov_active, :self.ov_mf] = spat_rot
         res[self.ov_active:2 * self.ov_active, self.ov_mf:2 * self.ov_mf] = spat_rot
@@ -68,7 +69,7 @@ class EDMETFragment(DMETFragment):
         # Want to return the rotation of the canonical HF orbitals which produce the cluster canonical orbitals.
         return self.get_rot_to_mf_ov()
 
-    def define_bosons(self, rpa_mom, rot_ov=None, tol=1e-8):
+    def define_bosons(self, rpa_mom, rot_ov=None, tol=1e-10):
         """Given the RPA zeroth moment between the fermionic cluster excitations and the rest of the space, define
         our cluster bosons.
         Note that this doesn't define our Hamiltonian, since we don't yet have the required portion of our
@@ -84,14 +85,14 @@ class EDMETFragment(DMETFragment):
         # v defines the rotation of the mean-field excitation space specifying our bosons.
         u, s, v = np.linalg.svd(env_mom, full_matrices=False)
         want = s > tol
-        self.nbos = sum(want)
+        self.nbos = min(sum(want), self.opts.max_bos)
         if self.nbos < len(s):
             self.log.info("Zeroth moment matching generated %d cluster bosons.Largest discarded singular value: %4.2e.",
-                          self.nbos, s[~want].max())
+                          self.nbos, s[self.nbos:].max())
         else:
             self.log.info("Zeroth moment matching generated %d cluster bosons.", self.nbos)
         # Calculate the relevant components of the zeroth moment- we don't want to recalculate these.
-        self.r_bos = v[want, :]
+        self.r_bos = v[:self.nbos, :]
         self.eta0_ferm = np.dot(rpa_mom, rot_ov.T)
         self.eta0_coupling = np.dot(env_mom, self.r_bos.T)
         return self.r_bos
@@ -118,7 +119,10 @@ class EDMETFragment(DMETFragment):
         eta0[2 * self.ov_active:, 2 * self.ov_active:] = self.eta0_bos
 
         renorm_amb = dot(eta0, apb, eta0)
-        self.log.info("Maximum deviation in irreducible polarisation propagator=%6.4e",
+
+        maxdev = abs(amb - renorm_amb)[:2 * self.ov_active, :2 * self.ov_active].max()
+        if maxdev > 1e-8:
+            self.log.error("Maximum deviation in irreducible polarisation propagator=%6.4e",
                       abs(amb - renorm_amb)[:2 * self.ov_active, :2 * self.ov_active].max())
         a = 0.5 * (apb + renorm_amb)
         b = 0.5 * (apb - renorm_amb)
@@ -327,7 +331,7 @@ class EDMETFragment(DMETFragment):
             proj_to_order = proj_to_order.reshape((self.n_frag ** 2, self.n_frag, self.n_frag))
             # Now restrict to triangular portion of array
             proj_to_order = pyscf.lib.pack_tril(proj_to_order)
-            proj_from_order = np.linalg.pinv(proj_to_order)
+            #proj_from_order = np.linalg.pinv(proj_to_order)
             # Now have rotation between single fragment ordering, and fragment particle-hole excits.
             rot_ov_frag = dot(proj_to_order.T, rot_ov_frag)
             # Get pseudo-inverse to map from frag to loc. Since occupied-virtual excitations aren't spanning this
@@ -413,7 +417,7 @@ class EDMETFragment(DMETFragment):
         v_ab = proj_all_indices(v_a_ab + v_b_ab)
         v_bb = proj_all_indices(v_a_bb + v_b_bb)
 
-        self.save = (v_aa, v_ab, v_bb)
+        self.save = np.array((v_aa, v_ab, v_bb))
 
         if self.base.with_df:
             # If using RI we can now perform an svd to generate a low-rank representation in the cluster.
@@ -434,9 +438,6 @@ class EDMETFragment(DMETFragment):
                 u, s, v = np.linalg.svd(fullv, full_matrices=False)
                 want = s > 1e-8
                 nwant = sum(want)
-                print(s)
-                print(len(s), nwant)
-                print(np.linalg.eigvalsh(fullv))
                 self.log.info("Fragment %d gives rank %d xc-kernel contribution.", self.id, nwant)
                 repr_l = einsum("n,np->np", s[:nwant]**(0.5), v[:nwant])
                 repr_r = einsum("n,pn->np", s[:nwant]**(0.5), u[:,:nwant])

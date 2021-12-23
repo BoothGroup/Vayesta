@@ -151,52 +151,44 @@ class NumericalIntegratorBase:
         def get_deriv2(a):
             return self.eval_diag_NI_approx_deriv2(a).sum()
 
-        def find_good_start(ainit=1e-6, scale_fac=50, tarthresh=0.7):
-            """Find a good starting value of a via starting from (numerically) zero, and increasing exponentially
-            until the absolute function value falls.
-            """
-            initval = abs(self.eval_diag_exact().sum())
-            if initval < 1e-8:
-                raise ZeroDivisionError("Cannot optimise quadrature for function with zero exact value.")
-            a = ainit
-            while a < 1e8:
-                a *= scale_fac
-                val = abs(get_val(a))
-                if ((val / initval) < tarthresh) or val > 1.05 * initval:
-                    # Target value has decreased by the target amount, or started diverging.
-                    return a
-            else:
-                raise NIException(
-                    "Cannot find starting point for quadrature optimisation; please provide a value of a.")
+        def find_good_start(ainit=1e-6, scale_fac=10, maxval=1e8, relevance_factor=5):
+            """Using a quick exponential search, find the lowest value of the penalty function and from this obtain
+            good guesses for the optimum and a good bound on either side.
+            Note that the size of resulting bracket will be proportional to both the optimal value and the scaling
+            factor."""
+            max_exp = int(np.log(maxval/ainit) / np.log(scale_fac))
+            vals = np.array([ainit * scale_fac ** x for x in range(max_exp)])
+            fvals = np.array([abs(get_val(x)) for x in vals])
+            optarg = fvals.argmin()
+            optval = fvals[optarg]
+            # Now find the values which are within reach of lowest value
+            relevant = np.where(fvals < relevance_factor * optval)[0]
+
+            minarg = min(relevant[0], optarg - 1)
+            maxarg = min(relevant[-1], optarg + 1)
+            return [ainit * scale_fac ** x for x in (optarg, minarg, maxarg)]
 
         solve = 1
-        if ainit is None:
-            ainit = find_good_start(1e-6, 60, 0.7)
-        opt_min = False
+        ainit, mini, maxi = find_good_start()
         try:
-            solve = scipy.optimize.newton(get_val, x0=ainit, fprime=get_grad, tol=1e-8, maxiter=30, fprime2=get_deriv2)
-        except RuntimeError:
+            solve, res = scipy.optimize.newton(get_val, x0=ainit, fprime=get_grad, tol=1e-8, maxiter=30,
+                                               fprime2=get_deriv2, full_output=True)
+        except RuntimeError or NIException:
             opt_min = True
         else:
-            if solve < 1e-10:
-                opt_min = True
+            # Did we find a root?
+            opt_min = not res.converged
         if opt_min:
-            mini, maxi = 1e-8, 1e8
             fmin = abs(get_val(mini))
             fmax = abs(get_val(maxi))
-            fmid = abs(get_val(ainit))
-            if (fmid < fmin and fmid < fmax):
-                res = scipy.optimize.minimize_scalar(lambda freq: abs(get_val(freq)),
-                                                     bracket=(mini, ainit, maxi), method="brent")
-            else:
-                res = scipy.optimize.minimize_scalar(lambda freq: abs(get_val(freq)),
-                                                     bounds=(mini, maxi), method="bounded")
+            res = scipy.optimize.minimize_scalar(lambda freq: abs(get_val(freq)),
+                                                 bounds=(mini, maxi), method="bounded")
             if not res.success:
                 raise NIException("Could not optimise `a' value.")
             solve = res.x
             self.log.info(
-                "Used minimisation to optimise quadrature grid; resulting penalty value: %4.2e"
-                "(the closer to zero better)", res.fun)
+                "Used minimisation to optimise quadrature grid; resulting `a` and penalty value: %4.2e & %4.2e"
+                "(the closer to zero better)", solve, res.fun)
         return solve
 
     def fix_params(self):
@@ -296,7 +288,12 @@ class NumericalIntegratorClenCur(NumericalIntegratorBase):
         This also overestimates the error since it doesn't account for the effect of quadrature grid optimisation, which
         leads to our actual estimates converging more rapidly than they would with a static grid spacing parameter.
         """
+        if a - b < 1e-10:
+            self.log.info("RIRPA error numerically zero.")
+            return 0.0
+
         roots = np.roots([1, 0, a / (a - b), - b / (a - b)])
+
         # Need to choose root with no imaginary part and real part between zero and one; if there are multiple (if this
         # is even possible) take the largest.
         wanted_root = roots[(abs(roots.imag) < 1e-10) & (roots.real <= 1.0) & (roots.real >= 0)].real[-1]

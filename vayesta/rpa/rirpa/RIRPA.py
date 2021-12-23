@@ -15,11 +15,12 @@ class ssRIRPA:
     WARNING: Should only be used with canonical mean-field orbital coefficients in mf.mo_coeff and RHF.
     """
 
-    def __init__(self, dfmf, rixc=None, log=None, err_tol=1e-6):
+    def __init__(self, dfmf, rixc=None, log=None, err_tol=1e-6, svd_tol=1e-10):
         self.mf = dfmf
         self.rixc = rixc
         self.log = log or logging.getLogger(__name__)
         self.err_tol = err_tol
+        self.svd_tol = svd_tol
 
     @property
     def nocc(self):
@@ -89,11 +90,20 @@ class ssRIRPA:
 
     def kernel_moms(self, target_rot=None, npoints=48, ainit=10, integral_deduct="HO", opt_quad=True,
                     adaptive_quad=False):
+        def compress(ri_l, ri_r, name=None):
+            return compress_low_rank(ri_l, ri_r, tol=self.svd_tol, log=self.log, name=name)
+
         if target_rot is None:
             self.log.warning("Warning; generating full moment rather than local component. Will scale as O(N^5).")
             target_rot = np.eye(2 * self.ov)
         ri_apb, ri_amb = self.construct_RI_AB()
-        ri_mp = construct_product_RI(self.D, ri_amb, ri_apb)
+        # Compress RI representations before manipulation, since compression cost O(N^2 N_aux) while most operations
+        # are O(N^2 N_aux^2), so for systems large enough that calculation cost is noticeable the cost reduction
+        # from a reduced rank will exceed the cost of compression.
+        ri_apb = compress(*ri_apb, name="A+B")
+        ri_amb = compress(*ri_amb, name="A-B")
+        ri_mp = compress(*construct_product_RI(self.D, ri_amb, ri_apb), name="(A-B)(A+B)")
+
         # We our integral as
         #   integral = (MP)^{1/2} - (moment_offset) P - integral_offset
         # and so
@@ -131,7 +141,7 @@ class ssRIRPA:
         else:
             integral, err = niworker.kernel(a=ainit, opt_quad=opt_quad)
         # Need to construct RI representation of P^{-1}
-        ri_apb_inv = construct_inverse_RI(self.D, ri_apb)
+        ri_apb_inv = compress(*construct_inverse_RI(self.D, ri_apb), name="(A+B)^-1")
         mom0 = einsum("pq,q->pq", integral + integral_offset, self.D ** (-1)) - np.dot(
             np.dot(integral + integral_offset, ri_apb_inv[0].T), ri_apb_inv[1])
         # Also need to convert error estimate of the integral into one for the actual evaluated quantity.
@@ -155,7 +165,7 @@ class ssRIRPA:
             self.log.warning("Estimated error per element exceeded tolerance %6.4e. Please increase number of points.",
                              error / nelements)
 
-    def construct_RI_AB(self, tol=1e-8):
+    def construct_RI_AB(self):
         """Construct the RI expressions for the deviation of A+B and A-B from D."""
         # Coulomb integrals only contribute to A+B.
         # This needs to be optimised, but will do for now.
@@ -193,8 +203,8 @@ class ssRIRPA:
             ri_apb_xc = [np.zeros((0, self.ov * 2))] * 2
             ri_amb_xc = [np.zeros((0, self.ov * 2))] * 2
 
-        ri_apb = compress_low_rank(*[np.concatenate([ri_apb_eri, x], axis=0) for x in ri_apb_xc], tol=tol)
-        ri_amb = compress_low_rank(*[np.concatenate([ri_amb_eri, x], axis=0) for x in ri_amb_xc], tol=tol)
+        ri_apb = [np.concatenate([ri_apb_eri, x], axis=0) for x in ri_apb_xc]
+        ri_amb = [np.concatenate([ri_amb_eri, x], axis=0) for x in ri_amb_xc]
 
         return ri_apb, ri_amb
 
@@ -226,7 +236,7 @@ def construct_product_RI(D, ri_1, ri_2):
 
 
 def construct_inverse_RI(D, ri):
-    if type(ri) == np.ndarray:
+    if type(ri) == np.ndarray and len(ri.shape) == 2:
         ri_L = ri_R = ri
     else:
         (ri_L, ri_R) = ri
@@ -234,19 +244,17 @@ def construct_inverse_RI(D, ri):
     naux = ri_R.shape[0]
     # This construction scales as O(N^4).
     U = einsum("np,p,mp->nm", ri_R, D ** (-1), ri_L)
-    # This inversion and square root should only s          cale as O(N^3).
+    # This inversion and square root should only scale as O(N^3).
     U = np.linalg.inv(np.eye(naux) + U)
-    Urt = scipy.linalg.sqrtm(U)
-    if Urt.dtype == complex:
-        if abs(Urt.imag).max() > 1e-8:
-            raise ImaginaryPartError("Complex square root occured in RIRPA calculation.")
-        else:
-            Urt = Urt.real
+    # Want to split matrix between left and right fairly evenly; could just associate to one side or the other.
+    u, s, v = np.linalg.svd(U)
+    urt_l = einsum("nm,m->nm", u, s**(0.5))
+    urt_r = einsum("n,nm->nm", s**(0.5), v)
     # Evaluate the resulting RI
-    return einsum("p,np,nm->mp", D ** (-1), ri_L, Urt), einsum("p,np,nm->mp", D ** (-1), ri_R, Urt.T)
+    return einsum("p,np,nm->mp", D ** (-1), ri_L, urt_l), einsum("p,np,nm->mp", D ** (-1), ri_R, urt_r.T)
 
 
-def compress_low_rank(ri_l, ri_r, tol=1e-8):
+def compress_low_rank(ri_l, ri_r, tol=1e-8, log=None, name=None):
     naux_init = ri_l.shape[0]
     u, s, v = np.linalg.svd(ri_l, full_matrices=False)
     nwant = sum(s > tol)
@@ -258,6 +266,9 @@ def compress_low_rank(ri_l, ri_r, tol=1e-8):
     rot = u[:, :nwant]
     ri_l = dot(rot.T, ri_l)
     ri_r = dot(rot.T, ri_r)
-    if nwant < naux_init:
-        print("Compressed low-rank representation from {:d} dimensions to {:d} dimensions.".format(naux_init, nwant))
+    if nwant < naux_init and log is not None:
+        if name is None:
+            log.info("Compressed low-rank representation from rank %d to %d.", naux_init, nwant)
+        else:
+            log.info("Compressed low-rank representation of %s from rank %d to %d.", name, naux_init, nwant)
     return ri_l, ri_r
