@@ -11,9 +11,9 @@ def _load_datafile(filename):
     return atom
 
 def water(atoms=['O', 'H']):
-    atom = [(atoms[0], (0.0000,  0.0000,  0.1173)),
-            (atoms[1], (0.0000,  0.7572, -0.4692)),
-            (atoms[1], (0.0000, -0.7572, -0.4692))]
+    atom = [[atoms[0], [0.0000,  0.0000,  0.1173]],
+            [atoms[1], [0.0000,  0.7572, -0.4692]],
+            [atoms[1], [0.0000, -0.7572, -0.4692]]]
     return atom
 
 def alkane(n, atoms=['C', 'H'], cc_bond=1.54, ch_bond=1.09, numbering=False):
@@ -98,8 +98,15 @@ def no2():
 	]
     return atom
 
-def ethanol():
+def ethanol(oh_bond=None):
     atom = _load_datafile('ethanol.dat')
+    if oh_bond is not None:
+        pos_o = atom[2][1]
+        pos_h = atom[3][1]
+        voh = (pos_h - pos_o)
+        voh = voh / np.linalg.norm(voh)
+        pos_h = pos_o + oh_bond*voh
+        atom[3][1] = pos_h
     return atom
 
 def propanol():

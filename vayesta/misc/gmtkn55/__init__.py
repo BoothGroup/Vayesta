@@ -11,7 +11,7 @@ testset_w4_11 = [x.replace('W4-11/', '') for x in glob.glob('W4-11/*')]
 def get_system(testset, key, build=True, **kwargs):
 
     mol = pyscf.gto.Mole()
-    path = os.path.join(testset, key)
+    path = os.path.join(os.path.dirname(__file__), testset, key)
     dtype = [('atom', object), ('x', float), ('y', float), ('z', float)]
     data = np.loadtxt(os.path.join(path, 'struc.xyz'), skiprows=2, dtype=dtype)
     if data.ndim == 1:
