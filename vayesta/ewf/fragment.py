@@ -74,6 +74,8 @@ class EWFFragment(Fragment):
         dm_with_frozen: bool = NotSet
         # --- Solver options
         tcc_fci_opts: dict = dataclasses.field(default_factory=dict)
+        # --- Intercluster MP2 energy
+        icmp2_bno_threshold: float = NotSet
         # --- Storage
         store_t1:  Union[bool,str] = NotSet
         store_t2:  Union[bool,str] = NotSet

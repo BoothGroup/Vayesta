@@ -17,6 +17,7 @@ import pyscf.pbc.tools
 from vayesta.core.util import *
 from vayesta.core import Embedding
 from vayesta.core.mpi import mpi
+from vayesta.core.mpi import RMA_Dict
 # --- Package
 from . import helper
 from .fragment import EWFFragment as Fragment
@@ -74,6 +75,9 @@ class EWF(Embedding):
         sc_energy_tol: float = 1e-6
         sc_mode: int = 0
         nelectron_target: int = None
+        # --- Intercluster MP2 energy
+        icmp2: bool = True
+        icmp2_bno_threshold: float = 1e-8
         # --- Other
         #energy_partitioning: str = 'first-occ'
         strict: bool = False                # Stop if cluster not converged
@@ -382,6 +386,325 @@ class EWF(Embedding):
 
     make_rdm1_ccsd = make_rdm1_ccsd
     make_rdm2_ccsd = make_rdm2_ccsd
+
+    def get_delta_mp2_correction(self, exchange=True):
+        """(ia|L)(L|j'b') energy."""
+
+        self.log.debug("Intracluster MP2 energies:")
+        ovlp = self.get_ovlp()
+        e_dmp2 = 0.0
+        for x in self.get_fragments():
+            c_occ_x = x.bath.dmet_bath.c_cluster_occ
+            c_vir_x = self.mo_coeff_vir
+            lx, lx_neg = self.get_cderi((c_occ_x, c_vir_x))
+            eix = x.get_fragment_mo_energy(c_occ_x)
+            eax = x.get_fragment_mo_energy(c_vir_x)
+            eia_x = (eix[:,None] - eax[None,:])
+
+            gijab = einsum('Lia,Ljb->ijab', lx, lx) # N - N^3
+            if lx_neg is not None:
+                gijab -= einsum('Lia,Ljb->ijab', lx_neg, lx_neg)
+            eijab = (eia_x[:,None,:,None] + eia_x[None,:,None,:])
+            t2 = (gijab / eijab)
+
+            px = dot(x.c_proj.T, ovlp, c_occ_x)
+
+            evir_d = 2*einsum('xi,ijab,xk,kjab->', px, t2, px, gijab)
+            e_dmp2 += evir_d
+            if exchange:
+                evir_x = - einsum('xi,ijab,xk,kjba->', px, t2, px, gijab)
+                e_dmp2 += evir_x
+            else:
+                evir_x = 0.0
+
+            estr = energy_string
+            self.log.debug("  %12s:  direct= %s  exchange= %s  total= %s", x.id_name, estr(evir_d), estr(evir_x), estr(evir_d + evir_x))
+
+            # Double counting
+            c_vir_x = x.cluster.c_active_vir
+            lx, lx_neg = self.get_cderi((c_occ_x, c_vir_x))
+            eax = x.get_fragment_mo_energy(c_vir_x)
+            eia_x = (eix[:,None] - eax[None,:])
+
+            gijab = einsum('Lia,Ljb->ijab', lx, lx) # N - N^3
+            if lx_neg is not None:
+                gijab -= einsum('Lia,Ljb->ijab', lx_neg, lx_neg)
+            eijab = (eia_x[:,None,:,None] + eia_x[None,:,None,:])
+            t2 = (gijab / eijab)
+
+            edc_d = 2*einsum('xi,ijab,xk,kjab->', px, t2, px, gijab)
+            e_dmp2 -= edc_d
+            if exchange:
+                edc_x = - einsum('xi,ijab,xk,kjba->', px, t2, px, gijab)
+                e_dmp2 -= edc_x
+            else:
+                edc_x = 0.0
+
+            estr = energy_string
+            self.log.debug("DC:  %12s:  direct= %s  exchange= %s  total= %s", x.id_name, estr(edc_d), estr(edc_x), estr(edc_d + edc_x))
+
+        return e_dmp2
+
+    def get_delta_mp2_correction_occ(self, exchange=True):
+        """(ia|L)(L|j'b') energy."""
+
+        self.log.debug("Intracluster MP2 energies:")
+        ovlp = self.get_ovlp()
+        e_dmp2 = 0.0
+        for x in self.get_fragments():
+            c_occ_x = self.mo_coeff_occ
+            c_vir_x = x.bath.dmet_bath.c_cluster_vir
+            lx, lx_neg = self.get_cderi((c_occ_x, c_vir_x))
+            eix = x.get_fragment_mo_energy(c_occ_x)
+            eax = x.get_fragment_mo_energy(c_vir_x)
+            eia_x = (eix[:,None] - eax[None,:])
+
+            gijab = einsum('Lia,Ljb->ijab', lx, lx) # N - N^3
+            if lx_neg is not None:
+                gijab -= einsum('Lia,Ljb->ijab', lx_neg, lx_neg)
+            eijab = (eia_x[:,None,:,None] + eia_x[None,:,None,:])
+            t2 = (gijab / eijab)
+
+            px = dot(x.c_proj.T, ovlp, c_occ_x)
+
+            evir_d = 2*einsum('xi,ijab,xk,kjab->', px, t2, px, gijab)
+            e_dmp2 += evir_d
+            if exchange:
+                evir_x = - einsum('xi,ijab,xk,kjba->', px, t2, px, gijab)
+                e_dmp2 += evir_x
+            else:
+                evir_x = 0.0
+
+            estr = energy_string
+            self.log.debug("  %12s:  direct= %s  exchange= %s  total= %s", x.id_name, estr(evir_d), estr(evir_x), estr(evir_d + evir_x))
+
+            # Double counting
+            c_occ_x = x.cluster.c_active_occ
+            lx, lx_neg = self.get_cderi((c_occ_x, c_vir_x))
+            eix = x.get_fragment_mo_energy(c_occ_x)
+            eia_x = (eix[:,None] - eax[None,:])
+
+            px = dot(x.c_proj.T, ovlp, c_occ_x)
+
+            gijab = einsum('Lia,Ljb->ijab', lx, lx) # N - N^3
+            if lx_neg is not None:
+                gijab -= einsum('Lia,Ljb->ijab', lx_neg, lx_neg)
+            eijab = (eia_x[:,None,:,None] + eia_x[None,:,None,:])
+            t2 = (gijab / eijab)
+
+            edc_d = 2*einsum('xi,ijab,xk,kjab->', px, t2, px, gijab)
+            e_dmp2 -= edc_d
+            if exchange:
+                edc_x = - einsum('xi,ijab,xk,kjba->', px, t2, px, gijab)
+                e_dmp2 -= edc_x
+            else:
+                edc_x = 0.0
+
+            estr = energy_string
+            self.log.debug("DC:  %12s:  direct= %s  exchange= %s  total= %s", x.id_name, estr(edc_d), estr(edc_x), estr(edc_d + edc_x))
+
+        return e_dmp2
+
+    def get_intracluster_mp2_correction(self, exchange=True):
+        """(ia|L)(L|j'b') energy."""
+
+        self.log.debug("Intracluster MP2 energies:")
+        ovlp = self.get_ovlp()
+        e_dmp2 = 0.0
+        for x in self.get_fragments():
+            c_occ_x = x.bath.dmet_bath.c_cluster_occ
+            c_vir_x = self.mo_coeff_vir
+            lx, lx_neg = self.get_cderi((c_occ_x, c_vir_x))
+            eix = x.get_fragment_mo_energy(c_occ_x)
+            eax = x.get_fragment_mo_energy(c_vir_x)
+            eia_x = (eix[:,None] - eax[None,:])
+
+            gijab = einsum('Lia,Ljb->ijab', lx, lx) # N - N^3
+            if lx_neg is not None:
+                gijab -= einsum('Lia,Ljb->ijab', lx_neg, lx_neg)
+            eijab = (eia_x[:,None,:,None] + eia_x[None,:,None,:])
+            t2 = (gijab / eijab)
+
+            px = dot(x.c_proj.T, ovlp, c_occ_x)
+
+            # vir minus active vir
+            pvirenv = dot(x.cluster.c_active_vir.T, ovlp, c_vir_x)
+            pvirenv = np.eye(pvirenv.shape[-1]) - dot(pvirenv.T, pvirenv)
+
+            # Virtual
+            evir_d = 2*einsum('xi,ijAb,xk,kjab,aA->', px, t2, px, gijab, pvirenv)
+            e_dmp2 += evir_d
+            if exchange:
+                evir_x = - einsum('xi,ijAb,xk,kjba,aA->', px, t2, px, gijab, pvirenv)
+                e_dmp2 += evir_x
+            else:
+                evir_x = 0.0
+
+            estr = energy_string
+            self.log.debug("  %12s:  direct= %s  exchange= %s  total= %s", x.id_name, estr(evir_d), estr(evir_x), estr(evir_d + evir_x))
+
+        return e_dmp2
+
+    def get_intercluster_mp2_energy(self, bno_threshold=1e-9, direct=True, exchange=True, project_dc='vir', vers=1, diagonal=True):
+        """Get long-range, inter-cluster energy contribution on the MP2 level.
+
+        This constructs T2 amplitudes over two clusters, X and Y, as
+
+            t_ij^ab = \sum_L (ia|L)(L|j'b') / (ei + ej' - ea - eb)
+
+        where i,a are in cluster X and j,b are in cluster Y.
+
+        Parameters
+        ----------
+        bno_threshold: float, optional
+            Threshold for virtual BNO space. Default: 1e-8.
+        direct: bool, optional
+            Calculate energy contribution from the second-order direct MP2 term. Default: True.
+        exchange: bool, optional
+            Calculate energy contribution from the second-order exchange MP2 term. Default: True.
+
+        Returns
+        -------
+        e_icmp2: float
+            Intercluster MP2 energy contribution.
+        """
+
+        if project_dc not in ('occ', 'vir', 'both', None):
+            raise ValueError()
+
+        if not self.has_df:
+            raise RuntimeError("Intercluster MP2 energy requires density-fitting.")
+
+        e_direct = 0.0
+        e_exchange = 0.0
+        with log_time(self.log.timing, "Time for intercluster MP2 energy: %s"):
+            ovlp = self.get_ovlp()
+
+            with log_time(self.log.timing, "Time for intercluster MP2 energy setup: %s"):
+                coll = RMA_Dict(mpi)
+                # TODO: Does this only allow 2024 / 6 / n(MPI) fragments?
+                with coll.writable():
+                    for x in self.get_fragments(mpi_rank=mpi.rank):
+                        c_occ = x.bath.dmet_bath.c_cluster_occ
+                        coll[x.id, 'p_frag'] = dot(x.c_proj.T, ovlp, c_occ)
+                        c_bath_vir = x.bath.get_virtual_bath(bno_threshold=bno_threshold, verbose=False)[0]
+                        c_vir = x.canonicalize_mo(x.bath.c_cluster_vir, c_bath_vir)[0]
+                        coll[x.id, 'c_vir'] = c_vir
+                        coll[x.id, 'e_occ'] = x.get_fragment_mo_energy(c_occ)
+                        coll[x.id, 'e_vir'] = x.get_fragment_mo_energy(c_vir)
+                        coll[x.id, 'cderi'], cderi_neg = self.get_cderi((c_occ, c_vir))   # TODO: Reuse BNO
+                        if cderi_neg is not None:
+                            coll[x.id, 'cderi_neg'] = cderi_neg
+
+            class Cluster:
+
+                def __init__(self, xid):
+                    self.p_frag = coll[xid, 'p_frag']
+                    self.c_vir = coll[xid, 'c_vir']
+                    self.e_occ = coll[xid, 'e_occ']
+                    self.e_vir = coll[xid, 'e_vir']
+                    self.cderi = coll[xid, 'cderi']
+                    if (xid, 'cderi_neg') in coll:
+                        self.cderi_neg = coll[xid, 'cderi_neg']
+                    else:
+                        self.cderi_neg = None
+
+            for ix, x in enumerate(self.get_fragments(mpi_rank=mpi.rank)):
+                cx = Cluster(x.id)
+
+                eia_x = cx.e_occ[:,None] - cx.e_vir[None,:]
+
+                # Already contract these parts of P_dc and S_vir, to avoid having the n(AO)^2 overlap matrix in the n(Frag)^2 loop:
+                if project_dc in ('occ', 'both'):
+                    pdco0 = np.dot(x.cluster.c_active.T, ovlp)
+                if project_dc in ('vir', 'both'):
+                    pdcv0 = np.dot(x.cluster.c_active_vir.T, ovlp)
+                #if exchange:
+                svir0 = np.dot(cx.c_vir.T, ovlp)
+
+                # Loop over all other fragments
+                for iy, y in enumerate(self.get_fragments()):
+                    cy = Cluster(y.id)
+
+                    # TESTING
+                    if diagonal == 'only' and x.id != y.id:
+                        continue
+                    if not diagonal and x.id == y.id:
+                        continue
+
+                    eia_y = cy.e_occ[:,None] - cy.e_vir[None,:]
+
+                    # Make T2
+                    # TODO: save memory by blocked loop
+                    # OR: write C function (also useful for BNO build)
+                    eris = einsum('Lia,Ljb->ijab', cx.cderi, cy.cderi) # O(n(frag)^2) * O(naux)
+                    if cx.cderi_neg is not None:
+                        eris -= einsum('Lia,Ljb->ijab', cx.cderi_neg, cy.cderi_neg)
+                    eijab = (eia_x[:,None,:,None] + eia_y[None,:,None,:])
+                    t2 = (eris / eijab)
+                    # Project i onto F(x) and j onto F(y):
+                    t2 = einsum('xi,yj,ijab->xyab', cx.p_frag, cy.p_frag, t2)
+                    eris = einsum('xi,yj,ijab->xyab', cx.p_frag, cy.p_frag, eris)
+
+                    #if exchange:
+                    #    # Overlap of virtual space between X and Y
+                    svir = np.dot(svir0, cy.c_vir)
+
+                    # Projector to remove double counting with intracluster energy
+                    ed = ex = 0
+                    if project_dc == 'occ':
+                        pdco = np.dot(pdco0, y.c_proj)
+                        pdco = (np.eye(pdco.shape[-1]) - dot(pdco.T, pdco))
+                        if direct:
+                            if vers == 1:
+                                ed = 2*einsum('ijab,iJab,jJ->', t2, eris, pdco)
+                            elif vers == 2:
+                                ed = 2*einsum('ijab,iJAb,jJ,aC,AC->', t2, eris, pdco, svir, svir)
+                        if exchange:
+                            ex = -einsum('ijaB,iJbA,jJ,aA,bB->', t2, eris, pdco, svir, svir)
+                    elif project_dc == 'vir':
+                        pdcv = np.dot(pdcv0, cy.c_vir)
+                        pdcv = (np.eye(pdcv.shape[-1]) - dot(pdcv.T, pdcv))
+                        if direct:
+                            if vers == 1:
+                                ed = 2*einsum('ijab,ijaB,bB->', t2, eris, pdcv)
+                            elif vers == 2:
+                                ed = 2*einsum('ijab,ijAB,bB,aC,AC->', t2, eris, pdcv, svir, svir)
+                        if exchange:
+                            ex = -einsum('ijaB,ijbC,CA,aA,bB->', t2, eris, pdcv, svir, svir)
+                    elif project_dc == 'both':
+                        pdco = np.dot(pdco0, y.c_proj)
+                        pdco = (np.eye(pdco.shape[-1]) - dot(pdco.T, pdco))
+                        pdcv = np.dot(pdcv0, cy.c_vir)
+                        pdcv = (np.eye(pdcv.shape[-1]) - dot(pdcv.T, pdcv))
+                        if direct:
+                            ed = 2*einsum('ijab,iJaB,jJ,bB->', t2, eris, pdco, pdcv)
+                        if exchange:
+                            ex = -einsum('ijaB,iJbC,jJ,CA,aA,bB->', t2, eris, pdco, pdcv, svir, svir)
+
+                    elif project_dc is None:
+                        if direct:
+                            ed = 2*einsum('ijab,ijab->', t2, eris)
+                        if exchange:
+                            ex = -einsum('ijaB,ijbA,aA,bB->', t2, eris, svir, svir)
+
+                    e_direct += ed
+                    e_exchange += ex
+
+                    if ix+iy == 0:
+                        self.log.debugv("Intercluster MP2 energies:")
+                    xystr = '%s <- %s:' % (x.id_name, y.id_name)
+                    estr = energy_string
+                    self.log.debugv("  %-12s  direct= %s  exchange= %s  total= %s", xystr, estr(ed), estr(ex), estr(ed+ex))
+
+            e_direct = mpi.world.allreduce(e_direct)
+            e_exchange = mpi.world.allreduce(e_exchange)
+            e_icmp2 = e_direct + e_exchange
+            if mpi.is_master:
+                self.log.info("  %-12s  direct= %s  exchange= %s  total= %s", "Total:", estr(e_direct), estr(e_exchange), estr(e_icmp2))
+            coll.clear()    # Important in order to not run out of MPI communicators
+
+        return e_icmp2
 
     def get_wf_cisd(self, intermediate_norm=False, c0=None):
         c0_target = c0
