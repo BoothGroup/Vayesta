@@ -249,6 +249,8 @@ class RMA_Dict:
         # Is local access without going via MPI.Get safe?
         #if key in self.local_data:
         #    return self.local_data[key]
+        if mpi.disabled:
+            return self._elements[key]
         element = self._elements[key]
         log.debugv("RMA: origin= %d, target= %d, key= %r, shape= %r, dtype= %r", self.mpi.rank, element.location, key, element.shape, element.dtype)
         return element.get()
@@ -259,6 +261,9 @@ class RMA_Dict:
         if not isinstance(value, (np.ndarray, type(None))):
             #value = np.asarray(value)
             raise ValueError("Invalid type= %r" % type(value))
+        if mpi.disabled:
+            self._elements[key] = value
+            return
         self.local_data[key] = value
 
     def __delitem__(self, key):
@@ -275,8 +280,9 @@ class RMA_Dict:
         self.synchronize()
 
     def clear(self):
-        for item in self.values():
-            item.free()
+        if self.mpi.enabled:
+            for item in self.values():
+                item.free()
         self._elements.clear()
 
     @contextmanager
@@ -323,6 +329,8 @@ class RMA_Dict:
 
     def synchronize(self):
         """Synchronize keys and metadata over all MPI ranks."""
+        if self.mpi.disabled:
+            return
         self.mpi.world.Barrier()
         mdata = self._get_metadata()
         allmdata = self.mpi.world.allgather(mdata)

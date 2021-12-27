@@ -330,9 +330,10 @@ class Fragment:
 
     @property
     def results(self):
-        if self.sym_parent is not None:
-            return self.sym_parent.results
-        return self._results
+        return self.get_symmetry_parent()._results
+        #if self.sym_parent is not None:
+        #    return self.sym_parent.results
+        #return self._results
 
     @results.setter
     def results(self, value):
@@ -777,12 +778,26 @@ class Fragment:
         self.log.warning("make_tsymmetric_fragments is deprecated - use add_tsymmetric_fragments")
         return self.add_tsymmetric_fragments(*args, **kwargs)
 
+    def get_symmetry_parent(self):
+        if self.sym_parent is None:
+            return self
+        return self.sym_parent
+
+    def get_symmetry_operation(self):
+        if self.sym_parent is None:
+            return (lambda x, *args, **kwargs: x)
+        return self.sym_op
+
     def get_symmetry_children(self):
-        children = []
-        for frag in self.loop_fragments(exclude_self=True):
-            if (frag.sym_parent.id == self.id):
-                children.append(frag)
-        return children
+        return self.base.get_fragments(sym_parent=self)
+
+    @property
+    def n_symmetry_children(self):
+        return len(self.get_symmetry_children())
+
+    @property
+    def symmetry_factor(self):
+        return (self.n_symmetry_children+1)
 
     def get_tsymmetry_error(self, frag, dm1=None):
         """Get translational symmetry error between two fragments."""

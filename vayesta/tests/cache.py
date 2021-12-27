@@ -198,6 +198,39 @@ def register_system_cell(cache, key):
     """Register one of the preset solid test systems in the cache.
     """
 
+    # Cubic H2
+    if key == 'h2_cp_k211':
+        amat = 2*np.eye(3)
+        amat[2,2] = 4.0
+        cell = _make_cell(amat, 'H 0 0 0 ; H 0 0 0.74', basis='def2-svp', exp_to_discard=0.1)
+        kpts = cell.make_kpts([2,1,1])
+        df = pyscf.pbc.df.GDF(cell, kpts)
+        df.auxbasis = 'def2-svp-ri'
+        mf = _make_pbc_mf(cell, kpts, df=df)
+        cache._cache[key] = {'cell': cell, 'kpts': kpts, 'rhf': mf, 'uhf': None}
+        return
+    if key == 'h2_cp_k222':
+        amat = 2*np.eye(3)
+        amat[2,2] = 4.0
+        cell = _make_cell(amat, 'H 0 0 0 ; H 0 0 0.74', basis='def2-svp', exp_to_discard=0.1)
+        kpts = cell.make_kpts([2,2,2])
+        df = pyscf.pbc.df.GDF(cell, kpts)
+        df.auxbasis = 'def2-svp-ri'
+        mf = _make_pbc_mf(cell, kpts, df=df)
+        cache._cache[key] = {'cell': cell, 'kpts': kpts, 'rhf': mf, 'uhf': None}
+        return
+    # Cubic H3
+    if key == 'h3_cp_k211':
+        amat = 2*np.eye(3)
+        amat[2,2] = 5.0
+        cell = _make_cell(amat, 'H 0 0 0 ; H 0 0 1 ; H 0 0 2', spin=2, basis='def2-svp', exp_to_discard=0.1)
+        kpts = cell.make_kpts([2,1,1])
+        df = pyscf.pbc.df.GDF(cell, kpts)
+        df.auxbasis = 'def2-svp-ri'
+        mf = _make_pbc_mf(cell, kpts, df=df)
+        cache._cache[key] = {'cell': cell, 'kpts': kpts, 'rhf': None, 'uhf': mf}
+        return
+
     # Rocksalt LiH
     if key == 'lih_k221':
         cell = _make_cell(*solids.rocksalt(atoms=['Li', 'H']), basis='def2-svp',

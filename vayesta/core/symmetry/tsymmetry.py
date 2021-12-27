@@ -16,7 +16,6 @@ def to_bohr(a, unit):
         return a
     raise ValueError("Unknown unit: %s" % unit)
 
-
 def get_mesh_tvecs(cell, tvecs, unit='Ang'):
     rvecs = cell.lattice_vectors()
     if (np.ndim(tvecs) == 1 and len(tvecs) == 3):

@@ -130,24 +130,27 @@ class UEWF(REWF, UEmbedding):
                 # TODO: Does this only allow 2024 / 6 / n(MPI) fragments?
                 with coll.writable():
                     for x in self.get_fragments(mpi_rank=mpi.rank):
-                        c_occ = x.bath.dmet_bath.c_cluster_occ
-                        coll[x.id, 'p_frag_a'] = dot(x.c_proj[0].T, ovlp, c_occ[0])
-                        coll[x.id, 'p_frag_b'] = dot(x.c_proj[1].T, ovlp, c_occ[1])
-                        c_bath_vir = x.bath.get_virtual_bath(bno_threshold=bno_threshold, verbose=False)[0]
-                        c_vir = x.canonicalize_mo(x.bath.c_cluster_vir, c_bath_vir)[0]
-                        coll[x.id, 'c_vir_a'] = c_vir[0]
-                        coll[x.id, 'c_vir_b'] = c_vir[1]
+                        xid = x.id
+                        x0 = x.get_symmetry_parent()
+                        sym_op = x.get_symmetry_operation()
+                        c_occ = x0.bath.dmet_bath.c_cluster_occ
+                        coll[xid, 'p_frag_a'] = dot(x0.c_proj[0].T, ovlp, c_occ[0])
+                        coll[xid, 'p_frag_b'] = dot(x0.c_proj[1].T, ovlp, c_occ[1])
+                        c_bath_vir = x0.bath.get_virtual_bath(bno_threshold=bno_threshold, verbose=False)[0]
+                        c_vir = x0.canonicalize_mo(x0.bath.c_cluster_vir, c_bath_vir)[0]
+                        coll[xid, 'c_vir_a'] = sym_op(c_vir[0])
+                        coll[xid, 'c_vir_b'] = sym_op(c_vir[1])
                         e_occ = x.get_fragment_mo_energy(c_occ)
-                        coll[x.id, 'e_occ_a'] = e_occ[0]
-                        coll[x.id, 'e_occ_b'] = e_occ[1]
+                        coll[xid, 'e_occ_a'] = e_occ[0]
+                        coll[xid, 'e_occ_b'] = e_occ[1]
                         e_vir = x.get_fragment_mo_energy(c_vir)
-                        coll[x.id, 'e_vir_a'] = e_vir[0]
-                        coll[x.id, 'e_vir_b'] = e_vir[1]
-                        coll[x.id, 'cderia'], cderia_neg = self.get_cderi((c_occ[0], c_vir[0]))   # TODO: Reuse BNO
-                        coll[x.id, 'cderib'], cderib_neg = self.get_cderi((c_occ[1], c_vir[1]))   # TODO: Reuse BNO
+                        coll[xid, 'e_vir_a'] = e_vir[0]
+                        coll[xid, 'e_vir_b'] = e_vir[1]
+                        coll[xid, 'cderia'], cderia_neg = self.get_cderi((sym_op(c_occ[0]), sym_op(c_vir[0])))   # TODO: Reuse BNO
+                        coll[xid, 'cderib'], cderib_neg = self.get_cderi((sym_op(c_occ[1]), sym_op(c_vir[1])))   # TODO: Reuse BNO
                         if cderia_neg is not None:
-                            coll[x.id, 'cderia_neg'] = cderia_neg
-                            coll[x.id, 'cderib_neg'] = cderib_neg
+                            coll[xid, 'cderia_neg'] = cderia_neg
+                            coll[xid, 'cderib_neg'] = cderib_neg
 
             class Cluster:
 
@@ -162,7 +165,7 @@ class UEWF(REWF, UEmbedding):
                     else:
                         self.cderi_neg = None
 
-            for ix, x in enumerate(self.get_fragments(mpi_rank=mpi.rank)):
+            for ix, x in enumerate(self.get_fragments(mpi_rank=mpi.rank, sym_parent=None)):
                 cx = Cluster(x.id)
 
                 eia_xa = cx.e_occ[0][:,None] - cx.e_vir[0][None,:]
@@ -235,8 +238,9 @@ class UEWF(REWF, UEmbedding):
                         ex += -einsum('ijaB,ijbC,CA,aA,bB->', t2aa, eris_aa, pdcva, svira, svira)/2
                         ex += -einsum('ijaB,ijbC,CA,aA,bB->', t2bb, eris_bb, pdcvb, svirb, svirb)/2
 
-                    e_direct += ed
-                    e_exchange += ex
+                    prefac = x.sym_factor * x.symmetry_factor * y.sym_factor
+                    e_direct += prefac * ed
+                    e_exchange += prefac * ex
 
                     if ix+iy == 0:
                         self.log.debugv("Intercluster MP2 energies:")
