@@ -237,16 +237,21 @@ def time_string(seconds, show_zeros=False):
         tstr = "%.3f s" % s
     return tstr
 
-def get_used_memory():
+MEMUNITS = {'b': 1, 'kb': 1e3, 'mb': 1e6, 'gb': 1e9, 'tb': 1e12}
+
+def get_used_memory(unit='b'):
     if psutil is not None:
         process = psutil.Process(os.getpid())
-        return(process.memory_info().rss)  # in bytes
+        mem = process.memory_info().rss  # in bytes
     # Fallback: use os module
-    if sys.platform.startswith('linux'):
+    elif sys.platform.startswith('linux'):
         pagesize = os.sysconf("SC_PAGE_SIZE")
         with open("/proc/%s/statm" % os.getpid()) as f:
-            return int(f.readline().split()[1])*pagesize
-    return 0
+            mem = int(f.readline().split()[1])*pagesize
+    else:
+        mem = 0
+    mem /= MEMUNITS[unit.lower()]
+    return mem
 
 def memory_string(nbytes, fmt='6.2f'):
     """String representation of nbytes"""

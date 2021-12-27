@@ -404,6 +404,16 @@ class Embedding:
         return np.count_nonzero(self.mo_occ == 0)
 
     @property
+    def mo_energy_occ(self):
+        """Occupied MO energies."""
+        return self.mo_energy[:self.nocc]
+
+    @property
+    def mo_energy_vir(self):
+        """Virtual MO coefficients."""
+        return self.mo_energy[self.nocc:]
+
+    @property
     def mo_coeff_occ(self):
         """Occupied MO coefficients."""
         return self.mo_coeff[:,:self.nocc]

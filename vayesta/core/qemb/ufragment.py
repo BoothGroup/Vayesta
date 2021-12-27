@@ -212,6 +212,20 @@ class UFragment(Fragment):
         e_mf = np.sum(np.diag(hveff[0])[occ[0]]) + np.sum(np.diag(hveff[1])[occ[1]])
         return e_mf
 
+    def get_fragment_mo_energy(self, c_active=None, fock=None):
+        """Returns approximate MO energies, using the the diagonal of the Fock matrix.
+
+        Parameters
+        ----------
+        c_active: array, optional
+        fock: array, optional
+        """
+        if c_active is None: c_active = self.cluster.c_active
+        if fock is None: fock = self.base.get_fock()
+        mo_energy_a = einsum('ai,ab,bi->i', c_active[0], fock[0], c_active[0])
+        mo_energy_b = einsum('ai,ab,bi->i', c_active[1], fock[1], c_active[1])
+        return (mo_energy_a, mo_energy_b)
+
     def get_fragment_dmet_energy(self, dm1=None, dm2=None, h1e_eff=None, eris=None):
         """Get fragment contribution to whole system DMET energy.
 

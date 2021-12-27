@@ -297,7 +297,7 @@ class Fragment:
 
     @property
     def id_name(self):
-        """Use this whenever a unique name is needed (for example to open a seperate file for each fragment)."""
+        """Use this whenever a unique name is needed (for example to open a separate file for each fragment)."""
         return "%s-%s" % (self.id, self.trimmed_name())
 
     @property
@@ -507,6 +507,7 @@ class Fragment:
         c_cluster = fix_orbital_sign(c_cluster)[0]
         nocc = np.count_nonzero(e >= (norm/2))
         c_cluster_occ, c_cluster_vir = np.hsplit(c_cluster, [nocc])
+
         return c_cluster_occ, c_cluster_vir
 
     def project_ref_orbitals(self, c_ref, c):
