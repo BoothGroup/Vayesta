@@ -129,9 +129,9 @@ class VStreamHandler(logging.StreamHandler):
 class VFileHandler(logging.FileHandler):
     """Default file handler with IndentedFormatter"""
 
-    def __init__(self, filename, mode='a', formatter=None, add_mpi_rank=True, **kwargs):
+    def __init__(self, filename, mode='a', formatter=None, add_mpi_rank=True, delay=True, **kwargs):
         filename = get_logname(filename, add_mpi_rank=add_mpi_rank)
-        super().__init__(filename, mode=mode, **kwargs)
+        super().__init__(filename, mode=mode, delay=delay, **kwargs)
         if formatter is None:
             formatter = VFormatter()
         self.setFormatter(formatter)
