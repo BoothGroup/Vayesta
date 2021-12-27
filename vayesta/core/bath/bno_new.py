@@ -16,9 +16,13 @@ from .bath import FragmentBath
 class BNO_Bath(FragmentBath):
     """Bath natural orbital (BNO) bath, requires DMET bath."""
 
-    def __init__(self, fragment, ref_bath, *args, **kwargs):
+    def __init__(self, fragment, ref_bath, *args, canonicalize=True, **kwargs):
         super().__init__(fragment, *args, **kwargs)
         self.ref_bath = ref_bath
+        # Canonicalization can be set separately for occupied and virtual:
+        if np.ndim(canonicalize) == 0:
+            canonicalize = 2*[canonicalize]
+        self.canonicalize = canonicalize
         # Results
         # Bath orbital coefficients:
         self.c_bno_occ = None
@@ -94,21 +98,21 @@ class BNO_Bath(FragmentBath):
 
     def get_occupied_bath(self, bno_threshold=None, bno_number=None, **kwargs):
         return self.truncate_bno(self.c_bno_occ, self.n_bno_occ, bno_threshold=bno_threshold,
-                bno_number=bno_number, header="occupied BNOs:")
+                bno_number=bno_number, header="occupied BNOs:", **kwargs)
 
     def get_virtual_bath(self, bno_threshold=None, bno_number=None, **kwargs):
         return self.truncate_bno(self.c_bno_vir, self.n_bno_vir, bno_threshold=bno_threshold,
-                bno_number=bno_number, header="virtual BNOs:")
+                bno_number=bno_number, header="virtual BNOs:", **kwargs)
 
-    def truncate_bno(self, c_bno, n_bno, bno_threshold=None, bno_number=None, header=None):
+    def truncate_bno(self, c_bno, n_bno, bno_threshold=None, bno_number=None, header=None, verbose=True):
         """Split natural orbitals (NO) into bath and rest."""
 
         # For UHF, call recursively:
         if np.ndim(c_bno[0]) == 2:
             c_bno_a, c_rest_a = self.truncate_bno(c_bno[0], n_bno[0], bno_threshold=bno_threshold,
-                    bno_number=bno_number, header='Alpha-%s' % header)
+                    bno_number=bno_number, header='Alpha-%s' % header, verbose=verbose)
             c_bno_b, c_rest_b = self.truncate_bno(c_bno[1], n_bno[1], bno_threshold=bno_threshold,
-                    bno_number=bno_number, header='Beta-%s' % header)
+                    bno_number=bno_number, header='Beta-%s' % header, verbose=verbose)
             return (c_bno_a, c_bno_b), (c_rest_a, c_rest_b)
 
         if bno_number is not None:
@@ -119,18 +123,19 @@ class BNO_Bath(FragmentBath):
             raise ValueError("Either `bno_threshold` or `bno_number` needs to be specified.")
 
         # Logging
-        if header:
-            self.log.info(header[0].upper() + header[1:])
-        fmt = "  %4s: N= %4d  max= % 9.3g  min= % 9.3g  sum= % 9.3g ( %7.3f %%)"
-        def log_space(name, n_part):
-            if len(n_part) == 0:
-                self.log.info(fmt[:fmt.index('max')].rstrip(), name, 0)
-                return
-            with np.errstate(invalid='ignore'): # supress 0/0 warning
-                self.log.info(fmt, name, len(n_part), max(n_part), min(n_part), np.sum(n_part),
-                        100*np.sum(n_part)/np.sum(n_bno))
-        log_space("Bath", n_bno[:bno_number])
-        log_space("Rest", n_bno[bno_number:])
+        if verbose:
+            if header:
+                self.log.info(header[0].upper() + header[1:])
+            fmt = "  %4s: N= %4d  max= % 9.3g  min= % 9.3g  sum= % 9.3g ( %7.3f %%)"
+            def log_space(name, n_part):
+                if len(n_part) == 0:
+                    self.log.info(fmt[:fmt.index('max')].rstrip(), name, 0)
+                    return
+                with np.errstate(invalid='ignore'): # supress 0/0 warning
+                    self.log.info(fmt, name, len(n_part), max(n_part), min(n_part), np.sum(n_part),
+                            100*np.sum(n_part)/np.sum(n_bno))
+            log_space("Bath", n_bno[:bno_number])
+            log_space("Rest", n_bno[bno_number:])
 
         c_bno, c_rest = np.hsplit(c_bno, [bno_number])
         return c_bno, c_rest
@@ -206,13 +211,9 @@ class BNO_Bath_UHF(BNO_Bath):
 
 class MP2_BNO_Bath(BNO_Bath):
 
-    def __init__(self, *args, project_t2=False, canonicalize=True, **kwargs):
+    def __init__(self, *args, project_t2=False, **kwargs):
         super().__init__(*args, **kwargs)
         self.project_t2 = project_t2
-        # Canonicalization can be set separately for occupied and virtual:
-        if np.ndim(canonicalize) == 0:
-            canonicalize = 2*[canonicalize]
-        self.canonicalize = canonicalize
 
     def _make_t2(self, mo_energy, eris=None, cderi=None, cderi_neg=None, blksize=None):
         """Make T2 amplitudes"""
@@ -439,7 +440,7 @@ class UMP2_BNO_Bath(MP2_BNO_Bath, BNO_Bath_UHF):
         cderi_b, cderi_neg_b = self.base.get_cderi(mo_b)
         return (cderi_a, cderi_b), (cderi_neg_a, cderi_neg_b)
 
-    def _make_t2(self, mo_energy, eris=None, cderi=None, cderi_neg=None, blksize=None):
+    def _make_t2(self, mo_energy, eris=None, cderi=None, cderi_neg=None, blksize=None, workmem=int(1e9)):
         """Make T2 amplitudes"""
         # (ov|ov)
         if eris is not None:
@@ -467,7 +468,7 @@ class UMP2_BNO_Bath(MP2_BNO_Bath, BNO_Bath_UHF):
 
         # Alpha-alpha and Alpha-beta:
         if blksize is None:
-            blksize_a = int(1e9 / max(nocca*nvira*nvira * 8, 1))
+            blksize_a = int(workmem / max(nocca*nvira*nvira * 8, 1))
         else:
             blksize_a = blksize
         for blk in brange(0, nocca, blksize_a):
@@ -480,6 +481,7 @@ class UMP2_BNO_Bath(MP2_BNO_Bath, BNO_Bath_UHF):
                     gijab -= einsum('Lia,Ljb->ijab', cderi_neg[0][:,blk], cderi_neg[0])
             eijab = (eia_a[blk][:,None,:,None] + eia_a[None,:,None,:])
             t2aa[blk] = (gijab / eijab)
+            t2aa[blk] -= t2aa[blk].transpose(0,1,3,2)
             # Alpha-beta
             if eris is not None:
                 gijab = eris[1][blk].transpose(0,2,1,3)
@@ -491,7 +493,7 @@ class UMP2_BNO_Bath(MP2_BNO_Bath, BNO_Bath_UHF):
             t2ab[blk] = (gijab / eijab)
         # Beta-beta:
         if blksize is None:
-            blksize_b = int(1e9 / max(noccb*nvirb*nvirb * 8, 1))
+            blksize_b = int(workmem / max(noccb*nvirb*nvirb * 8, 1))
         else:
             blksize_b = blksize
         for blk in brange(0, noccb, blksize_b):
@@ -503,6 +505,7 @@ class UMP2_BNO_Bath(MP2_BNO_Bath, BNO_Bath_UHF):
                     gijab -= einsum('Lia,Ljb->ijab', cderi_neg[1][:,blk], cderi_neg[1])
             eijab = (eia_b[blk][:,None,:,None] + eia_b[None,:,None,:])
             t2bb[blk] = (gijab / eijab)
+            t2bb[blk] -= t2bb[blk].transpose(0,1,3,2)
 
         return (t2aa, t2ab, t2bb)
 

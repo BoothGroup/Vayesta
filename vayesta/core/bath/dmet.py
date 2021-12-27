@@ -43,6 +43,9 @@ class DMET_Bath(FragmentBath):
         cluster = [self.c_frag, c_dmet]
         self.base.check_orthonormal(*cluster, mo_name='cluster MO')
         c_cluster_occ, c_cluster_vir = self.fragment.diagonalize_cluster_dm(*cluster, tol=2*self.dmet_threshold)
+        # Canonicalize
+        c_cluster_occ = self.fragment.canonicalize_mo(c_cluster_occ)[0]
+        c_cluster_vir = self.fragment.canonicalize_mo(c_cluster_vir)[0]
         if self.base.is_rhf:
             self.log.info("Cluster orbitals:  n(occ)= %3d  n(vir)= %3d", c_cluster_occ.shape[-1], c_cluster_vir.shape[-1])
         else:
