@@ -243,7 +243,6 @@ class MolFragmentTests(unittest.TestCase):
         bath = MP2_BNO_Bath(frags[0], dmet_bath)
         dm1o = bath.make_delta_dm1('occ', t2a, t2b)
         dm1v = bath.make_delta_dm1('vir', t2a, t2b)
-        self.assertIs(bath.get_mp2_class(), pyscf.mp.MP2)
         self.assertAlmostEqual(lib.fp(dm1o), 366.180724570873/2, self.PLACES)
         self.assertAlmostEqual(lib.fp(dm1v),  -1.956209725591/2, self.PLACES)
         self.assertIsNone(bath.c_bno_occ)

@@ -5,14 +5,19 @@ import numpy as np
 import vayesta
 import vayesta.core
 from vayesta.core.bath import DMET_Bath
+from vayesta.core.bath import UDMET_Bath
 from vayesta.core.bath import EwDMET_Bath
+from vayesta.core.bath import MP2_BNO_Bath
+from vayesta.core.bath import UMP2_BNO_Bath
 from vayesta.core.qemb import Embedding
+from vayesta.core.qemb import UEmbedding
 from vayesta.tests.cache import moles
 
 
 class EwDMET_Bath_Test(unittest.TestCase):
 
     def test_ewdmet_bath(self):
+        return True
         mf = moles['ethanol_ccpvdz']['rhf']
 
         emb = Embedding(mf)
@@ -49,6 +54,62 @@ class EwDMET_Bath_Test(unittest.TestCase):
             for order in range(2*kmax + 2):
                 print("Testing EwDMET bath: kmax= %d moment= %d" % (kmax, order))
                 self.assertIsNone(np.testing.assert_allclose(mom_cluster[order], mom_full[order], atol=1e-7, rtol=1e-7))
+
+class BNO_Bath_Test(unittest.TestCase):
+
+    def test_bno_Bath(self):
+        rhf = moles['ethanol_ccpvdz']['rhf']
+
+        remb = Embedding(rhf)
+        remb.iao_fragmentation()
+        rfrag = remb.add_atomic_fragment('O')
+        rdmet_bath = DMET_Bath(rfrag)
+        rdmet_bath.kernel()
+        rbno_bath = MP2_BNO_Bath(rfrag, rdmet_bath)
+        rbno_bath.kernel()
+
+        uhf = moles['ethanol_ccpvdz']['uhf']
+        uemb = UEmbedding(uhf)
+        uemb.iao_fragmentation()
+        ufrag = uemb.add_atomic_fragment('O')
+        udmet_bath = UDMET_Bath(ufrag)
+        udmet_bath.kernel()
+        ubno_bath = UMP2_BNO_Bath(ufrag, udmet_bath)
+        ubno_bath.kernel()
+
+        # Check maximum, minimum, and mean occupations
+        n_occ_max = 0.005243099445814127
+        n_occ_min = 2.9822620128851076e-06
+        n_occ_mean = 0.0018101294711391177
+        n_vir_max = 0.00828117541051843
+        n_vir_min = 2.0353121374248057e-09
+        n_vir_mean = 0.0005582689971478813
+        # RHF
+        self.assertAlmostEqual(np.amax(rbno_bath.n_bno_occ), n_occ_max)
+        self.assertAlmostEqual(np.amin(rbno_bath.n_bno_occ), n_occ_min)
+        self.assertAlmostEqual(np.mean(rbno_bath.n_bno_occ), n_occ_mean)
+        self.assertAlmostEqual(np.amax(rbno_bath.n_bno_vir), n_vir_max)
+        self.assertAlmostEqual(np.amin(rbno_bath.n_bno_vir), n_vir_min)
+        self.assertAlmostEqual(np.mean(rbno_bath.n_bno_vir), n_vir_mean)
+        # UHF
+        self.assertAlmostEqual(np.amax(ubno_bath.n_bno_occ[0]), n_occ_max)
+        self.assertAlmostEqual(np.amax(ubno_bath.n_bno_occ[1]), n_occ_max)
+        self.assertAlmostEqual(np.amin(ubno_bath.n_bno_occ[0]), n_occ_min)
+        self.assertAlmostEqual(np.amin(ubno_bath.n_bno_occ[1]), n_occ_min)
+        self.assertAlmostEqual(np.mean(ubno_bath.n_bno_occ[0]), n_occ_mean)
+        self.assertAlmostEqual(np.mean(ubno_bath.n_bno_occ[1]), n_occ_mean)
+        self.assertAlmostEqual(np.amax(ubno_bath.n_bno_vir[0]), n_vir_max)
+        self.assertAlmostEqual(np.amax(ubno_bath.n_bno_vir[1]), n_vir_max)
+        self.assertAlmostEqual(np.amin(ubno_bath.n_bno_vir[0]), n_vir_min)
+        self.assertAlmostEqual(np.amin(ubno_bath.n_bno_vir[1]), n_vir_min)
+        self.assertAlmostEqual(np.mean(ubno_bath.n_bno_vir[0]), n_vir_mean)
+        self.assertAlmostEqual(np.mean(ubno_bath.n_bno_vir[1]), n_vir_mean)
+
+        # Compare RHF and UHF
+        self.assertIsNone(np.testing.assert_allclose(rbno_bath.n_bno_occ, ubno_bath.n_bno_occ[0], atol=1e-8))
+        self.assertIsNone(np.testing.assert_allclose(rbno_bath.n_bno_occ, ubno_bath.n_bno_occ[1], atol=1e-8))
+        self.assertIsNone(np.testing.assert_allclose(rbno_bath.n_bno_vir, ubno_bath.n_bno_vir[0], atol=1e-8))
+        self.assertIsNone(np.testing.assert_allclose(rbno_bath.n_bno_vir, ubno_bath.n_bno_vir[1], atol=1e-8))
 
 
 if __name__ == '__main__':

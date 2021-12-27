@@ -116,7 +116,7 @@ def register_system_mole(cache, key):
     elif key == 'ethanol_ccpvdz':
         mol.atom = molecules.ethanol()
         mol.basis = 'cc-pVDZ'
-        rhf = True
+        rhf = uhf = True
     else:
         log.error("No system with key '%s'", key)
         return {}
@@ -248,22 +248,20 @@ def register_system_cell(cache, key):
         mf = _make_pbc_mf(cell, df=df)
         cache._cache[key] = {'cell': cell, 'kpts': None, 'rhf': mf, 'uhf': None}
         return
-    # Boron-doped Graphene, k-points and supercell
-    # (Large unit cell, since otherwise the systems dimerizes into larger supercells)
-    if key == 'hydrogen_cubic_2d_k221':
-        amat = 2*np.eye(3)
+    if key == 'nitrogen_cubic_2d_k221':
+        amat = 1.5*np.eye(3)
         amat[2,2] = 20.0
-        cell = _make_cell(amat, 'H', dimension=2, spin=4, basis='def2-svp', exp_to_discard=0.1)
+        cell = _make_cell(amat, 'N', dimension=2, spin=4, basis='def2-svp', exp_to_discard=0.1)
         kpts = cell.make_kpts([2,2,1])
         df = pyscf.pbc.df.GDF(cell, kpts)
         df.auxbasis = 'def2-svp-ri'
         mf = _make_pbc_mf(cell, kpts, df=df)
         cache._cache[key] = {'cell': cell, 'kpts': kpts, 'rhf': None, 'uhf': mf}
         return
-    if key == 'hydrogen_cubic_2d_g221':
-        amat = 2*np.eye(3)
+    if key == 'nitrogen_cubic_2d_g221':
+        amat = 1.5*np.eye(3)
         amat[2,2] = 20.0
-        cell = _make_cell(amat, 'H', dimension=2, spin=4, basis='def2-svp', exp_to_discard=0.1, supercell=[2,2,1])
+        cell = _make_cell(amat, 'N', dimension=2, spin=4, basis='def2-svp', exp_to_discard=0.1, supercell=[2,2,1])
         df = pyscf.pbc.df.GDF(cell)
         df.auxbasis = 'def2-svp-ri'
         mf = _make_pbc_mf(cell, df=df)
