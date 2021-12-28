@@ -421,42 +421,63 @@ class EWF(Embedding):
         e_exchange = 0.0
         with log_time(self.log.timing, "Time for intercluster MP2 energy: %s"):
             ovlp = self.get_ovlp()
+            if self.kdf is not None:
+                # We need the supercell auxiliary cell here:
+                cellmesh = self.mf.subcellmesh
+                auxmol = pyscf.pbc.tools.super_cell(self.kdf.auxcell, cellmesh)
+            else:
+                try:
+                    auxmol = self.df.auxmol
+                except AttributeError:
+                    auxmol = self.df.auxcell
 
             with log_time(self.log.timing, "Time for intercluster MP2 energy setup: %s"):
-                coll = RMA_Dict(mpi)
-                # TODO: Does this only allow 2024 / 6 fragments?
-                with coll.writable():
-                    for x in self.get_fragments(mpi_rank=mpi.rank):
-                        xid = x.id
-                        x0 = x.get_symmetry_parent()
-                        sym_op = x.get_symmetry_operation()
-                        c_occ = x0.bath.dmet_bath.c_cluster_occ
-                        coll[xid, 'p_frag'] = dot(x0.c_proj.T, ovlp, c_occ)
-                        c_bath_vir = x0.bath.get_virtual_bath(bno_threshold=bno_threshold, verbose=False)[0]
-                        c_vir = x0.canonicalize_mo(x0.bath.c_cluster_vir, c_bath_vir)[0]
-                        coll[xid, 'c_vir'] = sym_op(c_vir)
-                        coll[xid, 'e_occ'] = x0.get_fragment_mo_energy(c_occ)
-                        coll[xid, 'e_vir'] = x0.get_fragment_mo_energy(c_vir)
-                        coll[xid, 'cderi'], cderi_neg = self.get_cderi((sym_op(c_occ), sym_op(c_vir)))   # TODO: Reuse BNO
-                        if cderi_neg is not None:
-                            coll[xid, 'cderi_neg'] = cderi_neg
+                coll = {}
+                # Loop over symmetry unique fragments
+                for x in self.get_fragments(mpi_rank=mpi.rank, sym_parent=None):
+                    c_occ = x.bath.dmet_bath.c_cluster_occ
+                    coll[x.id, 'p_frag'] = dot(x.c_proj.T, ovlp, c_occ)
+                    c_bath_vir = x.bath.get_virtual_bath(bno_threshold=bno_threshold, verbose=False)[0]
+                    c_vir = x.canonicalize_mo(x.bath.c_cluster_vir, c_bath_vir)[0]
+                    coll[x.id, 'c_vir'] = c_vir
+                    coll[x.id, 'e_occ'] = x.get_fragment_mo_energy(c_occ)
+                    coll[x.id, 'e_vir'] = x.get_fragment_mo_energy(c_vir)
+                    coll[x.id, 'cderi'], cderi_neg = self.get_cderi((c_occ, c_vir))   # TODO: Reuse BNO
+                    if cderi_neg is not None:
+                        coll[x.id, 'cderi_neg'] = cderi_neg
+                    # Symmetry related fragments
+                    for y in self.get_fragments(sym_parent=x):
+                        sym_op = y.get_symmetry_operation()
+                        coll[y.id, 'c_vir'] = sym_op(coll[x.id, 'c_vir'])
+                        sym_op_aux = sym_op.change_mol(auxmol)
+                        coll[y.id, 'cderi'] = sym_op_aux(coll[x.id, 'cderi'])
+                        if (x.id, 'cderi_neg') in coll:
+                            coll[y.id, 'cderi_neg'] = coll[x.id, 'cderi_neg']
+                # Convert into remote memory access (RMA) dictionary:
+                if mpi:
+                    coll = mpi.create_rma_dict(coll)
 
             class Cluster:
+                """Helper class"""
 
-                def __init__(self, xid):
-                    self.p_frag = coll[xid, 'p_frag']
-                    self.c_vir = coll[xid, 'c_vir']
-                    self.e_occ = coll[xid, 'e_occ']
-                    self.e_vir = coll[xid, 'e_vir']
-                    self.cderi = coll[xid, 'cderi']
-                    if (xid, 'cderi_neg') in coll:
-                        self.cderi_neg = coll[xid, 'cderi_neg']
+                def __init__(self, fragment):
+                    # From symmetry parent:
+                    f0id = fragment.get_symmetry_parent().id
+                    self.p_frag = coll[f0id, 'p_frag']
+                    self.e_occ = coll[f0id, 'e_occ']
+                    self.e_vir = coll[f0id, 'e_vir']
+                    # Own:
+                    fid = fragment.id
+                    self.c_vir = coll[fid, 'c_vir']
+                    self.cderi = coll[fid, 'cderi']
+                    if (fid, 'cderi_neg') in coll:
+                        self.cderi_neg = coll[fid, 'cderi_neg']
                     else:
                         self.cderi_neg = None
 
             #for ix, x in enumerate(self.get_fragments(mpi_rank=mpi.rank)):
             for ix, x in enumerate(self.get_fragments(mpi_rank=mpi.rank, sym_parent=None)):
-                cx = Cluster(x.id)
+                cx = Cluster(x)
 
                 eia_x = cx.e_occ[:,None] - cx.e_vir[None,:]
 
@@ -470,7 +491,7 @@ class EWF(Embedding):
 
                 # Loop over all other fragments
                 for iy, y in enumerate(self.get_fragments()):
-                    cy = Cluster(y.id)
+                    cy = Cluster(y)
 
                     # TESTING
                     if diagonal == 'only' and x.id != y.id:
@@ -544,8 +565,8 @@ class EWF(Embedding):
                     estr = energy_string
                     self.log.debugv("  %-12s  direct= %s  exchange= %s  total= %s", xystr, estr(ed), estr(ex), estr(ed+ex))
 
-            e_direct = mpi.world.allreduce(e_direct)
-            e_exchange = mpi.world.allreduce(e_exchange)
+            e_direct = mpi.world.allreduce(e_direct) / self.ncells
+            e_exchange = mpi.world.allreduce(e_exchange) / self.ncells
             e_icmp2 = e_direct + e_exchange
             if mpi.is_master:
                 self.log.info("  %-12s  direct= %s  exchange= %s  total= %s", "Total:", estr(e_direct), estr(e_exchange), estr(e_icmp2))

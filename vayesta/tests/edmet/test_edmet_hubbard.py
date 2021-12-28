@@ -4,7 +4,7 @@ from vayesta import edmet
 from vayesta.tests.cache import latts
 
 
-class HubbardEDMETTests(unittest.TestCase):
+class EDMET_Hubbard_Tests(unittest.TestCase):
     PLACES_ENERGY = 6
 
     def _test_energy(self, emb, known_values):
@@ -68,23 +68,24 @@ class HubbardEDMETTests(unittest.TestCase):
 
         self._test_energy(emb, known_values)
 
-    def test_16_u4_2imp_4occ(self):
-        """Tests for N=10 U=2 Hubbard model with double site impurities.
-        """
+    # FIXME 10 site / 2 impurity Hubbard model with 1/8 T-vector?
+    #def test_16_u4_2imp_4occ(self):
+    #    """Tests for N=10 U=2 Hubbard model with double site impurities.
+    #    """
 
-        emb = edmet.EDMET(
-                latts['hubb_10_u2']['rhf'],
-                solver='EBFCI',
-                bos_occ_cutoff=4,
-        )
-        emb.site_fragmentation()
-        frag = emb.add_atomic_fragment([0, 1])
-        frag.add_tsymmetric_fragments(tvecs=[8, 1, 1])
-        emb.kernel()
+    #    emb = edmet.EDMET(
+    #            latts['hubb_10_u2']['rhf'],
+    #            solver='EBFCI',
+    #            bos_occ_cutoff=4,
+    #    )
+    #    emb.site_fragmentation()
+    #    frag = emb.add_atomic_fragment([0, 1])
+    #    #frag.add_tsymmetric_fragments(tvecs=[8, 1, 1])
+    #    emb.kernel()
 
-        known_values = {'e_tot': -3.472834250801909}
+    #    known_values = {'e_tot': -3.472834250801909}
 
-        self._test_energy(emb, known_values)
+    #    self._test_energy(emb, known_values)
 
     #FIXME bug #9
     #def test_6x6_u0_1x1imp_2occ(self):

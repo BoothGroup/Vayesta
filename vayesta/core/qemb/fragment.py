@@ -12,7 +12,8 @@ import pyscf.lib
 import pyscf.lo
 
 from vayesta.core.util import *
-from vayesta.core.symmetry import tsymmetry
+from vayesta.core.symmetry import SymmetryIdentity
+from vayesta.core.symmetry import SymmetryTranslation
 import vayesta.core.ao2mo
 import vayesta.core.ao2mo.helper
 from vayesta.core.bath import DMET_Bath
@@ -706,18 +707,13 @@ class Fragment:
     # --- Symmetry
     # ============
 
-    def add_tsymmetric_fragments(self, tvecs, unit='Ang', charge_tol=1e-6):
+    def add_tsymmetric_fragments(self, tvecs, charge_tol=1e-6):
         """
 
         Parameters
         ----------
-        tvecs: (3,3) float array or (3,) integer array
-            Translational symmetry vectors. If an array with shape (3,3) is passed, each row represents
-            a translation vector in cartesian coordinates, in units defined by the parameter `unit`.
-            If an array with shape (3,) is passed, each element represent the number of
-            translation vector corresponding to the a0, a1, and a2 lattice vectors of the cell.
-        unit: ['Ang', 'Bohr'], optional
-            Units of translation vectors. Only used if a (3, 3) array is passed. Default: 'Ang'.
+        tvecs: array(3) of integers
+            Each element represent the number of translation vector corresponding to the a0, a1, and a2 lattice vectors of the cell.
         charge_tol: float, optional
             Tolerance for the error of the mean-field density matrix between symmetry related fragments.
             If the largest absolute difference in the density-matrix is above this value,
@@ -729,14 +725,15 @@ class Fragment:
             List of T-symmetry related fragments. These will be automatically added to base.fragments and
             have the attributes `sym_parent` and `sym_op` set.
         """
-        #if self.boundary_cond == 'open': return []
-
         ovlp = self.base.get_ovlp()
         dm1 = self.mf.make_rdm1()
 
         fragments = []
-        for (dx, dy, dz), tvec in tsymmetry.loop_tvecs(self.mol, tvecs, unit=unit):
-            sym_op = tsymmetry.get_tsymmetry_op(self.mol, tvec, unit='Bohr')
+        for i, (dx, dy, dz) in enumerate(itertools.product(range(tvecs[0]), range(tvecs[1]), range(tvecs[2]))):
+            if i == 0: continue
+            tvec = (dx/tvecs[0], dy/tvecs[1], dz/tvecs[2])
+            sym_op = SymmetryTranslation(self.mol, tvec)
+
             if sym_op is None:
                 self.log.error("No T-symmetric fragment found for translation (%d,%d,%d) of fragment %s", dx, dy, dz, self.name)
                 continue
@@ -785,7 +782,7 @@ class Fragment:
 
     def get_symmetry_operation(self):
         if self.sym_parent is None:
-            return (lambda x, *args, **kwargs: x)
+            return SymmetryIdentity(self.mol)
         return self.sym_op
 
     def get_symmetry_children(self):

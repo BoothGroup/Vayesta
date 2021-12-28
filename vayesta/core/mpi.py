@@ -143,6 +143,9 @@ class MPI_Interface:
             return wrapper
         return decorator
 
+    def create_rma_dict(self, dictionary):
+        return RMA_Dict.from_dict(self, dictionary)
+
 class RMA_Dict:
 
     class RMA_DictElement:
@@ -238,6 +241,14 @@ class RMA_Dict:
         self._writable = False
         self.local_data = {}
         self._elements = {}
+
+    @classmethod
+    def from_dict(cls, mpi, dictionary):
+        rma_dict = RMA_Dict(mpi)
+        with rma_dict.writable():
+            for key, val in dictionary.items():
+                rma_dict[key] = val
+        return rma_dict
 
     @property
     def readable(self):
