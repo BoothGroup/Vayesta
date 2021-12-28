@@ -150,22 +150,25 @@ class UEWF(REWF, UEmbedding):
                     coll[x.id, 'c_vir_a'], coll[x.id, 'c_vir_b'] = c_vir
                     coll[x.id, 'e_occ_a'], coll[x.id, 'e_occ_b'] = x.get_fragment_mo_energy(c_occ)
                     coll[x.id, 'e_vir_a'], coll[x.id, 'e_vir_b'] = x.get_fragment_mo_energy(c_vir)
-                    coll[x.id, 'cderi_a'], cderia_neg = self.get_cderi((c_occ[0], c_vir[0]))   # TODO: Reuse BNO
-                    coll[x.id, 'cderi_b'], cderib_neg = self.get_cderi((c_occ[1], c_vir[1]))   # TODO: Reuse BNO
-                    if cderia_neg is not None:
-                        coll[x.id, 'cderi_a_neg'] = cderia_neg
-                        coll[x.id, 'cderi_b_neg'] = cderib_neg
+                    cderi_a, cderi_a_neg = self.get_cderi((c_occ[0], c_vir[0]))   # TODO: Reuse BNO
+                    cderi_b, cderi_b_neg = self.get_cderi((c_occ[1], c_vir[1]))   # TODO: Reuse BNO
+                    coll[x.id, 'cderi_a'] = cderi_a
+                    coll[x.id, 'cderi_b'] = cderi_b
+                    if cderi_a_neg is not None:
+                        coll[x.id, 'cderi_a_neg'] = cderi_a_neg
+                        coll[x.id, 'cderi_b_neg'] = cderi_b_neg
                     # Symmetry related fragments
                     for y in self.get_fragments(sym_parent=x):
                         sym_op = y.get_symmetry_operation()
-                        coll[y.id, 'c_vir_a'] = sym_op(coll[x.id, 'c_vir_a'])
-                        coll[y.id, 'c_vir_b'] = sym_op(coll[x.id, 'c_vir_b'])
-                        sym_op_aux = sym_op.change_mol(auxmol)
-                        coll[y.id, 'cderi_a'] = sym_op_aux(coll[x.id, 'cderi_a'])
-                        coll[y.id, 'cderi_b'] = sym_op_aux(coll[x.id, 'cderi_b'])
-                        if (x.id, 'cderi_a_neg') in coll:
-                            coll[y.id, 'cderi_a_neg'] = coll[x.id, 'cderi_a_neg']
-                            coll[y.id, 'cderi_b_neg'] = coll[x.id, 'cderi_b_neg']
+                        coll[y.id, 'c_vir_a'] = sym_op(c_vir[0])
+                        coll[y.id, 'c_vir_b'] = sym_op(c_vir[1])
+                        # TODO: Why do we need to invert the atom reordering with argsort?
+                        sym_op_aux = type(sym_op)(auxmol, vector=sym_op.vector, atom_reorder=np.argsort(sym_op.atom_reorder))
+                        coll[y.id, 'cderi_a'] = sym_op_aux(cderi_a)
+                        coll[y.id, 'cderi_b'] = sym_op_aux(cderi_b)
+                        if cderi_a_neg is not None:
+                            coll[y.id, 'cderi_a_neg'] = cderi_a_neg
+                            coll[y.id, 'cderi_b_neg'] = cderi_b_neg
                 # Convert into remote memory access (RMA) dictionary:
                 if mpi:
                     coll = mpi.create_rma_dict(coll)

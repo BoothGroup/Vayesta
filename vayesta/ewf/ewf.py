@@ -442,17 +442,21 @@ class EWF(Embedding):
                     coll[x.id, 'c_vir'] = c_vir
                     coll[x.id, 'e_occ'] = x.get_fragment_mo_energy(c_occ)
                     coll[x.id, 'e_vir'] = x.get_fragment_mo_energy(c_vir)
-                    coll[x.id, 'cderi'], cderi_neg = self.get_cderi((c_occ, c_vir))   # TODO: Reuse BNO
+                    cderi, cderi_neg = self.get_cderi((c_occ, c_vir))   # TODO: Reuse BNO
+                    coll[x.id, 'cderi'] = cderi
+                    # TODO: Test 2D
                     if cderi_neg is not None:
                         coll[x.id, 'cderi_neg'] = cderi_neg
                     # Symmetry related fragments
                     for y in self.get_fragments(sym_parent=x):
                         sym_op = y.get_symmetry_operation()
-                        coll[y.id, 'c_vir'] = sym_op(coll[x.id, 'c_vir'])
-                        sym_op_aux = sym_op.change_mol(auxmol)
-                        coll[y.id, 'cderi'] = sym_op_aux(coll[x.id, 'cderi'])
-                        if (x.id, 'cderi_neg') in coll:
-                            coll[y.id, 'cderi_neg'] = coll[x.id, 'cderi_neg']
+                        coll[y.id, 'c_vir'] = sym_op(c_vir)
+                        # TODO: Why do we need to invert the atom reordering with argsort?
+                        sym_op_aux = type(sym_op)(auxmol, vector=sym_op.vector, atom_reorder=np.argsort(sym_op.atom_reorder))
+                        coll[y.id, 'cderi'] = sym_op_aux(cderi)
+                        #cderi_y2 = self.get_cderi((sym_op(c_occ), sym_op(c_vir)))[0]
+                        if cderi_neg is not None:
+                            coll[y.id, 'cderi_neg'] = cderi_neg
                 # Convert into remote memory access (RMA) dictionary:
                 if mpi:
                     coll = mpi.create_rma_dict(coll)
@@ -461,12 +465,12 @@ class EWF(Embedding):
                 """Helper class"""
 
                 def __init__(self, fragment):
-                    # From symmetry parent:
+                    # The following attributes can be used from the symmetry parent, without modification:
                     f0id = fragment.get_symmetry_parent().id
                     self.p_frag = coll[f0id, 'p_frag']
                     self.e_occ = coll[f0id, 'e_occ']
                     self.e_vir = coll[f0id, 'e_vir']
-                    # Own:
+                    # These attributes are different for every fragment:
                     fid = fragment.id
                     self.c_vir = coll[fid, 'c_vir']
                     self.cderi = coll[fid, 'cderi']

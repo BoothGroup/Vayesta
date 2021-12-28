@@ -123,6 +123,43 @@ class InterclusterMP2_Test(TestCase):
         self.assertAllclose(e6/2, e6_expected)
         self.assertAllclose(e8/2, e8_expected)
 
+    def test_rhf_solid_large(self):
+        mf = cells['h2_cp_k321']['rhf']
+
+        # Add each fragment:
+        emb = ewf.EWF(mf)
+        emb.iao_fragmentation()
+        for atom in range(12):
+            emb.add_atomic_fragment(atom, add_symmetric=False)
+        emb.kernel(bno_threshold=1e-4)
+        e6_expected = -0.002030534136819575
+        e8_expected = -0.002163755740097586
+        e6 = emb.get_intercluster_mp2_energy(1e-6)
+        e8 = emb.get_intercluster_mp2_energy(1e-8)
+        self.assertAllclose(e6, e6_expected)
+        self.assertAllclose(e8, e8_expected)
+
+        # Add unit cell fragments only:
+        emb = ewf.EWF(mf)
+        emb.iao_fragmentation()
+        emb.add_atomic_fragment(0)
+        emb.add_atomic_fragment(1)
+        emb.kernel(bno_threshold=1e-4)
+        e6 = emb.get_intercluster_mp2_energy(1e-6)
+        e8 = emb.get_intercluster_mp2_energy(1e-8)
+        self.assertAllclose(e6, e6_expected)
+        self.assertAllclose(e8, e8_expected)
+
+        # Add symmetry unique fragment only:
+        emb = ewf.EWF(mf)
+        emb.iao_fragmentation()
+        emb.add_atomic_fragment(0, sym_factor=2)
+        emb.kernel(bno_threshold=1e-4)
+        e6 = emb.get_intercluster_mp2_energy(1e-6)
+        e8 = emb.get_intercluster_mp2_energy(1e-8)
+        self.assertAllclose(e6, e6_expected)
+        self.assertAllclose(e8, e8_expected)
+
     def test_uhf_solid(self):
         mf = cells['h3_cp_k211']['uhf']
 

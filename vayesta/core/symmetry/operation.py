@@ -53,7 +53,7 @@ class SymmetryIdentity(SymmetryOperation):
 
 class SymmetryTranslation(SymmetryOperation):
 
-    def __init__(self, cell, vector, boundary=None):
+    def __init__(self, cell, vector, boundary=None, atom_reorder=None, ao_reorder=None):
         super().__init__(cell)
         self.vector = vector
 
@@ -66,11 +66,17 @@ class SymmetryTranslation(SymmetryOperation):
         self.boundary = boundary
 
         # Atom reorder
-        self.atom_reorder, _, self.atom_reorder_phases = self.get_atom_reorder()
-        assert self.atom_reorder is not None
+        self.atom_reorder_phases = None
+        self.ao_reorder_phases = None
+        if atom_reorder is None:
+            atom_reorder, _, self.atom_reorder_phases = self.get_atom_reorder()
+        self.atom_reorder = atom_reorder
+        assert (self.atom_reorder is not None)
         # AO reorder
-        self.ao_reorder, _, self.ao_reorder_phases = self.get_ao_reorder()
-        assert self.ao_reorder is not None
+        if ao_reorder is None:
+            ao_reorder, _, self.ao_reorder_phases = self.get_ao_reorder()
+        self.ao_reorder = ao_reorder
+        assert (self.ao_reorder is not None)
 
     def __call__(self, a, axis=0):
         return self.apply_to_aos(a, axis=axis)
@@ -83,6 +89,8 @@ class SymmetryTranslation(SymmetryOperation):
         if isinstance(a, (tuple, list)):
             return tuple([self.__call__(x, axis=axis) for x in a])
         bc = tuple(axis*[None] + [slice(None, None, None)] + (a.ndim-axis-1)*[None])
+        if self.ao_reorder_phases is None:
+            return np.take(a, self.ao_reorder, axis=axis)
         return np.take(a, self.ao_reorder, axis=axis) * self.ao_reorder_phases[bc]
 
     @property
@@ -171,17 +179,22 @@ class SymmetryTranslation(SymmetryOperation):
         aoslice = self.cell.aoslice_by_atom()[:,2:]
         reorder = np.full((self.cell.nao,), -1)
         inverse = np.full((self.cell.nao,), -1)
-        phases = np.full((self.cell.nao,), 0)
+        if atom_reorder_phases is not None:
+            phases = np.full((self.cell.nao,), 0)
+        else:
+            phases = None
         for atom0 in range(self.natom):
             atom1 = atom_reorder[atom0]
             aos0 = list(range(aoslice[atom0,0], aoslice[atom0,1]))
             aos1 = list(range(aoslice[atom1,0], aoslice[atom1,1]))
             reorder[aos0[0]:aos0[-1]+1] = aos1
             inverse[aos1[0]:aos1[-1]+1] = aos0
-            phases[aos0[0]:aos0[-1]+1] =  atom_reorder_phases[atom1]
+            if atom_reorder_phases is not None:
+                phases[aos0[0]:aos0[-1]+1] =  atom_reorder_phases[atom1]
         assert not np.any(reorder == -1)
         assert not np.any(inverse == -1)
-        assert not np.any(phases == 0)
+        if atom_reorder_phases is not None:
+            assert not np.any(phases == 0)
 
         assert np.all(np.arange(self.nao)[reorder][inverse] == np.arange(self.nao))
 

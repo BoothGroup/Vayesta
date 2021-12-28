@@ -220,6 +220,17 @@ def register_system_cell(cache, key):
         uhf = _make_pbc_mf(cell, df=df, restricted=False)
         cache._cache[key] = {'cell': cell, 'kpts': None, 'rhf': rhf, 'uhf': uhf}
         return
+    if key == 'h2_cp_k321':
+        amat = 2*np.eye(3)
+        amat[2,2] = 4.0
+        cell = _make_cell(amat, 'H 0 0 0 ; H 0 0 0.74', basis='def2-svp', exp_to_discard=0.1)
+        kpts = cell.make_kpts([3,2,1])
+        df = pyscf.pbc.df.GDF(cell, kpts)
+        df.auxbasis = 'def2-svp-ri'
+        rhf = _make_pbc_mf(cell, kpts, df=df)
+        uhf = _make_pbc_mf(cell, kpts, df=df, restricted=False)
+        cache._cache[key] = {'cell': cell, 'kpts': kpts, 'rhf': rhf, 'uhf': uhf}
+        return
     if key == 'h2_cp_k222':
         amat = 2*np.eye(3)
         amat[2,2] = 4.0
