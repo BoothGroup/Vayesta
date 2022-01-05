@@ -26,7 +26,7 @@ allowed_keys_cell = [
 
 
 allowed_keys_latt = [
-        'hubb_6_u0', 'hubb_10_u2', 'hubb_16_u4', 'hubb_6x6_u0_1x1imp',
+        'hubb_6_u0', 'hubb_10_u2', 'hubb_16_u4', 'hubb_16_u4_df', 'hubb_6x6_u0_1x1imp',
         'hubb_6x6_u2_1x1imp', 'hubb_6x6_u6_1x1imp', 'hubb_8x8_u2_2x2imp',
         'hubb_8x8_u2_2x1imp',
 ]
@@ -283,6 +283,7 @@ def register_system_latt(cache, key):
 
     cell = None
     rhf = uhf = False
+    df = False
 
     if key == 'hubb_6_u0':
         cell = latt.Hubbard1D(6, hubbard_u=0.0, nelectron=6)
@@ -293,6 +294,10 @@ def register_system_latt(cache, key):
     elif key == 'hubb_16_u4':
         cell = latt.Hubbard1D(10, hubbard_u=4.0, nelectron=16, boundary='apbc')
         rhf = True
+    elif key == 'hubb_16_u4_df':
+        cell = latt.Hubbard1D(16, hubbard_u=4.0, nelectron=16, boundary='apbc')
+        rhf = True
+        df = True
     elif key == 'hubb_6x6_u0_1x1imp':
         cell = latt.Hubbard2D((6, 6), hubbard_u=0.0, nelectron=26, tiles=(1, 1), boundary='pbc')
         rhf = True
@@ -314,11 +319,15 @@ def register_system_latt(cache, key):
 
     if rhf:
         rhf = latt.LatticeRHF(cell)
+        if df:
+            rhf = rhf.density_fit()
         rhf.conv_tol = 1e-12
         rhf.kernel()
 
     if uhf:
         uhf = latt.LatticeUHF(cell)
+        if df:
+            uhf = uhf.density_fit()
         uhf.conv_tol = 1e-12
         uhf.kernel()
 

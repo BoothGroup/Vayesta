@@ -36,10 +36,12 @@ class MoleculeRPATest(unittest.TestCase):
 
         self._test_energy(emb, known_values)
 
-        emb = rpa.dRPA(moles['lih_ccpvdz']['rhf'])
+        emb = rpa.ssRPA(moles['lih_ccpvdz']['rhf'])
         emb.kernel()
 
         self._test_energy(emb, known_values)
+
+
 
 
 if __name__ == '__main__':

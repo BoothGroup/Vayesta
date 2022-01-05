@@ -9,7 +9,7 @@ import vayesta.dmet
 import vayesta.edmet
 
 natom = 6
-filename = "energies_scEDMET_h{:d}_compare.txt".format(natom)
+filename = "energies_scEDMET_h{:d}_compare_df.txt".format(natom)
 
 with open(filename, "a") as f:
     f.write(("%6s" + "  %16s  " * 8) % (
@@ -29,43 +29,44 @@ for d in np.arange(0.5, 3.0001, 0.25):
 
     # Hartree-Fock
     mf = pyscf.scf.RHF(mol)
-    mf.kernel()
+    dfmf = mf.density_fit()
+    dfmf.kernel()
 
     # Reference full system CCSD:
-    mycc = pyscf.cc.CCSD(mf)
+    mycc = pyscf.cc.CCSD(dfmf)
     mycc.kernel()
 
-    myfci = pyscf.fci.FCI(mf)
+    myfci = pyscf.fci.FCI(dfmf)
     myfci.kernel()
 
     # Single-shot
-    dmet_oneshot = vayesta.dmet.DMET(mf, solver='FCI', max_elec_err=1e-4, maxiter=1)
+    dmet_oneshot = vayesta.dmet.DMET(dfmf, solver='FCI', max_elec_err=1e-4, maxiter=1)
     dmet_oneshot.iao_fragmentation()
     for i in range(0, natom, 2):
         dmet_oneshot.add_atomic_fragment([i, i + 1])
     dmet_oneshot.kernel()
     # Full DMET
-    dmet_diis = vayesta.dmet.DMET(mf, solver='FCI', charge_consistent=True, diis=True,
+    dmet_diis = vayesta.dmet.DMET(dfmf, solver='FCI', charge_consistent=True, diis=True,
                                   max_elec_err=1e-4)
     dmet_diis.iao_fragmentation()
     for i in range(0, natom, 2):
         dmet_diis.add_atomic_fragment([i, i + 1])
     dmet_diis.kernel()
     # Single-shot EDMET
-    edmet_oneshot = vayesta.edmet.EDMET(mf, solver='EBFCI', max_elec_err=1e-4, maxiter=1, max_boson_occ=2)
+    edmet_oneshot = vayesta.edmet.EDMET(dfmf, solver='EBFCI', max_elec_err=1e-4, maxiter=1, max_boson_occ=2)
     edmet_oneshot.iao_fragmentation()
     for i in range(0, natom, 2):
         edmet_oneshot.add_atomic_fragment([i, i + 1])
     edmet_oneshot.kernel()
     # Full DMET
-    edmet_orig = vayesta.edmet.EDMET(mf, solver='EBFCI', charge_consistent=True, max_elec_err=1e-4, maxiter=40,
+    edmet_orig = vayesta.edmet.EDMET(dfmf, solver='EBFCI', charge_consistent=True, max_elec_err=1e-4, maxiter=40,
                                      max_boson_occ=2, old_sc_condition=True)
     edmet_orig.iao_fragmentation()
     for i in range(0, natom, 2):
         edmet_orig.add_atomic_fragment([i, i + 1])
     edmet_orig.kernel()
 
-    edmet_new = vayesta.edmet.EDMET(mf, solver='EBFCI', charge_consistent=True, max_elec_err=1e-4, maxiter=40,
+    edmet_new = vayesta.edmet.EDMET(dfmf, solver='EBFCI', charge_consistent=True, max_elec_err=1e-4, maxiter=40,
                                     max_boson_occ=2)
     edmet_new.iao_fragmentation()
     for i in range(0, natom, 2):
@@ -76,7 +77,7 @@ for d in np.arange(0.5, 3.0001, 0.25):
     e_sc_edmet2 = edmet_new.e_tot if edmet_new.converged else np.NaN
     e_cc = mycc.e_tot if mycc.converged else np.NaN
     e_dmet = dmet_diis.e_tot if dmet_diis.converged else np.NaN
-    print("E%-14s %+16.8f Ha" % ('(HF)=', mf.e_tot))
+    print("E%-14s %+16.8f Ha" % ('(HF)=', dfmf.e_tot))
     print("E%-14s %+16.8f Ha" % ('(CCSD)=', e_cc))
     print("E%-14s %+16.8f Ha" % ('(FCI)=', myfci.e_tot))
     print("E%-14s %+16.8f Ha" % ('(DMET-FCI)=', dmet_oneshot.e_tot))
@@ -85,7 +86,7 @@ for d in np.arange(0.5, 3.0001, 0.25):
     print("E%-14s %+16.8f Ha" % ('(EDMET2-FCI)=', e_sc_edmet2))
 
     with open(filename, "a") as f:
-        f.write("%.2f  % 16.8f  % 16.8f  % 16.8f  %16.8f  %16.8f  %16.8f  %16.8f  %16.8f\n" % (d, mf.e_tot, e_cc,
+        f.write("%.2f  % 16.8f  % 16.8f  % 16.8f  %16.8f  %16.8f  %16.8f  %16.8f  %16.8f\n" % (d, dfmf.e_tot, e_cc,
                                                                                                myfci.e_tot,
                                                                                                dmet_oneshot.e_tot,
                                                                                                e_dmet,
