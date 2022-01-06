@@ -685,7 +685,10 @@ class RAGF2:
             else:
                 gf = agf2.GreensFunction(w, v, chempot=se.chempot)
             gf.chempot = se.chempot = agf2.chempot.binsearch_chempot((w, v), self.nact, nelec)[0]
-            return gf, se, True
+            if return_fock:
+                return gf, se, True, fock
+            else:
+                return gf, se, True
 
         self.log.info('Fock loop')
         self.log.info('*********')
@@ -928,7 +931,7 @@ class RAGF2:
         ''' Calculate the MP2 energy
         '''
 
-        mo_energy = mo_energy if mo_energy is not None else self.mo_energy
+        mo_energy = mo_energy if mo_energy is not None else self.mo_energy[self.act]
         se = se or self.se
 
         if not flip:
