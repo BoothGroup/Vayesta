@@ -1,18 +1,8 @@
 # --- Standard
-import os.path
-import functools
-from datetime import datetime
 import dataclasses
 from typing import Union
 # --- External
 import numpy as np
-import scipy
-import scipy.linalg
-import pyscf
-import pyscf.lo
-import pyscf.scf
-import pyscf.pbc
-import pyscf.pbc.tools
 # --- Internal
 from vayesta.core.util import *
 from vayesta.core import QEmbeddingMethod

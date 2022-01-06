@@ -7,7 +7,14 @@ import pyscf.ci
 import pyscf.fci
 
 from vayesta.core.util import *
-from . import helper
+
+def transform_amplitude(t, u_occ, u_vir):
+    """(Old basis|new basis)"""
+    if np.ndim(t) == 2:
+        return einsum("ia,ix,ay->xy", t, u_occ, u_vir)
+    if np.ndim(t) == 4:
+        return einsum("ijab,ix,jy,az,bw->xyzw", t, u_occ, u_occ, u_vir, u_vir)
+    raise NotImplementedError('Transformation of amplitudes with ndim=%d' % np.ndim(t))
 
 
 def make_cas_tcc_function(solver, c_cas_occ, c_cas_vir, eris):
@@ -231,7 +238,7 @@ def make_cross_fragment_tcc_function(solver, mode, coupled_fragments=None, corre
                 x.results.convert_amp_c_to_t()
             # Transform fragment X T-amplitudes to current active space and form difference
             if correct_t1:
-                tx1 = helper.transform_amplitude(x.results.t1, p_occ, p_vir)   # ia,ix,ap->xp
+                tx1 = transform_amplitude(x.results.t1, p_occ, p_vir)   # ia,ix,ap->xp
                 #tx1[:] = 0
                 dtx1 = (tx1 - t1)
                 dtx1 = np.dot(px, dtx1)
@@ -243,7 +250,7 @@ def make_cross_fragment_tcc_function(solver, mode, coupled_fragments=None, corre
             else:
                 dtx1 = 0
             if correct_t2:
-                tx2 = helper.transform_amplitude(x.results.t2, p_occ, p_vir)   # ijab,ix,jy,ap,bq->xypq
+                tx2 = transform_amplitude(x.results.t2, p_occ, p_vir)   # ijab,ix,jy,ap,bq->xypq
                 #tx2[:] = 0
                 dtx2 = (tx2 - t2)
                 if mode == 1:
@@ -381,16 +388,16 @@ def make_cross_fragment_tcc_function(solver, mode, coupled_fragments=None, corre
 
             # Project CC T amplitudes to cluster space of fragment X
             if correct_t1:
-                tx1_cc = helper.transform_amplitude(t1, p_occ.T, p_vir.T)
+                tx1_cc = transform_amplitude(t1, p_occ.T, p_vir.T)
                 dtx1 = (tx1 - tx1_cc)
                 dtx1 = np.dot(px, dtx1)
-                dtx1 = helper.transform_amplitude(dtx1, p_occ, p_vir)   # Transform back
+                dtx1 = transform_amplitude(dtx1, p_occ, p_vir)   # Transform back
                 assert dtx1.shape == dt1.shape
                 dt1 += dtx1
             else:
                 dtx1 = 0
             if correct_t2:
-                tx2_cc = helper.transform_amplitude(t2, p_occ.T, p_vir.T)   # ijab,ix,jy,ap,bq->xypq
+                tx2_cc = transform_amplitude(t2, p_occ.T, p_vir.T)   # ijab,ix,jy,ap,bq->xypq
                 dtx2 = (tx2 - tx2_cc)
                 if mode == 1:
                     dtx2 = einsum('xi,yj,ijab->xyab', px, px, dtx2)
@@ -399,7 +406,7 @@ def make_cross_fragment_tcc_function(solver, mode, coupled_fragments=None, corre
                     dtx2 = einsum('xi,yj,ijab->xyab', px, env, dtx2)
                 elif mode == 3:
                     dtx2 = einsum('xi,ijab->xjab', px, dtx2)
-                dtx2 = helper.transform_amplitude(dtx2, p_occ, p_vir)   # Transform back
+                dtx2 = transform_amplitude(dtx2, p_occ, p_vir)   # Transform back
                 assert dtx2.shape == dt2.shape
                 dt2 += dtx2
             else:
