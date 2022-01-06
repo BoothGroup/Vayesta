@@ -19,12 +19,12 @@ mf.kernel()
 # Calculate each fragment:
 ewf1 = vayesta.ewf.EWF(mf, solver='FCI', fragment_type='Site', bath_type=None)
 for site in range(0, nsite, nimp):
-    ewf1.make_atom_fragment(list(range(site, site+nimp)))
+    ewf1.add_atomic_fragment(list(range(site, site + nimp)))
 ewf1.kernel()
 
 # Calculate a single fragment and use translational symmetry:
 ewf2 = vayesta.ewf.EWF(mf, solver='FCI', fragment_type='Site', bath_type=None)
-f = ewf2.make_atom_fragment(list(range(nimp)))
+f = ewf2.add_atomic_fragment(list(range(nimp)))
 ewf2.kernel()
 
 # Add fragments which are translationally symmetric to f - the results of the fragment f

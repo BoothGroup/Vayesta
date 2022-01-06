@@ -23,15 +23,17 @@ mf = pyscf.scf.RHF(mol)
 mf.kernel()
 
 # DMET calculation with DIIS extrapolation of the high-level correlation potential.
-dmet_diis = vayesta.dmet.DMET(mf, solver='FCI', fragment_type='IAO', charge_consistent=False, diis=True,
+dmet_diis = vayesta.dmet.DMET(mf, solver='FCI', charge_consistent=False, diis=True,
                               max_elec_err = 1e-6)
-dmet_diis.make_atom_fragment([0,1]); dmet_diis.make_atom_fragment([2,3]); dmet_diis.make_atom_fragment([4,5])
+dmet_diis.iao_fragmentation()
+dmet_diis.add_atomic_fragment([0, 1]); dmet_diis.add_atomic_fragment([2, 3]); dmet_diis.add_atomic_fragment([4, 5])
 dmet_diis.kernel()
 
 # DMET calculation without DIIS, using
-dmet_mix = vayesta.dmet.DMET(mf, solver='FCI', fragment_type='IAO', charge_consistent=False, diis=False,
+dmet_mix = vayesta.dmet.DMET(mf, solver='FCI', charge_consistent=False, diis=False,
                              max_elec_err = 1e-6)
-dmet_mix.make_atom_fragment([0,1]); dmet_mix.make_atom_fragment([2,3]); dmet_mix.make_atom_fragment([4,5])
+dmet_mix.iao_fragmentation()
+dmet_mix.add_atomic_fragment([0, 1]); dmet_mix.add_atomic_fragment([2, 3]); dmet_mix.add_atomic_fragment([4, 5])
 dmet_mix.kernel()
 
 ediff = abs(dmet_diis.e_dmet - dmet_mix.e_dmet)

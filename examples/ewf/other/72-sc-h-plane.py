@@ -39,12 +39,12 @@ for d in np.arange(0.7, 3.0001, 0.25):
 
     # One-shot EWF-CCSD
     ecc = vayesta.ewf.EWF(kmf, bno_threshold=1e-4)
-    ecc.make_all_atom_fragments()
+    ecc.add_all_atomic_fragments()
     ecc.kernel()
 
     # Self-consistent EWF-CCSD
     scecc = vayesta.ewf.EWF(kmf, bno_threshold=1e-4, sc_mode=1)
-    scecc.make_all_atom_fragments()
+    scecc.add_all_atomic_fragments()
     scecc.tailor_all_fragments()
     scecc.kernel()
 

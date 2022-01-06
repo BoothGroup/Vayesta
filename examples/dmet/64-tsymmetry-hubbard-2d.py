@@ -20,14 +20,16 @@ mf = vayesta.lattmod.LatticeMF(mol)
 mf.kernel()
 
 # Calculate each fragment:
-dmet1 = vayesta.dmet.DMET(mf, solver='FCI', fragment_type='Site', maxiter=2)
+dmet1 = vayesta.dmet.DMET(mf, solver='FCI', maxiter=2)
+dmet1.site_fragmentation()
 for site in range(0, nsite, nimp):
-    dmet1.make_atom_fragment(list(range(site, site + nimp)))
+    dmet1.add_atomic_fragment(list(range(site, site + nimp)))
 dmet1.kernel()
 
 # Calculate a single fragment and use translational symmetry:
-dmet2 = vayesta.dmet.DMET(mf, solver='FCI', fragment_type='Site', maxiter=2)
-f = dmet2.make_atom_fragment(list(range(nimp)))
+dmet2 = vayesta.dmet.DMET(mf, solver='FCI', maxiter=2)
+dmet2.site_fragmentation()
+f = dmet2.add_atomic_fragment(list(range(nimp)))
 
 # Add fragments which are translationally symmetric to f - the results of the fragment f
 # fill be automatically copied.

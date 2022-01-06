@@ -137,7 +137,7 @@ for d in np.arange(dmin, dmax+1e-12, dstep):
     fci_cr1 = ewf.make_ao_fragment(['1 Cr 4s', '1 Cr 3d'], solver='FCI', energy_factor=0, tcc_fci_opts=fci_opts)
     fci_cr0.kernel(np.inf)
     fci_cr1.kernel(np.inf)
-    ccsd = ewf.make_atom_fragment([0,1])
+    ccsd = ewf.add_atomic_fragment([0, 1])
     ccsd.couple_to_fragments([fci_cr0, fci_cr1])
     e_corr = ccsd.kernel().e_corr
 
