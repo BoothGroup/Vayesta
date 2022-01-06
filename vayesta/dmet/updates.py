@@ -1,5 +1,7 @@
 import numpy as np
+
 from pyscf.lib import diis
+
 
 class Update:
     def __init__(self):
@@ -28,7 +30,7 @@ class Update:
 
         def get_nonflat(flat_params, shapes, x):
             if type(shapes[0]) == int:
-                return flat_params[x:x+np.product(shapes)].reshape(shapes), x + np.product(shapes)
+                return flat_params[x:x + np.product(shapes)].reshape(shapes), x + np.product(shapes)
             else:
                 finres = []
                 for shape in shapes:
@@ -37,11 +39,12 @@ class Update:
                 return finres, x
 
         nonflat_params, x = get_nonflat(params, self.param_shape, x)
-        assert(x == len(params))
+        assert (x == len(params))
         return nonflat_params
 
+
 class DIISUpdate(Update):
-    def __init__(self, space_size = 6, min_space_size = 1):
+    def __init__(self, space_size=6, min_space_size=1):
         super().__init__()
         # Force incore on DIIS, otherwise we'll demolish our storage for large enough systems.
         self.adiis = diis.DIIS(incore=True)
@@ -50,13 +53,14 @@ class DIISUpdate(Update):
 
     def update(self, params):
         flat_params = self._flatten_params(params)
-        diff = sum((flat_params - self.prev_params)**2)**(0.5)
+        diff = sum((flat_params - self.prev_params) ** 2) ** (0.5)
         update = self.adiis.update(flat_params)
         self.prev_params = flat_params
         return self._unflatten_params(update), diff
 
+
 class MixUpdate(Update):
-    def __init__(self, alpha = 1.0):
+    def __init__(self, alpha=1.0):
         super().__init__()
         self.alpha = alpha
 

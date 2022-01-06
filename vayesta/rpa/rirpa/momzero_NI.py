@@ -1,11 +1,10 @@
 """Functionality to calculate zeroth moment via numerical integration """
-import scipy.optimize
-
-from vayesta.rpa.rirpa.NI_eval import NumericalIntegratorClenCurInfinite, \
-    NumericalIntegratorClenCurSemiInfinite, NumericalIntegratorGaussianSemiInfinite, NumericalIntegratorBase
-from vayesta.core.util import *
 
 import numpy as np
+
+from vayesta.core.util import *
+from vayesta.rpa.rirpa.NI_eval import NumericalIntegratorClenCurInfinite, \
+    NumericalIntegratorClenCurSemiInfinite, NumericalIntegratorGaussianSemiInfinite, NumericalIntegratorBase
 
 
 class NIMomZero(NumericalIntegratorClenCurInfinite):

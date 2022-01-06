@@ -1,14 +1,15 @@
 """Straightforward N^6 implementation for dRPA in a basis set, based upon the standard Hermitian reformulation
 used in TDHF approaches."""
 
+import logging
+from timeit import default_timer as timer
+
 import numpy as np
 import scipy.linalg
 
 import pyscf.ao2mo
-
 from vayesta.core.util import *
-from timeit import default_timer as timer
-import logging
+
 
 class ssRPA:
     """Approach based on equations expressed succinctly in the appendix of
@@ -23,35 +24,42 @@ class ssRPA:
     @property
     def nocc(self):
         return sum(self.mf.mo_occ > 0)
+
     @property
     def nvir(self):
         return len(self.mf.mo_occ) - self.nocc
+
     @property
     def ov(self):
         return self.nocc * self.nvir
+
     @property
     def mo_coeff(self):
         """Occupied MO coefficients."""
         return self.mf.mo_coeff
+
     @property
     def mo_coeff_occ(self):
         """Occupied MO coefficients."""
-        return self.mo_coeff[:,:self.nocc]
+        return self.mo_coeff[:, :self.nocc]
+
     @property
     def mo_coeff_vir(self):
         """Virtual MO coefficients."""
-        return self.mo_coeff[:,self.nocc:]
+        return self.mo_coeff[:, self.nocc:]
+
     @property
     def e_corr(self):
         try:
             return self.e_corr_ss
         except AttributeError as e:
             self.log.critical("Can only access rpa.e_corr after running rpa.kernel.")
+
     @property
     def e_tot(self):
         return self.mf.e_tot + self.e_corr
 
-    def kernel(self, xc_kernel = None):
+    def kernel(self, xc_kernel=None):
         """Solve same-spin component of dRPA response.
         At level of dRPA this is the only contribution to correlation energy; introduction of exchange will lead to
         spin-flip contributions.
@@ -71,7 +79,7 @@ class ssRPA:
         eps = eps.reshape((self.ov,))
 
         if xc_kernel is None:
-            self.e_corr_ss = 0.5 * (sum(self.freqs_ss) - 2 * v.trace() - 2*sum(eps))
+            self.e_corr_ss = 0.5 * (sum(self.freqs_ss) - 2 * v.trace() - 2 * sum(eps))
         else:
             # Take this with a pinch of salt...
             self.e_corr_ss = 0.5 * (sum(self.freqs_ss) - 0.5 * (ApB + AmB).trace())
@@ -90,11 +98,11 @@ class ssRPA:
         self.freqs_sf = (AmB[:self.ov], AmB[self.ov:])
         self.log.timing("Time to solve RPA problem: %s", time_string(timer() - t0))
 
-        self.log.info("Total RPA wall time:  %s", time_string(timer()-t_start))
+        self.log.info("Total RPA wall time:  %s", time_string(timer() - t_start))
 
         return self.e_corr_ss
 
-    def _gen_arrays(self, xc_kernel = None):
+    def _gen_arrays(self, xc_kernel=None):
         t0 = timer()
         # Only have diagonal components in canonical basis.
         eps = np.zeros((self.nocc, self.nvir))
@@ -106,15 +114,15 @@ class ssRPA:
 
         eris = self.ao2mo()
         # Get coulomb interaction in occupied-virtual space.
-        v = eris[:self.nocc, self.nocc:, :self.nocc, self.nocc:].reshape((self.ov,self.ov))
+        v = eris[:self.nocc, self.nocc:, :self.nocc, self.nocc:].reshape((self.ov, self.ov))
 
-        ApB = np.zeros((self.ov*2, self.ov*2))
+        ApB = np.zeros((self.ov * 2, self.ov * 2))
         ApB[:self.ov, :self.ov] = ApB[:self.ov, self.ov:] = ApB[self.ov:, :self.ov] = ApB[self.ov:, self.ov:] = 2 * v
         # At this point AmB is just epsilon so add in.
         ApB[np.diag_indices_from(ApB)] += AmB
 
         if xc_kernel is None:
-            M = np.einsum("p,pq,q->pq", AmB**(0.5), ApB, AmB**(0.5))
+            M = np.einsum("p,pq,q->pq", AmB ** (0.5), ApB, AmB ** (0.5))
         else:
             AmB = np.diag(AmB)
             # Grab A and B contributions for XC kernel.
@@ -154,11 +162,11 @@ class ssRPA:
         self.log.timing("Time to build RPA arrays: %s", time_string(timer() - t0))
         return M, AmB, ApB, v
 
-    def gen_moms(self, max_mom, xc_kernel = None):
+    def gen_moms(self, max_mom, xc_kernel=None):
         res = {}
-        for x in range(max_mom+1):
+        for x in range(max_mom + 1):
             # Have different spin components in general; these are alpha-alpha, alpha-beta and beta-beta.
-            res[x] = np.zeros((2*self.ov,2*self.ov))
+            res[x] = np.zeros((2 * self.ov, 2 * self.ov))
             res[x][:self.ov, :self.ov] = np.einsum("pn,n,qn->pq", self.XpY_ss[0], self.freqs_ss ** x, self.XpY_ss[0])
             res[x][self.ov:, self.ov:] = np.einsum("pn,n,qn->pq", self.XpY_ss[1], self.freqs_ss ** x, self.XpY_ss[1])
             res[x][:self.ov, self.ov:] = np.einsum("pn,n,qn->pq", self.XpY_ss[0], self.freqs_ss ** x, self.XpY_ss[1])
@@ -191,6 +199,6 @@ class ssRPA:
             eris = pyscf.ao2mo.full(self.mf._eri, mo_coeff, compact=False)
         else:
             eris = self.mol.ao2mo(mo_coeff, compact=False)
-        eris = eris.reshape(4*[mo_coeff.shape[-1]])
-        self.log.timing("Time for AO->MO of ERIs:  %s", time_string(timer()-t0))
+        eris = eris.reshape(4 * [mo_coeff.shape[-1]])
+        self.log.timing("Time for AO->MO of ERIs:  %s", time_string(timer() - t0))
         return eris

@@ -1,22 +1,15 @@
-import os.path
-import functools
-from datetime import datetime
 import dataclasses
+from timeit import default_timer as timer
 
 import numpy as np
 import scipy
 import scipy.linalg
 
-from vayesta.core.util import *
 from vayesta.core import QEmbeddingMethod
-
-from vayesta.ewf import helper
+from vayesta.core.util import *
 from .fragment import VALID_SOLVERS, DMETFragment, DMETFragmentExit
 from .sdp_sc import perform_SDP_fit
 from .updates import MixUpdate, DIISUpdate
-
-from timeit import default_timer as timer
-import copy
 
 
 @dataclasses.dataclass

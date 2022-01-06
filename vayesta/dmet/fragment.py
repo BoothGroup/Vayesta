@@ -1,26 +1,20 @@
-from timeit import default_timer as timer
 import dataclasses
-import copy
-import gc
+from timeit import default_timer as timer
 
 # External libaries
 import numpy as np
-import scipy
-import scipy.linalg
 
-# Internal libaries
-import pyscf
-# import pyscf.pbc
-from pyscf.pbc.tools import cubegen
-
+from vayesta.core import QEmbeddingFragment
+from vayesta.core.actspace import ActiveSpace
+from vayesta.core.bath import DMET_Bath, BNO_Bath, MP2_BNO_Bath, CompleteBath
 # Local modules
 from vayesta.core.util import *
-from vayesta.core import QEmbeddingFragment
-# We might want to move the useful things from here into core, since they seem pretty general.
-
-from vayesta.core.bath import DMET_Bath, BNO_Bath, MP2_BNO_Bath, CompleteBath
-from vayesta.core.actspace import ActiveSpace
 from vayesta.solver import get_solver_class2 as get_solver_class
+
+
+# Internal libaries
+# import pyscf.pbc
+# We might want to move the useful things from here into core, since they seem pretty general.
 
 
 class DMETFragmentExit(Exception):
@@ -44,7 +38,7 @@ class DMETFragment(QEmbeddingFragment):
         sc_mode: int = NotSet
         # Bath type
         bath_type: str = NotSet
-        bno_number: int = None         # Set a fixed number of BNOs
+        bno_number: int = None  # Set a fixed number of BNOs
         # Additional fragment specific options:
         bno_threshold_factor: float = 1.0
         # CAS methods
@@ -229,7 +223,8 @@ class DMETFragment(QEmbeddingFragment):
             self.log.debugv("Passing fragment option %s to solver.", attr)
             solver_opts[attr] = getattr(self.opts, attr)
 
-        solver_opts["v_ext"] = None if chempot is None else - chempot * self.get_fragment_projector(self.cluster.c_active)
+        solver_opts["v_ext"] = None if chempot is None else - chempot * self.get_fragment_projector(
+            self.cluster.c_active)
 
         return solver_opts
 
@@ -271,9 +266,9 @@ class DMETFragment(QEmbeddingFragment):
         act = cm.get_frozen_mask()
         occ = cm.mo_occ[act] > 0
         vir = cm.mo_occ[act] == 0
-        c = cm.mo_coeff[:,act]
-        c_occ = c[:,occ]
-        c_vir = c[:,vir]
+        c = cm.mo_coeff[:, act]
+        c_occ = c[:, occ]
+        c_vir = c[:, vir]
 
         p1 = p2 = None
         if c1 is not None:

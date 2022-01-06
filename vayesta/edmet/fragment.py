@@ -1,16 +1,13 @@
-import gc
-import scipy.linalg
-import pyscf.lib
-
-from vayesta.dmet.fragment import DMETFragment
-from vayesta.core.util import *
 import dataclasses
-
-from vayesta.solver import get_solver_class2 as get_solver_class
-
 from timeit import default_timer as timer
 
 import numpy as np
+import scipy.linalg
+
+import pyscf.lib
+from vayesta.core.util import *
+from vayesta.dmet.fragment import DMETFragment
+from vayesta.solver import get_solver_class2 as get_solver_class
 
 
 class EDMETFragmentExit(Exception):
@@ -123,7 +120,7 @@ class EDMETFragment(DMETFragment):
         maxdev = abs(amb - renorm_amb)[:2 * self.ov_active, :2 * self.ov_active].max()
         if maxdev > 1e-8:
             self.log.error("Maximum deviation in irreducible polarisation propagator=%6.4e",
-                      abs(amb - renorm_amb)[:2 * self.ov_active, :2 * self.ov_active].max())
+                           abs(amb - renorm_amb)[:2 * self.ov_active, :2 * self.ov_active].max())
         a = 0.5 * (apb + renorm_amb)
         b = 0.5 * (apb - renorm_amb)
         couplings_aa = np.zeros((self.nbos, self.cluster.norb_active, self.cluster.norb_active))
@@ -331,7 +328,7 @@ class EDMETFragment(DMETFragment):
             proj_to_order = proj_to_order.reshape((self.n_frag ** 2, self.n_frag, self.n_frag))
             # Now restrict to triangular portion of array
             proj_to_order = pyscf.lib.pack_tril(proj_to_order)
-            #proj_from_order = np.linalg.pinv(proj_to_order)
+            # proj_from_order = np.linalg.pinv(proj_to_order)
             # Now have rotation between single fragment ordering, and fragment particle-hole excits.
             rot_ov_frag = dot(proj_to_order.T, rot_ov_frag)
             # Get pseudo-inverse to map from frag to loc. Since occupied-virtual excitations aren't spanning this
@@ -426,24 +423,24 @@ class EDMETFragment(DMETFragment):
                 representation will be necessarily asymmetric. Once code is generalised for complex numbers can
                 use symmetric decomposition..."""
                 na, nb = vaa.shape[0], vbb.shape[0]
-                vaa = vaa.reshape((na**2, na**2))
-                vbb = vbb.reshape((nb**2, nb**2))
-                vab = vab.reshape((na**2, nb**2))
+                vaa = vaa.reshape((na ** 2, na ** 2))
+                vbb = vbb.reshape((nb ** 2, nb ** 2))
+                vab = vab.reshape((na ** 2, nb ** 2))
 
-                fullv = np.zeros((na**2 + nb**2, na**2 + nb**2))
-                fullv[:na**2, :na**2] = vaa
-                fullv[na**2:, na**2:] = vbb
-                fullv[:na**2, na**2:] = vab
-                fullv[na**2:, :na**2] = vab.T
+                fullv = np.zeros((na ** 2 + nb ** 2, na ** 2 + nb ** 2))
+                fullv[:na ** 2, :na ** 2] = vaa
+                fullv[na ** 2:, na ** 2:] = vbb
+                fullv[:na ** 2, na ** 2:] = vab
+                fullv[na ** 2:, :na ** 2] = vab.T
                 u, s, v = np.linalg.svd(fullv, full_matrices=False)
                 want = s > 1e-8
                 nwant = sum(want)
                 self.log.info("Fragment %d gives rank %d xc-kernel contribution.", self.id, nwant)
-                repr_l = einsum("n,np->np", s[:nwant]**(0.5), v[:nwant])
-                repr_r = einsum("n,pn->np", s[:nwant]**(0.5), u[:,:nwant])
+                repr_l = einsum("n,np->np", s[:nwant] ** (0.5), v[:nwant])
+                repr_r = einsum("n,pn->np", s[:nwant] ** (0.5), u[:, :nwant])
 
-                repa = (repr_l[:, :na**2].reshape((nwant, na, na)), repr_r[:, :na**2].reshape((nwant, na, na)))
-                repb = (repr_l[:, na**2:].reshape((nwant, nb, nb)), repr_r[:, na**2:].reshape((nwant, nb, nb)))
+                repa = (repr_l[:, :na ** 2].reshape((nwant, na, na)), repr_r[:, :na ** 2].reshape((nwant, na, na)))
+                repb = (repr_l[:, na ** 2:].reshape((nwant, nb, nb)), repr_r[:, na ** 2:].reshape((nwant, nb, nb)))
                 return repa, repb
 
             return construct_low_rank_rep(v_aa, v_ab, v_bb)
@@ -463,6 +460,7 @@ class EDMETFragment(DMETFragment):
             v_ab = einsum("ijkl,pi,qj,rk,sl->pqrs", v_ab, c, c, c, c)
             v_bb = einsum("ijkl,pi,qj,rk,sl->pqrs", v_bb, c, c, c, c)
             return v_aa, v_ab, v_bb
+
 
 def bogoliubov_decouple(apb, amb):
     # Perform quick bogliubov transform to decouple our bosons.

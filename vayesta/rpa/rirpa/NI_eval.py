@@ -1,6 +1,6 @@
 import numpy as np
-import scipy.optimize
 import scipy.integrate
+import scipy.optimize
 
 
 class NIException(BaseException):
@@ -156,7 +156,7 @@ class NumericalIntegratorBase:
             good guesses for the optimum and a good bound on either side.
             Note that the size of resulting bracket will be proportional to both the optimal value and the scaling
             factor."""
-            max_exp = int(np.log(maxval/ainit) / np.log(scale_fac))
+            max_exp = int(np.log(maxval / ainit) / np.log(scale_fac))
             vals = np.array([ainit * scale_fac ** x for x in range(max_exp)])
             fvals = np.array([abs(get_val(x)) for x in vals])
             optarg = fvals.argmin()

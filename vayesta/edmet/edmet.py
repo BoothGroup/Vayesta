@@ -1,20 +1,16 @@
 import dataclasses
+from timeit import default_timer as timer
 
 import numpy as np
 import scipy
 import scipy.linalg
 
-from timeit import default_timer as timer
-import copy
 from vayesta.core.util import *
-
-from .fragment import VALID_SOLVERS, EDMETFragment, EDMETFragmentExit
-from vayesta.dmet.sdp_sc import perform_SDP_fit
-
 from vayesta.dmet import DMET
-from vayesta.rpa import ssRPA, ssRIRPA
-
+from vayesta.dmet.sdp_sc import perform_SDP_fit
 from vayesta.dmet.updates import MixUpdate, DIISUpdate
+from vayesta.rpa import ssRPA, ssRIRPA
+from .fragment import VALID_SOLVERS, EDMETFragment, EDMETFragmentExit
 
 
 @dataclasses.dataclass
@@ -43,7 +39,6 @@ class EDMET(DMET):
     @property
     def with_df(self):
         return hasattr(self.mf, "with_df")
-
 
     def check_solver(self, solver):
         if solver not in VALID_SOLVERS:
@@ -217,7 +212,7 @@ class EDMET(DMET):
             else:
                 mom0_interact = np.zeros_like(target_rot)
             # Get appropriate slices to obtain required active spaces.
-            ovs_active = [2*f.ov_active for f in sym_parents]
+            ovs_active = [2 * f.ov_active for f in sym_parents]
             ovs_active_slices = [slice(sum(ovs_active[:i]), sum(ovs_active[:i + 1])) for i in
                                  range(len(sym_parents))]
             # Use interaction component of moment to generate bosonic degrees of freedom.
@@ -305,7 +300,7 @@ class EDMET(DMET):
         eps = eps - self.mf.mo_energy[self.nocc:]
         # Separate into spin components; in RHF case we still expect aaaa and aabb components to differ.
         if self.with_df:
-            k = [[np.zeros((0, self.nao, self.nao))]*2, [np.zeros((0, self.nao, self.nao))]*2]
+            k = [[np.zeros((0, self.nao, self.nao))] * 2, [np.zeros((0, self.nao, self.nao))] * 2]
 
             def combine(old, new):
                 return [[np.concatenate([a, b], axis=0) for a, b in zip(x, y)] for (x, y) in zip(old, new)]

@@ -1,12 +1,10 @@
-import numpy as np
-import scipy
+import logging
 
-from vayesta.core.util import *
-from vayesta.rpa.rirpa import momzero_NI
+import numpy as np
 
 import pyscf.lib
-
-import logging
+from vayesta.core.util import *
+from vayesta.rpa.rirpa import momzero_NI
 
 
 class ssRIRPA:
@@ -248,8 +246,8 @@ def construct_inverse_RI(D, ri):
     U = np.linalg.inv(np.eye(naux) + U)
     # Want to split matrix between left and right fairly evenly; could just associate to one side or the other.
     u, s, v = np.linalg.svd(U)
-    urt_l = einsum("nm,m->nm", u, s**(0.5))
-    urt_r = einsum("n,nm->nm", s**(0.5), v)
+    urt_l = einsum("nm,m->nm", u, s ** (0.5))
+    urt_r = einsum("n,nm->nm", s ** (0.5), v)
     # Evaluate the resulting RI
     return einsum("p,np,nm->mp", D ** (-1), ri_L, urt_l), einsum("p,np,nm->mp", D ** (-1), ri_R, urt_r.T)
 
