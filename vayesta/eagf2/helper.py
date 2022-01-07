@@ -492,7 +492,7 @@ def build_moments_kagf2(gf, eri, kconserv, nmom, kptlist=None):
     return t_occ, t_vir
 
 
-def build_moments(ei, ej, ea, xija, yija, os_factor=1.0, ss_factor=1.0):
+def build_moments(ei, ea, ej, xiaj, yiaj=None, yjai=None, nmom=2, os_factor=1.0, ss_factor=1.0):
     '''
     Construct the moments via compiled code. Generalised for asymmetry
     in i/j and x/y.
@@ -506,4 +506,54 @@ def build_moments(ei, ej, ea, xija, yija, os_factor=1.0, ss_factor=1.0):
      x,y    ija
     '''
 
-    raise NotImplementedError()  #TODO
+    #TODO MPI
+
+    ni, na, nj = ei.size, ej.size, ea.size
+    nmo_p = xiaj.shape[0]
+    nmo_q = nmo_p if yiaj is None else yiaj.shape[0]
+
+    def pointer(x):
+        if x is None:
+            return ctypes.POINTER(ctypes.c_void_p)()
+        else:
+            return x.ctypes.data_as(ctypes.POINTER(ctypes.c_void_p))
+
+    if xiaj.dtype in [np.float64, float]:
+        dtype = np.float64
+        fdrv = libeagf2.construct_moments_real_4c
+    else:
+        dtype = np.complex128
+        fdrv = libeagf2.construct_moments_cplx_4c
+
+    xiaj = np.asarray(xiaj, dtype=dtype, order='C')
+    assert xiaj.size == (nmo_p * ni * na * nj)
+
+    if yiaj is not None:
+        yiaj = np.asarray(yiaj, dtype=dtype, order='C')
+        assert yiaj.size == (nmo_q * ni * na * nj)
+
+    if yjai is not None:
+        yjai = np.asarray(yjai, dtype=dtype, order='C')
+        assert yjai.size == (nmo_q * nj * na * ni)
+
+    t = np.zeros((nmom, nmo_p, nmo_q), dtype=dtype)
+
+    fdrv(
+            ctypes.c_int32(nmo_p),
+            ctypes.c_int32(nmo_q),
+            ctypes.c_int32(ni),
+            ctypes.c_int32(na),
+            ctypes.c_int32(nj),
+            ctypes.c_int32(nmom),
+            ctypes.c_int32(nmo_p),
+            ctypes.c_int32(nmo_q),
+            pointer(xiaj),
+            pointer(yiaj),
+            pointer(yjai),
+            pointer(ei),
+            pointer(ea),
+            pointer(ej),
+            pointer(t),
+    )
+
+    return t
