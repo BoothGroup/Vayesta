@@ -236,13 +236,6 @@ class EWF(QEmbeddingMethod):
             for frag2 in frag.loop_fragments(exclude_self=True):
                 frag.add_tailor_fragment(frag2)
 
-    def check_fragment_nelectron(self):
-        nelec_frags = sum([f.sym_factor*f.nelectron for f in self.loop()])
-        self.log.info("Total number of mean-field electrons over all fragments= %.8f", nelec_frags)
-        if abs(nelec_frags - np.rint(nelec_frags)) > 1e-4:
-            self.log.warning("Number of electrons not integer!")
-        return nelec_frags
-
     def kernel(self, bno_threshold=None):
         """Run EWF.
 

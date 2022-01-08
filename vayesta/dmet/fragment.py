@@ -223,8 +223,8 @@ class DMETFragment(QEmbeddingFragment):
             self.log.debugv("Passing fragment option %s to solver.", attr)
             solver_opts[attr] = getattr(self.opts, attr)
 
-        solver_opts["v_ext"] = None if chempot is None else - chempot * self.get_fragment_projector(
-            self.cluster.c_active)
+        solver_opts["v_ext"] = None if chempot is None else - chempot * np.array(self.get_fragment_projector(
+            self.cluster.c_active))
 
         return solver_opts
 
@@ -255,71 +255,9 @@ class DMETFragment(QEmbeddingFragment):
         # e_hf = np.linalg.multi_dot((P_imp, 0.5 * (h_bare + f_act), mf_dm1)).trace()
         return e1, e2
 
-    # These should probably be moved to qemb.fragment
+    def get_frag_hl_dm(self):
+        c = dot(self.c_frag.T, self.mf.get_ovlp(), self.cluster.c_active)
+        return dot(c, self.results.dm1, c.T)
 
-    def get_energy_prefactor(self):
-        return self.sym_factor * self.opts.energy_factor
-
-    def project_amplitudes_to_fragment(self, cm, c1, c2, **kwargs):
-        """Wrapper for project_amplitude_to_fragment, where the mo coefficients are extracted from a MP2 or CC
-        object. """
-        act = cm.get_frozen_mask()
-        occ = cm.mo_occ[act] > 0
-        vir = cm.mo_occ[act] == 0
-        c = cm.mo_coeff[:, act]
-        c_occ = c[:, occ]
-        c_vir = c[:, vir]
-
-        p1 = p2 = None
-        if c1 is not None:
-            p1 = self.project_amplitude_to_fragment(c1, c_occ, c_vir, **kwargs)
-        if c2 is not None:
-            p2 = self.project_amplitude_to_fragment(c2, c_occ, c_vir, **kwargs)
-        return p1, p2
-
-    def get_fragment_energy(self, p1, p2, eris):
-        """Calculate fragment correlation energy contribution from projected C1, C2.
-
-        Parameters
-        ----------
-        p1 : (n(occ), n(vir)) array
-            Locally projected C1 amplitudes.
-        p2 : (n(occ), n(occ), n(vir), n(vir)) array
-            Locally projected C2 amplitudes.
-        eris :
-            PySCF eris object as returned by cm.ao2mo()
-
-        Returns
-        -------
-        e_frag : float
-            Fragment energy contribution.
-        """
-        if self.opts.energy_factor == 0:
-            return 0
-
-        nocc, nvir = p2.shape[1:3]
-        occ = np.s_[:nocc]
-        vir = np.s_[nocc:]
-        # E1
-        e1 = 0
-        if p1 is not None:
-            if hasattr(eris, 'fock'):
-                f = eris.fock[occ, vir]
-            else:
-                f = np.linalg.multi_dot((self.cluster.c_active_occ.T, self.base.get_fock(), self.cluster.c_active_vir))
-            e1 = 2 * np.sum(f * p1)
-        # E2
-        if hasattr(eris, 'ovvo'):
-            g_ovvo = eris.ovvo[:]
-        elif hasattr(eris, 'ovov'):
-            # MP2 only has eris.ovov - for real integrals we transpose
-            g_ovvo = eris.ovov[:].reshape(nocc, nvir, nocc, nvir).transpose(0, 1, 3, 2).conj()
-        else:
-            g_ovvo = eris[occ, vir, vir, occ]
-
-        e2 = 2 * einsum('ijab,iabj', p2, g_ovvo) - einsum('ijab,jabi', p2, g_ovvo)
-        self.log.info("Energy components: E[C1]= % 16.8f Ha, E[C2]= % 16.8f Ha", e1, e2)
-        if e1 > 1e-4 and 10 * e1 > e2:
-            self.log.warning("WARNING: Large E[C1] component!")
-        e_frag = self.opts.energy_factor * self.sym_factor * (e1 + e2)
-        return e_frag
+    def get_nelectron_hl(self):
+        return self.get_frag_hl_dm().trace()
