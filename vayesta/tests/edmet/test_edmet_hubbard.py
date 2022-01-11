@@ -10,7 +10,6 @@ class HubbardEDMETTests(unittest.TestCase):
     def _test_energy(self, emb, known_values):
         """Test that the energy matches a known value.
         """
-
         self.assertAlmostEqual(emb.e_tot, known_values['e_tot'], self.PLACES_ENERGY)
 
     #FIXME bug #9
@@ -64,7 +63,7 @@ class HubbardEDMETTests(unittest.TestCase):
         frag.add_tsymmetric_fragments(tvecs=[5, 1, 1])
         emb.kernel()
 
-        known_values = {'e_tot': -8.682074457504335}
+        known_values = {'e_tot': -8.682074457504317}
 
         self._test_energy(emb, known_values)
 
@@ -84,7 +83,7 @@ class HubbardEDMETTests(unittest.TestCase):
         frag.add_tsymmetric_fragments(tvecs=[7, 1, 1])
         emb.kernel()
 
-        known_values = {'e_tot': -16.653134616910943}
+        known_values = {'e_tot': -16.65313768163872 }
 
         self._test_energy(emb, known_values)
 
@@ -121,7 +120,7 @@ class HubbardEDMETTests(unittest.TestCase):
         frag.add_tsymmetric_fragments(tvecs=[6, 6, 1])
         emb.kernel()
 
-        known_values = {'e_tot': -41.29530580982776}
+        known_values = {'e_tot': -41.29019847924662 }
 
         self._test_energy(emb, known_values)
 

@@ -10,7 +10,6 @@ class HubbardDFEDMETTests(unittest.TestCase):
     def _test_energy(self, emb, dfedmet, known_values):
         """Test that the energy matches a known value and the non-density fitted value.
         """
-
         self.assertAlmostEqual(dfedmet.e_tot, known_values['e_tot'], self.PLACES_ENERGY)
         self.assertAlmostEqual(emb.e_tot, dfedmet.e_tot, self.PLACES_ENERGY)
 
@@ -80,7 +79,7 @@ class HubbardDFEDMETTests(unittest.TestCase):
         frag.add_tsymmetric_fragments(tvecs=[7, 1, 1])
         dfedmet.kernel()
 
-        known_values = {'e_tot': -8.01015928145061}
+        known_values = {'e_tot': -8.010159281450603}
 
         self._test_energy(emb, dfedmet, known_values)
 

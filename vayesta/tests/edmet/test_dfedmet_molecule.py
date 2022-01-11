@@ -16,7 +16,6 @@ class MolecularDFEDMETTest(unittest.TestCase):
     def _test_energy(self, emb, known_values):
         """Tests that the energy matfhes a known values.
         """
-
         self.assertAlmostEqual(emb.e_tot, known_values['e_tot'], self.ENERGY_PLACES)
 
     def test_h6_sto6g_EBFCI_IAO_1occ(self):
@@ -32,7 +31,7 @@ class MolecularDFEDMETTest(unittest.TestCase):
         emb.add_atomic_fragment([4, 5])
         emb.kernel()
 
-        known_values = {'e_tot': -3.2542107531828446}
+        known_values = {'e_tot': -3.255031522280593}
 
         self._test_energy(emb, known_values)
 
@@ -49,7 +48,7 @@ class MolecularDFEDMETTest(unittest.TestCase):
         emb.add_atomic_fragment([4, 5])
         emb.kernel()
 
-        known_values = {'e_tot': -3.2543264783930717}
+        known_values = {'e_tot': -3.2551470713903647}
 
         self._test_energy(emb, known_values)
 
