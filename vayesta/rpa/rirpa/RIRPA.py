@@ -270,3 +270,5 @@ def compress_low_rank(ri_l, ri_r, tol=1e-8, log=None, name=None):
         else:
             log.info("Compressed low-rank representation of %s from rank %d to %d.", name, naux_init, nwant)
     return ri_l, ri_r
+
+ssRIRRPA = ssRIRPA

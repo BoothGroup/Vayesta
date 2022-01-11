@@ -7,6 +7,7 @@ from vayesta.core.util import *
 
 import pyscf.ao2mo
 
+
 class ssURPA(ssRPA):
 
     @property
@@ -33,6 +34,17 @@ class ssURPA(ssRPA):
         va, vb = self.nvir
         return ob * vb
 
+    @property
+    def mo_coeff_occ(self):
+        """Occupied MO coefficients."""
+        na, nb = self.nocc
+        return self.mo_coeff[0, :, :na], self.mo_coeff[1, :, :nb]
+
+    @property
+    def mo_coeff_vir(self):
+        """Virtual MO coefficients."""
+        na, nb = self.nocc
+        return self.mo_coeff[0, :, na:], self.mo_coeff[1, :, nb:]
 
     def _gen_arrays(self, xc_kernel=None):
         t0 = timer()
@@ -69,45 +81,18 @@ class ssURPA(ssRPA):
         if xc_kernel is None:
             M = np.einsum("p,pq,q->pq", AmB ** (0.5), ApB, AmB ** (0.5))
         else:
-            AmB = np.diag(AmB)
             # Grab A and B contributions for XC kernel.
-            c_o = self.mo_coeff_occ
-            c_v = self.mo_coeff_vir
-            V_A_aa = einsum("pqrs,pi,qa,rj,sb->iajb", xc_kernel[0], c_o, c_v, c_o, c_v).reshape((ova, ova))
-            ApB[:self.ova, :self.ova] += V_A_aa
-            AmB[:self.ova, :self.ova] += V_A_aa
-            del V_A_aa
-            V_B_aa = einsum("pqsr,pi,qa,rj,sb->iajb", xc_kernel[0], c_o, c_v, c_o, c_v).reshape((ova, ova))
-            ApB[:self.ova, :self.ova] += V_B_aa
-            AmB[:self.ova, :self.ova] -= V_B_aa
-            del V_B_aa
-            V_A_ab = einsum("pqrs,pi,qa,rj,sb->iajb", xc_kernel[1], c_o, c_v, c_o, c_v).reshape((ova, ovb))
-            ApB[:self.ova, self.ova:] += V_A_ab
-            ApB[self.ova:, :self.ova] += V_A_ab.T
-            AmB[:self.ova, self.ova:] += V_A_ab
-            AmB[self.ova:, :self.ova] += V_A_ab.T
-            del V_A_ab
-            V_B_ab = einsum("pqsr,pi,qa,rj,sb->iajb", xc_kernel[1], c_o, c_v, c_o, c_v).reshape((ova, ovb))
-            ApB[:self.ova, self.ova:] += V_B_ab
-            ApB[self.ova:, :self.ova] += V_B_ab.T
-            AmB[:self.ova, self.ova:] -= V_B_ab
-            AmB[self.ova:, :self.ova] -= V_B_ab.T
-            del V_B_ab
-            V_A_bb = einsum("pqrs,pi,qa,rj,sb->iajb", xc_kernel[2], c_o, c_v, c_o, c_v).reshape((ovb, ovb))
-            ApB[self.ova:, self.ova:] += V_A_bb
-            AmB[self.ova:, self.ova:] += V_A_bb
-            del V_A_bb
-            V_B_bb = einsum("pqsr,pi,qa,rj,sb->iajb", xc_kernel[2], c_o, c_v, c_o, c_v).reshape((ovb, ovb))
-            ApB[self.ova:, self.ova:] += V_B_bb
-            AmB[self.ova:, self.ova:] -= V_B_bb
-            del V_B_bb
+            ApB_xc, AmB_xc = self.get_xc_contribs(xc_kernel, self.mo_coeff_occ, self.mo_coeff_vir)
+            ApB = ApB + ApB_xc
+            AmB = np.diag(AmB) + AmB_xc
+            del ApB_xc, AmB_xc
             AmBrt = scipy.linalg.sqrtm(AmB)
             M = dot(AmBrt, ApB, AmBrt)
 
         self.log.timing("Time to build RPA arrays: %s", time_string(timer() - t0))
         return M, AmB, ApB, (epsa, epsb), (vaa, vbb)
 
-    def ao2mo(self, mo_coeff = None):
+    def ao2mo(self, mo_coeff=None):
         """Get the ERIs in MO basis
         """
         mo_coeff = self.mo_coeff if mo_coeff is None else mo_coeff
@@ -119,6 +104,3 @@ class ssURPA(ssRPA):
         self.log.debugv("Making (aa|bb) ERIs...")
         eris_ab = super().ao2mo((mo_coeff[0], mo_coeff[0], mo_coeff[1], mo_coeff[1]))
         return (eris_aa, eris_ab, eris_bb)
-
-
-

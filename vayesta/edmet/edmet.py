@@ -275,11 +275,9 @@ class EDMET(RDMET):
             # dd moments are already in fragment basis
             hl_dd0[x] = frag.results.dd_mom0
             hl_dd1[x] = frag.results.dd_mom1
-
             nelec_hl += frag.get_nelectron_hl() * nsym[x]
 
         self.hl_rdms = [f.get_frag_hl_dm() for f in parent_fragments]
-        self.hl_rdms = hl_rdms
         self.hl_dd0 = hl_dd0
         self.hl_dd1 = hl_dd1
         self.log.info("Chemical Potential {:8.6e} gives Total electron deviation {:6.4e}".format(

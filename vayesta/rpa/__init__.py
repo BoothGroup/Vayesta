@@ -10,6 +10,7 @@ from .ssurpa import ssURPA
 
 import pyscf.scf
 
+
 def ssRPA(mf, *args, **kwargs):
     """Determine restricted or unrestricted by inspection of mean-field object"""
     if isinstance(mf, pyscf.scf.uhf.UHF):

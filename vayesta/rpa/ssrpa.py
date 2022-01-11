@@ -41,10 +41,9 @@ class ssRPA:
     def ovb(self):
         return self.ova
 
-
     @property
     def mo_coeff(self):
-        """Occupied MO coefficients."""
+        """MO coefficients."""
         return self.mf.mo_coeff
 
     @property
@@ -120,7 +119,7 @@ class ssRPA:
         eris = self.ao2mo()
         # Get coulomb interaction in occupied-virtual space.
         v = eris[:self.nocc, self.nocc:, :self.nocc, self.nocc:].reshape((self.ova, self.ova))
-
+        del eris
         ApB = np.zeros((self.ov, self.ov))
         ApB[:self.ova, :self.ova] = ApB[:self.ova, self.ova:] = \
             ApB[self.ova:, :self.ova] = ApB[self.ova:, self.ova:] = 2 * v
@@ -130,43 +129,59 @@ class ssRPA:
         if xc_kernel is None:
             M = np.einsum("p,pq,q->pq", AmB ** (0.5), ApB, AmB ** (0.5))
         else:
-            AmB = np.diag(AmB)
             # Grab A and B contributions for XC kernel.
-            c_o = self.mo_coeff_occ
-            c_v = self.mo_coeff_vir
-            V_A_aa = einsum("pqrs,pi,qa,rj,sb->iajb", xc_kernel[0], c_o, c_v, c_o, c_v).reshape((self.ov, self.ov))
-            ApB[:self.ova, :self.ova] += V_A_aa
-            AmB[:self.ova, :self.ova] += V_A_aa
-            del V_A_aa
-            V_B_aa = einsum("pqsr,pi,qa,rj,sb->iajb", xc_kernel[0], c_o, c_v, c_o, c_v).reshape((self.ov, self.ov))
-            ApB[:self.ova, :self.ova] += V_B_aa
-            AmB[:self.ova, :self.ova] -= V_B_aa
-            del V_B_aa
-            V_A_ab = einsum("pqrs,pi,qa,rj,sb->iajb", xc_kernel[1], c_o, c_v, c_o, c_v).reshape((self.ov, self.ov))
-            ApB[:self.ova, self.ova:] += V_A_ab
-            ApB[self.ova:, :self.ova] += V_A_ab.T
-            AmB[:self.ova, self.ova:] += V_A_ab
-            AmB[self.ova:, :self.ova] += V_A_ab.T
-            del V_A_ab
-            V_B_ab = einsum("pqsr,pi,qa,rj,sb->iajb", xc_kernel[1], c_o, c_v, c_o, c_v).reshape((self.ov, self.ov))
-            ApB[:self.ova, self.ova:] += V_B_ab
-            ApB[self.ova:, :self.ova] += V_B_ab.T
-            AmB[:self.ova, self.ova:] -= V_B_ab
-            AmB[self.ova:, :self.ova] -= V_B_ab.T
-            del V_B_ab
-            V_A_bb = einsum("pqrs,pi,qa,rj,sb->iajb", xc_kernel[2], c_o, c_v, c_o, c_v).reshape((self.ov, self.ov))
-            ApB[self.ova:, self.ova:] += V_A_bb
-            AmB[self.ova:, self.ova:] += V_A_bb
-            del V_A_bb
-            V_B_bb = einsum("pqsr,pi,qa,rj,sb->iajb", xc_kernel[2], c_o, c_v, c_o, c_v).reshape((self.ov, self.ov))
-            ApB[self.ova:, self.ova:] += V_B_bb
-            AmB[self.ova:, self.ova:] -= V_B_bb
-            del V_B_bb
+            ApB_xc, AmB_xc = self.get_xc_contribs(xc_kernel, self.mo_coeff_occ, self.mo_coeff_vir)
+            ApB = ApB + ApB_xc
+            AmB = np.diag(AmB) + AmB_xc
+            del ApB_xc, AmB_xc
             AmBrt = scipy.linalg.sqrtm(AmB)
             M = dot(AmBrt, ApB, AmBrt)
 
         self.log.timing("Time to build RPA arrays: %s", time_string(timer() - t0))
         return M, AmB, ApB, (eps, eps), (v, v)
+
+    def get_xc_contribs(self, xc_kernel, c_o, c_v):
+        c_o_a, c_o_b = c_o if isinstance(c_o, tuple) else (c_o, c_o)
+        c_v_a, c_v_b = c_v if isinstance(c_v, tuple) else (c_v, c_v)
+
+        ApB = np.zeros((self.ov, self.ov))
+        AmB = np.zeros_like(ApB)
+
+        V_A_aa = einsum("pqrs,pi,qa,rj,sb->iajb", xc_kernel[0], c_o_a, c_v_a, c_o_a, c_v_a).reshape(
+            (self.ova, self.ova))
+        ApB[:self.ova, :self.ova] += V_A_aa
+        AmB[:self.ova, :self.ova] += V_A_aa
+        del V_A_aa
+        V_B_aa = einsum("pqsr,pi,qa,rj,sb->iajb", xc_kernel[0], c_o_a, c_v_a, c_o_a, c_v_a).reshape(
+            (self.ova, self.ova))
+        ApB[:self.ova, :self.ova] += V_B_aa
+        AmB[:self.ova, :self.ova] -= V_B_aa
+        del V_B_aa
+        V_A_ab = einsum("pqrs,pi,qa,rj,sb->iajb", xc_kernel[1], c_o_a, c_v_a, c_o_b, c_v_b).reshape(
+            (self.ova, self.ovb))
+        ApB[:self.ova, self.ova:] += V_A_ab
+        ApB[self.ova:, :self.ova] += V_A_ab.T
+        AmB[:self.ova, self.ova:] += V_A_ab
+        AmB[self.ova:, :self.ova] += V_A_ab.T
+        del V_A_ab
+        V_B_ab = einsum("pqsr,pi,qa,rj,sb->iajb", xc_kernel[1], c_o_a, c_v_a, c_o_b, c_v_b).reshape(
+            (self.ova, self.ovb))
+        ApB[:self.ova, self.ova:] += V_B_ab
+        ApB[self.ova:, :self.ova] += V_B_ab.T
+        AmB[:self.ova, self.ova:] -= V_B_ab
+        AmB[self.ova:, :self.ova] -= V_B_ab.T
+        del V_B_ab
+        V_A_bb = einsum("pqrs,pi,qa,rj,sb->iajb", xc_kernel[2], c_o_b, c_v_b, c_o_b, c_v_b).reshape(
+            (self.ovb, self.ovb))
+        ApB[self.ova:, self.ova:] += V_A_bb
+        AmB[self.ova:, self.ova:] += V_A_bb
+        del V_A_bb
+        V_B_bb = einsum("pqsr,pi,qa,rj,sb->iajb", xc_kernel[2], c_o_b, c_v_b, c_o_b, c_v_b).reshape(
+            (self.ovb, self.ovb))
+        ApB[self.ova:, self.ova:] += V_B_bb
+        AmB[self.ova:, self.ova:] -= V_B_bb
+        del V_B_bb
+        return ApB, AmB
 
     def gen_moms(self, max_mom, xc_kernel=None):
         res = {}
