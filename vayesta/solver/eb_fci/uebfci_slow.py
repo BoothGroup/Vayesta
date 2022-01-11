@@ -9,29 +9,20 @@ from pyscf import ao2mo
 from pyscf.fci import cistring
 from pyscf.fci import rdm
 from pyscf.fci.direct_spin1 import _unpack_nelec
-from pyscf.fci import fci_slow
+from pyscf.fci import direct_uhf
 
 
 def contract_all(h1e, g2e, hep, hpp, ci0, norbs, nelec, nbosons, max_occ,
                  ecore=0.0, adj_zero_pho=False):
-    # ci1  = contract_1e(h1e, ci0, nelec, norbs, nbosons, max_occ)
-    contrib1 = contract_2e(g2e, ci0, nelec, norbs, nbosons, max_occ)
+    # ci1  = contract_1e(h1e, ci0, norbs, nelec, nbosons, max_occ)
+    contrib1 = contract_2e(g2e, ci0, norbs, nelec, nbosons, max_occ)
     incbosons = (nbosons > 0 and max_occ > 0)
 
     if incbosons:
-        contrib2 = contract_ep(hep, ci0, nelec, norbs, nbosons, max_occ,
+        contrib2 = contract_ep(hep, ci0, norbs, nelec, nbosons, max_occ,
                                adj_zero_pho=adj_zero_pho)
-        contrib3 = contract_pp(hpp, ci0, nelec, norbs, nbosons, max_occ)
+        contrib3 = contract_pp(hpp, ci0, norbs, nelec, nbosons, max_occ)
 
-    cishape = make_shape(nelec, norbs, nbosons, max_occ)
-
-    # print("1+2-body")
-    # print(contrib1.reshape(cishape))
-    # print("electron-phonon coupling")
-    # print(contrib2.reshape(cishape))
-    # print("phonon-phonon coupling")
-    # print(contrib3.reshape(cishape))
-    if incbosons:
         return contrib1 + contrib2 + contrib3
     else:
         return contrib1
@@ -60,7 +51,7 @@ def contract_1e(h1e, fcivec, norb, nelec, nbosons, max_occ):
     link_indexa = cistring.gen_linkstr_index(range(norb), neleca)
     link_indexb = cistring.gen_linkstr_index(range(norb), nelecb)
 
-    cishape = make_shape(nelec, norb, nbosons, max_occ)
+    cishape = make_shape(norb, nelec, nbosons, max_occ)
 
     ci0 = fcivec.reshape(cishape)
     fcinew = numpy.zeros(cishape, dtype=fcivec.dtype)
@@ -86,24 +77,29 @@ def contract_2e(eri, fcivec, norb, nelec, nbosons, max_occ):
     cishape = make_shape(norb, nelec, nbosons, max_occ)
 
     ci0 = fcivec.reshape(cishape)
-    t1 = numpy.zeros((norb, norb) + cishape, dtype=fcivec.dtype)
+    t1a = numpy.zeros((norb, norb) + cishape, dtype=fcivec.dtype)
+    t1b = numpy.zeros_like(t1a)
     for str0, tab in enumerate(link_indexa):
         for a, i, str1, sign in tab:
-            t1[a, i, str1] += sign * ci0[str0]
+            t1a[a, i, str1] += sign * ci0[str0]
     for str0, tab in enumerate(link_indexb):
         for a, i, str1, sign in tab:
-            t1[a, i, :, str1] += sign * ci0[:, str0]
+            t1b[a, i, :, str1] += sign * ci0[:, str0]
 
     # t1 = lib.einsum('bjai,aiAB...->bjAB...', eri.reshape([norb]*4), t1)
-    t1 = numpy.tensordot(eri.reshape([norb] * 4), t1, 2)
+
+    t1a_ = numpy.tensordot(eri[0].reshape([norb] * 4), t1a, 2) + numpy.tensordot(eri[1].reshape([norb] * 4), t1b, 2)
+    t1b_ = numpy.tensordot(eri[2].reshape([norb] * 4), t1b, 2) + numpy.tensordot(eri[1].reshape([norb] * 4), t1a,
+                                                                                [[0,1], [0,1]])
+    t1a, t1b = t1a_, t1b_
 
     fcinew = numpy.zeros_like(ci0)
     for str0, tab in enumerate(link_indexa):
         for a, i, str1, sign in tab:
-            fcinew[str1] += sign * t1[a, i, str0]
+            fcinew[str1] += sign * t1a[a, i, str0]
     for str0, tab in enumerate(link_indexb):
         for a, i, str1, sign in tab:
-            fcinew[:, str1] += sign * t1[a, i, :, str0]
+            fcinew[:, str1] += sign * t1b[a, i, :, str0]
     return fcinew.reshape(fcivec.shape)
 
 
@@ -308,7 +304,7 @@ def kernel(h1e, g2e, hep, hpp, norb, nelec, nbosons, max_occ,
            tol=1e-12, max_cycle=100, verbose=0, ecore=0,
            returnhop=False, adj_zero_pho=False,
            **kwargs):
-    h2e = fci_slow.absorb_h1e(h1e, g2e, norb, nelec, .5)
+    h2e = direct_uhf.absorb_h1e(h1e, g2e, norb, nelec, .5)
 
     cishape = make_shape(norb, nelec, nbosons, max_occ)
     ci0 = numpy.zeros(cishape)
@@ -340,7 +336,7 @@ def kernel_multiroot(h1e, g2e, hep, hpp, norb, nelec, nbosons, max_occ,
         return kernel(h1e, g2e, hep, hpp, norb, nelec, nbosons, max_occ,
                       tol, max_cycle, verbose, ecore, returnhop, adj_zero_pho,
                       **kwargs)
-    h2e = fci_slow.absorb_h1e(h1e, g2e, norb, nelec, .5)
+    h2e = direct_uhf.absorb_h1e(h1e, g2e, norb, nelec, .5)
 
     cishape = make_shape(norb, nelec, nbosons, max_occ)
     ci0 = numpy.zeros(cishape)
@@ -364,7 +360,6 @@ def kernel_multiroot(h1e, g2e, hep, hpp, norb, nelec, nbosons, max_occ,
                           **kwargs)
     return es, cs
 
-
 # dm_pq = <|p^+ q|>
 def make_rdm1(fcivec, norb, nelec):
     '''1-electron density matrix dm_pq = <|p^+ q|>'''
@@ -374,17 +369,18 @@ def make_rdm1(fcivec, norb, nelec):
     na = cistring.num_strings(norb, neleca)
     nb = cistring.num_strings(norb, nelecb)
 
-    rdm1 = numpy.zeros((norb, norb))
+    rdm1a = numpy.zeros((norb, norb))
+    rdm1b = np.zeros_like(rdm1a)
     ci0 = fcivec.reshape(na, -1)
     for str0, tab in enumerate(link_indexa):
         for a, i, str1, sign in tab:
-            rdm1[a, i] += sign * numpy.dot(ci0[str1], ci0[str0])
+            rdm1a[a, i] += sign * numpy.dot(ci0[str1], ci0[str0])
 
     ci0 = fcivec.reshape(na, nb, -1)
     for str0, tab in enumerate(link_indexb):
         for a, i, str1, sign in tab:
-            rdm1[a, i] += sign * numpy.einsum('ax,ax->', ci0[:, str1], ci0[:, str0])
-    return rdm1
+            rdm1b[a, i] += sign * numpy.einsum('ax,ax->', ci0[:, str1], ci0[:, str0])
+    return rdm1a, rdm1b
 
 
 def make_rdm12(fcivec, norb, nelec):
@@ -420,7 +416,7 @@ def make_rdm12(fcivec, norb, nelec):
     return rdm1, rdm2
 
 
-def make_rdm12s(fcivec, norb, nelec):
+def make_rdm12s(fcivec, norb, nelec, reorder=True):
     '''1-electron and 2-electron spin-resolved density matrices
     dm_qp = <|q^+ p|>
     dm_{pqrs} = <|p^+ r^+ s q|>
@@ -432,50 +428,46 @@ def make_rdm12s(fcivec, norb, nelec):
     nb = cistring.num_strings(norb, nelecb)
 
     ci0 = fcivec.reshape(na, nb, -1)
-    nspinorb = 2 * norb
-    rdm1 = numpy.zeros((nspinorb, nspinorb))
-    rdm2 = numpy.zeros((nspinorb, nspinorb, nspinorb, nspinorb))
+    nbos_dof = ci0.shape[2]
 
-    # We'll initially calculate <|p^+ q r^+ s|>, where p&q and r&s are
-    # of the same spin, then use this to obtain the components where
-    # each individual excitation is not spin-conserving, before using
-    # this to finally generate the standard form of the 2rdm.
+    dm1a = numpy.zeros((norb, norb))
+    dm1b = numpy.zeros_like(dm1a)
+
+    dm2aa = numpy.zeros((norb,norb,norb,norb))
+    dm2ab = numpy.zeros_like(dm2aa)
+    dm2bb = numpy.zeros_like(dm2aa)
+
     for str0 in range(na):
         # Alpha excitation.
-        t1 = numpy.zeros((nspinorb, nspinorb, nb) + ci0.shape[2:])
+        t1a = numpy.zeros((norb, norb, nb, nbos_dof))
+        t1b = numpy.zeros_like(t1a)
+
         for a, i, str1, sign in link_indexa[str0]:
-            t1[2 * i, 2 * a, :] += sign * ci0[str1, :]
+            t1a[i, a, :] += sign * ci0[str1, :]
         # Beta excitation.
         for k, tab in enumerate(link_indexb):
             for a, i, str1, sign in tab:
-                t1[2 * i + 1, 2 * a + 1, k] += sign * ci0[str0, str1]
+                t1b[i, a, k] += sign * ci0[str0, str1]
         # Generate our spin-resolved 1rdm contribution. do fast as over the full FCI space.
-        rdm1 += numpy.tensordot(t1, ci0[str0], 2)
+        dm1a += numpy.tensordot(t1a, ci0[str0].reshape((nb, nbos_dof)), 2)
+        dm1b += numpy.tensordot(t1b, ci0[str0].reshape((nb, nbos_dof)), 2)
+
         # rdm1 += numpy.einsum('mp,ijmp->ij', ci0[str0], t1)
         # t1[i,a] = a^+ i |0>
         # i^+ j|0> => <0|j^+ i, so swap i and j
         #:rdm2 += numpy.einsum('ijmp,klmp->jikl', t1, t1)
         # Calc <0|i^+ a b^+ j |0>
-        tmp = lib.dot(t1.reshape(nspinorb ** 2, -1), t1.reshape(nspinorb ** 2, -1).T)
-        rdm2 += tmp.reshape((nspinorb,) * 4).transpose(1, 0, 2, 3)
-    # Need to fill in components where have two single excitations which are
-    # spin disallowed, but in combination excitations conserve spin.
-    # From standard fermionic commutation relations
-    #   <0|b1^+ a1 a2^+ b2|0> =
-    #           - <0|a2^+ a1 b1^+ b2|0> + \delta_{a1a2} <0|b1^+ b2|0>
-    # Could accelerate with tensordot, but this isn't going to be the limiting code..
-    # rdm2[::2, 1::2, 1::2, ::2] = (
-    #                    - rdm2[1::2,1::2,::2,::2].transpose([2,1,0,3])
-    #                    + numpy.tensordot(rdm1[::2,::2], numpy.identity(norb), 0).transpose([0,2,3,1])
-    #                )
-    rdm2[::2, 1::2, 1::2, ::2] = -numpy.einsum("pqrs->rqps", rdm2[1::2, 1::2, ::2, ::2]) + \
-                                 numpy.einsum("pq,rs->prsq", rdm1[::2, ::2], numpy.identity(norb))
-    rdm2[1::2, ::2, ::2, 1::2] = -numpy.einsum("pqrs->rqps", rdm2[::2, ::2, 1::2, 1::2]) + \
-                                 numpy.einsum("pq,rs->prsq", rdm1[1::2, 1::2], numpy.identity(norb))
-    save = rdm2.copy()
-    # This should hopefully work with spinorbitals.
-    rdm1, rdm2 = rdm.reorder_rdm(rdm1, rdm2, True)
-    return rdm1, rdm2, save
+        t1a = t1a.reshape((norb ** 2, -1))
+        t1b = t1b.reshape((norb ** 2, -1))
+
+        dm2aa += lib.dot(t1a, t1a.T).reshape((norb,) * 4).transponse(1, 0, 2, 3)
+        dm2ab += lib.dot(t1a, t1b.T).reshape((norb,) * 4).transponse(1, 0, 2, 3)
+        dm2bb += lib.dot(t1b, t1b.T).reshape((norb,) * 4).transponse(1, 0, 2, 3)
+
+    if reorder:
+        dm1a, dm2aa = rdm.reorder_rdm(dm1a, dm2aa, inplace=True)
+        dm1b, dm2bb = rdm.reorder_rdm(dm1b, dm2bb, inplace=True)
+    return (dm1a, dm1b), (dm2aa, dm2ab, dm2bb)
 
 
 def make_eb_rdm(fcivec, norb, nelec, nbosons, max_occ):
@@ -495,11 +487,12 @@ def make_eb_rdm(fcivec, norb, nelec, nbosons, max_occ):
     link_indexa = cistring.gen_linkstr_index(range(norb), neleca)
     link_indexb = cistring.gen_linkstr_index(range(norb), nelecb)
 
-    cishape = make_shape(norb, nelec, nbosons, max_occ)
+    cishape = make_shape(nelec, norb, nbosons, max_occ)
+    nspinorb = 2 * norb
 
     # Just so we get a sensible result in pure fermionic case.
     if nbosons == 0:
-        return numpy.zeros((norb, norb, 0)), numpy.zeros((norb, norb, 0))
+        return numpy.zeros((nspinorb, nspinorb, 0))
 
     ci0 = fcivec.reshape(cishape)
     t1a = numpy.zeros((norb, norb) + cishape, dtype=fcivec.dtype)
@@ -549,7 +542,7 @@ def calc_dd_resp_mom(ci0, e0, max_mom, norb, nel, nbos, h1e, eri, hbb, heb, max_
         neleca, nelecb = nel
     link_indexa = cistring.gen_linkstr_index(range(norb), neleca)
     link_indexb = cistring.gen_linkstr_index(range(norb), nelecb)
-    cishape = make_shape(norb, nel, nbos, max_boson_occ)
+    cishape = make_shape(nel, norb, nbos, max_boson_occ)
 
     t1a = numpy.zeros((norb, norb) + cishape, dtype=numpy.dtype(numpy.float64))
     t1b = numpy.zeros_like(t1a)

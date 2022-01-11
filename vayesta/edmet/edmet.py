@@ -6,7 +6,7 @@ import scipy
 import scipy.linalg
 
 from vayesta.core.util import *
-from vayesta.dmet import DMET
+from vayesta.dmet import RDMET
 from vayesta.dmet.sdp_sc import perform_SDP_fit
 from vayesta.dmet.updates import MixUpdate, DIISUpdate
 from vayesta.rpa import ssRPA, ssRIRPA
@@ -19,9 +19,9 @@ class EDMETResults:
     e_corr: float = None
 
 
-class EDMET(DMET):
+class EDMET(RDMET):
     @dataclasses.dataclass
-    class Options(DMET.Options):
+    class Options(RDMET.Options):
         maxiter: int = 1
         make_dd_moments: bool = NotSet
         old_sc_condition: bool = False
@@ -95,15 +95,9 @@ class EDMET(DMET):
                 fock = mf.get_fock()
             self.set_up_fragments(sym_parents)
             # Need to optimise a global chemical potential to ensure electron number is converged.
-            nelec_mf = 0.0
-            rdm = self.mf.make_rdm1()
-            # This could loop over parents and multiply. Leave simple for now.
-            for x, frag in enumerate(self.fragments):
-                c = frag.c_frag.T @ self.get_ovlp()  # / np.sqrt(2)
-                nelec_mf += np.linalg.multi_dot((c, rdm, c.T)).trace()
-                # Print local 1rdm
-                # print(np.linalg.multi_dot((c, rdm, c.T))/2)
-                # print(np.linalg.multi_dot((c, rdm, c.T)).trace())
+            nelec_mf = self.check_fragment_nelectron()
+            if type(nelec_mf) == tuple:
+                nelec_mf = sum(nelec_mf)
 
             def electron_err(cpt):
                 err = self.calc_electron_number_defect(cpt, np.inf, nelec_mf, sym_parents, nsym)
@@ -149,7 +143,9 @@ class EDMET(DMET):
                                                  xtol=self.opts.max_elec_err * nelec_mf)
                 # self.opts.max_elec_err * nelec_mf)
                 self.log.info("Converged chemical potential: %6.4e", cpt)
-
+                # Recalculate to ensure all fragments have up-to-date info. Brentq strangely seems to do an extra
+                # calculation at the end...
+                electron_err(cpt)
             else:
                 self.log.info("Previous chemical potential still suitable")
 
@@ -170,8 +166,7 @@ class EDMET(DMET):
             self.log.info("Change in high-level properties: {:6.4e}".format(delta_prop))
             # Now for the DMET self-consistency!
             self.log.info("Now running DMET correlation potential fitting")
-            vcorr_new = perform_SDP_fit(self.mol.nelec[0], fock, impurity_projectors, [x / 2 for x in curr_rdms],
-                                        self.get_ovlp(), self.log)
+            vcorr_new = self.update_vcorr(fock, curr_rdms)
             delta = sum((vcorr_new - self.vcorr).reshape(-1) ** 2) ** (0.5)
             self.log.info("Delta Vcorr {:6.4e}".format(delta))
 
@@ -276,13 +271,14 @@ class EDMET(DMET):
             self.log.changeIndentLevel(-1)
             if exit:
                 break
-            # Project rdm into fragment space; currently in cluster canonical orbitals.
-            c = dot(frag.c_frag.T, self.mf.get_ovlp(), frag.cluster.c_active)
-            hl_rdms[x] = dot(c, frag.results.dm1, c.T)  # / 2
-            nelec_hl += hl_rdms[x].trace() * nsym[x]
+
             # dd moments are already in fragment basis
             hl_dd0[x] = frag.results.dd_mom0
             hl_dd1[x] = frag.results.dd_mom1
+
+            nelec_hl += frag.get_nelectron_hl() * nsym[x]
+
+        self.hl_rdms = [f.get_frag_hl_dm() for f in parent_fragments]
         self.hl_rdms = hl_rdms
         self.hl_dd0 = hl_dd0
         self.hl_dd1 = hl_dd1
@@ -317,3 +313,5 @@ class EDMET(DMET):
                 contrib = child.get_correlation_kernel_contrib(local_contrib)
                 k = combine(k, contrib)
         return tuple(k)
+
+REDMET = EDMET

@@ -220,8 +220,9 @@ class DMET(QEmbeddingMethod):
             self.e_dmet = e1 + e2
             self.log.info("Total DMET energy {:8.4f}".format(self.e_tot))
             self.log.info("Energy Contributions: 1-body={:8.4f}, 2-body={:8.4f}".format(e1, e2))
-
-            vcorr_new = self.update_vcorr(fock)
+            curr_rdms, delta_rdms = self.updater.update(self.hl_rdms)
+            self.log.info("Change in high-level RDMs: {:6.4e}".format(delta_rdms))
+            vcorr_new = self.update_vcorr(fock, curr_rdms)
             delta = sum((vcorr_new - self.vcorr).reshape(-1) ** 2) ** (0.5)
             self.log.info("Delta Vcorr {:6.4e}".format(delta))
             if delta < self.opts.conv_tol:
@@ -271,16 +272,13 @@ class DMET(QEmbeddingMethod):
             chempot, nelec_hl - nelec_target))
         return nelec_hl - nelec_target
 
-    def update_vcorr(self, fock):
-        impurity_coeffs = self.get_impurity_coeffs()
-        curr_rdms, delta_rdms = self.updater.update(self.hl_rdms)
-        self.log.info("Change in high-level RDMs: {:6.4e}".format(delta_rdms))
+    def update_vcorr(self, fock, curr_rdms):
         # Now for the DMET self-consistency!
         self.log.info("Now running DMET correlation potential fitting")
         # Note that we want the total number of electrons, not just in fragments, and that this treats different spin
         # channels separately; for RHF the resultant problems are identical and so can just be solved once.
         # As such need to use the spin-dm, rather than spatial.
-        vcorr_new = perform_SDP_fit(self.mol.nelec[0], fock, impurity_coeffs, [x / 2 for x in curr_rdms],
+        vcorr_new = perform_SDP_fit(self.mol.nelec[0], fock, self.get_impurity_coeffs(), [x / 2 for x in curr_rdms],
                                     self.get_ovlp(), self.log)
         return vcorr_new
 
