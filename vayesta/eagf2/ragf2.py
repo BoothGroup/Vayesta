@@ -685,7 +685,10 @@ class RAGF2:
             else:
                 gf = agf2.GreensFunction(w, v, chempot=se.chempot)
             gf.chempot = se.chempot = agf2.chempot.binsearch_chempot((w, v), self.nact, nelec)[0]
-            return gf, se, True
+            if return_fock:
+                return gf, se, True, fock
+            else:
+                return gf, se, True
 
         self.log.info('Fock loop')
         self.log.info('*********')
@@ -928,7 +931,7 @@ class RAGF2:
         ''' Calculate the MP2 energy
         '''
 
-        mo_energy = mo_energy if mo_energy is not None else self.mo_energy
+        mo_energy = mo_energy if mo_energy is not None else self.mo_energy[self.act]
         se = se or self.se
 
         if not flip:
@@ -1347,6 +1350,10 @@ class RAGF2:
 
         gf, se, _ = self.gf, self.se, fconv = self.fock_loop(gf=gf, se=se)
 
+        if self.opts.dump_chkfile and self.chkfile is not None:
+            self.log.debug("Dumping output to chkfile")
+            self.dump_chk()
+
         if self.opts.pop_analysis:
             self.population_analysis()
 
@@ -1363,6 +1370,7 @@ class RAGF2:
                 if (gf_occ.naux+i) < gf.naux:
                     self.dump_cube(gf_occ.naux+i, cubefile="luqmo%d.cube"%i)
 
+        self.print_excitations()
         self.print_energies(output=True)
 
         self.log.info("Time elapsed:  %s", time_string(timer() - t0))

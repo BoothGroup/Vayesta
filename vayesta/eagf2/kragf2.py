@@ -622,7 +622,7 @@ class KRAGF2(RAGF2):
                     gf.append(agf2.GreensFunction(w[i], v[i], chempot=se[i].chempot))
                 gf[i].chempot = se[i].chempot = \
                         agf2.chempot.binsearch_chempot((w[i], v[i]), nact, nelec[i])[0]
-            return gf, se
+            return gf, se, True
 
         self.log.info("Fock loop")
         self.log.info("*********")
@@ -648,8 +648,7 @@ class KRAGF2(RAGF2):
                     se[i].chempot, nerr_k = \
                             agf2.chempot.binsearch_chempot((w[i], v[i]), nact, nelec[i])
                     gf[i] = agf2.GreensFunction(w[i], v[i][:nact], chempot=se[i].chempot)
-                    if abs(nerr_k) > nerr:
-                        nerr = nerr_k
+                    nerr += nerr_k
 
                 fock = self.get_fock(gf=gf, with_frozen=False)
                 rdm1 = self.make_rdm1(gf=gf, with_frozen=False)
@@ -1112,7 +1111,6 @@ if __name__ == '__main__':
     gf2 = KRAGF2(
             mf,
             log=log,
-            direct=True,
             conv_tol=1e-5,
             max_cycle=40,
             damping=0.5,

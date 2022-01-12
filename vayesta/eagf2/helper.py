@@ -209,14 +209,14 @@ def block_lanczos(moments, tol=None):
     moments have shape (N, N).
     '''
 
-    assert all(m.dtype == np.float64 for m in moments)
+    dtype = np.result_type(*[m.dtype for m in moments])
 
     nmo = moments[0].shape[0]
     nmom = (len(moments) - 2) // 2
     nblock = nmom + 1
 
     if tol is None:
-        tol = np.finfo(np.float64).eps * nmo
+        tol = np.finfo(dtype).eps * nmo
 
     def sqrt_and_inv(x):
         try:
@@ -224,24 +224,24 @@ def block_lanczos(moments, tol=None):
         except np.linalg.LinAlgError:
             w, v = scipy.linalg.eigh(x)
         w, v = w[w > tol], v[:, w > tol]
-        bi = np.dot(v * w[None]**0.5, v.T)
-        binv = np.dot(v * w[None]**-0.5, v.T)
+        bi = np.dot(v * w[None]**0.5, v.T.conj())
+        binv = np.dot(v * w[None]**-0.5, v.T.conj())
         return bi, binv
 
     class C(dict):
         def __getitem__(self, key):
             i, n, j = key
             if i == 0 or j == 0:
-                return np.zeros((nmo, nmo))
+                return np.zeros((nmo, nmo), dtype=dtype)
             elif i < j:
-                return super().__getitem__((j, n, i)).T
+                return super().__getitem__((j, n, i)).T.conj()
             else:
                 return super().__getitem__((i, n, j))
 
         def __setitem__(self, key, val):
             i, n, j = key
             if i < j:
-                super().__setitem__((j, n, i), val.T)
+                super().__setitem__((j, n, i), val.T.conj())
             else:
                 super().__setitem__((i, n, j), val)
 
@@ -249,7 +249,7 @@ def block_lanczos(moments, tol=None):
         def __getitem__(self, key):
             i, n, j = key
             if (i, n, j) not in self:
-                self[i, n, j] = np.dot(c[i, n, j], b[j])
+                self[i, n, j] = np.dot(c[i, n, j], b[j].conj())
             return super().__getitem__((i, n, j))
 
     class MC(dict):
@@ -259,17 +259,17 @@ def block_lanczos(moments, tol=None):
                 self[i, n, j] = np.dot(c[i, 1, i], c[i, n, j])
             return super().__getitem__((i, n, j))
 
-    m = np.zeros((nblock+1, nmo, nmo))
-    b = np.zeros((nblock,   nmo, nmo))
+    m = np.zeros((nblock+1, nmo, nmo), dtype=dtype)
+    b = np.zeros((nblock,   nmo, nmo), dtype=dtype)
     c = C()
     cb = CB()
     mc = MC()
 
     def cIi(i, n):
         tmp  = c[i, n+1, i].copy()
-        tmp -= cb[i, n, i-1].T
+        tmp -= cb[i, n, i-1].T.conj()
         tmp -= mc[i, n, i]
-        c[i+1, n, i] = np.dot(binv, tmp)
+        c[i+1, n, i] = np.dot(binv.conj(), tmp)
 
     def cII(i, n):
         tmp  = c[i, n+2, i].copy()
@@ -277,14 +277,14 @@ def block_lanczos(moments, tol=None):
         tmp -= lib.hermi_sum(mc[i, n+1, i])
         tmp += lib.hermi_sum(np.dot(c[i, 1, i], cb[i, n, i-1]))
         tmp += np.dot(b[i-1], cb[i-1, n, i-1])
-        tmp += np.dot(mc[i, n, i], c[i, 1, i].T)
-        c[i+1, n, i+1] = np.linalg.multi_dot((binv, tmp, binv))
+        tmp += np.dot(mc[i, n, i], c[i, 1, i].T.conj()) #TODO yes?
+        c[i+1, n, i+1] = np.linalg.multi_dot((binv.conj(), tmp, binv))
 
     def b2(i):
         b2  = c[i, 2, i].copy()
         b2 -= lib.hermi_sum(cb[i, 1, i-1])
-        b2 -= np.dot(c[i, 1, i], c[i, 1, i].T)
-        if i > 1: b2 += np.dot(b[i-1], b[i-1].T)
+        b2 -= np.dot(c[i, 1, i], c[i, 1, i].T.conj())
+        if i > 1: b2 += np.dot(b[i-1], b[i-1].T.conj())
         return b2
 
     b[0], binv = sqrt_and_inv(moments[0])
@@ -450,7 +450,7 @@ def build_moments_kagf2(gf, eri, kconserv, nmom, kptlist=None):
     return t_occ, t_vir
 
 
-def build_moments(ei, ej, ea, xija, yija, os_factor=1.0, ss_factor=1.0):
+def build_moments(ei, ea, ej, xiaj, yiaj=None, yjai=None, nmom=2, os_factor=1.0, ss_factor=1.0):
     '''
     Construct the moments via compiled code. Generalised for asymmetry
     in i/j and x/y.
@@ -464,4 +464,54 @@ def build_moments(ei, ej, ea, xija, yija, os_factor=1.0, ss_factor=1.0):
      x,y    ija
     '''
 
-    raise NotImplementedError()  #TODO
+    #TODO MPI
+
+    ni, na, nj = ei.size, ej.size, ea.size
+    nmo_p = xiaj.shape[0]
+    nmo_q = nmo_p if yiaj is None else yiaj.shape[0]
+
+    def pointer(x):
+        if x is None:
+            return ctypes.POINTER(ctypes.c_void_p)()
+        else:
+            return x.ctypes.data_as(ctypes.POINTER(ctypes.c_void_p))
+
+    if xiaj.dtype in [np.float64, float]:
+        dtype = np.float64
+        fdrv = libeagf2.construct_moments_real_4c
+    else:
+        dtype = np.complex128
+        fdrv = libeagf2.construct_moments_cplx_4c
+
+    xiaj = np.asarray(xiaj, dtype=dtype, order='C')
+    assert xiaj.size == (nmo_p * ni * na * nj)
+
+    if yiaj is not None:
+        yiaj = np.asarray(yiaj, dtype=dtype, order='C')
+        assert yiaj.size == (nmo_q * ni * na * nj)
+
+    if yjai is not None:
+        yjai = np.asarray(yjai, dtype=dtype, order='C')
+        assert yjai.size == (nmo_q * nj * na * ni)
+
+    t = np.zeros((nmom, nmo_p, nmo_q), dtype=dtype)
+
+    fdrv(
+            ctypes.c_int32(nmo_p),
+            ctypes.c_int32(nmo_q),
+            ctypes.c_int32(ni),
+            ctypes.c_int32(na),
+            ctypes.c_int32(nj),
+            ctypes.c_int32(nmom),
+            ctypes.c_int32(nmo_p),
+            ctypes.c_int32(nmo_q),
+            pointer(xiaj),
+            pointer(yiaj),
+            pointer(yjai),
+            pointer(ei),
+            pointer(ea),
+            pointer(ej),
+            pointer(t),
+    )
+
+    return t
