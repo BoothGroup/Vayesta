@@ -104,20 +104,6 @@ def build_moments(frag, other):
 
     pija = _ao2mo(frag.pija, c_occ_p, c_vir_p)
     qija = _ao2mo(other.pija, c_occ_q, c_vir_q)
-    globals()['x%d'%id(frag.base)] = globals().get('x%d'%id(frag.base), 0) + 1
-    if globals()['x%d'%id(frag.base)] < 3:
-        c = frag.c_ao_cls
-        pk = np.einsum('Lpq,Lrs->pqrs', *pija)
-        ek = lib.direct_sum('i+j-a->ija', e_occ, e_occ, e_vir)
-        t0 = np.einsum('pija,qija->pq', pk, np.conj(2*pk-pk.swapaxes(1,2)))
-        t0 = np.einsum('pq,ip,jq->ij', t0, c, c.conj())
-        t0[np.abs(t0) < 1e-10] = 0
-        t1 = np.einsum('pija,qija,ija->pq', pk, np.conj(2*pk-pk.swapaxes(1,2)), ek)
-        t1 = np.einsum('pq,ip,jq->ij', t1, c, c.conj())
-        t1[np.abs(t1) < 1e-10] = 0
-        np.set_printoptions(linewidth=180, precision=5)
-        print(t0)
-        print(t1)
 
     t_occ = _build_part(e_occ, e_vir, pija, qija)
 

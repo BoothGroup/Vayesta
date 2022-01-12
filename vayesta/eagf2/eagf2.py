@@ -32,7 +32,6 @@ class RAGF2Solver(RAGF2):
     def get_supercell_qmos(self, qmo_energy, qmo_coeff, qmo_occ=None, se=None, imag_tol=1e-8):
         ''' For compatibility.
         '''
-        self.log.info("%s", (np.abs(np.dot(qmo_coeff * qmo_energy, qmo_coeff.T.conj())) > 1e-14).astype(int))
 
         if qmo_occ is None:
             return qmo_energy, qmo_coeff
@@ -58,78 +57,58 @@ class KRAGF2Solver(KRAGF2):
         ''' Convert QMOs from k-space to supercell.
         '''
 
+        nmo = self.mf.cell.nao
+        nkpts = self.nkpts
+
         return_occ = qmo_occ is not None
         if qmo_occ is None:
             qmo_occ = 2.0 * (np.array(qmo_energy) < 0)
 
+        qmo_coeff = qmo_coeff.copy()
+        for k in range(self.nkpts):
+            qmo_coeff[i, :nmo] = np.dot(self.kmf.mo_coeff, qmo_coeff[i, :nmo])
+
         qmo_energy_sc = np.hstack(qmo_energy)
         qmo_occ_sc = np.hstack(qmo_occ)
-
-        #qmo_coeff_sc = np.einsum('kij,kR,kS->RiSj', qmo_coeff, self.phase.conj(), self.phase)
-        #qmo_coeff_sc = np.einsum('kij,kR->Rikj', qmo_coeff, self.phase.conj())
-        #qmo_coeff_sc = qmo_coeff_sc.reshape(qmo_coeff_sc.shape[0]*qmo_coeff_sc.shape[1], -1)
-        qmo_coeff_sc = scipy.linalg.block_diag(*qmo_coeff)
+        qmo_coeff_sc = []
+        for k, ck in enumerate(qmo_coeff):
+            cr = np.multiply.outer(self.phase[k], ck)
+            cr = cr.reshape(cr.shape[0]*cr.shape[1], cr.shape[2])
+            qmo_coeff_sc.append(cr)
+        qmo_coeff_sc = np.hstack(qmo_coeff_sc)
 
         mask = np.argsort(qmo_energy_sc)
         qmo_energy_sc = qmo_energy_sc[mask]
-        qmo_coeff_sc = qmo_coeff_sc[:, mask]
         qmo_occ_sc = qmo_occ_sc[mask]
+        qmo_coeff_sc = qmo_coeff_sc[:, mask]
 
-        ovlp = np.eye(sum([c.shape[0] for c in qmo_coeff]))
-        qmo_coeff_sc = foldscf.make_mo_coeff_real(qmo_energy_sc, qmo_coeff_sc, ovlp)
-
-        # Reorder physical and auxiliary part:
-        #  +--------------+      +--------------+
-        #  | phys (kpt 0) |      | phys (kpt 0) |
-        #  | aux (kpt 0)  |      | phys (kpt 1) |
-        #  | phys (kpt 1) | ---\ |      ...     |
-        #  | aux (kpt 1)  | ---/ | aux (kpt 0)  |
-        #  |      ...     |      | aux (kpt 1)  |
-        #  |      ...     |      |      ...     |
-        #  +--------------+      +--------------+
-        phys = []
-        aux = []
-        tot = 0
-        for c in qmo_coeff:
-            phys.append(list(range(tot, tot+self.nmo)))
-            aux.append(list(range(tot+self.nmo, tot+c.shape[0])))
-            tot += c.shape[0]
-        mask = np.array(sum(phys + aux, []))
-        assert np.allclose(np.sort(mask), list(range(tot)))
-        qmo_coeff_sc = qmo_coeff_sc[mask]
-
-        # Reorder physical part:
-        #  +-------------+      +-------------+
-        #  | occ (kpt 0) |      | occ (kpt 0) |
-        #  | vir (kpt 0) |      | occ (kpt 1) |
-        #  | occ (kpt 1) | ---\ |      ...    |
-        #  | vir (kpt 1) | ---/ | vir (kpt 0) |
-        #  |      ...    |      | vir (kpt 1) |
-        #  |      ...    |      |      ...    |
-        #  +-------------+      +-------------+
-        mask = np.argsort(np.concatenate(self.mf.mo_energy))
-        nmo = self.nmo * self.nkpts
-        qmo_coeff_sc[:nmo] = qmo_coeff_sc[:nmo][mask]
-
-        # Reorder auxiliary part:
-        #  +-------------+      +-------------+
-        #  | occ (kpt 0) |      | occ (kpt 0) |
-        #  | vir (kpt 0) |      | occ (kpt 1) |
-        #  | occ (kpt 1) | ---\ |      ...    |
-        #  | vir (kpt 1) | ---/ | vir (kpt 0) |
-        #  |      ...    |      | vir (kpt 1) |
-        #  |      ...    |      |      ...    |
-        #  +-------------+      +-------------+
-        if qmo_coeff_sc.shape[0] != nmo:
-            if se is None:
-                c_aux = qmo_coeff_sc[nmo:]
-                aux_energy = np.einsum('xi,xi,i->x', c_aux, c_aux.conj(), qmo_energy_sc)
+        def _part(ki, kj):
+            phys = self.get_ovlp()[ki*nmo:(ki+1)*nmo, kj*nmo:(kj+1)*nmo]
+            if ki == kj:
+                aux = np.eye(qmo_energy[ki].size)
             else:
-                aux_energy = np.concatenate([s.energy for s in se])
-            mask = np.argsort(aux_energy)
-            qmo_coeff_sc[nmo:] = qmo_coeff_sc[nmo:][mask]
+                aux = np.zeros((qmo_energy[ki].size, qmo_energy[kj].size))
+            return scipy.block_diag(phys, aux)
+        ovlp = np.block([[_part(ki, kj) for kj in range(self.nkpts)] for ki in range(self.nkpts)])
+        #TODO remove:
+        assert np.allclose(np.linalg.multi_dot((qmo_coeff_sc.T.conj(), ovlp, qmo_coeff_sc)), np.eye(qmo_energy_sc.size))
 
-        self.log.info("%s", (np.abs(np.dot(qmo_coeff_sc * qmo_energy_sc, qmo_coeff_sc.T.conj())) > 1e-14).astype(int))
+        qmo_coeff_sc = foldscf.make_mo_coeff_real(qmo_energy_sc, qmo_coeff_sc, ovlp)
+        #TODO remove:
+        assert np.allclose(np.linalg.multi_dot((qmo_coeff_sc.T.conj(), ovlp, qmo_coeff_sc)), np.eye(qmo_energy_sc.size))
+
+        # Reorder physical and auxiliary parts:
+        is_physical = np.zeros((qmo_energy_sc.size), dtype=bool)
+        p1 = 0
+        for k, ck in enumerate(qmo_coeff):
+            is_physical[p1:p1+nmo] = 1
+            p1 = p1 + ck.shape[-1]
+        phys = np.nonzero(is_physical)
+        aux = np.nonzero(~is_physical)
+        mask = np.concatenate((phys, aux))
+
+        sc = np.dot(self.get_ovlp(), self.mf.mo_coeff)
+        qmo_coeff_sc[:nmo*nkpts] = np.dot(sc.T.conj(), qmo_coeff_sc[:nmo*nkpts])
 
         if return_occ:
             return qmo_energy_sc, qmo_coeff_sc, qmo_occ_sc
