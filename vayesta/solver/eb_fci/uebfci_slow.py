@@ -87,7 +87,6 @@ def contract_2e(eri, fcivec, norb, nelec, nbosons, max_occ):
             t1b[a, i, :, str1] += sign * ci0[:, str0]
 
     # t1 = lib.einsum('bjai,aiAB...->bjAB...', eri.reshape([norb]*4), t1)
-
     t1a_ = numpy.tensordot(eri[0].reshape([norb] * 4), t1a, 2) + numpy.tensordot(eri[1].reshape([norb] * 4), t1b, 2)
     t1b_ = numpy.tensordot(eri[2].reshape([norb] * 4), t1b, 2) + numpy.tensordot(eri[1].reshape([norb] * 4), t1a,
                                                                                 [[0,1], [0,1]])
@@ -276,15 +275,23 @@ def make_hdiag(h1e, g2e, hep, hpp, norb, nelec, nbosons, max_occ):
     # electron part
     cishape = make_shape(norb, nelec, nbosons, max_occ)
     hdiag = numpy.zeros(cishape)
-    g2e = ao2mo.restore(1, g2e, norb)
-    diagj = numpy.einsum('iijj->ij', g2e)
-    diagk = numpy.einsum('ijji->ij', g2e)
+    g2e_aa = ao2mo.restore(1, g2e[0], norb)
+    g2e_ab = ao2mo.restore(1, g2e[1], norb)
+    g2e_bb = ao2mo.restore(1, g2e[2], norb)
+
+    diagj_aa = numpy.einsum('iijj->ij', g2e_aa)
+    diagj_ab = numpy.einsum('iijj->ij', g2e_ab)
+    diagj_bb = numpy.einsum('iijj->ij', g2e_bb)
+
+    diagk_aa = numpy.einsum('ijji->ij', g2e_aa)
+    diagk_bb = numpy.einsum('ijji->ij', g2e_bb)
+
     for ia, aocc in enumerate(occslista):
         for ib, bocc in enumerate(occslistb):
-            e1 = h1e[aocc, aocc].sum() + h1e[bocc, bocc].sum()
-            e2 = diagj[aocc][:, aocc].sum() + diagj[aocc][:, bocc].sum() \
-                 + diagj[bocc][:, aocc].sum() + diagj[bocc][:, bocc].sum() \
-                 - diagk[aocc][:, aocc].sum() - diagk[bocc][:, bocc].sum()
+            e1 = h1e[0][aocc, aocc].sum() + h1e[1][bocc, bocc].sum()
+            e2 = diagj_aa[aocc][:, aocc].sum() + diagj_ab[aocc][:, bocc].sum() \
+                 + diagj_ab.T[bocc][:, aocc].sum() + diagj_bb[bocc][:, bocc].sum() \
+                 - diagk_aa[aocc][:, aocc].sum() - diagk_bb[bocc][:, bocc].sum()
             hdiag[ia, ib] += e1 + e2 * .5
 
     # No electron-phonon part?
@@ -304,8 +311,7 @@ def kernel(h1e, g2e, hep, hpp, norb, nelec, nbosons, max_occ,
            tol=1e-12, max_cycle=100, verbose=0, ecore=0,
            returnhop=False, adj_zero_pho=False,
            **kwargs):
-    h2e = direct_uhf.absorb_h1e(h1e, g2e, norb, nelec, .5)
-
+    h2e = tuple([ao2mo.restore(1, x, norb) for x in direct_uhf.absorb_h1e(h1e, g2e, norb, nelec, .5)])
     cishape = make_shape(norb, nelec, nbosons, max_occ)
     ci0 = numpy.zeros(cishape)
     # Add noise for initial guess, remove it if problematic
@@ -460,9 +466,9 @@ def make_rdm12s(fcivec, norb, nelec, reorder=True):
         t1a = t1a.reshape((norb ** 2, -1))
         t1b = t1b.reshape((norb ** 2, -1))
 
-        dm2aa += lib.dot(t1a, t1a.T).reshape((norb,) * 4).transponse(1, 0, 2, 3)
-        dm2ab += lib.dot(t1a, t1b.T).reshape((norb,) * 4).transponse(1, 0, 2, 3)
-        dm2bb += lib.dot(t1b, t1b.T).reshape((norb,) * 4).transponse(1, 0, 2, 3)
+        dm2aa += lib.dot(t1a, t1a.T).reshape((norb,) * 4).transpose(1, 0, 2, 3)
+        dm2ab += lib.dot(t1a, t1b.T).reshape((norb,) * 4).transpose(1, 0, 2, 3)
+        dm2bb += lib.dot(t1b, t1b.T).reshape((norb,) * 4).transpose(1, 0, 2, 3)
 
     if reorder:
         dm1a, dm2aa = rdm.reorder_rdm(dm1a, dm2aa, inplace=True)
@@ -487,7 +493,7 @@ def make_eb_rdm(fcivec, norb, nelec, nbosons, max_occ):
     link_indexa = cistring.gen_linkstr_index(range(norb), neleca)
     link_indexb = cistring.gen_linkstr_index(range(norb), nelecb)
 
-    cishape = make_shape(nelec, norb, nbosons, max_occ)
+    cishape = make_shape(norb, nelec, nbosons, max_occ)
     nspinorb = 2 * norb
 
     # Just so we get a sensible result in pure fermionic case.
@@ -534,7 +540,6 @@ def calc_dd_resp_mom(ci0, e0, max_mom, norb, nel, nbos, h1e, eri, hbb, heb, max_
     # spin-density response (rather than charge-density) we'll need to use commutation relations to relate to the
     # equivalent charge-density response.
     hop = kernel(h1e, eri, heb, hbb, norb, nel, nbos, max_boson_occ, returnhop=True, **kwargs)[0]
-
     if isinstance(nel, (int, numpy.integer)):
         nelecb = nel // 2
         neleca = nel - nelecb
@@ -542,7 +547,7 @@ def calc_dd_resp_mom(ci0, e0, max_mom, norb, nel, nbos, h1e, eri, hbb, heb, max_
         neleca, nelecb = nel
     link_indexa = cistring.gen_linkstr_index(range(norb), neleca)
     link_indexb = cistring.gen_linkstr_index(range(norb), nelecb)
-    cishape = make_shape(nel, norb, nbos, max_boson_occ)
+    cishape = make_shape(norb, nel, nbos, max_boson_occ)
 
     t1a = numpy.zeros((norb, norb) + cishape, dtype=numpy.dtype(numpy.float64))
     t1b = numpy.zeros_like(t1a)
@@ -622,7 +627,7 @@ def calc_dd_resp_mom(ci0, e0, max_mom, norb, nel, nbos, h1e, eri, hbb, heb, max_
     if type(rdm1) == tuple:
         rdma, rdmb = rdm1
     else:
-        rdma = rdmb = rdm1
+        rdma = rdmb = rdm1 / 2
     if not (coeffs is None):
         rdma = coeffsa.T.dot(rdma).dot(coeffsa)
         rdmb = coeffsb.T.dot(rdmb).dot(coeffsb)

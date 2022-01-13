@@ -40,11 +40,19 @@ class EDMET(RDMET):
     def with_df(self):
         return hasattr(self.mf, "with_df")
 
+    @property
+    def eps(self):
+        eps = np.zeros((self.nocc, self.nvir))
+        eps = eps + self.mo_energy[self.nocc:]
+        eps = (eps.T - self.mo_energy[:self.nocc]).T
+        eps = eps.reshape(-1)
+        return eps, eps
+
     def check_solver(self, solver):
         if solver not in VALID_SOLVERS:
             raise ValueError("Unknown solver: %s" % solver)
 
-    def kernel(self):
+    def kernel(self, bno_threshold=None):
 
         t_start = timer()
 
@@ -53,7 +61,10 @@ class EDMET(RDMET):
 
         maxiter = self.opts.maxiter
         # rdm = self.mf.make_rdm1()
-
+        bno_thr = bno_threshold or self.bno_threshold
+        if bno_thr < np.inf and maxiter > 1:
+            raise NotImplementedError("MP2 bath calculation is currently ignoring the correlation potential, so does"
+                                      " not work properly for self-consistent calculations.")
         # Initialise parameters for self-consistency iteration
         fock = self.get_fock()
         self.vcorr = np.zeros((self.nao,) * 2)
@@ -79,10 +90,6 @@ class EDMET(RDMET):
         else:
             self.updater = MixUpdate(self.opts.mixing_param)
 
-        impurity_projectors = [
-            [parent.c_frag] + [c.c_frag for c in children] for (parent, children) in zip(sym_parents, sym_children)
-        ]
-
         self.converged = False
         for iteration in range(1, maxiter + 1):
             self.iteration = iteration
@@ -93,7 +100,7 @@ class EDMET(RDMET):
 
             if self.opts.charge_consistent:
                 fock = mf.get_fock()
-            self.set_up_fragments(sym_parents)
+            self.set_up_fragments(sym_parents, bno_threshold=bno_thr)
             # Need to optimise a global chemical potential to ensure electron number is converged.
             nelec_mf = self.check_fragment_nelectron()
             if type(nelec_mf) == tuple:
@@ -186,13 +193,7 @@ class EDMET(RDMET):
         self.log.info("Total wall time:  %s", time_string(timer() - t_start))
         self.log.info("All done.")
 
-    def set_up_fragments(self, sym_parents):
-        def get_eps():
-            eps = np.zeros((self.nocc, self.nvir))
-            eps = eps + self.mo_energy[self.nocc:]
-            eps = (eps.T - self.mo_energy[:self.nocc]).T
-            eps = eps.reshape(-1)
-            return np.concatenate([eps, eps])
+    def set_up_fragments(self, sym_parents, bno_threshold=None):
 
         # First, set up and run RPA. Note that our self-consistency only couples same-spin excitations so we can
         # solve a subset of the RPA equations.
@@ -200,7 +201,7 @@ class EDMET(RDMET):
             # Set up for RIRPPA zeroth moment calculation.
             rpa = ssRIRPA(self.mf, self.xc_kernel, self.log)
             # Get fermionic bath set up, and calculate the cluster excitation space.
-            rot_ovs = [f.set_up_fermionic_bath() for f in sym_parents]
+            rot_ovs = [f.set_up_fermionic_bath(bno_threshold) for f in sym_parents]
             target_rot = np.concatenate(rot_ovs, axis=0)
             if target_rot.shape[0] > 0:
                 mom0_interact, est_error = rpa.kernel_moms(target_rot, npoints=48)
@@ -219,7 +220,7 @@ class EDMET(RDMET):
                 mom0_bos, est_error = rpa.kernel_moms(np.concatenate(rot_bos, axis=0), npoints=48)
             else:
                 mom0_bos = np.zeros((sum(nbos), mom0_interact.shape[1]))
-            eps = get_eps()
+            eps = np.concatenate(self.eps)
             # Can then invert relation to generate coupled electron-boson Hamiltonian.
             for f, sl in zip(sym_parents, bos_slices):
                 f.construct_boson_hamil(mom0_bos[sl, :], eps, self.xc_kernel)
@@ -230,9 +231,9 @@ class EDMET(RDMET):
             self.log.info("RPA particle-hole gap %4.2e", rpa.freqs_ss.min())
             # Then generate full RPA moments.
             mom0 = rpa.gen_moms(0, self.xc_kernel)[0]
-            eps = get_eps()
+            eps = np.concatenate(self.eps)
             for f in sym_parents:
-                rot_ov = f.set_up_fermionic_bath()
+                rot_ov = f.set_up_fermionic_bath(bno_threshold)
                 mom0_interact = dot(rot_ov, mom0)
                 rot_bos = f.define_bosons(mom0_interact)
                 mom0_bos = dot(rot_bos, mom0)
@@ -288,10 +289,7 @@ class EDMET(RDMET):
         """
         Generate the update to our RPA exchange-correlation kernel this iteration.
         """
-
-        eps = np.zeros((self.nocc, self.nvir))
-        eps = (eps.T - self.mf.mo_energy[:self.nocc]).T
-        eps = eps - self.mf.mo_energy[self.nocc:]
+        eps = np.concatenate(self.eps)
         # Separate into spin components; in RHF case we still expect aaaa and aabb components to differ.
         if self.with_df:
             k = [[np.zeros((0, self.nao, self.nao))] * 2, [np.zeros((0, self.nao, self.nao))] * 2]

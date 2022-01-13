@@ -123,6 +123,15 @@ class DMETFragment(QEmbeddingFragment):
             bath = self.bath
         if bath is None:
             raise ValueError("make_cluster requires bath.")
+        if bno_number is None:
+            bno_number = self.opts.bno_number
+        if bno_number is None and bno_threshold is None:
+            bno_threshold = self.base.bno_threshold
+        if np.ndim(bno_threshold) == 0:
+            bno_threshold = 2 * [bno_threshold]
+        if np.ndim(bno_number) == 0:
+            bno_number = 2 * [bno_number]
+
 
         if isinstance(bath, BNO_Bath):
             c_bno_occ, c_frozen_occ = bath.get_occupied_bath(bno_threshold[0], bno_number[0])
@@ -172,15 +181,6 @@ class DMETFragment(QEmbeddingFragment):
         -------
         results : DMETFragmentResults
         """
-        if bno_number is None:
-            bno_number = self.opts.bno_number
-        if bno_number is None and bno_threshold is None:
-            bno_threshold = self.base.bno_threshold
-        if np.ndim(bno_threshold) == 0:
-            bno_threshold = 2 * [bno_threshold]
-        if np.ndim(bno_number) == 0:
-            bno_number = 2 * [bno_number]
-
         if solver is None:
             solver = self.solver
         if self.bath is None or construct_bath:

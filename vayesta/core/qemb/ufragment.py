@@ -399,3 +399,12 @@ class UFragment(Fragment):
         r_vir_a = dot(self.base.mo_coeff_vir[0].T, ovlp, self.c_proj[0])
         r_vir_b = dot(self.base.mo_coeff_vir[1].T, ovlp, self.c_proj[1])
         return (r_occ_a, r_occ_b), (r_vir_a, r_vir_b)
+
+    def get_overlap_c2f(self):
+        """Get overlap matrices from occupied/virtual active space to fragment orbitals."""
+        ovlp = self.base.get_ovlp()
+        r_occ_a = dot(self.cluster.c_active_occ[0].T, ovlp, self.c_proj[0])
+        r_occ_b = dot(self.cluster.c_active_occ[1].T, ovlp, self.c_proj[1])
+        r_vir_a = dot(self.cluster.c_active_vir[0].T, ovlp, self.c_proj[0])
+        r_vir_b = dot(self.cluster.c_active_vir[1].T, ovlp, self.c_proj[1])
+        return (r_occ_a, r_occ_b), (r_vir_a, r_vir_b)

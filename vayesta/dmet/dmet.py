@@ -123,7 +123,7 @@ class DMET(QEmbeddingMethod):
         maxiter = self.opts.maxiter
         # View this as a single number for now.
         bno_thr = bno_threshold or self.bno_threshold
-        if bno_thr < np.inf:
+        if bno_thr < np.inf and maxiter > 1:
             raise NotImplementedError("MP2 bath calculation is currently ignoring the correlation potential, so does"
                                       " not work properly for self-consistent calculations.")
         # rdm = self.mf.make_rdm1()

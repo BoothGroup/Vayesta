@@ -4,7 +4,7 @@ import numpy as np
 
 from vayesta.core.util import *
 from .solver2 import ClusterSolver
-from vayesta.solver.fci2 import FCI_Solver
+from vayesta.solver.fci2 import FCI_Solver, UFCI_Solver
 from .eb_fci import ebfci_slow, uebfci_slow
 
 
@@ -93,7 +93,7 @@ class EBFCI_Solver(FCI_Solver):
         return self.dm_eb
 
 
-class UEBFCI_Solver(EBFCI_Solver):
+class UEBFCI_Solver(EBFCI_Solver, UFCI_Solver):
 
     def kernel(self, ci0=None, eris=None):
         """Run FCI kernel."""

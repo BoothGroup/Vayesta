@@ -66,7 +66,7 @@ class EDMETFragment(DMETFragment):
         # Want to return the rotation of the canonical HF orbitals which produce the cluster canonical orbitals.
         return self.get_rot_to_mf_ov()
 
-    def define_bosons(self, rpa_mom, rot_ov=None, tol=1e-10):
+    def define_bosons(self, rpa_mom, rot_ov=None, tol=1e-8):
         """Given the RPA zeroth moment between the fermionic cluster excitations and the rest of the space, define
         our cluster bosons.
         Note that this doesn't define our Hamiltonian, since we don't yet have the required portion of our
@@ -107,24 +107,48 @@ class EDMETFragment(DMETFragment):
         xc_apb, xc_amb = self.get_xc_couplings(xc_kernel, np.concatenate([ov_rot, self.r_bos], axis=0))
         eps_loc = self.get_loc_eps(eps, np.concatenate([ov_rot, self.r_bos], axis=0))
         apb = eps_loc + 2 * eris + xc_apb
+
+        ov_active_tot = 2 * self.ov_active if isinstance(self.ov_active, int) else sum(self.ov_active)
+
         # This is the bare amb.
         amb = eps_loc + xc_amb
         eta0 = np.zeros_like(apb)
-        eta0[:2 * self.ov_active, :2 * self.ov_active] = self.eta0_ferm
-        eta0[:2 * self.ov_active, 2 * self.ov_active:] = self.eta0_coupling
-        eta0[2 * self.ov_active:, :2 * self.ov_active] = self.eta0_coupling.T
-        eta0[2 * self.ov_active:, 2 * self.ov_active:] = self.eta0_bos
+        eta0[:ov_active_tot, :ov_active_tot] = self.eta0_ferm
+        eta0[:ov_active_tot, ov_active_tot:] = self.eta0_coupling
+        eta0[ov_active_tot:, :ov_active_tot] = self.eta0_coupling.T
+        eta0[ov_active_tot:, ov_active_tot:] = self.eta0_bos
 
         renorm_amb = dot(eta0, apb, eta0)
 
-        maxdev = abs(amb - renorm_amb)[:2 * self.ov_active, :2 * self.ov_active].max()
+        maxdev = abs(amb - renorm_amb)[:ov_active_tot, :ov_active_tot].max()
         if maxdev > 1e-8:
             self.log.error("Maximum deviation in irreducible polarisation propagator=%6.4e",
-                           abs(amb - renorm_amb)[:2 * self.ov_active, :2 * self.ov_active].max())
-        a = 0.5 * (apb + renorm_amb)
-        b = 0.5 * (apb - renorm_amb)
-        couplings_aa = np.zeros((self.nbos, self.cluster.norb_active, self.cluster.norb_active))
-        couplings_bb = np.zeros((self.nbos, self.cluster.norb_active, self.cluster.norb_active))
+                           abs(amb - renorm_amb)[:ov_active_tot, :ov_active_tot].max())
+
+        couplings_aa, couplings_bb, a_bos, b_bos = self._get_boson_hamil(apb, renorm_amb)
+
+        self.bos_freqs, x, y = bogoliubov_decouple(a_bos + b_bos, a_bos - b_bos)
+
+        couplings_aa = einsum("npq,nm->mpq", couplings_aa, x) + einsum("npq,nm->mqp", couplings_aa, y)
+        couplings_bb = np.einsum("npq,nm->mpq", couplings_bb, x) + np.einsum("npq,nm->mqp", couplings_bb, y)
+        self.couplings = (couplings_aa, couplings_bb)
+        # These are the quantities before decoupling, since these in some sense represent the `physical' excitations of
+        # the system. ie. each quasi-bosonic excitation operator is made up of only environmental excitations, rather
+        # than also including deexcitations, making later manipulations more straightforward.
+        self.apb = apb
+        self.amb = renorm_amb
+        self.eta0 = eta0
+        # Will also want to save the effective local modification resulting from our local construction.
+        self.amb_renorm_effect = renorm_amb - amb
+
+    def _get_boson_hamil(self, apb, amb):
+        a = 0.5 * (apb + amb)
+        b = 0.5 * (apb - amb)
+
+        nactive_a = nactive_b = self.cluster.norb_active
+
+        couplings_aa = np.zeros((self.nbos, nactive_a, nactive_a))
+        couplings_bb = np.zeros((self.nbos, nactive_b, nactive_b))
 
         couplings_aa[:, :self.cluster.nocc_active, self.cluster.nocc_active:] = a[2 * self.ov_active:,
                                                                                 :self.ov_active].reshape(
@@ -141,16 +165,8 @@ class EDMETFragment(DMETFragment):
 
         a_bos = a[2 * self.ov_active:, 2 * self.ov_active:]
         b_bos = b[2 * self.ov_active:, 2 * self.ov_active:]
-        self.bos_freqs, x, y = bogoliubov_decouple(a_bos + b_bos, a_bos - b_bos)
 
-        couplings_aa = einsum("npq,nm->mpq", couplings_aa, x) + einsum("npq,nm->mqp", couplings_aa, y)
-        couplings_bb = np.einsum("npq,nm->mpq", couplings_bb, x) + np.einsum("npq,nm->mqp", couplings_bb, y)
-        self.couplings = (couplings_aa, couplings_bb)
-        # These are the quantities before decoupling, since these in some sense represent the `physical' excitations of
-        # the system.
-        self.apb = apb
-        self.amb = renorm_amb
-        self.eta0 = eta0
+        return couplings_aa, couplings_bb, a_bos, b_bos
 
     def get_eri_couplings(self, rot):
         """Obtain eri in a space defined by an arbitrary rotation of the mean-field particle-hole excitations of our
@@ -181,15 +197,22 @@ class EDMETFragment(DMETFragment):
                 (self.ov_mf, self.ov_mf))
             return dot(rota + rotb, eris, rota.T + rotb.T)
 
-    def get_xc_couplings(self, xc_kernel, rot):
-        rota, rotb = rot[:, :self.ov_mf], rot[:, self.ov_mf:2 * self.ov_mf]
-
+    def conv_to_aos(self, ra, rb):
         # Convert rots from full-space particle-hole excitations into AO pairs.
         def conv_to_aos(r):
             r = r.reshape((-1, self.base.nocc, self.base.nvir))
             return einsum("nia,pi,qa->npq", r, self.base.mo_coeff_occ, self.base.mo_coeff_vir)
 
-        rota, rotb = conv_to_aos(rota), conv_to_aos(rotb)
+        return conv_to_aos(ra), conv_to_aos(rb)
+
+    def get_xc_couplings(self, xc_kernel, rot):
+
+        ov_mf = self.ov_mf
+        if isinstance(ov_mf, int): ov_mf = (ov_mf, ov_mf)
+
+        rota, rotb = rot[:, :ov_mf[0]], rot[:, ov_mf[0]:sum(ov_mf)]
+
+        rota, rotb = self.conv_to_aos(rota, rotb)
         if self.base.with_df:
             # Store low-rank expression for xc kernel.
             # Store alpha and beta-spin xc-kernel contributions separately, so need to treat separately.
@@ -251,8 +274,13 @@ class EDMETFragment(DMETFragment):
         if self.opts.make_rdm_eb:
             results.dm_eb = cluster_solver.make_rdm_eb()
         if self.opts.make_dd_moments:
-            ddmoms = cluster_solver.make_dd_moms(1, coeffs=dot(self.cluster.c_active.T, self.base.get_ovlp(),
-                                                               self.c_frag))
+            r_o, r_v = self.get_overlap_c2f()
+            if isinstance(r_o, tuple):
+                r = tuple([np.concatenate([x, y], axis=0) for x, y in zip(r_o, r_v)])
+            else:
+                r = np.concatenate([r_o, r_v], axis=0)
+
+            ddmoms = cluster_solver.make_dd_moms(1, coeffs=r)
             if self.opts.old_sc_condition:
                 ddmoms[0] = [np.einsum("ppqq->pq", x) for x in ddmoms[0]]
                 ddmoms[1] = [np.einsum("ppqq->pq", x) for x in ddmoms[1]]
@@ -268,8 +296,8 @@ class EDMETFragment(DMETFragment):
             self.log.debugv("Passing fragment option %s to solver.", attr)
             solver_opts[attr] = getattr(self.opts, attr)
 
-        solver_opts["v_ext"] = None if chempot is None else - chempot * self.get_fragment_projector(
-            self.cluster.c_active)
+        solver_opts["v_ext"] = None if chempot is None else - chempot * np.array(self.get_fragment_projector(
+            self.cluster.c_active))
 
         return solver_opts
 
@@ -293,126 +321,76 @@ class EDMETFragment(DMETFragment):
         Generate the contribution to the correlation kernel arising from this fragment, in terms of local degrees of
         freedom (ie cluster orbitals and bosons).
         """
-        # Get the ApB, AmB and m0 for this cluster. Note that this is pre-boson decoupling, but we don't actually care
-        # about that here and it shouldn't change our answer.
-        apb_orig = self.apb
-        amb_orig = self.amb
-        m0_orig = self.eta0
 
-        # m0_new = self.results.dd_mom0
-        # m1_new = self.results.dd_mom1
-
-        nocc_loc = self.cluster.nocc_active
-        nvir_loc = self.cluster.nvir_active
-        ov_loc = nocc_loc * nvir_loc
-
-        # Now want to construct rotations defining which degrees of freedom contribute to two-point quantities.
-        occ_frag_rot = np.linalg.multi_dot([self.c_frag.T, self.base.get_ovlp(), self.cluster.c_active_occ])
-        vir_frag_rot = np.linalg.multi_dot([self.c_frag.T, self.base.get_ovlp(), self.cluster.c_active_vir])
-
-        if self.opts.old_sc_condition:
-            # Then get projectors to local quantities in ov-basis. Note this needs to be stacked to apply to each spin
-            # pairing separately.
-            rot_ov_frag = np.einsum("pi,pa->pia", occ_frag_rot, vir_frag_rot).reshape((-1, ov_loc))
-            # Get pseudo-inverse to map from frag to loc. Since occupied-virtual excitations aren't spanning this
-            # isn't a simple transpose.
-            rot_frag_ov = np.linalg.pinv(rot_ov_frag)
-        else:
-            # First, grab rotations from particle-hole excitations to fragment degrees of freedom, ignoring reordering
-            rot_ov_frag = np.einsum("pi,qa->pqia", occ_frag_rot, vir_frag_rot).reshape((-1, ov_loc))
-            # Set up matrix to map down to only a single index ordering.
-            proj_to_order = np.zeros((self.n_frag,) * 4)
-            for p in range(self.n_frag):
-                for q in range(p + 1):
-                    proj_to_order[p, q, p, q] = proj_to_order[q, p, p, q] = 1.0
-            proj_to_order = proj_to_order.reshape((self.n_frag ** 2, self.n_frag, self.n_frag))
-            # Now restrict to triangular portion of array
-            proj_to_order = pyscf.lib.pack_tril(proj_to_order)
-            # proj_from_order = np.linalg.pinv(proj_to_order)
-            # Now have rotation between single fragment ordering, and fragment particle-hole excits.
-            rot_ov_frag = dot(proj_to_order.T, rot_ov_frag)
-            # Get pseudo-inverse to map from frag to loc. Since occupied-virtual excitations aren't spanning this
-            # isn't a simple transpose.
-            rot_frag_ov = np.linalg.pinv(rot_ov_frag)
-            m0_new = [dot(proj_to_order.T, x.reshape((self.n_frag ** 2,) * 2), proj_to_order) for x in m0_new]
-            m1_new = [dot(proj_to_order.T, x.reshape((self.n_frag ** 2,) * 2), proj_to_order) for x in m1_new]
-
-        # newmat = amb_orig.copy()
-
-        def get_updated(orig, update, rot_ovf, rot_fov):
-            """Given the original value of a block, the updated solver value, and rotations between appropriate spaces
-            generate the updated value of the appropriate block."""
-            # Generate difference in local, two-point excitation basis.
-            diff = update - np.linalg.multi_dot([rot_ovf, orig, rot_ovf.T])
-            return orig + np.linalg.multi_dot([rot_fov, diff, rot_fov.T])
-
-        def get_updated_spincomponents(orig, update, rot_ov_frag, rot_frag_ov):
-            newmat = orig.copy()
-
-            newmat[:ov_loc, :ov_loc] = get_updated(newmat[:ov_loc, :ov_loc], update[0], rot_ov_frag, rot_frag_ov)
-            newmat[:ov_loc, ov_loc:2 * ov_loc] = get_updated(newmat[:ov_loc, ov_loc:2 * ov_loc], update[1], rot_ov_frag,
-                                                             rot_frag_ov)
-            newmat[ov_loc:2 * ov_loc, :ov_loc] = newmat[:ov_loc, ov_loc:2 * ov_loc].T
-            newmat[ov_loc:2 * ov_loc, ov_loc:2 * ov_loc] = get_updated(newmat[ov_loc:2 * ov_loc, ov_loc:2 * ov_loc],
-                                                                       update[2],
-                                                                       rot_ov_frag, rot_frag_ov)
-            return newmat
-
-        new_amb = get_updated_spincomponents(amb_orig, m1_new, rot_ov_frag, rot_frag_ov)
-        new_m0 = get_updated_spincomponents(m0_orig, m0_new, rot_ov_frag, rot_frag_ov)
-        new_m0_inv = np.linalg.inv(new_m0)
-        new_apb = np.linalg.multi_dot([new_m0_inv, new_amb, new_m0_inv])
-
-        new_a = 0.5 * (new_apb + new_amb)
-        new_b = 0.5 * (new_apb - new_amb)
+        new_amb, new_apb = self.get_composite_moments(m0_new, m1_new)
 
         r_occ, r_vir = self.get_overlap_m2c()
+        if not isinstance(r_occ, tuple): r_occ = (r_occ, r_occ)
+        if not isinstance(r_vir, tuple): r_vir = (r_vir, r_vir)
+        ov_a, ov_b = self.ov_active_ab
+        no_a, no_b = self.nocc_ab
+        nv_a, nv_b = self.nocc_ab
+        ncl_a, ncl_b = self.nclus_ab
         # Given that our active orbitals are also canonical this should be diagonal, but calculating the whole
         # thing isn't prohibitive and might save pain.
-        loc_eps = einsum("ia,ij,ab,ik,ac->jbkc", epsilon, r_occ, r_vir, r_occ, r_vir).reshape((ov_loc, ov_loc))
-        # We want to actually consider the difference from the dRPA kernel. This is just the local eris in an OV basis.
-        if eris is None:
-            eris = self.base.get_eris_array(self.cluster.c_active)
 
-        v = eris[:nocc_loc, nocc_loc:, :nocc_loc, nocc_loc:].reshape((ov_loc, ov_loc))
+        # We want to actually consider the difference from the dRPA kernel.
+        # Get irreducible polarisation propagator.
+        ov_rot = self.get_rot_to_mf_ov()
+        eps_loc = self.get_loc_eps(epsilon, np.concatenate([ov_rot, self.r_bos], axis=0))
+        # Get eri couplings between all fermionic and boson degrees of freedom.
+        eris = self.get_eri_couplings(np.concatenate([ov_rot, self.r_bos], axis=0))
+        # Calculate just xc contribution.
+        # For A+B need to deduct dRPA contribution.
+        new_xc_apb = new_apb - eps_loc - 2 * eris
+        # For A-B need to deduct effective dRPA contribution and the renormalisation of interactions introduced in
+        # cluster construcion.
+        new_xc_amb = new_amb - eps_loc - self.amb_renorm_effect
 
+        new_xc_a = 0.5 * (new_xc_apb + new_xc_amb)
+        new_xc_b = 0.5 * (new_xc_apb - new_xc_amb)
+        # Now just need to convert to ensure proper symmetries of couplings are imposed, and project each index in turn
+        # into the fragment space.
         fr_proj = self.get_fragment_projector(self.cluster.c_active)
+        if not isinstance(fr_proj, tuple): fr_proj = (fr_proj, fr_proj)
 
-        ncl = self.cluster.norb_active
-        no = self.cluster.nocc_active
-
-        def map_to_full(mat):
+        def map_to_full(mat, ncl_l, ncl_r, no_l, no_r):
             """Given a matrix in only the occupied-virtual subspace, expand to full hf basis.
             Assumes and applies symmetry v_{pqrs} = v_{qpsr}."""
-            fullmat = np.zeros((ncl, ncl, ncl, ncl))
-            fullmat[:no, no:, :no, no:] = mat
-            fullmat[no:, :no, no:, :no] = mat.transpose([1, 0, 3, 2])
+            fullmat = np.zeros((ncl_l, ncl_l, ncl_r, ncl_r))
+            fullmat[:no_l, no_l:, :no_r, no_r:] = mat
+            fullmat[no_l:, :no_l, no_r:, :no_r] = mat.transpose([1, 0, 3, 2])
             return fullmat
 
-        def proj_all_indices(mat):
+        def proj_all_indices(mat, lfproj, rfproj):
             """Obtains average over all possible projections of provided matrix, giving contribution to democratic
             partitioning from this cluster.
             """
-            return (einsum("pqrs,pt->tqrs", mat, fr_proj) +
-                    einsum("pqrs,qt->ptrs", mat, fr_proj) +
-                    einsum("pqrs,rt->pqts", mat, fr_proj) +
-                    einsum("pqrs,st->pqrt", mat, fr_proj)) / 4.0
+            return (einsum("pqrs,pt->tqrs", mat, lfproj) +
+                    einsum("pqrs,qt->ptrs", mat, lfproj) +
+                    einsum("pqrs,rt->pqts", mat, rfproj) +
+                    einsum("pqrs,st->pqrt", mat, rfproj)) / 4.0
 
         # Now calculate all spin components; could double check spin symmetry of ab terms if wanted.
         # This deducts the equivalent values at the level of dRPA, reshapes into fermionic indices, and performs
         # projection to only the fragment portions of all indices.
-        newshape = (nocc_loc, nvir_loc, nocc_loc, nvir_loc)
-        v_a_aa = map_to_full((new_a[:ov_loc, :ov_loc] - loc_eps - v).reshape(newshape))
-        v_a_bb = map_to_full((new_a[ov_loc: 2 * ov_loc, ov_loc: 2 * ov_loc] - loc_eps - v).reshape(newshape))
-        v_a_ab = map_to_full((new_a[:ov_loc:, ov_loc: 2 * ov_loc] - v).reshape(newshape))
-        v_b_aa = map_to_full((new_b[:ov_loc, :ov_loc] - v).reshape(newshape)).transpose((0, 1, 3, 2))
-        v_b_bb = map_to_full((new_b[ov_loc: 2 * ov_loc, ov_loc: 2 * ov_loc] - v).reshape(newshape)).transpose(
-            (0, 1, 3, 2))
-        v_b_ab = map_to_full((new_b[:ov_loc:, ov_loc: 2 * ov_loc] - v).reshape(newshape)).transpose((0, 1, 3, 2))
-
-        v_aa = proj_all_indices(v_a_aa + v_b_aa)
-        v_ab = proj_all_indices(v_a_ab + v_b_ab)
-        v_bb = proj_all_indices(v_a_bb + v_b_bb)
+        # Split spin components...
+        v_a_aa, v_a_ab, v_a_bb = self.split_ov_spin_components(new_xc_a)
+        v_b_aa, v_b_ab, v_b_bb = self.split_ov_spin_components(new_xc_b)
+        shape_aa = (no_a, nv_a, no_a, nv_a)
+        shape_ab = (no_a, nv_a, no_b, nv_b)
+        shape_bb = (no_b, nv_b, no_b, nv_b)
+        # Map down to fermionic indices and square matrices.
+        v_a_aa = map_to_full(v_a_aa.reshape(shape_aa), ncl_a, ncl_a, no_a, no_a)
+        v_b_aa = map_to_full(v_b_aa.reshape(shape_aa), ncl_a, ncl_a, no_a, no_a).transpose((0, 1, 3, 2))
+        v_a_ab = map_to_full(v_a_ab.reshape(shape_ab), ncl_a, ncl_b, no_a, no_b)
+        v_b_ab = map_to_full(v_b_ab.reshape(shape_ab), ncl_a, ncl_b, no_a, no_b).transpose((0, 1, 3, 2))
+        v_a_bb = map_to_full(v_a_bb.reshape(shape_bb), ncl_b, ncl_b, no_b, no_b)
+        v_b_bb = map_to_full(v_b_bb.reshape(shape_bb), ncl_b, ncl_b, no_b, no_b).transpose((0, 1, 3, 2))
+        # Project all indices onto impurities and average.
+        v_aa = proj_all_indices(v_a_aa + v_b_aa, fr_proj[0], fr_proj[0])
+        v_ab = proj_all_indices(v_a_ab + v_b_ab, fr_proj[0], fr_proj[1])
+        v_bb = proj_all_indices(v_a_bb + v_b_bb, fr_proj[1], fr_proj[1])
 
         self.save = np.array((v_aa, v_ab, v_bb))
 
@@ -460,6 +438,119 @@ class EDMETFragment(DMETFragment):
             v_ab = einsum("ijkl,pi,qj,rk,sl->pqrs", v_ab, c, c, c, c)
             v_bb = einsum("ijkl,pi,qj,rk,sl->pqrs", v_bb, c, c, c, c)
             return v_aa, v_ab, v_bb
+
+    def get_composite_moments(self, m0_new, m1_new):
+        """Construct composite moments using the local solver dd moments and the lattice RPA moments"""
+        # Get the ApB, AmB and m0 for this cluster. Note that this is pre-boson decoupling, but we don't actually care
+        # about that here and it shouldn't change our answer.
+        apb_orig = self.apb
+        amb_orig = self.amb
+        m0_orig = self.eta0
+        # Now want to construct rotations defining which degrees of freedom contribute to two-point quantities.
+        rot_ov_frag, rot_frag_ov, proj_to_order = self.get_rot_ov_frag()
+        ov_a, ov_b = self.ov_active_ab
+        # Now generate new moments in whatever space our self-consistency condition requires.
+        m0_new = [dot(proj_to_order.T, x.reshape(proj_to_order.shape), proj_to_order) for x in m0_new]
+        m1_new = [dot(proj_to_order.T, x.reshape(proj_to_order.shape), proj_to_order) for x in m1_new]
+
+        def get_updated(orig, update, rot_ovf, rot_fov):
+            """Given the original value of a block, the updated solver value, and rotations between appropriate spaces
+            generate the updated value of the appropriate block."""
+            if not isinstance(rot_ovf, tuple): rot_ovf = (rot_ovf, rot_ovf)
+            if not isinstance(rot_fov, tuple): rot_fov = (rot_fov, rot_fov)
+            # Generate difference in local, two-point excitation basis.
+            diff = update - np.linalg.multi_dot([rot_ovf[0], orig, rot_ovf[1].T])
+            return orig + np.linalg.multi_dot([rot_fov[0], diff, rot_fov[1].T])
+
+        def get_updated_spincomponents(orig, update, rot_ov_frag, rot_frag_ov):
+            newmat = orig.copy()
+
+            newmat[:ov_a, :ov_a] = get_updated(newmat[:ov_a, :ov_a], update[0], rot_ov_frag[0], rot_frag_ov[0])
+            newmat[:ov_a, ov_a:ov_a + ov_b] = get_updated(newmat[:ov_a, ov_a:ov_a + ov_b], update[1], rot_ov_frag,
+                                                          rot_frag_ov)
+            newmat[ov_a:ov_a + ov_b, :ov_a] = newmat[:ov_a, ov_a:ov_a + ov_b].T
+            newmat[ov_a:ov_a + ov_b, ov_a:ov_a + ov_b] = get_updated(newmat[ov_a:ov_a + ov_b, ov_a:ov_a + ov_b],
+                                                                     update[2],
+                                                                     rot_ov_frag[1], rot_frag_ov[1])
+            return newmat
+
+        new_amb = get_updated_spincomponents(amb_orig, m1_new, rot_ov_frag, rot_frag_ov)
+        new_m0 = get_updated_spincomponents(m0_orig, m0_new, rot_ov_frag, rot_frag_ov)
+        new_m0_inv = np.linalg.inv(new_m0)
+        new_apb = np.linalg.multi_dot([new_m0_inv, new_amb, new_m0_inv])
+
+        return new_amb, new_apb
+
+    def get_rot_ov_frag(self):
+        """Get rotations between the relevant space for fragment two-point excitations and the cluster active occupied-
+        virtual excitations."""
+
+        occ_frag_rot, vir_frag_rot = self.get_overlap_c2f()
+        ov_loc = self.ov_active
+        if self.opts.old_sc_condition:
+            # Then get projectors to local quantities in ov-basis. Note this needs to be stacked to apply to each spin
+            # pairing separately.
+            rot_ov_frag = np.einsum("ip,ap->pia", occ_frag_rot, vir_frag_rot).reshape((-1, ov_loc))
+            # Get pseudo-inverse to map from frag to loc. Since occupied-virtual excitations aren't spanning this
+            # isn't a simple transpose.
+            rot_frag_ov = np.linalg.pinv(rot_ov_frag)
+            proj_to_order = np.eye(rot_ov_frag.shape[0])
+        else:
+            # First, grab rotations from particle-hole excitations to fragment degrees of freedom, ignoring reordering
+            rot_ov_frag = np.einsum("ip,aq->pqia", occ_frag_rot, vir_frag_rot).reshape((-1, ov_loc))
+            # Set up matrix to map down to only a single index ordering.
+            proj_to_order = np.zeros((self.n_frag,) * 4)
+            for p in range(self.n_frag):
+                for q in range(p + 1):
+                    proj_to_order[p, q, p, q] = proj_to_order[q, p, p, q] = 1.0
+            proj_to_order = proj_to_order.reshape((self.n_frag ** 2, self.n_frag, self.n_frag))
+            # Now restrict to triangular portion of array
+            proj_to_order = pyscf.lib.pack_tril(proj_to_order)
+            # proj_from_order = np.linalg.pinv(proj_to_order)
+            # Now have rotation between single fragment ordering, and fragment particle-hole excits.
+            rot_ov_frag = dot(proj_to_order.T, rot_ov_frag)
+            # Get pseudo-inverse to map from frag to loc. Since occupied-virtual excitations aren't spanning this
+            # isn't a simple transpose.
+            rot_frag_ov = np.linalg.pinv(rot_ov_frag)
+        # Return tuples so can can unified interface with UHF implementation.
+        return (rot_ov_frag, rot_ov_frag), (rot_frag_ov, rot_frag_ov), proj_to_order
+
+    @property
+    def ov_active_ab(self):
+        ov = self.ov_active
+        if isinstance(ov, int):
+            return (ov, ov)
+        else:
+            return ov
+
+    @property
+    def nocc_ab(self):
+        no = self.cluster.nocc_active
+        if isinstance(no, int):
+            return (no, no)
+        else:
+            return no
+
+    @property
+    def nclus_ab(self):
+        ncl = self.cluster.norb_active
+        if isinstance(ncl, int):
+            return (ncl, ncl)
+        else:
+            return ncl
+
+    @property
+    def nvir_ab(self):
+        return tuple([x - y for x, y in zip(self.nclus_ab, self.nocc_ab)])
+
+    def split_ov_spin_components(self, mat):
+        ov = self.ov_active
+        if isinstance(ov, tuple):
+            ova, ovb = ov
+        else:
+            ova = ovb = ov
+
+        return mat[:ova, :ova], mat[:ova, ova:ova + ovb], mat[ova:ova + ovb, ova:ova + ovb]
 
 
 def bogoliubov_decouple(apb, amb):

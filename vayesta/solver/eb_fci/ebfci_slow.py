@@ -629,7 +629,7 @@ def calc_dd_resp_mom(ci0, e0, max_mom, norb, nel, nbos, h1e, eri, hbb, heb, max_
     if type(rdm1) == tuple:
         rdma, rdmb = rdm1
     else:
-        rdma = rdmb = rdm1
+        rdma = rdmb = rdm1 / 2
     if not (coeffs is None):
         rdma = coeffsa.T.dot(rdma).dot(coeffsa)
         rdmb = coeffsb.T.dot(rdmb).dot(coeffsb)
