@@ -189,8 +189,9 @@ class EDMET(RDMET):
             self.log.error("Self-consistency not reached in {} iterations.".format(maxiter))
         # Now have final results.
         self.print_results()
+        self.timing = timer() - t_start
+        self.log.info("Total wall time:  %s", time_string(self.timing))
 
-        self.log.info("Total wall time:  %s", time_string(timer() - t_start))
         self.log.info("All done.")
 
     def set_up_fragments(self, sym_parents, bno_threshold=None):
@@ -208,7 +209,7 @@ class EDMET(RDMET):
             else:
                 mom0_interact = np.zeros_like(target_rot)
             # Get appropriate slices to obtain required active spaces.
-            ovs_active = [2 * f.ov_active for f in sym_parents]
+            ovs_active = [f.ov_active_tot for f in sym_parents]
             ovs_active_slices = [slice(sum(ovs_active[:i]), sum(ovs_active[:i + 1])) for i in
                                  range(len(sym_parents))]
             # Use interaction component of moment to generate bosonic degrees of freedom.

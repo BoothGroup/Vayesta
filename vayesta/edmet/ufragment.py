@@ -17,6 +17,10 @@ class UEDMETFragment(UDMETFragment, EDMETFragment):
         return no_a * nv_a, no_b * nv_b
 
     @property
+    def ov_active_tot(self):
+        return sum(self.ov_active)
+
+    @property
     def ov_mf(self):
         no_a, no_b = self.base.nocc
         nv_a, nv_b = self.base.nvir

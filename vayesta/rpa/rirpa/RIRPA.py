@@ -37,6 +37,10 @@ class ssRIRPA:
         return self.nocc * self.nvir
 
     @property
+    def ov_tot(self):
+        return 2 * self.ov
+
+    @property
     def mo_coeff(self):
         """Occupied MO coefficients."""
         return self.mf.mo_coeff
@@ -93,7 +97,7 @@ class ssRIRPA:
 
         if target_rot is None:
             self.log.warning("Warning; generating full moment rather than local component. Will scale as O(N^5).")
-            target_rot = np.eye(2 * self.ov)
+            target_rot = np.eye(self.ov_tot)
         ri_apb, ri_amb = self.construct_RI_AB()
         # Compress RI representations before manipulation, since compression cost O(N^2 N_aux) while most operations
         # are O(N^2 N_aux^2), so for systems large enough that calculation cost is noticeable the cost reduction

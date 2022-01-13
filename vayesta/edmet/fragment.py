@@ -45,6 +45,10 @@ class EDMETFragment(DMETFragment):
         return self.cluster.nocc_active * self.cluster.nvir_active
 
     @property
+    def ov_active_tot(self):
+        return 2 * self.ov_active
+
+    @property
     def ov_mf(self):
         return self.base.nocc * self.base.nvir
 
@@ -108,22 +112,20 @@ class EDMETFragment(DMETFragment):
         eps_loc = self.get_loc_eps(eps, np.concatenate([ov_rot, self.r_bos], axis=0))
         apb = eps_loc + 2 * eris + xc_apb
 
-        ov_active_tot = 2 * self.ov_active if isinstance(self.ov_active, int) else sum(self.ov_active)
-
         # This is the bare amb.
         amb = eps_loc + xc_amb
         eta0 = np.zeros_like(apb)
-        eta0[:ov_active_tot, :ov_active_tot] = self.eta0_ferm
-        eta0[:ov_active_tot, ov_active_tot:] = self.eta0_coupling
-        eta0[ov_active_tot:, :ov_active_tot] = self.eta0_coupling.T
-        eta0[ov_active_tot:, ov_active_tot:] = self.eta0_bos
+        eta0[:self.ov_active_tot, :self.ov_active_tot] = self.eta0_ferm
+        eta0[:self.ov_active_tot, self.ov_active_tot:] = self.eta0_coupling
+        eta0[self.ov_active_tot:, :self.ov_active_tot] = self.eta0_coupling.T
+        eta0[self.ov_active_tot:, self.ov_active_tot:] = self.eta0_bos
 
         renorm_amb = dot(eta0, apb, eta0)
 
-        maxdev = abs(amb - renorm_amb)[:ov_active_tot, :ov_active_tot].max()
+        maxdev = abs(amb - renorm_amb)[:self.ov_active_tot, :self.ov_active_tot].max()
         if maxdev > 1e-8:
             self.log.error("Maximum deviation in irreducible polarisation propagator=%6.4e",
-                           abs(amb - renorm_amb)[:ov_active_tot, :ov_active_tot].max())
+                           abs(amb - renorm_amb)[:self.ov_active_tot, :self.ov_active_tot].max())
 
         couplings_aa, couplings_bb, a_bos, b_bos = self._get_boson_hamil(apb, renorm_amb)
 
@@ -450,8 +452,8 @@ class EDMETFragment(DMETFragment):
         rot_ov_frag, rot_frag_ov, proj_to_order = self.get_rot_ov_frag()
         ov_a, ov_b = self.ov_active_ab
         # Now generate new moments in whatever space our self-consistency condition requires.
-        m0_new = [dot(proj_to_order.T, x.reshape(proj_to_order.shape), proj_to_order) for x in m0_new]
-        m1_new = [dot(proj_to_order.T, x.reshape(proj_to_order.shape), proj_to_order) for x in m1_new]
+        m0_new = [dot(proj_to_order.T, x.reshape((proj_to_order.shape[0],)*2), proj_to_order) for x in m0_new]
+        m1_new = [dot(proj_to_order.T, x.reshape((proj_to_order.shape[0],)*2), proj_to_order) for x in m1_new]
 
         def get_updated(orig, update, rot_ovf, rot_fov):
             """Given the original value of a block, the updated solver value, and rotations between appropriate spaces
