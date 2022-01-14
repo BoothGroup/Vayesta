@@ -209,7 +209,7 @@ class DMET_Bath:
 
         # Complete DMET orbital space using reference orbitals
         # NOT MAINTAINED!
-        if c_ref is not None:
+        if c_ref is not None:  # pragma: no cover
             nref = c_ref.shape[-1]
             self.log.debug("%d reference DMET orbitals given.", nref)
             nmissing = nref - nbath

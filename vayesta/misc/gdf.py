@@ -8,7 +8,6 @@ Ref:
 J. Chem. Phys. 147, 164119 (2017)
 '''
 
-import time
 import copy
 import ctypes
 import logging
@@ -24,8 +23,7 @@ from pyscf.ao2mo.outcore import balance_partition
 from pyscf.ao2mo.incore import iden_coeffs, _conc_mos
 from pyscf.pbc.gto.cell import _estimate_rcut
 from pyscf.pbc.df import df, incore, ft_ao, aft
-from pyscf.pbc.df.df_jk import _ewald_exxdiv_for_G0, _format_dms
-from pyscf.pbc.df.fft_ao2mo import _iskconserv, _format_kpts
+from pyscf.pbc.df.fft_ao2mo import _iskconserv
 from pyscf.pbc.lib.kpts_helper import is_zero, gamma_point, unique, KPT_DIFF_TOL, get_kconserv
 
 from vayesta import libs
@@ -41,11 +39,38 @@ except ImportError:
 COMPACT = getattr(__config__, 'pbc_df_ao2mo_get_eri_compact', True)
 
 
+def _format_kpts(kpts, n=4):
+    if kpts is None:
+        return np.zeros((n, 3))
+    else:
+        kpts = np.asarray(kpts)
+        if kpts.size == 3 and n != 1:
+            return np.vstack([kpts]*n).reshape(4, 3)
+        else:
+            return kpts.reshape(n, 3)
+
+
 def make_auxcell(cell, auxbasis=None, drop_eta=None, log=None):
     '''
     Build the cell corresponding to the auxiliary functions.
 
     Note: almost identical to pyscf.pyscf.pbc.df.df.make_modrho_basis
+
+    Parameters
+    ----------
+    cell : pyscf.pbc.gto.Cell
+        Unit cell containing the system information and basis.
+    auxbasis : str, optional
+        Auxiliary basis, default is `with_df.auxbasis`.
+    drop_eta : float, optional
+        Threshold in exponents to discard, default is `cell.exp_to_discard`.
+    log : logger.Logger, optional
+        Logger to stream output to, default value is logging.getLogger(__name__).
+
+    Returns
+    -------
+    auxcell : pyscf.pbc.gto.Cell
+        Unit cell containg the auxiliary basis.
     '''
 
     log = log or logging.getLogger(__name__)
@@ -114,6 +139,22 @@ def make_chgcell(auxcell, smooth_eta, rcut=15.0, log=None):
     Build the cell corresponding to the smooth Gaussian functions.
 
     Note: almost identical to pyscf.pyscf.pbc.df.df.make_modchg_basis
+
+    Parameters
+    ----------
+    cell : pyscf.pbc.gto.Cell
+        Unit cell containing the system information and basis.
+    smooth_eta : float
+        Eta optimised for carrying the charge.
+    rcut : float, optional
+        Default cutoff distance for carrying the charge, default 15.
+    log : logger.Logger, optional
+        Logger to stream output to, default value is logging.getLogger(__name__).
+
+    Returns
+    -------
+    chgcell : pyscf.pbc.gto.Cell
+        Unit cell containing the smooth charge carrying functions.
     '''
 
     log = log or logging.getLogger(__name__)
@@ -157,6 +198,22 @@ def fuse_auxcell(auxcell, chgcell, log=None):
     their angular momenta and spherical harmonics.
 
     Note: almost identical to pyscf.pyscf.pbc.df.df.fuse_auxcell
+
+    Parameters
+    ----------
+    auxcell : pyscf.pbc.gto.Cell
+        Unit cell containg the auxiliary basis.
+    chgcell : pyscf.pbc.gto.Cell
+        Unit cell containing the smooth charge carrying functions.
+    log : logger.Logger, optional
+        Logger to stream output to, default value is logging.getLogger(__name__).
+
+    Returns
+    -------
+    fused_cell : pyscf.pbc.gto.Cell
+        Fused cell consisting of auxcell and chgcell.
+    fuse : callable
+        Function which incorporates contributions from chgcell into auxcell.
     '''
 
     log = log or logging.getLogger(__name__)
@@ -226,7 +283,7 @@ def fuse_auxcell(auxcell, chgcell, log=None):
                                 Lpq_sph[s0:s1].ctypes.data_as(ctypes.c_void_p),
                                 ctypes.c_int(npq * auxcell.bas_nctr(i)),
                                 Lpq_cart.ctypes.data_as(ctypes.c_void_p),
-                                ctpyes.c_int(l),
+                                ctypes.c_int(l),
                             )
 
                 return Lpq_sph
@@ -582,6 +639,16 @@ def _fao2mo(eri, cp, cq):
 
 class GDF(df.GDF):
     ''' Incore Gaussian density fitting.
+
+    Parameters
+    ----------
+    cell : pyscf.pbc.gto.Cell
+        Unit cell containing the system information and basis.
+    kpts : numpy.ndarray (nk, 3), optional
+        Array containing the sampled k-points, default value is the gamma
+        point only.
+    log : logger.Logger, optional
+        Logger to stream output to, default value is logging.getLogger(__name__).
     '''
 
     def __init__(self, cell, kpts=np.zeros((1, 3)), log=None):
@@ -610,12 +677,10 @@ class GDF(df.GDF):
         self._madelung = None
 
         # The follow attributes are not input options.
-        self.exxdiv = None
         self.auxcell = None
         self.chgcell = None
         self.fused_cell = None
         self.kconserv = None
-        self.blockdim = None
         self.kpts_band = None
         self.kpt_hash = None
         self._j_only = False
@@ -654,6 +719,9 @@ class GDF(df.GDF):
         return eta, mesh
 
     def reset(self, cell=None):
+        '''
+        Reset the object.
+        '''
         if cell is not None:
             self.cell = cell
         self.auxcell = None
@@ -670,6 +738,9 @@ class GDF(df.GDF):
         return self
 
     def dump_flags(self):
+        '''
+        Print flags.
+        '''
         self.log.info("GDF parameters:")
         for key in [
                 'auxbasis', 'eta', 'exp_to_discard', 'rcut_smooth',
@@ -679,6 +750,16 @@ class GDF(df.GDF):
         return self
 
     def build(self, j_only=None, with_j3c=True):
+        '''
+        Build the _cderi array and associated values.
+
+        Parameters
+        ----------
+        with_j3c : bool, optional
+            If False, do not build the _cderi array and only build the
+            associated values, default False.
+        '''
+
         j_only = j_only or self._j_only
         if j_only:
             self.log.warn('j_only=True has not effect on overhead in %s', self.__class__)
@@ -722,9 +803,32 @@ class GDF(df.GDF):
             self.build()
         return self._cderi.shape[2]
 
-    def sr_loop(self, kpti_kptj=np.zeros((2, 3)), max_memory=2000, compact=True, blksize=None):
+    def sr_loop(self, kpti_kptj=np.zeros((2, 3)), max_memory=None, compact=True, blksize=None):
         '''
         Short-range part.
+
+        Parameters
+        ----------
+        kpti_kptj : numpy.ndarray (2, 3), optional
+            k-points to loop over integral contributions at, default is
+            the Gamma point.
+        compact : bool, optional
+            If True, return the lower-triangular part of the symmetric
+            integrals where appropriate, default value is True.
+        blksize : int, optional
+            Block size for looping over integrals, default is naux.
+
+        Yields
+        ------
+        LpqR : numpy.ndarray (blk, nao2)
+            Real part of the integrals. Shape depends on `compact`,
+            `blksize` and `self.get_naoaux`.
+        LpqI : numpy.ndarray (blk, nao2)
+            Imaginary part of the integrals, shape is the same as LpqR.
+        sign : int
+            Sign of integrals, `vayesta.misc.GDF` does not support any
+            instances where this is not 1, but it is included for
+            compatibility.
         '''
 
         if self._cderi is None:
@@ -740,7 +844,7 @@ class GDF(df.GDF):
         for q0, q1 in lib.prange(0, naux, blksize):
             LpqR = Lpq[ki, kj, q0:q1].real
             LpqI = Lpq[ki, kj, q0:q1].imag
-            if compact:
+            if compact and is_zero(kpti-kptj):
                 LpqR = lib.pack_tril(LpqR, axis=-1)
                 LpqI = lib.pack_tril(LpqI, axis=-1)
             LpqR = np.asarray(LpqR.reshape(min(q1-q0, naux), -1), order='C')
@@ -753,6 +857,18 @@ class GDF(df.GDF):
         '''
         Build the J (direct) and K (exchange) contributions to the Fock
         matrix due to a given density matrix.
+
+        Parameters
+        ----------
+        dm : numpy.ndarray (nk, nao, nao) or (nset, nk, nao, nao)
+            Density matrices at each k-point.
+        with_j : bool, optional
+            If True, build the J matrix, default value is True.
+        with_k : bool, optional
+            If True, build the K matrix, default value is True.
+        exxdiv : str, optional
+            Type of exchange divergence treatment to use, default value
+            is None.
         '''
 
         if hermi != 1 or kpts_band is not None or omega is not None:
@@ -769,7 +885,9 @@ class GDF(df.GDF):
                 (mpi_helper.rank+1) * naux // mpi_helper.size,
         )
 
-        kconserv = np.asarray(self.kconserv, order='C')
+        dms = dm.reshape(-1, nkpts, nao, nao)
+        ndm = dms.shape[0]
+
         cderi = np.asarray(self._cderi, order='C')
         dm = np.asarray(dm, order='C', dtype=np.complex128)
         vj = np.zeros((nkpts, nao, nao), dtype=np.complex128)
@@ -798,15 +916,32 @@ class GDF(df.GDF):
         if with_k and exxdiv == 'ewald':
             s = self.get_ovlp()
             madelung = self.madelung
-            for k, kpt in enumerate(kpts):
-                vk[k] += madelung * np.linalg.multi_dot((s[k], dm[k], s[k]))
+            for i in range(ndm):
+                for k in range(nkpts):
+                    vk[i, k] += madelung * np.linalg.multi_dot((s[k], dms[i, k], s[k]))
+
+        vj = vj.reshape(dm.shape)
+        vk = vk.reshape(dm.shape)
 
         return vj, vk
 
-    def get_eri(self, kpts=None, compact=COMPACT):
+    def get_eri(self, kpts, compact=COMPACT):
         '''
         Get the four-center AO electronic repulsion integrals at a
         given k-point.
+
+        Parameters
+        ----------
+        kpts : numpy.ndarray
+            k-points to build the integrals at.
+        compact : bool, optional
+            If True, compress the auxiliaries according to symmetries
+            where appropriate.
+
+        Returns
+        -------
+        numpy.ndarray (nao2, nao2)
+            Output ERIs, shape depends on `compact`.
         '''
 
         if self._cderi is None:
@@ -814,9 +949,7 @@ class GDF(df.GDF):
 
         nao = self.cell.nao_nr()
         naux = self.get_naoaux()
-        if kpts is None:
-            kpts = self.kpts
-        kptijkl = _format_kpts(kpts)
+        kptijkl = _format_kpts(kpts, n=4)
         if not _iskconserv(self.cell, kptijkl):
             self.log.warning(self.cell, 'Momentum conservation not found in '
                                         'the given k-points %s', kptijkl)
@@ -840,10 +973,25 @@ class GDF(df.GDF):
 
     get_ao_eri = get_eri
 
-    def ao2mo(self, mo_coeffs, kpts=None, compact=COMPACT):
+    def ao2mo(self, mo_coeffs, kpts, compact=COMPACT):
         '''
         Get the four-center MO electronic repulsion integrals at a
         given k-point.
+
+        Parameters
+        ----------
+        mo_coeffs : numpy.ndarray
+            MO coefficients to rotate into.
+        kpts : numpy.ndarray
+            k-points to build the integrals at.
+        compact : bool, optional
+            If True, compress the auxiliaries according to symmetries
+            where appropriate.
+
+        Returns
+        -------
+        numpy.ndarray (nmo2, nmo2)
+            Output ERIs, shape depends on `compact`.
         '''
 
         if self._cderi is None:
@@ -851,9 +999,7 @@ class GDF(df.GDF):
 
         nao = self.cell.nao_nr()
         naux = self.get_naoaux()
-        if kpts is None:
-            kpts = self.kpts
-        kptijkl = _format_kpts(kpts)
+        kptijkl = _format_kpts(kpts, n=4)
         if not _iskconserv(self.cell, kptijkl):
             self.log.warning(self.cell, 'Momentum conservation not found in '
                                         'the given k-points %s', kptijkl)
@@ -882,24 +1028,31 @@ class GDF(df.GDF):
 
     get_mo_eri = ao2mo
 
-    def get_3c_eri(self, kpts=None, compact=COMPACT):
+    def get_3c_eri(self, kpts, compact=COMPACT):
         '''
         Get the three-center AO  electronic repulsion integrals at a
         given k-point.
+
+        Parameters
+        ----------
+        kpts : numpy.ndarray
+            k-points to build the integrals at.
+        compact : bool, optional
+            If True, compress the auxiliaries according to symmetries
+            where appropriate.
+
+        Returns
+        -------
+        numpy.ndarray (naux, nao2)
+            Output ERIs, shape depends on `compact`.
         '''
 
         if self._cderi is None:
             self.build()
 
         naux = self.get_naoaux()
-        if kpts is None:
-            kpts = self.nkpts
-        kptij = _format_kpts(kpts)
-        if not _iskconserv(self.cell, kptij):
-            self.log.warning(self.cell, 'Momentum conservation not found in '
-                                        'the given k-points %s', kptij)
-            return np.zeros_like(self._cderi)
-        ki, kj = (self.kpts_hash[_get_kpt_hash(kpt)][0] for kpt in kptij)
+        kptij = _format_kpts(kpts, n=2)
+        ki, kj = (self.kpt_hash[_get_kpt_hash(kpt)][0] for kpt in kptij)
 
         Lpq = self._cderi[ki, kj]
         if gamma_point(kptij):
@@ -912,24 +1065,33 @@ class GDF(df.GDF):
 
     get_ao_3c_eri = get_3c_eri
 
-    def ao2mo_3c(self, mo_coeffs, kpts=None, compact=COMPACT):
+    def ao2mo_3c(self, mo_coeffs, kpts, compact=COMPACT):
         '''
         Get the three-center MO electronic repulsion integrals at a
         given k-point.
+
+        Parameters
+        ----------
+        mo_coeffs : numpy.ndarray
+            MO coefficients to rotate into.
+        kpts : numpy.ndarray
+            k-points to build the integrals at.
+        compact : bool, optional
+            If True, compress the auxiliaries according to symmetries
+            where appropriate.
+
+        Returns
+        -------
+        numpy.ndarray (naux, nmo2)
+            Output ERIs, shape depends on `compact`.
         '''
 
         if self._cderi is None:
             self.build()
 
         naux = self.get_naoaux()
-        if kpts is None:
-            kpts = self.nkpts
-        kptij = _format_kpts(kpts)
-        if not _iskconserv(self.cell, kptij):
-            self.log.warning(self.cell, 'Momentum conservation not found in '
-                                        'the given k-points %s', kptij)
-            return np.zeros_like(self._cderi)
-        ki, kj = (self.kpts_hash[_get_kpt_hash(kpt)][0] for kpt in kptij)
+        kptij = _format_kpts(kpts, n=2)
+        ki, kj = (self.kpt_hash[_get_kpt_hash(kpt)][0] for kpt in kptij)
 
         if isinstance(mo_coeffs, np.ndarray) and mo_coeffs.ndim == 2:
             mo_coeffs = (mo_coeffs,) * 2
@@ -947,7 +1109,13 @@ class GDF(df.GDF):
     get_mo_3c_eri = ao2mo_3c
 
     def save(self, file):
-        ''' Dump the integrals to disk.
+        '''
+        Dump the integrals to disk.
+
+        Parameters
+        ----------
+        file : str
+            Output file to dump integrals to.
         '''
 
         if self._cderi is None:
@@ -959,7 +1127,13 @@ class GDF(df.GDF):
         return self
 
     def load(self, file):
-        ''' Load the integrals from disk. Must have called self.build() first.
+        '''
+        Load the integrals from disk. Must have called self.build() first.
+
+        Parameters
+        ----------
+        file : str
+            Output file to load integrals from.
         '''
 
         if self.auxcell is None:
@@ -977,6 +1151,15 @@ class GDF(df.GDF):
     @property
     def max_memory(self):
         return self.cell.max_memory
+
+    @property
+    def blockdim(self):
+        return self.get_naoaux()
+
+    @property
+    def exxdiv(self):
+        # To mimic KSCF in get_coulG
+        return None
 
 
     # Cached properties:
@@ -1006,39 +1189,7 @@ class GDF(df.GDF):
             self._madelung = tools.pbc.madelung(self.cell, self.kpts)
         return self._madelung
 
+
 DF = GDF
 
 del COMPACT
-
-
-if __name__ == '__main__':
-    #TODO: remove after making unit tests
-
-    from pyscf.pbc import gto
-
-    cell = gto.Cell()
-    cell.atom = 'He 0 0 0; He 1 0 1'
-    cell.a = np.eye(3) * 2
-    cell.basis = '6-31g'
-    cell.verbose = 0
-    cell.build()
-
-    kpts = cell.make_kpts([3, 2, 1])
-
-    t0 = time.time()
-
-    df1 = df.GDF(cell, kpts)
-    df1.build()
-    eri1 = df1.ao2mo_7d([np.array([np.eye(cell.nao)]*len(kpts))]*4)
-
-    t1 = time.time()
-
-    df2 = GDF(cell, kpts)
-    df2.build()
-    eri2 = df2.ao2mo_7d([np.array([np.eye(cell.nao)]*len(kpts))]*4)
-
-    t2 = time.time()
-
-    print(lib.finger(eri1), lib.finger(eri2))
-    print(t1-t0, t2-t1)
-    assert np.allclose(eri1, eri2)
