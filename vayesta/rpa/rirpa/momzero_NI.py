@@ -7,6 +7,10 @@ from vayesta.rpa.rirpa.NI_eval import NumericalIntegratorClenCurInfinite, \
     NumericalIntegratorClenCurSemiInfinite, NumericalIntegratorGaussianSemiInfinite, NumericalIntegratorBase
 
 
+class NIError(Exception):
+    pass
+
+
 class NIMomZero(NumericalIntegratorClenCurInfinite):
     def __init__(self, D, S_L, S_R, target_rot, npoints, log):
         self.D = D
@@ -15,6 +19,7 @@ class NIMomZero(NumericalIntegratorClenCurInfinite):
         self.target_rot = target_rot
         out_shape = self.target_rot.shape
         diag_shape = self.D.shape
+        self.diagmat1 = self.diagmat2 = None
         super().__init__(out_shape, diag_shape, npoints, log, True)
 
     @property
@@ -28,16 +33,32 @@ class NIMomZero(NumericalIntegratorClenCurInfinite):
     def get_Q(self, freq):
         return construct_Q(freq, self.D, self.S_L, self.S_R)
 
-
-class MomzeroDeductNone(NIMomZero):
-
     @property
     def diagmat1(self):
-        return self.D ** 2 + einsum("np,np->p", self.S_L, self.S_R)
+        return self._diagmat1
+
+    @diagmat1.setter
+    def diagmat1(self, val):
+        if val is not None and any(val < 0.0):
+            raise NIError("Error in numerical integration; diagonal approximation is non-PSD")
+        self._diagmat1 = val
 
     @property
     def diagmat2(self):
-        return None
+        return self._diagmat2
+
+    @diagmat2.setter
+    def diagmat2(self, val):
+        if val is not None and any(val < 0.0):
+            raise NIError("Error in numerical integration; diagonal approximation is non-PSD")
+        self._diagmat2 = val
+
+
+class MomzeroDeductNone(NIMomZero):
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.diagmat1 = self.D ** 2 + einsum("np,np->p", self.S_L, self.S_R)
 
     def eval_diag_contrib(self, freq):
         val = diag_sqrt_contrib(self.diagmat1, freq)
@@ -80,9 +101,9 @@ class MomzeroDeductNone(NIMomZero):
 
 class MomzeroDeductD(MomzeroDeductNone):
 
-    @property
-    def diagmat2(self):
-        return self.D ** 2
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.diagmat2 = self.D ** 2
 
     def eval_contrib(self, freq):
         Q = self.get_Q(freq)
@@ -98,8 +119,8 @@ class MomzeroDeductD(MomzeroDeductNone):
 
 class MomzeroDeductHigherOrder(MomzeroDeductD):
 
-    def __init__(self, *args):
-        super().__init__(*args)
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
         self.diagRI = einsum("np,np->p", self.S_L, self.S_R)
 
     # Just calculate diagonals via expression for D-deducted quantity, minus diagonal approximation for higher-order

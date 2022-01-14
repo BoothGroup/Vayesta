@@ -81,12 +81,8 @@ class ssRPA:
         e, c = np.linalg.eigh(M)
         self.freqs_ss = e ** (0.5)
         assert (all(e > 1e-12))
-
-        if xc_kernel is None:
-            self.e_corr_ss = 0.5 * (sum(self.freqs_ss) - (v[0] + v[1]).trace() - sum(eps[0] + eps[1]))
-        else:
-            # Take this with a pinch of salt, there should be an additional correction.
-            self.e_corr_ss = 0.5 * (sum(self.freqs_ss) - 0.5 * (ApB + AmB).trace())
+        # Take this with a pinch of salt, there should be an additional correction.
+        self.e_corr_ss = 0.5 * (sum(self.freqs_ss) - (v[0] + v[1]).trace() - sum(eps[0] + eps[1]))
 
         if xc_kernel is None:
             XpY = np.einsum("n,p,pn->pn", self.freqs_ss ** (-0.5), AmB ** (0.5), c)
