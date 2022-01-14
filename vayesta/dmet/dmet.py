@@ -128,7 +128,10 @@ class DMET(QEmbeddingMethod):
                                       " not work properly for self-consistent calculations.")
         # rdm = self.mf.make_rdm1()
         fock = self.get_fock()
-        self.vcorr = np.zeros((self.nao,) * 2)
+        if self.vcorr is None:
+            self.vcorr = np.zeros((self.nao,) * 2)
+        else:
+            self.log.info("Starting from previous correlation potential.")
 
         cpt = 0.0
         mf = self.mf

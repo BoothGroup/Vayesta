@@ -67,7 +67,10 @@ class EDMET(RDMET):
                                       " not work properly for self-consistent calculations.")
         # Initialise parameters for self-consistency iteration
         fock = self.get_fock()
-        self.vcorr = np.zeros((self.nao,) * 2)
+        if self.vcorr is None:
+            self.vcorr = np.zeros((self.nao,) * 2)
+        else:
+            self.log.info("Starting from previous correlation potential.")
         if self.with_df:
             # Store alpha and beta components separately.
             self.xc_kernel = [[np.zeros((0, self.nao, self.nao))] * 2] * 2
