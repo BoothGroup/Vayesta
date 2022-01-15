@@ -92,6 +92,10 @@ class DMET(QEmbeddingMethod):
 
         self.log.timing("Time for DMET setup: %s", time_string(timer() - t_start))
 
+    @property
+    def e_tot(self):
+        return self.e_mf + self.e_corr
+
     def check_solver(self, solver):
         if solver not in VALID_SOLVERS:
             raise ValueError("Unknown solver: %s" % solver)
@@ -101,16 +105,6 @@ class DMET(QEmbeddingMethod):
         fmt = ('%s(' + len(keys) * '%s: %r, ')[:-2] + ')'
         values = [self.__dict__[k] for k in keys]
         return fmt % (self.__class__.__name__, *[x for y in zip(keys, values) for x in y])
-
-    @property
-    def e_corr(self):
-        """Total energy."""
-        return self.e_tot - self.e_mf
-
-    @property
-    def e_tot(self):
-        """Total energy."""
-        return self.e_dmet + self.mf.energy_nuc()
 
     def kernel(self, bno_threshold=None):
         """Run DMET calculation.
@@ -152,8 +146,8 @@ class DMET(QEmbeddingMethod):
             self.iteration = iteration
             self.log.info("Now running iteration= %2d", iteration)
             self.log.info("****************************************************")
-            mf.mo_energy, mf.mo_coeff = mf.eig(fock + self.vcorr, self.get_ovlp())
-            mf.mo_occ = self.mf.get_occ(mf.mo_energy, mf.mo_coeff)
+            mo_energy, mo_coeff = mf.eig(fock + self.vcorr, self.get_ovlp())
+            self.update_mf(mo_coeff, mo_energy)
 
             if self.opts.charge_consistent:
                 fock = mf.get_fock()
@@ -213,14 +207,15 @@ class DMET(QEmbeddingMethod):
             else:
                 self.log.info("Previous chemical potential still suitable")
 
-            e1, e2 = 0.0, 0.0
+            e1, e2, emf = 0.0, 0.0, 0.0
             for x, frag in enumerate(sym_parents):
                 e1_contrib, e2_contrib = frag.get_dmet_energy_contrib()
                 e1 += e1_contrib * nsym[x]
                 e2 += e2_contrib * nsym[x]
+                emf += frag.get_fragment_mf_energy()
                 # print(e1 + e2, e1, e2)
                 # print(frag.get_fragment_dmet_energy())
-            self.e_dmet = e1 + e2
+            self.e_corr = e1 + e2 - emf
             self.log.info("Total DMET energy {:8.4f}".format(self.e_tot))
             self.log.info("Energy Contributions: 1-body={:8.4f}, 2-body={:8.4f}".format(e1, e2))
             curr_rdms, delta_rdms = self.updater.update(self.hl_rdms)

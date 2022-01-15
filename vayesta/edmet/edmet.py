@@ -159,16 +159,18 @@ class EDMET(RDMET):
             else:
                 self.log.info("Previous chemical potential still suitable")
 
-            e1, e2, efb = 0.0, 0.0, 0.0
+            e1, e2, efb, emf = 0.0, 0.0, 0.0, 0.0
             for x, frag in enumerate(sym_parents):
                 e1_contrib, e2_contrib, efb_contrib = frag.get_edmet_energy_contrib()
                 e1 += e1_contrib * nsym[x]
                 e2 += e2_contrib * nsym[x]
                 efb += efb_contrib * nsym[x]
-            self.e_dmet = e1 + e2 + efb
+                emf += frag.get_fragment_mf_energy()
+
+            self.e_corr = e1 + e2 + efb - emf
             self.log.info("Total EDMET energy {:8.4f}".format(self.e_tot))
             self.log.info(
-                "Energy Contributions: 1-body={:8.4f}, 2-body={:8.4f}, coupled-boson={:8.4f}".format(e1, e2, efb))
+                "Energy Contributions: 1-body={:8.4f}, 2-body={:8.4f}, coupled-boson={:8.4f}, nonlocal correlation energy".format(e1, e2, efb))
 
             # Want to do coupled DIIS optimisation of high-level rdms and local dd response moments.
             [curr_rdms, curr_dd0, curr_dd1], delta_prop = self.updater.update([self.hl_rdms, self.hl_dd0, self.hl_dd1])
