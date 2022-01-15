@@ -60,6 +60,16 @@ class EDMETFragment(DMETFragment):
         res[self.ov_active:2 * self.ov_active, self.ov_mf:2 * self.ov_mf] = spat_rot
         return res
 
+    def get_fragment_projector_ov(self):
+        """In space of cluster p-h excitations, generate the projector to the impurity portion of the occupied index."""
+        po = self.get_fragment_projector(self.cluster.c_active_occ)
+        pv = np.eye(self.cluster.nvir_active)
+        p_ov_spat = einsum("ij,ab->iajb", po, pv).reshape((self.ov_active, self.ov_active))
+        p_ov = np.zeros((self.ov_active_tot, self.ov_active_tot))
+        p_ov[:self.ov_active, :self.ov_active] = p_ov_spat
+        p_ov[self.ov_active:, self.ov_active:] = p_ov_spat
+        return p_ov
+
     def set_up_fermionic_bath(self, bno_threshold=None, bno_number=None):
         """Set up the fermionic bath orbitals"""
         self.make_bath()
@@ -101,6 +111,8 @@ class EDMETFragment(DMETFragment):
     def construct_boson_hamil(self, eta0_bos, eps, xc_kernel):
         """Given the zeroth moment coupling of our bosons to the remainder of the space, along with stored information,
         generate the components of our interacting electron-boson Hamiltonian.
+        At the same time, calculate the local RPA correlation energy since this requires all the same information we
+        already have to hand.
         """
         self.eta0_bos = np.dot(eta0_bos, self.r_bos.T)
         ov_rot = self.get_rot_to_mf_ov()
@@ -119,6 +131,12 @@ class EDMETFragment(DMETFragment):
         eta0[:self.ov_active_tot, self.ov_active_tot:] = self.eta0_coupling
         eta0[self.ov_active_tot:, :self.ov_active_tot] = self.eta0_coupling.T
         eta0[self.ov_active_tot:, self.ov_active_tot:] = self.eta0_bos
+
+        # Need to generate projector from our RPA excitation space to the local fragment degrees of freedom.
+        fproj_ov = self.get_fragment_projector_ov()
+        loc_erpa = einsum("pq,qr,rp->", fproj_ov, eta0[:self.ov_active_tot, :], apb[:, :self.ov_active_tot]) \
+                   - einsum("pq,qp->", fproj_ov, eps_loc[:self.ov_active_tot, :self.ov_active_tot]) \
+                   - einsum("pq,qp->", fproj_ov, eris[:self.ov_active_tot, :self.ov_active_tot])
 
         renorm_amb = dot(eta0, apb, eta0)
 
@@ -142,6 +160,7 @@ class EDMETFragment(DMETFragment):
         self.eta0 = eta0
         # Will also want to save the effective local modification resulting from our local construction.
         self.amb_renorm_effect = renorm_amb - amb
+        return loc_erpa
 
     def _get_boson_hamil(self, apb, amb):
         a = 0.5 * (apb + amb)
@@ -333,9 +352,6 @@ class EDMETFragment(DMETFragment):
         no_a, no_b = self.nocc_ab
         nv_a, nv_b = self.nocc_ab
         ncl_a, ncl_b = self.nclus_ab
-        # Given that our active orbitals are also canonical this should be diagonal, but calculating the whole
-        # thing isn't prohibitive and might save pain.
-
         # We want to actually consider the difference from the dRPA kernel.
         # Get irreducible polarisation propagator.
         ov_rot = self.get_rot_to_mf_ov()
@@ -452,8 +468,8 @@ class EDMETFragment(DMETFragment):
         rot_ov_frag, rot_frag_ov, proj_to_order = self.get_rot_ov_frag()
         ov_a, ov_b = self.ov_active_ab
         # Now generate new moments in whatever space our self-consistency condition requires.
-        m0_new = [dot(proj_to_order.T, x.reshape((proj_to_order.shape[0],)*2), proj_to_order) for x in m0_new]
-        m1_new = [dot(proj_to_order.T, x.reshape((proj_to_order.shape[0],)*2), proj_to_order) for x in m1_new]
+        m0_new = [dot(proj_to_order.T, x.reshape((proj_to_order.shape[0],) * 2), proj_to_order) for x in m0_new]
+        m1_new = [dot(proj_to_order.T, x.reshape((proj_to_order.shape[0],) * 2), proj_to_order) for x in m1_new]
 
         def get_updated(orig, update, rot_ovf, rot_fov):
             """Given the original value of a block, the updated solver value, and rotations between appropriate spaces

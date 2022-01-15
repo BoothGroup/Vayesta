@@ -238,12 +238,14 @@ class EDMET(RDMET):
             # Then generate full RPA moments.
             mom0 = rpa.gen_moms(0, self.xc_kernel)[0]
             eps = np.concatenate(self.eps)
+            e_nonlocal = rpa.e_corr
             for f in sym_parents:
                 rot_ov = f.set_up_fermionic_bath(bno_threshold)
                 mom0_interact = dot(rot_ov, mom0)
                 rot_bos = f.define_bosons(mom0_interact)
                 mom0_bos = dot(rot_bos, mom0)
-                f.construct_boson_hamil(mom0_bos, eps, self.xc_kernel)
+                e_nonlocal -= f.construct_boson_hamil(mom0_bos, eps, self.xc_kernel)
+            self.e_nonlocal = e_nonlocal
 
     def calc_electron_number_defect(self, chempot, bno_thr, nelec_target, parent_fragments, nsym,
                                     construct_bath=True):
