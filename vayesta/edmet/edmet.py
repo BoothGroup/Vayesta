@@ -167,10 +167,11 @@ class EDMET(RDMET):
                 efb += efb_contrib * nsym[x]
                 emf += frag.get_fragment_mf_energy()
 
-            self.e_corr = e1 + e2 + efb - emf
+            self.e_corr = e1 + e2 + efb + self.e_nonlocal - emf
             self.log.info("Total EDMET energy {:8.4f}".format(self.e_tot))
             self.log.info(
-                "Energy Contributions: 1-body={:8.4f}, 2-body={:8.4f}, coupled-boson={:8.4f}, nonlocal correlation energy".format(e1, e2, efb))
+                "Energy Contributions: 1-body={:8.4f}, 2-body={:8.4f}, coupled-boson={:8.4f}, nonlocal correlation "
+                "energy={:8.4f}".format(e1, e2, efb, self.e_nonlocal))
 
             # Want to do coupled DIIS optimisation of high-level rdms and local dd response moments.
             [curr_rdms, curr_dd0, curr_dd1], delta_prop = self.updater.update([self.hl_rdms, self.hl_dd0, self.hl_dd1])
