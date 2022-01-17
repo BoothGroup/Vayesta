@@ -35,6 +35,17 @@ class UEDMETFragment(UDMETFragment, EDMETFragment):
         res[self.ov_active[0]:, self.ov_mf[0]:] = spat_rotb
         return res
 
+    def get_fragment_projector_ov(self):
+        """In space of cluster p-h excitations, generate the projector to the impurity portion of the occupied index."""
+        poa, pob = self.get_fragment_projector(self.cluster.c_active_occ)
+        pva, pvb = [np.eye(x) for x in self.cluster.nvir_active]
+        p_ova = einsum("ij,ab->iajb", poa, pva).reshape((self.ov_active[0], self.ov_active[0]))
+        p_ovb = einsum("ij,ab->iajb", pob, pvb).reshape((self.ov_active[1], self.ov_active[1]))
+        p_ov = np.zeros((self.ov_active_tot, self.ov_active_tot))
+        p_ov[:self.ov_active[0], :self.ov_active[0]] = p_ova
+        p_ov[self.ov_active[0]:, self.ov_active[0]:] = p_ovb
+        return p_ov
+
     def _get_boson_hamil(self, apb, amb):
         a = 0.5 * (apb + amb)
         b = 0.5 * (apb - amb)
