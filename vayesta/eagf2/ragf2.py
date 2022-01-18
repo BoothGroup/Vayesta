@@ -763,7 +763,8 @@ class RAGF2:
             h2 = second_order_singles(self, gf=gf)
             return np.diag(self.mo_energy) + h2
         elif self.opts.fock_basis.lower() == 'rsjk':
-            return self._get_fock_via_rsjk(
+            raise ValueError
+            fock = self._get_fock_via_rsjk(
                     gf=gf, rdm1=rdm1, with_frozen=with_frozen, fock_last=fock_last)
 
         t0 = timer()
@@ -832,6 +833,10 @@ class RAGF2:
 
         if not with_frozen:
             fock = fock[self.act, self.act]
+
+        if self.veff is not None:
+            fock += self.veff[self.act, self.act]
+        return fock
 
         #self.log.timingv("Time for Fock matrix:  %s", time_string(timer() - t0))
         

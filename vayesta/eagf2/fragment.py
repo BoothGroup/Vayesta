@@ -23,6 +23,9 @@ def _orth(*coeffs):
     c = np.hstack(coeffs)
     c, sv, _ = np.linalg.svd(c, full_matrices=False)
 
+    if sv.size == 0:
+        return c
+
     tol = np.finfo(c.dtype).eps * np.max(c.shape) * np.max(sv)
     c = c[:, np.abs(sv) > tol]
 

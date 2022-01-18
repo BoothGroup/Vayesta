@@ -885,7 +885,7 @@ class GDF(df.GDF):
                 (mpi_helper.rank+1) * naux // mpi_helper.size,
         )
 
-        dms = dm.reshape(-1, nkpts, nao, nao)
+        dms = np.array(dm).reshape(-1, nkpts, nao, nao)
         ndm = dms.shape[0]
 
         cderi = np.asarray(self._cderi, order='C')
