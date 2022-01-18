@@ -836,7 +836,6 @@ class RAGF2:
 
         if self.veff is not None:
             fock += self.veff[self.act, self.act]
-        return fock
 
         #self.log.timingv("Time for Fock matrix:  %s", time_string(timer() - t0))
         

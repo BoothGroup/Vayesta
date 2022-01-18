@@ -778,6 +778,9 @@ class KRAGF2(RAGF2):
 
         fock = [h+v for h,v in zip(self.h1e, veff)]
 
+        if self.veff is not None:
+            fock = [a+b for a,b in zip(fock, self.veff)]
+
         if not with_frozen:
             fock = [f[act, act] for f,act in zip(fock, self.act)]
 
