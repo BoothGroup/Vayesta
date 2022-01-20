@@ -4,11 +4,8 @@ import numpy as np
 
 from vayesta.core.util import *
 from vayesta.rpa.rirpa.NI_eval import NumericalIntegratorClenCurInfinite, \
-    NumericalIntegratorClenCurSemiInfinite, NumericalIntegratorGaussianSemiInfinite, NumericalIntegratorBase
-
-
-class NIError(Exception):
-    pass
+    NumericalIntegratorClenCurSemiInfinite, NumericalIntegratorGaussianSemiInfinite, NumericalIntegratorBase, \
+    NIException
 
 
 class NIMomZero(NumericalIntegratorClenCurInfinite):
@@ -31,7 +28,11 @@ class NIMomZero(NumericalIntegratorClenCurInfinite):
         return (self.D ** 2 + freq ** 2) ** (-1)
 
     def get_Q(self, freq):
-        return construct_Q(freq, self.D, self.S_L, self.S_R)
+        """Efficiently construct Q = S_R (D^{-1} G) S_L^T
+        This is generally the limiting
+        """
+        S_L = einsum("np,p->np", self.S_L, self.get_F(freq))
+        return dot(self.S_R, S_L.T)
 
     @property
     def diagmat1(self):
@@ -40,7 +41,7 @@ class NIMomZero(NumericalIntegratorClenCurInfinite):
     @diagmat1.setter
     def diagmat1(self, val):
         if val is not None and any(val < 0.0):
-            raise NIError("Error in numerical integration; diagonal approximation is non-PSD")
+            raise NIException("Error in numerical integration; diagonal approximation is non-PSD")
         self._diagmat1 = val
 
     @property
@@ -50,7 +51,7 @@ class NIMomZero(NumericalIntegratorClenCurInfinite):
     @diagmat2.setter
     def diagmat2(self, val):
         if val is not None and any(val < 0.0):
-            raise NIError("Error in numerical integration; diagonal approximation is non-PSD")
+            raise NIException("Error in numerical integration; diagonal approximation is non-PSD")
         self._diagmat2 = val
 
 
@@ -175,7 +176,6 @@ class BaseMomzeroOffset(NumericalIntegratorBase):
         diag_shape = self.D.shape
         super().__init__(out_shape, diag_shape, npoints, log)
         self.diagRI = einsum("np,np->p", self.S_L, self.S_R)
-        self.tar_RI = dot(dot(self.target_rot, self.S_L.T), self.S_R)
 
     def get_offset(self):
         return np.zeros(self.out_shape)
@@ -210,24 +210,6 @@ class MomzeroOffsetCalcGaussLag(BaseMomzeroOffset, NumericalIntegratorGaussianSe
 
 class MomzeroOffsetCalcCC(BaseMomzeroOffset, NumericalIntegratorClenCurSemiInfinite):
     pass
-
-
-def construct_F(freq, D):
-    return (D ** 2 + freq ** 2) ** (-1)
-
-
-def construct_G(freq, D):
-    """Evaluate G = D (D**2 + \omega**2 I)**(-1), given frequency and diagonal of D."""
-    return np.multiply(D, construct_F(freq, D))
-
-
-def construct_Q(freq, D, S_L, S_R):
-    """Efficiently construct Q = S_R (D^{-1} G) S_L^T
-    This is generally the limiting
-    """
-    S_L = einsum("np,p->np", S_L, construct_F(freq, D))
-    return dot(S_R, S_L.T)
-
 
 def diag_sqrt_contrib(D, freq):
     M = (D + freq ** 2) ** (-1)

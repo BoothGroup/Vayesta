@@ -46,7 +46,7 @@ class ssURPA(ssRPA):
         na, nb = self.nocc
         return self.mo_coeff[0, :, na:], self.mo_coeff[1, :, nb:]
 
-    def _gen_arrays(self, xc_kernel=None):
+    def _gen_arrays(self, xc_kernel=None, alpha=1.0):
         t0 = timer()
 
         nocc_a, nocc_b = self.nocc
@@ -66,9 +66,9 @@ class ssURPA(ssRPA):
 
         vaa, vab, vbb = self.ao2mo()
         # Get coulomb interaction in occupied-virtual space.
-        vaa = vaa[:nocc_a, nocc_a:, :nocc_a, nocc_a:].reshape((self.ova, self.ova))
-        vab = vab[:nocc_a, nocc_a:, :nocc_b, nocc_b:].reshape((self.ova, self.ovb))
-        vbb = vbb[:nocc_b, nocc_b:, :nocc_b, nocc_b:].reshape((self.ovb, self.ovb))
+        vaa = vaa[:nocc_a, nocc_a:, :nocc_a, nocc_a:].reshape((self.ova, self.ova)) * alpha
+        vab = vab[:nocc_a, nocc_a:, :nocc_b, nocc_b:].reshape((self.ova, self.ovb)) * alpha
+        vbb = vbb[:nocc_b, nocc_b:, :nocc_b, nocc_b:].reshape((self.ovb, self.ovb)) * alpha
 
         ApB = np.zeros((self.ov, self.ov))
         ApB[:self.ova, :self.ova] = 2 * vaa
@@ -82,7 +82,7 @@ class ssURPA(ssRPA):
             M = np.einsum("p,pq,q->pq", AmB ** (0.5), ApB, AmB ** (0.5))
         else:
             # Grab A and B contributions for XC kernel.
-            ApB_xc, AmB_xc = self.get_xc_contribs(xc_kernel, self.mo_coeff_occ, self.mo_coeff_vir)
+            ApB_xc, AmB_xc = self.get_xc_contribs(xc_kernel, self.mo_coeff_occ, self.mo_coeff_vir, alpha)
             ApB = ApB + ApB_xc
             AmB = np.diag(AmB) + AmB_xc
             del ApB_xc, AmB_xc

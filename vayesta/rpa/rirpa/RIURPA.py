@@ -88,38 +88,11 @@ class ssRIURPA(ssRIRRPA):
 
     def construct_RI_AB(self):
         """Construct the RI expressions for the deviation of A+B and A-B from D."""
-        # Coulomb integrals only contribute to A+B.
-        # This needs to be optimised, but will do for now.
-        v = self.get_3c_integrals()
-        Lov_a = einsum("npq,pi,qa->nia", v, self.mo_coeff_occ[0], self.mo_coeff_vir[0]).reshape(
-            (self.naux_eri, self.ov[0]))
-        Lov_b = einsum("npq,pi,qa->nia", v, self.mo_coeff_occ[1], self.mo_coeff_vir[1]).reshape(
-            (self.naux_eri, self.ov[1]))
-
-        ri_apb_eri = np.zeros((self.naux_eri, sum(self.ov)))
-
-        # Need to include factor of two since eris appear in both A and B.
-        ri_apb_eri[:, :self.ov[0]] = np.sqrt(2) * Lov_a
-        ri_apb_eri[:, self.ov[0]:self.ov_tot] = np.sqrt(2) * Lov_b
+        ri_apb_eri = self.get_apb_eri_ri()
         # Use empty AmB contrib initially; this is the dRPA contrib.
         ri_amb_eri = np.zeros((0, self.ov_tot))
         if self.rixc is not None:
-            # Have low-rank representation for interactions over and above coulomb interaction.
-            # Note that this is usually asymmetric, as correction is non-PSD.
-            ri_a_aa = [einsum("npq,pi,qa->nia", x, self.mo_coeff_occ[0], self.mo_coeff_vir[0]).reshape((-1, self.ov[0])) for x in
-                       self.rixc[0]]
-            ri_a_bb = [einsum("npq,pi,qa->nia", x, self.mo_coeff_occ[1], self.mo_coeff_vir[1]).reshape((-1, self.ov[1])) for x in
-                       self.rixc[1]]
-
-            ri_b_aa = [ri_a_aa[0],
-                       einsum("npq,qi,pa->nia", self.rixc[0][1], self.mo_coeff_occ[0], self.mo_coeff_vir[0]).reshape(
-                           (-1, self.ov[0]))]
-            ri_b_bb = [ri_a_bb[0],
-                       einsum("npq,qi,pa->nia", self.rixc[1][1], self.mo_coeff_occ[1], self.mo_coeff_vir[1]).reshape(
-                           (-1, self.ov[1]))]
-
-            ri_a_xc = [np.concatenate([x, y], axis=1) for x, y in zip(ri_a_aa, ri_a_bb)]
-            ri_b_xc = [np.concatenate([x, y], axis=1) for x, y in zip(ri_b_aa, ri_b_bb)]
+            ri_a_xc, ri_b_xc = self.get_ab_xc_ri()
 
             ri_apb_xc = [np.concatenate([ri_a_xc[0], ri_b_xc[0]], axis=0), np.concatenate([ri_a_xc[1], ri_b_xc[1]],
                                                                                           axis=0)]
@@ -133,3 +106,40 @@ class ssRIURPA(ssRIRRPA):
         ri_amb = [np.concatenate([ri_amb_eri, x], axis=0) for x in ri_amb_xc]
 
         return ri_apb, ri_amb
+
+    def get_ab_eri_ri(self):
+        # Coulomb integrals only contribute to A+B.
+        # This needs to be optimised, but will do for now.
+        v = self.get_3c_integrals()
+        Lov_a = einsum("npq,pi,qa->nia", v, self.mo_coeff_occ[0], self.mo_coeff_vir[0]).reshape(
+            (self.naux_eri, self.ov[0]))
+        Lov_b = einsum("npq,pi,qa->nia", v, self.mo_coeff_occ[1], self.mo_coeff_vir[1]).reshape(
+            (self.naux_eri, self.ov[1]))
+
+        ri_apb_eri = np.zeros((self.naux_eri, sum(self.ov)))
+
+        # Need to include factor of two since eris appear in both A and B.
+        ri_apb_eri[:, :self.ov[0]] = np.sqrt(2) * Lov_a
+        ri_apb_eri[:, self.ov[0]:self.ov_tot] = np.sqrt(2) * Lov_b
+        return ri_apb_eri
+
+    def get_ab_xc_ri(self):
+        # Have low-rank representation for interactions over and above coulomb interaction.
+        # Note that this is usually asymmetric, as correction is non-PSD.
+        ri_a_aa = [einsum("npq,pi,qa->nia", x, self.mo_coeff_occ[0], self.mo_coeff_vir[0]).reshape((-1, self.ov[0])) for
+                   x in
+                   self.rixc[0]]
+        ri_a_bb = [einsum("npq,pi,qa->nia", x, self.mo_coeff_occ[1], self.mo_coeff_vir[1]).reshape((-1, self.ov[1])) for
+                   x in
+                   self.rixc[1]]
+
+        ri_b_aa = [ri_a_aa[0],
+                   einsum("npq,qi,pa->nia", self.rixc[0][1], self.mo_coeff_occ[0], self.mo_coeff_vir[0]).reshape(
+                       (-1, self.ov[0]))]
+        ri_b_bb = [ri_a_bb[0],
+                   einsum("npq,qi,pa->nia", self.rixc[1][1], self.mo_coeff_occ[1], self.mo_coeff_vir[1]).reshape(
+                       (-1, self.ov[1]))]
+
+        ri_a_xc = [np.concatenate([x, y], axis=1) for x, y in zip(ri_a_aa, ri_a_bb)]
+        ri_b_xc = [np.concatenate([x, y], axis=1) for x, y in zip(ri_b_aa, ri_b_bb)]
+        return ri_a_xc, ri_b_xc

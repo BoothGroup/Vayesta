@@ -6,6 +6,7 @@ from timeit import default_timer as timer
 
 import numpy as np
 import scipy.linalg
+import scipy
 
 import pyscf.ao2mo
 from vayesta.core.util import *
@@ -67,14 +68,14 @@ class ssRPA:
     def e_tot(self):
         return self.mf.e_tot + self.e_corr
 
-    def kernel(self, xc_kernel=None):
+    def kernel(self, xc_kernel=None, alpha=1.0):
         """Solve same-spin component of dRPA response.
         At level of dRPA this is the only contribution to correlation energy; introduction of exchange will lead to
         spin-flip contributions.
         """
         t_start = timer()
 
-        M, AmB, ApB, eps, v = self._gen_arrays(xc_kernel)
+        M, AmB, ApB, eps, v = self._gen_arrays(xc_kernel, alpha)
 
         t0 = timer()
 
@@ -88,9 +89,12 @@ class ssRPA:
             XpY = np.einsum("n,p,pn->pn", self.freqs_ss ** (-0.5), AmB ** (0.5), c)
             XmY = np.einsum("n,p,pn->pn", self.freqs_ss ** (0.5), AmB ** (-0.5), c)
         else:
-            AmBrt = scipy.linalg.sqrtm(AmB)
+            e2, c2 = np.linalg.eigh(AmB)
+            assert (all(e2 > 1e-12))
+            AmBrt = einsum("pn,n,qn->pq", c2, e2 ** (0.5), c2)
+            AmBrtinv = einsum("pn,n,qn->pq", c2, e2 ** (-0.5), c2)
             XpY = np.einsum("n,pq,qn->pn", self.freqs_ss ** (-0.5), AmBrt, c)
-            XmY = np.einsum("n,pq,qn->pn", self.freqs_ss ** (0.5), np.linalg.inv(AmBrt), c)
+            XmY = np.einsum("n,pq,qn->pn", self.freqs_ss ** (0.5), AmBrtinv, c)
 
         self.XpY_ss = (XpY[:self.ova], XpY[self.ova:])
         self.XmY_ss = (XmY[:self.ova], XmY[self.ova:])
@@ -102,7 +106,55 @@ class ssRPA:
 
         return self.e_corr_ss
 
-    def _gen_arrays(self, xc_kernel=None):
+    def calc_energy_correction(self, xc_kernel, version=3):
+        M, AmB, ApB, eps, v = self._gen_arrays(xc_kernel)
+        ApB_xc, AmB_xc = self.get_xc_contribs(xc_kernel, self.mo_coeff_occ, self.mo_coeff_vir)
+        A_xc = (ApB_xc + AmB_xc) / 2
+        B_xc = (ApB_xc - AmB_xc) / 2
+        full_mom0 = self.gen_moms(0, xc_kernel)[0]
+
+        def get_eta_alpha(alpha):
+            newrpa = self.__class__(self.mf, self.log)
+            newrpa.kernel(xc_kernel=xc_kernel, alpha=alpha)
+            mom0 = newrpa.gen_moms(0, xc_kernel=xc_kernel)[0]
+            return mom0
+
+        def run_ac_inter(func, deg=5):
+            points, weights = np.polynomial.legendre.leggauss(deg)
+            points += 1
+            points /= 2
+            weights /= 2
+            return sum([w * func(p) for w, p in zip(weights, points)])
+
+        if version < 2:
+            e_plasmon = 0.5 * (np.dot(full_mom0, ApB) - (0.5 * (ApB + AmB) - A_xc)).trace()
+
+            if version == 0:
+                # Full integration of the adiabatic connection.
+                def get_val_alpha(alpha):
+                    eta0 = get_eta_alpha(alpha)
+                    return (einsum("pq,qp", A_xc + B_xc, eta0) + einsum("pq,qp", A_xc - B_xc, np.linalg.inv(eta0))) / 4
+
+                e = e_plasmon - run_ac_inter(get_val_alpha)
+            elif version == 1:
+                # Integration of adiabatic connection, but with approximation of the inverse eta0`
+                def get_val_alpha(alpha):
+                    eta0 = get_eta_alpha(alpha)
+                    return (A_xc.trace() + einsum("pq,qp", B_xc, eta0 - np.eye(self.ov))) / 2
+
+                e = e_plasmon - run_ac_inter(get_val_alpha)
+            return e, get_val_alpha
+        elif version == 2:
+            # Linear approximation of all quantities in adiabatic connection.
+            e = 0.5 * (np.dot(full_mom0, ApB) - (0.5 * (ApB + AmB) - A_xc)).trace()
+            e -= (einsum("pq,qp->", A_xc + B_xc, full_mom0 + np.eye(self.ov)) +
+                  einsum("pq,qp->",A_xc - B_xc, np.linalg.inv(full_mom0) + np.eye(self.ov))) / 8
+        elif version == 3:
+            # Linear approximation in AC and approx of inverse.
+            e = 0.5 * (np.dot(full_mom0, ApB - B_xc/2) - (0.5 * (ApB + AmB) - B_xc / 2)).trace()
+        return e
+
+    def _gen_arrays(self, xc_kernel=None, alpha=1.0):
         t0 = timer()
         # Only have diagonal components in canonical basis.
         eps = np.zeros((self.nocc, self.nvir))
@@ -112,7 +164,7 @@ class ssRPA:
 
         AmB = np.concatenate([eps, eps])
 
-        eris = self.ao2mo()
+        eris = self.ao2mo() * alpha
         # Get coulomb interaction in occupied-virtual space.
         v = eris[:self.nocc, self.nocc:, :self.nocc, self.nocc:].reshape((self.ova, self.ova))
         del eris
@@ -126,7 +178,7 @@ class ssRPA:
             M = np.einsum("p,pq,q->pq", AmB ** (0.5), ApB, AmB ** (0.5))
         else:
             # Grab A and B contributions for XC kernel.
-            ApB_xc, AmB_xc = self.get_xc_contribs(xc_kernel, self.mo_coeff_occ, self.mo_coeff_vir)
+            ApB_xc, AmB_xc = self.get_xc_contribs(xc_kernel, self.mo_coeff_occ, self.mo_coeff_vir, alpha)
             ApB = ApB + ApB_xc
             AmB = np.diag(AmB) + AmB_xc
             del ApB_xc, AmB_xc
@@ -136,7 +188,13 @@ class ssRPA:
         self.log.timing("Time to build RPA arrays: %s", time_string(timer() - t0))
         return M, AmB, ApB, (eps, eps), (v, v)
 
-    def get_xc_contribs(self, xc_kernel, c_o, c_v):
+    def get_xc_contribs(self, xc_kernel, c_o, c_v, alpha=1.0):
+        if not isinstance(xc_kernel[0], np.ndarray):
+            xc_kernel = [
+                einsum("npq,nrs->pqrs", *xc_kernel[0]),
+                einsum("npq,nrs->pqrs", xc_kernel[0][0], xc_kernel[0][1]),
+                einsum("npq,nrs->pqrs", *xc_kernel[1]),
+            ]
         c_o_a, c_o_b = c_o if isinstance(c_o, tuple) else (c_o, c_o)
         c_v_a, c_v_b = c_v if isinstance(c_v, tuple) else (c_v, c_v)
 
@@ -177,7 +235,7 @@ class ssRPA:
         ApB[self.ova:, self.ova:] += V_B_bb
         AmB[self.ova:, self.ova:] -= V_B_bb
         del V_B_bb
-        return ApB, AmB
+        return ApB*alpha, AmB*alpha
 
     def gen_moms(self, max_mom, xc_kernel=None):
         res = {}
