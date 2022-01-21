@@ -557,12 +557,16 @@ class Fragment:
 
     def project_amp1_to_fragment(self, amp1, projector=None):
         """Can be used to project C1, T1, or L1 amplitudes."""
+        if amp1 is None:
+            return None
         if projector is None:
             projector = self.get_occ2frag_projector()
         return np.dot(projector, amp1)
 
     def project_amp2_to_fragment(self, amp2, projector=None, axis=0):
         """Can be used to project C2, T2, or L2 amplitudes."""
+        if amp2 is None:
+            return None
         if projector is None:
             projector = self.get_occ2frag_projector()
         if axis == 0:

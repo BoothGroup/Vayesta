@@ -5,6 +5,7 @@ from .fci import FCI_Solver
 from .ebfci import EBFCI_Solver
 
 # New solver interface
+from .mp2 import MP2_Solver
 from .ccsd2 import CCSD_Solver as CCSD_Solver2
 from .ccsd2 import UCCSD_Solver
 from .fci2 import FCI_Solver as FCI_Solver2
@@ -36,11 +37,15 @@ def get_solver_class(mf, solver):
 def get_solver_class2(mf, solver):
     solver = solver.upper()
     uhf = is_uhf(mf)
+    if solver == 'MP2':
+        if uhf:
+            raise NotImplementedError("UMP2 not implemented!")
+        return MP2_Solver
     if solver in ('CCSD', 'CCSD(T)', 'TCCSD'):
         if uhf:
             return UCCSD_Solver
         return CCSD_Solver2
-    if solver in ('CISD'):
+    if solver == 'CISD':
         if uhf:
             return UCISD_Solver
         return CISD_Solver
