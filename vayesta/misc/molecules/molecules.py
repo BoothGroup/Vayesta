@@ -73,8 +73,9 @@ def arene(n, atoms=['C', 'H'], cc_bond=1.39, ch_bond=1.09):
     atom = []
     for i in range(n):
         phi = 2*i*np.pi/n
-        atom.append((atoms[0], (r1*np.cos(phi), r1*np.sin(phi), z)))
-        atom.append((atoms[1], (r2*np.cos(phi), r2*np.sin(phi), z)))
+        atomidx = (2*i) % len(atoms)
+        atom.append((atoms[atomidx], (r1*np.cos(phi), r1*np.sin(phi), z)))
+        atom.append((atoms[atomidx+1], (r2*np.cos(phi), r2*np.sin(phi), z)))
     return atom
 
 def neopentane():

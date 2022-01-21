@@ -234,10 +234,10 @@ class EWF(Embedding):
         return self.e_mf + self.get_e_corr()
 
     @mpi.with_allreduce()
-    def get_e_corr(self):
+    def get_e_corr(self, fragments=None):
         e_corr = 0.0
         # Only loop over fragments of own MPI rank
-        for f in self.get_fragments(mpi_rank=mpi.rank):
+        for f in self.get_fragments(fragment_list=fragments, mpi_rank=mpi.rank):
             if f.results.e_corr is None:
                 self.log.critical("No fragment E(corr) found for %s! Returning total E(corr)=NaN", f)
                 return np.nan
@@ -388,7 +388,8 @@ class EWF(Embedding):
     make_rdm1_ccsd = make_rdm1_ccsd
     make_rdm2_ccsd = make_rdm2_ccsd
 
-    def get_intercluster_mp2_energy(self, bno_threshold=1e-9, direct=True, exchange=True, project_dc='vir', vers=1, diagonal=True):
+    def get_intercluster_mp2_energy(self, bno_threshold_occ=None, bno_threshold_vir=1e-8, direct=True, exchange=True,
+            fragments=None, project_dc='vir', vers=1, diagonal=True):
         """Get long-range, inter-cluster energy contribution on the MP2 level.
 
         This constructs T2 amplitudes over two clusters, X and Y, as
@@ -399,7 +400,9 @@ class EWF(Embedding):
 
         Parameters
         ----------
-        bno_threshold: float, optional
+        bno_threshold_occ: float, optional
+            Threshold for occupied BNO space. Default: None.
+        bno_threshold_vir: float, optional
             Threshold for virtual BNO space. Default: 1e-8.
         direct: bool, optional
             Calculate energy contribution from the second-order direct MP2 term. Default: True.
@@ -414,7 +417,6 @@ class EWF(Embedding):
 
         if project_dc not in ('occ', 'vir', 'both', None):
             raise ValueError()
-
         if not self.has_df:
             raise RuntimeError("Intercluster MP2 energy requires density-fitting.")
 
@@ -434,21 +436,32 @@ class EWF(Embedding):
 
             with log_time(self.log.timing, "Time for intercluster MP2 energy setup: %s"):
                 coll = {}
-                # Loop over symmetry unique fragments
+                # Loop over symmetry unique fragments X
                 for x in self.get_fragments(mpi_rank=mpi.rank, sym_parent=None):
-                    c_occ = x.bath.dmet_bath.c_cluster_occ
+                    # Occupied orbitals:
+                    if bno_threshold_occ is None:
+                        c_occ = x.bath.dmet_bath.c_cluster_occ
+                    else:
+                        c_bath_occ = x.bath.get_occupied_bath(bno_threshold=bno_threshold_occ, verbose=False)[0]
+                        c_occ = x.canonicalize_mo(x.bath.c_cluster_occ, c_bath_occ)[0]
+                    # Virtual orbitals:
+                    if bno_threshold_vir is None:
+                        c_vir = x.bath.dmet_bath.c_cluster_vir
+                    else:
+                        c_bath_vir = x.bath.get_virtual_bath(bno_threshold=bno_threshold_vir, verbose=False)[0]
+                        c_vir = x.canonicalize_mo(x.bath.c_cluster_vir, c_bath_vir)[0]
+                    # Three-center integrals:
+                    cderi, cderi_neg = self.get_cderi((c_occ, c_vir))   # TODO: Reuse BNO
+                    # Store required quantities:
                     coll[x.id, 'p_frag'] = dot(x.c_proj.T, ovlp, c_occ)
-                    c_bath_vir = x.bath.get_virtual_bath(bno_threshold=bno_threshold, verbose=False)[0]
-                    c_vir = x.canonicalize_mo(x.bath.c_cluster_vir, c_bath_vir)[0]
                     coll[x.id, 'c_vir'] = c_vir
                     coll[x.id, 'e_occ'] = x.get_fragment_mo_energy(c_occ)
                     coll[x.id, 'e_vir'] = x.get_fragment_mo_energy(c_vir)
-                    cderi, cderi_neg = self.get_cderi((c_occ, c_vir))   # TODO: Reuse BNO
                     coll[x.id, 'cderi'] = cderi
                     # TODO: Test 2D
                     if cderi_neg is not None:
                         coll[x.id, 'cderi_neg'] = cderi_neg
-                    # Symmetry related fragments
+                    # Fragments Y, which are symmetry related to X
                     for y in self.get_fragments(sym_parent=x):
                         sym_op = y.get_symmetry_operation()
                         coll[y.id, 'c_vir'] = sym_op(c_vir)
@@ -481,7 +494,7 @@ class EWF(Embedding):
                         self.cderi_neg = None
 
             #for ix, x in enumerate(self.get_fragments(mpi_rank=mpi.rank)):
-            for ix, x in enumerate(self.get_fragments(mpi_rank=mpi.rank, sym_parent=None)):
+            for ix, x in enumerate(self.get_fragments(fragments, mpi_rank=mpi.rank, sym_parent=None)):
                 cx = Cluster(x)
 
                 eia_x = cx.e_occ[:,None] - cx.e_vir[None,:]
@@ -553,7 +566,6 @@ class EWF(Embedding):
                             ed = 2*einsum('ijab,iJaB,jJ,bB->', t2, eris, pdco, pdcv)
                         if exchange:
                             ex = -einsum('ijaB,iJbC,jJ,CA,aA,bB->', t2, eris, pdco, pdcv, svir, svir)
-
                     elif project_dc is None:
                         if direct:
                             ed = 2*einsum('ijab,ijab->', t2, eris)

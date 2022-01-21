@@ -790,7 +790,7 @@ class Embedding:
             children[idx].append(f)
         return children
 
-    def get_fragments(self, **filters):
+    def get_fragments(self, fragment_list=None, **filters):
         """Return all fragments which obey the specified conditions.
 
         Arguments
@@ -815,11 +815,13 @@ class Embedding:
 
         >>> self.get_fragments(sym_parent=None)
         """
+        if fragment_list is None:
+            fragment_list = self.fragments
         if not filters:
-            return self.fragments
+            return fragment_list
         filters = {key : np.atleast_1d(filters[key]) for key in filters}
         fragments = []
-        for frag in self.fragments:
+        for frag in fragment_list:
             skip = False
             for key, filtr in filters.items():
                 val = getattr(frag, key)

@@ -17,9 +17,9 @@ class InterclusterMP2_Test(TestCase):
 
         # Test finite bath
         emb.kernel(bno_threshold=np.inf)
-        e4 = emb.get_intercluster_mp2_energy(1e-4)
-        e6 = emb.get_intercluster_mp2_energy(1e-6)
-        e8 = emb.get_intercluster_mp2_energy(1e-8)
+        e4 = emb.get_intercluster_mp2_energy(bno_threshold_vir=1e-4)
+        e6 = emb.get_intercluster_mp2_energy(bno_threshold_vir=1e-6)
+        e8 = emb.get_intercluster_mp2_energy(bno_threshold_vir=1e-8)
         e4_expected = -0.1415720217653774
         e6_expected = -0.1463770484732253
         e8_expected = -0.1464956750957701
@@ -29,9 +29,9 @@ class InterclusterMP2_Test(TestCase):
 
         # Test full bath
         emb.kernel(bno_threshold=-np.inf)
-        e4 = emb.get_intercluster_mp2_energy(1e-4)
-        e6 = emb.get_intercluster_mp2_energy(1e-6)
-        e8 = emb.get_intercluster_mp2_energy(1e-8)
+        e4 = emb.get_intercluster_mp2_energy(bno_threshold_vir=1e-4)
+        e6 = emb.get_intercluster_mp2_energy(bno_threshold_vir=1e-6)
+        e8 = emb.get_intercluster_mp2_energy(bno_threshold_vir=1e-8)
         self.assertAllclose(e4, 0)
         self.assertAllclose(e6, 0)
         self.assertAllclose(e8, 0)
@@ -73,8 +73,8 @@ class InterclusterMP2_Test(TestCase):
         emb.kernel(bno_threshold=1e-4)
         e6_expected = -0.0021036512144716295
         e8_expected = -0.0021000931253910525
-        e6 = emb.get_intercluster_mp2_energy(1e-6)
-        e8 = emb.get_intercluster_mp2_energy(1e-8)
+        e6 = emb.get_intercluster_mp2_energy(bno_threshold_vir=1e-6)
+        e8 = emb.get_intercluster_mp2_energy(bno_threshold_vir=1e-8)
         self.assertAllclose(e6, e6_expected)
         self.assertAllclose(e8, e8_expected)
 
@@ -84,8 +84,8 @@ class InterclusterMP2_Test(TestCase):
         emb.add_atomic_fragment(0)
         emb.add_atomic_fragment(1)
         emb.kernel(bno_threshold=1e-4)
-        e6 = emb.get_intercluster_mp2_energy(1e-6)
-        e8 = emb.get_intercluster_mp2_energy(1e-8)
+        e6 = emb.get_intercluster_mp2_energy(bno_threshold_vir=1e-6)
+        e8 = emb.get_intercluster_mp2_energy(bno_threshold_vir=1e-8)
         self.assertAllclose(e6, e6_expected)
         self.assertAllclose(e8, e8_expected)
 
@@ -94,8 +94,8 @@ class InterclusterMP2_Test(TestCase):
         emb.iao_fragmentation()
         emb.add_atomic_fragment(0, sym_factor=2)
         emb.kernel(bno_threshold=1e-4)
-        e6 = emb.get_intercluster_mp2_energy(1e-6)
-        e8 = emb.get_intercluster_mp2_energy(1e-8)
+        e6 = emb.get_intercluster_mp2_energy(bno_threshold_vir=1e-6)
+        e8 = emb.get_intercluster_mp2_energy(bno_threshold_vir=1e-8)
         self.assertAllclose(e6, e6_expected)
         self.assertAllclose(e8, e8_expected)
 
@@ -118,8 +118,8 @@ class InterclusterMP2_Test(TestCase):
         for atom in range(4):
             emb.add_atomic_fragment(atom, add_symmetric=False)
         emb.kernel(bno_threshold=1e-4)
-        e6 = emb.get_intercluster_mp2_energy(1e-6)
-        e8 = emb.get_intercluster_mp2_energy(1e-8)
+        e6 = emb.get_intercluster_mp2_energy(bno_threshold_vir=1e-6)
+        e8 = emb.get_intercluster_mp2_energy(bno_threshold_vir=1e-8)
         self.assertAllclose(e6/2, e6_expected)
         self.assertAllclose(e8/2, e8_expected)
 
@@ -134,8 +134,8 @@ class InterclusterMP2_Test(TestCase):
         emb.kernel(bno_threshold=1e-4)
         e6_expected = -0.002030534136819575
         e8_expected = -0.002163755740097586
-        e6 = emb.get_intercluster_mp2_energy(1e-6)
-        e8 = emb.get_intercluster_mp2_energy(1e-8)
+        e6 = emb.get_intercluster_mp2_energy(bno_threshold_vir=1e-6)
+        e8 = emb.get_intercluster_mp2_energy(bno_threshold_vir=1e-8)
         self.assertAllclose(e6, e6_expected)
         self.assertAllclose(e8, e8_expected)
 
@@ -145,8 +145,8 @@ class InterclusterMP2_Test(TestCase):
         emb.add_atomic_fragment(0)
         emb.add_atomic_fragment(1)
         emb.kernel(bno_threshold=1e-4)
-        e6 = emb.get_intercluster_mp2_energy(1e-6)
-        e8 = emb.get_intercluster_mp2_energy(1e-8)
+        e6 = emb.get_intercluster_mp2_energy(bno_threshold_vir=1e-6)
+        e8 = emb.get_intercluster_mp2_energy(bno_threshold_vir=1e-8)
         self.assertAllclose(e6, e6_expected)
         self.assertAllclose(e8, e8_expected)
 
@@ -155,8 +155,8 @@ class InterclusterMP2_Test(TestCase):
         emb.iao_fragmentation()
         emb.add_atomic_fragment(0, sym_factor=2)
         emb.kernel(bno_threshold=1e-4)
-        e6 = emb.get_intercluster_mp2_energy(1e-6)
-        e8 = emb.get_intercluster_mp2_energy(1e-8)
+        e6 = emb.get_intercluster_mp2_energy(bno_threshold_vir=1e-6)
+        e8 = emb.get_intercluster_mp2_energy(bno_threshold_vir=1e-8)
         self.assertAllclose(e6, e6_expected)
         self.assertAllclose(e8, e8_expected)
 
