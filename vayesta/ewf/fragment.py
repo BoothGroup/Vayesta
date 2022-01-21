@@ -70,6 +70,7 @@ class EWFFragment(Fragment):
         c_cas_occ: np.ndarray = None
         c_cas_vir: np.ndarray = None
         #
+        # --- Energy
         calculate_e_dmet: bool = 'auto'
         #
         dm_with_frozen: bool = NotSet
@@ -346,11 +347,11 @@ class EWFFragment(Fragment):
         if self.opts.store_t2:
             results.t2 = cluster_solver.get_t2()
         solve_lambda = np.any([(getattr(self.opts, 'store_%s' % s) is True) for s in ['l1', 'l2', 'l1x', 'l2x']])
-        if self.opts.store_l1:
+        if self.opts.store_l1 and hasattr(cluster_solver, 'get_l1'):
             l1 = cluster_solver.get_l1(solve_lambda=solve_lambda)
             if l1 is not None:
                 results.l1 = l1
-        if self.opts.store_l2:
+        if self.opts.store_l2 and hasattr(cluster_solver, 'get_l2'):
             l2 = cluster_solver.get_l2(solve_lambda=solve_lambda)
             if l2 is not None:
                 results.l2 = l2
@@ -358,11 +359,11 @@ class EWFFragment(Fragment):
             results.t1x = self.project_amp1_to_fragment(cluster_solver.get_t1())
         if self.opts.store_t2x:
             results.t2x = self.project_amp2_to_fragment(cluster_solver.get_t2())
-        if self.opts.store_l1x:
+        if self.opts.store_l1x and hasattr(cluster_solver, 'get_l1'):
             l1 = cluster_solver.get_l1(solve_lambda=solve_lambda)
             if l1 is not None:
                 results.l1x = self.project_amp1_to_fragment(l1)
-        if self.opts.store_l2x:
+        if self.opts.store_l2x and hasattr(cluster_solver, 'get_l2'):
             l2 = cluster_solver.get_l2(solve_lambda=solve_lambda)
             if l2 is not None:
                 results.l2x = self.project_amp2_to_fragment(l2)
@@ -473,6 +474,8 @@ class EWFFragment(Fragment):
         elif hasattr(eris, 'ovov'):
             # MP2 only has eris.ovov - for real integrals we transpose
             g_ovvo = eris.ovov[:].reshape(nocc,nvir,nocc,nvir).transpose(0, 1, 3, 2).conj()
+        elif eris.shape == (nocc, nvir, nocc, nvir):
+            g_ovvo = eris.transpose(0,1,3,2)
         else:
             g_ovvo = eris[occ,vir,vir,occ]
 
