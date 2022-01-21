@@ -83,7 +83,7 @@ class ssRPA:
         self.freqs_ss = e ** (0.5)
         assert (all(e > 1e-12))
         # Take this with a pinch of salt, there should be an additional correction.
-        self.e_corr_ss = 0.5 * (sum(self.freqs_ss) - (v[0] + v[1]).trace() - sum(eps[0] + eps[1]))
+        self.e_corr_ss = 0.5 * (sum(self.freqs_ss) - v.trace() - sum(eps[0] + eps[1]))
 
         if xc_kernel is None:
             XpY = np.einsum("n,p,pn->pn", self.freqs_ss ** (-0.5), AmB ** (0.5), c)
@@ -107,7 +107,7 @@ class ssRPA:
         return self.e_corr_ss
 
     def calc_energy_correction(self, xc_kernel, version=3):
-        M, AmB, ApB, eps, v = self._gen_arrays(xc_kernel)
+        M, AmB, ApB, eps, fullv = self._gen_arrays(xc_kernel)
         ApB_xc, AmB_xc = self.get_xc_contribs(xc_kernel, self.mo_coeff_occ, self.mo_coeff_vir)
         A_xc = (ApB_xc + AmB_xc) / 2
         B_xc = (ApB_xc - AmB_xc) / 2
@@ -152,6 +152,16 @@ class ssRPA:
         elif version == 3:
             # Linear approximation in AC and approx of inverse.
             e = 0.5 * (np.dot(full_mom0, ApB - B_xc/2) - (0.5 * (ApB + AmB) - B_xc / 2)).trace()
+        elif version == 4:
+            def get_val_alpha(alpha):
+                eta0 = get_eta_alpha(alpha)
+                return einsum("pq,qp->", eta0 - np.eye(self.ov), fullv)
+            e = 0.5 * run_ac_inter(get_val_alpha)
+            return e, get_val_alpha
+        elif version == 5:
+            e = einsum("pq,qp->", full_mom0 - np.eye(self.ov), fullv) / 4
+        else:
+            raise ValueError("Unknown energy approach requested.")
         return e
 
     def _gen_arrays(self, xc_kernel=None, alpha=1.0):
@@ -167,6 +177,9 @@ class ssRPA:
         eris = self.ao2mo() * alpha
         # Get coulomb interaction in occupied-virtual space.
         v = eris[:self.nocc, self.nocc:, :self.nocc, self.nocc:].reshape((self.ova, self.ova))
+        fullv = np.zeros((self.ov, self.ov))
+        fullv[:self.ova, :self.ova] = fullv[self.ova:, self.ova:] = fullv[:self.ova, self.ova:] = \
+            fullv[self.ova:, :self.ova] = v
         del eris
         ApB = np.zeros((self.ov, self.ov))
         ApB[:self.ova, :self.ova] = ApB[:self.ova, self.ova:] = \
@@ -186,7 +199,7 @@ class ssRPA:
             M = dot(AmBrt, ApB, AmBrt)
 
         self.log.timing("Time to build RPA arrays: %s", time_string(timer() - t0))
-        return M, AmB, ApB, (eps, eps), (v, v)
+        return M, AmB, ApB, (eps, eps), fullv
 
     def get_xc_contribs(self, xc_kernel, c_o, c_v, alpha=1.0):
         if not isinstance(xc_kernel[0], np.ndarray):
