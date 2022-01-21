@@ -27,6 +27,7 @@ from vayesta.core.fragmentation import IAO_Fragmentation
 
 from vayesta.core.bath import DMET_Bath
 from vayesta.core.bath import EwDMET_Bath
+from vayesta.core.bath import BNO_Threshold
 from vayesta.core.bath import BNO_Bath
 from vayesta.core.bath import MP2_BNO_Bath
 from vayesta.core.bath import CompleteBath
@@ -61,8 +62,8 @@ class EWFFragment(Fragment):
         nelectron_target: int = NotSet                  # If set, adjust bath chemical potential until electron number in fragment equals nelectron_target
         # Bath
         bath_type: str = NotSet
+        bno_truncation: str = NotSet                    # Type of BNO truncation ["occupation", "number", "excited-percent", "electron-percent"]
         bno_threshold: float = NotSet
-        bno_number: int = None              # Set a fixed number of BNOs
         bno_project_t2: bool = NotSet
         ewdmet_max_order: int = NotSet
         # CAS methods
@@ -205,14 +206,14 @@ class EWFFragment(Fragment):
             #    bath = MP2_BNO_Bath(self, dmet_threshold=self.opts.dmet_threshold)
         raise ValueError("Unknown bath_type: %r" % bath_type)
 
-    def make_cluster(self, bath=None, bno_threshold=None, bno_number=None):
+    def make_cluster(self, bath=None, bno_threshold=None):
         if bath is None:
             bath = self.bath
         if bath is None:
             raise ValueError("make_cluster requires bath.")
 
-        c_bath_occ, c_frozen_occ = bath.get_occupied_bath(bno_threshold=bno_threshold[0], bno_number=bno_number[0])
-        c_bath_vir, c_frozen_vir = bath.get_virtual_bath(bno_threshold=bno_threshold[1], bno_number=bno_number[1])
+        c_bath_occ, c_frozen_occ = bath.get_occupied_bath(bno_threshold=bno_threshold)
+        c_bath_vir, c_frozen_vir = bath.get_virtual_bath(bno_threshold=bno_threshold)
         # Canonicalize orbitals
         c_active_occ = self.canonicalize_mo(bath.dmet_bath.c_cluster_occ, c_bath_occ)[0]
         c_active_vir = self.canonicalize_mo(bath.dmet_bath.c_cluster_vir, c_bath_vir)[0]
@@ -254,15 +255,13 @@ class EWFFragment(Fragment):
         #if init_guess is None: init_guess = {}
         #return init_guess
 
-    def kernel(self, bno_threshold=None, bno_number=None, solver=None, init_guess=None, eris=None):
+    def kernel(self, bno_threshold=None, solver=None, init_guess=None, eris=None):
         """Run solver for a single BNO threshold.
 
         Parameters
         ----------
         bno_threshold : float, optional
-            Bath natural orbital (BNO) thresholds.
-        bno_number : int, optional
-            Number of bath natural orbitals. Default: None.
+            Bath natural orbital (BNO) threshold.
         solver : {'MP2', 'CISD', 'CCSD', 'FCI'}, optional
             Correlated solver.
 
@@ -270,31 +269,17 @@ class EWFFragment(Fragment):
         -------
         results : self.Results
         """
-        if bno_number is None:
-            bno_number = self.opts.bno_number
-        if bno_number is None and bno_threshold is None:
+        if bno_threshold is None:
             bno_threshold = self.opts.bno_threshold
-        if np.ndim(bno_threshold) == 0:
-            bno_threshold = 2*[bno_threshold]
-        if np.ndim(bno_number) == 0:
-            bno_number = 2*[bno_number]
+        bno_threshold = BNO_Threshold(self.opts.bno_truncation, bno_threshold)
 
         if solver is None:
             solver = self.solver
         if self.bath is None:
             self.make_bath()
 
-        if bno_number[0] is not None:
-            bno_string = 'BNO number= %d' % bno_number[0]
-            if bno_number[1] != bno_number[0]:
-                bno_string += ', %d' % bno_number[1]
-        else:
-            bno_string = 'BNO threshold= %.1e' % bno_threshold[0]
-            if bno_threshold[1] != bno_threshold[0]:
-                bno_string += ', %.1e' % bno_threshold[1]
-
-        cluster = self.make_cluster(self.bath, bno_threshold=bno_threshold, bno_number=bno_number)
-        cluster.log_sizes(self.log.info, header="Orbitals for %s (%s)" % (self, bno_string))
+        cluster = self.make_cluster(self.bath, bno_threshold=bno_threshold)
+        cluster.log_sizes(self.log.info, header="Orbitals for %s with %s" % (self, bno_threshold))
 
         # For self-consistent calculations, we can reuse ERIs:
         if eris is None:
@@ -341,7 +326,7 @@ class EWFFragment(Fragment):
                     energy_string(e_singles), energy_string(e_doubles))
         else:
             self.log.debug("Energy components: E(S)= %s, E(D)= %s", energy_string(e_singles), energy_string(e_doubles))
-        self.log.info("%s:  E(corr)= %+14.8f Ha", bno_string, e_corr)
+        self.log.info("%s:  E(corr)= %+14.8f Ha", bno_threshold, e_corr)
 
         # --- Add to results
         results = self._results

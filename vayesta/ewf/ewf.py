@@ -51,6 +51,7 @@ class EWF(Embedding):
         iao_minao : str = 'auto'            # Minimal basis for IAOs
         # --- Bath settings
         bath_type: str = 'MP2-BNO'
+        bno_truncation: str = 'occupation'  # Type of BNO truncation ["occupation", "number", "excited-percent", "electron-percent"]
         bno_threshold: float = 1e-8
         bno_project_t2: bool = False
         ewdmet_max_order: int = 1

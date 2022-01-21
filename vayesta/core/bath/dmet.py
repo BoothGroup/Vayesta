@@ -21,6 +21,10 @@ class DMET_Bath(FragmentBath):
 
         self.dmet_bath = self
 
+    def get_cluster_electrons(self):
+        """Number of cluster electrons."""
+        return 2*self.c_cluster_occ.shape[-1]
+
     def get_occupied_bath(self, *args, **kwargs):
         """Inherited bath classes can overwrite this to return additional occupied bath orbitals."""
         nao = self.mol.nao_nr()
@@ -255,6 +259,10 @@ class CompleteBath(DMET_Bath):
 # --- Spin unrestricted
 
 class UDMET_Bath(DMET_Bath):
+
+    def get_cluster_electrons(self):
+        """Number of (alpha, beta) cluster electrons."""
+        return (self.c_cluster_occ[0].shape[-1] + self.c_cluster_occ[1].shape[-1])
 
     def get_occupied_bath(self, *args, **kwargs):
         """Inherited bath classes can overwrite this to return additional occupied bath orbitals."""

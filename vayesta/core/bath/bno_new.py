@@ -1,3 +1,4 @@
+import numbers
 
 import numpy as np
 
@@ -12,6 +13,48 @@ from vayesta.core.linalg import recursive_block_svd
 from . import helper
 
 from .bath import FragmentBath
+
+class BNO_Threshold:
+
+    def __init__(self, type, threshold):
+        if type not in ('number', 'occupation', 'truncation', 'excited-percent', 'electron-percent'):
+            raise ValueError()
+        self.type = type
+        self.threshold = threshold
+
+    def __repr__(self):
+        return "%s(type=%s, threshold=%g)" % (self.__class__.__name__, self.type, self.threshold)
+
+    def get_number(self, bno_occup, electron_total=None):
+        """Get number of BNOs."""
+        nbno = len(bno_occup)
+        if nbno == 0:
+            return 0
+        if self.type == 'number':
+            return self.threshold
+        if self.type in ('truncation', 'excited-percent', 'electron-percent'):
+            npos = np.clip(bno_occup, 0.0, None)
+            nexcited = np.sum(npos)
+            if self.type == 'truncation':
+                ntarget = (nexcited - self.threshold)
+                nelec0 = 0
+            elif self.type == 'electron-percent':
+                assert (electron_total is not None)
+                ntarget = (1.0-self.threshold) * electron_total
+                nelec0 = (electron_total - nexcited)
+            elif self.type == 'excited-percent':
+                ntarget = (1.0-self.threshold) * nexcited
+                nelec0 = 0
+            #print("electron_total= %f nexcited= %f nelec0= %f, ntarget= %f" % (electron_total, nexcited, nelec0, ntarget))
+            for bno_number in range(nbno+1):
+                nelec = nelec0 + np.sum(npos[:bno_number])
+                #print(bno_number, nelec)
+                if nelec >= ntarget:
+                    return bno_number
+            raise RuntimeError()
+        if self.type == 'occupation':
+            return np.count_nonzero(bno_occup >= self.threshold)
+        raise RuntimeError()
 
 class BNO_Bath(FragmentBath):
     """Bath natural orbital (BNO) bath, requires DMET bath."""
@@ -96,31 +139,29 @@ class BNO_Bath(FragmentBath):
         for line in helper.plot_histogram(n_bno):
             self.log.info(line)
 
-    def get_occupied_bath(self, bno_threshold=None, bno_number=None, **kwargs):
+    def get_occupied_bath(self, bno_threshold=None, **kwargs):
         return self.truncate_bno(self.c_bno_occ, self.n_bno_occ, bno_threshold=bno_threshold,
-                bno_number=bno_number, header="occupied BNOs:", **kwargs)
+                header="occupied BNOs:", **kwargs)
 
     def get_virtual_bath(self, bno_threshold=None, bno_number=None, **kwargs):
         return self.truncate_bno(self.c_bno_vir, self.n_bno_vir, bno_threshold=bno_threshold,
-                bno_number=bno_number, header="virtual BNOs:", **kwargs)
+                header="virtual BNOs:", **kwargs)
 
-    def truncate_bno(self, c_bno, n_bno, bno_threshold=None, bno_number=None, header=None, verbose=True):
+    def truncate_bno(self, c_bno, n_bno, bno_threshold=None, header=None, verbose=True):
         """Split natural orbitals (NO) into bath and rest."""
 
         # For UHF, call recursively:
         if np.ndim(c_bno[0]) == 2:
             c_bno_a, c_rest_a = self.truncate_bno(c_bno[0], n_bno[0], bno_threshold=bno_threshold,
-                    bno_number=bno_number, header='Alpha-%s' % header, verbose=verbose)
+                    header='Alpha-%s' % header, verbose=verbose)
             c_bno_b, c_rest_b = self.truncate_bno(c_bno[1], n_bno[1], bno_threshold=bno_threshold,
-                    bno_number=bno_number, header='Beta-%s' % header, verbose=verbose)
+                    header='Beta-%s' % header, verbose=verbose)
             return (c_bno_a, c_bno_b), (c_rest_a, c_rest_b)
 
-        if bno_number is not None:
-            pass
-        elif bno_threshold is not None:
-            bno_number = np.count_nonzero(n_bno >= bno_threshold)
-        else:
-            raise ValueError("Either `bno_threshold` or `bno_number` needs to be specified.")
+        if isinstance(bno_threshold, numbers.Number):
+            bno_threshold = BNO_Threshold('occupation', bno_threshold)
+        nelec_cluster = self.dmet_bath.get_cluster_electrons()
+        bno_number = bno_threshold.get_number(n_bno, electron_total=nelec_cluster)
 
         # Logging
         if verbose:

@@ -9,6 +9,7 @@ from .ewdmet import EwDMET_Bath
 #from .bno import MP2_BNO_Bath
 #from .bno import UMP2_BNO_Bath
 
+from .bno_new import BNO_Threshold
 from .bno_new import BNO_Bath
 from .bno_new import MP2_BNO_Bath
 from .bno_new import UMP2_BNO_Bath
