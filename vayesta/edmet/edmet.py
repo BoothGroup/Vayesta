@@ -62,9 +62,9 @@ class EDMET(RDMET):
         maxiter = self.opts.maxiter
         # rdm = self.mf.make_rdm1()
         bno_thr = bno_threshold or self.bno_threshold
-        if bno_thr < np.inf and maxiter > 1:
-            raise NotImplementedError("MP2 bath calculation is currently ignoring the correlation potential, so does"
-                                      " not work properly for self-consistent calculations.")
+        #if bno_thr < np.inf and maxiter > 1:
+        #    raise NotImplementedError("MP2 bath calculation is currently ignoring the correlation potential, so does"
+        #                              " not work properly for self-consistent calculations.")
         # Initialise parameters for self-consistency iteration
         fock = self.get_fock()
         if self.vcorr is None:
@@ -98,9 +98,8 @@ class EDMET(RDMET):
             self.iteration = iteration
             self.log.info("Now running iteration= %2d", iteration)
             self.log.info("****************************************************")
-            mf.mo_energy, mf.mo_coeff = mf.eig(fock + self.vcorr, self.get_ovlp())
-            mf.mo_occ = self.mf.get_occ(mf.mo_energy, mf.mo_coeff)
-
+            mo_energy, mo_coeff = mf.eig(fock + self.vcorr, self.get_ovlp())
+            self.update_mf(mo_coeff, mo_energy)
             if self.opts.charge_consistent:
                 fock = mf.get_fock()
             self.set_up_fragments(sym_parents, bno_threshold=bno_thr)
@@ -239,7 +238,11 @@ class EDMET(RDMET):
             # Then generate full RPA moments.
             mom0 = rpa.gen_moms(0, self.xc_kernel)[0]
             eps = np.concatenate(self.eps)
-            e_nonlocal = rpa.e_corr
+            e_nonlocal = rpa.calc_energy_correction(self.xc_kernel, version=3)
+            self.log.info("RPA total energy=%6.4e", e_nonlocal)
+            #k = rpa.get_k()
+            #e_nonlocal = (einsum("pq,qp->", mom0, k) - k.trace()) / 4.0
+
             for f in sym_parents:
                 rot_ov = f.set_up_fermionic_bath(bno_threshold)
                 mom0_interact = dot(rot_ov, mom0)

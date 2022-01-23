@@ -174,16 +174,8 @@ class ssRPA:
 
         AmB = np.concatenate([eps, eps])
 
-        eris = self.ao2mo() * alpha
-        # Get coulomb interaction in occupied-virtual space.
-        v = eris[:self.nocc, self.nocc:, :self.nocc, self.nocc:].reshape((self.ova, self.ova))
-        fullv = np.zeros((self.ov, self.ov))
-        fullv[:self.ova, :self.ova] = fullv[self.ova:, self.ova:] = fullv[:self.ova, self.ova:] = \
-            fullv[self.ova:, :self.ova] = v
-        del eris
-        ApB = np.zeros((self.ov, self.ov))
-        ApB[:self.ova, :self.ova] = ApB[:self.ova, self.ova:] = \
-            ApB[self.ova:, :self.ova] = ApB[self.ova:, self.ova:] = 2 * v
+        fullv = self.get_k()
+        ApB = 2 * fullv * alpha
         # At this point AmB is just epsilon so add in.
         ApB[np.diag_indices_from(ApB)] += AmB
 
@@ -200,6 +192,15 @@ class ssRPA:
 
         self.log.timing("Time to build RPA arrays: %s", time_string(timer() - t0))
         return M, AmB, ApB, (eps, eps), fullv
+
+    def get_k(self):
+        eris = self.ao2mo()
+        # Get coulomb interaction in occupied-virtual space.
+        v = eris[:self.nocc, self.nocc:, :self.nocc, self.nocc:].reshape((self.ova, self.ova))
+        fullv = np.zeros((self.ov, self.ov))
+        fullv[:self.ova, :self.ova] = fullv[self.ova:, self.ova:] = fullv[:self.ova, self.ova:] = \
+            fullv[self.ova:, :self.ova] = v
+        return fullv
 
     def get_xc_contribs(self, xc_kernel, c_o, c_v, alpha=1.0):
         if not isinstance(xc_kernel[0], np.ndarray):

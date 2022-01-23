@@ -63,24 +63,8 @@ class ssURPA(ssRPA):
         epsb = epsb.reshape((self.ovb,))
 
         AmB = np.concatenate([epsa, epsb])
-
-        vaa, vab, vbb = self.ao2mo()
-        # Get coulomb interaction in occupied-virtual space.
-        vaa = vaa[:nocc_a, nocc_a:, :nocc_a, nocc_a:].reshape((self.ova, self.ova)) * alpha
-        vab = vab[:nocc_a, nocc_a:, :nocc_b, nocc_b:].reshape((self.ova, self.ovb)) * alpha
-        vbb = vbb[:nocc_b, nocc_b:, :nocc_b, nocc_b:].reshape((self.ovb, self.ovb)) * alpha
-
-        fullv = np.zeros((self.ov, self.ov))
-        fullv[:self.ova, :self.ova] = fullv[self.ova:, self.ova:] = fullv[:self.ova, self.ova:] = \
-            fullv[self.ova:, :self.ova] = v
-
-        fullv = np.zeros((self.ov, self.ov))
-        fullv[:self.ova, :self.ova] = vaa
-        fullv[:self.ova, self.ova:] = vab
-        fullv[self.ova:, :self.ova] = vab.T
-        fullv[self.ova:, self.ova:] = vbb
-
-        ApB = 2 * fullv
+        fullv = self.get_k()
+        ApB = 2 * fullv * alpha
         # At this point AmB is just epsilon so add in.
         ApB[np.diag_indices_from(ApB)] += AmB
 
@@ -97,6 +81,23 @@ class ssURPA(ssRPA):
 
         self.log.timing("Time to build RPA arrays: %s", time_string(timer() - t0))
         return M, AmB, ApB, (epsa, epsb), fullv
+
+    def get_k(self):
+        vaa, vab, vbb = self.ao2mo()
+
+        nocc_a, nocc_b = self.nocc
+        nvir_a, nvir_b = self.nvir
+        # Get coulomb interaction in occupied-virtual space.
+        vaa = vaa[:nocc_a, nocc_a:, :nocc_a, nocc_a:].reshape((self.ova, self.ova))
+        vab = vab[:nocc_a, nocc_a:, :nocc_b, nocc_b:].reshape((self.ova, self.ovb))
+        vbb = vbb[:nocc_b, nocc_b:, :nocc_b, nocc_b:].reshape((self.ovb, self.ovb))
+
+        fullv = np.zeros((self.ov, self.ov))
+        fullv[:self.ova, :self.ova] = vaa
+        fullv[:self.ova, self.ova:] = vab
+        fullv[self.ova:, :self.ova] = vab.T
+        fullv[self.ova:, self.ova:] = vbb
+        return fullv
 
     def ao2mo(self, mo_coeff=None):
         """Get the ERIs in MO basis

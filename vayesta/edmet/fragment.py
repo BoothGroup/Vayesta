@@ -134,9 +134,18 @@ class EDMETFragment(DMETFragment):
 
         # Need to generate projector from our RPA excitation space to the local fragment degrees of freedom.
         fproj_ov = self.get_fragment_projector_ov()
-        loc_erpa = einsum("pq,qr,rp->", fproj_ov, eta0[:self.ov_active_tot, :], apb[:, :self.ov_active_tot]) \
-                   - einsum("pq,qp->", fproj_ov, eps_loc[:self.ov_active_tot, :self.ov_active_tot]) \
-                   - einsum("pq,qp->", fproj_ov, eris[:self.ov_active_tot, :self.ov_active_tot])
+        #loc_erpa = (einsum("pq,qr,rp->", fproj_ov, eta0[:self.ov_active_tot, :], apb[:, :self.ov_active_tot]) \
+        #                - einsum("pq,qp->", fproj_ov, eps_loc[:self.ov_active_tot, :self.ov_active_tot]) \
+        #                - einsum("pq,qp->", fproj_ov, eris[:self.ov_active_tot, :self.ov_active_tot])) / 2.0
+        xc_b = (xc_apb - xc_amb) / 2.0
+        loc_erpa = (einsum("pq,qr,rp->", fproj_ov, eta0[:self.ov_active_tot],
+                           (apb - xc_b / 2.0)[:, :self.ov_active_tot])
+                    - einsum("pq,qp->", fproj_ov,
+                             ((apb + amb - xc_b) / 2)[:self.ov_active_tot, :self.ov_active_tot])
+                    ) / 2.0
+
+            # loc_erpa = (einsum("pq,qr,rp->", fproj_ov, eta0[:self.ov_active_tot], eris[:, :self.ov_active_tot])
+            #            - einsum("pq,qp->", fproj_ov, eris[:self.ov_active_tot, :self.ov_active_tot])) / 4.0
 
         renorm_amb = dot(eta0, apb, eta0)
 
@@ -160,6 +169,7 @@ class EDMETFragment(DMETFragment):
         self.eta0 = eta0
         # Will also want to save the effective local modification resulting from our local construction.
         self.amb_renorm_effect = renorm_amb - amb
+        self.log.info("Local correlation energy for fragment %d: %6.4e", self.id, loc_erpa)
         return loc_erpa
 
     def _get_boson_hamil(self, apb, amb):
