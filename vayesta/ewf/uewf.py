@@ -94,7 +94,11 @@ class UEWF(REWF, UEmbedding):
     # --- Density-matrices
     # --------------------
 
-    make_rdm1_ccsd = make_rdm1_ccsd
+    def make_rdm1_mp2(self, *args, **kwargs):
+        return make_rdm1_ccsd(self, *args, mp2=True, **kwargs)
+
+    def make_rdm1_ccsd(self, *args, **kwargs):
+        return make_rdm1_ccsd(self, *args, mp2=False, **kwargs)
 
     # TODO
     def make_rdm2_ccsd(self, *args, **kwargs):

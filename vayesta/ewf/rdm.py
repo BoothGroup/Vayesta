@@ -20,7 +20,7 @@ def _mpi_reduce(log, *args, mpi_target=None):
         return res[0]
     return tuple(res)
 
-def make_rdm1_ccsd(emb, ao_basis=False, t_as_lambda=False, symmetrize=True, with_mf=True, mpi_target=None):
+def make_rdm1_ccsd(emb, ao_basis=False, t_as_lambda=False, symmetrize=True, with_mf=True, mpi_target=None, mp2=False):
     """Make one-particle reduced density-matrix from partitioned fragment CCSD wave functions.
 
     This utilizes index permutations of the CCSD RDM1 equations, such that the RDM1 can be
@@ -48,16 +48,20 @@ def make_rdm1_ccsd(emb, ao_basis=False, t_as_lambda=False, symmetrize=True, with
         One-particle reduced density matrix in AO (if `ao_basis=True`) or MO basis (default).
     """
 
+    nocc, nvir = emb.nocc, emb.nvir
     # --- Fast algorithm via fragment-fragment loop:
     # T1/L1-amplitudes can be summed directly
-    t1 = emb.get_global_t1()
-    l1 = emb.get_global_l1() if not t_as_lambda else t1
+    if mp2:
+        t_as_lambda = True
+    else:
+        t1 = emb.get_global_t1()
+        l1 = emb.get_global_l1() if not t_as_lambda else t1
 
     # --- Loop over pairs of fragments and add projected density-matrix contributions:
-    nocc, nvir = t1.shape
     doo = np.zeros((nocc, nocc))
     dvv = np.zeros((nvir, nvir))
-    dov = np.zeros((nocc, nvir))
+    if not mp2:
+        dov = np.zeros((nocc, nvir))
     # MPI loop
     for frag in emb.get_fragments(mpi_rank=mpi.rank):
         th2x = frag.results.t2x
@@ -70,31 +74,38 @@ def make_rdm1_ccsd(emb, ao_basis=False, t_as_lambda=False, symmetrize=True, with
         doo -= einsum('kiba,kjba,Ii,Jj->IJ', th2x, l2x, co, co)
         if not symmetrize:
             dvv += einsum('ijca,ijcb,Aa,Bb->AB', th2x, l2x, cv, cv)
-            dov += einsum('ijab,Ii,Jj,Aa,Bb,JB->IA', th2x, fo, co, cv, cv, l1)
+            if not mp2:
+                dov += einsum('ijab,Ii,Jj,Aa,Bb,JB->IA', th2x, fo, co, cv, cv, l1)
         else:
             dvv += einsum('jica,jicb,Aa,Bb->AB', th2x, l2x, cv, cv) / 2
             dvv += einsum('ijac,ijbc,Aa,Bb->AB', th2x, l2x, cv, cv) / 2
-            dov += einsum('ijab,Ii,Jj,Aa,Bb,JB->IA', th2x, fo, co, cv, cv, l1) / 2
-            dov += einsum('jiba,Jj,Ii,Aa,Bb,JB->IA', th2x, fo, co, cv, cv, l1) / 2
+            if not mp2:
+                dov += einsum('ijab,Ii,Jj,Aa,Bb,JB->IA', th2x, fo, co, cv, cv, l1) / 2
+                dov += einsum('jiba,Jj,Ii,Aa,Bb,JB->IA', th2x, fo, co, cv, cv, l1) / 2
 
     if mpi:
-        doo, dvv, dov = _mpi_reduce(emb.log, doo, dvv, dov, mpi_target=mpi_target)
+        if mp2:
+            doo, dvv = _mpi_reduce(emb.log, doo, dvv, mpi_target=mpi_target)
+        else:
+            doo, dvv, dov = _mpi_reduce(emb.log, doo, dvv, dov, mpi_target=mpi_target)
         if mpi_target not in (None, mpi.rank):
             return None
 
-    dov += einsum('IJ,JA->IA', doo, t1)
-    dov -= einsum('IB,AB->IA', t1, dvv)
-    dov += (t1 + l1 - einsum('IA,JA,JB->IB', t1, l1, t1))
-    doo -= einsum('IA,JA->IJ', l1, t1)
-    dvv += einsum('IA,IB->AB', t1, l1)
+    if not mp2:
+        dov += einsum('IJ,JA->IA', doo, t1)
+        dov -= einsum('IB,AB->IA', t1, dvv)
+        dov += (t1 + l1 - einsum('IA,JA,JB->IB', t1, l1, t1))
+        doo -= einsum('IA,JA->IJ', l1, t1)
+        dvv += einsum('IA,IB->AB', t1, l1)
 
     nmo = (nocc + nvir)
     occ, vir = np.s_[:nocc], np.s_[nocc:]
     dm1 = np.zeros((nmo, nmo))
     dm1[occ,occ] = (doo + doo.T)
     dm1[vir,vir] = (dvv + dvv.T)
-    dm1[occ,vir] = dov
-    dm1[vir,occ] = dov.T
+    if not mp2:
+        dm1[occ,vir] = dov
+        dm1[vir,occ] = dov.T
     if with_mf:
         dm1[np.diag_indices(nocc)] += 2.0
     if ao_basis:

@@ -3,6 +3,7 @@ import numpy as np
 
 import pyscf
 import pyscf.scf
+import pyscf.mp
 import pyscf.cc
 
 import vayesta
@@ -68,6 +69,45 @@ class T_Amplitudes_Tests(unittest.TestCase):
         atol = 1e-8
         dm2 = self.emb.make_rdm2_ccsd()
         self.assertIsNone(np.testing.assert_allclose(dm2, self.dm2, atol=atol))
+
+class MP2_Test(unittest.TestCase):
+
+    @classmethod
+    def setUpClass(cls):
+        mf = moles['h2o_ccpvdz']['rhf']
+        # MP2
+        cls.mp2 = pyscf.mp.MP2(mf)
+        cls.mp2.kernel()
+        cls.dm1 = cls.mp2.make_rdm1()
+        # Embedded MP2
+        cls.emb = vayesta.ewf.EWF(mf, solver='MP2', bath_type='full')
+        cls.emb.kernel()
+
+    def test_dm1(self):
+        """Test 1RDM"""
+        atol = 1e-8
+        dm1 = self.emb.make_rdm1_mp2()
+        self.assertIsNone(np.testing.assert_allclose(dm1, self.dm1, atol=atol))
+
+class UMP2_Test(unittest.TestCase):
+
+    @classmethod
+    def setUpClass(cls):
+        mf = moles['no2_ccpvdz']['uhf']
+        # MP2
+        cls.mp2 = pyscf.mp.UMP2(mf)
+        cls.mp2.kernel()
+        cls.dm1 = cls.mp2.make_rdm1()
+        # Embedded MP2
+        cls.emb = vayesta.ewf.EWF(mf, solver='MP2', bath_type='full')
+        cls.emb.kernel()
+
+    def test_dm1(self):
+        """Test 1RDM"""
+        atol = 1e-8
+        dm1a, dm1b = self.emb.make_rdm1_mp2()
+        self.assertIsNone(np.testing.assert_allclose(dm1a, self.dm1[0], atol=atol))
+        self.assertIsNone(np.testing.assert_allclose(dm1b, self.dm1[1], atol=atol))
 
 
 class T_Amplitudes_UHF_Tests(unittest.TestCase):

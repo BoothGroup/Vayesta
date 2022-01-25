@@ -385,8 +385,14 @@ class EWF(Embedding):
     # --- Density-matrices
     # --------------------
 
-    make_rdm1_ccsd = make_rdm1_ccsd
-    make_rdm2_ccsd = make_rdm2_ccsd
+    def make_rdm1_mp2(self, *args, **kwargs):
+        return make_rdm1_ccsd(self, *args, mp2=True, **kwargs)
+
+    def make_rdm1_ccsd(self, *args, **kwargs):
+        return make_rdm1_ccsd(self, *args, mp2=False, **kwargs)
+
+    def make_rdm2_ccsd(self, *args, **kwargs):
+        return make_rdm2_ccsd(self, *args, **kwargs)
 
     def get_intercluster_mp2_energy(self, bno_threshold_occ=None, bno_threshold_vir=1e-8, direct=True, exchange=True,
             fragments=None, project_dc='vir', vers=1, diagonal=True):
