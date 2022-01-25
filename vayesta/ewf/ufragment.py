@@ -98,6 +98,8 @@ class UEWFFragment(UFragment, EWFFragment):
             gab = eris.ovOV
             gbb = eris.OVOV
             #gbb = eris.OVOV - eris.OVOV.transpose(0,3,2,1)
+        elif eris[0].shape == (nocc[0], nvir[0], nocc[0], nvir[0]):
+            gaa, gab, gbb = eris
         else:
             assert (len(eris) == 3)
             gaa = eris[0][oa,va,oa,va]
