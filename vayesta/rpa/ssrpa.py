@@ -82,8 +82,6 @@ class ssRPA:
         e, c = np.linalg.eigh(M)
         self.freqs_ss = e ** (0.5)
         assert (all(e > 1e-12))
-        # Take this with a pinch of salt, there should be an additional correction.
-        self.e_corr_ss = 0.5 * (sum(self.freqs_ss) - v.trace() - sum(eps[0] + eps[1]))
 
         if xc_kernel is None:
             XpY = np.einsum("n,p,pn->pn", self.freqs_ss ** (-0.5), AmB ** (0.5), c)
@@ -102,11 +100,15 @@ class ssRPA:
         self.freqs_sf = (AmB[:self.ova], AmB[self.ova:])
         self.log.timing("Time to solve RPA problem: %s", time_string(timer() - t0))
 
+        self.e_corr_ss = self.calc_energy_correction(xc_kernel=xc_kernel, version=3)
+
         self.log.info("Total RPA wall time:  %s", time_string(timer() - t_start))
 
         return self.e_corr_ss
 
     def calc_energy_correction(self, xc_kernel, version=3):
+
+        t0 = timer()
         M, AmB, ApB, eps, fullv = self._gen_arrays(xc_kernel)
         ApB_xc, AmB_xc = self.get_xc_contribs(xc_kernel, self.mo_coeff_occ, self.mo_coeff_vir)
         A_xc = (ApB_xc + AmB_xc) / 2
@@ -126,42 +128,48 @@ class ssRPA:
             weights /= 2
             return sum([w * func(p) for w, p in zip(weights, points)])
 
-        if version < 2:
+        if version == 0:
             e_plasmon = 0.5 * (np.dot(full_mom0, ApB) - (0.5 * (ApB + AmB) - A_xc)).trace()
 
-            if version == 0:
-                # Full integration of the adiabatic connection.
-                def get_val_alpha(alpha):
-                    eta0 = get_eta_alpha(alpha)
-                    return (einsum("pq,qp", A_xc + B_xc, eta0) + einsum("pq,qp", A_xc - B_xc, np.linalg.inv(eta0))) / 4
+            # Full integration of the adiabatic connection.
+            def get_val_alpha(alpha):
+                eta0 = get_eta_alpha(alpha)
+                return (einsum("pq,qp", A_xc + B_xc, eta0) + einsum("pq,qp", A_xc - B_xc, np.linalg.inv(eta0))) / 4
 
-                e = e_plasmon - run_ac_inter(get_val_alpha)
-            elif version == 1:
-                # Integration of adiabatic connection, but with approximation of the inverse eta0`
-                def get_val_alpha(alpha):
-                    eta0 = get_eta_alpha(alpha)
-                    return (A_xc.trace() + einsum("pq,qp", B_xc, eta0 - np.eye(self.ov))) / 2
+            e = e_plasmon - run_ac_inter(get_val_alpha)
+            e = (e, get_val_alpha)
+        elif version == 1:
+            e_plasmon = 0.5 * (np.dot(full_mom0, ApB) - (0.5 * (ApB + AmB) - A_xc)).trace()
 
-                e = e_plasmon - run_ac_inter(get_val_alpha)
-            return e, get_val_alpha
+            # Integration of adiabatic connection, but with approximation of the inverse eta0`
+            def get_val_alpha(alpha):
+                eta0 = get_eta_alpha(alpha)
+                return (A_xc.trace() + einsum("pq,qp", B_xc, eta0 - np.eye(self.ov))) / 2
+
+            e = e_plasmon - run_ac_inter(get_val_alpha)
+            e = (e, get_val_alpha)
         elif version == 2:
             # Linear approximation of all quantities in adiabatic connection.
             e = 0.5 * (np.dot(full_mom0, ApB) - (0.5 * (ApB + AmB) - A_xc)).trace()
             e -= (einsum("pq,qp->", A_xc + B_xc, full_mom0 + np.eye(self.ov)) +
-                  einsum("pq,qp->",A_xc - B_xc, np.linalg.inv(full_mom0) + np.eye(self.ov))) / 8
+                  einsum("pq,qp->", A_xc - B_xc, np.linalg.inv(full_mom0) + np.eye(self.ov))) / 8
         elif version == 3:
             # Linear approximation in AC and approx of inverse.
-            e = 0.5 * (np.dot(full_mom0, ApB - B_xc/2) - (0.5 * (ApB + AmB) - B_xc / 2)).trace()
+            e = 0.5 * (np.dot(full_mom0, ApB - B_xc / 2) - (0.5 * (ApB + AmB) - B_xc / 2)).trace()
         elif version == 4:
             def get_val_alpha(alpha):
                 eta0 = get_eta_alpha(alpha)
                 return einsum("pq,qp->", eta0 - np.eye(self.ov), fullv)
+
             e = 0.5 * run_ac_inter(get_val_alpha)
-            return e, get_val_alpha
+            e = (e, get_val_alpha)
         elif version == 5:
             e = einsum("pq,qp->", full_mom0 - np.eye(self.ov), fullv) / 4
         else:
-            raise ValueError("Unknown energy approach requested.")
+            raise ValueError("Unknown energy approach {:s} requested.".format(version))
+
+        self.log.timing("Time to calculate RPA energy: %s", time_string(timer() - t0))
+
         return e
 
     def _gen_arrays(self, xc_kernel=None, alpha=1.0):
@@ -249,7 +257,7 @@ class ssRPA:
         ApB[self.ova:, self.ova:] += V_B_bb
         AmB[self.ova:, self.ova:] -= V_B_bb
         del V_B_bb
-        return ApB*alpha, AmB*alpha
+        return ApB * alpha, AmB * alpha
 
     def gen_moms(self, max_mom, xc_kernel=None):
         res = {}

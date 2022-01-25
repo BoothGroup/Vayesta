@@ -26,6 +26,7 @@ class EDMET(RDMET):
         make_dd_moments: bool = NotSet
         old_sc_condition: bool = False
         max_bos: int = np.inf
+        renorm_energy_couplings: bool = True
 
     Fragment = EDMETFragment
 
@@ -206,6 +207,7 @@ class EDMET(RDMET):
         if self.with_df:
             # Set up for RIRPPA zeroth moment calculation.
             rpa = ssRIRPA(self.mf, self.xc_kernel, self.log)
+            e_nonlocal, energy_error = rpa.kernel_energy()
             # Get fermionic bath set up, and calculate the cluster excitation space.
             rot_ovs = [f.set_up_fermionic_bath(bno_threshold) for f in sym_parents]
             target_rot = np.concatenate(rot_ovs, axis=0)
@@ -229,7 +231,7 @@ class EDMET(RDMET):
             eps = np.concatenate(self.eps)
             # Can then invert relation to generate coupled electron-boson Hamiltonian.
             for f, sl in zip(sym_parents, bos_slices):
-                f.construct_boson_hamil(mom0_bos[sl, :], eps, self.xc_kernel)
+                e_nonlocal -= f.construct_boson_hamil(mom0_bos[sl, :], eps, self.xc_kernel)
         else:
             rpa = ssRPA(self.mf, self.log)
             # We need to explicitly solve RPA equations before anything.
@@ -249,7 +251,7 @@ class EDMET(RDMET):
                 rot_bos = f.define_bosons(mom0_interact)
                 mom0_bos = dot(rot_bos, mom0)
                 e_nonlocal -= f.construct_boson_hamil(mom0_bos, eps, self.xc_kernel)
-            self.e_nonlocal = e_nonlocal
+        self.e_nonlocal = e_nonlocal
 
     def calc_electron_number_defect(self, chempot, bno_thr, nelec_target, parent_fragments, nsym,
                                     construct_bath=True):

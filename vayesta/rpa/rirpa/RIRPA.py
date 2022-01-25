@@ -171,11 +171,13 @@ class ssRIRPA:
                 ri_a_xc, ri_b_xc = self.get_ab_xc_ri()
                 eta0_xc, err2 = self.kernel_moms(target_rot=ri_b_xc[0], npoints=npoints, ainit=ainit)
                 err += err2
-                e2 -= np.dot(eta0_xc, ri_b_xc[1].T).trace()
-                e3 += 2 * einsum("np,np->", ri_a_xc[0], ri_a_xc[1]) - einsum("np,np->", ri_b_xc[0], ri_b_xc[1])
+                val = np.dot(eta0_xc, ri_b_xc[1].T).trace() / 2
+                print("Approximated correlation energy correction:", val)
+                e2 -= val
+                e3 += einsum("np,np->", ri_a_xc[0], ri_a_xc[1]) - einsum("np,np->", ri_b_xc[0], ri_b_xc[1]) / 2
         self.e_corr_ss = 0.5 * (e1 + e2 - e3)
-        print(e1,e2,e3)
         err /= 2
+        print(e1, e2, e3, err)
         return self.e_corr_ss, err
 
     def get_compressed_MP(self):

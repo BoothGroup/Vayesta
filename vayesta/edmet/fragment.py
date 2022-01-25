@@ -24,6 +24,7 @@ class EDMETFragment(DMETFragment):
         make_dd_moments: bool = True
         old_sc_condition: bool = NotSet
         max_bos: int = NotSet
+        renorm_energy_couplings: bool = NotSet
 
     @dataclasses.dataclass
     class Results(DMETFragment.Results):
@@ -161,6 +162,14 @@ class EDMETFragment(DMETFragment):
         couplings_aa = einsum("npq,nm->mpq", couplings_aa, x) + einsum("npq,nm->mqp", couplings_aa, y)
         couplings_bb = np.einsum("npq,nm->mpq", couplings_bb, x) + np.einsum("npq,nm->mqp", couplings_bb, y)
         self.couplings = (couplings_aa, couplings_bb)
+        self.ecouplings = self.couplings
+        if self.opts.renorm_energy_couplings:
+            # May want to contract with equivalent un-renormalised couplings to get the energy.
+            ecouplings_aa, ecouplings_bb, ea_bos, eb_bos = self._get_boson_hamil(apb, amb)
+            ecouplings_aa = einsum("npq,nm->mpq", ecouplings_aa, x) + einsum("npq,nm->mqp", ecouplings_aa, y)
+            ecouplings_bb = np.einsum("npq,nm->mpq", ecouplings_bb, x) + np.einsum("npq,nm->mqp", ecouplings_bb, y)
+            self.ecouplings = (ecouplings_aa, ecouplings_bb)
+
         # These are the quantities before decoupling, since these in some sense represent the `physical' excitations of
         # the system. ie. each quasi-bosonic excitation operator is made up of only environmental excitations, rather
         # than also including deexcitations, making later manipulations more straightforward.
@@ -338,12 +347,14 @@ class EDMETFragment(DMETFragment):
         c_act = self.cluster.c_active
         p_imp = self.get_fragment_projector(c_act)
         dm_eb = self._results.dm_eb
+        couplings = self.ecouplings
+
         # Have separate spin contributions.
         efb = 0.5 * (
-                np.einsum("pr,npq,rqn", p_imp, self.couplings[0], dm_eb[0]) +
-                np.einsum("qr,npq,prn", p_imp, self.couplings[0], dm_eb[0]) +
-                np.einsum("pr,npq,rqn", p_imp, self.couplings[1], dm_eb[1]) +
-                np.einsum("qr,npq,prn", p_imp, self.couplings[1], dm_eb[1])
+                np.einsum("pr,npq,rqn", p_imp, couplings[0], dm_eb[0]) +
+                np.einsum("qr,npq,prn", p_imp, couplings[0], dm_eb[0]) +
+                np.einsum("pr,npq,rqn", p_imp, couplings[1], dm_eb[1]) +
+                np.einsum("qr,npq,prn", p_imp, couplings[1], dm_eb[1])
         )
         return e1, e2, efb
 

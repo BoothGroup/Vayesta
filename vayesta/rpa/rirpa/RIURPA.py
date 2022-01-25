@@ -107,7 +107,7 @@ class ssRIURPA(ssRIRRPA):
 
         return ri_apb, ri_amb
 
-    def get_ab_eri_ri(self):
+    def get_apb_eri_ri(self):
         # Coulomb integrals only contribute to A+B.
         # This needs to be optimised, but will do for now.
         v = self.get_3c_integrals()
