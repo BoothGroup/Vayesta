@@ -207,7 +207,8 @@ class EDMET(RDMET):
         if self.with_df:
             # Set up for RIRPPA zeroth moment calculation.
             rpa = ssRIRPA(self.mf, self.xc_kernel, self.log)
-            e_nonlocal, energy_error = rpa.kernel_energy()
+            e_nonlocal, energy_error = rpa.kernel_energy(correction="linear")
+            self.log.info("RPA total energy=%6.4e", e_nonlocal)
             # Get fermionic bath set up, and calculate the cluster excitation space.
             rot_ovs = [f.set_up_fermionic_bath(bno_threshold) for f in sym_parents]
             target_rot = np.concatenate(rot_ovs, axis=0)

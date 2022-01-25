@@ -89,12 +89,12 @@ class ssRIRPA:
         return D
 
     def kernel_moms(self, target_rot=None, npoints=48, ainit=10, integral_deduct="HO", opt_quad=True,
-                    adaptive_quad=False):
+                    adaptive_quad=False, alpha = 1.0):
 
         if target_rot is None:
             self.log.warning("Warning; generating full moment rather than local component. Will scale as O(N^5).")
             target_rot = np.eye(self.ov_tot)
-        ri_mp, ri_apb, ri_amb = self.get_compressed_MP()
+        ri_mp, ri_apb, ri_amb = self.get_compressed_MP(alpha)
 
         # We our integral as
         #   integral = (MP)^{1/2} - (moment_offset) P - integral_offset
@@ -149,7 +149,7 @@ class ssRIRPA:
         return mom0 + moment_offset, mom0_err
 
     def kernel_trMPrt(self, npoints=48, ainit=10):
-        """Evaluate """
+        """Evaluate Tr((MP)^(1/2))."""
         ri_mp, ri_apb, ri_amb = self.get_compressed_MP()
         inputs = (self.D, ri_mp[0], ri_mp[1], npoints, self.log)
 
@@ -159,34 +159,72 @@ class ssRIRPA:
         offset = sum(self.D) + 0.5 * einsum("p,np,np->", self.D**(-1), ri_mp[0], ri_mp[1])
         return integral[0] + offset, err
 
-    def kernel_energy(self, npoints=48, ainit=10, use_correction=True):
+    def kernel_energy(self, npoints=48, ainit=10, correction=None):
         e1, err = self.kernel_trMPrt(npoints, ainit)
         e2 = 0.0
         ri_apb_eri = self.get_apb_eri_ri()
         # Note that eri contribution to A and B is equal, so can get trace over one by dividing by two
         e3 = sum(self.D) + einsum("np,np->", ri_apb_eri, ri_apb_eri) / 2
-        print(e1, e2, e3)
-        if self.rixc is not None:
-            if use_correction:
+        if self.rixc is not None and correction is not None:
+
+            if correction.lower() == "linear":
                 ri_a_xc, ri_b_xc = self.get_ab_xc_ri()
                 eta0_xc, err2 = self.kernel_moms(target_rot=ri_b_xc[0], npoints=npoints, ainit=ainit)
                 err += err2
                 val = np.dot(eta0_xc, ri_b_xc[1].T).trace() / 2
-                print("Approximated correlation energy correction:", val)
+                self.log.info("Approximated correlation energy contribution: %e", val)
                 e2 -= val
                 e3 += einsum("np,np->", ri_a_xc[0], ri_a_xc[1]) - einsum("np,np->", ri_b_xc[0], ri_b_xc[1]) / 2
+            elif correction.lower() == "XC_AC":
+                pass
         self.e_corr_ss = 0.5 * (e1 + e2 - e3)
         err /= 2
-        print(e1, e2, e3, err)
         return self.e_corr_ss, err
 
-    def get_compressed_MP(self):
-        ri_apb, ri_amb = self.construct_RI_AB()
+    def direct_AC_integration(self, npoints, local_projectors=None, deg=5):
+        """Perform direct integration of the adiabatic connection for RPA correlation energy.
+        This will be preferable when the xc kernel is comparable or larger in magnitude to the coulomb kernel, as it
+        only requires evaluation of the moment and not its inverse."""
+
+        ri_eri = self.get_apb_eri_ri() / 2
+
+        u, s, target_rot = np.linalg.svd(ri_eri, full_matrices=False)
+        # Target rot describes orthogonal rotation of full-ov-space excitations to those that couple to the (low-rank)
+        # coulomb kernel.
+        def get_eta_alpha(alpha):
+            newrirpa = self.__class__(self.mf, rixc=self.rixc, log=self.log)
+            mom0, err = newrirpa.kernel_moms(target_rot=target_rot, npoints=npoints, alpha=alpha)
+            return dot(mom0, target_rot.T)
+
+        def run_ac_inter(func, deg=5):
+            points, weights = np.polynomial.legendre.leggauss(deg)
+            # Shift and reweight to interval of [0,1].
+            points += 1
+            points /= 2
+            weights /= 2
+            return sum([w * func(p) for w, p in zip(weights, points)])
+
+        integral = run_ac_inter(get_eta_alpha, deg=5) - np.eye(target_rot.shape[0])
+
+
+
+
+        # Generate integral of (eta0 - I).
+
+
+
+
+    def get_compressed_MP(self, alpha = 1.0):
+        # AB corresponds to scaling RI components at this point.
+        ri_apb, ri_amb = self.construct_RI_AB(alpha)
         # Compress RI representations before manipulation, since compression costs O(N^2 N_aux) while most operations
         # are O(N^2 N_aux^2), so for systems large enough that calculation cost is noticeable the cost reduction
         # from a reduced rank will exceed the cost of compression.
         ri_apb = self.compress_low_rank(*ri_apb, name="A+B")
         ri_amb = self.compress_low_rank(*ri_amb, name="A-B")
+        ri_apb = (x * alpha ** (0.5) for x in ri_apb)
+        ri_amb = (x * alpha ** (0.5) for x in ri_amb)
+
         ri_mp = self.compress_low_rank(*construct_product_RI(self.D, ri_amb, ri_apb), name="(A-B)(A+B)")
         return ri_mp, ri_apb, ri_amb
 
@@ -195,7 +233,7 @@ class ssRIRPA:
             self.log.warning("Estimated error per element exceeded tolerance %6.4e. Please increase number of points.",
                              error / nelements)
 
-    def construct_RI_AB(self):
+    def construct_RI_AB(self, alpha = 1.0):
         """Construct the RI expressions for the deviation of A+B and A-B from D."""
         ri_apb_eri = self.get_apb_eri_ri()
         # Use empty AmB contrib initially; this is the dRPA contrib.
