@@ -89,7 +89,7 @@ class ssRIRPA:
         return D
 
     def kernel_moms(self, target_rot=None, npoints=48, ainit=10, integral_deduct="HO", opt_quad=True,
-                    adaptive_quad=False, alpha = 1.0):
+                    adaptive_quad=False, alpha=1.0):
 
         if target_rot is None:
             self.log.warning("Warning; generating full moment rather than local component. Will scale as O(N^5).")
@@ -156,10 +156,10 @@ class ssRIRPA:
         niworker = energy_NI.NITrRootMP(*inputs)
         integral, err = niworker.kernel(a=ainit, opt_quad=True)
         # Compute offset; possible analytically in N^3 for diagonal.
-        offset = sum(self.D) + 0.5 * einsum("p,np,np->", self.D**(-1), ri_mp[0], ri_mp[1])
+        offset = sum(self.D) + 0.5 * einsum("p,np,np->", self.D ** (-1), ri_mp[0], ri_mp[1])
         return integral[0] + offset, err
 
-    def kernel_energy(self, npoints=48, ainit=10, correction=None):
+    def kernel_energy(self, npoints=48, ainit=10, correction="linear"):
         e1, err = self.kernel_trMPrt(npoints, ainit)
         e2 = 0.0
         ri_apb_eri = self.get_apb_eri_ri()
@@ -181,20 +181,19 @@ class ssRIRPA:
         err /= 2
         return self.e_corr_ss, err
 
-    def direct_AC_integration(self, npoints, local_projectors=None, deg=5):
+    def direct_AC_integration(self, npoints, local_rot=None, fragment_projectors=None, deg=5):
         """Perform direct integration of the adiabatic connection for RPA correlation energy.
         This will be preferable when the xc kernel is comparable or larger in magnitude to the coulomb kernel, as it
-        only requires evaluation of the moment and not its inverse."""
+        only requires evaluation of the moment and not its inverse.
+        local_rot describes the rotation of the ov-excitations to the space of local excitations within a cluster, while
+        fragment_projectors gives the projector within this local excitation space to the actual fragment."""
+        # Get the coulomb integrals.
+        ri_eri = self.get_apb_eri_ri() / np.sqrt(2)
 
-        ri_eri = self.get_apb_eri_ri() / 2
-
-        u, s, target_rot = np.linalg.svd(ri_eri, full_matrices=False)
-        # Target rot describes orthogonal rotation of full-ov-space excitations to those that couple to the (low-rank)
-        # coulomb kernel.
-        def get_eta_alpha(alpha):
+        def get_eta_alpha(alpha, target_rot):
             newrirpa = self.__class__(self.mf, rixc=self.rixc, log=self.log)
             mom0, err = newrirpa.kernel_moms(target_rot=target_rot, npoints=npoints, alpha=alpha)
-            return dot(mom0, target_rot.T)
+            return mom0
 
         def run_ac_inter(func, deg=5):
             points, weights = np.polynomial.legendre.leggauss(deg)
@@ -204,26 +203,45 @@ class ssRIRPA:
             weights /= 2
             return sum([w * func(p) for w, p in zip(weights, points)])
 
-        integral = run_ac_inter(get_eta_alpha, deg=5) - np.eye(target_rot.shape[0])
+        if local_rot is None or fragment_projectors is None:
+            lrot = ri_eri
+            rrot = ri_eri
+        else:
+            lrot = np.concatenate(local_rot, axis=0)
+            nloc_cum = np.cumsum([x.shape[0] for x in local_rot])
 
+            rrot = np.zeros_like(lrot)
 
+            def get_contrib(rot, proj):
+                Lloc = dot(rot.T, ri_eri)
+                return dot(rot, proj, Lloc, Lloc.T)
 
+            rrot[:nloc_cum[0]] = get_contrib(local_rot[0], fragment_projectors[0])
+            rrot[nloc_cum[-1]:] = get_contrib(local_rot[-1], fragment_projectors[-1])
 
-        # Generate integral of (eta0 - I).
+            if len(nloc_cum) > 2:
+                for i, (r, p) in enumerate(zip(local_rot[1:-1], fragment_projectors[1:-1])):
+                    rrot[nloc_cum[i]:nloc_cum[i+1]] = get_contrib(r, p)
+            lrot = np.concatenate([ri_eri, lrot], axis=0)
+            rrot = np.concatenate([ri_eri, -rrot], axis=0)
 
+        def get_contrib(alpha):
+            eta0 = get_eta_alpha(alpha, target_rot=lrot)
+            return einsum("np,np->", eta0 - lrot, rrot)
 
+        integral = run_ac_inter(get_contrib, deg=deg) / 2
+        return integral, get_contrib
 
-
-    def get_compressed_MP(self, alpha = 1.0):
+    def get_compressed_MP(self, alpha=1.0):
         # AB corresponds to scaling RI components at this point.
-        ri_apb, ri_amb = self.construct_RI_AB(alpha)
+        ri_apb, ri_amb = self.construct_RI_AB()
         # Compress RI representations before manipulation, since compression costs O(N^2 N_aux) while most operations
         # are O(N^2 N_aux^2), so for systems large enough that calculation cost is noticeable the cost reduction
         # from a reduced rank will exceed the cost of compression.
         ri_apb = self.compress_low_rank(*ri_apb, name="A+B")
         ri_amb = self.compress_low_rank(*ri_amb, name="A-B")
-        ri_apb = (x * alpha ** (0.5) for x in ri_apb)
-        ri_amb = (x * alpha ** (0.5) for x in ri_amb)
+        ri_apb = [x * alpha ** (0.5) for x in ri_apb]
+        ri_amb = [x * alpha ** (0.5) for x in ri_amb]
 
         ri_mp = self.compress_low_rank(*construct_product_RI(self.D, ri_amb, ri_apb), name="(A-B)(A+B)")
         return ri_mp, ri_apb, ri_amb
@@ -233,7 +251,7 @@ class ssRIRPA:
             self.log.warning("Estimated error per element exceeded tolerance %6.4e. Please increase number of points.",
                              error / nelements)
 
-    def construct_RI_AB(self, alpha = 1.0):
+    def construct_RI_AB(self):
         """Construct the RI expressions for the deviation of A+B and A-B from D."""
         ri_apb_eri = self.get_apb_eri_ri()
         # Use empty AmB contrib initially; this is the dRPA contrib.
@@ -255,7 +273,7 @@ class ssRIRPA:
         return ri_apb, ri_amb
 
     def compress_low_rank(self, ri_l, ri_r, name=None):
-            return compress_low_rank(ri_l, ri_r, tol=self.svd_tol, log=self.log, name=name)
+        return compress_low_rank(ri_l, ri_r, tol=self.svd_tol, log=self.log, name=name)
 
     def get_apb_eri_ri(self):
         # Coulomb integrals only contribute to A+B.
@@ -319,14 +337,15 @@ class ssRIRPA:
         def get_log_qval(freq):
             q = niworker.get_Q(freq)
             return scipy.linalg.logm(np.eye(naux) + q).trace()
+
         log_qvals = [get_log_qval(x) for x in freqs]
+
         def get_log_specvals(freq):
-            return sum(np.log(fullrpa.freqs_ss**2 + freq**2) - np.log(self.D**2 + freq**2))
+            return sum(np.log(fullrpa.freqs_ss ** 2 + freq ** 2) - np.log(self.D ** 2 + freq ** 2))
+
         log_specvals = [get_log_specvals(x) for x in freqs]
 
         return log_qvals, log_specvals, get_log_qval, get_log_specvals
-
-
 
 
 def construct_product_RI(D, ri_1, ri_2):
@@ -389,5 +408,6 @@ def compress_low_rank(ri_l, ri_r, tol=1e-8, log=None, name=None):
         else:
             log.info("Compressed low-rank representation of %s from rank %d to %d.", name, naux_init, nwant)
     return ri_l, ri_r
+
 
 ssRIRRPA = ssRIRPA

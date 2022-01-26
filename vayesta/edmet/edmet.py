@@ -207,7 +207,7 @@ class EDMET(RDMET):
         if self.with_df:
             # Set up for RIRPPA zeroth moment calculation.
             rpa = ssRIRPA(self.mf, self.xc_kernel, self.log)
-            e_nonlocal, energy_error = rpa.kernel_energy(correction="linear")
+            self.e_rpa, energy_error = rpa.kernel_energy(correction="linear")
             self.log.info("RPA total energy=%6.4e", e_nonlocal)
             # Get fermionic bath set up, and calculate the cluster excitation space.
             rot_ovs = [f.set_up_fermionic_bath(bno_threshold) for f in sym_parents]
@@ -231,6 +231,7 @@ class EDMET(RDMET):
                 mom0_bos = np.zeros((sum(nbos), mom0_interact.shape[1]))
             eps = np.concatenate(self.eps)
             # Can then invert relation to generate coupled electron-boson Hamiltonian.
+            e_nonlocal = self.e_rpa
             for f, sl in zip(sym_parents, bos_slices):
                 e_nonlocal -= f.construct_boson_hamil(mom0_bos[sl, :], eps, self.xc_kernel)
         else:
@@ -241,11 +242,9 @@ class EDMET(RDMET):
             # Then generate full RPA moments.
             mom0 = rpa.gen_moms(0, self.xc_kernel)[0]
             eps = np.concatenate(self.eps)
-            e_nonlocal = rpa.calc_energy_correction(self.xc_kernel, version=3)
+            self.e_rpa = rpa.calc_energy_correction(self.xc_kernel, version=3)
+            e_nonlocal = self.e_rpa
             self.log.info("RPA total energy=%6.4e", e_nonlocal)
-            #k = rpa.get_k()
-            #e_nonlocal = (einsum("pq,qp->", mom0, k) - k.trace()) / 4.0
-
             for f in sym_parents:
                 rot_ov = f.set_up_fermionic_bath(bno_threshold)
                 mom0_interact = dot(rot_ov, mom0)
