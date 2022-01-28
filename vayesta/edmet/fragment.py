@@ -135,18 +135,24 @@ class EDMETFragment(DMETFragment):
 
         # Need to generate projector from our RPA excitation space to the local fragment degrees of freedom.
         fproj_ov = self.get_fragment_projector_ov()
-        #loc_erpa = (einsum("pq,qr,rp->", fproj_ov, eta0[:self.ov_active_tot, :], apb[:, :self.ov_active_tot]) \
+        # loc_erpa = (einsum("pq,qr,rp->", fproj_ov, eta0[:self.ov_active_tot, :], apb[:, :self.ov_active_tot]) \
         #                - einsum("pq,qp->", fproj_ov, eps_loc[:self.ov_active_tot, :self.ov_active_tot]) \
         #                - einsum("pq,qp->", fproj_ov, eris[:self.ov_active_tot, :self.ov_active_tot])) / 2.0
         xc_b = (xc_apb - xc_amb) / 2.0
-        loc_erpa = (einsum("pq,qr,rp->", fproj_ov, eta0[:self.ov_active_tot],
-                           (apb - xc_b / 2.0)[:, :self.ov_active_tot])
-                    - einsum("pq,qp->", fproj_ov,
-                             ((apb + amb - xc_b) / 2)[:self.ov_active_tot, :self.ov_active_tot])
-                    ) / 2.0
+        self.loc_erpa = (einsum("pq,qr,rp->", fproj_ov, eta0[:self.ov_active_tot],
+                                (apb - (xc_b / 2.0))[:, :self.ov_active_tot])
+                         - einsum("pq,qp->", fproj_ov,
+                                  ((apb + amb - xc_b) / 2)[:self.ov_active_tot, :self.ov_active_tot])
+                         ) / 2.0
+        self.save = (einsum("pq,qr,rp->", fproj_ov, eta0[:self.ov_active_tot],
+                                (apb - (xc_b / 2.0))[:, :self.ov_active_tot]) / 2,
+                         - einsum("pq,qp->", fproj_ov,
+                                  ((apb + amb - xc_b) / 2)[:self.ov_active_tot, :self.ov_active_tot])/2
+                         )
 
-            # loc_erpa = (einsum("pq,qr,rp->", fproj_ov, eta0[:self.ov_active_tot], eris[:, :self.ov_active_tot])
-            #            - einsum("pq,qp->", fproj_ov, eris[:self.ov_active_tot, :self.ov_active_tot])) / 4.0
+
+        # loc_erpa = (einsum("pq,qr,rp->", fproj_ov, eta0[:self.ov_active_tot], eris[:, :self.ov_active_tot])
+        #            - einsum("pq,qp->", fproj_ov, eris[:self.ov_active_tot, :self.ov_active_tot])) / 4.0
 
         renorm_amb = dot(eta0, apb, eta0)
 
@@ -178,8 +184,8 @@ class EDMETFragment(DMETFragment):
         self.eta0 = eta0
         # Will also want to save the effective local modification resulting from our local construction.
         self.amb_renorm_effect = renorm_amb - amb
-        self.log.info("Local correlation energy for fragment %d: %6.4e", self.id, loc_erpa)
-        return loc_erpa
+        self.log.info("Local correlation energy for fragment %d: %6.4e", self.id, self.loc_erpa)
+        return self.loc_erpa
 
     def _get_boson_hamil(self, apb, amb):
         a = 0.5 * (apb + amb)
@@ -553,6 +559,50 @@ class EDMETFragment(DMETFragment):
             rot_frag_ov = np.linalg.pinv(rot_ov_frag)
         # Return tuples so can can unified interface with UHF implementation.
         return (rot_ov_frag, rot_ov_frag), (rot_frag_ov, rot_frag_ov), proj_to_order
+
+    def calc_exact_ac(self, eps, deg=5):
+
+        ov_rot = self.get_rot_to_mf_ov()
+        # Get couplings between all fermionic and boson degrees of freedom.
+        eris = self.get_eri_couplings(np.concatenate([ov_rot, self.r_bos], axis=0))
+        if self.opts.renorm_energy_couplings:
+            eris = eris + self.amb_renorm_effect
+
+        eps_loc = self.get_loc_eps(eps, np.concatenate([ov_rot, self.r_bos], axis=0))
+
+        fproj_ov = self.get_fragment_projector_ov()
+
+        def calc_eta0(alpha):
+            amb_alpha = eps_loc + (self.amb - eps_loc) * alpha
+            apb_alpha = eps_loc + (self.apb - eps_loc) * alpha
+            # e, c = np.linalg.eig(dot(amb, apb))
+            MPrt = scipy.linalg.sqrtm(dot(amb_alpha, apb_alpha))  # einsum("pn,n,qn->pq", c, e ** (0.5), c)
+            eta0 = dot(MPrt, np.linalg.solve(apb_alpha, np.eye(apb_alpha.shape[0])))
+            return eta0
+
+        def calc_contrib(alpha):
+            eta0 = calc_eta0(alpha)
+            return einsum("pq,pr,rq->", fproj_ov, (eta0 - np.eye(self.ov_active_tot + self.nbos))[:self.ov_active_tot],
+                          eris[:, :self.ov_active_tot]) / 2
+
+        def run_ac_inter(func, deg=5):
+            points, weights = np.polynomial.legendre.leggauss(deg)
+            # Shift and reweight to interval of [0,1].
+            points += 1
+            points /= 2
+            weights /= 2
+            return sum([w * func(p) for w, p in zip(weights, points)])
+
+        print(abs(self.eta0 - calc_eta0(1.0)).max())
+
+
+
+
+        return np.array([run_ac_inter(calc_contrib, deg=deg),
+                         (einsum("pq,qr,rp->", fproj_ov, calc_eta0(1.0)[:self.ov_active_tot],
+                                 self.apb[:, :self.ov_active_tot])
+                          - einsum("pq,qp->", fproj_ov,
+                                   ((self.apb + self.amb)/2)[:self.ov_active_tot, :self.ov_active_tot])) / 2.0])
 
     @property
     def ov_active_ab(self):

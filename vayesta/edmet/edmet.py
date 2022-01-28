@@ -208,7 +208,7 @@ class EDMET(RDMET):
             # Set up for RIRPPA zeroth moment calculation.
             rpa = ssRIRPA(self.mf, self.xc_kernel, self.log)
             self.e_rpa, energy_error = rpa.kernel_energy(correction="linear")
-            self.log.info("RPA total energy=%6.4e", e_nonlocal)
+            self.log.info("RPA total energy=%6.4e", self.e_rpa)
             # Get fermionic bath set up, and calculate the cluster excitation space.
             rot_ovs = [f.set_up_fermionic_bath(bno_threshold) for f in sym_parents]
             target_rot = np.concatenate(rot_ovs, axis=0)
@@ -323,5 +323,20 @@ class EDMET(RDMET):
                 contrib = child.get_correlation_kernel_contrib(local_contrib)
                 k = combine(k, contrib)
         return tuple(k)
+
+    def run_exact_nonlocal_ac(self, xc_kernel=None):
+        """During calculation we only calculate the linearised nonlocal correlation energy, since this is relatively
+        cheap (only a single RPA numerical integration). This instead performs the exact energy via numerical
+        integration of the adiabatic connection."""
+        xc = self.xc_kernel if xc_kernel is None else xc_kernel
+        if self.with_df:
+            # Set up for RIRPPA zeroth moment calculation.
+            rpa = ssRIRPA(self.mf, xc, self.log)
+            local_rot = [np.concatenate([x.get_rot_to_mf_ov(), x.r_bos], axis=0) for x in self.fragments]
+            frag_proj = [x.get_fragment_projector_ov() for x in self.fragments]
+            return rpa.direct_AC_integration(local_rot, frag_proj)
+        else:
+            raise NotImplementedError
+        return etot, enl
 
 REDMET = EDMET

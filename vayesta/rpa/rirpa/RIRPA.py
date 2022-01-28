@@ -181,7 +181,7 @@ class ssRIRPA:
         err /= 2
         return self.e_corr_ss, err
 
-    def direct_AC_integration(self, npoints, local_rot=None, fragment_projectors=None, deg=5):
+    def direct_AC_integration(self, local_rot=None, fragment_projectors=None, deg=5, npoints=48):
         """Perform direct integration of the adiabatic connection for RPA correlation energy.
         This will be preferable when the xc kernel is comparable or larger in magnitude to the coulomb kernel, as it
         only requires evaluation of the moment and not its inverse.
@@ -202,7 +202,7 @@ class ssRIRPA:
             points /= 2
             weights /= 2
             return sum([w * func(p) for w, p in zip(weights, points)])
-
+        naux_eri = ri_eri.shape[0]
         if local_rot is None or fragment_projectors is None:
             lrot = ri_eri
             rrot = ri_eri
@@ -213,21 +213,24 @@ class ssRIRPA:
             rrot = np.zeros_like(lrot)
 
             def get_contrib(rot, proj):
-                Lloc = dot(rot.T, ri_eri)
-                return dot(rot, proj, Lloc, Lloc.T)
+                lloc = dot(rot, ri_eri.T)
+                return dot(lloc, lloc[:proj.shape[0]].T, proj, rot[:proj.shape[0]])
+                #return dot(rot[:proj.shape[0]].T, proj, lloc[:proj.shape[0]], lloc.T)
 
             rrot[:nloc_cum[0]] = get_contrib(local_rot[0], fragment_projectors[0])
-            rrot[nloc_cum[-1]:] = get_contrib(local_rot[-1], fragment_projectors[-1])
-
-            if len(nloc_cum) > 2:
-                for i, (r, p) in enumerate(zip(local_rot[1:-1], fragment_projectors[1:-1])):
+            #rrot[nloc_cum[-1]:] = get_contrib(local_rot[-1], fragment_projectors[-1])
+            if len(nloc_cum) > 1:
+                for i, (r, p) in enumerate(zip(local_rot[1:], fragment_projectors[1:])):
                     rrot[nloc_cum[i]:nloc_cum[i+1]] = get_contrib(r, p)
             lrot = np.concatenate([ri_eri, lrot], axis=0)
-            rrot = np.concatenate([ri_eri, -rrot], axis=0)
+            rrot = np.concatenate([ri_eri, rrot], axis=0)
+
+        print(lrot.shape, np.linalg.matrix_rank(lrot))
 
         def get_contrib(alpha):
             eta0 = get_eta_alpha(alpha, target_rot=lrot)
-            return einsum("np,np->", eta0 - lrot, rrot)
+            return np.array([einsum("np,np->", (eta0 - lrot)[:naux_eri], rrot[:naux_eri]),
+                            einsum("np,np->", (eta0 - lrot)[naux_eri:], rrot[naux_eri:])])
 
         integral = run_ac_inter(get_contrib, deg=deg) / 2
         return integral, get_contrib
