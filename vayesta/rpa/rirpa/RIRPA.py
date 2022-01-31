@@ -181,7 +181,8 @@ class ssRIRPA:
         err /= 2
         return self.e_corr_ss, err
 
-    def direct_AC_integration(self, local_rot=None, fragment_projectors=None, deg=5, npoints=48):
+    def direct_AC_integration(self, local_rot=None, fragment_projectors=None, deg=5, npoints=48,
+                              cluster_constrain=False):
         """Perform direct integration of the adiabatic connection for RPA correlation energy.
         This will be preferable when the xc kernel is comparable or larger in magnitude to the coulomb kernel, as it
         only requires evaluation of the moment and not its inverse.
@@ -207,15 +208,27 @@ class ssRIRPA:
             lrot = ri_eri
             rrot = ri_eri
         else:
-            lrot = np.concatenate(local_rot, axis=0)
-            nloc_cum = np.cumsum([x.shape[0] for x in local_rot])
 
-            rrot = np.zeros_like(lrot)
 
-            def get_contrib(rot, proj):
-                lloc = dot(rot, ri_eri.T)
-                return dot(lloc, lloc[:proj.shape[0]].T, proj, rot[:proj.shape[0]])
+            if cluster_constrain:
+                lrot = np.concatenate(local_rot, axis=0)
+                nloc_cum = np.cumsum([x.shape[0] for x in local_rot])
+
+                rrot = np.zeros_like(lrot)
+                def get_contrib(rot, proj):
+                    lloc = dot(rot, ri_eri.T)
+                    return dot(lloc, lloc[:proj.shape[0]].T, proj, rot[:proj.shape[0]])
                 #return dot(rot[:proj.shape[0]].T, proj, lloc[:proj.shape[0]], lloc.T)
+            else:
+
+                lrot = np.concatenate([dot(x[:p.shape[0]], ri_eri.T, ri_eri) for x,p in zip(local_rot, fragment_projectors)], axis=0)
+                nloc_cum = np.cumsum([x.shape[0] for x in fragment_projectors])
+
+                rrot = np.zeros_like(lrot)
+
+                def get_contrib(rot, proj):
+                    return dot(proj, rot[:proj.shape[0]])
+
 
             rrot[:nloc_cum[0]] = get_contrib(local_rot[0], fragment_projectors[0])
             #rrot[nloc_cum[-1]:] = get_contrib(local_rot[-1], fragment_projectors[-1])

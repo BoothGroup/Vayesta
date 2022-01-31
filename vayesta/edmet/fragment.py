@@ -144,12 +144,11 @@ class EDMETFragment(DMETFragment):
                          - einsum("pq,qp->", fproj_ov,
                                   ((apb + amb - xc_b) / 2)[:self.ov_active_tot, :self.ov_active_tot])
                          ) / 2.0
-        self.save = (einsum("pq,qr,rp->", fproj_ov, eta0[:self.ov_active_tot],
-                                (apb - (xc_b / 2.0))[:, :self.ov_active_tot]) / 2,
-                         - einsum("pq,qp->", fproj_ov,
-                                  ((apb + amb - xc_b) / 2)[:self.ov_active_tot, :self.ov_active_tot])/2
-                         )
-
+        self.esave = (einsum("pq,qr,rp->", fproj_ov, eta0[:self.ov_active_tot],
+                            (apb - (xc_b / 2.0))[:, :self.ov_active_tot]) / 2,
+                     - einsum("pq,qp->", fproj_ov,
+                              ((apb + amb - xc_b) / 2)[:self.ov_active_tot, :self.ov_active_tot]) / 2
+                     )
 
         # loc_erpa = (einsum("pq,qr,rp->", fproj_ov, eta0[:self.ov_active_tot], eris[:, :self.ov_active_tot])
         #            - einsum("pq,qp->", fproj_ov, eris[:self.ov_active_tot, :self.ov_active_tot])) / 4.0
@@ -565,12 +564,15 @@ class EDMETFragment(DMETFragment):
         ov_rot = self.get_rot_to_mf_ov()
         # Get couplings between all fermionic and boson degrees of freedom.
         eris = self.get_eri_couplings(np.concatenate([ov_rot, self.r_bos], axis=0))
-        if self.opts.renorm_energy_couplings:
-            eris = eris + self.amb_renorm_effect
 
         eps_loc = self.get_loc_eps(eps, np.concatenate([ov_rot, self.r_bos], axis=0))
 
         fproj_ov = self.get_fragment_projector_ov()
+
+        xc_apb = self.apb - eps_loc - 2 * eris
+        # NB for the sake of our local energy evaluation the renormalisation is just a component of the coulomb
+        # interaction.
+        xc_amb = self.amb - eps_loc - self.amb_renorm_effect
 
         def calc_eta0(alpha):
             amb_alpha = eps_loc + (self.amb - eps_loc) * alpha
@@ -580,10 +582,35 @@ class EDMETFragment(DMETFragment):
             eta0 = dot(MPrt, np.linalg.solve(apb_alpha, np.eye(apb_alpha.shape[0])))
             return eta0
 
-        def calc_contrib(alpha):
+        def calc_contrib_direct(alpha):
             eta0 = calc_eta0(alpha)
-            return einsum("pq,pr,rq->", fproj_ov, (eta0 - np.eye(self.ov_active_tot + self.nbos))[:self.ov_active_tot],
-                          eris[:, :self.ov_active_tot]) / 2
+            eta0inv = np.linalg.inv(eta0)
+            # This is just the contribution from the bare, standard coulomb interaction.
+            e_bare = einsum("pq,pr,rq->", fproj_ov,
+                            (eta0 - np.eye(self.ov_active_tot + self.nbos))[:self.ov_active_tot],
+                            eris[:, :self.ov_active_tot]) / 2
+            # Need to account for renormalisation of bosonic interactions, which is included in cluster coulomb kernel.
+            renorm = self.amb_renorm_effect / 2
+            e_renorm = einsum("pq,pr,rq->", fproj_ov,
+                              (eta0inv - np.eye(self.ov_active_tot + self.nbos))[:self.ov_active_tot],
+                              renorm[:, :self.ov_active_tot]) / 2
+            e2 = [einsum("pq,pr,rq->", fproj_ov,
+                         eta0[:self.ov_active_tot],
+                         eris[:, :self.ov_active_tot])/2,
+                  einsum("pq,pr,rq->", fproj_ov,
+                           eta0inv[:self.ov_active_tot],
+                           renorm[:, :self.ov_active_tot])/2,
+                  -einsum("pq,qp->", fproj_ov, (eris + renorm)[:self.ov_active_tot, :self.ov_active_tot])/2
+                  ]
+
+            return np.array([e_bare, e_renorm]+ e2)
+
+        def calc_contrib_partialint(alpha):
+            eta0 = calc_eta0(alpha)
+            eta0inv = np.linalg.inv(eta0)
+
+            return -(einsum("pq,qr,rp->", fproj_ov, eta0[:self.ov_active_tot], xc_apb[:, :self.ov_active_tot]) +
+                     einsum("pq,qr,rp->", fproj_ov, eta0inv[:self.ov_active_tot], xc_amb[:, :self.ov_active_tot])) / 4
 
         def run_ac_inter(func, deg=5):
             points, weights = np.polynomial.legendre.leggauss(deg)
@@ -595,14 +622,14 @@ class EDMETFragment(DMETFragment):
 
         print(abs(self.eta0 - calc_eta0(1.0)).max())
 
+        print(einsum("pq,qp->", fproj_ov, self.amb_renorm_effect[:self.ov_active_tot, :self.ov_active_tot]))
 
+        e_plasmon = (einsum("pq,qr,rp->", fproj_ov, self.eta0[:self.ov_active_tot],
+                            self.apb[:, :self.ov_active_tot]) - (
+                         einsum("pq,qp->", fproj_ov, (eps_loc + eris + self.amb_renorm_effect / 2)[:self.ov_active_tot,
+                                                     :self.ov_active_tot]))) / 2
 
-
-        return np.array([run_ac_inter(calc_contrib, deg=deg),
-                         (einsum("pq,qr,rp->", fproj_ov, calc_eta0(1.0)[:self.ov_active_tot],
-                                 self.apb[:, :self.ov_active_tot])
-                          - einsum("pq,qp->", fproj_ov,
-                                   ((self.apb + self.amb)/2)[:self.ov_active_tot, :self.ov_active_tot])) / 2.0])
+        return run_ac_inter(calc_contrib_direct, deg=deg), e_plasmon + run_ac_inter(calc_contrib_partialint, deg=deg)
 
     @property
     def ov_active_ab(self):
