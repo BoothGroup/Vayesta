@@ -324,19 +324,48 @@ class EDMET(RDMET):
                 k = combine(k, contrib)
         return tuple(k)
 
-    def run_exact_nonlocal_ac(self, xc_kernel=None, deg=10, cluster_constrain=False):
+    def improve_nl_energy(self, use_plasmon=True, deg=5):
+        """Perform exact adiabatic-connection integration to obtain improved estimate for the nonlocal correlation
+        energy at the level of RPA. This is initially only calculated using a linear approximation."""
+        orig_correction = self.e_nonlocal
+
+        etot = self.run_exact_full_ac(deg=deg, calc_local=False)[0][0]
+        eps = np.concatenate(self.eps)
+        elocs = [x.calc_exact_ac(eps, use_plasmon, deg) for x in self.fragments]
+
+        new_correction = etot - sum(elocs)
+        self.log.info("Numerical integration of the adiabatic connection modified nonlocal energy estimate by %6.4e",
+                      new_correction - orig_correction)
+        return self.e_tot + new_correction - orig_correction
+
+
+
+
+    def run_exact_full_ac(self, xc_kernel=None, deg=5, calc_local=False, cluster_constrain=False, npoints=48):
         """During calculation we only calculate the linearised nonlocal correlation energy, since this is relatively
         cheap (only a single RPA numerical integration). This instead performs the exact energy via numerical
         integration of the adiabatic connection."""
-        xc = self.xc_kernel if xc_kernel is None else xc_kernel
+
+        if isinstance(xc_kernel, str):
+            if xc_kernel.lower() == "drpa":
+                xc = None
+            else:
+                raise ValueError("Unknown xc kernel %s provided".format(xc_kernel))
+        elif xc_kernel is None:
+            xc = self.xc_kernel
+        elif isinstance(xc_kernel, tuple) or isinstance(xc_kernel, np.ndarray):
+            xc = xc_kernel
+        else:
+            raise ValueError("Unknown xc kernel provided")
+
         if self.with_df:
             # Set up for RIRPA zeroth moment calculation.
             rpa = ssRIRPA(self.mf, xc, self.log)
-            local_rot = [np.concatenate([x.get_rot_to_mf_ov(), x.r_bos], axis=0) for x in self.fragments]
-            frag_proj = [x.get_fragment_projector_ov() for x in self.fragments]
-            return rpa.direct_AC_integration(local_rot, frag_proj, deg=deg, cluster_constrain=cluster_constrain)
+            local_rot = [np.concatenate([x.get_rot_to_mf_ov(), x.r_bos], axis=0) for x in self.fragments] if calc_local else None
+            frag_proj = [x.get_fragment_projector_ov() for x in self.fragments] if calc_local else None
+            return rpa.direct_AC_integration(local_rot, frag_proj, deg=deg, npoints=npoints,
+                                             cluster_constrain=cluster_constrain)
         else:
             raise NotImplementedError
-        return etot, enl
 
 REDMET = EDMET

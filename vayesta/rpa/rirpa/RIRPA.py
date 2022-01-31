@@ -203,25 +203,27 @@ class ssRIRPA:
             points /= 2
             weights /= 2
             return sum([w * func(p) for w, p in zip(weights, points)])
+
         naux_eri = ri_eri.shape[0]
         if local_rot is None or fragment_projectors is None:
             lrot = ri_eri
             rrot = ri_eri
         else:
 
-
             if cluster_constrain:
                 lrot = np.concatenate(local_rot, axis=0)
                 nloc_cum = np.cumsum([x.shape[0] for x in local_rot])
 
                 rrot = np.zeros_like(lrot)
+
                 def get_contrib(rot, proj):
                     lloc = dot(rot, ri_eri.T)
                     return dot(lloc, lloc[:proj.shape[0]].T, proj, rot[:proj.shape[0]])
-                #return dot(rot[:proj.shape[0]].T, proj, lloc[:proj.shape[0]], lloc.T)
+                # return dot(rot[:proj.shape[0]].T, proj, lloc[:proj.shape[0]], lloc.T)
             else:
 
-                lrot = np.concatenate([dot(x[:p.shape[0]], ri_eri.T, ri_eri) for x,p in zip(local_rot, fragment_projectors)], axis=0)
+                lrot = np.concatenate(
+                    [dot(x[:p.shape[0]], ri_eri.T, ri_eri) for x, p in zip(local_rot, fragment_projectors)], axis=0)
                 nloc_cum = np.cumsum([x.shape[0] for x in fragment_projectors])
 
                 rrot = np.zeros_like(lrot)
@@ -229,21 +231,18 @@ class ssRIRPA:
                 def get_contrib(rot, proj):
                     return dot(proj, rot[:proj.shape[0]])
 
-
             rrot[:nloc_cum[0]] = get_contrib(local_rot[0], fragment_projectors[0])
-            #rrot[nloc_cum[-1]:] = get_contrib(local_rot[-1], fragment_projectors[-1])
+            # rrot[nloc_cum[-1]:] = get_contrib(local_rot[-1], fragment_projectors[-1])
             if len(nloc_cum) > 1:
                 for i, (r, p) in enumerate(zip(local_rot[1:], fragment_projectors[1:])):
-                    rrot[nloc_cum[i]:nloc_cum[i+1]] = get_contrib(r, p)
+                    rrot[nloc_cum[i]:nloc_cum[i + 1]] = get_contrib(r, p)
             lrot = np.concatenate([ri_eri, lrot], axis=0)
             rrot = np.concatenate([ri_eri, rrot], axis=0)
-
-        print(lrot.shape, np.linalg.matrix_rank(lrot))
 
         def get_contrib(alpha):
             eta0 = get_eta_alpha(alpha, target_rot=lrot)
             return np.array([einsum("np,np->", (eta0 - lrot)[:naux_eri], rrot[:naux_eri]),
-                            einsum("np,np->", (eta0 - lrot)[naux_eri:], rrot[naux_eri:])])
+                             einsum("np,np->", (eta0 - lrot)[naux_eri:], rrot[naux_eri:])])
 
         integral = run_ac_inter(get_contrib, deg=deg) / 2
         return integral, get_contrib

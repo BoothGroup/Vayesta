@@ -145,10 +145,10 @@ class EDMETFragment(DMETFragment):
                                   ((apb + amb - xc_b) / 2)[:self.ov_active_tot, :self.ov_active_tot])
                          ) / 2.0
         self.esave = (einsum("pq,qr,rp->", fproj_ov, eta0[:self.ov_active_tot],
-                            (apb - (xc_b / 2.0))[:, :self.ov_active_tot]) / 2,
-                     - einsum("pq,qp->", fproj_ov,
-                              ((apb + amb - xc_b) / 2)[:self.ov_active_tot, :self.ov_active_tot]) / 2
-                     )
+                             (apb - (xc_b / 2.0))[:, :self.ov_active_tot]) / 2,
+                      - einsum("pq,qp->", fproj_ov,
+                               ((apb + amb - xc_b) / 2)[:self.ov_active_tot, :self.ov_active_tot]) / 2
+                      )
 
         # loc_erpa = (einsum("pq,qr,rp->", fproj_ov, eta0[:self.ov_active_tot], eris[:, :self.ov_active_tot])
         #            - einsum("pq,qp->", fproj_ov, eris[:self.ov_active_tot, :self.ov_active_tot])) / 4.0
@@ -559,8 +559,11 @@ class EDMETFragment(DMETFragment):
         # Return tuples so can can unified interface with UHF implementation.
         return (rot_ov_frag, rot_ov_frag), (rot_frag_ov, rot_frag_ov), proj_to_order
 
-    def calc_exact_ac(self, eps, deg=5):
+    def calc_exact_ac(self, eps, use_plasmon=True, deg=5):
+        """Evaluate the exact local energy for RPA in this cluster via the Adiabatic Connection, with or without
+        the plasmon formula. Note that although
 
+        """
         ov_rot = self.get_rot_to_mf_ov()
         # Get couplings between all fermionic and boson degrees of freedom.
         eris = self.get_eri_couplings(np.concatenate([ov_rot, self.r_bos], axis=0))
@@ -582,6 +585,14 @@ class EDMETFragment(DMETFragment):
             eta0 = dot(MPrt, np.linalg.solve(apb_alpha, np.eye(apb_alpha.shape[0])))
             return eta0
 
+        def calc_contrib_partialint(alpha):
+            eta0 = calc_eta0(alpha)
+            eta0inv = np.linalg.inv(eta0)
+
+            return -(einsum("pq,qr,rp->", fproj_ov, eta0[:self.ov_active_tot], xc_apb[:, :self.ov_active_tot]) +
+                     einsum("pq,qr,rp->", fproj_ov, eta0inv[:self.ov_active_tot],
+                            xc_amb[:, :self.ov_active_tot])) / 4
+
         def calc_contrib_direct(alpha):
             eta0 = calc_eta0(alpha)
             eta0inv = np.linalg.inv(eta0)
@@ -594,23 +605,8 @@ class EDMETFragment(DMETFragment):
             e_renorm = einsum("pq,pr,rq->", fproj_ov,
                               (eta0inv - np.eye(self.ov_active_tot + self.nbos))[:self.ov_active_tot],
                               renorm[:, :self.ov_active_tot]) / 2
-            e2 = [einsum("pq,pr,rq->", fproj_ov,
-                         eta0[:self.ov_active_tot],
-                         eris[:, :self.ov_active_tot])/2,
-                  einsum("pq,pr,rq->", fproj_ov,
-                           eta0inv[:self.ov_active_tot],
-                           renorm[:, :self.ov_active_tot])/2,
-                  -einsum("pq,qp->", fproj_ov, (eris + renorm)[:self.ov_active_tot, :self.ov_active_tot])/2
-                  ]
 
-            return np.array([e_bare, e_renorm]+ e2)
-
-        def calc_contrib_partialint(alpha):
-            eta0 = calc_eta0(alpha)
-            eta0inv = np.linalg.inv(eta0)
-
-            return -(einsum("pq,qr,rp->", fproj_ov, eta0[:self.ov_active_tot], xc_apb[:, :self.ov_active_tot]) +
-                     einsum("pq,qr,rp->", fproj_ov, eta0inv[:self.ov_active_tot], xc_amb[:, :self.ov_active_tot])) / 4
+            return e_bare + e_renorm
 
         def run_ac_inter(func, deg=5):
             points, weights = np.polynomial.legendre.leggauss(deg)
@@ -620,16 +616,78 @@ class EDMETFragment(DMETFragment):
             weights /= 2
             return sum([w * func(p) for w, p in zip(weights, points)])
 
-        print(abs(self.eta0 - calc_eta0(1.0)).max())
+        if use_plasmon:
+            e_plasmon = (einsum("pq,qr,rp->", fproj_ov, self.eta0[:self.ov_active_tot],
+                                self.apb[:, :self.ov_active_tot]) - (
+                             einsum("pq,qp->", fproj_ov,
+                                    (eps_loc + eris + self.amb_renorm_effect / 2)[:self.ov_active_tot,
+                                    :self.ov_active_tot]))) / 2
 
-        print(einsum("pq,qp->", fproj_ov, self.amb_renorm_effect[:self.ov_active_tot, :self.ov_active_tot]))
+            return e_plasmon + run_ac_inter(calc_contrib_partialint, deg)
 
-        e_plasmon = (einsum("pq,qr,rp->", fproj_ov, self.eta0[:self.ov_active_tot],
-                            self.apb[:, :self.ov_active_tot]) - (
-                         einsum("pq,qp->", fproj_ov, (eps_loc + eris + self.amb_renorm_effect / 2)[:self.ov_active_tot,
-                                                     :self.ov_active_tot]))) / 2
+        else:
+            return run_ac_inter(calc_contrib_direct, deg)
 
-        return run_ac_inter(calc_contrib_direct, deg=deg), e_plasmon + run_ac_inter(calc_contrib_partialint, deg=deg)
+    def test_total_rpa_energy(self, eps, use_plasmon=True, deg=5):
+        """Evaluate the exact local energy for RPA in this cluster via the Adiabatic Connection, with or without
+        the plasmon formula. Note that although
+
+        """
+        ov_rot = self.get_rot_to_mf_ov()
+        # Get couplings between all fermionic and boson degrees of freedom.
+        eris = self.get_eri_couplings(np.concatenate([ov_rot, self.r_bos], axis=0))
+
+        eps_loc = self.get_loc_eps(eps, np.concatenate([ov_rot, self.r_bos], axis=0))
+        xc_apb = self.apb - eps_loc - 2 * eris
+        # NB for the sake of our local energy evaluation the renormalisation is just a component of the coulomb
+        # interaction.
+        xc_amb = self.amb - eps_loc - self.amb_renorm_effect
+
+        def calc_eta0(alpha):
+            amb_alpha = eps_loc + (self.amb - eps_loc) * alpha
+            apb_alpha = eps_loc + (self.apb - eps_loc) * alpha
+            # e, c = np.linalg.eig(dot(amb, apb))
+            MPrt = scipy.linalg.sqrtm(dot(amb_alpha, apb_alpha))  # einsum("pn,n,qn->pq", c, e ** (0.5), c)
+            eta0 = dot(MPrt, np.linalg.solve(apb_alpha, np.eye(apb_alpha.shape[0])))
+            return eta0
+
+        def calc_contrib_partialint(alpha):
+            eta0 = calc_eta0(alpha)
+            eta0inv = np.linalg.inv(eta0)
+
+            return -(einsum("pq,qp->", eta0, xc_apb) +
+                     einsum("pq,qp->", eta0inv, xc_amb)) / 4
+
+        def calc_contrib_direct(alpha):
+            eta0 = calc_eta0(alpha)
+            eta0inv = np.linalg.inv(eta0)
+            # This is just the contribution from the bare, standard coulomb interaction.
+            e_bare = einsum("pq,qp->", (eta0 - np.eye(self.ov_active_tot + self.nbos)), eris) / 2
+            # Need to account for renormalisation of bosonic interactions, which is included in cluster coulomb kernel.
+            renorm = self.amb_renorm_effect / 2
+            e_renorm = einsum("pq,qp->", (eta0inv - np.eye(self.ov_active_tot + self.nbos)), renorm) / 2
+
+            return e_bare + e_renorm
+
+        def run_ac_inter(func, deg=5):
+            points, weights = np.polynomial.legendre.leggauss(deg)
+            # Shift and reweight to interval of [0,1].
+            points += 1
+            points /= 2
+            weights /= 2
+            return sum([w * func(p) for w, p in zip(weights, points)])
+
+        e_plasmon = (einsum("pq,qp->", self.eta0, self.apb) -
+                     ((eps_loc + eris + self.amb_renorm_effect / 2).trace())) / 2
+
+        e_plasmon = e_plasmon + run_ac_inter(calc_contrib_partialint, deg)
+
+        e_direct = run_ac_inter(calc_contrib_direct, deg)
+
+        self.log.info("Difference between plasmon and direct AC total correlation energies: %6.4e",
+                      e_plasmon - e_direct)
+
+        return e_plasmon, e_direct
 
     @property
     def ov_active_ab(self):
