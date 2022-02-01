@@ -1,9 +1,14 @@
-from pyscf import gto, scf, solvent, agf2
+from pyscf import gto, scf, solvent
+from vayesta.eagf2 import UAGF2
+from vayesta import log, vlog
 import numpy as np
+import sys
 import os
 
-system = 'ttm_d0.xyz'
-basis = '6-31g**'
+#system = 'ttm_d0.xyz'
+#basis = '6-31g**'
+system = sys.argv[1]
+basis = sys.argv[2]
 
 # Init input and output files:
 proj_dir = os.path.dirname(os.path.realpath(__file__))
@@ -19,7 +24,8 @@ mol.atom = input_file
 mol.basis = basis
 mol.spin = 1
 mol.max_memory = 1e9
-mol.verbose = 9
+mol.verbose = 0
+#mol.output = "%s_%s.out" % (system.replace(".xyz", ""), basis)
 mol.build()
 
 #print('Size:')
@@ -43,6 +49,7 @@ if os.path.isfile(ints_file):
 else:
     mf.with_df._cderi_to_save = ints_file
     mf.with_df.build()
+with_df = mf.with_df
 
 # Add checkpoint file:
 mf.chkfile = chk_file
@@ -60,6 +67,7 @@ else:
 
 # Convert to UHF for AGF2 solver:
 mf = scf.addons.convert_to_uhf(mf)
+mf.with_df = with_df
 
 #ip_α = -mf.mo_energy[0][mf.mo_occ[0] > 0].max()
 #ea_α = mf.mo_energy[0][mf.mo_occ[0] == 0].min()
@@ -78,14 +86,19 @@ mf = scf.addons.convert_to_uhf(mf)
 #print('<S^2>  = %20.12f' % mf.spin_square()[0])
 
 # Run AGF2:
-gf2 = agf2.dfuagf2.DFUAGF2(mf)
-gf2.conv_tol = 1e-5
-gf2.conv_tol_rdm1 = 1e-10
-gf2.conv_tol_nelec = 1e-10
-gf2.max_cycle = 30
-gf2.max_cycle_outer = 5
-gf2.max_cycle_inner = 100
-gf2.weight_tol = 1e-14
-gf2.damping = 0.25
+log.handlers.clear()
+fmt = vlog.VFormatter(indent=True)
+log.addHandler(vlog.VFileHandler("%s_%s.out" % (system.replace(".xyz", ""), basis), formatter=fmt))
+gf2 = UAGF2(
+        mf,
+        conv_tol=1e-5,
+        conv_tol_rdm1=1e-10,
+        conv_tol_nelec=1e-10,
+        conv_tol_nelec_factor=1e-3,
+        max_cycle=30,
+        max_cycle_outer=5,
+        max_cycle_inner=100,
+        weight_tol=1e-14,
+        damping=0.25,
+)
 gf2.kernel()
-

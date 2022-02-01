@@ -134,7 +134,7 @@ class UAGF2(RAGF2):
 
         t0 = timer()
 
-        if getattr(self.mf, 'with_df', None):
+        if getattr(self.mf, 'with_df', None) is not None:
             self.log.info("ERIs will be density fitted")
             if self.mf.with_df._cderi is None:
                 self.mf.with_df.build()
@@ -215,7 +215,7 @@ class UAGF2(RAGF2):
             ea1 = (ea[s1], ea[s2])
 
 
-            if not isinstance(self.eri[s1], tuple):
+            if getattr(self.mf, 'with_df', None) is not None:
                 qxi = _ao2mo_3c(self.eri[s1], cx[s1][:, xo], ci[s1])
                 qja = _ao2mo_3c(self.eri[s1], ci[s1], ca[s1])
                 qJA = _ao2mo_3c(self.eri[s2], ci[s2], ca[s2])
@@ -227,10 +227,7 @@ class UAGF2(RAGF2):
                 xiJA = _ao2mo_4c(self.eri[s1][s2][xo], None, ci[s1], ci[s2], ca[s2])
                 dtype = xiJA.dtype
 
-            self.log.timing(
-                    "Time for MO->QMO (%s%s|..):  %s",
-                    spin1, spin1, time_string(timer() - t0),
-            )
+            self.log.timing("Time for MO->QMO (xi|ja):  %s", time_string(timer() - t0))
             t0 = timer()
 
             t_occ[s1] = np.zeros((2*nmom+2, self.nact[s1], self.nact[s1]), dtype=dtype)
@@ -238,7 +235,7 @@ class UAGF2(RAGF2):
             del xija, xiJA
 
 
-            if not isinstance(self.eri[s1], tuple):
+            if getattr(self.mf, 'with_df', None) is not None:
                 qxa = _ao2mo_3c(self.eri[s1], cx[s1][:, xv], ca[s1])
                 qbi = _ao2mo_3c(self.eri[s1], ca[s1], ci[s1])
                 qBI = _ao2mo_3c(self.eri[s2], ca[s2], ci[s2])
@@ -250,10 +247,7 @@ class UAGF2(RAGF2):
                 xaBI = _ao2mo_4c(self.eri[s1][s2][xo], None, ca[s1], ca[s2], ci[s2])
                 dtype = xaBI.dtype
 
-            self.log.timing(
-                    "Time for MO->QMO (%s%s|..):  %s",
-                    spin1, spin1, time_string(timer() - t0),
-            )
+            self.log.timing("Time for MO->QMO (xa|bi):  %s", time_string(timer() - t0))
             t0 = timer()
 
             t_vir[s1] = np.zeros((2*nmom+2, self.nact[s1], self.nact[s1]), dtype=dtype)
@@ -558,7 +552,7 @@ class UAGF2(RAGF2):
         for s1, spin1 in self.spins:
             s2 = (s1 + 1) % 2
 
-            if isinstance(eri[s1], tuple):
+            if getattr(self.mf, 'with_df', None) is None:
                 for i0, i1 in mpi_helper.prange(0, self.nmo[s1], self.nmo[s1]):
                     i = slice(i0, i1)
 
@@ -572,16 +566,18 @@ class UAGF2(RAGF2):
                 for q0, q1 in mpi_helper.prange(0, naux, naux):
                     q = slice(q0, q1)
 
-                    tmp = lib.einsum('Qik,kl->Qil', eri[q][s1], rdm1[s1])
-                    vj[s1][s1] += lib.einsum('Qij,Qkk->ij', eri[q][s1], tmp)
-                    vk[s1][s1] += lib.einsum('Qlj,Qil->ij', eri[q][s1], tmp)
+                    tmp = lib.einsum('Qik,kl->Qil', eri[s1][q], rdm1[s1])
+                    vj[s1][s1] += lib.einsum('Qij,Qkk->ij', eri[s1][q], tmp)
+                    vk[s1][s1] += lib.einsum('Qlj,Qil->ij', eri[s1][q], tmp)
 
-                    tmp = lib.einsum('Qkl,kl->Q', eri[q][s2], rdm1[s2])
-                    vj[s1][s2] += lib.einsum('Qij,Q->ij', eri[q][s1], tmp)
+                    tmp = lib.einsum('Qkl,kl->Q', eri[s2][q], rdm1[s2])
+                    vj[s1][s2] += lib.einsum('Qij,Q->ij', eri[s1][q], tmp)
 
-        mpi_helper.barrier()
-        mpi_helper.allreduce_safe_inplace(vj)
-        mpi_helper.allreduce_safe_inplace(vk)
+            mpi_helper.barrier()
+            mpi_helper.allreduce_safe_inplace(vj[s1][s1])
+            mpi_helper.allreduce_safe_inplace(vj[s1][s2])
+            mpi_helper.allreduce_safe_inplace(vk[s1][s1])
+            mpi_helper.allreduce_safe_inplace(vk[s1][s2])
 
         fock = [None, None]
         for s1, spin1 in self.spins:
