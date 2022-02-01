@@ -361,7 +361,7 @@ class RAGF2:
 
         if self.opts.nmom_lanczos == 0 and not self.opts.diagonal_se:
             if isinstance(xija, tuple):
-                t = _agf2.build_mats_dfragf2_incore(*xija, eo, ev, **facs)
+                t = _agf2.build_mats_dfragf2_lowmem(*xija, eo, ev, **facs)
             else:
                 t = _agf2.build_mats_ragf2_incore(xija, eo, ev, **facs)
         else:

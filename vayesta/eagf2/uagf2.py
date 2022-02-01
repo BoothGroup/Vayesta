@@ -101,7 +101,7 @@ class UAGF2(RAGF2):
 
         if self.opts.nmom_lanczos == 0 and not self.opts.diagonal_se:
             if isinstance(xija[0], tuple):
-                t = _agf2.build_mats_dfuagf2_incore(*xija, eo, ev, **facs)
+                t = _agf2.build_mats_dfuagf2_lowmem(*xija, eo, ev, **facs)
             else:
                 t = _agf2.build_mats_uagf2_incore(xija, eo, ev, **facs)
         else:
@@ -228,6 +228,7 @@ class UAGF2(RAGF2):
                 dtype = xiJA.dtype
 
             self.log.timing("Time for MO->QMO (xi|ja):  %s", time_string(timer() - t0))
+            self.log.timing("Memory usage:  %.3f MB", lib.current_memory()[0])
             t0 = timer()
 
             t_occ[s1] = np.zeros((2*nmom+2, self.nact[s1], self.nact[s1]), dtype=dtype)
@@ -248,6 +249,7 @@ class UAGF2(RAGF2):
                 dtype = xaBI.dtype
 
             self.log.timing("Time for MO->QMO (xa|bi):  %s", time_string(timer() - t0))
+            self.log.timing("Memory usage:  %.3f MB", lib.current_memory()[0])
             t0 = timer()
 
             t_vir[s1] = np.zeros((2*nmom+2, self.nact[s1], self.nact[s1]), dtype=dtype)
