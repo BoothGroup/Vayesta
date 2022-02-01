@@ -247,7 +247,7 @@ class ssRIRPA:
         integral = run_ac_inter(get_contrib, deg=deg) / 2
         return integral, get_contrib
 
-    def get_gap(self, tol_eig=1e-2, max_space=12, nroots=1, **kwargs):
+    def get_gap(self, calc_xy=False, tol_eig=1e-2, max_space=12, nroots=1, **kwargs):
         """Calculate the RPA gap using a Davidson solver. First checks that A+B and A-B are PSD by calculating their
         lowest eigenvalues. For a fixed number of eigenvalues in each case this scales as O(N^3), so shouldn't be
         prohibitively expensive.
@@ -297,6 +297,10 @@ class ssRIRPA:
         # MP is asymmetric, so need to take care to obtain actual eigenvalues.
         # Use Davidson to obtain accurate right eigenvectors...
         e_mp_r, c_l_approx, c_r = get_lowest_eigenvals(self.D**2, *ri_mp, c0, nroots=nroots, nosym=True)
+
+        if not calc_xy:
+            return e_mp_r **(0.5)
+
         # Then solve for accurate left eigenvectors, starting from subspace approximation from right eigenvectors. Take
         # the real component since all solutions should be real.
         e_mp_l, c_r_approx, c_l = get_lowest_eigenvals(self.D**2, ri_mp[1], ri_mp[0], c_l_approx.real,
