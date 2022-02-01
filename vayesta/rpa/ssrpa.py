@@ -100,14 +100,18 @@ class ssRPA:
         self.freqs_sf = (AmB[:self.ova], AmB[self.ova:])
         self.log.timing("Time to solve RPA problem: %s", time_string(timer() - t0))
 
-        self.e_corr_ss = self.calc_energy_correction(xc_kernel=xc_kernel, version=3)
+        if xc_kernel is None:
+            self.e_corr_ss = (sum(self.freqs_ss) - sum(eps[0] + eps[1]) - v.trace()) / 2
+        else:
+            self.e_corr_ss = self.calc_energy_correction(xc_kernel=xc_kernel, version=3)
 
         self.log.info("Total RPA wall time:  %s", time_string(timer() - t_start))
 
         return self.e_corr_ss
 
     def calc_energy_correction(self, xc_kernel, version=3):
-
+        if xc_kernel is None:
+            raise ValueError("Without an xc-kernel the plasmon formula energy is exact.")
         t0 = timer()
         M, AmB, ApB, eps, fullv = self._gen_arrays(xc_kernel)
         ApB_xc, AmB_xc = self.get_xc_contribs(xc_kernel, self.mo_coeff_occ, self.mo_coeff_vir)

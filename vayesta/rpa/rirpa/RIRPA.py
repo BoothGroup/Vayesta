@@ -247,6 +247,84 @@ class ssRIRPA:
         integral = run_ac_inter(get_contrib, deg=deg) / 2
         return integral, get_contrib
 
+    def get_gap(self, tol_eig=1e-2, max_space=12, nroots=1, **kwargs):
+        """Calculate the RPA gap using a Davidson solver. First checks that A+B and A-B are PSD by calculating their
+        lowest eigenvalues. For a fixed number of eigenvalues in each case this scales as O(N^3), so shouldn't be
+        prohibitively expensive.
+        """
+        ri_mp, ri_apb, ri_amb = self.get_compressed_MP()
+
+        min_d = self.D.min()
+
+        mininds = np.where((self.D - min_d) < tol_eig)[0]
+        nmin = len(mininds)
+        if max_space < nmin:
+            self.log.info("Expanded Davidson space size to %d to span degenerate lowest mean-field eigenvalues.", nmin)
+            max_space = nmin
+
+        def get_unit_vec(pos):
+            x = np.zeros_like(self.D)
+            x[pos] = 1.0
+            return x
+        c0 = [get_unit_vec(pos) for pos in mininds]
+
+        def get_lowest_eigenvals(diag, ri_l, ri_r, x0, nroots=1, nosym=False):
+            def hop(x):
+                return einsum("p,p->p", diag, x) + einsum("np,nq,q->p", ri_l, ri_r, x)
+
+            mdiag = diag + einsum("np,np->p", ri_l, ri_r)
+
+            def precond(x, e, *args):
+                return x / (mdiag - e + 1e-4)
+            if nosym:
+                # Ensure left isn't in our kwargs.
+                kwargs.pop("left", None)
+                e, c_l, c_r = pyscf.lib.eig(hop, x0, precond, max_space=max_space, nroots=nroots, left=True, **kwargs)
+                return e, np.array(c_l), np.array(c_r)
+            else:
+                e, c = pyscf.lib.davidson(hop, x0, precond, max_space=max_space, nroots=nroots, **kwargs)
+                return e, np.array(c)
+
+        # Since A+B and A-B are symmetric can get eigenvalues straightforwardly.
+        e_apb, c = get_lowest_eigenvals(self.D, *ri_apb, c0)
+        if e_apb < 0.0:
+            self.log.critical("Lowest eigenvalue of A+B is negative!")
+            raise RuntimeError("RPA approximation broken down!")
+        e_amb, c = get_lowest_eigenvals(self.D, *ri_amb, c0)
+        if e_amb < 0.0:
+            self.log.critical("Lowest eigenvalue of A-B is negative!")
+            raise RuntimeError("RPA approximation broken down!")
+        # MP is asymmetric, so need to take care to obtain actual eigenvalues.
+        # Use Davidson to obtain accurate right eigenvectors...
+        e_mp_r, c_l_approx, c_r = get_lowest_eigenvals(self.D**2, *ri_mp, c0, nroots=nroots, nosym=True)
+        # Then solve for accurate left eigenvectors, starting from subspace approximation from right eigenvectors. Take
+        # the real component since all solutions should be real.
+        e_mp_l, c_r_approx, c_l = get_lowest_eigenvals(self.D**2, ri_mp[1], ri_mp[0], c_l_approx.real,
+                                                       nroots=nroots, nosym=True)
+        # We use c_r and c_l2, since these are likely the most accurate.
+        # Enforce correct RPA orthonormality.
+        ovlp = np.dot(c_l, c_r.T)
+
+        if nroots > 1:
+            c_l = np.dot(np.linalg.inv(ovlp), c_l)
+            # Now diagonalise in corresponding subspace to get eigenvalues.
+            subspace = einsum("np,p,mp->nm", c_l, self.D**2, c_r) + einsum("np,yp,yq,mq->nm", c_l, *ri_mp, c_r)
+            e, c_sub = np.linalg.eig(subspace)
+            # Now fold these eigenvectors into our definitions,
+            xpy = np.dot(c_sub.T, c_r)
+            xmy = np.dot(np.linalg.inv(c_sub), c_l)
+
+            sorted_args = e.argsort()
+            xpy = xpy[sorted_args]
+            xmy = xmy[sorted_args]
+            e = e[sorted_args]
+        else:
+            xpy = c_r / (ovlp**(0.5))
+            xmy = c_l / (ovlp ** (0.5))
+            e = einsum("p,p,p->", xmy, self.D**2, xpy) + einsum("p,yp,yq,q->", xmy, *ri_mp, xpy)
+
+        return e**(0.5), xpy, xmy
+
     def get_compressed_MP(self, alpha=1.0):
         # AB corresponds to scaling RI components at this point.
         ri_apb, ri_amb = self.construct_RI_AB()
