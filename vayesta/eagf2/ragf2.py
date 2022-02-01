@@ -788,7 +788,8 @@ class RAGF2:
             for q0, q1 in mpi_helper.prange(0, naux, naux):
                 q = slice(q0, q1)
                 tmp = lib.einsum('Qik,kl->Qil', eri[q], rdm1)
-                vj += lib.einsum('Qij,Qkk->ij', eri[q], tmp)
+                tmp1 = np.trace(tmp, axis1=1, axis2=2)
+                vj += lib.einsum('Qij,Q->ij', eri[q], tmp1)
                 vk += lib.einsum('Qlj,Qil->ij', eri[q], tmp)
 
         mpi_helper.barrier()

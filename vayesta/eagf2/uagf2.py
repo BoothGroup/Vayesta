@@ -567,7 +567,8 @@ class UAGF2(RAGF2):
                     q = slice(q0, q1)
 
                     tmp = lib.einsum('Qik,kl->Qil', eri[s1][q], rdm1[s1])
-                    vj[s1][s1] += lib.einsum('Qij,Qkk->ij', eri[s1][q], tmp)
+                    tmp1 = np.trace(tmp, axis1=1, axis2=2)
+                    vj[s1][s1] += lib.einsum('Qij,Q->ij', eri[s1][q], tmp2)
                     vk[s1][s1] += lib.einsum('Qlj,Qil->ij', eri[s1][q], tmp)
 
                     tmp = lib.einsum('Qkl,kl->Q', eri[s2][q], rdm1[s2])
