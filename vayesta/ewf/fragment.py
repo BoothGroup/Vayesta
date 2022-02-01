@@ -374,6 +374,27 @@ class EWFFragment(QEmbeddingFragment):
         if calc_dmet:
             results.e_dmet = self.get_fragment_dmet_energy(dm1=results.dm1, dm2=results.dm2, eris=eris)
 
+        #2RDM Energy Contribution
+        if solver == 'CCSD':
+            t_as_lambda = False
+            t1 = self.results.get_t1()
+            t2 = self.results.get_t2()
+            l2 = (self.results.get_t2() if t_as_lambda else self.results.l2)
+            l1 = (self.results.t1 if t_as_lambda else self.results.l1)
+
+            t1p = self.project_amplitude_to_fragment(t1)
+            l1p = self.project_amplitude_to_fragment(l1)
+            l2p = self.project_amplitude_to_fragment(l2)
+            t2p = self.project_amplitude_to_fragment(t2)
+
+            mycc = pyscf.cc.CCSD(self.base.mf)
+            d1 = pyscf.cc.ccsd_rdm._gamma1_intermediates(mycc, t1, t2, l1, l2)
+            d2 = _gamma2_intermediates(mycc, t1, t2, l1p, l2p, t1p=t1p, t2p=t2p)
+            rdm2 = pyscf.cc.ccsd_rdm._make_rdm2(mycc, d1, d2, with_dm1=False)#, with_frozen=with_frozen, ao_repr=ao_repr)
+            eris = ao2mo.helper.get_full_array(eris)
+
+            self.e_rdm2 = np.einsum('pqrs,pqrs', eris, rdm2) * 0.5
+
         # Keep ERIs stored
         if (self.opts.store_eris or self.base.opts.store_eris):
             self._eris = eris
@@ -602,3 +623,77 @@ class EWFFragment(QEmbeddingFragment):
         ecc.kernel()
 
         return mol.natm, mf.e_tot, ecc.e_tot, dm0
+
+
+#Temporary until merged into pyscf
+def _gamma2_intermediates(cc, t1, t2, l1, l2, t1p=None, t2p=None):
+    numpy = np
+    tau = t2 + numpy.einsum('ia,jb->ijab', t1, t1)
+    tau2 = t2 + numpy.einsum('ia,jb->ijab', t1, t1*2)
+    theta = t2*2 - t2.transpose(0,1,3,2)
+
+
+    mOvOv = numpy.einsum('ikca,jkcb->jbia', l2, t2)
+    mOVov = numpy.einsum('ikac,jkbc->jbia', l2, theta)
+    mOVov -= numpy.einsum('ikca,jkbc->jbia', l2, t2)
+    moo =(numpy.einsum('jdld->jl', mOvOv) * 2 +
+          numpy.einsum('jdld->jl', mOVov))
+    mvv =(numpy.einsum('lbld->bd', mOvOv) * 2 +
+          numpy.einsum('lbld->bd', mOVov))
+
+    gvvvv = numpy.einsum('ijab,ijcd->abcd', l2*.5, tau)
+
+    goooo = numpy.einsum('ijab,klab->klij', l2, tau)*.5
+    goovv = .5 * l2 + .5 * tau
+    if t1p is not None:
+        taup = t2p + numpy.einsum('ia,jb->ijab', t1p, t1)
+        goovv = .5 * l2 + .5 * taup
+
+    tmp = numpy.einsum('kc,ikac->ia', l1, theta)
+    goovv += numpy.einsum('ia,jb->ijab', tmp, t1)
+    tmp = numpy.einsum('kc,kb->cb', l1, t1)
+    goovv -= numpy.einsum('cb,ijac->ijab', tmp, t2)
+    tmp = numpy.einsum('kc,jc->kj', l1, t1)
+    goovv -= numpy.einsum('kj,ikab->ijab', tmp, tau)
+    goovv -= numpy.einsum('jl,ilab->ijab', moo*.5, tau)
+    goovv -= numpy.einsum('bd,ijad->ijab', mvv*.5, tau)
+    goovv += numpy.einsum('ibld,ljad->ijab', mOvOv, tau2) * .5
+    goovv -= numpy.einsum('iald,ljbd->ijab', mOVov, tau2) * .5
+    goovv += numpy.einsum('iald,ljdb->ijab', mOVov*2+mOvOv, t2) * .5
+    goovv += numpy.einsum('ijkl,klab->ijab', goooo, tau)
+
+    gooov = numpy.einsum('ib,kjab->jkia', -l1, tau)
+    gooov += numpy.einsum('jkil,la->jkia', goooo, t1*2)
+    gooov += numpy.einsum('ji,ka->jkia', moo*-.5, t1)
+    gooov += numpy.einsum('jaic,kc->jkia', mOvOv, t1)
+    gooov -= numpy.einsum('kaic,jc->jkia', mOVov, t1)
+    gooov -= numpy.einsum('jkba,ib->jkia', l2, t1)
+
+    govvv = numpy.einsum('ja,jibc->iacb', l1, tau)
+    govvv -= numpy.einsum('adbc,id->iacb', gvvvv, t1*2)
+    govvv += numpy.einsum('ba,ic->iacb', mvv, t1*.5)
+    govvv -= numpy.einsum('ibka,kc->iacb', mOvOv, t1)
+    govvv += numpy.einsum('icka,kb->iacb', mOVov, t1)
+    govvv += numpy.einsum('jibc,ja->iacb', l2, t1)
+
+    gOvVo = numpy.einsum('ia,jb->jabi', l1, t1) + mOVov.transpose(0,3,1,2)
+    tmp = numpy.einsum('ikac,jc->jaik', l2, t1)
+    gOvVo -= numpy.einsum('jaik,kb->jabi', tmp, t1)
+    gOvvO = mOvOv.transpose(0,3,1,2) + numpy.einsum('jaki,kb->jabi', tmp, t1)
+
+    doovv = goovv*2 - goovv.transpose(0,1,3,2)
+    dvvvv = gvvvv*2 - gvvvv.transpose(0,1,3,2)
+    doooo = goooo*2 - goooo.transpose(0,1,3,2)
+    dovov = -2*gOvvO.transpose(0,1,3,2) - gOvVo.transpose(0,1,3,2)
+    dovvo = gOvVo*2 + gOvvO
+    dovvv = govvv*2 - govvv.transpose(0,1,3,2)
+    dooov = gooov*2 - gooov.transpose(1,0,2,3)
+
+    doovv, dovov = dovov.transpose(0,2,1,3), doovv.transpose(0,2,1,3)
+    dvvvv = dvvvv.transpose(0,2,1,3)
+    doooo = doooo.transpose(0,2,1,3)
+    dovvo = dovvo.transpose(0,2,1,3)
+    dovvv = dovvv.transpose(0,2,1,3)
+    dooov = dooov.transpose(0,2,1,3)
+    dvvov = None
+    return (dovov, dvvvv, doooo, doovv, dovvo, dvvov, dovvv, dooov)

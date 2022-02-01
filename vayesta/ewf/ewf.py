@@ -4,6 +4,8 @@ from typing import Union
 # --- External
 import numpy as np
 # --- Internal
+import pyscf.ao2mo
+
 from vayesta.core.util import *
 from vayesta.core import QEmbeddingMethod
 from vayesta.core.mpi import mpi
@@ -13,6 +15,7 @@ from .fragment import EWFFragment as Fragment
 from .amplitudes import get_global_t1_rhf
 from .amplitudes import get_global_t2_rhf
 from .rdm import make_rdm1_ccsd
+from .rdm import make_rdm1_ccsd_old
 from .rdm import make_rdm2_ccsd
 
 timer = mpi.timer
@@ -67,8 +70,8 @@ class EWF(QEmbeddingMethod):
         # --- Storage [True=store and force calculation, 'auto'=store if present, False=do not store]
         store_t1:  Union[bool,str] = True
         store_t2:  Union[bool,str] = True   # in future: False
-        store_l1:  Union[bool,str] = 'auto'
-        store_l2:  Union[bool,str] = 'auto' # in future: False
+        store_l1:  Union[bool,str] = True
+        store_l2:  Union[bool,str] = True # in future: False
         #store_t1x: Union[bool,str] = False  # in future: True
         #store_t2x: Union[bool,str] = False  # in future: True
         #store_l1x: Union[bool,str] = False  # in future: 'auto'
@@ -411,6 +414,75 @@ class EWF(QEmbeddingMethod):
                     assert np.isclose(norm, 1.0)
 
         return c0, c1, c2
+
+    def get_rdm2_energy(self, global_dm1=True, global_dm2=False, t_as_lambda=False):
+
+        mf = self.mf
+        nmo = mf.mo_coeff.shape[1]
+        nocc = (mf.mo_occ > 0).sum()
+
+        if global_dm1:
+            rdm1 = make_rdm1_ccsd_old(self, t_as_lambda=t_as_lambda)
+        else:
+            rdm1 = self.make_rdm1_ccsd(t_as_lambda=t_as_lambda)
+
+        # Core Hamiltonain contribution
+        h1 = einsum('pi,pq,qj->ij', mf.mo_coeff.conj(), self.get_hcore(), mf.mo_coeff)
+        Ecore = einsum('pq,qp', h1, rdm1)
+
+        # Non Cumulant 2DM plus mean field contribution
+        rdm1[np.diag_indices(nocc)] -= 2
+        veff = einsum('pi,pq,qj->ij', mf.mo_coeff.conj(), mf.get_veff(), mf.mo_coeff)
+        E1 = einsum('ij,ij->', veff, rdm1) + veff[:nocc,:nocc].trace()
+
+        if global_dm2:
+            # Calculate global 2RDM and contract with ERIs
+            eri = mf._eri#emb.get_eris_array()
+            eri = pyscf.ao2mo.kernel(mf.mol, mf.mo_coeff, compact=False).reshape([nmo]*4)
+            rdm2 = self.make_rdm2_ccsd(slow=True, t_as_lambda=t_as_lambda)
+            E2 = einsum('pqrs,pqrs', eri, rdm2) * 0.5
+
+            #return Ecore + E2 + self.e_nuc
+        else:
+            # Fragment Local 2DM cumulant contribution
+            E2 = sum([f.e_rdm2 for f in self.fragments])
+
+        return Ecore + E1 + E2 + self.e_nuc
+
+    def get_rdm2_corr_energy(self, global_dm1=True, global_dm2=False, t_as_lambda=False):
+
+        mf = self.mf
+        nmo = mf.mo_coeff.shape[1]
+        nocc = (mf.mo_occ > 0).sum()
+
+        if global_dm1:
+            rdm1 = make_rdm1_ccsd_old(self, t_as_lambda=t_as_lambda)
+        else:
+            rdm1 = self.make_rdm1_ccsd(t_as_lambda=t_as_lambda)
+        rdm1[np.diag_indices(nocc)] -= 2
+
+        # Core Hamiltonain contribution
+        h1 = einsum('pi,pq,qj->ij', mf.mo_coeff.conj(), self.get_hcore(), mf.mo_coeff)
+        Ecore = einsum('pq,qp', h1, rdm1)
+
+        # Non Cumulant 2DM plus mean field contribution
+        veff = einsum('pi,pq,qj->ij', mf.mo_coeff.conj(), mf.get_veff(), mf.mo_coeff)
+        E1 = einsum('ij,ij->', veff, rdm1)
+
+        if global_dm2:
+            # Calculate global 2RDM and contract with ERIs
+            eri = mf._eri#emb.get_eris_array()
+            eri = pyscf.ao2mo.kernel(mf.mol, mf.mo_coeff, compact=False).reshape([nmo]*4)
+            rdm2 = self.make_rdm2_ccsd(slow=True, t_as_lambda=t_as_lambda)
+            E2 = einsum('pqrs,pqrs', eri, rdm2) * 0.5
+
+            #return Ecore + E2 + self.e_nuc
+        else:
+            # Fragment Local 2DM cumulant contribution
+            E2 = sum([f.e_rdm2 for f in self.fragments])
+
+        return Ecore + E1 + E2
+
 
     # -------------------------------------------------------------------------------------------- #
 

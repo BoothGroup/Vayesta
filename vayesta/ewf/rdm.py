@@ -50,8 +50,8 @@ def make_rdm1_ccsd(emb, ao_basis=False, t_as_lambda=False, symmetrize=True, with
 
     # --- Fast algorithm via fragment-fragment loop:
     # T1/L1-amplitudes can be summed directly
-    t1 = emb.get_global_t1()
-    l1 = emb.get_global_l1() if not t_as_lambda else t1
+    t1 = emb.get_global_t1( get_lambda=False)
+    l1 = emb.get_global_t1( get_lambda=True) if not t_as_lambda else t1
 
     # --- Loop over pairs of fragments and add projected density-matrix contributions:
     nocc, nvir = t1.shape
@@ -351,7 +351,7 @@ def make_rdm1_ccsd_test(emb, ao_basis=False, t_as_lambda=False, slow=False, symm
 # --- Two-particle
 # ----------------
 
-def make_rdm2_ccsd(emb, ao_basis=False, symmetrize=True, t_as_lambda=False, slow=True):
+def make_rdm2_ccsd(emb, ao_basis=False, symmetrize=True, t_as_lambda=False, slow=True, with_dm1=False):
     """Recreate global two-particle reduced density-matrix from fragment calculations.
 
     Parameters
@@ -383,7 +383,7 @@ def make_rdm2_ccsd(emb, ao_basis=False, symmetrize=True, t_as_lambda=False, slow
         else:
             l1 = emb.get_global_t1(get_lambda=True)
             l2 = emb.get_global_t2(get_lambda=True)
-        dm2 = cc.make_rdm2(t1=t1, t2=t2, l1=l1, l2=l2, with_frozen=False)
+        dm2 = cc.make_rdm2(t1=t1, t2=t2, l1=l1, l2=l2, with_frozen=False, with_dm1=with_dm1)
     else:
         raise NotImplementedError()
     if ao_basis:
