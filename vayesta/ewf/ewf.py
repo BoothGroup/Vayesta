@@ -416,38 +416,7 @@ class EWF(QEmbeddingMethod):
         return c0, c1, c2
 
     def get_rdm2_energy(self, global_dm1=True, global_dm2=False, t_as_lambda=False):
-
-        mf = self.mf
-        nmo = mf.mo_coeff.shape[1]
-        nocc = (mf.mo_occ > 0).sum()
-
-        if global_dm1:
-            rdm1 = make_rdm1_ccsd_old(self, t_as_lambda=t_as_lambda)
-        else:
-            rdm1 = self.make_rdm1_ccsd(t_as_lambda=t_as_lambda)
-
-        # Core Hamiltonain contribution
-        h1 = einsum('pi,pq,qj->ij', mf.mo_coeff.conj(), self.get_hcore(), mf.mo_coeff)
-        Ecore = einsum('pq,qp', h1, rdm1)
-
-        # Non Cumulant 2DM plus mean field contribution
-        rdm1[np.diag_indices(nocc)] -= 2
-        veff = einsum('pi,pq,qj->ij', mf.mo_coeff.conj(), mf.get_veff(), mf.mo_coeff)
-        E1 = einsum('ij,ij->', veff, rdm1) + veff[:nocc,:nocc].trace()
-
-        if global_dm2:
-            # Calculate global 2RDM and contract with ERIs
-            eri = mf._eri#emb.get_eris_array()
-            eri = pyscf.ao2mo.kernel(mf.mol, mf.mo_coeff, compact=False).reshape([nmo]*4)
-            rdm2 = self.make_rdm2_ccsd(slow=True, t_as_lambda=t_as_lambda)
-            E2 = einsum('pqrs,pqrs', eri, rdm2) * 0.5
-
-            #return Ecore + E2 + self.e_nuc
-        else:
-            # Fragment Local 2DM cumulant contribution
-            E2 = sum([f.e_rdm2 for f in self.fragments])
-
-        return Ecore + E1 + E2 + self.e_nuc
+        return self.mf.e_tot / self.ncells + self.get_rdm2_corr_energy(global_dm1=True, global_dm2=False, t_as_lambda=False)
 
     def get_rdm2_corr_energy(self, global_dm1=True, global_dm2=False, t_as_lambda=False):
 
@@ -461,14 +430,10 @@ class EWF(QEmbeddingMethod):
             rdm1 = self.make_rdm1_ccsd(t_as_lambda=t_as_lambda)
         rdm1[np.diag_indices(nocc)] -= 2
 
-        # Core Hamiltonain contribution
-        h1 = einsum('pi,pq,qj->ij', mf.mo_coeff.conj(), self.get_hcore(), mf.mo_coeff)
-        Ecore = einsum('pq,qp', h1, rdm1)
+        # Core Hamiltonain + Non Cumulant 2DM contribution
+        E1 = einsum('pi,pq,qj,ij->', mf.mo_coeff.conj(), self.get_hcore() + self.get_veff(), mf.mo_coeff, rdm1)
 
-        # Non Cumulant 2DM plus mean field contribution
-        veff = einsum('pi,pq,qj->ij', mf.mo_coeff.conj(), mf.get_veff(), mf.mo_coeff)
-        E1 = einsum('ij,ij->', veff, rdm1)
-
+        # Cumulant 2DM contribution
         if global_dm2:
             # Calculate global 2RDM and contract with ERIs
             eri = mf._eri#emb.get_eris_array()
@@ -479,9 +444,9 @@ class EWF(QEmbeddingMethod):
             #return Ecore + E2 + self.e_nuc
         else:
             # Fragment Local 2DM cumulant contribution
-            E2 = sum([f.e_rdm2 for f in self.fragments])
+            E2 = sum([f.results.e_rdm2 for f in self.fragments])
 
-        return Ecore + E1 + E2
+        return (E1 + E2) / self.ncells
 
 
     # -------------------------------------------------------------------------------------------- #

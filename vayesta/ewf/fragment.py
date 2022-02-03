@@ -393,8 +393,7 @@ class EWFFragment(QEmbeddingFragment):
             rdm2 = pyscf.cc.ccsd_rdm._make_rdm2(mycc, d1, d2, with_dm1=False)#, with_frozen=with_frozen, ao_repr=ao_repr)
             eris = ao2mo.helper.get_full_array(eris)
 
-            self.e_rdm2 = np.einsum('pqrs,pqrs', eris, rdm2) * 0.5
-
+            self.results.e_rdm2 = np.einsum('pqrs,pqrs', eris, rdm2) * 0.5
         # Keep ERIs stored
         if (self.opts.store_eris or self.base.opts.store_eris):
             self._eris = eris
