@@ -35,15 +35,33 @@ class UEDMETFragment(UDMETFragment, EDMETFragment):
         res[self.ov_active[0]:, self.ov_mf[0]:] = spat_rotb
         return res
 
-    def get_fragment_projector_ov(self):
-        """In space of cluster p-h excitations, generate the projector to the impurity portion of the occupied index."""
-        poa, pob = self.get_fragment_projector(self.cluster.c_active_occ)
-        pva, pvb = [np.eye(x) for x in self.cluster.nvir_active]
-        p_ova = einsum("ij,ab->iajb", poa, pva).reshape((self.ov_active[0], self.ov_active[0]))
-        p_ovb = einsum("ij,ab->iajb", pob, pvb).reshape((self.ov_active[1], self.ov_active[1]))
-        p_ov = np.zeros((self.ov_active_tot, self.ov_active_tot))
-        p_ov[:self.ov_active[0], :self.ov_active[0]] = p_ova
-        p_ov[self.ov_active[0]:, self.ov_active[0]:] = p_ovb
+    def get_fragment_projector_ov(self, proj="o", inc_bosons=False):
+        """In space of cluster p-h excitations, generate the projector to the ."""
+        if not ("o" in proj or "v" in proj):
+            raise ValueError("Must project the occupied and/or virtual index to the fragment. Please specify at least "
+                             "one")
+
+        nex = self.ov_active_tot
+        if inc_bosons:
+            nex += self.nbos
+
+        def get_ov_projector(poa, pob, pva, pvb):
+            p_ova = einsum("ij,ab->iajb", poa, pva).reshape((self.ov_active[0], self.ov_active[0]))
+            p_ovb = einsum("ij,ab->iajb", pob, pvb).reshape((self.ov_active[1], self.ov_active[1]))
+            p_ov = np.zeros((nex, nex))
+            p_ov[:self.ov_active[0], :self.ov_active[0]] = p_ova
+            p_ov[self.ov_active[0]:self.ov_active_tot, self.ov_active[0]:self.ov_active_tot] = p_ovb
+            return p_ov
+
+        p_ov = np.zeros((nex, nex))
+        if "o" in proj:
+            poa, pob = self.get_fragment_projector(self.cluster.c_active_occ)
+            pva, pvb = [np.eye(x) for x in self.cluster.nvir_active]
+            p_ov += [get_ov_projector(poa, pob, pva, pvb)]
+        if "v" in proj:
+            poa, pob = [np.eye(x) for x in self.cluster.nocc_active]
+            pva, pvb = self.get_fragment_projector(self.cluster.c_active_vir)
+            p_ov += [get_ov_projector(poa, pob, pva, pvb)]
         return p_ov
 
     def _get_boson_hamil(self, apb, amb):
@@ -169,7 +187,7 @@ class UEDMETFragment(UDMETFragment, EDMETFragment):
         cb = dot(self.base.get_ovlp(), self.cluster.c_active[1])
 
         if self.base.with_df:
-            return [tuple([einsum("nij,pi,qj->npq", x, c, c) for x in y]) for y,c in zip(contrib, [ca, cb])]
+            return [tuple([einsum("nij,pi,qj->npq", x, c, c) for x in y]) for y, c in zip(contrib, [ca, cb])]
         else:
             v_aa, v_ab, v_bb = contrib
             v_aa = einsum("ijkl,pi,qj,rk,sl->pqrs", v_aa, ca, ca, ca, ca)

@@ -25,6 +25,8 @@ class EDMETFragment(DMETFragment):
         old_sc_condition: bool = NotSet
         max_bos: int = NotSet
         renorm_energy_couplings: bool = NotSet
+        occ_proj_kernel: bool = NotSet
+        boson_xc_kernel: bool = NotSet
 
     @dataclasses.dataclass
     class Results(DMETFragment.Results):
@@ -53,6 +55,19 @@ class EDMETFragment(DMETFragment):
     def ov_mf(self):
         return self.base.nocc * self.base.nvir
 
+    @property
+    def r_bos(self):
+        if self.sym_parent is not None:
+            raise RuntimeError("Symmetry transformation for EDMET bosons is not yet implemented.")
+        return self._r_bos
+
+    @r_bos.setter
+    def r_bos(self, value):
+        if self.sym_parent is not None:
+            raise RuntimeError("Cannot set attribute cluster in symmetry derived fragment.")
+        self._r_bos = value
+
+
     def get_rot_to_mf_ov(self):
         r_o, r_v = self.get_overlap_m2c()
         spat_rot = einsum("iJ,aB->iaJB", r_o, r_v).reshape((self.ov_mf, self.ov_active)).T
@@ -61,14 +76,32 @@ class EDMETFragment(DMETFragment):
         res[self.ov_active:2 * self.ov_active, self.ov_mf:2 * self.ov_mf] = spat_rot
         return res
 
-    def get_fragment_projector_ov(self):
+    def get_fragment_projector_ov(self, proj="o", inc_bosons=False):
         """In space of cluster p-h excitations, generate the projector to the impurity portion of the occupied index."""
-        po = self.get_fragment_projector(self.cluster.c_active_occ)
-        pv = np.eye(self.cluster.nvir_active)
-        p_ov_spat = einsum("ij,ab->iajb", po, pv).reshape((self.ov_active, self.ov_active))
-        p_ov = np.zeros((self.ov_active_tot, self.ov_active_tot))
-        p_ov[:self.ov_active, :self.ov_active] = p_ov_spat
-        p_ov[self.ov_active:, self.ov_active:] = p_ov_spat
+        if not ("o" in proj or "v" in proj):
+            raise ValueError("Must project the occupied and/or virtual index to the fragment. Please specify at least "
+                             "one")
+
+        nex = self.ov_active_tot
+        if inc_bosons:
+            nex += self.nbos
+
+        def get_ov_projector(po, pv):
+            p_ov_spat = einsum("ij,ab->iajb", po, pv).reshape((self.ov_active, self.ov_active))
+            p_ov = np.zeros((nex, nex))
+            p_ov[:self.ov_active, :self.ov_active] = p_ov_spat
+            p_ov[self.ov_active:2 * self.ov_active, self.ov_active:2 * self.ov_active] = p_ov_spat
+            return p_ov
+
+        p_ov = np.zeros((nex, nex))
+        if "o" in proj:
+            po = self.get_fragment_projector(self.cluster.c_active_occ)
+            pv = np.eye(self.cluster.nvir_active)
+            p_ov += get_ov_projector(po, pv)
+        if "v" in proj:
+            po = np.eye(self.cluster.nocc_active)
+            pv = self.get_fragment_projector(self.cluster.c_active_vir)
+            p_ov += get_ov_projector(po, pv)
         return p_ov
 
     def set_up_fermionic_bath(self, bno_threshold=None, bno_number=None):
@@ -363,7 +396,7 @@ class EDMETFragment(DMETFragment):
         )
         return e1, e2, efb
 
-    def construct_correlation_kernel_contrib(self, epsilon, m0_new, m1_new, eris=None):
+    def construct_correlation_kernel_contrib(self, epsilon, m0_new, m1_new, eris=None, svdtol=1e-12):
         """
         Generate the contribution to the correlation kernel arising from this fragment, in terms of local degrees of
         freedom (ie cluster orbitals and bosons).
@@ -388,86 +421,104 @@ class EDMETFragment(DMETFragment):
         # For A+B need to deduct dRPA contribution.
         new_xc_apb = new_apb - eps_loc - 2 * eris
         # For A-B need to deduct effective dRPA contribution and the renormalisation of interactions introduced in
-        # cluster construcion.
+        # cluster construction.
         new_xc_amb = new_amb - eps_loc - self.amb_renorm_effect
 
         new_xc_a = 0.5 * (new_xc_apb + new_xc_amb)
         new_xc_b = 0.5 * (new_xc_apb - new_xc_amb)
         # Now just need to convert to ensure proper symmetries of couplings are imposed, and project each index in turn
         # into the fragment space.
-        fr_proj = self.get_fragment_projector(self.cluster.c_active)
-        if not isinstance(fr_proj, tuple): fr_proj = (fr_proj, fr_proj)
+        if self.opts.occ_proj_kernel:
+            fr_proj = self.get_fragment_projector_ov(proj="o", inc_bosons=True)
+            # Need to divide my the number of projectors actually applied; here it's just two.
+            fac = 2.0
+        else:
+            fr_proj = self.get_fragment_projector_ov(proj="ov", inc_bosons=True)
+            # Have sum of occupied and virtual projectors, so four total.
+            fac = 4.0
 
-        def map_to_full(mat, ncl_l, ncl_r, no_l, no_r):
-            """Given a matrix in only the occupied-virtual subspace, expand to full hf basis.
-            Assumes and applies symmetry v_{pqrs} = v_{qpsr}."""
-            fullmat = np.zeros((ncl_l, ncl_l, ncl_r, ncl_r))
-            fullmat[:no_l, no_l:, :no_r, no_r:] = mat
-            fullmat[no_l:, :no_l, no_r:, :no_r] = mat.transpose([1, 0, 3, 2])
-            return fullmat
+        new_xc_a = (dot(fr_proj, new_xc_a) + dot(new_xc_a, fr_proj)) / fac
+        new_xc_b = (dot(fr_proj, new_xc_b) + dot(new_xc_b, fr_proj)) / fac
 
-        def proj_all_indices(mat, lfproj, rfproj):
-            """Obtains average over all possible projections of provided matrix, giving contribution to democratic
-            partitioning from this cluster.
-            """
-            return (einsum("pqrs,pt->tqrs", mat, lfproj) +
-                    einsum("pqrs,qt->ptrs", mat, lfproj) +
-                    einsum("pqrs,rt->pqts", mat, rfproj) +
-                    einsum("pqrs,st->pqrt", mat, rfproj)) / 4.0
+        # Now need to combine A and B contributions, taking care of bosonic contributions.
+        # Not that we currently won't have any boson-boson contributions, and all contributions are
+        # symmetric.
 
-        # Now calculate all spin components; could double check spin symmetry of ab terms if wanted.
-        # This deducts the equivalent values at the level of dRPA, reshapes into fermionic indices, and performs
-        # projection to only the fragment portions of all indices.
-        # Split spin components...
-        v_a_aa, v_a_ab, v_a_bb = self.split_ov_spin_components(new_xc_a)
-        v_b_aa, v_b_ab, v_b_bb = self.split_ov_spin_components(new_xc_b)
-        shape_aa = (no_a, nv_a, no_a, nv_a)
-        shape_ab = (no_a, nv_a, no_b, nv_b)
-        shape_bb = (no_b, nv_b, no_b, nv_b)
-        # Map down to fermionic indices and square matrices.
-        v_a_aa = map_to_full(v_a_aa.reshape(shape_aa), ncl_a, ncl_a, no_a, no_a)
-        v_b_aa = map_to_full(v_b_aa.reshape(shape_aa), ncl_a, ncl_a, no_a, no_a).transpose((0, 1, 3, 2))
-        v_a_ab = map_to_full(v_a_ab.reshape(shape_ab), ncl_a, ncl_b, no_a, no_b)
-        v_b_ab = map_to_full(v_b_ab.reshape(shape_ab), ncl_a, ncl_b, no_a, no_b).transpose((0, 1, 3, 2))
-        v_a_bb = map_to_full(v_a_bb.reshape(shape_bb), ncl_b, ncl_b, no_b, no_b)
-        v_b_bb = map_to_full(v_b_bb.reshape(shape_bb), ncl_b, ncl_b, no_b, no_b).transpose((0, 1, 3, 2))
-        # Project all indices onto impurities and average.
-        v_aa = proj_all_indices(v_a_aa + v_b_aa, fr_proj[0], fr_proj[0])
-        v_ab = proj_all_indices(v_a_ab + v_b_ab, fr_proj[0], fr_proj[1])
-        v_bb = proj_all_indices(v_a_bb + v_b_bb, fr_proj[1], fr_proj[1])
+        def get_fermionic_spat_contrib(acon, bcon, no_l, nv_l, no_r, nv_r):
+            print(acon)
+            print(bcon)
+            f_shape = (no_l, nv_l, no_r, nv_r)
+            fermionic = np.zeros((no_l + nv_l,) * 2 + (no_r + nv_r,) * 2)
+            fermionic[:no_l, no_l:, :no_r, no_r:] = acon.reshape(f_shape)
+            fermionic[:no_l, no_l:, no_r:, :no_r] = bcon.reshape(f_shape).transpose((0, 1, 3, 2))
+            fermionic = fermionic + fermionic.transpose((1, 0, 3, 2))
+            return fermionic
 
-        self.save = np.array((v_aa, v_ab, v_bb))
+        print(new_xc_a)
+        print(new_xc_b)
+        ferm_aa = get_fermionic_spat_contrib(new_xc_a[:ov_a, :ov_a], new_xc_b[:ov_a, :ov_a], no_a, nv_a, no_a, nv_a)
+        ferm_ab = get_fermionic_spat_contrib(new_xc_a[:ov_a, ov_a:-self.nbos], new_xc_b[:ov_a, ov_a:-self.nbos],
+                                          no_a, nv_a, no_b, nv_b)
+        ferm_bb = get_fermionic_spat_contrib(new_xc_a[ov_a:-self.nbos, ov_a:-self.nbos],
+                                          new_xc_b[ov_a:-self.nbos, ov_a:-self.nbos], no_b, nv_b, no_b, nv_b)
+
+        def get_fb_spat_contrib(acon, bcon, no, nv):
+            fb_shape = (no, nv, self.nbos)
+            fermbos = np.zeros((no + nv,) * 2 + (self.nbos,))
+            fermbos[:no, no:, :] = acon.reshape(fb_shape)
+            fermbos[no:, :no, :] = bcon.reshape(fb_shape).transpose((1, 0, 2))
+            return fermbos
+        if self.opts.boson_xc_kernel:
+            fb_a = get_fb_spat_contrib(new_xc_a[:ov_a, -self.nbos:], new_xc_b[:ov_a, -self.nbos:], no_a, nv_a)
+            fb_b = get_fb_spat_contrib(new_xc_a[ov_a:-self.nbos, -self.nbos:], new_xc_b[ov_a:-self.nbos, -self.nbos:],
+                                       no_b, nv_b)
+        else:
+            fb_a = np.zeros((no_a+nv_a,)*2 + (0,))
+            fb_b = np.zeros((no_b+nv_b,)*2 + (0,))
 
         if self.base.with_df:
             # If using RI we can now perform an svd to generate a low-rank representation in the cluster.
-            def construct_low_rank_rep(vaa, vab, vbb):
+            def construct_low_rank_rep(vaa, vab, vbb, v_fb_a, v_fb_b):
                 """Generates low-rank representation of kernel. Note that this will usually be non-PSD, so a real
                 representation will be necessarily asymmetric. Once code is generalised for complex numbers can
                 use symmetric decomposition..."""
                 na, nb = vaa.shape[0], vbb.shape[0]
+                nbos = v_fb_a.shape[2]
+
                 vaa = vaa.reshape((na ** 2, na ** 2))
                 vbb = vbb.reshape((nb ** 2, nb ** 2))
                 vab = vab.reshape((na ** 2, nb ** 2))
 
-                fullv = np.zeros((na ** 2 + nb ** 2, na ** 2 + nb ** 2))
+                v_fb_a = v_fb_a.reshape((na**2, nbos))
+                v_fb_b = v_fb_b.reshape((nb**2, nbos))
+
+                fullv = np.zeros((na ** 2 + nb ** 2 + nbos, na ** 2 + nb ** 2 + nbos))
                 fullv[:na ** 2, :na ** 2] = vaa
-                fullv[na ** 2:, na ** 2:] = vbb
-                fullv[:na ** 2, na ** 2:] = vab
-                fullv[na ** 2:, :na ** 2] = vab.T
+                fullv[na ** 2:-nbos, na ** 2:-nbos] = vbb
+                fullv[:na ** 2, na ** 2:-nbos] = vab
+                fullv[na ** 2:-nbos, :na ** 2] = vab.T
+                fullv[:na ** 2, -nbos:] = v_fb_a
+                fullv[na ** 2:-nbos, -nbos:] = v_fb_b
+                fullv[-nbos:, :na ** 2] = v_fb_a.T
+                fullv[-nbos:, na ** 2:-nbos] = v_fb_b.T
+
                 u, s, v = np.linalg.svd(fullv, full_matrices=False)
-                want = s > 1e-8
+                want = s > svdtol
                 nwant = sum(want)
                 self.log.info("Fragment %d gives rank %d xc-kernel contribution.", self.id, nwant)
                 repr_l = einsum("n,np->np", s[:nwant] ** (0.5), v[:nwant])
                 repr_r = einsum("n,pn->np", s[:nwant] ** (0.5), u[:, :nwant])
 
-                repa = (repr_l[:, :na ** 2].reshape((nwant, na, na)), repr_r[:, :na ** 2].reshape((nwant, na, na)))
-                repb = (repr_l[:, na ** 2:].reshape((nwant, nb, nb)), repr_r[:, na ** 2:].reshape((nwant, nb, nb)))
-                return repa, repb
+                repf_a = (repr_l[:, :na ** 2].reshape((nwant, na, na)),
+                        repr_r[:, :na ** 2].reshape((nwant, na, na)))
+                repf_b = (repr_l[:, na ** 2:-nbos].reshape((nwant, nb, nb)),
+                        repr_r[:, na ** 2:-nbos].reshape((nwant, nb, nb)))
+                repbos = (repr_l[:, -nbos:], repr_r[:, -nbos:])
+                return repf_a, repf_b, repbos
 
-            return construct_low_rank_rep(v_aa, v_ab, v_bb)
+            return construct_low_rank_rep(ferm_aa, ferm_ab, ferm_bb, fb_a, fb_b)
         else:
-            return v_aa, v_ab, v_bb
+            return ferm_aa, ferm_ab, ferm_bb, fb_a, fb_b
 
     def get_correlation_kernel_contrib(self, contrib):
         """Gets contribution to xc kernel in full space of system."""
