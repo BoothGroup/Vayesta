@@ -27,6 +27,8 @@ class EDMET(RDMET):
         old_sc_condition: bool = False
         max_bos: int = np.inf
         renorm_energy_couplings: bool = True
+        occ_proj_kernel: bool = True
+        boson_xc_kernel: bool = False
 
     Fragment = EDMETFragment
 
