@@ -15,8 +15,9 @@ mf = pyscf.scf.RHF(mol)
 mf.kernel()
 
 dmet = vayesta.dmet.DMET(mf)
-dmet.make_atom_fragment(0)
-dmet.make_atom_fragment(1)
+dmet.iao_fragmentation()
+dmet.add_atomic_fragment(0)
+dmet.add_atomic_fragment(1)
 # Alternative: dmet.make_all_atom_fragments()
 dmet.kernel()
 

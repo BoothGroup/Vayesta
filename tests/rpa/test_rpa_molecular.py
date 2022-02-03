@@ -61,7 +61,7 @@ class MoleculedRPATest_LiH_ccpvdz(unittest.TestCase, HubbarddRPATest):
 
         cls.rpa = rpa.RPA(cls.mf)
         cls.rpa.kernel("drpa")
-        cls.rpa2 = rpa.dRPA(cls.mf)
+        cls.rpa2 = rpa.ssRPA(cls.mf)
         cls.rpa2.kernel()
         cls.known_values = {"e_tot":-7.980883936038881}
 

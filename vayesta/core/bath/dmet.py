@@ -8,6 +8,8 @@ DEFAULT_DMET_THRESHOLD = 1e-6
 
 class DMET_Bath:
 
+    spin_restricted = True
+
     def __init__(self, fragment, dmet_threshold=DEFAULT_DMET_THRESHOLD):
         self.fragment = fragment
         self.dmet_threshold = dmet_threshold
@@ -17,6 +19,10 @@ class DMET_Bath:
         self.c_cluster_vir = None
         self.c_env_occ = None
         self.c_env_vir = None
+
+    @property
+    def spin_unrestricted(self):
+        return not self.spin_restricted
 
     @property
     def mf(self):
@@ -101,7 +107,7 @@ class DMET_Bath:
         c_ref : ndarray, optional
             Reference DMET bath orbitals from previous calculation.
         nbath : int, optional
-            Number of DMET bath orbitals. If set, the paramter `tol` is ignored. Default: None.
+            Number of DMET bath orbitals. If set, the parameter `tol` is ignored. Default: None.
         tol : float, optional
             Tolerance for DMET orbitals in eigendecomposition of density-matrix. Default: 1e-5.
         reftol : float, optional
@@ -136,13 +142,15 @@ class DMET_Bath:
         # Sort: occ. env -> DMET bath -> vir. env
         eig, r = eig[::-1], r[:,::-1]
         if (eig.min() < -1e-9):
-            self.log.warning("Min eigenvalue of env. DM = %.6e", eig.min())
+            self.log.error("Min eigenvalue of env. DM = %.6e !", eig.min())
         if ((eig.max()-1) > 1e-9):
-            self.log.warning("Max eigenvalue of env. DM = %.6e", eig.max())
+            self.log.error("Max eigenvalue of env. DM = %.6e !", eig.max())
         c_env = np.dot(c_env, r)
         c_env = fix_orbital_sign(c_env)[0]
 
         if nbath is not None:
+            # FIXME
+            raise NotImplementedError()
             # Work out tolerance which leads to nbath bath orbitals. This overwrites `tol`.
             abseig = abs(eig[np.argsort(abs(eig-0.5))])
             low, up = abseig[nbath-1], abseig[nbath]
@@ -188,7 +196,7 @@ class DMET_Bath:
                             name = names[j]
                             break
                     if name:
-                        self.log.info("  > %-34s  n= %12.6g  1-n= %12.6g", name, e, 1-e)
+                        self.log.info("  > %-34s  n= %12.6g  1-n= %12.6g  n*(1-n)= %12.6g", name, e, 1-e, e*(1-e))
 
             # DMET bath analysis
             self.log.info("DMET bath character:")
@@ -204,7 +212,7 @@ class DMET_Bath:
         # Calculate entanglement entropy
         entropy = np.sum(eig * (1-eig))
         entropy_bath = np.sum(eig[mask_bath] * (1-eig[mask_bath]))
-        self.log.info("Entanglement entropy: total= %.6e  bath= %.6e  captured=  %.2f %%",
+        self.log.info("Entanglement entropy: total= %.6e  bath= %.6e (%.2f %%)",
                 entropy, entropy_bath, 100.0*entropy_bath/entropy)
 
         # Complete DMET orbital space using reference orbitals
@@ -256,6 +264,7 @@ class DMET_Bath:
 
         return c_bath, c_occenv, c_virenv
 
+
 class CompleteBath(DMET_Bath):
     """Complete bath for testing purposes."""
 
@@ -266,3 +275,39 @@ class CompleteBath(DMET_Bath):
     def get_virtual_bath(self, *args, **kwargs):
         nao = self.c_env_vir.shape[0]
         return self.c_env_vir, np.zeros((nao, 0))
+
+# --- Spin unrestricted
+
+class UDMET_Bath(DMET_Bath):
+
+    spin_restricted = False
+
+    def get_occupied_bath(self, *args, **kwargs):
+        """Inherited bath classes can overwrite this to return additional occupied bath orbitals."""
+        nao = self.mol.nao_nr()
+        return np.zeros((2, nao, 0)), self.c_env_occ
+
+    def get_virtual_bath(self, *args, **kwargs):
+        """Inherited bath classes can overwrite this to return additional virtual bath orbitals."""
+        nao = self.mol.nao_nr()
+        return np.zeros((2, nao, 0)), self.c_env_vir
+
+    def make_dmet_bath(self, c_env, dm1=None, **kwargs):
+        if dm1 is None: dm1 = self.mf.make_rdm1()
+        results = []
+        for s, spin in enumerate(('alpha', 'beta')):
+            self.log.info("Making %s-DMET bath", spin)
+            # Use restricted DMET bath routine for each spin:
+            results.append(super().make_dmet_bath(c_env[s], dm1=2*dm1[s], **kwargs))
+        return tuple(zip(*results))
+
+class UCompleteBath(UDMET_Bath):
+    """Complete bath for testing purposes."""
+
+    def get_occupied_bath(self, *args, **kwargs):
+        nao = self.c_env_occ[0].shape[0]
+        return self.c_env_occ, tuple(2*[np.zeros((nao, 0))])
+
+    def get_virtual_bath(self, *args, **kwargs):
+        nao = self.c_env_vir[0].shape[0]
+        return self.c_env_vir, tuple(2*[np.zeros((nao, 0))])

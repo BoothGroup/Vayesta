@@ -23,11 +23,11 @@ cc.kernel()
 
 # Reference one-shot EWF-CCSD
 ecc = vayesta.ewf.EWF(mf, bno_threshold=1e-4)
-ecc.make_atom_fragment(0, sym_factor=2)
+ecc.add_atomic_fragment(0, sym_factor=2)
 ecc.kernel()
 
 etcc = vayesta.ewf.EWF(mf, solver='TCCSD', bno_threshold=1e-4)
-etcc.make_atom_fragment(0, sym_factor=2)
+etcc.add_atomic_fragment(0, sym_factor=2)
 etcc.kernel()
 
 print("E%-14s %+16.8f Ha" % ('(HF)=', mf.e_tot))

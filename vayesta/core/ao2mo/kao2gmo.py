@@ -28,7 +28,10 @@ import vayesta.libs
 import vayesta.misc
 import vayesta.misc.gdf
 
+
 log = logging.getLogger(__name__)
+
+
 
 def gdf_to_pyscf_eris(mf, gdf, cm, fock, mo_energy, e_hf):
     """Get supercell MO eris from k-point sampled GDF.
@@ -221,7 +224,7 @@ def gdf_to_eris(gdf, mo_coeff, nocc, only_ovov=False, real_j3c=True, symmetry=Fa
             prune_aux_basis('oo')
             prune_aux_basis('vv')
 
-    # Contract (ij|L)(L|kl)->(ij|kl)
+    # Contract (L|ij)(L|kl)->(ij|kl)
     eris = {}
     t0 = timer()
     if not only_ovov:
@@ -237,6 +240,7 @@ def gdf_to_eris(gdf, mo_coeff, nocc, only_ovov=False, real_j3c=True, symmetry=Fa
             if not store_vvl:
                 eris["vvvv"] = contract_j3c(j3c, "vvvv")
             else:
+                # Bugged?
                 eris['vvL'] = j3c['vv']
             eris["ovvv"] = contract_j3c(j3c, "ovvv")
 
@@ -274,7 +278,7 @@ def gdf_to_eris(gdf, mo_coeff, nocc, only_ovov=False, real_j3c=True, symmetry=Fa
 
 
 def contract_j3c(j3c, kind, symmetry=None):
-    """Contract (ij|L)(L|kl) -> (ij|kl)"""
+    """Contract (L|ij)(L|kl) -> (ij|kl)"""
     t0 = timer()
     left, right = kind[:2], kind[2:]
     # We do not store "vo" only "ov":
@@ -290,7 +294,7 @@ def contract_j3c(j3c, kind, symmetry=None):
     # Permutation symmetry only on right side
     elif symmetry == 2:
         r = pyscf.lib.pack_tril(r)
-        c = einsum('Lij,Lk->ijk', l.conj(), r)
+        c = einsum('Lij,LK->ijK', l.conj(), r)
     # No permutation symmetry
     else:
         c = np.tensordot(l.conj(), r, axes=(0, 0))

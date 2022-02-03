@@ -41,13 +41,6 @@ class MolFragmentTests(unittest.TestCase):
         self.assertIs(frag.n_frag,        frag.c_frag.shape[-1])
         self.assertIs(frag.boundary_cond, frag.base.boundary_cond)
 
-        self.assertIsNone(frag.c_active)
-        self.assertIsNone(frag.c_active_occ)
-        self.assertIsNone(frag.c_active_vir)
-        self.assertIsNone(frag.c_frozen)
-        self.assertIsNone(frag.c_frozen_occ)
-        self.assertIsNone(frag.c_frozen_vir)
-
     def test_iao_atoms(self):
         """Test IAO atomic fragmentation.
         """
@@ -230,10 +223,6 @@ class MolFragmentTests(unittest.TestCase):
         self.assertIs(bath.get_environment()[1], bath.c_env_vir)
 
         frag.reset()
-        self.assertIsNone(frag._c_active_occ)
-        self.assertIsNone(frag._c_active_vir)
-        self.assertIsNone(frag._c_frozen_occ)
-        self.assertIsNone(frag._c_frozen_vir)
 
     def test_mp2_bno_bath(self):
         """Test the MP2 BNO bath.
@@ -252,11 +241,11 @@ class MolFragmentTests(unittest.TestCase):
             t2b = 0.25 * (t2b + t2b.swapaxes(0, 1) + t2b.swapaxes(2, 3) + t2b.transpose(1, 0, 3, 2))
 
         bath = MP2_BNO_Bath(frags[0])
-        dm1o = bath.make_dm1('occ', t2a, t2b)
-        dm1v = bath.make_dm1('vir', t2a, t2b)
+        dm1o = bath.make_delta_dm1('occ', t2a, t2b)
+        dm1v = bath.make_delta_dm1('vir', t2a, t2b)
         self.assertIs(bath.get_mp2_class(), pyscf.mp.MP2)
-        self.assertAlmostEqual(lib.fp(dm1o), 366.180724570873, self.PLACES)
-        self.assertAlmostEqual(lib.fp(dm1v),  -1.956209725591, self.PLACES)
+        self.assertAlmostEqual(lib.fp(dm1o), 366.180724570873/2, self.PLACES)
+        self.assertAlmostEqual(lib.fp(dm1v),  -1.956209725591/2, self.PLACES)
         self.assertIsNone(bath.c_bno_occ)
         self.assertIsNone(bath.c_bno_vir)
         self.assertIsNone(bath.n_bno_occ)
@@ -268,18 +257,18 @@ class MolFragmentTests(unittest.TestCase):
         self.assertIs(bath.c_frag, frags[0].c_frag)
 
         bath = MP2_BNO_Bath(frags[0], local_dm='semi', canonicalize=False)
-        dm1o = bath.make_dm1('occ', t2a, t2b)
-        dm1v = bath.make_dm1('vir', t2a, t2b)
+        dm1o = bath.make_delta_dm1('occ', t2a, t2b)
+        dm1v = bath.make_delta_dm1('vir', t2a, t2b)
         self.assertIs(bath.get_mp2_class(), pyscf.mp.MP2)
-        self.assertAlmostEqual(lib.fp(dm1o),  -11.0426240019808, self.PLACES)
-        self.assertAlmostEqual(lib.fp(dm1v),   11.2234922296148, self.PLACES)
+        self.assertAlmostEqual(lib.fp(dm1o),  -11.0426240019808/2, self.PLACES)
+        self.assertAlmostEqual(lib.fp(dm1v),   11.2234922296148/2, self.PLACES)
 
         bath = MP2_BNO_Bath(frags[0], local_dm=True, canonicalize=False)
-        dm1o = bath.make_dm1('occ', t2a, t2b)
-        dm1v = bath.make_dm1('vir', t2a, t2b)
+        dm1o = bath.make_delta_dm1('occ', t2a, t2b)
+        dm1v = bath.make_delta_dm1('vir', t2a, t2b)
         self.assertIs(bath.get_mp2_class(), pyscf.mp.MP2)
-        self.assertAlmostEqual(lib.fp(dm1o), 382.7366604206307, self.PLACES)
-        self.assertAlmostEqual(lib.fp(dm1v),  16.0277297008466, self.PLACES)
+        self.assertAlmostEqual(lib.fp(dm1o), 382.7366604206307/2, self.PLACES)
+        self.assertAlmostEqual(lib.fp(dm1v),  16.0277297008466/2, self.PLACES)
 
         #FIXME: bugs #6 and #7 - then add to CellFragmentTests
         #NOTE these values were for an old system

@@ -20,6 +20,7 @@ import logging
 import pycodestyle
 import io
 import contextlib
+import subprocess
 
 # Clean up:
 os.system('rm -f .coverage')
@@ -41,8 +42,22 @@ with open('.codestyle', 'w') as file:
     file.write('\n\n')
     file.write(f.getvalue())
 
+# Get a list of untracked files to ignore:
+untracked = subprocess.run(['git', 'ls-files', '--others', '--exclude-standard', 'vayesta/'], capture_output=True, text=True).stdout 
+untracked = [x.strip() for x in untracked.split('\n')]
+untracked += [
+        '*/libs/*',
+        '*/test_*.py',
+        '*/core/k2gamma.py',
+        '*/dmet/pdmet.py',
+        '*/misc/brueckner.py',
+        '*/misc/counterpoise.py',
+]
+
 # Start the coverage report:
-cov = coverage.Coverage()
+print("Coverage omitting files:")
+[print(f) for f in untracked]
+cov = coverage.Coverage(omit=untracked)
 cov.start()
 
 # Import Vayesta (inside coverage scope) and restrict logging to WARNING:
