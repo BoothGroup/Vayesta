@@ -26,6 +26,24 @@ class UEDMETFragment(UDMETFragment, EDMETFragment):
         nv_a, nv_b = self.base.nvir
         return no_a * nv_a, no_b * nv_b
 
+    @property
+    def r_bos_ao(self):
+        if self.sym_parent is None:
+            # Need to convert bosonic definition from ov-excitations into ao pairs.
+            r_bos = self.r_bos
+            co_a, co_b = tuple([dot(self.base.get_ovlp(), x) for x in self.cluster.c_active_occ])
+            cv_a, cv_b = tuple([dot(self.base.get_ovlp(), x) for x in self.cluster.c_active_vir])
+
+            r_bosa = r_bos[:, :self.ov_mf[0]].reshape((self.nbos, self.base.nocc[0], self.base.nvir[0]))
+            r_bosb = r_bos[:, self.ov_mf[0]:].reshape((self.nbos, self.base.nocc[1], self.base.nvir[1]))
+
+            return (einsum("nia,ip,aq->npq", r_bosa, co_a, cv_a), einsum("nia,ip,aq->npq", r_bosb, co_b, cv_b))
+        else:
+            r_bos_ao = self.sym_parent.r_bos_ao
+            # Need to rotate to account for symmetry operations.
+            r_bos_ao = tuple([self.sym_op(self.sym_op(x, axis=2), axis=1) for x in r_bos_ao])
+        return r_bos_ao
+
     def get_rot_to_mf_ov(self):
         r_o, r_v = self.get_overlap_m2c()
         spat_rota = einsum("iJ,aB->iaJB", r_o[0], r_v[0]).reshape((self.ov_mf[0], self.ov_active[0])).T
@@ -187,10 +205,35 @@ class UEDMETFragment(UDMETFragment, EDMETFragment):
         cb = dot(self.base.get_ovlp(), self.cluster.c_active[1])
 
         if self.base.with_df:
-            return [tuple([einsum("nij,pi,qj->npq", x, c, c) for x in y]) for y, c in zip(contrib, [ca, cb])]
+            # First get the contribution from the fermionic degrees of freedom.
+            res = [tuple([einsum("nij,pi,qj->npq", x, c, c) for x in y]) for y, c in zip(contrib[:2], [ca, cb])]
+            if self.opts.boson_xc_kernel:
+                bos_contrib = [tuple([einsum("nz,zpq->npq", x, y) for x in contrib[2]]) for y in self.r_bos_ao]
+                res = [tuple([z1 + z2 for z1, z2 in zip(x, y)]) for x, y in zip(res, bos_contrib)]
+            self.prev_xc_contrib = res
+            return res
         else:
-            v_aa, v_ab, v_bb = contrib
+            v_aa, v_ab, v_bb, fb_a, fb_b = contrib
             v_aa = einsum("ijkl,pi,qj,rk,sl->pqrs", v_aa, ca, ca, ca, ca)
             v_ab = einsum("ijkl,pi,qj,rk,sl->pqrs", v_ab, ca, ca, cb, cb)
             v_bb = einsum("ijkl,pi,qj,rk,sl->pqrs", v_bb, cb, cb, cb, cb)
+
+            if self.opts.boson_xc_kernel:
+                # Need to add in bosonic components; these need to both be mapped from
+                r_bosa, r_bosb = self.r_bos_ao
+                bos_v_aa = einsum("ijn,pi,qj,nrs->pqrs", fb_a, ca, ca, r_bosa)
+                bos_v_aa += einsum("pqrs->rspq", bos_v_aa)
+                bos_v_bb = einsum("ijn,pi,qj,nrs->pqrs", fb_b, cb, cb, r_bosb)
+                bos_v_bb += einsum("pqrs->rspq", bos_v_bb)
+                bos_v_ab = einsum("ijn,pi,qj,nrs->pqrs", fb_a, ca, ca, r_bosb)
+                bos_v_ab += einsum("ijn,pi,qj,nrs->rspq", fb_b, cb, cb, r_bosa)
+
+                self.bos_xc_contrib = (bos_v_aa, bos_v_ab, bos_v_bb)
+
+                v_aa += bos_v_aa
+                v_ab += bos_v_ab
+                v_bb += bos_v_bb
+
+            self.prev_xc_contrib = (v_aa, v_ab, v_bb)
+
             return v_aa, v_ab, v_bb

@@ -36,8 +36,9 @@ class EDMETFragment(DMETFragment):
         dd_mom0: np.ndarray = None
         dd_mom1: np.ndarray = None
 
-    #    def __init__(self, *args, solver=None, **kwargs):
-    #        super().__init__(*args, solver, **kwargs)
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.prev_xc_contrib = None
 
     def check_solver(self, solver):
         if solver not in VALID_SOLVERS:
@@ -56,17 +57,46 @@ class EDMETFragment(DMETFragment):
         return self.base.nocc * self.base.nvir
 
     @property
+    def nbos(self):
+        if self.sym_parent is not None:
+            return self.sym_parent.nbos
+        else:
+            try:
+                return self.r_bos.shape[0]
+            except AttributeError:
+                raise RuntimeError("Bosons are not yet defined!")
+
+
+    @property
     def r_bos(self):
         if self.sym_parent is not None:
-            raise RuntimeError("Symmetry transformation for EDMET bosons is not yet implemented.")
+            raise RuntimeError("Symmetry transformation for EDMET bosons in particle-hole basis is not yet implemented."
+                               )
         return self._r_bos
 
     @r_bos.setter
     def r_bos(self, value):
         if self.sym_parent is not None:
-            raise RuntimeError("Cannot set attribute cluster in symmetry derived fragment.")
+            raise RuntimeError("Cannot set attribute r_bos in symmetry derived fragment.")
         self._r_bos = value
 
+    @property
+    def r_bos_ao(self):
+        if self.sym_parent is None:
+            # Need to convert bosonic definition from ov-excitations into ao pairs.
+            r_bos = self.r_bos
+            co = dot(self.base.get_ovlp(), self.cluster.c_active_occ)
+            cv = dot(self.base.get_ovlp(), self.cluster.c_active_vir)
+            r_bosa = r_bos[:, :self.ov_mf].reshape((self.nbos, self.base.nocc, self.base.nvir))
+            r_bosb = r_bos[:, self.ov_mf:].reshape((self.nbos, self.base.nocc, self.base.nvir))
+
+            return (einsum("nia,pi,qa->npq", r_bosa, co, cv), einsum("nia,pi,qa->npq", r_bosb, co, cv))
+
+        else:
+            r_bos_ao = self.sym_parent.r_bos_ao
+            # Need to rotate to account for symmetry operations.
+            r_bos_ao = tuple([self.sym_op(self.sym_op(x, axis=2), axis=1) for x in r_bos_ao])
+        return r_bos_ao
 
     def get_rot_to_mf_ov(self):
         r_o, r_v = self.get_overlap_m2c()
@@ -130,20 +160,20 @@ class EDMETFragment(DMETFragment):
         # v defines the rotation of the mean-field excitation space specifying our bosons.
         u, s, v = np.linalg.svd(env_mom, full_matrices=False)
         want = s > tol
-        self.nbos = min(sum(want), self.opts.max_bos)
-        if self.nbos < len(s):
+        nbos = min(sum(want), self.opts.max_bos)
+        if nbos < len(s):
             self.log.info("Zeroth moment matching generated %d cluster bosons.Largest discarded singular value: %4.2e.",
-                          self.nbos, s[self.nbos:].max())
+                          nbos, s[nbos:].max())
         else:
-            self.log.info("Zeroth moment matching generated %d cluster bosons.", self.nbos)
+            self.log.info("Zeroth moment matching generated %d cluster bosons.", nbos)
         # Calculate the relevant components of the zeroth moment- we don't want to recalculate these.
-        self.r_bos = v[:self.nbos, :]
+        self.r_bos = v[:nbos, :]
         self.eta0_ferm = np.dot(rpa_mom, rot_ov.T)
         self.eta0_coupling = np.dot(env_mom, self.r_bos.T)
         return self.r_bos
 
     def construct_boson_hamil(self, eta0_bos, eps, xc_kernel):
-        """Given the zeroth moment coupling of our bosons to the remainder of the space, along with stored information,
+        """Given the zeroth moment coupling of our bosons to the remainder of the spacFalsee, along with stored information,
         generate the components of our interacting electron-boson Hamiltonian.
         At the same time, calculate the local RPA correlation energy since this requires all the same information we
         already have to hand.
@@ -187,11 +217,19 @@ class EDMETFragment(DMETFragment):
         #            - einsum("pq,qp->", fproj_ov, eris[:self.ov_active_tot, :self.ov_active_tot])) / 4.0
 
         renorm_amb = dot(eta0, apb, eta0)
+        self.amb_renorm_effect = renorm_amb - amb
 
         maxdev = abs(amb - renorm_amb)[:self.ov_active_tot, :self.ov_active_tot].max()
         if maxdev > 1e-8:
             self.log.error("Maximum deviation in irreducible polarisation propagator=%6.4e",
                            abs(amb - renorm_amb)[:self.ov_active_tot, :self.ov_active_tot].max())
+
+        # If have xc kernel from previous iteration want to deduct contribution from this cluster; otherwise bosons
+        # will contain a double-counted representation of the already captured correlation in the cluster.
+        if self.prev_xc_contrib is not None:
+            dc_apb, dc_amb = self.get_xc_couplings(self.prev_xc_contrib, np.concatenate([ov_rot, self.r_bos], axis=0))
+            apb -= dc_apb
+            renorm_amb -= dc_amb
 
         couplings_aa, couplings_bb, a_bos, b_bos = self._get_boson_hamil(apb, renorm_amb)
 
@@ -215,7 +253,6 @@ class EDMETFragment(DMETFragment):
         self.amb = renorm_amb
         self.eta0 = eta0
         # Will also want to save the effective local modification resulting from our local construction.
-        self.amb_renorm_effect = renorm_amb - amb
         self.log.info("Local correlation energy for fragment %d: %6.4e", self.id, self.loc_erpa)
         return self.loc_erpa
 
@@ -445,8 +482,6 @@ class EDMETFragment(DMETFragment):
         # symmetric.
 
         def get_fermionic_spat_contrib(acon, bcon, no_l, nv_l, no_r, nv_r):
-            print(acon)
-            print(bcon)
             f_shape = (no_l, nv_l, no_r, nv_r)
             fermionic = np.zeros((no_l + nv_l,) * 2 + (no_r + nv_r,) * 2)
             fermionic[:no_l, no_l:, :no_r, no_r:] = acon.reshape(f_shape)
@@ -454,8 +489,6 @@ class EDMETFragment(DMETFragment):
             fermionic = fermionic + fermionic.transpose((1, 0, 3, 2))
             return fermionic
 
-        print(new_xc_a)
-        print(new_xc_b)
         ferm_aa = get_fermionic_spat_contrib(new_xc_a[:ov_a, :ov_a], new_xc_b[:ov_a, :ov_a], no_a, nv_a, no_a, nv_a)
         ferm_ab = get_fermionic_spat_contrib(new_xc_a[:ov_a, ov_a:-self.nbos], new_xc_b[:ov_a, ov_a:-self.nbos],
                                           no_a, nv_a, no_b, nv_b)
@@ -484,6 +517,7 @@ class EDMETFragment(DMETFragment):
                 use symmetric decomposition..."""
                 na, nb = vaa.shape[0], vbb.shape[0]
                 nbos = v_fb_a.shape[2]
+                nferm_tot = na**2 + nb**2
 
                 vaa = vaa.reshape((na ** 2, na ** 2))
                 vbb = vbb.reshape((nb ** 2, nb ** 2))
@@ -492,15 +526,15 @@ class EDMETFragment(DMETFragment):
                 v_fb_a = v_fb_a.reshape((na**2, nbos))
                 v_fb_b = v_fb_b.reshape((nb**2, nbos))
 
-                fullv = np.zeros((na ** 2 + nb ** 2 + nbos, na ** 2 + nb ** 2 + nbos))
+                fullv = np.zeros((na ** 2 + nb ** 2 + nbos,)*2)
                 fullv[:na ** 2, :na ** 2] = vaa
-                fullv[na ** 2:-nbos, na ** 2:-nbos] = vbb
-                fullv[:na ** 2, na ** 2:-nbos] = vab
-                fullv[na ** 2:-nbos, :na ** 2] = vab.T
-                fullv[:na ** 2, -nbos:] = v_fb_a
-                fullv[na ** 2:-nbos, -nbos:] = v_fb_b
-                fullv[-nbos:, :na ** 2] = v_fb_a.T
-                fullv[-nbos:, na ** 2:-nbos] = v_fb_b.T
+                fullv[na ** 2:nferm_tot, na ** 2:nferm_tot] = vbb
+                fullv[:na ** 2, na ** 2:nferm_tot] = vab
+                fullv[na ** 2:nferm_tot, :na ** 2] = vab.T
+                fullv[:na ** 2, nferm_tot:] = v_fb_a
+                fullv[na ** 2:nferm_tot, nferm_tot:] = v_fb_b
+                fullv[nferm_tot:, :na ** 2] = v_fb_a.T
+                fullv[nferm_tot:, na ** 2:nferm_tot] = v_fb_b.T
 
                 u, s, v = np.linalg.svd(fullv, full_matrices=False)
                 want = s > svdtol
@@ -511,9 +545,9 @@ class EDMETFragment(DMETFragment):
 
                 repf_a = (repr_l[:, :na ** 2].reshape((nwant, na, na)),
                         repr_r[:, :na ** 2].reshape((nwant, na, na)))
-                repf_b = (repr_l[:, na ** 2:-nbos].reshape((nwant, nb, nb)),
-                        repr_r[:, na ** 2:-nbos].reshape((nwant, nb, nb)))
-                repbos = (repr_l[:, -nbos:], repr_r[:, -nbos:])
+                repf_b = (repr_l[:, na ** 2:nferm_tot].reshape((nwant, nb, nb)),
+                        repr_r[:, na ** 2:nferm_tot].reshape((nwant, nb, nb)))
+                repbos = (repr_l[:, nferm_tot:], repr_r[:, nferm_tot:])
                 return repf_a, repf_b, repbos
 
             return construct_low_rank_rep(ferm_aa, ferm_ab, ferm_bb, fb_a, fb_b)
@@ -526,12 +560,37 @@ class EDMETFragment(DMETFragment):
         c = dot(self.base.get_ovlp(), self.cluster.c_active)
 
         if self.base.with_df:
-            return [tuple([einsum("nij,pi,qj->npq", x, c, c) for x in y]) for y in contrib]
+            # First get the contribution from the fermionic degrees of freedom.
+            res = [tuple([einsum("nij,pi,qj->npq", x, c, c) for x in y]) for y in contrib[:2]]
+            if self.opts.boson_xc_kernel:
+                bos_contrib = [tuple([einsum("nz,zpq->npq", x, y) for x in contrib[2]]) for y in self.r_bos_ao]
+                res = [tuple([z1 + z2 for z1, z2 in zip(x, y)]) for x, y in zip(res, bos_contrib)]
+            self.prev_xc_contrib = res
+            return res
         else:
-            v_aa, v_ab, v_bb = contrib
+            v_aa, v_ab, v_bb, fb_a, fb_b = contrib
             v_aa = einsum("ijkl,pi,qj,rk,sl->pqrs", v_aa, c, c, c, c)
             v_ab = einsum("ijkl,pi,qj,rk,sl->pqrs", v_ab, c, c, c, c)
             v_bb = einsum("ijkl,pi,qj,rk,sl->pqrs", v_bb, c, c, c, c)
+
+            if self.opts.boson_xc_kernel:
+                # Need to add in bosonic components; these need to both be mapped from
+                r_bosa, r_bosb = self.r_bos_ao
+                bos_v_aa = einsum("ijn,pi,qj,nrs->pqrs", fb_a, c, c, r_bosa)
+                bos_v_aa += einsum("pqrs->rspq", bos_v_aa)
+                bos_v_bb = einsum("ijn,pi,qj,nrs->pqrs", fb_b, c, c, r_bosb)
+                bos_v_bb += einsum("pqrs->rspq", bos_v_bb)
+                bos_v_ab = einsum("ijn,pi,qj,nrs->pqrs", fb_a, c, c, r_bosb)
+                bos_v_ab += einsum("ijn,pi,qj,nrs->rspq", fb_b, c, c, r_bosa)
+
+                self.bos_xc_contrib = (bos_v_aa, bos_v_ab, bos_v_bb)
+
+                v_aa += bos_v_aa
+                v_ab += bos_v_ab
+                v_bb += bos_v_bb
+
+            self.prev_xc_contrib = (v_aa, v_ab, v_bb)
+
             return v_aa, v_ab, v_bb
 
     def get_composite_moments(self, m0_new, m1_new):
