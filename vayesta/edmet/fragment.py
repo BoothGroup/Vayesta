@@ -27,6 +27,7 @@ class EDMETFragment(DMETFragment):
         renorm_energy_couplings: bool = NotSet
         occ_proj_kernel: bool = NotSet
         boson_xc_kernel: bool = NotSet
+        bosonic_interaction: str = NotSet
 
     @dataclasses.dataclass
     class Results(DMETFragment.Results):
@@ -226,12 +227,22 @@ class EDMETFragment(DMETFragment):
 
         # If have xc kernel from previous iteration want to deduct contribution from this cluster; otherwise bosons
         # will contain a double-counted representation of the already captured correlation in the cluster.
+        self.save_noxc = self._get_boson_hamil(apb - xc_apb, renorm_amb - xc_amb)
+
         if self.prev_xc_contrib is not None:
             dc_apb, dc_amb = self.get_xc_couplings(self.prev_xc_contrib, np.concatenate([ov_rot, self.r_bos], axis=0))
             apb -= dc_apb
             renorm_amb -= dc_amb
 
-        couplings_aa, couplings_bb, a_bos, b_bos = self._get_boson_hamil(apb, renorm_amb)
+        self.save_wxc= self._get_boson_hamil(apb, renorm_amb)
+
+        if self.opts.bosonic_interaction.lower() == "xc":
+            couplings_aa, couplings_bb, a_bos, b_bos = self.save_wxc
+        elif self.opts.bosonic_interaction.lower() == "coulomb":
+            couplings_aa, couplings_bb, a_bos, b_bos = self.save_noxc
+        else:
+            self.log.critical("Unknown bosonic interaction kernel specified.")
+            raise RuntimeError
 
         self.bos_freqs, x, y = bogoliubov_decouple(a_bos + b_bos, a_bos - b_bos)
 

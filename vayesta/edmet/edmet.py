@@ -29,6 +29,7 @@ class EDMET(RDMET):
         renorm_energy_couplings: bool = True
         occ_proj_kernel: bool = True
         boson_xc_kernel: bool = False
+        bosonic_interaction: str = "xc"
 
     Fragment = EDMETFragment
 
