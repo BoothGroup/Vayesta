@@ -18,7 +18,7 @@ from .rdm import make_rdm1_ccsd
 from .rdm import make_rdm1_ccsd_old
 from .rdm import make_rdm2_ccsd
 
-from .fragment import _gamma2_intermediates # Temporary work -> move to pyscf
+from .fragment import _gamma2_intermediates # Temporary -> move to pyscf
 
 timer = mpi.timer
 
@@ -455,8 +455,6 @@ def get_bath_bath_energy(self, method='avg', t_as_lambda=False):
     get_c2c = lambda i,j: dot(self.fragments[i].cluster.c_active_occ.T, self.get_ovlp(), self.fragments[j].cluster.c_active_occ)
 
     get_c2f = lambda i,j: dot(self.fragments[i].c_frag.T, self.get_ovlp(), self.fragments[j].cluster.c_active_occ)
-
-    from .fragment import _gamma2_intermediates
 
     def calc_subspace_energy(self, P1, P2, i1, i2, t_as_lambda=t_as_lambda):
 
