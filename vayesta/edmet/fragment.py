@@ -240,12 +240,14 @@ class EDMETFragment(DMETFragment):
             apb -= dc_apb
             renorm_amb -= dc_amb
 
-        self.save_wxc= self._get_boson_hamil(apb, renorm_amb)
+        self.save_wxc = self._get_boson_hamil(apb, renorm_amb)
 
         if self.opts.bosonic_interaction.lower() == "xc":
             couplings_aa, couplings_bb, a_bos, b_bos = self.save_wxc
-        elif self.opts.bosonic_interaction.lower() == "coulomb":
+        elif self.opts.bosonic_interaction.lower() == "direct":
             couplings_aa, couplings_bb, a_bos, b_bos = self.save_noxc
+        elif self.opts.bosonic_interaction.lower() == "qba":
+            couplings_aa, couplings_bb, a_bos, b_bos = self.proj_hamil_qba(eps)
         else:
             self.log.critical("Unknown bosonic interaction kernel specified.")
             raise RuntimeError
@@ -376,6 +378,70 @@ class EDMETFragment(DMETFragment):
 
     def get_loc_eps(self, eps, rot):
         return einsum("ln,n,mn->lm", rot, eps, rot)
+
+    def proj_hamil_qba(self, eps, exchange_between_bos=True):
+        """Generate quasi-bosonic Hamiltonian via projection of appropriate Hamiltonian elements of full system.
+        This represents the bosons as an explicit sum of environmental excitations, which we then approximate as bosonic
+         degrees of freedom."""
+
+        c = self.cluster.c_active
+        if not isinstance(c, tuple):
+            c = (c, c)
+
+
+        r_bos_aoa, r_bos_aob = self.r_bos_ao
+        # Note that our o-v fock matrix blocks may be nonzero, however our environmental states are always constructed
+        # from only particle-hole excitations.
+        # If no correlation potential was used this can be calculated by eps.
+        fock = self.base.get_fock()
+        if not isinstance(fock, tuple):
+            fock = (fock, fock)
+        fa, fb = fock
+
+        # Can just use expressions for Hamiltonian elements between single excitations.
+        einsum("", ca, fa)
+
+
+
+        r_bos = self.r_bos
+        r_mf = self.get_rot_to_mf_ov()
+        r_mfa, r_mfb = r_mf[:self.ov_active_ab[0]], r_mf[self.ov_active_ab[0]:]
+        couplings_aa = einsum("m,nm,lm->nl", eps, r_bos, r_mfa).reshape((self.nbos, self.nocc_ab[0], self.nvir_ab[0]))
+        couplings_bb = einsum("m,nm,lm->nl", eps, r_bos, r_mfb).reshape((self.nbos, self.nocc_ab[1], self.nvir_ab[1]))
+        a_bos = einsum("m,nm,lm->nl", eps, r_bos, r_bos)
+        b_bos = np.zeros_like(a_bos)
+
+        # Get coulombic contribution.
+        if self.base.with_df:
+            for eri1 in self.mf.with_df.loop():
+                l_ = pyscf.lib.unpack_tril(eri1)
+
+                # First generate coulomb interactions effects. This all scales as N^3.
+                l_bos = einsum("npq,mpq->nm", l_, r_bos_aoa + r_bos_aob)  # N^3
+                la_ferm = einsum("npq,pi,qj->nij", l_, c[0], c[0])  # N^3
+                lb_ferm = einsum("npq,pi,qj->nij", l_, c[1], c[1])  # N^3
+
+                couplings_aa += einsum("nm,nij->mij", l_bos, la_ferm)  # N^3
+                couplings_bb += einsum("nm,nij->mij", l_bos, lb_ferm)  # N^3
+                del la_ferm, lb_ferm
+                a_bos += einsum("nm,no->mo", l_bos, l_bos)  # N
+                del l_bos
+                # Now exchange contributions; those to the coupling are straightforward (N^3) to calculate.
+                la_singl = einsum("npq,pi->niq", l_, ca)  # N^3
+                lb_singl = einsum("npq,pi->niq", l_, cb)  # N^3
+                couplings_aa += einsum("nip,njq,mpq->mij", la_singl, la_singl, r_bos_aoa)  # N^3
+                couplings_bb += einsum("nip,njq,mpq->mij", lb_singl, lb_singl, r_bos_aob)  # N^3
+                del la_singl, lb_singl
+                if exchange_between_bos:
+                    # boson-boson interactions are N^4, so if have O(N) clusters this would push our scaling to N^5...
+                    # Note we want both `occupied` indices of bosonic degrees of freedom to contract to same l, and the
+                    # same for both `virtual` indices.
+                    a_bos += einsum("nqrm,nrql->ml",
+                                    einsum("npq,mpr->nqrm", l_, r_bos_aoa + r_bos_aob),
+                                    einsum("npq,lqr->nprl", l_, r_bos_aoa + r_bos_aob))
+                L = einsum("npq,lpq->nl", pyscf.lib.unpack_tril(eri1), )
+
+        return couplings_aa, couplings_bb, a_bos, b_bos
 
     def kernel(self, bno_threshold=None, bno_number=None, solver=None, eris=None, construct_bath=False,
                chempot=None):
