@@ -175,7 +175,7 @@ class ssRIRPA:
                 self.log.info("Approximated correlation energy contribution: %e", val)
                 e2 -= val
                 e3 += einsum("np,np->", ri_a_xc[0], ri_a_xc[1]) - einsum("np,np->", ri_b_xc[0], ri_b_xc[1]) / 2
-            elif correction.lower() == "XC_AC":
+            elif correction.lower() == "xc_ac":
                 pass
         self.e_corr_ss = 0.5 * (e1 + e2 - e3)
         err /= 2
