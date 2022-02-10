@@ -578,7 +578,9 @@ class KRAGF2(RAGF2):
         with self.log.withIndentLevel(1):
             self.log.debugv("%4s %4s %4s %4s" % ("kpt", "naux", "nocc", "nvir"))
             for i, g in enumerate(gf):
-                self.log.debugv("%4d %4d %4d %4d" % (i, gf[i].naux, gf[i].nocc, gf[i].nvir))
+                nocc = gf[i].get_occupied().naux
+                nvir = gf[i].get_virtual().naux
+                self.log.debugv("%4d %4d %4d %4d" % (i, gf[i].naux, nocc, nvir))
 
         return gf
 
