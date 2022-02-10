@@ -20,7 +20,6 @@ from vayesta import libs
 from vayesta.eagf2 import helper
 from vayesta.eagf2.ragf2 import RAGF2Options, RAGF2, DIIS
 from vayesta.core.util import time_string, OptionsBase, NotSet
-from vayesta.core.foldscf import get_phase
 from vayesta.misc import gdf
 
 # Timings
@@ -136,63 +135,78 @@ def _make_mo_eris(self, mo_coeff=None):
     return qij
 
 
-def _gradient(x, se, fock, nelec, phase, occupancy=2, buf=None):
-    '''
-    Gradient function for the shift in auxiliary energies.
-    '''
-    #FIXME: may require lots of memory
-    #FIXME: binsearch_chempot calls not actually needed...
+def search_chempot(fock, nphys, nelec, occupancy=2):
+    """Search for a chemical potential.
+    """
 
-    ws = []
-    vs = []
-    nkpts = len(fock)
-    nmo = fock[0].shape[0]
-    nr = phase.shape[1]
-    dtype = np.result_type(*[s.coupling.dtype for s in se], *[f.dtype for f in fock])
-    ddm = np.zeros((nkpts, nmo, nmo), dtype=dtype)
-    assert phase.shape == (nkpts, nkpts)
+    if isinstance(fock, tuple):
+        w, v = fock
+    else:
+        w, v = zip(*[np.linalg.eigh(f) for f in fock])
 
-    for i, s in enumerate(se):
-        buf_ = buf
-        if buf_ is not None:
-            buf_ = buf.ravel()[:(nmo+s.naux)**2].reshape(nmo+s.naux, nmo+s.naux)
-        w, v = s.eig(fock[i], chempot=x, out=buf_)
-        ws.append(w)
-        vs.append(v)
+    kidx = np.concatenate([[i]*x.size for i, x in enumerate(w)])
+    w = np.concatenate(w)
+    v = np.hstack(v)
 
-        nocc = np.sum(w < s.chempot)
+    mask = np.argsort(w)
+    kidx = kidx[mask]
+    w = w[mask]
+    v = v[:, mask]
 
+    nmo = v.shape[-1]
+    sum0 = sum1 = 0.0
+
+    for i in range(nmo):
+        k = kidx[i]
+        n = occupancy * np.dot(v[:nphys[k], i].conj().T, v[:nphys[k], i]).real
+        sum0, sum1 = sum1, sum1 + n
+
+        if i > 0:
+            if sum0 <= nelec and nelec <= sum1:
+                break
+
+    if abs(sum0 - nelec) < abs(sum1 - nelec):
+        homo = i - 1
+        error = nelec - sum0
+    else:
+        homo = i
+        error = nelec - sum1
+
+    lumo = homo + 1
+
+    if lumo == len(w):
+        chempot = w[homo] + 1e-6
+    else:
+        chempot = 0.5 * (w[homo] + w[lumo])
+
+    return chempot, error
+
+
+def _gradient(x, se, fock, nelec, occupancy=2, buf=None):
+    """Gradient of the number of electrons w.r.t shift in auxiliary
+    energies.
+    """
+    #TODO buf
+
+    ws, vs = zip(*[s.eig(f, chempot=x) for s, f in zip(se, fock)])
+    chempot, error = search_chempot((ws, vs), [x.nphys for x in se], nelec)
+
+    nmo = se[0].nphys
+
+    ddm = 0.0
+    for i, (w, v) in enumerate(zip(ws, vs)):
+        nmo = se[i].nphys
+        nocc = np.sum(w < se[0].chempot)
         h1 = -np.dot(v[nmo:, nocc:].T.conj(), v[nmo:, :nocc])
-        zai = -h1 / lib.direct_sum('i,a->ai', w[:nocc], -w[nocc:])
+        zai = -h1 / lib.direct_sum("i-a->ai", w[:nocc], w[nocc:])
+        ddm += lib.einsum("ai,pa,pi->", zai, v[:nmo, nocc:], v[:nmo, :nocc].conj()).real * 4
 
-        c_occ = np.dot(v[:nmo, nocc:], zai)
-        ddm[i] = np.dot(v[:nmo, :nocc], c_occ.T.conj()) * 4
+    grad = occupancy * error * ddm
 
-    # vs are (mo + aux | qmo)
-    # ddm are (mo | mo)
-    # Transform from k-space to supercell:
-    v_gamma = []
-    for i in range(nkpts):
-        v_k = np.einsum('R,um->Rum', phase[i], vs[i][:nmo])
-        v_k = v_k.reshape(nkpts*nmo, -1)
-        v_gamma.append(v_k)
-    v_gamma = np.hstack(v_gamma)
-    w_gamma = np.concatenate(ws)
-    mask = np.argsort(w_gamma)
-    w_gamma, v_gamma = w_gamma[mask], v_gamma[:, mask]
-    ddm_gamma = np.einsum('kij,kR,kS->RiSj', ddm, phase, phase.conj())
-    ddm_gamma = ddm_gamma.reshape(nkpts*nmo, nkpts*nmo)
-
-    chempot, error = agf2.chempot.binsearch_chempot((w_gamma, v_gamma), nkpts*nmo,
-                                                    sum(nelec), occupancy=occupancy)
-
-    ne = np.trace(ddm_gamma).real
-    d = occupancy * error * ne
-
-    return error**2, d
+    return error**2, grad
 
 
-def minimize_chempot(se, fock, nelec, phase, occupancy=2, x0=0.0, tol=1e-6, maxiter=200):
+def minimize_chempot(se, fock, nelec, occupancy=2, x0=0.0, tol=1e-6, maxiter=200):
     '''
     Optimises the shift in the auxiliaries energies to satisfy the
     electron number, ensuring that the same shift is applied at all
@@ -205,7 +219,7 @@ def minimize_chempot(se, fock, nelec, phase, occupancy=2, x0=0.0, tol=1e-6, maxi
     nphys = max([s.nphys for s in se])
     naux = max([s.naux for s in se])
     buf = np.zeros(((nphys + naux)**2,), dtype=dtype)
-    fargs = (se, fock, nelec, phase, occupancy, buf)
+    fargs = (se, fock, nelec, occupancy, buf)
 
     options = dict(maxiter=maxiter, ftol=tol, xtol=tol, gtol=tol)
     kwargs = dict(x0=x0, method='TNC', jac=True, options=options)
@@ -213,10 +227,14 @@ def minimize_chempot(se, fock, nelec, phase, occupancy=2, x0=0.0, tol=1e-6, maxi
 
     opt = scipy.optimize.minimize(fun, args=fargs, **kwargs)
 
-    for i, s in enumerate(se):
+    for s in se:
         s.energy -= opt.x
-        s.chempot = agf2.chempot.binsearch_chempot(s.eig(fock[i]), s.nphys, nelec[i],
-                                                   occupancy=occupancy)[0]
+
+    ws, vs = zip(*[s.eig(f) for s, f in zip(se, fock)])
+    chempot = search_chempot((ws, vs), [x.nphys for x in se], nelec, occupancy=occupancy)[0]
+
+    for s in se:
+        s.chempot = chempot
 
     return se, opt
 
@@ -620,8 +638,9 @@ class KRAGF2(RAGF2):
                     gf.append(agf2.GreensFunction(w[i], v[i][:nact], chempot=se[i].chempot))
                 else:
                     gf.append(agf2.GreensFunction(w[i], v[i], chempot=se[i].chempot))
-                gf[i].chempot = se[i].chempot = \
-                        agf2.chempot.binsearch_chempot((w[i], v[i]), nact, nelec[i])[0]
+            chempot = search_chempot((w, v), self.nact, sum(nelec))[0]
+            for s, g in zip(se, gf):
+                s.chempot = g.chempot = chempot
             return gf, se, True
 
         self.log.info("Fock loop")
@@ -631,24 +650,22 @@ class KRAGF2(RAGF2):
         rdm1_prev = [np.zeros_like(f) for f in fock]
         converged = False
         conv_tol_nelec_target = self.opts.conv_tol_nelec * self.opts.conv_tol_nelec_factor 
-        phase = get_phase(self.cell, self.kpts)[1]
 
         self.log.infov('%12s %9s %12s %12s', 'Iteration', 'Cycles', 'Nelec error', 'DM change')
 
         for niter1 in range(1, self.opts.max_cycle_outer+1):
-            se, opt = minimize_chempot(se, fock, nelec, phase, tol=conv_tol_nelec_target,
-                                       maxiter=self.opts.max_cycle_inner,
+            se, opt = minimize_chempot(
+                    se, fock, sum(nelec),
+                    tol=conv_tol_nelec_target,
+                    maxiter=self.opts.max_cycle_inner,
             )
 
             for niter2 in range(1, self.opts.max_cycle_inner+1):
                 w, v = self.solve_dyson(se=se, gf=gf, fock=fock)
-                nerr = 0.0
+                chempot, nerr = search_chempot((w, v), self.nact, sum(nelec))
                 for i in range(self.nkpts):
-                    nact = self.nact[i]
-                    se[i].chempot, nerr_k = \
-                            agf2.chempot.binsearch_chempot((w[i], v[i]), nact, nelec[i])
-                    gf[i] = agf2.GreensFunction(w[i], v[i][:nact], chempot=se[i].chempot)
-                    nerr += nerr_k
+                    se[i].chempot = chempot
+                    gf[i] = agf2.GreensFunction(w[i], v[i][:self.nact[i]], chempot=chempot)
 
                 fock = self.get_fock(gf=gf, with_frozen=False)
                 rdm1 = self.make_rdm1(gf=gf, with_frozen=False)
