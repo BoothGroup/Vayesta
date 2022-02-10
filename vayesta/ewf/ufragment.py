@@ -133,3 +133,24 @@ class UEWFFragment(UFragment, EWFFragment):
         e_doubles = (self.opts.energy_factor*self.sym_factor * e_doubles)
         e_corr = (e_singles + e_doubles)
         return e_singles, e_doubles, e_corr
+
+    def get_cluster_sz2(self, projector=None):
+        """<P(A) S_z P(B) S_z>"""
+        raise NotImplementedError()
+        #dm1 = self.results.dm1
+        #dm2 = self.results.dm2
+        #if dm1 is None or dm2 is None:
+        #    raise ValueError()
+        #dm1a = dm1b = dm1
+        #dm2aa, dm2ab, dm2bb = dm2
+
+        #if projector is None:
+        #    sz2 = (0.5*einsum('iijj->', dm2aa)
+        #         - 0.5*einsum('iijj->', dm2ab))
+        #    sz2 += 0.5*einsum('ii->', dm1a)
+        #else:
+        #    p1, p2 = projector
+        #    sz2 = (0.5*einsum('ijkl,ij,kl->', dm2aa, p1, p2)
+        #         - 0.5*einsum('ijkl,ij,kl->', dm2ab, p1, p2))
+        #    sz2 += 0.5*einsum('ij,ik,jk->', dm1a, p1, p2)
+        #return sz2

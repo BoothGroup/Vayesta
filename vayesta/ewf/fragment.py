@@ -64,6 +64,8 @@ class EWFFragment(Fragment):
         bath_type: str = NotSet
         bno_truncation: str = NotSet                    # Type of BNO truncation ["occupation", "number", "excited-percent", "electron-percent"]
         bno_threshold: float = NotSet
+        bno_threshold_occ: float = NotSet
+        bno_threshold_vir: float = NotSet
         bno_project_t2: bool = NotSet
         ewdmet_max_order: int = NotSet
         # CAS methods
@@ -72,6 +74,7 @@ class EWFFragment(Fragment):
         #
         # --- Energy
         calculate_e_dmet: bool = 'auto'
+        e_corr_part: str = NotSet
         #
         dm_with_frozen: bool = NotSet
         # --- Solver options
@@ -207,14 +210,17 @@ class EWFFragment(Fragment):
             #    bath = MP2_BNO_Bath(self, dmet_threshold=self.opts.dmet_threshold)
         raise ValueError("Unknown bath_type: %r" % bath_type)
 
-    def make_cluster(self, bath=None, bno_threshold=None):
+    def make_cluster(self, bath=None, bno_threshold=None, bno_threshold_occ=None, bno_threshold_vir=None):
         if bath is None:
             bath = self.bath
         if bath is None:
             raise ValueError("make_cluster requires bath.")
-
-        c_bath_occ, c_frozen_occ = bath.get_occupied_bath(bno_threshold=bno_threshold)
-        c_bath_vir, c_frozen_vir = bath.get_virtual_bath(bno_threshold=bno_threshold)
+        if bno_threshold_occ is None:
+            bno_threshold_occ = bno_threshold
+        if bno_threshold_vir is None:
+            bno_threshold_vir = bno_threshold
+        c_bath_occ, c_frozen_occ = bath.get_occupied_bath(bno_threshold=bno_threshold_occ)
+        c_bath_vir, c_frozen_vir = bath.get_virtual_bath(bno_threshold=bno_threshold_vir)
         # Canonicalize orbitals
         c_active_occ = self.canonicalize_mo(bath.dmet_bath.c_cluster_occ, c_bath_occ)[0]
         c_active_vir = self.canonicalize_mo(bath.dmet_bath.c_cluster_vir, c_bath_vir)[0]
@@ -256,7 +262,7 @@ class EWFFragment(Fragment):
         #if init_guess is None: init_guess = {}
         #return init_guess
 
-    def kernel(self, bno_threshold=None, solver=None, init_guess=None, eris=None):
+    def kernel(self, bno_threshold=None, bno_threshold_occ=None, bno_threshold_vir=None, solver=None, init_guess=None, eris=None):
         """Run solver for a single BNO threshold.
 
         Parameters
@@ -272,14 +278,25 @@ class EWFFragment(Fragment):
         """
         if bno_threshold is None:
             bno_threshold = self.opts.bno_threshold
+        if bno_threshold_occ is None:
+            bno_threshold_occ = self.opts.bno_threshold_occ
+        if bno_threshold_vir is None:
+            bno_threshold_vir = self.opts.bno_threshold_vir
+
         bno_threshold = BNO_Threshold(self.opts.bno_truncation, bno_threshold)
+
+        if bno_threshold_occ is not None:
+            bno_threshold_occ = BNO_Threshold(self.opts.bno_truncation, bno_threshold_occ)
+        if bno_threshold_vir is not None:
+            bno_threshold_vir = BNO_Threshold(self.opts.bno_truncation, bno_threshold_vir)
 
         if solver is None:
             solver = self.solver
         if self.bath is None:
             self.make_bath()
 
-        cluster = self.make_cluster(self.bath, bno_threshold=bno_threshold)
+        cluster = self.make_cluster(self.bath, bno_threshold=bno_threshold,
+                bno_threshold_occ=bno_threshold_occ, bno_threshold_vir=bno_threshold_vir)
         cluster.log_sizes(self.log.info, header="Orbitals for %s with %s" % (self, bno_threshold))
 
         # For self-consistent calculations, we can reuse ERIs:
@@ -479,15 +496,45 @@ class EWFFragment(Fragment):
         else:
             g_ovvo = eris[occ,vir,vir,occ]
 
+        e_doubles = 0
         if axis1 == 'fragment':
-            e_doubles = 2*einsum('xi,xjab,iabj', px, c2, g_ovvo) - einsum('xi,xjab,jabi', px, c2, g_ovvo)
+            if self.opts.e_corr_part in ('all', 'direct'):
+                e_doubles += 2*einsum('xi,xjab,iabj', px, c2, g_ovvo)
+            if self.opts.e_corr_part in ('all', 'exchange'):
+                e_doubles -= einsum('xi,xjab,jabi', px, c2, g_ovvo)
         else:
-            e_doubles = 2*einsum('ijab,iabj', c2, g_ovvo) - einsum('ijab,jabi', c2, g_ovvo)
+            if self.opts.e_corr_part in ('all', 'direct'):
+                e_doubles += 2*einsum('ijab,iabj', c2, g_ovvo)
+            if self.opts.e_corr_part in ('all', 'exchange'):
+                e_doubles -= einsum('ijab,jabi', c2, g_ovvo)
 
         e_singles = (self.get_energy_prefactor() * e_singles)
         e_doubles = (self.get_energy_prefactor() * e_doubles)
         e_corr = (e_singles + e_doubles)
         return e_singles, e_doubles, e_corr
+
+    def get_cluster_ssz(self, projector=None):
+        """<P(A) S_z P(B) S_z>"""
+        dm1 = self.results.dm1
+        dm2 = self.results.dm2
+        if dm1 is None or dm2 is None:
+            raise ValueError()
+        dm1a = dm1/2
+
+        dm2aa = (dm2 - dm2.transpose(0,3,2,1)) / 6
+        dm2ab = (dm2/2 - dm2aa)
+
+        if projector is None:
+            ssz = (0.5*einsum('iijj->', dm2aa)
+                 - 0.5*einsum('iijj->', dm2ab))
+            ssz += 0.5*einsum('ii->', dm1a)
+        else:
+            p1, p2 = projector
+            ssz = (0.5*einsum('ijkl,ij,kl->', dm2aa, p1, p2)
+                 - 0.5*einsum('ijkl,ij,kl->', dm2ab, p1, p2))
+            ssz += 0.5*einsum('ij,ik,jk->', dm1a, p1, p2)
+            #ssz += 0.5*einsum('ij,ij->', dm1a, p1)
+        return ssz
 
     def eom_analysis(self, csolver, kind, filename=None, mode="a", sort_weight=True, r1_min=1e-2):
         kind = kind.upper()

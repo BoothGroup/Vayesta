@@ -215,7 +215,7 @@ class Embedding:
         if abs((e_mf - e_hf)/e_mf) > 1e-3:
             self.log.warning("Non Hartree-Fock mean-field? Large change of energy: E(mf)= %s -> E(HF)= %s (dE= %s) !",
                     *map(energy_string, (e_mf, e_hf, e_hf-e_mf)))
-        elif abs(e_mf - e_hf) > 1e-7:
+        elif abs(e_mf - e_hf) > 1e-6:
             self.log.info("Non Hartree-Fock mean-field detected. Change of energy: E(mf)= %s -> E(HF)= %s (dE= %s)",
                     *map(energy_string, (e_mf, e_hf, e_hf-e_mf)))
         else:

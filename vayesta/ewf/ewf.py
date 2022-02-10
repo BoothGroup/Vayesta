@@ -17,7 +17,6 @@ import pyscf.pbc.tools
 from vayesta.core.util import *
 from vayesta.core import Embedding
 from vayesta.core.mpi import mpi
-from vayesta.core.mpi import RMA_Dict
 # --- Package
 from . import helper
 from .fragment import EWFFragment as Fragment
@@ -25,6 +24,7 @@ from .amplitudes import get_global_t1_rhf
 from .amplitudes import get_global_t2_rhf
 from .rdm import make_rdm1_ccsd
 from .rdm import make_rdm2_ccsd
+from .icmp2 import get_intercluster_mp2_energy_rhf
 
 timer = mpi.timer
 
@@ -36,7 +36,7 @@ class EWFResults:
     e_corr: float = None
 
 
-VALID_SOLVERS = [None, "", "MP2", "CISD", "CCSD", 'TCCSD', "CCSD(T)", 'FCI', "FCI-spin0", "FCI-spin1"]
+VALID_SOLVERS = [None, '', 'MP2', 'CISD', 'CCSD', 'TCCSD', 'CCSD(T)', 'FCI', 'FCI-spin0', 'FCI-spin1']
 
 class EWF(Embedding):
 
@@ -53,6 +53,8 @@ class EWF(Embedding):
         bath_type: str = 'MP2-BNO'
         bno_truncation: str = 'occupation'  # Type of BNO truncation ["occupation", "number", "excited-percent", "electron-percent"]
         bno_threshold: float = 1e-8
+        bno_threshold_occ: float = None
+        bno_threshold_vir: float = None
         bno_project_t2: bool = False
         ewdmet_max_order: int = 1
         # If multiple bno thresholds are to be calculated, we can project integrals and amplitudes from a previous larger cluster:
@@ -80,6 +82,7 @@ class EWF(Embedding):
         icmp2: bool = True
         icmp2_bno_threshold: float = 1e-8
         # --- Other
+        e_corr_part: str = 'all'    # ['all', 'direct', 'exchange']
         #energy_partitioning: str = 'first-occ'
         strict: bool = False                # Stop if cluster not converged
         # --- Storage [True=store and force calculation, 'auto'=store if present, False=do not store]
@@ -394,208 +397,7 @@ class EWF(Embedding):
     def make_rdm2_ccsd(self, *args, **kwargs):
         return make_rdm2_ccsd(self, *args, **kwargs)
 
-    def get_intercluster_mp2_energy(self, bno_threshold_occ=None, bno_threshold_vir=1e-8, direct=True, exchange=True,
-            fragments=None, project_dc='vir', vers=1, diagonal=True):
-        """Get long-range, inter-cluster energy contribution on the MP2 level.
-
-        This constructs T2 amplitudes over two clusters, X and Y, as
-
-            t_ij^ab = \sum_L (ia|L)(L|j'b') / (ei + ej' - ea - eb)
-
-        where i,a are in cluster X and j,b are in cluster Y.
-
-        Parameters
-        ----------
-        bno_threshold_occ: float, optional
-            Threshold for occupied BNO space. Default: None.
-        bno_threshold_vir: float, optional
-            Threshold for virtual BNO space. Default: 1e-8.
-        direct: bool, optional
-            Calculate energy contribution from the second-order direct MP2 term. Default: True.
-        exchange: bool, optional
-            Calculate energy contribution from the second-order exchange MP2 term. Default: True.
-
-        Returns
-        -------
-        e_icmp2: float
-            Intercluster MP2 energy contribution.
-        """
-
-        if project_dc not in ('occ', 'vir', 'both', None):
-            raise ValueError()
-        if not self.has_df:
-            raise RuntimeError("Intercluster MP2 energy requires density-fitting.")
-
-        e_direct = 0.0
-        e_exchange = 0.0
-        with log_time(self.log.timing, "Time for intercluster MP2 energy: %s"):
-            ovlp = self.get_ovlp()
-            if self.kdf is not None:
-                # We need the supercell auxiliary cell here:
-                cellmesh = self.mf.subcellmesh
-                auxmol = pyscf.pbc.tools.super_cell(self.kdf.auxcell, cellmesh)
-            else:
-                try:
-                    auxmol = self.df.auxmol
-                except AttributeError:
-                    auxmol = self.df.auxcell
-
-            with log_time(self.log.timing, "Time for intercluster MP2 energy setup: %s"):
-                coll = {}
-                # Loop over symmetry unique fragments X
-                for x in self.get_fragments(mpi_rank=mpi.rank, sym_parent=None):
-                    # Occupied orbitals:
-                    if bno_threshold_occ is None:
-                        c_occ = x.bath.dmet_bath.c_cluster_occ
-                    else:
-                        c_bath_occ = x.bath.get_occupied_bath(bno_threshold=bno_threshold_occ, verbose=False)[0]
-                        c_occ = x.canonicalize_mo(x.bath.c_cluster_occ, c_bath_occ)[0]
-                    # Virtual orbitals:
-                    if bno_threshold_vir is None:
-                        c_vir = x.bath.dmet_bath.c_cluster_vir
-                    else:
-                        c_bath_vir = x.bath.get_virtual_bath(bno_threshold=bno_threshold_vir, verbose=False)[0]
-                        c_vir = x.canonicalize_mo(x.bath.c_cluster_vir, c_bath_vir)[0]
-                    # Three-center integrals:
-                    cderi, cderi_neg = self.get_cderi((c_occ, c_vir))   # TODO: Reuse BNO
-                    # Store required quantities:
-                    coll[x.id, 'p_frag'] = dot(x.c_proj.T, ovlp, c_occ)
-                    coll[x.id, 'c_vir'] = c_vir
-                    coll[x.id, 'e_occ'] = x.get_fragment_mo_energy(c_occ)
-                    coll[x.id, 'e_vir'] = x.get_fragment_mo_energy(c_vir)
-                    coll[x.id, 'cderi'] = cderi
-                    # TODO: Test 2D
-                    if cderi_neg is not None:
-                        coll[x.id, 'cderi_neg'] = cderi_neg
-                    # Fragments Y, which are symmetry related to X
-                    for y in self.get_fragments(sym_parent=x):
-                        sym_op = y.get_symmetry_operation()
-                        coll[y.id, 'c_vir'] = sym_op(c_vir)
-                        # TODO: Why do we need to invert the atom reordering with argsort?
-                        sym_op_aux = type(sym_op)(auxmol, vector=sym_op.vector, atom_reorder=np.argsort(sym_op.atom_reorder))
-                        coll[y.id, 'cderi'] = sym_op_aux(cderi)
-                        #cderi_y2 = self.get_cderi((sym_op(c_occ), sym_op(c_vir)))[0]
-                        if cderi_neg is not None:
-                            coll[y.id, 'cderi_neg'] = cderi_neg
-                # Convert into remote memory access (RMA) dictionary:
-                if mpi:
-                    coll = mpi.create_rma_dict(coll)
-
-            class Cluster:
-                """Helper class"""
-
-                def __init__(self, fragment):
-                    # The following attributes can be used from the symmetry parent, without modification:
-                    f0id = fragment.get_symmetry_parent().id
-                    self.p_frag = coll[f0id, 'p_frag']
-                    self.e_occ = coll[f0id, 'e_occ']
-                    self.e_vir = coll[f0id, 'e_vir']
-                    # These attributes are different for every fragment:
-                    fid = fragment.id
-                    self.c_vir = coll[fid, 'c_vir']
-                    self.cderi = coll[fid, 'cderi']
-                    if (fid, 'cderi_neg') in coll:
-                        self.cderi_neg = coll[fid, 'cderi_neg']
-                    else:
-                        self.cderi_neg = None
-
-            #for ix, x in enumerate(self.get_fragments(mpi_rank=mpi.rank)):
-            for ix, x in enumerate(self.get_fragments(fragments, mpi_rank=mpi.rank, sym_parent=None)):
-                cx = Cluster(x)
-
-                eia_x = cx.e_occ[:,None] - cx.e_vir[None,:]
-
-                # Already contract these parts of P_dc and S_vir, to avoid having the n(AO)^2 overlap matrix in the n(Frag)^2 loop:
-                if project_dc in ('occ', 'both'):
-                    pdco0 = np.dot(x.cluster.c_active.T, ovlp)
-                if project_dc in ('vir', 'both'):
-                    pdcv0 = np.dot(x.cluster.c_active_vir.T, ovlp)
-                #if exchange:
-                svir0 = np.dot(cx.c_vir.T, ovlp)
-
-                # Loop over all other fragments
-                for iy, y in enumerate(self.get_fragments()):
-                    cy = Cluster(y)
-
-                    # TESTING
-                    if diagonal == 'only' and x.id != y.id:
-                        continue
-                    if not diagonal and x.id == y.id:
-                        continue
-
-                    eia_y = cy.e_occ[:,None] - cy.e_vir[None,:]
-
-                    # Make T2
-                    # TODO: save memory by blocked loop
-                    # OR: write C function (also useful for BNO build)
-                    eris = einsum('Lia,Ljb->ijab', cx.cderi, cy.cderi) # O(n(frag)^2) * O(naux)
-                    if cx.cderi_neg is not None:
-                        eris -= einsum('Lia,Ljb->ijab', cx.cderi_neg, cy.cderi_neg)
-                    eijab = (eia_x[:,None,:,None] + eia_y[None,:,None,:])
-                    t2 = (eris / eijab)
-                    # Project i onto F(x) and j onto F(y):
-                    t2 = einsum('xi,yj,ijab->xyab', cx.p_frag, cy.p_frag, t2)
-                    eris = einsum('xi,yj,ijab->xyab', cx.p_frag, cy.p_frag, eris)
-
-                    #if exchange:
-                    #    # Overlap of virtual space between X and Y
-                    svir = np.dot(svir0, cy.c_vir)
-
-                    # Projector to remove double counting with intracluster energy
-                    ed = ex = 0
-                    if project_dc == 'occ':
-                        pdco = np.dot(pdco0, y.c_proj)
-                        pdco = (np.eye(pdco.shape[-1]) - dot(pdco.T, pdco))
-                        if direct:
-                            if vers == 1:
-                                ed = 2*einsum('ijab,iJab,jJ->', t2, eris, pdco)
-                            elif vers == 2:
-                                ed = 2*einsum('ijab,iJAb,jJ,aC,AC->', t2, eris, pdco, svir, svir)
-                        if exchange:
-                            ex = -einsum('ijaB,iJbA,jJ,aA,bB->', t2, eris, pdco, svir, svir)
-                    elif project_dc == 'vir':
-                        pdcv = np.dot(pdcv0, cy.c_vir)
-                        pdcv = (np.eye(pdcv.shape[-1]) - dot(pdcv.T, pdcv))
-                        if direct:
-                            if vers == 1:
-                                ed = 2*einsum('ijab,ijaB,bB->', t2, eris, pdcv)
-                            elif vers == 2:
-                                ed = 2*einsum('ijab,ijAB,bB,aC,AC->', t2, eris, pdcv, svir, svir)
-                        if exchange:
-                            ex = -einsum('ijaB,ijbC,CA,aA,bB->', t2, eris, pdcv, svir, svir)
-                    elif project_dc == 'both':
-                        pdco = np.dot(pdco0, y.c_proj)
-                        pdco = (np.eye(pdco.shape[-1]) - dot(pdco.T, pdco))
-                        pdcv = np.dot(pdcv0, cy.c_vir)
-                        pdcv = (np.eye(pdcv.shape[-1]) - dot(pdcv.T, pdcv))
-                        if direct:
-                            ed = 2*einsum('ijab,iJaB,jJ,bB->', t2, eris, pdco, pdcv)
-                        if exchange:
-                            ex = -einsum('ijaB,iJbC,jJ,CA,aA,bB->', t2, eris, pdco, pdcv, svir, svir)
-                    elif project_dc is None:
-                        if direct:
-                            ed = 2*einsum('ijab,ijab->', t2, eris)
-                        if exchange:
-                            ex = -einsum('ijaB,ijbA,aA,bB->', t2, eris, svir, svir)
-
-                    prefac = x.sym_factor * x.symmetry_factor * y.sym_factor
-                    e_direct += prefac * ed
-                    e_exchange += prefac * ex
-
-                    if ix+iy == 0:
-                        self.log.debugv("Intercluster MP2 energies:")
-                    xystr = '%s <- %s:' % (x.id_name, y.id_name)
-                    estr = energy_string
-                    self.log.debugv("  %-12s  direct= %s  exchange= %s  total= %s", xystr, estr(ed), estr(ex), estr(ed+ex))
-
-            e_direct = mpi.world.allreduce(e_direct) / self.ncells
-            e_exchange = mpi.world.allreduce(e_exchange) / self.ncells
-            e_icmp2 = e_direct + e_exchange
-            if mpi.is_master:
-                self.log.info("  %-12s  direct= %s  exchange= %s  total= %s", "Total:", estr(e_direct), estr(e_exchange), estr(e_icmp2))
-            coll.clear()    # Important in order to not run out of MPI communicators
-
-        return e_icmp2
+    get_intercluster_mp2_energy = get_intercluster_mp2_energy_rhf
 
     #def get_wf_cisd(self, intermediate_norm=False, c0=None):
     #    c0_target = c0
