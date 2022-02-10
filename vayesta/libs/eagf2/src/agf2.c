@@ -527,7 +527,7 @@ int32_t construct_moments_kagf2(
 
             // Build (pi|aj) integrals
             nbra = nmo * gfs[kb].nocc;
-            nket = gfs[kc].nvir * gfs[kb].nocc;
+            nket = gfs[kc].nvir * gfs[kd].nocc;
             Lpi = calloc(naux*nbra, sizeof(double complex));
             Laj = calloc(naux*nket, sizeof(double complex));
             piaj = calloc(nbra*nket, sizeof(double complex));
