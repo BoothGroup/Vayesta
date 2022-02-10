@@ -390,7 +390,8 @@ def _get_3c2e(with_df, kptij_lst, log=None):
 
         log.timingv("Time for 3c2e [%d -> %d] part:  %s", p0, p1, time_string(timer()-t1))
 
-    mpi_helper.allreduce_safe_inplace(int3c2e)
+    mpi_helper.barrier()
+    int3c2e = mpi_helper.allreduce(int3c2e)
     mpi_helper.barrier()
 
     log.timing("Time for 3c2e:  %s", time_string(timer()-t0))
@@ -578,7 +579,8 @@ def _get_j3c(with_df, j2c, int3c2e, uniq_kpts, uniq_inverse_dict, kptij_lst, log
 
             log.timingv("Time for j3c [kpt %d]:  %s", uniq_kpt_ji_id, time_string(timer()-t1))
 
-    mpi_helper.allreduce_safe_inplace(out)
+    mpi_helper.barrier()
+    out = mpi_helper.allreduce(out)
     mpi_helper.barrier()
 
     log.timing("Time for j3c:  %s", time_string(timer()-t0))
@@ -910,8 +912,9 @@ class GDF(df.GDF):
         )
 
         mpi_helper.barrier()
-        mpi_helper.allreduce_safe_inplace(vj)
-        mpi_helper.allreduce_safe_inplace(vk)
+        vj = mpi_helper.allreduce(vj)
+        vk = mpi_helper.allreduce(vk)
+        mpi_helper.barrier()
 
         if with_k and exxdiv == 'ewald':
             s = self.get_ovlp()
