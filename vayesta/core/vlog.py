@@ -36,6 +36,12 @@ LVL_PREFIX = {
    }
 
 
+class NoLogger:
+
+    def __getattr__(self, key):
+        """Return function which does nothing."""
+        return (lambda *args, **kwargs : None)
+
 class LevelRangeFilter(logging.Filter):
     """Only log events with level in interval [low, high)."""
 
