@@ -537,7 +537,7 @@ int32_t construct_moments_kagf2(
                             &(Lpq[ka*KLN2 + kb*LN2]), NULL, gfs[kb].ci, Lpi);
 
             // Lpq(kc, kd) -> Laj
-            j3c_ao2mo_zgemm(nmo, nmo, naux, gfs[kc].nvir, gfs[kb].nocc,
+            j3c_ao2mo_zgemm(nmo, nmo, naux, gfs[kc].nvir, gfs[kd].nocc,
                             &(Lpq[kc*KLN2 + kd*LN2]), gfs[kc].ca, gfs[kd].ci, Laj);
 
             // Lpi,Laj -> piaj
