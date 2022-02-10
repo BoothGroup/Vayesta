@@ -23,7 +23,7 @@ class MolecularEDMETTest(unittest.TestCase):
         emb = edmet.EDMET(
                 moles['h6_sto6g']['rhf'],
                 solver='EBFCI',
-                bos_occ_cutoff=1,
+                max_boson_occ=1,
                 conv_tol=self.CONV_TOL,
         )
         emb.iao_fragmentation()
@@ -40,7 +40,7 @@ class MolecularEDMETTest(unittest.TestCase):
         emb = edmet.EDMET(
                 moles['h6_sto6g']['rhf'],
                 solver='EBFCI',
-                bos_occ_cutoff=2,
+                max_boson_occ=2,
                 conv_tol=self.CONV_TOL,
         )
         emb.iao_fragmentation()

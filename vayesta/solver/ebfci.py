@@ -21,7 +21,9 @@ class EBFCI_Solver(FCI_Solver):
 
     @dataclasses.dataclass
     class Options(FCI_Solver.Options):
+        max_boson_occ: int = NotSet
         make_rdm_eb: bool = True
+        make_01_dd_mom: bool = False
 
     @dataclasses.dataclass
     class Results(FCI_Solver.Results):
@@ -30,6 +32,8 @@ class EBFCI_Solver(FCI_Solver):
         c1: np.array = None
         c2: np.array = None
         rdm_eb: np.array = None
+        dd_mom0: np.array = None
+        dd_mom1: np.array = None
 
     def __init__(self, freqs, couplings, *args, **kwargs):
         # This sets some things we don't care about, but they shouldn't cause issues.
@@ -41,11 +45,8 @@ class EBFCI_Solver(FCI_Solver):
     def nbos(self):
         return len(self.bos_freqs)
 
-    def kernel(self, bos_occ_cutoff=None, eris=None):
+    def kernel(self, eris=None):
         """Run FCI kernel."""
-
-        if bos_occ_cutoff is None:
-            bos_occ_cutoff = self.fragment.opts.bos_occ_cutoff
 
         if eris is None: eris = self.get_eris()
         heff = self.get_heff(eris)
@@ -64,10 +65,8 @@ class EBFCI_Solver(FCI_Solver):
 
         t0 = timer()
 
-        self.log.info("Running FCI with boson occupation cutoff of %d", bos_occ_cutoff)
-
         e_fci, civec = ebfci_slow.kernel(heff, eris, self.eb_coupling, np.diag(self.bos_freqs), self.nactive, nelec,
-                        self.nbos, bos_occ_cutoff, tol=conv_tol)
+                        self.nbos, self.opts.bos_occ_cutoff, tol=conv_tol)
 
         # For now assuming good convergence, to avoid interface difference between davidson and davidson1.
         self.log.debug("FCI done")#. converged: %r", fcisolver.converged)
@@ -82,13 +81,24 @@ class EBFCI_Solver(FCI_Solver):
                 converged=True, e_corr=e_fci, c_occ=self.c_active_occ, c_vir=self.c_active_vir, civec=civec)
                 #c0=c0, c1=c1, c2=c2)
         # Grab all required dms.
-        if self.opts.make_rdm2:
+        if self.opts.make_01_dd_mom:
+            results.dm1, results.dm2 = ebfci_slow.make_rdm12e(civec, self.nactive, nelec)
+            # Calculating only the components of the dd response moments we needs cuts down on calculation time.
+            frag_coeffs = np.linalg.multi_dot([self.fragment.c_active.T, self.base.get_ovlp(), self.fragment.c_frag])
+            dd_moms = ebfci_slow.calc_dd_resp_mom(civec, e_fci, 1, self.nactive, nelec,
+                                                  self.nbos, heff, eris, np.diag(self.bos_freqs), self.eb_coupling,
+                                                  self.opts.bos_occ_cutoff, results.dm1, trace = False,
+                                                  coeffs = frag_coeffs)
+            results.dd_mom0 = dd_moms[0]
+            results.dd_mom1 = dd_moms[1]
+        elif self.opts.make_rdm2:
             results.dm1, results.dm2 = ebfci_slow.make_rdm12e(civec, self.nactive, nelec)
         elif self.opts.make_rdm1:
             results.dm1 = ebfci_slow.make_rdm1e(civec, self.nactive, nelec)
 
         if self.opts.make_rdm_eb:
             # For now, generate spin-integrated DM as this is what we'll get from FCIQMC.
-            results.rdm_eb = 2 * ebfci_slow.make_eb_rdm(civec, self.nactive, nelec, self.nbos, bos_occ_cutoff)[::2,::2]
-
+            rdm_eb = ebfci_slow.make_eb_rdm(
+                civec, self.nactive, nelec, self.nbos, self.opts.bos_occ_cutoff)
+            results.rdm_eb = rdm_eb[::2,::2] + rdm_eb[1::2,1::2]
         return results

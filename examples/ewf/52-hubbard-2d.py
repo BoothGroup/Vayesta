@@ -17,7 +17,7 @@ mf.kernel()
 
 ewf = vayesta.ewf.EWF(mf, solver='FCI', fragment_type='Site', bath_type=None, make_rdm1=True, make_rdm2=True)
 for i in range(0, nsite, nfrag):
-    ewf.make_atom_fragment(list(range(i, i+nfrag)), nelectron_target=nfrag)
+    ewf.add_atomic_fragment(list(range(i, i + nfrag)), nelectron_target=nfrag)
 ewf.kernel()
 print("E(HF)=       %+16.8f Ha" % (mf.e_tot/nelectron))
 print("E(EWF-FCI)=  %+16.8f Ha" % (ewf.e_tot/nelectron))

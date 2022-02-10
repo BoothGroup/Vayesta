@@ -2,6 +2,9 @@ import pyscf.gto
 import pyscf.scf
 import pyscf.pbc.gto
 import pyscf.pbc.scf
+import pyscf.pbc.dft
+import pyscf.pbc.df
+import pyscf.pbc.tools
 import pyscf.tools.ring
 
 import numpy as np
@@ -14,6 +17,7 @@ from vayesta import log
 allowed_keys_mole = [
         'h2_ccpvdz', 'h2o_ccpvdz', 'h2o_ccpvdz_df', 'n2_631g',
         'n2_ccpvdz_df', 'lih_ccpvdz', 'h6_sto6g', 'h10_sto6g',
+        'h6_sto6g_df',
 ]
 
 
@@ -23,9 +27,10 @@ allowed_keys_cell = [
 
 
 allowed_keys_latt = [
-        'hubb_6_u0', 'hubb_10_u2', 'hubb_16_u4', 'hubb_6x6_u0_1x1imp',
-        'hubb_6x6_u2_1x1imp', 'hubb_6x6_u6_1x1imp', 'hubb_8x8_u2_2x2imp',
-        'hubb_8x8_u2_2x1imp',
+        'hubb_6_u0', 'hubb_10_u2', 'hubb_16_u4', 'hubb_14_u4',
+        'hubb_14_u0.4', 'hubb_14_u4_df', 'hubb_6x6_u0_1x1imp',
+        'hubb_6x6_u2_1x1imp', 'hubb_6x6_u6_1x1imp',
+        'hubb_8x8_u2_2x2imp', 'hubb_8x8_u2_2x1imp',
 ]
 
 
@@ -92,6 +97,11 @@ def register_system_mole(cache, key):
         mol.atom = ['H %f %f %f' % xyz for xyz in pyscf.tools.ring.make(6, 1.0)]
         mol.basis = 'sto-6g'
         rhf = uhf = True
+    elif key == 'h6_sto6g_df':
+        mol.atom = ['H %f %f %f' % xyz for xyz in pyscf.tools.ring.make(6, 1.0)]
+        mol.basis = 'sto-6g'
+        rhf = uhf = True
+        df = True
     elif key == 'h10_sto6g':
         mol.atom = ['H %f %f %f' % xyz for xyz in pyscf.tools.ring.make(10, 1.0)]
         mol.basis = 'sto-6g'
@@ -111,14 +121,14 @@ def register_system_mole(cache, key):
         rhf = pyscf.scf.RHF(mol)
         if df:
             rhf = rhf.density_fit()
-        rhf.conv_tol = 1e-14
+        rhf.conv_tol = 1e-12
         rhf.kernel()
 
     if uhf:
         uhf = pyscf.scf.UHF(mol)
         if df:
             uhf = uhf.density_fit()
-        uhf.conv_tol = 1e-14
+        uhf.conv_tol = 1e-12
         uhf.kernel()
 
     cache._cache[key] = {
@@ -128,9 +138,86 @@ def register_system_mole(cache, key):
     }
 
 
+def _make_cell(a, atom, supercell=None, verbose=0, max_memory=int(1e9), **kwargs):
+    cell = pyscf.pbc.gto.Cell()
+    cell.atom = atom
+    if np.isscalar(a):
+        a = a*np.eye(3)
+    cell.a = a
+    cell.verbose = verbose
+    cell.max_memory = max_memory
+    for key, val in kwargs.items():
+        setattr(cell, key, val)
+    cell.build()
+    if supercell is not None:
+        cell = pyscf.pbc.tools.super_cell(cell, supercell)
+    return cell
+
+def _make_pbc_mf(cell, kpts=None, df=None, xc=None, restricted=None, **kwargs):
+    if restricted is None:
+        restricted = (cell.spin == 0)
+    pack = getattr(pyscf.pbc, ('scf' if xc is None else 'dft'))
+    spin = ('r' if restricted else 'u')
+    veff = ('hf' if xc is None else 'ks')
+    kp = ('k' if kpts is not None else '')
+    mod = getattr(pack, '%s%s%s' % (kp, spin, veff))            # mod = pyscf.pbc.scf.[k][r|u][hf|ks]
+    cls = getattr(mod, ('%s%s%s' % (kp, spin, veff)).upper())   # cls = mod.[K][R|U][HF|KS]
+    mf = cls(cell, kpts) if kpts is not None else cls(cell)
+    if xc is not None:
+        mf.xc = xc
+    if df is not None:
+        mf.with_df = df
+    mf.conv_tol = kwargs.get('conv_tol', 1e-12)
+    mf.kernel()
+    assert mf.converged
+    # PySCF-SCF calculations require HF object (do not use mf.to_[k][r|u]hf(), as the
+    # periodic boundary conditions will be removed!)
+    if xc is not None:
+        mod = getattr(pyscf.pbc.scf, '%s%shf' % (kp, spin))
+        hf = getattr(mod, ('%s%shf' % (kp, spin)).upper())(cell)
+        hf.__dict__.update(mf.__dict__)
+        mf = hf
+    return mf
+
+
 def register_system_cell(cache, key):
     """Register one of the preset solid test systems in the cache.
     """
+
+    # Rocksalt LiH
+    if key == 'lih_k221':
+        cell = _make_cell(*molstructs.rocksalt(atoms=['Li', 'H']), basis='def2-svp',
+                exp_to_discard=0.1)
+        kpts = cell.make_kpts([2,2,1])
+        df = pyscf.pbc.df.GDF(cell, kpts)
+        df.auxbasis = 'def2-svp-ri'
+        mf = _make_pbc_mf(cell, kpts, df=df)
+        cache._cache[key] = {'cell': cell, 'kpts': kpts, 'rhf': mf, 'uhf': None}
+        return
+    if key == 'lih_g221':
+        cell = _make_cell(*molstructs.rocksalt(atoms=['Li', 'H']), basis='def2-svp',
+                exp_to_discard=0.1, supercell=[2,2,1])
+        df = pyscf.pbc.df.GDF(cell)
+        df.auxbasis = 'def2-svp-ri'
+        mf = _make_pbc_mf(cell, df=df)
+        cache._cache[key] = {'cell': cell, 'kpts': None, 'rhf': mf, 'uhf': None}
+        return
+    # Primitive cubic Boron, k-points and supercell
+    if key == 'boron_cp_k321':
+        cell = _make_cell(5.0, 'B 0 0 0', basis='def2-svp', spin=6, exp_to_discard=0.1)
+        kpts = cell.make_kpts([3,2,1])
+        df = pyscf.pbc.df.GDF(cell, kpts)
+        df.auxbasis = 'def2-svp-ri'
+        mf = _make_pbc_mf(cell, kpts, df=df)
+        cache._cache[key] = {'cell': cell, 'kpts': kpts, 'rhf': None, 'uhf': mf}
+        return
+    if key == 'boron_cp_g321':
+        cell = _make_cell(5.0, 'B 0 0 0', basis='def2-svp', spin=6, exp_to_discard=0.1, supercell=[3,2,1])
+        df = pyscf.pbc.df.GDF(cell)
+        df.auxbasis = 'def2-svp-ri'
+        mf = _make_pbc_mf(cell, df=df)
+        cache._cache[key] = {'cell': cell, 'kpts': None, 'rhf': None, 'uhf': mf}
+        return
 
     cell = pyscf.pbc.gto.Cell()
     kpts = None
@@ -203,6 +290,7 @@ def register_system_latt(cache, key):
 
     cell = None
     rhf = uhf = False
+    df = False
 
     if key == 'hubb_6_u0':
         cell = latt.Hubbard1D(6, hubbard_u=0.0, nelectron=6)
@@ -213,6 +301,16 @@ def register_system_latt(cache, key):
     elif key == 'hubb_16_u4':
         cell = latt.Hubbard1D(10, hubbard_u=4.0, nelectron=16, boundary='apbc')
         rhf = True
+    elif key == 'hubb_14_u0.4':
+        cell = latt.Hubbard1D(14, hubbard_u=0.4, nelectron=14, boundary='pbc')
+        rhf = True
+    elif key == 'hubb_14_u4':
+        cell = latt.Hubbard1D(14, hubbard_u=4, nelectron=14, boundary='pbc')
+        rhf = True
+    elif key == 'hubb_14_u4_df':
+        cell = latt.Hubbard1D(14, hubbard_u=4, nelectron=14, boundary='pbc')
+        rhf = True
+        df = True
     elif key == 'hubb_6x6_u0_1x1imp':
         cell = latt.Hubbard2D((6, 6), hubbard_u=0.0, nelectron=26, tiles=(1, 1), boundary='pbc')
         rhf = True
@@ -234,11 +332,15 @@ def register_system_latt(cache, key):
 
     if rhf:
         rhf = latt.LatticeRHF(cell)
+        if df:
+            rhf = rhf.density_fit()
         rhf.conv_tol = 1e-12
         rhf.kernel()
 
     if uhf:
         uhf = latt.LatticeUHF(cell)
+        if df:
+            uhf = uhf.density_fit()
         uhf.conv_tol = 1e-12
         uhf.kernel()
 

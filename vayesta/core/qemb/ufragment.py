@@ -5,7 +5,7 @@ import numpy as np
 from vayesta.core.util import *
 
 from .fragment import Fragment
-from vayesta.core import tsymmetry
+from vayesta.core.symmetry import tsymmetry
 
 class UFragment(Fragment):
 
@@ -30,6 +30,7 @@ class UFragment(Fragment):
 
     @staticmethod
     def stack_mo(*mo_coeff):
+        """Stack MOs in each spin channel."""
         mo_coeff = (hstack(*[c[0] for c in mo_coeff]),
                     hstack(*[c[1] for c in mo_coeff]))
         return mo_coeff
@@ -50,42 +51,6 @@ class UFragment(Fragment):
             sc = np.dot(ovlp, self.c_frag[s])
             ne.append(einsum('ai,ab,bi->', sc, dm[s], sc))
         return tuple(ne)
-
-    @property
-    def n_active(self):
-        """Number of active orbitals."""
-        return (self.n_active_occ[0] + self.n_active_vir[0],
-                self.n_active_occ[1] + self.n_active_vir[1])
-
-    @property
-    def n_active_occ(self):
-        """Number of active occupied orbitals."""
-        return (self.c_active_occ[0].shape[-1],
-                self.c_active_occ[1].shape[-1])
-
-    @property
-    def n_active_vir(self):
-        """Number of active virtual orbitals."""
-        return (self.c_active_vir[0].shape[-1],
-                self.c_active_vir[1].shape[-1])
-
-    @property
-    def n_frozen(self):
-        """Number of frozen orbitals."""
-        return (self.n_frozen_occ[0] + self.n_frozen_vir[0],
-                self.n_frozen_occ[1] + self.n_frozen_vir[1])
-
-    @property
-    def n_frozen_occ(self):
-        """Number of frozen occupied orbitals."""
-        return (self.c_frozen_occ[0].shape[-1],
-                self.c_frozen_occ[1].shape[-1])
-
-    @property
-    def n_frozen_vir(self):
-        """Number of frozen virtual orbitals."""
-        return (self.c_frozen_vir[0].shape[-1],
-                self.c_frozen_vir[1].shape[-1])
 
     def get_mo_occupation(self, *mo_coeff, dm1=None, **kwargs):
         """Get mean-field occupation numbers (diagonal of 1-RDM) of orbitals.
@@ -166,6 +131,41 @@ class UFragment(Fragment):
     #        results.append(super().make_dmet_bath(c_env[s], dm1=2*dm1[s], **kwargs))
     #    return tuple(zip(*results))
 
+    # Amplitude projection
+    # --------------------
+
+    # NEW:
+
+    def get_occ2frag_projector(self):
+        ovlp = self.base.get_ovlp()
+        projector = (dot(self.c_proj[0].T, ovlp, self.cluster.c_active_occ[0]),
+                     dot(self.c_proj[1].T, ovlp, self.cluster.c_active_occ[1]))
+        return projector
+
+    def project_amp1_to_fragment(self, amp1, projector=None):
+        """Can be used to project C1, T1, or L1 amplitudes."""
+        if projector is None:
+            projector = self.get_occ2frag_projector()
+        return (np.dot(projector[0], amp1[0]),
+                np.dot(projector[1], amp1[1]))
+
+    def project_amp2_to_fragment(self, amp2, projector=None, axis=0):
+        """Can be used to project C2, T2, or L2 amplitudes."""
+        if projector is None:
+            projector = self.get_occ2frag_projector()
+        if axis == 0:
+            caa, cab, cbb = amp2
+            caax = einsum('xi,i...->x...', projector[0], caa)
+            cabx = einsum('xi,i...->x...', projector[0], cab)
+            cbax = einsum('xj,ij...->ix...', projector[1], cab)
+            cbbx = einsum('xi,i...->x...', projector[1], cbb)
+            return (caax, cabx, cbax, cbbx)
+        if axis == 1:
+            raise NotImplementedError()
+        raise ValueError("axis needs to be 0 or 1")
+
+    # OLD:
+
     def get_fragment_projector(self, coeff, c_proj=None, **kwargs):
         if c_proj is None: c_proj = self.c_proj
         projectors = []
@@ -174,8 +174,8 @@ class UFragment(Fragment):
         return tuple(projectors)
 
     def project_amplitude_to_fragment(self, c, c_occ=None, c_vir=None, partition=None, symmetrize=True):
-        if c_occ is None: c_occ = self.c_active_occ
-        if c_vir is None: c_vir = self.c_active_vir
+        if c_occ is None: c_occ = self.cluster.c_active_occ
+        if c_vir is None: c_vir = self.cluster.c_active_vir
         if partition is None: partition = self.opts.wf_partition
         if partition != 'first-occ': raise NotImplementedError()
 
@@ -234,10 +234,11 @@ class UFragment(Fragment):
         if dm2 is None: dm2 = self.results.dm2
         if dm1 is None: raise RuntimeError("DM1 not found for %s" % self)
         if dm2 is None: raise RuntimeError("DM2 not found for %s" % self)
-        c_act = self.c_active
+        c_act = self.cluster.c_active
         t0 = timer()
         if eris is None:
-            eris = self.base.get_eris_array(c_act)
+            with log_time(self.log.timing, "Time for AO->MO transformation: %s"):
+                eris = self.base.get_eris_array(c_act)
         elif isinstance(eris, tuple) and len(eris) == 3:
             pass
         else:
@@ -256,8 +257,8 @@ class UFragment(Fragment):
             h1e_eff = self.base.get_hcore_orig() + self.base.get_veff(with_exxdiv=False)
             h1e_eff = (dot(c_act[0].T, h1e_eff[0], c_act[0]),
                        dot(c_act[1].T, h1e_eff[1], c_act[1]))
-            oa = np.s_[:self.n_active_occ[0]]
-            ob = np.s_[:self.n_active_occ[1]]
+            oa = np.s_[:self.cluster.nocc_active[0]]
+            ob = np.s_[:self.cluster.nocc_active[1]]
             va = (einsum('iipq->pq', gaa[oa,oa,:,:]) + einsum('pqii->pq', gab[:,:,ob,ob])
                 - einsum('ipqi->pq', gaa[oa,:,:,oa]))
             vb = (einsum('iipq->pq', gbb[ob,ob,:,:]) + einsum('iipq->pq', gab[oa,oa,:,:])
@@ -333,7 +334,7 @@ class UFragment(Fragment):
             # Check that translated fragment does not overlap with current fragment:
             fragovlp = max(abs(dot(self.c_frag[0].T, ovlp, c_frag_t[0])).max(),
                            abs(dot(self.c_frag[1].T, ovlp, c_frag_t[1])).max())
-            if fragovlp > 1e-9:
+            if (fragovlp > 1e-8):
                 self.log.error("Translation (%d,%d,%d) of fragment %s not orthogonal to original fragment (overlap= %.3e)!",
                             dx, dy, dz, self.name, fragovlp)
             # Deprecated:
@@ -341,9 +342,9 @@ class UFragment(Fragment):
                 frag = self.base.add_fragment(name, c_frag_t, c_env_t, options=self.opts,
                         sym_parent=self, sym_op=sym_op)
             else:
-                fid = self.base.fragmentation.get_next_fid()
-                frag = self.base.Fragment(self.base, fid, name, c_frag_t, c_env_t, options=self.opts,
-                        sym_parent=self, sym_op=sym_op)
+                frag_id = self.base.register.get_next_id()
+                frag = self.base.Fragment(self.base, frag_id, name, c_frag_t, c_env_t, options=self.opts,
+                        sym_parent=self, sym_op=sym_op, mpi_rank=self.mpi_rank)
                 self.base.fragments.append(frag)
 
             # Check symmetry
@@ -378,14 +379,23 @@ class UFragment(Fragment):
         return (charge_err, spin_err)
 
 
-    # --- Rotation matrices
-    # ---------------------
+    # --- Overlap matrices
+    # --------------------
 
-    def get_rot_to_mf(self):
+    def get_overlap_m2c(self):
         """Get rotation matrices from occupied/virtual active space to MF orbitals."""
         ovlp = self.base.get_ovlp()
-        r_occ_a = dot(self.c_active_occ[0].T, ovlp, self.base.mo_coeff_occ[0])
-        r_occ_b = dot(self.c_active_occ[1].T, ovlp, self.base.mo_coeff_occ[1])
-        r_vir_a = dot(self.c_active_vir[0].T, ovlp, self.base.mo_coeff_vir[0])
-        r_vir_b = dot(self.c_active_vir[1].T, ovlp, self.base.mo_coeff_vir[1])
+        r_occ_a = dot(self.base.mo_coeff_occ[0].T, ovlp, self.cluster.c_active_occ[0])
+        r_occ_b = dot(self.base.mo_coeff_occ[1].T, ovlp, self.cluster.c_active_occ[1])
+        r_vir_a = dot(self.base.mo_coeff_vir[0].T, ovlp, self.cluster.c_active_vir[0])
+        r_vir_b = dot(self.base.mo_coeff_vir[1].T, ovlp, self.cluster.c_active_vir[1])
+        return (r_occ_a, r_occ_b), (r_vir_a, r_vir_b)
+
+    def get_overlap_m2f(self):
+        """Get overlap matrices from mean-field to fragment orbitals."""
+        ovlp = self.base.get_ovlp()
+        r_occ_a = dot(self.base.mo_coeff_occ[0].T, ovlp, self.c_proj[0])
+        r_occ_b = dot(self.base.mo_coeff_occ[1].T, ovlp, self.c_proj[1])
+        r_vir_a = dot(self.base.mo_coeff_vir[0].T, ovlp, self.c_proj[0])
+        r_vir_b = dot(self.base.mo_coeff_vir[1].T, ovlp, self.c_proj[1])
         return (r_occ_a, r_occ_b), (r_vir_a, r_vir_b)

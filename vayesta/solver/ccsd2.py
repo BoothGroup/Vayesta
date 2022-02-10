@@ -1,6 +1,5 @@
 import dataclasses
 import copy
-from typing import Union
 from timeit import default_timer as timer
 
 import numpy as np
@@ -12,7 +11,7 @@ import pyscf.pbc
 import pyscf.pbc.cc
 
 from vayesta.core.util import *
-from vayesta.ewf import coupling
+from . import coupling
 #from .solver import ClusterSolver
 from .solver2 import ClusterSolver
 
@@ -104,31 +103,50 @@ class CCSD_Solver(ClusterSolver):
         self.ee_t_coeff = None
         self.ee_sf_coeff = None
 
-    def get_c1(self):
+    def get_t1(self):
+        return self.t1
+
+    def get_t2(self):
+        return self.t2
+
+    def get_c1(self, intermed_norm=True):
         """C1 in intermediate normalization."""
-        return self.solver.t1
+        if not intermed_norm:
+            raise ValueError()
+        return self.t1
 
-    def get_c2(self):
+    def get_c2(self, intermed_norm=True):
         """C2 in intermediate normalization."""
-        return self.solver.t2 + einsum('ia,jb->ijab', self.t1, self.t1)
+        if not intermed_norm:
+            raise ValueError()
+        return self.t2 + einsum('ia,jb->ijab', self.t1, self.t1)
 
-    def get_l1(self):
-        if self.opts.t_as_lambda:
+    def get_l1(self, t_as_lambda=None, solve_lambda=True):
+        if t_as_lambda is None:
+            t_as_lambda = self.opts.t_as_lambda
+        if t_as_lambda:
             return self.t1
         if self.l1 is None:
+            if not solve_lambda:
+                return None
             self.solve_lambda()
         return self.l1
 
-    def get_l2(self):
-        if self.opts.t_as_lambda:
+    def get_l2(self, t_as_lambda=None, solve_lambda=True):
+        if t_as_lambda is None:
+            t_as_lambda = self.opts.t_as_lambda
+        if t_as_lambda:
             return self.t2
         if self.l2 is None:
+            if not solve_lambda:
+                return None
             self.solve_lambda()
         return self.l2
 
     def get_eris(self):
         self.log.debugv("Getting ERIs for type(self.solver)= %r", type(self.solver))
-        self.eris = self.base.get_eris_object(self.solver)
+        with log_time(self.log.timing, "Time for AO->MO transformation: %s"):
+            self.eris = self.base.get_eris_object(self.solver)
         return self.eris
 
     def get_init_guess(self):
@@ -183,7 +201,7 @@ class CCSD_Solver(ClusterSolver):
         elif coupled_fragments and np.all([x.results is not None for x in coupled_fragments]):
             self.log.info("Adding tailor function to CCSD.")
             self.solver.tailor_func = coupling.make_cross_fragment_tcc_function(self, mode=(self.opts.sc_mode or 3),
-                    coupled_fragments=coupled_fragments).__get__(self.solver)
+                                                                                coupled_fragments=coupled_fragments).__get__(self.solver)
 
         t0 = timer()
         self.log.info("Solving CCSD-equations %s initial guess...", "with" if (t2 is not None) else "without")
@@ -297,8 +315,10 @@ class UCCSD_Solver(CCSD_Solver):
             return pyscf.pbc.cc.ccsd.UCCSD
         return pyscf.cc.uccsd.UCCSD
 
-    def get_c2(self):
+    def get_c2(self, intermed_norm=True):
         """C2 in intermediate normalization."""
+        if not intermed_norm:
+            raise ValueError()
         ta, tb = self.t1
         taa, tab, tbb = self.t2
         caa = taa + einsum('ia,jb->ijab', ta, ta) - einsum('ib,ja->ijab', ta, ta)

@@ -29,7 +29,7 @@ class HubbardEDMETTest_N10_U4_1imp_1occ(unittest.TestCase, HubbardEDMETTest):
         cls.mf.kernel()
         cls.edmet = edmet.EDMET(cls.mf, solver='EBFCI', bos_occ_cutoff=1)
         cls.edmet.site_fragmentation()
-        f = cls.edmet.make_atom_fragment(0)
+        f = cls.edmet.add_atomic_fragment(0)
         symfrags = f.make_tsymmetric_fragments(tvecs=[10, 1, 1])
         cls.edmet.kernel()
         cls.known_values = {'e_tot': -6.118248173618246}
@@ -43,7 +43,7 @@ class HubbardEDMETTest_N10_U4_1imp_10occ(unittest.TestCase, HubbardEDMETTest):
         cls.mf.kernel()
         cls.edmet = edmet.EDMET(cls.mf, solver='EBFCI', bos_occ_cutoff=10)
         cls.edmet.site_fragmentation()
-        f = cls.edmet.make_atom_fragment(0)
+        f = cls.edmet.add_atomic_fragment(0)
         symfrags = f.make_tsymmetric_fragments(tvecs=[10, 1, 1])
         cls.edmet.kernel()
         cls.known_values = {'e_tot': -6.1181667874754035}
@@ -57,7 +57,7 @@ class HubbardEDMETTest_N10_U4_2imp_2occ(unittest.TestCase, HubbardEDMETTest):
         cls.mf.kernel()
         cls.edmet = edmet.EDMET(cls.mf, solver='EBFCI', bos_occ_cutoff=2)
         cls.edmet.site_fragmentation()
-        f = cls.edmet.make_atom_fragment([0, 1])
+        f = cls.edmet.add_atomic_fragment([0, 1])
         symfrags = f.make_tsymmetric_fragments(tvecs=[5, 1, 1])
         cls.edmet.kernel()
         cls.known_values = {'e_tot': -11.74139024719132}
@@ -71,7 +71,7 @@ class HubbardEDMETTest_N6x6_U4_2x1imp_2occ(unittest.TestCase, HubbardEDMETTest):
         cls.mf.kernel()
         cls.edmet = edmet.EDMET(cls.mf, solver='EBFCI', bos_occ_cutoff=2)
         cls.edmet.site_fragmentation()
-        f = cls.edmet.make_atom_fragment([0, 1])
+        f = cls.edmet.add_atomic_fragment([0, 1])
         symfrags = f.make_tsymmetric_fragments(tvecs=[3, 6, 1])
         cls.edmet.kernel()
         cls.known_values = {'e_tot': -43.387417397200636}
@@ -85,7 +85,7 @@ class HubbardEDMETTest_N6x6_U6_1x1imp_5occ(unittest.TestCase, HubbardEDMETTest):
         cls.mf.kernel()
         cls.edmet = edmet.EDMET(cls.mf, solver='EBFCI', bos_occ_cutoff=5)
         cls.edmet.site_fragmentation()
-        f = cls.edmet.make_atom_fragment(0)
+        f = cls.edmet.add_atomic_fragment(0)
         symfrags = f.make_tsymmetric_fragments(tvecs=[6, 6, 1])
         cls.edmet.kernel()
         cls.known_values = {'e_tot': -41.295421512183374}
@@ -99,7 +99,7 @@ class HubbardEDMETTest_N8x8_U2_1x2imp_5occ(unittest.TestCase, HubbardEDMETTest):
         cls.mf.kernel()
         cls.edmet = edmet.EDMET(cls.mf, solver='EBFCI', bos_occ_cutoff=5)
         cls.edmet.site_fragmentation()
-        f = cls.edmet.make_atom_fragment([0, 1])
+        f = cls.edmet.add_atomic_fragment([0, 1])
         symfrags = f.make_tsymmetric_fragments(tvecs=[8, 4, 1])
         cls.edmet.kernel()
         cls.known_values = {'e_tot': -84.96249789942502}

@@ -4,18 +4,15 @@ import logging
 import os
 import contextlib
 
-try:
-    from mpi4py import MPI
-    MPI_rank = MPI.COMM_WORLD.Get_rank()
-except ModuleNotFoundError:
-    MPI_rank = 0
+from vayesta.core.mpi import mpi
 
 """
-Log levels (* are non-standard):
+Log levels (* are custom levels):
 
 Name            Level           Usage
 ----            -----           -----
-CRITICAL        50              For immediate, non-recoverable errors
+FATAL   (*)     100             For errors which will raise a non-recoverable Exception
+CRITICAL        50              For errors which will are non-recoverable
 ERROR           40              For errors which are likely non-recoverable
 WARNING         30              For possible errors and important information
 OUTPUT  (*)     25              Main result level - the only level which by default gets streamed to stdout
@@ -25,14 +22,17 @@ TIMING  (*)     12  (-vv)       Timing information for primary routines
 DEBUG           10  (-vv)       Debugging information, indented for developers
 DEBUGV  (*)      5  (-vvv)      Verbose debugging information
 TIMINGV (*)      2  (-vvv)      Verbose timings information for secondary subroutines
+TRACE   (*)      1  (-vvv)      To trace function flow
 """
 
 LVL_PREFIX = {
+   "FATAL" : "FATAL",
    "CRITICAL" : "CRITICAL",
    "ERROR" : "ERROR",
    "WARNING" : "WARNING",
-   "OUTPUT" : "OUTPUT",
+   "OUT" : "OUTPUT",
    "DEBUGV" : "DEBUG",
+   "TRACE" : "TRACE",
    }
 
 
@@ -106,7 +106,6 @@ class VFormatter(logging.Formatter):
             lines = [((prefix + "  " + line) if line else prefix) for line in lines]
         return "\n".join(lines)
 
-
 class VStreamHandler(logging.StreamHandler):
     """Default stream handler with IndentedFormatter"""
 
@@ -115,7 +114,6 @@ class VStreamHandler(logging.StreamHandler):
         if formatter is None:
             formatter = VFormatter()
         self.setFormatter(formatter)
-
 
 class VFileHandler(logging.FileHandler):
     """Default file handler with IndentedFormatter"""
@@ -127,15 +125,13 @@ class VFileHandler(logging.FileHandler):
             formatter = VFormatter()
         self.setFormatter(formatter)
 
-
 def get_logname(basename, ext='log'):
     if ext and '.' not in basename:
         ext = '.' + ext
     else:
         ext = ''
-    name = '%s%s%s' % (basename, (('.mpi%d' % MPI_rank) if MPI_rank > 0 else ''), ext)
+    name = '%s%s%s' % (basename, (('.mpi%d' % mpi.rank) if mpi else ''), ext)
     return name
-
 
 def init_logging():
     """Call this to initialize and configure logging, when importing Vayesta.
@@ -159,11 +155,13 @@ def init_logging():
             logging.log(level, message, *args, **kwargs)
         setattr(logging.getLoggerClass(), name, logForLevel)
         setattr(logging, name, logToRoot)
+    add_log_level(100, "fatal")
     add_log_level(25, "output")
     add_log_level(15, "infov")
     add_log_level(12, "timing")
     add_log_level(5, "debugv")
     add_log_level(2, "timingv")
+    add_log_level(1, "trace")
 
     # Add indentation support
     # -----------------------

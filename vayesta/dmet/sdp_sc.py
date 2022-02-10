@@ -1,9 +1,6 @@
 import cvxpy as cp
 import numpy as np
-from pyscf.lib import diis
-from .fragment import DMETFragmentExit
 
-solver = cp.MOSEK#cp.SCS
 
 def perform_SDP_fit(nelec, fock, impurity_projectors, target_rdms, ovlp, log):
     """Given all required information about the system, generate the correlation potential reproducing the local DM
@@ -27,9 +24,9 @@ def perform_SDP_fit(nelec, fock, impurity_projectors, target_rdms, ovlp, log):
     ovlp: np.array
         Overlap matrix of the AOs, so we can implicitly transform into the PAO basis.
     """
-    #print("Target RDMs:")
-    #print(target_rdms)
-    #print([x.trace() for x in target_rdms])
+    # print("Target RDMs:")
+    # print(target_rdms)
+    # print([x.trace() for x in target_rdms])
 
     # First calculate the number of different symmetry-eqivalent orbital sets for each class of impurity (this is the
     # symmetry factor, elsewhere in the code).
@@ -47,12 +44,13 @@ def perform_SDP_fit(nelec, fock, impurity_projectors, target_rdms, ovlp, log):
     AO_in_imps = [[aproj.T @ ovlp for aproj in curr_proj] for curr_proj in impurity_projectors]
 
     # Check this is correctly orthogonal.
-    #print([x[0].T @ y[0].T for (x,y) in zip(impurity_projectors, AO_in_imps)])
+    # print([x[0].T @ y[0].T for (x,y) in zip(impurity_projectors, AO_in_imps)])
 
     # Want to construct the full correlation potential, in the AO basis.
-    utot = sum([cp.matmul(aproj.T, cp.matmul(us[i], aproj)) for i, curr_proj in enumerate(AO_in_imps) for aproj in curr_proj])
-    #import scipy
-    #c_pao = np.linalg.inv(scipy.linalg.sqrtm(ovlp))
+    utot = sum(
+        [cp.matmul(aproj.T, cp.matmul(us[i], aproj)) for i, curr_proj in enumerate(AO_in_imps) for aproj in curr_proj])
+    # import scipy
+    # c_pao = np.linalg.inv(scipy.linalg.sqrtm(ovlp))
 
     # First constraint in AO basis required for solution, second enforces tracelessness of Vcorr.
     constraints = [
@@ -69,11 +67,10 @@ def perform_SDP_fit(nelec, fock, impurity_projectors, target_rdms, ovlp, log):
 
     solval = prob.solve(solver=cp.SCS, eps=1e-8)
     msg = "SDP fitting completed. Status= %s" % prob.status
-    if not prob.status in [cp.OPTIMAL]:#, cp.OPTIMAL_INACCURATE]:
+    if not prob.status in [cp.OPTIMAL]:  # , cp.OPTIMAL_INACCURATE]:
         log.warning(msg)
     else:
         log.info(msg)
 
     # Report the result of the optimisation.
     return utot.value
-

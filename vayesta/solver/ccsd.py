@@ -5,12 +5,11 @@ from timeit import default_timer as timer
 
 import numpy as np
 
-import pyscf
 import pyscf.cc
 import pyscf.cc.dfccsd
 
 from vayesta.core.util import *
-from vayesta.ewf import coupling
+from . import coupling
 from .solver import ClusterSolver
 
 
@@ -19,7 +18,7 @@ class CCSD_Solver(ClusterSolver):
     @dataclasses.dataclass
     class Options(ClusterSolver.Options):
         # Convergence
-        maxiter: int = 100              # Max number of iterations
+        maxiter: int = 200              # Max number of iterations
         conv_tol: float = None          # Convergence energy tolerance
         conv_tol_normt: float = None    # Convergence amplitude tolerance
         # solve_lambda:
@@ -92,7 +91,8 @@ class CCSD_Solver(ClusterSolver):
         self.solver = solver
 
     def get_eris(self):
-        eris = self.base.get_eris_object(self.solver)
+        with log_time(self.log.timing, "Time for AO->MO transformation: %s"):
+            eris = self.base.get_eris_object(self.solver)
         return eris
 
     def kernel(self, t1=None, t2=None, eris=None, l1=None, l2=None, coupled_fragments=None, t_diagnostic=True):
@@ -141,7 +141,7 @@ class CCSD_Solver(ClusterSolver):
         elif coupled_fragments and np.all([x.results is not None for x in coupled_fragments]):
             self.log.info("Adding tailor function to CCSD.")
             self.solver.tailor_func = coupling.make_cross_fragment_tcc_function(self, mode=(self.opts.sc_mode or 3),
-                    coupled_fragments=coupled_fragments).__get__(self.solver)
+                                                                                coupled_fragments=coupled_fragments).__get__(self.solver)
 
         t0 = timer()
         self.log.info("Solving CCSD-equations %s initial guess...", "with" if (t2 is not None) else "without")

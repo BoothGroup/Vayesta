@@ -21,7 +21,7 @@ class HubbardEDMETTests(unittest.TestCase):
     #    emb = edmet.EDMET(
     #            latts['hubb_6_u0']['rhf'],
     #            solver='EBFCI',
-    #            bos_occ_cutoff=1,
+    #            max_boson_occ=1,
     #    )
     #    emb.site_fragmentation()
     #    frag = emb.add_atomic_fragment(0)
@@ -39,7 +39,7 @@ class HubbardEDMETTests(unittest.TestCase):
     #    emb = edmet.EDMET(
     #            latts['hubb_6_u0']['rhf'],
     #            solver='EBFCI',
-    #            bos_occ_cutoff=6,
+    #            max_boson_occ=6,
     #    )
     #    emb.site_fragmentation()
     #    frag = emb.add_atomic_fragment([0, 1])
@@ -57,7 +57,7 @@ class HubbardEDMETTests(unittest.TestCase):
         emb = edmet.EDMET(
                 latts['hubb_10_u2']['rhf'],
                 solver='EBFCI',
-                bos_occ_cutoff=2,
+                max_boson_occ=2,
         )
         emb.site_fragmentation()
         frag = emb.add_atomic_fragment([0, 1])
@@ -68,21 +68,23 @@ class HubbardEDMETTests(unittest.TestCase):
 
         self._test_energy(emb, known_values)
 
-    def test_16_u4_2imp_4occ(self):
-        """Tests for N=10 U=2 Hubbard model with double site impurities.
+    def test_14_upoint4_2imp_4occ(self):
+        """Tests for N=14 U=0.4 Hubbard model with double site impurities and density fitting.
         """
 
         emb = edmet.EDMET(
-                latts['hubb_10_u2']['rhf'],
+                latts['hubb_14_u0.4']['rhf'],
                 solver='EBFCI',
-                bos_occ_cutoff=4,
+                max_boson_occ=2,
+                maxiter=30,
+                max_elec_err=1e-6
         )
         emb.site_fragmentation()
         frag = emb.add_atomic_fragment([0, 1])
-        frag.add_tsymmetric_fragments(tvecs=[8, 1, 1])
+        frag.add_tsymmetric_fragments(tvecs=[7, 1, 1])
         emb.kernel()
 
-        known_values = {'e_tot': -3.472834250801909}
+        known_values = {'e_tot': -16.653134616910943}
 
         self._test_energy(emb, known_values)
 
@@ -94,7 +96,7 @@ class HubbardEDMETTests(unittest.TestCase):
     #    emb = edmet.EDMET(
     #            latts['hubb_6x6_u0_1x1imp']['rhf'],
     #            solver='EBFCI',
-    #            bos_occ_cutoff=2,
+    #            max_boson_occ=2,
     #    )
     #    emb.site_fragmentation()
     #    frag = emb.add_atomic_fragment([0])
@@ -112,7 +114,7 @@ class HubbardEDMETTests(unittest.TestCase):
         emb = edmet.EDMET(
                 latts['hubb_6x6_u6_1x1imp']['rhf'],
                 solver='EBFCI',
-                bos_occ_cutoff=2,
+                max_boson_occ=2,
         )
         emb.site_fragmentation()
         frag = emb.add_atomic_fragment([0])
@@ -120,24 +122,6 @@ class HubbardEDMETTests(unittest.TestCase):
         emb.kernel()
 
         known_values = {'e_tot': -41.29530580982776}
-
-        self._test_energy(emb, known_values)
-
-    def test_8x8_u2_2x1imp_5occ(self):
-        """Tests for 8x8 U=2 Hubbard model with 2x1 impurities.
-        """
-
-        emb = edmet.EDMET(
-                latts['hubb_8x8_u2_2x1imp']['rhf'],
-                solver='EBFCI',
-                bos_occ_cutoff=5,
-        )
-        emb.site_fragmentation()
-        frag = emb.add_atomic_fragment([0, 1])
-        frag.add_tsymmetric_fragments(tvecs=[4, 8, 1])
-        emb.kernel()
-
-        known_values = {'e_tot': -84.96249789942502}
 
         self._test_energy(emb, known_values)
 

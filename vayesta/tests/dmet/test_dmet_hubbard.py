@@ -120,7 +120,7 @@ class HubbardDMETTests(unittest.TestCase):
         frag.add_tsymmetric_fragments(tvecs=[4, 4, 1])
         emb.kernel()
 
-        known_values = {'e_tot': -85.02707463376049}
+        known_values = {'e_tot': -85.02707527261686}
 
         self._test_converged(emb)
         self._test_energy(emb, known_values)

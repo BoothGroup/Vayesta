@@ -28,9 +28,8 @@ class MoleculeEWFTests(unittest.TestCase):
     def _test_t1(self, emb, known_values):
         """Tests the T1 and L1 amplitudes.
         """
-
-        t1 = emb.get_t1()
-        l1 = emb.get_t1(get_lambda=True)
+        t1 = emb.get_global_t1()
+        l1 = emb.get_global_l1()
 
         self.assertAlmostEqual(np.linalg.norm(t1), known_values['t1'], self.PLACES_T)
         self.assertAlmostEqual(np.linalg.norm(l1), known_values['l1'], self.PLACES_T)
@@ -38,9 +37,8 @@ class MoleculeEWFTests(unittest.TestCase):
     def _test_t2(self, emb, known_values):
         """Tests the T2 and L2 amplitudes.
         """
-
-        t2 = emb.get_t12()[1]
-        l2 = emb.get_t12(get_lambda=True)[1]
+        t2 = emb.get_global_t2()
+        l2 = emb.get_global_l2()
 
         self.assertAlmostEqual(np.linalg.norm(t2), known_values['t2'], self.PLACES_T)
         self.assertAlmostEqual(np.linalg.norm(l2), known_values['l2'], self.PLACES_T)
@@ -127,7 +125,7 @@ class MoleculeEWFTests(unittest.TestCase):
 
         emb = ewf.EWF(
                 moles['lih_ccpvdz']['rhf'],
-                bno_threshold=1e-5,
+                bno_threshold=1e-5/2,
                 solver_options={
                     'conv_tol': self.CONV_TOL,
                     'conv_tol_normt': self.CONV_TOL_NORMT,
@@ -192,7 +190,7 @@ class MoleculeEWFTests(unittest.TestCase):
         emb = ewf.EWF(
                 moles['h2o_ccpvdz']['rhf'],
                 solver='TCCSD',
-                bno_threshold=1e-4,
+                bno_threshold=1e-4/2,
                 solver_options={
                     'conv_tol': self.CONV_TOL,
                     'conv_tol_normt': self.CONV_TOL_NORMT,
@@ -214,7 +212,7 @@ class MoleculeEWFTests(unittest.TestCase):
         emb = ewf.EWF(
                 moles['h2o_ccpvdz']['rhf'],
                 solver='TCCSD',
-                bno_threshold=1e-4,
+                bno_threshold=1e-4/2,
                 solver_options={
                     'conv_tol': self.CONV_TOL,
                     'conv_tol_normt': self.CONV_TOL_NORMT,
@@ -236,7 +234,7 @@ class MoleculeEWFTests(unittest.TestCase):
 
         emb = ewf.EWF(
                 moles['h2o_ccpvdz']['rhf'],
-                bno_threshold=1e-4,
+                bno_threshold=1e-4/2,   # redefinition of eta
                 sc_mode=1,
                 sc_energy_tol=1e-9,
                 solver_options={
