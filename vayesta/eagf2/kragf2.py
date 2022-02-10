@@ -130,7 +130,8 @@ def _make_mo_eris(self, mo_coeff=None):
         tmp = None
 
     mpi_helper.barrier()
-    mpi_helper.allreduce_safe_inplace(qij)
+    qij = mpi_helper.allreduce(qij)
+    mpi_helper.barrier()
 
     return qij
 
@@ -392,9 +393,9 @@ class KRAGF2(RAGF2):
         self.eri = _make_mo_eris(self, mo_coeff=mo_coeff_act)
 
         # --- Remove non-commutative inconsistency in hybrid parallel regimes
-        mpi_helper.barrier()
-        mpi_helper.allreduce_safe_inplace(self.eri)
-        self.eri /= mpi_helper.size
+        #mpi_helper.barrier()
+        #mpi_helper.allreduce_safe_inplace(self.eri)
+        #self.eri /= mpi_helper.size
 
         self.log.timing("Time for AO->MO:  %s", time_string(timer() - t0))
 
@@ -756,8 +757,9 @@ class KRAGF2(RAGF2):
 
         for ka in range(self.nkpts):
             mpi_helper.barrier()
-            mpi_helper.allreduce_safe_inplace(vj[ka])
-            mpi_helper.allreduce_safe_inplace(vk[ka])
+            vj[ka] = mpi_helper.allreduce(vj[ka])
+            vk[ka] = mpi_helper.allreduce(vk[ka])
+            mpi_helper.barrier()
 
         if self.opts.keep_exxdiv and self.mf.exxdiv == 'ewald':
             madelung = tools.pbc.madelung(self.mol, self.kpts)
