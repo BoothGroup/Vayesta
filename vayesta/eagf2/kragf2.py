@@ -559,12 +559,11 @@ class KRAGF2(RAGF2):
 
         gf = []
 
-        for i in range(self.nkpts):
-            chempot = 0.5 * (
-                    + self.mo_energy[i][self.mo_occ[i] > 0].max()
-                    + self.mo_energy[i][self.mo_occ[i] == 0].min()
-            )
+        homo = max([e[o > 0].max() for e, o in zip(self.mo_energy, self.mo_occ)])
+        lumo = min([e[o == 0].min() for e, o in zip(self.mo_energy, self.mo_occ)])
+        chempot = 0.5 * (homo + lumo)
 
+        for i in range(self.nkpts):
             e = self.mo_energy[i][self.act[i]]
             v = np.eye(self.nact[i])
             gf.append(agf2.GreensFunction(e, v, chempot=chempot))
@@ -573,6 +572,12 @@ class KRAGF2(RAGF2):
                 "Number of active electrons in G0:  %s",
                 sum([np.trace(g.make_rdm1()).real for g in gf]),
         )
+
+        self.log.debugv("Green's functions:")
+        with self.log.withIndentLevel(1):
+            self.log.debugv("%4s %4s %4s %4s" % ("kpt", "naux", "nocc", "nvir"))
+            for i, g in enumerate(gf):
+                self.log.debugv("%4d %4d %4d %4d" % (i, gf[i].naux, gf[i].nocc, gf[i].nvir))
 
         return gf
 
@@ -689,8 +694,13 @@ class KRAGF2(RAGF2):
             gf = [agf2.GreensFunction(*wv, chempot=s.chempot) for wv in zip(w, v, se)]
 
         (self.log.info if converged else self.log.warning)("Converged = %r", converged)
-        self.log.info("μ (at kpt 0) = %.9g", se[i].chempot)
+        self.log.info("μ = %.9g", se[0].chempot)
         self.log.timing('Time for fock loop:  %s', time_string(timer() - t0))
+        self.log.debugv("Green's functions:")
+        with self.log.withIndentLevel(1):
+            self.log.debugv("%4s %4s %4s %4s" % ("kpt", "naux", "nocc", "nvir"))
+            for i, g in enumerate(gf):
+                self.log.debugv("%4d %4d %4d %4d" % (i, gf[i].naux, gf[i].nocc, gf[i].nvir))
         self.log.debugv("QMO energies:")
         with self.log.withIndentLevel(1):
             energy = np.sort(np.concatenate([g.energy for g in gf]))
