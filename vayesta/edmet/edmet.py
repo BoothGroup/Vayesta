@@ -216,7 +216,7 @@ class EDMET(RDMET):
             rot_ovs = [f.set_up_fermionic_bath(bno_threshold) for f in sym_parents]
             target_rot = np.concatenate(rot_ovs, axis=0)
             if target_rot.shape[0] > 0:
-                mom0_interact, est_error = rpa.kernel_moms(target_rot, npoints=48)
+                mom0_interact, est_error, est_error2 = rpa.kernel_moms(target_rot, npoints=48)
             else:
                 mom0_interact = np.zeros_like(target_rot)
             # Get appropriate slices to obtain required active spaces.
@@ -229,7 +229,7 @@ class EDMET(RDMET):
             bos_slices = [slice(sum(nbos[:i]), sum(nbos[:i + 1])) for i in range(len(sym_parents))]
             if sum(nbos) > 0:
                 # Calculate zeroth moment of bosonic degrees of freedom.
-                mom0_bos, est_error = rpa.kernel_moms(np.concatenate(rot_bos, axis=0), npoints=48)
+                mom0_bos, est_error, est_error2 = rpa.kernel_moms(np.concatenate(rot_bos, axis=0), npoints=48)
             else:
                 mom0_bos = np.zeros((sum(nbos), mom0_interact.shape[1]))
             eps = np.concatenate(self.eps)

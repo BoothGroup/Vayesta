@@ -2,9 +2,9 @@ import dataclasses
 from timeit import default_timer as timer
 
 import numpy as np
+import pyscf.lib
 import scipy.linalg
 
-import pyscf.lib
 from vayesta.core.util import *
 from vayesta.dmet.fragment import DMETFragment
 from vayesta.solver import get_solver_class2 as get_solver_class
@@ -246,14 +246,16 @@ class EDMETFragment(DMETFragment):
             couplings_aa, couplings_bb, a_bos, b_bos = self.save_wxc
         elif self.opts.bosonic_interaction.lower() == "direct":
             couplings_aa, couplings_bb, a_bos, b_bos = self.save_noxc
-        elif self.opts.bosonic_interaction.lower() == "qba":
-            couplings_aa, couplings_bb, a_bos, b_bos = self.proj_hamil_qba(eps)
+        elif "qba" in self.opts.bosonic_interaction.lower():
+            bosonic_exchange = "bos_ex" in self.opts.bosonic_interaction.lower()
+            couplings_aa, couplings_bb, a_bos, b_bos = self.proj_hamil_qba(exchange_between_bos=bosonic_exchange)
         else:
             self.log.critical("Unknown bosonic interaction kernel specified.")
             raise RuntimeError
 
-        self.bos_freqs, x, y = bogoliubov_decouple(a_bos + b_bos, a_bos - b_bos)
+        self.a_bos = a_bos
 
+        self.bos_freqs, x, y = bogoliubov_decouple(a_bos + b_bos, a_bos - b_bos)
         couplings_aa = einsum("npq,nm->mpq", couplings_aa, x) + einsum("npq,nm->mqp", couplings_aa, y)
         couplings_bb = np.einsum("npq,nm->mpq", couplings_bb, x) + np.einsum("npq,nm->mqp", couplings_bb, y)
         self.couplings = (couplings_aa, couplings_bb)
@@ -379,47 +381,64 @@ class EDMETFragment(DMETFragment):
     def get_loc_eps(self, eps, rot):
         return einsum("ln,n,mn->lm", rot, eps, rot)
 
-    def proj_hamil_qba(self, eps, exchange_between_bos=True):
+    def proj_hamil_qba(self, exchange_between_bos=True):
         """Generate quasi-bosonic Hamiltonian via projection of appropriate Hamiltonian elements of full system.
         This represents the bosons as an explicit sum of environmental excitations, which we then approximate as bosonic
          degrees of freedom."""
 
         c = self.cluster.c_active
         if not isinstance(c, tuple):
-            c = (c, c)
-
-
+            ca = cb = c
+        else:
+            ca, cb = c
+        # indexed as npq in atomic orbitals, but p is a projection of the occupied indices and q virtual indices.
         r_bos_aoa, r_bos_aob = self.r_bos_ao
         # Note that our o-v fock matrix blocks may be nonzero, however our environmental states are always constructed
         # from only particle-hole excitations.
         # If no correlation potential was used this can be calculated by eps.
         fock = self.base.get_fock()
         if not isinstance(fock, tuple):
-            fock = (fock, fock)
-        fa, fb = fock
+            fa = fb = fock
+        else:
+            fa, fb = fock
+        co = self.cluster.c_active_occ
+        if isinstance(co, tuple):
+            coa, cob = co
+        else:
+            coa = cob = co
+
+        cv = self.cluster.c_active_vir
+        if isinstance(cv, tuple):
+            cva, cvb = cv
+        else:
+            cva = cvb = cv
 
         # Can just use expressions for Hamiltonian elements between single excitations.
-        einsum("", ca, fa)
-
-
-
-        r_bos = self.r_bos
-        r_mf = self.get_rot_to_mf_ov()
-        r_mfa, r_mfb = r_mf[:self.ov_active_ab[0]], r_mf[self.ov_active_ab[0]:]
-        couplings_aa = einsum("m,nm,lm->nl", eps, r_bos, r_mfa).reshape((self.nbos, self.nocc_ab[0], self.nvir_ab[0]))
-        couplings_bb = einsum("m,nm,lm->nl", eps, r_bos, r_mfb).reshape((self.nbos, self.nocc_ab[1], self.nvir_ab[1]))
-        a_bos = einsum("m,nm,lm->nl", eps, r_bos, r_bos)
+        # First, get fock contributions. All are N^3 or less.
+        # This will be zero if at HF solution.
+        bos_nonconserv = einsum("npq,pq->n", r_bos_aoa, fa) + einsum("npq,pq->n", r_bos_aob, fb)
+        a_bos = einsum("npq,msr,qr,ps->nm", r_bos_aoa, r_bos_aoa, fa, self.base.get_ovlp()) + \
+                einsum("npq,msr,qr,ps->nm", r_bos_aob, r_bos_aob, fb, self.base.get_ovlp())
+        a_bos -= einsum("npq,mrs,pr,qs->nm", r_bos_aoa, r_bos_aoa, fa, self.base.get_ovlp()) + \
+                 einsum("npq,mrs,pr,qs->nm", r_bos_aob, r_bos_aob, fb, self.base.get_ovlp())
         b_bos = np.zeros_like(a_bos)
+        print(a_bos)
+
+        couplings_aa = np.zeros((self.nbos,) + (coa.shape[1] + cva.shape[1],) * 2)
+        couplings_bb = np.zeros((self.nbos,) + (cob.shape[1] + cvb.shape[1],) * 2)
+        couplings_aa[:, :coa.shape[1], coa.shape[1]:] = einsum("npq,qr,pi,rc->nic", r_bos_aoa, fa, coa, cva) - einsum(
+            "npq,pr,ri,qc->nic", r_bos_aoa, fa, coa, cva)
+        couplings_bb[:, :cob.shape[1], cob.shape[1]:] = einsum("npq,qr,pi,rc->nic", r_bos_aob, fb, cob, cvb) - einsum(
+            "npq,pr,ri,qc->nic", r_bos_aob, fb, cob, cvb)
 
         # Get coulombic contribution.
         if self.base.with_df:
             for eri1 in self.mf.with_df.loop():
                 l_ = pyscf.lib.unpack_tril(eri1)
-
                 # First generate coulomb interactions effects. This all scales as N^3.
                 l_bos = einsum("npq,mpq->nm", l_, r_bos_aoa + r_bos_aob)  # N^3
-                la_ferm = einsum("npq,pi,qj->nij", l_, c[0], c[0])  # N^3
-                lb_ferm = einsum("npq,pi,qj->nij", l_, c[1], c[1])  # N^3
+                la_ferm = einsum("npq,pi,qj->nij", l_, ca, ca)  # N^3
+                lb_ferm = einsum("npq,pi,qj->nij", l_, cb, cb)  # N^3
 
                 couplings_aa += einsum("nm,nij->mij", l_bos, la_ferm)  # N^3
                 couplings_bb += einsum("nm,nij->mij", l_bos, lb_ferm)  # N^3
@@ -429,17 +448,19 @@ class EDMETFragment(DMETFragment):
                 # Now exchange contributions; those to the coupling are straightforward (N^3) to calculate.
                 la_singl = einsum("npq,pi->niq", l_, ca)  # N^3
                 lb_singl = einsum("npq,pi->niq", l_, cb)  # N^3
-                couplings_aa += einsum("nip,njq,mpq->mij", la_singl, la_singl, r_bos_aoa)  # N^3
-                couplings_bb += einsum("nip,njq,mpq->mij", lb_singl, lb_singl, r_bos_aob)  # N^3
+                couplings_aa -= einsum("nip,njq,mpq->mij", la_singl, la_singl, r_bos_aoa)  # N^3
+                couplings_bb -= einsum("nip,njq,mpq->mij", lb_singl, lb_singl, r_bos_aob)  # N^3
                 del la_singl, lb_singl
                 if exchange_between_bos:
                     # boson-boson interactions are N^4, so if have O(N) clusters this would push our scaling to N^5...
                     # Note we want both `occupied` indices of bosonic degrees of freedom to contract to same l, and the
                     # same for both `virtual` indices.
-                    a_bos += einsum("nqrm,nrql->ml",
+                    a_bos -= einsum("nqrm,nrql->ml",
                                     einsum("npq,mpr->nqrm", l_, r_bos_aoa + r_bos_aob),
                                     einsum("npq,lqr->nprl", l_, r_bos_aoa + r_bos_aob))
-                L = einsum("npq,lpq->nl", pyscf.lib.unpack_tril(eri1), )
+        # Need to check if boson-number-nonconserving value is nonzero:
+        if any(abs(bos_nonconserv) > 1e-6):
+            raise NotImplementedError("Cannot currently treat nonzero boson-non-conserving contributions.")
 
         return couplings_aa, couplings_bb, a_bos, b_bos
 
