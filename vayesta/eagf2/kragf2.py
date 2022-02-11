@@ -136,14 +136,73 @@ def _make_mo_eris(self, mo_coeff=None):
     return qij
 
 
-def search_chempot(fock, nphys, nelec, occupancy=2):
-    """Search for a chemical potential.
+def search_chempot_constrained(fock, nphys, nelec, occupancy=2):
+    """Search for a chemical potential, constraining the k-point
+    dependent occupancy to ensure no crossover of states. If this
+    is not possible, a ValueError will be raised.
     """
 
     if isinstance(fock, tuple):
         w, v = fock
     else:
         w, v = zip(*[np.linalg.eigh(f) for f in fock])
+
+    nmo = max(len(x) for x in w)
+    nkpts = len(w)
+    sum0 = sum1 = 0.0
+
+    for i in range(nmo):
+        n = 0
+        for k in range(nkpts):
+            n += np.dot(v[k][:nphys[k], i].conj().T, v[k][:nphys[k], i]).real
+        n *= occupancy
+        sum0, sum1 = sum1, sum1 + n
+
+        if i > 0:
+            if sum0 <= nelec and nelec <= sum1:
+                break
+
+    if abs(sum0 - nelec) < abs(sum1 - nelec):
+        homo = i - 1
+        error = nelec - sum0
+    else:
+        homo = i
+        error = nelec - sum1
+
+    lumo = homo + 1
+
+    if lumo == nmo:
+        chempot = np.max(w) + 1e-6
+    else:
+        e_homo = np.max([x[homo] for x in w])
+        e_lumo = np.min([x[lumo] for x in w])
+
+        if e_homo > e_lumo:
+            raise ValueError(
+                    "Could not find a chemical potential under "
+                    "the constrain of equal k-point occupancy."
+            )
+
+        chempot = 0.5 * (e_homo + e_lumo)
+
+    return chempot, error
+
+
+def search_chempot(fock, nphys, nelec, occupancy=2):
+    """Search for a chemical potential, without constraining the
+    k-point dependent occupancy.
+    """
+
+    if isinstance(fock, tuple):
+        w, v = fock
+    else:
+        w, v = zip(*[np.linalg.eigh(f) for f in fock])
+
+    try:
+        chempot, error = search_chempot_constrained((w, v), nphys, nelec, occupancy=occupancy)
+        return chempot, error
+    except ValueError:
+        pass
 
     kidx = np.concatenate([[i]*x.size for i, x in enumerate(w)])
     w = np.concatenate(w)
@@ -195,12 +254,17 @@ def _gradient(x, se, fock, nelec, occupancy=2, buf=None):
     nmo = se[0].nphys
 
     ddm = 0.0
-    for i, (w, v) in enumerate(zip(ws, vs)):
+    for i in mpi_helper.nrange(len(ws)):
+        w, v = ws[i], vs[i]
         nmo = se[i].nphys
-        nocc = np.sum(w < se[0].chempot)
+        nocc = np.sum(w < chempot)
         h1 = -np.dot(v[nmo:, nocc:].T.conj(), v[nmo:, :nocc])
         zai = -h1 / lib.direct_sum("i-a->ai", w[:nocc], w[nocc:])
         ddm += lib.einsum("ai,pa,pi->", zai, v[:nmo, nocc:], v[:nmo, :nocc].conj()).real * 4
+
+    mpi_helper.barrier()
+    ddm = mpi_helper.allreduce(ddm)
+    mpi_helper.barrier()
 
     grad = occupancy * error * ddm
 
