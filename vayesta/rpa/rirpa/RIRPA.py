@@ -13,7 +13,7 @@ class ssRIRPA:
     WARNING: Should only be used with canonical mean-field orbital coefficients in mf.mo_coeff and RHF.
     """
 
-    def __init__(self, dfmf, rixc=None, log=None, err_tol=1e-6, svd_tol=1e-10):
+    def __init__(self, dfmf, rixc=None, log=None, err_tol=1e-6, svd_tol=1e-12):
         self.mf = dfmf
         self.rixc = rixc
         self.log = log or logging.getLogger(__name__)
@@ -146,7 +146,41 @@ class ssRIRPA:
             self.check_errors(mom0_err, target_rot.size)
         else:
             mom0_err = None
-        return mom0 + moment_offset, mom0_err
+        return mom0 + moment_offset, mom0_err, \
+               self.test_eta0_error(mom0 + moment_offset, target_rot, ri_apb, ri_amb)
+
+    def test_eta0_error(self, mom0, target_rot, ri_apb, ri_amb):
+        """Test how well our obtained zeroth moment obeys relation used to derive it, namely
+                A-B = eta0 (A+B) eta0
+        From this we can estimate the error in eta0 using Cauchy-Schwartz.
+        """
+        l1 = [dot(mom0, x.T) for x in ri_apb]
+        l2 = [dot(target_rot, x.T) for x in ri_amb]
+        #amb_exact = einsum("pq,q,rq->pr", target_rot, self.D, target_rot) + dot(l2[0], l2[1].T)
+        #print(amb_exact)
+        #amb_approx = einsum("pq,q,rq->pr", mom0, self.D, mom0) + dot(l1[0], l1[1].T)
+        #error = amb_approx - amb_exact
+        amb = np.diag(self.D) + dot(ri_amb[0].T, ri_amb[1])
+        apb = np.diag(self.D) + dot(ri_apb[0].T, ri_apb[1])
+        amb_exact = dot(target_rot, amb, target_rot.T)
+        print(apb)
+        print(amb_exact)
+        print(mom0)
+        self.save = (apb, amb_exact, mom0)
+        error = amb_exact - dot(mom0, apb, mom0.T)
+        self.error = error
+        e_norm = np.linalg.norm(error)
+        print(e_norm)
+        p_norm = np.linalg.norm(self.D) + np.linalg.norm(ri_apb) ** 2
+        peta_norm = np.linalg.norm(einsum("p,qp->pq", self.D, mom0) + dot(ri_apb[0].T, l1[1].T))
+
+        # Now to estimate resulting error estimate in eta0.
+        poly = np.polynomial.Polynomial([e_norm/p_norm, -2 * peta_norm / p_norm, 1])
+        roots = poly.roots()
+        self.log.info("Proportional error in eta0 relation=%6.4e", e_norm / np.linalg.norm(amb_exact))
+        self.log.info("Resulting error lower bound: %s", str(roots))
+
+        return roots
 
     def kernel_trMPrt(self, npoints=48, ainit=10):
         """Evaluate Tr((MP)^(1/2))."""
@@ -169,7 +203,7 @@ class ssRIRPA:
 
             if correction.lower() == "linear":
                 ri_a_xc, ri_b_xc = self.get_ab_xc_ri()
-                eta0_xc, err2 = self.kernel_moms(target_rot=ri_b_xc[0], npoints=npoints, ainit=ainit)
+                eta0_xc, err2, err3 = self.kernel_moms(target_rot=ri_b_xc[0], npoints=npoints, ainit=ainit)
                 err += err2
                 val = np.dot(eta0_xc, ri_b_xc[1].T).trace() / 2
                 self.log.info("Approximated correlation energy contribution: %e", val)
@@ -487,7 +521,7 @@ def construct_inverse_RI(D, ri):
     return einsum("p,np,nm->mp", D ** (-1), ri_L, urt_l), einsum("p,np,nm->mp", D ** (-1), ri_R, urt_r.T)
 
 
-def compress_low_rank(ri_l, ri_r, tol=1e-8, log=None, name=None):
+def compress_low_rank(ri_l, ri_r, tol=1e-12, log=None, name=None):
     naux_init = ri_l.shape[0]
     u, s, v = np.linalg.svd(ri_l, full_matrices=False)
     nwant = sum(s > tol)
