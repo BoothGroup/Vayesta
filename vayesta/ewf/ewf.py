@@ -420,8 +420,19 @@ class EWF(QEmbeddingMethod):
     def get_rdm2_energy(self, global_dm1=True, global_dm2=False, t_as_lambda=False):
         return self.mf.e_tot / self.ncells + self.get_rdm2_corr_energy(global_dm1=True, global_dm2=False, t_as_lambda=False)
 
-    def get_rdm2_corr_energy(self, global_dm1=True, global_dm2=False, t_as_lambda=False):
+    def get_rdm2_corr_energy(self, global_dm1=True, global_dm2=False):
+        """
+        Calculate energy via RDMs
 
+        Parameters
+        ----------
+        global_dm1 : bool
+            Use 1DM calculated from global amplitutes if True, otherwise use in cluster approximation. Default: True
+        global_dm2 : bool
+            Use 2DM calculated from global amplitutes if True, otherwise use in cluster approximation. Default: False
+        """
+
+        t_as_lambda = self.opts.t_as_lambda
         mf = self.mf
         nmo = mf.mo_coeff.shape[1]
         nocc = (mf.mo_occ > 0).sum()
@@ -451,113 +462,125 @@ class EWF(QEmbeddingMethod):
         return (E1 + E2) / self.ncells
 
 
-def get_bath_bath_energy(self, method='avg', t_as_lambda=False):
-    get_c2c = lambda i,j: dot(self.fragments[i].cluster.c_active_occ.T, self.get_ovlp(), self.fragments[j].cluster.c_active_occ)
+    def get_bath_bath_energy(self, method='avg'):
+        """
+        Calculate bath-bath contribution to energy due to fragment space overalp with other clusters.
 
-    get_c2f = lambda i,j: dot(self.fragments[i].c_frag.T, self.get_ovlp(), self.fragments[j].cluster.c_active_occ)
+        Parameters
+        ----------
+        method : str
+            Selects calculation method, can be 'max', 'avg', 'proj1', 'proj2'
+        
+        """
 
-    def calc_subspace_energy(self, P1, P2, i1, i2, t_as_lambda=t_as_lambda):
+        t_as_lambda = self.opts.t_as_lambda
 
-        t1 = self.fragments[i2].results.get_t1()
-        t2 = self.fragments[i2].results.get_t2()
-        l2 = (self.fragments[i2].results.get_t2() if t_as_lambda else self.fragments[i2].results.l2)
-        l1 = (self.fragments[i2].results.t1 if t_as_lambda else self.fragments[i2].results.l1)
+        get_c2c = lambda i,j: dot(self.fragments[i].cluster.c_active_occ.T, self.get_ovlp(), self.fragments[j].cluster.c_active_occ)
 
+        get_c2f = lambda i,j: dot(self.fragments[i].c_frag.T, self.get_ovlp(), self.fragments[j].cluster.c_active_occ)
 
-        t1p = einsum('ij,jk->ik', P2, t1)
-        t2p = einsum('iI,jJ,IJab->ijab', P1, P2, t2)
-        l1p = einsum('ij,jk->ik', P2, l1)
-        l2p = einsum('iI,jJ,IJab->ijab', P1, P2, l2)
+        def calc_subspace_energy(self, P1, P2, i1, i2, t_as_lambda=t_as_lambda):
 
-        mycc = pyscf.cc.CCSD(self.mf)
-
-        d1 = None
-
-        d2 = _gamma2_intermediates(mycc, t1, t2, l1p, l2p, t1p=t1p, t2p=t2p)
-        rdm2 = pyscf.cc.ccsd_rdm._make_rdm2(mycc, d1, d2, with_dm1=False)
-        E2 =  np.einsum('pqrs,pqrs', self.fragments[i2]._eris, rdm2) * 0.5
-        return E2
-
-    # For each fragment find the maximally overlapping cluster space
-    traces = np.zeros((len(self.fragments), len(self.fragments)))
-    for i1, f1 in enumerate(self.fragments):
-        for i2, f2 in enumerate(self.fragments):
-            c2f = get_c2f(i1, i2)
-            P1 = dot(c2f.T, c2f)
-
-            c2c = get_c2c(i1, i2)
-            c2c = dot(c2c.T, c2c)
-            P2 = np.eye(c2c.shape[0]) - c2c
-            if i1 != i2:
-                traces[i2][i1] = P1.trace() * P2.trace()
+            t1 = self.fragments[i2].results.get_t1()
+            t2 = self.fragments[i2].results.get_t2()
+            l2 = (self.fragments[i2].results.get_t2() if t_as_lambda else self.fragments[i2].results.l2)
+            l1 = (self.fragments[i2].results.t1 if t_as_lambda else self.fragments[i2].results.l1)
 
 
-    lst = list(range(len(self.fragments)))
-    ranking = [sorted(lst, key=lambda x: traces[i][x], reverse=True) for i in lst]
+            t1p = einsum('ij,jk->ik', P2, t1)
+            t2p = einsum('iI,jJ,IJab->ijab', P1, P2, t2)
+            l1p = einsum('ij,jk->ik', P2, l1)
+            l2p = einsum('iI,jJ,IJab->ijab', P1, P2, l2)
 
-    Ebb = 0
-    for i1, f1 in enumerate(self.fragments):
-        if method == 'max':
-            # Maximum overlap
-            j = ranking[i1][0]
-            P1 = get_c2f(i1, j)
-            P1 = dot(P1.T, P1)
-            c2c = get_c2c(i1, j)
-            c2c = dot(c2c.T, c2c)
-            P2 = np.eye(c2c.shape[0]) - c2c
+            mycc = pyscf.cc.CCSD(self.mf)
 
-            Ebb += calc_subspace_energy(self, P1, P2, i1, j)
-        elif method == 'avg':
-            # Weighted average
-            N = traces[i1].sum()
+            d1 = None
+
+            d2 = _gamma2_intermediates(mycc, t1, t2, l1p, l2p, t1p=t1p, t2p=t2p)
+            rdm2 = pyscf.cc.ccsd_rdm._make_rdm2(mycc, d1, d2, with_dm1=False)
+            E2 =  np.einsum('pqrs,pqrs', self.fragments[i2]._eris, rdm2) * 0.5
+            return E2
+
+        # For each fragment find the maximally overlapping cluster space
+        traces = np.zeros((len(self.fragments), len(self.fragments)))
+        for i1, f1 in enumerate(self.fragments):
             for i2, f2 in enumerate(self.fragments):
-                P1 = get_c2f(i1, i2)
-                P1 = dot(P1.T, P1)
+                c2f = get_c2f(i1, i2)
+                P1 = dot(c2f.T, c2f)
+
                 c2c = get_c2c(i1, i2)
                 c2c = dot(c2c.T, c2c)
                 P2 = np.eye(c2c.shape[0]) - c2c
+                if i1 != i2:
+                    traces[i2][i1] = P1.trace() * P2.trace()
 
-                Ebb += (calc_subspace_energy(self, P1, P2, i1, i2) * traces[i1][i2])/N
 
-        elif method == 'proj1':
-            # Simpler projective approach
-            for i2, f2 in enumerate(self.fragments):
-                P1 = get_c2f(i1, i2)
+        lst = list(range(len(self.fragments)))
+        ranking = [sorted(lst, key=lambda x: traces[i][x], reverse=True) for i in lst]
+
+        Ebb = 0
+        for i1, f1 in enumerate(self.fragments):
+            if method == 'max':
+                # Maximum overlap
+                j = ranking[i1][0]
+                P1 = get_c2f(i1, j)
                 P1 = dot(P1.T, P1)
-                c2c = get_c2c(i1, i2)
+                c2c = get_c2c(i1, j)
                 c2c = dot(c2c.T, c2c)
-
                 P2 = np.eye(c2c.shape[0]) - c2c
 
-                for i3 in [i for i in range(i2) if i != i1]:
-                    c2c = get_c2c(i2, i3)
+                Ebb += calc_subspace_energy(self, P1, P2, i1, j)
+            elif method == 'avg':
+                # Weighted average
+                N = traces[i1].sum()
+                for i2, f2 in enumerate(self.fragments):
+                    P1 = get_c2f(i1, i2)
+                    P1 = dot(P1.T, P1)
+                    c2c = get_c2c(i1, i2)
                     c2c = dot(c2c.T, c2c)
-                    P2 = dot(P2, np.eye(c2c.shape[0]) - c2c)
+                    P2 = np.eye(c2c.shape[0]) - c2c
 
-                Ebb += calc_subspace_energy(self, P1, P2, i1, i2)
+                    Ebb += (calc_subspace_energy(self, P1, P2, i1, i2) * traces[i1][i2])/N
 
-        elif method == 'proj2':
-            #Projective approach in overleaf document
-            for k, i2 in enumerate(ranking[i1]):
-                P1 = get_c2f(i1, i2)
-                P1 = dot(P1.T, P1)
-                c2c = get_c2c(i1, i2)
-                c2c = dot(c2c.T, c2c)
-
-                P2 = np.eye(c2c.shape[0]) - c2c
-
-                Pt = np.eye(c2c.shape[0])
-
-                for i3 in [i for i in range(k) if i != i1]:
-                    c2c = get_c2c(i2, i3)
+            elif method == 'proj1':
+                # Simpler projective approach
+                for i2, f2 in enumerate(self.fragments):
+                    P1 = get_c2f(i1, i2)
+                    P1 = dot(P1.T, P1)
+                    c2c = get_c2c(i1, i2)
                     c2c = dot(c2c.T, c2c)
-                    Pt = dot(Pt, np.eye(c2c.shape[0]) - c2c)
 
-                P1 = dot(Pt, P1, Pt)
-                P2 = dot(Pt, P2, Pt)
+                    P2 = np.eye(c2c.shape[0]) - c2c
 
-                Ebb += calc_subspace_energy(self, P1, P2, i1, i2)
-    return Ebb
+                    for i3 in [i for i in range(i2) if i != i1]:
+                        c2c = get_c2c(i2, i3)
+                        c2c = dot(c2c, c2c.T)
+                        P2 = dot(P2, np.eye(c2c.shape[0]) - c2c)
+
+                    Ebb += calc_subspace_energy(self, P1, P2, i1, i2)
+
+            elif method == 'proj2':
+                #Projective approach in overleaf document
+                for k, i2 in enumerate(ranking[i1]):
+                    P1 = get_c2f(i1, i2)
+                    P1 = dot(P1.T, P1)
+                    c2c = get_c2c(i1, i2)
+                    c2c = dot(c2c.T, c2c)
+
+                    P2 = np.eye(c2c.shape[0]) - c2c
+
+                    Pt = np.eye(c2c.shape[0])
+
+                    for i3 in [i for i in range(k) if i != i1]:
+                        c2c = get_c2c(i2, i3)
+                        c2c = dot(c2c, c2c.T)
+                        Pt = dot(Pt, np.eye(c2c.shape[0]) - c2c)
+
+                    P1 = dot(Pt, P1, Pt)
+                    P2 = dot(Pt, P2, Pt)
+
+                    Ebb += calc_subspace_energy(self, P1, P2, i1, i2)
+        return Ebb
 
 
     # -------------------------------------------------------------------------------------------- #
