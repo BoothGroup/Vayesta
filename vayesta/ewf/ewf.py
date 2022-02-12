@@ -58,6 +58,8 @@ class EWF(QEmbeddingMethod):
         eom_ccsd: list = dataclasses.field(default_factory=list)  # Perform EOM-CCSD in each cluster by default
         eom_ccsd_nroots: int = 5            # Perform EOM-CCSD in each cluster by default
         eomfile: str = 'eom-ccsd'           # Filename for EOM-CCSD states
+        # Energy calculation
+        calc_cluster_rdm_energy = True
         # Counterpoise correction of BSSE
         bsse_correction: bool = True
         bsse_rmax: float = 5.0              # In Angstrom
@@ -417,8 +419,8 @@ class EWF(QEmbeddingMethod):
 
         return c0, c1, c2
 
-    def get_rdm2_energy(self, global_dm1=True, global_dm2=False, t_as_lambda=False):
-        return self.mf.e_tot / self.ncells + self.get_rdm2_corr_energy(global_dm1=True, global_dm2=False, t_as_lambda=False)
+    def get_rdm2_energy(self, global_dm1=True, global_dm2=False):
+        return self.mf.e_tot / self.ncells + self.get_rdm2_corr_energy(global_dm1=True, global_dm2=False)
 
     def get_rdm2_corr_energy(self, global_dm1=True, global_dm2=False):
         """
@@ -469,8 +471,8 @@ class EWF(QEmbeddingMethod):
         Parameters
         ----------
         method : str
-            Selects calculation method, can be 'max', 'avg', 'proj1', 'proj2'
-        
+            Selects calculation method, can be 'max', 'avg', 'proj1', 'proj2'. Default: 'avg'
+
         """
 
         t_as_lambda = self.opts.t_as_lambda

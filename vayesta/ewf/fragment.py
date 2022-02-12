@@ -375,25 +375,26 @@ class EWFFragment(QEmbeddingFragment):
             results.e_dmet = self.get_fragment_dmet_energy(dm1=results.dm1, dm2=results.dm2, eris=eris)
 
         #2RDM Energy Contribution
-        if solver == 'CCSD':
-            t_as_lambda = False
-            t1 = self.results.get_t1()
-            t2 = self.results.get_t2()
-            l2 = (self.results.get_t2() if t_as_lambda else self.results.l2)
-            l1 = (self.results.t1 if t_as_lambda else self.results.l1)
+        if self.solver == 'CCSD' and self.base.opts.calc_cluster_rdm_energy:
+            with log_time(self.log.info, ("Time for fragment 2DM energy= %s")):
+                t_as_lambda = self.opts.t_as_lambda
+                t1 = self.results.get_t1()
+                t2 = self.results.get_t2()
+                l2 = (self.results.get_t2() if t_as_lambda else self.results.l2)
+                l1 = (self.results.t1 if t_as_lambda else self.results.l1)
 
-            t1p = self.project_amplitude_to_fragment(t1)
-            l1p = self.project_amplitude_to_fragment(l1)
-            l2p = self.project_amplitude_to_fragment(l2)
-            t2p = self.project_amplitude_to_fragment(t2)
+                t1p = self.project_amplitude_to_fragment(t1)
+                l1p = self.project_amplitude_to_fragment(l1)
+                l2p = self.project_amplitude_to_fragment(l2)
+                t2p = self.project_amplitude_to_fragment(t2)
 
-            mycc = pyscf.cc.CCSD(self.base.mf)
-            d1 = pyscf.cc.ccsd_rdm._gamma1_intermediates(mycc, t1, t2, l1, l2)
-            d2 = _gamma2_intermediates(mycc, t1, t2, l1p, l2p, t1p=t1p, t2p=t2p)
-            rdm2 = pyscf.cc.ccsd_rdm._make_rdm2(mycc, d1, d2, with_dm1=False)#, with_frozen=with_frozen, ao_repr=ao_repr)
-            eris = ao2mo.helper.get_full_array(eris)
+                mycc = pyscf.cc.CCSD(self.base.mf)
+                d1 = None #pyscf.cc.ccsd_rdm._gamma1_intermediates(mycc, t1, t2, l1, l2)
+                d2 = _gamma2_intermediates(mycc, t1, t2, l1p, l2p, t1p=t1p, t2p=t2p)
+                rdm2 = pyscf.cc.ccsd_rdm._make_rdm2(mycc, d1, d2, with_dm1=False)#, with_frozen=with_frozen, ao_repr=ao_repr)
+                eris = ao2mo.helper.get_full_array(eris)
 
-            self.results.e_rdm2 = np.einsum('pqrs,pqrs', eris, rdm2) * 0.5
+                self.results.e_rdm2 = np.einsum('pqrs,pqrs', eris, rdm2) * 0.5
         # Keep ERIs stored
         if (self.opts.store_eris or self.base.opts.store_eris):
             self._eris = eris
