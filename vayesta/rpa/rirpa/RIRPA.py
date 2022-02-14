@@ -163,14 +163,10 @@ class ssRIRPA:
         amb = np.diag(self.D) + dot(ri_amb[0].T, ri_amb[1])
         apb = np.diag(self.D) + dot(ri_apb[0].T, ri_apb[1])
         amb_exact = dot(target_rot, amb, target_rot.T)
-        print(apb)
-        print(amb_exact)
-        print(mom0)
         self.save = (apb, amb_exact, mom0)
         error = amb_exact - dot(mom0, apb, mom0.T)
         self.error = error
         e_norm = np.linalg.norm(error)
-        print(e_norm)
         p_norm = np.linalg.norm(self.D) + np.linalg.norm(ri_apb) ** 2
         peta_norm = np.linalg.norm(einsum("p,qp->pq", self.D, mom0) + dot(ri_apb[0].T, l1[1].T))
 
@@ -178,7 +174,7 @@ class ssRIRPA:
         poly = np.polynomial.Polynomial([e_norm/p_norm, -2 * peta_norm / p_norm, 1])
         roots = poly.roots()
         self.log.info("Proportional error in eta0 relation=%6.4e", e_norm / np.linalg.norm(amb_exact))
-        self.log.info("Resulting error lower bound: %s", str(roots))
+        self.log.info("Resulting error lower bound: %6.4e", roots.min())
 
         return roots
 
@@ -227,7 +223,7 @@ class ssRIRPA:
 
         def get_eta_alpha(alpha, target_rot):
             newrirpa = self.__class__(self.mf, rixc=self.rixc, log=self.log)
-            mom0, err = newrirpa.kernel_moms(target_rot=target_rot, npoints=npoints, alpha=alpha)
+            mom0, err, err2 = newrirpa.kernel_moms(target_rot=target_rot, npoints=npoints, alpha=alpha)
             return mom0
 
         def run_ac_inter(func, deg=5):
@@ -333,7 +329,7 @@ class ssRIRPA:
         e_mp_r, c_l_approx, c_r = get_lowest_eigenvals(self.D**2, *ri_mp, c0, nroots=nroots, nosym=True)
 
         if not calc_xy:
-            return e_mp_r **(0.5)
+            return e_mp_r ** (0.5)
 
         # Then solve for accurate left eigenvectors, starting from subspace approximation from right eigenvectors. Take
         # the real component since all solutions should be real.
@@ -453,7 +449,6 @@ class ssRIRPA:
             ]
         fullrpa = ssRPA(self.mf)
         fullrpa.kernel(xc_kernel=xc_kernel)
-        print(fullrpa.freqs_ss[:20])
         target_rot = np.eye(self.ov_tot)
         ri_apb, ri_amb = self.construct_RI_AB()
         ri_mp = construct_product_RI(self.D, ri_amb, ri_apb)
