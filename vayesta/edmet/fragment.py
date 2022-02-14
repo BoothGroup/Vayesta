@@ -2,9 +2,9 @@ import dataclasses
 from timeit import default_timer as timer
 
 import numpy as np
-import pyscf.lib
 import scipy.linalg
 
+import pyscf.lib
 from vayesta.core.util import *
 from vayesta.dmet.fragment import DMETFragment
 from vayesta.solver import get_solver_class2 as get_solver_class
@@ -227,7 +227,7 @@ class EDMETFragment(DMETFragment):
         self.amb_renorm_effect = renorm_amb - amb
 
         maxdev = abs(amb - renorm_amb)[:self.ov_active_tot, :self.ov_active_tot].max()
-        if maxdev > 1e-8:
+        if maxdev > 1e-6:
             self.log.error("Maximum deviation in irreducible polarisation propagator=%6.4e",
                            abs(amb - renorm_amb)[:self.ov_active_tot, :self.ov_active_tot].max())
 
@@ -422,7 +422,6 @@ class EDMETFragment(DMETFragment):
         a_bos -= einsum("npq,mrs,pr,qs->nm", r_bos_aoa, r_bos_aoa, fa, self.base.get_ovlp()) + \
                  einsum("npq,mrs,pr,qs->nm", r_bos_aob, r_bos_aob, fb, self.base.get_ovlp())
         b_bos = np.zeros_like(a_bos)
-        print(a_bos)
 
         couplings_aa = np.zeros((self.nbos,) + (coa.shape[1] + cva.shape[1],) * 2)
         couplings_bb = np.zeros((self.nbos,) + (cob.shape[1] + cvb.shape[1],) * 2)
@@ -529,12 +528,24 @@ class EDMETFragment(DMETFragment):
         couplings = self.ecouplings
 
         # Have separate spin contributions.
-        efb = 0.5 * (
-                np.einsum("pr,npq,rqn", p_imp, couplings[0], dm_eb[0]) +
-                np.einsum("qr,npq,prn", p_imp, couplings[0], dm_eb[0]) +
-                np.einsum("pr,npq,rqn", p_imp, couplings[1], dm_eb[1]) +
-                np.einsum("qr,npq,prn", p_imp, couplings[1], dm_eb[1])
-        )
+        if "qba" in self.opts.bosonic_interaction:
+            # Already have exchange effects included, so can use straightforward contraction.
+            # dm_eb -> <0|b^+ p^+ q|0> in P[p,q,b]
+            # couplings -> double check.
+            efb = 0.25 * (einsum("qr,npq,prn", p_imp, couplings[0], dm_eb[0]) +
+                        einsum("qr,npq,prn", p_imp, couplings[1], dm_eb[1])
+                          - (einsum("qr,nqp,prn", p_imp, couplings[0], dm_eb[0]) +
+                             einsum("qr,nqp,prn", p_imp, couplings[1], dm_eb[1]))
+                          )
+
+            self.delta = efb
+        else:
+            efb = 0.5 * (
+                    np.einsum("pr,npq,rqn", p_imp, couplings[0], dm_eb[0]) +
+                    np.einsum("qr,npq,prn", p_imp, couplings[0], dm_eb[0]) +
+                    np.einsum("pr,npq,rqn", p_imp, couplings[1], dm_eb[1]) +
+                    np.einsum("qr,npq,prn", p_imp, couplings[1], dm_eb[1])
+            )
         return e1, e2, efb
 
     # From this point on have functionality to perform self-consistency.
@@ -630,18 +641,31 @@ class EDMETFragment(DMETFragment):
                 vbb = vbb.reshape((nb ** 2, nb ** 2))
                 vab = vab.reshape((na ** 2, nb ** 2))
 
-                v_fb_a = v_fb_a.reshape((na ** 2, nbos))
-                v_fb_b = v_fb_b.reshape((nb ** 2, nbos))
+                v_fb_a_ex = v_fb_a.reshape((na ** 2, nbos))
+                v_fb_b_ex = v_fb_b.reshape((nb ** 2, nbos))
 
-                fullv = np.zeros((na ** 2 + nb ** 2 + nbos,) * 2)
+                v_fb_a_dex = v_fb_a.transpose((1,0,2)).reshape((na ** 2, nbos))
+                v_fb_b_dex = v_fb_b.transpose((1,0,2)).reshape((nb ** 2, nbos))
+
+                fullv = np.zeros((na ** 2 + nb ** 2 + 2 * nbos,) * 2)
                 fullv[:na ** 2, :na ** 2] = vaa
                 fullv[na ** 2:nferm_tot, na ** 2:nferm_tot] = vbb
                 fullv[:na ** 2, na ** 2:nferm_tot] = vab
                 fullv[na ** 2:nferm_tot, :na ** 2] = vab.T
-                fullv[:na ** 2, nferm_tot:] = v_fb_a
-                fullv[na ** 2:nferm_tot, nferm_tot:] = v_fb_b
-                fullv[nferm_tot:, :na ** 2] = v_fb_a.T
-                fullv[nferm_tot:, na ** 2:nferm_tot] = v_fb_b.T
+
+                # Component coupling to bosonic excitations.
+                fullv[:na ** 2, nferm_tot:nferm_tot+nbos] = v_fb_a_ex
+                fullv[na ** 2:nferm_tot, nferm_tot:nferm_tot+nbos] = v_fb_b_ex
+
+                fullv[nferm_tot:nferm_tot+nbos, :na ** 2] = v_fb_a_ex.T
+                fullv[nferm_tot:nferm_tot+nbos, na ** 2:nferm_tot] = v_fb_b_ex.T
+
+                # Component coupling to bosonic excitations.
+                fullv[:na ** 2, nferm_tot+nbos:] = v_fb_a_dex
+                fullv[na ** 2:nferm_tot, nferm_tot+nbos:] = v_fb_b_dex
+
+                fullv[nferm_tot+nbos:, :na ** 2] = v_fb_a_dex.T
+                fullv[nferm_tot+nbos:, na ** 2:nferm_tot] = v_fb_b_dex.T
 
                 u, s, v = np.linalg.svd(fullv, full_matrices=False)
                 want = s > svdtol
@@ -654,8 +678,9 @@ class EDMETFragment(DMETFragment):
                           repr_r[:, :na ** 2].reshape((nwant, na, na)))
                 repf_b = (repr_l[:, na ** 2:nferm_tot].reshape((nwant, nb, nb)),
                           repr_r[:, na ** 2:nferm_tot].reshape((nwant, nb, nb)))
-                repbos = (repr_l[:, nferm_tot:], repr_r[:, nferm_tot:])
-                return repf_a, repf_b, repbos
+                repbos_ex = (repr_l[:, nferm_tot:nferm_tot+nbos], repr_r[:, nferm_tot:nferm_tot+nbos])
+                repbos_dex = (repr_l[:, nferm_tot+nbos:], repr_r[:, nferm_tot+nbos:])
+                return repf_a, repf_b, repbos_ex, repbos_dex
 
             return construct_low_rank_rep(ferm_aa, ferm_ab, ferm_bb, fb_a, fb_b)
         else:
@@ -670,7 +695,14 @@ class EDMETFragment(DMETFragment):
             # First get the contribution from the fermionic degrees of freedom.
             res = [tuple([einsum("nij,pi,qj->npq", x, c, c) for x in y]) for y in contrib[:2]]
             if self.opts.boson_xc_kernel:
-                bos_contrib = [tuple([einsum("nz,zpq->npq", x, y) for x in contrib[2]]) for y in self.r_ao_bos]
+                repbos_ex, repbos_dex = contrib[2:]
+                r_ao_bosa, r_ao_bosb = self.r_ao_bos
+
+                bos_contrib = [
+                    (einsum("nz,zpq->npq", repbos_ex[0], r_ao_bosa) + einsum("nz,zpq->nqp", repbos_dex[0], r_ao_bosa),
+                     einsum("nz,zpq->npq", repbos_ex[1], r_ao_bosa) + einsum("nz,zpq->nqp", repbos_dex[1], r_ao_bosa)),
+                    (einsum("nz,zpq->npq", repbos_ex[0], r_ao_bosb) + einsum("nz,zpq->nqp", repbos_dex[0], r_ao_bosb),
+                     einsum("nz,zpq->npq", repbos_ex[1], r_ao_bosb) + einsum("nz,zpq->nqp", repbos_dex[1], r_ao_bosb))]
                 res = [tuple([z1 + z2 for z1, z2 in zip(x, y)]) for x, y in zip(res, bos_contrib)]
             self.prev_xc_contrib = res
             return res
@@ -681,16 +713,18 @@ class EDMETFragment(DMETFragment):
             v_bb = einsum("ijkl,pi,qj,rk,sl->pqrs", v_bb, c, c, c, c)
 
             if self.opts.boson_xc_kernel:
-                # Need to add in bosonic components; these need to both be mapped from
                 r_bosa, r_bosb = self.r_bos_ao
+                # First bosonic excitations, need to consider boson for both first and second index pair.
                 bos_v_aa = einsum("ijn,pi,qj,nrs->pqrs", fb_a, c, c, r_bosa)
                 bos_v_aa += einsum("pqrs->rspq", bos_v_aa)
                 bos_v_bb = einsum("ijn,pi,qj,nrs->pqrs", fb_b, c, c, r_bosb)
                 bos_v_bb += einsum("pqrs->rspq", bos_v_bb)
                 bos_v_ab = einsum("ijn,pi,qj,nrs->pqrs", fb_a, c, c, r_bosb)
                 bos_v_ab += einsum("ijn,pi,qj,nrs->rspq", fb_b, c, c, r_bosa)
-
-                self.bos_xc_contrib = (bos_v_aa, bos_v_ab, bos_v_bb)
+                # Bosonic dexcitations contributions swap pqrs->qpsr.
+                bos_v_aa += einsum("pqrs->qpsr", bos_v_aa)
+                bos_v_ab += einsum("pqrs->qpsr", bos_v_ab)
+                bos_v_bb += einsum("pqrs->qpsr", bos_v_bb)
 
                 v_aa += bos_v_aa
                 v_ab += bos_v_ab

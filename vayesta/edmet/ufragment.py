@@ -146,21 +146,6 @@ class UEDMETFragment(UDMETFragment, EDMETFragment):
             return dot(rota, eris_aa, rota.T) + dot(rota, eris_ab, rotb.T) + \
                    dot(rotb, eris_ab.T, rota.T) + dot(rotb, eris_bb, rotb.T)
 
-    def get_edmet_energy_contrib(self):
-        """Generate EDMET energy contribution, according to expression given in appendix of EDMET preprint"""
-        e1, e2 = self.get_dmet_energy_contrib()
-        c_act = self.cluster.c_active
-        p_imp = self.get_fragment_projector(c_act)
-        dm_eb = self._results.dm_eb
-        # Have separate spin contributions.
-        efb = 0.5 * (
-                np.einsum("pr,npq,rqn", p_imp[0], self.couplings[0], dm_eb[0]) +
-                np.einsum("qr,npq,prn", p_imp[0], self.couplings[0], dm_eb[0]) +
-                np.einsum("pr,npq,rqn", p_imp[1], self.couplings[1], dm_eb[1]) +
-                np.einsum("qr,npq,prn", p_imp[1], self.couplings[1], dm_eb[1])
-        )
-        return e1, e2, efb
-
     def get_rot_ov_frag(self):
         """Get rotations between the relevant space for fragment two-point excitations and the cluster active occupied-
         virtual excitations."""
@@ -208,7 +193,14 @@ class UEDMETFragment(UDMETFragment, EDMETFragment):
             # First get the contribution from the fermionic degrees of freedom.
             res = [tuple([einsum("nij,pi,qj->npq", x, c, c) for x in y]) for y, c in zip(contrib[:2], [ca, cb])]
             if self.opts.boson_xc_kernel:
-                bos_contrib = [tuple([einsum("nz,zpq->npq", x, y) for x in contrib[2]]) for y in self.r_bos_ao]
+                repbos_ex, repbos_dex = contrib[2:]
+                r_ao_bosa, r_ao_bosb = self.r_ao_bos
+
+                bos_contrib = [
+                    (einsum("nz,zpq->npq", repbos_ex[0], r_ao_bosa) + einsum("nz,zpq->nqp", repbos_dex[0], r_ao_bosa),
+                     einsum("nz,zpq->npq", repbos_ex[1], r_ao_bosa) + einsum("nz,zpq->nqp", repbos_dex[1], r_ao_bosa)),
+                    (einsum("nz,zpq->npq", repbos_ex[0], r_ao_bosb) + einsum("nz,zpq->nqp", repbos_dex[0], r_ao_bosb),
+                     einsum("nz,zpq->npq", repbos_ex[1], r_ao_bosb) + einsum("nz,zpq->nqp", repbos_dex[1], r_ao_bosb))]
                 res = [tuple([z1 + z2 for z1, z2 in zip(x, y)]) for x, y in zip(res, bos_contrib)]
             self.prev_xc_contrib = res
             return res
@@ -219,16 +211,18 @@ class UEDMETFragment(UDMETFragment, EDMETFragment):
             v_bb = einsum("ijkl,pi,qj,rk,sl->pqrs", v_bb, cb, cb, cb, cb)
 
             if self.opts.boson_xc_kernel:
-                # Need to add in bosonic components; these need to both be mapped from
                 r_bosa, r_bosb = self.r_bos_ao
+                # First bosonic excitations
                 bos_v_aa = einsum("ijn,pi,qj,nrs->pqrs", fb_a, ca, ca, r_bosa)
                 bos_v_aa += einsum("pqrs->rspq", bos_v_aa)
                 bos_v_bb = einsum("ijn,pi,qj,nrs->pqrs", fb_b, cb, cb, r_bosb)
                 bos_v_bb += einsum("pqrs->rspq", bos_v_bb)
                 bos_v_ab = einsum("ijn,pi,qj,nrs->pqrs", fb_a, ca, ca, r_bosb)
                 bos_v_ab += einsum("ijn,pi,qj,nrs->rspq", fb_b, cb, cb, r_bosa)
-
-                self.bos_xc_contrib = (bos_v_aa, bos_v_ab, bos_v_bb)
+                # Bosonic dexcitations contributions swap pqrs->qpsr.
+                bos_v_aa += einsum("pqrs->qpsr", bos_v_aa)
+                bos_v_ab += einsum("pqrs->qpsr", bos_v_ab)
+                bos_v_bb += einsum("pqrs->qpsr", bos_v_bb)
 
                 v_aa += bos_v_aa
                 v_ab += bos_v_ab
