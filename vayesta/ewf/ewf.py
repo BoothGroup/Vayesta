@@ -464,22 +464,25 @@ class EWF(QEmbeddingMethod):
         return (E1 + E2) / self.ncells
 
 
-    def get_bath_bath_energy(self, method='avg'):
-        """
-        Calculate bath-bath contribution to energy due to fragment space overalp with other clusters.
-
-        Parameters
-        ----------
-        method : str
-            Selects calculation method, can be 'max', 'avg', 'proj1', 'proj2'. Default: 'avg'
-
-        """
-
-        t_as_lambda = self.opts.t_as_lambda
 
 
 
-        def calc_subspace_energy(self, Pf, Pc, i1, i2, t_as_lambda=t_as_lambda):
+    def get_bath_bath_energy(self, method='avg', dm='t'):
+    """
+    Calculate bath-bath contribution to energy due to fragment space overalp with other clusters.
+
+    Parameters
+    ----------
+    method : str
+        Selects calculation method, can be 'max', 'avg', 'proj1', 'proj2'. Default: 'avg'
+
+    """
+
+    t_as_lambda = self.opts.t_as_lambda
+
+
+
+        def calc_subspace_energy_full_full(self, Pf, Pc, i1, i2, t_as_lambda=t_as_lambda):
 
             t1 = self.fragments[i2].results.get_t1()
             t2 = self.fragments[i2].results.get_t2()
@@ -498,9 +501,27 @@ class EWF(QEmbeddingMethod):
 
             d2 = _gamma2_intermediates(mycc, t1, t2, l1p, l2p, t1p=t1p, t2p=t2p)
             rdm2 = pyscf.cc.ccsd_rdm._make_rdm2(mycc, d1, d2, with_dm1=False)
-            E2 =  np.einsum('pqrs,pqrs', self.fragments[i2]._eris, rdm2) * 0.5
+            eris = ao2mo.helper.get_full_array(self.fragments[i2]._eris)
+            E2 =  einsum('pqrs,pqrs', eris, rdm2) * 0.5
             return E2
 
+        def calc_subspace_energy_t_amp(self, Pf, Pc, i1, i2, t_as_lambda=t_as_lambda):
+
+            t1 = self.fragments[i2].results.get_t1()
+            t2 = self.fragments[i2].results.get_t2()
+
+            # Note can also get global t1 and project onto cluster
+            theta = t2 + einsum('ia,jb->ijab', t1, t1)
+            thetap = einsum('iI,jJ,IJab->ijab', Pf, Pc, t2)
+
+            E2 = einsum('ijab,iabj', thetap, self.fragments[i2]._eris.ovvo) - einsum('ijab,jabi', thetap, self.fragments[i2]._eris.ovvo)
+
+            return E2
+
+        if dm == 'full':
+            calc_subspace_energy = calc_subspace_energy_full
+        elif dm == 't':
+            calc_subspace_energy = calc_subspace_energy_t_amp
         # Construct cluster to cluster and cluster to fragment projectors in original cluster basis
         # Stored as: (c2c/c2f)[i1][i2] is projector from i2 to i1, in i2 basis
         c2c = [[] for i in self.fragments]
@@ -573,6 +594,7 @@ class EWF(QEmbeddingMethod):
 
                     Ebb += calc_subspace_energy(self, Pf, Pc, i1, i2)
         return Ebb
+
 
 
     # -------------------------------------------------------------------------------------------- #
