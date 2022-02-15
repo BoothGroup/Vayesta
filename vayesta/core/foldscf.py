@@ -113,17 +113,17 @@ class FoldedSCF:
         ovlp = k2bvk_2d(sk, self.kphase)
         return ovlp
 
-    def get_hcore(self, *args, **kwargs):
+    def get_hcore(self, *args, make_real=True, **kwargs):
         hk = self.kmf.get_hcore(*args, **kwargs)
-        hcore = k2bvk_2d(hk, self.kphase)
+        hcore = k2bvk_2d(hk, self.kphase, make_real=make_real)
         return hcore
 
-    def get_veff(self, mol=None, dm=None, *args, **kwargs):
+    def get_veff(self, mol=None, dm=None, *args, make_real=True, **kwargs):
         assert (mol is None or mol is self.mol)
         # Unfold DM into k-space
         if dm is not None: dm = bvk2k_2d(dm, self.kphase)
         vk = self.kmf.get_veff(dm_kpts=dm, *args, **kwargs)
-        veff = k2bvk_2d(vk, self.kphase)
+        veff = k2bvk_2d(vk, self.kphase, make_real=make_real)
         return veff
 
 class FoldedRHF(FoldedSCF, pyscf.pbc.scf.hf.RHF):
@@ -132,10 +132,8 @@ class FoldedRHF(FoldedSCF, pyscf.pbc.scf.hf.RHF):
     def __init__(self, kmf, *args, **kwargs):
         super().__init__(kmf, *args, **kwargs)
         ovlp = self.get_ovlp()
-        #hcore = self.get_hcore()
-        hcore = None
         self.mo_energy, self.mo_coeff, self.mo_occ = \
-                fold_mos(kmf.mo_energy, kmf.mo_coeff, kmf.mo_occ, self.kphase, ovlp, hcore)
+                fold_mos(kmf.mo_energy, kmf.mo_coeff, kmf.mo_occ, self.kphase, ovlp)
 
         # Test MO folding
         #nk = self.ncells
@@ -171,20 +169,16 @@ class FoldedUHF(FoldedSCF, pyscf.pbc.scf.uhf.UHF):
     def __init__(self, kmf, *args, **kwargs):
         super().__init__(kmf, *args, **kwargs)
 
-        #self.nelec = None
-
         ovlp = self.get_ovlp()
-        #hcore = self.get_hcore()
-        hcore = None
         self.mo_energy, self.mo_coeff, self.mo_occ = zip(
-                fold_mos(kmf.mo_energy[0], kmf.mo_coeff[0], kmf.mo_occ[0], self.kphase, ovlp, hcore),
-                fold_mos(kmf.mo_energy[1], kmf.mo_coeff[1], kmf.mo_occ[1], self.kphase, ovlp, hcore))
+                fold_mos(kmf.mo_energy[0], kmf.mo_coeff[0], kmf.mo_occ[0], self.kphase, ovlp),
+                fold_mos(kmf.mo_energy[1], kmf.mo_coeff[1], kmf.mo_occ[1], self.kphase, ovlp))
         assert np.all(self.mo_coeff[0].imag == 0)
         assert np.all(self.mo_coeff[1].imag == 0)
 
 #def fold_mos(kmf, kmo_energy, kmo_coeff, kmo_occ, kphase, ovlp, make_real=True):
 #def fold_mos(kmo_energy, kmo_coeff, kmo_occ, kphase, ovlp, make_real=False, sort=False):
-def fold_mos(kmo_energy, kmo_coeff, kmo_occ, kphase, ovlp, hcore, make_real=True, sort=True):
+def fold_mos(kmo_energy, kmo_coeff, kmo_occ, kphase, ovlp, make_real=True, sort=True):
     # --- MO energy and occupations
     mo_energy = np.hstack(kmo_energy)
     mo_occ = np.hstack(kmo_occ)
