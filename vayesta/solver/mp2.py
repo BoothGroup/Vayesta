@@ -99,6 +99,12 @@ class MP2_Solver(ClusterSolver):
             t2 = self.make_t2(mo_energy, eris=eris, cderi=cderi, cderi_neg=cderi_neg)
         self.t2 = t2
 
+    def make_rdm1(self):
+        raise NotImplementedError()
+
+    def make_rdm2(self):
+        raise NotImplementedError()
+
 class UMP2_Solver(MP2_Solver):
 
     def get_eris(self):
