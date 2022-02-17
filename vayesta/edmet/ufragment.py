@@ -31,18 +31,26 @@ class UEDMETFragment(UDMETFragment, EDMETFragment):
         if self.sym_parent is None:
             # Need to convert bosonic definition from ov-excitations into ao pairs.
             r_bos = self.r_bos
-            co_a, co_b = tuple([dot(self.base.get_ovlp(), x) for x in self.cluster.c_active_occ])
-            cv_a, cv_b = tuple([dot(self.base.get_ovlp(), x) for x in self.cluster.c_active_vir])
+            co_a, co_b = self.base.mo_coeff_occ
+            cv_a, cv_b = self.base.mo_coeff_vir
 
             r_bosa = r_bos[:, :self.ov_mf[0]].reshape((self.nbos, self.base.nocc[0], self.base.nvir[0]))
             r_bosb = r_bos[:, self.ov_mf[0]:].reshape((self.nbos, self.base.nocc[1], self.base.nvir[1]))
-
-            return (einsum("nia,ip,aq->npq", r_bosa, co_a, cv_a), einsum("nia,ip,aq->npq", r_bosb, co_b, cv_b))
+            return (einsum("nia,pi,qa->npq", r_bosa, co_a, cv_a), einsum("nia,pi,qa->npq", r_bosb, co_b, cv_b))
         else:
             r_bos_ao = self.sym_parent.r_bos_ao
             # Need to rotate to account for symmetry operations.
             r_bos_ao = tuple([self.sym_op(self.sym_op(x, axis=2), axis=1) for x in r_bos_ao])
         return r_bos_ao
+
+    def get_fock(self):
+        return self.base.get_fock()
+
+    def get_co_active(self):
+        return self.cluster.c_active_occ
+
+    def get_cv_active(self):
+        return self.cluster.c_active_vir
 
     def get_rot_to_mf_ov(self):
         r_o, r_v = self.get_overlap_m2c()
@@ -75,11 +83,11 @@ class UEDMETFragment(UDMETFragment, EDMETFragment):
         if "o" in proj:
             poa, pob = self.get_fragment_projector(self.cluster.c_active_occ)
             pva, pvb = [np.eye(x) for x in self.cluster.nvir_active]
-            p_ov += [get_ov_projector(poa, pob, pva, pvb)]
+            p_ov += get_ov_projector(poa, pob, pva, pvb)
         if "v" in proj:
             poa, pob = [np.eye(x) for x in self.cluster.nocc_active]
             pva, pvb = self.get_fragment_projector(self.cluster.c_active_vir)
-            p_ov += [get_ov_projector(poa, pob, pva, pvb)]
+            p_ov += get_ov_projector(poa, pob, pva, pvb)
         return p_ov
 
     def _get_boson_hamil(self, apb, amb):
