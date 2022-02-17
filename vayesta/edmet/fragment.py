@@ -105,6 +105,18 @@ class EDMETFragment(DMETFragment):
         s = self.base.get_ovlp()
         return tuple([einsum("npq,pr,qs->nrs", x, s, s) for x in self.r_bos_ao])
 
+    def get_fock(self):
+        f = self.base.get_fock()
+        return np.array((f, f))
+
+    def get_co_active(self):
+        co = self.cluster.c_active_occ
+        return co, co
+
+    def get_cv_active(self):
+        cv = self.cluster.c_active_vir
+        return cv, cv
+
     def get_rot_to_mf_ov(self):
         r_o, r_v = self.get_overlap_m2c()
         spat_rot = einsum("iJ,aB->iaJB", r_o, r_v).reshape((self.ov_mf, self.ov_active)).T
@@ -396,22 +408,10 @@ class EDMETFragment(DMETFragment):
         # Note that our o-v fock matrix blocks may be nonzero, however our environmental states are always constructed
         # from only particle-hole excitations.
         # If no correlation potential was used this can be calculated by eps.
-        fock = self.base.get_fock()
-        if not isinstance(fock, tuple):
-            fa = fb = fock
-        else:
-            fa, fb = fock
-        co = self.cluster.c_active_occ
-        if isinstance(co, tuple):
-            coa, cob = co
-        else:
-            coa = cob = co
+        fa, fb = self.get_fock()
 
-        cv = self.cluster.c_active_vir
-        if isinstance(cv, tuple):
-            cva, cvb = cv
-        else:
-            cva = cvb = cv
+        coa, cob = self.get_co_active()
+        cva, cvb = self.get_cv_active()
 
         # Can just use expressions for Hamiltonian elements between single excitations.
         # First, get fock contributions. All are N^3 or less.
@@ -524,6 +524,8 @@ class EDMETFragment(DMETFragment):
         e1, e2 = self.get_dmet_energy_contrib()
         c_act = self.cluster.c_active
         p_imp = self.get_fragment_projector(c_act)
+        if not isinstance(p_imp, tuple):
+            p_imp = (p_imp, p_imp)
         dm_eb = self._results.dm_eb
         couplings = self.ecouplings
 
@@ -532,19 +534,19 @@ class EDMETFragment(DMETFragment):
             # Already have exchange effects included, so can use straightforward contraction.
             # dm_eb -> <0|b^+ p^+ q|0> in P[p,q,b]
             # couplings -> double check.
-            efb = 0.25 * (einsum("qr,npq,prn", p_imp, couplings[0], dm_eb[0]) +
-                        einsum("qr,npq,prn", p_imp, couplings[1], dm_eb[1])
-                          - (einsum("qr,nqp,prn", p_imp, couplings[0], dm_eb[0]) +
-                             einsum("qr,nqp,prn", p_imp, couplings[1], dm_eb[1]))
+            efb = 0.25 * (einsum("qr,npq,prn", p_imp[0], couplings[0], dm_eb[0]) +
+                        einsum("qr,npq,prn", p_imp[1], couplings[1], dm_eb[1])
+                          - (einsum("qr,nqp,prn", p_imp[0], couplings[0], dm_eb[0]) +
+                             einsum("qr,nqp,prn", p_imp[1], couplings[1], dm_eb[1]))
                           )
 
             self.delta = efb
         else:
             efb = 0.5 * (
-                    np.einsum("pr,npq,rqn", p_imp, couplings[0], dm_eb[0]) +
-                    np.einsum("qr,npq,prn", p_imp, couplings[0], dm_eb[0]) +
-                    np.einsum("pr,npq,rqn", p_imp, couplings[1], dm_eb[1]) +
-                    np.einsum("qr,npq,prn", p_imp, couplings[1], dm_eb[1])
+                    np.einsum("pr,npq,rqn", p_imp[0], couplings[0], dm_eb[0]) +
+                    np.einsum("qr,npq,prn", p_imp[0], couplings[0], dm_eb[0]) +
+                    np.einsum("pr,npq,rqn", p_imp[1], couplings[1], dm_eb[1]) +
+                    np.einsum("qr,npq,prn", p_imp[1], couplings[1], dm_eb[1])
             )
         return e1, e2, efb
 
