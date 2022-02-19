@@ -1,11 +1,9 @@
 import numpy as np
+import pyscf.lib
 
 from vayesta.core.util import *
-from vayesta.core.qemb import UFragment
 from vayesta.dmet.ufragment import UDMETFragment
 from .fragment import EDMETFragment
-
-import pyscf.lib
 
 
 class UEDMETFragment(UDMETFragment, EDMETFragment):
@@ -153,6 +151,12 @@ class UEDMETFragment(UDMETFragment, EDMETFragment):
 
             return dot(rota, eris_aa, rota.T) + dot(rota, eris_ab, rotb.T) + \
                    dot(rotb, eris_ab.T, rota.T) + dot(rotb, eris_bb, rotb.T)
+
+    def get_rbos_split(self):
+        r_bos_a = self.r_bos[:, :self.ov_mf[0]]
+        r_bos_b = self.r_bos[:, self.ov_mf[0]:]
+        return r_bos_a.reshape((self.nbos, self.base.nocc[0], self.base.nvir[1])), r_bos_b.reshape(
+            (self.nbos, self.base.nocc[0], self.base.nvir[1]))
 
     def get_rot_ov_frag(self):
         """Get rotations between the relevant space for fragment two-point excitations and the cluster active occupied-

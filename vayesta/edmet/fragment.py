@@ -2,9 +2,9 @@ import dataclasses
 from timeit import default_timer as timer
 
 import numpy as np
+import pyscf.lib
 import scipy.linalg
 
-import pyscf.lib
 from vayesta.core.util import *
 from vayesta.dmet.fragment import DMETFragment
 from vayesta.solver import get_solver_class2 as get_solver_class
@@ -457,11 +457,57 @@ class EDMETFragment(DMETFragment):
                     a_bos -= einsum("nqrm,nrql->ml",
                                     einsum("npq,mpr->nqrm", l_, r_bos_aoa + r_bos_aob),
                                     einsum("npq,lqr->nprl", l_, r_bos_aoa + r_bos_aob))
+        else:
+            raise NotImplementedError("Explicit QBA Hamiltonian construction is currently only implemented for use with"
+                                      "density fitting.")
         # Need to check if boson-number-nonconserving value is nonzero:
         if any(abs(bos_nonconserv) > 1e-6):
-            raise NotImplementedError("Cannot currently treat nonzero boson-non-conserving contributions.")
+            self.log.warning("Treating boson-non-conserving contribution via explicit density coupling; this is likely"
+                             " to result in less compact bosonic degrees of freedom than ZPM removal.")
+            #
+            nelec = self.cluster.nocc_active
+            if not isinstance(nelec, int):
+                nelec = sum(nelec)
+            couplings_aa += einsum("n,pq->npq", bos_nonconserv / nelec, np.eye(coa.shape[1] + cva.shape[1]))
+            couplings_bb += einsum("n,pq->npq", bos_nonconserv / nelec, np.eye(cob.shape[1] + cvb.shape[1]))
 
         return couplings_aa, couplings_bb, a_bos, b_bos
+
+    def check_qba_approx(self, rdm1):
+        """Given boson and cluster coefficient definitions, checks deviation from exact bosonic commutation relations
+        within our cluster projected onto the ground state.
+        This will hopefully tell us whether our bosons are likely to be a good approximation to the full system.
+        We could take the L2 norm of the overall deviation, but given most of the resultant operators have essentially
+        negligible expectation values with the ground state this is an unnecessarily pessimistic
+        estimator.
+        """
+
+        r_bos_a, r_bos_b = self.get_rbos_split()
+        r_o, r_v = self.get_overlap_m2c()
+        if not self.base.is_uhf:
+            r_o = (r_o, r_o)
+            r_v = (r_v, r_v)
+            rdm1 = (rdm1 / 2, rdm1 / 2)
+
+        # Contributions to commutator [b_n, b_m^+]
+        odev_a = einsum("nia,mja,ik,jl->nmkl", r_bos_a, r_bos_a, r_o[0], r_o[0])
+        odev_b = einsum("nia,mja,ik,jl->nmkl", r_bos_b, r_bos_b, r_o[1], r_o[1])
+
+        vdev_a = einsum("nia,mib,ac,bd->nmcd", r_bos_a, r_bos_a, r_v[0], r_v[0])
+        vdev_b = einsum("nia,mib,ac,bd->nmcd", r_bos_b, r_bos_b, r_v[1], r_v[1])
+
+        no_a, no_b = r_o[0].shape[1], r_o[1].shape[1]
+        dev = einsum("nmij,ij->nm", odev_a, np.eye(no_a) - rdm1[0][:no_a, :no_a]) + \
+              einsum("nmij,ij->nm", odev_b, np.eye(no_b) - rdm1[1][:no_b, :no_b]) + \
+              einsum("nmab,ab->nm", vdev_a, rdm1[0][no_a:, no_a:]) + \
+              einsum("nmab,ab->nm", vdev_b, rdm1[1][no_b:, no_b:])
+        self.log.info("Maximum neglected local density fluctuation in quasi-boson commutation=%6.4e", abs(dev.max()))
+
+    def get_rbos_split(self):
+        r_bos_a = self.r_bos[:, :self.ov_mf]
+        r_bos_b = self.r_bos[:, self.ov_mf:]
+        return r_bos_a.reshape((self.nbos, self.base.nocc, self.base.nvir)), r_bos_b.reshape(
+            (self.nbos, self.base.nocc, self.base.nvir))
 
     def kernel(self, bno_threshold=None, bno_number=None, solver=None, eris=None, construct_bath=False,
                chempot=None):
@@ -487,8 +533,10 @@ class EDMETFragment(DMETFragment):
 
         if self.opts.make_rdm2:
             results.dm1, results.dm2 = cluster_solver.make_rdm12()
+            self.check_qba_approx(results.dm1)
         elif self.opts.make_rdm1:
             results.dm1 = cluster_solver.make_rdm1()
+            self.check_qba_approx(results.dm1)
         if self.opts.make_rdm_eb:
             results.dm_eb = cluster_solver.make_rdm_eb()
         if self.opts.make_dd_moments:
@@ -535,7 +583,7 @@ class EDMETFragment(DMETFragment):
             # dm_eb -> <0|b^+ p^+ q|0> in P[p,q,b]
             # couplings -> double check.
             efb = 0.25 * (einsum("qr,npq,prn", p_imp[0], couplings[0], dm_eb[0]) +
-                        einsum("qr,npq,prn", p_imp[1], couplings[1], dm_eb[1])
+                          einsum("qr,npq,prn", p_imp[1], couplings[1], dm_eb[1])
                           - (einsum("qr,nqp,prn", p_imp[0], couplings[0], dm_eb[0]) +
                              einsum("qr,nqp,prn", p_imp[1], couplings[1], dm_eb[1]))
                           )
@@ -646,8 +694,8 @@ class EDMETFragment(DMETFragment):
                 v_fb_a_ex = v_fb_a.reshape((na ** 2, nbos))
                 v_fb_b_ex = v_fb_b.reshape((nb ** 2, nbos))
 
-                v_fb_a_dex = v_fb_a.transpose((1,0,2)).reshape((na ** 2, nbos))
-                v_fb_b_dex = v_fb_b.transpose((1,0,2)).reshape((nb ** 2, nbos))
+                v_fb_a_dex = v_fb_a.transpose((1, 0, 2)).reshape((na ** 2, nbos))
+                v_fb_b_dex = v_fb_b.transpose((1, 0, 2)).reshape((nb ** 2, nbos))
 
                 fullv = np.zeros((na ** 2 + nb ** 2 + 2 * nbos,) * 2)
                 fullv[:na ** 2, :na ** 2] = vaa
@@ -656,18 +704,18 @@ class EDMETFragment(DMETFragment):
                 fullv[na ** 2:nferm_tot, :na ** 2] = vab.T
 
                 # Component coupling to bosonic excitations.
-                fullv[:na ** 2, nferm_tot:nferm_tot+nbos] = v_fb_a_ex
-                fullv[na ** 2:nferm_tot, nferm_tot:nferm_tot+nbos] = v_fb_b_ex
+                fullv[:na ** 2, nferm_tot:nferm_tot + nbos] = v_fb_a_ex
+                fullv[na ** 2:nferm_tot, nferm_tot:nferm_tot + nbos] = v_fb_b_ex
 
-                fullv[nferm_tot:nferm_tot+nbos, :na ** 2] = v_fb_a_ex.T
-                fullv[nferm_tot:nferm_tot+nbos, na ** 2:nferm_tot] = v_fb_b_ex.T
+                fullv[nferm_tot:nferm_tot + nbos, :na ** 2] = v_fb_a_ex.T
+                fullv[nferm_tot:nferm_tot + nbos, na ** 2:nferm_tot] = v_fb_b_ex.T
 
                 # Component coupling to bosonic excitations.
-                fullv[:na ** 2, nferm_tot+nbos:] = v_fb_a_dex
-                fullv[na ** 2:nferm_tot, nferm_tot+nbos:] = v_fb_b_dex
+                fullv[:na ** 2, nferm_tot + nbos:] = v_fb_a_dex
+                fullv[na ** 2:nferm_tot, nferm_tot + nbos:] = v_fb_b_dex
 
-                fullv[nferm_tot+nbos:, :na ** 2] = v_fb_a_dex.T
-                fullv[nferm_tot+nbos:, na ** 2:nferm_tot] = v_fb_b_dex.T
+                fullv[nferm_tot + nbos:, :na ** 2] = v_fb_a_dex.T
+                fullv[nferm_tot + nbos:, na ** 2:nferm_tot] = v_fb_b_dex.T
 
                 u, s, v = np.linalg.svd(fullv, full_matrices=False)
                 want = s > svdtol
@@ -680,8 +728,8 @@ class EDMETFragment(DMETFragment):
                           repr_r[:, :na ** 2].reshape((nwant, na, na)))
                 repf_b = (repr_l[:, na ** 2:nferm_tot].reshape((nwant, nb, nb)),
                           repr_r[:, na ** 2:nferm_tot].reshape((nwant, nb, nb)))
-                repbos_ex = (repr_l[:, nferm_tot:nferm_tot+nbos], repr_r[:, nferm_tot:nferm_tot+nbos])
-                repbos_dex = (repr_l[:, nferm_tot+nbos:], repr_r[:, nferm_tot+nbos:])
+                repbos_ex = (repr_l[:, nferm_tot:nferm_tot + nbos], repr_r[:, nferm_tot:nferm_tot + nbos])
+                repbos_dex = (repr_l[:, nferm_tot + nbos:], repr_r[:, nferm_tot + nbos:])
                 return repf_a, repf_b, repbos_ex, repbos_dex
 
             return construct_low_rank_rep(ferm_aa, ferm_ab, ferm_bb, fb_a, fb_b)
