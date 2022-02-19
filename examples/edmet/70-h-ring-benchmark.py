@@ -7,24 +7,94 @@ import pyscf.tools.ring
 
 import vayesta.dmet
 import vayesta.edmet
-import vayesta.rpa
-import logging
-from pyscf import ao2mo
 
-natom = 10
-nimp = 1
-frags = [[x+i for i in range(nimp)] for x in range(0, natom, nimp)]
-basis = "STO-6G"
-efile = "energies_h{:d}_{:s}_{:d}imp.txt".format(natom, basis, nimp)
-doccfile = "docc_h{:d}_{:s}_{:d}imp.txt".format(natom, basis, nimp)
-nnfile = "nn_h{:d}_{:s}_{:d}imp.txt".format(natom, basis, nimp)
+natom = 6
+filename = "energies_scEDMET_h{:d}_compare.txt".format(natom)
+basis = "STO-3G"
+
+with open(filename, "a") as f:
+    f.write(("%6s" + "  %16s  " * 8) % (
+    "d", "HF", "CCSD", "FCI", "DMET (Oneshot)", "DMET", "EDMET (Oneshot)", "EDMET (old)", "EDMET (new)"))
+
+for d in np.arange(0.5, 3.0001, 0.25):
+
+    ring = pyscf.tools.ring.make(natom, d)
+    atom = [('H %f %f %f' % xyz) for xyz in ring]
+
+    mol = pyscf.gto.Mole()
+    mol.atom = atom
+    mol.basis = basis
+    mol.build()
+
+    # Hartree-Fock
+    mf = pyscf.scf.RHF(mol)
+    mf.kernel()
+
+    # Reference full system CCSD:
+    mycc = pyscf.cc.CCSD(mf)
+    mycc.kernel()
 
 
-for filename in [efile, doccfile, nnfile]:
-    with open(filename, "w") as f:
-        f.write("%s  % 16s  % 16s  % 16s  %16s  %16s  %16s  %16s\n" % (
-        "d", "HF", "dRPA", "CCSD", "FCI", "DMET Oneshot", "DMET", "EDMET oneshot"))
+    myfci = pyscf.fci.FCI(mf)
+    myfci.kernel()
 
+    # Single-shot
+    dmet_oneshot = vayesta.dmet.DMET(mf, solver='FCI', max_elec_err=1e-4, maxiter=1)
+    dmet_oneshot.iao_fragmentation()
+    for i in range(0, natom, 2):
+        dmet_oneshot.add_atomic_fragment([i, i + 1])
+    dmet_oneshot.kernel()
+    # Full DMET
+    dmet_diis = vayesta.dmet.DMET(mf, solver='FCI', charge_consistent=True, diis=True,
+                                  max_elec_err=1e-4)
+    dmet_diis.iao_fragmentation()
+    for i in range(0, natom, 2):
+        dmet_diis.add_atomic_fragment([i, i + 1])
+    dmet_diis.kernel()
+    # Single-shot EDMET
+    edmet_oneshot = vayesta.edmet.EDMET(mf, solver='EBFCI', max_elec_err=1e-4, maxiter=1, max_boson_occ=2)
+    edmet_oneshot.iao_fragmentation()
+    for i in range(0, natom, 2):
+        edmet_oneshot.add_atomic_fragment([i, i + 1])
+    edmet_oneshot.kernel()
+    # Full DMET
+    edmet_orig = vayesta.edmet.EDMET(mf, solver='EBFCI', charge_consistent=True, max_elec_err=1e-4, maxiter=40,
+                                     max_boson_occ=2, old_sc_condition=True)
+    edmet_orig.iao_fragmentation()
+    for i in range(0, natom, 2):
+        edmet_orig.add_atomic_fragment([i, i + 1])
+    edmet_orig.kernel()
+
+    edmet_new = vayesta.edmet.EDMET(mf, solver='EBFCI', charge_consistent=True, max_elec_err=1e-4, maxiter=40,
+                                    max_boson_occ=2)
+    edmet_new.iao_fragmentation()
+    for i in range(0, natom, 2):
+        edmet_new.add_atomic_fragment([i, i + 1])
+    edmet_new.kernel()
+
+    e_sc_edmet1 = edmet_orig.e_tot if edmet_orig.converged else np.NaN
+    e_sc_edmet2 = edmet_new.e_tot if edmet_new.converged else np.NaN
+    e_cc = mycc.e_tot if mycc.converged else np.NaN
+    e_dmet = dmet_diis.e_tot if dmet_diis.converged else np.NaN
+    print("E%-14s %+16.8f Ha" % ('(HF)=', mf.e_tot))
+    print("E%-14s %+16.8f Ha" % ('(CCSD)=', e_cc))
+    print("E%-14s %+16.8f Ha" % ('(FCI)=', myfci.e_tot))
+    print("E%-14s %+16.8f Ha" % ('(DMET-FCI)=', dmet_oneshot.e_tot))
+    print("E%-14s %+16.8f Ha" % ('(EDMET-FCI-Oneshot)=', edmet_oneshot.e_tot))
+    print("E%-14s %+16.8f Ha" % ('(EDMET1-FCI)=', e_sc_edmet1))
+    print("E%-14s %+16.8f Ha" % ('(EDMET2-FCI)=', e_sc_edmet2))
+
+    with open(filename, "a") as f:
+        f.write("%.2f  % 16.8f  % 16.8f  % 16.8f  %16.8f  %16.8f  %16.8f  %16.8f  %16.8f\n" % (d, mf.e_tot, e_cc,
+                                                                                               myfci.e_tot,
+                                                                                               dmet_oneshot.e_tot,
+                                                                                               e_dmet,
+                                                                                               edmet_oneshot.e_tot,
+                                                                                               e_sc_edmet1,
+                                                                                               e_sc_edmet2))
+
+
+# Functions to get on-site and nearest-neighbor two particle correlators.
 def get_correlators(qemb):
     f = qemb.fragments[0]
     c = np.linalg.multi_dot([f.c_active.T, mf.get_ovlp(), f.c_frag])
@@ -38,84 +108,3 @@ def rdm_to_correlators(dm2, c):
     except IndexError:
         nn = np.nan
     return docc, nn
-
-for d in np.arange(0.5, 3.0001, 0.25):
-
-    ring = pyscf.tools.ring.make(natom, d)
-    atom = [('H %f %f %f' % xyz) for xyz in ring]
-
-    mol = pyscf.gto.Mole()
-    mol.atom = atom
-    mol.basis = basis
-    mol.verbose = 10
-    mol.output = 'pyscf_out.txt'
-    mol.build()
-
-    # Hartree-Fock
-    mf = pyscf.scf.RHF(mol)
-    mf.kernel()
-
-    rpa = vayesta.rpa.dRPA(mf, logging.Logger("mylog"))
-    rpa.kernel()
-
-    # Reference full system CCSD:
-    mycc = pyscf.cc.CCSD(mf)
-    mycc.kernel()
-
-    efci = np.nan
-    myfci = pyscf.fci.FCI(mf)
-    myfci.kernel()
-    efci = myfci.e_tot
-
-    # Single-shot
-    dmet_oneshot = vayesta.dmet.DMET(mf, solver='FCI', fragment_type='IAO', max_elec_err=1e-6, maxiter=1, bath_type=None)
-    # Full DMET
-    dmet_diis = vayesta.dmet.DMET(mf, solver='FCI', fragment_type='IAO', charge_consistent=True, diis=True,
-                                  max_elec_err=1e-6)
-    edmet_oneshot = vayesta.edmet.EDMET(mf, solver='EBFCI', fragment_type='IAO', max_elec_err=1e-6, maxiter=1,
-                                       bos_occ_cutoff=10)
-
-    for f in frags:
-        dmet_oneshot.make_atom_fragment(f)
-        dmet_diis.make_atom_fragment(f)
-        edmet_oneshot.make_atom_fragment(f)
-
-    dmet_oneshot.kernel()
-    os_docc, os_nn = get_correlators(dmet_oneshot)
-    dmet_diis.kernel()
-
-    dmet_energy, dmet_docc, dmet_nn = np.nan, np.nan, np.nan
-    if dmet_diis.converged:
-        dmet_energy = dmet_diis.e_tot
-        dmet_docc, dmet_nn = get_correlators(dmet_diis)
-    edmet_oneshot.kernel()
-    edmet_docc, edmet_nn = get_correlators(edmet_oneshot)
-
-    c = np.linalg.multi_dot([mf.mo_coeff, mf.get_ovlp(), dmet_oneshot.fragments[0].c_frag])
-
-    mf_dm1 = mf.make_rdm1()
-    mf_docc, mf_nn = rdm_to_correlators(
-        np.einsum("pq,rs->pqrs", mf_dm1, mf_dm1) - np.einsum("pq,rs->psrq", mf_dm1, mf_dm1), dmet_oneshot.fragments[0].c_frag)
-    ccsd_docc, ccsd_nn = rdm_to_correlators(mycc.make_rdm2(), c)
-    fci_docc, fci_nn = rdm_to_correlators(myfci.make_rdm2(myfci.ci, myfci.norb, myfci.nelec), c)
-
-
-    print("E%-14s %+16.8f Ha" % ('(HF)=', mf.e_tot))
-    print("E%-14s %+16.8f Ha" % ('(CCSD)=', mycc.e_tot))
-    print("E%-14s %+16.8f Ha" % ('(FCI)=', efci))
-    print("E%-14s %+16.8f Ha" % ('(Oneshot DMET-FCI)=', dmet_oneshot.e_tot))
-    print("E%-14s %+16.8f Ha" % ('(DMET-FCI)=', dmet_energy))
-
-    with open(efile, "a") as f:
-        f.write("%.2f  % 16.8f  % 16.8f  % 16.8f  %16.8f  %16.8f  %16.8f  %16.8f\n" % (d, mf.e_tot, rpa.ecorr + mf.e_tot,
-                                                    mycc.e_tot, efci, dmet_oneshot.e_tot, dmet_energy, edmet_oneshot.e_tot))
-
-    with open(doccfile, "a") as f:
-        f.write("%.2f  % 16.8f  % 16.8f  % 16.8f  %16.8f  %16.8f  %16.8f  %16.8f\n" % (d, mf_docc, np.nan,
-                                                    ccsd_docc, fci_docc, os_docc, dmet_docc, edmet_docc))
-
-    with open(nnfile, "a") as f:
-        f.write("%.2f  % 16.8f  % 16.8f  % 16.8f  %16.8f  %16.8f  %16.8f  %16.8f\n" % (d, mf_nn, np.nan,
-                                                    ccsd_nn, fci_nn, os_nn, dmet_nn, edmet_nn))
-
-

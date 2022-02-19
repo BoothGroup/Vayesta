@@ -25,11 +25,15 @@ from pyscf.pbc.lib import kpts_helper
 # Package
 from vayesta.core.util import *
 import vayesta.libs
+import vayesta.misc
+import vayesta.misc.gdf
 
 
 log = logging.getLogger(__name__)
 
-def gdf_to_pyscf_eris(mf, gdf, cm, fock=None):
+
+
+def gdf_to_pyscf_eris(mf, gdf, cm, fock, mo_energy, e_hf):
     """Get supercell MO eris from k-point sampled GDF.
 
     This folds the MO back into k-space
@@ -43,8 +47,10 @@ def gdf_to_pyscf_eris(mf, gdf, cm, fock=None):
         Gaussian density-fit object of primitive cell (with k-points)
     cm: `pyscf.mp.mp2.MP2`, `pyscf.cc.dfccdf.RCCSD`, or `pyscf.cc.ccsd.CCSD`
         Correlated method, must have `mo_coeff` set.
-    fock: (N,N) array, optional
-        Fock matrix. If None, calculated via `mf.get_fock()`.
+    fock: (n(AO),n(AO)) array
+        Fock matrix
+    mo_energy: (n(MO),) array
+        MO energies.
 
     Returns
     -------
@@ -53,45 +59,41 @@ def gdf_to_pyscf_eris(mf, gdf, cm, fock=None):
     """
     log.debugv("Correlated method in gdf_to_pyscf_eris= %s", type(cm))
 
-    if fock is None: fock = mf.get_fock()
-
     only_ovov = False
     store_vvl = False
-    # MP2 ERIS
+    # MP2 ERIs
     if isinstance(cm, pyscf.mp.mp2.MP2):
         from pyscf.mp.mp2 import _ChemistsERIs
-        eris = _ChemistsERIs()
         sym = False
         only_ovov = True
-    # Coupled-cluster ERIS
+    # Coupled-cluster ERIs
     elif isinstance(cm, pyscf.cc.rccsd.RCCSD):
         from pyscf.cc.rccsd import _ChemistsERIs
-        eris = _ChemistsERIs()
         sym = False
     elif isinstance(cm, pyscf.cc.dfccsd.RCCSD):
         from pyscf.cc.dfccsd import _ChemistsERIs
-        eris = _ChemistsERIs()
         store_vvl = True
         sym = True
     elif isinstance(cm, pyscf.cc.ccsd.CCSD):
         from pyscf.cc.ccsd import _ChemistsERIs
-        eris = _ChemistsERIs()
         sym = True
     else:
         raise NotImplementedError("Unknown correlated method= %s" % type(cm))
 
+    eris = _ChemistsERIs()
     mo_coeff = _mo_without_core(cm, cm.mo_coeff)
     eris.mo_coeff = mo_coeff
     eris.nocc = cm.nocc
-    eris.e_hf = cm._scf.e_tot
-    eris.fock = np.linalg.multi_dot((mo_coeff.T, fock, mo_coeff))
-    eris.mo_energy = eris.fock.diagonal().copy()
+    eris.e_hf = e_hf
+    fock = fock() if callable(fock) else fock
+    eris.fock = dot(mo_coeff.T, fock, mo_coeff)
+    eris.mo_energy = mo_energy
 
     # Remove EXXDIV correction from Fock matrix (necessary for CCSD)
-    if mf.exxdiv and isinstance(cm, pyscf.cc.ccsd.CCSD):
-        madelung = pyscf.pbc.tools.madelung(mf.mol, mf.kpt)
-        for i in range(eris.nocc):
-            eris.fock[i,i] += madelung
+    #if mf.exxdiv and isinstance(cm, pyscf.cc.ccsd.CCSD):
+    #    madelung = pyscf.pbc.tools.madelung(mf.mol, mf.kpt)
+    #    for i in range(eris.nocc):
+    #        eris.fock[i,i] += madelung
 
     # TEST: compare real_j3c = True and False
     #g_r = gdf_to_eris(gdf, mo_coeff, cm.nocc, only_ovov=only_ovov, real_j3c=True)
@@ -132,7 +134,6 @@ def gdf_to_eris(gdf, mo_coeff, nocc, only_ovov=False, real_j3c=True, symmetry=Fa
     store_vvl : bool, optional
         If True, do not perform contraction (vv|L)(L|vv)->(vv|vv) and instead store three-center
         elements (vv|L). This is needed for the pyscf.cc.dfccsd.RCCSD class. Default: False.
-
 
     Returns
     -------
@@ -223,7 +224,7 @@ def gdf_to_eris(gdf, mo_coeff, nocc, only_ovov=False, real_j3c=True, symmetry=Fa
             prune_aux_basis('oo')
             prune_aux_basis('vv')
 
-    # Contract (ij|L)(L|kl)->(ij|kl)
+    # Contract (L|ij)(L|kl)->(ij|kl)
     eris = {}
     t0 = timer()
     if not only_ovov:
@@ -239,6 +240,7 @@ def gdf_to_eris(gdf, mo_coeff, nocc, only_ovov=False, real_j3c=True, symmetry=Fa
             if not store_vvl:
                 eris["vvvv"] = contract_j3c(j3c, "vvvv")
             else:
+                # Bugged?
                 eris['vvL'] = j3c['vv']
             eris["ovvv"] = contract_j3c(j3c, "ovvv")
 
@@ -276,7 +278,7 @@ def gdf_to_eris(gdf, mo_coeff, nocc, only_ovov=False, real_j3c=True, symmetry=Fa
 
 
 def contract_j3c(j3c, kind, symmetry=None):
-    """Contract (ij|L)(L|kl) -> (ij|kl)"""
+    """Contract (L|ij)(L|kl) -> (ij|kl)"""
     t0 = timer()
     left, right = kind[:2], kind[2:]
     # We do not store "vo" only "ov":
@@ -284,8 +286,6 @@ def contract_j3c(j3c, kind, symmetry=None):
     l, r = j3c[left], j3c[right_t]
     if right == 'vo':
         r = r.transpose(0, 2, 1)
-    # Allow ~1GB working memory
-    mem = 1e9
     # Four-fold permutation symmetry
     if symmetry == 4:
         l = pyscf.lib.pack_tril(l)  # Lij->LI
@@ -294,7 +294,7 @@ def contract_j3c(j3c, kind, symmetry=None):
     # Permutation symmetry only on right side
     elif symmetry == 2:
         r = pyscf.lib.pack_tril(r)
-        c = einsum('Lij,Lk->ijk', l.conj(), r)
+        c = einsum('Lij,LK->ijK', l.conj(), r)
     # No permutation symmetry
     else:
         c = np.tensordot(l.conj(), r, axes=(0, 0))
@@ -311,6 +311,8 @@ def contract_j3c(j3c, kind, symmetry=None):
         r = r.T
 
     # We loop over blocks here, to avoid allocating another 4c-sized array
+    # Allow ~1GB working memory
+    mem = 1e9
     if symmetry == 4:
         l = pyscf.lib.pack_tril(l)
         r = pyscf.lib.pack_tril(r)
@@ -382,7 +384,7 @@ class ThreeCenterInts:
             if kptsym:
                 nkij = self.nk*(self.nk+1)//2
                 j3c = np.zeros((nkij, self.naux, self.nao, self.nao), dtype=complex)
-                kuniq_map = np.zeros((self.nk, self.nk), dtype=np.int)
+                kuniq_map = np.zeros((self.nk, self.nk), dtype=int)
             else:
                 j3c = np.zeros((self.nk, self.nk, self.naux, self.nao, self.nao), dtype=complex)
                 kuniq_map = None
@@ -425,29 +427,37 @@ class ThreeCenterInts:
                 assert np.all(kuniq_map < nkij)
                 assert np.all(kuniq_map > -nkij)
 
+        # Old, deprecated code - keeping for now in case I reimplement ki/kj symmetry
         # In IncoreGDF, we can access the array directly
-        elif hasattr(self.df._cderi, '__getitem__') and 'j3c' in self.df._cderi:
-            j3c = self.df._cderi["j3c"].reshape(-1, self.naux, self.nao, self.nao)
-            nkuniq = j3c.shape[0]
-            log.info("Nkuniq= %3d", nkuniq)
-            # Check map
-            _get_kpt_hash = pyscf.pbc.df.df_incore._get_kpt_hash
-            kuniq_map = np.zeros((self.nk, self.nk), dtype=np.int)
-            # 2D systems not supported in incore version:
+        #elif hasattr(self.df._cderi, '__getitem__') and 'j3c' in self.df._cderi:
+        #    j3c = self.df._cderi["j3c"].reshape(-1, self.naux, self.nao, self.nao)
+        #    nkuniq = j3c.shape[0]
+        #    log.info("Nkuniq= %3d", nkuniq)
+        #    # Check map
+        #    #_get_kpt_hash = pyscf.pbc.df.df_incore._get_kpt_hash
+        #    _get_kpt_hash = vayesta.misc.gdf._get_kpt_hash
+        #    kuniq_map = np.zeros((self.nk, self.nk), dtype=int)
+        #    # 2D systems not supported in incore version:
+        #    j3c_neg = None
+        #    for ki in range(self.nk):
+        #        for kj in range(self.nk):
+        #            kij = np.asarray((self.kpts[ki], self.kpts[kj]))
+        #            kij_id = self.df._cderi['j3c-kptij-hash'].get(_get_kpt_hash(kij), [None])
+        #            assert len(kij_id) == 1
+        #            kij_id = kij_id[0]
+        #            if kij_id is None:
+        #                kij_id = self.df._cderi['j3c-kptij-hash'][_get_kpt_hash(kij[[1,0]])]
+        #                assert len(kij_id) == 1
+        #                # negative to indicate transpose needed
+        #                kij_id = -kij_id[0]
+        #            assert (abs(kij_id) < nkuniq)
+        #            kuniq_map[ki,kj] = kij_id
+
+        elif isinstance(self.df._cderi, np.ndarray):
+            j3c = self.df._cderi
             j3c_neg = None
-            for ki in range(self.nk):
-                for kj in range(self.nk):
-                    kij = np.asarray((self.kpts[ki], self.kpts[kj]))
-                    kij_id = self.df._cderi['j3c-kptij-hash'].get(_get_kpt_hash(kij), [None])
-                    assert len(kij_id) == 1
-                    kij_id = kij_id[0]
-                    if kij_id is None:
-                        kij_id = self.df._cderi['j3c-kptij-hash'][_get_kpt_hash(kij[[1,0]])]
-                        assert len(kij_id) == 1
-                        # negative to indicate transpose needed
-                        kij_id = -kij_id[0]
-                    assert (abs(kij_id) < nkuniq)
-                    kuniq_map[ki,kj] = kij_id
+            kuniq_map = None
+
         else:
             raise ValueError("Unknown DF type: %r" % type(self.df))
 
@@ -485,7 +495,7 @@ def j3c_kao2gmo(ints3c, cocc, cvir, only_ov=False, make_real=True, driver='c'):
         j3c["oo"] = np.zeros((nk, naux, nocc, nocc), dtype=complex)
         j3c["vv"] = np.zeros((nk, naux, nvir, nvir), dtype=complex)
 
-    if driver.lower() == 'python':
+    if driver.lower() == 'python':  # pragma: no cover
 
         if cell.dimension < 3:
             j3c["ov-"] = np.zeros((nocc, nvir), dtype=complex)

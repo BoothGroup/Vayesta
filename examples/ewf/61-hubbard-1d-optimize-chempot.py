@@ -22,7 +22,7 @@ def get_e_dmet(dm1, dm2):
 
 # Without chemical potential optimization
 ecc = vayesta.ewf.EWF(mf, bno_threshold=np.inf, fragment_type='Site', solver='FCI', make_rdm1=True, make_rdm2=True)
-f = ecc.make_atom_fragment(list(range(nimp)), sym_factor=nsite/nimp)
+f = ecc.add_atomic_fragment(list(range(nimp)), sym_factor=nsite / nimp)
 ecc.kernel()
 # c transforms to fragment site(s)
 c = f.c_active
@@ -31,7 +31,7 @@ dm2 = np.einsum('ijkl,ai,bj,ck,dl->abcd', f.results.dm2, c, c, c, c)/2
 
 # With chemical potential optimization (set nelectron_target)
 ecc_cpt = vayesta.ewf.EWF(mf, bno_threshold=np.inf, fragment_type='Site', solver='FCI', make_rdm1=True, make_rdm2=True)
-f = ecc_cpt.make_atom_fragment(list(range(nimp)), sym_factor=nsite/nimp, nelectron_target=nimp*filling)
+f = ecc_cpt.add_atomic_fragment(list(range(nimp)), sym_factor=nsite / nimp, nelectron_target=nimp * filling)
 ecc_cpt.kernel()
 # c transforms to fragment site(s)
 c = f.c_active
@@ -40,7 +40,7 @@ dm2_cpt = np.einsum('ijkl,ai,bj,ck,dl->abcd', f.results.dm2, c, c, c, c)/2
 
 # Exact energy
 fci = vayesta.ewf.EWF(mf, solver='FCI', bno_threshold=-np.inf, fragment_type='Site', make_rdm1=True, make_rdm2=True)
-f = fci.make_atom_fragment(list(range(nsite)), name='lattice')
+f = fci.add_atomic_fragment(list(range(nsite)), name='lattice')
 fci.kernel()
 
 c = f.c_active
@@ -48,13 +48,13 @@ dm2_fci = np.einsum('ijkl,ai,bj,ck,dl->abcd', f.results.dm2, c, c, c, c)/2
 
 cc = vayesta.ewf.EWF(mf, bno_threshold=np.inf, fragment_type='Site', solver='FCI', make_rdm1=True, make_rdm2=True)
 for site in range(0, nsite, nimp):
-    cc.make_atom_fragment(list(range(site, site+nimp)))
+    cc.add_atomic_fragment(list(range(site, site + nimp)))
     #cc.make_atom_fragment([site], nelectron_target=nimp*filling)
 cc.kernel()
 
-f = ecc.make_atom_fragment(list(range(nimp)), sym_factor=nsite/nimp)
+f = ecc.add_atomic_fragment(list(range(nimp)), sym_factor=nsite / nimp)
 tcc = vayesta.ewf.EWF(mf, bno_threshold=-np.inf, fragment_type='Site', make_rdm1=True, make_rdm2=True)
-f = tcc.make_atom_fragment(list(range(nsite)), name='lattice')
+f = tcc.add_atomic_fragment(list(range(nsite)), name='lattice')
 f.couple_to_fragments(cc.fragments)
 tcc.kernel()
 

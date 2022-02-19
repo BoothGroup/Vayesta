@@ -1,21 +1,43 @@
 import os
+import sys
 import logging
 import dataclasses
 import copy
-import psutil
-from functools import wraps
+import functools
 from timeit import default_timer
+from contextlib import contextmanager
+
+try:
+    import psutil
+except (ModuleNotFoundError, ImportError):
+    psutil = None
 
 import numpy as np
 import scipy
+import scipy.linalg
 import scipy.optimize
 
 log = logging.getLogger(__name__)
 
 # util module can be imported as *, such that the following is imported:
-__all__ = ['NotSet', 'dot', 'einsum',
-        'cached_method', 'ConvergenceError', 'get_used_memory',
-        'timer', 'time_string', 'memory_string', 'OptionsBase']
+__all__ = [
+        # General
+        'NotSet', 'OptionsBase', 'StashBase',
+        # NumPy replacements
+        'dot', 'einsum', 'hstack',
+        # New exceptions
+        'AbstractMethodError', 'ConvergenceError', 'OrthonormalityError', 'ImaginaryPartError',
+        # Energy
+        'energy_string',
+        # Time & memory
+        'timer', 'time_string', 'log_time', 'memory_string', 'get_used_memory',
+        # RHF/UHF abstraction
+        'dot_s', 'eigh_s', 'stack_mo_coeffs',
+        # Other
+        'brange',
+        'deprecated',
+        'replace_attr', 'cached_method', 'break_into_lines', 'fix_orbital_sign',
+        ]
 
 class NotSetType:
     def __repr__(self):
@@ -25,16 +47,89 @@ in cases where `None` itself is a valid setting.
 """
 NotSet = NotSetType()
 
-timer = default_timer
+# --- NumPy
 
-def dot(*args, **kwargs):
-    return np.linalg.multi_dot(args, **kwargs)
-
+def dot(*args, out=None):
+    """Like NumPy's multi_dot, but variadic"""
+    return np.linalg.multi_dot(args, out=out)
 
 def einsum(*args, **kwargs):
     kwargs['optimize'] = kwargs.pop('optimize', True)
-    return np.einsum(*args, **kwargs)
+    res = np.einsum(*args, **kwargs)
+    # Unpack scalars (for optimize = True):
+    if isinstance(res, np.ndarray) and res.ndim == 0:
+        res = res[()]
+    return res
 
+def hstack(*args):
+    """Like NumPy's hstack, but variadic, ignores any arguments which are None and improved error message."""
+    args = [x for x in args if x is not None]
+    try:
+        return np.hstack(args)
+    except ValueError as e:
+        log.critical("Exception while trying to stack the following objects:")
+        for x in args:
+            log.critical("type= %r  shape= %r", type(x), x.shape if hasattr(x, 'shape') else "None")
+        raise e
+
+# RHF / UHF abstraction
+
+def dot_s(*args, out=None):
+    """Generalizes dot with or without spin channel: ij,jk->ik or Sij,Sjk->Sik
+
+    Additional non spin-dependent matrices can be present, eg. Sij,jk,Skl->Skl.
+
+    Note that unlike numpy.dot, this does not support vectors."""
+    maxdim = np.max([np.ndim(x[0]) for x in args]) + 1
+    # No spin-dependent arguments present
+    if maxdim == 2:
+        return dot(*args, out=out)
+    # Spin-dependent arguments present
+    assert maxdim == 3
+    if out is None:
+        out = (None, None)
+    args_a = [(x if np.ndim(x[0]) < 2 else x[0]) for x in args]
+    args_b = [(x if np.ndim(x[1]) < 2 else x[1]) for x in args]
+    return (dot(*args_a, out=out[0]), dot(*args_b, out=out[1]))
+
+def eigh_s(a, b=None, *args, **kwargs):
+    ndim = np.ndim(a[0]) + 1
+    # RHF
+    if ndim == 2:
+        return scipy.linalg.eigh(a, b=b, *args, **kwargs)
+    # UHF
+    if b is None or np.ndim(b[0]) == 1:
+        b = (b, b)
+    results = (scipy.linalg.eigh(a[0], b=b[0], *args, **kwargs),
+               scipy.linalg.eigh(a[1], b=b[1], *args, **kwargs))
+    return tuple(zip(*results))
+
+def stack_mo_coeffs(*mo_coeffs):
+    ndim = np.ndim(mo_coeffs[0][0]) + 1
+    # RHF
+    if ndim == 2:
+        return hstack(*mo_coeffs)
+    # UHF
+    assert (ndim == 3)
+    return (hstack(*[c[0] for c in mo_coeffs]),
+            hstack(*[c[1] for c in mo_coeffs]))
+
+#
+
+def brange(start, stop, step, minstep=1, maxstep=None):
+    """Similar to PySCF's prange, but returning a slice instead.
+
+    Start, stop, and blocksize can be accessed from each slice blk as
+    blk.start, blk.stop, and blk.step.
+    """
+    if stop <= start:
+        return
+    if maxstep is None:
+        maxstep = (stop-start)
+    step = np.clip(step, minstep, maxstep)
+    for i in range(start, stop, step):
+        blk = np.s_[i:min(i+step, stop)]
+        yield blk
 
 def cached_method(cachename, use_cache_default=True, store_cache_default=True):
     """Cache the return value of a class method.
@@ -64,14 +159,53 @@ def cached_method(cachename, use_cache_default=True, store_cache_default=True):
         return wrapper
     return cached_function
 
+
+# --- Exceptions
+
+class AbstractMethodError(NotImplementedError):
+    pass
+
 class ConvergenceError(RuntimeError):
     pass
 
+class ImaginaryPartError(RuntimeError):
+    pass
 
-def get_used_memory():
-    process = psutil.Process(os.getpid())
-    return(process.memory_info().rss)  # in bytes
+class OrthonormalityError(RuntimeError):
+    pass
 
+# --- Energy
+
+def energy_string(energy, unit='Ha'):
+    if unit == 'eV':
+        energy *= 27.211386245988
+    if unit: unit = ' %s' % unit
+    return '%+16.8f%s' % (energy, unit)
+
+# --- Time and memory
+
+timer = default_timer
+
+@contextmanager
+def log_time(logger, message, *args, mintime=None, **kwargs):
+    """Log time to execute the body of a with-statement.
+
+    Use as:
+        >>> with log_time(log.info, 'Time for hcore: %s'):
+        >>>     hcore = mf.get_hcore()
+
+    Parameters
+    ----------
+    logger
+    message
+    """
+    try:
+        t0 = timer()
+        yield t0
+    finally:
+        t = (timer()-t0)
+        if mintime is None or t >= mintime:
+            logger(message, *args, time_string(t), **kwargs)
 
 def time_string(seconds, show_zeros=False):
     """String representation of seconds."""
@@ -81,9 +215,19 @@ def time_string(seconds, show_zeros=False):
     elif seconds >= 60:
         tstr = "%.0f min %.1f s" % (m, s)
     else:
-        tstr = "%.2f s" % s
+        tstr = "%.3f s" % s
     return tstr
 
+def get_used_memory():
+    if psutil is not None:
+        process = psutil.Process(os.getpid())
+        return(process.memory_info().rss)  # in bytes
+    # Fallback: use os module
+    if sys.platform.startswith('linux'):
+        pagesize = os.sysconf("SC_PAGE_SIZE")
+        with open("/proc/%s/statm" % os.getpid()) as f:
+            return int(f.readline().split()[1])*pagesize
+    return 0
 
 def memory_string(nbytes, fmt='6.2f'):
     """String representation of nbytes"""
@@ -106,6 +250,24 @@ def memory_string(nbytes, fmt='6.2f'):
         unit = "TB"
     return "{:{fmt}} {unit}".format(val, unit=unit, fmt=fmt)
 
+# ---
+
+@contextmanager
+def replace_attr(obj, **kwargs):
+    """Temporary replace attributes and methods of object."""
+    orig = {}
+    try:
+        for name, attr in kwargs.items():
+            orig[name] = getattr(obj, name)             # Save originals
+            if callable(attr):
+                setattr(obj, name, attr.__get__(obj))   # For functions: replace and bind as method
+            else:
+                setattr(obj, name, attr)                # Just set otherwise
+        yield obj
+    finally:
+        # Restore originals
+        for name, attr in orig.items():
+            setattr(obj, name, attr)
 
 class SelectNotSetType:
     """Sentinel for implementation of `select` in `Options.replace`.
@@ -114,6 +276,35 @@ class SelectNotSetType:
     def __repr__(self):
         return 'SelectNotSet'
 SelectNotSet = SelectNotSetType()
+
+def break_into_lines(string, linelength=80, sep=None, newline='\n'):
+    """Break a long string into multiple lines"""
+    split = string.split(sep)
+    lines = [split[0]]
+    for s in split[1:]:
+        if (len(lines[-1]) + 1 + len(s)) > linelength:
+            # Start new line
+            lines.append(s)
+        else:
+            lines[-1] += ' ' + s
+    return newline.join(lines)
+
+def deprecated(message=None):
+    """This is a decorator which can be used to mark functions
+    as deprecated. It will result in a warning being emitted
+    when the function is used."""
+    def decorator(func):
+        if message is None:
+            msg = "Function %s is deprecated!" % func.__name__
+        else:
+            msg = message
+
+        @functools.wraps(func)
+        def wrapped(*args, **kwargs):
+            log.warning(msg)
+            return func(*args, **kwargs)
+        return wrapped
+    return decorator
 
 class OptionsBase:
     """Abstract base class for Option dataclasses.
@@ -124,6 +315,9 @@ class OptionsBase:
     and also the method `replace`, in order to update options from another Option object
     or dictionary.
     """
+
+    def __repr__(self):
+        return "Options(%r)" % self.asdict()
 
     def get(self, attr, default=None):
         """Dictionary-like access to attributes.
@@ -158,43 +352,80 @@ class OptionsBase:
         **kwargs :
             Additional keyword arguments will be added to `other`
         """
-
+        other = copy.deepcopy(other)
         if isinstance(other, OptionsBase):
             other = other.asdict()
         if kwargs:
             other.update(kwargs)
 
-        def _repr(a, maxlen=30):
-            r = a.__repr__()
-            if len(r) > maxlen:
-                r = r[:(maxlen-3)] + '...'
-            return r
-
-        # Only replace values which are in select
+        # Only replace values which are equal to select
         if select is not SelectNotSet:
-            updates = {}
+            keep = {}
             for key, val in self.items():
-                if val is select:
-                    updates[key] = copy.copy(other[key])
-            other = updates
+                if (val is select) and (key in other):
+                    #updates[key] = copy.copy(other[key])
+                    keep[key] = other[key]
+            other = keep
 
         return dataclasses.replace(self, **other)
 
+class StashBase:
+    pass
+
+def fix_orbital_sign(mo_coeff, inplace=True):
+    # UHF
+    if np.ndim(mo_coeff[0]) == 2:
+        mo_coeff_a, sign_a = fix_orbital_sign(mo_coeff[0], inplace=inplace)
+        mo_coeff_b, sign_b = fix_orbital_sign(mo_coeff[1], inplace=inplace)
+        return (mo_coeff_a, mo_coeff_b), (sign_a, sign_b)
+    if not inplace:
+        mo_coeff = mo_coeff.copy()
+    absmax = np.argmax(abs(mo_coeff), axis=0)
+    nmo = mo_coeff.shape[-1]
+    swap = mo_coeff[absmax,np.arange(nmo)] < 0
+    mo_coeff[:,swap] *= -1
+    signs = np.ones((nmo,), dtype=int)
+    signs[swap] = -1
+    return mo_coeff, signs
+
 if __name__ == '__main__':
+    a1 = np.random.rand(2, 3)
+    a2 = np.random.rand(2, 3)
+    s = np.random.rand(3, 3)
+    b1 = np.random.rand(3, 4)
+    b2 = np.random.rand(3, 4)
 
-    class TestClass:
+    c1, c2 = dot_s((a1, a2), s, (b1, b2))
+    assert np.allclose(c1, dot(a1, s, b1))
+    assert np.allclose(c2, dot(a2, s, b2))
 
-        def __init__(self):
-            self.val = 2
+    ha = np.random.rand(3,3)
+    hb = np.random.rand(3,3)
+    ba = np.random.rand(3,3)
+    bb = np.random.rand(3,3)
+    ba = np.dot(ba, ba.T)
+    bb = np.dot(bb, bb.T)
+    #b =b a
 
-        @cached_method('_test_method')
-        def test_method(self):
-            print("Calculating...")
-            return self.val
+    ea, va = scipy.linalg.eigh(ha, b=ba)
+    eb, vb = scipy.linalg.eigh(hb, b=ba)
 
-    test = TestClass()
-    test.test_method()
-    test.test_method()
+    h = (ha, hb)
+    e, v = eigh_s(h, ba)
+    print(ea)
+    print(eb)
+    print(e)
 
-    test2 = TestClass()
-    test2.test_method()
+    assert np.allclose(e[0], ea)
+    assert np.allclose(e[1], eb)
+
+
+
+    #d1, d2 = einsum('[s]ij,jk,[s]kl->[S]il', (a1, a2), s, (b1, b2))
+    #d1, d2 = einsum('?ij,jk,?kl->?il', (a1, a2), s, (b1, b2))
+    #print(d1.shape)
+    #print(c1.shape)
+    #assert np.allclose(d1, c1)
+    #assert np.allclose(d2, c2)
+    #assert np.allclose(d1, dot(a1, s, b1))
+    #assert np.allclose(d2, dot(a2, s, b2))

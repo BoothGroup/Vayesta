@@ -30,7 +30,7 @@ e_corrs = []
 e_dmet = 0.0
 for idx, site in enumerate(range(0, nsite, nimp)):
 #for site in [0]:
-    f = fci.make_atom_fragment(list(range(site, site+nimp)))
+    f = fci.add_atomic_fragment(list(range(site, site + nimp)))
     f.kernel()
     e_corr_f = fci.fragments[0].results.e_corr
     print("Correlation energy fragment %2d= % 16.8f" % (idx, e_corr_f))
@@ -54,7 +54,7 @@ for idx, site in enumerate(range(0, nsite, nimp)):
 e_fci = mf.e_tot + e_corr
 
 ccsd = vayesta.ewf.EWF(mf, solver='CCSD', bno_threshold=-np.inf, fragment_type='Site')
-f = ccsd.make_atom_fragment(list(range(nsite)), name='lattice')
+f = ccsd.add_atomic_fragment(list(range(nsite)), name='lattice')
 # "Tailor" CCSD with FCI calculations
 f.couple_to_fragments(fci.fragments)
 ccsd.kernel()
@@ -63,7 +63,7 @@ print("E%-11s %+16.8f Ha" % ('(EWF-CCSD)=', ccsd.e_tot/nsite))
 
 if exact:
     fci = vayesta.ewf.EWF(mf, solver='FCI', bno_threshold=-np.inf, fragment_type='Site')
-    fci.make_atom_fragment(list(range(nsite)), name='lattice')
+    fci.add_atomic_fragment(list(range(nsite)), name='lattice')
     fci.kernel()
 
 print("E%-11s %+16.8f Ha" % ('(MF)=', mf.e_tot/nsite))

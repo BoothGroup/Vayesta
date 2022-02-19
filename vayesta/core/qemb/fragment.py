@@ -1,5 +1,7 @@
 import dataclasses
 import itertools
+import copy
+import os.path
 
 import numpy as np
 import scipy
@@ -10,24 +12,37 @@ import pyscf.lib
 import pyscf.lo
 
 from vayesta.core.util import *
-from vayesta.core import helper, tsymmetry
+from vayesta.core.symmetry import tsymmetry
+import vayesta.core.ao2mo
+import vayesta.core.ao2mo.helper
+from vayesta.core.bath import DMET_Bath
+from vayesta.misc.cubefile import CubeFile
+from vayesta.core.mpi import mpi
 
 
-class QEmbeddingFragment:
+# Get MPI rank of fragment
+get_fragment_mpi_rank = lambda *args : args[0].mpi_rank
 
+
+class Fragment:
 
     @dataclasses.dataclass
     class Options(OptionsBase):
+        dmet_threshold: float = NotSet
+        solver_options: dict = NotSet
         coupled_fragments: list = dataclasses.field(default_factory=list)
         # Symmetry
         sym_factor: float = 1.0
         wf_partition: str = NotSet  # ['first-occ', 'first-vir', 'democratic']
+        store_eris: bool = NotSet   # If True, ERIs will be stored in Fragment._eris
 
     @dataclasses.dataclass
     class Results:
         fid: int = None             # Fragment ID
         converged: bool = None      # True, if solver reached convergence criterion or no convergence required (eg. MP2 solver)
+        # --- Energies
         e_corr: float = None        # Fragment correlation energy contribution
+        e_dmet: float = None        # DMET energy contribution
         # --- Wave-function
         c0: float = None            # Reference determinant CI coefficient
         c1: np.ndarray = None       # CI single coefficients
@@ -36,42 +51,94 @@ class QEmbeddingFragment:
         t2: np.ndarray = None       # CC double amplitudes
         l1: np.ndarray = None       # CC single Lambda-amplitudes
         l2: np.ndarray = None       # CC double Lambda-amplitudes
-        # Fragment-projected ("fp") amplitudes:
-        t1_fp: np.ndarray = None    # Fragment-projected CC single amplitudes
-        t2_fp: np.ndarray = None    # Fragment-projected CC double amplitudes
-        l1_fp: np.ndarray = None    # Fragment-projected CC single Lambda-amplitudes
-        l2_fp: np.ndarray = None    # Fragment-projected CC double Lambda-amplitudes
-        # Cluster density-matrices
+        # Fragment-projected amplitudes:
+        c1x: np.ndarray = None      # Fragment-projected CI single coefficients
+        c2x: np.ndarray = None      # Fragment-projected CI double coefficients
+        t1x: np.ndarray = None      # Fragment-projected CC single amplitudes
+        t2x: np.ndarray = None      # Fragment-projected CC double amplitudes
+        l1x: np.ndarray = None      # Fragment-projected CC single Lambda-amplitudes
+        l2x: np.ndarray = None      # Fragment-projected CC double Lambda-amplitudes
+        # --- Density-matrices
         dm1: np.ndarray = None      # One-particle reduced density matrix (dm1[i,j] = <0| i^+ j |0>
         dm2: np.ndarray = None      # Two-particle reduced density matrix (dm2[i,j,k,l] = <0| i^+ k^+ l j |0>)
 
-        def convert_amp_c_to_t(self):
-            self.t1 = self.c1/self.c0
-            self.t2 = self.c2/self.c0 - einsum('ia,jb->ijab', self.t1, self.t1)
-            return self.t1, self.t2
+        #def convert_amp_c_to_t(self):
+        #    self.t1 = self.c1/self.c0
+        #    self.t2 = self.c2/self.c0 - einsum('ia,jb->ijab', self.t1, self.t1)
+        #    return self.t1, self.t2
 
-        def get_t1(self):
+        def get_t1(self, default=None):
             if self.t1 is not None:
                 return self.t1
             if self.c1 is not None:
                 return self.c1 / self.c0
-            return None
+            return default
 
-        def get_t2(self):
+        def get_t2(self, default=None):
             if self.t2 is not None:
                 return self.t2
-            if self.c2 is not None:
+            if self.c0 is not None and self.c1 is not None and self.c2 is not None:
                 c1 = self.c1/self.c0
                 return self.c2/self.c0 - einsum('ia,jb->ijab', c1, c1)
-            return None
+            return default
 
+        def get_c1(self, intermed_norm=False, default=None):
+            if self.c1 is not None:
+                norm = 1/self.c0 if intermed_norm else 1
+                return norm * self.c1
+            if self.t1 is not None:
+                if not intermed_norm:
+                    raise ValueError("Cannot deduce C1 amplitudes from T1: normalization not known.")
+                return self.t1
+            return default
+
+        def get_c2(self, intermed_norm=False, default=None):
+            if self.c2 is not None:
+                norm = 1/self.c0 if intermed_norm else 1
+                return norm * self.c2
+            if self.t1 is not None and self.t2 is not None:
+                if not intermed_norm:
+                    raise ValueError("Cannot deduce C2 amplitudes from T1,T2: normalization not known.")
+                return self.t2 + einsum('ia,jb->ijab', self.t1, self.t1)
+            return default
+
+        #def get_t1x(self, default=None):
+        #    if self.t1x is not None:
+        #        return self.t1x
+        #    return default
+
+        #def get_t2x(self, default=None):
+        #    if self.t2x is not None:
+        #        return self.t2x
+        #    return default
+
+        #def get_l1x(self, default=None):
+        #    if self.l1x is not None:
+        #        return self.l1x
+        #    return default
+
+        #def get_l2x(self, default=None):
+        #    if self.l2x is not None:
+        #        return self.l2x
+        #    return default
 
     class Exit(Exception):
         """Raise for controlled early exit."""
         pass
 
-    def __init__(self, base, fid, name, c_frag, c_env, fragment_type, atoms=None, aos=None,
+    @staticmethod
+    def stack_mo(*mo_coeff):
+        """
+        Use stack_mo in parts of the code which are used both in RHF and UHF.
+        Use hstack in parts of the code which are only used in RHF, but may be called
+        from UHF per spin channel.
+        """
+        return hstack(*mo_coeff)
+
+    def __init__(self, base, fid, name, c_frag, c_env, #fragment_type,
+            atoms=None, aos=None,
             sym_parent=None, sym_op=None,
+            mpi_rank=0,
             log=None, options=None, **kwargs):
         """Abstract base class for quantum embedding fragments.
 
@@ -139,8 +206,6 @@ class QEmbeddingFragment:
         self.log = log or base.log
         self.id = fid
         self.name = name
-        self.log.info("Initializing %s" % self)
-        self.log.info("-------------%s" % (len(str(self))*"-"))
 
         # Options
         self.base = base
@@ -153,43 +218,54 @@ class QEmbeddingFragment:
 
         self.c_frag = c_frag
         self.c_env = c_env
-        self.fragment_type = fragment_type
         self.sym_factor = self.opts.sym_factor
         self.sym_parent = sym_parent
         self.sym_op = sym_op
         # For some embeddings, it may be necessary to keep track of any associated atoms or basis functions (AOs)
+        # TODO: Is this still used?
         self.atoms = atoms
         self.aos = aos
 
-        # Some output
-        fmt = '  > %-24s     %r'
-        self.log.info(fmt, "Fragment type:", self.fragment_type)
-        self.log.info(fmt, "Fragment orbitals:", self.size)
-        self.log.info(fmt, "Symmetry factor:", self.sym_factor)
-        self.log.info(fmt, "Number of electrons:", self.nelectron)
-        if self.atoms is not None:
-            self.log.info(fmt, "Associated atoms:", self.atoms)
-        if self.aos is not None:
-            self.log.info(fmt, "Associated AOs:", self.aos)
+        # MPI
+        self.mpi_rank = mpi_rank
 
-        # Final cluster active orbitals
-        self._c_active_occ = None
-        self._c_active_vir = None
-        # Final cluster frozen orbitals (Avoid storing these, as they scale as N^2 per cluster)
-        self._c_frozen_occ = None
-        self._c_frozen_vir = None
-        # Final results
-        self._results = None
+        # This set of orbitals is used in the projection to evaluate expectation value contributions
+        # of the fragment. By default it is equal to `self.c_frag`.
+        self.c_proj = self.c_frag
 
+        # Bath, cluster, and final results
+        self.bath = None
+        self._cluster = None
+        self._results = self.Results(fid=self.id)
+
+        # In some cases we want to keep ERIs stored after the calculation
+        self._eris = None
+
+        self.log.info("Creating %r", self)
+        #self.log.info(break_into_lines(str(self.opts), newline='\n    '))
 
     def __repr__(self):
-        keys = ['id', 'name', 'fragment_type', 'atoms', 'aos']
-        fmt = ('%s(' + len(keys)*'%s: %r, ')[:-2] + ')'
-        values = [self.__dict__[k] for k in keys]
-        return fmt % (self.__class__.__name__, *[x for y in zip(keys, values) for x in y])
+        #keys = ['id', 'name']
+        #fmt = ('%s(' + len(keys)*'%s: %r, ')[:-2] + ')'
+        #values = [self.__dict__[k] for k in keys]
+        #return fmt % (self.__class__.__name__, *[x for y in zip(keys, values) for x in y])
+        return '%s(id= %d, name= %s, mpi_rank= %d, n_frag= %d, n_elec= %.8f, sym_factor= %f)' % (
+                self.__class__.__name__, self.id, self.name, self.mpi_rank,
+                self.n_frag, self.nelectron, self.sym_factor)
 
     def __str__(self):
-        return '%s %d: %s' % (self.__class__.__name__, self.id, self.trimmed_name())
+        return '%s %d: %s' % (self.__class__.__name__, self.id, self.name)
+
+    def log_info(self):
+        # Some output
+        fmt = '  > %-24s     '
+        self.log.info(fmt+'%d', "Fragment orbitals:", self.n_frag)
+        self.log.info(fmt+'%f', "Symmetry factor:", self.sym_factor)
+        self.log.info(fmt+'%.10f', "Number of electrons:", self.nelectron)
+        if self.atoms is not None:
+            self.log.info(fmt+'%r', "Associated atoms:", self.atoms)
+        if self.aos is not None:
+            self.log.info(fmt+'%r', "Associated AOs:", self.aos)
 
     @property
     def mol(self):
@@ -200,7 +276,7 @@ class QEmbeddingFragment:
         return self.base.mf
 
     @property
-    def size(self):
+    def n_frag(self):
         """Number of fragment orbitals."""
         return self.c_frag.shape[-1]
 
@@ -208,7 +284,7 @@ class QEmbeddingFragment:
     def nelectron(self):
         """Number of mean-field electrons."""
         sc = np.dot(self.base.get_ovlp(), self.c_frag)
-        ne = np.einsum("ai,ab,bi->", sc, self.mf.make_rdm1(), sc)
+        ne = einsum('ai,ab,bi->', sc, self.mf.make_rdm1(), sc)
         return ne
 
     def trimmed_name(self, length=10, add_dots=True):
@@ -228,122 +304,59 @@ class QEmbeddingFragment:
     def boundary_cond(self):
         return self.base.boundary_cond
 
-    # --- Active orbitals
+    # --- Overlap matrices
+    # --------------------
 
-    @property
-    def c_active(self):
-        """Active orbital coefficients."""
-        if self.c_active_occ is None:
-            return None
-        return np.hstack((self.c_active_occ, self.c_active_vir))
-
-    @property
-    def c_active_occ(self):
-        """Active occupied orbital coefficients."""
-        if self.sym_parent is None:
-            return self._c_active_occ
-        else:
-            return self.sym_op(self.sym_parent.c_active_occ)
-
-    @property
-    def c_active_vir(self):
-        """Active virtual orbital coefficients."""
-        if self.sym_parent is None:
-            return self._c_active_vir
-        else:
-            return self.sym_op(self.sym_parent.c_active_vir)
-
-    @property
-    def n_active(self):
-        """Number of active orbitals."""
-        return (self.n_active_occ + self.n_active_vir)
-
-    @property
-    def n_active_occ(self):
-        """Number of active occupied orbitals."""
-        return self.c_active_occ.shape[-1]
-
-    @property
-    def n_active_vir(self):
-        """Number of active virtual orbitals."""
-        return self.c_active_vir.shape[-1]
-
-    # --- Frozen orbitals
-
-    @property
-    def c_frozen(self):
-        """Frozen orbital coefficients."""
-        if self.c_frozen_occ is None:
-            return None
-        return np.hstack((self.c_frozen_occ, self.c_frozen_vir))
-
-    @property
-    def c_frozen_occ(self):
-        """Frozen occupied orbital coefficients."""
-        if self.sym_parent is None:
-            return self._c_frozen_occ
-        else:
-            return self.sym_op(self.sym_parent.c_frozen_occ)
-
-    @property
-    def c_frozen_vir(self):
-        """Frozen virtual orbital coefficients."""
-        if self.sym_parent is None:
-            return self._c_frozen_vir
-        else:
-            return self.sym_op(self.sym_parent.c_frozen_vir)
-
-    @property
-    def n_frozen(self):
-        """Number of frozen orbitals."""
-        return (self.n_frozen_occ + self.n_frozen_vir)
-
-    @property
-    def n_frozen_occ(self):
-        """Number of frozen occupied orbitals."""
-        return self.c_frozen_occ.shape[-1]
-
-    @property
-    def n_frozen_vir(self):
-        """Number of frozen virtual orbitals."""
-        return self.c_frozen_vir.shape[-1]
-
-    # --- All orbitals
-
-    @property
-    def mo_coeff(self):
-        return np.hstack((self.c_frozen_occ, self.c_active_occ, self.c_active_vir, self.c_frozen_vir))
-
-    # Rotation matrices
-
-    def get_rot_to_mf(self):
-        """Get rotation matrices from occupied/virtual active space to MF orbitals."""
+    def get_overlap_m2c(self):
+        """Get overlap matrices from mean-field to occupied/virtual active space."""
         ovlp = self.base.get_ovlp()
-        r_occ = dot(self.c_active_occ.T, ovlp, self.base.mo_coeff_occ)
-        r_vir = dot(self.c_active_vir.T, ovlp, self.base.mo_coeff_vir)
+        r_occ = dot(self.base.mo_coeff_occ.T, ovlp, self.cluster.c_active_occ)
+        r_vir = dot(self.base.mo_coeff_vir.T, ovlp, self.cluster.c_active_vir)
         return r_occ, r_vir
 
-    def get_rot_to_fragment(self, fragment):
-        """Get rotation matrices between occupied/virtual active space of this and another fragment."""
+    def get_overlap_m2f(self):
+        """Get overlap matrices from mean-field to fragment orbitals."""
         ovlp = self.base.get_ovlp()
-        r_occ = dot(self.c_active_occ.T, ovlp, fragment.c_active_occ)
-        r_vir = dot(self.c_active_vir.T, ovlp, fragment.c_active_vir)
+        r_occ = dot(self.base.mo_coeff_occ.T, ovlp, self.c_proj)
+        r_vir = dot(self.base.mo_coeff_vir.T, ovlp, self.c_proj)
+        return r_occ, r_vir
+
+    def get_overlap_c2f(self):
+        """Get overlap matrices from occupied/virtual active space to fragment orbitals."""
+        ovlp = self.base.get_ovlp()
+        r_occ = dot(self.cluster.c_active_occ.T, ovlp, self.c_proj)
+        r_vir = dot(self.cluster.c_active_vir.T, ovlp, self.c_proj)
         return r_occ, r_vir
 
     @property
     def results(self):
-        if self.sym_parent is None:
-            return self._results
-        else:
+        if self.sym_parent is not None:
             return self.sym_parent.results
+        return self._results
+
+    @results.setter
+    def results(self, value):
+        if self.sym_parent is not None:
+            raise RuntimeError("Cannot set attribute results in symmetry derived fragment.")
+        self._results = value
+
+    @property
+    def cluster(self):
+        if self.sym_parent is not None:
+            return self.sym_parent.cluster.transform(self.sym_op)
+        return self._cluster
+
+    @cluster.setter
+    def cluster(self, value):
+        if self.sym_parent is not None:
+            raise RuntimeError("Cannot set attribute cluster in symmetry derived fragment.")
+        self._cluster = value
 
     def reset(self):
         self.log.debugv("Resetting fragment %s", self)
-        self._c_active_occ = None
-        self._c_active_vir = None
-        self._c_frozen_occ = None
-        self._c_frozen_vir = None
-        self._results = None
+        self.bath = None
+        self.cluster = None
+        self._results = self.Results(fid=self.id)
 
     def couple_to_fragment(self, frag):
         if frag is self:
@@ -355,31 +368,32 @@ class QEmbeddingFragment:
         for frag in frags:
             self.couple_to_fragment(frag)
 
+    def make_bath(self):
+        bath = DMET_Bath(self, dmet_threshold=self.opts.dmet_threshold)
+        bath.kernel()
+        self.bath = bath
+        return bath
+
     def get_fragment_mf_energy(self):
         """Calculate the part of the mean-field energy associated with the fragment.
 
         Does not include nuclear-nuclear repulsion!
         """
-        #h1e = np.linalg.multi_dot((self.base.mo_coeff.T, self.mf.get_hcore(), self.base.mo_coeff))
-        #h1e += np.diag(self.base.mo_energy)
         px = self.get_fragment_projector(self.base.mo_coeff)
         hveff = dot(px, self.base.mo_coeff.T, 2*self.base.get_hcore()+self.base.get_veff(), self.base.mo_coeff)
         occ = (self.base.mo_occ > 0)
         e_mf = np.sum(np.diag(hveff)[occ])
         return e_mf
 
-    def get_fragment_projector(self, coeff, ao_ptype='right', inverse=False):
+    def get_fragment_projector(self, coeff, c_proj=None, inverse=False):
         """Projector for one index of amplitudes local energy expression.
 
         Cost: N^2 if O(1) coeffs , N^3 if O(N) coeffs
 
         Parameters
         ----------
-        coeff : ndarray, shape(nAO, n)
+        coeff : ndarray, shape(n(AO), N)
             Occupied or virtual orbital coefficients.
-        ao_ptype : {'right', 'left', 'symmetric'}, optional
-            Defines were the projector is restricted to AO indices. Is only used
-            of `self.fragment_type == 'AO'`. Default: 'right'.
         inverse : bool, optional
             Return 1-p instead. Default: False.
 
@@ -388,34 +402,14 @@ class QEmbeddingFragment:
         p : (n, n) array
             Projection matrix.
         """
-        self.log.debugv("Get fragment projector type %s", self.fragment_type)
-        ftype = self.fragment_type.upper()
-        if ftype == 'SITE':
-            r = np.dot(coeff.T, self.c_frag)
-            p = np.dot(r, r.T)
-        elif ftype in ('IAO', 'LOWDIN-AO'):
-            r = dot(coeff.T, self.base.get_ovlp(), self.c_frag)
-            p = np.dot(r, r.T)
-        elif ftype == 'AO':
-            if self.aos is None:
-                raise ValueError("Cannot obtain local projector for fragment_type 'AO', if attribute `aos` is not set.")
-            if ao_ptype == 'right':
-                p = dot(coeff.T, self.base.get_ovlp()[:,self.aos], self.c_frag[self.aos])
-            elif ao_ptype == 'right':
-                p = dot(coeff[self.aos].T, self.base.get_ovlp()[self.aos], self.c_frag)
-            elif ao_ptype == 'symmetric':
-                shalf = scipy.linalg.fractional_matrix_power(self.get_ovlp, 0.5)
-                assert np.allclose(s.half.imag, 0)
-                shalf = shalf.real
-                p = dot(C.T, shalf[:,self.aos], s[self.aos], C)
-        else:
-            raise ValueError("Unknown fragment type: %r" % ftype)
+        if c_proj is None: c_proj = self.c_proj
+        r = dot(coeff.T, self.base.get_ovlp(), c_proj)
+        p = np.dot(r, r.T)
         if inverse:
-            p = np.eye(p.shape[-1]) - p
+            p = (np.eye(p.shape[-1]) - p)
         return p
 
-
-    def get_mo_occupation(self, *mo_coeff):
+    def get_mo_occupation(self, *mo_coeff, dm1=None):
         """Get mean-field occupation numbers (diagonal of 1-RDM) of orbitals.
 
         Parameters
@@ -425,22 +419,30 @@ class QEmbeddingFragment:
 
         Returns
         -------
-        occ : ndarray, shape(M)
+        occup : ndarray, shape(M)
             Occupation numbers of orbitals.
         """
-        mo_coeff = np.hstack(mo_coeff)
+        mo_coeff = hstack(*mo_coeff)        # Do NOT use self.stack_mo!
+        if dm1 is None: dm1 = self.mf.make_rdm1()
         sc = np.dot(self.base.get_ovlp(), mo_coeff)
-        occ = einsum('ai,ab,bi->i', sc, self.mf.make_rdm1(), sc)
-        return occ
+        occup = einsum('ai,ab,bi->i', sc, dm1, sc)
+        return occup
+
+    #def check_mo_occupation(self, expected, *mo_coeff, tol=None):
+    #    if tol is None: tol = 2*self.opts.dmet_threshold
+    #    occup = self.get_mo_occupation(*mo_coeff)
+    #    if not np.allclose(occup, expected, atol=tol):
+    #        raise RuntimeError("Incorrect occupation of orbitals (expected %f):\n%r" % (expected, occup))
+    #    return occup
 
     def loop_fragments(self, exclude_self=False):
-        """Loop over all fragments."""
+        """Loop over all fragments of the base quantum embedding method."""
         for frag in self.base.fragments:
             if (exclude_self and frag is self):
                 continue
             yield frag
 
-    def canonicalize_mo(self, *mo_coeff, eigvals=False, sign_convention=True):
+    def canonicalize_mo(self, *mo_coeff, fock=None, eigvals=False, sign_convention=True):
         """Diagonalize Fock matrix within subspace.
 
         Parameters
@@ -457,12 +459,14 @@ class QEmbeddingFragment:
         rot : ndarray
             Rotation matrix: np.dot(mo_coeff, rot) = mo_canon.
         """
-        mo_coeff = np.hstack(mo_coeff)
-        fock = np.linalg.multi_dot((mo_coeff.T, self.base.get_fock(), mo_coeff))
+        if fock is None: fock = self.base.get_fock()
+        mo_coeff = hstack(*mo_coeff)    # Called from UHF: do NOT use stack_mo!
+        fock = dot(mo_coeff.T, fock, mo_coeff)
         mo_energy, rot = np.linalg.eigh(fock)
+        self.log.debugv("Canonicalized MO energies:\n%r", mo_energy)
         mo_can = np.dot(mo_coeff, rot)
         if sign_convention:
-            mo_can, signs = helper.orbital_sign_convention(mo_can)
+            mo_can, signs = fix_orbital_sign(mo_can)
             rot = rot*signs[np.newaxis]
         assert np.allclose(np.dot(mo_coeff, rot), mo_can)
         assert np.allclose(np.dot(mo_can, rot.T), mo_coeff)
@@ -470,36 +474,40 @@ class QEmbeddingFragment:
             return mo_can, rot, mo_energy
         return mo_can, rot
 
-    def diagonalize_cluster_dm(self, *mo_coeff, tol=1e-4):
+    def diagonalize_cluster_dm(self, *mo_coeff, dm1=None, norm=2, tol=1e-4):
         """Diagonalize cluster (fragment+bath) DM to get fully occupied and virtual orbitals.
 
         Parameters
         ----------
-        *mo_coeff : ndarrays
-            Orbital coefficients.
-        tol : float, optional
+        *mo_coeff: array or list of arrays
+            Orbital coefficients. If multiple are given, they will be stacked along their second dimension.
+        dm1: array, optional
+            Mean-field density matrix, used to separate occupied and virtual cluster orbitals.
+            If None, `self.mf.make_rdm1()` is used. Default: None.
+        tol: float, optional
             If set, check that all eigenvalues of the cluster DM are close
-            to 0 or 1, with the tolerance given by tol. Default= 1e-4.
+            to 0 or 2, with the tolerance given by tol. Default= 1e-4.
 
         Returns
         -------
-        c_occclt : ndarray
-            Occupied cluster orbitals.
-        c_virclt : ndarray
-            Virtual cluster orbitals.
+        c_cluster_occ: (n(AO), n(occ cluster)) array
+            Occupied cluster orbital coefficients.
+        c_cluster_vir: (n(AO), n(vir cluster)) array
+            Virtual cluster orbital coefficients.
         """
-        #c_clt = np.hstack((self.c_frag, c_bath))
-        c_clt = np.hstack(mo_coeff)
-        sc = np.dot(self.base.get_ovlp(), c_clt)
-        dm = np.linalg.multi_dot((sc.T, self.mf.make_rdm1(), sc)) / 2
-        e, v = np.linalg.eigh(dm)
-        if tol and not np.allclose(np.fmin(abs(e), abs(e-1)), 0, atol=tol, rtol=0):
-            raise RuntimeError("Error while diagonalizing cluster DM: eigenvalues not all close to 0 or 1:\n%s" % e)
-        e, v = e[::-1], v[:,::-1]
-        c_clt = np.dot(c_clt, v)
-        nocc = sum(e >= 0.5)
-        c_occclt, c_virclt = np.hsplit(c_clt, [nocc])
-        return c_occclt, c_virclt
+        if dm1 is None: dm1 = self.mf.make_rdm1()
+        c_cluster = hstack(*mo_coeff)
+        sc = np.dot(self.base.get_ovlp(), c_cluster)
+        dm = dot(sc.T, dm1, sc)
+        e, r = np.linalg.eigh(dm)
+        if tol and not np.allclose(np.fmin(abs(e), abs(e-norm)), 0, atol=tol, rtol=0):
+            raise RuntimeError("Eigenvalues of cluster-DM not all close to 0 or %d:\n%s" % (norm, e))
+        e, r = e[::-1], r[:,::-1]
+        c_cluster = np.dot(c_cluster, r)
+        c_cluster = fix_orbital_sign(c_cluster)[0]
+        nocc = np.count_nonzero(e >= (norm/2))
+        c_cluster_occ, c_cluster_vir = np.hsplit(c_cluster, [nocc])
+        return c_cluster_occ, c_cluster_vir
 
     def project_ref_orbitals(self, c_ref, c):
         """Project reference orbitals into available space in new geometry.
@@ -530,183 +538,39 @@ class QEmbeddingFragment:
 
         return c, e
 
-    # --- DMET
-    # ========
-
-    def make_dmet_bath(self, c_env, dm1=None, c_ref=None, nbath=None, tol=1e-5, verbose=True, reftol=0.8):
-        """Calculate DMET bath, occupied environment and virtual environment orbitals.
-
-        If c_ref is not None, complete DMET orbital space using active transformation of reference orbitals.
-
-        TODO:
-        * reftol should not be necessary - just determine how many DMET bath orbital N are missing
-        from C_ref and take the N largest eigenvalues over the combined occupied and virtual
-        eigenvalues.
-
-        Parameters
-        ----------
-        c_env : (n(AO), n(env)) array
-            MO-coefficients of environment orbitals.
-        dm1 : (n(AO), n(AO)) array, optional
-            Mean-field one-particle reduced density matrix in AO representation. If None, `self.mf.make_rdm1()` is used.
-            Default: None.
-        c_ref : ndarray, optional
-            Reference DMET bath orbitals from previous calculation.
-        nbath : int, optional
-            Number of DMET bath orbitals. If set, the paramter `tol` is ignored. Default: None.
-        tol : float, optional
-            Tolerance for DMET orbitals in eigendecomposition of density-matrix. Default: 1e-5.
-        reftol : float, optional
-            Tolerance for DMET orbitals in projection of reference orbitals.
-
-        Returns
-        -------
-        c_bath : (n(AO), n(bath)) array
-            DMET bath orbitals.
-        c_occenv : (n(AO), n(occ. env)) array
-            Occupied environment orbitals.
-        c_virenv : (n(AO), n(vir. env)) array
-            Virtual environment orbitals.
-        """
-
-        # No environemnt -> no bath/environment orbitals
-        if c_env.shape[-1] == 0:
-            nao = c_env.shape[0]
-            return np.zeros((nao, 0)), np.zeros((nao, 0)), np.zeros((nao, 0))
-
-        # Divide by 2 to get eigenvalues in [0,1]
-        sc = np.dot(self.base.get_ovlp(), c_env)
-        if dm1 is None: dm1 = self.mf.make_rdm1()
-        dm_env = np.linalg.multi_dot((sc.T, dm1, sc)) / 2
-        try:
-            eig, r = np.linalg.eigh(dm_env)
-        except np.linalg.LinAlgError:
-            eig, r = scipy.linalg.eigh(dm_env)
-        # Sort: occ. env -> DMET bath -> vir. env
-        eig, r = eig[::-1], r[:,::-1]
-        if (eig.min() < -1e-9):
-            self.log.warning("Min eigenvalue of env. DM = %.6e", eig.min())
-        if ((eig.max()-1) > 1e-9):
-            self.log.warning("Max eigenvalue of env. DM = %.6e", eig.max())
-        c_env = np.dot(c_env, r)
-
-        if nbath is not None:
-            # Work out tolerance which leads to nbath bath orbitals. This overwrites `tol`.
-            abseig = abs(eig[np.argsort(abs(eig-0.5))])
-            low, up = abseig[nbath-1], abseig[nbath]
-            if abs(low - up) < 1e-14:
-                raise RuntimeError("Degeneracy in env. DM does not allow for clear identification of %d bath orbitals!\nabs(eig)= %r"
-                        % (nbath, abseig[:nbath+5]))
-            tol = (low + up)/2
-            self.log.debugv("Tolerance for %3d bath orbitals= %.8g", nbath, tol)
-
-        mask_bath = np.logical_and(eig >= tol, eig <= 1-tol)
-        mask_occenv = (eig > 1-tol)
-        mask_virenv = (eig < tol)
-        nbath = sum(mask_bath)
-
-        noccenv = sum(mask_occenv)
-        nvirenv = sum(mask_virenv)
-        self.log.info("DMET bath:  n(Bath)= %4d  n(occ-Env)= %4d  n(vir-Env)= %4d", nbath, noccenv, nvirenv)
-        assert (nbath + noccenv + nvirenv == c_env.shape[-1])
-        c_bath = c_env[:,mask_bath].copy()
-        c_occenv = c_env[:,mask_occenv].copy()
-        c_virenv = c_env[:,mask_virenv].copy()
-
-        if verbose:
-            # Orbitals in [print_tol, 1-print_tol] will be printed (even if they don't fall in the DMET tol range)
-            print_tol = 1e-10
-            # DMET bath orbitals with eigenvalue in [strong_tol, 1-strong_tol] are printed as strongly entangled
-            strong_tol = 0.1
-            limits = [print_tol, tol, strong_tol, 1-strong_tol, 1-tol, 1-print_tol]
-            if np.any(np.logical_and(eig > limits[0], eig <= limits[-1])):
-                names = [
-                        "Unentangled vir. env. orbital",
-                        "Weakly-entangled vir. bath orbital",
-                        "Strongly-entangled bath orbital",
-                        "Weakly-entangled occ. bath orbital",
-                        "Unentangled occ. env. orbital",
-                        ]
-                self.log.info("Non-(0 or 1) eigenvalues (n) of environment DM:")
-                for i, e in enumerate(eig):
-                    name = None
-                    for j, llim in enumerate(limits[:-1]):
-                        ulim = limits[j+1]
-                        if (llim < e and e <= ulim):
-                            name = names[j]
-                            break
-                    if name:
-                        self.log.info("  > %-34s  n= %12.6g  1-n= %12.6g", name, e, 1-e)
-
-            # DMET bath analysis
-            self.log.info("DMET bath character:")
-            for i in range(c_bath.shape[-1]):
-                ovlp = einsum('a,b,ba->a', c_bath[:,i], c_bath[:,i], self.base.get_ovlp())
-                sort = np.argsort(-ovlp)
-                ovlp = ovlp[sort]
-                n = np.amin((len(ovlp), 6))     # Get the six largest overlaps
-                labels = np.asarray(self.mol.ao_labels())[sort][:n]
-                lines = [('%s= %.5f' % (labels[i].strip(), ovlp[i])) for i in range(n)]
-                self.log.info("  > %2d:  %s", i+1, '  '.join(lines))
-
-        # Calculate entanglement entropy
-        entropy = np.sum(eig * (1-eig))
-        entropy_bath = np.sum(eig[mask_bath] * (1-eig[mask_bath]))
-        self.log.info("Entanglement entropy: total= %.6e  bath= %.6e  captured=  %.2f %%",
-                entropy, entropy_bath, 100.0*entropy_bath/entropy)
-
-        # Complete DMET orbital space using reference orbitals
-        # NOT MAINTAINED!
-        if c_ref is not None:
-            nref = c_ref.shape[-1]
-            self.log.debug("%d reference DMET orbitals given.", nref)
-            nmissing = nref - nbath
-
-            # DEBUG
-            _, eig = self.project_ref_orbitals(c_ref, c_bath)
-            self.log.debug("Eigenvalues of reference orbitals projected into DMET bath:\n%r", eig)
-
-            if nmissing == 0:
-                self.log.debug("Number of DMET orbitals equal to reference.")
-            elif nmissing > 0:
-                # Perform the projection separately for occupied and virtual environment space
-                # Otherwise, it is not guaranteed that the additional bath orbitals are
-                # fully (or very close to fully) occupied or virtual.
-                # --- Occupied
-                C_occenv, eig = self.project_ref_orbitals(c_ref, c_occenv)
-                mask_occref = eig >= reftol
-                mask_occenv = eig < reftol
-                self.log.debug("Eigenvalues of projected occupied reference: %s", eig[mask_occref])
-                if np.any(mask_occenv):
-                    self.log.debug("Largest remaining: %s", max(eig[mask_occenv]))
-                # --- Virtual
-                c_virenv, eig = self.project_ref_orbitals(c_ref, c_virenv)
-                mask_virref = eig >= reftol
-                mask_virenv = eig < reftol
-                self.log.debug("Eigenvalues of projected virtual reference: %s", eig[mask_virref])
-                if np.any(mask_virenv):
-                    self.log.debug("Largest remaining: %s", max(eig[mask_virenv]))
-                # -- Update coefficient matrices
-                c_bath = np.hstack((c_bath, c_occenv[:,mask_occref], c_virenv[:,mask_virref]))
-                c_occenv = c_occenv[:,mask_occenv].copy()
-                c_virenv = c_virenv[:,mask_virenv].copy()
-                nbath = C_bath.shape[-1]
-                self.log.debug("New number of occupied environment orbitals: %d", c_occenv.shape[-1])
-                self.log.debug("New number of virtual environment orbitals: %d", c_virenv.shape[-1])
-                if nbath != nref:
-                    err = "Number of DMET bath orbitals=%d not equal to reference=%d" % (nbath, nref)
-                    self.log.critical(err)
-                    raise RuntimeError(err)
-            else:
-                err = "More DMET bath orbitals found than in reference!"
-                self.log.critical(err)
-                raise RuntimeError(err)
-
-        return c_bath, c_occenv, c_virenv
-
-
     # Amplitude projection
     # --------------------
+
+    # NEW:
+
+    def get_occ2frag_projector(self):
+        ovlp = self.base.get_ovlp()
+        projector = dot(self.c_proj.T, ovlp, self.cluster.c_active_occ)
+        return projector
+
+    def project_amp1_to_fragment(self, amp1, projector=None):
+        """Can be used to project C1, T1, or L1 amplitudes."""
+        if projector is None:
+            projector = self.get_occ2frag_projector()
+        return np.dot(projector, amp1)
+
+    def project_amp2_to_fragment(self, amp2, projector=None, axis=0):
+        """Can be used to project C2, T2, or L2 amplitudes."""
+        if projector is None:
+            projector = self.get_occ2frag_projector()
+        if axis == 0:
+            # TEST
+            #c1 = einsum('xi,i...->x...', projector, amp2)
+            #c2 = einsum('xj,ij...->ix...', projector, amp2)
+            #assert np.allclose(c1, c2.transpose(1,0,2,3))
+            #assert np.allclose(c2, c1.transpose(1,0,2,3))
+            #
+            return einsum('xi,i...->x...', projector, amp2)
+        if axis == 1:
+            return einsum('xj,ij...->ix...', projector, amp2)
+        raise ValueError("axis needs to be 0 or 1")
+
+    # OLD:
 
     def project_amplitude_to_fragment(self, c, c_occ=None, c_vir=None, partition=None, symmetrize=True):
         """Get fragment contribution of CI coefficients or CC amplitudes.
@@ -716,9 +580,9 @@ class QEmbeddingFragment:
         c: (n(occ), n(vir)) or (n(occ), n(occ), n(vir), n(vir)) array
             CI coefficients or CC amplitudes.
         c_occ: (n(AO), n(MO)) array, optional
-            Occupied MO coefficients. If `None`, `self.c_active_occ` is used. Default: `None`.
+            Occupied MO coefficients. If `None`, `self.cluster.c_active_occ` is used. Default: `None`.
         c_vir: (n(AO), n(MO)) array, optional
-            Virtual MO coefficients. If `None`, `self.c_active_vir` is used. Default: `None`.
+            Virtual MO coefficients. If `None`, `self.cluster.c_active_vir` is used. Default: `None`.
         partition: ['first-occ', 'first-vir', 'democractic'], optional
             Partitioning scheme of amplitudes. Default: 'first-occ'.
         symmetrize: bool, optional
@@ -729,7 +593,8 @@ class QEmbeddingFragment:
         pc: array
             Projected CI coefficients or CC amplitudes.
         """
-
+        if c_occ is None: c_occ = self.cluster.c_active_occ
+        if c_vir is None: c_vir = self.cluster.c_active_vir
         if partition is None: partition = self.opts.wf_partition
 
         if np.ndim(c) not in (2, 4):
@@ -737,9 +602,6 @@ class QEmbeddingFragment:
         partition = partition.lower()
         if partition not in ('first-occ', 'occ-2', 'first-vir', 'democratic'):
             raise ValueError("Unknown partitioning of amplitudes: %r" % partition)
-
-        if c_occ is None: c_occ = self.c_active_occ
-        if c_vir is None: c_vir = self.c_active_vir
 
         # Projectors into fragment occupied and virtual space
         if partition in ('first-occ', 'occ-2', 'democratic'):
@@ -835,6 +697,8 @@ class QEmbeddingFragment:
 
         # Note that the energy should be invariant to symmetrization
         if symmetrize:
+            #sym_err = np.linalg.norm(pc - pc.transpose(1,0,3,2))
+            #self.log.debugv("Symmetry error= %e", sym_err)
             pc = (pc + pc.transpose(1,0,3,2)) / 2
 
         return pc
@@ -842,7 +706,7 @@ class QEmbeddingFragment:
     # --- Symmetry
     # ============
 
-    def make_tsymmetric_fragments(self, tvecs, unit='Ang', mf_tol=1e-6):
+    def add_tsymmetric_fragments(self, tvecs, unit='Ang', charge_tol=1e-6):
         """
 
         Parameters
@@ -854,10 +718,10 @@ class QEmbeddingFragment:
             translation vector corresponding to the a0, a1, and a2 lattice vectors of the cell.
         unit: ['Ang', 'Bohr'], optional
             Units of translation vectors. Only used if a (3, 3) array is passed. Default: 'Ang'.
-        mf_tol: float, optional
+        charge_tol: float, optional
             Tolerance for the error of the mean-field density matrix between symmetry related fragments.
-            If the largest absolute difference in the density-matrix is above `mf_tol`,
-            the translated fragment is not considered as symmetry related. Default: 1e-6.
+            If the largest absolute difference in the density-matrix is above this value,
+            and exception will be raised. Default: 1e-6.
 
         Returns
         -------
@@ -867,84 +731,162 @@ class QEmbeddingFragment:
         """
         #if self.boundary_cond == 'open': return []
 
-        mesh, tvecs = tsymmetry.get_mesh_tvecs(self.mol, tvecs, unit)
-        self.log.debugv("nx= %d ny= %d nz= %d", *mesh)
-        self.log.debugv("tvecs=\n%r", tvecs)
-
         ovlp = self.base.get_ovlp()
-        sds = np.linalg.multi_dot((ovlp, self.mf.make_rdm1(), ovlp))
-        c_all = np.hstack((self.c_frag, self.c_env))
-        dm0 = np.linalg.multi_dot((c_all.T, sds, c_all))
+        dm1 = self.mf.make_rdm1()
 
         fragments = []
-        # last index is fastest looping - change x first, then y, then z:
-        for dz, dy, dx in itertools.product(range(mesh[2]), range(mesh[1]), range(mesh[0])):
-            if abs(dx) + abs(dy) + abs(dz) == 0:
+        for (dx, dy, dz), tvec in tsymmetry.loop_tvecs(self.mol, tvecs, unit=unit):
+            sym_op = tsymmetry.get_tsymmetry_op(self.mol, tvec, unit='Bohr')
+            if sym_op is None:
+                self.log.error("No T-symmetric fragment found for translation (%d,%d,%d) of fragment %s", dx, dy, dz, self.name)
                 continue
-            t = dx*tvecs[0] + dy*tvecs[1] + dz*tvecs[2]
-            reorder, inverse, phases = tsymmetry.reorder_aos(self.mol, t, unit='Bohr')
-            self.log.debugv("reorder=\n%r", reorder)
-            self.log.debugv("inverse=\n%r", inverse)
-            self.log.debugv("phases=\n%r", phases)
-            if reorder is None:
-                self.log.error("No T-symmetric fragment found for translation [%d %d %d] of fragment %s", dx, dy, dz, self.name)
-                continue
-            name = '%s.t%d.%d.%d' % (self.name, dx, dy, dz)
-            c_frag = self.c_frag[reorder]*phases[:,None]
-            c_env = self.c_env[reorder]*phases[:,None]
+            # Name for translationally related fragments
+            name = '%s_T(%d,%d,%d)' % (self.name, dx, dy, dz)
+            # Translated coefficients
+            c_frag_t = sym_op(self.c_frag)
+            c_env_t = sym_op(self.c_env)
             # Check that translated fragment does not overlap with current fragment:
-            ovlp = np.linalg.norm(np.linalg.multi_dot((self.c_frag.T, self.base.get_ovlp(), c_frag)))
-            if ovlp > 1e-10:
-                self.log.error("Translation [%d %d %d] of fragment %s not orthogonal to original fragment (overlap= %.3e)!",
-                            dx, dy, dz, self.name, ovlp)
-            # Check that MF solution has lattice periodicity:
-            c_all = np.hstack((c_frag, c_env))
-            dm = np.linalg.multi_dot((c_all.T, sds, c_all))
-            err = abs(dm - dm0).max()
-            if err > mf_tol:
-                self.log.error("Mean-field not T-symmetric for translation [%d %d %d] of fragment space %s (error= %.3e)!",
-                        dx, dy, dz, self.name, err)
-                continue
+            fragovlp = abs(dot(self.c_frag.T, ovlp, c_frag_t)).max()
+            if (fragovlp > 1e-8):
+                self.log.critical("Translation (%d,%d,%d) of fragment %s not orthogonal to original fragment (overlap= %.3e)!",
+                            dx, dy, dz, self.name, fragovlp)
+                raise RuntimeError("Overlapping fragment spaces.")
+            # Deprecated:
+            if hasattr(self.base, 'add_fragment'):  # pragma: no cover
+                frag = self.base.add_fragment(name, c_frag_t, c_env_t, options=self.opts,
+                        sym_parent=self, sym_op=sym_op)
             else:
-                self.log.debugv("Mean-field T-symmetry error for translation [%d %d %d]= %.3e", dx, dy, dz, err)
+                frag_id = self.base.register.get_next_id()
+                frag = self.base.Fragment(self.base, frag_id, name, c_frag_t, c_env_t, options=self.opts,
+                        sym_parent=self, sym_op=sym_op, mpi_rank=self.mpi_rank)
+                self.base.fragments.append(frag)
 
-            sym_op = tsymmetry.make_sym_op(reorder, phases)
-            f = self.base.add_fragment(name, c_frag, c_env, fragment_type=self.fragment_type,
-                    options=self.opts,
-                    sym_parent=self, sym_op=sym_op)
-            fragments.append(f)
+            # Check symmetry
+            charge_err = self.get_tsymmetry_error(frag, dm1=dm1)
+            if charge_err > charge_tol:
+                self.log.critical("Mean-field DM not symmetric for translation (%d,%d,%d) of %s (charge error= %.3e)!",
+                    dx, dy, dz, self.name, charge_err)
+                raise RuntimeError("MF not symmetric under translation (%d,%d,%d)" % (dx, dy, dz))
+            else:
+                self.log.debugv("Mean-field DM symmetry error for translation (%d,%d,%d) of %s = %.3e",
+                    dx, dy, dz, self.name, charge_err)
 
+            fragments.append(frag)
         return fragments
+
+    def make_tsymmetric_fragments(self, *args, **kwargs):  # pragma: no cover
+        self.log.warning("make_tsymmetric_fragments is deprecated - use add_tsymmetric_fragments")
+        return self.add_tsymmetric_fragments(*args, **kwargs)
+
+    def get_symmetry_children(self):
+        children = []
+        for frag in self.loop_fragments(exclude_self=True):
+            if (frag.sym_parent.id == self.id):
+                children.append(frag)
+        return children
+
+    def get_tsymmetry_error(self, frag, dm1=None):
+        """Get translational symmetry error between two fragments."""
+        if dm1 is None: dm1 = self.mf.make_rdm1()
+        ovlp = self.base.get_ovlp()
+        # This fragment (x)
+        cx = np.hstack((self.c_frag, self.c_env))
+        dmx = dot(cx.T, ovlp, dm1, ovlp, cx)
+        # Other fragment (y)
+        cy = np.hstack((frag.c_frag, frag.c_env))
+        dmy = dot(cy.T, ovlp, dm1, ovlp, cy)
+        err = abs(dmx - dmy).max()
+        return err
+
+    #def check_mf_tsymmetry(self):
+    #    """Check translational symmetry of the mean-field between fragment and its children."""
+    #    ovlp = self.base.get_ovlp()
+    #    sds = dot(ovlp, self.mf.make_rdm1(), ovlp)
+    #    c0 = np.hstack((self.c_frag, self.c_env))
+    #    dm0 = dot(c0.T, sds, c0)
+    #    for frag in self.get_symmetry_children():
+    #        c1 = np.hstack((frag.c_frag, frag.c_env))
+    #        dm1 = dot(c1.T, sds, c1)
+    #        err = abs(dm1 - dm0).max()
+    #        if err > mf_tol:
+    #            self.log.error("Mean-field not T-symmetric between %s and %s (error= %.3e)!",
+    #                    self.name, frag.name, err)
+    #            continue
+    #        else:
+    #            self.log.debugv("Mean-field T-symmetry error between %s and %s = %.3e", self.name, frag.name, err)
 
     # --- Results
     # ===========
 
-    def get_fragment_dmet_energy(self, dm1=None, dm2=None, eris=None):
+    def get_fragment_mo_energy(self, c_active=None, fock=None):
+        """Returns approximate MO energies, using the the diagonal of the Fock matrix.
+
+        Parameters
+        ----------
+        c_active: array, optional
+        fock: array, optional
+        """
+        if c_active is None: c_active = self.cluster.c_active
+        if fock is None: fock = self.base.get_fock()
+        mo_energy = einsum('ai,ab,bi->i', c_active, fock, c_active)
+        return mo_energy
+
+    @mpi.with_send(source=get_fragment_mpi_rank)
+    def get_fragment_dmet_energy(self, dm1=None, dm2=None, h1e_eff=None, eris=None):
         """Get fragment contribution to whole system DMET energy.
 
         After fragment summation, the nuclear-nuclear repulsion must be added to get the total energy!
+
+        Parameters
+        ----------
+        dm1: array, optional
+            Cluster one-electron reduced density-matrix in cluster basis. If `None`, `self.results.dm1` is used. Default: None.
+        dm2: array, optional
+            Cluster two-electron reduced density-matrix in cluster basis. If `None`, `self.results.dm2` is used. Default: None.
+        eris: array, optional
+            Cluster electron-repulsion integrals in cluster basis. If `None`, the ERIs are reevaluated. Default: None.
+
+        Returns
+        -------
+        e_dmet: float
+            Electronic fragment DMET energy.
         """
+        assert (mpi.rank == self.mpi_rank)
         if dm1 is None: dm1 = self.results.dm1
         if dm2 is None: dm2 = self.results.dm2
         if dm1 is None: raise RuntimeError("DM1 not found for %s" % self)
         if dm2 is None: raise RuntimeError("DM2 not found for %s" % self)
-        c_act = self.c_active
+        c_act = self.cluster.c_active
+        t0 = timer()
         if eris is None:
-            eris = self.base.get_eris(c_act)
+            with log_time(self.log.timing, "Time for AO->MO transformation: %s"):
+                eris = self.base.get_eris_array(c_act)
+        elif not isinstance(eris, np.ndarray):
+            self.log.debugv("Extracting ERI array from CCSD ERIs object.")
+            eris = vayesta.core.ao2mo.helper.get_full_array(eris, c_act)
 
         # Get effective core potential
-        occ = np.s_[:self.n_active_occ]
-        f_act = dot(c_act.T, self.base.get_fock(), c_act)
-        v_act = 2*einsum('iipq->pq', eris[occ,occ]) - einsum('iqpi->pq', eris[occ,:,:,occ])
-        h_eff = (f_act - v_act)
-        h_core = dot(c_act.T, self.base.get_hcore(), c_act)
+        if h1e_eff is None:
+            # Use the original Hcore (without chemical potential modifications), but updated mf-potential!
+            h1e_eff = self.base.get_hcore_orig() + self.base.get_veff(with_exxdiv=False)/2
+            h1e_eff = dot(c_act.T, h1e_eff, c_act)
+            occ = np.s_[:self.cluster.nocc_active]
+            v_act = einsum('iipq->pq', eris[occ,occ,:,:]) - einsum('iqpi->pq', eris[occ,:,:,occ])/2
+            h1e_eff -= v_act
+
+        p_frag = self.get_fragment_projector(c_act)
+        # Check number of electrons
+        ne = einsum('ix,ij,jx->', p_frag, dm1, p_frag)
+        self.log.info("Number of local electrons for DMET energy: %.8f", ne)
 
         # Evaluate energy
-        p_frag = self.get_fragment_projector(c_act)
-        e1b = einsum('xj,xi,ij->', (h_core + h_eff), p_frag, dm1)/2
+        e1b = einsum('xj,xi,ij->', h1e_eff, p_frag, dm1)
+        #e1b = einsum('xj,xi,ij->', (h_core + h_eff), p_frag, dm1)/2
         e2b = einsum('xjkl,xi,ijkl->', eris, p_frag, dm2)/2
-        return self.opts.sym_factor*(e1b + e2b)
-
+        e_dmet = self.opts.sym_factor*(e1b + e2b)
+        self.log.debug("Fragment E(DMET)= %+16.8f Ha", e_dmet)
+        self.log.timing("Time for DMET energy: %s", time_string(timer()-t0))
+        return e_dmet
 
     # --- Counterpoise
     # ================
@@ -976,3 +918,37 @@ class QEmbeddingFragment:
             raise NotImplementedError()
         import vayesta.misc
         return vayesta.misc.counterpoise.make_mol(self.mol, self.atoms[1], rmax=rmax, nimages=nimages, unit=unit, **kwargs)
+
+    # --- Orbital plotting
+    # --------------------
+
+    @mpi.with_send(source=get_fragment_mpi_rank)
+    def pop_analysis(self, cluster=None, dm1=None, **kwargs):
+        if cluster is None: cluster = self.cluster
+        if dm1 is None: dm1 = self.results.dm1
+        if dm1 is None: raise ValueError("DM1 not found for %s" % self)
+        # Add frozen mean-field contribution:
+        dm1 = cluster.add_frozen_rdm1(dm1)
+        return self.base.pop_analysis(dm1, mo_coeff=cluster.coeff, **kwargs)
+
+    def plot3d(self, filename, gridsize=(100, 100, 100), **kwargs):
+        """Write cube density data of fragment orbitals to file."""
+        nx, ny, nz = gridsize
+        directory = os.path.dirname(filename)
+        if directory:
+            os.makedirs(directory, exist_ok=True)
+        cube = CubeFile(self.mol, filename=filename, nx=nx, ny=ny, nz=nz, **kwargs)
+        cube.add_orbital(self.c_frag)
+        cube.write()
+
+    # --- Deprecated
+    # --------------
+
+    def make_dmet_bath(self, *args, dmet_threshold=None, **kwargs):  # pragma: no cover
+        self.log.warning("make_dmet_bath is deprecated. Use self.bath.make_dmet_bath.")
+        if dmet_threshold is None:
+            dmet_threshold = self.opts.dmet_threshold
+        bath = DMET_Bath(self, dmet_threshold=dmet_threshold)
+        return bath.make_dmet_bath(*args, **kwargs)
+
+QEmbeddingFragment = Fragment

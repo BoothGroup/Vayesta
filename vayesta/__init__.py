@@ -1,14 +1,25 @@
-"""Vayesta"""
+
+__version__ = '0.0.0'
+
+logo = """\
+__    __ ___ __    __ ___ ____ _______ ___
+\ \  / // _ ## \  / // __/ __//__  __// _ #
+ \ \/ // /_\ ## \/ // __/\__ \  / /  / /_\ #
+  \__//_/   \_##  //____//___/ /_/  /_/   \_#
+   ************/ /****************************
+              /_/""".replace('#', '\\')
 
 import sys
 import os.path
 import logging
 import subprocess
+import platform
+import importlib
 
 from .core import cmdargs
 from .core import vlog
+from .core.mpi import mpi
 
-__version__ = 'v0.0.0'
 
 # Command line arguments
 args = cmdargs.parse_cmd_args()
@@ -20,7 +31,7 @@ log.setLevel(args.loglevel)
 
 fmt = vlog.VFormatter(indent=True)
 # Log to stream
-if args.output is None:
+if (args.output is None) and (mpi.is_master):
     # Everything except logging.OUTPUT goes to stderr:
     errh = vlog.VStreamHandler(sys.stderr, formatter=fmt)
     errh.addFilter(vlog.LevelExcludeFilter(exclude=[logging.OUTPUT]))
@@ -30,15 +41,38 @@ if args.output is None:
     outh.addFilter(vlog.LevelIncludeFilter(include=[logging.OUTPUT]))
     log.addHandler(outh)
 # Log to file
-if (args.output or args.log):
-    logname = args.output or args.log
+if (args.output or args.log or (not mpi.is_master)):
+    logname = (args.output or args.log) or "vayesta"
     log.addHandler(vlog.VFileHandler(logname, formatter=fmt))
 
-log.info(" %s", (len(__version__)+10)*'_')
-log.info("|%s|", (len(__version__)+10)*' ')
-log.info("| Vayesta %s |", __version__)
-log.info("|%s|", (len(__version__)+10)*'_')
-log.info("")
+# Print Logo
+log.info(logo + (' Version %s' % __version__) + '\n')
+
+# --- Required modules
+
+def import_package(name, required=True):
+    fmt = '  * %-10s  v%-8s  location: %s'
+    try:
+        package = importlib.import_module(name.lower())
+        log.debug(fmt, name, package.__version__, os.path.dirname(package.__file__))
+        return package
+    except ImportError:
+        if required:
+            log.critical("%s not found.", name)
+            raise
+        log.warning("%s not found.", name)
+        return None
+
+log.debug("Required packages:")
+numpy = import_package('NumPy')
+import_package('SciPy')
+import_package('h5py')
+pyscf = import_package('PySCF')
+import_package('mpi4py', False)
+import_package('cvxpy', False)
+
+
+# --- Git hashes
 
 def get_git_hash(dir):
     git_dir = os.path.join(dir, '.git')
@@ -49,60 +83,28 @@ def get_git_hash(dir):
         githash = "<Not Found>"
     return githash
 
-# Print git commit hash
+log.debug("Git hashes:")
 vdir = os.path.dirname(os.path.dirname(__file__))
 vhash = get_git_hash(vdir)
-log.info("Git hash: %s", vhash)
-log.info("")
+log.debug("  * Vayesta:  %s", vhash)
+pdir = os.path.dirname(os.path.dirname(pyscf.__file__))
+phash = get_git_hash(pdir)
+log.debug("  * PySCF:    %s", phash)
 
-# Required modules
-log.debug("Required modules:")
+# --- MPI
+if mpi:
+    log.debug("MPI:  rank= %d  size= %d  node= %s", mpi.rank, mpi.size, platform.node())
 
-# NumPy
-fmt = '  > %-10s  v%-8s  found at  %s'
-try:
-    import numpy
-    log.debug(fmt, 'NumPy', numpy.__version__, os.path.dirname(numpy.__file__))
-except ImportError:
-    log.critical("NumPy not found.")
-    raise
-# SciPy
-try:
-    import scipy
-    log.debug(fmt, 'SciPy', scipy.__version__, os.path.dirname(scipy.__file__))
-except ImportError:
-    log.critical("SciPy not found.")
-    raise
-# h5py
-try:
-    import h5py
-    log.debug(fmt, 'h5py', h5py.__version__, os.path.dirname(h5py.__file__))
-except ImportError:
-    log.critical("h5py not found.")
-    raise
-# PySCF
-try:
-    import pyscf
-    log.debug(fmt, 'PySCF', pyscf.__version__, os.path.dirname(pyscf.__file__))
-    pyscf_dir = os.path.dirname(os.path.dirname(pyscf.__file__))
-    pyscf_hash = get_git_hash(pyscf_dir)
-    log.info("    PySCF Git hash: %s", pyscf_hash)
-except ImportError:
-    log.critical("PySCF not found.")
-    raise
-# mpi4py
-try:
-    import mpi4py
-    log.debug(fmt, 'mpi4py', mpi4py.__version__, os.path.dirname(mpi4py.__file__))
-    from mpi4py import MPI
-    MPI_comm = MPI.COMM_WORLD
-    MPI_rank = MPI_comm.Get_rank()
-    MPI_size = MPI_comm.Get_size()
-    log.debug("    MPI(rank= %d , size= %d)", MPI_rank, MPI_size)
-except ImportError:
-    log.debug("mpi4py not found.")
+# --- Environment
+log.debug("Environment variables:")
+omp_num_threads = os.getenv('OMP_NUM_THREADS')
+if omp_num_threads is not None:
+    omp_num_threads = int(omp_num_threads)
+log.debug("  OMP_NUM_THREADS= %s", omp_num_threads)
 
 log.debug("")
+
+# ---
 
 def new_log(logname, fmt=None, remove_existing=True):
     if fmt is None:

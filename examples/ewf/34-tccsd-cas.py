@@ -18,17 +18,17 @@ mf.kernel()
 
 # Automatic CAS (fragment + DMET orbitals)
 ecc = vayesta.ewf.EWF(mf, solver='CCSD', bno_threshold=1e-4)
-f = ecc.make_atom_fragment(0, sym_factor=2)
+f = ecc.add_atomic_fragment(0, sym_factor=2)
 ecc.kernel()
 
 # Automatic CAS (fragment + DMET orbitals)
 etcc = vayesta.ewf.EWF(mf, solver='TCCSD', bno_threshold=1e-4)
-f = etcc.make_atom_fragment(0, sym_factor=2)
+f = etcc.add_atomic_fragment(0, sym_factor=2)
 etcc.kernel()
 
 # Custom CAS
 etcc2 = vayesta.ewf.EWF(mf, solver='TCCSD', bno_threshold=1e-4)
-f = etcc2.make_atom_fragment(0, sym_factor=2)
+f = etcc2.add_atomic_fragment(0, sym_factor=2)
 f.set_cas(iaos=['0 N 2p'])
 etcc2.kernel()
 

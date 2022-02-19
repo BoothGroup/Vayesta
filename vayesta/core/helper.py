@@ -1,15 +1,5 @@
 import numpy as np
 
-import pyscf
-from pyscf.lib.parameters import BOHR
-
-def to_bohr(a, unit):
-    if unit[0].upper() == 'A':
-        return  a/BOHR
-    if unit[0].upper() == 'B':
-        return a
-    raise ValueError("Unknown unit: %s" % unit)
-
 def orbital_sign_convention(mo_coeff, inplace=True):
     if not inplace:
         mo_coeff = mo_coeff.copy()

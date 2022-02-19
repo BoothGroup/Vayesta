@@ -23,17 +23,19 @@ def gen_comparison(hubbard_u, nimp=2, ehubbard_v = 0.0):
     for nsite in sites_to_try:
         mf = gen_hub(nsite, hubbard_u, ehubbard_v)
 
-        dmet = vayesta.dmet.DMET(mf, solver='FCI', fragment_type='Site', charge_consistent=True, maxiter=1,
+        dmet = vayesta.dmet.DMET(mf, solver='FCI', charge_consistent=True, maxiter=1,
                                  bath_type=None)
-        f = dmet.make_atom_fragment(list(range(nimp)))
+        dmet.site_fragmentation()
+        f = dmet.add_atomic_fragment(list(range(nimp)))
         # Add fragments which are translationally symmetric to f - the results of the fragment f
         # fill be automatically copied.
         dmet.kernel()
         symfrags = f.make_tsymmetric_fragments(tvecs=[nsite // nimp, 1, 1])
         res_dmet += [sum(dmet.fragments[0].get_dmet_energy_contrib())/nimp]
 
-        edmet = vayesta.edmet.EDMET(mf, solver="EBFCI", fragment_type='Site', charge_consistent = True,maxiter=1, bath_type=None)
-        f = edmet.make_atom_fragment(list(range(nimp)))
+        edmet = vayesta.edmet.EDMET(mf, solver="EBFCI", charge_consistent = True,maxiter=1, bath_type=None)
+        edmet.site_fragmentation()
+        f = edmet.add_atomic_fragment(list(range(nimp)))
         # Add fragments which are translationally symmetric to f - the results of the fragment f
         # fill be automatically copied.
         symfrags = f.make_tsymmetric_fragments(tvecs=[nsite//nimp, 1, 1])
