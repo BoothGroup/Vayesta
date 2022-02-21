@@ -60,7 +60,7 @@ def einsum(*args, **kwargs):
     except ValueError:
         log.fatal("einsum('%s',...) failed. shapes of arguments:", args[0])
         for i, arg in enumerate(args[1:]):
-            log.fatal('%d: %r', i, list(arg.shape))
+            log.fatal('%d: %r', i, list(np.asarray(arg).shape))
         raise
     # Unpack scalars (for optimize = True):
     if isinstance(res, np.ndarray) and res.ndim == 0:

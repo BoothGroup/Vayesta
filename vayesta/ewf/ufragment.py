@@ -134,8 +134,31 @@ class UEWFFragment(UFragment, EWFFragment):
         e_corr = (e_singles + e_doubles)
         return e_singles, e_doubles, e_corr
 
+    def get_cluster_sz(self, proj=None):
+        """<P S_z>"""
+        dm1 = self.results.dm1
+        if dm1 is None:
+            raise ValueError()
+        dm1a, dm1b = dm1
+
+        if proj is None:
+            sz = (einsum('ii->', dm1a) - einsum('ii->', dm1b))/2
+            return sz
+
+        def get_proj_per_spin(p):
+            if np.ndim(p[0]) == 2:
+                return p
+            if np.ndim(p[0]) == 1:
+                return p, p
+            raise ValueError()
+
+        proja, projb = get_proj_per_spin(proj)
+        sz = (einsum('ij,ij->', dm1a, proja)
+            - einsum('ij,ij->', dm1b, projb))/2
+        return sz
+
     def get_cluster_ssz(self, proj1=None, proj2=None):
-        """<P(A) S_z P(B) S_z>"""
+        """<P1 S_z P2 S_z>"""
         dm1 = self.results.dm1
         dm2 = self.results.dm2
         if dm1 is None or dm2 is None:
@@ -148,17 +171,18 @@ class UEWFFragment(UFragment, EWFFragment):
                  - einsum('iijj->', dm2ab)/2)
             ssz += (einsum('ii->', dm1a) + einsum('ii->', dm1b))/4
             return ssz
+
+        def get_proj_per_spin(p):
+            if np.ndim(p[0]) == 2:
+                return p
+            if np.ndim(p[0]) == 1:
+                return p, p
+            raise ValueError()
+
         if proj2 is None:
             proj2 = proj1
-        if np.ndim(proj1) == 3:
-            proj1a, proj1b = proj1
-        else:
-            proj1a = proj1b = proj1
-        if np.ndim(proj2) == 3:
-            proj2a, proj2b = proj2
-        else:
-            proj2a = proj2b = proj2
-
+        proj1a, proj1b = get_proj_per_spin(proj1)
+        proj2a, proj2b = get_proj_per_spin(proj2)
         ssz = (einsum('ijkl,ij,kl->', dm2aa, proj1a, proj2a)/4
              + einsum('ijkl,ij,kl->', dm2bb, proj1b, proj2b)/4
              - einsum('ijkl,ij,kl->', dm2ab, proj1a, proj2b)/4
