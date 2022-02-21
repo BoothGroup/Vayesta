@@ -266,8 +266,14 @@ class UFragment(Fragment):
         elif isinstance(eris, tuple) and len(eris) == 3:
             gaa, gab, gbb = eris
         else:
+            # Temporary solution:
+            with log_time(self.log.timing, "Time for AO->MO transformation: %s"):
+                gaa = self.base.get_eris_array(c_act[0])
+                gab = self.base.get_eris_array((c_act[0], c_act[0], c_act[1], c_act[1]))
+                gbb = self.base.get_eris_array(c_act[1])
+
             #TODO
-            raise NotImplementedError()
+            #raise NotImplementedError()
             #elif not isinstance(eris, np.ndarray):
             #    self.log.debugv("Extracting ERI array from CCSD ERIs object.")
             #    eris = vayesta.core.ao2mo.helper.get_full_array(eris, c_act)
