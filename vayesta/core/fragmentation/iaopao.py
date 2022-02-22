@@ -27,6 +27,16 @@ class IAOPAO_Fragmentation(IAO_Fragmentation):
 
     def get_pao_coeff(self, iao_coeff):
         core, valence, rydberg = pyscf.lo.nao._core_val_ryd_list(self.mol)
+        niao = iao_coeff.shape[-1]
+        npao = len(rydberg)
+        if (niao+npao != self.nao):
+            self.log.fatal("Wrong number of PAOs before orthogonalization!")
+            self.log.fatal("n(IAO)= %d  n(PAO)= %d  n(AO)= %d", niao, npao, self.nao)
+            labels = self.mol.ao_labels()
+            self.log.fatal("Core AOs:\n%r", labels[core])
+            self.log.fatal("Valence AOs:\n%r", labels[valence])
+            self.log.fatal("Rydberg AOs:\n%r", labels[rydberg])
+
         # In case a minimal basis set is used:
         if not rydberg:
             return np.zeros((self.nao, 0))
