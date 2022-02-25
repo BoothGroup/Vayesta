@@ -14,7 +14,7 @@ class EDMETFragmentExit(Exception):
     pass
 
 
-VALID_SOLVERS = ["EBFCI"]  # , "EBFCIQMC"]
+VALID_SOLVERS = ["EBFCI", "EBCCSD"]  # , "EBFCIQMC"]
 
 
 class EDMETFragment(DMETFragment):

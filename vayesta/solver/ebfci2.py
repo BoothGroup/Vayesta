@@ -3,7 +3,6 @@ import dataclasses
 import numpy as np
 
 from vayesta.core.util import *
-from .solver2 import ClusterSolver
 from vayesta.solver.fci2 import FCI_Solver, UFCI_Solver
 from .eb_fci import ebfci_slow, uebfci_slow
 
@@ -11,7 +10,7 @@ from .eb_fci import ebfci_slow, uebfci_slow
 class EBFCI_Solver(FCI_Solver):
     @dataclasses.dataclass
     class Options(FCI_Solver.Options):
-        max_boson_occ: int = NotSet
+        max_boson_occ: int = 2
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -67,7 +66,7 @@ class EBFCI_Solver(FCI_Solver):
         self.dm1, self.dm2 = ebfci_slow.make_rdm12(civec, self.ncas, self.nelec)
         return self.dm2
 
-    def make_dd_moms(self, max_mom, coeffs, civec=None, eris=None):
+    def make_dd_moms(self, max_mom, coeffs=None, civec=None, eris=None):
         if civec is None:
             civec = self.civec
         if eris is None:
