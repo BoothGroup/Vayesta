@@ -12,7 +12,8 @@ import pyscf.lib
 import pyscf.lo
 
 from vayesta.core.util import *
-from vayesta.core.symmetry import tsymmetry
+from vayesta.core.symmetry import SymmetryIdentity
+from vayesta.core.symmetry import SymmetryTranslation
 import vayesta.core.ao2mo
 import vayesta.core.ao2mo.helper
 from vayesta.core.bath import DMET_Bath
@@ -147,7 +148,7 @@ class Fragment:
 
         Parameters
         ----------
-        base : QEmbeddingMethod
+        base : Embedding
             Quantum embedding method the fragment is part of.
         fid : int
             Fragment ID.
@@ -182,7 +183,7 @@ class Fragment:
         boundary_cond
         log : logging.Logger
             Logger object.
-        base : QEmbeddingMethod
+        base : Embedding
             Quantum embedding method, the fragment is part of.
         id : int
             Unique fragment ID.
@@ -297,7 +298,7 @@ class Fragment:
 
     @property
     def id_name(self):
-        """Use this whenever a unique name is needed (for example to open a seperate file for each fragment)."""
+        """Use this whenever a unique name is needed (for example to open a separate file for each fragment)."""
         return "%s-%s" % (self.id, self.trimmed_name())
 
     @property
@@ -306,6 +307,13 @@ class Fragment:
 
     # --- Overlap matrices
     # --------------------
+
+    def get_overlap_c2f(self):
+        """Get overlap matrices from cluster to fragment space."""
+        ovlp = self.base.get_ovlp()
+        r_occ = dot(self.cluster.c_active_occ.T, ovlp, self.c_proj)
+        r_vir = dot(self.cluster.c_active_vir.T, ovlp, self.c_proj)
+        return r_occ, r_vir
 
     def get_overlap_m2c(self):
         """Get overlap matrices from mean-field to occupied/virtual active space."""
@@ -323,9 +331,10 @@ class Fragment:
 
     @property
     def results(self):
-        if self.sym_parent is not None:
-            return self.sym_parent.results
-        return self._results
+        return self.get_symmetry_parent()._results
+        #if self.sym_parent is not None:
+        #    return self.sym_parent.results
+        #return self._results
 
     @results.setter
     def results(self, value):
@@ -500,6 +509,7 @@ class Fragment:
         c_cluster = fix_orbital_sign(c_cluster)[0]
         nocc = np.count_nonzero(e >= (norm/2))
         c_cluster_occ, c_cluster_vir = np.hsplit(c_cluster, [nocc])
+
         return c_cluster_occ, c_cluster_vir
 
     def project_ref_orbitals(self, c_ref, c):
@@ -537,27 +547,29 @@ class Fragment:
     # NEW:
 
     def get_occ2frag_projector(self):
+        """TODO: REMOVE"""
         ovlp = self.base.get_ovlp()
         projector = dot(self.c_proj.T, ovlp, self.cluster.c_active_occ)
+        # TEST
+        #px = self.get_overlap_c2f()[0]
+        #assert np.allclose(px.T, projector)
         return projector
 
     def project_amp1_to_fragment(self, amp1, projector=None):
         """Can be used to project C1, T1, or L1 amplitudes."""
+        if amp1 is None:
+            return None
         if projector is None:
             projector = self.get_occ2frag_projector()
         return np.dot(projector, amp1)
 
     def project_amp2_to_fragment(self, amp2, projector=None, axis=0):
         """Can be used to project C2, T2, or L2 amplitudes."""
+        if amp2 is None:
+            return None
         if projector is None:
             projector = self.get_occ2frag_projector()
         if axis == 0:
-            # TEST
-            #c1 = einsum('xi,i...->x...', projector, amp2)
-            #c2 = einsum('xj,ij...->ix...', projector, amp2)
-            #assert np.allclose(c1, c2.transpose(1,0,2,3))
-            #assert np.allclose(c2, c1.transpose(1,0,2,3))
-            #
             return einsum('xi,i...->x...', projector, amp2)
         if axis == 1:
             return einsum('xj,ij...->ix...', projector, amp2)
@@ -699,18 +711,13 @@ class Fragment:
     # --- Symmetry
     # ============
 
-    def add_tsymmetric_fragments(self, tvecs, unit='Ang', charge_tol=1e-6):
+    def add_tsymmetric_fragments(self, tvecs, charge_tol=1e-6):
         """
 
         Parameters
         ----------
-        tvecs: (3,3) float array or (3,) integer array
-            Translational symmetry vectors. If an array with shape (3,3) is passed, each row represents
-            a translation vector in cartesian coordinates, in units defined by the parameter `unit`.
-            If an array with shape (3,) is passed, each element represent the number of
-            translation vector corresponding to the a0, a1, and a2 lattice vectors of the cell.
-        unit: ['Ang', 'Bohr'], optional
-            Units of translation vectors. Only used if a (3, 3) array is passed. Default: 'Ang'.
+        tvecs: array(3) of integers
+            Each element represent the number of translation vector corresponding to the a0, a1, and a2 lattice vectors of the cell.
         charge_tol: float, optional
             Tolerance for the error of the mean-field density matrix between symmetry related fragments.
             If the largest absolute difference in the density-matrix is above this value,
@@ -722,14 +729,15 @@ class Fragment:
             List of T-symmetry related fragments. These will be automatically added to base.fragments and
             have the attributes `sym_parent` and `sym_op` set.
         """
-        #if self.boundary_cond == 'open': return []
-
         ovlp = self.base.get_ovlp()
         dm1 = self.mf.make_rdm1()
 
         fragments = []
-        for (dx, dy, dz), tvec in tsymmetry.loop_tvecs(self.mol, tvecs, unit=unit):
-            sym_op = tsymmetry.get_tsymmetry_op(self.mol, tvec, unit='Bohr')
+        for i, (dx, dy, dz) in enumerate(itertools.product(range(tvecs[0]), range(tvecs[1]), range(tvecs[2]))):
+            if i == 0: continue
+            tvec = (dx/tvecs[0], dy/tvecs[1], dz/tvecs[2])
+            sym_op = SymmetryTranslation(self.mol, tvec)
+
             if sym_op is None:
                 self.log.error("No T-symmetric fragment found for translation (%d,%d,%d) of fragment %s", dx, dy, dz, self.name)
                 continue
@@ -771,12 +779,26 @@ class Fragment:
         self.log.warning("make_tsymmetric_fragments is deprecated - use add_tsymmetric_fragments")
         return self.add_tsymmetric_fragments(*args, **kwargs)
 
+    def get_symmetry_parent(self):
+        if self.sym_parent is None:
+            return self
+        return self.sym_parent
+
+    def get_symmetry_operation(self):
+        if self.sym_parent is None:
+            return SymmetryIdentity(self.mol)
+        return self.sym_op
+
     def get_symmetry_children(self):
-        children = []
-        for frag in self.loop_fragments(exclude_self=True):
-            if (frag.sym_parent.id == self.id):
-                children.append(frag)
-        return children
+        return self.base.get_fragments(sym_parent=self)
+
+    @property
+    def n_symmetry_children(self):
+        return len(self.get_symmetry_children())
+
+    @property
+    def symmetry_factor(self):
+        return (self.n_symmetry_children+1)
 
     def get_tsymmetry_error(self, frag, dm1=None):
         """Get translational symmetry error between two fragments."""
@@ -943,5 +965,3 @@ class Fragment:
             dmet_threshold = self.opts.dmet_threshold
         bath = DMET_Bath(self, dmet_threshold=dmet_threshold)
         return bath.make_dmet_bath(*args, **kwargs)
-
-QEmbeddingFragment = Fragment

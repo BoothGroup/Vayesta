@@ -5,7 +5,7 @@ import pyscf.mp
 import pyscf.ci
 import pyscf.cc
 
-from .qemb import QEmbedding
+from .qemb import Embedding
 from .ufragment import UFragment
 
 from vayesta.core.ao2mo.postscf_ao2mo import postscf_ao2mo
@@ -15,7 +15,7 @@ from vayesta.core.ao2mo import postscf_kao2gmo_uhf
 
 from .rdm import make_rdm1_demo_uhf
 
-class UEmbedding(QEmbedding):
+class UEmbedding(Embedding):
     """Spin unrestricted quantum embedding."""
 
     # Shadow this in inherited methods:
@@ -114,27 +114,27 @@ class UEmbedding(QEmbedding):
         self.log.debug("Divergent exact-exchange (exxdiv) correction= %+16.8f Ha", e_exxdiv)
         return e_exxdiv, (v_exxdiv_a, v_exxdiv_b)
 
-    def get_eris_array(self, mo_coeff, compact=False):
-        """Get electron-repulsion integrals in MO basis as a NumPy array.
+    #def get_eris_array(self, mo_coeff, compact=False):
+    #    """Get electron-repulsion integrals in MO basis as a NumPy array.
 
-        Parameters
-        ----------
-        mo_coeff: (n(AO), n(MO)) array
-            MO coefficients.
+    #    Parameters
+    #    ----------
+    #    mo_coeff: (n(AO), n(MO)) array
+    #        MO coefficients.
 
-        Returns
-        -------
-        eris: (n(MO), n(MO), n(MO), n(MO)) array
-            Electron-repulsion integrals in MO basis.
-        """
-        # Call three-times to spin-restricted embedding
-        self.log.debugv("Making (aa|aa) ERIs...")
-        eris_aa = super().get_eris_array(mo_coeff[0], compact=compact)
-        self.log.debugv("Making (bb|bb) ERIs...")
-        eris_bb = super().get_eris_array(mo_coeff[1], compact=compact)
-        self.log.debugv("Making (aa|bb) ERIs...")
-        eris_ab = super().get_eris_array((mo_coeff[0], mo_coeff[0], mo_coeff[1], mo_coeff[1]), compact=compact)
-        return (eris_aa, eris_ab, eris_bb)
+    #    Returns
+    #    -------
+    #    eris: (n(MO), n(MO), n(MO), n(MO)) array
+    #        Electron-repulsion integrals in MO basis.
+    #    """
+    #    # Call three-times to spin-restricted embedding
+    #    self.log.debugv("Making (aa|aa) ERIs...")
+    #    eris_aa = super().get_eris_array(mo_coeff[0], compact=compact)
+    #    self.log.debugv("Making (bb|bb) ERIs...")
+    #    eris_bb = super().get_eris_array(mo_coeff[1], compact=compact)
+    #    self.log.debugv("Making (aa|bb) ERIs...")
+    #    eris_ab = super().get_eris_array((mo_coeff[0], mo_coeff[0], mo_coeff[1], mo_coeff[1]), compact=compact)
+    #    return (eris_aa, eris_ab, eris_bb)
 
     def get_eris_object(self, postscf, fock=None):
         """Get ERIs for post-SCF methods.

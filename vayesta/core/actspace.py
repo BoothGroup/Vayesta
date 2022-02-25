@@ -16,18 +16,10 @@ class ActiveSpace_RHF:
         self._active_occ = OrbitalSpace(c_active_occ, name="active-occupied")
         self._active_vir = OrbitalSpace(c_active_vir, name="active-virtual")
         # Frozen
-        if c_frozen_occ is 0:
-            c_frozen_occ = np.zeros((self.nao, 0))
-            if self.is_uhf:
-                c_frozen_occ = (c_frozen_occ, c_frozen_occ)
         if c_frozen_occ is not None:
             self._frozen_occ = OrbitalSpace(c_frozen_occ, name="frozen-occupied")
         else:
             self._frozen_occ = None
-        if c_frozen_vir is 0:
-            c_frozen_vir = np.zeros((self.nao, 0))
-            if self.is_uhf:
-                c_frozen_vir = (c_frozen_vir, c_frozen_vir)
         if c_frozen_vir is not None:
             self._frozen_vir = OrbitalSpace(c_frozen_vir, name="frozen-virtual")
         else:

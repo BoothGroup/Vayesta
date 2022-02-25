@@ -1,11 +1,13 @@
 import dataclasses
+import itertools
 
 import numpy as np
 
 from vayesta.core.util import *
 
 from .fragment import Fragment
-from vayesta.core.symmetry import tsymmetry
+from vayesta.core.symmetry import SymmetryTranslation
+
 
 class UFragment(Fragment):
 
@@ -144,6 +146,8 @@ class UFragment(Fragment):
 
     def project_amp1_to_fragment(self, amp1, projector=None):
         """Can be used to project C1, T1, or L1 amplitudes."""
+        if amp1 is None:
+            return None
         if projector is None:
             projector = self.get_occ2frag_projector()
         return (np.dot(projector[0], amp1[0]),
@@ -151,9 +155,12 @@ class UFragment(Fragment):
 
     def project_amp2_to_fragment(self, amp2, projector=None, axis=0):
         """Can be used to project C2, T2, or L2 amplitudes."""
+        if amp2 is None:
+            return None
         if projector is None:
             projector = self.get_occ2frag_projector()
         if axis == 0:
+            assert (len(amp2) == 3)
             caa, cab, cbb = amp2
             caax = einsum('xi,i...->x...', projector[0], caa)
             cabx = einsum('xi,i...->x...', projector[0], cab)
@@ -211,6 +218,20 @@ class UFragment(Fragment):
         e_mf = np.sum(np.diag(hveff[0])[occ[0]]) + np.sum(np.diag(hveff[1])[occ[1]])
         return e_mf
 
+    def get_fragment_mo_energy(self, c_active=None, fock=None):
+        """Returns approximate MO energies, using the the diagonal of the Fock matrix.
+
+        Parameters
+        ----------
+        c_active: array, optional
+        fock: array, optional
+        """
+        if c_active is None: c_active = self.cluster.c_active
+        if fock is None: fock = self.base.get_fock()
+        mo_energy_a = einsum('ai,ab,bi->i', c_active[0], fock[0], c_active[0])
+        mo_energy_b = einsum('ai,ab,bi->i', c_active[1], fock[1], c_active[1])
+        return (mo_energy_a, mo_energy_b)
+
     def get_fragment_dmet_energy(self, dm1=None, dm2=None, h1e_eff=None, eris=None):
         """Get fragment contribution to whole system DMET energy.
 
@@ -238,18 +259,26 @@ class UFragment(Fragment):
         t0 = timer()
         if eris is None:
             with log_time(self.log.timing, "Time for AO->MO transformation: %s"):
-                eris = self.base.get_eris_array(c_act)
+                #eris = self.base.get_eris_array(c_act)
+                gaa = self.base.get_eris_array(c_act[0])
+                gab = self.base.get_eris_array((c_act[0], c_act[0], c_act[1], c_act[1]))
+                gbb = self.base.get_eris_array(c_act[1])
         elif isinstance(eris, tuple) and len(eris) == 3:
-            pass
+            gaa, gab, gbb = eris
         else:
+            # Temporary solution:
+            with log_time(self.log.timing, "Time for AO->MO transformation: %s"):
+                gaa = self.base.get_eris_array(c_act[0])
+                gab = self.base.get_eris_array((c_act[0], c_act[0], c_act[1], c_act[1]))
+                gbb = self.base.get_eris_array(c_act[1])
+
             #TODO
-            raise NotImplementedError()
+            #raise NotImplementedError()
             #elif not isinstance(eris, np.ndarray):
             #    self.log.debugv("Extracting ERI array from CCSD ERIs object.")
             #    eris = vayesta.core.ao2mo.helper.get_full_array(eris, c_act)
         dm1a, dm1b = dm1
         dm2aa, dm2ab, dm2bb = dm2
-        gaa, gab, gbb = eris
 
         # Get effective core potential
         if h1e_eff is None:
@@ -286,18 +315,14 @@ class UFragment(Fragment):
     # --- Symmetry
     # ============
 
-    def add_tsymmetric_fragments(self, tvecs, unit='Ang', charge_tol=1e-6, spin_tol=1e-6):
+    def add_tsymmetric_fragments(self, tvecs, charge_tol=1e-6, spin_tol=1e-6):
         """
 
         Parameters
         ----------
-        tvecs: (3,3) float array or (3,) integer array
-            Translational symmetry vectors. If an array with shape (3,3) is passed, each row represents
-            a translation vector in cartesian coordinates, in units defined by the parameter `unit`.
-            If an array with shape (3,) is passed, each element represent the number of
-            translation vector corresponding to the a0, a1, and a2 lattice vectors of the cell.
-        unit: ['Ang', 'Bohr'], optional
-            Units of translation vectors. Only used if a (3, 3) array is passed. Default: 'Ang'.
+        tvecs: array(3) of integers
+            Each element represent the number of translation vector corresponding
+            to the a0, a1, and a2 lattice vectors of the cell.
         charge_tol: float, optional
             Tolerance for the error of the mean-field density matrix between symmetry related fragments.
             If the largest absolute difference in the density-matrix is above this value,
@@ -313,15 +338,15 @@ class UFragment(Fragment):
             List of T-symmetry related fragments. These will be automatically added to base.fragments and
             have the attributes `sym_parent` and `sym_op` set.
         """
-        #if self.boundary_cond == 'open': return []
-
         ovlp = self.base.get_ovlp()
         dm1 = self.mf.make_rdm1()
 
         fragments = []
-        for (dx, dy, dz), tvec in tsymmetry.loop_tvecs(self.mol, tvecs, unit=unit):
+        for i, (dx, dy, dz) in enumerate(itertools.product(range(tvecs[0]), range(tvecs[1]), range(tvecs[2]))):
+            if i == 0: continue
+            tvec = (dx/tvecs[0], dy/tvecs[1], dz/tvecs[2])
+            sym_op = SymmetryTranslation(self.mol, tvec)
 
-            sym_op = tsymmetry.get_tsymmetry_op(self.mol, tvec, unit='Bohr')
             if sym_op is None:
                 self.log.error("No T-symmetric fragment found for translation (%d,%d,%d) of fragment %s", dx, dy, dz, self.name)
                 continue

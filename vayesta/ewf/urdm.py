@@ -10,7 +10,7 @@ from vayesta.core.mpi import mpi
 from .rdm import _mpi_reduce
 
 
-def make_rdm1_ccsd(emb, ao_basis=False, t_as_lambda=False, symmetrize=True, with_mf=True, mpi_target=None):
+def make_rdm1_ccsd(emb, ao_basis=False, t_as_lambda=False, symmetrize=True, with_mf=True, mpi_target=None, mp2=False):
     """Make one-particle reduced density-matrix from partitioned fragment CCSD wave functions.
 
     MPI parallelized.
@@ -35,20 +35,24 @@ def make_rdm1_ccsd(emb, ao_basis=False, t_as_lambda=False, symmetrize=True, with
         (alpha, beta) one-particle reduced density matrix in AO (if `ao_basis=True`) or MO basis (default).
     """
 
+    nocca, noccb = emb.nocc
+    nvira, nvirb = emb.nvir
     # --- Fast algorithm via fragment-fragment loop:
     # T1/L1-amplitudes can be summed directly
-    t1a, t1b = emb.get_global_t1()
-    l1a, l1b = emb.get_global_l1() if not t_as_lambda else (t1a, t1b)
+    if mp2:
+        t_as_lambda = True
+    else:
+        t1a, t1b = emb.get_global_t1()
+        l1a, l1b = emb.get_global_l1() if not t_as_lambda else (t1a, t1b)
 
     # --- Loop over pairs of fragments and add projected density-matrix contributions:
-    nocca, nvira = t1a.shape
-    noccb, nvirb = t1b.shape
     dooa = np.zeros((nocca, nocca))
     doob = np.zeros((noccb, noccb))
     dvva = np.zeros((nvira, nvira))
     dvvb = np.zeros((nvirb, nvirb))
-    dova = np.zeros((nocca, nvira))
-    dovb = np.zeros((noccb, nvirb))
+    if not mp2:
+        dova = np.zeros((nocca, nvira))
+        dovb = np.zeros((noccb, nvirb))
     # MPI loop
 
     for frag in emb.get_fragments(mpi_rank=mpi.rank):
@@ -82,48 +86,54 @@ def make_rdm1_ccsd(emb, ao_basis=False, t_as_lambda=False, symmetrize=True, with
         dvvb += einsum('ijca,ijcb,Aa,Bb->AB', t2xab, l2xab, cvb, cvb)
 
         # D(occ,vir)
-        if not symmetrize:
-            # aa/bb
-            dova += einsum('ijab,Ii,Jj,Aa,Bb,JB->IA', t2xaa, foa, coa, cva, cva, l1a)
-            dovb += einsum('ijab,Ii,Jj,Aa,Bb,JB->IA', t2xbb, fob, cob, cvb, cvb, l1b)
-            # ab/ba
-            dova += einsum('ijab,Ii,Jj,Aa,Bb,JB->IA', t2xab, foa, cob, cva, cvb, l1b)
-            dovb += einsum('jiba,Ii,Jj,Aa,Bb,JB->IA', t2xba, fob, coa, cvb, cva, l1a)
-        else:
-            # aa/bb
-            dova += einsum('ijab,Ii,Jj,Aa,Bb,JB->IA', t2xaa, foa, coa, cva, cva, l1a) / 2
-            dova += einsum('jiba,Jj,Ii,Aa,Bb,JB->IA', t2xaa, foa, coa, cva, cva, l1a) / 2
-            dovb += einsum('ijab,Ii,Jj,Aa,Bb,JB->IA', t2xbb, fob, cob, cvb, cvb, l1b) / 2
-            dovb += einsum('jiba,Jj,Ii,Aa,Bb,JB->IA', t2xbb, fob, cob, cvb, cvb, l1b) / 2
-            # ab/baAA (here we can use t2xab and t2xba in a symmetric fashion:
-            dova += einsum('ijab,Ii,Jj,Aa,Bb,JB->IA', t2xab, foa, cob, cva, cvb, l1b) / 2
-            dova += einsum('ijab,Jj,Ii,Aa,Bb,JB->IA', t2xba, fob, coa, cva, cvb, l1b) / 2
-            dovb += einsum('jiba,Ii,Jj,Aa,Bb,JB->IA', t2xba, fob, coa, cvb, cva, l1a) / 2
-            dovb += einsum('jiba,Jj,Ii,Aa,Bb,JB->IA', t2xab, foa, cob, cvb, cva, l1a) / 2
+        if not mp2:
+            if not symmetrize:
+                # aa/bb
+                dova += einsum('ijab,Ii,Jj,Aa,Bb,JB->IA', t2xaa, foa, coa, cva, cva, l1a)
+                dovb += einsum('ijab,Ii,Jj,Aa,Bb,JB->IA', t2xbb, fob, cob, cvb, cvb, l1b)
+                # ab/ba
+                dova += einsum('ijab,Ii,Jj,Aa,Bb,JB->IA', t2xab, foa, cob, cva, cvb, l1b)
+                dovb += einsum('jiba,Ii,Jj,Aa,Bb,JB->IA', t2xba, fob, coa, cvb, cva, l1a)
+            else:
+                # aa/bb
+                dova += einsum('ijab,Ii,Jj,Aa,Bb,JB->IA', t2xaa, foa, coa, cva, cva, l1a) / 2
+                dova += einsum('jiba,Jj,Ii,Aa,Bb,JB->IA', t2xaa, foa, coa, cva, cva, l1a) / 2
+                dovb += einsum('ijab,Ii,Jj,Aa,Bb,JB->IA', t2xbb, fob, cob, cvb, cvb, l1b) / 2
+                dovb += einsum('jiba,Jj,Ii,Aa,Bb,JB->IA', t2xbb, fob, cob, cvb, cvb, l1b) / 2
+                # ab/baAA (here we can use t2xab and t2xba in a symmetric fashion:
+                dova += einsum('ijab,Ii,Jj,Aa,Bb,JB->IA', t2xab, foa, cob, cva, cvb, l1b) / 2
+                dova += einsum('ijab,Jj,Ii,Aa,Bb,JB->IA', t2xba, fob, coa, cva, cvb, l1b) / 2
+                dovb += einsum('jiba,Ii,Jj,Aa,Bb,JB->IA', t2xba, fob, coa, cvb, cva, l1a) / 2
+                dovb += einsum('jiba,Jj,Ii,Aa,Bb,JB->IA', t2xab, foa, cob, cvb, cva, l1a) / 2
 
     # MPI reduce here; the remaining terms involve L1/T1 only
     if mpi:
-        dooa, doob, dvva, dvvb, dova, dovb = _mpi_reduce(
-                emb.log, dooa, doob, dvva, dvvb, dova, dovb, mpi_target=mpi_target)
+        if mp2:
+            dooa, doob, dvva, dvvb = _mpi_reduce(
+                    emb.log, dooa, doob, dvva, dvvb, mpi_target=mpi_target)
+        else:
+            dooa, doob, dvva, dvvb, dova, dovb = _mpi_reduce(
+                    emb.log, dooa, doob, dvva, dvvb, dova, dovb, mpi_target=mpi_target)
         if mpi_target not in (None, mpi.rank):
             return None
 
     # Note: the corresponding dvv-t1 term only gets added later,
     # as the t1*l1 term needs to be added to dvv first
     # Note the + sign as we use dooa/b, rather than xt1a/b (see PySCF)
-    dova += einsum('IJ,IA->JA', dooa, t1a)
-    dovb += einsum('IJ,IA->JA', doob, t1b)
+    if not mp2:
+        dova += einsum('IJ,IA->JA', dooa, t1a)
+        dovb += einsum('IJ,IA->JA', doob, t1b)
 
-    dooa -= einsum('IA,JA->IJ', l1a, t1a)
-    doob -= einsum('IA,JA->IJ', l1b, t1b)
-    dvva += einsum('IA,IB->AB', t1a, l1a)
-    dvvb += einsum('IA,IB->AB', t1b, l1b)
+        dooa -= einsum('IA,JA->IJ', l1a, t1a)
+        doob -= einsum('IA,JA->IJ', l1b, t1b)
+        dvva += einsum('IA,IB->AB', t1a, l1a)
+        dvvb += einsum('IA,IB->AB', t1b, l1b)
 
-    dova -= einsum('IB,AB->IA', t1a, dvva)
-    dovb -= einsum('IB,AB->IA', t1b, dvvb)
+        dova -= einsum('IB,AB->IA', t1a, dvva)
+        dovb -= einsum('IB,AB->IA', t1b, dvvb)
 
-    dova += (t1a + l1a)
-    dovb += (t1b + l1b)
+        dova += (t1a + l1a)
+        dovb += (t1b + l1b)
 
     # Alpha
     occ, vir = np.s_[:nocca], np.s_[nocca:]
@@ -131,8 +141,9 @@ def make_rdm1_ccsd(emb, ao_basis=False, t_as_lambda=False, symmetrize=True, with
     dm1a = np.zeros((nmo, nmo))
     dm1a[occ,occ] = (dooa + dooa.T)
     dm1a[vir,vir] = (dvva + dvva.T)
-    dm1a[occ,vir] = dova
-    dm1a[vir,occ] = dova.T
+    if not mp2:
+        dm1a[occ,vir] = dova
+        dm1a[vir,occ] = dova.T
     dm1a /= 2.0
     # Beta
     occ, vir = np.s_[:noccb], np.s_[noccb:]
@@ -140,8 +151,9 @@ def make_rdm1_ccsd(emb, ao_basis=False, t_as_lambda=False, symmetrize=True, with
     dm1b = np.zeros((nmo, nmo))
     dm1b[occ,occ] = (doob + doob.T)
     dm1b[vir,vir] = (dvvb + dvvb.T)
-    dm1b[occ,vir] = dovb
-    dm1b[vir,occ] = dovb.T
+    if not mp2:
+        dm1b[occ,vir] = dovb
+        dm1b[vir,occ] = dovb.T
     dm1b /= 2.0
 
     if with_mf:

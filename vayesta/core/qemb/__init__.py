@@ -1,8 +1,5 @@
-from .qemb import QEmbeddingMethod
-from .fragment import QEmbeddingFragment
-
-# New names:
-from .qemb import QEmbedding
+from .qemb import Embedding
+from .fragment import Fragment
 
 # Unrestricted
 from .uqemb import UEmbedding

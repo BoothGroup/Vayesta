@@ -10,7 +10,7 @@ import pyscf.mp
 import pyscf.pbc.mp
 from pyscf import lib
 
-from vayesta.core import QEmbeddingMethod, UEmbedding
+from vayesta.core import Embedding, UEmbedding
 from vayesta.core.bath import DMET_Bath, MP2_BNO_Bath, UDMET_Bath
 from vayesta.tests.cache import moles, cells
 from vayesta.tests.common import temporary_seed
@@ -22,7 +22,7 @@ class MolFragmentTests(unittest.TestCase):
     key = 'h2o_ccpvdz_df'
     mf_key = 'rhf'
     PLACES = 8
-    Embedding = QEmbeddingMethod
+    Embedding = Embedding
     DMET_Bath = DMET_Bath
 
     def trace(self, c):
@@ -218,7 +218,6 @@ class MolFragmentTests(unittest.TestCase):
         self.assertIs(bath.log,    frag.log)
         self.assertIs(bath.base,   frag.base)
         self.assertIs(bath.c_frag, frag.c_frag)
-        self.assertIs(bath.get_dmet_bath(), bath.c_dmet)
         self.assertIs(bath.get_environment()[0], bath.c_env_occ)
         self.assertIs(bath.get_environment()[1], bath.c_env_vir)
 
@@ -240,10 +239,10 @@ class MolFragmentTests(unittest.TestCase):
             t2b = np.random.random((nocc, nocc, nvir, nvir)) - 0.5
             t2b = 0.25 * (t2b + t2b.swapaxes(0, 1) + t2b.swapaxes(2, 3) + t2b.transpose(1, 0, 3, 2))
 
-        bath = MP2_BNO_Bath(frags[0])
+        dmet_bath = DMET_Bath(frags[0])
+        bath = MP2_BNO_Bath(frags[0], dmet_bath)
         dm1o = bath.make_delta_dm1('occ', t2a, t2b)
         dm1v = bath.make_delta_dm1('vir', t2a, t2b)
-        self.assertIs(bath.get_mp2_class(), pyscf.mp.MP2)
         self.assertAlmostEqual(lib.fp(dm1o), 366.180724570873/2, self.PLACES)
         self.assertAlmostEqual(lib.fp(dm1v),  -1.956209725591/2, self.PLACES)
         self.assertIsNone(bath.c_bno_occ)
@@ -256,19 +255,19 @@ class MolFragmentTests(unittest.TestCase):
         self.assertIs(bath.base,   frags[0].base)
         self.assertIs(bath.c_frag, frags[0].c_frag)
 
-        bath = MP2_BNO_Bath(frags[0], local_dm='semi', canonicalize=False)
-        dm1o = bath.make_delta_dm1('occ', t2a, t2b)
-        dm1v = bath.make_delta_dm1('vir', t2a, t2b)
-        self.assertIs(bath.get_mp2_class(), pyscf.mp.MP2)
-        self.assertAlmostEqual(lib.fp(dm1o),  -11.0426240019808/2, self.PLACES)
-        self.assertAlmostEqual(lib.fp(dm1v),   11.2234922296148/2, self.PLACES)
+        #bath = MP2_BNO_Bath(frags[0], dmet_bath, local_dm='semi', canonicalize=False)
+        #dm1o = bath.make_delta_dm1('occ', t2a, t2b)
+        #dm1v = bath.make_delta_dm1('vir', t2a, t2b)
+        #self.assertIs(bath.get_mp2_class(), pyscf.mp.MP2)
+        #self.assertAlmostEqual(lib.fp(dm1o),  -11.0426240019808/2, self.PLACES)
+        #self.assertAlmostEqual(lib.fp(dm1v),   11.2234922296148/2, self.PLACES)
 
-        bath = MP2_BNO_Bath(frags[0], local_dm=True, canonicalize=False)
-        dm1o = bath.make_delta_dm1('occ', t2a, t2b)
-        dm1v = bath.make_delta_dm1('vir', t2a, t2b)
-        self.assertIs(bath.get_mp2_class(), pyscf.mp.MP2)
-        self.assertAlmostEqual(lib.fp(dm1o), 382.7366604206307/2, self.PLACES)
-        self.assertAlmostEqual(lib.fp(dm1v),  16.0277297008466/2, self.PLACES)
+        #bath = MP2_BNO_Bath(frags[0], dmet_bath, local_dm=True, canonicalize=False)
+        #dm1o = bath.make_delta_dm1('occ', t2a, t2b)
+        #dm1v = bath.make_delta_dm1('vir', t2a, t2b)
+        #self.assertIs(bath.get_mp2_class(), pyscf.mp.MP2)
+        #self.assertAlmostEqual(lib.fp(dm1o), 382.7366604206307/2, self.PLACES)
+        #self.assertAlmostEqual(lib.fp(dm1v),  16.0277297008466/2, self.PLACES)
 
         #FIXME: bugs #6 and #7 - then add to CellFragmentTests
         #NOTE these values were for an old system
@@ -320,7 +319,7 @@ class CellFragmentTests(unittest.TestCase):
         """Test IAO atomic fragmentation.
         """
 
-        qemb = QEmbeddingMethod(cells[self.key]['rhf'])
+        qemb = Embedding(cells[self.key]['rhf'])
         qemb.iao_fragmentation()
         frag = qemb.add_atomic_fragment([0, 1])
         frags = [frag] + frag.add_tsymmetric_fragments([2, 2, 2])
@@ -332,14 +331,14 @@ class CellFragmentTests(unittest.TestCase):
         """Test IAO orbital fragmentation.
         """
 
-        qemb = QEmbeddingMethod(cells[self.key]['rhf'])
+        qemb = Embedding(cells[self.key]['rhf'])
         qemb.iao_fragmentation()
         frag = qemb.add_orbital_fragment([0, 1])
 
         self.assertAlmostEqual(frag.get_fragment_mf_energy().real, -4.261995344528813, self.PLACES)
 
     def test_sao_atoms(self):
-        qemb = QEmbeddingMethod(cells[self.key]['rhf'])
+        qemb = Embedding(cells[self.key]['rhf'])
         qemb.sao_fragmentation()
         frags = [qemb.add_atomic_fragment([i*2, i*2+1]) for i in range(len(qemb.kpts))]
 
@@ -350,7 +349,7 @@ class CellFragmentTests(unittest.TestCase):
         """Test SAO orbital fragmentation.
         """
 
-        qemb = QEmbeddingMethod(cells[self.key]['rhf'])
+        qemb = Embedding(cells[self.key]['rhf'])
         qemb.sao_fragmentation()
         frag = qemb.add_orbital_fragment([0, 1, 2, 3])
 
@@ -360,7 +359,7 @@ class CellFragmentTests(unittest.TestCase):
         """Test the DMET bath.
         """
 
-        qemb = QEmbeddingMethod(cells[self.key]['rhf'])
+        qemb = Embedding(cells[self.key]['rhf'])
         qemb.sao_fragmentation()
         frag = qemb.add_atomic_fragment([0])
         frags = [frag] + frag.add_tsymmetric_fragments([2, 2, 2])
@@ -377,7 +376,7 @@ class CellFragmentTests(unittest.TestCase):
         #self.assertAlmostEqual(self.trace(c_occenv),  8.60108764820888, self.PLACES)
         #self.assertAlmostEqual(self.trace(c_virenv), self.PLACES3.27964350816293, self.PLACES)
 
-        qemb = QEmbeddingMethod(cells[self.key]['rhf'])
+        qemb = Embedding(cells[self.key]['rhf'])
         qemb.sao_fragmentation()
         frags = [qemb.add_atomic_fragment([i*2, i*2+1]) for i in range(len(qemb.kpts))]
 

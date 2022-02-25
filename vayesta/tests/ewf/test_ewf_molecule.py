@@ -83,7 +83,7 @@ class MoleculeEWFTests(unittest.TestCase):
 
         emb = ewf.EWF(
                 moles['lih_ccpvdz']['rhf'],
-                bath_type='all',
+                bath_type='full',
                 make_rdm1=True,
                 make_rdm2=True,
                 solver_options={
@@ -146,7 +146,7 @@ class MoleculeEWFTests(unittest.TestCase):
 
         emb = ewf.EWF(
                 moles['lih_ccpvdz']['rhf'],
-                bath_type=None,
+                bath_type='dmet',
                 solver_options={
                     'conv_tol': self.CONV_TOL,
                     'conv_tol_normt': self.CONV_TOL_NORMT,
@@ -166,7 +166,7 @@ class MoleculeEWFTests(unittest.TestCase):
 
         emb = ewf.EWF(
                 moles['h2o_ccpvdz']['rhf'],
-                bath_type=None,
+                bath_type='dmet',
                 solver='FCI',
                 bno_threshold=100,
                 solver_options={
@@ -257,7 +257,7 @@ class MoleculeEWFTests(unittest.TestCase):
 
         ecisd = ewf.EWF(
                 moles['h2_ccpvdz']['rhf'],
-                bath_type=None,
+                bath_type='dmet',
                 solver='CISD',
                 solver_options={
                     'conv_tol': self.CONV_TOL,
@@ -270,7 +270,7 @@ class MoleculeEWFTests(unittest.TestCase):
 
         eccsd = ewf.EWF(
                 moles['h2_ccpvdz']['rhf'],
-                bath_type=None,
+                bath_type='dmet',
                 solver='CCSD',
                 solver_options={
                     'conv_tol': self.CONV_TOL,
@@ -341,7 +341,7 @@ class UMoleculeEWFTests(unittest.TestCase):
 
         rewf = ewf.EWF(
                 moles['lih_ccpvdz']['rhf'],
-                bath_type=None,
+                bath_type='dmet',
                 solver_options={
                     'conv_tol': self.CONV_TOL,
                     'conv_tol_normt': self.CONV_TOL_NORMT,
@@ -353,7 +353,7 @@ class UMoleculeEWFTests(unittest.TestCase):
 
         uewf = ewf.UEWF(
                 moles['lih_ccpvdz']['uhf'],
-                bath_type=None,
+                bath_type='dmet',
                 solver_options={
                     'conv_tol': self.CONV_TOL,
                     'conv_tol_normt': self.CONV_TOL_NORMT,
@@ -373,7 +373,7 @@ class UMoleculeEWFTests(unittest.TestCase):
         rewf = ewf.EWF(
                 moles['lih_ccpvdz']['rhf'],
                 solver='CISD',
-                bath_type=None,
+                bath_type='dmet',
                 solver_options={
                     'conv_tol': self.CONV_TOL,
                     'conv_tol_normt': self.CONV_TOL_NORMT,
@@ -386,7 +386,7 @@ class UMoleculeEWFTests(unittest.TestCase):
         uewf = ewf.UEWF(
                 moles['lih_ccpvdz']['uhf'],
                 solver='CISD',
-                bath_type=None,
+                bath_type='dmet',
                 solver_options={
                     'conv_tol': self.CONV_TOL,
                     'conv_tol_normt': self.CONV_TOL_NORMT,
@@ -406,7 +406,7 @@ class UMoleculeEWFTests(unittest.TestCase):
         rewf = ewf.EWF(
                 moles['h2_ccpvdz']['rhf'],
                 solver='FCI',
-                bath_type=None,
+                bath_type='dmet',
                 solver_options={
                     'conv_tol': self.CONV_TOL,
                 },
@@ -418,7 +418,7 @@ class UMoleculeEWFTests(unittest.TestCase):
         uewf = ewf.UEWF(
                 moles['h2_ccpvdz']['uhf'],
                 solver='FCI',
-                bath_type=None,
+                bath_type='dmet',
                 solver_options={
                     'conv_tol': self.CONV_TOL,
                 },

@@ -4,29 +4,25 @@ from timeit import default_timer as timer
 # External libaries
 import numpy as np
 
-from vayesta.core import QEmbeddingFragment
+from vayesta.core import Fragment
 from vayesta.core.actspace import ActiveSpace
 from vayesta.core.bath import DMET_Bath, BNO_Bath, MP2_BNO_Bath, CompleteBath
-# Local modules
-from vayesta.core.util import *
 from vayesta.solver import get_solver_class2 as get_solver_class
+from vayesta.core.util import *
 
-
-# Internal libaries
-# import pyscf.pbc
 # We might want to move the useful things from here into core, since they seem pretty general.
 
 
 class DMETFragmentExit(Exception):
     pass
 
-
 VALID_SOLVERS = [None, "", "MP2", "CISD", "CCSD", "CCSD(T)", 'FCI', "FCI-spin0", "FCI-spin1"]
 
 
-class DMETFragment(QEmbeddingFragment):
+class DMETFragment(Fragment):
+
     @dataclasses.dataclass
-    class Options(QEmbeddingFragment.Options):
+    class Options(Fragment.Options):
         """Attributes set to `NotSet` inherit their value from the parent DMET object."""
         # Options also present in `base`:
         dmet_threshold: float = NotSet
@@ -46,7 +42,7 @@ class DMETFragment(QEmbeddingFragment):
         c_cas_vir: np.ndarray = None
 
     @dataclasses.dataclass
-    class Results(QEmbeddingFragment.Results):
+    class Results(Fragment.Results):
         fid: int = None
         bno_threshold: float = None
         n_active: int = None

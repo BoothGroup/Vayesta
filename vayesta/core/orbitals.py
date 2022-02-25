@@ -7,7 +7,7 @@ def is_rhf(coeff):
 
 def stack_coeffs(*coeffs):
     # RHF
-    if (coeffs[0][0].ndim == 1):
+    if np.ndim(coeffs[0][0]) == 1:
         assert np.all([c.ndim == 2 for c in coeffs])
         return hstack(*coeffs)
     # UHF

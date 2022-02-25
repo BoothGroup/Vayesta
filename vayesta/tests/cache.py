@@ -9,7 +9,9 @@ import pyscf.tools.ring
 
 import numpy as np
 
-from vayesta.misc import molstructs, gdf
+from vayesta.misc import molecules
+from vayesta.misc import solids
+from vayesta.misc import gdf
 from vayesta.lattmod import latt
 from vayesta import log
 
@@ -58,9 +60,10 @@ def register_system_mole(cache, key):
     mol = pyscf.gto.Mole()
     rhf = uhf = False
     df = False
+    spin = None
 
     if key == 'h2_ccpvdz':
-        mol.atom = 'H1 0 0 0; H2 0 0 1'
+        mol.atom = 'H1 0 0 0; H2 0 0 1.0'
         mol.basis = 'cc-pvdz'
         rhf = uhf = True
     elif key == 'h2_ccpvdz_stretch':
@@ -72,14 +75,25 @@ def register_system_mole(cache, key):
         mol.basis = 'cc-pvdz'
         uhf = True
     elif key == 'h2o_ccpvdz':
-        mol.atom = molstructs.water()
+        mol.atom = molecules.water()
         mol.basis = 'cc-pvdz'
         rhf = uhf = True
     elif key == 'h2o_ccpvdz_df':
-        mol.atom = molstructs.water()
+        mol.atom = molecules.water()
         mol.basis = 'cc-pvdz'
         rhf = uhf = True
         df = True
+    elif key == 'no2_ccpvdz':
+        mol.atom = molecules.no2()
+        mol.basis = 'cc-pvdz'
+        uhf = True
+        spin = 1
+    elif key == 'no2_ccpvdz_df':
+        mol.atom = molecules.no2()
+        mol.basis = 'cc-pvdz'
+        uhf = True
+        df = True
+        spin = 1
     elif key == 'n2_631g':
         mol.atom = 'N1 0 0 0; N2 0 0 1.1'
         mol.basis = '6-31g'
@@ -106,6 +120,10 @@ def register_system_mole(cache, key):
         mol.atom = ['H %f %f %f' % xyz for xyz in pyscf.tools.ring.make(10, 1.0)]
         mol.basis = 'sto-6g'
         rhf = uhf = True
+    elif key == 'ethanol_ccpvdz':
+        mol.atom = molecules.ethanol()
+        mol.basis = 'cc-pVDZ'
+        rhf = uhf = True
     else:
         log.error("No system with key '%s'", key)
         return {}
@@ -114,6 +132,8 @@ def register_system_mole(cache, key):
 
     mol.verbose = 0
     mol.max_memory = 1e9
+    if spin is not None:
+        mol.spin = spin
     mol.build()
 
     #TODO check stability
@@ -138,13 +158,14 @@ def register_system_mole(cache, key):
     }
 
 
-def _make_cell(a, atom, supercell=None, verbose=0, max_memory=int(1e9), **kwargs):
+def _make_cell(a, atom, supercell=None, verbose=10, max_memory=int(1e9), **kwargs):
     cell = pyscf.pbc.gto.Cell()
     cell.atom = atom
     if np.isscalar(a):
         a = a*np.eye(3)
     cell.a = a
     cell.verbose = verbose
+    cell.output = 'pyscf.out'
     cell.max_memory = max_memory
     for key, val in kwargs.items():
         setattr(cell, key, val)
@@ -184,9 +205,73 @@ def register_system_cell(cache, key):
     """Register one of the preset solid test systems in the cache.
     """
 
+    # Cubic H2
+    if key == 'h2_cp_k211':
+        amat = 2*np.eye(3)
+        amat[2,2] = 4.0
+        cell = _make_cell(amat, 'H 0 0 0 ; H 0 0 0.74', basis='def2-svp', exp_to_discard=0.1)
+        kpts = cell.make_kpts([2,1,1])
+        df = pyscf.pbc.df.GDF(cell, kpts)
+        df.auxbasis = 'def2-svp-ri'
+        rhf = _make_pbc_mf(cell, kpts, df=df)
+        uhf = _make_pbc_mf(cell, kpts, df=df, restricted=False)
+        cache._cache[key] = {'cell': cell, 'kpts': kpts, 'rhf': rhf, 'uhf': uhf}
+        return
+    if key == 'h2_cp_g211':
+        amat = 2*np.eye(3)
+        amat[2,2] = 4.0
+        cell = _make_cell(amat, 'H 0 0 0 ; H 0 0 0.74', basis='def2-svp', exp_to_discard=0.1, supercell=[2,1,1])
+        df = pyscf.pbc.df.GDF(cell)
+        df.auxbasis = 'def2-svp-ri'
+        rhf = _make_pbc_mf(cell, df=df)
+        uhf = _make_pbc_mf(cell, df=df, restricted=False)
+        cache._cache[key] = {'cell': cell, 'kpts': None, 'rhf': rhf, 'uhf': uhf}
+        return
+    if key == 'h2_cp_k321':
+        amat = 2*np.eye(3)
+        amat[2,2] = 4.0
+        cell = _make_cell(amat, 'H 0 0 0 ; H 0 0 0.74', basis='def2-svp', exp_to_discard=0.1)
+        kpts = cell.make_kpts([3,2,1])
+        df = pyscf.pbc.df.GDF(cell, kpts)
+        df.auxbasis = 'def2-svp-ri'
+        rhf = _make_pbc_mf(cell, kpts, df=df)
+        uhf = _make_pbc_mf(cell, kpts, df=df, restricted=False)
+        cache._cache[key] = {'cell': cell, 'kpts': kpts, 'rhf': rhf, 'uhf': uhf}
+        return
+    if key == 'h2_cp_k222':
+        amat = 2*np.eye(3)
+        amat[2,2] = 4.0
+        cell = _make_cell(amat, 'H 0 0 0 ; H 0 0 0.74', basis='def2-svp', exp_to_discard=0.1)
+        kpts = cell.make_kpts([2,2,2])
+        df = pyscf.pbc.df.GDF(cell, kpts)
+        df.auxbasis = 'def2-svp-ri'
+        mf = _make_pbc_mf(cell, kpts, df=df)
+        cache._cache[key] = {'cell': cell, 'kpts': kpts, 'rhf': mf, 'uhf': None}
+        return
+    if key == 'h2_cp_g222':
+        amat = 2*np.eye(3)
+        amat[2,2] = 4.0
+        cell = _make_cell(amat, 'H 0 0 0 ; H 0 0 0.74', basis='def2-svp', exp_to_discard=0.1, supercell=[2,2,2])
+        df = pyscf.pbc.df.GDF(cell)
+        df.auxbasis = 'def2-svp-ri'
+        mf = _make_pbc_mf(cell, df=df)
+        cache._cache[key] = {'cell': cell, 'kpts': None, 'rhf': mf, 'uhf': None}
+        return
+    # Cubic H3
+    if key == 'h3_cp_k211':
+        amat = 2*np.eye(3)
+        amat[2,2] = 5.0
+        cell = _make_cell(amat, 'H 0 0 0 ; H 0 0 1 ; H 0 0 2', spin=2, basis='def2-svp', exp_to_discard=0.1)
+        kpts = cell.make_kpts([2,1,1])
+        df = pyscf.pbc.df.GDF(cell, kpts)
+        df.auxbasis = 'def2-svp-ri'
+        mf = _make_pbc_mf(cell, kpts, df=df)
+        cache._cache[key] = {'cell': cell, 'kpts': kpts, 'rhf': None, 'uhf': mf}
+        return
+
     # Rocksalt LiH
     if key == 'lih_k221':
-        cell = _make_cell(*molstructs.rocksalt(atoms=['Li', 'H']), basis='def2-svp',
+        cell = _make_cell(*solids.rocksalt(atoms=['Li', 'H']), basis='def2-svp',
                 exp_to_discard=0.1)
         kpts = cell.make_kpts([2,2,1])
         df = pyscf.pbc.df.GDF(cell, kpts)
@@ -195,7 +280,7 @@ def register_system_cell(cache, key):
         cache._cache[key] = {'cell': cell, 'kpts': kpts, 'rhf': mf, 'uhf': None}
         return
     if key == 'lih_g221':
-        cell = _make_cell(*molstructs.rocksalt(atoms=['Li', 'H']), basis='def2-svp',
+        cell = _make_cell(*solids.rocksalt(atoms=['Li', 'H']), basis='def2-svp',
                 exp_to_discard=0.1, supercell=[2,2,1])
         df = pyscf.pbc.df.GDF(cell)
         df.auxbasis = 'def2-svp-ri'
@@ -218,6 +303,42 @@ def register_system_cell(cache, key):
         mf = _make_pbc_mf(cell, df=df)
         cache._cache[key] = {'cell': cell, 'kpts': None, 'rhf': None, 'uhf': mf}
         return
+    # 2D Graphene, k-points and supercell
+    if key == 'graphene_k221':
+        cell = _make_cell(*solids.graphene(c=30.0), dimension=2, basis='def2-svp', exp_to_discard=0.1, precision=1e-12)
+        kpts = cell.make_kpts([2,2,1])
+        df = pyscf.pbc.df.GDF(cell, kpts)
+        df.auxbasis = 'def2-svp-ri'
+        mf = _make_pbc_mf(cell, kpts, df=df)
+        cache._cache[key] = {'cell': cell, 'kpts': kpts, 'rhf': mf, 'uhf': None}
+        return
+    if key == 'graphene_g221':
+        cell = _make_cell(*solids.graphene(c=30.0), dimension=2, basis='def2-svp', exp_to_discard=0.1, supercell=[2,2,1], precision=1e-12)
+        df = pyscf.pbc.df.GDF(cell)
+        df.auxbasis = 'def2-svp-ri'
+        mf = _make_pbc_mf(cell, df=df)
+        cache._cache[key] = {'cell': cell, 'kpts': None, 'rhf': mf, 'uhf': None}
+        return
+    if key == 'nitrogen_cubic_2d_k221':
+        amat = 1.5*np.eye(3)
+        amat[2,2] = 20.0
+        cell = _make_cell(amat, 'N', dimension=2, spin=4, basis='def2-svp', exp_to_discard=0.1)
+        kpts = cell.make_kpts([2,2,1])
+        df = pyscf.pbc.df.GDF(cell, kpts)
+        df.auxbasis = 'def2-svp-ri'
+        mf = _make_pbc_mf(cell, kpts, df=df)
+        cache._cache[key] = {'cell': cell, 'kpts': kpts, 'rhf': None, 'uhf': mf}
+        return
+    if key == 'nitrogen_cubic_2d_g221':
+        amat = 1.5*np.eye(3)
+        amat[2,2] = 20.0
+        cell = _make_cell(amat, 'N', dimension=2, spin=4, basis='def2-svp', exp_to_discard=0.1, supercell=[2,2,1])
+        df = pyscf.pbc.df.GDF(cell)
+        df.auxbasis = 'def2-svp-ri'
+        mf = _make_pbc_mf(cell, df=df)
+        cache._cache[key] = {'cell': cell, 'kpts': None, 'rhf': None, 'uhf': mf}
+        return
+
 
     cell = pyscf.pbc.gto.Cell()
     kpts = None

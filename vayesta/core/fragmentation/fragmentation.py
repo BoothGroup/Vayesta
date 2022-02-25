@@ -3,6 +3,7 @@ import scipy
 import scipy.linalg
 
 from vayesta.core.util import *
+from vayesta.core.vlog import NoLogger
 
 def check_orthonormal(log, mo_coeff, ovlp, mo_name="orbital", tol=1e-7):
     """Check orthonormality of mo_coeff.
@@ -30,9 +31,9 @@ class Fragmentation:
 
     name = "<not set>"
 
-    def __init__(self, mf, log):
+    def __init__(self, mf, log=None):
         self.mf = mf
-        self.log = log
+        self.log = (log or NoLogger())
         self.ovlp = self.mf.get_ovlp()
         #
         self.coeff = None

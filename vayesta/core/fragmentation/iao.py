@@ -66,12 +66,12 @@ class IAO_Fragmentation(Fragmentation):
 
         # Orthogonalize IAO using symmetric (Lowdin) orthogonalization
         x, e_min = self.symmetric_orth(c_iao, ovlp)
-        self.log.debug("Lowdin orthogonalization of IAOs: n(in)= %3d -> n(out)= %3d , e(min)= %.3e", x.shape[0], x.shape[1], e_min)
+        self.log.debug("Lowdin orthogonalization of IAOs: n(in)= %3d -> n(out)= %3d , min(eig)= %.3e", x.shape[0], x.shape[1], e_min)
         if e_min < 1e-12:
             self.log.warning("Small eigenvalue in Lowdin orthogonalization: %.3e !", e_min)
         c_iao = np.dot(c_iao, x)
         # Check that all electrons are in IAO space
-        self.check_nelectron(c_iao, c_occ)
+        self.check_nelectron(c_iao, mo_coeff, mo_occ)
         if add_virtuals:
             c_vir = self.get_virtual_coeff(c_iao, mo_coeff=mo_coeff)
             c_iao = np.hstack((c_iao, c_vir))
@@ -79,11 +79,9 @@ class IAO_Fragmentation(Fragmentation):
         self.check_orthonormal(c_iao)
         return c_iao
 
-    def check_nelectron(self, c_iao, c_occ):
-        dm = np.dot(c_occ, c_occ.T)
+    def check_nelectron(self, c_iao, mo_coeff, mo_occ):
+        dm = np.einsum('ai,i,bi->ab', mo_coeff, mo_occ, mo_coeff)
         ovlp = self.get_ovlp()
-        #print(c_occ.shape)
-        #print(c_iao.shape)
         ne_iao = einsum('ai,ab,bc,cd,di->', c_iao, ovlp, dm, ovlp, c_iao)
         ne_tot = einsum('ab,ab->', dm, ovlp)
         if abs(ne_iao - ne_tot) > 1e-8:
