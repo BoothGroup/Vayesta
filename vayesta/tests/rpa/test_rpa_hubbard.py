@@ -29,7 +29,7 @@ class MoleculeRPATest(unittest.TestCase):
         emb.kernel('drpa')
         self._test_energy(emb, known_values_drpa)
 
-        emb = rpa.dRPA(latts[key]['rhf'])
+        emb = rpa.ssRPA(latts[key]['rhf'])
         emb.kernel()
         self._test_energy(emb, known_values_drpa)
 
@@ -49,7 +49,7 @@ class MoleculeRPATest(unittest.TestCase):
         emb.kernel('drpa')
         self._test_energy(emb, known_values_drpa)
 
-        emb = rpa.dRPA(latts[key]['rhf'])
+        emb = rpa.ssRPA(latts[key]['rhf'])
         emb.kernel()
         self._test_energy(emb, known_values_drpa)
 
@@ -69,7 +69,7 @@ class MoleculeRPATest(unittest.TestCase):
         emb.kernel('drpa')
         self._test_energy(emb, known_values_drpa)
 
-        emb = rpa.dRPA(latts[key]['rhf'])
+        emb = rpa.ssRPA(latts[key]['rhf'])
         emb.kernel()
         self._test_energy(emb, known_values_drpa)
 
@@ -89,7 +89,7 @@ class MoleculeRPATest(unittest.TestCase):
         emb.kernel('drpa')
         self._test_energy(emb, known_values_drpa)
 
-        emb = rpa.dRPA(latts[key]['rhf'])
+        emb = rpa.ssRPA(latts[key]['rhf'])
         emb.kernel()
         self._test_energy(emb, known_values_drpa)
 

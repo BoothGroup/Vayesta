@@ -25,8 +25,8 @@ class MoleculeRPATest(unittest.TestCase):
         """Tests for N=16 U=4 Hubbard model.
         """
 
-        key = 'hubb_16_u4_df'
-        known_values_drpa = {'e_tot': -8.847604550030152}
+        key = 'hubb_14_u4_df'
+        known_values_drpa = {'e_tot': -7.776536889696544}
 
         emb = rpa.ssRPA(latts[key]['rhf'])
         emb.kernel()
