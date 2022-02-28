@@ -212,7 +212,7 @@ class DMET(QEmbeddingMethod):
                 e1_contrib, e2_contrib = frag.get_dmet_energy_contrib()
                 e1 += e1_contrib * nsym[x]
                 e2 += e2_contrib * nsym[x]
-                emf += frag.get_fragment_mf_energy()
+                emf += frag.get_fragment_mf_energy() * nsym[x]
                 # print(e1 + e2, e1, e2)
                 # print(frag.get_fragment_dmet_energy())
             self.e_corr = e1 + e2 - emf

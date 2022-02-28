@@ -165,7 +165,7 @@ class EDMET(RDMET):
                 e1 += e1_contrib * nsym[x]
                 e2 += e2_contrib * nsym[x]
                 efb += efb_contrib * nsym[x]
-                emf += frag.get_fragment_mf_energy()
+                emf += frag.get_fragment_mf_energy() * nsym[x]
 
             self.e_corr = e1 + e2 + efb + self.e_nonlocal - emf
             self.log.info("Total EDMET energy {:8.4f}".format(self.e_tot))
