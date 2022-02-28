@@ -37,7 +37,7 @@ class MoleculeDMETTest(unittest.TestCase):
         emb.add_atomic_fragment([4, 5])
         emb.kernel()
 
-        known_values = {'e_tot': -3.259643895444306}
+        known_values = {'e_tot': -3.259355757394294}
 
         self._test_converged(emb)
         self._test_energy(emb, known_values)
@@ -59,7 +59,7 @@ class MoleculeDMETTest(unittest.TestCase):
         emb.add_atomic_fragment([4, 5])
         emb.kernel()
 
-        known_values = {'e_tot': -3.259643895503883}
+        known_values = {'e_tot': -3.2593557575050305}
 
         self._test_converged(emb)
         self._test_energy(emb, known_values)
@@ -81,7 +81,7 @@ class MoleculeDMETTest(unittest.TestCase):
         emb.add_atomic_fragment([4, 5])
         emb.kernel()
 
-        known_values = {'e_tot': -3.2585986118564225}
+        known_values = {'e_tot': -3.2587710893946102}
 
         self._test_converged(emb)
         self._test_energy(emb, known_values)
@@ -104,7 +104,7 @@ class MoleculeDMETTest(unittest.TestCase):
         emb.add_atomic_fragment([4, 5])
         emb.kernel()
 
-        known_values = {'e_tot': -3.2596438952192823 }
+        known_values = {'e_tot': -3.2593557575050305 }
 
         self._test_converged(emb)
         self._test_energy(emb, known_values)

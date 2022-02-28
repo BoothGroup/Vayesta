@@ -63,12 +63,12 @@ class HubbardEDMETTests(unittest.TestCase):
         frag.add_tsymmetric_fragments(tvecs=[5, 1, 1])
         emb.kernel()
 
-        known_values = {'e_tot': -8.682074457504317}
+        known_values = {'e_tot': -9.409471168185561}
 
         self._test_energy(emb, known_values)
 
     def test_14_upoint4_2imp_4occ(self):
-        """Tests for N=14 U=0.4 Hubbard model with double site impurities and density fitting.
+        """Tests for N=14 U=0.4 Hubbard model with double site impurities.
         """
 
         emb = edmet.EDMET(
@@ -83,7 +83,7 @@ class HubbardEDMETTests(unittest.TestCase):
         frag.add_tsymmetric_fragments(tvecs=[7, 1, 1])
         emb.kernel()
 
-        known_values = {'e_tot': -16.65313768163872 }
+        known_values = {'e_tot': -16.661782367768833}
 
         self._test_energy(emb, known_values)
 
@@ -120,7 +120,7 @@ class HubbardEDMETTests(unittest.TestCase):
         frag.add_tsymmetric_fragments(tvecs=[6, 6, 1])
         emb.kernel()
 
-        known_values = {'e_tot': -41.29019847924662 }
+        known_values = {'e_tot': -54.457115128}
 
         self._test_energy(emb, known_values)
 

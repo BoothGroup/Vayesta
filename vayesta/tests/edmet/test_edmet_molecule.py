@@ -31,7 +31,7 @@ class MolecularEDMETTest(unittest.TestCase):
         emb.add_atomic_fragment([4, 5])
         emb.kernel()
 
-        known_values = {'e_tot': -3.2591780286516627 }
+        known_values = {'e_tot': -3.268830397960796}
 
         self._test_energy(emb, known_values)
 
@@ -48,7 +48,7 @@ class MolecularEDMETTest(unittest.TestCase):
         emb.add_atomic_fragment([4, 5])
         emb.kernel()
 
-        known_values = {'e_tot': -3.2592897068854345}
+        known_values = {'e_tot': -3.268943450223535}
 
         self._test_energy(emb, known_values)
 
