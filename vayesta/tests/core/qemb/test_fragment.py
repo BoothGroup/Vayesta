@@ -21,7 +21,7 @@ from vayesta.tests.common import temporary_seed
 class MolFragmentTests(unittest.TestCase):
     key = 'h2o_ccpvdz_df'
     mf_key = 'rhf'
-    PLACES = 8
+    PLACES = 7
     Embedding = QEmbeddingMethod
     DMET_Bath = DMET_Bath
 
