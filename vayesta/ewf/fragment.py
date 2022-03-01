@@ -16,9 +16,9 @@ from vayesta.core import Fragment
 from vayesta.solver import get_solver_class2 as get_solver_class
 from vayesta.core.fragmentation import IAO_Fragmentation
 
+from vayesta.core.bath import BNO_Threshold
 from vayesta.core.bath import DMET_Bath
 from vayesta.core.bath import EwDMET_Bath
-from vayesta.core.bath import BNO_Threshold
 from vayesta.core.bath import BNO_Bath
 from vayesta.core.bath import MP2_BNO_Bath
 from vayesta.core.bath import CompleteBath
@@ -164,15 +164,21 @@ class EWFFragment(Fragment):
         return c_cas_occ, c_cas_vir
 
     def make_bath(self, bath_type=NotSet):
+        """TODO: move to embedding base class?"""
         if bath_type is NotSet:
             bath_type = self.opts.bath_type
+        if bath_type is None:
+            self.log.warning("bath_type = None is deprecated; use bath_type = 'dmet'.")
+            bath_type = 'dmet'
+        if bath_type.lower() == 'all':
+            self.log.warning("bath_type = 'all' is deprecated; use bath_type = 'full'.")
+            bath_type = 'full'
 
         # All environment orbitals as bath (for testing purposes)
         if bath_type.lower() == 'full':
             self.bath = CompleteBath(self, dmet_threshold=self.opts.dmet_threshold)
             self.bath.kernel()
             return self.bath
-
         dmet_bath = DMET_Bath(self, dmet_threshold=self.opts.dmet_threshold)
         dmet_bath.kernel()
         # DMET bath only
@@ -186,17 +192,17 @@ class EWFFragment(Fragment):
             return self.bath
         # MP2 bath natural orbitals
         if bath_type.lower() == 'mp2-bno':
-            self.bath = MP2_BNO_Bath(self, ref_bath=dmet_bath, project_t2=self.opts.bno_project_t2)
+            project_t2 = self.opts.bno_project_t2 if hasattr(self.opts, 'bno_project_t2') else False
+            self.bath = MP2_BNO_Bath(self, ref_bath=dmet_bath, project_t2=project_t2)
             self.bath.kernel()
             return self.bath
         if bath_type.lower() == 'mp2-bno-ewdmet':
             ewdmet_bath = EwDMET_Bath(self, dmet_bath, max_order=self.opts.ewdmet_max_order)
             ewdmet_bath.kernel()
-            self.bath = MP2_BNO_Bath(self, ref_bath=ewdmet_bath, project_t2=self.opts.bno_project_t2)
+            project_t2 = self.opts.bno_project_t2 if hasattr(self.opts, 'bno_project_t2') else False
+            self.bath = MP2_BNO_Bath(self, ref_bath=ewdmet_bath, project_t2=project_t2)
             self.bath.kernel()
             return self.bath
-
-            #    bath = MP2_BNO_Bath(self, dmet_threshold=self.opts.dmet_threshold)
         raise ValueError("Unknown bath_type: %r" % bath_type)
 
     def make_cluster(self, bath=None, bno_threshold=None, bno_threshold_occ=None, bno_threshold_vir=None):

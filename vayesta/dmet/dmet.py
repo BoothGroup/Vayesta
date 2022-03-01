@@ -29,7 +29,7 @@ class DMET(Embedding):
         localize_fragment: bool = False  # Perform numerical localization on fragment orbitals
         iao_minao: str = 'auto'  # Minimal basis for IAOs
         # --- Bath settings
-        bath_type: str = None
+        bath_type: str = 'dmet'
         dmet_threshold: float = 1e-6
         orthogonal_mo_tol: float = False
         # Orbital file

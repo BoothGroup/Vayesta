@@ -16,7 +16,7 @@ from vayesta.core.symmetry import SymmetryIdentity
 from vayesta.core.symmetry import SymmetryTranslation
 import vayesta.core.ao2mo
 import vayesta.core.ao2mo.helper
-from vayesta.core.bath import DMET_Bath
+
 from vayesta.misc.cubefile import CubeFile
 from vayesta.core.mpi import mpi
 
@@ -369,12 +369,6 @@ class Fragment:
     def couple_to_fragments(self, frags):
         for frag in frags:
             self.couple_to_fragment(frag)
-
-    def make_bath(self):
-        bath = DMET_Bath(self, dmet_threshold=self.opts.dmet_threshold)
-        bath.kernel()
-        self.bath = bath
-        return bath
 
     def get_fragment_mf_energy(self):
         """Calculate the part of the mean-field energy associated with the fragment.
@@ -961,6 +955,7 @@ class Fragment:
 
     def make_dmet_bath(self, *args, dmet_threshold=None, **kwargs):  # pragma: no cover
         self.log.warning("make_dmet_bath is deprecated. Use self.bath.make_dmet_bath.")
+        from vayesta.core.bath import DMET_Bath
         if dmet_threshold is None:
             dmet_threshold = self.opts.dmet_threshold
         bath = DMET_Bath(self, dmet_threshold=dmet_threshold)
