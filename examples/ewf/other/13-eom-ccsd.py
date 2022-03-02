@@ -20,5 +20,5 @@ mf.kernel()
 ecc = vayesta.ewf.EWF(mf, bno_threshold=1e-6,
         eom_ccsd=['IP', 'EA', 'EE-S', 'EE-T', 'EE-SF'],     # Default is []
         eom_ccsd_nroots=6)                                  # Default is 5
-ecc.make_all_atom_fragments()
+ecc.add_all_atomic_fragments()
 ecc.kernel()

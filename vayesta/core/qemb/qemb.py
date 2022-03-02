@@ -1108,6 +1108,7 @@ class Embedding:
             #if subcellmesh is not None and np.any(np.asarray(subcellmesh) > 1):
             subcellmesh = getattr(self.mf, 'subcellmesh', None)
             if subcellmesh is not None and np.any(np.asarray(subcellmesh) > 1):
+                self.log.debugv("mean-field has attribute 'subcellmesh'; adding T-symmetric fragments")
                 frag.add_tsymmetric_fragments(subcellmesh)
 
         return frag

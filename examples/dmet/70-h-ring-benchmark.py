@@ -33,15 +33,16 @@ for d in np.arange(0.5, 3.0001, 0.25):
     myfci.kernel()
 
     # Single-shot
-    dmet_oneshot = vayesta.dmet.DMET(mf, solver='FCI', fragment_type='IAO', max_elec_err=1e-6, maxiter=1)
-    dmet_oneshot.make_atom_fragment([0, 1])
-    dmet_oneshot.make_atom_fragment([2, 3])
-    dmet_oneshot.make_atom_fragment([4, 5])
+    dmet_oneshot = vayesta.dmet.DMET(mf, solver='FCI', max_elec_err=1e-6, maxiter=1)
+    dmet_oneshot.iao_fragmentation()
+    dmet_oneshot.add_atomic_fragment([0, 1])
+    dmet_oneshot.add_atomic_fragment([2, 3])
+    dmet_oneshot.add_atomic_fragment([4, 5])
     dmet_oneshot.kernel()
     # Full DMET
-    dmet_diis = vayesta.dmet.DMET(mf, solver='FCI', fragment_type='IAO', charge_consistent=True, diis=True,
-                                  max_elec_err = 1e-6)
-    dmet_diis.make_atom_fragment([0,1]); dmet_diis.make_atom_fragment([2,3]); dmet_diis.make_atom_fragment([4,5])
+    dmet_diis = vayesta.dmet.DMET(mf, solver='FCI', charge_consistent=True, diis=True, max_elec_err = 1e-6)
+    dmet_diis.iao_fragmentation()
+    dmet_diis.add_atomic_fragment([0, 1]); dmet_diis.add_atomic_fragment([2, 3]); dmet_diis.add_atomic_fragment([4, 5])
     dmet_diis.kernel()
 
     print("E%-14s %+16.8f Ha" % ('(HF)=', mf.e_tot))

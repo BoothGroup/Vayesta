@@ -202,8 +202,7 @@ class MoleculeEWFTests(unittest.TestCase):
         emb.kernel()
 
         known_values = {'e_tot': -76.23613576956096}
-
-        self._test_energy(emb, known_values)
+        self.assertAlmostEqual(emb.e_tot, known_values['e_tot'], 6)
 
     def test_h2o_ccpvdz_TCCSD_CAS(self):
         """Tests EWF for H2O cc-pvdz with TCCSD solver and CAS picker.

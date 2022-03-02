@@ -32,7 +32,7 @@ class HubbardDMETTest_N10_U0_1imp(unittest.TestCase, HubbardDMETTest):
         cls.mf.kernel()
         cls.dmet = dmet.DMET(cls.mf, solver='FCI', charge_consistent=False)
         cls.dmet.site_fragmentation()
-        f = cls.dmet.make_atom_fragment(0)
+        f = cls.dmet.add_atomic_fragment(0)
         symfrags = f.make_tsymmetric_fragments(tvecs=[10, 1, 1])
         cls.dmet.kernel()
         cls.known_values = {'e_tot': -12.944271909999166}
@@ -46,7 +46,7 @@ class HubbardDMETTest_N10_U0_2imp(unittest.TestCase, HubbardDMETTest):
         cls.mf.kernel()
         cls.dmet = dmet.DMET(cls.mf, solver='FCI', charge_consistent=False)
         cls.dmet.site_fragmentation()
-        f = cls.dmet.make_atom_fragment([0, 1])
+        f = cls.dmet.add_atomic_fragment([0, 1])
         symfrags = f.make_tsymmetric_fragments(tvecs=[5, 1, 1])
         cls.dmet.kernel()
         cls.known_values = {'e_tot': -12.944271909999154}
@@ -60,7 +60,7 @@ class HubbardDMETTest_N20_U0_2imp(unittest.TestCase, HubbardDMETTest):
         cls.mf.kernel()
         cls.dmet = dmet.DMET(cls.mf, solver='FCI', charge_consistent=False)
         cls.dmet.site_fragmentation()
-        f = cls.dmet.make_atom_fragment([0, 1])
+        f = cls.dmet.add_atomic_fragment([0, 1])
         symfrags = f.make_tsymmetric_fragments(tvecs=[10, 1, 1])
         cls.dmet.kernel()
         cls.known_values = {'e_tot': -25.56981288599864}
@@ -74,7 +74,7 @@ class HubbardDMETTest_N10_U4_1imp(unittest.TestCase, HubbardDMETTest):
         cls.mf.kernel()
         cls.dmet = dmet.DMET(cls.mf, solver='FCI', charge_consistent=False)
         cls.dmet.site_fragmentation()
-        f = cls.dmet.make_atom_fragment(0)
+        f = cls.dmet.add_atomic_fragment(0)
         symfrags = f.make_tsymmetric_fragments(tvecs=[10, 1, 1])
         cls.dmet.kernel()
         cls.known_values = {'e_tot': -6.109901024380408}
@@ -88,7 +88,7 @@ class HubbardDMETTest_N10_U4_2imp(unittest.TestCase, HubbardDMETTest):
         cls.mf.kernel()
         cls.dmet = dmet.DMET(cls.mf, solver='FCI', charge_consistent=False)
         cls.dmet.site_fragmentation()
-        f = cls.dmet.make_atom_fragment([0, 1])
+        f = cls.dmet.add_atomic_fragment([0, 1])
         symfrags = f.make_tsymmetric_fragments(tvecs=[5, 1, 1])
         cls.dmet.kernel()
         cls.known_values = {'e_tot': -5.982495317229596}
@@ -102,7 +102,7 @@ class HubbardDMETTest_N10_U4_5imp(unittest.TestCase, HubbardDMETTest):
         cls.mf.kernel()
         cls.dmet = dmet.DMET(cls.mf, solver='FCI', charge_consistent=False)
         cls.dmet.site_fragmentation()
-        f = cls.dmet.make_atom_fragment(list(range(5)))
+        f = cls.dmet.add_atomic_fragment(list(range(5)))
         symfrags = f.make_tsymmetric_fragments(tvecs=[2, 1, 1])
         cls.dmet.kernel()
         cls.known_values = {'e_tot': -5.834322635766257}
@@ -116,7 +116,7 @@ class HubbardDMETTest_N12_U8_2imp(unittest.TestCase, HubbardDMETTest):
         cls.mf.kernel()
         cls.dmet = dmet.DMET(cls.mf, solver='FCI', charge_consistent=False)
         cls.dmet.site_fragmentation()
-        f = cls.dmet.make_atom_fragment([0, 1])
+        f = cls.dmet.add_atomic_fragment([0, 1])
         symfrags = f.make_tsymmetric_fragments(tvecs=[6, 1, 1])
         cls.dmet.kernel()
         cls.known_values = {'e_tot': -4.022943661738756}
@@ -130,7 +130,7 @@ class HubbardDMETTest_N6x6_U1_2x2imp(unittest.TestCase, HubbardDMETTest):
         cls.mf.kernel()
         cls.dmet = dmet.DMET(cls.mf, solver='FCI', charge_consistent=False)
         cls.dmet.site_fragmentation()
-        f = cls.dmet.make_atom_fragment(list(range(4)))
+        f = cls.dmet.add_atomic_fragment(list(range(4)))
         symfrags = f.make_tsymmetric_fragments(tvecs=[3, 3, 1])
         cls.dmet.kernel()
         cls.known_values = {'e_tot': -51.744964087157626}
@@ -144,7 +144,7 @@ class HubbardDMETTest_N6x6_U6_2x2imp(unittest.TestCase, HubbardDMETTest):
         cls.mf.kernel()
         cls.dmet = dmet.DMET(cls.mf, solver='FCI', charge_consistent=False)
         cls.dmet.site_fragmentation()
-        f = cls.dmet.make_atom_fragment(list(range(4)))
+        f = cls.dmet.add_atomic_fragment(list(range(4)))
         symfrags = f.make_tsymmetric_fragments(tvecs=[3, 3, 1])
         cls.dmet.kernel()
         cls.known_values = {'e_tot': -39.51961645103434}
@@ -158,7 +158,7 @@ class HubbardDMETTest_N8x8_U4_1x1imp(unittest.TestCase, HubbardDMETTest):
         cls.mf.kernel()
         cls.dmet = dmet.DMET(cls.mf, solver='FCI', charge_consistent=False)
         cls.dmet.site_fragmentation()
-        f = cls.dmet.make_atom_fragment(0)
+        f = cls.dmet.add_atomic_fragment(0)
         symfrags = f.make_tsymmetric_fragments(tvecs=[8, 8, 1])
         cls.dmet.kernel()
         cls.known_values = {'e_tot': -74.93240779775238}
@@ -172,7 +172,7 @@ class HubbardDMETTest_N8x8_U3_2x2imp(unittest.TestCase, HubbardDMETTest):
         cls.mf.kernel()
         cls.dmet = dmet.DMET(cls.mf, solver='FCI', charge_consistent=False)
         cls.dmet.site_fragmentation()
-        f = cls.dmet.make_atom_fragment(list(range(4)))
+        f = cls.dmet.add_atomic_fragment(list(range(4)))
         symfrags = f.make_tsymmetric_fragments(tvecs=[4, 4, 1])
         cls.dmet.kernel()
         cls.known_values = {'e_tot': -79.06298997526869}

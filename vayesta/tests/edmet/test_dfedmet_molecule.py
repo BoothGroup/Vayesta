@@ -9,8 +9,8 @@ from vayesta import edmet
 from vayesta.tests.cache import moles
 
 
-class MolecularEDMETTest(unittest.TestCase):
-    ENERGY_PLACES = 7
+class MolecularDFEDMETTest(unittest.TestCase):
+    ENERGY_PLACES = 8
     CONV_TOL = 1e-9
 
     def _test_energy(self, emb, known_values):
@@ -21,7 +21,7 @@ class MolecularEDMETTest(unittest.TestCase):
 
     def test_h6_sto6g_EBFCI_IAO_1occ(self):
         emb = edmet.EDMET(
-                moles['h6_sto6g']['rhf'],
+                moles['h6_sto6g_df']['rhf'],
                 solver='EBFCI',
                 max_boson_occ=1,
                 conv_tol=self.CONV_TOL,
@@ -32,13 +32,13 @@ class MolecularEDMETTest(unittest.TestCase):
         emb.add_atomic_fragment([4, 5])
         emb.kernel()
 
-        known_values = {'e_tot': -3.258336016231219}
+        known_values = {'e_tot': -3.2542107531828446}
 
         self._test_energy(emb, known_values)
 
     def test_h6_sto6g_EBFCI_IAO_2occ(self):
         emb = edmet.EDMET(
-                moles['h6_sto6g']['rhf'],
+                moles['h6_sto6g_df']['rhf'],
                 solver='EBFCI',
                 max_boson_occ=2,
                 conv_tol=self.CONV_TOL,
@@ -49,7 +49,7 @@ class MolecularEDMETTest(unittest.TestCase):
         emb.add_atomic_fragment([4, 5])
         emb.kernel()
 
-        known_values = {'e_tot': -3.259289706885438}
+        known_values = {'e_tot': -3.2543264783930717}
 
         self._test_energy(emb, known_values)
 

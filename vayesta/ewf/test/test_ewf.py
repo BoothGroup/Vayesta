@@ -33,10 +33,10 @@ def test_dimer(atoms=['H', 'H'], d=1.3, basis='cc-pvdz', bno_threshold=-1):
     t0 = timer()
     ecc = vy.ewf.EWF(mf, bno_threshold=bno_threshold, dmet_threshold=2e-4, orbfile='orbitals')
     if atoms[0] == atoms[1]:
-        ecc.make_atom_fragment(0, sym_factor=2)
+        ecc.add_atomic_fragment(0, sym_factor=2)
     else:
-        ecc.make_atom_fragment(0, dmet_threshold=1e-6)
-        ecc.make_atom_fragment(1, bsse_rmax=3.0)
+        ecc.add_atomic_fragment(0, dmet_threshold=1e-6)
+        ecc.add_atomic_fragment(1, bsse_rmax=3.0)
     ecc.kernel()
     t_ecc = timer()-t0
     print("E(Emb-CCSD)= %+16.8f Ha" % ecc.e_tot)
@@ -328,7 +328,7 @@ def test_graphene(a=3.56, c=20.0, basis='gth-dzv', kmesh=[2, 2, 1], bno_threshol
     kmf.kernel()
 
     kcc = vy.ewf.EWF(kmf, bno_threshold=bno_threshold)
-    kcc.make_atom_fragment(0, sym_factor=2)
+    kcc.add_atomic_fragment(0, sym_factor=2)
     t0 = timer()
     kcc.kernel()
     print("E(EmbWF)= %16.8f Ha" % kcc.e_tot)
@@ -369,7 +369,7 @@ def test_diamond_bno_threshold(bno_threshold=[1e-3, 1e-4, 1e-5, 1e-6], kmesh=[2,
     kmf.kernel()
 
     kcc = vayesta.ewf.EWF(kmf, bno_threshold=bno_threshold)
-    kcc.make_atom_fragment(0, sym_factor=2)
+    kcc.add_atomic_fragment(0, sym_factor=2)
     t0 = timer()
     kcc.kernel()
     print("Time for k-EmbWF= %.3f" % (timer()-t0))

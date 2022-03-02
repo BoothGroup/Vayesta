@@ -1,6 +1,5 @@
 import dataclasses
 import copy
-from typing import Union
 from timeit import default_timer as timer
 
 import numpy as np
@@ -12,7 +11,7 @@ import pyscf.pbc
 import pyscf.pbc.cc
 
 from vayesta.core.util import *
-from vayesta.ewf import coupling
+from . import coupling
 #from .solver import ClusterSolver
 from .solver2 import ClusterSolver
 
@@ -203,7 +202,7 @@ class CCSD_Solver(ClusterSolver):
         elif coupled_fragments and np.all([x.results is not None for x in coupled_fragments]):
             self.log.info("Adding tailor function to CCSD.")
             self.solver.tailor_func = coupling.make_cross_fragment_tcc_function(self, mode=(self.opts.sc_mode or 3),
-                    coupled_fragments=coupled_fragments).__get__(self.solver)
+                                                                                coupled_fragments=coupled_fragments).__get__(self.solver)
 
         t0 = timer()
         self.log.info("Solving CCSD-equations %s initial guess...", "with" if (t2 is not None) else "without")
