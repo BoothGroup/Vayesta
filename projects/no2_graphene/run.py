@@ -50,6 +50,7 @@ parser.add_argument('--mf-only', action='store_true')
 parser.add_argument('--scf-max-cycle', type=int, default=100)
 parser.add_argument('--scf-conv-tol', type=float, default=1e-8)
 parser.add_argument('--scf-with-mpi', action='store_true')
+parser.add_argument('--kconjsym', action='store_true')
 # --- Embedding
 parser.add_argument('--solver')
 parser.add_argument('--fragment-type', default='iao')
@@ -193,6 +194,10 @@ for idx, gate in enumerate(gates):
 
     if args.scf_with_mpi:
         mf = scf_with_mpi(mf)
+
+    if args.kconjsym:
+        from pyscf.pbc.scf.addons import kconj_symmetry_
+        mf = kconj_symmetry_(mf)
 
     # Run MF
     if (args.trace and mfconv):
