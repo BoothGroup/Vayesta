@@ -5,37 +5,6 @@ import h5py
 import pickle as pkl
 from copy import deepcopy
 
-class Hamiltonian:
-    h0 = None
-    h1e = None
-    eri = None
-    nelec = None
-    
-    def from_arrays(self, h0, h1e, eri, nelec):
-        self.h0, self.h1e, self.eri, self.nelec = h0, h1e, eri, nelec
-
-    def to_pickle(self, fname):
-        with open(fname, 'wb') as f: pkl.dump([self.h0, self.h1e, self.eri, self.nelec], f)
-
-    def from_pickle(self, fname):
-        with open(fname, 'rb') as f:
-            self.h0, self.h1e, self.eri, self.nelec = pkl.load(f)
-
-    def write_fcidump(self, fname='FCIDUMP'):
-        '''
-        writes the provided integrals to a file in a standard format for FCI programs
-        '''
-        nsite = self.h1e.shape[0]
-        if len(self.eri.shape)!=1:
-            # ERIs must have 8-fold symmetry restored
-            eri = ao2mo.restore(8, self.eri, nsite)
-        else: eri = self.eri
-        tools.fcidump.from_integrals(fname, self.h1e, eri, nsite, self.nelec, self.h0, 0, [1,]*nsite)
-    
-    def get_fci_energy(self):
-        nsite = self.h1e.shape[0]
-        return fci.direct_spin1.kernel(self.h1e, self.eri, nsite, self.nelec, verbose=6, ecore=self.ham.h0)[0]
-
 '''
 Symmetry-restored CISD coefficients
 '''

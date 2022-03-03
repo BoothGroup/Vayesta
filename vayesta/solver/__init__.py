@@ -13,7 +13,8 @@ from .cisd import CISD_Solver
 from .cisd import UCISD_Solver
 from .ebfci2 import EBFCI_Solver as EBFCI_Solver2
 from .ebfci2 import UEBFCI_Solver
-
+from .fciqmc import FCIQMCSolver
+from .ebfciqmc import EBFCIQMCSolver
 
 
 def is_uhf(mf):
@@ -31,15 +32,12 @@ def get_solver_class(mf, solver):
             raise NotImplementedError("FCI with spin-unrestricted orbitals not implemented!")
         return FCI_Solver
     if solver.upper() == 'FCIQMC':
-        from .solver_qmc import FCIQMCSolver
+        from .fciqmc import FCIQMCSolver
         return FCIQMCSolver
     if solver == 'EBFCI':
         if uhf:
             raise NotImplementedError("EBFCI with spin-unrestricted orbitals not implemented!")
         return EBFCI_Solver
-    if solver.upper() == 'EBFCIQMC':
-        from .solver_ebqmc import EBFCIQMCSolver
-        return EBFCIQMCSolver
     raise ValueError("Unknown solver: %s" % solver)
 
 def get_solver_class2(mf, solver):
@@ -60,5 +58,5 @@ def get_solver_class2(mf, solver):
     if solver == 'EBFCI':
         if uhf:
             return UEBFCI_Solver
-        return EBFCI_Solver2
+        return EBFCI_Solver
     raise ValueError("Unknown solver: %s" % solver)

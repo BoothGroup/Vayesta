@@ -1,7 +1,8 @@
 
 import dataclasses
 
-from .solver_qmc import FCIQMCSolver
+
+from .fciqmc import FCIQMCSolver
 from .rdm_utils import load_spinfree_ladder_rdm_from_m7
 
 import numpy as np
@@ -21,16 +22,6 @@ class EBFCIQMCSolver(FCIQMCSolver):
         lindep: float = None
         conv_tol: float = None
         bos_occ_cutoff: int = 1
-        make_rdm_ladder: bool = True
-
-    @dataclasses.dataclass
-    class Results(FCIQMCSolver.Results):
-        # CI coefficients
-        c0: float = None
-        c1: np.array = None
-        c2: np.array = None
-        rdm_eb: np.array = None
-
 
     def __init__(self, freqs, couplings, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -43,8 +34,6 @@ class EBFCIQMCSolver(FCIQMCSolver):
         write_bosdump(self.bos_freqs)
         assert np.allclose(self.eb_couplings[0], self.eb_couplings[1])
         write_ebdump(self.eb_couplings[0])
-
-
         # adding the pure boson number-conserving 1RDM (0011) since it is a prerequisite of variational energy estimation
         if self.opts.make_rdm_ladder:
             M7_config_obj.M7_config_dict['av_ests']['rdm']['ranks'] = ['1', '2', '1110', '1101', '0011']
@@ -52,31 +41,13 @@ class EBFCIQMCSolver(FCIQMCSolver):
         M7_config_obj.M7_config_dict['hamiltonian']['nboson_max'] = self.opts.bos_occ_cutoff
         return M7_config_obj
 
-    '''
-    def gen_M7_results(self, h5_name, *args):# ham_pkl_name, M7_config_obj, coeff_pkl_name, eris):
-        """Generate M7 results object."""
-        results = super().gen_M7_results(h5_name, *args)
-        if self.opts.make_rdm_ladder:
-            rdm_1110 = load_spinfree_ladder_rdm_from_m7(h5_name, True)
-            rdm_1101 = load_spinfree_ladder_rdm_from_m7(h5_name, False)
-            # average over arrays that are equivalent due to hermiticity symmetry
-            results.rdm_eb = ((rdm_1110 + rdm_1101.transpose(0, 2, 1)) / 2.0).transpose(1,2,0)
-        return results
-    '''
-
-    def gen_M7_results(self, h5_name, eris):
-        """Generate M7 results object."""
-        print(h5_name)
-        h5_name = 'M7.cluster1.1.h5'
-        results = super().gen_M7_results(h5_name, eris)
-        if self.opts.make_rdm_ladder:
-            rdm_1110 = load_spinfree_ladder_rdm_from_m7(h5_name, True)
-            rdm_1101 = load_spinfree_ladder_rdm_from_m7(h5_name, False)
-            # only holds for stochastic: no
-            # assert np.allclose(rdm_1110, rdm_1101.transpose(1,0,2))
-            # average over arrays that are equivalent due to hermiticity symmetry
-            results.rdm_eb = (rdm_1110 + rdm_1101.transpose(1,0,2))/2.0
-        return results
+    def make_rdm_eb(self):
+        rdm_1110 = load_spinfree_ladder_rdm_from_m7(self.h5_name, True)
+        rdm_1101 = load_spinfree_ladder_rdm_from_m7(self.h5_name, False)
+        # only holds for stochastic: no
+        # assert np.allclose(rdm_1110, rdm_1101.transpose(1,0,2))
+        # average over arrays that are equivalent due to hermiticity symmetry
+        return (rdm_1110 + rdm_1101.transpose(1, 0, 2)) / 2.0
 
 def write_ebdump(v, v_unc=None, fname='EBDUMP'):
     '''

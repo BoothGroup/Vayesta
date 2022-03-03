@@ -11,6 +11,7 @@ import pyscf.fci
 from pyscf import tools, ao2mo, fci
 
 from .M7_config_yaml_helper import M7_config_to_dict
+from .m7_settings import path_to_M7, nrank_mpi, mpirun_exe
 from subprocess import Popen, PIPE
 
 # import pyscf.fci.direct_spin0
@@ -19,7 +20,7 @@ from subprocess import Popen, PIPE
 from vayesta.core.util import *
 from .fci2 import FCI_Solver, UFCI_Solver
 
-from .cisd_coeff import Hamiltonian, RestoredCisdCoeffs
+from .cisd_coeff import RestoredCisdCoeffs
 from .rdm_utils import load_spinfree_1rdm_from_m7, load_spinfree_1_2rdm_from_m7
 
 
@@ -27,7 +28,6 @@ class FCIQMCSolver(FCI_Solver):
     @dataclasses.dataclass
     class Options(FCI_Solver.Options):
         threads: int = 1
-        lindep: float = None
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -46,19 +46,12 @@ class FCIQMCSolver(FCI_Solver):
 
         h_eff = self.get_heff(eris, with_vext=True)
 
-        fcisolver = pyscf.fci.direct_spin1.FCISolver(self.mol)
-        if self.opts.threads is not None: fcisolver.threads = self.opts.threads
-        if self.opts.conv_tol is not None: fcisolver.conv_tol = self.opts.conv_tol
-        if self.opts.lindep is not None: fcisolver.lindep = self.opts.lindep
+        h0 = self.fragment.base.mf.energy_nuc()  # No 0-electron energy for lattice models
+        self.FCIDUMP_name = 'FCIDUMP_cluster' + str(int(self.fragment.id))
 
-        h0 = 0.0  # No 0-electron energy for lattice models
-        FCIDUMP_name = 'FCIDUMP_cluster' + str(int(self.fragment.id))
+        tools.fcidump.from_integrals(self.FCIDUMP_name, h_eff, eris, self.cluster.ncas, self.nelec, h0, 0,
+                                     orbsym=None)#[1,]*self.ncas)
 
-        # Writing Hamiltonian for M7 (FCIDUMP) and Python analysis (pkl)
-        qmc_H = Hamiltonian()
-        qmc_H.from_arrays(h0, h_eff, eris, nelec)
-        qmc_H.to_pickle(ham_pkl_name)
-        qmc_H.write_fcidump(FCIDUMP_name)
 
         M7_config_obj = M7_config_to_dict(path_to_M7)
         # Make the changes on M7 config you want here, for example:
@@ -79,45 +72,16 @@ class FCIQMCSolver(FCI_Solver):
         M7_config_obj.M7_config_dict['av_ests']['rdm']['archive']['save'] = 'yes'
 
         M7_config_obj.M7_config_dict['archive']['save_path'] = h5_name
-        M7_config_obj.M7_config_dict['hamiltonian']['fcidump']['path'] = FCIDUMP_name
+        M7_config_obj.M7_config_dict['hamiltonian']['fcidump']['path'] = self.FCIDUMP_name
         M7_config_obj.M7_config_dict['stats']['path'] = stats_name
         return M7_config_obj
 
-    # def gen_M7_results(self, h5_name, ham_pkl_name, M7_config_obj, coeff_pkl_name, eris):
-    def gen_M7_results(self, h5_name, eris):
+    def get_e_corr(self):
         """Generate M7 results object."""
         e_qmc = self.read_mean_variational_energy('M7.maes.stats')
         print(f'mean variational energy from M7 MAE stats: {e_qmc}')
         ref_energy = self.fragment.base.e_mf
-
-        # e_qmc = cisd_coeffs.energy()
-        e_corr_qmc = e_qmc - ref_energy
-        # print('e_qmc', e_qmc)
-        # saving coefficients into pickle
-        # cisd_coeffs.to_pickle(coeff_pkl_name)
-
-        results = self.Results(
-            converged=1, e_corr=e_corr_qmc, c_occ=self.c_active_occ, c_vir=self.c_active_vir, eris=eris,
-            c0=None, c1=None, c2=None)
-        # c0=c0_qmc, c1=c1_qmc, c2=c2_qmc)
-
-        if self.opts.make_rdm2:
-            results.dm1, results.dm2 = load_spinfree_1_2rdm_from_m7(h5_name, self.nelec)
-            print('Running RDM checks')
-            tr1 = np.sum(np.diag(results.dm1))
-            tr2 = np.sum(np.diagonal(results.dm2))
-            print("nelec", self.nelec)
-            print("Trace of 1RDM %1.16f Expected %3f", tr1, self.nelec)
-            print("Trace of 2RDM %1.16f Expected %3f", tr1, self.nelec * (self.nelec - 1) / 2)
-
-            print('Partial trace of 2RDM/1RDM')
-            print(np.diag(np.einsum('ijkk->ij', results.dm2)) / (self.nelec - 1))
-            print(np.diag(results.dm1))
-
-        elif self.opts.make_rdm1:
-            results.dm1 = load_spinfree_1rdm_from_m7(h5_name)
-
-        return results
+        return e_qmc - ref_energy
 
     def test(self):
         M7_config_obj = M7_config_to_dict('/work/robert/ebfciqmc/M7')
@@ -128,16 +92,17 @@ class FCIQMCSolver(FCI_Solver):
 
         # All parameters that need to be set here...
         random_seed = 1
-        h5_name = 'M7.cluster' + str(int(self.fragment.id)) + '.' + str(random_seed) + '.h5'
-        stats_name = 'M7.cluster' + str(int(self.fragment.id)) + '.stats'
+        self.h5_name = 'M7.cluster' + str(int(self.fragment.id)) + '.' + str(random_seed) + '.h5'
+        self.stats_name = 'M7.cluster' + str(int(self.fragment.id)) + '.stats'
         # This function covers all M7 configuration, so if it is overloaded
-        print(self.setup_M7(path_to_M7, eris, h5_name, stats_name, random_seed))
-        M7_config_obj = self.setup_M7(path_to_M7, eris, h5_name, stats_name, random_seed)
+        print(self.setup_M7(path_to_M7, eris, self.h5_name, self.stats_name, random_seed))
+        M7_config_obj = self.setup_M7(path_to_M7, eris, self.h5_name, self.stats_name, random_seed)
         # Writing settings for M7 in a yaml
-        yaml_name = 'M7_settings.yaml'
+        self.yaml_name = 'M7_settings.yaml'
 
-        M7_config_obj.write_yaml(yaml_name)
-
+        M7_config_obj.write_yaml(self.yaml_name)
+        self.log.info("Wrote M7 input files to ", self.yaml_name, self.FCIDUMP_name)
+        self.log.info("Expect output files to be written to ", self.h5_name, self.stats_name)
         '''
         # Run M7
         print("Running M7 FCIQMC...")
@@ -154,6 +119,30 @@ class FCIQMCSolver(FCI_Solver):
             print(stderr)
             assert 0
         '''
+        try:
+            self.e_corr = self.get_e_corr()
+        except Exception as e:
+            self.log.critical("Failed to get correlation energy estimate from M7; have output files been correctly created?")
+            raise e
 
-        return self.gen_M7_results(ham_pkl_name, eris)  # M7_config_obj, coeff_pkl_name, h5_name, eris)
-        # return self.gen_M7_results(ham_pkl_name, M7_config_obj, coeff_pkl_name, h5_name, eris)
+    def make_rdm1(self):
+        return load_spinfree_1rdm_from_m7(self.h5_name)
+
+    def make_rdm12(self):
+        dm1, dm2 = load_spinfree_1_2rdm_from_m7(self.h5_name, self.nelec)
+        print('Running RDM checks')
+        tr1 = np.sum(np.diag(dm1))
+        tr2 = np.sum(np.diagonal(dm2))
+        print("nelec", self.nelec)
+        print("Trace of 1RDM %1.16f Expected %3f", tr1, self.nelec)
+        print("Trace of 2RDM %1.16f Expected %3f", tr1, self.nelec * (self.nelec - 1) / 2)
+
+        print('Partial trace of 2RDM/1RDM')
+        print(np.diag(np.einsum('ijkk->ij', dm2)) / (self.nelec - 1))
+        print(np.diag(dm1))
+        return dm1, dm2
+
+    def make_rdm2(self):
+        return self.make_rdm12()[2]
+
+

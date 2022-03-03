@@ -20,7 +20,7 @@ import vayesta.ewf
 from pyscf import tools, ao2mo
 
 import vayesta.solver
-import vayesta.solver.solver_qmc as embqmc
+import vayesta.solver.fciqmc as embqmc
 
 #import vayesta.solver_qmc
 '''
