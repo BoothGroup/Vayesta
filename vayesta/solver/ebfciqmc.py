@@ -10,10 +10,6 @@ from vayesta.core.util import *
 
 
 
-header = ''' &FCI NORB= {}
- &END
-'''
-
 
 class EBFCIQMCSolver(FCIQMCSolver):
     @dataclasses.dataclass
@@ -21,24 +17,23 @@ class EBFCIQMCSolver(FCIQMCSolver):
         threads: int = 1
         lindep: float = None
         conv_tol: float = None
-        bos_occ_cutoff: int = 1
+        max_boson_occ: int = 1
 
-    def __init__(self, freqs, couplings, *args, **kwargs):
+    def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.bos_freqs = freqs
-        self.eb_couplings = couplings
 
-    def setup_M7(self, *args):
-        M7_config_obj = super().setup_M7(*args)
 
-        write_bosdump(self.bos_freqs)
-        assert np.allclose(self.eb_couplings[0], self.eb_couplings[1])
-        write_ebdump(self.eb_couplings[0])
+    def setup_M7(self, *args, **kwargs):
+        M7_config_obj = super().setup_M7(*args, **kwargs)
+
+        write_bosdump(self.fragment.bos_freqs)
+        assert np.allclose(self.fragment.couplings[0], self.fragment.couplings[1])
+        write_ebdump(self.fragment.couplings[0])
         # adding the pure boson number-conserving 1RDM (0011) since it is a prerequisite of variational energy estimation
         if self.opts.make_rdm_ladder:
             M7_config_obj.M7_config_dict['av_ests']['rdm']['ranks'] = ['1', '2', '1110', '1101', '0011']
             M7_config_obj.M7_config_dict['av_ests']['rdm']['archive']['save'] = 'yes'
-        M7_config_obj.M7_config_dict['hamiltonian']['nboson_max'] = self.opts.bos_occ_cutoff
+        M7_config_obj.M7_config_dict['hamiltonian']['nboson_max'] = self.opts.max_boson_occ
         return M7_config_obj
 
     def make_rdm_eb(self):

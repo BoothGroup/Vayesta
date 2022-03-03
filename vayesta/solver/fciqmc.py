@@ -3,16 +3,10 @@ from timeit import default_timer as timer
 
 import numpy as np
 
-import pyscf
-import pyscf.ao2mo
-import pyscf.ci
-import pyscf.mcscf
-import pyscf.fci
 from pyscf import tools, ao2mo, fci
 
 from .M7_config_yaml_helper import M7_config_to_dict
 from .m7_settings import path_to_M7, nrank_mpi, mpirun_exe
-from subprocess import Popen, PIPE
 
 # import pyscf.fci.direct_spin0
 # import pyscf.fci.direct_spin1
@@ -20,7 +14,6 @@ from subprocess import Popen, PIPE
 from vayesta.core.util import *
 from .fci2 import FCI_Solver, UFCI_Solver
 
-from .cisd_coeff import RestoredCisdCoeffs
 from .rdm_utils import load_spinfree_1rdm_from_m7, load_spinfree_1_2rdm_from_m7
 
 
@@ -35,12 +28,9 @@ class FCIQMCSolver(FCI_Solver):
     def read_mean_variational_energy(self, mae_stats_fname):
         return np.mean(np.loadtxt(mae_stats_fname)[:, 2])
 
-    def setup_M7(self, path_to_M7, eris, ham_pkl_name, h5_name, stats_name, random_seed):
+    def setup_M7(self, path_to_M7, eris, h5_name, stats_name, random_seed):
         """Setup for M7 calculation.
         """
-
-        c_act = self.mo_coeff[:, self.get_active_slice()]
-
         if eris is None:
             eris = self.get_eris()
 
@@ -49,8 +39,8 @@ class FCIQMCSolver(FCI_Solver):
         h0 = self.fragment.base.mf.energy_nuc()  # No 0-electron energy for lattice models
         self.FCIDUMP_name = 'FCIDUMP_cluster' + str(int(self.fragment.id))
 
-        tools.fcidump.from_integrals(self.FCIDUMP_name, h_eff, eris, self.cluster.ncas, self.nelec, h0, 0,
-                                     orbsym=None)#[1,]*self.ncas)
+        tools.fcidump.from_integrals(self.FCIDUMP_name, h_eff, eris, self.cluster.norb_active, self.nelec, h0, 0,
+                                     orbsym=None)#[1,]*self.norb_active)
 
 
         M7_config_obj = M7_config_to_dict(path_to_M7)

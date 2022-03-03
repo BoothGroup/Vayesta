@@ -3,7 +3,6 @@ import dataclasses
 import numpy as np
 
 from vayesta.core.util import *
-from .solver2 import ClusterSolver
 from vayesta.solver.fci2 import FCI_Solver, UFCI_Solver
 from .eb_fci import ebfci_slow, uebfci_slow
 
