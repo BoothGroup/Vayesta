@@ -22,7 +22,7 @@ class MolecularEDMETTest(unittest.TestCase):
         emb = edmet.EDMET(
                 moles['h6_sto6g']['rhf'],
                 solver='EBFCI',
-                max_boson_occ=1,
+                solver_options={"max_boson_occ":1},
                 conv_tol=self.CONV_TOL,
         )
         emb.iao_fragmentation()
@@ -31,15 +31,31 @@ class MolecularEDMETTest(unittest.TestCase):
         emb.add_atomic_fragment([4, 5])
         emb.kernel()
 
-        known_values = {'e_tot': -3.2591780286516627 }
+        uemb = edmet.EDMET(
+                moles['h6_sto6g']['uhf'],
+                solver='EBFCI',
+                solver_options={"max_boson_occ":1},
+                conv_tol=self.CONV_TOL,
+        )
+        uemb.iao_fragmentation()
+        uemb.add_atomic_fragment([0, 1])
+        uemb.add_atomic_fragment([2, 3])
+        uemb.add_atomic_fragment([4, 5])
+        uemb.kernel()
+
+        known_values = {'e_tot': -3.2687823852000726}
+
+        print(moles['h6_sto6g']['uhf'].spin_square(), emb.e_tot - uemb.e_tot)
 
         self._test_energy(emb, known_values)
+
+        self._test_energy(uemb, known_values)
 
     def test_h6_sto6g_EBFCI_IAO_2occ(self):
         emb = edmet.EDMET(
                 moles['h6_sto6g']['rhf'],
                 solver='EBFCI',
-                max_boson_occ=2,
+                solver_options={"max_boson_occ":2},
                 conv_tol=self.CONV_TOL,
         )
         emb.iao_fragmentation()
@@ -48,9 +64,56 @@ class MolecularEDMETTest(unittest.TestCase):
         emb.add_atomic_fragment([4, 5])
         emb.kernel()
 
-        known_values = {'e_tot': -3.2592897068854345}
+        uemb = edmet.EDMET(
+                moles['h6_sto6g']['uhf'],
+                solver='EBFCI',
+                solver_options={"max_boson_occ":2},
+                conv_tol=self.CONV_TOL,
+        )
+        uemb.iao_fragmentation()
+        uemb.add_atomic_fragment([0, 1])
+        uemb.add_atomic_fragment([2, 3])
+        uemb.add_atomic_fragment([4, 5])
+        uemb.kernel()
+
+
+        known_values = {'e_tot': -3.268894063433855}
 
         self._test_energy(emb, known_values)
+        self._test_energy(uemb, known_values)
+
+    def test_h6_sto6g_EBFCI_IAO_2occ(self):
+        emb = edmet.EDMET(
+                moles['h6_sto6g']['rhf'],
+                solver='EBFCI',
+                solver_options={"max_boson_occ":2},
+                conv_tol=self.CONV_TOL,
+        )
+        emb.iao_fragmentation()
+        emb.add_atomic_fragment([0, 1])
+        emb.add_atomic_fragment([2, 3])
+        emb.add_atomic_fragment([4, 5])
+        emb.kernel()
+
+        known_values = {'e_tot': -3.268894063433855}
+
+        self._test_energy(emb, known_values)
+
+        uemb = edmet.EDMET(
+                moles['h6_sto6g']['uhf'],
+                solver='EBFCI',
+                solver_options={"max_boson_occ":2},
+                conv_tol=self.CONV_TOL,
+        )
+        uemb.iao_fragmentation()
+        uemb.add_atomic_fragment([0, 1])
+        uemb.add_atomic_fragment([2, 3])
+        uemb.add_atomic_fragment([4, 5])
+        uemb.kernel()
+
+
+
+        self._test_energy(uemb, known_values)
 
 
 if __name__ == '__main__':

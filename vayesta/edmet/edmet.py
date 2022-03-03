@@ -26,19 +26,17 @@ class EDMET(RDMET):
         make_dd_moments: bool = NotSet
         old_sc_condition: bool = False
         max_bos: int = np.inf
-        renorm_energy_couplings: bool = True
         occ_proj_kernel: bool = True
         boson_xc_kernel: bool = False
         bosonic_interaction: str = "xc"
 
     Fragment = EDMETFragment
 
-    def __init__(self, mf, bno_threshold=np.inf, solver='EBFCI', options=None, log=None, max_boson_occ=2, **kwargs):
+    def __init__(self, mf, bno_threshold=np.inf, solver='EBFCI', options=None, log=None, **kwargs):
         super().__init__(mf, bno_threshold, solver, options, log, **kwargs)
         self.interaction_kernel = None
         # Need to calculate dd moments for self-consistency to work.
         self.opts.make_dd_moments = True  # self.opts.maxiter > 1
-        self.opts.solver_options["max_boson_occ"] = max_boson_occ
 
     @property
     def with_df(self):
@@ -168,7 +166,7 @@ class EDMET(RDMET):
                 e1 += e1_contrib * nsym[x]
                 e2 += e2_contrib * nsym[x]
                 efb += efb_contrib * nsym[x]
-                emf += frag.get_fragment_mf_energy()
+                emf += frag.get_fragment_mf_energy() * nsym[x]
 
             self.e_corr = e1 + e2 + efb + self.e_nonlocal - emf
             self.log.info("Total EDMET energy {:8.4f}".format(self.e_tot))
@@ -193,7 +191,7 @@ class EDMET(RDMET):
             xc_kernel_new = self.get_updated_correlation_kernel(curr_dd0, curr_dd1, sym_parents, sym_children)
             if delta < self.opts.conv_tol and delta_prop < self.opts.conv_tol:
                 self.converged = True
-                self.log.info("DMET converged after %d iterations" % iteration)
+                self.log.info("EDMET converged after %d iterations" % iteration)
                 break
             else:
                 self.vcorr = vcorr_new

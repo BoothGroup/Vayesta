@@ -24,7 +24,6 @@ class EDMETFragment(DMETFragment):
         make_dd_moments: bool = True
         old_sc_condition: bool = NotSet
         max_bos: int = NotSet
-        renorm_energy_couplings: bool = NotSet
         occ_proj_kernel: bool = NotSet
         boson_xc_kernel: bool = NotSet
         bosonic_interaction: str = NotSet
@@ -271,13 +270,6 @@ class EDMETFragment(DMETFragment):
         couplings_aa = einsum("npq,nm->mpq", couplings_aa, x) + einsum("npq,nm->mqp", couplings_aa, y)
         couplings_bb = np.einsum("npq,nm->mpq", couplings_bb, x) + np.einsum("npq,nm->mqp", couplings_bb, y)
         self.couplings = (couplings_aa, couplings_bb)
-        self.ecouplings = self.couplings
-        if self.opts.renorm_energy_couplings:
-            # May want to contract with equivalent un-renormalised couplings to get the energy.
-            ecouplings_aa, ecouplings_bb, ea_bos, eb_bos = self._get_boson_hamil(apb, amb)
-            ecouplings_aa = einsum("npq,nm->mpq", ecouplings_aa, x) + einsum("npq,nm->mqp", ecouplings_aa, y)
-            ecouplings_bb = np.einsum("npq,nm->mpq", ecouplings_bb, x) + np.einsum("npq,nm->mqp", ecouplings_bb, y)
-            self.ecouplings = (ecouplings_aa, ecouplings_bb)
 
         # These are the quantities before decoupling, since these in some sense represent the `physical' excitations of
         # the system. ie. each quasi-bosonic excitation operator is made up of only environmental excitations, rather
@@ -413,6 +405,9 @@ class EDMETFragment(DMETFragment):
         coa, cob = self.get_co_active()
         cva, cvb = self.get_cv_active()
 
+        noa, nva = coa.shape[1], cva.shape[1]
+        nob, nvb = cob.shape[1], cvb.shape[1]
+
         # Can just use expressions for Hamiltonian elements between single excitations.
         # First, get fock contributions. All are N^3 or less.
         # This will be zero if at HF solution.
@@ -425,9 +420,10 @@ class EDMETFragment(DMETFragment):
 
         couplings_aa = np.zeros((self.nbos,) + (coa.shape[1] + cva.shape[1],) * 2)
         couplings_bb = np.zeros((self.nbos,) + (cob.shape[1] + cvb.shape[1],) * 2)
-        couplings_aa[:, :coa.shape[1], coa.shape[1]:] = einsum("npq,qr,pi,rc->nic", r_bos_aoa, fa, coa, cva) - einsum(
+
+        couplings_aa[:, :noa, noa:] = einsum("npq,qr,pi,rc->nic", r_bos_aoa, fa, coa, cva) - einsum(
             "npq,pr,ri,qc->nic", r_bos_aoa, fa, coa, cva)
-        couplings_bb[:, :cob.shape[1], cob.shape[1]:] = einsum("npq,qr,pi,rc->nic", r_bos_aob, fb, cob, cvb) - einsum(
+        couplings_bb[:, :nob, nob:] = einsum("npq,qr,pi,rc->nic", r_bos_aob, fb, cob, cvb) - einsum(
             "npq,pr,ri,qc->nic", r_bos_aob, fb, cob, cvb)
 
         # Get coulombic contribution.
@@ -436,19 +432,21 @@ class EDMETFragment(DMETFragment):
                 l_ = pyscf.lib.unpack_tril(eri1)
                 # First generate coulomb interactions effects. This all scales as N^3.
                 l_bos = einsum("npq,mpq->nm", l_, r_bos_aoa + r_bos_aob)  # N^3
-                la_ferm = einsum("npq,pi,qj->nij", l_, ca, ca)  # N^3
-                lb_ferm = einsum("npq,pi,qj->nij", l_, cb, cb)  # N^3
 
-                couplings_aa += einsum("nm,nij->mij", l_bos, la_ferm)  # N^3
-                couplings_bb += einsum("nm,nij->mij", l_bos, lb_ferm)  # N^3
+                la_ferm = einsum("npq,pi,qj->nij", l_, coa, cva)  # N^3
+                lb_ferm = einsum("npq,pi,qj->nij", l_, cvb, cvb)  # N^3
+
+                couplings_aa[:, :noa, noa:] = couplings_aa[:, :noa, noa:] + einsum("nm,nij->mij", l_bos, la_ferm)  # N^3
+                couplings_bb[:, :nob, nob:] = couplings_bb[:, :nob, nob:] + einsum("nm,nij->mij", l_bos, lb_ferm)  # N^3
                 del la_ferm, lb_ferm
                 a_bos += einsum("nm,no->mo", l_bos, l_bos)  # N
                 del l_bos
                 # Now exchange contributions; those to the coupling are straightforward (N^3) to calculate.
                 la_singl = einsum("npq,pi->niq", l_, ca)  # N^3
                 lb_singl = einsum("npq,pi->niq", l_, cb)  # N^3
-                couplings_aa -= einsum("nip,njq,mpq->mij", la_singl, la_singl, r_bos_aoa)  # N^3
-                couplings_bb -= einsum("nip,njq,mpq->mij", lb_singl, lb_singl, r_bos_aob)  # N^3
+
+                couplings_aa[:, :noa, noa:] = couplings_aa[:, :noa, noa:] - einsum("nip,njq,mpq->mij", la_singl[:,:noa], la_singl[:, noa:], r_bos_aoa)  # N^3
+                couplings_bb[:, :nob, nob:] = couplings_bb[:, :nob, nob:] - einsum("nip,njq,mpq->mij", lb_singl[:,:nob], lb_singl[:,nob:], r_bos_aob)  # N^3
                 del la_singl, lb_singl
                 if exchange_between_bos:
                     # boson-boson interactions are N^4, so if have O(N) clusters this would push our scaling to N^5...
@@ -460,6 +458,7 @@ class EDMETFragment(DMETFragment):
         else:
             raise NotImplementedError("Explicit QBA Hamiltonian construction is currently only implemented for use with"
                                       "density fitting.")
+
         # Need to check if boson-number-nonconserving value is nonzero:
         if any(abs(bos_nonconserv) > 1e-6):
             self.log.warning("Treating boson-non-conserving contribution via explicit density coupling; this is likely"
@@ -575,7 +574,7 @@ class EDMETFragment(DMETFragment):
         if not isinstance(p_imp, tuple):
             p_imp = (p_imp, p_imp)
         dm_eb = self._results.dm_eb
-        couplings = self.ecouplings
+        couplings = self.couplings
 
         # Have separate spin contributions.
         if "qba" in self.opts.bosonic_interaction:
