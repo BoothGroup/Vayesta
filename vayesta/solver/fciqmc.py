@@ -16,6 +16,9 @@ from .fci2 import FCI_Solver, UFCI_Solver
 
 from .rdm_utils import load_spinfree_1rdm_from_m7, load_spinfree_1_2rdm_from_m7
 
+header = ''' &FCI NORB= {}
+ &END
+'''
 
 class FCIQMCSolver(FCI_Solver):
     @dataclasses.dataclass
