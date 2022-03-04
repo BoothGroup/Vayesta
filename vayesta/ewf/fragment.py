@@ -508,11 +508,14 @@ class EWFFragment(Fragment):
         e_corr = (e_singles + e_doubles)
         return e_singles, e_doubles, e_corr
 
-    def get_cluster_ssz(self, proj1=None, proj2=None):
+    def get_cluster_sz(self, proj=None):
+        return 0.0
+
+    def get_cluster_ssz(self, proj1=None, proj2=None, dm1=None, dm2=None):
         """<P(A) S_z P(B) S_z>"""
-        dm1 = self.results.dm1
-        dm2 = self.results.dm2
-        if dm1 is None or dm2 is None:
+        dm1 = (self.results.dm1 if dm1 is None else dm1)
+        dm2 = (self.results.dm2 if dm2 is None else dm2)
+        if (dm1 is None or dm2 is None):
             raise ValueError()
         dm1a = dm1/2
         dm2aa = (dm2 - dm2.transpose(0,3,2,1)) / 6
