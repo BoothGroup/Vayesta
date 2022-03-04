@@ -61,13 +61,13 @@ print("Total Energy")
 print("E(HF)=        %+16.8f Ha" % kmf.e_tot)
 print("E(Proj)=      %+16.8f Ha" % emb.e_tot)
 print("E(RDM2, gl)=  %+16.8f Ha" % emb.get_rdm2_energy(global_dm1=True, global_dm2=False))
-print("E(RDM2, ll)=  %+16.8f Ha" % emb.get_rdm2_energy(global_dm1=True, global_dm2=False))
+print("E(RDM2, ll)=  %+16.8f Ha" % emb.get_rdm2_energy(global_dm1=False, global_dm2=False))
 
 print("E(CCSD)=      %+16.8f Ha" % cc.e_tot)
 
 print("\nCorrelation Energy")
 print("E(Proj)=      %+16.8f Ha" % emb.e_corr)
 print("E(RDM2, gl)=  %+16.8f Ha" % emb.get_rdm2_corr_energy(global_dm1=True, global_dm2=False))
-print("E(RDM2, ll)=  %+16.8f Ha" % emb.get_rdm2_corr_energy(global_dm1=True, global_dm2=False))
+print("E(RDM2, ll)=  %+16.8f Ha" % emb.get_rdm2_corr_energy(global_dm1=False, global_dm2=False))
 
 print("E(CCSD)=      %+16.8f Ha" % cc.e_corr)

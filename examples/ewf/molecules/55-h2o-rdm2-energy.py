@@ -40,7 +40,7 @@ print("E(Proj)=      %+16.8f Ha" % emb.e_tot)
 print("E(RDM2, gg)=  %+16.8f Ha" % emb.get_rdm2_energy(global_dm1=True, global_dm2=True))
 print("E(RDM2, gl)=  %+16.8f Ha" % emb.get_rdm2_energy(global_dm1=True, global_dm2=False))
 print("E(RDM2, lg)=  %+16.8f Ha" % emb.get_rdm2_energy(global_dm1=False, global_dm2=True))
-print("E(RDM2, ll)=  %+16.8f Ha" % emb.get_rdm2_energy(global_dm1=True, global_dm2=False))
+print("E(RDM2, ll)=  %+16.8f Ha" % emb.get_rdm2_energy(global_dm1=False, global_dm2=False))
 
 print("E(CCSD)=      %+16.8f Ha" % cc.e_tot)
 
@@ -49,7 +49,7 @@ print("E(Proj)=      %+16.8f Ha" % emb.e_corr)
 print("E(RDM2, gg)=  %+16.8f Ha" % emb.get_rdm2_corr_energy(global_dm1=True, global_dm2=True))
 print("E(RDM2, gl)=  %+16.8f Ha" % emb.get_rdm2_corr_energy(global_dm1=True, global_dm2=False))
 print("E(RDM2, lg)=  %+16.8f Ha" % emb.get_rdm2_corr_energy(global_dm1=False, global_dm2=True))
-print("E(RDM2, ll)=  %+16.8f Ha" % emb.get_rdm2_corr_energy(global_dm1=True, global_dm2=False))
+print("E(RDM2, ll)=  %+16.8f Ha" % emb.get_rdm2_corr_energy(global_dm1=False, global_dm2=False))
 
 print("E(CCSD)=      %+16.8f Ha" % cc.e_corr)
 
