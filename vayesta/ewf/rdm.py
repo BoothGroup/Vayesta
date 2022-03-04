@@ -4,6 +4,7 @@ import numpy as np
 
 import pyscf
 import pyscf.cc
+import pyscf.lib
 
 from vayesta.core.util import *
 from vayesta.core.mpi import mpi
@@ -186,9 +187,9 @@ def make_rdm1_ccsd_old(emb, ao_basis=False, t_as_lambda=False, slow=False,
                 raise RuntimeError("No L2 amplitudes found for %s!" % f2)
             l2 = f2.project_amplitude_to_fragment(l2, symmetrize=symmetrize)
             # Theta_jk^ab * l_ik^ab -> ij
-            doo_f1 -= einsum('jkab,IKAB,kK,aA,bB,qI->jq', theta, l2, f2fo12, f2fv12, f2fv12, f2mo[i2])
+            doo_f1 -= pyscf.lib.einsum('jkab,IKAB,kK,aA,bB,qI->jq', theta, l2, f2fo12, f2fv12, f2fv12, f2mo[i2])
             # Theta_ji^ca * l_ji^cb -> ab
-            dvv_f1 += einsum('jica,JICB,jJ,iI,cC,qB->aq', theta, l2, f2fo12, f2fo12, f2fv12, f2mv[i2])
+            dvv_f1 += pyscf.lib.einsum('jica,JICB,jJ,iI,cC,qB->aq', theta, l2, f2fo12, f2fo12, f2fv12, f2mv[i2])
         doo += np.dot(f2mo[i1], doo_f1)
         dvv += np.dot(f2mv[i1], dvv_f1)
 
