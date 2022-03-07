@@ -136,6 +136,112 @@ def _make_mo_eris(self, mo_coeff=None):
     return qij
 
 
+def second_order_singles(agf2, gf=None, eri=None, kptlist=None):
+    """Compute the second-order correction to the singles part.
+    """
+
+    if gf is None:
+        gf = agf2.gf
+    if eri is None:
+        eri = agf2.eri
+
+    if kptlist is None:
+        kptlist = agf2.opts.kptlist
+        if kptlist is None or se_prev is None:
+            kptlist = list(range(agf2.nkpts))
+
+    kconserv = agf2.khelper.kconserv
+
+    gf_occ = [g.get_occupied() for g in gf]
+    gf_vir = [g.get_virtual() for g in gf]
+    e_occ = [g.energy for g in gf_occ]
+    e_vir = [g.energy for g in gf_vir]
+    c_occ = [g.coupling for g in gf_occ]
+    c_vir = [g.coupling for g in gf_vir]
+
+    if agf2.opts.non_dyson:
+        e_full_occ, c_full_occ = e_occ, c_occ
+        e_full_vir, c_full_vir = e_vir, c_vir
+    else:
+        e_full_occ, c_full_occ = [g.energy for g in gf], [g.coupling for g in gf]
+        e_full_vir, c_full_vir = [g.energy for g in gf], [g.coupling for g in gf]
+
+    h_2h1p = [None] * agf2.nkpts
+    h_1h2p = [None] * agf2.nkpts
+
+    for kx in kptlist:
+        h_2h1p[kx] = 0.0
+        h_1h2p[kx] = 0.0
+
+        for kia in mpi_helper.nrange(agf2.nkpts**2):
+            ki, ka = divmod(kia, agf2.nkpts)
+            kj = kconserv[kx, ki, ka]
+
+            Δ = 1.0 / lib.direct_sum(
+                    "x-i+a-j->xiaj",
+                    e_full_vir[kx],
+                    e_occ[ki],
+                    e_vir[ka],
+                    e_occ[kj],
+            )
+
+            Lxi = _fao2mo(eri[kx, ki], c_full_vir[kx], c_occ[ki], np.complex128)
+            Lxj = _fao2mo(eri[kx, kj], c_full_vir[kx], c_occ[kj], np.complex128)
+            Laj = _fao2mo(eri[ka, kj], c_vir[ka], c_occ[kj], np.complex128)
+            Lai = _fao2mo(eri[ka, ki], c_vir[ka], c_occ[ki], np.complex128)
+
+            v1 = lib.einsum("Lxi,Laj->xiaj", Lxi, Laj)
+            v2 = lib.einsum("Lxj,Lai->xiaj", Lxj, Lai)
+
+            h_2h1p[kx] += lib.einsum("xiaj,yiaj,xiaj->xy", v1, v1, Δ)
+            h_2h1p[kx] -= lib.einsum("xiaj,yiaj,xiaj->xy", v1, v2, Δ) * 0.5
+
+            del v1, v2, Δ
+
+            Δ = 1.0 / lib.direct_sum(
+                    "x-a+i-b->xaib",
+                    e_full_occ[kx],
+                    e_vir[ki],
+                    e_occ[ka],
+                    e_vir[kj],
+            )
+
+            Lxa = _fao2mo(eri[kx, ki], c_full_occ[kx], c_vir[ki], np.complex128)
+            Lxb = _fao2mo(eri[kx, kj], c_full_occ[kx], c_vir[kj], np.complex128)
+            Lib = _fao2mo(eri[ka, kj], c_occ[ka], c_vir[kj], np.complex128)
+            Lia = _fao2mo(eri[ka, ki], c_occ[ka], c_vir[ki], np.complex128)
+
+            v1 = lib.einsum("Lxa,Lib->xaib", Lxa, Lib)
+            v2 = lib.einsum("Lxb,Lia->xaib", Lxb, Lia)
+
+            h_1h2p[kx] += lib.einsum("xaib,yaib,xaib->xy", v1, v1, Δ)
+            h_1h2p[kx] -= lib.einsum("xaib,yaib,xaib->xy", v1, v2, Δ) * 0.5
+
+            del v1, v2, Δ
+
+        h_2h1p[kx] = mpi_helper.allreduce(h_2h1p[kx])
+        h_1h2p[kx] = mpi_helper.allreduce(h_1h2p[kx])
+
+    for kx in kptlist:
+        h_2h1p[kx] = lib.hermi_sum(h_2h1p[kx])
+        h_1h2p[kx] = lib.hermi_sum(h_1h2p[kx])
+
+    h = []
+    for o, v, g in zip(h_1h2p, h_2h1p, gf):
+        if o is None:
+            h.append(None)
+        elif agf2.opts.non_dyson:
+            hk = scipy.linalg.block_diag(o, v)
+            hk = np.linalg.multi_dot((g.coupling.T.conj(), hk, g.coupling))
+            h.append(hk)
+        else:
+            hk = o + v
+            hk = np.linalg.multi_dot((g.coupling.T.conj(), hk, g.coupling))
+            h.append(hk)
+
+    return h
+
+
 def search_chempot_constrained(fock, nphys, nelec, occupancy=2):
     """Search for a chemical potential, constraining the k-point
     dependent occupancy to ensure no crossover of states. If this
@@ -206,7 +312,7 @@ def search_chempot(fock, nphys, nelec, occupancy=2):
 
     kidx = np.concatenate([[i]*x.size for i, x in enumerate(w)])
     w = np.concatenate(w)
-    v = np.hstack(v)
+    v = np.hstack([vk[:n] for vk, n in zip(v, nphys)])
 
     mask = np.argsort(w)
     kidx = kidx[mask]
@@ -704,8 +810,7 @@ class KRAGF2(RAGF2):
             # Just solve Dyson eqn
             w, v = self.solve_dyson(se=se, gf=gf, fock=fock)
             gf = []
-            for i in range(self.nkpts):
-                nact = self.nact[i]
+            for i, nact in enumerate(self.nact):
                 if project_gf:
                     gf.append(agf2.GreensFunction(w[i], v[i][:nact], chempot=se[i].chempot))
                 else:
@@ -788,6 +893,8 @@ class KRAGF2(RAGF2):
 
         if self.opts.fock_basis.lower() == 'ao':
             return self._get_fock_via_ao(gf=gf, rdm1=rdm1, with_frozen=with_frozen)
+        elif self.opts.fock_basis.lower() == 'adc':
+            h2 = second_order_singles(self, gf=gf, kptlist=self.opts.kptlist)
 
         t0 = timer()
         #self.log.debugv("Building Fock matrix")
