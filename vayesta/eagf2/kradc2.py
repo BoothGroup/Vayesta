@@ -144,9 +144,9 @@ class KRADC2:
                 ks = kconserv[kp, kq, kr]
                 yield kq, kr, ks
 
-        naux = np.zeros((self.nkpts, self.nkpts), dtype=int)
-        for kq, kr, ks in kpt_iter():
-            naux[kq, kr] = nvir[kq] * nocc[kr] * nvir[ks]
+        niaj = np.zeros((self.nkpts, self.nkpts), dtype=int)
+        for kq, kr, ks in kpt_iter(mpi=False):
+            niaj[kq, kr] = nocc[kq] * nvir[kr] * nocc[ks]
 
         h1 = 0.0
         for kq, kr, ks in kpt_iter():
@@ -190,16 +190,20 @@ class KRADC2:
             ey = np.zeros(y.shape, dtype=np.complex128)
 
             for kq, kr, ks in kpt_iter():
-                p0 = sum(naux.ravel()[:kq*self.nkpts+kr])
-                p1 = sum(naux.ravel()[:kq*self.nkpts+kr+1])
+                p0 = sum(niaj.ravel()[:kq*self.nkpts+kr])
+                p1 = sum(niaj.ravel()[:kq*self.nkpts+kr+1])
 
                 Lij = eri[kp, kq, :, :nocc[kp], :nocc[kq]]
                 Lak = eri[kr, ks, :, nocc[kr]:, :nocc[ks]]
                 ijak = lib.einsum("Lij,Lak->ijak", Lij, Lak)
+                assert ijak.size == (nocc[kp] * nocc[kq] * nvir[kr] * nocc[ks])
+                assert ijak.size == ((p1 - p0) * nocc[kp])
 
                 Lik = eri[kp, ks, :, :nocc[kp], :nocc[ks]]
                 Laj = eri[kr, kq, :, nocc[kr]:, :nocc[kq]]
                 ikaj = lib.einsum("Lik,Laj->ijak", Lik, Laj)
+                assert ijak.size == (nocc[kp] * nocc[ks] * nvir[kr] * nocc[kq])
+                assert ikaj.size == ((p1 - p0) * nocc[kp])
 
                 e_iaj = lib.direct_sum("i-a+j->iaj", ei[kq], ea[kr], ei[ks])
 
