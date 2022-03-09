@@ -123,12 +123,15 @@ class KRADC2:
 
         nocc = [np.sum(occ > 0) for occ in self.mo_occ]
         nvir = [np.sum(occ == 0) for occ in self.mo_occ]
+        occ = [slice(None, n) for n in nocc]
+        vir = [slice(n, None) for n in nocc]
         ei = [mo[occ > 0] for mo, occ in zip(self.mo_energy, self.mo_occ)]
         ea = [mo[occ == 0] for mo, occ in zip(self.mo_energy, self.mo_occ)]
 
         if self.opts.which != "ip":
-            ei, ea = ea, ei
             nocc, nvir = nvir, nocc
+            occ, vir = vir, occ
+            ei, ea = ea, ei
 
         if self.opts.non_dyson:
             phys = slice(None, nocc[kp])
@@ -152,12 +155,12 @@ class KRADC2:
         for kq, kr, ks in kpt_iter():
             Δ = 1.0 / lib.direct_sum("x-a+i-b->xaib", ei[kp], ea[kq], ei[kr], ea[ks])
 
-            Lia = eri[kp, kq, :, phys, nocc[kq]:]
-            Ljb = eri[kr, ks, :, :nocc[kr], nocc[ks]:]
+            Lia = eri[kp, kq, :, phys, vir[kq]]
+            Ljb = eri[kr, ks, :, occ[kr], vir[ks]]
             iajb = lib.einsum("Lia,Ljb->iajb", Lia, Ljb)
 
-            Lib = eri[kp, ks, :, phys, nocc[ks]:]
-            Lja = eri[kr, kq, :, :nocc[kr], nocc[kq]:]
+            Lib = eri[kp, ks, :, phys, vir[ks]]
+            Lja = eri[kr, kq, :, occ[kr], vir[kq]]
             ibja = lib.einsum("Lib,Lja->iajb", Lib, Lja)
 
             h1 += lib.einsum("iakb,jakb,iakb->ij", iajb, iajb, Δ)
@@ -193,14 +196,14 @@ class KRADC2:
                 p0 = sum(niaj.ravel()[:kq*self.nkpts+kr])
                 p1 = sum(niaj.ravel()[:kq*self.nkpts+kr+1])
 
-                Lij = eri[kp, kq, :, :nocc[kp], :nocc[kq]]
-                Lak = eri[kr, ks, :, nocc[kr]:, :nocc[ks]]
+                Lij = eri[kp, kq, :, occ[kp], occ[kq]]
+                Lak = eri[kr, ks, :, vir[kr], occ[ks]]
                 ijak = lib.einsum("Lij,Lak->ijak", Lij, Lak)
                 assert ijak.size == (nocc[kp] * nocc[kq] * nvir[kr] * nocc[ks])
                 assert ijak.size == ((p1 - p0) * nocc[kp])
 
-                Lik = eri[kp, ks, :, :nocc[kp], :nocc[ks]]
-                Laj = eri[kr, kq, :, nocc[kr]:, :nocc[kq]]
+                Lik = eri[kp, ks, :, occ[kp], occ[ks]]
+                Laj = eri[kr, kq, :, vir[kr], occ[kq]]
                 ikaj = lib.einsum("Lik,Laj->ijak", Lik, Laj)
                 assert ijak.size == (nocc[kp] * nocc[ks] * nvir[kr] * nocc[kq])
                 assert ikaj.size == ((p1 - p0) * nocc[kp])
@@ -323,9 +326,18 @@ class KRADC2:
         if chkfile is None:
             return self
 
+        if self.opts.non_dyson and self.opts.which == "ip":
+            phys = slice(None, np.sum(self.mo_occ[0] > 0))
+        elif self.opts.non_dyson and self.opts.which == "ea":
+            phys = slice(None, np.sum(self.mo_occ[0] == 0))
+        elif not self.opts.non_dyson:
+            phys = slice(None, self.mo_occ[0].size)
+
+        v = np.array([x[phys] for x in self.v]).T
+
         lib.chkfile.dump(chkfile, "%s/conv" % key, self.conv)
         lib.chkfile.dump(chkfile, "%s/e" % key, self.e)
-        lib.chkfile.dump(chkfile, "%s/v" % key, self.v)
+        lib.chkfile.dump(chkfile, "%s/v" % key, v)
 
         return self
 
