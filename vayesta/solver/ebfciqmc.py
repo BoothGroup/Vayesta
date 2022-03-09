@@ -1,14 +1,10 @@
-
 import dataclasses
 
-
-from .fciqmc import FCIQMCSolver
+from .fciqmc import FCIQMCSolver, UFCIQMCSolver, header
 from .rdm_utils import load_spinfree_ladder_rdm_from_m7
 
 import numpy as np
 from vayesta.core.util import *
-
-
 
 
 class EBFCIQMCSolver(FCIQMCSolver):
@@ -22,13 +18,16 @@ class EBFCIQMCSolver(FCIQMCSolver):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-
     def setup_M7(self, *args, **kwargs):
+
+        self.EBDUMP_name = 'EBDUMP_cluster' + str(int(self.fragment.id))
+        self.BOSDUMP_name = 'BOSDUMP_cluster' + str(int(self.fragment.id))
+
+
+        write_bosdump(self.fragment.bos_freqs, fname=self.BOSDUMP_name)
+        write_ebdump(np.array(self.fragment.couplings), fname=self.EBDUMP_name)
         M7_config_obj = super().setup_M7(*args, **kwargs)
 
-        write_bosdump(self.fragment.bos_freqs)
-        assert np.allclose(self.fragment.couplings[0], self.fragment.couplings[1])
-        write_ebdump(self.fragment.couplings[0])
         # adding the pure boson number-conserving 1RDM (0011) since it is a prerequisite of variational energy estimation
         if self.opts.make_rdm_ladder:
             M7_config_obj.M7_config_dict['av_ests']['rdm']['ranks'] = ['1', '2', '1110', '1101', '0011']
@@ -44,6 +43,11 @@ class EBFCIQMCSolver(FCIQMCSolver):
         # average over arrays that are equivalent due to hermiticity symmetry
         return (rdm_1110 + rdm_1101.transpose(1, 0, 2)) / 2.0
 
+
+class UEBFCIQMCSolver(EBFCIQMCSolver, UFCIQMCSolver):
+    pass
+
+
 def write_ebdump(v, v_unc=None, fname='EBDUMP'):
     '''
     write the coeffients of boson "excitations" and "de-excitations" which correspond to
@@ -52,38 +56,43 @@ def write_ebdump(v, v_unc=None, fname='EBDUMP'):
 
     these coefficients are given here by the v, and v_unc (uncoupled) args respectively
     '''
-    assert len(v.shape )==3
-    nsite = v.shape[0]
+    assert len(v.shape) == 4
+    nbos = v.shape[1]
+    norb = v.shape[2]
     if v_unc is None:
-        v_unc = np.zeros(nsite)
-    elif len(np.shape(v_unc) )==0:
-        v_unc = np.ones(nsite ) *v_unc
-    else: assert len(np.shape(v_unc) )==1
+        v_unc = np.zeros(nbos)
+    elif len(np.shape(v_unc)) == 0:
+        v_unc = np.ones(nbos) * v_unc
+    else:
+        assert len(np.shape(v_unc)) == 1
 
     with open(fname, 'w') as f:
-        f.write(header.format(nsite))
-        for n in range(nsite):
-            for p in range(nsite):
-                for q in range(nsite):
-                    if (v[n, p, q ]==0.0): continue
-                    f.write('{}    {}    {}    {}\n'.format(v[n, p, q], n+ 1, p + 1, q + 1))
-        for n in range(nsite):
+        f.write(header.format(norb))
+
+        for i in range(2):
+            for n in range(nbos):
+                for p in range(norb):
+                    for q in range(norb):
+                        if (v[i, n, p, q] == 0.0): continue
+                        f.write('{}    {}    {}    {}\n'.format(v[i, n, p, q], n + 1, 2 * p + 1 + i, 2 * q + 1 + i))
+        for n in range(nbos):
             if (v_unc[n] == 0.0): continue
             f.write('{}    {}    {}    {}\n'.format(v_unc[n], n + 1, 0, 0))
+
 
 def write_bosdump(w, fname='BOSDUMP'):
     '''
     write the coeffients of boson number-conserving operators (ranksig 0011 in M7 nomenclature)
     '''
-    nsite = w.shape[0]
+    nbos = w.shape[0]
     ndim = len(w.shape)
     if ndim == 1: w = np.diag(w)
     ndim = len(w.shape)
     assert ndim == 2
     with open(fname, 'w') as f:
-        f.write(header.format(nsite))
-        for n in range(nsite):
-            for m in range(nsite):
+        f.write(header.format(nbos))
+        for n in range(nbos):
+            for m in range(nbos):
                 if (w[n, m] == 0.0): continue
                 f.write('{}    {}    {}\n'.format(w[n, m], n + 1, m + 1))
 

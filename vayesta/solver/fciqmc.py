@@ -4,6 +4,7 @@ from timeit import default_timer as timer
 import numpy as np
 
 from pyscf import tools, ao2mo, fci
+from vayesta.core import ufcidump
 
 from .M7_config_yaml_helper import M7_config_to_dict
 from .m7_settings import path_to_M7, nrank_mpi, mpirun_exe
@@ -16,7 +17,9 @@ from .fci2 import FCI_Solver, UFCI_Solver
 
 from .rdm_utils import load_spinfree_1rdm_from_m7, load_spinfree_1_2rdm_from_m7
 
+
 header = ''' &FCI NORB= {}
+UHF=.TRUE.
  &END
 '''
 
@@ -31,9 +34,7 @@ class FCIQMCSolver(FCI_Solver):
     def read_mean_variational_energy(self, mae_stats_fname):
         return np.mean(np.loadtxt(mae_stats_fname)[:, 2])
 
-    def setup_M7(self, path_to_M7, eris, h5_name, stats_name, random_seed):
-        """Setup for M7 calculation.
-        """
+    def write_fcidumps(self, eris):
         if eris is None:
             eris = self.get_eris()
 
@@ -45,6 +46,10 @@ class FCIQMCSolver(FCI_Solver):
         tools.fcidump.from_integrals(self.FCIDUMP_name, h_eff, eris, self.cluster.norb_active, self.nelec, h0, 0,
                                      orbsym=None)#[1,]*self.norb_active)
 
+    def setup_M7(self, path_to_M7, eris, h5_name, stats_name, random_seed):
+        """Setup for M7 calculation.
+        """
+        self.write_fcidumps(eris)
 
         M7_config_obj = M7_config_to_dict(path_to_M7)
         # Make the changes on M7 config you want here, for example:
@@ -139,3 +144,15 @@ class FCIQMCSolver(FCI_Solver):
         return self.make_rdm12()[2]
 
 
+class UFCIQMCSolver(FCIQMCSolver, UFCI_Solver):
+    def write_fcidumps(self, eris):
+        if eris is None:
+            eris = self.get_eris()
+
+        h_eff = self.get_heff(eris, with_vext=True)
+
+        h0 = self.fragment.base.mf.energy_nuc()  # No 0-electron energy for lattice models
+        self.FCIDUMP_name = 'FCIDUMP_cluster' + str(int(self.fragment.id))
+
+        ufcidump.from_integrals(self.FCIDUMP_name, h_eff, eris, self.cluster.norb_active, self.nelec, h0, 0,
+                                     orbsym=None)  # [1,]*self.norb_active)

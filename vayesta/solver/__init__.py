@@ -51,16 +51,18 @@ def get_solver_class2(mf, solver):
             return UFCI_Solver
         return FCI_Solver2
     if solver.upper() == 'FCIQMC':
-        from .fciqmc import FCIQMCSolver
+        from .fciqmc import FCIQMCSolver, UFCIQMCSolver
+        if uhf:
+            return UFCIQMCSolver
         return FCIQMCSolver
     if solver == 'EBFCI':
         if uhf:
             return UEBFCI_Solver
         return EBFCI_Solver2
     if solver.upper() == 'EBFCIQMC':
-        from .ebfciqmc import EBFCIQMCSolver
+        from .ebfciqmc import EBFCIQMCSolver, UEBFCIQMCSolver
         if uhf:
-            raise NotImplementedError("M7 interface doesn't yet support UHF.")
+            return UEBFCIQMCSolver
         return EBFCIQMCSolver
 
     raise ValueError("Unknown solver: %s" % solver)
