@@ -19,7 +19,7 @@ from .rdm import make_rdm1_ccsd_old
 from .rdm import make_rdm2_ccsd
 from .icmp2 import get_intercluster_mp2_energy_rhf
 
-from .fragment import _gamma2_intermediates # Temporary -> move to pyscf
+from .rdm import _gamma2_intermediates 
 
 timer = mpi.timer
 
