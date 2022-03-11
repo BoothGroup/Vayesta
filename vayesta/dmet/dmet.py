@@ -5,9 +5,10 @@ import numpy as np
 import scipy
 import scipy.linalg
 
-from vayesta.core import QEmbeddingMethod
+from vayesta.core import Embedding
 from vayesta.core.util import *
 from .fragment import VALID_SOLVERS, DMETFragment, DMETFragmentExit
+
 from .sdp_sc import perform_SDP_fit
 from .updates import MixUpdate, DIISUpdate
 
@@ -18,16 +19,17 @@ class DMETResults:
     e_corr: float = None
 
 
-class DMET(QEmbeddingMethod):
+class DMET(Embedding):
+
     @dataclasses.dataclass
-    class Options(QEmbeddingMethod.Options):
+    class Options(Embedding.Options):
         """Options for EWF calculations."""
         # --- Fragment settings
         # fragment_type: str = 'IAO'
         localize_fragment: bool = False  # Perform numerical localization on fragment orbitals
         iao_minao: str = 'auto'  # Minimal basis for IAOs
         # --- Bath settings
-        bath_type: str = None
+        bath_type: str = 'dmet'
         dmet_threshold: float = 1e-6
         orthogonal_mo_tol: float = False
         # Orbital file

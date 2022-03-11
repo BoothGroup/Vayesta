@@ -4,29 +4,27 @@ from timeit import default_timer as timer
 # External libaries
 import numpy as np
 
-from vayesta.core import QEmbeddingFragment
+from vayesta.core import Fragment
 from vayesta.core.actspace import ActiveSpace
-from vayesta.core.bath import DMET_Bath, BNO_Bath, MP2_BNO_Bath, CompleteBath
-# Local modules
-from vayesta.core.util import *
+from vayesta.core.bath import BNO_Threshold
 from vayesta.solver import get_solver_class2 as get_solver_class
+from vayesta.core.util import *
 
+import vayesta.ewf
 
-# Internal libaries
-# import pyscf.pbc
 # We might want to move the useful things from here into core, since they seem pretty general.
 
 
 class DMETFragmentExit(Exception):
     pass
 
-
 VALID_SOLVERS = [None, "", "MP2", "CISD", "CCSD", "CCSD(T)", 'FCI', "FCI-spin0", "FCI-spin1"]
 
 
-class DMETFragment(QEmbeddingFragment):
+class DMETFragment(Fragment):
+
     @dataclasses.dataclass
-    class Options(QEmbeddingFragment.Options):
+    class Options(Fragment.Options):
         """Attributes set to `NotSet` inherit their value from the parent DMET object."""
         # Options also present in `base`:
         dmet_threshold: float = NotSet
@@ -46,7 +44,7 @@ class DMETFragment(QEmbeddingFragment):
         c_cas_vir: np.ndarray = None
 
     @dataclasses.dataclass
-    class Results(QEmbeddingFragment.Results):
+    class Results(Fragment.Results):
         fid: int = None
         bno_threshold: float = None
         n_active: int = None
@@ -100,62 +98,9 @@ class DMETFragment(QEmbeddingFragment):
     def c_cluster_vir(self):
         return self.bath.c_cluster_vir
 
-    def make_bath(self, bath_type=NotSet):
-        if bath_type is NotSet:
-            bath_type = self.opts.bath_type
-        # DMET bath only
-        if bath_type is None or bath_type.lower() == 'dmet':
-            bath = DMET_Bath(self, dmet_threshold=self.opts.dmet_threshold)
-        # All environment orbitals as bath
-        elif bath_type.lower() in ('all', 'full'):
-            bath = CompleteBath(self, dmet_threshold=self.opts.dmet_threshold)
-        # MP2 bath natural orbitals
-        elif bath_type.lower() == 'mp2-bno':
-            bath = MP2_BNO_Bath(self, dmet_threshold=self.opts.dmet_threshold)
-        else:
-            raise ValueError("Unknown bath_type: %r" % bath_type)
-        bath.kernel()
-        self.bath = bath
-        return bath
+    make_bath = vayesta.ewf.fragment.EWFFragment.make_bath
 
-    def make_cluster(self, bath=None, bno_threshold=None, bno_number=None):
-        if bath is None:
-            bath = self.bath
-        if bath is None:
-            raise ValueError("make_cluster requires bath.")
-
-        if isinstance(bath, BNO_Bath):
-            c_bno_occ, c_frozen_occ = bath.get_occupied_bath(bno_threshold[0], bno_number[0])
-            c_bno_vir, c_frozen_vir = bath.get_virtual_bath(bno_threshold[1], bno_number[1])
-        else:
-            c_bno_occ, c_frozen_occ = bath.get_occupied_bath()
-            c_bno_vir, c_frozen_vir = bath.get_virtual_bath()
-
-        # Canonicalize orbitals
-        c_active_occ = self.canonicalize_mo(bath.c_cluster_occ, c_bno_occ)[0]
-        c_active_vir = self.canonicalize_mo(bath.c_cluster_vir, c_bno_vir)[0]
-        # Do not overwrite self.cluster.c_active_occ/vir yet - we still need the previous coefficients
-        # to generate an intial guess
-        cluster = ActiveSpace(self.mf, c_active_occ, c_active_vir, c_frozen_occ=c_frozen_occ, c_frozen_vir=c_frozen_vir)
-
-        # Check occupations
-        # self.check_mo_occupation((2 if self.base.is_rhf else 1), cluster.c_occ)
-        # self.check_mo_occupation(0, cluster.c_vir)
-
-        def check_occupation(mo_coeff, expected):
-            occup = self.get_mo_occupation(mo_coeff)
-            # RHF
-            if np.ndim(occup[0]) == 0:
-                assert np.allclose(occup, 2 * expected, rtol=0, atol=2 * self.opts.dmet_threshold)
-            else:
-                assert np.allclose(occup[0], expected, rtol=0, atol=self.opts.dmet_threshold)
-                assert np.allclose(occup[1], expected, rtol=0, atol=self.opts.dmet_threshold)
-
-        check_occupation(cluster.c_occ, 1)
-        check_occupation(cluster.c_vir, 0)
-
-        self.cluster = cluster
-        return cluster
+    make_cluster = vayesta.ewf.fragment.EWFFragment.make_cluster
 
     def kernel(self, bno_threshold=None, bno_number=None, solver=None, init_guess=None, eris=None, construct_bath=True,
                chempot=None):
@@ -176,17 +121,18 @@ class DMETFragment(QEmbeddingFragment):
             bno_number = self.opts.bno_number
         if bno_number is None and bno_threshold is None:
             bno_threshold = self.base.bno_threshold
-        if np.ndim(bno_threshold) == 0:
-            bno_threshold = 2 * [bno_threshold]
-        if np.ndim(bno_number) == 0:
-            bno_number = 2 * [bno_number]
 
         if solver is None:
             solver = self.solver
         if self.bath is None or construct_bath:
             self.make_bath()
 
-        cluster = self.make_cluster(self.bath, bno_threshold=bno_threshold, bno_number=bno_number)
+        if bno_number is not None:
+            bno_threshold = BNO_Threshold('number', bno_number)
+        else:
+            bno_threshold = BNO_Threshold('occupation', bno_threshold)
+
+        cluster = self.make_cluster(self.bath, bno_threshold=bno_threshold)
         cluster.log_sizes(self.log.info, header="Orbitals for %s" % self)
         # If we want to reuse previous info for initial guess and eris we'd do that here...
         # We can now overwrite the orbitals from last BNO run:

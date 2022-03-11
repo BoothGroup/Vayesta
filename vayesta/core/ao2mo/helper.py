@@ -190,7 +190,7 @@ if __name__ == '__main__':
     import pyscf.cc
 
     import vayesta
-    from vayesta.misc.molstructs import water
+    from vayesta.misc.molecules import water
 
     mol = pyscf.gto.Mole()
     mol.atom = water()

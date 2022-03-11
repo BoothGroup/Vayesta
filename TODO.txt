@@ -1,3 +1,7 @@
+TODO
+- MP2 solver tests
+- Creation of symmetry children slow
+
 25/08/2021
 - eri's for FCI_Solver (to allow Hubbard model without system specific interface). Will require fake_df object for lattice models.
 09/06/2021

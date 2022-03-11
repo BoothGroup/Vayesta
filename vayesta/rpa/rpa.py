@@ -126,7 +126,7 @@ class RPA:
 
         If TDA is specified all appropriate couplings will be zeroed.
         """
-        if xc_kernel is None:
+        if xc_kernel is None or xc_kernel.lower() == "drpa":
             self.log.info("RPA using coulomb interaction kernel.")
             eris = self.ao2mo()
 

@@ -12,11 +12,13 @@ import pyscf.pbc
 
 # Local modules
 from vayesta.core.util import *
-from vayesta.core import QEmbeddingFragment
+from vayesta.core import Fragment
 from vayesta.solver import get_solver_class2 as get_solver_class
 from vayesta.core.fragmentation import IAO_Fragmentation
 
+from vayesta.core.bath import BNO_Threshold
 from vayesta.core.bath import DMET_Bath
+from vayesta.core.bath import EwDMET_Bath
 from vayesta.core.bath import BNO_Bath
 from vayesta.core.bath import MP2_BNO_Bath
 from vayesta.core.bath import CompleteBath
@@ -29,10 +31,10 @@ from .rdm import _gamma2_intermediates
 # Get MPI rank of fragment
 get_fragment_mpi_rank = lambda *args : args[0].mpi_rank
 
-class EWFFragment(QEmbeddingFragment):
+class EWFFragment(Fragment):
 
     @dataclasses.dataclass
-    class Options(QEmbeddingFragment.Options):
+    class Options(Fragment.Options):
         """Attributes set to `NotSet` inherit their value from the parent EWF object."""
         # Options also present in `base`:
         dmet_threshold: float = NotSet
@@ -48,20 +50,27 @@ class EWFFragment(QEmbeddingFragment):
         #energy_partitioning: str = NotSet
         sc_mode: int = NotSet
         nelectron_target: int = NotSet                  # If set, adjust bath chemical potential until electron number in fragment equals nelectron_target
-        # Bath type
+        # Bath
         bath_type: str = NotSet
-        bno_number: int = None         # Set a fixed number of BNOs
-        # Additional fragment specific options:
-        bno_threshold_factor: float = 1.0
+        bno_truncation: str = NotSet                    # Type of BNO truncation ["occupation", "number", "excited-percent", "electron-percent"]
+        bno_threshold: float = NotSet
+        bno_threshold_occ: float = NotSet
+        bno_threshold_vir: float = NotSet
+        bno_project_t2: bool = NotSet
+        ewdmet_max_order: int = NotSet
         # CAS methods
         c_cas_occ: np.ndarray = None
         c_cas_vir: np.ndarray = None
         #
+        # --- Energy
         calculate_e_dmet: bool = 'auto'
+        e_corr_part: str = NotSet
         #
         dm_with_frozen: bool = NotSet
         # --- Solver options
         tcc_fci_opts: dict = dataclasses.field(default_factory=dict)
+        # --- Intercluster MP2 energy
+        icmp2_bno_threshold: float = NotSet
         # --- Storage
         store_t1:  Union[bool,str] = NotSet
         store_t2:  Union[bool,str] = NotSet
@@ -76,7 +85,7 @@ class EWFFragment(QEmbeddingFragment):
 
 
     @dataclasses.dataclass
-    class Results(QEmbeddingFragment.Results):
+    class Results(Fragment.Results):
         bno_threshold: float = None
         n_active: int = None
         ip_energy: np.ndarray = None
@@ -156,46 +165,62 @@ class EWFFragment(QEmbeddingFragment):
         return c_cas_occ, c_cas_vir
 
     def make_bath(self, bath_type=NotSet):
+        """TODO: move to embedding base class?"""
         if bath_type is NotSet:
             bath_type = self.opts.bath_type
-        # DMET bath only
-        if bath_type is None or bath_type.lower() == 'dmet':
-            bath = DMET_Bath(self, dmet_threshold=self.opts.dmet_threshold)
-        # All environment orbitals as bath
-        elif bath_type.lower() in ('all', 'full'):
-            bath = CompleteBath(self, dmet_threshold=self.opts.dmet_threshold)
-        # MP2 bath natural orbitals
-        elif bath_type.lower() == 'mp2-bno':
-            bath = MP2_BNO_Bath(self, dmet_threshold=self.opts.dmet_threshold)
-        else:
-            raise ValueError("Unknown bath_type: %r" % bath_type)
-        bath.kernel()
-        self.bath = bath
-        return bath
+        if bath_type is None:
+            self.log.warning("bath_type = None is deprecated; use bath_type = 'dmet'.")
+            bath_type = 'dmet'
+        if bath_type.lower() == 'all':
+            self.log.warning("bath_type = 'all' is deprecated; use bath_type = 'full'.")
+            bath_type = 'full'
 
-    def make_cluster(self, bath=None, bno_threshold=None, bno_number=None):
+        # All environment orbitals as bath (for testing purposes)
+        if bath_type.lower() == 'full':
+            self.bath = CompleteBath(self, dmet_threshold=self.opts.dmet_threshold)
+            self.bath.kernel()
+            return self.bath
+        dmet_bath = DMET_Bath(self, dmet_threshold=self.opts.dmet_threshold)
+        dmet_bath.kernel()
+        # DMET bath only
+        if bath_type.lower() == 'dmet':
+            self.bath = dmet_bath
+            return self.bath
+        # Energy-weighted (Ew) DMET bath
+        if bath_type.lower() == 'ewdmet':
+            self.bath = EwDMET_Bath(self, dmet_bath, max_order=self.opts.ewdmet_max_order)
+            self.bath.kernel()
+            return self.bath
+        # MP2 bath natural orbitals
+        if bath_type.lower() == 'mp2-bno':
+            project_t2 = self.opts.bno_project_t2 if hasattr(self.opts, 'bno_project_t2') else False
+            self.bath = MP2_BNO_Bath(self, ref_bath=dmet_bath, project_t2=project_t2)
+            self.bath.kernel()
+            return self.bath
+        if bath_type.lower() == 'mp2-bno-ewdmet':
+            ewdmet_bath = EwDMET_Bath(self, dmet_bath, max_order=self.opts.ewdmet_max_order)
+            ewdmet_bath.kernel()
+            project_t2 = self.opts.bno_project_t2 if hasattr(self.opts, 'bno_project_t2') else False
+            self.bath = MP2_BNO_Bath(self, ref_bath=ewdmet_bath, project_t2=project_t2)
+            self.bath.kernel()
+            return self.bath
+        raise ValueError("Unknown bath_type: %r" % bath_type)
+
+    def make_cluster(self, bath=None, bno_threshold=None, bno_threshold_occ=None, bno_threshold_vir=None):
         if bath is None:
             bath = self.bath
         if bath is None:
             raise ValueError("make_cluster requires bath.")
-
-        if isinstance(bath, BNO_Bath):
-            c_bno_occ, c_frozen_occ = bath.get_occupied_bath(bno_threshold[0], bno_number[0])
-            c_bno_vir, c_frozen_vir = bath.get_virtual_bath(bno_threshold[1], bno_number[1])
-        else:
-            c_bno_occ, c_frozen_occ = bath.get_occupied_bath()
-            c_bno_vir, c_frozen_vir = bath.get_virtual_bath()
-
+        if bno_threshold_occ is None:
+            bno_threshold_occ = bno_threshold
+        if bno_threshold_vir is None:
+            bno_threshold_vir = bno_threshold
+        c_bath_occ, c_frozen_occ = bath.get_occupied_bath(bno_threshold=bno_threshold_occ)
+        c_bath_vir, c_frozen_vir = bath.get_virtual_bath(bno_threshold=bno_threshold_vir)
         # Canonicalize orbitals
-        c_active_occ = self.canonicalize_mo(bath.c_cluster_occ, c_bno_occ)[0]
-        c_active_vir = self.canonicalize_mo(bath.c_cluster_vir, c_bno_vir)[0]
-        # Do not overwrite self.c_active_occ/vir yet - we still need the previous coefficients
-        # to generate an intial guess
+        c_active_occ = self.canonicalize_mo(bath.dmet_bath.c_cluster_occ, c_bath_occ)[0]
+        c_active_vir = self.canonicalize_mo(bath.dmet_bath.c_cluster_vir, c_bath_vir)[0]
         cluster = ActiveSpace(self.mf, c_active_occ, c_active_vir, c_frozen_occ=c_frozen_occ, c_frozen_vir=c_frozen_vir)
-
-        # Check occupations
-        #self.check_mo_occupation((2 if self.base.is_rhf else 1), cluster.c_occ)
-        #self.check_mo_occupation(0, cluster.c_vir)
 
         def check_occupation(mo_coeff, expected):
             occup = self.get_mo_occupation(mo_coeff)
@@ -233,38 +258,42 @@ class EWFFragment(QEmbeddingFragment):
         #if init_guess is None: init_guess = {}
         #return init_guess
 
-    def kernel(self, bno_threshold=None, bno_number=None, solver=None, init_guess=None, eris=None):
+    def kernel(self, bno_threshold=None, bno_threshold_occ=None, bno_threshold_vir=None, solver=None, init_guess=None, eris=None):
         """Run solver for a single BNO threshold.
 
         Parameters
         ----------
         bno_threshold : float, optional
-            Bath natural orbital (BNO) thresholds.
-        bno_number : int, optional
-            Number of bath natural orbitals. Default: None.
-        solver : {'MP2', 'CISD', 'CCSD', 'CCSD(T)', 'FCI'}, optional
+            Bath natural orbital (BNO) threshold.
+        solver : {'MP2', 'CISD', 'CCSD', 'FCI'}, optional
             Correlated solver.
 
         Returns
         -------
         results : self.Results
         """
-        if bno_number is None:
-            bno_number = self.opts.bno_number
-        if bno_number is None and bno_threshold is None:
-            bno_threshold = self.base.bno_threshold
-        if np.ndim(bno_threshold) == 0:
-            bno_threshold = 2*[bno_threshold]
-        if np.ndim(bno_number) == 0:
-            bno_number = 2*[bno_number]
+        if bno_threshold is None:
+            bno_threshold = self.opts.bno_threshold
+        if bno_threshold_occ is None:
+            bno_threshold_occ = self.opts.bno_threshold_occ
+        if bno_threshold_vir is None:
+            bno_threshold_vir = self.opts.bno_threshold_vir
+
+        bno_threshold = BNO_Threshold(self.opts.bno_truncation, bno_threshold)
+
+        if bno_threshold_occ is not None:
+            bno_threshold_occ = BNO_Threshold(self.opts.bno_truncation, bno_threshold_occ)
+        if bno_threshold_vir is not None:
+            bno_threshold_vir = BNO_Threshold(self.opts.bno_truncation, bno_threshold_vir)
 
         if solver is None:
             solver = self.solver
         if self.bath is None:
             self.make_bath()
 
-        cluster = self.make_cluster(self.bath, bno_threshold=bno_threshold, bno_number=bno_number)
-        cluster.log_sizes(self.log.info, header="Orbitals for %s" % self)
+        cluster = self.make_cluster(self.bath, bno_threshold=bno_threshold,
+                bno_threshold_occ=bno_threshold_occ, bno_threshold_vir=bno_threshold_vir)
+        cluster.log_sizes(self.log.info, header="Orbitals for %s with %s" % (self, bno_threshold))
 
         # For self-consistent calculations, we can reuse ERIs:
         if eris is None:
@@ -301,32 +330,17 @@ class EWFFragment(QEmbeddingFragment):
             self.log.info("Weight of reference determinant= %.8g", abs(cluster_solver.c0))
         # --- Calculate energy
         with log_time(self.log.info, ("Time for fragment energy= %s")):
-        # C1 and C2 are in intermediate normalization:
-            c1 = cluster_solver.get_c1(intermed_norm=True)
-            c2 = cluster_solver.get_c2(intermed_norm=True)
-            c1 = self.project_amplitude_to_fragment(c1, cluster.c_active_occ, cluster.c_active_vir)
-            c2 = self.project_amplitude_to_fragment(c2, cluster.c_active_occ, cluster.c_active_vir)
-            e_singles, e_doubles, e_corr = self.get_fragment_energy(c1, c2, eris=eris, axis1='cluster')
+            c1x = self.project_amp1_to_fragment(cluster_solver.get_c1(intermed_norm=True))
+            c2x = self.project_amp2_to_fragment(cluster_solver.get_c2(intermed_norm=True))
+            e_singles, e_doubles, e_corr = self.get_fragment_energy(c1x, c2x, eris=eris)
+            del c1x, c2x
 
-        # In future:
-        #c1x = self.project_amp1_to_fragment(cluster_solver.get_c1())
-        #c2x = self.project_amp2_to_fragment(cluster_solver.get_c2())
-        #with log_time(self.log.info, ("Time for fragment energy= %s")):
-        #    #e_singles, e_doubles, e_corr = self.get_fragment_energy(c1x, c2x, eris=eris)
-        #    e_singles_2, e_doubles_2, e_corr_2 = self.get_fragment_energy(c1x, c2x, eris=eris, axis1='fragment')
-        #    assert abs(e_corr - e_corr_2) < 1e-12
         if (solver != 'FCI' and (e_singles > max(0.1*e_doubles, 1e-4))):
             self.log.warning("Large singles energy component: E(S)= %s, E(D)= %s",
                     energy_string(e_singles), energy_string(e_doubles))
         else:
             self.log.debug("Energy components: E(S)= %s, E(D)= %s", energy_string(e_singles), energy_string(e_doubles))
-        if bno_threshold[0] is not None:
-            if bno_threshold[0] == bno_threshold[1]:
-                self.log.info("BNO threshold= %.1e :  E(corr)= %+14.8f Ha", bno_threshold[0], e_corr)
-            else:
-                self.log.info("BNO threshold= %.1e / %.1e :  E(corr)= %+14.8f Ha", *bno_threshold, e_corr)
-        else:
-            self.log.info("BNO number= %3d / %3d:  E(corr)= %+14.8f Ha", *bno_number, e_corr)
+        self.log.info("%s:  E(corr)= %+14.8f Ha", bno_threshold, e_corr)
 
         # --- Add to results
         results = self._results
@@ -346,11 +360,11 @@ class EWFFragment(QEmbeddingFragment):
         if self.opts.store_t2:
             results.t2 = cluster_solver.get_t2()
         solve_lambda = np.any([(getattr(self.opts, 'store_%s' % s) is True) for s in ['l1', 'l2', 'l1x', 'l2x']])
-        if self.opts.store_l1:
+        if self.opts.store_l1 and hasattr(cluster_solver, 'get_l1'):
             l1 = cluster_solver.get_l1(solve_lambda=solve_lambda)
             if l1 is not None:
                 results.l1 = l1
-        if self.opts.store_l2:
+        if self.opts.store_l2 and hasattr(cluster_solver, 'get_l2'):
             l2 = cluster_solver.get_l2(solve_lambda=solve_lambda)
             if l2 is not None:
                 results.l2 = l2
@@ -358,11 +372,11 @@ class EWFFragment(QEmbeddingFragment):
             results.t1x = self.project_amp1_to_fragment(cluster_solver.get_t1())
         if self.opts.store_t2x:
             results.t2x = self.project_amp2_to_fragment(cluster_solver.get_t2())
-        if self.opts.store_l1x:
+        if self.opts.store_l1x and hasattr(cluster_solver, 'get_l1'):
             l1 = cluster_solver.get_l1(solve_lambda=solve_lambda)
             if l1 is not None:
                 results.l1x = self.project_amp1_to_fragment(l1)
-        if self.opts.store_l2x:
+        if self.opts.store_l2x and hasattr(cluster_solver, 'get_l2'):
             l2 = cluster_solver.get_l2(solve_lambda=solve_lambda)
             if l2 is not None:
                 results.l2x = self.project_amp2_to_fragment(l2)
@@ -447,7 +461,7 @@ class EWFFragment(QEmbeddingFragment):
     def get_energy_prefactor(self):
         return self.sym_factor * self.opts.energy_factor
 
-    def get_fragment_energy(self, c1, c2, eris, fock=None, axis1='cluster'):
+    def get_fragment_energy(self, c1, c2, eris, fock=None, axis1='fragment'):
         """Calculate fragment correlation energy contribution from projected C1, C2.
 
         Parameters
@@ -472,7 +486,6 @@ class EWFFragment(QEmbeddingFragment):
             Total fragment correlation energy contribution.
         """
         if not self.get_energy_prefactor(): return (0, 0, 0)
-
         nocc, nvir = c2.shape[1:3]
         occ, vir = np.s_[:nocc], np.s_[nocc:]
         if axis1 == 'fragment':
@@ -495,18 +508,48 @@ class EWFFragment(QEmbeddingFragment):
         elif hasattr(eris, 'ovov'):
             # MP2 only has eris.ovov - for real integrals we transpose
             g_ovvo = eris.ovov[:].reshape(nocc,nvir,nocc,nvir).transpose(0, 1, 3, 2).conj()
+        elif eris.shape == (nocc, nvir, nocc, nvir):
+            g_ovvo = eris.transpose(0,1,3,2)
         else:
             g_ovvo = eris[occ,vir,vir,occ]
 
+        e_doubles = 0
         if axis1 == 'fragment':
-            e_doubles = 2*einsum('xi,xjab,iabj', px, c2, g_ovvo) - einsum('xi,xjab,jabi', px, c2, g_ovvo)
+            if self.opts.e_corr_part in ('all', 'direct'):
+                e_doubles += 2*einsum('xi,xjab,iabj', px, c2, g_ovvo)
+            if self.opts.e_corr_part in ('all', 'exchange'):
+                e_doubles -= einsum('xi,xjab,jabi', px, c2, g_ovvo)
         else:
-            e_doubles = 2*einsum('ijab,iabj', c2, g_ovvo) - einsum('ijab,jabi', c2, g_ovvo)
+            if self.opts.e_corr_part in ('all', 'direct'):
+                e_doubles += 2*einsum('ijab,iabj', c2, g_ovvo)
+            if self.opts.e_corr_part in ('all', 'exchange'):
+                e_doubles -= einsum('ijab,jabi', c2, g_ovvo)
 
         e_singles = (self.get_energy_prefactor() * e_singles)
         e_doubles = (self.get_energy_prefactor() * e_doubles)
         e_corr = (e_singles + e_doubles)
         return e_singles, e_doubles, e_corr
+
+    def get_cluster_ssz(self, proj1=None, proj2=None):
+        """<P(A) S_z P(B) S_z>"""
+        dm1 = self.results.dm1
+        dm2 = self.results.dm2
+        if dm1 is None or dm2 is None:
+            raise ValueError()
+        dm1a = dm1/2
+        dm2aa = (dm2 - dm2.transpose(0,3,2,1)) / 6
+        dm2ab = (dm2/2 - dm2aa)
+
+        if proj1 is None:
+            ssz = (einsum('iijj->', dm2aa) - einsum('iijj->', dm2ab))/2
+            ssz += einsum('ii->', dm1a)/2
+            return ssz
+        if proj2 is None:
+            proj2 = proj1
+        ssz = (einsum('ijkl,ij,kl->', dm2aa, proj1, proj2)
+             - einsum('ijkl,ij,kl->', dm2ab, proj1, proj2))/2
+        ssz += einsum('ij,ik,jk->', dm1a, proj1, proj2)/2
+        return ssz
 
     def eom_analysis(self, csolver, kind, filename=None, mode="a", sort_weight=True, r1_min=1e-2):
         kind = kind.upper()

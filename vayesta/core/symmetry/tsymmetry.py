@@ -16,7 +16,6 @@ def to_bohr(a, unit):
         return a
     raise ValueError("Unknown unit: %s" % unit)
 
-
 def get_mesh_tvecs(cell, tvecs, unit='Ang'):
     rvecs = cell.lattice_vectors()
     if (np.ndim(tvecs) == 1 and len(tvecs) == 3):
@@ -168,6 +167,7 @@ def reorder_atoms(cell, tvec, boundary=None, unit='Ang', check_basis=True):
             dr = np.asarray([dx, dy, dz])
             phase = np.product(boundary[dr!=0])
             #log.debugv("dx= %d dy= %d dz= %d phase= %d", dx, dy, dz, phase)
+            #print(atom_coords.shape, dr.shape, pos.shape)
             dists = np.linalg.norm(atom_coords + dr - pos, axis=1)
             idx = np.argmin(dists)
             if (dists[idx] < xtol):
@@ -279,10 +279,10 @@ if __name__ == '__main__':
     ncopy = 4
     cell = pyscf.pbc.tools.super_cell(cell, [ncopy,1,1])
 
-    reorder, inverse = reorder_atoms(cell, cell.a[0]/ncopy, unit='B')
+    reorder, inverse, phases = reorder_atoms(cell, cell.a[0]/ncopy, unit='B')
     print(reorder)
     print(inverse)
 
-    reorder, inverse = reorder_aos(cell, cell.a[0]/ncopy, unit='B')
+    reorder, inverse, phases = reorder_aos(cell, cell.a[0]/ncopy, unit='B')
     print(reorder)
     print(inverse)

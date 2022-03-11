@@ -1,0 +1,7 @@
+<tr align=right><td> 1 n=$1 </td></tr>
+<tr align=right><td> 2 </td><td>  antdimer ant </td><td>   </td><td>   </td><td>   </td><td>1 -2 </td><td>   </td><td>   </td><td>   $n -9.15</td></tr>
+<tr align=right><td> 3 </td><td>  pxylene pc22 h2 </td><td>   </td><td>   </td><td>2 </td><td> -1 -2 </td><td>   </td><td>   $n -60.28</td></tr>
+<tr align=right><td> 4 </td><td>  octane1 octane2 </td><td>   </td><td>   </td><td>   </td><td>1 </td><td> -1 </td><td>   </td><td>   </td><td>   $n -1.21</td></tr>
+<tr align=right><td> 5 </td><td>  undecan1 undecan2 </td><td>   </td><td>   </td><td>   </td><td>1 </td><td> -1 </td><td>   </td><td>   </td><td>   $n 9.10</td></tr>
+<tr align=right><td> 6 </td><td>  F14f F14l </td><td>   </td><td>   </td><td>   </td><td> -1 </td><td>1 </td><td>   </td><td>   </td><td>   $n -3.64</td></tr>
+<tr align=right><td> 7 </td><td>  F22f F22l </td><td>   </td><td>   </td><td>   </td><td> -1 </td><td>1 </td><td>   </td><td>   </td><td>   $n -1.96</td></tr>

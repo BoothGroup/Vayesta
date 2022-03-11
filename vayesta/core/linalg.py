@@ -31,7 +31,7 @@ def recursive_block_svd(a, n, tol=1e-10, maxblock=100):
     log.debugv("Recursive block SVD of %dx%d matrix" % a.shape)
     coeff = np.eye(size)
     sv = np.full((size-n,), 0.0)
-    orders = np.full((size-n,), -1)
+    orders = np.full((size-n,), np.inf)
 
     ndone = 0
     low = np.s_[:n]
@@ -40,7 +40,8 @@ def recursive_block_svd(a, n, tol=1e-10, maxblock=100):
     for order in range(1, maxblock+1):
         blk = np.linalg.multi_dot((coeff.T, a, coeff))[low,env]
         nmax = blk.shape[-1]
-        assert blk.ndim == 2 and np.all(np.asarray(blk.shape) > 0)
+        assert blk.ndim == 2
+        assert np.all(np.asarray(blk.shape) > 0)
 
         u, s, vh = np.linalg.svd(blk)
         rot = vh.T.conj()
@@ -63,7 +64,7 @@ def recursive_block_svd(a, n, tol=1e-10, maxblock=100):
             break
         assert (ndone < (size - n))
     else:
-        log.warning("Found %d out of %d bath orbitals in %d recursions", ndone, size-n, maxblock)
+        log.debug("Found %d out of %d bath orbitals in %d recursions", ndone, size-n, maxblock)
 
     coeff = coeff[n:,n:]
     assert np.allclose(np.dot(coeff.T, coeff)-np.eye(coeff.shape[-1]), 0)
