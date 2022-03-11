@@ -468,17 +468,17 @@ class EWF(QEmbeddingMethod):
 
 
     def get_bath_bath_energy(self, method='avg', dm='t'):
-    """
-    Calculate bath-bath contribution to energy due to fragment space overalp with other clusters.
+        """
+        Calculate bath-bath contribution to energy due to fragment space overalp with other clusters.
 
-    Parameters
-    ----------
-    method : str
-        Selects calculation method, can be 'max', 'avg', 'proj1', 'proj2'. Default: 'avg'
+        Parameters
+        ----------
+        method : str
+            Selects calculation method, can be 'max', 'avg', 'proj1', 'proj2'. Default: 'avg'
 
-    """
+        """
 
-    t_as_lambda = self.opts.t_as_lambda
+        t_as_lambda = self.opts.t_as_lambda
 
 
 
