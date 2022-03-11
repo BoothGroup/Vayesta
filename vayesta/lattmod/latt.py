@@ -252,7 +252,13 @@ class Hubbard2D(Hubbard):
         np.fill_diagonal(eri, hubbard_u)
         # Nearest-neighbor interaction
         if v_nn:
-            raise NotImplementedError()
+            for i in range(self.nsites[0]):
+                for j in range(self.nsites[1]):
+                    ij_idx, fac1 = self.get_index(i, j)
+                    for (idx_2, fac2) in [self.get_index(i,j+1), self.get_index(i+1,j), self.get_index(i,j-1),
+                                  self.get_index(i-1,j)]:
+                        eri[ij_idx, ij_idx, idx_2, idx_2] = fac1*fac2*v_nn
+                        eri[idx_2, idx_2, ij_idx, ij_idx] = fac1*fac2*v_nn
         return eri
 
     def lattice_vectors(self):
@@ -361,7 +367,7 @@ class LatticeRHF(LatticeSCF, pyscf.scf.hf.RHF):
         if mol is None: mol = self.mol
         if dm is None: dm = self.make_rdm1()
         if self.mol.v_nn is not None and mol.v_nn != 0:
-            raise NotImplementedError()
+            return super().get_jk(mol, dm, *args, **kwargs)
         j = np.diag(np.diag(dm))*mol.hubbard_u
         k = j
         return j, k
@@ -423,25 +429,26 @@ class LatticeRHF(LatticeSCF, pyscf.scf.hf.RHF):
 class LatticeUHF(LatticeSCF, pyscf.scf.uhf.UHF):
 
     def get_init_guess(self, mol=None, key=None):
+        if mol is None: mol = self.mol
         e, c = np.linalg.eigh(self.get_hcore())
-        nocc = self.mol.nelec
-        dma = np.dot(c[:,:nocc[0]], c[:,:nocc[0]].T)
-        dmb = np.dot(c[:,:nocc[1]], c[:,:nocc[1]].T)
-        # Create small random offset to break symmetries.
-
-        offset = np.full_like(dma.diagonal(), fill_value=1e-2)
-        for x in range(self.mol.nsites[0]):
-            for y in range(self.mol.nsites[1]):
-                ind, fac = self.mol.get_index(x,y)
-                offset[ind] *= (-1) ** (x%2 + y%2)
-        dma[np.diag_indices_from(dma)] += offset
+        nocc = mol.nelec
+        dma = np.dot(c[:, :nocc[0]], c[:,:nocc[0]].T)
+        dmb = np.dot(c[:, :nocc[1]], c[:,:nocc[1]].T)
+        if mol.dimension == 2:
+            # Create small random offset to break symmetries.
+            offset = np.full_like(dma.diagonal(), fill_value=1e-2)
+            for x in range(self.mol.nsites[0]):
+                for y in range(self.mol.nsites[1]):
+                    ind, fac = self.mol.get_index(x,y)
+                    offset[ind] *= (-1) ** (x%2 + y%2)
+            dma[np.diag_indices_from(dma)] += offset
         return (dma, dmb)
 
     def get_jk(self, mol=None, dm=None, *args, **kwargs):
         if mol is None: mol = self.mol
         if dm is None: dm = self.make_rdm1()
         if self.mol.v_nn is not None and mol.v_nn != 0:
-            raise NotImplementedError()
+            return super().get_jk(mol, dm, *args, **kwargs)
         dma, dmb = dm
         ja = np.diag(np.diag(dma))*mol.hubbard_u
         jb = np.diag(np.diag(dmb))*mol.hubbard_u
