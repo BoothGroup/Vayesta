@@ -17,7 +17,14 @@ from .bath import FragmentBath
 class BNO_Threshold:
 
     def __init__(self, type, threshold):
-        if type not in ('number', 'occupation', 'truncation', 'excited-percent', 'electron-percent'):
+        """
+        number:             Fixed number of BNOs
+        occupation:         Occupation thresehold for BNOs ("eta")
+        truncation:         Maximum number of electrons to be ignored
+        electron-percent:   Add BNOs until 100-x% of the total number of all electrons is captured
+        excited-percent:    Add BNOs until 100-x% of the total number of excited electrons is captured
+        """
+        if type not in ('number', 'occupation', 'truncation', 'electron-percent', 'excited-percent'):
             raise ValueError()
         self.type = type
         self.threshold = threshold
@@ -28,31 +35,28 @@ class BNO_Threshold:
     def get_number(self, bno_occup, electron_total=None):
         """Get number of BNOs."""
         nbno = len(bno_occup)
-        if nbno == 0:
+        if (nbno == 0):
             return 0
-        if self.type == 'number':
+        if (self.type == 'number'):
             return self.threshold
-        if self.type in ('truncation', 'excited-percent', 'electron-percent'):
+        if (self.type in ('truncation', 'electron-percent', 'excited-percent')):
             npos = np.clip(bno_occup, 0.0, None)
             nexcited = np.sum(npos)
+            nelec0 = 0
             if self.type == 'truncation':
                 ntarget = (nexcited - self.threshold)
-                nelec0 = 0
             elif self.type == 'electron-percent':
                 assert (electron_total is not None)
                 ntarget = (1.0-self.threshold) * electron_total
                 nelec0 = (electron_total - nexcited)
             elif self.type == 'excited-percent':
                 ntarget = (1.0-self.threshold) * nexcited
-                nelec0 = 0
-            #print("electron_total= %f nexcited= %f nelec0= %f, ntarget= %f" % (electron_total, nexcited, nelec0, ntarget))
             for bno_number in range(nbno+1):
-                nelec = nelec0 + np.sum(npos[:bno_number])
-                #print(bno_number, nelec)
+                nelec = (nelec0 + np.sum(npos[:bno_number]))
                 if nelec >= ntarget:
                     return bno_number
             raise RuntimeError()
-        if self.type == 'occupation':
+        if (self.type == 'occupation'):
             return np.count_nonzero(bno_occup >= self.threshold)
         raise RuntimeError()
 

@@ -65,17 +65,16 @@ def alkane(n, atoms=['C', 'H'], cc_bond=1.54, ch_bond=1.09, numbering=False):
 
     return atom
 
-def arene(n, atoms=['C', 'H'], cc_bond=1.39, ch_bond=1.09):
+def arene(n, atoms=['C', 'H'], cc_bond=1.39, ch_bond=1.09, unit=1.0):
     """Bond length for benzene."""
-    r1 = cc_bond/(2*np.sin(np.pi/n))
-    r2 = r1 + ch_bond
-    z = 0.0
+    r1 = unit*cc_bond/(2*np.sin(np.pi/n))
+    r2 = unit*(r1 + ch_bond)
     atom = []
     for i in range(n):
         phi = 2*i*np.pi/n
         atomidx = (2*i) % len(atoms)
-        atom.append((atoms[atomidx], (r1*np.cos(phi), r1*np.sin(phi), z)))
-        atom.append((atoms[atomidx+1], (r2*np.cos(phi), r2*np.sin(phi), z)))
+        atom.append((atoms[atomidx], (r1*np.cos(phi), r1*np.sin(phi), 0.0)))
+        atom.append((atoms[atomidx+1], (r2*np.cos(phi), r2*np.sin(phi), 0.0)))
     return atom
 
 def neopentane():

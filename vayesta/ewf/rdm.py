@@ -35,12 +35,14 @@ def make_rdm1_ccsd(emb, ao_basis=False, t_as_lambda=False, symmetrize=True, with
     t_as_lambda: bool, optional
         Use T-amplitudes instead of Lambda-amplitudes for CCSD density matrix. Default: False.
     symmetrize: bool, optional
-        Use Symemtrized equations, if possible. Default: True.
+        Use symmetrized equations, if possible. Default: True.
     with_mf: bool, optional
         If False, only the difference to the mean-field density-matrix is returned. Default: True.
     mpi_target: integer, optional
         If set to an integer, the density-matrix will only be constructed on the corresponding MPI rank.
         Default: None.
+    mp2: bool, optional
+        Make MP2 density-matrix instead. Default: False.
 
     Returns
     -------

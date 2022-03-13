@@ -21,13 +21,16 @@ def scf_with_mpi(mf, mpi_rank=0):
 
     def mpi_kernel(self, *args, **kwargs):
         if mpi.rank == mpi_rank:
+            log.info("MPI rank= %3d is running SCF", mpi.rank)
             with log_time(log.timing, "Time for SCF: %s"):
                 res = kernel_orig(*args, **kwargs)
+            log.info("MPI rank= %3d finished SCF", mpi.rank)
         else:
             res = None
             # Generate auxiliary cell, compensation basis etc,..., but not 3c integrals:
             if hasattr(self, 'with_df') and self.with_df.auxcell is None:
                 self.with_df.build(with_j3c=False)
+            log.info("MPI rank= %3d is waiting for SCF results", mpi.rank)
         mpi.world.barrier()
 
         # Broadcast results
