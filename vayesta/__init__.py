@@ -25,6 +25,9 @@ from .core.mpi import mpi
 args = cmdargs.parse_cmd_args()
 
 # Logging
+if args.output_dir:
+    os.makedirs(args.output_dir, exist_ok=True)
+
 vlog.init_logging()
 log = logging.getLogger(__name__)
 log.setLevel(args.loglevel)
@@ -43,11 +46,15 @@ if (args.output is None) and (mpi.is_master):
 # Log to file
 if (args.output or args.log or (not mpi.is_master)):
     logname = (args.output or args.log) or "vayesta"
+    if args.output_dir:
+        logname = os.path.join(args.output_dir, logname)
     log.addHandler(vlog.VFileHandler(logname, formatter=fmt))
 # Error handler
 errlog = args.errlog
 if errlog:
     errfmt = vlog.VFormatter(show_mpi_rank=True, indent=False)
+    if args.output_dir:
+        errlog = os.path.join(args.output_dir, errlog)
     errhandler = vlog.VFileHandler(errlog, formatter=errfmt, add_mpi_rank=False)
     errhandler.setLevel(args.errlog_level)
     log.addHandler(errhandler)
@@ -67,7 +74,7 @@ def import_package(name, required=True):
         if required:
             log.critical("%s not found.", name)
             raise
-        log.warning("%s not found.", name)
+        log.info("%s not found.", name)
         return None
 
 log.debug("Required packages:")
@@ -75,9 +82,9 @@ numpy = import_package('NumPy')
 import_package('SciPy')
 import_package('h5py')
 pyscf = import_package('PySCF')
+# Optional
 import_package('mpi4py', False)
 import_package('cvxpy', False)
-
 
 # --- Git hashes
 
