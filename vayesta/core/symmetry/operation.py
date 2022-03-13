@@ -2,6 +2,8 @@ import logging
 import itertools
 
 import numpy as np
+import scipy
+import scipy.spatial
 
 import vayesta
 import vayesta.core
@@ -10,11 +12,34 @@ from vayesta.core.util import *
 
 log = logging.getLogger(__name__)
 
+def compare_atoms(mol, atom1, atom2, check_labels=False, check_basis=True):
+    """Compare atom symbol and (optionally) basis between atom1 and atom2."""
+    if check_labels:
+        type1 = mol.atom_symbol(atom1)
+        type2 = mol.atom_symbol(atom2)
+    else:
+        type1 = mol.atom_pure_symbol(atom1)
+        type2 = mol.atom_pure_symbol(atom2)
+    if (type1 != type2):
+        return False
+    if not check_basis:
+        return True
+    bas1 = mol._basis[mol.atom_symbol(atom1)]
+    bas2 = mol._basis[mol.atom_symbol(atom2)]
+    return (bas1 == bas2)
+
+def get_closest_atom(mol, coords):
+    """pos in internal coordinates."""
+    dists = np.linalg.norm(mol.atom_coords()-coords, axis=1)
+    idx = np.argmin(dists)
+    return idx, dists[idx]
+
 
 class SymmetryOperation:
 
-    def __init__(self, mol):
+    def __init__(self, mol, xtol=1e-8):
         self.mol = mol
+        self.xtol = xtol
 
     def __call__(self):
         raise AbstractMethodError()
@@ -27,22 +52,6 @@ class SymmetryOperation:
     def nao(self):
         return self.mol.nao
 
-    def compare_atoms(self, atom1, atom2, include_labels=False, include_basis=True):
-        """Compare atom symbol and (optionally) basis between atom1 and atom2."""
-        if include_labels:
-            type1 = self.mol.atom_symbol(atom1)
-            type2 = self.mol.atom_symbol(atom2)
-        else:
-            type1 = self.mol.atom_pure_symbol(atom1)
-            type2 = self.mol.atom_pure_symbol(atom2)
-        if (type1 != type2):
-            return False
-        if not include_basis:
-            return True
-        bas1 = self.mol._basis[self.mol.atom_symbol(atom1)]
-        bas2 = self.mol._basis[self.mol.atom_symbol(atom2)]
-        return (bas1 == bas2)
-
 class SymmetryIdentity(SymmetryOperation):
 
     def __call__(self, a, **kwargs):
@@ -50,6 +59,48 @@ class SymmetryIdentity(SymmetryOperation):
 
     def change_mol(self, mol):
         return self
+
+class SymmetryRotation(SymmetryOperation):
+
+    def __init__(self, mol, order, vector, origin=np.zeros(3)):
+        super().__init__(mol)
+        self.order = order
+        self.vector = (vector / np.linalg.norm(vector))
+        self.origin = origin
+
+    def as_matrix(self):
+        vec = self.vector * (2*np.pi/self.order)
+        return scipy.spatial.transform.Rotation.from_rotvec(vec).as_matrix()
+
+    def get_atom_reorder(self, check_labels=False, check_basis=True):
+        """Reordering of atoms for a given rotation.
+
+        Parameters
+        ----------
+
+        Returns
+        -------
+        reorder: list
+        inverse: list
+        """
+        reorder = np.full((self.natom,), -1, dtype=int)
+        inverse = np.full((self.natom,), -1, dtype=int)
+        for atom0, r0 in enumerate(self.mol.atom_coords()):
+            r1 = np.dot((r0 - self.origin[None]), self.as_matrix()) + self.origin[None]
+            atom1, dist = get_closest_atom(self.mol, r1)
+            if dist > self.xtol:
+                return None, None
+            if not compare_atoms(self.mol, atom0, atom1, check_labels=check_labels, check_basis=check_basis):
+                return None, None
+            reorder[atom1] = atom0
+            inverse[atom0] = atom1
+        assert (not np.any(reorder == -1))
+        assert (not np.any(inverse == -1))
+
+        assert np.all(np.arange(self.natom)[reorder][inverse] == np.arange(self.natom))
+
+        return reorder, inverse
+
 
 class SymmetryTranslation(SymmetryOperation):
 
@@ -122,7 +173,7 @@ class SymmetryTranslation(SymmetryOperation):
             return None
         return np.argsort(self.atom_reorder)
 
-    def get_atom_reorder(self, include_labels=False, include_basis=True):
+    def get_atom_reorder(self, check_labels=False, check_basis=True):
         """Reordering of atoms for a given translation.
 
         Parameters
@@ -136,7 +187,7 @@ class SymmetryTranslation(SymmetryOperation):
         """
         atom_coords_abc = np.dot(self.mol.atom_coords(), self.inv_lattice_vectors)
 
-        def get_atom_at(pos, xtol=1e-8):
+        def get_atom_at(pos):
             """pos in internal coordinates."""
             for dx, dy, dz in itertools.product([0,-1,1], repeat=3):
                 if self.cell.dimension in (1, 2) and (dz != 0): continue
@@ -145,7 +196,7 @@ class SymmetryTranslation(SymmetryOperation):
                 phase = np.product(self.boundary_phases[dr!=0])
                 dists = np.linalg.norm(atom_coords_abc + dr - pos, axis=1)
                 idx = np.argmin(dists)
-                if (dists[idx] < xtol):
+                if (dists[idx] < self.xtol):
                     return idx, phase
             return None, None
 
@@ -156,7 +207,7 @@ class SymmetryTranslation(SymmetryOperation):
             atom1, phase = get_atom_at(coords0 + self.vector)
             if atom1 is None:
                 return None, None, None
-            if not self.compare_atoms(atom0, atom1, include_labels=include_labels, include_basis=include_basis):
+            if not compare_atoms(self.mol, atom0, atom1, check_labels=check_labels, check_basis=check_basis):
                 return None, None, None
             reorder[atom1] = atom0
             inverse[atom0] = atom1
@@ -201,51 +252,65 @@ class SymmetryTranslation(SymmetryOperation):
         return reorder, inverse, phases
 
 if __name__ == '__main__':
-    import pyscf
-    import pyscf.pbc
-    import pyscf.pbc.gto
-    import pyscf.pbc.scf
-    import pyscf.pbc.tools
-    import pyscf.pbc.df
 
-    cell = pyscf.pbc.gto.Cell()
-    cell.a = 3*np.eye(3)
-    cell.atom = 'He 0 0 0'
-    cell.unit = 'Bohr'
-    cell.basis = 'def2-svp'
-    #cell.basis = 'sto-3g'
-    cell.build()
-    #cell.dimension = 2
+    def test_translation():
+        import pyscf
+        import pyscf.pbc
+        import pyscf.pbc.gto
+        import pyscf.pbc.scf
+        import pyscf.pbc.tools
+        import pyscf.pbc.df
 
-    sc = [1,1,2]
-    cell = pyscf.pbc.tools.super_cell(cell, sc)
+        cell = pyscf.pbc.gto.Cell()
+        cell.a = 3*np.eye(3)
+        cell.atom = 'He 0 0 0'
+        cell.unit = 'Bohr'
+        cell.basis = 'def2-svp'
+        #cell.basis = 'sto-3g'
+        cell.build()
+        #cell.dimension = 2
 
-    t = Translation(cell, [0, 0, 1/2])
+        sc = [1,1,2]
+        cell = pyscf.pbc.tools.super_cell(cell, sc)
 
-    df = pyscf.pbc.df.GDF(cell)
-    df.auxbasis = 'def2-svp-ri'
-    df.build()
+        t = Translation(cell, [0, 0, 1/2])
 
-    #print(t.ao_reorder)
-    #aux_reorder = t.get_ao_reorder(cell=df.auxcell)[0]
-    #print(aux_reorder)
-    taux = t.change_cell(df.auxcell)
-    print(t.ao_reorder)
-    print(taux.ao_reorder)
+        df = pyscf.pbc.df.GDF(cell)
+        df.auxbasis = 'def2-svp-ri'
+        df.build()
+
+        #print(t.ao_reorder)
+        #aux_reorder = t.get_ao_reorder(cell=df.auxcell)[0]
+        #print(aux_reorder)
+        taux = t.change_cell(df.auxcell)
+        print(t.ao_reorder)
+        print(taux.ao_reorder)
+
+        #print(trans.atom_reorder)
+        #print(trans.ao_reorder)
+        #trans = Translation(cell, [0,1/5,2/3])
+        #trans = Translation(cell, [0,3/5,2/3])
+
+        #mo0 = np.eye(cell.nao)
+        #mo1 = trans(mo0)
+
+    def test_rotation():
+        import pyscf
+        import pyscf.gto
+        import vayesta.misc
+        import vayesta.misc.molecules
+
+        mol = pyscf.gto.Mole()
+        mol.atom = vayesta.misc.molecules.arene(6)
+        mol.build()
+
+        vec = np.asarray([0, 0, 1])
+        op = SymmetryRotation(mol, 6, vec)
+
+        reorder, inv = op.get_atom_reorder()
+        print(reorder)
+        print(inv)
 
 
 
-    #print(trans.atom_reorder)
-    #print(trans.ao_reorder)
-    #trans = Translation(cell, [0,1/5,2/3])
-    #trans = Translation(cell, [0,3/5,2/3])
-
-    #mo0 = np.eye(cell.nao)
-    #mo1 = trans(mo0)
-
-    #print(mo0)
-    #print(mo1)
-
-
-
-
+    test_rotation()
