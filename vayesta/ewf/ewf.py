@@ -71,6 +71,8 @@ class EWF(Embedding):
         # --- Intercluster MP2 energy
         icmp2: bool = True
         icmp2_bno_threshold: float = 1e-8
+        # --- Couple embedding problems (currently only CCSD)
+        coupled_iterations: bool = False
         # --- Other
         e_corr_part: str = 'all'    # ['all', 'direct', 'exchange']
         #energy_partitioning: str = 'first-occ'

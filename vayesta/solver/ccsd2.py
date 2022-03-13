@@ -306,6 +306,9 @@ class CCSD_Solver(ClusterSolver):
         self.log.info(fmt, kind, *e)
         return e, c
 
+    def couple_iterations(self, fragments):
+        func = coupling.couple_ccsd_iterations(self, fragments)
+        self.solver.tailor_func = func.__get__(self.solver)
 
 class UCCSD_Solver(CCSD_Solver):
 

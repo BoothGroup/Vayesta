@@ -24,6 +24,7 @@ from vayesta.core.bath import MP2_BNO_Bath
 from vayesta.core.bath import CompleteBath
 from vayesta.core.actspace import ActiveSpace
 from vayesta.core import ao2mo
+from vayesta.core.mpi import mpi
 
 from . import ewf
 
@@ -70,6 +71,8 @@ class EWFFragment(Fragment):
         tcc_fci_opts: dict = dataclasses.field(default_factory=dict)
         # --- Intercluster MP2 energy
         icmp2_bno_threshold: float = NotSet
+        # --- Couple embedding problems (currently only CCSD and MPI)
+        coupled_iterations: bool = NotSet
         # --- Storage
         store_t1:  Union[bool,str] = NotSet
         store_t2:  Union[bool,str] = NotSet
@@ -319,6 +322,13 @@ class EWFFragment(Fragment):
         cluster_solver = solver_cls(self, cluster, **solver_opts)
         if self.opts.nelectron_target is not None:
             cluster_solver.optimize_cpt(self.opts.nelectron_target, c_frag=self.c_proj)
+        if self.opts.coupled_iterations:
+            if solver != 'CCSD':
+                raise NotImplementedError()
+            if not mpi or len(self.base.fragments) > len(mpi):
+                raise NotImplementedError()
+            cluster_solver.couple_iterations(self.base.fragments)
+
         if eris is None:
             eris = cluster_solver.get_eris()
         with log_time(self.log.info, ("Time for %s solver:" % solver) + " %s"):
