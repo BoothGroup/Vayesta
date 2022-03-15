@@ -116,3 +116,16 @@ def propanol():
 def chloroethanol():
     atom = _load_datafile('chloroethanol.dat')
     return atom
+
+def ketene(cc_bond=None):
+    atom = _load_datafile('ketene.dat')
+    if cc_bond is not None:
+        pos_c1 = atom[0][1]
+        pos_c2 = atom[1][1]
+        vcc = (pos_c2 - pos_c1)
+        vcc = vcc / np.linalg.norm(vcc)
+        new_c2 = pos_c1 + cc_bond * vcc
+        new_o = atom[2][1] + (new_c2 - pos_c2)
+        atom[1][1] = new_c2
+        atom[2][1] = new_o
+    return atom

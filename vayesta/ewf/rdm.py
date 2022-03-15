@@ -389,8 +389,6 @@ def make_rdm2_ccsd(emb, ao_basis=False, symmetrize=True, t_as_lambda=False, slow
         t1 = emb.get_global_t1()
         t2 = emb.get_global_t2()
         cc = pyscf.cc.ccsd.CCSD(emb.mf)
-        #if 'l12_full' in partition:
-        #    l1 = l2 = None
         if t_as_lambda:
             l1, l2 = t1, t2
         else:
