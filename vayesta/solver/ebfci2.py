@@ -4,12 +4,14 @@ import numpy as np
 
 from vayesta.core.util import *
 from vayesta.solver.fci2 import FCI_Solver, UFCI_Solver
+from vayesta.solver.solver2 import EBClusterSolver
 from .eb_fci import ebfci_slow, uebfci_slow
 
 
-class EBFCI_Solver(FCI_Solver):
+class EBFCI_Solver(FCI_Solver, EBClusterSolver):
     @dataclasses.dataclass
-    class Options(FCI_Solver.Options):
+    class Options(EBClusterSolver.Options):
+        conv_tol: float = None
         max_boson_occ: int = 2
 
     def __init__(self, *args, **kwargs):
@@ -33,9 +35,18 @@ class EBFCI_Solver(FCI_Solver):
         if eris is None:
             eris = self.get_eris()
         heff = self.get_heff(eris)
+        couplings = self.fragment.couplings
+        if self.opts.polaritonic_shift:
+            fock_shift, coupling_shift = self.get_polaritonic_shift(self.fragment.bos_freqs, self.fragment.couplings)
+            if not np.allclose(fock_shift[0], fock_shift[1]):
+                self.log.critical("Polaritonic shift breaks cluster spin symmetry; please either use an unrestricted"
+                                  "formalism or bosons without polaritonic shift.")
+                raise RuntimeError
+            heff = heff + fock_shift[0]
+            couplings = [x+y for x, y in zip(couplings, coupling_shift)]
 
         t0 = timer()
-        self.e_fci, self.civec = ebfci_slow.kernel(heff, eris, self.fragment.couplings,
+        self.e_fci, self.civec = ebfci_slow.kernel(heff, eris, couplings,
                                                    np.diag(self.fragment.bos_freqs), self.ncas, self.nelec, self.nbos,
                                                    self.opts.max_boson_occ)
         # Getting convergence detail out pretty complicated, and nonconvergence rare- just assume for now.
@@ -89,6 +100,8 @@ class EBFCI_Solver(FCI_Solver):
         if civec is None:
             civec = self.civec
         self.dm_eb = ebfci_slow.make_eb_rdm(civec, self.ncas, self.nelec, self.nbos, self.opts.max_boson_occ)
+        if self.opts.polaritonic_shift:
+            self.dm_eb = [x + y for x, y in zip(self.dm_eb, self.get_eb_dm_polaritonic_shift())]
         return self.dm_eb
 
 
@@ -101,8 +114,14 @@ class UEBFCI_Solver(EBFCI_Solver, UFCI_Solver):
             eris = self.get_eris()
         heff = self.get_heff(eris)
 
+        couplings = self.fragment.couplings
+        if self.opts.polaritonic_shift:
+            fock_shift, coupling_shift = self.get_polaritonic_shift(self.fragment.bos_freqs, self.fragment.couplings)
+            heff = [x+y for x, y in zip(heff, fock_shift)]
+            couplings = [x+y for x, y in zip(couplings, coupling_shift)]
+
         t0 = timer()
-        self.e_fci, self.civec = uebfci_slow.kernel(heff, eris, self.fragment.couplings,
+        self.e_fci, self.civec = uebfci_slow.kernel(heff, eris, couplings,
                                                    np.diag(self.fragment.bos_freqs), self.ncas, self.nelec, self.nbos,
                                                    self.opts.max_boson_occ)
         # Getting convergence detail out pretty complicated, and nonconvergence rare- just assume for now.
@@ -156,4 +175,6 @@ class UEBFCI_Solver(EBFCI_Solver, UFCI_Solver):
         if civec is None:
             civec = self.civec
         self.dm_eb = uebfci_slow.make_eb_rdm(civec, self.ncas, self.nelec, self.nbos, self.opts.max_boson_occ)
+        if self.opts.polaritonic_shift:
+            self.dm_eb = [x + y for x, y in zip(self.dm_eb, self.get_eb_dm_polaritonic_shift())]
         return self.dm_eb

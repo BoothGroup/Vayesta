@@ -3,12 +3,12 @@ import numpy as np
 
 from vayesta.core.util import *
 # FCI_Solver has infrastructure we require to obtain effective cluster Hamiltonian.
-from .solver2 import ClusterSolver
+from .solver2 import EBClusterSolver
 
 
-class EBCCSD_Solver(ClusterSolver):
+class EBCCSD_Solver(EBClusterSolver):
     @dataclasses.dataclass
-    class Options(ClusterSolver.Options):
+    class Options(EBClusterSolver.Options):
         rank: tuple = (2, 1, 1)
 
     def __init__(self, *args, **kwargs):
@@ -41,9 +41,18 @@ class EBCCSD_Solver(ClusterSolver):
         f_act = dot(self.cluster.c_active.T, self.base.get_fock(), self.cluster.c_active)
         if self.opts.v_ext is not None:
             f_act += self.opts.v_ext
+        couplings = self.fragment.couplings
+        if self.opts.polaritonic_shift:
+            fock_shift, coupling_shift = self.get_polaritonic_shift(self.fragment.bos_freqs, self.fragment.couplings)
+            if not np.allclose(fock_shift[0], fock_shift[1]):
+                self.log.critical("Polaritonic shift breaks cluster spin symmetry; please either use an unrestricted"
+                                  "formalism or bosons without polaritonic shift.")
+                raise RuntimeError
+            f_act = f_act + fock_shift[0]
+            couplings = [x + y for x, y in zip(couplings, coupling_shift)]
 
         return (f_act, f_act), (eris, eris, eris), (self.cluster.nocc_active, self.cluster.nocc_active), \
-                                                  (self.cluster.nvir_active, self.cluster.nvir_active)
+               (self.cluster.nvir_active, self.cluster.nvir_active), tuple([x.transpose(0, 2, 1) for x in couplings])
 
     def kernel(self, eris=None):
         """Run FCI kernel."""
@@ -55,7 +64,6 @@ class EBCCSD_Solver(ClusterSolver):
         # [TODO] Double check if we need this transpose in the couplings.
         #  EBCC expects the annihilation term but may also swap the indexing of fermionic operators...
         self.solver = ebccsd.EBCCSD.fromUHFarrays(*inp,
-                                                  gmat=tuple([x.transpose(0, 2, 1) for x in self.fragment.couplings]),
                                                   omega=self.fragment.bos_freqs,
                                                   rank=self.opts.rank, autogen_code=True)
 
@@ -122,6 +130,8 @@ class EBCCSD_Solver(ClusterSolver):
         dm_eb_crea = dm_eb[0].transpose(1, 2, 0)
         self.dm_eb = (dm_eb_crea[np.ix_(aindx, aindx, list(range(self.nbos)))],
                       dm_eb_crea[np.ix_(bindx, bindx, list(range(self.nbos)))])
+        if self.opts.polaritonic_shift:
+            self.dm_eb = [x + y for x, y in zip(self.dm_eb, self.get_eb_dm_polaritonic_shift())]
         return self.dm_eb
 
 
@@ -133,8 +143,16 @@ class UEBCCSD_Solver(EBCCSD_Solver):
         fock = self.base.get_fock()
         f_act = tuple([dot(self.cluster.c_active[i].T, fock[i], self.cluster.c_active[i]) for i in [0, 1]])
         if self.opts.v_ext is not None:
-            f_act = [x + y for x,y in zip(f_act, self.opts.v_ext)]
-        return f_act, eris, self.cluster.nocc_active, self.cluster.nvir_active
+            f_act = [x + y for x, y in zip(f_act, self.opts.v_ext)]
+
+        couplings = self.fragment.couplings
+        if self.opts.polaritonic_shift:
+            fock_shift, coupling_shift = self.get_polaritonic_shift(self.fragment.bos_freqs, self.fragment.couplings)
+            f_act = [x + y for x, y in zip(f_act, fock_shift)]
+            couplings = [x + y for x, y in zip(couplings, coupling_shift)]
+
+        return f_act, eris, self.cluster.nocc_active, self.cluster.nvir_active, \
+               tuple([x.transpose(0, 2, 1) for x in couplings])
 
     def get_ghf_to_uhf_indices(self):
         no = sum(self.cluster.nocc_active)
