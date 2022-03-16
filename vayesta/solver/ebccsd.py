@@ -35,21 +35,28 @@ class EBCCSD_Solver(ClusterSolver):
             eris = self.base.get_eris_array(self.cluster.c_active)
         return eris
 
-    def kernel(self, eris=None):
-        """Run FCI kernel."""
-        from ebcc import ebccsd
-
+    def get_input(self, eris=None):
         if eris is None:
             eris = self.get_eris()
         f_act = dot(self.cluster.c_active.T, self.base.get_fock(), self.cluster.c_active)
         if self.opts.v_ext is not None:
             f_act += self.opts.v_ext
+
+        return (f_act, f_act), (eris, eris, eris), (self.cluster.nocc_active, self.cluster.nocc_active), \
+                                                  (self.cluster.nvir_active, self.cluster.nvir_active)
+
+    def kernel(self, eris=None):
+        """Run FCI kernel."""
+        from ebcc import ebccsd
+
+        inp = self.get_input(eris)
         t0 = timer()
         # This interface handles all conversion into GHF quantities for us.
-        self.solver = ebccsd.EBCCSD.fromUHFarrays((f_act, f_act), (eris, eris, eris),
-                                                  (self.cluster.nocc_active, self.cluster.nocc_active),
-                                                  (self.cluster.nvir_active, self.cluster.nvir_active),
-                                                  gmat=self.fragment.couplings, omega=self.fragment.bos_freqs,
+        # [TODO] Double check if we need this transpose in the couplings.
+        #  EBCC expects the annihilation term but may also swap the indexing of fermionic operators...
+        self.solver = ebccsd.EBCCSD.fromUHFarrays(*inp,
+                                                  gmat=tuple([x.transpose(0, 2, 1) for x in self.fragment.couplings]),
+                                                  omega=self.fragment.bos_freqs,
                                                   rank=self.opts.rank, autogen_code=True)
 
         self.e_corr = self.solver.kernel()
@@ -116,3 +123,40 @@ class EBCCSD_Solver(ClusterSolver):
         self.dm_eb = (dm_eb_crea[np.ix_(aindx, aindx, list(range(self.nbos)))],
                       dm_eb_crea[np.ix_(bindx, bindx, list(range(self.nbos)))])
         return self.dm_eb
+
+
+class UEBCCSD_Solver(EBCCSD_Solver):
+
+    def get_input(self, eris=None):
+        if eris is None:
+            eris = self.get_eris()
+        fock = self.base.get_fock()
+        f_act = tuple([dot(self.cluster.c_active[i].T, fock[i], self.cluster.c_active[i]) for i in [0, 1]])
+        if self.opts.v_ext is not None:
+            f_act = [x + y for x,y in zip(f_act, self.opts.v_ext)]
+        return f_act, eris, self.cluster.nocc_active, self.cluster.nvir_active
+
+    def get_ghf_to_uhf_indices(self):
+        no = sum(self.cluster.nocc_active)
+        nv = sum(self.cluster.nvir_active)
+        nso = no + nv
+        temp = [i for i in range(nso)]
+        aindx = temp[:self.cluster.nocc_active[0]] + temp[no:no + self.cluster.nvir_active[0]]
+        bindx = temp[self.cluster.nocc_active[0]:no] + temp[no + self.cluster.nvir_active[0]:]
+        return aindx, bindx
+
+    def make_rdm1(self):
+        # This is in GHF orbital ordering.
+        ghf_dm1 = self.solver.make_1rdm_f()
+        aindx, bindx = self.get_ghf_to_uhf_indices()
+        # Want UHF spin dm1.
+        self.dm1 = (ghf_dm1[np.ix_(aindx, aindx)], ghf_dm1[np.ix_(bindx, bindx)])
+        return self.dm1
+
+    def make_rdm2(self):
+        # This is in GHF orbital ordering.
+        ghf_dm2 = self.solver.make_2rdm_f()
+        aindx, bindx = self.get_ghf_to_uhf_indices()
+        self.dm2 = (ghf_dm2[np.ix_(aindx, aindx, aindx, aindx)], ghf_dm2[np.ix_(aindx, aindx, bindx, bindx)],
+                    ghf_dm2[np.ix_(bindx, bindx, bindx, bindx)])
+        return self.dm2

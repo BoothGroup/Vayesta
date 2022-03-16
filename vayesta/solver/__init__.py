@@ -13,7 +13,7 @@ from .cisd import CISD_Solver
 from .cisd import UCISD_Solver
 from .ebfci2 import EBFCI_Solver as EBFCI_Solver2
 from .ebfci2 import UEBFCI_Solver
-from .ebccsd import EBCCSD_Solver
+from .ebccsd import EBCCSD_Solver, UEBCCSD_Solver
 
 
 def is_uhf(mf):
@@ -58,6 +58,6 @@ def get_solver_class2(mf, solver):
         return EBFCI_Solver2
     if solver == 'EBCCSD':
         if uhf:
-            return False
+            return UEBCCSD_Solver
         return EBCCSD_Solver
     raise ValueError("Unknown solver: %s" % solver)

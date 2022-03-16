@@ -426,15 +426,19 @@ class EDMETFragment(DMETFragment):
             couplings[:, no:, :no] = einsum("npc,qc,pi,qa->nai", r_bos_ao, f, co, cv) - \
                                      einsum("nkq,pk,pi,qa->nai", r_bos_ao, f, co, cv)
             # o->o excitation within active space.
-            couplings[:, :no, :no] = - np.eye(no) * einsum("nck,ck->n", r_bos_ao, f) - \
+            fac = einsum("nck,ck->n", r_bos_ao, f)
+            couplings[:, :no, :no] = - einsum("pq,n->npq", np.eye(no), fac) - \
                                      einsum("npc,qc,pi,qj->nij", r_bos_ao, f, co, co)
             # v->v excitation within active space.
-            couplings[: no:, no:] = np.eye(nv) * einsum("nck,ck->n", r_bos_ao, f) - \
-                                    einsum("nkp,jq,pa,qb->ab", r_bos_ao, f, cv, cv)
+            couplings[:, no:, no:] = einsum("pq,n->npq", np.eye(nv), fac) - \
+                                     einsum("nkp,kq,pa,qb->nab", r_bos_ao, f, cv, cv)
             return couplings
 
         couplings_aa = get_fock_couplings_spin_channel(r_bos_aoa, fa, coa, cva, noa, nva)
         couplings_bb = get_fock_couplings_spin_channel(r_bos_aob, fb, cob, cvb, nob, nvb)
+        print(a_bos)
+        print(einsum("npq->pq", abs(couplings_aa)))
+        print(einsum("npq->pq", abs(couplings_bb)))
         # Get coulombic contribution; for coupling this is just V_{npq} <= C_{nkc}<pk||qc>.
         if self.base.with_df:
             for eri1 in self.mf.with_df.loop():
@@ -467,17 +471,23 @@ class EDMETFragment(DMETFragment):
         else:
             raise NotImplementedError("Explicit QBA Hamiltonian construction is currently only implemented for use with"
                                       "density fitting.")
-
-        # Need to check if boson-number-nonconserving value is nonzero:
-        if any(abs(bos_nonconserv) > 1e-6):
-            self.log.warning("Treating boson-non-conserving contribution via explicit density coupling; this is likely"
-                             " to result in less compact bosonic degrees of freedom than ZPM removal.")
-            #
+        if True:
             nelec = self.cluster.nocc_active
             if not isinstance(nelec, int):
                 nelec = sum(nelec)
+            shift = einsum("npp->n", couplings_aa[:, :noa, :noa]) + einsum("npp->n", couplings_bb[:, :nob, :nob])
+            bos_nonconserv += shift
+            couplings_aa[:, :noa, :noa] = - couplings_aa[:, :noa, :noa]
+            couplings_bb[:, :nob, :nob] = - couplings_bb[:, :nob, :nob]
+            self.log.warning("Treating boson-non-conserving contribution via explicit density coupling; this is likely"
+                             " to result in less compact bosonic degrees of freedom than ZPM removal.")
             couplings_aa += einsum("n,pq->npq", bos_nonconserv / nelec, np.eye(noa + nva))
             couplings_bb += einsum("n,pq->npq", bos_nonconserv / nelec, np.eye(nob + nvb))
+        #couplings_aa[:,:noa,:noa] = 0.0
+        #couplings_aa[:, noa:, noa:] = 0.0
+        #couplings_bb[:, :nob, :nob] = 0.0
+        #couplings_aa[:, nob:, nob:] = 0.0
+
 
         return couplings_aa, couplings_bb, a_bos, b_bos
 
@@ -592,7 +602,7 @@ class EDMETFragment(DMETFragment):
             # couplings -> double check.
             efb = 0.25 * (einsum("qr,npq,prn", p_imp[0], couplings[0], dm_eb[0]) +
                           einsum("qr,npq,prn", p_imp[1], couplings[1], dm_eb[1])
-                          - (einsum("qr,nqp,prn", p_imp[0], couplings[0], dm_eb[0]) +
+                          + (einsum("qr,nqp,prn", p_imp[0], couplings[0], dm_eb[0]) +
                              einsum("qr,nqp,prn", p_imp[1], couplings[1], dm_eb[1]))
                           )
 

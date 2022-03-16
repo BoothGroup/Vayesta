@@ -126,7 +126,7 @@ class EDMET(RDMET):
                 try:
                     new_err = electron_err(new_cpt)
                 except np.linalg.LinAlgError as e:
-                    if self.solver == "CCSD":
+                    if self.solver == "EBCCSD":
                         self.log.info("Caught DIIS error in CCSD; trying smaller chemical potential deviation.")
                         # Want to end up with 3/4 of current value after multiplied by two.
                         new_cpt = cpt - (new_cpt - cpt) * 3 / 8
