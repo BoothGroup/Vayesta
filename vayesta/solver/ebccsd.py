@@ -49,21 +49,22 @@ class EBCCSD_Solver(EBClusterSolver):
                                   "formalism or bosons without polaritonic shift.")
                 raise RuntimeError
             f_act = f_act + fock_shift[0]
-            couplings = [x + y for x, y in zip(couplings, coupling_shift)]
+            couplings = tuple([x + y for x, y in zip(couplings, coupling_shift)])
 
-        return (f_act, f_act), (eris, eris, eris), (self.cluster.nocc_active, self.cluster.nocc_active), \
-               (self.cluster.nvir_active, self.cluster.nvir_active), tuple([x.transpose(0, 2, 1) for x in couplings])
+        return ((f_act, f_act), (eris, eris, eris), (self.cluster.nocc_active, self.cluster.nocc_active),
+               (self.cluster.nvir_active, self.cluster.nvir_active)), tuple([x.transpose(0, 2, 1) for x in couplings])
 
     def kernel(self, eris=None):
         """Run FCI kernel."""
         from ebcc import ebccsd
 
-        inp = self.get_input(eris)
         t0 = timer()
         # This interface handles all conversion into GHF quantities for us.
         # [TODO] Double check if we need this transpose in the couplings.
         #  EBCC expects the annihilation term but may also swap the indexing of fermionic operators...
+        inp, couplings = self.get_input(eris)
         self.solver = ebccsd.EBCCSD.fromUHFarrays(*inp,
+                                                  gmat=couplings,
                                                   omega=self.fragment.bos_freqs,
                                                   rank=self.opts.rank, autogen_code=True)
 
@@ -148,10 +149,10 @@ class UEBCCSD_Solver(EBCCSD_Solver):
         couplings = self.fragment.couplings
         if self.opts.polaritonic_shift:
             fock_shift, coupling_shift = self.get_polaritonic_shift(self.fragment.bos_freqs, self.fragment.couplings)
-            f_act = [x + y for x, y in zip(f_act, fock_shift)]
-            couplings = [x + y for x, y in zip(couplings, coupling_shift)]
+            f_act = tuple([x + y for x, y in zip(f_act, fock_shift)])
+            couplings = tuple([x + y for x, y in zip(couplings, coupling_shift)])
 
-        return f_act, eris, self.cluster.nocc_active, self.cluster.nvir_active, \
+        return (f_act, eris, self.cluster.nocc_active, self.cluster.nvir_active), \
                tuple([x.transpose(0, 2, 1) for x in couplings])
 
     def get_ghf_to_uhf_indices(self):

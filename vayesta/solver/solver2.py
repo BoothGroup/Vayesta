@@ -276,10 +276,11 @@ class EBClusterSolver(ClusterSolver):
             noa = nob = no
         else:
             noa, nob = no
-        self._polaritonic_shift = np.multiply(freqs ** (-1), einsum("npp->n", couplings[0][:, :noa, noa]) +
-                                              einsum("npp->n", couplings[1][:, :nob, nob]))
-
-        fock_shift = tuple([- einsum("npq,n->pq", x + x.transponse(0, 2, 1), self.polaritonic_shift) for x in couplings])
+        self._polaritonic_shift = np.multiply(freqs ** (-1), einsum("npp->n", couplings[0][:, :noa, :noa]) +
+                                              einsum("npp->n", couplings[1][:, :nob, :nob]))
+        self.log.info("Applying Polaritonic shift gives energy change of %e",
+                      -sum(np.multiply(self._polaritonic_shift**2, freqs)))
+        fock_shift = tuple([- einsum("npq,n->pq", x + x.transpose(0, 2, 1), self.polaritonic_shift) for x in couplings])
 
         ne = noa + nob
         temp = np.multiply(self.polaritonic_shift, freqs) / ne
@@ -288,4 +289,8 @@ class EBClusterSolver(ClusterSolver):
 
     def get_eb_dm_polaritonic_shift(self):
         shift = self.polaritonic_shift
-        return tuple([-einsum("n,pq->npq", shift, x) for x in self.rdm1])
+        if isinstance(self.dm1, tuple):
+            # UHF calculation
+            return tuple([-einsum("n,pq->pqn", shift, x) for x in self.dm1])
+        else:
+            return (-einsum("n,pq->pqn", shift, self.dm1/2),)*2
