@@ -2,6 +2,7 @@ import pyscf
 import pyscf.ci
 
 from vayesta.core.util import *
+from vayesta.core.types import WaveFunction
 from .ccsd2 import CCSD_Solver
 
 
@@ -46,27 +47,35 @@ class CISD_Solver(CCSD_Solver):
         self.civec = self.solver.ci
         self.c0, self.c1, self.c2 = self.solver.cisdvec_to_amplitudes(self.civec)
 
+        self.wf = WaveFunction.from_pyscf(self.solver)
+
     def get_solver_class(self):
         # No DF version for CISD
         return pyscf.ci.cisd.CISD
 
+    @deprecated()
     def get_t1(self):
         return self.get_c1(intermed_norm=True)
 
+    @deprecated()
     def get_t2(self):
         return (self.c2 - einsum('ia,jb->ijab', self.c1, self.c1))/self.c0
 
+    @deprecated()
     def get_c1(self, intermed_norm=False):
         norm = 1/self.c0 if intermed_norm else 1
         return norm*self.c1
 
+    @deprecated()
     def get_c2(self, intermed_norm=False):
         norm = 1/self.c0 if intermed_norm else 1
         return norm*self.c2
 
+    @deprecated()
     def get_l1(self, **kwargs):
         return None
 
+    @deprecated()
     def get_l2(self, **kwargs):
         return None
 
@@ -85,6 +94,7 @@ class UCISD_Solver(CISD_Solver):
         # No DF version for UCISD
         return pyscf.ci.ucisd.UCISD
 
+    @deprecated()
     def get_t2(self):
         ca, cb = self.get_c1(intermed_norm=True)
         caa, cab, cbb = self.get_c2(intermed_norm=True)
@@ -93,10 +103,12 @@ class UCISD_Solver(CISD_Solver):
         tab = cab - einsum('ia,jb->ijab', ca, cb)
         return (taa, tab, tbb)
 
+    @deprecated()
     def get_c1(self, intermed_norm=False):
         norm = 1/self.c0 if intermed_norm else 1
         return (norm*self.c1[0], norm*self.c1[1])
 
+    @deprecated()
     def get_c2(self, intermed_norm=False):
         norm = 1/self.c0 if intermed_norm else 1
         return (norm*self.c2[0], norm*self.c2[1], norm*self.c2[2])

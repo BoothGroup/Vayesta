@@ -42,7 +42,6 @@ def get_global_t1_rhf(emb, get_lambda=False, mpi_target=None):
         if t1f is None: raise RuntimeError("T1 amplitudes not found for %s" % f)
         t1f = f.project_amplitude_to_fragment(t1f)
         t1 += einsum('ia,Ii,Aa->IA', t1f, ro, rv)
-
     # --- MPI
     if mpi:
         t1 = _mpi_reduce(emb.log, t1, mpi_target=mpi_target)
@@ -74,7 +73,6 @@ def get_global_t2_rhf(emb, get_lambda=False, symmetrize=True, mpi_target=None):
         if t2f is None: raise RuntimeError("Amplitudes not found for %s" % f)
         t2f = f.project_amplitude_to_fragment(t2f, symmetrize=symmetrize)
         t2 += einsum('ijab,Ii,Jj,Aa,Bb->IJAB', t2f, ro, ro, rv, rv)
-
     # --- MPI
     if mpi:
         t2 = _mpi_reduce(emb.log, t2, mpi_target=mpi_target)
@@ -108,7 +106,6 @@ def get_global_t1_uhf(emb, get_lambda=False, mpi_target=None):
         t1fa, t1fb = f.project_amplitude_to_fragment(t1f)
         t1a += einsum('ia,Ii,Aa->IA', t1fa, roa, rva)
         t1b += einsum('ia,Ii,Aa->IA', t1fb, rob, rvb)
-
     # --- MPI
     if mpi:
         t1a, t1b = _mpi_reduce(emb.log, t1a, t1b, mpi_target=mpi_target)
@@ -144,7 +141,6 @@ def get_global_t2_uhf(emb, get_lambda=False, symmetrize=True, mpi_target=None):
         t2aa += einsum('ijab,Ii,Jj,Aa,Bb->IJAB', t2faa, roa, roa, rva, rva)
         t2ab += einsum('ijab,Ii,Jj,Aa,Bb->IJAB', t2fab, roa, rob, rva, rvb)
         t2bb += einsum('ijab,Ii,Jj,Aa,Bb->IJAB', t2fbb, rob, rob, rvb, rvb)
-
     # --- MPI
     if mpi:
         t2aa, t2ab, t2bb = _mpi_reduce(emb.log, t2aa, t2ab, t2bb, mpi_target=mpi_target)

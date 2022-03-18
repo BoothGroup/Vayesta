@@ -22,11 +22,12 @@ log = logging.getLogger(__name__)
 # util module can be imported as *, such that the following is imported:
 __all__ = [
         # General
-        'NotSet', 'OptionsBase', 'StashBase',
+        'Object', 'NotSet', 'OptionsBase', 'StashBase',
         # NumPy replacements
         'dot', 'einsum', 'hstack',
         # New exceptions
         'AbstractMethodError', 'ConvergenceError', 'OrthonormalityError', 'ImaginaryPartError',
+        'NotCalculatedError',
         # Energy
         'energy_string',
         # Time & memory
@@ -38,6 +39,9 @@ __all__ = [
         'deprecated',
         'replace_attr', 'cached_method', 'break_into_lines', 'fix_orbital_sign',
         ]
+
+class Object:
+    pass
 
 class NotSetType:
     def __repr__(self):
@@ -191,6 +195,10 @@ class ImaginaryPartError(RuntimeError):
     pass
 
 class OrthonormalityError(RuntimeError):
+    pass
+
+class NotCalculatedError(AttributeError):
+    """Raise if a necessary attribute has not been calculated."""
     pass
 
 # --- Energy

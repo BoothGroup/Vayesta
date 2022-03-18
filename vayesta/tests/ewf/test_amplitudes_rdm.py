@@ -11,7 +11,7 @@ import vayesta.ewf
 from vayesta.tests.cache import moles
 
 
-class T_Amplitudes_Tests(unittest.TestCase):
+class T_AmplitudesTests(unittest.TestCase):
     key = 'h2o_ccpvdz'
 
     @classmethod
@@ -24,7 +24,7 @@ class T_Amplitudes_Tests(unittest.TestCase):
         cls.dm2 = cls.ccsd.make_rdm2()
 
         # Emb-CCSD
-        cls.emb = vayesta.ewf.EWF(moles[cls.key]['rhf'], bath_type='full', make_rdm1=True, make_rdm2=True)
+        cls.emb = vayesta.ewf.EWF(moles[cls.key]['rhf'], bath_type='full', make_dm1=True, make_dm2=True)
         cls.emb.iao_fragmentation()
         cls.emb.add_all_atomic_fragments()
         cls.emb.kernel()
@@ -111,7 +111,7 @@ class UMP2_Test(unittest.TestCase):
 
 
 class T_Amplitudes_UHF_Tests(unittest.TestCase):
-    key = 'h2o_ccpvdz'
+    key = 'h3_ccpvdz'
 
     @classmethod
     def setUpClass(cls):
@@ -123,10 +123,11 @@ class T_Amplitudes_UHF_Tests(unittest.TestCase):
         assert cls.ccsd.converged
         cls.dm1 = cls.ccsd.make_rdm1()
         cls.dm2 = cls.ccsd.make_rdm2()
+        cls.dm2c = cls.ccsd.make_rdm2(with_dm1=False)
 
         # Emb-UCCSD
         opts = {'conv_tol': 1e-12, 'conv_tol_normt': 1e-6}
-        cls.emb = vayesta.ewf.EWF(moles[cls.key]['uhf'], bath_type='full', solver_options=opts)
+        cls.emb = vayesta.ewf.EWF(moles[cls.key]['uhf'], bath_type='full', solve_lambda=True, solver_options=opts)
         cls.emb.iao_fragmentation()
         cls.emb.add_all_atomic_fragments()
         cls.emb.kernel()
@@ -181,6 +182,15 @@ class T_Amplitudes_UHF_Tests(unittest.TestCase):
     #    self.assertIsNone(np.testing.assert_allclose(dm2aa, self.dm2[0], atol=atol))
     #    self.assertIsNone(np.testing.assert_allclose(dm2ab, self.dm2[1], atol=atol))
     #    self.assertIsNone(np.testing.assert_allclose(dm2bb, self.dm2[2], atol=atol))
+
+    def test_dm2_proj_lambda(self):
+        """Test 2RDM
+        """
+        atol = 1e-8
+        dm2aa, dm2ab, dm2bb = self.emb.make_rdm2_ccsd_proj_lambda()
+        self.assertIsNone(np.testing.assert_allclose(dm2aa, self.dm2c[0], atol=atol))
+        self.assertIsNone(np.testing.assert_allclose(dm2ab, self.dm2c[1], atol=atol))
+        self.assertIsNone(np.testing.assert_allclose(dm2bb, self.dm2c[2], atol=atol))
 
 
 if __name__ == '__main__':

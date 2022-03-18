@@ -407,6 +407,14 @@ class UFragment(Fragment):
     # --- Overlap matrices
     # --------------------
 
+    def _csc_dot(self, c1, c2):
+        ovlp = self.base.get_ovlp()
+        return (dot(c1[0].T, ovlp, c2[0]), dot(c1[1].T, ovlp, c2[1]))
+
+    # get_co2fo etc inheritted
+
+    # --- Deprecated:
+
     def get_overlap_m2c(self):
         """Get rotation matrices from occupied/virtual active space to MF orbitals."""
         ovlp = self.base.get_ovlp()

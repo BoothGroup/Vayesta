@@ -11,6 +11,7 @@ import pyscf.pbc
 import pyscf.pbc.cc
 
 from vayesta.core.util import *
+from vayesta.core.types import WaveFunction
 from . import coupling
 #from .solver import ClusterSolver
 from .solver2 import ClusterSolver
@@ -104,24 +105,29 @@ class CCSD_Solver(ClusterSolver):
         self.ee_t_coeff = None
         self.ee_sf_coeff = None
 
+    @deprecated()
     def get_t1(self):
         return self.t1
 
+    @deprecated()
     def get_t2(self):
         return self.t2
 
+    @deprecated()
     def get_c1(self, intermed_norm=True):
         """C1 in intermediate normalization."""
         if not intermed_norm:
             raise ValueError()
         return self.t1
 
+    @deprecated()
     def get_c2(self, intermed_norm=True):
         """C2 in intermediate normalization."""
         if not intermed_norm:
             raise ValueError()
         return self.t2 + einsum('ia,jb->ijab', self.t1, self.t1)
 
+    @deprecated()
     def get_l1(self, t_as_lambda=None, solve_lambda=True):
         if t_as_lambda is None:
             t_as_lambda = self.opts.t_as_lambda
@@ -133,6 +139,7 @@ class CCSD_Solver(ClusterSolver):
             self.solve_lambda()
         return self.l1
 
+    @deprecated()
     def get_l2(self, t_as_lambda=None, solve_lambda=True):
         if t_as_lambda is None:
             t_as_lambda = self.opts.t_as_lambda
@@ -211,8 +218,8 @@ class CCSD_Solver(ClusterSolver):
             self.log.error("%s not converged!", self.__class__.__name__)
         else:
             self.log.debugv("%s converged.", self.__class__.__name__)
-        self.e_corr = self.solver.e_corr
         self.converged = self.solver.converged
+        self.e_corr = self.solver.e_corr
         self.t1 = self.solver.t1
         self.t2 = self.solver.t2
         if self.is_rhf:
@@ -241,6 +248,8 @@ class CCSD_Solver(ClusterSolver):
         if 'EE-SF' in self.opts.eom_ccsd:
             self.ee_sf_energy, self.ee_sf_coeff = self.eom_ccsd('EE-SF', eris)
 
+        self.wf = WaveFunction.from_pyscf(self.solver)
+
     def solve_lambda(self, l1=None, l2=None, eris=None):
         if eris is None: eris = self.eris
         with log_time(self.log.info, "Time for lambda-equations: %s"):
@@ -249,6 +258,7 @@ class CCSD_Solver(ClusterSolver):
             self.log.info("Lambda equations done. Lambda converged: %r", self.solver.converged_lambda)
             if not self.solver.converged_lambda:
                 self.log.error("Solution of lambda-equation not converged!")
+            self.wf.l1, self.wf.l2 = self.l1, self.l2
         return self.l1, self.l2
 
     def make_rdm1(self, l1=None, l2=None, with_frozen=False):
@@ -319,6 +329,7 @@ class UCCSD_Solver(CCSD_Solver):
             return pyscf.pbc.cc.ccsd.UCCSD
         return pyscf.cc.uccsd.UCCSD
 
+    @deprecated()
     def get_c2(self, intermed_norm=True):
         """C2 in intermediate normalization."""
         if not intermed_norm:

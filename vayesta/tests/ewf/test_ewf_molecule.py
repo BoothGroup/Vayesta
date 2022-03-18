@@ -84,8 +84,8 @@ class MoleculeEWFTests(unittest.TestCase):
         emb = ewf.EWF(
                 moles['lih_ccpvdz']['rhf'],
                 bath_type='full',
-                make_rdm1=True,
-                make_rdm2=True,
+                make_dm1=True,
+                make_dm2=True,
                 solver_options={
                     'conv_tol': self.CONV_TOL,
                     'conv_tol_normt': self.CONV_TOL_NORMT,

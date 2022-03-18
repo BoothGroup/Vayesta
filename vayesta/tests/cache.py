@@ -66,6 +66,11 @@ def register_system_mole(cache, key):
         mol.atom = 'H1 0 0 0; H2 0 0 1.0'
         mol.basis = 'cc-pvdz'
         rhf = uhf = True
+    elif key == 'h2_ccpvdz_df':
+        mol.atom = 'H1 0 0 0; H2 0 0 1.0'
+        mol.basis = 'cc-pvdz'
+        rhf = uhf = True
+        df = True
     elif key == 'h2_ccpvdz_stretch':
         mol.atom = 'H1 0 0 0; H2 0 0 1.4'
         mol.basis = 'cc-pvdz'
@@ -74,6 +79,46 @@ def register_system_mole(cache, key):
         mol.atom = 'H1 0 0 0; H2 0 0 5.0'
         mol.basis = 'cc-pvdz'
         uhf = True
+    elif key == 'h3_ccpvdz':
+        mol.atom = 'H1 0 0 0; H2 0 0 1; H2 0 1 0'
+        mol.basis = 'cc-pvdz'
+        spin = 1
+        uhf = True
+    elif key == 'h3_ccpvdz_df':
+        mol.atom = 'H1 0 0 0; H2 0 0 1; H2 0 1 0'
+        mol.basis = 'cc-pvdz'
+        uhf = True
+        spin = 1
+        df = True
+    elif key == 'h4_ccpvdz':
+        mol.atom = 'H1 0 0 0; H2 0 0.8 0; H2 3 0 0; H3 3 0.8 0'
+        mol.basis = 'cc-pvdz'
+        rhf = True
+    elif key == 'h4_ccpvdz_df':
+        mol.atom = 'H1 0 0 0; H2 0 0.8 0; H2 3 0 0; H3 3 0.8 0'
+        mol.basis = 'cc-pvdz'
+        rhf = True
+        df = True
+    elif key == 'h3_6-31g':
+        mol.atom = 'H1 0 0 0; H2 0 0 1.0; H2 0 0 2.0'
+        mol.basis = '6-31g'
+        spin = 1
+        uhf = True
+    elif key == 'h3_6-31g_df':
+        mol.atom = 'H1 0 0 0; H2 0 0 1.0; H2 0 0 2.0'
+        mol.basis = '6-31g'
+        uhf = True
+        spin = 1
+        df = True
+    elif key == 'h4_6-31g':
+        mol.atom = 'H1 0 0 0; H2 0 1 0; H2 1 0 0; H3 1 1 0'
+        mol.basis = '6-31g'
+        rhf = True
+    elif key == 'h4_6-31g_df':
+        mol.atom = 'H1 0 0 0; H2 0 1 0; H2 1 0 0; H3 1 1 0'
+        mol.basis = '6-31g'
+        rhf = True
+        df = True
     elif key == 'h2o_ccpvdz':
         mol.atom = molecules.water()
         mol.basis = 'cc-pvdz'

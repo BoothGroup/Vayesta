@@ -11,6 +11,8 @@ import pyscf.fci
 import pyscf.fci.addons
 
 from vayesta.core.util import *
+from vayesta.core.types import Orbitals
+from vayesta.core.types import FCI_WaveFunction
 from .solver2 import ClusterSolver
 
 
@@ -69,23 +71,29 @@ class FCI_Solver(ClusterSolver):
     def get_init_guess(self):
         return {'ci0' : self.civec}
 
+    @deprecated()
     def get_t1(self):
         return self.get_c1(intermed_norm=True)
 
+    @deprecated()
     def get_t2(self):
         return (self.c2 - einsum('ia,jb->ijab', self.c1, self.c1))/self.c0
 
+    @deprecated()
     def get_c1(self, intermed_norm=False):
         norm = 1/self.c0 if intermed_norm else 1
         return norm*self.c1
 
+    @deprecated()
     def get_c2(self, intermed_norm=False):
         norm = 1/self.c0 if intermed_norm else 1
         return norm*self.c2
 
+    @deprecated()
     def get_l1(self, **kwargs):
         return None
 
+    @deprecated()
     def get_l2(self, **kwargs):
         return None
 
@@ -122,13 +130,15 @@ class FCI_Solver(ClusterSolver):
         else:
             self.log.debugv("FCI converged.")
         self.log.timing("Time for FCI: %s", time_string(timer()-t0))
-        self.log.debugv("E(CAS)= %s", energy_string(e_fci))
+        self.log.debug("E(CAS)= %s", energy_string(e_fci))
         # TODO: This requires the E_core energy (and nuc-nuc repulsion)
         self.e_corr = np.nan
         self.converged = self.solver.converged
         s2, mult = self.solver.spin_square(self.civec, self.ncas, self.nelec)
         self.log.info("FCI: S^2= %.10f  multiplicity= %.10f", s2, mult)
         self.c0, self.c1, self.c2 = self.get_cisd_amps(self.civec)
+        mo = Orbitals(self.cluster.c_active, occ=self.cluster.nocc_active)
+        self.wf = FCI_WaveFunction(mo, self.civec)
 
     #def get_cisd_amps(self, civec):
     #    cisdvec = pyscf.ci.cisd.from_fcivec(civec, self.ncas, self.nelec)
@@ -212,6 +222,7 @@ class UFCI_Solver(FCI_Solver):
                      (h_eff[1] + self.opts.v_ext[1]))
         return h_eff
 
+    @deprecated()
     def get_t2(self):
         ca, cb = self.get_c1(intermed_norm=True)
         caa, cab, cbb = self.get_c2(intermed_norm=True)
@@ -220,10 +231,12 @@ class UFCI_Solver(FCI_Solver):
         tab = cab - einsum('ia,jb->ijab', ca, cb)
         return (taa, tab, tbb)
 
+    @deprecated()
     def get_c1(self, intermed_norm=False):
         norm = 1/self.c0 if intermed_norm else 1
         return (norm*self.c1[0], norm*self.c1[1])
 
+    @deprecated()
     def get_c2(self, intermed_norm=False):
         norm = 1/self.c0 if intermed_norm else 1
         return (norm*self.c2[0], norm*self.c2[1], norm*self.c2[2])

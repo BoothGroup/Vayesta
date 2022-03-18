@@ -1,5 +1,8 @@
 import numpy as np
 
+import pyscf
+import pyscf.cc
+
 from vayesta.core.util import *
 from vayesta.core.qemb import UFragment
 from vayesta.core.bath import UDMET_Bath
@@ -34,7 +37,7 @@ class UEWFFragment(UFragment, EWFFragment):
         self.bath = bath
         return bath
 
-    def get_fragment_energy(self, c1, c2, eris, fock=None, axis1='fragment'):
+    def get_fragment_energy(self, c1, c2, eris, fock=None, axis1='fragment', c2ba_order='ba'):
         """Calculate fragment correlation energy contribution from projected C1, C2.
 
         Parameters
@@ -114,12 +117,14 @@ class UEWFFragment(UFragment, EWFFragment):
         if axis1 == 'fragment':
             assert len(c2) == 4
             caa, cab, cba, cbb = c2
+            if c2ba_order == 'ab':
+                cba = cba.transpose(1,0,3,2)
             e_doubles = (einsum('xi,xjab,iajb', pxa, caa, gaa)/4
                        - einsum('xi,xjab,ibja', pxa, caa, gaa)/4
                        + einsum('xi,xjab,iajb', pxb, cbb, gbb)/4
                        - einsum('xi,xjab,ibja', pxb, cbb, gbb)/4
                        + einsum('xi,xjab,iajb', pxa, cab, gab)/2
-                       + einsum('xj,ixab,iajb', pxb, cba, gab)/2)
+                       + einsum('xi,xjab,jbia', pxb, cba, gab)/2)
         else:
             assert len(c2) == 3
             caa, cab, cbb = c2
@@ -133,6 +138,35 @@ class UEWFFragment(UFragment, EWFFragment):
         e_doubles = (self.opts.energy_factor*self.sym_factor * e_doubles)
         e_corr = (e_singles + e_doubles)
         return e_singles, e_doubles, e_corr
+
+    def make_partial_dm2(self, t_as_lambda=False, sym_t2=True):
+        t1 = self.results.wf.t1
+        t2 = self.results.wf.t2
+        pwf = self.results.pwf.restore(sym=sym_t2)
+        t1x, t2x = pwf.t1, pwf.t2
+        if t_as_lambda:
+            l1x, l2x = t1x, t2x
+        else:
+            l1x, l2x = pwf.l1, pwf.l2
+
+        # Only incore for UCCSD:
+        d2 = pyscf.cc.uccsd_rdm._gamma2_intermediates(None, t1, t2, l1x, l2x)
+
+        # Correction of unprojected terms (which do not involve L1/L2):
+        # dovov:
+        dtau = (t2x[0]-t2[0] + einsum('ia,jb->ijab', t1x[0]-t1[0], 2*t1[0]))/4
+        d2[0][0][:] += dtau.transpose(0,2,1,3)
+        d2[0][0][:] -= dtau.transpose(0,3,1,2)
+        # dovOV (symmetrize between t1x[0] and t1x[1]; t2x[1] should already be symmetrized):
+        dtau = ((t2x[1]-t2[1]) + einsum('ia,jb->ijab', t1x[0]-t1[0], t1[1]/2)
+                               + einsum('ia,jb->ijab', t1[0]/2, t1x[1]-t1[1]))/2
+        d2[0][1][:] += dtau.transpose(0,2,1,3)
+        # dOVOV:
+        dtau = (t2x[2]-t2[2] + einsum('ia,jb->ijab', t1x[1]-t1[1], 2*t1[1]))/4
+        d2[0][3][:] += dtau.transpose(0,2,1,3)
+        d2[0][3][:] -= dtau.transpose(0,3,1,2)
+        dm2 = pyscf.cc.uccsd_rdm._make_rdm2(None, None, d2, with_dm1=False, with_frozen=False)
+        return dm2
 
     def get_cluster_sz(self, proj=None):
         """<P S_z>"""

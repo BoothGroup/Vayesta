@@ -44,6 +44,7 @@ class ClusterSolver:
         # --- Results
         self.converged = False
         self.e_corr = 0
+        self.wf = None
         self.dm1 = None
         self.dm2 = None
 

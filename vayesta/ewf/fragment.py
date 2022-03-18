@@ -9,8 +9,10 @@ import numpy as np
 # Internal libaries
 import pyscf
 import pyscf.pbc
+import pyscf.cc
 
 # Local modules
+import vayesta
 from vayesta.core.util import *
 from vayesta.core import Fragment
 from vayesta.solver import get_solver_class2 as get_solver_class
@@ -38,9 +40,7 @@ class EWFFragment(Fragment):
         """Attributes set to `NotSet` inherit their value from the parent EWF object."""
         # Options also present in `base`:
         dmet_threshold: float = NotSet
-        make_rdm1: bool = NotSet
-        make_rdm2: bool = NotSet
-        #solve_lambda: bool = NotSet                 # If False, use T-amplitudes inplace of Lambda-amplitudes
+        solve_lambda: bool = NotSet
         t_as_lambda: bool = NotSet                  # If True, use T-amplitudes inplace of Lambda-amplitudes
         eom_ccsd: list = NotSet
         eom_ccsd_nroots: int = NotSet
@@ -73,18 +73,13 @@ class EWFFragment(Fragment):
         icmp2_bno_threshold: float = NotSet
         # --- Couple embedding problems (currently only CCSD and MPI)
         coupled_iterations: bool = NotSet
-        # --- Storage
-        store_t1:  Union[bool,str] = NotSet
-        store_t2:  Union[bool,str] = NotSet
-        store_l1:  Union[bool,str] = NotSet
-        store_l2:  Union[bool,str] = NotSet
-        store_t1x: Union[bool,str] = NotSet
-        store_t2x: Union[bool,str] = NotSet
-        store_l1x: Union[bool,str] = NotSet
-        store_l2x: Union[bool,str] = NotSet
-        store_dm1: Union[bool,str] = NotSet
-        store_dm2: Union[bool,str] = NotSet
-
+        ## --- Storage
+        #store_t2:  Union[bool,str] = NotSet
+        #store_l2:  Union[bool,str] = NotSet
+        #store_t2x: Union[bool,str] = NotSet
+        #store_l2x: Union[bool,str] = NotSet
+        make_dm1: bool = NotSet
+        make_dm2: bool = NotSet
 
     @dataclasses.dataclass
     class Results(Fragment.Results):
@@ -334,6 +329,25 @@ class EWFFragment(Fragment):
         with log_time(self.log.info, ("Time for %s solver:" % solver) + " %s"):
             cluster_solver.kernel(eris=eris, **init_guess)
 
+        # --- Lambda-equation (CCSD only)
+        if solver == 'CCSD':
+            solve_lambda = (self.opts.solve_lambda or self.opts.make_dm1 or self.opts.make_dm2)
+            if solve_lambda:
+                cluster_solver.solve_lambda()
+
+        # --- Add to results
+        results = self._results
+        results.bno_threshold = bno_threshold
+        results.n_active = cluster.norb_active
+        results.converged = cluster_solver.converged
+
+        # Wave-function
+        results.wf = cluster_solver.wf
+        try:
+            results.pwf = cluster_solver.wf.project(self.get_fo2co_occ(), inplace=False)
+        except NotImplementedError:
+            results.pwf = cluster_solver.wf.as_cisd().project(self.get_fo2co_occ(), inplace=False)
+
         # Get projected amplitudes ('p1', 'p2')
         if hasattr(cluster_solver, 'c0'):
             self.log.info("Weight of reference determinant= %.8g", abs(cluster_solver.c0))
@@ -341,7 +355,35 @@ class EWFFragment(Fragment):
         with log_time(self.log.info, ("Time for fragment energy= %s")):
             c1x = self.project_amp1_to_fragment(cluster_solver.get_c1(intermed_norm=True))
             c2x = self.project_amp2_to_fragment(cluster_solver.get_c2(intermed_norm=True))
-            e_singles, e_doubles, e_corr = self.get_fragment_energy(c1x, c2x, eris=eris)
+
+            # NEW:
+            #pwf_cisd = self.results.pwf.restore(self.get_fo2co_occ()).as_cisd(c0=1.0)
+            # OLD:
+            pwf_cisd = self.results.wf.as_cisd(c0=1.0)
+            pwf_cisd = pwf_cisd.project(self.get_fo2co_occ(), inplace=False)
+            c1x_2 = pwf_cisd.c1
+            c2x_2 = pwf_cisd.c2
+            # TODO: TEMP FIX
+            #if hasattr(pwf_cisd, 'c2ba') and len(pwf_cisd.c2) == 4:
+            #    c2x_2 = c2x_2[:2] + (c2x_2[2].transpose(1,0,3,2), c2x_2[3])
+
+            if False:
+                if isinstance(c1x_2, tuple):
+                    for i in range(2):
+                        print(np.linalg.norm(c1x[i] - c1x_2[i]))
+                        assert np.linalg.norm(c1x[i] - c1x_2[i]) < 1e-12
+                    for i in range(4):
+                        print(np.linalg.norm(c2x[i] - c2x_2[i]))
+                        assert np.linalg.norm(c2x[i] - c2x_2[i]) < 1e-12
+                else:
+                    print(np.linalg.norm(c1x - c1x_2))
+                    print(np.linalg.norm(c2x - c2x_2))
+                    assert np.linalg.norm(c1x - c1x_2) < 1e-12
+                    assert np.linalg.norm(c2x - c2x_2) < 1e-12
+            c1x, c2x = c1x_2, c2x_2
+
+            e_singles, e_doubles, e_corr = self.get_fragment_energy(c1x, c2x, eris=eris, c2ba_order='ba')
+            #e_singles, e_doubles, e_corr = self.get_fragment_energy(c1x, c2x, eris=eris, axis1='cluster')
             del c1x, c2x
 
         if (solver != 'FCI' and (e_singles > max(0.1*e_doubles, 1e-4))):
@@ -350,45 +392,38 @@ class EWFFragment(Fragment):
         else:
             self.log.debug("Energy components: E(S)= %s, E(D)= %s", energy_string(e_singles), energy_string(e_doubles))
         self.log.info("%s:  E(corr)= %+14.8f Ha", bno_threshold, e_corr)
-
-        # --- Add to results
-        results = self._results
-        results.bno_threshold = bno_threshold
-        results.n_active = cluster.norb_active
-        results.converged = cluster_solver.converged
         results.e_corr = e_corr
 
+
         # Store density-matrix
-        if self.opts.store_dm1 is True or self.opts.make_rdm1:
+        if self.opts.make_dm1:
             results.dm1 = cluster_solver.make_rdm1()
-        if self.opts.store_dm2 is True or self.opts.make_rdm2:
+        if self.opts.make_dm2:
             results.dm2 = cluster_solver.make_rdm2()
         # Store wave function amplitudes
-        if self.opts.store_t1:
-            results.t1 = cluster_solver.get_t1()
-        if self.opts.store_t2:
-            results.t2 = cluster_solver.get_t2()
-        solve_lambda = np.any([(getattr(self.opts, 'store_%s' % s) is True) for s in ['l1', 'l2', 'l1x', 'l2x']])
-        if self.opts.store_l1 and hasattr(cluster_solver, 'get_l1'):
-            l1 = cluster_solver.get_l1(solve_lambda=solve_lambda)
-            if l1 is not None:
-                results.l1 = l1
-        if self.opts.store_l2 and hasattr(cluster_solver, 'get_l2'):
-            l2 = cluster_solver.get_l2(solve_lambda=solve_lambda)
-            if l2 is not None:
-                results.l2 = l2
-        if self.opts.store_t1x:
-            results.t1x = self.project_amp1_to_fragment(cluster_solver.get_t1())
-        if self.opts.store_t2x:
-            results.t2x = self.project_amp2_to_fragment(cluster_solver.get_t2())
-        if self.opts.store_l1x and hasattr(cluster_solver, 'get_l1'):
-            l1 = cluster_solver.get_l1(solve_lambda=solve_lambda)
-            if l1 is not None:
-                results.l1x = self.project_amp1_to_fragment(l1)
-        if self.opts.store_l2x and hasattr(cluster_solver, 'get_l2'):
-            l2 = cluster_solver.get_l2(solve_lambda=solve_lambda)
-            if l2 is not None:
-                results.l2x = self.project_amp2_to_fragment(l2)
+        # OLD:
+        #results.t1 = cluster_solver.get_t1()
+        #if self.opts.store_t2:
+        #    results.t2 = cluster_solver.get_t2()
+        #if hasattr(cluster_solver, 'get_l1'):
+        #    l1 = cluster_solver.get_l1(solve_lambda=solve_lambda)
+        #    if l1 is not None:
+        #        results.l1 = l1
+        #if self.opts.store_l2 and hasattr(cluster_solver, 'get_l2'):
+        #    l2 = cluster_solver.get_l2(solve_lambda=solve_lambda)
+        #    if l2 is not None:
+        #        results.l2 = l2
+        #results.t1x = self.project_amp1_to_fragment(cluster_solver.get_t1())
+        #if self.opts.store_t2x:
+        #    results.t2x = self.project_amp2_to_fragment(cluster_solver.get_t2())
+        #if hasattr(cluster_solver, 'get_l1'):
+        #    l1 = cluster_solver.get_l1(solve_lambda=solve_lambda)
+        #    if l1 is not None:
+        #        results.l1x = self.project_amp1_to_fragment(l1)
+        #if self.opts.store_l2x and hasattr(cluster_solver, 'get_l2'):
+        #    l2 = cluster_solver.get_l2(solve_lambda=solve_lambda)
+        #    if l2 is not None:
+        #        results.l2x = self.project_amp2_to_fragment(l2)
         self._results = results
 
         # DMET energy
@@ -449,7 +484,7 @@ class EWFFragment(Fragment):
     def get_energy_prefactor(self):
         return self.sym_factor * self.opts.energy_factor
 
-    def get_fragment_energy(self, c1, c2, eris, fock=None, axis1='fragment'):
+    def get_fragment_energy(self, c1, c2, eris, fock=None, c2ba_order='ab', axis1='fragment'):
         """Calculate fragment correlation energy contribution from projected C1, C2.
 
         Parameters
@@ -541,6 +576,86 @@ class EWFFragment(Fragment):
              - einsum('ijkl,ij,kl->', dm2ab, proj1, proj2))/2
         ssz += einsum('ij,ik,jk->', dm1a, proj1, proj2)/2
         return ssz
+
+    def make_partial_dm1(self, t_as_lambda=False, with_t1=True, sym_t2=False):
+        """Currently CCSD only.
+
+        Without mean-field contribution!"""
+        t1 = self.results.get_t1()
+        t2 = self.results.get_t2()
+        if t_as_lambda:
+            l1x = self.results.t1x
+            l2x = self.results.t2x
+        else:
+            l1x = self.results.l1x
+            l2x = self.results.l2x
+        px = self.get_ovlp_cluster2frag_occ()
+        l1x = dot(px, l1x)
+        l2x = einsum('ix,xjab->ijab', px, l2x)
+        if sym_t2:
+            l2x += l2x.transpose(1,0,3,2)
+            l2x /= 2
+        t1x = dot(px, self.results.t1x)
+        if not with_t1:
+            t1 = t1x = l1x = np.zeros_like(t1)
+        doo, dov, dvo, dvv = pyscf.cc.ccsd_rdm._gamma1_intermediates(None, t1, t2, l1x, l2x)
+        dvo += (t1x - t1).T
+        dm1 = pyscf.cc.ccsd_rdm._make_rdm1(None, (doo, dov, dvo, dvv), with_frozen=False, with_mf=False)
+        return dm1
+
+    def make_partial_dm2(self, t_as_lambda=False, sym_t2=False):
+        """Currently CCSD only.
+
+        Without 1DM contribution!"""
+        t1 = self.results.get_t1()
+        t2 = self.results.get_t2()
+        if t_as_lambda:
+            l1x = self.results.t1x
+            l2x = self.results.t2x
+        else:
+            l1x = self.results.l1x
+            l2x = self.results.l2x
+        px = self.get_ovlp_cluster2frag_occ()
+        l1x = dot(px, l1x)
+        l2x = einsum('ix,xjab->ijab', px, l2x)
+        if sym_t2:
+            l2x += l2x.transpose(1,0,3,2)
+            l2x /= 2
+
+        cc = self.mf # Only attributes stdout, verbose, and max_memory are needed, just use mean-field object
+        d2 = pyscf.cc.ccsd_rdm._gamma2_intermediates(cc, t1, t2, l1x, l2x)
+        # Correct D2[ovov] part (first element of d2 tuple)
+        if t_as_lambda:
+            t1x = l1x
+            t2x = l2x
+        else:
+            t1x = dot(px, self.results.t1x)
+            t2x = einsum('ix,xjab->ijab', px, self.results.t2x)
+        if sym_t2:
+            t2x += t2x.transpose(1,0,3,2)
+            t2x /= 2
+        dtau = ((t2x-t2) + einsum('ia,jb->ijab', (t1x-t1), t1))
+        dovov = d2[0]
+        dovov += dtau.transpose(0,2,1,3)
+        dovov -= dtau.transpose(0,3,1,2)/2
+        dm2 = pyscf.cc.ccsd_rdm._make_rdm2(None, None, d2, with_dm1=False, with_frozen=False)
+        return dm2
+
+    def make_partial_dm1_energy(self, t_as_lambda=False):
+        dm1 = self.make_partial_dm1(t_as_lambda=t_as_lambda)
+        c_act = self.cluster.c_active
+        fock = np.linalg.multi_dot((c_act.T, self.base.get_fock(), c_act))
+        e_dm1 = einsum('ij,ji->', fock, dm1)
+        return e_dm1
+
+    def make_partial_dm2_energy(self, t_as_lambda=False, sym_t2=False):
+        dm2 = self.make_partial_dm2(t_as_lambda=t_as_lambda, sym_t2=sym_t2)
+        if self._eris is None:
+            eris = self.base.get_eris_array(self.cluster.c_active)
+        else:
+            eris = vayesta.core.ao2mo.helper.get_full_array(self._eris)
+        e_dm2 = einsum('ijkl,ijkl->', eris, dm2)/2
+        return e_dm2
 
     def eom_analysis(self, csolver, kind, filename=None, mode="a", sort_weight=True, r1_min=1e-2):
         kind = kind.upper()

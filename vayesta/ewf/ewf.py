@@ -4,6 +4,7 @@ from typing import Union
 # --- External
 import numpy as np
 # --- Internal
+import vayesta
 from vayesta.core.util import *
 from vayesta.core import Embedding
 from vayesta.core.mpi import mpi
@@ -13,7 +14,10 @@ from .fragment import EWFFragment as Fragment
 from .amplitudes import get_global_t1_rhf
 from .amplitudes import get_global_t2_rhf
 from .rdm import make_rdm1_ccsd
+from .rdm import make_rdm1_ccsd_old
+from .rdm import make_rdm1_ccsd_proj_lambda
 from .rdm import make_rdm2_ccsd
+from .rdm import make_rdm2_ccsd_proj_lambda
 from .icmp2 import get_intercluster_mp2_energy_rhf
 
 timer = mpi.timer
@@ -52,9 +56,7 @@ class EWF(Embedding):
         project_init_guess: bool = True     # Project converted T1,T2 amplitudes from a previous larger cluster
         orthogonal_mo_tol: float = False
         # --- Solver settings
-        make_rdm1: bool = False
-        make_rdm2: bool = False
-        #solve_lambda: bool = 'auto'         # If False, use T-amplitudes inplace of Lambda-amplitudes
+        solve_lambda: bool = False          # If True, solve for the Lambda-amplitudes if a CCSD solver is used
         t_as_lambda: bool = False           # If True, use T-amplitudes inplace of Lambda-amplitudes
         dm_with_frozen: bool = False        # Add frozen parts to cluster DMs
         eom_ccsd: list = dataclasses.field(default_factory=list)  # Perform EOM-CCSD in each cluster by default
@@ -78,21 +80,14 @@ class EWF(Embedding):
         #energy_partitioning: str = 'first-occ'
         strict: bool = False                # Stop if cluster not converged
         # --- Storage [True=store and force calculation, 'auto'=store if present, False=do not store]
-        store_t1:  Union[bool,str] = True
-        store_t2:  Union[bool,str] = True   # in future: False
-        store_l1:  Union[bool,str] = 'auto'
-        store_l2:  Union[bool,str] = 'auto' # in future: False
-        #store_t1x: Union[bool,str] = False  # in future: True
+        #store_t2:  Union[bool,str] = True   # in future: False
+        #store_l2:  Union[bool,str] = 'auto' # in future: False
         #store_t2x: Union[bool,str] = False  # in future: True
-        #store_l1x: Union[bool,str] = False  # in future: 'auto'
         #store_l2x: Union[bool,str] = False  # in future: 'auto'
-        store_t1x: Union[bool,str] = True
-        store_t2x: Union[bool,str] = True
-        store_l1x: Union[bool,str] = 'auto'
-        store_l2x: Union[bool,str] = 'auto'
-        store_dm1: Union[bool,str] = 'auto'
-        store_dm2: Union[bool,str] = 'auto'
-
+        #store_t2x: Union[bool,str] = True
+        #store_l2x: Union[bool,str] = 'auto'
+        make_dm1: bool = False
+        make_dm2: bool = False
 
     def __init__(self, mf, solver='CCSD', options=None, log=None, **kwargs):
         """Embedded wave function (EWF) calculation object.
@@ -388,6 +383,48 @@ class EWF(Embedding):
 
     def make_rdm2_ccsd(self, *args, **kwargs):
         return make_rdm2_ccsd(self, *args, **kwargs)
+
+    def make_rdm1_ccsd_old(self, *args, **kwargs):
+        return make_rdm1_ccsd_old(self, *args, **kwargs)
+
+    def make_rdm1_ccsd_proj_lambda(self, *args, **kwargs):
+        return make_rdm1_ccsd_proj_lambda(self, *args, **kwargs)
+
+    def make_rdm2_ccsd_proj_lambda(self, *args, **kwargs):
+        return make_rdm2_ccsd_proj_lambda(self, *args, **kwargs)
+
+    # --- Energy
+    # ----------
+
+    #@mpi.with_allreduce()
+    #def get_wf_corr_energy(self):
+    #    e1 = e2 = 0.0
+    #    for x in self.get_fragments(sym_parent=None, mpi_rank=mpi.rank):
+    #        #e1 += x.symmetry_factor * x.make_partial_dm1_energy(t_as_lambda=t_as_lambda)
+    #        #e2 += x.symmetry_factor * x.make_partial_dm2_energy(t_as_lambda=t_as_lambda)
+    #        x.results
+
+
+        #return (e1 + e2) / self.ncells
+
+
+    @mpi.with_allreduce()
+    def make_dm_corr_energy(self, t_as_lambda=False):
+        e1 = e2 = 0.0
+        for x in self.get_fragments(sym_parent=None, mpi_rank=mpi.rank):
+            e1 += x.symmetry_factor * x.make_partial_dm1_energy(t_as_lambda=t_as_lambda)
+            e2 += x.symmetry_factor * x.make_partial_dm2_energy(t_as_lambda=t_as_lambda)
+        return (e1 + e2) / self.ncells
+
+    def make_dm_energy(self, t_as_lambda=False):
+        e_corr = self.make_dm_corr_energy(t_as_lamba=t_as_lambda)
+        return self.e_mf + e_corr
+
+    def make_cumulant_energy(self, t_as_lambda=False, sym_t2=False):
+        ecum = 0.0
+        for x in self.get_fragments(sym_parent=None):
+            ecum += x.symmetry_factor * x.make_partial_dm2_energy(t_as_lambda=t_as_lambda, sym_t2=sym_t2)
+        return ecum
 
     get_intercluster_mp2_energy = get_intercluster_mp2_energy_rhf
 
