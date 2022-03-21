@@ -21,7 +21,7 @@ class EDMETFragment(DMETFragment):
     @dataclasses.dataclass
     class Options(DMETFragment.Options):
         make_rdm_eb: bool = True
-        make_dd_moments: bool = True
+        make_dd_moments: bool = NotSet
         old_sc_condition: bool = NotSet
         max_bos: int = NotSet
         occ_proj_kernel: bool = NotSet

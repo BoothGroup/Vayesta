@@ -33,10 +33,13 @@ class EDMET(RDMET):
     Fragment = EDMETFragment
 
     def __init__(self, mf, bno_threshold=np.inf, solver='EBFCI', options=None, log=None, **kwargs):
+        # If we aren't running in oneshot mode we need to calculate the dd moments.
+        if not kwargs["oneshot"]:
+            kwargs["make_dd_moments"] = True
+
         super().__init__(mf, bno_threshold, solver, options, log, **kwargs)
         self.interaction_kernel = None
-        # Need to calculate dd moments for self-consistency to work.
-        self.opts.make_dd_moments = True  # self.opts.maxiter > 1
+
 
     @property
     def with_df(self):
@@ -177,7 +180,8 @@ class EDMET(RDMET):
                 " nonlocal correlation energy={:8.4f} \n"
                 "           mean-field energy={:8.4f} \n"
                 "          correlation energy={:8.4f}".format(e1, e2, efb, self.e_nonlocal, emf, self.e_corr))
-
+            if self.opts.oneshot:
+                break
             # Want to do coupled DIIS optimisation of high-level rdms and local dd response moments.
             [curr_rdms, curr_dd0, curr_dd1], delta_prop = self.updater.update([self.hl_rdms, self.hl_dd0, self.hl_dd1])
 
