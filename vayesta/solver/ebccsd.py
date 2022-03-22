@@ -122,6 +122,8 @@ class EBCCSD_Solver(EBClusterSolver):
                 }
 
     def make_rdm_eb(self):
+        """P[p,q,b] corresponds to <0|b^+ p^+ q|0>.
+        """
         # This is in GHF orbital ordering, and returns both bosonic creation and annihilation.
         dm_eb = self.solver.make_eb_coup_rdm(unshifted_bos=True)
         aindx, bindx = self.get_ghf_to_uhf_indices()

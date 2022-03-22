@@ -97,6 +97,8 @@ class EBFCI_Solver(FCI_Solver, EBClusterSolver):
         return self.dd_moms
 
     def make_rdm_eb(self, civec=None):
+        """P[p,q,b] corresponds to <0|b^+ p^+ q|0>.
+        """
         # Note this is always spin-resolved, since bosonic couplings can have spin-dependence.
         if civec is None:
             civec = self.civec

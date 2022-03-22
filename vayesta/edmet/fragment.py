@@ -403,6 +403,11 @@ class EDMETFragment(DMETFragment):
         This represents the bosons as an explicit sum of environmental excitations, which we then approximate as bosonic
          degrees of freedom."""
 
+        # Note that electron-boson couplings set here describe a Hamiltonian with terms:
+        #       V[n,p,q] p^+ q b_n^+ + h.c.
+        # This is arbitrary (and indeed different solvers have different definitions) but this is definitely the one
+        # used here for all future reference (after much checking...).
+        t0 = timer()
         c = self.cluster.c_active
         if not isinstance(c, tuple):
             ca = cb = c
@@ -426,7 +431,9 @@ class EDMETFragment(DMETFragment):
         # Can just use expressions for Hamiltonian elements between single excitations.
         # First, get fock contributions. All are N^3 or less.
         # This will be zero if at HF solution.
+        # V_n <= C_{nia}f_{ia}
         bos_nonconserv = einsum("npq,pq->n", r_bos_aoa, fa) + einsum("npq,pq->n", r_bos_aob, fb)
+        # \Omega_n <= C_{mia}C_{nib}f_{ab} - C_{mia}C_{nja}f_{ij}
         a_bos = einsum("npq,msr,qr,ps->nm", r_bos_aoa, r_bos_aoa, fa, ovlp) + \
                 einsum("npq,msr,qr,ps->nm", r_bos_aob, r_bos_aob, fb, ovlp)
         a_bos -= einsum("npq,mrs,pr,qs->nm", r_bos_aoa, r_bos_aoa, fa, ovlp) + \
@@ -437,14 +444,17 @@ class EDMETFragment(DMETFragment):
             couplings = np.zeros((self.nbos,) + (no + nv,) * 2)
             # No o->v excitation fock contribution.
             # v->o excitation within active space.
+            # V_{nai} <= C_{nic}f_{ac} - C_{nka}f_{ik}
             couplings[:, no:, :no] = einsum("npc,qc,pi,qa->nai", r_bos_ao, f, dot(ovlp, co), cv) - \
                                      einsum("nkq,pk,pi,qa->nai", r_bos_ao, f, co, dot(ovlp, cv))
             # o->o excitation within active space. Note that we're constructing the non-normal ordered parameterisation
             # here, so all signs are flipped for o-o component.
+            # V_{nij} <= -(\delta_{ij}C_{nkc}f_{ck} - C_{njc}f_{ic})
             fac = einsum("nck,ck->n", r_bos_ao, f)
             couplings[:, :no, :no] = -einsum("pq,n->npq", np.eye(no), fac) + \
                                      einsum("npc,qc,qi,pj->nij", r_bos_ao, f, co, dot(ovlp, co))
             # v->v excitation within active space.
+            # V_{nab} <= C_{nic}f_{ac} C_{nka}f_{ik}
             couplings[:, no:, no:] = einsum("pq,n->npq", np.eye(nv), fac) - \
                                      einsum("nkp,kq,pa,qb->nab", r_bos_ao, f, dot(ovlp, cv), cv)
             return couplings
@@ -455,6 +465,10 @@ class EDMETFragment(DMETFragment):
         # Get coulombic contribution; for coupling this is just V_{npq} <= C_{nkc}<pk||qc>.
         ccouplings_aa = np.zeros_like(fcouplings_aa)
         ccouplings_bb = np.zeros_like(fcouplings_bb)
+
+        if exchange_between_bos:
+            t_bos_exchange = 0
+
         if self.base.with_df:
             for eri1 in self.mf.with_df.loop():
                 l_ = pyscf.lib.unpack_tril(eri1)
@@ -462,27 +476,37 @@ class EDMETFragment(DMETFragment):
                 l_bos = einsum("npq,mpq->nm", l_, r_bos_aoa + r_bos_aob)  # N^3
                 la_ferm = einsum("npq,pi,qj->nij", l_, ca, ca)  # N^3
                 lb_ferm = einsum("npq,pi,qj->nij", l_, cb, cb)  # N^3
-
+                # V_{npq} <= (pq|ia)C_{nia} = <pi|qa>C_{nia}
                 ccouplings_aa += einsum("nm,nij->mij", l_bos, la_ferm)  # N^3
                 ccouplings_bb += einsum("nm,nij->mij", l_bos, lb_ferm)  # N^3
                 del la_ferm, lb_ferm
+                # \Omega_n <= (ia|bj)C_{nia}C_{mjb} = <ib|aj>C_{nia}C_{mjb}
                 a_bos += einsum("nm,no->mo", l_bos, l_bos)  # N
                 del l_bos
                 # Now exchange contributions; those to the coupling are straightforward (N^3) to calculate.
+
                 la_singl = einsum("npq,pi->niq", l_, ca)  # N^3
                 lb_singl = einsum("npq,pi->niq", l_, cb)  # N^3
-
+                # V_{npq} <= -(pa|iq)C_{nia} = -<pi|aq>C_{nia}
                 ccouplings_aa -= einsum("nip,njq,mpq->mji", la_singl, la_singl, r_bos_aoa) # N^3
                 ccouplings_bb -= einsum("nip,njq,mpq->mji", lb_singl, lb_singl, r_bos_aob) # N^3
 
                 del la_singl, lb_singl
                 if exchange_between_bos:
+                    t_bosex_start = timer()
                     # boson-boson interactions are N^4, so if have O(N) clusters this would push our scaling to N^5...
                     # Note we want both `occupied` indices of bosonic degrees of freedom to contract to same l, and the
                     # same for both `virtual` indices.
+                    # Only same-spin so need to do different channels separately.
+                    # \Omega_n <= (ab|ji)C_{nia}C_{mjb} = <aj|bi>C_{nia}C_{mjb}
                     a_bos -= einsum("nqrm,nrql->ml",
-                                    einsum("npq,mpr->nqrm", l_, r_bos_aoa + r_bos_aob),
-                                    einsum("npq,lqr->nprl", l_, r_bos_aoa + r_bos_aob))
+                                    einsum("npq,mpr->nqrm", l_, r_bos_aoa),
+                                    einsum("npq,lrq->nprl", l_, r_bos_aoa))
+                    a_bos -= einsum("nqrm,nrql->ml",
+                                    einsum("npq,mpr->nqrm", l_, r_bos_aob),
+                                    einsum("npq,lrq->nprl", l_, r_bos_aob))
+
+                    t_bos_exchange += timer() - t_bosex_start
         else:
             raise NotImplementedError("Explicit QBA Hamiltonian construction is currently only implemented for use with"
                                       "density fitting.")
@@ -498,17 +522,19 @@ class EDMETFragment(DMETFragment):
         shift = -einsum("npp->n", couplings_aa[:, :noa, :noa]) - einsum("npp->n", couplings_bb[:, :nob, :nob])
 
         bos_nonconserv += shift
-        #couplings_aa[:, :noa, :noa] = - couplings_aa[:, :noa, :noa]
-        #couplings_bb[:, :nob, :nob] = - couplings_bb[:, :nob, :nob]
 
         couplings_aa += einsum("n,pq->npq", bos_nonconserv / nelec, np.eye(noa + nva))
         couplings_bb += einsum("n,pq->npq", bos_nonconserv / nelec, np.eye(nob + nvb))
 
-
         # Decouple bosons here.
         self.bos_freqs, c = np.linalg.eigh(a_bos)
         self.couplings = (einsum("nm,npq->mqp", c, couplings_aa), einsum("nm,npq->mqp", c, couplings_bb))
+        # ccouplings[n,p,q] = <pi||qa>C_{nia}; can use this for energy evaluation later.
         self.energy_couplings = (einsum("nm,npq->mqp", c, ccouplings_aa), einsum("nm,npq->mqp", c, ccouplings_bb))
+
+        self.log.info("Time for Bosonic Hamiltonian Projection in fragment %d:  %s", self.id, time_string(timer() - t0))
+        if exchange_between_bos:
+            self.log.info("Of this, %s was constructing bosonic exchange.", time_string(t_bos_exchange))
 
     def check_qba_approx(self, rdm1):
         """Given boson and cluster coefficient definitions, checks deviation from exact bosonic commutation relations
@@ -619,15 +645,13 @@ class EDMETFragment(DMETFragment):
 
         # Have separate spin contributions.
         if "qba" in self.opts.bosonic_interaction:
-            # Already have exchange effects included, so can use straightforward contraction.
-            # dm_eb -> <0|b^+ p^+ q|0> in P[p,q,b]
-            # couplings -> double check.
-            efb = 0.25 * (einsum("qr,npq,prn", p_imp[0], couplings[0], dm_eb[0]) +
-                          einsum("qr,npq,prn", p_imp[1], couplings[1], dm_eb[1])
-                          - (einsum("qr,nqp,prn", p_imp[0], couplings[0], dm_eb[0]) +
-                             einsum("qr,nqp,prn", p_imp[1], couplings[1], dm_eb[1]))
+            # Already have exchange effects included in interactions, so can use straightforward contraction.
+            # dm_eb -> <0|b^+ p^+ q|0> in P[p,q,b].
+            # couplings -> <pi||qa>C_{nia} in couplings[n,p,q].
+            # Want <pj||qb>C_{njb} ( <b_n^+ q^+ p> - <b_n q^+ p>) so our energy is:
+            efb = 0.25 * (einsum("qr,npq,rpn", p_imp[0], couplings[0], dm_eb[0] - dm_eb[0].transpose(1, 0, 2)) +
+                          einsum("qr,npq,rpn", p_imp[1], couplings[1], dm_eb[1] - dm_eb[1].transpose(1, 0, 2))
                           )
-
             self.delta = efb
         else:
             efb = 0.5 * (
