@@ -19,7 +19,7 @@ from .rdm import make_rdm1_ccsd_old
 from .rdm import make_rdm2_ccsd
 from .icmp2 import get_intercluster_mp2_energy_rhf
 
-from .rdm import _gamma2_intermediates 
+from .rdm import _gamma2_intermediates
 
 timer = mpi.timer
 
@@ -449,12 +449,12 @@ class EWF(Embedding):
 
     #    return c0, c1, c2
 
-    def get_rdm2_energy(self, global_dm1=True, global_dm2=False):
-        return self.mf.e_tot / self.ncells + self.get_rdm2_corr_energy(global_dm1=True, global_dm2=False)
+    def get_dm_energy(self, global_dm1=True, global_dm2=False):
+        return self.mf.e_tot / self.ncells + self.get_dm_corr_energy(global_dm1=True, global_dm2=False)
 
-    def get_rdm2_corr_energy(self, global_dm1=True, global_dm2=False):
-        """
-        Calculate energy via RDMs
+    def get_dm_corr_energy(self, global_dm1=True, global_dm2=False):
+        """Calculate correlation energy from reduced density-matrices.
+
 
         Parameters
         ----------
@@ -462,7 +462,12 @@ class EWF(Embedding):
             Use 1DM calculated from global amplitutes if True, otherwise use in cluster approximation. Default: True
         global_dm2 : bool
             Use 2DM calculated from global amplitutes if True, otherwise use in cluster approximation. Default: False
+
+        Returns
+        -------
+        e_dm : float
         """
+
 
         t_as_lambda = self.opts.t_as_lambda
         mf = self.mf
@@ -475,27 +480,22 @@ class EWF(Embedding):
             rdm1 = self.make_rdm1_ccsd(t_as_lambda=t_as_lambda)
         rdm1[np.diag_indices(nocc)] -= 2
 
-        # Core Hamiltonain + Non Cumulant 2DM contribution
-        E1 = einsum('pi,pq,qj,ij->', mf.mo_coeff.conj(), self.get_hcore() + self.get_veff(), mf.mo_coeff, rdm1)
+        # Core Hamiltonian + Non Cumulant 2DM contribution
+        E1 = einsum('pi,pq,qj,ij->', mf.mo_coeff, self.get_fock_for_energy(with_exxdiv=False), mf.mo_coeff, rdm1)
 
         # Cumulant 2DM contribution
         if global_dm2:
             # Calculate global 2RDM and contract with ERIs
             eri = mf._eri#emb.get_eris_array()
             eri = pyscf.ao2mo.kernel(mf.mol, mf.mo_coeff, compact=False).reshape([nmo]*4)
+            eri = self.get_eris_array(mf.mo_coeff)
             rdm2 = self.make_rdm2_ccsd(slow=True, t_as_lambda=t_as_lambda)
             E2 = einsum('pqrs,pqrs', eri, rdm2) * 0.5
-
-            #return Ecore + E2 + self.e_nuc
         else:
             # Fragment Local 2DM cumulant contribution
             E2 = sum([f.results.e_rdm2 for f in self.fragments])
 
         return (E1 + E2) / self.ncells
-
-
-
-
 
     def get_bath_bath_energy(self, method='avg', dm='t'):
         """

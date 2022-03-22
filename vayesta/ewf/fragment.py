@@ -395,8 +395,9 @@ class EWFFragment(Fragment):
                 t_as_lambda = self.opts.t_as_lambda
                 t1 = self.results.get_t1()
                 t2 = self.results.get_t2()
-                l2 = (self.results.get_t2() if t_as_lambda else self.results.l2)
-                l1 = (self.results.t1 if t_as_lambda else self.results.l1)
+                l1 = (t1 if t_as_lambda else self.results.l1)
+                l2 = (t2 if t_as_lambda else self.results.l2)
+
 
                 t1p = self.project_amplitude_to_fragment(t1)
                 l1p = self.project_amplitude_to_fragment(l1)
