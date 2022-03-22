@@ -34,7 +34,7 @@ class EDMET(RDMET):
 
     def __init__(self, mf, bno_threshold=np.inf, solver='EBFCI', options=None, log=None, **kwargs):
         # If we aren't running in oneshot mode we need to calculate the dd moments.
-        if not kwargs["oneshot"]:
+        if not kwargs.get("oneshot", False):
             kwargs["make_dd_moments"] = True
 
         super().__init__(mf, bno_threshold, solver, options, log, **kwargs)

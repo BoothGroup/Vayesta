@@ -70,7 +70,7 @@ class DMET(QEmbeddingMethod):
         t_start = timer()
         # If we're running in oneshot mode will only do a single iteration, regardless of this setting, but good to have
         # consistent settings.
-        if kwargs["oneshot"]:
+        if kwargs.get("oneshot", False):
             kwargs["maxiter"] = 1
 
         super().__init__(mf, options=options, log=log, **kwargs)
