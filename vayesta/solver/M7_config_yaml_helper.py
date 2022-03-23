@@ -28,8 +28,7 @@ class M7_config_to_dict:
     
     def __init__(self, path_to_M7):
         self.path_to_M7 = path_to_M7
-        process = Popen('./release', stdout=PIPE, stderr=PIPE, \
-                        shell=True, cwd=self.path_to_M7+'/build/src')
+        process = Popen(self.path_to_M7, stdout=PIPE, stderr=PIPE, shell=True)
         self.stdout, self.stderr = process.communicate()
         self.stdout = self.stdout.decode()
         self.M7_config_dict = {}

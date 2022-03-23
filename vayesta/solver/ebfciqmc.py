@@ -48,7 +48,7 @@ class UEBFCIQMCSolver(EBFCIQMCSolver, UFCIQMCSolver):
     pass
 
 
-def write_ebdump(v, v_unc=None, fname='EBDUMP'):
+def write_ebdump(v, v_unc=None, fname='EBDUMP', thresh=1e-12):
     '''
     write the coeffients of boson "excitations" and "de-excitations" which correspond to
     single fermion number-conserving excitations (ranksigs 1110, and 1101 in M7 nomenclature)
@@ -56,45 +56,62 @@ def write_ebdump(v, v_unc=None, fname='EBDUMP'):
 
     these coefficients are given here by the v, and v_unc (uncoupled) args respectively
     '''
-    assert len(v.shape) == 4
-    nbos = v.shape[1]
-    norb = v.shape[2]
+    if (len(v.shape) == 4):
+        assert v.shape[0]==2
+        spin_resolved = True
+        nmode = v.shape[1]
+        norb = v.shape[2]
+    else:
+        assert len(v.shape) == 3
+        spin_resolved = False
+        nmode = v.shape[0]
+        norb = v.shape[1]
+
     if v_unc is None:
-        v_unc = np.zeros(nbos)
+        v_unc = np.zeros(nmode)
     elif len(np.shape(v_unc)) == 0:
-        v_unc = np.ones(nbos) * v_unc
+        v_unc = np.ones(nmode) * v_unc
     else:
         assert len(np.shape(v_unc)) == 1
 
     with open(fname, 'w') as f:
-        f.write(header.format(norb))
-
-        for i in range(2):
-            for n in range(nbos):
+        f.write(header(norb, nmode, spin_resolved))
+        if spin_resolved:
+            for i in range(2):
+                for n in range(nmode):
+                    for p in range(norb):
+                        for q in range(norb):
+                            if (abs(v[i, n, p, q]) < thresh): continue
+                            f.write('{}    {}    {}    {}\n'.format(v[i, n, p, q], n + 1, 2 * p + 1 + i, 2 * q + 1 + i))
+        else:
+            for n in range(nmode):
                 for p in range(norb):
                     for q in range(norb):
-                        if (v[i, n, p, q] == 0.0): continue
-                        f.write('{}    {}    {}    {}\n'.format(v[i, n, p, q], n + 1, 2 * p + 1 + i, 2 * q + 1 + i))
-        for n in range(nbos):
+                        if (abs(v[n, p, q]) < thresh): continue
+                        f.write('{}    {}    {}    {}\n'.format(v[n, p, q], n + 1, p + 1, q + 1))
+
+        for n in range(nmode):
             if (v_unc[n] == 0.0): continue
             f.write('{}    {}    {}    {}\n'.format(v_unc[n], n + 1, 0, 0))
 
 
-def write_bosdump(w, fname='BOSDUMP'):
+def write_bosdump(w, fname='BOSDUMP', thresh=1e-12):
     '''
     write the coeffients of boson number-conserving operators (ranksig 0011 in M7 nomenclature)
     '''
-    nbos = w.shape[0]
+    nmode = w.shape[0]
     ndim = len(w.shape)
     if ndim == 1: w = np.diag(w)
     ndim = len(w.shape)
     assert ndim == 2
     with open(fname, 'w') as f:
-        f.write(header.format(nbos))
-        for n in range(nbos):
-            for m in range(nbos):
-                if (w[n, m] == 0.0): continue
-                f.write('{}    {}    {}\n'.format(w[n, m], n + 1, m + 1))
+        f.write(header(None, nmode))
+        for n in range(nmode):
+            for m in range(nmode):
+                if (abs(w[n, m]) < thresh): continue
+                # w is a coeff array for boson number-conserving singles, 
+                # but the BOSDUMP format supports upto doubles
+                f.write('{}    {}    {}    0     0\n'.format(w[n, m], n + 1, m + 1))
 
 
 def write_all(tmat, Umat, Vmat, Vmat_unc, Omat, ecore, nelec, fname_fcidump='FCIDUMP', fname_ebdump='EBDUMP',

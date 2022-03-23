@@ -18,10 +18,12 @@ from .fci2 import FCI_Solver, UFCI_Solver
 from .rdm_utils import load_spinfree_1rdm_from_m7, load_spinfree_1_2rdm_from_m7
 
 
-header = ''' &FCI NORB= {}
-UHF=.TRUE.
- &END
-'''
+def header(norb, nmode, uhf=None):
+    fields = []
+    if norb is not None: fields.append('NORB='+str(norb))
+    if nmode is not None: fields.append('NMODE='+str(nmode))
+    if uhf: fields.append('UHF=.TRUE.')
+    return '&FCI\n {}\n&END\n'.format(', '.join(fields))
 
 class FCIQMCSolver(FCI_Solver):
     @dataclasses.dataclass

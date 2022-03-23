@@ -32,7 +32,7 @@ def fci_dmet_edmet(mf, nimp, max_boson_occ=1):
 
 def fciqmc_edmet(mf, nimp, max_boson_occ=1):
     nsite = len(mf.mo_occ)
-    edmet = vayesta.edmet.EDMET(mf, solver="EBFCI", charge_consistent = True, maxiter=1, bath_type=None,
+    edmet = vayesta.edmet.EDMET(mf, solver="EBFCIQMC", charge_consistent = True, maxiter=1, bath_type=None,
             solver_options={'max_boson_occ': max_boson_occ})
     edmet.site_fragmentation()
     f = edmet.make_atom_fragment(list(range(nimp)))
