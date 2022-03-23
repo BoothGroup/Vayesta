@@ -229,7 +229,6 @@ class EDMETFragment(DMETFragment):
             couplings_bb = np.einsum("npq,nm->mpq", couplings_bb, x) + np.einsum("npq,nm->mqp", couplings_bb, y)
             self.couplings = (couplings_aa, couplings_bb)
 
-
         # Will also want to save the effective local modification resulting from our local construction.
         self.log.info("Local correlation energy for fragment %d: %6.4e", self.id, self.loc_erpa)
         return self.loc_erpa
@@ -427,7 +426,7 @@ class EDMETFragment(DMETFragment):
         nob, nvb = cob.shape[1], cvb.shape[1]
 
         ovlp = self.base.get_ovlp()
-
+        t_fock_start = timer()
         # Can just use expressions for Hamiltonian elements between single excitations.
         # First, get fock contributions. All are N^3 or less.
         # This will be zero if at HF solution.
@@ -446,51 +445,106 @@ class EDMETFragment(DMETFragment):
             # v->o excitation within active space.
             # V_{nai} <= C_{nic}f_{ac} - C_{nka}f_{ik}
             couplings[:, no:, :no] = einsum("npc,qc,pi,qa->nai", r_bos_ao, f, dot(ovlp, co), cv) - \
-                                     einsum("nkq,pk,pi,qa->nai", r_bos_ao, f, co, dot(ovlp, cv))
+                                        einsum("nkq,pk,pi,qa->nai", r_bos_ao, f, co, dot(ovlp, cv))
             # o->o excitation within active space. Note that we're constructing the non-normal ordered parameterisation
             # here, so all signs are flipped for o-o component.
             # V_{nij} <= -(\delta_{ij}C_{nkc}f_{ck} - C_{njc}f_{ic})
             fac = einsum("nck,ck->n", r_bos_ao, f)
             couplings[:, :no, :no] = -einsum("pq,n->npq", np.eye(no), fac) + \
-                                     einsum("npc,qc,qi,pj->nij", r_bos_ao, f, co, dot(ovlp, co))
+                                        einsum("npc,qc,qi,pj->nij", r_bos_ao, f, co, dot(ovlp, co))
             # v->v excitation within active space.
             # V_{nab} <= C_{nic}f_{ac} C_{nka}f_{ik}
             couplings[:, no:, no:] = einsum("pq,n->npq", np.eye(nv), fac) - \
-                                     einsum("nkp,kq,pa,qb->nab", r_bos_ao, f, dot(ovlp, cv), cv)
+                                        einsum("nkp,kq,pa,qb->nab", r_bos_ao, f, dot(ovlp, cv), cv)
             return couplings
 
         fcouplings_aa = get_fock_couplings_spin_channel(r_bos_aoa, fa, coa, cva, noa, nva)
         fcouplings_bb = get_fock_couplings_spin_channel(r_bos_aob, fb, cob, cvb, nob, nvb)
 
+        t_fock = timer() - t_fock_start
+
         # Get coulombic contribution; for coupling this is just V_{npq} <= C_{nkc}<pk||qc>.
         ccouplings_aa = np.zeros_like(fcouplings_aa)
         ccouplings_bb = np.zeros_like(fcouplings_bb)
 
+        t_coulomb = 0
         if exchange_between_bos:
             t_bos_exchange = 0
 
         if self.base.with_df:
             for eri1 in self.mf.with_df.loop():
+                # Here we've kept the old einsum expressions around just in case we need comparison later.
                 l_ = pyscf.lib.unpack_tril(eri1)
+                t_coulomb_start = timer()
                 # First generate coulomb interactions effects. This all scales as N^3.
-                l_bos = einsum("npq,mpq->nm", l_, r_bos_aoa + r_bos_aob)  # N^3
-                la_ferm = einsum("npq,pi,qj->nij", l_, ca, ca)  # N^3
-                lb_ferm = einsum("npq,pi,qj->nij", l_, cb, cb)  # N^3
+                # l_bos = einsum("npq,mpq->nm", l_, r_bos_aoa + r_bos_aob)  # N^3
+                # la_ferm = einsum("npq,pi,qj->nij", l_, ca, ca)  # N^3
+                # lb_ferm = einsum("npq,pi,qj->nij", l_, cb, cb)  # N^3
+
+                l_bos = np.tensordot(l_, r_bos_aoa + r_bos_aob, ([1, 2], [1, 2]))
+                la_ferm = np.tensordot(np.tensordot(l_, ca, ([1], [0])), ca, ([1], [0]))
+                lb_ferm = np.tensordot(np.tensordot(l_, cb, ([1], [0])), cb, ([1], [0]))
+
+                # print("!!1!!",
+                #    abs(einsum("npq,mpq->nm", l_, r_bos_aoa + r_bos_aob) - l_bos).max(),
+                #    abs(einsum("npq,pi,qj->nij", l_, ca, ca) - la_ferm).max(),
+                #    abs(einsum("npq,pi,qj->nij", l_, cb, cb) - lb_ferm).max()
+                # )
+
                 # V_{npq} <= (pq|ia)C_{nia} = <pi|qa>C_{nia}
-                ccouplings_aa += einsum("nm,nij->mij", l_bos, la_ferm)  # N^3
-                ccouplings_bb += einsum("nm,nij->mij", l_bos, lb_ferm)  # N^3
+                # ccouplings_aa += einsum("nm,nij->mij", l_bos, la_ferm)  # N^3
+                # ccouplings_bb += einsum("nm,nij->mij", l_bos, lb_ferm)  # N^3
+                ccouplings_aa += np.tensordot(l_bos, la_ferm, ([0], [0]))
+                ccouplings_bb += np.tensordot(l_bos, lb_ferm, ([0], [0]))
+
+                # print("!!2!!",
+                #      abs(einsum("nm,nij->mij", l_bos, la_ferm) - np.tensordot(l_bos, la_ferm, ([0], [0]))).max(),
+                #      abs( einsum("nm,nij->mij", l_bos, lb_ferm) - np.tensordot(l_bos, lb_ferm, ([0], [0]))).max()
+                #      )
+
                 del la_ferm, lb_ferm
                 # \Omega_n <= (ia|bj)C_{nia}C_{mjb} = <ib|aj>C_{nia}C_{mjb}
-                a_bos += einsum("nm,no->mo", l_bos, l_bos)  # N
+                # a_bos += einsum("nm,no->mo", l_bos, l_bos)  # N
+                a_bos += np.tensordot(l_bos, l_bos, ([0], [0]))
                 del l_bos
                 # Now exchange contributions; those to the coupling are straightforward (N^3) to calculate.
-
-                la_singl = einsum("npq,pi->niq", l_, ca)  # N^3
-                lb_singl = einsum("npq,pi->niq", l_, cb)  # N^3
+                # la_singl = einsum("npq,pi->niq", l_, ca)  # N^3
+                # lb_singl = einsum("npq,pi->niq", l_, cb)  # N^3
+                la_singl = np.tensordot(l_, ca, ([1], [0])).transpose((0, 2, 1))  # N^3
+                lb_singl = np.tensordot(l_, cb, ([1], [0])).transpose((0, 2, 1))  # N^3
+                # print("!!3!!",
+                #      abs(einsum("npq,pi->niq", l_, ca) - la_singl).max(),
+                #      abs(einsum("npq,pi->niq", l_, cb) - lb_singl).max())
                 # V_{npq} <= -(pa|iq)C_{nia} = -<pi|aq>C_{nia}
-                ccouplings_aa -= einsum("nip,njq,mpq->mji", la_singl, la_singl, r_bos_aoa) # N^3
-                ccouplings_bb -= einsum("nip,njq,mpq->mji", lb_singl, lb_singl, r_bos_aob) # N^3
+                # ccouplings_aa -= einsum("nip,njq,mpq->mji", la_singl, la_singl, r_bos_aoa)  # N^3
+                # ccouplings_bb -= einsum("nip,njq,mpq->mji", lb_singl, lb_singl, r_bos_aob)  # N^3
 
+                ccouplings_aa -= np.tensordot(
+                    la_singl,
+                    np.tensordot(la_singl, r_bos_aoa, ([2], [2])),  # njq,mpq->njmp
+                    ([0, 2], [0, 3])
+                ).transpose([2, 1, 0])  # nip,njmp->ijm->mji
+
+                ccouplings_bb -= np.tensordot(
+                    lb_singl,
+                    np.tensordot(lb_singl, r_bos_aob, ([2], [2])),  # njq,mpq->njmp
+                    ([0, 2], [0, 3])
+                ).transpose([2, 1, 0])  # nip,njmp->ijm->mji
+
+                # print("!!4!!",
+                #      abs(einsum("nip,njq,mpq->mji", la_singl, la_singl, r_bos_aoa) - np.tensordot(
+                #    la_singl,
+                #    np.tensordot(la_singl, r_bos_aoa, ([2], [2])),  # njq,mpq->njmp
+                #    ([0, 2], [0, 3])
+                # ).transpose([2, 1, 0])).max(),
+                #      abs(einsum("nip,njq,mpq->mji", lb_singl, lb_singl, r_bos_aob) - np.tensordot(
+                #    lb_singl,
+                #    np.tensordot(lb_singl, r_bos_aob, ([2], [2])),  # njq,mpq->njmp
+                #    ([0, 2], [0, 3])
+                # ).transpose([2, 1, 0])).max()
+                #      )
+
+                t_coulomb += timer() - t_coulomb_start
                 del la_singl, lb_singl
                 if exchange_between_bos:
                     t_bosex_start = timer()
@@ -499,12 +553,19 @@ class EDMETFragment(DMETFragment):
                     # same for both `virtual` indices.
                     # Only same-spin so need to do different channels separately.
                     # \Omega_n <= (ab|ji)C_{nia}C_{mjb} = <aj|bi>C_{nia}C_{mjb}
-                    a_bos -= einsum("nqrm,nrql->ml",
-                                    einsum("npq,mpr->nqrm", l_, r_bos_aoa),
-                                    einsum("npq,lrq->nprl", l_, r_bos_aoa))
-                    a_bos -= einsum("nqrm,nrql->ml",
-                                    einsum("npq,mpr->nqrm", l_, r_bos_aob),
-                                    einsum("npq,lrq->nprl", l_, r_bos_aob))
+                    # a_bos -= einsum("nqrm,nrql->ml",
+                    #                einsum("npq,mpr->nqrm", l_, r_bos_aoa),
+                    #                einsum("npq,lrq->nprl", l_, r_bos_aoa))
+                    # a_bos -= einsum("nqrm,nrql->ml",
+                    #                einsum("npq,mpr->nqrm", l_, r_bos_aob),
+                    #                einsum("npq,lrq->nprl", l_, r_bos_aob))
+
+                    a_bos -= np.tensordot(np.tensordot(l_, r_bos_aoa, ([1], [1])),  # npq,mpr->nqmr
+                                          np.tensordot(l_, r_bos_aoa, ([2], [2])),  # npq,mrq->npmr
+                                          ([0, 1, 3], [0, 3, 1]))  # nqmr,nrlq->ml
+                    a_bos -= np.tensordot(np.tensordot(l_, r_bos_aob, ([1], [1])),  # npq,mpr->nqmr
+                                          np.tensordot(l_, r_bos_aob, ([2], [2])),  # npq,mrq->npmr
+                                          ([0, 1, 3], [0, 3, 1]))  # nqmr,nrlq->ml
 
                     t_bos_exchange += timer() - t_bosex_start
         else:
@@ -532,9 +593,15 @@ class EDMETFragment(DMETFragment):
         # ccouplings[n,p,q] = <pi||qa>C_{nia}; can use this for energy evaluation later.
         self.energy_couplings = (einsum("nm,npq->mqp", c, ccouplings_aa), einsum("nm,npq->mqp", c, ccouplings_bb))
 
-        self.log.info("Time for Bosonic Hamiltonian Projection in fragment %d:  %s", self.id, time_string(timer() - t0))
+        self.log.info("Time for Bosonic Hamiltonian Projection into fragment %d:  %s", self.id,
+                      time_string(timer() - t0))
         if exchange_between_bos:
-            self.log.info("Of this, %s was constructing bosonic exchange.", time_string(t_bos_exchange))
+            self.log.info("         %s for fock components, %s for N^3 scaling coulombic components and %s for N^4 "
+                          "bosonic exchange.", time_string(t_fock), time_string(t_coulomb),
+                          time_string(t_bos_exchange))
+        else:
+            self.log.info("         %s for fock components, and %s for N^3 scaling coulombic components.",
+                          time_string(t_fock), time_string(t_coulomb))
 
     def check_qba_approx(self, rdm1):
         """Given boson and cluster coefficient definitions, checks deviation from exact bosonic commutation relations
