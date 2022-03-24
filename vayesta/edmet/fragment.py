@@ -9,6 +9,7 @@ from vayesta.core.util import *
 from vayesta.dmet.fragment import DMETFragment
 from vayesta.solver import get_solver_class2 as get_solver_class
 
+from pyscf import __config__
 
 class EDMETFragmentExit(Exception):
     pass
@@ -472,7 +473,18 @@ class EDMETFragment(DMETFragment):
             t_bos_exchange = 0
 
         if self.base.with_df:
-            for eri1 in self.mf.with_df.loop():
+            if exchange_between_bos:
+                blk_prefactor = self.nbos * (self.mf.mol.nao ** 2)
+            else:
+                blk_prefactor = self.mf.mol.nao ** 2
+            # Limit ourselves to only use quarter the maximum memory for the single largest array.
+            blksize = int(__config__.MAX_MEMORY / (4 * 8.0 * blk_prefactor))
+            if blksize > self.mf.with_df.get_naoaux():
+                blksize = None
+            else:
+                self.log.info("Using blksize of %d to generate Bosonic Hamiltonian.qq", blksize)
+
+            for eri1 in self.mf.with_df.loop(blksize):
                 # Here we've kept the old einsum expressions around just in case we need comparison later.
                 l_ = pyscf.lib.unpack_tril(eri1)
                 t_coulomb_start = timer()
