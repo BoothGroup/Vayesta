@@ -85,24 +85,26 @@ class EBCCSD_Solver(EBClusterSolver):
         bindx = temp[self.cluster.nocc_active:no] + temp[no + self.cluster.nvir_active:]
         return aindx, bindx
 
-    def make_rdm1(self):
+    def make_rdm1(self, frag_proj=False):
+        subspace_proj = self.get_ghf_occ_fragment_proj() if frag_proj else None
         # This is in GHF orbital ordering.
-        ghf_dm1 = self.solver.make_1rdm_f()
+        ghf_dm1 = self.solver.make_1rdm_f(subspace_proj=subspace_proj)
         aindx, bindx = self.get_ghf_to_uhf_indices()
         # Want RHF spatial dm1.
         self.dm1 = ghf_dm1[np.ix_(aindx, aindx)] + ghf_dm1[np.ix_(bindx, bindx)]
         return self.dm1
 
-    def make_rdm2(self):
+    def make_rdm2(self, frag_proj=False):
+        subspace_proj = self.get_ghf_occ_fragment_proj() if frag_proj else None
         # This is in GHF orbital ordering.
-        ghf_dm2 = self.solver.make_2rdm_f()
+        ghf_dm2 = self.solver.make_2rdm_f(subspace_proj=subspace_proj)
         aindx, bindx = self.get_ghf_to_uhf_indices()
         self.dm2 = ghf_dm2[np.ix_(aindx, aindx, aindx, aindx)] + ghf_dm2[np.ix_(bindx, bindx, bindx, bindx)] + \
                    ghf_dm2[np.ix_(aindx, aindx, bindx, bindx)] + ghf_dm2[np.ix_(bindx, bindx, aindx, aindx)]
         return self.dm2
 
-    def make_rdm12(self):
-        return self.make_rdm1(), self.make_rdm2()
+    def make_rdm12(self, frag_proj=False):
+        return self.make_rdm1(frag_proj), self.make_rdm2(frag_proj)
 
     def make_dd_moms(self, max_mom, coeffs=None):
         dd_moms = self.solver.make_dd_EOM_moms(max_mom, include_ref_proj=True)
@@ -121,11 +123,12 @@ class EBCCSD_Solver(EBClusterSolver):
                 for i, v in dd_moms.items()
                 }
 
-    def make_rdm_eb(self):
+    def make_rdm_eb(self, frag_proj=False):
         """P[p,q,b] corresponds to <0|b^+ p^+ q|0>.
         """
+        subspace_proj = self.get_ghf_occ_fragment_proj() if frag_proj else None
         # This is in GHF orbital ordering, and returns both bosonic creation and annihilation.
-        dm_eb = self.solver.make_eb_coup_rdm(unshifted_bos=True)
+        dm_eb = self.solver.make_eb_coup_rdm(unshifted_bos=True, subspace_proj=subspace_proj)
         aindx, bindx = self.get_ghf_to_uhf_indices()
         # Check that the density matrices from CC obey this relation; if not we probably need to average, but want to
         # know.
@@ -143,6 +146,7 @@ class EBCCSD_Solver(EBClusterSolver):
         """
         proj = self.fragment.get_fragment_projector(self.fragment.cluster.c_active_occ)
         from ebcc import utils
+        print(utils.block_diag(proj, proj))
         return utils.block_diag(proj, proj)
 
 

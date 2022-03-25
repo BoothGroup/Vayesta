@@ -28,6 +28,7 @@ class EDMETFragment(DMETFragment):
         occ_proj_kernel: bool = NotSet
         boson_xc_kernel: bool = NotSet
         bosonic_interaction: str = NotSet
+        dem_part_energy: bool = NotSet
 
     @dataclasses.dataclass
     class Results(DMETFragment.Results):
@@ -36,6 +37,9 @@ class EDMETFragment(DMETFragment):
         boson_freqs: tuple = None
         dd_mom0: np.ndarray = None
         dd_mom1: np.ndarray = None
+        proj_dm1: np.ndarray = None
+        proj_dm2: np.ndarray = None
+        proj_dm_eb: np.ndarray = None
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -482,7 +486,7 @@ class EDMETFragment(DMETFragment):
             if blksize > self.mf.with_df.get_naoaux():
                 blksize = None
             else:
-                self.log.info("Using blksize of %d to generate Bosonic Hamiltonian.qq", blksize)
+                self.log.info("Using blksize of %d to generate Bosonic Hamiltonian.", blksize)
 
             for eri1 in self.mf.with_df.loop(blksize):
                 # Here we've kept the old einsum expressions around just in case we need comparison later.
@@ -676,14 +680,20 @@ class EDMETFragment(DMETFragment):
         if self.opts.make_rdm2:
             results.dm1, results.dm2 = cluster_solver.make_rdm12()
             self.check_qba_approx(results.dm1)
+            if not self.opts.dem_part_energy:
+                results.proj_dm1, results.proj_dm2 = cluster_solver.make_rdm12(frag_proj=True)
         elif self.opts.make_rdm1:
             results.dm1 = cluster_solver.make_rdm1()
             self.check_qba_approx(results.dm1)
+            if not self.opts.dem_part_energy:
+                results.proj_dm1 = cluster_solver.make_rdm1(frag_proj=True)
         if self.opts.make_rdm_eb:
             if cluster_solver.opts.polaritonic_shift and results.dm1 is None:
                 # Need 1rdm calculated to get polaritonic shift out.
                 results.dm1 = cluster_solver.make_rdm1()
             results.dm_eb = cluster_solver.make_rdm_eb()
+            if not self.opts.dem_part_energy:
+                results.proj_dm_eb = cluster_solver.make_rdm_eb(frag_proj=True)
         if self.opts.make_dd_moments:
             r_o, r_v = self.get_overlap_c2f()
             if isinstance(r_o, tuple):
@@ -738,6 +748,42 @@ class EDMETFragment(DMETFragment):
                     np.einsum("qr,npq,prn", p_imp[0], couplings[0], dm_eb[0]) +
                     np.einsum("pr,npq,rqn", p_imp[1], couplings[1], dm_eb[1]) +
                     np.einsum("qr,npq,prn", p_imp[1], couplings[1], dm_eb[1])
+            )
+        return e1, e2, efb
+
+    def get_subspace_proj_energy(self):
+        c_act = self.cluster.c_active
+
+        # Temporary implementation
+        t0 = timer()
+        eris = self.base.get_eris_array(c_act)
+        self.log.timing("Time for AO->MO of (ij|kl):  %s", time_string(timer() - t0))
+
+        nocc = self.cluster.c_active_occ.shape[1]
+        occ = np.s_[:nocc]
+        # Calculate the effective onebody interaction within the cluster.
+        f_act = np.linalg.multi_dot((c_act.T, self.mf.get_fock(), c_act))
+        v_act = 2 * np.einsum('iipq->pq', eris[occ, occ]) - np.einsum('iqpi->pq', eris[occ, :, :, occ])
+        h_eff = f_act - v_act
+        h_bare = np.linalg.multi_dot((c_act.T, self.base.get_hcore(), c_act))
+
+        e1 = 0.5 * dot(h_bare + h_eff, self.results.proj_dm1).trace()
+        e2 = 0.5 * np.einsum('pqrs,pqrs->', eris, self.results.proj_dm2)
+        dm_eb = self._results.proj_dm_eb
+        couplings = self.energy_couplings
+        if "qba" in self.opts.bosonic_interaction:
+            # Already have exchange effects included in interactions, so can use straightforward contraction.
+            # dm_eb -> <0|b^+ p^+ q|0> in P[p,q,b].
+            # couplings -> <pi||qa>C_{nia} in couplings[n,p,q].
+            # Want <pj||qb>C_{njb} ( <b_n^+ q^+ p> - <b_n q^+ p>) so our energy is:
+            efb = 0.25 * (einsum("npq,qpn", couplings[0], dm_eb[0] - dm_eb[0].transpose(1, 0, 2)) +
+                          einsum("npq,qpn", couplings[1], dm_eb[1] - dm_eb[1].transpose(1, 0, 2))
+                          )
+            self.delta = efb
+        else:
+            efb = 0.5 * (
+                    np.einsum("npq,pqn", couplings[0], dm_eb[0] + dm_eb[0].transpose(1, 0, 2)) +
+                    np.einsum("npq,pqn", couplings[1], dm_eb[1] + dm_eb[0].transpose(1, 0, 2))
             )
         return e1, e2, efb
 

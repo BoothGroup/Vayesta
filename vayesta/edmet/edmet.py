@@ -29,6 +29,7 @@ class EDMET(RDMET):
         occ_proj_kernel: bool = True
         boson_xc_kernel: bool = False
         bosonic_interaction: str = "xc"
+        dem_part_energy: bool = True
 
     Fragment = EDMETFragment
 
@@ -165,7 +166,11 @@ class EDMET(RDMET):
 
             e1, e2, efb, emf = 0.0, 0.0, 0.0, 0.0
             for x, frag in enumerate(sym_parents):
-                e1_contrib, e2_contrib, efb_contrib = frag.get_edmet_energy_contrib()
+                if self.opts.dem_part_energy:
+                    e1_contrib, e2_contrib, efb_contrib = frag.get_edmet_energy_contrib()
+                else:
+                    e1_contrib, e2_contrib, efb_contrib = frag.get_subspace_proj_energy()
+
                 e1 += e1_contrib * nsym[x]
                 e2 += e2_contrib * nsym[x]
                 efb += efb_contrib * nsym[x]
