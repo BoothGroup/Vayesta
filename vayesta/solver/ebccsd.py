@@ -137,6 +137,14 @@ class EBCCSD_Solver(EBClusterSolver):
             self.dm_eb = [x + y for x, y in zip(self.dm_eb, self.get_eb_dm_polaritonic_shift())]
         return self.dm_eb
 
+    def get_ghf_occ_fragment_proj(self):
+        """
+        :return:
+        """
+        proj = self.fragment.get_fragment_projector(self.fragment.cluster.c_active_occ)
+        from ebcc import utils
+        return utils.block_diag(proj, proj)
+
 
 class UEBCCSD_Solver(EBCCSD_Solver):
 
@@ -181,3 +189,11 @@ class UEBCCSD_Solver(EBCCSD_Solver):
         self.dm2 = (ghf_dm2[np.ix_(aindx, aindx, aindx, aindx)], ghf_dm2[np.ix_(aindx, aindx, bindx, bindx)],
                     ghf_dm2[np.ix_(bindx, bindx, bindx, bindx)])
         return self.dm2
+
+    def get_ghf_occ_fragment_proj(self):
+        """
+        :return:
+        """
+        proj = self.fragment.get_fragment_projector(self.fragment.cluster.c_active_occ)
+        from ebcc import utils
+        return utils.block_diag(proj[0], proj[1])
