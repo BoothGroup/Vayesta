@@ -1,19 +1,19 @@
 import dataclasses
 
 from .fciqmc import FCIQMCSolver, UFCIQMCSolver, header
-from .rdm_utils import load_spinfree_ladder_rdm_from_m7
+from .rdm_utils import load_spin_resolved_ladder_rdm_from_m7
+from vayesta.solver.solver2 import EBClusterSolver
 
 import numpy as np
 from vayesta.core.util import *
 
 
-class EBFCIQMCSolver(FCIQMCSolver):
+class EBFCIQMCSolver(FCIQMCSolver, EBClusterSolver):
     @dataclasses.dataclass
-    class Options(FCIQMCSolver.Options):
+    class Options(EBClusterSolver.Options, FCIQMCSolver.Options):
         threads: int = 1
         lindep: float = None
         conv_tol: float = None
-        max_boson_occ: int = 1
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
