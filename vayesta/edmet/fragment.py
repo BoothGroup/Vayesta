@@ -9,19 +9,21 @@ from vayesta.core.util import *
 from vayesta.dmet.fragment import DMETFragment
 from vayesta.solver import get_solver_class2 as get_solver_class
 
+from pyscf import __config__
 
 class EDMETFragmentExit(Exception):
     pass
 
 
-VALID_SOLVERS = ["EBFCI", "EBFCIQMC"]
+
+VALID_SOLVERS = ["EBFCI", "EBCCSD" , "EBFCIQMC"]
 
 
 class EDMETFragment(DMETFragment):
     @dataclasses.dataclass
     class Options(DMETFragment.Options):
         make_rdm_eb: bool = True
-        make_dd_moments: bool = True
+        make_dd_moments: bool = NotSet
         old_sc_condition: bool = NotSet
         max_bos: int = NotSet
         occ_proj_kernel: bool = NotSet
@@ -103,6 +105,17 @@ class EDMETFragment(DMETFragment):
         # This is the rotation from the bosons into the AO basis.
         s = self.base.get_ovlp()
         return tuple([einsum("npq,pr,qs->nrs", x, s, s) for x in self.r_bos_ao])
+
+    @property
+    def energy_couplings(self):
+        try:
+            return self._ecouplings
+        except AttributeError:
+            return self.couplings
+
+    @energy_couplings.setter
+    def energy_couplings(self, value):
+        self._ecouplings = value
 
     def get_fock(self):
         f = self.base.get_fock()
@@ -191,11 +204,39 @@ class EDMETFragment(DMETFragment):
         return self.r_bos
 
     def construct_boson_hamil(self, eta0_bos, eps, xc_kernel):
-        """Given the zeroth moment coupling of our bosons to the remainder of the spacFalsee, along with stored information,
+        """Given the zeroth moment coupling of our bosons to the remainder of the space, along with stored information,
         generate the components of our interacting electron-boson Hamiltonian.
         At the same time, calculate the local RPA correlation energy since this requires all the same information we
         already have to hand.
         """
+
+        self.store_cluster_rpa(eta0_bos, eps, xc_kernel)
+
+        if "qba" in self.opts.bosonic_interaction.lower():
+            bosonic_exchange = "bos_ex" in self.opts.bosonic_interaction.lower()
+            self.proj_hamil_qba(exchange_between_bos=bosonic_exchange)
+        else:
+            if self.opts.bosonic_interaction.lower() == "xc":
+                couplings_aa, couplings_bb, a_bos, b_bos = self.save_wxc
+            elif self.opts.bosonic_interaction.lower() == "direct":
+                couplings_aa, couplings_bb, a_bos, b_bos = self.save_noxc
+            else:
+                self.log.critical("Unknown bosonic interaction kernel specified.")
+                raise RuntimeError
+
+            self.a_bos = a_bos
+
+            self.bos_freqs, x, y = bogoliubov_decouple(a_bos + b_bos, a_bos - b_bos)
+            couplings_aa = einsum("npq,nm->mpq", couplings_aa, x) + einsum("npq,nm->mqp", couplings_aa, y)
+            couplings_bb = np.einsum("npq,nm->mpq", couplings_bb, x) + np.einsum("npq,nm->mqp", couplings_bb, y)
+            self.couplings = (couplings_aa, couplings_bb)
+
+        # Will also want to save the effective local modification resulting from our local construction.
+        self.log.info("Local correlation energy for fragment %d: %6.4e", self.id, self.loc_erpa)
+        return self.loc_erpa
+
+    def store_cluster_rpa(self, eta0_bos, eps, xc_kernel):
+        """This function just stores all required information for the """
         self.eta0_bos = np.dot(eta0_bos, self.r_bos.T)
         ov_rot = self.get_rot_to_mf_ov()
         # Get couplings between all fermionic and boson degrees of freedom.
@@ -225,11 +266,6 @@ class EDMETFragment(DMETFragment):
                          - einsum("pq,qp->", fproj_ov,
                                   ((apb + amb - xc_b) / 2)[:self.ov_active_tot, :self.ov_active_tot])
                          ) / 2.0
-        self.esave = (einsum("pq,qr,rp->", fproj_ov, eta0[:self.ov_active_tot],
-                             (apb - (xc_b / 2.0))[:, :self.ov_active_tot]) / 2,
-                      - einsum("pq,qp->", fproj_ov,
-                               ((apb + amb - xc_b) / 2)[:self.ov_active_tot, :self.ov_active_tot]) / 2
-                      )
 
         # loc_erpa = (einsum("pq,qr,rp->", fproj_ov, eta0[:self.ov_active_tot], eris[:, :self.ov_active_tot])
         #            - einsum("pq,qp->", fproj_ov, eris[:self.ov_active_tot, :self.ov_active_tot])) / 4.0
@@ -252,34 +288,12 @@ class EDMETFragment(DMETFragment):
             renorm_amb -= dc_amb
 
         self.save_wxc = self._get_boson_hamil(apb, renorm_amb)
-
-        if self.opts.bosonic_interaction.lower() == "xc":
-            couplings_aa, couplings_bb, a_bos, b_bos = self.save_wxc
-        elif self.opts.bosonic_interaction.lower() == "direct":
-            couplings_aa, couplings_bb, a_bos, b_bos = self.save_noxc
-        elif "qba" in self.opts.bosonic_interaction.lower():
-            bosonic_exchange = "bos_ex" in self.opts.bosonic_interaction.lower()
-            couplings_aa, couplings_bb, a_bos, b_bos = self.proj_hamil_qba(exchange_between_bos=bosonic_exchange)
-        else:
-            self.log.critical("Unknown bosonic interaction kernel specified.")
-            raise RuntimeError
-
-        self.a_bos = a_bos
-
-        self.bos_freqs, x, y = bogoliubov_decouple(a_bos + b_bos, a_bos - b_bos)
-        couplings_aa = einsum("npq,nm->mpq", couplings_aa, x) + einsum("npq,nm->mqp", couplings_aa, y)
-        couplings_bb = np.einsum("npq,nm->mpq", couplings_bb, x) + np.einsum("npq,nm->mqp", couplings_bb, y)
-        self.couplings = (couplings_aa, couplings_bb)
-
         # These are the quantities before decoupling, since these in some sense represent the `physical' excitations of
         # the system. ie. each quasi-bosonic excitation operator is made up of only environmental excitations, rather
         # than also including deexcitations, making later manipulations more straightforward.
         self.apb = apb
         self.amb = renorm_amb
         self.eta0 = eta0
-        # Will also want to save the effective local modification resulting from our local construction.
-        self.log.info("Local correlation energy for fragment %d: %6.4e", self.id, self.loc_erpa)
-        return self.loc_erpa
 
     def _get_boson_hamil(self, apb, amb):
         a = 0.5 * (apb + amb)
@@ -390,6 +404,11 @@ class EDMETFragment(DMETFragment):
         This represents the bosons as an explicit sum of environmental excitations, which we then approximate as bosonic
          degrees of freedom."""
 
+        # Note that electron-boson couplings set here describe a Hamiltonian with terms:
+        #       V[n,p,q] p^+ q b_n^+ + h.c.
+        # This is arbitrary (and indeed different solvers have different definitions) but this is definitely the one
+        # used here for all future reference (after much checking...).
+        t0 = timer()
         c = self.cluster.c_active
         if not isinstance(c, tuple):
             ca = cb = c
@@ -408,69 +427,194 @@ class EDMETFragment(DMETFragment):
         noa, nva = coa.shape[1], cva.shape[1]
         nob, nvb = cob.shape[1], cvb.shape[1]
 
+        ovlp = self.base.get_ovlp()
+        t_fock_start = timer()
         # Can just use expressions for Hamiltonian elements between single excitations.
         # First, get fock contributions. All are N^3 or less.
         # This will be zero if at HF solution.
+        # V_n <= C_{nia}f_{ia}
         bos_nonconserv = einsum("npq,pq->n", r_bos_aoa, fa) + einsum("npq,pq->n", r_bos_aob, fb)
-        a_bos = einsum("npq,msr,qr,ps->nm", r_bos_aoa, r_bos_aoa, fa, self.base.get_ovlp()) + \
-                einsum("npq,msr,qr,ps->nm", r_bos_aob, r_bos_aob, fb, self.base.get_ovlp())
-        a_bos -= einsum("npq,mrs,pr,qs->nm", r_bos_aoa, r_bos_aoa, fa, self.base.get_ovlp()) + \
-                 einsum("npq,mrs,pr,qs->nm", r_bos_aob, r_bos_aob, fb, self.base.get_ovlp())
-        b_bos = np.zeros_like(a_bos)
+        # \Omega_n <= C_{mia}C_{nib}f_{ab} - C_{mia}C_{nja}f_{ij}
+        a_bos = einsum("npq,msr,qr,ps->nm", r_bos_aoa, r_bos_aoa, fa, ovlp) + \
+                einsum("npq,msr,qr,ps->nm", r_bos_aob, r_bos_aob, fb, ovlp)
+        a_bos -= einsum("npq,mrs,pr,qs->nm", r_bos_aoa, r_bos_aoa, fa, ovlp) + \
+                 einsum("npq,mrs,pr,qs->nm", r_bos_aob, r_bos_aob, fb, ovlp)
 
-        couplings_aa = np.zeros((self.nbos,) + (coa.shape[1] + cva.shape[1],) * 2)
-        couplings_bb = np.zeros((self.nbos,) + (cob.shape[1] + cvb.shape[1],) * 2)
+        # Write this as a single function for both spin channels, to avoid chance of typos
+        def get_fock_couplings_spin_channel(r_bos_ao, f, co, cv, no, nv):
+            couplings = np.zeros((self.nbos,) + (no + nv,) * 2)
+            # No o->v excitation fock contribution.
+            # v->o excitation within active space.
+            # V_{nai} <= C_{nic}f_{ac} - C_{nka}f_{ik}
+            couplings[:, no:, :no] = einsum("npc,qc,pi,qa->nai", r_bos_ao, f, dot(ovlp, co), cv) - \
+                                        einsum("nkq,pk,pi,qa->nai", r_bos_ao, f, co, dot(ovlp, cv))
+            # o->o excitation within active space. Note that we're constructing the non-normal ordered parameterisation
+            # here, so all signs are flipped for o-o component.
+            # V_{nij} <= -(\delta_{ij}C_{nkc}f_{ck} - C_{njc}f_{ic})
+            fac = einsum("nck,ck->n", r_bos_ao, f)
+            couplings[:, :no, :no] = -einsum("pq,n->npq", np.eye(no), fac) + \
+                                        einsum("npc,qc,qi,pj->nij", r_bos_ao, f, co, dot(ovlp, co))
+            # v->v excitation within active space.
+            # V_{nab} <= C_{nic}f_{ac} C_{nka}f_{ik}
+            couplings[:, no:, no:] = einsum("pq,n->npq", np.eye(nv), fac) - \
+                                        einsum("nkp,kq,pa,qb->nab", r_bos_ao, f, dot(ovlp, cv), cv)
+            return couplings
 
-        couplings_aa[:, :noa, noa:] = einsum("npq,qr,pi,rc->nic", r_bos_aoa, fa, coa, cva) - einsum(
-            "npq,pr,ri,qc->nic", r_bos_aoa, fa, coa, cva)
-        couplings_bb[:, :nob, nob:] = einsum("npq,qr,pi,rc->nic", r_bos_aob, fb, cob, cvb) - einsum(
-            "npq,pr,ri,qc->nic", r_bos_aob, fb, cob, cvb)
+        fcouplings_aa = get_fock_couplings_spin_channel(r_bos_aoa, fa, coa, cva, noa, nva)
+        fcouplings_bb = get_fock_couplings_spin_channel(r_bos_aob, fb, cob, cvb, nob, nvb)
 
-        # Get coulombic contribution.
+        t_fock = timer() - t_fock_start
+
+        # Get coulombic contribution; for coupling this is just V_{npq} <= C_{nkc}<pk||qc>.
+        ccouplings_aa = np.zeros_like(fcouplings_aa)
+        ccouplings_bb = np.zeros_like(fcouplings_bb)
+
+        t_coulomb = 0
+        if exchange_between_bos:
+            t_bos_exchange = 0
+
         if self.base.with_df:
-            for eri1 in self.mf.with_df.loop():
+            if exchange_between_bos:
+                blk_prefactor = self.nbos * (self.mf.mol.nao ** 2)
+            else:
+                blk_prefactor = self.mf.mol.nao ** 2
+            # Limit ourselves to only use quarter the maximum memory for the single largest array.
+            blksize = int(__config__.MAX_MEMORY / (4 * 8.0 * blk_prefactor))
+            if blksize > self.mf.with_df.get_naoaux():
+                blksize = None
+            else:
+                self.log.info("Using blksize of %d to generate Bosonic Hamiltonian.qq", blksize)
+
+            for eri1 in self.mf.with_df.loop(blksize):
+                # Here we've kept the old einsum expressions around just in case we need comparison later.
                 l_ = pyscf.lib.unpack_tril(eri1)
+                t_coulomb_start = timer()
                 # First generate coulomb interactions effects. This all scales as N^3.
-                l_bos = einsum("npq,mpq->nm", l_, r_bos_aoa + r_bos_aob)  # N^3
+                # l_bos = einsum("npq,mpq->nm", l_, r_bos_aoa + r_bos_aob)  # N^3
+                # la_ferm = einsum("npq,pi,qj->nij", l_, ca, ca)  # N^3
+                # lb_ferm = einsum("npq,pi,qj->nij", l_, cb, cb)  # N^3
 
-                la_ferm = einsum("npq,pi,qj->nij", l_, coa, cva)  # N^3
-                lb_ferm = einsum("npq,pi,qj->nij", l_, cvb, cvb)  # N^3
+                l_bos = np.tensordot(l_, r_bos_aoa + r_bos_aob, ([1, 2], [1, 2]))
+                la_ferm = np.tensordot(np.tensordot(l_, ca, ([1], [0])), ca, ([1], [0]))
+                lb_ferm = np.tensordot(np.tensordot(l_, cb, ([1], [0])), cb, ([1], [0]))
 
-                couplings_aa[:, :noa, noa:] = couplings_aa[:, :noa, noa:] + einsum("nm,nij->mij", l_bos, la_ferm)  # N^3
-                couplings_bb[:, :nob, nob:] = couplings_bb[:, :nob, nob:] + einsum("nm,nij->mij", l_bos, lb_ferm)  # N^3
+                # print("!!1!!",
+                #    abs(einsum("npq,mpq->nm", l_, r_bos_aoa + r_bos_aob) - l_bos).max(),
+                #    abs(einsum("npq,pi,qj->nij", l_, ca, ca) - la_ferm).max(),
+                #    abs(einsum("npq,pi,qj->nij", l_, cb, cb) - lb_ferm).max()
+                # )
+
+                # V_{npq} <= (pq|ia)C_{nia} = <pi|qa>C_{nia}
+                # ccouplings_aa += einsum("nm,nij->mij", l_bos, la_ferm)  # N^3
+                # ccouplings_bb += einsum("nm,nij->mij", l_bos, lb_ferm)  # N^3
+                ccouplings_aa += np.tensordot(l_bos, la_ferm, ([0], [0]))
+                ccouplings_bb += np.tensordot(l_bos, lb_ferm, ([0], [0]))
+
+                # print("!!2!!",
+                #      abs(einsum("nm,nij->mij", l_bos, la_ferm) - np.tensordot(l_bos, la_ferm, ([0], [0]))).max(),
+                #      abs( einsum("nm,nij->mij", l_bos, lb_ferm) - np.tensordot(l_bos, lb_ferm, ([0], [0]))).max()
+                #      )
+
                 del la_ferm, lb_ferm
-                a_bos += einsum("nm,no->mo", l_bos, l_bos)  # N
+                # \Omega_n <= (ia|bj)C_{nia}C_{mjb} = <ib|aj>C_{nia}C_{mjb}
+                # a_bos += einsum("nm,no->mo", l_bos, l_bos)  # N
+                a_bos += np.tensordot(l_bos, l_bos, ([0], [0]))
                 del l_bos
                 # Now exchange contributions; those to the coupling are straightforward (N^3) to calculate.
-                la_singl = einsum("npq,pi->niq", l_, ca)  # N^3
-                lb_singl = einsum("npq,pi->niq", l_, cb)  # N^3
+                # la_singl = einsum("npq,pi->niq", l_, ca)  # N^3
+                # lb_singl = einsum("npq,pi->niq", l_, cb)  # N^3
+                la_singl = np.tensordot(l_, ca, ([1], [0])).transpose((0, 2, 1))  # N^3
+                lb_singl = np.tensordot(l_, cb, ([1], [0])).transpose((0, 2, 1))  # N^3
+                # print("!!3!!",
+                #      abs(einsum("npq,pi->niq", l_, ca) - la_singl).max(),
+                #      abs(einsum("npq,pi->niq", l_, cb) - lb_singl).max())
+                # V_{npq} <= -(pa|iq)C_{nia} = -<pi|aq>C_{nia}
+                # ccouplings_aa -= einsum("nip,njq,mpq->mji", la_singl, la_singl, r_bos_aoa)  # N^3
+                # ccouplings_bb -= einsum("nip,njq,mpq->mji", lb_singl, lb_singl, r_bos_aob)  # N^3
 
-                couplings_aa[:, :noa, noa:] = couplings_aa[:, :noa, noa:] - einsum("nip,njq,mpq->mij", la_singl[:,:noa], la_singl[:, noa:], r_bos_aoa)  # N^3
-                couplings_bb[:, :nob, nob:] = couplings_bb[:, :nob, nob:] - einsum("nip,njq,mpq->mij", lb_singl[:,:nob], lb_singl[:,nob:], r_bos_aob)  # N^3
+                ccouplings_aa -= np.tensordot(
+                    la_singl,
+                    np.tensordot(la_singl, r_bos_aoa, ([2], [2])),  # njq,mpq->njmp
+                    ([0, 2], [0, 3])
+                ).transpose([2, 1, 0])  # nip,njmp->ijm->mji
+
+                ccouplings_bb -= np.tensordot(
+                    lb_singl,
+                    np.tensordot(lb_singl, r_bos_aob, ([2], [2])),  # njq,mpq->njmp
+                    ([0, 2], [0, 3])
+                ).transpose([2, 1, 0])  # nip,njmp->ijm->mji
+
+                # print("!!4!!",
+                #      abs(einsum("nip,njq,mpq->mji", la_singl, la_singl, r_bos_aoa) - np.tensordot(
+                #    la_singl,
+                #    np.tensordot(la_singl, r_bos_aoa, ([2], [2])),  # njq,mpq->njmp
+                #    ([0, 2], [0, 3])
+                # ).transpose([2, 1, 0])).max(),
+                #      abs(einsum("nip,njq,mpq->mji", lb_singl, lb_singl, r_bos_aob) - np.tensordot(
+                #    lb_singl,
+                #    np.tensordot(lb_singl, r_bos_aob, ([2], [2])),  # njq,mpq->njmp
+                #    ([0, 2], [0, 3])
+                # ).transpose([2, 1, 0])).max()
+                #      )
+
+                t_coulomb += timer() - t_coulomb_start
                 del la_singl, lb_singl
                 if exchange_between_bos:
+                    t_bosex_start = timer()
                     # boson-boson interactions are N^4, so if have O(N) clusters this would push our scaling to N^5...
                     # Note we want both `occupied` indices of bosonic degrees of freedom to contract to same l, and the
                     # same for both `virtual` indices.
-                    a_bos -= einsum("nqrm,nrql->ml",
-                                    einsum("npq,mpr->nqrm", l_, r_bos_aoa + r_bos_aob),
-                                    einsum("npq,lqr->nprl", l_, r_bos_aoa + r_bos_aob))
+                    # Only same-spin so need to do different channels separately.
+                    # \Omega_n <= (ab|ji)C_{nia}C_{mjb} = <aj|bi>C_{nia}C_{mjb}
+                    # a_bos -= einsum("nqrm,nrql->ml",
+                    #                einsum("npq,mpr->nqrm", l_, r_bos_aoa),
+                    #                einsum("npq,lrq->nprl", l_, r_bos_aoa))
+                    # a_bos -= einsum("nqrm,nrql->ml",
+                    #                einsum("npq,mpr->nqrm", l_, r_bos_aob),
+                    #                einsum("npq,lrq->nprl", l_, r_bos_aob))
+
+                    a_bos -= np.tensordot(np.tensordot(l_, r_bos_aoa, ([1], [1])),  # npq,mpr->nqmr
+                                          np.tensordot(l_, r_bos_aoa, ([2], [2])),  # npq,mrq->npmr
+                                          ([0, 1, 3], [0, 3, 1]))  # nqmr,nrlq->ml
+                    a_bos -= np.tensordot(np.tensordot(l_, r_bos_aob, ([1], [1])),  # npq,mpr->nqmr
+                                          np.tensordot(l_, r_bos_aob, ([2], [2])),  # npq,mrq->npmr
+                                          ([0, 1, 3], [0, 3, 1]))  # nqmr,nrlq->ml
+
+                    t_bos_exchange += timer() - t_bosex_start
         else:
             raise NotImplementedError("Explicit QBA Hamiltonian construction is currently only implemented for use with"
                                       "density fitting.")
 
-        # Need to check if boson-number-nonconserving value is nonzero:
-        if any(abs(bos_nonconserv) > 1e-6):
-            self.log.warning("Treating boson-non-conserving contribution via explicit density coupling; this is likely"
-                             " to result in less compact bosonic degrees of freedom than ZPM removal.")
-            #
-            nelec = self.cluster.nocc_active
-            if not isinstance(nelec, int):
-                nelec = sum(nelec)
-            couplings_aa += einsum("n,pq->npq", bos_nonconserv / nelec, np.eye(coa.shape[1] + cva.shape[1]))
-            couplings_bb += einsum("n,pq->npq", bos_nonconserv / nelec, np.eye(cob.shape[1] + cvb.shape[1]))
+        couplings_aa = fcouplings_aa + ccouplings_aa
+        couplings_bb = fcouplings_bb + ccouplings_bb
 
-        return couplings_aa, couplings_bb, a_bos, b_bos
+        nelec = self.cluster.nocc_active
+        if not isinstance(nelec, int):
+            nelec = sum(nelec)
+        else:
+            nelec *= 2
+        shift = -einsum("npp->n", couplings_aa[:, :noa, :noa]) - einsum("npp->n", couplings_bb[:, :nob, :nob])
+
+        bos_nonconserv += shift
+
+        couplings_aa += einsum("n,pq->npq", bos_nonconserv / nelec, np.eye(noa + nva))
+        couplings_bb += einsum("n,pq->npq", bos_nonconserv / nelec, np.eye(nob + nvb))
+
+        # Decouple bosons here.
+        self.bos_freqs, c = np.linalg.eigh(a_bos)
+        self.couplings = (einsum("nm,npq->mqp", c, couplings_aa), einsum("nm,npq->mqp", c, couplings_bb))
+        # ccouplings[n,p,q] = <pi||qa>C_{nia}; can use this for energy evaluation later.
+        self.energy_couplings = (einsum("nm,npq->mqp", c, ccouplings_aa), einsum("nm,npq->mqp", c, ccouplings_bb))
+
+        self.log.info("Time for Bosonic Hamiltonian Projection into fragment %d:  %s", self.id,
+                      time_string(timer() - t0))
+        if exchange_between_bos:
+            self.log.info("         %s for fock components, %s for N^3 scaling coulombic components and %s for N^4 "
+                          "bosonic exchange.", time_string(t_fock), time_string(t_coulomb),
+                          time_string(t_bos_exchange))
+        else:
+            self.log.info("         %s for fock components, and %s for N^3 scaling coulombic components.",
+                          time_string(t_fock), time_string(t_coulomb))
 
     def check_qba_approx(self, rdm1):
         """Given boson and cluster coefficient definitions, checks deviation from exact bosonic commutation relations
@@ -537,6 +681,9 @@ class EDMETFragment(DMETFragment):
             results.dm1 = cluster_solver.make_rdm1()
             self.check_qba_approx(results.dm1)
         if self.opts.make_rdm_eb:
+            if cluster_solver.opts.polaritonic_shift and results.dm1 is None:
+                # Need 1rdm calculated to get polaritonic shift out.
+                results.dm1 = cluster_solver.make_rdm1()
             results.dm_eb = cluster_solver.make_rdm_eb()
         if self.opts.make_dd_moments:
             r_o, r_v = self.get_overlap_c2f()
@@ -574,19 +721,17 @@ class EDMETFragment(DMETFragment):
         if not isinstance(p_imp, tuple):
             p_imp = (p_imp, p_imp)
         dm_eb = self._results.dm_eb
-        couplings = self.couplings
+        couplings = self.energy_couplings
 
         # Have separate spin contributions.
         if "qba" in self.opts.bosonic_interaction:
-            # Already have exchange effects included, so can use straightforward contraction.
-            # dm_eb -> <0|b^+ p^+ q|0> in P[p,q,b]
-            # couplings -> double check.
-            efb = 0.25 * (einsum("qr,npq,prn", p_imp[0], couplings[0], dm_eb[0]) +
-                          einsum("qr,npq,prn", p_imp[1], couplings[1], dm_eb[1])
-                          - (einsum("qr,nqp,prn", p_imp[0], couplings[0], dm_eb[0]) +
-                             einsum("qr,nqp,prn", p_imp[1], couplings[1], dm_eb[1]))
+            # Already have exchange effects included in interactions, so can use straightforward contraction.
+            # dm_eb -> <0|b^+ p^+ q|0> in P[p,q,b].
+            # couplings -> <pi||qa>C_{nia} in couplings[n,p,q].
+            # Want <pj||qb>C_{njb} ( <b_n^+ q^+ p> - <b_n q^+ p>) so our energy is:
+            efb = 0.25 * (einsum("qr,npq,rpn", p_imp[0], couplings[0], dm_eb[0] - dm_eb[0].transpose(1, 0, 2)) +
+                          einsum("qr,npq,rpn", p_imp[1], couplings[1], dm_eb[1] - dm_eb[1].transpose(1, 0, 2))
                           )
-
             self.delta = efb
         else:
             efb = 0.5 * (

@@ -52,6 +52,7 @@ class DMET(QEmbeddingMethod):
         diis: bool = True
         mixing_param: float = 0.5
         mixing_variable: str = "hl rdm"
+        oneshot: bool = False
         # --- Other
         energy_partitioning: str = 'first-occ'
         strict: bool = False  # Stop if cluster not converged
@@ -67,11 +68,15 @@ class DMET(QEmbeddingMethod):
         """
 
         t_start = timer()
+        # If we're running in oneshot mode will only do a single iteration, regardless of this setting, but good to have
+        # consistent settings.
+        if kwargs.get("oneshot", False):
+            kwargs["maxiter"] = 1
+
         super().__init__(mf, options=options, log=log, **kwargs)
 
-        self.log.info("DMET parameters:")
-        for key, val in self.opts.items():
-            self.log.info('  > %-24s %r', key + ':', val)
+        self.log.info("Parameters of %s:", self.__class__.__name__)
+        self.log.info(break_into_lines(str(self.opts), newline='\n    '))
 
         # --- Check input
         if not mf.converged:
@@ -218,6 +223,8 @@ class DMET(QEmbeddingMethod):
             self.e_corr = e1 + e2 - emf
             self.log.info("Total DMET energy {:8.4f}".format(self.e_tot))
             self.log.info("Energy Contributions: 1-body={:8.4f}, 2-body={:8.4f}".format(e1, e2))
+            if self.opts.oneshot:
+                break
             curr_rdms, delta_rdms = self.updater.update(self.hl_rdms)
             self.log.info("Change in high-level RDMs: {:6.4e}".format(delta_rdms))
             vcorr_new = self.update_vcorr(fock, curr_rdms)
