@@ -276,6 +276,7 @@ def load_spin_resolved_rdm(fname, rank):
     nelec = int(archive['propagator']['nelec'][()])
     nord_rdm = np.zeros((nspinorb,)*(rank*2))
     data = archive['rdms'][str(rank)*2+'00']
+    norm = float(archive['rdms']['norm'][()])
     assert rank*2 == data['indices'][:,:].shape[1]
     ndata = data['indices'][:,:].shape[0]
     trace = 0.0
@@ -290,6 +291,7 @@ def load_spin_resolved_rdm(fname, rank):
         #inds = interleave(anninds, creinds)
         #nord_rdm[inds] = data['values'][idata]
         if all(creinds==anninds): trace+= data['values'][idata]
+    assert np.allclose(trace, norm*ncomb(nelec, rank))
     nord_rdm *= ncomb(nelec, rank)/trace
     return nord_rdm
 
@@ -301,7 +303,7 @@ def load_spinfree_1rdm_from_m7(h5_fname):
 
 def load_spinfree_1_2rdm_from_m7(h5_fname, nelec=None):
     if nelec is None:
-        archive = h5py.File(fname, 'r')['archive']
+        archive = h5py.File(h5_fname, 'r')['archive']
         nelec = int(archive['propagator']['nelec'][()])
     rdm2 = load_spin_resolved_rdm(h5_fname, 2)
     rdm2_restored = restore_perm_syms(rdm2, True, False)
@@ -310,25 +312,30 @@ def load_spinfree_1_2rdm_from_m7(h5_fname, nelec=None):
     #return unreorder_rdm12(rdm1_sf, rdm2_sf, False)
     return rdm1_sf, rdm2_sf
 
-def load_spinfree_ladder_rdm_from_m7(fname, cre):
+def load_spin_resolved_ladder_rdm_from_m7(fname, cre):
     archive = h5py.File(fname, 'r')['archive']
     nsite = int(archive['propagator']['nsite'][()])
     norm = float(h5py.File(fname, 'r')['archive']['rdms']['norm'][()])
 
     label = '1110' if cre else '1101'
 
-    rdm = np.zeros((nsite,)*3)
+    rdm = np.zeros((2,)+(nsite,)*3)
     data = archive['rdms'][label]
     ndata = data['indices'][:,:].shape[0]
     print(f'number of {label}-rdm elements in HDF5 file {ndata}')
     for idata in range(ndata):
         ispinorb, jspinorb, imode = data['indices'][idata, :]
         assert (ispinorb < nsite) == (jspinorb < nsite), "Sz non-conservation is incompatible with spin averaging"
+        spin = int(ispinorb >= nsite)
         isite = ispinorb%nsite
         jsite = jspinorb%nsite
-        rdm[isite, jsite, imode] += data['values'][idata]
+        rdm[spin, isite, jsite, imode] += data['values'][idata]
     rdm /= norm
     return rdm
+
+def load_spinfree_ladder_rdm_from_m7(fname, cre):
+    sr = load_spin_resolved_ladder_rdm_from_m7(fname, cre)
+    return sr[0,:,:,:]+sr[1,:,:,:]
 
 
 if __name__=='__main__':

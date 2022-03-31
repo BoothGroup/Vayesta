@@ -36,12 +36,12 @@ class EBFCIQMCSolver(FCIQMCSolver):
         return M7_config_obj
 
     def make_rdm_eb(self):
-        rdm_1110 = load_spinfree_ladder_rdm_from_m7(self.h5_name, True)
-        rdm_1101 = load_spinfree_ladder_rdm_from_m7(self.h5_name, False)
+        rdm_1110 = load_spin_resolved_ladder_rdm_from_m7(self.h5_name, True)
+        rdm_1101 = load_spin_resolved_ladder_rdm_from_m7(self.h5_name, False)
         # only holds for stochastic: no
-        # assert np.allclose(rdm_1110, rdm_1101.transpose(1,0,2))
+        # assert np.allclose(rdm_1110, rdm_1101.transpose(0, 2, 1, 3))
         # average over arrays that are equivalent due to hermiticity symmetry
-        return (rdm_1110 + rdm_1101.transpose(1, 0, 2)) / 2.0
+        return (rdm_1110 + rdm_1101.transpose(0, 2, 1, 3)) / 2.0
 
 
 class UEBFCIQMCSolver(EBFCIQMCSolver, UFCIQMCSolver):
