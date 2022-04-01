@@ -67,7 +67,7 @@ class EDMET(RDMET):
         maxiter = self.opts.maxiter
         # rdm = self.mf.make_rdm1()
         bno_thr = bno_threshold or self.bno_threshold
-        #if bno_thr < np.inf and maxiter > 1:
+        # if bno_thr < np.inf and maxiter > 1:
         #    raise NotImplementedError("MP2 bath calculation is currently ignoring the correlation potential, so does"
         #                              " not work properly for self-consistent calculations.")
         # Initialise parameters for self-consistency iteration
@@ -103,10 +103,12 @@ class EDMET(RDMET):
             self.iteration = iteration
             self.log.info("Now running iteration= %2d", iteration)
             self.log.info("****************************************************")
-            mo_energy, mo_coeff = mf.eig(fock + self.vcorr, self.get_ovlp())
-            self.update_mf(mo_coeff, mo_energy)
-            if self.opts.charge_consistent:
-                fock = mf.get_fock()
+            if iteration > 1:
+                # For first iteration want to run on provided mean-field state.
+                mo_energy, mo_coeff = mf.eig(fock + self.vcorr, self.get_ovlp())
+                self.update_mf(mo_coeff, mo_energy)
+                if self.opts.charge_consistent:
+                    fock = self.get_fock()
             self.set_up_fragments(sym_parents, bno_threshold=bno_thr)
             # Need to optimise a global chemical potential to ensure electron number is converged.
             nelec_mf = self.check_fragment_nelectron()
@@ -346,9 +348,6 @@ class EDMET(RDMET):
         self.log.info("Numerical integration of the adiabatic connection modified nonlocal energy estimate by %6.4e",
                       new_correction - orig_correction)
         return self.e_tot + new_correction - orig_correction
-
-
-
 
     def run_exact_full_ac(self, xc_kernel=None, deg=5, calc_local=False, cluster_constrain=False, npoints=48):
         """During calculation we only calculate the linearised nonlocal correlation energy, since this is relatively

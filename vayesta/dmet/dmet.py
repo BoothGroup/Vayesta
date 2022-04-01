@@ -151,11 +151,13 @@ class DMET(QEmbeddingMethod):
             self.iteration = iteration
             self.log.info("Now running iteration= %2d", iteration)
             self.log.info("****************************************************")
-            mo_energy, mo_coeff = mf.eig(fock + self.vcorr, self.get_ovlp())
-            self.update_mf(mo_coeff, mo_energy)
+            if iteration > 1:
+                # For first iteration want to run on provided mean-field state.
+                mo_energy, mo_coeff = mf.eig(fock + self.vcorr, self.get_ovlp())
+                self.update_mf(mo_coeff, mo_energy)
 
-            if self.opts.charge_consistent:
-                fock = mf.get_fock()
+                if self.opts.charge_consistent:
+                    fock = self.get_fock()
             # Need to optimise a global chemical potential to ensure electron number is converged.
             nelec_mf = self.check_fragment_nelectron()
             if type(nelec_mf) == tuple:
