@@ -109,7 +109,8 @@ class EDMET(RDMET):
                 self.update_mf(mo_coeff, mo_energy)
                 if self.opts.charge_consistent:
                     fock = self.get_fock()
-            self.set_up_fragments(sym_parents, bno_threshold=bno_thr)
+            self.set_up_fragments(sym_parents, nsym, bno_threshold=bno_thr)
+
             # Need to optimise a global chemical potential to ensure electron number is converged.
             nelec_mf = self.check_fragment_nelectron()
             if type(nelec_mf) == tuple:
@@ -211,7 +212,7 @@ class EDMET(RDMET):
 
         self.log.info("All done.")
 
-    def set_up_fragments(self, sym_parents, bno_threshold=None):
+    def set_up_fragments(self, sym_parents, nsym, bno_threshold=None):
 
         # First, set up and run RPA. Note that our self-consistency only couples same-spin excitations so we can
         # solve a subset of the RPA equations.
@@ -243,8 +244,8 @@ class EDMET(RDMET):
             eps = np.concatenate(self.eps)
             # Can then invert relation to generate coupled electron-boson Hamiltonian.
             e_nonlocal = self.e_rpa
-            for f, sl in zip(sym_parents, bos_slices):
-                e_nonlocal -= f.construct_boson_hamil(mom0_bos[sl, :], eps, self.xc_kernel)
+            for f, nc, sl in zip(sym_parents, nsym, bos_slices):
+                e_nonlocal -= f.construct_boson_hamil(mom0_bos[sl, :], eps, self.xc_kernel) * nc
         else:
             rpa = ssRPA(self.mf, self.log)
             # We need to explicitly solve RPA equations before anything.
@@ -256,12 +257,12 @@ class EDMET(RDMET):
             self.e_rpa = rpa.calc_energy_correction(self.xc_kernel, version=3)
             e_nonlocal = self.e_rpa
             self.log.info("RPA total energy=%6.4e", e_nonlocal)
-            for f in sym_parents:
+            for f, nc in zip(sym_parents, nsym):
                 rot_ov = f.set_up_fermionic_bath(bno_threshold)
                 mom0_interact = dot(rot_ov, mom0)
                 rot_bos = f.define_bosons(mom0_interact)
                 mom0_bos = dot(rot_bos, mom0)
-                e_nonlocal -= f.construct_boson_hamil(mom0_bos, eps, self.xc_kernel)
+                e_nonlocal -= f.construct_boson_hamil(mom0_bos, eps, self.xc_kernel) * nc
         self.e_nonlocal = e_nonlocal
 
     def calc_electron_number_defect(self, chempot, bno_thr, nelec_target, parent_fragments, nsym,

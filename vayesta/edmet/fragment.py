@@ -8,6 +8,8 @@ import scipy.linalg
 from vayesta.core.util import *
 from vayesta.dmet.fragment import DMETFragment
 from vayesta.solver import get_solver_class2 as get_solver_class
+from vayesta.core.bath import helper
+
 
 from pyscf import __config__
 
@@ -189,6 +191,7 @@ class EDMETFragment(DMETFragment):
         env_mom = rpa_mom - dot(rpa_mom, rot_ov.T, rot_ov_pinv)
         # v defines the rotation of the mean-field excitation space specifying our bosons.
         u, s, v = np.linalg.svd(env_mom, full_matrices=False)
+
         want = s > tol
         nbos = min(sum(want), self.opts.max_bos)
         if nbos < len(s):
@@ -196,6 +199,11 @@ class EDMETFragment(DMETFragment):
                           nbos, s[nbos:].max())
         else:
             self.log.info("Zeroth moment matching generated %d cluster bosons.", nbos)
+        self.log.info("Fragment %s Quasiboson histogram", self.id_name)
+        self.log.info("------------------------------%s", "-"*len(self.id_name))
+        bins = np.hstack([np.inf, np.logspace(0, -12, 13), -np.inf])
+        for line in helper.plot_histogram(s, bins=bins):
+            self.log.info(line)
         # Calculate the relevant components of the zeroth moment- we don't want to recalculate these.
         self.r_bos = v[:nbos, :]
         self.eta0_ferm = np.dot(rpa_mom, rot_ov.T)
