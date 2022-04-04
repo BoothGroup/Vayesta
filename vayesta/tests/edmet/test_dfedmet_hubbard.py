@@ -8,9 +8,10 @@ class HubbardDFEDMETTests(unittest.TestCase):
     PLACES_ENERGY = 9
 
     def _test_energy(self, emb, dfedmet, known_values):
-        """Test that the energy matches a known value and the non-density fitted value.
+        """Test that the energy contributions match a known value and the non-density fitted value.
         """
-        self.assertAlmostEqual(dfedmet.e_tot, known_values['e_tot'], self.PLACES_ENERGY)
+        self.assertAlmostEqual(dfedmet.e_tot - dfedmet.e_nonlocal, known_values['e_clus'], self.PLACES_ENERGY)
+        self.assertAlmostEqual(dfedmet.e_nonlocal, known_values['e_nl'], self.PLACES_ENERGY)
         self.assertAlmostEqual(emb.e_tot, dfedmet.e_tot, self.PLACES_ENERGY)
 
     #FIXME bug #9
@@ -78,8 +79,8 @@ class HubbardDFEDMETTests(unittest.TestCase):
         frag = dfedmet.add_atomic_fragment([0, 1])
         frag.add_tsymmetric_fragments(tvecs=[7, 1, 1])
         dfedmet.kernel()
-
-        known_values = {'e_tot': -11.344166294000813}
+        # This is the energy without the nonlocal correlation energy RPA correction.
+        known_values = {'e_clus': -8.01015928145061, 'e_nl': -0.5338487284590787}
 
         self._test_energy(emb, dfedmet, known_values)
 

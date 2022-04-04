@@ -63,7 +63,7 @@ class HubbardEDMETTests(unittest.TestCase):
         frag.add_tsymmetric_fragments(tvecs=[5, 1, 1])
         emb.kernel()
 
-        known_values = {'e_tot': -9.408491841167798}
+        known_values = {'e_tot':-8.793485086132375}
 
         self._test_energy(emb, known_values)
 
@@ -74,7 +74,7 @@ class HubbardEDMETTests(unittest.TestCase):
         emb = edmet.EDMET(
                 latts['hubb_14_u0.4']['rhf'],
                 solver='EBFCI',
-                solver_options={"max_boson_occ":4},
+                solver_options={"max_boson_occ":3},
                 maxiter=30,
                 max_elec_err=1e-6
         )
@@ -83,7 +83,7 @@ class HubbardEDMETTests(unittest.TestCase):
         frag.add_tsymmetric_fragments(tvecs=[7, 1, 1])
         emb.kernel()
 
-        known_values = {'e_tot': -16.662395972582996}
+        known_values = {'e_tot':-16.63125078900363}
 
         self._test_energy(emb, known_values)
 
@@ -120,7 +120,7 @@ class HubbardEDMETTests(unittest.TestCase):
         frag.add_tsymmetric_fragments(tvecs=[6, 6, 1])
         emb.kernel()
 
-        known_values = {'e_tot': -54.380254552002356}
+        known_values = {'e_tot':-49.255623407653644}
 
         self._test_energy(emb, known_values)
 

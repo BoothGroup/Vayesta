@@ -764,7 +764,7 @@ class EDMETFragment(DMETFragment):
         if not isinstance(r_vir, tuple): r_vir = (r_vir, r_vir)
         ov_a, ov_b = self.ov_active_ab
         no_a, no_b = self.nocc_ab
-        nv_a, nv_b = self.nocc_ab
+        nv_a, nv_b = self.nvir_ab
         ncl_a, ncl_b = self.nclus_ab
         # We want to actually consider the difference from the dRPA kernel.
         # Get irreducible polarisation propagator.
@@ -796,7 +796,7 @@ class EDMETFragment(DMETFragment):
         new_xc_b = (dot(fr_proj, new_xc_b) + dot(new_xc_b, fr_proj)) / fac
 
         # Now need to combine A and B contributions, taking care of bosonic contributions.
-        # Not that we currently won't have any boson-boson contributions, and all contributions are
+        # Note that we currently won't have any boson-boson contributions, and all contributions are
         # symmetric.
 
         def get_fermionic_spat_contrib(acon, bcon, no_l, nv_l, no_r, nv_r):
@@ -806,7 +806,7 @@ class EDMETFragment(DMETFragment):
             fermionic[:no_l, no_l:, no_r:, :no_r] = bcon.reshape(f_shape).transpose((0, 1, 3, 2))
             fermionic = fermionic + fermionic.transpose((1, 0, 3, 2))
             return fermionic
-
+        print()
         ferm_aa = get_fermionic_spat_contrib(new_xc_a[:ov_a, :ov_a], new_xc_b[:ov_a, :ov_a], no_a, nv_a, no_a, nv_a)
         ferm_ab = get_fermionic_spat_contrib(new_xc_a[:ov_a, ov_a:-self.nbos], new_xc_b[:ov_a, ov_a:-self.nbos],
                                              no_a, nv_a, no_b, nv_b)
