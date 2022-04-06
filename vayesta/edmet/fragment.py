@@ -486,11 +486,11 @@ class EDMETFragment(DMETFragment):
             else:
                 blk_prefactor = self.mf.mol.nao ** 2
             # Limit ourselves to only use quarter the maximum memory for the single largest array.
-            blksize = int(__config__.MAX_MEMORY / (4 * 8.0 * blk_prefactor))
+            blksize = max(1, int(__config__.MAX_MEMORY / (4 * 8.0 * blk_prefactor)))
             if blksize > self.mf.with_df.get_naoaux():
                 blksize = None
             else:
-                self.log.info("Using blksize of %d to generate Bosonic Hamiltonian.qq", blksize)
+                self.log.info("Using blksize of %d to generate Bosonic Hamiltonian.", blksize)
 
             for eri1 in self.mf.with_df.loop(blksize):
                 # Here we've kept the old einsum expressions around just in case we need comparison later.
