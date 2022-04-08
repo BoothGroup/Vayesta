@@ -27,6 +27,7 @@ from vayesta.core import ao2mo
 
 from . import ewf
 from .rdm import _gamma2_intermediates
+from .rdm import _incluster_gamma2_intermediates
 
 # Get MPI rank of fragment
 get_fragment_mpi_rank = lambda *args : args[0].mpi_rank
@@ -406,7 +407,7 @@ class EWFFragment(Fragment):
 
                 mycc = pyscf.cc.CCSD(self.base.mf)
                 d1 = None #pyscf.cc.ccsd_rdm._gamma1_intermediates(mycc, t1, t2, l1, l2)
-                d2 = _gamma2_intermediates(mycc, t1, t2, l1p, l2p, t1p=t1p, t2p=t2p)
+                d2 = _incluster_gamma2_intermediates(mycc, t1, t2, l1p, l2p, t1p=t1p, t2p=t2p)
                 rdm2 = pyscf.cc.ccsd_rdm._make_rdm2(mycc, d1, d2, with_dm1=False)#, with_frozen=with_frozen, ao_repr=ao_repr)
                 eris_full = ao2mo.helper.get_full_array(eris)
 

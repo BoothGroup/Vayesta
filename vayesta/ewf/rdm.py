@@ -4,6 +4,7 @@ import numpy as np
 
 import pyscf
 import pyscf.cc
+import pyscf.cc.ccsd_rdm_slow
 import pyscf.lib
 
 from vayesta.core.util import *
@@ -406,6 +407,22 @@ def make_rdm2_ccsd(emb, ao_basis=False, symmetrize=True, t_as_lambda=False, slow
 
 
 # Modifed from pyscf.cc.make_rdm_slow
+
+def _incluster_gamma2_intermediates(cc, t1, t2, l1, l2, t1p=None, t2p=None):
+
+    dovov, dvvvv, doooo, doovv, dovvo, dvvov, dovvv, dooov = pyscf.cc.ccsd_rdm_slow._gamma2_intermediates(cc, t1, t2, l1, l2)
+
+    # Blame pyscf devs for the bizzare and confusing notation
+    # Correct single order zero in lambda term in dovov/goovv block
+    tau = t2 + np.einsum('ia,jb->ijab', t1, t1)
+    taup = t2p + np.einsum('ia,jb->ijab', t1p, t1)
+    corr = -.5 * l2 - .5 * tau + .5 * l2 + .5 * taup
+    corr = (corr*2 - corr.transpose(0,1,3,2))
+    dovov += corr.transpose(0,2,1,3)
+
+    return (dovov, dvvvv, doooo, doovv, dovvo, dvvov, dovvv, dooov)
+
+
 def _gamma2_intermediates(cc, t1, t2, l1, l2, t1p=None, t2p=None):
     numpy = np
     tau = t2 + numpy.einsum('ia,jb->ijab', t1, t1)
