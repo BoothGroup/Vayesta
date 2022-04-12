@@ -17,6 +17,7 @@ def water(atoms=['O', 'H']):
     return atom
 
 def alkane(n, atoms=['C', 'H'], cc_bond=1.54, ch_bond=1.09, numbering=False):
+    """Alkane with idealized tetrahedral (sp3) coordination."""
 
     assert numbering in (False, 'atom', 'unit')
 
@@ -62,6 +63,30 @@ def alkane(n, atoms=['C', 'H'], cc_bond=1.54, ch_bond=1.09, numbering=False):
             atom.append([get_symbol(atoms[1]), [0.0, y-sign*dchc, z+dchs]])
         if numbering == 'unit':
             index += 1
+
+    return atom
+
+def alkene(ncarbon, cc_bond=1.33, ch_bond=1.09):
+    """Alkene with idealized trigonal planar (sp2) coordination."""
+
+    if (ncarbon < 2):
+        raise ValueError
+    if (ncarbon % 2 == 1):
+        raise NotImplementedError
+
+    cos30 = np.sqrt(3)/2
+    sin30 = 1/2
+
+    r0 = x0, y0, z0 = (0, 0, 0)
+    atom = [('H', (x0-ch_bond*cos30, y0+ch_bond*sin30, z0))]
+    for nc in range(ncarbon):
+        sign = (-1)**nc
+        atom += [('C', r0)]
+        atom += [('H', (x0, y0-sign*ch_bond, z0))]
+        if nc == (ncarbon-1):
+            break
+        r0 = x0, y0, z0 = (x0+cc_bond*cos30, y0+sign*cc_bond*sin30, 0)
+    atom += [('H', (x0+ch_bond*cos30, y0+sign*ch_bond*sin30, z0))]
 
     return atom
 
@@ -129,3 +154,33 @@ def ketene(cc_bond=None):
         atom[1][1] = new_c2
         atom[2][1] = new_o
     return atom
+
+if __name__ == '__main__':
+
+    atom = alkene(4)
+
+    import pyscf
+    import pyscf.gto
+
+    mol = pyscf.gto.Mole()
+    mol.atom = atom
+    mol.build()
+    print(mol.energy_nuc())
+
+    mol = pyscf.gto.Mole()
+    mol.atom = """
+    C   0.1156880   0.7332450   0.5628400
+    C   -0.1156880  -0.7332450  0.5628400
+    C   -0.1156880  1.5476420   -0.4993330
+    C   0.1156880   -1.5476420  -0.4993330
+    H   0.4811120   1.1731760   1.5011160
+    H   -0.4811120  -1.1731760  1.5011160
+    H   0.0931710   2.6211890   -0.4460780
+    H   -0.5312790  1.1576980   -1.4360760
+    H   -0.0931710  -2.6211890  -0.4460780
+    H   0.5312790   -1.1576980  -1.4360760
+    """
+    mol.build()
+    print(mol.energy_nuc())
+
+
