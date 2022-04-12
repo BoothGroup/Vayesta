@@ -140,32 +140,24 @@ class UEWFFragment(UFragment, EWFFragment):
         return e_singles, e_doubles, e_corr
 
     def make_partial_dm2(self, t_as_lambda=False, sym_t2=True):
-        t1 = self.results.wf.t1
-        t2 = self.results.wf.t2
-        pwf = self.results.pwf.restore(sym=sym_t2)
-        t1x, t2x = pwf.t1, pwf.t2
-        if t_as_lambda:
-            l1x, l2x = t1x, t2x
-        else:
-            l1x, l2x = pwf.l1, pwf.l2
-
+        t1, t2, t1x, t2x, l1x, l2x = self._ccsd_amplitudes_for_dm(t_as_lambda=t_as_lambda, sym_t2=sym_t2)
         # Only incore for UCCSD:
-        d2 = pyscf.cc.uccsd_rdm._gamma2_intermediates(None, t1, t2, l1x, l2x)
-
+        #d2 = pyscf.cc.uccsd_rdm._gamma2_intermediates(None, t1, t2, l1x, l2x)
+        d2ovov, *d2 = pyscf.cc.uccsd_rdm._gamma2_intermediates(None, t1, t2, l1x, l2x)
         # Correction of unprojected terms (which do not involve L1/L2):
         # dovov:
         dtau = (t2x[0]-t2[0] + einsum('ia,jb->ijab', t1x[0]-t1[0], 2*t1[0]))/4
-        d2[0][0][:] += dtau.transpose(0,2,1,3)
-        d2[0][0][:] -= dtau.transpose(0,3,1,2)
+        d2ovov[0][:] += dtau.transpose(0,2,1,3)
+        d2ovov[0][:] -= dtau.transpose(0,3,1,2)
         # dovOV (symmetrize between t1x[0] and t1x[1]; t2x[1] should already be symmetrized):
         dtau = ((t2x[1]-t2[1]) + einsum('ia,jb->ijab', t1x[0]-t1[0], t1[1]/2)
                                + einsum('ia,jb->ijab', t1[0]/2, t1x[1]-t1[1]))/2
-        d2[0][1][:] += dtau.transpose(0,2,1,3)
+        d2ovov[1][:] += dtau.transpose(0,2,1,3)
         # dOVOV:
         dtau = (t2x[2]-t2[2] + einsum('ia,jb->ijab', t1x[1]-t1[1], 2*t1[1]))/4
-        d2[0][3][:] += dtau.transpose(0,2,1,3)
-        d2[0][3][:] -= dtau.transpose(0,3,1,2)
-        dm2 = pyscf.cc.uccsd_rdm._make_rdm2(None, None, d2, with_dm1=False, with_frozen=False)
+        d2ovov[3][:] += dtau.transpose(0,2,1,3)
+        d2ovov[3][:] -= dtau.transpose(0,3,1,2)
+        dm2 = pyscf.cc.uccsd_rdm._make_rdm2(None, None, (d2ovov, *d2), with_dm1=False, with_frozen=False)
         return dm2
 
     def get_cluster_sz(self, proj=None):

@@ -8,6 +8,8 @@ import vayesta
 from vayesta.core.util import *
 from vayesta.core import Embedding
 from vayesta.core.mpi import mpi
+from vayesta.core.fragmentation import SAO_Fragmentation
+from vayesta.core.fragmentation import IAOPAO_Fragmentation
 # --- Package
 from . import helper
 from .fragment import EWFFragment as Fragment
@@ -16,6 +18,7 @@ from .amplitudes import get_global_t2_rhf
 from .rdm import make_rdm1_ccsd
 from .rdm import make_rdm1_ccsd_old
 from .rdm import make_rdm1_ccsd_proj_lambda
+from .rdm import make_rdm1_ccsd_2p2l
 from .rdm import make_rdm2_ccsd
 from .rdm import make_rdm2_ccsd_proj_lambda
 from .icmp2 import get_intercluster_mp2_energy_rhf
@@ -79,15 +82,6 @@ class EWF(Embedding):
         e_corr_part: str = 'all'    # ['all', 'direct', 'exchange']
         #energy_partitioning: str = 'first-occ'
         strict: bool = False                # Stop if cluster not converged
-        # --- Storage [True=store and force calculation, 'auto'=store if present, False=do not store]
-        #store_t2:  Union[bool,str] = True   # in future: False
-        #store_l2:  Union[bool,str] = 'auto' # in future: False
-        #store_t2x: Union[bool,str] = False  # in future: True
-        #store_l2x: Union[bool,str] = False  # in future: 'auto'
-        #store_t2x: Union[bool,str] = True
-        #store_l2x: Union[bool,str] = 'auto'
-        make_dm1: bool = False
-        make_dm2: bool = False
 
     def __init__(self, mf, solver='CCSD', options=None, log=None, **kwargs):
         """Embedded wave function (EWF) calculation object.
@@ -387,6 +381,9 @@ class EWF(Embedding):
     def make_rdm1_ccsd_old(self, *args, **kwargs):
         return make_rdm1_ccsd_old(self, *args, **kwargs)
 
+    def make_rdm1_ccsd_2p2l(self, *args, **kwargs):
+        return make_rdm1_ccsd_2p2l(self, *args, **kwargs)
+
     def make_rdm1_ccsd_proj_lambda(self, *args, **kwargs):
         return make_rdm1_ccsd_proj_lambda(self, *args, **kwargs)
 
@@ -427,6 +424,123 @@ class EWF(Embedding):
         return ecum
 
     get_intercluster_mp2_energy = get_intercluster_mp2_energy_rhf
+
+    def get_atomic_ssz(self, atoms=None, dm1=None, dm2=None, projection='sao', full_dm2=False):
+        """TODO: MPI"""
+        t0 = timer()
+        if atoms is None:
+            atoms = list(range(self.mol.natm))
+        natom = len(atoms)
+
+        if projection == 'sao':
+            frag = SAO_Fragmentation(self.mf, self.log)
+        elif projection.replace('+', '').replace('/', '') == 'iaopao':
+            frag = IAOPAO_Fragmentation(self.mf, self.log)
+        else:
+            raise NotImplementedError("Projection '%s' not implemented" % projection)
+        frag.kernel()
+
+        ovlp = self.get_ovlp()
+
+        c_atom = []
+        for atom in atoms:
+            name, indices = frag.get_atomic_fragment_indices(atom)
+            c_atom.append(frag.get_frag_coeff(indices))
+
+        proj = []
+        for i, atom in enumerate(atoms):
+            rx = np.dot(ovlp, c_atom[i])
+            rx = np.dot(self.mo_coeff.T, rx)
+            px = np.dot(rx, rx.T)
+            proj.append(px)
+
+        # Fragment dependent projection operator:
+        if not full_dm2:
+            proj_x = []
+            for fx in self.get_fragments():
+                tmp = np.dot(fx.cluster.c_active.T, ovlp)
+                proj_x.append([])
+                for a, atom in enumerate(atoms):
+                    rx = np.dot(tmp, c_atom[a])
+                    px = np.dot(rx, rx.T)
+                    proj_x[-1].append(px)
+
+        ssz = np.zeros((natom, natom))
+
+        # 1-DM contribution:
+        if dm1 is None:
+            #dm1 = self.make_rdm1_ccsd_proj_lambda()
+            dm1 = self.make_rdm1_ccsd_old()
+            #dm1 = self.make_rdm1_ccsd()
+        for a, atom1 in enumerate(atoms):
+            tmp = np.dot(proj[a], dm1)
+            for b, atom2 in enumerate(atoms):
+                ssz[a,b] = np.sum(tmp*proj[b])/4
+
+        occ = np.s_[:self.nocc]
+        occdiag = np.diag_indices(self.nocc)
+
+        # Non-cumulant DM2 contribution:
+        # (for full_dm2=True this is included in the 2-DM contribution below)
+        if not full_dm2:
+
+            # TEST (FULL DM2):
+            #dm1 = dm1.copy()
+            #dm1[occdiag] -= 1
+            #dm1 /= 2
+            #ddm2 = np.zeros(4*[self.nmo])
+            #for i in range(self.nocc):
+            #    ddm2[:,i,i,:] -= dm1
+            #    ddm2[i,:,:,i] -= dm1.T
+            #for a, atom1 in enumerate(atoms):
+            #    pa = proj[a]
+            #    tmp = np.dot(pa, dm1)
+            #    for b, atom2 in enumerate(atoms):
+            #        pb = proj[b]
+            #        ssz[a,b] += einsum('ij,ijkl,kl->', pa, ddm2, pb)/2
+
+            dm1 = dm1.copy()
+            dm1[occdiag] -= 1
+            dm1 /= 2
+            for a, atom1 in enumerate(atoms):
+                tmp = np.dot(proj[a], dm1)
+                for b, atom2 in enumerate(atoms):
+                    #ssz[a,b] -= np.sum(np.dot(tmp, proj[b])[occdiag])  # N_atom^2 * N^3 scaling
+                    ssz[a,b] -= np.sum(tmp[occ] * proj[b].T[occ])       # N_atom^2 * N^2 scaling
+
+        # 2-DM contribution:
+        if full_dm2:
+            if dm2 is None:
+                dm2 = self.make_rdm2_ccsd_proj_lambda()
+            dm2aa = (dm2 - dm2.transpose(0,3,2,1))/6
+            # ddm2 is equal to dm2aa - dm2ab, as
+            # dm2ab = (dm2/2 - dm2aa)
+            ddm2 = (2*dm2aa - dm2/2)
+
+            for a, atom1 in enumerate(atoms):
+                p1 = proj[a]
+                #tmp = einsum('ij,ijkl->kl', p1, ddm2)
+                tmp = np.tensordot(p1, ddm2)
+                for b, atom2 in enumerate(atoms):
+                    p2 = proj[b]
+                    #ssz[i,j] = einsum('kl,kl->', tmp, p2)/2
+                    ssz[a,b] += np.sum(tmp*p2)/2
+        else:
+            for x, fx in enumerate(self.get_fragments()):
+                dm2 = fx.make_partial_dm2()
+                dm2aa = (dm2 - dm2.transpose(0,3,2,1))/6
+                ddm2 = (2*dm2aa - dm2/2)
+
+                for a, atom1 in enumerate(atoms):
+                    pa = proj_x[x][a]
+                    tmp = np.tensordot(pa, ddm2)
+                    for b, atom2 in enumerate(atoms):
+                        pb = proj_x[x][b]
+                        ssz[a,b] += np.sum(tmp*pb)/2
+
+        self.log.timing("Time for <S_z^2>: %s", time_string(timer()-t0))
+        return ssz
+
 
     #def get_wf_cisd(self, intermediate_norm=False, c0=None):
     #    c0_target = c0

@@ -261,19 +261,6 @@ class CCSD_Solver(ClusterSolver):
             self.wf.l1, self.wf.l2 = self.l1, self.l2
         return self.l1, self.l2
 
-    def make_rdm1(self, l1=None, l2=None, with_frozen=False):
-        if l1 is None: l1 = self.get_l1()
-        if l2 is None: l2 = self.get_l2()
-        self.log.debug("Making RDM1...")
-        self.dm1 = self.solver.make_rdm1(l1=l1, l2=l2, with_frozen=with_frozen)
-        return self.dm1
-
-    def make_rdm2(self, l1=None, l2=None, with_frozen=False):
-        if l1 is None: l1 = self.get_l1()
-        if l2 is None: l2 = self.get_l2()
-        self.log.debug("Making RDM2...")
-        self.dm2 = self.solver.make_rdm2(l1=l1, l2=l2, with_frozen=with_frozen)
-        return self.dm2
 
     def t_diagnostic(self):
         self.log.info("T-Diagnostic")

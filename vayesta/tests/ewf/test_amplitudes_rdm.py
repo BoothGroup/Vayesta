@@ -24,7 +24,7 @@ class T_AmplitudesTests(unittest.TestCase):
         cls.dm2 = cls.ccsd.make_rdm2()
 
         # Emb-CCSD
-        cls.emb = vayesta.ewf.EWF(moles[cls.key]['rhf'], bath_type='full', make_dm1=True, make_dm2=True)
+        cls.emb = vayesta.ewf.EWF(moles[cls.key]['rhf'], bath_type='full', solve_lambda=True)
         cls.emb.iao_fragmentation()
         cls.emb.add_all_atomic_fragments()
         cls.emb.kernel()

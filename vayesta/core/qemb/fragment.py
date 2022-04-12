@@ -48,10 +48,10 @@ class Fragment:
         wf: WaveFunction = None     # WaveFunction object (MP2, CCSD,...)
         pwf: WaveFunction = None    # Fragment-projected wave function
         # --- Density-matrices
-        dm1: np.ndarray = None      # One-particle reduced density matrix (dm1[i,j] = <i^+ j>
-        dm2: np.ndarray = None      # Two-particle reduced density matrix (dm2[i,j,k,l] = <i^+ k^+ l j>)
+        #dm1: np.ndarray = None      # One-particle reduced density matrix (dm1[i,j] = <i^+ j>
+        #dm2: np.ndarray = None      # Two-particle reduced density matrix (dm2[i,j,k,l] = <i^+ k^+ l j>)
 
-        # OLD:
+        # OLD / Deprecated:
         @property
         def c0(self):
             return self.wf.c0

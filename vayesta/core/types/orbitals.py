@@ -2,6 +2,7 @@ import numpy as np
 
 import vayesta
 from vayesta.core.util import *
+from vayesta.core.helper import pack_arrays, unpack_arrays
 
 __all__ = [
         'Orbitals', 'SpatialOrbitals', 'SpinOrbitals', 'GeneralOrbitals',
@@ -21,12 +22,12 @@ def Orbitals(coeff, *args, **kwargs):
 class SpatialOrbitals(MolecularOrbitals):
 
     def __init__(self, coeff, energy=None, occ=None, labels=None, maxocc=2):
-        self.coeff = coeff
-        self.energy = energy
+        self.coeff = np.asarray(coeff, dtype=float)
+        self.energy = np.asarray(energy, dtype=float)
         self.maxocc = maxocc
         if isinstance(occ, (int, np.integer)):
             occ = np.asarray(occ*[self.maxocc] + (self.norb-occ)*[0])
-        self.occ = occ
+        self.occ = np.asarray(occ, dtype=float)
         self.labels = labels
 
     @property
@@ -56,11 +57,35 @@ class SpatialOrbitals(MolecularOrbitals):
             return int(np.rint(ne))
         return ne
 
-    def as_spin_orbitals(self):
+    @property
+    def coeff_occ(self):
+        return self.coeff[:,:self.nocc]
+
+    @property
+    def coeff_vir(self):
+        return self.coeff[:,self.nocc:]
+
+    def to_spin_orbitals(self):
         return SpinOrbitals.from_spatial_orbitals(self)
 
-    def as_general_orbitals(self):
+    def to_general_orbitals(self):
         return GeneralOrbitals.from_spatial_orbitals(self)
+
+    def pack(self, dtype=float):
+        """Pack into a single array of data type `dtype`.
+
+        Useful for communication via MPI."""
+        data = (self.coeff, self.energy, self.occ)
+        return pack_arrays(*data, dtype=dtype)
+
+    @classmethod
+    def unpack(cls, packed):
+        """Unpack from a single array of data type `dtype`.
+
+        Useful for communication via MPI."""
+        coeff, energy, occ = unpack_arrays(packed)
+        return cls(coeff, energy=energy, occ=occ)
+
 
 class SpinOrbitals(MolecularOrbitals):
 
@@ -78,7 +103,7 @@ class SpinOrbitals(MolecularOrbitals):
         labels = (orbitals.labels, orbitals.labels) if orbitals.labels is not None else None
         return cls((orbitals.coeff, orbitals.coeff), energy=energy, occ=occ, labels=labels)
 
-    def as_general_orbitals(self):
+    def to_general_orbitals(self):
         return GeneralOrbitals.from_spin_orbitals(self)
 
     @property
@@ -121,6 +146,25 @@ class SpinOrbitals(MolecularOrbitals):
             return
         super().__setattr__(name, value)
 
+    def pack(self, dtype=float):
+        """Pack into a single array of data type `dtype`.
+
+        Useful for communication via MPI."""
+        data = (*self.coeff, *self.energy, *self.occ)
+        return pack_arrays(*data, dtype=dtype)
+
+    @classmethod
+    def unpack(cls, packed):
+        """Unpack from a single array of data type `dtype`.
+
+        Useful for communication via MPI."""
+        unpacked = unpack_arrays(packed)
+        coeff = unpacked[:2]
+        energy = unpacked[2:4]
+        occ = unpacked[4:6]
+        return cls(coeff, energy=energy, occ=occ)
+
+
 class GeneralOrbitals(SpatialOrbitals):
 
     @property
@@ -134,3 +178,37 @@ class GeneralOrbitals(SpatialOrbitals):
     @classmethod
     def from_spin_orbitals(cls, orbitals):
         raise NotImplementedError
+
+if __name__ == '__main__':
+
+    def test_spatial(nao=20, nocc=5, nvir=15):
+        coeff = np.random.rand(nao, nao)
+        energy = np.random.rand(nao)
+        occ = np.asarray(nocc*[2] + nvir*[0])
+
+        orbs = SpatialOrbitals(coeff, energy=energy, occ=occ)
+        packed = orbs.pack()
+        orbs2 = SpatialOrbitals.unpack(packed)
+        assert np.all(orbs.coeff == orbs2.coeff)
+        assert np.all(orbs.energy == orbs2.energy)
+        assert np.all(orbs.occ == orbs2.occ)
+
+    def test_spin(nao=20, nocc=5, nvir=15):
+        coeff = []
+        energy = []
+        occ = []
+        for s in range(2):
+            coeff.append(np.random.rand(nao, nao))
+            energy.append(np.random.rand(nao))
+            occ.append(np.asarray(nocc*[2] + nvir*[0]))
+
+        orbs = SpinOrbitals(coeff, energy=energy, occ=occ)
+        packed = orbs.pack()
+        orbs2 = SpinOrbitals.unpack(packed)
+        for s in range(2):
+            assert np.all(orbs.coeff[s] == orbs2.coeff[s])
+            assert np.all(orbs.energy[s] == orbs2.energy[s])
+            assert np.all(orbs.occ[s] == orbs2.occ[s])
+
+    test_spatial()
+    test_spin()

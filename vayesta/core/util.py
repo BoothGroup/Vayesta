@@ -8,6 +8,12 @@ from timeit import default_timer
 from contextlib import contextmanager
 
 try:
+    from functools import cache
+except ImportError:
+    from functools import lru_cache
+    cache = lru_cache(maxsize=None)
+
+try:
     import psutil
 except (ModuleNotFoundError, ImportError):
     psutil = None
@@ -37,7 +43,9 @@ __all__ = [
         # Other
         'brange',
         'deprecated',
-        'replace_attr', 'cached_method', 'break_into_lines', 'fix_orbital_sign',
+        'replace_attr',
+        'cache',
+        'break_into_lines', 'fix_orbital_sign',
         ]
 
 class Object:
@@ -154,33 +162,6 @@ def brange(*args, minstep=1, maxstep=None):
         blk = np.s_[i:min(i+step, stop)]
         yield blk
 
-def cached_method(cachename, use_cache_default=True, store_cache_default=True):
-    """Cache the return value of a class method.
-
-    This adds the parameters `use_cache` and `store_cache` to the method
-    signature; the default values for both parameters is `True`."""
-    def cached_function(func):
-        nonlocal cachename
-
-        def is_cached(self):
-            return (hasattr(self, cachename) and get_cache(self) is not None)
-
-        def get_cache(self):
-            return getattr(self, cachename)
-
-        def set_cache(self, value):
-            return setattr(self, cachename, value)
-
-        @wraps(func)
-        def wrapper(self, *args, use_cache=use_cache_default, store_cache=store_cache_default, **kwargs):
-            if use_cache and is_cached(self):
-                return get_cache(self)
-            val = func(self, *args, **kwargs)
-            if store_cache:
-                set_cache(self, val)
-            return val
-        return wrapper
-    return cached_function
 
 
 # --- Exceptions

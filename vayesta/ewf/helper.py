@@ -91,3 +91,19 @@ def amplitudes_t2c(t1, t2):
     c1 = t1.copy()
     c2 = t2 + einsum("ia,jb->ijab", t1, t1)
     return c1, c2
+
+def get_ssz(dm1, dm2, proj1=None, proj2=None):
+    dm1a = dm1/2
+    dm2aa = (dm2 - dm2.transpose(0,3,2,1)) / 6
+    dm2ab = (dm2/2 - dm2aa)
+
+    if proj1 is None:
+        ssz = (einsum('iijj->', dm2aa) - einsum('iijj->', dm2ab))/2
+        ssz += einsum('ii->', dm1a)/2
+        return ssz
+    if proj2 is None:
+        proj2 = proj1
+    ssz = (einsum('ijkl,ij,kl->', dm2aa, proj1, proj2)
+         - einsum('ijkl,ij,kl->', dm2ab, proj1, proj2))/2
+    ssz += einsum('ij,ik,jk->', dm1a, proj1, proj2)/2
+    return ssz

@@ -10,6 +10,7 @@ import pyscf.fci
 import vayesta
 from vayesta.core.util import *
 from vayesta.core.types.orbitals import *
+from vayesta.core.helper import pack_arrays, unpack_arrays
 
 __all__ = [
         'WaveFunction',
@@ -206,12 +207,19 @@ def symmetrize_c2(c2, inplace=True):
 def symmetrize_uc2(c2, inplace=True):
     if not inplace:
         c2 = tuple(x.copy() for x in c2)
+
     # alpha-alpha:
-    c2[0][:] += c2[0].transpose(1,0,3,2) - c2[0].transpose(1,0,2,3) - c2[0].transpose(0,1,3,2)
-    c2[0][:] /= 4
+    #c2[0][:] += c2[0].transpose(1,0,3,2) - c2[0].transpose(1,0,2,3) - c2[0].transpose(0,1,3,2)
+    #c2[0][:] /= 4
+    ## beta-beta:
+    #c2[-1][:] += c2[-1].transpose(1,0,3,2) - c2[-1].transpose(1,0,2,3) - c2[-1].transpose(0,1,3,2)
+    #c2[-1][:] /= 4
+    # alpha-alpha:
+    c2[0][:] += c2[0].transpose(1,0,3,2)
+    c2[0][:] /= 2
     # beta-beta:
-    c2[-1][:] += c2[-1].transpose(1,0,3,2) - c2[-1].transpose(1,0,2,3) - c2[-1].transpose(0,1,3,2)
-    c2[-1][:] /= 4
+    c2[-1][:] += c2[-1].transpose(1,0,3,2)
+    c2[-1][:] /= 2
     # alpha-beta and beta-alpha:
     if len(c2) == 4:
         c2ab = (c2[1] + c2[2].transpose(1,0,3,2))/2
@@ -227,8 +235,8 @@ class RMP2_WaveFunction(WaveFunction):
         super().__init__(mo)
         self.t2 = t2
 
-    def as_ump2(self):
-        mo = self.mo.as_spin_orbitals()
+    def to_ump2(self):
+        mo = self.mo.to_spin_orbitals()
         t2 = self.t2.copy()
         t2aa = (t2 - t2.transpose(0,1,3,2))
         t2 = (t2aa, t2, t2aa)
@@ -246,15 +254,15 @@ class RMP2_WaveFunction(WaveFunction):
         if not sym:
             return wf
         wf.t2 = symmetrize_c2(wf.t2)
-        self.projector = None
+        wf.projector = None
         return wf
 
-    def as_cisd(self, c0=1.0):
+    def to_cisd(self, c0=1.0):
         c1 = np.zeros((self.nocc, self.nvir))
         c2 = c0*self.t2
         return RCISD_WaveFunction(self.mo, c0, c1, c2)
 
-    def as_ccsd(self):
+    def to_ccsd(self):
         t1 = np.zeros((self.nocc, self.nvir))
         return CCSD_WaveFunction(self.mo, t1, self.t2)
 
@@ -292,11 +300,11 @@ class UMP2_WaveFunction(RMP2_WaveFunction):
         wf = self.project((projector[0].T, projector[1].T), inplace=inplace)
         if not sym:
             return wf
-        self.t2 = symmetrize_uc2(self.t2)
-        self.projector = None
+        wf.t2 = symmetrize_uc2(self.t2)
+        wf.projector = None
         return wf
 
-    def as_cisd(self, c0=1.0):
+    def to_cisd(self, c0=1.0):
         c1 = (np.zeros((self.nocca, self.nvira)),
               np.zeros((self.noccb, self.nvirb)))
         c2aa = c0*self.t2aa
@@ -309,7 +317,7 @@ class UMP2_WaveFunction(RMP2_WaveFunction):
             c2 = (c2aa, c2ab, c2ba, c2bb)
         return UCISD_WaveFunction(self.mo, c0, c1, c2)
 
-    def as_ccsd(self):
+    def to_ccsd(self):
         t1 = (np.zeros((self.nocca, self.nvira)),
               np.zeros((self.noccb, self.nvirb)))
         return UCCSD_WaveFunction(self.mo, t1, self.t2)
@@ -348,25 +356,25 @@ class RCISD_WaveFunction(WaveFunction):
         if not sym:
             return wf
         wf.c2 = symmetrize_c2(wf.c2)
-        self.projector = None
+        wf.projector = None
         return wf
 
     def copy(self):
         return RCISD_WaveFunction(self.mo, self.c0, self.c1.copy(), self.c2.copy())
 
-    def as_cisd(self, c0=None):
+    def to_cisd(self, c0=None):
         if c0 is None:
             return self
         c1 = self.c1 * c0/self.c0
         c2 = self.c2 * c0/self.c0
         return RCISD_WaveFunction(self.mo, c0, c1, c2)
 
-    def as_ccsd(self):
+    def to_ccsd(self):
         t1 = self.c1/self.c0
         t2 = self.c2/self.c0 - einsum('ia,jb->ijab', t1, t1)
         return RCCSD_Wavefunction(self.mo, t1, t2)
 
-    def as_fci(self):
+    def to_fci(self):
         raise NotImplementedError
 
 class UCISD_WaveFunction(RCISD_WaveFunction):
@@ -410,7 +418,7 @@ class UCISD_WaveFunction(RCISD_WaveFunction):
         if not sym:
             return wf
         wf.c2 = symmetrize_uc2(wf.c2)
-        self.projector = None
+        wf.projector = None
         return wf
 
     def copy(self):
@@ -418,7 +426,7 @@ class UCISD_WaveFunction(RCISD_WaveFunction):
         c2 = tuple(t.copy() for t in self.c2)
         return UCISD_WaveFunction(self.mo, self.c0, c1, c2)
 
-    def as_cisd(self, c0=None):
+    def to_cisd(self, c0=None):
         if c0 is None:
             return self
         c1a = self.c1a * c0/self.c0
@@ -434,7 +442,7 @@ class UCISD_WaveFunction(RCISD_WaveFunction):
             c2 = (c2aa, c2ab, c2ba, c2bb)
         return UCISD_WaveFunction(self.mo, c0, c1, c2)
 
-    def as_ccsd(self):
+    def to_ccsd(self):
         t1a = self.c1a/self.c0
         t1b = self.c1b/self.c0
         t1 = (t1a, t1b)
@@ -508,6 +516,27 @@ class RCCSD_WaveFunction(WaveFunction):
         wf.projector = projector
         return wf
 
+    def pack(self, dtype=float):
+        """Pack into a single array of data type `dtype`.
+
+        Useful for communication via MPI."""
+        mo = self.mo.pack(dtype=dtype)
+        data = (mo, self.t1, self.t2, self.l1, self.l2, self.projector)
+        pack = pack_arrays(*data, dtype=dtype)
+        return pack
+
+    @classmethod
+    def unpack(cls, packed):
+        """Unpack from a single array of data type `dtype`.
+
+        Useful for communication via MPI."""
+        mo, t1, t2, l1, l2, projector = unpack_arrays(packed)
+        mo = SpatialOrbitals.unpack(mo)
+        wf = cls(mo, t1, t2, l1=l1, l2=l2)
+        if projector is not None:
+            wf.projector = projector
+        return wf
+
     def restore(self, projector=None, inplace=False, sym=True):
         if projector is None: projector = self.projector
         wf = self.project(projector.T, inplace=inplace)
@@ -517,7 +546,7 @@ class RCCSD_WaveFunction(WaveFunction):
         if wf.l2 is None:
             return wf
         wf.l2 = symmetrize_c2(wf.l2)
-        self.projector = None
+        wf.projector = None
         return wf
 
     def copy(self):
@@ -530,17 +559,17 @@ class RCCSD_WaveFunction(WaveFunction):
             l2 = self.l2.copy()
         return RCCSD_WaveFunction(self.mo, t1, t2, l1=l1, l2=l2)
 
-    def as_cisd(self, c0=1.0):
+    def to_cisd(self, c0=1.0):
         """In intermediate normalization."""
         c1 = c0*self.t1
         c2 = c0*(self.t2 + einsum('ia,jb->ijab', self.t1, self.t1))
         return RCISD_WaveFunction(self.mo, c0, c1, c2)
 
-    def as_ccsd(self):
+    def to_ccsd(self):
         return self
 
-    def as_uccsd(self):
-        mo = self.mo.as_spin_orbitals()
+    def to_uccsd(self):
+        mo = self.mo.to_spin_orbitals()
         def _to_uccsd(t1, t2):
             t1, t2 = self.t1.copy, self.t2.copy()
             t2aa = t2 - t2.transpose(0,1,3,2)
@@ -600,10 +629,10 @@ class UCCSD_WaveFunction(RCCSD_WaveFunction):
         if self.l2 is None:
             return wf
         wf.l2 = symmetrize_uc2(wf.l2)
-        self.projector = None
+        wf.projector = None
         return wf
 
-    def as_cisd(self, c0=1.0):
+    def to_cisd(self, c0=1.0):
         c1a = c0*self.t1a
         c1b = c0*self.t1b
         c2aa = c0*(self.t2aa + einsum('ia,jb->ijab', self.t1a, self.t1a)
@@ -628,6 +657,32 @@ class UCCSD_WaveFunction(RCCSD_WaveFunction):
         if self.l2 is not None:
             l2 = tuple(t.copy() for t in self.l2)
         return UCCSD_WaveFunction(self.mo, t1, t2, l1=l1, l2=l2)
+
+    #def pack(self, dtype=float):
+    #    """Pack into a single array of data type `dtype`.
+
+    #    Useful for communication via MPI."""
+    #    mo = self.mo.pack(dtype=dtype)
+    #    l1 = self.l1 is not None else [None, None]
+    #    l2 = self.l2 is not None else len(self.t2)*[None]
+    #    projector = self.projector is not None else [None]
+    #    data = (mo, *self.t1, *self.t2, *l1, *l2, *projector)
+    #    pack = pack_arrays(*data, dtype=dtype)
+    #    return pack
+
+    #@classmethod
+    #def unpack(cls, packed):
+    #    """Unpack from a single array of data type `dtype`.
+
+    #    Useful for communication via MPI."""
+    #    mo, *unpacked = unpack_arrays(packed)
+    #    mo = SpinOrbitals.unpack(mo)
+    #    t1a, t1b, t2, l1, l2, projector = 
+    #    wf = cls(mo, t1, t2, l1=l1, l2=l2)
+    #    if projector is not None:
+    #        wf.projector = projector
+    #    return wf
+
 
 def CCSD_WaveFunction(mo, t1, t2):
     if mo.nspin == 1:
@@ -663,7 +718,7 @@ class RFCI_WaveFunction(WaveFunction):
     def c0(self):
         return self.ci[0,0]
 
-    def as_cisd(self, c0=None):
+    def to_cisd(self, c0=None):
         norb, nocc, nvir = self.norb, self.nocc, self.nvir
         t1addr, t1sign = pyscf.ci.cisd.t1strs(norb, nocc)
         c1 = self.ci[0,t1addr] * t1sign
@@ -677,11 +732,11 @@ class RFCI_WaveFunction(WaveFunction):
             c2 *= c0/self.c0
         return RCISD_WaveFunction(self.mo, c0, c1, c2)
 
-    def as_ccsd(self):
-        return self.as_cisd().as_ccsd()
+    def to_ccsd(self):
+        return self.to_cisd().to_ccsd()
 
-    def as_ufci(self):
-        mo = self.mo.as_spin_orbitals()
+    def to_ufci(self):
+        mo = self.mo.to_spin_orbitals()
         return UFCI_WaveFunction(mo, self.ci)
 
 class UFCI_WaveFunction(RFCI_WaveFunction):
@@ -697,7 +752,7 @@ class UFCI_WaveFunction(RFCI_WaveFunction):
         assert (self.norb[0] == self.norb[1])
         return type(self)._make_rdm2_backend(self.ci, self.norb[0], self.nelec)[1]
 
-    def as_cisd(self, c0=None):
+    def to_cisd(self, c0=None):
         norba, norbb = self.norb
         nocca, noccb = self.nocc
         nvira, nvirb = self.nvir
@@ -761,30 +816,35 @@ if __name__ == '__main__':
         mp = pyscf.mp.MP2(rhf)
         mp.kernel()
         wf = WaveFunction.from_pyscf(mp)
-        print(wf)
 
     def test_ump2():
         mp = pyscf.mp.UMP2(uhf)
         mp.kernel()
         wf = WaveFunction.from_pyscf(mp)
-        print(wf)
 
     def test_rccsd():
         cc = pyscf.cc.CCSD(rhf)
         cc.kernel()
         wf = WaveFunction.from_pyscf(cc)
-        print(wf)
+        return wf
 
     def test_uccsd():
         cc = pyscf.cc.UCCSD(uhf)
         cc.kernel()
         wf = WaveFunction.from_pyscf(cc)
-        print(wf)
 
-    test_rmp2()
-    test_ump2()
-    test_rccsd()
-    test_uccsd()
+    #test_rmp2()
+    #test_ump2()
+    wf = test_rccsd()
+    array = wf.pack()
+    wf2 = RCCSD_WaveFunction.unpack(array)
+
+    print(np.all(wf.t1 == wf2.t1))
+    print(np.all(wf.t2 == wf2.t2))
+    print(wf.l1)
+    print(wf2.l1)
+
+    #test_uccsd()
     1/0
 
     norb = 6
@@ -811,12 +871,12 @@ if __name__ == '__main__':
     t2 = np.random.rand(nocc,nocc,nvir,nvir)
     psi = CCSD_WaveFunction(mo, t1, t2)
     print(psi)
-    psi = psi.as_cisd()
+    psi = psi.to_cisd()
     print(psi)
 
     t1 = (t1, t1)
     t2 = (t2, t2, t2)
     psi = CCSD_WaveFunction(so, t1, t2)
     print(psi)
-    psi = psi.as_cisd()
+    psi = psi.to_cisd()
     print(psi)
