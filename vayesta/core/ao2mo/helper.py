@@ -51,11 +51,13 @@ def get_ovvv(eris):
     nmo = eris.fock.shape[-1]
     nocc = eris.nocc
     nvir = nmo - nocc
-    if eris.ovvv.ndim == 4:
-        return eris.ovvv[:]
+    govvv = eris.ovvv[:]
+    if govvv.ndim == 4:
+        return govvv
     nvir_pair = nvir*(nvir+1)//2
-    ovvv = pyscf.lib.unpack_tril(eris.ovvv.reshape(nocc*nvir, nvir_pair))
-    return ovvv.reshape(nocc,nvir,nvir,nvir)
+    govvv = pyscf.lib.unpack_tril(govvv.reshape(nocc*nvir, nvir_pair))
+    govvv = govvv.reshape(nocc,nvir,nvir,nvir)
+    return govvv
 
 def get_vvvv(eris):
     nmo = eris.fock.shape[-1]
@@ -65,13 +67,13 @@ def get_vvvv(eris):
         if eris.vvvv.ndim == 4:
             return eris.vvvv[:]
         else:
-            return pyscf.ao2mo.restore(1, np.asarray(eris.vvvv), nvir)
+            return pyscf.ao2mo.restore(1, np.asarray(eris.vvvv[:]), nvir)
     # Note that this will not work for 2D systems!:
     if eris.vvL.ndim == 2:
         naux = eris.vvL.shape[-1]
-        vvl = pyscf.lib.unpack_tril(eris.vvL, axis=0).reshape(nvir,nvir,naux)
+        vvl = pyscf.lib.unpack_tril(eris.vvL[:], axis=0).reshape(nvir,nvir,naux)
     else:
-        vvl = eris.vvL
+        vvl = eris.vvL[:]
     return einsum('ijQ,klQ->ijkl', vvl, vvl)
 
 def pack_ovvv(ovvv):

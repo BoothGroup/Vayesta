@@ -289,7 +289,7 @@ class Embedding:
         sc = np.dot(self.get_ovlp(), self.mo_coeff[:,:self.nocc])
         e_exxdiv = -self.madelung * self.nocc/self.ncells
         v_exxdiv = -self.madelung * np.dot(sc, sc.T)
-        self.log.debug("Divergent exact-exchange (exxdiv) correction= %+16.8f Ha", e_exxdiv)
+        self.log.debugv("Divergent exact-exchange (exxdiv) correction= %+16.8f Ha", e_exxdiv)
         return e_exxdiv, v_exxdiv
 
     @property

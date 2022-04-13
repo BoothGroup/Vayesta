@@ -7,45 +7,32 @@ import pyscf.pbc.cc
 
 import vayesta
 import vayesta.ewf
+from vayesta.misc import solids
 
 
-a = 5.4307 # Silicon equilibrium lattice const in Angstroms
 cell = pyscf.pbc.gto.Cell()
-cell.atom = ['Si 0.0 0.0 0.0', 'Si %f %f %f' % (a/4, a/4, a/4)]
-cell.a = np.asarray([
-    [a/2, a/2, 0],
-    [0, a/2, a/2],
-    [a/2, 0, a/2]])
+cell.a = 3.0 * np.eye(3)
+cell.atom = 'He 0 0 0'
 
-cell.basis = 'gth-dzvp'
+cell.basis = 'cc-pvdz'
 cell.pseudo = 'gth-pade'
-cell.ke_cutoff = 80
 cell.exp_to_discard=0.1
-
-cell.max_memory = 190305596
 cell.build()
 
 kmesh = [2,2,1]
 kpts = cell.make_kpts(kmesh)
 
-print("Running RHF")
+# --- Hartree-Fock
 kmf = pyscf.pbc.scf.KRHF(cell, kpts)
-print("No exxdiv")
-kmf.exxdiv = 'ewald'
-kmf = kmf.density_fit()
+kmf = kmf.rs_density_fit(auxbasis='cc-pvdz-ri')
 kmf.kernel()
-print(kmf.e_tot)
 
-print("Running Vayesta")
-emb = vayesta.ewf.EWF(kmf, solver="CCSD", bno_threshold=-1)
-emb.iao_fragmentation()
-emb.add_all_atomic_fragments()
+# --- Embedding
+emb = vayesta.ewf.EWF(kmf, bath_type='full')
 emb.kernel()
-print("Vayesta")
-e_rdm2 = emb.get_dm_energy()
-print(e_rdm2)
+e_dm = emb.get_dm_energy()
 
-print("Running CCSD")
+# --- Reference full system CCSD
 cc = pyscf.pbc.cc.KCCSD(kmf)
 cc.kernel()
 

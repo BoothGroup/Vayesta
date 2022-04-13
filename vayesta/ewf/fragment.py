@@ -26,7 +26,6 @@ from vayesta.core.actspace import ActiveSpace
 from vayesta.core import ao2mo
 
 from . import ewf
-from .rdm import _gamma2_intermediates
 from .rdm import _incluster_gamma2_intermediates
 
 # Get MPI rank of fragment

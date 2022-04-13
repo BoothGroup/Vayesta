@@ -4,8 +4,6 @@ from typing import Union
 # --- External
 import numpy as np
 # --- Internal
-import pyscf.ao2mo
-
 from vayesta.core.util import *
 from vayesta.core import Embedding
 from vayesta.core.mpi import mpi
@@ -18,8 +16,6 @@ from .rdm import make_rdm1_ccsd
 from .rdm import make_rdm1_ccsd_old
 from .rdm import make_rdm2_ccsd
 from .icmp2 import get_intercluster_mp2_energy_rhf
-
-from .rdm import _gamma2_intermediates
 
 timer = mpi.timer
 
@@ -450,11 +446,9 @@ class EWF(Embedding):
     #    return c0, c1, c2
 
     def get_dm_energy(self, global_dm1=True, global_dm2=False):
-        return self.mf.e_tot / self.ncells + self.get_dm_corr_energy(global_dm1=True, global_dm2=False)
+        """Calculate total energy from reduced density-matrices.
 
-    def get_dm_corr_energy(self, global_dm1=True, global_dm2=False):
-        """Calculate correlation energy from reduced density-matrices.
-
+        RHF ONLY!
 
         Parameters
         ----------
@@ -465,9 +459,26 @@ class EWF(Embedding):
 
         Returns
         -------
-        e_dm : float
+        e_tot : float
         """
+        return self.e_mf + self.get_dm_corr_energy(global_dm1=global_dm1, global_dm2=global_dm2)
 
+    def get_dm_corr_energy(self, global_dm1=True, global_dm2=False):
+        """Calculate correlation energy from reduced density-matrices.
+
+        RHF ONLY!
+
+        Parameters
+        ----------
+        global_dm1 : bool
+            Use 1DM calculated from global amplitutes if True, otherwise use in cluster approximation. Default: True
+        global_dm2 : bool
+            Use 2DM calculated from global amplitutes if True, otherwise use in cluster approximation. Default: False
+
+        Returns
+        -------
+        e_corr : float
+        """
 
         t_as_lambda = self.opts.t_as_lambda
         mf = self.mf
@@ -481,150 +492,19 @@ class EWF(Embedding):
         rdm1[np.diag_indices(nocc)] -= 2
 
         # Core Hamiltonian + Non Cumulant 2DM contribution
-        E1 = einsum('pi,pq,qj,ij->', mf.mo_coeff, self.get_fock_for_energy(with_exxdiv=False), mf.mo_coeff, rdm1)
+        e1 = einsum('pi,pq,qj,ij->', self.mo_coeff, self.get_fock_for_energy(with_exxdiv=False), self.mo_coeff, rdm1)
 
         # Cumulant 2DM contribution
         if global_dm2:
             # Calculate global 2RDM and contract with ERIs
-            eri = mf._eri#emb.get_eris_array()
-            eri = pyscf.ao2mo.kernel(mf.mol, mf.mo_coeff, compact=False).reshape([nmo]*4)
-            eri = self.get_eris_array(mf.mo_coeff)
+            eri = self.get_eris_array(self.mo_coeff)
             rdm2 = self.make_rdm2_ccsd(slow=True, t_as_lambda=t_as_lambda)
-            E2 = einsum('pqrs,pqrs', eri, rdm2) * 0.5
+            e2 = einsum('pqrs,pqrs', eri, rdm2) * 0.5
         else:
             # Fragment Local 2DM cumulant contribution
-            E2 = sum([f.results.e_rdm2 for f in self.fragments])
-
-        return (E1 + E2) / self.ncells
-
-    def get_bath_bath_energy(self, method='avg', dm='t'):
-        """
-        Calculate bath-bath contribution to energy due to fragment space overalp with other clusters.
-
-        Parameters
-        ----------
-        method : str
-            Selects calculation method, can be 'max', 'avg', 'proj1', 'proj2'. Default: 'avg'
-
-        """
-
-        t_as_lambda = self.opts.t_as_lambda
-
-
-
-        def calc_subspace_energy_full_full(self, Pf, Pc, i1, i2, t_as_lambda=t_as_lambda):
-
-            t1 = self.fragments[i2].results.get_t1()
-            t2 = self.fragments[i2].results.get_t2()
-            l2 = (self.fragments[i2].results.get_t2() if t_as_lambda else self.fragments[i2].results.l2)
-            l1 = (self.fragments[i2].results.t1 if t_as_lambda else self.fragments[i2].results.l1)
-
-
-            t1p = einsum('ij,jk->ik', Pc, t1)
-            t2p = einsum('iI,jJ,IJab->ijab', Pf, Pc, t2)
-            l1p = einsum('ij,jk->ik', Pc, l1)
-            l2p = einsum('iI,jJ,IJab->ijab', Pf, Pc, l2)
-
-            mycc = pyscf.cc.CCSD(self.mf)
-
-            d1 = None
-
-            d2 = _gamma2_intermediates(mycc, t1, t2, l1p, l2p, t1p=t1p, t2p=t2p)
-            rdm2 = pyscf.cc.ccsd_rdm._make_rdm2(mycc, d1, d2, with_dm1=False)
-            eris = ao2mo.helper.get_full_array(self.fragments[i2]._eris)
-            E2 =  einsum('pqrs,pqrs', eris, rdm2) * 0.5
-            return E2
-
-        def calc_subspace_energy_t_amp(self, Pf, Pc, i1, i2, t_as_lambda=t_as_lambda):
-
-            t1 = self.fragments[i2].results.get_t1()
-            t2 = self.fragments[i2].results.get_t2()
-
-            # Note can also get global t1 and project onto cluster
-            theta = t2 + einsum('ia,jb->ijab', t1, t1)
-            thetap = einsum('iI,jJ,IJab->ijab', Pf, Pc, t2)
-
-            E2 = einsum('ijab,iabj', thetap, self.fragments[i2]._eris.ovvo) - einsum('ijab,jabi', thetap, self.fragments[i2]._eris.ovvo)
-
-            return E2
-
-        if dm == 'full':
-            calc_subspace_energy = calc_subspace_energy_full
-        elif dm == 't':
-            calc_subspace_energy = calc_subspace_energy_t_amp
-        # Construct cluster to cluster and cluster to fragment projectors in original cluster basis
-        # Stored as: (c2c/c2f)[i1][i2] is projector from i2 to i1, in i2 basis
-        c2c = [[] for i in self.fragments]
-        c2f = [[] for i in self.fragments]
-
-        # For each fragment find the maximally overlapping cluster space
-        traces = np.zeros((len(self.fragments), len(self.fragments)))
-        for i1, f1 in enumerate(self.fragments):
-            for i2, f2 in enumerate(self.fragments):
-                Pc = dot(self.fragments[i1].cluster.c_active_occ.T, self.get_ovlp(), self.fragments[i2].cluster.c_active_occ)
-                P = dot(Pc.T, Pc)
-                c2c[i1].append(np.eye(P.shape[0]) - P)
-
-                Pf = dot(self.fragments[i1].c_frag.T, self.get_ovlp(), self.fragments[i2].cluster.c_active_occ)
-                Pf = dot(Pf.T, Pf)
-                c2f[i1].append(Pf)
-
-                # Overlap between fragment space and cluster
-                if i1 != i2:
-                    traces[i2][i1] = c2f[i1][i2].trace() * c2c[i1][i2].trace()
-
-
-        # Construct ranking based on overlap
-        lst = list(range(len(self.fragments)))
-        ranking = [sorted(lst, key=lambda x: traces[i][x], reverse=True) for i in lst]
-
-        Ebb = 0
-        for i1, f1 in enumerate(self.fragments):
-            if method == 'max':
-                # Maximum overlap
-                i2 = ranking[i1][0]
-                Pf = c2f[i1][i2]
-                Pc = c2c[i1][i2]
-
-
-                Ebb += calc_subspace_energy(self, Pf, Pc, i1, i2)
-            elif method == 'avg':
-                # Weighted average
-                N = traces[i1].sum()
-                for i2, f2 in enumerate(self.fragments):
-                    Pf = c2f[i1][i2]
-                    Pc = c2c[i1][i2]
-
-                    Ebb += (calc_subspace_energy(self, Pf, Pc, i1, i2) * traces[i1][i2])/N
-
-            elif method == 'proj1':
-                # Simpler projective approach
-                for i2, f2 in enumerate(self.fragments):
-                    Pf = c2f[i1][i2]
-                    Pc = c2c[i1][i2]
-
-                    for i3 in [i for i in range(i2) if i != i1]:
-                        Pc = dot(Pc, c2c[i3][i2])
-
-                    Ebb += calc_subspace_energy(self, Pf, Pc, i1, i2)
-
-            elif method == 'proj2':
-                #Projective approach in overleaf document
-                for k, i2 in enumerate(ranking[i1]):
-                    Pf = c2f[i1][i2]
-                    Pc = c2c[i1][i2]
-
-                    Pt = np.eye(Pc.shape[0])
-
-                    for i3 in [i for i in range(k) if i != i1]:
-                        Pt = dot(Pt, c2c[i3][i2])
-
-                    Pf = dot(Pt, Pf, Pt)
-                    Pc = dot(Pt, Pc, Pt)
-
-                    Ebb += calc_subspace_energy(self, Pf, Pc, i1, i2)
-        return Ebb
-
+            e2 = sum(f.results.e_rdm2 for f in self.fragments)
+        e_corr = (e1 + e2) / self.ncells
+        return e_corr
 
 
     # -------------------------------------------------------------------------------------------- #
