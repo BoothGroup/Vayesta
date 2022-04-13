@@ -6,9 +6,12 @@ except ImportError:
 import numpy as np
 
 import pyscf
+# Open boundary
 import pyscf.gto
 import pyscf.scf
 import pyscf.cc
+import pyscf.fci
+# Periodic boundary
 import pyscf.pbc
 import pyscf.pbc.gto
 import pyscf.pbc.scf
@@ -56,6 +59,21 @@ class TestMolecule:
         uccsd.kernel()
         uccsd.solve_lambda()
         return uccsd
+
+    # --- FCI
+
+    @cache
+    def rfci(self):
+        rfci = pyscf.fci.FCI(self.rhf())
+        rfci.kernel()
+        return rfci
+
+    @cache
+    def ufci(self):
+        ufci = pyscf.fci.FCI(self.uhf())
+        ufci.kernel()
+        return ufci
+
 
 class TestSolid:
 

@@ -81,6 +81,41 @@ class TestH2Anion(TestH2):
         cls.mf = testsystems.h2anion_dz.uhf()
         cls.cc = testsystems.h2anion_dz.uccsd()
 
+# --- FCI
+
+class TestH2_FCI(TestCase):
+
+    @classmethod
+    def setUpClass(cls):
+        cls.mf = testsystems.h2_dz.rhf()
+        cls.fci = testsystems.h2_dz.rfci()
+
+    @classmethod
+    def tearDownClass(cls):
+        del cls.mf
+        del cls.fci
+        cls.emb.cache_clear()
+
+    @classmethod
+    @cache
+    def emb(cls, bno_threshold):
+        emb = vayesta.ewf.EWF(cls.mf, solver='FCI', bno_threshold=bno_threshold)
+        emb.iao_fragmentation()
+        emb.add_all_atomic_fragments()
+        emb.kernel()
+        return emb
+
+    def test_energy(self):
+        emb = self.emb(-1)
+        self.assertAllclose(emb.e_tot, self.fci.e_tot, rtol=0)
+
+class TestH2Anion_FCI(TestCase):
+
+    @classmethod
+    def setUpClass(cls):
+        cls.mf = testsystems.h2anion_dz.uhf()
+        cls.fci = testsystems.h2anion_dz.ufci()
+
 
 if __name__ == '__main__':
     print('Running %s' % __file__)
