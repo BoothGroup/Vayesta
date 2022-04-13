@@ -333,137 +333,6 @@ def MP2_WaveFunction(mo, t2):
         cls = UMP2_WaveFunction
     return cls(mo, t2)
 
-# --- CISD
-
-class RCISD_WaveFunction(WaveFunction):
-
-    def __init__(self, mo, c0, c1, c2):
-        super().__init__(mo)
-        self.c0 = c0
-        self.c1 = c1
-        self.c2 = c2
-
-    def project(self, projector, inplace=False):
-        wf = self if inplace else self.copy()
-        wf.c1 = project_c1(wf.c1, projector)
-        wf.c2 = project_c2(wf.c2, projector)
-        wf.projector = projector
-        return wf
-
-    def restore(self, projector=None, inplace=False, sym=True):
-        if projector is None: projector = self.projector
-        wf = self.project(projector.T, inplace=inplace)
-        if not sym:
-            return wf
-        wf.c2 = symmetrize_c2(wf.c2)
-        wf.projector = None
-        return wf
-
-    def copy(self):
-        return RCISD_WaveFunction(self.mo, self.c0, self.c1.copy(), self.c2.copy())
-
-    def to_cisd(self, c0=None):
-        if c0 is None:
-            return self
-        c1 = self.c1 * c0/self.c0
-        c2 = self.c2 * c0/self.c0
-        return RCISD_WaveFunction(self.mo, c0, c1, c2)
-
-    def to_ccsd(self):
-        t1 = self.c1/self.c0
-        t2 = self.c2/self.c0 - einsum('ia,jb->ijab', t1, t1)
-        return RCCSD_Wavefunction(self.mo, t1, t2)
-
-    def to_fci(self):
-        raise NotImplementedError
-
-class UCISD_WaveFunction(RCISD_WaveFunction):
-
-    @property
-    def c1a(self):
-        return self.c1[0]
-
-    @property
-    def c1b(self):
-        return self.c1[1]
-
-    @property
-    def c2aa(self):
-        return self.c2[0]
-
-    @property
-    def c2ab(self):
-        return self.c2[1]
-
-    @property
-    def c2ba(self):
-        if len(self.c2) == 4:
-            return self.c2[2]
-        return self.c2ab.transpose(1,0,3,2)
-
-    @property
-    def c2bb(self):
-        return self.c2[-1]
-
-    def project(self, projector, inplace=False):
-        wf = self if inplace else self.copy()
-        wf.c1 = project_uc1(wf.c1, projector)
-        wf.c2 = project_uc2(wf.c2, projector)
-        wf.projector = projector
-        return wf
-
-    def restore(self, projector=None, inplace=False, sym=True):
-        if projector is None: projector = self.projector
-        wf = self.project((projector[0].T, projector[1].T), inplace=inplace)
-        if not sym:
-            return wf
-        wf.c2 = symmetrize_uc2(wf.c2)
-        wf.projector = None
-        return wf
-
-    def copy(self):
-        c1 = tuple(t.copy() for t in self.c1)
-        c2 = tuple(t.copy() for t in self.c2)
-        return UCISD_WaveFunction(self.mo, self.c0, c1, c2)
-
-    def to_cisd(self, c0=None):
-        if c0 is None:
-            return self
-        c1a = self.c1a * c0/self.c0
-        c1b = self.c1b * c0/self.c0
-        c2aa = self.c2aa * c0/self.c0
-        c2ab = self.c2ab * c0/self.c0
-        c2bb = self.c2bb * c0/self.c0
-        c1 = (c1a, c1b)
-        if len(self.c2) == 3:
-            c2 = (c2aa, c2ab, c2bb)
-        elif len(self.c2) == 4:
-            c2ba = self.c2ba * c0/self.c0
-            c2 = (c2aa, c2ab, c2ba, c2bb)
-        return UCISD_WaveFunction(self.mo, c0, c1, c2)
-
-    def to_ccsd(self):
-        t1a = self.c1a/self.c0
-        t1b = self.c1b/self.c0
-        t1 = (t1a, t1b)
-        t2aa = self.c2aa/self.c0 - einsum('ia,jb->ijab', t1a, t1a) + einsum('ib,ja->ijab', t1a, t1a)
-        t2bb = self.c2bb/self.c0 - einsum('ia,jb->ijab', t1b, t1b) + einsum('ib,ja->ijab', t1b, t1b)
-        t2ab = self.c2ab/self.c0 - einsum('ia,jb->ijab', t1a, t1b)
-        if len(self.c2) == 3:
-            t2 = (t2aa, t2ab, t2bb)
-        elif len(self.c2) == 4:
-            t2ba = self.c2ab/self.c0 - einsum('ia,jb->ijab', t1b, t1a)
-            t2 = (t2aa, t2ab, t2ba, t2bb)
-        return UCCSD_WaveFunction(self.mo, t1, t2)
-
-
-def CISD_WaveFunction(mo, c0, c1, c2):
-    if mo.nspin == 1:
-        cls = RCISD_WaveFunction
-    elif mo.nspin == 2:
-        cls = UCISD_WaveFunction
-    return cls(mo, c0, c1, c2)
-
 # CCSD
 
 class RCCSD_WaveFunction(WaveFunction):
@@ -690,6 +559,136 @@ def CCSD_WaveFunction(mo, t1, t2):
     elif mo.nspin == 2:
         cls = UCCSD_WaveFunction
     return cls(mo, t1, t2)
+
+# --- CISD
+
+class RCISD_WaveFunction(WaveFunction):
+
+    def __init__(self, mo, c0, c1, c2):
+        super().__init__(mo)
+        self.c0 = c0
+        self.c1 = c1
+        self.c2 = c2
+
+    def project(self, projector, inplace=False):
+        wf = self if inplace else self.copy()
+        wf.c1 = project_c1(wf.c1, projector)
+        wf.c2 = project_c2(wf.c2, projector)
+        wf.projector = projector
+        return wf
+
+    def restore(self, projector=None, inplace=False, sym=True):
+        if projector is None: projector = self.projector
+        wf = self.project(projector.T, inplace=inplace)
+        if not sym:
+            return wf
+        wf.c2 = symmetrize_c2(wf.c2)
+        wf.projector = None
+        return wf
+
+    def copy(self):
+        return RCISD_WaveFunction(self.mo, self.c0, self.c1.copy(), self.c2.copy())
+
+    def to_cisd(self, c0=None):
+        if c0 is None:
+            return self
+        c1 = self.c1 * c0/self.c0
+        c2 = self.c2 * c0/self.c0
+        return RCISD_WaveFunction(self.mo, c0, c1, c2)
+
+    def to_ccsd(self):
+        t1 = self.c1/self.c0
+        t2 = self.c2/self.c0 - einsum('ia,jb->ijab', t1, t1)
+        return RCCSD_Wavefunction(self.mo, t1, t2)
+
+    def to_fci(self):
+        raise NotImplementedError
+
+class UCISD_WaveFunction(RCISD_WaveFunction):
+
+    @property
+    def c1a(self):
+        return self.c1[0]
+
+    @property
+    def c1b(self):
+        return self.c1[1]
+
+    @property
+    def c2aa(self):
+        return self.c2[0]
+
+    @property
+    def c2ab(self):
+        return self.c2[1]
+
+    @property
+    def c2ba(self):
+        if len(self.c2) == 4:
+            return self.c2[2]
+        return self.c2ab.transpose(1,0,3,2)
+
+    @property
+    def c2bb(self):
+        return self.c2[-1]
+
+    def project(self, projector, inplace=False):
+        wf = self if inplace else self.copy()
+        wf.c1 = project_uc1(wf.c1, projector)
+        wf.c2 = project_uc2(wf.c2, projector)
+        wf.projector = projector
+        return wf
+
+    def restore(self, projector=None, inplace=False, sym=True):
+        if projector is None: projector = self.projector
+        wf = self.project((projector[0].T, projector[1].T), inplace=inplace)
+        if not sym:
+            return wf
+        wf.c2 = symmetrize_uc2(wf.c2)
+        wf.projector = None
+        return wf
+
+    def copy(self):
+        c1 = tuple(t.copy() for t in self.c1)
+        c2 = tuple(t.copy() for t in self.c2)
+        return UCISD_WaveFunction(self.mo, self.c0, c1, c2)
+
+    def to_cisd(self, c0=None):
+        if c0 is None:
+            return self
+        c1a = self.c1a * c0/self.c0
+        c1b = self.c1b * c0/self.c0
+        c2aa = self.c2aa * c0/self.c0
+        c2ab = self.c2ab * c0/self.c0
+        c2bb = self.c2bb * c0/self.c0
+        c1 = (c1a, c1b)
+        if len(self.c2) == 3:
+            c2 = (c2aa, c2ab, c2bb)
+        elif len(self.c2) == 4:
+            c2ba = self.c2ba * c0/self.c0
+            c2 = (c2aa, c2ab, c2ba, c2bb)
+        return UCISD_WaveFunction(self.mo, c0, c1, c2)
+
+    def to_ccsd(self):
+        t1a = self.c1a/self.c0
+        t1b = self.c1b/self.c0
+        t1 = (t1a, t1b)
+        t2aa = self.c2aa/self.c0 - einsum('ia,jb->ijab', t1a, t1a) + einsum('ib,ja->ijab', t1a, t1a)
+        t2bb = self.c2bb/self.c0 - einsum('ia,jb->ijab', t1b, t1b) + einsum('ib,ja->ijab', t1b, t1b)
+        t2ab = self.c2ab/self.c0 - einsum('ia,jb->ijab', t1a, t1b)
+        if len(self.c2) == 3:
+            t2 = (t2aa, t2ab, t2bb)
+        elif len(self.c2) == 4:
+            t2ba = self.c2ab/self.c0 - einsum('ia,jb->ijab', t1b, t1a)
+            t2 = (t2aa, t2ab, t2ba, t2bb)
+        return UCCSD_WaveFunction(self.mo, t1, t2)
+
+def CISD_WaveFunction(mo, c0, c1, c2):
+    if mo.nspin == 1:
+        cls = RCISD_WaveFunction
+    elif mo.nspin == 2:
+        cls = UCISD_WaveFunction
+    return cls(mo, c0, c1, c2)
 
 # --- FCI
 
