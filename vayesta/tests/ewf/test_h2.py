@@ -81,6 +81,44 @@ class TestH2Anion(TestH2):
         cls.mf = testsystems.h2anion_dz.uhf()
         cls.cc = testsystems.h2anion_dz.uccsd()
 
+# --- MP2
+
+class TestH2_MP2(TestH2):
+
+    @classmethod
+    def setUpClass(cls):
+        cls.mf = testsystems.h2_dz.rhf()
+        cls.cc = testsystems.h2_dz.rmp2()
+
+    @classmethod
+    @cache
+    def emb(cls, bno_threshold):
+        emb = vayesta.ewf.EWF(cls.mf, solver='MP2', bno_threshold=bno_threshold)
+        emb.iao_fragmentation()
+        emb.add_all_atomic_fragments()
+        emb.kernel()
+        return emb
+
+    def test_t_amplitudes(self):
+        emb = self.emb(-1)
+        t2 = emb.get_global_t2()
+        self.assertAllclose(t2, self.cc.t2)
+
+    def test_l_amplitudes(self):
+        pass
+
+    def test_cluster_dm1(self):
+        pass
+
+    def test_cluster_dm2(self):
+        pass
+
+    def test_global_dm1(self):
+        emb = self.emb(-1)
+        dm1 = emb.make_rdm1_mp2()
+        dm1_exact = self.cc.make_rdm1()
+        self.assertAllclose(dm1, dm1_exact)
+
 # --- FCI
 
 class TestH2_FCI(TestCase):

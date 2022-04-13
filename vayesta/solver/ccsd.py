@@ -53,11 +53,6 @@ class CCSD_Solver(ClusterSolver):
         if self.opts.conv_tol_normt is not None: solver.conv_tol_normt = self.opts.conv_tol_normt
         self.solver = solver
 
-        # --- Results
-        self.t1 = None
-        self.t2 = None
-        self.l1 = None
-        self.l2 = None
         self.eris = None
 
     def get_solver_class(self):
@@ -72,11 +67,27 @@ class CCSD_Solver(ClusterSolver):
 
     def reset(self):
         super().reset()
-        self.t1 = None
-        self.t2 = None
-        self.l1 = None
-        self.l2 = None
         self.eris = None
+
+    @property
+    @deprecated()
+    def t1(self):
+        return self.wf.t1
+
+    @property
+    @deprecated()
+    def t2(self):
+        return self.wf.t2
+
+    @property
+    @deprecated()
+    def l1(self):
+        return self.wf.l1
+
+    @property
+    @deprecated()
+    def l2(self):
+        return self.wf.l2
 
     @deprecated()
     def get_t1(self):
@@ -193,13 +204,11 @@ class CCSD_Solver(ClusterSolver):
             self.log.debugv("%s converged.", self.__class__.__name__)
         self.converged = self.solver.converged
         self.e_corr = self.solver.e_corr
-        self.t1 = self.solver.t1
-        self.t2 = self.solver.t2
         if self.is_rhf:
-            self.log.debugv("tr(T1)= %.8f", np.trace(self.t1))
+            self.log.debugv("tr(T1)= %.8f", np.trace(self.solver.t1))
         else:
-            self.log.debugv("tr(alpha-T1)= %.8f", np.trace(self.t1[0]))
-            self.log.debugv("tr( beta-T1)= %.8f", np.trace(self.t1[1]))
+            self.log.debugv("tr(alpha-T1)= %.8f", np.trace(self.solver.t1[0]))
+            self.log.debugv("tr( beta-T1)= %.8f", np.trace(self.solver.t1[1]))
 
         self.log.debug("Cluster: E(corr)= % 16.8f Ha", self.solver.e_corr)
         self.log.timing("Time for CCSD:  %s", time_string(timer()-t0))
@@ -211,7 +220,7 @@ class CCSD_Solver(ClusterSolver):
         if self.opts.solve_lambda:
             #self.solve_lambda(eris=eris)
             self.log.info("Solving lambda-equations with%s initial guess...", ("out" if (l2 is None) else ""))
-            self.l1, self.l2 = self.solver.solve_lambda(l1=l1, l2=l2, eris=eris)
+            self.solver.solve_lambda(l1=l1, l2=l2, eris=eris)
             if not self.solver.converged_lambda:
                 self.log.error("Lambda-equations not converged!")
 
@@ -219,17 +228,6 @@ class CCSD_Solver(ClusterSolver):
 
         self.wf = WaveFunction.from_pyscf(self.solver)
 
-    @deprecated()
-    def solve_lambda(self, l1=None, l2=None, eris=None):
-        if eris is None: eris = self.eris
-        with log_time(self.log.info, "Time for lambda-equations: %s"):
-            self.log.info("Solving lambda-equations %s initial guess...", "with" if (l2 is not None) else "without")
-            self.l1, self.l2 = self.solver.solve_lambda(l1=l1, l2=l2, eris=eris)
-            self.log.info("Lambda equations done. Lambda converged: %r", self.solver.converged_lambda)
-            if not self.solver.converged_lambda:
-                self.log.error("Solution of lambda-equation not converged!")
-            self.wf.l1, self.wf.l2 = self.l1, self.l2
-        return self.l1, self.l2
 
     def t_diagnostic(self):
         self.log.info("T-Diagnostic")
@@ -280,4 +278,3 @@ class UCCSD_Solver(CCSD_Solver):
     def t_diagnostic(self):
         """T diagnostic not implemented for UCCSD in PySCF."""
         self.log.info("T diagnostic not implemented for UCCSD in PySCF.")
-        return None

@@ -9,6 +9,7 @@ import pyscf
 # Open boundary
 import pyscf.gto
 import pyscf.scf
+import pyscf.mp
 import pyscf.cc
 import pyscf.fci
 # Periodic boundary
@@ -43,6 +44,20 @@ class TestMolecule:
         uhf = pyscf.scf.UHF(self.mol)
         uhf.kernel()
         return uhf
+
+    # --- MP2
+
+    @cache
+    def rmp2(self):
+        rmp2 = pyscf.mp.MP2(self.rhf())
+        rmp2.kernel()
+        return rmp2
+
+    @cache
+    def ump2(self):
+        ump2 = pyscf.mp.UMP2(self.uhf())
+        ump2.kernel()
+        return ump2
 
     # --- CCSD
 

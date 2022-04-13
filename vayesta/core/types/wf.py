@@ -69,10 +69,10 @@ class WaveFunction:
     def nelec(self):
         return self.mo.nelec
 
-    def make_rdm1(self):
+    def make_rdm1(self, *args, **kwargs):
         raise AbstractMethodError
 
-    def make_rdm2(self):
+    def make_rdm2(self, *args, **kwargs):
         raise AbstractMethodError
 
     @staticmethod

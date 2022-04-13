@@ -147,50 +147,6 @@ class Fragment:
                 return self.t2 + einsum('ia,jb->ijab', self.t1, self.t1)
             return default
 
-        #def get_t1x(self, default=None, full_rank=False):
-        #    if self.t1x is not None:
-        #        if full_rank:
-        #            return np.dot(self.get_ovlp_cluster2frag_occ(), self.t1x)
-        #        return self.t1x
-        #    return default
-
-        #def get_t2x(self, default=None, full_rank=False):
-        #    if self.t2x is not None:
-        #        if full_rank:
-        #            return einsum('ix,xjab->ijab', self.get_ovlp_cluster2frag_occ(), self.t2x)
-        #        return self.t2x
-        #    return default
-
-        #def get_l1x(self, default=None, full_rank=False):
-        #    if self.l1x is not None:
-        #        if full_rank:
-        #            return np.dot(self.get_ovlp_cluster2frag_occ(), self.l1x)
-        #        return self.l1x
-        #    return default
-
-        #def get_l2x(self, default=None, full_rank=False):
-        #    if self.l2x is not None:
-        #        if full_rank:
-        #            return einsum('ix,xjab->ijab', self.get_ovlp_cluster2frag_occ(), self.l2x)
-        #        return self.l2x
-        #    return default
-
-
-        #def get_t2x(self, default=None):
-        #    if self.t2x is not None:
-        #        return self.t2x
-        #    return default
-
-        #def get_l1x(self, default=None):
-        #    if self.l1x is not None:
-        #        return self.l1x
-        #    return default
-
-        #def get_l2x(self, default=None):
-        #    if self.l2x is not None:
-        #        return self.l2x
-        #    return default
-
     class Exit(Exception):
         """Raise for controlled early exit."""
         pass
