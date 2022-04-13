@@ -112,8 +112,8 @@ class FCI_Solver(ClusterSolver):
         #dm_core = 2*np.dot(self.mo_coeff[:,core], self.mo_coeff[:,core].T)
         #v_core = self.mf.get_veff(dm=dm_core)
         #h_eff = np.linalg.multi_dot((self.c_active.T, self.base.get_hcore()+v_core, self.c_active))
-        if with_vext and self.opts.v_ext is not None:
-            h_eff += self.opts.v_ext
+        if with_vext and self.v_ext is not None:
+            h_eff += self.v_ext
         return h_eff
 
     def kernel(self, ci0=None, eris=None):
@@ -217,9 +217,9 @@ class UFCI_Solver(FCI_Solver):
         vb = (einsum('iipq->pq', gbb[ob,ob]) + einsum('iipq->pq', gab[oa,oa])       # Coulomb
             - einsum('ipqi->pq', gbb[ob,:,:,ob]))                                   # Exchange
         h_eff = (fa-va, fb-vb)
-        if with_vext and self.opts.v_ext is not None:
-            h_eff = ((h_eff[0] + self.opts.v_ext[0]),
-                     (h_eff[1] + self.opts.v_ext[1]))
+        if with_vext and self.v_ext is not None:
+            h_eff = ((h_eff[0] + self.v_ext[0]),
+                     (h_eff[1] + self.v_ext[1]))
         return h_eff
 
     @deprecated()

@@ -44,8 +44,6 @@ class EWFFragment(Fragment):
         dmet_threshold: float = NotSet
         solve_lambda: bool = NotSet
         t_as_lambda: bool = NotSet                  # If True, use T-amplitudes inplace of Lambda-amplitudes
-        eom_ccsd: list = NotSet
-        eom_ccsd_nroots: int = NotSet
         bsse_correction: bool = NotSet
         bsse_rmax: float = NotSet
         energy_factor: float = 1.0
@@ -334,10 +332,6 @@ class EWFFragment(Fragment):
         with log_time(self.log.info, ("Time for %s solver:" % solver) + " %s"):
             cluster_solver.kernel(eris=eris, **init_guess)
 
-        # --- Lambda-equation (CCSD only)
-        if solver == 'CCSD' and self.opts.solve_lambda:
-            cluster_solver.solve_lambda()
-
         # --- Add to results
         results = self._results
         results.bno_threshold = bno_threshold
@@ -412,7 +406,7 @@ class EWFFragment(Fragment):
         #pass_through = ['make_rdm1', 'make_rdm2']
         pass_through = []
         if 'CCSD' in solver.upper():
-            pass_through += ['t_as_lambda', 'sc_mode', 'dm_with_frozen', 'eom_ccsd', 'eom_ccsd_nroots']
+            pass_through += ['solve_lambda', 't_as_lambda', 'sc_mode', 'dm_with_frozen']
         for attr in pass_through:
             self.log.debugv("Passing fragment option %s to solver.", attr)
             solver_opts[attr] = getattr(self.opts, attr)
@@ -585,59 +579,6 @@ class EWFFragment(Fragment):
             eris = vayesta.core.ao2mo.helper.get_full_array(self._eris)
         e_dm2 = einsum('ijkl,ijkl->', eris, dm2)/2
         return e_dm2
-
-    def eom_analysis(self, csolver, kind, filename=None, mode="a", sort_weight=True, r1_min=1e-2):
-        kind = kind.upper()
-        assert kind in ("IP", "EA")
-
-        if filename is None:
-            filename = "%s-%s.txt" % (self.base.opts.eomfile, self.name)
-
-        sc = np.dot(self.base.get_ovlp(), self.base.lo)
-        if kind == "IP":
-            e, c = csolver.ip_energy, csolver.ip_coeff
-        elif kind == "EA":
-            e, c = csolver.ea_energy, csolver.ea_coeff
-        else:
-            raise ValueError()
-        nroots = len(e)
-        eris = csolver._eris
-        cc = csolver._solver
-
-        self.log.info("EOM-CCSD %s energies= %r", kind, e[:5].tolist())
-        tstamp = datetime.now()
-        self.log.info("[%s] Writing detailed cluster %s-EOM analysis to file \"%s\"", tstamp, kind, filename)
-
-        with open(filename, mode) as f:
-            f.write("[%s] %s-EOM analysis\n" % (tstamp, kind))
-            f.write("*%s*****************\n" % (26*"*"))
-
-            for root in range(nroots):
-                r1 = c[root][:cc.nocc]
-                qp = np.linalg.norm(r1)**2
-                f.write("  %s-EOM-CCSD root= %2d , energy= %+16.8g , QP-weight= %10.5g\n" %
-                        (kind, root, e[root], qp))
-                if qp < 0.0 or qp > 1.0:
-                    self.log.error("Error: QP-weight not between 0 and 1!")
-                r1lo = einsum("i,ai,al->l", r1, eris.mo_coeff[:,:cc.nocc], sc)
-
-                if sort_weight:
-                    order = np.argsort(-r1lo**2)
-                    for ao, lab in enumerate(np.asarray(self.mf.mol.ao_labels())[order]):
-                        wgt = r1lo[order][ao]**2
-                        if wgt < r1_min*qp:
-                            break
-                        f.write("  * Weight of %s root %2d on OrthAO %-16s = %10.5f\n" %
-                                (kind, root, lab, wgt))
-                else:
-                    for ao, lab in enumerate(ao_labels):
-                        wgt = r1lo[ao]**2
-                        if wgt < r1_min*qp:
-                            continue
-                        f.write("  * Weight of %s root %2d on OrthAO %-16s = %10.5f\n" %
-                                (kind, root, lab, wgt))
-
-        return e, c
 
     def get_fragment_bsse(self, rmax=None, nimages=5, unit='A'):
         self.log.info("Counterpoise Calculation")

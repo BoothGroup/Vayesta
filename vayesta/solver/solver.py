@@ -14,8 +14,7 @@ class ClusterSolver:
 
     @dataclasses.dataclass
     class Options(OptionsBase):
-        # TODO: move v_ext out of options
-        v_ext: np.array = None      # Additional, external potential
+        pass
 
     def __init__(self, fragment, cluster, options=None, log=None, **kwargs):
         """
@@ -40,6 +39,9 @@ class ClusterSolver:
 
         # Check MO orthogonality
         #self.base.check_orthonormal()
+
+        # Additional external potential
+        self.v_ext = None
 
         # --- Results
         self.converged = False
@@ -160,7 +162,7 @@ class ClusterSolver:
 
                 replace = {}
                 if cpt:
-                    v_ext_0 = (self.opts.v_ext if self.opts.v_ext is not None else 0)
+                    v_ext_0 = (self.v_ext if self.v_ext is not None else 0)
                     if self.is_rhf:
                         replace['v_ext'] =  v_ext_0 - cpt*p_frag
                     else:
@@ -169,11 +171,12 @@ class ClusterSolver:
                         replace['v_ext'] =  (v_ext_0[0] - cpt*p_frag[0], v_ext_0[1] - cpt*p_frag[1])
 
                 self.reset()
-                with replace_attr(self.opts, **replace):
+                with replace_attr(self, **replace):
                     results = kernel_orig(eris=eris, **kwargs)
                 if not self.converged:
                     raise ConvergenceError()
-                dm1 = self.make_rdm1()
+                #dm1 = self.make_rdm1()
+                dm1 = self.wf.make_rdm1()
                 if self.is_rhf:
                     ne_frag = einsum('xi,ij,xj->', p_frag, dm1, p_frag)
                 else:

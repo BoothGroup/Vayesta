@@ -62,11 +62,8 @@ class EWF(Embedding):
         solve_lambda: bool = False          # If True, solve for the Lambda-amplitudes if a CCSD solver is used
         t_as_lambda: bool = False           # If True, use T-amplitudes inplace of Lambda-amplitudes
         dm_with_frozen: bool = False        # Add frozen parts to cluster DMs
-        eom_ccsd: list = dataclasses.field(default_factory=list)  # Perform EOM-CCSD in each cluster by default
-        eom_ccsd_nroots: int = 5            # Perform EOM-CCSD in each cluster by default
-        eomfile: str = 'eom-ccsd'           # Filename for EOM-CCSD states
         # Energy calculation
-        calc_cluster_rdm_energy = True
+        calc_cluster_rdm_energy = False
         # Counterpoise correction of BSSE
         bsse_correction: bool = True
         bsse_rmax: float = 5.0              # In Angstrom

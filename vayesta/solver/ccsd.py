@@ -29,15 +29,14 @@ class CCSD_Solver(ClusterSolver):
         sc_mode: int = None
         # DM
         dm_with_frozen: bool = False
-        # EOM CCSD
-        eom_ccsd: list = dataclasses.field(default_factory=list)
-        eom_ccsd_nroots: int = 3
         # Tailored-CCSD
         tcc: bool = False
         tcc_fci_opts: dict = dataclasses.field(default_factory=dict)
         # Active space methods
         c_cas_occ: np.array = None
         c_cas_vir: np.array = None
+        # Lambda equations
+        solve_lambda: bool = False
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -60,19 +59,6 @@ class CCSD_Solver(ClusterSolver):
         self.l1 = None
         self.l2 = None
         self.eris = None
-        # TODO: REMOVE
-        # EOM-CCSD
-        self.ip_energy = None
-        self.ip_coeff = None
-        self.ea_energy = None
-        self.ea_coeff = None
-        # EE-EOM-CCSD
-        self.ee_s_energy = None
-        self.ee_t_energy = None
-        self.ee_sf_energyy = None
-        self.ee_s_coeff = None
-        self.ee_t_coeff = None
-        self.ee_sf_coeff = None
 
     def get_solver_class(self):
         # For 2D-systems the Coulomb repulsion is not PSD
@@ -91,18 +77,6 @@ class CCSD_Solver(ClusterSolver):
         self.l1 = None
         self.l2 = None
         self.eris = None
-        # EOM-CCSD
-        self.ip_energy = None
-        self.ip_coeff = None
-        self.ea_energy = None
-        self.ea_coeff = None
-        # EE-EOM-CCSD
-        self.ee_s_energy = None
-        self.ee_t_energy = None
-        self.ee_sf_energyy = None
-        self.ee_s_coeff = None
-        self.ee_t_coeff = None
-        self.ee_sf_coeff = None
 
     @deprecated()
     def get_t1(self):
@@ -181,16 +155,16 @@ class CCSD_Solver(ClusterSolver):
         if eris is None: eris = self.get_eris()
 
         # Add additional potential
-        if self.opts.v_ext is not None:
-            self.log.debugv("Adding self.opts.v_ext to eris.fock")
+        if self.v_ext is not None:
+            self.log.debugv("Adding self.v_ext to eris.fock")
             # Make sure there are no side effects:
             eris = copy.copy(eris)
             # Replace fock instead of modifying it!
             if self.is_rhf:
-                eris.fock = (eris.fock + self.opts.v_ext)
+                eris.fock = (eris.fock + self.v_ext)
             else:
-                eris.focka = eris.fock[0] + self.opts.v_ext[0]
-                eris.fockb = eris.fock[1] + self.opts.v_ext[1]
+                eris.focka = eris.fock[0] + self.v_ext[0]
+                eris.fockb = eris.fock[1] + self.v_ext[1]
                 eris.fock = (eris.focka, eris.fockb)
 
         # Tailored CC
@@ -234,21 +208,18 @@ class CCSD_Solver(ClusterSolver):
             self.log.debug("Tailored CC: |dT1|= %.2e |dT2|= %.2e", self.solver._norm_dt1, self.solver._norm_dt2)
             del self.solver._norm_dt1, self.solver._norm_dt2
 
-        if t_diagnostic: self.t_diagnostic()
+        if self.opts.solve_lambda:
+            #self.solve_lambda(eris=eris)
+            self.log.info("Solving lambda-equations with%s initial guess...", ("out" if (l2 is None) else ""))
+            self.l1, self.l2 = self.solver.solve_lambda(l1=l1, l2=l2, eris=eris)
+            if not self.solver.converged_lambda:
+                self.log.error("Lambda-equations not converged!")
 
-        if 'IP' in self.opts.eom_ccsd:
-            self.ip_energy, self.ip_coeff = self.eom_ccsd('IP', eris)
-        if 'EA' in self.opts.eom_ccsd:
-            self.ea_energy, self.ea_coeff = self.eom_ccsd('EA', eris)
-        if 'EE-S' in self.opts.eom_ccsd:
-            self.ee_s_energy, self.ee_s_coeff = self.eom_ccsd('EE-S', eris)
-        if 'EE-T' in self.opts.eom_ccsd:
-            self.ee_t_energy, self.ee_t_coeff = self.eom_ccsd('EE-T', eris)
-        if 'EE-SF' in self.opts.eom_ccsd:
-            self.ee_sf_energy, self.ee_sf_coeff = self.eom_ccsd('EE-SF', eris)
+        if t_diagnostic: self.t_diagnostic()
 
         self.wf = WaveFunction.from_pyscf(self.solver)
 
+    @deprecated()
     def solve_lambda(self, l1=None, l2=None, eris=None):
         if eris is None: eris = self.eris
         with log_time(self.log.info, "Time for lambda-equations: %s"):
@@ -259,7 +230,6 @@ class CCSD_Solver(ClusterSolver):
                 self.log.error("Solution of lambda-equation not converged!")
             self.wf.l1, self.wf.l2 = self.l1, self.l2
         return self.l1, self.l2
-
 
     def t_diagnostic(self):
         self.log.info("T-Diagnostic")
@@ -281,26 +251,6 @@ class CCSD_Solver(ClusterSolver):
                 self.log.warning("  some diagnostic(s) indicate CCSD may not be adequate.")
         except Exception as e:
             self.log.error("Exception in T-diagnostic: %s", e)
-
-    def eom_ccsd(self, kind, eris, nroots=None):
-        nroots = nroots or self.opts.eom_ccsd_nroots
-        kind = kind.upper()
-        assert kind in ('IP', 'EA', 'EE-S', 'EE-T', 'EE-SF')
-        self.log.info("Running %s-EOM-CCSD (nroots=%d)...", kind, nroots)
-        cc = self.solver
-        eom_funcs = {
-                'IP' : cc.ipccsd , 'EA' : cc.eaccsd,
-                'EE-S' : cc.eomee_ccsd_singlet,
-                'EE-T' : cc.eomee_ccsd_triplet,
-                'EE-SF' : cc.eomsf_ccsd,}
-        t0 = timer()
-        e, c = eom_funcs[kind](nroots=nroots, eris=eris)
-        self.log.timing("Time for %s-EOM-CCSD:  %s", kind, time_string(timer()-t0))
-        if nroots == 1:
-            e, c = np.asarray([e]), np.asarray([c])
-        fmt = "%s-EOM-CCSD energies:" + len(e) * "  %+14.8f"
-        self.log.info(fmt, kind, *e)
-        return e, c
 
     def couple_iterations(self, fragments):
         func = coupling.couple_ccsd_iterations(self, fragments)
