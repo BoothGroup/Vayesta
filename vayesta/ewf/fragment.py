@@ -30,6 +30,7 @@ from vayesta.core.mpi import mpi
 
 from . import ewf
 from . import helper
+from .rdm import _incluster_gamma2_intermediates
 
 # Get MPI rank of fragment
 get_fragment_mpi_rank = lambda *args : args[0].mpi_rank
@@ -376,6 +377,28 @@ class EWFFragment(Fragment):
         if self.opts.calculate_e_dmet:
             results.e_dmet = self.get_fragment_dmet_energy(dm1=results.dm1, dm2=results.dm2, eris=eris)
 
+        #2RDM Energy Contribution
+        if self.solver == 'CCSD' and self.base.opts.calc_cluster_rdm_energy:
+            with log_time(self.log.info, ("Time for fragment 2DM energy= %s")):
+                t_as_lambda = self.opts.t_as_lambda
+                t1 = self.results.get_t1()
+                t2 = self.results.get_t2()
+                l1 = (t1 if t_as_lambda else self.results.l1)
+                l2 = (t2 if t_as_lambda else self.results.l2)
+
+
+                t1p = self.project_amplitude_to_fragment(t1)
+                l1p = self.project_amplitude_to_fragment(l1)
+                l2p = self.project_amplitude_to_fragment(l2)
+                t2p = self.project_amplitude_to_fragment(t2)
+
+                mycc = pyscf.cc.CCSD(self.base.mf)
+                d1 = None #pyscf.cc.ccsd_rdm._gamma1_intermediates(mycc, t1, t2, l1, l2)
+                d2 = _incluster_gamma2_intermediates(mycc, t1, t2, l1p, l2p, t1p=t1p, t2p=t2p)
+                rdm2 = pyscf.cc.ccsd_rdm._make_rdm2(mycc, d1, d2, with_dm1=False)#, with_frozen=with_frozen, ao_repr=ao_repr)
+                eris_full = ao2mo.helper.get_full_array(eris)
+
+                self.results.e_rdm2 = np.einsum('pqrs,pqrs', eris_full, rdm2) * 0.5
         # Keep ERIs stored
         if (self.opts.store_eris or self.base.opts.store_eris):
             self._eris = eris

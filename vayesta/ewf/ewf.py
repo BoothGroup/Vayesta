@@ -65,6 +65,8 @@ class EWF(Embedding):
         eom_ccsd: list = dataclasses.field(default_factory=list)  # Perform EOM-CCSD in each cluster by default
         eom_ccsd_nroots: int = 5            # Perform EOM-CCSD in each cluster by default
         eomfile: str = 'eom-ccsd'           # Filename for EOM-CCSD states
+        # Energy calculation
+        calc_cluster_rdm_energy = True
         # Counterpoise correction of BSSE
         bsse_correction: bool = True
         bsse_rmax: float = 5.0              # In Angstrom
@@ -594,6 +596,68 @@ class EWF(Embedding):
     #                assert np.isclose(norm, 1.0)
 
     #    return c0, c1, c2
+
+    def get_dm_energy(self, global_dm1=True, global_dm2=False):
+        """Calculate total energy from reduced density-matrices.
+
+        RHF ONLY!
+
+        Parameters
+        ----------
+        global_dm1 : bool
+            Use 1DM calculated from global amplitutes if True, otherwise use in cluster approximation. Default: True
+        global_dm2 : bool
+            Use 2DM calculated from global amplitutes if True, otherwise use in cluster approximation. Default: False
+
+        Returns
+        -------
+        e_tot : float
+        """
+        return self.e_mf + self.get_dm_corr_energy(global_dm1=global_dm1, global_dm2=global_dm2)
+
+    def get_dm_corr_energy(self, global_dm1=True, global_dm2=False):
+        """Calculate correlation energy from reduced density-matrices.
+
+        RHF ONLY!
+
+        Parameters
+        ----------
+        global_dm1 : bool
+            Use 1DM calculated from global amplitutes if True, otherwise use in cluster approximation. Default: True
+        global_dm2 : bool
+            Use 2DM calculated from global amplitutes if True, otherwise use in cluster approximation. Default: False
+
+        Returns
+        -------
+        e_corr : float
+        """
+
+        t_as_lambda = self.opts.t_as_lambda
+        mf = self.mf
+        nmo = mf.mo_coeff.shape[1]
+        nocc = (mf.mo_occ > 0).sum()
+
+        if global_dm1:
+            rdm1 = make_rdm1_ccsd_old(self, t_as_lambda=t_as_lambda)
+        else:
+            rdm1 = self.make_rdm1_ccsd(t_as_lambda=t_as_lambda)
+        rdm1[np.diag_indices(nocc)] -= 2
+
+        # Core Hamiltonian + Non Cumulant 2DM contribution
+        e1 = einsum('pi,pq,qj,ij->', self.mo_coeff, self.get_fock_for_energy(with_exxdiv=False), self.mo_coeff, rdm1)
+
+        # Cumulant 2DM contribution
+        if global_dm2:
+            # Calculate global 2RDM and contract with ERIs
+            eri = self.get_eris_array(self.mo_coeff)
+            rdm2 = self.make_rdm2_ccsd(slow=True, t_as_lambda=t_as_lambda)
+            e2 = einsum('pqrs,pqrs', eri, rdm2) * 0.5
+        else:
+            # Fragment Local 2DM cumulant contribution
+            e2 = sum(f.results.e_rdm2 for f in self.fragments)
+        e_corr = (e1 + e2) / self.ncells
+        return e_corr
+
 
     # -------------------------------------------------------------------------------------------- #
 
