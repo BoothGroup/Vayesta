@@ -15,7 +15,7 @@ class SCMFTests(unittest.TestCase):
         """Test p-DMET.
         """
 
-        emb = ewf.EWF(moles[self.key][self.mf_key], make_dm1=True, bath_type='dmet')
+        emb = ewf.EWF(moles[self.key][self.mf_key], solve_lambda=True, bath_type='dmet')
         emb.sao_fragmentation()
         emb.add_all_atomic_fragments()
         emb.pdmet_scmf(etol=self.CONV_TOL_E, dtol=self.CONV_TOL_D)
@@ -29,7 +29,7 @@ class SCMFTests(unittest.TestCase):
         """Test Brueckner DMET.
         """
 
-        emb = ewf.EWF(moles[self.key][self.mf_key], make_dm1=True, bath_type='dmet')
+        emb = ewf.EWF(moles[self.key][self.mf_key], solve_lambda=True, bath_type='dmet')
         emb.sao_fragmentation()
         emb.add_all_atomic_fragments()
         emb.brueckner_scmf(etol=self.CONV_TOL_E, dtol=self.CONV_TOL_D)
