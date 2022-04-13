@@ -8,7 +8,7 @@ import pyscf.lib
 from vayesta.core.util import *
 from vayesta.dmet.fragment import DMETFragment
 from vayesta.core.bath import BNO_Threshold
-from vayesta.solver import get_solver_class2 as get_solver_class
+from vayesta.solver import get_solver_class
 
 
 class EDMETFragmentExit(Exception):

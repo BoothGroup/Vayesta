@@ -15,7 +15,7 @@ import pyscf.cc
 import vayesta
 from vayesta.core.util import *
 from vayesta.core import Fragment
-from vayesta.solver import get_solver_class2 as get_solver_class
+from vayesta.solver import get_solver_class
 from vayesta.core.fragmentation import IAO_Fragmentation
 
 from vayesta.core.bath import BNO_Threshold

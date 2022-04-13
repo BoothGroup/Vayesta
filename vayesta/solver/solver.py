@@ -14,47 +14,22 @@ class ClusterSolver:
 
     @dataclasses.dataclass
     class Options(OptionsBase):
-        make_rdm1: bool = False
-        make_rdm2: bool = False
+        # TODO: move v_ext out of options
         v_ext: np.array = None      # Additional, external potential
 
-    @dataclasses.dataclass
-    class Results:
-        converged: bool = False         # Indicates convergence of iterative solvers, such as CCSD or FCI
-        e_corr: float = 0.0             # Cluster correlation energy
-        c_occ: np.array = None          # Occupied active orbitals
-        c_vir: np.array = None          # Virtual active orbitals
-        dm1: np.array = None            # 1-particle reducied density matrix in active orbital representation
-        dm2: np.array = None            # 2-particle reducied density matrix in active orbital representation
-
-        def get_init_guess(self, *args, **kwargs):
-            """Return initial guess to restart kernel.
-
-            This should return a dictionary, such that it can be used as:
-            >>> init_guess = solver.results.get_init_guess()
-            >>> solver.kernel(**init_guess)
-            """
-            raise NotImplementedError()
-
-    def __init__(self, fragment, mo_coeff, mo_occ, nocc_frozen, nvir_frozen,
-            options=None, log=None, **kwargs):
+    def __init__(self, fragment, cluster, options=None, log=None, **kwargs):
         """
+
+        TODO: Remove fragment/embedding dependence...?
 
         Arguments
         ---------
-        nocc_frozen : int
-            Number of frozen occupied orbitals. Need to be at the start of mo_coeff.
-        nvir_frozen : int
-            Number of frozen virtual orbitals. Need to be at the end of mo_coeff.
         """
-        self.log = log or fragment.log
-        self.fragment = fragment
-        self.mf = fragment.mf
-        self.mo_coeff = mo_coeff
-        self.mo_occ = mo_occ
-        self.nocc_frozen = nocc_frozen
-        self.nvir_frozen = nvir_frozen
+        self.fragment = fragment    # TODO: Remove?
+        self.cluster = cluster
+        self.log = (log or fragment.log)
 
+        # --- Options:
         if options is None:
             options = self.Options(**kwargs)
         else:
@@ -64,71 +39,59 @@ class ClusterSolver:
         self.log.info(break_into_lines(str(self.opts), newline='\n    '))
 
         # Check MO orthogonality
-        err = abs(dot(mo_coeff.T, self.mf.get_ovlp(), mo_coeff) - np.eye(mo_coeff.shape[-1])).max()
-        if err > 1e-4:
-            self.log.error("MOs are not orthonormal: %.3e !", err)
-        elif err > 1e-8:
-            self.log.warning("MOs are not orthonormal: %.3e", err)
-        assert (err < 1e-6), ("MO not orthogonal: %.3e" % err)
+        #self.base.check_orthonormal()
 
-        # Results
-        self.results = None
+        # --- Results
+        self.converged = False
+        self.e_corr = 0
+        self.wf = None
+        self.dm1 = None
+        self.dm2 = None
 
     @property
     def base(self):
+        """TODO: Remove fragment/embedding dependence...?"""
         return self.fragment.base
+
+    @property
+    def mf(self):
+        return self.cluster.mf
+
+    @property
+    def is_rhf(self):
+        return np.ndim(self.mf.mo_coeff[0]) == 1
+
+    @property
+    def is_uhf(self):
+        return np.ndim(self.mf.mo_coeff[0]) == 2
 
     @property
     def mol(self):
         return self.mf.mol
 
-    @property
-    def nmo(self):
-        """Total number of MOs (not just active)."""
-        return self.mo_coeff.shape[-1]
-
-    @property
-    def nocc(self):
-        """Total number occupied of occupied orbitals (including frozen)."""
-        return np.count_nonzero(self.mo_occ > 0)
-
-    @property
-    def nactive(self):
-        """Number of active MOs."""
-        return self.nmo - self.nfrozen
-
-    @property
-    def nfrozen(self):
-        return self.nocc_frozen + self.nvir_frozen
-
-    def get_active_slice(self):
-        slc = np.s_[self.nocc_frozen:self.nocc_frozen+self.nactive]
-        return slc
-
-    def get_frozen_indices(self):
-        nmo = self.mo_coeff.shape[-1]
-        idx = list(range(self.nocc_frozen)) + list(range(nmo-self.nvir_frozen, nmo))
-        return idx
-
-    @property
-    def c_active_occ(self):
-        """Active occupied orbital coefficients."""
-        return self.mo_coeff[:,self.nocc_frozen:self.nocc]
-
-    @property
-    def c_active_vir(self):
-        """Active virtual orbital coefficients."""
-        return self.mo_coeff[:,self.nocc:self.nocc_frozen+self.nactive]
-
-    @property
-    def c_active(self):
-        return self.mo_coeff[:,self.get_active_slice()]
-
     def get_eris(self):
         """Abstract method."""
-        raise NotImplementedError()
+        raise AbstractMethodError()
 
-    def optimize_cpt(self, nelectron, c_frag, cpt_guess=0, atol=1e-6, rtol=1e-6, cpt_radius=0.3):
+    def reset(self):
+        self.converged = False
+        self.e_corr = 0
+        self.dm1 = None
+        self.dm2 = None
+
+    #@property
+    #def c_active(self):
+    #    return self.cluster.c_active
+
+    #@property
+    #def c_active_occ(self):
+    #    return self.cluster.c_active_occ
+
+    #@property
+    #def c_active_vir(self):
+    #    return self.cluster.c_active_vir
+
+    def optimize_cpt(self, nelectron, c_frag, cpt_guess=0, atol=1e-6, rtol=1e-6, cpt_radius=0.5):
         """Enables chemical potential optimization to match a number of electrons in the fragment space.
 
         Parameters
@@ -153,9 +116,18 @@ class ClusterSolver:
         """
 
         kernel_orig = self.kernel
-        r_frag = dot(self.c_active.T, self.mf.get_ovlp(), c_frag)
-        p_frag = np.dot(r_frag, r_frag.T)     # Projector into fragment space
-        self.opts.make_rdm1 = True
+        ovlp = self.mf.get_ovlp()
+        # Make projector into fragment space
+        if self.is_rhf:
+            r_frag = dot(self.cluster.c_active.T, ovlp, c_frag)
+            p_frag = np.dot(r_frag, r_frag.T)
+        else:
+            r_frag = (dot(self.cluster.c_active[0].T, ovlp, c_frag[0]),
+                      dot(self.cluster.c_active[1].T, ovlp, c_frag[1]))
+            p_frag = (np.dot(r_frag[0], r_frag[0].T),
+                      np.dot(r_frag[1], r_frag[1].T))
+
+        #self.opts.make_rdm1 = True
         # During the optimization, we can use the Lambda=T approximation:
         #solve_lambda0 = self.opts.solve_lambda
         #self.opts.solve_lambda = False
@@ -165,7 +137,7 @@ class ClusterSolver:
             pass
 
         def kernel(self, *args, eris=None, **kwargs):
-            results = None
+            result = None
             err = None
             cpt_opt = None
             iterations = 0
@@ -177,24 +149,37 @@ class ClusterSolver:
                 eris = self.get_eris()
 
             def electron_err(cpt):
-                nonlocal results, err, err0, cpt_opt, iterations, init_guess
+                nonlocal result, err, err0, cpt_opt, iterations, init_guess
                 # Avoid recalculation of cpt=0.0 in SciPy:
                 if (cpt == 0) and (err0 is not None):
                     self.log.debugv("Chemical potential %f already calculated - returning error= %.8f", cpt, err0)
                     return err0
-                v_ext0 = self.opts.v_ext
-                if cpt:
-                    if self.opts.v_ext is None:
-                        self.opts.v_ext = -cpt * p_frag
-                    else:
-                        self.opts.v_ext += -cpt * p_frag
+
                 kwargs.update(init_guess)
                 self.log.debugv("kwargs keys for solver: %r", kwargs.keys())
-                results = kernel_orig(eris=eris, **kwargs)
-                self.opts.v_ext = v_ext0     # Reset v_ext
-                if not results.converged:
+
+                replace = {}
+                if cpt:
+                    v_ext_0 = (self.opts.v_ext if self.opts.v_ext is not None else 0)
+                    if self.is_rhf:
+                        replace['v_ext'] =  v_ext_0 - cpt*p_frag
+                    else:
+                        if v_ext_0 == 0:
+                            v_ext_0 = (v_ext_0, v_ext_0)
+                        replace['v_ext'] =  (v_ext_0[0] - cpt*p_frag[0], v_ext_0[1] - cpt*p_frag[1])
+
+                self.reset()
+                with replace_attr(self.opts, **replace):
+                    results = kernel_orig(eris=eris, **kwargs)
+                if not self.converged:
                     raise ConvergenceError()
-                ne_frag = einsum('xi,ij,xj->', p_frag, results.dm1, p_frag)
+                dm1 = self.make_rdm1()
+                if self.is_rhf:
+                    ne_frag = einsum('xi,ij,xj->', p_frag, dm1, p_frag)
+                else:
+                    ne_frag = (einsum('xi,ij,xj->', p_frag[0], dm1[0], p_frag[0])
+                             + einsum('xi,ij,xj->', p_frag[1], dm1[1], p_frag[1]))
+
                 err = (ne_frag - nelectron)
                 self.log.debug("Fragment chemical potential= %+12.8f Ha:  electrons= %.8f  error= %+.3e", cpt, ne_frag, err)
                 iterations += 1
@@ -202,7 +187,8 @@ class ClusterSolver:
                     cpt_opt = cpt
                     raise CptFound()
                 # Initial guess for next chemical potential
-                init_guess = results.get_init_guess()
+                #init_guess = results.get_init_guess()
+                init_guess = self.get_init_guess()
                 return err
 
             # First run with cpt_guess:
@@ -210,7 +196,7 @@ class ClusterSolver:
                 err0 = electron_err(cpt_guess)
             except CptFound:
                 self.log.debug("Chemical potential= %.6f leads to electron error= %.3e within tolerance (atol= %.1e, rtol= %.1e)", cpt_guess, err, atol, rtol)
-                return results
+                return result
 
             # Not enough electrons in fragment space -> raise fragment chemical potential:
             if err0 < 0:
@@ -260,7 +246,7 @@ class ClusterSolver:
                 raise RuntimeError(errmsg)
 
             self.log.info("Chemical potential optimized in %d iterations= %+16.8f Ha", iterations, cpt_opt)
-            return results
+            return result
 
         # Replace kernel:
         self.kernel = kernel.__get__(self)

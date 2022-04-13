@@ -7,7 +7,7 @@ import numpy as np
 from vayesta.core import Fragment
 from vayesta.core.actspace import ActiveSpace
 from vayesta.core.bath import BNO_Threshold
-from vayesta.solver import get_solver_class2 as get_solver_class
+from vayesta.solver import get_solver_class
 from vayesta.core.util import *
 
 import vayesta.ewf

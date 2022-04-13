@@ -1,14 +1,17 @@
 import dataclasses
 import copy
-from typing import Union
 from timeit import default_timer as timer
 
 import numpy as np
 
+import pyscf
 import pyscf.cc
 import pyscf.cc.dfccsd
+import pyscf.pbc
+import pyscf.pbc.cc
 
 from vayesta.core.util import *
+from vayesta.core.types import WaveFunction
 from . import coupling
 from .solver import ClusterSolver
 
@@ -18,24 +21,16 @@ class CCSD_Solver(ClusterSolver):
     @dataclasses.dataclass
     class Options(ClusterSolver.Options):
         # Convergence
-        maxiter: int = 200              # Max number of iterations
+        maxiter: int = 100              # Max number of iterations
         conv_tol: float = None          # Convergence energy tolerance
         conv_tol_normt: float = None    # Convergence amplitude tolerance
-        # solve_lambda:
-        # True:     Always solve lambda eq.
-        # 'auto':   solve lambda eq. if DMs are requested via make_rdm1 or make_rdm2
-        # False:    Never solve lambda eq. If DMs are requested, they are build with Lambda=T approximation
-        solve_lambda: Union[bool, str] = 'auto'
+        t_as_lambda: bool = False       # If true, use Lambda=T approximation
         # Self-consistent mode
-        #sc_mode: int = NotSet
         sc_mode: int = None
         # DM
-        #dm_with_frozen: bool = NotSet
         dm_with_frozen: bool = False
         # EOM CCSD
-        #eom_ccsd: list = NotSet  # {'IP', 'EA', 'EE-S', 'EE-D', 'EE-SF'}
         eom_ccsd: list = dataclasses.field(default_factory=list)
-        #eom_ccsd_nroots: int = NotSet
         eom_ccsd_nroots: int = 3
         # Tailored-CCSD
         tcc: bool = False
@@ -44,56 +39,125 @@ class CCSD_Solver(ClusterSolver):
         c_cas_occ: np.array = None
         c_cas_vir: np.array = None
 
-    @dataclasses.dataclass
-    class Results(ClusterSolver.Results):
-        t1: np.array = None
-        t2: np.array = None
-        l1: np.array = None
-        l2: np.array = None
-        solved_lambda: bool = False
-        # EOM-CCSD
-        ip_energy: np.array = None
-        ip_coeff: np.array = None
-        ea_energy: np.array = None
-        ea_coeff: np.array = None
-        # EE
-        ee_s_energy: np.array = None
-        ee_t_energy: np.array = None
-        ee_sf_energy: np.array = None
-        ee_s_coeff: np.array = None
-        ee_t_coeff: np.array = None
-        ee_sf_coeff: np.array = None
-
-        def get_init_guess(self):
-            """Get initial guess for another CCSD calculations from results."""
-            return {'t1' : self.t1 , 't2' : self.t2, 'l1' : self.l1, 'l2' : self.l2}
-
-    SOLVER_CLS = pyscf.cc.ccsd.CCSD
-    SOLVER_CLS_DF = pyscf.cc.dfccsd.RCCSD
-
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-        # For 2D-systems the Coulomb repulsion is not PSD
-        # Density-fitted CCSD does not support non-PSD three-center integrals,
-        # thus we need a four-center formulation, where non PSD elements can be summed in
-        if (self.base.boundary_cond not in ('periodic-1D', 'periodic-2D')
-                and hasattr(self.mf, 'with_df') and self.mf.with_df is not None):
-            cls = self.SOLVER_CLS_DF
-        else:
-            cls = self.SOLVER_CLS
-        self.log.debug("CCSD class= %r" % cls)
-        solver = cls(self.mf, mo_coeff=self.mo_coeff, mo_occ=self.mo_occ, frozen=self.get_frozen_indices())
+        solver_cls = self.get_solver_class()
+        self.log.debug("CCSD PySCF class= %r" % solver_cls)
+        frozen = self.cluster.get_frozen_indices()
+        self.log.debugv("frozen= %r", frozen)
+        mo_coeff = self.cluster.all.coeff
+        solver = solver_cls(self.mf, mo_coeff=mo_coeff, mo_occ=self.mf.mo_occ, frozen=frozen)
         # Options
         if self.opts.maxiter is not None: solver.max_cycle = self.opts.maxiter
         if self.opts.conv_tol is not None: solver.conv_tol = self.opts.conv_tol
         if self.opts.conv_tol_normt is not None: solver.conv_tol_normt = self.opts.conv_tol_normt
         self.solver = solver
 
+        # --- Results
+        self.t1 = None
+        self.t2 = None
+        self.l1 = None
+        self.l2 = None
+        self.eris = None
+        # TODO: REMOVE
+        # EOM-CCSD
+        self.ip_energy = None
+        self.ip_coeff = None
+        self.ea_energy = None
+        self.ea_coeff = None
+        # EE-EOM-CCSD
+        self.ee_s_energy = None
+        self.ee_t_energy = None
+        self.ee_sf_energyy = None
+        self.ee_s_coeff = None
+        self.ee_t_coeff = None
+        self.ee_sf_coeff = None
+
+    def get_solver_class(self):
+        # For 2D-systems the Coulomb repulsion is not PSD
+        # Density-fitted CCSD does not support non-PSD three-center integrals,
+        # thus we need a four-center formulation, where non PSD elements can be summed in
+        if self.base.boundary_cond in ('periodic-1D', 'periodic-2D'):
+            return pyscf.cc.ccsd.CCSD
+        if hasattr(self.mf, 'with_df') and self.mf.with_df is not None:
+            return pyscf.cc.dfccsd.RCCSD
+        return pyscf.cc.ccsd.CCSD
+
+    def reset(self):
+        super().reset()
+        self.t1 = None
+        self.t2 = None
+        self.l1 = None
+        self.l2 = None
+        self.eris = None
+        # EOM-CCSD
+        self.ip_energy = None
+        self.ip_coeff = None
+        self.ea_energy = None
+        self.ea_coeff = None
+        # EE-EOM-CCSD
+        self.ee_s_energy = None
+        self.ee_t_energy = None
+        self.ee_sf_energyy = None
+        self.ee_s_coeff = None
+        self.ee_t_coeff = None
+        self.ee_sf_coeff = None
+
+    @deprecated()
+    def get_t1(self):
+        return self.t1
+
+    @deprecated()
+    def get_t2(self):
+        return self.t2
+
+    @deprecated()
+    def get_c1(self, intermed_norm=True):
+        """C1 in intermediate normalization."""
+        if not intermed_norm:
+            raise ValueError()
+        return self.t1
+
+    @deprecated()
+    def get_c2(self, intermed_norm=True):
+        """C2 in intermediate normalization."""
+        if not intermed_norm:
+            raise ValueError()
+        return self.t2 + einsum('ia,jb->ijab', self.t1, self.t1)
+
+    @deprecated()
+    def get_l1(self, t_as_lambda=None, solve_lambda=True):
+        if t_as_lambda is None:
+            t_as_lambda = self.opts.t_as_lambda
+        if t_as_lambda:
+            return self.t1
+        if self.l1 is None:
+            if not solve_lambda:
+                return None
+            self.solve_lambda()
+        return self.l1
+
+    @deprecated()
+    def get_l2(self, t_as_lambda=None, solve_lambda=True):
+        if t_as_lambda is None:
+            t_as_lambda = self.opts.t_as_lambda
+        if t_as_lambda:
+            return self.t2
+        if self.l2 is None:
+            if not solve_lambda:
+                return None
+            self.solve_lambda()
+        return self.l2
+
     def get_eris(self):
+        self.log.debugv("Getting ERIs for type(self.solver)= %r", type(self.solver))
         with log_time(self.log.timing, "Time for AO->MO transformation: %s"):
-            eris = self.base.get_eris_object(self.solver)
-        return eris
+            self.eris = self.base.get_eris_object(self.solver)
+        return self.eris
+
+    def get_init_guess(self):
+        return {'t1' : self.t1 , 't2' : self.t2}
 
     def kernel(self, t1=None, t2=None, eris=None, l1=None, l2=None, coupled_fragments=None, t_diagnostic=True):
         """
@@ -122,9 +186,12 @@ class CCSD_Solver(ClusterSolver):
             # Make sure there are no side effects:
             eris = copy.copy(eris)
             # Replace fock instead of modifying it!
-            eris.fock = (eris.fock + self.opts.v_ext)
-        self.log.debugv("sum(eris.mo_energy)= %.8e", sum(eris.mo_energy))
-        self.log.debugv("Tr(eris.fock)= %.8e", np.trace(eris.fock))
+            if self.is_rhf:
+                eris.fock = (eris.fock + self.opts.v_ext)
+            else:
+                eris.focka = eris.fock[0] + self.opts.v_ext[0]
+                eris.fockb = eris.fock[1] + self.opts.v_ext[1]
+                eris.fock = (eris.focka, eris.fockb)
 
         # Tailored CC
         if self.opts.tcc:
@@ -147,9 +214,18 @@ class CCSD_Solver(ClusterSolver):
         self.log.info("Solving CCSD-equations %s initial guess...", "with" if (t2 is not None) else "without")
         self.solver.kernel(t1=t1, t2=t2, eris=eris)
         if not self.solver.converged:
-            self.log.error("CCSD not converged!")
+            self.log.error("%s not converged!", self.__class__.__name__)
         else:
-            self.log.debugv("CCSD converged.")
+            self.log.debugv("%s converged.", self.__class__.__name__)
+        self.converged = self.solver.converged
+        self.e_corr = self.solver.e_corr
+        self.t1 = self.solver.t1
+        self.t2 = self.solver.t2
+        if self.is_rhf:
+            self.log.debugv("tr(T1)= %.8f", np.trace(self.t1))
+        else:
+            self.log.debugv("tr(alpha-T1)= %.8f", np.trace(self.t1[0]))
+            self.log.debugv("tr( beta-T1)= %.8f", np.trace(self.t1[1]))
 
         self.log.debug("Cluster: E(corr)= % 16.8f Ha", self.solver.e_corr)
         self.log.timing("Time for CCSD:  %s", time_string(timer()-t0))
@@ -160,50 +236,30 @@ class CCSD_Solver(ClusterSolver):
 
         if t_diagnostic: self.t_diagnostic()
 
-        results = self.Results(
-                converged=self.solver.converged, e_corr=self.solver.e_corr, c_occ=self.c_active_occ, c_vir=self.c_active_vir,
-                t1=self.solver.t1, t2=self.solver.t2)
-
-        if self.opts.solve_lambda == 'auto':
-            solve_lambda = (self.opts.make_rdm1 or self.opts.make_rdm2)
-        else:
-            solve_lambda = self.opts.solve_lambda
-
-        if solve_lambda:
-            t0 = timer()
-            self.log.info("Solving lambda-equations %s initial guess...", "with" if (l2 is not None) else "without")
-            l1, l2 = self.solver.solve_lambda(l1=l1, l2=l2, eris=eris)
-            self.log.info("Lambda equations done. Lambda converged: %r", self.solver.converged_lambda)
-            if self.solver.converged_lambda:
-                results.solved_lambda = True
-            else:
-                self.log.error("Solution of lambda-equation not converged!")
-            self.log.timing("Time for lambda-equations: %s", time_string(timer()-t0))
-        # Use Lambda=T approximation
-        else:
-            l1 = self.solver.t1
-            l2 = self.solver.t2
-        results.l1, results.l2 = l1, l2
-
-        if self.opts.make_rdm1:
-            self.log.debug("Making RDM1...")
-            results.dm1 = self.solver.make_rdm1(l1=l1, l2=l2, with_frozen=self.opts.dm_with_frozen)
-        if self.opts.make_rdm2:
-            self.log.debug("Making RDM2...")
-            results.dm2 = self.solver.make_rdm2(l1=l1, l2=l2, with_frozen=self.opts.dm_with_frozen)
-
         if 'IP' in self.opts.eom_ccsd:
-            results.ip_energy, results.ip_coeff = self.eom_ccsd('IP', eris)
+            self.ip_energy, self.ip_coeff = self.eom_ccsd('IP', eris)
         if 'EA' in self.opts.eom_ccsd:
-            results.ea_energy, results.ea_coeff = self.eom_ccsd('EA', eris)
+            self.ea_energy, self.ea_coeff = self.eom_ccsd('EA', eris)
         if 'EE-S' in self.opts.eom_ccsd:
-            results.ee_s_energy, results.ee_s_coeff = self.eom_ccsd('EE-S', eris)
+            self.ee_s_energy, self.ee_s_coeff = self.eom_ccsd('EE-S', eris)
         if 'EE-T' in self.opts.eom_ccsd:
-            results.ee_t_energy, results.ee_t_coeff = self.eom_ccsd('EE-T', eris)
+            self.ee_t_energy, self.ee_t_coeff = self.eom_ccsd('EE-T', eris)
         if 'EE-SF' in self.opts.eom_ccsd:
-            results.ee_sf_energy, results.ee_sf_coeff = self.eom_ccsd('EE-SF', eris)
+            self.ee_sf_energy, self.ee_sf_coeff = self.eom_ccsd('EE-SF', eris)
 
-        return results
+        self.wf = WaveFunction.from_pyscf(self.solver)
+
+    def solve_lambda(self, l1=None, l2=None, eris=None):
+        if eris is None: eris = self.eris
+        with log_time(self.log.info, "Time for lambda-equations: %s"):
+            self.log.info("Solving lambda-equations %s initial guess...", "with" if (l2 is not None) else "without")
+            self.l1, self.l2 = self.solver.solve_lambda(l1=l1, l2=l2, eris=eris)
+            self.log.info("Lambda equations done. Lambda converged: %r", self.solver.converged_lambda)
+            if not self.solver.converged_lambda:
+                self.log.error("Solution of lambda-equation not converged!")
+            self.wf.l1, self.wf.l2 = self.l1, self.l2
+        return self.l1, self.l2
+
 
     def t_diagnostic(self):
         self.log.info("T-Diagnostic")
@@ -245,3 +301,33 @@ class CCSD_Solver(ClusterSolver):
         fmt = "%s-EOM-CCSD energies:" + len(e) * "  %+14.8f"
         self.log.info(fmt, kind, *e)
         return e, c
+
+    def couple_iterations(self, fragments):
+        func = coupling.couple_ccsd_iterations(self, fragments)
+        self.solver.tailor_func = func.__get__(self.solver)
+
+class UCCSD_Solver(CCSD_Solver):
+
+    def get_solver_class(self):
+        # No DF-UCCSD class in PySCF
+        # Molecular UCCSD does not support DF either!
+        if self.base.boundary_cond.startswith('periodic'):
+            return pyscf.pbc.cc.ccsd.UCCSD
+        return pyscf.cc.uccsd.UCCSD
+
+    @deprecated()
+    def get_c2(self, intermed_norm=True):
+        """C2 in intermediate normalization."""
+        if not intermed_norm:
+            raise ValueError()
+        ta, tb = self.t1
+        taa, tab, tbb = self.t2
+        caa = taa + einsum('ia,jb->ijab', ta, ta) - einsum('ib,ja->ijab', ta, ta)
+        cbb = tbb + einsum('ia,jb->ijab', tb, tb) - einsum('ib,ja->ijab', tb, tb)
+        cab = tab + einsum('ia,jb->ijab', ta, tb)
+        return (caa, cab, cbb)
+
+    def t_diagnostic(self):
+        """T diagnostic not implemented for UCCSD in PySCF."""
+        self.log.info("T diagnostic not implemented for UCCSD in PySCF.")
+        return None
