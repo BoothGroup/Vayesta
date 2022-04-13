@@ -40,6 +40,8 @@ def get_global_t1_rhf(emb, get_lambda=False, mpi_target=None):
         ro, rv = x.get_overlap_m2c()
         pwf = x.results.pwf.restore()
         t1x = pwf.l1 if get_lambda else pwf.t1
+        if t1x is None:
+            raise NotCalculatedError
         t1 += einsum('ia,Ii,Aa->IA', t1x, ro, rv)
     # --- MPI
     if mpi:
@@ -70,6 +72,8 @@ def get_global_t2_rhf(emb, get_lambda=False, symmetrize=True, mpi_target=None):
         ro, rv = x.get_overlap_m2c()
         pwf = x.results.pwf.restore()
         t2x = pwf.l2 if get_lambda else pwf.t2
+        if t2x is None:
+            raise NotCalculatedError
         t2 += einsum('ijab,Ii,Jj,Aa,Bb->IJAB', t2x, ro, ro, rv, rv)
     # --- MPI
     if mpi:
@@ -101,6 +105,8 @@ def get_global_t1_uhf(emb, get_lambda=False, mpi_target=None):
         (roa, rob), (rva, rvb) = x.get_overlap_m2c()
         pwf = x.results.pwf.restore()
         t1xa, t1xb = pwf.l1 if get_lambda else pwf.t1
+        if t1xa is None:
+            raise NotCalculatedError
         t1a += einsum('ia,Ii,Aa->IA', t1xa, roa, rva)
         t1b += einsum('ia,Ii,Aa->IA', t1xb, rob, rvb)
     # --- MPI
@@ -134,6 +140,8 @@ def get_global_t2_uhf(emb, get_lambda=False, symmetrize=True, mpi_target=None):
         (roa, rob), (rva, rvb) = x.get_overlap_m2c()
         pwf = x.results.pwf.restore()
         t2xaa, t2xab, t2xbb = pwf.l2 if get_lambda else pwf.t2
+        if t2xaa is None:
+            raise NotCalculatedError
         t2aa += einsum('ijab,Ii,Jj,Aa,Bb->IJAB', t2xaa, roa, roa, rva, rva)
         t2ab += einsum('ijab,Ii,Jj,Aa,Bb->IJAB', t2xab, roa, rob, rva, rvb)
         t2bb += einsum('ijab,Ii,Jj,Aa,Bb->IJAB', t2xbb, rob, rob, rvb, rvb)

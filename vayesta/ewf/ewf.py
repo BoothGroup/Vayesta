@@ -368,6 +368,15 @@ class EWF(Embedding):
     # --- Density-matrices
     # --------------------
 
+    def make_rdm1(self, *args, **kwargs):
+        if self.solver.lower() == 'ccsd':
+            return self.make_rdm1_ccsd_old(*args, **kwargs)
+        if self.solver.lower() == 'mp2':
+            return self.make_rdm1_mp2(*args, **kwargs)
+        if self.solver.lower() == 'fci':
+            return self.make_rdm1_demo(*args, **kwargs)
+        raise NotImplementedError("make_rdm1 for solver '%s'" % self.solver)
+
     def make_rdm1_mp2(self, *args, **kwargs):
         return make_rdm1_ccsd(self, *args, mp2=True, **kwargs)
 

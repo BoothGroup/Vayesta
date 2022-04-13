@@ -62,6 +62,7 @@ class Embedding:
         solver_options: dict = dataclasses.field(default_factory=dict)
         wf_partition: str = 'first-occ'     # ['first-occ', 'first-vir', 'democratic']
         store_eris: bool = False            # If True, ERIs will be stored in Fragment._eris
+        global_frag_chempot: float = None   # Global fragment chemical potential (e.g. for democratically partitioned DMs)
 
     def __init__(self, mf, options=None, log=None, overwrite=None, **kwargs):
         """Abstract base class for quantum embedding methods.

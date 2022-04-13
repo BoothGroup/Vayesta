@@ -318,8 +318,19 @@ class EWFFragment(Fragment):
         #cluster_solver = solver_cls(self, mo_coeff, mo_occ, nocc_frozen=cluster.nocc_frozen, nvir_frozen=cluster.nvir_frozen, **solver_opts)
         # NEW CALL:
         cluster_solver = solver_cls(self, cluster, **solver_opts)
+        cpt_frag = self.base.opts.global_frag_chempot
         if self.opts.nelectron_target is not None:
             cluster_solver.optimize_cpt(self.opts.nelectron_target, c_frag=self.c_proj)
+        elif cpt_frag:
+            # Add chemical potential to fragment space
+            r = self.get_fo2co()
+            if self.base.is_rhf:
+                p_frag = np.dot(r.T, r)
+                cluster_solver.v_ext = cpt_frag * p_frag
+            else:
+                p_frag = (np.dot(r[0].T, r[0]), np.dot(r[1].T, r[1]))
+                cluster_solver.v_ext = (cpt_frag * p_frag[0], cpt_frag * p_frag[1])
+
         if self.opts.coupled_iterations:
             if solver != 'CCSD':
                 raise NotImplementedError()
