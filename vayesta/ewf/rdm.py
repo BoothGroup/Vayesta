@@ -12,17 +12,6 @@ from vayesta.core.types import RCCSD_WaveFunction
 from vayesta.core.mpi import mpi
 
 
-def _mpi_reduce(log, *args, mpi_target=None):
-    if mpi_target is None:
-        with log_time(log.timingv, "Time for MPI allreduce: %s"):
-            res = [mpi.world.allreduce(x) for x in args]
-    else:
-        with log_time(log.timingv, "Time for MPI reduce: %s"):
-            res = [mpi.world.reduce(x, root=mpi_target) for x in args]
-    if len(res) == 1:
-        return res[0]
-    return tuple(res)
-
 def make_rdm1_ccsd(emb, ao_basis=False, t_as_lambda=False, symmetrize=True, with_mf=True, mpi_target=None, mp2=False):
     """Make one-particle reduced density-matrix from partitioned fragment CCSD wave functions.
 
@@ -92,9 +81,9 @@ def make_rdm1_ccsd(emb, ao_basis=False, t_as_lambda=False, symmetrize=True, with
 
     if mpi:
         if mp2:
-            doo, dvv = _mpi_reduce(emb.log, doo, dvv, mpi_target=mpi_target)
+            doo, dvv = mpi.nreduce(doo, dvv, target=mpi_target, logfunc=emb.log.timingv)
         else:
-            doo, dvv, dov = _mpi_reduce(emb.log, doo, dvv, dov, mpi_target=mpi_target)
+            doo, dov, dvv = mpi.nreduce(doo, dov, dvv, target=mpi_target, logfunc=emb.log.timingv)
         if mpi_target not in (None, mpi.rank):
             return None
 
@@ -150,7 +139,7 @@ def make_rdm1_ccsd_proj_lambda(emb, ao_basis=False, t_as_lambda=False, with_mf=T
         dm1x = x.make_partial_dm1(t_as_lambda=t_as_lambda, sym_t2=sym_t2)
         dm1 += np.linalg.multi_dot((rx, dm1x, rx.T))
     if mpi:
-        dm1 = _mpi_reduce(emb.log, dm1, mpi_target=mpi_target)
+        dm1 = mpi.nreduce(dm1, target=mpi_target, logfunc=emb.log.timingv)
         if mpi_target not in (None, mpi.rank):
             return None
     if with_mf:
@@ -191,7 +180,7 @@ def make_rdm2_ccsd_proj_lambda(emb, with_dm1=True, ao_basis=False, t_as_lambda=F
         dm2x = x.make_partial_dm2(t_as_lambda=t_as_lambda, sym_t2=sym_t2, sym_dm2=sym_dm2)
         dm2 += einsum('ijkl,Ii,Jj,Kk,Ll->IJKL', dm2x, rx, rx, rx, rx)
     if mpi:
-        dm2 = _mpi_reduce(emb.log, dm2, mpi_target=mpi_target)
+        dm2 = mpi.nreduce(dm2, target=mpi_target, logfunc=emb.log.timingv)
         if mpi_target not in (None, mpi.rank):
             return None
     if isinstance(with_dm1, np.ndarray) or with_dm1:
@@ -316,7 +305,7 @@ def make_rdm1_ccsd_2p2l(emb, t_as_lambda=False, ao_basis=False, with_mf=True, wi
 
     if mpi:
         rma.clear()
-        doo, dov, dvv = _mpi_reduce(emb.log, doo, dov, dvv, mpi_target=mpi_target)
+        doo, dov, dvv = mpi.nreduce(doo, dov, dvv, target=mpi_target, logfunc=emb.log.timingv)
         if mpi_target not in (None, mpi.rank):
             return None
 
@@ -645,17 +634,18 @@ def make_rdm2_ccsd(emb, ao_basis=False, symmetrize=True, t_as_lambda=False, slow
 
 def _incluster_gamma2_intermediates(cc, t1, t2, l1, l2, t1p=None, t2p=None):
 
-    dovov, dvvvv, doooo, doovv, dovvo, dvvov, dovvv, dooov = pyscf.cc.ccsd_rdm_slow._gamma2_intermediates(cc, t1, t2, l1, l2)
+    #dovov, *d2rest = pyscf.cc.ccsd_rdm_slow._gamma2_intermediates(cc, t1, t2, l1, l2)
+    dovov, *d2rest = pyscf.cc.ccsd_rdm._gamma2_intermediates(cc, t1, t2, l1, l2)
 
     # Blame pyscf devs for the bizzare and confusing notation
     # Correct single order zero in lambda term in dovov/goovv block
-    tau = t2 + np.einsum('ia,jb->ijab', t1, t1)
-    taup = t2p + np.einsum('ia,jb->ijab', t1p, t1)
-    corr = -.5 * l2 - .5 * tau + .5 * l2 + .5 * taup
-    corr = (corr*2 - corr.transpose(0,1,3,2))
+    corr = (t2p-t2) + np.einsum('ia,jb->ijab', (t1p-t1), t1)
+
+    corr = (corr - corr.transpose(0,1,3,2)/2)
+
     dovov += corr.transpose(0,2,1,3)
 
-    return (dovov, dvvvv, doooo, doovv, dovvo, dvvov, dovvv, dooov)
+    return (dovov, *d2rest)
 
 
 def _gamma2_intermediates(cc, t1, t2, l1, l2, t1p=None, t2p=None):
