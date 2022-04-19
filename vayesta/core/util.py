@@ -32,7 +32,7 @@ __all__ = [
         # Time & memory
         'timer', 'time_string', 'log_time', 'memory_string', 'get_used_memory',
         # RHF/UHF abstraction
-        'dot_s', 'eigh_s', 'stack_mo_coeffs',
+        'dot_s', 'eigh_s', 'stack_mo', 'stack_mo_coeffs',
         # Other
         'brange',
         'deprecated',
@@ -55,7 +55,13 @@ def dot(*args, out=None):
 
 def einsum(*args, **kwargs):
     kwargs['optimize'] = kwargs.pop('optimize', True)
-    res = np.einsum(*args, **kwargs)
+    try:
+        res = np.einsum(*args, **kwargs)
+    except ValueError:
+        log.fatal("einsum('%s',...) failed. shapes of arguments:", args[0])
+        for i, arg in enumerate(args[1:]):
+            log.fatal('%d: %r', i, list(np.asarray(arg).shape))
+        raise
     # Unpack scalars (for optimize = True):
     if isinstance(res, np.ndarray) and res.ndim == 0:
         res = res[()]
@@ -85,9 +91,9 @@ def dot_s(*args, out=None):
     if maxdim == 2:
         return dot(*args, out=out)
     # Spin-dependent arguments present
-    assert maxdim == 3
+    assert (maxdim == 3)
     if out is None:
-        out = (None, None)
+        out = 2*[None]
     args_a = [(x if np.ndim(x[0]) < 2 else x[0]) for x in args]
     args_b = [(x if np.ndim(x[1]) < 2 else x[1]) for x in args]
     return (dot(*args_a, out=out[0]), dot(*args_b, out=out[1]))
@@ -104,29 +110,42 @@ def eigh_s(a, b=None, *args, **kwargs):
                scipy.linalg.eigh(a[1], b=b[1], *args, **kwargs))
     return tuple(zip(*results))
 
-def stack_mo_coeffs(*mo_coeffs):
+def stack_mo(*mo_coeffs):
     ndim = np.ndim(mo_coeffs[0][0]) + 1
     # RHF
     if ndim == 2:
         return hstack(*mo_coeffs)
     # UHF
-    assert (ndim == 3)
-    return (hstack(*[c[0] for c in mo_coeffs]),
-            hstack(*[c[1] for c in mo_coeffs]))
+    if ndim == 3:
+        return (hstack(*[c[0] for c in mo_coeffs]),
+                hstack(*[c[1] for c in mo_coeffs]))
+    raise ValueError("Unknown shape of MO coefficients: ndim= %d" % ndim)
 
-#
+stack_mo_coeffs = stack_mo
 
-def brange(start, stop, step, minstep=1, maxstep=None):
+def brange(*args, minstep=1, maxstep=None):
     """Similar to PySCF's prange, but returning a slice instead.
 
     Start, stop, and blocksize can be accessed from each slice blk as
     blk.start, blk.stop, and blk.step.
     """
+    if len(args) == 1:
+        stop = args[0]
+        start = 0
+        step = 1
+    elif len(args) == 2:
+        start, stop = args[:2]
+        step = 1
+    elif len(args) == 3:
+        start, stop, step = args
+    else:
+        raise ValueError()
+
     if stop <= start:
         return
     if maxstep is None:
         maxstep = (stop-start)
-    step = np.clip(step, minstep, maxstep)
+    step = int(np.clip(step, minstep, maxstep))
     for i in range(start, stop, step):
         blk = np.s_[i:min(i+step, stop)]
         yield blk
@@ -218,16 +237,21 @@ def time_string(seconds, show_zeros=False):
         tstr = "%.3f s" % s
     return tstr
 
-def get_used_memory():
+MEMUNITS = {'b': 1, 'kb': 1e3, 'mb': 1e6, 'gb': 1e9, 'tb': 1e12}
+
+def get_used_memory(unit='b'):
     if psutil is not None:
         process = psutil.Process(os.getpid())
-        return(process.memory_info().rss)  # in bytes
+        mem = process.memory_info().rss  # in bytes
     # Fallback: use os module
-    if sys.platform.startswith('linux'):
+    elif sys.platform.startswith('linux'):
         pagesize = os.sysconf("SC_PAGE_SIZE")
         with open("/proc/%s/statm" % os.getpid()) as f:
-            return int(f.readline().split()[1])*pagesize
-    return 0
+            mem = int(f.readline().split()[1])*pagesize
+    else:
+        mem = 0
+    mem /= MEMUNITS[unit.lower()]
+    return mem
 
 def memory_string(nbytes, fmt='6.2f'):
     """String representation of nbytes"""

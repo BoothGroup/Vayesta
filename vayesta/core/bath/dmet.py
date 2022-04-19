@@ -3,15 +3,14 @@ import scipy
 import scipy.linalg
 
 from vayesta.core.util import *
+from .bath import FragmentBath
 
 DEFAULT_DMET_THRESHOLD = 1e-6
 
-class DMET_Bath:
-
-    spin_restricted = True
+class DMET_Bath(FragmentBath):
 
     def __init__(self, fragment, dmet_threshold=DEFAULT_DMET_THRESHOLD):
-        self.fragment = fragment
+        super().__init__(fragment)
         self.dmet_threshold = dmet_threshold
         # Output
         self.c_dmet = None
@@ -20,32 +19,11 @@ class DMET_Bath:
         self.c_env_occ = None
         self.c_env_vir = None
 
-    @property
-    def spin_unrestricted(self):
-        return not self.spin_restricted
+        self.dmet_bath = self
 
-    @property
-    def mf(self):
-        return self.fragment.mf
-
-    @property
-    def mol(self):
-        return self.fragment.mol
-
-    @property
-    def log(self):
-        return self.fragment.log
-
-    @property
-    def base(self):
-        return self.fragment.base
-
-    @property
-    def c_frag(self):
-        return self.fragment.c_frag
-
-    def get_dmet_bath(self):
-        return self.c_dmet
+    def get_cluster_electrons(self):
+        """Number of cluster electrons."""
+        return 2*self.c_cluster_occ.shape[-1]
 
     def get_occupied_bath(self, *args, **kwargs):
         """Inherited bath classes can overwrite this to return additional occupied bath orbitals."""
@@ -58,7 +36,6 @@ class DMET_Bath:
         return np.zeros((nao, 0)), self.c_env_vir
 
     def kernel(self):
-
         # --- DMET bath
         self.log.info("Making DMET Bath")
         self.log.info("----------------")
@@ -70,6 +47,9 @@ class DMET_Bath:
         cluster = [self.c_frag, c_dmet]
         self.base.check_orthonormal(*cluster, mo_name='cluster MO')
         c_cluster_occ, c_cluster_vir = self.fragment.diagonalize_cluster_dm(*cluster, tol=2*self.dmet_threshold)
+        # Canonicalize
+        c_cluster_occ = self.fragment.canonicalize_mo(c_cluster_occ)[0]
+        c_cluster_vir = self.fragment.canonicalize_mo(c_cluster_vir)[0]
         if self.base.is_rhf:
             self.log.info("Cluster orbitals:  n(occ)= %3d  n(vir)= %3d", c_cluster_occ.shape[-1], c_cluster_vir.shape[-1])
         else:
@@ -280,7 +260,9 @@ class CompleteBath(DMET_Bath):
 
 class UDMET_Bath(DMET_Bath):
 
-    spin_restricted = False
+    def get_cluster_electrons(self):
+        """Number of (alpha, beta) cluster electrons."""
+        return (self.c_cluster_occ[0].shape[-1] + self.c_cluster_occ[1].shape[-1])
 
     def get_occupied_bath(self, *args, **kwargs):
         """Inherited bath classes can overwrite this to return additional occupied bath orbitals."""

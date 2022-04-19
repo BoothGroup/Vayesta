@@ -7,6 +7,7 @@ import scipy.linalg
 
 from vayesta.core.util import *
 from vayesta.dmet.fragment import DMETFragment
+from vayesta.core.bath import BNO_Threshold
 from vayesta.solver import get_solver_class2 as get_solver_class
 from vayesta.core.bath import helper
 
@@ -169,7 +170,13 @@ class EDMETFragment(DMETFragment):
     def set_up_fermionic_bath(self, bno_threshold=None, bno_number=None):
         """Set up the fermionic bath orbitals"""
         self.make_bath()
-        cluster = self.make_cluster(self.bath, bno_threshold=bno_threshold, bno_number=bno_number)
+
+        if bno_number is not None:
+            bno_threshold = BNO_Threshold('number', bno_number)
+        else:
+            bno_threshold = BNO_Threshold('occupation', bno_threshold)
+
+        cluster = self.make_cluster(self.bath, bno_threshold=bno_threshold)
         cluster.log_sizes(self.log.info, header="Orbitals for %s" % self)
         self._c_active_occ = cluster.c_active_occ
         self._c_active_vir = cluster.c_active_vir

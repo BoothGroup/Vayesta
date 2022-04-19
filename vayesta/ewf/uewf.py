@@ -5,12 +5,14 @@ from vayesta.core.util import *
 
 from vayesta.ewf import REWF
 from vayesta.ewf.ufragment import UEWFFragment as Fragment
+from vayesta.core.mpi import mpi
 
 # Amplitudes
 from .amplitudes import get_global_t1_uhf
 from .amplitudes import get_global_t2_uhf
 # Density-matrices
 from .urdm import make_rdm1_ccsd
+from .icmp2 import get_intercluster_mp2_energy_uhf
 
 
 class UEWF(REWF, UEmbedding):
@@ -51,11 +53,43 @@ class UEWF(REWF, UEmbedding):
     get_global_t1 = get_global_t1_uhf
     get_global_t2 = get_global_t2_uhf
 
+    def t1_diagnostic(self, warn_tol=0.02):
+        # Per cluster
+        for f in self.get_fragments(mpi_rank=mpi.rank):
+            t1 = f.results.t1
+            if t1 is None:
+                self.log.error("No T1 amplitudes found for %s.", f)
+                continue
+            nelec = t1[0].shape[0] + t1[1].shape[0]
+            t1diag = (np.linalg.norm(t1[0]) / np.sqrt(nelec),
+                      np.linalg.norm(t1[1]) / np.sqrt(nelec))
+            if max(t1diag) > warn_tol:
+                self.log.warning("T1 diagnostic for %-20s alpha= %.5f beta= %.5f", str(f)+':', *t1diag)
+            else:
+                self.log.info("T1 diagnostic for %-20s alpha= %.5f beta= %.5f", str(f)+':', *t1diag)
+        # Global
+        t1 = self.get_global_t1(mpi_target=0)
+        if mpi.is_master:
+            nelec = t1[0].shape[0] + t1[1].shape[0]
+            t1diag = (np.linalg.norm(t1[0]) / np.sqrt(nelec),
+                      np.linalg.norm(t1[1]) / np.sqrt(nelec))
+            if max(t1diag) > warn_tol:
+                self.log.warning("Global T1 diagnostic: alpha= %.5f beta= %.5f", *t1diag)
+            else:
+                self.log.info("Global T1 diagnostic: alpha= %.5f beta= %.5f", *t1diag)
+
+
     # --- Density-matrices
     # --------------------
 
-    make_rdm1_ccsd = make_rdm1_ccsd
+    def make_rdm1_mp2(self, *args, **kwargs):
+        return make_rdm1_ccsd(self, *args, mp2=True, **kwargs)
+
+    def make_rdm1_ccsd(self, *args, **kwargs):
+        return make_rdm1_ccsd(self, *args, mp2=False, **kwargs)
 
     # TODO
     def make_rdm2_ccsd(self, *args, **kwargs):
         raise NotImplementedError()
+
+    get_intercluster_mp2_energy = get_intercluster_mp2_energy_uhf

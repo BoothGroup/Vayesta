@@ -28,7 +28,7 @@ class MoleculeDMETTest(unittest.TestCase):
                 moles['h6_sto6g']['rhf'],
                 solver='FCI',
                 charge_consistent=True,
-                bath_type=None,
+                bath_type='dmet',
                 conv_tol=self.CONV_TOL,
         )
         emb.iao_fragmentation()
@@ -50,7 +50,7 @@ class MoleculeDMETTest(unittest.TestCase):
                 moles['h6_sto6g']['rhf'],
                 solver='FCI',
                 charge_consistent=False,
-                bath_type=None,
+                bath_type='dmet',
                 conv_tol=self.CONV_TOL,
         )
         emb.iao_fragmentation()
@@ -72,7 +72,7 @@ class MoleculeDMETTest(unittest.TestCase):
                 moles['h6_sto6g']['rhf'],
                 solver='FCI',
                 charge_consistent=False,
-                bath_type='all',
+                bath_type='full',
                 conv_tol=self.CONV_TOL,
         )
         emb.iao_fragmentation()

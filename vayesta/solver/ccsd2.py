@@ -60,6 +60,7 @@ class CCSD_Solver(ClusterSolver):
         self.l1 = None
         self.l2 = None
         self.eris = None
+        # TODO: REMOVE
         # EOM-CCSD
         self.ip_energy = None
         self.ip_coeff = None

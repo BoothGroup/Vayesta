@@ -125,7 +125,8 @@ def plot_mol(mol, charges=None, spins=None, add_images=False, **kwargs):
     def make_scatter(colors, colorscale, **kwargs):
         colorbar = dict(thickness=20) if colorscale else None
         marker = go.scatter3d.Marker(size=8, color=colors, colorscale=colorscale, cmid=0.0, colorbar=colorbar, line=dict(width=4, color='black'))
-        scatter = go.Scatter3d(x=coords[:,0], y=coords[:,1], z=coords[:,2], marker=marker, mode='markers', **kwargs)
+        hovertext = ['Atom %d: %s' % (i, s) for (i, s) in enumerate(symbols)]
+        scatter = go.Scatter3d(x=coords[:,0], y=coords[:,1], z=coords[:,2], marker=marker, mode='markers', text=hovertext, **kwargs)
         return scatter
 
     scatter = make_scatter(atom_colors, None)
