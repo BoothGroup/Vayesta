@@ -16,7 +16,7 @@ def water(atoms=['O', 'H']):
             [atoms[1], [0.0000, -0.7572, -0.4692]]]
     return atom
 
-def alkane(n, atoms=['C', 'H'], cc_bond=1.54, ch_bond=1.09, numbering=False):
+def alkane(n, atoms=['C', 'H'], cc_bond=1.54, ch_bond=1.09, scale=1.0, numbering=False):
     """Alkane with idealized tetrahedral (sp3) coordination."""
 
     assert numbering in (False, 'atom', 'unit')
@@ -37,10 +37,10 @@ def alkane(n, atoms=['C', 'H'], cc_bond=1.54, ch_bond=1.09, numbering=False):
     phi = np.arccos(-1.0/3)
     cph = 1/np.sqrt(3.0)
     sph = np.sin(phi/2.0)
-    dcy = cc_bond * cph
-    dcz = cc_bond * sph
-    dchs = ch_bond * sph
-    dchc = ch_bond * cph
+    dcy = scale*cc_bond * cph
+    dcz = scale*cc_bond * sph
+    dchs = scale*ch_bond * sph
+    dchc = scale*ch_bond * cph
     x = 0.0
 
     atom = []
