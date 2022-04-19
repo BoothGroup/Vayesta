@@ -7,7 +7,6 @@ import pyscf.cc
 
 from vayesta.core.util import *
 from vayesta.core.mpi import mpi
-from .rdm import _mpi_reduce
 
 
 def make_rdm1_ccsd(emb, ao_basis=False, t_as_lambda=False, symmetrize=True, with_mf=True, mpi_target=None, mp2=False, ba_order='ba'):
@@ -112,11 +111,11 @@ def make_rdm1_ccsd(emb, ao_basis=False, t_as_lambda=False, symmetrize=True, with
     # MPI reduce here; the remaining terms involve L1/T1 only
     if mpi:
         if mp2:
-            dooa, doob, dvva, dvvb = _mpi_reduce(
-                    emb.log, dooa, doob, dvva, dvvb, mpi_target=mpi_target)
+            dooa, doob, dvva, dvvb = mpi.nreduce(
+                    dooa, doob, dvva, dvvb, target=mpi_target, logfunc=emb.log.timingv)
         else:
-            dooa, doob, dvva, dvvb, dova, dovb = _mpi_reduce(
-                    emb.log, dooa, doob, dvva, dvvb, dova, dovb, mpi_target=mpi_target)
+            dooa, doob, dova, dovb, dvva, dvvb = mpi.nreduce(
+                    dooa, doob, dova, dovb, dvva, dvvb, target=mpi_target, logfunc=emb.log.timingv)
         if mpi_target not in (None, mpi.rank):
             return None
 
@@ -344,7 +343,7 @@ def make_rdm2_ccsd_proj_lambda(emb, ao_basis=False, t_as_lambda=False, mpi_targe
         dm2ab += einsum('ijkl,Ii,Jj,Kk,Ll->IJKL', dm2xab, ra, ra, rb, rb)
         dm2bb += einsum('ijkl,Ii,Jj,Kk,Ll->IJKL', dm2xbb, rb, rb, rb, rb)
     if mpi:
-        dm2aa, dm2ab, dm2bb = _mpi_reduce(emb.log, dm2aa, dm2ab, dm2bb, mpi_target=mpi_target)
+        dm2aa, dm2ab, dm2bb = mpi.nreduce(dm2aa, dm2ab, dm2bb, target=mpi_target, logfunc=emb.log.timingv)
         if mpi_target not in (None, mpi.rank):
             return None
     if ao_basis:

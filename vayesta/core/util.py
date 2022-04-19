@@ -212,7 +212,7 @@ def log_time(logger, message, *args, mintime=None, **kwargs):
         yield t0
     finally:
         t = (timer()-t0)
-        if mintime is None or t >= mintime:
+        if logger and (mintime is None or t >= mintime):
             logger(message, *args, time_string(t), **kwargs)
 
 def time_string(seconds, show_zeros=False):

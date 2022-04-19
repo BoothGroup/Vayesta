@@ -76,7 +76,8 @@ class MPI_Interface:
         * combine multiple *args of same dtype into a single array,
         to reduce communication overhead.
         """
-        logfunc = (logfunc or vayesta.log.timingv)
+        if logfunc is None:
+            logfunc = vayesta.log.timingv
         if target is None:
             with log_time(logfunc, "Time for MPI allreduce: %s"):
                 res = [self.world.allreduce(x, **kwargs) for x in args]
