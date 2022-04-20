@@ -149,59 +149,6 @@ def make_rdm1_ccsd_proj_lambda(emb, ao_basis=False, t_as_lambda=False, with_mf=T
         dm1 = dot(emb.mo_coeff, dm1, emb.mo_coeff.T)
     return dm1
 
-def make_rdm2_ccsd_proj_lambda(emb, with_dm1=True, ao_basis=False, t_as_lambda=False, sym_t2=True, sym_dm2=True, mpi_target=None):
-    """Make two-particle reduced density-matrix from partitioned fragment CCSD wave functions.
-
-    Without 1DM!
-
-    MPI parallelized.
-
-    Parameters
-    ----------
-    ao_basis: bool, optional
-        Return the density-matrix in the AO basis. Default: False.
-    t_as_lambda: bool, optional
-        Use T-amplitudes instead of Lambda-amplitudes for CCSD density matrix. Default: False.
-    with_mf: bool, optional
-        If False, only the difference to the mean-field density-matrix is returned. Default: True.
-    mpi_target: integer, optional
-        If set to an integer, the density-matrix will only be constructed on the corresponding MPI rank.
-        Default: None.
-
-    Returns
-    -------
-    dm1: (n, n) array
-        One-particle reduced density matrix in AO (if `ao_basis=True`) or MO basis (default).
-    """
-    # --- Loop over pairs of fragments and add projected density-matrix contributions:
-    dm2 = np.zeros((emb.nmo, emb.nmo, emb.nmo, emb.nmo))
-    ovlp = emb.get_ovlp()
-    for x in emb.get_fragments(mpi_rank=mpi.rank):
-        rx = x.get_mo2co()
-        dm2x = x.make_partial_dm2(t_as_lambda=t_as_lambda, sym_t2=sym_t2, sym_dm2=sym_dm2)
-        dm2 += einsum('ijkl,Ii,Jj,Kk,Ll->IJKL', dm2x, rx, rx, rx, rx)
-    if mpi:
-        dm2 = mpi.nreduce(dm2, target=mpi_target, logfunc=emb.log.timingv)
-        if mpi_target not in (None, mpi.rank):
-            return None
-    if isinstance(with_dm1, np.ndarray) or with_dm1:
-        if isinstance(with_dm1, np.ndarray):
-            dm1 = with_dm1.copy()
-        else:
-            dm1 = make_rdm1_ccsd(emb)
-        # Remove half of the mean-field contribution
-        # (in PySCF the entire MF is removed and afterwards half is added back in a (i,j) loop)
-        dm1[np.diag_indices(emb.nocc)] -= 1
-        for i in range(emb.nocc):
-            dm2[i,i,:,:] += dm1 * 2
-            dm2[:,:,i,i] += dm1 * 2
-            dm2[:,i,i,:] -= dm1
-            dm2[i,:,:,i] -= dm1.T
-
-    if ao_basis:
-        dm2 = einsum('ijkl,pi,qj,rk,sl->pqrs', dm2, *(4*[emb.mo_coeff]))
-    return dm2
-
 def make_rdm1_ccsd_2p2l(emb, ao_basis=False, with_mf=True, t_as_lambda=False, with_t1=True, ovlp_tol=1e-10,
         mpi_target=None, slow=False):
     """Make one-particle reduced density-matrix from partitioned fragment CCSD wave functions.
@@ -612,7 +559,7 @@ def make_rdm1_ccsd_test(emb, ao_basis=False, t_as_lambda=False, slow=False, symm
 # --- Two-particle
 # ----------------
 
-def make_rdm2_ccsd(emb, ao_basis=False, symmetrize=True, t_as_lambda=False, slow=True, with_dm1=False):
+def make_rdm2_ccsd(emb, ao_basis=False, symmetrize=True, t_as_lambda=False, slow=True, with_dm1=True):
     """Recreate global two-particle reduced density-matrix from fragment calculations.
 
     Parameters
@@ -649,6 +596,59 @@ def make_rdm2_ccsd(emb, ao_basis=False, symmetrize=True, t_as_lambda=False, slow
         dm2 = einsum('ijkl,pi,qj,rk,sl->pqrs', dm2, *(4*[emb.mo_coeff]))
     if symmetrize:
         dm2 = (dm2 + dm2.transpose(1,0,3,2))/2
+    return dm2
+
+def make_rdm2_ccsd_proj_lambda(emb, with_dm1=True, ao_basis=False, t_as_lambda=False, sym_t2=True, sym_dm2=True, mpi_target=None):
+    """Make two-particle reduced density-matrix from partitioned fragment CCSD wave functions.
+
+    Without 1DM!
+
+    MPI parallelized.
+
+    Parameters
+    ----------
+    ao_basis: bool, optional
+        Return the density-matrix in the AO basis. Default: False.
+    t_as_lambda: bool, optional
+        Use T-amplitudes instead of Lambda-amplitudes for CCSD density matrix. Default: False.
+    with_mf: bool, optional
+        If False, only the difference to the mean-field density-matrix is returned. Default: True.
+    mpi_target: integer, optional
+        If set to an integer, the density-matrix will only be constructed on the corresponding MPI rank.
+        Default: None.
+
+    Returns
+    -------
+    dm1: (n, n) array
+        One-particle reduced density matrix in AO (if `ao_basis=True`) or MO basis (default).
+    """
+    # --- Loop over pairs of fragments and add projected density-matrix contributions:
+    dm2 = np.zeros((emb.nmo, emb.nmo, emb.nmo, emb.nmo))
+    ovlp = emb.get_ovlp()
+    for x in emb.get_fragments(mpi_rank=mpi.rank):
+        rx = x.get_mo2co()
+        dm2x = x.make_partial_dm2(t_as_lambda=t_as_lambda, sym_t2=sym_t2, sym_dm2=sym_dm2)
+        dm2 += einsum('ijkl,Ii,Jj,Kk,Ll->IJKL', dm2x, rx, rx, rx, rx)
+    if mpi:
+        dm2 = mpi.nreduce(dm2, target=mpi_target, logfunc=emb.log.timingv)
+        if mpi_target not in (None, mpi.rank):
+            return None
+    if isinstance(with_dm1, np.ndarray) or with_dm1:
+        if isinstance(with_dm1, np.ndarray):
+            dm1 = with_dm1.copy()
+        else:
+            dm1 = make_rdm1_ccsd(emb)
+        # Remove half of the mean-field contribution
+        # (in PySCF the entire MF is removed and afterwards half is added back in a (i,j) loop)
+        dm1[np.diag_indices(emb.nocc)] -= 1
+        for i in range(emb.nocc):
+            dm2[i,i,:,:] += dm1 * 2
+            dm2[:,:,i,i] += dm1 * 2
+            dm2[:,i,i,:] -= dm1
+            dm2[i,:,:,i] -= dm1.T
+
+    if ao_basis:
+        dm2 = einsum('ijkl,pi,qj,rk,sl->pqrs', dm2, *(4*[emb.mo_coeff]))
     return dm2
 
 

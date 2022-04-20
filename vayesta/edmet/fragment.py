@@ -236,11 +236,14 @@ class EDMETFragment(DMETFragment):
 
         # Create solver object
         t0 = timer()
-        solver_opts = self.get_solver_options(solver, chempot)
+        solver_opts = self.get_solver_options(solver)
 
         solver_cls = get_solver_class(self.mf, solver)
 
         cluster_solver = solver_cls(self, self.cluster, **solver_opts)
+        # Chemical potential
+        if chempot is not None:
+            cluster_solver.v_ext = -chempot * self.get_fragment_projector(self.cluster.c_active)
 
         with log_time(self.log.info, ("Time for %s solver:" % solver) + " %s"):
             cluster_solver.kernel(eris=eris)
@@ -267,16 +270,13 @@ class EDMETFragment(DMETFragment):
             results.dd_mom1 = ddmoms[1]
         return results
 
-    def get_solver_options(self, solver, chempot):
+    def get_solver_options(self, solver):
         solver_opts = {}
         solver_opts.update(self.opts.solver_options)
         pass_through = []
         for attr in pass_through:
             self.log.debugv("Passing fragment option %s to solver.", attr)
             solver_opts[attr] = getattr(self.opts, attr)
-
-        solver_opts["v_ext"] = None if chempot is None else - chempot * self.get_fragment_projector(
-            self.cluster.c_active)
 
         return solver_opts
 

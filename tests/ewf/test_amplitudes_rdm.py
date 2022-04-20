@@ -34,7 +34,7 @@ class RHF_H2O(unittest.TestCase):
         cls.dm1 = cls.ccsd.make_rdm1()
         cls.dm2 = cls.ccsd.make_rdm2()
         # Emb-CCSD
-        cls.ecc = vayesta.ewf.EWF(cls.mf, bath_type='full', make_rdm1=True, make_rdm2=True)
+        cls.ecc = vayesta.ewf.EWF(cls.mf, bath_type='full', solve_lambda=True)
         cls.ecc.iao_fragmentation()
         cls.ecc.add_all_atomic_fragments()
         cls.ecc.kernel()
@@ -101,14 +101,14 @@ class RHF_vs_UHF_H2O(unittest.TestCase):
 
         #bno = -1
         bno = 1e-4
-        cls.remb = vayesta.ewf.EWF(cls.rhf, store_l1=True, store_l2=True,
-                solver_options={'conv_tol' : cc_conv_tol, 'conv_tol_normt' : cc_conv_tol_normt})
+        opts = dict(solve_lambda=True)
+        solver_opts = dict(conv_tol=cc_conv_tol, conv_tol_normt=cc_conv_tol_normt)
+        cls.remb = vayesta.ewf.EWF(cls.rhf, solver_options=solver_opts, **opts)
         cls.remb.iao_fragmentation()
         cls.remb.add_all_atomic_fragments()
         cls.remb.kernel(bno_threshold=bno)
 
-        cls.uemb = vayesta.ewf.EWF(cls.uhf, store_l1=True, store_l2=True,
-                solver_options={'conv_tol' : cc_conv_tol, 'conv_tol_normt' : cc_conv_tol_normt})
+        cls.uemb = vayesta.ewf.EWF(cls.uhf, solver_options=solver_opts, **opts)
         cls.uemb.iao_fragmentation()
         cls.uemb.add_all_atomic_fragments()
         cls.uemb.kernel(bno_threshold=bno)
@@ -185,10 +185,11 @@ class UHF_NO2(unittest.TestCase):
         cls.dm1 = cls.ccsd.make_rdm1()
         #cls.dm2 = cls.ccsd.make_rdm2()
         # Emb-UCCSD
+        opts = dict(solve_lambda=True)
+        solver_opts= dict(conv_tol=cc_conv_tol, conv_tol_normt=cc_conv_tol_normt)
         #cls.ecc = vayesta.ewf.EWF(cls.mf, bath_type='full', store_l1=True, store_l2=True,
         #        solver_options={'conv_tol' : cc_conv_tol, 'conv_tol_normt' : cc_conv_tol_normt})
-        cls.ecc = vayesta.ewf.EWF(cls.mf, store_l1=True, store_l2=True,
-                solver_options={'conv_tol' : cc_conv_tol, 'conv_tol_normt' : cc_conv_tol_normt})
+        cls.ecc = vayesta.ewf.EWF(cls.mf, solver_options=solver_opts, **opts)
         #cls.ecc.kernel(bno_threshold=1e-4)
         cls.ecc.kernel(bno_threshold=-1)
 

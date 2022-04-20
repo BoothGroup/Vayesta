@@ -36,7 +36,7 @@ class MolecularEDMETTest_H6_sto6g_EBFCI_IAO_1occ(unittest.TestCase, MolecularEDM
         cls.mf = pyscf.scf.RHF(cls.mol)
         cls.mf.kernel()
 
-        cls.edmet = edmet.EDMET(cls.mf, solver='EBFCI', bos_occ_cutoff=1)
+        cls.edmet = edmet.EDMET(cls.mf, solver='EBFCI', max_boson_occ=1)
         cls.edmet.iao_fragmentation()
         for i in range(cls.mol.natm//2):
             cls.edmet.add_atomic_fragment([i * 2, i * 2 + 1])
@@ -56,7 +56,7 @@ class MolecularEDMETTest_H6_sto6g_EBFCI_IAO_2occ(unittest.TestCase, MolecularEDM
         cls.mf = pyscf.scf.RHF(cls.mol)
         cls.mf.kernel()
 
-        cls.edmet = edmet.EDMET(cls.mf, solver='EBFCI', bos_occ_cutoff=2)
+        cls.edmet = edmet.EDMET(cls.mf, solver='EBFCI', max_boson_occ=2)
         cls.edmet.iao_fragmentation()
         for i in range(cls.mol.natm//2):
             cls.edmet.add_atomic_fragment([i * 2, i * 2 + 1])

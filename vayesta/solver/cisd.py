@@ -22,12 +22,12 @@ class CISD_Solver(CCSD_Solver):
         if eris is None: eris = self.get_eris()
 
         # Add additional potential
-        if self.opts.v_ext is not None:
-            self.log.debugv("Adding self.opts.v_ext to eris.fock")
+        if self.v_ext is not None:
+            self.log.debugv("Adding self.v_ext to eris.fock")
             # Make sure there are no side effects:
             eris = copy.copy(eris)
             # Replace fock instead of modifying it!
-            eris.fock = (eris.fock + self.opts.v_ext)
+            eris.fock = (eris.fock + self.v_ext)
         #self.log.debugv("sum(eris.mo_energy)= %.8e", sum(eris.mo_energy))
         #self.log.debugv("Tr(eris.fock)= %.8e", np.trace(eris.fock))
 
