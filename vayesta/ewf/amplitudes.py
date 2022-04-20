@@ -30,11 +30,10 @@ def get_global_t1_rhf(emb, get_lambda=False, mpi_target=None):
     for x in emb.get_fragments(mpi_rank=mpi.rank):
         emb.log.debugv("Now adding projected %s amplitudes of fragment %s", ("L" if get_lambda else "T"), x)
         ro, rv = x.get_overlap_m2c()
-        pwf = x.results.pwf.restore()
+        pwf = x.results.pwf.restore().as_ccsd()
         t1x = pwf.l1 if get_lambda else pwf.t1
         if t1x is None:
             raise NotCalculatedError
-        #t1 += einsum('ia,Ii,Aa->IA', t1x, ro, rv)
         t1 += dot(ro, t1x, rv.T)
     # --- MPI
     if mpi:
@@ -65,7 +64,7 @@ def get_global_t2_rhf(emb, get_lambda=False, symmetrize=True, mpi_target=None):
     for x in emb.get_fragments(mpi_rank=mpi.rank):
         emb.log.debugv("Now adding projected %s-amplitudes of fragment %s", ("L" if get_lambda else "T"), x)
         ro, rv = x.get_overlap_m2c()
-        pwf = x.results.pwf.restore()
+        pwf = x.results.pwf.restore().as_ccsd()
         t2x = pwf.l2 if get_lambda else pwf.t2
         if t2x is None:
             raise NotCalculatedError
@@ -98,7 +97,7 @@ def get_global_t1_uhf(emb, get_lambda=False, mpi_target=None):
     for x in emb.get_fragments(mpi_rank=mpi.rank):
         emb.log.debugv("Now adding projected %s-amplitudes of fragment %s", ("L" if get_lambda else "T"), x)
         (roa, rob), (rva, rvb) = x.get_overlap_m2c()
-        pwf = x.results.pwf.restore()
+        pwf = x.results.pwf.restore().as_ccsd()
         t1xa, t1xb = pwf.l1 if get_lambda else pwf.t1
         if t1xa is None:
             raise NotCalculatedError
@@ -133,7 +132,7 @@ def get_global_t2_uhf(emb, get_lambda=False, symmetrize=True, mpi_target=None):
     for x in emb.get_fragments(mpi_rank=mpi.rank):
         emb.log.debugv("Now adding projected %s-amplitudes of fragment %s", ("L" if get_lambda else "T"), x)
         (roa, rob), (rva, rvb) = x.get_overlap_m2c()
-        pwf = x.results.pwf.restore()
+        pwf = x.results.pwf.restore().as_ccsd()
         t2xaa, t2xab, t2xbb = pwf.l2 if get_lambda else pwf.t2
         if t2xaa is None:
             raise NotCalculatedError

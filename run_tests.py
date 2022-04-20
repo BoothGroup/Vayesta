@@ -43,7 +43,7 @@ with open('.codestyle', 'w') as file:
     file.write(f.getvalue())
 
 # Get a list of untracked files to ignore:
-untracked = subprocess.run(['git', 'ls-files', '--others', '--exclude-standard', 'vayesta/'], capture_output=True, text=True).stdout 
+untracked = subprocess.run(['git', 'ls-files', '--others', '--exclude-standard', 'vayesta/'], capture_output=True, text=True).stdout
 untracked = [x.strip() for x in untracked.split('\n')]
 untracked += [
         '*/libs/*',

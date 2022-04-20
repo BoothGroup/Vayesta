@@ -43,7 +43,6 @@ class Fragment:
         converged: bool = None      # True, if solver reached convergence criterion or no convergence required (eg. MP2 solver)
         # --- Energies
         e_corr: float = None        # Fragment correlation energy contribution
-        e_dmet: float = None        # DMET energy contribution
         # --- Wave-function
         wf: WaveFunction = None     # WaveFunction object (MP2, CCSD,...)
         pwf: WaveFunction = None    # Fragment-projected wave function
@@ -916,7 +915,7 @@ class Fragment:
 
     @mpi.with_send(source=get_fragment_mpi_rank)
     def get_fragment_dmet_energy(self, dm1=None, dm2=None, h1e_eff=None, eris=None):
-        """Get fragment contribution to whole system DMET energy.
+        """Get fragment contribution to whole system DMET energy from cluster DMs.
 
         After fragment summation, the nuclear-nuclear repulsion must be added to get the total energy!
 
@@ -942,16 +941,19 @@ class Fragment:
         c_act = self.cluster.c_active
         t0 = timer()
         if eris is None:
+            eris = self._eris
+        if eris is None:
             with log_time(self.log.timing, "Time for AO->MO transformation: %s"):
                 eris = self.base.get_eris_array(c_act)
-        elif not isinstance(eris, np.ndarray):
+        if not isinstance(eris, np.ndarray):
             self.log.debugv("Extracting ERI array from CCSD ERIs object.")
             eris = vayesta.core.ao2mo.helper.get_full_array(eris, c_act)
 
         # Get effective core potential
         if h1e_eff is None:
             # Use the original Hcore (without chemical potential modifications), but updated mf-potential!
-            h1e_eff = self.base.get_hcore_orig() + self.base.get_veff(with_exxdiv=False)/2
+            #h1e_eff = self.base.get_hcore_orig() + self.base.get_veff(with_exxdiv=False)/2
+            h1e_eff = self.base.get_hcore_for_energy() + self.base.get_veff_for_energy(with_exxdiv=False)/2
             h1e_eff = dot(c_act.T, h1e_eff, c_act)
             occ = np.s_[:self.cluster.nocc_active]
             v_act = einsum('iipq->pq', eris[occ,occ,:,:]) - einsum('iqpi->pq', eris[occ,:,:,occ])/2
@@ -960,7 +962,7 @@ class Fragment:
         p_frag = self.get_fragment_projector(c_act)
         # Check number of electrons
         ne = einsum('ix,ij,jx->', p_frag, dm1, p_frag)
-        self.log.info("Number of local electrons for DMET energy: %.8f", ne)
+        self.log.debug("Number of electrons for DMET energy in fragment %12s: %.8f", self, ne)
 
         # Evaluate energy
         e1b = einsum('xj,xi,ij->', h1e_eff, p_frag, dm1)

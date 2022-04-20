@@ -17,6 +17,7 @@ from vayesta.core.util import *
 from vayesta.core import Fragment
 from vayesta.solver import get_solver_class
 from vayesta.core.fragmentation import IAO_Fragmentation
+from vayesta.core.types import RFCI_WaveFunction
 
 from vayesta.core.bath import BNO_Threshold
 from vayesta.core.bath import DMET_Bath
@@ -30,6 +31,7 @@ from vayesta.core.mpi import mpi
 
 from . import ewf
 from . import helper
+from .rdm import _gamma2_intermediates
 from .rdm import _incluster_gamma2_intermediates
 
 # Get MPI rank of fragment
@@ -61,11 +63,6 @@ class EWFFragment(Fragment):
         # CAS methods
         c_cas_occ: np.ndarray = None
         c_cas_vir: np.ndarray = None
-        #
-        # --- Energy
-        calculate_e_dmet: bool = False
-        e_corr_part: str = NotSet
-        #
         dm_with_frozen: bool = NotSet
         # --- Solver options
         tcc_fci_opts: dict = dataclasses.field(default_factory=dict)
@@ -122,12 +119,6 @@ class EWFFragment(Fragment):
 
         # For self-consistent mode
         self.solver_results = None
-
-    #@property
-    #def e_corr(self):
-    #    """Best guess for correlation energy, using the lowest BNO threshold."""
-    #    idx = np.argmin(self.bno_threshold)
-    #    return self.e_corrs[idx]
 
     @property
     def c_cluster_occ(self):
@@ -298,9 +289,9 @@ class EWFFragment(Fragment):
         # For self-consistent calculations, we can reuse ERIs:
         if eris is None:
             eris = self._eris
-        if (eris is not None) and (eris.mo_coeff.shape != cluster.c_active.shape):
-            self.log.debugv("Projecting ERIs onto subspace")
-            eris = ao2mo.helper.project_ccsd_eris(eris, cluster.c_active, cluster.nocc_active, ovlp=self.base.get_ovlp())
+        #if (eris is not None) and (eris.mo_coeff.size > cluster.c_active.size):
+        #    self.log.debugv("Projecting ERIs onto subspace")
+        #    eris = ao2mo.helper.project_ccsd_eris(eris, cluster.c_active, cluster.nocc_active, ovlp=self.base.get_ovlp())
 
         # We can now overwrite the orbitals from last BNO run:
         #self._c_active_occ = cluster.c_active_occ
@@ -314,10 +305,9 @@ class EWFFragment(Fragment):
         # Create solver object
         solver_cls = get_solver_class(self.mf, solver)
         solver_opts = self.get_solver_options(solver)
-        # OLD CALL:
-        #cluster_solver = solver_cls(self, mo_coeff, mo_occ, nocc_frozen=cluster.nocc_frozen, nvir_frozen=cluster.nvir_frozen, **solver_opts)
-        # NEW CALL:
         cluster_solver = solver_cls(self, cluster, **solver_opts)
+
+        # --- Chemical potential
         cpt_frag = self.base.opts.global_frag_chempot
         if self.opts.nelectron_target is not None:
             cluster_solver.optimize_cpt(self.opts.nelectron_target, c_frag=self.c_proj)
@@ -331,6 +321,7 @@ class EWFFragment(Fragment):
                 p_frag = (np.dot(r[0].T, r[0]), np.dot(r[1].T, r[1]))
                 cluster_solver.v_ext = (cpt_frag * p_frag[0], cpt_frag * p_frag[1])
 
+        # --- Coupled fragments
         if self.opts.coupled_iterations:
             if solver != 'CCSD':
                 raise NotImplementedError()
@@ -354,17 +345,25 @@ class EWFFragment(Fragment):
         results.wf = cluster_solver.wf
         # Projected WF
         proj = self.get_fo2co_occ()
-        try:
-            results.pwf = cluster_solver.wf.project(proj, inplace=False)
-        except NotImplementedError:
-            results.pwf = cluster_solver.wf.to_cisd().project(proj, inplace=False)
+        if isinstance(cluster_solver.wf, RFCI_WaveFunction):
+            pwf = cluster_solver.wf.as_cisd()
+        else:
+            pwf = cluster_solver.wf
+        results.pwf = pwf.project(proj, inplace=False)
+        #try:
+        #    results.pwf = cluster_solver.wf.project(proj, inplace=False)
+        #except NotImplementedError:
+        #    results.pwf = cluster_solver.wf.to_cisd().project(proj, inplace=False)
 
         # Get projected amplitudes ('p1', 'p2')
         if hasattr(cluster_solver, 'c0'):
             self.log.info("Weight of reference determinant= %.8g", abs(cluster_solver.c0))
         # --- Calculate projected energy
         with log_time(self.log.info, ("Time for fragment energy= %s")):
-            pwf = self.results.wf.to_cisd(c0=1.0)
+            try:
+                pwf = self.results.wf.as_cisd(c0=1.0)
+            except AttributeError:
+                pwf = self.results.wf.to_cisd(c0=1.0)
             pwf = pwf.project(self.get_fo2co_occ(), inplace=False)
             e_singles, e_doubles, e_corr = self.get_fragment_energy(pwf.c1, pwf.c2, eris=eris, c2ba_order='ba')
 
@@ -378,10 +377,6 @@ class EWFFragment(Fragment):
 
         self._results = results
 
-        # DMET energy
-        if self.opts.calculate_e_dmet:
-            results.e_dmet = self.get_fragment_dmet_energy(dm1=results.dm1, dm2=results.dm2, eris=eris)
-
         #2RDM Energy Contribution
         if self.solver == 'CCSD' and self.base.opts.calc_cluster_rdm_energy:
             with log_time(self.log.info, ("Time for fragment 2DM energy= %s")):
@@ -391,7 +386,6 @@ class EWFFragment(Fragment):
                 l1 = (t1 if t_as_lambda else self.results.l1)
                 l2 = (t2 if t_as_lambda else self.results.l2)
 
-
                 t1p = self.project_amplitude_to_fragment(t1)
                 l1p = self.project_amplitude_to_fragment(l1)
                 l2p = self.project_amplitude_to_fragment(l2)
@@ -400,6 +394,7 @@ class EWFFragment(Fragment):
                 mycc = pyscf.cc.CCSD(self.base.mf)
                 d1 = None #pyscf.cc.ccsd_rdm._gamma1_intermediates(mycc, t1, t2, l1, l2)
                 d2 = _incluster_gamma2_intermediates(mycc, t1, t2, l1p, l2p, t1p=t1p, t2p=t2p)
+                #d2 = _gamma2_intermediates(mycc, t1, t2, l1p, l2p, t1p=t1p, t2p=t2p)
                 rdm2 = pyscf.cc.ccsd_rdm._make_rdm2(mycc, d1, d2, with_dm1=False)#, with_frozen=with_frozen, ao_repr=ao_repr)
                 eris_full = ao2mo.helper.get_full_array(eris)
 
@@ -451,6 +446,11 @@ class EWFFragment(Fragment):
         if c2 is not None:
             p2 = self.project_amplitude_to_fragment(c2, c_occ, c_vir, **kwargs)
         return p1, p2
+
+    # --- Expectation values
+    # ----------------------
+
+    # --- Energies
 
     def get_energy_prefactor(self):
         return self.sym_factor * self.opts.energy_factor
@@ -507,22 +507,98 @@ class EWFFragment(Fragment):
         else:
             g_ovvo = eris[occ,vir,vir,occ]
 
-        e_doubles = 0
         if axis1 == 'fragment':
-            if self.opts.e_corr_part in ('all', 'direct'):
-                e_doubles += 2*einsum('xi,xjab,iabj', px, c2, g_ovvo)
-            if self.opts.e_corr_part in ('all', 'exchange'):
-                e_doubles -= einsum('xi,xjab,jabi', px, c2, g_ovvo)
+            e_doubles = (2*einsum('xi,xjab,iabj', px, c2, g_ovvo)
+                         - einsum('xi,xjab,ibaj', px, c2, g_ovvo))
         else:
-            if self.opts.e_corr_part in ('all', 'direct'):
-                e_doubles += 2*einsum('ijab,iabj', c2, g_ovvo)
-            if self.opts.e_corr_part in ('all', 'exchange'):
-                e_doubles -= einsum('ijab,jabi', c2, g_ovvo)
+            e_doubles = (2*einsum('ijab,iabj', c2, g_ovvo)
+                         - einsum('ijab,ibaj', c2, g_ovvo))
 
         e_singles = (self.get_energy_prefactor() * e_singles)
         e_doubles = (self.get_energy_prefactor() * e_doubles)
         e_corr = (e_singles + e_doubles)
         return e_singles, e_doubles, e_corr
+
+
+    # --- Density-matrices
+
+    def _ccsd_amplitudes_for_dm(self, t_as_lambda=False, sym_t2=True):
+        wf = self.results.wf.as_ccsd()
+        t1, t2 = wf.t1, wf.t2
+        pwf = self.results.pwf.restore(sym=sym_t2).as_ccsd()
+        t1x, t2x = pwf.t1, pwf.t2
+        if t_as_lambda:
+            l1x, l2x = t1x, t2x
+        else:
+            l1x, l2x = pwf.l1, pwf.l2
+        return t1, t2, t1x, t2x, l1x, l2x
+
+    #def make_partial_dm1(self, t_as_lambda=False, with_t1=True, sym_t2=True):
+    #    """Currently CCSD only.
+
+    #    Without mean-field contribution!"""
+    #    t1, t2, t1x, t2x, l1x, l2x = self._ccsd_amplitudes_for_dm(t_as_lambda=t_as_lambda, sym_t2=sym_t2)
+    #    if not with_t1:
+    #        t1 = t1x = l1x = np.zeros_like(t1)
+    #    doo, dov, dvo, dvv = pyscf.cc.ccsd_rdm._gamma1_intermediates(None, t1, t2, l1x, l2x)
+    #    dvo += (t1x - t1).T
+    #    dm1 = pyscf.cc.ccsd_rdm._make_rdm1(None, (doo, dov, dvo, dvv), with_frozen=False, with_mf=False)
+    #    return dm1
+
+    def make_fragment_cumulant(self, t_as_lambda=False, sym_t2=True, sym_cum=True):
+        """Currently MP2/CCSD only.
+
+        Without 1DM contribution!"""
+
+        if self.solver == 'MP2':
+            t2x = self.results.pwf.restore(sym=sym_t2).as_ccsd().t2
+            cum = 2*(2*t2x - t2x.transpose(0,1,3,2)).transpose(0,2,1,3)
+            return cum
+
+        t1, t2, t1x, t2x, l1x, l2x = self._ccsd_amplitudes_for_dm(t_as_lambda=t_as_lambda, sym_t2=sym_t2)
+        cc = self.mf # Only attributes stdout, verbose, and max_memory are needed, just use mean-field object
+        #dovov, *d2rest = pyscf.cc.ccsd_rdm._gamma2_intermediates(cc, t1, t2, l1x, l2x)
+        dovov, *d2rest = pyscf.cc.ccsd_rdm._gamma2_intermediates(cc, t1, t2, l1x, l2x)
+        # Correct D2[ovov] part (first element of d2 tuple)
+        dtau = ((t2x-t2) + einsum('ia,jb->ijab', (t1x-t1), t1))
+        #dtau = (dtau + dtau.transpose(1,0,3,2))/2
+
+        #dtau = dtau - dtau.transpose(0,1,3,2)/2
+        #dovov += dtau.transpose(0,2,1,3)
+
+        dovov += dtau.transpose(0,2,1,3)
+        dovov -= dtau.transpose(0,3,1,2)/2
+        cc = None
+        d1 = None
+        d2 = (dovov, *d2rest)
+        cum = pyscf.cc.ccsd_rdm._make_rdm2(cc, d1, d2, with_dm1=False, with_frozen=False)
+
+        if (sym_cum and not sym_t2):
+            cum = (cum + cum.transpose(1,0,3,2) + cum.transpose(2,3,0,1) + cum.transpose(3,2,1,0))/4
+        return cum
+
+    #def make_partial_dm1_energy(self, t_as_lambda=False):
+    #    dm1 = self.make_partial_dm1(t_as_lambda=t_as_lambda)
+    #    c_act = self.cluster.c_active
+    #    fock = np.linalg.multi_dot((c_act.T, self.base.get_fock(), c_act))
+    #    e_dm1 = einsum('ij,ji->', fock, dm1)
+    #    return e_dm1
+
+    def make_fragment_cumulant_energy(self, t_as_lambda=False, sym_t2=True):
+        cum = self.make_fragment_cumulant(t_as_lambda=t_as_lambda, sym_t2=sym_t2)
+        fac = (2 if self.solver == 'MP2' else 1)
+        if self._eris is None:
+            eris = self.base.get_eris_array(self.cluster.c_active)
+        # CCSD
+        elif hasattr(self._eris, 'ovoo'):
+            eris = vayesta.core.ao2mo.helper.get_full_array(self._eris)
+        # MP2
+        else:
+            eris = self._eris
+        e_cum = fac*einsum('ijkl,ijkl->', eris, cum)/2
+        return e_cum
+
+    # --- Correlation function
 
     def get_cluster_sz(self, proj=None):
         return 0.0
@@ -535,61 +611,9 @@ class EWFFragment(Fragment):
             raise ValueError()
         return helper.get_ssz(dm1, dm2, proj1=proj1, proj2=proj2)
 
-    def _ccsd_amplitudes_for_dm(self, t_as_lambda=False, sym_t2=False):
-        t1 = self.results.wf.t1
-        t2 = self.results.wf.t2
-        pwf = self.results.pwf.restore(sym=sym_t2)
-        t1x, t2x = pwf.t1, pwf.t2
-        if t_as_lambda:
-            l1x, l2x = t1x, t2x
-        else:
-            l1x, l2x = pwf.l1, pwf.l2
-        return t1, t2, t1x, t2x, l1x, l2x
 
-    def make_partial_dm1(self, t_as_lambda=False, with_t1=True, sym_t2=True):
-        """Currently CCSD only.
-
-        Without mean-field contribution!"""
-        t1, t2, t1x, t2x, l1x, l2x = self._ccsd_amplitudes_for_dm(t_as_lambda=t_as_lambda, sym_t2=sym_t2)
-        if not with_t1:
-            t1 = t1x = l1x = np.zeros_like(t1)
-        doo, dov, dvo, dvv = pyscf.cc.ccsd_rdm._gamma1_intermediates(None, t1, t2, l1x, l2x)
-        dvo += (t1x - t1).T
-        dm1 = pyscf.cc.ccsd_rdm._make_rdm1(None, (doo, dov, dvo, dvv), with_frozen=False, with_mf=False)
-        return dm1
-
-    def make_partial_dm2(self, t_as_lambda=False, sym_t2=True, sym_dm2=True):
-        """Currently CCSD only.
-
-        Without 1DM contribution!"""
-        t1, t2, t1x, t2x, l1x, l2x = self._ccsd_amplitudes_for_dm(t_as_lambda=t_as_lambda, sym_t2=sym_t2)
-        cc = self.mf # Only attributes stdout, verbose, and max_memory are needed, just use mean-field object
-        d2 = pyscf.cc.ccsd_rdm._gamma2_intermediates(cc, t1, t2, l1x, l2x)
-        # Correct D2[ovov] part (first element of d2 tuple)
-        dtau = ((t2x-t2) + einsum('ia,jb->ijab', (t1x-t1), t1))
-        dovov = d2[0]
-        dovov += dtau.transpose(0,2,1,3)
-        dovov -= dtau.transpose(0,3,1,2)/2
-        dm2 = pyscf.cc.ccsd_rdm._make_rdm2(None, None, d2, with_dm1=False, with_frozen=False)
-        if (sym_dm2 and not sym_t2):
-            dm2 = (dm2 + dm2.transpose(1,0,3,2) + dm2.transpose(2,3,0,1) + dm2.transpose(3,2,1,0))/4
-        return dm2
-
-    def make_partial_dm1_energy(self, t_as_lambda=False):
-        dm1 = self.make_partial_dm1(t_as_lambda=t_as_lambda)
-        c_act = self.cluster.c_active
-        fock = np.linalg.multi_dot((c_act.T, self.base.get_fock(), c_act))
-        e_dm1 = einsum('ij,ji->', fock, dm1)
-        return e_dm1
-
-    def make_partial_dm2_energy(self, t_as_lambda=False, sym_t2=False):
-        dm2 = self.make_partial_dm2(t_as_lambda=t_as_lambda, sym_t2=sym_t2)
-        if self._eris is None:
-            eris = self.base.get_eris_array(self.cluster.c_active)
-        else:
-            eris = vayesta.core.ao2mo.helper.get_full_array(self._eris)
-        e_dm2 = einsum('ijkl,ijkl->', eris, dm2)/2
-        return e_dm2
+    # --- Other
+    # ---------
 
     def get_fragment_bsse(self, rmax=None, nimages=5, unit='A'):
         self.log.info("Counterpoise Calculation")

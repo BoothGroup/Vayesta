@@ -61,7 +61,7 @@ class Embedding:
         #recalc_vhf: bool = True
         solver_options: dict = dataclasses.field(default_factory=dict)
         wf_partition: str = 'first-occ'     # ['first-occ', 'first-vir', 'democratic']
-        store_eris: bool = False            # If True, ERIs will be stored in Fragment._eris
+        store_eris: bool = True             # If True, ERIs will be stored in Fragment._eris
         global_frag_chempot: float = None   # Global fragment chemical potential (e.g. for democratically partitioned DMs)
 
     def __init__(self, mf, options=None, log=None, overwrite=None, **kwargs):
@@ -852,11 +852,7 @@ class Embedding:
         """
         e_dmet = 0.0
         for f in self.get_fragments(mpi_rank=mpi.rank):
-            if f.results.e_dmet is not None:
-                e_dmet += f.results.e_dmet
-            else:
-                self.log.info("Calculating DMET energy of %s", f)
-                e_dmet += f.get_fragment_dmet_energy()
+            e_dmet += f.get_fragment_dmet_energy()
         self.log.debugv("E_elec(DMET)= %s", energy_string(e_dmet))
         return e_dmet
 

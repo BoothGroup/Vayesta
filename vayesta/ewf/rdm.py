@@ -8,6 +8,7 @@ import pyscf.cc.ccsd_rdm_slow
 import pyscf.lib
 
 from vayesta.core.util import *
+from vayesta.core.types import RMP2_WaveFunction
 from vayesta.core.types import RCCSD_WaveFunction
 from vayesta.core.mpi import mpi
 
@@ -201,9 +202,11 @@ def make_rdm2_ccsd_proj_lambda(emb, with_dm1=True, ao_basis=False, t_as_lambda=F
         dm2 = einsum('ijkl,pi,qj,rk,sl->pqrs', dm2, *(4*[emb.mo_coeff]))
     return dm2
 
-def make_rdm1_ccsd_2p2l(emb, t_as_lambda=False, ao_basis=False, with_mf=True, with_t1=True, ovlp_tol=1e-10,
+def make_rdm1_ccsd_2p2l(emb, ao_basis=False, with_mf=True, t_as_lambda=False, with_t1=True, ovlp_tol=1e-10,
         mpi_target=None, slow=False):
     """Make one-particle reduced density-matrix from partitioned fragment CCSD wave functions.
+
+    This replaces make_rdm1_ccsd_old.
 
     Parameters
     ----------
@@ -275,9 +278,12 @@ def make_rdm1_ccsd_2p2l(emb, t_as_lambda=False, ao_basis=False, with_mf=True, wi
         cxs_vir = np.dot(pwfx.mo.coeff_vir.T, ovlp)
         for y in emb.get_fragments():
             if mpi:
-                pwfy = RCCSD_WaveFunction.unpack(rma[y.id]).restore()
+                if y.solver == 'MP2':
+                    pwfy = RMP2_WaveFunction.unpack(rma[y.id]).restore().as_ccsd()
+                else:
+                    pwfy = RCCSD_WaveFunction.unpack(rma[y.id]).restore()
             else:
-                pwfy = y.results.pwf.restore()
+                pwfy = y.results.pwf.restore().as_ccsd()
             # Overlap between cluster x and cluster y:
             ro = np.dot(cxs_occ, pwfy.mo.coeff_occ)
             rv = np.dot(cxs_vir, pwfy.mo.coeff_vir)
@@ -290,10 +296,19 @@ def make_rdm1_ccsd_2p2l(emb, t_as_lambda=False, ao_basis=False, with_mf=True, wi
             l2 = (pwfy.t2 if t_as_lambda else pwfy.l2)
             if l2 is None:
                 raise RuntimeError("No L2 amplitudes found for %s!" % y)
+
             # Theta_jk^ab * l_ik^ab -> ij
-            doox -= einsum('jkab,IKAB,kK,aA,bB,QI->jQ', theta, l2, ro, rv, rv, moy)
-            # Theta_ji^ca * l_ji^cb -> ab
-            dvvx += einsum('jica,JICB,jJ,iI,cC,QB->aQ', theta, l2, ro, ro, rv, mvy)
+            #doox -= einsum('jkab,IKAB,kK,aA,bB,QI->jQ', theta, l2, ro, rv, rv, moy)
+            ## Theta_ji^ca * l_ji^cb -> ab
+            #dvvx += einsum('jica,JICB,jJ,iI,cC,QB->aQ', theta, l2, ro, ro, rv, mvy)
+
+            # Only multiply with O(N)-scaling moy/mvy in last step:
+            for blk in brange(0, x.cluster.nocc_active, 20):    # Python loop to reduce memory footprint
+                tmp = einsum('ijab,IJAB,jJ,aA->iIbB', theta[:,blk], l2, ro[blk], rv)
+                tmpo = -einsum('iIbB,bB->iI', tmp, rv)
+                tmpv = einsum('iIbB,iI->bB', tmp, ro)
+                doox += np.dot(tmpo, moy.T)
+                dvvx += np.dot(tmpv, mvy.T)
 
         # Overlap between mean-field and cluster x:
         mox = np.dot(mos_occ, pwfx.mo.coeff_occ)
@@ -331,9 +346,12 @@ def make_rdm1_ccsd_2p2l(emb, t_as_lambda=False, ao_basis=False, with_mf=True, wi
     emb.log.timing("Time for make_rdm1_ccsd_2p2l: %s", time_string(timer()-t0))
     return dm1
 
+
 def make_rdm1_ccsd_old(emb, ao_basis=False, t_as_lambda=False, slow=False,
         with_mf=True, ovlp_tol=1e-10, symmetrize=True, with_t1=True):
     """Make one-particle reduced density-matrix from partitioned fragment CCSD wave functions.
+
+    DEPRECATED - use make_rdm1_ccsd_2p2l instead!
 
     NOT MPI READY
 
@@ -352,6 +370,8 @@ def make_rdm1_ccsd_old(emb, ao_basis=False, t_as_lambda=False, slow=False,
     dm1: (n, n) array
         One-particle reduced density matrix in AO (if `ao_basis=True`) or MO basis (default).
     """
+
+    emb.log.warning("make_rdm1_ccsd_old is deprecated - use make_rdm1_ccsd_2p2l instead!")
 
     def finalize(dm1):
         if ao_basis:
@@ -422,9 +442,11 @@ def make_rdm1_ccsd_old(emb, ao_basis=False, t_as_lambda=False, slow=False,
                 raise RuntimeError("No L2 amplitudes found for %s!" % f2)
             l2 = f2.project_amplitude_to_fragment(l2, symmetrize=symmetrize)
             # Theta_jk^ab * l_ik^ab -> ij
-            doo_f1 -= pyscf.lib.einsum('jkab,IKAB,kK,aA,bB,qI->jq', theta, l2, f2fo12, f2fv12, f2fv12, f2mo[i2])
+            #doo_f1 -= pyscf.lib.einsum('jkab,IKAB,kK,aA,bB,qI->jq', theta, l2, f2fo12, f2fv12, f2fv12, f2mo[i2])
+            doo_f1 -= einsum('jkab,IKAB,kK,aA,bB,qI->jq', theta, l2, f2fo12, f2fv12, f2fv12, f2mo[i2])
             # Theta_ji^ca * l_ji^cb -> ab
-            dvv_f1 += pyscf.lib.einsum('jica,JICB,jJ,iI,cC,qB->aq', theta, l2, f2fo12, f2fo12, f2fv12, f2mv[i2])
+            #dvv_f1 += pyscf.lib.einsum('jica,JICB,jJ,iI,cC,qB->aq', theta, l2, f2fo12, f2fo12, f2fv12, f2mv[i2])
+            dvv_f1 += einsum('jica,JICB,jJ,iI,cC,qB->aq', theta, l2, f2fo12, f2fo12, f2fv12, f2mv[i2])
         doo += np.dot(f2mo[i1], doo_f1)
         dvv += np.dot(f2mv[i1], dvv_f1)
 

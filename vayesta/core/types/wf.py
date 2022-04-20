@@ -23,9 +23,9 @@ __all__ = [
 
 class WaveFunction:
 
-    def __init__(self, mo):
+    def __init__(self, mo, projector=None):
         self.mo = mo
-        self.projector = None
+        self.projector = projector
 
     def __repr__(self):
         return "%s(norb= %r, nocc= %r, nvir=%r)" % (self.__class__.__name__, self.norb, self.nocc, self.nvir)
@@ -244,8 +244,8 @@ def symmetrize_uc2(c2, inplace=True):
 
 class RMP2_WaveFunction(WaveFunction):
 
-    def __init__(self, mo, t2):
-        super().__init__(mo)
+    def __init__(self, mo, t2, projector=None):
+        super().__init__(mo, projector=projector)
         self.t2 = t2
 
     def as_restricted(self):
@@ -277,19 +277,41 @@ class RMP2_WaveFunction(WaveFunction):
         return self
 
     def as_ccsd(self):
-        t1 = np.zeros((self.nocc, self.nvir))
-        return CCSD_WaveFunction(self.mo, t1, self.t2)
+        nocc1 = self.t2.shape[0]
+        t1 = np.zeros((nocc1, self.nvir))
+        #return CCSD_WaveFunction(self.mo, t1, self.t2, projector=self.projector)
+        return CCSD_WaveFunction(self.mo, t1, self.t2, l1=t1, l2=self.t2, projector=self.projector)
 
     def to_cisd(self, c0=1.0):
-        c1 = np.zeros((self.nocc, self.nvir))
+        nocc1 = self.t2.shape[0]
+        c1 = np.zeros((nocc1, self.nvir))
         c2 = c0*self.t2
-        return RCISD_WaveFunction(self.mo, c0, c1, c2)
+        return RCISD_WaveFunction(self.mo, c0, c1, c2, projector=self.projector)
 
     def as_fci(self):
         raise NotImplementedError
 
     def copy(self):
         return RMP2_WaveFunction(self.mo, self.t2.copy())
+
+    def pack(self, dtype=float):
+        """Pack into a single array of data type `dtype`.
+
+        Useful for communication via MPI."""
+        mo = self.mo.pack(dtype=dtype)
+        data = (mo, self.t2, self.projector)
+        pack = pack_arrays(*data, dtype=dtype)
+        return pack
+
+    @classmethod
+    def unpack(cls, packed):
+        """Unpack from a single array of data type `dtype`.
+
+        Useful for communication via MPI."""
+        mo, t2, projector = unpack_arrays(packed)
+        mo = SpatialOrbitals.unpack(mo)
+        wf = cls(mo, t2, projector=projector)
+        return wf
 
 class UMP2_WaveFunction(RMP2_WaveFunction):
 
@@ -330,13 +352,17 @@ class UMP2_WaveFunction(RMP2_WaveFunction):
         return self
 
     def as_ccsd(self):
-        t1 = (np.zeros((self.nocca, self.nvira)),
-              np.zeros((self.noccb, self.nvirb)))
-        return UCCSD_WaveFunction(self.mo, t1, self.t2)
+        nocc1a = self.t2aa.shape[0]
+        nocc1b = self.t2bb.shape[0]
+        t1 = (np.zeros((nocc1a, self.nvira)),
+              np.zeros((nocc1b, self.nvirb)))
+        return UCCSD_WaveFunction(self.mo, t1, self.t2, l1=t1, l2=self.t2, projector=self.projector)
 
     def to_cisd(self, c0=1.0):
-        c1 = (np.zeros((self.nocca, self.nvira)),
-              np.zeros((self.noccb, self.nvirb)))
+        nocc1a = self.t2aa.shape[0]
+        nocc1b = self.t2bb.shape[0]
+        c1 = (np.zeros((nocc1a, self.nvira)),
+              np.zeros((nocc1b, self.nvirb)))
         c2aa = c0*self.t2aa
         c2ab = c0*self.t2ab
         c2bb = c0*self.t2bb
@@ -345,7 +371,7 @@ class UMP2_WaveFunction(RMP2_WaveFunction):
         elif len(self.t2) == 4:
             c2ba = c0*self.t2ba
             c2 = (c2aa, c2ab, c2ba, c2bb)
-        return UCISD_WaveFunction(self.mo, c0, c1, c2)
+        return UCISD_WaveFunction(self.mo, c0, c1, c2, projector=self.projector)
 
     def as_fci(self):
         return NotImplementedError
@@ -354,12 +380,12 @@ class UMP2_WaveFunction(RMP2_WaveFunction):
         t2 = tuple(t.copy() for t in self.t2)
         return UMP2_WaveFunction(self.mo, t2)
 
-def MP2_WaveFunction(mo, t2):
+def MP2_WaveFunction(mo, t2, **kwargs):
     if mo.nspin == 1:
         cls = RMP2_WaveFunction
     elif mo.nspin == 2:
         cls = UMP2_WaveFunction
-    return cls(mo, t2)
+    return cls(mo, t2, **kwargs)
 
 # CCSD
 
@@ -368,8 +394,8 @@ class RCCSD_WaveFunction(WaveFunction):
     _make_rdm1_backend = pyscf.cc.ccsd_rdm.make_rdm1
     _make_rdm2_backend = pyscf.cc.ccsd_rdm.make_rdm2
 
-    def __init__(self, mo, t1, t2, l1=None, l2=None):
-        super().__init__(mo)
+    def __init__(self, mo, t1, t2, l1=None, l2=None, projector=None):
+        super().__init__(mo, projector=projector)
         self.t1 = t1
         self.t2 = t2
         self.l1 = l1
@@ -429,9 +455,7 @@ class RCCSD_WaveFunction(WaveFunction):
         Useful for communication via MPI."""
         mo, t1, t2, l1, l2, projector = unpack_arrays(packed)
         mo = SpatialOrbitals.unpack(mo)
-        wf = cls(mo, t1, t2, l1=l1, l2=l2)
-        if projector is not None:
-            wf.projector = projector
+        wf = cls(mo, t1, t2, l1=l1, l2=l2, projector=projector)
         return wf
 
     def restore(self, projector=None, inplace=False, sym=True):
@@ -478,7 +502,7 @@ class RCCSD_WaveFunction(WaveFunction):
         """In intermediate normalization."""
         c1 = c0*self.t1
         c2 = c0*(self.t2 + einsum('ia,jb->ijab', self.t1, self.t1))
-        return RCISD_WaveFunction(self.mo, c0, c1, c2)
+        return RCISD_WaveFunction(self.mo, c0, c1, c2, projector=self.projector)
 
     def to_fci(self):
         raise NotImplementedError
@@ -566,7 +590,7 @@ class UCCSD_WaveFunction(RCCSD_WaveFunction):
         elif len(self.t2) == 4:
             c2ba = c0*self.t2ba + einsum('ia,jb->ijab', c1b, c1a)
             c2 = (c2aa, c2ab, c2ba, c2bb)
-        return UCISD_WaveFunction(self.mo, c0, c1, c2)
+        return UCISD_WaveFunction(self.mo, c0, c1, c2, projector=self.projector)
 
     def to_fci(self):
         raise NotImplementedError
@@ -597,19 +621,19 @@ class UCCSD_WaveFunction(RCCSD_WaveFunction):
     #    return wf
 
 
-def CCSD_WaveFunction(mo, t1, t2):
+def CCSD_WaveFunction(mo, t1, t2, **kwargs):
     if mo.nspin == 1:
         cls = RCCSD_WaveFunction
     elif mo.nspin == 2:
         cls = UCCSD_WaveFunction
-    return cls(mo, t1, t2)
+    return cls(mo, t1, t2, **kwargs)
 
 # --- CISD
 
 class RCISD_WaveFunction(WaveFunction):
 
-    def __init__(self, mo, c0, c1, c2):
-        super().__init__(mo)
+    def __init__(self, mo, c0, c1, c2, projector=None):
+        super().__init__(mo, projector=projector)
         self.c0 = c0
         self.c1 = c1
         self.c2 = c2
@@ -639,14 +663,14 @@ class RCISD_WaveFunction(WaveFunction):
     def as_ccsd(self):
         t1 = self.c1/self.c0
         t2 = self.c2/self.c0 - einsum('ia,jb->ijab', t1, t1)
-        return RCCSD_Wavefunction(self.mo, t1, t2)
+        return RCCSD_Wavefunction(self.mo, t1, t2, projector=self.projector)
 
     def as_cisd(self, c0=None):
         if c0 is None:
             return self
         c1 = self.c1 * c0/self.c0
         c2 = self.c2 * c0/self.c0
-        return RCISD_WaveFunction(self.mo, c0, c1, c2)
+        return RCISD_WaveFunction(self.mo, c0, c1, c2, projector=self.projector)
 
     def as_fci(self):
         raise NotImplementedError
@@ -715,7 +739,7 @@ class UCISD_WaveFunction(RCISD_WaveFunction):
         elif len(self.c2) == 4:
             t2ba = self.c2ab/self.c0 - einsum('ia,jb->ijab', t1b, t1a)
             t2 = (t2aa, t2ab, t2ba, t2bb)
-        return UCCSD_WaveFunction(self.mo, t1, t2)
+        return UCCSD_WaveFunction(self.mo, t1, t2, projector=self.projector)
 
     def as_cisd(self, c0=None):
         if c0 is None:
@@ -731,18 +755,18 @@ class UCISD_WaveFunction(RCISD_WaveFunction):
         elif len(self.c2) == 4:
             c2ba = self.c2ba * c0/self.c0
             c2 = (c2aa, c2ab, c2ba, c2bb)
-        return UCISD_WaveFunction(self.mo, c0, c1, c2)
+        return UCISD_WaveFunction(self.mo, c0, c1, c2, projector=self.projector)
 
     def as_fci(self):
         raise NotImplementedError
 
 
-def CISD_WaveFunction(mo, c0, c1, c2):
+def CISD_WaveFunction(mo, c0, c1, c2, **kwargs):
     if mo.nspin == 1:
         cls = RCISD_WaveFunction
     elif mo.nspin == 2:
         cls = UCISD_WaveFunction
-    return cls(mo, c0, c1, c2)
+    return cls(mo, c0, c1, c2, **kwargs)
 
 # --- FCI
 
@@ -751,8 +775,8 @@ class RFCI_WaveFunction(WaveFunction):
     _make_rdm1_backend = pyscf.fci.direct_spin1.make_rdm1
     _make_rdm2_backend = pyscf.fci.direct_spin1.make_rdm12
 
-    def __init__(self, mo, ci):
-        super().__init__(mo)
+    def __init__(self, mo, ci, projector=None):
+        super().__init__(mo, projector=projector)
         self.ci = ci
 
     def make_rdm1(self):
@@ -793,7 +817,7 @@ class RFCI_WaveFunction(WaveFunction):
         else:
             c1 *= c0/self.c0
             c2 *= c0/self.c0
-        return RCISD_WaveFunction(self.mo, c0, c1, c2)
+        return RCISD_WaveFunction(self.mo, c0, c1, c2, projector=self.projector)
 
     def as_fci(self):
         return self
@@ -847,14 +871,14 @@ class UFCI_WaveFunction(RFCI_WaveFunction):
             c2bb *= c0/self.c0
         c1 = (c1a, c1b)
         c2 = (c2aa, c2ab, c2bb)
-        return UCISD_WaveFunction(self.mo, c0, c1, c2)
+        return UCISD_WaveFunction(self.mo, c0, c1, c2, projector=self.projector)
 
-def FCI_WaveFunction(mo, ci):
+def FCI_WaveFunction(mo, ci, **kwargs):
     if mo.nspin == 1:
         cls = RFCI_WaveFunction
     elif mo.nspin == 2:
         cls = UFCI_WaveFunction
-    return cls(mo, ci)
+    return cls(mo, ci, **kwargs)
 
 
 if __name__ == '__main__':
