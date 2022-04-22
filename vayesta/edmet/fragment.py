@@ -24,7 +24,6 @@ VALID_SOLVERS = ["EBFCI", "EBCCSD"]  # , "EBFCIQMC"]
 class EDMETFragment(DMETFragment):
     @dataclasses.dataclass
     class Options(DMETFragment.Options):
-        make_rdm_eb: bool = True
         make_dd_moments: bool = NotSet
         old_sc_condition: bool = NotSet
         max_bos: int = NotSet
@@ -39,6 +38,7 @@ class EDMETFragment(DMETFragment):
         boson_freqs: tuple = None
         dd_mom0: np.ndarray = None
         dd_mom1: np.ndarray = None
+        e_fb:  float = None
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -679,6 +679,9 @@ class EDMETFragment(DMETFragment):
 
         cluster_solver = solver_cls(self, self.cluster, **solver_opts)
 
+        if eris is None:
+            eris = cluster_solver.get_eris()
+
         with log_time(self.log.info, ("Time for %s solver:" % solver) + " %s"):
             cluster_solver.kernel(eris=eris)
 
@@ -688,17 +691,11 @@ class EDMETFragment(DMETFragment):
         # Need to rewrite EBFCI solver to expose this properly...
         results.converged = True
 
-        if self.opts.make_rdm2:
-            results.dm1, results.dm2 = cluster_solver.make_rdm12()
-            self.check_qba_approx(results.dm1)
-        elif self.opts.make_rdm1:
-            results.dm1 = cluster_solver.make_rdm1()
-            self.check_qba_approx(results.dm1)
-        if self.opts.make_rdm_eb:
-            if cluster_solver.opts.polaritonic_shift and results.dm1 is None:
-                # Need 1rdm calculated to get polaritonic shift out.
-                results.dm1 = cluster_solver.make_rdm1()
-            results.dm_eb = cluster_solver.make_rdm_eb()
+        results.dm1, results.dm2 = cluster_solver.make_rdm12()
+        self.check_qba_approx(results.dm1)
+        results.dm_eb = cluster_solver.make_rdm_eb()
+        results.e1, results.e2, results.e_fb = self.get_edmet_energy_contrib(eris)
+
         if self.opts.make_dd_moments:
             r_o, r_v = self.get_overlap_c2f()
             if isinstance(r_o, tuple):
@@ -712,6 +709,7 @@ class EDMETFragment(DMETFragment):
                 ddmoms[1] = [np.einsum("ppqq->pq", x) for x in ddmoms[1]]
             results.dd_mom0 = ddmoms[0]
             results.dd_mom1 = ddmoms[1]
+
         return results
 
     def get_solver_options(self, solver, chempot):
@@ -727,9 +725,9 @@ class EDMETFragment(DMETFragment):
 
         return solver_opts
 
-    def get_edmet_energy_contrib(self):
+    def get_edmet_energy_contrib(self, eris):
         """Generate EDMET energy contribution, according to expression given in appendix of EDMET preprint"""
-        e1, e2 = self.get_dmet_energy_contrib()
+        e1, e2 = self.get_dmet_energy_contrib(eris)
         c_act = self.cluster.c_active
         p_imp = self.get_fragment_projector(c_act)
         if not isinstance(p_imp, tuple):

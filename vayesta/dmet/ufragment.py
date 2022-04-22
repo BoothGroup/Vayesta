@@ -39,13 +39,10 @@ class UDMETFragment(UFragment, DMETFragment):
         dma, dmb = self.get_frag_hl_dm()
         return dma.trace() + dmb.trace()
 
-    def get_dmet_energy_contrib(self):
+    def get_dmet_energy_contrib(self, eris):
         """Calculate the contribution of this fragment to the overall DMET energy."""
         # Projector to the impurity in the active basis.
         p_imp_a, p_imp_b = self.get_fragment_projector(self.cluster.c_active)
-        c_act_a, c_act_b = self.cluster.c_active
-
-        eris = self.base.get_eris_array((c_act_a, c_act_b))
 
         c_active = self.cluster.c_active
         fock = self.base.get_fock()

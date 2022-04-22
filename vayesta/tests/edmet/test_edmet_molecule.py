@@ -25,6 +25,9 @@ class MolecularEDMETTest(unittest.TestCase):
                 solver='EBFCI',
                 solver_options={"max_boson_occ":1},
                 conv_tol=self.CONV_TOL,
+                bosonic_interaction="direct",
+                oneshot=True,
+                make_dd_moments=False,
         )
         emb.iao_fragmentation()
         emb.add_atomic_fragment([0, 1])
@@ -37,6 +40,9 @@ class MolecularEDMETTest(unittest.TestCase):
                 solver='EBFCI',
                 solver_options={"max_boson_occ":1},
                 conv_tol=self.CONV_TOL,
+                bosonic_interaction="direct",
+                oneshot=True,
+                make_dd_moments=False,
         )
         uemb.iao_fragmentation()
         uemb.add_atomic_fragment([0, 1])
@@ -70,6 +76,9 @@ class MolecularEDMETTest(unittest.TestCase):
                 solver='EBFCI',
                 solver_options={"max_boson_occ":2},
                 conv_tol=self.CONV_TOL,
+                bosonic_interaction="direct",
+                oneshot=True,
+                make_dd_moments=False,
         )
         uemb.iao_fragmentation()
         uemb.add_atomic_fragment([0, 1])
@@ -89,6 +98,9 @@ class MolecularEDMETTest(unittest.TestCase):
                 solver='EBFCI',
                 solver_options={"max_boson_occ":2},
                 conv_tol=self.CONV_TOL,
+                bosonic_interaction="direct",
+                oneshot=True,
+                make_dd_moments=False,
         )
         emb.iao_fragmentation()
         emb.add_atomic_fragment([0, 1])
@@ -105,14 +117,15 @@ class MolecularEDMETTest(unittest.TestCase):
                 solver='EBFCI',
                 solver_options={"max_boson_occ":2},
                 conv_tol=self.CONV_TOL,
+                bosonic_interaction="direct",
+                oneshot=True,
+                make_dd_moments=False,
         )
         uemb.iao_fragmentation()
         uemb.add_atomic_fragment([0, 1])
         uemb.add_atomic_fragment([2, 3])
         uemb.add_atomic_fragment([4, 5])
         uemb.kernel()
-
-
 
         self._test_energy(uemb, known_values)
 
@@ -122,6 +135,7 @@ class MolecularEDMETTest(unittest.TestCase):
                 moles['h2o_ccpvdz']['rhf'],
                 solver='EBCCSD',
                 conv_tol=self.CONV_TOL,
+                bosonic_interaction="direct",
                 oneshot=True,
                 make_dd_moments=False,
         )
@@ -137,6 +151,7 @@ class MolecularEDMETTest(unittest.TestCase):
                 moles['h2o_ccpvdz']['uhf'],
                 solver='EBCCSD',
                 conv_tol=self.CONV_TOL,
+                bosonic_interaction="direct",
                 oneshot=True,
                 make_dd_moments=False,
         )

@@ -57,6 +57,9 @@ class EDMET_Hubbard_Tests(unittest.TestCase):
                 latts['hubb_10_u2']['rhf'],
                 solver='EBFCI',
                 solver_options={"max_boson_occ": 2},
+                bosonic_interaction="direct",
+                oneshot=True,
+                make_dd_moments=False,
         )
         emb.site_fragmentation()
         frag = emb.add_atomic_fragment([0, 1])
@@ -67,23 +70,24 @@ class EDMET_Hubbard_Tests(unittest.TestCase):
 
         self._test_energy(emb, known_values)
 
-    def test_14_upoint4_2imp_4occ(self):
-        """Tests for N=14 U=0.4 Hubbard model with double site impurities.
-        """
+    # Suspended this test in favour of one with EBCCSD due to time constraints.
+    #def test_14_upoint4_2imp_4occ(self):
+    #    """Tests for N=14 U=0.4 Hubbard model with double site impurities.
+    #    """
 
-        emb = edmet.EDMET(
-                latts['hubb_14_u0.4']['rhf'],
-                solver='EBFCI',
-                solver_options={"max_boson_occ":3},
-                maxiter=30,
-                max_elec_err=1e-6
-        )
-        emb.site_fragmentation()
-        frag = emb.add_atomic_fragment([0, 1])
-        frag.add_tsymmetric_fragments(tvecs=[7, 1, 1])
-        emb.kernel()
+    #    emb = edmet.EDMET(
+    #            latts['hubb_14_u0.4']['rhf'],
+    #            solver='EBFCI',
+    #            solver_options={"max_boson_occ":3},
+    #            maxiter=30,
+    #            max_elec_err=1e-6
+    #    )
+    #    emb.site_fragmentation()
+    #    frag = emb.add_atomic_fragment([0, 1])
+    #    frag.add_tsymmetric_fragments(tvecs=[7, 1, 1])
+    #    emb.kernel()
 
-        known_values = {'e_tot':-16.63125078900363}
+    #    known_values = {'e_tot':-16.63125078900363}
 
     #    self._test_energy(emb, known_values)
 
@@ -114,6 +118,9 @@ class EDMET_Hubbard_Tests(unittest.TestCase):
                 latts['hubb_6x6_u6_1x1imp']['rhf'],
                 solver='EBFCI',
                 solver_options={"max_boson_occ":2},
+                bosonic_interaction="direct",
+                oneshot=True,
+                make_dd_moments=False,
         )
         emb.site_fragmentation()
         frag = emb.add_atomic_fragment([0])

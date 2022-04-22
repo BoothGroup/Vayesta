@@ -26,7 +26,7 @@ class EDMET(RDMET):
         make_dd_moments: bool = NotSet
         old_sc_condition: bool = False
         max_bos: int = np.inf
-        occ_proj_kernel: bool = True
+        occ_proj_kernel: bool = False
         boson_xc_kernel: bool = False
         bosonic_interaction: str = "xc"
 
@@ -168,7 +168,7 @@ class EDMET(RDMET):
 
             e1, e2, efb, emf = 0.0, 0.0, 0.0, 0.0
             for x, frag in enumerate(sym_parents):
-                e1_contrib, e2_contrib, efb_contrib = frag.get_edmet_energy_contrib()
+                e1_contrib, e2_contrib, efb_contrib = frag.results.e1, frag.results.e2, frag.results.e_fb
                 e1 += e1_contrib * nsym[x]
                 e2 += e2_contrib * nsym[x]
                 efb += efb_contrib * nsym[x]

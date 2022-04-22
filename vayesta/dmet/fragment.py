@@ -28,8 +28,6 @@ class DMETFragment(Fragment):
         """Attributes set to `NotSet` inherit their value from the parent DMET object."""
         # Options also present in `base`:
         dmet_threshold: float = NotSet
-        make_rdm1: bool = True
-        make_rdm2: bool = True
         energy_factor: float = 1.0
         eom_ccsd: bool = NotSet
         energy_partitioning: str = NotSet
@@ -49,21 +47,13 @@ class DMETFragment(Fragment):
         bno_threshold: float = None
         n_active: int = None
         converged: bool = None
-        e_corr: float = None
-        ip_energy: np.ndarray = None
-        ea_energy: np.ndarray = None
-        c0: float = None
-        c1: np.ndarray = None
-        c2: np.ndarray = None
-        t1: np.ndarray = None
-        t2: np.ndarray = None
-        l1: np.ndarray = None
-        l2: np.ndarray = None
-        eris: 'typing.Any' = None
         # For DM1:
         g1: np.ndarray = None
         dm1: np.ndarray = None
         dm2: np.ndarray = None
+        # energy contributions.
+        e1: float = None
+        e2: float = None
 
     def __init__(self, *args, solver=None, **kwargs):
 
@@ -152,10 +142,15 @@ class DMETFragment(Fragment):
         with log_time(self.log.info, ("Time for %s solver:" % solver) + " %s"):
             cluster_solver.kernel(eris=eris)
 
-        results = self.Results(fid=self.id, bno_threshold=bno_threshold, n_active=cluster.norb_active,
-                               converged=cluster_solver.converged, dm1=cluster_solver.make_rdm1(),
-                               dm2=cluster_solver.make_rdm2())
-        self._results = results
+        results = self._results
+
+        results.bno_threshold = bno_threshold
+        results.n_active = self.cluster.norb_active
+        # Need to rewrite EBFCI solver to expose this properly...
+        results.converged = True
+
+        results.dm1, results.dm2 = cluster_solver.make_rdm12()
+        results.e1, results.e2 = self.get_dmet_energy_contrib(eris)
 
         return results
 
@@ -175,16 +170,11 @@ class DMETFragment(Fragment):
 
         return solver_opts
 
-    def get_dmet_energy_contrib(self):
+    def get_dmet_energy_contrib(self, eris):
         """Calculate the contribution of this fragment to the overall DMET energy."""
         # Projector to the impurity in the active basis.
         P_imp = self.get_fragment_projector(self.cluster.c_active)
         c_act = self.cluster.c_active
-
-        # Temporary implementation
-        t0 = timer()
-        eris = self.base.get_eris_array(c_act)
-        self.log.timing("Time for AO->MO of (ij|kl):  %s", time_string(timer() - t0))
 
         nocc = self.cluster.c_active_occ.shape[1]
         occ = np.s_[:nocc]

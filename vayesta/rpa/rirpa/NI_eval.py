@@ -151,7 +151,7 @@ class NumericalIntegratorBase:
         def get_deriv2(a):
             return self.eval_diag_NI_approx_deriv2(a).sum()
 
-        def find_good_start(ainit=1e-6, scale_fac=10, maxval=1e8, relevance_factor=5):
+        def find_good_start(ainit=1e-6, scale_fac=10.0, maxval=1e8, relevance_factor=5):
             """Using a quick exponential search, find the lowest value of the penalty function and from this obtain
             good guesses for the optimum and a good bound on either side.
             Note that the size of resulting bracket will be proportional to both the optimal value and the scaling
