@@ -149,8 +149,9 @@ class DMETFragment(Fragment):
         # Need to rewrite EBFCI solver to expose this properly...
         results.converged = True
 
-        results.dm1, results.dm2 = cluster_solver.make_rdm12()
-        results.e1, results.e2 = self.get_dmet_energy_contrib(eris)
+        results.dm1 = cluster_solver.make_rdm1()
+        results.dm2 = cluster_solver.make_rdm2()
+        results.e1, results.e2 = self.get_dmet_energy_contrib()
 
         return results
 
@@ -170,12 +171,14 @@ class DMETFragment(Fragment):
 
         return solver_opts
 
-    def get_dmet_energy_contrib(self, eris):
+    def get_dmet_energy_contrib(self, eris=None):
         """Calculate the contribution of this fragment to the overall DMET energy."""
         # Projector to the impurity in the active basis.
         P_imp = self.get_fragment_projector(self.cluster.c_active)
         c_act = self.cluster.c_active
-
+        if eris is None:
+            with log_time(self.log.timing, "Time for AO->MO transformation: %s"):
+                eris = self.base.get_eris_array(c_act)
         nocc = self.cluster.c_active_occ.shape[1]
         occ = np.s_[:nocc]
         # Calculate the effective onebody interaction within the cluster.

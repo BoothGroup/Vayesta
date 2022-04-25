@@ -694,7 +694,7 @@ class EDMETFragment(DMETFragment):
         results.dm1, results.dm2 = cluster_solver.make_rdm12()
         self.check_qba_approx(results.dm1)
         results.dm_eb = cluster_solver.make_rdm_eb()
-        results.e1, results.e2, results.e_fb = self.get_edmet_energy_contrib(eris)
+        results.e1, results.e2, results.e_fb = self.get_edmet_energy_contrib()
 
         if self.opts.make_dd_moments:
             r_o, r_v = self.get_overlap_c2f()
@@ -725,7 +725,7 @@ class EDMETFragment(DMETFragment):
 
         return solver_opts
 
-    def get_edmet_energy_contrib(self, eris):
+    def get_edmet_energy_contrib(self, eris=None):
         """Generate EDMET energy contribution, according to expression given in appendix of EDMET preprint"""
         e1, e2 = self.get_dmet_energy_contrib(eris)
         c_act = self.cluster.c_active
