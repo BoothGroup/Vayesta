@@ -18,7 +18,6 @@ class MoleculeDMETTest(unittest.TestCase):
     def _test_energy(self, emb, known_values):
         """Test that the energy matches a known value.
         """
-
         self.assertAlmostEqual(emb.e_tot, known_values['e_tot'], self.PLACES_ENERGY)
 
     def test_h6_sto6g_FCI_IAO_cc(self):
@@ -38,7 +37,7 @@ class MoleculeDMETTest(unittest.TestCase):
         emb.add_atomic_fragment([4, 5])
         emb.kernel()
 
-        known_values = {'e_tot': -3.2596560444286524}
+        known_values = {'e_tot': -3.259355757394294}
 
         self._test_converged(emb)
         self._test_energy(emb, known_values)
@@ -60,7 +59,7 @@ class MoleculeDMETTest(unittest.TestCase):
         emb.add_atomic_fragment([4, 5])
         emb.kernel()
 
-        known_values = {'e_tot': -3.2596414844443995}
+        known_values = {'e_tot': -3.2593557575050305}
 
         self._test_converged(emb)
         self._test_energy(emb, known_values)
@@ -82,7 +81,7 @@ class MoleculeDMETTest(unittest.TestCase):
         emb.add_atomic_fragment([4, 5])
         emb.kernel()
 
-        known_values = {'e_tot': -3.2585986118561703}
+        known_values = {'e_tot': -3.2587710893946102}
 
         self._test_converged(emb)
         self._test_energy(emb, known_values)
@@ -105,7 +104,7 @@ class MoleculeDMETTest(unittest.TestCase):
         emb.add_atomic_fragment([4, 5])
         emb.kernel()
 
-        known_values = {'e_tot': -3.2596414844443995}
+        known_values = {'e_tot': -3.2593557575050305 }
 
         self._test_converged(emb)
         self._test_energy(emb, known_values)

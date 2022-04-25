@@ -197,9 +197,9 @@ class Hubbard2D(Hubbard):
                 elif self.nsites[0] % 4 == 2 and self.nsites[1] % 4 == 2:
                     boundary = ('PBC', 'APBC')
                 else:
-                    raise NotImplementedError("Please specifiy boundary conditions.")
+                    raise NotImplementedError("Please specify boundary conditions.")
             else:
-                raise NotImplementedError("Please specifiy boundary conditions.")
+                raise NotImplementedError("Please specify boundary conditions.")
         if np.ndim(boundary) == 0:
             boundary = (boundary, boundary)
         self.boundary = boundary
@@ -215,24 +215,15 @@ class Hubbard2D(Hubbard):
             else:
                 raise ValueError('Invalid boundary: %s' % boundary[i])
         log.debugv('boundary phases= %r', bfac)
-
-        def get_index(i, j):
-            fac = 1
-            if i % nsites[0] != i:
-                fac *= bfac[0]
-            if j % nsites[1] != j:
-                fac *= bfac[1]
-            idx = (i%nsites[0])*nsites[1] + (j%nsites[1])
-            return idx, fac
-
+        self.bfac = bfac
         h1e = np.zeros((nsite, nsite))
         for i in range(nsites[0]):
             for j in range(nsites[1]):
-                idx, _ = get_index(i, j)
-                idx_l, fac_l = get_index(i, j-1)
-                idx_r, fac_r = get_index(i, j+1)
-                idx_u, fac_u = get_index(i-1, j)
-                idx_d, fac_d = get_index(i+1, j)
+                idx, _ = self.get_index(i, j)
+                idx_l, fac_l = self.get_index(i, j-1)
+                idx_r, fac_r = self.get_index(i, j+1)
+                idx_u, fac_u = self.get_index(i-1, j)
+                idx_d, fac_d = self.get_index(i+1, j)
                 h1e[idx,idx_l] += fac_l * -hubbard_t
                 h1e[idx,idx_r] += fac_r * -hubbard_t
                 h1e[idx,idx_u] += fac_u * -hubbard_t
@@ -240,6 +231,16 @@ class Hubbard2D(Hubbard):
         if self.order is not None:
             h1e = h1e[self.order][:,self.order]
         self.h1e = h1e
+
+    def get_index(self, i, j):
+        bfac = self.bfac
+        fac = 1
+        if i % self.nsites[0] != i:
+            fac *= bfac[0]
+        if j % self.nsites[1] != j:
+            fac *= bfac[1]
+        idx = (i%self.nsites[0])*self.nsites[1] + (j%self.nsites[1])
+        return idx, fac
 
     def get_eri(self, hubbard_u=None, v_nn=None):
         if hubbard_u is None:
@@ -425,6 +426,14 @@ class LatticeUHF(LatticeSCF, pyscf.scf.uhf.UHF):
         nocc = self.mol.nelec
         dma = np.dot(c[:,:nocc[0]], c[:,:nocc[0]].T)
         dmb = np.dot(c[:,:nocc[1]], c[:,:nocc[1]].T)
+        # Create small random offset to break symmetries.
+
+        offset = np.full_like(dma.diagonal(), fill_value=1e-2)
+        for x in range(self.mol.nsites[0]):
+            for y in range(self.mol.nsites[1]):
+                ind, fac = self.mol.get_index(x,y)
+                offset[ind] *= (-1) ** (x%2 + y%2)
+        dma[np.diag_indices_from(dma)] += offset
         return (dma, dmb)
 
     def get_jk(self, mol=None, dm=None, *args, **kwargs):

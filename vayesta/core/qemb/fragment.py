@@ -329,6 +329,13 @@ class Fragment:
         r_vir = dot(self.base.mo_coeff_vir.T, ovlp, self.c_proj)
         return r_occ, r_vir
 
+    def get_overlap_c2f(self):
+        """Get overlap matrices from occupied/virtual active space to fragment orbitals."""
+        ovlp = self.base.get_ovlp()
+        r_occ = dot(self.cluster.c_active_occ.T, ovlp, self.c_proj)
+        r_vir = dot(self.cluster.c_active_vir.T, ovlp, self.c_proj)
+        return r_occ, r_vir
+
     @property
     def results(self):
         return self.get_symmetry_parent()._results

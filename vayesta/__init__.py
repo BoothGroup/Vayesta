@@ -77,6 +77,7 @@ import_package('h5py')
 pyscf = import_package('PySCF')
 import_package('mpi4py', False)
 import_package('cvxpy', False)
+ebcc = import_package('ebcc', False)
 
 
 # --- Git hashes

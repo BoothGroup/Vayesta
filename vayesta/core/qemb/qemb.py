@@ -841,8 +841,12 @@ class Embedding:
     make_rdm1_demo = make_rdm1_demo_rhf
     make_rdm2_demo = make_rdm2_demo_rhf
 
-    def get_fragment_nelectron(self):
-        nelectron = [f.sym_factor*f.nelectron for f in self.fragments]
+    def check_fragment_nelectron(self):
+        nelec_frags = sum([f.sym_factor*f.nelectron for f in self.loop()])
+        self.log.info("Total number of mean-field electrons over all fragments= %.8f", nelec_frags)
+        if abs(nelec_frags - np.rint(nelec_frags)) > 1e-4:
+            self.log.warning("Number of electrons not integer!")
+        return nelec_frags
 
     @mpi.with_allreduce()
     def get_dmet_energy_elec(self):

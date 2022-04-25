@@ -17,7 +17,6 @@ class HubbardDMETTests(unittest.TestCase):
     def _test_energy(self, emb, known_values):
         """Test that the energy matches a known value.
         """
-
         self.assertAlmostEqual(emb.e_tot, known_values['e_tot'], self.PLACES_ENERGY)
 
     def test_6_u0_1imp(self):
@@ -99,7 +98,7 @@ class HubbardDMETTests(unittest.TestCase):
         frag.add_tsymmetric_fragments(tvecs=[6, 6, 1])
         emb.kernel()
 
-        known_values = {'e_tot': -41.0461420544531}
+        known_values = {'e_tot': -41.040841420346695 }
 
         self._test_converged(emb)
         self._test_energy(emb, known_values)
@@ -120,7 +119,7 @@ class HubbardDMETTests(unittest.TestCase):
         frag.add_tsymmetric_fragments(tvecs=[4, 4, 1])
         emb.kernel()
 
-        known_values = {'e_tot': -85.02707527261686}
+        known_values = {'e_tot': -85.02643076273672}
 
         self._test_converged(emb)
         self._test_energy(emb, known_values)
