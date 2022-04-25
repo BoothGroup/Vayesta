@@ -1,10 +1,10 @@
-from vayesta.misc import molstructs
+from vayesta.misc import molecules
 import vayesta.edmet
 
 from pyscf import gto, scf, cc
 # Use ethane as a simple trial system.
 mol = gto.Mole()
-mol.atom = molstructs.alkane(2)
+mol.atom = molecules.alkane(2)
 mol.basis = 'sto-3g'
 mol.build()
 
