@@ -257,13 +257,8 @@ class Fragment:
         # of the fragment. By default it is equal to `self.c_frag`.
         self.c_proj = self.c_frag
 
-        # Bath, cluster, and final results
-        self.bath = None
-        self._cluster = None
-        self._results = self.Results(fid=self.id)
-
-        # In some cases we want to keep ERIs stored after the calculation
-        self._eris = None
+        # Initialize self.bath, self._cluster, self._results, self._eris
+        self.reset()
 
         self.log.info("Creating %r", self)
         #self.log.info(break_into_lines(str(self.opts), newline='\n    '))
@@ -428,9 +423,10 @@ class Fragment:
         self._cluster = value
 
     def reset(self):
-        self.log.debugv("Resetting fragment %s", self)
+        self.log.debugv("Resetting %s", self)
         self.bath = None
-        self.cluster = None
+        self._cluster = None
+        self._eris = None
         self._results = self.Results(fid=self.id)
 
     def couple_to_fragment(self, frag):

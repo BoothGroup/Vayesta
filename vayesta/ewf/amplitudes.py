@@ -6,7 +6,7 @@ from vayesta.core.util import *
 from vayesta.core.mpi import mpi
 
 
-def get_global_t1_rhf(emb, get_lambda=False, mpi_target=None):
+def get_global_t1_rhf(emb, get_lambda=False, mpi_target=None, ao_basis=False):
     """Get global CCSD T1 amplitudes from fragment calculations.
 
     Runtime: N(frag)/N(MPI) * N^2
@@ -38,9 +38,11 @@ def get_global_t1_rhf(emb, get_lambda=False, mpi_target=None):
     # --- MPI
     if mpi:
         t1 = mpi.nreduce(t1, target=mpi_target, logfunc=emb.log.timingv)
+    if ao_basis:
+        t1 = dot(emb.mo_coeff_occ, t1, emb.mo_coeff_vir.T)
     return t1
 
-def get_global_t2_rhf(emb, get_lambda=False, symmetrize=True, mpi_target=None):
+def get_global_t2_rhf(emb, get_lambda=False, symmetrize=True, mpi_target=None, ao_basis=False):
     """Get global CCSD T2 amplitudes from fragment calculations.
 
     Runtime: N(frag)/N(MPI) * N^4
@@ -72,6 +74,8 @@ def get_global_t2_rhf(emb, get_lambda=False, symmetrize=True, mpi_target=None):
     # --- MPI
     if mpi:
         t2 = mpi.nreduce(t2, target=mpi_target, logfunc=emb.log.timingv)
+    if ao_basis:
+        t2 = einsum('Ii,Jj,ijab,Aa,Bb->IJAB', emb.mo_coeff_occ, emb.mo_coeff_occ, t2, emb.mo_coeff_vir, emb.mo_coeff_vir)
     return t2
 
 def get_global_t1_uhf(emb, get_lambda=False, mpi_target=None):

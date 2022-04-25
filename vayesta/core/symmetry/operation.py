@@ -106,7 +106,7 @@ class SymmetryTranslation(SymmetryOperation):
 
     def __init__(self, cell, vector, boundary=None, atom_reorder=None, ao_reorder=None):
         super().__init__(cell)
-        self.vector = vector
+        self.vector = np.asarray(vector)
 
         if boundary is None:
             boundary = getattr(cell, 'boundary', 'PBC')
@@ -130,7 +130,14 @@ class SymmetryTranslation(SymmetryOperation):
         assert (self.ao_reorder is not None)
 
     def __call__(self, a, axis=0):
+        if hasattr(axis, '__len__'):
+            for ax in axis:
+                a = self.apply_to_aos(a, axis=ax)
+            return a
         return self.apply_to_aos(a, axis=axis)
+
+    def inverse(self):
+        return type(self)(self.cell, -self.vector, boundary=self.boundary, atom_reorder=np.argsort(self.atom_reorder))
 
     def change_mol(self, mol):
         return SymmetryTranslation(mol, vector=self.vector, boundary=self.boundary)

@@ -111,6 +111,9 @@ class EWF(Embedding):
         self.e_corr = None
         self.log.info("Time for %s setup: %s", self.__class__.__name__, time_string(timer()-t0))
 
+        # TODO: Redo self-consistencies
+        self.iteration = 0
+
     def __repr__(self):
         keys = ['mf', 'solver']
         fmt = ('%s(' + len(keys)*'%s: %r, ')[:-2] + ')'
@@ -211,6 +214,9 @@ class EWF(Embedding):
         bno_threshold : float or iterable, optional
             Bath natural orbital threshold. If `None`, self.opts.bno_threshold is used. Default: None.
         """
+        # Reset previous results
+        self.reset()
+
         # Automatic fragmentation
         if self.fragmentation is None:
             self.log.info("No fragmentation found. Using IAO fragmentation.")
@@ -352,7 +358,7 @@ class EWF(Embedding):
 
     def make_rdm1(self, *args, **kwargs):
         if self.solver.lower() == 'ccsd':
-            return self.make_rdm1_ccsd_old(*args, **kwargs)
+            return self.make_rdm1_ccsd_2p2l(*args, **kwargs)
         if self.solver.lower() == 'mp2':
             return self.make_rdm1_mp2(*args, **kwargs)
         if self.solver.lower() == 'fci':
@@ -726,7 +732,7 @@ class EWF(Embedding):
         if global_dm2:
             # Calculate global 2RDM and contract with ERIs
             eri = self.get_eris_array(self.mo_coeff)
-            rdm2 = self.make_rdm2_ccsd(slow=True, t_as_lambda=t_as_lambda)
+            rdm2 = self.make_rdm2_ccsd(slow=True, t_as_lambda=t_as_lambda, with_dm1=False)
             e2 = einsum('pqrs,pqrs', eri, rdm2) * 0.5
         else:
             # Fragment Local 2DM cumulant contribution

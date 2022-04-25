@@ -1124,9 +1124,13 @@ class Embedding:
 
     # --- Mean-field updates
 
+    @deprecated
     def reset_fragments(self, *args, **kwargs):
-        for f in self.fragments:
-            f.reset(*args, **kwargs)
+        self.reset()
+
+    def reset(self, *args, **kwargs):
+        for x in self.fragments:
+            x.reset(*args, **kwargs)
 
     def update_mf(self, mo_coeff, mo_energy=None, veff=None):
         """Update underlying mean-field object."""

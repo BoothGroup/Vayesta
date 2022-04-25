@@ -17,17 +17,19 @@ import pyscf.pbc
 import pyscf.pbc.gto
 import pyscf.pbc.scf
 import pyscf.pbc.cc
+import pyscf.pbc.tools
+from pyscf.pbc.scf.addons import kconj_symmetry_
 
 
 class TestMolecule:
 
-    def __init__(self, atom, basis, charge=0, spin=0):
+    def __init__(self, atom, basis, **kwargs):
         super().__init__()
         mol = pyscf.gto.Mole()
         mol.atom = atom
         mol.basis = basis
-        mol.charge = charge
-        mol.spin = spin
+        for key, val in kwargs.items():
+            setattr(mol, key, val)
         mol.build()
         self.mol = mol
 
@@ -92,15 +94,17 @@ class TestMolecule:
 
 class TestSolid:
 
-    def __init__(self, a, atom, basis, charge=0, spin=0, kmesh=None, auxbasis=None):
+    def __init__(self, a, atom, basis, kmesh=None, auxbasis=None, supercell=None, **kwargs):
         super().__init__()
         mol = pyscf.pbc.gto.Cell()
         mol.a = a
         mol.atom = atom
         mol.basis = basis
-        mol.charge = charge
-        mol.spin = spin
+        for key, val in kwargs.items():
+            setattr(mol, key, val)
         mol.build()
+        if supercell is not None:
+            mol = pyscf.pbc.tools.super_cell(mol, supercell)
         self.mol = mol
         self.kpts = self.mol.make_kpts(kmesh) if kmesh is not None else None
         self.auxbasis = auxbasis
@@ -114,6 +118,8 @@ class TestSolid:
         else:
             rhf = pyscf.pbc.scf.KRHF(self.mol, self.kpts)
         rhf = rhf.density_fit(auxbasis=self.auxbasis)
+        if self.kpts is not None:
+            rhf = kconj_symmetry_(rhf)
         rhf.kernel()
         return rhf
 
@@ -124,6 +130,8 @@ class TestSolid:
         else:
             uhf = pyscf.pbc.scf.KUHF(self.mol, self.kpts)
         uhf = rhf.density_fit(auxbasis=self.auxbasis)
+        if self.kpts is not None:
+            uhf = kconj_symmetry_(uhf)
         uhf.kernel()
         return uhf
 
@@ -136,7 +144,8 @@ class TestSolid:
         else:
             rccsd = pyscf.pbc.cc.KRCCSD(self.rhf())
         rccsd.kernel()
-        rccsd.solve_lambda()
+        if self.kpts is None:
+            rccsd.solve_lambda()
         return rccsd
 
     @cache
@@ -146,7 +155,8 @@ class TestSolid:
         else:
             uccsd = pyscf.pbc.cc.KUCCSD(self.uhf())
         uccsd.kernel()
-        uccsd.solve_lambda()
+        if self.kpts is None:
+            uccsd.solve_lambda()
         return uccsd
 
 # --- Test Systems
@@ -176,8 +186,19 @@ h2o_dz = TestMolecule(
 
 # Solids
 
-he_431g_gamma = TestSolid(
-        a=3*np.eye(3), atom='He 0 0 0', basis='431g')
+a = 2*np.eye(3)
+a[2,2] = 4
+nk = 3
+opts = dict(basis='sto-3g', auxbasis='sto-3g', exp_to_discard=0.1)
+h2_sto3g_k3 = TestSolid(
+    a=a, atom='H 0 0 0 ; H 0 0 0.74', kmesh=(nk,1,1), **opts)
+h2_sto3g_s3 = TestSolid(
+    a=a, atom='H 0 0 0 ; H 0 0 0.74', supercell=(nk,1,1), **opts)
 
-he_431g_k222 = TestSolid(
-        a=3*np.eye(3), atom='He 0 0 0', basis='431g', kmesh=(2,2,2))
+
+#he_431g_gamma = TestSolid(
+#        a=3*np.eye(3), atom='He 0 0 0', basis='431g')
+#
+#he_431g_k222 = TestSolid(
+#        a=3*np.eye(3), atom='He 0 0 0', basis='431g', kmesh=(2,2,2))
+

@@ -150,7 +150,7 @@ def make_rdm1_ccsd_proj_lambda(emb, ao_basis=False, t_as_lambda=False, with_mf=T
     return dm1
 
 def make_rdm1_ccsd_2p2l(emb, ao_basis=False, with_mf=True, t_as_lambda=False, with_t1=True, ovlp_tol=1e-10,
-        mpi_target=None, slow=False):
+        mpi_target=None, use_sym=False, slow=False):
     """Make one-particle reduced density-matrix from partitioned fragment CCSD wave functions.
 
     This replaces make_rdm1_ccsd_old.
@@ -215,7 +215,9 @@ def make_rdm1_ccsd_2p2l(emb, ao_basis=False, with_mf=True, t_as_lambda=False, wi
     dvv = np.zeros((emb.nvir, emb.nvir))
     if with_t1:
         dov = np.zeros((emb.nocc, emb.nvir))
-    for x in emb.get_fragments(mpi_rank=mpi.rank):
+    if use_sym:
+        raise NotImplementedError
+    for x in emb.get_fragments(mpi_rank=mpi.rank, **(dict(sym_parent=None) if use_sym else {})):
         pwfx = x.results.pwf.restore()
         theta = (2*pwfx.t2 - pwfx.t2.transpose(0,1,3,2))
         # Intermediates: leave left index in cluster(x) basis:
@@ -264,6 +266,44 @@ def make_rdm1_ccsd_2p2l(emb, ao_basis=False, with_mf=True, t_as_lambda=False, wi
         dvv += np.dot(mvx, dvvx)
         if with_t1:
             dov += einsum('ijab,Ii,Jj,Aa,Bb,JB->IA', theta, mox, mox, mvx, mvx, l1)
+
+        # NOT IMPLEMENTED ... (how does this work?)
+        #if use_sym:
+        #    # Transform to AO basis
+        #    doox_ao = np.dot(doox, emb.mo_coeff_occ.T)
+        #    dvvx_ao = np.dot(dvvx, emb.mo_coeff_vir.T)
+
+        #    for x2 in x.get_symmetry_children():
+        #        tmpo = x2.sym_op(doox_ao, axis=1)
+        #        tmpv = x2.sym_op(dvvx_ao, axis=1)
+        #        #tmpo = x2.sym_op.inverse()(doox_ao, axis=1)
+        #        #tmpv = x2.sym_op.inverse()(dvvx_ao, axis=1)
+        #        mox = np.dot(mos_occ, x2.cluster.c_active_occ)
+        #        mvx = np.dot(mos_vir, x2.cluster.c_active_vir)
+        #        doo += dot(mox, tmpo, mos_occ.T)
+        #        dvv += dot(mvx, tmpv, mos_vir.T)
+
+        #    ## Transform to AO basis
+        #    #doox0 = dot(pwfx.mo.coeff_occ, doox, emb.mo_coeff_occ.T)
+        #    #dvvx0 = dot(pwfx.mo.coeff_vir, dvvx, emb.mo_coeff_vir.T)
+        #    #doox = np.zeros_like(doox0)
+        #    #dvvx = np.zeros_like(dvvx0)
+
+        #    #for x2 in x.get_symmetry_children():
+        #    #    #doox += x2.sym_op(doox0, axis=0)
+        #    #    #dvvx += x2.sym_op(dvvx0, axis=0)
+        #    #    #doox += x2.sym_op(doox0, axis=1)
+        #    #    #dvvx += x2.sym_op(dvvx0, axis=1)
+        #    #    #doox += x2.sym_op.inverse()(doox0, axis=0)
+        #    #    #dvvx += x2.sym_op.inverse()(dvvx0, axis=0)
+        #    #    #doox += x2.sym_op.inverse()(doox0, axis=1)
+        #    #    #dvvx += x2.sym_op.inverse()(dvvx0, axis=1)
+
+        #    #    #doox += x2.sym_op(doox0, axis=(0,1))
+        #    #    #dvvx += x2.sym_op(dvvx0, axis=(0,1))
+
+        #    #doo += dot(mos_occ, doox, mos_occ.T)
+        #    #dvv += dot(mos_vir, dvvx, mos_vir.T)
 
     if mpi:
         rma.clear()
