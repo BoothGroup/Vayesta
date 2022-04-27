@@ -4,6 +4,8 @@ import numpy as np
 
 import pyscf
 import pyscf.cc
+import pyscf.cc.ccsd_rdm_slow
+import pyscf.lib
 
 from vayesta.core.util import *
 from vayesta.core.mpi import mpi
@@ -20,7 +22,7 @@ def _mpi_reduce(log, *args, mpi_target=None):
         return res[0]
     return tuple(res)
 
-def make_rdm1_ccsd(emb, ao_basis=False, t_as_lambda=False, symmetrize=True, with_mf=True, mpi_target=None):
+def make_rdm1_ccsd(emb, ao_basis=False, t_as_lambda=False, symmetrize=True, with_mf=True, mpi_target=None, mp2=False):
     """Make one-particle reduced density-matrix from partitioned fragment CCSD wave functions.
 
     This utilizes index permutations of the CCSD RDM1 equations, such that the RDM1 can be
@@ -48,16 +50,20 @@ def make_rdm1_ccsd(emb, ao_basis=False, t_as_lambda=False, symmetrize=True, with
         One-particle reduced density matrix in AO (if `ao_basis=True`) or MO basis (default).
     """
 
+    nocc, nvir = emb.nocc, emb.nvir
     # --- Fast algorithm via fragment-fragment loop:
     # T1/L1-amplitudes can be summed directly
-    t1 = emb.get_global_t1()
-    l1 = emb.get_global_l1() if not t_as_lambda else t1
+    if mp2:
+        t_as_lambda = True
+    else:
+        t1 = emb.get_global_t1()
+        l1 = emb.get_global_l1() if not t_as_lambda else t1
 
     # --- Loop over pairs of fragments and add projected density-matrix contributions:
-    nocc, nvir = t1.shape
     doo = np.zeros((nocc, nocc))
     dvv = np.zeros((nvir, nvir))
-    dov = np.zeros((nocc, nvir))
+    if not mp2:
+        dov = np.zeros((nocc, nvir))
     # MPI loop
     for frag in emb.get_fragments(mpi_rank=mpi.rank):
         th2x = frag.results.t2x
@@ -70,31 +76,38 @@ def make_rdm1_ccsd(emb, ao_basis=False, t_as_lambda=False, symmetrize=True, with
         doo -= einsum('kiba,kjba,Ii,Jj->IJ', th2x, l2x, co, co)
         if not symmetrize:
             dvv += einsum('ijca,ijcb,Aa,Bb->AB', th2x, l2x, cv, cv)
-            dov += einsum('ijab,Ii,Jj,Aa,Bb,JB->IA', th2x, fo, co, cv, cv, l1)
+            if not mp2:
+                dov += einsum('ijab,Ii,Jj,Aa,Bb,JB->IA', th2x, fo, co, cv, cv, l1)
         else:
             dvv += einsum('jica,jicb,Aa,Bb->AB', th2x, l2x, cv, cv) / 2
             dvv += einsum('ijac,ijbc,Aa,Bb->AB', th2x, l2x, cv, cv) / 2
-            dov += einsum('ijab,Ii,Jj,Aa,Bb,JB->IA', th2x, fo, co, cv, cv, l1) / 2
-            dov += einsum('jiba,Jj,Ii,Aa,Bb,JB->IA', th2x, fo, co, cv, cv, l1) / 2
+            if not mp2:
+                dov += einsum('ijab,Ii,Jj,Aa,Bb,JB->IA', th2x, fo, co, cv, cv, l1) / 2
+                dov += einsum('jiba,Jj,Ii,Aa,Bb,JB->IA', th2x, fo, co, cv, cv, l1) / 2
 
     if mpi:
-        doo, dvv, dov = _mpi_reduce(emb.log, doo, dvv, dov, mpi_target=mpi_target)
+        if mp2:
+            doo, dvv = _mpi_reduce(emb.log, doo, dvv, mpi_target=mpi_target)
+        else:
+            doo, dvv, dov = _mpi_reduce(emb.log, doo, dvv, dov, mpi_target=mpi_target)
         if mpi_target not in (None, mpi.rank):
             return None
 
-    dov += einsum('IJ,JA->IA', doo, t1)
-    dov -= einsum('IB,AB->IA', t1, dvv)
-    dov += (t1 + l1 - einsum('IA,JA,JB->IB', t1, l1, t1))
-    doo -= einsum('IA,JA->IJ', l1, t1)
-    dvv += einsum('IA,IB->AB', t1, l1)
+    if not mp2:
+        dov += einsum('IJ,JA->IA', doo, t1)
+        dov -= einsum('IB,AB->IA', t1, dvv)
+        dov += (t1 + l1 - einsum('IA,JA,JB->IB', t1, l1, t1))
+        doo -= einsum('IA,JA->IJ', l1, t1)
+        dvv += einsum('IA,IB->AB', t1, l1)
 
     nmo = (nocc + nvir)
     occ, vir = np.s_[:nocc], np.s_[nocc:]
     dm1 = np.zeros((nmo, nmo))
     dm1[occ,occ] = (doo + doo.T)
     dm1[vir,vir] = (dvv + dvv.T)
-    dm1[occ,vir] = dov
-    dm1[vir,occ] = dov.T
+    if not mp2:
+        dm1[occ,vir] = dov
+        dm1[vir,occ] = dov.T
     if with_mf:
         dm1[np.diag_indices(nocc)] += 2.0
     if ao_basis:
@@ -186,9 +199,9 @@ def make_rdm1_ccsd_old(emb, ao_basis=False, t_as_lambda=False, slow=False,
                 raise RuntimeError("No L2 amplitudes found for %s!" % f2)
             l2 = f2.project_amplitude_to_fragment(l2, symmetrize=symmetrize)
             # Theta_jk^ab * l_ik^ab -> ij
-            doo_f1 -= einsum('jkab,IKAB,kK,aA,bB,qI->jq', theta, l2, f2fo12, f2fv12, f2fv12, f2mo[i2])
+            doo_f1 -= pyscf.lib.einsum('jkab,IKAB,kK,aA,bB,qI->jq', theta, l2, f2fo12, f2fv12, f2fv12, f2mo[i2])
             # Theta_ji^ca * l_ji^cb -> ab
-            dvv_f1 += einsum('jica,JICB,jJ,iI,cC,qB->aq', theta, l2, f2fo12, f2fo12, f2fv12, f2mv[i2])
+            dvv_f1 += pyscf.lib.einsum('jica,JICB,jJ,iI,cC,qB->aq', theta, l2, f2fo12, f2fo12, f2fv12, f2mv[i2])
         doo += np.dot(f2mo[i1], doo_f1)
         dvv += np.dot(f2mv[i1], dvv_f1)
 
@@ -351,7 +364,7 @@ def make_rdm1_ccsd_test(emb, ao_basis=False, t_as_lambda=False, slow=False, symm
 # --- Two-particle
 # ----------------
 
-def make_rdm2_ccsd(emb, ao_basis=False, symmetrize=True, t_as_lambda=False, slow=True):
+def make_rdm2_ccsd(emb, ao_basis=False, symmetrize=True, t_as_lambda=False, slow=True, with_dm1=False):
     """Recreate global two-particle reduced density-matrix from fragment calculations.
 
     Parameters
@@ -383,7 +396,7 @@ def make_rdm2_ccsd(emb, ao_basis=False, symmetrize=True, t_as_lambda=False, slow
         else:
             l1 = emb.get_global_t1(get_lambda=True)
             l2 = emb.get_global_t2(get_lambda=True)
-        dm2 = cc.make_rdm2(t1=t1, t2=t2, l1=l1, l2=l2, with_frozen=False)
+        dm2 = cc.make_rdm2(t1=t1, t2=t2, l1=l1, l2=l2, with_frozen=False, with_dm1=with_dm1)
     else:
         raise NotImplementedError()
     if ao_basis:
@@ -391,3 +404,93 @@ def make_rdm2_ccsd(emb, ao_basis=False, symmetrize=True, t_as_lambda=False, slow
     if symmetrize:
         dm2 = (dm2 + dm2.transpose(1,0,3,2))/2
     return dm2
+
+
+# Modifed from pyscf.cc.make_rdm_slow
+
+def _incluster_gamma2_intermediates(cc, t1, t2, l1, l2, t1p=None, t2p=None):
+
+    dovov, dvvvv, doooo, doovv, dovvo, dvvov, dovvv, dooov = pyscf.cc.ccsd_rdm_slow._gamma2_intermediates(cc, t1, t2, l1, l2)
+
+    # Blame pyscf devs for the bizzare and confusing notation
+    # Correct single order zero in lambda term in dovov/goovv block
+    tau = t2 + np.einsum('ia,jb->ijab', t1, t1)
+    taup = t2p + np.einsum('ia,jb->ijab', t1p, t1)
+    corr = -.5 * l2 - .5 * tau + .5 * l2 + .5 * taup
+    corr = (corr*2 - corr.transpose(0,1,3,2))
+    dovov += corr.transpose(0,2,1,3)
+
+    return (dovov, dvvvv, doooo, doovv, dovvo, dvvov, dovvv, dooov)
+
+
+def _gamma2_intermediates(cc, t1, t2, l1, l2, t1p=None, t2p=None):
+    numpy = np
+    tau = t2 + numpy.einsum('ia,jb->ijab', t1, t1)
+    tau2 = t2 + numpy.einsum('ia,jb->ijab', t1, t1*2)
+    theta = t2*2 - t2.transpose(0,1,3,2)
+
+
+    mOvOv = numpy.einsum('ikca,jkcb->jbia', l2, t2)
+    mOVov = numpy.einsum('ikac,jkbc->jbia', l2, theta)
+    mOVov -= numpy.einsum('ikca,jkbc->jbia', l2, t2)
+    moo =(numpy.einsum('jdld->jl', mOvOv) * 2 +
+          numpy.einsum('jdld->jl', mOVov))
+    mvv =(numpy.einsum('lbld->bd', mOvOv) * 2 +
+          numpy.einsum('lbld->bd', mOVov))
+
+    gvvvv = numpy.einsum('ijab,ijcd->abcd', l2*.5, tau)
+
+    goooo = numpy.einsum('ijab,klab->klij', l2, tau)*.5
+    goovv = .5 * l2 + .5 * tau
+    if t1p is not None:
+        taup = t2p + numpy.einsum('ia,jb->ijab', t1p, t1)
+        goovv = .5 * l2 + .5 * taup
+
+    tmp = numpy.einsum('kc,ikac->ia', l1, theta)
+    goovv += numpy.einsum('ia,jb->ijab', tmp, t1)
+    tmp = numpy.einsum('kc,kb->cb', l1, t1)
+    goovv -= numpy.einsum('cb,ijac->ijab', tmp, t2)
+    tmp = numpy.einsum('kc,jc->kj', l1, t1)
+    goovv -= numpy.einsum('kj,ikab->ijab', tmp, tau)
+    goovv -= numpy.einsum('jl,ilab->ijab', moo*.5, tau)
+    goovv -= numpy.einsum('bd,ijad->ijab', mvv*.5, tau)
+    goovv += numpy.einsum('ibld,ljad->ijab', mOvOv, tau2) * .5
+    goovv -= numpy.einsum('iald,ljbd->ijab', mOVov, tau2) * .5
+    goovv += numpy.einsum('iald,ljdb->ijab', mOVov*2+mOvOv, t2) * .5
+    goovv += numpy.einsum('ijkl,klab->ijab', goooo, tau)
+
+    gooov = numpy.einsum('ib,kjab->jkia', -l1, tau)
+    gooov += numpy.einsum('jkil,la->jkia', goooo, t1*2)
+    gooov += numpy.einsum('ji,ka->jkia', moo*-.5, t1)
+    gooov += numpy.einsum('jaic,kc->jkia', mOvOv, t1)
+    gooov -= numpy.einsum('kaic,jc->jkia', mOVov, t1)
+    gooov -= numpy.einsum('jkba,ib->jkia', l2, t1)
+
+    govvv = numpy.einsum('ja,jibc->iacb', l1, tau)
+    govvv -= numpy.einsum('adbc,id->iacb', gvvvv, t1*2)
+    govvv += numpy.einsum('ba,ic->iacb', mvv, t1*.5)
+    govvv -= numpy.einsum('ibka,kc->iacb', mOvOv, t1)
+    govvv += numpy.einsum('icka,kb->iacb', mOVov, t1)
+    govvv += numpy.einsum('jibc,ja->iacb', l2, t1)
+
+    gOvVo = numpy.einsum('ia,jb->jabi', l1, t1) + mOVov.transpose(0,3,1,2)
+    tmp = numpy.einsum('ikac,jc->jaik', l2, t1)
+    gOvVo -= numpy.einsum('jaik,kb->jabi', tmp, t1)
+    gOvvO = mOvOv.transpose(0,3,1,2) + numpy.einsum('jaki,kb->jabi', tmp, t1)
+
+    doovv = goovv*2 - goovv.transpose(0,1,3,2)
+    dvvvv = gvvvv*2 - gvvvv.transpose(0,1,3,2)
+    doooo = goooo*2 - goooo.transpose(0,1,3,2)
+    dovov = -2*gOvvO.transpose(0,1,3,2) - gOvVo.transpose(0,1,3,2)
+    dovvo = gOvVo*2 + gOvvO
+    dovvv = govvv*2 - govvv.transpose(0,1,3,2)
+    dooov = gooov*2 - gooov.transpose(1,0,2,3)
+
+    doovv, dovov = dovov.transpose(0,2,1,3), doovv.transpose(0,2,1,3)
+    dvvvv = dvvvv.transpose(0,2,1,3)
+    doooo = doooo.transpose(0,2,1,3)
+    dovvo = dovvo.transpose(0,2,1,3)
+    dovvv = dovvv.transpose(0,2,1,3)
+    dooov = dooov.transpose(0,2,1,3)
+    dvvov = None
+    return (dovov, dvvvv, doooo, doovv, dovvo, dvvov, dovvv, dooov)

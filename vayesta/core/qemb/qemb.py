@@ -24,10 +24,10 @@ import vayesta
 from vayesta.core import vlog
 from vayesta.core.foldscf import FoldedSCF, fold_scf
 from vayesta.core.util import *
+from vayesta.core.ao2mo import kao2gmo_cderi
 from vayesta.core.ao2mo import postscf_ao2mo
 from vayesta.core.ao2mo import postscf_kao2gmo
 from vayesta.core.ao2mo.kao2gmo import gdf_to_pyscf_eris
-from vayesta.misc.gdf import GDF
 from vayesta import lattmod
 from vayesta.core.scmf import PDMET, Brueckner
 from vayesta.core.mpi import mpi
@@ -45,15 +45,15 @@ from vayesta.core.fragmentation import make_site_fragmentation
 
 # --- This Package
 
-from .fragment import QEmbeddingFragment
+from .fragment import Fragment
 from . import helper
 from .rdm import make_rdm1_demo_rhf
 from .rdm import make_rdm2_demo_rhf
 
-class QEmbedding:
+class Embedding:
 
     # Shadow this in inherited methods:
-    Fragment = QEmbeddingFragment
+    Fragment = Fragment
 
     @dataclasses.dataclass
     class Options(OptionsBase):
@@ -210,25 +210,21 @@ class QEmbedding:
 
         # Hartree-Fock energy - this can be different from mf.e_tot, when the mean-field
         # is not a converged HF calculations
-        h1e_energy = self.get_hcore_for_energy()
-        vhf_energy = self.get_veff_for_energy()
-        e_hf = mf.energy_tot(h1e=h1e_energy, vhf=vhf_energy)
-        if abs((mf.e_tot - e_hf)/mf.e_tot) > 1e-3:
+        e_mf = mf.e_tot / self.ncells
+        e_hf = self.e_mf
+        if abs((e_mf - e_hf)/e_mf) > 1e-3:
             self.log.warning("Non Hartree-Fock mean-field? Large change of energy: E(mf)= %s -> E(HF)= %s (dE= %s) !",
-                    *map(energy_string, (mf.e_tot, e_hf, e_hf-mf.e_tot)))
-        elif abs(mf.e_tot - e_hf) > 1e-7:
+                    *map(energy_string, (e_mf, e_hf, e_hf-e_mf)))
+        elif abs(e_mf - e_hf) > 1e-6:
             self.log.info("Non Hartree-Fock mean-field detected. Change of energy: E(mf)= %s -> E(HF)= %s (dE= %s)",
-                    *map(energy_string, (mf.e_tot, e_hf, e_hf-mf.e_tot)))
+                    *map(energy_string, (e_mf, e_hf, e_hf-e_mf)))
         else:
             self.log.debugv("Change of energy: E(mf)= %s -> E(HF)= %s (dE= %s)",
-                    *map(energy_string, (mf.e_tot, e_hf, e_hf-mf.e_tot)))
-        self.mf.e_tot = e_hf
-
-        # Some MF output
+                    *map(energy_string, (e_mf, e_hf, e_hf-e_mf)))
         if self.mf.converged:
-            self.log.info("E(mf)= %s", energy_string(self.e_mf))
+            self.log.info("E(HF)= %s", energy_string(e_hf))
         else:
-            self.log.warning("E(mf)= %s (not converged!)", energy_string(self.e_mf))
+            self.log.warning("E(HF)= %s (not converged!)", energy_string(e_hf))
 
         #FIXME (no RHF/UHF dependent code here)
         if self.is_rhf:
@@ -293,7 +289,7 @@ class QEmbedding:
         sc = np.dot(self.get_ovlp(), self.mo_coeff[:,:self.nocc])
         e_exxdiv = -self.madelung * self.nocc/self.ncells
         v_exxdiv = -self.madelung * np.dot(sc, sc.T)
-        self.log.debug("Divergent exact-exchange (exxdiv) correction= %+16.8f Ha", e_exxdiv)
+        self.log.debugv("Divergent exact-exchange (exxdiv) correction= %+16.8f Ha", e_exxdiv)
         return e_exxdiv, v_exxdiv
 
     @property
@@ -325,6 +321,18 @@ class QEmbedding:
     @property
     def is_uhf(self):
         return (self.mo_coeff[0].ndim == 2)
+
+    @property
+    def has_df(self):
+        return (self.df is not None) or (self.kdf is not None)
+
+    @property
+    def df(self):
+        #if self.kdf is not None:
+        #    return self.kdf
+        if hasattr(self.mf, 'with_df') and self.mf.with_df is not None:
+            return self.mf.with_df
+        return None
 
     # Mean-field properties
 
@@ -396,6 +404,16 @@ class QEmbedding:
         return np.count_nonzero(self.mo_occ == 0)
 
     @property
+    def mo_energy_occ(self):
+        """Occupied MO energies."""
+        return self.mo_energy[:self.nocc]
+
+    @property
+    def mo_energy_vir(self):
+        """Virtual MO coefficients."""
+        return self.mo_energy[self.nocc:]
+
+    @property
     def mo_coeff_occ(self):
         """Occupied MO coefficients."""
         return self.mo_coeff[:,:self.nocc]
@@ -411,7 +429,10 @@ class QEmbedding:
         Note that the input unit cell itself can be a supercell, in which case
         `e_mf` refers to this cell.
         """
-        return self.mf.e_tot/self.ncells
+        h1e = self.get_hcore_for_energy()
+        vhf = self.get_veff_for_energy()
+        e_mf = self.mf.energy_tot(h1e=h1e, vhf=vhf)
+        return e_mf/self.ncells
 
     @property
     def e_nuc(self):
@@ -487,17 +508,20 @@ class QEmbedding:
     # Overwriting these allows using different integrals for the energy evaluation
 
     def get_hcore_for_energy(self):
+        """Core Hamiltonian used for energy evaluation."""
         return self.get_hcore()
 
     def get_veff_for_energy(self, with_exxdiv=True):
+        """Hartree-Fock potential used for energy evaluation."""
         return self.get_veff(with_exxdiv=with_exxdiv)
 
     def get_fock_for_energy(self, with_exxdiv=True):
+        """Fock matrix used for energy evaluation."""
         return (self.get_hcore_for_energy() + self.get_veff_for_energy(with_exxdiv=with_exxdiv))
 
-    def get_fock_for_bno(self):
-        """Fock matrix used for MP2 bath natural orbitals."""
-        return self.get_fock()
+    def get_fock_for_bath(self, with_exxdiv=True):
+        """Fock matrix used for bath orbitals."""
+        return self.get_fock(with_exxdiv=with_exxdiv)
 
     # Other integral methods:
 
@@ -526,12 +550,53 @@ class QEmbedding:
         spow = pyscf.pbc.tools.k2gamma.to_supercell_ao_integrals(self.kcell, self.kpts, spowk)
         return spow
 
+    def get_cderi(self, mo_coeff, compact=False, blksize=None):
+        """Get density-fitted three-center integrals in MO basis."""
+        if compact:
+            raise NotImplementedError()
+        if self.kdf is not None:
+            return kao2gmo_cderi(self.kdf, mo_coeff)
+
+        if np.ndim(mo_coeff[0]) == 1:
+            mo_coeff = (mo_coeff, mo_coeff)
+
+        nao = self.mol.nao
+        naux = (self.df.auxcell.nao if hasattr(self.df, 'auxcell') else self.df.auxmol.nao)
+        cderi = np.zeros((naux, mo_coeff[0].shape[-1], mo_coeff[1].shape[-1]))
+        cderi_neg = None
+        if blksize is None:
+            blksize = int(1e9 / naux*nao*nao * 8)
+        # PBC:
+        if hasattr(self.df, 'sr_loop'):
+            blk0 = 0
+            for labr, labi, sign in self.df.sr_loop(compact=False, blksize=blksize):
+                assert np.allclose(labi, 0)
+                assert (cderi_neg is None)  # There should be only one block with sign -1
+                labr = labr.reshape(-1, nao, nao)
+                if (sign == 1):
+                    blk1 = (blk0 + labr.shape[0])
+                    blk = np.s_[blk0:blk1]
+                    blk0 = blk1
+                    cderi[blk] = einsum('Lab,ai,bj->Lij', labr, mo_coeff[0], mo_coeff[1])
+                elif (sign == -1):
+                    cderi_neg = einsum('Lab,ai,bj->Lij', labr, mo_coeff[0], mo_coeff[1])
+            return cderi, cderi_neg
+        # No PBC:
+        blk0 = 0
+        for lab  in self.df.loop(blksize=blksize):
+            blk1 = (blk0 + lab.shape[0])
+            blk = np.s_[blk0:blk1]
+            blk0 = blk1
+            lab = pyscf.lib.unpack_tril(lab)
+            cderi[blk] = einsum('Lab,ai,bj->Lij', lab, mo_coeff[0], mo_coeff[1])
+        return cderi, None
+
     def get_eris_array(self, mo_coeff, compact=False):
         """Get electron-repulsion integrals in MO basis as a NumPy array.
 
         Parameters
         ----------
-        mo_coeff: (n(AO), n(MO)) array
+        mo_coeff: [list(4) of] (n(AO), n(MO)) array
             MO coefficients.
 
         Returns
@@ -539,7 +604,20 @@ class QEmbedding:
         eris: (n(MO), n(MO), n(MO), n(MO)) array
             Electron-repulsion integrals in MO basis.
         """
-        # TODO: check self.kdf and fold
+        # PBC with k-points:
+        if self.kdf is not None:
+            if np.ndim(mo_coeff[0]) == 1:
+                mo_coeff = 4*[mo_coeff]
+            cderi1, cderi1_neg = kao2gmo_cderi(self.kdf, mo_coeff[:2])
+            if (mo_coeff[0] is mo_coeff[2]) and (mo_coeff[1] is mo_coeff[3]):
+                cderi2, cderi2_neg = cderi1, cderi1_neg
+            else:
+                cderi2, cderi2_neg = kao2gmo_cderi(self.kdf, mo_coeff[2:])
+            eris = einsum('Lij,Lkl->ijkl', cderi1.conj(), cderi2)
+            if cderi1_neg is not None:
+                eris -= einsum('Lij,Lkl->ijkl', cderi1_neg.conj(), cderi2_neg)
+            return eris
+        # Molecules and Gamma-point PBC:
         if hasattr(self.mf, 'with_df') and self.mf.with_df is not None:
             eris = self.mf.with_df.ao2mo(mo_coeff, compact=compact)
         elif self.mf._eri is not None:
@@ -712,7 +790,7 @@ class QEmbedding:
             children[idx].append(f)
         return children
 
-    def get_fragments(self, **filters):
+    def get_fragments(self, fragment_list=None, **filters):
         """Return all fragments which obey the specified conditions.
 
         Arguments
@@ -737,11 +815,13 @@ class QEmbedding:
 
         >>> self.get_fragments(sym_parent=None)
         """
+        if fragment_list is None:
+            fragment_list = self.fragments
         if not filters:
-            return self.fragments
+            return fragment_list
         filters = {key : np.atleast_1d(filters[key]) for key in filters}
         fragments = []
-        for frag in self.fragments:
+        for frag in fragment_list:
             skip = False
             for key, filtr in filters.items():
                 val = getattr(frag, key)
@@ -925,6 +1005,15 @@ class QEmbedding:
         if filename is not None:
             f.close()
 
+    def check_fragment_nelectron(self):
+        nelec_frags = sum([f.sym_factor*f.nelectron for f in self.fragments])
+        #nelec = (self.kcell if self.kcell is not None else self.mol).nelectron
+        nelec = self.mol.nelectron
+        self.log.info("Number of electrons over all fragments= %.8f , system= %.8f", nelec_frags, nelec)
+        if abs(nelec_frags - nelec) > 1e-6:
+            self.log.warning("Number of electrons over all fragments not equal to the system's number of electrons.")
+        return nelec_frags
+
     # --- Fragmentation methods
 
     def sao_fragmentation(self):
@@ -1023,6 +1112,7 @@ class QEmbedding:
             #if subcellmesh is not None and np.any(np.asarray(subcellmesh) > 1):
             subcellmesh = getattr(self.mf, 'subcellmesh', None)
             if subcellmesh is not None and np.any(np.asarray(subcellmesh) > 1):
+                self.log.debugv("mean-field has attribute 'subcellmesh'; adding T-symmetric fragments")
                 frag.add_tsymmetric_fragments(subcellmesh)
 
         return frag
@@ -1123,5 +1213,3 @@ class QEmbedding:
         if ftype == 'ao':
             raise ValueError("AO fragmentation is no longer supported")
         raise ValueError("Unknown fragment type: %r", ftype)
-
-QEmbeddingMethod = QEmbedding

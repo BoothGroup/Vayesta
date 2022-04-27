@@ -5,9 +5,10 @@ import numpy as np
 import scipy
 import scipy.linalg
 
-from vayesta.core import QEmbeddingMethod
+from vayesta.core import Embedding
 from vayesta.core.util import *
 from .fragment import VALID_SOLVERS, DMETFragment, DMETFragmentExit
+
 from .sdp_sc import perform_SDP_fit
 from .updates import MixUpdate, DIISUpdate
 
@@ -18,30 +19,22 @@ class DMETResults:
     e_corr: float = None
 
 
-class DMET(QEmbeddingMethod):
+class DMET(Embedding):
+
     @dataclasses.dataclass
-    class Options(QEmbeddingMethod.Options):
+    class Options(Embedding.Options):
         """Options for EWF calculations."""
         # --- Fragment settings
         # fragment_type: str = 'IAO'
         localize_fragment: bool = False  # Perform numerical localization on fragment orbitals
         iao_minao: str = 'auto'  # Minimal basis for IAOs
         # --- Bath settings
-        bath_type: str = None
+        bath_type: str = 'dmet'
         dmet_threshold: float = 1e-6
         orthogonal_mo_tol: float = False
-        # Orbital file
-        plot_orbitals: str = False  # {True, False, 'dmet-exit'}
-        plot_orbitals_dir: str = 'orbitals'
-        plot_orbitals_kwargs: dict = dataclasses.field(default_factory=dict)
         # --- Solver settings
         solver_options: dict = dataclasses.field(default_factory=dict)
-        make_rdm1: bool = True
-        make_rdm2: bool = True
         dm_with_frozen: bool = False  # Add frozen parts to cluster DMs
-        # Counterpoise correction of BSSE
-        bsse_correction: bool = True
-        bsse_rmax: float = 5.0  # In Angstrom
         # -- Self-consistency
         maxiter: int = 30
         sc_mode: int = 0
@@ -151,11 +144,13 @@ class DMET(QEmbeddingMethod):
             self.iteration = iteration
             self.log.info("Now running iteration= %2d", iteration)
             self.log.info("****************************************************")
-            mo_energy, mo_coeff = mf.eig(fock + self.vcorr, self.get_ovlp())
-            self.update_mf(mo_coeff, mo_energy)
+            if iteration > 1:
+                # For first iteration want to run on provided mean-field state.
+                mo_energy, mo_coeff = mf.eig(fock + self.vcorr, self.get_ovlp())
+                self.update_mf(mo_coeff, mo_energy)
 
-            if self.opts.charge_consistent:
-                fock = mf.get_fock()
+                if self.opts.charge_consistent:
+                    fock = self.get_fock()
             # Need to optimise a global chemical potential to ensure electron number is converged.
             nelec_mf = self.check_fragment_nelectron()
             if type(nelec_mf) == tuple:
@@ -214,7 +209,7 @@ class DMET(QEmbeddingMethod):
 
             e1, e2, emf = 0.0, 0.0, 0.0
             for x, frag in enumerate(sym_parents):
-                e1_contrib, e2_contrib = frag.get_dmet_energy_contrib()
+                e1_contrib, e2_contrib = frag.results.e1, frag.results.e2
                 e1 += e1_contrib * nsym[x]
                 e2 += e2_contrib * nsym[x]
                 emf += frag.get_fragment_mf_energy() * nsym[x]

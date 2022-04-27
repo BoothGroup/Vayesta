@@ -4,7 +4,8 @@ import numpy as np
 from pyscf import gto, scf
 from pyscf.pbc import gto as pbc_gto, scf as pbc_scf
 
-from vayesta.misc import molstructs
+from vayesta.misc import molecules
+from vayesta.misc import solids
 
 
 class MolstructsTests(unittest.TestCase):
@@ -20,7 +21,7 @@ class MolstructsTests(unittest.TestCase):
         """Tests for water molecule.
         """
 
-        mol = gto.M(atom=molstructs.molecules.water(), verbose=0)
+        mol = gto.M(atom=molecules.water(), verbose=0)
         known_values = {
                 'e_nuc': 9.189533762934902,
                 'e_tot': -74.96302313846098,
@@ -33,9 +34,9 @@ class MolstructsTests(unittest.TestCase):
         """
 
         mols = [
-                gto.M(atom=molstructs.molecules.alkane(3), verbose=0),
-                gto.M(atom=molstructs.molecules.alkane(3, numbering='atom'), verbose=0),
-                gto.M(atom=molstructs.molecules.alkane(3, numbering='unit'), verbose=0),
+                gto.M(atom=molecules.alkane(3), verbose=0),
+                gto.M(atom=molecules.alkane(3, numbering='atom'), verbose=0),
+                gto.M(atom=molecules.alkane(3, numbering='unit'), verbose=0),
         ]
         known_values = {
                 'e_nuc': 82.6933759181699,
@@ -49,7 +50,7 @@ class MolstructsTests(unittest.TestCase):
         """Tests for arene molecules.
         """
 
-        mol = gto.M(atom=molstructs.molecules.arene(4), verbose=0)
+        mol = gto.M(atom=molecules.arene(4), verbose=0)
         known_values = {
                 'e_nuc': 102.06071721540009,
                 'e_tot': -151.66864765196442,
@@ -61,7 +62,7 @@ class MolstructsTests(unittest.TestCase):
         """Tests for neopentane molecule.
         """
 
-        mol = gto.M(atom=molstructs.molecules.neopentane(), verbose=0)
+        mol = gto.M(atom=molecules.neopentane(), verbose=0)
         known_values = {
                 'e_nuc': 198.347989543373,
                 'e_tot': -194.04575839870574,
@@ -73,7 +74,7 @@ class MolstructsTests(unittest.TestCase):
         """Tests for boronene molecule.
         """
 
-        mol = gto.M(atom=molstructs.molecules.boronene(), verbose=0)
+        mol = gto.M(atom=molecules.boronene(), verbose=0)
         known_values = {
                 'e_nuc': 1788.3645271898426,
         }
@@ -84,7 +85,7 @@ class MolstructsTests(unittest.TestCase):
         """Tests for coronene molecule.
         """
 
-        mol = gto.M(atom=molstructs.molecules.coronene(), verbose=0)
+        mol = gto.M(atom=molecules.coronene(), verbose=0)
         known_values = {
                 'e_nuc': 1837.229262707072,
         }
@@ -95,7 +96,7 @@ class MolstructsTests(unittest.TestCase):
         """Tests for NO2 molecule.
         """
 
-        mol = gto.M(atom=molstructs.molecules.no2(), spin=1, verbose=0)
+        mol = gto.M(atom=molecules.no2(), spin=1, verbose=0)
         known_values = {
                 'e_nuc': 65.07473745355408,
                 #'e_tot': -201.27201791520167,  # UHF not very stable
@@ -107,7 +108,7 @@ class MolstructsTests(unittest.TestCase):
         """Tests for diamond cell.
         """
 
-        a, atom = molstructs.solids.diamond()
+        a, atom = solids.diamond()
         mol = pbc_gto.Cell(atom=atom, a=a, verbose=0, basis='gth-szv-molopt-sr', pseudo='gth-pade')
         mol.exp_to_discard = 0.1
         mol.build()
@@ -121,7 +122,7 @@ class MolstructsTests(unittest.TestCase):
         """Tests for graphene cell.
         """
 
-        a, atom = molstructs.solids.graphene()
+        a, atom = solids.graphene()
         mol = pbc_gto.Cell(atom=atom, a=a, verbose=0, basis='gth-szv-molopt-sr', pseudo='gth-pade')
         mol.exp_to_discard = 0.1
         mol.build()
@@ -135,7 +136,7 @@ class MolstructsTests(unittest.TestCase):
         """Tests for graphite cell.
         """
 
-        a, atom = molstructs.solids.graphite()
+        a, atom = solids.graphite()
         mol = pbc_gto.Cell(atom=atom, a=a, verbose=0, basis='gth-szv-molopt-sr', pseudo='gth-pade')
         mol.exp_to_discard = 0.1
         mol.build()
@@ -149,7 +150,7 @@ class MolstructsTests(unittest.TestCase):
         """Tests for rocksalt cell.
         """
 
-        a, atom = molstructs.solids.rocksalt(primitive=False)
+        a, atom = solids.rocksalt(primitive=False)
         mol = pbc_gto.Cell(atom=atom, a=a, verbose=0, basis='gth-szv-molopt-sr', pseudo='gth-pade')
         mol.exp_to_discard = 0.1
         mol.build()
@@ -159,7 +160,7 @@ class MolstructsTests(unittest.TestCase):
 
         self._test_nuclear_energy(mol, known_values)
 
-        a, atom = molstructs.solids.rocksalt(primitive=True)
+        a, atom = solids.rocksalt(primitive=True)
         mol = pbc_gto.Cell(atom=atom, a=a, verbose=0, basis='gth-szv-molopt-sr', pseudo='gth-pade')
         mol.exp_to_discard = 0.1
         mol.build()
@@ -173,7 +174,7 @@ class MolstructsTests(unittest.TestCase):
         """Tests for perovskite cell.
         """
 
-        a, atom = molstructs.solids.perovskite()
+        a, atom = solids.perovskite()
         mol = pbc_gto.Cell(atom=atom, a=a, verbose=0, basis='gth-szv-molopt-sr', pseudo='gth-pade')
         mol.exp_to_discard = 0.1
         mol.build()

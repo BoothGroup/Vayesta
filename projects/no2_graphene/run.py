@@ -1,5 +1,6 @@
 import argparse
 import string
+import random
 
 import numpy as np
 
@@ -22,8 +23,8 @@ parser = argparse.ArgumentParser()
 parser.add_argument('--structure', type=int, default=-1)
 parser.add_argument('--kmesh', type=int, nargs=3, default=False)
 parser.add_argument('--basis', default='cc-pVDZ')
-parser.add_argument('--basis-no2', default='aug-cc-pVTZ')
-#parser.add_argument('--auxbasis', default='cc-pVDZ-ri')
+parser.add_argument('--basis-no2', default='aug-cc-pVDZ')
+#parser.add_argument('--basis-no2', default='aug-cc-pVTZ')
 parser.add_argument('--auxbasis', default=None)
 #parser.add_argument('--gate-range', type=float, nargs=3, default=[-0.01, 0.01, 0.002])
 #parser.add_argument('--gate-range', type=float, nargs=3, default=[-0.1, 0.1, 0.02])
@@ -45,14 +46,15 @@ parser.add_argument('--lindep-threshold', type=float)
 # --- MF
 parser.add_argument('--xc', default=None)
 parser.add_argument('--mf-only', action='store_true')
-parser.add_argument('--scf-max-cycle', type=int, default=100)
+parser.add_argument('--scf-max-cycle', type=int, default=50)
 parser.add_argument('--scf-conv-tol', type=float, default=1e-9)
 parser.add_argument('--scf-with-mpi', action='store_true')
 # --- Embedding
 parser.add_argument('--fragment-type', default='iao')
 parser.add_argument('--nc', type=int, default=0)
 parser.add_argument('--atomic-fragments', action='store_true')
-parser.add_argument('--eta', type=float)
+parser.add_argument('--eta', type=float, default=1e-7)
+parser.add_argument('--eta-no2', type=float, default=1e-9)
 parser.add_argument('--dmet-threshold', type=float, default=1e-4)
 args =parser.parse_args()
 
@@ -181,8 +183,8 @@ for idx, gate in enumerate(gates):
 
     # MF energy without gate
     e_mf_gate = mf.e_tot
-    mf.e_tot = mf.energy_tot(h1e=hcore_orig())
-    print("E(MF)= % 16.8f Ha  E(MF+gate)= % 16.8f Ha" % (mf.e_tot, e_mf_gate))
+    e_mf = mf.energy_tot(h1e=hcore_orig())
+    print("E(MF)= % 16.8f Ha  E(MF+gate)= % 16.8f Ha" % (e_mf, e_mf_gate))
 
     # Embedding
 
@@ -196,16 +198,16 @@ for idx, gate in enumerate(gates):
         mf = mf_hf
 
     opts = dict(make_rdm1=True, dmet_threshold=args.dmet_threshold)
-    if v_gate is not None:
-        # At this point we need to fold the hcore_orig to the supercell
-        if kpts is not None:
-            scell, phase = foldscf.get_phase(cell, kpts)
-            #hcore_for_energy = lambda emb, *args : foldscf.k2bvk_2d(hcore_orig(*args), phase)
-            def hcore_for_energy(emb, *args):
-                return foldscf.k2bvk_2d(hcore_orig(*args), phase)
-        else:
-            hcore_for_energy = lambda emb, *args : hcore_orig(*args)
-        opts['overwrite'] = dict(get_hcore_for_energy=hcore_for_energy)
+    #if v_gate is not None:
+    #    # At this point we need to fold the hcore_orig to the supercell
+    #    if kpts is not None:
+    #        scell, phase = foldscf.get_phase(cell, kpts)
+    #        #hcore_for_energy = lambda emb, *args : foldscf.k2bvk_2d(hcore_orig(*args), phase)
+    #        def hcore_for_energy(emb, *args):
+    #            return foldscf.k2bvk_2d(hcore_orig(*args), phase)
+    #    else:
+    #        hcore_for_energy = lambda emb, *args : hcore_orig(*args)
+    #    #opts['overwrite'] = dict(get_hcore_for_energy=hcore_for_energy)
     if args.eta is None:
         emb = vayesta.ewf.EWF(mf, bath_type=None, **opts)
     else:
@@ -224,13 +226,14 @@ for idx, gate in enumerate(gates):
         elif args.fragment_type == 'sao':
             emb.sao_fragmentation()
 
-        #if v_gate is not None:
-            #emb.get_fock_for_energy = lambda *args : (emb.get_fock(*args) + v_gate)
-            #emb.get_hcore_for_energy = lambda : (emb.get_hcore() + v_gate)
-        #    emb.get_hcore_for_energy = hcore_orig
-
         if args.atomic_fragments:
             emb.add_all_atomic_fragments()  # Primitive cell only!
+            # Custom eta on NO2:
+            if args.eta_no2 is not None:
+                for f in emb.fragments[:3]:
+                    f.opts.bno_threshold = args.eta_no2
+
+            # Run
             emb.kernel()
 
             # NEW CCSD DM:
@@ -270,10 +273,34 @@ for idx, gate in enumerate(gates):
             frag.pop_analysis(local_orbitals='lowdin',   filename='lowdin-cc-%.3f.pop' % gate)
             frag.pop_analysis(local_orbitals='iao+pao',  filename='iao+pao-cc-%.3f.pop' % gate)
 
+        emb.t1_diagnostic()
+
+        # Energy including gate
+        e_hf_gate = emb.e_mf
+        e_cc_gate = emb.e_tot
+
+        # Energies excluding gate
+        if v_gate is not None:
+            # At this point we need to fold the hcore_orig to the supercell
+            if kpts is not None:
+                scell, phase = foldscf.get_phase(cell, kpts)
+                #hcore_for_energy = lambda emb, *args : foldscf.k2bvk_2d(hcore_orig(*args), phase)
+                def hcore_for_energy(emb, *args):
+                    return foldscf.k2bvk_2d(hcore_orig(*args), phase)
+            else:
+                hcore_for_energy = lambda emb, *args : hcore_orig(*args)
+            #opts['overwrite'] = dict(get_hcore_for_energy=hcore_for_energy)
+        emb.get_hcore_for_energy = hcore_for_energy.__get__(emb)
+
+        e_hf = emb.e_mf
         e_cc = emb.e_tot
+
     else:
-        e_cc = np.nan
+        e_cc = e_cc_gate = np.nan
 
     if mpi.is_master:
         with open('energies.txt', 'a') as f:
-            f.write('%.4f  % 16.8f  % 16.8f  % 16.8f\n' % (gate, mf.e_tot, emb.e_mf, e_cc))
+            f.write('%.4f  % 16.8f  % 16.8f  % 16.8f\n' % (gate, e_mf, e_hf, e_cc))
+
+        with open('energies-gate.txt', 'a') as f:
+            f.write('%.4f  % 16.8f  % 16.8f  % 16.8f\n' % (gate, e_mf_gate, e_hf_gate, e_cc_gate))

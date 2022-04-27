@@ -6,10 +6,10 @@ import pyscf.pbc.cc
 
 import vayesta
 import vayesta.ewf
-from vayesta.misc import molstructs
+from vayesta.misc import solids
 
 cell = pyscf.pbc.gto.Cell()
-cell.a, cell.atom = molstructs.graphene()
+cell.a, cell.atom = solids.graphene()
 cell.basis = 'cc-pVDZ'
 cell.output = 'pyscf.out'
 cell.dimension = 2

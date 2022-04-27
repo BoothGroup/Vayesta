@@ -26,7 +26,7 @@ class EDMET(RDMET):
         make_dd_moments: bool = NotSet
         old_sc_condition: bool = False
         max_bos: int = np.inf
-        occ_proj_kernel: bool = True
+        occ_proj_kernel: bool = False
         boson_xc_kernel: bool = False
         bosonic_interaction: str = "xc"
 
@@ -67,7 +67,7 @@ class EDMET(RDMET):
         maxiter = self.opts.maxiter
         # rdm = self.mf.make_rdm1()
         bno_thr = bno_threshold or self.bno_threshold
-        #if bno_thr < np.inf and maxiter > 1:
+        # if bno_thr < np.inf and maxiter > 1:
         #    raise NotImplementedError("MP2 bath calculation is currently ignoring the correlation potential, so does"
         #                              " not work properly for self-consistent calculations.")
         # Initialise parameters for self-consistency iteration
@@ -103,11 +103,14 @@ class EDMET(RDMET):
             self.iteration = iteration
             self.log.info("Now running iteration= %2d", iteration)
             self.log.info("****************************************************")
-            mo_energy, mo_coeff = mf.eig(fock + self.vcorr, self.get_ovlp())
-            self.update_mf(mo_coeff, mo_energy)
-            if self.opts.charge_consistent:
-                fock = mf.get_fock()
-            self.set_up_fragments(sym_parents, bno_threshold=bno_thr)
+            if iteration > 1:
+                # For first iteration want to run on provided mean-field state.
+                mo_energy, mo_coeff = mf.eig(fock + self.vcorr, self.get_ovlp())
+                self.update_mf(mo_coeff, mo_energy)
+                if self.opts.charge_consistent:
+                    fock = self.get_fock()
+            self.set_up_fragments(sym_parents, nsym, bno_threshold=bno_thr)
+
             # Need to optimise a global chemical potential to ensure electron number is converged.
             nelec_mf = self.check_fragment_nelectron()
             if type(nelec_mf) == tuple:
@@ -165,7 +168,7 @@ class EDMET(RDMET):
 
             e1, e2, efb, emf = 0.0, 0.0, 0.0, 0.0
             for x, frag in enumerate(sym_parents):
-                e1_contrib, e2_contrib, efb_contrib = frag.get_edmet_energy_contrib()
+                e1_contrib, e2_contrib, efb_contrib = frag.results.e1, frag.results.e2, frag.results.e_fb
                 e1 += e1_contrib * nsym[x]
                 e2 += e2_contrib * nsym[x]
                 efb += efb_contrib * nsym[x]
@@ -209,7 +212,7 @@ class EDMET(RDMET):
 
         self.log.info("All done.")
 
-    def set_up_fragments(self, sym_parents, bno_threshold=None):
+    def set_up_fragments(self, sym_parents, nsym, bno_threshold=None):
 
         # First, set up and run RPA. Note that our self-consistency only couples same-spin excitations so we can
         # solve a subset of the RPA equations.
@@ -241,8 +244,8 @@ class EDMET(RDMET):
             eps = np.concatenate(self.eps)
             # Can then invert relation to generate coupled electron-boson Hamiltonian.
             e_nonlocal = self.e_rpa
-            for f, sl in zip(sym_parents, bos_slices):
-                e_nonlocal -= f.construct_boson_hamil(mom0_bos[sl, :], eps, self.xc_kernel)
+            for f, nc, sl in zip(sym_parents, nsym, bos_slices):
+                e_nonlocal -= f.construct_boson_hamil(mom0_bos[sl, :], eps, self.xc_kernel) * nc
         else:
             rpa = ssRPA(self.mf, self.log)
             # We need to explicitly solve RPA equations before anything.
@@ -254,12 +257,12 @@ class EDMET(RDMET):
             self.e_rpa = rpa.calc_energy_correction(self.xc_kernel, version=3)
             e_nonlocal = self.e_rpa
             self.log.info("RPA total energy=%6.4e", e_nonlocal)
-            for f in sym_parents:
+            for f, nc in zip(sym_parents, nsym):
                 rot_ov = f.set_up_fermionic_bath(bno_threshold)
                 mom0_interact = dot(rot_ov, mom0)
                 rot_bos = f.define_bosons(mom0_interact)
                 mom0_bos = dot(rot_bos, mom0)
-                e_nonlocal -= f.construct_boson_hamil(mom0_bos, eps, self.xc_kernel)
+                e_nonlocal -= f.construct_boson_hamil(mom0_bos, eps, self.xc_kernel) * nc
         self.e_nonlocal = e_nonlocal
 
     def calc_electron_number_defect(self, chempot, bno_thr, nelec_target, parent_fragments, nsym,
@@ -346,9 +349,6 @@ class EDMET(RDMET):
         self.log.info("Numerical integration of the adiabatic connection modified nonlocal energy estimate by %6.4e",
                       new_correction - orig_correction)
         return self.e_tot + new_correction - orig_correction
-
-
-
 
     def run_exact_full_ac(self, xc_kernel=None, deg=5, calc_local=False, cluster_constrain=False, npoints=48):
         """During calculation we only calculate the linearised nonlocal correlation energy, since this is relatively

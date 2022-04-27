@@ -25,14 +25,16 @@ class UEWFFragment(UFragment, EWFFragment):
             bath = UCompleteBath(self, dmet_threshold=self.opts.dmet_threshold)
         # MP2 bath natural orbitals
         elif bath_type.lower() == 'mp2-bno':
-            bath = UMP2_BNO_Bath(self, dmet_threshold=self.opts.dmet_threshold)
+            dmet_bath = UDMET_Bath(self, dmet_threshold=self.opts.dmet_threshold)
+            dmet_bath.kernel()
+            bath = UMP2_BNO_Bath(self, dmet_bath)
         else:
             raise ValueError("Unknown bath_type: %r" % bath_type)
         bath.kernel()
         self.bath = bath
         return bath
 
-    def get_fragment_energy(self, c1, c2, eris, fock=None, axis1='cluster'):
+    def get_fragment_energy(self, c1, c2, eris, fock=None, axis1='fragment'):
         """Calculate fragment correlation energy contribution from projected C1, C2.
 
         Parameters
@@ -58,8 +60,9 @@ class UEWFFragment(UFragment, EWFFragment):
         """
         if (self.opts.energy_factor*self.sym_factor) == 0: return 0
 
-        nocc = (c1[0].shape[0], c1[1].shape[0])
-        nvir = (c1[0].shape[1], c1[1].shape[1])
+        nocc = (c2[0].shape[1], c2[-1].shape[1])
+        nvir = (c2[0].shape[2], c2[-1].shape[2])
+        self.log.debugv("nocc= %d, %d nvir= %d, %d", *nocc, *nvir)
         oa, ob = np.s_[:nocc[0]], np.s_[:nocc[1]]
         va, vb = np.s_[nocc[0]:], np.s_[nocc[1]:]
         if axis1 == 'fragment':
@@ -78,6 +81,7 @@ class UEWFFragment(UFragment, EWFFragment):
                 fock = self.base.get_fock_for_energy()
             fova = dot(self.cluster.c_active_occ[0].T, fock[0], self.cluster.c_active_vir[0])
             fovb = dot(self.cluster.c_active_occ[1].T, fock[1], self.cluster.c_active_vir[1])
+            assert (len(c1) == 2)
             ca, cb = c1
             if axis1 == 'fragment':
                 e_singles = (einsum('ia,xi,xa->', fova, pxa, ca)
@@ -94,7 +98,10 @@ class UEWFFragment(UFragment, EWFFragment):
             gab = eris.ovOV
             gbb = eris.OVOV
             #gbb = eris.OVOV - eris.OVOV.transpose(0,3,2,1)
+        elif eris[0].shape == (nocc[0], nvir[0], nocc[0], nvir[0]):
+            gaa, gab, gbb = eris
         else:
+            assert (len(eris) == 3)
             gaa = eris[0][oa,va,oa,va]
             gab = eris[1][oa,va,ob,vb]
             gbb = eris[2][ob,vb,ob,vb]
@@ -105,18 +112,81 @@ class UEWFFragment(UFragment, EWFFragment):
         #     + einsum('ijab,iajb', cbb, gbb)/4
         #     + einsum('ijab,iajb', cab, gab))
         if axis1 == 'fragment':
+            assert len(c2) == 4
             caa, cab, cba, cbb = c2
-            e_doubles = (einsum('xi,xjab,iajb', pxa, caa, gaa)/4 - einsum('xi,xjab,ibja', pxa, caa, gaa)/4
-                       + einsum('xi,xjab,iajb', pxb, cbb, gbb)/4 - einsum('xi,xjab,ibja', pxb, cbb, gbb)/4
+            e_doubles = (einsum('xi,xjab,iajb', pxa, caa, gaa)/4
+                       - einsum('xi,xjab,ibja', pxa, caa, gaa)/4
+                       + einsum('xi,xjab,iajb', pxb, cbb, gbb)/4
+                       - einsum('xi,xjab,ibja', pxb, cbb, gbb)/4
                        + einsum('xi,xjab,iajb', pxa, cab, gab)/2
                        + einsum('xj,ixab,iajb', pxb, cba, gab)/2)
         else:
+            assert len(c2) == 3
             caa, cab, cbb = c2
-            e_doubles = (einsum('ijab,iajb', caa, gaa)/4 - einsum('ijab,ibja', caa, gaa)/4
-                       + einsum('ijab,iajb', cbb, gbb)/4 - einsum('ijab,ibja', cbb, gbb)/4
+            e_doubles = (einsum('ijab,iajb', caa, gaa)/4
+                       - einsum('ijab,ibja', caa, gaa)/4
+                       + einsum('ijab,iajb', cbb, gbb)/4
+                       - einsum('ijab,ibja', cbb, gbb)/4
                        + einsum('ijab,iajb', cab, gab))
 
         e_singles = (self.opts.energy_factor*self.sym_factor * e_singles)
         e_doubles = (self.opts.energy_factor*self.sym_factor * e_doubles)
         e_corr = (e_singles + e_doubles)
         return e_singles, e_doubles, e_corr
+
+    def get_cluster_sz(self, proj=None):
+        """<P S_z>"""
+        dm1 = self.results.dm1
+        if dm1 is None:
+            raise ValueError()
+        dm1a, dm1b = dm1
+
+        if proj is None:
+            sz = (einsum('ii->', dm1a) - einsum('ii->', dm1b))/2
+            return sz
+
+        def get_proj_per_spin(p):
+            if np.ndim(p[0]) == 2:
+                return p
+            if np.ndim(p[0]) == 1:
+                return p, p
+            raise ValueError()
+
+        proja, projb = get_proj_per_spin(proj)
+        sz = (einsum('ij,ij->', dm1a, proja)
+            - einsum('ij,ij->', dm1b, projb))/2
+        return sz
+
+    def get_cluster_ssz(self, proj1=None, proj2=None):
+        """<P1 S_z P2 S_z>"""
+        dm1 = self.results.dm1
+        dm2 = self.results.dm2
+        if dm1 is None or dm2 is None:
+            raise ValueError()
+        dm1a, dm1b = dm1
+        dm2aa, dm2ab, dm2bb = dm2
+
+        if proj1 is None:
+            ssz = (einsum('iijj->', dm2aa)/4 + einsum('iijj->', dm2bb)/4
+                 - einsum('iijj->', dm2ab)/2)
+            ssz += (einsum('ii->', dm1a) + einsum('ii->', dm1b))/4
+            return ssz
+
+        def get_proj_per_spin(p):
+            if np.ndim(p[0]) == 2:
+                return p
+            if np.ndim(p[0]) == 1:
+                return p, p
+            raise ValueError()
+
+        if proj2 is None:
+            proj2 = proj1
+        proj1a, proj1b = get_proj_per_spin(proj1)
+        proj2a, proj2b = get_proj_per_spin(proj2)
+        ssz = (einsum('ijkl,ij,kl->', dm2aa, proj1a, proj2a)/4
+             + einsum('ijkl,ij,kl->', dm2bb, proj1b, proj2b)/4
+             - einsum('ijkl,ij,kl->', dm2ab, proj1a, proj2b)/4
+             - einsum('ijkl,ij,kl->', dm2ab, proj2a, proj1b)/4)
+        ssz += (einsum('ij,ik,jk->', dm1a, proj1a, proj2a)
+              + einsum('ij,ik,jk->', dm1b, proj1b, proj2b))/4
+        return ssz

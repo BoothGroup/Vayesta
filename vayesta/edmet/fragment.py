@@ -7,7 +7,10 @@ import scipy.linalg
 
 from vayesta.core.util import *
 from vayesta.dmet.fragment import DMETFragment
+from vayesta.core.bath import BNO_Threshold
 from vayesta.solver import get_solver_class2 as get_solver_class
+from vayesta.core.bath import helper
+
 
 from pyscf import __config__
 
@@ -22,7 +25,6 @@ VALID_SOLVERS = ["EBFCI", "EBCCSD" , "EBFCIQMC"]
 class EDMETFragment(DMETFragment):
     @dataclasses.dataclass
     class Options(DMETFragment.Options):
-        make_rdm_eb: bool = True
         make_dd_moments: bool = NotSet
         old_sc_condition: bool = NotSet
         max_bos: int = NotSet
@@ -37,6 +39,7 @@ class EDMETFragment(DMETFragment):
         boson_freqs: tuple = None
         dd_mom0: np.ndarray = None
         dd_mom1: np.ndarray = None
+        e_fb:  float = None
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -168,7 +171,13 @@ class EDMETFragment(DMETFragment):
     def set_up_fermionic_bath(self, bno_threshold=None, bno_number=None):
         """Set up the fermionic bath orbitals"""
         self.make_bath()
-        cluster = self.make_cluster(self.bath, bno_threshold=bno_threshold, bno_number=bno_number)
+
+        if bno_number is not None:
+            bno_threshold = BNO_Threshold('number', bno_number)
+        else:
+            bno_threshold = BNO_Threshold('occupation', bno_threshold)
+
+        cluster = self.make_cluster(self.bath, bno_threshold=bno_threshold)
         cluster.log_sizes(self.log.info, header="Orbitals for %s" % self)
         self._c_active_occ = cluster.c_active_occ
         self._c_active_vir = cluster.c_active_vir
@@ -190,6 +199,7 @@ class EDMETFragment(DMETFragment):
         env_mom = rpa_mom - dot(rpa_mom, rot_ov.T, rot_ov_pinv)
         # v defines the rotation of the mean-field excitation space specifying our bosons.
         u, s, v = np.linalg.svd(env_mom, full_matrices=False)
+
         want = s > tol
         nbos = min(sum(want), self.opts.max_bos)
         if nbos < len(s):
@@ -197,6 +207,11 @@ class EDMETFragment(DMETFragment):
                           nbos, s[nbos:].max())
         else:
             self.log.info("Zeroth moment matching generated %d cluster bosons.", nbos)
+        self.log.info("Fragment %s Quasiboson histogram", self.id_name)
+        self.log.info("------------------------------%s", "-"*len(self.id_name))
+        bins = np.hstack([np.inf, np.logspace(0, -12, 13), -np.inf])
+        for line in helper.plot_histogram(s, bins=bins):
+            self.log.info(line)
         # Calculate the relevant components of the zeroth moment- we don't want to recalculate these.
         self.r_bos = v[:nbos, :]
         self.eta0_ferm = np.dot(rpa_mom, rot_ov.T)
@@ -479,11 +494,11 @@ class EDMETFragment(DMETFragment):
             else:
                 blk_prefactor = self.mf.mol.nao ** 2
             # Limit ourselves to only use quarter the maximum memory for the single largest array.
-            blksize = int(__config__.MAX_MEMORY / (4 * 8.0 * blk_prefactor))
+            blksize = max(1, int(__config__.MAX_MEMORY / (4 * 8.0 * blk_prefactor)))
             if blksize > self.mf.with_df.get_naoaux():
                 blksize = None
             else:
-                self.log.info("Using blksize of %d to generate Bosonic Hamiltonian.qq", blksize)
+                self.log.info("Using blksize of %d to generate Bosonic Hamiltonian.", blksize)
 
             for eri1 in self.mf.with_df.loop(blksize):
                 # Here we've kept the old einsum expressions around just in case we need comparison later.
@@ -665,6 +680,9 @@ class EDMETFragment(DMETFragment):
 
         cluster_solver = solver_cls(self, self.cluster, **solver_opts)
 
+        if eris is None:
+            eris = cluster_solver.get_eris()
+
         with log_time(self.log.info, ("Time for %s solver:" % solver) + " %s"):
             cluster_solver.kernel(eris=eris)
 
@@ -674,17 +692,11 @@ class EDMETFragment(DMETFragment):
         # Need to rewrite EBFCI solver to expose this properly...
         results.converged = True
 
-        if self.opts.make_rdm2:
-            results.dm1, results.dm2 = cluster_solver.make_rdm12()
-            self.check_qba_approx(results.dm1)
-        elif self.opts.make_rdm1:
-            results.dm1 = cluster_solver.make_rdm1()
-            self.check_qba_approx(results.dm1)
-        if self.opts.make_rdm_eb:
-            if cluster_solver.opts.polaritonic_shift and results.dm1 is None:
-                # Need 1rdm calculated to get polaritonic shift out.
-                results.dm1 = cluster_solver.make_rdm1()
-            results.dm_eb = cluster_solver.make_rdm_eb()
+        results.dm1, results.dm2 = cluster_solver.make_rdm12()
+        self.check_qba_approx(results.dm1)
+        results.dm_eb = cluster_solver.make_rdm_eb()
+        results.e1, results.e2, results.e_fb = self.get_edmet_energy_contrib()
+
         if self.opts.make_dd_moments:
             r_o, r_v = self.get_overlap_c2f()
             if isinstance(r_o, tuple):
@@ -698,6 +710,7 @@ class EDMETFragment(DMETFragment):
                 ddmoms[1] = [np.einsum("ppqq->pq", x) for x in ddmoms[1]]
             results.dd_mom0 = ddmoms[0]
             results.dd_mom1 = ddmoms[1]
+
         return results
 
     def get_solver_options(self, solver, chempot):
@@ -713,9 +726,9 @@ class EDMETFragment(DMETFragment):
 
         return solver_opts
 
-    def get_edmet_energy_contrib(self):
+    def get_edmet_energy_contrib(self, eris=None):
         """Generate EDMET energy contribution, according to expression given in appendix of EDMET preprint"""
-        e1, e2 = self.get_dmet_energy_contrib()
+        e1, e2 = self.get_dmet_energy_contrib(eris)
         c_act = self.cluster.c_active
         p_imp = self.get_fragment_projector(c_act)
         if not isinstance(p_imp, tuple):
@@ -757,7 +770,7 @@ class EDMETFragment(DMETFragment):
         if not isinstance(r_vir, tuple): r_vir = (r_vir, r_vir)
         ov_a, ov_b = self.ov_active_ab
         no_a, no_b = self.nocc_ab
-        nv_a, nv_b = self.nocc_ab
+        nv_a, nv_b = self.nvir_ab
         ncl_a, ncl_b = self.nclus_ab
         # We want to actually consider the difference from the dRPA kernel.
         # Get irreducible polarisation propagator.
@@ -789,7 +802,7 @@ class EDMETFragment(DMETFragment):
         new_xc_b = (dot(fr_proj, new_xc_b) + dot(new_xc_b, fr_proj)) / fac
 
         # Now need to combine A and B contributions, taking care of bosonic contributions.
-        # Not that we currently won't have any boson-boson contributions, and all contributions are
+        # Note that we currently won't have any boson-boson contributions, and all contributions are
         # symmetric.
 
         def get_fermionic_spat_contrib(acon, bcon, no_l, nv_l, no_r, nv_r):
@@ -799,7 +812,7 @@ class EDMETFragment(DMETFragment):
             fermionic[:no_l, no_l:, no_r:, :no_r] = bcon.reshape(f_shape).transpose((0, 1, 3, 2))
             fermionic = fermionic + fermionic.transpose((1, 0, 3, 2))
             return fermionic
-
+        print()
         ferm_aa = get_fermionic_spat_contrib(new_xc_a[:ov_a, :ov_a], new_xc_b[:ov_a, :ov_a], no_a, nv_a, no_a, nv_a)
         ferm_ab = get_fermionic_spat_contrib(new_xc_a[:ov_a, ov_a:-self.nbos], new_xc_b[:ov_a, ov_a:-self.nbos],
                                              no_a, nv_a, no_b, nv_b)

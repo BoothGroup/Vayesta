@@ -84,6 +84,7 @@ class BNO_Bath(DMET_Bath):
     def truncate_bno(self, c_bno, n_bno, bno_threshold=None, bno_number=None, header=None):
         """Split natural orbitals (NO) into bath and rest."""
 
+        # For UHF, call recursively:
         if np.ndim(c_bno[0]) == 2:
             c_bno_a, c_rest_a = self.truncate_bno(c_bno[0], n_bno[0], bno_threshold=bno_threshold,
                     bno_number=bno_number, header='Alpha %s' % header)
@@ -94,10 +95,9 @@ class BNO_Bath(DMET_Bath):
         if bno_number is not None:
             pass
         elif bno_threshold is not None:
-            bno_threshold *= self.fragment.opts.bno_threshold_factor
             bno_number = np.count_nonzero(n_bno >= bno_threshold)
         else:
-            raise ValueError("Either bno_threshold or bno_number needs to be specified.")
+            raise ValueError("Either `bno_threshold` or `bno_number` needs to be specified.")
 
         # Logging
         if header:
@@ -123,11 +123,12 @@ class MP2_BNO_Bath(BNO_Bath):
         super().__init__(*args, **kwargs)
         self.local_dm = local_dm
         # Canonicalization can be set separately for occupied and virtual:
-        if canonicalize in (True, False):
+        if np.ndim(canonicalize) == 0:
             canonicalize = 2*[canonicalize]
         self.canonicalize = canonicalize
 
     def get_mp2_class(self):
+        """TODO: Do not use PySCF MP2 classes."""
         if self.base.boundary_cond == 'open':
             return pyscf.mp.MP2
         return pyscf.pbc.mp.MP2
@@ -167,14 +168,63 @@ class MP2_BNO_Bath(BNO_Bath):
         assert np.allclose(dm, dm.T)
         return dm
 
+    def make_delta_dm1_new(self, kind, t2, actspace):
+        """Delta MP2 density matrix"""
+        norm = 1
+        if self.local_dm is False:
+            self.log.debug("Constructing DM from full T2-amplitudes.")
+            # This is equivalent to:
+            # do, dv = pyscf.mp.mp2._gamma1_intermediates(mp2, eris=eris)
+            # do, dv = -2*do, 2*dv
+            if kind == 'occ':
+                dm = norm*(2*einsum('ikab,jkab->ij', t2, t2)
+                           - einsum('ikab,kjab->ij', t2, t2))
+                # Note that this is equivalent to:
+                #dm = 2*(2*einsum("kiba,kjba->ij", t2l, t2r)
+                #        - einsum("kiba,kjab->ij", t2l, t2r))
+            else:
+                dm = norm*(2*einsum('ijac,ijbc->ab', t2, t2)
+                           - einsum('ijac,ijcb->ab', t2, t2))
+            assert np.allclose(dm, dm.T)
+            return dm
+
+        # Project one T-amplitude onto fragment
+        self.log.debug("Constructing DM from projected T2-amplitudes.")
+        #px = self.fragment.get_overlap_c2f()[0]
+        #t2x = self.fragment.project_amp2_to_fragment(t2)
+        ovlp = self.fragment.base.get_ovlp()
+        px = dot(actspace.c_active_occ.T, ovlp, self.fragment.c_proj)
+
+        t2x = einsum('ix,ijab->xjab', px, t2)
+        #t2x = t2
+        if kind == 'occ':
+            #dm = norm*(2*einsum('ikab,jkab->ij', t2x, t2x)
+            #           - einsum('ikab,kjab->ij', t2x, t2x))
+            dm = norm*(2*einsum('kiab,kjab->ij', t2x, t2x)
+                       - einsum('kiab,kjba->ij', t2x, t2x))
+        else:
+            dm = norm*(2*einsum('ijac,ijbc->ab', t2x, t2x)
+                       - einsum('ijac,ijcb->ab', t2x, t2x))
+        dm = (dm + dm.T) / 2
+        return dm
+
     def get_active_space(self, kind):
         nao = self.mol.nao
+        empty_space = np.zeros((nao, 0)) if self.spin_restricted else np.zeros((2, nao, 0))
         if kind == 'occ':
-            c_active_occ, c_frozen_occ = stack_mo_coeffs(self.c_cluster_occ, self.c_env_occ), 0#np.zeros((nao, 0))
+            c_active_occ = stack_mo_coeffs(self.c_cluster_occ, self.c_env_occ)
+            c_frozen_occ = empty_space
+            #c_active_occ, c_frozen_occ = stack_mo_coeffs(self.c_cluster_occ, self.c_env_occ), 0#np.zeros((nao, 0))
             c_active_vir, c_frozen_vir = self.c_cluster_vir, self.c_env_vir
         elif kind == 'vir':
             c_active_occ, c_frozen_occ = self.c_cluster_occ, self.c_env_occ
-            c_active_vir, c_frozen_vir = stack_mo_coeffs(self.c_cluster_vir, self.c_env_vir), 0#np.zeros((nao, 0))
+            #c_active_vir, c_frozen_vir = stack_mo_coeffs(self.c_cluster_vir, self.c_env_vir), 0#np.zeros((nao, 0))
+            c_active_vir = stack_mo_coeffs(self.c_cluster_vir, self.c_env_vir)#, 0#np.zeros((nao, 0))
+            c_frozen_vir = empty_space
+            #if self.spin_restricted:
+            #    c_active_vir = np.zeros((nao, 0))
+            #else:
+            #    c_active_vir = np.zeros((2, nao, 0))
         else:
             raise ValueError("Unknown kind: %r" % kind)
         actspace = ActiveSpace(self.mf, c_active_occ, c_active_vir, c_frozen_occ, c_frozen_vir)
@@ -239,14 +289,18 @@ class MP2_BNO_Bath(BNO_Bath):
             e_mp2_full, t2 = mp2.kernel(eris=eris)
 
         # --- MP2 energies
-        e_mp2_full *= self.fragment.get_energy_prefactor()
-        # Symmetrize irrelevant?
-        #t2loc = self.fragment.project_amplitudes_to_fragment(mp2, None, t2)[1]
+        #e_mp2_full *= self.fragment.get_energy_prefactor()
+        ## Symmetrize irrelevant?
+        ##t2loc = self.fragment.project_amplitudes_to_fragment(mp2, None, t2)[1]
         t2loc = self.fragment.project_amplitude_to_fragment(t2, c_occ=actspace.c_active_occ, c_vir=False)
-        e_mp2 = self.fragment.get_energy_prefactor() * mp2.energy(t2loc, eris)
-        self.log.debug("MP2 bath energy:  E(Cluster)= %+16.8f Ha  E(Fragment)= %+16.8f Ha", e_mp2_full, e_mp2)
+        #e_mp2 = self.fragment.get_energy_prefactor() * mp2.energy(t2loc, eris)
+        #self.log.debug("MP2 bath energy:  E(Cluster)= %+16.8f Ha  E(Fragment)= %+16.8f Ha", e_mp2_full, e_mp2)
+
+        e_mp2_full *= self.fragment.get_energy_prefactor()
+        self.log.debug("MP2 cluster energy= %s", energy_string(e_mp2_full))
 
         dm = self.make_delta_dm1(kind, t2, t2loc)
+        #dm = self.make_delta_dm1(kind, t2, actspace)
 
         # TEST normalization
         #dm1 = mp2.make_rdm1(eris=eris, with_frozen=False)
@@ -309,19 +363,22 @@ class MP2_BNO_Bath(BNO_Bath):
             self.log.debugv("tr(alpha-dm[env,env])= %g", np.trace(dm[0]))
             self.log.debugv("tr( beta-dm[env,env])= %g", np.trace(dm[1]))
 
+        flip = np.s_[::-1]
         if self.spin_restricted:
             n_bno, c_bno = np.linalg.eigh(dm)
-            n_bno = n_bno[::-1]
-            c_bno = c_bno[:,::-1]
+            n_bno = n_bno[flip]
+            c_bno = c_bno[:,flip]
         else:
+            # Alpha
             n_bno_a, c_bno_a = np.linalg.eigh(dm[0])
+            n_bno_a = n_bno_a[flip]
+            c_bno_a = c_bno_a[:,flip]
+            # Beta
             n_bno_b, c_bno_b = np.linalg.eigh(dm[1])
-            n_bno_a = n_bno_a[::-1]
-            c_bno_a = c_bno_a[:,::-1]
-            n_bno_b = n_bno_b[::-1]
-            c_bno_b = c_bno_b[:,::-1]
-            c_bno = (c_bno_a, c_bno_b)
+            n_bno_b = n_bno_b[flip]
+            c_bno_b = c_bno_b[:,flip]
             n_bno = (n_bno_a, n_bno_b)
+            c_bno = (c_bno_a, c_bno_b)
 
         c_bno = dot_s(c_env, c_bno)
         c_bno = fix_orbital_sign(c_bno)[0]

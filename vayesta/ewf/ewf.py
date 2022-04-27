@@ -5,7 +5,7 @@ from typing import Union
 import numpy as np
 # --- Internal
 from vayesta.core.util import *
-from vayesta.core import QEmbeddingMethod
+from vayesta.core import Embedding
 from vayesta.core.mpi import mpi
 # --- Package
 from . import helper
@@ -13,7 +13,9 @@ from .fragment import EWFFragment as Fragment
 from .amplitudes import get_global_t1_rhf
 from .amplitudes import get_global_t2_rhf
 from .rdm import make_rdm1_ccsd
+from .rdm import make_rdm1_ccsd_old
 from .rdm import make_rdm2_ccsd
+from .icmp2 import get_intercluster_mp2_energy_rhf
 
 timer = mpi.timer
 
@@ -25,14 +27,14 @@ class EWFResults:
     e_corr: float = None
 
 
-VALID_SOLVERS = [None, "", "MP2", "CISD", "CCSD", 'TCCSD', "CCSD(T)", 'FCI', "FCI-spin0", "FCI-spin1"]
+VALID_SOLVERS = [None, '', 'MP2', 'CISD', 'CCSD', 'TCCSD', 'CCSD(T)', 'FCI', 'FCI-spin0', 'FCI-spin1']
 
-class EWF(QEmbeddingMethod):
+class EWF(Embedding):
 
     Fragment = Fragment
 
     @dataclasses.dataclass
-    class Options(QEmbeddingMethod.Options):
+    class Options(Embedding.Options):
         """Options for EWF calculations."""
         # --- Fragment settings
         #fragment_type: str = 'IAO'
@@ -40,6 +42,12 @@ class EWF(QEmbeddingMethod):
         iao_minao : str = 'auto'            # Minimal basis for IAOs
         # --- Bath settings
         bath_type: str = 'MP2-BNO'
+        bno_truncation: str = 'occupation'  # Type of BNO truncation ["occupation", "number", "excited-percent", "electron-percent"]
+        bno_threshold: float = 1e-8
+        bno_threshold_occ: float = None
+        bno_threshold_vir: float = None
+        bno_project_t2: bool = False
+        ewdmet_max_order: int = 1
         # If multiple bno thresholds are to be calculated, we can project integrals and amplitudes from a previous larger cluster:
         project_eris: bool = False          # Project ERIs from a pervious larger cluster (corresponding to larger eta), can result in a loss of accuracy especially for large basis sets!
         project_init_guess: bool = True     # Project converted T1,T2 amplitudes from a previous larger cluster
@@ -53,6 +61,8 @@ class EWF(QEmbeddingMethod):
         eom_ccsd: list = dataclasses.field(default_factory=list)  # Perform EOM-CCSD in each cluster by default
         eom_ccsd_nroots: int = 5            # Perform EOM-CCSD in each cluster by default
         eomfile: str = 'eom-ccsd'           # Filename for EOM-CCSD states
+        # Energy calculation
+        calc_cluster_rdm_energy = True
         # Counterpoise correction of BSSE
         bsse_correction: bool = True
         bsse_rmax: float = 5.0              # In Angstrom
@@ -61,14 +71,18 @@ class EWF(QEmbeddingMethod):
         sc_energy_tol: float = 1e-6
         sc_mode: int = 0
         nelectron_target: int = None
+        # --- Intercluster MP2 energy
+        icmp2: bool = True
+        icmp2_bno_threshold: float = 1e-8
         # --- Other
+        e_corr_part: str = 'all'    # ['all', 'direct', 'exchange']
         #energy_partitioning: str = 'first-occ'
         strict: bool = False                # Stop if cluster not converged
         # --- Storage [True=store and force calculation, 'auto'=store if present, False=do not store]
         store_t1:  Union[bool,str] = True
         store_t2:  Union[bool,str] = True   # in future: False
-        store_l1:  Union[bool,str] = 'auto'
-        store_l2:  Union[bool,str] = 'auto' # in future: False
+        store_l1:  Union[bool,str] = True
+        store_l2:  Union[bool,str] = True # in future: False
         #store_t1x: Union[bool,str] = False  # in future: True
         #store_t2x: Union[bool,str] = False  # in future: True
         #store_l1x: Union[bool,str] = False  # in future: 'auto'
@@ -81,7 +95,7 @@ class EWF(QEmbeddingMethod):
         store_dm2: Union[bool,str] = 'auto'
 
 
-    def __init__(self, mf, bno_threshold=1e-8, solver='CCSD', options=None, log=None, **kwargs):
+    def __init__(self, mf, solver='CCSD', options=None, log=None, **kwargs):
         """Embedded wave function (EWF) calculation object.
 
         Parameters
@@ -93,8 +107,7 @@ class EWF(QEmbeddingMethod):
         **kwargs :
             See class `Options` for additional options.
         """
-
-        t_start = timer()
+        t0 = timer()
         super().__init__(mf, options=options, log=log, **kwargs)
 
         # Options
@@ -107,21 +120,17 @@ class EWF(QEmbeddingMethod):
                 raise RuntimeError("Mean-field calculation not converged.")
             else:
                 self.log.error("Mean-field calculation not converged.")
-        self.bno_threshold = bno_threshold
         if solver not in VALID_SOLVERS:
             raise ValueError("Unknown solver: %s" % solver)
         self.solver = solver
 
-        #self._mo_coeff = self.get_init_mo_coeff()
-
         self.iteration = 0
         self.cluster_results = {}
         self.results = []
-        #self.e_corr = 0.0
-        self.log.timing("Time for EWF setup: %s", time_string(timer()-t_start))
+        self.log.info("Time for %s setup: %s", self.__class__.__name__, time_string(timer()-t0))
 
     def __repr__(self):
-        keys = ['mf', 'bno_threshold', 'solver']
+        keys = ['mf', 'solver']
         fmt = ('%s(' + len(keys)*'%s: %r, ')[:-2] + ')'
         values = [self.__dict__[k] for k in keys]
         return fmt % (self.__class__.__name__, *[x for y in zip(keys, values) for x in y])
@@ -221,10 +230,10 @@ class EWF(QEmbeddingMethod):
         return self.e_mf + self.get_e_corr()
 
     @mpi.with_allreduce()
-    def get_e_corr(self):
+    def get_e_corr(self, fragments=None):
         e_corr = 0.0
         # Only loop over fragments of own MPI rank
-        for f in self.get_fragments(mpi_rank=mpi.rank):
+        for f in self.get_fragments(fragment_list=fragments, mpi_rank=mpi.rank):
             if f.results.e_corr is None:
                 self.log.critical("No fragment E(corr) found for %s! Returning total E(corr)=NaN", f)
                 return np.nan
@@ -244,6 +253,7 @@ class EWF(QEmbeddingMethod):
         bno_threshold : float or iterable, optional
             Bath natural orbital threshold. If `None`, self.opts.bno_threshold is used. Default: None.
         """
+        # Automatic fragmentation
         if self.fragmentation is None:
             self.log.info("No fragmentation found. Using IAO fragmentation.")
             self.iao_fragmentation()
@@ -251,13 +261,12 @@ class EWF(QEmbeddingMethod):
             self.log.info("No fragments found. Using all atomic fragments.")
             self.add_all_atomic_fragments()
 
-        if bno_threshold is None: bno_threshold = self.bno_threshold
         self.check_fragment_nelectron()
         if np.ndim(bno_threshold) == 0:
-            return self.kernel_single_threshold(bno_threshold=bno_threshold)
-        return self.kernel_multiple_thresholds(bno_thresholds=bno_threshold)
+            return self._kernel_single_threshold(bno_threshold=bno_threshold)
+        return self._kernel_multiple_thresholds(bno_thresholds=bno_threshold)
 
-    def kernel_multiple_thresholds(self, bno_thresholds):
+    def _kernel_multiple_thresholds(self, bno_thresholds):
         results = []
         for i, bno in enumerate(bno_thresholds):
             self.log.info("Now running BNO threshold= %.2e", bno)
@@ -269,7 +278,7 @@ class EWF(QEmbeddingMethod):
             # Note that if opts.store_eris has been set to True elsewhere, we do not want to overwrite this,
             # even if store_eris was evaluated as False. For this reason we add `or self.opts.store_eris`.
             with replace_attr(self.opts, store_eris=(store_eris or self.opts.store_eris)):
-                res = self.kernel_single_threshold(bno_threshold=bno)
+                res = self._kernel_single_threshold(bno_threshold=bno)
             results.append(res)
 
         # Output
@@ -278,18 +287,18 @@ class EWF(QEmbeddingMethod):
 
         return results
 
-    def kernel_single_threshold(self, bno_threshold):
+    def _kernel_single_threshold(self, bno_threshold=None):
         """Run EWF.
 
         Parameters
         ----------
-        bno_threshold : float,
+        bno_threshold : float, optional
             Bath natural orbital threshold.
         """
 
         if self.nfrag == 0:
             raise ValueError("No fragments defined for calculation.")
-        assert (not np.ndim(bno_threshold))
+        assert (np.ndim(bno_threshold) == 0)
 
         if mpi: mpi.world.Barrier()
         t_start = timer()
@@ -332,6 +341,29 @@ class EWF(QEmbeddingMethod):
     def get_global_l2(self, *args, **kwargs):
         return self.get_global_t2(*args, get_lambda=True, **kwargs)
 
+    def t1_diagnostic(self, warn_tol=0.02):
+        # Per cluster
+        for f in self.get_fragments(mpi_rank=mpi.rank):
+            t1 = f.results.t1
+            if t1 is None:
+                self.log.error("No T1 amplitudes found for %s.", f)
+                continue
+            nelec = 2*t1.shape[0]
+            t1diag = np.linalg.norm(t1) / np.sqrt(nelec)
+            if t1diag > warn_tol:
+                self.log.warning("T1 diagnostic for %-20s %.5f", str(f)+':', t1diag)
+            else:
+                self.log.info("T1 diagnostic for %-20s %.5f", str(f)+':', t1diag)
+        # Global
+        t1 = self.get_global_t1(mpi_target=0)
+        if mpi.is_master:
+            nelec = 2*t1.shape[0]
+            t1diag = np.linalg.norm(t1) / np.sqrt(nelec)
+            if t1diag > warn_tol:
+                self.log.warning("Global T1 diagnostic: %.5f", t1diag)
+            else:
+                self.log.info("Global T1 diagnostic: %.5f", t1diag)
+
     # --- Bardwards compatibility:
     @deprecated("get_t1 is deprecated - use get_global_t1 instead.")
     def get_t1(self, *args, **kwargs):
@@ -349,61 +381,131 @@ class EWF(QEmbeddingMethod):
     # --- Density-matrices
     # --------------------
 
-    make_rdm1_ccsd = make_rdm1_ccsd
-    make_rdm2_ccsd = make_rdm2_ccsd
+    def make_rdm1_mp2(self, *args, **kwargs):
+        return make_rdm1_ccsd(self, *args, mp2=True, **kwargs)
 
-    def get_wf_cisd(self, intermediate_norm=False, c0=None):
-        c0_target = c0
+    def make_rdm1_ccsd(self, *args, **kwargs):
+        return make_rdm1_ccsd(self, *args, mp2=False, **kwargs)
 
-        c0 = 1.0
-        c1 = np.zeros((self.nocc, self.nvir))
-        c2 = np.zeros((self.nocc, self.nocc, self.nvir, self.nvir))
-        ovlp = self.get_ovlp()
-        # Add fragment WFs in intermediate normalization
-        for f in self.fragments:
-            c1f, c2f = f.results.c1/f.results.c0, f.results.c2/f.results.c0
-            #c1f, c2f = f.results.c1, f.results.c2
-            c1f = f.project_amplitude_to_fragment(c1f, c_occ=f.c_active_occ)
-            c2f = f.project_amplitude_to_fragment(c2f, c_occ=f.c_active_occ)
-            ro = np.linalg.multi_dot((f.c_active_occ.T, ovlp, self.mo_coeff_occ))
-            rv = np.linalg.multi_dot((f.c_active_vir.T, ovlp, self.mo_coeff_vir))
-            c1 += einsum('ia,iI,aA->IA', c1f, ro, rv)
-            #c2f = (c2f + c2f.transpose(1,0,3,2))/2
-            c2 += einsum('ijab,iI,jJ,aA,bB->IJAB', c2f, ro, ro, rv, rv)
+    def make_rdm2_ccsd(self, *args, **kwargs):
+        return make_rdm2_ccsd(self, *args, **kwargs)
 
-        # Symmetrize
-        c2 = (c2 + c2.transpose(1,0,3,2))/2
+    get_intercluster_mp2_energy = get_intercluster_mp2_energy_rhf
 
-        # Restore standard normalization
-        if not intermediate_norm:
-            #c0 = self.fragments[0].results.c0
-            norm = np.sqrt(c0**2 + 2*np.dot(c1.flatten(), c1.flatten()) + 2*np.dot(c2.flatten(), c2.flatten())
-                    - einsum('jiab,ijab->', c2, c2))
-            c0 = c0/norm
-            c1 /= norm
-            c2 /= norm
-            # Check normalization
-            norm = (c0**2 + 2*np.dot(c1.flatten(), c1.flatten()) + 2*np.dot(c2.flatten(), c2.flatten())
-                    - einsum('jiab,ijab->', c2, c2))
-            assert np.isclose(norm, 1.0)
+    #def get_wf_cisd(self, intermediate_norm=False, c0=None):
+    #    c0_target = c0
 
-            if c0_target is not None:
-                norm12 = (2*np.dot(c1.flatten(), c1.flatten()) + 2*np.dot(c2.flatten(), c2.flatten())
-                        - einsum('jiab,ijab->', c2, c2))
-                if norm12 > 1e-10:
-                    print('norm12= %.6e' % norm12)
-                    fac12 = np.sqrt((1.0-c0_target**2)/norm12)
-                    print('fac12= %.6e' % fac12)
-                    c0 = c0_target
-                    c1 *= fac12
-                    c2 *= fac12
+    #    c0 = 1.0
+    #    c1 = np.zeros((self.nocc, self.nvir))
+    #    c2 = np.zeros((self.nocc, self.nocc, self.nvir, self.nvir))
+    #    ovlp = self.get_ovlp()
+    #    # Add fragment WFs in intermediate normalization
+    #    for f in self.fragments:
+    #        c1f, c2f = f.results.c1/f.results.c0, f.results.c2/f.results.c0
+    #        #c1f, c2f = f.results.c1, f.results.c2
+    #        c1f = f.project_amplitude_to_fragment(c1f, c_occ=f.c_active_occ)
+    #        c2f = f.project_amplitude_to_fragment(c2f, c_occ=f.c_active_occ)
+    #        ro = np.linalg.multi_dot((f.c_active_occ.T, ovlp, self.mo_coeff_occ))
+    #        rv = np.linalg.multi_dot((f.c_active_vir.T, ovlp, self.mo_coeff_vir))
+    #        c1 += einsum('ia,iI,aA->IA', c1f, ro, rv)
+    #        #c2f = (c2f + c2f.transpose(1,0,3,2))/2
+    #        c2 += einsum('ijab,iI,jJ,aA,bB->IJAB', c2f, ro, ro, rv, rv)
 
-                    # Check normalization
-                    norm = (c0**2 + 2*np.dot(c1.flatten(), c1.flatten()) + 2*np.dot(c2.flatten(), c2.flatten())
-                            - einsum('jiab,ijab->', c2, c2))
-                    assert np.isclose(norm, 1.0)
+    #    # Symmetrize
+    #    c2 = (c2 + c2.transpose(1,0,3,2))/2
 
-        return c0, c1, c2
+    #    # Restore standard normalization
+    #    if not intermediate_norm:
+    #        #c0 = self.fragments[0].results.c0
+    #        norm = np.sqrt(c0**2 + 2*np.dot(c1.flatten(), c1.flatten()) + 2*np.dot(c2.flatten(), c2.flatten())
+    #                - einsum('jiab,ijab->', c2, c2))
+    #        c0 = c0/norm
+    #        c1 /= norm
+    #        c2 /= norm
+    #        # Check normalization
+    #        norm = (c0**2 + 2*np.dot(c1.flatten(), c1.flatten()) + 2*np.dot(c2.flatten(), c2.flatten())
+    #                - einsum('jiab,ijab->', c2, c2))
+    #        assert np.isclose(norm, 1.0)
+
+    #        if c0_target is not None:
+    #            norm12 = (2*np.dot(c1.flatten(), c1.flatten()) + 2*np.dot(c2.flatten(), c2.flatten())
+    #                    - einsum('jiab,ijab->', c2, c2))
+    #            if norm12 > 1e-10:
+    #                print('norm12= %.6e' % norm12)
+    #                fac12 = np.sqrt((1.0-c0_target**2)/norm12)
+    #                print('fac12= %.6e' % fac12)
+    #                c0 = c0_target
+    #                c1 *= fac12
+    #                c2 *= fac12
+
+    #                # Check normalization
+    #                norm = (c0**2 + 2*np.dot(c1.flatten(), c1.flatten()) + 2*np.dot(c2.flatten(), c2.flatten())
+    #                        - einsum('jiab,ijab->', c2, c2))
+    #                assert np.isclose(norm, 1.0)
+
+    #    return c0, c1, c2
+
+    def get_dm_energy(self, global_dm1=True, global_dm2=False):
+        """Calculate total energy from reduced density-matrices.
+
+        RHF ONLY!
+
+        Parameters
+        ----------
+        global_dm1 : bool
+            Use 1DM calculated from global amplitutes if True, otherwise use in cluster approximation. Default: True
+        global_dm2 : bool
+            Use 2DM calculated from global amplitutes if True, otherwise use in cluster approximation. Default: False
+
+        Returns
+        -------
+        e_tot : float
+        """
+        return self.e_mf + self.get_dm_corr_energy(global_dm1=global_dm1, global_dm2=global_dm2)
+
+    def get_dm_corr_energy(self, global_dm1=True, global_dm2=False):
+        """Calculate correlation energy from reduced density-matrices.
+
+        RHF ONLY!
+
+        Parameters
+        ----------
+        global_dm1 : bool
+            Use 1DM calculated from global amplitutes if True, otherwise use in cluster approximation. Default: True
+        global_dm2 : bool
+            Use 2DM calculated from global amplitutes if True, otherwise use in cluster approximation. Default: False
+
+        Returns
+        -------
+        e_corr : float
+        """
+
+        t_as_lambda = self.opts.t_as_lambda
+        mf = self.mf
+        nmo = mf.mo_coeff.shape[1]
+        nocc = (mf.mo_occ > 0).sum()
+
+        if global_dm1:
+            rdm1 = make_rdm1_ccsd_old(self, t_as_lambda=t_as_lambda)
+        else:
+            rdm1 = self.make_rdm1_ccsd(t_as_lambda=t_as_lambda)
+        rdm1[np.diag_indices(nocc)] -= 2
+
+        # Core Hamiltonian + Non Cumulant 2DM contribution
+        e1 = einsum('pi,pq,qj,ij->', self.mo_coeff, self.get_fock_for_energy(with_exxdiv=False), self.mo_coeff, rdm1)
+
+        # Cumulant 2DM contribution
+        if global_dm2:
+            # Calculate global 2RDM and contract with ERIs
+            eri = self.get_eris_array(self.mo_coeff)
+            rdm2 = self.make_rdm2_ccsd(slow=True, t_as_lambda=t_as_lambda)
+            e2 = einsum('pqrs,pqrs', eri, rdm2) * 0.5
+        else:
+            # Fragment Local 2DM cumulant contribution
+            e2 = sum(f.results.e_rdm2 for f in self.fragments)
+        e_corr = (e1 + e2) / self.ncells
+        return e_corr
+
 
     # -------------------------------------------------------------------------------------------- #
 
@@ -661,5 +763,166 @@ class EWF(QEmbeddingMethod):
     #    self.log.info("%3s  %20s  %8s  %4s", "ID", "Name", "Solver", "Size")
     #    for frag in self.loop():
     #        self.log.info("%3d  %20s  %8s  %4d", frag.id, frag.name, frag.solver, frag.size)
+
+
+    #def get_delta_mp2_correction(self, exchange=True):
+    #    """(ia|L)(L|j'b') energy."""
+
+    #    self.log.debug("Intracluster MP2 energies:")
+    #    ovlp = self.get_ovlp()
+    #    e_dmp2 = 0.0
+    #    for x in self.get_fragments():
+    #        c_occ_x = x.bath.dmet_bath.c_cluster_occ
+    #        c_vir_x = self.mo_coeff_vir
+    #        lx, lx_neg = self.get_cderi((c_occ_x, c_vir_x))
+    #        eix = x.get_fragment_mo_energy(c_occ_x)
+    #        eax = x.get_fragment_mo_energy(c_vir_x)
+    #        eia_x = (eix[:,None] - eax[None,:])
+
+    #        gijab = einsum('Lia,Ljb->ijab', lx, lx) # N - N^3
+    #        if lx_neg is not None:
+    #            gijab -= einsum('Lia,Ljb->ijab', lx_neg, lx_neg)
+    #        eijab = (eia_x[:,None,:,None] + eia_x[None,:,None,:])
+    #        t2 = (gijab / eijab)
+
+    #        px = dot(x.c_proj.T, ovlp, c_occ_x)
+
+    #        evir_d = 2*einsum('xi,ijab,xk,kjab->', px, t2, px, gijab)
+    #        e_dmp2 += evir_d
+    #        if exchange:
+    #            evir_x = - einsum('xi,ijab,xk,kjba->', px, t2, px, gijab)
+    #            e_dmp2 += evir_x
+    #        else:
+    #            evir_x = 0.0
+
+    #        estr = energy_string
+    #        self.log.debug("  %12s:  direct= %s  exchange= %s  total= %s", x.id_name, estr(evir_d), estr(evir_x), estr(evir_d + evir_x))
+
+    #        # Double counting
+    #        c_vir_x = x.cluster.c_active_vir
+    #        lx, lx_neg = self.get_cderi((c_occ_x, c_vir_x))
+    #        eax = x.get_fragment_mo_energy(c_vir_x)
+    #        eia_x = (eix[:,None] - eax[None,:])
+
+    #        gijab = einsum('Lia,Ljb->ijab', lx, lx) # N - N^3
+    #        if lx_neg is not None:
+    #            gijab -= einsum('Lia,Ljb->ijab', lx_neg, lx_neg)
+    #        eijab = (eia_x[:,None,:,None] + eia_x[None,:,None,:])
+    #        t2 = (gijab / eijab)
+
+    #        edc_d = 2*einsum('xi,ijab,xk,kjab->', px, t2, px, gijab)
+    #        e_dmp2 -= edc_d
+    #        if exchange:
+    #            edc_x = - einsum('xi,ijab,xk,kjba->', px, t2, px, gijab)
+    #            e_dmp2 -= edc_x
+    #        else:
+    #            edc_x = 0.0
+
+    #        estr = energy_string
+    #        self.log.debug("DC:  %12s:  direct= %s  exchange= %s  total= %s", x.id_name, estr(edc_d), estr(edc_x), estr(edc_d + edc_x))
+
+    #    return e_dmp2
+
+    #def get_delta_mp2_correction_occ(self, exchange=True):
+    #    """(ia|L)(L|j'b') energy."""
+
+    #    self.log.debug("Intracluster MP2 energies:")
+    #    ovlp = self.get_ovlp()
+    #    e_dmp2 = 0.0
+    #    for x in self.get_fragments():
+    #        c_occ_x = self.mo_coeff_occ
+    #        c_vir_x = x.bath.dmet_bath.c_cluster_vir
+    #        lx, lx_neg = self.get_cderi((c_occ_x, c_vir_x))
+    #        eix = x.get_fragment_mo_energy(c_occ_x)
+    #        eax = x.get_fragment_mo_energy(c_vir_x)
+    #        eia_x = (eix[:,None] - eax[None,:])
+
+    #        gijab = einsum('Lia,Ljb->ijab', lx, lx) # N - N^3
+    #        if lx_neg is not None:
+    #            gijab -= einsum('Lia,Ljb->ijab', lx_neg, lx_neg)
+    #        eijab = (eia_x[:,None,:,None] + eia_x[None,:,None,:])
+    #        t2 = (gijab / eijab)
+
+    #        px = dot(x.c_proj.T, ovlp, c_occ_x)
+
+    #        evir_d = 2*einsum('xi,ijab,xk,kjab->', px, t2, px, gijab)
+    #        e_dmp2 += evir_d
+    #        if exchange:
+    #            evir_x = - einsum('xi,ijab,xk,kjba->', px, t2, px, gijab)
+    #            e_dmp2 += evir_x
+    #        else:
+    #            evir_x = 0.0
+
+    #        estr = energy_string
+    #        self.log.debug("  %12s:  direct= %s  exchange= %s  total= %s", x.id_name, estr(evir_d), estr(evir_x), estr(evir_d + evir_x))
+
+    #        # Double counting
+    #        c_occ_x = x.cluster.c_active_occ
+    #        lx, lx_neg = self.get_cderi((c_occ_x, c_vir_x))
+    #        eix = x.get_fragment_mo_energy(c_occ_x)
+    #        eia_x = (eix[:,None] - eax[None,:])
+
+    #        px = dot(x.c_proj.T, ovlp, c_occ_x)
+
+    #        gijab = einsum('Lia,Ljb->ijab', lx, lx) # N - N^3
+    #        if lx_neg is not None:
+    #            gijab -= einsum('Lia,Ljb->ijab', lx_neg, lx_neg)
+    #        eijab = (eia_x[:,None,:,None] + eia_x[None,:,None,:])
+    #        t2 = (gijab / eijab)
+
+    #        edc_d = 2*einsum('xi,ijab,xk,kjab->', px, t2, px, gijab)
+    #        e_dmp2 -= edc_d
+    #        if exchange:
+    #            edc_x = - einsum('xi,ijab,xk,kjba->', px, t2, px, gijab)
+    #            e_dmp2 -= edc_x
+    #        else:
+    #            edc_x = 0.0
+
+    #        estr = energy_string
+    #        self.log.debug("DC:  %12s:  direct= %s  exchange= %s  total= %s", x.id_name, estr(edc_d), estr(edc_x), estr(edc_d + edc_x))
+
+    #    return e_dmp2
+
+    #def get_intracluster_mp2_correction(self, exchange=True):
+    #    """(ia|L)(L|j'b') energy."""
+
+    #    self.log.debug("Intracluster MP2 energies:")
+    #    ovlp = self.get_ovlp()
+    #    e_dmp2 = 0.0
+    #    for x in self.get_fragments():
+    #        c_occ_x = x.bath.dmet_bath.c_cluster_occ
+    #        c_vir_x = self.mo_coeff_vir
+    #        lx, lx_neg = self.get_cderi((c_occ_x, c_vir_x))
+    #        eix = x.get_fragment_mo_energy(c_occ_x)
+    #        eax = x.get_fragment_mo_energy(c_vir_x)
+    #        eia_x = (eix[:,None] - eax[None,:])
+
+    #        gijab = einsum('Lia,Ljb->ijab', lx, lx) # N - N^3
+    #        if lx_neg is not None:
+    #            gijab -= einsum('Lia,Ljb->ijab', lx_neg, lx_neg)
+    #        eijab = (eia_x[:,None,:,None] + eia_x[None,:,None,:])
+    #        t2 = (gijab / eijab)
+
+    #        px = dot(x.c_proj.T, ovlp, c_occ_x)
+
+    #        # vir minus active vir
+    #        pvirenv = dot(x.cluster.c_active_vir.T, ovlp, c_vir_x)
+    #        pvirenv = np.eye(pvirenv.shape[-1]) - dot(pvirenv.T, pvirenv)
+
+    #        # Virtual
+    #        evir_d = 2*einsum('xi,ijAb,xk,kjab,aA->', px, t2, px, gijab, pvirenv)
+    #        e_dmp2 += evir_d
+    #        if exchange:
+    #            evir_x = - einsum('xi,ijAb,xk,kjba,aA->', px, t2, px, gijab, pvirenv)
+    #            e_dmp2 += evir_x
+    #        else:
+    #            evir_x = 0.0
+
+    #        estr = energy_string
+    #        self.log.debug("  %12s:  direct= %s  exchange= %s  total= %s", x.id_name, estr(evir_d), estr(evir_x), estr(evir_d + evir_x))
+
+    #    return e_dmp2
+
+
 
 REWF = EWF

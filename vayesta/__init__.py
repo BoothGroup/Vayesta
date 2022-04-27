@@ -44,6 +44,13 @@ if (args.output is None) and (mpi.is_master):
 if (args.output or args.log or (not mpi.is_master)):
     logname = (args.output or args.log) or "vayesta"
     log.addHandler(vlog.VFileHandler(logname, formatter=fmt))
+# Error handler
+errlog = args.errlog
+if errlog:
+    errfmt = vlog.VFormatter(show_mpi_rank=True, indent=False)
+    errhandler = vlog.VFileHandler(errlog, formatter=errfmt, add_mpi_rank=False)
+    errhandler.setLevel(args.errlog_level)
+    log.addHandler(errhandler)
 
 # Print Logo
 log.info(logo + (' Version %s' % __version__) + '\n')
@@ -70,7 +77,7 @@ import_package('h5py')
 pyscf = import_package('PySCF')
 import_package('mpi4py', False)
 import_package('cvxpy', False)
-import_package('ebcc', False)
+ebcc = import_package('ebcc', False)
 
 
 # --- Git hashes
@@ -112,6 +119,9 @@ def new_log(logname, fmt=None, remove_existing=True):
         fmt = vlog.VFormatter(indent=True)
     if remove_existing:
         for hdl in log.handlers[:]:
+            # Do not remove error handler
+            if hdl is errhandler:
+                continue
             log.removeHandler(hdl)
     log.addHandler(vlog.VFileHandler(logname, formatter=fmt))
 

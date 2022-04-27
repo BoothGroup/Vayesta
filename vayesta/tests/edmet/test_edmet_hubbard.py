@@ -4,7 +4,7 @@ from vayesta import edmet
 from vayesta.tests.cache import latts
 
 
-class HubbardEDMETTests(unittest.TestCase):
+class EDMET_Hubbard_Tests(unittest.TestCase):
     PLACES_ENERGY = 6
 
     def _test_energy(self, emb, known_values):
@@ -57,35 +57,39 @@ class HubbardEDMETTests(unittest.TestCase):
                 latts['hubb_10_u2']['rhf'],
                 solver='EBFCI',
                 solver_options={"max_boson_occ": 2},
+                bosonic_interaction="direct",
+                oneshot=True,
+                make_dd_moments=False,
         )
         emb.site_fragmentation()
         frag = emb.add_atomic_fragment([0, 1])
         frag.add_tsymmetric_fragments(tvecs=[5, 1, 1])
         emb.kernel()
 
-        known_values = {'e_tot': -9.408491841167798}
+        known_values = {'e_tot':-8.793485086132375}
 
         self._test_energy(emb, known_values)
 
-    def test_14_upoint4_2imp_4occ(self):
-        """Tests for N=14 U=0.4 Hubbard model with double site impurities.
-        """
+    # Suspended this test in favour of one with EBCCSD due to time constraints.
+    #def test_14_upoint4_2imp_4occ(self):
+    #    """Tests for N=14 U=0.4 Hubbard model with double site impurities.
+    #    """
 
-        emb = edmet.EDMET(
-                latts['hubb_14_u0.4']['rhf'],
-                solver='EBFCI',
-                solver_options={"max_boson_occ":4},
-                maxiter=30,
-                max_elec_err=1e-6
-        )
-        emb.site_fragmentation()
-        frag = emb.add_atomic_fragment([0, 1])
-        frag.add_tsymmetric_fragments(tvecs=[7, 1, 1])
-        emb.kernel()
+    #    emb = edmet.EDMET(
+    #            latts['hubb_14_u0.4']['rhf'],
+    #            solver='EBFCI',
+    #            solver_options={"max_boson_occ":3},
+    #            maxiter=30,
+    #            max_elec_err=1e-6
+    #    )
+    #    emb.site_fragmentation()
+    #    frag = emb.add_atomic_fragment([0, 1])
+    #    frag.add_tsymmetric_fragments(tvecs=[7, 1, 1])
+    #    emb.kernel()
 
-        known_values = {'e_tot': -16.662395972582996}
+    #    known_values = {'e_tot':-16.63125078900363}
 
-        self._test_energy(emb, known_values)
+    #    self._test_energy(emb, known_values)
 
     #FIXME bug #9
     #def test_6x6_u0_1x1imp_2occ(self):
@@ -114,13 +118,16 @@ class HubbardEDMETTests(unittest.TestCase):
                 latts['hubb_6x6_u6_1x1imp']['rhf'],
                 solver='EBFCI',
                 solver_options={"max_boson_occ":2},
+                bosonic_interaction="direct",
+                oneshot=True,
+                make_dd_moments=False,
         )
         emb.site_fragmentation()
         frag = emb.add_atomic_fragment([0])
         frag.add_tsymmetric_fragments(tvecs=[6, 6, 1])
         emb.kernel()
 
-        known_values = {'e_tot': -54.380254552002356}
+        known_values = {'e_tot':-49.255623407653644}
 
         self._test_energy(emb, known_values)
 
