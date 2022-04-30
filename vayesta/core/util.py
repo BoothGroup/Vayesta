@@ -1,8 +1,10 @@
 import os
+import re
 import sys
 import logging
 import dataclasses
 import copy
+import string
 import functools
 from timeit import default_timer
 from contextlib import contextmanager
@@ -65,13 +67,92 @@ def dot(*args, out=None):
     """Like NumPy's multi_dot, but variadic"""
     return np.linalg.multi_dot(args, out=out)
 
-def einsum(*args, **kwargs):
-    kwargs['optimize'] = kwargs.pop('optimize', True)
+def _einsum_replace_decorated_subscripts(subscripts):
+    """Support for decorated indices: a!, b$, c3, d123.
+
+    Characters in ',->.()[]{}' cannot be used as decorators.
+    """
+    free = sorted(set(string.ascii_letters).difference(set(subscripts)))
+    keep = (string.ascii_letters + ' ,->.()[]{}')
+    replaced = {}
+    subscripts_out = []
+    for char in subscripts:
+        if char in keep:
+            subscripts_out += char
+            continue
+        else:
+            last = (subscripts_out.pop() if len(subscripts_out) else '%')
+            if last not in string.ascii_letters:
+                raise ValueError("Invalid subscripts: '%s'" % subscripts)
+            comb = (last + char)
+            if comb not in replaced:
+                replaced[comb] = free.pop()
+            subscripts_out += replaced[comb]
+    return ''.join(subscripts_out)
+
+def _ordered_einsum(einsumfunc, subscripts, *operands, **kwargs):
+    """Support for parenthesis in einsum subscripts: '(ab,bc),cd->ad'."""
+
+    def resolve(subs, *ops):
+        #print('resolve called with %s and %d operands' % (subs, len(ops)))
+
+        idx_right = re.sub('[\]}]', ')', subs).find(')')
+        idx_left = re.sub('[\[{]', '(', subs[:idx_right]).rfind('(')
+
+        if idx_left == idx_right == -1:
+            return einsumfunc(subs, *ops, **kwargs)
+        if (idx_left == -1 or idx_right == -1):
+            raise ValueError("Unmatched parenthesis: '%s'" % subs)
+        bracket_types = {'(': ')', '[': ']', '{': '}'}
+        if subs[idx_right] != bracket_types[subs[idx_left]]:
+            raise ValueError("Unmatched parenthesis: '%s'" % subs)
+
+        subs_int = subs[idx_left+1:idx_right]
+        subs_left = subs[:idx_left]
+        subs_right = subs[idx_right+1:]
+
+        # Split operands
+        nops_left = subs_left.count(',')
+        nops_right = subs_right.count(',')
+        nops_int = subs_int.count(',') + 1
+        ops_int = ops[nops_left:nops_left+nops_int]
+        ops_left = ops[:nops_left]
+        ops_right = ops[nops_left+nops_int:]
+
+        if '->' in subs_int:
+            subs_int_in, subs_int_out = subs_int.split('->')
+        else:
+            subs_int_in = subs_int
+
+            #possible = subs_int_in.replace(',', '').replace(' ', '')
+            #subs_int_out = ''.join([x for x in possible if x in (subs_left + subs_right)])
+            #subs_int = '->'.join([subs_int_in, subs_int_out])
+            subs_int_out = np.core.einsumfunc._parse_einsum_input((subs_int_in, *ops_int))[1]
+
+        # Perform intern einsum
+        res_int = einsumfunc(subs_int, *ops_int, **kwargs)
+        # Resolve recursively
+        subs_ext = subs_left + subs_int_out +  subs_right
+        ops_ext = ops_left + (res_int,) + ops_right
+        return resolve(subs_ext, *ops_ext)
+
+    res = resolve(subscripts, *operands)
+    return res
+
+def einsum(subscripts, *operands, **kwargs):
+    subscripts = _einsum_replace_decorated_subscripts(subscripts)
+
+    if np.any([x in subscripts for x in '()[]{}']):
+        return _ordered_einsum(einsum, subscripts, *operands, **kwargs)
+
+    kwargs['optimize'] = kwargs.get('optimize', True)
+    driver = kwargs.get('driver', np.einsum)
     try:
-        res = np.einsum(*args, **kwargs)
+        res = driver(subscripts, *operands, **kwargs)
+    # Better shape information in case of exception:
     except ValueError:
-        log.fatal("einsum('%s',...) failed. shapes of arguments:", args[0])
-        for i, arg in enumerate(args[1:]):
+        log.fatal("einsum('%s',...) failed. shapes of arguments:", subscripts)
+        for i, arg in enumerate(operands):
             log.fatal('%d: %r', i, list(np.asarray(arg).shape))
         raise
     # Unpack scalars (for optimize = True):
@@ -402,6 +483,33 @@ def fix_orbital_sign(mo_coeff, inplace=True):
     return mo_coeff, signs
 
 if __name__ == '__main__':
+
+    a = b = c = np.random.rand(3,3)
+    ##cmd = 'ab,bc,cd->ad'
+    #cmd = '(ab,bc->ac),cd->ad'
+    #res = _einsum_parenthesis(cmd, a, b, c)
+    #print(res)
+    #1/0
+
+
+    z = np.einsum('ab,bc,cd->ad', a, b, c)
+    z2 = einsum('ab,bc,cd->ad', a, b, c)
+    #z2 = einsum('a1a2,a2a3,a3a4->a1a4', a, b, c)
+    z3 = einsum('(ab,bc->ac),cd->ad', a, b, c)
+
+    1/0
+
+    z4 = einsum('ab,(bc,cd->bd)->ad', a, b, c)
+
+    z5 = einsum('(ab,bc),cd->ad', a, b, c)
+    #assert np.allclose(z, z2)
+    assert np.allclose(z, z3)
+    assert np.allclose(z, z4)
+    assert np.allclose(z, z5)
+
+    1/0
+
+
     a1 = np.random.rand(2, 3)
     a2 = np.random.rand(2, 3)
     s = np.random.rand(3, 3)

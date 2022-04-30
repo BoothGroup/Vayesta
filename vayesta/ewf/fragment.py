@@ -313,12 +313,12 @@ class EWFFragment(Fragment):
             cluster_solver.optimize_cpt(self.opts.nelectron_target, c_frag=self.c_proj)
         elif cpt_frag:
             # Add chemical potential to fragment space
-            r = self.get_fo2co()
+            r = self.get_overlap('cluster|frag')
             if self.base.is_rhf:
-                p_frag = np.dot(r.T, r)
+                p_frag = np.dot(r, r.T)
                 cluster_solver.v_ext = cpt_frag * p_frag
             else:
-                p_frag = (np.dot(r[0].T, r[0]), np.dot(r[1].T, r[1]))
+                p_frag = (np.dot(r[0], r[0].T), np.dot(r[1], r[1].T))
                 cluster_solver.v_ext = (cpt_frag * p_frag[0], cpt_frag * p_frag[1])
 
         # --- Coupled fragments
@@ -344,7 +344,7 @@ class EWFFragment(Fragment):
         # Full cluster WF
         results.wf = cluster_solver.wf
         # Projected WF
-        proj = self.get_fo2co_occ()
+        proj = self.get_overlap('frag|cluster-occ')
         if isinstance(cluster_solver.wf, RFCI_WaveFunction):
             pwf = cluster_solver.wf.as_cisd()
         else:
@@ -364,7 +364,7 @@ class EWFFragment(Fragment):
                 pwf = self.results.wf.as_cisd(c0=1.0)
             except AttributeError:
                 pwf = self.results.wf.to_cisd(c0=1.0)
-            pwf = pwf.project(self.get_fo2co_occ(), inplace=False)
+            pwf = pwf.project(proj, inplace=False)
             e_singles, e_doubles, e_corr = self.get_fragment_energy(pwf.c1, pwf.c2, eris=eris, c2ba_order='ba')
 
         if (solver != 'FCI' and (e_singles > max(0.1*e_doubles, 1e-4))):
@@ -483,7 +483,7 @@ class EWFFragment(Fragment):
         nocc, nvir = c2.shape[1:3]
         occ, vir = np.s_[:nocc], np.s_[nocc:]
         if axis1 == 'fragment':
-            px = self.get_occ2frag_projector()
+            px = self.get_overlap('frag|cluster-occ')
 
         # --- Singles energy (zero for HF-reference)
         if c1 is not None:
@@ -533,17 +533,17 @@ class EWFFragment(Fragment):
             l1x, l2x = pwf.l1, pwf.l2
         return t1, t2, t1x, t2x, l1x, l2x
 
-    #def make_partial_dm1(self, t_as_lambda=False, with_t1=True, sym_t2=True):
-    #    """Currently CCSD only.
+    def make_fragment_dm1(self, t_as_lambda=False, with_t1=True, sym_t2=True):
+        """Currently CCSD only.
 
-    #    Without mean-field contribution!"""
-    #    t1, t2, t1x, t2x, l1x, l2x = self._ccsd_amplitudes_for_dm(t_as_lambda=t_as_lambda, sym_t2=sym_t2)
-    #    if not with_t1:
-    #        t1 = t1x = l1x = np.zeros_like(t1)
-    #    doo, dov, dvo, dvv = pyscf.cc.ccsd_rdm._gamma1_intermediates(None, t1, t2, l1x, l2x)
-    #    dvo += (t1x - t1).T
-    #    dm1 = pyscf.cc.ccsd_rdm._make_rdm1(None, (doo, dov, dvo, dvv), with_frozen=False, with_mf=False)
-    #    return dm1
+        Without mean-field contribution!"""
+        t1, t2, t1x, t2x, l1x, l2x = self._ccsd_amplitudes_for_dm(t_as_lambda=t_as_lambda, sym_t2=sym_t2)
+        if not with_t1:
+            t1 = t1x = l1x = np.zeros_like(t1)
+        doo, dov, dvo, dvv = pyscf.cc.ccsd_rdm._gamma1_intermediates(None, t1, t2, l1x, l2x)
+        dvo += (t1x - t1).T
+        dm1 = pyscf.cc.ccsd_rdm._make_rdm1(None, (doo, dov, dvo, dvv), with_frozen=False, with_mf=False)
+        return dm1
 
     def make_fragment_cumulant(self, t_as_lambda=False, sym_t2=True, sym_cum=True):
         """Currently MP2/CCSD only.

@@ -20,6 +20,11 @@ import pyscf.pbc.cc
 import pyscf.pbc.tools
 from pyscf.pbc.scf.addons import kconj_symmetry_
 
+import vayesta
+from vayesta.misc import molecules
+from vayesta.misc import solids
+from vayesta.core import fold_scf
+
 
 class TestMolecule:
 
@@ -105,7 +110,9 @@ class TestSolid:
         mol.build()
         if supercell is not None:
             mol = pyscf.pbc.tools.super_cell(mol, supercell)
+        self.supercell = supercell
         self.mol = mol
+        #kmesh = (kmesh or supercell)
         self.kpts = self.mol.make_kpts(kmesh) if kmesh is not None else None
         self.auxbasis = auxbasis
 
@@ -120,7 +127,12 @@ class TestSolid:
         rhf = rhf.density_fit(auxbasis=self.auxbasis)
         if self.kpts is not None:
             rhf = kconj_symmetry_(rhf)
+        rhf.conv_tol = 1e-10
         rhf.kernel()
+        #if self.supercell is not None:
+        #    rhf = fold_scf(rhf)
+        #    self.mol = rhf.mol
+        #    self.kpts = None
         return rhf
 
     @cache
@@ -132,17 +144,47 @@ class TestSolid:
         uhf = rhf.density_fit(auxbasis=self.auxbasis)
         if self.kpts is not None:
             uhf = kconj_symmetry_(uhf)
+        uhf.conv_tol = 1e-10
         uhf.kernel()
+        #if self.supercell is not None:
+        #    uhf = fold_scf(uhf)
+        #    self.mol = uhf.mol
+        #    self.kpts = None
         return uhf
+
+    # --- MP2
+
+    @cache
+    def rmp2(self):
+        mf = self.rhf()
+        if self.kpts is None:
+            rmp2 = pyscf.pbc.mp.RMP2(mf)
+        else:
+            rmp2 = pyscf.pbc.mp.KRMP2(mf)
+        rmp2.kernel()
+        return rmp2
+
+    @cache
+    def ump2(self):
+        mf = self.uhf()
+        if self.kpts is None:
+            ump2 = pyscf.pbc.mp.UMP2(mf)
+        else:
+            ump2 = pyscf.pbc.mp.KUMP2(mf)
+        ump2.kernel()
+        return ump2
 
     # --- CCSD
 
     @cache
     def rccsd(self):
+        mf = self.rhf()
         if self.kpts is None:
-            rccsd = pyscf.pbc.cc.RCCSD(self.rhf())
+            rccsd = pyscf.pbc.cc.RCCSD(mf)
         else:
-            rccsd = pyscf.pbc.cc.KRCCSD(self.rhf())
+            rccsd = pyscf.pbc.cc.KRCCSD(mf)
+        rccsd.conv_tol = 1e-10
+        rccsd.conv_tol_normt = 1e-8
         rccsd.kernel()
         if self.kpts is None:
             rccsd.solve_lambda()
@@ -150,10 +192,13 @@ class TestSolid:
 
     @cache
     def uccsd(self):
+        mf = self.uhf()
         if self.kpts is None:
-            uccsd = pyscf.pbc.cc.UCCSD(self.uhf())
+            uccsd = pyscf.pbc.cc.UCCSD(mf)
         else:
-            uccsd = pyscf.pbc.cc.KUCCSD(self.uhf())
+            uccsd = pyscf.pbc.cc.KUCCSD(mf)
+        uccsd.conv_tol = 1e-10
+        uccsd.conv_tol_normt = 1e-8
         uccsd.kernel()
         if self.kpts is None:
             uccsd.solve_lambda()
@@ -190,15 +235,28 @@ a = 2*np.eye(3)
 a[2,2] = 4
 nk = 3
 opts = dict(basis='sto-3g', auxbasis='sto-3g', exp_to_discard=0.1)
-h2_sto3g_k3 = TestSolid(
-    a=a, atom='H 0 0 0 ; H 0 0 0.74', kmesh=(nk,1,1), **opts)
-h2_sto3g_s3 = TestSolid(
-    a=a, atom='H 0 0 0 ; H 0 0 0.74', supercell=(nk,1,1), **opts)
+h2_sto3g_k311 = TestSolid(a=a, atom='H 0 0 0 ; H 0 0 0.74', kmesh=(nk,1,1), **opts)
+h2_sto3g_s311 = TestSolid(a=a, atom='H 0 0 0 ; H 0 0 0.74', supercell=(nk,1,1), **opts)
 
+mesh = (4,3,3)
+h2_sto3g_k333 = TestSolid(a=a, atom='H 0 0 0 ; H 0 0 0.74', kmesh=mesh, **opts)
+h2_sto3g_s333 = TestSolid(a=a, atom='H 0 0 0 ; H 0 0 0.74', supercell=mesh, **opts)
+
+#opts = dict(basis='cc-pvdz', auxbasis='cc-pvdz-ri', exp_to_discard=0.1)
+#h2_dz_k333 = TestSolid(
+#    a=a, atom='H 0 0 0 ; H 0 0 0.74', kmesh=(3,3,3), **opts)
+#h2_dz_s333 = TestSolid(
+#    a=a, atom='H 0 0 0 ; H 0 0 0.74', supercell=(3,3,3), **opts)
+
+opts = dict(basis='sto-3g', auxbasis='sto-3g', exp_to_discard=0.1)
+#mesh = (3,3,3)
+mesh = (2,1,1)
+a, atom = solids.diamond()
+diamond_sto3g_k333 = TestSolid(a=a, atom=atom, kmesh=mesh, **opts)
+diamond_sto3g_s333 = TestSolid(a=a, atom=atom, supercell=mesh, **opts)
 
 #he_431g_gamma = TestSolid(
 #        a=3*np.eye(3), atom='He 0 0 0', basis='431g')
 #
 #he_431g_k222 = TestSolid(
 #        a=3*np.eye(3), atom='He 0 0 0', basis='431g', kmesh=(2,2,2))
-

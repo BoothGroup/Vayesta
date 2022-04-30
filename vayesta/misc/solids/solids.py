@@ -38,6 +38,7 @@ def graphite(atoms=['C', 'C', 'C', 'C'], a=2.461, c=6.708):
 
 def rocksalt(atoms=['Na', 'Cl'], a=5.6402, primitive=True):
     """
+    LiH: a=4.0834
     LiF: a=4.0351
     """
     if primitive:

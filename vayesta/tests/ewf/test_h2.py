@@ -8,12 +8,12 @@ from vayesta.core.util import cache
 from vayesta.tests import testsystems
 from vayesta.tests.common import TestCase
 
-class TestH2(TestCase):
+class TestH2_MP2(TestCase):
 
     @classmethod
     def setUpClass(cls):
         cls.mf = testsystems.h2_dz.rhf()
-        cls.cc = testsystems.h2_dz.rccsd()
+        cls.cc = testsystems.h2_dz.rmp2()
 
     @classmethod
     def tearDownClass(cls):
@@ -24,9 +24,7 @@ class TestH2(TestCase):
     @classmethod
     @cache
     def emb(cls, bno_threshold):
-        emb = vayesta.ewf.EWF(cls.mf, bno_threshold=bno_threshold, solve_lambda=True)
-        emb.iao_fragmentation()
-        emb.add_all_atomic_fragments()
+        emb = vayesta.ewf.EWF(cls.mf, bno_threshold=bno_threshold, solver='MP2')
         emb.kernel()
         return emb
 
@@ -36,6 +34,34 @@ class TestH2(TestCase):
         emb = self.emb(-1)
         self.assertAllclose(emb.e_tot, self.cc.e_tot, rtol=0)
         self.assertAllclose(emb.e_corr, self.cc.e_corr, rtol=0)
+
+    def test_t_amplitudes(self):
+        emb = self.emb(-1)
+        t2 = emb.get_global_t2()
+        self.assertAllclose(t2, self.cc.t2)
+
+    def test_global_dm1(self):
+        emb = self.emb(-1)
+        dm1_exact = self.cc.make_rdm1()
+
+        dm1 = emb.make_rdm1(late_t2_sym=True)
+        self.assertAllclose(dm1, dm1_exact)
+        dm1 = emb.make_rdm1(late_t2_sym=False)
+        self.assertAllclose(dm1, dm1_exact)
+
+class TestH2_CCSD(TestH2_MP2):
+
+    @classmethod
+    def setUpClass(cls):
+        cls.mf = testsystems.h2_dz.rhf()
+        cls.cc = testsystems.h2_dz.rccsd()
+
+    @classmethod
+    @cache
+    def emb(cls, bno_threshold):
+        emb = vayesta.ewf.EWF(cls.mf, bno_threshold=bno_threshold, solve_lambda=True)
+        emb.kernel()
+        return emb
 
     def test_t_amplitudes(self):
         emb = self.emb(-1)
@@ -67,55 +93,31 @@ class TestH2(TestCase):
             dm2 = x.results.wf.make_rdm2(ao_basis=True)
             self.assertAllclose(dm2, dm2_exact)
 
+
+class TestH2Anion_MP2(TestH2_MP2):
+
+    @classmethod
+    def setUpClass(cls):
+        cls.mf = testsystems.h2anion_dz.uhf()
+        cls.cc = testsystems.h2anion_dz.ump2()
+
     def test_global_dm1(self):
         emb = self.emb(-1)
-        dm1 = emb.make_rdm1_ccsd()
+        dm1 = emb._make_rdm1_mp2()
         dm1_exact = self.cc.make_rdm1()
         self.assertAllclose(dm1, dm1_exact)
 
 
-class TestH2Anion(TestH2):
+class TestH2Anion_CCSD(TestH2_CCSD):
 
     @classmethod
     def setUpClass(cls):
         cls.mf = testsystems.h2anion_dz.uhf()
         cls.cc = testsystems.h2anion_dz.uccsd()
 
-# --- MP2
-
-class TestH2_MP2(TestH2):
-
-    @classmethod
-    def setUpClass(cls):
-        cls.mf = testsystems.h2_dz.rhf()
-        cls.cc = testsystems.h2_dz.rmp2()
-
-    @classmethod
-    @cache
-    def emb(cls, bno_threshold):
-        emb = vayesta.ewf.EWF(cls.mf, solver='MP2', bno_threshold=bno_threshold)
-        emb.iao_fragmentation()
-        emb.add_all_atomic_fragments()
-        emb.kernel()
-        return emb
-
-    def test_t_amplitudes(self):
-        emb = self.emb(-1)
-        t2 = emb.get_global_t2()
-        self.assertAllclose(t2, self.cc.t2)
-
-    def test_l_amplitudes(self):
-        pass
-
-    def test_cluster_dm1(self):
-        pass
-
-    def test_cluster_dm2(self):
-        pass
-
     def test_global_dm1(self):
         emb = self.emb(-1)
-        dm1 = emb.make_rdm1_mp2()
+        dm1 = emb._make_rdm1_ccsd()
         dm1_exact = self.cc.make_rdm1()
         self.assertAllclose(dm1, dm1_exact)
 
@@ -138,8 +140,6 @@ class TestH2_FCI(TestCase):
     @cache
     def emb(cls, bno_threshold):
         emb = vayesta.ewf.EWF(cls.mf, solver='FCI', bno_threshold=bno_threshold)
-        emb.iao_fragmentation()
-        emb.add_all_atomic_fragments()
         emb.kernel()
         return emb
 

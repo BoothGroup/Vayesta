@@ -17,8 +17,8 @@ from .amplitudes import get_global_t1_rhf
 from .amplitudes import get_global_t2_rhf
 from .rdm import make_rdm1_ccsd
 from .rdm import make_rdm1_ccsd_old
-from .rdm import make_rdm1_ccsd_proj_lambda
 from .rdm import make_rdm1_ccsd_2p2l
+from .rdm import make_rdm1_ccsd_1p1l
 from .rdm import make_rdm2_ccsd
 from .rdm import make_rdm2_ccsd_proj_lambda
 from .icmp2 import get_intercluster_mp2_energy_rhf
@@ -358,32 +358,32 @@ class EWF(Embedding):
 
     def make_rdm1(self, *args, **kwargs):
         if self.solver.lower() == 'ccsd':
-            return self.make_rdm1_ccsd_2p2l(*args, **kwargs)
+            return make_rdm1_ccsd_2p2l(self, *args, **kwargs)
         if self.solver.lower() == 'mp2':
-            return self.make_rdm1_mp2(*args, **kwargs)
+            return make_rdm1_ccsd_2p2l(self, *args, t_as_lambda=True, with_t1=False, **kwargs)
         if self.solver.lower() == 'fci':
             return self.make_rdm1_demo(*args, **kwargs)
         raise NotImplementedError("make_rdm1 for solver '%s'" % self.solver)
 
-    def make_rdm1_mp2(self, *args, **kwargs):
+    def _make_rdm1_mp2(self, *args, **kwargs):
         return make_rdm1_ccsd(self, *args, mp2=True, **kwargs)
 
-    def make_rdm1_ccsd(self, *args, **kwargs):
+    def _make_rdm1_ccsd(self, *args, **kwargs):
         return make_rdm1_ccsd(self, *args, mp2=False, **kwargs)
 
-    def make_rdm2_ccsd(self, *args, **kwargs):
+    def _make_rdm2_ccsd(self, *args, **kwargs):
         return make_rdm2_ccsd(self, *args, **kwargs)
 
-    def make_rdm1_ccsd_old(self, *args, **kwargs):
+    def _make_rdm1_ccsd_old(self, *args, **kwargs):
         return make_rdm1_ccsd_old(self, *args, **kwargs)
 
-    def make_rdm1_ccsd_2p2l(self, *args, **kwargs):
+    def _make_rdm1_ccsd_2p2l(self, *args, **kwargs):
         return make_rdm1_ccsd_2p2l(self, *args, **kwargs)
 
-    def make_rdm1_ccsd_proj_lambda(self, *args, **kwargs):
-        return make_rdm1_ccsd_proj_lambda(self, *args, **kwargs)
+    def _make_rdm1_ccsd_1p1l(self, *args, **kwargs):
+        return make_rdm1_ccsd_1p1l(self, *args, **kwargs)
 
-    def make_rdm2_ccsd_proj_lambda(self, *args, **kwargs):
+    def _make_rdm2_ccsd_proj_lambda(self, *args, **kwargs):
         return make_rdm2_ccsd_proj_lambda(self, *args, **kwargs)
 
     # --- Energy
@@ -402,33 +402,41 @@ class EWF(Embedding):
             e_corr += f.results.e_corr
         return e_corr / self.ncells
 
-    def get_dm_corr_energy_2(self, t_as_lambda=None, sym_t2=True):
-        e1, e2 = self.get_dm_corr_energy_parts(t_as_lambda=t_as_lambda, sym_t2=sym_t2)
+    def get_dm_corr_energy(self, dm1='2p2l', t_as_lambda=None, sym_t2=True):
+        e1, e2 = self.get_dm_corr_energy_parts(dm1=dm1, t_as_lambda=t_as_lambda, sym_t2=sym_t2)
         e_corr = (e1 + e2)
         self.log.debug("Ecorr(1)= %s  Ecorr(2)= %s  Ecorr= %s", *map(energy_string, (e1, e2, e_corr)))
         return e_corr
 
-    def get_dm_corr_energy_parts(self, t_as_lambda=None, sym_t2=True):
+    def get_dm_corr_energy_parts(self, dm1='2p2l', t_as_lambda=None, sym_t2=True):
         if t_as_lambda is None:
             t_as_lambda = self.opts.t_as_lambda
         # Correlation energy due to changes in 1-DM and non-cumulant 2-DM:
         times = [timer()]
-        #dm1 = self.make_rdm1_ccsd(with_mf=False, t_as_lambda=t_as_lambda, ao_basis=True)
         #dm1 = self.make_rdm1_ccsd_old(with_mf=False, t_as_lambda=t_as_lambda, ao_basis=True)
-        dm1 = self.make_rdm1_ccsd_2p2l(with_mf=False, t_as_lambda=t_as_lambda, ao_basis=True)
+        if dm1 == '2p2l':
+            dm1 = self.make_rdm1_ccsd_2p2l(with_mf=False, t_as_lambda=t_as_lambda, ao_basis=True)
+        elif dm1 == '2p1l':
+            dm1 = self.make_rdm1_ccsd(with_mf=False, t_as_lambda=t_as_lambda, ao_basis=True)
+        elif dm1 == '1p1l':
+            dm1 = self.make_rdm1_ccsd_1p1l(with_mf=False, t_as_lambda=t_as_lambda, ao_basis=True)
+
         fock = self.get_fock_for_energy(with_exxdiv=False)
-        e1 = np.sum(fock*dm1) / self.ncells
+        e1 = np.sum(fock*dm1)
         times.append(timer())
         # Correlation energy due to cumulant:
         e2 = 0.0
+        #$print(f.sym_parent.id for f in)
         for x in self.get_fragments(sym_parent=None, mpi_rank=mpi.rank):
-            wx = x.symmetry_factor * x.sym_factor / self.ncells
+            wx = x.symmetry_factor * x.sym_factor
             e2 += wx * x.make_fragment_cumulant_energy(t_as_lambda=t_as_lambda, sym_t2=sym_t2)
         if mpi:
             e2 = mpi.world.allreduce(e2)
         times.append(timer())
         self.log.timing("Time for DM energy: T(DM1)= %s  T(DM2)= %s  T(tot)= %s",
                 *map(time_string, (times[1]-times[0], times[2]-times[1], times[2]-times[0])))
+        e1 = e1/self.ncells
+        e2 = e2/self.ncells
         return e1, e2
 
     def get_e_corr_ccsd(self, full_wf=False):
@@ -457,8 +465,9 @@ class EWF(Embedding):
             e_doubles = 0.0
             for x in self.get_fragments(sym_parent=None, mpi_rank=mpi.rank):
                 pwf = x.results.pwf.as_ccsd()
-                ro = x.get_mo2co_occ()
-                rv = x.get_mo2co_vir()
+                ro = x.get_overlap('mo-occ|cluster-occ')
+                rv = x.get_overlap('mo-vir|cluster-vir')
+
                 t1x = dot(ro.T, t1, rv) # N(frag) * N^2
                 c2x = pwf.t2 + einsum('ia,jb->ijab', pwf.t1, t1x)
 
@@ -478,7 +487,8 @@ class EWF(Embedding):
                     occ = np.s_[:noccx]
                     vir = np.s_[noccx:]
                     eris = eris[occ,vir,vir,occ]
-                eris = einsum('xi,iabj->xabj', x.get_fo2co_occ(), eris)
+                px = x.get_overlap('frag|cluster-occ')
+                eris = einsum('xi,iabj->xabj', px, eris)
                 wx = x.symmetry_factor * x.sym_factor
                 e_doubles += wx*(2*einsum('ijab,iabj', c2x, eris)
                                  - einsum('ijab,ibaj', c2x, eris))
@@ -499,8 +509,8 @@ class EWF(Embedding):
     def get_e_tot_ccsd(self, full_wf=False):
         return self.e_mf + self.get_e_corr_ccsd(full_wf=full_wf)
 
-    def get_dm_energy_2(self, t_as_lambda=None, sym_t2=True):
-        e_corr = self.get_dm_corr_energy_2(t_as_lambda=t_as_lambda, sym_t2=sym_t2)
+    def get_dm_energy(self, dm1='2p2l', t_as_lambda=None, sym_t2=True):
+        e_corr = self.get_dm_corr_energy(dm1=dm1, t_as_lambda=t_as_lambda, sym_t2=sym_t2)
         return self.e_mf + e_corr
 
     # --- Energy corrections
@@ -679,7 +689,7 @@ class EWF(Embedding):
 
     #    return c0, c1, c2
 
-    def get_dm_energy(self, global_dm1=True, global_dm2=False):
+    def get_dm_energy_old(self, global_dm1=True, global_dm2=False):
         """Calculate total energy from reduced density-matrices.
 
         RHF ONLY!
@@ -695,9 +705,9 @@ class EWF(Embedding):
         -------
         e_tot : float
         """
-        return self.e_mf + self.get_dm_corr_energy(global_dm1=global_dm1, global_dm2=global_dm2)
+        return self.e_mf + self.get_dm_corr_energy_old(global_dm1=global_dm1, global_dm2=global_dm2)
 
-    def get_dm_corr_energy(self, global_dm1=True, global_dm2=False):
+    def get_dm_corr_energy_old(self, global_dm1=True, global_dm2=False):
         """Calculate correlation energy from reduced density-matrices.
 
         RHF ONLY!

@@ -326,56 +326,107 @@ class Fragment:
     # --- Overlap matrices
     # --------------------
 
-    def _csc_dot(self, c1, c2):
-        ovlp = self.base.get_ovlp()
-        return dot(c1.T, ovlp, c2)
-
     # Cluster to Fragment
 
+    @deprecated
     def get_co2fo(self):
         return self._csc_dot(self.cluster.c_active, self.c_frag)
 
+    @deprecated
     def get_co2fo_occ(self):
         return self._csc_dot(self.cluster.c_active_occ, self.c_frag)
 
+    @deprecated
     def get_co2fo_vir(self):
         return self._csc_dot(self.cluster.c_active_vir, self.c_frag)
 
     # Fragment to Cluster
 
+    @deprecated
     def get_fo2co(self):
         return self._csc_dot(self.c_frag, self.cluster.c_active)
 
+    @deprecated
     def get_fo2co_occ(self):
         return self._csc_dot(self.c_frag, self.cluster.c_active_occ)
 
+    @deprecated
     def get_fo2co_vir(self):
         return self._csc_dot(self.c_frag, self.cluster.c_active_vir)
 
     # Mean-field to Cluster
 
+    @deprecated
     def get_mo2co(self):
         return self._csc_dot(self.base.mo_coeff, self.cluster.c_active)
 
+    @deprecated
     def get_mo2co_occ(self):
         return self._csc_dot(self.base.mo_coeff_occ, self.cluster.c_active_occ)
 
+    @deprecated
     def get_mo2co_vir(self):
         return self._csc_dot(self.base.mo_coeff_vir, self.cluster.c_active_vir)
 
     # Mean-field to Fragment:
 
+    @deprecated
     def get_mo2fo(self):
         return self._csc_dot(self.base.mo_coeff, self.c_frag)
 
+    @deprecated
     def get_mo2fo_occ(self):
         return self._csc_dot(self.base.mo_coeff_occ, self.c_frag)
 
+    @deprecated
     def get_mo2fo_vir(self):
         return self._csc_dot(self.base.mo_coeff_vir, self.c_frag)
 
+    def _csc_dot(self, c1, c2):
+        ovlp = self.base.get_ovlp()
+        return dot(c1.T, ovlp, c2)
+
+    @cache
+    def get_overlap(self, key):
+        """Get overlap between cluster orbitals, fragment orbitals, or MOs.
+
+        Examples:
+        >>> s = self.get_overlap('cluster|mo')
+        >>> s = self.get_overlap('cluster|frag')
+        >>> s = self.get_overlap('mo[occ]|cluster[occ]')
+        >>> s = self.get_overlap('mo[vir]|cluster[vir]')
+        """
+        if key.count('|') != 1:
+            raise ValueError("key needs to have exactly one '|'")
+
+        # Standardize key to reduce cache misses:
+        key_mod = key.lower().replace(' ', '')
+        if key_mod != key:
+            return self.get_overlap(key_mod)
+
+        def _get_coeff(key):
+            if 'frag' in key:
+                return self.c_frag
+            if 'occ' in key:
+                part = '_occ'
+            elif 'vir' in key:
+                part = '_vir'
+            else:
+                part = ''
+            if 'mo' in key:
+                return getattr(self.base, 'mo_coeff%s' % part)
+            if 'cluster' in key:
+                return getattr(self.cluster, 'c_active%s' % part)
+            raise ValueError("Invalid key: '%s'")
+
+        left, right = key.split('|')
+        c_left = _get_coeff(left)
+        c_right = _get_coeff(right)
+        return self._csc_dot(c_left, c_right)
+
     # --- Deprecated:
 
+    @deprecated
     def get_overlap_c2f(self):
         """Get overlap matrices from cluster to fragment space."""
         ovlp = self.base.get_ovlp()
@@ -383,6 +434,7 @@ class Fragment:
         r_vir = dot(self.cluster.c_active_vir.T, ovlp, self.c_proj)
         return r_occ, r_vir
 
+    @deprecated
     def get_overlap_m2c(self):
         """Get overlap matrices from mean-field to occupied/virtual active space."""
         ovlp = self.base.get_ovlp()
@@ -390,6 +442,7 @@ class Fragment:
         r_vir = dot(self.base.mo_coeff_vir.T, ovlp, self.cluster.c_active_vir)
         return r_occ, r_vir
 
+    @deprecated
     def get_overlap_m2f(self):
         """Get overlap matrices from mean-field to fragment orbitals."""
         ovlp = self.base.get_ovlp()
@@ -428,6 +481,7 @@ class Fragment:
         self._cluster = None
         self._eris = None
         self._results = self.Results(fid=self.id)
+        self.get_overlap.cache_clear()
 
     def couple_to_fragment(self, frag):
         if frag is self:

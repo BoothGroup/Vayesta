@@ -292,7 +292,7 @@ class RMP2_WaveFunction(WaveFunction):
         raise NotImplementedError
 
     def copy(self):
-        return RMP2_WaveFunction(self.mo, self.t2.copy())
+        return RMP2_WaveFunction(self.mo.copy(), self.t2.copy())
 
     def pack(self, dtype=float):
         """Pack into a single array of data type `dtype`.
@@ -344,7 +344,7 @@ class UMP2_WaveFunction(RMP2_WaveFunction):
         wf = self.project((projector[0].T, projector[1].T), inplace=inplace)
         if not sym:
             return wf
-        wf.t2 = symmetrize_uc2(self.t2)
+        wf.t2 = symmetrize_uc2(wf.t2)
         wf.projector = None
         return wf
 
@@ -378,7 +378,7 @@ class UMP2_WaveFunction(RMP2_WaveFunction):
 
     def copy(self):
         t2 = tuple(t.copy() for t in self.t2)
-        return UMP2_WaveFunction(self.mo, t2)
+        return UMP2_WaveFunction(self.mo.copy(), t2)
 
 def MP2_WaveFunction(mo, t2, **kwargs):
     if mo.nspin == 1:
@@ -478,7 +478,7 @@ class RCCSD_WaveFunction(WaveFunction):
             l1 = self.l1.copy()
         if self.l2 is not None:
             l2 = self.l2.copy()
-        return RCCSD_WaveFunction(self.mo, t1, t2, l1=l1, l2=l2)
+        return RCCSD_WaveFunction(self.mo.copy(), t1, t2, l1=l1, l2=l2)
 
     def as_unestricted(self):
         mo = self.mo.to_spin_orbitals()
@@ -568,7 +568,7 @@ class UCCSD_WaveFunction(RCCSD_WaveFunction):
             l1 = tuple(t.copy() for t in self.l1)
         if self.l2 is not None:
             l2 = tuple(t.copy() for t in self.l2)
-        return UCCSD_WaveFunction(self.mo, t1, t2, l1=l1, l2=l2)
+        return UCCSD_WaveFunction(self.mo.copy(), t1, t2, l1=l1, l2=l2)
 
     def to_mp2(self):
         raise NotImplementedError
@@ -655,7 +655,7 @@ class RCISD_WaveFunction(WaveFunction):
         return wf
 
     def copy(self):
-        return RCISD_WaveFunction(self.mo, self.c0, self.c1.copy(), self.c2.copy())
+        return RCISD_WaveFunction(self.mo.copy(), self.c0, self.c1.copy(), self.c2.copy())
 
     def as_mp2(self):
         raise NotImplementedError
@@ -722,7 +722,7 @@ class UCISD_WaveFunction(RCISD_WaveFunction):
     def copy(self):
         c1 = tuple(t.copy() for t in self.c1)
         c2 = tuple(t.copy() for t in self.c2)
-        return UCISD_WaveFunction(self.mo, self.c0, c1, c2)
+        return UCISD_WaveFunction(self.mo.copy(), self.c0, c1, c2)
 
     def as_mp2(self):
         raise NotImplementedError
@@ -920,7 +920,13 @@ if __name__ == '__main__':
     #test_ump2()
     wf = test_rccsd()
     array = wf.pack()
-    wf2 = RCCSD_WaveFunction.unpack(array)
+    #wf2 = RCCSD_WaveFunction.unpack(array)
+    wf2 = wf.copy()
+
+    print(id(wf.mo))
+    print(id(wf2.mo))
+    print(np.all(wf.mo.coeff == wf2.mo.coeff))
+    1/0
 
     print(np.all(wf.t1 == wf2.t1))
     print(np.all(wf.t2 == wf2.t2))

@@ -50,8 +50,9 @@ class EDMETFragment(DMETFragment):
         return self.base.nocc * self.base.nvir
 
     def get_rot_to_mf_ov(self):
-        r_o, r_v = self.get_overlap_m2c()
-        spat_rot = einsum("iJ,aB->iaJB", r_o, r_v).reshape((self.ov_mf, self.ov_active)).T
+        ro = self.get_overlap('mo[occ]|cluster[occ]')
+        rv = self.get_overlap('mo[vir]|cluster[vir]')
+        spat_rot = einsum("iJ,aB->iaJB", ro, rv).reshape((self.ov_mf, self.ov_active)).T
         res = np.zeros((2 * self.ov_active, 2 * self.ov_mf))
         res[:self.ov_active, :self.ov_mf] = spat_rot
         res[self.ov_active:2 * self.ov_active, self.ov_mf:2 * self.ov_mf] = spat_rot
@@ -373,7 +374,8 @@ class EDMETFragment(DMETFragment):
         new_a = 0.5 * (new_apb + new_amb)
         new_b = 0.5 * (new_apb - new_amb)
 
-        r_occ, r_vir = self.get_overlap_m2c()
+        r_occ = self.get_overlap('mo[occ]|cluster[occ]')
+        r_vir = self.get_overlap('mo[vir]|cluster[vir]')
         # Given that our active orbitals are also canonical this should be diagonal, but calculating the whole
         # thing isn't prohibitive and might save pain.
         loc_eps = einsum("ia,ij,ab,ik,ac->jbkc", epsilon, r_occ, r_vir, r_occ, r_vir).reshape((ov_loc, ov_loc))

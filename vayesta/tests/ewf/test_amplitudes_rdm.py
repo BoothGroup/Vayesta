@@ -60,14 +60,14 @@ class T_AmplitudesTests(unittest.TestCase):
         """Test 1RDM
         """
         atol = 1e-8
-        dm1 = self.emb.make_rdm1_ccsd()
+        dm1 = self.emb._make_rdm1_ccsd()
         self.assertIsNone(np.testing.assert_allclose(dm1, self.dm1, atol=atol))
 
     def test_dm2(self):
         """Test 2RDM
         """
         atol = 1e-8
-        dm2 = self.emb.make_rdm2_ccsd()
+        dm2 = self.emb._make_rdm2_ccsd()
         self.assertIsNone(np.testing.assert_allclose(dm2, self.dm2, atol=atol))
 
 class MP2_Test(unittest.TestCase):
@@ -86,7 +86,7 @@ class MP2_Test(unittest.TestCase):
     def test_dm1(self):
         """Test 1RDM"""
         atol = 1e-8
-        dm1 = self.emb.make_rdm1_mp2()
+        dm1 = self.emb._make_rdm1_mp2()
         self.assertIsNone(np.testing.assert_allclose(dm1, self.dm1, atol=atol))
 
 class UMP2_Test(unittest.TestCase):
@@ -105,7 +105,7 @@ class UMP2_Test(unittest.TestCase):
     def test_dm1(self):
         """Test 1RDM"""
         atol = 1e-8
-        dm1a, dm1b = self.emb.make_rdm1_mp2()
+        dm1a, dm1b = self.emb._make_rdm1_mp2()
         self.assertIsNone(np.testing.assert_allclose(dm1a, self.dm1[0], atol=atol))
         self.assertIsNone(np.testing.assert_allclose(dm1b, self.dm1[1], atol=atol))
 
@@ -187,7 +187,7 @@ class T_Amplitudes_UHF_Tests(unittest.TestCase):
         """Test 2RDM
         """
         atol = 1e-8
-        dm2aa, dm2ab, dm2bb = self.emb.make_rdm2_ccsd_proj_lambda()
+        dm2aa, dm2ab, dm2bb = self.emb._make_rdm2_ccsd_proj_lambda()
         self.assertIsNone(np.testing.assert_allclose(dm2aa, self.dm2c[0], atol=atol))
         self.assertIsNone(np.testing.assert_allclose(dm2ab, self.dm2c[1], atol=atol))
         self.assertIsNone(np.testing.assert_allclose(dm2bb, self.dm2c[2], atol=atol))

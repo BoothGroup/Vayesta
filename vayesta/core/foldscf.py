@@ -108,6 +108,10 @@ class FoldedSCF:
     def kcell(self):
         return self.kmf.mol
 
+    @property
+    def _eri(self):
+        return None
+
     def get_ovlp(self, *args, **kwargs):
         sk = self.kmf.get_ovlp(*args, **kwargs)
         ovlp = k2bvk_2d(sk, self.kphase)

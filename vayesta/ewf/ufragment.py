@@ -69,7 +69,7 @@ class UEWFFragment(UFragment, EWFFragment):
         oa, ob = np.s_[:nocc[0]], np.s_[:nocc[1]]
         va, vb = np.s_[nocc[0]:], np.s_[nocc[1]:]
         if axis1 == 'fragment':
-            pxa, pxb = self.get_occ2frag_projector()
+            pxa, pxb = self.get_overlap('frag|cluster-occ')
 
         # --- Singles energy (zero for HF-reference)
         if c1 is not None:

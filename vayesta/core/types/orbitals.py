@@ -14,6 +14,23 @@ class MolecularOrbitals:
     def __repr__(self):
         return "%s(norb= %r, nocc= %r, nvir= %r)" % (self.__class__.__name__, self.norb, self.nocc, self.nvir)
 
+    def copy(self):
+        def _copy(x):
+            if x is None:
+                return None
+            if np.isscalar(x):
+                return x
+            if isinstance(x, tuple):
+                return tuple(_copy(y) for y in x)
+            if isinstance(x, list):
+                return [_copy(y) for y in x]
+            if isinstance(x, np.ndarray):
+                return x.copy()
+            raise ValueError
+        return type(self)(coeff=_copy(self.coeff), energy=_copy(self.energy), occ=_copy(self.occ),
+                labels=_copy(self.labels), maxocc=_copy(self.maxocc))
+
+
 def Orbitals(coeff, *args, **kwargs):
     if np.ndim(coeff[0]) == 2:
         return SpinOrbitals(coeff, *args, **kwargs)
@@ -23,11 +40,11 @@ class SpatialOrbitals(MolecularOrbitals):
 
     def __init__(self, coeff, energy=None, occ=None, labels=None, maxocc=2):
         self.coeff = np.asarray(coeff, dtype=float)
-        self.energy = np.asarray(energy, dtype=float)
+        self.energy = np.asarray(energy, dtype=float) if energy is not None else None
         self.maxocc = maxocc
         if isinstance(occ, (int, np.integer)):
             occ = np.asarray(occ*[self.maxocc] + (self.norb-occ)*[0])
-        self.occ = np.asarray(occ, dtype=float)
+        self.occ = np.asarray(occ, dtype=float) if occ is not None else None
         self.labels = labels
 
     @property
@@ -93,8 +110,9 @@ class SpinOrbitals(MolecularOrbitals):
         if energy is None: energy = (None, None)
         if occ is None: occ = (None, None)
         if labels is None: labels = (None, None)
-        self.alpha = SpatialOrbitals(coeff[0], energy=energy[0], occ=occ[0], labels=labels[0], maxocc=maxocc)
-        self.beta = SpatialOrbitals(coeff[1], energy=energy[1], occ=occ[1], labels=labels[1], maxocc=maxocc)
+        if np.isscalar(maxocc): maxocc = (maxocc, maxocc)
+        self.alpha = SpatialOrbitals(coeff[0], energy=energy[0], occ=occ[0], labels=labels[0], maxocc=maxocc[0])
+        self.beta = SpatialOrbitals(coeff[1], energy=energy[1], occ=occ[1], labels=labels[1], maxocc=maxocc[1])
 
     @classmethod
     def from_spatial_orbitals(cls, orbitals):
@@ -135,7 +153,7 @@ class SpinOrbitals(MolecularOrbitals):
         return 2
 
     def __getattr__(self, name):
-        if name in ('norb', 'nocc', 'nvir', 'nelec', 'energy', 'coeff', 'occ', 'labels'):
+        if name in ('norb', 'nocc', 'nvir', 'nelec', 'energy', 'coeff', 'occ', 'labels', 'maxocc'):
             return (getattr(self.alpha, name), getattr(self.beta, name))
         raise AttributeError("'%s' object has no attribute '%s'" % (self.__class__.__name__, name))
 
@@ -187,8 +205,9 @@ if __name__ == '__main__':
         occ = np.asarray(nocc*[2] + nvir*[0])
 
         orbs = SpatialOrbitals(coeff, energy=energy, occ=occ)
-        packed = orbs.pack()
-        orbs2 = SpatialOrbitals.unpack(packed)
+        #packed = orbs.pack()
+        #orbs2 = SpatialOrbitals.unpack(packed)
+        orbs2 = orbs.copy()
         assert np.all(orbs.coeff == orbs2.coeff)
         assert np.all(orbs.energy == orbs2.energy)
         assert np.all(orbs.occ == orbs2.occ)
