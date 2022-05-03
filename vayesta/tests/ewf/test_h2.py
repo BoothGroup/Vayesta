@@ -8,7 +8,7 @@ from vayesta.core.util import cache
 from vayesta.tests import testsystems
 from vayesta.tests.common import TestCase
 
-class TestH2_MP2(TestCase):
+class Test_MP2(TestCase):
 
     @classmethod
     def setUpClass(cls):
@@ -35,6 +35,11 @@ class TestH2_MP2(TestCase):
         self.assertAllclose(emb.e_tot, self.cc.e_tot, rtol=0)
         self.assertAllclose(emb.e_corr, self.cc.e_corr, rtol=0)
 
+    def test_dm_energy(self):
+        emb = self.emb(-1)
+        self.assertAllclose(emb.get_dm_energy(), self.cc.e_tot, rtol=0)
+        self.assertAllclose(emb.get_dm_corr_energy(), self.cc.e_corr, rtol=0)
+
     def test_t_amplitudes(self):
         emb = self.emb(-1)
         t2 = emb.get_global_t2()
@@ -49,7 +54,7 @@ class TestH2_MP2(TestCase):
         dm1 = emb.make_rdm1(late_t2_sym=False)
         self.assertAllclose(dm1, dm1_exact)
 
-class TestH2_CCSD(TestH2_MP2):
+class Test_CCSD(Test_MP2):
 
     @classmethod
     def setUpClass(cls):
@@ -93,8 +98,15 @@ class TestH2_CCSD(TestH2_MP2):
             dm2 = x.results.wf.make_rdm2(ao_basis=True)
             self.assertAllclose(dm2, dm2_exact)
 
+    def test_global_dm2(self):
+        emb = self.emb(-1)
+        dm2_exact = self.cc.make_rdm2()
 
-class TestH2Anion_MP2(TestH2_MP2):
+        dm2 = emb._make_rdm2_ccsd()
+        self.assertAllclose(dm2, dm2_exact)
+
+
+class Test_UMP2(Test_MP2):
 
     @classmethod
     def setUpClass(cls):
@@ -107,8 +119,11 @@ class TestH2Anion_MP2(TestH2_MP2):
         dm1_exact = self.cc.make_rdm1()
         self.assertAllclose(dm1, dm1_exact)
 
+    def test_dm_energy(self):
+        pass
 
-class TestH2Anion_CCSD(TestH2_CCSD):
+
+class Test_UCCSD(Test_CCSD):
 
     @classmethod
     def setUpClass(cls):
@@ -121,9 +136,15 @@ class TestH2Anion_CCSD(TestH2_CCSD):
         dm1_exact = self.cc.make_rdm1()
         self.assertAllclose(dm1, dm1_exact)
 
+    def test_dm_energy(self):
+        pass
+
+    def test_global_dm2(self):
+        pass
+
 # --- FCI
 
-class TestH2_FCI(TestCase):
+class Test_FCI(TestCase):
 
     @classmethod
     def setUpClass(cls):
@@ -147,7 +168,7 @@ class TestH2_FCI(TestCase):
         emb = self.emb(-1)
         self.assertAllclose(emb.e_tot, self.fci.e_tot, rtol=0)
 
-class TestH2Anion_FCI(TestCase):
+class Test_UFCI(TestCase):
 
     @classmethod
     def setUpClass(cls):

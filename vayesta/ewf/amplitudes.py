@@ -80,7 +80,7 @@ def get_global_t2_rhf(emb, get_lambda=False, symmetrize=True, mpi_target=None, a
         t2 = einsum('Ii,Jj,ijab,Aa,Bb->IJAB', emb.mo_coeff_occ, emb.mo_coeff_occ, t2, emb.mo_coeff_vir, emb.mo_coeff_vir)
     return t2
 
-def get_global_t1_uhf(emb, get_lambda=False, mpi_target=None):
+def get_global_t1_uhf(emb, get_lambda=False, mpi_target=None, ao_basis=False):
     """Get global CCSD T1 from fragment calculations.
 
     Parameters
@@ -113,9 +113,12 @@ def get_global_t1_uhf(emb, get_lambda=False, mpi_target=None):
     # --- MPI
     if mpi:
         t1a, t1b = mpi.nreduce(t1a, t1b, target=mpi_target, logfunc=emb.log.timingv)
+    if ao_basis:
+        t1a = dot(emb.mo_coeff_occ[0], t1a, emb.mo_coeff_vir[0].T)
+        t1b = dot(emb.mo_coeff_occ[1], t1b, emb.mo_coeff_vir[1].T)
     return (t1a, t1b)
 
-def get_global_t2_uhf(emb, get_lambda=False, symmetrize=True, mpi_target=None):
+def get_global_t2_uhf(emb, get_lambda=False, symmetrize=True, mpi_target=None, ao_basis=False):
     """Get global CCSD T2 amplitudes from fragment calculations.
 
     Parameters
@@ -150,4 +153,10 @@ def get_global_t2_uhf(emb, get_lambda=False, symmetrize=True, mpi_target=None):
     # --- MPI
     if mpi:
         t2aa, t2ab, t2bb = mpi.nreduce(t2aa, t2ab, t2bb, target=mpi_target, logfunc=emb.log.timingv)
+    if ao_basis:
+        coa, cob = emb.mo_coeff_occ
+        cva, cvb = emb.mo_coeff_vir
+        t2aa = einsum('Ii,Jj,ijab,Aa,Bb->IJAB', coa, coa, t2aa, cva, cva)
+        t2ab = einsum('Ii,Jj,ijab,Aa,Bb->IJAB', coa, cob, t2ab, cva, cvb)
+        t2bb = einsum('Ii,Jj,ijab,Aa,Bb->IJAB', cob, cob, t2bb, cvb, cvb)
     return (t2aa, t2ab, t2bb)

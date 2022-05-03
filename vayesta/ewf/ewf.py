@@ -357,9 +357,9 @@ class EWF(Embedding):
 
     def make_rdm1(self, *args, **kwargs):
         if self.solver.lower() == 'ccsd':
-            return make_rdm1_ccsd_2p2l(self, *args, **kwargs)
+            return self._make_rdm1_ccsd_2p2l(*args, **kwargs)
         if self.solver.lower() == 'mp2':
-            return make_rdm1_ccsd_2p2l(self, *args, t_as_lambda=True, with_t1=False, **kwargs)
+            return self._make_rdm1_ccsd_2p2l(*args, t_as_lambda=True, with_t1=False, **kwargs)
         if self.solver.lower() == 'fci':
             return self.make_rdm1_demo(*args, **kwargs)
         raise NotImplementedError("make_rdm1 for solver '%s'" % self.solver)
@@ -728,9 +728,9 @@ class EWF(Embedding):
         nocc = (mf.mo_occ > 0).sum()
 
         if global_dm1:
-            rdm1 = self._make_rdm1_ccsd_2p2l(self, t_as_lambda=t_as_lambda)
+            rdm1 = make_rdm1_ccsd_2p2l(self, t_as_lambda=t_as_lambda)
         else:
-            rdm1 = self._make_rdm1_ccsd(t_as_lambda=t_as_lambda)
+            rdm1 = make_rdm1_ccsd(self, t_as_lambda=t_as_lambda)
         rdm1[np.diag_indices(nocc)] -= 2
 
         # Core Hamiltonian + Non Cumulant 2DM contribution
@@ -740,7 +740,7 @@ class EWF(Embedding):
         if global_dm2:
             # Calculate global 2RDM and contract with ERIs
             eri = self.get_eris_array(self.mo_coeff)
-            rdm2 = self.make_rdm2_ccsd(slow=True, t_as_lambda=t_as_lambda, with_dm1=False)
+            rdm2 = make_rdm2_ccsd(self, slow=True, t_as_lambda=t_as_lambda, with_dm1=False)
             e2 = einsum('pqrs,pqrs', eri, rdm2) * 0.5
         else:
             # Fragment Local 2DM cumulant contribution

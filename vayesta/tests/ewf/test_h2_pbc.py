@@ -8,17 +8,22 @@ from vayesta.core.util import cache
 from vayesta.tests import testsystems
 from vayesta.tests.common import TestCase
 
-class TestMP2_H2_STO3G(TestCase):
+class Test_MP2(TestCase):
 
     @classmethod
     def setUpClass(cls):
         cls.mf = testsystems.h2_sto3g_k311.rhf()
         cls.cc = testsystems.h2_sto3g_s311.rmp2()
+        cls.ref_values = {
+                ('e_corr', 1e-3) : -0.009599078822158,
+                ('e_tot', 1e-3) : -1.277732258158756,
+                }
 
     @classmethod
     def tearDownClass(cls):
         del cls.mf
         del cls.cc
+        del cls.ref_values
         cls.emb.cache_clear()
 
     @classmethod
@@ -38,8 +43,8 @@ class TestMP2_H2_STO3G(TestCase):
         self.assertAllclose(emb.e_tot, self.cc.e_tot/nk, rtol=0)
         # Finite bath
         emb = self.emb(1e-3)
-        self.assertAllclose(emb.e_corr, -0.009599078822158, rtol=0)
-        self.assertAllclose(emb.e_tot, -1.277732258158756, rtol=0)
+        self.assertAllclose(emb.e_corr, self.ref_values[('e_corr', 1e-3)], rtol=0)
+        self.assertAllclose(emb.e_tot, self.ref_values[('e_tot', 1e-3)], rtol=0)
 
     def _get_ref_t1_ao(self, t1):
         occ = self.cc._scf.mo_occ > 0
@@ -63,26 +68,30 @@ class TestMP2_H2_STO3G(TestCase):
         t2_ref = self._get_ref_t2_ao(self.cc.t2)
         self.assertAllclose(t2, t2_ref)
 
-    def test_global_dm1(self):
+    def test_dm1_2p2l(self):
         emb = self.emb(-1)
-        dm1 = emb.make_rdm1()
-        dm1_exact = self.cc.make_rdm1()
+        dm1_exact = self.cc.make_rdm1(ao_repr=True)
+
+        dm1 = emb._make_rdm1_ccsd_2p2l(ao_basis=True)
         self.assertAllclose(dm1, dm1_exact)
-        dm1 = emb._make_rdm1_ccsd_2p2l()
+        dm1 = emb._make_rdm1_ccsd_2p2l(ao_basis=True, late_t2_sym=False)
         self.assertAllclose(dm1, dm1_exact)
-        dm1 = emb._make_rdm1_ccsd_2p2l(late_t2_sym=False)
+        dm1 = emb._make_rdm1_ccsd_2p2l(ao_basis=True, use_sym=False)
         self.assertAllclose(dm1, dm1_exact)
-        dm1 = emb._make_rdm1_ccsd_2p2l(use_sym=False)
-        self.assertAllclose(dm1, dm1_exact)
-        dm1 = emb._make_rdm1_ccsd_2p2l(late_t2_sym=False, use_sym=False)
+        dm1 = emb._make_rdm1_ccsd_2p2l(ao_basis=True, late_t2_sym=False, use_sym=False)
         self.assertAllclose(dm1, dm1_exact)
 
-class TestCCSD_H2_STO3G(TestMP2_H2_STO3G):
+
+class Test_CCSD(Test_MP2):
 
     @classmethod
     def setUpClass(cls):
         cls.mf = testsystems.h2_sto3g_k311.rhf()
         cls.cc = testsystems.h2_sto3g_s311.rccsd()
+        cls.ref_values = {
+                ('e_corr', 1e-3) : -0.0153692736073979,
+                ('e_tot', 1e-3) : -1.2835024529439953,
+                }
 
     @classmethod
     @cache
@@ -103,8 +112,8 @@ class TestCCSD_H2_STO3G(TestMP2_H2_STO3G):
         self.assertAllclose(emb.e_tot, self.cc.e_tot/nk + e_exxdiv, rtol=0)
         # Finite bath
         emb = self.emb(1e-3)
-        self.assertAllclose(emb.e_corr, -0.0153692736073979, rtol=0)
-        self.assertAllclose(emb.e_tot, -1.2835024529439953, rtol=0)
+        self.assertAllclose(emb.e_corr, self.ref_values[('e_corr', 1e-3)], rtol=0)
+        self.assertAllclose(emb.e_tot, self.ref_values[('e_tot', 1e-3)], rtol=0)
 
     def test_t_amplitudes(self):
         emb = self.emb(-1)
@@ -140,6 +149,142 @@ class TestCCSD_H2_STO3G(TestMP2_H2_STO3G):
             dm2 = x.results.wf.make_rdm2(ao_basis=True)
             self.assertAllclose(dm2, dm2_exact)
 
+    def test_dm1_demo(self):
+        emb = self.emb(-1)
+        dm1_exact = self.cc.make_rdm1(ao_repr=True)
+        dm1 = emb.make_rdm1_demo(ao_basis=True)
+        self.assertAllclose(dm1, dm1_exact)
+
+    def test_dm2_demo(self):
+        emb = self.emb(-1)
+        dm2_exact = self.cc.make_rdm2(ao_repr=True)
+        dm2 = emb.make_rdm2_demo(ao_basis=True)
+        self.assertAllclose(dm2, dm2_exact)
+
+# --- Unrestricted
+
+class Test_UMP2(Test_MP2):
+
+    @classmethod
+    def setUpClass(cls):
+        cls.mf = testsystems.h3_sto3g_k311.uhf()
+        cls.cc = testsystems.h3_sto3g_s311.ump2()
+        cls.ref_values = {
+                ('e_corr', 1e-3) : -0.00820754179397088,
+                ('e_tot', 1e-3) : -1.716742435416252
+                }
+
+    def _get_ref_t1_ao(self, t1):
+        t1a, t1b = t1
+        occa = self.cc._scf.mo_occ[0] > 0
+        occb = self.cc._scf.mo_occ[1] > 0
+        vira = self.cc._scf.mo_occ[0] == 0
+        virb = self.cc._scf.mo_occ[1] == 0
+        mo_occ_a = self.cc.mo_coeff[0][:,occa]
+        mo_occ_b = self.cc.mo_coeff[1][:,occb]
+        mo_vir_a = self.cc.mo_coeff[0][:,vira]
+        mo_vir_b = self.cc.mo_coeff[1][:,virb]
+        t1a_ref = np.einsum('Ii,ia,Aa->IA', mo_occ_a, t1a, mo_vir_a, optimize=True)
+        t1b_ref = np.einsum('Ii,ia,Aa->IA', mo_occ_b, t1b, mo_vir_b, optimize=True)
+        return (t1a_ref, t1b_ref)
+
+    def _get_ref_t2_ao(self, t2):
+        t2aa, t2ab, t2bb = t2
+        occa = self.cc._scf.mo_occ[0] > 0
+        occb = self.cc._scf.mo_occ[1] > 0
+        vira = self.cc._scf.mo_occ[0] == 0
+        virb = self.cc._scf.mo_occ[1] == 0
+        mo_occ_a = self.cc.mo_coeff[0][:,occa]
+        mo_occ_b = self.cc.mo_coeff[1][:,occb]
+        mo_vir_a = self.cc.mo_coeff[0][:,vira]
+        mo_vir_b = self.cc.mo_coeff[1][:,virb]
+        t2aa_ref = np.einsum('Ii,Jj,ijab,Aa,Bb->IJAB', mo_occ_a, mo_occ_a, t2aa, mo_vir_a, mo_vir_a, optimize=True)
+        t2ab_ref = np.einsum('Ii,Jj,ijab,Aa,Bb->IJAB', mo_occ_a, mo_occ_b, t2ab, mo_vir_a, mo_vir_b, optimize=True)
+        t2bb_ref = np.einsum('Ii,Jj,ijab,Aa,Bb->IJAB', mo_occ_b, mo_occ_b, t2bb, mo_vir_b, mo_vir_b, optimize=True)
+        return (t2aa_ref, t2ab_ref, t2bb_ref)
+
+    # Not implemented:
+
+    def test_dm1_2p2l(self):
+        pass
+
+    def test_dm1_demo(self):
+        pass
+
+    def test_dm2_demo(self):
+        pass
+
+class Test_UCCSD(Test_CCSD):
+
+    @classmethod
+    def setUpClass(cls):
+        cls.mf = testsystems.h3_sto3g_k311.uhf()
+        cls.cc = testsystems.h3_sto3g_s311.uccsd()
+        cls.ref_values = {
+                ('e_corr', 1e-3) : -0.01654717440912164,
+                ('e_tot', 1e-3) : -1.7250820680314027,
+                }
+
+    def _get_ref_t1_ao(self, t1):
+        t1a, t1b = t1
+        occa = self.cc._scf.mo_occ[0] > 0
+        occb = self.cc._scf.mo_occ[1] > 0
+        vira = self.cc._scf.mo_occ[0] == 0
+        virb = self.cc._scf.mo_occ[1] == 0
+        mo_occ_a = self.cc.mo_coeff[0][:,occa]
+        mo_occ_b = self.cc.mo_coeff[1][:,occb]
+        mo_vir_a = self.cc.mo_coeff[0][:,vira]
+        mo_vir_b = self.cc.mo_coeff[1][:,virb]
+        t1a_ref = np.einsum('Ii,ia,Aa->IA', mo_occ_a, t1a, mo_vir_a, optimize=True)
+        t1b_ref = np.einsum('Ii,ia,Aa->IA', mo_occ_b, t1b, mo_vir_b, optimize=True)
+        return (t1a_ref, t1b_ref)
+
+    def _get_ref_t2_ao(self, t2):
+        t2aa, t2ab, t2bb = t2
+        occa = self.cc._scf.mo_occ[0] > 0
+        occb = self.cc._scf.mo_occ[1] > 0
+        vira = self.cc._scf.mo_occ[0] == 0
+        virb = self.cc._scf.mo_occ[1] == 0
+        mo_occ_a = self.cc.mo_coeff[0][:,occa]
+        mo_occ_b = self.cc.mo_coeff[1][:,occb]
+        mo_vir_a = self.cc.mo_coeff[0][:,vira]
+        mo_vir_b = self.cc.mo_coeff[1][:,virb]
+        t2aa_ref = np.einsum('Ii,Jj,ijab,Aa,Bb->IJAB', mo_occ_a, mo_occ_a, t2aa, mo_vir_a, mo_vir_a, optimize=True)
+        t2ab_ref = np.einsum('Ii,Jj,ijab,Aa,Bb->IJAB', mo_occ_a, mo_occ_b, t2ab, mo_vir_a, mo_vir_b, optimize=True)
+        t2bb_ref = np.einsum('Ii,Jj,ijab,Aa,Bb->IJAB', mo_occ_b, mo_occ_b, t2bb, mo_vir_b, mo_vir_b, optimize=True)
+        return (t2aa_ref, t2ab_ref, t2bb_ref)
+
+    # Not implemented:
+
+    def test_dm1_2p2l(self):
+        pass
+
+    def test_dm2_demo(self):
+        pass
+
+# --- 2D
+
+class Test_MP2_2D(Test_MP2):
+
+    @classmethod
+    def setUpClass(cls):
+        cls.mf = testsystems.h2_sto3g_k31.rhf()
+        cls.cc = testsystems.h2_sto3g_s31.rmp2()
+        cls.ref_values = {
+                ('e_corr', 1e-3) : -0.013767085896414821,
+                ('e_tot', 1e-3) : -1.3539205678917514,
+                }
+
+class Test_CCSD_2D(Test_CCSD):
+
+    @classmethod
+    def setUpClass(cls):
+        cls.mf = testsystems.h2_sto3g_k31.rhf()
+        cls.cc = testsystems.h2_sto3g_s31.rccsd()
+        cls.ref_values = {
+                ('e_corr', 1e-3) : -0.01982005986990425,
+                ('e_tot', 1e-3) : -1.3599735418652414,
+                }
 
 if __name__ == '__main__':
     print('Running %s' % __file__)

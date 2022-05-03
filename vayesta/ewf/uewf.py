@@ -97,6 +97,9 @@ class UEWF(REWF, UEmbedding):
     def _make_rdm1_ccsd(self, *args, **kwargs):
         return make_rdm1_ccsd(self, *args, mp2=False, **kwargs)
 
+    def _make_rdm1_ccsd_2p2l(self, *args, **kwargs):
+        raise NotImplementedError()
+
     # TODO
     def _make_rdm2_ccsd(self, *args, **kwargs):
         raise NotImplementedError()

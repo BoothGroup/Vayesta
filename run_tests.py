@@ -12,6 +12,7 @@ For post-processing:
 # Imports:
 import os
 import sys
+import argparse
 import importlib
 import unittest
 import coverage
@@ -21,6 +22,13 @@ import pycodestyle
 import io
 import contextlib
 import subprocess
+
+parser = argparse.ArgumentParser()
+parser.add_argument('--max-test-level', type=int, default=1)
+parser.add_argument('--test-levels', type=int, nargs='*', default=None)
+args = parser.parse_args()
+if args.test_levels is None:
+    args.test_levels = list(range(args.max_test_level))
 
 # Clean up:
 os.system('rm -f .coverage')
@@ -71,8 +79,15 @@ prof.enable()
 # Perform the tests:
 loader = unittest.TestLoader()
 runner = unittest.TextTestRunner(verbosity=2)
-suite = loader.discover('vayesta/tests/')
-runner.run(suite)
+suites = [
+    loader.discover('vayesta/tests/', pattern='test_*.py'),
+    loader.discover('vayesta/tests/', pattern='test1_*.py'),
+    loader.discover('vayesta/tests/', pattern='test2_*.py'),
+    loader.discover('vayesta/tests/', pattern='test3_*.py'),
+    ]
+for lvl in args.test_levels:
+    print("Now running level %d tests..." % lvl)
+    runner.run(suites[lvl])
 
 # End the profiler:
 prof.disable()
