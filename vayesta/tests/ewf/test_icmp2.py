@@ -1,192 +1,113 @@
 import unittest
 import numpy as np
 
-import pyscf
-import pyscf.cc
-
+import vayesta
 from vayesta import ewf
-from vayesta.tests.cache import moles, cells
+
+from vayesta.core.util import cache
 from vayesta.tests.common import TestCase
+from vayesta.tests import testsystems
 
-class InterclusterMP2_Test(TestCase):
 
-    def test_rhf(self):
-        mol = moles['h2o_ccpvdz_df']['mol']
-        mf = moles['h2o_ccpvdz_df']['rhf']
-        emb = ewf.EWF(mf)
+class ICMP2_Test(TestCase):
 
-        # Test finite bath
-        emb.kernel(bno_threshold=np.inf)
-        e4 = emb.get_intercluster_mp2_energy(bno_threshold_vir=1e-4)
-        e6 = emb.get_intercluster_mp2_energy(bno_threshold_vir=1e-6)
-        e8 = emb.get_intercluster_mp2_energy(bno_threshold_vir=1e-8)
-        e4_expected = -0.1415720217653774
-        e6_expected = -0.1463770484732253
-        e8_expected = -0.1464956750957701
-        self.assertAllclose(e4, e4_expected)
-        self.assertAllclose(e6, e6_expected)
-        self.assertAllclose(e8, e8_expected)
+    @classmethod
+    def tearDownClass(cls):
+        del cls.mf
+        cls.emb.cache_clear()
 
-        # Test full bath
-        emb.kernel(bno_threshold=-np.inf)
-        e4 = emb.get_intercluster_mp2_energy(bno_threshold_vir=1e-4)
-        e6 = emb.get_intercluster_mp2_energy(bno_threshold_vir=1e-6)
-        e8 = emb.get_intercluster_mp2_energy(bno_threshold_vir=1e-8)
-        self.assertAllclose(e4, 0)
-        self.assertAllclose(e6, 0)
-        self.assertAllclose(e8, 0)
+    @classmethod
+    @cache
+    def emb(cls, bno_threshold):
+        emb = vayesta.ewf.EWF(cls.mf, bno_threshold=bno_threshold, solver='MP2')
+        emb.kernel()
+        return emb
 
-    def test_uhf(self):
-        mol = moles['h2o_ccpvdz_df']['mol']
-        mf = moles['h2o_ccpvdz_df']['uhf']
-        emb = ewf.EWF(mf)
-
-        # Test finite bath
-        emb.kernel(bno_threshold=np.inf)
-        e4 = emb.get_intercluster_mp2_energy(1e-4)
-        e6 = emb.get_intercluster_mp2_energy(1e-6)
-        e8 = emb.get_intercluster_mp2_energy(1e-8)
-        e4_expected = -0.1415720217653774
-        e6_expected = -0.1463770484732253
-        e8_expected = -0.1464956750957701
-        self.assertAllclose(e4, e4_expected)
-        self.assertAllclose(e6, e6_expected)
-        self.assertAllclose(e8, e8_expected)
-
-        # Test full bath
-        emb.kernel(bno_threshold=-np.inf)
-        e4 = emb.get_intercluster_mp2_energy(1e-4)
-        e6 = emb.get_intercluster_mp2_energy(1e-6)
-        e8 = emb.get_intercluster_mp2_energy(1e-8)
-        self.assertAllclose(e4, 0)
-        self.assertAllclose(e6, 0)
-        self.assertAllclose(e8, 0)
-
-    def test_rhf_solid(self):
-        mf = cells['h2_cp_k211']['rhf']
-
-        # Add each fragment:
-        emb = ewf.EWF(mf)
+    @classmethod
+    @cache
+    def emb_nosym(cls, bno_threshold):
+        emb = vayesta.ewf.EWF(cls.mf, bno_threshold=bno_threshold, solver='MP2')
         emb.iao_fragmentation()
-        for atom in range(4):
-            emb.add_atomic_fragment(atom, add_symmetric=False)
-        emb.kernel(bno_threshold=1e-4)
-        e6_expected = -0.0021036512144716295
-        e8_expected = -0.0021000931253910525
-        e6 = emb.get_intercluster_mp2_energy(bno_threshold_vir=1e-6)
-        e8 = emb.get_intercluster_mp2_energy(bno_threshold_vir=1e-8)
-        self.assertAllclose(e6, e6_expected)
-        self.assertAllclose(e8, e8_expected)
+        for natom in range(emb.mol.natm):
+            emb.add_atomic_fragment(natom, add_symmetric=False)
+        emb.kernel()
+        return emb
 
-        # Add unit cell fragments only:
-        emb = ewf.EWF(mf)
-        emb.iao_fragmentation()
-        emb.add_atomic_fragment(0)
-        emb.add_atomic_fragment(1)
-        emb.kernel(bno_threshold=1e-4)
-        e6 = emb.get_intercluster_mp2_energy(bno_threshold_vir=1e-6)
-        e8 = emb.get_intercluster_mp2_energy(bno_threshold_vir=1e-8)
-        self.assertAllclose(e6, e6_expected)
-        self.assertAllclose(e8, e8_expected)
+class ICMP2_RHF_Test(ICMP2_Test):
 
-        # Add symmetry unique fragment only:
-        emb = ewf.EWF(mf)
-        emb.iao_fragmentation()
-        emb.add_atomic_fragment(0, sym_factor=2)
-        emb.kernel(bno_threshold=1e-4)
-        e6 = emb.get_intercluster_mp2_energy(bno_threshold_vir=1e-6)
-        e8 = emb.get_intercluster_mp2_energy(bno_threshold_vir=1e-8)
-        self.assertAllclose(e6, e6_expected)
-        self.assertAllclose(e8, e8_expected)
+    @classmethod
+    def setUpClass(cls):
+        cls.mf = testsystems.water_631g_df.rhf()
 
-        # Compare to UHF
-        uhf = cells['h2_cp_k211']['uhf']
-        emb = ewf.EWF(uhf)
-        emb.iao_fragmentation()
-        emb.add_atomic_fragment(0)
-        emb.add_atomic_fragment(1)
-        emb.kernel(bno_threshold=1e-4)
-        e6 = emb.get_intercluster_mp2_energy(1e-6)
-        e8 = emb.get_intercluster_mp2_energy(1e-8)
-        self.assertAllclose(e6, e6_expected)
-        self.assertAllclose(e8, e8_expected)
+    def test_dmet_bath(self):
+        emb = self.emb(np.inf)
+        e_ic = emb.get_intercluster_mp2_energy(bno_threshold_vir=1e-3)
+        self.assertAllclose(e_ic, -0.05927010355296033)
+        e_ic = emb.get_intercluster_mp2_energy(bno_threshold_vir=1e-5)
+        self.assertAllclose(e_ic, -0.0721498800072952)
 
-        # Test supercell
-        mf = cells['h2_cp_g211']['rhf']
-        emb = ewf.EWF(mf)
-        emb.iao_fragmentation()
-        for atom in range(4):
-            emb.add_atomic_fragment(atom, add_symmetric=False)
-        emb.kernel(bno_threshold=1e-4)
-        e6 = emb.get_intercluster_mp2_energy(bno_threshold_vir=1e-6)
-        e8 = emb.get_intercluster_mp2_energy(bno_threshold_vir=1e-8)
-        self.assertAllclose(e6/2, e6_expected)
-        self.assertAllclose(e8/2, e8_expected)
+    def test_full_bath(self):
+        emb = self.emb(-np.inf)
+        e_ic = emb.get_intercluster_mp2_energy(bno_threshold_vir=1e-4)
+        self.assertAllclose(e_ic, 0)
 
-    def test_rhf_solid_large(self):
-        mf = cells['h2_cp_k321']['rhf']
+class ICMP2_UHF_Test(ICMP2_Test):
 
-        # Add each fragment:
-        emb = ewf.EWF(mf)
-        emb.iao_fragmentation()
-        for atom in range(12):
-            emb.add_atomic_fragment(atom, add_symmetric=False)
-        emb.kernel(bno_threshold=1e-4)
-        e6_expected = -0.002030534136819575
-        e8_expected = -0.002163755740097586
-        e6 = emb.get_intercluster_mp2_energy(bno_threshold_vir=1e-6)
-        e8 = emb.get_intercluster_mp2_energy(bno_threshold_vir=1e-8)
-        self.assertAllclose(e6, e6_expected)
-        self.assertAllclose(e8, e8_expected)
+    @classmethod
+    def setUpClass(cls):
+        cls.mf = testsystems.water_cation_631g_df.uhf()
 
-        # Add unit cell fragments only:
-        emb = ewf.EWF(mf)
-        emb.iao_fragmentation()
-        emb.add_atomic_fragment(0)
-        emb.add_atomic_fragment(1)
-        emb.kernel(bno_threshold=1e-4)
-        e6 = emb.get_intercluster_mp2_energy(bno_threshold_vir=1e-6)
-        e8 = emb.get_intercluster_mp2_energy(bno_threshold_vir=1e-8)
-        self.assertAllclose(e6, e6_expected)
-        self.assertAllclose(e8, e8_expected)
+    def test_dmet_bath(self):
+        emb = self.emb(np.inf)
+        e_ic = emb.get_intercluster_mp2_energy(1e-3)
+        self.assertAllclose(e_ic, -0.03883469123728171)
+        e_ic = emb.get_intercluster_mp2_energy(1e-5)
+        self.assertAllclose(e_ic, -0.048787144599376324)
 
-        # Add symmetry unique fragment only:
-        emb = ewf.EWF(mf)
-        emb.iao_fragmentation()
-        emb.add_atomic_fragment(0, sym_factor=2)
-        emb.kernel(bno_threshold=1e-4)
-        e6 = emb.get_intercluster_mp2_energy(bno_threshold_vir=1e-6)
-        e8 = emb.get_intercluster_mp2_energy(bno_threshold_vir=1e-8)
-        self.assertAllclose(e6, e6_expected)
-        self.assertAllclose(e8, e8_expected)
+    def test_full_bath(self):
+        emb = self.emb(-np.inf)
+        e_ic = emb.get_intercluster_mp2_energy(1e-4)
+        self.assertAllclose(e_ic, 0)
 
-    def test_uhf_solid(self):
-        mf = cells['h3_cp_k211']['uhf']
+class ICMP2_RHF_PBC_Test(ICMP2_Test):
 
-        # Add each fragment:
-        emb = ewf.EWF(mf)
-        emb.iao_fragmentation()
-        for atom in range(6):
-            emb.add_atomic_fragment(atom, add_symmetric=False)
-        emb.kernel(bno_threshold=1e-4)
-        e6_expected = -0.016221464358847706 / 2
-        e8_expected = -0.016297794448082218 / 2
-        e6 = emb.get_intercluster_mp2_energy(1e-6)
-        e8 = emb.get_intercluster_mp2_energy(1e-8)
-        self.assertAllclose(e6, e6_expected)
-        self.assertAllclose(e8, e8_expected)
+    @classmethod
+    def setUpClass(cls):
+        cls.mf = testsystems.h2_sto3g_k311.rhf()
 
-        # Add unit cell fragments only:
-        emb = ewf.EWF(mf)
-        emb.iao_fragmentation()
-        emb.add_atomic_fragment(0)
-        emb.add_atomic_fragment(1)
-        emb.add_atomic_fragment(2)
-        emb.kernel(bno_threshold=1e-4)
-        e6 = emb.get_intercluster_mp2_energy(1e-6)
-        e8 = emb.get_intercluster_mp2_energy(1e-8)
-        self.assertAllclose(e6, e6_expected)
-        self.assertAllclose(e8, e8_expected)
+    def test_dmet_bath(self):
+        emb = self.emb(np.inf)
+        e_ic = emb.get_intercluster_mp2_energy(1e-1)
+        self.assertAllclose(e_ic, -0.0002008447130808661)
+        e_ic = emb.get_intercluster_mp2_energy(1e-8)
+        self.assertAllclose(e_ic, -0.00020293482504415167)
+
+    def test_dmet_bath_nosym(self):
+        emb = self.emb_nosym(np.inf)
+        e_ic = emb.get_intercluster_mp2_energy(1e-1)
+        self.assertAllclose(e_ic, -0.0002008447130808661)
+        e_ic = emb.get_intercluster_mp2_energy(1e-8)
+        self.assertAllclose(e_ic, -0.00020293482504415167)
+
+class ICMP2_UHF_PBC_Test(ICMP2_Test):
+
+    @classmethod
+    def setUpClass(cls):
+        cls.mf = testsystems.h3_sto3g_k311.uhf()
+
+    def test_dmet_bath(self):
+        emb = self.emb(np.inf)
+        e_ic = emb.get_intercluster_mp2_energy(1e-1)
+        self.assertAllclose(e_ic, -0.0013459605792552982)
+        e_ic = emb.get_intercluster_mp2_energy(1e-8)
+        self.assertAllclose(e_ic, -0.0010737526376497356)
+
+    def test_dmet_bath_nosym(self):
+        emb = self.emb_nosym(np.inf)
+        e_ic = emb.get_intercluster_mp2_energy(1e-1)
+        self.assertAllclose(e_ic, -0.0013459605792552982)
+        e_ic = emb.get_intercluster_mp2_energy(1e-8)
+        self.assertAllclose(e_ic, -0.0010737526376497356)
 
 
 if __name__ == '__main__':

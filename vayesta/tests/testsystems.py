@@ -23,12 +23,12 @@ from pyscf.pbc.scf.addons import kconj_symmetry_
 import vayesta
 from vayesta.misc import molecules
 from vayesta.misc import solids
-from vayesta.core import fold_scf
+#from vayesta.core import fold_scf
 
 
 class TestMolecule:
 
-    def __init__(self, atom, basis, **kwargs):
+    def __init__(self, atom, basis, auxbasis=None, **kwargs):
         super().__init__()
         mol = pyscf.gto.Mole()
         mol.atom = atom
@@ -36,6 +36,7 @@ class TestMolecule:
         for key, val in kwargs.items():
             setattr(mol, key, val)
         mol.build()
+        self.auxbasis = auxbasis
         self.mol = mol
 
     # --- Mean-field
@@ -43,12 +44,16 @@ class TestMolecule:
     @cache
     def rhf(self):
         rhf = pyscf.scf.RHF(self.mol)
+        if self.auxbasis is not None:
+            rhf = rhf.density_fit(auxbasis=self.auxbasis)
         rhf.kernel()
         return rhf
 
     @cache
     def uhf(self):
         uhf = pyscf.scf.UHF(self.mol)
+        if self.auxbasis is not None:
+            uhf = uhf.density_fit(auxbasis=self.auxbasis)
         uhf.kernel()
         return uhf
 
@@ -141,7 +146,7 @@ class TestSolid:
             uhf = pyscf.pbc.scf.UHF(self.mol)
         else:
             uhf = pyscf.pbc.scf.KUHF(self.mol, self.kpts)
-        uhf = rhf.density_fit(auxbasis=self.auxbasis)
+        uhf = uhf.density_fit(auxbasis=self.auxbasis)
         if self.kpts is not None:
             uhf = kconj_symmetry_(uhf)
         uhf.conv_tol = 1e-10
@@ -217,17 +222,25 @@ h2anion_dz = TestMolecule(
     basis = 'cc-pVDZ',
     charge=-1, spin=1)
 
-lih_dz = TestMolecule(
-    atom = "Li 0 0 0 ; H 0 0 1.595",
-    basis = 'cc-pVDZ')
+#lih_dz = TestMolecule(
+#    atom = "Li 0 0 0 ; H 0 0 1.595",
+#    basis = 'cc-pVDZ')
+#
+#h2o_dz = TestMolecule(
+#    atom = """
+#        O  0.0000   0.0000   0.1173
+#        H  0.0000   0.7572  -0.4692
+#        H  0.0000  -0.7572  -0.4692
+#        """,
+#    basis = 'cc-pVDZ')
 
-h2o_dz = TestMolecule(
-    atom = """
-        O  0.0000   0.0000   0.1173
-        H  0.0000   0.7572  -0.4692
-        H  0.0000  -0.7572  -0.4692
-        """,
-    basis = 'cc-pVDZ')
+#water_sto3g_df = TestMolecule(atom=molecules.water(), basis='sto-3g', auxbasis='sto-3g')
+water_631g_df = TestMolecule(atom=molecules.water(), basis='6-31G', auxbasis='6-31G')
+water_cation_631g_df = TestMolecule(atom=molecules.water(), basis='6-31G', auxbasis='6-31G', charge=1, spin=1)
+#water_sto3g_df = TestMolecule(atom=molecules.water(), basis='sto-3g', auxbasis='sto-3g')
+#ethane_sto3g_df = TestMolecule(atom=molecules.alkane(2), basis='sto-3g', auxbasis='sto-3g')
+#water_dz_df = TestMolecule(atom=molecules.water(), basis='cc-pVDZ', auxbasis='cc-pVDZ-ri')
+
 
 # Solids
 
@@ -238,25 +251,11 @@ opts = dict(basis='sto-3g', auxbasis='sto-3g', exp_to_discard=0.1)
 h2_sto3g_k311 = TestSolid(a=a, atom='H 0 0 0 ; H 0 0 0.74', kmesh=(nk,1,1), **opts)
 h2_sto3g_s311 = TestSolid(a=a, atom='H 0 0 0 ; H 0 0 0.74', supercell=(nk,1,1), **opts)
 
-mesh = (4,3,3)
-h2_sto3g_k333 = TestSolid(a=a, atom='H 0 0 0 ; H 0 0 0.74', kmesh=mesh, **opts)
-h2_sto3g_s333 = TestSolid(a=a, atom='H 0 0 0 ; H 0 0 0.74', supercell=mesh, **opts)
-
-#opts = dict(basis='cc-pvdz', auxbasis='cc-pvdz-ri', exp_to_discard=0.1)
-#h2_dz_k333 = TestSolid(
-#    a=a, atom='H 0 0 0 ; H 0 0 0.74', kmesh=(3,3,3), **opts)
-#h2_dz_s333 = TestSolid(
-#    a=a, atom='H 0 0 0 ; H 0 0 0.74', supercell=(3,3,3), **opts)
+h3_sto3g_k311 = TestSolid(a=a, atom='H 0 0 0 ; H 0 0 1 ; H 0 0 2', kmesh=(nk,1,1), spin=3, **opts)
+h3_sto3g_s311 = TestSolid(a=a, atom='H 0 0 0 ; H 0 0 1 ; H 0 0 2', supercell=(nk,1,1), spin=3, **opts)
 
 opts = dict(basis='sto-3g', auxbasis='sto-3g', exp_to_discard=0.1)
-#mesh = (3,3,3)
 mesh = (2,1,1)
 a, atom = solids.diamond()
-diamond_sto3g_k333 = TestSolid(a=a, atom=atom, kmesh=mesh, **opts)
-diamond_sto3g_s333 = TestSolid(a=a, atom=atom, supercell=mesh, **opts)
-
-#he_431g_gamma = TestSolid(
-#        a=3*np.eye(3), atom='He 0 0 0', basis='431g')
-#
-#he_431g_k222 = TestSolid(
-#        a=3*np.eye(3), atom='He 0 0 0', basis='431g', kmesh=(2,2,2))
+diamond_sto3g_k211 = TestSolid(a=a, atom=atom, kmesh=mesh, **opts)
+diamond_sto3g_s211 = TestSolid(a=a, atom=atom, supercell=mesh, **opts)
