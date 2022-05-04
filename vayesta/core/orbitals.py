@@ -91,40 +91,6 @@ class SpinOrbitalSpace(BaseOrbitalSpace):
         copy.beta.transform(trafo[1], inplace=True)
         return copy
 
-#class OrbitalCollection(BaseOrbitals):
-#
-#    def __init__(self, **orbitals):
-#        #self._names = []
-#        self._orbitals = {}
-#        for name, coeff in orbitals.items():
-#            orb = Orbitals(coeff, name=name)
-#            #self._names.append(name)
-#            #self._orbitals.append(orb)
-#            self._orbitals[name] = orb
-#            setattr(self, name, orb)
-#
-#    def __repr__(self):
-#        return "OrbitalCollection%s" % self._orbitals
-#
-#    def __iter__(self):
-#        yield from self._orbitals.values()
-#
-#    def __len__(self):
-#        return sum([len(x) for x in self])
-#
-#    def __add__(self, other):
-#     cluster   < dmet
-#
-#
-#    #    if other is None:
-#    #        # Return copy to avoid unintended side-effects
-#    #        return SpinnedOrbitalSpace((self.alpha.coeff, self.beta.coeff))
-#    #    if isinstance(other, SpinnedOrbitalSpace):
-#    #        other = other.alpha, other.beta
-#
-#    def copy(self):
-#        return OrbitalCollection(**{k : v.copy() for k, v in self._orbitals.items()})
-
 
 if __name__ == '__main__':
 
@@ -157,5 +123,3 @@ if __name__ == '__main__':
     c_frag = (c_frag, c_frag)
     c_bath = (c_bath, v[:,nfrag:nfrag+nbath+2])
     test(c_frag, c_bath)
-
-
