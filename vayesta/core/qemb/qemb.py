@@ -681,66 +681,6 @@ class Embedding:
         eris = postscf_ao2mo(postscf, fock=fock, mo_energy=mo_energy, e_hf=e_hf)
         return eris
 
-    # Overlap matrices
-    # ----------------
-
-    def get_overlap_c2c(emb, tril=True, fragments=None):
-        """Get cluster to cluster overlaps for occupied and virtual orbitals."""
-        ovlp = emb.get_ovlp()
-        if fragments is None:
-            fragments = emb.fragments
-        nfrag = len(fragments)
-        po = [[] for i in range(nfrag)]
-        pv = [[] for i in range(nfrag)]
-        for i1, f1 in enumerate(fragments):
-            cso = np.dot(f1.cluster.c_active_occ.T, ovlp)   # N(f) x N(AO)^2
-            csv = np.dot(f1.cluster.c_active_vir.T, ovlp)
-            for i2, f2 in enumerate((fragments[:i1+1] if tril else fragments)):
-                po[i1].append(np.dot(cso, f2.cluster.c_active_occ))   # N(f)^2 x N(AO)
-                pv[i1].append(np.dot(csv, f2.cluster.c_active_vir))
-        return po, pv
-
-    def get_overlap_c2f(emb, fragments=None):
-        """Get cluster to fragment overlaps for occupied and virtual orbitals."""
-        ovlp = emb.get_ovlp()
-        if fragments is None:
-            fragments = emb.fragments
-        nfrag = len(fragments)
-        po = [[] for i in range(nfrag)]
-        pv = [[] for i in range(nfrag)]
-        for i1, f1 in enumerate(fragments):
-            cso = np.dot(f1.cluster.c_active_occ.T, ovlp)   # N(f) x N(AO)^2
-            csv = np.dot(f1.cluster.c_active_vir.T, ovlp)
-            for i2, f2 in enumerate(fragments):
-                po[i1].append(np.dot(cso, f2.c_proj))   # N(f)^2 x N(AO)
-                pv[i1].append(np.dot(csv, f2.c_proj))
-        return po, pv
-
-    def get_overlap_m2c(emb, fragments=None):
-        """Get mean-field to cluster overlaps for occupied and virtual orbitals."""
-        ovlp = emb.get_ovlp()
-        if fragments is None:
-            fragments = emb.fragments
-        po = []
-        pv = []
-        for frag in fragments:
-            fo, fv = frag.get_overlap_m2c() # N(f) x N(AO)^2
-            po.append(fo)
-            pv.append(fv)
-        return po, pv
-
-    def get_overlap_m2f(emb, fragments=None):
-        """Get mean-field to fragment overlaps for occupied and virtual orbitals."""
-        ovlp = emb.get_ovlp()
-        if fragments is None:
-            fragments = emb.fragments
-        po = []
-        pv = []
-        for frag in fragments:
-            po.append(dot(emb.mo_coeff_occ.T, ovlp, frag.c_proj))    # N(f) x N(AO)^2
-            pv.append(dot(emb.mo_coeff_vir.T, ovlp, frag.c_proj))
-        return po, pv
-
     # Symmetry between fragments
     # --------------------------
 

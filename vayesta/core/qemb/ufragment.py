@@ -124,54 +124,8 @@ class UFragment(Fragment):
             results.append(res_s)
         return tuple(zip(*results))
 
-    #def make_dmet_bath(self, c_env, dm1=None, **kwargs):
-    #    if dm1 is None: dm1 = self.mf.make_rdm1()
-    #    results = []
-    #    for s, spin in enumerate(('alpha', 'beta')):
-    #        self.log.info("Making %s-DMET bath", spin)
-    #        # Use restricted DMET bath routine for each spin:
-    #        results.append(super().make_dmet_bath(c_env[s], dm1=2*dm1[s], **kwargs))
-    #    return tuple(zip(*results))
-
     # Amplitude projection
     # --------------------
-
-    # NEW:
-
-    def get_occ2frag_projector(self):
-        ovlp = self.base.get_ovlp()
-        projector = (dot(self.c_proj[0].T, ovlp, self.cluster.c_active_occ[0]),
-                     dot(self.c_proj[1].T, ovlp, self.cluster.c_active_occ[1]))
-        return projector
-
-    def project_amp1_to_fragment(self, amp1, projector=None):
-        """Can be used to project C1, T1, or L1 amplitudes."""
-        if amp1 is None:
-            return None
-        if projector is None:
-            projector = self.get_occ2frag_projector()
-        return (np.dot(projector[0], amp1[0]),
-                np.dot(projector[1], amp1[1]))
-
-    def project_amp2_to_fragment(self, amp2, projector=None, axis=0):
-        """Can be used to project C2, T2, or L2 amplitudes."""
-        if amp2 is None:
-            return None
-        if projector is None:
-            projector = self.get_occ2frag_projector()
-        if axis == 0:
-            assert (len(amp2) == 3)
-            caa, cab, cbb = amp2
-            caax = einsum('xi,i...->x...', projector[0], caa)
-            cabx = einsum('xi,i...->x...', projector[0], cab)
-            cbax = einsum('xj,ij...->ix...', projector[1], cab)
-            cbbx = einsum('xi,i...->x...', projector[1], cbb)
-            return (caax, cabx, cbax, cbbx)
-        if axis == 1:
-            raise NotImplementedError()
-        raise ValueError("axis needs to be 0 or 1")
-
-    # OLD:
 
     def get_fragment_projector(self, coeff, c_proj=None, **kwargs):
         if c_proj is None: c_proj = self.c_proj
@@ -179,32 +133,6 @@ class UFragment(Fragment):
         for s in range(2):
             projectors.append(super().get_fragment_projector(coeff[s], c_proj=c_proj[s], **kwargs))
         return tuple(projectors)
-
-    def project_amplitude_to_fragment(self, c, c_occ=None, c_vir=None, partition=None, symmetrize=True):
-        if c_occ is None: c_occ = self.cluster.c_active_occ
-        if c_vir is None: c_vir = self.cluster.c_active_vir
-        if partition is None: partition = self.opts.wf_partition
-        if partition != 'first-occ': raise NotImplementedError()
-
-        # Two projectors: (alpha, beta)
-        p_occ = self.get_fragment_projector(c_occ)
-
-        if np.ndim(c[0]) == 2:
-            ca, cb = c
-            ca = np.dot(p_occ[0], ca)
-            cb = np.dot(p_occ[1], cb)
-            return (ca, cb)
-        if np.ndim(c[0]) == 4:
-            caa, cab, cbb = c
-            caa = np.tensordot(p_occ[0], caa, axes=1)
-            cab = np.tensordot(p_occ[0], cab, axes=1)
-            cbb = np.tensordot(p_occ[1], cbb, axes=1)
-            if symmetrize:
-                # Symmetrize projection between first index (alpha) and second index (beta)
-                cab = (cab + einsum('xj,ijab->ixab', p_occ[1], c[1])) / 2
-                caa = (caa + caa.transpose(1,0,3,2))/2
-                cbb = (cbb + cbb.transpose(1,0,3,2))/2
-            return (caa, cab, cbb)
 
     def get_fragment_mf_energy(self):
         """Calculate the part of the mean-field energy associated with the fragment.
@@ -410,34 +338,3 @@ class UFragment(Fragment):
     def _csc_dot(self, c1, c2):
         ovlp = self.base.get_ovlp()
         return (dot(c1[0].T, ovlp, c2[0]), dot(c1[1].T, ovlp, c2[1]))
-
-    # --- Deprecated:
-
-    @deprecated
-    def get_overlap_m2c(self):
-        """Get rotation matrices from occupied/virtual active space to MF orbitals."""
-        ovlp = self.base.get_ovlp()
-        r_occ_a = dot(self.base.mo_coeff_occ[0].T, ovlp, self.cluster.c_active_occ[0])
-        r_occ_b = dot(self.base.mo_coeff_occ[1].T, ovlp, self.cluster.c_active_occ[1])
-        r_vir_a = dot(self.base.mo_coeff_vir[0].T, ovlp, self.cluster.c_active_vir[0])
-        r_vir_b = dot(self.base.mo_coeff_vir[1].T, ovlp, self.cluster.c_active_vir[1])
-        return (r_occ_a, r_occ_b), (r_vir_a, r_vir_b)
-
-    @deprecated
-    def get_overlap_m2f(self):
-        """Get overlap matrices from mean-field to fragment orbitals."""
-        ovlp = self.base.get_ovlp()
-        r_occ_a = dot(self.base.mo_coeff_occ[0].T, ovlp, self.c_proj[0])
-        r_occ_b = dot(self.base.mo_coeff_occ[1].T, ovlp, self.c_proj[1])
-        r_vir_a = dot(self.base.mo_coeff_vir[0].T, ovlp, self.c_proj[0])
-        r_vir_b = dot(self.base.mo_coeff_vir[1].T, ovlp, self.c_proj[1])
-        return (r_occ_a, r_occ_b), (r_vir_a, r_vir_b)
-
-    def get_overlap_c2f(self):
-        """Get overlap matrices from occupied/virtual active space to fragment orbitals."""
-        ovlp = self.base.get_ovlp()
-        r_occ_a = dot(self.cluster.c_active_occ[0].T, ovlp, self.c_proj[0])
-        r_occ_b = dot(self.cluster.c_active_occ[1].T, ovlp, self.c_proj[1])
-        r_vir_a = dot(self.cluster.c_active_vir[0].T, ovlp, self.c_proj[0])
-        r_vir_b = dot(self.cluster.c_active_vir[1].T, ovlp, self.c_proj[1])
-        return (r_occ_a, r_occ_b), (r_vir_a, r_vir_b)

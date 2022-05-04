@@ -31,8 +31,6 @@ from vayesta.core.mpi import mpi
 
 from . import ewf
 from . import helper
-from .rdm import _gamma2_intermediates
-from .rdm import _incluster_gamma2_intermediates
 
 # Get MPI rank of fragment
 get_fragment_mpi_rank = lambda *args : args[0].mpi_rank
@@ -113,7 +111,7 @@ class EWFFragment(Fragment):
 
         if solver is None:
             solver = self.base.solver
-        if solver not in ewf.VALID_SOLVERS:
+        if solver not in self.base.valid_solvers:
             raise ValueError("Unknown solver: %s" % solver)
         self.solver = solver
 
@@ -377,28 +375,6 @@ class EWFFragment(Fragment):
 
         self._results = results
 
-        #2RDM Energy Contribution
-        if self.solver == 'CCSD' and self.base.opts.calc_cluster_rdm_energy:
-            with log_time(self.log.info, ("Time for fragment 2DM energy= %s")):
-                t_as_lambda = self.opts.t_as_lambda
-                t1 = self.results.get_t1()
-                t2 = self.results.get_t2()
-                l1 = (t1 if t_as_lambda else self.results.l1)
-                l2 = (t2 if t_as_lambda else self.results.l2)
-
-                t1p = self.project_amplitude_to_fragment(t1)
-                l1p = self.project_amplitude_to_fragment(l1)
-                l2p = self.project_amplitude_to_fragment(l2)
-                t2p = self.project_amplitude_to_fragment(t2)
-
-                mycc = pyscf.cc.CCSD(self.base.mf)
-                d1 = None #pyscf.cc.ccsd_rdm._gamma1_intermediates(mycc, t1, t2, l1, l2)
-                d2 = _incluster_gamma2_intermediates(mycc, t1, t2, l1p, l2p, t1p=t1p, t2p=t2p)
-                #d2 = _gamma2_intermediates(mycc, t1, t2, l1p, l2p, t1p=t1p, t2p=t2p)
-                rdm2 = pyscf.cc.ccsd_rdm._make_rdm2(mycc, d1, d2, with_dm1=False)#, with_frozen=with_frozen, ao_repr=ao_repr)
-                eris_full = ao2mo.helper.get_full_array(eris)
-
-                self.results.e_rdm2 = np.einsum('pqrs,pqrs', eris_full, rdm2) * 0.5
         # Keep ERIs stored
         if (self.opts.store_eris or self.base.opts.store_eris):
             self._eris = eris
@@ -430,22 +406,6 @@ class EWFFragment(Fragment):
             solver_opts['c_cas_vir'] = self.opts.c_cas_vir
             solver_opts['tcc_fci_opts'] = self.opts.tcc_fci_opts
         return solver_opts
-
-    def project_amplitudes_to_fragment(self, cm, c1, c2, **kwargs):
-        """Wrapper for project_amplitude_to_fragment, where the mo coefficients are extracted from a MP2 or CC object."""
-        act = cm.get_frozen_mask()
-        occ = cm.mo_occ[act] > 0
-        vir = cm.mo_occ[act] == 0
-        c = cm.mo_coeff[:,act]
-        c_occ = c[:,occ]
-        c_vir = c[:,vir]
-
-        p1 = p2 = None
-        if c1 is not None:
-            p1 = self.project_amplitude_to_fragment(c1, c_occ, c_vir, **kwargs)
-        if c2 is not None:
-            p2 = self.project_amplitude_to_fragment(c2, c_occ, c_vir, **kwargs)
-        return p1, p2
 
     # --- Expectation values
     # ----------------------

@@ -32,10 +32,9 @@ class EWFResults:
     e_corr: float = None
 
 
-VALID_SOLVERS = [None, '', 'MP2', 'CISD', 'CCSD', 'TCCSD', 'CCSD(T)', 'FCI', 'FCI-spin0', 'FCI-spin1']
-
 class EWF(Embedding):
 
+    valid_solvers = [None, '', 'MP2', 'CISD', 'CCSD', 'TCCSD', 'FCI', 'FCI-spin0', 'FCI-spin1']
     Fragment = Fragment
 
     @dataclasses.dataclass
@@ -61,8 +60,6 @@ class EWF(Embedding):
         solve_lambda: bool = False          # If True, solve for the Lambda-amplitudes if a CCSD solver is used
         t_as_lambda: bool = False           # If True, use T-amplitudes inplace of Lambda-amplitudes
         dm_with_frozen: bool = False        # Add frozen parts to cluster DMs
-        # Energy calculation
-        calc_cluster_rdm_energy: bool = False
         # Counterpoise correction of BSSE
         bsse_correction: bool = True
         bsse_rmax: float = 5.0              # In Angstrom
@@ -76,7 +73,7 @@ class EWF(Embedding):
         icmp2_bno_threshold: float = 1e-8
         # --- Couple embedding problems (currently only CCSD)
         coupled_iterations: bool = False
-        strict: bool = False                # Stop if cluster not converged
+
 
     def __init__(self, mf, solver='CCSD', options=None, log=None, **kwargs):
         """Embedded wave function (EWF) calculation object.
@@ -98,12 +95,7 @@ class EWF(Embedding):
         self.log.info(break_into_lines(str(self.opts), newline='\n    '))
 
         # --- Check input
-        if not mf.converged:
-            if self.opts.strict:
-                raise RuntimeError("Mean-field calculation not converged.")
-            else:
-                self.log.error("Mean-field calculation not converged.")
-        if solver not in VALID_SOLVERS:
+        if solver not in self.valid_solvers:
             raise ValueError("Unknown solver: %s" % solver)
         self.solver = solver
 
@@ -118,63 +110,6 @@ class EWF(Embedding):
         fmt = ('%s(' + len(keys)*'%s: %r, ')[:-2] + ')'
         values = [self.__dict__[k] for k in keys]
         return fmt % (self.__class__.__name__, *[x for y in zip(keys, values) for x in y])
-
-
-    #    if self.opts.fragment_type.upper() == "IAO":
-    #        #self.C_ao, self.C_env, self.iao_labels = self.make_iao_coeffs(minao=self.opts.iao_minao)
-    #        minao=self.opts.iao_minao
-    #        self.C_ao, self.C_env = self.make_iao_coeffs(minao=minao)
-    #        self.iao_labels = self.get_iao_labels(minao=minao)
-    #        # Only for printing:
-    #        self.get_iao_occupancy(self.C_ao, minao=minao)
-    #        self.ao_labels = self.iao_labels
-    #    elif self.opts.fragment_type.upper() == "LOWDIN-AO":
-    #        self.C_ao, self.lao_labels = self.make_lowdin_ao()
-    #        self.ao_labels = self.lao_labels
-
-    #    locmethod = self.opts.localize_fragment
-    #    if locmethod:
-    #        self.log.debug("Localize fragment orbitals with %s method", locmethod)
-
-    #        #orbs = {self.ao_labels[i] : self.C_ao[:,i:i+1] for i in range(self.C_ao.shape[-1])}
-    #        #orbs = {"A" : self.C_ao}
-    #        #create_orbital_file(self.mol, "%s.molden" % self.local_orbital_type, orbs)
-    #        coeffs = self.C_ao
-    #        names = [("%d-%s-%s-%s" % l).rstrip("-") for l in self.ao_labels]
-    #        #create_orbital_file(self.mol, self.local_orbital_type, coeffs, names, directory="fragment")
-    #        create_orbital_file(self.mol, self.opts.fragment_type, coeffs, names, directory="fragment", filetype="cube")
-
-    #        t0 = timer()
-    #        if locmethod in ("BF", "ER", "PM"):
-    #            localizer = getattr(pyscf.lo, locmethod)(self.mol)
-    #            localizer.init_guess = None
-    #            #localizer.pop_method = "lowdin"
-    #            C_loc = localizer.kernel(self.C_ao, verbose=4)
-    #        elif locmethod == "LAO":
-    #            #centers = [l[0] for l in self.mol.ao_labels(None)]
-    #            centers = [l[0] for l in self.ao_labels]
-    #            self.log.debug("Atom centers: %r", centers)
-    #            C_loc = localize_ao(self.mol, self.C_ao, centers)
-
-    #        #C_loc = locfunc(self.mol).kernel(self.C_ao, verbose=4)
-    #        self.log.timing("Time for orbital localization: %s", time_string(timer()-t0))
-    #        assert C_loc.shape == self.C_ao.shape
-    #        # Check that all orbitals kept their fundamental character
-    #        chi = np.einsum("ai,ab,bi->i", self.C_ao, self.get_ovlp(), C_loc)
-    #        self.log.info("Diagonal of AO-Loc(AO) overlap: %r", chi)
-    #        self.log.info("Smallest value: %.3g" % np.amin(chi))
-    #        #assert np.all(chi > 0.5)
-    #        self.C_ao = C_loc
-
-    #        #orbs = {"A" : self.C_ao}
-    #        #orbs = {self.ao_labels[i] : self.C_ao[:,i:i+1] for i in range(self.C_ao.shape[-1])}
-    #        #create_orbital_file(self.mol, "%s-local.molden" % self.local_orbital_type, orbs)
-    #        #raise SystemExit()
-
-    #        coeffs = self.C_ao
-    #        names = [("%d-%s-%s-%s" % l).rstrip("-") for l in self.ao_labels]
-    #        #create_orbital_file(self.mol, self.local_orbital_type, coeffs, names, directory="fragment-localized")
-    #        create_orbital_file(self.mol, self.opts.fragment_type, coeffs, names, directory="fragment-localized", filetype="cube")
 
     def get_init_mo_coeff(self, mo_coeff=None):
         """Orthogonalize insufficiently orthogonal MOs.
@@ -201,9 +136,11 @@ class EWF(Embedding):
         return c
 
     def tailor_all_fragments(self):
-        for frag in self.fragments:
-            for frag2 in frag.loop_fragments(exclude_self=True):
-                frag.add_tailor_fragment(frag2)
+        for x in self.fragments:
+            for y in self.fragments:
+                if (x == y):
+                    continue
+                x.add_tailor_fragment(y)
 
     def kernel(self, bno_threshold=None):
         """Run EWF.
@@ -615,7 +552,6 @@ class EWF(Embedding):
                 tmp = np.tensordot(p1, ddm2)
                 for b, atom2 in enumerate(atoms):
                     p2 = proj[b]
-                    #ssz[i,j] = einsum('kl,kl->', tmp, p2)/2
                     ssz[a,b] += np.sum(tmp*p2)/2
         else:
             for x, fx in enumerate(self.get_fragments()):
@@ -632,60 +568,6 @@ class EWF(Embedding):
 
         self.log.timing("Time for <S_z^2>: %s", time_string(timer()-t0))
         return ssz
-
-
-    #def get_wf_cisd(self, intermediate_norm=False, c0=None):
-    #    c0_target = c0
-
-    #    c0 = 1.0
-    #    c1 = np.zeros((self.nocc, self.nvir))
-    #    c2 = np.zeros((self.nocc, self.nocc, self.nvir, self.nvir))
-    #    ovlp = self.get_ovlp()
-    #    # Add fragment WFs in intermediate normalization
-    #    for f in self.fragments:
-    #        c1f, c2f = f.results.c1/f.results.c0, f.results.c2/f.results.c0
-    #        #c1f, c2f = f.results.c1, f.results.c2
-    #        c1f = f.project_amplitude_to_fragment(c1f, c_occ=f.c_active_occ)
-    #        c2f = f.project_amplitude_to_fragment(c2f, c_occ=f.c_active_occ)
-    #        ro = np.linalg.multi_dot((f.c_active_occ.T, ovlp, self.mo_coeff_occ))
-    #        rv = np.linalg.multi_dot((f.c_active_vir.T, ovlp, self.mo_coeff_vir))
-    #        c1 += einsum('ia,iI,aA->IA', c1f, ro, rv)
-    #        #c2f = (c2f + c2f.transpose(1,0,3,2))/2
-    #        c2 += einsum('ijab,iI,jJ,aA,bB->IJAB', c2f, ro, ro, rv, rv)
-
-    #    # Symmetrize
-    #    c2 = (c2 + c2.transpose(1,0,3,2))/2
-
-    #    # Restore standard normalization
-    #    if not intermediate_norm:
-    #        #c0 = self.fragments[0].results.c0
-    #        norm = np.sqrt(c0**2 + 2*np.dot(c1.flatten(), c1.flatten()) + 2*np.dot(c2.flatten(), c2.flatten())
-    #                - einsum('jiab,ijab->', c2, c2))
-    #        c0 = c0/norm
-    #        c1 /= norm
-    #        c2 /= norm
-    #        # Check normalization
-    #        norm = (c0**2 + 2*np.dot(c1.flatten(), c1.flatten()) + 2*np.dot(c2.flatten(), c2.flatten())
-    #                - einsum('jiab,ijab->', c2, c2))
-    #        assert np.isclose(norm, 1.0)
-
-    #        if c0_target is not None:
-    #            norm12 = (2*np.dot(c1.flatten(), c1.flatten()) + 2*np.dot(c2.flatten(), c2.flatten())
-    #                    - einsum('jiab,ijab->', c2, c2))
-    #            if norm12 > 1e-10:
-    #                print('norm12= %.6e' % norm12)
-    #                fac12 = np.sqrt((1.0-c0_target**2)/norm12)
-    #                print('fac12= %.6e' % fac12)
-    #                c0 = c0_target
-    #                c1 *= fac12
-    #                c2 *= fac12
-
-    #                # Check normalization
-    #                norm = (c0**2 + 2*np.dot(c1.flatten(), c1.flatten()) + 2*np.dot(c2.flatten(), c2.flatten())
-    #                        - einsum('jiab,ijab->', c2, c2))
-    #                assert np.isclose(norm, 1.0)
-
-    #    return c0, c1, c2
 
     def get_dm_energy_old(self, global_dm1=True, global_dm2=False):
         """Calculate total energy from reduced density-matrices.
@@ -744,53 +626,10 @@ class EWF(Embedding):
             e2 = einsum('pqrs,pqrs', eri, rdm2) * 0.5
         else:
             # Fragment Local 2DM cumulant contribution
-            e2 = sum(f.results.e_rdm2 for f in self.fragments)
+            e2 = self.get_dm_corr_energy_parts(t_as_lambda=t_as_lambda)[1]
         e_corr = (e1 + e2) / self.ncells
         return e_corr
 
-
-    # -------------------------------------------------------------------------------------------- #
-
-    # TODO: Reimplement
-    #def make_local_nonorth_iao_orbitals(self, ao_indices, minao="minao"):
-    #    C_occ = self.mo_coeff[:,self.mo_occ>0]
-    #    C_ao = pyscf.lo.iao.iao(self.mol, C_occ, minao=minao)
-
-    #    ao_labels = np.asarray(self.mol.ao_labels())[ao_indices]
-    #    refmol = pyscf.lo.iao.reference_mol(self.mol, minao=minao)
-    #    iao_labels = refmol.ao_labels()
-    #    assert len(iao_labels) == C_ao.shape[-1]
-
-    #    loc = np.isin(iao_labels, ao_labels)
-    #    self.log.debug("Local NonOrth IAOs: %r", (np.asarray(iao_labels)[loc]).tolist())
-    #    nlocal = np.count_nonzero(loc)
-    #    self.log.debug("Number of local IAOs=%3d", nlocal)
-
-    #    C_local = C_ao[:,loc]
-    #    # Orthogonalize locally
-    #    #S = self.mf.get_ovlp()
-    #    S = self.get_ovlp()
-    #    C_local = pyscf.lo.vec_lowdin(C_local, S)
-
-    #    # Add remaining space
-    #    # Transform to MO basis
-    #    C_local_mo = np.linalg.multi_dot((self.mo_coeff.T, S, C_local))
-    #    # Get eigenvectors of projector into complement
-    #    P_local = np.dot(C_local_mo, C_local_mo.T)
-    #    norb = self.mo_coeff.shape[-1]
-    #    P_env = np.eye(norb) - P_local
-    #    e, C = np.linalg.eigh(P_env)
-    #    assert np.all(np.logical_or(abs(e) < 1e-10, abs(e)-1 < 1e-10))
-    #    mask_env = (e > 1e-10)
-    #    assert (np.sum(mask_env) + nlocal == norb)
-    #    # Transform back to AO basis
-    #    C_env = np.dot(self.mo_coeff, C[:,mask_env])
-
-    #    # Test orthogonality
-    #    C = np.hstack((C_local, C_env))
-    #    assert np.allclose(C.T.dot(S).dot(C) - np.eye(norb), 0)
-
-    #    return C_local, C_env
 
     # -------------------------------------------------------------------------------------------- #
 

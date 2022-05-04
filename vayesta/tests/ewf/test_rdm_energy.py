@@ -19,7 +19,7 @@ class TestRDMEnergyConvergence(unittest.TestCase):
         cc.kernel()
 
         #Full bath EWF
-        ewf = vayesta.ewf.EWF(mf, bath_type='full', solve_lambda=True, calc_cluster_rdm_energy=True)
+        ewf = vayesta.ewf.EWF(mf, bath_type='full', solve_lambda=True)
         ewf.kernel()
 
         ll = ewf.get_dm_corr_energy_old(global_dm1=False, global_dm2=False)

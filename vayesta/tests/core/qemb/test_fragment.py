@@ -120,51 +120,6 @@ class MolFragmentTests(unittest.TestCase):
         e_mf = sum([f.get_fragment_mf_energy() for f in frags])
         self.assertAlmostEqual(e_mf, (moles[self.key][self.mf_key].e_tot-moles[self.key][self.mf_key].energy_nuc()), self.PLACES)
 
-    def test_project_amplitude_to_fragment(self):
-        """Test the project_amplitude_to_fragment function.
-        """
-
-        qemb = self.Embedding(moles[self.key][self.mf_key])
-        qemb.sao_fragmentation()
-        frag = qemb.add_atomic_fragment(0)
-
-        nocc = np.sum(moles[self.key][self.mf_key].mo_occ > 0)
-        nvir = np.sum(moles[self.key][self.mf_key].mo_occ == 0)
-        nmo = nocc + nvir
-
-        with temporary_seed(1):
-            c_ij = np.random.random((nocc, nvir)) - 0.5
-            c_ijab = np.random.random((nocc, nocc, nvir, nvir)) - 0.5
-            c_occ = np.random.random((nmo, nocc)) - 0.5
-            c_vir = np.random.random((nmo, nvir)) - 0.5
-
-        f = frag.project_amplitude_to_fragment(c_ij, c_occ=c_occ, c_vir=c_vir, partition='first-occ')
-        self.assertAlmostEqual(lib.fp(f), -1.22094291483245, self.PLACES)
-
-        f = frag.project_amplitude_to_fragment(c_ij, c_occ=c_occ, c_vir=c_vir, partition='first-vir')
-        self.assertAlmostEqual(lib.fp(f),  1.45786726001951, self.PLACES)
-
-        f = frag.project_amplitude_to_fragment(c_ij, c_occ=c_occ, c_vir=c_vir, partition='occ-2')
-        self.assertAlmostEqual(lib.fp(f), -1.22094291483245, self.PLACES)
-
-        f = frag.project_amplitude_to_fragment(c_ij, c_occ=c_occ, c_vir=c_vir, partition='democratic')
-        self.assertAlmostEqual(lib.fp(f),  0.11846217259353, self.PLACES)
-
-        f = frag.project_amplitude_to_fragment(c_ijab, c_occ=c_occ, c_vir=c_vir, partition='first-occ')
-        self.assertAlmostEqual(lib.fp(f),  1.06523031903778, self.PLACES)
-
-        f = frag.project_amplitude_to_fragment(c_ijab, c_occ=c_occ, c_vir=c_vir, partition='first-vir')
-        self.assertAlmostEqual(lib.fp(f), -4.58067349696292, self.PLACES)
-
-        f = frag.project_amplitude_to_fragment(c_ijab, c_occ=c_occ, c_vir=c_vir, partition='occ-2')
-        self.assertAlmostEqual(lib.fp(f), 19.99235570216633, self.PLACES)
-
-        f = frag.project_amplitude_to_fragment(c_ijab, c_occ=c_occ, c_vir=c_vir, partition='democratic')
-        self.assertAlmostEqual(lib.fp(f), 99.05649141218053, self.PLACES)
-
-        f = frag.project_amplitude_to_fragment(c_ijab, c_occ=c_occ, c_vir=c_vir, partition='democratic', symmetrize=False)
-        self.assertAlmostEqual(lib.fp(f), 86.58052426394231, self.PLACES)
-
     def test_project_ref_orbitals(self):
         """Test the project_ref_orbitals function.
         """
@@ -324,7 +279,7 @@ class CellFragmentTests(unittest.TestCase):
         frag = qemb.add_atomic_fragment([0, 1])
         frags = [frag] + frag.add_tsymmetric_fragments([2, 2, 2])
 
-        for frag in frags[0].loop_fragments():
+        for frag in qemb.fragments:
             self.assertAlmostEqual(frag.get_fragment_mf_energy().real, -4.261995344528813, self.PLACES)
 
     def test_iao_aos(self):

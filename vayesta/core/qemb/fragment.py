@@ -326,62 +326,6 @@ class Fragment:
     # --- Overlap matrices
     # --------------------
 
-    # Cluster to Fragment
-
-    @deprecated
-    def get_co2fo(self):
-        return self._csc_dot(self.cluster.c_active, self.c_frag)
-
-    @deprecated
-    def get_co2fo_occ(self):
-        return self._csc_dot(self.cluster.c_active_occ, self.c_frag)
-
-    @deprecated
-    def get_co2fo_vir(self):
-        return self._csc_dot(self.cluster.c_active_vir, self.c_frag)
-
-    # Fragment to Cluster
-
-    @deprecated
-    def get_fo2co(self):
-        return self._csc_dot(self.c_frag, self.cluster.c_active)
-
-    @deprecated
-    def get_fo2co_occ(self):
-        return self._csc_dot(self.c_frag, self.cluster.c_active_occ)
-
-    @deprecated
-    def get_fo2co_vir(self):
-        return self._csc_dot(self.c_frag, self.cluster.c_active_vir)
-
-    # Mean-field to Cluster
-
-    @deprecated
-    def get_mo2co(self):
-        return self._csc_dot(self.base.mo_coeff, self.cluster.c_active)
-
-    @deprecated
-    def get_mo2co_occ(self):
-        return self._csc_dot(self.base.mo_coeff_occ, self.cluster.c_active_occ)
-
-    @deprecated
-    def get_mo2co_vir(self):
-        return self._csc_dot(self.base.mo_coeff_vir, self.cluster.c_active_vir)
-
-    # Mean-field to Fragment:
-
-    @deprecated
-    def get_mo2fo(self):
-        return self._csc_dot(self.base.mo_coeff, self.c_frag)
-
-    @deprecated
-    def get_mo2fo_occ(self):
-        return self._csc_dot(self.base.mo_coeff_occ, self.c_frag)
-
-    @deprecated
-    def get_mo2fo_vir(self):
-        return self._csc_dot(self.base.mo_coeff_vir, self.c_frag)
-
     def _csc_dot(self, c1, c2):
         ovlp = self.base.get_ovlp()
         return dot(c1.T, ovlp, c2)
@@ -423,39 +367,6 @@ class Fragment:
         c_left = _get_coeff(left)
         c_right = _get_coeff(right)
         return self._csc_dot(c_left, c_right)
-
-    # --- Deprecated:
-
-    @deprecated
-    def get_overlap_c2f(self):
-        """Get overlap matrices from cluster to fragment space."""
-        ovlp = self.base.get_ovlp()
-        r_occ = dot(self.cluster.c_active_occ.T, ovlp, self.c_proj)
-        r_vir = dot(self.cluster.c_active_vir.T, ovlp, self.c_proj)
-        return r_occ, r_vir
-
-    @deprecated
-    def get_overlap_m2c(self):
-        """Get overlap matrices from mean-field to occupied/virtual active space."""
-        ovlp = self.base.get_ovlp()
-        r_occ = dot(self.base.mo_coeff_occ.T, ovlp, self.cluster.c_active_occ)
-        r_vir = dot(self.base.mo_coeff_vir.T, ovlp, self.cluster.c_active_vir)
-        return r_occ, r_vir
-
-    @deprecated
-    def get_overlap_m2f(self):
-        """Get overlap matrices from mean-field to fragment orbitals."""
-        ovlp = self.base.get_ovlp()
-        r_occ = dot(self.base.mo_coeff_occ.T, ovlp, self.c_proj)
-        r_vir = dot(self.base.mo_coeff_vir.T, ovlp, self.c_proj)
-        return r_occ, r_vir
-
-    def get_overlap_c2f(self):
-        """Get overlap matrices from occupied/virtual active space to fragment orbitals."""
-        ovlp = self.base.get_ovlp()
-        r_occ = dot(self.cluster.c_active_occ.T, ovlp, self.c_proj)
-        r_vir = dot(self.cluster.c_active_vir.T, ovlp, self.c_proj)
-        return r_occ, r_vir
 
     @property
     def results(self):
@@ -561,13 +472,6 @@ class Fragment:
     #        raise RuntimeError("Incorrect occupation of orbitals (expected %f):\n%r" % (expected, occup))
     #    return occup
 
-    def loop_fragments(self, exclude_self=False):
-        """Loop over all fragments of the base quantum embedding method."""
-        for frag in self.base.fragments:
-            if (exclude_self and frag is self):
-                continue
-            yield frag
-
     def canonicalize_mo(self, *mo_coeff, fock=None, eigvals=False, sign_convention=True):
         """Diagonalize Fock matrix within subspace.
 
@@ -664,173 +568,6 @@ class Fragment:
         c = np.dot(c, r)
 
         return c, e
-
-    # Amplitude projection
-    # --------------------
-
-    # NEW:
-
-    def get_occ2frag_projector(self):
-        """TODO: REMOVE"""
-        ovlp = self.base.get_ovlp()
-        projector = dot(self.c_proj.T, ovlp, self.cluster.c_active_occ)
-        # TEST
-        #px = self.get_overlap_c2f()[0]
-        #assert np.allclose(px.T, projector)
-        return projector
-
-    def project_amp1_to_fragment(self, amp1, projector=None):
-        """Can be used to project C1, T1, or L1 amplitudes."""
-        if amp1 is None:
-            return None
-        if projector is None:
-            projector = self.get_occ2frag_projector()
-        return np.dot(projector, amp1)
-
-    def project_amp2_to_fragment(self, amp2, projector=None, axis=0):
-        """Can be used to project C2, T2, or L2 amplitudes."""
-        if amp2 is None:
-            return None
-        if projector is None:
-            projector = self.get_occ2frag_projector()
-        if axis == 0:
-            return einsum('xi,i...->x...', projector, amp2)
-        if axis == 1:
-            return einsum('xj,ij...->ix...', projector, amp2)
-        raise ValueError("axis needs to be 0 or 1")
-
-    # OLD:
-
-    def project_amplitude_to_fragment(self, c, c_occ=None, c_vir=None, partition=None, symmetrize=True):
-        """Get fragment contribution of CI coefficients or CC amplitudes.
-
-        Parameters
-        ----------
-        c: (n(occ), n(vir)) or (n(occ), n(occ), n(vir), n(vir)) array
-            CI coefficients or CC amplitudes.
-        c_occ: (n(AO), n(MO)) array, optional
-            Occupied MO coefficients. If `None`, `self.cluster.c_active_occ` is used. Default: `None`.
-        c_vir: (n(AO), n(MO)) array, optional
-            Virtual MO coefficients. If `None`, `self.cluster.c_active_vir` is used. Default: `None`.
-        partition: ['first-occ', 'first-vir', 'democractic'], optional
-            Partitioning scheme of amplitudes. Default: 'first-occ'.
-        symmetrize: bool, optional
-            Symmetrize C2/T2 amplitudes such that they obey "(ijab) = (jiba)" symmetry. Default: True.
-
-        Returns
-        -------
-        pc: array
-            Projected CI coefficients or CC amplitudes.
-        """
-        if c_occ is None: c_occ = self.cluster.c_active_occ
-        if c_vir is None: c_vir = self.cluster.c_active_vir
-        if partition is None: partition = self.opts.wf_partition
-
-        if np.ndim(c) not in (2, 4):
-            raise NotImplementedError("C.shape= %r" % c.shape)
-        partition = partition.lower()
-        if partition not in ('first-occ', 'occ-2', 'first-vir', 'democratic'):
-            raise ValueError("Unknown partitioning of amplitudes: %r" % partition)
-
-        # Projectors into fragment occupied and virtual space
-        if partition in ('first-occ', 'occ-2', 'democratic'):
-            fo = self.get_fragment_projector(c_occ)
-        if partition in ('first-vir', 'democratic'):
-            fv = self.get_fragment_projector(c_vir)
-        # Inverse projectors
-        if partition == 'democratic':
-            ro = np.eye(fo.shape[-1]) - fo
-            rv = np.eye(fv.shape[-1]) - fv
-
-        if np.ndim(c) == 2:
-            if partition in ('first-occ', 'occ-2'):
-                pc = einsum('xi,ia->xa', fo, c)
-            elif partition == 'first-vir':
-                pc = einsum('ia,xa->ix', c, fv)
-            elif partition == 'democratic':
-                pc = einsum('xi,ia,ya->xy', fo, c, fv)
-                pc += einsum('xi,ia,ya->xy', fo, c, rv) / 2.0
-                pc += einsum('xi,ia,ya->xy', ro, c, fv) / 2.0
-            return pc
-
-        if partition == 'first-occ':
-            pc = einsum('xi,ijab->xjab', fo, c)
-        elif partition == 'occ-2':
-            pc = einsum('xj,ijab->ixab', fo, c)
-        elif partition == 'first-vir':
-            pc = einsum('ijab,xa->ijxb', c, fv)
-        elif partition == 'democratic':
-
-            def project(p1, p2, p3, p4):
-                pc = einsum('xi,yj,ijab,za,wb->xyzw', p1, p2, c, p3, p4)
-                return pc
-
-            # Factors of 2 due to ij,ab <-> ji,ba symmetry
-            # Denominators 1/N due to element being shared between N clusters
-
-            # Quadruple F
-            # ===========
-            # This is fully included
-            pc = project(fo, fo, fv, fv)
-            # Triple F
-            # ========
-            # This is fully included
-            pc += 2*project(fo, fo, fv, rv)
-            pc += 2*project(fo, ro, fv, fv)
-            # Double F
-            # ========
-            # P(FFrr) [This wrongly includes: 1x P(FFaa), instead of 0.5x - correction below]
-            pc +=   project(fo, fo, rv, rv)
-            pc += 2*project(fo, ro, fv, rv)
-            pc += 2*project(fo, ro, rv, fv)
-            pc +=   project(ro, ro, fv, fv)
-            # Single F
-            # ========
-            # P(Frrr) [This wrongly includes: P(Faar) (where r could be a) - correction below]
-            pc += 2*project(fo, ro, rv, rv) / 4.0
-            pc += 2*project(ro, ro, fv, rv) / 4.0
-
-            # Corrections
-            # ===========
-            # Loop over all other clusters x
-            for x in self.loop_fragments(exclude_self=True):
-
-                xo = x.get_fragment_projector(c_occ)
-                xv = x.get_fragment_projector(c_vir)
-
-                # Double correction
-                # -----------------
-                # Correct for wrong inclusion of P(FFaa)
-                # The case P(FFaa) was included with prefactor of 1 instead of 1/2
-                # We thus need to only correct by "-1/2"
-                pc -=   project(fo, fo, xv, xv) / 2.0
-                pc -= 2*project(fo, xo, fv, xv) / 2.0
-                pc -= 2*project(fo, xo, xv, fv) / 2.0
-                pc -=   project(xo, xo, fv, fv) / 2.0
-
-                # Single correction
-                # -----------------
-                # Correct for wrong inclusion of P(Faar)
-                # This corrects the case P(Faab) but overcorrects P(Faaa)!
-                pc -= 2*project(fo, xo, xv, rv) / 4.0
-                pc -= 2*project(fo, xo, rv, xv) / 4.0 # If r == x this is the same as above -> overcorrection
-                pc -= 2*project(fo, ro, xv, xv) / 4.0 # overcorrection
-                pc -= 2*project(xo, xo, fv, rv) / 4.0
-                pc -= 2*project(xo, ro, fv, xv) / 4.0 # overcorrection
-                pc -= 2*project(ro, xo, fv, xv) / 4.0 # overcorrection
-
-                # Correct overcorrection
-                # The additional factor of 2 comes from how often the term was wrongly included above
-                pc += 2*2*project(fo, xo, xv, xv) / 4.0
-                pc += 2*2*project(xo, xo, fv, xv) / 4.0
-
-        # Note that the energy should be invariant to symmetrization
-        if symmetrize:
-            #sym_err = np.linalg.norm(pc - pc.transpose(1,0,3,2))
-            #self.log.debugv("Symmetry error= %e", sym_err)
-            pc = (pc + pc.transpose(1,0,3,2)) / 2
-
-        return pc
 
     # --- Symmetry
     # ============
@@ -1009,7 +746,6 @@ class Fragment:
         # Get effective core potential
         if h1e_eff is None:
             # Use the original Hcore (without chemical potential modifications), but updated mf-potential!
-            #h1e_eff = self.base.get_hcore_orig() + self.base.get_veff(with_exxdiv=False)/2
             h1e_eff = self.base.get_hcore_for_energy() + self.base.get_veff_for_energy(with_exxdiv=False)/2
             h1e_eff = dot(c_act.T, h1e_eff, c_act)
             occ = np.s_[:self.cluster.nocc_active]
@@ -1082,14 +818,3 @@ class Fragment:
         cube = CubeFile(self.mol, filename=filename, nx=nx, ny=ny, nz=nz, **kwargs)
         cube.add_orbital(self.c_frag)
         cube.write()
-
-    # --- Deprecated
-    # --------------
-
-    def make_dmet_bath(self, *args, dmet_threshold=None, **kwargs):  # pragma: no cover
-        self.log.warning("make_dmet_bath is deprecated. Use self.bath.make_dmet_bath.")
-        from vayesta.core.bath import DMET_Bath
-        if dmet_threshold is None:
-            dmet_threshold = self.opts.dmet_threshold
-        bath = DMET_Bath(self, dmet_threshold=dmet_threshold)
-        return bath.make_dmet_bath(*args, **kwargs)
