@@ -7,7 +7,7 @@ import numpy as np
 from vayesta.core import Fragment
 from vayesta.core.actspace import ActiveSpace
 from vayesta.core.bath import BNO_Threshold
-from vayesta.solver import get_solver_class2 as get_solver_class
+from vayesta.solver import get_solver_class
 from vayesta.core.util import *
 
 import vayesta.ewf
@@ -135,8 +135,11 @@ class DMETFragment(Fragment):
 
         # Create solver object
         solver_cls = get_solver_class(self.mf, solver)
-        solver_opts = self.get_solver_options(solver, chempot)
+        solver_opts = self.get_solver_options(solver)
         cluster_solver = solver_cls(self, cluster, **solver_opts)
+        # Chemical potential
+        if chempot is not None:
+            cluster_solver.v_ext = -chempot * self.get_fragment_projector(self.cluster.c_active)
         if eris is None:
             eris = cluster_solver.get_eris()
         with log_time(self.log.info, ("Time for %s solver:" % solver) + " %s"):
@@ -155,7 +158,7 @@ class DMETFragment(Fragment):
 
         return results
 
-    def get_solver_options(self, solver, chempot=None):
+    def get_solver_options(self, solver):
         solver_opts = {}
         solver_opts.update(self.opts.solver_options)
         # pass_through = ['make_rdm1', 'make_rdm2']
@@ -165,9 +168,6 @@ class DMETFragment(Fragment):
         for attr in pass_through:
             self.log.debugv("Passing fragment option %s to solver.", attr)
             solver_opts[attr] = getattr(self.opts, attr)
-
-        solver_opts["v_ext"] = None if chempot is None else - chempot * np.array(self.get_fragment_projector(
-            self.cluster.c_active))
 
         return solver_opts
 

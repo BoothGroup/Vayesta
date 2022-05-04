@@ -407,6 +407,13 @@ class UFragment(Fragment):
     # --- Overlap matrices
     # --------------------
 
+    def _csc_dot(self, c1, c2):
+        ovlp = self.base.get_ovlp()
+        return (dot(c1[0].T, ovlp, c2[0]), dot(c1[1].T, ovlp, c2[1]))
+
+    # --- Deprecated:
+
+    @deprecated
     def get_overlap_m2c(self):
         """Get rotation matrices from occupied/virtual active space to MF orbitals."""
         ovlp = self.base.get_ovlp()
@@ -416,6 +423,7 @@ class UFragment(Fragment):
         r_vir_b = dot(self.base.mo_coeff_vir[1].T, ovlp, self.cluster.c_active_vir[1])
         return (r_occ_a, r_occ_b), (r_vir_a, r_vir_b)
 
+    @deprecated
     def get_overlap_m2f(self):
         """Get overlap matrices from mean-field to fragment orbitals."""
         ovlp = self.base.get_ovlp()

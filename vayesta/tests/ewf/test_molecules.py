@@ -53,10 +53,10 @@ class MoleculeEWFTests(unittest.TestCase):
         dm = emb.make_rdm1_demo(ao_basis=True)
         self.assertAlmostEqual(np.trace(dm), known_values['rdm1_demo_ao'], self.PLACES_DM)
 
-        dm = emb.make_rdm1_ccsd()
+        dm = emb._make_rdm1_ccsd()
         self.assertAlmostEqual(np.trace(dm), known_values['rdm1_ccsd'], self.PLACES_DM)
 
-        dm = emb.make_rdm1_ccsd(ao_basis=True)
+        dm = emb._make_rdm1_ccsd(ao_basis=True)
         self.assertAlmostEqual(np.trace(dm), known_values['rdm1_ccsd_ao'], self.PLACES_DM)
 
     def _test_rdm2(self, emb, known_values):
@@ -71,10 +71,10 @@ class MoleculeEWFTests(unittest.TestCase):
         dm = emb.make_rdm2_demo(ao_basis=True)
         self.assertAlmostEqual(trace(dm), known_values['rdm2_demo_ao'], self.PLACES_DM)
 
-        dm = emb.make_rdm2_ccsd()
+        dm = emb._make_rdm2_ccsd()
         self.assertAlmostEqual(trace(dm), known_values['rdm2_ccsd'], self.PLACES_DM)
 
-        dm = emb.make_rdm2_ccsd(ao_basis=True)
+        dm = emb._make_rdm2_ccsd(ao_basis=True)
         self.assertAlmostEqual(trace(dm), known_values['rdm2_ccsd_ao'], self.PLACES_DM)
 
     def test_lih_ccpvdz_iao_atoms(self):
@@ -84,8 +84,7 @@ class MoleculeEWFTests(unittest.TestCase):
         emb = ewf.EWF(
                 moles['lih_ccpvdz']['rhf'],
                 bath_type='full',
-                make_rdm1=True,
-                make_rdm2=True,
+                solve_lambda=True,
                 solver_options={
                     'conv_tol': self.CONV_TOL,
                     'conv_tol_normt': self.CONV_TOL_NORMT,
@@ -283,50 +282,6 @@ class MoleculeEWFTests(unittest.TestCase):
         self.assertAlmostEqual(ecisd.e_corr, eccsd.e_corr)
         self.assertAlmostEqual(ecisd.e_tot, eccsd.e_tot)
 
-    def test_eom(self):
-        """Tests EWF EOM-CCSD support.
-        """
-
-        emb = ewf.EWF(
-                moles['n2_631g']['rhf'],
-                bno_threshold=1e-6,
-                eom_ccsd=['IP', 'EA', 'EE-S', 'EE-T', 'EE-SF'],
-                eom_ccsd_nroots=5,
-                solver_options={
-                    'conv_tol': self.CONV_TOL,
-                    'conv_tol_normt': self.CONV_TOL_NORMT,
-                },
-        )
-        emb.iao_fragmentation()
-        frag = emb.make_atom_fragment(0)
-        frag.kernel()
-
-        nocc = frag.c_cluster_occ.shape[1]
-        nvir = frag.c_cluster_vir.shape[1]
-        nocc_frozen = np.sum(moles['n2_631g']['rhf'].mo_occ > 0) - nocc
-        nvir_frozen = np.sum(moles['n2_631g']['rhf'].mo_occ == 0) - nvir
-        solver = CCSD_Solver(
-                frag,
-                moles['n2_631g']['rhf'].mo_coeff,
-                moles['n2_631g']['rhf'].mo_occ,
-                nocc_frozen,
-                nvir_frozen,
-                eom_ccsd=['IP', 'EA', 'EE-S', 'EE-T', 'EE-SF'],
-                eom_ccsd_nroots=5,
-        )
-        res = solver.kernel()
-
-        self.assertAlmostEqual(res.ip_energy[0],    0.57188303464319880, self.PLACES_ENERGY)
-        self.assertAlmostEqual(res.ea_energy[0],    0.18735362996670174, self.PLACES_ENERGY)
-        self.assertAlmostEqual(res.ee_s_energy[0],  0.34472451128191955, self.PLACES_ENERGY)
-        self.assertAlmostEqual(res.ee_t_energy[0],  0.29463644214328730, self.PLACES_ENERGY)
-        self.assertAlmostEqual(res.ee_sf_energy[0], 0.29463644349001655, self.PLACES_ENERGY)
-
-        self.assertAlmostEqual(np.linalg.norm(res.ip_coeff[0][:nocc]),         0.9782629400729406, self.PLACES_ENERGY)
-        self.assertAlmostEqual(np.linalg.norm(res.ea_coeff[0][:nvir]),         0.9979110706595700, self.PLACES_ENERGY)
-        self.assertAlmostEqual(np.linalg.norm(res.ee_s_coeff[0][:nocc*nvir]),  0.6846761442905756, self.PLACES_ENERGY)
-        self.assertAlmostEqual(np.linalg.norm(res.ee_t_coeff[0][:nocc*nvir]),  0.9990012466882306, self.PLACES_ENERGY)
-        self.assertAlmostEqual(np.linalg.norm(res.ee_sf_coeff[0][:nocc*nvir]), 0.9990012297986601, self.PLACES_ENERGY)
 
 
 class UMoleculeEWFTests(unittest.TestCase):

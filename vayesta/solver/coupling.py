@@ -7,6 +7,7 @@ import pyscf.ci
 import pyscf.fci
 
 from vayesta.core.util import *
+from vayesta.core.mpi import mpi, RMA_Dict
 
 def transform_amplitude(t, u_occ, u_vir):
     """(Old basis|new basis)"""
@@ -154,6 +155,61 @@ def make_cas_tcc_function(solver, c_cas_occ, c_cas_vir, eris):
         return t1, t2
 
     return tailor_func
+
+
+def couple_ccsd_iterations(solver, fragments):
+    """
+
+    Requires MPI.
+    """
+    # Make projector P(y):
+    # P(y) = C(x).T S F(y) F(y).T S C(y)
+    # where
+    # C(x): Cluster orbitals of fragment x
+    # S: AO-overlap
+    # F(x): Fragment orbitals of fragment x
+
+    ovlp = solver.base.get_ovlp()
+    c_occ_x = solver.cluster.c_active_occ
+    c_vir_x = solver.cluster.c_active_vir
+    p_occ = {}
+    r_occ = {}
+    r_vir = {}
+    rma = RMA_Dict.from_dict(mpi, {
+        (solver.fragment.id, 'c_active_occ'): c_occ_x,
+        (solver.fragment.id, 'c_active_vir'): c_vir_x})
+    for y in fragments:
+        fy = y.c_proj
+        c_occ_y = rma[(y.id, 'c_active_occ')]
+        c_vir_y = rma[(y.id, 'c_active_vir')]
+        p_occ[y.id] = einsum('ai,ab,by,cy,cd,dj->ij', c_occ_x, ovlp, fy, fy, ovlp, c_occ_y)
+        r_occ[y.id] = einsum('ai,ab,bj->ij', c_occ_x, ovlp, c_occ_y)
+        r_vir[y.id] = einsum('ai,ab,bj->ij', c_vir_x, ovlp, c_vir_y)
+    rma.clear()
+
+    def tailorfunc(cc, t1, t2):
+
+        cc.force_iter = True
+        cc.force_exit = bool(mpi.world.allreduce(int(cc.conv_flag), op=mpi.op.prod))
+        conv = mpi.world.gather(int(cc.conv_flag), root=0)
+
+        rma = RMA_Dict.from_dict(mpi, {(mpi.rank, 't1'): t1, (mpi.rank, 't2'): t2})
+
+        t1_out = np.zeros_like(t1)
+        t2_out = np.zeros_like(t2)
+        for y in fragments:
+            t1y, t2y = rma[(y.id, 't1')], rma[(y.id, 't2')]
+            po = p_occ[y.id]
+            ro = r_occ[y.id]
+            rv = r_vir[y.id]
+            #print(solver.fragment.id, y.id, py.shape, t1_out.shape, t1y.shape)
+            t1_out += einsum('Ii,ia,Aa->IA', po, t1y, rv)
+            t2_out += einsum('Ii,Jj,ijab,Aa,Bb->IJAB', po, ro, t2y, rv, rv)
+        solver.log.info("Tailoring: |dT1|= %.3e  |dT2|= %.3e", np.linalg.norm(t1_out-t1), np.linalg.norm(t2_out-t2))
+        rma.clear()
+        return t1_out, t2_out
+
+    return tailorfunc
 
 
 def make_cross_fragment_tcc_function(solver, mode, coupled_fragments=None, correct_t1=True, correct_t2=True, symmetrize_t2=True):

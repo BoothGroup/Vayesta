@@ -51,7 +51,8 @@ class UEDMETFragment(UDMETFragment, EDMETFragment):
         return self.cluster.c_active_vir
 
     def get_rot_to_mf_ov(self):
-        r_o, r_v = self.get_overlap_m2c()
+        r_o = self.get_overlap('mo[occ]|cluster[occ]')
+        r_v = self.get_overlap('mo[vir]|cluster[vir]')
         spat_rota = einsum("iJ,aB->iaJB", r_o[0], r_v[0]).reshape((self.ov_mf[0], self.ov_active[0])).T
         spat_rotb = einsum("iJ,aB->iaJB", r_o[1], r_v[1]).reshape((self.ov_mf[1], self.ov_active[1])).T
         res = np.zeros((sum(self.ov_active), sum(self.ov_mf)))
@@ -165,7 +166,8 @@ class UEDMETFragment(UDMETFragment, EDMETFragment):
         """Get rotations between the relevant space for fragment two-point excitations and the cluster active occupied-
         virtual excitations."""
 
-        occ_frag_rot, vir_frag_rot = self.get_overlap_c2f()
+        occ_frag_rot = self.get_overlap('cluster[occ]|frag')
+        vir_frag_rot = self.get_overlap('cluster[vir]|frag')
         if self.opts.old_sc_condition:
             # Then get projectors to local quantities in ov-basis. Note this needs to be stacked to apply to each spin
             # pairing separately.

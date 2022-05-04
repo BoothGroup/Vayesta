@@ -8,7 +8,7 @@ import scipy.linalg
 from vayesta.core.util import *
 from vayesta.dmet.fragment import DMETFragment
 from vayesta.core.bath import BNO_Threshold
-from vayesta.solver import get_solver_class2 as get_solver_class
+from vayesta.solver import get_solver_class
 from vayesta.core.bath import helper
 
 
@@ -132,8 +132,9 @@ class EDMETFragment(DMETFragment):
         return cv, cv
 
     def get_rot_to_mf_ov(self):
-        r_o, r_v = self.get_overlap_m2c()
-        spat_rot = einsum("iJ,aB->iaJB", r_o, r_v).reshape((self.ov_mf, self.ov_active)).T
+        ro = self.get_overlap('mo[occ]|cluster[occ]')
+        rv = self.get_overlap('mo[vir]|cluster[vir]')
+        spat_rot = einsum("iJ,aB->iaJB", ro, rv).reshape((self.ov_mf, self.ov_active)).T
         res = np.zeros((2 * self.ov_active, 2 * self.ov_mf))
         res[:self.ov_active, :self.ov_mf] = spat_rot
         res[self.ov_active:2 * self.ov_active, self.ov_mf:2 * self.ov_mf] = spat_rot
@@ -640,7 +641,8 @@ class EDMETFragment(DMETFragment):
         """
 
         r_bos_a, r_bos_b = self.get_rbos_split()
-        r_o, r_v = self.get_overlap_m2c()
+        r_o = self.get_overlap('mo[occ]|cluster[occ]')
+        r_v = self.get_overlap('mo[vir]|cluster[vir]')
         if not self.base.is_uhf:
             r_o = (r_o, r_o)
             r_v = (r_v, r_v)
@@ -673,11 +675,18 @@ class EDMETFragment(DMETFragment):
 
         # Create solver object
         t0 = timer()
-        solver_opts = self.get_solver_options(solver, chempot)
+        solver_opts = self.get_solver_options(solver)
 
         solver_cls = get_solver_class(self.mf, solver)
 
         cluster_solver = solver_cls(self, self.cluster, **solver_opts)
+        # Chemical potential
+        if chempot is not None:
+            px =  self.get_fragment_projector(self.cluster.c_active)
+            if isinstance(px, tuple):
+                cluster_solver.v_ext = (-chempot*px[0], -chempot*px[1])
+            else:
+                cluster_solver.v_ext = -chempot*px
 
         if eris is None:
             eris = cluster_solver.get_eris()
@@ -697,7 +706,8 @@ class EDMETFragment(DMETFragment):
         results.e1, results.e2, results.e_fb = self.get_edmet_energy_contrib()
 
         if self.opts.make_dd_moments:
-            r_o, r_v = self.get_overlap_c2f()
+            r_o = self.get_overlap('cluster[occ]|frag')
+            r_v = self.get_overlap('cluster[vir]|frag')
             if isinstance(r_o, tuple):
                 r = tuple([np.concatenate([x, y], axis=0) for x, y in zip(r_o, r_v)])
             else:
@@ -712,16 +722,13 @@ class EDMETFragment(DMETFragment):
 
         return results
 
-    def get_solver_options(self, solver, chempot):
+    def get_solver_options(self, solver):
         solver_opts = {}
         solver_opts.update(self.opts.solver_options)
         pass_through = []
         for attr in pass_through:
             self.log.debugv("Passing fragment option %s to solver.", attr)
             solver_opts[attr] = getattr(self.opts, attr)
-
-        solver_opts["v_ext"] = None if chempot is None else - chempot * np.array(self.get_fragment_projector(
-            self.cluster.c_active))
 
         return solver_opts
 
@@ -764,7 +771,8 @@ class EDMETFragment(DMETFragment):
 
         new_amb, new_apb = self.get_composite_moments(m0_new, m1_new)
 
-        r_occ, r_vir = self.get_overlap_m2c()
+        r_occ = self.get_overlap('mo[occ]|cluster[occ]')
+        r_vir = self.get_overlap('mo[vir]|cluster[vir]')
         if not isinstance(r_occ, tuple): r_occ = (r_occ, r_occ)
         if not isinstance(r_vir, tuple): r_vir = (r_vir, r_vir)
         ov_a, ov_b = self.ov_active_ab
@@ -986,7 +994,8 @@ class EDMETFragment(DMETFragment):
         """Get rotations between the relevant space for fragment two-point excitations and the cluster active occupied-
         virtual excitations."""
 
-        occ_frag_rot, vir_frag_rot = self.get_overlap_c2f()
+        occ_frag_rot = self.get_overlap('cluster[occ]|frag')
+        vir_frag_rot = self.get_overlap('cluster[vir]|frag')
         ov_loc = self.ov_active
         if self.opts.old_sc_condition:
             # Then get projectors to local quantities in ov-basis. Note this needs to be stacked to apply to each spin

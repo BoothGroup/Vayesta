@@ -12,6 +12,7 @@ from .amplitudes import get_global_t1_uhf
 from .amplitudes import get_global_t2_uhf
 # Density-matrices
 from .urdm import make_rdm1_ccsd
+from .urdm import make_rdm2_ccsd_proj_lambda
 from .icmp2 import get_intercluster_mp2_energy_uhf
 
 
@@ -82,14 +83,20 @@ class UEWF(REWF, UEmbedding):
     # --- Density-matrices
     # --------------------
 
-    def make_rdm1_mp2(self, *args, **kwargs):
+    def _make_rdm1_mp2(self, *args, **kwargs):
         return make_rdm1_ccsd(self, *args, mp2=True, **kwargs)
 
-    def make_rdm1_ccsd(self, *args, **kwargs):
+    def _make_rdm1_ccsd(self, *args, **kwargs):
         return make_rdm1_ccsd(self, *args, mp2=False, **kwargs)
 
-    # TODO
-    def make_rdm2_ccsd(self, *args, **kwargs):
+    def _make_rdm1_ccsd_2p2l(self, *args, **kwargs):
         raise NotImplementedError()
+
+    # TODO
+    def _make_rdm2_ccsd(self, *args, **kwargs):
+        raise NotImplementedError()
+
+    def _make_rdm2_ccsd_proj_lambda(self, *args, **kwargs):
+        return make_rdm2_ccsd_proj_lambda(self, *args, **kwargs)
 
     get_intercluster_mp2_energy = get_intercluster_mp2_energy_uhf

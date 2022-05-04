@@ -61,7 +61,8 @@ class Embedding:
         #recalc_vhf: bool = True
         solver_options: dict = dataclasses.field(default_factory=dict)
         wf_partition: str = 'first-occ'     # ['first-occ', 'first-vir', 'democratic']
-        store_eris: bool = False            # If True, ERIs will be stored in Fragment._eris
+        store_eris: bool = True             # If True, ERIs will be stored in Fragment._eris
+        global_frag_chempot: float = None   # Global fragment chemical potential (e.g. for democratically partitioned DMs)
 
     def __init__(self, mf, options=None, log=None, overwrite=None, **kwargs):
         """Abstract base class for quantum embedding methods.
@@ -209,22 +210,18 @@ class Embedding:
         self._veff = self._veff_orig
 
         # Hartree-Fock energy - this can be different from mf.e_tot, when the mean-field
-        # is not a converged HF calculations
-        e_mf = mf.e_tot / self.ncells
+        # is not a (converged) HF calculations
+        e_mf = (mf.e_tot / self.ncells)
         e_hf = self.e_mf
-        if abs((e_mf - e_hf)/e_mf) > 1e-3:
-            self.log.warning("Non Hartree-Fock mean-field? Large change of energy: E(mf)= %s -> E(HF)= %s (dE= %s) !",
-                    *map(energy_string, (e_mf, e_hf, e_hf-e_mf)))
-        elif abs(e_mf - e_hf) > 1e-6:
-            self.log.info("Non Hartree-Fock mean-field detected. Change of energy: E(mf)= %s -> E(HF)= %s (dE= %s)",
-                    *map(energy_string, (e_mf, e_hf, e_hf-e_mf)))
-        else:
-            self.log.debugv("Change of energy: E(mf)= %s -> E(HF)= %s (dE= %s)",
-                    *map(energy_string, (e_mf, e_hf, e_hf-e_mf)))
-        if self.mf.converged:
-            self.log.info("E(HF)= %s", energy_string(e_hf))
-        else:
-            self.log.warning("E(HF)= %s (not converged!)", energy_string(e_hf))
+        de = (e_mf - e_hf)
+        rde = (de / e_mf)
+        if not self.mf.converged:
+            self.log.warning("Mean-field not converged!")
+        self.log.info("Initial E(mean-field)= %s", energy_string(e_mf))
+        self.log.info("Calculated E(HF)=      %s", energy_string(e_hf))
+        self.log.info("Difference dE=         %s ( %.1f%%)", energy_string(de), rde)
+        if (abs(de) > 1e-3) or (abs(rde) > 1e-6):
+            self.log.warning("Large difference between initial E(mean-field) and calculated E(HF)!")
 
         #FIXME (no RHF/UHF dependent code here)
         if self.is_rhf:
@@ -859,11 +856,7 @@ class Embedding:
         """
         e_dmet = 0.0
         for f in self.get_fragments(mpi_rank=mpi.rank):
-            if f.results.e_dmet is not None:
-                e_dmet += f.results.e_dmet
-            else:
-                self.log.info("Calculating DMET energy of %s", f)
-                e_dmet += f.get_fragment_dmet_energy()
+            e_dmet += f.get_fragment_dmet_energy()
         self.log.debugv("E_elec(DMET)= %s", energy_string(e_dmet))
         return e_dmet
 
@@ -1135,9 +1128,13 @@ class Embedding:
 
     # --- Mean-field updates
 
+    @deprecated
     def reset_fragments(self, *args, **kwargs):
-        for f in self.fragments:
-            f.reset(*args, **kwargs)
+        self.reset()
+
+    def reset(self, *args, **kwargs):
+        for x in self.fragments:
+            x.reset(*args, **kwargs)
 
     def update_mf(self, mo_coeff, mo_energy=None, veff=None):
         """Update underlying mean-field object."""

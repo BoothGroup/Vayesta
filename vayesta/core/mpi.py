@@ -5,6 +5,7 @@ from contextlib import contextmanager
 
 import numpy as np
 
+import vayesta
 from vayesta.core.util import *
 
 log = logging.getLogger(__name__)
@@ -66,6 +67,26 @@ class MPI_Interface:
     def get_new_tag(self):
         self._tag += 1
         return self._tag
+
+    def nreduce(self, *args, target=None, logfunc=None, **kwargs):
+        """(All)reduce multiple arguments.
+
+        TODO:
+        * Use Allreduce/Reduce for NumPy types
+        * combine multiple *args of same dtype into a single array,
+        to reduce communication overhead.
+        """
+        if logfunc is None:
+            logfunc = vayesta.log.timingv
+        if target is None:
+            with log_time(logfunc, "Time for MPI allreduce: %s"):
+                res = [self.world.allreduce(x, **kwargs) for x in args]
+        else:
+            with log_time(logfunc, "Time for MPI reduce: %s"):
+                res = [self.world.reduce(x, root=target, **kwargs) for x in args]
+        if len(res) == 1:
+            return res[0]
+        return tuple(res)
 
     # --- Function wrapper at embedding level
     # ---------------------------------------

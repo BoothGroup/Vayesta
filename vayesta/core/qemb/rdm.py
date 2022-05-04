@@ -5,7 +5,7 @@ import numpy as np
 from vayesta.core.util import *
 
 
-def make_rdm1_demo_rhf(emb, ao_basis=False, add_mf=False, symmetrize=True):
+def make_rdm1_demo_rhf(emb, ao_basis=False, with_mf=False, symmetrize=True):
     """Make democratically partitioned one-particle reduced density-matrix from fragment calculations.
 
     Warning: A democratically partitioned DM is only expected to yield reasonable results
@@ -15,7 +15,7 @@ def make_rdm1_demo_rhf(emb, ao_basis=False, add_mf=False, symmetrize=True):
     ----------
     ao_basis: bool, optional
         Return the density-matrix in the AO basis. Default: False.
-    add_mf: bool, optional
+    with_mf: bool, optional
         Add the mean-field contribution to the density-matrix (double counting is accounted for).
         Is only used if `partition = 'dm'`. Default: False.
     symmetrize: bool, optional
@@ -28,7 +28,7 @@ def make_rdm1_demo_rhf(emb, ao_basis=False, add_mf=False, symmetrize=True):
     """
     ovlp = emb.get_ovlp()
     mo_coeff = emb.mo_coeff
-    if add_mf:
+    if with_mf:
         sc = np.dot(ovlp, mo_coeff)
         dm1_mf = emb.mf.make_rdm1()
         dm1_mf = dot(sc.T, dm1_mf, sc)
@@ -44,7 +44,7 @@ def make_rdm1_demo_rhf(emb, ao_basis=False, add_mf=False, symmetrize=True):
         else:
             cf = f.cluster.c_active
         rf = dot(mo_coeff.T, ovlp, cf)
-        if add_mf:
+        if with_mf:
             # Subtract double counting:
             ddm = (f.results.dm1 - dot(rf.T, dm1_mf, rf))
         else:
@@ -57,7 +57,7 @@ def make_rdm1_demo_rhf(emb, ao_basis=False, add_mf=False, symmetrize=True):
         dm1 = (dm1 + dm1.T)/2
     return dm1
 
-def make_rdm1_demo_uhf(emb, ao_basis=False, add_mf=False, symmetrize=True):
+def make_rdm1_demo_uhf(emb, ao_basis=False, with_mf=False, symmetrize=True):
     """Make democratically partitioned one-particle reduced density-matrix from fragment calculations.
 
     Warning: A democratically partitioned DM is only expected to yield reasonable results
@@ -67,7 +67,7 @@ def make_rdm1_demo_uhf(emb, ao_basis=False, add_mf=False, symmetrize=True):
     ----------
     ao_basis: bool, optional
         Return the density-matrix in the AO basis. Default: False.
-    add_mf: bool, optional
+    with_mf: bool, optional
         Add the mean-field contribution to the density-matrix (double counting is accounted for).
         Is only used if `partition = 'dm'`. Default: False.
     symmetrize: bool, optional
@@ -80,7 +80,7 @@ def make_rdm1_demo_uhf(emb, ao_basis=False, add_mf=False, symmetrize=True):
     """
     ovlp = emb.get_ovlp()
     mo_coeff = emb.mo_coeff
-    if add_mf:
+    if with_mf:
         sca = np.dot(ovlp, mo_coeff[0])
         scb = np.dot(ovlp, mo_coeff[1])
         dm1a_mf, dm1b_mf = emb.mf.make_rdm1()
@@ -101,7 +101,7 @@ def make_rdm1_demo_uhf(emb, ao_basis=False, add_mf=False, symmetrize=True):
             cf = f.cluster.c_active
         rfa = dot(mo_coeff[0].T, ovlp, cf[0])
         rfb = dot(mo_coeff[1].T, ovlp, cf[1])
-        if add_mf:
+        if with_mf:
             # Subtract double counting:
             ddma = (f.results.dm1[0] - dot(rfa.T, dm1a_mf, rfa))
             ddmb = (f.results.dm1[1] - dot(rfb.T, dm1b_mf, rfb))
@@ -121,7 +121,7 @@ def make_rdm1_demo_uhf(emb, ao_basis=False, add_mf=False, symmetrize=True):
 # --- Two-particle
 # ----------------
 
-def make_rdm2_demo_rhf(emb, ao_basis=False, add_mf=True, symmetrize=True):
+def make_rdm2_demo_rhf(emb, ao_basis=False, with_mf=True, symmetrize=True):
     """Make democratically partitioned two-particle reduced density-matrix from fragment calculations.
 
     Warning: A democratically partitioned DM is only expected to yield reasonable results
@@ -131,7 +131,7 @@ def make_rdm2_demo_rhf(emb, ao_basis=False, add_mf=True, symmetrize=True):
     ----------
     ao_basis: bool, optional
         Return the density-matrix in the AO basis. Default: False.
-    add_mf: bool, optional
+    with_mf: bool, optional
         Add the mean-field contribution to the density-matrix (double counting is accounted for).
         Is only used if `partition = 'dm'`. Default: True.
     symmetrize: bool, optional
@@ -142,7 +142,7 @@ def make_rdm2_demo_rhf(emb, ao_basis=False, add_mf=True, symmetrize=True):
     dm2: (n, n, n, n) array
         Two-particle reduced density matrix in AO (if `ao_basis=True`) or MO basis (default).
     """
-    if add_mf:
+    if with_mf:
         #dm2_mf = np.zeros(4*[emb.nmo])
         #for i in range(emb.nocc):
         #    for j in range(emb.nocc):
@@ -163,7 +163,7 @@ def make_rdm2_demo_rhf(emb, ao_basis=False, add_mf=True, symmetrize=True):
         else:
             cf = f.cluster.c_active
         rf = np.linalg.multi_dot((emb.mo_coeff.T, emb.get_ovlp(), cf))
-        if add_mf:
+        if with_mf:
             # Subtract double counting:
             ddm = (f.results.dm2 - einsum('IJKL,Ii,Jj,Kk,Ll->ijkl', dm2_mf, rf, rf, rf, rf))
         else:
@@ -175,5 +175,3 @@ def make_rdm2_demo_rhf(emb, ao_basis=False, add_mf=True, symmetrize=True):
     if symmetrize:
         dm2 = (dm2 + dm2.transpose(1,0,3,2))/2
     return dm2
-
-

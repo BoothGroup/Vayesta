@@ -16,7 +16,8 @@ def water(atoms=['O', 'H']):
             [atoms[1], [0.0000, -0.7572, -0.4692]]]
     return atom
 
-def alkane(n, atoms=['C', 'H'], cc_bond=1.54, ch_bond=1.09, numbering=False):
+def alkane(n, atoms=['C', 'H'], cc_bond=1.54, ch_bond=1.09, scale=1.0, numbering=False):
+    """Alkane with idealized tetrahedral (sp3) coordination."""
 
     assert numbering in (False, 'atom', 'unit')
 
@@ -36,10 +37,10 @@ def alkane(n, atoms=['C', 'H'], cc_bond=1.54, ch_bond=1.09, numbering=False):
     phi = np.arccos(-1.0/3)
     cph = 1/np.sqrt(3.0)
     sph = np.sin(phi/2.0)
-    dcy = cc_bond * cph
-    dcz = cc_bond * sph
-    dchs = ch_bond * sph
-    dchc = ch_bond * cph
+    dcy = scale*cc_bond * cph
+    dcz = scale*cc_bond * sph
+    dchs = scale*ch_bond * sph
+    dchc = scale*ch_bond * cph
     x = 0.0
 
     atom = []
@@ -65,17 +66,40 @@ def alkane(n, atoms=['C', 'H'], cc_bond=1.54, ch_bond=1.09, numbering=False):
 
     return atom
 
-def arene(n, atoms=['C', 'H'], cc_bond=1.39, ch_bond=1.09):
+def alkene(ncarbon, cc_bond=1.33, ch_bond=1.09):
+    """Alkene with idealized trigonal planar (sp2) coordination."""
+
+    if (ncarbon < 2):
+        raise ValueError
+    if (ncarbon % 2 == 1):
+        raise NotImplementedError
+
+    cos30 = np.sqrt(3)/2
+    sin30 = 1/2
+
+    r0 = x0, y0, z0 = (0, 0, 0)
+    atom = [('H', (x0-ch_bond*cos30, y0+ch_bond*sin30, z0))]
+    for nc in range(ncarbon):
+        sign = (-1)**nc
+        atom += [('C', r0)]
+        atom += [('H', (x0, y0-sign*ch_bond, z0))]
+        if nc == (ncarbon-1):
+            break
+        r0 = x0, y0, z0 = (x0+cc_bond*cos30, y0+sign*cc_bond*sin30, 0)
+    atom += [('H', (x0+ch_bond*cos30, y0+sign*ch_bond*sin30, z0))]
+
+    return atom
+
+def arene(n, atoms=['C', 'H'], cc_bond=1.39, ch_bond=1.09, unit=1.0):
     """Bond length for benzene."""
-    r1 = cc_bond/(2*np.sin(np.pi/n))
-    r2 = r1 + ch_bond
-    z = 0.0
+    r1 = unit*cc_bond/(2*np.sin(np.pi/n))
+    r2 = unit*(r1 + ch_bond)
     atom = []
     for i in range(n):
         phi = 2*i*np.pi/n
         atomidx = (2*i) % len(atoms)
-        atom.append((atoms[atomidx], (r1*np.cos(phi), r1*np.sin(phi), z)))
-        atom.append((atoms[atomidx+1], (r2*np.cos(phi), r2*np.sin(phi), z)))
+        atom.append((atoms[atomidx], (r1*np.cos(phi), r1*np.sin(phi), 0.0)))
+        atom.append((atoms[atomidx+1], (r2*np.cos(phi), r2*np.sin(phi), 0.0)))
     return atom
 
 def neopentane():
@@ -117,3 +141,46 @@ def propanol():
 def chloroethanol():
     atom = _load_datafile('chloroethanol.dat')
     return atom
+
+def ketene(cc_bond=None):
+    atom = _load_datafile('ketene.dat')
+    if cc_bond is not None:
+        pos_c1 = atom[0][1]
+        pos_c2 = atom[1][1]
+        vcc = (pos_c2 - pos_c1)
+        vcc = vcc / np.linalg.norm(vcc)
+        new_c2 = pos_c1 + cc_bond * vcc
+        new_o = atom[2][1] + (new_c2 - pos_c2)
+        atom[1][1] = new_c2
+        atom[2][1] = new_o
+    return atom
+
+if __name__ == '__main__':
+
+    atom = alkene(4)
+
+    import pyscf
+    import pyscf.gto
+
+    mol = pyscf.gto.Mole()
+    mol.atom = atom
+    mol.build()
+    print(mol.energy_nuc())
+
+    mol = pyscf.gto.Mole()
+    mol.atom = """
+    C   0.1156880   0.7332450   0.5628400
+    C   -0.1156880  -0.7332450  0.5628400
+    C   -0.1156880  1.5476420   -0.4993330
+    C   0.1156880   -1.5476420  -0.4993330
+    H   0.4811120   1.1731760   1.5011160
+    H   -0.4811120  -1.1731760  1.5011160
+    H   0.0931710   2.6211890   -0.4460780
+    H   -0.5312790  1.1576980   -1.4360760
+    H   -0.0931710  -2.6211890  -0.4460780
+    H   0.5312790   -1.1576980  -1.4360760
+    """
+    mol.build()
+    print(mol.energy_nuc())
+
+

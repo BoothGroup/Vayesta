@@ -1,0 +1,36 @@
+import unittest
+import numpy as np
+
+import pyscf
+import pyscf.ci
+
+import vayesta
+import vayesta.ewf
+
+from vayesta.tests import cache
+
+
+class TestSolvers(unittest.TestCase):
+
+    def _test(self, key):
+        mf = cache.moles[key[0]][key[1]]
+
+        emb = vayesta.ewf.EWF(mf, solver='CISD', bath_type='full')
+        emb.kernel()
+
+        ci = pyscf.ci.CISD(mf)
+        ci.kernel()
+
+        self.assertAlmostEqual(emb.e_corr, ci.e_corr)
+        self.assertAlmostEqual(emb.e_tot, ci.e_tot)
+
+    def test_rcisd_h2(self):
+        return self._test(('h2_ccpvdz', 'rhf'))
+
+    def test_ucisd_h3(self):
+        return self._test(('h3_ccpvdz', 'uhf'))
+
+
+if __name__ == '__main__':
+    print('Running %s' % __file__)
+    unittest.main()

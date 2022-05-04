@@ -19,7 +19,7 @@ import vayesta.core.ao2mo.helper
 
 from vayesta.misc.cubefile import CubeFile
 from vayesta.core.mpi import mpi
-
+from vayesta.core.types import WaveFunction
 
 # Get MPI rank of fragment
 get_fragment_mpi_rank = lambda *args : args[0].mpi_rank
@@ -43,25 +43,68 @@ class Fragment:
         converged: bool = None      # True, if solver reached convergence criterion or no convergence required (eg. MP2 solver)
         # --- Energies
         e_corr: float = None        # Fragment correlation energy contribution
-        e_dmet: float = None        # DMET energy contribution
         # --- Wave-function
-        c0: float = None            # Reference determinant CI coefficient
-        c1: np.ndarray = None       # CI single coefficients
-        c2: np.ndarray = None       # CI double coefficients
-        t1: np.ndarray = None       # CC single amplitudes
-        t2: np.ndarray = None       # CC double amplitudes
-        l1: np.ndarray = None       # CC single Lambda-amplitudes
-        l2: np.ndarray = None       # CC double Lambda-amplitudes
-        # Fragment-projected amplitudes:
-        c1x: np.ndarray = None      # Fragment-projected CI single coefficients
-        c2x: np.ndarray = None      # Fragment-projected CI double coefficients
-        t1x: np.ndarray = None      # Fragment-projected CC single amplitudes
-        t2x: np.ndarray = None      # Fragment-projected CC double amplitudes
-        l1x: np.ndarray = None      # Fragment-projected CC single Lambda-amplitudes
-        l2x: np.ndarray = None      # Fragment-projected CC double Lambda-amplitudes
+        wf: WaveFunction = None     # WaveFunction object (MP2, CCSD,...)
+        pwf: WaveFunction = None    # Fragment-projected wave function
         # --- Density-matrices
-        dm1: np.ndarray = None      # One-particle reduced density matrix (dm1[i,j] = <0| i^+ j |0>
-        dm2: np.ndarray = None      # Two-particle reduced density matrix (dm2[i,j,k,l] = <0| i^+ k^+ l j |0>)
+        #dm1: np.ndarray = None      # One-particle reduced density matrix (dm1[i,j] = <i^+ j>
+        #dm2: np.ndarray = None      # Two-particle reduced density matrix (dm2[i,j,k,l] = <i^+ k^+ l j>)
+
+        # OLD / Deprecated:
+        @property
+        def c0(self):
+            return self.wf.c0
+        @property
+        def c1(self):
+            return self.wf.c1
+        @property
+        def c2(self):
+            return self.wf.c2
+        @property
+        def t1(self):
+            return self.wf.t1
+        @property
+        def t2(self):
+            return self.wf.t2
+        @property
+        def l1(self):
+            return self.wf.l1
+        @property
+        def l2(self):
+            return self.wf.l2
+        @property
+        def c1x(self):
+            return self.pwf.c1
+        @property
+        def c2x(self):
+            return self.pwf.c2
+        @property
+        def t1x(self):
+            return self.pwf.t1
+        @property
+        def t2x(self):
+            return self.pwf.t2
+        @property
+        def l1x(self):
+            return self.pwf.l1
+        @property
+        def l2x(self):
+            return self.pwf.l2
+
+        #c0: float = None            # Reference determinant CI coefficient
+        #c1: np.ndarray = None       # CI single coefficients
+        #c2: np.ndarray = None       # CI double coefficients
+        #t1: np.ndarray = None       # CC single amplitudes
+        #t2: np.ndarray = None       # CC double amplitudes
+        #l1: np.ndarray = None       # CC single Lambda-amplitudes
+        #l2: np.ndarray = None       # CC double Lambda-amplitudes
+        ## Fragment-projected amplitudes:
+        #c1x: np.ndarray = None      # Fragment-projected CI single coefficients
+        #c2x: np.ndarray = None      # Fragment-projected CI double coefficients
+        #t1x: np.ndarray = None      # Fragment-projected CC single amplitudes
+        #t2x: np.ndarray = None      # Fragment-projected CC double amplitudes
+        #l1x: np.ndarray = None      # Fragment-projected CC single Lambda-amplitudes
+        #l2x: np.ndarray = None      # Fragment-projected CC double Lambda-amplitudes
 
         #def convert_amp_c_to_t(self):
         #    self.t1 = self.c1/self.c0
@@ -102,26 +145,6 @@ class Fragment:
                     raise ValueError("Cannot deduce C2 amplitudes from T1,T2: normalization not known.")
                 return self.t2 + einsum('ia,jb->ijab', self.t1, self.t1)
             return default
-
-        #def get_t1x(self, default=None):
-        #    if self.t1x is not None:
-        #        return self.t1x
-        #    return default
-
-        #def get_t2x(self, default=None):
-        #    if self.t2x is not None:
-        #        return self.t2x
-        #    return default
-
-        #def get_l1x(self, default=None):
-        #    if self.l1x is not None:
-        #        return self.l1x
-        #    return default
-
-        #def get_l2x(self, default=None):
-        #    if self.l2x is not None:
-        #        return self.l2x
-        #    return default
 
     class Exit(Exception):
         """Raise for controlled early exit."""
@@ -234,13 +257,8 @@ class Fragment:
         # of the fragment. By default it is equal to `self.c_frag`.
         self.c_proj = self.c_frag
 
-        # Bath, cluster, and final results
-        self.bath = None
-        self._cluster = None
-        self._results = self.Results(fid=self.id)
-
-        # In some cases we want to keep ERIs stored after the calculation
-        self._eris = None
+        # Initialize self.bath, self._cluster, self._results, self._eris
+        self.reset()
 
         self.log.info("Creating %r", self)
         #self.log.info(break_into_lines(str(self.opts), newline='\n    '))
@@ -308,6 +326,107 @@ class Fragment:
     # --- Overlap matrices
     # --------------------
 
+    # Cluster to Fragment
+
+    @deprecated
+    def get_co2fo(self):
+        return self._csc_dot(self.cluster.c_active, self.c_frag)
+
+    @deprecated
+    def get_co2fo_occ(self):
+        return self._csc_dot(self.cluster.c_active_occ, self.c_frag)
+
+    @deprecated
+    def get_co2fo_vir(self):
+        return self._csc_dot(self.cluster.c_active_vir, self.c_frag)
+
+    # Fragment to Cluster
+
+    @deprecated
+    def get_fo2co(self):
+        return self._csc_dot(self.c_frag, self.cluster.c_active)
+
+    @deprecated
+    def get_fo2co_occ(self):
+        return self._csc_dot(self.c_frag, self.cluster.c_active_occ)
+
+    @deprecated
+    def get_fo2co_vir(self):
+        return self._csc_dot(self.c_frag, self.cluster.c_active_vir)
+
+    # Mean-field to Cluster
+
+    @deprecated
+    def get_mo2co(self):
+        return self._csc_dot(self.base.mo_coeff, self.cluster.c_active)
+
+    @deprecated
+    def get_mo2co_occ(self):
+        return self._csc_dot(self.base.mo_coeff_occ, self.cluster.c_active_occ)
+
+    @deprecated
+    def get_mo2co_vir(self):
+        return self._csc_dot(self.base.mo_coeff_vir, self.cluster.c_active_vir)
+
+    # Mean-field to Fragment:
+
+    @deprecated
+    def get_mo2fo(self):
+        return self._csc_dot(self.base.mo_coeff, self.c_frag)
+
+    @deprecated
+    def get_mo2fo_occ(self):
+        return self._csc_dot(self.base.mo_coeff_occ, self.c_frag)
+
+    @deprecated
+    def get_mo2fo_vir(self):
+        return self._csc_dot(self.base.mo_coeff_vir, self.c_frag)
+
+    def _csc_dot(self, c1, c2):
+        ovlp = self.base.get_ovlp()
+        return dot(c1.T, ovlp, c2)
+
+    @cache
+    def get_overlap(self, key):
+        """Get overlap between cluster orbitals, fragment orbitals, or MOs.
+
+        Examples:
+        >>> s = self.get_overlap('cluster|mo')
+        >>> s = self.get_overlap('cluster|frag')
+        >>> s = self.get_overlap('mo[occ]|cluster[occ]')
+        >>> s = self.get_overlap('mo[vir]|cluster[vir]')
+        """
+        if key.count('|') != 1:
+            raise ValueError("key needs to have exactly one '|'")
+
+        # Standardize key to reduce cache misses:
+        key_mod = key.lower().replace(' ', '')
+        if key_mod != key:
+            return self.get_overlap(key_mod)
+
+        def _get_coeff(key):
+            if 'frag' in key:
+                return self.c_frag
+            if 'occ' in key:
+                part = '_occ'
+            elif 'vir' in key:
+                part = '_vir'
+            else:
+                part = ''
+            if 'mo' in key:
+                return getattr(self.base, 'mo_coeff%s' % part)
+            if 'cluster' in key:
+                return getattr(self.cluster, 'c_active%s' % part)
+            raise ValueError("Invalid key: '%s'")
+
+        left, right = key.split('|')
+        c_left = _get_coeff(left)
+        c_right = _get_coeff(right)
+        return self._csc_dot(c_left, c_right)
+
+    # --- Deprecated:
+
+    @deprecated
     def get_overlap_c2f(self):
         """Get overlap matrices from cluster to fragment space."""
         ovlp = self.base.get_ovlp()
@@ -315,6 +434,7 @@ class Fragment:
         r_vir = dot(self.cluster.c_active_vir.T, ovlp, self.c_proj)
         return r_occ, r_vir
 
+    @deprecated
     def get_overlap_m2c(self):
         """Get overlap matrices from mean-field to occupied/virtual active space."""
         ovlp = self.base.get_ovlp()
@@ -322,6 +442,7 @@ class Fragment:
         r_vir = dot(self.base.mo_coeff_vir.T, ovlp, self.cluster.c_active_vir)
         return r_occ, r_vir
 
+    @deprecated
     def get_overlap_m2f(self):
         """Get overlap matrices from mean-field to fragment orbitals."""
         ovlp = self.base.get_ovlp()
@@ -362,10 +483,12 @@ class Fragment:
         self._cluster = value
 
     def reset(self):
-        self.log.debugv("Resetting fragment %s", self)
+        self.log.debugv("Resetting %s", self)
         self.bath = None
-        self.cluster = None
+        self._cluster = None
+        self._eris = None
         self._results = self.Results(fid=self.id)
+        self.get_overlap.cache_clear()
 
     def couple_to_fragment(self, frag):
         if frag is self:
@@ -849,7 +972,7 @@ class Fragment:
 
     @mpi.with_send(source=get_fragment_mpi_rank)
     def get_fragment_dmet_energy(self, dm1=None, dm2=None, h1e_eff=None, eris=None):
-        """Get fragment contribution to whole system DMET energy.
+        """Get fragment contribution to whole system DMET energy from cluster DMs.
 
         After fragment summation, the nuclear-nuclear repulsion must be added to get the total energy!
 
@@ -875,16 +998,19 @@ class Fragment:
         c_act = self.cluster.c_active
         t0 = timer()
         if eris is None:
+            eris = self._eris
+        if eris is None:
             with log_time(self.log.timing, "Time for AO->MO transformation: %s"):
                 eris = self.base.get_eris_array(c_act)
-        elif not isinstance(eris, np.ndarray):
+        if not isinstance(eris, np.ndarray):
             self.log.debugv("Extracting ERI array from CCSD ERIs object.")
             eris = vayesta.core.ao2mo.helper.get_full_array(eris, c_act)
 
         # Get effective core potential
         if h1e_eff is None:
             # Use the original Hcore (without chemical potential modifications), but updated mf-potential!
-            h1e_eff = self.base.get_hcore_orig() + self.base.get_veff(with_exxdiv=False)/2
+            #h1e_eff = self.base.get_hcore_orig() + self.base.get_veff(with_exxdiv=False)/2
+            h1e_eff = self.base.get_hcore_for_energy() + self.base.get_veff_for_energy(with_exxdiv=False)/2
             h1e_eff = dot(c_act.T, h1e_eff, c_act)
             occ = np.s_[:self.cluster.nocc_active]
             v_act = einsum('iipq->pq', eris[occ,occ,:,:]) - einsum('iqpi->pq', eris[occ,:,:,occ])/2
@@ -893,7 +1019,7 @@ class Fragment:
         p_frag = self.get_fragment_projector(c_act)
         # Check number of electrons
         ne = einsum('ix,ij,jx->', p_frag, dm1, p_frag)
-        self.log.info("Number of local electrons for DMET energy: %.8f", ne)
+        self.log.debug("Number of electrons for DMET energy in fragment %12s: %.8f", self, ne)
 
         # Evaluate energy
         e1b = einsum('xj,xi,ij->', h1e_eff, p_frag, dm1)

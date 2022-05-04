@@ -4,17 +4,22 @@ from typing import Union
 # --- External
 import numpy as np
 # --- Internal
+import vayesta
 from vayesta.core.util import *
 from vayesta.core import Embedding
 from vayesta.core.mpi import mpi
+from vayesta.core.fragmentation import SAO_Fragmentation
+from vayesta.core.fragmentation import IAOPAO_Fragmentation
 # --- Package
 from . import helper
 from .fragment import EWFFragment as Fragment
 from .amplitudes import get_global_t1_rhf
 from .amplitudes import get_global_t2_rhf
 from .rdm import make_rdm1_ccsd
-from .rdm import make_rdm1_ccsd_old
+from .rdm import make_rdm1_ccsd_2p2l
+from .rdm import make_rdm1_ccsd_1p1l
 from .rdm import make_rdm2_ccsd
+from .rdm import make_rdm2_ccsd_proj_lambda
 from .icmp2 import get_intercluster_mp2_energy_rhf
 
 timer = mpi.timer
@@ -53,16 +58,11 @@ class EWF(Embedding):
         project_init_guess: bool = True     # Project converted T1,T2 amplitudes from a previous larger cluster
         orthogonal_mo_tol: float = False
         # --- Solver settings
-        make_rdm1: bool = False
-        make_rdm2: bool = False
-        #solve_lambda: bool = 'auto'         # If False, use T-amplitudes inplace of Lambda-amplitudes
+        solve_lambda: bool = False          # If True, solve for the Lambda-amplitudes if a CCSD solver is used
         t_as_lambda: bool = False           # If True, use T-amplitudes inplace of Lambda-amplitudes
         dm_with_frozen: bool = False        # Add frozen parts to cluster DMs
-        eom_ccsd: list = dataclasses.field(default_factory=list)  # Perform EOM-CCSD in each cluster by default
-        eom_ccsd_nroots: int = 5            # Perform EOM-CCSD in each cluster by default
-        eomfile: str = 'eom-ccsd'           # Filename for EOM-CCSD states
         # Energy calculation
-        calc_cluster_rdm_energy = True
+        calc_cluster_rdm_energy: bool = False
         # Counterpoise correction of BSSE
         bsse_correction: bool = True
         bsse_rmax: float = 5.0              # In Angstrom
@@ -74,26 +74,9 @@ class EWF(Embedding):
         # --- Intercluster MP2 energy
         icmp2: bool = True
         icmp2_bno_threshold: float = 1e-8
-        # --- Other
-        e_corr_part: str = 'all'    # ['all', 'direct', 'exchange']
-        #energy_partitioning: str = 'first-occ'
+        # --- Couple embedding problems (currently only CCSD)
+        coupled_iterations: bool = False
         strict: bool = False                # Stop if cluster not converged
-        # --- Storage [True=store and force calculation, 'auto'=store if present, False=do not store]
-        store_t1:  Union[bool,str] = True
-        store_t2:  Union[bool,str] = True   # in future: False
-        store_l1:  Union[bool,str] = True
-        store_l2:  Union[bool,str] = True # in future: False
-        #store_t1x: Union[bool,str] = False  # in future: True
-        #store_t2x: Union[bool,str] = False  # in future: True
-        #store_l1x: Union[bool,str] = False  # in future: 'auto'
-        #store_l2x: Union[bool,str] = False  # in future: 'auto'
-        store_t1x: Union[bool,str] = True
-        store_t2x: Union[bool,str] = True
-        store_l1x: Union[bool,str] = 'auto'
-        store_l2x: Union[bool,str] = 'auto'
-        store_dm1: Union[bool,str] = 'auto'
-        store_dm2: Union[bool,str] = 'auto'
-
 
     def __init__(self, mf, solver='CCSD', options=None, log=None, **kwargs):
         """Embedded wave function (EWF) calculation object.
@@ -124,10 +107,11 @@ class EWF(Embedding):
             raise ValueError("Unknown solver: %s" % solver)
         self.solver = solver
 
-        self.iteration = 0
-        self.cluster_results = {}
-        self.results = []
+        self.e_corr = None
         self.log.info("Time for %s setup: %s", self.__class__.__name__, time_string(timer()-t0))
+
+        # TODO: Redo self-consistencies
+        self.iteration = 0
 
     def __repr__(self):
         keys = ['mf', 'solver']
@@ -216,30 +200,6 @@ class EWF(Embedding):
             c = c_orth
         return c
 
-    @property
-    def e_tot(self):
-        """Total energy."""
-        return self.get_e_tot()
-
-    @property
-    def e_corr(self):
-        """Correlation energy."""
-        return self.get_e_corr()
-
-    def get_e_tot(self):
-        return self.e_mf + self.get_e_corr()
-
-    @mpi.with_allreduce()
-    def get_e_corr(self, fragments=None):
-        e_corr = 0.0
-        # Only loop over fragments of own MPI rank
-        for f in self.get_fragments(fragment_list=fragments, mpi_rank=mpi.rank):
-            if f.results.e_corr is None:
-                self.log.critical("No fragment E(corr) found for %s! Returning total E(corr)=NaN", f)
-                return np.nan
-            e_corr += f.results.e_corr
-        return e_corr / self.ncells
-
     def tailor_all_fragments(self):
         for frag in self.fragments:
             for frag2 in frag.loop_fragments(exclude_self=True):
@@ -253,6 +213,9 @@ class EWF(Embedding):
         bno_threshold : float or iterable, optional
             Bath natural orbital threshold. If `None`, self.opts.bno_threshold is used. Default: None.
         """
+        # Reset previous results
+        self.reset()
+
         # Automatic fragmentation
         if self.fragmentation is None:
             self.log.info("No fragmentation found. Using IAO fragmentation.")
@@ -271,6 +234,14 @@ class EWF(Embedding):
         for i, bno in enumerate(bno_thresholds):
             self.log.info("Now running BNO threshold= %.2e", bno)
             self.log.info("===================================")
+
+            # Project ERIs for next calculation:
+            # TODO
+            if i > 0:
+                #self.log.debugv("Projecting ERIs onto subspace")
+                for x in self.fragments:
+                    x._eris = None
+                    #x._eris = ao2mo.helper.project_ccsd_eris(x._eris, x.cluster.c_active, x.cluster.nocc_active, ovlp=self.get_ovlp())
 
             # Store ERIs so they can be reused in the next iteration
             # (only if this is not the last calculation and the next calculation uses a larger or equal threshold)
@@ -319,6 +290,9 @@ class EWF(Embedding):
             #else:
             #    self.log.info("%s is done.", frag)
             self.log.changeIndentLevel(-1)
+
+        # Evaluate correlation energy
+        self.e_corr = self.get_e_corr()
 
         self.log.output('E(nuc)=  %s', energy_string(self.mol.energy_nuc()))
         self.log.output('E(MF)=   %s', energy_string(self.e_mf))
@@ -381,16 +355,284 @@ class EWF(Embedding):
     # --- Density-matrices
     # --------------------
 
-    def make_rdm1_mp2(self, *args, **kwargs):
+    def make_rdm1(self, *args, **kwargs):
+        if self.solver.lower() == 'ccsd':
+            return self._make_rdm1_ccsd_2p2l(*args, **kwargs)
+        if self.solver.lower() == 'mp2':
+            return self._make_rdm1_ccsd_2p2l(*args, t_as_lambda=True, with_t1=False, **kwargs)
+        if self.solver.lower() == 'fci':
+            return self.make_rdm1_demo(*args, **kwargs)
+        raise NotImplementedError("make_rdm1 for solver '%s'" % self.solver)
+
+    def _make_rdm1_mp2(self, *args, **kwargs):
         return make_rdm1_ccsd(self, *args, mp2=True, **kwargs)
 
-    def make_rdm1_ccsd(self, *args, **kwargs):
+    def _make_rdm1_ccsd(self, *args, **kwargs):
         return make_rdm1_ccsd(self, *args, mp2=False, **kwargs)
 
-    def make_rdm2_ccsd(self, *args, **kwargs):
+    def _make_rdm2_ccsd(self, *args, **kwargs):
         return make_rdm2_ccsd(self, *args, **kwargs)
 
+    def _make_rdm1_ccsd_2p2l(self, *args, **kwargs):
+        return make_rdm1_ccsd_2p2l(self, *args, **kwargs)
+
+    def _make_rdm1_ccsd_1p1l(self, *args, **kwargs):
+        return make_rdm1_ccsd_1p1l(self, *args, **kwargs)
+
+    def _make_rdm2_ccsd_proj_lambda(self, *args, **kwargs):
+        return make_rdm2_ccsd_proj_lambda(self, *args, **kwargs)
+
+    # --- Energy
+    # ----------
+
+    # Correlation
+
+    @mpi.with_allreduce()
+    def get_e_corr(self, fragments=None):
+        e_corr = 0.0
+        # Only loop over fragments of own MPI rank
+        for f in self.get_fragments(fragment_list=fragments, mpi_rank=mpi.rank):
+            if f.results.e_corr is None:
+                self.log.critical("No fragment E(corr) found for %s! Returning total E(corr)=NaN", f)
+                return np.nan
+            e_corr += f.results.e_corr
+        return e_corr / self.ncells
+
+    def get_dm_corr_energy(self, dm1='2p2l', **kwargs):
+        e1, e2 = self.get_dm_corr_energy_parts(dm1=dm1, **kwargs)
+        e_corr = (e1 + e2)
+        self.log.debug("Ecorr(1)= %s  Ecorr(2)= %s  Ecorr= %s", *map(energy_string, (e1, e2, e_corr)))
+        return e_corr
+
+    def get_dm_corr_energy_parts(self, dm1=None, t_as_lambda=None, with_exxdiv=None, sym_t2=True):
+        if t_as_lambda is None:
+            t_as_lambda = self.opts.t_as_lambda
+        # Correlation energy due to changes in 1-DM and non-cumulant 2-DM:
+        times = [timer()]
+        if dm1 is None or dm1 == '2p2l':
+            dm1 = self._make_rdm1_ccsd_2p2l(with_mf=False, t_as_lambda=t_as_lambda, ao_basis=True)
+        elif dm1 == '2p1l':
+            dm1 = self._make_rdm1_ccsd(with_mf=False, t_as_lambda=t_as_lambda, ao_basis=True)
+        elif dm1 == '1p1l':
+            dm1 = self._make_rdm1_ccsd_1p1l(with_mf=False, t_as_lambda=t_as_lambda, ao_basis=True)
+
+        if with_exxdiv is None:
+            with_exxdiv = np.all([x.solver == 'MP2' for x in self.fragments])
+
+        fock = self.get_fock_for_energy(with_exxdiv=with_exxdiv)
+        e1 = np.sum(fock*dm1)
+        times.append(timer())
+        # Correlation energy due to cumulant:
+        e2 = 0.0
+        #$print(f.sym_parent.id for f in)
+        for x in self.get_fragments(sym_parent=None, mpi_rank=mpi.rank):
+            wx = x.symmetry_factor * x.sym_factor
+            e2 += wx * x.make_fragment_cumulant_energy(t_as_lambda=t_as_lambda, sym_t2=sym_t2)
+        if mpi:
+            e2 = mpi.world.allreduce(e2)
+        times.append(timer())
+        self.log.timing("Time for DM energy: T(DM1)= %s  T(DM2)= %s  T(tot)= %s",
+                *map(time_string, (times[1]-times[0], times[2]-times[1], times[2]-times[0])))
+        e1 = e1/self.ncells
+        e2 = e2/self.ncells
+        return e1, e2
+
+    def get_e_corr_ccsd(self, full_wf=False):
+        """Get projected correlation energy from partitioned CCSD WF.
+
+        This is the projected (T1, T2) energy expression, instead of the
+        projected (C1, C2) expression used in PRX (the differences are very small).
+
+        For testing only, UHF and MPI not implemented"""
+        t0 = timer()
+        t1 = self.get_global_t1()
+
+        # E(singles)
+        fock = self.get_fock_for_energy(with_exxdiv=False)
+        fov =  dot(self.mo_coeff_occ.T, fock, self.mo_coeff_vir)
+        e_singles = 2*np.sum(fov*t1)
+
+        # E(doubles)
+        if full_wf:
+            c2 = (self.get_global_t2() + einsum('ia,jb->ijab', t1, t1))
+            mos = (self.mo_coeff_occ, self.mo_coeff_vir, self.mo_coeff_vir, self.mo_coeff_occ)
+            eris = self.get_eris_array(mos)
+            e_doubles = (2*einsum('ijab,iabj', c2, eris)
+                         - einsum('ijab,ibaj', c2, eris))
+        else:
+            e_doubles = 0.0
+            for x in self.get_fragments(sym_parent=None, mpi_rank=mpi.rank):
+                pwf = x.results.pwf.as_ccsd()
+                ro = x.get_overlap('mo-occ|cluster-occ')
+                rv = x.get_overlap('mo-vir|cluster-vir')
+
+                t1x = dot(ro.T, t1, rv) # N(frag) * N^2
+                c2x = pwf.t2 + einsum('ia,jb->ijab', pwf.t1, t1x)
+
+                noccx = x.cluster.nocc_active
+                nvirx = x.cluster.nvir_active
+                eris = x._eris
+                if eris is None:
+                    raise NotCalculatedError
+                if hasattr(eris, 'ovvo'):
+                    eris = eris.ovvo[:]
+                elif hasattr(eris, 'ovov'):
+                    # MP2 only has eris.ovov - for real integrals we transpose
+                    eris = eris.ovov[:].reshape(noccx,nvirx,noccx,nvirx).transpose(0,1,3,2).conj()
+                elif eris.shape == (noccx, nvirx, noccx, nvirx):
+                    eris = eris.transpose(0,1,3,2)
+                else:
+                    occ = np.s_[:noccx]
+                    vir = np.s_[noccx:]
+                    eris = eris[occ,vir,vir,occ]
+                px = x.get_overlap('frag|cluster-occ')
+                eris = einsum('xi,iabj->xabj', px, eris)
+                wx = x.symmetry_factor * x.sym_factor
+                e_doubles += wx*(2*einsum('ijab,iabj', c2x, eris)
+                                 - einsum('ijab,ibaj', c2x, eris))
+            if mpi:
+                e_doubles = mpi.world.allreduce(e_doubles)
+
+        self.log.timing("Time for E(CCSD)= %s", time_string(timer()-t0))
+        e_corr = (e_singles + e_doubles)
+        return e_corr / self.ncells
+
+    # Total energy
+
+    @property
+    def e_tot(self):
+        """Total energy."""
+        return self.e_mf + self.e_corr
+
+    def get_e_tot_ccsd(self, full_wf=False):
+        return self.e_mf + self.get_e_corr_ccsd(full_wf=full_wf)
+
+    def get_dm_energy(self, dm1='2p2l', t_as_lambda=None, with_exxdiv=None, sym_t2=True):
+        e_corr = self.get_dm_corr_energy(dm1=dm1, t_as_lambda=t_as_lambda, with_exxdiv=with_exxdiv, sym_t2=sym_t2)
+        return self.e_mf + e_corr
+
+    # --- Energy corrections
+
     get_intercluster_mp2_energy = get_intercluster_mp2_energy_rhf
+
+    # --- Other expectation values
+
+    def get_atomic_ssz(self, atoms=None, dm1=None, dm2=None, projection='sao', full_dm2=False):
+        """TODO: MPI"""
+        t0 = timer()
+        if atoms is None:
+            atoms = list(range(self.mol.natm))
+        natom = len(atoms)
+
+        if projection == 'sao':
+            frag = SAO_Fragmentation(self.mf, self.log)
+        elif projection.replace('+', '').replace('/', '') == 'iaopao':
+            frag = IAOPAO_Fragmentation(self.mf, self.log)
+        else:
+            raise NotImplementedError("Projection '%s' not implemented" % projection)
+        frag.kernel()
+
+        ovlp = self.get_ovlp()
+
+        c_atom = []
+        for atom in atoms:
+            name, indices = frag.get_atomic_fragment_indices(atom)
+            c_atom.append(frag.get_frag_coeff(indices))
+
+        proj = []
+        for i, atom in enumerate(atoms):
+            rx = np.dot(ovlp, c_atom[i])
+            rx = np.dot(self.mo_coeff.T, rx)
+            px = np.dot(rx, rx.T)
+            proj.append(px)
+
+        # Fragment dependent projection operator:
+        if not full_dm2:
+            proj_x = []
+            for fx in self.get_fragments():
+                tmp = np.dot(fx.cluster.c_active.T, ovlp)
+                proj_x.append([])
+                for a, atom in enumerate(atoms):
+                    rx = np.dot(tmp, c_atom[a])
+                    px = np.dot(rx, rx.T)
+                    proj_x[-1].append(px)
+
+        ssz = np.zeros((natom, natom))
+
+        # 1-DM contribution:
+        if dm1 is None:
+            #dm1 = self.make_rdm1_ccsd_proj_lambda()
+            #dm1 = self.make_rdm1_ccsd_old()
+            dm1 = self.make_rdm1()
+        for a, atom1 in enumerate(atoms):
+            tmp = np.dot(proj[a], dm1)
+            for b, atom2 in enumerate(atoms):
+                ssz[a,b] = np.sum(tmp*proj[b])/4
+
+        occ = np.s_[:self.nocc]
+        occdiag = np.diag_indices(self.nocc)
+
+        # Non-cumulant DM2 contribution:
+        # (for full_dm2=True this is included in the 2-DM contribution below)
+        if not full_dm2:
+
+            # TEST (FULL DM2):
+            #dm1 = dm1.copy()
+            #dm1[occdiag] -= 1
+            #dm1 /= 2
+            #ddm2 = np.zeros(4*[self.nmo])
+            #for i in range(self.nocc):
+            #    ddm2[:,i,i,:] -= dm1
+            #    ddm2[i,:,:,i] -= dm1.T
+            #for a, atom1 in enumerate(atoms):
+            #    pa = proj[a]
+            #    tmp = np.dot(pa, dm1)
+            #    for b, atom2 in enumerate(atoms):
+            #        pb = proj[b]
+            #        ssz[a,b] += einsum('ij,ijkl,kl->', pa, ddm2, pb)/2
+
+            dm1 = dm1.copy()
+            dm1[occdiag] -= 1
+            dm1 /= 2
+            for a, atom1 in enumerate(atoms):
+                tmp = np.dot(proj[a], dm1)
+                for b, atom2 in enumerate(atoms):
+                    #ssz[a,b] -= np.sum(np.dot(tmp, proj[b])[occdiag])  # N_atom^2 * N^3 scaling
+                    ssz[a,b] -= np.sum(tmp[occ] * proj[b].T[occ])       # N_atom^2 * N^2 scaling
+
+        # 2-DM contribution:
+        if full_dm2:
+            if dm2 is None:
+                dm2 = self.make_rdm2_ccsd_proj_lambda()
+            dm2aa = (dm2 - dm2.transpose(0,3,2,1))/6
+            # ddm2 is equal to dm2aa - dm2ab, as
+            # dm2ab = (dm2/2 - dm2aa)
+            ddm2 = (2*dm2aa - dm2/2)
+
+            for a, atom1 in enumerate(atoms):
+                p1 = proj[a]
+                #tmp = einsum('ij,ijkl->kl', p1, ddm2)
+                tmp = np.tensordot(p1, ddm2)
+                for b, atom2 in enumerate(atoms):
+                    p2 = proj[b]
+                    #ssz[i,j] = einsum('kl,kl->', tmp, p2)/2
+                    ssz[a,b] += np.sum(tmp*p2)/2
+        else:
+            for x, fx in enumerate(self.get_fragments()):
+                dm2 = fx.make_fragment_cumulant()
+                dm2aa = (dm2 - dm2.transpose(0,3,2,1))/6
+                ddm2 = (2*dm2aa - dm2/2)
+
+                for a, atom1 in enumerate(atoms):
+                    pa = proj_x[x][a]
+                    tmp = np.tensordot(pa, ddm2)
+                    for b, atom2 in enumerate(atoms):
+                        pb = proj_x[x][b]
+                        ssz[a,b] += np.sum(tmp*pb)/2
+
+        self.log.timing("Time for <S_z^2>: %s", time_string(timer()-t0))
+        return ssz
+
 
     #def get_wf_cisd(self, intermediate_norm=False, c0=None):
     #    c0_target = c0
@@ -445,7 +687,7 @@ class EWF(Embedding):
 
     #    return c0, c1, c2
 
-    def get_dm_energy(self, global_dm1=True, global_dm2=False):
+    def get_dm_energy_old(self, global_dm1=True, global_dm2=False):
         """Calculate total energy from reduced density-matrices.
 
         RHF ONLY!
@@ -461,9 +703,9 @@ class EWF(Embedding):
         -------
         e_tot : float
         """
-        return self.e_mf + self.get_dm_corr_energy(global_dm1=global_dm1, global_dm2=global_dm2)
+        return self.e_mf + self.get_dm_corr_energy_old(global_dm1=global_dm1, global_dm2=global_dm2)
 
-    def get_dm_corr_energy(self, global_dm1=True, global_dm2=False):
+    def get_dm_corr_energy_old(self, global_dm1=True, global_dm2=False):
         """Calculate correlation energy from reduced density-matrices.
 
         RHF ONLY!
@@ -486,9 +728,9 @@ class EWF(Embedding):
         nocc = (mf.mo_occ > 0).sum()
 
         if global_dm1:
-            rdm1 = make_rdm1_ccsd_old(self, t_as_lambda=t_as_lambda)
+            rdm1 = make_rdm1_ccsd_2p2l(self, t_as_lambda=t_as_lambda)
         else:
-            rdm1 = self.make_rdm1_ccsd(t_as_lambda=t_as_lambda)
+            rdm1 = make_rdm1_ccsd(self, t_as_lambda=t_as_lambda)
         rdm1[np.diag_indices(nocc)] -= 2
 
         # Core Hamiltonian + Non Cumulant 2DM contribution
@@ -498,7 +740,7 @@ class EWF(Embedding):
         if global_dm2:
             # Calculate global 2RDM and contract with ERIs
             eri = self.get_eris_array(self.mo_coeff)
-            rdm2 = self.make_rdm2_ccsd(slow=True, t_as_lambda=t_as_lambda)
+            rdm2 = make_rdm2_ccsd(self, slow=True, t_as_lambda=t_as_lambda, with_dm1=False)
             e2 = einsum('pqrs,pqrs', eri, rdm2) * 0.5
         else:
             # Fragment Local 2DM cumulant contribution
@@ -680,249 +922,6 @@ class EWF(Embedding):
     #        results[attr] = reduce_fragment(attr)
 
     #    return results
-
-    #def show_cluster_sizes(self, results, show_largest=True):
-    #    self.log.info("Cluster Sizes")
-    #    self.log.info("*************")
-    #    fmtstr = "  * %3d %-10s  :  active=%4d  frozen=%4d  ( %5.1f %%)"
-    #    imax = [0]
-    #    for i, frag in enumerate(self.loop()):
-    #        nactive = results["nactive"][i]
-    #        nfrozen = results["nfrozen"][i]
-    #        self.log.info(fmtstr, frag.id, frag.trimmed_name(10), nactive, nfrozen, 100.0*nactive/self.nmo)
-    #        if i == 0:
-    #            continue
-    #        if nactive > results["nactive"][imax[0]]:
-    #            imax = [i]
-    #        elif nactive == results["nactive"][imax[0]]:
-    #            imax.append(i)
-
-    #    if show_largest and self.nfrag > 1:
-    #        self.log.info("Largest Cluster")
-    #        self.log.info("***************")
-    #        for i in imax:
-    #            x = self.fragments[i]
-    #            nactive = results["nactive"][i]
-    #            nfrozen = results["nfrozen"][i]
-    #            self.log.info(fmtstr, x.id, x.trimmed_name(10), nactive, nfrozen, 100.0*nactive/self.nmo)
-
-
-    #def print_results(self, results):
-    #    self.show_cluster_sizes(results)
-
-    #    self.log.info("Fragment Energies")
-    #    self.log.info("*****************")
-    #    self.log.info("CCSD / CCSD+dMP2 / CCSD+dMP2+(T)")
-    #    fmtstr = "  * %3d %-10s  :  %+16.8f Ha  %+16.8f Ha  %+16.8f Ha"
-    #    for i, frag in enumerate(self.loop()):
-    #        e_corr = results["e_corr"][i]
-    #        e_pert_t = results["e_pert_t"][i]
-    #        e_delta_mp2 = results["e_delta_mp2"][i]
-    #        self.log.info(fmtstr, frag.id, frag.trimmed_name(10), e_corr, e_corr+e_delta_mp2, e_corr+e_delta_mp2+e_pert_t)
-
-    #    self.log.info("  * %-14s  :  %+16.8f Ha  %+16.8f Ha  %+16.8f Ha", "total", self.e_corr, self.e_corr+self.e_delta_mp2, self.e_corr+self.e_delta_mp2+self.e_pert_t)
-    #    self.log.info("E(corr)= %+16.8f Ha", self.e_corr)
-    #    self.log.info("E(tot)=  %+16.8f Ha", self.e_tot)
-
-    #def print_results(self, results):
-    #    self.log.info("Energies")
-    #    self.log.info("========")
-    #    fmt = "%-20s %+16.8f Ha"
-    #    for i, frag in enumerate(self.loop()):
-    #        e_corr = results["e_corr"][i]
-    #        self.log.output(fmt, 'E(corr)[' + frag.trimmed_name() + ']=', e_corr)
-    #    self.log.output(fmt, 'E(corr)=', self.e_corr)
-    #    self.log.output(fmt, 'E(MF)=', self.e_mf)
-    #    self.log.output(fmt, 'E(nuc)=', self.mol.energy_nuc())
-    #    self.log.output(fmt, 'E(tot)=', self.e_tot)
-
-    #def print_results(self, results):
-    #    self.log.info("Energies")
-    #    self.log.info("========")
-    #    fmt = "%-20s %s"
-    #    for i, frag in enumerate(self.loop()):
-    #        e_corr = results["e_corr"][i]
-    #        self.log.output('E(corr)[' + frag.trimmed_name() + ']= %s', energy_string(e_corr))
-    #    self.log.output('E(corr)= %s', energy_string(self.e_corr))
-    #    self.log.output('E(MF)=   %s', energy_string(self.e_mf))
-    #    self.log.output('E(nuc)=  %s', energy_string(self.mol.energy_nuc()))
-    #    self.log.output('E(tot)=  %s', energy_string(self.e_tot))
-
-    #def get_energies(self):
-    #    """Get total energy."""
-    #    return [(self.e_mf + r.e_corr) for r in self.results]
-
-    #def get_cluster_sizes(self)
-    #    sizes = np.zeros((self.nfrag, self.ncalc), dtype=np.int)
-    #    for i, frag in enumerate(self.loop()):
-    #        sizes[i] = frag.n_active
-    #    return sizes
-
-    #def print_clusters(self):
-    #    """Print fragments of calculations."""
-    #    self.log.info("%3s  %20s  %8s  %4s", "ID", "Name", "Solver", "Size")
-    #    for frag in self.loop():
-    #        self.log.info("%3d  %20s  %8s  %4d", frag.id, frag.name, frag.solver, frag.size)
-
-
-    #def get_delta_mp2_correction(self, exchange=True):
-    #    """(ia|L)(L|j'b') energy."""
-
-    #    self.log.debug("Intracluster MP2 energies:")
-    #    ovlp = self.get_ovlp()
-    #    e_dmp2 = 0.0
-    #    for x in self.get_fragments():
-    #        c_occ_x = x.bath.dmet_bath.c_cluster_occ
-    #        c_vir_x = self.mo_coeff_vir
-    #        lx, lx_neg = self.get_cderi((c_occ_x, c_vir_x))
-    #        eix = x.get_fragment_mo_energy(c_occ_x)
-    #        eax = x.get_fragment_mo_energy(c_vir_x)
-    #        eia_x = (eix[:,None] - eax[None,:])
-
-    #        gijab = einsum('Lia,Ljb->ijab', lx, lx) # N - N^3
-    #        if lx_neg is not None:
-    #            gijab -= einsum('Lia,Ljb->ijab', lx_neg, lx_neg)
-    #        eijab = (eia_x[:,None,:,None] + eia_x[None,:,None,:])
-    #        t2 = (gijab / eijab)
-
-    #        px = dot(x.c_proj.T, ovlp, c_occ_x)
-
-    #        evir_d = 2*einsum('xi,ijab,xk,kjab->', px, t2, px, gijab)
-    #        e_dmp2 += evir_d
-    #        if exchange:
-    #            evir_x = - einsum('xi,ijab,xk,kjba->', px, t2, px, gijab)
-    #            e_dmp2 += evir_x
-    #        else:
-    #            evir_x = 0.0
-
-    #        estr = energy_string
-    #        self.log.debug("  %12s:  direct= %s  exchange= %s  total= %s", x.id_name, estr(evir_d), estr(evir_x), estr(evir_d + evir_x))
-
-    #        # Double counting
-    #        c_vir_x = x.cluster.c_active_vir
-    #        lx, lx_neg = self.get_cderi((c_occ_x, c_vir_x))
-    #        eax = x.get_fragment_mo_energy(c_vir_x)
-    #        eia_x = (eix[:,None] - eax[None,:])
-
-    #        gijab = einsum('Lia,Ljb->ijab', lx, lx) # N - N^3
-    #        if lx_neg is not None:
-    #            gijab -= einsum('Lia,Ljb->ijab', lx_neg, lx_neg)
-    #        eijab = (eia_x[:,None,:,None] + eia_x[None,:,None,:])
-    #        t2 = (gijab / eijab)
-
-    #        edc_d = 2*einsum('xi,ijab,xk,kjab->', px, t2, px, gijab)
-    #        e_dmp2 -= edc_d
-    #        if exchange:
-    #            edc_x = - einsum('xi,ijab,xk,kjba->', px, t2, px, gijab)
-    #            e_dmp2 -= edc_x
-    #        else:
-    #            edc_x = 0.0
-
-    #        estr = energy_string
-    #        self.log.debug("DC:  %12s:  direct= %s  exchange= %s  total= %s", x.id_name, estr(edc_d), estr(edc_x), estr(edc_d + edc_x))
-
-    #    return e_dmp2
-
-    #def get_delta_mp2_correction_occ(self, exchange=True):
-    #    """(ia|L)(L|j'b') energy."""
-
-    #    self.log.debug("Intracluster MP2 energies:")
-    #    ovlp = self.get_ovlp()
-    #    e_dmp2 = 0.0
-    #    for x in self.get_fragments():
-    #        c_occ_x = self.mo_coeff_occ
-    #        c_vir_x = x.bath.dmet_bath.c_cluster_vir
-    #        lx, lx_neg = self.get_cderi((c_occ_x, c_vir_x))
-    #        eix = x.get_fragment_mo_energy(c_occ_x)
-    #        eax = x.get_fragment_mo_energy(c_vir_x)
-    #        eia_x = (eix[:,None] - eax[None,:])
-
-    #        gijab = einsum('Lia,Ljb->ijab', lx, lx) # N - N^3
-    #        if lx_neg is not None:
-    #            gijab -= einsum('Lia,Ljb->ijab', lx_neg, lx_neg)
-    #        eijab = (eia_x[:,None,:,None] + eia_x[None,:,None,:])
-    #        t2 = (gijab / eijab)
-
-    #        px = dot(x.c_proj.T, ovlp, c_occ_x)
-
-    #        evir_d = 2*einsum('xi,ijab,xk,kjab->', px, t2, px, gijab)
-    #        e_dmp2 += evir_d
-    #        if exchange:
-    #            evir_x = - einsum('xi,ijab,xk,kjba->', px, t2, px, gijab)
-    #            e_dmp2 += evir_x
-    #        else:
-    #            evir_x = 0.0
-
-    #        estr = energy_string
-    #        self.log.debug("  %12s:  direct= %s  exchange= %s  total= %s", x.id_name, estr(evir_d), estr(evir_x), estr(evir_d + evir_x))
-
-    #        # Double counting
-    #        c_occ_x = x.cluster.c_active_occ
-    #        lx, lx_neg = self.get_cderi((c_occ_x, c_vir_x))
-    #        eix = x.get_fragment_mo_energy(c_occ_x)
-    #        eia_x = (eix[:,None] - eax[None,:])
-
-    #        px = dot(x.c_proj.T, ovlp, c_occ_x)
-
-    #        gijab = einsum('Lia,Ljb->ijab', lx, lx) # N - N^3
-    #        if lx_neg is not None:
-    #            gijab -= einsum('Lia,Ljb->ijab', lx_neg, lx_neg)
-    #        eijab = (eia_x[:,None,:,None] + eia_x[None,:,None,:])
-    #        t2 = (gijab / eijab)
-
-    #        edc_d = 2*einsum('xi,ijab,xk,kjab->', px, t2, px, gijab)
-    #        e_dmp2 -= edc_d
-    #        if exchange:
-    #            edc_x = - einsum('xi,ijab,xk,kjba->', px, t2, px, gijab)
-    #            e_dmp2 -= edc_x
-    #        else:
-    #            edc_x = 0.0
-
-    #        estr = energy_string
-    #        self.log.debug("DC:  %12s:  direct= %s  exchange= %s  total= %s", x.id_name, estr(edc_d), estr(edc_x), estr(edc_d + edc_x))
-
-    #    return e_dmp2
-
-    #def get_intracluster_mp2_correction(self, exchange=True):
-    #    """(ia|L)(L|j'b') energy."""
-
-    #    self.log.debug("Intracluster MP2 energies:")
-    #    ovlp = self.get_ovlp()
-    #    e_dmp2 = 0.0
-    #    for x in self.get_fragments():
-    #        c_occ_x = x.bath.dmet_bath.c_cluster_occ
-    #        c_vir_x = self.mo_coeff_vir
-    #        lx, lx_neg = self.get_cderi((c_occ_x, c_vir_x))
-    #        eix = x.get_fragment_mo_energy(c_occ_x)
-    #        eax = x.get_fragment_mo_energy(c_vir_x)
-    #        eia_x = (eix[:,None] - eax[None,:])
-
-    #        gijab = einsum('Lia,Ljb->ijab', lx, lx) # N - N^3
-    #        if lx_neg is not None:
-    #            gijab -= einsum('Lia,Ljb->ijab', lx_neg, lx_neg)
-    #        eijab = (eia_x[:,None,:,None] + eia_x[None,:,None,:])
-    #        t2 = (gijab / eijab)
-
-    #        px = dot(x.c_proj.T, ovlp, c_occ_x)
-
-    #        # vir minus active vir
-    #        pvirenv = dot(x.cluster.c_active_vir.T, ovlp, c_vir_x)
-    #        pvirenv = np.eye(pvirenv.shape[-1]) - dot(pvirenv.T, pvirenv)
-
-    #        # Virtual
-    #        evir_d = 2*einsum('xi,ijAb,xk,kjab,aA->', px, t2, px, gijab, pvirenv)
-    #        e_dmp2 += evir_d
-    #        if exchange:
-    #            evir_x = - einsum('xi,ijAb,xk,kjba,aA->', px, t2, px, gijab, pvirenv)
-    #            e_dmp2 += evir_x
-    #        else:
-    #            evir_x = 0.0
-
-    #        estr = energy_string
-    #        self.log.debug("  %12s:  direct= %s  exchange= %s  total= %s", x.id_name, estr(evir_d), estr(evir_x), estr(evir_d + evir_x))
-
-    #    return e_dmp2
-
 
 
 REWF = EWF

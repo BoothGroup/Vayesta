@@ -1,8 +1,10 @@
 import numpy as np
 
-from .solver2 import ClusterSolver
+from .solver import ClusterSolver
 
 from vayesta.core.util import *
+from vayesta.core.types import Orbitals
+from vayesta.core.types import MP2_WaveFunction
 
 class MP2_Solver(ClusterSolver):
 
@@ -16,17 +18,21 @@ class MP2_Solver(ClusterSolver):
         super().reset()
         self.t2 = None
 
+    @deprecated()
     def get_t1(self):
         #return np.zeros((self.cluster.nocc_active, self.cluster.nvir_active))
         return None
 
+    @deprecated()
     def get_c1(self, intermed_norm=True):
         #return self.get_t1()
         return None
 
+    @deprecated()
     def get_t2(self):
         return self.t2
 
+    @deprecated()
     def get_c2(self, intermed_norm=True):
         """C2 in intermediate normalization."""
         if not intermed_norm:
@@ -98,6 +104,8 @@ class MP2_Solver(ClusterSolver):
         with log_time(self.log.timing, "Time for MP2 T-amplitudes: %s"):
             t2 = self.make_t2(mo_energy, eris=eris, cderi=cderi, cderi_neg=cderi_neg)
         self.t2 = t2
+        mo = Orbitals(self.cluster.c_active, energy=mo_energy, occ=self.cluster.nocc_active)
+        self.wf = MP2_WaveFunction(mo, t2)
 
     def make_rdm1(self):
         raise NotImplementedError()

@@ -19,13 +19,13 @@ class TestRDMEnergyConvergence(unittest.TestCase):
         cc.kernel()
 
         #Full bath EWF
-        ewf = vayesta.ewf.EWF(mf, bath_type='full')
+        ewf = vayesta.ewf.EWF(mf, bath_type='full', solve_lambda=True, calc_cluster_rdm_energy=True)
         ewf.kernel()
 
-        ll = ewf.get_dm_corr_energy(global_dm1=False, global_dm2=False)
-        gl = ewf.get_dm_corr_energy(global_dm1=True, global_dm2=False)
-        lg = ewf.get_dm_corr_energy(global_dm1=False, global_dm2=True)
-        gg = ewf.get_dm_corr_energy(global_dm1=True, global_dm2=True)
+        ll = ewf.get_dm_corr_energy_old(global_dm1=False, global_dm2=False)
+        gl = ewf.get_dm_corr_energy_old(global_dm1=True, global_dm2=False)
+        lg = ewf.get_dm_corr_energy_old(global_dm1=False, global_dm2=True)
+        gg = ewf.get_dm_corr_energy_old(global_dm1=True, global_dm2=True)
 
         self.assertAlmostEqual(ll, cc.e_corr)
         self.assertAlmostEqual(gl, cc.e_corr)
