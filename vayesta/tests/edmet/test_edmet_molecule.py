@@ -52,10 +52,7 @@ class MolecularEDMETTest(unittest.TestCase):
 
         known_values = {'e_tot': -3.2687823852000726}
 
-        print(moles['h6_sto6g']['uhf'].spin_square(), emb.e_tot - uemb.e_tot)
-
         self._test_energy(emb, known_values)
-
         self._test_energy(uemb, known_values)
 
     def test_h6_sto6g_EBFCI_IAO_2occ(self):

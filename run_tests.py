@@ -22,13 +22,14 @@ import pycodestyle
 import io
 import contextlib
 import subprocess
+from timeit import default_timer as timer
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--max-test-level', type=int, default=1)
 parser.add_argument('--test-levels', type=int, nargs='*', default=None)
 args = parser.parse_args()
 if args.test_levels is None:
-    args.test_levels = list(range(args.max_test_level))
+    args.test_levels = list(range(args.max_test_level+1))
 
 # Clean up:
 os.system('rm -f .coverage')
@@ -77,17 +78,27 @@ prof = cProfile.Profile()
 prof.enable()
 
 # Perform the tests:
-loader = unittest.TestLoader()
-runner = unittest.TextTestRunner(verbosity=2)
-suites = [
-    loader.discover('vayesta/tests/', pattern='test_*.py'),
-    loader.discover('vayesta/tests/', pattern='test1_*.py'),
-    loader.discover('vayesta/tests/', pattern='test2_*.py'),
-    loader.discover('vayesta/tests/', pattern='test3_*.py'),
-    ]
+testdirs = [d.name for d in os.scandir('vayesta/tests') if (d.is_dir() and not d.name.startswith('_'))]
+t0 = timer()
+ncount_tot = 0
 for lvl in args.test_levels:
-    print("Now running level %d tests..." % lvl)
-    runner.run(suites[lvl])
+    ncount_lvl = 0
+    pattern = ('test%d_*.py' % lvl) if (lvl > 0) else 'test_*.py'
+    t0_lvl = timer()
+    for d in testdirs:
+        loader = unittest.TestLoader()
+        suite = loader.discover('vayesta/tests/%s/' % d, pattern=pattern)
+        ncount = suite.countTestCases()
+        if (ncount == 0):
+            continue
+        ncount_tot += ncount
+        ncount_lvl += ncount
+        runner = unittest.TextTestRunner(verbosity=2)
+        t0_dir = timer()
+        res = runner.run(suite)
+        print("Finished %3d level %d tests in %-10s in %.0f s" % (ncount, lvl, "'"+d+"'", timer()-t0_dir))
+    print("Finished %3d level %d tests in %.0f s" % (ncount_lvl, lvl, timer()-t0_lvl))
+print("Finished %3d tests in %.0f s" %  (ncount_tot, timer()-t0))
 
 # End the profiler:
 prof.disable()

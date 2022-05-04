@@ -226,21 +226,11 @@ h2anion_dz = TestMolecule(
 #    atom = "Li 0 0 0 ; H 0 0 1.595",
 #    basis = 'cc-pVDZ')
 #
-#h2o_dz = TestMolecule(
-#    atom = """
-#        O  0.0000   0.0000   0.1173
-#        H  0.0000   0.7572  -0.4692
-#        H  0.0000  -0.7572  -0.4692
-#        """,
-#    basis = 'cc-pVDZ')
 
-#water_sto3g_df = TestMolecule(atom=molecules.water(), basis='sto-3g', auxbasis='sto-3g')
+water_631g = TestMolecule(atom=molecules.water(), basis='6-31G')
 water_631g_df = TestMolecule(atom=molecules.water(), basis='6-31G', auxbasis='6-31G')
+water_cation_631g = TestMolecule(atom=molecules.water(), basis='6-31G', charge=1, spin=1)
 water_cation_631g_df = TestMolecule(atom=molecules.water(), basis='6-31G', auxbasis='6-31G', charge=1, spin=1)
-#water_sto3g_df = TestMolecule(atom=molecules.water(), basis='sto-3g', auxbasis='sto-3g')
-#ethane_sto3g_df = TestMolecule(atom=molecules.alkane(2), basis='sto-3g', auxbasis='sto-3g')
-#water_dz_df = TestMolecule(atom=molecules.water(), basis='cc-pVDZ', auxbasis='cc-pVDZ-ri')
-
 
 # Solids
 
@@ -266,9 +256,14 @@ h2_sto3g_s31 = TestSolid(a=a, atom='H 0 0 0 ; H 0 0 0.74', supercell=(nk,1,1), *
 h3_sto3g_k31 = TestSolid(a=a, atom='H 0 0 0 ; H 0 0 1 ; H 0 0 2', kmesh=(nk,1,1), spin=3, **opts)
 h3_sto3g_s31 = TestSolid(a=a, atom='H 0 0 0 ; H 0 0 1 ; H 0 0 2', supercell=(nk,1,1), spin=3, **opts)
 
-
 opts = dict(basis='sto-3g', auxbasis='sto-3g', exp_to_discard=0.1)
 mesh = (2,1,1)
 a, atom = solids.diamond()
 diamond_sto3g_k211 = TestSolid(a=a, atom=atom, kmesh=mesh, **opts)
 diamond_sto3g_s211 = TestSolid(a=a, atom=atom, supercell=mesh, **opts)
+
+# 2D
+a, atom = solids.graphene()
+opts = dict(basis='def2-svp', auxbasis='def2-svp-ri', exp_to_discard=0.1)
+graphene_k22 = TestSolid(a=a, atom=atom, kmesh=(2,2,1), **opts)
+graphene_s22 = TestSolid(a=a, atom=atom, supercell=(2,2,1), **opts)
