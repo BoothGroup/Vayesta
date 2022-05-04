@@ -332,14 +332,12 @@ class EWFFragment(Fragment):
         with log_time(self.log.info, ("Time for %s solver:" % solver) + " %s"):
             cluster_solver.kernel(eris=eris, **init_guess)
 
-        # --- Add to results
+        # --- Add to results data class
         results = self._results
         results.bno_threshold = bno_threshold
         results.n_active = cluster.norb_active
         results.converged = cluster_solver.converged
-
-        # --- Wave-function
-        # Full cluster WF
+        # Unprojected WF
         results.wf = cluster_solver.wf
         # Projected WF
         proj = self.get_overlap('frag|cluster-occ')
@@ -348,32 +346,6 @@ class EWFFragment(Fragment):
         else:
             pwf = cluster_solver.wf
         results.pwf = pwf.project(proj, inplace=False)
-        #try:
-        #    results.pwf = cluster_solver.wf.project(proj, inplace=False)
-        #except NotImplementedError:
-        #    results.pwf = cluster_solver.wf.to_cisd().project(proj, inplace=False)
-
-        # Get projected amplitudes ('p1', 'p2')
-        if hasattr(cluster_solver, 'c0'):
-            self.log.info("Weight of reference determinant= %.8g", abs(cluster_solver.c0))
-        # --- Calculate projected energy
-        with log_time(self.log.info, ("Time for fragment energy= %s")):
-            try:
-                pwf = self.results.wf.as_cisd(c0=1.0)
-            except AttributeError:
-                pwf = self.results.wf.to_cisd(c0=1.0)
-            pwf = pwf.project(proj, inplace=False)
-            e_singles, e_doubles, e_corr = self.get_fragment_energy(pwf.c1, pwf.c2, eris=eris, c2ba_order='ba')
-
-        if (solver != 'FCI' and (e_singles > max(0.1*e_doubles, 1e-4))):
-            self.log.warning("Large singles energy component: E(S)= %s, E(D)= %s",
-                    energy_string(e_singles), energy_string(e_doubles))
-        else:
-            self.log.debug("Energy components: E(S)= %s, E(D)= %s", energy_string(e_singles), energy_string(e_doubles))
-        self.log.info("%s:  E(corr)= %+14.8f Ha", bno_threshold, e_corr)
-        results.e_corr = e_corr
-
-        self._results = results
 
         # Keep ERIs stored
         if (self.opts.store_eris or self.base.opts.store_eris):
@@ -415,7 +387,7 @@ class EWFFragment(Fragment):
     def get_energy_prefactor(self):
         return self.sym_factor * self.opts.energy_factor
 
-    def get_fragment_energy(self, c1, c2, eris, fock=None, c2ba_order='ab', axis1='fragment'):
+    def get_fragment_energy(self, c1, c2, eris=None, fock=None, c2ba_order='ba', axis1='fragment'):
         """Calculate fragment correlation energy contribution from projected C1, C2.
 
         Parameters
@@ -457,6 +429,8 @@ class EWFFragment(Fragment):
         else:
             e_singles = 0
         # --- Doubles energy
+        if eris is None:
+            eris = self._eris
         if hasattr(eris, 'ovvo'):
             g_ovvo = eris.ovvo[:]
         elif hasattr(eris, 'ovov'):

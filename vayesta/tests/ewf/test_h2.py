@@ -32,8 +32,8 @@ class Test_MP2(TestCase):
 
     def test_energy(self):
         emb = self.emb(-1)
-        self.assertAllclose(emb.e_tot, self.cc.e_tot, rtol=0)
         self.assertAllclose(emb.e_corr, self.cc.e_corr, rtol=0)
+        self.assertAllclose(emb.e_tot, self.cc.e_tot, rtol=0)
 
     def test_dm_energy(self):
         emb = self.emb(-1)

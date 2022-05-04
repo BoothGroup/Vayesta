@@ -37,7 +37,7 @@ class UEWFFragment(UFragment, EWFFragment):
         self.bath = bath
         return bath
 
-    def get_fragment_energy(self, c1, c2, eris, fock=None, axis1='fragment', c2ba_order='ba'):
+    def get_fragment_energy(self, c1, c2, eris=None, fock=None, axis1='fragment', c2ba_order='ba'):
         """Calculate fragment correlation energy contribution from projected C1, C2.
 
         Parameters
@@ -95,6 +95,8 @@ class UEWFFragment(UFragment, EWFFragment):
             e_singles = 0
         # Doubles energy
         # TODO: loop to reduce memory?
+        if eris is None:
+            eris = self._eris
         if hasattr(eris, 'ovov'):
             gaa = eris.ovov
             #gaa = eris.ovov - eris.ovov.transpose(0,3,2,1)

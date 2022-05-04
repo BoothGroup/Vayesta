@@ -141,6 +141,7 @@ class FCI_Solver(ClusterSolver):
         else:
             self.log.info("FCI: S^2= %.10f  multiplicity= %.10f", s2, mult)
         self.c0, self.c1, self.c2 = self.get_cisd_amps(self.civec)
+        self.log.info("FCI: weight of reference determinant= %.8g", abs(self.c0))
         mo = Orbitals(self.cluster.c_active, occ=self.cluster.nocc_active)
         self.wf = FCI_WaveFunction(mo, self.civec)
 

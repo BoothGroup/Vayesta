@@ -56,6 +56,7 @@ class EWF(Embedding):
         project_eris: bool = False          # Project ERIs from a pervious larger cluster (corresponding to larger eta), can result in a loss of accuracy especially for large basis sets!
         project_init_guess: bool = True     # Project converted T1,T2 amplitudes from a previous larger cluster
         orthogonal_mo_tol: float = False
+        energy_functional: str = 'projected'
         # --- Solver settings
         solve_lambda: bool = False          # If True, solve for the Lambda-amplitudes if a CCSD solver is used
         t_as_lambda: bool = False           # If True, use T-amplitudes inplace of Lambda-amplitudes
@@ -324,28 +325,42 @@ class EWF(Embedding):
 
     # Correlation
 
+    def get_e_corr(self, **kwargs):
+        if self.opts.energy_functional == 'projected':
+            return self.get_proj_corr_energy(**kwargs)
+        if self.opts.energy_functional == 'dm-t2only':
+            return self.get_dm_corr_energy(t_as_lambda=True, **kwargs)
+        if self.opts.energy_functional == 'dm':
+            return self.get_dm_corr_energy(**kwargs)
+        raise ValueError("Unknown energy functional: '%s'" % self.opts.energy_functional)
+
     @mpi.with_allreduce()
-    def get_e_corr(self, fragments=None):
+    def get_proj_corr_energy(self):
         e_corr = 0.0
         # Only loop over fragments of own MPI rank
-        for f in self.get_fragments(fragment_list=fragments, mpi_rank=mpi.rank):
-            if f.results.e_corr is None:
-                self.log.critical("No fragment E(corr) found for %s! Returning total E(corr)=NaN", f)
-                return np.nan
-            e_corr += f.results.e_corr
-        return e_corr / self.ncells
+        for x in self.get_fragments(sym_parent=None, mpi_rank=mpi.rank):
+            try:
+                wf = x.results.wf.as_cisd(c0=1.0)
+            except AttributeError:
+                wf = x.results.wf.to_cisd(c0=1.0)
+            px = x.get_overlap('frag|cluster-occ')
+            wf = wf.project(px)
+            es, ed, ex = x.get_fragment_energy(wf.c1, wf.c2)
+            self.log.debug("%20s:  E(S)= %s  E(D)= %s  E(tot)= %s", x, energy_string(es), energy_string(ed), energy_string(ex))
+            e_corr += x.symmetry_factor * ex
+        return e_corr/self.ncells
 
-    def get_dm_corr_energy(self, dm1='2p2l', **kwargs):
-        e1, e2 = self.get_dm_corr_energy_parts(dm1=dm1, **kwargs)
+    def get_dm_corr_energy(self, dm1='2p2l', t_as_lambda=None, with_exxdiv=None, sym_t2=True):
+        e1 = self.get_dm_corr_energy_e1(dm1=dm1, t_as_lambda=None, with_exxdiv=None)
+        e2 = self.get_dm_corr_energy_e2(t_as_lambda=None, sym_t2=sym_t2)
         e_corr = (e1 + e2)
         self.log.debug("Ecorr(1)= %s  Ecorr(2)= %s  Ecorr= %s", *map(energy_string, (e1, e2, e_corr)))
         return e_corr
 
-    def get_dm_corr_energy_parts(self, dm1=None, t_as_lambda=None, with_exxdiv=None, sym_t2=True):
+    def get_dm_corr_energy_e1(self, dm1=None, t_as_lambda=None, with_exxdiv=None):
         if t_as_lambda is None:
             t_as_lambda = self.opts.t_as_lambda
         # Correlation energy due to changes in 1-DM and non-cumulant 2-DM:
-        times = [timer()]
         if dm1 is None or dm1 == '2p2l':
             dm1 = self._make_rdm1_ccsd_2p2l(with_mf=False, t_as_lambda=t_as_lambda, ao_basis=True)
         elif dm1 == '2p1l':
@@ -358,23 +373,20 @@ class EWF(Embedding):
 
         fock = self.get_fock_for_energy(with_exxdiv=with_exxdiv)
         e1 = np.sum(fock*dm1)
-        times.append(timer())
-        # Correlation energy due to cumulant:
+        return e1/self.ncells
+
+    @mpi.with_allreduce()
+    def get_dm_corr_energy_e2(self, t_as_lambda=None, sym_t2=True):
+        """Correlation energy due to cumulant"""
+        if t_as_lambda is None:
+            t_as_lambda = self.opts.t_as_lambda
         e2 = 0.0
-        #$print(f.sym_parent.id for f in)
         for x in self.get_fragments(sym_parent=None, mpi_rank=mpi.rank):
             wx = x.symmetry_factor * x.sym_factor
             e2 += wx * x.make_fragment_cumulant_energy(t_as_lambda=t_as_lambda, sym_t2=sym_t2)
-        if mpi:
-            e2 = mpi.world.allreduce(e2)
-        times.append(timer())
-        self.log.timing("Time for DM energy: T(DM1)= %s  T(DM2)= %s  T(tot)= %s",
-                *map(time_string, (times[1]-times[0], times[2]-times[1], times[2]-times[0])))
-        e1 = e1/self.ncells
-        e2 = e2/self.ncells
-        return e1, e2
+        return e2/self.ncells
 
-    def get_e_corr_ccsd(self, full_wf=False):
+    def get_ccsd_corr_energy(self, full_wf=False):
         """Get projected correlation energy from partitioned CCSD WF.
 
         This is the projected (T1, T2) energy expression, instead of the
@@ -441,12 +453,16 @@ class EWF(Embedding):
         """Total energy."""
         return self.e_mf + self.e_corr
 
-    def get_e_tot_ccsd(self, full_wf=False):
-        return self.e_mf + self.get_e_corr_ccsd(full_wf=full_wf)
+    def get_proj_energy(self):
+        e_corr = self.get_proj_corr_energy()
+        return self.e_mf + e_corr
 
     def get_dm_energy(self, dm1='2p2l', t_as_lambda=None, with_exxdiv=None, sym_t2=True):
         e_corr = self.get_dm_corr_energy(dm1=dm1, t_as_lambda=t_as_lambda, with_exxdiv=with_exxdiv, sym_t2=sym_t2)
         return self.e_mf + e_corr
+
+    def get_ccsd_energy(self, full_wf=False):
+        return self.e_mf + self.get_ccsd_corr_energy(full_wf=full_wf)
 
     # --- Energy corrections
 
@@ -455,12 +471,15 @@ class EWF(Embedding):
     # --- Other expectation values
 
     def get_atomic_ssz(self, atoms=None, dm1=None, dm2=None, projection='sao', full_dm2=False):
-        """TODO: MPI"""
+        """Get expectation values <P(A) S_z^2 P(B)>, where P(X) are projectors onto atoms.
+
+        TODO: MPI"""
         t0 = timer()
         if atoms is None:
             atoms = list(range(self.mol.natm))
         natom = len(atoms)
 
+        projection = projection.lower()
         if projection == 'sao':
             frag = SAO_Fragmentation(self.mf, self.log)
         elif projection.replace('+', '').replace('/', '') == 'iaopao':
@@ -626,7 +645,7 @@ class EWF(Embedding):
             e2 = einsum('pqrs,pqrs', eri, rdm2) * 0.5
         else:
             # Fragment Local 2DM cumulant contribution
-            e2 = self.get_dm_corr_energy_parts(t_as_lambda=t_as_lambda)[1]
+            e2 = self.get_dm_corr_energy_e2(t_as_lambda=t_as_lambda) * self.ncells
         e_corr = (e1 + e2) / self.ncells
         return e_corr
 

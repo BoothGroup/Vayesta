@@ -57,7 +57,6 @@ untracked = [x.strip() for x in untracked.split('\n')]
 untracked += [
         '*/libs/*',
         '*/test_*.py',
-        '*/core/k2gamma.py',
         '*/dmet/pdmet.py',
         '*/misc/brueckner.py',
         '*/misc/counterpoise.py',
