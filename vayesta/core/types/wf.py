@@ -771,18 +771,21 @@ def CISD_WaveFunction(mo, c0, c1, c2, **kwargs):
 
 class RFCI_WaveFunction(WaveFunction):
 
-    _make_rdm1_backend = pyscf.fci.direct_spin1.make_rdm1
-    _make_rdm2_backend = pyscf.fci.direct_spin1.make_rdm12
-
     def __init__(self, mo, ci, projector=None):
         super().__init__(mo, projector=projector)
         self.ci = ci
 
-    def make_rdm1(self):
-        return type(self)._make_rdm1_backend(self.ci, self.norb, self.nelec)
+    def make_rdm1(self, ao_basis=False):
+        dm1 = pyscf.fci.direct_spin1.make_rdm1(self.ci, self.norb, self.nelec)
+        if not ao_basis:
+            return dm1
+        return dot(self.mo.coeff, dm1, self.mo.coeff.T)
 
-    def make_rdm2(self):
-        return type(self)._make_rdm2_backend(self.ci, self.norb, self.nelec)[1]
+    def make_rdm2(self, ao_basis=False):
+        dm2 = pyscf.fci.direct_spin1.make_rdm12(self.ci, self.norb, self.nelec)[1]
+        if not ao_basis:
+            return dm2
+        return einsum('ijkl,ai,bj,ck,dl->abcd', dm2, *(4*[self.mo.coeff]))
 
     def project(self, projector, inplace=False):
         raise NotImplementedError
@@ -823,16 +826,23 @@ class RFCI_WaveFunction(WaveFunction):
 
 class UFCI_WaveFunction(RFCI_WaveFunction):
 
-    _make_rdm1_backend = pyscf.fci.direct_spin1.make_rdm1s
-    _make_rdm2_backend = pyscf.fci.direct_spin1.make_rdm12s
-
-    def make_rdm1(self):
+    def make_rdm1(self, ao_basis=False):
         assert (self.norb[0] == self.norb[1])
-        return type(self)._make_rdm1_backend(self.ci, self.norb[0], self.nelec)
+        dm1 = pyscf.fci.direct_spin1.make_rdm1s(self.ci, self.norb[0], self.nelec)
+        if not ao_basis:
+            return dm1
+        return (dot(self.mo.coeff[0], dm1[0], self.mo.coeff[0].T),
+                dot(self.mo.coeff[1], dm1[1], self.mo.coeff[1].T))
 
-    def make_rdm2(self):
+    def make_rdm2(self, ao_basis=False):
         assert (self.norb[0] == self.norb[1])
-        return type(self)._make_rdm2_backend(self.ci, self.norb[0], self.nelec)[1]
+        dm2 = pyscf.fci.direct_spin1.make_rdm12s(self.ci, self.norb[0], self.nelec)[1]
+        if not ao_basis:
+            return dm2
+        moa, mob = self.mo.coeff
+        return (einsum('ijkl,ai,bj,ck,dl->abcd', dm2[0], *(4*[moa])),
+                einsum('ijkl,ai,bj,ck,dl->abcd', dm2[1], *[moa, moa, mob, mob]),
+                einsum('ijkl,ai,bj,ck,dl->abcd', dm2[2], *(4*[mob])))
 
     def as_cisd(self, c0=None):
         norba, norbb = self.norb

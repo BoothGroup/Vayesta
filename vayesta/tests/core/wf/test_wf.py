@@ -10,157 +10,106 @@ import pyscf.fci
 import vayesta
 import vayesta.ewf
 from vayesta.core.util import *
+from vayesta.tests.common import TestCase
+from vayesta.tests import testsystems
 
-from vayesta.tests import cache
+class Test_DM(TestCase):
 
-class TestDMs(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.mf = testsystems.water_631g.rhf()
+        cls.cc = testsystems.water_631g.rccsd()
 
-    # --- CCSD
+    @classmethod
+    def tearDownClass(cls):
+        del cls.mf
+        del cls.cc
 
-    def _test_rccsd(self, key, atol=1e-7):
-        mf = cache.moles[key]['rhf']
-
-        emb = vayesta.ewf.EWF(mf, solver='CCSD', bath_type='full', solve_lambda=True)
+    @classmethod
+    @cache
+    def frag(cls):
+        emb = vayesta.ewf.EWF(cls.mf, bath_type='full', solve_lambda=True)
         emb.iao_fragmentation()
-        frag = emb.add_atomic_fragment(list(range(mf.mol.natm)))
+        frag = emb.add_atomic_fragment(list(range(emb.mol.natm)))
         emb.kernel()
+        return frag
 
-        # Reference
-        cc = pyscf.cc.CCSD(mf)
-        cc.kernel()
-        dm1 = cc.make_rdm1()
-        dm2 = cc.make_rdm2()
+    def get_dm1_ref(self):
+        return self.cc.make_rdm1(ao_repr=True)
 
-        dm1f = frag.results.wf.make_rdm1()
-        dm2f = frag.results.wf.make_rdm2()
-        r = np.linalg.multi_dot((frag.results.wf.mo.coeff.T, emb.get_ovlp(), mf.mo_coeff))
+    def get_dm2_ref(self):
+        return self.cc.make_rdm2(ao_repr=True)
 
-        dm1f = einsum('ij,iI,jJ->IJ', dm1f, r, r)
-        self.assertIsNone(np.testing.assert_allclose(dm1, dm1f, atol=atol))
+    def test_dm1(self):
+        dm1_ref = self.get_dm1_ref()
+        frag = self.frag()
+        dm1 = frag.results.wf.make_rdm1(ao_basis=True)
+        self.assertAllclose(dm1, dm1_ref)
 
-        dm2f = einsum('ijkl,iI,jJ,kK,lL->IJKL', dm2f, r, r, r, r)
-        self.assertIsNone(np.testing.assert_allclose(dm2, dm2f, atol=atol))
+    def test_dm2(self):
+        dm2_ref = self.get_dm2_ref()
+        frag = self.frag()
+        dm2 = frag.results.wf.make_rdm2(ao_basis=True)
+        self.assertAllclose(dm2, dm2_ref)
 
-    def _test_uccsd(self, key, atol=1e-7):
-        mf = cache.moles[key]['uhf']
+class Test_DM_UHF(Test_DM):
 
-        emb = vayesta.ewf.EWF(mf, solver='CCSD', bath_type='full', solve_lambda=True)
+    @classmethod
+    def setUpClass(cls):
+        cls.mf = testsystems.water_cation_631g.uhf()
+        cls.cc = testsystems.water_cation_631g.uccsd()
+
+class Test_DM_FCI(Test_DM):
+
+    @classmethod
+    def setUpClass(cls):
+        cls.mf = testsystems.water_sto3g.rhf()
+        cls.cc = testsystems.water_sto3g.rfci()
+
+    @classmethod
+    @cache
+    def frag(cls):
+        emb = vayesta.ewf.EWF(cls.mf, bath_type='full', solver='FCI')
         emb.iao_fragmentation()
-        frag = emb.add_atomic_fragment(list(range(mf.mol.natm)))
+        frag = emb.add_atomic_fragment(list(range(emb.mol.natm)))
         emb.kernel()
+        return frag
 
-        # Reference
-        cc = pyscf.cc.CCSD(mf)
-        cc.kernel()
-        dm1 = cc.make_rdm1()
-        dm2 = cc.make_rdm2()
+    def get_dm1_ref(self):
+        args = (self.cc.ci, self.mf.mol.nao, self.mf.mol.nelectron)
+        dm1_ref = self.cc.make_rdm1(*args)
+        dm1_ref = np.linalg.multi_dot((self.mf.mo_coeff, dm1_ref, self.mf.mo_coeff.T))
+        return dm1_ref
 
-        dm1f = frag.results.wf.make_rdm1()
-        dm2f = frag.results.wf.make_rdm2()
-        ra = np.linalg.multi_dot((frag.results.wf.mo.coeff[0].T, emb.get_ovlp(), mf.mo_coeff[0]))
-        rb = np.linalg.multi_dot((frag.results.wf.mo.coeff[1].T, emb.get_ovlp(), mf.mo_coeff[1]))
+    def get_dm2_ref(self):
+        args = (self.cc.ci, self.mf.mol.nao, self.mf.mol.nelectron)
+        dm2_ref = self.cc.make_rdm12(*args)[1]
+        dm2_ref = einsum('ijkl,ai,bj,ck,dl->abcd', dm2_ref, *(4*[self.mf.mo_coeff]))
+        return dm2_ref
 
-        dm1fa = einsum('ij,iI,jJ->IJ', dm1f[0], ra, ra)
-        dm1fb = einsum('ij,iI,jJ->IJ', dm1f[1], rb, rb)
-        self.assertIsNone(np.testing.assert_allclose(dm1[0], dm1fa, atol=atol))
-        self.assertIsNone(np.testing.assert_allclose(dm1[1], dm1fb, atol=atol))
+class Test_DM_FCI_UHF(Test_DM_FCI):
 
-        dm2faa = einsum('ijkl,iI,jJ,kK,lL->IJKL', dm2f[0], ra, ra, ra, ra)
-        dm2fab = einsum('ijkl,iI,jJ,kK,lL->IJKL', dm2f[1], ra, ra, rb, rb)
-        dm2fbb = einsum('ijkl,iI,jJ,kK,lL->IJKL', dm2f[2], rb, rb, rb, rb)
-        self.assertIsNone(np.testing.assert_allclose(dm2[0], dm2faa, atol=atol))
-        self.assertIsNone(np.testing.assert_allclose(dm2[1], dm2fab, atol=atol))
-        self.assertIsNone(np.testing.assert_allclose(dm2[2], dm2fbb, atol=atol))
+    @classmethod
+    def setUpClass(cls):
+        cls.mf = testsystems.water_cation_sto3g.uhf()
+        cls.cc = testsystems.water_cation_sto3g.ufci()
 
-    #def test_rccsd(self):
-    #    return self._test_rccsd('h4_6-31g')
+    def get_dm1_ref(self):
+        nelec = (np.count_nonzero(self.mf.mo_occ[0]>0), np.count_nonzero(self.mf.mo_occ[1]>0))
+        args = (self.cc.ci, self.mf.mol.nao, nelec)
+        dm1_ref = self.cc.make_rdm1s(*args)
+        dm1_ref = (np.linalg.multi_dot((self.mf.mo_coeff[0], dm1_ref[0], self.mf.mo_coeff[0].T)),
+                   np.linalg.multi_dot((self.mf.mo_coeff[1], dm1_ref[1], self.mf.mo_coeff[1].T)))
+        return dm1_ref
 
-    #def test_rccsd_df(self):
-    #    return self._test_rccsd('h4_6-31g_df')
-
-    #def test_uccsd(self):
-    #    return self._test_uccsd('h3_6-31g')
-
-    #def test_uccsd_df(self):
-    #    return self._test_uccsd('h3_6-31g_df')
-
-    # --- FCI
-
-    def _test_rfci(self, key, atol=1e-7):
-        mf = cache.moles[key]['rhf']
-
-        emb = vayesta.ewf.EWF(mf, solver='FCI', bath_type='full', solve_lambda=True)
-        emb.iao_fragmentation()
-        frag = emb.add_atomic_fragment(list(range(mf.mol.natm)))
-        emb.kernel()
-
-        # Reference
-        fci = pyscf.fci.FCI(mf)
-        fci.threads = 1
-        fci.conv_tol = 1e-14
-        fci = pyscf.fci.addons.fix_spin_(fci, ss=0.0)
-        fci.kernel()
-        args = (fci.ci, mf.mol.nao, mf.mol.nelectron)
-        dm1 = fci.make_rdm1(*args)
-        dm2 = fci.make_rdm12(*args)[1]
-
-        dm1f = frag.results.wf.make_rdm1()
-        dm2f = frag.results.wf.make_rdm2()
-        r = np.linalg.multi_dot((frag.results.wf.mo.coeff.T, emb.get_ovlp(), mf.mo_coeff))
-
-        dm1f = einsum('ij,iI,jJ->IJ', dm1f, r, r)
-        self.assertIsNone(np.testing.assert_allclose(dm1, dm1f, atol=atol))
-
-        dm2f = einsum('ijkl,iI,jJ,kK,lL->IJKL', dm2f, r, r, r, r)
-        self.assertIsNone(np.testing.assert_allclose(dm2, dm2f, atol=atol))
-
-    def _test_ufci(self, key, atol=1e-7):
-        mf = cache.moles[key]['uhf']
-
-        emb = vayesta.ewf.EWF(mf, solver='FCI', bath_type='full', solve_lambda=True)
-        emb.iao_fragmentation()
-        frag = emb.add_atomic_fragment(list(range(mf.mol.natm)))
-        emb.kernel()
-
-        # Reference
-        fci = pyscf.fci.FCI(mf)
-        fci.threads = 1
-        fci.conv_tol = 1e-14
-        fci.kernel()
-        norb = mf.mol.nao
-        nelec = (np.count_nonzero(mf.mo_occ[0]>0), np.count_nonzero(mf.mo_occ[1]>0))
-        args = (fci.ci, norb, nelec)
-        dm1 = fci.make_rdm1s(*args)
-        dm2 = fci.make_rdm12s(*args)[1]
-
-        dm1f = frag.results.wf.make_rdm1()
-        dm2f = frag.results.wf.make_rdm2()
-        ra = np.linalg.multi_dot((frag.results.wf.mo.coeff[0].T, emb.get_ovlp(), mf.mo_coeff[0]))
-        rb = np.linalg.multi_dot((frag.results.wf.mo.coeff[1].T, emb.get_ovlp(), mf.mo_coeff[1]))
-
-        dm1fa = einsum('ij,iI,jJ->IJ', dm1f[0], ra, ra)
-        dm1fb = einsum('ij,iI,jJ->IJ', dm1f[1], rb, rb)
-        self.assertIsNone(np.testing.assert_allclose(dm1[0], dm1fa, atol=atol))
-        self.assertIsNone(np.testing.assert_allclose(dm1[1], dm1fb, atol=atol))
-
-        dm2faa = einsum('ijkl,iI,jJ,kK,lL->IJKL', dm2f[0], ra, ra, ra, ra)
-        dm2fab = einsum('ijkl,iI,jJ,kK,lL->IJKL', dm2f[1], ra, ra, rb, rb)
-        dm2fbb = einsum('ijkl,iI,jJ,kK,lL->IJKL', dm2f[2], rb, rb, rb, rb)
-        self.assertIsNone(np.testing.assert_allclose(dm2[0], dm2faa, atol=atol))
-        self.assertIsNone(np.testing.assert_allclose(dm2[1], dm2fab, atol=atol))
-        self.assertIsNone(np.testing.assert_allclose(dm2[2], dm2fbb, atol=atol))
-
-    #def test_rfci(self):
-    #    return self._test_rfci('h4_ccpvdz')
-
-    #def test_rfci_df(self):
-    #    return self._test_rfci('h4_ccpvdz_df')
-
-    def test_ufci(self):
-        return self._test_ufci('h3_ccpvdz')
-
-    def test_ufci_df(self):
-        return self._test_ufci('h3_ccpvdz_df')
+    def get_dm2_ref(self):
+        nelec = (np.count_nonzero(self.mf.mo_occ[0]>0), np.count_nonzero(self.mf.mo_occ[1]>0))
+        args = (self.cc.ci, self.mf.mol.nao, nelec)
+        dm2_ref = self.cc.make_rdm12s(*args)[1]
+        dm2_ref = (einsum('ijkl,ai,bj,ck,dl->abcd', dm2_ref[0], *(4*[self.mf.mo_coeff[0]])),
+                   einsum('ijkl,ai,bj,ck,dl->abcd', dm2_ref[1], *(2*[self.mf.mo_coeff[0]] + 2*[self.mf.mo_coeff[1]])),
+                   einsum('ijkl,ai,bj,ck,dl->abcd', dm2_ref[2], *(4*[self.mf.mo_coeff[1]])))
+        return dm2_ref
 
 
 if __name__ == '__main__':

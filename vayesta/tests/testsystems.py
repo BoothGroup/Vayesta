@@ -28,7 +28,7 @@ from vayesta.misc import solids
 
 class TestMolecule:
 
-    def __init__(self, atom, basis, auxbasis=None, **kwargs):
+    def __init__(self, atom, basis, auxbasis=None, verbose=0, **kwargs):
         super().__init__()
         mol = pyscf.gto.Mole()
         mol.atom = atom
@@ -104,7 +104,7 @@ class TestMolecule:
 
 class TestSolid:
 
-    def __init__(self, a, atom, basis, kmesh=None, auxbasis=None, supercell=None, **kwargs):
+    def __init__(self, a, atom, basis, kmesh=None, auxbasis=None, supercell=None, verbose=0, **kwargs):
         super().__init__()
         mol = pyscf.pbc.gto.Cell()
         mol.a = a
@@ -226,6 +226,9 @@ h2anion_dz = TestMolecule(
 #    atom = "Li 0 0 0 ; H 0 0 1.595",
 #    basis = 'cc-pVDZ')
 #
+
+water_sto3g = TestMolecule(atom=molecules.water(), basis='sto3g')
+water_cation_sto3g = TestMolecule(atom=molecules.water(), basis='sto3g', charge=1, spin=1)
 
 water_631g = TestMolecule(atom=molecules.water(), basis='6-31G')
 water_631g_df = TestMolecule(atom=molecules.water(), basis='6-31G', auxbasis='6-31G')

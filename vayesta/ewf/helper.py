@@ -7,45 +7,6 @@ from vayesta.core.util import *
 log = logging.getLogger(__name__)
 
 
-def indices_to_bools(indices, n):
-    bools = np.zeros(n, dtype=bool)
-    bools[np.asarray(indices)] = True
-    return bools
-
-def transform_amplitudes(t1, t2, u_occ, u_vir):
-    """(Old basis|new basis)"""
-    if t1 is not None:
-        t1 = einsum("ia,ix,ay->xy", t1, u_occ, u_vir)
-    else:
-        t1 = None
-    if t2 is not None:
-        t2 = einsum("ijab,ix,jy,az,bw->xyzw", t2, u_occ, u_occ, u_vir, u_vir)
-    else:
-        t2 = None
-    return t1, t2
-
-def atom_labels_to_ao_indices(mol, atom_labels):
-    """Convert atom labels to AO indices of mol object."""
-    atom_labels_mol = np.asarray([ao[1] for ao in mol.ao_labels(None)])
-    ao_indices = np.nonzero(np.isin(atom_labels_mol, atom_labels))[0]
-    return ao_indices
-
-def atom_label_to_ids(mol, atom_label):
-    """Get all atom IDs corresponding to an atom label."""
-    atom_labels = np.asarray([mol.atom_symbol(atomid) for atomid in range(mol.natm)])
-    atom_ids = np.where(np.in1d(atom_labels, atom_label))[0]
-    return atom_ids
-
-def get_ao_indices_at_atoms(mol, atomids):
-    """Return indices of AOs centered at a given atom ID."""
-    ao_indices = []
-    if not hasattr(atomids, "__len__"):
-        atomids = [atomids]
-    for atomid in atomids:
-        ao_slice = mol.aoslice_by_atom()[atomid]
-        ao_indices += list(range(ao_slice[2], ao_slice[3]))
-    return ao_indices
-
 def orthogonalize_mo(c, s, tol=1e-6):
     """Orthogonalize MOs, such that C^T S C = I (identity matrix).
 
@@ -81,16 +42,6 @@ def orthogonalize_mo(c, s, tol=1e-6):
         log.error("Orbital non-orthogonality= %.1e", nonorth)
 
     return c_out
-
-def amplitudes_c2t(c1, c2):
-    t1 = c1.copy()
-    t2 = c2 - einsum("ia,jb->ijab", c1, c1)
-    return t1, t2
-
-def amplitudes_t2c(t1, t2):
-    c1 = t1.copy()
-    c2 = t2 + einsum("ia,jb->ijab", t1, t1)
-    return c1, c2
 
 def get_ssz(dm1, dm2, proj1=None, proj2=None):
     dm1a = dm1/2
