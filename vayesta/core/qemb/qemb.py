@@ -1002,8 +1002,9 @@ class Embedding:
         """
         if self.fragmentation is None:
             raise RuntimeError("No fragmentation defined. Call method x_fragmentation() where x=[iao, iaopao, sao, site].")
+        atom_indices, atom_symbols = self.fragmentation.get_atom_indices_symbols(atoms)
         name, indices = self.fragmentation.get_atomic_fragment_indices(atoms, orbital_filter=orbital_filter, name=name)
-        return self._add_fragment(indices, name, add_symmetric=add_symmetric, **kwargs)
+        return self._add_fragment(indices, name, add_symmetric=add_symmetric, atoms=atom_indices, **kwargs)
 
     def add_orbital_fragment(self, orbitals, atom_filter=None, name=None, **kwargs):
         """Create a fragment of one or multiple orbitals, which will be solved by the embedding method.

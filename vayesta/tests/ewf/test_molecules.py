@@ -71,10 +71,10 @@ class MoleculeEWFTests(unittest.TestCase):
         dm = emb.make_rdm2_demo(ao_basis=True)
         self.assertAlmostEqual(trace(dm), known_values['rdm2_demo_ao'], self.PLACES_DM)
 
-        dm = emb._make_rdm2_ccsd()
+        dm = emb._make_rdm2_ccsd_global_wf()
         self.assertAlmostEqual(trace(dm), known_values['rdm2_ccsd'], self.PLACES_DM)
 
-        dm = emb._make_rdm2_ccsd(ao_basis=True)
+        dm = emb._make_rdm2_ccsd_global_wf(ao_basis=True)
         self.assertAlmostEqual(trace(dm), known_values['rdm2_ccsd_ao'], self.PLACES_DM)
 
     def test_lih_ccpvdz_iao_atoms(self):

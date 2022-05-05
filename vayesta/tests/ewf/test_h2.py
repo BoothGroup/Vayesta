@@ -102,7 +102,7 @@ class Test_CCSD(Test_MP2):
         emb = self.emb(-1)
         dm2_exact = self.cc.make_rdm2()
 
-        dm2 = emb._make_rdm2_ccsd()
+        dm2 = emb._make_rdm2_ccsd_global_wf()
         self.assertAllclose(dm2, dm2_exact)
 
 

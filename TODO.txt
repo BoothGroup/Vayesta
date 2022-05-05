@@ -1,6 +1,7 @@
 TODO
-- MP2 solver tests
 - Creation of symmetry children slow
+- Rotational symmetry
+- fast UHF make_rdm1_ccsd_global_wf
 
 25/08/2021
 - eri's for FCI_Solver (to allow Hubbard model without system specific interface). Will require fake_df object for lattice models.

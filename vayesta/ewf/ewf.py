@@ -16,9 +16,9 @@ from .fragment import EWFFragment as Fragment
 from .amplitudes import get_global_t1_rhf
 from .amplitudes import get_global_t2_rhf
 from .rdm import make_rdm1_ccsd
-from .rdm import make_rdm1_ccsd_2p2l
-from .rdm import make_rdm1_ccsd_1p1l
-from .rdm import make_rdm2_ccsd
+from .rdm import make_rdm1_ccsd_global_wf
+from .rdm import make_rdm2_ccsd_global_wf
+from .rdm import make_rdm1_ccsd_proj_lambda
 from .rdm import make_rdm2_ccsd_proj_lambda
 from .icmp2 import get_intercluster_mp2_energy_rhf
 
@@ -293,14 +293,26 @@ class EWF(Embedding):
     # --- Density-matrices
     # --------------------
 
+    # Defaults
+
     def make_rdm1(self, *args, **kwargs):
         if self.solver.lower() == 'ccsd':
-            return self._make_rdm1_ccsd_2p2l(*args, **kwargs)
+            return self._make_rdm1_ccsd_global_wf(*args, **kwargs)
         if self.solver.lower() == 'mp2':
-            return self._make_rdm1_ccsd_2p2l(*args, t_as_lambda=True, with_t1=False, **kwargs)
+            return self._make_rdm1_ccsd_global_wf(*args, t_as_lambda=True, with_t1=False, **kwargs)
         if self.solver.lower() == 'fci':
             return self.make_rdm1_demo(*args, **kwargs)
         raise NotImplementedError("make_rdm1 for solver '%s'" % self.solver)
+
+    def make_rdm2(self, *args, **kwargs):
+        if self.solver.lower() == 'ccsd':
+            return self._make_rdm2_ccsd_proj_lambda(*args, **kwargs)
+            #return self._make_rdm2_ccsd(*args, **kwargs)
+        if self.solver.lower() == 'mp2':
+            return self._make_rdm2_ccsd_proj_lambda(*args, t_as_lambda=True, **kwargs)
+        raise NotImplementedError("make_rdm2 for solver '%s'" % self.solver)
+
+    # DM1
 
     def _make_rdm1_mp2(self, *args, **kwargs):
         return make_rdm1_ccsd(self, *args, mp2=True, **kwargs)
@@ -308,14 +320,16 @@ class EWF(Embedding):
     def _make_rdm1_ccsd(self, *args, **kwargs):
         return make_rdm1_ccsd(self, *args, mp2=False, **kwargs)
 
-    def _make_rdm2_ccsd(self, *args, **kwargs):
-        return make_rdm2_ccsd(self, *args, **kwargs)
+    def _make_rdm1_ccsd_global_wf(self, *args, **kwargs):
+        return make_rdm1_ccsd_global_wf(self, *args, **kwargs)
 
-    def _make_rdm1_ccsd_2p2l(self, *args, **kwargs):
-        return make_rdm1_ccsd_2p2l(self, *args, **kwargs)
+    def _make_rdm1_ccsd_proj_lambda(self, *args, **kwargs):
+        return make_rdm1_ccsd_proj_lambda(self, *args, **kwargs)
 
-    def _make_rdm1_ccsd_1p1l(self, *args, **kwargs):
-        return make_rdm1_ccsd_1p1l(self, *args, **kwargs)
+    # DM2
+
+    def _make_rdm2_ccsd_global_wf(self, *args, **kwargs):
+        return make_rdm2_ccsd_global_wf(self, *args, **kwargs)
 
     def _make_rdm2_ccsd_proj_lambda(self, *args, **kwargs):
         return make_rdm2_ccsd_proj_lambda(self, *args, **kwargs)
@@ -350,7 +364,7 @@ class EWF(Embedding):
             e_corr += x.symmetry_factor * ex
         return e_corr/self.ncells
 
-    def get_dm_corr_energy(self, dm1='2p2l', t_as_lambda=None, with_exxdiv=None, sym_t2=True):
+    def get_dm_corr_energy(self, dm1='global-wf', t_as_lambda=None, with_exxdiv=None, sym_t2=True):
         e1 = self.get_dm_corr_energy_e1(dm1=dm1, t_as_lambda=None, with_exxdiv=None)
         e2 = self.get_dm_corr_energy_e2(t_as_lambda=None, sym_t2=sym_t2)
         e_corr = (e1 + e2)
@@ -361,8 +375,8 @@ class EWF(Embedding):
         if t_as_lambda is None:
             t_as_lambda = self.opts.t_as_lambda
         # Correlation energy due to changes in 1-DM and non-cumulant 2-DM:
-        if dm1 is None or dm1 == '2p2l':
-            dm1 = self._make_rdm1_ccsd_2p2l(with_mf=False, t_as_lambda=t_as_lambda, ao_basis=True)
+        if dm1 is None or dm1 == 'global-wf':
+            dm1 = self._make_rdm1_ccsd_global_wf(with_mf=False, t_as_lambda=t_as_lambda, ao_basis=True)
         elif dm1 == '2p1l':
             dm1 = self._make_rdm1_ccsd(with_mf=False, t_as_lambda=t_as_lambda, ao_basis=True)
         elif dm1 == '1p1l':
@@ -383,7 +397,7 @@ class EWF(Embedding):
         e2 = 0.0
         for x in self.get_fragments(sym_parent=None, mpi_rank=mpi.rank):
             wx = x.symmetry_factor * x.sym_factor
-            e2 += wx * x.make_fragment_cumulant_energy(t_as_lambda=t_as_lambda, sym_t2=sym_t2)
+            e2 += wx * x.make_fragment_dm2cumulant_energy(t_as_lambda=t_as_lambda, sym_t2=sym_t2)
         return e2/self.ncells
 
     def get_ccsd_corr_energy(self, full_wf=False):
@@ -457,7 +471,7 @@ class EWF(Embedding):
         e_corr = self.get_proj_corr_energy()
         return self.e_mf + e_corr
 
-    def get_dm_energy(self, dm1='2p2l', t_as_lambda=None, with_exxdiv=None, sym_t2=True):
+    def get_dm_energy(self, dm1='global-wf', t_as_lambda=None, with_exxdiv=None, sym_t2=True):
         e_corr = self.get_dm_corr_energy(dm1=dm1, t_as_lambda=t_as_lambda, with_exxdiv=with_exxdiv, sym_t2=sym_t2)
         return self.e_mf + e_corr
 
@@ -470,15 +484,22 @@ class EWF(Embedding):
 
     # --- Other expectation values
 
-    def get_atomic_ssz(self, atoms=None, dm1=None, dm2=None, projection='sao', full_dm2=False):
+    def get_atomic_ssz(self, atoms=None, dm1=None, dm2=None, projection='sao', use_cluster_dms=False, dm2_with_dm1=None):
         """Get expectation values <P(A) S_z^2 P(B)>, where P(X) are projectors onto atoms.
 
         TODO: MPI"""
         t0 = timer()
+        # --- Setup
+        if dm2_with_dm1 is None:
+            dm2_with_dm1 = False
+            if dm2 is not None:
+                # Determine if DM2 contains DM1 bu calculating norm
+                norm = einsum('iikk->', dm2)
+                ne2 = self.mol.nelectron*(self.mol.nelectron-1)
+                dm2_with_dm1 = (norm > ne2/2)
         if atoms is None:
             atoms = list(range(self.mol.natm))
         natom = len(atoms)
-
         projection = projection.lower()
         if projection == 'sao':
             frag = SAO_Fragmentation(self.mf, self.log)
@@ -487,26 +508,21 @@ class EWF(Embedding):
         else:
             raise NotImplementedError("Projection '%s' not implemented" % projection)
         frag.kernel()
-
         ovlp = self.get_ovlp()
-
         c_atom = []
         for atom in atoms:
             name, indices = frag.get_atomic_fragment_indices(atom)
             c_atom.append(frag.get_frag_coeff(indices))
-
         proj = []
-        for i, atom in enumerate(atoms):
-            rx = np.dot(ovlp, c_atom[i])
-            rx = np.dot(self.mo_coeff.T, rx)
+        for a in range(natom):
+            rx = dot(self.mo_coeff.T, ovlp, c_atom[a])
             px = np.dot(rx, rx.T)
             proj.append(px)
-
         # Fragment dependent projection operator:
-        if not full_dm2:
+        if (dm2 is None or use_cluster_dms):
             proj_x = []
-            for fx in self.get_fragments():
-                tmp = np.dot(fx.cluster.c_active.T, ovlp)
+            for x in self.get_fragments():
+                tmp = np.dot(x.cluster.c_active.T, ovlp)
                 proj_x.append([])
                 for a, atom in enumerate(atoms):
                     rx = np.dot(tmp, c_atom[a])
@@ -514,75 +530,62 @@ class EWF(Embedding):
                     proj_x[-1].append(px)
 
         ssz = np.zeros((natom, natom))
+        if use_cluster_dms:
+            for ix, x in enumerate(self.get_fragments()):
+                assert (len(x.atoms) == 1)
+                a = x.atoms[0]
+                pa = proj_x[ix][a]
+                for b in range(natom):
+                    pb = proj_x[ix][b]
+                    ssz_ab = x.get_cluster_ssz(pa, pb)
+                    if (a == b):
+                        ssz[a,b] = ssz_ab
+                    else:
+                        ssz[a,b] += ssz_ab/2
+                        ssz[b,a] += ssz_ab/2
+            return ssz
 
         # 1-DM contribution:
         if dm1 is None:
-            #dm1 = self.make_rdm1_ccsd_proj_lambda()
-            #dm1 = self.make_rdm1_ccsd_old()
             dm1 = self.make_rdm1()
-        for a, atom1 in enumerate(atoms):
+        for a in range(natom):
             tmp = np.dot(proj[a], dm1)
-            for b, atom2 in enumerate(atoms):
+            for b in range(natom):
                 ssz[a,b] = np.sum(tmp*proj[b])/4
 
         occ = np.s_[:self.nocc]
         occdiag = np.diag_indices(self.nocc)
-
         # Non-cumulant DM2 contribution:
-        # (for full_dm2=True this is included in the 2-DM contribution below)
-        if not full_dm2:
+        if not dm2_with_dm1:
+            ddm1 = dm1.copy()
+            ddm1[occdiag] -= 1
+            for a in range(natom):
+                tmp = np.dot(proj[a], ddm1)
+                for b in range(natom):
+                    ssz[a,b] -= np.sum(tmp[occ] * proj[b][occ])/2       # N_atom^2 * N^2 scaling
 
-            # TEST (FULL DM2):
-            #dm1 = dm1.copy()
-            #dm1[occdiag] -= 1
-            #dm1 /= 2
-            #ddm2 = np.zeros(4*[self.nmo])
-            #for i in range(self.nocc):
-            #    ddm2[:,i,i,:] -= dm1
-            #    ddm2[i,:,:,i] -= dm1.T
-            #for a, atom1 in enumerate(atoms):
-            #    pa = proj[a]
-            #    tmp = np.dot(pa, dm1)
-            #    for b, atom2 in enumerate(atoms):
-            #        pb = proj[b]
-            #        ssz[a,b] += einsum('ij,ijkl,kl->', pa, ddm2, pb)/2
-
-            dm1 = dm1.copy()
-            dm1[occdiag] -= 1
-            dm1 /= 2
-            for a, atom1 in enumerate(atoms):
-                tmp = np.dot(proj[a], dm1)
-                for b, atom2 in enumerate(atoms):
-                    #ssz[a,b] -= np.sum(np.dot(tmp, proj[b])[occdiag])  # N_atom^2 * N^3 scaling
-                    ssz[a,b] -= np.sum(tmp[occ] * proj[b].T[occ])       # N_atom^2 * N^2 scaling
-
-        # 2-DM contribution:
-        if full_dm2:
-            if dm2 is None:
-                dm2 = self.make_rdm2_ccsd_proj_lambda()
+        if dm2 is not None:
             dm2aa = (dm2 - dm2.transpose(0,3,2,1))/6
             # ddm2 is equal to dm2aa - dm2ab, as
             # dm2ab = (dm2/2 - dm2aa)
             ddm2 = (2*dm2aa - dm2/2)
-
-            for a, atom1 in enumerate(atoms):
-                p1 = proj[a]
-                #tmp = einsum('ij,ijkl->kl', p1, ddm2)
-                tmp = np.tensordot(p1, ddm2)
-                for b, atom2 in enumerate(atoms):
-                    p2 = proj[b]
-                    ssz[a,b] += np.sum(tmp*p2)/2
+            for a in range(natom):
+                pa = proj[a]
+                tmp = np.tensordot(pa, ddm2)
+                for b in range(natom):
+                    pb = proj[b]
+                    ssz[a,b] += np.sum(tmp*pb)/2
         else:
-            for x, fx in enumerate(self.get_fragments()):
-                dm2 = fx.make_fragment_cumulant()
+            # Cumulant DM2 contribution:
+            for ix, x in enumerate(self.get_fragments()):
+                dm2 = x.make_fragment_dm2cumulant()
                 dm2aa = (dm2 - dm2.transpose(0,3,2,1))/6
                 ddm2 = (2*dm2aa - dm2/2)
-
-                for a, atom1 in enumerate(atoms):
-                    pa = proj_x[x][a]
+                for a in range(natom):
+                    pa = proj_x[ix][a]
                     tmp = np.tensordot(pa, ddm2)
-                    for b, atom2 in enumerate(atoms):
-                        pb = proj_x[x][b]
+                    for b in range(natom):
+                        pb = proj_x[ix][b]
                         ssz[a,b] += np.sum(tmp*pb)/2
 
         self.log.timing("Time for <S_z^2>: %s", time_string(timer()-t0))
@@ -629,9 +632,9 @@ class EWF(Embedding):
         nocc = (mf.mo_occ > 0).sum()
 
         if global_dm1:
-            rdm1 = make_rdm1_ccsd_2p2l(self, t_as_lambda=t_as_lambda)
+            rdm1 = self._make_rdm1_ccsd_global_wf(t_as_lambda=t_as_lambda)
         else:
-            rdm1 = make_rdm1_ccsd(self, t_as_lambda=t_as_lambda)
+            rdm1 = self._make_rdm1_ccsd(t_as_lambda=t_as_lambda)
         rdm1[np.diag_indices(nocc)] -= 2
 
         # Core Hamiltonian + Non Cumulant 2DM contribution
@@ -641,7 +644,7 @@ class EWF(Embedding):
         if global_dm2:
             # Calculate global 2RDM and contract with ERIs
             eri = self.get_eris_array(self.mo_coeff)
-            rdm2 = make_rdm2_ccsd(self, slow=True, t_as_lambda=t_as_lambda, with_dm1=False)
+            rdm2 = self._make_rdm2_ccsd_global_wf(t_as_lambda=t_as_lambda, with_dm1=False)
             e2 = einsum('pqrs,pqrs', eri, rdm2) * 0.5
         else:
             # Fragment Local 2DM cumulant contribution

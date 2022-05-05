@@ -72,13 +72,13 @@ class Test_MP2(TestCase):
         emb = self.emb(-1)
         dm1_exact = self.cc.make_rdm1(ao_repr=True)
 
-        dm1 = emb._make_rdm1_ccsd_2p2l(ao_basis=True)
+        dm1 = emb._make_rdm1_ccsd_global_wf(ao_basis=True)
         self.assertAllclose(dm1, dm1_exact)
-        dm1 = emb._make_rdm1_ccsd_2p2l(ao_basis=True, late_t2_sym=False)
+        dm1 = emb._make_rdm1_ccsd_global_wf(ao_basis=True, late_t2_sym=False)
         self.assertAllclose(dm1, dm1_exact)
-        dm1 = emb._make_rdm1_ccsd_2p2l(ao_basis=True, use_sym=False)
+        dm1 = emb._make_rdm1_ccsd_global_wf(ao_basis=True, use_sym=False)
         self.assertAllclose(dm1, dm1_exact)
-        dm1 = emb._make_rdm1_ccsd_2p2l(ao_basis=True, late_t2_sym=False, use_sym=False)
+        dm1 = emb._make_rdm1_ccsd_global_wf(ao_basis=True, late_t2_sym=False, use_sym=False)
         self.assertAllclose(dm1, dm1_exact)
 
 

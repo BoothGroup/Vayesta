@@ -479,19 +479,25 @@ class EWFFragment(Fragment):
         dm1 = pyscf.cc.ccsd_rdm._make_rdm1(None, (doo, dov, dvo, dvv), with_frozen=False, with_mf=False)
         return dm1
 
-    def make_fragment_cumulant(self, t_as_lambda=False, sym_t2=True, sym_cum=True):
+    def make_fragment_dm2cumulant(self, t_as_lambda=False, sym_t2=True, sym_dm2=True, full_shape=True):
         """Currently MP2/CCSD only.
 
         Without 1DM contribution!"""
 
         if self.solver == 'MP2':
             t2x = self.results.pwf.restore(sym=sym_t2).as_ccsd().t2
-            cum = 2*(2*t2x - t2x.transpose(0,1,3,2)).transpose(0,2,1,3)
-            return cum
-
+            dovov = 2*(2*t2x - t2x.transpose(0,1,3,2)).transpose(0,2,1,3)
+            if not full_shape:
+                return dovov
+            nocc, nvir = dovov.shape[:2]
+            norb = nocc+nvir
+            dm2 = np.zeros(4*[norb])
+            occ, vir = np.s_[:nocc], np.s_[nocc:]
+            dm2[occ,vir,occ,vir] = dovov
+            dm2[vir,occ,vir,occ] = dovov.transpose(1,0,3,2)
+            return dm2
         t1, t2, t1x, t2x, l1x, l2x = self._ccsd_amplitudes_for_dm(t_as_lambda=t_as_lambda, sym_t2=sym_t2)
         cc = self.mf # Only attributes stdout, verbose, and max_memory are needed, just use mean-field object
-        #dovov, *d2rest = pyscf.cc.ccsd_rdm._gamma2_intermediates(cc, t1, t2, l1x, l2x)
         dovov, *d2rest = pyscf.cc.ccsd_rdm._gamma2_intermediates(cc, t1, t2, l1x, l2x)
         # Correct D2[ovov] part (first element of d2 tuple)
         dtau = ((t2x-t2) + einsum('ia,jb->ijab', (t1x-t1), t1))
@@ -502,14 +508,13 @@ class EWFFragment(Fragment):
 
         dovov += dtau.transpose(0,2,1,3)
         dovov -= dtau.transpose(0,3,1,2)/2
-        cc = None
-        d1 = None
+        cc = d1 = None
         d2 = (dovov, *d2rest)
-        cum = pyscf.cc.ccsd_rdm._make_rdm2(cc, d1, d2, with_dm1=False, with_frozen=False)
+        dm2 = pyscf.cc.ccsd_rdm._make_rdm2(cc, d1, d2, with_dm1=False, with_frozen=False)
 
-        if (sym_cum and not sym_t2):
-            cum = (cum + cum.transpose(1,0,3,2) + cum.transpose(2,3,0,1) + cum.transpose(3,2,1,0))/4
-        return cum
+        if (sym_dm2 and not sym_t2):
+            dm2 = (dm2 + dm2.transpose(1,0,3,2) + dm2.transpose(2,3,0,1) + dm2.transpose(3,2,1,0))/4
+        return dm2
 
     #def make_partial_dm1_energy(self, t_as_lambda=False):
     #    dm1 = self.make_partial_dm1(t_as_lambda=t_as_lambda)
@@ -518,8 +523,8 @@ class EWFFragment(Fragment):
     #    e_dm1 = einsum('ij,ji->', fock, dm1)
     #    return e_dm1
 
-    def make_fragment_cumulant_energy(self, t_as_lambda=False, sym_t2=True):
-        cum = self.make_fragment_cumulant(t_as_lambda=t_as_lambda, sym_t2=sym_t2)
+    def make_fragment_dm2cumulant_energy(self, t_as_lambda=False, sym_t2=True):
+        dm2 = self.make_fragment_dm2cumulant(t_as_lambda=t_as_lambda, sym_t2=sym_t2, full_shape=False)
         fac = (2 if self.solver == 'MP2' else 1)
         if self._eris is None:
             eris = self.base.get_eris_array(self.cluster.c_active)
@@ -529,8 +534,8 @@ class EWFFragment(Fragment):
         # MP2
         else:
             eris = self._eris
-        e_cum = fac*einsum('ijkl,ijkl->', eris, cum)/2
-        return e_cum
+        e_dm2 = fac*einsum('ijkl,ijkl->', eris, dm2)/2
+        return e_dm2
 
     # --- Correlation function
 
@@ -544,7 +549,6 @@ class EWFFragment(Fragment):
         if (dm1 is None or dm2 is None):
             raise ValueError()
         return helper.get_ssz(dm1, dm2, proj1=proj1, proj2=proj2)
-
 
     # --- Other
     # ---------

@@ -141,7 +141,8 @@ class UEWFFragment(UFragment, EWFFragment):
         e_corr = (e_singles + e_doubles)
         return e_singles, e_doubles, e_corr
 
-    def make_partial_dm2(self, t_as_lambda=False, sym_t2=True):
+    def make_fragment_dm2cumulant(self, t_as_lambda=False, sym_t2=True):
+        """TODO: MP2"""
         t1, t2, t1x, t2x, l1x, l2x = self._ccsd_amplitudes_for_dm(t_as_lambda=t_as_lambda, sym_t2=sym_t2)
         # Only incore for UCCSD:
         #d2 = pyscf.cc.uccsd_rdm._gamma2_intermediates(None, t1, t2, l1x, l2x)

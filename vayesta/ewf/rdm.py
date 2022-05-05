@@ -111,7 +111,7 @@ def make_rdm1_ccsd(emb, ao_basis=False, t_as_lambda=False, symmetrize=True, with
 
     return dm1
 
-def make_rdm1_ccsd_1p1l(emb, ao_basis=False, t_as_lambda=False, with_mf=True, sym_t2=True, mpi_target=None):
+def make_rdm1_ccsd_proj_lambda(emb, ao_basis=False, t_as_lambda=False, with_mf=True, sym_t2=True, mpi_target=None):
     """Make one-particle reduced density-matrix from partitioned fragment CCSD wave functions.
 
     MPI parallelized.
@@ -149,7 +149,7 @@ def make_rdm1_ccsd_1p1l(emb, ao_basis=False, t_as_lambda=False, with_mf=True, sy
         dm1 = dot(emb.mo_coeff, dm1, emb.mo_coeff.T)
     return dm1
 
-def make_rdm1_ccsd_2p2l(emb, ao_basis=False, with_mf=True, t_as_lambda=None, with_t1=True,
+def make_rdm1_ccsd_global_wf(emb, ao_basis=False, with_mf=True, t_as_lambda=None, with_t1=True,
         svd_tol=1e-3, ovlp_tol=None, use_sym=True, late_t2_sym=True, mpi_target=None, slow=False):
     """Make one-particle reduced density-matrix from partitioned fragment CCSD wave functions.
 
@@ -253,22 +253,6 @@ def make_rdm1_ccsd_2p2l(emb, ao_basis=False, with_mf=True, t_as_lambda=None, wit
         # Loop over ALL fragments y:
         for y in emb.get_fragments():
 
-            #if (vers != 3):
-            #    if mpi:
-            #        if y.solver == 'MP2':
-            #            wfy = RMP2_WaveFunction.unpack(rma[y.id]).restore().as_ccsd()
-            #        else:
-            #            wfy = RCCSD_WaveFunction.unpack(rma[y.id]).restore()
-            #    else:
-            #        wfy = y.results.pwf.restore().as_ccsd()
-            #else:
-            #    if mpi:
-            #        if y.solver == 'MP2':
-            #            wfy = RMP2_WaveFunction.unpack(rma[y.id])
-            #        else:
-            #            wfy = RCCSD_WaveFunction.unpack(rma[y.id])
-            #    else:
-            #        wfy = y.results.pwf
             if mpi:
                 if y.solver == 'MP2':
                     wfy = RMP2_WaveFunction.unpack(rma[y.id]).as_ccsd()
@@ -471,7 +455,7 @@ def make_rdm1_ccsd_2p2l(emb, ao_basis=False, with_mf=True, t_as_lambda=None, wit
 # --- Two-particle
 # ----------------
 
-def make_rdm2_ccsd(emb, ao_basis=False, symmetrize=True, t_as_lambda=False, slow=True, with_dm1=True):
+def make_rdm2_ccsd_global_wf(emb, ao_basis=False, symmetrize=True, t_as_lambda=False, slow=True, with_dm1=True):
     """Recreate global two-particle reduced density-matrix from fragment calculations.
 
     Parameters
@@ -539,17 +523,17 @@ def make_rdm2_ccsd_proj_lambda(emb, with_dm1=True, ao_basis=False, t_as_lambda=F
     ovlp = emb.get_ovlp()
     for x in emb.get_fragments(mpi_rank=mpi.rank):
         rx = x.get_overlap('mo|cluster')
-        dm2x = x.make_partial_dm2(t_as_lambda=t_as_lambda, sym_t2=sym_t2, sym_dm2=sym_dm2)
+        dm2x = x.make_fragment_dm2cumulant(t_as_lambda=t_as_lambda, sym_t2=sym_t2)
         dm2 += einsum('ijkl,Ii,Jj,Kk,Ll->IJKL', dm2x, rx, rx, rx, rx)
     if mpi:
         dm2 = mpi.nreduce(dm2, target=mpi_target, logfunc=emb.log.timingv)
         if mpi_target not in (None, mpi.rank):
             return None
     if isinstance(with_dm1, np.ndarray) or with_dm1:
-        if isinstance(with_dm1, np.ndarray):
-            dm1 = with_dm1.copy()
+        if with_dm1 is True:
+            dm1 = emb.make_rdm1()
         else:
-            dm1 = make_rdm1_ccsd(emb)
+            dm1 = with_dm1.copy()
         # Remove half of the mean-field contribution
         # (in PySCF the entire MF is removed and afterwards half is added back in a (i,j) loop)
         dm1[np.diag_indices(emb.nocc)] -= 1
