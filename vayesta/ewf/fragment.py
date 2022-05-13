@@ -455,35 +455,56 @@ class EWFFragment(Fragment):
 
     # --- Density-matrices
 
-    def _ccsd_amplitudes_for_dm(self, t_as_lambda=False, sym_t2=True):
+    def _ccsd_amplitudes_for_dm(self, t_as_lambda=None, sym_t2=True):
+        if t_as_lambda is None:
+            t_as_lambda = self.opts.t_as_lambda
         wf = self.results.wf.as_ccsd()
         t1, t2 = wf.t1, wf.t2
         pwf = self.results.pwf.restore(sym=sym_t2).as_ccsd()
         t1x, t2x = pwf.t1, pwf.t2
+        # Lambda amplitudes
         if t_as_lambda:
+            l1, l2 = t1, t2
             l1x, l2x = t1x, t2x
         else:
+            l1, l2 = wf.l1, wf.l2
             l1x, l2x = pwf.l1, pwf.l2
-        return t1, t2, t1x, t2x, l1x, l2x
+        return t1, t2, l1, l2, t1x, t2x, l1x, l2x
 
-    def make_fragment_dm1(self, t_as_lambda=False, with_t1=True, sym_t2=True):
+    def _get_projected_gamma1_intermediates(self, t_as_lambda=None, sym_t2=True):
+        t1, t2, l1, l2, t1x, t2x, l1x, l2x = self._ccsd_amplitudes_for_dm(t_as_lambda=t_as_lambda, sym_t2=sym_t2)
+        doo, dov, dvo, dvv = pyscf.cc.ccsd_rdm._gamma1_intermediates(None, t1, t2, l1x, l2x)
+        # Correction for term without Lambda amplitude:
+        dvo += (t1x - t1).T
+        d1 = (doo, dov, dvo, dvv)
+        return d1
+
+    def _get_projected_gamma2_intermediates(self, t_as_lambda=None, sym_t2=True):
+        t1, t2, l1, l2, t1x, t2x, l1x, l2x = self._ccsd_amplitudes_for_dm(t_as_lambda=t_as_lambda, sym_t2=sym_t2)
+        cc = self.mf # Only attributes stdout, verbose, and max_memory are needed, just use mean-field object
+        dovov, *d2rest = pyscf.cc.ccsd_rdm._gamma2_intermediates(cc, t1, t2, l1x, l2x)
+        # Correct D2[ovov] part (first element of d2 tuple)
+        dtau = ((t2x-t2) + einsum('ia,jb->ijab', (t1x-t1), t1))
+        dovov += dtau.transpose(0,2,1,3)
+        dovov -= dtau.transpose(0,3,1,2)/2
+        d2 = (dovov, *d2rest)
+        return d2
+
+    def make_fragment_dm1(self, t_as_lambda=None, sym_t2=True):
         """Currently CCSD only.
 
         Without mean-field contribution!"""
-        t1, t2, t1x, t2x, l1x, l2x = self._ccsd_amplitudes_for_dm(t_as_lambda=t_as_lambda, sym_t2=sym_t2)
-        if not with_t1:
-            t1 = t1x = l1x = np.zeros_like(t1)
-        doo, dov, dvo, dvv = pyscf.cc.ccsd_rdm._gamma1_intermediates(None, t1, t2, l1x, l2x)
-        dvo += (t1x - t1).T
-        dm1 = pyscf.cc.ccsd_rdm._make_rdm1(None, (doo, dov, dvo, dvv), with_frozen=False, with_mf=False)
+        d1 = self._get_projected_gamma1_intermediates(t_as_lambda=t_as_lambda, sym_t2=sym_t2)
+        dm1 = pyscf.cc.ccsd_rdm._make_rdm1(None, d1, with_frozen=False, with_mf=False)
         return dm1
 
-    def make_fragment_dm2cumulant(self, t_as_lambda=False, sym_t2=True, sym_dm2=True, full_shape=True):
-        """Currently MP2/CCSD only.
-
-        Without 1DM contribution!"""
+    def make_fragment_dm2cumulant(self, t_as_lambda=False, sym_t2=True, sym_dm2=True, full_shape=True,
+            approx_cumulant=True):
+        """Currently MP2/CCSD only"""
 
         if self.solver == 'MP2':
+            if approx_cumulant not in (1, True):
+                raise NotImplementedError
             t2x = self.results.pwf.restore(sym=sym_t2).as_ccsd().t2
             dovov = 2*(2*t2x - t2x.transpose(0,1,3,2)).transpose(0,2,1,3)
             if not full_shape:
@@ -495,21 +516,20 @@ class EWFFragment(Fragment):
             dm2[occ,vir,occ,vir] = dovov
             dm2[vir,occ,vir,occ] = dovov.transpose(1,0,3,2)
             return dm2
-        t1, t2, t1x, t2x, l1x, l2x = self._ccsd_amplitudes_for_dm(t_as_lambda=t_as_lambda, sym_t2=sym_t2)
-        cc = self.mf # Only attributes stdout, verbose, and max_memory are needed, just use mean-field object
-        dovov, *d2rest = pyscf.cc.ccsd_rdm._gamma2_intermediates(cc, t1, t2, l1x, l2x)
-        # Correct D2[ovov] part (first element of d2 tuple)
-        dtau = ((t2x-t2) + einsum('ia,jb->ijab', (t1x-t1), t1))
-        #dtau = (dtau + dtau.transpose(1,0,3,2))/2
 
-        #dtau = dtau - dtau.transpose(0,1,3,2)/2
-        #dovov += dtau.transpose(0,2,1,3)
-
-        dovov += dtau.transpose(0,2,1,3)
-        dovov -= dtau.transpose(0,3,1,2)/2
         cc = d1 = None
-        d2 = (dovov, *d2rest)
+        d2 = self._get_projected_gamma2_intermediates(t_as_lambda=t_as_lambda, sym_t2=sym_t2)
         dm2 = pyscf.cc.ccsd_rdm._make_rdm2(cc, d1, d2, with_dm1=False, with_frozen=False)
+        if (approx_cumulant == 2):
+            raise NotImplementedError
+        elif (approx_cumulant in (1, True)):
+            pass
+        elif not approx_cumulant:
+            # Remove dm1(cc)^2
+            dm1x = self.make_fragment_dm1(t_as_lambda=t_as_lambda, sym_t2=sym_t2)
+            dm1 = self.results.wf.make_rdm1(with_mf=False)
+            dm2 -= (einsum('ij,kl->ijkl', dm1, dm1x)/2 + einsum('ij,kl->ijkl', dm1x, dm1)/2
+                  - einsum('ij,kl->iklj', dm1, dm1x)/4 - einsum('ij,kl->iklj', dm1x, dm1)/4)
 
         if (sym_dm2 and not sym_t2):
             dm2 = (dm2 + dm2.transpose(1,0,3,2) + dm2.transpose(2,3,0,1) + dm2.transpose(3,2,1,0))/4
@@ -522,8 +542,9 @@ class EWFFragment(Fragment):
     #    e_dm1 = einsum('ij,ji->', fock, dm1)
     #    return e_dm1
 
-    def make_fragment_dm2cumulant_energy(self, t_as_lambda=False, sym_t2=True):
-        dm2 = self.make_fragment_dm2cumulant(t_as_lambda=t_as_lambda, sym_t2=sym_t2, full_shape=False)
+    def make_fragment_dm2cumulant_energy(self, t_as_lambda=False, sym_t2=True, approx_cumulant=True):
+        dm2 = self.make_fragment_dm2cumulant(t_as_lambda=t_as_lambda, sym_t2=sym_t2, approx_cumulant=approx_cumulant,
+                full_shape=False)
         fac = (2 if self.solver == 'MP2' else 1)
         if self._eris is None:
             eris = self.base.get_eris_array(self.cluster.c_active)

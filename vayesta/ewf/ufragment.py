@@ -141,9 +141,17 @@ class UEWFFragment(UFragment, EWFFragment):
         e_corr = (e_singles + e_doubles)
         return e_singles, e_doubles, e_corr
 
-    def make_fragment_dm2cumulant(self, t_as_lambda=False, sym_t2=True):
-        """TODO: MP2"""
-        t1, t2, t1x, t2x, l1x, l2x = self._ccsd_amplitudes_for_dm(t_as_lambda=t_as_lambda, sym_t2=sym_t2)
+    def _get_projected_gamma1_intermediates(self, t_as_lambda=None, sym_t2=True):
+        raise NotImplementedError
+        t1, t2, l1, l2, t1x, t2x, l1x, l2x = self._ccsd_amplitudes_for_dm(t_as_lambda=t_as_lambda, sym_t2=sym_t2)
+        doo, dov, dvo, dvv = pyscf.cc.uccsd_rdm._gamma1_intermediates(None, t1, t2, l1x, l2x)
+        # Correction for term without Lambda amplitude:
+        #dvo += (t1x - t1).T
+        #d1 = (doo, dov, dvo, dvv)
+        #return d1
+
+    def _get_projected_gamma2_intermediates(self, t_as_lambda=None, sym_t2=True):
+        t1, t2, l1, l2, t1x, t2x, l1x, l2x = self._ccsd_amplitudes_for_dm(t_as_lambda=t_as_lambda, sym_t2=sym_t2)
         # Only incore for UCCSD:
         #d2 = pyscf.cc.uccsd_rdm._gamma2_intermediates(None, t1, t2, l1x, l2x)
         d2ovov, *d2 = pyscf.cc.uccsd_rdm._gamma2_intermediates(None, t1, t2, l1x, l2x)
@@ -160,8 +168,38 @@ class UEWFFragment(UFragment, EWFFragment):
         dtau = (t2x[2]-t2[2] + einsum('ia,jb->ijab', t1x[1]-t1[1], 2*t1[1]))/4
         d2ovov[3][:] += dtau.transpose(0,2,1,3)
         d2ovov[3][:] -= dtau.transpose(0,3,1,2)
-        dm2 = pyscf.cc.uccsd_rdm._make_rdm2(None, None, (d2ovov, *d2), with_dm1=False, with_frozen=False)
+        d2 = (d2ovov, *d2)
+        return d2
+
+    def make_fragment_dm2cumulant(self, t_as_lambda=None, sym_t2=True, approx_cumulant=True, full_shape=True):
+        """TODO: MP2"""
+        if self.solver == 'MP2':
+            raise NotImplementedError
+        if (approx_cumulant not in (1, True)):
+            raise NotImplementedError
+        cc = d1 = None
+        d2 = self._get_projected_gamma2_intermediates(t_as_lambda=t_as_lambda, sym_t2=sym_t2)
+        dm2 = pyscf.cc.uccsd_rdm._make_rdm2(cc, d1, d2, with_dm1=False, with_frozen=False)
         return dm2
+
+    def make_fragment_dm2cumulant_energy(self, t_as_lambda=False, sym_t2=True, approx_cumulant=True):
+        dm2 = self.make_fragment_dm2cumulant(t_as_lambda=t_as_lambda, sym_t2=sym_t2, approx_cumulant=approx_cumulant,
+                full_shape=False)
+        #fac = (2 if self.solver == 'MP2' else 1)
+        if self._eris is None:
+            eris = self.base.get_eris_array(self.cluster.c_active)
+        # CCSD
+        elif hasattr(self._eris, 'ovoo'):
+            eris = vayesta.core.ao2mo.helper.get_full_array(self._eris)
+        # MP2
+        else:
+            eris = self._eris
+        dm2aa, dm2ab, dm2bb = dm2
+        gaa, gab, gbb = eris
+        e_dm2 = (einsum('ijkl,ijkl->', gaa, dm2aa)
+               + einsum('ijkl,ijkl->', gab, dm2ab)*2
+               + einsum('ijkl,ijkl->', gbb, dm2bb))
+        return e_dm2
 
     def get_cluster_sz(self, proj=None):
         """<P S_z>"""

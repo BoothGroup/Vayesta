@@ -487,14 +487,15 @@ def make_rdm2_ccsd_global_wf(emb, ao_basis=False, symmetrize=True, t_as_lambda=F
             l2 = emb.get_global_t2(get_lambda=True)
         dm2 = cc.make_rdm2(t1=t1, t2=t2, l1=l1, l2=l2, with_frozen=False, with_dm1=with_dm1)
     else:
-        raise NotImplementedError()
-    if ao_basis:
-        dm2 = einsum('ijkl,pi,qj,rk,sl->pqrs', dm2, *(4*[emb.mo_coeff]))
+        raise NotImplementedError
     if symmetrize:
         dm2 = (dm2 + dm2.transpose(1,0,3,2))/2
+    if ao_basis:
+        dm2 = einsum('ijkl,pi,qj,rk,sl->pqrs', dm2, *(4*[emb.mo_coeff]))
     return dm2
 
-def make_rdm2_ccsd_proj_lambda(emb, with_dm1=True, ao_basis=False, t_as_lambda=False, sym_t2=True, sym_dm2=True, mpi_target=None):
+def make_rdm2_ccsd_proj_lambda(emb, with_dm1=True, ao_basis=False, t_as_lambda=False, sym_t2=True, sym_dm2=True,
+        approx_cumulant=True, mpi_target=None):
     """Make two-particle reduced density-matrix from partitioned fragment CCSD wave functions.
 
     Without 1DM!
@@ -523,7 +524,7 @@ def make_rdm2_ccsd_proj_lambda(emb, with_dm1=True, ao_basis=False, t_as_lambda=F
     ovlp = emb.get_ovlp()
     for x in emb.get_fragments(mpi_rank=mpi.rank):
         rx = x.get_overlap('mo|cluster')
-        dm2x = x.make_fragment_dm2cumulant(t_as_lambda=t_as_lambda, sym_t2=sym_t2)
+        dm2x = x.make_fragment_dm2cumulant(t_as_lambda=t_as_lambda, sym_t2=sym_t2, approx_cumulant=approx_cumulant)
         dm2 += einsum('ijkl,Ii,Jj,Kk,Ll->IJKL', dm2x, rx, rx, rx, rx)
     if mpi:
         dm2 = mpi.nreduce(dm2, target=mpi_target, logfunc=emb.log.timingv)
@@ -533,15 +534,23 @@ def make_rdm2_ccsd_proj_lambda(emb, with_dm1=True, ao_basis=False, t_as_lambda=F
         if with_dm1 is True:
             dm1 = emb.make_rdm1()
         else:
-            dm1 = with_dm1.copy()
+            dm1 = with_dm1
+        if not approx_cumulant:
+            dm2 += (einsum('ij,kl->ijkl', dm1, dm1) - einsum('ij,kl->iklj', dm1, dm1)/2)
         # Remove half of the mean-field contribution
         # (in PySCF the entire MF is removed and afterwards half is added back in a (i,j) loop)
-        dm1[np.diag_indices(emb.nocc)] -= 1
-        for i in range(emb.nocc):
-            dm2[i,i,:,:] += dm1 * 2
-            dm2[:,:,i,i] += dm1 * 2
-            dm2[:,i,i,:] -= dm1
-            dm2[i,:,:,i] -= dm1.T
+        elif (approx_cumulant in (1, True)):
+            dm1 = dm1.copy()
+            dm1[np.diag_indices(emb.nocc)] -= 1
+            for i in range(emb.nocc):
+                dm2[i,i,:,:] += dm1 * 2
+                dm2[:,:,i,i] += dm1 * 2
+                dm2[:,i,i,:] -= dm1
+                dm2[i,:,:,i] -= dm1.T
+        elif approx_cumulant == 2:
+            raise NotImplementedError
+        else:
+            raise ValueError
 
     if ao_basis:
         dm2 = einsum('ijkl,pi,qj,rk,sl->pqrs', dm2, *(4*[emb.mo_coeff]))
