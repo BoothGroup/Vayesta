@@ -61,7 +61,6 @@ class EWFFragment(Fragment):
         # CAS methods
         c_cas_occ: np.ndarray = None
         c_cas_vir: np.ndarray = None
-        dm_with_frozen: bool = NotSet
         # --- Solver options
         tcc_fci_opts: dict = dataclasses.field(default_factory=dict)
         # --- Intercluster MP2 energy

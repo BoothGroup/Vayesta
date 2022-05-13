@@ -60,7 +60,6 @@ class EWF(Embedding):
         # --- Solver settings
         solve_lambda: bool = False          # If True, solve for the Lambda-amplitudes if a CCSD solver is used
         t_as_lambda: bool = False           # If True, use T-amplitudes inplace of Lambda-amplitudes
-        dm_with_frozen: bool = False        # Add frozen parts to cluster DMs
         # Counterpoise correction of BSSE
         bsse_correction: bool = True
         bsse_rmax: float = 5.0              # In Angstrom

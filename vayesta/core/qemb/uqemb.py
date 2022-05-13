@@ -108,7 +108,8 @@ class UEmbedding(Embedding):
         ovlp = self.get_ovlp()
         sca = np.dot(ovlp, self.mo_coeff[0][:,:self.nocc[0]])
         scb = np.dot(ovlp, self.mo_coeff[1][:,:self.nocc[1]])
-        e_exxdiv = -self.madelung * (self.nocc[0]+self.nocc[1]) / (2*self.ncells)
+        nocc = (self.nocc[0] + self.nocc[1])/2
+        e_exxdiv = -self.madelung * nocc / self.ncells
         v_exxdiv_a = -self.madelung * np.dot(sca, sca.T)
         v_exxdiv_b = -self.madelung * np.dot(scb, scb.T)
         self.log.debug("Divergent exact-exchange (exxdiv) correction= %+16.8f Ha", e_exxdiv)

@@ -5,7 +5,7 @@ import numpy as np
 from vayesta.core.util import *
 
 
-def make_rdm1_demo_rhf(emb, ao_basis=False, with_mf=False, symmetrize=True):
+def make_rdm1_demo_rhf(emb, ao_basis=False, with_mf=True, symmetrize=True):
     """Make democratically partitioned one-particle reduced density-matrix from fragment calculations.
 
     Warning: A democratically partitioned DM is only expected to yield reasonable results
@@ -28,36 +28,23 @@ def make_rdm1_demo_rhf(emb, ao_basis=False, with_mf=False, symmetrize=True):
     """
     ovlp = emb.get_ovlp()
     mo_coeff = emb.mo_coeff
-    if with_mf:
-        sc = np.dot(ovlp, mo_coeff)
-        dm1_mf = emb.mf.make_rdm1()
-        dm1_mf = dot(sc.T, dm1_mf, sc)
-        dm1 = dm1_mf.copy()
-    else:
-        dm1 = np.zeros((emb.nmo, emb.nmo))
+    dm1 = np.zeros((emb.nmo, emb.nmo))
+    if with_mf is True:
+        dm1[np.diag_indices(emb.nocc)] = 2
     for f in emb.fragments:
         emb.log.debugv("Now adding projected DM of fragment %s", f)
-        if f.results.dm1 is None:
-            raise RuntimeError("DM1 not calculated for fragment %s!" % f)
-        if emb.opts.dm_with_frozen:
-            cf = f.cluster.coeff
-        else:
-            cf = f.cluster.c_active
+        ddm = f.results.wf.make_rdm1(with_mf=False)
+        cf = f.cluster.c_active
         rf = dot(mo_coeff.T, ovlp, cf)
-        if with_mf:
-            # Subtract double counting:
-            ddm = (f.results.dm1 - dot(rf.T, dm1_mf, rf))
-        else:
-            ddm = f.results.dm1
         pf = f.get_fragment_projector(cf)
         dm1 += einsum('xi,ij,px,qj->pq', pf, ddm, rf, rf)
-    if ao_basis:
-        dm1 = dot(mo_coeff, dm1, mo_coeff.T)
     if symmetrize:
         dm1 = (dm1 + dm1.T)/2
+    if ao_basis:
+        dm1 = dot(mo_coeff, dm1, mo_coeff.T)
     return dm1
 
-def make_rdm1_demo_uhf(emb, ao_basis=False, with_mf=False, symmetrize=True):
+def make_rdm1_demo_uhf(emb, ao_basis=False, with_mf=True, symmetrize=True):
     """Make democratically partitioned one-particle reduced density-matrix from fragment calculations.
 
     Warning: A democratically partitioned DM is only expected to yield reasonable results

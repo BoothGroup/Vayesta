@@ -36,6 +36,7 @@ class Fragment:
         sym_factor: float = 1.0
         wf_partition: str = NotSet  # ['first-occ', 'first-vir', 'democratic']
         store_eris: bool = NotSet   # If True, ERIs will be stored in Fragment._eris
+        dm_with_frozen: bool = NotSet
 
     @dataclasses.dataclass
     class Results:

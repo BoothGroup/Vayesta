@@ -43,6 +43,8 @@ from vayesta.core.fragmentation import make_iao_fragmentation
 from vayesta.core.fragmentation import make_iaopao_fragmentation
 from vayesta.core.fragmentation import make_site_fragmentation
 
+from vayesta.misc.cptbisect import ChempotBisection
+
 # --- This Package
 
 from .fragment import Fragment
@@ -63,6 +65,7 @@ class Embedding:
         wf_partition: str = 'first-occ'     # ['first-occ', 'first-vir', 'democratic']
         store_eris: bool = True             # If True, ERIs will be stored in Fragment._eris
         global_frag_chempot: float = None   # Global fragment chemical potential (e.g. for democratically partitioned DMs)
+        dm_with_frozen: bool = False        # Add frozen parts to cluster DMs
 
     def __init__(self, mf, options=None, log=None, overwrite=None, **kwargs):
         """Abstract base class for quantum embedding methods.
@@ -478,16 +481,18 @@ class Embedding:
         """Core Hamiltonian (kinetic energy plus nuclear-electron attraction)."""
         return self._hcore
 
-    def get_veff(self, with_exxdiv=True):
+    def get_veff(self, dm1=None, with_exxdiv=True):
         """Hartree-Fock Coulomb and exchange potential in AO basis."""
         if not with_exxdiv and self.has_exxdiv:
             v_exxdiv = self.get_exxdiv()[1]
-            return self.get_veff() - v_exxdiv
-        return self._veff
+            return self.get_veff(dm1=dm1) - v_exxdiv
+        if dm1 is None:
+            return self._veff
+        return self.mf.get_veff(dm=dm1)
 
-    def get_fock(self, with_exxdiv=True):
+    def get_fock(self, dm1=None, with_exxdiv=True):
         """Fock matrix in AO basis."""
-        return self.get_hcore() + self.get_veff(with_exxdiv=with_exxdiv)
+        return self.get_hcore() + self.get_veff(dm1=dm1, with_exxdiv=with_exxdiv)
 
     def set_ovlp(self, value):
         self.log.debug("Changing ovlp matrix.")
@@ -1104,6 +1109,50 @@ class Embedding:
                             % (parent.name, child.name, charge_err))
                 self.log.debugv("Symmetry between %s and %s: charge error= %.3e", parent.name, child.name, charge_err)
 
+    # --- Decorators
+    # These replace the qemb.kernel method!
+
+    def optimize_chempot(self, cpt_init=0.0, dm1func=None, dm1kwds=None):
+
+        if dm1func is None:
+            dm1func = self.make_rdm1_demo
+        if dm1kwds is None:
+            dm1kwds = {}
+
+        kernel_orig = self.kernel
+        iters = []
+        result = None
+
+        def func(cpt, *args, **kwargs):
+            nonlocal iters, result
+            self.opts.global_frag_chempot = cpt
+            result = kernel_orig(*args, **kwargs)
+            dm1 = dm1func(**dm1kwds)
+            if self.is_rhf:
+                ne = np.trace(dm1)
+            else:
+                ne = np.trace(dm1[0]) + np.trace(dm1[1])
+            err = (ne - self.mol.nelectron)
+            iters.append((cpt, err, self.e_tot))
+            return err
+
+        bisect = ChempotBisection(func, cpt_init=cpt_init, log=self.log)
+
+        def kernel(self, *args, **kwargs):
+            nonlocal iters, result
+            cpt = bisect.kernel(*args, **kwargs)
+            # Print info:
+            self.log.info("Chemical potential optimization")
+            self.log.info("-------------------------------")
+            self.log.info("  Iteration   Chemical potential   N(elec) error          Total Energy")
+            for i, (cpt, err, etot) in enumerate(iters):
+                self.log.info("  %9d  %19s   %+13.8f   %19s",
+                        i+1, energy_string(cpt), err, energy_string(etot))
+            if not bisect.converged:
+                self.log.error('Chemical potential not found!')
+            return result
+        self.kernel = kernel.__get__(self)
+
     def pdmet_scmf(self, *args, **kwargs):
         """Decorator for p-DMET."""
         self.with_scmf = PDMET(self, *args, **kwargs)
@@ -1113,41 +1162,3 @@ class Embedding:
         """Decorator for Brueckner-DMET."""
         self.with_scmf = Brueckner(self, *args, **kwargs)
         self.kernel = self.with_scmf.kernel.__get__(self)
-
-    # --- Backwards compatibility:
-
-    def get_eris(self, mo_or_cm, *args, **kwargs):  # pragma: no cover
-        """For backwards compatibility only!"""
-        self.log.warning("get_eris is deprecated!")
-        if isinstance(mo_or_cm, np.ndarray):
-            return self.get_eris_array(mo_or_cm, *args, **kwargs)
-        return self.get_eris_object(mo_or_cm, *args, **kwargs)
-
-    def make_atom_fragment(self, *args, aos=None, add_symmetric=True, **kwargs):    # pragma: no cover
-        """Deprecated. Do not use."""
-        self.log.warning("make_atom_fragment is deprecated. Use add_atomic_fragment.")
-        return self.add_atomic_fragment(*args, orbital_filter=aos, add_symmetric=add_symmetric, **kwargs)
-
-    def make_all_atom_fragments(self, *args, **kwargs):  # pragma: no cover
-        """Deprecated. Do not use."""
-        self.log.warning("make_all_atom_fragments is deprecated. Use add_all_atomic_fragments.")
-        return self.add_all_atomic_fragments(*args, **kwargs)
-
-    def make_ao_fragment(self, *args, **kwargs):  # pragma: no cover
-        """Deprecated. Do not use."""
-        self.log.warning("make_ao_fragment is deprecated. Use add_orbital_fragment.")
-        return self.add_orbital_fragment(*args, **kwargs)
-
-    def init_fragmentation(self, ftype, **kwargs):  # pragma: no cover
-        """Deprecated. Do not use."""
-        self.log.warning("init_fragmentation is deprecated. Use X_fragmentation(), where X=[iao, iaopao, sao, site].")
-        ftype = ftype.lower()
-        if ftype == 'iao':
-            return self.iao_fragmentation(**kwargs)
-        if ftype == 'lowdin-ao':
-            return self.sao_fragmentation(**kwargs)
-        if ftype == 'site':
-            return self.site_fragmentation(**kwargs)
-        if ftype == 'ao':
-            raise ValueError("AO fragmentation is no longer supported")
-        raise ValueError("Unknown fragment type: %r", ftype)
