@@ -91,7 +91,7 @@ class MoleculeEWFTests(unittest.TestCase):
                 },
         )
         emb.iao_fragmentation()
-        emb.make_all_atom_fragments()
+        emb.add_all_atomic_fragments()
         emb.kernel()
 
         known_values = {
@@ -131,8 +131,8 @@ class MoleculeEWFTests(unittest.TestCase):
                 },
         )
         emb.sao_fragmentation()
-        emb.make_ao_fragment([0, 1])
-        emb.make_ao_fragment([2, 3, 4])
+        emb.add_orbital_fragment([0, 1])
+        emb.add_orbital_fragment([2, 3, 4])
         emb.kernel()
 
         known_values = {'e_tot': -7.98424889149862}
@@ -152,7 +152,7 @@ class MoleculeEWFTests(unittest.TestCase):
                 },
         )
         emb.sao_fragmentation()
-        emb.make_all_atom_fragments()
+        emb.add_all_atomic_fragments()
         emb.kernel()
 
         known_values = {'e_tot': -7.99502192669842}
@@ -174,8 +174,8 @@ class MoleculeEWFTests(unittest.TestCase):
                 }
         )
         emb.iao_fragmentation()
-        emb.make_atom_fragment(0)
-        emb.make_atom_fragment(1, sym_factor=2)
+        emb.add_atomic_fragment(0)
+        emb.add_atomic_fragment(1, sym_factor=2)
         emb.kernel()
 
         known_values = {'e_tot': -76.06365118513072}
@@ -196,8 +196,8 @@ class MoleculeEWFTests(unittest.TestCase):
                 },
         )
         emb.iao_fragmentation()
-        emb.make_atom_fragment(0)
-        emb.make_atom_fragment(1, sym_factor=2)
+        emb.add_atomic_fragment(0)
+        emb.add_atomic_fragment(1, sym_factor=2)
         emb.kernel()
 
         known_values = {'e_tot': -76.23613576956096}
@@ -217,8 +217,8 @@ class MoleculeEWFTests(unittest.TestCase):
                 },
         )
         emb.iao_fragmentation()
-        emb.make_atom_fragment(0)
-        emb.make_atom_fragment(1, sym_factor=2)
+        emb.add_atomic_fragment(0)
+        emb.add_atomic_fragment(1, sym_factor=2)
         emb.fragments[0].set_cas(['0 O 2p'])
         emb.kernel()
 
@@ -241,8 +241,8 @@ class MoleculeEWFTests(unittest.TestCase):
                 },
         )
         emb.iao_fragmentation()
-        emb.make_atom_fragment(0)
-        emb.make_atom_fragment(1, sym_factor=2)
+        emb.add_atomic_fragment(0)
+        emb.add_atomic_fragment(1, sym_factor=2)
         emb.kernel()
 
         known_values = {'e_tot': -76.23147227604929}

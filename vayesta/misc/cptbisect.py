@@ -3,7 +3,6 @@ import numpy as np
 import scipy
 
 import vayesta
-from vayesta import log as vlog
 from vayesta.core.util import *
 
 

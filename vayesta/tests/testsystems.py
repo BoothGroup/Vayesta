@@ -259,11 +259,25 @@ h2_sto3g_s31 = TestSolid(a=a, atom='H 0 0 0 ; H 0 0 0.74', supercell=(nk,1,1), *
 h3_sto3g_k31 = TestSolid(a=a, atom='H 0 0 0 ; H 0 0 1 ; H 0 0 2', kmesh=(nk,1,1), spin=3, **opts)
 h3_sto3g_s31 = TestSolid(a=a, atom='H 0 0 0 ; H 0 0 1 ; H 0 0 2', supercell=(nk,1,1), spin=3, **opts)
 
+
+# --- Diamond cc-pVDZ
+a, atom = solids.diamond()
+
 opts = dict(basis='sto-3g', auxbasis='sto-3g', exp_to_discard=0.1)
 mesh = (2,1,1)
-a, atom = solids.diamond()
 diamond_sto3g_k211 = TestSolid(a=a, atom=atom, kmesh=mesh, **opts)
 diamond_sto3g_s211 = TestSolid(a=a, atom=atom, supercell=mesh, **opts)
+
+opts = dict(basis='sto3g', auxbasis='sto3g', exp_to_discard=0.1)
+mesh = (3,3,3)
+diamond_sto3g_k333 = TestSolid(a=a, atom=atom, kmesh=mesh, **opts)
+diamond_sto3g_s333 = TestSolid(a=a, atom=atom, supercell=mesh, **opts)
+
+#opts = dict(basis='cc-pVDZ', auxbasis='cc-pVDZ-ri', exp_to_discard=0.1)
+#mesh = (3,3,3)
+#diamond_dz_k333 = TestSolid(a=a, atom=atom, kmesh=mesh, **opts)
+#diamond_dz_s333 = TestSolid(a=a, atom=atom, supercell=mesh, **opts)
+
 
 # 2D
 a, atom = solids.graphene()

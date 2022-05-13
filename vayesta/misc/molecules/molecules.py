@@ -10,10 +10,11 @@ def _load_datafile(filename):
     atom = [[atoms[i], coords[i]] for i in range(len(atoms))]
     return atom
 
-def water(atoms=['O', 'H']):
-    atom = [[atoms[0], [0.0000,  0.0000,  0.1173]],
-            [atoms[1], [0.0000,  0.7572, -0.4692]],
-            [atoms[1], [0.0000, -0.7572, -0.4692]]]
+def water(atoms=['O', 'H'], origin=(0, 0, 0)):
+    origin = np.asarray(origin)
+    atom = [[atoms[0], np.asarray([0.0000,  0.0000,  0.1173]) - origin],
+            [atoms[1], np.asarray([0.0000,  0.7572, -0.4692]) - origin],
+            [atoms[1], np.asarray([0.0000, -0.7572, -0.4692]) - origin]]
     return atom
 
 def alkane(n, atoms=['C', 'H'], cc_bond=1.54, ch_bond=1.09, scale=1.0, numbering=False):
@@ -154,6 +155,20 @@ def ketene(cc_bond=None):
         atom[1][1] = new_c2
         atom[2][1] = new_o
     return atom
+
+def phenyl():
+    atom = _load_datafile('phenyl.dat')
+    return atom
+
+def ring(natom, atom, bond_length):
+    r = bond_length/(2*np.sin(np.pi/natom))
+    atoms = []
+    if isinstance(atom, str):
+        atom = [atom]
+    for i in range(natom):
+        theta = i * (2*np.pi/natom)
+        atoms.append([atom[i%len(atom)], (r*np.cos(theta), r*np.sin(theta), 0)])
+    return atoms
 
 if __name__ == '__main__':
 

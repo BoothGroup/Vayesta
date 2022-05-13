@@ -267,10 +267,10 @@ class RMP2_WaveFunction(WaveFunction):
     def restore(self, projector=None, inplace=False, sym=True):
         if projector is None: projector = self.projector
         wf = self.project(projector.T, inplace=inplace)
+        wf.projector = None
         if not sym:
             return wf
         wf.t2 = symmetrize_c2(wf.t2)
-        wf.projector = None
         return wf
 
     def as_mp2(self):
@@ -341,10 +341,10 @@ class UMP2_WaveFunction(RMP2_WaveFunction):
     def restore(self, projector=None, inplace=False, sym=True):
         if projector is None: projector = self.projector
         wf = self.project((projector[0].T, projector[1].T), inplace=inplace)
+        wf.projector = None
         if not sym:
             return wf
         wf.t2 = symmetrize_uc2(wf.t2)
-        wf.projector = None
         return wf
 
     def as_mp2(self):
@@ -413,7 +413,7 @@ class RCCSD_WaveFunction(WaveFunction):
                 with_frozen=False, ao_repr=ao_basis, with_mf=with_mf)
         return dm1
 
-    def make_rdm2(self, t_as_lambda=False, with_dm1=True, ao_basis=False):
+    def make_rdm2(self, t_as_lambda=False, with_dm1=True, ao_basis=False, approx_cumulant=True):
         if t_as_lambda:
             l1, l2 = self.t1, self.t2
         elif (self.l1 is None or self.l2 is None):
@@ -427,6 +427,25 @@ class RCCSD_WaveFunction(WaveFunction):
         fakecc.max_memory = int(10e9)   # 10 GB
         dm2 = type(self)._make_rdm2_backend(fakecc, t1=self.t1, t2=self.t2, l1=l1, l2=l2,
                 with_frozen=False, ao_repr=ao_basis, with_dm1=with_dm1)
+        if not with_dm1:
+            if not approx_cumulant:
+                dm2nc = self.make_rdm2_non_cumulant(t_as_lambda=t_as_lambda, ao_basis=ao_basis)
+                if isinstance(dm2nc, np.ndarray):
+                    dm2 -= dm2nc
+                # UHF:
+                else:
+                    dm2 = tuple((dm2[i]-dm2nc[i]) for i in range(len(dm2nc)))
+            elif (approx_cumulant in (1, True)):
+                pass
+            elif (approx_cumulant == 2):
+                raise NotImplementedError
+            else:
+                raise ValueError
+        return dm2
+
+    def make_rdm2_non_cumulant(self, t_as_lambda=False, ao_basis=False):
+        dm1 = self.make_rdm1(t_as_lambda=t_as_lambda, with_mf=False, ao_basis=ao_basis)
+        dm2 = (einsum('ij,kl->ijkl', dm1, dm1) - einsum('ij,kl->iklj', dm1, dm1)/2)
         return dm2
 
     def project(self, projector, inplace=False):
@@ -460,26 +479,30 @@ class RCCSD_WaveFunction(WaveFunction):
     def restore(self, projector=None, inplace=False, sym=True):
         if projector is None: projector = self.projector
         wf = self.project(projector.T, inplace=inplace)
+        wf.projector = None
         if not sym:
             return wf
         wf.t2 = symmetrize_c2(wf.t2)
         if wf.l2 is None:
             return wf
         wf.l2 = symmetrize_c2(wf.l2)
-        wf.projector = None
         return wf
 
     def copy(self):
         t1 = self.t1.copy()
         t2 = self.t2.copy()
-        l1 = l2 = None
+        l1 = l2 = proj = None
         if self.l1 is not None:
             l1 = self.l1.copy()
         if self.l2 is not None:
             l2 = self.l2.copy()
-        return RCCSD_WaveFunction(self.mo.copy(), t1, t2, l1=l1, l2=l2)
+        if self.projector is not None:
+            proj = self.projector.copy()
+        return RCCSD_WaveFunction(self.mo.copy(), t1, t2, l1=l1, l2=l2, projector=proj)
 
     def as_unestricted(self):
+        if self.projector is not None:
+            raise NotImplementedError
         mo = self.mo.to_spin_orbitals()
         def _to_uccsd(t1, t2):
             t1, t2 = self.t1.copy, self.t2.copy()
@@ -499,6 +522,8 @@ class RCCSD_WaveFunction(WaveFunction):
 
     def to_cisd(self, c0=1.0):
         """In intermediate normalization."""
+        if self.projector is not None:
+            raise NotImplementedError
         c1 = c0*self.t1
         c2 = c0*(self.t2 + einsum('ia,jb->ijab', self.t1, self.t1))
         return RCISD_WaveFunction(self.mo, c0, c1, c2, projector=self.projector)
@@ -538,6 +563,14 @@ class UCCSD_WaveFunction(RCCSD_WaveFunction):
     def t2bb(self):
         return self.t2[-1]
 
+    def make_rdm2_non_cumulant(self, t_as_lambda=False, ao_basis=False):
+        dm1a, dm1b = self.make_rdm1(t_as_lambda=t_as_lambda, with_mf=False, ao_basis=ao_basis)
+        dm2aa = (einsum('ij,kl->ijkl', dm1a, dm1a) - einsum('ij,kl->iklj', dm1a, dm1a))
+        dm2bb = (einsum('ij,kl->ijkl', dm1b, dm1b) - einsum('ij,kl->iklj', dm1b, dm1b))
+        dm2ab = einsum('ij,kl->ijkl', dm1a, dm1b)
+        dm2 = (dm2aa, dm2ab, dm2bb)
+        return dm2
+
     def project(self, projector, inplace=False):
         wf = self if inplace else self.copy()
         wf.t1 = project_uc1(wf.t1, projector)
@@ -550,24 +583,26 @@ class UCCSD_WaveFunction(RCCSD_WaveFunction):
     def restore(self, projector=None, inplace=False, sym=True):
         if projector is None: projector = self.projector
         wf = self.project((projector[0].T, projector[1].T), inplace=inplace)
+        wf.projector = None
         if not sym:
             return wf
         wf.t2 = symmetrize_uc2(wf.t2)
         if self.l2 is None:
             return wf
         wf.l2 = symmetrize_uc2(wf.l2)
-        wf.projector = None
         return wf
 
     def copy(self):
         t1 = tuple(t.copy() for t in self.t1)
         t2 = tuple(t.copy() for t in self.t2)
-        l1 = l2 = None
+        l1 = l2 = proj = None
         if self.l1 is not None:
             l1 = tuple(t.copy() for t in self.l1)
         if self.l2 is not None:
             l2 = tuple(t.copy() for t in self.l2)
-        return UCCSD_WaveFunction(self.mo.copy(), t1, t2, l1=l1, l2=l2)
+        if self.projector is not None:
+            proj = tuple(t.copy() for t in self.projector)
+        return UCCSD_WaveFunction(self.mo.copy(), t1, t2, l1=l1, l2=l2, projector=proj)
 
     def to_mp2(self):
         raise NotImplementedError
@@ -576,6 +611,8 @@ class UCCSD_WaveFunction(RCCSD_WaveFunction):
         return self
 
     def to_cisd(self, c0=1.0):
+        if self.projector is not None:
+            raise NotImplementedError
         c1a = c0*self.t1a
         c1b = c0*self.t1b
         c2aa = c0*(self.t2aa + einsum('ia,jb->ijab', self.t1a, self.t1a)
@@ -647,10 +684,10 @@ class RCISD_WaveFunction(WaveFunction):
     def restore(self, projector=None, inplace=False, sym=True):
         if projector is None: projector = self.projector
         wf = self.project(projector.T, inplace=inplace)
+        wf.projector = None
         if not sym:
             return wf
         wf.c2 = symmetrize_c2(wf.c2)
-        wf.projector = None
         return wf
 
     def copy(self):
@@ -660,9 +697,16 @@ class RCISD_WaveFunction(WaveFunction):
         raise NotImplementedError
 
     def as_ccsd(self):
+        proj = self.projector
+        if proj is not None:
+            self = self.restore()
         t1 = self.c1/self.c0
         t2 = self.c2/self.c0 - einsum('ia,jb->ijab', t1, t1)
-        return RCCSD_Wavefunction(self.mo, t1, t2, projector=self.projector)
+        l1, l2 = t1, t2
+        wf = RCCSD_WaveFunction(self.mo, t1, t2, l1=l1, l2=l2, projector=self.projector)
+        if proj is not None:
+            wf = wf.project(proj)
+        return wf
 
     def as_cisd(self, c0=None):
         if c0 is None:
@@ -712,10 +756,10 @@ class UCISD_WaveFunction(RCISD_WaveFunction):
     def restore(self, projector=None, inplace=False, sym=True):
         if projector is None: projector = self.projector
         wf = self.project((projector[0].T, projector[1].T), inplace=inplace)
+        wf.projector = None
         if not sym:
             return wf
         wf.c2 = symmetrize_uc2(wf.c2)
-        wf.projector = None
         return wf
 
     def copy(self):
@@ -727,6 +771,9 @@ class UCISD_WaveFunction(RCISD_WaveFunction):
         raise NotImplementedError
 
     def as_ccsd(self):
+        proj = self.projector
+        if proj is not None:
+            self = self.restore()
         t1a = self.c1a/self.c0
         t1b = self.c1b/self.c0
         t1 = (t1a, t1b)
@@ -738,7 +785,11 @@ class UCISD_WaveFunction(RCISD_WaveFunction):
         elif len(self.c2) == 4:
             t2ba = self.c2ab/self.c0 - einsum('ia,jb->ijab', t1b, t1a)
             t2 = (t2aa, t2ab, t2ba, t2bb)
-        return UCCSD_WaveFunction(self.mo, t1, t2, projector=self.projector)
+        l1, l2 = t1, t2
+        wf = UCCSD_WaveFunction(self.mo, t1, t2, l1=l1, l2=l2, projector=self.projector)
+        if proj is not None:
+            wf = wf.project(proj)
+        return wf
 
     def as_cisd(self, c0=None):
         if c0 is None:
@@ -775,14 +826,30 @@ class RFCI_WaveFunction(WaveFunction):
         super().__init__(mo, projector=projector)
         self.ci = ci
 
-    def make_rdm1(self, ao_basis=False):
+    def make_rdm1(self, ao_basis=False, with_mf=True):
         dm1 = pyscf.fci.direct_spin1.make_rdm1(self.ci, self.norb, self.nelec)
+        if not with_mf:
+            dm1[np.diag_indices(self.nocc)] -= 2
         if not ao_basis:
             return dm1
         return dot(self.mo.coeff, dm1, self.mo.coeff.T)
 
-    def make_rdm2(self, ao_basis=False):
-        dm2 = pyscf.fci.direct_spin1.make_rdm12(self.ci, self.norb, self.nelec)[1]
+    def make_rdm2(self, ao_basis=False, with_dm1=True, approx_cumulant=True):
+        dm1, dm2 = pyscf.fci.direct_spin1.make_rdm12(self.ci, self.norb, self.nelec)
+        if not with_dm1:
+            if not approx_cumulant:
+                dm2 -= (einsum('ij,kl->ijkl', dm1, dm1) - einsum('ij,kl->iklj', dm1, dm1)/2)
+            elif (approx_cumulant in (1, True)):
+                dm1[np.diag_indices(self.nocc)] -= 1
+                for i in range(self.nocc):
+                    dm2[i,i,:,:] -= 2*dm1
+                    dm2[:,:,i,i] -= 2*dm1
+                    dm2[:,i,i,:] += dm1
+                    dm2[i,:,:,i] += dm1
+            elif (approx_cumulant == 2):
+                raise NotImplementedError
+            else:
+                raise ValueError
         if not ao_basis:
             return dm2
         return einsum('ijkl,ai,bj,ck,dl->abcd', dm2, *(4*[self.mo.coeff]))
@@ -808,6 +875,8 @@ class RFCI_WaveFunction(WaveFunction):
         return self.as_cisd().as_ccsd()
 
     def as_cisd(self, c0=None):
+        if self.projector is not None:
+            raise NotImplementedError
         norb, nocc, nvir = self.norb, self.nocc, self.nvir
         t1addr, t1sign = pyscf.ci.cisd.t1strs(norb, nocc)
         c1 = self.ci[0,t1addr] * t1sign
@@ -826,17 +895,46 @@ class RFCI_WaveFunction(WaveFunction):
 
 class UFCI_WaveFunction(RFCI_WaveFunction):
 
-    def make_rdm1(self, ao_basis=False):
+    def make_rdm1(self, ao_basis=False, with_mf=True):
         assert (self.norb[0] == self.norb[1])
         dm1 = pyscf.fci.direct_spin1.make_rdm1s(self.ci, self.norb[0], self.nelec)
+        if not with_mf:
+            dm1[0][np.diag_indices(self.nocc[0])] -= 1
+            dm1[1][np.diag_indices(self.nocc[1])] -= 1
         if not ao_basis:
             return dm1
         return (dot(self.mo.coeff[0], dm1[0], self.mo.coeff[0].T),
                 dot(self.mo.coeff[1], dm1[1], self.mo.coeff[1].T))
 
-    def make_rdm2(self, ao_basis=False):
+    def make_rdm2(self, ao_basis=False, with_dm1=True, approx_cumulant=True):
         assert (self.norb[0] == self.norb[1])
-        dm2 = pyscf.fci.direct_spin1.make_rdm12s(self.ci, self.norb[0], self.nelec)[1]
+        dm1, dm2 = pyscf.fci.direct_spin1.make_rdm12s(self.ci, self.norb[0], self.nelec)
+        if not with_dm1:
+            dm1a, dm1b = dm1
+            dm2aa, dm2ab, dm2bb = dm2
+            if not approx_cumulant:
+                dm2aa -= (einsum('ij,kl->ijkl', dm1a, dm1a) - einsum('ij,kl->iklj', dm1a, dm1a))
+                dm2bb -= (einsum('ij,kl->ijkl', dm1b, dm1b) - einsum('ij,kl->iklj', dm1b, dm1b))
+                dm2ab -= einsum('ij,kl->ijkl', dm1a, dm1b)
+            elif (approx_cumulant in (1, True)):
+                dm1a[np.diag_indices(self.nocca)] -= 0.5
+                dm1b[np.diag_indices(self.noccb)] -= 0.5
+                for i in range(self.nocca):
+                    dm2aa[i,i,:,:] -= dm1a
+                    dm2aa[:,:,i,i] -= dm1a
+                    dm2aa[:,i,i,:] += dm1a
+                    dm2aa[i,:,:,i] += dm1a
+                    dm2ab[i,i,:,:] -= dm1b
+                for i in range(self.noccb):
+                    dm2bb[i,i,:,:] -= dm1b
+                    dm2bb[:,:,i,i] -= dm1b
+                    dm2bb[:,i,i,:] += dm1b
+                    dm2bb[i,:,:,i] += dm1b
+                    dm2ab[:,:,i,i] -= dm1a
+            elif (approx_cumulant == 2):
+                raise NotImplementedError
+            else:
+                raise ValueError
         if not ao_basis:
             return dm2
         moa, mob = self.mo.coeff
@@ -845,6 +943,8 @@ class UFCI_WaveFunction(RFCI_WaveFunction):
                 einsum('ijkl,ai,bj,ck,dl->abcd', dm2[2], *(4*[mob])))
 
     def as_cisd(self, c0=None):
+        if self.projector is not None:
+            raise NotImplementedError
         norba, norbb = self.norb
         nocca, noccb = self.nocc
         nvira, nvirb = self.nvir

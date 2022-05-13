@@ -228,7 +228,6 @@ class CCSD_Solver(ClusterSolver):
 
         self.wf = WaveFunction.from_pyscf(self.solver)
 
-
     def t_diagnostic(self):
         self.log.info("T-Diagnostic")
         self.log.info("------------")
@@ -246,7 +245,7 @@ class CCSD_Solver(ClusterSolver):
             self.log.info(fmtstr, "D1", dg_d1, dg_d1_msg)
             self.log.info(fmtstr, "D2", dg_d2, dg_d2_msg)
             if dg_t1 > 0.02 or dg_d1 > 0.05 or dg_d2 > 0.18:
-                self.log.warning("  some diagnostic(s) indicate CCSD may not be adequate.")
+                self.log.info("  some diagnostic(s) indicate CCSD may not be adequate!")
         except Exception as e:
             self.log.error("Exception in T-diagnostic: %s", e)
 

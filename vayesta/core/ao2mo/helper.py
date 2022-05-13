@@ -14,7 +14,10 @@ log = logging.getLogger(__name__)
 def get_full_array(eris, mo_coeff=None, out=None):
     """Get dense ERI array from CCSD _ChemistEris object."""
     if mo_coeff is not None and not np.allclose(mo_coeff, eris.mo_coeff):
-        raise NotImplementedError()
+        raise NotImplementedError
+    if hasattr(eris, 'OOOO'):
+        raise NotImplementedError
+
     nocc, nvir = eris.ovoo.shape[:2]
     nmo = nocc + nvir
     o, v = np.s_[:nocc], np.s_[nocc:]
