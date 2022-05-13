@@ -326,9 +326,16 @@ class Fragment:
     # --- Overlap matrices
     # --------------------
 
-    def _csc_dot(self, c1, c2):
-        ovlp = self.base.get_ovlp()
-        return dot(c1.T, ovlp, c2)
+    def _csc_dot(self, c1, c2, ovlp=True, transpose_left=True, transpose_right=False):
+        if transpose_left:
+            c1 = c1.T
+        if transpose_right:
+            c2 = c2.T
+        if ovlp is True:
+            ovlp = self.base.get_ovlp()
+        if ovlp is None:
+            return dot(c1, c2)
+        return dot(c1, ovlp, c2)
 
     @cache
     def get_overlap(self, key):
@@ -340,8 +347,11 @@ class Fragment:
         >>> s = self.get_overlap('mo[occ]|cluster[occ]')
         >>> s = self.get_overlap('mo[vir]|cluster[vir]')
         """
-        if key.count('|') != 1:
-            raise ValueError("key needs to have exactly one '|'")
+        if key.count('|') > 1:
+            left, center, right = key.rsplit('|', maxsplit=2)
+            overlap_left = self.get_overlap('|'.join((left, center)))
+            overlap_right = self.get_overlap('|'.join((center, right)))
+            return self._csc_dot(overlap_left, overlap_right, ovlp=None, transpose_left=False)
 
         # Standardize key to reduce cache misses:
         key_mod = key.lower().replace(' ', '')
