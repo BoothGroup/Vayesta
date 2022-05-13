@@ -115,27 +115,37 @@ class UEmbedding(Embedding):
         self.log.debug("Divergent exact-exchange (exxdiv) correction= %+16.8f Ha", e_exxdiv)
         return e_exxdiv, (v_exxdiv_a, v_exxdiv_b)
 
-    #def get_eris_array(self, mo_coeff, compact=False):
-    #    """Get electron-repulsion integrals in MO basis as a NumPy array.
+    def get_dmet_elec_energy(self, version=0, approx_cumulant=True):
+        """Calculate electronic DMET energy via democratically partitioned density-matrices.
 
-    #    Parameters
-    #    ----------
-    #    mo_coeff: (n(AO), n(MO)) array
-    #        MO coefficients.
+        Returns
+        -------
+        e_dmet: float
+            Electronic DMET energy.
+        """
+        e_dmet = 0.0
+        for f in self.get_fragments(mpi_rank=mpi.rank):
+            e_dmet += f.get_fragment_dmet_energy(version=version, approx_cumulant=approx_cumulant)
+        if mpi:
+            mpi.world.allreduce(e_dmet)
+        version = (version or 1)
+        if (version == 2):
+            dm1 = self.make_rdm1_demo(ao_basis=True)
+            if not approx_cumulant:
+                vhf = self.get_veff(dm1=dm1, with_exxdiv=False)
+                vhf2 = self.get_veff(with_exxdiv=False)
+            elif (approx_cumulant in (1, True)):
+                dm1_mf = self.mf.make_rdm1()
+                dm1 = (2*dm1[0] - dm1_mf[0],
+                       2*dm1[1] - dm1_mf[1],)
+                vhf = self.get_veff_for_energy()
+            else:
+                raise ValueError
+            e_dmet += (np.sum(vhf[0] * dm1[0])
+                     + np.sum(vhf[1] * dm1[1]))/2
 
-    #    Returns
-    #    -------
-    #    eris: (n(MO), n(MO), n(MO), n(MO)) array
-    #        Electron-repulsion integrals in MO basis.
-    #    """
-    #    # Call three-times to spin-restricted embedding
-    #    self.log.debugv("Making (aa|aa) ERIs...")
-    #    eris_aa = super().get_eris_array(mo_coeff[0], compact=compact)
-    #    self.log.debugv("Making (bb|bb) ERIs...")
-    #    eris_bb = super().get_eris_array(mo_coeff[1], compact=compact)
-    #    self.log.debugv("Making (aa|bb) ERIs...")
-    #    eris_ab = super().get_eris_array((mo_coeff[0], mo_coeff[0], mo_coeff[1], mo_coeff[1]), compact=compact)
-    #    return (eris_aa, eris_ab, eris_bb)
+        self.log.debugv("E_elec(DMET)= %s", energy_string(e_dmet))
+        return e_dmet
 
     def get_eris_object(self, postscf, fock=None):
         """Get ERIs for post-SCF methods.

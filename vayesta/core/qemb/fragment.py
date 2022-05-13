@@ -719,7 +719,7 @@ class Fragment:
         return mo_energy
 
     @mpi.with_send(source=get_fragment_mpi_rank)
-    def get_fragment_dmet_energy(self, dm1=None, dm2=None, h1e_eff=None, eris=None):
+    def get_fragment_dmet_energy(self, dm1=None, dm2=None, h1e_eff=None, eris=None, version=0, approx_cumulant=True):
         """Get fragment contribution to whole system DMET energy from cluster DMs.
 
         After fragment summation, the nuclear-nuclear repulsion must be added to get the total energy!
@@ -740,41 +740,54 @@ class Fragment:
         """
         assert (mpi.rank == self.mpi_rank)
         if dm1 is None: dm1 = self.results.dm1
-        if dm2 is None: dm2 = self.results.dm2
         if dm1 is None: raise RuntimeError("DM1 not found for %s" % self)
-        if dm2 is None: raise RuntimeError("DM2 not found for %s" % self)
         c_act = self.cluster.c_active
         t0 = timer()
         if eris is None:
             eris = self._eris
         if eris is None:
-            with log_time(self.log.timing, "Time for AO->MO transformation: %s"):
+            with log_time(self.log.timingv, "Time for AO->MO transformation: %s"):
                 eris = self.base.get_eris_array(c_act)
         if not isinstance(eris, np.ndarray):
             self.log.debugv("Extracting ERI array from CCSD ERIs object.")
             eris = vayesta.core.ao2mo.helper.get_full_array(eris, c_act)
 
+
+        version = (version or 1)
+        if (version == 1):
+            if dm2 is None:
+                dm2 = self.results.wf.make_rdm2()
+        elif (version == 2):
+            if dm2 is None:
+                dm2 = self.results.wf.make_rdm2(with_dm1=False, approx_cumulant=approx_cumulant)
+        else:
+            raise ValueError
+
         # Get effective core potential
         if h1e_eff is None:
-            # Use the original Hcore (without chemical potential modifications), but updated mf-potential!
-            h1e_eff = self.base.get_hcore_for_energy() + self.base.get_veff_for_energy(with_exxdiv=False)/2
-            h1e_eff = dot(c_act.T, h1e_eff, c_act)
-            occ = np.s_[:self.cluster.nocc_active]
-            v_act = einsum('iipq->pq', eris[occ,occ,:,:]) - einsum('iqpi->pq', eris[occ,:,:,occ])/2
-            h1e_eff -= v_act
+            if (version == 1):
+                # Use the original Hcore (without chemical potential modifications), but updated mf-potential!
+                h1e_eff = self.base.get_hcore_for_energy() + self.base.get_veff_for_energy(with_exxdiv=False)/2
+                h1e_eff = dot(c_act.T, h1e_eff, c_act)
+                occ = np.s_[:self.cluster.nocc_active]
+                v_act = einsum('iipq->pq', eris[occ,occ,:,:]) - einsum('iqpi->pq', eris[occ,:,:,occ])/2
+                h1e_eff -= v_act
+            elif (version == 2):
+                h1e_eff = dot(c_act.T, self.base.get_hcore_for_energy(), c_act)
 
         p_frag = self.get_fragment_projector(c_act)
         # Check number of electrons
         ne = einsum('ix,ij,jx->', p_frag, dm1, p_frag)
-        self.log.debug("Number of electrons for DMET energy in fragment %12s: %.8f", self, ne)
+        self.log.debugv("Number of electrons for DMET energy in fragment %12s: %.8f", self, ne)
 
         # Evaluate energy
         e1b = einsum('xj,xi,ij->', h1e_eff, p_frag, dm1)
-        #e1b = einsum('xj,xi,ij->', (h_core + h_eff), p_frag, dm1)/2
         e2b = einsum('xjkl,xi,ijkl->', eris, p_frag, dm2)/2
+
+        self.log.debugv("E(DMET): E(1)= %s E(2)= %s", energy_string(e1b), energy_string(e2b))
         e_dmet = self.opts.sym_factor*(e1b + e2b)
-        self.log.debug("Fragment E(DMET)= %+16.8f Ha", e_dmet)
-        self.log.timing("Time for DMET energy: %s", time_string(timer()-t0))
+        self.log.debugv("Fragment E(DMET)= %+16.8f Ha", e_dmet)
+        self.log.timingv("Time for DMET energy: %s", time_string(timer()-t0))
         return e_dmet
 
     # --- Counterpoise

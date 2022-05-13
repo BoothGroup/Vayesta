@@ -68,7 +68,7 @@ class Test_MP2(TestCase):
         t2_ref = self._get_ref_t2_ao(self.cc.t2)
         self.assertAllclose(t2, t2_ref)
 
-    def test_dm1_2p2l(self):
+    def test_dm1(self):
         emb = self.emb(-1)
         dm1_exact = self.cc.make_rdm1(ao_repr=True)
 
@@ -114,6 +114,15 @@ class Test_CCSD(Test_MP2):
         emb = self.emb(1e-3)
         self.assertAllclose(emb.e_corr, self.ref_values[('e_corr', 1e-3)], rtol=0)
         self.assertAllclose(emb.e_tot, self.ref_values[('e_tot', 1e-3)], rtol=0)
+
+    def test_dmet_energy(self):
+        emb = self.emb(-1)
+        etot_dmet = emb.get_dmet_energy()
+        self.assertAllclose(etot_dmet, self.cc.e_tot, rtol=0)
+        etot_dmet = emb.get_dmet_energy(version=2)
+        self.assertAllclose(etot_dmet, self.cc.e_tot, rtol=0)
+        etot_dmet = emb.get_dmet_energy(version=2, approx_cumulant=False)
+        self.assertAllclose(etot_dmet, self.cc.e_tot, rtol=0)
 
     def test_t_amplitudes(self):
         emb = self.emb(-1)

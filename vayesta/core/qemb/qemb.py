@@ -790,8 +790,7 @@ class Embedding:
             self.log.warning("Number of electrons not integer!")
         return nelec_frags
 
-    @mpi.with_allreduce()
-    def get_dmet_energy_elec(self):
+    def get_dmet_elec_energy(self, version=0, approx_cumulant=True):
         """Calculate electronic DMET energy via democratically partitioned density-matrices.
 
         Returns
@@ -801,11 +800,25 @@ class Embedding:
         """
         e_dmet = 0.0
         for f in self.get_fragments(mpi_rank=mpi.rank):
-            e_dmet += f.get_fragment_dmet_energy()
+            e_dmet += f.get_fragment_dmet_energy(version=version, approx_cumulant=approx_cumulant)
+        if mpi:
+            mpi.world.allreduce(e_dmet)
+        version = (version or 1)
+        if (version == 2):
+            dm1 = self.make_rdm1_demo(ao_basis=True)
+            if not approx_cumulant:
+                vhf = self.get_veff(dm1=dm1, with_exxdiv=False)
+            elif (approx_cumulant in (1, True)):
+                dm1 = 2*dm1 - self.mf.make_rdm1()
+                vhf = self.get_veff_for_energy()
+            else:
+                raise ValueError
+            e_dmet += np.sum(vhf * dm1)/2
+
         self.log.debugv("E_elec(DMET)= %s", energy_string(e_dmet))
         return e_dmet
 
-    def get_dmet_energy(self, with_nuc=True, with_exxdiv=True):
+    def get_dmet_energy(self, with_nuc=True, with_exxdiv=True, version=0, approx_cumulant=True):
         """Calculate DMET energy via democratically partitioned density-matrices.
 
         Parameters
@@ -820,7 +833,7 @@ class Embedding:
         e_dmet: float
             DMET energy.
         """
-        e_dmet = self.get_dmet_energy_elec()
+        e_dmet = self.get_dmet_elec_energy(version=version, approx_cumulant=approx_cumulant)
         if with_nuc:
             e_dmet += self.e_nuc
         if with_exxdiv and self.has_exxdiv:

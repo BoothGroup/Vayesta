@@ -130,3 +130,6 @@ dmypy.json
 
 # PySCF output
 pyscf.out
+
+# Code style
+.codestyle

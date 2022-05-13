@@ -160,7 +160,7 @@ class UFragment(Fragment):
         mo_energy_b = einsum('ai,ab,bi->i', c_active[1], fock[1], c_active[1])
         return (mo_energy_a, mo_energy_b)
 
-    def get_fragment_dmet_energy(self, dm1=None, dm2=None, h1e_eff=None, eris=None):
+    def get_fragment_dmet_energy(self, dm1=None, dm2=None, h1e_eff=None, eris=None, version=0, approx_cumulant=True):
         """Get fragment contribution to whole system DMET energy.
 
         After fragment summation, the nuclear-nuclear repulsion must be added to get the total energy!
@@ -180,47 +180,57 @@ class UFragment(Fragment):
             Electronic fragment DMET energy.
         """
         if dm1 is None: dm1 = self.results.dm1
-        if dm2 is None: dm2 = self.results.dm2
         if dm1 is None: raise RuntimeError("DM1 not found for %s" % self)
-        if dm2 is None: raise RuntimeError("DM2 not found for %s" % self)
         c_act = self.cluster.c_active
         t0 = timer()
         if eris is None:
-            with log_time(self.log.timing, "Time for AO->MO transformation: %s"):
-                #eris = self.base.get_eris_array(c_act)
+            eris = self._eris
+        if eris is None:
+            with log_time(self.log.timingv, "Time for AO->MO transformation: %s"):
                 gaa = self.base.get_eris_array(c_act[0])
                 gab = self.base.get_eris_array((c_act[0], c_act[0], c_act[1], c_act[1]))
                 gbb = self.base.get_eris_array(c_act[1])
         elif isinstance(eris, tuple) and len(eris) == 3:
             gaa, gab, gbb = eris
         else:
+            # TODO: Extract integrals from CCSD ERIs object
             # Temporary solution:
-            with log_time(self.log.timing, "Time for AO->MO transformation: %s"):
+            with log_time(self.log.timingv, "Time for AO->MO transformation: %s"):
                 gaa = self.base.get_eris_array(c_act[0])
                 gab = self.base.get_eris_array((c_act[0], c_act[0], c_act[1], c_act[1]))
                 gbb = self.base.get_eris_array(c_act[1])
 
-            #TODO
-            #raise NotImplementedError()
-            #elif not isinstance(eris, np.ndarray):
-            #    self.log.debugv("Extracting ERI array from CCSD ERIs object.")
-            #    eris = vayesta.core.ao2mo.helper.get_full_array(eris, c_act)
+        version = (version or 1)
+        if (version == 1):
+            if dm2 is None:
+                dm2 = self.results.wf.make_rdm2()
+        elif (version == 2):
+            if dm2 is None:
+                dm2 = self.results.wf.make_rdm2(with_dm1=False, approx_cumulant=approx_cumulant)
+        else:
+            raise ValueError
+
         dm1a, dm1b = dm1
         dm2aa, dm2ab, dm2bb = dm2
 
         # Get effective core potential
         if h1e_eff is None:
-            # Use the original Hcore (without chemical potential modifications), but updated mf-potential!
-            h1e_eff = self.base.get_hcore_orig() + self.base.get_veff(with_exxdiv=False)
-            h1e_eff = (dot(c_act[0].T, h1e_eff[0], c_act[0]),
-                       dot(c_act[1].T, h1e_eff[1], c_act[1]))
-            oa = np.s_[:self.cluster.nocc_active[0]]
-            ob = np.s_[:self.cluster.nocc_active[1]]
-            va = (einsum('iipq->pq', gaa[oa,oa,:,:]) + einsum('pqii->pq', gab[:,:,ob,ob])
-                - einsum('ipqi->pq', gaa[oa,:,:,oa]))
-            vb = (einsum('iipq->pq', gbb[ob,ob,:,:]) + einsum('iipq->pq', gab[oa,oa,:,:])
-                - einsum('ipqi->pq', gbb[ob,:,:,ob]))
-            h1e_eff = (h1e_eff[0]-va, h1e_eff[1]-vb)
+            if (version == 1):
+                # Use the original Hcore (without chemical potential modifications), but updated mf-potential!
+                h1e_eff = self.base.get_hcore_for_energy() + self.base.get_veff_for_energy(with_exxdiv=False)/2
+                h1e_eff = (dot(c_act[0].T, h1e_eff[0], c_act[0]),
+                           dot(c_act[1].T, h1e_eff[1], c_act[1]))
+                oa = np.s_[:self.cluster.nocc_active[0]]
+                ob = np.s_[:self.cluster.nocc_active[1]]
+                va = (einsum('iipq->pq', gaa[oa,oa,:,:]) + einsum('pqii->pq', gab[:,:,ob,ob])
+                    - einsum('ipqi->pq', gaa[oa,:,:,oa]))/2
+                vb = (einsum('iipq->pq', gbb[ob,ob,:,:]) + einsum('iipq->pq', gab[oa,oa,:,:])
+                    - einsum('ipqi->pq', gbb[ob,:,:,ob]))/2
+                h1e_eff = (h1e_eff[0]-va, h1e_eff[1]-vb)
+            elif (version == 2):
+                h1e_eff = self.base.get_hcore_for_energy()
+                h1e_eff = (dot(c_act[0].T, h1e_eff, c_act[0]),
+                           dot(c_act[1].T, h1e_eff, c_act[1]))
 
         p_frag = self.get_fragment_projector(c_act)
         # Check number of electrons
@@ -233,8 +243,9 @@ class UFragment(Fragment):
              + einsum('xj,xi,ij->', h1e_eff[1], p_frag[1], dm1b))
         e2b = (einsum('xjkl,xi,ijkl->', gaa, p_frag[0], dm2aa)
              + einsum('xjkl,xi,ijkl->', gbb, p_frag[1], dm2bb)
-             + einsum('xjkl,xi,ijkl->', gab, p_frag[0], dm2ab)/2
-             + einsum('ijxl,xk,ijkl->', gab, p_frag[1], dm2ab)/2)
+             + einsum('xjkl,xi,ijkl->', gab, p_frag[0], dm2ab)
+             + einsum('ijxl,xk,ijkl->', gab, p_frag[1], dm2ab))/2
+        self.log.debugv("E(DMET): E(1)= %s E(2)= %s", energy_string(e1b), energy_string(e2b))
         e_dmet = self.opts.sym_factor*(e1b + e2b)
         self.log.debug("Fragment E(DMET)= %+16.8f Ha", e_dmet)
         self.log.timing("Time for DMET energy: %s", time_string(timer()-t0))
