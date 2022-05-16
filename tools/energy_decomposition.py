@@ -1,113 +1,331 @@
 from pyscf import ao2mo
 from vayesta.core.util import *
 import numpy as np
+from scipy.linalg import block_diag
 
+def get_energy_decomp(emb, dm1, dm2):
+    c = emb.mo_coeff
+    eris_aa = emb.get_eris_array(c[0])
+    eris_ab = emb.get_eris_array((c[0], c[0], c[1], c[1]))
+    eris_bb = emb.get_eris_array(c[1])
+    eris = [eris_aa, eris_ab, eris_bb]
 
+    nao = c.shape[1]
 
+    hcore = tuple([dot(c[x].T, emb.mf.get_hcore(), c[x]) for x in [0, 1]])
 
+    res_exact = []
+    res_emb = []
 
+    sc = [dot(emb.get_ovlp(), x) for x in emb.mo_coeff]
+    # Difference from HF rdms.
+    mf_dm1 = np.array([dot(x.T, y, x) for x, y in zip(sc, emb.mf.make_rdm1())])
+    dm1 = [x - y for (x,y) in zip(dm1, mf_dm1)]
+    #print(mf_dm1)
+    #print(dm1)
+    dm2 = list(dm2)
+    dm2[0] = dm2[0] - einsum("pq,rs->pqrs", mf_dm1[0], mf_dm1[0]) + einsum("pq,rs->psrq", mf_dm1[0], mf_dm1[0])
+    dm2[2] = dm2[2] - einsum("pq,rs->pqrs", mf_dm1[1], mf_dm1[1]) + einsum("pq,rs->psrq", mf_dm1[1], mf_dm1[1])
+    dm2[1] = dm2[1] - einsum("pq,rs->pqrs", mf_dm1[0], mf_dm1[1])
 
-def get_energy_decomp(emb, dm1, dm2, bosonic_exchange_coupling=True):
-    # Given DMs in AO basis, going to generate local contribution to energy for each cluster.
-    # This can then be fragmented into four contributions within the fragmented approach.
-    # The contribution from degrees of freedom corresponding to the fermionic cluster, those corresponding to the
-    # coupling between the fermionic and bosonic degrees of freedom within the cluster, and the one- and two-body
-    # contributions which cannot be represented within the cluster. The latter of these can be approximated via the
-    # delta RPA correction, while the former cannot currently be approximated.
-    for frag in emb.fragments:
+    for f in emb.fragments:
 
-        clus = frag.cluster
+        p_frag = f.get_fragment_projector(c)
 
-        c_act = clus.c_active
-        c_act_mo = dot(emb.mo_coeff.T, emb.get_ovlp(), clus.c_active)
-        co_fr = clus.c_frozen_occ
+        p_act = f.get_fragment_projector(c, f.cluster.c_active)
 
-        bosons_present = True
         try:
-            r_bosa, r_bosb = frag.r_bos_ao
+            r_bosa, r_bosb = f.get_rbos_split()
         except AttributeError:
-            bosons_present = False
+            noa, nob = emb.nocc
+            nva, nvb = emb.nvir
 
-        p_frag = frag.get_fragment_projector(c_act)
+            r_bosa = np.zeros((0, noa, nva))
+            r_bosb = np.zeros((0, nob, nvb))
 
-        eris = emb.get_eris_array(c_act)
+        p_bos = [einsum("nia,njb->iajb", r_bosa, r_bosa), einsum("nia,njb->iajb", r_bosa, r_bosb),
+                 einsum("nia,njb->iajb", r_bosb, r_bosb)]
 
-        exact_dm1_loc = dot(c_act_mo.T, dm1, c_act_mo)
-        exact_dm2_loc = ao2mo.full(dm2, c_act_mo)
+        def map_ov_to_full(mat):
+            no1, nv1, no2, nv2 = mat.shape
+            n1, n2 = no1+nv1, no2+nv2
+            res = np.zeros((n1, n1, n2, n2))
+            res[:no1, no1:, :no2, no2:] = mat
+            res[no1:, :no1, no2:, :no2] = mat.transpose(1,0,3,2)
+            return res#.transpose(0,1,3,2)
+        p_bos = tuple([map_ov_to_full(x) for x in p_bos])
 
-        loc_e1_exact = dot(p_frag, exact_dm1_loc, dot(c_act.T, emb.get_hcore(), c_act)).trace()
-        loc_e2_exact = einsum("pt,pqrs,qtsr->", p_frag, eris, exact_dm2_loc)/2
+        e1_exact, e2_c_exact, e2_as_exact = get_energy_decomp_exact(np.eye(nao), hcore, eris, dm1, dm2,
+                                                                    p_frag, p_act, p_bos)
+        res_exact += [e1_exact, e2_c_exact, e2_as_exact]
 
-        err_dm1 = frag.results.dm1 - exact_dm1_loc
-        err_dm2 = frag.results.dm2 - exact_dm2_loc
+        e1_emb, e2_c_emb, e2_as_emb = get_energy_decomp_emb(f, eris)
+        res_emb += [e1_emb, e2_c_emb, e2_as_emb]
+        yield ((e1_exact, e2_c_exact, e2_as_exact), (e1_emb, e2_c_emb, e2_as_emb))
 
-        if bosons_present:
-            mo_c = dot(emb.get_ovlp(), emb.mo_coeff)
+    # return res_exact, res_emb
 
-            r_bosa_mo = einsum("npq,pi,qa->nia", r_bosa, mo_c, mo_c)
-            r_bosb_mo = einsum("npq,pi,qa->nia", r_bosb, mo_c, mo_c)
 
-            exact_ebdm_loca = einsum("pqrs,pt,qu,nrs->tun", dm2, c_act_mo, c_act_mo, r_bosa_mo)
-            exact_ebdm_locb = einsum("pqrs,pt,qu,nrs->tun", dm2, c_act_mo, c_act_mo, r_bosb_mo)
+def get_energy_decomp_exact(ovlp, hcore, eri, dm1, dm2, p_frag, p_act, p_bos):
+    """Note that we require the correlation-induced change in the rdms here, not the actual rdms.
+    """
 
-            err_ebdma = frag.results.dm_eb[0] - exact_ebdm_loca
-            err_ebdmb = frag.results.dm_eb[1] - exact_ebdm_locb
+    p_nl = ovlp - p_act
+    #print(np.linalg.eigvalsh(p_act))
+    #print("!",p_nl)
+    e1_tot = sum([dot(p_frag[x], dm1[x], hcore[x]).trace() for x in [0,1]])
 
-            # Can calculate equivalent contributions for EDMET straightforwardly.
-            e1_contrib, e2_contrib, efb_contrib = frag.get_edmet_energy_contrib()
+    e1_loc = sum([dot(p_frag[x], dm1[x], p_act[x], hcore[x]).trace() for x in [0,1]])
 
-        else:
-            e1_contrib, e2_contrib = frag.get_dmet_energy_contrib()
+    e1_nl = e1_tot - e1_loc
 
-        loc_e1 = dot(p_frag, frag.results.dm1, dot(c_act.T, emb.get_hcore(), c_act)).trace()
-        static_2body = e1_contrib - loc_e1
-        loc_e2 = einsum("pt,pqrs,qtsr->", p_frag, eris, frag.results.dm2) / 2.0
+    e2_coulomb = get_twobody(dm2, p_frag, p_act, p_bos, eri, p_nl, False)
+    e2_antisym = get_twobody(dm2, p_frag, p_act, p_bos, eri, p_nl, True)
 
-        print(abs(exact_dm1_loc - frag.results.dm1).max(), loc_e2 - e2_contrib)
+    return (e1_loc, e1_nl), e2_coulomb, e2_antisym
 
-        if bosons_present:
-            yield (np.linalg.norm(err_dm1) / np.linalg.norm(exact_dm1_loc),
-                   np.linalg.norm(err_dm2)/np.linalg.norm(exact_dm2_loc),
-                   exact_ebdm_loca, exact_ebdm_locb,
-                   #np.linalg.norm(err_ebdma)/np.linalg.norm(exact_ebdm_loca), np.linalg.norm(err_ebdmb)/np.linalg.norm(exact_ebdm_locb),
-                   loc_e1, loc_e2, loc_e1_exact, loc_e2_exact)
-        else:
-            yield (np.linalg.norm(err_dm1) / np.linalg.norm(exact_dm1_loc),
-                   np.linalg.norm(err_dm2) / np.linalg.norm(exact_dm2_loc),
-                   loc_e1, loc_e2, loc_e1_exact, loc_e2_exact)
+
+def get_twobody(dm2, p_frag, p_act, p_bos, eri, p_nl, antisym=False):
+    fac = 2.0
+    if antisym:
+        # Deduct exchange contributions where appropriate.
+        eri[0] = eri[0] - eri[0].transpose(0, 3, 2, 1)
+        eri[2] = eri[2] - eri[2].transpose(0, 3, 2, 1)
+
+        #fac = 4.0
+
+    # Total twobody energy.
+    fident = [np.eye(p_frag[x].shape[0]) for x in range(2)]
+    bident = [einsum("pq,rs->prqs", x, y) for (x, y) in [(fident[0], fident[0]), (fident[0], fident[1]),
+                                                        (fident[1], fident[1])]]
+
+    b_act = [einsum("pq,rs->prqs", x, y) for (x, y) in [(p_act[0], p_act[0]), (p_act[0], p_act[1]),
+                                                        (p_act[1], p_act[1])]]
+
+    def get_twobody_contrib(dm2, eri, p1, p2=None):
+        if p2 is None:
+            p2 = [np.eye(p1[x].shape[0]) for x in range(2)]
+
+        val = (einsum("pt,qu,pqsr,tuvw,rv,sw->", p1[0], p2[0], dm2[0], eri[0], p2[0], p2[0]) +  # aa
+               einsum("pt,qu,pqsr,tuvw,rv,sw->", p1[1], p2[1], dm2[2], eri[2], p2[1], p2[1]) +  # bb
+               einsum("pt,qu,pqsr,tuvw,rv,sw->", p1[0], p2[0], dm2[1], eri[1], p2[1], p2[1]) +  # ab
+               einsum("pt,qu,pqsr,tuvw,rv,sw->", p2[0], p2[0], dm2[1], eri[1], p1[1], p2[1])  # ba
+               )
+        return val
+
+    def get_twobody_contrib_bos(dm2, eri, p1, p2=None, p3=None):
+        if p2 is None:
+            p2 = [np.eye(p1[x].shape[0]) for x in range(2)]
+
+        if p3 is None:
+            p3 = bident
+
+        val = (einsum("pt,qu,pqsr,tuvw,rsvw->", p1[0], p2[0], dm2[0], eri[0], p3[0]) +  # aa
+               einsum("pt,qu,pqsr,tuvw,rsvw->", p1[1], p2[1], dm2[2], eri[2], p3[2]) +  # bb
+               einsum("pt,qu,pqsr,tuvw,rsvw->", p1[0], p2[0], dm2[1], eri[1], p3[2]) +  # ab
+               einsum("pqtu,pqsr,tuvw,rv,sw->", p3[0], dm2[1], eri[1], p1[1], p2[1])  # ba
+               )
+        return val
+
+    e2_tot = get_twobody_contrib(dm2, eri, p_frag) / fac
+
+    e2_loc = get_twobody_contrib(dm2, eri, p_frag, p_act) / fac
+
+    #print(
+    #    "!!!",
+    #    e2_tot,
+    #    get_twobody_contrib_bos(dm2, eri, p_frag) / fac,
+    #    get_twobody_contrib_bos(dm2, eri, p_frag, p2=p_act) / fac +
+    #        get_twobody_contrib_bos(dm2, eri, p_frag, p2=p_nl) / fac,
+    #    get_twobody_contrib_bos(dm2, eri, p_frag, p2=p_nl) / fac +
+    #    get_twobody_contrib_bos(dm2, eri, p_frag, p2=p_act, p3=p_bos) / fac +
+    #    get_twobody_contrib_bos(dm2, eri, p_frag, p_act, [x - y for (x, y) in zip(bident, p_bos)]) / fac
+    #)
+    #print(
+    #    get_twobody_contrib(dm2, eri, p_frag, p_act) / fac -
+    #        get_twobody_contrib_bos(dm2, eri, p_frag, p2=p_act, p3=b_act) / fac,
+    #    get_twobody_contrib_bos(dm2, eri, p_frag, p2=p_nl) / fac,
+    #    get_twobody_contrib_bos(dm2, eri, p_frag, p2=p_act, p3=p_bos) / fac,
+    #    get_twobody_contrib_bos(dm2, eri, p_frag, p2=p_act, p3=[x - y for (x, y) in zip(bident, p_bos)]) / fac,
+    #)
+
+    assert(abs(get_twobody_contrib(dm2, eri, p_frag, p_act) / fac -
+            get_twobody_contrib_bos(dm2, eri, p_frag, p2=p_act, p3=b_act) / fac) < 1e-8)
+
+    e2_nl_a = get_twobody_contrib_bos(dm2, eri, p_frag, p_nl, bident) / fac
+
+    e2_nl_b = get_twobody_contrib_bos(dm2, eri, p_frag, p_act, p_bos) / fac
+
+
+    e2_nl_c = get_twobody_contrib_bos(dm2, eri, p_frag, p_act, [x - y - z for (x,y,z) in zip(bident, p_bos, b_act)])/fac
+
+    print(e2_tot, e2_loc, e2_nl_a, e2_nl_b, e2_nl_c)
+
+    return e2_tot, e2_loc, e2_nl_a, e2_nl_b, e2_nl_c
+
+
+def get_energy_decomp_emb(frag, eris=None):
+    sc = [dot(frag.base.get_ovlp(), x) for x in frag.cluster.c_active]
+    # Difference from HF rdms.
+    mf_dm1 = np.array([dot(x.T, y, x) for x, y in zip(sc, frag.mf.make_rdm1())])
+    # dms in active orbitals
+    dm1 = np.array(frag.results.dm1) - mf_dm1
+    dm2 = np.array(frag.results.dm2)
+    # Deduct different spin components from dms.
+    dm2[0] = dm2[0] - einsum("pq,rs->pqrs", mf_dm1[0], mf_dm1[0]) + einsum("pq,rs->psrq", mf_dm1[0], mf_dm1[0])
+    dm2[1] = dm2[1] - einsum("pq,rs->pqrs", mf_dm1[0], mf_dm1[1])
+    dm2[2] = dm2[2] - einsum("pq,rs->pqrs", mf_dm1[1], mf_dm1[1]) + einsum("pq,rs->psrq", mf_dm1[1], mf_dm1[1])
+
+    c_act = frag.cluster.c_active
+    # onebody hamiltonian in active orbitals.
+    hcore_loc = np.array([dot(x.T, frag.base.get_hcore(), x) for x in c_act])
+    # fragment projector in active orbitals.
+    p_frag = np.array(frag.get_fragment_projector(c_act))
+    if eris is None:
+        c_full = frag.base.mo_coeff
+        eris_aa = frag.base.get_eris_array(c_full[0])
+        eris_ab = frag.base.get_eris_array((c_full[0], c_full[0], c_full[1], c_full[1]))
+        eris_bb = frag.base.get_eris_array(c_full[1])
+        eris = (eris_aa, eris_ab, eris_bb)
+
+    # Can compute this in the cluster space easily.
+    e1_loc = einsum("npq,nqr,nrp->", p_frag, dm1, hcore_loc)
+    # Zero by construction.
+    e1_nl = 0.0
+
+    e2_coulomb = get_twobody_emb(frag, p_frag, eris, dm2, False)
+    e2_antisym = get_twobody_emb(frag, p_frag, eris, dm2, True)
+
+    return (e1_loc, e1_nl), e2_coulomb, e2_antisym
+
+
+def get_twobody_emb(frag, p_frag, eri, dm2_loc, antisym=False):
+    c_act = frag.cluster.c_active
+    eris_aa = frag.base.get_eris_array(c_act[0])
+    eris_ab = frag.base.get_eris_array((c_act[0], c_act[0], c_act[1], c_act[1]))
+    eris_bb = frag.base.get_eris_array(c_act[1])
+    eri_loc = np.array([eris_aa, eris_ab, eris_bb])
+
+    fac = 2.0
+    eri = list(eri)
+    if antisym:
+
+        # Deduct exchange contributions where appropriate.
+        eri[0] = eri[0] - eri[0].transpose(0, 3, 2, 1)
+        eri[2] = eri[2] - eri[2].transpose(0, 3, 2, 1)
+
+        eri_loc[0] = eri_loc[0] - eri_loc[0].transpose(0, 3, 2, 1)
+        eri_loc[2] = eri_loc[2] - eri_loc[2].transpose(0, 3, 2, 1)
+
+        #fac = 4.0
+
+    # Local correlated 2rdm.
+    e2_loc = (einsum("pt,pqsr,tqrs->", p_frag[0], dm2_loc[0], eri_loc[0]) +
+              einsum("pt,pqsr,tqrs->", p_frag[0], dm2_loc[1], eri_loc[1]) +
+              einsum("rt,qprs,pqts->", p_frag[1], dm2_loc[1], eri_loc[1]) +
+              einsum("pt,pqsr,tqrs->", p_frag[1], dm2_loc[2], eri_loc[2])
+              ) / fac
+
+    # Approximate coupling of nonlocal excitations to the rest of the space at mean-field level.
+    e2_nl_a = 0.0
+
+    try:
+        r_bosa, r_bosb = frag.get_rbos_split()
+    except AttributeError:
+        noa, nob = frag.base.nocc
+        nva, nvb = frag.base.nvir
+
+        na, nb = frag.cluster.norb_active
+
+        r_bosa = np.zeros((0, noa, nva))
+        r_bosb = np.zeros((0, nob, nvb))
+
+        dm_eb = np.array([np.zeros((na, na, 0)), np.zeros((nb, nb, 0))])
+
+    else:
+        # This is in the active cluster basis.
+        dm_eb = np.array(frag.results.dm_eb)
+
+    # Bosonic coupling treats couplings of local excitations to the rest of the space, which would
+    # otherwise be neglected.
+    # Have contributions from all possible combos of spin pairs. Note that since bosons only contain same-spin
+    # excitations don't have to worry about spin-flip contributions.
+    # First, bosonic excitation couplings of all possible spin pairings.
+    noa, nob = frag.base.nocc
+
+    r = frag.get_overlap_m2c()
+
+    ra = block_diag(r[0][0], r[1][0])
+    rb = block_diag(r[0][1], r[1][1])
+
+    # excitation portion first.
+    e2_nl_b = (einsum("tp,pqn,nrs,tqrs", p_frag[0], dm_eb[0], r_bosa,
+                      einsum("qprs,pt,qu->turs", eri[0][:, :, :noa, noa:], ra, ra)) +  # aa
+               einsum("tp,pqn,nrs,tqrs", p_frag[0], dm_eb[0], r_bosb,
+                      einsum("qprs,pt,qu->turs", eri[1][:, :, :nob, nob:], ra, ra)) +  # ab
+               einsum("tp,pqn,nrs,tqrs", p_frag[1], dm_eb[1], r_bosa,
+                      einsum("qprs,pt,qu->turs", eri[2][:, :, :nob, nob:], rb, rb)) +  # bb
+               einsum("tp,pqn,nrs,tqrs", p_frag[1], dm_eb[1], r_bosa,
+                      einsum("rsqp,pt,qu->turs", eri[1][:noa, noa:, :, :], rb, rb))  # ba
+               ) / fac
+    print("%%", e2_nl_b)
+    # Now dexcitation portion; just a swap of the indices on the electron-boson dm.
+    e2_nl_b += (einsum("tp,qpn,nrs,tqrs", p_frag[0], dm_eb[0], r_bosa,
+                      einsum("qprs,pt,qu->turs", eri[0][:, :, :noa, noa:], ra, ra)) +  # aa
+               einsum("tp,qpn,nrs,tqrs", p_frag[0], dm_eb[0], r_bosb,
+                      einsum("qprs,pt,qu->turs", eri[1][:, :, :nob, nob:], ra, ra)) +  # ab
+               einsum("tp,qpn,nrs,tqrs", p_frag[1], dm_eb[1], r_bosa,
+                      einsum("qprs,pt,qu->turs", eri[2][:, :, :nob, nob:], rb, rb)) +  # bb
+               einsum("tp,qpn,nrs,tqrs", p_frag[1], dm_eb[1], r_bosa,
+                      einsum("rsqp,pt,qu->turs", eri[1][:noa, noa:, :, :], rb, rb))  # ba
+               ) / fac
+
+    # Coupling between local excitations and non-bosonic interactions.
+    # In this case this is just the mean-field contribution.
+    e2_nl_c = 0.0
+
+    return e2_loc, e2_nl_a, e2_nl_b, e2_nl_c
 
 
 def get_comparison(basis, cardinality, res_file):
     import vayesta.edmet
     import vayesta.dmet
     from pyscf import cc, gto, scf
-    from vayesta.misc import molstructs
+    from pyscf.tools import ring
 
     mol = gto.Mole()
-    mol.atom = molstructs.arene(6)
-    mol.basis
+    mol.atom = [('H %f %f %f' % xyz) for xyz in ring.make(10, 1.0)]
+    mol.basis = basis
 
     rmf = scf.RHF(mol)
     rdfmf = rmf.density_fit()
-    rdfmf.conv_tol=1e-10
+    rdfmf.conv_tol = 1e-10
     rdfmf.kernel()
 
     myccsd = cc.CCSD(rdfmf)
     myccsd.kernel()
-    dm1 = myccsd.make_rdm1()
-    dm2 = myccsd.make_rdm2()
+    mf_dm1 = rdfmf.make_rdm1()
+    dm1 = myccsd.make_rdm1(ao_repr=True) - mf_dm1
+    dm2 = myccsd.make_rdm2(ao_repr=True) - einsum("pq,rs->pqrs", mf_dm1, mf_dm1) + einsum("pq,rs->psrq", mf_dm1, mf_dm1)
 
-    rdfedmet = vayesta.edmet.EDMET(rdfmf, oneshot=True, make_dd_moments=False, solver = "EBCCSD", dmet_threshold=1e-12, bosonic_interaction="qba_bos_ex"); rdfedmet.iao_fragmentation(); rdfedmet.add_atomic_fragment([0,2,4,6,8,10], orbital_filter=["2pz"])
+    # Now need to convert to
+    rdfedmet = vayesta.edmet.EDMET(rdfmf, oneshot=True, make_dd_moments=False, solver="EBCCSD", dmet_threshold=1e-12,
+                                   bosonic_interaction="qba_bos_ex")
+    rdfedmet.iao_fragmentation()
+    rdfedmet.add_atomic_fragment([0])
     rdfedmet.kernel()
 
-    res = next(ed.get_energy_decomp(rdfedmet, dm1, dm2)
+    res = next(get_energy_decomp(rdfedmet, dm1, dm2))
     del rdfedmet
-    rdfdmet = vayesta.dmet.DMET(rdfmf, oneshot=True, solver = "CCSD", dmet_threshold=1e-12); rdfdmet.iao_fragmentation(); rdfdmet.add_atomic_fragment([0,2,4,6,8,10], orbital_filter=["2pz"])
+    rdfdmet = vayesta.dmet.DMET(rdfmf, oneshot=True, solver="CCSD", dmet_threshold=1e-12)
+    rdfdmet.iao_fragmentation();
+    rdfdmet.add_atomic_fragment([0])
     rdfdmet.kernel()
-    resdmet = next(ed.get_energy_decomp(rdfdmet, dm1, dm2)
+    resdmet = next(get_energy_decomp(rdfdmet, dm1, dm2))
 
     with open(res_file, "a") as f:
-        f.write((" {:d}   "+"   {:16.8e}"*10).format(cardinality, res[0], res[1], res[4], res[5], resdmet[0], resdmet[1], resdmet[2], resdmet[3], resdmet[4], resdmet[5])
+        f.write((" {:d}   " + "   {:16.8e}" * 10).format(cardinality, res[0], res[1], res[4], res[5], resdmet[0],
+                                                         resdmet[1], resdmet[2], resdmet[3], resdmet[4], resdmet[5]))
 
 
 def run_full_comparison():
@@ -115,9 +333,10 @@ def run_full_comparison():
     basis_sets = ["STO-3g", "cc-pvdz", "cc-pvtz", "cc-pvqz"]
 
     with open(res_file, "a") as f:
-        f.write(" #   Cardinality                                   EDMET                          |                DMET                                          |             Exact")
-        f.write(" #                     DM1_prop_err      DM2_prop_err    E_onebody     E_twobody  |   DM1_prop_err      DM2_prop_err    E_onebody     E_twobody  |   E_onebody     E_twobody")
-
+        f.write(
+            " #   Cardinality                                   EDMET                          |                DMET                                          |             Exact")
+        f.write(
+            " #                     DM1_prop_err      DM2_prop_err    E_onebody     E_twobody  |   DM1_prop_err      DM2_prop_err    E_onebody     E_twobody  |   E_onebody     E_twobody")
 
     for i, bas in enumerate(basis_sets):
-        get_comparison(bas, i+1, res_file)
+        get_comparison(bas, i + 1, res_file)
