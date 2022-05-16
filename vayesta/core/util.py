@@ -63,8 +63,10 @@ NotSet = NotSetType()
 
 # --- NumPy
 
-def dot(*args, out=None):
+def dot(*args, out=None, ignore_none=False):
     """Like NumPy's multi_dot, but variadic"""
+    if ignore_none:
+        args = [a for a in args if a is not None]
     return np.linalg.multi_dot(args, out=out)
 
 def _einsum_replace_decorated_subscripts(subscripts):

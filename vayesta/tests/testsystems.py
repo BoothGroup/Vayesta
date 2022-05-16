@@ -76,6 +76,8 @@ class TestMolecule:
     @cache
     def rccsd(self):
         rccsd = pyscf.cc.RCCSD(self.rhf())
+        rccsd.conv_tol = 1e-10
+        rccsd.conv_tol_normt = 1e-8
         rccsd.kernel()
         rccsd.solve_lambda()
         return rccsd
@@ -83,6 +85,8 @@ class TestMolecule:
     @cache
     def uccsd(self):
         uccsd = pyscf.cc.UCCSD(self.uhf())
+        uccsd.conv_tol = 1e-10
+        uccsd.conv_tol_normt = 1e-8
         uccsd.kernel()
         uccsd.solve_lambda()
         return uccsd

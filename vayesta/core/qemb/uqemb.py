@@ -14,6 +14,7 @@ from vayesta.core.mpi import mpi
 from vayesta.core.ao2mo import postscf_kao2gmo_uhf
 
 from .rdm import make_rdm1_demo_uhf
+from .rdm import make_rdm2_demo_uhf
 
 class UEmbedding(Embedding):
     """Spin unrestricted quantum embedding."""
@@ -227,10 +228,7 @@ class UEmbedding(Embedding):
     # ---------
 
     make_rdm1_demo = make_rdm1_demo_uhf
-
-    # TODO
-    def make_rdm2_demo(self, *args, **kwargs):
-        raise NotImplementedError()
+    make_rdm2_demo = make_rdm2_demo_uhf
 
     def pop_analysis(self, dm1, mo_coeff=None, local_orbitals='lowdin', write=True, minao='auto', mpi_rank=0, **kwargs):
         # IAO / PAOs are spin dependent - we need to build them here:

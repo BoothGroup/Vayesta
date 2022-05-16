@@ -346,6 +346,17 @@ class UFragment(Fragment):
     # --- Overlap matrices
     # --------------------
 
-    def _csc_dot(self, c1, c2):
-        ovlp = self.base.get_ovlp()
-        return (dot(c1[0].T, ovlp, c2[0]), dot(c1[1].T, ovlp, c2[1]))
+    def _csc_dot(self, c1, c2, ovlp=True, transpose_left=True, transpose_right=False):
+        if transpose_left:
+            c1 = (c1[0].T, c1[1].T)
+        if transpose_right:
+            c2 = (c2[0].T, c2[1].T)
+        if ovlp is True:
+            ovlp = self.base.get_ovlp()
+        if ovlp is None:
+            outa = dot(c1[0], c2[0])
+            outb = dot(c1[1], c2[1])
+            return (outa, outb)
+        outa = dot(c1[0], ovlp, c2[0])
+        outb = dot(c1[1], ovlp, c2[1])
+        return (outa, outb)
