@@ -505,7 +505,7 @@ class EWF(Embedding):
         elif projection.replace('+', '').replace('/', '') == 'iaopao':
             frag = IAOPAO_Fragmentation(self.mf, self.log)
         else:
-            raise NotImplementedError("Projection '%s' not implemented" % projection)
+            raise ValueError("Invalid projection: %s" % projection)
         frag.kernel()
         ovlp = self.get_ovlp()
         c_atom = []

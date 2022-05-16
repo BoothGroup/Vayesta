@@ -102,16 +102,23 @@ def make_rdm2_demo_rhf(emb, ao_basis=False, with_mf=True, with_dm1=True, approx_
     Energies can be evaluated as follows from the 1-DM and 2-DM:
 
     1) Literature DMET energy:
+    >>> e_nuc = mol.energy_nuc()
     >>> hcore = mf.get_hcore()
     >>> eris = pyscf.ao2mo.kernel(mol, mf.mo_coeff, compact=False).reshape([mol.nao]*4)
-    >>> ddm1 = emb.make_rdm1_demo(ao_basis=True, with_mf=False)
+    >>> dm1 = emb.make_rdm1_demo(ao_basis=True)
     >>> dm2 = emb.make_rdm2_demo(ao_basis=True, approx_cumulant=True, dmet_dm2=True)
-    >>> e_tot = mf.e_tot + np.sum(hcore*ddm1_corr) + np.sum(eris*dm2)
+    >>> e_tot = e_nuc + np.sum(hcore*dm1) + np.sum(eris*dm2)
+
+    ...or in terms of the (approximated) cumulant:
+    >>> vhf = mf.get_veff()
+    >>> ddm1 = 2*dm1 - mf.make_rdm1()
+    >>> ddm2 = emb.make_rdm2_demo(ao_basis=True, with_dm1=False, approx_cumulant=True, dmet_dm2=True)
+    >>> e_tot = e_nuc + np.sum(hcore*dm1) + np.sum(eris*ddm2) + np.sum(vhf*ddm1)/2
 
     2) Improved DMET energy (same as `emb.get_dmet_energy(version=2)`):
     >>> dm1 = emb.make_rdm1_demo(ao_basis=True)
     >>> dm2 = emb.make_rdm2_demo(ao_basis=True, approx_cumulant=True, dmet_dm2=False)
-    >>> e_tot = mol.energy_nuc() + np.sum(hcore*dm1) + np.sum(eris*dm2)/2
+    >>> e_tot = e_nuc + np.sum(hcore*dm1) + np.sum(eris*dm2)/2
 
     ...or in terms of the (approximated) cumulant:
     >>> fock = mf.get_fock()
@@ -122,12 +129,12 @@ def make_rdm2_demo_rhf(emb, ao_basis=False, with_mf=True, with_dm1=True, approx_
     3) Improved DMET energy with true cumulant (same as `emb.get_dmet_energy(version=2, approx_cumulant=False)`):
     >>> dm1 = emb.make_rdm1_demo(ao_basis=True)
     >>> dm2 = emb.make_rdm2_demo(ao_basis=True, approx_cumulant=False)
-    >>> e_tot = mol.energy_nuc() + np.sum(hcore*dm1) + np.sum(eris*dm2)/2
+    >>> e_tot = e_nuc + np.sum(hcore*dm1) + np.sum(eris*dm2)/2
 
     ...or in terms of the cumulant:
     >>> ddm2 = emb.make_rdm2_demo(ao_basis=True, with_dm1=False, approx_cumulant=False)
     >>> fcorr = mf.get_fock(dm=dm1)
-    >>> e_tot = mol.energy_nuc() + np.sum((hcore+fcorr)*dm1)/2 + np.sum(eris*ddm2)/2
+    >>> e_tot = e_nuc + np.sum((hcore+fcorr)*dm1)/2 + np.sum(eris*ddm2)/2
 
 
     Parameters
@@ -143,8 +150,8 @@ def make_rdm2_demo_rhf(emb, ao_basis=False, with_mf=True, with_dm1=True, approx_
         If True, the mixed non-cumulant contributions, "DM1(MF) * [DM1(corr)-DM1(MF)]", will be projected
         symmetrically between both factors. This will return a 2-DM will evaluates to the DMET-energy
         of the literature. If False, only the second factor will be projected. This will generally
-        give better expectation values and is the recommended setting. This value will only make
-        a difference of `approx_cumulant` is True. Default: True.
+        give better expectation values and is the recommended setting. This value is ignored if
+        `approx_cumulant` is False. Default: True.
     symmetrize: bool, optional
         Symmetrize the density-matrix at the end of the calculation. Default: True.
 
@@ -158,6 +165,8 @@ def make_rdm2_demo_rhf(emb, ao_basis=False, with_mf=True, with_dm1=True, approx_
     # Loop over fragments to get cumulant contributions + non-cumulant contributions,
     # if (approx_cumulant and dmet_dm2):
     for x in emb.fragments:
+
+
         rx = x.get_overlap('mo|cluster')
         px = x.get_overlap('cluster|frag|cluster')
 
@@ -171,6 +180,19 @@ def make_rdm2_demo_rhf(emb, ao_basis=False, with_mf=True, with_dm1=True, approx_
             if (with_dm1 and dmet_dm2):
                 dm1x = x.results.wf.make_rdm1(with_mf=False)
                 dm1x = dot(rx, dm1x, rx.T)
+                # Add MF (1/2, since two mixed products are added):
+                dm1x[np.diag_indices(emb.nocc)] += 1
+
+                # The below is equivalent to:
+                # p = x.get_overlap('mo|frag|mo')
+                # ddm2 = np.zeros_like(dm2)
+                # for i in range(emb.nocc):
+                #     ddm2[i,i,:,:] += 2*dm1x
+                #     ddm2[:,:,i,i] += 2*dm1x
+                #     ddm2[:,i,i,:] -= dm1x
+                #     ddm2[i,:,:,i] -= dm1x
+                # dm2 += einsum('xi,ijkl->xjkl', p, ddm2)
+
                 p = x.get_overlap('mo|frag|mo')
                 pdm1x = np.dot(p, dm1x)
 
@@ -179,14 +201,15 @@ def make_rdm2_demo_rhf(emb, ao_basis=False, with_mf=True, with_dm1=True, approx_
                 dm2 += 2*einsum('ij,kl->ijkl', p, dm1x)
                 dm2 -= einsum('ij,kl->iklj', p, dm1x)
                 # Replacing the above with this would lead to the new DMET energy:
-                #for i in range(emb.nocc):
-                #    dm2[i,i] += 2*pdm1x
-                #    dm2[i,:,:,i] -= pdm1x
+                # for i in range(emb.nocc):
+                #     dm2[i,i] += 2*pdm1x
+                #     dm2[i,:,:,i] -= pdm1x
 
                 # Projected DM1(CC)
                 for i in range(emb.nocc):
                     dm2[:,:,i,i] += 2*pdm1x
                     dm2[:,i,i,:] -= pdm1x
+
         # Warning: This will give bad results [worse than E(DMET)]:
         elif (approx_cumulant == 2):
             dm2x = x.results.wf.make_rdm2()
