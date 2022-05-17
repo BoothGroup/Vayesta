@@ -3,6 +3,49 @@ from vayesta.core.util import *
 import numpy as np
 from scipy.linalg import block_diag
 
+
+
+def dump_results(res, filename, method = "emb", write_exact = True):
+    def write_cluster_result(clusres, filename, method, write_exact=True):
+        clus_id, clusres = clusres[0], clusres[1:]
+        fname_exact = filename + "_exact"
+        fname_method = filename + "_" + method
+
+        def get_result_string(id, ob, tb_c, tb_a):
+            return ("  {:4d}    {:10s}" + "   {:12.6e}" * len(ob) + " |"
+                    + "   {:12.6e}" * len(tb_c) + " |" + "   {:12.6e}" * len(tb_a)
+                    +"\n").format(*id, *ob, *tb_c, *tb_a)
+        if write_exact:
+            with open(fname_exact, "a") as f:
+                f.write(get_result_string(clus_id, clusres[0][0], clusres[0][1][1:], clusres[0][2][1:]))
+                print(f"For cluster {clus_id[1]} total correlation energies are {sum(clusres[0][0]) + clusres[0][1][0]}"
+                      f"and {sum(clusres[0][0]) + clusres[0][2][0]}")
+        with open(fname_method, "a") as f:
+            f.write(get_result_string(clus_id, *clusres[1]))
+
+    fname_exact = filename + "_exact"
+    fname_method = filename + "_" + method
+
+    header_string = [("#   frag_id      frag_name   " + "{:^27s} | {:^60s} | {:^60s}\n").format("onebody", "twobody_coulomb", "twobody_antisym"),
+        ("# " + " "* len("  frag_id      frag_name   ") + "   {:<12s}" * 2 + " |" + "   {:<12s}" * 4 + " |" + "   {:<12s}" * 4 + "\n").format(
+        "loc", "nl",
+        "loc", "nl_a", "nl_b", "nl_c",
+        "loc", "nl_a", "nl_b", "nl_c"
+    )
+    ]
+
+    if write_exact:
+        with open(fname_exact, "a") as f:
+            for x in header_string:
+                f.write(x)
+    with open(fname_method, "a") as f:
+        for x in header_string:
+            f.write(x)
+
+    for x in res:
+        write_cluster_result(x, filename, method, write_exact)
+
+
 def get_energy_decomp(emb, dm1, dm2):
     c = emb.mo_coeff
     eris_aa = emb.get_eris_array(c[0])
@@ -33,7 +76,9 @@ def get_energy_decomp(emb, dm1, dm2):
         p_frag = f.get_fragment_projector(c)
 
         p_act = f.get_fragment_projector(c, f.cluster.c_active)
-
+        #print("Testing projectors:")
+        #print(np.linalg.eigvalsh(p_frag))
+        #print(np.linalg.eigvalsh(p_act))
         try:
             r_bosa, r_bosb = f.get_rbos_split()
         except AttributeError:
@@ -43,8 +88,13 @@ def get_energy_decomp(emb, dm1, dm2):
             r_bosa = np.zeros((0, noa, nva))
             r_bosb = np.zeros((0, nob, nvb))
 
-        p_bos = [einsum("nia,njb->iajb", r_bosa, r_bosa), einsum("nia,njb->iajb", r_bosa, r_bosb),
-                 einsum("nia,njb->iajb", r_bosb, r_bosb)]
+        def get_pinv(r):
+            nbos = r.shape[0]
+            r2 = r.reshape((nbos, -1))
+            return np.linalg.pinv(r2).reshape((r.shape[1], r.shape[2], nbos)).transpose(2,0,1)
+
+        p_bos = [einsum("nia,njb->iajb", get_pinv(r_bosa), r_bosa), einsum("nia,njb->iajb", get_pinv(r_bosa), r_bosb),
+                 einsum("nia,njb->iajb", get_pinv(r_bosb), r_bosb)]
 
         def map_ov_to_full(mat):
             no1, nv1, no2, nv2 = mat.shape
@@ -52,6 +102,10 @@ def get_energy_decomp(emb, dm1, dm2):
             res = np.zeros((n1, n1, n2, n2))
             res[:no1, no1:, :no2, no2:] = mat
             res[no1:, :no1, no2:, :no2] = mat.transpose(1,0,3,2)
+            eigs = np.linalg.eigvals(res.reshape((n1**2, n2**2)))
+            res = res.transpose(0,1,3,2)
+            #print(abs(eigs.imag).max())
+            #print("^^^^", sorted(eigs.real))
             return res#.transpose(0,1,3,2)
         p_bos = tuple([map_ov_to_full(x) for x in p_bos])
 
@@ -61,7 +115,7 @@ def get_energy_decomp(emb, dm1, dm2):
 
         e1_emb, e2_c_emb, e2_as_emb = get_energy_decomp_emb(f, eris)
         res_emb += [e1_emb, e2_c_emb, e2_as_emb]
-        yield ((e1_exact, e2_c_exact, e2_as_exact), (e1_emb, e2_c_emb, e2_as_emb))
+        yield ((f.id, f.id_name), (e1_exact, e2_c_exact, e2_as_exact), (e1_emb, e2_c_emb, e2_as_emb))
 
     # return res_exact, res_emb
 
@@ -102,9 +156,14 @@ def get_twobody(dm2, p_frag, p_act, p_bos, eri, p_nl, antisym=False):
     b_act = [einsum("pq,rs->prqs", x, y) for (x, y) in [(p_act[0], p_act[0]), (p_act[0], p_act[1]),
                                                         (p_act[1], p_act[1])]]
 
-    def get_twobody_contrib(dm2, eri, p1, p2=None):
+    def get_twobody_contrib(dm2, eri, p1, p2=None, verbose = False):
         if p2 is None:
-            p2 = [np.eye(p1[x].shape[0]) for x in range(2)]
+            p2 = [np.eye(x.shape[0]) for x in p1]
+        if verbose:
+            print("1")
+            print(p1)
+            print("2")
+            print(p2)
 
         val = (einsum("pt,qu,pqsr,tuvw,rv,sw->", p1[0], p2[0], dm2[0], eri[0], p2[0], p2[0]) +  # aa
                einsum("pt,qu,pqsr,tuvw,rv,sw->", p1[1], p2[1], dm2[2], eri[2], p2[1], p2[1]) +  # bb
@@ -127,27 +186,27 @@ def get_twobody(dm2, p_frag, p_act, p_bos, eri, p_nl, antisym=False):
                )
         return val
 
-    e2_tot = get_twobody_contrib(dm2, eri, p_frag) / fac
+    e2_tot = get_twobody_contrib(dm2, eri, p_frag, verbose=True) / fac
 
     e2_loc = get_twobody_contrib(dm2, eri, p_frag, p_act) / fac
 
-    #print(
-    #    "!!!",
-    #    e2_tot,
-    #    get_twobody_contrib_bos(dm2, eri, p_frag) / fac,
-    #    get_twobody_contrib_bos(dm2, eri, p_frag, p2=p_act) / fac +
-    #        get_twobody_contrib_bos(dm2, eri, p_frag, p2=p_nl) / fac,
-    #    get_twobody_contrib_bos(dm2, eri, p_frag, p2=p_nl) / fac +
-    #    get_twobody_contrib_bos(dm2, eri, p_frag, p2=p_act, p3=p_bos) / fac +
-    #    get_twobody_contrib_bos(dm2, eri, p_frag, p_act, [x - y for (x, y) in zip(bident, p_bos)]) / fac
-    #)
-    #print(
-    #    get_twobody_contrib(dm2, eri, p_frag, p_act) / fac -
-    #        get_twobody_contrib_bos(dm2, eri, p_frag, p2=p_act, p3=b_act) / fac,
-    #    get_twobody_contrib_bos(dm2, eri, p_frag, p2=p_nl) / fac,
-    #    get_twobody_contrib_bos(dm2, eri, p_frag, p2=p_act, p3=p_bos) / fac,
-    #    get_twobody_contrib_bos(dm2, eri, p_frag, p2=p_act, p3=[x - y for (x, y) in zip(bident, p_bos)]) / fac,
-    #)
+    print(
+        "!!!",
+        e2_tot,
+        get_twobody_contrib_bos(dm2, eri, p_frag) / fac,
+        get_twobody_contrib_bos(dm2, eri, p_frag, p2=p_act) / fac +
+            get_twobody_contrib_bos(dm2, eri, p_frag, p2=p_nl) / fac,
+        get_twobody_contrib_bos(dm2, eri, p_frag, p2=p_nl) / fac +
+        get_twobody_contrib_bos(dm2, eri, p_frag, p2=p_act, p3=p_bos) / fac +
+        get_twobody_contrib_bos(dm2, eri, p_frag, p_act, [x - y for (x, y) in zip(bident, p_bos)]) / fac
+    )
+    print(
+        get_twobody_contrib(dm2, eri, p_frag, p_act) / fac -
+            get_twobody_contrib_bos(dm2, eri, p_frag, p2=p_act, p3=b_act) / fac,
+        get_twobody_contrib_bos(dm2, eri, p_frag, p2=p_nl) / fac,
+        get_twobody_contrib_bos(dm2, eri, p_frag, p2=p_act, p3=p_bos) / fac,
+        get_twobody_contrib_bos(dm2, eri, p_frag, p2=p_act, p3=[x - y for (x, y) in zip(bident, p_bos)]) / fac,
+    )
 
     assert(abs(get_twobody_contrib(dm2, eri, p_frag, p_act) / fac -
             get_twobody_contrib_bos(dm2, eri, p_frag, p2=p_act, p3=b_act) / fac) < 1e-8)
