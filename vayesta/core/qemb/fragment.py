@@ -745,13 +745,15 @@ class Fragment:
         t0 = timer()
         if eris is None:
             eris = self._eris
+            # Fix for MP2:
+            if isinstance(eris, np.ndarray) and (eris.shape[:2] == (self.cluster.nocc_active, self.cluster.nvir_active)):
+                eris = None
         if eris is None:
             with log_time(self.log.timingv, "Time for AO->MO transformation: %s"):
                 eris = self.base.get_eris_array(c_act)
         if not isinstance(eris, np.ndarray):
             self.log.debugv("Extracting ERI array from CCSD ERIs object.")
             eris = vayesta.core.ao2mo.helper.get_full_array(eris, c_act)
-
 
         version = (version or 1)
         if (version == 1):
