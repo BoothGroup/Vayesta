@@ -46,6 +46,7 @@ class TestMolecule:
         rhf = pyscf.scf.RHF(self.mol)
         if self.auxbasis is not None:
             rhf = rhf.density_fit(auxbasis=self.auxbasis)
+        rhf.conv_tol = 1e-10
         rhf.kernel()
         return rhf
 
@@ -54,6 +55,7 @@ class TestMolecule:
         uhf = pyscf.scf.UHF(self.mol)
         if self.auxbasis is not None:
             uhf = uhf.density_fit(auxbasis=self.auxbasis)
+        uhf.conv_tol = 1e-10
         uhf.kernel()
         return uhf
 
@@ -108,7 +110,7 @@ class TestMolecule:
 
 class TestSolid:
 
-    def __init__(self, a, atom, basis, kmesh=None, auxbasis=None, supercell=None, verbose=0, **kwargs):
+    def __init__(self, a, atom, basis, kmesh=None, auxbasis=None, supercell=None, exxdiv='ewald', verbose=0, **kwargs):
         super().__init__()
         mol = pyscf.pbc.gto.Cell()
         mol.a = a
@@ -124,6 +126,7 @@ class TestSolid:
         #kmesh = (kmesh or supercell)
         self.kpts = self.mol.make_kpts(kmesh) if kmesh is not None else None
         self.auxbasis = auxbasis
+        self.exxdiv = exxdiv
 
     # --- Mean-field
 
@@ -137,6 +140,7 @@ class TestSolid:
         if self.kpts is not None:
             rhf = kconj_symmetry_(rhf)
         rhf.conv_tol = 1e-10
+        rhf.exxdiv = self.exxdiv
         rhf.kernel()
         #if self.supercell is not None:
         #    rhf = fold_scf(rhf)
@@ -154,6 +158,7 @@ class TestSolid:
         if self.kpts is not None:
             uhf = kconj_symmetry_(uhf)
         uhf.conv_tol = 1e-10
+        uhf.exxdiv = self.exxdiv
         uhf.kernel()
         #if self.supercell is not None:
         #    uhf = fold_scf(uhf)

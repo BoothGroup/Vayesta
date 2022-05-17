@@ -513,17 +513,17 @@ class Embedding:
         """Core Hamiltonian used for energy evaluation."""
         return self.get_hcore()
 
-    def get_veff_for_energy(self, with_exxdiv=True):
+    def get_veff_for_energy(self, dm1=None, with_exxdiv=True):
         """Hartree-Fock potential used for energy evaluation."""
-        return self.get_veff(with_exxdiv=with_exxdiv)
+        return self.get_veff(dm1=dm1, with_exxdiv=with_exxdiv)
 
-    def get_fock_for_energy(self, with_exxdiv=True):
+    def get_fock_for_energy(self, dm1=None, with_exxdiv=True):
         """Fock matrix used for energy evaluation."""
-        return (self.get_hcore_for_energy() + self.get_veff_for_energy(with_exxdiv=with_exxdiv))
+        return (self.get_hcore_for_energy() + self.get_veff_for_energy(dm1=dm1, with_exxdiv=with_exxdiv))
 
-    def get_fock_for_bath(self, with_exxdiv=True):
+    def get_fock_for_bath(self, dm1=None, with_exxdiv=True):
         """Fock matrix used for bath orbitals."""
-        return self.get_fock(with_exxdiv=with_exxdiv)
+        return self.get_fock(dm1=dm1, with_exxdiv=with_exxdiv)
 
     # Other integral methods:
 
@@ -799,24 +799,25 @@ class Embedding:
             Electronic DMET energy.
         """
         e_dmet = 0.0
-        for f in self.get_fragments(mpi_rank=mpi.rank):
-            e_dmet += f.get_fragment_dmet_energy(version=version, approx_cumulant=approx_cumulant)
+        for x in self.get_fragments(mpi_rank=mpi.rank, sym_parent=None):
+            wx = x.symmetry_factor
+            e_dmet += wx*x.get_fragment_dmet_energy(version=version, approx_cumulant=approx_cumulant)
         if mpi:
             mpi.world.allreduce(e_dmet)
         version = (version or 1)
         if (version == 2):
             dm1 = self.make_rdm1_demo(ao_basis=True)
             if not approx_cumulant:
-                vhf = self.get_veff(dm1=dm1, with_exxdiv=False)
-            elif (approx_cumulant in (1, True)):
+                vhf = self.get_veff_for_energy(dm1=dm1, with_exxdiv=False)
+            elif (int(approx_cumulant) == 1):
                 dm1 = 2*dm1 - self.mf.make_rdm1()
-                vhf = self.get_veff_for_energy()
+                vhf = self.get_veff_for_energy(with_exxdiv=False)
             else:
                 raise ValueError
             e_dmet += np.sum(vhf * dm1)/2
 
         self.log.debugv("E_elec(DMET)= %s", energy_string(e_dmet))
-        return e_dmet
+        return e_dmet / self.ncells
 
     def get_dmet_energy(self, with_nuc=True, with_exxdiv=True, version=0, approx_cumulant=True):
         """Calculate DMET energy via democratically partitioned density-matrices.
@@ -1077,12 +1078,14 @@ class Embedding:
         **kwargs:
             Additional keyword arguments are passed through to each fragment constructor.
         """
+        t_init = timer()
         fragments = []
         #for atom in self.symmetry.get_unique_atoms():
         natom = self.kcell.natm if self.kcell is not None else self.mol.natm
         for atom in range(natom):
             frag = self.add_atomic_fragment(atom, **kwargs)
             fragments.append(frag)
+        self.log.timing("Time for fragments: %s", time_string(timer()-t_init))
         return fragments
 
     # --- Mean-field updates

@@ -113,7 +113,7 @@ class UEWF(REWF, UEmbedding):
 
     # --- Other expectation values
 
-    def get_atomic_ssz(self, atoms=None, dm1=None, dm2=None, projection='sao', use_cluster_dms=False, dm2_with_dm1=None):
+    def get_atomic_ssz(self, dm1=None, dm2=None, atoms=None, projection='sao', use_cluster_dms=False, dm2_with_dm1=None):
         """Get expectation values <P(A) S_z^2 P(B)>, where P(X) are projectors onto atoms.
 
         TODO: MPI"""
@@ -138,7 +138,7 @@ class UEWF(REWF, UEmbedding):
         elif projection.replace('+', '').replace('/', '') == 'iaopao':
             frag = make_iaopao_fragmentation(self.mf, self.log)
         else:
-            raise NotImplementedError("Projection '%s' not implemented" % projection)
+            raise ValueError("Invalid projection: %s" % projection)
         frag.kernel()
         ovlp = self.get_ovlp()
         c_atom = []

@@ -31,13 +31,12 @@ def make_rdm1_demo_rhf(emb, ao_basis=False, with_mf=True, symmetrize=True):
     dm1 = np.zeros((emb.nmo, emb.nmo))
     if with_mf is True:
         dm1[np.diag_indices(emb.nocc)] = 2
-    for f in emb.fragments:
-        emb.log.debugv("Now adding projected DM of fragment %s", f)
-        ddm = f.results.wf.make_rdm1(with_mf=False)
-        cf = f.cluster.c_active
-        rf = dot(mo_coeff.T, ovlp, cf)
-        pf = f.get_fragment_projector(cf)
-        dm1 += einsum('xi,ij,px,qj->pq', pf, ddm, rf, rf)
+    for x in emb.fragments:
+        emb.log.debugv("Now adding projected DM of fragment %s", x)
+        dm1x = x.results.wf.make_rdm1(with_mf=False)
+        rx = x.get_overlap('mo|cluster')
+        px = x.get_overlap('cluster|frag|cluster')
+        dm1 += einsum('xi,ij,px,qj->pq', px, dm1x, rx, rx)
     if symmetrize:
         dm1 = (dm1 + dm1.T)/2
     if ao_basis:
@@ -72,15 +71,13 @@ def make_rdm1_demo_uhf(emb, ao_basis=False, with_mf=True, symmetrize=True):
     if with_mf is True:
         dm1a[np.diag_indices(emb.nocc[0])] = 1
         dm1b[np.diag_indices(emb.nocc[1])] = 1
-    for f in emb.fragments:
-        emb.log.debugv("Now adding projected DM of fragment %s", f)
-        ddma, ddmb = f.results.wf.make_rdm1(with_mf=False)
-        cf = f.cluster.c_active
-        rfa = dot(mo_coeff[0].T, ovlp, cf[0])
-        rfb = dot(mo_coeff[1].T, ovlp, cf[1])
-        pfa, pfb = f.get_fragment_projector(cf)
-        dm1a += einsum('xi,ij,px,qj->pq', pfa, ddma, rfa, rfa)
-        dm1b += einsum('xi,ij,px,qj->pq', pfb, ddmb, rfb, rfb)
+    for x in emb.fragments:
+        emb.log.debugv("Now adding projected DM of fragment %s", x)
+        dm1xa, dm1xb = x.results.wf.make_rdm1(with_mf=False)
+        rxa, rxb = x.get_overlap('mo|cluster')
+        pxa, pxb = x.get_overlap('cluster|frag|cluster')
+        dm1a += einsum('xi,ij,px,qj->pq', pxa, dm1xa, rxa, rxa)
+        dm1b += einsum('xi,ij,px,qj->pq', pxb, dm1xb, rxb, rxb)
     if symmetrize:
         dm1a = (dm1a + dm1a.T)/2
         dm1b = (dm1b + dm1b.T)/2
@@ -302,7 +299,6 @@ def make_rdm2_demo_uhf(emb, ao_basis=False, with_mf=True, with_dm1=True, approx_
                 dm1xa[np.diag_indices(emb.nocc[0])] += 0.5
                 dm1xb[np.diag_indices(emb.nocc[1])] += 0.5
 
-                # The below is equivalent to:
                 pa, pb = x.get_overlap('mo|frag|mo')
                 ddm2aa = np.zeros_like(dm2aa)
                 ddm2ab = np.zeros_like(dm2ab)

@@ -133,13 +133,12 @@ class UEmbedding(Embedding):
         if (version == 2):
             dm1 = self.make_rdm1_demo(ao_basis=True)
             if not approx_cumulant:
-                vhf = self.get_veff(dm1=dm1, with_exxdiv=False)
-                vhf2 = self.get_veff(with_exxdiv=False)
+                vhf = self.get_veff_for_energy(dm1=dm1, with_exxdiv=False)
             elif (approx_cumulant in (1, True)):
                 dm1_mf = self.mf.make_rdm1()
                 dm1 = (2*dm1[0] - dm1_mf[0],
                        2*dm1[1] - dm1_mf[1],)
-                vhf = self.get_veff_for_energy()
+                vhf = self.get_veff_for_energy(with_exxdiv=False)
             else:
                 raise ValueError
             e_dmet += (np.sum(vhf[0] * dm1[0])

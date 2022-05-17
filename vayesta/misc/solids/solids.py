@@ -1,6 +1,7 @@
 import numpy as np
 
 def diamond(atoms=['C', 'C'], a=3.57):
+    """Silicon: a=5.431 A"""
     amat = a * np.asarray([
         [0.5, 0.5, 0.0],
         [0.0, 0.5, 0.5],
