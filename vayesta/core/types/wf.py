@@ -248,6 +248,41 @@ class RMP2_WaveFunction(WaveFunction):
         super().__init__(mo, projector=projector)
         self.t2 = t2
 
+    def make_rdm1(self, with_mf=True, ao_basis=False):
+        t2 = self.t2
+        doo = -(2*einsum('ikab,jkab->ij', t2, t2) - einsum('ikab,kjab->ij', t2, t2))
+        dvv = 2*einsum('ijac,ijbc->ab', t2, t2) - einsum('ijac,ijcb->ab', t2, t2)
+        if with_mf:
+            doo += np.eye(self.nocc)
+        dm1 = np.zeros((self.norb, self.norb))
+        occ, vir = np.s_[:self.nocc], np.s_[self.nocc:]
+        dm1[occ,occ] = doo + doo.T
+        dm1[vir,vir] = dvv + dvv.T
+        if ao_basis:
+            dm1 = dot(self.mo.coeff, dm1, self.mo.coeff.T)
+        return dm1
+
+    def make_rdm2(self, with_dm1=True, ao_basis=False, approx_cumulant=True):
+        dm2 = np.zeros((self.norb, self.norb, self.norb, self.norb))
+        occ, vir = np.s_[:self.nocc], np.s_[self.nocc:]
+        dovov = 4*self.t2.transpose(0,2,1,3) - 2*self.t2.transpose(0,3,1,2)
+        dm2[occ,vir,occ,vir] = dovov
+        dm2[vir,occ,vir,occ] = dovov.transpose(1,0,3,2)
+        if with_dm1:
+            dm1 = self.make_rdm1(with_mf=False)
+            dm1[np.diag_indices(self.nocc)] += 1
+            for i in range(self.nocc):
+                dm2[i,i,:,:] += 2*dm1
+                dm2[:,:,i,i] += 2*dm1
+                dm2[:,i,i,:] -= dm1
+                dm2[i,:,:,i] -= dm1
+        else:
+            if int(approx_cumulant) != 1:
+                raise NotImplementedError
+        if ao_basis:
+            dm2 = einsum('ijkl,ai,bj,ck,dl->abcd', dm2, *(4*[self.mo.coeff]))
+        return dm2
+
     def as_restricted(self):
         return self
 

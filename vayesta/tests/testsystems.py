@@ -98,12 +98,14 @@ class TestMolecule:
     @cache
     def rfci(self):
         rfci = pyscf.fci.FCI(self.rhf())
+        rfci.threads = 1
         rfci.kernel()
         return rfci
 
     @cache
     def ufci(self):
         ufci = pyscf.fci.FCI(self.uhf())
+        ufci.threads = 1
         ufci.kernel()
         return ufci
 
