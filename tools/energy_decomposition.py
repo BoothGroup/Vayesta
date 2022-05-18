@@ -63,6 +63,7 @@ def get_energy_decomp(emb, dm1, dm2):
     sc = [dot(emb.get_ovlp(), x) for x in emb.mo_coeff]
     # Difference from HF rdms.
     mf_dm1 = np.array([dot(x.T, y, x) for x, y in zip(sc, emb.mf.make_rdm1())])
+    #print(mf_dm1)
     dm1 = [x - y for (x,y) in zip(dm1, mf_dm1)]
     #print(mf_dm1)
     #print(dm1)
@@ -70,6 +71,8 @@ def get_energy_decomp(emb, dm1, dm2):
     dm2[0] = dm2[0] - einsum("pq,rs->pqrs", mf_dm1[0], mf_dm1[0]) + einsum("pq,rs->psrq", mf_dm1[0], mf_dm1[0])
     dm2[2] = dm2[2] - einsum("pq,rs->pqrs", mf_dm1[1], mf_dm1[1]) + einsum("pq,rs->psrq", mf_dm1[1], mf_dm1[1])
     dm2[1] = dm2[1] - einsum("pq,rs->pqrs", mf_dm1[0], mf_dm1[1])
+
+    print(abs(einsum("npprr->n", np.array(dm2))).max(),"!")
 
     for f in emb.fragments:
 
@@ -90,6 +93,8 @@ def get_energy_decomp(emb, dm1, dm2):
 
         def get_pinv(r):
             nbos = r.shape[0]
+            if nbos == 0:
+                return np.zeros_like(r)
             r2 = r.reshape((nbos, -1))
             return np.linalg.pinv(r2).reshape((r.shape[1], r.shape[2], nbos)).transpose(2,0,1)
 
@@ -127,7 +132,10 @@ def get_energy_decomp_exact(ovlp, hcore, eri, dm1, dm2, p_frag, p_act, p_bos):
     p_nl = ovlp - p_act
     #print(np.linalg.eigvalsh(p_act))
     #print("!",p_nl)
-    e1_tot = sum([dot(p_frag[x], dm1[x], hcore[x]).trace() for x in [0,1]])
+
+    print("Eonebody test:", sum([dot(x, y).trace() for x,y in zip(dm1, hcore)]))
+
+    e1_tot = sum([dot(x, y, z).trace() for x,y,z in zip(p_frag, dm1, hcore)])
 
     e1_loc = sum([dot(p_frag[x], dm1[x], p_act[x], hcore[x]).trace() for x in [0,1]])
 
@@ -142,11 +150,18 @@ def get_energy_decomp_exact(ovlp, hcore, eri, dm1, dm2, p_frag, p_act, p_bos):
 def get_twobody(dm2, p_frag, p_act, p_bos, eri, p_nl, antisym=False):
     fac = 2.0
     if antisym:
+        eri = [x.copy() for x in eri]
         # Deduct exchange contributions where appropriate.
         eri[0] = eri[0] - eri[0].transpose(0, 3, 2, 1)
         eri[2] = eri[2] - eri[2].transpose(0, 3, 2, 1)
 
         #fac = 4.0
+    #print(np.linalg.eigvalsh(p_frag))
+    #print(np.linalg.eigvalsh(p_act))
+    print("Etwobody test:",
+          sum([einsum("pqrs,pqsr->", x, y) for x,y in zip([*eri, eri[1].transpose(2,3,0,1)], [*dm2, dm2[1].transpose(2,3,0,1)])])
+          )
+
 
     # Total twobody energy.
     fident = [np.eye(p_frag[x].shape[0]) for x in range(2)]
@@ -186,27 +201,27 @@ def get_twobody(dm2, p_frag, p_act, p_bos, eri, p_nl, antisym=False):
                )
         return val
 
-    e2_tot = get_twobody_contrib(dm2, eri, p_frag, verbose=True) / fac
+    e2_tot = get_twobody_contrib(dm2, eri, p_frag, verbose=False) / fac
 
     e2_loc = get_twobody_contrib(dm2, eri, p_frag, p_act) / fac
 
-    print(
-        "!!!",
-        e2_tot,
-        get_twobody_contrib_bos(dm2, eri, p_frag) / fac,
-        get_twobody_contrib_bos(dm2, eri, p_frag, p2=p_act) / fac +
-            get_twobody_contrib_bos(dm2, eri, p_frag, p2=p_nl) / fac,
-        get_twobody_contrib_bos(dm2, eri, p_frag, p2=p_nl) / fac +
-        get_twobody_contrib_bos(dm2, eri, p_frag, p2=p_act, p3=p_bos) / fac +
-        get_twobody_contrib_bos(dm2, eri, p_frag, p_act, [x - y for (x, y) in zip(bident, p_bos)]) / fac
-    )
-    print(
-        get_twobody_contrib(dm2, eri, p_frag, p_act) / fac -
-            get_twobody_contrib_bos(dm2, eri, p_frag, p2=p_act, p3=b_act) / fac,
-        get_twobody_contrib_bos(dm2, eri, p_frag, p2=p_nl) / fac,
-        get_twobody_contrib_bos(dm2, eri, p_frag, p2=p_act, p3=p_bos) / fac,
-        get_twobody_contrib_bos(dm2, eri, p_frag, p2=p_act, p3=[x - y for (x, y) in zip(bident, p_bos)]) / fac,
-    )
+    #print(
+    #    "!!!",
+    #    e2_tot,
+    #    get_twobody_contrib_bos(dm2, eri, p_frag) / fac,
+    #    get_twobody_contrib_bos(dm2, eri, p_frag, p2=p_act) / fac +
+    #        get_twobody_contrib_bos(dm2, eri, p_frag, p2=p_nl) / fac,
+    #    get_twobody_contrib_bos(dm2, eri, p_frag, p2=p_nl) / fac +
+    #    get_twobody_contrib_bos(dm2, eri, p_frag, p2=p_act, p3=p_bos) / fac +
+    #    get_twobody_contrib_bos(dm2, eri, p_frag, p_act, [x - y for (x, y) in zip(bident, p_bos)]) / fac
+    #)
+    #print(
+    #    get_twobody_contrib(dm2, eri, p_frag, p_act) / fac -
+    #        get_twobody_contrib_bos(dm2, eri, p_frag, p2=p_act, p3=b_act) / fac,
+    #    get_twobody_contrib_bos(dm2, eri, p_frag, p2=p_nl) / fac,
+    #    get_twobody_contrib_bos(dm2, eri, p_frag, p2=p_act, p3=p_bos) / fac,
+    #    get_twobody_contrib_bos(dm2, eri, p_frag, p2=p_act, p3=[x - y for (x, y) in zip(bident, p_bos)]) / fac,
+    #)
 
     assert(abs(get_twobody_contrib(dm2, eri, p_frag, p_act) / fac -
             get_twobody_contrib_bos(dm2, eri, p_frag, p2=p_act, p3=b_act) / fac) < 1e-8)
@@ -317,6 +332,35 @@ def get_twobody_emb(frag, p_frag, eri, dm2_loc, antisym=False):
     ra = block_diag(r[0][0], r[1][0])
     rb = block_diag(r[0][1], r[1][1])
 
+    # Can generate bosonic couplings first if want...
+
+    # Coupling from bosonic excitations to alpha spins
+
+    print("&&&&",
+          np.linalg.svd(
+              np.concatenate(
+                  [r_bosa.reshape((r_bosa.shape[0], -1)), r_bosb.reshape((r_bosb.shape[0], -1))]
+                  , axis=1
+              )
+          )[1])
+
+    va = einsum("nia,pqia->pqn", r_bosa, eri[0][:, :, :noa, noa:]) + \
+          einsum("nia,pqia->pqn", r_bosb, eri[1][:, :, :nob, nob:])
+    vb = einsum("nia,pqia->pqn", r_bosb, eri[2][:, :, :nob, nob:]) + \
+          einsum("nia,iapq->pqn", r_bosa, eri[1][:noa, noa:, :, :])
+
+    v = [einsum("pqn,pr,qs->rsn", x, y, y) for x,y in zip((va, vb), (ra, rb))]
+
+    print(einsum("ppn->n",v[0]))
+    print(einsum("ppn->n", dm_eb[0]))
+    print(einsum("ppn->n",v[1]))
+    print(einsum("ppn->n", dm_eb[1]))
+
+
+    e2_nl_b2 = (einsum("pr,pqn,rqn", p_frag[0], dm_eb[0], v[0]) + einsum("pr,pqn,rqn", p_frag[1], dm_eb[1], v[1])) / fac
+
+    e2_nl_b2 += (einsum("pr,qpn,qrn", p_frag[0], dm_eb[0], v[0]) + einsum("pr,qpn,qrn", p_frag[1], dm_eb[1], v[1])) / fac
+
     # excitation portion first.
     e2_nl_b = (einsum("tp,pqn,nrs,tqrs", p_frag[0], dm_eb[0], r_bosa,
                       einsum("qprs,pt,qu->turs", eri[0][:, :, :noa, noa:], ra, ra)) +  # aa
@@ -327,7 +371,6 @@ def get_twobody_emb(frag, p_frag, eri, dm2_loc, antisym=False):
                einsum("tp,pqn,nrs,tqrs", p_frag[1], dm_eb[1], r_bosa,
                       einsum("rsqp,pt,qu->turs", eri[1][:noa, noa:, :, :], rb, rb))  # ba
                ) / fac
-    print("%%", e2_nl_b)
     # Now dexcitation portion; just a swap of the indices on the electron-boson dm.
     e2_nl_b += (einsum("tp,qpn,nrs,tqrs", p_frag[0], dm_eb[0], r_bosa,
                       einsum("qprs,pt,qu->turs", eri[0][:, :, :noa, noa:], ra, ra)) +  # aa
@@ -338,12 +381,13 @@ def get_twobody_emb(frag, p_frag, eri, dm2_loc, antisym=False):
                einsum("tp,qpn,nrs,tqrs", p_frag[1], dm_eb[1], r_bosa,
                       einsum("rsqp,pt,qu->turs", eri[1][:noa, noa:, :, :], rb, rb))  # ba
                ) / fac
+    print("%%", e2_nl_b, e2_nl_b2, e2_nl_b - e2_nl_b2)
 
     # Coupling between local excitations and non-bosonic interactions.
     # In this case this is just the mean-field contribution.
     e2_nl_c = 0.0
 
-    return e2_loc, e2_nl_a, e2_nl_b, e2_nl_c
+    return e2_loc, e2_nl_a, e2_nl_b2, e2_nl_c
 
 
 def get_comparison(basis, cardinality, res_file):
