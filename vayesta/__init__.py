@@ -34,7 +34,7 @@ log.setLevel(args.loglevel)
 
 fmt = vlog.VFormatter(indent=True)
 # Log to stream
-if (args.output is None) and (mpi.is_master):
+if (not args.quiet and mpi.is_master):
     # Everything except logging.OUTPUT goes to stderr:
     errh = vlog.VStreamHandler(sys.stderr, formatter=fmt)
     errh.addFilter(vlog.LevelExcludeFilter(exclude=[logging.OUTPUT]))
@@ -44,8 +44,8 @@ if (args.output is None) and (mpi.is_master):
     outh.addFilter(vlog.LevelIncludeFilter(include=[logging.OUTPUT]))
     log.addHandler(outh)
 # Log to file
-if (args.output or args.log or (not mpi.is_master)):
-    logname = (args.output or args.log) or "vayesta"
+if (args.log or not mpi.is_master):
+    logname = (args.log or "output")
     if args.output_dir:
         logname = os.path.join(args.output_dir, logname)
     log.addHandler(vlog.VFileHandler(logname, formatter=fmt))

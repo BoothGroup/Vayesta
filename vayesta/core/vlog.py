@@ -50,14 +50,12 @@ class LevelRangeFilter(logging.Filter):
         self._low = low
         self._high = high
 
-
     def filter(self, record):
         if self._low is None:
             return (record.levelno < self._high)
         if self._high is None:
             return (self._low <= record.levelno)
         return (self._low <= record.levelno < self._high)
-
 
 class LevelIncludeFilter(logging.Filter):
     """Only log events with level in include."""
@@ -66,10 +64,8 @@ class LevelIncludeFilter(logging.Filter):
         super().__init__(*args, **kwargs)
         self._include = include
 
-
     def filter(self, record):
         return (record.levelno in self._include)
-
 
 class LevelExcludeFilter(logging.Filter):
     """Only log events with level not in exlude."""
@@ -78,10 +74,8 @@ class LevelExcludeFilter(logging.Filter):
         super().__init__(*args, **kwargs)
         self._exclude = exclude
 
-
     def filter(self, record):
         return (record.levelno not in self._exclude)
-
 
 class VFormatter(logging.Formatter):
     """Formatter which adds a prefix column and indentation."""
@@ -142,7 +136,7 @@ class VFileHandler(logging.FileHandler):
             formatter = VFormatter()
         self.setFormatter(formatter)
 
-def get_logname(name, add_mpi_rank=True, ext='log'):
+def get_logname(name, add_mpi_rank=True, ext='txt'):
     if mpi and add_mpi_rank:
         name = '%s.mpi%d' % (name, mpi.rank)
     if ext and not name.endswith('.%s' % ext):

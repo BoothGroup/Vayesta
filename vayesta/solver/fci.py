@@ -140,6 +140,9 @@ class FCI_Solver(ClusterSolver):
         self.converged = self.solver.converged
         s2, mult = self.solver.spin_square(self.civec, self.ncas, self.nelec)
         if not isinstance(self, UFCI_Solver) and (abs(s2) > 1e-8):
+            if abs(s2) > 0.1:
+                self.log.critical("FCI: S^2= %.10f  multiplicity= %.10f", s2, mult)
+                raise RuntimeError("Spin restricted FCI encountered solution with S^2 >> 0")
             self.log.warning("FCI: S^2= %.10f  multiplicity= %.10f", s2, mult)
         else:
             self.log.info("FCI: S^2= %.10f  multiplicity= %.10f", s2, mult)

@@ -382,7 +382,14 @@ class EWF(Embedding):
             dm1 = self._make_rdm1_ccsd_1p1l(with_mf=False, t_as_lambda=t_as_lambda, ao_basis=True)
 
         if with_exxdiv is None:
-            with_exxdiv = np.all([x.solver == 'MP2' for x in self.fragments])
+            if self.has_exxdiv:
+                with_exxdiv = np.all([x.solver == 'MP2' for x in self.fragments])
+                any_mp2 = np.any([x.solver == 'MP2' for x in self.fragments])
+                any_not_mp2 = np.any([x.solver != 'MP2' for x in self.fragments])
+                if (any_mp2 and any_not_mp2):
+                    self.log.warning("Both MP2 and not MP2 solvers detected - unclear usage of exxdiv!")
+            else:
+                with_exxdiv = False
 
         fock = self.get_fock_for_energy(with_exxdiv=with_exxdiv)
         e1 = np.sum(fock*dm1)
@@ -579,7 +586,7 @@ class EWF(Embedding):
             for ix, x in enumerate(self.get_fragments()):
                 dm2 = x.make_fragment_dm2cumulant()
                 dm2aa = (dm2 - dm2.transpose(0,3,2,1))/6
-                ddm2 = (2*dm2aa - dm2/2)
+                ddm2 = (2*dm2aa - dm2/2)    # dm2/2 is dm2aa + dm2ab, so ddm2 is dm2aa - dm2ab
                 for a in range(natom):
                     pa = proj_x[ix][a]
                     tmp = np.tensordot(pa, ddm2)
