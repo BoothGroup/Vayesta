@@ -72,7 +72,10 @@ class EDMETFragment(DMETFragment):
         if self.sym_parent is not None:
             raise RuntimeError("Symmetry transformation for EDMET bosons in particle-hole basis is not yet implemented."
                                )
-        return self._r_bos
+        try:
+            return self._r_bos
+        except AttributeError:
+            return self._r_bos_bare
 
     @r_bos.setter
     def r_bos(self, value):
@@ -81,11 +84,23 @@ class EDMETFragment(DMETFragment):
         self._r_bos = value
 
     @property
-    def r_bos_ao(self):
+    def r_bos_bare(self):
+        if self.sym_parent is not None:
+            raise RuntimeError("Symmetry transformation for EDMET bosons in particle-hole basis is not yet implemented."
+                               )
+        return self._r_bos_bare
+
+    @r_bos_bare.setter
+    def r_bos_bare(self, value):
+        if self.sym_parent is not None:
+            raise RuntimeError("Cannot set attribute r_bos in symmetry derived fragment.")
+        self._r_bos_bare = value
+
+    def get_r_bos_ao(self, bare=False):
         # NB this is the definition of the bosons as a rotation of AO pair excitations.
         if self.sym_parent is None:
             # Need to convert bosonic definition from ov-excitations into ao pairs.
-            r_bos = self.r_bos
+            r_bos = self.r_bos_bare if bare else self.r_bos
             co = self.base.mo_coeff_occ
             cv = self.base.mo_coeff_vir
             r_bosa = r_bos[:, :self.ov_mf].reshape((self.nbos, self.base.nocc, self.base.nvir))
@@ -94,16 +109,30 @@ class EDMETFragment(DMETFragment):
             return (einsum("nia,pi,qa->npq", r_bosa, co, cv), einsum("nia,pi,qa->npq", r_bosb, co, cv))
 
         else:
-            r_bos_ao = self.sym_parent.r_bos_ao
+            r_bos_ao = self.sym_parent.get_r_bos_ao(bare)
             # Need to rotate to account for symmetry operations.
             r_bos_ao = tuple([self.sym_op(self.sym_op(x, axis=2), axis=1) for x in r_bos_ao])
         return r_bos_ao
+
+    @property
+    def r_bos_ao(self):
+        return self.get_r_bos_ao(False)
+
+    @property
+    def r_bos_ao_bare(self):
+        return self.get_r_bos_ao(True)
 
     @property
     def r_ao_bos(self):
         # This is the rotation from the bosons into the AO basis.
         s = self.base.get_ovlp()
         return tuple([einsum("npq,pr,qs->nrs", x, s, s) for x in self.r_bos_ao])
+
+    @property
+    def r_ao_bos_bare(self):
+        # This is the rotation from the bosons into the AO basis.
+        s = self.base.get_ovlp()
+        return tuple([einsum("npq,pr,qs->nrs", x, s, s) for x in self.r_bos_ao_bare])
 
     @property
     def energy_couplings(self):
@@ -202,7 +231,7 @@ class EDMETFragment(DMETFragment):
         bins = np.hstack([-np.inf, np.logspace(0, -12, 13)[::-1], np.inf])
         self.log.info(helper.make_horizontal_histogram(s, bins=bins))
         # Calculate the relevant components of the zeroth moment- we don't want to recalculate these.
-        self.r_bos = v[:nbos, :]
+        self.r_bos_bare = v[:nbos, :]
         self.eta0_ferm = np.dot(rpa_mom, rot_ov.T)
         self.eta0_coupling = np.dot(env_mom, self.r_bos.T)
         return self.r_bos
@@ -612,6 +641,8 @@ class EDMETFragment(DMETFragment):
         # ccouplings[n,p,q] = <pi||qa>C_{nia}; can use this for energy evaluation later.
         self.energy_couplings = (einsum("nm,npq->mqp", c, ccouplings_aa), einsum("nm,npq->mqp", c, ccouplings_bb))
 
+        self.r_bos = einsum("np,nm->mp", self.r_bos_bare, c)
+
         self.log.info("Time for Bosonic Hamiltonian Projection into fragment %d:  %s", self.id,
                       time_string(timer() - t0))
         if exchange_between_bos:
@@ -914,7 +945,7 @@ class EDMETFragment(DMETFragment):
             v_bb = einsum("ijkl,pi,qj,rk,sl->pqrs", v_bb, c, c, c, c)
 
             if self.opts.boson_xc_kernel:
-                r_bosa, r_bosb = self.r_bos_ao
+                r_bosa, r_bosb = self.r_bos_ao_bare
                 # First bosonic excitations, need to consider boson for both first and second index pair.
                 bos_v_aa = einsum("ijn,pi,qj,nrs->pqrs", fb_a, c, c, r_bosa)
                 bos_v_aa += einsum("pqrs->rspq", bos_v_aa)

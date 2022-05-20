@@ -499,11 +499,11 @@ def plot_decomposition(files, labels, clusind=0, only_edmet_contribs=False, anti
     ax.set_xticks(centres)
     if only_edmet_contribs:
         ax.set_xticklabels([
-            "$E1_\\textrm{loc}$", "$E2_\\textrm{loc}$", "$E2_\\textrm{b}$", "Neglected"
+            "$E1_{loc}$", "$E2_{loc}$", "$E2_{b}$", "Neglected"
         ])
     else:
         ax.set_xticklabels([
-            "$E1_\\textrm{loc}$", "$E1_\\textrm{nl}$", "$E2_\\textrm{loc}$", "$E2_\\textrm{b}$", "$E2_\\text{c}$"
+            "$E1_{loc}$", "$E1_{nl}$", "$E2_{loc}$", "$E2_{a}$", "$E2_{b}$", "$E2_{c}$"
         ])
 
     plt.show(block=False)
