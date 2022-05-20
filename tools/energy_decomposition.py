@@ -1,3 +1,5 @@
+import matplotlib.pyplot as plt
+
 from pyscf import ao2mo
 from vayesta.core.util import *
 import numpy as np
@@ -12,8 +14,8 @@ def dump_results(res, filename, method = "emb", write_exact = True):
         fname_method = filename + "_" + method
 
         def get_result_string(id, ob, tb_c, tb_a):
-            return ("  {:4d}    {:10s}" + "   {:12.6e}" * len(ob) + " |"
-                    + "   {:12.6e}" * len(tb_c) + " |" + "   {:12.6e}" * len(tb_a)
+            return ("  {:4d}    {:10s}" + "   {:12.6e}" * len(ob) + "      "
+                    + "   {:12.6e}" * len(tb_c) + "      " + "   {:12.6e}" * len(tb_a)
                     +"\n").format(*id, *ob, *tb_c, *tb_a)
         if write_exact:
             with open(fname_exact, "a") as f:
@@ -26,8 +28,8 @@ def dump_results(res, filename, method = "emb", write_exact = True):
     fname_exact = filename + "_exact"
     fname_method = filename + "_" + method
 
-    header_string = [("#   frag_id      frag_name   " + "{:^27s} | {:^60s} | {:^60s}\n").format("onebody", "twobody_coulomb", "twobody_antisym"),
-        ("# " + " "* len("  frag_id      frag_name   ") + "   {:<12s}" * 2 + " |" + "   {:<12s}" * 4 + " |" + "   {:<12s}" * 4 + "\n").format(
+    header_string = [("#   frag_id      frag_name   " + "{:^27s}       {:^60s}       {:^60s}\n").format("onebody", "twobody_coulomb", "twobody_antisym"),
+        ("# " + " "* len("  frag_id      frag_name   ") + "   {:<12s}" * 2 + "      " + "   {:<12s}" * 4 + "      " + "   {:<12s}" * 4 + "\n").format(
         "loc", "nl",
         "loc", "nl_a", "nl_b", "nl_c",
         "loc", "nl_a", "nl_b", "nl_c"
@@ -371,13 +373,13 @@ def get_twobody_emb(frag, p_frag, eri, dm2_loc, antisym=False):
                  einsum("pr,qpn,qrn", p_frag[1], dm_eb[1], v[1])) / fac
     # excitation portion first.
     e2_nl_b = (einsum("tp,pqn,nrs,tqrs", p_frag[0], dm_eb[0], r_bosa,
-                      einsum("qprs,pt,qu->turs", eri[0][:, :, :noa, noa:], ra, ra)) +  # aa
+                      einsum("qprs,pt,qu->utrs", eri[0][:, :, :noa, noa:], ra, ra)) +  # aa
                einsum("tp,pqn,nrs,tqrs", p_frag[0], dm_eb[0], r_bosb,
-                      einsum("qprs,pt,qu->turs", eri[1][:, :, :nob, nob:], ra, ra)) +  # ab
+                      einsum("qprs,pt,qu->utrs", eri[1][:, :, :nob, nob:], ra, ra)) +  # ab
                einsum("tp,pqn,nrs,tqrs", p_frag[1], dm_eb[1], r_bosa,
-                      einsum("qprs,pt,qu->turs", eri[2][:, :, :nob, nob:], rb, rb)) +  # bb
+                      einsum("qprs,pt,qu->utrs", eri[2][:, :, :nob, nob:], rb, rb)) +  # bb
                einsum("tp,pqn,nrs,tqrs", p_frag[1], dm_eb[1], r_bosa,
-                      einsum("rsqp,pt,qu->turs", eri[1][:noa, noa:, :, :], rb, rb))  # ba
+                      einsum("rsqp,pt,qu->utrs", eri[1][:noa, noa:, :, :], rb, rb))  # ba
                ) / fac
     # Now dexcitation portion; just a swap of the indices on the electron-boson dm.
     e2_nl_b += (einsum("tp,qpn,nrs,tqrs", p_frag[0], dm_eb[0], r_bosa,
@@ -445,9 +447,63 @@ def run_full_comparison():
 
     with open(res_file, "a") as f:
         f.write(
-            " #   Cardinality                                   EDMET                          |                DMET                                          |             Exact")
+            " #   Cardinality                                   EDMET                                                  DMET                                                            Exact")
         f.write(
-            " #                     DM1_prop_err      DM2_prop_err    E_onebody     E_twobody  |   DM1_prop_err      DM2_prop_err    E_onebody     E_twobody  |   E_onebody     E_twobody")
+            " #                     DM1_prop_err      DM2_prop_err    E_onebody     E_twobody            DM1_prop_err      DM2_prop_err    E_onebody     E_twobody           E_onebody     E_twobody")
 
     for i, bas in enumerate(basis_sets):
         get_comparison(bas, i + 1, res_file)
+
+
+def plot_decomposition(files, labels, clusind=0, only_edmet_contribs=False, antisym=True):
+
+    res = [np.genfromtxt(x)[clusind] for x in files]
+    aoff = 4 * int(antisym)
+
+    inds = [2,3] + list(range(4+aoff, 8+aoff))
+    dat = [x[inds] for x in res]
+
+    if only_edmet_contribs:
+        npoints = 4
+        def sum_unwanted(x):
+            resx = np.zeros(4)
+            resx[0] = x[0]
+            resx[1] = x[2]
+            resx[2] = x[4]
+            resx[3] = x[1] + x[3] + x[5]
+            return resx
+        dat = [sum_unwanted(x) for x in dat]
+    else:
+        npoints = 6
+
+    nfiles = len(files)
+
+    # Want total width to be 120, arbitrarily, so width of each energy category is given by
+    w = 120 / npoints
+    rawx = [w * i for i in range(npoints)]
+    # Now need offset between different file datapoints; arbitrarily set spacing between
+    # different points to 0.2 of their total width.
+    space = 0.8 * w / nfiles
+
+    # Need centre of each set of bars for labelling.
+    centres = [x + (space * nfiles / 2) for x in rawx]
+    # Now just to plot.
+
+    for i, (v, lab) in enumerate(zip(dat, labels)):
+        x = [y+i*space for y in rawx]
+        print(x)
+        print(v)
+        plt.bar(x=x, height=v, label=lab, width=space)
+
+    ax = plt.gca()
+    ax.set_xticks(centres)
+    if only_edmet_contribs:
+        ax.set_xticklabels([
+            "$E1_\\textrm{loc}$", "$E2_\\textrm{loc}$", "$E2_\\textrm{b}$", "Neglected"
+        ])
+    else:
+        ax.set_xticklabels([
+            "$E1_\\textrm{loc}$", "$E1_\\textrm{nl}$", "$E2_\\textrm{loc}$", "$E2_\\textrm{b}$", "$E2_\\text{c}$"
+        ])
+
+    plt.show(block=False)
