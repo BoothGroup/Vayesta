@@ -18,8 +18,8 @@ def dump_results(res, filename, method = "emb", write_exact = True):
         if write_exact:
             with open(fname_exact, "a") as f:
                 f.write(get_result_string(clus_id, clusres[0][0], clusres[0][1][1:], clusres[0][2][1:]))
-                print(f"For cluster {clus_id[1]} total correlation energies are {sum(clusres[0][0]) + clusres[0][1][0]}"
-                      f"and {sum(clusres[0][0]) + clusres[0][2][0]}")
+                #print(f"For cluster {clus_id[1]} total correlation energies are {sum(clusres[0][0]) + clusres[0][1][0]}"
+                #      f"and {sum(clusres[0][0]) + clusres[0][2][0]}")
         with open(fname_method, "a") as f:
             f.write(get_result_string(clus_id, *clusres[1]))
 
@@ -72,7 +72,7 @@ def get_energy_decomp(emb, dm1, dm2):
     dm2[2] = dm2[2] - einsum("pq,rs->pqrs", mf_dm1[1], mf_dm1[1]) + einsum("pq,rs->psrq", mf_dm1[1], mf_dm1[1])
     dm2[1] = dm2[1] - einsum("pq,rs->pqrs", mf_dm1[0], mf_dm1[1])
 
-    print(abs(einsum("npprr->n", np.array(dm2))).max(),"!")
+    #print(abs(einsum("npprr->n", np.array(dm2))).max(),"!")
 
     for f in emb.fragments:
 
@@ -107,7 +107,7 @@ def get_energy_decomp(emb, dm1, dm2):
             res = np.zeros((n1, n1, n2, n2))
             res[:no1, no1:, :no2, no2:] = mat
             res[no1:, :no1, no2:, :no2] = mat.transpose(1,0,3,2)
-            eigs = np.linalg.eigvals(res.reshape((n1**2, n2**2)))
+            #eigs = np.linalg.eigvals(res.reshape((n1**2, n2**2)))
             res = res.transpose(0,1,3,2)
             #print(abs(eigs.imag).max())
             #print("^^^^", sorted(eigs.real))
@@ -133,7 +133,7 @@ def get_energy_decomp_exact(ovlp, hcore, eri, dm1, dm2, p_frag, p_act, p_bos):
     #print(np.linalg.eigvalsh(p_act))
     #print("!",p_nl)
 
-    print("Eonebody test:", sum([dot(x, y).trace() for x,y in zip(dm1, hcore)]))
+    #print("Eonebody test:", sum([dot(x, y).trace() for x,y in zip(dm1, hcore)]))
 
     e1_tot = sum([dot(x, y, z).trace() for x,y,z in zip(p_frag, dm1, hcore)])
 
@@ -158,9 +158,9 @@ def get_twobody(dm2, p_frag, p_act, p_bos, eri, p_nl, antisym=False):
         #fac = 4.0
     #print(np.linalg.eigvalsh(p_frag))
     #print(np.linalg.eigvalsh(p_act))
-    print("Etwobody test:",
-          sum([einsum("pqrs,pqsr->", x, y) for x,y in zip([*eri, eri[1].transpose(2,3,0,1)], [*dm2, dm2[1].transpose(2,3,0,1)])])
-          )
+    #print("Etwobody test:",
+    #      sum([einsum("pqrs,pqsr->", x, y) for x,y in zip([*eri, eri[1].transpose(2,3,0,1)], [*dm2, dm2[1].transpose(2,3,0,1)])])
+    #      )
 
 
     # Total twobody energy.
@@ -233,7 +233,7 @@ def get_twobody(dm2, p_frag, p_act, p_bos, eri, p_nl, antisym=False):
 
     e2_nl_c = get_twobody_contrib_bos(dm2, eri, p_frag, p_act, [x - y - z for (x,y,z) in zip(bident, p_bos, b_act)])/fac
 
-    print(e2_tot, e2_loc, e2_nl_a, e2_nl_b, e2_nl_c)
+    #print(e2_tot, e2_loc, e2_nl_a, e2_nl_b, e2_nl_c)
 
     return e2_tot, e2_loc, e2_nl_a, e2_nl_b, e2_nl_c
 
@@ -334,16 +334,16 @@ def get_twobody_emb(frag, p_frag, eri, dm2_loc, antisym=False):
 
     # Can generate bosonic couplings first if want...
 
+
+    #print("&&&&",
+    #      np.linalg.svd(
+    #          np.concatenate(
+    #              [r_bosa.reshape((r_bosa.shape[0], -1)), r_bosb.reshape((r_bosb.shape[0], -1))]
+    #              , axis=1
+    #          )
+    #      )[1])
+
     # Coupling from bosonic excitations to alpha spins
-
-    print("&&&&",
-          np.linalg.svd(
-              np.concatenate(
-                  [r_bosa.reshape((r_bosa.shape[0], -1)), r_bosb.reshape((r_bosb.shape[0], -1))]
-                  , axis=1
-              )
-          )[1])
-
     va = einsum("nia,pqia->pqn", r_bosa, eri[0][:, :, :noa, noa:]) + \
           einsum("nia,pqia->pqn", r_bosb, eri[1][:, :, :nob, nob:])
     vb = einsum("nia,pqia->pqn", r_bosb, eri[2][:, :, :nob, nob:]) + \
@@ -351,16 +351,24 @@ def get_twobody_emb(frag, p_frag, eri, dm2_loc, antisym=False):
 
     v = [einsum("pqn,pr,qs->rsn", x, y, y) for x,y in zip((va, vb), (ra, rb))]
 
-    print(einsum("ppn->n",v[0]))
-    print(einsum("ppn->n", dm_eb[0]))
-    print(einsum("ppn->n",v[1]))
-    print(einsum("ppn->n", dm_eb[1]))
+    #print(einsum("pqn->pq", sum(dm_eb)))
+    print(einsum("pqn->pq", sum(v)))
+    #print(einsum("npq->pq", sum(frag.couplings)))
 
+    #print(np.linalg.eigvals(p_frag[0]))
+    #print(np.linalg.eigvals(p_frag[1]))
+    #print(p_frag[0])
+    #print(p_frag[1])
+    print(einsum("pqn->",v[0]),einsum("pqn->", dm_eb[0]),einsum("pqn->",v[1]),einsum("pqn->", dm_eb[1]),
+          einsum("pqn,pqn->", v[0], dm_eb[0]), einsum("pqn,pqn->",v[1], dm_eb[1]))
 
-    e2_nl_b2 = (einsum("pr,pqn,rqn", p_frag[0], dm_eb[0], v[0]) + einsum("pr,pqn,rqn", p_frag[1], dm_eb[1], v[1])) / fac
+    #print(abs(v[0] - frag.couplings[0].transpose(1,2,0)).max(), abs(v[1] - frag.couplings[1].transpose(1,2,0)).max())
+    #v = [x.transpose(1,2,0) for x in frag.couplings]
+    e2_nl_b2 = (einsum("pr,pqn,rqn", p_frag[0], dm_eb[0], v[0]) +
+                einsum("pr,pqn,rqn", p_frag[1], dm_eb[1], v[1])) / fac
 
-    e2_nl_b2 += (einsum("pr,qpn,qrn", p_frag[0], dm_eb[0], v[0]) + einsum("pr,qpn,qrn", p_frag[1], dm_eb[1], v[1])) / fac
-
+    e2_nl_b2 += (einsum("pr,qpn,qrn", p_frag[0], dm_eb[0], v[0]) +
+                 einsum("pr,qpn,qrn", p_frag[1], dm_eb[1], v[1])) / fac
     # excitation portion first.
     e2_nl_b = (einsum("tp,pqn,nrs,tqrs", p_frag[0], dm_eb[0], r_bosa,
                       einsum("qprs,pt,qu->turs", eri[0][:, :, :noa, noa:], ra, ra)) +  # aa
