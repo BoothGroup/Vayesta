@@ -189,7 +189,7 @@ class FCI_Solver(ClusterSolver):
         from pyscf.fci.addons import transform_ci
         mo = Orbitals(self.cluster.c_active, occ=self.cluster.nocc_active)
         nelec = wf.mo.nelec
-        if mo.nelec ! = nelec:
+        if mo.nelec != nelec:
             raise NotImplementedError
         u = self.fragment.get_overlap('mo|cluster')
         ci = transform_ci(wf.ci, nelec, u)
