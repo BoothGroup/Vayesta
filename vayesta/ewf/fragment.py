@@ -290,10 +290,6 @@ class EWFFragment(Fragment):
         #    self.log.debugv("Projecting ERIs onto subspace")
         #    eris = ao2mo.helper.project_ccsd_eris(eris, cluster.c_active, cluster.nocc_active, ovlp=self.base.get_ovlp())
 
-        # We can now overwrite the orbitals from last BNO run:
-        #self._c_active_occ = cluster.c_active_occ
-        #self._c_active_vir = cluster.c_active_vir
-
         if solver is None:
             return None
 
@@ -328,8 +324,11 @@ class EWFFragment(Fragment):
 
         if eris is None:
             eris = cluster_solver.get_eris()
-        with log_time(self.log.info, ("Time for %s solver:" % solver) + " %s"):
-            cluster_solver.kernel(eris=eris, **init_guess)
+        if not self.base.opts._debug_exact_wf:
+            with log_time(self.log.info, ("Time for %s solver:" % solver) + " %s"):
+                cluster_solver.kernel(eris=eris, **init_guess)
+        else:
+            cluster_solver._debug_exact_wf(self.base._debug_exact_wf)
 
         # --- Add to results data class
         results = self._results
@@ -341,7 +340,7 @@ class EWFFragment(Fragment):
         # Projected WF
         proj = self.get_overlap('frag|cluster-occ')
         if isinstance(cluster_solver.wf, RFCI_WaveFunction):
-            pwf = cluster_solver.wf.as_cisd()
+            pwf = cluster_solver.wf.to_cisd()
         else:
             pwf = cluster_solver.wf
         results.pwf = pwf.project(proj, inplace=False)

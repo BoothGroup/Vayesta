@@ -404,9 +404,10 @@ class Fragment:
             raise RuntimeError("Cannot set attribute cluster in symmetry derived fragment.")
         self._cluster = value
 
-    def reset(self):
+    def reset(self, keep_bath=False):
         self.log.debugv("Resetting %s", self)
-        self.bath = None
+        if not keep_bath:
+            self.bath = None
         self._cluster = None
         self._eris = None
         self._results = self.Results(fid=self.id)

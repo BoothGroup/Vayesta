@@ -185,6 +185,17 @@ class FCI_Solver(ClusterSolver):
     def make_rdm2(self, civec=None):
         return self.make_rdm12(civec=civec)[1]
 
+    def _debug_exact_wf(self, wf):
+        from pyscf.fci.addons import transform_ci
+        mo = Orbitals(self.cluster.c_active, occ=self.cluster.nocc_active)
+        nelec = wf.mo.nelec
+        if mo.nelec ! = nelec:
+            raise NotImplementedError
+        u = self.fragment.get_overlap('mo|cluster')
+        ci = transform_ci(wf.ci, nelec, u)
+        wf = FCI_WaveFunction(mo, ci)
+        self.wf = wf
+        self.converged = True
 
 class UFCI_Solver(FCI_Solver):
     """FCI with UHF orbitals."""

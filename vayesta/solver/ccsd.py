@@ -12,6 +12,8 @@ import pyscf.pbc.cc
 
 from vayesta.core.util import *
 from vayesta.core.types import WaveFunction
+from vayesta.core.types import SpatialOrbitals
+from vayesta.core.types import RCCSD_WaveFunction
 from . import coupling
 from .solver import ClusterSolver
 
@@ -252,6 +254,22 @@ class CCSD_Solver(ClusterSolver):
     def couple_iterations(self, fragments):
         func = coupling.couple_ccsd_iterations(self, fragments)
         self.solver.tailor_func = func.__get__(self.solver)
+
+    def _debug_exact_wf(self, wf):
+        mo = SpatialOrbitals(self.cluster.c_active, occ=self.cluster.nocc_active)
+        # Project onto cluster:
+        ro = self.fragment.get_overlap('mo[occ]|cluster[occ]')
+        rv = self.fragment.get_overlap('mo[vir]|cluster[vir]')
+        t1 = dot(ro.T, wf.t1, rv)
+        t2 = einsum('Ii,Jj,IJAB,Aa,Bb->ijab', ro, ro, wf.t2, rv, rv)
+        if wf.l1 is not None:
+            l1 = dot(ro.T, wf.l1, rv)
+            l2 = einsum('Ii,Jj,IJAB,Aa,Bb->ijab', ro, ro, wf.l2, rv, rv)
+        else:
+            l1 = l2 = None
+        wf = RCCSD_WaveFunction(mo, t1, t2, l1=l1, l2=l2)
+        self.wf = wf
+        self.converged = True
 
 class UCCSD_Solver(CCSD_Solver):
 

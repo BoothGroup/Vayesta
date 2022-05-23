@@ -126,6 +126,11 @@ class WaveFunction:
             return wf
         if isinstance(obj, pyscf.fci.direct_spin1.FCISolver):
             mo = kwargs['mo']
+            if isinstance(mo, np.ndarray):
+                nelec = sum(obj.nelec)
+                assert (nelec % 2 == 0)
+                nocc = nelec // 2
+                mo = SpatialOrbitals(mo, occ=nocc)
             wf = RFCI_WaveFunction(mo, obj.ci)
             return wf
         raise NotImplementedError
@@ -316,7 +321,7 @@ class RMP2_WaveFunction(WaveFunction):
         t1 = np.zeros((nocc1, self.nvir))
         return CCSD_WaveFunction(self.mo, t1, self.t2, l1=t1, l2=self.t2, projector=self.projector)
 
-    def to_cisd(self, c0=1.0):
+    def as_cisd(self, c0=1.0):
         nocc1 = self.t2.shape[0]
         c1 = np.zeros((nocc1, self.nvir))
         c2 = c0*self.t2
@@ -392,7 +397,7 @@ class UMP2_WaveFunction(RMP2_WaveFunction):
               np.zeros((nocc1b, self.nvirb)))
         return UCCSD_WaveFunction(self.mo, t1, self.t2, l1=t1, l2=self.t2, projector=self.projector)
 
-    def to_cisd(self, c0=1.0):
+    def as_cisd(self, c0=1.0):
         nocc1a = self.t2aa.shape[0]
         nocc1b = self.t2bb.shape[0]
         c1 = (np.zeros((nocc1a, self.nvira)),
@@ -555,7 +560,7 @@ class RCCSD_WaveFunction(WaveFunction):
     def as_ccsd(self):
         return self
 
-    def to_cisd(self, c0=1.0):
+    def as_cisd(self, c0=1.0):
         """In intermediate normalization."""
         if self.projector is not None:
             raise NotImplementedError
@@ -563,7 +568,7 @@ class RCCSD_WaveFunction(WaveFunction):
         c2 = c0*(self.t2 + einsum('ia,jb->ijab', self.t1, self.t1))
         return RCISD_WaveFunction(self.mo, c0, c1, c2, projector=self.projector)
 
-    def to_fci(self):
+    def as_fci(self):
         raise NotImplementedError
 
 
@@ -645,7 +650,7 @@ class UCCSD_WaveFunction(RCCSD_WaveFunction):
     def as_ccsd(self):
         return self
 
-    def to_cisd(self, c0=1.0):
+    def as_cisd(self, c0=1.0):
         if self.projector is not None:
             raise NotImplementedError
         c1a = c0*self.t1a
@@ -663,7 +668,7 @@ class UCCSD_WaveFunction(RCCSD_WaveFunction):
             c2 = (c2aa, c2ab, c2ba, c2bb)
         return UCISD_WaveFunction(self.mo, c0, c1, c2, projector=self.projector)
 
-    def to_fci(self):
+    def as_fci(self):
         raise NotImplementedError
 
     #def pack(self, dtype=float):
@@ -903,13 +908,13 @@ class RFCI_WaveFunction(WaveFunction):
         mo = self.mo.to_spin_orbitals()
         return UFCI_WaveFunction(mo, self.ci)
 
-    def as_mp2(self):
-        raise self.as_cisd().as_mp2()
+    def to_mp2(self):
+        raise self.to_cisd().as_mp2()
 
-    def as_ccsd(self):
-        return self.as_cisd().as_ccsd()
+    def to_ccsd(self):
+        return self.to_cisd().as_ccsd()
 
-    def as_cisd(self, c0=None):
+    def to_cisd(self, c0=None):
         if self.projector is not None:
             raise NotImplementedError
         norb, nocc, nvir = self.norb, self.nocc, self.nvir
@@ -977,7 +982,7 @@ class UFCI_WaveFunction(RFCI_WaveFunction):
                 einsum('ijkl,ai,bj,ck,dl->abcd', dm2[1], *[moa, moa, mob, mob]),
                 einsum('ijkl,ai,bj,ck,dl->abcd', dm2[2], *(4*[mob])))
 
-    def as_cisd(self, c0=None):
+    def to_cisd(self, c0=None):
         if self.projector is not None:
             raise NotImplementedError
         norba, norbb = self.norb

@@ -861,6 +861,9 @@ class Embedding:
             self.log.debugv("Orthonormality error%s: L(2)= %.2e  L(inf)= %.2e", mo_name, l2, linf)
         return l2, linf
 
+    def get_average_cluster_size(self):
+        return np.mean([x.cluster.norb_active for x in self.fragments])
+
     # --- Population analysis
     # -----------------------
 

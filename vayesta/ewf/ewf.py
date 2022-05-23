@@ -73,6 +73,8 @@ class EWF(Embedding):
         icmp2_bno_threshold: float = 1e-8
         # --- Couple embedding problems (currently only CCSD)
         coupled_iterations: bool = False
+        # --- Debugging
+        _debug_exact_wf: bool = None
 
 
     def __init__(self, mf, solver='CCSD', options=None, log=None, **kwargs):
@@ -161,6 +163,10 @@ class EWF(Embedding):
             self.log.info("No fragments found. Using all atomic fragments.")
             self.add_all_atomic_fragments()
 
+        # Debug: calculate exact WF
+        if self.opts._debug_exact_wf is not None:
+            self._debug_get_exact_wf()
+
         self.check_fragment_nelectron()
         if np.ndim(bno_threshold) == 0:
             return self._kernel_single_threshold(bno_threshold=bno_threshold)
@@ -179,6 +185,8 @@ class EWF(Embedding):
                 for x in self.fragments:
                     x._eris = None
                     #x._eris = ao2mo.helper.project_ccsd_eris(x._eris, x.cluster.c_active, x.cluster.nocc_active, ovlp=self.get_ovlp())
+
+            self.reset(keep_bath=True)
 
             # Store ERIs so they can be reused in the next iteration
             # (only if this is not the last calculation and the next calculation uses a larger or equal threshold)
@@ -658,6 +666,23 @@ class EWF(Embedding):
         e_corr = (e1 + e2) / self.ncells
         return e_corr
 
+    # --- Debug
+    def _debug_get_exact_wf(self):
+        if self.opts._debug_exact_wf is True:
+            if self.solver == 'CCSD':
+                import pyscf
+                import pyscf.cc
+                from vayesta.core.types import WaveFunction
+                cc = pyscf.cc.CCSD(self.mf)
+                cc.kernel()
+                if self.opts.solve_lambda:
+                    cc.solve_lambda()
+                wf = WaveFunction.from_pyscf(cc)
+            else:
+                raise NotImplementedError
+        else:
+            wf = self.opts._debug_exact_wf
+        self._debug_exact_wf = wf
 
     # -------------------------------------------------------------------------------------------- #
 
