@@ -42,6 +42,7 @@ from vayesta.core.fragmentation import make_sao_fragmentation
 from vayesta.core.fragmentation import make_iao_fragmentation
 from vayesta.core.fragmentation import make_iaopao_fragmentation
 from vayesta.core.fragmentation import make_site_fragmentation
+from vayesta.core.fragmentation import make_cas_fragmentation
 
 # --- This Package
 
@@ -979,6 +980,17 @@ class Embedding:
             IAO reference basis set. Default: 'auto'
         """
         self.fragmentation = make_iaopao_fragmentation(self.mf, log=self.log, minao=minao)
+        self.fragmentation.kernel()
+
+    def cas_fragmentation(self):
+        """Initialize the quantum embedding method for the use of CAS fragments.
+
+        Parameters
+        ----------
+        minao: str, optional
+            IAO reference basis set. Default: 'auto'
+        """
+        self.fragmentation = make_cas_fragmentation(self.mf, log=self.log)
         self.fragmentation.kernel()
 
     def add_atomic_fragment(self, atoms, orbital_filter=None, name=None, add_symmetric=True, **kwargs):
