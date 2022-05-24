@@ -183,19 +183,18 @@ class CCSD_Solver(ClusterSolver):
         # Tailored CC
         if self.opts.tcc:
             self.log.info("Adding tailor function to CCSD.")
-            self.solver.tailor_func = coupling.make_cas_tcc_function(
-                    self, c_cas_occ=self.opts.c_cas_occ, c_cas_vir=self.opts.c_cas_vir, eris=eris).__get__(self.solver)
+            self.solver.callback = coupling.make_cas_tcc_function(
+                    self, c_cas_occ=self.opts.c_cas_occ, c_cas_vir=self.opts.c_cas_vir, eris=eris)
 
         elif self.opts.sc_mode and self.base.iteration > 1:
-            # __get__(self.solver) to bind the tailor function as a method, rather than just a callable attribute
             self.log.info("Adding tailor function to CCSD.")
-            self.solver.tailor_func = coupling.make_cross_fragment_tcc_function(self, mode=self.opts.sc_mode).__get__(self.solver)
+            self.solver.callback = coupling.make_cross_fragment_tcc_function(self, mode=self.opts.sc_mode)
 
         # This should include the SC mode?
         elif coupled_fragments and np.all([x.results is not None for x in coupled_fragments]):
             self.log.info("Adding tailor function to CCSD.")
-            self.solver.tailor_func = coupling.make_cross_fragment_tcc_function(self, mode=(self.opts.sc_mode or 3),
-                                                                                coupled_fragments=coupled_fragments).__get__(self.solver)
+            self.solver.callback = coupling.make_cross_fragment_tcc_function(self, mode=(self.opts.sc_mode or 3),
+                                                                                coupled_fragments=coupled_fragments)
 
         t0 = timer()
         self.log.info("Solving CCSD-equations %s initial guess...", "with" if (t2 is not None) else "without")
@@ -252,8 +251,7 @@ class CCSD_Solver(ClusterSolver):
             self.log.error("Exception in T-diagnostic: %s", e)
 
     def couple_iterations(self, fragments):
-        func = coupling.couple_ccsd_iterations(self, fragments)
-        self.solver.tailor_func = func.__get__(self.solver)
+        self.solver.callback = coupling.couple_ccsd_iterations(self, fragments)
 
     def _debug_exact_wf(self, wf):
         mo = SpatialOrbitals(self.cluster.c_active, occ=self.cluster.nocc_active)

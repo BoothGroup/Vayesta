@@ -137,7 +137,8 @@ def make_cas_tcc_function(solver, c_cas_occ, c_cas_vir, eris):
     t1_fci = c1
     t2_fci = c2 - einsum('ia,jb->ijab', c1, c1)
 
-    def tailor_func(cc, t1, t2):
+    def tailor_func(kwargs):
+        t1, t2 = kwargs['t1new'], kwargs['t2new']
         # Rotate & project CC amplitudes to CAS
         t1_cc = einsum('IA,Ii,Aa->ia', t1, ro, rv)
         t2_cc = einsum('IJAB,Ii,Jj,Aa,Bb->ijab', t2, ro, ro, rv, rv)
@@ -152,7 +153,6 @@ def make_cas_tcc_function(solver, c_cas_occ, c_cas_vir, eris):
         t2 += dt2
         cc._norm_dt1 = np.linalg.norm(dt1)
         cc._norm_dt2 = np.linalg.norm(dt2)
-        return t1, t2
 
     return tailor_func
 
@@ -187,8 +187,9 @@ def couple_ccsd_iterations(solver, fragments):
         r_vir[y.id] = einsum('ai,ab,bj->ij', c_vir_x, ovlp, c_vir_y)
     rma.clear()
 
-    def tailorfunc(cc, t1, t2):
-
+    def tailorfunc(kwargs):
+        cc = kwargs['mycc']
+        t1, t2 = kwargs['t1new'], kwargs['t2new']
         cc.force_iter = True
         cc.force_exit = bool(mpi.world.allreduce(int(cc.conv_flag), op=mpi.op.prod))
         conv = mpi.world.gather(int(cc.conv_flag), root=0)
@@ -207,7 +208,8 @@ def couple_ccsd_iterations(solver, fragments):
             t2_out += einsum('Ii,Jj,ijab,Aa,Bb->IJAB', po, ro, t2y, rv, rv)
         solver.log.info("Tailoring: |dT1|= %.3e  |dT2|= %.3e", np.linalg.norm(t1_out-t1), np.linalg.norm(t2_out-t2))
         rma.clear()
-        return t1_out, t2_out
+        t1[:] = t1_out
+        t2[:] = t2_out
 
     return tailorfunc
 
