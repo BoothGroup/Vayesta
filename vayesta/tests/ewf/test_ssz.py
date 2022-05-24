@@ -59,12 +59,6 @@ class Test_Water(TestCase):
         self.assertAllclose(rssz, ssz, atol=1e-6)
         self.assertAllclose(ussz, ssz, atol=1e-6)
 
-        # Cluster DMs
-        rssz = remb.get_atomic_ssz(use_cluster_dms=True)
-        ussz = uemb.get_atomic_ssz(use_cluster_dms=True)
-        self.assertAllclose(rssz, ssz, atol=1e-6)
-        self.assertAllclose(ussz, ssz, atol=1e-6)
-
     def test_finite_bath(self):
         eta = +1
         remb = self.remb(eta)
@@ -113,10 +107,6 @@ class Test_H2Anion(TestCase):
         # Full 2DMs
         udm2 = uemb.make_rdm2()
         ussz = uemb.get_atomic_ssz(dm2=udm2, dm2_with_dm1=True)
-        self.assertAllclose(ussz, ssz, atol=1e-6)
-
-        # Cluster DMs
-        ussz = uemb.get_atomic_ssz(use_cluster_dms=True)
         self.assertAllclose(ussz, ssz, atol=1e-6)
 
 if __name__ == '__main__':

@@ -30,7 +30,6 @@ from vayesta.core import ao2mo
 from vayesta.core.mpi import mpi
 
 from . import ewf
-from . import helper
 
 # Get MPI rank of fragment
 get_fragment_mpi_rank = lambda *args : args[0].mpi_rank
@@ -555,19 +554,6 @@ class EWFFragment(Fragment):
             eris = self._eris
         e_dm2 = fac*einsum('ijkl,ijkl->', eris, dm2)/2
         return e_dm2
-
-    # --- Correlation function
-
-    def get_cluster_sz(self, proj=None):
-        return 0.0
-
-    def get_cluster_ssz(self, proj1=None, proj2=None, dm1=None, dm2=None):
-        """<P(A) S_z P(B) S_z>"""
-        dm1 = (self.results.dm1 if dm1 is None else dm1)
-        dm2 = (self.results.dm2 if dm2 is None else dm2)
-        if (dm1 is None or dm2 is None):
-            raise ValueError()
-        return helper.get_ssz(dm1, dm2, proj1=proj1, proj2=proj2)
 
     # --- Other
     # ---------

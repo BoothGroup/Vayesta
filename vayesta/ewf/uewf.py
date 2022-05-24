@@ -113,7 +113,7 @@ class UEWF(REWF, UEmbedding):
 
     # --- Other expectation values
 
-    def get_atomic_ssz(self, dm1=None, dm2=None, atoms=None, projection='sao', use_cluster_dms=False, dm2_with_dm1=None):
+    def get_atomic_ssz(self, dm1=None, dm2=None, atoms=None, projection='sao', dm2_with_dm1=None):
         """Get expectation values <P(A) S_z^2 P(B)>, where P(X) are projectors onto atoms.
 
         TODO: MPI"""
@@ -153,7 +153,7 @@ class UEWF(REWF, UEmbedding):
             pxb = np.dot(rxb, rxb.T)
             proj.append((pxa, pxb))
         # Fragment dependent projection operator:
-        if (dm2 is None or use_cluster_dms):
+        if dm2 is None:
             proj_x = []
             for x in self.get_fragments():
                 tmpa = np.dot(x.cluster.c_active[0].T, ovlp)
@@ -167,21 +167,6 @@ class UEWF(REWF, UEmbedding):
                     proj_x[-1].append((pxa, pxb))
 
         ssz = np.zeros((natom, natom))
-        if use_cluster_dms:
-            for ix, x in enumerate(self.get_fragments()):
-                assert (len(x.atoms) == 1)
-                a = x.atoms[0]
-                pa = proj_x[ix][a]
-                for b in range(natom):
-                    pb = proj_x[ix][b]
-                    ssz_ab = x.get_cluster_ssz(pa, pb)
-                    if (a == b):
-                        ssz[a,b] = ssz_ab
-                    else:
-                        ssz[a,b] += ssz_ab/2
-                        ssz[b,a] += ssz_ab/2
-            return ssz
-
         # 1-DM contribution:
         if dm1 is None:
             dm1 = self.make_rdm1()
