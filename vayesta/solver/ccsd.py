@@ -258,8 +258,9 @@ class CCSD_Solver(ClusterSolver):
     def _debug_exact_wf(self, wf):
         mo = SpatialOrbitals(self.cluster.c_active, occ=self.cluster.nocc_active)
         # Project onto cluster:
-        ro = self.fragment.get_overlap('mo[occ]|cluster[occ]')
-        rv = self.fragment.get_overlap('mo[vir]|cluster[vir]')
+        ovlp = self.fragment.base.get_ovlp()
+        ro = dot(wf.mo.coeff_occ.T, ovlp, mo.coeff_occ)
+        rv = dot(wf.mo.coeff_vir.T, ovlp, mo.coeff_vir)
         t1 = dot(ro.T, wf.t1, rv)
         t2 = einsum('Ii,Jj,IJAB,Aa,Bb->ijab', ro, ro, wf.t2, rv, rv)
         if wf.l1 is not None:
