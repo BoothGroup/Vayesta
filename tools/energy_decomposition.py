@@ -455,7 +455,7 @@ def run_full_comparison():
         get_comparison(bas, i + 1, res_file)
 
 
-def plot_decomposition(files, labels, clusind=0, only_edmet_contribs=False, antisym=True):
+def plot_decomposition(files, labels, clusind=0, only_edmet_contribs=False, antisym=True, inc_total=False):
 
     res = [np.genfromtxt(x)[clusind] for x in files]
     aoff = 4 * int(antisym)
@@ -473,9 +473,25 @@ def plot_decomposition(files, labels, clusind=0, only_edmet_contribs=False, anti
             resx[3] = x[1] + x[3] + x[5]
             return resx
         dat = [sum_unwanted(x) for x in dat]
+        xticklabels = [
+            "$E1_{loc}$", "$E2_{loc}$", "$E2_{b}$", "Neglected"
+        ]
     else:
         npoints = 6
+        xticklabels = [
+            "$E1_{loc}$", "$E1_{nl}$", "$E2_{loc}$", "$E2_{a}$", "$E2_{b}$", "$E2_{c}$"
+        ]
 
+
+    if inc_total:
+        npoints += 1
+        def addsum(x):
+            resx = np.zeros(npoints)
+            resx[1:] = x
+            resx[0] = sum(x)
+            return resx
+        dat = [addsum(x) for x in dat]
+        xticklabels = ["$E_{corr}$"] + xticklabels
     nfiles = len(files)
 
     # Want total width to be 120, arbitrarily, so width of each energy category is given by
@@ -492,18 +508,19 @@ def plot_decomposition(files, labels, clusind=0, only_edmet_contribs=False, anti
     for i, (v, lab) in enumerate(zip(dat, labels)):
         x = [y+i*space for y in rawx]
         print(x)
-        print(v)
-        plt.bar(x=x, height=v, label=lab, width=space)
+        print(v*1000)
+        plt.bar(x=x, height=v*1000, label=lab, width=space)
 
     ax = plt.gca()
     ax.set_xticks(centres)
-    if only_edmet_contribs:
-        ax.set_xticklabels([
-            "$E1_{loc}$", "$E2_{loc}$", "$E2_{b}$", "Neglected"
-        ])
-    else:
-        ax.set_xticklabels([
-            "$E1_{loc}$", "$E1_{nl}$", "$E2_{loc}$", "$E2_{a}$", "$E2_{b}$", "$E2_{c}$"
-        ])
+    ax.set_xticklabels(xticklabels)
+
+    xmin, xmax = ax.get_xlim()
+    ax.hlines([0.0], xmin=xmin, xmax=xmax, ls=":", color="k")
+    ax.set_xlim(xmin, xmax)
+
+    leg = plt.legend()
+
+    ax.set_ylabel("Energy Contribution/$mE_h$")
 
     plt.show(block=False)
