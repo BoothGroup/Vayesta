@@ -1012,7 +1012,7 @@ class Embedding:
             Fragment object.
         """
         if self.fragmentation is None:
-            raise RuntimeError("No fragmentation defined. Call method x_fragmentation() where x=[iao, iaopao, sao, site].")
+            raise RuntimeError("No fragmentation defined. Call method x_fragmentation() where x=[iao, iaopao, sao, site, cas].")
         atom_indices, atom_symbols = self.fragmentation.get_atom_indices_symbols(atoms)
         name, indices = self.fragmentation.get_atomic_fragment_indices(atoms, orbital_filter=orbital_filter, name=name)
         return self._add_fragment(indices, name, add_symmetric=add_symmetric, atoms=atom_indices, **kwargs)
@@ -1035,7 +1035,7 @@ class Embedding:
             Fragment object.
         """
         if self.fragmentation is None:
-            raise RuntimeError("No fragmentation defined. Call method x_fragmentation() where x=[iao, iaopao, sao, site].")
+            raise RuntimeError("No fragmentation defined. Call method x_fragmentation() where x=[iao, iaopao, sao, site, cas].")
         name, indices = self.fragmentation.get_orbital_fragment_indices(orbitals, atom_filter=atom_filter, name=name)
         return self._add_fragment(indices, name, **kwargs)
 
@@ -1049,8 +1049,8 @@ class Embedding:
         self.log.debugv("Fragment %ss:\n%r", self.fragmentation.name, indices)
         self.log.debug("Fragment %ss of fragment %s:", self.fragmentation.name, name)
         labels = np.asarray(self.fragmentation.labels)[indices]
-        if self.fragmentation.name != "CAS":
-            helper.log_orbitals(self.log.debug, labels)
+        #if self.fragmentation.name != "CAS":
+        helper.log_orbitals(self.log.debug, labels)
 
         if add_symmetric:
             # Translational symmetry
@@ -1091,9 +1091,13 @@ class Embedding:
         name: str, optional
             Name for the fragment. If None, a name is automatically generated from the orbital indices. Default: None.
         """
+        if self.fragmentation is None:
+            raise RuntimeError("No fragmentation defined. Call method x_fragmentation() where x=[iao, iaopao, sao, site, cas].")
+        if self.fragmentation.name != "CAS":
+            raise RuntimeError("CAS construction incompatible with local fragmentation approaches. Call cas_fragmentation()")
         try:
             lumo = self.nocc[0]
-        except ValueError:
+        except TypeError:
             lumo = self.nocc
         orbs = list(range(lumo - nelec//2, lumo + ncas - nelec//2))
         self.add_orbital_fragment(orbs, name=name)

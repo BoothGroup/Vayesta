@@ -22,23 +22,21 @@ class CAS_Fragmentation(Fragmentation):
         return self.mo_coeff.copy()
 
     def get_labels(self):
-        return [str(x) for x in range(0, self.nmo)]
+        return [("", "HF", str(x), "") for x in range(0, self.nmo)]
 
     def get_atom_indices_symbols(self, *args, **kwargs):
         raise NotImplementedError("Atomic fragmentation is not compatible with CAS fragmentation")
 
-    def get_orbital_fragment_indices(self, orbitals, atom_filter=None, name=None):
-
-        if atom_filter is not None:
-            raise ValueError("CAS fragmentation incompatible with atom_filter option.")
-
-        indices, orbital_labels = orbitals, [str(x) for x in orbitals]
-        if name is None: name = '/'.join(orbital_labels)
-        self.log.debugv("Orbital indices of fragment %s: %r", name, indices)
-        self.log.debugv("Orbital labels of fragment %s: %r", name, orbital_labels)
-        return name, indices
+    # Need to overload this function since only accept integer specification in this case.
+    def get_orbital_indices_labels(self, orbitals):
+        if isinstance(orbitals[0], (int, np.integer)):
+            orbital_indices = orbitals
+            orbital_labels = (np.asarray(self.labels, dtype=object)[orbitals]).tolist()
+            orbital_labels = [('%s%3s %s%-s' % tuple(l)).strip() for l in orbital_labels]
+            return orbital_indices, orbital_labels
+        raise ValueError("A list of integers is required! orbitals= %r" % orbitals)
 
 class CAS_Fragmentation_UHF(Fragmentation_UHF, CAS_Fragmentation):
-    def get_labels(self):
-        return [str(x) for x in range(0, self.nmo[0])]
 
+    def get_labels(self):
+        return [("", "HF", str(x), "") for x in range(0, self.nmo[0])]
