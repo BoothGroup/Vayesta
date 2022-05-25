@@ -1078,7 +1078,7 @@ class Embedding:
             fragments.append(frag)
         return fragments
 
-    def add_cas_fragment(self, nelec, ncas, name=None):
+    def add_cas_fragment(self, nelec, ncas, name=None, degen_tol=1e-10):
         """Create a single fragment containing a CAS.
 
         Parameters
@@ -1091,16 +1091,16 @@ class Embedding:
             Name for the fragment. If None, a name is automatically generated from the orbital indices. Default: None.
         """
         if self.fragmentation is None:
-            raise RuntimeError("No fragmentation defined. Call method x_fragmentation() where x=[iao, iaopao, sao, site, cas].")
+            raise RuntimeError(
+                "No fragmentation defined. Call method x_fragmentation() where x=[iao, iaopao, sao, site, cas].")
         if self.fragmentation.name != "CAS":
-            raise RuntimeError("CAS construction incompatible with local fragmentation approaches. Call cas_fragmentation()")
+            raise RuntimeError(
+                "CAS construction incompatible with local fragmentation approaches. Call cas_fragmentation()")
 
-        try:
-            lumo = self.nocc[0]
-            occ = sum(self.mo_occ)
-        except TypeError:
-            lumo = self.nocc
+        if self.is_rhf:
             occ = self.mo_occ
+        else:
+            occ = sum(self.mo_occ)
 
         if nelec > sum(occ):
             raise ValueError("CAS specified with more electrons than present in system.")
@@ -1117,6 +1117,22 @@ class Embedding:
         if nelec_curr > nelec or offset > ncas:
             raise ValueError(
                 "Cannot create CAS with required properties around Fermi level with current MO occupancy.")
+
+        def check_for_degen(energies, po, pv):
+            print(energies[po - 2:pv + 2])
+            ogap = abs(energies[po] - energies[po - 1])
+            if ogap < degen_tol:
+                raise ValueError("Requested CAS splits degenerate occupied orbitals.")
+            vgap = abs(energies[pv] - energies[pv + 1])
+            if vgap < degen_tol:
+                raise ValueError("Requested CAS splits degenerate virtual orbitals.")
+
+        if self.is_rhf:
+            check_for_degen(self.mo_energy, anyocc[-1] - offset, anyocc[-1] - offset + ncas)
+        else:
+            check_for_degen(self.mo_energy[0], anyocc[-1] - offset, anyocc[-1] - offset + ncas)
+            check_for_degen(self.mo_energy[1], anyocc[-1] - offset, anyocc[-1] - offset + ncas)
+
         orbs = list(range(anyocc[-1] - offset, anyocc[-1] - offset + ncas))
         self.add_orbital_fragment(orbs, name=name)
 
