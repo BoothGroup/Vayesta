@@ -1119,7 +1119,6 @@ class Embedding:
                 "Cannot create CAS with required properties around Fermi level with current MO occupancy.")
 
         def check_for_degen(energies, po, pv):
-            print(energies[po - 2:pv + 2])
             ogap = abs(energies[po] - energies[po - 1])
             if ogap < degen_tol:
                 raise ValueError("Requested CAS splits degenerate occupied orbitals.")
