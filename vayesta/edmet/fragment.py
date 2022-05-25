@@ -178,6 +178,7 @@ class EDMETFragment(DMETFragment):
             bno_threshold = BNO_Threshold('occupation', bno_threshold)
 
         cluster = self.make_cluster(self.bath, bno_threshold=bno_threshold)
+        self.cluster = cluster
         cluster.log_sizes(self.log.info, header="Orbitals for %s" % self)
         self._c_active_occ = cluster.c_active_occ
         self._c_active_vir = cluster.c_active_vir

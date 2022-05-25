@@ -69,7 +69,6 @@ class EWFFragment(Fragment):
 
     @dataclasses.dataclass
     class Results(Fragment.Results):
-        bno_threshold: float = None
         n_active: int = None
         ip_energy: np.ndarray = None
         ea_energy: np.ndarray = None
@@ -221,7 +220,42 @@ class EWFFragment(Fragment):
         check_occupation(cluster.c_occ, 1)
         check_occupation(cluster.c_vir, 0)
 
+        #self.cluster = cluster
+        return cluster
+
+    def make_bath_and_cluster(self, bno_threshold=None, bno_threshold_occ=None, bno_threshold_vir=None):
+        """Run solver for a single BNO threshold.
+
+        Parameters
+        ----------
+        bno_threshold : float, optional
+            Bath natural orbital (BNO) threshold.
+
+        Returns
+        -------
+        cluster
+        """
+        if bno_threshold is None:
+            bno_threshold = self.opts.bno_threshold
+        if bno_threshold_occ is None:
+            bno_threshold_occ = self.opts.bno_threshold_occ
+        if bno_threshold_vir is None:
+            bno_threshold_vir = self.opts.bno_threshold_vir
+
+        bno_threshold = BNO_Threshold(self.opts.bno_truncation, bno_threshold)
+
+        if bno_threshold_occ is not None:
+            bno_threshold_occ = BNO_Threshold(self.opts.bno_truncation, bno_threshold_occ)
+        if bno_threshold_vir is not None:
+            bno_threshold_vir = BNO_Threshold(self.opts.bno_truncation, bno_threshold_vir)
+
+        if self.bath is None:
+            self.make_bath()
+
+        cluster = self.make_cluster(self.bath, bno_threshold=bno_threshold,
+                bno_threshold_occ=bno_threshold_occ, bno_threshold_vir=bno_threshold_vir)
         self.cluster = cluster
+        cluster.log_sizes(self.log.info, header="Orbitals for %s with %s" % (self, bno_threshold))
         return cluster
 
     def get_init_guess(self, init_guess, solver, cluster):
@@ -245,42 +279,53 @@ class EWFFragment(Fragment):
         #if init_guess is None: init_guess = {}
         #return init_guess
 
-    def kernel(self, bno_threshold=None, bno_threshold_occ=None, bno_threshold_vir=None, solver=None, init_guess=None, eris=None):
-        """Run solver for a single BNO threshold.
+    #def kernel(self, bno_threshold=None, bno_threshold_occ=None, bno_threshold_vir=None, solver=None, init_guess=None, eris=None):
+        #"""Run solver for a single BNO threshold.
 
-        Parameters
-        ----------
-        bno_threshold : float, optional
-            Bath natural orbital (BNO) threshold.
-        solver : {'MP2', 'CISD', 'CCSD', 'FCI'}, optional
-            Correlated solver.
+        #Parameters
+        #----------
+        #bno_threshold : float, optional
+        #    Bath natural orbital (BNO) threshold.
+        #solver : {'MP2', 'CISD', 'CCSD', 'FCI'}, optional
+        #    Correlated solver.
 
-        Returns
-        -------
-        results : self.Results
-        """
-        if bno_threshold is None:
-            bno_threshold = self.opts.bno_threshold
-        if bno_threshold_occ is None:
-            bno_threshold_occ = self.opts.bno_threshold_occ
-        if bno_threshold_vir is None:
-            bno_threshold_vir = self.opts.bno_threshold_vir
+        #Returns
+        #-------
+        #results : self.Results
+        #"""
+        #if bno_threshold is None:
+        #    bno_threshold = self.opts.bno_threshold
+        #if bno_threshold_occ is None:
+        #    bno_threshold_occ = self.opts.bno_threshold_occ
+        #if bno_threshold_vir is None:
+        #    bno_threshold_vir = self.opts.bno_threshold_vir
 
-        bno_threshold = BNO_Threshold(self.opts.bno_truncation, bno_threshold)
+        #bno_threshold = BNO_Threshold(self.opts.bno_truncation, bno_threshold)
 
-        if bno_threshold_occ is not None:
-            bno_threshold_occ = BNO_Threshold(self.opts.bno_truncation, bno_threshold_occ)
-        if bno_threshold_vir is not None:
-            bno_threshold_vir = BNO_Threshold(self.opts.bno_truncation, bno_threshold_vir)
+        #if bno_threshold_occ is not None:
+        #    bno_threshold_occ = BNO_Threshold(self.opts.bno_truncation, bno_threshold_occ)
+        #if bno_threshold_vir is not None:
+        #    bno_threshold_vir = BNO_Threshold(self.opts.bno_truncation, bno_threshold_vir)
+
+        #if solver is None:
+        #    solver = self.solver
+        #if self.bath is None:
+        #    self.make_bath()
+
+        #cluster = self.make_cluster(self.bath, bno_threshold=bno_threshold,
+        #        bno_threshold_occ=bno_threshold_occ, bno_threshold_vir=bno_threshold_vir)
+        #cluster.log_sizes(self.log.info, header="Orbitals for %s with %s" % (self, bno_threshold))
+
+        #if mpi:
+        #    self.base.communicate_clusters()
+
+    def kernel(self, solver=None, init_guess=None, eris=None):
 
         if solver is None:
             solver = self.solver
-        if self.bath is None:
-            self.make_bath()
-
-        cluster = self.make_cluster(self.bath, bno_threshold=bno_threshold,
-                bno_threshold_occ=bno_threshold_occ, bno_threshold_vir=bno_threshold_vir)
-        cluster.log_sizes(self.log.info, header="Orbitals for %s with %s" % (self, bno_threshold))
+        if self.cluster is None:
+            raise RuntimeError
+        cluster = self.cluster
 
         # For self-consistent calculations, we can reuse ERIs:
         if eris is None:
@@ -318,7 +363,7 @@ class EWFFragment(Fragment):
             if solver != 'CCSD':
                 raise NotImplementedError()
             if not mpi or len(self.base.fragments) > len(mpi):
-                raise NotImplementedError()
+                raise RuntimeError("coupled_iterations requires MPI.")
             cluster_solver.couple_iterations(self.base.fragments)
 
         if eris is None:
@@ -331,7 +376,6 @@ class EWFFragment(Fragment):
 
         # --- Add to results data class
         results = self._results
-        results.bno_threshold = bno_threshold
         results.n_active = cluster.norb_active
         results.converged = cluster_solver.converged
         # Unprojected WF

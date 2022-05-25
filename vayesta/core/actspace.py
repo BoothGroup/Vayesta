@@ -1,6 +1,7 @@
 import numpy as np
 
 from .orbitals import OrbitalSpace
+from . import helper
 
 
 def ActiveSpace(mf, *args, **kwargs):
@@ -30,6 +31,15 @@ class ActiveSpace_RHF:
     def __repr__(self):
         return ("ActiveSpace(nocc_active= %d, nvir_active= %d, nocc_frozen= %d, nvir_frozen= %d)" %
             (self.nocc_active, self.nvir_active, self.nocc_frozen, self.nvir_frozen))
+
+    def pack(self):
+        arrays = [x.coeff for x in (self._active_occ, self._active_vir, self._frozen_occ, self._frozen_vir)]
+        return helper.pack_arrays(*arrays)
+
+    @classmethod
+    def unpack(cls, mf, packed):
+        c_active_occ, c_active_vir, c_frozen_occ, c_frozen_vir = helper.unpack_arrays(packed)
+        return cls(mf, c_active_occ, c_active_vir, c_frozen_occ, c_frozen_vir)
 
     # --- Mean-field:
 

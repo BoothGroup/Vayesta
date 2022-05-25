@@ -780,6 +780,20 @@ class Embedding:
     # Results
     # -------
 
+    def communicate_clusters(self):
+        """Communicate cluster orbitals between MPI ranks."""
+        if not mpi:
+            return
+        with log_time(self.log.timing, "Time to communicate clusters: %s"):
+            for x in self.get_fragments(sym_parent=None):
+                source = x.mpi_rank
+                if (mpi.rank == source):
+                    x.cluster.mf = None
+                cluster = mpi.world.bcast(x.cluster, root=source)
+                if (mpi.rank != source):
+                    x.cluster = cluster
+                x.cluster.mf = self.mf
+
     make_rdm1_demo = make_rdm1_demo_rhf
     make_rdm2_demo = make_rdm2_demo_rhf
 

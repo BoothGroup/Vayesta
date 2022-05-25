@@ -213,28 +213,34 @@ class EWF(Embedding):
         """
 
         if self.nfrag == 0:
-            raise ValueError("No fragments defined for calculation.")
+            raise RuntimeError("No fragments defined for calculation.")
         assert (np.ndim(bno_threshold) == 0)
 
         if mpi: mpi.world.Barrier()
         t_start = timer()
 
-        # Loop over fragments with no symmetry parent and with own MPI rank
-        for frag in self.get_fragments(sym_parent=None, mpi_rank=mpi.rank):
-
-            msg = "Now running %s" % frag
-            if mpi:
-                msg += " on MPI process %d" % mpi.rank
+        # Create bath and clusters first
+        self.log.info("Making bath and cluster")
+        self.log.info("=======================")
+        for x in self.get_fragments(sym_parent=None, mpi_rank=mpi.rank):
+            msg = "Making bath for %s%s" % (x, (" on MPI process %d" % mpi.rank) if mpi else "")
             self.log.info(msg)
             self.log.info(len(msg)*"-")
-            self.log.changeIndentLevel(1)
-            frag.kernel(bno_threshold=bno_threshold)
-            #res = frag.kernel(bno_threshold=bno_threshold)
-            #if not res.converged:
-            #    self.log.error("%s is not converged!", frag)
-            #else:
-            #    self.log.info("%s is done.", frag)
-            self.log.changeIndentLevel(-1)
+            with self.log.indent():
+                x.make_bath_and_cluster(bno_threshold=bno_threshold)
+
+        if mpi:
+            self.communicate_clusters()
+
+        # Loop over fragments with no symmetry parent and with own MPI rank
+        self.log.info("Running solvers")
+        self.log.info("===============")
+        for x in self.get_fragments(sym_parent=None, mpi_rank=mpi.rank):
+            msg = "Solving %s%s" % (x, (" on MPI process %d" % mpi.rank) if mpi else "")
+            self.log.info(msg)
+            self.log.info(len(msg)*"-")
+            with self.log.indent():
+                x.kernel()
 
         # Evaluate correlation energy
         self.e_corr = self.get_e_corr()

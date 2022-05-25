@@ -83,8 +83,6 @@ def unpack_arrays(packed, dtype=float, maxdim=8):
     return unpacked
 
 
-
-
 if __name__ == '__main__':
     import sys
 

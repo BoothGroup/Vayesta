@@ -189,17 +189,22 @@ def init_logging():
         root.indentLevel = max(root.indentLevel + delta, 0)
         return root.indentLevel
 
-    class withIndentLevel(contextlib.ContextDecorator):
-        def __init__(self, delta):
+    class indent(contextlib.ContextDecorator):
+
+        def __init__(self, delta=1):
             self.delta = delta
+            self.level_init = None
             self.root = logging.getLogger()
 
         def __enter__(self):
-            self.root.indentLevel = max(self.root.indentLevel + self.delta, 0)
+            self.level_init = self.root.indentLevel
+            self.root.indentLevel = max(self.level_init+self.delta, 0)
 
         def __exit__(self, *args):
-            self.root.indentLevel = max(self.root.indentLevel - self.delta, 0)
+            self.root.indentLevel = self.level_init
 
     logging.Logger.setIndentLevel = setIndentLevel
     logging.Logger.changeIndentLevel = changeIndentLevel
-    logging.Logger.withIndentLevel = withIndentLevel
+    logging.Logger.indent = indent
+    # Deprecated:
+    logging.Logger.withIndentLevel = indent

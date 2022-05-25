@@ -138,6 +138,7 @@ def make_cas_tcc_function(solver, c_cas_occ, c_cas_vir, eris):
     t2_fci = c2 - einsum('ia,jb->ijab', c1, c1)
 
     def tailor_func(kwargs):
+        cc = kwargs['mycc']
         t1, t2 = kwargs['t1new'], kwargs['t2new']
         # Rotate & project CC amplitudes to CAS
         t1_cc = einsum('IA,Ii,Aa->ia', t1, ro, rv)

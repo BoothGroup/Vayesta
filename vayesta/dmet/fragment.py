@@ -5,7 +5,6 @@ from timeit import default_timer as timer
 import numpy as np
 
 from vayesta.core import Fragment
-from vayesta.core.actspace import ActiveSpace
 from vayesta.core.bath import BNO_Threshold
 from vayesta.solver import get_solver_class
 from vayesta.core.util import *
@@ -124,6 +123,7 @@ class DMETFragment(Fragment):
             bno_threshold = BNO_Threshold('occupation', bno_threshold)
 
         cluster = self.make_cluster(self.bath, bno_threshold=bno_threshold)
+        self.cluster = cluster
         cluster.log_sizes(self.log.info, header="Orbitals for %s" % self)
         # If we want to reuse previous info for initial guess and eris we'd do that here...
         # We can now overwrite the orbitals from last BNO run:
