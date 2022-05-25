@@ -42,6 +42,7 @@ from vayesta.core.fragmentation import make_sao_fragmentation
 from vayesta.core.fragmentation import make_iao_fragmentation
 from vayesta.core.fragmentation import make_iaopao_fragmentation
 from vayesta.core.fragmentation import make_site_fragmentation
+from vayesta.core.fragmentation import make_cas_fragmentation
 
 # --- This Package
 
@@ -981,6 +982,16 @@ class Embedding:
         self.fragmentation = make_iaopao_fragmentation(self.mf, log=self.log, minao=minao)
         self.fragmentation.kernel()
 
+    def cas_fragmentation(self):
+        """Initialize the quantum embedding method for the use of CAS fragments.
+
+        Parameters
+        ----------
+
+        """
+        self.fragmentation = make_cas_fragmentation(self.mf, log=self.log)
+        self.fragmentation.kernel()
+
     def add_atomic_fragment(self, atoms, orbital_filter=None, name=None, add_symmetric=True, **kwargs):
         """Create a fragment of one or multiple atoms, which will be solved by the embedding method.
 
@@ -1001,7 +1012,7 @@ class Embedding:
             Fragment object.
         """
         if self.fragmentation is None:
-            raise RuntimeError("No fragmentation defined. Call method x_fragmentation() where x=[iao, iaopao, sao, site].")
+            raise RuntimeError("No fragmentation defined. Call method x_fragmentation() where x=[iao, iaopao, sao, site, cas].")
         atom_indices, atom_symbols = self.fragmentation.get_atom_indices_symbols(atoms)
         name, indices = self.fragmentation.get_atomic_fragment_indices(atoms, orbital_filter=orbital_filter, name=name)
         return self._add_fragment(indices, name, add_symmetric=add_symmetric, atoms=atom_indices, **kwargs)
@@ -1024,7 +1035,7 @@ class Embedding:
             Fragment object.
         """
         if self.fragmentation is None:
-            raise RuntimeError("No fragmentation defined. Call method x_fragmentation() where x=[iao, iaopao, sao, site].")
+            raise RuntimeError("No fragmentation defined. Call method x_fragmentation() where x=[iao, iaopao, sao, site, cas].")
         name, indices = self.fragmentation.get_orbital_fragment_indices(orbitals, atom_filter=atom_filter, name=name)
         return self._add_fragment(indices, name, **kwargs)
 
@@ -1066,6 +1077,63 @@ class Embedding:
             frag = self.add_atomic_fragment(atom, **kwargs)
             fragments.append(frag)
         return fragments
+
+    def add_cas_fragment(self, nelec, ncas, name=None, degen_tol=1e-10):
+        """Create a single fragment containing a CAS.
+
+        Parameters
+        ----------
+        nelec: int
+            Number of electrons within the fragment.
+        ncas: int
+            Number of spatial orbitals within the fragment.
+        name: str, optional
+            Name for the fragment. If None, a name is automatically generated from the orbital indices. Default: None.
+        """
+        if self.fragmentation is None:
+            raise RuntimeError(
+                "No fragmentation defined. Call method x_fragmentation() where x=[iao, iaopao, sao, site, cas].")
+        if self.fragmentation.name != "CAS":
+            raise RuntimeError(
+                "CAS construction incompatible with local fragmentation approaches. Call cas_fragmentation()")
+
+        if self.is_rhf:
+            occ = self.mo_occ
+        else:
+            occ = sum(self.mo_occ)
+
+        if nelec > sum(occ):
+            raise ValueError("CAS specified with more electrons than present in system.")
+        if ncas > len(occ):
+            raise ValueError("CAS specified with more orbitals than present in system.")
+        # Search for how many orbital pairs we have to include to obtain desired number of electrons.
+        # This should be stable regardless of occupancies etc.
+        anyocc = np.where(occ > 0)[0]
+        offset, nelec_curr = -1, 0
+        while nelec_curr < nelec:
+            offset += 1
+            nelec_curr += int(occ[anyocc[-1] - offset])
+
+        if nelec_curr > nelec or offset > ncas:
+            raise ValueError(
+                "Cannot create CAS with required properties around Fermi level with current MO occupancy.")
+
+        def check_for_degen(energies, po, pv):
+            ogap = abs(energies[po] - energies[po - 1])
+            if ogap < degen_tol:
+                raise ValueError("Requested CAS splits degenerate occupied orbitals.")
+            vgap = abs(energies[pv] - energies[pv + 1])
+            if vgap < degen_tol:
+                raise ValueError("Requested CAS splits degenerate virtual orbitals.")
+
+        if self.is_rhf:
+            check_for_degen(self.mo_energy, anyocc[-1] - offset, anyocc[-1] - offset + ncas)
+        else:
+            check_for_degen(self.mo_energy[0], anyocc[-1] - offset, anyocc[-1] - offset + ncas)
+            check_for_degen(self.mo_energy[1], anyocc[-1] - offset, anyocc[-1] - offset + ncas)
+
+        orbs = list(range(anyocc[-1] - offset, anyocc[-1] - offset + ncas))
+        self.add_orbital_fragment(orbs, name=name)
 
     # --- Mean-field updates
 
