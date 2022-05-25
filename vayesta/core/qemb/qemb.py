@@ -1049,7 +1049,8 @@ class Embedding:
         self.log.debugv("Fragment %ss:\n%r", self.fragmentation.name, indices)
         self.log.debug("Fragment %ss of fragment %s:", self.fragmentation.name, name)
         labels = np.asarray(self.fragmentation.labels)[indices]
-        helper.log_orbitals(self.log.debug, labels)
+        if self.fragmentation.name != "CAS":
+            helper.log_orbitals(self.log.debug, labels)
 
         if add_symmetric:
             # Translational symmetry
@@ -1077,6 +1078,25 @@ class Embedding:
             frag = self.add_atomic_fragment(atom, **kwargs)
             fragments.append(frag)
         return fragments
+
+    def add_cas_fragment(self, nelec, ncas, name=None):
+        """Create a single fragment containing a CAS.
+
+        Parameters
+        ----------
+        nelec: int
+            Number of electrons within the fragment.
+        ncas: int
+            Number of spatial orbitals within the fragment.
+        name: str, optional
+            Name for the fragment. If None, a name is automatically generated from the orbital indices. Default: None.
+        """
+        try:
+            lumo = self.nocc[0]
+        except ValueError:
+            lumo = self.nocc
+        orbs = list(range(lumo - nelec//2, lumo + ncas - nelec//2))
+        self.add_orbital_fragment(orbs, name=name)
 
     # --- Mean-field updates
 

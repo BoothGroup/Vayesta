@@ -18,14 +18,6 @@ class CAS_Fragmentation(Fragmentation):
         super().__init__(*args, **kwargs)
         # Don't need to do much setup here..
 
-    @property
-    def nocc(self):
-        return sum(self.mo_occ>0)
-
-    @property
-    def nvir(self):
-        return self.nmo - self.nocc
-
     def get_coeff(self):
         return self.mo_coeff.copy()
 
@@ -46,5 +38,7 @@ class CAS_Fragmentation(Fragmentation):
         self.log.debugv("Orbital labels of fragment %s: %r", name, orbital_labels)
         return name, indices
 
-class CAS_Fragmentation_UHF(Fragmentation_UHF):
-    pass
+class CAS_Fragmentation_UHF(Fragmentation_UHF, CAS_Fragmentation):
+    def get_labels(self):
+        return [str(x) for x in range(0, self.nmo[0])]
+
