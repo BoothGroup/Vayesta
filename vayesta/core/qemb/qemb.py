@@ -987,8 +987,7 @@ class Embedding:
 
         Parameters
         ----------
-        minao: str, optional
-            IAO reference basis set. Default: 'auto'
+
         """
         self.fragmentation = make_cas_fragmentation(self.mf, log=self.log)
         self.fragmentation.kernel()

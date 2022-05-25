@@ -32,5 +32,5 @@ def make_iaopao_fragmentation(mf, *args, **kwargs):
 
 def make_cas_fragmentation(mf, *args, **kwargs):
     if is_uhf(mf):
-        return IAO_Fragmentation_UHF(mf, *args, **kwargs)
-    return IAO_Fragmentation(mf, *args, **kwargs)
+        return CAS_Fragmentation_UHF(mf, *args, **kwargs)
+    return CAS_Fragmentation(mf, *args, **kwargs)
