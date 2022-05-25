@@ -2,6 +2,7 @@ import numpy as np
 
 from vayesta.core.linalg import recursive_block_svd
 from vayesta.core.util import *
+from vayesta.core import spinalg
 
 from .bath import FragmentBath
 
@@ -28,8 +29,8 @@ class EwDMET_Bath(FragmentBath):
         c_ewdmet_occ, self.c_env_occ = self._make_cluster('occ')
         c_ewdmet_vir, self.c_env_vir = self._make_cluster('vir')
         # Add DMET cluster
-        self.c_cluster_occ = stack_mo(self.dmet_bath.c_cluster_occ, c_ewdmet_occ)
-        self.c_cluster_vir = stack_mo(self.dmet_bath.c_cluster_vir, c_ewdmet_vir)
+        self.c_cluster_occ = spinalg.hstack_matrices(self.dmet_bath.c_cluster_occ, c_ewdmet_occ)
+        self.c_cluster_vir = spinalg.hstack_matrices(self.dmet_bath.c_cluster_vir, c_ewdmet_vir)
 
     def _make_svd(self, c_env, max_order=None):
         if max_order is None:
@@ -40,7 +41,7 @@ class EwDMET_Bath(FragmentBath):
         c_frag = self.fragment.c_frag
         n_frag = c_frag.shape[-1]
 
-        mo = stack_mo(c_frag, c_env)
+        mo = spinalg.hstack_matrices(c_frag, c_env)
         fock = self.get_fock()
         f_occ = dot(mo.T, fock, mo)
         r_svd, sv, orders = recursive_block_svd(f_occ, n=n_frag, tol=self.ewdmet_threshold, maxblock=max_order)

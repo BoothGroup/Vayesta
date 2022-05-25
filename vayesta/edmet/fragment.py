@@ -179,7 +179,9 @@ class EDMETFragment(DMETFragment):
 
         cluster = self.make_cluster(self.bath, bno_threshold=bno_threshold)
         self.cluster = cluster
-        cluster.log_sizes(self.log.info, header="Orbitals for %s" % self)
+        self.log.info('Orbitals for %s', self)
+        self.log.info('-------------%s', len(str(self))*'-')
+        self.log.info(cluster.repr_size().replace('%', '%%'))
         self._c_active_occ = cluster.c_active_occ
         self._c_active_vir = cluster.c_active_vir
         # Want to return the rotation of the canonical HF orbitals which produce the cluster canonical orbitals.
@@ -680,7 +682,7 @@ class EDMETFragment(DMETFragment):
 
         solver_cls = get_solver_class(self.mf, solver)
 
-        cluster_solver = solver_cls(self, self.cluster, **solver_opts)
+        cluster_solver = solver_cls(self.mf, self, self.cluster, **solver_opts)
         # Chemical potential
         if chempot is not None:
             px =  self.get_fragment_projector(self.cluster.c_active)

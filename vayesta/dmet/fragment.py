@@ -124,7 +124,9 @@ class DMETFragment(Fragment):
 
         cluster = self.make_cluster(self.bath, bno_threshold=bno_threshold)
         self.cluster = cluster
-        cluster.log_sizes(self.log.info, header="Orbitals for %s" % self)
+        self.log.info('Orbitals for %s', self)
+        self.log.info('-------------%s', len(str(self))*'-')
+        self.log.info(cluster.repr_size().replace('%', '%%'))
         # If we want to reuse previous info for initial guess and eris we'd do that here...
         # We can now overwrite the orbitals from last BNO run:
         self._c_active_occ = cluster.c_active_occ
@@ -136,7 +138,7 @@ class DMETFragment(Fragment):
         # Create solver object
         solver_cls = get_solver_class(self.mf, solver)
         solver_opts = self.get_solver_options(solver)
-        cluster_solver = solver_cls(self, cluster, **solver_opts)
+        cluster_solver = solver_cls(self.mf, self, cluster, **solver_opts)
         # Chemical potential
         if chempot is not None:
             cluster_solver.v_ext = -chempot * self.get_fragment_projector(self.cluster.c_active)

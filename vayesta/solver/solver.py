@@ -16,7 +16,7 @@ class ClusterSolver:
     class Options(OptionsBase):
         pass
 
-    def __init__(self, fragment, cluster, options=None, log=None, **kwargs):
+    def __init__(self, mf, fragment, cluster, options=None, log=None, **kwargs):
         """
 
         TODO: Remove fragment/embedding dependence...?
@@ -24,6 +24,7 @@ class ClusterSolver:
         Arguments
         ---------
         """
+        self.mf = mf
         self.fragment = fragment    # TODO: Remove?
         self.cluster = cluster
         self.log = (log or fragment.log)
@@ -54,10 +55,6 @@ class ClusterSolver:
     def base(self):
         """TODO: Remove fragment/embedding dependence...?"""
         return self.fragment.base
-
-    @property
-    def mf(self):
-        return self.cluster.mf
 
     @property
     def is_rhf(self):

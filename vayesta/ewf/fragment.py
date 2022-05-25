@@ -25,7 +25,7 @@ from vayesta.core.bath import EwDMET_Bath
 from vayesta.core.bath import BNO_Bath
 from vayesta.core.bath import MP2_BNO_Bath
 from vayesta.core.bath import CompleteBath
-from vayesta.core.actspace import ActiveSpace
+from vayesta.core.types import Cluster
 from vayesta.core import ao2mo
 from vayesta.core.mpi import mpi
 
@@ -206,7 +206,7 @@ class EWFFragment(Fragment):
         # Canonicalize orbitals
         c_active_occ = self.canonicalize_mo(bath.dmet_bath.c_cluster_occ, c_bath_occ)[0]
         c_active_vir = self.canonicalize_mo(bath.dmet_bath.c_cluster_vir, c_bath_vir)[0]
-        cluster = ActiveSpace(self.mf, c_active_occ, c_active_vir, c_frozen_occ=c_frozen_occ, c_frozen_vir=c_frozen_vir)
+        cluster = Cluster.from_coeffs(c_active_occ, c_active_vir, c_frozen_occ, c_frozen_vir)
 
         def check_occupation(mo_coeff, expected):
             occup = self.get_mo_occupation(mo_coeff)
@@ -217,8 +217,8 @@ class EWFFragment(Fragment):
                 assert np.allclose(occup[0], expected, rtol=0, atol=self.opts.dmet_threshold)
                 assert np.allclose(occup[1], expected, rtol=0, atol=self.opts.dmet_threshold)
 
-        check_occupation(cluster.c_occ, 1)
-        check_occupation(cluster.c_vir, 0)
+        check_occupation(cluster.c_total_occ, 1)
+        check_occupation(cluster.c_total_vir, 0)
 
         #self.cluster = cluster
         return cluster
@@ -254,8 +254,10 @@ class EWFFragment(Fragment):
 
         cluster = self.make_cluster(self.bath, bno_threshold=bno_threshold,
                 bno_threshold_occ=bno_threshold_occ, bno_threshold_vir=bno_threshold_vir)
+        self.log.info('Orbitals for %s', self)
+        self.log.info('-------------%s', len(str(self))*'-')
+        self.log.info(cluster.repr_size().replace('%', '%%'))
         self.cluster = cluster
-        cluster.log_sizes(self.log.info, header="Orbitals for %s with %s" % (self, bno_threshold))
         return cluster
 
     def get_init_guess(self, init_guess, solver, cluster):
@@ -342,7 +344,7 @@ class EWFFragment(Fragment):
         # Create solver object
         solver_cls = get_solver_class(self.mf, solver)
         solver_opts = self.get_solver_options(solver)
-        cluster_solver = solver_cls(self, cluster, **solver_opts)
+        cluster_solver = solver_cls(self.mf, self, cluster, **solver_opts)
 
         # --- Chemical potential
         cpt_frag = self.base.opts.global_frag_chempot

@@ -4,6 +4,7 @@ import itertools
 import numpy as np
 
 from vayesta.core.util import *
+from vayesta.core import spinalg
 
 from .fragment import Fragment
 from vayesta.core.symmetry import SymmetryTranslation
@@ -29,13 +30,6 @@ class UFragment(Fragment):
     def __repr__(self):
         return '%s(id= %d, name= %s, n_frag= (%d, %d), n_elec= (%.8f, %.8f), sym_factor= %f)' % (self.__class__.__name__,
                 self.id, self.name, *self.n_frag, *self.nelectron, self.sym_factor)
-
-    @staticmethod
-    def stack_mo(*mo_coeff):
-        """Stack MOs in each spin channel."""
-        mo_coeff = (hstack(*[c[0] for c in mo_coeff]),
-                    hstack(*[c[1] for c in mo_coeff]))
-        return mo_coeff
 
     @property
     def n_frag(self):
@@ -67,7 +61,7 @@ class UFragment(Fragment):
         occ : ndarray, shape(M)
             Occupation numbers of orbitals.
         """
-        mo_coeff = self.stack_mo(*mo_coeff)
+        mo_coeff = spinalg.hstack_matrices(*mo_coeff)
         if dm1 is None: dm1 = self.mf.make_rdm1()
         results = []
         for s, spin in enumerate(('alpha', 'beta')):
@@ -92,7 +86,7 @@ class UFragment(Fragment):
             Rotation matrix: np.dot(mo_coeff, rot) = mo_canon.
         """
         if fock is None: fock = self.base.get_fock()
-        mo_coeff = self.stack_mo(*mo_coeff)
+        mo_coeff = spinalg.hstack_matrices(*mo_coeff)
         results = []
         for s, spin in enumerate(('alpha', 'beta')):
             results.append(super().canonicalize_mo(mo_coeff[s], fock=fock[s], **kwargs))
@@ -116,7 +110,7 @@ class UFragment(Fragment):
         c_cluster_vir : ndarray
             Virtual cluster orbitals.
         """
-        mo_coeff = self.stack_mo(*mo_coeff)
+        mo_coeff = spinalg.hstack_matrices(*mo_coeff)
         if dm1 is None: dm1 = self.mf.make_rdm1()
         results = []
         for s, spin in enumerate(('alpha', 'beta')):
@@ -331,11 +325,11 @@ class UFragment(Fragment):
         dma, dmb = dm1
         ovlp = self.base.get_ovlp()
         # This fragment (x)
-        cxa, cxb = self.stack_mo(self.c_frag, self.c_env)
+        cxa, cxb = spinalg.hstack_matrices(self.c_frag, self.c_env)
         dmxa = dot(cxa.T, ovlp, dma, ovlp, cxa)
         dmxb = dot(cxb.T, ovlp, dmb, ovlp, cxb)
         # Other fragment (y)
-        cya, cyb = self.stack_mo(frag.c_frag, frag.c_env)
+        cya, cyb = spinalg.hstack_matrices(frag.c_frag, frag.c_env)
         dmya = dot(cya.T, ovlp, dma, ovlp, cya)
         dmyb = dot(cyb.T, ovlp, dmb, ovlp, cyb)
         charge_err = abs(dmxa+dmxb-dmya-dmyb).max()

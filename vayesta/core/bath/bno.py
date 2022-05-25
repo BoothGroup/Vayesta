@@ -8,7 +8,8 @@ import pyscf.pbc
 import pyscf.pbc.mp
 
 from vayesta.core.util import *
-from vayesta.core.actspace import ActiveSpace
+from vayesta.core import spinalg
+from vayesta.core.types import Cluster
 from vayesta.core.linalg import recursive_block_svd
 from . import helper
 
@@ -191,18 +192,18 @@ class BNO_Bath(FragmentBath):
         nao = self.mol.nao
         zero_space = np.zeros((nao, 0)) if self.spin_restricted else np.zeros((2, nao, 0))
         if kind == 'occ':
-            c_active_occ = stack_mo(dmet_bath.c_cluster_occ, dmet_bath.c_env_occ)
+            c_active_occ = spinalg.hstack_matrices(dmet_bath.c_cluster_occ, dmet_bath.c_env_occ)
             c_frozen_occ = zero_space
             c_active_vir = ref_bath.c_cluster_vir
             c_frozen_vir = ref_bath.c_env_vir
         elif kind == 'vir':
             c_active_occ = ref_bath.c_cluster_occ
             c_frozen_occ = ref_bath.c_env_occ
-            c_active_vir = stack_mo(dmet_bath.c_cluster_vir, dmet_bath.c_env_vir)
+            c_active_vir = spinalg.hstack_matrices(dmet_bath.c_cluster_vir, dmet_bath.c_env_vir)
             c_frozen_vir = zero_space
         else:
             raise ValueError("Unknown kind: %r" % kind)
-        actspace = ActiveSpace(self.mf, c_active_occ, c_active_vir, c_frozen_occ, c_frozen_vir)
+        actspace = Cluster.from_coeffs(c_active_occ, c_active_vir, c_frozen_occ, c_frozen_vir)
         return actspace
 
     def _undo_canonicalization(self, dm, rot):
@@ -415,7 +416,7 @@ class MP2_BNO_Bath(BNO_Bath):
         else:
             c_active_vir = actspace_orig.c_active_vir
             r_vir = None
-        actspace = ActiveSpace(self.mf, c_active_occ, c_active_vir,
+        actspace = Cluster.from_coeffs(c_active_occ, c_active_vir,
                 actspace_orig.c_frozen_occ, actspace_orig.c_frozen_vir)
 
         # -- Integral transformation
@@ -451,7 +452,7 @@ class MP2_BNO_Bath(BNO_Bath):
         # --- Diagonalize environment-environment block
         dm = self._dm_take_env(dm, kind)
         r_bno, n_bno = self._diagonalize_dm(dm)
-        c_bno = dot_s(c_env, r_bno)
+        c_bno = spinalg.dot(c_env, r_bno)
         c_bno = fix_orbital_sign(c_bno)[0]
 
         return c_bno, n_bno

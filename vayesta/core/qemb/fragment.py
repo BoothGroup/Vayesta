@@ -92,26 +92,6 @@ class Fragment:
         def l2x(self):
             return self.pwf.l2
 
-        #c0: float = None            # Reference determinant CI coefficient
-        #c1: np.ndarray = None       # CI single coefficients
-        #c2: np.ndarray = None       # CI double coefficients
-        #t1: np.ndarray = None       # CC single amplitudes
-        #t2: np.ndarray = None       # CC double amplitudes
-        #l1: np.ndarray = None       # CC single Lambda-amplitudes
-        #l2: np.ndarray = None       # CC double Lambda-amplitudes
-        ## Fragment-projected amplitudes:
-        #c1x: np.ndarray = None      # Fragment-projected CI single coefficients
-        #c2x: np.ndarray = None      # Fragment-projected CI double coefficients
-        #t1x: np.ndarray = None      # Fragment-projected CC single amplitudes
-        #t2x: np.ndarray = None      # Fragment-projected CC double amplitudes
-        #l1x: np.ndarray = None      # Fragment-projected CC single Lambda-amplitudes
-        #l2x: np.ndarray = None      # Fragment-projected CC double Lambda-amplitudes
-
-        #def convert_amp_c_to_t(self):
-        #    self.t1 = self.c1/self.c0
-        #    self.t2 = self.c2/self.c0 - einsum('ia,jb->ijab', self.t1, self.t1)
-        #    return self.t1, self.t2
-
         def get_t1(self, default=None):
             if self.t1 is not None:
                 return self.t1
@@ -150,15 +130,6 @@ class Fragment:
     class Exit(Exception):
         """Raise for controlled early exit."""
         pass
-
-    @staticmethod
-    def stack_mo(*mo_coeff):
-        """
-        Use stack_mo in parts of the code which are used both in RHF and UHF.
-        Use hstack in parts of the code which are only used in RHF, but may be called
-        from UHF per spin channel.
-        """
-        return hstack(*mo_coeff)
 
     def __init__(self, base, fid, name, c_frag, c_env, #fragment_type,
             atoms=None, aos=None,
@@ -395,7 +366,7 @@ class Fragment:
     @property
     def cluster(self):
         if self.sym_parent is not None:
-            return self.sym_parent.cluster.transform(self.sym_op)
+            return self.sym_parent.cluster.basis_transform(self.sym_op)
         return self._cluster
 
     @cluster.setter
@@ -471,7 +442,7 @@ class Fragment:
         occup : ndarray, shape(M)
             Occupation numbers of orbitals.
         """
-        mo_coeff = hstack(*mo_coeff)        # Do NOT use self.stack_mo!
+        mo_coeff = hstack(*mo_coeff)
         if dm1 is None: dm1 = self.mf.make_rdm1()
         sc = np.dot(self.base.get_ovlp(), mo_coeff)
         occup = einsum('ai,ab,bi->i', sc, dm1, sc)
@@ -502,7 +473,7 @@ class Fragment:
             Rotation matrix: np.dot(mo_coeff, rot) = mo_canon.
         """
         if fock is None: fock = self.base.get_fock()
-        mo_coeff = hstack(*mo_coeff)    # Called from UHF: do NOT use stack_mo!
+        mo_coeff = hstack(*mo_coeff)
         fock = dot(mo_coeff.T, fock, mo_coeff)
         mo_energy, rot = np.linalg.eigh(fock)
         self.log.debugv("Canonicalized MO energies:\n%r", mo_energy)
@@ -819,8 +790,8 @@ class Fragment:
             Mole or Cell object with periodic boundary conditions removed
             and with ghost atoms added depending on `rmax` and `nimages`.
         """
-        if len(self.atoms) > 1:
-            raise NotImplementedError()
+        if len(self.atoms) != 1:
+            raise NotImplementedError
         import vayesta.misc
         return vayesta.misc.counterpoise.make_mol(self.mol, self.atoms[1], rmax=rmax, nimages=nimages, unit=unit, **kwargs)
 

@@ -10,6 +10,7 @@ from .ufragment import UFragment
 
 from vayesta.core.ao2mo.postscf_ao2mo import postscf_ao2mo
 from vayesta.core.util import *
+from vayesta.core import spinalg
 from vayesta.core.mpi import mpi
 from vayesta.core.ao2mo import postscf_kao2gmo_uhf
 
@@ -50,12 +51,6 @@ class UEmbedding(Embedding):
     #    mf.mo_energy = mpi.world.bcast(mf.mo_energy, root=0)
     #    mf.mo_coeff = mpi.world.bcast(mf.mo_coeff, root=0)
 
-    @staticmethod
-    def stack_mo(*mo_coeff):
-        mo_coeff = (hstack(*[c[0] for c in mo_coeff]),
-                    hstack(*[c[1] for c in mo_coeff]))
-        return mo_coeff
-
     @property
     def nmo(self):
         """Total number of molecular orbitals (MOs)."""
@@ -87,7 +82,7 @@ class UEmbedding(Embedding):
                 self.mo_coeff[1][:,self.nocc[1]:])
 
     def check_orthonormal(self, *mo_coeff, mo_name='', **kwargs):
-        mo_coeff = self.stack_mo(*mo_coeff)
+        mo_coeff = spinalg.hstack_matrices(*mo_coeff)
         results = []
         for s, spin in enumerate(('alpha', ' beta')):
             name_s = '-'.join([spin, mo_name])

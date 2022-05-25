@@ -30,7 +30,6 @@ class MolecularOrbitals:
         return type(self)(coeff=_copy(self.coeff), energy=_copy(self.energy), occ=_copy(self.occ),
                 labels=_copy(self.labels), maxocc=_copy(self.maxocc))
 
-
 def Orbitals(coeff, *args, **kwargs):
     if np.ndim(coeff[0]) == 2:
         return SpinOrbitals(coeff, *args, **kwargs)
@@ -69,6 +68,8 @@ class SpatialOrbitals(MolecularOrbitals):
 
     @property
     def nelec(self):
+        if self.occ is None:
+            return None
         ne = self.occ.sum()
         if abs(np.rint(ne)-ne) < 1e-14:
             return int(np.rint(ne))
@@ -81,6 +82,11 @@ class SpatialOrbitals(MolecularOrbitals):
     @property
     def coeff_vir(self):
         return self.coeff[:,self.nocc:]
+
+    def basis_transform(self, trafo, inplace=False):
+        cp = self if inplace else self.copy()
+        cp.coeff = trafo(cp.coeff)
+        return cp
 
     def to_spin_orbitals(self):
         return SpinOrbitals.from_spatial_orbitals(self)
@@ -153,7 +159,8 @@ class SpinOrbitals(MolecularOrbitals):
         return 2
 
     def __getattr__(self, name):
-        if name in ('norb', 'nocc', 'nvir', 'nelec', 'energy', 'coeff', 'occ', 'labels', 'maxocc'):
+        if name in ('norb', 'nocc', 'nvir', 'nelec', 'energy',
+                'coeff', 'coeff_occ', 'coeff_vir', 'occ', 'labels', 'maxocc'):
             return (getattr(self.alpha, name), getattr(self.beta, name))
         raise AttributeError("'%s' object has no attribute '%s'" % (self.__class__.__name__, name))
 
@@ -163,6 +170,14 @@ class SpinOrbitals(MolecularOrbitals):
             setattr(self.beta, name, value[1])
             return
         super().__setattr__(name, value)
+
+    def basis_transform(self, trafo, inplace=False):
+        if not hasattr(trafo, '__len__'):
+            trafo = (trafo, trafo)
+        cp = self if inplace else self.copy()
+        cp.alpha.basis_transform(trafo[0], inplace=True)
+        cp.beta.basis_transform(trafo[1], inplace=True)
+        return cp
 
     def pack(self, dtype=float):
         """Pack into a single array of data type `dtype`.

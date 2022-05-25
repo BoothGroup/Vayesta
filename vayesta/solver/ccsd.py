@@ -47,7 +47,7 @@ class CCSD_Solver(ClusterSolver):
         self.log.debug("CCSD PySCF class= %r" % solver_cls)
         frozen = self.cluster.get_frozen_indices()
         self.log.debugv("frozen= %r", frozen)
-        mo_coeff = self.cluster.all.coeff
+        mo_coeff = self.cluster.c_total
         solver = solver_cls(self.mf, mo_coeff=mo_coeff, mo_occ=self.mf.mo_occ, frozen=frozen)
         # Options
         if self.opts.maxiter is not None: solver.max_cycle = self.opts.maxiter

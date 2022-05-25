@@ -4,6 +4,7 @@ import pyscf
 import pyscf.lo
 
 from vayesta.core.util import *
+from vayesta.core import spinalg
 from vayesta.core.fragmentation.iao import IAO_Fragmentation
 from vayesta.core.fragmentation.iao import IAO_Fragmentation_UHF
 
@@ -63,7 +64,7 @@ class IAOPAO_Fragmentation(IAO_Fragmentation):
         if order is None: order = self.order
         iao_coeff = IAO_Fragmentation.get_coeff(self, add_virtuals=False)
         pao_coeff = self.get_pao_coeff(iao_coeff)
-        coeff = stack_mo_coeffs(iao_coeff, pao_coeff)
+        coeff = spinalg.hstack_matrices(iao_coeff, pao_coeff)
         assert (coeff.shape[-1] == self.mf.mo_coeff.shape[-1])
         # Test orthogonality of IAO+PAO
         self.check_orthonormal(coeff)
@@ -95,7 +96,7 @@ class IAOPAO_Fragmentation_UHF(IAOPAO_Fragmentation, IAO_Fragmentation_UHF):
         pao_coeff_b = IAOPAO_Fragmentation.get_pao_coeff(self, iao_coeff[1])
         pao_coeff = (pao_coeff_a, pao_coeff_b)
 
-        coeff = stack_mo_coeffs(iao_coeff, pao_coeff)
+        coeff = spinalg.hstack_matrices(iao_coeff, pao_coeff)
         assert (coeff[0].shape[-1] == self.mf.mo_coeff[0].shape[-1])
         assert (coeff[1].shape[-1] == self.mf.mo_coeff[1].shape[-1])
         # Test orthogonality of IAO+PAO

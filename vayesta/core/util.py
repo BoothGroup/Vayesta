@@ -30,24 +30,18 @@ log = logging.getLogger(__name__)
 # util module can be imported as *, such that the following is imported:
 __all__ = [
         # General
-        'Object', 'NotSet', 'OptionsBase', 'StashBase',
+        'Object', 'NotSet', 'OptionsBase', 'brange', 'deprecated', 'cache',
         # NumPy replacements
         'dot', 'einsum', 'hstack',
-        # New exceptions
+        # Exceptions
         'AbstractMethodError', 'ConvergenceError', 'OrthonormalityError', 'ImaginaryPartError',
         'NotCalculatedError',
-        # Energy
-        'energy_string',
+        # String formatting
+        'energy_string', 'time_string', 'memory_string',
         # Time & memory
-        'timer', 'time_string', 'log_time', 'memory_string', 'get_used_memory',
-        # RHF/UHF abstraction
-        'dot_s', 'eigh_s', 'stack_mo', 'stack_mo_coeffs',
+        'timer', 'log_time', 'get_used_memory',
         # Other
-        'brange',
-        'deprecated',
-        'replace_attr',
-        'cache',
-        'break_into_lines', 'fix_orbital_sign',
+        'replace_attr', 'break_into_lines', 'fix_orbital_sign',
         ]
 
 class Object:
@@ -172,51 +166,6 @@ def hstack(*args):
         for x in args:
             log.critical("type= %r  shape= %r", type(x), x.shape if hasattr(x, 'shape') else "None")
         raise e
-
-# RHF / UHF abstraction
-
-def dot_s(*args, out=None):
-    """Generalizes dot with or without spin channel: ij,jk->ik or Sij,Sjk->Sik
-
-    Additional non spin-dependent matrices can be present, eg. Sij,jk,Skl->Skl.
-
-    Note that unlike numpy.dot, this does not support vectors."""
-    maxdim = np.max([np.ndim(x[0]) for x in args]) + 1
-    # No spin-dependent arguments present
-    if maxdim == 2:
-        return dot(*args, out=out)
-    # Spin-dependent arguments present
-    assert (maxdim == 3)
-    if out is None:
-        out = 2*[None]
-    args_a = [(x if np.ndim(x[0]) < 2 else x[0]) for x in args]
-    args_b = [(x if np.ndim(x[1]) < 2 else x[1]) for x in args]
-    return (dot(*args_a, out=out[0]), dot(*args_b, out=out[1]))
-
-def eigh_s(a, b=None, *args, **kwargs):
-    ndim = np.ndim(a[0]) + 1
-    # RHF
-    if ndim == 2:
-        return scipy.linalg.eigh(a, b=b, *args, **kwargs)
-    # UHF
-    if b is None or np.ndim(b[0]) == 1:
-        b = (b, b)
-    results = (scipy.linalg.eigh(a[0], b=b[0], *args, **kwargs),
-               scipy.linalg.eigh(a[1], b=b[1], *args, **kwargs))
-    return tuple(zip(*results))
-
-def stack_mo(*mo_coeffs):
-    ndim = np.ndim(mo_coeffs[0][0]) + 1
-    # RHF
-    if ndim == 2:
-        return hstack(*mo_coeffs)
-    # UHF
-    if ndim == 3:
-        return (hstack(*[c[0] for c in mo_coeffs]),
-                hstack(*[c[1] for c in mo_coeffs]))
-    raise ValueError("Unknown shape of MO coefficients: ndim= %d" % ndim)
-
-stack_mo_coeffs = stack_mo
 
 def brange(*args, minstep=1, maxstep=None):
     """Similar to PySCF's prange, but returning a slice instead.
@@ -465,9 +414,6 @@ class OptionsBase:
 
         return dataclasses.replace(self, **other)
 
-class StashBase:
-    pass
-
 def fix_orbital_sign(mo_coeff, inplace=True):
     # UHF
     if np.ndim(mo_coeff[0]) == 2:
@@ -483,72 +429,3 @@ def fix_orbital_sign(mo_coeff, inplace=True):
     signs = np.ones((nmo,), dtype=int)
     signs[swap] = -1
     return mo_coeff, signs
-
-if __name__ == '__main__':
-
-    a = b = c = np.random.rand(3,3)
-    ##cmd = 'ab,bc,cd->ad'
-    #cmd = '(ab,bc->ac),cd->ad'
-    #res = _einsum_parenthesis(cmd, a, b, c)
-    #print(res)
-    #1/0
-
-
-    z = np.einsum('ab,bc,cd->ad', a, b, c)
-    z2 = einsum('ab,bc,cd->ad', a, b, c)
-    #z2 = einsum('a1a2,a2a3,a3a4->a1a4', a, b, c)
-    z3 = einsum('(ab,bc->ac),cd->ad', a, b, c)
-
-    1/0
-
-    z4 = einsum('ab,(bc,cd->bd)->ad', a, b, c)
-
-    z5 = einsum('(ab,bc),cd->ad', a, b, c)
-    #assert np.allclose(z, z2)
-    assert np.allclose(z, z3)
-    assert np.allclose(z, z4)
-    assert np.allclose(z, z5)
-
-    1/0
-
-
-    a1 = np.random.rand(2, 3)
-    a2 = np.random.rand(2, 3)
-    s = np.random.rand(3, 3)
-    b1 = np.random.rand(3, 4)
-    b2 = np.random.rand(3, 4)
-
-    c1, c2 = dot_s((a1, a2), s, (b1, b2))
-    assert np.allclose(c1, dot(a1, s, b1))
-    assert np.allclose(c2, dot(a2, s, b2))
-
-    ha = np.random.rand(3,3)
-    hb = np.random.rand(3,3)
-    ba = np.random.rand(3,3)
-    bb = np.random.rand(3,3)
-    ba = np.dot(ba, ba.T)
-    bb = np.dot(bb, bb.T)
-    #b =b a
-
-    ea, va = scipy.linalg.eigh(ha, b=ba)
-    eb, vb = scipy.linalg.eigh(hb, b=ba)
-
-    h = (ha, hb)
-    e, v = eigh_s(h, ba)
-    print(ea)
-    print(eb)
-    print(e)
-
-    assert np.allclose(e[0], ea)
-    assert np.allclose(e[1], eb)
-
-
-
-    #d1, d2 = einsum('[s]ij,jk,[s]kl->[S]il', (a1, a2), s, (b1, b2))
-    #d1, d2 = einsum('?ij,jk,?kl->?il', (a1, a2), s, (b1, b2))
-    #print(d1.shape)
-    #print(c1.shape)
-    #assert np.allclose(d1, c1)
-    #assert np.allclose(d2, c2)
-    #assert np.allclose(d1, dot(a1, s, b1))
-    #assert np.allclose(d2, dot(a2, s, b2))
