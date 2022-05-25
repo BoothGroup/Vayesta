@@ -1095,11 +1095,30 @@ class Embedding:
             raise RuntimeError("No fragmentation defined. Call method x_fragmentation() where x=[iao, iaopao, sao, site, cas].")
         if self.fragmentation.name != "CAS":
             raise RuntimeError("CAS construction incompatible with local fragmentation approaches. Call cas_fragmentation()")
+
         try:
             lumo = self.nocc[0]
+            occ = sum(self.mo_occ)
         except TypeError:
             lumo = self.nocc
-        orbs = list(range(lumo - nelec//2, lumo + ncas - nelec//2))
+            occ = self.mo_occ
+
+        if nelec > sum(occ):
+            raise ValueError("CAS specified with more electrons than present in system.")
+        if ncas > len(occ):
+            raise ValueError("CAS specified with more orbitals than present in system.")
+        # Search for how many orbital pairs we have to include to obtain desired number of electrons.
+        # This should be stable regardless of occupancies etc.
+        anyocc = np.where(occ > 0)[0]
+        offset, nelec_curr = -1, 0
+        while nelec_curr < nelec:
+            offset += 1
+            nelec_curr += int(occ[anyocc[-1] - offset])
+
+        if nelec_curr > nelec or offset > ncas:
+            raise ValueError(
+                "Cannot create CAS with required properties around Fermi level with current MO occupancy.")
+        orbs = list(range(anyocc[-1] - offset, anyocc[-1] - offset + ncas))
         self.add_orbital_fragment(orbs, name=name)
 
     # --- Mean-field updates
