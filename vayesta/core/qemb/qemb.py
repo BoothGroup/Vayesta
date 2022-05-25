@@ -1049,7 +1049,6 @@ class Embedding:
         self.log.debugv("Fragment %ss:\n%r", self.fragmentation.name, indices)
         self.log.debug("Fragment %ss of fragment %s:", self.fragmentation.name, name)
         labels = np.asarray(self.fragmentation.labels)[indices]
-        #if self.fragmentation.name != "CAS":
         helper.log_orbitals(self.log.debug, labels)
 
         if add_symmetric:
