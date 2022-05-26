@@ -20,8 +20,8 @@ class SCMF_Test(TestCase):
     @cache
     def emb(cls, scmf=None):
         emb = ewf.EWF(cls.mf, solve_lambda=True, bath_type='dmet')
-        emb.sao_fragmentation()
-        emb.add_all_atomic_fragments()
+        with emb.sao_fragmentation() as f:
+            f.add_all_atomic_fragments()
         if scmf == 'pdmet':
             emb.pdmet_scmf()
         elif scmf == 'brueckner':

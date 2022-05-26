@@ -27,9 +27,9 @@ class ICMP2_Test(TestCase):
     @cache
     def emb_nosym(cls, bno_threshold):
         emb = vayesta.ewf.EWF(cls.mf, bno_threshold=bno_threshold, solver='MP2')
-        emb.iao_fragmentation()
-        for natom in range(emb.mol.natm):
-            emb.add_atomic_fragment(natom, add_symmetric=False)
+        with emb.iao_fragmentation() as f:
+            for natom in range(emb.mol.natm):
+                f.add_atomic_fragment(natom, add_symmetric=False)
         emb.kernel()
         return emb
 

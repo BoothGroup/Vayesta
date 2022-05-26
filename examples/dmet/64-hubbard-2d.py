@@ -2,10 +2,10 @@
 # pyscf/examples/scf/40-customizing_hamiltonian.py
 
 import numpy as np
-
 import vayesta
 import vayesta.dmet
 import vayesta.lattmod
+
 
 nsites = [6,6]
 impshape = [2,2]
@@ -21,15 +21,15 @@ mf.kernel()
 
 # Calculate each fragment:
 dmet1 = vayesta.dmet.DMET(mf, solver='FCI', maxiter=2)
-dmet1.site_fragmentation()
-for site in range(0, nsite, nimp):
-    dmet1.add_atomic_fragment(list(range(site, site + nimp)))
+with dmet1.site_fragmentation() as f:
+    for site in range(0, nsite, nimp):
+        f.add_atomic_fragment(list(range(site, site + nimp)))
 dmet1.kernel()
 
 # Calculate a single fragment and use translational symmetry:
 dmet2 = vayesta.dmet.DMET(mf, solver='FCI', maxiter=2)
-dmet2.site_fragmentation()
-f = dmet2.add_atomic_fragment(list(range(nimp)))
+with dmet2.site_fragmentation() as f:
+    frag = f.add_atomic_fragment(list(range(nimp)))
 
 # Add fragments which are translationally symmetric to f - the results of the fragment f
 # fill be automatically copied.
@@ -37,7 +37,7 @@ f = dmet2.add_atomic_fragment(list(range(nimp)))
 # by passing a list with three integers, [n, m, l];
 # the translation vectors will be set equal to the lattice vectors, divided
 # by n, m, l in a0, a1, and a2 direction, repectively.
-symfrags = f.make_tsymmetric_fragments(tvecs=[nsites[0]//impshape[0], nsites[1]//impshape[1], 1])
+symfrags = frag.make_tsymmetric_fragments(tvecs=[nsites[0]//impshape[0], nsites[1]//impshape[1], 1])
 print("%d symmetry equivalent fragments found" % len(symfrags))
 
 # Check that every fragment has been identified!
@@ -45,5 +45,5 @@ assert (len(symfrags)+1 == nsite//nimp)
 dmet2.kernel()
 
 # Compare converged correlation potential
-print("L2 norm difference in correlation potentials with and without translational symmetry: {:6.4e}".format(
-                    sum((dmet1.vcorr.ravel() - dmet2.vcorr.ravel())**2)**(0.5)))
+print("Difference in converged correlation potentials with and without translational symmetry:")
+print("|d(V_corr)|= %.5e" % np.linalg.norm(dmet1.vcorr - dmet2.vcorr))

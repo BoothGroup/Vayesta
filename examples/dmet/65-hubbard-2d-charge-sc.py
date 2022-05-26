@@ -2,13 +2,12 @@
 # pyscf/examples/scf/40-customizing_hamiltonian.py
 
 import numpy as np
-
 import vayesta
 import vayesta.dmet
 import vayesta.lattmod
 
-# In the Hubbard model charge consistency shouldn't change obtained results.
 
+# In the Hubbard model charge consistency shouldn't change obtained results.
 nsites = [6,6]
 impshape = [2,2]
 hubbard_u = 6.0
@@ -23,8 +22,8 @@ mf.kernel()
 
 # Calculate a single fragment and use translational symmetry:
 dmet_cc = vayesta.dmet.DMET(mf, solver='FCI', charge_consistent=True)
-dmet_cc.site_fragmentation()
-f_cc = dmet_cc.add_atomic_fragment(list(range(nimp)))
+with dmet_cc.site_fragmentation() as f:
+    f_cc = f.add_atomic_fragment(list(range(nimp)))
 # Add fragments which are translationally symmetric to f - the results of the fragment f
 # fill be automatically copied.
 symfrags_cc = f_cc.make_tsymmetric_fragments(tvecs=[nsites[0]//impshape[0], nsites[1]//impshape[1], 1])
@@ -34,16 +33,13 @@ dmet_cc.kernel()
 
 # Calculate a single fragment and use translational symmetry:
 dmet_nocc = vayesta.dmet.DMET(mf, solver='FCI', charge_consistent=False)
-dmet_nocc.site_fragmentation()
-f_nocc = dmet_nocc.add_atomic_fragment(list(range(nimp)))
-
+with dmet_nocc.site_fragmentation() as f:
+    f_nocc = f.add_atomic_fragment(list(range(nimp)))
 # Add fragments which are translationally symmetric to f - the results of the fragment f
 # fill be automatically copied.
 symfrags_nocc = f_nocc.make_tsymmetric_fragments(tvecs=[nsites[0]//impshape[0], nsites[1]//impshape[1], 1])
-
 # Check that every fragment has been identified!
 assert (len(symfrags_nocc)+1 == nsite//nimp)
-
 dmet_nocc.kernel()
 
 # Compare converged correlation potential

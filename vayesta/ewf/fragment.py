@@ -128,16 +128,13 @@ class Fragment(BaseFragment):
         if dmet_threshold is None:
             dmet_threshold = 2*self.opts.dmet_threshold
         if iaos is not None:
-            if isinstance(self.base.fragmentation, IAO_Fragmentation):
-                fragmentation = self.base.fragmentation
             # Create new IAO fragmentation
-            else:
-                fragmentation = IAO_Fragmentation(self, minao=minao)
-                fragmentation.kernel()
+            frag = IAO_Fragmentation(self.base, minao=minao)
+            frag.kernel()
             # Get IAO and environment coefficients from fragmentation
-            indices = fragmentation.get_orbital_fragment_indices(iaos)[1]
-            c_iao = fragmentation.get_frag_coeff(indices)
-            c_env = fragmentation.get_env_coeff(indices)
+            indices = frag.get_orbital_fragment_indices(iaos)[1]
+            c_iao = frag.get_frag_coeff(indices)
+            c_env = frag.get_env_coeff(indices)
             bath = DMET_Bath(self, dmet_threshold=dmet_threshold)
             c_dmet = bath.make_dmet_bath(c_env)[0]
             c_iao_occ, c_iao_vir = self.diagonalize_cluster_dm(c_iao, c_dmet, tol=2*dmet_threshold)

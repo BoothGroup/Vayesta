@@ -1,30 +1,31 @@
 import pyscf
 import pyscf.scf
 
-from .sao import SAO_Fragmentation, SAO_Fragmentation_UHF
-from .iao import IAO_Fragmentation, IAO_Fragmentation_UHF
-from .iaopao import IAOPAO_Fragmentation, IAOPAO_Fragmentation_UHF
-from .site import Site_Fragmentation, Site_Fragmentation_UHF
+from .sao import SAO_Fragmentation as SAO_Fragmentation_RHF
+from .sao import SAO_Fragmentation_UHF
+from .iao import IAO_Fragmentation as IAO_Fragmentation_RHF
+from .iao import IAO_Fragmentation_UHF
+from .iaopao import IAOPAO_Fragmentation as IAOPAO_Fragmentation_RHF
+from .iaopao import IAOPAO_Fragmentation_UHF
+from .site import Site_Fragmentation as Site_Fragmentation_RHF
+from .site import Site_Fragmentation_UHF
 
-def is_uhf(mf):
-    return isinstance(mf, pyscf.scf.uhf.UHF)
+def SAO_Fragmentation(emb, *args, **kwargs):
+    if emb.is_uhf:
+        return SAO_Fragmentation_UHF(emb, *args, **kwargs)
+    return SAO_Fragmentation_RHF(emb, *args, **kwargs)
 
-def make_sao_fragmentation(mf, *args, **kwargs):
-    if is_uhf(mf):
-        return SAO_Fragmentation_UHF(mf, *args, **kwargs)
-    return SAO_Fragmentation(mf, *args, **kwargs)
+def Site_Fragmentation(emb, *args, **kwargs):
+    if emb.is_uhf:
+        return Site_Fragmentation_UHF(emb, *args, **kwargs)
+    return Site_Fragmentation_RHF(emb, *args, **kwargs)
 
-def make_site_fragmentation(mf, *args, **kwargs):
-    if is_uhf(mf):
-        return Site_Fragmentation_UHF(mf, *args, **kwargs)
-    return Site_Fragmentation(mf, *args, **kwargs)
+def IAO_Fragmentation(emb, *args, **kwargs):
+    if emb.is_uhf:
+        return IAO_Fragmentation_UHF(emb, *args, **kwargs)
+    return IAO_Fragmentation_RHF(emb, *args, **kwargs)
 
-def make_iao_fragmentation(mf, *args, **kwargs):
-    if is_uhf(mf):
-        return IAO_Fragmentation_UHF(mf, *args, **kwargs)
-    return IAO_Fragmentation(mf, *args, **kwargs)
-
-def make_iaopao_fragmentation(mf, *args, **kwargs):
-    if is_uhf(mf):
-        return IAOPAO_Fragmentation_UHF(mf, *args, **kwargs)
-    return IAOPAO_Fragmentation(mf, *args, **kwargs)
+def IAOPAO_Fragmentation(emb, *args, **kwargs):
+    if emb.is_uhf:
+        return IAOPAO_Fragmentation_UHF(emb, *args, **kwargs)
+    return IAOPAO_Fragmentation_RHF(emb, *args, **kwargs)

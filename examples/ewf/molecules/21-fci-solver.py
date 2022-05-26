@@ -25,9 +25,9 @@ casscf = pyscf.mcscf.CASSCF(mf, 8, 10)
 casscf.kernel()
 
 # FCI with DMET bath orbitals only
-emb = vayesta.ewf.EWF(mf, solver='FCI', bath_type=None)
-emb.iao_fragmentation()
-emb.add_atomic_fragment(0, sym_factor=2)
+emb = vayesta.ewf.EWF(mf, solver='FCI', bath_type='dmet')
+with emb.iao_fragmentation() as f:
+    f.add_atomic_fragment(0, sym_factor=2)
 emb.kernel()
 
 print("E(HF)=        %+16.8f Ha" % mf.e_tot)

@@ -24,8 +24,8 @@ class Test_CCSD(test_h2.Test_CCSD):
     @cache
     def emb(cls, bno_threshold):
         emb = vayesta.ewf.EWF(cls.mf, bno_threshold=bno_threshold, solve_lambda=True)
-        emb.sao_fragmentation()
-        emb.add_all_atomic_fragments()
+        with emb.sao_fragmentation() as f:
+            f.add_all_atomic_fragments()
         emb.kernel()
         return emb
 
@@ -75,8 +75,8 @@ class Test_RHF_vs_UHF(TestCase):
         solver_opts = dict(conv_tol= 1e-10, conv_tol_normt=1e-8)
         emb = vayesta.ewf.EWF(cls.rhf, bno_threshold=bno_threshold, solve_lambda=True,
                 solver_options=solver_opts)
-        emb.sao_fragmentation()
-        emb.add_all_atomic_fragments()
+        with emb.sao_fragmentation() as f:
+            f.add_all_atomic_fragments()
         emb.kernel()
         return emb
 
@@ -86,8 +86,8 @@ class Test_RHF_vs_UHF(TestCase):
         solver_opts = dict(conv_tol= 1e-10, conv_tol_normt=1e-8)
         emb = vayesta.ewf.EWF(cls.uhf, bno_threshold=bno_threshold, solve_lambda=True,
                 solver_options=solver_opts)
-        emb.sao_fragmentation()
-        emb.add_all_atomic_fragments()
+        with emb.sao_fragmentation() as f:
+            f.add_all_atomic_fragments()
         emb.kernel()
         return emb
 

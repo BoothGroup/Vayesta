@@ -322,8 +322,10 @@ class SelectNotSetType:
         return 'SelectNotSet'
 SelectNotSet = SelectNotSetType()
 
-def break_into_lines(string, linelength=80, sep=None, newline='\n'):
+def break_into_lines(string, linelength=100, sep=None, newline='\n'):
     """Break a long string into multiple lines"""
+    if len(string) <= linelength:
+        return string
     split = string.split(sep)
     lines = [split[0]]
     for s in split[1:]:

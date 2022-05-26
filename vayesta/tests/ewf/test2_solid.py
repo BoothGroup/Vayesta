@@ -24,9 +24,9 @@ class SolidEWFTests(TestCase):
         kemb = ewf.EWF(kmf)
         # G-point
         gemb = ewf.EWF(gmf)
-        gemb.iao_fragmentation()
-        gemb.add_atomic_fragment(0, sym_factor=nk)
-        gemb.add_atomic_fragment(1, sym_factor=nk)
+        with gemb.iao_fragmentation() as f:
+            f.add_atomic_fragment(0, sym_factor=nk)
+            f.add_atomic_fragment(1, sym_factor=nk)
 
         # --- Test full bath
         e_expected = -8.069261598354077
@@ -55,12 +55,12 @@ class SolidEWFTests(TestCase):
         kccsd = pyscf.pbc.cc.KCCSD(kmf)
         # k-points
         kemb = ewf.EWF(kmf)
-        kemb.iao_fragmentation()
-        kemb.add_atomic_fragment(0, sym_factor=2)
+        with kemb.iao_fragmentation() as f:
+            f.add_atomic_fragment(0, sym_factor=2)
         # G-point
         gemb = ewf.EWF(gmf)
-        gemb.iao_fragmentation()
-        gemb.add_atomic_fragment(0, sym_factor=2*nk)
+        with gemb.iao_fragmentation() as f:
+            f.add_atomic_fragment(0, sym_factor=2*nk)
 
         # --- Test full bath
         e_expected = -75.89352268881753
@@ -92,8 +92,8 @@ class SolidEWFTests(TestCase):
         kemb = ewf.EWF(kmf)
         # G-point
         gemb = ewf.EWF(gmf)
-        gemb.iao_fragmentation()
-        gemb.add_atomic_fragment(0, sym_factor=nk)
+        with gemb.iao_fragmentation() as f:
+            f.add_atomic_fragment(0, sym_factor=nk)
 
         # --- Test full bath
         kemb.kernel(bno_threshold=-1)
@@ -125,8 +125,8 @@ class SolidEWFTests(TestCase):
         kemb = ewf.EWF(kmf)
         # G-point
         gemb = ewf.EWF(gmf)
-        gemb.iao_fragmentation()
-        gemb.add_atomic_fragment(0, sym_factor=nk)
+        with gemb.iao_fragmentation() as f:
+            f.add_atomic_fragment(0, sym_factor=nk)
 
         # --- Test full bath
         kemb.kernel(bno_threshold=-1)

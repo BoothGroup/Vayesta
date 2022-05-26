@@ -172,19 +172,6 @@ class FCI_Solver(ClusterSolver):
             c0 = 1.0
         return c0, c1, c2
 
-    def make_rdm1(self, civec=None):
-        if civec is None: civec = self.civec
-        self.dm1 = self.solver.make_rdm1(civec, self.ncas, self.nelec)
-        return self.dm1
-
-    def make_rdm12(self, civec=None):
-        if civec is None: civec = self.civec
-        self.dm1, self.dm2 = self.solver.make_rdm12(civec, self.ncas, self.nelec)
-        return self.dm1, self.dm2
-
-    def make_rdm2(self, civec=None):
-        return self.make_rdm12(civec=civec)[1]
-
     def _debug_exact_wf(self, wf):
         from pyscf.fci.addons import transform_ci
         mo = Orbitals(self.cluster.c_active, occ=self.cluster.nocc_active)

@@ -5,8 +5,8 @@ from vayesta.core.util import *
 
 from vayesta.ewf import REWF
 from vayesta.ewf.ufragment import Fragment
-from vayesta.core.fragmentation import make_sao_fragmentation
-from vayesta.core.fragmentation import make_iaopao_fragmentation
+from vayesta.core.fragmentation import SAO_Fragmentation
+from vayesta.core.fragmentation import IAOPAO_Fragmentation
 from vayesta.mpi import mpi
 
 # Amplitudes
@@ -134,9 +134,9 @@ class UEWF(REWF, UEmbedding):
         natom = len(atoms)
         projection = projection.lower()
         if projection == 'sao':
-            frag = make_sao_fragmentation(self.mf, self.log)
+            frag = SAO_Fragmentation(self)
         elif projection.replace('+', '').replace('/', '') == 'iaopao':
-            frag = make_iaopao_fragmentation(self.mf, self.log)
+            frag = IAOPAO_Fragmentation(self)
         else:
             raise ValueError("Invalid projection: %s" % projection)
         frag.kernel()

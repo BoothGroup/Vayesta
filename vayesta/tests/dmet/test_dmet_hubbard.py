@@ -30,9 +30,9 @@ class HubbardDMETTests(unittest.TestCase):
                 conv_tol=self.CONV_TOL,
                 maxiter=50,
         )
-        emb.site_fragmentation()
-        frag = emb.add_atomic_fragment(0)
-        frag.add_tsymmetric_fragments(tvecs=[6, 1, 1])
+        with emb.site_fragmentation() as f:
+            frag = f.add_atomic_fragment(0)
+            frag.add_tsymmetric_fragments(tvecs=[6, 1, 1])
         emb.kernel()
 
         known_values = {'e_tot': -8.0}
@@ -51,9 +51,9 @@ class HubbardDMETTests(unittest.TestCase):
                 conv_tol=self.CONV_TOL,
                 maxiter=50,
         )
-        emb.site_fragmentation()
-        frag = emb.add_atomic_fragment([0, 1])
-        frag.add_tsymmetric_fragments(tvecs=[5, 1, 1])
+        with emb.site_fragmentation() as f:
+            frag = f.add_atomic_fragment([0, 1])
+            frag.add_tsymmetric_fragments(tvecs=[5, 1, 1])
         emb.kernel()
 
         known_values = {'e_tot': -8.741824246073978}
@@ -72,9 +72,9 @@ class HubbardDMETTests(unittest.TestCase):
                 conv_tol=self.CONV_TOL,
                 maxiter=50,
         )
-        emb.site_fragmentation()
-        frag = emb.add_atomic_fragment([0])
-        frag.add_tsymmetric_fragments(tvecs=[6, 6, 1])
+        with emb.site_fragmentation() as f:
+            frag = f.add_atomic_fragment([0])
+            frag.add_tsymmetric_fragments(tvecs=[6, 6, 1])
         emb.kernel()
 
         known_values = {'e_tot': -56.0}
@@ -93,9 +93,9 @@ class HubbardDMETTests(unittest.TestCase):
                 conv_tol=self.CONV_TOL,
                 maxiter=50,
         )
-        emb.site_fragmentation()
-        frag = emb.add_atomic_fragment([0])
-        frag.add_tsymmetric_fragments(tvecs=[6, 6, 1])
+        with emb.site_fragmentation() as f:
+            frag = f.add_atomic_fragment([0])
+            frag.add_tsymmetric_fragments(tvecs=[6, 6, 1])
         emb.kernel()
 
         known_values = {'e_tot': -41.040841420346695 }
@@ -114,9 +114,9 @@ class HubbardDMETTests(unittest.TestCase):
                 conv_tol=self.CONV_TOL,
                 maxiter=100,
         )
-        emb.site_fragmentation()
-        frag = emb.add_atomic_fragment([0, 1, 2, 3])
-        frag.add_tsymmetric_fragments(tvecs=[4, 4, 1])
+        with emb.site_fragmentation() as f:
+            frag = f.add_atomic_fragment([0, 1, 2, 3])
+            frag.add_tsymmetric_fragments(tvecs=[4, 4, 1])
         emb.kernel()
 
         known_values = {'e_tot': -85.02643076273672}

@@ -78,17 +78,13 @@ class ClusterSolver:
         self.dm1 = None
         self.dm2 = None
 
-    #@property
-    #def c_active(self):
-    #    return self.cluster.c_active
+    def make_rdm1(self, *args, **kwargs):
+        """To support DMET."""
+        return self.wf.make_rdm1(*args, **kwargs)
 
-    #@property
-    #def c_active_occ(self):
-    #    return self.cluster.c_active_occ
-
-    #@property
-    #def c_active_vir(self):
-    #    return self.cluster.c_active_vir
+    def make_rdm2(self, *args, **kwargs):
+        """To support DMET."""
+        return self.wf.make_rdm2(*args, **kwargs)
 
     def optimize_cpt(self, nelectron, c_frag, cpt_guess=0, atol=1e-6, rtol=1e-6, cpt_radius=0.5):
         """Enables chemical potential optimization to match a number of electrons in the fragment space.

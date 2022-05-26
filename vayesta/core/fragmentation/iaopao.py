@@ -52,9 +52,9 @@ class IAOPAO_Fragmentation(IAO_Fragmentation):
 
         # Orthogonalize PAOs:
         x, e_min = self.symmetric_orth(pao_coeff, ovlp)
-        self.log.debug("Lowdin orthogonalization of PAOs: n(in)= %3d -> n(out)= %3d , e(min)= %.3e",
+        self.log.debugv("Lowdin orthogonalization of PAOs: n(in)= %3d -> n(out)= %3d , e(min)= %.3e",
                 x.shape[0], x.shape[1], e_min)
-        if e_min < 1e-12:
+        if e_min < 1e-10:
             self.log.warning("Small eigenvalue in Lowdin orthogonalization: %.3e !", e_min)
         pao_coeff = np.dot(pao_coeff, x)
         return pao_coeff

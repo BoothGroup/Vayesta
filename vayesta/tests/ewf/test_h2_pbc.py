@@ -98,8 +98,6 @@ class Test_CCSD(Test_MP2):
     def emb(cls, bno_threshold):
         solver_opts = dict(conv_tol=1e-10, conv_tol_normt=1e-8)
         emb = vayesta.ewf.EWF(cls.mf, bno_threshold=bno_threshold, solve_lambda=True, solver_options=solver_opts)
-        emb.iao_fragmentation()
-        emb.add_all_atomic_fragments()
         emb.kernel()
         return emb
 

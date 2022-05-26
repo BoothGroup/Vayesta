@@ -8,6 +8,7 @@ import vayesta
 from vayesta.core.util import *
 from vayesta.core import Embedding
 from vayesta.core.fragmentation import SAO_Fragmentation
+from vayesta.core.fragmentation import IAO_Fragmentation
 from vayesta.core.fragmentation import IAOPAO_Fragmentation
 from vayesta.mpi import mpi
 # --- Package
@@ -156,12 +157,10 @@ class EWF(Embedding):
         self.reset()
 
         # Automatic fragmentation
-        if self.fragmentation is None:
-            self.log.info("No fragmentation found. Using IAO fragmentation.")
-            self.iao_fragmentation()
         if len(self.fragments) == 0:
-            self.log.info("No fragments found. Using all atomic fragments.")
-            self.add_all_atomic_fragments()
+            self.log.debug("No fragments found. Adding all atomic IAO fragments.")
+            with IAO_Fragmentation(self) as f:
+                f.add_all_atomic_fragments()
 
         # Debug: calculate exact WF
         if self.opts._debug_exact_wf is not None:
@@ -524,9 +523,9 @@ class EWF(Embedding):
         natom = len(atoms)
         projection = projection.lower()
         if projection == 'sao':
-            frag = SAO_Fragmentation(self.mf, self.log)
+            frag = SAO_Fragmentation(self)
         elif projection.replace('+', '').replace('/', '') == 'iaopao':
-            frag = IAOPAO_Fragmentation(self.mf, self.log)
+            frag = IAOPAO_Fragmentation(self)
         else:
             raise ValueError("Invalid projection: %s" % projection)
         frag.kernel()

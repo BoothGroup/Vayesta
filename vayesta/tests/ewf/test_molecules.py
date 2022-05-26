@@ -90,8 +90,6 @@ class MoleculeEWFTests(unittest.TestCase):
                     'conv_tol_normt': self.CONV_TOL_NORMT,
                 },
         )
-        emb.iao_fragmentation()
-        emb.add_all_atomic_fragments()
         emb.kernel()
 
         known_values = {
@@ -130,9 +128,9 @@ class MoleculeEWFTests(unittest.TestCase):
                     'conv_tol_normt': self.CONV_TOL_NORMT,
                 },
         )
-        emb.sao_fragmentation()
-        emb.add_orbital_fragment([0, 1])
-        emb.add_orbital_fragment([2, 3, 4])
+        with emb.sao_fragmentation() as f:
+            f.add_orbital_fragment([0, 1])
+            f.add_orbital_fragment([2, 3, 4])
         emb.kernel()
 
         known_values = {'e_tot': -7.98424889149862}
@@ -151,8 +149,8 @@ class MoleculeEWFTests(unittest.TestCase):
                     'conv_tol_normt': self.CONV_TOL_NORMT,
                 },
         )
-        emb.sao_fragmentation()
-        emb.add_all_atomic_fragments()
+        with emb.sao_fragmentation() as f:
+            f.add_all_atomic_fragments()
         emb.kernel()
 
         known_values = {'e_tot': -7.99502192669842}
@@ -173,9 +171,9 @@ class MoleculeEWFTests(unittest.TestCase):
                     'fix_spin': 0.0,
                 }
         )
-        emb.iao_fragmentation()
-        emb.add_atomic_fragment(0)
-        emb.add_atomic_fragment(1, sym_factor=2)
+        with emb.iao_fragmentation() as f:
+            f.add_atomic_fragment(0)
+            f.add_atomic_fragment(1, sym_factor=2)
         emb.kernel()
 
         known_values = {'e_tot': -76.06365118513072}
@@ -195,9 +193,9 @@ class MoleculeEWFTests(unittest.TestCase):
                     'conv_tol_normt': self.CONV_TOL_NORMT,
                 },
         )
-        emb.iao_fragmentation()
-        emb.add_atomic_fragment(0)
-        emb.add_atomic_fragment(1, sym_factor=2)
+        with emb.iao_fragmentation() as f:
+            f.add_atomic_fragment(0)
+            f.add_atomic_fragment(1, sym_factor=2)
         emb.kernel()
 
         known_values = {'e_tot': -76.23613576956096}
@@ -216,10 +214,10 @@ class MoleculeEWFTests(unittest.TestCase):
                     'conv_tol_normt': self.CONV_TOL_NORMT,
                 },
         )
-        emb.iao_fragmentation()
-        emb.add_atomic_fragment(0)
-        emb.add_atomic_fragment(1, sym_factor=2)
-        emb.fragments[0].set_cas(['0 O 2p'])
+        with emb.iao_fragmentation() as f:
+            frag1 = f.add_atomic_fragment(0)
+            f.add_atomic_fragment(1, sym_factor=2)
+        frag1.set_cas(['0 O 2p'])
         emb.kernel()
 
         known_values = {'e_tot': -76.23559827815198}
@@ -240,9 +238,9 @@ class MoleculeEWFTests(unittest.TestCase):
                     'conv_tol_normt': self.CONV_TOL_NORMT,
                 },
         )
-        emb.iao_fragmentation()
-        emb.add_atomic_fragment(0)
-        emb.add_atomic_fragment(1, sym_factor=2)
+        with emb.iao_fragmentation() as f:
+            f.add_atomic_fragment(0)
+            f.add_atomic_fragment(1, sym_factor=2)
         emb.kernel()
 
         known_values = {'e_tot': -76.23147227604929}
@@ -262,8 +260,6 @@ class MoleculeEWFTests(unittest.TestCase):
                     'conv_tol_normt': self.CONV_TOL_NORMT,
                 },
         )
-        ecisd.iao_fragmentation()
-        ecisd.add_all_atomic_fragments()
         ecisd.kernel()
 
         eccsd = ewf.EWF(
@@ -275,8 +271,6 @@ class MoleculeEWFTests(unittest.TestCase):
                     'conv_tol_normt': self.CONV_TOL_NORMT,
                 },
         )
-        eccsd.iao_fragmentation()
-        eccsd.add_all_atomic_fragments()
         eccsd.kernel()
 
         self.assertAlmostEqual(ecisd.e_corr, eccsd.e_corr)
@@ -301,8 +295,8 @@ class UMoleculeEWFTests(unittest.TestCase):
                     'conv_tol_normt': self.CONV_TOL_NORMT,
                 },
         )
-        rewf.sao_fragmentation()
-        rewf.add_atomic_fragment([0, 1])
+        with rewf.sao_fragmentation() as f:
+            f.add_atomic_fragment([0, 1])
         rewf.kernel()
 
         uewf = ewf.UEWF(
@@ -313,8 +307,8 @@ class UMoleculeEWFTests(unittest.TestCase):
                     'conv_tol_normt': self.CONV_TOL_NORMT,
                 },
         )
-        uewf.sao_fragmentation()
-        uewf.add_atomic_fragment([0, 1])
+        with uewf.sao_fragmentation() as f:
+            f.add_atomic_fragment([0, 1])
         uewf.kernel()
 
         self.assertAlmostEqual(rewf.e_corr, uewf.e_corr, self.PLACES_ENERGY)
@@ -333,8 +327,8 @@ class UMoleculeEWFTests(unittest.TestCase):
                     'conv_tol_normt': self.CONV_TOL_NORMT,
                 },
         )
-        rewf.sao_fragmentation()
-        rewf.add_atomic_fragment([0, 1])
+        with rewf.sao_fragmentation() as f:
+            f.add_atomic_fragment([0, 1])
         rewf.kernel()
 
         uewf = ewf.UEWF(
@@ -346,8 +340,8 @@ class UMoleculeEWFTests(unittest.TestCase):
                     'conv_tol_normt': self.CONV_TOL_NORMT,
                 },
         )
-        uewf.sao_fragmentation()
-        uewf.add_atomic_fragment([0, 1])
+        with uewf.sao_fragmentation() as f:
+            f.add_atomic_fragment([0, 1])
         uewf.kernel()
 
         self.assertAlmostEqual(rewf.e_corr, uewf.e_corr, self.PLACES_ENERGY)
@@ -365,8 +359,8 @@ class UMoleculeEWFTests(unittest.TestCase):
                     'conv_tol': self.CONV_TOL,
                 },
         )
-        rewf.sao_fragmentation()
-        rewf.add_atomic_fragment([0, 1])
+        with rewf.sao_fragmentation() as f:
+            f.add_atomic_fragment([0, 1])
         rewf.kernel()
 
         uewf = ewf.UEWF(
@@ -377,8 +371,8 @@ class UMoleculeEWFTests(unittest.TestCase):
                     'conv_tol': self.CONV_TOL,
                 },
         )
-        uewf.sao_fragmentation()
-        uewf.add_atomic_fragment([0, 1])
+        with uewf.sao_fragmentation() as f:
+            f.add_atomic_fragment([0, 1])
         uewf.kernel()
 
         self.assertAlmostEqual(rewf.e_corr, uewf.e_corr, self.PLACES_ENERGY)

@@ -1,12 +1,11 @@
 import numpy as np
-
 import pyscf.cc
 import pyscf.fci
 import pyscf.tools
 import pyscf.tools.ring
-
 import vayesta.dmet
 import vayesta.edmet
+
 
 natom = 6
 filename = "energies_scEDMET_h{:d}_compare.txt".format(natom)
@@ -40,36 +39,36 @@ for d in np.arange(0.5, 3.0001, 0.25):
 
     # Single-shot
     dmet_oneshot = vayesta.dmet.DMET(mf, solver='FCI', max_elec_err=1e-4, maxiter=1)
-    dmet_oneshot.iao_fragmentation()
-    for i in range(0, natom, 2):
-        dmet_oneshot.add_atomic_fragment([i, i + 1])
+    with dmet_oneshot.iao_fragmentation() as f:
+        for i in range(0, natom, 2):
+            f.add_atomic_fragment([i, i + 1])
     dmet_oneshot.kernel()
     # Full DMET
     dmet_diis = vayesta.dmet.DMET(mf, solver='FCI', charge_consistent=True, diis=True,
                                   max_elec_err=1e-4)
-    dmet_diis.iao_fragmentation()
-    for i in range(0, natom, 2):
-        dmet_diis.add_atomic_fragment([i, i + 1])
+    with dmet_diis.iao_fragmentation() as f:
+        for i in range(0, natom, 2):
+            f.add_atomic_fragment([i, i + 1])
     dmet_diis.kernel()
     # Single-shot EDMET
     edmet_oneshot = vayesta.edmet.EDMET(mf, solver='EBFCI', max_elec_err=1e-4, maxiter=1, max_boson_occ=2)
-    edmet_oneshot.iao_fragmentation()
-    for i in range(0, natom, 2):
-        edmet_oneshot.add_atomic_fragment([i, i + 1])
+    with edmet_oneshot.iao_fragmentation() as f:
+        for i in range(0, natom, 2):
+            f.add_atomic_fragment([i, i + 1])
     edmet_oneshot.kernel()
     # Full DMET
     edmet_orig = vayesta.edmet.EDMET(mf, solver='EBFCI', charge_consistent=True, max_elec_err=1e-4, maxiter=40,
                                      max_boson_occ=2, old_sc_condition=True)
-    edmet_orig.iao_fragmentation()
-    for i in range(0, natom, 2):
-        edmet_orig.add_atomic_fragment([i, i + 1])
+    with edmet_orig.iao_fragmentation() as f:
+        for i in range(0, natom, 2):
+            f.add_atomic_fragment([i, i + 1])
     edmet_orig.kernel()
 
     edmet_new = vayesta.edmet.EDMET(mf, solver='EBFCI', charge_consistent=True, max_elec_err=1e-4, maxiter=40,
                                     max_boson_occ=2)
-    edmet_new.iao_fragmentation()
-    for i in range(0, natom, 2):
-        edmet_new.add_atomic_fragment([i, i + 1])
+    with edmet_new.iao_fragmentation() as f:
+        for i in range(0, natom, 2):
+            f.add_atomic_fragment([i, i + 1])
     edmet_new.kernel()
 
     e_sc_edmet1 = edmet_orig.e_tot if edmet_orig.converged else np.NaN

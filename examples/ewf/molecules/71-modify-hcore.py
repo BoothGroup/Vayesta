@@ -41,10 +41,8 @@ mf.kernel()
 
 # get_hcore_for_energy must be overwritten with original H_core function,
 # if the energy should be calculated without the shift
-emb = vayesta.ewf.EWF(mf, bno_threshold=1e-6, store_dm1=True,
+emb = vayesta.ewf.EWF(mf, bno_threshold=1e-6, solve_lambda=True,
         overwrite=dict(get_hcore_for_energy=(lambda emb, *args : hcore_orig())))
-emb.iao_fragmentation()
-emb.add_all_atomic_fragments()
 emb.kernel()
 
 emb.fragments[0].pop_analysis()

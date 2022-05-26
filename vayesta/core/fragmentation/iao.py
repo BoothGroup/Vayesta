@@ -66,8 +66,8 @@ class IAO_Fragmentation(Fragmentation):
 
         # Orthogonalize IAO using symmetric (Lowdin) orthogonalization
         x, e_min = self.symmetric_orth(c_iao, ovlp)
-        self.log.debug("Lowdin orthogonalization of IAOs: n(in)= %3d -> n(out)= %3d , min(eig)= %.3e", x.shape[0], x.shape[1], e_min)
-        if e_min < 1e-12:
+        self.log.debugv("Lowdin orthogonalization of IAOs: n(in)= %3d -> n(out)= %3d , min(eig)= %.3e", x.shape[0], x.shape[1], e_min)
+        if e_min < 1e-10:
             self.log.warning("Small eigenvalue in Lowdin orthogonalization: %.3e !", e_min)
         c_iao = np.dot(c_iao, x)
         # Check that all electrons are in IAO space

@@ -3,7 +3,7 @@ import scipy
 import scipy.linalg
 
 from vayesta.core.util import *
-from vayesta.core.vlog import NoLogger
+from . import helper
 
 def check_orthonormal(log, mo_coeff, ovlp, mo_name="orbital", tol=1e-7):
     """Check orthonormality of mo_coeff.
@@ -31,15 +31,117 @@ class Fragmentation:
 
     name = "<not set>"
 
-    def __init__(self, mf, log=None):
-        self.mf = mf
-        self.log = (log or NoLogger())
+    def __init__(self, emb, log=None):
+        self.emb = emb
+        self.log = log or emb.log
+        self.log.info('%s Fragmentation' % self.name)
+        self.log.info('%s--------------' % (len(self.name)*'-'))
+        self.log.changeIndentLevel(1)
         self.ovlp = self.mf.get_ovlp()
         #
         self.coeff = None
         self.labels = None
 
+    # --- As contextmanager:
+
+    def __enter__(self):
+        self.kernel()
+        return self
+
+    def __exit__(self, type, value, traceback):
+        self.log.changeIndentLevel(-1)
+
+    # --- Adding fragments:
+
+    def add_atomic_fragment(self, atoms, orbital_filter=None, name=None, add_symmetric=True, **kwargs):
+        """Create a fragment of one or multiple atoms, which will be solved by the embedding method.
+
+        Parameters
+        ----------
+        atoms: int, str, list[int], or list[str]
+            Atom indices or symbols which should be included in the fragment.
+        name: str, optional
+            Name for the fragment. If None, a name is automatically generated from the chosen atoms. Default: None.
+        add_symmetric: bool, optional
+            Add symmetry equivalent fragments. Default: True.
+        **kwargs:
+            Additional keyword arguments are passed through to the fragment constructor.
+
+        Returns
+        -------
+        Fragment:
+            Fragment object.
+        """
+        atom_indices, atom_symbols = self.get_atom_indices_symbols(atoms)
+        name, indices = self.get_atomic_fragment_indices(atoms, orbital_filter=orbital_filter, name=name)
+        return self._add_fragment(indices, name, add_symmetric=add_symmetric, atoms=atom_indices, **kwargs)
+
+    def add_orbital_fragment(self, orbitals, atom_filter=None, name=None, **kwargs):
+        """Create a fragment of one or multiple orbitals, which will be solved by the embedding method.
+
+        Parameters
+        ----------
+        orbitals: int, str, list[int], or list[str]
+            Orbital indices or labels which should be included in the fragment.
+        name: str, optional
+            Name for the fragment. If None, a name is automatically generated from the chosen orbitals. Default: None.
+        **kwargs:
+            Additional keyword arguments are passed through to the fragment constructor.
+
+        Returns
+        -------
+        Fragment:
+            Fragment object.
+        """
+        name, indices = self.get_orbital_fragment_indices(orbitals, atom_filter=atom_filter, name=name)
+        return self._add_fragment(indices, name, **kwargs)
+
+    def add_all_atomic_fragments(self, **kwargs):
+        """Create a single fragment for each atom in the system.
+
+        Parameters
+        ----------
+        **kwargs:
+            Additional keyword arguments are passed through to each fragment constructor.
+        """
+        t_init = timer()
+        fragments = []
+        #for atom in self.symmetry.get_unique_atoms():
+        natom = self.emb.kcell.natm if self.emb.kcell is not None else self.emb.mol.natm
+        for atom in range(natom):
+            frag = self.add_atomic_fragment(atom, **kwargs)
+            fragments.append(frag)
+        self.log.timing("Time for fragments: %s", time_string(timer()-t_init))
+        return fragments
+
+    def _add_fragment(self, indices, name, add_symmetric=False, **kwargs):
+        c_frag = self.get_frag_coeff(indices)
+        c_env = self.get_env_coeff(indices)
+        fid, mpirank = self.emb.register.get_next()
+        frag = self.emb.Fragment(self.emb, fid, name, c_frag, c_env, mpi_rank=mpirank, **kwargs)
+        self.emb.fragments.append(frag)
+        # Log fragment orbitals:
+        self.log.debugv("Fragment %ss:\n%r", self.name, indices)
+        self.log.debug("Fragment %ss of fragment %s:", self.name, name)
+        labels = np.asarray(self.labels)[indices]
+        helper.log_orbitals(self.log.debug, labels)
+
+        if add_symmetric:
+            # Translational symmetry
+            #subcellmesh = self.symmetry.nsubcells
+            #if subcellmesh is not None and np.any(np.asarray(subcellmesh) > 1):
+            subcellmesh = getattr(self.mf, 'subcellmesh', None)
+            if subcellmesh is not None and np.any(np.asarray(subcellmesh) > 1):
+                self.log.debugv("mean-field has attribute 'subcellmesh'; adding T-symmetric fragments")
+                frag.add_tsymmetric_fragments(subcellmesh)
+
+        return frag
+
     # --- For convenience:
+
+    @property
+    def mf(self):
+        return self.emb.mf
 
     @property
     def mol(self):

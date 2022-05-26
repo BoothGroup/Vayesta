@@ -14,9 +14,9 @@ class SAO_Fragmentation(Fragmentation):
         if np.allclose(ovlp, idt):
             return idt
         x, e_min = self.symmetric_orth(idt, ovlp)
-        self.log.debug("Lowdin orthogonalization of AOs: n(in)= %3d -> n(out)= %3d , e(min)= %.3e",
+        self.log.debugv("Lowdin orthogonalization of AOs: n(in)= %3d -> n(out)= %3d , e(min)= %.3e",
                 x.shape[0], x.shape[1], e_min)
-        if e_min < 1e-12:
+        if e_min < 1e-10:
             self.log.warning("Small eigenvalue in Lowdin orthogonalization: %.3e !", e_min)
         self.check_orthonormal(x)
         return x

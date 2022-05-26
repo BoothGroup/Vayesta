@@ -33,8 +33,8 @@ class Test_DM(TestCase):
     def frag(cls):
         emb = vayesta.ewf.EWF(cls.mf, bath_type='full', solve_lambda=True, solver=cls.solver,
                 solver_options=cls.solver_opts)
-        emb.iao_fragmentation()
-        frag = emb.add_atomic_fragment(list(range(emb.mol.natm)))
+        with emb.iao_fragmentation() as f:
+            frag = f.add_atomic_fragment(list(range(emb.mol.natm)))
         emb.kernel()
         return frag
 
@@ -91,15 +91,6 @@ class Test_DM_FCI(Test_DM):
     def setUpClass(cls):
         cls.mf = testsystems.water_sto3g.rhf()
         cls.cc = testsystems.water_sto3g.rfci()
-
-    #@classmethod
-    #@cache
-    #def frag(cls):
-    #    emb = vayesta.ewf.EWF(cls.mf, bath_type='full', solver='FCI')
-    #    emb.iao_fragmentation()
-    #    frag = emb.add_atomic_fragment(list(range(emb.mol.natm)))
-    #    emb.kernel()
-    #    return frag
 
     def get_dm1_ref(self, ao_repr=False):
         args = (self.cc.ci, self.mf.mol.nao, self.mf.mol.nelectron)

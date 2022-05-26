@@ -25,8 +25,8 @@ class HubbardEWFTests(unittest.TestCase):
                     'conv_tol': self.CONV_TOL,
                 },
         )
-        emb.site_fragmentation()
-        frag = emb.add_atomic_fragment(0)
+        with emb.site_fragmentation() as f:
+            frag = f.add_atomic_fragment(0)
         frag.add_tsymmetric_fragments(tvecs=[6, 1, 1])
         emb.kernel()
 
@@ -45,8 +45,8 @@ class HubbardEWFTests(unittest.TestCase):
                     'conv_tol': self.CONV_TOL,
                 },
         )
-        emb.site_fragmentation()
-        frag = emb.add_atomic_fragment([0, 1])
+        with emb.site_fragmentation() as f:
+            frag = f.add_atomic_fragment([0, 1])
         frag.add_tsymmetric_fragments(tvecs=[5, 1, 1])
         emb.kernel()
 
@@ -65,8 +65,8 @@ class HubbardEWFTests(unittest.TestCase):
                     'conv_tol': self.CONV_TOL,
                 },
         )
-        emb.site_fragmentation()
-        frag = emb.add_atomic_fragment([0])
+        with emb.site_fragmentation() as f:
+            frag = f.add_atomic_fragment([0])
         frag.add_tsymmetric_fragments(tvecs=[6, 6, 1])
         emb.kernel()
 
@@ -85,8 +85,8 @@ class HubbardEWFTests(unittest.TestCase):
                     'conv_tol': self.CONV_TOL,
                 },
         )
-        emb.site_fragmentation()
-        frag = emb.add_atomic_fragment([0])
+        with emb.site_fragmentation() as f:
+            frag = f.add_atomic_fragment([0])
         frag.add_tsymmetric_fragments(tvecs=[6, 6, 1])
         emb.kernel()
 
@@ -105,8 +105,8 @@ class HubbardEWFTests(unittest.TestCase):
                     'conv_tol': self.CONV_TOL,
                 },
         )
-        emb.site_fragmentation()
-        frag = emb.add_atomic_fragment([0, 1, 2, 3])
+        with emb.site_fragmentation() as f:
+            frag = f.add_atomic_fragment([0, 1, 2, 3])
         frag.add_tsymmetric_fragments(tvecs=[4, 4, 1])
         emb.kernel()
 

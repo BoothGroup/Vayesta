@@ -236,13 +236,12 @@ class Fragment:
         #self.log.info(break_into_lines(str(self.opts), newline='\n    '))
 
     def __repr__(self):
-        #keys = ['id', 'name']
-        #fmt = ('%s(' + len(keys)*'%s: %r, ')[:-2] + ')'
-        #values = [self.__dict__[k] for k in keys]
-        #return fmt % (self.__class__.__name__, *[x for y in zip(keys, values) for x in y])
-        return '%s(id= %d, name= %s, mpi_rank= %d, n_frag= %d, n_elec= %.8f, sym_factor= %f)' % (
-                self.__class__.__name__, self.id, self.name, self.mpi_rank,
-                self.n_frag, self.nelectron, self.sym_factor)
+        if mpi:
+            return '%s(id= %d, name= %s, n_frag= %d, mpi_rank= %d)' % (
+                    self.__class__.__name__, self.id, self.name, self.n_frag, self.mpi_rank)
+        return '%s(id= %d, name= %s, n_frag= %d)' % (
+                self.__class__.__name__, self.id, self.name, self.n_frag)
+
 
     def __str__(self):
         return '%s %d: %s' % (self.__class__.__name__, self.id, self.name)

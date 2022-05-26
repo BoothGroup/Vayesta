@@ -21,8 +21,8 @@ class EwDMET_Bath_Test(unittest.TestCase):
         mf = moles['ethanol_ccpvdz']['rhf']
 
         emb = Embedding(mf)
-        emb.iao_fragmentation()
-        frag = emb.add_atomic_fragment(0)
+        with emb.iao_fragmentation() as f:
+            frag = f.add_atomic_fragment(0)
         dmet_bath = DMET_Bath(frag, dmet_threshold=1e-8)
         dmet_bath.kernel()
 
@@ -61,8 +61,8 @@ class BNO_Bath_Test(unittest.TestCase):
         rhf = moles['ethanol_ccpvdz']['rhf']
 
         remb = Embedding(rhf)
-        remb.iao_fragmentation()
-        rfrag = remb.add_atomic_fragment('O')
+        with remb.iao_fragmentation() as f:
+            rfrag = f.add_atomic_fragment('O')
         rdmet_bath = DMET_Bath(rfrag)
         rdmet_bath.kernel()
         rbno_bath = MP2_BNO_Bath(rfrag, rdmet_bath)
@@ -70,8 +70,8 @@ class BNO_Bath_Test(unittest.TestCase):
 
         uhf = moles['ethanol_ccpvdz']['uhf']
         uemb = UEmbedding(uhf)
-        uemb.iao_fragmentation()
-        ufrag = uemb.add_atomic_fragment('O')
+        with uemb.iao_fragmentation() as f:
+            ufrag = f.add_atomic_fragment('O')
         udmet_bath = UDMET_Bath(ufrag)
         udmet_bath.kernel()
         ubno_bath = UMP2_BNO_Bath(ufrag, udmet_bath)

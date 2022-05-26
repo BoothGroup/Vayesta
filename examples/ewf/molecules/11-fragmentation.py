@@ -29,12 +29,14 @@ emb_iao.kernel()
 
 emb_iaopao = vayesta.ewf.EWF(mf, bno_threshold=1e-6)
 # To use IAO+PAOs, call emb.iaopao_fragmentation() before the kernel:
-emb_iaopao.iaopao_fragmentation()
+with emb_iaopao.iaopao_fragmentation() as f:
+    f.add_all_atomic_fragments()
 emb_iaopao.kernel()
 
 emb_sao = vayesta.ewf.EWF(mf, bno_threshold=1e-6)
 # To use Lowdin AOs (SAOs), call emb.sao_fragmentation() before the kernel:
-emb_sao.sao_fragmentation()
+with emb_sao.sao_fragmentation() as f:
+    f.add_all_atomic_fragments()
 emb_sao.kernel()
 
 # Reference full system CCSD:

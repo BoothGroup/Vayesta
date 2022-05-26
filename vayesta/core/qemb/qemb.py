@@ -38,17 +38,17 @@ from .register import FragmentRegister
 #from vayesta.core.symmetry import Symmetry
 
 # Fragmentations
-from vayesta.core.fragmentation import make_sao_fragmentation
-from vayesta.core.fragmentation import make_iao_fragmentation
-from vayesta.core.fragmentation import make_iaopao_fragmentation
-from vayesta.core.fragmentation import make_site_fragmentation
+from vayesta.core.fragmentation import SAO_Fragmentation
+from vayesta.core.fragmentation import IAO_Fragmentation
+from vayesta.core.fragmentation import IAOPAO_Fragmentation
+from vayesta.core.fragmentation import Site_Fragmentation
 
 from vayesta.misc.cptbisect import ChempotBisection
 
 # --- This Package
 
 from .fragment import Fragment
-from . import helper
+#from . import helper
 from .rdm import make_rdm1_demo_rhf
 from .rdm import make_rdm2_demo_rhf
 
@@ -56,6 +56,9 @@ class Embedding:
 
     # Shadow this in inherited methods:
     Fragment = Fragment
+
+    is_rhf = True
+    is_uhf = False
 
     @dataclasses.dataclass
     class Options(OptionsBase):
@@ -152,7 +155,6 @@ class Embedding:
             # 5) Fragments
             # ------------
             self.register = FragmentRegister()
-            self.fragmentation = None
             self.fragments = []
 
             # 6) Other
@@ -314,14 +316,6 @@ class Embedding:
         """Number of primitive cells within supercell."""
         if self.kpts is None: return 1
         return len(self.kpts)
-
-    @property
-    def is_rhf(self):
-        return (np.ndim(self.mo_coeff) == 2)
-
-    @property
-    def is_uhf(self):
-        return (self.mo_coeff[0].ndim == 2)
 
     @property
     def has_df(self):
@@ -889,7 +883,7 @@ class Embedding:
             #self.c_lo = c_lo = pyscf.lo.orth_ao(self.mol, 'meta-lowdin', pre_orth_ao=None)
             return self.get_ovlp_power(power=-0.5)
         elif local_orbitals.lower() == 'iao+pao':
-            return make_iaopao_fragmentation(self.mf, log=self.log, minao=minao).get_coeff()
+            return IAOPAO_Fragmentation(self, minao=minao).get_coeff()
         raise ValueError("Unknown local orbitals: %r" % local_orbitals)
 
     def pop_analysis(self, dm1, mo_coeff=None, local_orbitals='lowdin', minao='auto', write=True, filename=None, filemode='a',
@@ -988,13 +982,11 @@ class Embedding:
 
     def sao_fragmentation(self):
         """Initialize the quantum embedding method for the use of SAO (Lowdin-AO) fragments."""
-        self.fragmentation = make_sao_fragmentation(self.mf, log=self.log)
-        self.fragmentation.kernel()
+        return SAO_Fragmentation(self, log=self.log)
 
     def site_fragmentation(self):
         """Initialize the quantum embedding method for the use of site fragments."""
-        self.fragmentation = make_site_fragmentation(self.mf, log=self.log)
-        self.fragmentation.kernel()
+        return Site_Fragmentation(self, log=self.log)
 
     def iao_fragmentation(self, minao='auto'):
         """Initialize the quantum embedding method for the use of IAO fragments.
@@ -1004,8 +996,7 @@ class Embedding:
         minao: str, optional
             IAO reference basis set. Default: 'auto'
         """
-        self.fragmentation = make_iao_fragmentation(self.mf, log=self.log, minao=minao)
-        self.fragmentation.kernel()
+        return IAO_Fragmentation(self, log=self.log, minao=minao)
 
     def iaopao_fragmentation(self, minao='auto'):
         """Initialize the quantum embedding method for the use of IAO+PAO fragments.
@@ -1015,96 +1006,7 @@ class Embedding:
         minao: str, optional
             IAO reference basis set. Default: 'auto'
         """
-        self.fragmentation = make_iaopao_fragmentation(self.mf, log=self.log, minao=minao)
-        self.fragmentation.kernel()
-
-    def add_atomic_fragment(self, atoms, orbital_filter=None, name=None, add_symmetric=True, **kwargs):
-        """Create a fragment of one or multiple atoms, which will be solved by the embedding method.
-
-        Parameters
-        ----------
-        atoms: int, str, list[int], or list[str]
-            Atom indices or symbols which should be included in the fragment.
-        name: str, optional
-            Name for the fragment. If None, a name is automatically generated from the chosen atoms. Default: None.
-        add_symmetric: bool, optional
-            Add symmetry equivalent fragments. Default: True.
-        **kwargs:
-            Additional keyword arguments are passed through to the fragment constructor.
-
-        Returns
-        -------
-        Fragment:
-            Fragment object.
-        """
-        if self.fragmentation is None:
-            raise RuntimeError("No fragmentation defined. Call method x_fragmentation() where x=[iao, iaopao, sao, site].")
-        atom_indices, atom_symbols = self.fragmentation.get_atom_indices_symbols(atoms)
-        name, indices = self.fragmentation.get_atomic_fragment_indices(atoms, orbital_filter=orbital_filter, name=name)
-        return self._add_fragment(indices, name, add_symmetric=add_symmetric, atoms=atom_indices, **kwargs)
-
-    def add_orbital_fragment(self, orbitals, atom_filter=None, name=None, **kwargs):
-        """Create a fragment of one or multiple orbitals, which will be solved by the embedding method.
-
-        Parameters
-        ----------
-        orbitals: int, str, list[int], or list[str]
-            Orbital indices or labels which should be included in the fragment.
-        name: str, optional
-            Name for the fragment. If None, a name is automatically generated from the chosen orbitals. Default: None.
-        **kwargs:
-            Additional keyword arguments are passed through to the fragment constructor.
-
-        Returns
-        -------
-        Fragment:
-            Fragment object.
-        """
-        if self.fragmentation is None:
-            raise RuntimeError("No fragmentation defined. Call method x_fragmentation() where x=[iao, iaopao, sao, site].")
-        name, indices = self.fragmentation.get_orbital_fragment_indices(orbitals, atom_filter=atom_filter, name=name)
-        return self._add_fragment(indices, name, **kwargs)
-
-    def _add_fragment(self, indices, name, add_symmetric=False, **kwargs):
-        c_frag = self.fragmentation.get_frag_coeff(indices)
-        c_env = self.fragmentation.get_env_coeff(indices)
-        fid, mpirank = self.register.get_next()
-        frag = self.Fragment(self, fid, name, c_frag, c_env, mpi_rank=mpirank, **kwargs)
-        self.fragments.append(frag)
-        # Log fragment orbitals:
-        self.log.debugv("Fragment %ss:\n%r", self.fragmentation.name, indices)
-        self.log.debug("Fragment %ss of fragment %s:", self.fragmentation.name, name)
-        labels = np.asarray(self.fragmentation.labels)[indices]
-        helper.log_orbitals(self.log.debug, labels)
-
-        if add_symmetric:
-            # Translational symmetry
-            #subcellmesh = self.symmetry.nsubcells
-            #if subcellmesh is not None and np.any(np.asarray(subcellmesh) > 1):
-            subcellmesh = getattr(self.mf, 'subcellmesh', None)
-            if subcellmesh is not None and np.any(np.asarray(subcellmesh) > 1):
-                self.log.debugv("mean-field has attribute 'subcellmesh'; adding T-symmetric fragments")
-                frag.add_tsymmetric_fragments(subcellmesh)
-
-        return frag
-
-    def add_all_atomic_fragments(self, **kwargs):
-        """Create a single fragment for each atom in the system.
-
-        Parameters
-        ----------
-        **kwargs:
-            Additional keyword arguments are passed through to each fragment constructor.
-        """
-        t_init = timer()
-        fragments = []
-        #for atom in self.symmetry.get_unique_atoms():
-        natom = self.kcell.natm if self.kcell is not None else self.mol.natm
-        for atom in range(natom):
-            frag = self.add_atomic_fragment(atom, **kwargs)
-            fragments.append(frag)
-        self.log.timing("Time for fragments: %s", time_string(timer()-t_init))
-        return fragments
+        return IAOPAO_Fragmentation(self, log=self.log, minao=minao)
 
     # --- Mean-field updates
 

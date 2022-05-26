@@ -27,8 +27,8 @@ class Test_Water(TestCase):
     def emb(cls, bno_threshold):
         solver_opts = dict(conv_tol=1e-10, conv_tol_normt=1e-8)
         emb = vayesta.ewf.EWF(cls.mf, bno_threshold=bno_threshold, solve_lambda=True, solver_options=solver_opts)
-        emb.sao_fragmentation()
-        emb.add_all_atomic_fragments()
+        with emb.sao_fragmentation() as f:
+            f.add_all_atomic_fragments()
         emb.kernel()
         return emb
 
@@ -96,8 +96,8 @@ class Test_H2Chain(Test_Water):
     def emb_kpts(cls, bno_threshold):
         solver_opts = dict(conv_tol=1e-10, conv_tol_normt=1e-8)
         emb = vayesta.ewf.EWF(cls.kmf, bno_threshold=bno_threshold, solve_lambda=True, solver_options=solver_opts)
-        emb.sao_fragmentation()
-        emb.add_all_atomic_fragments()
+        with emb.sao_fragmentation() as f:
+            f.add_all_atomic_fragments()
         emb.kernel()
         return emb
 

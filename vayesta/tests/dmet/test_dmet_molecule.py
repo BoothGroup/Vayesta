@@ -31,10 +31,10 @@ class MoleculeDMETTest(unittest.TestCase):
                 bath_type='dmet',
                 conv_tol=self.CONV_TOL,
         )
-        emb.iao_fragmentation()
-        emb.add_atomic_fragment([0, 1])
-        emb.add_atomic_fragment([2, 3])
-        emb.add_atomic_fragment([4, 5])
+        with emb.iao_fragmentation() as f:
+            f.add_atomic_fragment([0, 1])
+            f.add_atomic_fragment([2, 3])
+            f.add_atomic_fragment([4, 5])
         emb.kernel()
 
         known_values = {'e_tot': -3.259355757394294}
@@ -53,10 +53,10 @@ class MoleculeDMETTest(unittest.TestCase):
                 bath_type='dmet',
                 conv_tol=self.CONV_TOL,
         )
-        emb.iao_fragmentation()
-        emb.add_atomic_fragment([0, 1])
-        emb.add_atomic_fragment([2, 3])
-        emb.add_atomic_fragment([4, 5])
+        with emb.iao_fragmentation() as f:
+            f.add_atomic_fragment([0, 1])
+            f.add_atomic_fragment([2, 3])
+            f.add_atomic_fragment([4, 5])
         emb.kernel()
 
         known_values = {'e_tot': -3.2593557575050305}
@@ -75,10 +75,10 @@ class MoleculeDMETTest(unittest.TestCase):
                 bath_type='full',
                 conv_tol=self.CONV_TOL,
         )
-        emb.iao_fragmentation()
-        emb.add_atomic_fragment([0, 1])
-        emb.add_atomic_fragment([2, 3])
-        emb.add_atomic_fragment([4, 5])
+        with emb.iao_fragmentation() as f:
+            f.add_atomic_fragment([0, 1])
+            f.add_atomic_fragment([2, 3])
+            f.add_atomic_fragment([4, 5])
         emb.kernel()
 
         known_values = {'e_tot': -3.2587710893946102}
@@ -98,10 +98,10 @@ class MoleculeDMETTest(unittest.TestCase):
                 bno_threshold=np.inf,
                 conv_tol=self.CONV_TOL,
         )
-        emb.iao_fragmentation()
-        emb.add_atomic_fragment([0, 1])
-        emb.add_atomic_fragment([2, 3])
-        emb.add_atomic_fragment([4, 5])
+        with emb.iao_fragmentation() as f:
+            f.add_atomic_fragment([0, 1])
+            f.add_atomic_fragment([2, 3])
+            f.add_atomic_fragment([4, 5])
         emb.kernel()
 
         known_values = {'e_tot': -3.2593557575050305 }

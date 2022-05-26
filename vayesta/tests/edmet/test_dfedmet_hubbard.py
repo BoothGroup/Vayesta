@@ -63,9 +63,9 @@ class HubbardDFEDMETTests(unittest.TestCase):
             maxiter=1,
             max_elec_err=1e-6
         )
-        emb.site_fragmentation()
-        frag = emb.add_atomic_fragment([0, 1])
-        frag.add_tsymmetric_fragments(tvecs=[7, 1, 1])
+        with emb.site_fragmentation() as f:
+            frag = f.add_atomic_fragment([0, 1])
+            frag.add_tsymmetric_fragments(tvecs=[7, 1, 1])
         emb.kernel()
 
         dfedmet = edmet.EDMET(
@@ -75,9 +75,9 @@ class HubbardDFEDMETTests(unittest.TestCase):
                 maxiter=1,
                 max_elec_err=1e-6
         )
-        dfedmet.site_fragmentation()
-        frag = dfedmet.add_atomic_fragment([0, 1])
-        frag.add_tsymmetric_fragments(tvecs=[7, 1, 1])
+        with dfedmet.site_fragmentation() as f:
+            frag = f.add_atomic_fragment([0, 1])
+            frag.add_tsymmetric_fragments(tvecs=[7, 1, 1])
         dfedmet.kernel()
         # This is the energy without the nonlocal correlation energy RPA correction.
         known_values = {'e_clus': -8.01015928145061, 'e_nl': -0.5338487284590787}
@@ -102,7 +102,6 @@ class HubbardDFEDMETTests(unittest.TestCase):
     #    known_values = {'e_tot': -56.0}
 
     #    self._test_energy(emb, known_values)
-
 
 
 if __name__ == '__main__':

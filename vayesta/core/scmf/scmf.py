@@ -126,7 +126,7 @@ class PDMET_RHF(SCMF):
 
     name = "p-DMET"
 
-    def __init__(self, *args, dm_type='demo', **kwargs):
+    def __init__(self, *args, dm_type='default', **kwargs):
         super().__init__(*args, **kwargs)
         self.dm_type = dm_type.lower()
 
@@ -136,10 +136,10 @@ class PDMET_RHF(SCMF):
     def get_rdm1(self):
         """DM1 in MO basis."""
         dm_type = self.dm_type
-        if dm_type.startswith('demo'):
+        if dm_type.startswith('default'):
+            dm1 = self.emb.make_rdm1()
+        elif dm_type.startswith('demo'):
             dm1 = self.emb.make_rdm1_demo()
-        elif dm_type.startswith('pwf-ccsd'):
-            dm1 = self.emb.make_rdm1_ccsd()
         else:
             raise NotImplementedError("dm_type= %r" % dm_type)
         # Check electron number
@@ -175,11 +175,10 @@ class PDMET_UHF(PDMET_RHF):
     def get_rdm1(self):
         """DM1 in MO basis."""
         dm_type = self.dm_type
-        if dm_type.startswith('demo'):
+        if dm_type.startswith('default'):
+            dm1 = self.emb.make_rdm1()
+        elif dm_type.startswith('demo'):
             dm1 = self.emb.make_rdm1_demo()
-        elif dm_type.startswith('pwf-ccsd'):
-            raise NotImplementedError("dm_type= %r" % dm_type)
-            #dm1 = self.emb.make_rdm1_ccsd()
         else:
             raise NotImplementedError("dm_type= %r" % dm_type)
         # Check electron number

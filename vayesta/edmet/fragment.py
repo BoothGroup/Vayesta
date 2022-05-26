@@ -212,7 +212,7 @@ class EDMETFragment(DMETFragment):
             self.log.info("Zeroth moment matching generated %d cluster bosons.", nbos)
         self.log.info("Fragment %s Quasiboson histogram", self.id_name)
         self.log.info("------------------------------%s", "-"*len(self.id_name))
-        bins = np.hstack([np.inf, np.logspace(0, -12, 13), -np.inf])
+        bins = np.hstack([-np.inf, np.logspace(0, -12, 13)[::-1], np.inf])
         self.log.info(helper.make_horizontal_histogram(s, bins=bins))
         # Calculate the relevant components of the zeroth moment- we don't want to recalculate these.
         self.r_bos = v[:nbos, :]

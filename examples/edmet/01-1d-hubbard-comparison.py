@@ -1,8 +1,8 @@
+import vayesta
 import vayesta.dmet
 import vayesta.edmet
 import vayesta.lattmod
 import vayesta.lattmod.bethe
-
 import matplotlib.pyplot as plt
 
 # Function to get mean-field for hubbard of given size and onsite repulsion.
@@ -25,20 +25,20 @@ def gen_comparison(hubbard_u, nimp=2):
 
         dmet = vayesta.dmet.DMET(mf, solver='FCI', charge_consistent=True, maxiter=1,
                                  bath_type=None)
-        dmet.site_fragmentation()
-        f = dmet.add_atomic_fragment(list(range(nimp)))
+        with dmet.site_fragmentation() as f:
+            frag = f.add_atomic_fragment(list(range(nimp)))
         # Add fragments which are translationally symmetric to f - the results of the fragment f
         # fill be automatically copied.
         dmet.kernel()
-        symfrags = f.make_tsymmetric_fragments(tvecs=[nsite // nimp, 1, 1])
+        symfrags = frag.make_tsymmetric_fragments(tvecs=[nsite // nimp, 1, 1])
         res_dmet += [sum(dmet.fragments[0].get_dmet_energy_contrib())/nimp]
 
         edmet = vayesta.edmet.EDMET(mf, solver="EBFCI", charge_consistent = True,maxiter=1, bath_type=None)
-        edmet.site_fragmentation()
-        f = edmet.add_atomic_fragment(list(range(nimp)))
+        with edmet.site_fragmentation() as f:
+            frag = f.add_atomic_fragment(list(range(nimp)))
         # Add fragments which are translationally symmetric to f - the results of the fragment f
         # fill be automatically copied.
-        symfrags = f.make_tsymmetric_fragments(tvecs=[nsite//nimp, 1, 1])
+        symfrags = frag.make_tsymmetric_fragments(tvecs=[nsite//nimp, 1, 1])
         edmet.kernel()
         res_edmet += [sum(edmet.fragments[0].get_edmet_energy_contrib())/nimp]
 

@@ -23,6 +23,9 @@ class UEmbedding(Embedding):
     # Shadow this in inherited methods:
     Fragment = UFragment
 
+    is_rhf = False
+    is_uhf = True
+
     #def get_init_veff(self):
     #    if self.opts.recalc_vhf:
     #        self.log.debug("Recalculating HF potential from MF object.")

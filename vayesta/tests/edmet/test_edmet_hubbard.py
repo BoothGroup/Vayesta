@@ -61,9 +61,9 @@ class EDMET_Hubbard_Tests(unittest.TestCase):
                 oneshot=True,
                 make_dd_moments=False,
         )
-        emb.site_fragmentation()
-        frag = emb.add_atomic_fragment([0, 1])
-        frag.add_tsymmetric_fragments(tvecs=[5, 1, 1])
+        with emb.site_fragmentation() as f:
+            frag = f.add_atomic_fragment([0, 1])
+            frag.add_tsymmetric_fragments(tvecs=[5, 1, 1])
         emb.kernel()
 
         known_values = {'e_tot':-8.793485086132375}
@@ -122,9 +122,9 @@ class EDMET_Hubbard_Tests(unittest.TestCase):
                 oneshot=True,
                 make_dd_moments=False,
         )
-        emb.site_fragmentation()
-        frag = emb.add_atomic_fragment([0])
-        frag.add_tsymmetric_fragments(tvecs=[6, 6, 1])
+        with emb.site_fragmentation() as f:
+            frag = f.add_atomic_fragment([0])
+            frag.add_tsymmetric_fragments(tvecs=[6, 6, 1])
         emb.kernel()
 
         known_values = {'e_tot':-49.255623407653644}

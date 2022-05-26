@@ -1,21 +1,17 @@
 import numpy as np
 
 import pyscf.cc
-import pyscf.tools
-import pyscf.tools.ring
 
+import vayesta
 import vayesta.dmet
+from vayesta.misc.molecules import ring
 
-natom = 6
-d = 2.0
-ring = pyscf.tools.ring.make(natom, d)
-atom = [('H %f %f %f' % xyz) for xyz in ring]
 
 mol = pyscf.gto.Mole()
-mol.atom = atom
+mol.atom = ring('H', 6, 2.0)
 mol.basis = 'sto-3g'
-mol.verbose = 10
-mol.output = 'pyscf_out.txt'
+mol.output = 'pyscf.out'
+mol.verbose = 4
 mol.build()
 
 # Hartree-Fock
@@ -24,20 +20,25 @@ mf.kernel()
 
 # DMET calculation with DIIS extrapolation of the high-level correlation potential.
 dmet_diis = vayesta.dmet.DMET(mf, solver='FCI', charge_consistent=False, diis=True,
-                              max_elec_err = 1e-6)
-dmet_diis.iao_fragmentation()
-dmet_diis.add_atomic_fragment([0, 1]); dmet_diis.add_atomic_fragment([2, 3]); dmet_diis.add_atomic_fragment([4, 5])
+                              max_elec_err=1e-6)
+with dmet_diis.iao_fragmentation() as f:
+    f.add_atomic_fragment([0, 1])
+    f.add_atomic_fragment([2, 3])
+    f.add_atomic_fragment([4, 5])
 dmet_diis.kernel()
 
 # DMET calculation without DIIS, using
 dmet_mix = vayesta.dmet.DMET(mf, solver='FCI', charge_consistent=False, diis=False,
-                             max_elec_err = 1e-6)
-dmet_mix.iao_fragmentation()
-dmet_mix.add_atomic_fragment([0, 1]); dmet_mix.add_atomic_fragment([2, 3]); dmet_mix.add_atomic_fragment([4, 5])
+                             max_elec_err=1e-6)
+with dmet_mix.iao_fragmentation() as f:
+    f.add_atomic_fragment([0, 1])
+    f.add_atomic_fragment([2, 3])
+    f.add_atomic_fragment([4, 5])
 dmet_mix.kernel()
 
-ediff = abs(dmet_diis.e_dmet - dmet_mix.e_dmet)
-vdiff = sum(np.ravel(dmet_diis.vcorr - dmet_mix.vcorr)**2)**(0.5)
+ediff = (dmet_diis.e_dmet - dmet_mix.e_dmet)
+vdiff = np.linalg.norm(dmet_diis.vcorr - dmet_mix.vcorr)
 
-print("Difference between DIIS and mixing solution in          Energy          = {:6.4e}".format(ediff))
-print("                                               Correlation Potential L2 = {:6.4e}".format(vdiff))
+print("Difference between DIIS and mixing solution:")
+print("delta(Energy)=   %.8f" % ediff)
+print("|delta(V_corr)|= %.8f" % vdiff)
