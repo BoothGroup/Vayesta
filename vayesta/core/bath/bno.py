@@ -122,11 +122,10 @@ class BNO_Bath(FragmentBath):
         if self.spin_unrestricted and (c_env[0].shape[-1] + c_env[1].shape[-1] == 0):
             return c_env, tuple(2*[np.zeros(0)])
 
-        self.log.info("Making %s Bath NOs", name.capitalize())
-        self.log.info("-------%s---------", len(name)*'-')
+        self.log.info("Making %s BNOs", name.capitalize())
+        self.log.info("-------%s-----", len(name)*'-')
         self.log.changeIndentLevel(1)
-        with log_time(self.log.timing, "Time for %s BNOs: %s", name):
-            c_bno, n_bno = self.make_bno_coeff(kind)
+        c_bno, n_bno = self.make_bno_coeff(kind)
         self.log_histogram(n_bno, name=name)
         self.log.changeIndentLevel(-1)
 
@@ -135,14 +134,10 @@ class BNO_Bath(FragmentBath):
     def log_histogram(self, n_bno, name):
         if len(n_bno) == 0:
             return
-        if np.ndim(n_bno[0]) == 1:
-            self.log_histogram(n_bno[0], name='Alpha-%s' % name)
-            self.log_histogram(n_bno[1], name='Beta-%s' % name)
-            return
-        self.log.info("%s BNO histogram", name.capitalize())
-        self.log.info("%s--------------", len(name)*'-')
-        for line in helper.plot_histogram(n_bno):
-            self.log.info(line)
+        self.log.info("%s BNO histogram:", name.capitalize())
+        bins = np.hstack([-np.inf, np.logspace(-3, -10, 8)[::-1], np.inf])
+        labels = '    ' + ''.join('{:{w}}'.format('E-%d' % d, w=5) for d in range(3, 11))
+        self.log.info(helper.make_histogram(n_bno, bins=bins, labels=labels))
 
     def get_occupied_bath(self, bno_threshold=None, **kwargs):
         return self.truncate_bno(self.c_bno_occ, self.n_bno_occ, bno_threshold=bno_threshold,
@@ -254,6 +249,17 @@ class BNO_Bath_UHF(BNO_Bath):
         r_bno_b, n_bno_b = super()._diagonalize_dm(dm[1])
         return (r_bno_a, r_bno_b), (n_bno_a, n_bno_b)
 
+    def log_histogram(self, n_bno, name):
+        if len(n_bno[0]) == len(n_bno[0]) == 0:
+            return
+        self.log.info("%s BNO histogram (alpha/beta):", name.capitalize())
+        bins = np.hstack([-np.inf, np.logspace(-3, -10, 8)[::-1], np.inf])
+        labels = '    ' + ''.join('{:{w}}'.format('E-%d' % d, w=5) for d in range(3, 11))
+        ha = helper.make_histogram(n_bno[0], bins=bins, labels=labels).split('\n')
+        hb = helper.make_histogram(n_bno[1], bins=bins, labels=labels).split('\n')
+        for i in range(len(ha)):
+            self.log.info(ha[i] + '   ' + hb[i])
+
 
 class MP2_BNO_Bath(BNO_Bath):
 
@@ -309,46 +315,11 @@ class MP2_BNO_Bath(BNO_Bath):
         cderi, cderi_neg = self.base.get_cderi(mo_coeff)
         return cderi, cderi_neg
 
-    def make_delta_dm1_old(self, kind, t2, t2loc):
-        """Delta MP2 density matrix"""
-        if self.local_dm is False:
-            self.log.debug("Constructing DM from full T2-amplitudes.")
-            t2l = t2r = t2
-            # This is equivalent to:
-            # do, dv = pyscf.mp.mp2._gamma1_intermediates(mp2, eris=eris)
-            # do, dv = -2*do, 2*dv
-        elif self.local_dm is True:
-            # LOCAL DM IS NOT RECOMMENDED - USE SEMI OR FALSE
-            self.log.warning("Using local_dm=True is not recommended - use 'semi' or False")
-            self.log.debug("Constructing DM from local T2-amplitudes.")
-            t2l = t2r = t2loc
-        elif self.local_dm == "semi":
-            self.log.debug("Constructing DM from semi-local T2-amplitudes.")
-            t2l, t2r = t2loc, t2
-        else:
-            raise ValueError("Unknown value for local_dm: %r" % self.local_dm)
-
-        #norm = 2
-        norm = 1
-        if kind == 'occ':
-            dm = norm*(2*einsum('ikab,jkab->ij', t2l, t2r)
-                       - einsum('ikab,kjab->ij', t2l, t2r))
-            # Note that this is equivalent to:
-            #dm = 2*(2*einsum("kiba,kjba->ij", t2l, t2r)
-            #        - einsum("kiba,kjab->ij", t2l, t2r))
-        else:
-            dm = norm*(2*einsum('ijac,ijbc->ab', t2l, t2r)
-                       - einsum('ijac,ijcb->ab', t2l, t2r))
-        if self.local_dm == 'semi':
-            dm = (dm + dm.T)/2
-        assert np.allclose(dm, dm.T)
-        return dm
-
     def make_delta_dm1(self, kind, t2, actspace):
         """Delta MP2 density matrix"""
         norm = 1
         if not self.project_t2:
-            self.log.debug("Constructing DM from full T2-amplitudes.")
+            self.log.debugv("Constructing DM from full T2-amplitudes.")
             # This is equivalent to:
             # do, dv = pyscf.mp.mp2._gamma1_intermediates(mp2, eris=eris)
             # do, dv = -2*do, 2*dv
@@ -362,7 +333,7 @@ class MP2_BNO_Bath(BNO_Bath):
             return dm
 
         # Project one T-amplitude onto fragment
-        self.log.debug("Constructing DM from projected T2-amplitudes.")
+        self.log.debugv("Constructing DM from projected T2-amplitudes.")
         ovlp = self.fragment.base.get_ovlp()
         if kind == 'occ':
             px = dot(actspace.c_active_vir.T, ovlp, self.dmet_bath.c_cluster_vir)
@@ -399,6 +370,7 @@ class MP2_BNO_Bath(BNO_Bath):
         n_bno: (n(BNO)) array
             Bath natural orbital occupation numbers.
         """
+        t_init = timer()
 
         actspace_orig = self.get_active_space(kind)
         fock = self.fragment.base.get_fock_for_bath()
@@ -422,11 +394,12 @@ class MP2_BNO_Bath(BNO_Bath):
         # -- Integral transformation
         if eris is None:
             eris = cderi = cderi_neg = None
-            with log_time(self.log.timing, "Time for AO->MO transformation: %s"):
-                if self.fragment.base.has_df:
-                    cderi, cderi_neg = self._get_cderi(actspace)
-                else:
-                    eris = self._get_eris(actspace)
+            t0 = timer()
+            if self.fragment.base.has_df:
+                cderi, cderi_neg = self._get_cderi(actspace)
+            else:
+                eris = self._get_eris(actspace)
+            t_ao2mo = timer()-t0
         # Reuse previously obtained integral transformation into N^2 sized quantity (rather than N^4)
         #else:
         #    self.log.debug("Transforming previous eris.")
@@ -437,8 +410,9 @@ class MP2_BNO_Bath(BNO_Bath):
         #nvir = actspace.nvir_active
 
         mo_energy = self._get_mo_energy(fock, actspace)
-        with log_time(self.log.timing, "Time for MP2 T-amplitudes: %s"):
-            t2 = self._make_t2(mo_energy, eris=eris, cderi=cderi, cderi_neg=cderi_neg)
+        t0 = timer()
+        t2 = self._make_t2(mo_energy, eris=eris, cderi=cderi, cderi_neg=cderi_neg)
+        t_amps = timer()-t0
 
         dm = self.make_delta_dm1(kind, t2, actspace)
 
@@ -451,9 +425,14 @@ class MP2_BNO_Bath(BNO_Bath):
             dm = self._undo_canonicalization(dm, r_vir)
         # --- Diagonalize environment-environment block
         dm = self._dm_take_env(dm, kind)
+        t0 = timer()
         r_bno, n_bno = self._diagonalize_dm(dm)
+        t_diag = timer()-t0
         c_bno = spinalg.dot(c_env, r_bno)
         c_bno = fix_orbital_sign(c_bno)[0]
+
+        self.log.timing("Time MP2 bath:  integrals= %s  amplitudes= %s  diagonal.= %s  total= %s",
+                *map(time_string, (t_ao2mo, t_amps, t_diag, (timer()-t_init))))
 
         return c_bno, n_bno
 

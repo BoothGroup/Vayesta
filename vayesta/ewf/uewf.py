@@ -4,7 +4,7 @@ from vayesta.core import UEmbedding
 from vayesta.core.util import *
 
 from vayesta.ewf import REWF
-from vayesta.ewf.ufragment import UEWFFragment as Fragment
+from vayesta.ewf.ufragment import Fragment
 from vayesta.core.mpi import mpi
 from vayesta.core.fragmentation import make_sao_fragmentation
 from vayesta.core.fragmentation import make_iaopao_fragmentation

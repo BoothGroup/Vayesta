@@ -4,14 +4,14 @@ import pyscf
 import pyscf.cc
 
 from vayesta.core.util import *
-from vayesta.core.qemb import UFragment
+from vayesta.core.qemb import UFragment as BaseFragment
 from vayesta.core.bath import UDMET_Bath
 from vayesta.core.bath import UCompleteBath
 from vayesta.core.bath import UMP2_BNO_Bath
-from .fragment import EWFFragment
+from .fragment import Fragment as RFragment
 
 
-class UEWFFragment(UFragment, EWFFragment):
+class Fragment(BaseFragment, RFragment):
 
     def set_cas(self, *args, **kwargs):
         raise NotImplementedError()

@@ -114,49 +114,50 @@ class Embedding:
         # ----------
         self.log = log or logging.getLogger(__name__)
         self.log.info("")
-        self.log.info("Initializing %s" % self.__class__.__name__)
+        self.log.info("INITIALIZING %s" % self.__class__.__name__.upper())
         self.log.info("=============%s" % (len(str(self.__class__.__name__))*"="))
+        with self.log.indent():
 
-        # 2) Options
-        # ----------
-        if options is None:
-            options = self.Options(**kwargs)
-        else:
-            options = options.replace(kwargs)
-        self.opts = options
+            # 2) Options
+            # ----------
+            if options is None:
+                options = self.Options(**kwargs)
+            else:
+                options = options.replace(kwargs)
+            self.opts = options
 
-        # 3) Overwrite methods/attributes
-        # -------------------------------
-        if overwrite is not None:
-            for name, attr in overwrite.items():
-                if callable(attr):
-                    self.log.info("Overwriting method %s of %s", name, self.__class__.__name__)
-                    setattr(self, name, attr.__get__(self))
-                else:
-                    self.log.info("Overwriting attribute %s of %s", name, self.__class__.__name__)
-                    setattr(self, name, attr)
+            # 3) Overwrite methods/attributes
+            # -------------------------------
+            if overwrite is not None:
+                for name, attr in overwrite.items():
+                    if callable(attr):
+                        self.log.info("Overwriting method %s of %s", name, self.__class__.__name__)
+                        setattr(self, name, attr.__get__(self))
+                    else:
+                        self.log.info("Overwriting attribute %s of %s", name, self.__class__.__name__)
+                        setattr(self, name, attr)
 
-        # 4) Mean-field
-        # -------------
-        self.mf = None
-        self.kcell = None
-        self.kpts = None
-        self.kdf = None
-        self.madelung = None
-        with log_time(self.log.timing, "Time for mean-field setup: %s"):
-            self.init_mf(mf)
-        #with log_time(self.log.timing, "Time for symmetry setup: %s"):
-        #    self.symmetry = Symmetry(self.mf)
+            # 4) Mean-field
+            # -------------
+            self.mf = None
+            self.kcell = None
+            self.kpts = None
+            self.kdf = None
+            self.madelung = None
+            with log_time(self.log.timing, "Time for mean-field setup: %s"):
+                self.init_mf(mf)
+            #with log_time(self.log.timing, "Time for symmetry setup: %s"):
+            #    self.symmetry = Symmetry(self.mf)
 
-        # 5) Fragments
-        # ------------
-        self.register = FragmentRegister()
-        self.fragmentation = None
-        self.fragments = []
+            # 5) Fragments
+            # ------------
+            self.register = FragmentRegister()
+            self.fragmentation = None
+            self.fragments = []
 
-        # 6) Other
-        # --------
-        self.with_scmf = None   # Self-consistent mean-field
+            # 6) Other
+            # --------
+            self.with_scmf = None   # Self-consistent mean-field
 
 
     def _mpi_bcast_mf(self, mf):

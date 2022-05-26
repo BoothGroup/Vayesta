@@ -2,10 +2,53 @@ import numpy as np
 
 from vayesta.core.util import *
 
-def plot_histogram(values, bins=None, maxbarlength=50):
+def make_histogram(values, bins, labels=None, binwidth=5, height=6, fill=':', show_number=False):
+    hist = np.histogram(values, bins)[0]
+    bins, hist = bins[::-1], hist[::-1]
+    hmax = hist.max()
+
+    width = binwidth*len(hist)
+    plot = np.zeros((height + show_number, width), dtype=str)
+    plot[:] = ' '
+    if hmax >  0:
+        for i, hval in enumerate(hist):
+            colstart = i*binwidth
+            colend = (i+1)*binwidth
+            barheight = int(np.rint(height * hval/hmax))
+            if barheight == 0:
+                continue
+            # Top
+            plot[-barheight,colstart+1:colend-1] = '_'
+            if show_number:
+                number = ' {:^{w}s}'.format('(%d)' % hval, w=binwidth-1)
+                for idx, i in enumerate(range(colstart, colend)):
+                    plot[-barheight-1,i] = number[idx]
+
+            if barheight == 1:
+                continue
+            # Fill
+            if fill:
+                plot[-barheight+1:,colstart+1:colend] = fill
+            # Left/right border
+            plot[-barheight+1:,colstart] = '|'
+            plot[-barheight+1:,colend-1] = '|'
+
+    lines = [''.join(plot[r,:].tolist()) for r in range(height)]
+    # Baseline
+    lines.append('+' + ((width-2) * '-') + '+')
+
+    if labels:
+        if isinstance(labels, str):
+            lines += [labels]
+        else:
+            lines += [''.join(['{:^{w}}'.format(l, w=binwidth) for l in labels])]
+
+    txt = '\n'.join(lines)
+    return txt
+
+def make_vertical_histogram(values, bins=None, maxbarlength=50):
     if bins is None:
-        bins = np.hstack([np.inf, np.logspace(-3, -12, 10), -np.inf])
-    bins = bins[::-1]
+        bins = np.hstack([-np.inf, np.logspace(-3, -12, 10)[::-1], np.inf])
     hist = np.histogram(values, bins)[0]
     bins, hist = bins[::-1], hist[::-1]
     cumsum = 0
@@ -20,34 +63,8 @@ def plot_histogram(values, bins=None, maxbarlength=50):
             bar = ((barlength-1) * "|") + "]" + ("  (%d)" % hval)
         #log.info("  %5.0e - %5.0e  %4d   |%s", bins[i+1], bins[i], cumsum, bar)
         lines.append("  %5.0e - %5.0e  %4d   |%s" % (bins[i+1], bins[i], cumsum, bar))
-    return lines
-
-def horizontal_histogram(values, bins=None, binwidth=6, height=10):
-    if bins is None:
-        bins = np.hstack([np.inf, np.logspace(-3, -12, 10), -np.inf])[::-1]
-    hist = np.histogram(values, bins)[0]
-    bins, hist = bins[::-1], hist[::-1]
-    cumsum = 0
-    width = (binwidth+1)*len(hist) + 1
-    plot = np.zeros((height, width), dtype=str)
-    plot[:] = ' '
-    for i, hval in enumerate(hist):
-        wslice = np.s_[i*(binwidth+1)+1 : (i+1)*(binwidth+1)]
-        cumsum += hval
-        barheight = int(height * hval/hist.max())
-        if hval == 0:
-            bar = ''
-        else:
-            barheight = max(barheight, 1)
-            plot[-barheight:,wslice] = '|'
-    lines = [''.join(plot[r,:].tolist()) for r in range(height)]
-    lines.append(len(hist) * ('+' + (binwidth) * '-'))
-    #lines.append(len(hist) * ('[' + ((binwidth-2) * '-') + ']'))
-    # Print number
-    #lines += [''.join(['%*d' % (binwidth, h) for h in hist])]
-    lines += [''.join(['{:^{w}}'.format(h, w=binwidth+1) for h in hist])]
-
-    return lines
+    txt = '\n'.join(lines)
+    return txt
 
 def transform_mp2_eris(eris, c_occ, c_vir, ovlp):  # pragma: no cover
     """Transform eris of kind (ov|ov) (occupied-virtual-occupied-virtual)
@@ -91,13 +108,9 @@ def transform_mp2_eris(eris, c_occ, c_vir, ovlp):  # pragma: no cover
 
 if __name__ == '__main__':
     vals = sorted(np.random.rand(30))
-    print(vals)
-    for line in plot_histogram(vals):
-        print(line)
-
+    print(make_vertical_histogram(vals))
     print('')
-
     bins = np.linspace(0, 1, 12)
-    print(bins)
-    for line in horizontal_histogram(vals, bins):
-        print(line)
+    #for line in horizontal_histogram(vals, bins):
+    labels = '    ' + ''.join('{:{w}}'.format('E-%d' % d, w=6) for d in range(3, 13))
+    print(make_histogram(vals, bins, labels=labels))

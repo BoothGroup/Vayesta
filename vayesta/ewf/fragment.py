@@ -14,7 +14,7 @@ import pyscf.cc
 # Local modules
 import vayesta
 from vayesta.core.util import *
-from vayesta.core import Fragment
+from vayesta.core.qemb import Fragment as BaseFragment
 from vayesta.solver import get_solver_class
 from vayesta.core.fragmentation import IAO_Fragmentation
 from vayesta.core.types import RFCI_WaveFunction
@@ -34,10 +34,10 @@ from . import ewf
 # Get MPI rank of fragment
 get_fragment_mpi_rank = lambda *args : args[0].mpi_rank
 
-class EWFFragment(Fragment):
+class Fragment(BaseFragment):
 
     @dataclasses.dataclass
-    class Options(Fragment.Options):
+    class Options(BaseFragment.Options):
         """Attributes set to `NotSet` inherit their value from the parent EWF object."""
         # Options also present in `base`:
         dmet_threshold: float = NotSet
@@ -68,7 +68,7 @@ class EWFFragment(Fragment):
         coupled_iterations: bool = NotSet
 
     @dataclasses.dataclass
-    class Results(Fragment.Results):
+    class Results(BaseFragment.Results):
         n_active: int = None
         ip_energy: np.ndarray = None
         ea_energy: np.ndarray = None

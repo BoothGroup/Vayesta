@@ -117,8 +117,6 @@ if omp_num_threads is not None:
     omp_num_threads = int(omp_num_threads)
 log.debug("  OMP_NUM_THREADS= %s", omp_num_threads)
 
-log.debug("")
-
 # ---
 
 def new_log(logname, fmt=None, remove_existing=True):

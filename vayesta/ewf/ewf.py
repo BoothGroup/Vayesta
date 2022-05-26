@@ -12,7 +12,7 @@ from vayesta.core.fragmentation import SAO_Fragmentation
 from vayesta.core.fragmentation import IAOPAO_Fragmentation
 # --- Package
 from . import helper
-from .fragment import EWFFragment as Fragment
+from .fragment import Fragment
 from .amplitudes import get_global_t1_rhf
 from .amplitudes import get_global_t2_rhf
 from .rdm import make_rdm1_ccsd
@@ -91,21 +91,21 @@ class EWF(Embedding):
         """
         t0 = timer()
         super().__init__(mf, options=options, log=log, **kwargs)
+        with self.log.indent():
+            # Options
+            self.log.info("Parameters of %s:", self.__class__.__name__)
+            self.log.info(break_into_lines(str(self.opts), newline='\n    '))
 
-        # Options
-        self.log.info("Parameters of %s:", self.__class__.__name__)
-        self.log.info(break_into_lines(str(self.opts), newline='\n    '))
+            # --- Check input
+            if solver not in self.valid_solvers:
+                raise ValueError("Unknown solver: %s" % solver)
+            self.solver = solver
 
-        # --- Check input
-        if solver not in self.valid_solvers:
-            raise ValueError("Unknown solver: %s" % solver)
-        self.solver = solver
+            self.e_corr = None
+            self.log.info("Time for %s setup: %s", self.__class__.__name__, time_string(timer()-t0))
 
-        self.e_corr = None
-        self.log.info("Time for %s setup: %s", self.__class__.__name__, time_string(timer()-t0))
-
-        # TODO: Redo self-consistencies
-        self.iteration = 0
+            # TODO: Redo self-consistencies
+            self.iteration = 0
 
     def __repr__(self):
         keys = ['mf', 'solver']
@@ -220,8 +220,9 @@ class EWF(Embedding):
         t_start = timer()
 
         # Create bath and clusters first
-        self.log.info("Making bath and cluster")
-        self.log.info("=======================")
+        self.log.info("")
+        self.log.info("MAKING CLUSTERS")
+        self.log.info("===============")
         for x in self.get_fragments(sym_parent=None, mpi_rank=mpi.rank):
             msg = "Making bath for %s%s" % (x, (" on MPI process %d" % mpi.rank) if mpi else "")
             self.log.info(msg)
@@ -233,7 +234,8 @@ class EWF(Embedding):
             self.communicate_clusters()
 
         # Loop over fragments with no symmetry parent and with own MPI rank
-        self.log.info("Running solvers")
+        self.log.info("")
+        self.log.info("RUNNING SOLVERS")
         self.log.info("===============")
         for x in self.get_fragments(sym_parent=None, mpi_rank=mpi.rank):
             msg = "Solving %s%s" % (x, (" on MPI process %d" % mpi.rank) if mpi else "")

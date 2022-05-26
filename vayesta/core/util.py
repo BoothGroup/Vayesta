@@ -251,11 +251,11 @@ def time_string(seconds, show_zeros=False):
     """String representation of seconds."""
     m, s = divmod(seconds, 60)
     if seconds >= 3600 or show_zeros:
-        tstr = "%.0f h %.0f min %.0f s" % (divmod(m, 60) + (s,))
+        tstr = "%.0f h %.0f min" % divmod(m, 60)
     elif seconds >= 60:
-        tstr = "%.0f min %.1f s" % (m, s)
+        tstr = "%.0f min %.0f s" % (m, s)
     else:
-        tstr = "%.3f s" % s
+        tstr = "%.1f s" % s
     return tstr
 
 MEMUNITS = {'b': 1, 'kb': 1e3, 'mb': 1e6, 'gb': 1e9, 'tb': 1e12}

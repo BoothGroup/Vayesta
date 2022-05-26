@@ -44,9 +44,8 @@ class CCSD_Solver(ClusterSolver):
         super().__init__(*args, **kwargs)
 
         solver_cls = self.get_solver_class()
-        self.log.debug("CCSD PySCF class= %r" % solver_cls)
+        self.log.debugv("CCSD PySCF class= %r" % solver_cls)
         frozen = self.cluster.get_frozen_indices()
-        self.log.debugv("frozen= %r", frozen)
         mo_coeff = self.cluster.c_total
         solver = solver_cls(self.mf, mo_coeff=mo_coeff, mo_occ=self.mf.mo_occ, frozen=frozen)
         # Options
@@ -236,17 +235,15 @@ class CCSD_Solver(ClusterSolver):
             dg_t1 = self.solver.get_t1_diagnostic()
             dg_d1 = self.solver.get_d1_diagnostic()
             dg_d2 = self.solver.get_d2_diagnostic()
-            self.log.info("  (T1<0.02: good / D1<0.02: good, D1<0.05: fair / D2<0.15: good, D2<0.18: fair)")
-            self.log.info("  (good: MP2~CCSD~CCSD(T) / fair: use MP2/CCSD with caution)")
             dg_t1_msg = "good" if dg_t1 <= 0.02 else "inadequate!"
             dg_d1_msg = "good" if dg_d1 <= 0.02 else ("fair" if dg_d1 <= 0.05 else "inadequate!")
             dg_d2_msg = "good" if dg_d2 <= 0.15 else ("fair" if dg_d2 <= 0.18 else "inadequate!")
-            fmtstr = "  > %2s= %6g (%s)"
-            self.log.info(fmtstr, "T1", dg_t1, dg_t1_msg)
-            self.log.info(fmtstr, "D1", dg_d1, dg_d1_msg)
-            self.log.info(fmtstr, "D2", dg_d2, dg_d2_msg)
+            fmt = 3*"  %2s= %.3f (%s)"
+            self.log.info(fmt, "T1", dg_t1, dg_t1_msg, "D1", dg_d1, dg_d1_msg, "D2", dg_d2, dg_d2_msg)
+            # good: MP2~CCSD~CCSD(T) / fair: use MP2/CCSD with caution
+            self.log.info("  (T1<0.02: good / D1<0.02: good, D1<0.05: fair / D2<0.15: good, D2<0.18: fair)")
             if dg_t1 > 0.02 or dg_d1 > 0.05 or dg_d2 > 0.18:
-                self.log.info("  some diagnostic(s) indicate CCSD may not be adequate!")
+                self.log.info("  at least one diagnostic indicates that CCSD is not adequate!")
         except Exception as e:
             self.log.error("Exception in T-diagnostic: %s", e)
 

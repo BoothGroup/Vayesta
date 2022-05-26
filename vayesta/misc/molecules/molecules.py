@@ -4,7 +4,6 @@ import numpy as np
 def _load_datafile(filename):
     datafile = os.path.join(os.path.dirname(__file__), os.path.join("data", filename))
     data = np.loadtxt(datafile, dtype=[("atoms", object), ("coords", np.float64, (3,))])
-    #return data["atoms"], data["coords"]
     atoms = data["atoms"]
     coords = data["coords"]
     atom = [[atoms[i], coords[i]] for i in range(len(atoms))]
@@ -103,19 +102,6 @@ def arene(n, atoms=['C', 'H'], cc_bond=1.39, ch_bond=1.09, unit=1.0):
         atom.append((atoms[atomidx+1], (r2*np.cos(phi), r2*np.sin(phi), 0.0)))
     return atom
 
-def neopentane():
-    """Structure from B3LYP//aug-cc-pVTZ."""
-    atom = _load_datafile('neopentane.dat')
-    return atom
-
-def boronene():
-    atom = _load_datafile('boronene.dat')
-    return atom
-
-def coronene():
-    atom = _load_datafile('coronene.dat')
-    return atom
-
 def no2():
     atom = [
 	('N', (0.0000,  0.0000, 0.0000)),
@@ -135,14 +121,6 @@ def ethanol(oh_bond=None):
         atom[3][1] = pos_h
     return atom
 
-def propanol():
-    atom = _load_datafile('propanol.dat')
-    return atom
-
-def chloroethanol():
-    atom = _load_datafile('chloroethanol.dat')
-    return atom
-
 def ketene(cc_bond=None):
     atom = _load_datafile('ketene.dat')
     if cc_bond is not None:
@@ -156,10 +134,6 @@ def ketene(cc_bond=None):
         atom[2][1] = new_o
     return atom
 
-def phenyl():
-    atom = _load_datafile('phenyl.dat')
-    return atom
-
 def ring(natom, atom, bond_length):
     r = bond_length/(2*np.sin(np.pi/natom))
     atoms = []
@@ -169,6 +143,38 @@ def ring(natom, atom, bond_length):
         theta = i * (2*np.pi/natom)
         atoms.append([atom[i%len(atom)], (r*np.cos(theta), r*np.sin(theta), 0)])
     return atoms
+
+# --- From datafiles:
+
+def phenyl():
+    atom = _load_datafile('phenyl.dat')
+    return atom
+
+def propanol():
+    atom = _load_datafile('propanol.dat')
+    return atom
+
+def chloroethanol():
+    atom = _load_datafile('chloroethanol.dat')
+    return atom
+
+def neopentane():
+    """Structure from B3LYP//aug-cc-pVTZ."""
+    atom = _load_datafile('neopentane.dat')
+    return atom
+
+def boronene():
+    atom = _load_datafile('boronene.dat')
+    return atom
+
+def coronene():
+    atom = _load_datafile('coronene.dat')
+    return atom
+
+def glycine():
+    atom = _load_datafile('glycine.dat')
+    return atom
+
 
 if __name__ == '__main__':
 
