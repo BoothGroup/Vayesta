@@ -87,9 +87,9 @@ class DMETFragment(Fragment):
     def c_cluster_vir(self):
         return self.bath.c_cluster_vir
 
-    make_bath = vayesta.ewf.fragment.EWFFragment.make_bath
+    make_bath = vayesta.ewf.fragment.Fragment.make_bath
 
-    make_cluster = vayesta.ewf.fragment.EWFFragment.make_cluster
+    make_cluster = vayesta.ewf.fragment.Fragment.make_cluster
 
     def kernel(self, bno_threshold=None, bno_number=None, solver=None, init_guess=None, eris=None, construct_bath=True,
                chempot=None):
