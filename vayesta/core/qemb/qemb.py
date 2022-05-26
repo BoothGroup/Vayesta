@@ -42,6 +42,7 @@ from vayesta.core.fragmentation import SAO_Fragmentation
 from vayesta.core.fragmentation import IAO_Fragmentation
 from vayesta.core.fragmentation import IAOPAO_Fragmentation
 from vayesta.core.fragmentation import Site_Fragmentation
+from vayesta.core.fragmentation import CAS_Fragmentation
 
 from vayesta.misc.cptbisect import ChempotBisection
 
@@ -982,11 +983,11 @@ class Embedding:
 
     def sao_fragmentation(self):
         """Initialize the quantum embedding method for the use of SAO (Lowdin-AO) fragments."""
-        return SAO_Fragmentation(self, log=self.log)
+        return SAO_Fragmentation(self)
 
     def site_fragmentation(self):
         """Initialize the quantum embedding method for the use of site fragments."""
-        return Site_Fragmentation(self, log=self.log)
+        return Site_Fragmentation(self)
 
     def iao_fragmentation(self, minao='auto'):
         """Initialize the quantum embedding method for the use of IAO fragments.
@@ -996,7 +997,7 @@ class Embedding:
         minao: str, optional
             IAO reference basis set. Default: 'auto'
         """
-        return IAO_Fragmentation(self, log=self.log, minao=minao)
+        return IAO_Fragmentation(self, minao=minao)
 
     def iaopao_fragmentation(self, minao='auto'):
         """Initialize the quantum embedding method for the use of IAO+PAO fragments.
@@ -1007,6 +1008,11 @@ class Embedding:
             IAO reference basis set. Default: 'auto'
         """
         return IAOPAO_Fragmentation(self, log=self.log, minao=minao)
+
+    def cas_fragmentation(self):
+        """Initialize the quantum embedding method for the use of site fragments."""
+        return CAS_Fragmentation(self)
+
 
     # --- Mean-field updates
 

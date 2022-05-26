@@ -378,6 +378,37 @@ class UMoleculeEWFTests(unittest.TestCase):
         self.assertAlmostEqual(rewf.e_corr, uewf.e_corr, self.PLACES_ENERGY)
         self.assertAlmostEqual(rewf.e_tot, uewf.e_tot, self.PLACES_ENERGY)
 
+    def test_lih_ccpvdz_rhf_vs_uhf_CAS(self):
+        """Compares RHF to UHF LiH cc-pvdz using a 2,4 CAS as a fragment.
+        """
+
+        rewf = ewf.EWF(
+                moles['lih_ccpvdz']['rhf'],
+                bath_type='dmet',
+                solver_options={
+                    'conv_tol': self.CONV_TOL,
+                    'conv_tol_normt': self.CONV_TOL_NORMT,
+                },
+        )
+        with rewf.cas_fragmentation() as f:
+            f.add_cas_fragment(2, 4)
+        rewf.kernel()
+
+        uewf = ewf.UEWF(
+                moles['lih_ccpvdz']['uhf'],
+                bath_type='dmet',
+                solver_options={
+                    'conv_tol': self.CONV_TOL,
+                    'conv_tol_normt': self.CONV_TOL_NORMT,
+                },
+        )
+        with uewf.cas_fragmentation() as f:
+            f.add_cas_fragment(2, 4)
+        uewf.kernel()
+
+        self.assertAlmostEqual(rewf.e_corr, uewf.e_corr, self.PLACES_ENERGY)
+        self.assertAlmostEqual(rewf.e_tot, uewf.e_tot, self.PLACES_ENERGY)
+
 
 if __name__ == '__main__':
     print('Running %s' % __file__)

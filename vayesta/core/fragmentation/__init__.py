@@ -9,6 +9,8 @@ from .iaopao import IAOPAO_Fragmentation as IAOPAO_Fragmentation_RHF
 from .iaopao import IAOPAO_Fragmentation_UHF
 from .site import Site_Fragmentation as Site_Fragmentation_RHF
 from .site import Site_Fragmentation_UHF
+from .cas import CAS_Fragmentation as CAS_Fragmentation_RHF
+from .cas import CAS_Fragmentation_UHF
 
 def SAO_Fragmentation(emb, *args, **kwargs):
     if emb.is_uhf:
@@ -29,3 +31,8 @@ def IAOPAO_Fragmentation(emb, *args, **kwargs):
     if emb.is_uhf:
         return IAOPAO_Fragmentation_UHF(emb, *args, **kwargs)
     return IAOPAO_Fragmentation_RHF(emb, *args, **kwargs)
+
+def CAS_Fragmentation(emb, *args, **kwargs):
+    if emb.is_uhf:
+        return CAS_Fragmentation_UHF(emb, *args, **kwargs)
+    return CAS_Fragmentation_RHF(emb, *args, **kwargs)

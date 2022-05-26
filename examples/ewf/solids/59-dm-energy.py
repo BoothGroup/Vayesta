@@ -28,7 +28,7 @@ kmf = kmf.rs_density_fit(auxbasis='cc-pvdz-ri')
 kmf.kernel()
 
 # --- Embedding
-emb = vayesta.ewf.EWF(kmf, bath_type='full')
+emb = vayesta.ewf.EWF(kmf, bath_type='full', solve_lambda=True)
 emb.kernel()
 e_dm = emb.get_dm_energy()
 
@@ -40,14 +40,14 @@ cc.kernel()
 print("Total Energy")
 print("E(HF)=        %+16.8f Ha" % kmf.e_tot)
 print("E(Proj)=      %+16.8f Ha" % emb.e_tot)
-print("E(RDM2, gl)=  %+16.8f Ha" % emb.get_dm_energy(global_dm1=True, global_dm2=False))
-print("E(RDM2, ll)=  %+16.8f Ha" % emb.get_dm_energy(global_dm1=False, global_dm2=False))
+print("E(RDM2, gl)=  %+16.8f Ha" % emb.get_dm_energy_old(global_dm1=True, global_dm2=False))
+print("E(RDM2, ll)=  %+16.8f Ha" % emb.get_dm_energy_old(global_dm1=False, global_dm2=False))
 
 print("E(CCSD)=      %+16.8f Ha" % cc.e_tot)
 
 print("\nCorrelation Energy")
 print("E(Proj)=      %+16.8f Ha" % emb.e_corr)
-print("E(RDM2, gl)=  %+16.8f Ha" % emb.get_dm_corr_energy(global_dm1=True, global_dm2=False))
-print("E(RDM2, ll)=  %+16.8f Ha" % emb.get_dm_corr_energy(global_dm1=False, global_dm2=False))
+print("E(RDM2, gl)=  %+16.8f Ha" % emb.get_dm_corr_energy_old(global_dm1=True, global_dm2=False))
+print("E(RDM2, ll)=  %+16.8f Ha" % emb.get_dm_corr_energy_old(global_dm1=False, global_dm2=False))
 
 print("E(CCSD)=      %+16.8f Ha" % cc.e_corr)
