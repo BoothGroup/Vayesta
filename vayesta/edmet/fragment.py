@@ -213,8 +213,7 @@ class EDMETFragment(DMETFragment):
         self.log.info("Fragment %s Quasiboson histogram", self.id_name)
         self.log.info("------------------------------%s", "-"*len(self.id_name))
         bins = np.hstack([np.inf, np.logspace(0, -12, 13), -np.inf])
-        for line in helper.plot_histogram(s, bins=bins):
-            self.log.info(line)
+        self.log.info(helper.make_horizontal_histogram(s, bins=bins))
         # Calculate the relevant components of the zeroth moment- we don't want to recalculate these.
         self.r_bos = v[:nbos, :]
         self.eta0_ferm = np.dot(rpa_mom, rot_ov.T)

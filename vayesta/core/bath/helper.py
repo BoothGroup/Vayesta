@@ -46,7 +46,7 @@ def make_histogram(values, bins, labels=None, binwidth=5, height=6, fill=':', sh
     txt = '\n'.join(lines)
     return txt
 
-def make_vertical_histogram(values, bins=None, maxbarlength=50):
+def make_horizontal_histogram(values, bins=None, maxbarlength=50):
     if bins is None:
         bins = np.hstack([-np.inf, np.logspace(-3, -12, 10)[::-1], np.inf])
     hist = np.histogram(values, bins)[0]
