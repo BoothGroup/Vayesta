@@ -30,7 +30,7 @@ from vayesta.core.ao2mo import postscf_kao2gmo
 from vayesta.core.ao2mo.kao2gmo import gdf_to_pyscf_eris
 from vayesta import lattmod
 from vayesta.core.scmf import PDMET, Brueckner
-from vayesta.core.mpi import mpi
+from vayesta.mpi import mpi
 from .register import FragmentRegister
 
 # Symmetry

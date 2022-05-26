@@ -7,9 +7,9 @@ import numpy as np
 import vayesta
 from vayesta.core.util import *
 from vayesta.core import Embedding
-from vayesta.core.mpi import mpi
 from vayesta.core.fragmentation import SAO_Fragmentation
 from vayesta.core.fragmentation import IAOPAO_Fragmentation
+from vayesta.mpi import mpi
 # --- Package
 from . import helper
 from .fragment import Fragment

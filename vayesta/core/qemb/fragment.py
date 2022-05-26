@@ -18,8 +18,8 @@ import vayesta.core.ao2mo
 import vayesta.core.ao2mo.helper
 
 from vayesta.misc.cubefile import CubeFile
-from vayesta.core.mpi import mpi
 from vayesta.core.types import WaveFunction
+from vayesta.mpi import mpi
 
 # Get MPI rank of fragment
 get_fragment_mpi_rank = lambda *args : args[0].mpi_rank

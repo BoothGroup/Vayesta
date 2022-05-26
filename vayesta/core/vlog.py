@@ -4,7 +4,7 @@ import logging
 import os
 import contextlib
 
-from vayesta.core.mpi import mpi
+from vayesta.mpi import mpi
 
 """
 Log levels (* are custom levels):

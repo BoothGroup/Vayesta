@@ -3,8 +3,8 @@ import logging
 
 import vayesta
 import vayesta.core
-from vayesta.core.mpi import mpi
 from vayesta.core.util import *
+from vayesta.mpi import mpi
 
 
 log = logging.getLogger(__name__)

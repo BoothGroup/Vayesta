@@ -16,9 +16,8 @@ import pyscf.pbc.tools
 from pyscf.pbc.lib import kpts_helper
 # Package
 from vayesta.core.util import *
-from vayesta.core.mpi import timer
 import vayesta.libs
-
+from vayesta.mpi import timer
 
 log = logging.getLogger(__name__)
 

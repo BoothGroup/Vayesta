@@ -5,8 +5,8 @@ import pyscf.pbc
 import pyscf.pbc.tools
 
 from vayesta.core.util import *
-from vayesta.core.mpi import mpi
-from vayesta.core.mpi import RMA_Dict
+from vayesta.mpi import mpi
+from vayesta.mpi import RMA_Dict
 
 class ClusterRHF:
     """Helper class"""

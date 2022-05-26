@@ -3,7 +3,7 @@ import functools
 import numpy as np
 
 from vayesta.core.util import *
-from vayesta.core.mpi import mpi
+from vayesta.mpi import mpi
 
 
 def get_global_t1_rhf(emb, get_lambda=False, mpi_target=None, ao_basis=False):

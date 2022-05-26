@@ -6,7 +6,7 @@ import pyscf
 import pyscf.cc
 
 from vayesta.core.util import *
-from vayesta.core.mpi import mpi
+from vayesta.mpi import mpi
 
 
 def make_rdm1_ccsd(emb, ao_basis=False, t_as_lambda=False, symmetrize=True, with_mf=True, mpi_target=None, mp2=False, ba_order='ba'):

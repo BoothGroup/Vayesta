@@ -1,4 +1,5 @@
-from vayesta.core.mpi import mpi
+from vayesta.mpi import mpi
+
 
 class FragmentRegister:
 

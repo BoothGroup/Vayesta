@@ -11,8 +11,8 @@ from .ufragment import UFragment
 from vayesta.core.ao2mo.postscf_ao2mo import postscf_ao2mo
 from vayesta.core.util import *
 from vayesta.core import spinalg
-from vayesta.core.mpi import mpi
 from vayesta.core.ao2mo import postscf_kao2gmo_uhf
+from vayesta.mpi import mpi
 
 from .rdm import make_rdm1_demo_uhf
 from .rdm import make_rdm2_demo_uhf

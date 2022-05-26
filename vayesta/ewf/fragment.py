@@ -27,7 +27,7 @@ from vayesta.core.bath import MP2_BNO_Bath
 from vayesta.core.bath import CompleteBath
 from vayesta.core.types import Cluster
 from vayesta.core import ao2mo
-from vayesta.core.mpi import mpi
+from vayesta.mpi import mpi
 
 from . import ewf
 

@@ -10,7 +10,7 @@ import pyscf.lib
 from vayesta.core.util import *
 from vayesta.core.types import RMP2_WaveFunction
 from vayesta.core.types import RCCSD_WaveFunction
-from vayesta.core.mpi import mpi
+from vayesta.mpi import mpi
 
 
 def make_rdm1_ccsd(emb, ao_basis=False, t_as_lambda=False, symmetrize=True, with_mf=True, mpi_target=None, mp2=False):

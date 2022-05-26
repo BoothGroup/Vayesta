@@ -18,7 +18,7 @@ import importlib
 
 from .core import cmdargs
 from .core import vlog
-from .core.mpi import mpi
+from .mpi import mpi
 
 
 # Command line arguments

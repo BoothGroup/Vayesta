@@ -7,7 +7,7 @@ import pyscf.ci
 import pyscf.fci
 
 from vayesta.core.util import *
-from vayesta.core.mpi import mpi, RMA_Dict
+from vayesta.mpi import mpi, RMA_Dict
 
 def transform_amplitude(t, u_occ, u_vir):
     """(Old basis|new basis)"""

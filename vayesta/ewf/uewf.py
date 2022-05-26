@@ -5,9 +5,9 @@ from vayesta.core.util import *
 
 from vayesta.ewf import REWF
 from vayesta.ewf.ufragment import Fragment
-from vayesta.core.mpi import mpi
 from vayesta.core.fragmentation import make_sao_fragmentation
 from vayesta.core.fragmentation import make_iaopao_fragmentation
+from vayesta.mpi import mpi
 
 # Amplitudes
 from .amplitudes import get_global_t1_uhf
