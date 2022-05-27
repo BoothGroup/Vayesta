@@ -123,7 +123,7 @@ class RMA_Dict:
         # Is local access without going via MPI.Get safe?
         #if key in self.local_data:
         #    return self.local_data[key]
-        if mpi.disabled:
+        if self.mpi.disabled:
             return self._elements[key]
         element = self._elements[key]
         log.debugv("RMA: origin= %d, target= %d, key= %r, shape= %r, dtype= %r", self.mpi.rank, element.location, key, element.shape, element.dtype)
@@ -135,7 +135,7 @@ class RMA_Dict:
         if not isinstance(value, (np.ndarray, type(None))):
             #value = np.asarray(value)
             raise ValueError("Invalid type= %r" % type(value))
-        if mpi.disabled:
+        if self.mpi.disabled:
             self._elements[key] = value
             return
         self.local_data[key] = value
@@ -208,7 +208,7 @@ class RMA_Dict:
         self.mpi.world.Barrier()
         mdata = self._get_metadata()
         allmdata = self.mpi.world.allgather(mdata)
-        assert (len(allmdata) == len(mpi))
+        assert (len(allmdata) == len(self.mpi))
         elements = {}
         for rank, d in enumerate(allmdata):
             for key, mdata in d.items():

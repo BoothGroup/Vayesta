@@ -10,7 +10,7 @@ import pyscf.mp
 import pyscf.pbc.mp
 from pyscf import lib
 
-from vayesta.core import Embedding, UEmbedding
+from vayesta.core.qemb import Embedding, UEmbedding
 from vayesta.core.bath import DMET_Bath, MP2_BNO_Bath, UDMET_Bath
 from vayesta.tests.cache import moles, cells
 from vayesta.tests.common import temporary_seed

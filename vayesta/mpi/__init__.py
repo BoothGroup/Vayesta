@@ -1,5 +1,12 @@
-from .mpi import MPI_Interface
-from .mpi import timer
+from .interface import MPI_Interface
 from .rma import RMA_Dict
 
-mpi = MPI_Interface()
+mpi = None
+
+def init_mpi(use_mpi, required=True):
+    global mpi
+    if use_mpi:
+        mpi = MPI_Interface('mpi4py', required=required)
+    else:
+        mpi = MPI_Interface(None)
+    return mpi

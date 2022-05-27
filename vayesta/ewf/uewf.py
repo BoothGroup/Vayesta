@@ -1,6 +1,6 @@
 import numpy as np
 
-from vayesta.core import UEmbedding
+from vayesta.core.qemb import UEmbedding
 from vayesta.core.util import *
 
 from vayesta.ewf import REWF

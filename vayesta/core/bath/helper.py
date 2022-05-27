@@ -43,6 +43,7 @@ def make_histogram(values, bins, labels=None, binwidth=5, height=6, fill=':', sh
         else:
             lines += [''.join(['{:^{w}}'.format(l, w=binwidth) for l in labels])]
 
+    lines = [line.rstrip() for line in lines]
     txt = '\n'.join(lines)
     return txt
 

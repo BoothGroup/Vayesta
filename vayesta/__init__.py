@@ -17,14 +17,17 @@ import platform
 import importlib
 
 from .core import cmdargs
-from .core import vlog
-from .mpi import mpi
-
+from .mpi import init_mpi
 
 # Command line arguments
 args = cmdargs.parse_cmd_args()
 
+# Initialization of MPI
+init_mpi(bool(args.mpi), required=(args.mpi is True))
+from .mpi import mpi
+
 # Logging
+from .core import vlog
 if args.output_dir:
     os.makedirs(args.output_dir, exist_ok=True)
 

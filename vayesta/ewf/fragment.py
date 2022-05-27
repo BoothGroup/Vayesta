@@ -361,8 +361,10 @@ class Fragment(BaseFragment):
         if self.opts.coupled_iterations:
             if solver != 'CCSD':
                 raise NotImplementedError()
-            if not mpi or len(self.base.fragments) > len(mpi):
+            if not mpi:
                 raise RuntimeError("coupled_iterations requires MPI.")
+            if len(self.base.fragments) != len(mpi):
+                raise RuntimeError("coupled_iterations requires as many MPI processes as there are fragments.")
             cluster_solver.couple_iterations(self.base.fragments)
 
         if eris is None:

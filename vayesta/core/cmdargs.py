@@ -16,7 +16,8 @@ def parse_cmd_args():
     parser.add_argument('-v',   action='store_const', dest='loglevel', const=15, default=DEFAULT_LOGLVL)    # Enables infov
     parser.add_argument('-vv',  action='store_const', dest='loglevel', const=10)                            # Enables timing
     parser.add_argument('-vvv', action='store_const', dest='loglevel', const=1)                             # Enables debugv, timingv, trace
-    parser.add_argument('--no-mpi', action='store_false', dest='mpi')
+    parser.add_argument('--mpi', action='store_true', dest='mpi', default='auto')
+    parser.add_argument('--no-mpi', action='store_false', dest='mpi', default='auto')
     args, unknown_args = parser.parse_known_args()
 
     # Remove known arguments:

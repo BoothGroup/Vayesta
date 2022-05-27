@@ -6,7 +6,7 @@ import numpy as np
 # --- Internal
 import vayesta
 from vayesta.core.util import *
-from vayesta.core import Embedding
+from vayesta.core.qemb import Embedding
 from vayesta.core.fragmentation import SAO_Fragmentation
 from vayesta.core.fragmentation import IAO_Fragmentation
 from vayesta.core.fragmentation import IAOPAO_Fragmentation

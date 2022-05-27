@@ -5,7 +5,7 @@ import numpy as np
 import scipy
 import scipy.linalg
 
-from vayesta.core import Embedding
+from vayesta.core.qemb import Embedding
 from vayesta.core.util import *
 from .fragment import VALID_SOLVERS, DMETFragment, DMETFragmentExit
 
