@@ -116,6 +116,34 @@ class DMETFragment(Fragment):
         # e_hf = np.linalg.multi_dot((P_imp, 0.5 * (h_bare + f_act), mf_dm1)).trace()
         return e1, e2
 
+    def get_active_space_correlation_energy(self, eris=None):
+
+        c_act = self.cluster.c_active
+        if eris is None:
+            with log_time(self.log.timing, "Time for AO->MO transformation: %s"):
+                eris = self.base.get_eris_array(c_act)
+        nocc = self.cluster.nocc_active
+        nocc_active = self.cluster.nocc_active
+
+        occ = np.s_[:nocc]
+        occ_active = np.s_[:nocc_active]
+        # Calculate the effective onebody interaction within the cluster.
+        f_act = np.linalg.multi_dot((c_act.T, self.mf.get_fock(), c_act))
+        v_act = 2 * np.einsum('iipq->pq', eris[occ, occ]) - np.einsum('iqpi->pq', eris[occ, :, :, occ])
+        h_eff = f_act - v_act
+        #h_bare = np.linalg.multi_dot((c_act.T, self.base.get_hcore(), c_act))
+        dm1 = self.results.dm1
+        dm1_mf = np.zeros_like(dm1)
+        dm1_mf[occ_active, occ_active] = np.eye(nocc_active)
+        dm1 = dm1 - dm1_mf
+
+        dm2 = self.results.dm2
+        dm2 = dm2 - einsum("pq,rs->pqrs", dm1_mf, dm1_mf) + einsum("pq,rs->psrq", dm1_mf, dm1_mf)
+
+        e1 = dot(h_eff, dm1).trace()
+        e2 = 0.5 * np.einsum('pqrs,pqsr->', eris, dm2)
+        return e1, e2
+
     def get_frag_hl_dm(self):
         c = dot(self.c_frag.T, self.mf.get_ovlp(), self.cluster.c_active)
         return dot(c, self.results.dm1, c.T)
