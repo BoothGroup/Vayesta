@@ -25,13 +25,9 @@ from pyscf.pbc.lib import kpts_helper
 # Package
 from vayesta.core.util import *
 import vayesta.libs
-import vayesta.misc
-import vayesta.misc.gdf
 
 
 log = logging.getLogger(__name__)
-
-
 
 def gdf_to_pyscf_eris(mf, gdf, cm, fock, mo_energy, e_hf):
     """Get supercell MO eris from k-point sampled GDF.
