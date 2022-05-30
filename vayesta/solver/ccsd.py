@@ -263,8 +263,7 @@ class CCSD_Solver(ClusterSolver):
             l2 = einsum('Ii,Jj,IJAB,Aa,Bb->ijab', ro, ro, wf.l2, rv, rv)
         else:
             l1 = l2 = None
-        wf = RCCSD_WaveFunction(mo, t1, t2, l1=l1, l2=l2)
-        self.wf = wf
+        self.wf = RCCSD_WaveFunction(mo, t1, t2, l1=l1, l2=l2)
         self.converged = True
 
     def _debug_random_wf(self):
@@ -273,8 +272,7 @@ class CCSD_Solver(ClusterSolver):
         l1 = np.random.rand(mo.nocc, mo.nvir)
         t2 = np.random.rand(mo.nocc, mo.nocc, mo.nvir, mo.nvir)
         l2 = np.random.rand(mo.nocc, mo.nocc, mo.nvir, mo.nvir)
-        wf = RCCSD_WaveFunction(mo, t1, t2, l1=l1, l2=l2)
-        self.wf = wf
+        self.wf = RCCSD_WaveFunction(mo, t1, t2, l1=l1, l2=l2)
         self.converged = True
 
 
