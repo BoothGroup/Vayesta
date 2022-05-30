@@ -92,7 +92,7 @@ class MoleculeDMETTest(unittest.TestCase):
 
         emb = dmet.DMET(
                 moles['h6_sto6g']['rhf'],
-                solver='FCI',
+                solver='CCSD',
                 charge_consistent=False,
                 bath_type='MP2-BNO',
                 bno_threshold=np.inf,
@@ -104,7 +104,7 @@ class MoleculeDMETTest(unittest.TestCase):
             f.add_atomic_fragment([4, 5])
         emb.kernel()
 
-        known_values = {'e_tot': -3.2593557575050305 }
+        known_values = {'e_tot': -3.2593387676678667}
 
         self._test_converged(emb)
         self._test_energy(emb, known_values)
