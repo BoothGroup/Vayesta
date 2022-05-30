@@ -369,11 +369,16 @@ class Fragment(BaseFragment):
 
         if eris is None:
             eris = cluster_solver.get_eris()
-        if not self.base.opts._debug_exact_wf:
+        # Normal solver
+        if not self.base.opts._debug_wf:
             with log_time(self.log.info, ("Time for %s solver:" % solver) + " %s"):
                 cluster_solver.kernel(eris=eris, **init_guess)
+        # Special debug "solver"
         else:
-            cluster_solver._debug_exact_wf(self.base._debug_exact_wf)
+            if self.base.opts._debug_wf == 'random':
+                cluster_solver._debug_random_wf()
+            else:
+                cluster_solver._debug_exact_wf(self.base._debug_wf)
 
         # --- Add to results data class
         results = self._results

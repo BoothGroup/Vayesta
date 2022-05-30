@@ -23,8 +23,8 @@ from .rdm import make_rdm1_ccsd_proj_lambda
 from .rdm import make_rdm2_ccsd_proj_lambda
 from .icmp2 import get_intercluster_mp2_energy_rhf
 
-timer = mpi.timer
 
+timer = mpi.timer
 
 @dataclasses.dataclass
 class EWFResults:
@@ -75,7 +75,7 @@ class EWF(Embedding):
         # --- Couple embedding problems (currently only CCSD)
         coupled_iterations: bool = False
         # --- Debugging
-        _debug_exact_wf: bool = None
+        _debug_wf: str = None
 
 
     def __init__(self, mf, solver='CCSD', options=None, log=None, **kwargs):
@@ -163,8 +163,8 @@ class EWF(Embedding):
                 f.add_all_atomic_fragments()
 
         # Debug: calculate exact WF
-        if self.opts._debug_exact_wf is not None:
-            self._debug_get_exact_wf()
+        if self.opts._debug_wf is not None:
+            self._debug_get_wf(self.opts._debug_wf)
 
         self.check_fragment_nelectron()
         if np.ndim(bno_threshold) == 0:
@@ -660,8 +660,10 @@ class EWF(Embedding):
         return e_corr
 
     # --- Debug
-    def _debug_get_exact_wf(self):
-        if self.opts._debug_exact_wf is True:
+    def _debug_get_wf(self, kind):
+        if kind == 'random':
+            return
+        if kind == 'exact':
             if self.solver == 'CCSD':
                 import pyscf
                 import pyscf.cc
@@ -674,8 +676,8 @@ class EWF(Embedding):
             else:
                 raise NotImplementedError
         else:
-            wf = self.opts._debug_exact_wf
-        self._debug_exact_wf = wf
+            wf = self.opts._debug_wf
+        self._debug_wf = wf
 
     # -------------------------------------------------------------------------------------------- #
 

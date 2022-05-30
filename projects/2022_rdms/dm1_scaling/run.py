@@ -8,7 +8,7 @@ import vayesta
 import vayesta.ewf
 from vayesta.misc import molecules
 
-solver 'MP2'
+solver = 'MP2'
 eta = 1e-6
 
 for n in range(1, 14):

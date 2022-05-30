@@ -267,6 +267,17 @@ class CCSD_Solver(ClusterSolver):
         self.wf = wf
         self.converged = True
 
+    def _debug_random_wf(self):
+        mo = SpatialOrbitals(self.cluster.c_active, occ=self.cluster.nocc_active)
+        t1 = np.random.rand(mo.nocc, mo.nvir)
+        l1 = np.random.rand(mo.nocc, mo.nvir)
+        t2 = np.random.rand(mo.nocc, mo.nocc, mo.nvir, mo.nvir)
+        l2 = np.random.rand(mo.nocc, mo.nocc, mo.nvir, mo.nvir)
+        wf = RCCSD_WaveFunction(mo, t1, t2, l1=l1, l2=l2)
+        self.wf = wf
+        self.converged = True
+
+
 class UCCSD_Solver(CCSD_Solver):
 
     def get_solver_class(self):
