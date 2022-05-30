@@ -109,6 +109,9 @@ pdir = os.path.dirname(os.path.dirname(pyscf.__file__))
 phash = get_git_hash(pdir)
 log.debug("  * PySCF:    %s", phash)
 
+# --- System information
+log.debug('System:  node= %s  processor= %s' % (platform.node(), platform.processor()))
+
 # --- MPI
 if mpi:
     log.debug("MPI:  rank= %d  size= %d  node= %s", mpi.rank, mpi.size, platform.node())
