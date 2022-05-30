@@ -262,7 +262,9 @@ class EDMETFragment(DMETFragment):
         eta0[self.ov_active_tot:, self.ov_active_tot:] = self.eta0_bos
 
         # Need to generate projector from our RPA excitation space to the local fragment degrees of freedom.
-        fproj_ov = self.get_fragment_projector_ov()
+        # Since we're using a total energy fragmentation, over whole fermionic space, need to fragment occupied and
+        # virtual spaces. Factor of two comes from application of two separate projectors.
+        fproj_ov = self.get_fragment_projector_ov(proj="ov") / 2
         # loc_erpa = (einsum("pq,qr,rp->", fproj_ov, eta0[:self.ov_active_tot, :], apb[:, :self.ov_active_tot]) \
         #                - einsum("pq,qp->", fproj_ov, eps_loc[:self.ov_active_tot, :self.ov_active_tot]) \
         #                - einsum("pq,qp->", fproj_ov, eris[:self.ov_active_tot, :self.ov_active_tot])) / 2.0
@@ -748,6 +750,13 @@ class EDMETFragment(DMETFragment):
                     np.einsum("qr,npq,prn", p_imp[1], couplings[1], dm_eb[1])
             )
         return e1, e2, efb
+
+    def get_active_space_correlation_energy(self, eris=None):
+        e_ferm, e_core = super().get_active_space_correlation_energy(eris)
+
+
+
+
 
     # From this point on have functionality to perform self-consistency.
 

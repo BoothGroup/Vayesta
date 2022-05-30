@@ -122,27 +122,27 @@ class DMETFragment(Fragment):
         if eris is None:
             with log_time(self.log.timing, "Time for AO->MO transformation: %s"):
                 eris = self.base.get_eris_array(c_act)
-        nocc = self.cluster.nocc_active
-        nocc_active = self.cluster.nocc_active
 
-        occ = np.s_[:nocc]
-        occ_active = np.s_[:nocc_active]
-        # Calculate the effective onebody interaction within the cluster.
-        f_act = np.linalg.multi_dot((c_act.T, self.mf.get_fock(), c_act))
-        v_act = 2 * np.einsum('iipq->pq', eris[occ, occ]) - np.einsum('iqpi->pq', eris[occ, :, :, occ])
-        h_eff = f_act - v_act
-        #h_bare = np.linalg.multi_dot((c_act.T, self.base.get_hcore(), c_act))
+        mo_core = self.cluster.c_frozen_occ
+        mo_cas = self.cluster.c_active
+
+        hcore = self.base.get_hcore()
+        energy_core = self.base.mf.energy_nuc()
+        if mo_core.size == 0:
+            corevhf = 0
+        else:
+            core_dm = dot(mo_core, mo_core.conj().T) * 2
+            corevhf = self.base.mf.get_veff(dm=core_dm)
+            energy_core += einsum('ij,ji', core_dm, hcore).real
+            energy_core += einsum('ij,ji', core_dm, corevhf).real * .5
+        h1eff = dot(mo_cas.conj().T, hcore+corevhf, mo_cas)
+
         dm1 = self.results.dm1
-        dm1_mf = np.zeros_like(dm1)
-        dm1_mf[occ_active, occ_active] = np.eye(nocc_active)
-        dm1 = dm1 - dm1_mf
-
         dm2 = self.results.dm2
-        dm2 = dm2 - einsum("pq,rs->pqrs", dm1_mf, dm1_mf) + einsum("pq,rs->psrq", dm1_mf, dm1_mf)
 
-        e1 = dot(h_eff, dm1).trace()
-        e2 = 0.5 * np.einsum('pqrs,pqsr->', eris, dm2)
-        return e1, e2
+        e1 = dot(dm1, h1eff).trace()
+        e2 = einsum("pqrs,pqsr->", dm2, eris) * .5
+        return energy_core + e1 + e2, energy_core
 
     def get_frag_hl_dm(self):
         c = dot(self.c_frag.T, self.mf.get_ovlp(), self.cluster.c_active)
