@@ -42,17 +42,19 @@ class DMETFragment(Fragment):
 
     @dataclasses.dataclass
     class Results(Fragment.Results):
-        fid: int = None
-        bno_threshold: float = None
         n_active: int = None
-        converged: bool = None
-        # For DM1:
-        g1: np.ndarray = None
-        dm1: np.ndarray = None
-        dm2: np.ndarray = None
-        # energy contributions.
         e1: float = None
         e2: float = None
+
+        @property
+        def dm1(self):
+            """Cluster 1DM"""
+            return self.wf.make_rdm1()
+
+        @property
+        def dm2(self):
+            """Cluster 2DM"""
+            return self.wf.make_rdm2()
 
     def __init__(self, *args, solver=None, **kwargs):
 
@@ -148,14 +150,9 @@ class DMETFragment(Fragment):
             cluster_solver.kernel(eris=eris)
 
         results = self._results
-
-        results.bno_threshold = bno_threshold
+        results.wf = cluster_solver.wf
         results.n_active = self.cluster.norb_active
-        # Need to rewrite EBFCI solver to expose this properly...
-        results.converged = True
 
-        results.dm1 = cluster_solver.make_rdm1()
-        results.dm2 = cluster_solver.make_rdm2()
         results.e1, results.e2 = self.get_dmet_energy_contrib()
 
         return results
@@ -165,8 +162,8 @@ class DMETFragment(Fragment):
         solver_opts.update(self.opts.solver_options)
         # pass_through = ['make_rdm1', 'make_rdm2']
         pass_through = []
-        # if 'CCSD' in solver.upper():
-        #    pass_through += ['dm_with_frozen', 'eom_ccsd', 'eom_ccsd_nroots']
+        if 'CCSD' in solver.upper():
+            solver_opts['solve_lambda'] = True
         for attr in pass_through:
             self.log.debugv("Passing fragment option %s to solver.", attr)
             solver_opts[attr] = getattr(self.opts, attr)
