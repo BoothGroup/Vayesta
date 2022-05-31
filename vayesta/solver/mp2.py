@@ -107,17 +107,15 @@ class MP2_Solver(ClusterSolver):
         mo = Orbitals(self.cluster.c_active, energy=mo_energy, occ=self.cluster.nocc_active)
         self.wf = MP2_WaveFunction(mo, t2)
 
+    def _debug_exact_wf(self, wf):
+        raise NotImplementedError
+
     def _debug_random_wf(self):
-        mo = SpatialOrbitals(self.cluster.c_active, occ=self.cluster.nocc_active)
+        mo = Orbitals(self.cluster.c_active, occ=self.cluster.nocc_active)
         t2 = np.random.rand(mo.nocc, mo.nocc, mo.nvir, mo.nvir)
         self.wf = MP2_WaveFunction(mo, t2)
         self.converged = True
 
-    def make_rdm1(self):
-        raise NotImplementedError()
-
-    def make_rdm2(self):
-        raise NotImplementedError()
 
 class UMP2_Solver(MP2_Solver):
 
