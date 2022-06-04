@@ -42,13 +42,15 @@ class MP2_Solver(ClusterSolver):
     def get_eris(self):
         # We only need the (ov|ov) block for MP2:
         mo_coeff = 2*[self.cluster.c_active_occ, self.cluster.c_active_vir]
-        eris = self.base.get_eris_array(mo_coeff)
+        with log_time(self.log.timing, "Time for 2e-integral transformation: %s"):
+            eris = self.base.get_eris_array(mo_coeff)
         return eris
 
     def get_cderi(self):
         # We only need the (L|ov) block for MP2:
         mo_coeff = (self.cluster.c_active_occ, self.cluster.c_active_vir)
-        cderi, cderi_neg = self.base.get_cderi(mo_coeff)
+        with log_time(self.log.timing, "Time for 2e-integral transformation: %s"):
+            cderi, cderi_neg = self.base.get_cderi(mo_coeff)
         return cderi, cderi_neg
 
     def get_mo_energy(self, fock=None):

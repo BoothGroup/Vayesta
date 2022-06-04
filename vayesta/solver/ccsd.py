@@ -138,7 +138,7 @@ class CCSD_Solver(ClusterSolver):
 
     def get_eris(self):
         self.log.debugv("Getting ERIs for type(self.solver)= %r", type(self.solver))
-        with log_time(self.log.timing, "Time for AO->MO transformation: %s"):
+        with log_time(self.log.timing, "Time for 2e-integral transformation: %s"):
             self.eris = self.base.get_eris_object(self.solver)
         return self.eris
 

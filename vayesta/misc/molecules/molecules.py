@@ -174,34 +174,3 @@ def coronene():
 def glycine():
     atom = _load_datafile('glycine.dat')
     return atom
-
-
-if __name__ == '__main__':
-
-    atom = alkene(4)
-
-    import pyscf
-    import pyscf.gto
-
-    mol = pyscf.gto.Mole()
-    mol.atom = atom
-    mol.build()
-    print(mol.energy_nuc())
-
-    mol = pyscf.gto.Mole()
-    mol.atom = """
-    C   0.1156880   0.7332450   0.5628400
-    C   -0.1156880  -0.7332450  0.5628400
-    C   -0.1156880  1.5476420   -0.4993330
-    C   0.1156880   -1.5476420  -0.4993330
-    H   0.4811120   1.1731760   1.5011160
-    H   -0.4811120  -1.1731760  1.5011160
-    H   0.0931710   2.6211890   -0.4460780
-    H   -0.5312790  1.1576980   -1.4360760
-    H   -0.0931710  -2.6211890  -0.4460780
-    H   0.5312790   -1.1576980  -1.4360760
-    """
-    mol.build()
-    print(mol.energy_nuc())
-
-

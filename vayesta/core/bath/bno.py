@@ -12,8 +12,8 @@ from vayesta.core import spinalg
 from vayesta.core.types import Cluster
 from vayesta.core.linalg import recursive_block_svd
 from . import helper
-
 from .bath import FragmentBath
+
 
 class BNO_Threshold:
 
