@@ -1,7 +1,7 @@
 import numpy as np
 
 from vayesta.core.util import *
-from .bath import FragmentBath
+from .bath import Bath
 from . import helper
 
 BOHR = 0.529177210903
@@ -14,7 +14,7 @@ def _to_bohr(rmax, unit):
         return rmax
     raise ValueError("Invalid unit: %s" % unit)
 
-class R2_Bath(FragmentBath):
+class R2_Bath(Bath):
 
     def __init__(self, fragment, dmet_bath, *args, **kwargs):
         super().__init__(fragment, *args, **kwargs)

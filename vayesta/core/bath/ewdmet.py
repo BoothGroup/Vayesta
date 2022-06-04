@@ -4,9 +4,9 @@ from vayesta.core.linalg import recursive_block_svd
 from vayesta.core.util import *
 from vayesta.core import spinalg
 
-from .bath import FragmentBath
+from .bath import Bath
 
-class EwDMET_Bath(FragmentBath):
+class EwDMET_Bath(Bath):
 
     def __init__(self, fragment, dmet_bath, max_order, *args, ewdmet_threshold=None, **kwargs):
         super().__init__(fragment, *args, **kwargs)

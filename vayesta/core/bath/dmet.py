@@ -3,11 +3,11 @@ import scipy
 import scipy.linalg
 
 from vayesta.core.util import *
-from .bath import FragmentBath
+from .bath import Bath
 
 DEFAULT_DMET_THRESHOLD = 1e-6
 
-class DMET_Bath(FragmentBath):
+class DMET_Bath(Bath):
 
     def __init__(self, fragment, dmet_threshold=DEFAULT_DMET_THRESHOLD):
         super().__init__(fragment)

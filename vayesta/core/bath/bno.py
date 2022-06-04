@@ -12,7 +12,7 @@ from vayesta.core import spinalg
 from vayesta.core.types import Cluster
 from vayesta.core.linalg import recursive_block_svd
 from . import helper
-from .bath import FragmentBath
+from .bath import Bath
 
 
 class BNO_Threshold:
@@ -61,7 +61,7 @@ class BNO_Threshold:
             return np.count_nonzero(bno_occup >= self.threshold)
         raise RuntimeError()
 
-class BNO_Bath(FragmentBath):
+class BNO_Bath(Bath):
     """Bath natural orbital (BNO) bath, requires DMET bath."""
 
     def __init__(self, fragment, ref_bath, *args, canonicalize=True, **kwargs):
