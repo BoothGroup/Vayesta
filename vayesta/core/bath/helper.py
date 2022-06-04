@@ -2,9 +2,10 @@ import numpy as np
 
 from vayesta.core.util import *
 
-def make_histogram(values, bins, labels=None, binwidth=5, height=6, fill=':', show_number=False):
+def make_histogram(values, bins, labels=None, binwidth=5, height=6, fill=':', show_number=False, invertx=True):
     hist = np.histogram(values, bins)[0]
-    bins, hist = bins[::-1], hist[::-1]
+    if invertx:
+        bins, hist = bins[::-1], hist[::-1]
     hmax = hist.max()
 
     width = binwidth*len(hist)
@@ -47,11 +48,12 @@ def make_histogram(values, bins, labels=None, binwidth=5, height=6, fill=':', sh
     txt = '\n'.join(lines)
     return txt
 
-def make_horizontal_histogram(values, bins=None, maxbarlength=50):
+def make_horizontal_histogram(values, bins=None, maxbarlength=50, invertx=True):
     if bins is None:
         bins = np.hstack([-np.inf, np.logspace(-3, -12, 10)[::-1], np.inf])
     hist = np.histogram(values, bins)[0]
-    bins, hist = bins[::-1], hist[::-1]
+    if invertx:
+        bins, hist = bins[::-1], hist[::-1]
     cumsum = 0
     lines = ["  {:^13s}  {:^4s}   {:^51s}".format("Interval", "Sum", "Histogram").rstrip()]
     for i, hval in enumerate(hist):

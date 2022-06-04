@@ -9,3 +9,5 @@ from .bno import BNO_Threshold
 from .bno import BNO_Bath
 from .bno import MP2_BNO_Bath
 from .bno import UMP2_BNO_Bath
+
+from .r2bath import R2_Bath

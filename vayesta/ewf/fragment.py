@@ -25,6 +25,8 @@ from vayesta.core.bath import EwDMET_Bath
 from vayesta.core.bath import BNO_Bath
 from vayesta.core.bath import MP2_BNO_Bath
 from vayesta.core.bath import CompleteBath
+from vayesta.core.bath import R2_Bath
+from vayesta.core.types import Orbitals
 from vayesta.core.types import Cluster
 from vayesta.core import ao2mo
 from vayesta.mpi import mpi
@@ -187,6 +189,11 @@ class Fragment(BaseFragment):
             self.bath = MP2_BNO_Bath(self, ref_bath=ewdmet_bath, project_t2=project_t2)
             self.bath.kernel()
             return self.bath
+        if bath_type.lower() == 'r2':
+            self.bath = R2_Bath(self, dmet_bath)
+            self.bath.kernel()
+            return self.bath
+
         raise ValueError("Unknown bath_type: %r" % bath_type)
 
     def make_cluster(self, bath=None, bno_threshold=None, bno_threshold_occ=None, bno_threshold_vir=None):
@@ -198,8 +205,12 @@ class Fragment(BaseFragment):
             bno_threshold_occ = bno_threshold
         if bno_threshold_vir is None:
             bno_threshold_vir = bno_threshold
-        c_bath_occ, c_frozen_occ = bath.get_occupied_bath(bno_threshold=bno_threshold_occ)
-        c_bath_vir, c_frozen_vir = bath.get_virtual_bath(bno_threshold=bno_threshold_vir)
+        if isinstance(bath, R2_Bath):
+            c_bath_occ, c_frozen_occ = bath.get_occupied_bath(rmax=bno_threshold_occ.threshold)
+            c_bath_vir, c_frozen_vir = bath.get_virtual_bath(rmax=bno_threshold_vir.threshold)
+        else:
+            c_bath_occ, c_frozen_occ = bath.get_occupied_bath(bno_threshold=bno_threshold_occ)
+            c_bath_vir, c_frozen_vir = bath.get_virtual_bath(bno_threshold=bno_threshold_vir)
         # Canonicalize orbitals
         c_active_occ = self.canonicalize_mo(bath.dmet_bath.c_cluster_occ, c_bath_occ)[0]
         c_active_vir = self.canonicalize_mo(bath.dmet_bath.c_cluster_vir, c_bath_vir)[0]
