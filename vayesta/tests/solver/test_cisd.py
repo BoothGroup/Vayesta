@@ -15,10 +15,12 @@ class TestSolvers(unittest.TestCase):
     def _test(self, key):
         mf = cache.moles[key[0]][key[1]]
 
-        emb = vayesta.ewf.EWF(mf, solver='CISD', bath_type='full')
+        solver_opts = dict(conv_tol=1e-10)
+        emb = vayesta.ewf.EWF(mf, solver='CISD', bath_type='full', solver_options=solver_opts)
         emb.kernel()
 
         ci = pyscf.ci.CISD(mf)
+        ci.conv_tol = 1e-10
         ci.kernel()
 
         self.assertAlmostEqual(emb.e_corr, ci.e_corr)
