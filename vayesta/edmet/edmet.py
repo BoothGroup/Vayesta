@@ -289,10 +289,6 @@ class EDMET(RDMET):
                 raise e
 
             self.cluster_results[frag.id] = result
-            if not result.converged:
-                self.log.error("%s is not converged!", frag)
-            else:
-                self.log.info("%s is done.", frag)
             self.log.changeIndentLevel(-1)
             if exit:
                 break

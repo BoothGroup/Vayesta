@@ -30,11 +30,8 @@ class Options(Embedding.Options):
     # --- Fragment settings
     iao_minao : str = 'auto'            # Minimal basis for IAOs
     # --- Bath settings
-    bath_options: dict = OptionsBase.dict_with_defaults(
-            # Default values from Embedding.Options, obtained by calling default_factory:
-            **{**(Embedding.Options.get_default_factory('bath_options')()),
-            # Overwrite following elements:
-            **dict(bathtype='mp2', threshold=1e-8)})
+    bath_options: dict = Embedding.Options.change_dict_defaults('bath_options',
+            bathtype='mp2', threshold=1e-8)
     #ewdmet_max_order: int = 1
     # If multiple bno thresholds are to be calculated, we can project integrals and amplitudes from a previous larger cluster:
     project_eris: bool = False          # Project ERIs from a pervious larger cluster (corresponding to larger eta), can result in a loss of accuracy especially for large basis sets!

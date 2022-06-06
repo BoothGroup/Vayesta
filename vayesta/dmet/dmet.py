@@ -27,6 +27,10 @@ class Options(Embedding.Options):
     mixing_param: float = 0.5
     mixing_variable: str = "hl rdm"
     oneshot: bool = False
+    # --- Solver options
+    solver_options: dict = Embedding.Options.change_dict_defaults('solver_options',
+            # CCSD
+            solve_lambda=True)
 
 @dataclasses.dataclass
 class DMETResults:
@@ -238,10 +242,6 @@ class DMET(Embedding):
                 self.log.changeIndentLevel(-1)
                 raise e
             self.cluster_results[frag.id] = result
-            if not result.converged:
-                self.log.error("%s is not converged!", frag)
-            else:
-                self.log.info("%s is done.", frag)
             self.log.changeIndentLevel(-1)
             if exit:
                 break

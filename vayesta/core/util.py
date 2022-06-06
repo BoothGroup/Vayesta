@@ -339,6 +339,7 @@ def deprecated(message=None):
         return wrapped
     return decorator
 
+@dataclasses.dataclass
 class OptionsBase:
     """Abstract base class for Option dataclasses.
 
@@ -408,6 +409,11 @@ class OptionsBase:
     @staticmethod
     def dict_with_defaults(**kwargs):
         return dataclasses.field(default_factory=lambda: kwargs)
+
+    @classmethod
+    def change_dict_defaults(cls, field, **kwargs):
+        defaults = cls.get_default_factory(field)()
+        return cls.dict_with_defaults(**{**defaults, **kwargs})
 
 def fix_orbital_sign(mo_coeff, inplace=True):
     # UHF

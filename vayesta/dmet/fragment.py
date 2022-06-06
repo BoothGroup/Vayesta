@@ -68,7 +68,6 @@ class DMETFragment(Fragment):
         if solver not in VALID_SOLVERS:
             raise ValueError("Unknown solver: %s" % solver)
 
-
     def kernel(self, solver=None, init_guess=None, eris=None, construct_bath=True, chempot=None):
         """Run solver for a single BNO threshold.
 
@@ -119,14 +118,6 @@ class DMETFragment(Fragment):
     def get_solver_options(self, solver):
         solver_opts = {}
         solver_opts.update(self.opts.solver_options)
-        # pass_through = ['make_rdm1', 'make_rdm2']
-        pass_through = []
-        if 'CCSD' in solver.upper():
-            solver_opts['solve_lambda'] = True
-        for attr in pass_through:
-            self.log.debugv("Passing fragment option %s to solver.", attr)
-            solver_opts[attr] = getattr(self.opts, attr)
-
         return solver_opts
 
     def get_dmet_energy_contrib(self, eris=None):
