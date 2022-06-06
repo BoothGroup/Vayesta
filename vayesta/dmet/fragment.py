@@ -12,13 +12,9 @@ from vayesta.core.util import *
 
 # We might want to move the useful things from here into core, since they seem pretty general.
 
-class DMETFragmentExit(Exception):
-    pass
-
 VALID_SOLVERS = [None, "", "MP2", "CISD", "CCSD", "CCSD(T)", 'FCI', "FCI-spin0", "FCI-spin1"]
 
-@dataclasses.dataclass
-class Options(Fragment.Options):
+class DMETFragmentExit(Exception):
     pass
 
 @dataclasses.dataclass
@@ -26,21 +22,11 @@ class Results(Fragment.Results):
     n_active: int = None
     e1: float = None
     e2: float = None
-
-    @property
-    def dm1(self):
-        """Cluster 1DM"""
-        return self.wf.make_rdm1()
-
-    @property
-    def dm2(self):
-        """Cluster 2DM"""
-        return self.wf.make_rdm2()
-
+    dm1: np.ndarray = None
+    dm2: np.ndarray = None
 
 class DMETFragment(Fragment):
 
-    Options = Options
     Results = Results
 
     def __init__(self, *args, solver=None, **kwargs):
@@ -55,7 +41,6 @@ class DMETFragment(Fragment):
         name :
             Name of fragment.
         """
-
         super().__init__(*args, **kwargs)
 
         if solver is None:
@@ -110,7 +95,8 @@ class DMETFragment(Fragment):
         results = self._results
         results.wf = cluster_solver.wf
         results.n_active = self.cluster.norb_active
-
+        results.dm1 = results.wf.make_rdm1()
+        results.dm2 = results.wf.make_rdm2()
         results.e1, results.e2 = self.get_dmet_energy_contrib()
 
         return results
