@@ -7,7 +7,7 @@ from .bath import Bath
 
 DEFAULT_DMET_THRESHOLD = 1e-6
 
-class DMET_Bath(Bath):
+class DMET_Bath_RHF(Bath):
 
     def __init__(self, fragment, dmet_threshold=DEFAULT_DMET_THRESHOLD):
         super().__init__(fragment)
@@ -245,20 +245,7 @@ class DMET_Bath(Bath):
         return c_bath, c_occenv, c_virenv
 
 
-class CompleteBath(DMET_Bath):
-    """Complete bath for testing purposes."""
-
-    def get_occupied_bath(self, *args, **kwargs):
-        nao = self.c_env_occ.shape[0]
-        return self.c_env_occ, np.zeros((nao, 0))
-
-    def get_virtual_bath(self, *args, **kwargs):
-        nao = self.c_env_vir.shape[0]
-        return self.c_env_vir, np.zeros((nao, 0))
-
-# --- Spin unrestricted
-
-class UDMET_Bath(DMET_Bath):
+class DMET_Bath_UHF(DMET_Bath_RHF):
 
     def get_cluster_electrons(self):
         """Number of (alpha, beta) cluster electrons."""
@@ -282,14 +269,3 @@ class UDMET_Bath(DMET_Bath):
             # Use restricted DMET bath routine for each spin:
             results.append(super().make_dmet_bath(c_env[s], dm1=2*dm1[s], **kwargs))
         return tuple(zip(*results))
-
-class UCompleteBath(UDMET_Bath):
-    """Complete bath for testing purposes."""
-
-    def get_occupied_bath(self, *args, **kwargs):
-        nao = self.c_env_occ[0].shape[0]
-        return self.c_env_occ, tuple(2*[np.zeros((nao, 0))])
-
-    def get_virtual_bath(self, *args, **kwargs):
-        nao = self.c_env_vir[0].shape[0]
-        return self.c_env_vir, tuple(2*[np.zeros((nao, 0))])

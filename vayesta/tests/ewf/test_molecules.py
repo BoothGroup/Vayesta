@@ -232,7 +232,6 @@ class MoleculeEWFTests(unittest.TestCase):
                 moles['h2o_ccpvdz']['rhf'],
                 bno_threshold=1e-4/2,   # redefinition of eta
                 sc_mode=1,
-                sc_energy_tol=1e-9,
                 solver_options={
                     'conv_tol': self.CONV_TOL,
                     'conv_tol_normt': self.CONV_TOL_NORMT,

@@ -23,8 +23,11 @@ class UEmbedding(Embedding):
     # Shadow this in inherited methods:
     Fragment = UFragment
 
+    # Deprecated:
     is_rhf = False
     is_uhf = True
+    # Use instead:
+    spintype = 'unrestricted'
 
     #def get_init_veff(self):
     #    if self.opts.recalc_vhf:

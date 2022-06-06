@@ -16,7 +16,7 @@ class ClusterSolver:
     class Options(OptionsBase):
         pass
 
-    def __init__(self, mf, fragment, cluster, options=None, log=None, **kwargs):
+    def __init__(self, mf, fragment, cluster, log=None, **kwargs):
         """
 
         TODO: Remove fragment/embedding dependence...?
@@ -30,11 +30,8 @@ class ClusterSolver:
         self.log = (log or fragment.log)
 
         # --- Options:
-        if options is None:
-            options = self.Options(**kwargs)
-        else:
-            options = options.replace(kwargs)
-        self.opts = options
+        self.opts = self.Options()
+        self.opts.update(**kwargs)
         self.log.info("Parameters of %s:" % self.__class__.__name__)
         self.log.info(break_into_lines(str(self.opts), newline='\n    '))
 

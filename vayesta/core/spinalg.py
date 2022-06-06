@@ -17,7 +17,9 @@ def add_numbers(*args):
                 sum([arg[1] for arg in args]))
     raise ValueError
 
-def hstack_matrices(*args):
+def hstack_matrices(*args, ignore_none=True):
+    if ignore_none:
+        args = [x for x in args if x is not None]
     # RHF
     if np.all([(arg[0].ndim == 1) for arg in args]):
         return util.hstack(*args)

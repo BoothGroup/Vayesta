@@ -1,20 +1,14 @@
-import dataclasses
 import itertools
 
 import numpy as np
 
 from vayesta.core.util import *
 from vayesta.core import spinalg
-
 from .fragment import Fragment
 from vayesta.core.symmetry import SymmetryTranslation
 
 
 class UFragment(Fragment):
-
-    @dataclasses.dataclass
-    class Result(Fragment.Results):
-        pass
 
     def log_info(self):
         # Some output
@@ -295,15 +289,10 @@ class UFragment(Fragment):
             if (fragovlp > 1e-8):
                 self.log.error("Translation (%d,%d,%d) of fragment %s not orthogonal to original fragment (overlap= %.3e)!",
                             dx, dy, dz, self.name, fragovlp)
-            # Deprecated:
-            if hasattr(self.base, 'add_fragment'):  # pragma: no cover
-                frag = self.base.add_fragment(name, c_frag_t, c_env_t, options=self.opts,
-                        sym_parent=self, sym_op=sym_op)
-            else:
-                frag_id = self.base.register.get_next_id()
-                frag = self.base.Fragment(self.base, frag_id, name, c_frag_t, c_env_t, options=self.opts,
-                        sym_parent=self, sym_op=sym_op, mpi_rank=self.mpi_rank)
-                self.base.fragments.append(frag)
+            frag_id = self.base.register.get_next_id()
+            frag = self.base.Fragment(self.base, frag_id, name, c_frag_t, c_env_t,
+                    sym_parent=self, sym_op=sym_op, mpi_rank=self.mpi_rank, **self.opts.asdict())
+            self.base.fragments.append(frag)
 
             # Check symmetry
             charge_err, spin_err = self.get_tsymmetry_error(frag, dm1=dm1)
@@ -335,7 +324,6 @@ class UFragment(Fragment):
         charge_err = abs(dmxa+dmxb-dmya-dmyb).max()
         spin_err = abs(dmxa-dmxb-dmya+dmyb).max()
         return (charge_err, spin_err)
-
 
     # --- Overlap matrices
     # --------------------

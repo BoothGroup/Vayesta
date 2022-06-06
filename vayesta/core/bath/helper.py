@@ -2,7 +2,8 @@ import numpy as np
 
 from vayesta.core.util import *
 
-def make_histogram(values, bins, labels=None, binwidth=5, height=6, fill=':', show_number=False, invertx=True):
+def make_histogram(values, bins, labels=None, binwidth=5, height=6, fill=':', show_number=False, invertx=True,
+        rstrip=True):
     hist = np.histogram(values, bins)[0]
     if invertx:
         bins, hist = bins[::-1], hist[::-1]
@@ -44,7 +45,8 @@ def make_histogram(values, bins, labels=None, binwidth=5, height=6, fill=':', sh
         else:
             lines += [''.join(['{:^{w}}'.format(l, w=binwidth) for l in labels])]
 
-    lines = [line.rstrip() for line in lines]
+    if rstrip:
+        lines = [line.rstrip() for line in lines]
     txt = '\n'.join(lines)
     return txt
 

@@ -9,50 +9,36 @@ from vayesta.core.bath import BNO_Threshold
 from vayesta.solver import get_solver_class
 from vayesta.core.util import *
 
-import vayesta.ewf
 
 # We might want to move the useful things from here into core, since they seem pretty general.
-
 
 class DMETFragmentExit(Exception):
     pass
 
 VALID_SOLVERS = [None, "", "MP2", "CISD", "CCSD", "CCSD(T)", 'FCI', "FCI-spin0", "FCI-spin1"]
 
+@dataclasses.dataclass
+class Options(Fragment.Options):
+    pass
+
+@dataclasses.dataclass
+class Results(Fragment.Results):
+    fid: int = None
+    n_active: int = None
+    converged: bool = None
+    # For DM1:
+    g1: np.ndarray = None
+    dm1: np.ndarray = None
+    dm2: np.ndarray = None
+    # energy contributions.
+    e1: float = None
+    e2: float = None
+
 
 class DMETFragment(Fragment):
 
-    @dataclasses.dataclass
-    class Options(Fragment.Options):
-        """Attributes set to `NotSet` inherit their value from the parent DMET object."""
-        # Options also present in `base`:
-        dmet_threshold: float = NotSet
-        energy_factor: float = 1.0
-        eom_ccsd: bool = NotSet
-        energy_partitioning: str = NotSet
-        sc_mode: int = NotSet
-        # Bath type
-        bath_type: str = NotSet
-        bno_number: int = None  # Set a fixed number of BNOs
-        # Additional fragment specific options:
-        bno_threshold_factor: float = 1.0
-        # CAS methods
-        c_cas_occ: np.ndarray = None
-        c_cas_vir: np.ndarray = None
-
-    @dataclasses.dataclass
-    class Results(Fragment.Results):
-        fid: int = None
-        bno_threshold: float = None
-        n_active: int = None
-        converged: bool = None
-        # For DM1:
-        g1: np.ndarray = None
-        dm1: np.ndarray = None
-        dm2: np.ndarray = None
-        # energy contributions.
-        e1: float = None
-        e2: float = None
+    Options = Options
+    Results = Results
 
     def __init__(self, *args, solver=None, **kwargs):
 
@@ -79,26 +65,12 @@ class DMETFragment(Fragment):
         if solver not in VALID_SOLVERS:
             raise ValueError("Unknown solver: %s" % solver)
 
-    @property
-    def c_cluster_occ(self):
-        return self.bath.c_cluster_occ
 
-    @property
-    def c_cluster_vir(self):
-        return self.bath.c_cluster_vir
-
-    make_bath = vayesta.ewf.fragment.Fragment.make_bath
-
-    make_cluster = vayesta.ewf.fragment.Fragment.make_cluster
-
-    def kernel(self, bno_threshold=None, bno_number=None, solver=None, init_guess=None, eris=None, construct_bath=True,
-               chempot=None):
+    def kernel(self, solver=None, init_guess=None, eris=None, construct_bath=True, chempot=None):
         """Run solver for a single BNO threshold.
 
         Parameters
         ----------
-        bno_threshold : float
-            Bath natural orbital (BNO) thresholds.
         solver : {'MP2', 'CISD', 'CCSD', 'CCSD(T)', 'FCI'}, optional
             Correlated solver.
 
@@ -107,26 +79,12 @@ class DMETFragment(Fragment):
         results : DMETFragmentResults
         """
 
-        if bno_number is None:
-            bno_number = self.opts.bno_number
-        if bno_number is None and bno_threshold is None:
-            bno_threshold = self.base.bno_threshold
-
         if solver is None:
             solver = self.solver
-        if self.bath is None or construct_bath:
+        if self._dmet_bath is None or construct_bath:
             self.make_bath()
 
-        if bno_number is not None:
-            bno_threshold = BNO_Threshold('number', bno_number)
-        else:
-            bno_threshold = BNO_Threshold('occupation', bno_threshold)
-
-        cluster = self.make_cluster(self.bath, bno_threshold=bno_threshold)
-        self.cluster = cluster
-        self.log.info('Orbitals for %s', self)
-        self.log.info('-------------%s', len(str(self))*'-')
-        self.log.info(cluster.repr_size().replace('%', '%%'))
+        cluster = self.make_cluster()
         # If we want to reuse previous info for initial guess and eris we'd do that here...
         # We can now overwrite the orbitals from last BNO run:
         self._c_active_occ = cluster.c_active_occ
@@ -149,7 +107,6 @@ class DMETFragment(Fragment):
 
         results = self._results
 
-        results.bno_threshold = bno_threshold
         results.n_active = self.cluster.norb_active
         # Need to rewrite EBFCI solver to expose this properly...
         results.converged = True

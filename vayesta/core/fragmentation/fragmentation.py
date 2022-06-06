@@ -36,7 +36,6 @@ class Fragmentation:
         self.log = log or emb.log
         self.log.info('%s Fragmentation' % self.name)
         self.log.info('%s--------------' % (len(self.name)*'-'))
-        self.log.changeIndentLevel(1)
         self.ovlp = self.mf.get_ovlp()
         #
         self.coeff = None
@@ -45,6 +44,7 @@ class Fragmentation:
     # --- As contextmanager:
 
     def __enter__(self):
+        self.log.changeIndentLevel(1)
         self.kernel()
         return self
 

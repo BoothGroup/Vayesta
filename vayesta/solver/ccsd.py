@@ -44,7 +44,7 @@ class CCSD_Solver(ClusterSolver):
         super().__init__(*args, **kwargs)
 
         solver_cls = self.get_solver_class()
-        self.log.debugv("CCSD PySCF class= %r" % solver_cls)
+        self.log.debugv("PySCF solver class= %r" % solver_cls)
         frozen = self.cluster.get_frozen_indices()
         mo_coeff = self.cluster.c_total
         solver = solver_cls(self.mf, mo_coeff=mo_coeff, mo_occ=self.mf.mo_occ, frozen=frozen)
@@ -53,7 +53,6 @@ class CCSD_Solver(ClusterSolver):
         if self.opts.conv_tol is not None: solver.conv_tol = self.opts.conv_tol
         if self.opts.conv_tol_normt is not None: solver.conv_tol_normt = self.opts.conv_tol_normt
         self.solver = solver
-
         self.eris = None
 
     def get_solver_class(self):

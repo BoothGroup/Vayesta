@@ -8,6 +8,7 @@ import string
 import functools
 from timeit import default_timer
 from contextlib import contextmanager
+import dataclasses
 
 try:
     from functools import cache
@@ -30,7 +31,7 @@ log = logging.getLogger(__name__)
 # util module can be imported as *, such that the following is imported:
 __all__ = [
         # General
-        'Object', 'NotSet', 'OptionsBase', 'brange', 'deprecated', 'cache',
+        'Object', 'OptionsBase', 'brange', 'deprecated', 'cache',
         # NumPy replacements
         'dot', 'einsum', 'hstack',
         # Exceptions
@@ -46,14 +47,6 @@ __all__ = [
 
 class Object:
     pass
-
-class NotSetType:
-    def __repr__(self):
-        return 'NotSet'
-"""Sentinel, use this to indicate that an option/attribute has not been set,
-in cases where `None` itself is a valid setting.
-"""
-NotSet = NotSetType()
 
 # --- NumPy
 
@@ -156,9 +149,10 @@ def einsum(subscripts, *operands, **kwargs):
         res = res[()]
     return res
 
-def hstack(*args):
+def hstack(*args, ignore_none=True):
     """Like NumPy's hstack, but variadic, ignores any arguments which are None and improved error message."""
-    args = [x for x in args if x is not None]
+    if ignore_none:
+        args = [x for x in args if x is not None]
     try:
         return np.hstack(args)
     except ValueError as e:
@@ -314,14 +308,6 @@ def replace_attr(obj, **kwargs):
         for name, attr in orig.items():
             setattr(obj, name, attr)
 
-class SelectNotSetType:
-    """Sentinel for implementation of `select` in `Options.replace`.
-    Having a dedicated sentinel allows usage of `None` and `NotSet` as `select`.
-    """
-    def __repr__(self):
-        return 'SelectNotSet'
-SelectNotSet = SelectNotSetType()
-
 def break_into_lines(string, linelength=100, sep=None, newline='\n'):
     """Break a long string into multiple lines"""
     if len(string) <= linelength:
@@ -363,9 +349,6 @@ class OptionsBase:
     or dictionary.
     """
 
-    def __repr__(self):
-        return "Options(%r)" % self.asdict()
-
     def get(self, attr, default=None):
         """Dictionary-like access to attributes.
         Allows the definition of a default value, of the attribute is not present.
@@ -387,34 +370,44 @@ class OptionsBase:
     def items(self):
         return self.asdict().items()
 
-    def replace(self, other, select=SelectNotSet, **kwargs):
-        """Replace some or all attributes.
+    @classmethod
+    def get_default(cls, field):
+        for x in dataclasses.fields(cls):
+            if (x.name == field):
+                return x.default
+        raise TypeError
 
-        Parameters
-        ----------
-        other : Options or dict
-            Options object or dictionary defining the attributes which should be replaced.
-        select :
-            If set, only values which are of the corresponding type will be replaced.
-        **kwargs :
-            Additional keyword arguments will be added to `other`
-        """
-        other = copy.deepcopy(other)
-        if isinstance(other, OptionsBase):
-            other = other.asdict()
-        if kwargs:
-            other.update(kwargs)
+    @classmethod
+    def get_default_factory(cls, field):
+        for x in dataclasses.fields(cls):
+            if (x.name == field):
+                return x.default_factory
+        raise TypeError
 
-        # Only replace values which are equal to select
-        if select is not SelectNotSet:
-            keep = {}
-            for key, val in self.items():
-                if (val is select) and (key in other):
-                    #updates[key] = copy.copy(other[key])
-                    keep[key] = other[key]
-            other = keep
+    def replace(self, **kwargs):
+        keys = self.keys()
+        for key, val in kwargs.items():
+            if key not in keys:
+                raise TypeError("replace got an unexpected keyword argument '%s'" % key)
+            if isinstance(val, dict) and isinstance(getattr(self, key), dict):
+                setattr(self, key, {**getattr(self, key), **val})
+            else:
+                setattr(self, key, val)
 
-        return dataclasses.replace(self, **other)
+    def update(self, **kwargs):
+        keys = self.keys()
+        for key, val in kwargs.items():
+            if key not in keys:
+                continue
+            if isinstance(val, dict) and isinstance(getattr(self, key), dict):
+                #getattr(self, key).update(val)
+                setattr(self, key, {**getattr(self, key), **val})
+            else:
+                setattr(self, key, val)
+
+    @staticmethod
+    def dict_with_defaults(**kwargs):
+        return dataclasses.field(default_factory=lambda: kwargs)
 
 def fix_orbital_sign(mo_coeff, inplace=True):
     # UHF

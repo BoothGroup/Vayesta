@@ -94,7 +94,7 @@ class CubeFile:
     def has_pbc(self):
         return hasattr(self.cell, 'lattice_vectors')
 
-    def get_box_and_origin(self, origin):
+    def get_box_and_origin(self):
         if self.has_pbc:
             box = self.cell.lattice_vectors().copy()
             origin = np.zeros(3)

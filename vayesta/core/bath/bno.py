@@ -61,23 +61,22 @@ class BNO_Threshold:
             return np.count_nonzero(bno_occup >= self.threshold)
         raise RuntimeError()
 
+
 class BNO_Bath(Bath):
     """Bath natural orbital (BNO) bath, requires DMET bath."""
 
-    def __init__(self, fragment, ref_bath, *args, canonicalize=True, **kwargs):
+    def __init__(self, fragment, ref_bath, occtype, *args, canonicalize=True, **kwargs):
         super().__init__(fragment, *args, **kwargs)
         self.ref_bath = ref_bath
+        if occtype not in ('occupied', 'virtual'):
+            raise ValueError("Invalid occtype: %s" % occtype)
+        self.occtype = occtype
         # Canonicalization can be set separately for occupied and virtual:
         if np.ndim(canonicalize) == 0:
-            canonicalize = 2*[canonicalize]
+            canonicalize = (canonicalize, canonicalize)
         self.canonicalize = canonicalize
-        # Results
-        # Bath orbital coefficients:
-        self.c_bno_occ = None
-        self.c_bno_vir = None
-        # Bath orbital natural occupation numbers:
-        self.n_bno_occ = None
-        self.n_bno_vir = None
+        # Coefficients and occupations:
+        self.coeff, self.occup = self.kernel()
 
     @property
     def c_cluster_occ(self):
@@ -88,11 +87,6 @@ class BNO_Bath(Bath):
     def c_cluster_vir(self):
         """Virtual DMET cluster orbitals."""
         return self.ref_bath.c_cluster_vir
-
-    def kernel(self):
-        """Make bath natural orbitals."""
-        self.c_bno_occ, self.n_bno_occ = self.make_bno_bath('occ')
-        self.c_bno_vir, self.n_bno_vir = self.make_bno_bath('vir')
 
     def make_bno_coeff(self, *args, **kwargs):
         raise AbstractMethodError()
@@ -107,66 +101,61 @@ class BNO_Bath(Bath):
         """
         return self.ref_bath.dmet_bath
 
-    def make_bno_bath(self, kind):
-        if kind == 'occ':
-            c_env = self.dmet_bath.c_env_occ
-            name = "occupied"
-        elif kind == 'vir':
-            c_env = self.dmet_bath.c_env_vir
-            name = "virtual"
-        else:
-            raise ValueError("kind not in ['occ', 'vir']: %r" % kind)
+    @property
+    def c_env(self):
+        if self.occtype == 'occupied':
+            return self.dmet_bath.c_env_occ
+        if self.occtype == 'virtual':
+            return self.dmet_bath.c_env_vir
 
+    @property
+    def ncluster(self):
+        if self.occtype == 'occupied':
+            return self.dmet_bath.c_cluster_occ.shape[-1]
+        if self.occtype == 'virtual':
+            return  self.dmet_bath.c_cluster_vir.shape[-1]
+
+    def kernel(self):
+        c_env = self.c_env
         if self.spin_restricted and (c_env.shape[-1] == 0):
             return c_env, np.zeros(0)
         if self.spin_unrestricted and (c_env[0].shape[-1] + c_env[1].shape[-1] == 0):
             return c_env, tuple(2*[np.zeros(0)])
-
-        self.log.info("Making %s BNOs", name.capitalize())
-        self.log.info("-------%s-----", len(name)*'-')
+        self.log.info("Making %s BNOs", self.occtype.capitalize())
+        self.log.info("-------%s-----", len(self.occtype)*'-')
         self.log.changeIndentLevel(1)
-        c_bno, n_bno = self.make_bno_coeff(kind)
-        self.log_histogram(n_bno, name=name)
+        coeff, occup = self.make_bno_coeff()
+        self.log_histogram(occup)
         self.log.changeIndentLevel(-1)
+        self.coeff = coeff
+        self.occup = occup
+        return coeff, occup
 
-        return c_bno, n_bno
-
-    def log_histogram(self, n_bno, name):
+    def log_histogram(self, n_bno):
         if len(n_bno) == 0:
             return
-        self.log.info("%s BNO histogram:", name.capitalize())
+        self.log.info("%s BNO histogram:", self.occtype.capitalize())
         bins = np.hstack([-np.inf, np.logspace(-3, -10, 8)[::-1], np.inf])
         labels = '    ' + ''.join('{:{w}}'.format('E-%d' % d, w=5) for d in range(3, 11))
         self.log.info(helper.make_histogram(n_bno, bins=bins, labels=labels))
 
-    def get_occupied_bath(self, bno_threshold=None, **kwargs):
-        return self.truncate_bno(self.c_bno_occ, self.n_bno_occ, bno_threshold=bno_threshold,
-                header="occupied BNOs:", **kwargs)
+    def get_bath(self, bno_threshold=None, **kwargs):
+        return self.truncate_bno(self.coeff, self.occup, bno_threshold=bno_threshold, **kwargs)
 
-    def get_virtual_bath(self, bno_threshold=None, bno_number=None, **kwargs):
-        return self.truncate_bno(self.c_bno_vir, self.n_bno_vir, bno_threshold=bno_threshold,
-                header="virtual BNOs:", **kwargs)
-
-    def truncate_bno(self, c_bno, n_bno, bno_threshold=None, header=None, verbose=True):
+    def truncate_bno(self, coeff, occup, bno_threshold=None, verbose=True):
         """Split natural orbitals (NO) into bath and rest."""
 
-        # For UHF, call recursively:
-        if np.ndim(c_bno[0]) == 2:
-            c_bno_a, c_rest_a = self.truncate_bno(c_bno[0], n_bno[0], bno_threshold=bno_threshold,
-                    header='Alpha-%s' % header, verbose=verbose)
-            c_bno_b, c_rest_b = self.truncate_bno(c_bno[1], n_bno[1], bno_threshold=bno_threshold,
-                    header='Beta-%s' % header, verbose=verbose)
-            return (c_bno_a, c_bno_b), (c_rest_a, c_rest_b)
+        header = '%s BNOs:' % self.occtype
 
         if isinstance(bno_threshold, numbers.Number):
             bno_threshold = BNO_Threshold('occupation', bno_threshold)
         nelec_cluster = self.dmet_bath.get_cluster_electrons()
-        bno_number = bno_threshold.get_number(n_bno, electron_total=nelec_cluster)
+        bno_number = bno_threshold.get_number(occup, electron_total=nelec_cluster)
 
         # Logging
         if verbose:
             if header:
-                self.log.info(header[0].upper() + header[1:])
+                self.log.info(header.capitalize())
             fmt = "  %4s: N= %4d  max= % 9.3g  min= % 9.3g  sum= % 9.3g ( %7.3f %%)"
             def log_space(name, n_part):
                 if len(n_part) == 0:
@@ -174,30 +163,28 @@ class BNO_Bath(Bath):
                     return
                 with np.errstate(invalid='ignore'): # supress 0/0 warning
                     self.log.info(fmt, name, len(n_part), max(n_part), min(n_part), np.sum(n_part),
-                            100*np.sum(n_part)/np.sum(n_bno))
-            log_space("Bath", n_bno[:bno_number])
-            log_space("Rest", n_bno[bno_number:])
+                            100*np.sum(n_part)/np.sum(occup))
+            log_space("Bath", occup[:bno_number])
+            log_space("Rest", occup[bno_number:])
 
-        c_bno, c_rest = np.hsplit(c_bno, [bno_number])
-        return c_bno, c_rest
+        c_bath, c_rest = np.hsplit(coeff, [bno_number])
+        return c_bath, c_rest
 
-    def get_active_space(self, kind):
+    def get_active_space(self):
         ref_bath = self.ref_bath
         dmet_bath = self.dmet_bath
         nao = self.mol.nao
         zero_space = np.zeros((nao, 0)) if self.spin_restricted else np.zeros((2, nao, 0))
-        if kind == 'occ':
+        if self.occtype == 'occupied':
             c_active_occ = spinalg.hstack_matrices(dmet_bath.c_cluster_occ, dmet_bath.c_env_occ)
             c_frozen_occ = zero_space
             c_active_vir = ref_bath.c_cluster_vir
             c_frozen_vir = ref_bath.c_env_vir
-        elif kind == 'vir':
+        elif self.occtype == 'virtual':
             c_active_occ = ref_bath.c_cluster_occ
             c_frozen_occ = ref_bath.c_env_occ
             c_active_vir = spinalg.hstack_matrices(dmet_bath.c_cluster_vir, dmet_bath.c_env_vir)
             c_frozen_vir = zero_space
-        else:
-            raise ValueError("Unknown kind: %r" % kind)
         actspace = Cluster.from_coeffs(c_active_occ, c_active_vir, c_frozen_occ, c_frozen_vir)
         return actspace
 
@@ -205,11 +192,8 @@ class BNO_Bath(Bath):
         self.log.debugv("Undoing canonicalization")
         return dot(rot, dm, rot.T)
 
-    def _dm_take_env(self, dm, kind):
-        if kind == 'occ':
-            ncluster = self.dmet_bath.c_cluster_occ.shape[-1]
-        elif kind == 'vir':
-            ncluster = self.dmet_bath.c_cluster_vir.shape[-1]
+    def _dm_take_env(self, dm):
+        ncluster = self.ncluster
         self.log.debugv("n(cluster)= %d", ncluster)
         self.log.debugv("tr(D)= %g", np.trace(dm))
         dm = dm[ncluster:,ncluster:]
@@ -217,8 +201,8 @@ class BNO_Bath(Bath):
         return dm
 
     def _diagonalize_dm(self, dm):
-        sort = np.s_[::-1]
         n_bno, r_bno = np.linalg.eigh(dm)
+        sort = np.s_[::-1]
         n_bno = n_bno[sort]
         r_bno = r_bno[:,sort]
         return r_bno, n_bno
@@ -231,11 +215,15 @@ class BNO_Bath_UHF(BNO_Bath):
         return (dot(rot[0], dm[0], rot[0].T),
                 dot(rot[1], dm[1], rot[1].T))
 
-    def _dm_take_env(self, dm, kind):
-        if kind == 'occ':
-            ncluster = (self.dmet_bath.c_cluster_occ[0].shape[-1], self.dmet_bath.c_cluster_occ[1].shape[-1])
-        elif kind == 'vir':
-            ncluster = (self.dmet_bath.c_cluster_vir[0].shape[-1], self.dmet_bath.c_cluster_vir[1].shape[-1])
+    @property
+    def ncluster(self):
+        if self.occtype == 'occupied':
+            return (self.dmet_bath.c_cluster_occ[0].shape[-1], self.dmet_bath.c_cluster_occ[1].shape[-1])
+        if self.occtype == 'virtual':
+            return (self.dmet_bath.c_cluster_vir[0].shape[-1], self.dmet_bath.c_cluster_vir[1].shape[-1])
+
+    def _dm_take_env(self, dm):
+        ncluster = self.ncluster
         self.log.debugv("n(cluster)= (%d, %d)", ncluster[0], ncluster[1])
         self.log.debugv("tr(alpha-D)= %g", np.trace(dm[0]))
         self.log.debugv("tr( beta-D)= %g", np.trace(dm[1]))
@@ -249,23 +237,27 @@ class BNO_Bath_UHF(BNO_Bath):
         r_bno_b, n_bno_b = super()._diagonalize_dm(dm[1])
         return (r_bno_a, r_bno_b), (n_bno_a, n_bno_b)
 
-    def log_histogram(self, n_bno, name):
+    def log_histogram(self, n_bno):
         if len(n_bno[0]) == len(n_bno[0]) == 0:
             return
-        self.log.info("%s BNO histogram (alpha/beta):", name.capitalize())
+        self.log.info("%s BNO histogram (alpha/beta):", self.occtype.capitalize())
         bins = np.hstack([-np.inf, np.logspace(-3, -10, 8)[::-1], np.inf])
         labels = '    ' + ''.join('{:{w}}'.format('E-%d' % d, w=5) for d in range(3, 11))
-        ha = helper.make_histogram(n_bno[0], bins=bins, labels=labels).split('\n')
+        ha = helper.make_histogram(n_bno[0], bins=bins, labels=labels, rstrip=False).split('\n')
         hb = helper.make_histogram(n_bno[1], bins=bins, labels=labels).split('\n')
         for i in range(len(ha)):
             self.log.info(ha[i] + '   ' + hb[i])
 
+    def truncate_bno(self, coeff, occup, *args, **kwargs):
+        c_bath_a, c_rest_a = super().truncate_bno(coeff[0], occup[0], *args, **kwargs)
+        c_bath_b, c_rest_b = super().truncate_bno(coeff[1], occup[1], *args, **kwargs)
+        return (c_bath_a, c_bath_b), (c_rest_a, c_rest_b)
 
 class MP2_BNO_Bath(BNO_Bath):
 
     def __init__(self, *args, project_t2=False, **kwargs):
-        super().__init__(*args, **kwargs)
         self.project_t2 = project_t2
+        super().__init__(*args, **kwargs)
 
     def _make_t2(self, mo_energy, eris=None, cderi=None, cderi_neg=None, blksize=None):
         """Make T2 amplitudes"""
@@ -315,7 +307,7 @@ class MP2_BNO_Bath(BNO_Bath):
         cderi, cderi_neg = self.base.get_cderi(mo_coeff)
         return cderi, cderi_neg
 
-    def make_delta_dm1(self, kind, t2, actspace):
+    def make_delta_dm1(self, t2, actspace):
         """Delta MP2 density matrix"""
         norm = 1
         if not self.project_t2:
@@ -323,10 +315,10 @@ class MP2_BNO_Bath(BNO_Bath):
             # This is equivalent to:
             # do, dv = pyscf.mp.mp2._gamma1_intermediates(mp2, eris=eris)
             # do, dv = -2*do, 2*dv
-            if kind == 'occ':
+            if self.occtype == 'occupied':
                 dm = norm*(2*einsum('ikab,jkab->ij', t2, t2)
                            - einsum('ikab,kjab->ij', t2, t2))
-            else:
+            elif self.occtype == 'virtual':
                 dm = norm*(2*einsum('ijac,ijbc->ab', t2, t2)
                            - einsum('ijac,ijcb->ab', t2, t2))
             assert np.allclose(dm, dm.T)
@@ -335,14 +327,14 @@ class MP2_BNO_Bath(BNO_Bath):
         # Project one T-amplitude onto fragment
         self.log.debugv("Constructing DM from projected T2-amplitudes.")
         ovlp = self.fragment.base.get_ovlp()
-        if kind == 'occ':
+        if self.occtype == 'occupied':
             px = dot(actspace.c_active_vir.T, ovlp, self.dmet_bath.c_cluster_vir)
             t2x = einsum('ax,ijab->ijxb', px, t2)
             dm = norm*(2*einsum('ikab,jkab->ij', t2x, t2x)
                        - einsum('ikab,kjab->ij', t2x, t2x)
                      + 2*einsum('kiba,kjba->ij', t2x, t2x)
                        - einsum('kiba,jkba->ij', t2x, t2x))/2
-        else:
+        elif self.occtype == 'virtual':
             px = dot(actspace.c_active_occ.T, ovlp, self.dmet_bath.c_cluster_occ)
             t2x = einsum('ix,ijab->xjab', px, t2)
             dm = norm*(2*einsum('ijac,ijbc->ab', t2x, t2x)
@@ -353,14 +345,13 @@ class MP2_BNO_Bath(BNO_Bath):
         assert np.allclose(dm, dm.T)
         return dm
 
-    def make_bno_coeff(self, kind, eris=None):
+    def make_bno_coeff(self, eris=None):
         """Construct MP2 bath natural orbital coefficients and occupation numbers.
 
         This routine works for both for spin-restricted and unrestricted.
 
         Parameters
         ----------
-        kind: ['occ', 'vir']
         eris: mp2._ChemistERIs
 
         Returns
@@ -372,7 +363,7 @@ class MP2_BNO_Bath(BNO_Bath):
         """
         t_init = timer()
 
-        actspace_orig = self.get_active_space(kind)
+        actspace_orig = self.get_active_space()
         fock = self.fragment.base.get_fock_for_bath()
 
         # --- Canonicalization [optional]
@@ -414,21 +405,19 @@ class MP2_BNO_Bath(BNO_Bath):
         t2 = self._make_t2(mo_energy, eris=eris, cderi=cderi, cderi_neg=cderi_neg)
         t_amps = timer()-t0
 
-        dm = self.make_delta_dm1(kind, t2, actspace)
+        dm = self.make_delta_dm1(t2, actspace)
 
         # --- Undo canonicalization
-        if kind == 'occ' and r_occ is not None:
-            c_env = self.dmet_bath.c_env_occ
+        if self.occtype == 'occupied' and r_occ is not None:
             dm = self._undo_canonicalization(dm, r_occ)
-        elif kind == 'vir' and r_vir is not None:
-            c_env = self.dmet_bath.c_env_vir
+        elif self.occtype == 'virtual' and r_vir is not None:
             dm = self._undo_canonicalization(dm, r_vir)
         # --- Diagonalize environment-environment block
-        dm = self._dm_take_env(dm, kind)
+        dm = self._dm_take_env(dm)
         t0 = timer()
         r_bno, n_bno = self._diagonalize_dm(dm)
         t_diag = timer()-t0
-        c_bno = spinalg.dot(c_env, r_bno)
+        c_bno = spinalg.dot(self.c_env, r_bno)
         c_bno = fix_orbital_sign(c_bno)[0]
 
         self.log.timing("Time MP2 bath:  integrals= %s  amplitudes= %s  diagonal.= %s  total= %s",
@@ -531,17 +520,17 @@ class UMP2_BNO_Bath(MP2_BNO_Bath, BNO_Bath_UHF):
 
         return (t2aa, t2ab, t2bb)
 
-    def make_delta_dm1(self, kind, t2, actspace):
+    def make_delta_dm1(self, t2, actspace):
         taa, tab, tbb = t2
         if not self.project_t2:
             # Construct occupied-occupied DM
-            if kind == 'occ':
+            if self.occtype == 'occupied':
                 dma  = (einsum('imef,jmef->ij', taa.conj(), taa)/2
                       + einsum('imef,jmef->ij', tab.conj(), tab))
                 dmb  = (einsum('imef,jmef->ij', tbb.conj(), tbb)/2
                       + einsum('mief,mjef->ij', tab.conj(), tab))
             # Construct virtual-virtual DM
-            elif kind == 'vir':
+            elif self.occtype == 'virtual':
                 dma  = (einsum('mnae,mnbe->ba', taa.conj(), taa)/2
                       + einsum('mnae,mnbe->ba', tab.conj(), tab))
                 dmb  = (einsum('mnae,mnbe->ba', tbb.conj(), tbb)/2

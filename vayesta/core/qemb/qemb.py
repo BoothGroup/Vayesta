@@ -53,25 +53,39 @@ from .fragment import Fragment
 from .rdm import make_rdm1_demo_rhf
 from .rdm import make_rdm2_demo_rhf
 
+
+@dataclasses.dataclass
+class Options(OptionsBase):
+    store_eris: bool = True             # If True, ERIs will be stored in Fragment._eris
+    global_frag_chempot: float = None   # Global fragment chemical potential (e.g. for democratically partitioned DMs)
+    dm_with_frozen: bool = False        # Add frozen parts to cluster DMs
+    # --- Bath options
+    bath_options: dict = OptionsBase.dict_with_defaults(
+        # DMET bath
+        bathtype='dmet', dmet_threshold=1e-6,
+        # R2 bath
+        rcut=None, unit='Ang',
+        # MP2 bath
+        threshold=None, truncation='occupation', project_t2=False,
+        )
+    # --- Solver options
+    solver_options: dict = OptionsBase.dict_with_defaults(
+            # CCSD
+            solve_lambda=False)
+
 class Embedding:
 
-    # Shadow this in inherited methods:
+    # Shadow these in inherited methods:
     Fragment = Fragment
+    Options = Options
 
+    # Deprecated:
     is_rhf = True
     is_uhf = False
+    # Use instead:
+    spintype = 'restricted'
 
-    @dataclasses.dataclass
-    class Options(OptionsBase):
-        dmet_threshold: float = 1e-6
-        #recalc_vhf: bool = True
-        solver_options: dict = dataclasses.field(default_factory=dict)
-        wf_partition: str = 'first-occ'     # ['first-occ', 'first-vir', 'democratic']
-        store_eris: bool = True             # If True, ERIs will be stored in Fragment._eris
-        global_frag_chempot: float = None   # Global fragment chemical potential (e.g. for democratically partitioned DMs)
-        dm_with_frozen: bool = False        # Add frozen parts to cluster DMs
-
-    def __init__(self, mf, options=None, log=None, overwrite=None, **kwargs):
+    def __init__(self, mf, log=None, overwrite=None, **kwargs):
         """Abstract base class for quantum embedding methods.
 
         Parameters
@@ -124,11 +138,8 @@ class Embedding:
 
             # 2) Options
             # ----------
-            if options is None:
-                options = self.Options(**kwargs)
-            else:
-                options = options.replace(kwargs)
-            self.opts = options
+            self.opts = self.Options()
+            self.opts.replace(**kwargs)
 
             # 3) Overwrite methods/attributes
             # -------------------------------
