@@ -11,8 +11,8 @@ import pyscf.pbc
 import pyscf.pbc.cc
 
 from vayesta.core.util import *
+from vayesta.core.types import Orbitals
 from vayesta.core.types import WaveFunction
-from vayesta.core.types import SpatialOrbitals
 from vayesta.core.types import RCCSD_WaveFunction
 from . import coupling
 from .solver import ClusterSolver
@@ -44,7 +44,7 @@ class CCSD_Solver(ClusterSolver):
         super().__init__(*args, **kwargs)
 
         solver_cls = self.get_solver_class()
-        self.log.debugv("CCSD PySCF class= %r" % solver_cls)
+        self.log.debugv("PySCF solver class= %r" % solver_cls)
         frozen = self.cluster.get_frozen_indices()
         mo_coeff = self.cluster.c_total
         solver = solver_cls(self.mf, mo_coeff=mo_coeff, mo_occ=self.mf.mo_occ, frozen=frozen)
@@ -53,7 +53,6 @@ class CCSD_Solver(ClusterSolver):
         if self.opts.conv_tol is not None: solver.conv_tol = self.opts.conv_tol
         if self.opts.conv_tol_normt is not None: solver.conv_tol_normt = self.opts.conv_tol_normt
         self.solver = solver
-
         self.eris = None
 
     def get_solver_class(self):
@@ -138,7 +137,7 @@ class CCSD_Solver(ClusterSolver):
 
     def get_eris(self):
         self.log.debugv("Getting ERIs for type(self.solver)= %r", type(self.solver))
-        with log_time(self.log.timing, "Time for AO->MO transformation: %s"):
+        with log_time(self.log.timing, "Time for 2e-integral transformation: %s"):
             self.eris = self.base.get_eris_object(self.solver)
         return self.eris
 
@@ -251,7 +250,7 @@ class CCSD_Solver(ClusterSolver):
         self.solver.callback = coupling.couple_ccsd_iterations(self, fragments)
 
     def _debug_exact_wf(self, wf):
-        mo = SpatialOrbitals(self.cluster.c_active, occ=self.cluster.nocc_active)
+        mo = Orbitals(self.cluster.c_active, occ=self.cluster.nocc_active)
         # Project onto cluster:
         ovlp = self.fragment.base.get_ovlp()
         ro = dot(wf.mo.coeff_occ.T, ovlp, mo.coeff_occ)
@@ -263,9 +262,18 @@ class CCSD_Solver(ClusterSolver):
             l2 = einsum('Ii,Jj,IJAB,Aa,Bb->ijab', ro, ro, wf.l2, rv, rv)
         else:
             l1 = l2 = None
-        wf = RCCSD_WaveFunction(mo, t1, t2, l1=l1, l2=l2)
-        self.wf = wf
+        self.wf = RCCSD_WaveFunction(mo, t1, t2, l1=l1, l2=l2)
         self.converged = True
+
+    def _debug_random_wf(self):
+        mo = Orbitals(self.cluster.c_active, occ=self.cluster.nocc_active)
+        t1 = np.random.rand(mo.nocc, mo.nvir)
+        l1 = np.random.rand(mo.nocc, mo.nvir)
+        t2 = np.random.rand(mo.nocc, mo.nocc, mo.nvir, mo.nvir)
+        l2 = np.random.rand(mo.nocc, mo.nocc, mo.nvir, mo.nvir)
+        self.wf = RCCSD_WaveFunction(mo, t1, t2, l1=l1, l2=l2)
+        self.converged = True
+
 
 class UCCSD_Solver(CCSD_Solver):
 

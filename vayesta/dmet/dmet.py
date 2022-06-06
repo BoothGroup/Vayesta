@@ -5,7 +5,7 @@ import numpy as np
 import scipy
 import scipy.linalg
 
-from vayesta.core import Embedding
+from vayesta.core.qemb import Embedding
 from vayesta.core.util import *
 from .fragment import VALID_SOLVERS, DMETFragment, DMETFragmentExit
 
@@ -14,45 +14,31 @@ from .updates import MixUpdate, DIISUpdate
 
 
 @dataclasses.dataclass
+class Options(Embedding.Options):
+    """Options for DMET calculations."""
+    iao_minao: str = 'auto'  # Minimal basis for IAOs
+    dm_with_frozen: bool = False  # Add frozen parts to cluster DMs
+    # -- Self-consistency
+    maxiter: int = 30
+    charge_consistent: bool = True
+    max_elec_err: float = 1e-4
+    conv_tol: float = 1e-6
+    diis: bool = True
+    mixing_param: float = 0.5
+    mixing_variable: str = "hl rdm"
+    oneshot: bool = False
+
+@dataclasses.dataclass
 class DMETResults:
     cluster_sizes: np.ndarray = None
     e_corr: float = None
 
-
 class DMET(Embedding):
 
-    @dataclasses.dataclass
-    class Options(Embedding.Options):
-        """Options for EWF calculations."""
-        # --- Fragment settings
-        # fragment_type: str = 'IAO'
-        localize_fragment: bool = False  # Perform numerical localization on fragment orbitals
-        iao_minao: str = 'auto'  # Minimal basis for IAOs
-        # --- Bath settings
-        bath_type: str = 'dmet'
-        dmet_threshold: float = 1e-6
-        orthogonal_mo_tol: float = False
-        # --- Solver settings
-        solver_options: dict = dataclasses.field(default_factory=dict)
-        dm_with_frozen: bool = False  # Add frozen parts to cluster DMs
-        # -- Self-consistency
-        maxiter: int = 30
-        sc_mode: int = 0
-        sc_energy_tol: float = 1e-6
-        charge_consistent: bool = True
-        max_elec_err: float = 1e-4
-        conv_tol: float = 1e-6
-        diis: bool = True
-        mixing_param: float = 0.5
-        mixing_variable: str = "hl rdm"
-        oneshot: bool = False
-        # --- Other
-        energy_partitioning: str = 'first-occ'
-        strict: bool = False  # Stop if cluster not converged
-
     Fragment = DMETFragment
+    Options = Options
 
-    def __init__(self, mf, bno_threshold=np.inf, solver='CCSD', options=None, log=None, **kwargs):
+    def __init__(self, mf, solver='CCSD', log=None, **kwargs):
         """Density matrix embedding theory (DMET) calculation object.
 
         Parameters
@@ -66,18 +52,14 @@ class DMET(Embedding):
         if kwargs.get("oneshot", False):
             kwargs["maxiter"] = 1
 
-        super().__init__(mf, options=options, log=log, **kwargs)
+        super().__init__(mf, log=log, **kwargs)
 
         self.log.info("Parameters of %s:", self.__class__.__name__)
         self.log.info(break_into_lines(str(self.opts), newline='\n    '))
 
         # --- Check input
         if not mf.converged:
-            if self.opts.strict:
-                raise RuntimeError("Mean-field calculation not converged.")
-            else:
-                self.log.error("Mean-field calculation not converged.")
-        self.bno_threshold = bno_threshold
+            self.log.error("Mean-field calculation not converged.")
         self.check_solver(solver)
         self.solver = solver
 
@@ -99,12 +81,12 @@ class DMET(Embedding):
             raise ValueError("Unknown solver: %s" % solver)
 
     def __repr__(self):
-        keys = ['mf', 'bno_threshold', 'solver']
+        keys = ['mf', 'solver']
         fmt = ('%s(' + len(keys) * '%s: %r, ')[:-2] + ')'
         values = [self.__dict__[k] for k in keys]
         return fmt % (self.__class__.__name__, *[x for y in zip(keys, values) for x in y])
 
-    def kernel(self, bno_threshold=None):
+    def kernel(self):
         """Run DMET calculation.
         """
         t_start = timer()
@@ -114,8 +96,7 @@ class DMET(Embedding):
 
         maxiter = self.opts.maxiter
         # View this as a single number for now.
-        bno_thr = bno_threshold or self.bno_threshold
-        if bno_thr < np.inf and maxiter > 1:
+        if self.opts.bath_options['bathtype'] == 'mp2' and maxiter > 1:
             raise NotImplementedError("MP2 bath calculation is currently ignoring the correlation potential, so does"
                                       " not work properly for self-consistent calculations.")
         # rdm = self.mf.make_rdm1()
@@ -157,7 +138,7 @@ class DMET(Embedding):
                 nelec_mf = sum(nelec_mf)
 
             def electron_err(cpt):
-                err = self.calc_electron_number_defect(cpt, bno_thr, nelec_mf, sym_parents, nsym)
+                err = self.calc_electron_number_defect(cpt, nelec_mf, sym_parents, nsym)
                 return err
 
             err = electron_err(cpt)
@@ -238,7 +219,7 @@ class DMET(Embedding):
         self.log.info("Total wall time:  %s", time_string(timer() - t_start))
         self.log.info("All done.")
 
-    def calc_electron_number_defect(self, chempot, bno_thr, nelec_target, parent_fragments, nsym, construct_bath=True):
+    def calc_electron_number_defect(self, chempot, nelec_target, parent_fragments, nsym, construct_bath=True):
         self.log.info("Running chemical potential={:8.6e}".format(chempot))
 
         nelec_hl = 0.0
@@ -250,7 +231,7 @@ class DMET(Embedding):
             self.log.changeIndentLevel(1)
 
             try:
-                result = frag.kernel(bno_threshold=bno_thr, construct_bath=construct_bath, chempot=chempot)
+                result = frag.kernel(construct_bath=construct_bath, chempot=chempot)
             except DMETFragmentExit as e:
                 exit = True
                 self.log.info("Exiting %s", frag)

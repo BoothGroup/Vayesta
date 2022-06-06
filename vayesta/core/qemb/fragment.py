@@ -1,42 +1,57 @@
+# --- Standard library
 import dataclasses
 import itertools
 import copy
 import os.path
-
+# --- External
 import numpy as np
 import scipy
 import scipy.linalg
-
 import pyscf
 import pyscf.lib
 import pyscf.lo
-
+# --- Internal
 from vayesta.core.util import *
+from vayesta.core.types import Cluster
 from vayesta.core.symmetry import SymmetryIdentity
 from vayesta.core.symmetry import SymmetryTranslation
 import vayesta.core.ao2mo
 import vayesta.core.ao2mo.helper
-
-from vayesta.misc.cubefile import CubeFile
 from vayesta.core.types import WaveFunction
+# Bath
+from vayesta.core.bath import BNO_Threshold
+from vayesta.core.bath import DMET_Bath
+from vayesta.core.bath import EwDMET_Bath
+from vayesta.core.bath import MP2_Bath
+from vayesta.core.bath import Full_Bath
+from vayesta.core.bath import R2_Bath
+# Other
+from vayesta.misc.cubefile import CubeFile
 from vayesta.mpi import mpi
+
 
 # Get MPI rank of fragment
 get_fragment_mpi_rank = lambda *args : args[0].mpi_rank
 
+@dataclasses.dataclass
+class Options(OptionsBase):
+    # Inherited from Embedding
+    # ------------------------
+    # --- Bath options
+    bath_options: dict = None
+    # --- Solver options
+    solver_options: dict = None
+    # --- Other
+    store_eris: bool = None     # If True, ERIs will be stored in Fragment._eris
+    dm_with_frozen: bool = None # TODO: is still used?
+    # Fragment specific
+    # -----------------
+    coupled_fragments: list = dataclasses.field(default_factory=list)
+    sym_factor: float = 1.0
 
 class Fragment:
 
-    @dataclasses.dataclass
-    class Options(OptionsBase):
-        dmet_threshold: float = NotSet
-        solver_options: dict = NotSet
-        coupled_fragments: list = dataclasses.field(default_factory=list)
-        # Symmetry
-        sym_factor: float = 1.0
-        wf_partition: str = NotSet  # ['first-occ', 'first-vir', 'democratic']
-        store_eris: bool = NotSet   # If True, ERIs will be stored in Fragment._eris
-        dm_with_frozen: bool = NotSet
+    Options = Options
 
     @dataclasses.dataclass
     class Results:
@@ -47,95 +62,13 @@ class Fragment:
         # --- Wave-function
         wf: WaveFunction = None     # WaveFunction object (MP2, CCSD,...)
         pwf: WaveFunction = None    # Fragment-projected wave function
-        # --- Density-matrices
-        #dm1: np.ndarray = None      # One-particle reduced density matrix (dm1[i,j] = <i^+ j>
-        #dm2: np.ndarray = None      # Two-particle reduced density matrix (dm2[i,j,k,l] = <i^+ k^+ l j>)
 
-        # OLD / Deprecated:
-        @property
-        def c0(self):
-            return self.wf.c0
-        @property
-        def c1(self):
-            return self.wf.c1
-        @property
-        def c2(self):
-            return self.wf.c2
-        @property
-        def t1(self):
-            return self.wf.t1
-        @property
-        def t2(self):
-            return self.wf.t2
-        @property
-        def l1(self):
-            return self.wf.l1
-        @property
-        def l2(self):
-            return self.wf.l2
-        @property
-        def c1x(self):
-            return self.pwf.c1
-        @property
-        def c2x(self):
-            return self.pwf.c2
-        @property
-        def t1x(self):
-            return self.pwf.t1
-        @property
-        def t2x(self):
-            return self.pwf.t2
-        @property
-        def l1x(self):
-            return self.pwf.l1
-        @property
-        def l2x(self):
-            return self.pwf.l2
-
-        def get_t1(self, default=None):
-            if self.t1 is not None:
-                return self.t1
-            if self.c1 is not None:
-                return self.c1 / self.c0
-            return default
-
-        def get_t2(self, default=None):
-            if self.t2 is not None:
-                return self.t2
-            if self.c0 is not None and self.c1 is not None and self.c2 is not None:
-                c1 = self.c1/self.c0
-                return self.c2/self.c0 - einsum('ia,jb->ijab', c1, c1)
-            return default
-
-        def get_c1(self, intermed_norm=False, default=None):
-            if self.c1 is not None:
-                norm = 1/self.c0 if intermed_norm else 1
-                return norm * self.c1
-            if self.t1 is not None:
-                if not intermed_norm:
-                    raise ValueError("Cannot deduce C1 amplitudes from T1: normalization not known.")
-                return self.t1
-            return default
-
-        def get_c2(self, intermed_norm=False, default=None):
-            if self.c2 is not None:
-                norm = 1/self.c0 if intermed_norm else 1
-                return norm * self.c2
-            if self.t1 is not None and self.t2 is not None:
-                if not intermed_norm:
-                    raise ValueError("Cannot deduce C2 amplitudes from T1,T2: normalization not known.")
-                return self.t2 + einsum('ia,jb->ijab', self.t1, self.t1)
-            return default
-
-    class Exit(Exception):
-        """Raise for controlled early exit."""
-        pass
 
     def __init__(self, base, fid, name, c_frag, c_env, #fragment_type,
             atoms=None, aos=None,
             sym_parent=None, sym_op=None,
             mpi_rank=0,
-            log=None, options=None, **kwargs):
+            log=None, **kwargs):
         """Abstract base class for quantum embedding fragments.
 
         The fragment may keep track of associated atoms or atomic orbitals, using
@@ -202,15 +135,12 @@ class Fragment:
         self.log = log or base.log
         self.id = fid
         self.name = name
+        self.base = base
 
         # Options
-        self.base = base
-        if options is None:
-            options = self.Options(**kwargs)
-        else:
-            options = options.replace(kwargs)
-        options = options.replace(self.base.opts, select=NotSet)
-        self.opts = options
+        self.opts = self.Options()
+        self.opts.update(**self.base.opts.asdict())
+        self.opts.replace(**kwargs)
 
         self.c_frag = c_frag
         self.c_env = c_env
@@ -377,7 +307,9 @@ class Fragment:
     def reset(self, keep_bath=False):
         self.log.debugv("Resetting %s", self)
         if not keep_bath:
-            self.bath = None
+            self._dmet_bath = None
+            self._bath_factory_occ = None
+            self._bath_factory_vir = None
         self._cluster = None
         self._eris = None
         self._results = self.Results(fid=self.id)
@@ -456,6 +388,8 @@ class Fragment:
 
     def canonicalize_mo(self, *mo_coeff, fock=None, eigvals=False, sign_convention=True):
         """Diagonalize Fock matrix within subspace.
+
+        TODO: move to Embedding class
 
         Parameters
         ----------
@@ -595,16 +529,12 @@ class Fragment:
                 self.log.critical("Translation (%d,%d,%d) of fragment %s not orthogonal to original fragment (overlap= %.3e)!",
                             dx, dy, dz, self.name, fragovlp)
                 raise RuntimeError("Overlapping fragment spaces.")
-            # Deprecated:
-            if hasattr(self.base, 'add_fragment'):  # pragma: no cover
-                frag = self.base.add_fragment(name, c_frag_t, c_env_t, options=self.opts,
-                        sym_parent=self, sym_op=sym_op)
-            else:
-                frag_id = self.base.register.get_next_id()
-                frag = self.base.Fragment(self.base, frag_id, name, c_frag_t, c_env_t, options=self.opts,
-                        sym_parent=self, sym_op=sym_op, mpi_rank=self.mpi_rank)
-                self.base.fragments.append(frag)
-
+            # Add fragment
+            frag_id = self.base.register.get_next_id()
+            frag = self.base.Fragment(self.base, frag_id, name, c_frag_t, c_env_t,
+                    sym_parent=self, sym_op=sym_op, mpi_rank=self.mpi_rank,
+                    **self.opts.asdict())
+            self.base.fragments.append(frag)
             # Check symmetry
             charge_err = self.get_tsymmetry_error(frag, dm1=dm1)
             if charge_err > charge_tol:
@@ -672,6 +602,105 @@ class Fragment:
     #            continue
     #        else:
     #            self.log.debugv("Mean-field T-symmetry error between %s and %s = %.3e", self.name, frag.name, err)
+
+    # Bath and cluster
+    # ----------------
+
+    def make_bath(self):
+
+        # --- Bath options
+        bath_opts = self.opts.bath_options
+        self.log.debug("bath_options: %s", break_into_lines(str(bath_opts)))
+
+        # --- DMET bath
+        dmet = DMET_Bath(self, dmet_threshold=bath_opts['dmet_threshold'])
+        dmet.kernel()
+        self._dmet_bath = dmet
+
+        # --- Additional bath
+        def get_bath(occtype):
+            otype = occtype[:3]
+            assert otype in ('occ', 'vir')
+            btype = (bath_opts.get('bathtype_%s' % otype, False) or bath_opts['bathtype'])
+            if btype is None:
+                self.log.warning("bathtype=None is deprecated; use bathtype='dmet'.")
+                btype = 'dmet'
+            if btype == 'all':
+                self.log.warning("bathtype='all' is deprecated; use bathtype='full'.")
+                btype = 'full'
+            if btype == 'mp2-bno':
+                self.log.warning("bathtype='mp2-bno' is deprecated; use bathtype='mp2'.")
+                btype = 'mp2'
+            # DMET bath only
+            if btype == 'dmet':
+                return None
+            # Full bath (for debugging)
+            if btype == 'full':
+                return Full_Bath(self, dmet_bath=dmet, occtype=occtype)
+            # Spatially close orbitals
+            if btype == 'r2':
+                return R2_Bath(self, dmet, occtype=occtype)
+            # MP2 bath natural orbitals
+            if btype == 'mp2':
+                project_t2 = bath_opts['project_t2']
+                return MP2_Bath(self, ref_bath=dmet, occtype=occtype, project_t2=project_t2)
+            raise NotImplementedError('bathtype= %s' % btype)
+        self._bath_factory_occ = get_bath(occtype='occupied')
+        self._bath_factory_vir = get_bath(occtype='virtual')
+
+    def make_cluster(self):
+
+        bath_opts = self.opts.bath_options
+
+        def get_opt(key, occtype):
+            return (bath_opts.get('%s_%s' % (key, occtype[:3]), False) or bath_opts[key])
+
+        def get_orbitals(occtype):
+            factory = getattr(self, '_bath_factory_%s' % occtype[:3])
+            btype = get_opt('bathtype', occtype)
+            if btype == 'dmet':
+                c_bath = None
+                c_frozen = getattr(self._dmet_bath, 'c_env_%s' % occtype[:3])
+            if btype == 'full':
+                c_bath, c_frozen = factory.get_bath()
+            if btype == 'r2':
+                rcut = get_opt('rcut', occtype)
+                unit = get_opt('unit', occtype)
+                c_bath, c_frozen = factory.get_bath(rcut=rcut)
+            if btype == 'mp2':
+                threshold = get_opt('threshold', occtype)
+                truncation = get_opt('truncation', occtype)
+                bno_threshold = BNO_Threshold(truncation, threshold)
+                c_bath, c_frozen = factory.get_bath(bno_threshold)
+            return c_bath, c_frozen
+
+        c_bath_occ, c_frozen_occ = get_orbitals('occupied')
+        c_bath_vir, c_frozen_vir = get_orbitals('virtual')
+
+        # Canonicalize orbitals
+        c_active_occ = self.canonicalize_mo(self._dmet_bath.c_cluster_occ, c_bath_occ)[0]
+        c_active_vir = self.canonicalize_mo(self._dmet_bath.c_cluster_vir, c_bath_vir)[0]
+        cluster = Cluster.from_coeffs(c_active_occ, c_active_vir, c_frozen_occ, c_frozen_vir)
+
+        # Check occupations
+        def check_occup(mo_coeff, expected):
+            occup = self.get_mo_occupation(mo_coeff)
+            # RHF
+            atol = self.opts.bath_options['dmet_threshold']
+            if np.ndim(occup[0]) == 0:
+                assert np.allclose(occup, 2*expected, rtol=0, atol=2*atol)
+            else:
+                assert np.allclose(occup[0], expected, rtol=0, atol=atol)
+                assert np.allclose(occup[1], expected, rtol=0, atol=atol)
+        check_occup(cluster.c_total_occ, 1)
+        check_occup(cluster.c_total_vir, 0)
+
+        self.log.info('Orbitals for %s', self)
+        self.log.info('-------------%s', len(str(self))*'-')
+        self.log.info(cluster.repr_size().replace('%', '%%'))
+
+        self.cluster = cluster
+        return cluster
 
     # --- Results
     # ===========

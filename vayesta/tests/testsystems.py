@@ -23,7 +23,7 @@ from pyscf.pbc.scf.addons import kconj_symmetry_
 import vayesta
 from vayesta.misc import molecules
 from vayesta.misc import solids
-#from vayesta.core import fold_scf
+#from vayesta.core.foldscf import fold_scf
 
 
 class TestMolecule:

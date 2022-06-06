@@ -171,8 +171,8 @@ def couple_ccsd_iterations(solver, fragments):
     # F(x): Fragment orbitals of fragment x
 
     ovlp = solver.base.get_ovlp()
-    c_occ_x = solver.cluster.c_active_occ
-    c_vir_x = solver.cluster.c_active_vir
+    c_occ_x = np.asarray(solver.cluster.c_active_occ, order='C')
+    c_vir_x = np.asarray(solver.cluster.c_active_vir, order='C')
     p_occ = {}
     r_occ = {}
     r_vir = {}
@@ -192,7 +192,7 @@ def couple_ccsd_iterations(solver, fragments):
         cc = kwargs['mycc']
         t1, t2 = kwargs['t1new'], kwargs['t2new']
         cc.force_iter = True
-        cc.force_exit = bool(mpi.world.allreduce(int(cc.conv_flag), op=mpi.op.prod))
+        cc.force_exit = bool(mpi.world.allreduce(int(cc.conv_flag), op=mpi.MPI.PROD))
         conv = mpi.world.gather(int(cc.conv_flag), root=0)
 
         rma = RMA_Dict.from_dict(mpi, {(mpi.rank, 't1'): t1, (mpi.rank, 't2'): t2})

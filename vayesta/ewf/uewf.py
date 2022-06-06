@@ -1,6 +1,6 @@
 import numpy as np
 
-from vayesta.core import UEmbedding
+from vayesta.core.qemb import UEmbedding
 from vayesta.core.util import *
 
 from vayesta.ewf import REWF
@@ -23,33 +23,6 @@ from .icmp2 import get_intercluster_mp2_energy_uhf
 class UEWF(REWF, UEmbedding):
 
     Fragment = Fragment
-
-    def get_init_mo_coeff(self, mo_coeff=None):
-        """Orthogonalize insufficiently orthogonal MOs.
-
-        (For example as a result of k2gamma conversion with low cell.precision)
-        """
-        if mo_coeff is None: mo_coeff = self.mo_coeff
-        c = mo_coeff.copy()
-        ovlp = self.get_ovlp()
-        assert np.all(c.imag == 0), "max|Im(C)|= %.2e" % abs(c.imag).max()
-
-        for s, spin in enumerate(('alpha', 'beta')):
-            err = abs(dot(c[s].T, ovlp, c[s]) - np.eye(c[s].shape[-1])).max()
-            if err > 1e-5:
-                self.log.error("Orthogonality error of %s-MOs= %.2e !!!", spin, err)
-            else:
-                self.log.debug("Orthogonality error of %s-MOs= %.2e", spin, err)
-        if self.opts.orthogonal_mo_tol and err > self.opts.orthogonal_mo_tol:
-            raise NotImplementedError()
-            #t0 = timer()
-            #self.log.info("Orthogonalizing orbitals...")
-            #c_orth = helper.orthogonalize_mo(c, ovlp)
-            #change = abs(einsum('ai,ab,bi->i', c_orth, ovlp, c)-1)
-            #self.log.info("Max. orbital change= %.2e%s", change.max(), " (!!!)" if change.max() > 1e-4 else "")
-            #self.log.timing("Time for orbital orthogonalization: %s", time_string(timer()-t0))
-            #c = c_orth
-        return c
 
     # --- CC Amplitudes
     # -----------------

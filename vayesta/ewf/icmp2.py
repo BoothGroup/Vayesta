@@ -95,16 +95,26 @@ def get_intercluster_mp2_energy_rhf(emb, bno_threshold_occ=None, bno_threshold_v
             for x in emb.get_fragments(mpi_rank=mpi.rank, sym_parent=None):
                 # Occupied orbitals:
                 if bno_threshold_occ is None:
-                    c_occ = x.bath.dmet_bath.c_cluster_occ
+                    c_occ = x._dmet_bath.c_cluster_occ
                 else:
-                    c_bath_occ = x.bath.get_occupied_bath(bno_threshold=bno_threshold_occ, verbose=False)[0]
-                    c_occ = x.canonicalize_mo(x.bath.c_cluster_occ, c_bath_occ)[0]
+                    if x._bath_factory_occ is not None:
+                        bath = x._bath_factory_occ
+                        c_bath_occ = bath.get_bath(bno_threshold=bno_threshold_occ, verbose=False)[0]
+                        c_occ = x.canonicalize_mo(bath.c_cluster_occ, c_bath_occ)[0]
+                    else:
+                        c_bath_occ = x.bath.get_occupied_bath(bno_threshold=bno_threshold_occ, verbose=False)[0]
+                        c_occ = x.canonicalize_mo(x.bath.c_cluster_occ, c_bath_occ)[0]
                 # Virtual orbitals:
                 if bno_threshold_vir is None:
-                    c_vir = x.bath.dmet_bath.c_cluster_vir
+                    c_vir = x._dmet_bath.c_cluster_vir
                 else:
-                    c_bath_vir = x.bath.get_virtual_bath(bno_threshold=bno_threshold_vir, verbose=False)[0]
-                    c_vir = x.canonicalize_mo(x.bath.c_cluster_vir, c_bath_vir)[0]
+                    if x._bath_factory_vir is not None:
+                        bath = x._bath_factory_vir
+                        c_bath_vir = bath.get_bath(bno_threshold=bno_threshold_vir, verbose=False)[0]
+                        c_vir = x.canonicalize_mo(bath.c_cluster_vir, c_bath_vir)[0]
+                    else:
+                        c_bath_vir = x.bath.get_virtual_bath(bno_threshold=bno_threshold_vir, verbose=False)[0]
+                        c_vir = x.canonicalize_mo(x.bath.c_cluster_vir, c_bath_vir)[0]
                 # Three-center integrals:
                 cderi, cderi_neg = emb.get_cderi((c_occ, c_vir))   # TODO: Reuse BNO
                 # Store required quantities:
@@ -271,11 +281,12 @@ def get_intercluster_mp2_energy_uhf(emb, bno_threshold=1e-9, direct=True, exchan
             coll = {}
             # Loop over symmetry unique fragments
             for x in emb.get_fragments(mpi_rank=mpi.rank, sym_parent=None):
-                c_occ = x.bath.dmet_bath.c_cluster_occ
+                #c_occ = x.bath.dmet_bath.c_cluster_occ
+                c_occ = x._dmet_bath.c_cluster_occ
                 coll[x.id, 'p_frag_a'] = dot(x.c_proj[0].T, ovlp, c_occ[0])
                 coll[x.id, 'p_frag_b'] = dot(x.c_proj[1].T, ovlp, c_occ[1])
-                c_bath_vir = x.bath.get_virtual_bath(bno_threshold=bno_threshold, verbose=False)[0]
-                c_vir = x.canonicalize_mo(x.bath.c_cluster_vir, c_bath_vir)[0]
+                c_bath_vir = x._bath_factory_vir.get_bath(bno_threshold=bno_threshold, verbose=False)[0]
+                c_vir = x.canonicalize_mo(x._dmet_bath.c_cluster_vir, c_bath_vir)[0]
                 coll[x.id, 'c_vir_a'], coll[x.id, 'c_vir_b'] = c_vir
                 coll[x.id, 'e_occ_a'], coll[x.id, 'e_occ_b'] = x.get_fragment_mo_energy(c_occ)
                 coll[x.id, 'e_vir_a'], coll[x.id, 'e_vir_b'] = x.get_fragment_mo_energy(c_vir)

@@ -1,9 +1,9 @@
-"""Fragment bath base class."""
+"""Bath base class."""
 
 import numpy as np
 
 
-class FragmentBath:
+class Bath:
 
     def __init__(self, fragment):
         self.fragment = fragment

@@ -16,7 +16,8 @@ mf = pyscf.scf.UHF(mol)
 mf.kernel()
 
 # Embedded CCSD:
-emb = vayesta.ewf.EWF(mf, bno_threshold=1e-4, solve_lambda=True)
+emb = vayesta.ewf.EWF(mf, bath_options=dict(threshold=1e-4),
+        solver_options=dict(solve_lambda=True))
 emb.kernel()
 
 # Population analysis of mean-field density-matrix:

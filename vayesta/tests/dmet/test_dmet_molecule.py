@@ -1,6 +1,5 @@
 import unittest
 import numpy as np
-
 from vayesta import dmet
 from vayesta.tests.cache import moles
 
@@ -20,17 +19,11 @@ class MoleculeDMETTest(unittest.TestCase):
         """
         self.assertAlmostEqual(emb.e_tot, known_values['e_tot'], self.PLACES_ENERGY)
 
-    def test_h6_sto6g_FCI_IAO_cc(self):
+    def test_cc(self):
         """Test H6 STO-6G with FCI solver, IAO fragmentation and charge consistency.
         """
-
-        emb = dmet.DMET(
-                moles['h6_sto6g']['rhf'],
-                solver='FCI',
-                charge_consistent=True,
-                bath_type='dmet',
-                conv_tol=self.CONV_TOL,
-        )
+        emb = dmet.DMET(moles['h6_sto6g']['rhf'], solver='FCI', charge_consistent=True,
+                bath_options=dict(bathtype='dmet'), conv_tol=self.CONV_TOL)
         with emb.iao_fragmentation() as f:
             f.add_atomic_fragment([0, 1])
             f.add_atomic_fragment([2, 3])
@@ -42,17 +35,11 @@ class MoleculeDMETTest(unittest.TestCase):
         self._test_converged(emb)
         self._test_energy(emb, known_values)
 
-    def test_h6_sto6g_FCI_IAO_nocc(self):
+    def test_nocc(self):
         """Test H6 STO-6G with FCI solver, IAO fragmentation and no charge consistency.
         """
-
-        emb = dmet.DMET(
-                moles['h6_sto6g']['rhf'],
-                solver='FCI',
-                charge_consistent=False,
-                bath_type='dmet',
-                conv_tol=self.CONV_TOL,
-        )
+        emb = dmet.DMET(moles['h6_sto6g']['rhf'], solver='FCI', charge_consistent=False,
+                bath_options=dict(bathtype='dmet'), conv_tol=self.CONV_TOL)
         with emb.iao_fragmentation() as f:
             f.add_atomic_fragment([0, 1])
             f.add_atomic_fragment([2, 3])
@@ -64,40 +51,11 @@ class MoleculeDMETTest(unittest.TestCase):
         self._test_converged(emb)
         self._test_energy(emb, known_values)
 
-    def test_h6_sto6g_FCI_IAO_all(self):
-        """Test H6 STO-6G with FCI solver, IAO fragmentation and complete bath.
+    def test_nocc_ccsd(self):
+        """Test H6 STO-6G with FCI solver, IAO fragmentation and no charge consistency.
         """
-
-        emb = dmet.DMET(
-                moles['h6_sto6g']['rhf'],
-                solver='FCI',
-                charge_consistent=False,
-                bath_type='full',
-                conv_tol=self.CONV_TOL,
-        )
-        with emb.iao_fragmentation() as f:
-            f.add_atomic_fragment([0, 1])
-            f.add_atomic_fragment([2, 3])
-            f.add_atomic_fragment([4, 5])
-        emb.kernel()
-
-        known_values = {'e_tot': -3.2587710893946102}
-
-        self._test_converged(emb)
-        self._test_energy(emb, known_values)
-
-    def test_h6_sto6g_FCI_IAO_BNO(self):
-        """Test H6 STO-6G with FCI solver, IAO fragmentation and complete BNO bath.
-        """
-
-        emb = dmet.DMET(
-                moles['h6_sto6g']['rhf'],
-                solver='CCSD',
-                charge_consistent=False,
-                bath_type='MP2-BNO',
-                bno_threshold=np.inf,
-                conv_tol=self.CONV_TOL,
-        )
+        emb = dmet.DMET(moles['h6_sto6g']['rhf'], solver='CCSD', charge_consistent=False,
+                bath_options=dict(bathtype='dmet'), conv_tol=self.CONV_TOL)
         with emb.iao_fragmentation() as f:
             f.add_atomic_fragment([0, 1])
             f.add_atomic_fragment([2, 3])
@@ -105,6 +63,23 @@ class MoleculeDMETTest(unittest.TestCase):
         emb.kernel()
 
         known_values = {'e_tot': -3.2593387676678667}
+
+        self._test_converged(emb)
+        self._test_energy(emb, known_values)
+
+
+    def test_full_bath(self):
+        """Test H6 STO-6G with FCI solver, IAO fragmentation and complete bath.
+        """
+        emb = dmet.DMET(moles['h6_sto6g']['rhf'], solver='FCI', charge_consistent=False,
+                bath_options=dict(bathtype='full'), conv_tol=self.CONV_TOL)
+        with emb.iao_fragmentation() as f:
+            f.add_atomic_fragment([0, 1])
+            f.add_atomic_fragment([2, 3])
+            f.add_atomic_fragment([4, 5])
+        emb.kernel()
+
+        known_values = {'e_tot': -3.2587710893946102}
 
         self._test_converged(emb)
         self._test_energy(emb, known_values)

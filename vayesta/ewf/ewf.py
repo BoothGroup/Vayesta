@@ -6,7 +6,7 @@ import numpy as np
 # --- Internal
 import vayesta
 from vayesta.core.util import *
-from vayesta.core import Embedding
+from vayesta.core.qemb import Embedding
 from vayesta.core.fragmentation import SAO_Fragmentation
 from vayesta.core.fragmentation import IAO_Fragmentation
 from vayesta.core.fragmentation import IAOPAO_Fragmentation
@@ -23,62 +23,44 @@ from .rdm import make_rdm1_ccsd_proj_lambda
 from .rdm import make_rdm2_ccsd_proj_lambda
 from .icmp2 import get_intercluster_mp2_energy_rhf
 
-timer = mpi.timer
-
 
 @dataclasses.dataclass
-class EWFResults:
-    bno_threshold: float = None
-    cluster_sizes: np.ndarray = None
-    e_corr: float = None
+class Options(Embedding.Options):
+    """Options for EWF calculations."""
+    # --- Fragment settings
+    iao_minao : str = 'auto'            # Minimal basis for IAOs
+    # --- Bath settings
+    bath_options: dict = OptionsBase.dict_with_defaults(
+            # Default values from Embedding.Options, obtained by calling default_factory:
+            **{**(Embedding.Options.get_default_factory('bath_options')()),
+            # Overwrite following elements:
+            **dict(bathtype='mp2', threshold=1e-8)})
+    #ewdmet_max_order: int = 1
+    # If multiple bno thresholds are to be calculated, we can project integrals and amplitudes from a previous larger cluster:
+    project_eris: bool = False          # Project ERIs from a pervious larger cluster (corresponding to larger eta), can result in a loss of accuracy especially for large basis sets!
+    project_init_guess: bool = True     # Project converted T1,T2 amplitudes from a previous larger cluster
+    energy_functional: str = 'projected'
+    # --- Solver settings
+    t_as_lambda: bool = False           # If True, use T-amplitudes inplace of Lambda-amplitudes
+    # Counterpoise correction of BSSE
+    bsse_correction: bool = True
+    bsse_rmax: float = 5.0              # In Angstrom
+    nelectron_target: int = None
+    # --- Couple embedding problems (currently only CCSD)
+    sc_mode: int = 0
+    coupled_iterations: bool = False
+    # --- Debugging
+    _debug_wf: str = None
 
 
 class EWF(Embedding):
 
-    valid_solvers = [None, '', 'MP2', 'CISD', 'CCSD', 'TCCSD', 'FCI', 'FCI-spin0', 'FCI-spin1']
     Fragment = Fragment
+    Options = Options
 
-    @dataclasses.dataclass
-    class Options(Embedding.Options):
-        """Options for EWF calculations."""
-        # --- Fragment settings
-        #fragment_type: str = 'IAO'
-        localize_fragment: bool = False     # Perform numerical localization on fragment orbitals
-        iao_minao : str = 'auto'            # Minimal basis for IAOs
-        # --- Bath settings
-        bath_type: str = 'MP2-BNO'
-        bno_truncation: str = 'occupation'  # Type of BNO truncation ["occupation", "number", "excited-percent", "electron-percent"]
-        bno_threshold: float = 1e-8
-        bno_threshold_occ: float = None
-        bno_threshold_vir: float = None
-        bno_project_t2: bool = False
-        ewdmet_max_order: int = 1
-        # If multiple bno thresholds are to be calculated, we can project integrals and amplitudes from a previous larger cluster:
-        project_eris: bool = False          # Project ERIs from a pervious larger cluster (corresponding to larger eta), can result in a loss of accuracy especially for large basis sets!
-        project_init_guess: bool = True     # Project converted T1,T2 amplitudes from a previous larger cluster
-        orthogonal_mo_tol: float = False
-        energy_functional: str = 'projected'
-        # --- Solver settings
-        solve_lambda: bool = False          # If True, solve for the Lambda-amplitudes if a CCSD solver is used
-        t_as_lambda: bool = False           # If True, use T-amplitudes inplace of Lambda-amplitudes
-        # Counterpoise correction of BSSE
-        bsse_correction: bool = True
-        bsse_rmax: float = 5.0              # In Angstrom
-        # -- Self-consistency
-        sc_maxiter: int = 30
-        sc_energy_tol: float = 1e-6
-        sc_mode: int = 0
-        nelectron_target: int = None
-        # --- Intercluster MP2 energy
-        icmp2: bool = True
-        icmp2_bno_threshold: float = 1e-8
-        # --- Couple embedding problems (currently only CCSD)
-        coupled_iterations: bool = False
-        # --- Debugging
-        _debug_exact_wf: bool = None
+    valid_solvers = [None, '', 'MP2', 'CISD', 'CCSD', 'TCCSD', 'FCI', 'FCI-spin0', 'FCI-spin1']
 
-
-    def __init__(self, mf, solver='CCSD', options=None, log=None, **kwargs):
+    def __init__(self, mf, solver='CCSD', bno_threshold=None, bath_type=None, solve_lambda=None, log=None, **kwargs):
         """Embedded wave function (EWF) calculation object.
 
         Parameters
@@ -91,7 +73,19 @@ class EWF(Embedding):
             See class `Options` for additional options.
         """
         t0 = timer()
-        super().__init__(mf, options=options, log=log, **kwargs)
+        super().__init__(mf, log=log, **kwargs)
+
+        # Backwards support
+        if bno_threshold is not None:
+            self.log.warning("keyword argument bno_threshold is deprecated!")
+            self.opts.bath_options = {**self.opts.bath_options, **dict(threshold=bno_threshold)}
+        if bath_type is not None:
+            self.log.warning("keyword argument bath_type is deprecated!")
+            self.opts.bath_options = {**self.opts.bath_options, **dict(bathtype=bath_type)}
+        if solve_lambda is not None:
+            self.log.warning("keyword argument solve_lambda is deprecated!")
+            self.opts.solver_options = {**self.opts.solver_options, **dict(solve_lambda=solve_lambda)}
+
         with self.log.indent():
             # Options
             self.log.info("Parameters of %s:", self.__class__.__name__)
@@ -114,30 +108,6 @@ class EWF(Embedding):
         values = [self.__dict__[k] for k in keys]
         return fmt % (self.__class__.__name__, *[x for y in zip(keys, values) for x in y])
 
-    def get_init_mo_coeff(self, mo_coeff=None):
-        """Orthogonalize insufficiently orthogonal MOs.
-
-        (For example as a result of k2gamma conversion with low cell.precision)
-        """
-        if mo_coeff is None: mo_coeff = self.mo_coeff
-        c = mo_coeff.copy()
-        ovlp = self.get_ovlp()
-        assert np.all(c.imag == 0), "max|Im(C)|= %.2e" % abs(c.imag).max()
-        err = abs(dot(c.T, ovlp, c) - np.eye(c.shape[-1])).max()
-        if err > 1e-5:
-            self.log.error("Orthogonality error of MOs= %.2e !!!", err)
-        else:
-            self.log.debug("Orthogonality error of MOs= %.2e", err)
-        if self.opts.orthogonal_mo_tol and err > self.opts.orthogonal_mo_tol:
-            t0 = timer()
-            self.log.info("Orthogonalizing orbitals...")
-            c_orth = helper.orthogonalize_mo(c, ovlp)
-            change = abs(einsum('ai,ab,bi->i', c_orth, ovlp, c)-1)
-            self.log.info("Max. orbital change= %.2e%s", change.max(), " (!!!)" if change.max() > 1e-4 else "")
-            self.log.timing("Time for orbital orthogonalization: %s", time_string(timer()-t0))
-            c = c_orth
-        return c
-
     def tailor_all_fragments(self):
         for x in self.fragments:
             for y in self.fragments:
@@ -145,14 +115,8 @@ class EWF(Embedding):
                     continue
                 x.add_tailor_fragment(y)
 
-    def kernel(self, bno_threshold=None):
-        """Run EWF.
-
-        Parameters
-        ----------
-        bno_threshold : float or iterable, optional
-            Bath natural orbital threshold. If `None`, self.opts.bno_threshold is used. Default: None.
-        """
+    def kernel(self):
+        """Run EWF."""
         # Reset previous results
         self.reset()
 
@@ -163,15 +127,18 @@ class EWF(Embedding):
                 f.add_all_atomic_fragments()
 
         # Debug: calculate exact WF
-        if self.opts._debug_exact_wf is not None:
-            self._debug_get_exact_wf()
+        if self.opts._debug_wf is not None:
+            self._debug_get_wf(self.opts._debug_wf)
 
         self.check_fragment_nelectron()
-        if np.ndim(bno_threshold) == 0:
-            return self._kernel_single_threshold(bno_threshold=bno_threshold)
-        return self._kernel_multiple_thresholds(bno_thresholds=bno_threshold)
+        #if np.ndim(bno_threshold) == 0:
+        #    return self._kernel_single_threshold(bno_threshold=bno_threshold)
+        #return self._kernel_multiple_thresholds(bno_thresholds=bno_threshold)
+        return self._kernel_single_threshold()
 
     def _kernel_multiple_thresholds(self, bno_thresholds):
+        # Not maintained
+        raise NotImplementedError
         results = []
         for i, bno in enumerate(bno_thresholds):
             self.log.info("Now running BNO threshold= %.2e", bno)
@@ -202,18 +169,11 @@ class EWF(Embedding):
 
         return results
 
-    def _kernel_single_threshold(self, bno_threshold=None):
-        """Run EWF.
-
-        Parameters
-        ----------
-        bno_threshold : float, optional
-            Bath natural orbital threshold.
-        """
+    def _kernel_single_threshold(self):
+        """Run EWF."""
 
         if self.nfrag == 0:
             raise RuntimeError("No fragments defined for calculation.")
-        assert (np.ndim(bno_threshold) == 0)
 
         if mpi: mpi.world.Barrier()
         t_start = timer()
@@ -227,7 +187,8 @@ class EWF(Embedding):
             self.log.info(msg)
             self.log.info(len(msg)*"-")
             with self.log.indent():
-                x.make_bath_and_cluster(bno_threshold=bno_threshold)
+                x.make_bath()
+                x.make_cluster()
 
         if mpi:
             self.communicate_clusters()
@@ -660,22 +621,24 @@ class EWF(Embedding):
         return e_corr
 
     # --- Debug
-    def _debug_get_exact_wf(self):
-        if self.opts._debug_exact_wf is True:
+    def _debug_get_wf(self, kind):
+        if kind == 'random':
+            return
+        if kind == 'exact':
             if self.solver == 'CCSD':
                 import pyscf
                 import pyscf.cc
                 from vayesta.core.types import WaveFunction
                 cc = pyscf.cc.CCSD(self.mf)
                 cc.kernel()
-                if self.opts.solve_lambda:
+                if self.opts.solver_options['solve_lambda']:
                     cc.solve_lambda()
                 wf = WaveFunction.from_pyscf(cc)
             else:
                 raise NotImplementedError
         else:
-            wf = self.opts._debug_exact_wf
-        self._debug_exact_wf = wf
+            wf = self.opts._debug_wf
+        self._debug_wf = wf
 
     # -------------------------------------------------------------------------------------------- #
 

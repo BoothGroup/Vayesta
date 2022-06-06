@@ -1,12 +1,11 @@
 import numpy as np
-
 import pyscf
 import pyscf.gto
 import pyscf.scf
 import pyscf.cc
-
 import vayesta
 import vayesta.ewf
+
 
 mol = pyscf.gto.Mole()
 mol.atom = """
@@ -29,7 +28,7 @@ t1_ref = cc.t1
 t2_ref = cc.t2
 
 # Embedded CCSD
-emb = vayesta.ewf.EWF(mf, bno_threshold=1e-4)
+emb = vayesta.ewf.EWF(mf, bath_options=dict(threshold=1e-4))
 emb.kernel()
 t1 = emb.get_global_t1()
 t2 = emb.get_global_t2()

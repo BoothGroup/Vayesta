@@ -21,11 +21,7 @@ from vayesta.core.types import RFCI_WaveFunction
 
 from vayesta.core.bath import BNO_Threshold
 from vayesta.core.bath import DMET_Bath
-from vayesta.core.bath import EwDMET_Bath
-from vayesta.core.bath import BNO_Bath
-from vayesta.core.bath import MP2_BNO_Bath
-from vayesta.core.bath import CompleteBath
-from vayesta.core.types import Cluster
+from vayesta.core.types import Orbitals
 from vayesta.core import ao2mo
 from vayesta.mpi import mpi
 
@@ -34,38 +30,29 @@ from . import ewf
 # Get MPI rank of fragment
 get_fragment_mpi_rank = lambda *args : args[0].mpi_rank
 
+@dataclasses.dataclass
+class Options(BaseFragment.Options):
+    # Inherited from Embedding
+    # ------------------------
+    # --- Couple embedding problems (currently only CCSD and MPI)
+    coupled_iterations: bool = None
+    t_as_lambda: bool = None                # If True, use T-amplitudes inplace of Lambda-amplitudes
+    bsse_correction: bool = None
+    bsse_rmax: float = None
+    sc_mode: int = None
+    nelectron_target: int = None                  # If set, adjust bath chemical potential until electron number in fragment equals nelectron_target
+    # Fragment specific
+    # -----------------
+    # TODO: move these:
+    # CAS methods
+    c_cas_occ: np.ndarray = None
+    c_cas_vir: np.ndarray = None
+    # --- Solver options
+    tcc_fci_opts: dict = dataclasses.field(default_factory=dict)
+
 class Fragment(BaseFragment):
 
-    @dataclasses.dataclass
-    class Options(BaseFragment.Options):
-        """Attributes set to `NotSet` inherit their value from the parent EWF object."""
-        # Options also present in `base`:
-        dmet_threshold: float = NotSet
-        solve_lambda: bool = NotSet
-        t_as_lambda: bool = NotSet                  # If True, use T-amplitudes inplace of Lambda-amplitudes
-        bsse_correction: bool = NotSet
-        bsse_rmax: float = NotSet
-        energy_factor: float = 1.0
-        #energy_partitioning: str = NotSet
-        sc_mode: int = NotSet
-        nelectron_target: int = NotSet                  # If set, adjust bath chemical potential until electron number in fragment equals nelectron_target
-        # Bath
-        bath_type: str = NotSet
-        bno_truncation: str = NotSet                    # Type of BNO truncation ["occupation", "number", "excited-percent", "electron-percent"]
-        bno_threshold: float = NotSet
-        bno_threshold_occ: float = NotSet
-        bno_threshold_vir: float = NotSet
-        bno_project_t2: bool = NotSet
-        ewdmet_max_order: int = NotSet
-        # CAS methods
-        c_cas_occ: np.ndarray = None
-        c_cas_vir: np.ndarray = None
-        # --- Solver options
-        tcc_fci_opts: dict = dataclasses.field(default_factory=dict)
-        # --- Intercluster MP2 energy
-        icmp2_bno_threshold: float = NotSet
-        # --- Couple embedding problems (currently only CCSD and MPI)
-        coupled_iterations: bool = NotSet
+    Options = Options
 
     @dataclasses.dataclass
     class Results(BaseFragment.Results):
@@ -98,14 +85,6 @@ class Fragment(BaseFragment):
 
         super().__init__(*args, **kwargs)
 
-        # Default options:
-        #defaults = self.Options().replace(self.base.Options(), select=NotSet)
-        #for key, val in self.opts.items():
-        #    if val != getattr(defaults, key):
-        #        self.log.info('  > %-24s %3s %r', key + ':', '(*)', val)
-        #    else:
-        #        self.log.debugv('  > %-24s %3s %r', key + ':', '', val)
-
         if solver is None:
             solver = self.base.solver
         if solver not in self.base.valid_solvers:
@@ -115,18 +94,10 @@ class Fragment(BaseFragment):
         # For self-consistent mode
         self.solver_results = None
 
-    @property
-    def c_cluster_occ(self):
-        return self.bath.c_cluster_occ
-
-    @property
-    def c_cluster_vir(self):
-        return self.bath.c_cluster_vir
-
     def set_cas(self, iaos=None, c_occ=None, c_vir=None, minao='auto', dmet_threshold=None):
         """Set complete active space for tailored CCSD"""
         if dmet_threshold is None:
-            dmet_threshold = 2*self.opts.dmet_threshold
+            dmet_threshold = 2*self.opts.bath_options['dmet_threshold']
         if iaos is not None:
             # Create new IAO fragmentation
             frag = IAO_Fragmentation(self.base, minao=minao)
@@ -146,116 +117,6 @@ class Fragment(BaseFragment):
         self.opts.c_cas_occ = c_cas_occ
         self.opts.c_cas_vir = c_cas_vir
         return c_cas_occ, c_cas_vir
-
-    def make_bath(self, bath_type=NotSet):
-        """TODO: move to embedding base class?"""
-        if bath_type is NotSet:
-            bath_type = self.opts.bath_type
-        if bath_type is None:
-            self.log.warning("bath_type = None is deprecated; use bath_type = 'dmet'.")
-            bath_type = 'dmet'
-        if bath_type.lower() == 'all':
-            self.log.warning("bath_type = 'all' is deprecated; use bath_type = 'full'.")
-            bath_type = 'full'
-
-        # All environment orbitals as bath (for testing purposes)
-        if bath_type.lower() == 'full':
-            self.bath = CompleteBath(self, dmet_threshold=self.opts.dmet_threshold)
-            self.bath.kernel()
-            return self.bath
-        dmet_bath = DMET_Bath(self, dmet_threshold=self.opts.dmet_threshold)
-        dmet_bath.kernel()
-        # DMET bath only
-        if bath_type.lower() == 'dmet':
-            self.bath = dmet_bath
-            return self.bath
-        # Energy-weighted (Ew) DMET bath
-        if bath_type.lower() == 'ewdmet':
-            self.bath = EwDMET_Bath(self, dmet_bath, max_order=self.opts.ewdmet_max_order)
-            self.bath.kernel()
-            return self.bath
-        # MP2 bath natural orbitals
-        if bath_type.lower() == 'mp2-bno':
-            project_t2 = self.opts.bno_project_t2 if hasattr(self.opts, 'bno_project_t2') else False
-            self.bath = MP2_BNO_Bath(self, ref_bath=dmet_bath, project_t2=project_t2)
-            self.bath.kernel()
-            return self.bath
-        if bath_type.lower() == 'mp2-bno-ewdmet':
-            ewdmet_bath = EwDMET_Bath(self, dmet_bath, max_order=self.opts.ewdmet_max_order)
-            ewdmet_bath.kernel()
-            project_t2 = self.opts.bno_project_t2 if hasattr(self.opts, 'bno_project_t2') else False
-            self.bath = MP2_BNO_Bath(self, ref_bath=ewdmet_bath, project_t2=project_t2)
-            self.bath.kernel()
-            return self.bath
-        raise ValueError("Unknown bath_type: %r" % bath_type)
-
-    def make_cluster(self, bath=None, bno_threshold=None, bno_threshold_occ=None, bno_threshold_vir=None):
-        if bath is None:
-            bath = self.bath
-        if bath is None:
-            raise ValueError("make_cluster requires bath.")
-        if bno_threshold_occ is None:
-            bno_threshold_occ = bno_threshold
-        if bno_threshold_vir is None:
-            bno_threshold_vir = bno_threshold
-        c_bath_occ, c_frozen_occ = bath.get_occupied_bath(bno_threshold=bno_threshold_occ)
-        c_bath_vir, c_frozen_vir = bath.get_virtual_bath(bno_threshold=bno_threshold_vir)
-        # Canonicalize orbitals
-        c_active_occ = self.canonicalize_mo(bath.dmet_bath.c_cluster_occ, c_bath_occ)[0]
-        c_active_vir = self.canonicalize_mo(bath.dmet_bath.c_cluster_vir, c_bath_vir)[0]
-        cluster = Cluster.from_coeffs(c_active_occ, c_active_vir, c_frozen_occ, c_frozen_vir)
-
-        def check_occupation(mo_coeff, expected):
-            occup = self.get_mo_occupation(mo_coeff)
-            # RHF
-            if np.ndim(occup[0]) == 0:
-                assert np.allclose(occup, 2*expected, rtol=0, atol=2*self.opts.dmet_threshold)
-            else:
-                assert np.allclose(occup[0], expected, rtol=0, atol=self.opts.dmet_threshold)
-                assert np.allclose(occup[1], expected, rtol=0, atol=self.opts.dmet_threshold)
-
-        check_occupation(cluster.c_total_occ, 1)
-        check_occupation(cluster.c_total_vir, 0)
-
-        #self.cluster = cluster
-        return cluster
-
-    def make_bath_and_cluster(self, bno_threshold=None, bno_threshold_occ=None, bno_threshold_vir=None):
-        """Run solver for a single BNO threshold.
-
-        Parameters
-        ----------
-        bno_threshold : float, optional
-            Bath natural orbital (BNO) threshold.
-
-        Returns
-        -------
-        cluster
-        """
-        if bno_threshold is None:
-            bno_threshold = self.opts.bno_threshold
-        if bno_threshold_occ is None:
-            bno_threshold_occ = self.opts.bno_threshold_occ
-        if bno_threshold_vir is None:
-            bno_threshold_vir = self.opts.bno_threshold_vir
-
-        bno_threshold = BNO_Threshold(self.opts.bno_truncation, bno_threshold)
-
-        if bno_threshold_occ is not None:
-            bno_threshold_occ = BNO_Threshold(self.opts.bno_truncation, bno_threshold_occ)
-        if bno_threshold_vir is not None:
-            bno_threshold_vir = BNO_Threshold(self.opts.bno_truncation, bno_threshold_vir)
-
-        if self.bath is None:
-            self.make_bath()
-
-        cluster = self.make_cluster(self.bath, bno_threshold=bno_threshold,
-                bno_threshold_occ=bno_threshold_occ, bno_threshold_vir=bno_threshold_vir)
-        self.log.info('Orbitals for %s', self)
-        self.log.info('-------------%s', len(str(self))*'-')
-        self.log.info(cluster.repr_size().replace('%', '%%'))
-        self.cluster = cluster
-        return cluster
 
     def get_init_guess(self, init_guess, solver, cluster):
         # FIXME
@@ -361,17 +222,24 @@ class Fragment(BaseFragment):
         if self.opts.coupled_iterations:
             if solver != 'CCSD':
                 raise NotImplementedError()
-            if not mpi or len(self.base.fragments) > len(mpi):
+            if not mpi:
                 raise RuntimeError("coupled_iterations requires MPI.")
+            if len(self.base.fragments) != len(mpi):
+                raise RuntimeError("coupled_iterations requires as many MPI processes as there are fragments.")
             cluster_solver.couple_iterations(self.base.fragments)
 
         if eris is None:
             eris = cluster_solver.get_eris()
-        if not self.base.opts._debug_exact_wf:
+        # Normal solver
+        if not self.base.opts._debug_wf:
             with log_time(self.log.info, ("Time for %s solver:" % solver) + " %s"):
                 cluster_solver.kernel(eris=eris, **init_guess)
+        # Special debug "solver"
         else:
-            cluster_solver._debug_exact_wf(self.base._debug_exact_wf)
+            if self.base.opts._debug_wf == 'random':
+                cluster_solver._debug_random_wf()
+            else:
+                cluster_solver._debug_exact_wf(self.base._debug_wf)
 
         # --- Add to results data class
         results = self._results
@@ -400,7 +268,7 @@ class Fragment(BaseFragment):
         #pass_through = ['make_rdm1', 'make_rdm2']
         pass_through = []
         if 'CCSD' in solver.upper():
-            pass_through += ['solve_lambda', 't_as_lambda', 'sc_mode', 'dm_with_frozen']
+            pass_through += ['t_as_lambda', 'sc_mode', 'dm_with_frozen']
         for attr in pass_through:
             self.log.debugv("Passing fragment option %s to solver.", attr)
             solver_opts[attr] = getattr(self.opts, attr)
@@ -410,10 +278,10 @@ class Fragment(BaseFragment):
             # Set CAS orbitals
             if self.opts.c_cas_occ is None:
                 self.log.warning("Occupied CAS orbitals not set. Setting to occupied DMET cluster orbitals.")
-                self.opts.c_cas_occ = self.c_cluster_occ
+                self.opts.c_cas_occ = self._dmet_bath.c_cluster_occ
             if self.opts.c_cas_vir is None:
                 self.log.warning("Virtual CAS orbitals not set. Setting to virtual DMET cluster orbitals.")
-                self.opts.c_cas_vir = self.c_cluster_vir
+                self.opts.c_cas_vir = self._dmet_bath.c_cluster_vir
             solver_opts['c_cas_occ'] = self.opts.c_cas_occ
             solver_opts['c_cas_vir'] = self.opts.c_cas_vir
             solver_opts['tcc_fci_opts'] = self.opts.tcc_fci_opts
@@ -423,9 +291,6 @@ class Fragment(BaseFragment):
     # ----------------------
 
     # --- Energies
-
-    def get_energy_prefactor(self):
-        return self.sym_factor * self.opts.energy_factor
 
     def get_fragment_energy(self, c1, c2, eris=None, fock=None, c2ba_order='ba', axis1='fragment'):
         """Calculate fragment correlation energy contribution from projected C1, C2.
@@ -451,7 +316,6 @@ class Fragment(BaseFragment):
         e_corr: float
             Total fragment correlation energy contribution.
         """
-        if not self.get_energy_prefactor(): return (0, 0, 0)
         nocc, nvir = c2.shape[1:3]
         occ, vir = np.s_[:nocc], np.s_[nocc:]
         if axis1 == 'fragment':
@@ -488,8 +352,8 @@ class Fragment(BaseFragment):
             e_doubles = (2*einsum('ijab,iabj', c2, g_ovvo)
                          - einsum('ijab,ibaj', c2, g_ovvo))
 
-        e_singles = (self.get_energy_prefactor() * e_singles)
-        e_doubles = (self.get_energy_prefactor() * e_doubles)
+        e_singles = (self.sym_factor * e_singles)
+        e_doubles = (self.sym_factor * e_doubles)
         e_corr = (e_singles + e_doubles)
         return e_singles, e_doubles, e_corr
 

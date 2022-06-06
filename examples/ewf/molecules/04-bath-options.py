@@ -1,15 +1,14 @@
 import numpy as np
-
 import pyscf
 import pyscf.gto
 import pyscf.scf
 import pyscf.cc
-
 import vayesta
 import vayesta.ewf
 
+
 mol = pyscf.gto.Mole()
-mol.atom = ['Li 0.0 0.0 0.0', 'H 0.0, 0.0, 1.4']
+mol.atom = 'Li 0 0 0 ; H 0 0 1.4'
 mol.basis = 'aug-cc-pvdz'
 mol.verbose = 10
 mol.output = 'pyscf_out.txt'
@@ -23,9 +22,8 @@ mf.kernel()
 cc = pyscf.cc.CCSD(mf)
 cc.kernel()
 
-# Test exact limit using bno_threshold = -1
-# (Alternative: bath_type='full', to avoid going through MP2 routines)
-emb = vayesta.ewf.EWF(mf, bno_threshold=-1)
+# Test exact limit by using the full_bath
+emb = vayesta.ewf.EWF(mf, bath_options=dict(bath_type='full'))
 emb.kernel()
 
 print("E(HF)=        %+16.8f Ha" % mf.e_tot)

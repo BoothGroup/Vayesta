@@ -26,14 +26,14 @@ lda_as_hf = pyscf.scf.RHF(mol)
 lda_as_hf.__dict__.update(lda.__dict__)
 lda = lda_as_hf
 
-emb_lda = vayesta.ewf.EWF(lda, bno_threshold=1e-6)
+emb_lda = vayesta.ewf.EWF(lda, bath_options=dict(threshold=1e-6))
 emb_lda.kernel()
 
 # HF
 hf = pyscf.scf.RHF(mol)
 hf.kernel()
 
-emb_hf = vayesta.ewf.EWF(hf, bno_threshold=1e-6)
+emb_hf = vayesta.ewf.EWF(hf, bath_options=dict(threshold=1e-6))
 emb_hf.kernel()
 
 # Reference full system CCSD:

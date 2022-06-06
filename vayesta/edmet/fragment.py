@@ -20,25 +20,28 @@ class EDMETFragmentExit(Exception):
 
 VALID_SOLVERS = ["EBFCI", "EBCCSD"]  # , "EBFCIQMC"]
 
+@dataclasses.dataclass
+class Options(DMETFragment.Options):
+    make_dd_moments: bool = None
+    old_sc_condition: bool = None
+    max_bos: int = None
+    occ_proj_kernel: bool = None
+    boson_xc_kernel: bool = None
+    bosonic_interaction: str = None
+
+@dataclasses.dataclass
+class Results(DMETFragment.Results):
+    dm_eb: np.ndarray = None
+    eb_couplings: np.ndarray = None
+    boson_freqs: tuple = None
+    dd_mom0: np.ndarray = None
+    dd_mom1: np.ndarray = None
+    e_fb:  float = None
 
 class EDMETFragment(DMETFragment):
-    @dataclasses.dataclass
-    class Options(DMETFragment.Options):
-        make_dd_moments: bool = NotSet
-        old_sc_condition: bool = NotSet
-        max_bos: int = NotSet
-        occ_proj_kernel: bool = NotSet
-        boson_xc_kernel: bool = NotSet
-        bosonic_interaction: str = NotSet
 
-    @dataclasses.dataclass
-    class Results(DMETFragment.Results):
-        dm_eb: np.ndarray = None
-        eb_couplings: np.ndarray = None
-        boson_freqs: tuple = None
-        dd_mom0: np.ndarray = None
-        dd_mom1: np.ndarray = None
-        e_fb:  float = None
+    Options = Options
+    Results = Results
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -168,20 +171,10 @@ class EDMETFragment(DMETFragment):
             p_ov += get_ov_projector(po, pv)
         return p_ov
 
-    def set_up_fermionic_bath(self, bno_threshold=None, bno_number=None):
+    def set_up_fermionic_bath(self):
         """Set up the fermionic bath orbitals"""
         self.make_bath()
-
-        if bno_number is not None:
-            bno_threshold = BNO_Threshold('number', bno_number)
-        else:
-            bno_threshold = BNO_Threshold('occupation', bno_threshold)
-
-        cluster = self.make_cluster(self.bath, bno_threshold=bno_threshold)
-        self.cluster = cluster
-        self.log.info('Orbitals for %s', self)
-        self.log.info('-------------%s', len(str(self))*'-')
-        self.log.info(cluster.repr_size().replace('%', '%%'))
+        cluster = self.make_cluster()
         self._c_active_occ = cluster.c_active_occ
         self._c_active_vir = cluster.c_active_vir
         # Want to return the rotation of the canonical HF orbitals which produce the cluster canonical orbitals.
@@ -670,7 +663,7 @@ class EDMETFragment(DMETFragment):
         return r_bos_a.reshape((self.nbos, self.base.nocc, self.base.nvir)), r_bos_b.reshape(
             (self.nbos, self.base.nocc, self.base.nvir))
 
-    def kernel(self, bno_threshold=None, bno_number=None, solver=None, eris=None, construct_bath=False,
+    def kernel(self, solver=None, eris=None, construct_bath=False,
                chempot=None):
         """Solve the fragment with the specified solver and chemical potential."""
         solver = solver or self.solver
@@ -697,7 +690,6 @@ class EDMETFragment(DMETFragment):
             cluster_solver.kernel(eris=eris)
 
         results = self._results
-        results.bno_threshold = bno_threshold
         results.n_active = self.cluster.norb_active
         # Need to rewrite EBFCI solver to expose this properly...
         results.converged = True

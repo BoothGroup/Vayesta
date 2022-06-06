@@ -25,20 +25,19 @@ mf = pyscf.scf.RHF(mol)
 mf = mf.density_fit(auxbasis='cc-pVDZ-ri')
 mf.kernel()
 
-# Embedded CCSD
-emb = vayesta.ewf.EWF(mf, bno_threshold=1e-4)
-emb.kernel()
-
-# Inter-cluster MP2 correction:
-e_icmp2 = emb.get_intercluster_mp2_energy()
-
 # Reference full system calculations:
-
 mp2 = pyscf.mp.MP2(mf)
 mp2.kernel()
 
 cc = pyscf.cc.CCSD(mf)
 cc.kernel()
+
+# Embedded CCSD
+emb = vayesta.ewf.EWF(mf, bath_options=dict(threshold=1e-4))
+emb.kernel()
+
+# Inter-cluster MP2 correction:
+e_icmp2 = emb.get_intercluster_mp2_energy()
 
 print('E(HF)=                 %+16.8f Ha' % mf.e_tot)
 print('E(CCSD)=               %+16.8f Ha' % cc.e_tot)

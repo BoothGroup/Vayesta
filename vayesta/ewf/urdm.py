@@ -55,8 +55,9 @@ def make_rdm1_ccsd(emb, ao_basis=False, t_as_lambda=False, symmetrize=True, with
     # MPI loop
 
     for frag in emb.get_fragments(mpi_rank=mpi.rank):
-        t2xaa, t2xab, t2xba, t2xbb = frag.results.t2x
-        l2xaa, l2xab, l2xba, l2xbb = frag.results.l2x if not t_as_lambda else frag.results.t2x
+        wfx = frag.results.pwf.as_ccsd()
+        t2xaa, t2xab, t2xba, t2xbb = wfx.t2
+        l2xaa, l2xab, l2xba, l2xbb = wfx.l2 if not t_as_lambda else wfx.t2
         if ba_order == 'ab':
             t2xba = t2xba.transpose(1,0,3,2)
             l2xba = l2xba.transpose(1,0,3,2)
