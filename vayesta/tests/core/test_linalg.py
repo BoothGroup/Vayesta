@@ -2,9 +2,10 @@ import unittest
 import numpy as np
 
 from vayesta.core import linalg
+from vayesta.common import TestCase
 
 
-class LinalgTests(unittest.TestCase):
+class LinalgTests(TestCase):
     def test_recursive_block_svd(self):
         """Test the recursive_block_svd function.
         """

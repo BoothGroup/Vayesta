@@ -3,11 +3,21 @@ import numpy as np
 
 from vayesta import dmet
 from vayesta.tests.cache import moles
+from vayesta.tests.common import TestCase
+from vayesta.tests import testsystems
 
 
-class MoleculeDMETTest(unittest.TestCase):
+class MoleculeDMETTest(TestCase):
     PLACES_ENERGY = 7
     CONV_TOL = 1e-9
+
+    @classmethod
+    def setUpClass(cls):
+        cls.mf = testsystems.h6_sto6g.rhf()
+
+    @classmethod
+    def tearDownClass(cls):
+        del cls.mf
 
     def _test_converged(self, emb, known_values=None):
         """Test that the DMET has converged.
@@ -25,7 +35,7 @@ class MoleculeDMETTest(unittest.TestCase):
         """
 
         emb = dmet.DMET(
-                moles['h6_sto6g']['rhf'],
+                self.mf,
                 solver='FCI',
                 charge_consistent=True,
                 bath_type='dmet',
@@ -47,7 +57,7 @@ class MoleculeDMETTest(unittest.TestCase):
         """
 
         emb = dmet.DMET(
-                moles['h6_sto6g']['rhf'],
+                self.mf,
                 solver='FCI',
                 charge_consistent=False,
                 bath_type='dmet',
@@ -69,7 +79,7 @@ class MoleculeDMETTest(unittest.TestCase):
         """
 
         emb = dmet.DMET(
-                moles['h6_sto6g']['rhf'],
+                self.mf,
                 solver='FCI',
                 charge_consistent=False,
                 bath_type='full',
@@ -91,7 +101,7 @@ class MoleculeDMETTest(unittest.TestCase):
         """
 
         emb = dmet.DMET(
-                moles['h6_sto6g']['rhf'],
+                self.mf,
                 solver='CCSD',
                 charge_consistent=False,
                 bath_type='MP2-BNO',

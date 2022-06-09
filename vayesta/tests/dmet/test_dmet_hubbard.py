@@ -2,9 +2,11 @@ import unittest
 
 from vayesta import dmet
 from vayesta.tests.cache import latts
+from vayesta.tests.common import TestCase
+from vayesta.tests import testsystems
 
 
-class HubbardDMETTests(unittest.TestCase):
+class HubbardDMETTests(TestCase):
     PLACES_ENERGY = 6
     CONV_TOL = 1e-8
 
@@ -24,7 +26,7 @@ class HubbardDMETTests(unittest.TestCase):
         """
 
         emb = dmet.DMET(
-                latts['hubb_6_u0']['rhf'],
+                testsystems.hubb_6_u0.rhf(),
                 solver='FCI',
                 charge_consistent=False,
                 conv_tol=self.CONV_TOL,
@@ -45,7 +47,7 @@ class HubbardDMETTests(unittest.TestCase):
         """
 
         emb = dmet.DMET(
-                latts['hubb_10_u2']['rhf'],
+                testsystems.hubb_10_u2.rhf(),
                 solver='FCI',
                 charge_consistent=False,
                 conv_tol=self.CONV_TOL,
@@ -66,7 +68,7 @@ class HubbardDMETTests(unittest.TestCase):
         """
 
         emb = dmet.DMET(
-                latts['hubb_6x6_u0_1x1imp']['rhf'],
+                testsystems.hubb_6x6_u0_1x1imp.rhf(),
                 solver='FCI',
                 charge_consistent=False,
                 conv_tol=self.CONV_TOL,
@@ -87,7 +89,7 @@ class HubbardDMETTests(unittest.TestCase):
         """
 
         emb = dmet.DMET(
-                latts['hubb_6x6_u6_1x1imp']['rhf'],
+                testsystems.hubb_6x6_u6_1x1imp.rhf(),
                 solver='FCI',
                 charge_consistent=False,
                 conv_tol=self.CONV_TOL,
@@ -108,7 +110,7 @@ class HubbardDMETTests(unittest.TestCase):
         """
 
         emb = dmet.DMET(
-                latts['hubb_8x8_u2_2x2imp']['rhf'],
+                testsystems.hubb_8x8_u2_2x2imp.rhf(),
                 solver='FCI',
                 charge_consistent=False,
                 conv_tol=self.CONV_TOL,

@@ -12,6 +12,7 @@ import pyscf.scf
 import pyscf.mp
 import pyscf.cc
 import pyscf.fci
+import pyscf.tools.ring
 # Periodic boundary
 import pyscf.pbc
 import pyscf.pbc.gto
@@ -21,6 +22,7 @@ import pyscf.pbc.tools
 from pyscf.pbc.scf.addons import kconj_symmetry_
 
 import vayesta
+from vayesta.lattmod import latt
 from vayesta.misc import molecules
 from vayesta.misc import solids
 #from vayesta.core import fold_scf
@@ -28,7 +30,7 @@ from vayesta.misc import solids
 
 class TestMolecule:
 
-    def __init__(self, atom, basis, auxbasis=None, verbose=0, **kwargs):
+    def __init__(self, atom, basis, auxbasis=None, verbose=0, mf_conv_tol=1e-10, **kwargs):
         super().__init__()
         mol = pyscf.gto.Mole()
         mol.atom = atom
@@ -37,6 +39,7 @@ class TestMolecule:
             setattr(mol, key, val)
         mol.build()
         self.auxbasis = auxbasis
+        self.mf_conv_tol = mf_conv_tol
         self.mol = mol
 
     # --- Mean-field
@@ -46,7 +49,7 @@ class TestMolecule:
         rhf = pyscf.scf.RHF(self.mol)
         if self.auxbasis is not None:
             rhf = rhf.density_fit(auxbasis=self.auxbasis)
-        rhf.conv_tol = 1e-10
+        rhf.conv_tol = self.mf_conv_tol
         rhf.kernel()
         return rhf
 
@@ -55,7 +58,7 @@ class TestMolecule:
         uhf = pyscf.scf.UHF(self.mol)
         if self.auxbasis is not None:
             uhf = uhf.density_fit(auxbasis=self.auxbasis)
-        uhf.conv_tol = 1e-10
+        uhf.conv_tol = self.mf_conv_tol
         uhf.kernel()
         return uhf
 
@@ -220,6 +223,36 @@ class TestSolid:
             uccsd.solve_lambda()
         return uccsd
 
+
+class TestLattice:
+
+    def __init__(self, nsite, nelectron=None, spin=0, order=None, boundary="pbc", tiles=(1, 1), verbose=0, **kwargs):
+        super().__init__()
+        if isinstance(nsite, int):
+            mol = latt.Hubbard1D(nsite, nelectron=nelectron, spin=spin, order=order, boundary=boundary)
+        else:
+            mol = latt.Hubbard2D(nsite, nelectron=nelectron, spin=spin, order=order, tiles=tiles, boundary=boundary)
+        mol.verbose = verbose
+        for key, val in kwargs.items():
+            setattr(mol, key, val)
+        self.mol = mol
+
+    # --- Mean-field
+
+    @cache
+    def rhf(self):
+        rhf = latt.LatticeRHF(self.mol)
+        rhf.conv_tol = 1e-12
+        rhf.kernel()
+        return rhf
+
+    @cache
+    def uhf(self):
+        uhf = latt.LatticeRHF(self.mol)
+        uhf.conv_tol = 1e-12
+        uhf.kernel()
+        return uhf
+
 # --- Test Systems
 
 # Molecules
@@ -238,6 +271,11 @@ h2anion_dz = TestMolecule(
 #    basis = 'cc-pVDZ')
 #
 
+h6_sto6g = TestMolecule(
+        atom=["H %f %f %f" % xyz for xyz in pyscf.tools.ring.make(6, 1.0)],
+        basis="sto6g",
+)
+
 water_sto3g = TestMolecule(atom=molecules.water(), basis='sto3g')
 water_cation_sto3g = TestMolecule(atom=molecules.water(), basis='sto3g', charge=1, spin=1)
 
@@ -245,6 +283,10 @@ water_631g = TestMolecule(atom=molecules.water(), basis='6-31G')
 water_631g_df = TestMolecule(atom=molecules.water(), basis='6-31G', auxbasis='6-31G')
 water_cation_631g = TestMolecule(atom=molecules.water(), basis='6-31G', charge=1, spin=1)
 water_cation_631g_df = TestMolecule(atom=molecules.water(), basis='6-31G', auxbasis='6-31G', charge=1, spin=1)
+
+water_ccpvdz_df = TestMolecule(atom=molecules.water(), basis="cc-pvdz", auxbasis="cc-pvdz-jkfit", mf_conv_tol=1e-12)
+
+ethanol_ccpvdz = TestMolecule(atom=molecules.ethanol(), basis="cc-pvdz")
 
 # Solids
 
@@ -295,3 +337,22 @@ a, atom = solids.graphene()
 opts = dict(basis='def2-svp', auxbasis='def2-svp-ri', exp_to_discard=0.1)
 graphene_k22 = TestSolid(a=a, atom=atom, kmesh=(2,2,1), **opts)
 graphene_s22 = TestSolid(a=a, atom=atom, supercell=(2,2,1), **opts)
+
+
+a = np.eye(3) * 5
+opts = dict(basis="6-31g", mesh=[11, 11, 11])
+he2_631g_k222 = TestSolid(a=a, atom="He 3 2 3; He 1 1 1", kmesh=(2, 2, 2), **opts)
+he2_631g_s222 = TestSolid(a=a, atom="He 3 2 3; He 1 1 1", supercell=(2, 2, 2), **opts)
+
+
+# Lattices  FIXME we really don't need all of these
+
+hubb_6_u0 = TestLattice(6, hubbard_u=0.0, nelectron=6)
+hubb_10_u2 = TestLattice(10, hubbard_u=2.0, nelectron=10)
+hubb_10_u4 = TestLattice(10, hubbard_u=4.0, nelectron=16, boundary='apbc')
+hubb_14_u4 = TestLattice(14, hubbard_u=4.0, nelectron=14, boundary='pbc')
+hubb_6x6_u0_1x1imp = TestLattice((6, 6), hubbard_u=0.0, nelectron=26, tiles=(1, 1), boundary='pbc')
+hubb_6x6_u2_1x1imp = TestLattice((6, 6), hubbard_u=2.0, nelectron=26, tiles=(1, 1), boundary='pbc')
+hubb_6x6_u6_1x1imp = TestLattice((6, 6), hubbard_u=6.0, nelectron=26, tiles=(1, 1), boundary='pbc')
+hubb_8x8_u2_2x2imp = TestLattice((8, 8), hubbard_u=2.0, nelectron=50, tiles=(2, 2), boundary='pbc')
+hubb_8x8_u2_2x1imp = TestLattice((8, 8), hubbard_u=2.0, nelectron=50, tiles=(2, 1), boundary='pbc')

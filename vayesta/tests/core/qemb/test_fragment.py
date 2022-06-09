@@ -12,18 +12,24 @@ from pyscf import lib
 
 from vayesta.core import Embedding, UEmbedding
 from vayesta.core.bath import DMET_Bath, MP2_BNO_Bath, UDMET_Bath
-from vayesta.tests.cache import moles, cells
-from vayesta.tests.common import temporary_seed
+from vayesta.tests.common import temporary_seed, TestCase
+from vayesta.tests import testsystems
 
 #TODO readd some tests for ghost atoms
 
 
-class MolFragmentTests(unittest.TestCase):
-    key = 'h2o_ccpvdz_df'
-    mf_key = 'rhf'
+class MolFragmentTests(TestCase):
     PLACES = 7
     Embedding = Embedding
     DMET_Bath = DMET_Bath
+
+    @classmethod
+    def setUpClass(cls):
+        cls.mf = testsystems.water_ccpvdz_df.rhf()
+
+    @classmethod
+    def tearDownClass(cls):
+        del cls.mf
 
     def trace(self, c):
         return np.einsum('xi,xi->', c, c.conj())
@@ -32,11 +38,11 @@ class MolFragmentTests(unittest.TestCase):
         """Test methods registered with @property decorator.
         """
 
-        qemb = self.Embedding(moles[self.key][self.mf_key])
+        qemb = self.Embedding(self.mf)
         with qemb.iao_fragmentation() as f:
             frag = f.add_atomic_fragment(0)
 
-        self.assertIs(frag.mol,           moles[self.key]['mol'])
+        self.assertIs(frag.mol,           self.mf.mol)
         self.assertIs(frag.mf,            frag.base.mf)
         self.assertIs(frag.n_frag,        frag.c_frag.shape[-1])
         self.assertIs(frag.boundary_cond, frag.base.boundary_cond)
@@ -45,13 +51,13 @@ class MolFragmentTests(unittest.TestCase):
         """Test IAO atomic fragmentation.
         """
 
-        qemb = self.Embedding(moles[self.key][self.mf_key])
+        qemb = self.Embedding(self.mf)
         with qemb.iao_fragmentation() as f:
             frags = f.add_all_atomic_fragments()
 
         e_elec = sum([f.get_fragment_mf_energy() for f in frags])
-        self.assertAlmostEqual(e_elec + moles[self.key][self.mf_key].energy_nuc(), moles[self.key][self.mf_key].e_tot, self.PLACES)
-        self.assertAlmostEqual(frags[0].get_fragment_mf_energy(), -81.55618063172534, self.PLACES)
+        self.assertAlmostEqual(e_elec + self.mf.energy_nuc(), self.mf.e_tot, self.PLACES)
+        self.assertAlmostEqual(frags[0].get_fragment_mf_energy(), -81.55618063907355, self.PLACES)
         self.assertAlmostEqual(frags[1].get_fragment_mf_energy(),  -1.83005213220285, self.PLACES)
         self.assertAlmostEqual(frags[2].get_fragment_mf_energy(),  -1.83005213220285, self.PLACES)
 
@@ -59,30 +65,30 @@ class MolFragmentTests(unittest.TestCase):
         """Test IAO orbital fragmentation.
         """
 
-        qemb = self.Embedding(moles[self.key][self.mf_key])
+        qemb = self.Embedding(self.mf)
         with qemb.iao_fragmentation() as f:
 
             frag = f.add_orbital_fragment([0, 1])
-            self.assertAlmostEqual(frag.get_fragment_mf_energy(), -61.40491055875449, self.PLACES)
+            self.assertAlmostEqual(frag.get_fragment_mf_energy(), -61.40491054071134, self.PLACES)
 
             frag = f.add_atomic_fragment([0], orbital_filter=['1s', '2s'])
-            self.assertAlmostEqual(frag.get_fragment_mf_energy(), -61.40491055875449, self.PLACES)
+            self.assertAlmostEqual(frag.get_fragment_mf_energy(), -61.40491054071134, self.PLACES)
 
     def test_iao_minao(self):
         """Test IAO fragmentation with a custom `minao` keyword.
         """
 
-        qemb = self.Embedding(moles[self.key][self.mf_key])
+        qemb = self.Embedding(self.mf)
         with qemb.iao_fragmentation(minao='sto3g') as f:
             frag = f.add_atomic_fragment(0)
 
-        self.assertAlmostEqual(frag.get_fragment_mf_energy(), -80.8244967526962, self.PLACES)
+        self.assertAlmostEqual(frag.get_fragment_mf_energy(), -80.8244967591169, self.PLACES)
 
     def test_sao_atoms(self):
         """Test SAO atomic fragmentation.
         """
 
-        qemb = self.Embedding(moles[self.key][self.mf_key])
+        qemb = self.Embedding(self.mf)
         with qemb.sao_fragmentation() as f:
             frags  = [f.add_atomic_fragment(['O'])]
             frags += [f.add_atomic_fragment(i) for i in [1, 2]]
@@ -91,38 +97,38 @@ class MolFragmentTests(unittest.TestCase):
         self.assertAlmostEqual(frags[1].get_fragment_mf_energy(),  -3.35122146047156, self.PLACES)
         self.assertAlmostEqual(frags[2].get_fragment_mf_energy(),  -3.35122146047156, self.PLACES)
         e_mf = sum([f.get_fragment_mf_energy() for f in frags])
-        self.assertAlmostEqual(e_mf, (moles[self.key][self.mf_key].e_tot-moles[self.key][self.mf_key].energy_nuc()), self.PLACES)
+        self.assertAlmostEqual(e_mf, (self.mf.e_tot-self.mf.energy_nuc()), self.PLACES)
 
     def test_sao_aos(self):
         """Test SAO orbital fragmentation.
         """
-        qemb = self.Embedding(moles[self.key][self.mf_key])
+        qemb = self.Embedding(self.mf)
         with qemb.sao_fragmentation() as f:
             frag = f.add_orbital_fragment([0, 1])
-            self.assertAlmostEqual(frag.get_fragment_mf_energy(), -56.62602304567066, self.PLACES)
+            self.assertAlmostEqual(frag.get_fragment_mf_energy(), -56.62602303262458, self.PLACES)
             frag = f.add_orbital_fragment(0)
             self.assertAlmostEqual(frag.get_fragment_mf_energy(), -50.92864009746159, self.PLACES)
             frag = f.add_orbital_fragment('1s')
-            self.assertAlmostEqual(frag.get_fragment_mf_energy(), -54.5697235132222, self.PLACES)
+            self.assertAlmostEqual(frag.get_fragment_mf_energy(), -54.569723461804, self.PLACES)
 
     def test_iaopao_atoms(self):
         """Test IAO+PAO atomic fragmentation.
         """
-        qemb = self.Embedding(moles[self.key][self.mf_key])
+        qemb = self.Embedding(self.mf)
         with qemb.iaopao_fragmentation() as f:
             frags = f.add_all_atomic_fragments()
             e_mf = sum([f.get_fragment_mf_energy() for f in frags])
-            self.assertAlmostEqual(e_mf, (moles[self.key][self.mf_key].e_tot-moles[self.key][self.mf_key].energy_nuc()), self.PLACES)
+            self.assertAlmostEqual(e_mf, (self.mf.e_tot-self.mf.energy_nuc()), self.PLACES)
 
     def test_project_ref_orbitals(self):
         """Test the project_ref_orbitals function.
         """
 
-        qemb = self.Embedding(moles[self.key][self.mf_key])
+        qemb = self.Embedding(self.mf)
         with qemb.sao_fragmentation() as f:
             frag = f.add_atomic_fragment(0)
 
-        nmo = moles[self.key][self.mf_key].mo_occ.size
+        nmo = self.mf.mo_occ.size
 
         with temporary_seed(1):
             c_ref = np.random.random((nmo, nmo))
@@ -137,7 +143,7 @@ class MolFragmentTests(unittest.TestCase):
         """Test the DMET bath.
         """
 
-        qemb = self.Embedding(moles[self.key][self.mf_key])
+        qemb = self.Embedding(self.mf)
         with qemb.iao_fragmentation() as f:
             frags = f.add_all_atomic_fragments()
 
@@ -151,7 +157,7 @@ class MolFragmentTests(unittest.TestCase):
         bath = self.DMET_Bath(frags[1], frags[1].opts.dmet_threshold)
         bath.kernel()
         self.assertAlmostEqual(self.trace(bath.c_dmet),     0.92508900878229, self.PLACES)
-        self.assertAlmostEqual(self.trace(bath.c_env_occ),  2.79277815395295, self.PLACES)
+        self.assertAlmostEqual(self.trace(bath.c_env_occ),  2.7927781539529537, self.PLACES)
         self.assertAlmostEqual(self.trace(bath.c_env_vir), 75.71109293760985, self.PLACES)
 
         frags[2].opts.wf_partition = 'democratic'
@@ -176,12 +182,12 @@ class MolFragmentTests(unittest.TestCase):
         """Test the MP2 BNO bath.
         """
 
-        qemb = self.Embedding(moles[self.key][self.mf_key])
+        qemb = self.Embedding(self.mf)
         with qemb.iao_fragmentation() as f:
             frags = f.add_all_atomic_fragments()
 
-        nocc = np.sum(moles[self.key][self.mf_key].mo_occ > 0)
-        nvir = np.sum(moles[self.key][self.mf_key].mo_occ == 0)
+        nocc = np.sum(self.mf.mo_occ > 0)
+        nvir = np.sum(self.mf.mo_occ == 0)
         with temporary_seed(1):
             t2a = np.random.random((nocc, nocc, nvir, nvir)) - 0.5
             t2a = 0.25 * (t2a + t2a.swapaxes(0, 1) + t2a.swapaxes(2, 3) + t2a.transpose(1, 0, 3, 2))
@@ -232,17 +238,20 @@ class MolFragmentTests(unittest.TestCase):
 
         #bath = MP2_BNO_Bath(frags[1], canonicalize=(False, False))
         #bath.kernel()
-        #mp2 = pyscf.mp.mp2.MP2(moles[self.key][self.mf_key])
+        #mp2 = pyscf.mp.mp2.MP2(self.mf)
         #eris = mp2.ao2mo()
         #c_bno_occ, n_bno_occ = bath.make_bno_coeff('occ', eris=eris)
         #c_bno_vir, n_bno_vir = bath.make_bno_coeff('vir', eris=eris)
 
 
 class UMolFragmentTests(MolFragmentTests):
-    mf_key = 'uhf'
     PLACES = 6
     Embedding = UEmbedding
     DMET_Bath = UDMET_Bath
+
+    @classmethod
+    def setUpClass(cls):
+        cls.mf = testsystems.water_ccpvdz_df.uhf()
 
     def trace(self, c):
         ca, cb = c
@@ -257,9 +266,16 @@ class UMolFragmentTests(MolFragmentTests):
     test_mp2_bno_bath = None
 
 
-class CellFragmentTests(unittest.TestCase):
-    key = 'he2_631g_222'
+class CellFragmentTests(TestCase):
     PLACES = 8
+
+    @classmethod
+    def setUpClass(cls):
+        cls.mf = testsystems.he2_631g_k222.rhf()
+
+    @classmethod
+    def tearDownClass(cls):
+        del cls.mf
 
     def trace(self, c):
         return np.einsum('xi,xi->', c, c.conj())
@@ -268,7 +284,7 @@ class CellFragmentTests(unittest.TestCase):
         """Test IAO atomic fragmentation.
         """
 
-        qemb = Embedding(cells[self.key]['rhf'])
+        qemb = Embedding(self.mf)
         with qemb.iao_fragmentation() as f:
             frag = f.add_atomic_fragment([0, 1])
             frags = [frag] + frag.add_tsymmetric_fragments([2, 2, 2])
@@ -280,14 +296,14 @@ class CellFragmentTests(unittest.TestCase):
         """Test IAO orbital fragmentation.
         """
 
-        qemb = Embedding(cells[self.key]['rhf'])
+        qemb = Embedding(self.mf)
         with qemb.iao_fragmentation() as f:
             frag = f.add_orbital_fragment([0, 1])
 
         self.assertAlmostEqual(frag.get_fragment_mf_energy().real, -4.261995344528813, self.PLACES)
 
     def test_sao_atoms(self):
-        qemb = Embedding(cells[self.key]['rhf'])
+        qemb = Embedding(self.mf)
         with qemb.sao_fragmentation() as f:
             frags = [f.add_atomic_fragment([i*2, i*2+1]) for i in range(len(qemb.kpts))]
 
@@ -298,7 +314,7 @@ class CellFragmentTests(unittest.TestCase):
         """Test SAO orbital fragmentation.
         """
 
-        qemb = Embedding(cells[self.key]['rhf'])
+        qemb = Embedding(self.mf)
         with qemb.sao_fragmentation() as f:
             frag = f.add_orbital_fragment([0, 1, 2, 3])
 
@@ -308,7 +324,7 @@ class CellFragmentTests(unittest.TestCase):
         """Test the DMET bath.
         """
 
-        qemb = Embedding(cells[self.key]['rhf'])
+        qemb = Embedding(self.mf)
         with qemb.sao_fragmentation() as f:
             frag = f.add_atomic_fragment([0])
         frags = [frag] + frag.add_tsymmetric_fragments([2, 2, 2])
@@ -325,7 +341,7 @@ class CellFragmentTests(unittest.TestCase):
         #self.assertAlmostEqual(self.trace(c_occenv),  8.60108764820888, self.PLACES)
         #self.assertAlmostEqual(self.trace(c_virenv), self.PLACES3.27964350816293, self.PLACES)
 
-        qemb = Embedding(cells[self.key]['rhf'])
+        qemb = Embedding(self.mf)
         with qemb.sao_fragmentation() as f:
             frags = [f.add_atomic_fragment([i*2, i*2+1]) for i in range(len(qemb.kpts))]
 

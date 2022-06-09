@@ -11,14 +11,15 @@ from vayesta.core.bath import MP2_BNO_Bath
 from vayesta.core.bath import UMP2_BNO_Bath
 from vayesta.core.qemb import Embedding
 from vayesta.core.qemb import UEmbedding
-from vayesta.tests.cache import moles
+from vayesta.tests.common import TestCase
+from vayesta.tests import testsystems
 
 
-class EwDMET_Bath_Test(unittest.TestCase):
+class EwDMET_Bath_Test(TestCase):
 
     def test_ewdmet_bath(self):
         return True
-        mf = moles['ethanol_ccpvdz']['rhf']
+        mf = testsystems.ethanol_ccpvdz.rhf()
 
         emb = Embedding(mf)
         with emb.iao_fragmentation() as f:
@@ -58,7 +59,7 @@ class EwDMET_Bath_Test(unittest.TestCase):
 class BNO_Bath_Test(unittest.TestCase):
 
     def test_bno_Bath(self):
-        rhf = moles['ethanol_ccpvdz']['rhf']
+        rhf = testsystems.ethanol_ccpvdz.rhf()
 
         remb = Embedding(rhf)
         with remb.iao_fragmentation() as f:
@@ -68,7 +69,7 @@ class BNO_Bath_Test(unittest.TestCase):
         rbno_bath = MP2_BNO_Bath(rfrag, rdmet_bath)
         rbno_bath.kernel()
 
-        uhf = moles['ethanol_ccpvdz']['uhf']
+        uhf = testsystems.ethanol_ccpvdz.uhf()
         uemb = UEmbedding(uhf)
         with uemb.iao_fragmentation() as f:
             ufrag = f.add_atomic_fragment('O')
