@@ -11,10 +11,51 @@ from vayesta.core.util import *
 log = logging.getLogger(__name__)
 
 
+def get_kconserv(cell, kpts, nk=3):
+    r'''Get the momentum conservation array for a set of k-points.
+
+    Given k-point indices (k, l, m) the array kconserv[k,l,m] returns
+    the index n that satifies momentum conservation,
+
+    nk=1:
+        (k(k) - k(n)) \dot a = 2n\pi
+    nk=2:
+        (k(k) - k(l) - k(n)) \dot a = 2n\pi
+    nk=3:
+        (k(k) - k(l) + k(m) - k(n)) \dot a = 2n\pi
+
+    This is used for symmetry e.g. integrals of the form
+        [\phi*[k](1) \phi[l](1) | \phi*[m](2) \phi[n](2)]
+    are zero unless n satisfies the above.
+    '''
+    nkpts = kpts.shape[0]
+    a = cell.lattice_vectors() / (2*np.pi)
+
+    if nk == 1:
+        return list(range(len(kpts)))
+    kconserv = np.zeros(nk*[nkpts], dtype=int)
+    if nk == 2:
+        k_klm = kpts[:,None,:] - kpts                           # k(k) - k(l)
+    elif nk == 3:
+        k_klm = kpts[:,None,None,:] - kpts[:,None,:] + kpts     # k(k) - k(l) + k(m)
+    else:
+        raise ValueError
+
+    for n, kn in enumerate(kpts):
+        k_klmn = (k_klm - kn)
+        k_klmn = einsum('wx,...x->w...', a, k_klmn)
+        # check whether (1/(2pi) k_klmn dot a) is an integer
+        mask = einsum('w...->...', abs(k_klmn - np.rint(k_klmn))) < 1e-9
+        kconserv[mask] = n
+
+    return kconserv
+
+
 def get_full_array(eris, mo_coeff=None, out=None):
     """Get dense ERI array from CCSD _ChemistEris object."""
     if mo_coeff is not None and not np.allclose(mo_coeff, eris.mo_coeff):
         raise NotImplementedError
+    # TODO: Implement for UHF
     if hasattr(eris, 'OOOO'):
         raise NotImplementedError
 
@@ -66,7 +107,7 @@ def get_vvvv(eris):
     nmo = eris.fock.shape[-1]
     nocc = eris.nocc
     nvir = nmo - nocc
-    if hasattr(eris, 'vvvv') and eris.vvvv is not None:
+    if getattr(eris, 'vvvv', None) is not None:
         if eris.vvvv.ndim == 4:
             return eris.vvvv[:]
         else:
@@ -77,7 +118,8 @@ def get_vvvv(eris):
         vvl = pyscf.lib.unpack_tril(eris.vvL[:], axis=0).reshape(nvir,nvir,naux)
     else:
         vvl = eris.vvL[:]
-    return einsum('ijQ,klQ->ijkl', vvl, vvl)
+    gvvvv = einsum('ijQ,klQ->ijkl', vvl, vvl)
+    return gvvvv
 
 def pack_ovvv(ovvv):
     nocc, nvir = ovvv.shape[:2]
@@ -190,28 +232,56 @@ def project_ccsd_eris(eris, mo_coeff, nocc, ovlp, check_subspace=True):
     return eris
 
 if __name__ == '__main__':
-    import pyscf.gto
-    import pyscf.scf
-    import pyscf.cc
+    def test1():
+        import pyscf.gto
+        import pyscf.scf
+        import pyscf.cc
 
-    import vayesta
-    from vayesta.misc.molecules import water
+        import vayesta
+        from vayesta.misc.molecules import water
 
-    mol = pyscf.gto.Mole()
-    mol.atom = water()
-    mol.basis = 'cc-pVDZ'
-    mol.build()
+        mol = pyscf.gto.Mole()
+        mol.atom = water()
+        mol.basis = 'cc-pVDZ'
+        mol.build()
 
-    hf = pyscf.scf.RHF(mol)
-    #hf.density_fit(auxbasis='cc-pVDZ-ri')
-    hf.kernel()
+        hf = pyscf.scf.RHF(mol)
+        #hf.density_fit(auxbasis='cc-pVDZ-ri')
+        hf.kernel()
 
-    ccsd = pyscf.cc.CCSD(hf)
-    eris = ccsd.ao2mo()
-    eris2 = get_full_array(eris)
+        ccsd = pyscf.cc.CCSD(hf)
+        eris = ccsd.ao2mo()
+        eris2 = get_full_array(eris)
 
-    norb = hf.mo_coeff.shape[-1]
-    eris_test = pyscf.ao2mo.kernel(hf._eri, hf.mo_coeff, compact=False).reshape(4*[norb])
-    err = np.linalg.norm(eris2 - eris_test)
-    print(err)
-    assert np.allclose(eris2, eris_test)
+        norb = hf.mo_coeff.shape[-1]
+        eris_test = pyscf.ao2mo.kernel(hf._eri, hf.mo_coeff, compact=False).reshape(4*[norb])
+        err = np.linalg.norm(eris2 - eris_test)
+        print(err)
+        assert np.allclose(eris2, eris_test)
+
+    def test2():
+        import pyscf
+        import pyscf.pbc
+        import pyscf.pbc.gto
+        from vayesta.misc import solids
+        from timeit import default_timer as timer
+
+        cell = pyscf.pbc.gto.Cell()
+        cell.a, cell.atom = solids.diamond()
+        cell.build()
+
+        #kmesh = [3,2,1]
+        kmesh = [4,5,2]
+        kpts = cell.get_kpts(kmesh)
+
+        nk = 3
+
+        t0 = timer()
+        kconserv = get_kconserv(cell, kpts, nk=nk)
+        t1 = timer()
+        kconserv_pyscf = pyscf.pbc.lib.kpts_helper.get_kconserv(cell, kpts, n=nk)
+        t2 = timer()
+        assert np.all(kconserv == kconserv_pyscf)
+        print(t1-t0, t2-t1)
+
+    test2()

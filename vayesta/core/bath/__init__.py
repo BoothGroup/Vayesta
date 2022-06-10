@@ -18,6 +18,8 @@ def DMET_Bath(fragment, *args, **kwargs):
     if fragment.base.is_uhf:
         return DMET_Bath_UHF(fragment, *args, **kwargs)
 
+# TODO: Add (back) EwDMET bath
+
 def MP2_Bath(fragment, *args, **kwargs):
     if fragment.base.is_rhf:
         return MP2_Bath_RHF(fragment, *args, **kwargs)

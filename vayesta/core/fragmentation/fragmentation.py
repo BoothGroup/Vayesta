@@ -41,6 +41,10 @@ class Fragmentation:
         self.coeff = None
         self.labels = None
 
+    def kernel(self):
+        self.coeff = self.get_coeff()
+        self.labels = self.get_labels()
+
     # --- As contextmanager:
 
     def __enter__(self):
@@ -165,10 +169,6 @@ class Fragmentation:
     @property
     def mo_occ(self):
         return self.mf.mo_occ
-
-    def kernel(self):
-        self.coeff = self.get_coeff()
-        self.labels = self.get_labels()
 
     # --- These need to be implemented
 

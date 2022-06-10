@@ -46,6 +46,10 @@ class CCSD_Solver(ClusterSolver):
         solver_cls = self.get_solver_class()
         self.log.debugv("PySCF solver class= %r" % solver_cls)
         frozen = self.cluster.get_frozen_indices()
+        # RCCSD does not support empty lists of frozen orbitals
+        # For UCCSD len(frozen) is always 2, but empty lists are supported)
+        if len(frozen) == 0:
+            frozen = None
         mo_coeff = self.cluster.c_total
         solver = solver_cls(self.mf, mo_coeff=mo_coeff, mo_occ=self.mf.mo_occ, frozen=frozen)
         # Options

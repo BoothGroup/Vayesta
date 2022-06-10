@@ -8,7 +8,7 @@ from vayesta.core.qemb import UFragment as BaseFragment
 from .fragment import Fragment as RFragment
 
 
-class Fragment(BaseFragment, RFragment):
+class Fragment(RFragment, BaseFragment):
 
     def set_cas(self, *args, **kwargs):
         raise NotImplementedError()

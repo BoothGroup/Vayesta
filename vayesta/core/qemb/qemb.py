@@ -67,6 +67,8 @@ class Options(OptionsBase):
         rcut=None, unit='Ang',
         # MP2 bath
         threshold=None, truncation='occupation', project_t2=False,
+        # General
+        canonicalize=True,
         )
     # --- Solver options
     solver_options: dict = OptionsBase.dict_with_defaults(
@@ -83,7 +85,7 @@ class Embedding:
     is_rhf = True
     is_uhf = False
     # Use instead:
-    spintype = 'restricted'
+    spinsym = 'restricted'
 
     def __init__(self, mf, log=None, overwrite=None, **kwargs):
         """Abstract base class for quantum embedding methods.
@@ -138,8 +140,7 @@ class Embedding:
 
             # 2) Options
             # ----------
-            self.opts = self.Options()
-            self.opts.replace(**kwargs)
+            self.opts = self.Options().replace(**kwargs)
 
             # 3) Overwrite methods/attributes
             # -------------------------------

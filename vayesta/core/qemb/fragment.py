@@ -12,6 +12,7 @@ import pyscf.lib
 import pyscf.lo
 # --- Internal
 from vayesta.core.util import *
+from vayesta.core import spinalg
 from vayesta.core.types import Cluster
 from vayesta.core.symmetry import SymmetryIdentity
 from vayesta.core.symmetry import SymmetryTranslation
@@ -138,9 +139,9 @@ class Fragment:
         self.base = base
 
         # Options
-        self.opts = self.Options()
-        self.opts.update(**self.base.opts.asdict())
-        self.opts.replace(**kwargs)
+        self.opts = self.Options()                  # Default options
+        self.opts.update(**self.base.opts.asdict()) # Update with embedding class options
+        self.opts.replace(**kwargs)                 # Replace with keyword arguments
 
         self.c_frag = c_frag
         self.c_env = c_env
@@ -676,10 +677,13 @@ class Fragment:
 
         c_bath_occ, c_frozen_occ = get_orbitals('occupied')
         c_bath_vir, c_frozen_vir = get_orbitals('virtual')
-
+        c_active_occ = spinalg.hstack_matrices(self._dmet_bath.c_cluster_occ, c_bath_occ)
+        c_active_vir = spinalg.hstack_matrices(self._dmet_bath.c_cluster_vir, c_bath_vir)
         # Canonicalize orbitals
-        c_active_occ = self.canonicalize_mo(self._dmet_bath.c_cluster_occ, c_bath_occ)[0]
-        c_active_vir = self.canonicalize_mo(self._dmet_bath.c_cluster_vir, c_bath_vir)[0]
+        if get_opt('canonicalize', 'occupied'):
+            c_active_occ = self.canonicalize_mo(c_active_occ)[0]
+        if get_opt('canonicalize', 'virtual'):
+            c_active_vir = self.canonicalize_mo(c_active_vir)[0]
         cluster = Cluster.from_coeffs(c_active_occ, c_active_vir, c_frozen_occ, c_frozen_vir)
 
         # Check occupations

@@ -19,6 +19,8 @@ class R2_Bath_RHF(Bath):
 
     def __init__(self, fragment, dmet_bath, occtype, *args, **kwargs):
         super().__init__(fragment, *args, **kwargs)
+        if getattr(self.mol, 'dimension', 0) > 0:
+            self.log.warning("R2_Bath does not work correctly for PBC systems!")
         self.dmet_bath = dmet_bath
         if occtype not in ('occupied', 'virtual'):
             raise ValueError("Invalid occtype: %s" % occtype)
@@ -37,11 +39,25 @@ class R2_Bath_RHF(Bath):
             return self.dmet_bath.c_env_vir
 
     def diagonalize_r2(self, mo_coeff):
-        with self.mol.with_common_origin(self.center):
-            r2 = self.mol.intor('int1e_r2')
+        mol = self.mol
+        with mol.with_common_origin(self.center):
+            # PBC: Does not yield hermitian matrices....?
+            if getattr(mol, 'dimension', 0) > 0:
+                r2 = mol.pbc_intor('int1e_r2')
+                #r2 = mol.pbc_intor('int1e_r2', hermi=1)
+            # Molecule
+            else:
+                r2 = mol.intor_symmetric('int1e_r2')
         r2 = dot(mo_coeff.T, r2, mo_coeff)
+        hermierr = np.linalg.norm(r2 - r2.T)
+        if hermierr > 1e-11:
+            self.log.warning("Hermiticity error= %.3e", hermierr)
+            r2 = (r2 + r2.T)/2
+        else:
+            self.log.debug("Hermiticity error= %.3e", hermierr)
         eig, rot = np.linalg.eigh(r2)
-        assert np.all(eig > -1e-13)
+        if np.any(eig < -1e-13):
+            raise RuntimeError("Negative eigenvalues: %r" % eig[eig<0])
         eig = np.sqrt(np.clip(eig, 0, None))
         coeff = np.dot(mo_coeff, rot)
         return coeff, eig

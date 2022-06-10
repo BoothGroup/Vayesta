@@ -27,7 +27,7 @@ class UEmbedding(Embedding):
     is_rhf = False
     is_uhf = True
     # Use instead:
-    spintype = 'unrestricted'
+    spinsym = 'unrestricted'
 
     #def get_init_veff(self):
     #    if self.opts.recalc_vhf:

@@ -1,12 +1,5 @@
 import numbers
-
 import numpy as np
-
-import pyscf
-import pyscf.mp
-import pyscf.pbc
-import pyscf.pbc.mp
-
 from vayesta.core.util import *
 from vayesta.core import spinalg
 from vayesta.core.types import Cluster

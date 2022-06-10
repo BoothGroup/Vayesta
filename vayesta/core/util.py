@@ -394,6 +394,7 @@ class OptionsBase:
                 setattr(self, key, {**getattr(self, key), **val})
             else:
                 setattr(self, key, val)
+        return self
 
     def update(self, **kwargs):
         keys = self.keys()
@@ -405,6 +406,7 @@ class OptionsBase:
                 setattr(self, key, {**getattr(self, key), **val})
             else:
                 setattr(self, key, val)
+        return self
 
     @staticmethod
     def dict_with_defaults(**kwargs):

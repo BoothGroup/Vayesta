@@ -168,12 +168,10 @@ class EWF(Embedding):
 
     def _kernel_single_threshold(self):
         """Run EWF."""
-
-        if self.nfrag == 0:
-            raise RuntimeError("No fragments defined for calculation.")
-
         if mpi: mpi.world.Barrier()
         t_start = timer()
+        if self.nfrag == 0:
+            raise RuntimeError("No fragments defined for calculation.")
 
         # Create bath and clusters first
         self.log.info("")
@@ -186,7 +184,6 @@ class EWF(Embedding):
             with self.log.indent():
                 x.make_bath()
                 x.make_cluster()
-
         if mpi:
             self.communicate_clusters()
 
@@ -201,14 +198,12 @@ class EWF(Embedding):
             with self.log.indent():
                 x.kernel()
 
-        # Evaluate correlation energy
+        # Evaluate correlation energy and log information
         self.e_corr = self.get_e_corr()
-
         self.log.output('E(nuc)=  %s', energy_string(self.mol.energy_nuc()))
         self.log.output('E(MF)=   %s', energy_string(self.e_mf))
         self.log.output('E(corr)= %s', energy_string(self.e_corr))
         self.log.output('E(tot)=  %s', energy_string(self.e_tot))
-
         self.log.info("Total wall time:  %s", time_string(timer()-t_start))
         return self.e_tot
 
