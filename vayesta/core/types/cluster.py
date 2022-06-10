@@ -171,7 +171,7 @@ class ClusterUHF(Cluster):
     def repr_size(self):
         lines = []
         fmt = (10*" " + 2*"   %-22s" + "   %-12s")
-        lines += [fmt % ("Active", "Frozen", "Total")]
+        lines += [(fmt % ("Active", "Frozen", "Total")).rstrip()]
         lines += [fmt % (22*'-', 22*'-', 12*'-')]
         fmt = '  %-8s' + 2*'   %5d, %5d (%6.1f%%)' + '   %5d, %5d'
         get_values = lambda a, f, n : (a[0], a[1], 100*(a[0]+a[1])/(n[0]+n[1]),

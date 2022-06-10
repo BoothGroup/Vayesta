@@ -10,6 +10,7 @@ from vayesta.core.qemb import Embedding
 from vayesta.core.fragmentation import SAO_Fragmentation
 from vayesta.core.fragmentation import IAO_Fragmentation
 from vayesta.core.fragmentation import IAOPAO_Fragmentation
+from vayesta.misc import corrfunc
 from vayesta.mpi import mpi
 # --- Package
 from . import helper
@@ -458,19 +459,7 @@ class EWF(Embedding):
 
     # --- Other expectation values
 
-    def get_atomic_ssz(self, dm1=None, dm2=None, atoms=None, projection='sao', dm2_with_dm1=None):
-        """Get expectation values <P(A) S_z^2 P(B)>, where P(X) are projectors onto atoms.
-
-        TODO: MPI"""
-        t0 = timer()
-        # --- Setup
-        if dm2_with_dm1 is None:
-            dm2_with_dm1 = False
-            if dm2 is not None:
-                # Determine if DM2 contains DM1 bu calculating norm
-                norm = einsum('iikk->', dm2)
-                ne2 = self.mol.nelectron*(self.mol.nelectron-1)
-                dm2_with_dm1 = (norm > ne2/2)
+    def _get_atomic_coeffs(self, atoms=None, projection='sao'):
         if atoms is None:
             atoms = list(range(self.mol.natm))
         natom = len(atoms)
@@ -487,6 +476,60 @@ class EWF(Embedding):
         for atom in atoms:
             name, indices = frag.get_atomic_fragment_indices(atom)
             c_atom.append(frag.get_frag_coeff(indices))
+        return c_atom
+
+    def get_atomic_ssz_mf(self, dm1=None, atoms=None, projection='sao'):
+        """dm1 in MO basis"""
+        if dm1 is None:
+            dm1 = np.zeros((self.nmo, self.nmo))
+            dm1[np.diag_indices(self.nocc)] = 2
+        c_atom = self._get_atomic_coeffs(atoms=atoms, projection=projection)
+        natom = len(c_atom)
+        ovlp = self.get_ovlp()
+        # Get projectors
+        proj = []
+        for a in range(natom):
+            r = dot(self.mo_coeff.T, ovlp, c_atom[a])
+            proj.append(np.dot(r, r.T))
+        ssz = np.zeros((natom, natom))
+        for a in range(natom):
+            for b in range(natom):
+                ssz[a,b] = corrfunc.spinspin_z(dm1, None, proj1=proj[a], proj2=proj[b])
+        return ssz
+
+    def get_atomic_ssz(self, dm1=None, dm2=None, atoms=None, projection='sao', dm2_with_dm1=None):
+        """Get expectation values <P(A) S_z^2 P(B)>, where P(X) are projectors onto atoms.
+
+        TODO: MPI"""
+        t0 = timer()
+        # --- Setup
+        if dm2_with_dm1 is None:
+            dm2_with_dm1 = False
+            if dm2 is not None:
+                # Determine if DM2 contains DM1 by calculating norm
+                norm = einsum('iikk->', dm2)
+                ne2 = self.mol.nelectron*(self.mol.nelectron-1)
+                dm2_with_dm1 = (norm > ne2/2)
+        #if atoms is None:
+        #    atoms = list(range(self.mol.natm))
+        #natom = len(atoms)
+        #projection = projection.lower()
+        #if projection == 'sao':
+        #    frag = SAO_Fragmentation(self)
+        #elif projection.replace('+', '').replace('/', '') == 'iaopao':
+        #    frag = IAOPAO_Fragmentation(self)
+        #else:
+        #    raise ValueError("Invalid projection: %s" % projection)
+        #frag.kernel()
+        #ovlp = self.get_ovlp()
+        #c_atom = []
+        #for atom in atoms:
+        #    name, indices = frag.get_atomic_fragment_indices(atom)
+        #    c_atom.append(frag.get_frag_coeff(indices))
+        c_atom = self._get_atomic_coeffs(atoms=atoms, projection=projection)
+        natom = len(c_atom)
+        ovlp = self.get_ovlp()
+
         proj = []
         for a in range(natom):
             rx = dot(self.mo_coeff.T, ovlp, c_atom[a])
