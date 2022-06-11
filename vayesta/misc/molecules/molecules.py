@@ -146,6 +146,10 @@ def ring(atom, natom, bond_length):
 
 # --- From datafiles:
 
+def propyl():
+    atom = _load_datafile('propyl.dat')
+    return atom
+
 def phenyl():
     atom = _load_datafile('phenyl.dat')
     return atom
