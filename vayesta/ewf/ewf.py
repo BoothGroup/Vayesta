@@ -510,9 +510,9 @@ class EWF(Embedding):
                 norm = einsum('iikk->', dm2)
                 ne2 = self.mol.nelectron*(self.mol.nelectron-1)
                 dm2_with_dm1 = (norm > ne2/2)
-        #if atoms is None:
-        #    atoms = list(range(self.mol.natm))
-        #natom = len(atoms)
+        if atoms is None:
+            atoms = list(range(self.mol.natm))
+        natom = len(atoms)
         #projection = projection.lower()
         #if projection == 'sao':
         #    frag = SAO_Fragmentation(self)
@@ -527,7 +527,6 @@ class EWF(Embedding):
         #    name, indices = frag.get_atomic_fragment_indices(atom)
         #    c_atom.append(frag.get_frag_coeff(indices))
         c_atom = self._get_atomic_coeffs(atoms=atoms, projection=projection)
-        natom = len(c_atom)
         ovlp = self.get_ovlp()
 
         proj = []
