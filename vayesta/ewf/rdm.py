@@ -58,7 +58,7 @@ def make_rdm1_ccsd(emb, ao_basis=False, t_as_lambda=False, symmetrize=True, with
     if not mp2:
         dov = np.zeros((nocc, nvir))
     # MPI loop
-    for frag in emb.get_fragments(mpi_rank=mpi.rank):
+    for frag in emb.get_fragments(active=True, mpi_rank=mpi.rank):
         wfx = frag.results.pwf.as_ccsd()
         th2x = (2*wfx.t2 - wfx.t2.transpose(0,1,3,2))
         l2x = wfx.t2 if t_as_lambda else wfx.l2
@@ -135,7 +135,7 @@ def make_rdm1_ccsd_proj_lambda(emb, ao_basis=False, t_as_lambda=False, with_mf=T
     """
     # --- Loop over pairs of fragments and add projected density-matrix contributions:
     dm1 = np.zeros((emb.nmo, emb.nmo))
-    for x in emb.get_fragments(mpi_rank=mpi.rank):
+    for x in emb.get_fragments(active=True, mpi_rank=mpi.rank):
         rx = x.get_overlap('mo|cluster')
         dm1x = x.make_fragment_dm1(t_as_lambda=t_as_lambda, sym_t2=sym_t2)
         dm1 += np.linalg.multi_dot((rx, dm1x, rx.T))
@@ -231,7 +231,7 @@ def make_rdm1_ccsd_global_wf(emb, ao_basis=False, with_mf=True, t_as_lambda=None
     if mpi:
         # TODO: use L-amplitudes of cluster X and T-amplitudes,
         # Only send T-amplitudes via RMA?
-        rma = {x.id: x.results.pwf.pack() for x in emb.get_fragments(mpi_rank=mpi.rank)}
+        rma = {x.id: x.results.pwf.pack() for x in emb.get_fragments(active=True, mpi_rank=mpi.rank)}
         rma = mpi.create_rma_dict(rma)
 
     # --- Loop over pairs of fragments and add projected density-matrix contributions:
@@ -240,7 +240,7 @@ def make_rdm1_ccsd_global_wf(emb, ao_basis=False, with_mf=True, t_as_lambda=None
     if with_t1:
         dov = np.zeros((emb.nocc, emb.nvir))
     xfilter = dict(sym_parent=None) if use_sym else {}
-    for x in emb.get_fragments(mpi_rank=mpi.rank, **xfilter):
+    for x in emb.get_fragments(active=True, mpi_rank=mpi.rank, **xfilter):
         wfx = x.results.pwf.as_ccsd()
         if not late_t2_sym:
             wfx = wfx.restore()
@@ -251,7 +251,7 @@ def make_rdm1_ccsd_global_wf(emb, ao_basis=False, with_mf=True, t_as_lambda=None
         dvvx = np.zeros((x.cluster.nvir_active, emb.nvir))
 
         # Loop over ALL fragments y:
-        for y in emb.get_fragments():
+        for y in emb.get_fragments(active=True):
 
             if mpi:
                 if y.solver == 'MP2':
@@ -522,7 +522,7 @@ def make_rdm2_ccsd_proj_lambda(emb, with_dm1=True, ao_basis=False, t_as_lambda=F
     # --- Loop over pairs of fragments and add projected density-matrix contributions:
     dm2 = np.zeros((emb.nmo, emb.nmo, emb.nmo, emb.nmo))
     ovlp = emb.get_ovlp()
-    for x in emb.get_fragments(mpi_rank=mpi.rank):
+    for x in emb.get_fragments(active=True, mpi_rank=mpi.rank):
         rx = x.get_overlap('mo|cluster')
         dm2x = x.make_fragment_dm2cumulant(t_as_lambda=t_as_lambda, sym_t2=sym_t2, approx_cumulant=approx_cumulant)
         dm2 += einsum('ijkl,Ii,Jj,Kk,Ll->IJKL', dm2x, rx, rx, rx, rx)

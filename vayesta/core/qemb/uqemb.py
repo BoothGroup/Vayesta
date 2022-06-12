@@ -126,7 +126,7 @@ class UEmbedding(Embedding):
             Electronic DMET energy.
         """
         e_dmet = 0.0
-        for f in self.get_fragments(mpi_rank=mpi.rank):
+        for f in self.get_fragments(active=True, mpi_rank=mpi.rank):
             e_dmet += f.get_fragment_dmet_energy(version=version, approx_cumulant=approx_cumulant)
         if mpi:
             mpi.world.allreduce(e_dmet)

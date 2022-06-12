@@ -54,7 +54,7 @@ def make_rdm1_ccsd(emb, ao_basis=False, t_as_lambda=False, symmetrize=True, with
         dovb = np.zeros((noccb, nvirb))
     # MPI loop
 
-    for frag in emb.get_fragments(mpi_rank=mpi.rank):
+    for frag in emb.get_fragments(active=True, mpi_rank=mpi.rank):
         wfx = frag.results.pwf.as_ccsd()
         t2xaa, t2xab, t2xba, t2xbb = wfx.t2
         l2xaa, l2xab, l2xba, l2xbb = wfx.l2 if not t_as_lambda else wfx.t2
@@ -288,7 +288,7 @@ def make_rdm2_ccsd_proj_lambda(emb, ao_basis=False, t_as_lambda=False, with_dm1=
     dm2ab = np.zeros(2*[nmoa]+2*[nmob])
     dm2bb = np.zeros(4*[nmob])
     ovlp = emb.get_ovlp()
-    for x in emb.get_fragments(mpi_rank=mpi.rank):
+    for x in emb.get_fragments(active=True, mpi_rank=mpi.rank):
         dm2xaa, dm2xab, dm2xbb = x.make_fragment_dm2cumulant(t_as_lambda=t_as_lambda)
         ra, rb =  x.get_overlap('mo|cluster')
         dm2aa += einsum('ijkl,Ii,Jj,Kk,Ll->IJKL', dm2xaa, ra, ra, ra, ra)

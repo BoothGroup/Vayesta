@@ -47,6 +47,8 @@ class Options(Embedding.Options):
     # --- Couple embedding problems (currently only CCSD)
     sc_mode: int = 0
     coupled_iterations: bool = False
+    # --- Other
+    absorb_fragments: bool = False
     # --- Debugging
     _debug_wf: str = None
 
@@ -178,7 +180,7 @@ class EWF(Embedding):
         self.log.info("")
         self.log.info("MAKING CLUSTERS")
         self.log.info("===============")
-        for x in self.get_fragments(sym_parent=None, mpi_rank=mpi.rank):
+        for x in self.get_fragments(active=True, sym_parent=None, mpi_rank=mpi.rank):
             msg = "Making bath for %s%s" % (x, (" on MPI process %d" % mpi.rank) if mpi else "")
             self.log.info(msg)
             self.log.info(len(msg)*"-")
@@ -188,11 +190,14 @@ class EWF(Embedding):
         if mpi:
             self.communicate_clusters()
 
+        if self.opts.absorb_fragments:
+            self.absorb_fragments()
+
         # Loop over fragments with no symmetry parent and with own MPI rank
         self.log.info("")
         self.log.info("RUNNING SOLVERS")
         self.log.info("===============")
-        for x in self.get_fragments(sym_parent=None, mpi_rank=mpi.rank):
+        for x in self.get_fragments(active=True, sym_parent=None, mpi_rank=mpi.rank):
             msg = "Solving %s%s" % (x, (" on MPI process %d" % mpi.rank) if mpi else "")
             self.log.info(msg)
             self.log.info(len(msg)*"-")
@@ -223,7 +228,7 @@ class EWF(Embedding):
 
     def t1_diagnostic(self, warn_tol=0.02):
         # Per cluster
-        for f in self.get_fragments(mpi_rank=mpi.rank):
+        for f in self.get_fragments(active=True, mpi_rank=mpi.rank):
             t1 = f.results.t1
             if t1 is None:
                 self.log.error("No T1 amplitudes found for %s.", f)
@@ -320,7 +325,7 @@ class EWF(Embedding):
     def get_proj_corr_energy(self):
         e_corr = 0.0
         # Only loop over fragments of own MPI rank
-        for x in self.get_fragments(sym_parent=None, mpi_rank=mpi.rank):
+        for x in self.get_fragments(active=True, sym_parent=None, mpi_rank=mpi.rank):
             try:
                 wf = x.results.wf.as_cisd(c0=1.0)
             except AttributeError:
@@ -370,7 +375,7 @@ class EWF(Embedding):
         if t_as_lambda is None:
             t_as_lambda = self.opts.t_as_lambda
         e2 = 0.0
-        for x in self.get_fragments(sym_parent=None, mpi_rank=mpi.rank):
+        for x in self.get_fragments(active=True, sym_parent=None, mpi_rank=mpi.rank):
             wx = x.symmetry_factor * x.sym_factor
             e2 += wx * x.make_fragment_dm2cumulant_energy(t_as_lambda=t_as_lambda, sym_t2=sym_t2)
         return e2/self.ncells
@@ -399,7 +404,7 @@ class EWF(Embedding):
                          - einsum('ijab,ibaj', c2, eris))
         else:
             e_doubles = 0.0
-            for x in self.get_fragments(sym_parent=None, mpi_rank=mpi.rank):
+            for x in self.get_fragments(active=True, sym_parent=None, mpi_rank=mpi.rank):
                 pwf = x.results.pwf.as_ccsd()
                 ro = x.get_overlap('mo-occ|cluster-occ')
                 rv = x.get_overlap('mo-vir|cluster-vir')
@@ -537,7 +542,7 @@ class EWF(Embedding):
         # Fragment dependent projection operator:
         if dm2 is None:
             proj_x = []
-            for x in self.get_fragments():
+            for x in self.get_fragments(active=True):
                 tmp = np.dot(x.cluster.c_active.T, ovlp)
                 proj_x.append([])
                 for a, atom in enumerate(atoms):
@@ -579,7 +584,7 @@ class EWF(Embedding):
                     ssz[a,b] += np.sum(tmp*pb)/2
         else:
             # Cumulant DM2 contribution:
-            for ix, x in enumerate(self.get_fragments()):
+            for ix, x in enumerate(self.get_fragments(active=True)):
                 dm2 = x.make_fragment_dm2cumulant()
                 dm2aa = (dm2 - dm2.transpose(0,3,2,1))/6
                 ddm2 = (2*dm2aa - dm2/2)    # dm2/2 is dm2aa + dm2ab, so ddm2 is dm2aa - dm2ab

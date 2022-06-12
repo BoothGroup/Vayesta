@@ -34,7 +34,7 @@ class UEWF(REWF, UEmbedding):
 
     def t1_diagnostic(self, warn_tol=0.02):
         # Per cluster
-        for f in self.get_fragments(mpi_rank=mpi.rank):
+        for f in self.get_fragments(active=True, mpi_rank=mpi.rank):
             t1 = f.results.t1
             if t1 is None:
                 self.log.error("No T1 amplitudes found for %s.", f)
@@ -157,7 +157,7 @@ class UEWF(REWF, UEmbedding):
         # Fragment dependent projection operator:
         if dm2 is None:
             proj_x = []
-            for x in self.get_fragments():
+            for x in self.get_fragments(active=True):
                 tmpa = np.dot(x.cluster.c_active[0].T, ovlp)
                 tmpb = np.dot(x.cluster.c_active[1].T, ovlp)
                 proj_x.append([])
@@ -219,7 +219,7 @@ class UEWF(REWF, UEmbedding):
                     ssz[a,b] += (np.sum(tmpa*pb[0]) + np.sum(tmpb*pb[1]))/4
         else:
             # Cumulant DM2 contribution:
-            for ix, x in enumerate(self.get_fragments()):
+            for ix, x in enumerate(self.get_fragments(active=True)):
                 dm2aa, dm2ab, dm2bb = x.make_fragment_dm2cumulant()
                 for a in range(natom):
                     pa = proj_x[ix][a]

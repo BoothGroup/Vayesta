@@ -769,13 +769,18 @@ class Embedding:
             fragment_list = self.fragments
         if not filters:
             return fragment_list
-        filters = {key : np.atleast_1d(filters[key]) for key in filters}
+        #filters = {key : np.atleast_1d(filters[key]) for key in filters}
+        filters = {k: (v if callable(v) else np.atleast_1d(v)) for k, v in filters.items()}
         fragments = []
         for frag in fragment_list:
             skip = False
             for key, filtr in filters.items():
                 val = getattr(frag, key)
-                if val not in filtr:
+                if callable(filtr):
+                    if not filtr(val):
+                        skip = True
+                        break
+                elif val not in filtr:
                     skip = True
                     break
             if skip:
@@ -784,6 +789,52 @@ class Embedding:
             self.log.debugv("Returning %s: attribute %s= %r, filter= %r", frag, key, val, filtr)
             fragments.append(frag)
         return fragments
+
+    def absorb_fragments(self, tol=1e-10):
+        """TODO"""
+        for fx in self.get_fragments(active=True):
+            for fy in self.get_fragments(active=True):
+                if (fx.id == fy.id):
+                    continue
+                if not (fx.active and fy.active):
+                    continue
+
+                def svd(cx, cy):
+                    rxy = np.dot(cx.T, cy)
+                    u, s, v = np.linalg.svd(rxy, full_matrices=False)
+                    if s.min() >= (1-tol):
+                        nx = cx.shape[-1]
+                        ny = cy.shape[-1]
+                        swap = False if (nx >= ny) else True
+                        return swap
+                    return None
+
+                cx_occ = fx.get_overlap('mo[occ]|cluster[occ]')
+                cy_occ = fy.get_overlap('mo[occ]|cluster[occ]')
+                swocc = svd(cx_occ, cy_occ)
+                if swocc is None:
+                    continue
+
+                cx_vir = fx.get_overlap('mo[vir]|cluster[vir]')
+                cy_vir = fy.get_overlap('mo[vir]|cluster[vir]')
+                swvir = svd(cx_vir, cy_vir)
+                if swocc != swvir:
+                    continue
+
+                # Absorb smaller
+                if swocc:
+                    fx, fy = fy, fx
+                c_frag = hstack(fx.c_frag, fy.c_frag)
+                fx.c_frag = c_frag
+                name = '/'.join((fx.name, fy.name))
+                fy.active = False
+                self.log.info("Subspace found: adding %s to %s (new name= %s)!", fy, fx, name)
+                # Update fx
+                fx.name = name
+                fx.c_env = None
+                fx._dmet_bath = None
+                fx._occ_bath_factory = None
+                fx._vir_bath_factory = None
 
     # Results
     # -------
@@ -821,7 +872,7 @@ class Embedding:
             Electronic DMET energy.
         """
         e_dmet = 0.0
-        for x in self.get_fragments(mpi_rank=mpi.rank, sym_parent=None):
+        for x in self.get_fragments(active=True, mpi_rank=mpi.rank, sym_parent=None):
             wx = x.symmetry_factor
             e_dmet += wx*x.get_fragment_dmet_energy(version=version, approx_cumulant=approx_cumulant)
         if mpi:

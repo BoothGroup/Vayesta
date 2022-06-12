@@ -92,7 +92,7 @@ def get_intercluster_mp2_energy_rhf(emb, bno_threshold_occ=None, bno_threshold_v
         with log_time(emb.log.timing, "Time for intercluster MP2 energy setup: %s"):
             coll = {}
             # Loop over symmetry unique fragments X
-            for x in emb.get_fragments(mpi_rank=mpi.rank, sym_parent=None):
+            for x in emb.get_fragments(active=True, mpi_rank=mpi.rank, sym_parent=None):
                 # Occupied orbitals:
                 if bno_threshold_occ is None:
                     c_occ = x._dmet_bath.c_cluster_occ
@@ -127,7 +127,7 @@ def get_intercluster_mp2_energy_rhf(emb, bno_threshold_occ=None, bno_threshold_v
                 if cderi_neg is not None:
                     coll[x.id, 'cderi_neg'] = cderi_neg
                 # Fragments Y, which are symmetry related to X
-                for y in emb.get_fragments(sym_parent=x):
+                for y in emb.get_fragments(active=True, sym_parent=x):
                     sym_op = y.get_symmetry_operation()
                     coll[y.id, 'c_vir'] = sym_op(c_vir)
                     # TODO: Why do we need to invert the atom reordering with argsort?
@@ -141,7 +141,7 @@ def get_intercluster_mp2_energy_rhf(emb, bno_threshold_occ=None, bno_threshold_v
                 coll = mpi.create_rma_dict(coll)
 
         #for ix, x in enumerate(emb.get_fragments(mpi_rank=mpi.rank)):
-        for ix, x in enumerate(emb.get_fragments(fragments, mpi_rank=mpi.rank, sym_parent=None)):
+        for ix, x in enumerate(emb.get_fragments(fragments, active=True, mpi_rank=mpi.rank, sym_parent=None)):
             cx = ClusterRHF(x, coll)
 
             eia_x = cx.e_occ[:,None] - cx.e_vir[None,:]
@@ -155,7 +155,7 @@ def get_intercluster_mp2_energy_rhf(emb, bno_threshold_occ=None, bno_threshold_v
             svir0 = np.dot(cx.c_vir.T, ovlp)
 
             # Loop over all other fragments
-            for iy, y in enumerate(emb.get_fragments()):
+            for iy, y in enumerate(emb.get_fragments(active=True)):
                 cy = ClusterRHF(y, coll)
 
                 # TESTING
@@ -298,7 +298,7 @@ def get_intercluster_mp2_energy_uhf(emb, bno_threshold=1e-9, direct=True, exchan
                     coll[x.id, 'cderi_a_neg'] = cderi_a_neg
                     coll[x.id, 'cderi_b_neg'] = cderi_b_neg
                 # Symmetry related fragments
-                for y in emb.get_fragments(sym_parent=x):
+                for y in emb.get_fragments(active=True, sym_parent=x):
                     sym_op = y.get_symmetry_operation()
                     coll[y.id, 'c_vir_a'] = sym_op(c_vir[0])
                     coll[y.id, 'c_vir_b'] = sym_op(c_vir[1])
@@ -313,7 +313,7 @@ def get_intercluster_mp2_energy_uhf(emb, bno_threshold=1e-9, direct=True, exchan
             if mpi:
                 coll = mpi.create_rma_dict(coll)
 
-        for ix, x in enumerate(emb.get_fragments(mpi_rank=mpi.rank, sym_parent=None)):
+        for ix, x in enumerate(emb.get_fragments(active=True, mpi_rank=mpi.rank, sym_parent=None)):
             cx = ClusterUHF(x, coll)
 
             eia_xa = cx.e_occ[0][:,None] - cx.e_vir[0][None,:]
@@ -327,7 +327,7 @@ def get_intercluster_mp2_energy_uhf(emb, bno_threshold=1e-9, direct=True, exchan
                 svir0b = np.dot(cx.c_vir[1].T, ovlp)
 
             # Loop over all other fragments
-            for iy, y in enumerate(emb.get_fragments()):
+            for iy, y in enumerate(emb.get_fragments(active=True)):
                 cy = ClusterUHF(y, coll)
 
                 eia_ya = cy.e_occ[0][:,None] - cy.e_vir[0][None,:]

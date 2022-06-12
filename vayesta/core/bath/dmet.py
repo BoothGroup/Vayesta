@@ -184,12 +184,11 @@ class DMET_Bath_RHF(Bath):
         d21 = np.dot(rb.T, ra)
         ub = np.dot(d21, ua)
         sab = np.linalg.norm(ub, axis=0)
-        mask_bath = (sab >= self.dmet_threshold)
+        sb = sab/sa
+        mask_bath = (sb**2 >= self.dmet_threshold)
         ub = ub[:,mask_bath]
-        sab = sab[mask_bath]
-
         # In AO basis
-        c_bath = np.dot(cb, ub/sab)
+        c_bath = np.dot(cb, ub/sab[mask_bath])
         return c_bath
 
     def log_info(self, eig, c_bath, print_tol=1e-10, strong_tol=0.1):

@@ -66,7 +66,7 @@ class Fragment:
 
 
     def __init__(self, base, fid, name, c_frag, c_env, #fragment_type,
-            atoms=None, aos=None,
+            atoms=None, aos=None, active=True,
             sym_parent=None, sym_op=None,
             mpi_rank=0,
             log=None, **kwargs):
@@ -149,9 +149,10 @@ class Fragment:
         self.sym_parent = sym_parent
         self.sym_op = sym_op
         # For some embeddings, it may be necessary to keep track of any associated atoms or basis functions (AOs)
-        # TODO: Is this still used?
         self.atoms = atoms
+        # TODO: Is aos still used?
         self.aos = aos
+        self.active = active
 
         # MPI
         self.mpi_rank = mpi_rank
