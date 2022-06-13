@@ -227,8 +227,13 @@ class UEmbedding(Embedding):
     # --- Other
     # ---------
 
-    make_rdm1_demo = make_rdm1_demo_uhf
-    make_rdm2_demo = make_rdm2_demo_uhf
+    @log_method()
+    def make_rdm1_demo(self, *args, **kwargs):
+        return make_rdm1_demo_uhf(self, *args, **kwargs)
+
+    @log_method()
+    def make_rdm2_demo(self, *args, **kwargs):
+        return make_rdm2_demo_uhf(self, *args, **kwargs)
 
     def pop_analysis(self, dm1, mo_coeff=None, local_orbitals='lowdin', write=True, minao='auto', mpi_rank=0, **kwargs):
         # IAO / PAOs are spin dependent - we need to build them here:

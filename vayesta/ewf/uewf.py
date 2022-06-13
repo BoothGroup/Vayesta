@@ -63,23 +63,29 @@ class UEWF(REWF, UEmbedding):
 
     # DM1
 
+    @log_method()
     def _make_rdm1_mp2(self, *args, **kwargs):
         return make_rdm1_ccsd(self, *args, mp2=True, **kwargs)
 
+    @log_method()
     def _make_rdm1_ccsd(self, *args, **kwargs):
         return make_rdm1_ccsd(self, *args, mp2=False, **kwargs)
 
+    @log_method()
     def _make_rdm1_ccsd_global_wf(self, *args, **kwargs):
         return make_rdm1_ccsd_global_wf(self, *args, **kwargs)
 
+    @log_method()
     def _make_rdm1_ccsd_proj_lambda(self, *args, **kwargs):
         raise NotImplementedError()
 
     # DM2
 
+    @log_method()
     def _make_rdm2_ccsd_global_wf(self, *args, **kwargs):
         return make_rdm2_ccsd_global_wf(self, *args, **kwargs)
 
+    @log_method()
     def _make_rdm2_ccsd_proj_lambda(self, *args, **kwargs):
         return make_rdm2_ccsd_proj_lambda(self, *args, **kwargs)
 
@@ -112,11 +118,11 @@ class UEWF(REWF, UEmbedding):
                 ssz[a,b] = corrfunc.spinspin_z_unrestricted(dm1, None, proj1=proj[a], proj2=proj[b])
         return ssz
 
+    @log_method()
     def get_atomic_ssz(self, dm1=None, dm2=None, atoms=None, projection='sao', dm2_with_dm1=None):
         """Get expectation values <P(A) S_z^2 P(B)>, where P(X) are projectors onto atoms.
 
         TODO: MPI"""
-        t0 = timer()
         # --- Setup
         if dm2_with_dm1 is None:
             dm2_with_dm1 = False
@@ -228,6 +234,4 @@ class UEWF(REWF, UEmbedding):
                     for b in range(natom):
                         pb = proj_x[ix][b]
                         ssz[a,b] += (np.sum(tmpa*pb[0]) + np.sum(tmpb*pb[1]))/4
-
-        self.log.timing("Time for <S_z^2>: %s", time_string(timer()-t0))
         return ssz

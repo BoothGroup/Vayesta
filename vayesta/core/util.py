@@ -26,7 +26,8 @@ import scipy
 import scipy.linalg
 import scipy.optimize
 
-log = logging.getLogger(__name__)
+
+modlog = logging.getLogger(__name__)
 
 # util module can be imported as *, such that the following is imported:
 __all__ = [
@@ -40,7 +41,7 @@ __all__ = [
         # String formatting
         'energy_string', 'time_string', 'memory_string',
         # Time & memory
-        'timer', 'log_time', 'get_used_memory',
+        'timer', 'log_time', 'get_used_memory', 'log_method',
         # Other
         'replace_attr', 'break_into_lines', 'fix_orbital_sign',
         ]
@@ -140,9 +141,9 @@ def einsum(subscripts, *operands, **kwargs):
         res = driver(subscripts, *operands, **kwargs)
     # Better shape information in case of exception:
     except ValueError:
-        log.fatal("einsum('%s',...) failed. shapes of arguments:", subscripts)
+        modlog.fatal("einsum('%s',...) failed. shapes of arguments:", subscripts)
         for i, arg in enumerate(operands):
-            log.fatal('%d: %r', i, list(np.asarray(arg).shape))
+            modlog.fatal('%d: %r', i, list(np.asarray(arg).shape))
         raise
     # Unpack scalars (for optimize = True):
     if isinstance(res, np.ndarray) and res.ndim == 0:
@@ -156,9 +157,9 @@ def hstack(*args, ignore_none=True):
     try:
         return np.hstack(args)
     except ValueError as e:
-        log.critical("Exception while trying to stack the following objects:")
+        modlog.critical("Exception while trying to stack the following objects:")
         for x in args:
-            log.critical("type= %r  shape= %r", type(x), x.shape if hasattr(x, 'shape') else "None")
+            modlog.critical("type= %r  shape= %r", type(x), x.shape if hasattr(x, 'shape') else "None")
         raise e
 
 def brange(*args, minstep=1, maxstep=None):
@@ -241,8 +242,25 @@ def log_time(logger, message, *args, mintime=None, **kwargs):
         if logger and (mintime is None or t >= mintime):
             logger(message, *args, time_string(t), **kwargs)
 
+def log_method(message='Time for %(classname).%(funcname): %s', log=None):
+    def decorator(func):
+        @functools.wraps(func)
+        def wrapped(self, *args, **kwargs):
+            nonlocal message, log
+            message = message.replace('%(classname)', type(self).__name__)
+            message = message.replace('%(funcname)', func.__name__)
+            log = log or getattr(self, 'log', False) or modlog
+            log.debugv("Entering method '%s'", func.__name__)
+            with log_time(log.timing, message):
+                res = func(self, *args, **kwargs)
+            log.debugv("Exiting method '%s'", func.__name__)
+            return res
+        return wrapped
+    return decorator
+
 def time_string(seconds, show_zeros=False):
     """String representation of seconds."""
+    seconds, sign = abs(seconds), np.sign(seconds)
     m, s = divmod(seconds, 60)
     if seconds >= 3600 or show_zeros:
         tstr = "%.0f h %.0f min" % divmod(m, 60)
@@ -250,6 +268,8 @@ def time_string(seconds, show_zeros=False):
         tstr = "%.0f min %.0f s" % (m, s)
     else:
         tstr = "%.1f s" % s
+    if sign == -1:
+        tstr = '-%s' %  tstr
     return tstr
 
 MEMUNITS = {'b': 1, 'kb': 1e3, 'mb': 1e6, 'gb': 1e9, 'tb': 1e12}
@@ -334,6 +354,10 @@ def deprecated(message=None):
 
         @functools.wraps(func)
         def wrapped(*args, **kwargs):
+            if len(args) > 0 and hasattr(args[0], 'log'):
+                log = args[0].log
+            else:
+                log = modlog
             log.warning(msg)
             return func(*args, **kwargs)
         return wrapped

@@ -94,6 +94,10 @@ class Fragment(BaseFragment):
         # For self-consistent mode
         self.solver_results = None
 
+    def reset(self, *args, **kwargs):
+        super().reset(*args, **kwargs)
+        self._tailor_wfs = []
+
     def set_cas(self, iaos=None, c_occ=None, c_vir=None, minao='auto', dmet_threshold=None):
         """Set complete active space for tailored CCSD"""
         if dmet_threshold is None:
@@ -117,6 +121,17 @@ class Fragment(BaseFragment):
         self.opts.c_cas_occ = c_cas_occ
         self.opts.c_cas_vir = c_cas_vir
         return c_cas_occ, c_cas_vir
+
+    def tailor_with(self, fragment, space='full'):
+        """
+        Parameters
+        ----------
+        space : ['fragment', 'full'], optional
+        """
+        if self.solver != 'CCSD':
+            raise NotImplementedError
+        wf = fragment.results.wf.to_ccsd()
+        self._tailor_wfs.append(wf)
 
     def get_init_guess(self, init_guess, solver, cluster):
         # FIXME

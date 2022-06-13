@@ -58,12 +58,13 @@ class BNO_Threshold:
 class BNO_Bath(Bath):
     """Bath natural orbital (BNO) bath, requires DMET bath."""
 
-    def __init__(self, fragment, ref_bath, occtype, *args, canonicalize=True, **kwargs):
+    def __init__(self, fragment, dmet_bath, occtype, *args, c_buffer=None, canonicalize=True, **kwargs):
         super().__init__(fragment, *args, **kwargs)
-        self.ref_bath = ref_bath
+        self.dmet_bath = dmet_bath
         if occtype not in ('occupied', 'virtual'):
             raise ValueError("Invalid occtype: %s" % occtype)
         self.occtype = occtype
+        self.c_buffer = c_buffer
         # Canonicalization can be set separately for occupied and virtual:
         if np.ndim(canonicalize) == 0:
             canonicalize = (canonicalize, canonicalize)
@@ -74,25 +75,15 @@ class BNO_Bath(Bath):
     @property
     def c_cluster_occ(self):
         """Occupied DMET cluster orbitals."""
-        return self.ref_bath.c_cluster_occ
+        return self.dmet_bath.c_cluster_occ
 
     @property
     def c_cluster_vir(self):
         """Virtual DMET cluster orbitals."""
-        return self.ref_bath.c_cluster_vir
+        return self.dmet_bath.c_cluster_vir
 
     def make_bno_coeff(self, *args, **kwargs):
         raise AbstractMethodError()
-
-    @property
-    def dmet_bath(self):
-        """The BNO bath can be build on top of a EwDMET bath. This returns the pure DMET bath in this case.
-
-        Use two attributes here:
-        Of the BNO bath is build on top of a EwDMET bath, self.dmet will be the EwDMET bath,
-        but self.dmet_bath.dmet_bath will be the DMET bath only!
-        """
-        return self.ref_bath.dmet_bath
 
     @property
     def c_env(self):
@@ -164,20 +155,30 @@ class BNO_Bath(Bath):
         return c_bath, c_rest
 
     def get_active_space(self):
-        ref_bath = self.ref_bath
         dmet_bath = self.dmet_bath
         nao = self.mol.nao
-        zero_space = np.zeros((nao, 0)) if self.spin_restricted else np.zeros((2, nao, 0))
+        empty = np.zeros((nao, 0)) if self.spin_restricted else np.zeros((2, nao, 0))
         if self.occtype == 'occupied':
             c_active_occ = spinalg.hstack_matrices(dmet_bath.c_cluster_occ, dmet_bath.c_env_occ)
-            c_frozen_occ = zero_space
-            c_active_vir = ref_bath.c_cluster_vir
-            c_frozen_vir = ref_bath.c_env_vir
+            c_frozen_occ = empty
+            if self.c_buffer is not None:
+                raise NotImplementedError
+            c_active_vir = dmet_bath.c_cluster_vir
+            c_frozen_vir = dmet_bath.c_env_vir
         elif self.occtype == 'virtual':
-            c_active_occ = ref_bath.c_cluster_occ
-            c_frozen_occ = ref_bath.c_env_occ
+            if self.c_buffer is None:
+                c_active_occ = dmet_bath.c_cluster_occ
+                c_frozen_occ = dmet_bath.c_env_occ
+            else:
+                c_active_occ = spinalg.hstack_matrices(dmet_bath.c_cluster_occ, self.c_buffer)
+                ovlp = self.fragment.base.get_ovlp()
+                r = dot(self.c_buffer.T, ovlp, dmet_bath.c_env_occ)
+                dm_frozen = np.eye(dmet_bath.c_env_occ.shape[-1]) - np.dot(r.T, r)
+                e, r = np.linalg.eigh(dm_frozen)
+                c_frozen_occ = np.dot(dmet_bath.c_env_occ, r[:,e>0.5])
+
             c_active_vir = spinalg.hstack_matrices(dmet_bath.c_cluster_vir, dmet_bath.c_env_vir)
-            c_frozen_vir = zero_space
+            c_frozen_vir = empty
         actspace = Cluster.from_coeffs(c_active_occ, c_active_vir, c_frozen_occ, c_frozen_vir)
         return actspace
 
@@ -246,6 +247,7 @@ class BNO_Bath_UHF(BNO_Bath):
         c_bath_b, c_rest_b = super().truncate_bno(coeff[1], occup[1], *args, **kwargs)
         return (c_bath_a, c_bath_b), (c_rest_a, c_rest_b)
 
+
 class MP2_BNO_Bath(BNO_Bath):
 
     def __init__(self, *args, project_t2=False, **kwargs):
@@ -302,18 +304,23 @@ class MP2_BNO_Bath(BNO_Bath):
 
     def make_delta_dm1(self, t2, actspace):
         """Delta MP2 density matrix"""
-        norm = 1
-        if not self.project_t2:
+
+        if self.project_t2 == 'double' and self.occtype == 'virtual':
+            ovlp = self.fragment.base.get_ovlp()
+            rx = dot(actspace.c_active_occ.T, ovlp, self.dmet_bath.c_cluster_occ)
+            t2 = einsum('xi,yj,ijab->xyab', rx.T, rx.T, t2)
+
+        if not self.project_t2 or self.project_t2 == 'double':
             self.log.debugv("Constructing DM from full T2-amplitudes.")
             # This is equivalent to:
             # do, dv = pyscf.mp.mp2._gamma1_intermediates(mp2, eris=eris)
             # do, dv = -2*do, 2*dv
             if self.occtype == 'occupied':
-                dm = norm*(2*einsum('ikab,jkab->ij', t2, t2)
-                           - einsum('ikab,kjab->ij', t2, t2))
+                dm = (2*einsum('ikab,jkab->ij', t2, t2)
+                      - einsum('ikab,kjab->ij', t2, t2))
             elif self.occtype == 'virtual':
-                dm = norm*(2*einsum('ijac,ijbc->ab', t2, t2)
-                           - einsum('ijac,ijcb->ab', t2, t2))
+                dm = (2*einsum('ijac,ijbc->ab', t2, t2)
+                      - einsum('ijac,ijcb->ab', t2, t2))
             assert np.allclose(dm, dm.T)
             return dm
 
@@ -323,17 +330,17 @@ class MP2_BNO_Bath(BNO_Bath):
         if self.occtype == 'occupied':
             px = dot(actspace.c_active_vir.T, ovlp, self.dmet_bath.c_cluster_vir)
             t2x = einsum('ax,ijab->ijxb', px, t2)
-            dm = norm*(2*einsum('ikab,jkab->ij', t2x, t2x)
-                       - einsum('ikab,kjab->ij', t2x, t2x)
-                     + 2*einsum('kiba,kjba->ij', t2x, t2x)
-                       - einsum('kiba,jkba->ij', t2x, t2x))/2
+            dm = (2*einsum('ikab,jkab->ij', t2x, t2x)
+                  - einsum('ikab,kjab->ij', t2x, t2x)
+                + 2*einsum('kiba,kjba->ij', t2x, t2x)
+                  - einsum('kiba,jkba->ij', t2x, t2x))/2
         elif self.occtype == 'virtual':
             px = dot(actspace.c_active_occ.T, ovlp, self.dmet_bath.c_cluster_occ)
             t2x = einsum('ix,ijab->xjab', px, t2)
-            dm = norm*(2*einsum('ijac,ijbc->ab', t2x, t2x)
-                       - einsum('ijac,ijcb->ab', t2x, t2x)
-                     + 2*einsum('jica,jicb->ab', t2x, t2x)
-                       - einsum('jica,jibc->ab', t2x, t2x))/2
+            dm = (2*einsum('ijac,ijbc->ab', t2x, t2x)
+                  - einsum('ijac,ijcb->ab', t2x, t2x)
+                + 2*einsum('jica,jicb->ab', t2x, t2x)
+                  - einsum('jica,jibc->ab', t2x, t2x))/2
 
         assert np.allclose(dm, dm.T)
         return dm

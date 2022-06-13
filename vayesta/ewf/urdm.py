@@ -191,8 +191,6 @@ def make_rdm1_ccsd_global_wf(emb, ao_basis=False, with_mf=True, t_as_lambda=Fals
     dm1: (n, n) array
         One-particle reduced density matrix in AO (if `ao_basis=True`) or MO basis (default).
     """
-    t_init = timer()
-
     if t_as_lambda is None:
         t_as_lambda = emb.opts.t_as_lambda
 
@@ -211,7 +209,6 @@ def make_rdm1_ccsd_global_wf(emb, ao_basis=False, with_mf=True, t_as_lambda=Fals
         if not with_t1:
             t1 = l1 = (np.zeros_like(t1[0]), np.zeros_like(t1[1]))
         dm1 = pyscf.cc.uccsd_rdm.make_rdm1(mockcc, t1=t1, t2=t2, l1=l1, l2=l2, ao_repr=ao_basis, with_mf=with_mf)
-        emb.log.timing("Time for make_rdm1: %s", time_string(timer()-t_init))
         return dm1
 
     # TODO

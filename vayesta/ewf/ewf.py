@@ -171,7 +171,8 @@ class EWF(Embedding):
 
     def _kernel_single_threshold(self):
         """Run EWF."""
-        if mpi: mpi.world.Barrier()
+        if mpi:
+            mpi.world.Barrier()
         t_start = timer()
         if self.nfrag == 0:
             raise RuntimeError("No fragments defined for calculation.")
@@ -180,15 +181,20 @@ class EWF(Embedding):
         self.log.info("")
         self.log.info("MAKING CLUSTERS")
         self.log.info("===============")
-        for x in self.get_fragments(active=True, sym_parent=None, mpi_rank=mpi.rank):
-            msg = "Making bath for %s%s" % (x, (" on MPI process %d" % mpi.rank) if mpi else "")
-            self.log.info(msg)
-            self.log.info(len(msg)*"-")
-            with self.log.indent():
-                x.make_bath()
-                x.make_cluster()
+        with log_time(self.log.timing, "Total time for bath and clusters: %s"):
+            for x in self.get_fragments(active=True, sym_parent=None, mpi_rank=mpi.rank):
+                msg = "Making bath for %s%s" % (x, (" on MPI process %d" % mpi.rank) if mpi else "")
+                self.log.info(msg)
+                self.log.info(len(msg)*"-")
+                with self.log.indent():
+                    x.make_bath()
+                    x.make_cluster()
+            if mpi:
+                mpi.world.Barrier()
+
         if mpi:
-            self.communicate_clusters()
+            with log_time(self.log.timing, "Time for MPI communication of clusters: %s"):
+                self.communicate_clusters()
 
         if self.opts.absorb_fragments:
             self.absorb_fragments()
@@ -197,12 +203,15 @@ class EWF(Embedding):
         self.log.info("")
         self.log.info("RUNNING SOLVERS")
         self.log.info("===============")
-        for x in self.get_fragments(active=True, sym_parent=None, mpi_rank=mpi.rank):
-            msg = "Solving %s%s" % (x, (" on MPI process %d" % mpi.rank) if mpi else "")
-            self.log.info(msg)
-            self.log.info(len(msg)*"-")
-            with self.log.indent():
-                x.kernel()
+        with log_time(self.log.timing, "Total time for solvers: %s"):
+            for x in self.get_fragments(active=True, sym_parent=None, mpi_rank=mpi.rank):
+                msg = "Solving %s%s" % (x, (" on MPI process %d" % mpi.rank) if mpi else "")
+                self.log.info(msg)
+                self.log.info(len(msg)*"-")
+                with self.log.indent():
+                    x.kernel()
+            if mpi:
+                mpi.world.Barrier()
 
         # Evaluate correlation energy and log information
         self.e_corr = self.get_e_corr()
@@ -286,24 +295,30 @@ class EWF(Embedding):
         raise NotImplementedError("make_rdm2 for solver '%s'" % self.solver)
 
     # DM1
-
+    @log_method()
     def _make_rdm1_mp2(self, *args, **kwargs):
+        #with log_time(self.log.timing, "Time for make_rdm1_demo"):
         return make_rdm1_ccsd(self, *args, mp2=True, **kwargs)
 
+    @log_method()
     def _make_rdm1_ccsd(self, *args, **kwargs):
         return make_rdm1_ccsd(self, *args, mp2=False, **kwargs)
 
+    @log_method()
     def _make_rdm1_ccsd_global_wf(self, *args, **kwargs):
         return make_rdm1_ccsd_global_wf(self, *args, **kwargs)
 
+    @log_method()
     def _make_rdm1_ccsd_proj_lambda(self, *args, **kwargs):
         return make_rdm1_ccsd_proj_lambda(self, *args, **kwargs)
 
     # DM2
 
+    @log_method()
     def _make_rdm2_ccsd_global_wf(self, *args, **kwargs):
         return make_rdm2_ccsd_global_wf(self, *args, **kwargs)
 
+    @log_method()
     def _make_rdm2_ccsd_proj_lambda(self, *args, **kwargs):
         return make_rdm2_ccsd_proj_lambda(self, *args, **kwargs)
 
@@ -502,11 +517,11 @@ class EWF(Embedding):
                 ssz[a,b] = corrfunc.spinspin_z(dm1, None, proj1=proj[a], proj2=proj[b])
         return ssz
 
+    @log_method()
     def get_atomic_ssz(self, dm1=None, dm2=None, atoms=None, projection='sao', dm2_with_dm1=None):
         """Get expectation values <P(A) S_z^2 P(B)>, where P(X) are projectors onto atoms.
 
         TODO: MPI"""
-        t0 = timer()
         # --- Setup
         if dm2_with_dm1 is None:
             dm2_with_dm1 = False
@@ -594,8 +609,6 @@ class EWF(Embedding):
                     for b in range(natom):
                         pb = proj_x[ix][b]
                         ssz[a,b] += np.sum(tmp*pb)/2
-
-        self.log.timing("Time for <S_z^2>: %s", time_string(timer()-t0))
         return ssz
 
     def get_dm_energy_old(self, global_dm1=True, global_dm2=False):

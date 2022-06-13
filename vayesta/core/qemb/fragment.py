@@ -317,6 +317,28 @@ class Fragment:
         self._results = self.Results(fid=self.id)
         self.get_overlap.cache_clear()
 
+    def get_fragments_with_overlap(self, tol=1e-8, **kwargs):
+        """Get list of fragments which overlap both in occupied and virtual space."""
+        c_occ = self.get_overlap('mo[occ]|cluster[occ]')
+        c_vir = self.get_overlap('mo[vir]|cluster[vir]')
+        def svd(cx, cy):
+            rxy = np.dot(cx.T, cy)
+            return np.linalg.svd(rxy, compute_uv=False)
+        frags = []
+        for fx in self.base.get_fragments(**kwargs):
+            if (fx.id == self.id):
+                continue
+            cx_occ = fx.get_overlap('mo[occ]|cluster[occ]')
+            s_occ = svd(c_occ, cx_occ)
+            if s_occ.max() < tol:
+                continue
+            cy_occ = fy.get_overlap('mo[vir]|cluster[vir]')
+            s_vir = svd(c_vir, cx_vir)
+            if s_vir.max() < tol:
+                continue
+            frags.append(fx)
+        return frags
+
     def couple_to_fragment(self, frag):
         if frag is self:
             raise RuntimeError("Cannot couple fragment with itself.")
@@ -613,6 +635,8 @@ class Fragment:
         # --- Bath options
         bath_opts = self.opts.bath_options
         self.log.debug("bath_options: %s", break_into_lines(str(bath_opts)))
+        def get_opt(key, occtype):
+            return (bath_opts.get('%s_%s' % (key, occtype[:3]), False) or bath_opts[key])
 
         # --- DMET bath
         dmet = DMET_Bath(self, dmet_threshold=bath_opts['dmet_threshold'])
@@ -623,7 +647,7 @@ class Fragment:
         def get_bath(occtype):
             otype = occtype[:3]
             assert otype in ('occ', 'vir')
-            btype = (bath_opts.get('bathtype_%s' % otype, False) or bath_opts['bathtype'])
+            btype = get_opt('bathtype', occtype)
             if btype is None:
                 self.log.warning("bathtype=None is deprecated; use bathtype='dmet'.")
                 btype = 'dmet'
@@ -644,8 +668,14 @@ class Fragment:
                 return R2_Bath(self, dmet, occtype=occtype)
             # MP2 bath natural orbitals
             if btype == 'mp2':
-                project_t2 = bath_opts['project_t2']
-                return MP2_Bath(self, ref_bath=dmet, occtype=occtype, project_t2=project_t2)
+                project_t2 = get_opt('project_t2', occtype)
+                addbuffer = get_opt('addbuffer', occtype) and occtype == 'virtual'
+                if addbuffer:
+                    other = 'occ' if (otype == 'vir') else 'vir'
+                    c_buffer = getattr(dmet, 'c_env_%s' % other)
+                else:
+                    c_buffer = None
+                return MP2_Bath(self, dmet_bath=dmet, occtype=occtype, c_buffer=c_buffer, project_t2=project_t2)
             raise NotImplementedError('bathtype= %s' % btype)
         self._bath_factory_occ = get_bath(occtype='occupied')
         self._bath_factory_vir = get_bath(occtype='virtual')
@@ -653,7 +683,6 @@ class Fragment:
     def make_cluster(self):
 
         bath_opts = self.opts.bath_options
-
         def get_opt(key, occtype):
             return (bath_opts.get('%s_%s' % (key, occtype[:3]), False) or bath_opts[key])
 

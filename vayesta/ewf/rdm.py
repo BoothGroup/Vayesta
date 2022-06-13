@@ -189,8 +189,6 @@ def make_rdm1_ccsd_global_wf(emb, ao_basis=False, with_mf=True, t_as_lambda=None
     dm1: array(n(MO),n(MO)) or array(n(AO),n(AO))
         One-particle reduced density matrix in AO (if `ao_basis=True`) or MO basis (default).
     """
-    t_init = timer()
-
     if t_as_lambda is None:
         t_as_lambda = emb.opts.t_as_lambda
 
@@ -209,7 +207,6 @@ def make_rdm1_ccsd_global_wf(emb, ao_basis=False, with_mf=True, t_as_lambda=None
         if not with_t1:
             t1 = l1 = np.zeros_like(t1)
         dm1 = pyscf.cc.ccsd_rdm.make_rdm1(mockcc, t1=t1, t2=t2, l1=l1, l2=l2, ao_repr=ao_basis, with_mf=with_mf)
-        emb.log.timing("Time for make_rdm1: %s", time_string(timer()-t_init))
         return dm1
 
     # === Fast algorithm via fragment-fragment loop
@@ -380,7 +377,6 @@ def make_rdm1_ccsd_global_wf(emb, ao_basis=False, with_mf=True, t_as_lambda=None
                     tmp = einsum('(xSab,aP->xSPb),(PA,xSAB->xSPB)->bB', t2tmp, uxy_vir, vxy_vir, l2tmp)/4
                     tmp += einsum('(xSba,aP->xSbP),(PA,xSBA->xSBP)->bB', t2tmp, uxy_vir, vxy_vir, l2tmp)/4
                 # T2 * L2.T and T2.T * L2
-                t0 = timer()
                 t2tmp = einsum('xjab,jY->xYab', theta, cfxy_occ)
                 l2tmp = einsum('Jx,YJAB->YxAB', cfyx_occ, l2)
                 if svd_tol is None:
@@ -447,7 +443,6 @@ def make_rdm1_ccsd_global_wf(emb, ao_basis=False, with_mf=True, t_as_lambda=None
     # --- Some information:
     emb.log.debug("Cluster-pairs: total= %d  kept= %d (%.1f%%)", total_xy, kept_xy, 100*kept_xy/total_xy)
     emb.log.debug("Singular values: total= %d  kept= %d (%.1f%%)", total_sv, kept_sv, 100*kept_sv/total_sv)
-    emb.log.timing("Time for make_rdm1: %s", time_string(timer()-t_init))
 
     return dm1
 
@@ -475,7 +470,6 @@ def make_rdm2_ccsd_global_wf(emb, ao_basis=False, symmetrize=True, t_as_lambda=F
     dm2: (n, n, n, n) array
         Two-particle reduced density matrix in AO (if `ao_basis=True`) or MO basis (default).
     """
-
     if slow:
         t1 = emb.get_global_t1()
         t2 = emb.get_global_t2()

@@ -66,7 +66,7 @@ class Options(OptionsBase):
         # R2 bath
         rcut=None, unit='Ang',
         # MP2 bath
-        threshold=None, truncation='occupation', project_t2=False,
+        threshold=None, truncation='occupation', project_t2=False, addbuffer=False,
         # General
         canonicalize=True,
         )
@@ -853,8 +853,13 @@ class Embedding:
                     x.cluster = cluster
                 x.cluster.mf = self.mf
 
-    make_rdm1_demo = make_rdm1_demo_rhf
-    make_rdm2_demo = make_rdm2_demo_rhf
+    @log_method()
+    def make_rdm1_demo(self, *args, **kwargs):
+        return make_rdm1_demo_rhf(self, *args, **kwargs)
+
+    @log_method()
+    def make_rdm2_demo(self, *args, **kwargs):
+        return make_rdm2_demo_rhf(self, *args, **kwargs)
 
     def check_fragment_nelectron(self):
         nelec_frags = sum([f.sym_factor*f.nelectron for f in self.loop()])
