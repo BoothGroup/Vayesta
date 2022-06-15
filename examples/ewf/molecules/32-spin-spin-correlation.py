@@ -24,11 +24,15 @@ mf.kernel()
 # Embedded CCSD:
 emb = vayesta.ewf.EWF(mf, bath_options=dict(threshold=1e-4),
         solver_options=dict(solve_lambda=True))
-with emb.iao_fragmentation() as frag:
-    frag.add_atomic_fragment(0)
-    frag.add_atomic_fragment(1, bath_options=dict(threshold=-1))
-    frag.add_atomic_fragment(2, bath_options=dict(threshold=+1))
 emb.kernel()
+
+# Mean-field:
+ssz = emb.get_atomic_ssz_mf()
+print("Mean-field SAO <Sz(A)Sz(B)> values:")
+for a in range(mol.natm):
+    for b in range(mol.natm):
+        print('A= %d, B= %d:  %+.5f' % (a, b, ssz[a,b]))
+print("Total:       %+.5f" % ssz.sum())
 
 # Lowdin orbitals, all atoms:
 ssz = emb.get_atomic_ssz()
