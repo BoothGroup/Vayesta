@@ -73,7 +73,7 @@ def spinspin_z_unrestricted(dm1, dm2, proj1=None, proj2=None):
 def spinspin_z_mf(dm1, proj1=None, proj2=None):
     # TEMP:
     dm1 = (dm1/2, dm1/2)
-    return spinspin_z_uhf(dm1=dm1, proj1=proj1, proj2=proj2)
+    return spinspin_z_mf_unrestricted(dm1=dm1, proj1=proj1, proj2=proj2)
 
     #if proj2 is None:
     #    proj2 = proj1

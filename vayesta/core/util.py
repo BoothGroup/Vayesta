@@ -43,7 +43,7 @@ __all__ = [
         # Time & memory
         'timer', 'log_time', 'get_used_memory', 'log_method',
         # Other
-        'replace_attr', 'break_into_lines', 'fix_orbital_sign',
+        'replace_attr', 'break_into_lines', 'fix_orbital_sign', 'split_into_blocks',
         ]
 
 class Object:
@@ -189,7 +189,19 @@ def brange(*args, minstep=1, maxstep=None):
         blk = np.s_[i:min(i+step, stop)]
         yield blk
 
-
+def split_into_blocks(array, axis=0, blocksize=None, max_memory=int(1e9)):
+    size = array.shape[axis]
+    axis = axis % array.ndim
+    if blocksize is None:
+        mem = array.nbytes
+        nblocks = max(int(np.ceil(mem/max_memory)), 1)
+        blocksize = int(np.ceil(size/nblocks))
+    if blocksize >= size:
+        yield slice(None), array
+        return
+    for i in range(0, size, blocksize):
+        blk = np.s_[i:min(i+blocksize, size)]
+        yield blk, array[axis*(slice(None), ) + (blk,)]
 
 # --- Exceptions
 

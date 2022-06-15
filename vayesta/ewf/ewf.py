@@ -235,16 +235,14 @@ class EWF(Embedding):
     def get_global_l2(self, *args, **kwargs):
         return self.get_global_t2(*args, get_lambda=True, **kwargs)
 
-    def t1_diagnostic(self, warn_tol=0.02):
+    def t1_diagnostic(self, warntol=0.02):
         # Per cluster
-        for f in self.get_fragments(active=True, mpi_rank=mpi.rank):
-            t1 = f.results.t1
-            if t1 is None:
-                self.log.error("No T1 amplitudes found for %s.", f)
-                continue
+        for fx in self.get_fragments(active=True, mpi_rank=mpi.rank):
+            wfx = fx.results.wf.to_ccsd()
+            t1 = wfx.t1
             nelec = 2*t1.shape[0]
             t1diag = np.linalg.norm(t1) / np.sqrt(nelec)
-            if t1diag > warn_tol:
+            if t1diag >= warntol:
                 self.log.warning("T1 diagnostic for %-20s %.5f", str(f)+':', t1diag)
             else:
                 self.log.info("T1 diagnostic for %-20s %.5f", str(f)+':', t1diag)
@@ -253,7 +251,7 @@ class EWF(Embedding):
         if mpi.is_master:
             nelec = 2*t1.shape[0]
             t1diag = np.linalg.norm(t1) / np.sqrt(nelec)
-            if t1diag > warn_tol:
+            if t1diag >= warntol:
                 self.log.warning("Global T1 diagnostic: %.5f", t1diag)
             else:
                 self.log.info("Global T1 diagnostic: %.5f", t1diag)
@@ -533,19 +531,6 @@ class EWF(Embedding):
         if atoms is None:
             atoms = list(range(self.mol.natm))
         natom = len(atoms)
-        #projection = projection.lower()
-        #if projection == 'sao':
-        #    frag = SAO_Fragmentation(self)
-        #elif projection.replace('+', '').replace('/', '') == 'iaopao':
-        #    frag = IAOPAO_Fragmentation(self)
-        #else:
-        #    raise ValueError("Invalid projection: %s" % projection)
-        #frag.kernel()
-        #ovlp = self.get_ovlp()
-        #c_atom = []
-        #for atom in atoms:
-        #    name, indices = frag.get_atomic_fragment_indices(atom)
-        #    c_atom.append(frag.get_frag_coeff(indices))
         c_atom = self._get_atomic_coeffs(atoms=atoms, projection=projection)
         ovlp = self.get_ovlp()
 
@@ -587,28 +572,33 @@ class EWF(Embedding):
                     ssz[a,b] -= np.sum(tmp[occ] * proj[b][occ])/2       # N_atom^2 * N^2 scaling
 
         if dm2 is not None:
-            dm2aa = (dm2 - dm2.transpose(0,3,2,1))/6
-            # ddm2 is equal to dm2aa - dm2ab, as
-            # dm2ab = (dm2/2 - dm2aa)
-            ddm2 = (2*dm2aa - dm2/2)
+            # DM2(aa)               = (DM2 - DM2.transpose(0,3,2,1))/6
+            # DM2(ab)               = DM2/2 - DM2(aa)
+            # DM2(aa) - DM2(ab)]    = 2*DM2(aa) - DM2/2
+            #                       = DM2/3 - DM2.transpose(0,3,2,1)/3 - DM2/2
+            #                       = -DM2/6 - DM2.transpose(0,3,2,1)/3
+            ddm2 = -(dm2/6 + dm2.transpose(0,3,2,1)/3)
             for a in range(natom):
-                pa = proj[a]
-                tmp = np.tensordot(pa, ddm2)
+                tmp = np.tensordot(proj[a], ddm2)
                 for b in range(natom):
-                    pb = proj[b]
-                    ssz[a,b] += np.sum(tmp*pb)/2
+                    ssz[a,b] += np.sum(tmp*proj[b])/2
         else:
             # Cumulant DM2 contribution:
             for ix, x in enumerate(self.get_fragments(active=True)):
+                px = proj_x[ix]
                 dm2 = x.make_fragment_dm2cumulant()
-                dm2aa = (dm2 - dm2.transpose(0,3,2,1))/6
-                ddm2 = (2*dm2aa - dm2/2)    # dm2/2 is dm2aa + dm2ab, so ddm2 is dm2aa - dm2ab
-                for a in range(natom):
-                    pa = proj_x[ix][a]
-                    tmp = np.tensordot(pa, ddm2)
-                    for b in range(natom):
-                        pb = proj_x[ix][b]
-                        ssz[a,b] += np.sum(tmp*pb)/2
+                # Split to reduce memory:
+                for blk, dm2 in split_into_blocks(dm2):
+                    # DM2(aa)               = (DM2 - DM2.transpose(0,3,2,1))/6
+                    # DM2(ab)               = DM2/2 - DM2(aa)
+                    # DM2(aa) - DM2(ab)]    = 2*DM2(aa) - DM2/2
+                    #                       = DM2/3 - DM2.transpose(0,3,2,1)/3 - DM2/2
+                    #                       = -DM2/6 - DM2.transpose(0,3,2,1)/3
+                    ddm2 = -(dm2/6 + dm2.transpose(0,3,2,1)/3)
+                    for a in range(natom):
+                        tmp = np.tensordot(px[a][blk], ddm2)
+                        for b in range(natom):
+                            ssz[a,b] += np.sum(tmp*px[b])/2
         return ssz
 
     def get_dm_energy_old(self, global_dm1=True, global_dm2=False):

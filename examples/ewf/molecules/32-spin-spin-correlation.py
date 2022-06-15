@@ -32,7 +32,7 @@ emb.kernel()
 
 # Lowdin orbitals, all atoms:
 ssz = emb.get_atomic_ssz()
-print("SAO <Sz(A)|Sz(B)> values:")
+print("SAO <Sz(A)Sz(B)> values:")
 for a in range(mol.natm):
     for b in range(mol.natm):
         print('A= %d, B= %d:  %+.5f' % (a, b, ssz[a,b]))
@@ -41,7 +41,7 @@ print("Total:       %+.5f" % ssz.sum())
 # Subset of atoms:
 atoms = [0,2]
 ssz = emb.get_atomic_ssz(atoms=atoms)
-print("SAO <Sz(A)|Sz(B)> values:")
+print("SAO <Sz(A)Sz(B)> values:")
 for i, a in enumerate(atoms):
     for j, b in enumerate(atoms):
         print('A= %d, B= %d:  %+.5f' % (a, b, ssz[i,j]))
@@ -49,7 +49,7 @@ print("Total:       %+.5f" % ssz.sum())
 
 # IAO+PAO orbitals
 ssz = emb.get_atomic_ssz(projection='iaopao')
-print("IAO+PAO <Sz(A)|Sz(B)> values:")
+print("IAO+PAO <Sz(A)Sz(B)> values:")
 for a in range(mol.natm):
     for b in range(mol.natm):
         print('A= %d, B= %d:  %+.5f' % (a, b, ssz[a,b]))
