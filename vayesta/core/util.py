@@ -354,15 +354,17 @@ def break_into_lines(string, linelength=100, sep=None, newline='\n'):
             lines[-1] += ' ' + s
     return newline.join(lines)
 
-def deprecated(message=None):
+def deprecated(message=None, replacement=None):
     """This is a decorator which can be used to mark functions
     as deprecated. It will result in a warning being emitted
     when the function is used."""
     def decorator(func):
-        if message is None:
-            msg = "Function %s is deprecated!" % func.__name__
-        else:
+        if message is not None:
             msg = message
+        else:
+            msg = "Function `%s` is deprecated." % func.__name__
+            if replacement is not None:
+                msg += " Use `%s` instead." % replacement
 
         @functools.wraps(func)
         def wrapped(*args, **kwargs):

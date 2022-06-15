@@ -174,8 +174,6 @@ class EWF(Embedding):
         if mpi:
             mpi.world.Barrier()
         t_start = timer()
-        if self.nfrag == 0:
-            raise RuntimeError("No fragments defined for calculation.")
 
         # Create bath and clusters first
         self.log.info("")
