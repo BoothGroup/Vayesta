@@ -174,6 +174,10 @@ class Embedding:
             # --------
             self.with_scmf = None   # Self-consistent mean-field
 
+            # 7) Results
+            # ----------
+            self._reset()
+
 
     def _mpi_bcast_mf(self, mf):
         """Use mo_energy and mo_coeff from master MPI rank only."""
@@ -1081,16 +1085,21 @@ class Embedding:
         """Initialize the quantum embedding method for the use of site fragments."""
         return CAS_Fragmentation(self)
 
+    # --- Reset
 
-    # --- Mean-field updates
+    def _reset_fragments(self, *args, **kwargs):
+        for fx in self.fragments:
+            fx.reset(*args, **kwargs)
 
-    @deprecated
-    def reset_fragments(self, *args, **kwargs):
-        self.reset()
+    def _reset(self):
+        self.e_corr = None
+        self.converged = False
 
     def reset(self, *args, **kwargs):
-        for x in self.fragments:
-            x.reset(*args, **kwargs)
+        self._reset()
+        self._reset_fragments(*args, **kwargs)
+
+    # --- Mean-field updates
 
     def update_mf(self, mo_coeff, mo_energy=None, veff=None):
         """Update underlying mean-field object."""

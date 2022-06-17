@@ -95,18 +95,18 @@ class EWF(Embedding):
             if solver not in self.valid_solvers:
                 raise ValueError("Unknown solver: %s" % solver)
             self.solver = solver
-
-            self.e_corr = None
             self.log.info("Time for %s setup: %s", self.__class__.__name__, time_string(timer()-t0))
-
-            # TODO: Redo self-consistencies
-            self.iteration = 0
 
     def __repr__(self):
         keys = ['mf', 'solver']
         fmt = ('%s(' + len(keys)*'%s: %r, ')[:-2] + ')'
         values = [self.__dict__[k] for k in keys]
         return fmt % (self.__class__.__name__, *[x for y in zip(keys, values) for x in y])
+
+    def _reset(self):
+        super()._reset()
+        # TODO: Redo self-consistencies
+        self.iteration = 0
 
     def tailor_all_fragments(self):
         for x in self.fragments:
@@ -210,6 +210,16 @@ class EWF(Embedding):
                     x.kernel()
             if mpi:
                 mpi.world.Barrier()
+
+        # Check convergence of fragments
+        conv = True
+        for fx in self.get_fragments(active=True, sym_parent=None, mpi_rank=mpi.rank):
+            conv = (conv and fx.results.converged)
+        if mpi:
+            conv = mpi.world.allreduce(conv, op=mpi.MPI.LAND)
+        if not conv:
+            self.log.error("Some fragments did not converge!")
+        self.converged = conv
 
         # Evaluate correlation energy and log information
         self.e_corr = self.get_e_corr()

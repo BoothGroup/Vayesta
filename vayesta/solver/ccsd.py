@@ -226,6 +226,7 @@ class CCSD_Solver(ClusterSolver):
             self.solver.solve_lambda(l1=l1, l2=l2, eris=eris)
             if not self.solver.converged_lambda:
                 self.log.error("Lambda-equations not converged!")
+                self.solver.converged_lambda = False
 
         if t_diagnostic: self.t_diagnostic()
 
