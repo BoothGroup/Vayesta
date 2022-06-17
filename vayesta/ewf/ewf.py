@@ -504,30 +504,61 @@ class EWF(Embedding):
             c_atom.append(frag.get_frag_coeff(indices))
         return c_atom
 
+    def _get_atom_projectors_for_ssz(self, atoms=None, projection='sao'):
+        """TODO split in two functions?"""
+
+        if atoms is None:
+            atoms2 = list(range(self.mol.natm))
+            # For supercell systems, we do not want all supercell-atom pairs,
+            # but only primitive-cell -- supercell pairs:
+            atoms1 = atoms2 if (self.kcell is None) else list(range(self.kcell.natm))
+        elif isinstance(atoms[0], (int, np.integer)):
+            atoms1 = atoms2 = atoms
+        else:
+            atoms1, atoms2 = atoms
+
+        # Get atomic projectors:
+        projection = projection.lower()
+        if projection == 'sao':
+            frag = SAO_Fragmentation(self)
+        elif projection.replace('+', '').replace('/', '') == 'iaopao':
+            frag = IAOPAO_Fragmentation(self)
+        else:
+            raise ValueError("Invalid projection: %s" % projection)
+        frag.kernel()
+        projectors = {}
+        cs = np.dot(self.mo_coeff.T, self.get_ovlp())
+        for atom in sorted(set(atoms1).union(atoms2)):
+            name, indices = frag.get_atomic_fragment_indices(atom)
+            c_atom = frag.get_frag_coeff(indices)
+            r = dot(cs, c_atom)
+            projectors[atom] = dot(r, r.T)
+        return atoms1, atoms2, projectors
+
     def get_atomic_ssz_mf(self, dm1=None, atoms=None, projection='sao'):
         """dm1 in MO basis"""
         if dm1 is None:
             dm1 = np.zeros((self.nmo, self.nmo))
             dm1[np.diag_indices(self.nocc)] = 2
-        c_atom = self._get_atomic_coeffs(atoms=atoms, projection=projection)
-        natom = len(c_atom)
-        ovlp = self.get_ovlp()
+        atoms1, atoms2, proj = self._get_atom_projectors_for_ssz(atoms, projection)
         # Get projectors
-        proj = []
-        for a in range(natom):
-            r = dot(self.mo_coeff.T, ovlp, c_atom[a])
-            proj.append(np.dot(r, r.T))
-        ssz = np.zeros((natom, natom))
-        for a in range(natom):
-            for b in range(natom):
-                ssz[a,b] = corrfunc.spinspin_z(dm1, None, proj1=proj[a], proj2=proj[b])
+        ssz = np.zeros((len(atoms1), len(atoms2)))
+        for a, atom1 in enumerate(atoms1):
+            for b, atom2 in enumerate(atoms2):
+                ssz[a,b] = corrfunc.spinspin_z(dm1, None, proj1=proj[atom1], proj2=proj[atom2])
         return ssz
 
     @log_method()
     def get_atomic_ssz(self, dm1=None, dm2=None, atoms=None, projection='sao', dm2_with_dm1=None):
         """Get expectation values <P(A) S_z^2 P(B)>, where P(X) are projectors onto atoms.
 
-        TODO: MPI"""
+        TODO: MPI
+
+        Parameters
+        ----------
+        atoms : list[int] or list[list[int]], optional
+        """
+
         # --- Setup
         if dm2_with_dm1 is None:
             dm2_with_dm1 = False
@@ -536,48 +567,27 @@ class EWF(Embedding):
                 norm = einsum('iikk->', dm2)
                 ne2 = self.mol.nelectron*(self.mol.nelectron-1)
                 dm2_with_dm1 = (norm > ne2/2)
-        if atoms is None:
-            atoms = list(range(self.mol.natm))
-        natom = len(atoms)
-        c_atom = self._get_atomic_coeffs(atoms=atoms, projection=projection)
-        ovlp = self.get_ovlp()
-
-        proj = []
-        for a in range(natom):
-            rx = dot(self.mo_coeff.T, ovlp, c_atom[a])
-            px = np.dot(rx, rx.T)
-            proj.append(px)
-        # Fragment dependent projection operator:
-        if dm2 is None:
-            proj_x = []
-            for x in self.get_fragments(active=True):
-                tmp = np.dot(x.cluster.c_active.T, ovlp)
-                proj_x.append([])
-                for a, atom in enumerate(atoms):
-                    rx = np.dot(tmp, c_atom[a])
-                    px = np.dot(rx, rx.T)
-                    proj_x[-1].append(px)
-
-        ssz = np.zeros((natom, natom))
+        atoms1, atoms2, proj = self._get_atom_projectors_for_ssz(atoms, projection)
+        ssz = np.zeros((len(atoms1), len(atoms2)))
 
         # 1-DM contribution:
         if dm1 is None:
             dm1 = self.make_rdm1()
-        for a in range(natom):
-            tmp = np.dot(proj[a], dm1)
-            for b in range(natom):
-                ssz[a,b] = np.sum(tmp*proj[b])/4
+        for a, atom1 in enumerate(atoms1):
+            tmp = np.dot(proj[atom1], dm1)
+            for b, atom2 in enumerate(atoms2):
+                ssz[a,b] = np.sum(tmp*proj[atom2])/4
 
-        occ = np.s_[:self.nocc]
-        occdiag = np.diag_indices(self.nocc)
         # Non-cumulant DM2 contribution:
         if not dm2_with_dm1:
+            occ = np.s_[:self.nocc]
+            occdiag = np.diag_indices(self.nocc)
             ddm1 = dm1.copy()
             ddm1[occdiag] -= 1
-            for a in range(natom):
-                tmp = np.dot(proj[a], ddm1)
-                for b in range(natom):
-                    ssz[a,b] -= np.sum(tmp[occ] * proj[b][occ])/2       # N_atom^2 * N^2 scaling
+            for a, atom1 in enumerate(atoms1):
+                tmp = np.dot(proj[atom1], ddm1)
+                for b, atom2 in enumerate(atoms2):
+                    ssz[a,b] -= np.sum(tmp[occ] * proj[atom2][occ])/2       # N_atom^2 * N^2 scaling
 
         if dm2 is not None:
             # DM2(aa)               = (DM2 - DM2.transpose(0,3,2,1))/6
@@ -586,15 +596,21 @@ class EWF(Embedding):
             #                       = DM2/3 - DM2.transpose(0,3,2,1)/3 - DM2/2
             #                       = -DM2/6 - DM2.transpose(0,3,2,1)/3
             ddm2 = -(dm2/6 + dm2.transpose(0,3,2,1)/3)
-            for a in range(natom):
-                tmp = np.tensordot(proj[a], ddm2)
-                for b in range(natom):
-                    ssz[a,b] += np.sum(tmp*proj[b])/2
+            for a, atom1 in enumerate(atoms1):
+                tmp = np.tensordot(proj[atom1], ddm2)
+                for b, atom2 in enumerate(atoms2):
+                    ssz[a,b] += np.sum(tmp*proj[atom2])/2
         else:
             # Cumulant DM2 contribution:
-            for ix, x in enumerate(self.get_fragments(active=True)):
-                px = proj_x[ix]
-                dm2 = x.make_fragment_dm2cumulant()
+            for x, fx in enumerate(self.get_fragments(active=True)):
+                # Transform atomic projectors into cluster basis:
+                projx = {}
+                for atom, p_atom in proj.items():
+                    rx = fx.get_overlap('cluster|mo')
+                    px = dot(rx, p_atom, rx.T)
+                    projx[atom] = px
+
+                dm2 = fx.make_fragment_dm2cumulant()
                 # Split to reduce memory:
                 for blk, dm2 in split_into_blocks(dm2):
                     # DM2(aa)               = (DM2 - DM2.transpose(0,3,2,1))/6
@@ -603,10 +619,10 @@ class EWF(Embedding):
                     #                       = DM2/3 - DM2.transpose(0,3,2,1)/3 - DM2/2
                     #                       = -DM2/6 - DM2.transpose(0,3,2,1)/3
                     ddm2 = -(dm2/6 + dm2.transpose(0,3,2,1)/3)
-                    for a in range(natom):
-                        tmp = np.tensordot(px[a][blk], ddm2)
-                        for b in range(natom):
-                            ssz[a,b] += np.sum(tmp*px[b])/2
+                    for a, atom1 in enumerate(atoms1):
+                        tmp = np.tensordot(projx[atom1][blk], ddm2)
+                        for b, atom2 in enumerate(atoms2):
+                            ssz[a,b] += np.sum(tmp*projx[atom2])/2
         return ssz
 
     def get_dm_energy_old(self, global_dm1=True, global_dm2=False):
