@@ -64,7 +64,7 @@ def make_cp_mol(mol, atom, rmax, nimages=1, unit='A', **kwargs):
     if rmax:
         dim = getattr(mol, 'dimension', 0)
         images = np.zeros(3, dtype=int)
-        if dim == 0
+        if dim == 0:
             pass    # Open boundary conditions - do not create images
         elif dim == 1:
             images[0] = nimages
