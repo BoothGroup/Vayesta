@@ -198,9 +198,9 @@ class CCSD_Solver(ClusterSolver):
             self.solver.callback = coupling.make_cross_fragment_tcc_function(self, mode=(self.opts.sc_mode or 3),
                                                                                 coupled_fragments=coupled_fragments)
 
-        t0 = timer()
         self.log.info("Solving CCSD-equations %s initial guess...", "with" if (t2 is not None) else "without")
-        self.solver.kernel(t1=t1, t2=t2, eris=eris)
+        with log_time(self.log.info, "Time for T-equations: %s"):
+            self.solver.kernel(t1=t1, t2=t2, eris=eris)
         if not self.solver.converged:
             self.log.error("%s not converged!", self.__class__.__name__)
         else:
@@ -212,18 +212,16 @@ class CCSD_Solver(ClusterSolver):
         else:
             self.log.debugv("tr(alpha-T1)= %.8f", np.trace(self.solver.t1[0]))
             self.log.debugv("tr( beta-T1)= %.8f", np.trace(self.solver.t1[1]))
-
         self.log.debug("Cluster: E(corr)= % 16.8f Ha", self.solver.e_corr)
-        self.log.timing("Time for CCSD:  %s", time_string(timer()-t0))
 
         if hasattr(self.solver, '_norm_dt1'):
             self.log.debug("Tailored CC: |dT1|= %.2e |dT2|= %.2e", self.solver._norm_dt1, self.solver._norm_dt2)
             del self.solver._norm_dt1, self.solver._norm_dt2
 
         if self.opts.solve_lambda:
-            #self.solve_lambda(eris=eris)
             self.log.info("Solving lambda-equations with%s initial guess...", ("out" if (l2 is None) else ""))
-            self.solver.solve_lambda(l1=l1, l2=l2, eris=eris)
+            with log_time(self.log.info, "Time for Lambda-equations: %s"):
+                self.solver.solve_lambda(l1=l1, l2=l2, eris=eris)
             if not self.solver.converged_lambda:
                 self.log.error("Lambda-equations not converged!")
                 self.solver.converged_lambda = False

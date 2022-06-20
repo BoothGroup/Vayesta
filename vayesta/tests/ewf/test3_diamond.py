@@ -33,6 +33,18 @@ class Test(TestCase):
         dm1_sym = emb._make_rdm1_ccsd_global_wf(use_sym=True)
         self.assertAllclose(dm1_sym, dm1_nosym)
 
+    def test_corrfunc_dndn_symmetry(self):
+        emb = self.emb(1e-4)
+        corr_nosym = emb.get_corrfunc('dN,dN', use_symmetry=False)
+        corr_sym = emb.get_corrfunc('dN,dN', use_symmetry=True)
+        self.assertAllclose(corr_sym, corr_nosym)
+
+    def test_corrfunc_szsz_symmetry(self):
+        emb = self.emb(1e-4)
+        corr_nosym = emb.get_corrfunc('Sz,Sz', use_symmetry=False)
+        corr_sym = emb.get_corrfunc('Sz,Sz', use_symmetry=True)
+        self.assertAllclose(corr_sym, corr_nosym)
+
 if __name__ == '__main__':
     print('Running %s' % __file__)
     unittest.main()

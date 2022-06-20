@@ -558,7 +558,7 @@ class EWF(Embedding):
         return corr
 
     @log_method()
-    def get_corrfunc(self, kind, dm1=None, dm2=None, atoms=None, projection='sao', dm2_with_dm1=None):
+    def get_corrfunc(self, kind, dm1=None, dm2=None, atoms=None, projection='sao', dm2_with_dm1=None, use_symmetry=True):
         """Get expectation values <P(A) S_z P(B) S_z>, where P(X) are projectors onto atoms X.
 
         TODO: MPI
@@ -643,6 +643,7 @@ class EWF(Embedding):
                     corr[a,b] += f22*np.sum(tmp*proj[atom2])
         else:
             # Cumulant DM2 contribution:
+            last_parent = None
             for x, fx in enumerate(self.get_fragments(active=True)):
                 # Transform atomic projectors into cluster basis:
                 projx = {}
@@ -651,9 +652,15 @@ class EWF(Embedding):
                     px = dot(rx, p_atom, rx.T)
                     projx[atom] = px
 
-                dm2 = fx.make_fragment_dm2cumulant()
+                if not use_symmetry or fx.sym_parent is None:
+                    dm2 = fx.make_fragment_dm2cumulant()
+                    last_parent = fx.id
+                else:
+                    # Skip calling `make_fragment_dm2cumulant()` for symmetry children
+                    assert (last_parent == fx.sym_parent.id)
+
                 # Split to reduce memory:
-                for blk, dm2 in split_into_blocks(dm2):
+                for blk, dm2blk in split_into_blocks(dm2):
                     if kind in ('n,n', 'dn,dn'):
                         pass
                     # DM2(aa)               = (DM2 - DM2.transpose(0,3,2,1))/6
@@ -662,9 +669,9 @@ class EWF(Embedding):
                     #                       = DM2/3 - DM2.transpose(0,3,2,1)/3 - DM2/2
                     #                       = -DM2/6 - DM2.transpose(0,3,2,1)/3
                     elif kind == 'sz,sz':
-                        dm2 = -(dm2/6 + dm2.transpose(0,3,2,1)/3)
+                        dm2blk = -(dm2blk/6 + dm2blk.transpose(0,3,2,1)/3)
                     for a, atom1 in enumerate(atoms1):
-                        tmp = np.tensordot(projx[atom1][blk], dm2)
+                        tmp = np.tensordot(projx[atom1][blk], dm2blk)
                         for b, atom2 in enumerate(atoms2):
                             corr[a,b] += f22*np.sum(tmp*projx[atom2])
 
