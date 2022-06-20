@@ -13,10 +13,8 @@ def _get_proj_per_spin(p):
 
 def chargecharge(dm1, dm2, proj1=None, proj2=None, subtract_indep=True):
     if dm2 is None:
-        #raise NotImplementedError
-        # TEMP:
-        dm2 = (einsum('ij,kl->ijkl', dm1, dm1) -
-               einsum('ij,kl->iklj', dm1, dm1)/2)
+        return chargecharge_mf(dm1, proj1=proj1, proj2=proj2, subtract_indep=subtract_indep)
+
     if proj2 is None:
         proj2 = proj1
     if proj1 is None:
@@ -89,6 +87,22 @@ def spinspin_z_unrestricted(dm1, dm2, proj1=None, proj2=None):
 
 # --- Mean-field:
 
+def chargecharge_mf(dm1, proj1=None, proj2=None, subtract_indep=True):
+    if proj2 is None:
+        proj2 = proj1
+    if proj1 is None:
+        if subtract_indep:
+            return 0
+        else:
+            return np.trace(dm1)**2
+    if subtract_indep:
+        corr = 0
+    else:
+        corr = np.sum(dm1*proj1) * np.sum(dm1*proj2)
+    corr -= einsum('ij,kl,ik,lj->', dm1, dm1, proj1, proj2)/2
+    corr += einsum('ij,ik,jk->', dm1, proj1, proj2)
+    return corr
+
 def spinspin_z_mf(dm1, proj1=None, proj2=None):
     # TEMP:
     dm1 = (dm1/2, dm1/2)
@@ -110,8 +124,6 @@ def spinspin_z_mf(dm1, proj1=None, proj2=None):
     #ssz += (einsum('ij,ik,jk->', dma, p1a, p2a)
     #      + einsum('ij,ik,jk->', dmb, p1b, p2b))/4
     #return ssz
-
-
 
 def spinspin_z_mf_unrestricted(dm1, proj1=None, proj2=None):
     dma, dmb = dm1
