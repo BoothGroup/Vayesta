@@ -45,13 +45,11 @@ def get_atom_distances(mol, point, dimension=None):
     return np.asarray(distances)
 
 def get_atom_shells(mol, point, dimension=None, decimals=5):
-
     distances = get_atom_distances(mol, point, dimension=dimension)
     drounded = distances.round(decimals)
     sort = np.argsort(distances, kind='stable')
     d_uniq, inv = np.unique(drounded[sort], return_inverse=True)
     shells = inv[np.argsort(sort)]
-
     return shells, distances
 
 def make_counterpoise_fragments(mol, fragments, full_basis=True, add_rest_fragment=True, dump_input=True):

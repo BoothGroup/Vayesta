@@ -1,5 +1,6 @@
 # --- Standard
 import dataclasses
+import functools
 from typing import Union
 # --- External
 import numpy as np
@@ -107,6 +108,7 @@ class EWF(Embedding):
         super()._reset()
         # TODO: Redo self-consistencies
         self.iteration = 0
+        #self.make_rdm1.cache_clear()
 
     def tailor_all_fragments(self):
         for x in self.fragments:
@@ -283,6 +285,7 @@ class EWF(Embedding):
 
     # Defaults
 
+    #@cache
     def make_rdm1(self, *args, **kwargs):
         if self.solver.lower() == 'ccsd':
             return self._make_rdm1_ccsd_global_wf(*args, **kwargs)
@@ -504,7 +507,7 @@ class EWF(Embedding):
             c_atom.append(frag.get_frag_coeff(indices))
         return c_atom
 
-    def _get_atom_projectors_for_ssz(self, atoms=None, projection='sao'):
+    def _get_atom_projectors_for_corrfunc(self, atoms=None, projection='sao'):
         """TODO split in two functions?"""
 
         if atoms is None:
@@ -535,31 +538,57 @@ class EWF(Embedding):
             projectors[atom] = dot(r, r.T)
         return atoms1, atoms2, projectors
 
-    def get_atomic_ssz_mf(self, dm1=None, atoms=None, projection='sao'):
+    def get_corrfunc_mf(self, kind, dm1=None, atoms=None, projection='sao'):
         """dm1 in MO basis"""
         if dm1 is None:
             dm1 = np.zeros((self.nmo, self.nmo))
             dm1[np.diag_indices(self.nocc)] = 2
-        atoms1, atoms2, proj = self._get_atom_projectors_for_ssz(atoms, projection)
-        # Get projectors
-        ssz = np.zeros((len(atoms1), len(atoms2)))
+        func = {
+                'n,n': functools.partial(corrfunc.chargecharge, subtract_indep=False),
+                'dn,dn': functools.partial(corrfunc.chargecharge, subtract_indep=True),
+                'sz,sz': corrfunc.spinspin_z,
+                }.get(kind.lower())
+        if func is None:
+            raise ValueError(kind)
+        atoms1, atoms2, proj = self._get_atom_projectors_for_corrfunc(atoms, projection)
+        corr = np.zeros((len(atoms1), len(atoms2)))
         for a, atom1 in enumerate(atoms1):
             for b, atom2 in enumerate(atoms2):
-                ssz[a,b] = corrfunc.spinspin_z(dm1, None, proj1=proj[atom1], proj2=proj[atom2])
-        return ssz
+                corr[a,b] = func(dm1, None, proj1=proj[atom1], proj2=proj[atom2])
+        return corr
 
     @log_method()
-    def get_atomic_ssz(self, dm1=None, dm2=None, atoms=None, projection='sao', dm2_with_dm1=None):
-        """Get expectation values <P(A) S_z^2 P(B)>, where P(X) are projectors onto atoms.
+    def get_corrfunc(self, kind, dm1=None, dm2=None, atoms=None, projection='sao', dm2_with_dm1=None):
+        """Get expectation values <P(A) S_z P(B) S_z>, where P(X) are projectors onto atoms X.
 
         TODO: MPI
 
         Parameters
         ----------
         atoms : list[int] or list[list[int]], optional
+            Atom indices for which the spin-spin correlation function should be evaluated.
+            If set to None (default), all atoms of the system will be considered.
+            If a list is given, all atom pairs formed from this list will be considered.
+            If a list of two lists is given, the first list contains the indices of atom A,
+            and the second of atom B, for which <Sz(A) Sz(B)> will be evaluated.
+            This is useful in cases where one is only interested in the correlation to
+            a small subset of atoms. Default: None
+
+        Returns
+        -------
+        corr : array(N,M)
+            Atom projected correlation function.
         """
+        kind = kind.lower()
+        if kind not in ('n,n', 'dn,dn', 'sz,sz'):
+            raise ValueError(kind)
 
         # --- Setup
+        f1, f2, f22 = {
+                'n,n': (1, 2, 1),
+                'dn,dn': (1, 2, 1),
+                'sz,sz': (1/4, 1/2, 1/2),
+                }[kind]
         if dm2_with_dm1 is None:
             dm2_with_dm1 = False
             if dm2 is not None:
@@ -567,8 +596,8 @@ class EWF(Embedding):
                 norm = einsum('iikk->', dm2)
                 ne2 = self.mol.nelectron*(self.mol.nelectron-1)
                 dm2_with_dm1 = (norm > ne2/2)
-        atoms1, atoms2, proj = self._get_atom_projectors_for_ssz(atoms, projection)
-        ssz = np.zeros((len(atoms1), len(atoms2)))
+        atoms1, atoms2, proj = self._get_atom_projectors_for_corrfunc(atoms, projection)
+        corr = np.zeros((len(atoms1), len(atoms2)))
 
         # 1-DM contribution:
         if dm1 is None:
@@ -576,9 +605,9 @@ class EWF(Embedding):
         for a, atom1 in enumerate(atoms1):
             tmp = np.dot(proj[atom1], dm1)
             for b, atom2 in enumerate(atoms2):
-                ssz[a,b] = np.sum(tmp*proj[atom2])/4
+                corr[a,b] = f1*np.sum(tmp*proj[atom2])
 
-        # Non-cumulant DM2 contribution:
+        # Non-(approximate cumulant) DM2 contribution:
         if not dm2_with_dm1:
             occ = np.s_[:self.nocc]
             occdiag = np.diag_indices(self.nocc)
@@ -587,7 +616,15 @@ class EWF(Embedding):
             for a, atom1 in enumerate(atoms1):
                 tmp = np.dot(proj[atom1], ddm1)
                 for b, atom2 in enumerate(atoms2):
-                    ssz[a,b] -= np.sum(tmp[occ] * proj[atom2][occ])/2       # N_atom^2 * N^2 scaling
+                    corr[a,b] -= f2*np.sum(tmp[occ] * proj[atom2][occ])       # N_atom^2 * N^2 scaling
+            if kind in ('n,n', 'dn,dn'):
+                # These terms are zero for Sz,Sz (but not in UHF)
+                # Traces of projector*DM(HF) and projector*[DM(CC)+DM(HF)/2]:
+                tr1 = {a: np.trace(p[occ,occ]) for a, p in proj.items()}  # DM(HF)
+                tr2 = {a: np.sum(p * ddm1) for a, p in proj.items()}      # DM(CC) + DM(HF)/2
+                for a, atom1 in enumerate(atoms1):
+                    for b, atom2 in enumerate(atoms2):
+                        corr[a,b] += f2*(tr1[atom1]*tr2[atom2] + tr1[atom2]*tr2[atom1])
 
         if dm2 is not None:
             # DM2(aa)               = (DM2 - DM2.transpose(0,3,2,1))/6
@@ -595,11 +632,15 @@ class EWF(Embedding):
             # DM2(aa) - DM2(ab)]    = 2*DM2(aa) - DM2/2
             #                       = DM2/3 - DM2.transpose(0,3,2,1)/3 - DM2/2
             #                       = -DM2/6 - DM2.transpose(0,3,2,1)/3
-            ddm2 = -(dm2/6 + dm2.transpose(0,3,2,1)/3)
+            if kind in ('n,n', 'dn,dn'):
+                pass
+            elif kind == 'sz,sz':
+                # DM2 is not needed anymore, so we can overwrite:
+                dm2 = -(dm2/6 + dm2.transpose(0,3,2,1)/3)
             for a, atom1 in enumerate(atoms1):
-                tmp = np.tensordot(proj[atom1], ddm2)
+                tmp = np.tensordot(proj[atom1], dm2)
                 for b, atom2 in enumerate(atoms2):
-                    ssz[a,b] += np.sum(tmp*proj[atom2])/2
+                    corr[a,b] += f22*np.sum(tmp*proj[atom2])
         else:
             # Cumulant DM2 contribution:
             for x, fx in enumerate(self.get_fragments(active=True)):
@@ -613,17 +654,38 @@ class EWF(Embedding):
                 dm2 = fx.make_fragment_dm2cumulant()
                 # Split to reduce memory:
                 for blk, dm2 in split_into_blocks(dm2):
+                    if kind in ('n,n', 'dn,dn'):
+                        1/0
+                        pass
                     # DM2(aa)               = (DM2 - DM2.transpose(0,3,2,1))/6
                     # DM2(ab)               = DM2/2 - DM2(aa)
                     # DM2(aa) - DM2(ab)]    = 2*DM2(aa) - DM2/2
                     #                       = DM2/3 - DM2.transpose(0,3,2,1)/3 - DM2/2
                     #                       = -DM2/6 - DM2.transpose(0,3,2,1)/3
-                    ddm2 = -(dm2/6 + dm2.transpose(0,3,2,1)/3)
+                    elif kind == 'sz,sz':
+                        ddm2 = -(dm2/6 + dm2.transpose(0,3,2,1)/3)
                     for a, atom1 in enumerate(atoms1):
-                        tmp = np.tensordot(projx[atom1][blk], ddm2)
+                        tmp = np.tensordot(projx[atom1][blk], dm2)
                         for b, atom2 in enumerate(atoms2):
-                            ssz[a,b] += np.sum(tmp*projx[atom2])/2
-        return ssz
+                            corr[a,b] += f22*np.sum(tmp*projx[atom2])
+
+        # Remove independent particle (DM1^2) contribution
+        if kind == 'dn,dn':
+            for a, atom1 in enumerate(atoms1):
+                for b, atom2 in enumerate(atoms2):
+                    corr[a,b] -= np.sum(dm1*proj[atom1]) * np.sum(dm1*proj[atom2])
+
+        return corr
+
+    # --- Deprecated
+
+    @deprecated(replacement='get_corrfunc_mf')
+    def get_atomic_ssz_mf(self, dm1=None, atoms=None, projection='sao'):
+        return self.get_corrfunc_mf('Sz,Sz', dm1=dm1, atoms=atoms, projection=projection)
+
+    @deprecated(replacement='get_corrfunc')
+    def get_atomic_ssz(self, dm1=None, dm2=None, atoms=None, projection='sao', dm2_with_dm1=None):
+        return self.get_corrfunc('Sz,Sz', dm1=dm1, dm2=dm2, atoms=atoms, projection=projection, dm2_with_dm1=dm2_with_dm1)
 
     def get_dm_energy_old(self, global_dm1=True, global_dm2=False):
         """Calculate total energy from reduced density-matrices.
@@ -686,7 +748,8 @@ class EWF(Embedding):
         e_corr = (e1 + e2) / self.ncells
         return e_corr
 
-    # --- Debug
+    # --- Debugging
+
     def _debug_get_wf(self, kind):
         if kind == 'random':
             return

@@ -185,7 +185,7 @@ class UEWF(REWF, UEmbedding):
             # Traces of projector*DM(HF)
             trpa = [np.trace(p[0][occa,occa]) for p in proj]
             trpb = [np.trace(p[1][occb,occb]) for p in proj]
-            # Traces of projector*DM(CC)
+            # Traces of projector*[DM(CC) + DM(HF)/2]
             trda = [np.sum(p[0] * ddm1a) for p in proj]
             trdb = [np.sum(p[1] * ddm1b) for p in proj]
             for a in range(natom):

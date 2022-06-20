@@ -11,6 +11,25 @@ def _get_proj_per_spin(p):
         return p, p
     raise ValueError()
 
+def chargecharge(dm1, dm2, proj1=None, proj2=None, subtract_indep=True):
+    if dm2 is None:
+        #raise NotImplementedError
+        # TEMP:
+        dm2 = (einsum('ij,kl->ijkl', dm1, dm1) -
+               einsum('ij,kl->iklj', dm1, dm1)/2)
+    if proj2 is None:
+        proj2 = proj1
+    if proj1 is None:
+        corr = einsum('iijj->', dm2) + np.trace(dm1)
+        if subtract_indep:
+            corr -= np.trace(dm1)**2
+        return corr
+    corr = einsum('ijkl,ij,kl->', dm2, proj1, proj2)
+    corr += einsum('ij,ik,jk->', dm1, proj1, proj2)
+    if subtract_indep:
+        corr -= np.sum(dm1 * proj1) * np.sum(dm1 * proj2)
+    return corr
+
 # --- Correlated:
 
 def spin_z(dm1, proj=None):
