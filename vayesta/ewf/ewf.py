@@ -662,7 +662,7 @@ class EWF(Embedding):
                     #                       = DM2/3 - DM2.transpose(0,3,2,1)/3 - DM2/2
                     #                       = -DM2/6 - DM2.transpose(0,3,2,1)/3
                     elif kind == 'sz,sz':
-                        ddm2 = -(dm2/6 + dm2.transpose(0,3,2,1)/3)
+                        dm2 = -(dm2/6 + dm2.transpose(0,3,2,1)/3)
                     for a, atom1 in enumerate(atoms1):
                         tmp = np.tensordot(projx[atom1][blk], dm2)
                         for b, atom2 in enumerate(atoms2):
