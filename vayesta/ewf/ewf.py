@@ -655,7 +655,6 @@ class EWF(Embedding):
                 # Split to reduce memory:
                 for blk, dm2 in split_into_blocks(dm2):
                     if kind in ('n,n', 'dn,dn'):
-                        1/0
                         pass
                     # DM2(aa)               = (DM2 - DM2.transpose(0,3,2,1))/6
                     # DM2(ab)               = DM2/2 - DM2(aa)
