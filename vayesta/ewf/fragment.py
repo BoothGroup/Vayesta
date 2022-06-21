@@ -256,19 +256,18 @@ class Fragment(BaseFragment):
             else:
                 cluster_solver._debug_exact_wf(self.base._debug_wf)
 
-        # --- Add to results data class
-        results = self._results
-        results.n_active = cluster.norb_active
-        results.converged = cluster_solver.converged
-        # Unprojected WF
-        results.wf = cluster_solver.wf
-        # Projected WF
-        proj = self.get_overlap('frag|cluster-occ')
+
+        # ---Make projected WF
         if isinstance(cluster_solver.wf, RFCI_WaveFunction):
             pwf = cluster_solver.wf.to_cisd()
         else:
             pwf = cluster_solver.wf
-        results.pwf = pwf.project(proj, inplace=False)
+        proj = self.get_overlap('frag|cluster-occ')
+        pwf = pwf.project(proj, inplace=False)
+
+        # --- Add to results data class
+        self._results = results = self.Results(fid=self.id, n_active=cluster.norb_active,
+                converged=cluster_solver.converged, wf=cluster_solver.wf, pwf=pwf)
 
         # Keep ERIs stored
         if (self.opts.store_eris or self.base.opts.store_eris):

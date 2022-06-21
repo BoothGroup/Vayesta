@@ -104,8 +104,8 @@ class EWF(Embedding):
         values = [self.__dict__[k] for k in keys]
         return fmt % (self.__class__.__name__, *[x for y in zip(keys, values) for x in y])
 
-    def _reset(self):
-        super()._reset()
+    def _reset(self, **kwargs):
+        super()._reset(**kwargs)
         # TODO: Redo self-consistencies
         self.iteration = 0
         #self.make_rdm1.cache_clear()
@@ -119,79 +119,40 @@ class EWF(Embedding):
 
     def kernel(self):
         """Run EWF."""
-        # Reset previous results
-        self.reset()
+        t_start = timer()
 
         # Automatic fragmentation
         if len(self.fragments) == 0:
             self.log.debug("No fragments found. Adding all atomic IAO fragments.")
             with IAO_Fragmentation(self) as f:
                 f.add_all_atomic_fragments()
+        self.check_fragment_nelectron()
 
         # Debug: calculate exact WF
         if self.opts._debug_wf is not None:
             self._debug_get_wf(self.opts._debug_wf)
 
-        self.check_fragment_nelectron()
-        #if np.ndim(bno_threshold) == 0:
-        #    return self._kernel_single_threshold(bno_threshold=bno_threshold)
-        #return self._kernel_multiple_thresholds(bno_thresholds=bno_threshold)
-        return self._kernel_single_threshold()
-
-    def _kernel_multiple_thresholds(self, bno_thresholds):
-        # Not maintained
-        raise NotImplementedError
-        results = []
-        for i, bno in enumerate(bno_thresholds):
-            self.log.info("Now running BNO threshold= %.2e", bno)
-            self.log.info("===================================")
-
-            # Project ERIs for next calculation:
-            # TODO
-            if i > 0:
-                #self.log.debugv("Projecting ERIs onto subspace")
-                for x in self.fragments:
-                    x._eris = None
-                    #x._eris = ao2mo.helper.project_ccsd_eris(x._eris, x.cluster.c_active, x.cluster.nocc_active, ovlp=self.get_ovlp())
-
-            self.reset(keep_bath=True)
-
-            # Store ERIs so they can be reused in the next iteration
-            # (only if this is not the last calculation and the next calculation uses a larger or equal threshold)
-            store_eris = (i+1 < len(bno_thresholds)) and (bno <= bno_thresholds[i+1])
-            # Note that if opts.store_eris has been set to True elsewhere, we do not want to overwrite this,
-            # even if store_eris was evaluated as False. For this reason we add `or self.opts.store_eris`.
-            with replace_attr(self.opts, store_eris=(store_eris or self.opts.store_eris)):
-                res = self._kernel_single_threshold(bno_threshold=bno)
-            results.append(res)
-
-        # Output
-        for i, bno in enumerate(bno_thresholds):
-            self.log.info("BNO threshold= %.2e  E(tot)= %s", bno, energy_string(results[i]))
-
-        return results
-
-    def _kernel_single_threshold(self):
-        """Run EWF."""
+        # --- Create bath and clusters
         if mpi:
             mpi.world.Barrier()
-        t_start = timer()
-
-        # Create bath and clusters first
         self.log.info("")
         self.log.info("MAKING CLUSTERS")
         self.log.info("===============")
         with log_time(self.log.timing, "Total time for bath and clusters: %s"):
             for x in self.get_fragments(active=True, sym_parent=None, mpi_rank=mpi.rank):
+                if x._results is not None:
+                    self.log.debug("Resetting %s" % x)
+                    x.reset()
                 msg = "Making bath for %s%s" % (x, (" on MPI process %d" % mpi.rank) if mpi else "")
                 self.log.info(msg)
                 self.log.info(len(msg)*"-")
                 with self.log.indent():
-                    x.make_bath()
-                    x.make_cluster()
+                    if x._dmet_bath is None:
+                        x.make_bath()
+                    if x._cluster is None:
+                        x.make_cluster()
             if mpi:
                 mpi.world.Barrier()
-
         if mpi:
             with log_time(self.log.timing, "Time for MPI communication of clusters: %s"):
                 self.communicate_clusters()
@@ -199,7 +160,7 @@ class EWF(Embedding):
         if self.opts.absorb_fragments:
             self.absorb_fragments()
 
-        # Loop over fragments with no symmetry parent and with own MPI rank
+        # --- Loop over fragments with no symmetry parent and with own MPI rank
         self.log.info("")
         self.log.info("RUNNING SOLVERS")
         self.log.info("===============")
@@ -213,7 +174,7 @@ class EWF(Embedding):
             if mpi:
                 mpi.world.Barrier()
 
-        # Check convergence of fragments
+        # --- Check convergence of fragments
         conv = True
         for fx in self.get_fragments(active=True, sym_parent=None, mpi_rank=mpi.rank):
             conv = (conv and fx.results.converged)
@@ -223,7 +184,7 @@ class EWF(Embedding):
             self.log.error("Some fragments did not converge!")
         self.converged = conv
 
-        # Evaluate correlation energy and log information
+        # --- Evaluate correlation energy and log information
         self.e_corr = self.get_e_corr()
         self.log.output('E(nuc)=  %s', energy_string(self.mol.energy_nuc()))
         self.log.output('E(MF)=   %s', energy_string(self.e_mf))

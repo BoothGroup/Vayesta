@@ -92,11 +92,8 @@ class DMETFragment(Fragment):
         with log_time(self.log.info, ("Time for %s solver:" % solver) + " %s"):
             cluster_solver.kernel(eris=eris)
 
-        results = self._results
-        results.wf = cluster_solver.wf
-        results.n_active = self.cluster.norb_active
-        results.dm1 = results.wf.make_rdm1()
-        results.dm2 = results.wf.make_rdm2()
+        self._results = results = self.Results(fid=self.id, wf=cluster_solver.wf, n_active=self.cluster.norb_active,
+                dm1=cluster_solver.wf.make_rdm1(), dm2=cluster_solver.wf.make_rdm2())
         results.e1, results.e2 = self.get_dmet_energy_contrib()
 
         return results

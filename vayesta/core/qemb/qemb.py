@@ -265,6 +265,11 @@ class Embedding:
                 self.log.debugv("alpha-MO energies (vir):\n%r", self.mo_energy[0][self.mo_occ[0] == 0])
                 self.log.debugv("beta-MO energies (vir):\n%r", self.mo_energy[1][self.mo_occ[1] == 0])
 
+    def change_options(self, **kwargs):
+        self.opts.replace(**kwargs)
+        for fx in self.fragments:
+            fkwds = {key : kwargs[key] for key in [key for key in kwargs if hasattr(fx.opts, key)]}
+            fx.change_options(**fkwds)
 
     # --- Basic properties and methods
     # ================================

@@ -226,6 +226,9 @@ class Fragment:
     def boundary_cond(self):
         return self.base.boundary_cond
 
+    def change_options(self, **kwargs):
+        self.opts.replace(**kwargs)
+
     # --- Overlap matrices
     # --------------------
 
@@ -306,16 +309,19 @@ class Fragment:
             raise RuntimeError("Cannot set attribute cluster in symmetry derived fragment.")
         self._cluster = value
 
-    def reset(self, keep_bath=False):
-        self.log.debugv("Resetting %s", self)
-        if not keep_bath:
+    def reset(self, reset_bath=True, reset_cluster=True, reset_eris=True):
+        self.log.debugv("Resetting %s (reset_bath= %r, reset_cluster= %r, reset_eris= %r)",
+                self, reset_bath, reset_cluster, reset_eris)
+        if reset_bath:
             self._dmet_bath = None
             self._bath_factory_occ = None
             self._bath_factory_vir = None
-        self._cluster = None
-        self._eris = None
-        self._results = self.Results(fid=self.id)
-        self.get_overlap.cache_clear()
+        if reset_cluster:
+            self._cluster = None
+            self.get_overlap.cache_clear()
+        if reset_eris:
+            self._eris = None
+        self._results = None
 
     def get_fragments_with_overlap(self, tol=1e-8, **kwargs):
         """Get list of fragments which overlap both in occupied and virtual space."""

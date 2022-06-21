@@ -230,6 +230,7 @@ class CCSD_Solver(ClusterSolver):
 
         self.wf = WaveFunction.from_pyscf(self.solver)
 
+    @log_method()
     def t_diagnostic(self):
         self.log.info("T-Diagnostic")
         self.log.info("------------")
