@@ -134,14 +134,14 @@ def ketene(cc_bond=None):
         atom[2][1] = new_o
     return atom
 
-def ring(atom, natom, bond_length):
+def ring(atom, natom, bond_length, z=0.0):
     r = bond_length/(2*np.sin(np.pi/natom))
     atoms = []
     if isinstance(atom, str):
         atom = [atom]
     for i in range(natom):
         theta = i * (2*np.pi/natom)
-        atoms.append([atom[i%len(atom)], (r*np.cos(theta), r*np.sin(theta), 0)])
+        atoms.append([atom[i%len(atom)], (r*np.cos(theta), r*np.sin(theta), z)])
     return atoms
 
 # --- From datafiles:

@@ -36,6 +36,7 @@ from .register import FragmentRegister
 
 # Symmetry
 from vayesta.core.symmetry import SymmetryGroup
+from vayesta.core.symmetry import SymmetryRotation
 from vayesta.core.symmetry import SymmetryTranslation
 
 # Fragmentations
@@ -706,6 +707,71 @@ class Embedding:
     # Symmetry between fragments
     # --------------------------
 
+    def add_rsymmetric_fragments(self, order, axis, center, symtol=1e-6):
+        """
+        Parameters
+        ----------
+        symtol: float, optional
+            Tolerance for the error of the mean-field density matrix between symmetry related fragments.
+            If the largest absolute difference in the density-matrix is above this value,
+            and exception will be raised. Default: 1e-6.
+
+        Returns
+        -------
+        fragments: list
+            List of T-symmetry related fragments. These will be automatically added to base.fragments and
+            have the attributes `sym_parent` and `sym_op` set.
+        """
+        axis = np.asarray(axis, dtype=float)
+        axis /= np.linalg.norm(axis)
+        ovlp = self.get_ovlp()
+        dm1 = self.mf.make_rdm1()
+
+        ftree = [[fx] for fx in self.get_fragments()]
+        for i in range(1, order):
+            rotvec = 2*np.pi * (i/order) * axis
+            sym_op = SymmetryRotation(self.symmetry, rotvec, origin=center)
+
+            for flist in ftree:
+                parent = flist[0]
+                # Name for translationally related fragments
+                name = '%s_R(%d)' % (parent.name, i)
+                # Translated coefficients
+                c_frag_t = sym_op(parent.c_frag)
+                c_env_t = None  # Avoid expensive symmetry operation on environment orbitals
+                # Check that translated fragment does not overlap with current fragment:
+                fragovlp = parent._csc_dot(parent.c_frag, c_frag_t, ovlp=ovlp)
+                if self.spinsym == 'restricted':
+                    fragovlp = abs(fragovlp).max()
+                elif self.spinsym == 'unrestricted':
+                    fragovlp = max(abs(fragovlp[0]).max(), abs(fragovlp[1]).max())
+                if (fragovlp > 1e-8):
+                    self.log.critical("%s of fragment %s not orthogonal to original fragment (overlap= %.3e)!",
+                                sym_op, parent.name, fragovlp)
+                    raise RuntimeError("Overlapping fragment spaces.")
+
+                # Add fragment
+                frag_id = self.register.get_next_id()
+                frag = self.Fragment(self, frag_id, name, c_frag_t, c_env_t, sym_parent=parent, sym_op=sym_op,
+                        mpi_rank=parent.mpi_rank, **parent.opts.asdict())
+                # Check symmetry
+                # (only for the primitive translations (1,0,0), (0,1,0), and (0,0,1) to reduce number of sym_op(c_env) calls)
+                if (i == 1):
+                    charge_err, spin_err = parent.get_symmetry_error(frag, dm1=dm1)
+                    if max(charge_err, spin_err) > symtol:
+                        self.log.critical("Mean-field DM1 not symmetric for %s of %s (errors: charge= %.3e, spin= %.3e)!",
+                            sym_op, parent.name, charge_err, spin_err)
+                        raise RuntimeError("MF not symmetric under %s" % sym_op)
+                    else:
+                        self.log.debugv("Mean-field DM symmetry error for %s of %s: charge= %.3e, spin= %.3e",
+                            sym_op, parent.name, charge_err, spin_err)
+
+                # Insert after parent fragment
+                flist.append(frag)
+        # Update fragment list
+        self.fragments = [fx for flist in ftree for fx in flist]
+
+
     def add_tsymmetric_fragments(self, tvecs, symtol=1e-6):
         """
         Parameters
@@ -731,9 +797,6 @@ class Embedding:
             if i == 0: continue
             tvec = (dx/tvecs[0], dy/tvecs[1], dz/tvecs[2])
             sym_op = SymmetryTranslation(self.symmetry, tvec)
-            if sym_op is None:
-                self.log.critical("No Symmetry found for translation (%d,%d,%d)!", dx, dy, dz)
-                raise RuntimeError()
 
             for flist in ftree:
                 parent = flist[0]
@@ -749,8 +812,8 @@ class Embedding:
                 elif self.spinsym == 'unrestricted':
                     fragovlp = max(abs(fragovlp[0]).max(), abs(fragovlp[1]).max())
                 if (fragovlp > 1e-8):
-                    self.log.critical("Translation (%d,%d,%d) of fragment %s not orthogonal to original fragment (overlap= %.3e)!",
-                                dx, dy, dz, parent.name, fragovlp)
+                    self.log.critical("%s of fragment %s not orthogonal to original fragment (overlap= %.3e)!",
+                                sym_op, parent.name, fragovlp)
                     raise RuntimeError("Overlapping fragment spaces.")
 
                 # Add fragment
@@ -762,12 +825,12 @@ class Embedding:
                 if (abs(dx)+abs(dy)+abs(dz) == 1):
                     charge_err, spin_err = parent.get_symmetry_error(frag, dm1=dm1)
                     if max(charge_err, spin_err) > symtol:
-                        self.log.critical("Mean-field DM1 not symmetric for translation (%d,%d,%d) of %s (errors: charge= %.3e, spin= %.3e)!",
-                            dx, dy, dz, parent.name, charge_err, spin_err)
-                        raise RuntimeError("MF not symmetric under translation (%d,%d,%d)" % (dx, dy, dz))
+                        self.log.critical("Mean-field DM1 not symmetric for %s of %s (errors: charge= %.3e, spin= %.3e)!",
+                            sym_op, parent.name, charge_err, spin_err)
+                        raise RuntimeError("MF not symmetric under %s" % sym_op)
                     else:
-                        self.log.debugv("Mean-field DM symmetry error for translation (%d,%d,%d) of %s: charge= %.3e, spin= %.3e",
-                            dx, dy, dz, parent.name, charge_err, spin_err)
+                        self.log.debugv("Mean-field DM symmetry error for %s of %s: charge= %.3e, spin= %.3e",
+                            sym_op, parent.name, charge_err, spin_err)
 
                 # Insert after parent fragment
                 flist.append(frag)
@@ -1126,15 +1189,15 @@ class Embedding:
 
     # --- Fragmentation methods
 
-    def sao_fragmentation(self):
+    def sao_fragmentation(self, **kwargs):
         """Initialize the quantum embedding method for the use of SAO (Lowdin-AO) fragments."""
-        return SAO_Fragmentation(self)
+        return SAO_Fragmentation(self, **kwargs)
 
-    def site_fragmentation(self):
+    def site_fragmentation(self, **kwargs):
         """Initialize the quantum embedding method for the use of site fragments."""
-        return Site_Fragmentation(self)
+        return Site_Fragmentation(self, **kwargs)
 
-    def iao_fragmentation(self, minao='auto'):
+    def iao_fragmentation(self, minao='auto', **kwargs):
         """Initialize the quantum embedding method for the use of IAO fragments.
 
         Parameters
@@ -1142,9 +1205,9 @@ class Embedding:
         minao: str, optional
             IAO reference basis set. Default: 'auto'
         """
-        return IAO_Fragmentation(self, minao=minao)
+        return IAO_Fragmentation(self, minao=minao, **kwargs)
 
-    def iaopao_fragmentation(self, minao='auto'):
+    def iaopao_fragmentation(self, minao='auto', **kwargs):
         """Initialize the quantum embedding method for the use of IAO+PAO fragments.
 
         Parameters
@@ -1152,11 +1215,11 @@ class Embedding:
         minao: str, optional
             IAO reference basis set. Default: 'auto'
         """
-        return IAOPAO_Fragmentation(self, log=self.log, minao=minao)
+        return IAOPAO_Fragmentation(self, minao=minao, **kwargs)
 
-    def cas_fragmentation(self):
+    def cas_fragmentation(self, **kwargs):
         """Initialize the quantum embedding method for the use of site fragments."""
-        return CAS_Fragmentation(self)
+        return CAS_Fragmentation(self, **kwargs)
 
     # --- Reset
 

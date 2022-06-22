@@ -5,6 +5,9 @@ import numpy as np
 import scipy
 import scipy.spatial
 
+import pyscf
+import pyscf.symm
+
 import vayesta
 import vayesta.core
 from vayesta.core.util import *
@@ -12,6 +15,7 @@ from vayesta.core.util import *
 
 log = logging.getLogger(__name__)
 
+BOHR = 0.529177210903
 
 class SymmetryOperation:
 
@@ -44,18 +48,25 @@ class SymmetryIdentity(SymmetryOperation):
 
 class SymmetryRotation(SymmetryOperation):
 
-    def __init__(self, group, order, vector, origin=np.zeros(3)):
+    def __init__(self, group, rotvec, origin=(0,0,0), unit='Ang'):
         super().__init__(group)
-        self.order = order
-        self.vector = (vector / np.linalg.norm(vector))
-        self.origin = origin
+        self.rotvec = np.asarray(rotvec, dtype=float)
+        self.origin = np.asarray(origin, dtype=float)
+        if unit.lower().startswith('ang'):
+            self.origin = self.origin/BOHR
 
-        self.atom_reorder = self.get_atom_reorder()
-        self.ao_reorder = self.get_ao_reorder(self.atom_reorder)
+        self.atom_reorder = self.get_atom_reorder()[0]
+        if self.atom_reorder is None:
+            raise RuntimeError("Symmetry %s not found" % self)
+        self.ao_reorder = self.get_ao_reorder(self.atom_reorder)[0]
+
+        self.angular_rotmats = pyscf.symm.basis._ao_rotation_matrices(self.mol, self.as_matrix())
+
+    def __repr__(self):
+        return "Rotation(%g,%g,%g)" % tuple(self.rotvec)
 
     def as_matrix(self):
-        vec = self.vector * (2*np.pi/self.order)
-        return scipy.spatial.transform.Rotation.from_rotvec(vec).as_matrix()
+        return scipy.spatial.transform.Rotation.from_rotvec(self.rotvec).as_matrix()
 
     def __call__(self, a, axis=0):
         if hasattr(axis, '__len__'):
@@ -64,7 +75,20 @@ class SymmetryRotation(SymmetryOperation):
             return a
         if isinstance(a, (tuple, list)):
             return tuple([self(x, axis=axis) for x in a])
-        return np.take(a, self.ao_reorder, axis=axis)
+        a = np.moveaxis(a, axis, 0)
+        # Reorder AOs according to new atomic center
+        a = a[self.ao_reorder]
+        # Rotate between orbitals in p,d,f,... shells
+        ao_loc = self.mol.ao_loc
+        ao_start = ao_loc[0]
+        for bas, ao_end in enumerate(ao_loc[1:]):
+            l = self.mol.bas_angular(bas)
+            rot = self.angular_rotmats[l]
+            slc = np.s_[ao_start:ao_end]
+            a[slc] = einsum('x...,xy->y...', a[slc], rot)
+            ao_start = ao_end
+        a = np.moveaxis(a, 0, axis)
+        return a
 
     def get_atom_reorder(self):
         """Reordering of atoms for a given rotation.
@@ -79,8 +103,9 @@ class SymmetryRotation(SymmetryOperation):
         """
         reorder = np.full((self.natom,), -1, dtype=int)
         inverse = np.full((self.natom,), -1, dtype=int)
+        rot = self.as_matrix()
         for atom0, r0 in enumerate(self.mol.atom_coords()):
-            r1 = np.dot((r0 - self.origin[None]), self.as_matrix()) + self.origin[None]
+            r1 = np.dot(rot, (r0 - self.origin)) + self.origin
             atom1, dist = self.group.get_closest_atom(r1)
             if dist > self.xtol:
                 return None, None
@@ -137,6 +162,9 @@ class SymmetryTranslation(SymmetryOperation):
             ao_reorder, _, self.ao_reorder_phases = self.get_ao_reorder()
         self.ao_reorder = ao_reorder
         assert (self.ao_reorder is not None)
+
+    def __repr__(self):
+        return "Translation(%f,%f,%f)" % tuple(self.vector)
 
     def __call__(self, a, axis=0):
         """Apply symmetry operation along AO axis."""
