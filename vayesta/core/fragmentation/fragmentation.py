@@ -49,10 +49,13 @@ class Fragmentation:
 
     def __enter__(self):
         self.log.changeIndentLevel(1)
+        self._time0 = timer()
         self.kernel()
         return self
 
     def __exit__(self, type, value, traceback):
+        self.log.timing("Time for %s fragmentation: %s", self.name, time_string(timer()-self._time0))
+        del self._time0
         self.log.changeIndentLevel(-1)
 
     # --- Adding fragments:
@@ -79,6 +82,16 @@ class Fragmentation:
         atom_indices, atom_symbols = self.get_atom_indices_symbols(atoms)
         name, indices = self.get_atomic_fragment_indices(atoms, orbital_filter=orbital_filter, name=name)
         return self._add_fragment(indices, name, add_symmetric=add_symmetric, atoms=atom_indices, **kwargs)
+
+    def add_atomshell_fragment(self, atoms, shells, **kwargs):
+        if isinstance(shells, (int, np.integer)):
+            shells = [shells]
+        orbitals = []
+        atom_indices, atom_symbols = self.get_atom_indices_symbols(atoms)
+        for idx, sym in zip(atom_indices, atom_symbols):
+            for shell in shells:
+                orbitals.append('%d%3s %s' % (idx, sym, shell))
+        return self.add_orbital_fragment(orbitals, atoms=atom_indices, **kwargs)
 
     def add_orbital_fragment(self, orbitals, atom_filter=None, name=None, **kwargs):
         """Create a fragment of one or multiple orbitals, which will be solved by the embedding method.
@@ -108,14 +121,11 @@ class Fragmentation:
         **kwargs:
             Additional keyword arguments are passed through to each fragment constructor.
         """
-        t_init = timer()
         fragments = []
-        #for atom in self.symmetry.get_unique_atoms():
         natom = self.emb.kcell.natm if self.emb.kcell is not None else self.emb.mol.natm
         for atom in range(natom):
             frag = self.add_atomic_fragment(atom, **kwargs)
             fragments.append(frag)
-        self.log.timing("Time for fragments: %s", time_string(timer()-t_init))
         return fragments
 
     def _add_fragment(self, indices, name, add_symmetric=False, **kwargs):

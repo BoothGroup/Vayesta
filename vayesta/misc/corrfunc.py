@@ -11,6 +11,23 @@ def _get_proj_per_spin(p):
         return p, p
     raise ValueError()
 
+def chargecharge(dm1, dm2, proj1=None, proj2=None, subtract_indep=True):
+    if dm2 is None:
+        return chargecharge_mf(dm1, proj1=proj1, proj2=proj2, subtract_indep=subtract_indep)
+
+    if proj2 is None:
+        proj2 = proj1
+    if proj1 is None:
+        corr = einsum('iijj->', dm2) + np.trace(dm1)
+        if subtract_indep:
+            corr -= np.trace(dm1)**2
+        return corr
+    corr = einsum('(ij,ijkl),kl->', proj1, dm2, proj2)
+    corr += einsum('ij,ik,jk->', dm1, proj1, proj2)
+    if subtract_indep:
+        corr -= np.sum(dm1 * proj1) * np.sum(dm1 * proj2)
+    return corr
+
 # --- Correlated:
 
 def spin_z(dm1, proj=None):
@@ -70,10 +87,26 @@ def spinspin_z_unrestricted(dm1, dm2, proj1=None, proj2=None):
 
 # --- Mean-field:
 
+def chargecharge_mf(dm1, proj1=None, proj2=None, subtract_indep=True):
+    if proj2 is None:
+        proj2 = proj1
+    if proj1 is None:
+        if subtract_indep:
+            return 0
+        else:
+            return np.trace(dm1)**2
+    if subtract_indep:
+        corr = 0
+    else:
+        corr = np.sum(dm1*proj1) * np.sum(dm1*proj2)
+    corr -= einsum('(ik,ij),(kl,lj)->', proj1, dm1, dm1, proj2)/2
+    corr += einsum('ij,ik,jk->', dm1, proj1, proj2)
+    return corr
+
 def spinspin_z_mf(dm1, proj1=None, proj2=None):
     # TEMP:
     dm1 = (dm1/2, dm1/2)
-    return spinspin_z_uhf(dm1=dm1, proj1=proj1, proj2=proj2)
+    return spinspin_z_mf_unrestricted(dm1=dm1, proj1=proj1, proj2=proj2)
 
     #if proj2 is None:
     #    proj2 = proj1
@@ -92,8 +125,6 @@ def spinspin_z_mf(dm1, proj1=None, proj2=None):
     #      + einsum('ij,ik,jk->', dmb, p1b, p2b))/4
     #return ssz
 
-
-
 def spinspin_z_mf_unrestricted(dm1, proj1=None, proj2=None):
     dma, dmb = dm1
     if proj2 is None:
@@ -110,12 +141,12 @@ def spinspin_z_mf_unrestricted(dm1, proj1=None, proj2=None):
     p1a, p1b = (proj1, proj1) if np.ndim(proj1[0]) == 1 else proj1
     p2a, p2b = (proj2, proj2) if np.ndim(proj2[0]) == 1 else proj2
 
-    ssz = (einsum('ij,kl,ij,kl->', dma, dma, p1a, p2a)
-         - einsum('il,jk,ij,kl->', dma, dma, p1a, p2a)
-         + einsum('ij,kl,ij,kl->', dmb, dmb, p1b, p2b)
-         - einsum('il,jk,ij,kl->', dmb, dmb, p1b, p2b)
-         - einsum('ij,kl,ij,kl->', dma, dmb, p1a, p2b)
-         - einsum('ij,kl,ij,kl->', dmb, dma, p1b, p2a))/4
+    ssz = (einsum('(ij,ij),(kl,kl)->', p1a, dma, dma, p2a)
+         - einsum('(ij,il),(jk,kl)->', p1a, dma, dma, p2a)
+         + einsum('(ij,ij),(kl,kl)->', p1b, dmb, dmb, p2b)
+         - einsum('(ij,il),(jk,kl)->', p1b, dmb, dmb, p2b)
+         - einsum('(ij,ij),(kl,kl)->', p1a, dma, dmb, p2b)
+         - einsum('(ij,ij),(kl,kl)->', p1b, dmb, dma, p2a))/4
     ssz += (einsum('ij,ik,jk->', dma, p1a, p2a)
           + einsum('ij,ik,jk->', dmb, p1b, p2b))/4
     return ssz

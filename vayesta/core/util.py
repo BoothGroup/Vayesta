@@ -43,7 +43,7 @@ __all__ = [
         # Time & memory
         'timer', 'log_time', 'get_used_memory', 'log_method',
         # Other
-        'replace_attr', 'break_into_lines', 'fix_orbital_sign',
+        'replace_attr', 'break_into_lines', 'fix_orbital_sign', 'split_into_blocks',
         ]
 
 class Object:
@@ -189,7 +189,19 @@ def brange(*args, minstep=1, maxstep=None):
         blk = np.s_[i:min(i+step, stop)]
         yield blk
 
-
+def split_into_blocks(array, axis=0, blocksize=None, max_memory=int(1e9)):
+    size = array.shape[axis]
+    axis = axis % array.ndim
+    if blocksize is None:
+        mem = array.nbytes
+        nblocks = max(int(np.ceil(mem/max_memory)), 1)
+        blocksize = int(np.ceil(size/nblocks))
+    if blocksize >= size:
+        yield slice(None), array
+        return
+    for i in range(0, size, blocksize):
+        blk = np.s_[i:min(i+blocksize, size)]
+        yield blk, array[axis*(slice(None), ) + (blk,)]
 
 # --- Exceptions
 
@@ -342,15 +354,17 @@ def break_into_lines(string, linelength=100, sep=None, newline='\n'):
             lines[-1] += ' ' + s
     return newline.join(lines)
 
-def deprecated(message=None):
+def deprecated(message=None, replacement=None):
     """This is a decorator which can be used to mark functions
     as deprecated. It will result in a warning being emitted
     when the function is used."""
     def decorator(func):
-        if message is None:
-            msg = "Function %s is deprecated!" % func.__name__
-        else:
+        if message is not None:
             msg = message
+        else:
+            msg = "Function `%s` is deprecated." % func.__name__
+            if replacement is not None:
+                msg += " Use `%s` instead." % replacement
 
         @functools.wraps(func)
         def wrapped(*args, **kwargs):

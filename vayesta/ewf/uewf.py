@@ -137,19 +137,6 @@ class UEWF(REWF, UEmbedding):
         if atoms is None:
             atoms = list(range(self.mol.natm))
         natom = len(atoms)
-        #projection = projection.lower()
-        #if projection == 'sao':
-        #    frag = SAO_Fragmentation(self)
-        #elif projection.replace('+', '').replace('/', '') == 'iaopao':
-        #    frag = IAOPAO_Fragmentation(self)
-        #else:
-        #    raise ValueError("Invalid projection: %s" % projection)
-        #frag.kernel()
-        #ovlp = self.get_ovlp()
-        #c_atom = []
-        #for atom in atoms:
-        #    name, indices = frag.get_atomic_fragment_indices(atom)
-        #    c_atom.append(frag.get_frag_coeff(indices))
         c_atom = self._get_atomic_coeffs(atoms=atoms, projection=projection)
         ovlp = self.get_ovlp()
 
@@ -198,7 +185,7 @@ class UEWF(REWF, UEmbedding):
             # Traces of projector*DM(HF)
             trpa = [np.trace(p[0][occa,occa]) for p in proj]
             trpb = [np.trace(p[1][occb,occb]) for p in proj]
-            # Traces of projector*DM(CC)
+            # Traces of projector*[DM(CC) + DM(HF)/2]
             trda = [np.sum(p[0] * ddm1a) for p in proj]
             trdb = [np.sum(p[1] * ddm1b) for p in proj]
             for a in range(natom):

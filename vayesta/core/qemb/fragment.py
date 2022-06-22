@@ -226,6 +226,9 @@ class Fragment:
     def boundary_cond(self):
         return self.base.boundary_cond
 
+    def change_options(self, **kwargs):
+        self.opts.replace(**kwargs)
+
     # --- Overlap matrices
     # --------------------
 
@@ -306,16 +309,19 @@ class Fragment:
             raise RuntimeError("Cannot set attribute cluster in symmetry derived fragment.")
         self._cluster = value
 
-    def reset(self, keep_bath=False):
-        self.log.debugv("Resetting %s", self)
-        if not keep_bath:
+    def reset(self, reset_bath=True, reset_cluster=True, reset_eris=True):
+        self.log.debugv("Resetting %s (reset_bath= %r, reset_cluster= %r, reset_eris= %r)",
+                self, reset_bath, reset_cluster, reset_eris)
+        if reset_bath:
             self._dmet_bath = None
             self._bath_factory_occ = None
             self._bath_factory_vir = None
-        self._cluster = None
-        self._eris = None
-        self._results = self.Results(fid=self.id)
-        self.get_overlap.cache_clear()
+        if reset_cluster:
+            self._cluster = None
+            self.get_overlap.cache_clear()
+        if reset_eris:
+            self._eris = None
+        self._results = None
 
     def get_fragments_with_overlap(self, tol=1e-8, **kwargs):
         """Get list of fragments which overlap both in occupied and virtual space."""
@@ -512,14 +518,14 @@ class Fragment:
     # --- Symmetry
     # ============
 
-    def add_tsymmetric_fragments(self, tvecs, charge_tol=1e-6):
+    def add_tsymmetric_fragments(self, tvecs, symtol=1e-6):
         """
 
         Parameters
         ----------
         tvecs: array(3) of integers
             Each element represent the number of translation vector corresponding to the a0, a1, and a2 lattice vectors of the cell.
-        charge_tol: float, optional
+        symtol: float, optional
             Tolerance for the error of the mean-field density matrix between symmetry related fragments.
             If the largest absolute difference in the density-matrix is above this value,
             and exception will be raised. Default: 1e-6.
@@ -538,7 +544,6 @@ class Fragment:
             if i == 0: continue
             tvec = (dx/tvecs[0], dy/tvecs[1], dz/tvecs[2])
             sym_op = SymmetryTranslation(self.mol, tvec)
-
             if sym_op is None:
                 self.log.error("No T-symmetric fragment found for translation (%d,%d,%d) of fragment %s", dx, dy, dz, self.name)
                 continue
@@ -546,13 +551,18 @@ class Fragment:
             name = '%s_T(%d,%d,%d)' % (self.name, dx, dy, dz)
             # Translated coefficients
             c_frag_t = sym_op(self.c_frag)
-            c_env_t = sym_op(self.c_env)
+            c_env_t = None  # Avoid expensive symmetry operation on environment orbitals
             # Check that translated fragment does not overlap with current fragment:
-            fragovlp = abs(dot(self.c_frag.T, ovlp, c_frag_t)).max()
+            fragovlp = self._csc_dot(self.c_frag, c_frag_t, ovlp=ovlp)
+            if self.base.spinsym == 'restricted':
+                fragovlp = abs(fragovlp).max()
+            elif self.base.spinsym == 'unrestricted':
+                fragovlp = max(abs(fragovlp[0]).max(), abs(fragovlp[1]).max())
             if (fragovlp > 1e-8):
                 self.log.critical("Translation (%d,%d,%d) of fragment %s not orthogonal to original fragment (overlap= %.3e)!",
                             dx, dy, dz, self.name, fragovlp)
                 raise RuntimeError("Overlapping fragment spaces.")
+
             # Add fragment
             frag_id = self.base.register.get_next_id()
             frag = self.base.Fragment(self.base, frag_id, name, c_frag_t, c_env_t,
@@ -560,14 +570,16 @@ class Fragment:
                     **self.opts.asdict())
             self.base.fragments.append(frag)
             # Check symmetry
-            charge_err = self.get_tsymmetry_error(frag, dm1=dm1)
-            if charge_err > charge_tol:
-                self.log.critical("Mean-field DM not symmetric for translation (%d,%d,%d) of %s (charge error= %.3e)!",
-                    dx, dy, dz, self.name, charge_err)
-                raise RuntimeError("MF not symmetric under translation (%d,%d,%d)" % (dx, dy, dz))
-            else:
-                self.log.debugv("Mean-field DM symmetry error for translation (%d,%d,%d) of %s = %.3e",
-                    dx, dy, dz, self.name, charge_err)
+            # (only for the primitive translations (1,0,0), (0,1,0), and (0,0,1) to reduce number of sym_op(c_env) calls)
+            if (abs(dx)+abs(dy)+abs(dz) == 1):
+                charge_err, spin_err = self.get_tsymmetry_error(frag, dm1=dm1)
+                if max(charge_err, spin_err) > symtol:
+                    self.log.critical("Mean-field DM1 not symmetric for translation (%d,%d,%d) of %s (errors: charge= %.3e, spin= %.3e)!",
+                        dx, dy, dz, self.name, charge_err, spin_err)
+                    raise RuntimeError("MF not symmetric under translation (%d,%d,%d)" % (dx, dy, dz))
+                else:
+                    self.log.debugv("Mean-field DM symmetry error for translation (%d,%d,%d) of %s: charge= %.3e, spin= %.3e",
+                        dx, dy, dz, self.name, charge_err, spin_err)
 
             fragments.append(frag)
         return fragments
@@ -605,10 +617,14 @@ class Fragment:
         cx = np.hstack((self.c_frag, self.c_env))
         dmx = dot(cx.T, ovlp, dm1, ovlp, cx)
         # Other fragment (y)
-        cy = np.hstack((frag.c_frag, frag.c_env))
+        if frag.c_env is None:
+            cy_env = frag.sym_op(self.c_env)
+        else:
+            cy_env = frag.c_env
+        cy = np.hstack((frag.c_frag, cy_env))
         dmy = dot(cy.T, ovlp, dm1, ovlp, cy)
         err = abs(dmx - dmy).max()
-        return err
+        return err, 0.0
 
     #def check_mf_tsymmetry(self):
     #    """Check translational symmetry of the mean-field between fragment and its children."""
