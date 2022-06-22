@@ -22,7 +22,7 @@ def chargecharge(dm1, dm2, proj1=None, proj2=None, subtract_indep=True):
         if subtract_indep:
             corr -= np.trace(dm1)**2
         return corr
-    corr = einsum('ijkl,ij,kl->', dm2, proj1, proj2)
+    corr = einsum('(ij,ijkl),kl->', proj1, dm2, proj2)
     corr += einsum('ij,ik,jk->', dm1, proj1, proj2)
     if subtract_indep:
         corr -= np.sum(dm1 * proj1) * np.sum(dm1 * proj2)
@@ -99,7 +99,7 @@ def chargecharge_mf(dm1, proj1=None, proj2=None, subtract_indep=True):
         corr = 0
     else:
         corr = np.sum(dm1*proj1) * np.sum(dm1*proj2)
-    corr -= einsum('ij,kl,ik,lj->', dm1, dm1, proj1, proj2)/2
+    corr -= einsum('(ik,ij),(kl,lj)->', proj1, dm1, dm1, proj2)/2
     corr += einsum('ij,ik,jk->', dm1, proj1, proj2)
     return corr
 
@@ -141,12 +141,12 @@ def spinspin_z_mf_unrestricted(dm1, proj1=None, proj2=None):
     p1a, p1b = (proj1, proj1) if np.ndim(proj1[0]) == 1 else proj1
     p2a, p2b = (proj2, proj2) if np.ndim(proj2[0]) == 1 else proj2
 
-    ssz = (einsum('ij,kl,ij,kl->', dma, dma, p1a, p2a)
-         - einsum('il,jk,ij,kl->', dma, dma, p1a, p2a)
-         + einsum('ij,kl,ij,kl->', dmb, dmb, p1b, p2b)
-         - einsum('il,jk,ij,kl->', dmb, dmb, p1b, p2b)
-         - einsum('ij,kl,ij,kl->', dma, dmb, p1a, p2b)
-         - einsum('ij,kl,ij,kl->', dmb, dma, p1b, p2a))/4
+    ssz = (einsum('(ij,ij),(kl,kl)->', p1a, dma, dma, p2a)
+         - einsum('(ij,il),(jk,kl)->', p1a, dma, dma, p2a)
+         + einsum('(ij,ij),(kl,kl)->', p1b, dmb, dmb, p2b)
+         - einsum('(ij,il),(jk,kl)->', p1b, dmb, dmb, p2b)
+         - einsum('(ij,ij),(kl,kl)->', p1a, dma, dmb, p2b)
+         - einsum('(ij,ij),(kl,kl)->', p1b, dmb, dma, p2a))/4
     ssz += (einsum('ij,ik,jk->', dma, p1a, p2a)
           + einsum('ij,ik,jk->', dmb, p1b, p2b))/4
     return ssz
