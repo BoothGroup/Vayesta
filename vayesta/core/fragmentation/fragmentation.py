@@ -49,10 +49,13 @@ class Fragmentation:
 
     def __enter__(self):
         self.log.changeIndentLevel(1)
+        self._time0 = timer()
         self.kernel()
         return self
 
     def __exit__(self, type, value, traceback):
+        self.log.timing("Time for %s fragmentation: %s", self.name, time_string(timer()-self._time0))
+        del self._time0
         self.log.changeIndentLevel(-1)
 
     # --- Adding fragments:
