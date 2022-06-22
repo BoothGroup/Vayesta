@@ -518,6 +518,7 @@ class Fragment:
     # --- Symmetry
     # ============
 
+    @deprecated()
     def add_tsymmetric_fragments(self, tvecs, symtol=1e-6):
         """
 
@@ -543,7 +544,7 @@ class Fragment:
         for i, (dx, dy, dz) in enumerate(itertools.product(range(tvecs[0]), range(tvecs[1]), range(tvecs[2]))):
             if i == 0: continue
             tvec = (dx/tvecs[0], dy/tvecs[1], dz/tvecs[2])
-            sym_op = SymmetryTranslation(self.mol, tvec)
+            sym_op = SymmetryTranslation(self.base.symmetry, tvec)
             if sym_op is None:
                 self.log.error("No T-symmetric fragment found for translation (%d,%d,%d) of fragment %s", dx, dy, dz, self.name)
                 continue
@@ -572,7 +573,7 @@ class Fragment:
             # Check symmetry
             # (only for the primitive translations (1,0,0), (0,1,0), and (0,0,1) to reduce number of sym_op(c_env) calls)
             if (abs(dx)+abs(dy)+abs(dz) == 1):
-                charge_err, spin_err = self.get_tsymmetry_error(frag, dm1=dm1)
+                charge_err, spin_err = self.get_symmetry_error(frag, dm1=dm1)
                 if max(charge_err, spin_err) > symtol:
                     self.log.critical("Mean-field DM1 not symmetric for translation (%d,%d,%d) of %s (errors: charge= %.3e, spin= %.3e)!",
                         dx, dy, dz, self.name, charge_err, spin_err)
@@ -595,7 +596,7 @@ class Fragment:
 
     def get_symmetry_operation(self):
         if self.sym_parent is None:
-            return SymmetryIdentity(self.mol)
+            return SymmetryIdentity(self.base.symmetry)
         return self.sym_op
 
     def get_symmetry_children(self):
@@ -609,7 +610,7 @@ class Fragment:
     def symmetry_factor(self):
         return (self.n_symmetry_children+1)
 
-    def get_tsymmetry_error(self, frag, dm1=None):
+    def get_symmetry_error(self, frag, dm1=None):
         """Get translational symmetry error between two fragments."""
         if dm1 is None: dm1 = self.mf.make_rdm1()
         ovlp = self.base.get_ovlp()

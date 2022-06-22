@@ -88,6 +88,7 @@ def get_intercluster_mp2_energy_rhf(emb, bno_threshold_occ=None, bno_threshold_v
                 auxmol = emb.df.auxmol
             except AttributeError:
                 auxmol = emb.df.auxcell
+        auxsym = type(emb.symmetry)(auxmol)
 
         with log_time(emb.log.timing, "Time for intercluster MP2 energy setup: %s"):
             coll = {}
@@ -131,7 +132,7 @@ def get_intercluster_mp2_energy_rhf(emb, bno_threshold_occ=None, bno_threshold_v
                     sym_op = y.get_symmetry_operation()
                     coll[y.id, 'c_vir'] = sym_op(c_vir)
                     # TODO: Why do we need to invert the atom reordering with argsort?
-                    sym_op_aux = type(sym_op)(auxmol, vector=sym_op.vector, atom_reorder=np.argsort(sym_op.atom_reorder))
+                    sym_op_aux = type(sym_op)(auxsym, vector=sym_op.vector, atom_reorder=np.argsort(sym_op.atom_reorder))
                     coll[y.id, 'cderi'] = sym_op_aux(cderi)
                     #cderi_y2 = emb.get_cderi((sym_op(c_occ), sym_op(c_vir)))[0]
                     if cderi_neg is not None:
@@ -276,6 +277,7 @@ def get_intercluster_mp2_energy_uhf(emb, bno_threshold=1e-9, direct=True, exchan
                 auxmol = emb.df.auxmol
             except AttributeError:
                 auxmol = emb.df.auxcell
+        auxsym = type(emb.symmetry)(auxmol)
 
         with log_time(emb.log.timing, "Time for intercluster MP2 energy setup: %s"):
             coll = {}
@@ -303,7 +305,7 @@ def get_intercluster_mp2_energy_uhf(emb, bno_threshold=1e-9, direct=True, exchan
                     coll[y.id, 'c_vir_a'] = sym_op(c_vir[0])
                     coll[y.id, 'c_vir_b'] = sym_op(c_vir[1])
                     # TODO: Why do we need to invert the atom reordering with argsort?
-                    sym_op_aux = type(sym_op)(auxmol, vector=sym_op.vector, atom_reorder=np.argsort(sym_op.atom_reorder))
+                    sym_op_aux = type(sym_op)(auxsym, vector=sym_op.vector, atom_reorder=np.argsort(sym_op.atom_reorder))
                     coll[y.id, 'cderi_a'] = sym_op_aux(cderi_a)
                     coll[y.id, 'cderi_b'] = sym_op_aux(cderi_b)
                     if cderi_a_neg is not None:

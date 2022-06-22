@@ -12,67 +12,61 @@ from vayesta.core.util import *
 
 log = logging.getLogger(__name__)
 
-def compare_atoms(mol, atom1, atom2, check_labels=False, check_basis=True):
-    """Compare atom symbol and (optionally) basis between atom1 and atom2."""
-    if check_labels:
-        type1 = mol.atom_symbol(atom1)
-        type2 = mol.atom_symbol(atom2)
-    else:
-        type1 = mol.atom_pure_symbol(atom1)
-        type2 = mol.atom_pure_symbol(atom2)
-    if (type1 != type2):
-        return False
-    if not check_basis:
-        return True
-    bas1 = mol._basis[mol.atom_symbol(atom1)]
-    bas2 = mol._basis[mol.atom_symbol(atom2)]
-    return (bas1 == bas2)
-
-def get_closest_atom(mol, coords):
-    """pos in internal coordinates."""
-    dists = np.linalg.norm(mol.atom_coords()-coords, axis=1)
-    idx = np.argmin(dists)
-    return idx, dists[idx]
-
 
 class SymmetryOperation:
 
-    def __init__(self, mol, xtol=1e-8):
-        self.mol = mol
-        self.xtol = xtol
+    def __init__(self, group):
+        self.group = group
 
-    def __call__(self):
-        raise AbstractMethodError()
+    @property
+    def mol(self):
+        return self.group.mol
+
+    @property
+    def xtol(self):
+        return self.group.xtol
 
     @property
     def natom(self):
-        return self.mol.natm
+        return self.group.natom
 
     @property
     def nao(self):
-        return self.mol.nao
+        return self.group.nao
+
+    def __call__(self):
+        raise AbstractMethodError()
 
 class SymmetryIdentity(SymmetryOperation):
 
     def __call__(self, a, **kwargs):
         return a
 
-    def change_mol(self, mol):
-        return self
-
 class SymmetryRotation(SymmetryOperation):
 
-    def __init__(self, mol, order, vector, origin=np.zeros(3)):
-        super().__init__(mol)
+    def __init__(self, group, order, vector, origin=np.zeros(3)):
+        super().__init__(group)
         self.order = order
         self.vector = (vector / np.linalg.norm(vector))
         self.origin = origin
+
+        self.atom_reorder = self.get_atom_reorder()
+        self.ao_reorder = self.get_ao_reorder(self.atom_reorder)
 
     def as_matrix(self):
         vec = self.vector * (2*np.pi/self.order)
         return scipy.spatial.transform.Rotation.from_rotvec(vec).as_matrix()
 
-    def get_atom_reorder(self, check_labels=False, check_basis=True):
+    def __call__(self, a, axis=0):
+        if hasattr(axis, '__len__'):
+            for ax in axis:
+                a = self(a, axis=ax)
+            return a
+        if isinstance(a, (tuple, list)):
+            return tuple([self(x, axis=axis) for x in a])
+        return np.take(a, self.ao_reorder, axis=axis)
+
+    def get_atom_reorder(self):
         """Reordering of atoms for a given rotation.
 
         Parameters
@@ -87,29 +81,44 @@ class SymmetryRotation(SymmetryOperation):
         inverse = np.full((self.natom,), -1, dtype=int)
         for atom0, r0 in enumerate(self.mol.atom_coords()):
             r1 = np.dot((r0 - self.origin[None]), self.as_matrix()) + self.origin[None]
-            atom1, dist = get_closest_atom(self.mol, r1)
+            atom1, dist = self.group.get_closest_atom(r1)
             if dist > self.xtol:
                 return None, None
-            if not compare_atoms(self.mol, atom0, atom1, check_labels=check_labels, check_basis=check_basis):
+            if not self.group.compare_atoms(atom0, atom1):
                 return None, None
             reorder[atom1] = atom0
             inverse[atom0] = atom1
         assert (not np.any(reorder == -1))
         assert (not np.any(inverse == -1))
-
         assert np.all(np.arange(self.natom)[reorder][inverse] == np.arange(self.natom))
+        return reorder, inverse
 
+    def get_ao_reorder(self, atom_reorder):
+        if atom_reorder is None:
+            return None, None
+        aoslice = self.mol.aoslice_by_atom()[:,2:]
+        reorder = np.full((self.mol.nao,), -1)
+        inverse = np.full((self.mol.nao,), -1)
+        for atom0 in range(self.natom):
+            atom1 = atom_reorder[atom0]
+            aos0 = list(range(aoslice[atom0,0], aoslice[atom0,1]))
+            aos1 = list(range(aoslice[atom1,0], aoslice[atom1,1]))
+            reorder[aos0[0]:aos0[-1]+1] = aos1
+            inverse[aos1[0]:aos1[-1]+1] = aos0
+        assert not np.any(reorder == -1)
+        assert not np.any(inverse == -1)
+        assert np.all(np.arange(self.nao)[reorder][inverse] == np.arange(self.nao))
         return reorder, inverse
 
 
 class SymmetryTranslation(SymmetryOperation):
 
-    def __init__(self, cell, vector, boundary=None, atom_reorder=None, ao_reorder=None):
-        super().__init__(cell)
+    def __init__(self, group, vector, boundary=None, atom_reorder=None, ao_reorder=None):
+        super().__init__(group)
         self.vector = np.asarray(vector)
 
         if boundary is None:
-            boundary = getattr(cell, 'boundary', 'PBC')
+            boundary = getattr(self.mol, 'boundary', 'PBC')
         if np.ndim(boundary) == 0:
             boundary = 3*[boundary]
         elif np.ndim(boundary) == 1 and len(boundary) == 2:
@@ -130,30 +139,20 @@ class SymmetryTranslation(SymmetryOperation):
         assert (self.ao_reorder is not None)
 
     def __call__(self, a, axis=0):
+        """Apply symmetry operation along AO axis."""
         if hasattr(axis, '__len__'):
             for ax in axis:
-                a = self.apply_to_aos(a, axis=ax)
+                a = self(a, axis=ax)
             return a
-        return self.apply_to_aos(a, axis=axis)
-
-    def inverse(self):
-        return type(self)(self.cell, -self.vector, boundary=self.boundary, atom_reorder=np.argsort(self.atom_reorder))
-
-    def change_mol(self, mol):
-        return SymmetryTranslation(mol, vector=self.vector, boundary=self.boundary)
-
-    def apply_to_aos(self, a, axis=0):
-        """Apply symmetry operation along AO axis."""
         if isinstance(a, (tuple, list)):
-            return tuple([self.__call__(x, axis=axis) for x in a])
-        bc = tuple(axis*[None] + [slice(None, None, None)] + (a.ndim-axis-1)*[None])
+            return tuple([self(x, axis=axis) for x in a])
         if self.ao_reorder_phases is None:
             return np.take(a, self.ao_reorder, axis=axis)
+        bc = tuple(axis*[None] + [slice(None, None, None)] + (a.ndim-axis-1)*[None])
         return np.take(a, self.ao_reorder, axis=axis) * self.ao_reorder_phases[bc]
 
-    @property
-    def cell(self):
-        return self.mol
+    def inverse(self):
+        return type(self)(self.mol, -self.vector, boundary=self.boundary, atom_reorder=np.argsort(self.atom_reorder))
 
     @property
     def lattice_vectors(self):
@@ -180,7 +179,7 @@ class SymmetryTranslation(SymmetryOperation):
             return None
         return np.argsort(self.atom_reorder)
 
-    def get_atom_reorder(self, check_labels=False, check_basis=True):
+    def get_atom_reorder(self):
         """Reordering of atoms for a given translation.
 
         Parameters
@@ -197,8 +196,8 @@ class SymmetryTranslation(SymmetryOperation):
         def get_atom_at(pos):
             """pos in internal coordinates."""
             for dx, dy, dz in itertools.product([0,-1,1], repeat=3):
-                if self.cell.dimension in (1, 2) and (dz != 0): continue
-                if self.cell.dimension == 1 and (dy != 0): continue
+                if self.group.dimension in (1, 2) and (dz != 0): continue
+                if self.group.dimension == 1 and (dy != 0): continue
                 dr = np.asarray([dx, dy, dz])
                 phase = np.product(self.boundary_phases[dr!=0])
                 dists = np.linalg.norm(atom_coords_abc + dr - pos, axis=1)
@@ -214,7 +213,7 @@ class SymmetryTranslation(SymmetryOperation):
             atom1, phase = get_atom_at(coords0 + self.vector)
             if atom1 is None:
                 return None, None, None
-            if not compare_atoms(self.mol, atom0, atom1, check_labels=check_labels, check_basis=check_basis):
+            if not self.group.compare_atoms(atom0, atom1):
                 return None, None, None
             reorder[atom1] = atom0
             inverse[atom0] = atom1
@@ -222,9 +221,7 @@ class SymmetryTranslation(SymmetryOperation):
         assert (not np.any(reorder == -1))
         assert (not np.any(inverse == -1))
         assert (not np.any(phases == 0))
-
         assert np.all(np.arange(self.natom)[reorder][inverse] == np.arange(self.natom))
-
         return reorder, inverse, phases
 
     def get_ao_reorder(self, atom_reorder=None, atom_reorder_phases=None):
@@ -234,11 +231,11 @@ class SymmetryTranslation(SymmetryOperation):
             atom_reorder_phases = self.atom_reorder_phases
         if atom_reorder is None:
             return None, None, None
-        aoslice = self.cell.aoslice_by_atom()[:,2:]
-        reorder = np.full((self.cell.nao,), -1)
-        inverse = np.full((self.cell.nao,), -1)
+        aoslice = self.mol.aoslice_by_atom()[:,2:]
+        reorder = np.full((self.mol.nao,), -1)
+        inverse = np.full((self.mol.nao,), -1)
         if atom_reorder_phases is not None:
-            phases = np.full((self.cell.nao,), 0)
+            phases = np.full((self.mol.nao,), 0)
         else:
             phases = None
         for atom0 in range(self.natom):
@@ -253,9 +250,7 @@ class SymmetryTranslation(SymmetryOperation):
         assert not np.any(inverse == -1)
         if atom_reorder_phases is not None:
             assert not np.any(phases == 0)
-
         assert np.all(np.arange(self.nao)[reorder][inverse] == np.arange(self.nao))
-
         return reorder, inverse, phases
 
 if __name__ == '__main__':

@@ -5,7 +5,6 @@ import numpy as np
 from vayesta.core.util import *
 from vayesta.core import spinalg
 from .fragment import Fragment
-from vayesta.core.symmetry import SymmetryTranslation
 
 
 class UFragment(Fragment):
@@ -242,7 +241,7 @@ class UFragment(Fragment):
     # --- Symmetry
     # ============
 
-    def get_tsymmetry_error(self, frag, dm1=None):
+    def get_symmetry_error(self, frag, dm1=None):
         """Get translational symmetry error between two fragments."""
         if dm1 is None: dm1 = self.mf.make_rdm1()
         dma, dmb = dm1
