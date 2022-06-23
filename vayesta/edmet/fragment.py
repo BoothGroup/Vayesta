@@ -753,9 +753,73 @@ class EDMETFragment(DMETFragment):
 
     def get_active_space_correlation_energy(self, eris=None):
         e_ferm, e_core = super().get_active_space_correlation_energy(eris)
+        # Now, constructed intermediate
+        # \Gamma^{(0)}_{pq|rs} = \sum_n (C_{nrs}\Gamma^{eb}_{pq,n} + C_{nsr}\Gamma^{eb}_{qp,n})
+        # And average over symmetry-equivalent terms when one of `r` or `s` is within the CAS.
+        # Note that we have 4 nonequivalent spin options; aa, ab, bb, and ba.
+        dm = self._results.dm_eb
+        c = self.r_bos_ao
+
+        gammazero = [
+            einsum("npq,nrs->pqrs", dm[0], c[0]), # aa
+            einsum("npq,nrs->pqrs", dm[0], c[1]), # ab
+            einsum("npq,nrs->pqrs", dm[1], c[1]), # bb
+            einsum("npq,nrs->pqrs", dm[1], c[0]), # ba
+            ]
+
+        # Add in deexcitation component for Hermiticity.
+        gammazero = [x + x.transpose([1,0,3,2]) for x in gammazero]
+        # now construct symmetrised equivalent...
+        gammazero_sym = [x.copy() for x in gammazero]
+        # note that since the first two indices are in the cluster basis, while the latter two are in the AO basis, care
+        # must be taken when symmetrising.
+        # Want rotations to and from cluster basis
+        c_act = self.cluster.c_active
+        if self.base.is_rhf:
+            c_act = (c_act, c_act)
+        # Also need projector to just local contributions
+        p_act = [dot(c.T, self.get_overlap(), c) for c in c_act]
+        # Only need to average for aa and bb contributions. We do this by adding in half the difference, as appropriate.
+        for i, n in enumerate([0, 2]):
+            gammazero_sym[n] = gammazero_sym[n] + 0.5 * (
+                                                            einsum("pqrs,pt,ru->uqts", gammazero[n], c_act[i],
+                                                                   dot(self.base.get_ovlp(), c_act[i]))
+                                                            -
+                                                            einsum("pqrs,ru->pqus", gammazero[n], p_act[i])
+                                                            +
+                                                            einsum("pqrs,qt,su->purt", gammazero[n], c_act[i],
+                                                                   dot(self.base.get_ovlp(), c_act[i]))
+                                                            -
+                                                            einsum("pqrs,su->pqrt", gammazero[n], p_act[i])
+                                                         )
+        # Now construct 1rdm correction...
+        ne = self.base.nocc
+        if not isinstance(ne, int):
+            ne *= 2
+        else:
+            ne = sum(ne)
+        dm1 = (einsum("pprs->rs", gammazero_sym[0]) + einsum("pprs->rs", gammazero_sym[3]) / (ne - 1),
+               einsum("pprs->rs", gammazero_sym[1]) + einsum("pprs->rs", gammazero_sym[2]) / (ne - 1))
+
+        # and now one- and two-body energy corrections.
+        e1 = einsum("pq,qp->", self.base.get_hcore(), dm1[0] + dm1[1])
+
+        # Generate the anti
+        blk_prefactor = self.nbos * (self.mf.mol.nao ** 2)
+        blksize = max(1, int(__config__.MAX_MEMORY / (4 * 8.0 * blk_prefactor)))
 
 
 
+        for eri1 in self.mf.with_df.loop(blksize):
+            l_ = pyscf.lib.unpack_tril(eri1)
+            # First coulomb expressions; need these for each spin.
+            l_doub = [einsum("npq,pr,qs->nrs", c, c) for c in c_act]  # N^3 step
+
+            e_coul = einsum("", gammazero_sym[0], )
+
+            l_sing = [einsum("npq,pr->nrq", c) for c in c_act]  # N^3 step
+
+        e2 = einsum("", )
 
 
     # From this point on have functionality to perform self-consistency.
