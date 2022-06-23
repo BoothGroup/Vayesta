@@ -108,6 +108,7 @@ class MP2_Solver(ClusterSolver):
         self.t2 = t2
         mo = Orbitals(self.cluster.c_active, energy=mo_energy, occ=self.cluster.nocc_active)
         self.wf = MP2_WaveFunction(mo, t2)
+        self.converged = True
 
     def _debug_exact_wf(self, wf):
         raise NotImplementedError
