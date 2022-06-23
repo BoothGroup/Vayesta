@@ -2,12 +2,15 @@ import numpy as np
 
 
 class SymmetryGroup:
+    """Detect symemtry group automatically (use spglib?)."""
 
     def __init__(self, mol, xtol=1e-8, check_basis=True, check_label=False):
         self.mol = mol
         self.xtol = xtol
         self.check_basis = check_basis
         self.check_label = check_label
+        self.rotations = []
+        self.translation = None
 
     @property
     def natom(self):
@@ -46,3 +49,13 @@ class SymmetryGroup:
         dists = np.linalg.norm(self.mol.atom_coords()-coords, axis=1)
         idx = np.argmin(dists)
         return idx, dists[idx]
+
+    def add_rotation(self, order, axis, center, unit='Ang'):
+        """Add rotational symmetry."""
+        axis = np.asarray(axis)
+        center = np.asarray(center)
+        self.rotations.append((order, axis, center, unit))
+
+    def set_translation(self, translation):
+        """Set translational symmetry."""
+        self.translation = np.asarray(translation)

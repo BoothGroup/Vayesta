@@ -48,12 +48,12 @@ class SymmetryIdentity(SymmetryOperation):
 
 class SymmetryRotation(SymmetryOperation):
 
-    def __init__(self, group, rotvec, origin=(0,0,0), unit='Ang'):
+    def __init__(self, group, rotvec, center=(0,0,0), unit='Bohr'):
         super().__init__(group)
         self.rotvec = np.asarray(rotvec, dtype=float)
-        self.origin = np.asarray(origin, dtype=float)
+        self.center = np.asarray(center, dtype=float)
         if unit.lower().startswith('ang'):
-            self.origin = self.origin/BOHR
+            self.center = self.center/BOHR
 
         self.atom_reorder = self.get_atom_reorder()[0]
         if self.atom_reorder is None:
@@ -105,7 +105,7 @@ class SymmetryRotation(SymmetryOperation):
         inverse = np.full((self.natom,), -1, dtype=int)
         rot = self.as_matrix()
         for atom0, r0 in enumerate(self.mol.atom_coords()):
-            r1 = np.dot(rot, (r0 - self.origin)) + self.origin
+            r1 = np.dot(rot, (r0 - self.center)) + self.center
             atom1, dist = self.group.get_closest_atom(r1)
             if dist > self.xtol:
                 return None, None

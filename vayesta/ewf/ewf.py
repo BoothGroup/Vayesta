@@ -9,7 +9,6 @@ import vayesta
 from vayesta.core.util import *
 from vayesta.core.qemb import Embedding
 from vayesta.core.fragmentation import SAO_Fragmentation
-from vayesta.core.fragmentation import IAO_Fragmentation
 from vayesta.core.fragmentation import IAOPAO_Fragmentation
 from vayesta.misc import corrfunc
 from vayesta.mpi import mpi
@@ -110,6 +109,10 @@ class EWF(Embedding):
         self.iteration = 0
         #self.make_rdm1.cache_clear()
 
+    # Default fragmentation
+    def fragmentation(self, *args, **kwargs):
+        return self.iao_fragmentation(*args, **kwargs)
+
     def tailor_all_fragments(self):
         for x in self.fragments:
             for y in self.fragments:
@@ -124,8 +127,8 @@ class EWF(Embedding):
         # Automatic fragmentation
         if len(self.fragments) == 0:
             self.log.debug("No fragments found. Adding all atomic IAO fragments.")
-            with IAO_Fragmentation(self) as f:
-                f.add_all_atomic_fragments()
+            with self.fragmentation() as frag:
+                frag.add_all_atomic_fragments()
         self.check_fragment_nelectron()
 
         # Debug: calculate exact WF

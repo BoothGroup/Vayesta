@@ -169,11 +169,9 @@ class Fragment:
 
     def __repr__(self):
         if mpi:
-            return '%s(id= %d, name= %s, n_frag= %d, mpi_rank= %d)' % (
-                    self.__class__.__name__, self.id, self.name, self.n_frag, self.mpi_rank)
-        return '%s(id= %d, name= %s, n_frag= %d)' % (
-                self.__class__.__name__, self.id, self.name, self.n_frag)
-
+            return '%s(id= %d, name= %s, mpi_rank= %d)' % (
+                    self.__class__.__name__, self.id, self.name, self.mpi_rank)
+        return '%s(id= %d, name= %s)' % (self.__class__.__name__, self.id, self.name)
 
     def __str__(self):
         return '%s %d: %s' % (self.__class__.__name__, self.id, self.name)
@@ -284,12 +282,14 @@ class Fragment:
         c_right = _get_coeff(right)
         return self._csc_dot(c_left, c_right)
 
+    def get_coeff_env(self):
+        if self.c_env is not None:
+            return self.c_env
+        return self.sym_op(self.sym_parent.get_coeff_env())
+
     @property
     def results(self):
         return self.get_symmetry_parent()._results
-        #if self.sym_parent is not None:
-        #    return self.sym_parent.results
-        #return self._results
 
     @results.setter
     def results(self, value):
@@ -585,29 +585,68 @@ class Fragment:
             fragments.append(frag)
         return fragments
 
+    @deprecated(replacement='add_tsymmetric_fragment')
     def make_tsymmetric_fragments(self, *args, **kwargs):  # pragma: no cover
-        self.log.warning("make_tsymmetric_fragments is deprecated - use add_tsymmetric_fragments")
         return self.add_tsymmetric_fragments(*args, **kwargs)
 
     def get_symmetry_parent(self):
         if self.sym_parent is None:
             return self
-        return self.sym_parent
+        return self.sym_parent.get_symmetry_parent()
 
     def get_symmetry_operation(self):
         if self.sym_parent is None:
             return SymmetryIdentity(self.base.symmetry)
         return self.sym_op
 
-    def get_symmetry_children(self):
-        return self.base.get_fragments(sym_parent=self)
+    def get_symmetry_generations(self, maxgen=None, **filters):
+        if maxgen == 0:
+            return []
+        generations = []
+        fragments = self.base.get_fragments(**filters)
+        # Direct children:
+        lastgen = self.base.get_fragments(fragments, sym_parent=self)
+        generations.append(lastgen)
+        # Children of children, etc:
+        for gen in range(1, maxgen or 1000):
+            newgen = []
+            for fx in lastgen:
+                newgen += self.base.get_fragments(fragments, sym_parent=fx)
+            if not newgen:
+                break
+            generations.append(newgen)
+            lastgen = newgen
+        return generations
+
+    def get_symmetry_children(self, maxgen=None, **filters):
+        gens = self.get_symmetry_generations(maxgen, **filters)
+        # Flatten list of lists:
+        children = list(itertools.chain.from_iterable(gens))
+        return children
+
+    def get_symmetry_tree(self, maxgen=None, **filters):
+        """Returns a recursive tree:
+
+        [(x, [children of x]), (y, [children of y]), ...]
+        """
+        if maxgen is None:
+            maxgen = 1000
+        if maxgen == 0:
+            return []
+        # Get direct children:
+        children = self.get_symmetry_children(maxgen=1, **filters)
+        # Build tree recursively:
+        tree = [(x, x.get_symmetry_tree(maxgen=maxgen-1, **filters)) for x in children]
+        return tree
 
     @property
     def n_symmetry_children(self):
+        """Includes children of children, etc."""
         return len(self.get_symmetry_children())
 
     @property
     def symmetry_factor(self):
+        """Includes children of children, etc."""
         return (self.n_symmetry_children+1)
 
     def get_symmetry_error(self, frag, dm1=None):
@@ -615,14 +654,10 @@ class Fragment:
         if dm1 is None: dm1 = self.mf.make_rdm1()
         ovlp = self.base.get_ovlp()
         # This fragment (x)
-        cx = np.hstack((self.c_frag, self.c_env))
+        cx = np.hstack((self.c_frag, self.get_coeff_env()))
         dmx = dot(cx.T, ovlp, dm1, ovlp, cx)
         # Other fragment (y)
-        if frag.c_env is None:
-            cy_env = frag.sym_op(self.c_env)
-        else:
-            cy_env = frag.c_env
-        cy = np.hstack((frag.c_frag, cy_env))
+        cy = np.hstack((frag.c_frag, frag.get_coeff_env()))
         dmy = dot(cy.T, ovlp, dm1, ovlp, cy)
         err = abs(dmx - dmy).max()
         return err, 0.0

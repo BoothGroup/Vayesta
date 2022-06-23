@@ -56,10 +56,13 @@ class Fragmentation:
 
     def __exit__(self, type, value, traceback):
         if self.add_symmetric:
-            subcellmesh = getattr(self.mf, 'subcellmesh', None)
-            if subcellmesh is not None and np.any(np.asarray(subcellmesh) > 1):
-                self.log.debugv("mean-field has attribute 'subcellmesh'; adding T-symmetric fragments")
-                self.emb.add_tsymmetric_fragments(subcellmesh)
+            # Translation symmetry:
+            translation = self.emb.symmetry.translation
+            if translation is not None:
+                self.emb.add_transsym_fragments(translation)
+            # Rotational symmetries:
+            for (order, axis, center, unit) in self.emb.symmetry.rotations:
+                self.emb.add_rotsym_fragments(order, axis, center, unit)
 
         self.log.timing("Time for %s fragmentation: %s", self.name, time_string(timer()-self._time0))
         del self._time0

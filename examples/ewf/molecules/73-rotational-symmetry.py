@@ -21,9 +21,9 @@ mf.kernel()
 
 # Embedded CCSD
 emb_sym = vayesta.ewf.EWF(mf, bath_options=dict(threshold=1e-6), solver_options=dict(solve_lambda=True))
+emb_sym.symmetry.add_rotation(order=6, axis=[0,0,1], center=shift)
 with emb_sym.iao_fragmentation() as frag:
     frag.add_atomic_fragment(0)
-emb_sym.add_rsymmetric_fragments(6, axis=[0,0,1], center=shift)
 emb_sym.kernel()
 
 # Embedded CCSD

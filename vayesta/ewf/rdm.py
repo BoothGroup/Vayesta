@@ -247,6 +247,9 @@ def make_rdm1_ccsd_global_wf(emb, ao_basis=False, with_mf=True, t_as_lambda=None
         doox = np.zeros((x.cluster.nocc_active, emb.nocc))
         dvvx = np.zeros((x.cluster.nvir_active, emb.nvir))
 
+        cx_occ = x.get_overlap('mo[occ]|cluster[occ]')
+        cx_vir = x.get_overlap('mo[vir]|cluster[vir]')
+
         # Loop over ALL fragments y:
         for y in emb.get_fragments(active=True):
 
@@ -262,9 +265,7 @@ def make_rdm1_ccsd_global_wf(emb, ao_basis=False, with_mf=True, t_as_lambda=None
 
             # Constructing these overlap matrices scales as N(AO)^2,
             # however they are cashed and will only be calculated N(frag) times
-            cx_occ = x.get_overlap('mo[occ]|cluster[occ]')
             cy_occ = y.get_overlap('mo[occ]|cluster[occ]')
-            cx_vir = x.get_overlap('mo[vir]|cluster[vir]')
             cy_vir = y.get_overlap('mo[vir]|cluster[vir]')
             # Overlap between cluster-x and cluster-y:
             rxy_occ = np.dot(cx_occ.T, cy_occ)
@@ -389,16 +390,41 @@ def make_rdm1_ccsd_global_wf(emb, ao_basis=False, with_mf=True, t_as_lambda=None
 
         doo += np.dot(cx_occ, doox)
         dvv += np.dot(cx_vir, dvvx)
+
+        if use_sym:
+            symtree = x.get_symmetry_tree()
+
         if with_t1:
             l1x = dot(cx_occ.T, l1, cx_vir)
             if not late_t2_sym:
-                dov += einsum('(ijab,jb->ia),Ii,Aa->IA', theta, l1x, cx_occ, cx_vir)
+                dovx = einsum('ijab,jb->ia', theta, l1x)
+                dov += einsum('ia,Ii,Aa->IA', dovx, cx_occ, cx_vir)
             else:
                 cfx = x.get_overlap('cluster[occ]|frag')
-                tmp = einsum('xjab,jb->xa', theta, l1x)/2
-                dov += dot(cx_occ, cfx, tmp, cx_vir.T)
-                tmp = einsum('xiba,(jx,jb->xb)->ia', theta, cfx, l1x)/2
-                dov += dot(cx_occ, tmp, cx_vir.T)
+                dovx1 = einsum('xjab,jb->xa', theta, l1x)/2
+                dovx2 = einsum('xiba,(jx,jb->xb)->ia', theta, cfx, l1x)/2
+                dov += dot(cx_occ, cfx, dovx1, cx_vir.T)
+                dov += dot(cx_occ, dovx2, cx_vir.T)
+            if use_sym:
+                for x2, x2_children in symtree:
+                    cx2_occ = x2.get_overlap('mo[occ]|cluster[occ]')
+                    cx2_vir = x2.get_overlap('mo[vir]|cluster[vir]')
+                    if not late_t2_sym:
+                        dov += einsum('ia,Ii,Aa->IA', dovx, cx2_occ, cx2_vir)
+                    else:
+                        cfx2 = x2.get_overlap('cluster[occ]|frag')
+                        dov += dot(cx2_occ, cfx2, dovx1, cx2_vir.T)
+                        dov += dot(cx2_occ, dovx2, cx2_vir.T)
+                    for x3, x3_children in x2_children:
+                        assert not x3_children
+                        cx3_occ = x3.get_overlap('mo[occ]|cluster[occ]')
+                        cx3_vir = x3.get_overlap('mo[vir]|cluster[vir]')
+                        if not late_t2_sym:
+                            dov += einsum('ia,Ii,Aa->IA', dovx, cx3_occ, cx3_vir)
+                        else:
+                            cfx3 = x3.get_overlap('cluster[occ]|frag')
+                            dov += dot(cx3_occ, cfx3, dovx1, cx3_vir.T)
+                            dov += dot(cx3_occ, dovx2, cx3_vir.T)
 
         # --- Use symmetry of fragments (e.g. translations)
         if use_sym:
@@ -406,13 +432,22 @@ def make_rdm1_ccsd_global_wf(emb, ao_basis=False, with_mf=True, t_as_lambda=None
             doox = dot(doox, emb.mo_coeff_occ.T)
             dvvx = dot(dvvx, emb.mo_coeff_vir.T)
             # Loop over symmetry children of x:
-            for x2 in x.get_symmetry_children():
+            for x2, x2_children in symtree:
                 # Apply x->x2 symmetry to right index:
                 doox2 = x2.sym_op(doox, axis=1)
                 dvvx2 = x2.sym_op(dvvx, axis=1)
                 # Symmetry is automatically applied to left index via `x2.cluster` orbitals
                 doo += dot(cs_occ, x2.cluster.c_active_occ, doox2, cs_occ.T)
                 dvv += dot(cs_vir, x2.cluster.c_active_vir, dvvx2, cs_vir.T)
+                # TODO: scaling? precontraction of sym_op(sym_op(...)) ?
+                for x3, x3_children in x2_children:
+                    assert not x3_children
+                    doox3 = x3.sym_op(doox2, axis=1)
+                    dvvx3 = x3.sym_op(dvvx2, axis=1)
+                    # Symmetry is automatically applied to left index via `x3.cluster` orbitals
+                    doo += dot(cs_occ, x3.cluster.c_active_occ, doox3, cs_occ.T)
+                    dvv += dot(cs_vir, x3.cluster.c_active_vir, dvvx3, cs_vir.T)
+
     if mpi:
         rma.clear()
         doo, dov, dvv = mpi.nreduce(doo, dov, dvv, target=mpi_target, logfunc=emb.log.timingv)

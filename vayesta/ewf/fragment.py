@@ -256,7 +256,6 @@ class Fragment(BaseFragment):
             else:
                 cluster_solver._debug_exact_wf(self.base._debug_wf)
 
-
         # ---Make projected WF
         if isinstance(cluster_solver.wf, RFCI_WaveFunction):
             pwf = cluster_solver.wf.to_cisd()
