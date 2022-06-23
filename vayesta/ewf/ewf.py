@@ -621,7 +621,7 @@ class EWF(Embedding):
                     last_parent = fx.id
                 else:
                     # Skip calling `make_fragment_dm2cumulant()` for symmetry children
-                    assert (last_parent == fx.sym_parent.id)
+                    assert (last_parent == fx.get_symmetry_parent().id)
 
                 # Split to reduce memory:
                 for blk, dm2blk in split_into_blocks(dm2):
