@@ -75,7 +75,12 @@ class DMETFragment(Fragment):
         cluster_solver = solver_cls(self.mf, self, cluster, **solver_opts)
         # Chemical potential
         if chempot is not None:
-            cluster_solver.v_ext = -chempot * self.get_fragment_projector(self.cluster.c_active)
+            px = self.get_fragment_projector(self.cluster.c_active)
+            if isinstance(px, tuple):
+                cluster_solver.v_ext = (-chempot*px[0], -chempot*px[1])
+            else:
+                cluster_solver.v_ext = -chempot*px
+
         if eris is None:
             eris = cluster_solver.get_eris()
         with log_time(self.log.info, ("Time for %s solver:" % solver) + " %s"):

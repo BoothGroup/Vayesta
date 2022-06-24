@@ -675,7 +675,7 @@ class EDMETFragment(DMETFragment):
         cluster_solver = solver_cls(self.mf, self, self.cluster, **solver_opts)
         # Chemical potential
         if chempot is not None:
-            px =  self.get_fragment_projector(self.cluster.c_active)
+            px = self.get_fragment_projector(self.cluster.c_active)
             if isinstance(px, tuple):
                 cluster_solver.v_ext = (-chempot*px[0], -chempot*px[1])
             else:
@@ -752,6 +752,7 @@ class EDMETFragment(DMETFragment):
         return e1, e2, efb
 
     def get_active_space_correlation_energy(self, eris=None):
+
         e_ferm, e_core = super().get_active_space_correlation_energy(eris)
         # Now, constructed intermediate
         # \Gamma^{(0)}_{pq|rs} = \sum_n (C_{nrs}\Gamma^{eb}_{pq,n} + C_{nsr}\Gamma^{eb}_{qp,n})
@@ -759,12 +760,13 @@ class EDMETFragment(DMETFragment):
         # Note that we have 4 nonequivalent spin options; aa, ab, bb, and ba.
         dm = self._results.dm_eb
         c = self.r_bos_ao
+        s = self.base.get_ovlp()
 
         gammazero = [
-            einsum("npq,nrs->pqrs", dm[0], c[0]), # aa
-            einsum("npq,nrs->pqrs", dm[0], c[1]), # ab
-            einsum("npq,nrs->pqrs", dm[1], c[1]), # bb
-            einsum("npq,nrs->pqrs", dm[1], c[0]), # ba
+            einsum("pqn,nrs->pqrs", dm[0], c[0]), # aa
+            einsum("pqn,nrs->pqrs", dm[0], c[1]), # ab
+            einsum("pqn,nrs->pqrs", dm[1], c[1]), # bb
+            einsum("pqn,nrs->pqrs", dm[1], c[0]), # ba
             ]
 
         # Add in deexcitation component for Hermiticity.
@@ -778,23 +780,23 @@ class EDMETFragment(DMETFragment):
         if self.base.is_rhf:
             c_act = (c_act, c_act)
         # Also need projector to just local contributions
-        p_act = [dot(c.T, self.get_overlap(), c) for c in c_act]
+        p_act = [dot(s, c,  c.T, s) for c in c_act]
         # Only need to average for aa and bb contributions. We do this by adding in half the difference, as appropriate.
         for i, n in enumerate([0, 2]):
             gammazero_sym[n] = gammazero_sym[n] + 0.5 * (
-                                                            einsum("pqrs,pt,ru->uqts", gammazero[n], c_act[i],
-                                                                   dot(self.base.get_ovlp(), c_act[i]))
+                                                            einsum("pqrs,tp,ru->uqts", gammazero[n], c_act[i],
+                                                                   dot(s, c_act[i]))
                                                             -
                                                             einsum("pqrs,ru->pqus", gammazero[n], p_act[i])
                                                             +
-                                                            einsum("pqrs,qt,su->purt", gammazero[n], c_act[i],
-                                                                   dot(self.base.get_ovlp(), c_act[i]))
+                                                            einsum("pqrs,tq,su->purt", gammazero[n], c_act[i],
+                                                                   dot(s, c_act[i]))
                                                             -
-                                                            einsum("pqrs,su->pqrt", gammazero[n], p_act[i])
+                                                            einsum("pqrs,su->pqru", gammazero[n], p_act[i])
                                                          )
         # Now construct 1rdm correction...
         ne = self.base.nocc
-        if not isinstance(ne, int):
+        if isinstance(ne, int):
             ne *= 2
         else:
             ne = sum(ne)
@@ -802,24 +804,34 @@ class EDMETFragment(DMETFragment):
                einsum("pprs->rs", gammazero_sym[1]) + einsum("pprs->rs", gammazero_sym[2]) / (ne - 1))
 
         # and now one- and two-body energy corrections.
-        e1 = einsum("pq,qp->", self.base.get_hcore(), dm1[0] + dm1[1])
+        e1_eb = einsum("pq,qp->", self.base.get_hcore(), dm1[0] + dm1[1])
 
         # Generate the anti
         blk_prefactor = self.nbos * (self.mf.mol.nao ** 2)
         blksize = max(1, int(__config__.MAX_MEMORY / (4 * 8.0 * blk_prefactor)))
 
 
-
+        e2_eb = 0.0
         for eri1 in self.mf.with_df.loop(blksize):
             l_ = pyscf.lib.unpack_tril(eri1)
             # First coulomb expressions; need these for each spin.
-            l_doub = [einsum("npq,pr,qs->nrs", c, c) for c in c_act]  # N^3 step
+            l_doub = [einsum("npq,pr,qs->nrs", l_, c, c) for c in c_act]  # N^3 step
+            e2_eb += (
+                einsum("npq,qs,nps", l_, p_act[0], einsum("pqrs,npq->nrs", gammazero_sym[0], l_doub[0])) +
+                einsum("npq,qs,nps", l_, p_act[1], einsum("pqrs,npq->nrs", gammazero_sym[1], l_doub[0])) +
+                einsum("npq,qs,nps", l_, p_act[1], einsum("pqrs,npq->nrs", gammazero_sym[2], l_doub[1])) +
+                einsum("npq,qs,nps", l_, p_act[0], einsum("pqrs,npq->nrs", gammazero_sym[3], l_doub[1]))
+            )
+            # Exchange contributions; only present for for same-spin components.
+            l_sing = [einsum("npq,pr->nrq", l_, c) for c in c_act]  # N^3 step
+            e2_eb += (
+                    einsum("pqrt,nps,nqr,ts->", gammazero_sym[0], l_sing[0], l_sing[0], p_act[0]) +
+                    einsum("pqrt,nps,nqr,ts->", gammazero_sym[2], l_sing[1], l_sing[1], p_act[1])
+            )
 
-            e_coul = einsum("", gammazero_sym[0], )
+        e_tot = e_ferm + e1_eb + e2_eb
 
-            l_sing = [einsum("npq,pr->nrq", c) for c in c_act]  # N^3 step
-
-        e2 = einsum("", )
+        return e_tot, (e_ferm, e1_eb, e2_eb, e_core)
 
 
     # From this point on have functionality to perform self-consistency.
