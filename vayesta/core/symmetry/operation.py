@@ -60,7 +60,6 @@ class SymmetryRotation(SymmetryOperation):
             raise RuntimeError("Symmetry %s not found" % self)
         self.ao_reorder = self.get_ao_reorder(self.atom_reorder)[0]
 
-        print(self.as_matrix())
         self.angular_rotmats = pyscf.symm.basis._ao_rotation_matrices(self.mol, self.as_matrix())
 
     def __repr__(self):

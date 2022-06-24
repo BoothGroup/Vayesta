@@ -141,7 +141,7 @@ def ring(atom, natom, bond_length, z=0.0):
         atom = [atom]
     for i in range(natom):
         theta = i * (2*np.pi/natom)
-        atoms.append([atom[i%len(atom)], (r*np.cos(theta), r*np.sin(theta), z)])
+        atoms.append([atom[i%len(atom)], np.asarray([r*np.cos(theta), r*np.sin(theta), z])])
     return atoms
 
 # --- From datafiles:

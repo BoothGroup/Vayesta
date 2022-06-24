@@ -741,10 +741,9 @@ class Embedding:
                 axis = np.dot(axis, ak)
             if self.kcell is not None:
                 # center needs to be moved to the supercell center!
-                #BOHR = 0.529177210903
-                ak = self.kcell.lattice_vectors() #* BOHR
+                ak = self.kcell.lattice_vectors()
                 bk = np.linalg.inv(ak)
-                a = self.mol.lattice_vectors() #* BOHR
+                a = self.mol.lattice_vectors()
                 shift = (np.diag(a)/np.diag(ak) - 1)/2
                 # Shift in internal coordinates
                 self.log.debugv("Primitive cell rotation center= %r" % center)

@@ -109,7 +109,8 @@ def plot_mol(mol, charges=None, spins=None, add_images=False, **kwargs):
     #a_matrix = mol.lattice_vectors() if hasattr(mol, 'lattice_vectors') else None
     coords = mol.atom_coords()
     symbols = [mol.atom_symbol(a) for a in range(len(atoms))]
-    atom_colors = [get_atom_color(s) for s in symbols]
+    atom_colors = kwargs.get('atom_colors', get_atom_color)
+    atom_colors = [atom_colors(s) for s in symbols]
 
     # Bonds
     bonds_x, bonds_y, bonds_z = get_bonds(mol)
