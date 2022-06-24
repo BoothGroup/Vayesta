@@ -60,6 +60,7 @@ class SymmetryRotation(SymmetryOperation):
             raise RuntimeError("Symmetry %s not found" % self)
         self.ao_reorder = self.get_ao_reorder(self.atom_reorder)[0]
 
+        print(self.as_matrix())
         self.angular_rotmats = pyscf.symm.basis._ao_rotation_matrices(self.mol, self.as_matrix())
 
     def __repr__(self):
@@ -83,8 +84,15 @@ class SymmetryRotation(SymmetryOperation):
         ao_start = ao_loc[0]
         for bas, ao_end in enumerate(ao_loc[1:]):
             l = self.mol.bas_angular(bas)
+            if l == 0:
+                ao_start = ao_end
+                continue
             rot = self.angular_rotmats[l]
+            size = ao_end - ao_start
+            assert (rot.shape == (size, size))
             slc = np.s_[ao_start:ao_end]
+            #log.debugv("bas= %d, ao_start= %d, ao_end= %d, l= %d, diag(rot)= %r",
+            #    bas, ao_start, ao_end, l, np.diag(rot))
             a[slc] = einsum('x...,xy->y...', a[slc], rot)
             ao_start = ao_end
         a = np.moveaxis(a, 0, axis)
