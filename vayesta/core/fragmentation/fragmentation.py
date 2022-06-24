@@ -31,8 +31,9 @@ class Fragmentation:
 
     name = "<not set>"
 
-    def __init__(self, emb, log=None):
+    def __init__(self, emb, add_symmetric=True, log=None):
         self.emb = emb
+        self.add_symmetric = add_symmetric
         self.log = log or emb.log
         self.log.info('%s Fragmentation' % self.name)
         self.log.info('%s--------------' % (len(self.name)*'-'))
@@ -54,13 +55,22 @@ class Fragmentation:
         return self
 
     def __exit__(self, type, value, traceback):
+        if self.add_symmetric:
+            # Translation symmetry:
+            translation = self.emb.symmetry.translation
+            if translation is not None:
+                self.emb.add_transsym_fragments(translation)
+            # Rotational symmetries:
+            for (order, axis, center, unit) in self.emb.symmetry.rotations:
+                self.emb.add_rotsym_fragments(order, axis, center, unit)
+
         self.log.timing("Time for %s fragmentation: %s", self.name, time_string(timer()-self._time0))
         del self._time0
         self.log.changeIndentLevel(-1)
 
     # --- Adding fragments:
 
-    def add_atomic_fragment(self, atoms, orbital_filter=None, name=None, add_symmetric=True, **kwargs):
+    def add_atomic_fragment(self, atoms, orbital_filter=None, name=None, **kwargs):
         """Create a fragment of one or multiple atoms, which will be solved by the embedding method.
 
         Parameters
@@ -69,8 +79,6 @@ class Fragmentation:
             Atom indices or symbols which should be included in the fragment.
         name: str, optional
             Name for the fragment. If None, a name is automatically generated from the chosen atoms. Default: None.
-        add_symmetric: bool, optional
-            Add symmetry equivalent fragments. Default: True.
         **kwargs:
             Additional keyword arguments are passed through to the fragment constructor.
 
@@ -81,7 +89,7 @@ class Fragmentation:
         """
         atom_indices, atom_symbols = self.get_atom_indices_symbols(atoms)
         name, indices = self.get_atomic_fragment_indices(atoms, orbital_filter=orbital_filter, name=name)
-        return self._add_fragment(indices, name, add_symmetric=add_symmetric, atoms=atom_indices, **kwargs)
+        return self._add_fragment(indices, name, atoms=atom_indices, **kwargs)
 
     def add_atomshell_fragment(self, atoms, shells, **kwargs):
         if isinstance(shells, (int, np.integer)):
@@ -128,7 +136,7 @@ class Fragmentation:
             fragments.append(frag)
         return fragments
 
-    def _add_fragment(self, indices, name, add_symmetric=False, **kwargs):
+    def _add_fragment(self, indices, name, **kwargs):
         c_frag = self.get_frag_coeff(indices)
         c_env = self.get_env_coeff(indices)
         fid, mpirank = self.emb.register.get_next()
@@ -139,16 +147,6 @@ class Fragmentation:
         self.log.debug("Fragment %ss of fragment %s:", self.name, name)
         labels = np.asarray(self.labels)[indices]
         helper.log_orbitals(self.log.debug, labels)
-
-        if add_symmetric:
-            # Translational symmetry
-            #subcellmesh = self.symmetry.nsubcells
-            #if subcellmesh is not None and np.any(np.asarray(subcellmesh) > 1):
-            subcellmesh = getattr(self.mf, 'subcellmesh', None)
-            if subcellmesh is not None and np.any(np.asarray(subcellmesh) > 1):
-                self.log.debugv("mean-field has attribute 'subcellmesh'; adding T-symmetric fragments")
-                frag.add_tsymmetric_fragments(subcellmesh)
-
         return frag
 
     # --- For convenience:

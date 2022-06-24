@@ -260,7 +260,6 @@ class CellFragmentTests(unittest.TestCase):
         qemb = Embedding(cells[self.key]['rhf'])
         with qemb.iao_fragmentation() as f:
             frag = f.add_atomic_fragment([0, 1])
-            frags = [frag] + frag.add_tsymmetric_fragments([2, 2, 2])
 
         for frag in qemb.fragments:
             self.assertAlmostEqual(frag.get_fragment_mf_energy().real, -4.261995344528813, self.PLACES)

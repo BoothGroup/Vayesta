@@ -23,7 +23,19 @@ class Test(TestCase):
     @classmethod
     @cache
     def emb(cls, bno_threshold):
-        emb = vayesta.ewf.EWF(cls.mf, bno_threshold=bno_threshold, solve_lambda=True)
+        emb = vayesta.ewf.EWF(cls.mf, bath_options=dict(threshold=bno_threshold),
+                solver_options=dict(solve_lambda=True))
+        emb.kernel()
+        return emb
+
+    @classmethod
+    @cache
+    def emb_rotsym(cls, bno_threshold):
+        emb = vayesta.ewf.EWF(cls.mf, bath_options=dict(threshold=bno_threshold),
+                solver_options=dict(solve_lambda=True))
+        emb.symmetry.add_rotation(2, axis=[1, 0, -1], center=[1/8, 1/8, 1/8], unit='latvec')
+        with emb.fragmentation() as frag:
+            frag.add_atomic_fragment(0)
         emb.kernel()
         return emb
 
@@ -31,6 +43,13 @@ class Test(TestCase):
         emb = self.emb(1e-4)
         dm1_nosym = emb._make_rdm1_ccsd_global_wf(use_sym=False)
         dm1_sym = emb._make_rdm1_ccsd_global_wf(use_sym=True)
+        self.assertAllclose(dm1_sym, dm1_nosym)
+
+    def test_dm1_rotsymmetry(self):
+        emb_rotsym = self.emb_rotsym(1e-4)
+        emb = self.emb(1e-4)
+        dm1_nosym = emb._make_rdm1_ccsd_global_wf()
+        dm1_sym = emb_rotsym._make_rdm1_ccsd_global_wf()
         self.assertAllclose(dm1_sym, dm1_nosym)
 
     def test_corrfunc_dndn_symmetry(self):

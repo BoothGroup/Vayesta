@@ -5,7 +5,6 @@ import numpy as np
 from vayesta.core.util import *
 from vayesta.core import spinalg
 from .fragment import Fragment
-from vayesta.core.symmetry import SymmetryTranslation
 
 
 class UFragment(Fragment):
@@ -20,10 +19,6 @@ class UFragment(Fragment):
             self.log.info(fmt+'%r', "Associated atoms:", self.atoms)
         if self.aos is not None:
             self.log.info(fmt+'%r', "Associated AOs:", self.aos)
-
-    def __repr__(self):
-        return '%s(id= %d, name= %s, n_frag= (%d, %d), n_elec= (%.8f, %.8f), sym_factor= %f)' % (self.__class__.__name__,
-                self.id, self.name, *self.n_frag, *self.nelectron, self.sym_factor)
 
     @property
     def n_frag(self):
@@ -242,7 +237,7 @@ class UFragment(Fragment):
     # --- Symmetry
     # ============
 
-    def get_tsymmetry_error(self, frag, dm1=None):
+    def get_symmetry_error(self, frag, dm1=None):
         """Get translational symmetry error between two fragments."""
         if dm1 is None: dm1 = self.mf.make_rdm1()
         dma, dmb = dm1

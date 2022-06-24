@@ -73,6 +73,7 @@ def kao2gmo_cderi(gdf, mo_coeffs, make_real=True, blksize=None, tril_kij=True, d
         blksize = np.clip(max_size, 1, int(1e9))
         log.debugv("max_memory= %.3f MB  max_size= %d  blksize= %d", max_memory/1e6, max_size, blksize)
 
+    log.debugv("driver= %s", driver)
     if driver == 'python':
         transform = lambda cderi_kij, mo1_ki, mo2_kj : einsum('Lab,ai,bj->Lij', cderi_kij, mo1_ki.conj(), mo2_kj)
     elif driver == 'c':

@@ -13,7 +13,7 @@ import pyscf.pbc.cc
 from vayesta.core.util import *
 from vayesta.core.types import Orbitals
 from vayesta.core.types import WaveFunction
-from vayesta.core.types import RCCSD_WaveFunction
+from vayesta.core.types import CCSD_WaveFunction
 from . import coupling
 from .solver import ClusterSolver
 
@@ -167,7 +167,9 @@ class CCSD_Solver(ClusterSolver):
             coupled_fragments = self.fragment.opts.coupled_fragments
 
         # Integral transformation
-        if eris is None: eris = self.get_eris()
+        if eris is None:
+            with log_time(self.log.info, "Time for ERIs: %s"):
+                eris = self.get_eris()
 
         # Add additional potential
         if self.v_ext is not None:
@@ -196,7 +198,7 @@ class CCSD_Solver(ClusterSolver):
         elif coupled_fragments and np.all([x.results is not None for x in coupled_fragments]):
             self.log.info("Adding tailor function to CCSD.")
             self.solver.callback = coupling.make_cross_fragment_tcc_function(self, mode=(self.opts.sc_mode or 3),
-                                                                                coupled_fragments=coupled_fragments)
+                coupled_fragments=coupled_fragments)
 
         self.log.info("Solving CCSD-equations %s initial guess...", "with" if (t2 is not None) else "without")
         with log_time(self.log.info, "Time for T-equations: %s"):
@@ -228,7 +230,8 @@ class CCSD_Solver(ClusterSolver):
 
         if t_diagnostic: self.t_diagnostic()
 
-        self.wf = WaveFunction.from_pyscf(self.solver)
+        mo = Orbitals(self.cluster.c_active, occ=self.cluster.nocc_active)
+        self.wf = CCSD_WaveFunction(mo, self.solver.t1, self.solver.t2, l1=self.solver.l1, l2=self.solver.l2)
 
     @log_method()
     def t_diagnostic(self):
@@ -266,7 +269,7 @@ class CCSD_Solver(ClusterSolver):
             l2 = einsum('Ii,Jj,IJAB,Aa,Bb->ijab', ro, ro, wf.l2, rv, rv)
         else:
             l1 = l2 = None
-        self.wf = RCCSD_WaveFunction(mo, t1, t2, l1=l1, l2=l2)
+        self.wf = CCSD_WaveFunction(mo, t1, t2, l1=l1, l2=l2)
         self.converged = True
 
     def _debug_random_wf(self):
@@ -275,7 +278,7 @@ class CCSD_Solver(ClusterSolver):
         l1 = np.random.rand(mo.nocc, mo.nvir)
         t2 = np.random.rand(mo.nocc, mo.nocc, mo.nvir, mo.nvir)
         l2 = np.random.rand(mo.nocc, mo.nocc, mo.nvir, mo.nvir)
-        self.wf = RCCSD_WaveFunction(mo, t1, t2, l1=l1, l2=l2)
+        self.wf = CCSD_WaveFunction(mo, t1, t2, l1=l1, l2=l2)
         self.converged = True
 
 
