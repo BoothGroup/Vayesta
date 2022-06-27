@@ -644,15 +644,23 @@ class Fragment:
 
         Parameters
         ----------
-        arrays : list[ndarray], optional
+        arrays : ndarray or list[ndarray], optional
             If arrays are passed, the symmetry operation of each symmetry related fragment will be
             applied to this array along the axis given in `axes`.
         axes : list[int], optional
             List of axes, along which the symmetry operation is applied for each element of `arrays`.
             If None, the first axis will be used.
         """
+
+        def get_yield(fragment, arrays):
+            if arrays is None or len(arrays) == 0:
+                return fragment
+            if len(arrays) == 1:
+                return fragment, arrays[0]
+            return fragment, arrays
+
         if include_self:
-            yield ((self, arrays) if arrays else self)
+            yield get_yield(self, arrays)
         if maxgen == 0:
             return
         elif maxgen is None:
@@ -665,7 +673,7 @@ class Fragment:
             symtree = self.get_symmetry_tree()
         for child, grandchildren in symtree:
             intermediates = [child.sym_op(arr, axis=axis) for (arr, axis) in zip(arrays, axes)]
-            yield ((child, intermediates) if intermediates else child)
+            yield get_yield(child, intermediates)
             if grandchildren and maxgen > 1:
                 yield from child.loop_symmetry_children(intermediates, axes=axes, symtree=grandchildren, maxgen=(maxgen-1))
 
