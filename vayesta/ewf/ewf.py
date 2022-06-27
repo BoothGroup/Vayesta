@@ -506,6 +506,7 @@ class EWF(Embedding):
             projectors[atom] = dot(r, r.T)
         return atoms1, atoms2, projectors
 
+    @log_method()
     def get_corrfunc_mf(self, kind, dm1=None, atoms=None, projection='sao'):
         """dm1 in MO basis"""
         if dm1 is None:
