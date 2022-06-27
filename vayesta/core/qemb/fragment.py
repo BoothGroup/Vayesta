@@ -639,6 +639,44 @@ class Fragment:
         tree = [(x, x.get_symmetry_tree(maxgen=maxgen-1, **filters)) for x in children]
         return tree
 
+    def loop_symmetry_children(self, arrays=None, axes=None, symtree=None, maxgen=None, include_self=False):
+        """Loop over all symmetry related fragments, including children of children, etc.
+
+        Parameters
+        ----------
+        arrays : ndarray or list[ndarray], optional
+            If arrays are passed, the symmetry operation of each symmetry related fragment will be
+            applied to this array along the axis given in `axes`.
+        axes : list[int], optional
+            List of axes, along which the symmetry operation is applied for each element of `arrays`.
+            If None, the first axis will be used.
+        """
+
+        def get_yield(fragment, arrays):
+            if arrays is None or len(arrays) == 0:
+                return fragment
+            if len(arrays) == 1:
+                return fragment, arrays[0]
+            return fragment, arrays
+
+        if include_self:
+            yield get_yield(self, arrays)
+        if maxgen == 0:
+            return
+        elif maxgen is None:
+            maxgen = 1000
+        if arrays is None:
+            arrays = []
+        if axes is None:
+            axes = len(arrays)*[0]
+        if symtree is None:
+            symtree = self.get_symmetry_tree()
+        for child, grandchildren in symtree:
+            intermediates = [child.sym_op(arr, axis=axis) for (arr, axis) in zip(arrays, axes)]
+            yield get_yield(child, intermediates)
+            if grandchildren and maxgen > 1:
+                yield from child.loop_symmetry_children(intermediates, axes=axes, symtree=grandchildren, maxgen=(maxgen-1))
+
     @property
     def n_symmetry_children(self):
         """Includes children of children, etc."""

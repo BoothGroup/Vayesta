@@ -56,13 +56,13 @@ class Fragmentation:
 
     def __exit__(self, type, value, traceback):
         if self.add_symmetric:
+            # Rotational symmetries:
+            for idx, (order, axis, center, unit) in enumerate(self.emb.symmetry.rotations):
+                self.emb.add_rotsym_fragments(order, axis, center, unit, symbol='R%d' % (idx+1))
             # Translation symmetry:
             translation = self.emb.symmetry.translation
             if translation is not None:
                 self.emb.add_transsym_fragments(translation)
-            # Rotational symmetries:
-            for (order, axis, center, unit) in self.emb.symmetry.rotations:
-                self.emb.add_rotsym_fragments(order, axis, center, unit)
 
         self.log.timing("Time for %s fragmentation: %s", self.name, time_string(timer()-self._time0))
         del self._time0
