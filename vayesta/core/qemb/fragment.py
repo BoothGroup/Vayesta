@@ -639,6 +639,23 @@ class Fragment:
         tree = [(x, x.get_symmetry_tree(maxgen=maxgen-1, **filters)) for x in children]
         return tree
 
+    #def loop_symmetry_children(self, *arrays, axes=None, symtree=None):
+
+    #    if axes is None:
+    #        axes = len(arrays)*[0]
+    #    if symtree is None:
+    #        symtree = self.get_symmetry_tree()
+
+    #    for x2, x2_children in symtree:
+    #        intermediates = []
+    #        for arr, axis in zip(arrays, axes):
+    #            intermediates.append(x2.sym_op(arr, axis=axis))
+    #        if not x2_children:
+    #            return intermediates
+    #        else:
+    #            self.loop_symmetry_children(inter
+
+
     @property
     def n_symmetry_children(self):
         """Includes children of children, etc."""
