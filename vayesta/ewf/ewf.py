@@ -615,13 +615,19 @@ class EWF(Embedding):
             else:
                 # Cumulant DM2 contribution:
                 last_parent = None
-                for x, fx in enumerate(self.get_fragments(active=True)):
+                xfilter = dict(sym_parent=None) if use_symmetry else {}
+                for fx in self.get_fragments(active=True, **xfilter):
                     # Transform atomic projectors into cluster basis:
                     projx = {}
                     for atom, p_atom in proj.items():
                         rx = fx.get_overlap('cluster|mo')
                         px = dot(rx, p_atom, rx.T)
                         projx[atom] = px
+
+                    if use_symmetry:
+                        symtree = fx.get_symmetry_tree()
+                    else:
+                        symtree = []
 
                     if not use_symmetry or fx.sym_parent is None:
                         dm2 = fx.make_fragment_dm2cumulant()
@@ -641,10 +647,24 @@ class EWF(Embedding):
                         #                       = -DM2/6 - DM2.transpose(0,3,2,1)/3
                         elif kind == 'sz,sz':
                             dm2blk = -(dm2blk/6 + dm2blk.transpose(0,3,2,1)/3)
+
                         for a, atom1 in enumerate(atoms1):
                             tmp = np.tensordot(projx[atom1][blk], dm2blk)
                             for b, atom2 in enumerate(atoms2):
                                 corr[a,b] += f22*np.sum(tmp*projx[atom2])
+
+
+                        for fx2, fx2_children in symtree:
+                            projx = {}
+                            for atom, p_atom in proj.items():
+                                rx = fx2.get_overlap('cluster|mo')
+                                px = dot(rx, p_atom, rx.T)
+                                projx[atom] = px
+
+                            for a, atom1 in enumerate(atoms1):
+                                tmp = np.tensordot(projx[atom1][blk], dm2blk)
+                                for b, atom2 in enumerate(atoms2):
+                                    corr[a,b] += f22*np.sum(tmp*projx[atom2])
 
         # Remove independent particle [P(A).DM1 * P(B).DM1] contribution
         if kind == 'dn,dn':
