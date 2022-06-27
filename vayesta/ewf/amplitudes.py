@@ -26,16 +26,18 @@ def get_global_t1_rhf(emb, get_lambda=False, mpi_target=None, ao_basis=False):
         Global T1 amplitudes.
     """
     t1 = np.zeros((emb.nocc, emb.nvir))
-    # Add fragment WFs in intermediate normalization
-    for x in emb.get_fragments(active=True, mpi_rank=mpi.rank):
-        emb.log.debugv("Now adding projected %s amplitudes of fragment %s", ("L" if get_lambda else "T"), x)
-        ro = x.get_overlap('mo[occ]|cluster[occ]')
-        rv = x.get_overlap('mo[vir]|cluster[vir]')
+    ovlp = emb.get_ovlp()
+    cs_occ = np.dot(emb.mo_coeff_occ.T, ovlp)
+    cs_vir = np.dot(emb.mo_coeff_vir.T, ovlp)
+    for x in emb.get_fragments(active=True, mpi_rank=mpi.rank, sym_parent=None):
         pwf = x.results.pwf.restore().as_ccsd()
         t1x = pwf.l1 if get_lambda else pwf.t1
         if t1x is None:
             raise NotCalculatedError
-        t1 += dot(ro, t1x, rv.T)
+        for x2, (cx2_occ, cx2_vir) in x.loop_symmetry_children((x.cluster.c_occ, x.cluster.c_vir), include_self=True):
+            ro = np.dot(cs_occ, cx2_occ)
+            rv = np.dot(cs_vir, cx2_vir)
+            t1 += dot(ro, t1x, rv.T)
     # --- MPI
     if mpi:
         t1 = mpi.nreduce(t1, target=mpi_target, logfunc=emb.log.timingv)

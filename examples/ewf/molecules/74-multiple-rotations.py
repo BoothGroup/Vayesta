@@ -7,7 +7,24 @@ import vayesta.ewf
 from vayesta.misc import molecules
 
 mol = pyscf.gto.Mole()
-mol.atom = molecules.ring('C', 6, 1.0)
+mol.atom = """
+C1  0.7854  0.7854  0.7854
+C2  -0.7854 0.7854  0.7854
+C3  0.7854  0.7854  -0.7854
+C4  -0.7854 0.7854  -0.7854
+C5  0.7854  -0.7854 0.7854
+C6  -0.7854 -0.7854 0.7854
+C7  0.7854  -0.7854 -0.7854
+C8  -0.7854 -0.7854 -0.7854
+H9  1.4188  1.4188  1.4188
+H10 -1.4188 1.4188  1.4188
+H11 1.4188  1.4188  -1.4188
+H12 -1.4188 1.4188  -1.4188
+H13 1.4188  -1.4188 1.4188
+H14 -1.4188 -1.4188 1.4188
+H15 1.4188  -1.4188 -1.4188
+H16 -1.4188 -1.4188 -1.4188
+"""
 mol.basis = 'cc-pVDZ'
 mol.output = 'pyscf.out'
 mol.build()
@@ -22,11 +39,16 @@ emb_sym = vayesta.ewf.EWF(mf, bath_options=dict(threshold=1e-4), solver_options=
 # Add rotational symmetry:
 # Set order of rotation (2: 180 degrees, 3: 120 degrees, 4: 90: degrees,...),
 # axis along which to rotate and center of rotation (default units for axis and center are Angstroms):
-emb_sym.symmetry.add_rotation(order=6, axis=[0,0,1], center=[0,0,0])
+# Important when using multiple rotations:
+# Only use the minimal set of rotations which generate all atomic fragments,
+# i.e. do not add multiple 4th-order rotations here!
+emb_sym.symmetry.add_rotation(order=4, axis=[0,0,1], center=[0,0,0])
+emb_sym.symmetry.add_rotation(order=2, axis=[0,1,0], center=[0,0,0])
 
 # Do not call add_all_atomic_fragments, as it add the symmetry related atoms as fragments!
 with emb_sym.iao_fragmentation() as frag:
-    frag.add_atomic_fragment(0)
+    frag.add_atomic_fragment('C1')
+    frag.add_atomic_fragment('H9')
 emb_sym.kernel()
 
 # Reference calculation without rotational symmetry:

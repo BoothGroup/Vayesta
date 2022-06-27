@@ -220,10 +220,9 @@ def make_rdm1_ccsd_global_wf(emb, ao_basis=False, with_mf=True, t_as_lambda=None
         t1 = emb.get_global_t1()
         l1 = (t1 if t_as_lambda else emb.get_global_l1())
     # Preconstruct some matrices, since the construction scales as N^3
-    if use_sym:
-        ovlp = emb.get_ovlp()
-        cs_occ = np.dot(emb.mo_coeff_occ.T, ovlp)
-        cs_vir = np.dot(emb.mo_coeff_vir.T, ovlp)
+    ovlp = emb.get_ovlp()
+    cs_occ = np.dot(emb.mo_coeff_occ.T, ovlp)
+    cs_vir = np.dot(emb.mo_coeff_vir.T, ovlp)
     # Make projected WF available via remote memory access
     if mpi:
         # TODO: use L-amplitudes of cluster X and T-amplitudes,
@@ -390,63 +389,35 @@ def make_rdm1_ccsd_global_wf(emb, ao_basis=False, with_mf=True, t_as_lambda=None
 
         doo += np.dot(cx_occ, doox)
         dvv += np.dot(cx_vir, dvvx)
-
-        if use_sym:
-            symtree = x.get_symmetry_tree()
-
-        if with_t1:
-            l1x = dot(cx_occ.T, l1, cx_vir)
-            if not late_t2_sym:
-                dovx = einsum('ijab,jb->ia', theta, l1x)
-                dov += einsum('ia,Ii,Aa->IA', dovx, cx_occ, cx_vir)
-            else:
-                cfx = x.get_overlap('cluster[occ]|frag')
-                dovx1 = einsum('xjab,jb->xa', theta, l1x)/2
-                dovx2 = einsum('xiba,(jx,jb->xb)->ia', theta, cfx, l1x)/2
-                dov += dot(cx_occ, cfx, dovx1, cx_vir.T)
-                dov += dot(cx_occ, dovx2, cx_vir.T)
-            if use_sym:
-                for x2, x2_children in symtree:
-                    cx2_occ = x2.get_overlap('mo[occ]|cluster[occ]')
-                    cx2_vir = x2.get_overlap('mo[vir]|cluster[vir]')
-                    if not late_t2_sym:
-                        dov += einsum('ia,Ii,Aa->IA', dovx, cx2_occ, cx2_vir)
-                    else:
-                        cfx2 = x2.get_overlap('cluster[occ]|frag')
-                        dov += dot(cx2_occ, cfx2, dovx1, cx2_vir.T)
-                        dov += dot(cx2_occ, dovx2, cx2_vir.T)
-                    for x3, x3_children in x2_children:
-                        assert not x3_children
-                        cx3_occ = x3.get_overlap('mo[occ]|cluster[occ]')
-                        cx3_vir = x3.get_overlap('mo[vir]|cluster[vir]')
-                        if not late_t2_sym:
-                            dov += einsum('ia,Ii,Aa->IA', dovx, cx3_occ, cx3_vir)
-                        else:
-                            cfx3 = x3.get_overlap('cluster[occ]|frag')
-                            dov += dot(cx3_occ, cfx3, dovx1, cx3_vir.T)
-                            dov += dot(cx3_occ, dovx2, cx3_vir.T)
-
-        # --- Use symmetry of fragments (e.g. translations)
+        # --- Use symmetry of fragments (rotations and translations)
         if use_sym:
             # Transform right index of intermediates to AO basis:
             doox = dot(doox, emb.mo_coeff_occ.T)
             dvvx = dot(dvvx, emb.mo_coeff_vir.T)
             # Loop over symmetry children of x:
-            for x2, x2_children in symtree:
-                # Apply x->x2 symmetry to right index:
-                doox2 = x2.sym_op(doox, axis=1)
-                dvvx2 = x2.sym_op(dvvx, axis=1)
-                # Symmetry is automatically applied to left index via `x2.cluster` orbitals
-                doo += dot(cs_occ, x2.cluster.c_active_occ, doox2, cs_occ.T)
-                dvv += dot(cs_vir, x2.cluster.c_active_vir, dvvx2, cs_vir.T)
-                # TODO: scaling? precontraction of sym_op(sym_op(...)) ?
-                for x3, x3_children in x2_children:
-                    assert not x3_children
-                    doox3 = x3.sym_op(doox2, axis=1)
-                    dvvx3 = x3.sym_op(dvvx2, axis=1)
-                    # Symmetry is automatically applied to left index via `x3.cluster` orbitals
-                    doo += dot(cs_occ, x3.cluster.c_active_occ, doox3, cs_occ.T)
-                    dvv += dot(cs_vir, x3.cluster.c_active_vir, dvvx3, cs_vir.T)
+            for x2, (cx2_occ, cx2_vir, doox2, dvvx2) in x.loop_symmetry_children(
+                    (x.cluster.c_occ, x.cluster.c_vir, doox, dvvx), axes=[0,0,1,1]):
+                doo += dot(cs_occ, cx2_occ, doox2, cs_occ.T)
+                dvv += dot(cs_vir, cx2_vir, dvvx2, cs_vir.T)
+
+        # D[occ,vir] <- "T2 * L1"
+        if with_t1:
+            l1x = dot(cx_occ.T, l1, cx_vir)
+            if not late_t2_sym:
+                dovx = einsum('ijab,jb->ia', theta, l1x)
+            else:
+                dovx1 = einsum('xjab,jb->xa', theta, l1x)/2
+                dovx2 = einsum('xiba,(jx,jb->xb)->ia', theta, cfx, l1x)/2
+            maxgen = None if use_sym else 0
+            for x2, (cx2_frag, cx2_occ, cx2_vir) in x.loop_symmetry_children(
+                    (x.c_frag, x.cluster.c_occ, x.cluster.c_vir), include_self=True, maxgen=maxgen):
+                cx2_occ = np.dot(cs_occ, cx2_occ)
+                cx2_vir = np.dot(cs_vir, cx2_vir)
+                if not late_t2_sym:
+                    dov += einsum('ia,Ii,Aa->IA', dovx, cx2_occ, cx2_vir)
+                else:
+                    dov += dot(cs_occ, cx2_frag, dovx1, cx2_vir.T)
+                    dov += dot(cx2_occ, dovx2, cx2_vir.T)
 
     if mpi:
         rma.clear()
