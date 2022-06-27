@@ -75,7 +75,9 @@ class Options(OptionsBase):
     # --- Solver options
     solver_options: dict = OptionsBase.dict_with_defaults(
             # CCSD
-            solve_lambda=False)
+            solve_lambda=False,
+            # Dump
+            dumpfile='clusters.h5')
 
 class Embedding:
 
@@ -812,6 +814,7 @@ class Embedding:
                 flist.append(frag)
         # Update fragment list
         self.fragments = [fx for flist in ftree for fx in flist]
+        self.log.info("Added %d %s-symmetry related fragments for each fragment.", len(symlist), symtype)
 
     def add_rotsym_fragments(self, order, axis, center, unit='Ang', **kwargs):
         """

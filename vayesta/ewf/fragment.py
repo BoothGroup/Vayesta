@@ -87,7 +87,7 @@ class Fragment(BaseFragment):
 
         if solver is None:
             solver = self.base.solver
-        if solver not in self.base.valid_solvers:
+        if solver.lower() not in self.base.valid_solvers:
             raise ValueError("Unknown solver: %s" % solver)
         self.solver = solver
 
@@ -256,6 +256,9 @@ class Fragment(BaseFragment):
             else:
                 cluster_solver._debug_exact_wf(self.base._debug_wf)
 
+        if solver.lower() == 'dump':
+            return
+
         # ---Make projected WF
         if isinstance(cluster_solver.wf, RFCI_WaveFunction):
             pwf = cluster_solver.wf.to_cisd()
@@ -298,6 +301,8 @@ class Fragment(BaseFragment):
             solver_opts['c_cas_occ'] = self.opts.c_cas_occ
             solver_opts['c_cas_vir'] = self.opts.c_cas_vir
             solver_opts['tcc_fci_opts'] = self.opts.tcc_fci_opts
+        elif solver.upper() == 'DUMP':
+            solver_opts['filename'] = self.opts.solver_options['dumpfile']
         return solver_opts
 
     # --- Expectation values

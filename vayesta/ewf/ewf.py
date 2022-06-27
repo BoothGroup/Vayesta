@@ -58,7 +58,7 @@ class EWF(Embedding):
     Fragment = Fragment
     Options = Options
 
-    valid_solvers = [None, '', 'MP2', 'CISD', 'CCSD', 'TCCSD', 'FCI', 'FCI-spin0', 'FCI-spin1']
+    valid_solvers = [None, '', 'mp2', 'cisd', 'ccsd', 'tccsd', 'fci', 'fci-spin0', 'fci-spin1', 'dump']
 
     def __init__(self, mf, solver='CCSD', bno_threshold=None, bath_type=None, solve_lambda=None, log=None, **kwargs):
         """Embedded wave function (EWF) calculation object.
@@ -92,7 +92,7 @@ class EWF(Embedding):
             self.log.info(break_into_lines(str(self.opts), newline='\n    '))
 
             # --- Check input
-            if solver not in self.valid_solvers:
+            if solver.lower() not in self.valid_solvers:
                 raise ValueError("Unknown solver: %s" % solver)
             self.solver = solver
             self.log.info("Time for %s setup: %s", self.__class__.__name__, time_string(timer()-t0))
@@ -176,6 +176,10 @@ class EWF(Embedding):
                     x.kernel()
             if mpi:
                 mpi.world.Barrier()
+
+        if self.solver.lower() == 'dump':
+            self.log.output("Clusters dumped to file '%s'", self.opts.solver_options['dumpfile'])
+            return
 
         # --- Check convergence of fragments
         conv = True
@@ -564,82 +568,85 @@ class EWF(Embedding):
         corr = np.zeros((len(atoms1), len(atoms2)))
 
         # 1-DM contribution:
-        if dm1 is None:
-            dm1 = self.make_rdm1()
-        for a, atom1 in enumerate(atoms1):
-            tmp = np.dot(proj[atom1], dm1)
-            for b, atom2 in enumerate(atoms2):
-                corr[a,b] = f1*np.sum(tmp*proj[atom2])
+        with log_time(self.log.timing, "Time for 1-DM contribution: %s"):
+            if dm1 is None:
+                dm1 = self.make_rdm1()
+            for a, atom1 in enumerate(atoms1):
+                tmp = np.dot(proj[atom1], dm1)
+                for b, atom2 in enumerate(atoms2):
+                    corr[a,b] = f1*np.sum(tmp*proj[atom2])
 
         # Non-(approximate cumulant) DM2 contribution:
         if not dm2_with_dm1:
-            occ = np.s_[:self.nocc]
-            occdiag = np.diag_indices(self.nocc)
-            ddm1 = dm1.copy()
-            ddm1[occdiag] -= 1
-            for a, atom1 in enumerate(atoms1):
-                tmp = np.dot(proj[atom1], ddm1)
-                for b, atom2 in enumerate(atoms2):
-                    corr[a,b] -= f2*np.sum(tmp[occ] * proj[atom2][occ])       # N_atom^2 * N^2 scaling
-            if kind in ('n,n', 'dn,dn'):
-                # These terms are zero for Sz,Sz (but not in UHF)
-                # Traces of projector*DM(HF) and projector*[DM(CC)+DM(HF)/2]:
-                tr1 = {a: np.trace(p[occ,occ]) for a, p in proj.items()}  # DM(HF)
-                tr2 = {a: np.sum(p * ddm1) for a, p in proj.items()}      # DM(CC) + DM(HF)/2
+            with log_time(self.log.timing, "Time for non-cumulant 2-DM contribution: %s"):
+                occ = np.s_[:self.nocc]
+                occdiag = np.diag_indices(self.nocc)
+                ddm1 = dm1.copy()
+                ddm1[occdiag] -= 1
                 for a, atom1 in enumerate(atoms1):
+                    tmp = np.dot(proj[atom1], ddm1)
                     for b, atom2 in enumerate(atoms2):
-                        corr[a,b] += f2*(tr1[atom1]*tr2[atom2] + tr1[atom2]*tr2[atom1])
-
-        if dm2 is not None:
-            # DM2(aa)               = (DM2 - DM2.transpose(0,3,2,1))/6
-            # DM2(ab)               = DM2/2 - DM2(aa)
-            # DM2(aa) - DM2(ab)]    = 2*DM2(aa) - DM2/2
-            #                       = DM2/3 - DM2.transpose(0,3,2,1)/3 - DM2/2
-            #                       = -DM2/6 - DM2.transpose(0,3,2,1)/3
-            if kind in ('n,n', 'dn,dn'):
-                pass
-            elif kind == 'sz,sz':
-                # DM2 is not needed anymore, so we can overwrite:
-                dm2 = -(dm2/6 + dm2.transpose(0,3,2,1)/3)
-            for a, atom1 in enumerate(atoms1):
-                tmp = np.tensordot(proj[atom1], dm2)
-                for b, atom2 in enumerate(atoms2):
-                    corr[a,b] += f22*np.sum(tmp*proj[atom2])
-        else:
-            # Cumulant DM2 contribution:
-            last_parent = None
-            for x, fx in enumerate(self.get_fragments(active=True)):
-                # Transform atomic projectors into cluster basis:
-                projx = {}
-                for atom, p_atom in proj.items():
-                    rx = fx.get_overlap('cluster|mo')
-                    px = dot(rx, p_atom, rx.T)
-                    projx[atom] = px
-
-                if not use_symmetry or fx.sym_parent is None:
-                    dm2 = fx.make_fragment_dm2cumulant()
-                    last_parent = fx.id
-                else:
-                    # Skip calling `make_fragment_dm2cumulant()` for symmetry children
-                    assert (last_parent == fx.get_symmetry_parent().id)
-
-                # Split to reduce memory:
-                for blk, dm2blk in split_into_blocks(dm2):
-                    if kind in ('n,n', 'dn,dn'):
-                        pass
-                    # DM2(aa)               = (DM2 - DM2.transpose(0,3,2,1))/6
-                    # DM2(ab)               = DM2/2 - DM2(aa)
-                    # DM2(aa) - DM2(ab)]    = 2*DM2(aa) - DM2/2
-                    #                       = DM2/3 - DM2.transpose(0,3,2,1)/3 - DM2/2
-                    #                       = -DM2/6 - DM2.transpose(0,3,2,1)/3
-                    elif kind == 'sz,sz':
-                        dm2blk = -(dm2blk/6 + dm2blk.transpose(0,3,2,1)/3)
+                        corr[a,b] -= f2*np.sum(tmp[occ] * proj[atom2][occ])       # N_atom^2 * N^2 scaling
+                if kind in ('n,n', 'dn,dn'):
+                    # These terms are zero for Sz,Sz (but not in UHF)
+                    # Traces of projector*DM(HF) and projector*[DM(CC)+DM(HF)/2]:
+                    tr1 = {a: np.trace(p[occ,occ]) for a, p in proj.items()}  # DM(HF)
+                    tr2 = {a: np.sum(p * ddm1) for a, p in proj.items()}      # DM(CC) + DM(HF)/2
                     for a, atom1 in enumerate(atoms1):
-                        tmp = np.tensordot(projx[atom1][blk], dm2blk)
                         for b, atom2 in enumerate(atoms2):
-                            corr[a,b] += f22*np.sum(tmp*projx[atom2])
+                            corr[a,b] += f2*(tr1[atom1]*tr2[atom2] + tr1[atom2]*tr2[atom1])
 
-        # Remove independent particle (DM1^2) contribution
+        with log_time(self.log.timing, "Time for cumulant 2-DM contribution: %s"):
+            if dm2 is not None:
+                # DM2(aa)               = (DM2 - DM2.transpose(0,3,2,1))/6
+                # DM2(ab)               = DM2/2 - DM2(aa)
+                # DM2(aa) - DM2(ab)]    = 2*DM2(aa) - DM2/2
+                #                       = DM2/3 - DM2.transpose(0,3,2,1)/3 - DM2/2
+                #                       = -DM2/6 - DM2.transpose(0,3,2,1)/3
+                if kind in ('n,n', 'dn,dn'):
+                    pass
+                elif kind == 'sz,sz':
+                    # DM2 is not needed anymore, so we can overwrite:
+                    dm2 = -(dm2/6 + dm2.transpose(0,3,2,1)/3)
+                for a, atom1 in enumerate(atoms1):
+                    tmp = np.tensordot(proj[atom1], dm2)
+                    for b, atom2 in enumerate(atoms2):
+                        corr[a,b] += f22*np.sum(tmp*proj[atom2])
+            else:
+                # Cumulant DM2 contribution:
+                last_parent = None
+                for x, fx in enumerate(self.get_fragments(active=True)):
+                    # Transform atomic projectors into cluster basis:
+                    projx = {}
+                    for atom, p_atom in proj.items():
+                        rx = fx.get_overlap('cluster|mo')
+                        px = dot(rx, p_atom, rx.T)
+                        projx[atom] = px
+
+                    if not use_symmetry or fx.sym_parent is None:
+                        dm2 = fx.make_fragment_dm2cumulant()
+                        last_parent = fx.id
+                    else:
+                        # Skip calling `make_fragment_dm2cumulant()` for symmetry children
+                        assert (last_parent == fx.get_symmetry_parent().id)
+
+                    # Split to reduce memory:
+                    for blk, dm2blk in split_into_blocks(dm2):
+                        if kind in ('n,n', 'dn,dn'):
+                            pass
+                        # DM2(aa)               = (DM2 - DM2.transpose(0,3,2,1))/6
+                        # DM2(ab)               = DM2/2 - DM2(aa)
+                        # DM2(aa) - DM2(ab)]    = 2*DM2(aa) - DM2/2
+                        #                       = DM2/3 - DM2.transpose(0,3,2,1)/3 - DM2/2
+                        #                       = -DM2/6 - DM2.transpose(0,3,2,1)/3
+                        elif kind == 'sz,sz':
+                            dm2blk = -(dm2blk/6 + dm2blk.transpose(0,3,2,1)/3)
+                        for a, atom1 in enumerate(atoms1):
+                            tmp = np.tensordot(projx[atom1][blk], dm2blk)
+                            for b, atom2 in enumerate(atoms2):
+                                corr[a,b] += f22*np.sum(tmp*projx[atom2])
+
+        # Remove independent particle [P(A).DM1 * P(B).DM1] contribution
         if kind == 'dn,dn':
             for a, atom1 in enumerate(atoms1):
                 for b, atom2 in enumerate(atoms2):

@@ -164,7 +164,7 @@ class Fragment:
         # Initialize self.bath, self._cluster, self._results, self._eris
         self.reset()
 
-        self.log.info("Creating %r", self)
+        self.log.debugv("Creating %r", self)
         #self.log.info(break_into_lines(str(self.opts), newline='\n    '))
 
     def __repr__(self):
