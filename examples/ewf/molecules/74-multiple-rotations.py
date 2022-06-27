@@ -61,3 +61,11 @@ print("E(with symmetry)=    %+16.8f Ha" % emb_sym.get_dm_energy())
 dm1 = emb.make_rdm1()
 dm1_sym = emb_sym.make_rdm1()
 print("Difference in 1-RDM= %.3e" % np.linalg.norm(dm1 - dm1_sym))
+
+dndn_sym = emb_sym.get_corrfunc('dN,dN')
+dndn = emb.get_corrfunc('dN,dN')
+print("Difference in <dN,dN>= %.3e" % np.linalg.norm(dndn - dndn_sym))
+
+szsz_sym = emb_sym.get_corrfunc('Sz,Sz')
+szsz = emb.get_corrfunc('Sz,Sz')
+print("Difference in <Sz,Sz>= %.3e" % np.linalg.norm(szsz - szsz_sym))
