@@ -65,17 +65,17 @@ class UDMETFragment(UFragment, DMETFragment):
         # e_hf = np.linalg.multi_dot((P_imp, 0.5 * (h_bare + f_act), mf_dm1)).trace()
         return e1, e2
 
-    def get_active_space_correlation_energy(self, eris=None):
+    def get_active_space_energy(self, eris=None):
         if self.solver is None:
             return None
 
         if eris is None:
-            # Create solver object
-            solver_cls = get_solver_class(self.mf, self.solver)
-            solver_opts = self.get_solver_options(self.solver)
-            cluster_solver = solver_cls(self.mf, self, self.cluster, **solver_opts)
-            eris = cluster_solver.get_eris()
-
+            c_act = self.cluster.c_active
+            with log_time(self.log.timing, "Time for AO->MO of ERIs:  %s"):
+                eris_aa = self.base.get_eris_array(c_act[0])
+                eris_ab = self.base.get_eris_array((c_act[0], c_act[0], c_act[1], c_act[1]))
+                eris_bb = self.base.get_eris_array(c_act[1])
+            eris = (eris_aa, eris_ab, eris_bb)
         mo_core = self.cluster.c_frozen_occ
         mo_cas = self.cluster.c_active
 

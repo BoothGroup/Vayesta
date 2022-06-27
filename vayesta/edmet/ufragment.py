@@ -6,7 +6,7 @@ from vayesta.dmet.ufragment import UDMETFragment
 from .fragment import EDMETFragment
 
 
-class UEDMETFragment(UDMETFragment, EDMETFragment):
+class UEDMETFragment(EDMETFragment, UDMETFragment):
 
     @property
     def ov_active(self):

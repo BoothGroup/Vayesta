@@ -121,7 +121,7 @@ class DMETFragment(Fragment):
         # e_hf = np.linalg.multi_dot((P_imp, 0.5 * (h_bare + f_act), mf_dm1)).trace()
         return e1, e2
 
-    def get_active_space_correlation_energy(self, eris=None):
+    def get_active_space_energy(self, eris=None):
 
         c_act = self.cluster.c_active
         if eris is None:

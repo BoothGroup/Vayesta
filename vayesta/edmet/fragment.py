@@ -751,9 +751,9 @@ class EDMETFragment(DMETFragment):
             )
         return e1, e2, efb
 
-    def get_active_space_correlation_energy(self, eris=None):
+    def get_active_space_energy(self, eris=None):
 
-        e_ferm, e_core = super().get_active_space_correlation_energy(eris)
+        e_ferm, e_core = super().get_active_space_energy(eris)
         # Now, constructed intermediate
         # \Gamma^{(0)}_{pq|rs} = \sum_n (C_{nrs}\Gamma^{eb}_{pq,n} + C_{nsr}\Gamma^{eb}_{qp,n})
         # And average over symmetry-equivalent terms when one of `r` or `s` is within the CAS.
