@@ -615,18 +615,11 @@ class EWF(Embedding):
                         corr[a,b] += f22*np.sum(tmp*proj[atom2])
             else:
                 # Cumulant DM2 contribution:
-                last_parent = None
                 ffilter = dict(sym_parent=None) if use_symmetry else {}
                 maxgen = None if use_symmetry else 0
                 cst = np.dot(self.get_ovlp(), self.mo_coeff)
                 for fx in self.get_fragments(active=True, **ffilter):
-                    if not use_symmetry or fx.sym_parent is None:
-                        dm2 = fx.make_fragment_dm2cumulant()
-                        last_parent = fx.id
-                    else:
-                        # Skip calling `make_fragment_dm2cumulant()` for symmetry children
-                        assert (last_parent == fx.get_symmetry_parent().id)
-
+                    dm2 = fx.make_fragment_dm2cumulant()
                     if kind in ('n,n', 'dn,dn'):
                         pass
                     # DM2(aa)               = (DM2 - DM2.transpose(0,3,2,1))/6
