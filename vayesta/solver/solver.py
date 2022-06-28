@@ -54,18 +54,21 @@ class ClusterSolver:
         return self.fragment.base
 
     @property
+    #@deprecated(replacement='spinsym') # TODO
     def is_rhf(self):
-        return np.ndim(self.mf.mo_coeff[0]) == 1
+        return self.spinsym == 'restricted'
 
     @property
+    #@deprecated(replacement='spinsym') # TODO
     def is_uhf(self):
-        return np.ndim(self.mf.mo_coeff[0]) == 2
+        return self.spinsym == 'unrestricted'
 
     @property
     def spinsym(self):
-        if self.is_rhf:
+        ndim = np.ndim(self.mf.mo_coeff[0])
+        if ndim == 1:
             return 'restricted'
-        if self.is_uhf:
+        if ndim == 2:
             return 'unrestricted'
         raise RuntimeError
 
@@ -79,6 +82,8 @@ class ClusterSolver:
             return dot(c_active.T, self.base.get_hcore(), c_active)
         elif self.spinsym == 'unrestricted':
             hcore = self.base.get_hcore()
+            if np.ndim(hcore) == 2:
+                hcore = [hcore, hcore]
             return (dot(c_active[0].T, hcore[0], c_active[0]),
                     dot(c_active[1].T, hcore[1], c_active[1]))
         raise RuntimeError
@@ -121,9 +126,16 @@ class ClusterSolver:
                          (h_eff[1] + self.v_ext[1]))
         return h_eff
 
-    def get_eris(self):
-        """Abstract method."""
-        raise AbstractMethodError()
+    def get_eris(self, *args, **kwargs):
+        with log_time(self.log.timing, "Time for AO->MO of ERIs:  %s"):
+            coeff = self.cluster.c_active
+            if self.spinsym == 'restricted':
+                eris = self.base.get_eris_array(coeff)
+            elif self.spinsym == 'unrestricted':
+                eris = (self.base.get_eris_array(coeff[0]),
+                        self.base.get_eris_array((coeff[0], coeff[0], coeff[1], coeff[1])),
+                        self.base.get_eris_array(coeff[1]))
+        return eris
 
     def reset(self):
         self.converged = False
