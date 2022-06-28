@@ -245,6 +245,9 @@ class Fragment:
     def get_overlap(self, key):
         """Get overlap between cluster orbitals, fragment orbitals, or MOs.
 
+        The return value is cached but not copied; do not modify the array in place without
+        creating a copy!
+
         Examples:
         >>> s = self.get_overlap('cluster|mo')
         >>> s = self.get_overlap('cluster|frag')

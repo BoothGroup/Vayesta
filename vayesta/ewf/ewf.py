@@ -107,7 +107,7 @@ class EWF(Embedding):
         super()._reset(**kwargs)
         # TODO: Redo self-consistencies
         self.iteration = 0
-        #self.make_rdm1.cache_clear()
+        self._make_rdm1_ccsd_global_wf.cache_clear()
 
     # Default fragmentation
     def fragmentation(self, *args, **kwargs):
@@ -253,7 +253,6 @@ class EWF(Embedding):
 
     # Defaults
 
-    #@cache
     def make_rdm1(self, *args, **kwargs):
         if self.solver.lower() == 'ccsd':
             return self._make_rdm1_ccsd_global_wf(*args, **kwargs)
@@ -282,6 +281,7 @@ class EWF(Embedding):
         return make_rdm1_ccsd(self, *args, mp2=False, **kwargs)
 
     @log_method()
+    @cache(copy=True)
     def _make_rdm1_ccsd_global_wf(self, *args, **kwargs):
         return make_rdm1_ccsd_global_wf(self, *args, **kwargs)
 
