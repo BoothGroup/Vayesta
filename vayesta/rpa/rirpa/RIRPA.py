@@ -191,12 +191,18 @@ class ssRIRPA:
         peta_norm = np.linalg.norm(einsum("p,qp->pq", self.D, mom0) + dot(ri_apb[0].T, l1[1].T))
 
         # Now to estimate resulting error estimate in eta0.
-        poly = np.polynomial.Polynomial([e_norm/p_norm, -2 * peta_norm / p_norm, 1])
-        roots = poly.roots()
-        self.log.info("Proportional error in eta0 relation=%6.4e", e_norm / np.linalg.norm(amb_exact))
-        self.log.info("Resulting error lower bound: %6.4e", roots.min())
-
-        return roots.min()
+        try:
+            poly = np.polynomial.Polynomial([e_norm/p_norm, -2 * peta_norm / p_norm, 1])
+            roots = poly.roots()
+        except np.linalg.LinAlgError:
+            self.log.warning("Could not obtain eta0 error lower bound; this is usually due to vanishing norms: %e, "
+                             "%e, %e.",
+                             e_norm, p_norm, peta_norm)
+            return 0.0
+        else:
+            self.log.info("Proportional error in eta0 relation=%6.4e", e_norm / np.linalg.norm(amb_exact))
+            self.log.info("Resulting error lower bound: %6.4e", roots.min())
+            return roots.min()
 
     def kernel_trMPrt(self, npoints=48, ainit=10):
         """Evaluate Tr((MP)^(1/2))."""
