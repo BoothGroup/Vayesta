@@ -75,7 +75,9 @@ class Options(OptionsBase):
     # --- Solver options
     solver_options: dict = OptionsBase.dict_with_defaults(
             # CCSD
-            solve_lambda=False)
+            solve_lambda=False,
+            # Dump
+            dumpfile='clusters.h5')
 
 class Embedding:
 
@@ -707,7 +709,7 @@ class Embedding:
     # Symmetry between fragments
     # --------------------------
 
-    def add_symmetric_fragments(self, symmetry, symtol=1e-6):
+    def add_symmetric_fragments(self, symmetry, symbol=None, symtol=1e-6):
         """
         TODO: combine add_rotsym_fragments and add_transsym_fragments?
 
@@ -749,11 +751,12 @@ class Embedding:
                 self.log.debugv("Primitive cell rotation center= %r" % center)
                 center = np.dot(np.dot(center, bk) + shift, ak)
                 self.log.debugv("Supercell rotation center= %r" % center)
-
             symlist = range(1, order)
+            symbol = symbol or 'R'
         elif symtype == 'translation':
             translation = np.asarray(symmetry['translation'])
             symlist = list(itertools.product(range(translation[0]), range(translation[1]), range(translation[2])))[1:]
+            symbol = symbol or 'T'
         else:
             raise ValueError
 
@@ -774,9 +777,9 @@ class Embedding:
                 parent = flist[0]
                 # Name for symmetry related fragment
                 if symtype == 'rotation':
-                    name = '%s_R(%d)' % (parent.name, sym)
+                    name = '%s_%s(%d)' % (parent.name, symbol, sym)
                 elif symtype == 'translation':
-                    name = '%s_T(%d,%d,%d)' % (parent.name, *sym)
+                    name = '%s_%s(%d,%d,%d)' % (parent.name, symbol, *sym)
                 # Translated coefficients
                 c_frag_t = sym_op(parent.c_frag)
                 c_env_t = None  # Avoid expensive symmetry operation on environment orbitals
@@ -812,6 +815,7 @@ class Embedding:
                 flist.append(frag)
         # Update fragment list
         self.fragments = [fx for flist in ftree for fx in flist]
+        self.log.info("Added %d %s-symmetry related fragments for each fragment.", len(symlist), symtype)
 
     def add_rotsym_fragments(self, order, axis, center, unit='Ang', **kwargs):
         """

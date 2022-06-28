@@ -169,7 +169,6 @@ def make_rdm1_ccsd(emb, ao_basis=False, t_as_lambda=False, symmetrize=True, with
 
     return (dm1a, dm1b)
 
-
 def make_rdm1_ccsd_global_wf(emb, ao_basis=False, with_mf=True, t_as_lambda=False, with_t1=True,
         svd_tol=1e-3, ovlp_tol=None, use_sym=True, late_t2_sym=True, mpi_target=None, slow=True):
     """Make one-particle reduced density-matrix from partitioned fragment CCSD wave functions.

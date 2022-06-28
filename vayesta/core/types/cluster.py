@@ -55,6 +55,14 @@ class Cluster:
     def c_active_vir(self):
         return self.active_orbitals.coeff_vir
 
+    # Shorthand:
+    norb = norb_active
+    nocc = nocc_active
+    nvir = nvir_active
+    coeff = c_active
+    c_occ = c_active_occ
+    c_vir = c_active_vir
+
     # --- Frozen
 
     @property

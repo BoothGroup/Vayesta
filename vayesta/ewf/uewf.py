@@ -72,6 +72,7 @@ class UEWF(REWF, UEmbedding):
         return make_rdm1_ccsd(self, *args, mp2=False, **kwargs)
 
     @log_method()
+    @cache(copy=True)
     def _make_rdm1_ccsd_global_wf(self, *args, **kwargs):
         return make_rdm1_ccsd_global_wf(self, *args, **kwargs)
 

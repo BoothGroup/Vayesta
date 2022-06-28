@@ -1,20 +1,14 @@
+from contextlib import contextmanager
+from copy import deepcopy
+import dataclasses
+import functools
+import logging
 import os
 import re
-import sys
-import logging
-import dataclasses
-import copy
 import string
-import functools
+import sys
 from timeit import default_timer
-from contextlib import contextmanager
-import dataclasses
 
-try:
-    from functools import cache
-except ImportError:
-    from functools import lru_cache
-    cache = lru_cache(maxsize=None)
 
 try:
     import psutil
@@ -48,6 +42,33 @@ __all__ = [
 
 class Object:
     pass
+
+def cache(maxsize=16, typed=False, copy=False):
+    """Adds LRU cache to function or method.
+
+    If the function or method returns a mutable object, e.g. a NumPy array,
+    cache hits will return the same object. If the object has been modified
+    (for example by the user on the script level), the modified object will be
+    returned by future calls. To avoid this, a (deep)copy of the result can be
+    performed, by setting copy=True.
+
+    modified from https://stackoverflow.com/questions/54909357
+    """
+    lru_cache = functools.lru_cache(maxsize, typed)
+    if not copy:
+        return lru_cache
+    def decorator(func):
+        cached_func = lru_cache(func)
+        @functools.wraps(func)
+        def wrapper(*args, **kwargs):
+            return deepcopy(cached_func(*args, **kwargs))
+        wrapper.cache_clear = cached_func.cache_clear
+        wrapper.cache_info = cached_func.cache_info
+        # Python 3.9+
+        if hasattr(cached_func, 'cache_parameters'):
+            wrapper.cache_parameters = cached_func.cache_parameters
+        return wrapper
+    return decorator
 
 # --- NumPy
 

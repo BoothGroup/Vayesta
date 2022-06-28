@@ -54,20 +54,88 @@ class ClusterSolver:
         return self.fragment.base
 
     @property
+    #@deprecated(replacement='spinsym') # TODO
     def is_rhf(self):
-        return np.ndim(self.mf.mo_coeff[0]) == 1
+        return self.spinsym == 'restricted'
 
     @property
+    #@deprecated(replacement='spinsym') # TODO
     def is_uhf(self):
-        return np.ndim(self.mf.mo_coeff[0]) == 2
+        return self.spinsym == 'unrestricted'
+
+    @property
+    def spinsym(self):
+        ndim = np.ndim(self.mf.mo_coeff[0])
+        if ndim == 1:
+            return 'restricted'
+        if ndim == 2:
+            return 'unrestricted'
+        raise RuntimeError
 
     @property
     def mol(self):
         return self.mf.mol
 
-    def get_eris(self):
-        """Abstract method."""
-        raise AbstractMethodError()
+    def get_hcore(self):
+        c_active = self.cluster.c_active
+        if self.spinsym == 'restricted':
+            return dot(c_active.T, self.base.get_hcore(), c_active)
+        elif self.spinsym == 'unrestricted':
+            hcore = self.base.get_hcore()
+            if np.ndim(hcore) == 2:
+                hcore = [hcore, hcore]
+            return (dot(c_active[0].T, hcore[0], c_active[0]),
+                    dot(c_active[1].T, hcore[1], c_active[1]))
+        raise RuntimeError
+
+    def get_fock(self):
+        c_active = self.cluster.c_active
+        if self.spinsym == 'restricted':
+            return dot(c_active.T, self.base.get_fock(), c_active)
+        elif self.spinsym == 'unrestricted':
+            fock = self.base.get_fock()
+            return (dot(c_active[0].T, fock[0], c_active[0]),
+                    dot(c_active[1].T, fock[1], c_active[1]))
+        raise RuntimeError
+
+    def get_heff(self, eris, fock=None, with_vext=True):
+        if fock is None:
+            fock = self.get_fock()
+        if self.spinsym == 'restricted':
+            occ = np.s_[:self.cluster.nocc_active]
+            v_act = 2*einsum('iipq->pq', eris[occ,occ]) - einsum('iqpi->pq', eris[occ,:,:,occ])
+            h_eff = fock - v_act
+            # This should be equivalent to:
+            #core = np.s_[:self.nocc_frozen]
+            #dm_core = 2*np.dot(self.mo_coeff[:,core], self.mo_coeff[:,core].T)
+            #v_core = self.mf.get_veff(dm=dm_core)
+            #h_eff = np.linalg.multi_dot((self.c_active.T, self.base.get_hcore()+v_core, self.c_active))
+            if with_vext and self.v_ext is not None:
+                h_eff += self.v_ext
+        elif self.spinsym == 'unrestricted':
+            oa = np.s_[:self.cluster.nocc_active[0]]
+            ob = np.s_[:self.cluster.nocc_active[1]]
+            gaa, gab, gbb = eris
+            va = (einsum('iipq->pq', gaa[oa,oa]) + einsum('pqii->pq', gab[:,:,ob,ob])   # Coulomb
+                - einsum('ipqi->pq', gaa[oa,:,:,oa]))                                   # Exchange
+            vb = (einsum('iipq->pq', gbb[ob,ob]) + einsum('iipq->pq', gab[oa,oa])       # Coulomb
+                - einsum('ipqi->pq', gbb[ob,:,:,ob]))                                   # Exchange
+            h_eff = (fock[0]-va, fock[1]-vb)
+            if with_vext and self.v_ext is not None:
+                h_eff = ((h_eff[0] + self.v_ext[0]),
+                         (h_eff[1] + self.v_ext[1]))
+        return h_eff
+
+    def get_eris(self, *args, **kwargs):
+        with log_time(self.log.timing, "Time for AO->MO of ERIs:  %s"):
+            coeff = self.cluster.c_active
+            if self.spinsym == 'restricted':
+                eris = self.base.get_eris_array(coeff)
+            elif self.spinsym == 'unrestricted':
+                eris = (self.base.get_eris_array(coeff[0]),
+                        self.base.get_eris_array((coeff[0], coeff[0], coeff[1], coeff[1])),
+                        self.base.get_eris_array(coeff[1]))
+        return eris
 
     def reset(self):
         self.converged = False
