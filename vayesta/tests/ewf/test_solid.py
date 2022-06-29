@@ -11,9 +11,9 @@ from vayesta.tests.common import TestCase
 from vayesta.tests import testsystems
 
 
-@pytest.mark.slow
 class SolidEWFTests(TestCase):
 
+    @pytest.mark.slow
     def test_restricted(self):
         """Tests restriced EWF for a solid, binary system with and without k-point folding."""
 
@@ -52,6 +52,7 @@ class SolidEWFTests(TestCase):
         self.assertAllclose(kemb.e_tot, e_expected)
         self.assertAllclose(gemb.e_tot/nk, e_expected)
 
+    @pytest.mark.veryslow
     def test_restricted_2d(self):
         """Tests restriced EWF for a 2D solid system with and without k-point folding."""
 
@@ -88,6 +89,7 @@ class SolidEWFTests(TestCase):
         self.assertAllclose(kemb.e_tot, e_expected)
         self.assertAllclose(gemb.e_tot/nk, e_expected)
 
+    @pytest.mark.veryslow
     def test_unrestricted(self):
         """Tests unrestriced EWF for a solid, odd electron system with and without k-point folding."""
 
@@ -124,6 +126,7 @@ class SolidEWFTests(TestCase):
         self.assertAllclose(kemb.e_tot, e_expected)
         self.assertAllclose(gemb.e_tot/nk, e_expected)
 
+    @pytest.mark.veryslow
     def test_unrestricted_2d(self):
         """Tests unrestriced EWF for a solid, odd electron system with and without k-point folding."""
 
