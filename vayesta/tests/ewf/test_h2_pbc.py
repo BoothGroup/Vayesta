@@ -72,15 +72,14 @@ class Test_MP2(TestCase):
         emb = self.emb(-1)
         dm1_exact = self.cc.make_rdm1(ao_repr=True)
 
-        dm1 = emb._make_rdm1_ccsd_global_wf(ao_basis=True)
+        dm1 = emb._make_rdm1_mp2_global_wf(ao_basis=True)
         self.assertAllclose(dm1, dm1_exact)
-        dm1 = emb._make_rdm1_ccsd_global_wf(ao_basis=True, late_t2_sym=False)
+        dm1 = emb._make_rdm1_mp2_global_wf(ao_basis=True, late_t2_sym=False)
         self.assertAllclose(dm1, dm1_exact)
-        dm1 = emb._make_rdm1_ccsd_global_wf(ao_basis=True, use_sym=False)
+        dm1 = emb._make_rdm1_mp2_global_wf(ao_basis=True, use_sym=False)
         self.assertAllclose(dm1, dm1_exact)
-        dm1 = emb._make_rdm1_ccsd_global_wf(ao_basis=True, late_t2_sym=False, use_sym=False)
+        dm1 = emb._make_rdm1_mp2_global_wf(ao_basis=True, late_t2_sym=False, use_sym=False)
         self.assertAllclose(dm1, dm1_exact)
-
 
 class Test_CCSD(Test_MP2):
 
@@ -144,6 +143,19 @@ class Test_CCSD(Test_MP2):
         l2_ref = self._get_ref_t2_ao(self.cc.l2)
         self.assertAllclose(l1, l1_ref)
         self.assertAllclose(l2, l2_ref)
+
+    def test_dm1(self):
+        emb = self.emb(-1)
+        dm1_exact = self.cc.make_rdm1(ao_repr=True)
+
+        dm1 = emb._make_rdm1_ccsd_global_wf(ao_basis=True)
+        self.assertAllclose(dm1, dm1_exact)
+        dm1 = emb._make_rdm1_ccsd_global_wf(ao_basis=True, late_t2_sym=False)
+        self.assertAllclose(dm1, dm1_exact)
+        dm1 = emb._make_rdm1_ccsd_global_wf(ao_basis=True, use_sym=False)
+        self.assertAllclose(dm1, dm1_exact)
+        dm1 = emb._make_rdm1_ccsd_global_wf(ao_basis=True, late_t2_sym=False, use_sym=False)
+        self.assertAllclose(dm1, dm1_exact)
 
     def test_cluster_dm1(self):
         emb = self.emb(-1)
@@ -217,9 +229,6 @@ class Test_UMP2(Test_MP2):
 
     # Not implemented:
 
-    def test_dm1_2p2l(self):
-        pass
-
     def test_dm1_demo(self):
         pass
 
@@ -267,9 +276,6 @@ class Test_UCCSD(Test_CCSD):
         return (t2aa_ref, t2ab_ref, t2bb_ref)
 
     # Not implemented:
-
-    def test_dm1_2p2l(self):
-        pass
 
     def test_dm2_demo(self):
         pass

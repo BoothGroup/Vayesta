@@ -250,7 +250,7 @@ class EWF(Embedding):
         if self.solver.lower() == 'ccsd':
             return self._make_rdm1_ccsd_global_wf(*args, **kwargs)
         if self.solver.lower() == 'mp2':
-            return self._make_rdm1_ccsd_global_wf(*args, t_as_lambda=True, with_t1=False, **kwargs)
+            return self._make_rdm1_mp2_global_wf(*args, **kwargs)
         if self.solver.lower() == 'fci':
             return self.make_rdm1_demo(*args, **kwargs)
         raise NotImplementedError("make_rdm1 for solver '%s'" % self.solver)
@@ -276,6 +276,9 @@ class EWF(Embedding):
     @cache(copy=True)
     def _make_rdm1_ccsd_global_wf(self, *args, **kwargs):
         return make_rdm1_ccsd_global_wf(self, *args, **kwargs)
+
+    def _make_rdm1_mp2_global_wf(self, *args, **kwargs):
+        return self._make_rdm1_ccsd_global_wf(*args, t_as_lambda=True, with_t1=False, **kwargs)
 
     @log_method()
     def _make_rdm1_ccsd_proj_lambda(self, *args, **kwargs):
