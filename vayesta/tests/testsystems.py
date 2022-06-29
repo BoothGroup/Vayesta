@@ -37,6 +37,7 @@ class TestMolecule:
         mol.basis = basis
         for key, val in kwargs.items():
             setattr(mol, key, val)
+        mol.verbose = verbose
         mol.build()
         self.auxbasis = auxbasis
         self.mf_conv_tol = mf_conv_tol
@@ -123,6 +124,7 @@ class TestSolid:
         mol.basis = basis
         for key, val in kwargs.items():
             setattr(mol, key, val)
+        mol.verbose = verbose
         mol.build()
         if supercell is not None:
             mol = pyscf.pbc.tools.super_cell(mol, supercell)
@@ -359,6 +361,21 @@ opts = dict(basis='def2-svp', auxbasis='def2-svp-ri', exp_to_discard=0.1)
 graphene_k22 = TestSolid(a=a, atom=atom, kmesh=(2,2,1), **opts)
 graphene_s22 = TestSolid(a=a, atom=atom, supercell=(2,2,1), **opts)
 
+a = np.eye(3) * 3.0
+a[2, 2] = 20.0
+he_k32 = TestSolid(a, atom="He 0 0 0", dimension=2, basis="def2-svp", auxbasis="def2-svp-ri", kmesh=(3, 2, 1))
+he_s32 = TestSolid(a, atom="He 0 0 0", dimension=2, basis="def2-svp", auxbasis="def2-svp-ri", supercell=(3, 2, 1))
+
+a = np.eye(3) * 3.0
+a[1, 1] = a[2, 2] = 30.0
+he_k3 = TestSolid(a, atom="He 0 0 0", dimension=1, basis="def2-svp", auxbasis="def2-svp-ri", kmesh=(3, 1, 1))
+he_s3 = TestSolid(a, atom="He 0 0 0", dimension=1, basis="def2-svp", auxbasis="def2-svp-ri", supercell=(3, 1, 1))
+
+a = np.eye(3) * 1.5
+a[2, 2] = 20.0
+nitrogen_cubic_2d_k221 = TestSolid(a, atom="N", dimension=2, spin=4, basis="def2-svp", auxbasis="def2-svp-ri", kmesh=(2, 2, 1), exp_to_discard=0.1)
+nitrogen_cubic_2d_s221 = TestSolid(a, atom="N", dimension=2, spin=4, basis="def2-svp", auxbasis="def2-svp-ri", supercell=(2, 2, 1), exp_to_discard=0.1)
+
 
 a = np.eye(3) * 5
 opts = dict(basis="6-31g", mesh=[11, 11, 11])
@@ -373,10 +390,9 @@ a = np.eye(3) * 5.0
 boron_cp_k321 = TestSolid(a, atom="B 0 0 0", basis="def2-svp", auxbasis="def2-svp-ri", spin=6, kmesh=(3, 2, 1), exp_to_discard=0.1)
 boron_cp_s321 = TestSolid(a, atom="B 0 0 0", basis="def2-svp", auxbasis="def2-svp-ri", spin=6, supercell=(3, 2, 1), exp_to_discard=0.1)
 
-a = np.eye(3) * 1.5
-a[2, 2] = 20.0
-nitrogen_cubic_2d_k221 = TestSolid(a, atom="N", dimension=2, spin=4, basis="def2-svp", auxbasis="def2-svp-ri", kmesh=(2, 2, 1), exp_to_discard=0.1)
-nitrogen_cubic_2d_s221 = TestSolid(a, atom="N", dimension=2, spin=4, basis="def2-svp", auxbasis="def2-svp-ri", supercell=(2, 2, 1), exp_to_discard=0.1)
+a = np.eye(3) * 3.0
+he_k321 = TestSolid(a, atom="He 0 0 0", basis="def2-svp", auxbasis="def2-svp-ri", kmesh=(3, 2, 1))
+he_s321 = TestSolid(a, atom="He 0 0 0", basis="def2-svp", auxbasis="def2-svp-ri", supercell=(3, 2, 1))
 
 
 # Lattices  FIXME we really don't need all of these
