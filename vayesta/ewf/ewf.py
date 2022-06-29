@@ -187,7 +187,6 @@ class EWF(Embedding):
 
         # --- Evaluate correlation energy and log information
         self.e_corr = self.get_e_corr()
-        self.log.output('E(nuc)=  %s', energy_string(self.mol.energy_nuc()))
         self.log.output('E(MF)=   %s', energy_string(self.e_mf))
         self.log.output('E(corr)= %s', energy_string(self.e_corr))
         self.log.output('E(tot)=  %s', energy_string(self.e_tot))
