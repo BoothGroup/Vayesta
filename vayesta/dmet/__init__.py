@@ -9,7 +9,7 @@ import pyscf.scf
 try:
     import cvxpy
 except ModuleNotFoundError as e:
-    raise ModuleNotFoundError("CVXPY is required for DMET correlation potential fitting.")
+    raise ModuleNotFoundError("CVXPY is required for DMET correlation potential fitting.") from e
 
 from .dmet import RDMET
 from .udmet import UDMET
