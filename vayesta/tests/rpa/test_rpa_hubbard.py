@@ -1,7 +1,6 @@
 import unittest
 
 from vayesta import rpa
-from vayesta.tests.cache import latts
 from vayesta.tests.common import TestCase
 from vayesta.tests import testsystems
 

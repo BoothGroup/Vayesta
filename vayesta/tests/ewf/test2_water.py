@@ -1,5 +1,5 @@
 import unittest
-import test_h2
+from vayesta.tests.ewf import test_h2
 from vayesta.tests import testsystems
 
 class Test_MP2(test_h2.Test_MP2):

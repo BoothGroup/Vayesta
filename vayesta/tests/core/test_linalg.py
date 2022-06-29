@@ -2,7 +2,7 @@ import unittest
 import numpy as np
 
 from vayesta.core import linalg
-from vayesta.common import TestCase
+from vayesta.tests.common import TestCase
 
 
 class LinalgTests(TestCase):

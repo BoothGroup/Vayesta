@@ -17,7 +17,7 @@ class SCMF_Test(TestCase):
         del cls.mf
 
     @classmethod
-    @cache
+    @cache()
     def emb(cls, scmf=None):
         emb = ewf.EWF(cls.mf, solve_lambda=True, bath_type='dmet')
         with emb.sao_fragmentation() as f:

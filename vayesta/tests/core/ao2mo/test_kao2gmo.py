@@ -6,27 +6,27 @@ from pyscf.pbc import tools
 from pyscf.cc import dfccsd
 
 from vayesta.core.ao2mo import kao2gmo
-from vayesta.tests import cache
+from vayesta.tests.common import TestCase
+from vayesta.tests import testsystems
 
 
-class KAO2GMOTests(unittest.TestCase):
-    key = 'he_631g_222'
+class KAO2GMOTests(TestCase):
     PLACES_ERIS = 8
 
     @classmethod
     def setUpClass(cls):
-        cls.gmf = tools.k2gamma.k2gamma(cache.cells[cls.key]['rhf'])
-        cls.gmf = cls.gmf.density_fit()
+        cls.kmf = testsystems.he_631g_k222.rhf()
+        cls.gmf = testsystems.he_631g_s222.rhf()
 
     @classmethod
     def tearDownClass(cls):
-        del cls.gmf
+        del cls.kmf, cls.gmf
 
     def test_gdf_to_eris(self):
         """Test agreement between unfolded and gamma-point integrals.
         """
 
-        mf = cache.cells[self.key]['rhf']
+        mf = self.kmf
         gmf = self.gmf
         mo_coeff_occ = gmf.mo_coeff[:, gmf.mo_occ > 0]
         mo_coeff_vir = gmf.mo_coeff[:, gmf.mo_occ == 0]
@@ -44,7 +44,7 @@ class KAO2GMOTests(unittest.TestCase):
         for the MP2 pyscf method.
         """
 
-        mf = cache.cells[self.key]['rhf']
+        mf = self.kmf
         gmf = self.gmf
         cm = mp.mp2.MP2(gmf)
         mo_coeff_occ = gmf.mo_coeff[:, gmf.mo_occ > 0]
@@ -61,7 +61,7 @@ class KAO2GMOTests(unittest.TestCase):
         for the RCCSD pyscf method.
         """
 
-        mf = cache.cells[self.key]['rhf']
+        mf = self.kmf
         gmf = self.gmf
         cm = cc.rccsd.RCCSD(gmf)
         mo_coeff_occ = gmf.mo_coeff[:, gmf.mo_occ > 0]
@@ -78,7 +78,7 @@ class KAO2GMOTests(unittest.TestCase):
         for the DFCCSD pyscf method.
         """
 
-        mf = cache.cells[self.key]['rhf']
+        mf = self.kmf
         gmf = self.gmf
         cm = dfccsd.RCCSD(gmf)
         mo_coeff_occ = gmf.mo_coeff[:, gmf.mo_occ > 0]
@@ -107,7 +107,7 @@ class KAO2GMOTests(unittest.TestCase):
         for the CCSD pyscf method.
         """
 
-        mf = cache.cells[self.key]['rhf']
+        mf = self.kmf
         gmf = self.gmf
         cm = cc.ccsd.CCSD(gmf)
         mo_coeff_occ = gmf.mo_coeff[:, gmf.mo_occ > 0]
@@ -130,7 +130,10 @@ class KAO2GMOTests(unittest.TestCase):
 
 
 class KAO2GMO2dTests(KAO2GMOTests):
-    key = 'h2_sto3g_331_2d'
+    @classmethod
+    def setUpClass(cls):
+        cls.kmf = testsystems.h2_sto3g_k331.rhf()
+        cls.gmf = testsystems.h2_sto3g_s331.rhf()
 
     #FIXME
     test_gdf_to_eris = None

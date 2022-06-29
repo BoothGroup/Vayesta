@@ -22,7 +22,7 @@ class Test_MP2(TestCase):
         cls.emb.cache_clear()
 
     @classmethod
-    @cache
+    @cache()
     def emb(cls, bno_threshold):
         emb = vayesta.ewf.EWF(cls.mf, bath_options=dict(threshold=bno_threshold), solver='MP2')
         emb.kernel()
@@ -62,7 +62,7 @@ class Test_CCSD(Test_MP2):
         cls.cc = testsystems.h2_dz.rccsd()
 
     @classmethod
-    @cache
+    @cache()
     def emb(cls, bno_threshold):
         solver_opts = dict(conv_tol= 1e-10, conv_tol_normt=1e-8)
         emb = vayesta.ewf.EWF(cls.mf, bath_options=dict(threshold=bno_threshold), solve_lambda=True,
@@ -160,7 +160,7 @@ class Test_FCI(TestCase):
         cls.emb.cache_clear()
 
     @classmethod
-    @cache
+    @cache()
     def emb(cls, bno_threshold):
         emb = vayesta.ewf.EWF(cls.mf, solver='FCI', bath_options=dict(threshold=bno_threshold))
         emb.kernel()

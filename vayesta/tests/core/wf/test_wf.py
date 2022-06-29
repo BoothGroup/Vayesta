@@ -29,7 +29,7 @@ class Test_DM(TestCase):
         del cls.cc
 
     @classmethod
-    @cache
+    @cache()
     def frag(cls):
         emb = vayesta.ewf.EWF(cls.mf, bath_type='full', solve_lambda=True, solver=cls.solver,
                 solver_options=cls.solver_opts)

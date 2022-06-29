@@ -1,8 +1,8 @@
 import numpy as np
 import unittest
-import test_h2
 import vayesta
 from vayesta.core.util import cache
+from vayesta.tests.ewf import test_h2
 from vayesta.tests import testsystems
 from vayesta.tests.common import TestCase
 
@@ -21,7 +21,7 @@ class Test_CCSD(test_h2.Test_CCSD):
         cls.cc = testsystems.water_631g.rccsd()
 
     @classmethod
-    @cache
+    @cache()
     def emb(cls, bno_threshold):
         solver_opts = dict(conv_tol= 1e-10, conv_tol_normt=1e-8)
         emb = vayesta.ewf.EWF(cls.mf, bno_threshold=bno_threshold, solve_lambda=True,
@@ -72,7 +72,7 @@ class Test_RHF_vs_UHF(TestCase):
         del cls.ucc
 
     @classmethod
-    @cache
+    @cache()
     def remb(cls, bno_threshold):
         solver_opts = dict(conv_tol= 1e-10, conv_tol_normt=1e-8)
         emb = vayesta.ewf.EWF(cls.rhf, bno_threshold=bno_threshold, solve_lambda=True,
@@ -83,7 +83,7 @@ class Test_RHF_vs_UHF(TestCase):
         return emb
 
     @classmethod
-    @cache
+    @cache()
     def uemb(cls, bno_threshold):
         solver_opts = dict(conv_tol= 1e-10, conv_tol_normt=1e-8)
         emb = vayesta.ewf.EWF(cls.uhf, bno_threshold=bno_threshold, solve_lambda=True,

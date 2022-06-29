@@ -17,14 +17,14 @@ class ICMP2_Test(TestCase):
         cls.emb.cache_clear()
 
     @classmethod
-    @cache
+    @cache()
     def emb(cls, bno_threshold):
         emb = vayesta.ewf.EWF(cls.mf, bno_threshold=bno_threshold, solver='MP2')
         emb.kernel()
         return emb
 
     @classmethod
-    @cache
+    @cache()
     def emb_nosym(cls, bno_threshold):
         emb = vayesta.ewf.EWF(cls.mf, bno_threshold=bno_threshold, solver='MP2')
         with emb.iao_fragmentation(add_symmetric=False) as f:

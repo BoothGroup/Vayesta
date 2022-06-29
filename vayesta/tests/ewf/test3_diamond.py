@@ -21,7 +21,7 @@ class Test(TestCase):
         cls.emb.cache_clear()
 
     @classmethod
-    @cache
+    @cache()
     def emb(cls, bno_threshold):
         emb = vayesta.ewf.EWF(cls.mf, bath_options=dict(threshold=bno_threshold),
                 solver_options=dict(solve_lambda=True))
@@ -29,7 +29,7 @@ class Test(TestCase):
         return emb
 
     @classmethod
-    @cache
+    @cache()
     def emb_rotsym(cls, bno_threshold):
         emb = vayesta.ewf.EWF(cls.mf, bath_options=dict(threshold=bno_threshold),
                 solver_options=dict(solve_lambda=True))
