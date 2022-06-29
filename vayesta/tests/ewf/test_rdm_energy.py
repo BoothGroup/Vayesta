@@ -5,14 +5,15 @@ import pyscf
 import pyscf.cc
 
 import vayesta.ewf
-import vayesta.tests.cache
+from vayesta.tests.common import TestCase
+from vayesta.tests import testsystems
 
-class TestRDMEnergyConvergence(unittest.TestCase):
+class TestRDMEnergyConvergence(TestCase):
 
     def test_water(self):
 
         #RHF
-        mf = vayesta.tests.cache.moles['h2o_ccpvdz']['rhf']
+        mf = testsystems.h2o_ccpvdz.rhf()
 
         #CCSD
         cc = pyscf.cc.CCSD(mf)
@@ -36,7 +37,7 @@ class TestRDMEnergyConvergence(unittest.TestCase):
 #    def test_h2_solid(self):
 #
 #        #RHF
-#        mf = vayesta.tests.cache.cells['h2_sto3g_331_2d']['rhf']
+#        mf = testsystems.h2_sto3g_331_2d.rhf()
 #
 #        #CCSD
 #        cc = pyscf.cc.CCSD(mf)

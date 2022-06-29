@@ -5,11 +5,12 @@ import pyscf.gto
 import pyscf.scf
 import pyscf.tools.ring
 
-from vayesta import edmet
-from vayesta.tests.cache import moles
 import vayesta
+from vayesta import edmet
+from vayesta.tests.common import TestCase
+from vayesta.tests import testsystems
 
-class MolecularDFEDMETTest(unittest.TestCase):
+class MolecularDFEDMETTest(TestCase):
     ENERGY_PLACES = 8
     CONV_TOL = 1e-9
 
@@ -20,7 +21,7 @@ class MolecularDFEDMETTest(unittest.TestCase):
 
     def test_h6_sto6g_EBFCI_IAO_1occ(self):
         emb = edmet.EDMET(
-                moles['h6_sto6g_df']['rhf'],
+                testsystems.h6_sto6g_df.rhf(),
                 solver='EBFCI',
                 solver_options={"max_boson_occ":1},
                 conv_tol=self.CONV_TOL,
@@ -34,13 +35,13 @@ class MolecularDFEDMETTest(unittest.TestCase):
             f.add_atomic_fragment([4, 5])
         emb.kernel()
 
-        known_values = {'e_tot': -3.2644471120076393}
+        known_values = {'e_tot': -3.268863371644988}
 
         self._test_energy(emb, known_values)
 
     def test_h6_sto6g_EBFCI_IAO_2occ(self):
         emb = edmet.EDMET(
-                moles['h6_sto6g_df']['rhf'],
+                testsystems.h6_sto6g_df.rhf(),
                 solver='EBFCI',
                 solver_options={"max_boson_occ":2},
                 conv_tol=self.CONV_TOL,
@@ -55,7 +56,7 @@ class MolecularDFEDMETTest(unittest.TestCase):
         emb.kernel()
 
         uemb = edmet.EDMET(
-                moles['h6_sto6g_df']['uhf'],
+                testsystems.h6_sto6g_df.uhf(),
                 solver='EBFCI',
                 solver_options={"max_boson_occ":2},
                 conv_tol=self.CONV_TOL,
@@ -69,7 +70,7 @@ class MolecularDFEDMETTest(unittest.TestCase):
             f.add_atomic_fragment([4, 5])
         uemb.kernel()
 
-        known_values = {'e_tot': -3.2645626611174006}
+        known_values = {'e_tot': -3.2689751906025126}
 
         self._test_energy(emb, known_values)
         self._test_energy(uemb, known_values)
@@ -77,7 +78,7 @@ class MolecularDFEDMETTest(unittest.TestCase):
     @unittest.skipIf(vayesta.ebcc is None, "EBCC installation not found.")
     def test_h2o_ccpvdz_EBCCSD_IAO(self):
         emb = edmet.EDMET(
-                moles['h2o_ccpvdz_df']['rhf'],
+                testsystems.water_ccpvdz_df.rhf(),
                 solver='EBCCSD',
                 conv_tol=self.CONV_TOL,
                 oneshot=True,
@@ -93,7 +94,7 @@ class MolecularDFEDMETTest(unittest.TestCase):
         self._test_energy(emb, known_values)
 
         uemb = edmet.EDMET(
-                moles['h2o_ccpvdz_df']['uhf'],
+                testsystems.water_ccpvdz_df.uhf(),
                 solver='EBCCSD',
                 conv_tol=self.CONV_TOL,
                 oneshot=True,
@@ -109,7 +110,7 @@ class MolecularDFEDMETTest(unittest.TestCase):
     @unittest.skipIf(vayesta.ebcc is None, "EBCC installation not found.")
     def test_h6_sto3g_EBCCSD_IAO_2occ(self):
         emb = edmet.EDMET(
-                moles['h6_sto6g_df']['rhf'],
+                testsystems.h6_sto6g_df.rhf(),
                 solver='EBCCSD',
                 conv_tol=self.CONV_TOL,
                 maxiter=30,
@@ -125,7 +126,7 @@ class MolecularDFEDMETTest(unittest.TestCase):
         self._test_energy(emb, known_values)
 
         uemb = edmet.EDMET(
-                moles['h6_sto6g_df']['uhf'],
+                testsystems.h6_sto6g_df.uhf(),
                 solver='EBCCSD',
                 conv_tol=self.CONV_TOL,
                 maxiter=30,

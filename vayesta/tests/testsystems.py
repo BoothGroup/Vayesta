@@ -226,7 +226,7 @@ class TestSolid:
 
 class TestLattice:
 
-    def __init__(self, nsite, nelectron=None, spin=0, order=None, boundary="pbc", tiles=(1, 1), verbose=0, **kwargs):
+    def __init__(self, nsite, nelectron=None, spin=0, order=None, boundary="pbc", tiles=(1, 1), verbose=0, with_df=False, **kwargs):
         super().__init__()
         if isinstance(nsite, int):
             mol = latt.Hubbard1D(nsite, nelectron=nelectron, spin=spin, order=order, boundary=boundary)
@@ -236,12 +236,15 @@ class TestLattice:
         for key, val in kwargs.items():
             setattr(mol, key, val)
         self.mol = mol
+        self.with_df = with_df
 
     # --- Mean-field
 
     @cache
     def rhf(self):
         rhf = latt.LatticeRHF(self.mol)
+        if self.with_df:
+            rhf = rhf.density_fit()
         rhf.conv_tol = 1e-12
         rhf.kernel()
         return rhf
@@ -249,6 +252,8 @@ class TestLattice:
     @cache
     def uhf(self):
         uhf = latt.LatticeRHF(self.mol)
+        if self.with_df:
+            uhf = uhf.density_fit()
         uhf.conv_tol = 1e-12
         uhf.kernel()
         return uhf
@@ -275,6 +280,11 @@ h6_sto6g = TestMolecule(
         atom=["H %f %f %f" % xyz for xyz in pyscf.tools.ring.make(6, 1.0)],
         basis="sto6g",
 )
+h6_sto6g_df = TestMolecule(
+        atom=["H %f %f %f" % xyz for xyz in pyscf.tools.ring.make(6, 1.0)],
+        basis="sto6g",
+        auxbasis="weigend",
+)
 
 water_sto3g = TestMolecule(atom=molecules.water(), basis='sto3g')
 water_cation_sto3g = TestMolecule(atom=molecules.water(), basis='sto3g', charge=1, spin=1)
@@ -284,9 +294,20 @@ water_631g_df = TestMolecule(atom=molecules.water(), basis='6-31G', auxbasis='6-
 water_cation_631g = TestMolecule(atom=molecules.water(), basis='6-31G', charge=1, spin=1)
 water_cation_631g_df = TestMolecule(atom=molecules.water(), basis='6-31G', auxbasis='6-31G', charge=1, spin=1)
 
+water_ccpvdz = TestMolecule(atom=molecules.water(), basis="cc-pvdz", mf_conv_tol=1e-12)
 water_ccpvdz_df = TestMolecule(atom=molecules.water(), basis="cc-pvdz", auxbasis="cc-pvdz-jkfit", mf_conv_tol=1e-12)
 
 ethanol_ccpvdz = TestMolecule(atom=molecules.ethanol(), basis="cc-pvdz")
+
+lih_ccpvdz = TestMolecule(atom="Li 0 0 0; H 0 0 1.4", basis="cc-pvdz")
+
+h2_ccpvdz = TestMolecule(atom="H1 0 0 0; H2 0 0 1.0", basis="cc-pvdz")
+h2_ccpvdz_df = TestMolecule(atom="H1 0 0 0; H2 0 0 1.0", basis="cc-pvdz", auxbasis="cc-pvdz-jkfit")
+
+h3_ccpvdz = TestMolecule(atom="H1 0 0 0; H2 0 0 1.0; H3 0 1.0 0", basis="cc-pvdz", spin=1)
+h3_ccpvdz_df = TestMolecule(atom="H1 0 0 0; H2 0 0 1.0; H3 0 1.0 0", basis="cc-pvdz", auxbasis="cc-pvdz-jkfit", spin=1)
+
+n2_ccpvdz_df = TestMolecule("N1 0 0 0; N2 0 0 1.1", basis="cc-pvdz", auxbasis="cc-pvdz-jkfit")
 
 # Solids
 
@@ -344,6 +365,19 @@ opts = dict(basis="6-31g", mesh=[11, 11, 11])
 he2_631g_k222 = TestSolid(a=a, atom="He 3 2 3; He 1 1 1", kmesh=(2, 2, 2), **opts)
 he2_631g_s222 = TestSolid(a=a, atom="He 3 2 3; He 1 1 1", supercell=(2, 2, 2), **opts)
 
+a, atom = solids.rocksalt(atoms=["Li", "H"])
+lih_k221 = TestSolid(a=a, atom=atom, basis="def2-svp", auxbasis="def2-svp-ri", kmesh=(2, 1, 1), exp_to_discard=0.1)
+lih_s221 = TestSolid(a=a, atom=atom, basis="def2-svp", auxbasis="def2-svp-ri", supercell=(2, 1, 1), exp_to_discard=0.1)
+
+a = np.eye(3) * 5.0
+boron_cp_k321 = TestSolid(a, atom="B 0 0 0", basis="def2-svp", auxbasis="def2-svp-ri", spin=6, kmesh=(3, 2, 1), exp_to_discard=0.1)
+boron_cp_s321 = TestSolid(a, atom="B 0 0 0", basis="def2-svp", auxbasis="def2-svp-ri", spin=6, supercell=(3, 2, 1), exp_to_discard=0.1)
+
+a = np.eye(3) * 1.5
+a[2, 2] = 20.0
+nitrogen_cubic_2d_k221 = TestSolid(a, atom="N", dimension=2, spin=4, basis="def2-svp", auxbasis="def2-svp-ri", kmesh=(2, 2, 1), exp_to_discard=0.1)
+nitrogen_cubic_2d_s221 = TestSolid(a, atom="N", dimension=2, spin=4, basis="def2-svp", auxbasis="def2-svp-ri", supercell=(2, 2, 1), exp_to_discard=0.1)
+
 
 # Lattices  FIXME we really don't need all of these
 
@@ -351,6 +385,7 @@ hubb_6_u0 = TestLattice(6, hubbard_u=0.0, nelectron=6)
 hubb_10_u2 = TestLattice(10, hubbard_u=2.0, nelectron=10)
 hubb_10_u4 = TestLattice(10, hubbard_u=4.0, nelectron=16, boundary='apbc')
 hubb_14_u4 = TestLattice(14, hubbard_u=4.0, nelectron=14, boundary='pbc')
+hubb_14_u4_df = TestLattice(14, hubbard_u=4.0, nelectron=14, boundary='pbc', with_df=True)
 hubb_6x6_u0_1x1imp = TestLattice((6, 6), hubbard_u=0.0, nelectron=26, tiles=(1, 1), boundary='pbc')
 hubb_6x6_u2_1x1imp = TestLattice((6, 6), hubbard_u=2.0, nelectron=26, tiles=(1, 1), boundary='pbc')
 hubb_6x6_u6_1x1imp = TestLattice((6, 6), hubbard_u=6.0, nelectron=26, tiles=(1, 1), boundary='pbc')

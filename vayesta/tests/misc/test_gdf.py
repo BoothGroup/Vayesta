@@ -8,18 +8,17 @@ from pyscf import lib
 from pyscf.pbc import gto, df, tools
 from pyscf.pbc.lib.kpts_helper import get_kconserv
 
-from vayesta.tests.cache import cells
-from vayesta.tests.common import temporary_seed
+from vayesta.tests.common import TestCase, temporary_seed
+from vayesta.tests import testsystems
 
 
-class GDFTests(unittest.TestCase):
-    key = 'he2_631g_222'
+class GDFTests(TestCase):
     PLACES_ERIS = 8
 
     @classmethod
     def setUpClass(cls):
-        cls.cell = cells['he2_631g_222']['cell']
-        cls.kpts = cells['he2_631g_222']['kpts']
+        cls.cell = testsystems.he2_631g_k222.mol
+        cls.kpts = testsystems.he2_631g_k222.kpts
 
         cls.df = gdf.GDF(cls.cell)
         cls.df.auxbasis = 'weigend'

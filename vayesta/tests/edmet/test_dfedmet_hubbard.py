@@ -15,43 +15,6 @@ class HubbardDFEDMETTests(TestCase):
         self.assertAlmostEqual(dfedmet.e_nonlocal, known_values['e_nl'], self.PLACES_ENERGY)
         self.assertAlmostEqual(emb.e_tot, dfedmet.e_tot, self.PLACES_ENERGY)
 
-    #FIXME bug #9
-    #def test_6_u0_1imp_1occ(self):
-    #    """Tests for N=6 U=0 Hubbard model with single site impurities.
-    #    """
-
-    #    emb = edmet.EDMET(
-    #            testsystems.hubb_6_u0.rhf(),
-    #            solver='EBFCI',
-    #            max_boson_occ=1,
-    #    )
-    #    emb.site_fragmentation()
-    #    frag = emb.add_atomic_fragment(0)
-    #    frag.add_tsymmetric_fragments(tvecs=[6, 1, 1])
-    #    emb.kernel()
-
-    #    known_values = {'e_tot': -8.0}
-
-    #    self._test_energy(emb, known_values)
-
-    #def test_6_u0_2imp_6occ(self):
-    #    """Tests for N=6 U=0 Hubbard model with double site impurities.
-    #    """
-
-    #    emb = edmet.EDMET(
-    #            testsystems.hubb_6_u0.rhf(),
-    #            solver='EBFCI',
-    #            max_boson_occ=6,
-    #    )
-    #    emb.site_fragmentation()
-    #    frag = emb.add_atomic_fragment([0, 1])
-    #    frag.add_tsymmetric_fragments(tvecs=[3, 1, 1])
-    #    emb.kernel()
-
-    #    known_values = {'e_tot': -8.0}
-
-    #    self._test_energy(emb, known_values)
-
     def test_14_upoint4_2imp_4occ(self):
         """Tests for N=14 U=4 Hubbard model with double site impurities and density fitting, single shot.
         Self-consistent (E)DMET is pretty unstable on the Hubbard model, so further tests will have to wait for UHF
@@ -84,25 +47,6 @@ class HubbardDFEDMETTests(TestCase):
         known_values = {'e_clus': -8.01015928145061, 'e_nl': -0.5338487284590787}
 
         self._test_energy(emb, dfedmet, known_values)
-
-    #FIXME bug #9
-    #def test_6x6_u0_1x1imp_2occ(self):
-    #    """Tests for 6x6 U=0 Hubbard model with single site impurities.
-    #    """
-
-    #    emb = edmet.EDMET(
-    #            testsystems.hubb_6x6_u0_1x1imp.rhf(),
-    #            solver='EBFCI',
-    #            max_boson_occ=2,
-    #    )
-    #    emb.site_fragmentation()
-    #    frag = emb.add_atomic_fragment([0])
-    #    frag.add_tsymmetric_fragments(tvecs=[6, 6, 1])
-    #    emb.kernel()
-
-    #    known_values = {'e_tot': -56.0}
-
-    #    self._test_energy(emb, known_values)
 
 
 if __name__ == '__main__':

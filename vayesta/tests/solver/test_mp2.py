@@ -7,13 +7,14 @@ import pyscf.mp
 import vayesta
 import vayesta.ewf
 
-from vayesta.tests import cache
+from vayesta.tests.common import TestCase
+from vayesta.tests import testsystems
 
 
 class TestSolvers(unittest.TestCase):
 
     def _test(self, key):
-        mf = cache.moles[key[0]][key[1]]
+        mf = getattr(getattr(testsystems, key[0]), key[1])()
 
         emb = vayesta.ewf.EWF(mf, solver='MP2', bath_type='full')
         emb.kernel()
@@ -25,16 +26,16 @@ class TestSolvers(unittest.TestCase):
         self.assertAlmostEqual(emb.e_tot, mp2.e_tot)
 
     def test_rmp2_h2o(self):
-        return self._test(('h2o_ccpvdz', 'rhf'))
+        return self._test(('water_ccpvdz', 'rhf'))
 
     def test_rmp2_h2o_df(self):
-        return self._test(('h2o_ccpvdz_df', 'rhf'))
+        return self._test(('water_ccpvdz_df', 'rhf'))
 
     def test_ump2_h2o(self):
-        return self._test(('no2_ccpvdz', 'uhf'))
+        return self._test(('water_cation_631g', 'uhf'))
 
     def test_ump2_h2o_df(self):
-        return self._test(('no2_ccpvdz_df', 'uhf'))
+        return self._test(('water_cation_631g_df', 'uhf'))
 
 
 if __name__ == '__main__':
