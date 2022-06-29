@@ -20,18 +20,17 @@ class SolidEWFTests(TestCase):
         self.assertAllclose(kmf.e_tot, gmf.e_tot/nk)
         # PySCF
         kccsd = pyscf.pbc.cc.KCCSD(kmf)
-        # k-points
-        kemb = ewf.EWF(kmf)
-        # G-point
-        gemb = ewf.EWF(gmf)
+        # k-points and Gamma-point
+        kemb = ewf.EWF(kmf, bath_options=dict(threshold=-1))
+        gemb = ewf.EWF(gmf, bath_options=dict(threshold=-1))
         with gemb.iao_fragmentation() as f:
             f.add_atomic_fragment(0, sym_factor=nk)
             f.add_atomic_fragment(1, sym_factor=nk)
 
         # --- Test full bath
         e_expected = -8.069261598354077
-        kemb.kernel(bno_threshold=-1)
-        gemb.kernel(bno_threshold=-1)
+        kemb.kernel()
+        gemb.kernel()
         kccsd.kernel()
         self.assertAllclose(kemb.e_tot, e_expected)
         self.assertAllclose(gemb.e_tot/nk, e_expected)
@@ -39,8 +38,12 @@ class SolidEWFTests(TestCase):
 
         # --- Test partial bath
         e_expected = -8.068896307452492
-        kemb.kernel(bno_threshold=1e-5)
-        gemb.kernel(bno_threshold=1e-5)
+        kemb.reset(reset_bath=False)
+        gemb.reset(reset_bath=False)
+        kemb.change_options(bath_options=dict(threshold=1e-5))
+        gemb.change_options(bath_options=dict(threshold=1e-5))
+        kemb.kernel()
+        gemb.kernel()
         self.assertAllclose(kemb.e_tot, e_expected)
         self.assertAllclose(gemb.e_tot/nk, e_expected)
 
@@ -53,19 +56,18 @@ class SolidEWFTests(TestCase):
         self.assertAllclose(kmf.e_tot, gmf.e_tot/nk)
         # PySCF
         kccsd = pyscf.pbc.cc.KCCSD(kmf)
-        # k-points
-        kemb = ewf.EWF(kmf)
+        # k-points and Gamma-point
+        kemb = ewf.EWF(kmf, bath_options=dict(threshold=-1))
+        gemb = ewf.EWF(gmf, bath_options=dict(threshold=-1))
         with kemb.iao_fragmentation() as f:
             f.add_atomic_fragment(0, sym_factor=2)
-        # G-point
-        gemb = ewf.EWF(gmf)
         with gemb.iao_fragmentation() as f:
             f.add_atomic_fragment(0, sym_factor=2*nk)
 
         # --- Test full bath
         e_expected = -75.89352268881753
-        kemb.kernel(bno_threshold=-1)
-        gemb.kernel(bno_threshold=-1)
+        kemb.kernel()
+        gemb.kernel()
         kccsd.kernel()
         self.assertAllclose(kemb.e_tot, e_expected)
         self.assertAllclose(gemb.e_tot/nk, e_expected)
@@ -73,8 +75,12 @@ class SolidEWFTests(TestCase):
 
         # --- Test partial bath
         e_expected = -75.8781119002179
-        kemb.kernel(bno_threshold=1e-5)
-        gemb.kernel(bno_threshold=1e-5)
+        kemb.reset(reset_bath=False)
+        gemb.reset(reset_bath=False)
+        kemb.change_options(bath_options=dict(threshold=1e-5))
+        gemb.change_options(bath_options=dict(threshold=1e-5))
+        kemb.kernel()
+        gemb.kernel()
         self.assertAllclose(kemb.e_tot, e_expected)
         self.assertAllclose(gemb.e_tot/nk, e_expected)
 
@@ -88,16 +94,14 @@ class SolidEWFTests(TestCase):
         # Do not compare to KUCCSD
         # PySCF KUCCSD and KRCCSD differ by the exxdiv correction (this is a PySCF bug in KUCCSD)
         #kccsd = pyscf.pbc.cc.KUCCSD(kmf)
-        # k-points
-        kemb = ewf.EWF(kmf)
-        # G-point
-        gemb = ewf.EWF(gmf)
+        # k-points and Gamma-point
+        kemb = ewf.EWF(kmf, bath_options=dict(threshold=-1))
+        gemb = ewf.EWF(gmf, bath_options=dict(threshold=-1))
         with gemb.iao_fragmentation() as f:
             f.add_atomic_fragment(0, sym_factor=nk)
-
         # --- Test full bath
-        kemb.kernel(bno_threshold=-1)
-        gemb.kernel(bno_threshold=-1)
+        kemb.kernel()
+        gemb.kernel()
         #kccsd.kernel()
         e_expected = -24.405747542914185
         self.assertAllclose(kemb.e_tot, e_expected)
@@ -106,8 +110,12 @@ class SolidEWFTests(TestCase):
 
         # --- Test partial bath
         e_expected = -24.40568870697553
-        kemb.kernel(bno_threshold=1e-5)
-        gemb.kernel(bno_threshold=1e-5)
+        kemb.reset(reset_bath=False)
+        gemb.reset(reset_bath=False)
+        kemb.change_options(bath_options=dict(threshold=1e-5))
+        gemb.change_options(bath_options=dict(threshold=1e-5))
+        kemb.kernel()
+        gemb.kernel()
         self.assertAllclose(kemb.e_tot, e_expected)
         self.assertAllclose(gemb.e_tot/nk, e_expected)
 
@@ -121,16 +129,15 @@ class SolidEWFTests(TestCase):
         # Do not compare to KUCCSD
         # PySCF KUCCSD and KRCCSD differ by the exxdiv correction (this is a PySCF bug in KUCCSD)
         #kccsd = pyscf.pbc.cc.KUCCSD(kmf)
-        # k-points
-        kemb = ewf.EWF(kmf)
-        # G-point
-        gemb = ewf.EWF(gmf)
+        # k-points and Gamma-point
+        kemb = ewf.EWF(kmf, bath_options=dict(threshold=-1))
+        gemb = ewf.EWF(gmf, bath_options=dict(threshold=-1))
         with gemb.iao_fragmentation() as f:
             f.add_atomic_fragment(0, sym_factor=nk)
 
         # --- Test full bath
-        kemb.kernel(bno_threshold=-1)
-        gemb.kernel(bno_threshold=-1)
+        kemb.kernel()
+        gemb.kernel()
         #kccsd.kernel()
         e_expected = -54.47689003883918
         self.assertAllclose(kemb.e_tot, gemb.e_tot/nk)
@@ -139,8 +146,12 @@ class SolidEWFTests(TestCase):
 
         # --- Test partial bath
         e_expected = -54.46536454436367
-        kemb.kernel(bno_threshold=1e-5)
-        gemb.kernel(bno_threshold=1e-5)
+        kemb.reset(reset_bath=False)
+        gemb.reset(reset_bath=False)
+        kemb.change_options(bath_options=dict(threshold=1e-5))
+        gemb.change_options(bath_options=dict(threshold=1e-5))
+        kemb.kernel()
+        gemb.kernel()
         self.assertAllclose(kemb.e_tot, gemb.e_tot/nk)
         self.assertAllclose(kemb.e_tot, gemb.e_tot/nk)
 
