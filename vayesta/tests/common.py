@@ -1,6 +1,6 @@
-import pytest
 import unittest
 import numpy as np
+
 
 class temporary_seed:
     def __init__(self, seed):
@@ -12,6 +12,7 @@ class temporary_seed:
 
     def __exit__(self, *args):
         np.random.set_state(self.state)
+
 
 class TestCase(unittest.TestCase):
 
