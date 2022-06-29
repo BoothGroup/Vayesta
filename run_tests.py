@@ -15,6 +15,7 @@ import sys
 import argparse
 import importlib
 import unittest
+import pytest
 import coverage
 import cProfile
 import logging
@@ -77,34 +78,11 @@ prof = cProfile.Profile()
 prof.enable()
 
 # Perform the tests:
-def scan(root, path):
-    testdirs = []
-    for d in os.scandir(os.path.join(root, path)):
-        if d.is_dir() and not d.name.startswith("_"):
-            testdirs.append(os.path.join(path, d.name))
-            testdirs += scan(root, os.path.join(path, d.name))
-    return testdirs
-testdirs = scan("vayesta/tests", "") 
-t0 = timer()
-ncount_tot = 0
+lvls = ["fast", "not (fast or slow or veryslow)", "slow", "veryslow"]
 for lvl in args.test_levels:
-    ncount_lvl = 0
-    pattern = ('test%d_*.py' % lvl) if (lvl > 0) else 'test_*.py'
-    t0_lvl = timer()
-    for d in testdirs:
-        loader = unittest.TestLoader()
-        suite = loader.discover(os.path.join("vayesta/tests", d), pattern=pattern)
-        ncount = suite.countTestCases()
-        if (ncount == 0):
-            continue
-        ncount_tot += ncount
-        ncount_lvl += ncount
-        runner = unittest.TextTestRunner(verbosity=2)
-        t0_dir = timer()
-        res = runner.run(suite)
-        print("Finished %3d level %d tests in %-10s in %.0f s" % (ncount, lvl, "'"+d+"'", timer()-t0_dir))
-    print("Finished %3d level %d tests in %.0f s" % (ncount_lvl, lvl, timer()-t0_lvl))
-print("Finished %3d tests in %.0f s" %  (ncount_tot, timer()-t0))
+    t0 = timer()
+    pytest.main(["vayesta/tests", "-m %s" % (lvls[int(lvl)])])
+    print("Finished level %d tests in %.0f s" % (lvl, timer()-t0))
 
 # End the profiler:
 prof.disable()
