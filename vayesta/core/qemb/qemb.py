@@ -28,7 +28,6 @@ from vayesta.core.util import *
 from vayesta.core.ao2mo import kao2gmo_cderi
 from vayesta.core.ao2mo import postscf_ao2mo
 from vayesta.core.ao2mo import postscf_kao2gmo
-from vayesta.core.ao2mo.kao2gmo import gdf_to_pyscf_eris
 from vayesta import lattmod
 from vayesta.core.scmf import PDMET, Brueckner
 from vayesta.mpi import mpi
@@ -80,10 +79,83 @@ class Options(OptionsBase):
             dumpfile='clusters.h5')
 
 class Embedding:
+    """Base class for quantum embedding methods.
+
+    Parameters
+    ----------
+    mf : pyscf.scf.SCF
+        PySCF mean-field object.
+    solver : str, optional
+        Default solver for cluster problems. The available solvers depend on the embedding class.
+        Default: 'CCSD'.
+    log : logging.Logger, optional
+        Vayesta logger object. Default: None
+    bath_options : dict, optional
+        Bath specific options. The bath type is determined by the key `bathtype` (default: 'DMET').
+        The following bath specific options can be specified.
+
+        All bath types:
+
+            dmet_threshold : float, optional
+                Threshold for DMET bath orbitals. Orbitals with eigenvalues larger than `dmet_threshold`
+                or smaller than 1-`dmet_threshold` will be added as bath orbitals. Default: 1e-6.
+
+        MP2 bath (`bathtype = 'MP2'`):
+
+            threshold : float
+                Threshold for MP2 natural orbital truncation. Orbitals with eigenvalues larger than
+                `threshold` will be added as bath orbitals.
+
+        R2 bath (`bathtype = 'R2'`):
+
+            rcut : float
+                Range cutoff for R2 bath. Orbitals with eigenvalues smaller than `rcut` will be added
+                as bath orbitals.
+            unit : {'Ang', 'Bohr'}, optional
+                Unit of `rcut`. Default: 'Ang'.
+
+    solver_options : dict, optional
+        Solver specific options.
+
+    Attributes
+    ----------
+    mol
+    has_lattice_vectors
+    boundary_cond
+    nao
+    ncells
+    nmo
+    nfrag
+    e_mf
+    log : logging.Logger
+        Logger object.
+    self.mf : pyscf.scf.SCF
+        PySCF mean-field object.
+    self.mo_energy : (nMO) array
+        MO energies.
+    self.mo_occ : (nMO) array
+        MO occupation numbers.
+    self.mo_coeff : (nAO, nMO) array
+        MO coefficients.
+    self.fragments : list
+        List of fragments for embedding calculation.
+    self.kcell : pyscf.pbc.gto.Cell
+        For k-point sampled mean-field calculation, which have been folded to the supercell,
+        this will hold the original primitive unit cell.
+    self.kpts : (nK, 3) array
+        For k-point sampled mean-field calculation, which have been folded to the supercell,
+        this will hold the original k-points.
+    self.kdf : pyscf.pbc.df.GDF
+        For k-point sampled mean-field calculation, which have been folded to the supercell,
+        this will hold the original Gaussian density-fitting object.
+    """
+
+
 
     # Shadow these in inherited methods:
     Fragment = Fragment
     Options = Options
+    valid_solvers = ['HF', 'MP2', 'CISD', 'CCSD', 'TCCSD', 'FCI', 'FCI-SPIN0', 'FCI-SPIN1', 'DUMP']
 
     # Deprecated:
     is_rhf = True
@@ -91,49 +163,7 @@ class Embedding:
     # Use instead:
     spinsym = 'restricted'
 
-    def __init__(self, mf, log=None, overwrite=None, **kwargs):
-        """Abstract base class for quantum embedding methods.
-
-        Parameters
-        ----------
-        mf : pyscf.scf.SCF
-            PySCF mean-field object.
-        log : logging.Logger, optional
-            Logger object. Default: None
-
-        Attributes
-        ----------
-        mol
-        has_lattice_vectors
-        boundary_cond
-        nao
-        ncells
-        nmo
-        nfrag
-        e_mf
-        log : logging.Logger
-            Logger object.
-        self.mf : pyscf.scf.SCF
-            PySCF mean-field object.
-        self.mo_energy : (nMO) array
-            MO energies.
-        self.mo_occ : (nMO) array
-            MO occupation numbers.
-        self.mo_coeff : (nAO, nMO) array
-            MO coefficients.
-        self.fragments : list
-            List of fragments for embedding calculation.
-        self.kcell : pyscf.pbc.gto.Cell
-            For k-point sampled mean-field calculation, which have been folded to the supercell,
-            this will hold the original primitive unit cell.
-        self.kpts : (nK, 3) array
-            For k-point sampled mean-field calculation, which have been folded to the supercell,
-            this will hold the original k-points.
-        self.kdf : pyscf.pbc.df.GDF
-            For k-point sampled mean-field calculation, which have been folded to the supercell,
-            this will hold the original Gaussian density-fitting object.
-        """
-
+    def __init__(self, mf, solver='CCSD', log=None, overwrite=None, **kwargs):
         # 1) Logging
         # ----------
         self.log = log or logging.getLogger(__name__)
@@ -169,6 +199,9 @@ class Embedding:
 
             # 5) Other
             # --------
+            if solver not in self.valid_solvers:
+                raise ValueError("Unknown solver: %s" % solver)
+            self.solver = solver
             self.symmetry = SymmetryGroup(self.mol)
             translation = getattr(self.mf, 'subcellmesh', None)
             if translation:
@@ -684,24 +717,7 @@ class Embedding:
 
         # Fold MOs into k-point sampled primitive cell, to perform efficient AO->MO transformation:
         if self.kdf is not None:
-            eris = postscf_kao2gmo(postscf, self.kdf, fock=fock, mo_energy=mo_energy, e_hf=e_hf)
-            ## COMPARISON:
-            ## OLD:
-            #with log_time(self.log.timing, "Time OLD: %s"):
-            #    eris_old = gdf_to_pyscf_eris(self.mf, self.kdf, postscf, fock=fock, mo_energy=mo_energy, e_hf=e_hf)
-            ## NEW:
-            #with log_time(self.log.timing, "Time NEW: %s"):
-            #    eris = postscf_kao2gmo(postscf, self.kdf, fock=fock, mo_energy=mo_energy, e_hf=e_hf)
-
-            #for key in ['oooo', 'ovoo', 'ovvo', 'oovv', 'ovov', 'ovvv', 'vvvv', 'vvL']:
-            #    if not hasattr(eris, key) or (getattr(eris, key) is None):
-            #        continue
-            #    old = getattr(eris_old, key)
-            #    new = getattr(eris, key)
-            #    close = np.allclose(old, new)
-            #    assert close
-            #    assert old.shape == new.shape
-            return eris
+            return postscf_kao2gmo(postscf, self.kdf, fock=fock, mo_energy=mo_energy, e_hf=e_hf)
         # Regular AO->MO transformation
         eris = postscf_ao2mo(postscf, fock=fock, mo_energy=mo_energy, e_hf=e_hf)
         return eris

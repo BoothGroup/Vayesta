@@ -230,8 +230,11 @@ def get_intercluster_mp2_energy_rhf(emb, bno_threshold_occ=None, bno_threshold_v
                 estr = energy_string
                 emb.log.debugv("  %-12s  direct= %s  exchange= %s  total= %s", xystr, estr(ed), estr(ex), estr(ed+ex))
 
-        e_direct = mpi.world.allreduce(e_direct) / emb.ncells
-        e_exchange = mpi.world.allreduce(e_exchange) / emb.ncells
+        if mpi:
+            e_direct = mpi.world.allreduce(e_direct)
+            e_exchange = mpi.world.allreduce(e_exchange)
+        e_direct /= emb.ncells
+        e_exchange /= emb.ncells
         e_icmp2 = e_direct + e_exchange
         if mpi.is_master:
             emb.log.info("  %-12s  direct= %s  exchange= %s  total= %s", "Total:", estr(e_direct), estr(e_exchange), estr(e_icmp2))
@@ -398,8 +401,11 @@ def get_intercluster_mp2_energy_uhf(emb, bno_threshold=1e-9, direct=True, exchan
                 estr = energy_string
                 emb.log.debugv("  %-12s  direct= %s  exchange= %s  total= %s", xystr, estr(ed), estr(ex), estr(ed+ex))
 
-        e_direct = mpi.world.allreduce(e_direct) / emb.ncells
-        e_exchange = mpi.world.allreduce(e_exchange) / emb.ncells
+        if mpi:
+            e_direct = mpi.world.allreduce(e_direct)
+            e_exchange = mpi.world.allreduce(e_exchange)
+        e_direct /= emb.ncells
+        e_exchange /= emb.ncells
         e_icmp2 = e_direct + e_exchange
         if mpi.is_master:
             emb.log.info("  %-12s  direct= %s  exchange= %s  total= %s", "Total:", estr(e_direct), estr(e_exchange), estr(e_icmp2))

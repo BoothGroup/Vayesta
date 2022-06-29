@@ -70,7 +70,7 @@ class Fragment(BaseFragment):
             """Cluster 2DM"""
             return self.wf.make_rdm2()
 
-    def __init__(self, *args, solver=None, **kwargs):
+    def __init__(self, *args, **kwargs):
 
         """
         Parameters
@@ -82,15 +82,7 @@ class Fragment(BaseFragment):
         name :
             Name of fragment.
         """
-
         super().__init__(*args, **kwargs)
-
-        if solver is None:
-            solver = self.base.solver
-        if solver.lower() not in self.base.valid_solvers:
-            raise ValueError("Unknown solver: %s" % solver)
-        self.solver = solver
-
         # For self-consistent mode
         self.solver_results = None
 
@@ -196,8 +188,9 @@ class Fragment(BaseFragment):
 
     def kernel(self, solver=None, init_guess=None, eris=None):
 
-        if solver is None:
-            solver = self.solver
+        solver = solver or self.solver
+        if solver not in self.base.valid_solvers:
+            raise ValueError("Unknown solver: %s" % solver)
         if self.cluster is None:
             raise RuntimeError
         cluster = self.cluster
@@ -209,7 +202,7 @@ class Fragment(BaseFragment):
         #    self.log.debugv("Projecting ERIs onto subspace")
         #    eris = ao2mo.helper.project_ccsd_eris(eris, cluster.c_active, cluster.nocc_active, ovlp=self.base.get_ovlp())
 
-        if solver is None:
+        if solver == 'HF':
             return None
 
         init_guess = self.get_init_guess(init_guess, solver, cluster)

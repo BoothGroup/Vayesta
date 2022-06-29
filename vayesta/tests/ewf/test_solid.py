@@ -42,11 +42,10 @@ class SolidEWFTests(TestCase):
 
         # --- Test partial bath
         e_expected = -8.068896307452492
-        kemb = ewf.EWF(kmf, bath_options=dict(threshold=1e-5))
-        gemb = ewf.EWF(gmf, bath_options=dict(threshold=1e-5))
-        with gemb.iao_fragmentation() as f:
-            f.add_atomic_fragment(0, sym_factor=nk)
-            f.add_atomic_fragment(1, sym_factor=nk)
+        kemb.reset(reset_bath=False)
+        gemb.reset(reset_bath=False)
+        kemb.change_options(bath_options=dict(threshold=1e-5))
+        gemb.change_options(bath_options=dict(threshold=1e-5))
         kemb.kernel()
         gemb.kernel()
         self.assertAllclose(kemb.e_tot, e_expected)
@@ -80,12 +79,12 @@ class SolidEWFTests(TestCase):
 
         # --- Test partial bath
         e_expected = -75.8781119002179
-        kemb = ewf.EWF(kmf, bath_options=dict(threshold=1e-5))
-        gemb = ewf.EWF(gmf, bath_options=dict(threshold=1e-5))
-        with kemb.iao_fragmentation() as f:
-            f.add_atomic_fragment(0, sym_factor=2)
-        with gemb.iao_fragmentation() as f:
-            f.add_atomic_fragment(0, sym_factor=2*nk)
+        kemb.reset(reset_bath=False)
+        gemb.reset(reset_bath=False)
+        kemb.change_options(bath_options=dict(threshold=1e-5))
+        gemb.change_options(bath_options=dict(threshold=1e-5))
+        kemb.kernel()
+        gemb.kernel()
         self.assertAllclose(kemb.e_tot, e_expected)
         self.assertAllclose(gemb.e_tot/nk, e_expected)
 
@@ -117,10 +116,10 @@ class SolidEWFTests(TestCase):
 
         # --- Test partial bath
         e_expected = -24.40568870697553
-        kemb = ewf.EWF(kmf, bath_options=dict(threshold=1e-5))
-        gemb = ewf.EWF(gmf, bath_options=dict(threshold=1e-5))
-        with gemb.iao_fragmentation() as f:
-            f.add_atomic_fragment(0, sym_factor=nk)
+        kemb.reset(reset_bath=False)
+        gemb.reset(reset_bath=False)
+        kemb.change_options(bath_options=dict(threshold=1e-5))
+        gemb.change_options(bath_options=dict(threshold=1e-5))
         kemb.kernel()
         gemb.kernel()
         self.assertAllclose(kemb.e_tot, e_expected)
@@ -154,10 +153,12 @@ class SolidEWFTests(TestCase):
 
         # --- Test partial bath
         e_expected = -54.46536454436367
-        kemb = ewf.EWF(kmf, bath_options=dict(bno_threshold=1e-5))
-        gemb = ewf.EWF(gmf, bath_options=dict(bno_threshold=1e-5))
-        with gemb.iao_fragmentation() as f:
-            f.add_atomic_fragment(0, sym_factor=nk)
+        kemb.reset(reset_bath=False)
+        gemb.reset(reset_bath=False)
+        kemb.change_options(bath_options=dict(threshold=1e-5))
+        gemb.change_options(bath_options=dict(threshold=1e-5))
+        kemb.kernel()
+        gemb.kernel()
         self.assertAllclose(kemb.e_tot, gemb.e_tot/nk)
         self.assertAllclose(kemb.e_tot, gemb.e_tot/nk)
 

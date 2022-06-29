@@ -3,7 +3,7 @@
 Authors
 -------
 
-OJ Backhouse, M Nusspickel, CJC Scott, GH Booth
+M Nusspickel, OJ Backhouse, B Ibrahim, A Santana-Bonilla, CJC Scott, GH Booth
 
 Installation
 ------------

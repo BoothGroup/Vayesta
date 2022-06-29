@@ -54,26 +54,25 @@ class Options(Embedding.Options):
 
 
 class EWF(Embedding):
+    """Class for embedded wave function (EWF) calculations.
 
+    Parameters
+    ----------
+    mf : pyscf.scf object
+        Converged mean-field object.
+    solver : {'CCSD', None, 'MP2', 'CCSD', 'CISD', 'FCI', 'DUMP'}
+        Solver for embedding problem. Default: 'CCSD'.
+    bath_options :
+    **kwargs :
+        See class `Options` for additional options.
+
+    """
     Fragment = Fragment
     Options = Options
 
-    valid_solvers = [None, '', 'mp2', 'cisd', 'ccsd', 'tccsd', 'fci', 'fci-spin0', 'fci-spin1', 'dump']
-
     def __init__(self, mf, solver='CCSD', bno_threshold=None, bath_type=None, solve_lambda=None, log=None, **kwargs):
-        """Embedded wave function (EWF) calculation object.
-
-        Parameters
-        ----------
-        mf : pyscf.scf object
-            Converged mean-field object.
-        solver : str, optional
-            Solver for embedding problem. Default: 'CCSD'.
-        **kwargs :
-            See class `Options` for additional options.
-        """
         t0 = timer()
-        super().__init__(mf, log=log, **kwargs)
+        super().__init__(mf, solver=solver, log=log, **kwargs)
 
         # Backwards support
         if bno_threshold is not None:
@@ -90,11 +89,6 @@ class EWF(Embedding):
             # Options
             self.log.info("Parameters of %s:", self.__class__.__name__)
             self.log.info(break_into_lines(str(self.opts), newline='\n    '))
-
-            # --- Check input
-            if solver.lower() not in self.valid_solvers:
-                raise ValueError("Unknown solver: %s" % solver)
-            self.solver = solver
             self.log.info("Time for %s setup: %s", self.__class__.__name__, time_string(timer()-t0))
 
     def __repr__(self):
@@ -273,7 +267,6 @@ class EWF(Embedding):
     # DM1
     @log_method()
     def _make_rdm1_mp2(self, *args, **kwargs):
-        #with log_time(self.log.timing, "Time for make_rdm1_demo"):
         return make_rdm1_ccsd(self, *args, mp2=True, **kwargs)
 
     @log_method()

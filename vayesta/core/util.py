@@ -43,7 +43,7 @@ __all__ = [
 class Object:
     pass
 
-def cache(maxsize=16, typed=False, copy=False):
+def cache(maxsize_or_user_function=16, typed=False, copy=False):
     """Adds LRU cache to function or method.
 
     If the function or method returns a mutable object, e.g. a NumPy array,
@@ -54,9 +54,19 @@ def cache(maxsize=16, typed=False, copy=False):
 
     modified from https://stackoverflow.com/questions/54909357
     """
+    # For Python 3.7 support:
+    if callable(maxsize_or_user_function):
+        user_function = maxsize_or_user_function
+        maxsize = 16
+    else:
+        user_function = None
+        maxsize = maxsize_or_user_function
     lru_cache = functools.lru_cache(maxsize, typed)
     if not copy:
-        return lru_cache
+        if user_function is not None:
+            return lru_cache(user_function)
+        else:
+            return lru_cache
     def decorator(func):
         cached_func = lru_cache(func)
         @functools.wraps(func)
