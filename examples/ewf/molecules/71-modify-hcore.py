@@ -1,12 +1,11 @@
 import numpy as np
-
 import pyscf
 import pyscf.gto
 import pyscf.scf
 import pyscf.cc
-
 import vayesta
 import vayesta.ewf
+
 
 mol = pyscf.gto.Mole()
 mol.atom = """
@@ -41,7 +40,7 @@ mf.kernel()
 
 # get_hcore_for_energy must be overwritten with original H_core function,
 # if the energy should be calculated without the shift
-emb = vayesta.ewf.EWF(mf, bno_threshold=1e-6, solve_lambda=True,
+emb = vayesta.ewf.EWF(mf, bath_options=dict(threshold=1e-6), solver_options=dict(solve_lambda=True),
         overwrite=dict(get_hcore_for_energy=(lambda emb, *args : hcore_orig())))
 emb.kernel()
 

@@ -2,9 +2,9 @@ import pyscf
 import pyscf.gto
 import pyscf.scf
 import pyscf.cc
-
 import vayesta
 import vayesta.ewf
+
 
 mol = pyscf.gto.Mole()
 mol.atom = """
@@ -20,13 +20,14 @@ mol.build()
 mf = pyscf.scf.RHF(mol)
 mf.kernel()
 
-# Embedded CCSD
-emb = vayesta.ewf.EWF(mf, bno_threshold=1e-6, solve_lambda=True)
-emb.kernel()
-
 # Reference full system CCSD:
 cc = pyscf.cc.CCSD(mf)
 cc.kernel()
+
+# Embedded CCSD
+emb = vayesta.ewf.EWF(mf, bath_options=dict(threshold=1e-6),
+        solver_options=dict(solve_lambda=True))
+emb.kernel()
 
 print("Total Energy")
 print("E(HF)=        %+16.8f Ha" % mf.e_tot)

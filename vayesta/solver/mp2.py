@@ -42,13 +42,15 @@ class MP2_Solver(ClusterSolver):
     def get_eris(self):
         # We only need the (ov|ov) block for MP2:
         mo_coeff = 2*[self.cluster.c_active_occ, self.cluster.c_active_vir]
-        eris = self.base.get_eris_array(mo_coeff)
+        with log_time(self.log.timing, "Time for 2e-integral transformation: %s"):
+            eris = self.base.get_eris_array(mo_coeff)
         return eris
 
     def get_cderi(self):
         # We only need the (L|ov) block for MP2:
         mo_coeff = (self.cluster.c_active_occ, self.cluster.c_active_vir)
-        cderi, cderi_neg = self.base.get_cderi(mo_coeff)
+        with log_time(self.log.timing, "Time for 2e-integral transformation: %s"):
+            cderi, cderi_neg = self.base.get_cderi(mo_coeff)
         return cderi, cderi_neg
 
     def get_mo_energy(self, fock=None):
@@ -106,12 +108,17 @@ class MP2_Solver(ClusterSolver):
         self.t2 = t2
         mo = Orbitals(self.cluster.c_active, energy=mo_energy, occ=self.cluster.nocc_active)
         self.wf = MP2_WaveFunction(mo, t2)
+        self.converged = True
 
-    def make_rdm1(self):
-        raise NotImplementedError()
+    def _debug_exact_wf(self, wf):
+        raise NotImplementedError
 
-    def make_rdm2(self):
-        raise NotImplementedError()
+    def _debug_random_wf(self):
+        mo = Orbitals(self.cluster.c_active, occ=self.cluster.nocc_active)
+        t2 = np.random.rand(mo.nocc, mo.nocc, mo.nvir, mo.nvir)
+        self.wf = MP2_WaveFunction(mo, t2)
+        self.converged = True
+
 
 class UMP2_Solver(MP2_Solver):
 

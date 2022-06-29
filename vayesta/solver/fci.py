@@ -101,25 +101,6 @@ class FCI_Solver(ClusterSolver):
     def get_l2(self, **kwargs):
         return None
 
-    def get_eris(self):
-        with log_time(self.log.timing, "Time for AO->MO of ERIs:  %s"):
-            eris = self.base.get_eris_array(self.cluster.c_active)
-        return eris
-
-    def get_heff(self, eris, with_vext=True):
-        f_act = dot(self.cluster.c_active.T, self.base.get_fock(), self.cluster.c_active)
-        occ = np.s_[:self.cluster.nocc_active]
-        v_act = 2*einsum('iipq->pq', eris[occ,occ]) - einsum('iqpi->pq', eris[occ,:,:,occ])
-        h_eff = f_act - v_act
-        # This should be equivalent to:
-        #core = np.s_[:self.nocc_frozen]
-        #dm_core = 2*np.dot(self.mo_coeff[:,core], self.mo_coeff[:,core].T)
-        #v_core = self.mf.get_veff(dm=dm_core)
-        #h_eff = np.linalg.multi_dot((self.c_active.T, self.base.get_hcore()+v_core, self.c_active))
-        if with_vext and self.v_ext is not None:
-            h_eff += self.v_ext
-        return h_eff
-
     def kernel(self, ci0=None, eris=None):
         """Run FCI kernel."""
 
@@ -204,32 +185,6 @@ class UFCI_Solver(FCI_Solver):
 
     def get_solver_class(self):
         return pyscf.fci.direct_uhf.FCISolver
-
-    def get_eris(self):
-        c_act = self.cluster.c_active
-        with log_time(self.log.timing, "Time for AO->MO of ERIs:  %s"):
-            eris_aa = self.base.get_eris_array(c_act[0])
-            eris_ab = self.base.get_eris_array((c_act[0], c_act[0], c_act[1], c_act[1]))
-            eris_bb = self.base.get_eris_array(c_act[1])
-        return (eris_aa, eris_ab, eris_bb)
-
-    def get_heff(self, eris, with_vext=True):
-        c_active = self.cluster.c_active
-        fock = self.base.get_fock()
-        fa = dot(c_active[0].T, fock[0], c_active[0])
-        fb = dot(c_active[1].T, fock[1], c_active[1])
-        oa = np.s_[:self.cluster.nocc_active[0]]
-        ob = np.s_[:self.cluster.nocc_active[1]]
-        gaa, gab, gbb = eris
-        va = (einsum('iipq->pq', gaa[oa,oa]) + einsum('pqii->pq', gab[:,:,ob,ob])   # Coulomb
-            - einsum('ipqi->pq', gaa[oa,:,:,oa]))                                   # Exchange
-        vb = (einsum('iipq->pq', gbb[ob,ob]) + einsum('iipq->pq', gab[oa,oa])       # Coulomb
-            - einsum('ipqi->pq', gbb[ob,:,:,ob]))                                   # Exchange
-        h_eff = (fa-va, fb-vb)
-        if with_vext and self.v_ext is not None:
-            h_eff = ((h_eff[0] + self.v_ext[0]),
-                     (h_eff[1] + self.v_ext[1]))
-        return h_eff
 
     @deprecated()
     def get_t2(self):

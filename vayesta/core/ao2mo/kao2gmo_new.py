@@ -13,14 +13,13 @@ import numpy as np
 import pyscf
 import pyscf.pbc
 import pyscf.pbc.tools
-from pyscf.pbc.lib import kpts_helper
 # Package
 from vayesta.core.util import *
 import vayesta.libs
-from vayesta.mpi import timer
+from vayesta.core.ao2mo import helper
+
 
 log = logging.getLogger(__name__)
-
 
 def kao2gmo_cderi(gdf, mo_coeffs, make_real=True, blksize=None, tril_kij=True, driver='c'):
     """Transform density-fitted ERIs from primtive cell k-AO, to Gamma-point MOs.
@@ -64,7 +63,7 @@ def kao2gmo_cderi(gdf, mo_coeffs, make_real=True, blksize=None, tril_kij=True, d
         naux_pos -= 1
     kpts = gdf.kpts
     nk = len(kpts)
-    kconserv = kpts_helper.get_kconserv(cell, kpts, n=2)
+    kconserv = helper.get_kconserv(cell, kpts, nk=2)
     # Fourier transform MOs from supercell Gamma point to primitive cell k-points
     phase = (pyscf.pbc.tools.k2gamma.get_phase(cell, kpts)[1]).T
 
@@ -74,6 +73,7 @@ def kao2gmo_cderi(gdf, mo_coeffs, make_real=True, blksize=None, tril_kij=True, d
         blksize = np.clip(max_size, 1, int(1e9))
         log.debugv("max_memory= %.3f MB  max_size= %d  blksize= %d", max_memory/1e6, max_size, blksize)
 
+    log.debugv("driver= %s", driver)
     if driver == 'python':
         transform = lambda cderi_kij, mo1_ki, mo2_kj : einsum('Lab,ai,bj->Lij', cderi_kij, mo1_ki.conj(), mo2_kj)
     elif driver == 'c':
@@ -240,7 +240,7 @@ if __name__ == '__main__':
     mo_vir = mo_coeff[:,nocc:]
 
     t0 = timer()
-    cderi, cderi_neg = kao2gmo_gdf(gdf, (mo_coeff, mo_coeff), driver='python', make_real=True)
+    cderi, cderi_neg = kao2gmo_cderi(gdf, (mo_coeff, mo_coeff), driver='python', make_real=True)
     #cderi_oo, cderi_neg_oo = kao2gmo_gdf(gdf, (mo_occ, mo_occ), driver='python')
     #cderi_ov, cderi_neg_ov = kao2gmo_gdf(gdf, (mo_occ, mo_vir), driver='python')
     #cderi_vv, cderi_neg_vv = kao2gmo_gdf(gdf, (mo_vir, mo_vir), driver='python')
@@ -250,7 +250,7 @@ if __name__ == '__main__':
         eri -= einsum('Lij,Lkl->ijkl', cderi_neg, cderi_neg)
 
     t0 = timer()
-    cderi, cderi_neg = kao2gmo_gdf(gdf, (mo_coeff, mo_coeff), driver='c')
+    cderi, cderi_neg = kao2gmo_cderi(gdf, (mo_coeff, mo_coeff), driver='c')
     print("Time k(C)= %.4f" % (timer()-t0))
     eri2 = einsum('Lij,Lkl->ijkl', cderi ,cderi)
     if cderi_neg is not None:

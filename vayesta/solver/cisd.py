@@ -1,9 +1,9 @@
 import pyscf
 import pyscf.ci
-
 from vayesta.core.util import *
 from vayesta.core.types import WaveFunction
 from .ccsd import CCSD_Solver
+from .solver import ClusterSolver
 
 
 class CISD_Solver(CCSD_Solver):

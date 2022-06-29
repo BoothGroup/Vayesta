@@ -88,23 +88,34 @@ def get_intercluster_mp2_energy_rhf(emb, bno_threshold_occ=None, bno_threshold_v
                 auxmol = emb.df.auxmol
             except AttributeError:
                 auxmol = emb.df.auxcell
+        auxsym = type(emb.symmetry)(auxmol)
 
         with log_time(emb.log.timing, "Time for intercluster MP2 energy setup: %s"):
             coll = {}
             # Loop over symmetry unique fragments X
-            for x in emb.get_fragments(mpi_rank=mpi.rank, sym_parent=None):
+            for x in emb.get_fragments(active=True, mpi_rank=mpi.rank, sym_parent=None):
                 # Occupied orbitals:
                 if bno_threshold_occ is None:
-                    c_occ = x.bath.dmet_bath.c_cluster_occ
+                    c_occ = x._dmet_bath.c_cluster_occ
                 else:
-                    c_bath_occ = x.bath.get_occupied_bath(bno_threshold=bno_threshold_occ, verbose=False)[0]
-                    c_occ = x.canonicalize_mo(x.bath.c_cluster_occ, c_bath_occ)[0]
+                    if x._bath_factory_occ is not None:
+                        bath = x._bath_factory_occ
+                        c_bath_occ = bath.get_bath(bno_threshold=bno_threshold_occ, verbose=False)[0]
+                        c_occ = x.canonicalize_mo(bath.c_cluster_occ, c_bath_occ)[0]
+                    else:
+                        c_bath_occ = x.bath.get_occupied_bath(bno_threshold=bno_threshold_occ, verbose=False)[0]
+                        c_occ = x.canonicalize_mo(x.bath.c_cluster_occ, c_bath_occ)[0]
                 # Virtual orbitals:
                 if bno_threshold_vir is None:
-                    c_vir = x.bath.dmet_bath.c_cluster_vir
+                    c_vir = x._dmet_bath.c_cluster_vir
                 else:
-                    c_bath_vir = x.bath.get_virtual_bath(bno_threshold=bno_threshold_vir, verbose=False)[0]
-                    c_vir = x.canonicalize_mo(x.bath.c_cluster_vir, c_bath_vir)[0]
+                    if x._bath_factory_vir is not None:
+                        bath = x._bath_factory_vir
+                        c_bath_vir = bath.get_bath(bno_threshold=bno_threshold_vir, verbose=False)[0]
+                        c_vir = x.canonicalize_mo(bath.c_cluster_vir, c_bath_vir)[0]
+                    else:
+                        c_bath_vir = x.bath.get_virtual_bath(bno_threshold=bno_threshold_vir, verbose=False)[0]
+                        c_vir = x.canonicalize_mo(x.bath.c_cluster_vir, c_bath_vir)[0]
                 # Three-center integrals:
                 cderi, cderi_neg = emb.get_cderi((c_occ, c_vir))   # TODO: Reuse BNO
                 # Store required quantities:
@@ -117,11 +128,11 @@ def get_intercluster_mp2_energy_rhf(emb, bno_threshold_occ=None, bno_threshold_v
                 if cderi_neg is not None:
                     coll[x.id, 'cderi_neg'] = cderi_neg
                 # Fragments Y, which are symmetry related to X
-                for y in emb.get_fragments(sym_parent=x):
+                for y in emb.get_fragments(active=True, sym_parent=x):
                     sym_op = y.get_symmetry_operation()
                     coll[y.id, 'c_vir'] = sym_op(c_vir)
                     # TODO: Why do we need to invert the atom reordering with argsort?
-                    sym_op_aux = type(sym_op)(auxmol, vector=sym_op.vector, atom_reorder=np.argsort(sym_op.atom_reorder))
+                    sym_op_aux = type(sym_op)(auxsym, vector=sym_op.vector, atom_reorder=np.argsort(sym_op.atom_reorder))
                     coll[y.id, 'cderi'] = sym_op_aux(cderi)
                     #cderi_y2 = emb.get_cderi((sym_op(c_occ), sym_op(c_vir)))[0]
                     if cderi_neg is not None:
@@ -131,7 +142,7 @@ def get_intercluster_mp2_energy_rhf(emb, bno_threshold_occ=None, bno_threshold_v
                 coll = mpi.create_rma_dict(coll)
 
         #for ix, x in enumerate(emb.get_fragments(mpi_rank=mpi.rank)):
-        for ix, x in enumerate(emb.get_fragments(fragments, mpi_rank=mpi.rank, sym_parent=None)):
+        for ix, x in enumerate(emb.get_fragments(fragments, active=True, mpi_rank=mpi.rank, sym_parent=None)):
             cx = ClusterRHF(x, coll)
 
             eia_x = cx.e_occ[:,None] - cx.e_vir[None,:]
@@ -145,7 +156,7 @@ def get_intercluster_mp2_energy_rhf(emb, bno_threshold_occ=None, bno_threshold_v
             svir0 = np.dot(cx.c_vir.T, ovlp)
 
             # Loop over all other fragments
-            for iy, y in enumerate(emb.get_fragments()):
+            for iy, y in enumerate(emb.get_fragments(active=True)):
                 cy = ClusterRHF(y, coll)
 
                 # TESTING
@@ -266,16 +277,18 @@ def get_intercluster_mp2_energy_uhf(emb, bno_threshold=1e-9, direct=True, exchan
                 auxmol = emb.df.auxmol
             except AttributeError:
                 auxmol = emb.df.auxcell
+        auxsym = type(emb.symmetry)(auxmol)
 
         with log_time(emb.log.timing, "Time for intercluster MP2 energy setup: %s"):
             coll = {}
             # Loop over symmetry unique fragments
             for x in emb.get_fragments(mpi_rank=mpi.rank, sym_parent=None):
-                c_occ = x.bath.dmet_bath.c_cluster_occ
+                #c_occ = x.bath.dmet_bath.c_cluster_occ
+                c_occ = x._dmet_bath.c_cluster_occ
                 coll[x.id, 'p_frag_a'] = dot(x.c_proj[0].T, ovlp, c_occ[0])
                 coll[x.id, 'p_frag_b'] = dot(x.c_proj[1].T, ovlp, c_occ[1])
-                c_bath_vir = x.bath.get_virtual_bath(bno_threshold=bno_threshold, verbose=False)[0]
-                c_vir = x.canonicalize_mo(x.bath.c_cluster_vir, c_bath_vir)[0]
+                c_bath_vir = x._bath_factory_vir.get_bath(bno_threshold=bno_threshold, verbose=False)[0]
+                c_vir = x.canonicalize_mo(x._dmet_bath.c_cluster_vir, c_bath_vir)[0]
                 coll[x.id, 'c_vir_a'], coll[x.id, 'c_vir_b'] = c_vir
                 coll[x.id, 'e_occ_a'], coll[x.id, 'e_occ_b'] = x.get_fragment_mo_energy(c_occ)
                 coll[x.id, 'e_vir_a'], coll[x.id, 'e_vir_b'] = x.get_fragment_mo_energy(c_vir)
@@ -287,12 +300,12 @@ def get_intercluster_mp2_energy_uhf(emb, bno_threshold=1e-9, direct=True, exchan
                     coll[x.id, 'cderi_a_neg'] = cderi_a_neg
                     coll[x.id, 'cderi_b_neg'] = cderi_b_neg
                 # Symmetry related fragments
-                for y in emb.get_fragments(sym_parent=x):
+                for y in emb.get_fragments(active=True, sym_parent=x):
                     sym_op = y.get_symmetry_operation()
                     coll[y.id, 'c_vir_a'] = sym_op(c_vir[0])
                     coll[y.id, 'c_vir_b'] = sym_op(c_vir[1])
                     # TODO: Why do we need to invert the atom reordering with argsort?
-                    sym_op_aux = type(sym_op)(auxmol, vector=sym_op.vector, atom_reorder=np.argsort(sym_op.atom_reorder))
+                    sym_op_aux = type(sym_op)(auxsym, vector=sym_op.vector, atom_reorder=np.argsort(sym_op.atom_reorder))
                     coll[y.id, 'cderi_a'] = sym_op_aux(cderi_a)
                     coll[y.id, 'cderi_b'] = sym_op_aux(cderi_b)
                     if cderi_a_neg is not None:
@@ -302,7 +315,7 @@ def get_intercluster_mp2_energy_uhf(emb, bno_threshold=1e-9, direct=True, exchan
             if mpi:
                 coll = mpi.create_rma_dict(coll)
 
-        for ix, x in enumerate(emb.get_fragments(mpi_rank=mpi.rank, sym_parent=None)):
+        for ix, x in enumerate(emb.get_fragments(active=True, mpi_rank=mpi.rank, sym_parent=None)):
             cx = ClusterUHF(x, coll)
 
             eia_xa = cx.e_occ[0][:,None] - cx.e_vir[0][None,:]
@@ -316,7 +329,7 @@ def get_intercluster_mp2_energy_uhf(emb, bno_threshold=1e-9, direct=True, exchan
                 svir0b = np.dot(cx.c_vir[1].T, ovlp)
 
             # Loop over all other fragments
-            for iy, y in enumerate(emb.get_fragments()):
+            for iy, y in enumerate(emb.get_fragments(active=True)):
                 cy = ClusterUHF(y, coll)
 
                 eia_ya = cy.e_occ[0][:,None] - cy.e_vir[0][None,:]

@@ -25,7 +25,7 @@ import vayesta
 from vayesta.lattmod import latt
 from vayesta.misc import molecules
 from vayesta.misc import solids
-#from vayesta.core import fold_scf
+#from vayesta.core.foldscf import fold_scf
 
 
 class TestMolecule:

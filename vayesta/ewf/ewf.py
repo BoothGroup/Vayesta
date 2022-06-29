@@ -1,15 +1,16 @@
 # --- Standard
 import dataclasses
+import functools
 from typing import Union
 # --- External
 import numpy as np
 # --- Internal
 import vayesta
 from vayesta.core.util import *
-from vayesta.core import Embedding
+from vayesta.core.qemb import Embedding
 from vayesta.core.fragmentation import SAO_Fragmentation
-from vayesta.core.fragmentation import IAO_Fragmentation
 from vayesta.core.fragmentation import IAOPAO_Fragmentation
+from vayesta.misc import corrfunc
 from vayesta.mpi import mpi
 # --- Package
 from . import helper
@@ -23,62 +24,43 @@ from .rdm import make_rdm1_ccsd_proj_lambda
 from .rdm import make_rdm2_ccsd_proj_lambda
 from .icmp2 import get_intercluster_mp2_energy_rhf
 
-timer = mpi.timer
-
 
 @dataclasses.dataclass
-class EWFResults:
-    bno_threshold: float = None
-    cluster_sizes: np.ndarray = None
-    e_corr: float = None
+class Options(Embedding.Options):
+    """Options for EWF calculations."""
+    # --- Fragment settings
+    iao_minao : str = 'auto'            # Minimal basis for IAOs
+    # --- Bath settings
+    bath_options: dict = Embedding.Options.change_dict_defaults('bath_options',
+            bathtype='mp2', threshold=1e-8)
+    #ewdmet_max_order: int = 1
+    # If multiple bno thresholds are to be calculated, we can project integrals and amplitudes from a previous larger cluster:
+    project_eris: bool = False          # Project ERIs from a pervious larger cluster (corresponding to larger eta), can result in a loss of accuracy especially for large basis sets!
+    project_init_guess: bool = True     # Project converted T1,T2 amplitudes from a previous larger cluster
+    energy_functional: str = 'projected'
+    # --- Solver settings
+    t_as_lambda: bool = False           # If True, use T-amplitudes inplace of Lambda-amplitudes
+    # Counterpoise correction of BSSE
+    bsse_correction: bool = True
+    bsse_rmax: float = 5.0              # In Angstrom
+    nelectron_target: int = None
+    # --- Couple embedding problems (currently only CCSD)
+    sc_mode: int = 0
+    coupled_iterations: bool = False
+    # --- Other
+    absorb_fragments: bool = False
+    # --- Debugging
+    _debug_wf: str = None
 
 
 class EWF(Embedding):
 
-    valid_solvers = [None, '', 'MP2', 'CISD', 'CCSD', 'TCCSD', 'FCI', 'FCI-spin0', 'FCI-spin1']
     Fragment = Fragment
+    Options = Options
 
-    @dataclasses.dataclass
-    class Options(Embedding.Options):
-        """Options for EWF calculations."""
-        # --- Fragment settings
-        #fragment_type: str = 'IAO'
-        localize_fragment: bool = False     # Perform numerical localization on fragment orbitals
-        iao_minao : str = 'auto'            # Minimal basis for IAOs
-        # --- Bath settings
-        bath_type: str = 'MP2-BNO'
-        bno_truncation: str = 'occupation'  # Type of BNO truncation ["occupation", "number", "excited-percent", "electron-percent"]
-        bno_threshold: float = 1e-8
-        bno_threshold_occ: float = None
-        bno_threshold_vir: float = None
-        bno_project_t2: bool = False
-        ewdmet_max_order: int = 1
-        # If multiple bno thresholds are to be calculated, we can project integrals and amplitudes from a previous larger cluster:
-        project_eris: bool = False          # Project ERIs from a pervious larger cluster (corresponding to larger eta), can result in a loss of accuracy especially for large basis sets!
-        project_init_guess: bool = True     # Project converted T1,T2 amplitudes from a previous larger cluster
-        orthogonal_mo_tol: float = False
-        energy_functional: str = 'projected'
-        # --- Solver settings
-        solve_lambda: bool = False          # If True, solve for the Lambda-amplitudes if a CCSD solver is used
-        t_as_lambda: bool = False           # If True, use T-amplitudes inplace of Lambda-amplitudes
-        # Counterpoise correction of BSSE
-        bsse_correction: bool = True
-        bsse_rmax: float = 5.0              # In Angstrom
-        # -- Self-consistency
-        sc_maxiter: int = 30
-        sc_energy_tol: float = 1e-6
-        sc_mode: int = 0
-        nelectron_target: int = None
-        # --- Intercluster MP2 energy
-        icmp2: bool = True
-        icmp2_bno_threshold: float = 1e-8
-        # --- Couple embedding problems (currently only CCSD)
-        coupled_iterations: bool = False
-        # --- Debugging
-        _debug_exact_wf: bool = None
+    valid_solvers = [None, '', 'mp2', 'cisd', 'ccsd', 'tccsd', 'fci', 'fci-spin0', 'fci-spin1', 'dump']
 
-
-    def __init__(self, mf, solver='CCSD', options=None, log=None, **kwargs):
+    def __init__(self, mf, solver='CCSD', bno_threshold=None, bath_type=None, solve_lambda=None, log=None, **kwargs):
         """Embedded wave function (EWF) calculation object.
 
         Parameters
@@ -91,22 +73,29 @@ class EWF(Embedding):
             See class `Options` for additional options.
         """
         t0 = timer()
-        super().__init__(mf, options=options, log=log, **kwargs)
+        super().__init__(mf, log=log, **kwargs)
+
+        # Backwards support
+        if bno_threshold is not None:
+            self.log.warning("keyword argument bno_threshold is deprecated!")
+            self.opts.bath_options = {**self.opts.bath_options, **dict(threshold=bno_threshold)}
+        if bath_type is not None:
+            self.log.warning("keyword argument bath_type is deprecated!")
+            self.opts.bath_options = {**self.opts.bath_options, **dict(bathtype=bath_type)}
+        if solve_lambda is not None:
+            self.log.warning("keyword argument solve_lambda is deprecated!")
+            self.opts.solver_options = {**self.opts.solver_options, **dict(solve_lambda=solve_lambda)}
+
         with self.log.indent():
             # Options
             self.log.info("Parameters of %s:", self.__class__.__name__)
             self.log.info(break_into_lines(str(self.opts), newline='\n    '))
 
             # --- Check input
-            if solver not in self.valid_solvers:
+            if solver.lower() not in self.valid_solvers:
                 raise ValueError("Unknown solver: %s" % solver)
             self.solver = solver
-
-            self.e_corr = None
             self.log.info("Time for %s setup: %s", self.__class__.__name__, time_string(timer()-t0))
-
-            # TODO: Redo self-consistencies
-            self.iteration = 0
 
     def __repr__(self):
         keys = ['mf', 'solver']
@@ -114,29 +103,15 @@ class EWF(Embedding):
         values = [self.__dict__[k] for k in keys]
         return fmt % (self.__class__.__name__, *[x for y in zip(keys, values) for x in y])
 
-    def get_init_mo_coeff(self, mo_coeff=None):
-        """Orthogonalize insufficiently orthogonal MOs.
+    def _reset(self, **kwargs):
+        super()._reset(**kwargs)
+        # TODO: Redo self-consistencies
+        self.iteration = 0
+        self._make_rdm1_ccsd_global_wf.cache_clear()
 
-        (For example as a result of k2gamma conversion with low cell.precision)
-        """
-        if mo_coeff is None: mo_coeff = self.mo_coeff
-        c = mo_coeff.copy()
-        ovlp = self.get_ovlp()
-        assert np.all(c.imag == 0), "max|Im(C)|= %.2e" % abs(c.imag).max()
-        err = abs(dot(c.T, ovlp, c) - np.eye(c.shape[-1])).max()
-        if err > 1e-5:
-            self.log.error("Orthogonality error of MOs= %.2e !!!", err)
-        else:
-            self.log.debug("Orthogonality error of MOs= %.2e", err)
-        if self.opts.orthogonal_mo_tol and err > self.opts.orthogonal_mo_tol:
-            t0 = timer()
-            self.log.info("Orthogonalizing orbitals...")
-            c_orth = helper.orthogonalize_mo(c, ovlp)
-            change = abs(einsum('ai,ab,bi->i', c_orth, ovlp, c)-1)
-            self.log.info("Max. orbital change= %.2e%s", change.max(), " (!!!)" if change.max() > 1e-4 else "")
-            self.log.timing("Time for orbital orthogonalization: %s", time_string(timer()-t0))
-            c = c_orth
-        return c
+    # Default fragmentation
+    def fragmentation(self, *args, **kwargs):
+        return self.iao_fragmentation(*args, **kwargs)
 
     def tailor_all_fragments(self):
         for x in self.fragments:
@@ -145,112 +120,83 @@ class EWF(Embedding):
                     continue
                 x.add_tailor_fragment(y)
 
-    def kernel(self, bno_threshold=None):
-        """Run EWF.
-
-        Parameters
-        ----------
-        bno_threshold : float or iterable, optional
-            Bath natural orbital threshold. If `None`, self.opts.bno_threshold is used. Default: None.
-        """
-        # Reset previous results
-        self.reset()
+    def kernel(self):
+        """Run EWF."""
+        t_start = timer()
 
         # Automatic fragmentation
         if len(self.fragments) == 0:
             self.log.debug("No fragments found. Adding all atomic IAO fragments.")
-            with IAO_Fragmentation(self) as f:
-                f.add_all_atomic_fragments()
+            with self.fragmentation() as frag:
+                frag.add_all_atomic_fragments()
+        self.check_fragment_nelectron()
 
         # Debug: calculate exact WF
-        if self.opts._debug_exact_wf is not None:
-            self._debug_get_exact_wf()
+        if self.opts._debug_wf is not None:
+            self._debug_get_wf(self.opts._debug_wf)
 
-        self.check_fragment_nelectron()
-        if np.ndim(bno_threshold) == 0:
-            return self._kernel_single_threshold(bno_threshold=bno_threshold)
-        return self._kernel_multiple_thresholds(bno_thresholds=bno_threshold)
-
-    def _kernel_multiple_thresholds(self, bno_thresholds):
-        results = []
-        for i, bno in enumerate(bno_thresholds):
-            self.log.info("Now running BNO threshold= %.2e", bno)
-            self.log.info("===================================")
-
-            # Project ERIs for next calculation:
-            # TODO
-            if i > 0:
-                #self.log.debugv("Projecting ERIs onto subspace")
-                for x in self.fragments:
-                    x._eris = None
-                    #x._eris = ao2mo.helper.project_ccsd_eris(x._eris, x.cluster.c_active, x.cluster.nocc_active, ovlp=self.get_ovlp())
-
-            self.reset(keep_bath=True)
-
-            # Store ERIs so they can be reused in the next iteration
-            # (only if this is not the last calculation and the next calculation uses a larger or equal threshold)
-            store_eris = (i+1 < len(bno_thresholds)) and (bno <= bno_thresholds[i+1])
-            # Note that if opts.store_eris has been set to True elsewhere, we do not want to overwrite this,
-            # even if store_eris was evaluated as False. For this reason we add `or self.opts.store_eris`.
-            with replace_attr(self.opts, store_eris=(store_eris or self.opts.store_eris)):
-                res = self._kernel_single_threshold(bno_threshold=bno)
-            results.append(res)
-
-        # Output
-        for i, bno in enumerate(bno_thresholds):
-            self.log.info("BNO threshold= %.2e  E(tot)= %s", bno, energy_string(results[i]))
-
-        return results
-
-    def _kernel_single_threshold(self, bno_threshold=None):
-        """Run EWF.
-
-        Parameters
-        ----------
-        bno_threshold : float, optional
-            Bath natural orbital threshold.
-        """
-
-        if self.nfrag == 0:
-            raise RuntimeError("No fragments defined for calculation.")
-        assert (np.ndim(bno_threshold) == 0)
-
-        if mpi: mpi.world.Barrier()
-        t_start = timer()
-
-        # Create bath and clusters first
+        # --- Create bath and clusters
+        if mpi:
+            mpi.world.Barrier()
         self.log.info("")
         self.log.info("MAKING CLUSTERS")
         self.log.info("===============")
-        for x in self.get_fragments(sym_parent=None, mpi_rank=mpi.rank):
-            msg = "Making bath for %s%s" % (x, (" on MPI process %d" % mpi.rank) if mpi else "")
-            self.log.info(msg)
-            self.log.info(len(msg)*"-")
-            with self.log.indent():
-                x.make_bath_and_cluster(bno_threshold=bno_threshold)
-
+        with log_time(self.log.timing, "Total time for bath and clusters: %s"):
+            for x in self.get_fragments(active=True, sym_parent=None, mpi_rank=mpi.rank):
+                if x._results is not None:
+                    self.log.debug("Resetting %s" % x)
+                    x.reset()
+                msg = "Making bath for %s%s" % (x, (" on MPI process %d" % mpi.rank) if mpi else "")
+                self.log.info(msg)
+                self.log.info(len(msg)*"-")
+                with self.log.indent():
+                    if x._dmet_bath is None:
+                        x.make_bath()
+                    if x._cluster is None:
+                        x.make_cluster()
+            if mpi:
+                mpi.world.Barrier()
         if mpi:
-            self.communicate_clusters()
+            with log_time(self.log.timing, "Time for MPI communication of clusters: %s"):
+                self.communicate_clusters()
 
-        # Loop over fragments with no symmetry parent and with own MPI rank
+        if self.opts.absorb_fragments:
+            self.absorb_fragments()
+
+        # --- Loop over fragments with no symmetry parent and with own MPI rank
         self.log.info("")
         self.log.info("RUNNING SOLVERS")
         self.log.info("===============")
-        for x in self.get_fragments(sym_parent=None, mpi_rank=mpi.rank):
-            msg = "Solving %s%s" % (x, (" on MPI process %d" % mpi.rank) if mpi else "")
-            self.log.info(msg)
-            self.log.info(len(msg)*"-")
-            with self.log.indent():
-                x.kernel()
+        with log_time(self.log.timing, "Total time for solvers: %s"):
+            for x in self.get_fragments(active=True, sym_parent=None, mpi_rank=mpi.rank):
+                msg = "Solving %s%s" % (x, (" on MPI process %d" % mpi.rank) if mpi else "")
+                self.log.info(msg)
+                self.log.info(len(msg)*"-")
+                with self.log.indent():
+                    x.kernel()
+            if mpi:
+                mpi.world.Barrier()
 
-        # Evaluate correlation energy
+        if self.solver.lower() == 'dump':
+            self.log.output("Clusters dumped to file '%s'", self.opts.solver_options['dumpfile'])
+            return
+
+        # --- Check convergence of fragments
+        conv = True
+        for fx in self.get_fragments(active=True, sym_parent=None, mpi_rank=mpi.rank):
+            conv = (conv and fx.results.converged)
+        if mpi:
+            conv = mpi.world.allreduce(conv, op=mpi.MPI.LAND)
+        if not conv:
+            self.log.error("Some fragments did not converge!")
+        self.converged = conv
+
+        # --- Evaluate correlation energy and log information
         self.e_corr = self.get_e_corr()
-
         self.log.output('E(nuc)=  %s', energy_string(self.mol.energy_nuc()))
         self.log.output('E(MF)=   %s', energy_string(self.e_mf))
         self.log.output('E(corr)= %s', energy_string(self.e_corr))
         self.log.output('E(tot)=  %s', energy_string(self.e_tot))
-
         self.log.info("Total wall time:  %s", time_string(timer()-t_start))
         return self.e_tot
 
@@ -267,16 +213,14 @@ class EWF(Embedding):
     def get_global_l2(self, *args, **kwargs):
         return self.get_global_t2(*args, get_lambda=True, **kwargs)
 
-    def t1_diagnostic(self, warn_tol=0.02):
+    def t1_diagnostic(self, warntol=0.02):
         # Per cluster
-        for f in self.get_fragments(mpi_rank=mpi.rank):
-            t1 = f.results.t1
-            if t1 is None:
-                self.log.error("No T1 amplitudes found for %s.", f)
-                continue
+        for fx in self.get_fragments(active=True, mpi_rank=mpi.rank):
+            wfx = fx.results.wf.to_ccsd()
+            t1 = wfx.t1
             nelec = 2*t1.shape[0]
             t1diag = np.linalg.norm(t1) / np.sqrt(nelec)
-            if t1diag > warn_tol:
+            if t1diag >= warntol:
                 self.log.warning("T1 diagnostic for %-20s %.5f", str(f)+':', t1diag)
             else:
                 self.log.info("T1 diagnostic for %-20s %.5f", str(f)+':', t1diag)
@@ -285,7 +229,7 @@ class EWF(Embedding):
         if mpi.is_master:
             nelec = 2*t1.shape[0]
             t1diag = np.linalg.norm(t1) / np.sqrt(nelec)
-            if t1diag > warn_tol:
+            if t1diag >= warntol:
                 self.log.warning("Global T1 diagnostic: %.5f", t1diag)
             else:
                 self.log.info("Global T1 diagnostic: %.5f", t1diag)
@@ -327,24 +271,31 @@ class EWF(Embedding):
         raise NotImplementedError("make_rdm2 for solver '%s'" % self.solver)
 
     # DM1
-
+    @log_method()
     def _make_rdm1_mp2(self, *args, **kwargs):
+        #with log_time(self.log.timing, "Time for make_rdm1_demo"):
         return make_rdm1_ccsd(self, *args, mp2=True, **kwargs)
 
+    @log_method()
     def _make_rdm1_ccsd(self, *args, **kwargs):
         return make_rdm1_ccsd(self, *args, mp2=False, **kwargs)
 
+    @log_method()
+    @cache(copy=True)
     def _make_rdm1_ccsd_global_wf(self, *args, **kwargs):
         return make_rdm1_ccsd_global_wf(self, *args, **kwargs)
 
+    @log_method()
     def _make_rdm1_ccsd_proj_lambda(self, *args, **kwargs):
         return make_rdm1_ccsd_proj_lambda(self, *args, **kwargs)
 
     # DM2
 
+    @log_method()
     def _make_rdm2_ccsd_global_wf(self, *args, **kwargs):
         return make_rdm2_ccsd_global_wf(self, *args, **kwargs)
 
+    @log_method()
     def _make_rdm2_ccsd_proj_lambda(self, *args, **kwargs):
         return make_rdm2_ccsd_proj_lambda(self, *args, **kwargs)
 
@@ -366,7 +317,7 @@ class EWF(Embedding):
     def get_proj_corr_energy(self):
         e_corr = 0.0
         # Only loop over fragments of own MPI rank
-        for x in self.get_fragments(sym_parent=None, mpi_rank=mpi.rank):
+        for x in self.get_fragments(active=True, sym_parent=None, mpi_rank=mpi.rank):
             try:
                 wf = x.results.wf.as_cisd(c0=1.0)
             except AttributeError:
@@ -416,7 +367,7 @@ class EWF(Embedding):
         if t_as_lambda is None:
             t_as_lambda = self.opts.t_as_lambda
         e2 = 0.0
-        for x in self.get_fragments(sym_parent=None, mpi_rank=mpi.rank):
+        for x in self.get_fragments(active=True, sym_parent=None, mpi_rank=mpi.rank):
             wx = x.symmetry_factor * x.sym_factor
             e2 += wx * x.make_fragment_dm2cumulant_energy(t_as_lambda=t_as_lambda, sym_t2=sym_t2)
         return e2/self.ncells
@@ -445,7 +396,7 @@ class EWF(Embedding):
                          - einsum('ijab,ibaj', c2, eris))
         else:
             e_doubles = 0.0
-            for x in self.get_fragments(sym_parent=None, mpi_rank=mpi.rank):
+            for x in self.get_fragments(active=True, sym_parent=None, mpi_rank=mpi.rank):
                 pwf = x.results.pwf.as_ccsd()
                 ro = x.get_overlap('mo-occ|cluster-occ')
                 rv = x.get_overlap('mo-vir|cluster-vir')
@@ -505,19 +456,7 @@ class EWF(Embedding):
 
     # --- Other expectation values
 
-    def get_atomic_ssz(self, dm1=None, dm2=None, atoms=None, projection='sao', dm2_with_dm1=None):
-        """Get expectation values <P(A) S_z^2 P(B)>, where P(X) are projectors onto atoms.
-
-        TODO: MPI"""
-        t0 = timer()
-        # --- Setup
-        if dm2_with_dm1 is None:
-            dm2_with_dm1 = False
-            if dm2 is not None:
-                # Determine if DM2 contains DM1 bu calculating norm
-                norm = einsum('iikk->', dm2)
-                ne2 = self.mol.nelectron*(self.mol.nelectron-1)
-                dm2_with_dm1 = (norm > ne2/2)
+    def _get_atomic_coeffs(self, atoms=None, projection='sao'):
         if atoms is None:
             atoms = list(range(self.mol.natm))
         natom = len(atoms)
@@ -534,69 +473,188 @@ class EWF(Embedding):
         for atom in atoms:
             name, indices = frag.get_atomic_fragment_indices(atom)
             c_atom.append(frag.get_frag_coeff(indices))
-        proj = []
-        for a in range(natom):
-            rx = dot(self.mo_coeff.T, ovlp, c_atom[a])
-            px = np.dot(rx, rx.T)
-            proj.append(px)
-        # Fragment dependent projection operator:
-        if dm2 is None:
-            proj_x = []
-            for x in self.get_fragments():
-                tmp = np.dot(x.cluster.c_active.T, ovlp)
-                proj_x.append([])
-                for a, atom in enumerate(atoms):
-                    rx = np.dot(tmp, c_atom[a])
-                    px = np.dot(rx, rx.T)
-                    proj_x[-1].append(px)
+        return c_atom
 
-        ssz = np.zeros((natom, natom))
+    def _get_atom_projectors_for_corrfunc(self, atoms=None, projection='sao'):
+        """TODO split in two functions?"""
+
+        if atoms is None:
+            atoms2 = list(range(self.mol.natm))
+            # For supercell systems, we do not want all supercell-atom pairs,
+            # but only primitive-cell -- supercell pairs:
+            atoms1 = atoms2 if (self.kcell is None) else list(range(self.kcell.natm))
+        elif isinstance(atoms[0], (int, np.integer)):
+            atoms1 = atoms2 = atoms
+        else:
+            atoms1, atoms2 = atoms
+
+        # Get atomic projectors:
+        projection = projection.lower()
+        if projection == 'sao':
+            frag = SAO_Fragmentation(self)
+        elif projection.replace('+', '').replace('/', '') == 'iaopao':
+            frag = IAOPAO_Fragmentation(self)
+        else:
+            raise ValueError("Invalid projection: %s" % projection)
+        frag.kernel()
+        projectors = {}
+        cs = np.dot(self.mo_coeff.T, self.get_ovlp())
+        for atom in sorted(set(atoms1).union(atoms2)):
+            name, indices = frag.get_atomic_fragment_indices(atom)
+            c_atom = frag.get_frag_coeff(indices)
+            r = dot(cs, c_atom)
+            projectors[atom] = dot(r, r.T)
+        return atoms1, atoms2, projectors
+
+    @log_method()
+    def get_corrfunc_mf(self, kind, dm1=None, atoms=None, projection='sao'):
+        """dm1 in MO basis"""
+        if dm1 is None:
+            dm1 = np.zeros((self.nmo, self.nmo))
+            dm1[np.diag_indices(self.nocc)] = 2
+        func = {
+                'n,n': functools.partial(corrfunc.chargecharge, subtract_indep=False),
+                'dn,dn': functools.partial(corrfunc.chargecharge, subtract_indep=True),
+                'sz,sz': corrfunc.spinspin_z,
+                }.get(kind.lower())
+        if func is None:
+            raise ValueError(kind)
+        atoms1, atoms2, proj = self._get_atom_projectors_for_corrfunc(atoms, projection)
+        corr = np.zeros((len(atoms1), len(atoms2)))
+        for a, atom1 in enumerate(atoms1):
+            for b, atom2 in enumerate(atoms2):
+                corr[a,b] = func(dm1, None, proj1=proj[atom1], proj2=proj[atom2])
+        return corr
+
+    @log_method()
+    def get_corrfunc(self, kind, dm1=None, dm2=None, atoms=None, projection='sao', dm2_with_dm1=None, use_symmetry=True):
+        """Get expectation values <P(A) S_z P(B) S_z>, where P(X) are projectors onto atoms X.
+
+        TODO: MPI
+
+        Parameters
+        ----------
+        atoms : list[int] or list[list[int]], optional
+            Atom indices for which the spin-spin correlation function should be evaluated.
+            If set to None (default), all atoms of the system will be considered.
+            If a list is given, all atom pairs formed from this list will be considered.
+            If a list of two lists is given, the first list contains the indices of atom A,
+            and the second of atom B, for which <Sz(A) Sz(B)> will be evaluated.
+            This is useful in cases where one is only interested in the correlation to
+            a small subset of atoms. Default: None
+
+        Returns
+        -------
+        corr : array(N,M)
+            Atom projected correlation function.
+        """
+        kind = kind.lower()
+        if kind not in ('n,n', 'dn,dn', 'sz,sz'):
+            raise ValueError(kind)
+
+        # --- Setup
+        f1, f2, f22 = {
+                'n,n': (1, 2, 1),
+                'dn,dn': (1, 2, 1),
+                'sz,sz': (1/4, 1/2, 1/2),
+                }[kind]
+        if dm2_with_dm1 is None:
+            dm2_with_dm1 = False
+            if dm2 is not None:
+                # Determine if DM2 contains DM1 by calculating norm
+                norm = einsum('iikk->', dm2)
+                ne2 = self.mol.nelectron*(self.mol.nelectron-1)
+                dm2_with_dm1 = (norm > ne2/2)
+        atoms1, atoms2, proj = self._get_atom_projectors_for_corrfunc(atoms, projection)
+        corr = np.zeros((len(atoms1), len(atoms2)))
 
         # 1-DM contribution:
-        if dm1 is None:
-            dm1 = self.make_rdm1()
-        for a in range(natom):
-            tmp = np.dot(proj[a], dm1)
-            for b in range(natom):
-                ssz[a,b] = np.sum(tmp*proj[b])/4
+        with log_time(self.log.timing, "Time for 1-DM contribution: %s"):
+            if dm1 is None:
+                dm1 = self.make_rdm1()
+            for a, atom1 in enumerate(atoms1):
+                tmp = np.dot(proj[atom1], dm1)
+                for b, atom2 in enumerate(atoms2):
+                    corr[a,b] = f1*np.sum(tmp*proj[atom2])
 
-        occ = np.s_[:self.nocc]
-        occdiag = np.diag_indices(self.nocc)
-        # Non-cumulant DM2 contribution:
+        # Non-(approximate cumulant) DM2 contribution:
         if not dm2_with_dm1:
-            ddm1 = dm1.copy()
-            ddm1[occdiag] -= 1
-            for a in range(natom):
-                tmp = np.dot(proj[a], ddm1)
-                for b in range(natom):
-                    ssz[a,b] -= np.sum(tmp[occ] * proj[b][occ])/2       # N_atom^2 * N^2 scaling
+            with log_time(self.log.timing, "Time for non-cumulant 2-DM contribution: %s"):
+                occ = np.s_[:self.nocc]
+                occdiag = np.diag_indices(self.nocc)
+                ddm1 = dm1.copy()
+                ddm1[occdiag] -= 1
+                for a, atom1 in enumerate(atoms1):
+                    tmp = np.dot(proj[atom1], ddm1)
+                    for b, atom2 in enumerate(atoms2):
+                        corr[a,b] -= f2*np.sum(tmp[occ] * proj[atom2][occ])       # N_atom^2 * N^2 scaling
+                if kind in ('n,n', 'dn,dn'):
+                    # These terms are zero for Sz,Sz (but not in UHF)
+                    # Traces of projector*DM(HF) and projector*[DM(CC)+DM(HF)/2]:
+                    tr1 = {a: np.trace(p[occ,occ]) for a, p in proj.items()}  # DM(HF)
+                    tr2 = {a: np.sum(p * ddm1) for a, p in proj.items()}      # DM(CC) + DM(HF)/2
+                    for a, atom1 in enumerate(atoms1):
+                        for b, atom2 in enumerate(atoms2):
+                            corr[a,b] += f2*(tr1[atom1]*tr2[atom2] + tr1[atom2]*tr2[atom1])
 
-        if dm2 is not None:
-            dm2aa = (dm2 - dm2.transpose(0,3,2,1))/6
-            # ddm2 is equal to dm2aa - dm2ab, as
-            # dm2ab = (dm2/2 - dm2aa)
-            ddm2 = (2*dm2aa - dm2/2)
-            for a in range(natom):
-                pa = proj[a]
-                tmp = np.tensordot(pa, ddm2)
-                for b in range(natom):
-                    pb = proj[b]
-                    ssz[a,b] += np.sum(tmp*pb)/2
-        else:
-            # Cumulant DM2 contribution:
-            for ix, x in enumerate(self.get_fragments()):
-                dm2 = x.make_fragment_dm2cumulant()
-                dm2aa = (dm2 - dm2.transpose(0,3,2,1))/6
-                ddm2 = (2*dm2aa - dm2/2)    # dm2/2 is dm2aa + dm2ab, so ddm2 is dm2aa - dm2ab
-                for a in range(natom):
-                    pa = proj_x[ix][a]
-                    tmp = np.tensordot(pa, ddm2)
-                    for b in range(natom):
-                        pb = proj_x[ix][b]
-                        ssz[a,b] += np.sum(tmp*pb)/2
+        with log_time(self.log.timing, "Time for cumulant 2-DM contribution: %s"):
+            if dm2 is not None:
+                # DM2(aa)               = (DM2 - DM2.transpose(0,3,2,1))/6
+                # DM2(ab)               = DM2/2 - DM2(aa)
+                # DM2(aa) - DM2(ab)]    = 2*DM2(aa) - DM2/2
+                #                       = DM2/3 - DM2.transpose(0,3,2,1)/3 - DM2/2
+                #                       = -DM2/6 - DM2.transpose(0,3,2,1)/3
+                if kind in ('n,n', 'dn,dn'):
+                    pass
+                elif kind == 'sz,sz':
+                    # DM2 is not needed anymore, so we can overwrite:
+                    dm2 = -(dm2/6 + dm2.transpose(0,3,2,1)/3)
+                for a, atom1 in enumerate(atoms1):
+                    tmp = np.tensordot(proj[atom1], dm2)
+                    for b, atom2 in enumerate(atoms2):
+                        corr[a,b] += f22*np.sum(tmp*proj[atom2])
+            else:
+                # Cumulant DM2 contribution:
+                ffilter = dict(sym_parent=None) if use_symmetry else {}
+                maxgen = None if use_symmetry else 0
+                cst = np.dot(self.get_ovlp(), self.mo_coeff)
+                for fx in self.get_fragments(active=True, **ffilter):
+                    dm2 = fx.make_fragment_dm2cumulant()
+                    if kind in ('n,n', 'dn,dn'):
+                        pass
+                    # DM2(aa)               = (DM2 - DM2.transpose(0,3,2,1))/6
+                    # DM2(ab)               = DM2/2 - DM2(aa)
+                    # DM2(aa) - DM2(ab)]    = 2*DM2(aa) - DM2/2
+                    #                       = DM2/3 - DM2.transpose(0,3,2,1)/3 - DM2/2
+                    #                       = -DM2/6 - DM2.transpose(0,3,2,1)/3
+                    elif kind == 'sz,sz':
+                        dm2 = -(dm2/6 + dm2.transpose(0,3,2,1)/3)
 
-        self.log.timing("Time for <S_z^2>: %s", time_string(timer()-t0))
-        return ssz
+                    for fx2, cx2_coeff in fx.loop_symmetry_children([fx.cluster.coeff], include_self=True, maxgen=maxgen):
+                        rx = np.dot(cx2_coeff.T, cst)
+                        projx = {atom: dot(rx, p_atom, rx.T) for (atom, p_atom) in proj.items()}
+                        for a, atom1 in enumerate(atoms1):
+                            tmp = np.tensordot(projx[atom1], dm2)
+                            for b, atom2 in enumerate(atoms2):
+                                corr[a,b] += f22*np.sum(tmp*projx[atom2])
+
+        # Remove independent particle [P(A).DM1 * P(B).DM1] contribution
+        if kind == 'dn,dn':
+            for a, atom1 in enumerate(atoms1):
+                for b, atom2 in enumerate(atoms2):
+                    corr[a,b] -= np.sum(dm1*proj[atom1]) * np.sum(dm1*proj[atom2])
+
+        return corr
+
+    # --- Deprecated
+
+    @deprecated(replacement='get_corrfunc_mf')
+    def get_atomic_ssz_mf(self, dm1=None, atoms=None, projection='sao'):
+        return self.get_corrfunc_mf('Sz,Sz', dm1=dm1, atoms=atoms, projection=projection)
+
+    @deprecated(replacement='get_corrfunc')
+    def get_atomic_ssz(self, dm1=None, dm2=None, atoms=None, projection='sao', dm2_with_dm1=None):
+        return self.get_corrfunc('Sz,Sz', dm1=dm1, dm2=dm2, atoms=atoms, projection=projection, dm2_with_dm1=dm2_with_dm1)
 
     def get_dm_energy_old(self, global_dm1=True, global_dm2=False):
         """Calculate total energy from reduced density-matrices.
@@ -659,23 +717,26 @@ class EWF(Embedding):
         e_corr = (e1 + e2) / self.ncells
         return e_corr
 
-    # --- Debug
-    def _debug_get_exact_wf(self):
-        if self.opts._debug_exact_wf is True:
+    # --- Debugging
+
+    def _debug_get_wf(self, kind):
+        if kind == 'random':
+            return
+        if kind == 'exact':
             if self.solver == 'CCSD':
                 import pyscf
                 import pyscf.cc
                 from vayesta.core.types import WaveFunction
                 cc = pyscf.cc.CCSD(self.mf)
                 cc.kernel()
-                if self.opts.solve_lambda:
+                if self.opts.solver_options['solve_lambda']:
                     cc.solve_lambda()
                 wf = WaveFunction.from_pyscf(cc)
             else:
                 raise NotImplementedError
         else:
-            wf = self.opts._debug_exact_wf
-        self._debug_exact_wf = wf
+            wf = self.opts._debug_wf
+        self._debug_wf = wf
 
     # -------------------------------------------------------------------------------------------- #
 

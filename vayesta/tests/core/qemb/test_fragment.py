@@ -10,10 +10,10 @@ import pyscf.mp
 import pyscf.pbc.mp
 from pyscf import lib
 
-from vayesta.core import Embedding, UEmbedding
-from vayesta.core.bath import DMET_Bath, MP2_BNO_Bath, UDMET_Bath
-from vayesta.tests.common import temporary_seed, TestCase
-from vayesta.tests import testsystems
+from vayesta.core.qemb import Embedding, UEmbedding
+from vayesta.core.bath import DMET_Bath, MP2_Bath
+from vayesta.tests.cache import moles, cells
+from vayesta.tests.common import temporary_seed
 
 #TODO readd some tests for ghost atoms
 
@@ -21,7 +21,6 @@ from vayesta.tests import testsystems
 class MolFragmentTests(TestCase):
     PLACES = 7
     Embedding = Embedding
-    DMET_Bath = DMET_Bath
 
     @classmethod
     def setUpClass(cls):
@@ -147,21 +146,19 @@ class MolFragmentTests(TestCase):
         with qemb.iao_fragmentation() as f:
             frags = f.add_all_atomic_fragments()
 
-        bath = self.DMET_Bath(frags[0], frags[0].opts.dmet_threshold)
+        bath = DMET_Bath(frags[0], frags[0].opts.bath_options['dmet_threshold'])
         bath.kernel()
         self.assertAlmostEqual(self.trace(bath.c_dmet),     2.53936714739812, self.PLACES)
         self.assertAlmostEqual(self.trace(bath.c_env_occ),  0.00000000000000, self.PLACES)
         self.assertAlmostEqual(self.trace(bath.c_env_vir), 73.98633044345692, self.PLACES)
 
-        frags[1].opts.wf_partition = 'first-vir'
-        bath = self.DMET_Bath(frags[1], frags[1].opts.dmet_threshold)
+        bath = DMET_Bath(frags[1], frags[1].opts.bath_options['dmet_threshold'])
         bath.kernel()
         self.assertAlmostEqual(self.trace(bath.c_dmet),     0.92508900878229, self.PLACES)
         self.assertAlmostEqual(self.trace(bath.c_env_occ),  2.7927781539529537, self.PLACES)
         self.assertAlmostEqual(self.trace(bath.c_env_vir), 75.71109293760985, self.PLACES)
 
-        frags[2].opts.wf_partition = 'democratic'
-        bath = self.DMET_Bath(frags[2], frags[2].opts.dmet_threshold)
+        bath = DMET_Bath(frags[2], frags[2].opts.bath_options['dmet_threshold'])
         bath.kernel()
         self.assertAlmostEqual(self.trace(bath.c_dmet),     0.92508900878229, self.PLACES)
         self.assertAlmostEqual(self.trace(bath.c_env_occ),  2.79277815395295, self.PLACES)
@@ -195,20 +192,13 @@ class MolFragmentTests(TestCase):
             t2b = 0.25 * (t2b + t2b.swapaxes(0, 1) + t2b.swapaxes(2, 3) + t2b.transpose(1, 0, 3, 2))
 
         dmet_bath = DMET_Bath(frags[0])
-        bath = MP2_BNO_Bath(frags[0], dmet_bath)
-        dm1o = bath.make_delta_dm1('occ', t2a, t2b)
-        dm1v = bath.make_delta_dm1('vir', t2a, t2b)
+        dmet_bath.kernel()
+        bath_occ = MP2_Bath(frags[0], dmet_bath, occtype='occupied')
+        bath_vir = MP2_Bath(frags[0], dmet_bath, occtype='virtual')
+        dm1o = bath_occ.make_delta_dm1(t2a, t2b)
+        dm1v = bath_vir.make_delta_dm1(t2a, t2b)
         self.assertAlmostEqual(lib.fp(dm1o), 366.180724570873/2, self.PLACES)
         self.assertAlmostEqual(lib.fp(dm1v),  -1.956209725591/2, self.PLACES)
-        self.assertIsNone(bath.c_bno_occ)
-        self.assertIsNone(bath.c_bno_vir)
-        self.assertIsNone(bath.n_bno_occ)
-        self.assertIsNone(bath.n_bno_vir)
-        self.assertIs(bath.mf,     frags[0].mf)
-        self.assertIs(bath.mol,    frags[0].mol)
-        self.assertIs(bath.log,    frags[0].log)
-        self.assertIs(bath.base,   frags[0].base)
-        self.assertIs(bath.c_frag, frags[0].c_frag)
 
         #bath = MP2_BNO_Bath(frags[0], dmet_bath, local_dm='semi', canonicalize=False)
         #dm1o = bath.make_delta_dm1('occ', t2a, t2b)
@@ -247,7 +237,6 @@ class MolFragmentTests(TestCase):
 class UMolFragmentTests(MolFragmentTests):
     PLACES = 6
     Embedding = UEmbedding
-    DMET_Bath = UDMET_Bath
 
     @classmethod
     def setUpClass(cls):
@@ -287,7 +276,6 @@ class CellFragmentTests(TestCase):
         qemb = Embedding(self.mf)
         with qemb.iao_fragmentation() as f:
             frag = f.add_atomic_fragment([0, 1])
-            frags = [frag] + frag.add_tsymmetric_fragments([2, 2, 2])
 
         for frag in qemb.fragments:
             self.assertAlmostEqual(frag.get_fragment_mf_energy().real, -4.261995344528813, self.PLACES)
@@ -329,7 +317,7 @@ class CellFragmentTests(TestCase):
             frag = f.add_atomic_fragment([0])
         frags = [frag] + frag.add_tsymmetric_fragments([2, 2, 2])
 
-        bath = DMET_Bath(frags[1], frags[1].opts.dmet_threshold)
+        bath = DMET_Bath(frags[1], frags[1].opts.bath_options['dmet_threshold'])
         c_bath, c_occenv, c_virenv = bath.make_dmet_bath(frags[0].c_env)
         self.assertAlmostEqual(self.trace(c_bath),    3.34569601263718, self.PLACES)
         self.assertAlmostEqual(self.trace(c_occenv),  8.60026059294578, self.PLACES)

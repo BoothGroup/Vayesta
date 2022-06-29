@@ -89,7 +89,7 @@ class SCMF:
             self.log.info("%s==============", len(self.name)*"=")
 
             if self.iteration > 1:
-                self.emb.reset_fragments()
+                self.emb.reset()
 
             # Run clusters, save results
             res = self.kernel_orig(*args, **kwargs)

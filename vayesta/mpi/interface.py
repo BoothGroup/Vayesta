@@ -5,44 +5,41 @@ from timeit import default_timer
 import vayesta
 from vayesta.core.util import *
 from .rma import RMA_Dict
+from .scf import scf_with_mpi
 
-log = logging.getLogger(__name__)
-
-try:
-    #raise ImportError()
-    import mpi4py
-    mpi4py.rc.threads = False
-    from mpi4py import MPI
-    mpi_world = MPI.COMM_WORLD
-    mpi_rank = mpi_world.Get_rank()
-    mpi_size = mpi_world.Get_size()
-    timer = MPI.Wtime
-except (ModuleNotFoundError, ImportError):
-    MPI = None
-    mpi_world = None
-    mpi_rank = 0
-    mpi_size = 1
-    timer = default_timer
-
-class MPI_Operators:
-    pass
-
-mpi_ops = MPI_Operators()
-for op in ['max', 'min', 'sum', 'prod', 'land', 'lor', 'band', 'bor', 'maxloc', 'minloc']:
-    setattr(mpi_ops, op, getattr(MPI, op.upper()) if MPI is not None else None)
 
 class MPI_Interface:
 
-    MPI = MPI
-    world = mpi_world
-    rank = mpi_rank
-    size = mpi_size
-    timer = timer
-
-    op = mpi_ops
-
-    def __init__(self):
+    def __init__(self, mpi, required=False, log=None):
+        self.log = log or logging.getLogger(__name__)
+        if mpi == 'mpi4py':
+            mpi = self._import_mpi4py(required=required)
+        if mpi:
+            self.MPI = mpi
+            self.world = mpi.COMM_WORLD
+            self.rank = self.world.Get_rank()
+            self.size = self.world.Get_size()
+            self.timer = mpi.Wtime
+        else:
+            self.MPI = None
+            self.world = None
+            self.rank = 0
+            self.size = 1
+            self.timer = default_timer
         self._tag = -1
+
+    def _import_mpi4py(self, required=True):
+        try:
+            import mpi4py
+            mpi4py.rc.threads = False
+            from mpi4py import MPI as mpi
+            return mpi
+        except (ModuleNotFoundError, ImportError) as e:
+            if required:
+                self.log.critical("mpi4py not found.")
+                raise e
+            self.log.debug("mpi4py not found.")
+            return None
 
     def __len__(self):
         return self.size
@@ -147,17 +144,17 @@ class MPI_Interface:
                 if self.rank == src:
                     res = func(*args, **kwargs)
                     if (self.rank != dest):
-                        log.debugv("MPI[%d]<send>: func=%s dest=%d", self.rank, func.__name__, dest)
+                        self.log.debugv("MPI[%d]<send>: func=%s dest=%d", self.rank, func.__name__, dest)
                         self.world.send(res, dest=dest, tag=tag2, **mpi_kwargs)
-                        log.debugv("MPI[%d]<send>: done", self.rank)
+                        self.log.debugv("MPI[%d]<send>: done", self.rank)
                     return res
                 elif self.rank == dest:
-                    log.debugv("MPI[%d] <recv>: func=%s source=%d", self.rank, func.__name__, src)
+                    self.log.debugv("MPI[%d] <recv>: func=%s source=%d", self.rank, func.__name__, src)
                     res = self.world.recv(source=src, tag=tag2, **mpi_kwargs)
-                    log.debugv("MPI[%d] <recv>: type= %r done!", self.rank, type(res))
+                    self.log.debugv("MPI[%d] <recv>: type= %r done!", self.rank, type(res))
                     return res
                 else:
-                    log.debugv("MPI[%d] <do nothing> func=%s source=%d ", self.rank, func.__name__, src)
+                    self.log.debugv("MPI[%d] <do nothing> func=%s source=%d ", self.rank, func.__name__, src)
                 return None
             return wrapper
         return decorator
@@ -165,4 +162,8 @@ class MPI_Interface:
     def create_rma_dict(self, dictionary):
         return RMA_Dict.from_dict(self, dictionary)
 
-#mpi = MPI_Interface()
+    # --- PySCF decorators
+    # --------------------
+
+    def scf(self, mf, mpi_rank=0, log=None):
+        return scf_with_mpi(self, mf, mpi_rank=mpi_rank, log=log)

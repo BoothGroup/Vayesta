@@ -1,12 +1,13 @@
 import numpy as np
 
-from vayesta.core import UEmbedding
+from vayesta.core.qemb import UEmbedding
 from vayesta.core.util import *
 
 from vayesta.ewf import REWF
 from vayesta.ewf.ufragment import Fragment
 from vayesta.core.fragmentation import SAO_Fragmentation
 from vayesta.core.fragmentation import IAOPAO_Fragmentation
+from vayesta.misc import corrfunc
 from vayesta.mpi import mpi
 
 # Amplitudes
@@ -24,33 +25,6 @@ class UEWF(REWF, UEmbedding):
 
     Fragment = Fragment
 
-    def get_init_mo_coeff(self, mo_coeff=None):
-        """Orthogonalize insufficiently orthogonal MOs.
-
-        (For example as a result of k2gamma conversion with low cell.precision)
-        """
-        if mo_coeff is None: mo_coeff = self.mo_coeff
-        c = mo_coeff.copy()
-        ovlp = self.get_ovlp()
-        assert np.all(c.imag == 0), "max|Im(C)|= %.2e" % abs(c.imag).max()
-
-        for s, spin in enumerate(('alpha', 'beta')):
-            err = abs(dot(c[s].T, ovlp, c[s]) - np.eye(c[s].shape[-1])).max()
-            if err > 1e-5:
-                self.log.error("Orthogonality error of %s-MOs= %.2e !!!", spin, err)
-            else:
-                self.log.debug("Orthogonality error of %s-MOs= %.2e", spin, err)
-        if self.opts.orthogonal_mo_tol and err > self.opts.orthogonal_mo_tol:
-            raise NotImplementedError()
-            #t0 = timer()
-            #self.log.info("Orthogonalizing orbitals...")
-            #c_orth = helper.orthogonalize_mo(c, ovlp)
-            #change = abs(einsum('ai,ab,bi->i', c_orth, ovlp, c)-1)
-            #self.log.info("Max. orbital change= %.2e%s", change.max(), " (!!!)" if change.max() > 1e-4 else "")
-            #self.log.timing("Time for orbital orthogonalization: %s", time_string(timer()-t0))
-            #c = c_orth
-        return c
-
     # --- CC Amplitudes
     # -----------------
 
@@ -60,7 +34,7 @@ class UEWF(REWF, UEmbedding):
 
     def t1_diagnostic(self, warn_tol=0.02):
         # Per cluster
-        for f in self.get_fragments(mpi_rank=mpi.rank):
+        for f in self.get_fragments(active=True, mpi_rank=mpi.rank):
             t1 = f.results.t1
             if t1 is None:
                 self.log.error("No T1 amplitudes found for %s.", f)
@@ -89,23 +63,30 @@ class UEWF(REWF, UEmbedding):
 
     # DM1
 
+    @log_method()
     def _make_rdm1_mp2(self, *args, **kwargs):
         return make_rdm1_ccsd(self, *args, mp2=True, **kwargs)
 
+    @log_method()
     def _make_rdm1_ccsd(self, *args, **kwargs):
         return make_rdm1_ccsd(self, *args, mp2=False, **kwargs)
 
+    @log_method()
+    @cache(copy=True)
     def _make_rdm1_ccsd_global_wf(self, *args, **kwargs):
         return make_rdm1_ccsd_global_wf(self, *args, **kwargs)
 
+    @log_method()
     def _make_rdm1_ccsd_proj_lambda(self, *args, **kwargs):
         raise NotImplementedError()
 
     # DM2
 
+    @log_method()
     def _make_rdm2_ccsd_global_wf(self, *args, **kwargs):
         return make_rdm2_ccsd_global_wf(self, *args, **kwargs)
 
+    @log_method()
     def _make_rdm2_ccsd_proj_lambda(self, *args, **kwargs):
         return make_rdm2_ccsd_proj_lambda(self, *args, **kwargs)
 
@@ -113,16 +94,41 @@ class UEWF(REWF, UEmbedding):
 
     # --- Other expectation values
 
+    def get_atomic_ssz_mf(self, dm1=None, atoms=None, projection='sao'):
+        """dm1 in MO basis"""
+        if dm1 is None:
+            dm1a = np.zeros((self.nmo[0], self.nmo[0]))
+            dm1b = np.zeros((self.nmo[1], self.nmo[1]))
+            dm1a[np.diag_indices(self.nocc[0])] = 1
+            dm1b[np.diag_indices(self.nocc[1])] = 1
+            dm1 = (dm1a, dm1b)
+        c_atom = self._get_atomic_coeffs(atoms=atoms, projection=projection)
+        natom = len(c_atom)
+        ovlp = self.get_ovlp()
+        # Get projectors
+        proj = []
+        for a in range(natom):
+            ra = dot(self.mo_coeff[0].T, ovlp, c_atom[a][0])
+            rb = dot(self.mo_coeff[1].T, ovlp, c_atom[a][1])
+            pa = np.dot(ra, ra.T)
+            pb = np.dot(rb, rb.T)
+            proj.append((pa, pb))
+        ssz = np.zeros((natom, natom))
+        for a in range(natom):
+            for b in range(natom):
+                ssz[a,b] = corrfunc.spinspin_z_unrestricted(dm1, None, proj1=proj[a], proj2=proj[b])
+        return ssz
+
+    @log_method()
     def get_atomic_ssz(self, dm1=None, dm2=None, atoms=None, projection='sao', dm2_with_dm1=None):
         """Get expectation values <P(A) S_z^2 P(B)>, where P(X) are projectors onto atoms.
 
         TODO: MPI"""
-        t0 = timer()
         # --- Setup
         if dm2_with_dm1 is None:
             dm2_with_dm1 = False
             if dm2 is not None:
-                # Determine if DM2 contains DM1 bu calculating norm
+                # Determine if DM2 contains DM1 by calculating norm
                 norm_aa = einsum('iikk->', dm2[0])
                 norm_ab = einsum('iikk->', dm2[1])
                 norm_bb = einsum('iikk->', dm2[2])
@@ -132,19 +138,9 @@ class UEWF(REWF, UEmbedding):
         if atoms is None:
             atoms = list(range(self.mol.natm))
         natom = len(atoms)
-        projection = projection.lower()
-        if projection == 'sao':
-            frag = SAO_Fragmentation(self)
-        elif projection.replace('+', '').replace('/', '') == 'iaopao':
-            frag = IAOPAO_Fragmentation(self)
-        else:
-            raise ValueError("Invalid projection: %s" % projection)
-        frag.kernel()
+        c_atom = self._get_atomic_coeffs(atoms=atoms, projection=projection)
         ovlp = self.get_ovlp()
-        c_atom = []
-        for atom in atoms:
-            name, indices = frag.get_atomic_fragment_indices(atom)
-            c_atom.append(frag.get_frag_coeff(indices))
+
         proj = []
         for a in range(natom):
             rxa = dot(self.mo_coeff[0].T, ovlp, c_atom[a][0])
@@ -155,7 +151,7 @@ class UEWF(REWF, UEmbedding):
         # Fragment dependent projection operator:
         if dm2 is None:
             proj_x = []
-            for x in self.get_fragments():
+            for x in self.get_fragments(active=True):
                 tmpa = np.dot(x.cluster.c_active[0].T, ovlp)
                 tmpb = np.dot(x.cluster.c_active[1].T, ovlp)
                 proj_x.append([])
@@ -190,7 +186,7 @@ class UEWF(REWF, UEmbedding):
             # Traces of projector*DM(HF)
             trpa = [np.trace(p[0][occa,occa]) for p in proj]
             trpb = [np.trace(p[1][occb,occb]) for p in proj]
-            # Traces of projector*DM(CC)
+            # Traces of projector*[DM(CC) + DM(HF)/2]
             trda = [np.sum(p[0] * ddm1a) for p in proj]
             trdb = [np.sum(p[1] * ddm1b) for p in proj]
             for a in range(natom):
@@ -217,7 +213,7 @@ class UEWF(REWF, UEmbedding):
                     ssz[a,b] += (np.sum(tmpa*pb[0]) + np.sum(tmpb*pb[1]))/4
         else:
             # Cumulant DM2 contribution:
-            for ix, x in enumerate(self.get_fragments()):
+            for ix, x in enumerate(self.get_fragments(active=True)):
                 dm2aa, dm2ab, dm2bb = x.make_fragment_dm2cumulant()
                 for a in range(natom):
                     pa = proj_x[ix][a]
@@ -226,6 +222,4 @@ class UEWF(REWF, UEmbedding):
                     for b in range(natom):
                         pb = proj_x[ix][b]
                         ssz[a,b] += (np.sum(tmpa*pb[0]) + np.sum(tmpb*pb[1]))/4
-
-        self.log.timing("Time for <S_z^2>: %s", time_string(timer()-t0))
         return ssz

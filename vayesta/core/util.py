@@ -1,19 +1,14 @@
+from contextlib import contextmanager
+from copy import deepcopy
+import dataclasses
+import functools
+import logging
 import os
 import re
-import sys
-import logging
-import dataclasses
-import copy
 import string
-import functools
+import sys
 from timeit import default_timer
-from contextlib import contextmanager
 
-try:
-    from functools import cache
-except ImportError:
-    from functools import lru_cache
-    cache = lru_cache(maxsize=None)
 
 try:
     import psutil
@@ -25,12 +20,13 @@ import scipy
 import scipy.linalg
 import scipy.optimize
 
-log = logging.getLogger(__name__)
+
+modlog = logging.getLogger(__name__)
 
 # util module can be imported as *, such that the following is imported:
 __all__ = [
         # General
-        'Object', 'NotSet', 'OptionsBase', 'brange', 'deprecated', 'cache',
+        'Object', 'OptionsBase', 'brange', 'deprecated', 'cache',
         # NumPy replacements
         'dot', 'einsum', 'hstack',
         # Exceptions
@@ -39,21 +35,40 @@ __all__ = [
         # String formatting
         'energy_string', 'time_string', 'memory_string',
         # Time & memory
-        'timer', 'log_time', 'get_used_memory',
+        'timer', 'log_time', 'get_used_memory', 'log_method',
         # Other
-        'replace_attr', 'break_into_lines', 'fix_orbital_sign',
+        'replace_attr', 'break_into_lines', 'fix_orbital_sign', 'split_into_blocks',
         ]
 
 class Object:
     pass
 
-class NotSetType:
-    def __repr__(self):
-        return 'NotSet'
-"""Sentinel, use this to indicate that an option/attribute has not been set,
-in cases where `None` itself is a valid setting.
-"""
-NotSet = NotSetType()
+def cache(maxsize=16, typed=False, copy=False):
+    """Adds LRU cache to function or method.
+
+    If the function or method returns a mutable object, e.g. a NumPy array,
+    cache hits will return the same object. If the object has been modified
+    (for example by the user on the script level), the modified object will be
+    returned by future calls. To avoid this, a (deep)copy of the result can be
+    performed, by setting copy=True.
+
+    modified from https://stackoverflow.com/questions/54909357
+    """
+    lru_cache = functools.lru_cache(maxsize, typed)
+    if not copy:
+        return lru_cache
+    def decorator(func):
+        cached_func = lru_cache(func)
+        @functools.wraps(func)
+        def wrapper(*args, **kwargs):
+            return deepcopy(cached_func(*args, **kwargs))
+        wrapper.cache_clear = cached_func.cache_clear
+        wrapper.cache_info = cached_func.cache_info
+        # Python 3.9+
+        if hasattr(cached_func, 'cache_parameters'):
+            wrapper.cache_parameters = cached_func.cache_parameters
+        return wrapper
+    return decorator
 
 # --- NumPy
 
@@ -147,24 +162,25 @@ def einsum(subscripts, *operands, **kwargs):
         res = driver(subscripts, *operands, **kwargs)
     # Better shape information in case of exception:
     except ValueError:
-        log.fatal("einsum('%s',...) failed. shapes of arguments:", subscripts)
+        modlog.fatal("einsum('%s',...) failed. shapes of arguments:", subscripts)
         for i, arg in enumerate(operands):
-            log.fatal('%d: %r', i, list(np.asarray(arg).shape))
+            modlog.fatal('%d: %r', i, list(np.asarray(arg).shape))
         raise
     # Unpack scalars (for optimize = True):
     if isinstance(res, np.ndarray) and res.ndim == 0:
         res = res[()]
     return res
 
-def hstack(*args):
+def hstack(*args, ignore_none=True):
     """Like NumPy's hstack, but variadic, ignores any arguments which are None and improved error message."""
-    args = [x for x in args if x is not None]
+    if ignore_none:
+        args = [x for x in args if x is not None]
     try:
         return np.hstack(args)
     except ValueError as e:
-        log.critical("Exception while trying to stack the following objects:")
+        modlog.critical("Exception while trying to stack the following objects:")
         for x in args:
-            log.critical("type= %r  shape= %r", type(x), x.shape if hasattr(x, 'shape') else "None")
+            modlog.critical("type= %r  shape= %r", type(x), x.shape if hasattr(x, 'shape') else "None")
         raise e
 
 def brange(*args, minstep=1, maxstep=None):
@@ -194,7 +210,19 @@ def brange(*args, minstep=1, maxstep=None):
         blk = np.s_[i:min(i+step, stop)]
         yield blk
 
-
+def split_into_blocks(array, axis=0, blocksize=None, max_memory=int(1e9)):
+    size = array.shape[axis]
+    axis = axis % array.ndim
+    if blocksize is None:
+        mem = array.nbytes
+        nblocks = max(int(np.ceil(mem/max_memory)), 1)
+        blocksize = int(np.ceil(size/nblocks))
+    if blocksize >= size:
+        yield slice(None), array
+        return
+    for i in range(0, size, blocksize):
+        blk = np.s_[i:min(i+blocksize, size)]
+        yield blk, array[axis*(slice(None), ) + (blk,)]
 
 # --- Exceptions
 
@@ -247,8 +275,25 @@ def log_time(logger, message, *args, mintime=None, **kwargs):
         if logger and (mintime is None or t >= mintime):
             logger(message, *args, time_string(t), **kwargs)
 
+def log_method(message='Time for %(classname).%(funcname): %s', log=None):
+    def decorator(func):
+        @functools.wraps(func)
+        def wrapped(self, *args, **kwargs):
+            nonlocal message, log
+            message = message.replace('%(classname)', type(self).__name__)
+            message = message.replace('%(funcname)', func.__name__)
+            log = log or getattr(self, 'log', False) or modlog
+            log.debugv("Entering method '%s'", func.__name__)
+            with log_time(log.timing, message):
+                res = func(self, *args, **kwargs)
+            log.debugv("Exiting method '%s'", func.__name__)
+            return res
+        return wrapped
+    return decorator
+
 def time_string(seconds, show_zeros=False):
     """String representation of seconds."""
+    seconds, sign = abs(seconds), np.sign(seconds)
     m, s = divmod(seconds, 60)
     if seconds >= 3600 or show_zeros:
         tstr = "%.0f h %.0f min" % divmod(m, 60)
@@ -256,6 +301,8 @@ def time_string(seconds, show_zeros=False):
         tstr = "%.0f min %.0f s" % (m, s)
     else:
         tstr = "%.1f s" % s
+    if sign == -1:
+        tstr = '-%s' %  tstr
     return tstr
 
 MEMUNITS = {'b': 1, 'kb': 1e3, 'mb': 1e6, 'gb': 1e9, 'tb': 1e12}
@@ -314,14 +361,6 @@ def replace_attr(obj, **kwargs):
         for name, attr in orig.items():
             setattr(obj, name, attr)
 
-class SelectNotSetType:
-    """Sentinel for implementation of `select` in `Options.replace`.
-    Having a dedicated sentinel allows usage of `None` and `NotSet` as `select`.
-    """
-    def __repr__(self):
-        return 'SelectNotSet'
-SelectNotSet = SelectNotSetType()
-
 def break_into_lines(string, linelength=100, sep=None, newline='\n'):
     """Break a long string into multiple lines"""
     if len(string) <= linelength:
@@ -336,23 +375,30 @@ def break_into_lines(string, linelength=100, sep=None, newline='\n'):
             lines[-1] += ' ' + s
     return newline.join(lines)
 
-def deprecated(message=None):
+def deprecated(message=None, replacement=None):
     """This is a decorator which can be used to mark functions
     as deprecated. It will result in a warning being emitted
     when the function is used."""
     def decorator(func):
-        if message is None:
-            msg = "Function %s is deprecated!" % func.__name__
-        else:
+        if message is not None:
             msg = message
+        else:
+            msg = "Function `%s` is deprecated." % func.__name__
+            if replacement is not None:
+                msg += " Use `%s` instead." % replacement
 
         @functools.wraps(func)
         def wrapped(*args, **kwargs):
+            if len(args) > 0 and hasattr(args[0], 'log'):
+                log = args[0].log
+            else:
+                log = modlog
             log.warning(msg)
             return func(*args, **kwargs)
         return wrapped
     return decorator
 
+@dataclasses.dataclass
 class OptionsBase:
     """Abstract base class for Option dataclasses.
 
@@ -362,9 +408,6 @@ class OptionsBase:
     and also the method `replace`, in order to update options from another Option object
     or dictionary.
     """
-
-    def __repr__(self):
-        return "Options(%r)" % self.asdict()
 
     def get(self, attr, default=None):
         """Dictionary-like access to attributes.
@@ -387,34 +430,51 @@ class OptionsBase:
     def items(self):
         return self.asdict().items()
 
-    def replace(self, other, select=SelectNotSet, **kwargs):
-        """Replace some or all attributes.
+    @classmethod
+    def get_default(cls, field):
+        for x in dataclasses.fields(cls):
+            if (x.name == field):
+                return x.default
+        raise TypeError
 
-        Parameters
-        ----------
-        other : Options or dict
-            Options object or dictionary defining the attributes which should be replaced.
-        select :
-            If set, only values which are of the corresponding type will be replaced.
-        **kwargs :
-            Additional keyword arguments will be added to `other`
-        """
-        other = copy.deepcopy(other)
-        if isinstance(other, OptionsBase):
-            other = other.asdict()
-        if kwargs:
-            other.update(kwargs)
+    @classmethod
+    def get_default_factory(cls, field):
+        for x in dataclasses.fields(cls):
+            if (x.name == field):
+                return x.default_factory
+        raise TypeError
 
-        # Only replace values which are equal to select
-        if select is not SelectNotSet:
-            keep = {}
-            for key, val in self.items():
-                if (val is select) and (key in other):
-                    #updates[key] = copy.copy(other[key])
-                    keep[key] = other[key]
-            other = keep
+    def replace(self, **kwargs):
+        keys = self.keys()
+        for key, val in kwargs.items():
+            if key not in keys:
+                raise TypeError("replace got an unexpected keyword argument '%s'" % key)
+            if isinstance(val, dict) and isinstance(getattr(self, key), dict):
+                setattr(self, key, {**getattr(self, key), **val})
+            else:
+                setattr(self, key, val)
+        return self
 
-        return dataclasses.replace(self, **other)
+    def update(self, **kwargs):
+        keys = self.keys()
+        for key, val in kwargs.items():
+            if key not in keys:
+                continue
+            if isinstance(val, dict) and isinstance(getattr(self, key), dict):
+                #getattr(self, key).update(val)
+                setattr(self, key, {**getattr(self, key), **val})
+            else:
+                setattr(self, key, val)
+        return self
+
+    @staticmethod
+    def dict_with_defaults(**kwargs):
+        return dataclasses.field(default_factory=lambda: kwargs)
+
+    @classmethod
+    def change_dict_defaults(cls, field, **kwargs):
+        defaults = cls.get_default_factory(field)()
+        return cls.dict_with_defaults(**{**defaults, **kwargs})
 
 def fix_orbital_sign(mo_coeff, inplace=True):
     # UHF

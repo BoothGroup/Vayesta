@@ -11,9 +11,9 @@ import pyscf.pbc
 import pyscf.pbc.cc
 
 from vayesta.core.util import *
+from vayesta.core.types import Orbitals
 from vayesta.core.types import WaveFunction
-from vayesta.core.types import SpatialOrbitals
-from vayesta.core.types import RCCSD_WaveFunction
+from vayesta.core.types import CCSD_WaveFunction
 from . import coupling
 from .solver import ClusterSolver
 
@@ -44,8 +44,12 @@ class CCSD_Solver(ClusterSolver):
         super().__init__(*args, **kwargs)
 
         solver_cls = self.get_solver_class()
-        self.log.debugv("CCSD PySCF class= %r" % solver_cls)
+        self.log.debugv("PySCF solver class= %r" % solver_cls)
         frozen = self.cluster.get_frozen_indices()
+        # RCCSD does not support empty lists of frozen orbitals
+        # For UCCSD len(frozen) is always 2, but empty lists are supported)
+        if len(frozen) == 0:
+            frozen = None
         mo_coeff = self.cluster.c_total
         solver = solver_cls(self.mf, mo_coeff=mo_coeff, mo_occ=self.mf.mo_occ, frozen=frozen)
         # Options
@@ -53,7 +57,6 @@ class CCSD_Solver(ClusterSolver):
         if self.opts.conv_tol is not None: solver.conv_tol = self.opts.conv_tol
         if self.opts.conv_tol_normt is not None: solver.conv_tol_normt = self.opts.conv_tol_normt
         self.solver = solver
-
         self.eris = None
 
     def get_solver_class(self):
@@ -138,7 +141,7 @@ class CCSD_Solver(ClusterSolver):
 
     def get_eris(self):
         self.log.debugv("Getting ERIs for type(self.solver)= %r", type(self.solver))
-        with log_time(self.log.timing, "Time for AO->MO transformation: %s"):
+        with log_time(self.log.timing, "Time for 2e-integral transformation: %s"):
             self.eris = self.base.get_eris_object(self.solver)
         return self.eris
 
@@ -164,7 +167,9 @@ class CCSD_Solver(ClusterSolver):
             coupled_fragments = self.fragment.opts.coupled_fragments
 
         # Integral transformation
-        if eris is None: eris = self.get_eris()
+        if eris is None:
+            with log_time(self.log.info, "Time for ERIs: %s"):
+                eris = self.get_eris()
 
         # Add additional potential
         if self.v_ext is not None:
@@ -193,11 +198,11 @@ class CCSD_Solver(ClusterSolver):
         elif coupled_fragments and np.all([x.results is not None for x in coupled_fragments]):
             self.log.info("Adding tailor function to CCSD.")
             self.solver.callback = coupling.make_cross_fragment_tcc_function(self, mode=(self.opts.sc_mode or 3),
-                                                                                coupled_fragments=coupled_fragments)
+                coupled_fragments=coupled_fragments)
 
-        t0 = timer()
         self.log.info("Solving CCSD-equations %s initial guess...", "with" if (t2 is not None) else "without")
-        self.solver.kernel(t1=t1, t2=t2, eris=eris)
+        with log_time(self.log.info, "Time for T-equations: %s"):
+            self.solver.kernel(t1=t1, t2=t2, eris=eris)
         if not self.solver.converged:
             self.log.error("%s not converged!", self.__class__.__name__)
         else:
@@ -209,25 +214,26 @@ class CCSD_Solver(ClusterSolver):
         else:
             self.log.debugv("tr(alpha-T1)= %.8f", np.trace(self.solver.t1[0]))
             self.log.debugv("tr( beta-T1)= %.8f", np.trace(self.solver.t1[1]))
-
         self.log.debug("Cluster: E(corr)= % 16.8f Ha", self.solver.e_corr)
-        self.log.timing("Time for CCSD:  %s", time_string(timer()-t0))
 
         if hasattr(self.solver, '_norm_dt1'):
             self.log.debug("Tailored CC: |dT1|= %.2e |dT2|= %.2e", self.solver._norm_dt1, self.solver._norm_dt2)
             del self.solver._norm_dt1, self.solver._norm_dt2
 
         if self.opts.solve_lambda:
-            #self.solve_lambda(eris=eris)
             self.log.info("Solving lambda-equations with%s initial guess...", ("out" if (l2 is None) else ""))
-            self.solver.solve_lambda(l1=l1, l2=l2, eris=eris)
+            with log_time(self.log.info, "Time for Lambda-equations: %s"):
+                self.solver.solve_lambda(l1=l1, l2=l2, eris=eris)
             if not self.solver.converged_lambda:
                 self.log.error("Lambda-equations not converged!")
+                self.solver.converged_lambda = False
 
         if t_diagnostic: self.t_diagnostic()
 
-        self.wf = WaveFunction.from_pyscf(self.solver)
+        mo = Orbitals(self.cluster.c_active, occ=self.cluster.nocc_active)
+        self.wf = CCSD_WaveFunction(mo, self.solver.t1, self.solver.t2, l1=self.solver.l1, l2=self.solver.l2)
 
+    @log_method()
     def t_diagnostic(self):
         self.log.info("T-Diagnostic")
         self.log.info("------------")
@@ -251,7 +257,7 @@ class CCSD_Solver(ClusterSolver):
         self.solver.callback = coupling.couple_ccsd_iterations(self, fragments)
 
     def _debug_exact_wf(self, wf):
-        mo = SpatialOrbitals(self.cluster.c_active, occ=self.cluster.nocc_active)
+        mo = Orbitals(self.cluster.c_active, occ=self.cluster.nocc_active)
         # Project onto cluster:
         ovlp = self.fragment.base.get_ovlp()
         ro = dot(wf.mo.coeff_occ.T, ovlp, mo.coeff_occ)
@@ -263,9 +269,18 @@ class CCSD_Solver(ClusterSolver):
             l2 = einsum('Ii,Jj,IJAB,Aa,Bb->ijab', ro, ro, wf.l2, rv, rv)
         else:
             l1 = l2 = None
-        wf = RCCSD_WaveFunction(mo, t1, t2, l1=l1, l2=l2)
-        self.wf = wf
+        self.wf = CCSD_WaveFunction(mo, t1, t2, l1=l1, l2=l2)
         self.converged = True
+
+    def _debug_random_wf(self):
+        mo = Orbitals(self.cluster.c_active, occ=self.cluster.nocc_active)
+        t1 = np.random.rand(mo.nocc, mo.nvir)
+        l1 = np.random.rand(mo.nocc, mo.nvir)
+        t2 = np.random.rand(mo.nocc, mo.nocc, mo.nvir, mo.nvir)
+        l2 = np.random.rand(mo.nocc, mo.nocc, mo.nvir, mo.nvir)
+        self.wf = CCSD_WaveFunction(mo, t1, t2, l1=l1, l2=l2)
+        self.converged = True
+
 
 class UCCSD_Solver(CCSD_Solver):
 

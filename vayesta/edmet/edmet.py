@@ -12,34 +12,33 @@ from vayesta.dmet.updates import MixUpdate, DIISUpdate
 from vayesta.rpa import ssRPA, ssRIRPA
 from .fragment import VALID_SOLVERS, EDMETFragment, EDMETFragmentExit
 
+@dataclasses.dataclass
+class Options(RDMET.Options):
+    maxiter: int = 1
+    make_dd_moments: bool = False
+    old_sc_condition: bool = False
+    max_bos: int = np.inf
+    occ_proj_kernel: bool = False
+    boson_xc_kernel: bool = False
+    bosonic_interaction: str = "xc"
 
 @dataclasses.dataclass
 class EDMETResults:
     cluster_sizes: np.ndarray = None
     e_corr: float = None
 
-
 class EDMET(RDMET):
-    @dataclasses.dataclass
-    class Options(RDMET.Options):
-        maxiter: int = 1
-        make_dd_moments: bool = NotSet
-        old_sc_condition: bool = False
-        max_bos: int = np.inf
-        occ_proj_kernel: bool = False
-        boson_xc_kernel: bool = False
-        bosonic_interaction: str = "xc"
 
     Fragment = EDMETFragment
+    Options = Options
 
-    def __init__(self, mf, bno_threshold=np.inf, solver='EBFCI', options=None, log=None, **kwargs):
+    def __init__(self, mf, solver='EBFCI', log=None, **kwargs):
         # If we aren't running in oneshot mode we need to calculate the dd moments.
         if not kwargs.get("oneshot", False):
             kwargs["make_dd_moments"] = True
 
-        super().__init__(mf, bno_threshold, solver, options, log, **kwargs)
+        super().__init__(mf, solver, log, **kwargs)
         self.interaction_kernel = None
-
 
     @property
     def with_df(self):
@@ -57,7 +56,7 @@ class EDMET(RDMET):
         if solver not in VALID_SOLVERS:
             raise ValueError("Unknown solver: %s" % solver)
 
-    def kernel(self, bno_threshold=None):
+    def kernel(self):
 
         t_start = timer()
 
@@ -66,7 +65,6 @@ class EDMET(RDMET):
 
         maxiter = self.opts.maxiter
         # rdm = self.mf.make_rdm1()
-        bno_thr = bno_threshold or self.bno_threshold
         # if bno_thr < np.inf and maxiter > 1:
         #    raise NotImplementedError("MP2 bath calculation is currently ignoring the correlation potential, so does"
         #                              " not work properly for self-consistent calculations.")
@@ -109,7 +107,7 @@ class EDMET(RDMET):
                 self.update_mf(mo_coeff, mo_energy)
                 if self.opts.charge_consistent:
                     fock = self.get_fock()
-            self.set_up_fragments(sym_parents, nsym, bno_threshold=bno_thr)
+            self.set_up_fragments(sym_parents, nsym)
 
             # Need to optimise a global chemical potential to ensure electron number is converged.
             nelec_mf = self.check_fragment_nelectron()
@@ -117,7 +115,7 @@ class EDMET(RDMET):
                 nelec_mf = sum(nelec_mf)
 
             def electron_err(cpt):
-                err = self.calc_electron_number_defect(cpt, np.inf, nelec_mf, sym_parents, nsym)
+                err = self.calc_electron_number_defect(cpt, nelec_mf, sym_parents, nsym)
                 return err
 
             err = electron_err(cpt)
@@ -212,7 +210,7 @@ class EDMET(RDMET):
 
         self.log.info("All done.")
 
-    def set_up_fragments(self, sym_parents, nsym, bno_threshold=None):
+    def set_up_fragments(self, sym_parents, nsym):
 
         # First, set up and run RPA. Note that our self-consistency only couples same-spin excitations so we can
         # solve a subset of the RPA equations.
@@ -222,7 +220,7 @@ class EDMET(RDMET):
             self.e_rpa, energy_error = rpa.kernel_energy(correction="linear")
             self.log.info("RPA total energy=%6.4e", self.e_rpa)
             # Get fermionic bath set up, and calculate the cluster excitation space.
-            rot_ovs = [f.set_up_fermionic_bath(bno_threshold) for f in sym_parents]
+            rot_ovs = [f.set_up_fermionic_bath() for f in sym_parents]
             target_rot = np.concatenate(rot_ovs, axis=0)
             if target_rot.shape[0] > 0:
                 mom0_interact, est_error, est_error2 = rpa.kernel_moms(target_rot, npoints=48)
@@ -258,14 +256,14 @@ class EDMET(RDMET):
             e_nonlocal = self.e_rpa
             self.log.info("RPA total energy=%6.4e", e_nonlocal)
             for f, nc in zip(sym_parents, nsym):
-                rot_ov = f.set_up_fermionic_bath(bno_threshold)
+                rot_ov = f.set_up_fermionic_bath()
                 mom0_interact = dot(rot_ov, mom0)
                 rot_bos = f.define_bosons(mom0_interact)
                 mom0_bos = dot(rot_bos, mom0)
                 e_nonlocal -= f.construct_boson_hamil(mom0_bos, eps, self.xc_kernel) * nc
         self.e_nonlocal = e_nonlocal
 
-    def calc_electron_number_defect(self, chempot, bno_thr, nelec_target, parent_fragments, nsym,
+    def calc_electron_number_defect(self, chempot, nelec_target, parent_fragments, nsym,
                                     construct_bath=True):
         self.log.info("Running chemical potential={:8.6e}".format(chempot))
         # Save original one-body hamiltonian calculation.
@@ -283,7 +281,7 @@ class EDMET(RDMET):
             self.log.changeIndentLevel(1)
 
             try:
-                result = frag.kernel(bno_threshold=bno_thr, construct_bath=construct_bath, chempot=chempot)
+                result = frag.kernel(construct_bath=construct_bath, chempot=chempot)
             except EDMETFragmentExit as e:
                 exit = True
                 self.log.info("Exiting %s", frag)
@@ -291,10 +289,6 @@ class EDMET(RDMET):
                 raise e
 
             self.cluster_results[frag.id] = result
-            if not result.converged:
-                self.log.error("%s is not converged!", frag)
-            else:
-                self.log.info("%s is done.", frag)
             self.log.changeIndentLevel(-1)
             if exit:
                 break

@@ -5,37 +5,13 @@ import pyscf.cc
 
 from vayesta.core.util import *
 from vayesta.core.qemb import UFragment as BaseFragment
-from vayesta.core.bath import UDMET_Bath
-from vayesta.core.bath import UCompleteBath
-from vayesta.core.bath import UMP2_BNO_Bath
 from .fragment import Fragment as RFragment
 
 
-class Fragment(BaseFragment, RFragment):
+class Fragment(RFragment, BaseFragment):
 
     def set_cas(self, *args, **kwargs):
         raise NotImplementedError()
-
-    def make_bath(self, bath_type=NotSet):
-        if bath_type is NotSet:
-            bath_type = self.opts.bath_type
-        # DMET bath only
-        if bath_type is None or bath_type.lower() == 'dmet':
-            bath = UDMET_Bath(self, dmet_threshold=self.opts.dmet_threshold)
-        # All environment orbitals as bath
-        elif bath_type.lower() in ('all', 'full'):
-            #raise NotImplementedError()
-            bath = UCompleteBath(self, dmet_threshold=self.opts.dmet_threshold)
-        # MP2 bath natural orbitals
-        elif bath_type.lower() == 'mp2-bno':
-            dmet_bath = UDMET_Bath(self, dmet_threshold=self.opts.dmet_threshold)
-            dmet_bath.kernel()
-            bath = UMP2_BNO_Bath(self, dmet_bath)
-        else:
-            raise ValueError("Unknown bath_type: %r" % bath_type)
-        bath.kernel()
-        self.bath = bath
-        return bath
 
     def get_fragment_energy(self, c1, c2, eris=None, fock=None, axis1='fragment', c2ba_order='ba'):
         """Calculate fragment correlation energy contribution from projected C1, C2.
@@ -61,8 +37,6 @@ class Fragment(BaseFragment, RFragment):
         e_corr: float
             Total fragment correlation energy contribution.
         """
-        if (self.opts.energy_factor*self.sym_factor) == 0: return 0
-
         nocc = (c2[0].shape[1], c2[-1].shape[1])
         nvir = (c2[0].shape[2], c2[-1].shape[2])
         self.log.debugv("nocc= %d, %d nvir= %d, %d", *nocc, *nvir)
@@ -136,8 +110,8 @@ class Fragment(BaseFragment, RFragment):
                        - einsum('ijab,ibja', cbb, gbb)/4
                        + einsum('ijab,iajb', cab, gab))
 
-        e_singles = (self.opts.energy_factor*self.sym_factor * e_singles)
-        e_doubles = (self.opts.energy_factor*self.sym_factor * e_doubles)
+        e_singles = (self.sym_factor * e_singles)
+        e_doubles = (self.sym_factor * e_doubles)
         e_corr = (e_singles + e_doubles)
         return e_singles, e_doubles, e_corr
 

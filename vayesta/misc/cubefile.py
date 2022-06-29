@@ -19,7 +19,7 @@ log = logging.getLogger(__name__)
 class CubeFile:
 
     def __init__(self, cell, filename=None, gridsize=(100, 100, 100), resolution=None,
-            title=None, comment=None, origin=(0.0, 0.0, 0.0), fmt="%13.5E",
+            title=None, comment=None, fmt="%13.5E",
             crop=None):
         """Initialize a cube file object. Data can be added using the `add_orbital` and `add_density` methods.
 
@@ -64,8 +64,8 @@ class CubeFile:
         # Make user aware of different behavior of resolution, compared to pyscf.tools.cubegen
         if resolution is not None and resolution < 1:
             log.warning(cell, "Warning: resolution is below 1/Bohr. Recommended values are 5/Bohr or higher.")
-        self.a = self.cell.lattice_vectors().copy()
-        self.origin = np.asarray(origin)
+
+        self.a, self.origin = self.get_box_and_origin()
         if crop is not None:
             a = self.a.copy()
             norm = np.linalg.norm(self.a, axis=1)
@@ -89,6 +89,22 @@ class CubeFile:
         self.coords = self.get_coords()
 
         self.fields = []
+
+    @property
+    def has_pbc(self):
+        return hasattr(self.cell, 'lattice_vectors')
+
+    def get_box_and_origin(self):
+        if self.has_pbc:
+            box = self.cell.lattice_vectors().copy()
+            origin = np.zeros(3)
+        else:
+            coord = self.cell.atom_coords()
+            margin = 3.0
+            extent = np.max(coord, axis=0) - np.min(coord, axis=0) + 2*margin
+            box = np.diag(extent)
+            origin = np.asarray(np.min(coord, axis=0) - margin)
+        return box, origin
 
     def get_coords(self):
         xs = np.arange(self.nx) / (self.nx-1)
@@ -231,7 +247,8 @@ class CubeFile:
             for blk0, blk1 in pyscf.lib.prange(0, self.ncoords, blksize):
                 data = np.zeros((blk1-blk0, self.nfields))
                 blk = np.s_[blk0:blk1]
-                ao = self.cell.eval_gto('PBCGTOval', self.coords[blk])
+                intor = 'PBCGTOval' if self.has_pbc else 'GTOval'
+                ao = self.cell.eval_gto(intor, self.coords[blk])
                 for i, (field, ftype, _) in enumerate(self.fields):
                     if ftype == 'orbital':
                         data[:,i] = np.dot(ao, field)

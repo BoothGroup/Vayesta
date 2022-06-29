@@ -23,7 +23,9 @@ class Test_CCSD(test_h2.Test_CCSD):
     @classmethod
     @cache
     def emb(cls, bno_threshold):
-        emb = vayesta.ewf.EWF(cls.mf, bno_threshold=bno_threshold, solve_lambda=True)
+        solver_opts = dict(conv_tol= 1e-10, conv_tol_normt=1e-8)
+        emb = vayesta.ewf.EWF(cls.mf, bno_threshold=bno_threshold, solve_lambda=True,
+                solver_options=solver_opts)
         with emb.sao_fragmentation() as f:
             f.add_all_atomic_fragments()
         emb.kernel()

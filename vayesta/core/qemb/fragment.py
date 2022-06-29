@@ -1,42 +1,58 @@
+# --- Standard library
 import dataclasses
 import itertools
 import copy
 import os.path
-
+# --- External
 import numpy as np
 import scipy
 import scipy.linalg
-
 import pyscf
 import pyscf.lib
 import pyscf.lo
-
+# --- Internal
 from vayesta.core.util import *
+from vayesta.core import spinalg
+from vayesta.core.types import Cluster
 from vayesta.core.symmetry import SymmetryIdentity
 from vayesta.core.symmetry import SymmetryTranslation
 import vayesta.core.ao2mo
 import vayesta.core.ao2mo.helper
-
-from vayesta.misc.cubefile import CubeFile
 from vayesta.core.types import WaveFunction
+# Bath
+from vayesta.core.bath import BNO_Threshold
+from vayesta.core.bath import DMET_Bath
+from vayesta.core.bath import EwDMET_Bath
+from vayesta.core.bath import MP2_Bath
+from vayesta.core.bath import Full_Bath
+from vayesta.core.bath import R2_Bath
+# Other
+from vayesta.misc.cubefile import CubeFile
 from vayesta.mpi import mpi
+
 
 # Get MPI rank of fragment
 get_fragment_mpi_rank = lambda *args : args[0].mpi_rank
 
+@dataclasses.dataclass
+class Options(OptionsBase):
+    # Inherited from Embedding
+    # ------------------------
+    # --- Bath options
+    bath_options: dict = None
+    # --- Solver options
+    solver_options: dict = None
+    # --- Other
+    store_eris: bool = None     # If True, ERIs will be stored in Fragment._eris
+    dm_with_frozen: bool = None # TODO: is still used?
+    # Fragment specific
+    # -----------------
+    coupled_fragments: list = dataclasses.field(default_factory=list)
+    sym_factor: float = 1.0
 
 class Fragment:
 
-    @dataclasses.dataclass
-    class Options(OptionsBase):
-        dmet_threshold: float = NotSet
-        solver_options: dict = NotSet
-        coupled_fragments: list = dataclasses.field(default_factory=list)
-        # Symmetry
-        sym_factor: float = 1.0
-        wf_partition: str = NotSet  # ['first-occ', 'first-vir', 'democratic']
-        store_eris: bool = NotSet   # If True, ERIs will be stored in Fragment._eris
-        dm_with_frozen: bool = NotSet
+    Options = Options
 
     @dataclasses.dataclass
     class Results:
@@ -47,95 +63,13 @@ class Fragment:
         # --- Wave-function
         wf: WaveFunction = None     # WaveFunction object (MP2, CCSD,...)
         pwf: WaveFunction = None    # Fragment-projected wave function
-        # --- Density-matrices
-        #dm1: np.ndarray = None      # One-particle reduced density matrix (dm1[i,j] = <i^+ j>
-        #dm2: np.ndarray = None      # Two-particle reduced density matrix (dm2[i,j,k,l] = <i^+ k^+ l j>)
 
-        # OLD / Deprecated:
-        @property
-        def c0(self):
-            return self.wf.c0
-        @property
-        def c1(self):
-            return self.wf.c1
-        @property
-        def c2(self):
-            return self.wf.c2
-        @property
-        def t1(self):
-            return self.wf.t1
-        @property
-        def t2(self):
-            return self.wf.t2
-        @property
-        def l1(self):
-            return self.wf.l1
-        @property
-        def l2(self):
-            return self.wf.l2
-        @property
-        def c1x(self):
-            return self.pwf.c1
-        @property
-        def c2x(self):
-            return self.pwf.c2
-        @property
-        def t1x(self):
-            return self.pwf.t1
-        @property
-        def t2x(self):
-            return self.pwf.t2
-        @property
-        def l1x(self):
-            return self.pwf.l1
-        @property
-        def l2x(self):
-            return self.pwf.l2
-
-        def get_t1(self, default=None):
-            if self.t1 is not None:
-                return self.t1
-            if self.c1 is not None:
-                return self.c1 / self.c0
-            return default
-
-        def get_t2(self, default=None):
-            if self.t2 is not None:
-                return self.t2
-            if self.c0 is not None and self.c1 is not None and self.c2 is not None:
-                c1 = self.c1/self.c0
-                return self.c2/self.c0 - einsum('ia,jb->ijab', c1, c1)
-            return default
-
-        def get_c1(self, intermed_norm=False, default=None):
-            if self.c1 is not None:
-                norm = 1/self.c0 if intermed_norm else 1
-                return norm * self.c1
-            if self.t1 is not None:
-                if not intermed_norm:
-                    raise ValueError("Cannot deduce C1 amplitudes from T1: normalization not known.")
-                return self.t1
-            return default
-
-        def get_c2(self, intermed_norm=False, default=None):
-            if self.c2 is not None:
-                norm = 1/self.c0 if intermed_norm else 1
-                return norm * self.c2
-            if self.t1 is not None and self.t2 is not None:
-                if not intermed_norm:
-                    raise ValueError("Cannot deduce C2 amplitudes from T1,T2: normalization not known.")
-                return self.t2 + einsum('ia,jb->ijab', self.t1, self.t1)
-            return default
-
-    class Exit(Exception):
-        """Raise for controlled early exit."""
-        pass
 
     def __init__(self, base, fid, name, c_frag, c_env, #fragment_type,
-            atoms=None, aos=None,
+            atoms=None, aos=None, active=True,
             sym_parent=None, sym_op=None,
             mpi_rank=0,
-            log=None, options=None, **kwargs):
+            log=None, **kwargs):
         """Abstract base class for quantum embedding fragments.
 
         The fragment may keep track of associated atoms or atomic orbitals, using
@@ -202,15 +136,12 @@ class Fragment:
         self.log = log or base.log
         self.id = fid
         self.name = name
+        self.base = base
 
         # Options
-        self.base = base
-        if options is None:
-            options = self.Options(**kwargs)
-        else:
-            options = options.replace(kwargs)
-        options = options.replace(self.base.opts, select=NotSet)
-        self.opts = options
+        self.opts = self.Options()                  # Default options
+        self.opts.update(**self.base.opts.asdict()) # Update with embedding class options
+        self.opts.replace(**kwargs)                 # Replace with keyword arguments
 
         self.c_frag = c_frag
         self.c_env = c_env
@@ -218,9 +149,10 @@ class Fragment:
         self.sym_parent = sym_parent
         self.sym_op = sym_op
         # For some embeddings, it may be necessary to keep track of any associated atoms or basis functions (AOs)
-        # TODO: Is this still used?
         self.atoms = atoms
+        # TODO: Is aos still used?
         self.aos = aos
+        self.active = active
 
         # MPI
         self.mpi_rank = mpi_rank
@@ -232,16 +164,14 @@ class Fragment:
         # Initialize self.bath, self._cluster, self._results, self._eris
         self.reset()
 
-        self.log.info("Creating %r", self)
+        self.log.debugv("Creating %r", self)
         #self.log.info(break_into_lines(str(self.opts), newline='\n    '))
 
     def __repr__(self):
         if mpi:
-            return '%s(id= %d, name= %s, n_frag= %d, mpi_rank= %d)' % (
-                    self.__class__.__name__, self.id, self.name, self.n_frag, self.mpi_rank)
-        return '%s(id= %d, name= %s, n_frag= %d)' % (
-                self.__class__.__name__, self.id, self.name, self.n_frag)
-
+            return '%s(id= %d, name= %s, mpi_rank= %d)' % (
+                    self.__class__.__name__, self.id, self.name, self.mpi_rank)
+        return '%s(id= %d, name= %s)' % (self.__class__.__name__, self.id, self.name)
 
     def __str__(self):
         return '%s %d: %s' % (self.__class__.__name__, self.id, self.name)
@@ -294,6 +224,9 @@ class Fragment:
     def boundary_cond(self):
         return self.base.boundary_cond
 
+    def change_options(self, **kwargs):
+        self.opts.replace(**kwargs)
+
     # --- Overlap matrices
     # --------------------
 
@@ -311,6 +244,9 @@ class Fragment:
     @cache
     def get_overlap(self, key):
         """Get overlap between cluster orbitals, fragment orbitals, or MOs.
+
+        The return value is cached but not copied; do not modify the array in place without
+        creating a copy!
 
         Examples:
         >>> s = self.get_overlap('cluster|mo')
@@ -349,12 +285,14 @@ class Fragment:
         c_right = _get_coeff(right)
         return self._csc_dot(c_left, c_right)
 
+    def get_coeff_env(self):
+        if self.c_env is not None:
+            return self.c_env
+        return self.sym_op(self.sym_parent.get_coeff_env())
+
     @property
     def results(self):
         return self.get_symmetry_parent()._results
-        #if self.sym_parent is not None:
-        #    return self.sym_parent.results
-        #return self._results
 
     @results.setter
     def results(self, value):
@@ -374,14 +312,41 @@ class Fragment:
             raise RuntimeError("Cannot set attribute cluster in symmetry derived fragment.")
         self._cluster = value
 
-    def reset(self, keep_bath=False):
-        self.log.debugv("Resetting %s", self)
-        if not keep_bath:
-            self.bath = None
-        self._cluster = None
-        self._eris = None
-        self._results = self.Results(fid=self.id)
-        self.get_overlap.cache_clear()
+    def reset(self, reset_bath=True, reset_cluster=True, reset_eris=True):
+        self.log.debugv("Resetting %s (reset_bath= %r, reset_cluster= %r, reset_eris= %r)",
+                self, reset_bath, reset_cluster, reset_eris)
+        if reset_bath:
+            self._dmet_bath = None
+            self._bath_factory_occ = None
+            self._bath_factory_vir = None
+        if reset_cluster:
+            self._cluster = None
+            self.get_overlap.cache_clear()
+        if reset_eris:
+            self._eris = None
+        self._results = None
+
+    def get_fragments_with_overlap(self, tol=1e-8, **kwargs):
+        """Get list of fragments which overlap both in occupied and virtual space."""
+        c_occ = self.get_overlap('mo[occ]|cluster[occ]')
+        c_vir = self.get_overlap('mo[vir]|cluster[vir]')
+        def svd(cx, cy):
+            rxy = np.dot(cx.T, cy)
+            return np.linalg.svd(rxy, compute_uv=False)
+        frags = []
+        for fx in self.base.get_fragments(**kwargs):
+            if (fx.id == self.id):
+                continue
+            cx_occ = fx.get_overlap('mo[occ]|cluster[occ]')
+            s_occ = svd(c_occ, cx_occ)
+            if s_occ.max() < tol:
+                continue
+            cy_occ = fy.get_overlap('mo[vir]|cluster[vir]')
+            s_vir = svd(c_vir, cx_vir)
+            if s_vir.max() < tol:
+                continue
+            frags.append(fx)
+        return frags
 
     def couple_to_fragment(self, frag):
         if frag is self:
@@ -456,6 +421,8 @@ class Fragment:
 
     def canonicalize_mo(self, *mo_coeff, fock=None, eigvals=False, sign_convention=True):
         """Diagonalize Fock matrix within subspace.
+
+        TODO: move to Embedding class
 
         Parameters
         ----------
@@ -554,14 +521,15 @@ class Fragment:
     # --- Symmetry
     # ============
 
-    def add_tsymmetric_fragments(self, tvecs, charge_tol=1e-6):
+    @deprecated()
+    def add_tsymmetric_fragments(self, tvecs, symtol=1e-6):
         """
 
         Parameters
         ----------
         tvecs: array(3) of integers
             Each element represent the number of translation vector corresponding to the a0, a1, and a2 lattice vectors of the cell.
-        charge_tol: float, optional
+        symtol: float, optional
             Tolerance for the error of the mean-field density matrix between symmetry related fragments.
             If the largest absolute difference in the density-matrix is above this value,
             and exception will be raised. Default: 1e-6.
@@ -579,8 +547,7 @@ class Fragment:
         for i, (dx, dy, dz) in enumerate(itertools.product(range(tvecs[0]), range(tvecs[1]), range(tvecs[2]))):
             if i == 0: continue
             tvec = (dx/tvecs[0], dy/tvecs[1], dz/tvecs[2])
-            sym_op = SymmetryTranslation(self.mol, tvec)
-
+            sym_op = SymmetryTranslation(self.base.symmetry, tvec)
             if sym_op is None:
                 self.log.error("No T-symmetric fragment found for translation (%d,%d,%d) of fragment %s", dx, dy, dz, self.name)
                 continue
@@ -588,73 +555,153 @@ class Fragment:
             name = '%s_T(%d,%d,%d)' % (self.name, dx, dy, dz)
             # Translated coefficients
             c_frag_t = sym_op(self.c_frag)
-            c_env_t = sym_op(self.c_env)
+            c_env_t = None  # Avoid expensive symmetry operation on environment orbitals
             # Check that translated fragment does not overlap with current fragment:
-            fragovlp = abs(dot(self.c_frag.T, ovlp, c_frag_t)).max()
+            fragovlp = self._csc_dot(self.c_frag, c_frag_t, ovlp=ovlp)
+            if self.base.spinsym == 'restricted':
+                fragovlp = abs(fragovlp).max()
+            elif self.base.spinsym == 'unrestricted':
+                fragovlp = max(abs(fragovlp[0]).max(), abs(fragovlp[1]).max())
             if (fragovlp > 1e-8):
                 self.log.critical("Translation (%d,%d,%d) of fragment %s not orthogonal to original fragment (overlap= %.3e)!",
                             dx, dy, dz, self.name, fragovlp)
                 raise RuntimeError("Overlapping fragment spaces.")
-            # Deprecated:
-            if hasattr(self.base, 'add_fragment'):  # pragma: no cover
-                frag = self.base.add_fragment(name, c_frag_t, c_env_t, options=self.opts,
-                        sym_parent=self, sym_op=sym_op)
-            else:
-                frag_id = self.base.register.get_next_id()
-                frag = self.base.Fragment(self.base, frag_id, name, c_frag_t, c_env_t, options=self.opts,
-                        sym_parent=self, sym_op=sym_op, mpi_rank=self.mpi_rank)
-                self.base.fragments.append(frag)
 
+            # Add fragment
+            frag_id = self.base.register.get_next_id()
+            frag = self.base.Fragment(self.base, frag_id, name, c_frag_t, c_env_t,
+                    sym_parent=self, sym_op=sym_op, mpi_rank=self.mpi_rank,
+                    **self.opts.asdict())
+            self.base.fragments.append(frag)
             # Check symmetry
-            charge_err = self.get_tsymmetry_error(frag, dm1=dm1)
-            if charge_err > charge_tol:
-                self.log.critical("Mean-field DM not symmetric for translation (%d,%d,%d) of %s (charge error= %.3e)!",
-                    dx, dy, dz, self.name, charge_err)
-                raise RuntimeError("MF not symmetric under translation (%d,%d,%d)" % (dx, dy, dz))
-            else:
-                self.log.debugv("Mean-field DM symmetry error for translation (%d,%d,%d) of %s = %.3e",
-                    dx, dy, dz, self.name, charge_err)
+            # (only for the primitive translations (1,0,0), (0,1,0), and (0,0,1) to reduce number of sym_op(c_env) calls)
+            if (abs(dx)+abs(dy)+abs(dz) == 1):
+                charge_err, spin_err = self.get_symmetry_error(frag, dm1=dm1)
+                if max(charge_err, spin_err) > symtol:
+                    self.log.critical("Mean-field DM1 not symmetric for translation (%d,%d,%d) of %s (errors: charge= %.3e, spin= %.3e)!",
+                        dx, dy, dz, self.name, charge_err, spin_err)
+                    raise RuntimeError("MF not symmetric under translation (%d,%d,%d)" % (dx, dy, dz))
+                else:
+                    self.log.debugv("Mean-field DM symmetry error for translation (%d,%d,%d) of %s: charge= %.3e, spin= %.3e",
+                        dx, dy, dz, self.name, charge_err, spin_err)
 
             fragments.append(frag)
         return fragments
 
+    @deprecated(replacement='add_tsymmetric_fragment')
     def make_tsymmetric_fragments(self, *args, **kwargs):  # pragma: no cover
-        self.log.warning("make_tsymmetric_fragments is deprecated - use add_tsymmetric_fragments")
         return self.add_tsymmetric_fragments(*args, **kwargs)
 
     def get_symmetry_parent(self):
         if self.sym_parent is None:
             return self
-        return self.sym_parent
+        return self.sym_parent.get_symmetry_parent()
 
     def get_symmetry_operation(self):
         if self.sym_parent is None:
-            return SymmetryIdentity(self.mol)
+            return SymmetryIdentity(self.base.symmetry)
         return self.sym_op
 
-    def get_symmetry_children(self):
-        return self.base.get_fragments(sym_parent=self)
+    def get_symmetry_generations(self, maxgen=None, **filters):
+        if maxgen == 0:
+            return []
+        generations = []
+        fragments = self.base.get_fragments(**filters)
+        # Direct children:
+        lastgen = self.base.get_fragments(fragments, sym_parent=self)
+        generations.append(lastgen)
+        # Children of children, etc:
+        for gen in range(1, maxgen or 1000):
+            newgen = []
+            for fx in lastgen:
+                newgen += self.base.get_fragments(fragments, sym_parent=fx)
+            if not newgen:
+                break
+            generations.append(newgen)
+            lastgen = newgen
+        return generations
+
+    def get_symmetry_children(self, maxgen=None, **filters):
+        gens = self.get_symmetry_generations(maxgen, **filters)
+        # Flatten list of lists:
+        children = list(itertools.chain.from_iterable(gens))
+        return children
+
+    def get_symmetry_tree(self, maxgen=None, **filters):
+        """Returns a recursive tree:
+
+        [(x, [children of x]), (y, [children of y]), ...]
+        """
+        if maxgen is None:
+            maxgen = 1000
+        if maxgen == 0:
+            return []
+        # Get direct children:
+        children = self.get_symmetry_children(maxgen=1, **filters)
+        # Build tree recursively:
+        tree = [(x, x.get_symmetry_tree(maxgen=maxgen-1, **filters)) for x in children]
+        return tree
+
+    def loop_symmetry_children(self, arrays=None, axes=None, symtree=None, maxgen=None, include_self=False):
+        """Loop over all symmetry related fragments, including children of children, etc.
+
+        Parameters
+        ----------
+        arrays : ndarray or list[ndarray], optional
+            If arrays are passed, the symmetry operation of each symmetry related fragment will be
+            applied to this array along the axis given in `axes`.
+        axes : list[int], optional
+            List of axes, along which the symmetry operation is applied for each element of `arrays`.
+            If None, the first axis will be used.
+        """
+
+        def get_yield(fragment, arrays):
+            if arrays is None or len(arrays) == 0:
+                return fragment
+            if len(arrays) == 1:
+                return fragment, arrays[0]
+            return fragment, arrays
+
+        if include_self:
+            yield get_yield(self, arrays)
+        if maxgen == 0:
+            return
+        elif maxgen is None:
+            maxgen = 1000
+        if arrays is None:
+            arrays = []
+        if axes is None:
+            axes = len(arrays)*[0]
+        if symtree is None:
+            symtree = self.get_symmetry_tree()
+        for child, grandchildren in symtree:
+            intermediates = [child.sym_op(arr, axis=axis) for (arr, axis) in zip(arrays, axes)]
+            yield get_yield(child, intermediates)
+            if grandchildren and maxgen > 1:
+                yield from child.loop_symmetry_children(intermediates, axes=axes, symtree=grandchildren, maxgen=(maxgen-1))
 
     @property
     def n_symmetry_children(self):
+        """Includes children of children, etc."""
         return len(self.get_symmetry_children())
 
     @property
     def symmetry_factor(self):
+        """Includes children of children, etc."""
         return (self.n_symmetry_children+1)
 
-    def get_tsymmetry_error(self, frag, dm1=None):
+    def get_symmetry_error(self, frag, dm1=None):
         """Get translational symmetry error between two fragments."""
         if dm1 is None: dm1 = self.mf.make_rdm1()
         ovlp = self.base.get_ovlp()
         # This fragment (x)
-        cx = np.hstack((self.c_frag, self.c_env))
+        cx = np.hstack((self.c_frag, self.get_coeff_env()))
         dmx = dot(cx.T, ovlp, dm1, ovlp, cx)
         # Other fragment (y)
-        cy = np.hstack((frag.c_frag, frag.c_env))
+        cy = np.hstack((frag.c_frag, frag.get_coeff_env()))
         dmy = dot(cy.T, ovlp, dm1, ovlp, cy)
         err = abs(dmx - dmy).max()
-        return err
+        return err, 0.0
 
     #def check_mf_tsymmetry(self):
     #    """Check translational symmetry of the mean-field between fragment and its children."""
@@ -672,6 +719,115 @@ class Fragment:
     #            continue
     #        else:
     #            self.log.debugv("Mean-field T-symmetry error between %s and %s = %.3e", self.name, frag.name, err)
+
+    # Bath and cluster
+    # ----------------
+
+    def make_bath(self):
+
+        # --- Bath options
+        bath_opts = self.opts.bath_options
+        self.log.debug("bath_options: %s", break_into_lines(str(bath_opts)))
+        def get_opt(key, occtype):
+            return (bath_opts.get('%s_%s' % (key, occtype[:3]), False) or bath_opts[key])
+
+        # --- DMET bath
+        dmet = DMET_Bath(self, dmet_threshold=bath_opts['dmet_threshold'])
+        dmet.kernel()
+        self._dmet_bath = dmet
+
+        # --- Additional bath
+        def get_bath(occtype):
+            otype = occtype[:3]
+            assert otype in ('occ', 'vir')
+            btype = get_opt('bathtype', occtype)
+            if btype is None:
+                self.log.warning("bathtype=None is deprecated; use bathtype='dmet'.")
+                btype = 'dmet'
+            if btype == 'all':
+                self.log.warning("bathtype='all' is deprecated; use bathtype='full'.")
+                btype = 'full'
+            if btype == 'mp2-bno':
+                self.log.warning("bathtype='mp2-bno' is deprecated; use bathtype='mp2'.")
+                btype = 'mp2'
+            # DMET bath only
+            if btype == 'dmet':
+                return None
+            # Full bath (for debugging)
+            if btype == 'full':
+                return Full_Bath(self, dmet_bath=dmet, occtype=occtype)
+            # Spatially close orbitals
+            if btype == 'r2':
+                return R2_Bath(self, dmet, occtype=occtype)
+            # MP2 bath natural orbitals
+            if btype == 'mp2':
+                project_t2 = get_opt('project_t2', occtype)
+                addbuffer = get_opt('addbuffer', occtype) and occtype == 'virtual'
+                if addbuffer:
+                    other = 'occ' if (otype == 'vir') else 'vir'
+                    c_buffer = getattr(dmet, 'c_env_%s' % other)
+                else:
+                    c_buffer = None
+                return MP2_Bath(self, dmet_bath=dmet, occtype=occtype, c_buffer=c_buffer, project_t2=project_t2)
+            raise NotImplementedError('bathtype= %s' % btype)
+        self._bath_factory_occ = get_bath(occtype='occupied')
+        self._bath_factory_vir = get_bath(occtype='virtual')
+
+    def make_cluster(self):
+
+        bath_opts = self.opts.bath_options
+        def get_opt(key, occtype):
+            return (bath_opts.get('%s_%s' % (key, occtype[:3]), False) or bath_opts[key])
+
+        def get_orbitals(occtype):
+            factory = getattr(self, '_bath_factory_%s' % occtype[:3])
+            btype = get_opt('bathtype', occtype)
+            if btype == 'dmet':
+                c_bath = None
+                c_frozen = getattr(self._dmet_bath, 'c_env_%s' % occtype[:3])
+            if btype == 'full':
+                c_bath, c_frozen = factory.get_bath()
+            if btype == 'r2':
+                rcut = get_opt('rcut', occtype)
+                unit = get_opt('unit', occtype)
+                c_bath, c_frozen = factory.get_bath(rcut=rcut)
+            if btype == 'mp2':
+                threshold = get_opt('threshold', occtype)
+                truncation = get_opt('truncation', occtype)
+                bno_threshold = BNO_Threshold(truncation, threshold)
+                c_bath, c_frozen = factory.get_bath(bno_threshold)
+            return c_bath, c_frozen
+
+        c_bath_occ, c_frozen_occ = get_orbitals('occupied')
+        c_bath_vir, c_frozen_vir = get_orbitals('virtual')
+        c_active_occ = spinalg.hstack_matrices(self._dmet_bath.c_cluster_occ, c_bath_occ)
+        c_active_vir = spinalg.hstack_matrices(self._dmet_bath.c_cluster_vir, c_bath_vir)
+        # Canonicalize orbitals
+        if get_opt('canonicalize', 'occupied'):
+            c_active_occ = self.canonicalize_mo(c_active_occ)[0]
+        if get_opt('canonicalize', 'virtual'):
+            c_active_vir = self.canonicalize_mo(c_active_vir)[0]
+        cluster = Cluster.from_coeffs(c_active_occ, c_active_vir, c_frozen_occ, c_frozen_vir)
+
+        # Check occupations
+        def check_occup(mo_coeff, expected):
+            occup = self.get_mo_occupation(mo_coeff)
+            # RHF
+            atol = self.opts.bath_options['dmet_threshold']
+            if np.ndim(occup[0]) == 0:
+                assert np.allclose(occup, 2*expected, rtol=0, atol=2*atol)
+            else:
+                assert np.allclose(occup[0], expected, rtol=0, atol=atol)
+                assert np.allclose(occup[1], expected, rtol=0, atol=atol)
+        check_occup(cluster.c_total_occ, 1)
+        check_occup(cluster.c_total_vir, 0)
+
+        self.log.info('Orbitals for %s', self)
+        self.log.info('-------------%s', len(str(self))*'-')
+        self.log.info(cluster.repr_size().replace('%', '%%'))
+
+        self.cluster = cluster
+        return cluster
 
     # --- Results
     # ===========

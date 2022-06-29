@@ -2,32 +2,12 @@ import numpy as np
 
 from vayesta.core.util import *
 from vayesta.core.qemb import UFragment
-from vayesta.core.bath import UDMET_Bath, UCompleteBath, UMP2_BNO_Bath
 from .fragment import DMETFragment
 
 class UDMETFragment(UFragment, DMETFragment):
 
     def set_cas(self, *args, **kwargs):
         raise NotImplementedError()
-
-    def make_bath(self, bath_type=NotSet):
-        if bath_type is NotSet:
-            bath_type = self.opts.bath_type
-        # DMET bath only
-        if bath_type is None or bath_type.lower() == 'dmet':
-            bath = UDMET_Bath(self, dmet_threshold=self.opts.dmet_threshold)
-        # All environment orbitals as bath
-        elif bath_type.lower() in ('all', 'full'):
-            # raise NotImplementedError()
-            bath = UCompleteBath(self, dmet_threshold=self.opts.dmet_threshold)
-        # MP2 bath natural orbitals
-        elif bath_type.lower() == 'mp2-bno':
-            bath = UMP2_BNO_Bath(self, dmet_threshold=self.opts.dmet_threshold)
-        else:
-            raise ValueError("Unknown bath_type: %r" % bath_type)
-        bath.kernel()
-        self.bath = bath
-        return bath
 
     def get_frag_hl_dm(self):
         ca = dot(self.c_frag[0].T, self.mf.get_ovlp(), self.cluster.c_active[0])

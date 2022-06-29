@@ -372,6 +372,12 @@ class UMP2_WaveFunction(RMP2_WaveFunction):
     def t2bb(self):
         return self.t2[-1]
 
+    def make_rdm1(self, *args, **kwargs):
+        raise NotImplementedError
+
+    def make_rdm2(self, *args, **kwargs):
+        raise NotImplementedError
+
     def project(self, projector, inplace=False):
         wf = self if inplace else self.copy()
         wf.t2 = project_uc2(wf.t2, projector)

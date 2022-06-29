@@ -3,11 +3,11 @@ import scipy
 import scipy.linalg
 
 from vayesta.core.util import *
-from .bath import FragmentBath
+from .bath import Bath
 
 DEFAULT_DMET_THRESHOLD = 1e-6
 
-class DMET_Bath(FragmentBath):
+class DMET_Bath_RHF(Bath):
 
     def __init__(self, fragment, dmet_threshold=DEFAULT_DMET_THRESHOLD):
         super().__init__(fragment)
@@ -67,7 +67,7 @@ class DMET_Bath(FragmentBath):
     def get_environment(self):
         return self.c_env_occ, self.c_env_vir
 
-    def make_dmet_bath(self, c_env, dm1=None, c_ref=None, nbath=None, dmet_threshold=None, verbose=True, reftol=0.8):
+    def make_dmet_bath(self, c_env, dm1=None, c_ref=None, nbath=None, verbose=True, reftol=0.8):
         """Calculate DMET bath, occupied environment and virtual environment orbitals.
 
         If c_ref is not None, complete DMET orbital space using active transformation of reference orbitals.
@@ -108,8 +108,7 @@ class DMET_Bath(FragmentBath):
             nao = c_env.shape[0]
             return np.zeros((nao, 0)), np.zeros((nao, 0)), np.zeros((nao, 0))
 
-        if dmet_threshold is None: dmet_threshold = self.dmet_threshold
-        tol = dmet_threshold
+        tol = self.dmet_threshold
 
         # Divide by 2 to get eigenvalues in [0,1]
         sc = np.dot(self.base.get_ovlp(), c_env)
@@ -154,111 +153,135 @@ class DMET_Bath(FragmentBath):
         c_virenv = c_env[:,mask_virenv].copy()
 
         if verbose:
-            # Orbitals in [print_tol, 1-print_tol] will be printed (even if they don't fall in the DMET tol range)
-            print_tol = 1e-10
-            # DMET bath orbitals with eigenvalue in [strong_tol, 1-strong_tol] are printed as strongly entangled
-            strong_tol = 0.1
-            limits = [print_tol, tol, strong_tol, 1-strong_tol, 1-tol, 1-print_tol]
-            if np.any(np.logical_and(eig > limits[0], eig <= limits[-1])):
-                names = [
-                        "Unentangled vir. env. orbital",
-                        "Weakly-entangled vir. bath orbital",
-                        "Strongly-entangled bath orbital",
-                        "Weakly-entangled occ. bath orbital",
-                        "Unentangled occ. env. orbital",
-                        ]
-                self.log.info("Non-(0 or 1) eigenvalues (n) of environment DM:")
-                for i, e in enumerate(eig):
-                    name = None
-                    for j, llim in enumerate(limits[:-1]):
-                        ulim = limits[j+1]
-                        if (llim < e and e <= ulim):
-                            name = names[j]
-                            break
-                    if name:
-                        self.log.info("  > %-34s  n= %12.6g  1-n= %12.6g  n*(1-n)= %12.6g", name, e, 1-e, e*(1-e))
+            self.log_info(eig, c_bath)
+        # Complete DMET orbital space using reference orbitals
+        # NOT MAINTAINED!
+        if c_ref is not None:
+            c_bath, c_occenv, c_virenv = self.use_ref_orbitals(c_bath, c_occenv, c_virenv, c_ref, reftol)
+        return c_bath, c_occenv, c_virenv
 
-            # DMET bath analysis
-            self.log.info("DMET bath character:")
-            for i in range(c_bath.shape[-1]):
-                ovlp = einsum('a,b,ba->a', c_bath[:,i], c_bath[:,i], self.base.get_ovlp())
-                sort = np.argsort(-ovlp)
-                ovlp = ovlp[sort]
-                n = np.amin((len(ovlp), 6))     # Get the six largest overlaps
-                labels = np.asarray(self.mol.ao_labels())[sort][:n]
-                lines = [('%s= %.5f' % (labels[i].strip(), ovlp[i])) for i in range(n)]
-                self.log.info("  > %2d:  %s", i+1, '  '.join(lines))
+    def make_dmet_bath_fast(self, c_env, dm1=None):
+        """Fast DMET orbitals.
+        from Ref. J. Chem. Phys. 151, 064108 (2019); https://doi.org/10.1063/1.5108818
+
+        Problem: How to get C_occenv and C_virenv without N^3 diagonalization?
+        """
+
+        ovlp = self.base.get_ovlp()
+        c_occ = self.base.mo_coeff_occ
+        ca, cb = self.c_frag, c_env
+        ra = dot(c_occ.T, ovlp, ca)
+        rb = dot(c_occ.T, ovlp, cb)
+        d11 = np.dot(ra.T, ra)
+        ea, ua = np.linalg.eigh(d11)
+        if (ea.min() < -1e-9):
+            self.log.error("Min eigenvalue of frag. DM = %.6e !", ea.min())
+        if ((ea.max()-1) > 1e-9):
+            self.log.error("Max eigenvalue of frag. DM = %.6e !", ea.max())
+        # Fragment singular values:
+        ea = np.clip(ea, 0, 1)
+        sa = np.sqrt(ea)
+        d21 = np.dot(rb.T, ra)
+        ub = np.dot(d21, ua)
+        sab = np.linalg.norm(ub, axis=0)
+        sb = sab/sa
+        mask_bath = (sb**2 >= self.dmet_threshold)
+        ub = ub[:,mask_bath]
+        # In AO basis
+        c_bath = np.dot(cb, ub/sab[mask_bath])
+        return c_bath
+
+    def log_info(self, eig, c_bath, print_tol=1e-10, strong_tol=0.1):
+        """Orbitals in [print_tol, 1-print_tol] will be printed (even if they don't fall in the DMET tol range)
+        DMET bath orbitals with eigenvalue in [strong_tol, 1-strong_tol] are printed as strongly entangled."""
+        tol = self.dmet_threshold
+        limits = [print_tol, tol, strong_tol, 1-strong_tol, 1-tol, 1-print_tol]
+        if np.any(np.logical_and(eig > limits[0], eig <= limits[-1])):
+            names = [
+                    "Unentangled vir. env. orbital",
+                    "Weakly-entangled vir. bath orbital",
+                    "Strongly-entangled bath orbital",
+                    "Weakly-entangled occ. bath orbital",
+                    "Unentangled occ. env. orbital",
+                    ]
+            self.log.info("Non-(0 or 1) eigenvalues (n) of environment DM:")
+            for i, e in enumerate(eig):
+                name = None
+                for j, llim in enumerate(limits[:-1]):
+                    ulim = limits[j+1]
+                    if (llim < e and e <= ulim):
+                        name = names[j]
+                        break
+                if name:
+                    self.log.info("  > %-34s  n= %12.6g  1-n= %12.6g  n*(1-n)= %12.6g", name, e, 1-e, e*(1-e))
+
+        # DMET bath analysis
+        self.log.info("DMET bath character:")
+        for i in range(c_bath.shape[-1]):
+            ovlp = einsum('a,b,ba->a', c_bath[:,i], c_bath[:,i], self.base.get_ovlp())
+            sort = np.argsort(-ovlp)
+            ovlp = ovlp[sort]
+            n = np.amin((len(ovlp), 6))     # Get the six largest overlaps
+            labels = np.asarray(self.mol.ao_labels())[sort][:n]
+            lines = [('%s= %.5f' % (labels[i].strip(), ovlp[i])) for i in range(n)]
+            self.log.info("  > %2d:  %s", i+1, '  '.join(lines))
 
         # Calculate entanglement entropy
+        mask_bath = np.logical_and(eig >= tol, eig <= 1-tol)
         entropy = np.sum(eig * (1-eig))
         entropy_bath = np.sum(eig[mask_bath] * (1-eig[mask_bath]))
         self.log.info("Entanglement entropy: total= %.6e  bath= %.6e (%.2f %%)",
                 entropy, entropy_bath, 100.0*entropy_bath/entropy)
 
-        # Complete DMET orbital space using reference orbitals
-        # NOT MAINTAINED!
-        if c_ref is not None:  # pragma: no cover
-            nref = c_ref.shape[-1]
-            self.log.debug("%d reference DMET orbitals given.", nref)
-            nmissing = nref - nbath
+    def use_ref_orbitals(self, c_bath, c_occenv, c_virenv, c_ref, reftol=0.8):
+        """Not maintained!"""
+        nref = c_ref.shape[-1]
+        self.log.debug("%d reference DMET orbitals given.", nref)
+        nmissing = nref - nbath
 
-            # DEBUG
-            _, eig = self.project_ref_orbitals(c_ref, c_bath)
-            self.log.debug("Eigenvalues of reference orbitals projected into DMET bath:\n%r", eig)
+        # DEBUG
+        _, eig = self.project_ref_orbitals(c_ref, c_bath)
+        self.log.debug("Eigenvalues of reference orbitals projected into DMET bath:\n%r", eig)
 
-            if nmissing == 0:
-                self.log.debug("Number of DMET orbitals equal to reference.")
-            elif nmissing > 0:
-                # Perform the projection separately for occupied and virtual environment space
-                # Otherwise, it is not guaranteed that the additional bath orbitals are
-                # fully (or very close to fully) occupied or virtual.
-                # --- Occupied
-                C_occenv, eig = self.project_ref_orbitals(c_ref, c_occenv)
-                mask_occref = eig >= reftol
-                mask_occenv = eig < reftol
-                self.log.debug("Eigenvalues of projected occupied reference: %s", eig[mask_occref])
-                if np.any(mask_occenv):
-                    self.log.debug("Largest remaining: %s", max(eig[mask_occenv]))
-                # --- Virtual
-                c_virenv, eig = self.project_ref_orbitals(c_ref, c_virenv)
-                mask_virref = eig >= reftol
-                mask_virenv = eig < reftol
-                self.log.debug("Eigenvalues of projected virtual reference: %s", eig[mask_virref])
-                if np.any(mask_virenv):
-                    self.log.debug("Largest remaining: %s", max(eig[mask_virenv]))
-                # -- Update coefficient matrices
-                c_bath = np.hstack((c_bath, c_occenv[:,mask_occref], c_virenv[:,mask_virref]))
-                c_occenv = c_occenv[:,mask_occenv].copy()
-                c_virenv = c_virenv[:,mask_virenv].copy()
-                nbath = C_bath.shape[-1]
-                self.log.debug("New number of occupied environment orbitals: %d", c_occenv.shape[-1])
-                self.log.debug("New number of virtual environment orbitals: %d", c_virenv.shape[-1])
-                if nbath != nref:
-                    err = "Number of DMET bath orbitals=%d not equal to reference=%d" % (nbath, nref)
-                    self.log.critical(err)
-                    raise RuntimeError(err)
-            else:
-                err = "More DMET bath orbitals found than in reference!"
+        if nmissing == 0:
+            self.log.debug("Number of DMET orbitals equal to reference.")
+        elif nmissing > 0:
+            # Perform the projection separately for occupied and virtual environment space
+            # Otherwise, it is not guaranteed that the additional bath orbitals are
+            # fully (or very close to fully) occupied or virtual.
+            # --- Occupied
+            C_occenv, eig = self.project_ref_orbitals(c_ref, c_occenv)
+            mask_occref = eig >= reftol
+            mask_occenv = eig < reftol
+            self.log.debug("Eigenvalues of projected occupied reference: %s", eig[mask_occref])
+            if np.any(mask_occenv):
+                self.log.debug("Largest remaining: %s", max(eig[mask_occenv]))
+            # --- Virtual
+            c_virenv, eig = self.project_ref_orbitals(c_ref, c_virenv)
+            mask_virref = eig >= reftol
+            mask_virenv = eig < reftol
+            self.log.debug("Eigenvalues of projected virtual reference: %s", eig[mask_virref])
+            if np.any(mask_virenv):
+                self.log.debug("Largest remaining: %s", max(eig[mask_virenv]))
+            # -- Update coefficient matrices
+            c_bath = np.hstack((c_bath, c_occenv[:,mask_occref], c_virenv[:,mask_virref]))
+            c_occenv = c_occenv[:,mask_occenv].copy()
+            c_virenv = c_virenv[:,mask_virenv].copy()
+            nbath = C_bath.shape[-1]
+            self.log.debug("New number of occupied environment orbitals: %d", c_occenv.shape[-1])
+            self.log.debug("New number of virtual environment orbitals: %d", c_virenv.shape[-1])
+            if nbath != nref:
+                err = "Number of DMET bath orbitals=%d not equal to reference=%d" % (nbath, nref)
                 self.log.critical(err)
                 raise RuntimeError(err)
-
+        else:
+            err = "More DMET bath orbitals found than in reference!"
+            self.log.critical(err)
+            raise RuntimeError(err)
         return c_bath, c_occenv, c_virenv
 
 
-class CompleteBath(DMET_Bath):
-    """Complete bath for testing purposes."""
-
-    def get_occupied_bath(self, *args, **kwargs):
-        nao = self.c_env_occ.shape[0]
-        return self.c_env_occ, np.zeros((nao, 0))
-
-    def get_virtual_bath(self, *args, **kwargs):
-        nao = self.c_env_vir.shape[0]
-        return self.c_env_vir, np.zeros((nao, 0))
-
-# --- Spin unrestricted
-
-class UDMET_Bath(DMET_Bath):
+class DMET_Bath_UHF(DMET_Bath_RHF):
 
     def get_cluster_electrons(self):
         """Number of (alpha, beta) cluster electrons."""
@@ -282,14 +305,3 @@ class UDMET_Bath(DMET_Bath):
             # Use restricted DMET bath routine for each spin:
             results.append(super().make_dmet_bath(c_env[s], dm1=2*dm1[s], **kwargs))
         return tuple(zip(*results))
-
-class UCompleteBath(UDMET_Bath):
-    """Complete bath for testing purposes."""
-
-    def get_occupied_bath(self, *args, **kwargs):
-        nao = self.c_env_occ[0].shape[0]
-        return self.c_env_occ, tuple(2*[np.zeros((nao, 0))])
-
-    def get_virtual_bath(self, *args, **kwargs):
-        nao = self.c_env_vir[0].shape[0]
-        return self.c_env_vir, tuple(2*[np.zeros((nao, 0))])

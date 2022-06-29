@@ -23,8 +23,11 @@ class UEmbedding(Embedding):
     # Shadow this in inherited methods:
     Fragment = UFragment
 
+    # Deprecated:
     is_rhf = False
     is_uhf = True
+    # Use instead:
+    spinsym = 'unrestricted'
 
     #def get_init_veff(self):
     #    if self.opts.recalc_vhf:
@@ -123,7 +126,7 @@ class UEmbedding(Embedding):
             Electronic DMET energy.
         """
         e_dmet = 0.0
-        for f in self.get_fragments(mpi_rank=mpi.rank):
+        for f in self.get_fragments(active=True, mpi_rank=mpi.rank):
             e_dmet += f.get_fragment_dmet_energy(version=version, approx_cumulant=approx_cumulant)
         if mpi:
             mpi.world.allreduce(e_dmet)
@@ -224,8 +227,13 @@ class UEmbedding(Embedding):
     # --- Other
     # ---------
 
-    make_rdm1_demo = make_rdm1_demo_uhf
-    make_rdm2_demo = make_rdm2_demo_uhf
+    @log_method()
+    def make_rdm1_demo(self, *args, **kwargs):
+        return make_rdm1_demo_uhf(self, *args, **kwargs)
+
+    @log_method()
+    def make_rdm2_demo(self, *args, **kwargs):
+        return make_rdm2_demo_uhf(self, *args, **kwargs)
 
     def pop_analysis(self, dm1, mo_coeff=None, local_orbitals='lowdin', write=True, minao='auto', mpi_rank=0, **kwargs):
         # IAO / PAOs are spin dependent - we need to build them here:

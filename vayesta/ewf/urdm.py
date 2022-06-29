@@ -54,9 +54,10 @@ def make_rdm1_ccsd(emb, ao_basis=False, t_as_lambda=False, symmetrize=True, with
         dovb = np.zeros((noccb, nvirb))
     # MPI loop
 
-    for frag in emb.get_fragments(mpi_rank=mpi.rank):
-        t2xaa, t2xab, t2xba, t2xbb = frag.results.t2x
-        l2xaa, l2xab, l2xba, l2xbb = frag.results.l2x if not t_as_lambda else frag.results.t2x
+    for frag in emb.get_fragments(active=True, mpi_rank=mpi.rank):
+        wfx = frag.results.pwf.as_ccsd()
+        t2xaa, t2xab, t2xba, t2xbb = wfx.t2
+        l2xaa, l2xab, l2xba, l2xbb = wfx.l2 if not t_as_lambda else wfx.t2
         if ba_order == 'ab':
             t2xba = t2xba.transpose(1,0,3,2)
             l2xba = l2xba.transpose(1,0,3,2)
@@ -168,7 +169,6 @@ def make_rdm1_ccsd(emb, ao_basis=False, t_as_lambda=False, symmetrize=True, with
 
     return (dm1a, dm1b)
 
-
 def make_rdm1_ccsd_global_wf(emb, ao_basis=False, with_mf=True, t_as_lambda=False, with_t1=True,
         svd_tol=1e-3, ovlp_tol=None, use_sym=True, late_t2_sym=True, mpi_target=None, slow=True):
     """Make one-particle reduced density-matrix from partitioned fragment CCSD wave functions.
@@ -190,8 +190,6 @@ def make_rdm1_ccsd_global_wf(emb, ao_basis=False, with_mf=True, t_as_lambda=Fals
     dm1: (n, n) array
         One-particle reduced density matrix in AO (if `ao_basis=True`) or MO basis (default).
     """
-    t_init = timer()
-
     if t_as_lambda is None:
         t_as_lambda = emb.opts.t_as_lambda
 
@@ -210,7 +208,6 @@ def make_rdm1_ccsd_global_wf(emb, ao_basis=False, with_mf=True, t_as_lambda=Fals
         if not with_t1:
             t1 = l1 = (np.zeros_like(t1[0]), np.zeros_like(t1[1]))
         dm1 = pyscf.cc.uccsd_rdm.make_rdm1(mockcc, t1=t1, t2=t2, l1=l1, l2=l2, ao_repr=ao_basis, with_mf=with_mf)
-        emb.log.timing("Time for make_rdm1: %s", time_string(timer()-t_init))
         return dm1
 
     # TODO
@@ -287,7 +284,7 @@ def make_rdm2_ccsd_proj_lambda(emb, ao_basis=False, t_as_lambda=False, with_dm1=
     dm2ab = np.zeros(2*[nmoa]+2*[nmob])
     dm2bb = np.zeros(4*[nmob])
     ovlp = emb.get_ovlp()
-    for x in emb.get_fragments(mpi_rank=mpi.rank):
+    for x in emb.get_fragments(active=True, mpi_rank=mpi.rank):
         dm2xaa, dm2xab, dm2xbb = x.make_fragment_dm2cumulant(t_as_lambda=t_as_lambda)
         ra, rb =  x.get_overlap('mo|cluster')
         dm2aa += einsum('ijkl,Ii,Jj,Kk,Ll->IJKL', dm2xaa, ra, ra, ra, ra)

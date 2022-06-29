@@ -21,17 +21,13 @@ from pyscf.mp.mp2 import _mo_without_core
 import pyscf.pbc
 import pyscf.pbc.df
 import pyscf.pbc.tools
-from pyscf.pbc.lib import kpts_helper
 # Package
 from vayesta.core.util import *
 import vayesta.libs
-import vayesta.misc
-import vayesta.misc.gdf
+from vayesta.core.ao2mo import helper
 
 
 log = logging.getLogger(__name__)
-
-
 
 def gdf_to_pyscf_eris(mf, gdf, cm, fock, mo_energy, e_hf):
     """Get supercell MO eris from k-point sampled GDF.
@@ -486,7 +482,7 @@ def j3c_kao2gmo(ints3c, cocc, cvir, only_ov=False, make_real=True, driver='c'):
     nvir = cvir.shape[-1]
     cell, kpts, nk, naux = ints3c.cell, ints3c.kpts, ints3c.nk, ints3c.naux
     nao = cell.nao_nr()
-    kconserv = kpts_helper.get_kconserv(cell, kpts, n=2)
+    kconserv = helper.get_kconserv(cell, kpts, nk=2)
 
     j3c = {}
     j3c["ov"] = np.zeros((nk, naux, nocc, nvir), dtype=complex)

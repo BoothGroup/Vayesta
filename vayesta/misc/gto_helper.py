@@ -7,12 +7,12 @@ def loop_neighbor_cells(lattice_vectors=None, dimension=3):
     if (dimension == 0):
         yield np.zeros(3)
         return
-    dxs = dys = (0,)
-    dzs = (-1, 0, 1)
+    dxs = (-1, 0, 1)
+    dys = dzs = (0,)
     if dimension > 1:
         dys = (-1, 0, 1)
     if dimension > 2:
-        dxs = (-1, 0, 1)
+        dzs = (-1, 0, 1)
     for dr in itertools.product(dxs, dys, dzs):
         if lattice_vectors is None:
             yield np.asarray(dr)
@@ -45,13 +45,11 @@ def get_atom_distances(mol, point, dimension=None):
     return np.asarray(distances)
 
 def get_atom_shells(mol, point, dimension=None, decimals=5):
-
     distances = get_atom_distances(mol, point, dimension=dimension)
     drounded = distances.round(decimals)
     sort = np.argsort(distances, kind='stable')
     d_uniq, inv = np.unique(drounded[sort], return_inverse=True)
     shells = inv[np.argsort(sort)]
-
     return shells, distances
 
 def make_counterpoise_fragments(mol, fragments, full_basis=True, add_rest_fragment=True, dump_input=True):
@@ -132,9 +130,10 @@ if __name__ == '__main__':
     from vayesta.misc import solids
 
     cell = pyscf.pbc.gto.Cell()
-    cell.a, cell.atom = solids.diamond()
+    cell.a, cell.atom = solids.graphene()
+    cell.dimension = 2
     cell.build()
-    cell = pyscf.pbc.tools.super_cell(cell, (2, 2, 2))
+    cell = pyscf.pbc.tools.super_cell(cell, (2, 2, 1))
 
     point = cell.atom_coord(0)
     shells, dists = get_atom_shells(cell, point)

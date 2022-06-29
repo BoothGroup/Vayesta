@@ -126,7 +126,7 @@ class FoldedSCF:
         assert (mol is None or mol is self.mol)
         # Unfold DM into k-space
         if dm is not None: dm = bvk2k_2d(dm, self.kphase)
-        vk = self.kmf.get_veff(dm_kpts=dm, *args, **kwargs)
+        vk = self.kmf.get_veff(self.kmf.mol, dm, *args, **kwargs)
         veff = k2bvk_2d(vk, self.kphase, make_real=make_real)
         return veff
 

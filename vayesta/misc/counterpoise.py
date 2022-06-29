@@ -3,11 +3,31 @@ import logging
 import numpy as np
 
 import pyscf
+#import pyscf.scf
 import pyscf.lib
 
 log = logging.getLogger(__name__)
 
-def make_mol(mol, atom, rmax, nimages=1, unit='A', **kwargs):
+
+# TODO
+#def get_cp_energy(emb, rmax, nimages=1, unit='A'):
+#    """Get counterpoise correction for a given embedding problem."""
+#    mol = emb.kcell or emb.mol
+#
+#    # TODO: non-HF
+#    if emb.spinsym == 'restricted':
+#        mfcls = pyscf.scf.RHF
+#    elif emb.spinsym == 'unrestricted':
+#        mfcls = pyscf.scf.UHF
+#
+#    for atom in range(mol.natm):
+#        # Pure atom
+#        mol_cp = make_cp_mol(mol, atom, False)
+#        mf_cp = mfcls(mol_cp)
+#        mf_cp.kernel()
+
+
+def make_cp_mol(mol, atom, rmax, nimages=1, unit='A', **kwargs):
     """Make molecule object for counterposise calculation.
 
     WARNING: This has only been tested for periodic systems so far!
@@ -42,14 +62,15 @@ def make_mol(mol, atom, rmax, nimages=1, unit='A', **kwargs):
     # If rmax > 0: Atomic calculation with additional basis functions
     # else: Atom only
     if rmax:
+        dim = getattr(mol, 'dimension', 0)
         images = np.zeros(3, dtype=int)
-        if (not hasattr(mol, 'a')) or (mol.a is None):
+        if dim == 0:
             pass    # Open boundary conditions - do not create images
-        elif mol.dimension == 1:
+        elif dim == 1:
             images[0] = nimages
-        elif mol.dimension == 2:
+        elif dim == 2:
             images[:2] = nimages
-        elif mol.dimension == 3:
+        elif dim == 3:
             images[:] = nimages
         log.debugv('Counterpoise images= %r', images)
         center = mol.atom_coord(atom, unit='ANG')

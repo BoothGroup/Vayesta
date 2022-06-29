@@ -5,10 +5,8 @@ import numpy as np
 import vayesta
 import vayesta.core
 from vayesta.core.bath import DMET_Bath
-from vayesta.core.bath import UDMET_Bath
 from vayesta.core.bath import EwDMET_Bath
-from vayesta.core.bath import MP2_BNO_Bath
-from vayesta.core.bath import UMP2_BNO_Bath
+from vayesta.core.bath import MP2_Bath
 from vayesta.core.qemb import Embedding
 from vayesta.core.qemb import UEmbedding
 from vayesta.tests.common import TestCase
@@ -66,17 +64,17 @@ class BNO_Bath_Test(unittest.TestCase):
             rfrag = f.add_atomic_fragment('O')
         rdmet_bath = DMET_Bath(rfrag)
         rdmet_bath.kernel()
-        rbno_bath = MP2_BNO_Bath(rfrag, rdmet_bath)
-        rbno_bath.kernel()
+        rbno_bath_occ = MP2_Bath(rfrag, rdmet_bath, occtype='occupied')
+        rbno_bath_vir = MP2_Bath(rfrag, rdmet_bath, occtype='virtual')
 
         uhf = testsystems.ethanol_ccpvdz.uhf()
         uemb = UEmbedding(uhf)
         with uemb.iao_fragmentation() as f:
             ufrag = f.add_atomic_fragment('O')
-        udmet_bath = UDMET_Bath(ufrag)
+        udmet_bath = DMET_Bath(ufrag)
         udmet_bath.kernel()
-        ubno_bath = UMP2_BNO_Bath(ufrag, udmet_bath)
-        ubno_bath.kernel()
+        ubno_bath_occ = MP2_Bath(ufrag, udmet_bath, occtype='occupied')
+        ubno_bath_vir = MP2_Bath(ufrag, udmet_bath, occtype='virtual')
 
         # Check maximum, minimum, and mean occupations
         n_occ_max = 0.005243099445814127
@@ -86,31 +84,31 @@ class BNO_Bath_Test(unittest.TestCase):
         n_vir_min = 2.0353121374248057e-09
         n_vir_mean = 0.0005582689971478813
         # RHF
-        self.assertAlmostEqual(np.amax(rbno_bath.n_bno_occ), n_occ_max)
-        self.assertAlmostEqual(np.amin(rbno_bath.n_bno_occ), n_occ_min)
-        self.assertAlmostEqual(np.mean(rbno_bath.n_bno_occ), n_occ_mean)
-        self.assertAlmostEqual(np.amax(rbno_bath.n_bno_vir), n_vir_max)
-        self.assertAlmostEqual(np.amin(rbno_bath.n_bno_vir), n_vir_min)
-        self.assertAlmostEqual(np.mean(rbno_bath.n_bno_vir), n_vir_mean)
+        self.assertAlmostEqual(np.amax(rbno_bath_occ.occup), n_occ_max)
+        self.assertAlmostEqual(np.amin(rbno_bath_occ.occup), n_occ_min)
+        self.assertAlmostEqual(np.mean(rbno_bath_occ.occup), n_occ_mean)
+        self.assertAlmostEqual(np.amax(rbno_bath_vir.occup), n_vir_max)
+        self.assertAlmostEqual(np.amin(rbno_bath_vir.occup), n_vir_min)
+        self.assertAlmostEqual(np.mean(rbno_bath_vir.occup), n_vir_mean)
         # UHF
-        self.assertAlmostEqual(np.amax(ubno_bath.n_bno_occ[0]), n_occ_max)
-        self.assertAlmostEqual(np.amax(ubno_bath.n_bno_occ[1]), n_occ_max)
-        self.assertAlmostEqual(np.amin(ubno_bath.n_bno_occ[0]), n_occ_min)
-        self.assertAlmostEqual(np.amin(ubno_bath.n_bno_occ[1]), n_occ_min)
-        self.assertAlmostEqual(np.mean(ubno_bath.n_bno_occ[0]), n_occ_mean)
-        self.assertAlmostEqual(np.mean(ubno_bath.n_bno_occ[1]), n_occ_mean)
-        self.assertAlmostEqual(np.amax(ubno_bath.n_bno_vir[0]), n_vir_max)
-        self.assertAlmostEqual(np.amax(ubno_bath.n_bno_vir[1]), n_vir_max)
-        self.assertAlmostEqual(np.amin(ubno_bath.n_bno_vir[0]), n_vir_min)
-        self.assertAlmostEqual(np.amin(ubno_bath.n_bno_vir[1]), n_vir_min)
-        self.assertAlmostEqual(np.mean(ubno_bath.n_bno_vir[0]), n_vir_mean)
-        self.assertAlmostEqual(np.mean(ubno_bath.n_bno_vir[1]), n_vir_mean)
+        self.assertAlmostEqual(np.amax(ubno_bath_occ.occup[0]), n_occ_max)
+        self.assertAlmostEqual(np.amax(ubno_bath_occ.occup[1]), n_occ_max)
+        self.assertAlmostEqual(np.amin(ubno_bath_occ.occup[0]), n_occ_min)
+        self.assertAlmostEqual(np.amin(ubno_bath_occ.occup[1]), n_occ_min)
+        self.assertAlmostEqual(np.mean(ubno_bath_occ.occup[0]), n_occ_mean)
+        self.assertAlmostEqual(np.mean(ubno_bath_occ.occup[1]), n_occ_mean)
+        self.assertAlmostEqual(np.amax(ubno_bath_vir.occup[0]), n_vir_max)
+        self.assertAlmostEqual(np.amax(ubno_bath_vir.occup[1]), n_vir_max)
+        self.assertAlmostEqual(np.amin(ubno_bath_vir.occup[0]), n_vir_min)
+        self.assertAlmostEqual(np.amin(ubno_bath_vir.occup[1]), n_vir_min)
+        self.assertAlmostEqual(np.mean(ubno_bath_vir.occup[0]), n_vir_mean)
+        self.assertAlmostEqual(np.mean(ubno_bath_vir.occup[1]), n_vir_mean)
 
         # Compare RHF and UHF
-        self.assertIsNone(np.testing.assert_allclose(rbno_bath.n_bno_occ, ubno_bath.n_bno_occ[0], atol=1e-8))
-        self.assertIsNone(np.testing.assert_allclose(rbno_bath.n_bno_occ, ubno_bath.n_bno_occ[1], atol=1e-8))
-        self.assertIsNone(np.testing.assert_allclose(rbno_bath.n_bno_vir, ubno_bath.n_bno_vir[0], atol=1e-8))
-        self.assertIsNone(np.testing.assert_allclose(rbno_bath.n_bno_vir, ubno_bath.n_bno_vir[1], atol=1e-8))
+        self.assertIsNone(np.testing.assert_allclose(rbno_bath_occ.occup, ubno_bath_occ.occup[0], atol=1e-8))
+        self.assertIsNone(np.testing.assert_allclose(rbno_bath_occ.occup, ubno_bath_occ.occup[1], atol=1e-8))
+        self.assertIsNone(np.testing.assert_allclose(rbno_bath_vir.occup, ubno_bath_vir.occup[0], atol=1e-8))
+        self.assertIsNone(np.testing.assert_allclose(rbno_bath_vir.occup, ubno_bath_vir.occup[1], atol=1e-8))
 
 
 if __name__ == '__main__':

@@ -11,6 +11,9 @@ def diamond(atoms=['C', 'C'], a=3.57):
     return amat, atom
 
 def graphene(atoms=['C', 'C'], a=2.46, c=20.0):
+    """
+    hBN: a=2.5A
+    hBeO: a=2.68A (VASP)"""
     amat = np.asarray([
             [a, 0, 0],
             [a/2, a*np.sqrt(3.0)/2, 0],

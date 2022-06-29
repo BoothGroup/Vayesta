@@ -170,6 +170,7 @@ class IAO_Fragmentation(Fragmentation):
         self.check_orthonormal(np.hstack((c_iao, c_rest)), "IAO+virtual orbital")
         return c_rest
 
+
 class IAO_Fragmentation_UHF(Fragmentation_UHF, IAO_Fragmentation):
 
     def get_coeff(self, mo_coeff=None, mo_occ=None, add_virtuals=True):

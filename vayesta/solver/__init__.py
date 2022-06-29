@@ -12,6 +12,7 @@ from .ebfci import EBFCI_Solver
 from .ebfci import UEBFCI_Solver
 from .ebccsd import EBCCSD_Solver
 from .ebccsd import UEBCCSD_Solver
+from .dump import DumpSolver
 
 
 def is_uhf(mf):
@@ -44,4 +45,6 @@ def get_solver_class(mf, solver):
         if uhf:
             return UEBCCSD_Solver
         return EBCCSD_Solver
+    if solver == 'DUMP':
+        return DumpSolver
     raise ValueError("Unknown solver: %s" % solver)

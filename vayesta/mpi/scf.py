@@ -4,13 +4,9 @@ import logging
 import vayesta
 import vayesta.core
 from vayesta.core.util import *
-from vayesta.mpi import mpi
 
 
-log = logging.getLogger(__name__)
-
-
-def scf_with_mpi(mf, mpi_rank=0):
+def scf_with_mpi(mpi, mf, mpi_rank=0, log=None):
     """Use to run SCF only on the master node and broadcast result afterwards."""
 
     if not mpi:
@@ -18,6 +14,7 @@ def scf_with_mpi(mf, mpi_rank=0):
 
     bcast = functools.partial(mpi.world.bcast, root=mpi_rank)
     kernel_orig = mf.kernel
+    log = log or mpi.log or logging.getLogger(__name__)
 
     def mpi_kernel(self, *args, **kwargs):
         if mpi.rank == mpi_rank:
@@ -49,25 +46,3 @@ def scf_with_mpi(mf, mpi_rank=0):
     mf.with_mpi = True
 
     return mf
-
-
-if __name__ == '__main__':
-
-    import numpy as np
-
-    import pyscf
-    import pyscf.pbc
-    import pyscf.pbc.gto
-
-    mol = pyscf.pbc.gto.Cell()
-    mol.a = 3*np.eye(3)
-    mol.atom = 'He 0 0 0'
-    mol.basis = 'cc-pVDZ'
-    mol.build()
-
-    mf = pyscf.pbc.scf.RHF(mol)
-    mf = mf.density_fit(auxbasis='cc-pVDZ-ri')
-    mf = scf_with_mpi(mf)
-    mf.kernel()
-
-    print("MPI rank = %d e_tot= %.12e" % (mpi.rank, mf.e_tot))

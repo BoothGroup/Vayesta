@@ -2,9 +2,7 @@
 """Fitting of equations of states."""
 
 import dataclasses
-
 import numpy as np
-
 import scipy
 import scipy.optimize
 
@@ -159,16 +157,4 @@ def cmdline_tool():
 
 
 if __name__ == '__main__':
-    #import sys
-    #filename = sys.argv[1]
-    #data = np.loadtxt(filename)
-    #x = data[:,0]
-    #y = data[:,1]
-    #print('x= %r' % x)
-    #print('y= %r' % y)
-    #volume_func = lambda x : (x**3) / 4.0
-
-    #e0, v0, b0 = fit_from_file(filename, volume_func=volume_func)
-    #print("Fit results: E0= %.4f Ha  V0= %.4f A^3  B0= %.4f GPa" % (e0, v0, b0))
-
     cmdline_tool()

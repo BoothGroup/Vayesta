@@ -20,8 +20,12 @@ mol.build()
 mf = pyscf.scf.RHF(mol)
 mf.kernel()
 
+# Reference full system CCSD:
+cc = pyscf.cc.CCSD(mf)
+cc.kernel()
+
 # Embedded CCSD
-emb = vayesta.ewf.EWF(mf, bno_threshold=1e-6)
+emb = vayesta.ewf.EWF(mf, bath_options=dict(threshold=1e-6))
 with emb.iao_fragmentation() as f:
     # Fragment containing the 1s state of O and 1s and 2s states of Se
     f.add_atomic_fragment(['Se', 'O'], orbital_filter=['1s', 'Se 2s'])
@@ -37,10 +41,6 @@ with emb.iao_fragmentation() as f:
     f.add_atomic_fragment(0, orbital_filter=['3d'])
 emb.kernel()
 
-# Reference full system CCSD:
-cc = pyscf.cc.CCSD(mf)
-cc.kernel()
-
 print("E(HF)=        %+16.8f Ha" % mf.e_tot)
-print("E(Emb. CCSD)= %+16.8f Ha" % emb.e_tot)
 print("E(CCSD)=      %+16.8f Ha" % cc.e_tot)
+print("E(Emb. CCSD)= %+16.8f Ha" % emb.e_tot)

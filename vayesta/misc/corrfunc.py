@@ -11,25 +11,27 @@ def _get_proj_per_spin(p):
         return p, p
     raise ValueError()
 
+def chargecharge(dm1, dm2, proj1=None, proj2=None, subtract_indep=True):
+    if dm2 is None:
+        return chargecharge_mf(dm1, proj1=proj1, proj2=proj2, subtract_indep=subtract_indep)
+
+    if proj2 is None:
+        proj2 = proj1
+    if proj1 is None:
+        corr = einsum('iijj->', dm2) + np.trace(dm1)
+        if subtract_indep:
+            corr -= np.trace(dm1)**2
+        return corr
+    corr = einsum('(ij,ijkl),kl->', proj1, dm2, proj2)
+    corr += einsum('ij,ik,jk->', dm1, proj1, proj2)
+    if subtract_indep:
+        corr -= np.sum(dm1 * proj1) * np.sum(dm1 * proj2)
+    return corr
+
 # --- Correlated:
 
 def spin_z(dm1, proj=None):
     return 0.0
-
-def spinspin_z(dm1, dm2, proj1=None, proj2=None):
-    dm1a = dm1/2
-    dm2aa = (dm2 - dm2.transpose(0,3,2,1)) / 6
-    dm2ab = (dm2/2 - dm2aa)
-    if proj1 is None:
-        ssz = (einsum('iijj->', dm2aa) - einsum('iijj->', dm2ab))/2
-        ssz += np.trace(dm1a)/2
-        return ssz
-    if proj2 is None:
-        proj2 = proj1
-    ssz = (einsum('ijkl,ij,kl->', dm2aa, proj1, proj2)
-         - einsum('ijkl,ij,kl->', dm2ab, proj1, proj2))/2
-    ssz += einsum('ij,ik,jk->', dm1a, proj1, proj2)/2
-    return ssz
 
 def spin_z_unrestricted(dm1, proj=None):
     dm1a, dm1b = dm1
@@ -42,18 +44,37 @@ def spin_z_unrestricted(dm1, proj=None):
         - einsum('ij,ij->', dm1b, pb))/2
     return sz
 
+def spinspin_z(dm1, dm2, proj1=None, proj2=None):
+    if dm2 is None:
+        return spinspin_z_mf(dm1, proj1=proj1, proj2=proj2)
+
+    dm1a = dm1/2
+    dm2aa = (dm2 - dm2.transpose(0,3,2,1)) / 6
+    dm2ab = (dm2/2 - dm2aa)
+    if proj2 is None:
+        proj2 = proj1
+    if proj1 is None:
+        ssz = (einsum('iijj->', dm2aa) - einsum('iijj->', dm2ab))/2
+        ssz += np.trace(dm1a)/2
+        return ssz
+    ssz = (einsum('ijkl,ij,kl->', dm2aa, proj1, proj2)
+         - einsum('ijkl,ij,kl->', dm2ab, proj1, proj2))/2
+    ssz += einsum('ij,ik,jk->', dm1a, proj1, proj2)/2
+    return ssz
+
 def spinspin_z_unrestricted(dm1, dm2, proj1=None, proj2=None):
+    if dm2 is None:
+        return spinspin_z_mf_unrestricted(dm1, proj1=proj1, proj2=proj2)
+
     dm1a, dm1b = dm1
     dm2aa, dm2ab, dm2bb = dm2
-
+    if proj2 is None:
+        proj2 = proj1
     if proj1 is None:
         ssz = (einsum('iijj->', dm2aa)/4 + einsum('iijj->', dm2bb)/4
              - einsum('iijj->', dm2ab)/2)
         ssz += (np.trace(dma) + np.trace(dmb))/4
         return ssz
-
-    if proj2 is None:
-        proj2 = proj1
     p1a, p1b = _get_proj_per_spin(proj1)
     p2a, p2b = _get_proj_per_spin(proj2)
     ssz = (einsum('ijkl,ij,kl->', dm2aa, p1a, p2a)/4
@@ -64,46 +85,50 @@ def spinspin_z_unrestricted(dm1, dm2, proj1=None, proj2=None):
           + einsum('ij,ik,jk->', dm1b, p1b, p2b))/4
     return ssz
 
-# --- Mean-field
+# --- Mean-field:
 
-def spin_z_rhf(mf, dm1=None, proj=None, mo_coeff=None):
-    return 0.0
+def chargecharge_mf(dm1, proj1=None, proj2=None, subtract_indep=True):
+    if proj2 is None:
+        proj2 = proj1
+    if proj1 is None:
+        if subtract_indep:
+            return 0
+        else:
+            return np.trace(dm1)**2
+    if subtract_indep:
+        corr = 0
+    else:
+        corr = np.sum(dm1*proj1) * np.sum(dm1*proj2)
+    corr -= einsum('(ik,ij),(kl,lj)->', proj1, dm1, dm1, proj2)/2
+    corr += einsum('ij,ik,jk->', dm1, proj1, proj2)
+    return corr
 
-def spinspin_z_rhf(mf, dm1=None, proj1=None, proj2=None, mo_coeff=None):
-    if dm1 is None: dm1 = mf.make_rdm1()
-    if mo_coeff is None: mo_coeff = mf.mo_coeff
+def spinspin_z_mf(dm1, proj1=None, proj2=None):
+    # TEMP:
     dm1 = (dm1/2, dm1/2)
-    mo_coeff = (mo_coeff, mo_coeff)
-    return spinspin_z_uhf(mf, dm1=dm1, proj1=proj1, proj2=proj2, mo_coeff=mo_coeff)
+    return spinspin_z_mf_unrestricted(dm1=dm1, proj1=proj1, proj2=proj2)
 
-def spin_z_uhf(mf, dm1=None, proj=None, mo_coeff=None):
-    if dm1 is None: dm1 = mf.make_rdm1()
-    if mo_coeff is None: mo_coeff = mf.mo_coeff
+    #if proj2 is None:
+    #    proj2 = proj1
+    #if proj1 is None:
+    #    ssz = np.trace(dm1)/4 - einsum('ij,ij->', dm1, dm1)/8
+    #    return ssz
+
+    # TODO:
+    #ssz = (einsum('ij,kl,ij,kl->', dma, dma, p1a, p2a)
+    #     - einsum('il,jk,ij,kl->', dma, dma, p1a, p2a)
+    #     + einsum('ij,kl,ij,kl->', dmb, dmb, p1b, p2b)
+    #     - einsum('il,jk,ij,kl->', dmb, dmb, p1b, p2b)
+    #     - einsum('ij,kl,ij,kl->', dma, dmb, p1a, p2b)
+    #     - einsum('ij,kl,ij,kl->', dmb, dma, p1b, p2a))/4
+    #ssz += (einsum('ij,ik,jk->', dma, p1a, p2a)
+    #      + einsum('ij,ik,jk->', dmb, p1b, p2b))/4
+    #return ssz
+
+def spinspin_z_mf_unrestricted(dm1, proj1=None, proj2=None):
     dma, dmb = dm1
-    ca, cb = mo_coeff
-    ovlp = mf.get_ovlp()
-    # MO basis
-    dma = dot(ca.T, ovlp, dma, ovlp, ca)
-    dmb = dot(cb.T, ovlp, dmb, ovlp, cb)
-    if proj is None:
-        sz = (np.trace(dma) - np.trace(dmb))/2
-        return sz
-
-    pa, pb = (proj, proj) if np.ndim(proj[0]) == 1 else proj
-    sz = (einsum('ij,ij->', dma, pa)
-        - einsum('ij,ij->', dmb, pb))/2
-    return sz
-
-def spinspin_z_uhf(mf, dm1=None, proj1=None, proj2=None, mo_coeff=None):
-    if dm1 is None: dm1 = mf.make_rdm1()
-    if mo_coeff is None: mo_coeff = mf.mo_coeff
-    dma, dmb = dm1
-    ca, cb = mo_coeff
-    ovlp = mf.get_ovlp()
-    # MO basis
-    dma = dot(ca.T, ovlp, dma, ovlp, ca)
-    dmb = dot(cb.T, ovlp, dmb, ovlp, cb)
-    if proj2 is None: proj2 = proj1
+    if proj2 is None:
+        proj2 = proj1
     if proj1 is None:
         ssz = (einsum('ii,jj->', dma, dma)/4
             -  einsum('ij,ij->', dma, dma)/4
@@ -116,15 +141,16 @@ def spinspin_z_uhf(mf, dm1=None, proj1=None, proj2=None, mo_coeff=None):
     p1a, p1b = (proj1, proj1) if np.ndim(proj1[0]) == 1 else proj1
     p2a, p2b = (proj2, proj2) if np.ndim(proj2[0]) == 1 else proj2
 
-    ssz = (einsum('ij,kl,ij,kl->', dma, dma, p1a, p2a)
-         - einsum('il,jk,ij,kl->', dma, dma, p1a, p2a)
-         + einsum('ij,kl,ij,kl->', dmb, dmb, p1b, p2b)
-         - einsum('il,jk,ij,kl->', dmb, dmb, p1b, p2b)
-         - einsum('ij,kl,ij,kl->', dma, dmb, p1a, p2b)
-         - einsum('ij,kl,ij,kl->', dmb, dma, p1b, p2a))/4
+    ssz = (einsum('(ij,ij),(kl,kl)->', p1a, dma, dma, p2a)
+         - einsum('(ij,il),(jk,kl)->', p1a, dma, dma, p2a)
+         + einsum('(ij,ij),(kl,kl)->', p1b, dmb, dmb, p2b)
+         - einsum('(ij,il),(jk,kl)->', p1b, dmb, dmb, p2b)
+         - einsum('(ij,ij),(kl,kl)->', p1a, dma, dmb, p2b)
+         - einsum('(ij,ij),(kl,kl)->', p1b, dmb, dma, p2a))/4
     ssz += (einsum('ij,ik,jk->', dma, p1a, p2a)
           + einsum('ij,ik,jk->', dmb, p1b, p2b))/4
     return ssz
+
 
 if __name__ == '__main__':
     import pyscf
@@ -139,21 +165,45 @@ if __name__ == '__main__':
     """
     mol.basis = 'cc-pVDZ'
     mol.build()
+    nmo = mol.nao
+    nocc = mol.nelectron//2
 
     # RHF
     rhf = pyscf.scf.RHF(mol)
     rhf.kernel()
-    sz = spin_z_rhf(rhf)
-    ssz = spinspin_z_rhf(rhf)
-    print('RHF: <S_z>= %.8f  <S_z S_z>= %.8f' % (sz, ssz))
+    dm1 = np.zeros((nmo, nmo))
+    dm1[np.diag_indices(nocc)] = 2
+    sz = spin_z(dm1)
+    print(sz)
+
+
+    ssz = spinspin_z_rhf(dm1)
+    print(ssz)
+    1/0
+    #print('RHF: <S_z>= %.8f  <S_z S_z>= %.8f' % (sz, ssz))
 
 
     # UHF
     mol.charge = mol.spin = 1
     mol.build()
+    nmo = mol.nao
+    nocca, noccb = mol.nelec
+    print(mol.nelec)
 
     uhf = pyscf.scf.UHF(mol)
     uhf.kernel()
-    sz = spin_z_uhf(uhf)
-    ssz = spinspin_z_uhf(uhf)
-    print('UHF: <S_z>= %.8f  <S_z S_z>= %.8f' % (sz, ssz))
+
+    dm1a = np.zeros((nmo, nmo))
+    dm1b = np.zeros((nmo, nmo))
+    dm1a[np.diag_indices(nocca)] = 1
+    dm1b[np.diag_indices(noccb)] = 1
+    dm1 = (dm1a, dm1b)
+
+    sz = spin_z_uhf(dm1)
+    print(sz)
+    sz = spin_z_unrestricted(dm1)
+    print(sz)
+    #ssz = spinspin_z_uhf(uhf)
+    #print('UHF: <S_z>= %.8f  <S_z S_z>= %.8f' % (sz, ssz))
+    #ssz = spinspin_z_unrestricted(uhf)
+    #print('UHF: <S_z>= %.8f  <S_z S_z>= %.8f' % (sz, ssz))

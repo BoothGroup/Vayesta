@@ -1,20 +1,13 @@
-import dataclasses
 import itertools
 
 import numpy as np
 
 from vayesta.core.util import *
 from vayesta.core import spinalg
-
 from .fragment import Fragment
-from vayesta.core.symmetry import SymmetryTranslation
 
 
 class UFragment(Fragment):
-
-    @dataclasses.dataclass
-    class Result(Fragment.Results):
-        pass
 
     def log_info(self):
         # Some output
@@ -26,10 +19,6 @@ class UFragment(Fragment):
             self.log.info(fmt+'%r', "Associated atoms:", self.atoms)
         if self.aos is not None:
             self.log.info(fmt+'%r', "Associated AOs:", self.aos)
-
-    def __repr__(self):
-        return '%s(id= %d, name= %s, n_frag= (%d, %d), n_elec= (%.8f, %.8f), sym_factor= %f)' % (self.__class__.__name__,
-                self.id, self.name, *self.n_frag, *self.nelectron, self.sym_factor)
 
     @property
     def n_frag(self):
@@ -248,78 +237,7 @@ class UFragment(Fragment):
     # --- Symmetry
     # ============
 
-    def add_tsymmetric_fragments(self, tvecs, charge_tol=1e-6, spin_tol=1e-6):
-        """
-
-        Parameters
-        ----------
-        tvecs: array(3) of integers
-            Each element represent the number of translation vector corresponding
-            to the a0, a1, and a2 lattice vectors of the cell.
-        charge_tol: float, optional
-            Tolerance for the error of the mean-field density matrix between symmetry related fragments.
-            If the largest absolute difference in the density-matrix is above this value,
-            and exception will be raised. Default: 1e-6.
-        spin_tol: float, optional
-            Tolerance for the error of the mean-field density matrix between symmetry related fragments.
-            If the largest absolute difference in the density-matrix is above this value,
-            and exception will be raised. Default: 1e-6.
-
-        Returns
-        -------
-        fragments: list
-            List of T-symmetry related fragments. These will be automatically added to base.fragments and
-            have the attributes `sym_parent` and `sym_op` set.
-        """
-        ovlp = self.base.get_ovlp()
-        dm1 = self.mf.make_rdm1()
-
-        fragments = []
-        for i, (dx, dy, dz) in enumerate(itertools.product(range(tvecs[0]), range(tvecs[1]), range(tvecs[2]))):
-            if i == 0: continue
-            tvec = (dx/tvecs[0], dy/tvecs[1], dz/tvecs[2])
-            sym_op = SymmetryTranslation(self.mol, tvec)
-
-            if sym_op is None:
-                self.log.error("No T-symmetric fragment found for translation (%d,%d,%d) of fragment %s", dx, dy, dz, self.name)
-                continue
-            # Name for translationally related fragments
-            name = '%s_T(%d,%d,%d)' % (self.name, dx, dy, dz)
-            # Translated coefficients
-            c_frag_t = sym_op(self.c_frag)
-            c_env_t = sym_op(self.c_env)
-
-            # Check that translated fragment does not overlap with current fragment:
-            fragovlp = max(abs(dot(self.c_frag[0].T, ovlp, c_frag_t[0])).max(),
-                           abs(dot(self.c_frag[1].T, ovlp, c_frag_t[1])).max())
-            if (fragovlp > 1e-8):
-                self.log.error("Translation (%d,%d,%d) of fragment %s not orthogonal to original fragment (overlap= %.3e)!",
-                            dx, dy, dz, self.name, fragovlp)
-            # Deprecated:
-            if hasattr(self.base, 'add_fragment'):  # pragma: no cover
-                frag = self.base.add_fragment(name, c_frag_t, c_env_t, options=self.opts,
-                        sym_parent=self, sym_op=sym_op)
-            else:
-                frag_id = self.base.register.get_next_id()
-                frag = self.base.Fragment(self.base, frag_id, name, c_frag_t, c_env_t, options=self.opts,
-                        sym_parent=self, sym_op=sym_op, mpi_rank=self.mpi_rank)
-                self.base.fragments.append(frag)
-
-            # Check symmetry
-            charge_err, spin_err = self.get_tsymmetry_error(frag, dm1=dm1)
-            if charge_err > charge_tol or spin_err > spin_tol:
-                self.log.critical("Mean-field DM not symmetric for translation (%d,%d,%d) of %s (charge error= %.3e spin error= %.3e)!",
-                    dx, dy, dz, self.name, charge_err, spin_err)
-                raise RuntimeError("MF not symmetric under translation (%d,%d,%d)" % (dx, dy, dz))
-            else:
-                self.log.debugv("Mean-field DM symmetry error for translation (%d,%d,%d) of %s charge= %.3e spin= %.3e",
-                    dx, dy, dz, self.name, charge_err, spin_err)
-
-            fragments.append(frag)
-
-        return fragments
-
-    def get_tsymmetry_error(self, frag, dm1=None):
+    def get_symmetry_error(self, frag, dm1=None):
         """Get translational symmetry error between two fragments."""
         if dm1 is None: dm1 = self.mf.make_rdm1()
         dma, dmb = dm1
@@ -329,13 +247,16 @@ class UFragment(Fragment):
         dmxa = dot(cxa.T, ovlp, dma, ovlp, cxa)
         dmxb = dot(cxb.T, ovlp, dmb, ovlp, cxb)
         # Other fragment (y)
-        cya, cyb = spinalg.hstack_matrices(frag.c_frag, frag.c_env)
+        if frag.c_env is None:
+            cy_env = frag.sym_op(self.c_env)
+        else:
+            cy_env = frag.c_env
+        cya, cyb = spinalg.hstack_matrices(frag.c_frag, cy_env)
         dmya = dot(cya.T, ovlp, dma, ovlp, cya)
         dmyb = dot(cyb.T, ovlp, dmb, ovlp, cyb)
         charge_err = abs(dmxa+dmxb-dmya-dmyb).max()
         spin_err = abs(dmxa-dmxb-dmya+dmyb).max()
-        return (charge_err, spin_err)
-
+        return charge_err, spin_err
 
     # --- Overlap matrices
     # --------------------
