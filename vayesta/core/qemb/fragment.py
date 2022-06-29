@@ -65,7 +65,8 @@ class Fragment:
         pwf: WaveFunction = None    # Fragment-projected wave function
 
 
-    def __init__(self, base, fid, name, c_frag, c_env, #fragment_type,
+    def __init__(self, base, fid, name, c_frag, c_env,
+            solver=None,
             atoms=None, aos=None, active=True,
             sym_parent=None, sym_op=None,
             mpi_rank=0,
@@ -143,6 +144,10 @@ class Fragment:
         self.opts.update(**self.base.opts.asdict()) # Update with embedding class options
         self.opts.replace(**kwargs)                 # Replace with keyword arguments
 
+        solver = solver or self.base.solver
+        if solver not in self.base.valid_solvers:
+            raise ValueError("Unknown solver: %s" % solver)
+        self.solver = solver
         self.c_frag = c_frag
         self.c_env = c_env
         self.sym_factor = self.opts.sym_factor

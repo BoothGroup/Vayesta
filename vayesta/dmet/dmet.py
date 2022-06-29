@@ -7,7 +7,7 @@ import scipy.linalg
 
 from vayesta.core.qemb import Embedding
 from vayesta.core.util import *
-from .fragment import VALID_SOLVERS, DMETFragment, DMETFragmentExit
+from .fragment import DMETFragment, DMETFragmentExit
 
 from .sdp_sc import perform_SDP_fit
 from .updates import MixUpdate, DIISUpdate
@@ -41,6 +41,7 @@ class DMET(Embedding):
 
     Fragment = DMETFragment
     Options = Options
+    valid_solvers = ['MP2', 'CISD', 'CCSD', 'FCI', 'FCI-SPIN0', 'FCI-SPIN1']
 
     def __init__(self, mf, solver='CCSD', log=None, **kwargs):
         """Density matrix embedding theory (DMET) calculation object.
@@ -56,7 +57,7 @@ class DMET(Embedding):
         if kwargs.get("oneshot", False):
             kwargs["maxiter"] = 1
 
-        super().__init__(mf, log=log, **kwargs)
+        super().__init__(mf, solver=solver, log=log, **kwargs)
 
         self.log.info("Parameters of %s:", self.__class__.__name__)
         self.log.info(break_into_lines(str(self.opts), newline='\n    '))
@@ -64,8 +65,6 @@ class DMET(Embedding):
         # --- Check input
         if not mf.converged:
             self.log.error("Mean-field calculation not converged.")
-        self.check_solver(solver)
-        self.solver = solver
 
         self.vcorr = None
 
@@ -79,10 +78,6 @@ class DMET(Embedding):
     @property
     def e_tot(self):
         return self.e_mf + self.e_corr
-
-    def check_solver(self, solver):
-        if solver not in VALID_SOLVERS:
-            raise ValueError("Unknown solver: %s" % solver)
 
     def __repr__(self):
         keys = ['mf', 'solver']

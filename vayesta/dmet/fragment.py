@@ -12,8 +12,6 @@ from vayesta.core.util import *
 
 # We might want to move the useful things from here into core, since they seem pretty general.
 
-VALID_SOLVERS = [None, "", "MP2", "CISD", "CCSD", "CCSD(T)", 'FCI', "FCI-spin0", "FCI-spin1"]
-
 class DMETFragmentExit(Exception):
     pass
 
@@ -29,7 +27,7 @@ class DMETFragment(Fragment):
 
     Results = Results
 
-    def __init__(self, *args, solver=None, **kwargs):
+    def __init__(self, *args, **kwargs):
 
         """
         Parameters
@@ -42,16 +40,7 @@ class DMETFragment(Fragment):
             Name of fragment.
         """
         super().__init__(*args, **kwargs)
-
-        if solver is None:
-            solver = self.base.solver
-        self.check_solver(solver)
-        self.solver = solver
         self.solver_results = None
-
-    def check_solver(self, solver):
-        if solver not in VALID_SOLVERS:
-            raise ValueError("Unknown solver: %s" % solver)
 
     def kernel(self, solver=None, init_guess=None, eris=None, construct_bath=True, chempot=None):
         """Run solver for a single BNO threshold.
@@ -65,9 +54,9 @@ class DMETFragment(Fragment):
         -------
         results : DMETFragmentResults
         """
-
-        if solver is None:
-            solver = self.solver
+        solver = solver or self.base.solver
+        if solver not in self.base.valid_solvers:
+            raise ValueError("Unknown solver: %s" % solver)
         if self._dmet_bath is None or construct_bath:
             self.make_bath()
 

@@ -10,7 +10,7 @@ from vayesta.dmet import RDMET
 from vayesta.dmet.sdp_sc import perform_SDP_fit
 from vayesta.dmet.updates import MixUpdate, DIISUpdate
 from vayesta.rpa import ssRPA, ssRIRPA
-from .fragment import VALID_SOLVERS, EDMETFragment, EDMETFragmentExit
+from .fragment import EDMETFragment, EDMETFragmentExit
 
 @dataclasses.dataclass
 class Options(RDMET.Options):
@@ -31,13 +31,14 @@ class EDMET(RDMET):
 
     Fragment = EDMETFragment
     Options = Options
+    valid_solvers = ['EBFCI', 'EBCCSD']
 
     def __init__(self, mf, solver='EBFCI', log=None, **kwargs):
         # If we aren't running in oneshot mode we need to calculate the dd moments.
         if not kwargs.get("oneshot", False):
             kwargs["make_dd_moments"] = True
 
-        super().__init__(mf, solver, log, **kwargs)
+        super().__init__(mf, solver=solver, log=log, **kwargs)
         self.interaction_kernel = None
 
     @property
@@ -51,10 +52,6 @@ class EDMET(RDMET):
         eps = (eps.T - self.mo_energy[:self.nocc]).T
         eps = eps.reshape(-1)
         return eps, eps
-
-    def check_solver(self, solver):
-        if solver not in VALID_SOLVERS:
-            raise ValueError("Unknown solver: %s" % solver)
 
     def kernel(self):
 
