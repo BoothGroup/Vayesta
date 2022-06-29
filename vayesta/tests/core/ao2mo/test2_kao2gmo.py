@@ -15,8 +15,8 @@ class KAO2GMOTests(TestCase):
 
     @classmethod
     def setUpClass(cls):
-        cls.kmf = testsystems.he_631g_k222.rhf()
-        cls.gmf = testsystems.he_631g_s222.rhf()
+        cls.kmf = testsystems.h2_sto3g_k311.rhf()
+        cls.gmf = testsystems.h2_sto3g_s311.rhf()
 
     @classmethod
     def tearDownClass(cls):
@@ -132,8 +132,8 @@ class KAO2GMOTests(TestCase):
 class KAO2GMO2dTests(KAO2GMOTests):
     @classmethod
     def setUpClass(cls):
-        cls.kmf = testsystems.h2_sto3g_k331.rhf()
-        cls.gmf = testsystems.h2_sto3g_s331.rhf()
+        cls.kmf = testsystems.h2_sto3g_k31.rhf()
+        cls.gmf = testsystems.h2_sto3g_s31.rhf()
 
     #FIXME
     test_gdf_to_eris = None

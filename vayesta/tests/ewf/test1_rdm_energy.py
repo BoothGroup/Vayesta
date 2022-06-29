@@ -13,7 +13,7 @@ class TestRDMEnergyConvergence(TestCase):
     def test_water(self):
 
         #RHF
-        mf = testsystems.h2o_ccpvdz.rhf()
+        mf = testsystems.water_ccpvdz.rhf()
 
         #CCSD
         cc = pyscf.cc.CCSD(mf)
