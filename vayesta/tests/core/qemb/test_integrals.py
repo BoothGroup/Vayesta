@@ -1,3 +1,4 @@
+import pytest
 import unittest
 import numpy as np
 
@@ -13,6 +14,7 @@ from vayesta.core.qemb import Embedding, UEmbedding
 from vayesta.core.util import cache
 
 
+@pytest.mark.slow
 class Integral_Test(TestCase):
 
     @classmethod
@@ -88,18 +90,21 @@ class Integral_Test(TestCase):
         self.assertAllclose(eris, eris_ref)
 
 
+@pytest.mark.slow
 class Integral_DF_Test(Integral_Test):
 
     @classmethod
     def setUpClass(cls):
         cls.mf = testsystems.water_631g_df.rhf()
 
+@pytest.mark.slow
 class Integral_UHF_Test(Integral_Test):
 
     @classmethod
     def setUpClass(cls):
         cls.mf = testsystems.water_cation_631g.uhf()
 
+@pytest.mark.slow
 class Integral_DF_UHF_Test(Integral_Test):
 
     @classmethod
@@ -108,12 +113,14 @@ class Integral_DF_UHF_Test(Integral_Test):
 
 # PBC
 
+@pytest.mark.slow
 class Integral_PBC_Test(Integral_Test):
 
     @classmethod
     def setUpClass(cls):
         cls.mf = testsystems.h2_sto3g_s311.rhf()
 
+@pytest.mark.slow
 class Integral_PBC_UHF_Test(Integral_Test):
 
     @classmethod
@@ -122,12 +129,14 @@ class Integral_PBC_UHF_Test(Integral_Test):
 
 # PBC 2D
 
+@pytest.mark.slow
 class Integral_PBC_2D_Test(Integral_Test):
 
     @classmethod
     def setUpClass(cls):
         cls.mf = testsystems.h2_sto3g_s31.rhf()
 
+@pytest.mark.slow
 class Integral_PBC_2D_UHF_Test(Integral_Test):
 
     @classmethod

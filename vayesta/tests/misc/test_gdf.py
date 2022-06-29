@@ -1,3 +1,4 @@
+import pytest
 import unittest
 import numpy as np
 import os
@@ -12,6 +13,7 @@ from vayesta.tests.common import TestCase, temporary_seed
 from vayesta.tests import testsystems
 
 
+@pytest.mark.slow
 class GDFTests(TestCase):
     PLACES_ERIS = 8
 

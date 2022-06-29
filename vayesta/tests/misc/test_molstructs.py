@@ -1,3 +1,4 @@
+import pytest
 import unittest
 import numpy as np
 
@@ -9,6 +10,7 @@ from vayesta.misc import solids
 from vayesta.tests.common import TestCase
 
 
+@pytest.mark.fast
 class MolstructsTests(TestCase):
     PLACES_ENERGY = 12
 

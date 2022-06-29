@@ -1,3 +1,4 @@
+import pytest
 import unittest
 import numpy as np
 
@@ -5,6 +6,7 @@ from vayesta import lattmod
 from vayesta.tests.common import TestCase
 
 
+@pytest.mark.fast
 class Hubbard1DTests_10_0(TestCase):
     @classmethod
     def setUpClass(cls):
@@ -27,6 +29,7 @@ class Hubbard1DTests_10_0(TestCase):
         self.assertAlmostEqual(np.max(np.abs(f0-f1)), 0.0, 8)
 
 
+@pytest.mark.fast
 class Hubbard1DTests_20_0(Hubbard1DTests_10_0):
     @classmethod
     def setUpClass(cls):
@@ -36,6 +39,7 @@ class Hubbard1DTests_20_0(Hubbard1DTests_10_0):
         cls.known_values = {"e_tot": -25.569812885998644}
 
 
+@pytest.mark.fast
 class Hubbard1DTests_10_4(Hubbard1DTests_10_0):
     @classmethod
     def setUpClass(cls):
@@ -45,6 +49,7 @@ class Hubbard1DTests_10_4(Hubbard1DTests_10_0):
         cls.known_values = {"e_tot": -2.944271909999157}
 
 
+@pytest.mark.fast
 class Hubbard1DTests_10_8(Hubbard1DTests_10_0):
     @classmethod
     def setUpClass(cls):

@@ -1,3 +1,4 @@
+import pytest
 import unittest
 import numpy as np
 
@@ -10,6 +11,7 @@ from vayesta.tests.common import TestCase
 from vayesta.tests import testsystems
 
 
+@pytest.mark.slow
 class KAO2GMOTests(TestCase):
     PLACES_ERIS = 8
 
@@ -129,6 +131,7 @@ class KAO2GMOTests(TestCase):
         self.assertAlmostEqual(np.max(np.abs(eri0.vvvv-eri1)), 0.0, self.PLACES_ERIS)
 
 
+@pytest.mark.slow
 class KAO2GMO2dTests(KAO2GMOTests):
     @classmethod
     def setUpClass(cls):

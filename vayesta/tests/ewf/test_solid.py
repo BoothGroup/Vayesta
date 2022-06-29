@@ -1,3 +1,4 @@
+import pytest
 import unittest
 import numpy as np
 
@@ -9,6 +10,8 @@ from vayesta import ewf
 from vayesta.tests.common import TestCase
 from vayesta.tests import testsystems
 
+
+@pytest.mark.slow
 class SolidEWFTests(TestCase):
 
     def test_restricted(self):

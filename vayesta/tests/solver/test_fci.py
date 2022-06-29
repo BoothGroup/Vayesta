@@ -1,3 +1,4 @@
+import pytest
 import unittest
 import numpy as np
 
@@ -11,6 +12,7 @@ from vayesta.tests.common import TestCase
 from vayesta.tests import testsystems
 
 
+@pytest.mark.fast
 class TestSolvers(unittest.TestCase):
 
     def _test(self, key, ss=None, places=8):

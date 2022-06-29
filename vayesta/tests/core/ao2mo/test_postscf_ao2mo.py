@@ -1,5 +1,6 @@
-import itertools
+import pytest
 import unittest
+import itertools
 
 import numpy as np
 
@@ -17,6 +18,7 @@ from vayesta.tests.common import TestCase
 from vayesta.tests import testsystems
 
 
+@pytest.mark.slow
 class PostSCF_KAO2GMO_Tests(TestCase):
 
     def test_rhf(self):

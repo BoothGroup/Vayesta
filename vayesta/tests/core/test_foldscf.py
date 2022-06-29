@@ -1,3 +1,4 @@
+import pytest
 import unittest
 import numpy as np
 
@@ -8,6 +9,7 @@ from vayesta.tests.common import TestCase
 from vayesta.tests import testsystems
 
 
+@pytest.mark.slow
 class FoldSCF_RHF_Tests(TestCase):
     PLACES_ENERGY = 10
 
@@ -55,6 +57,7 @@ class FoldSCF_RHF_Tests(TestCase):
         self._test_values(self.mf.get_fock(dm=dm), self.smf.get_fock(dm=dm))
 
 
+@pytest.mark.slow
 class FoldSCF_UHF_Tests(FoldSCF_RHF_Tests):
     @classmethod
     def setUpClass(cls):

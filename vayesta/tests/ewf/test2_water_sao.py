@@ -1,5 +1,6 @@
-import numpy as np
+import pytest
 import unittest
+import numpy as np
 import vayesta
 from vayesta.core.util import cache
 from vayesta.tests.ewf import test_h2
@@ -13,6 +14,7 @@ from vayesta.tests.common import TestCase
 #        cls.mf = testsystems.water_631g.rhf()
 #        cls.cc = testsystems.water_631g.rmp2()
 
+@pytest.mark.slow
 class Test_CCSD(test_h2.Test_CCSD):
 
     @classmethod
@@ -48,6 +50,7 @@ class Test_CCSD(test_h2.Test_CCSD):
 #        cls.mf = testsystems.water_cation_631g.uhf()
 #        cls.cc = testsystems.water_cation_631g.ump2()
 
+@pytest.mark.slow
 class Test_UCCSD(Test_CCSD, test_h2.Test_UCCSD):
 
     @classmethod
@@ -55,6 +58,7 @@ class Test_UCCSD(Test_CCSD, test_h2.Test_UCCSD):
         cls.mf = testsystems.water_cation_631g.uhf()
         cls.cc = testsystems.water_cation_631g.uccsd()
 
+@pytest.mark.slow
 class Test_RHF_vs_UHF(TestCase):
 
     @classmethod
