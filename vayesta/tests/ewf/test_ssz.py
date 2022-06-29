@@ -28,14 +28,14 @@ class Test_Water(TestCase):
         cls.uemb.cache_clear()
 
     @classmethod
-    @cache()
+    @cache
     def remb(cls, bno_threshold):
         remb = vayesta.ewf.EWF(cls.rhf, bno_threshold=bno_threshold, solve_lambda=True)
         remb.kernel()
         return remb
 
     @classmethod
-    @cache()
+    @cache
     def uemb(cls, bno_threshold):
         uemb = vayesta.ewf.EWF(cls.uhf, bno_threshold=bno_threshold, solve_lambda=True)
         uemb.kernel()
@@ -91,7 +91,7 @@ class Test_H2Anion(TestCase):
         cls.uemb.cache_clear()
 
     @classmethod
-    @cache()
+    @cache
     def uemb(cls, bno_threshold):
         uemb = vayesta.ewf.EWF(cls.uhf, bno_threshold=bno_threshold, solve_lambda=True)
         uemb.kernel()

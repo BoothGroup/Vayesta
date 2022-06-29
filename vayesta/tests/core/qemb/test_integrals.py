@@ -26,7 +26,7 @@ class Integral_Test(TestCase):
         del cls.mf
 
     @classmethod
-    @cache()
+    @cache
     def get_embedding(cls):
         if isinstance(cls.mf, pyscf.scf.uhf.UHF):
             emb = UEmbedding(cls.mf)
