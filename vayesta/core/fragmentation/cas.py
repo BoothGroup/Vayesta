@@ -27,15 +27,15 @@ class CAS_Fragmentation(Fragmentation):
             return orbital_indices, orbital_labels
         raise ValueError("A list of integers is required! orbitals= %r" % orbitals)
 
-    def add_cas_fragment(self, nelec, ncas, name=None, degen_tol=1e-10):
+    def add_cas_fragment(self, ncas, nelec, name=None, degen_tol=1e-10):
         """Create a single fragment containing a CAS.
 
         Parameters
         ----------
-        nelec: int
-            Number of electrons within the fragment.
         ncas: int
             Number of spatial orbitals within the fragment.
+        nelec: int
+            Number of electrons within the fragment.
         name: str, optional
             Name for the fragment. If None, a name is automatically generated from the orbital indices. Default: None.
         """
