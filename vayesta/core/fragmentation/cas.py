@@ -62,10 +62,12 @@ class CAS_Fragmentation(Fragmentation):
                 "Cannot create CAS with required properties around Fermi level with current MO occupancy.")
 
         def check_for_degen(energies, po, pv):
-            ogap = abs(energies[po] - energies[po - 1])
+            ogap = energies[po] - energies[po - 1]
+            vgap = energies[pv] - energies[pv - 1]
+            self.log.info("CAS occupied energy gap: %e - %e = %e", energies[po], energies[po - 1], ogap)
+            self.log.info("    virtual energy gap: %e - %e = %e", energies[pv], energies[pv - 1], vgap)
             if ogap < degen_tol:
                 raise ValueError("Requested CAS splits degenerate occupied orbitals.")
-            vgap = abs(energies[pv] - energies[pv + 1])
             if vgap < degen_tol:
                 raise ValueError("Requested CAS splits degenerate virtual orbitals.")
 
