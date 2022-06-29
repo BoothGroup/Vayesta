@@ -1,10 +1,11 @@
 import unittest
 
 from vayesta import edmet
-from vayesta.tests.cache import latts
+from vayesta.tests.common import TestCase
+from vayesta.tests import testsystems
 
 
-class HubbardDFEDMETTests(unittest.TestCase):
+class HubbardDFEDMETTests(TestCase):
     PLACES_ENERGY = 9
 
     def _test_energy(self, emb, dfedmet, known_values):
@@ -20,7 +21,7 @@ class HubbardDFEDMETTests(unittest.TestCase):
     #    """
 
     #    emb = edmet.EDMET(
-    #            latts['hubb_6_u0']['rhf'],
+    #            testsystems.hubb_6_u0.rhf(),
     #            solver='EBFCI',
     #            max_boson_occ=1,
     #    )
@@ -38,7 +39,7 @@ class HubbardDFEDMETTests(unittest.TestCase):
     #    """
 
     #    emb = edmet.EDMET(
-    #            latts['hubb_6_u0']['rhf'],
+    #            testsystems.hubb_6_u0.rhf(),
     #            solver='EBFCI',
     #            max_boson_occ=6,
     #    )
@@ -57,7 +58,7 @@ class HubbardDFEDMETTests(unittest.TestCase):
         (not long!).
         """
         emb = edmet.EDMET(
-            latts['hubb_14_u4']['rhf'],
+            testsystems.hubb_14_u4.rhf(),
             solver='EBFCI',
             solver_options={"max_boson_occ":2},
             maxiter=1,
@@ -69,7 +70,7 @@ class HubbardDFEDMETTests(unittest.TestCase):
         emb.kernel()
 
         dfedmet = edmet.EDMET(
-                latts['hubb_14_u4_df']['rhf'],
+            testsystems.hubb_14_u4_df.rhf(),
                 solver='EBFCI',
                 solver_options={"max_boson_occ":2},
                 maxiter=1,
@@ -90,7 +91,7 @@ class HubbardDFEDMETTests(unittest.TestCase):
     #    """
 
     #    emb = edmet.EDMET(
-    #            latts['hubb_6x6_u0_1x1imp']['rhf'],
+    #            testsystems.hubb_6x6_u0_1x1imp.rhf(),
     #            solver='EBFCI',
     #            max_boson_occ=2,
     #    )
