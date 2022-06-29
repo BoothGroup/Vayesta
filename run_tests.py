@@ -77,7 +77,14 @@ prof = cProfile.Profile()
 prof.enable()
 
 # Perform the tests:
-testdirs = [d.name for d in os.scandir('vayesta/tests') if (d.is_dir() and not d.name.startswith('_'))]
+def scan(root, path):
+    testdirs = []
+    for d in os.scandir(os.path.join(root, path)):
+        if d.is_dir() and not d.name.startswith("_"):
+            testdirs.append(os.path.join(path, d.name))
+            testdirs += scan(root, os.path.join(path, d.name))
+    return testdirs
+testdirs = scan("vayesta/tests", "") 
 t0 = timer()
 ncount_tot = 0
 for lvl in args.test_levels:
@@ -86,7 +93,7 @@ for lvl in args.test_levels:
     t0_lvl = timer()
     for d in testdirs:
         loader = unittest.TestLoader()
-        suite = loader.discover('vayesta/tests/%s/' % d, pattern=pattern)
+        suite = loader.discover(os.path.join("vayesta/tests", d), pattern=pattern)
         ncount = suite.countTestCases()
         if (ncount == 0):
             continue
