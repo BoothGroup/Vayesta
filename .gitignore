@@ -127,3 +127,9 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
+
+# PySCF output
+pyscf.out
+
+# Code style
+.codestyle

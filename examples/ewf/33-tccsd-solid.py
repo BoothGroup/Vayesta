@@ -26,12 +26,12 @@ mf.kernel()
 
 # EWF-CCSD
 ecc = vayesta.ewf.EWF(mf, bno_threshold=1e-5)
-ecc.make_atom_fragment(0)
+ecc.add_atomic_fragment(0)
 ecc.kernel()
 
 # Tailored EWF-CCSD
 etcc = vayesta.ewf.EWF(mf, solver='TCCSD', bno_threshold=1e-5)
-etcc.make_atom_fragment(0)
+etcc.add_atomic_fragment(0)
 etcc.kernel()
 
 print("E%-14s %+16.8f Ha" % ('(HF)=', mf.e_tot))

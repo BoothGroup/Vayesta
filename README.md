@@ -3,7 +3,7 @@
 Authors
 -------
 
-OJ Backhouse, M Nusspickel, CJC Scott, GH Booth
+M Nusspickel, OJ Backhouse, B Ibrahim, A Santana-Bonilla, CJC Scott, GH Booth
 
 Installation
 ------------
@@ -12,6 +12,7 @@ Installation
     - NumPy
     - SciPy
     - PySCF
+    - CVXPY (for DMET functionality)
 
 * Installation
     1. Clone from Git repository: `git clone git@github.com:BoothGroup/Vayesta.git`

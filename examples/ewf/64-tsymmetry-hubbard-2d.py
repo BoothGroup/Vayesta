@@ -22,12 +22,12 @@ mf.kernel()
 # Calculate each fragment:
 ewf1 = vayesta.ewf.EWF(mf, solver='FCI', fragment_type='Site', bath_type=None)
 for site in range(0, nsite, nimp):
-    ewf1.make_atom_fragment(list(range(site, site+nimp)))
+    ewf1.add_atomic_fragment(list(range(site, site + nimp)))
 ewf1.kernel()
 
 # Calculate a single fragment and use translational symmetry:
 ewf2 = vayesta.ewf.EWF(mf, solver='FCI', fragment_type='Site', bath_type=None)
-f = ewf2.make_atom_fragment(list(range(nimp)))
+f = ewf2.add_atomic_fragment(list(range(nimp)))
 ewf2.kernel()
 
 # Add fragments which are translationally symmetric to f - the results of the fragment f
@@ -48,5 +48,7 @@ def site_basis_c1(f):
     return c1
 
 for i in range(len(ewf1.fragments)):
+    # Note that the fragments C1 amplitudes from FCI are only defined up to a sign
     err = np.linalg.norm(site_basis_c1(ewf1.fragments[i]) - site_basis_c1(ewf2.fragments[i]))
-    print("Error fragment %3d= %.3e" % (i, err))
+    err_sum = np.linalg.norm(site_basis_c1(ewf1.fragments[i]) + site_basis_c1(ewf2.fragments[i]))
+    print("Error fragment %3d= %.3e" % (i, min(err, err_sum)))

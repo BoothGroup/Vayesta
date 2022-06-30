@@ -1,2 +1,1 @@
-- Fit of -C_ij / R_ij^6 to include long-range VdW?
-- MP2 bath orbitals via SVD
+-Symmetry operation class, for reordering of DF-basis (needed for intercluster MP2)

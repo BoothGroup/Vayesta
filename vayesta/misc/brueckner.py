@@ -7,8 +7,7 @@ import scipy.linalg
 
 log = logging.getLogger(__name__)
 
-
-def update_mo_coeff(mo_coeff, t1, ovlp=None, damping=0.5):
+def update_mo_coeff(mo_coeff, t1, ovlp=None, damping=0.0, diis=None):
     nocc, nvir = t1.shape
     nmo = mo_coeff.shape[-1]
     assert nocc+nvir == nmo
@@ -17,28 +16,38 @@ def update_mo_coeff(mo_coeff, t1, ovlp=None, damping=0.5):
     delta_occ = (1-damping)*np.dot(mo_coeff[:,vir], t1.T)   # qa,ai->qi
     log.debug("Change of occupied Brueckner orbitals= %.3e", np.linalg.norm(delta_occ))
     bmo_occ = mo_coeff[:,occ] + delta_occ
-    # Orthogonalize
+
+    # Orthogonalize occupied orbitals
     if ovlp is None:
-        bmo_occ, r = np.linalg.qr(bmo_occ)
-        # Get virtual orbitals via diagonalization of projector
-        dm_vir = (np.eye(nmo) - np.dot(bmo_occ, bmo_occ.T))
-        e, v = np.linalg.eigh(dm_vir)
-        bmo_vir = v[:,-nvir:]
+        bmo_occ = np.linalg.qr(bmo_occ)[0]
     else:
         dm_occ = np.dot(bmo_occ, bmo_occ.T)
         e, v = scipy.linalg.eigh(dm_occ, b=ovlp, type=2)
         bmo_occ = v[:,-nocc:]
-        dm_vir = np.linalg.inv(ovlp) - dm_occ
-        e, v = scipy.linalg.eigh(dm_vir, b=ovlp, type=2)
-        bmo_vir = v[:,-nvir:]
+    # PCDIIS of occupied density
+    if diis:
+        dm_occ = np.dot(bmo_occ, bmo_occ.T)
+        dm_occ = diis.update(dm_occ)
+        e, v = scipy.linalg.eigh(dm_occ, b=ovlp, type=2)
+        bmo_occ = v[:,-nocc:]
+
+    # Virtual space
+    if ovlp is None:
+        dm_vir = (np.eye(nmo) - np.dot(bmo_occ, bmo_occ.T))
+    else:
+        dm_vir = np.linalg.inv(ovlp) - np.dot(bmo_occ, bmo_occ.T)
+    e, v = scipy.linalg.eigh(dm_vir, b=ovlp, type=2)
+    bmo_vir = v[:,-nvir:]
 
     assert bmo_occ.shape[-1] == nocc
     assert bmo_vir.shape[-1] == nvir
-
+    if ovlp is None:
+        ovlp = np.eye(nmo)
+    bmo = np.hstack((bmo_occ, bmo_vir))
+    assert np.allclose(np.linalg.multi_dot((bmo.T, ovlp, bmo))-np.eye(nmo), 0)
     return bmo_occ, bmo_vir
 
-
-def update_mf(mf, t1, mo_coeff=None, inplace=False, canonicalize=False, damping=0.5):
+def update_mf(mf, t1, mo_coeff=None, inplace=False, canonicalize=True, damping=0.0, diis=None):
     """Update occupied MOs based on T1 amplitudes, to converge to Brueckner MOs.
 
     Parameters
@@ -62,15 +71,7 @@ def update_mf(mf, t1, mo_coeff=None, inplace=False, canonicalize=False, damping=
     """
 
     if not inplace:
-        #mf = mf.copy()
-        mf_copy = type(mf)(mf.mol)
-        dct = mf.__dict__.copy()
-        del dct['mol']
-        del dct['stdout']
-        del dct['_chkfile']
-        del dct['chkfile']
-        mf_copy.__dict__.update(copy.deepcopy(dct))
-        mf = mf_copy
+        mf = copy.copy(mf)
 
     if mo_coeff is None: mo_coeff = mf.mo_coeff
     nmo = mo_coeff.shape[-1]
@@ -80,7 +81,7 @@ def update_mf(mf, t1, mo_coeff=None, inplace=False, canonicalize=False, damping=
 
     ovlp = mf.get_ovlp()
     if np.allclose(ovlp, np.eye(ovlp.shape[-1])): ovlp = None
-    bmo_occ, bmo_vir = update_mo_coeff(mo_coeff, t1, ovlp, damping=damping)
+    bmo_occ, bmo_vir = update_mo_coeff(mo_coeff, t1, ovlp, damping=damping, diis=diis)
     # Diagonalize one-electron Hamiltonian or Fock matrix within occupied and virtual space:
     if canonicalize:
         if canonicalize == 'hcore':

@@ -5,10 +5,11 @@ import numpy as np
 import pyscf
 import pyscf.pbc
 import pyscf.pbc.gto
-#import pyscf.gto
 import pyscf.scf
 import pyscf.lib
 from pyscf.lib.parameters import BOHR
+
+from vayesta.core.util import *
 
 log = logging.getLogger(__name__)
 
@@ -29,7 +30,7 @@ class LatticeMole(pyscf.pbc.gto.Cell):
     unit
     """
 
-    def __init__(self, nsite, order=None, verbose=0, output=None):
+    def __init__(self, nsite, nelectron=None, spin=0, order=None, incore_anyway=True, verbose=0, output=None):
         """
         Parameters
         ----------
@@ -38,9 +39,12 @@ class LatticeMole(pyscf.pbc.gto.Cell):
         """
         super().__init__(verbose=verbose, output=output)
         self.nsite = nsite
+        if nelectron is None: nelectron = nsite
+        self.nelectron = nelectron
+        self.spin = spin
         self._basis = {self.atom_symbol(i) : None for i in range(self.nsite)}
         self._built = True
-        self.incore_anyway = True
+        self.incore_anyway = incore_anyway
         self.order = order
 
     def __getattr__(self, attr):
@@ -53,8 +57,11 @@ class LatticeMole(pyscf.pbc.gto.Cell):
     def nao_nr(self):
         return self.nsite
 
-    def ao_labels(self, *args):
-        return ['X%d' % i for i in range(self.nsite)]
+    def ao_labels(self, fmt=True):
+        if fmt:
+            return ['%s%d' % (self.atom_pure_symbol(i), i) for i in range(self.nsite)]
+        elif fmt is None:
+            return [(i, self.atom_pure_symbol(i) , '', '') for i in range(self.nsite)]
 
     def atom_symbol(self, site):
         return '%s%d' % (self.atom_pure_symbol(site), site)
@@ -72,12 +79,8 @@ class LatticeMole(pyscf.pbc.gto.Cell):
 class Hubbard(LatticeMole):
     """Abstract Hubbard model class."""
 
-    def __init__(self, nsite, nelectron=None, hubbard_t=1.0, hubbard_u=0.0, v_nn=0.0,
-            order=None, verbose=0, output=None):
-        super().__init__(nsite, order=order, verbose=verbose, output=output)
-        if nelectron is None:
-            nelectron = nsite
-        self.nelectron = nelectron
+    def __init__(self, nsite, nelectron=None, spin=0, hubbard_t=1.0, hubbard_u=0.0, v_nn=0.0, **kwargs):
+        super().__init__(nsite, nelectron=nelectron, spin=spin, **kwargs)
         self.hubbard_t = hubbard_t
         self.hubbard_u = hubbard_u
         self.v_nn = v_nn
@@ -89,12 +92,23 @@ class Hubbard(LatticeMole):
         aorange[:,3] += 1
         return aorange
 
+    def ao2mo(self, mo_coeffs, compact=False):
+        if compact: raise NotImplementedError()
+        if self.v_nn: raise NotImplementedError()
+
+        if isinstance(mo_coeffs, np.ndarray) and np.ndim(mo_coeffs) == 2:
+            eris = self.hubbard_u*einsum('ai,aj,ak,al->ijkl', mo_coeffs, mo_coeffs, mo_coeffs, mo_coeffs)
+        else:
+            eris = self.hubbard_u*einsum('ai,aj,ak,al->ijkl', *mo_coeffs)
+        eris = eris.reshape(eris.shape[0]*eris.shape[1], eris.shape[2]*eris.shape[3])
+        return eris
+
 
 class Hubbard1D(Hubbard):
     """Hubbard model in 1D."""
 
-    def __init__(self, nsite, nelectron=None, hubbard_t=1.0, hubbard_u=0.0, v_nn=0.0, boundary='auto', **kwargs):
-        super().__init__(nsite, nelectron, hubbard_t, hubbard_u, v_nn=v_nn, **kwargs)
+    def __init__(self, nsite, nelectron=None, spin=0, hubbard_t=1.0, hubbard_u=0.0, v_nn=0.0, boundary='auto', **kwargs):
+        super().__init__(nsite, nelectron, spin, hubbard_t, hubbard_u, v_nn=v_nn, **kwargs)
 
         self.nsites = [nsite]
         self.dimension = 1
@@ -105,7 +119,7 @@ class Hubbard1D(Hubbard):
                 boundary = 'APBC'
             else:
                 raise ValueError()
-            log.warning("boundary condition: %s", boundary)
+            log.debug("Automatically chosen boundary condition: %s", boundary)
         self.boundary = boundary
         if boundary.upper() == 'PBC':
             bfac = 1
@@ -118,7 +132,6 @@ class Hubbard1D(Hubbard):
         if self.order is not None:
             h1e = h1e[self.order][:,self.order]
         self.h1e = h1e
-
 
     def get_eri(self, hubbard_u=None, v_nn=None):
         if hubbard_u is None:
@@ -159,12 +172,12 @@ class Hubbard1D(Hubbard):
 
 class Hubbard2D(Hubbard):
 
-    def __init__(self, nsites, nelectron=None, hubbard_t=1.0, hubbard_u=0.0, boundary='auto',
+    def __init__(self, nsites, nelectron=None, spin=0, hubbard_t=1.0, hubbard_u=0.0, boundary='auto',
             tiles=(1, 1), order=None, **kwargs):
         nsite = nsites[0]*nsites[1]
         if order is None and tiles != (1, 1):
             order = self.get_tiles_order(nsites, tiles)
-        super().__init__(nsite, nelectron, hubbard_t, hubbard_u, order=order, **kwargs)
+        super().__init__(nsite, nelectron, spin, hubbard_t, hubbard_u, order=order, **kwargs)
 
         self.nsites = nsites
         self.dimension = 2
@@ -183,8 +196,10 @@ class Hubbard2D(Hubbard):
                     #boundary = ('PBC', 'APBC')
                 elif self.nsites[0] % 4 == 2 and self.nsites[1] % 4 == 2:
                     boundary = ('PBC', 'APBC')
+                else:
+                    raise NotImplementedError("Please specify boundary conditions.")
             else:
-                raise NotImplementedError("Please specifiy boundary conditions.")
+                raise NotImplementedError("Please specify boundary conditions.")
         if np.ndim(boundary) == 0:
             boundary = (boundary, boundary)
         self.boundary = boundary
@@ -200,24 +215,15 @@ class Hubbard2D(Hubbard):
             else:
                 raise ValueError('Invalid boundary: %s' % boundary[i])
         log.debugv('boundary phases= %r', bfac)
-
-        def get_index(i, j):
-            fac = 1
-            if i % nsites[0] != i:
-                fac *= bfac[0]
-            if j % nsites[1] != j:
-                fac *= bfac[1]
-            idx = (i%nsites[0])*nsites[1] + (j%nsites[1])
-            return idx, fac
-
+        self.bfac = bfac
         h1e = np.zeros((nsite, nsite))
         for i in range(nsites[0]):
             for j in range(nsites[1]):
-                idx, _ = get_index(i, j)
-                idx_l, fac_l = get_index(i, j-1)
-                idx_r, fac_r = get_index(i, j+1)
-                idx_u, fac_u = get_index(i-1, j)
-                idx_d, fac_d = get_index(i+1, j)
+                idx, _ = self.get_index(i, j)
+                idx_l, fac_l = self.get_index(i, j-1)
+                idx_r, fac_r = self.get_index(i, j+1)
+                idx_u, fac_u = self.get_index(i-1, j)
+                idx_d, fac_d = self.get_index(i+1, j)
                 h1e[idx,idx_l] += fac_l * -hubbard_t
                 h1e[idx,idx_r] += fac_r * -hubbard_t
                 h1e[idx,idx_u] += fac_u * -hubbard_t
@@ -226,6 +232,15 @@ class Hubbard2D(Hubbard):
             h1e = h1e[self.order][:,self.order]
         self.h1e = h1e
 
+    def get_index(self, i, j):
+        bfac = self.bfac
+        fac = 1
+        if i % self.nsites[0] != i:
+            fac *= bfac[0]
+        if j % self.nsites[1] != j:
+            fac *= bfac[1]
+        idx = (i%self.nsites[0])*self.nsites[1] + (j%self.nsites[1])
+        return idx, fac
 
     def get_eri(self, hubbard_u=None, v_nn=None):
         if hubbard_u is None:
@@ -252,7 +267,7 @@ class Hubbard2D(Hubbard):
 
     def atom_coords(self):
         """Sites are ordered by default as:
-        ...
+
         6 7 8
         3 4 5
         0 1 2
@@ -265,7 +280,6 @@ class Hubbard2D(Hubbard):
         if self.order is not None:
             coords = coords[self.order]
         return coords / BOHR
-
 
     @staticmethod
     def get_tiles_order(nsites, tiles):
@@ -289,12 +303,37 @@ class Hubbard2D(Hubbard):
         return order
 
 
-class LatticeMF(pyscf.scf.hf.RHF):
-#class LatticeMF(pyscf.pbc.scf.hf.RHF):
+class HubbardDF:
+
+    def __init__(self, mol):
+        if mol.v_nn: raise NotImplementedError()
+        self.mol = mol
+        self.blockdim = self.get_naoaux()
+
+    def ao2mo(self, *args, **kwargs):
+        return self.mol.ao2mo(*args, **kwargs)
+
+    def get_naoaux(self):
+        return self.mol.nsite
+
+    def loop(self, blksize=None):
+        """Note that blksize is ignored."""
+        nsite = self.mol.nsite
+        j3c = np.zeros((nsite, nsite, nsite))
+        np.fill_diagonal(j3c, np.sqrt(self.mol.hubbard_u))
+        # Pack (Q|ab) -> (Q|A)
+        j3c = pyscf.lib.pack_tril(j3c)
+        yield j3c
+
+
+class LatticeSCF:
 
     def __init__(self, mol, *args, **kwargs):
         super().__init__(mol, *args, **kwargs)
-        self._eri = mol.get_eri()
+        if self.mol.incore_anyway:
+            self._eri = mol.get_eri()
+        else:
+            self.density_fit()
 
     @property
     def cell(self):
@@ -303,62 +342,107 @@ class LatticeMF(pyscf.scf.hf.RHF):
     def get_hcore(self, *args, **kwargs):
         return self.mol.h1e
 
-    def get_veff(self, mol=None, dm=None, *args, **kwargs):
+    def get_ovlp(self, mol=None):
+        return np.eye(self.mol.nsite)
+
+    def density_fit(self):
+        self.with_df = HubbardDF(self.mol)
+        return self
+
+class LatticeRHF(LatticeSCF, pyscf.scf.hf.RHF):
+
+    def get_init_guess(self, mol=None, key=None):
+        e, c = np.linalg.eigh(self.get_hcore())
+        nocc = self.mol.nelectron // 2
+        dm = 2*np.dot(c[:,:nocc], c[:,:nocc].T)
+        return dm
+
+    def get_jk(self, mol=None, dm=None, *args, **kwargs):
         if mol is None: mol = self.mol
         if dm is None: dm = self.make_rdm1()
         if self.mol.v_nn is not None and mol.v_nn != 0:
             raise NotImplementedError()
-        return np.diag(np.diag(dm))*mol.hubbard_u/2
+        j = np.diag(np.diag(dm))*mol.hubbard_u
+        k = j
+        return j, k
 
-    def get_ovlp(self):
-        return np.eye(self.mol.nsite)
-
-    def kernel_hubbard(self):
-        mo_energy, mo_coeff = np.linalg.eigh(self.mol.h1e)
-        nocc = self.mol.nelectron//2
-        occ = np.s_[:nocc]
-        dm0 = 2*np.dot(mo_coeff[:,occ], mo_coeff[:,occ].T)
-        veff = self.get_veff(dm=dm0)
-        fock = self.get_hcore() + veff
-        mo_energy, mo_coeff = np.linalg.eigh(fock)
-        nvir = self.mol.nsite - nocc
-        self.mo_energy = mo_energy
-        log.info("MO energies:")
-        for i in range(0, len(mo_energy), 5):
-            e = mo_energy[i:i+5]
-            fmt = '  ' + len(e)*'  %+16.8f'
-            log.info(fmt, *e)
-        if nocc > 0:
-            homo = self.mo_energy[nocc-1]
+    def check_lattice_symmetry(self, dm=None):
+        if dm is None: dm = self.make_rdm1()
+        occ = np.diag(dm)
+        if not np.all(np.isclose(occ[0], occ)):
+            log.warning("Mean-field not lattice symmetric! Site occupations=\n%r", occ)
         else:
-            homo = np.nan
-        if nvir > 0:
-            lumo = self.mo_energy[nocc]
-        else:
-            lumo = np.nan
-        gap = (lumo-homo)
-        log.info("HOMO= %+16.8f  LUMO= %+16.8f  gap= %+16.8f", homo, lumo, gap)
-        if gap < 1e-6:
-            log.critical("Zero HOMO-LUMO gap!")
-            raise RuntimeError()
-        elif gap < 0.1:
-            log.warning("Small HOMO-LUMO gap!")
+            log.debugv("Mean-field site occupations=\n%r", occ)
 
-        self.mo_coeff = mo_coeff
-        self.mo_occ = np.asarray((nocc*[2] + nvir*[0]))
+    #def kernel_hubbard(self):
+    #    mo_energy, mo_coeff = np.linalg.eigh(self.mol.h1e)
+    #    nocc = self.mol.nelectron//2
+    #    occ = np.s_[:nocc]
+    #    dm0 = 2*np.dot(mo_coeff[:,occ], mo_coeff[:,occ].T)
+    #    veff = self.get_veff(dm=dm0)
+    #    fock = self.get_hcore() + veff
+    #    mo_energy, mo_coeff = np.linalg.eigh(fock)
+    #    nvir = self.mol.nsite - nocc
+    #    self.mo_energy = mo_energy
+    #    log.info("MO energies:")
+    #    for i in range(0, len(mo_energy), 5):
+    #        e = mo_energy[i:i+5]
+    #        fmt = '  ' + len(e)*'  %+16.8f'
+    #        log.info(fmt, *e)
+    #    if nocc > 0:
+    #        homo = self.mo_energy[nocc-1]
+    #    else:
+    #        homo = np.nan
+    #    if nvir > 0:
+    #        lumo = self.mo_energy[nocc]
+    #    else:
+    #        lumo = np.nan
+    #    gap = (lumo-homo)
+    #    log.info("HOMO= %+16.8f  LUMO= %+16.8f  gap= %+16.8f", homo, lumo, gap)
+    #    if gap < 1e-8:
+    #        log.critical("Zero HOMO-LUMO gap!")
+    #        raise RuntimeError("Zero HOMO-LUMO gap!")
+    #    elif gap < 1e-2:
+    #        log.warning("Small HOMO-LUMO gap!")
 
-        dm = self.make_rdm1()
-        veff = self.get_veff()
-        self.e_tot = np.einsum('ab,ba->', (self.get_hcore() + veff/2), dm)
-        self.converged = True
+    #    self.mo_coeff = mo_coeff
+    #    self.mo_occ = np.asarray((nocc*[2] + nvir*[0]))
 
-        return self.e_tot
+    #    # Check lattice symmetry
+    #    dm = self.make_rdm1()
+    #    self.check_lattice_symmetry(dm)
+    #    veff = self.get_veff()
+    #    self.e_tot = np.einsum('ab,ba->', (self.get_hcore() + veff/2), dm)
+    #    self.converged = True
 
-    #class with_df:
-    #    """Dummy density-fitting"""
+    #    return self.e_tot
 
-    #    @classmethod
-    #    def ao2mo(cls, mo_coeff):
-    #        pass
+    #kernel = kernel_hubbard
 
-    kernel = kernel_hubbard
+class LatticeUHF(LatticeSCF, pyscf.scf.uhf.UHF):
+
+    def get_init_guess(self, mol=None, key=None):
+        e, c = np.linalg.eigh(self.get_hcore())
+        nocc = self.mol.nelec
+        dma = np.dot(c[:,:nocc[0]], c[:,:nocc[0]].T)
+        dmb = np.dot(c[:,:nocc[1]], c[:,:nocc[1]].T)
+        # Create small random offset to break symmetries.
+
+        offset = np.full_like(dma.diagonal(), fill_value=1e-2)
+        for x in range(self.mol.nsites[0]):
+            for y in range(self.mol.nsites[1]):
+                ind, fac = self.mol.get_index(x,y)
+                offset[ind] *= (-1) ** (x%2 + y%2)
+        dma[np.diag_indices_from(dma)] += offset
+        return (dma, dmb)
+
+    def get_jk(self, mol=None, dm=None, *args, **kwargs):
+        if mol is None: mol = self.mol
+        if dm is None: dm = self.make_rdm1()
+        if self.mol.v_nn is not None and mol.v_nn != 0:
+            raise NotImplementedError()
+        dma, dmb = dm
+        ja = np.diag(np.diag(dma))*mol.hubbard_u
+        jb = np.diag(np.diag(dmb))*mol.hubbard_u
+        ka, kb = ja, jb
+        return (ja, jb), (ka, kb)

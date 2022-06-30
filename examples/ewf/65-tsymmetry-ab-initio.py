@@ -45,12 +45,12 @@ assert mf.converged
 # Calculate each fragment:
 ewf1 = vayesta.ewf.EWF(mf, solver='FCI', bath_type=None)
 for site in range(0, ncells, nimp):
-    ewf1.make_atom_fragment(order[site:site+nimp])
+    ewf1.add_atomic_fragment(order[site:site + nimp])
 ewf1.kernel()
 
 # Calculate a single fragment and use translational symmetry:
 ewf2 = vayesta.ewf.EWF(mf, solver='FCI', bath_type=None)
-f = ewf2.make_atom_fragment(order[:nimp])
+f = ewf2.add_atomic_fragment(order[:nimp])
 ewf2.kernel()
 
 # Add fragments which are translationally symmetric to f - the results of the fragment f

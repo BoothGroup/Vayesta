@@ -1,14 +1,25 @@
 [run]
 branch = True
-omit = 
+source = vayesta
+omit =
         */libs/*
         */test_*.py
+        */core/k2gamma.py
+        */dmet/pdmet.py
+        */misc/brueckner.py
+        */misc/counterpoise.py
 
 [report]
 exclude_lines =
     pragma: no cover
     raise RuntimeError
     raise NotImplementedError
+    raise AssertionError
+    raise ValueError
+    raise AbstractMethodError
     pass
     if __name__ == .__main__.:
-    except ImportError:
+    except ImportError
+    def __repr__
+    log.error
+    log.critical

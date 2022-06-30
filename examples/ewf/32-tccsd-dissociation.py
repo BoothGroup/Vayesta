@@ -103,9 +103,9 @@ for d in np.arange(dmin, dmax+1e-12, dstep):
     # Reference one-shot EWF-CCSD
     ecc = vayesta.ewf.EWF(mf, bno_threshold=-1)
     if dimer[0] == dimer[1]:
-        ecc.make_atom_fragment(1, sym_factor=2)
+        ecc.add_atomic_fragment(1, sym_factor=2)
     else:
-        ecc.make_all_atom_fragments()
+        ecc.add_all_atomic_fragments()
     try:
         ecc.kernel()
     except:
@@ -113,9 +113,9 @@ for d in np.arange(dmin, dmax+1e-12, dstep):
 
     etcc = vayesta.ewf.EWF(mf, solver='TCCSD', bno_threshold=-1)
     if dimer[0] == dimer[1]:
-        etcc.make_atom_fragment(1, sym_factor=2)
+        etcc.add_atomic_fragment(1, sym_factor=2)
     else:
-        etcc.make_all_atom_fragments()
+        etcc.add_all_atomic_fragments()
     etcc.kernel()
 
     with open('energies.txt', 'a') as f:
