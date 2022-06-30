@@ -30,7 +30,7 @@ class TestMolecule:
     """Molecular test system.
     """
 
-    def __init__(self, atom, basis, auxbasis=None, verbose=0, mf_conv_tol=1e-10, **kwargs):
+    def __init__(self, atom, basis, auxbasis=None, verbose=0, **kwargs):
         super().__init__()
         mol = pyscf.gto.Mole()
         mol.atom = atom
@@ -40,7 +40,6 @@ class TestMolecule:
         mol.verbose = verbose
         mol.build()
         self.auxbasis = auxbasis
-        self.mf_conv_tol = mf_conv_tol
         self.mol = mol
 
     # --- Mean-field
@@ -50,8 +49,10 @@ class TestMolecule:
         rhf = pyscf.scf.RHF(self.mol)
         if self.auxbasis is not None:
             rhf = rhf.density_fit(auxbasis=self.auxbasis)
-        rhf.conv_tol = self.mf_conv_tol
+        rhf.conv_tol = 1e-10
+        rhf.conv_tol_grad = 1e-8
         rhf.kernel()
+        assert rhf.converged
         return rhf
 
     @cache
@@ -59,8 +60,10 @@ class TestMolecule:
         uhf = pyscf.scf.UHF(self.mol)
         if self.auxbasis is not None:
             uhf = uhf.density_fit(auxbasis=self.auxbasis)
-        uhf.conv_tol = self.mf_conv_tol
+        uhf.conv_tol = 1e-10
+        uhf.conv_tol_grad = 1e-8
         uhf.kernel()
+        assert uhf.converged
         return uhf
 
     # --- MP2
@@ -85,7 +88,9 @@ class TestMolecule:
         rccsd.conv_tol = 1e-10
         rccsd.conv_tol_normt = 1e-8
         rccsd.kernel()
+        assert rccsd.converged
         rccsd.solve_lambda()
+        assert rccsd.converged_lambda
         return rccsd
 
     @cache
@@ -94,7 +99,9 @@ class TestMolecule:
         uccsd.conv_tol = 1e-10
         uccsd.conv_tol_normt = 1e-8
         uccsd.kernel()
+        assert uccsd.converged
         uccsd.solve_lambda()
+        assert uccsd.converged_lambda
         return uccsd
 
     # --- FCI
@@ -159,8 +166,10 @@ class TestSolid:
         if self.kpts is not None:
             rhf = kconj_symmetry_(rhf)
         rhf.conv_tol = 1e-10
+        rhf.conv_tol_grad = 1e-8
         rhf.exxdiv = self.exxdiv
         rhf.kernel()
+        assert rhf.converged
         return rhf
 
     @cache
@@ -173,8 +182,10 @@ class TestSolid:
         if self.kpts is not None:
             uhf = kconj_symmetry_(uhf)
         uhf.conv_tol = 1e-10
+        uhf.conv_tol_grad = 1e-8
         uhf.exxdiv = self.exxdiv
         uhf.kernel()
+        assert uhf.converged
         return uhf
 
     # --- MP2
@@ -211,8 +222,10 @@ class TestSolid:
         rccsd.conv_tol = 1e-10
         rccsd.conv_tol_normt = 1e-8
         rccsd.kernel()
+        assert rccsd.converged
         if self.kpts is None:
             rccsd.solve_lambda()
+            assert rccsd.converged_lambda
         return rccsd
 
     @cache
@@ -225,8 +238,10 @@ class TestSolid:
         uccsd.conv_tol = 1e-10
         uccsd.conv_tol_normt = 1e-8
         uccsd.kernel()
+        assert uccsd.converged
         if self.kpts is None:
             uccsd.solve_lambda()
+            assert uccsd.converged_lambda
         return uccsd
 
 
@@ -316,8 +331,8 @@ water_631g_df = TestMolecule(atom=molecules.water(), basis='6-31G', auxbasis='6-
 water_cation_631g = TestMolecule(atom=molecules.water(), basis='6-31G', charge=1, spin=1)
 water_cation_631g_df = TestMolecule(atom=molecules.water(), basis='6-31G', auxbasis='6-31G', charge=1, spin=1)
 
-water_ccpvdz = TestMolecule(atom=molecules.water(), basis="cc-pvdz", mf_conv_tol=1e-12)
-water_ccpvdz_df = TestMolecule(atom=molecules.water(), basis="cc-pvdz", auxbasis="cc-pvdz-jkfit", mf_conv_tol=1e-12)
+water_ccpvdz = TestMolecule(atom=molecules.water(), basis="cc-pvdz")
+water_ccpvdz_df = TestMolecule(atom=molecules.water(), basis="cc-pvdz", auxbasis="cc-pvdz-jkfit")
 
 ethanol_ccpvdz = TestMolecule(atom=molecules.ethanol(), basis="cc-pvdz")
 
