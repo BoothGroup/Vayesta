@@ -14,6 +14,8 @@ from vayesta.tests import testsystems
 from vayesta.tests.common import TestCase
 
 
+TIGHT_SOLVER = dict(conv_tol=1e-10, conv_tol_normt=1e-8)
+
 @pytest.mark.slow
 class Test_MP2(TestCase):
 
@@ -35,6 +37,16 @@ class Test_MP2(TestCase):
         del cls.cc
         del cls.ref_values
         cls.emb.cache_clear()
+
+    @classmethod
+    def get_e_exxdiv(cls):
+        if cls.mf.exxdiv == 'ewald':
+            madelung = pyscf.pbc.tools.madelung(cls.mf.mol, cls.mf.kpts)
+            exxdiv = -madelung * cls.mf.mol.nelectron/2
+            return exxdiv
+        elif cls.mf.exxdiv is None:
+            return 0
+        raise ValueError
 
     @classmethod
     @cache
@@ -110,11 +122,9 @@ class Test_CCSD(Test_MP2):
         cls.mf = testsystems.h2_sto3g_k311.rhf()
         cls.cc = testsystems.h2_sto3g_s311.rccsd()
         nk = len(cls.mf.kpts)
-        madelung = pyscf.pbc.tools.madelung(cls.mf.mol, cls.mf.kpts)
-        exxdiv = -madelung * cls.mf.mol.nelectron/2
         cls.ref_values = {
                 ('e_corr', -1) : cls.cc.e_corr/nk,
-                ('e_tot', -1) : cls.cc.e_tot/nk + exxdiv,
+                ('e_tot', -1) : cls.cc.e_tot/nk + cls.get_e_exxdiv(),
                 ('e_corr', 1e-3) : -0.0153692736073979,
                 ('e_tot', 1e-3) : -1.2835024529439953,
                 }
@@ -122,8 +132,7 @@ class Test_CCSD(Test_MP2):
     @classmethod
     @cache
     def emb(cls, bno_threshold):
-        solver_opts = dict(conv_tol=1e-10, conv_tol_normt=1e-8)
-        emb = vayesta.ewf.EWF(cls.mf, bno_threshold=bno_threshold, solve_lambda=True, solver_options=solver_opts)
+        emb = vayesta.ewf.EWF(cls.mf, bno_threshold=bno_threshold, solve_lambda=True, solver_options=TIGHT_SOLVER)
         emb.kernel()
         return emb
 
@@ -246,11 +255,9 @@ class Test_UCCSD(Test_CCSD):
         cls.mf = testsystems.h3_sto3g_k311.uhf()
         cls.cc = testsystems.h3_sto3g_s311.uccsd()
         nk = len(cls.mf.kpts)
-        madelung = pyscf.pbc.tools.madelung(cls.mf.mol, cls.mf.kpts)
-        exxdiv = -madelung * cls.mf.mol.nelectron/2
         cls.ref_values = {
                 ('e_corr', -1) : cls.cc.e_corr/nk,
-                ('e_tot', -1) : cls.cc.e_tot/nk + exxdiv,
+                ('e_tot', -1) : cls.cc.e_tot/nk + cls.get_e_exxdiv(),
                 ('e_corr', 1e-3) : -0.01654717440912164,
                 ('e_tot', 1e-3) : -1.7250820680314027,
                 }
@@ -314,11 +321,9 @@ class Test_CCSD_2D(Test_CCSD):
         cls.mf = testsystems.h2_sto3g_k31.rhf()
         cls.cc = testsystems.h2_sto3g_s31.rccsd()
         nk = len(cls.mf.kpts)
-        madelung = pyscf.pbc.tools.madelung(cls.mf.mol, cls.mf.kpts)
-        exxdiv = -madelung * cls.mf.mol.nelectron/2
         cls.ref_values = {
                 ('e_corr', -1) : cls.cc.e_corr/nk,
-                ('e_tot', -1) : cls.cc.e_tot/nk + exxdiv,
+                ('e_tot', -1) : cls.cc.e_tot/nk + cls.get_e_exxdiv(),
                 ('e_corr', 1e-3) : -0.01982005986990425,
                 ('e_tot', 1e-3) : -1.3599735418652414,
                 }
