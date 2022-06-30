@@ -3,6 +3,10 @@ import unittest
 
 import numpy as np
 
+import pyscf
+import pyscf.pbc
+import pyscf.pbc.tools
+
 import vayesta
 import vayesta.ewf
 from vayesta.core.util import cache
@@ -17,7 +21,10 @@ class Test_MP2(TestCase):
     def setUpClass(cls):
         cls.mf = testsystems.h2_sto3g_k311.rhf()
         cls.cc = testsystems.h2_sto3g_s311.rmp2()
+        nk = len(cls.mf.kpts)
         cls.ref_values = {
+                ('e_corr', -1) : cls.cc.e_corr/nk,
+                ('e_tot', -1) : cls.cc.e_tot/nk,
                 ('e_corr', 1e-3) : -0.009599078822158,
                 ('e_tot', 1e-3) : -1.277732258158756,
                 }
@@ -36,18 +43,17 @@ class Test_MP2(TestCase):
         emb.kernel()
         return emb
 
-    # --- Full bath tests:
+    def test_energy_full_bath(self):
+        eta = -1
+        emb = self.emb(eta)
+        self.assertAllclose(emb.e_corr, self.ref_values[('e_corr', eta)], rtol=0)
+        self.assertAllclose(emb.e_tot, self.ref_values[('e_tot', eta)], rtol=0)
 
-    def test_energy(self):
-        nk = len(self.mf.kpts)
-        # Full bath
-        emb = self.emb(-1)
-        self.assertAllclose(emb.e_corr, self.cc.e_corr/nk, rtol=0)
-        self.assertAllclose(emb.e_tot, self.cc.e_tot/nk, rtol=0)
-        # Finite bath
-        emb = self.emb(1e-3)
-        self.assertAllclose(emb.e_corr, self.ref_values[('e_corr', 1e-3)], rtol=0)
-        self.assertAllclose(emb.e_tot, self.ref_values[('e_tot', 1e-3)], rtol=0)
+    def test_energy_finite_bath(self):
+        eta = 1e-3
+        emb = self.emb(eta)
+        self.assertAllclose(emb.e_corr, self.ref_values[('e_corr', eta)], rtol=0)
+        self.assertAllclose(emb.e_tot, self.ref_values[('e_tot', eta)], rtol=0)
 
     def _get_ref_t1_ao(self, t1):
         occ = self.cc._scf.mo_occ > 0
@@ -84,6 +90,17 @@ class Test_MP2(TestCase):
         dm1 = emb._make_rdm1_ccsd_global_wf(ao_basis=True, late_t2_sym=False, use_sym=False)
         self.assertAllclose(dm1, dm1_exact)
 
+    # Broken for non-zero exxdiv correction:
+    #def test_dmet_energy(self):
+    #    emb = self.emb(-1)
+    #    e_ref = self.ref_values[('e_tot', -1)]
+    #    etot_dmet = emb.get_dmet_energy()
+    #    self.assertAllclose(etot_dmet, e_ref, rtol=0)
+    #    etot_dmet = emb.get_dmet_energy(version=2)
+    #    self.assertAllclose(etot_dmet, e_ref, rtol=0)
+    #    etot_dmet = emb.get_dmet_energy(version=2, approx_cumulant=False)
+    #    self.assertAllclose(etot_dmet, e_ref, rtol=0)
+
 
 @pytest.mark.slow
 class Test_CCSD(Test_MP2):
@@ -92,7 +109,12 @@ class Test_CCSD(Test_MP2):
     def setUpClass(cls):
         cls.mf = testsystems.h2_sto3g_k311.rhf()
         cls.cc = testsystems.h2_sto3g_s311.rccsd()
+        nk = len(cls.mf.kpts)
+        madelung = pyscf.pbc.tools.madelung(cls.mf.mol, cls.mf.kpts)
+        exxdiv = -madelung * cls.mf.mol.nelectron/2
         cls.ref_values = {
+                ('e_corr', -1) : cls.cc.e_corr/nk,
+                ('e_tot', -1) : cls.cc.e_tot/nk + exxdiv,
                 ('e_corr', 1e-3) : -0.0153692736073979,
                 ('e_tot', 1e-3) : -1.2835024529439953,
                 }
@@ -105,29 +127,14 @@ class Test_CCSD(Test_MP2):
         emb.kernel()
         return emb
 
-    def test_energy(self):
-        nk = len(self.mf.kpts)
-        # Full bath
-        emb = self.emb(-1)
-        e_exxdiv = emb.get_exxdiv()[0]  # PySCF's gamma-point CCSD solver misses exxdiv energy correction
-        self.assertAllclose(emb.e_corr, self.cc.e_corr/nk, rtol=0)
-        self.assertAllclose(emb.e_tot, self.cc.e_tot/nk + e_exxdiv, rtol=0)
-        # Finite bath
-        emb = self.emb(1e-3)
-        self.assertAllclose(emb.e_corr, self.ref_values[('e_corr', 1e-3)], rtol=0)
-        self.assertAllclose(emb.e_tot, self.ref_values[('e_tot', 1e-3)], rtol=0)
-
     def test_dmet_energy(self):
         emb = self.emb(-1)
-        nk = len(self.mf.kpts)
-        e_exxdiv = emb.get_exxdiv()[0]  # PySCF's gamma-point CCSD solver misses exxdiv energy correction
-        e_ref = self.cc.e_tot/nk + e_exxdiv
-
+        e_ref = self.ref_values[('e_tot', -1)]
         etot_dmet = emb.get_dmet_energy()
         self.assertAllclose(etot_dmet, e_ref, rtol=0)
         etot_dmet = emb.get_dmet_energy(version=2)
         self.assertAllclose(etot_dmet, e_ref, rtol=0)
-        # TODO: Why is this broken?!
+        # Broken for non-zero exxdiv correction:
         #etot_dmet = emb.get_dmet_energy(version=2, approx_cumulant=False)
         #self.assertAllclose(etot_dmet, e_ref, rtol=0)
 
@@ -186,7 +193,10 @@ class Test_UMP2(Test_MP2):
     def setUpClass(cls):
         cls.mf = testsystems.h3_sto3g_k311.uhf()
         cls.cc = testsystems.h3_sto3g_s311.ump2()
+        nk = len(cls.mf.kpts)
         cls.ref_values = {
+                ('e_corr', -1) : cls.cc.e_corr/nk,
+                ('e_tot', -1) : cls.cc.e_tot/nk,
                 ('e_corr', 1e-3) : -0.00820754179397088,
                 ('e_tot', 1e-3) : -1.716742435416252
                 }
@@ -222,9 +232,6 @@ class Test_UMP2(Test_MP2):
 
     # Not implemented:
 
-    def test_dm1_2p2l(self):
-        pass
-
     def test_dm1_demo(self):
         pass
 
@@ -238,7 +245,12 @@ class Test_UCCSD(Test_CCSD):
     def setUpClass(cls):
         cls.mf = testsystems.h3_sto3g_k311.uhf()
         cls.cc = testsystems.h3_sto3g_s311.uccsd()
+        nk = len(cls.mf.kpts)
+        madelung = pyscf.pbc.tools.madelung(cls.mf.mol, cls.mf.kpts)
+        exxdiv = -madelung * cls.mf.mol.nelectron/2
         cls.ref_values = {
+                ('e_corr', -1) : cls.cc.e_corr/nk,
+                ('e_tot', -1) : cls.cc.e_tot/nk + exxdiv,
                 ('e_corr', 1e-3) : -0.01654717440912164,
                 ('e_tot', 1e-3) : -1.7250820680314027,
                 }
@@ -274,9 +286,6 @@ class Test_UCCSD(Test_CCSD):
 
     # Not implemented:
 
-    def test_dm1_2p2l(self):
-        pass
-
     def test_dm2_demo(self):
         pass
 
@@ -289,7 +298,10 @@ class Test_MP2_2D(Test_MP2):
     def setUpClass(cls):
         cls.mf = testsystems.h2_sto3g_k31.rhf()
         cls.cc = testsystems.h2_sto3g_s31.rmp2()
+        nk = len(cls.mf.kpts)
         cls.ref_values = {
+                ('e_corr', -1) : cls.cc.e_corr/nk,
+                ('e_tot', -1) : cls.cc.e_tot/nk,
                 ('e_corr', 1e-3) : -0.013767085896414821,
                 ('e_tot', 1e-3) : -1.3539205678917514,
                 }
@@ -301,7 +313,12 @@ class Test_CCSD_2D(Test_CCSD):
     def setUpClass(cls):
         cls.mf = testsystems.h2_sto3g_k31.rhf()
         cls.cc = testsystems.h2_sto3g_s31.rccsd()
+        nk = len(cls.mf.kpts)
+        madelung = pyscf.pbc.tools.madelung(cls.mf.mol, cls.mf.kpts)
+        exxdiv = -madelung * cls.mf.mol.nelectron/2
         cls.ref_values = {
+                ('e_corr', -1) : cls.cc.e_corr/nk,
+                ('e_tot', -1) : cls.cc.e_tot/nk + exxdiv,
                 ('e_corr', 1e-3) : -0.01982005986990425,
                 ('e_tot', 1e-3) : -1.3599735418652414,
                 }
