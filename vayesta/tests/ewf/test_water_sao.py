@@ -7,12 +7,21 @@ from vayesta.tests.ewf import test_h2
 from vayesta.tests import testsystems
 from vayesta.tests.common import TestCase
 
-#class Test_MP2(test_h2.Test_MP2):
-#
-#    @classmethod
-#    def setUpClass(cls):
-#        cls.mf = testsystems.water_631g.rhf()
-#        cls.cc = testsystems.water_631g.rmp2()
+class Test_MP2(test_h2.Test_MP2):
+
+    @classmethod
+    def setUpClass(cls):
+        cls.mf = testsystems.water_631g.rhf()
+        cls.cc = testsystems.water_631g.rmp2()
+
+    @classmethod
+    @cache
+    def emb(cls, bno_threshold):
+        emb = vayesta.ewf.EWF(cls.mf, solver='MP2', bno_threshold=bno_threshold)
+        with emb.sao_fragmentation() as f:
+            f.add_all_atomic_fragments()
+        emb.kernel()
+        return emb
 
 @pytest.mark.slow
 class Test_CCSD(test_h2.Test_CCSD):
@@ -43,12 +52,21 @@ class Test_CCSD(test_h2.Test_CCSD):
         etot_dmet = emb.get_dmet_energy(version=2, approx_cumulant=False)
         self.assertAllclose(etot_dmet, self.cc.e_tot, rtol=0)
 
-#class Test_UMP2(test_h2.Test_UMP2):
-#
-#    @classmethod
-#    def setUpClass(cls):
-#        cls.mf = testsystems.water_cation_631g.uhf()
-#        cls.cc = testsystems.water_cation_631g.ump2()
+class Test_UMP2(test_h2.Test_UMP2):
+
+    @classmethod
+    def setUpClass(cls):
+        cls.mf = testsystems.water_cation_631g.uhf()
+        cls.cc = testsystems.water_cation_631g.ump2()
+
+    @classmethod
+    @cache
+    def emb(cls, bno_threshold):
+        emb = vayesta.ewf.EWF(cls.mf, solver='MP2', bno_threshold=bno_threshold)
+        with emb.sao_fragmentation() as f:
+            f.add_all_atomic_fragments()
+        emb.kernel()
+        return emb
 
 @pytest.mark.slow
 class Test_UCCSD(Test_CCSD, test_h2.Test_UCCSD):
