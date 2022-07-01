@@ -26,7 +26,7 @@ The PySCF_ results are subsequently parsed to the `ref:EWT` Vayesta_ method as d
    :lines: 25-27
 
 The `ref:EWF1 method requires a fragmentation scheme. Vayesta_ has implemented different methods to perform fragmentations, whose description can be 
-found in `REF:VAYESTA_MODULE`. The **IAO** fragmentation methodology is set as default and automatically used once the method `.kernel()` is invoked as 
+found in `REF:VAYESTA_MODULE`. The **IAO** fragmentation methodology is set as default and automatically used once the method **.kernel()** is invoked as 
 is shown in these lines of code: 
 
 .. literalinclude:: fragmentation.py
