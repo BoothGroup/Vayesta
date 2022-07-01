@@ -22,7 +22,12 @@ The creation of the Lattice model is performed automatically by Vayesta_ using t
 .. literalinclude:: 1d_hubbard.py
    :lines: 5-7
    
-The function `ref:Hubbard1D` is a specialized function used to create a Hubbards model based on the user-defined variables (*nsite*, *nelectron*, 
+The function `ref:Hubbard1D` is a specialized function used to create a Hubbard's model based on the user-defined variables such as *nsite*, *nelectron*, and *hubbard_u* as shown below:
+
+.. literalinclude:: 1d_hubbard.py
+   :lines: 5-7
+   
+An important feature of Vayesta_ is the way in which desired properties are printed and stored. 
 
 
 
