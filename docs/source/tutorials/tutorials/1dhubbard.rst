@@ -32,7 +32,7 @@ The declared model can be further studied by using the module `ref:LatticeMF`, w
 .. literalinclude:: 1d_hubbard.py
    :lines: 10-11
 
-This function will automatically select, between *HF* or *UHF* methods, based on the total spin number. 
+This function will automatically select between *HF* or *UHF* methods based on the total spin number. 
 
 The embedding 
 
