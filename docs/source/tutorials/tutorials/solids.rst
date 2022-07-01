@@ -32,14 +32,31 @@ Similarly, a full **CCSD** calculation is carried out as presented in the follow
 .. literalinclude:: diamond.py
    :lines: 31-32
 
-As starting point, the ref:EWT* function uses the result of the previous calculation *kmf* to start the embedding procedure:
+As starting point, the `ref:EWT` function uses the result of the previous **HF** calculation (denoted by **kmf**) to start the embedding procedure:
 
 .. literalinclude:: diamond.py
    :lines: 35-38
 
 important to notice is that the **IAO** fragmentation method has been used, together with a **sym_factor=2** variable, since the diamond unit cell has 
-two C atoms per unit cell. 
+two carbon atoms per unit cell. The user-provided k-point mean-field calculation will be automatically folded to the supercell. 
 
+Similarly, PySCF_ enables the use of explicit supercells for computing mean-field electronic ground-state as shown below:
+
+.. literalinclude:: diamond.py
+   :lines: 41-44
+
+The `ref:EWF` embedding procedure can be also carried out using the supercell input as shown below:
+
+.. literalinclude:: diamond.py
+   :lines: 46-50
+
+in which the **IAO** fragmentation has been used. The `ref:add_atomic_fragment` function is respectively changed by tuning the argument **sym_factor** 
+provided by the number of images created to reproduce the kpoint mesh (i.e 2 as computed in the ncells variable). 
+
+The results of these different calculation setups can be shown using the following lines of code:
+
+.. literalinclude:: diamond.py
+   :lines: 52-56
 
 
 
