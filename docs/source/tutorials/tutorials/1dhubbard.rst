@@ -36,8 +36,19 @@ in `ref:Hubbard1D` function as is shown below:
 This function will automatically select between *HF* or *UHF* methods based on the total spin number. 
 
 The Vayesta_ embedding methods can be further used to numerically study these systems as introduced in the previous tutorials. In this sense, the 
-`ref:EWF` function employs the '' 
+`ref:EWF` function employs the *mf* object created by `ref:LatticeMF` and complemented with the options *bno_threshold* and the option *fragment_type* 
+which indicates the use of **sites** instead of **atoms** as displayed in the following snipet:
 
+.. literalinclude:: 1d_hubbard.py
+   :lines: 14-17
+
+The fragmentation procedure is carried out in the function `ref:site_fragmentation` and all the corresponding fragements are added utilizing the function 
+`ref:add_atomic_fragment`. At this point, the extension of the embedding can be declared as a first argument of this function, where the combination *0* 
+and *sym_factor=nsite* indicates a single-site embedding. The corresponding calculation is performed using the attribute *.kernel()*. The energy per 
+electron can be computed for both cases (i.e MF and EWF) as indicated below:
+
+.. literalinclude:: 1d_hubbard.py
+   :lines: 18-19
 
 
 
