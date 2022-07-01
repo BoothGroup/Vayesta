@@ -7,7 +7,7 @@ Model Hamiltonians are commonly used for simulating systems of interest both in 
 Vayesta_ enables the creation of customized Hamiltonians by employing the module `ref:lattmod` and the functions `ref:Hubbard_1d` and `ref:LatticeMF`
 contained in this class. 
 
-To perform calculations using this feature, the required modules must be imported as shown in the following snippet:
+To perform calculations using this feature, the required modules should be imported as shown in the following snippet:
 
 .. literalinclude:: 1d_hubbard.py
    :lines: 1-3
@@ -33,7 +33,7 @@ in `ref:Hubbard1D` function as is shown below:
 .. literalinclude:: 1d_hubbard.py
    :lines: 10-11
 
-This function will automatically select between *HF* or *UHF* methods based on the total spin number. 
+This function will automatically select between **HF** or **UHF** methods based on the total spin number. 
 
 The Vayesta_ embedding methods can be further used to numerically study these systems as introduced in the previous tutorials. In this sense, the 
 `ref:EWF` function employs the *mf* object created by `ref:LatticeMF` and complemented with the options *bno_threshold* and the option *fragment_type* 
