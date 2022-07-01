@@ -43,7 +43,7 @@ For a more detailed installation procedures, the user can refer to the
 Testing Vayesta
 ====================
 
-After installation, Vayesta_ can be tested by typping the following command:
+After installation, Vayesta_ can be tested by typing the following command:
 
 .. code-block:: console
 
