@@ -22,6 +22,7 @@ print("E(EWF-CCSD)= %+16.8f Ha" % (ewf.e_tot/nelectron))
 ewf = vayesta.ewf.EWF(mf, bno_threshold=1e-8, fragment_type='Site')
 ewf.site_fragmentation()
 ewf.add_atomic_fragment([0,1], sym_factor=nsite/2)
+
 ewf.kernel()
 print("E(MF)=       %+16.8f Ha" % (mf.e_tot/nelectron))
 print("E(EWF-CCSD)= %+16.8f Ha" % (ewf.e_tot/nelectron))
