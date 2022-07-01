@@ -6,6 +6,7 @@ nsite = 16
 nelectron = nsite
 hubbard_u = 2.0
 mol = vayesta.lattmod.Hubbard1D(nsite, nelectron=nelectron, hubbard_u=hubbard_u, output='pyscf.out')
+
 mf = vayesta.lattmod.LatticeMF(mol)
 mf.kernel()
 
