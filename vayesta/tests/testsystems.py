@@ -135,6 +135,7 @@ class TestSolid:
             supercell=None,
             exxdiv='ewald',
             verbose=0,
+            df='gdf',
             **kwargs,
     ):
         super().__init__()
@@ -151,6 +152,7 @@ class TestSolid:
         self.supercell = supercell
         self.mol = mol
         self.kpts = self.mol.make_kpts(kmesh) if kmesh is not None else None
+        self.df = df
         self.auxbasis = auxbasis
         self.exxdiv = exxdiv
 
@@ -162,11 +164,14 @@ class TestSolid:
             rhf = pyscf.pbc.scf.RHF(self.mol)
         else:
             rhf = pyscf.pbc.scf.KRHF(self.mol, self.kpts)
-        rhf = rhf.density_fit(auxbasis=self.auxbasis)
+        if self.df == 'gdf':
+            rhf = rhf.density_fit(auxbasis=self.auxbasis)
+        elif self.df == 'rsgdf':
+            rhf = rhf.rs_density_fit(auxbasis=self.auxbasis)
         if self.kpts is not None:
             rhf = kconj_symmetry_(rhf)
         rhf.conv_tol = 1e-10
-        rhf.conv_tol_grad = 1e-8
+        rhf.conv_tol_grad = 1e-6
         rhf.exxdiv = self.exxdiv
         rhf.kernel()
         assert rhf.converged
@@ -178,7 +183,10 @@ class TestSolid:
             uhf = pyscf.pbc.scf.UHF(self.mol)
         else:
             uhf = pyscf.pbc.scf.KUHF(self.mol, self.kpts)
-        uhf = uhf.density_fit(auxbasis=self.auxbasis)
+        if self.df == 'gdf':
+            uhf = uhf.density_fit(auxbasis=self.auxbasis)
+        elif self.df == 'rsgdf':
+            uhf = uhf.rs_density_fit(auxbasis=self.auxbasis)
         if self.kpts is not None:
             uhf = kconj_symmetry_(uhf)
         uhf.conv_tol = 1e-10
@@ -381,11 +389,6 @@ mesh = (3,3,3)
 diamond_sto3g_k333 = TestSolid(a=a, atom=atom, kmesh=mesh, **opts)
 diamond_sto3g_s333 = TestSolid(a=a, atom=atom, supercell=mesh, **opts)
 
-a, atom = solids.graphene()
-opts = dict(basis='def2-svp', auxbasis='def2-svp-ri', exp_to_discard=0.1)
-graphene_k22 = TestSolid(a=a, atom=atom, kmesh=(2,2,1), **opts)
-graphene_s22 = TestSolid(a=a, atom=atom, supercell=(2,2,1), **opts)
-
 a = np.eye(3) * 3.0
 a[2, 2] = 20.0
 he_k32 = TestSolid(a, atom="He 0 0 0", dimension=2, basis="def2-svp", auxbasis="def2-svp-ri", kmesh=(3, 2, 1))
@@ -396,11 +399,6 @@ a[1, 1] = a[2, 2] = 30.0
 he_k3 = TestSolid(a, atom="He 0 0 0", dimension=1, basis="def2-svp", auxbasis="def2-svp-ri", kmesh=(3, 1, 1))
 he_s3 = TestSolid(a, atom="He 0 0 0", dimension=1, basis="def2-svp", auxbasis="def2-svp-ri", supercell=(3, 1, 1))
 
-a = np.eye(3) * 1.5
-a[2, 2] = 20.0
-nitrogen_cubic_2d_k221 = TestSolid(a, atom="N", dimension=2, spin=4, basis="def2-svp", auxbasis="def2-svp-ri", kmesh=(2, 2, 1), exp_to_discard=0.1)
-nitrogen_cubic_2d_s221 = TestSolid(a, atom="N", dimension=2, spin=4, basis="def2-svp", auxbasis="def2-svp-ri", supercell=(2, 2, 1), exp_to_discard=0.1)
-
 a = np.eye(3) * 5
 opts = dict(basis="6-31g", mesh=[11, 11, 11])
 he2_631g_k222 = TestSolid(a=a, atom="He 3 2 3; He 1 1 1", kmesh=(2, 2, 2), **opts)
@@ -409,10 +407,6 @@ he2_631g_s222 = TestSolid(a=a, atom="He 3 2 3; He 1 1 1", supercell=(2, 2, 2), *
 a, atom = solids.rocksalt(atoms=["Li", "H"])
 lih_k221 = TestSolid(a=a, atom=atom, basis="def2-svp", auxbasis="def2-svp-ri", kmesh=(2, 1, 1), exp_to_discard=0.1)
 lih_s221 = TestSolid(a=a, atom=atom, basis="def2-svp", auxbasis="def2-svp-ri", supercell=(2, 1, 1), exp_to_discard=0.1)
-
-a = np.eye(3) * 5.0
-boron_cp_k321 = TestSolid(a, atom="B 0 0 0", basis="def2-svp", auxbasis="def2-svp-ri", spin=6, kmesh=(3, 2, 1), exp_to_discard=0.1)
-boron_cp_s321 = TestSolid(a, atom="B 0 0 0", basis="def2-svp", auxbasis="def2-svp-ri", spin=6, supercell=(3, 2, 1), exp_to_discard=0.1)
 
 a = np.eye(3) * 3.0
 he_k321 = TestSolid(a, atom="He 0 0 0", basis="def2-svp", auxbasis="def2-svp-ri", kmesh=(3, 2, 1))
