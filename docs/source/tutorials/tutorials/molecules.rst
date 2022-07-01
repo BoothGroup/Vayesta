@@ -37,6 +37,12 @@ Alternatively, a second fragmentation procedure (the IAO+PAOs method) can be use
    :lines: 33-40
 
 
+Important quantities, such as T2 amplitudes and 1-RDM from global EWF, can be computed using the following lines of code:
+
+.. literalinclude:: fragmentation.py
+   :lines: 42-46
+
+
 
 	   
 .. _PySCF: https://sunqm.github.io/pyscf/
