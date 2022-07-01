@@ -43,6 +43,8 @@ Important quantities, such as T2 amplitudes and 1-RDM from global EWF, can be co
    :lines: 42-46
 
 
+Similarly, quaintites such as spin-spin correlation functions and different observables can be computed using Vayesta_ ...... (TO BE COMPLETED)
+
 
 	   
 .. _PySCF: https://sunqm.github.io/pyscf/
