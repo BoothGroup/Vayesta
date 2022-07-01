@@ -1,6 +1,5 @@
 .. _1dhubbard:
 
-
 Custom Hamiltonians 
 ==========================
 
@@ -11,10 +10,17 @@ contained within.
 To perform calculations using this feature, the required modules must be imported as shown in the following snippet:
 
 .. literalinclude:: 1d_hubbard.py
-   :lines: 1-4
+   :lines: 1-3
 
+The initial conditions for an user-defined Hubbard's model are declared as shown in the following lines of code:
 
+.. literalinclude:: 1d_hubbard.py
+   :lines: 5-7
 
+The creation of the Lattice model is performed automatically by Vayesta_ using these commands:
+
+.. literalinclude:: 1d_hubbard.py
+   :lines: 5-7
    
 
 
