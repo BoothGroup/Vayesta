@@ -1,5 +1,0 @@
-.. outvay:
-
-
-Vayesta outputing system
-===========================
