@@ -24,4 +24,5 @@ Material Science
 
    tutorials/molecules 
    tutorials/solids
-   tutorial/
+   tutorials/clusterham
+   tutorials/parallelism
