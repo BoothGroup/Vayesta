@@ -40,7 +40,11 @@ The `ref:EWT` method is used in the following manner:
 .. literalinclude:: parallel.py
    :lines: 27-29
 
-In this **mpi** implementation all the results are gathered in the master process 
+In this **mpi** implementation all the results are gathered in the master process. This proccess can be also used for computing the total energies and 
+being compared as is shown in the following snippet:
+
+.. literalinclude:: parallel.py
+   :lines: 27-29
 
 
 .. _OpenBLAS: https://github.com/xianyi/OpenBLAS
