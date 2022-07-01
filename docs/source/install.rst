@@ -40,7 +40,16 @@ As an alternatie to pip_, Vayesta_ can be cloned from its GitHub repository. Thi
 For a more detailed installation procedures, the user can refer to the
 :ref:`faq`. section.
    
+Testing Vayesta
+====================
 
+After installation, Vayesta_ can be tested by typping the following command:
+
+.. code-block:: console
+
+   python setup.py test
+
+which suffices for testing the main computational capabilities of the code. 
    
 .. _GitHub: https://github.com/
 .. _OpenBLAS: https://github.com/xianyi/OpenBLAS
