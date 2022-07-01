@@ -24,3 +24,4 @@ Material Science
 
    tutorials/molecules 
    tutorials/solids
+   tutorial/
