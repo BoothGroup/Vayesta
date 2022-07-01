@@ -24,8 +24,8 @@ The creation of the Lattice model is performed automatically by Vayesta_ using t
    
 where the function `ref:Hubbard1D` is specialized to create a 1-D Hubbard's model based on the user-defined variables such as *nsite*, *nelectron*, and 
 *hubbard_u*. An important feature of Vayesta_ is the way in which desired properties are printed and stored. This is done in a new folder created in the 
-current working directory and called **vayesta_output** where a *log_file* and *error_log* are placed. The user has the possibility to name these files 
-as is done in the option output 'ref:Hubbard1D'.
+current working directory and called **vayesta_output** where a *log_file* and *error_log* are placed. The user has the possibility to name the output 
+file provided in `ref:Hubbard1D` function.
 
 The declared model can be further studied by using the module `ref:LatticeMF`, where a mean-field calculation can be carried out using the object created 
 in `ref:Hubbard1D` function as is shown below:
@@ -33,7 +33,8 @@ in `ref:Hubbard1D` function as is shown below:
 .. literalinclude:: 1d_hubbard.py
    :lines: 10-11
 
-This function will automatically select between **HF** or **UHF** methods based on the total spin number. 
+Likewise, the  `ref:LatticeMf` function will automatically select to carry out between **HF** or **UHF** mean-field methods based on the total spin 
+number. 
 
 The Vayesta_ embedding methods can be further used to numerically study these systems as introduced in the previous tutorials. In this sense, the 
 `ref:EWF` function employs the *mf* object created by `ref:LatticeMF` and complemented with the options *bno_threshold* and the option *fragment_type* 
