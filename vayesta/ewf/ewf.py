@@ -1,19 +1,17 @@
 # --- Standard
 import dataclasses
 import functools
-from typing import Union
 # --- External
 import numpy as np
 # --- Internal
-import vayesta
-from vayesta.core.util import *
+from vayesta.core.util import dot, einsum, timer, log_time, time_string, break_into_lines, energy_string, \
+        deprecated, log_method, cache, NotCalculatedError
 from vayesta.core.qemb import Embedding
 from vayesta.core.fragmentation import SAO_Fragmentation
 from vayesta.core.fragmentation import IAOPAO_Fragmentation
 from vayesta.misc import corrfunc
 from vayesta.mpi import mpi
 # --- Package
-from . import helper
 from .fragment import Fragment
 from .amplitudes import get_global_t1_rhf
 from .amplitudes import get_global_t2_rhf
@@ -29,13 +27,18 @@ from .icmp2 import get_intercluster_mp2_energy_rhf
 class Options(Embedding.Options):
     """Options for EWF calculations."""
     # --- Fragment settings
-    iao_minao : str = 'auto'            # Minimal basis for IAOs
+    iao_minao: str = 'auto'            # Minimal basis for IAOs
     # --- Bath settings
-    bath_options: dict = Embedding.Options.change_dict_defaults('bath_options',
-            bathtype='mp2', threshold=1e-8)
+    bath_options: dict = Embedding.Options.change_dict_defaults(
+            'bath_options',
+            bathtype='mp2',
+            threshold=1e-8,
+    )
     #ewdmet_max_order: int = 1
-    # If multiple bno thresholds are to be calculated, we can project integrals and amplitudes from a previous larger cluster:
-    project_eris: bool = False          # Project ERIs from a pervious larger cluster (corresponding to larger eta), can result in a loss of accuracy especially for large basis sets!
+    # If multiple bno thresholds are to be calculated, we can project
+    # integrals and amplitudes from a previous larger cluster:
+    project_eris: bool = False          # Project ERIs from a pervious larger cluster (corresponding to larger eta),
+                                        # can result in a loss of accuracy especially for large basis sets!
     project_init_guess: bool = True     # Project converted T1,T2 amplitudes from a previous larger cluster
     energy_functional: str = 'projected'
     # --- Solver settings
@@ -204,6 +207,7 @@ class EWF(Embedding):
     # Lambda-amplitudes
     def get_global_l1(self, *args, **kwargs):
         return self.get_global_t1(*args, get_lambda=True, **kwargs)
+
     def get_global_l2(self, *args, **kwargs):
         return self.get_global_t2(*args, get_lambda=True, **kwargs)
 
@@ -215,9 +219,9 @@ class EWF(Embedding):
             nelec = 2*t1.shape[0]
             t1diag = np.linalg.norm(t1) / np.sqrt(nelec)
             if t1diag >= warntol:
-                self.log.warning("T1 diagnostic for %-20s %.5f", str(f)+':', t1diag)
+                self.log.warning("T1 diagnostic for %-20s %.5f", str(fx)+':', t1diag)
             else:
-                self.log.info("T1 diagnostic for %-20s %.5f", str(f)+':', t1diag)
+                self.log.info("T1 diagnostic for %-20s %.5f", str(fx)+':', t1diag)
         # Global
         t1 = self.get_global_t1(mpi_target=0)
         if mpi.is_master:
@@ -228,16 +232,20 @@ class EWF(Embedding):
             else:
                 self.log.info("Global T1 diagnostic: %.5f", t1diag)
 
-    # --- Bardwards compatibility:
+    # --- Backwards compatibility:
+
     @deprecated("get_t1 is deprecated - use get_global_t1 instead.")
     def get_t1(self, *args, **kwargs):
         return self.get_global_t1(*args, **kwargs)
+
     @deprecated("get_t2 is deprecated - use get_global_t2 instead.")
     def get_t2(self, *args, **kwargs):
         return self.get_global_t2(*args, **kwargs)
+
     @deprecated("get_l1 is deprecated - use get_global_l1 instead.")
     def get_l1(self, *args, **kwargs):
         return self.get_global_l1(*args, **kwargs)
+
     @deprecated("get_l2 is deprecated - use get_global_l2 instead.")
     def get_l2(self, *args, **kwargs):
         return self.get_global_l2(*args, **kwargs)
@@ -318,7 +326,10 @@ class EWF(Embedding):
             px = x.get_overlap('frag|cluster-occ')
             wf = wf.project(px)
             es, ed, ex = x.get_fragment_energy(wf.c1, wf.c2)
-            self.log.debug("%20s:  E(S)= %s  E(D)= %s  E(tot)= %s", x, energy_string(es), energy_string(ed), energy_string(ex))
+            self.log.debug(
+                    "%20s:  E(S)= %s  E(D)= %s  E(tot)= %s",
+                    x, energy_string(es), energy_string(ed), energy_string(ex),
+            )
             e_corr += x.symmetry_factor * ex
         return e_corr/self.ncells
 
@@ -394,7 +405,7 @@ class EWF(Embedding):
                 ro = x.get_overlap('mo-occ|cluster-occ')
                 rv = x.get_overlap('mo-vir|cluster-vir')
 
-                t1x = dot(ro.T, t1, rv) # N(frag) * N^2
+                t1x = dot(ro.T, t1, rv)  # N(frag) * N^2
                 c2x = pwf.t2 + einsum('ia,jb->ijab', pwf.t1, t1x)
 
                 noccx = x.cluster.nocc_active
@@ -452,7 +463,7 @@ class EWF(Embedding):
     def _get_atomic_coeffs(self, atoms=None, projection='sao'):
         if atoms is None:
             atoms = list(range(self.mol.natm))
-        natom = len(atoms)
+        #natom = len(atoms)
         projection = projection.lower()
         if projection == 'sao':
             frag = SAO_Fragmentation(self)
@@ -461,7 +472,7 @@ class EWF(Embedding):
         else:
             raise ValueError("Invalid projection: %s" % projection)
         frag.kernel()
-        ovlp = self.get_ovlp()
+        #ovlp = self.get_ovlp()
         c_atom = []
         for atom in atoms:
             name, indices = frag.get_atomic_fragment_indices(atom)
@@ -509,7 +520,7 @@ class EWF(Embedding):
                 'n,n': functools.partial(corrfunc.chargecharge, subtract_indep=False),
                 'dn,dn': functools.partial(corrfunc.chargecharge, subtract_indep=True),
                 'sz,sz': corrfunc.spinspin_z,
-                }.get(kind.lower())
+        }.get(kind.lower())
         if func is None:
             raise ValueError(kind)
         atoms1, atoms2, proj = self._get_atom_projectors_for_corrfunc(atoms, projection)
@@ -520,7 +531,16 @@ class EWF(Embedding):
         return corr
 
     @log_method()
-    def get_corrfunc(self, kind, dm1=None, dm2=None, atoms=None, projection='sao', dm2_with_dm1=None, use_symmetry=True):
+    def get_corrfunc(
+            self,
+            kind,
+            dm1=None,
+            dm2=None,
+            atoms=None,
+            projection='sao',
+            dm2_with_dm1=None,
+            use_symmetry=True,
+    ):
         """Get expectation values <P(A) S_z P(B) S_z>, where P(X) are projectors onto atoms X.
 
         TODO: MPI
@@ -550,7 +570,7 @@ class EWF(Embedding):
                 'n,n': (1, 2, 1),
                 'dn,dn': (1, 2, 1),
                 'sz,sz': (1/4, 1/2, 1/2),
-                }[kind]
+        }[kind]
         if dm2_with_dm1 is None:
             dm2_with_dm1 = False
             if dm2 is not None:
@@ -623,7 +643,9 @@ class EWF(Embedding):
                     elif kind == 'sz,sz':
                         dm2 = -(dm2/6 + dm2.transpose(0,3,2,1)/3)
 
-                    for fx2, cx2_coeff in fx.loop_symmetry_children([fx.cluster.coeff], include_self=True, maxgen=maxgen):
+                    for fx2, cx2_coeff in fx.loop_symmetry_children(
+                            [fx.cluster.coeff], include_self=True, maxgen=maxgen,
+                    ):
                         rx = np.dot(cx2_coeff.T, cst)
                         projx = {atom: dot(rx, p_atom, rx.T) for (atom, p_atom) in proj.items()}
                         for a, atom1 in enumerate(atoms1):
@@ -647,7 +669,9 @@ class EWF(Embedding):
 
     @deprecated(replacement='get_corrfunc')
     def get_atomic_ssz(self, dm1=None, dm2=None, atoms=None, projection='sao', dm2_with_dm1=None):
-        return self.get_corrfunc('Sz,Sz', dm1=dm1, dm2=dm2, atoms=atoms, projection=projection, dm2_with_dm1=dm2_with_dm1)
+        return self.get_corrfunc(
+                'Sz,Sz', dm1=dm1, dm2=dm2, atoms=atoms,
+                projection=projection, dm2_with_dm1=dm2_with_dm1)
 
     def get_dm_energy_old(self, global_dm1=True, global_dm2=False):
         """Calculate total energy from reduced density-matrices.
@@ -686,7 +710,7 @@ class EWF(Embedding):
 
         t_as_lambda = self.opts.t_as_lambda
         mf = self.mf
-        nmo = mf.mo_coeff.shape[1]
+        #nmo = mf.mo_coeff.shape[1]
         nocc = (mf.mo_occ > 0).sum()
 
         if global_dm1:
@@ -732,7 +756,6 @@ class EWF(Embedding):
         self._debug_wf = wf
 
     # -------------------------------------------------------------------------------------------- #
-
 
     # TODO: Reimplement PMO
     #def make_atom_fragment(self, atoms, name=None, check_atoms=True, **kwargs):

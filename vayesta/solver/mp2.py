@@ -2,15 +2,16 @@ import numpy as np
 
 from .solver import ClusterSolver
 
-from vayesta.core.util import *
+from vayesta.core.util import einsum, deprecated, log_time, brange
 from vayesta.core.types import Orbitals
 from vayesta.core.types import MP2_WaveFunction
+
 
 class MP2_Solver(ClusterSolver):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        frozen = self.cluster.get_frozen_indices()
+        self.cluster.get_frozen_indices()
         # --- Results
         self.t2 = None
 

@@ -7,6 +7,7 @@ import scipy.linalg
 
 log = logging.getLogger(__name__)
 
+
 def update_mf(mf, dm1, canonicalize=True, inplace=False, damping=0.0, diis=None):
     """p-DMET mean-field update."""
 

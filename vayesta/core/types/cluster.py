@@ -1,7 +1,7 @@
 import numpy as np
 
 from .orbitals import Orbitals
-from vayesta.core.spinalg import *
+from vayesta.core.spinalg import hstack_matrices, add_numbers
 
 __all__ = ['Cluster', 'ClusterRHF', 'ClusterUHF']
 
@@ -124,16 +124,18 @@ class Cluster:
         cp.frozen_orbitals.basis_transform(trafo, inplace=True)
         return cp
 
+
 class ClusterRHF(Cluster):
 
     def __repr__(self):
-        return '%s(norb_active= %d, norb_frozen= %d)' % (self.__class__.__name__,
-                self.norb_active, self.norb_frozen)
+        return '%s(norb_active= %d, norb_frozen= %d)' % (
+                self.__class__.__name__, self.norb_active, self.norb_frozen,
+        )
 
     # Indices and slices
 
     def get_active_slice(self):
-        return np.s_[self.nocc_frozen : self.nocc_frozen+self.norb_active]
+        return np.s_[self.nocc_frozen: self.nocc_frozen+self.norb_active]
 
     def get_active_indices(self):
         return list(range(self.nocc_frozen, self.nocc_frozen+self.norb_active))
@@ -147,7 +149,7 @@ class ClusterRHF(Cluster):
         lines += [fmt % ("Active", "Frozen", "Total")]
         lines += [fmt % (15*'-', 15*'-', 5*'-')]
         fmt = '  %-8s' + 2*'   %5d (%6.1f%%)' + '   %5d'
-        get_values = lambda a, f, n : (a, 100*a/n, f, 100*f/n, n)
+        get_values = lambda a, f, n: (a, 100*a/n, f, 100*f/n, n)
         lines += [fmt % ("Occupied", *get_values(self.nocc_active, self.nocc_frozen, self.nocc_total))]
         lines += [fmt % ("Virtual",  *get_values(self.nvir_active, self.nvir_frozen, self.nvir_total))]
         lines += [fmt % ("Total",    *get_values(self.norb_active, self.norb_frozen, self.norb_total))]
@@ -157,8 +159,9 @@ class ClusterRHF(Cluster):
 class ClusterUHF(Cluster):
 
     def __repr__(self):
-        return '%s(norb_active= (%d, %d), norb_frozen= (%d, %d))' % (self.__class__.__name__,
-                *self.norb_active, *self.norb_frozen)
+        return '%s(norb_active= (%d, %d), norb_frozen= (%d, %d))' % (
+                self.__class__.__name__, *self.norb_active, *self.norb_frozen,
+        )
 
     # Indices and slices
 
@@ -171,10 +174,10 @@ class ClusterUHF(Cluster):
                 list(range(self.nocc_frozen[1], self.nocc_frozen[1]+self.norb_active[1])))
 
     def get_frozen_indices(self):
-        return (list(range(self.nocc_frozen[0]))
-              + list(range(self.norb_total[0]-self.nvir_frozen[0], self.norb_total[0])),
-                list(range(self.nocc_frozen[1]))
-              + list(range(self.norb_total[1]-self.nvir_frozen[1], self.norb_total[1])))
+        return (
+            list(range(self.nocc_frozen[0])) + list(range(self.norb_total[0]-self.nvir_frozen[0], self.norb_total[0])),
+            list(range(self.nocc_frozen[1])) + list(range(self.norb_total[1]-self.nvir_frozen[1], self.norb_total[1])),
+        )
 
     def repr_size(self):
         lines = []
@@ -182,8 +185,8 @@ class ClusterUHF(Cluster):
         lines += [(fmt % ("Active", "Frozen", "Total")).rstrip()]
         lines += [fmt % (22*'-', 22*'-', 12*'-')]
         fmt = '  %-8s' + 2*'   %5d, %5d (%6.1f%%)' + '   %5d, %5d'
-        get_values = lambda a, f, n : (a[0], a[1], 100*(a[0]+a[1])/(n[0]+n[1]),
-                                       f[0], f[1], 100*(f[0]+f[1])/(n[0]+n[1]), n[0], n[1])
+        get_values = lambda a, f, n: (a[0], a[1], 100*(a[0]+a[1])/(n[0]+n[1]),
+                                      f[0], f[1], 100*(f[0]+f[1])/(n[0]+n[1]), n[0], n[1])
         lines += [fmt % ("Occupied", *get_values(self.nocc_active, self.nocc_frozen, self.nocc_total))]
         lines += [fmt % ("Virtual",  *get_values(self.nvir_active, self.nvir_frozen, self.nvir_total))]
         lines += [fmt % ("Total",    *get_values(self.norb_active, self.norb_frozen, self.norb_total))]

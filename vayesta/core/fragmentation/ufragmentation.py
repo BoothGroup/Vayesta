@@ -4,6 +4,7 @@ from .fragmentation import Fragmentation
 
 # TODO: Allow different indices for alpha and beta
 
+
 class Fragmentation_UHF(Fragmentation):
     """Fragmentation for unrestricted HF."""
 

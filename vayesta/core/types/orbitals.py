@@ -1,12 +1,11 @@
 import numpy as np
 
-import vayesta
-from vayesta.core.util import *
 from vayesta.core.helper import pack_arrays, unpack_arrays
 
 __all__ = [
         'Orbitals', 'SpatialOrbitals', 'SpinOrbitals', 'GeneralOrbitals',
-        ]
+]
+
 
 class MolecularOrbitals:
     """Abstract base class"""
@@ -27,13 +26,17 @@ class MolecularOrbitals:
             if isinstance(x, np.ndarray):
                 return x.copy()
             raise ValueError
-        return type(self)(coeff=_copy(self.coeff), energy=_copy(self.energy), occ=_copy(self.occ),
-                labels=_copy(self.labels), maxocc=_copy(self.maxocc))
+        return type(self)(
+                coeff=_copy(self.coeff), energy=_copy(self.energy), occ=_copy(self.occ),
+                labels=_copy(self.labels), maxocc=_copy(self.maxocc),
+        )
+
 
 def Orbitals(coeff, *args, **kwargs):
     if np.ndim(coeff[0]) == 2:
         return SpinOrbitals(coeff, *args, **kwargs)
     return SpatialOrbitals(coeff, *args, **kwargs)
+
 
 class SpatialOrbitals(MolecularOrbitals):
 
@@ -113,10 +116,14 @@ class SpatialOrbitals(MolecularOrbitals):
 class SpinOrbitals(MolecularOrbitals):
 
     def __init__(self, coeff, energy=None, occ=None, labels=None, maxocc=1):
-        if energy is None: energy = (None, None)
-        if occ is None: occ = (None, None)
-        if labels is None: labels = (None, None)
-        if np.isscalar(maxocc): maxocc = (maxocc, maxocc)
+        if energy is None:
+            energy = (None, None)
+        if occ is None:
+            occ = (None, None)
+        if labels is None:
+            labels = (None, None)
+        if np.isscalar(maxocc):
+            maxocc = (maxocc, maxocc)
         self.alpha = SpatialOrbitals(coeff[0], energy=energy[0], occ=occ[0], labels=labels[0], maxocc=maxocc[0])
         self.beta = SpatialOrbitals(coeff[1], energy=energy[1], occ=occ[1], labels=labels[1], maxocc=maxocc[1])
 
@@ -159,8 +166,10 @@ class SpinOrbitals(MolecularOrbitals):
         return 2
 
     def __getattr__(self, name):
-        if name in ('norb', 'nocc', 'nvir', 'nelec', 'energy',
-                'coeff', 'coeff_occ', 'coeff_vir', 'occ', 'labels', 'maxocc'):
+        if name in (
+                'norb', 'nocc', 'nvir', 'nelec', 'energy',
+                'coeff', 'coeff_occ', 'coeff_vir', 'occ', 'labels', 'maxocc',
+        ):
             return (getattr(self.alpha, name), getattr(self.beta, name))
         raise AttributeError("'%s' object has no attribute '%s'" % (self.__class__.__name__, name))
 
@@ -211,6 +220,7 @@ class GeneralOrbitals(SpatialOrbitals):
     @classmethod
     def from_spin_orbitals(cls, orbitals):
         raise NotImplementedError
+
 
 if __name__ == '__main__':
 

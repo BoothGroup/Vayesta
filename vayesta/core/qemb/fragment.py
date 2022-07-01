@@ -1,17 +1,15 @@
 # --- Standard library
 import dataclasses
 import itertools
-import copy
 import os.path
 # --- External
 import numpy as np
-import scipy
-import scipy.linalg
 import pyscf
 import pyscf.lib
 import pyscf.lo
 # --- Internal
-from vayesta.core.util import *
+from vayesta.core.util import dot, einsum, hstack, timer, log_time, time_string, energy_string, \
+        cache, OptionsBase, deprecated, fix_orbital_sign, break_into_lines
 from vayesta.core import spinalg
 from vayesta.core.types import Cluster
 from vayesta.core.symmetry import SymmetryIdentity
@@ -22,7 +20,6 @@ from vayesta.core.types import WaveFunction
 # Bath
 from vayesta.core.bath import BNO_Threshold
 from vayesta.core.bath import DMET_Bath
-from vayesta.core.bath import EwDMET_Bath
 from vayesta.core.bath import MP2_Bath
 from vayesta.core.bath import Full_Bath
 from vayesta.core.bath import R2_Bath
@@ -32,7 +29,8 @@ from vayesta.mpi import mpi
 
 
 # Get MPI rank of fragment
-get_fragment_mpi_rank = lambda *args : args[0].mpi_rank
+get_fragment_mpi_rank = lambda *args: args[0].mpi_rank
+
 
 @dataclasses.dataclass
 class Options(OptionsBase):
@@ -43,12 +41,13 @@ class Options(OptionsBase):
     # --- Solver options
     solver_options: dict = None
     # --- Other
-    store_eris: bool = None     # If True, ERIs will be stored in Fragment._eris
-    dm_with_frozen: bool = None # TODO: is still used?
+    store_eris: bool = None      # If True, ERIs will be stored in Fragment._eris
+    dm_with_frozen: bool = None  # TODO: is still used?
     # Fragment specific
     # -----------------
     coupled_fragments: list = dataclasses.field(default_factory=list)
     sym_factor: float = 1.0
+
 
 class Fragment:
 
@@ -57,15 +56,16 @@ class Fragment:
     @dataclasses.dataclass
     class Results:
         fid: int = None             # Fragment ID
-        converged: bool = None      # True, if solver reached convergence criterion or no convergence required (eg. MP2 solver)
+        converged: bool = None      # True, if solver reached convergence criterion
+                                    # or no convergence required (eg. MP2 solver)
         # --- Energies
         e_corr: float = None        # Fragment correlation energy contribution
         # --- Wave-function
         wf: WaveFunction = None     # WaveFunction object (MP2, CCSD,...)
         pwf: WaveFunction = None    # Fragment-projected wave function
 
-
-    def __init__(self, base, fid, name, c_frag, c_env,
+    def __init__(
+            self, base, fid, name, c_frag, c_env,
             solver=None,
             atoms=None, aos=None, active=True,
             sym_parent=None, sym_op=None,
@@ -99,7 +99,8 @@ class Fragment:
         sym_parent : Fragment, optional
             Symmetry related parent fragment. Default: None.
         sym_op : Callable, optional
-            Symmetry operation on AO basis function, representing the symmetry to the `sym_parent` object. Default: None.
+            Symmetry operation on AO basis function, representing the symmetry to the `sym_parent`
+            object. Default: None.
         log : logging.Logger
             Logger object. If None, the logger of the `base` object is used. Default: None.
 
@@ -140,9 +141,9 @@ class Fragment:
         self.base = base
 
         # Options
-        self.opts = self.Options()                  # Default options
-        self.opts.update(**self.base.opts.asdict()) # Update with embedding class options
-        self.opts.replace(**kwargs)                 # Replace with keyword arguments
+        self.opts = self.Options()                   # Default options
+        self.opts.update(**self.base.opts.asdict())  # Update with embedding class options
+        self.opts.replace(**kwargs)                  # Replace with keyword arguments
 
         solver = solver or self.base.solver
         if solver not in self.base.valid_solvers:
@@ -318,8 +319,10 @@ class Fragment:
         self._cluster = value
 
     def reset(self, reset_bath=True, reset_cluster=True, reset_eris=True):
-        self.log.debugv("Resetting %s (reset_bath= %r, reset_cluster= %r, reset_eris= %r)",
-                self, reset_bath, reset_cluster, reset_eris)
+        self.log.debugv(
+                "Resetting %s (reset_bath= %r, reset_cluster= %r, reset_eris= %r)",
+                self, reset_bath, reset_cluster, reset_eris,
+        )
         if reset_bath:
             self._dmet_bath = None
             self._bath_factory_occ = None
@@ -335,9 +338,11 @@ class Fragment:
         """Get list of fragments which overlap both in occupied and virtual space."""
         c_occ = self.get_overlap('mo[occ]|cluster[occ]')
         c_vir = self.get_overlap('mo[vir]|cluster[vir]')
+
         def svd(cx, cy):
             rxy = np.dot(cx.T, cy)
             return np.linalg.svd(rxy, compute_uv=False)
+
         frags = []
         for fx in self.base.get_fragments(**kwargs):
             if (fx.id == self.id):
@@ -346,7 +351,7 @@ class Fragment:
             s_occ = svd(c_occ, cx_occ)
             if s_occ.max() < tol:
                 continue
-            cy_occ = fy.get_overlap('mo[vir]|cluster[vir]')
+            cx_vir = fx.get_overlap('mo[vir]|cluster[vir]')
             s_vir = svd(c_vir, cx_vir)
             if s_vir.max() < tol:
                 continue
@@ -391,7 +396,8 @@ class Fragment:
         p : (n, n) array
             Projection matrix.
         """
-        if c_proj is None: c_proj = self.c_proj
+        if c_proj is None:
+            c_proj = self.c_proj
         r = dot(coeff.T, self.base.get_ovlp(), c_proj)
         p = np.dot(r, r.T)
         if inverse:
@@ -412,7 +418,8 @@ class Fragment:
             Occupation numbers of orbitals.
         """
         mo_coeff = hstack(*mo_coeff)
-        if dm1 is None: dm1 = self.mf.make_rdm1()
+        if dm1 is None:
+            dm1 = self.mf.make_rdm1()
         sc = np.dot(self.base.get_ovlp(), mo_coeff)
         occup = einsum('ai,ab,bi->i', sc, dm1, sc)
         return occup
@@ -443,7 +450,8 @@ class Fragment:
         rot : ndarray
             Rotation matrix: np.dot(mo_coeff, rot) = mo_canon.
         """
-        if fock is None: fock = self.base.get_fock()
+        if fock is None:
+            fock = self.base.get_fock()
         mo_coeff = hstack(*mo_coeff)
         fock = dot(mo_coeff.T, fock, mo_coeff)
         mo_energy, rot = np.linalg.eigh(fock)
@@ -479,7 +487,8 @@ class Fragment:
         c_cluster_vir: (n(AO), n(vir cluster)) array
             Virtual cluster orbital coefficients.
         """
-        if dm1 is None: dm1 = self.mf.make_rdm1()
+        if dm1 is None:
+            dm1 = self.mf.make_rdm1()
         c_cluster = hstack(*mo_coeff)
         sc = np.dot(self.base.get_ovlp(), c_cluster)
         dm = dot(sc.T, dm1, sc)
@@ -533,7 +542,8 @@ class Fragment:
         Parameters
         ----------
         tvecs: array(3) of integers
-            Each element represent the number of translation vector corresponding to the a0, a1, and a2 lattice vectors of the cell.
+            Each element represent the number of translation vector corresponding to the a0, a1, and a2
+            lattice vectors of the cell.
         symtol: float, optional
             Tolerance for the error of the mean-field density matrix between symmetry related fragments.
             If the largest absolute difference in the density-matrix is above this value,
@@ -550,11 +560,15 @@ class Fragment:
 
         fragments = []
         for i, (dx, dy, dz) in enumerate(itertools.product(range(tvecs[0]), range(tvecs[1]), range(tvecs[2]))):
-            if i == 0: continue
+            if i == 0:
+                continue
             tvec = (dx/tvecs[0], dy/tvecs[1], dz/tvecs[2])
             sym_op = SymmetryTranslation(self.base.symmetry, tvec)
             if sym_op is None:
-                self.log.error("No T-symmetric fragment found for translation (%d,%d,%d) of fragment %s", dx, dy, dz, self.name)
+                self.log.error(
+                        "No T-symmetric fragment found for translation (%d,%d,%d) of fragment %s",
+                        dx, dy, dz, self.name,
+                )
                 continue
             # Name for translationally related fragments
             name = '%s_T(%d,%d,%d)' % (self.name, dx, dy, dz)
@@ -568,27 +582,37 @@ class Fragment:
             elif self.base.spinsym == 'unrestricted':
                 fragovlp = max(abs(fragovlp[0]).max(), abs(fragovlp[1]).max())
             if (fragovlp > 1e-8):
-                self.log.critical("Translation (%d,%d,%d) of fragment %s not orthogonal to original fragment (overlap= %.3e)!",
-                            dx, dy, dz, self.name, fragovlp)
+                self.log.critical(
+                        "Translation (%d,%d,%d) of fragment %s not orthogonal to original fragment (overlap= %.3e)!",
+                        dx, dy, dz, self.name, fragovlp,
+                )
                 raise RuntimeError("Overlapping fragment spaces.")
 
             # Add fragment
             frag_id = self.base.register.get_next_id()
-            frag = self.base.Fragment(self.base, frag_id, name, c_frag_t, c_env_t,
+            frag = self.base.Fragment(
+                    self.base, frag_id, name, c_frag_t, c_env_t,
                     sym_parent=self, sym_op=sym_op, mpi_rank=self.mpi_rank,
-                    **self.opts.asdict())
+                    **self.opts.asdict(),
+            )
             self.base.fragments.append(frag)
             # Check symmetry
-            # (only for the primitive translations (1,0,0), (0,1,0), and (0,0,1) to reduce number of sym_op(c_env) calls)
+            # (only for the primitive translations (1,0,0), (0,1,0), and (0,0,1) to reduce number of sym_op(c_env) calls
             if (abs(dx)+abs(dy)+abs(dz) == 1):
                 charge_err, spin_err = self.get_symmetry_error(frag, dm1=dm1)
                 if max(charge_err, spin_err) > symtol:
-                    self.log.critical("Mean-field DM1 not symmetric for translation (%d,%d,%d) of %s (errors: charge= %.3e, spin= %.3e)!",
-                        dx, dy, dz, self.name, charge_err, spin_err)
+                    self.log.critical(
+                            "Mean-field DM1 not symmetric for translation (%d,%d,%d) of %s "
+                            "(errors: charge= %.3e, spin= %.3e)!",
+                            dx, dy, dz, self.name, charge_err, spin_err,
+                    )
                     raise RuntimeError("MF not symmetric under translation (%d,%d,%d)" % (dx, dy, dz))
                 else:
-                    self.log.debugv("Mean-field DM symmetry error for translation (%d,%d,%d) of %s: charge= %.3e, spin= %.3e",
-                        dx, dy, dz, self.name, charge_err, spin_err)
+                    self.log.debugv(
+                            "Mean-field DM symmetry error for translation (%d,%d,%d) "
+                            "of %s: charge= %.3e, spin= %.3e",
+                            dx, dy, dz, self.name, charge_err, spin_err,
+                    )
 
             fragments.append(frag)
         return fragments
@@ -683,7 +707,12 @@ class Fragment:
             intermediates = [child.sym_op(arr, axis=axis) for (arr, axis) in zip(arrays, axes)]
             yield get_yield(child, intermediates)
             if grandchildren and maxgen > 1:
-                yield from child.loop_symmetry_children(intermediates, axes=axes, symtree=grandchildren, maxgen=(maxgen-1))
+                yield from child.loop_symmetry_children(
+                        intermediates,
+                        axes=axes,
+                        symtree=grandchildren,
+                        maxgen=(maxgen-1),
+                )
 
     @property
     def n_symmetry_children(self):
@@ -697,7 +726,8 @@ class Fragment:
 
     def get_symmetry_error(self, frag, dm1=None):
         """Get translational symmetry error between two fragments."""
-        if dm1 is None: dm1 = self.mf.make_rdm1()
+        if dm1 is None:
+            dm1 = self.mf.make_rdm1()
         ovlp = self.base.get_ovlp()
         # This fragment (x)
         cx = np.hstack((self.c_frag, self.get_coeff_env()))
@@ -733,6 +763,7 @@ class Fragment:
         # --- Bath options
         bath_opts = self.opts.bath_options
         self.log.debug("bath_options: %s", break_into_lines(str(bath_opts)))
+
         def get_opt(key, occtype):
             return (bath_opts.get('%s_%s' % (key, occtype[:3]), False) or bath_opts[key])
 
@@ -781,6 +812,7 @@ class Fragment:
     def make_cluster(self):
 
         bath_opts = self.opts.bath_options
+
         def get_opt(key, occtype):
             return (bath_opts.get('%s_%s' % (key, occtype[:3]), False) or bath_opts[key])
 
@@ -794,7 +826,7 @@ class Fragment:
                 c_bath, c_frozen = factory.get_bath()
             if btype == 'r2':
                 rcut = get_opt('rcut', occtype)
-                unit = get_opt('unit', occtype)
+                #unit = get_opt('unit', occtype)
                 c_bath, c_frozen = factory.get_bath(rcut=rcut)
             if btype == 'mp2':
                 threshold = get_opt('threshold', occtype)
@@ -845,8 +877,10 @@ class Fragment:
         c_active: array, optional
         fock: array, optional
         """
-        if c_active is None: c_active = self.cluster.c_active
-        if fock is None: fock = self.base.get_fock()
+        if c_active is None:
+            c_active = self.cluster.c_active
+        if fock is None:
+            fock = self.base.get_fock()
         mo_energy = einsum('ai,ab,bi->i', c_active, fock, c_active)
         return mo_energy
 
@@ -859,9 +893,11 @@ class Fragment:
         Parameters
         ----------
         dm1: array, optional
-            Cluster one-electron reduced density-matrix in cluster basis. If `None`, `self.results.dm1` is used. Default: None.
+            Cluster one-electron reduced density-matrix in cluster basis. If `None`,
+            `self.results.dm1` is used. Default: None.
         dm2: array, optional
-            Cluster two-electron reduced density-matrix in cluster basis. If `None`, `self.results.dm2` is used. Default: None.
+            Cluster two-electron reduced density-matrix in cluster basis. If `None`,
+            `self.results.dm2` is used. Default: None.
         eris: array, optional
             Cluster electron-repulsion integrals in cluster basis. If `None`, the ERIs are reevaluated. Default: None.
 
@@ -871,14 +907,17 @@ class Fragment:
             Electronic fragment DMET energy.
         """
         assert (mpi.rank == self.mpi_rank)
-        if dm1 is None: dm1 = self.results.dm1
-        if dm1 is None: raise RuntimeError("DM1 not found for %s" % self)
+        if dm1 is None:
+            dm1 = self.results.dm1
+        if dm1 is None:
+            raise RuntimeError("DM1 not found for %s" % self)
         c_act = self.cluster.c_active
         t0 = timer()
         if eris is None:
             eris = self._eris
             # Fix for MP2:
-            if isinstance(eris, np.ndarray) and (eris.shape[:2] == (self.cluster.nocc_active, self.cluster.nvir_active)):
+            if isinstance(eris, np.ndarray) and \
+                    (eris.shape[:2] == (self.cluster.nocc_active, self.cluster.nvir_active)):
                 eris = None
         if eris is None:
             with log_time(self.log.timingv, "Time for AO->MO transformation: %s"):
@@ -953,16 +992,26 @@ class Fragment:
         if len(self.atoms) != 1:
             raise NotImplementedError
         import vayesta.misc
-        return vayesta.misc.counterpoise.make_mol(self.mol, self.atoms[1], rmax=rmax, nimages=nimages, unit=unit, **kwargs)
+        return vayesta.misc.counterpoise.make_mol(
+                self.mol,
+                self.atoms[1],
+                rmax=rmax,
+                nimages=nimages,
+                unit=unit,
+                **kwargs,
+        )
 
     # --- Orbital plotting
     # --------------------
 
     @mpi.with_send(source=get_fragment_mpi_rank)
     def pop_analysis(self, cluster=None, dm1=None, **kwargs):
-        if cluster is None: cluster = self.cluster
-        if dm1 is None: dm1 = self.results.dm1
-        if dm1 is None: raise ValueError("DM1 not found for %s" % self)
+        if cluster is None:
+            cluster = self.cluster
+        if dm1 is None:
+            dm1 = self.results.dm1
+        if dm1 is None:
+            raise ValueError("DM1 not found for %s" % self)
         # Add frozen mean-field contribution:
         dm1 = cluster.add_frozen_rdm1(dm1)
         return self.base.pop_analysis(dm1, mo_coeff=cluster.coeff, **kwargs)

@@ -2,6 +2,7 @@
 same functions"""
 
 import numpy as np
+import scipy.linalg
 from vayesta.core import util
 
 __all__ = ['add_numbers', 'hstack_matrices']
@@ -17,6 +18,7 @@ def add_numbers(*args):
                 sum([arg[1] for arg in args]))
     raise ValueError
 
+
 def hstack_matrices(*args, ignore_none=True):
     if ignore_none:
         args = [x for x in args if x is not None]
@@ -28,6 +30,7 @@ def hstack_matrices(*args, ignore_none=True):
         return (util.hstack(*[arg[0] for arg in args]),
                 util.hstack(*[arg[1] for arg in args]))
     raise ValueError
+
 
 def dot(*args, out=None):
     """Generalizes dot with or without spin channel: ij,jk->ik or Sij,Sjk->Sik
@@ -46,6 +49,7 @@ def dot(*args, out=None):
     args_a = [(x if np.ndim(x[0]) < 2 else x[0]) for x in args]
     args_b = [(x if np.ndim(x[1]) < 2 else x[1]) for x in args]
     return (util.dot(*args_a, out=out[0]), util.dot(*args_b, out=out[1]))
+
 
 def eigh(a, b=None, *args, **kwargs):
     ndim = np.ndim(a[0]) + 1

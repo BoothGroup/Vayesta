@@ -1,8 +1,8 @@
 import logging
 import numpy as np
 
-
 log = logging.getLogger(__name__)
+
 
 def recursive_block_svd(a, n, tol=1e-10, maxblock=100):
     """Perform SVD of rectangular, offdiagonal blocks of a matrix recursively.
@@ -39,14 +39,15 @@ def recursive_block_svd(a, n, tol=1e-10, maxblock=100):
 
     for order in range(1, maxblock+1):
         blk = np.linalg.multi_dot((coeff.T, a, coeff))[low,env]
-        nmax = blk.shape[-1]
         assert blk.ndim == 2
         assert np.all(np.asarray(blk.shape) > 0)
 
         u, s, vh = np.linalg.svd(blk)
         rot = vh.T.conj()
         ncpl = np.count_nonzero(s >= tol)
-        log.debugv("Order= %3d - found %3d bath orbitals in %3d with tol= %8.2e: SV= %r" % (order, ncpl, blk.shape[1], tol, s[:ncpl].tolist()))
+        log.debugv("Order= %3d - found %3d bath orbitals in %3d with tol= %8.2e: SV= %r" % (
+            order, ncpl, blk.shape[1], tol, s[:ncpl].tolist(),
+        ))
         if ncpl == 0:
             log.debugv("Remaining environment orbitals are decoupled; exiting.")
             break

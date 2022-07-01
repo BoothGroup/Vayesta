@@ -451,8 +451,10 @@ def _cholesky_decomposed_metric(with_df, j2c, uniq_kptji_id, log=None):
     if not with_df.linear_dep_always:
         try:
             j2c_kpt = scipy.linalg.cholesky(j2c[uniq_kptji_id], lower=True)
+
             def j2c_chol(x):
                 return scipy.linalg.solve_triangular(j2c_kpt, x, lower=True, overwrite_b=True)
+
         except scipy.linalg.LinAlgError:
             log.warning("Cholesky decomposition failed for j2c [kpt %d]", uniq_kptji_id)
             pass
@@ -461,8 +463,10 @@ def _cholesky_decomposed_metric(with_df, j2c, uniq_kptji_id, log=None):
         try:
             eps = 1e-14 * np.eye(j2c[uniq_kptji_id].shape[-1])
             j2c_kpt = scipy.linalg.cholesky(j2c[uniq_kptji_id] + eps, lower=True)
+
             def j2c_chol(x):
                 return scipy.linalg.solve_triangular(j2c_kpt, x, lower=True, overwrite_b=True)
+
         except scipy.linalg.LinAlgError:
             log.warning("Regularised Cholesky decomposition failed for j2c [kpt %d]", uniq_kptji_id)
             pass
@@ -478,6 +482,7 @@ def _cholesky_decomposed_metric(with_df, j2c, uniq_kptji_id, log=None):
 
         j2c_kpt = v[:, mask].conj().T
         j2c_kpt /= np.sqrt(w[mask])[:, None]
+
         def j2c_chol(x):
             return np.dot(j2c_kpt, x)
 
@@ -606,7 +611,7 @@ def _make_j3c(with_df, kptij_lst):
     kptjs = kptij_lst[:, 1]
     kpt_ji = kptjs - kptis
     uniq_kpts, uniq_index, uniq_inverse = unique(kpt_ji)
-    uniq_inverse_dict = { k: np.where(uniq_inverse == k)[0] for k in range(len(uniq_kpts)) }
+    uniq_inverse_dict = {k: np.where(uniq_inverse == k)[0] for k in range(len(uniq_kpts))}
 
     log.info("Number of unique kpts (kj - ki): %d", len(uniq_kpts))
     log.debugv("uniq_kpts:\n%s", uniq_kpts)
@@ -908,10 +913,8 @@ class GDF(df.GDF):
                     dms[i].ctypes.data_as(ctypes.c_void_p),
                     ctypes.c_bool(with_j),
                     ctypes.c_bool(with_k),
-                    vj[i].ctypes.data_as(ctypes.c_void_p) if vj is not None
-                                      else ctypes.POINTER(ctypes.c_void_p)(),
-                    vk[i].ctypes.data_as(ctypes.c_void_p) if vk is not None
-                                      else ctypes.POINTER(ctypes.c_void_p)(),
+                    vj[i].ctypes.data_as(ctypes.c_void_p) if vj is not None else ctypes.POINTER(ctypes.c_void_p)(),
+                    vk[i].ctypes.data_as(ctypes.c_void_p) if vk is not None else ctypes.POINTER(ctypes.c_void_p)(),
             )
 
         mpi_helper.barrier()
@@ -1152,7 +1155,6 @@ class GDF(df.GDF):
 
         return self
 
-
     @property
     def max_memory(self):
         return self.cell.max_memory
@@ -1165,7 +1167,6 @@ class GDF(df.GDF):
     def exxdiv(self):
         # To mimic KSCF in get_coulG
         return None
-
 
     # Cached properties:
 

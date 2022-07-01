@@ -11,7 +11,7 @@ import numpy as np
 import scipy.linalg
 
 from pyscf import ao2mo
-from vayesta.core.util import *
+from vayesta.core.util import time_string
 
 
 class RPA:
@@ -40,7 +40,7 @@ class RPA:
     def e_corr(self):
         try:
             return self.e_corr_ss + self.e_corr_sf
-        except AttributeError as e:
+        except AttributeError:
             self.log.critical("Can only access rpa.e_corr after running rpa.kernel.")
 
     @property

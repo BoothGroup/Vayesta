@@ -1,12 +1,10 @@
 import numpy as np
 
 from vayesta.core.qemb import UEmbedding
-from vayesta.core.util import *
+from vayesta.core.util import dot, einsum, log_method, cache
 
 from vayesta.ewf import REWF
 from vayesta.ewf.ufragment import Fragment
-from vayesta.core.fragmentation import SAO_Fragmentation
-from vayesta.core.fragmentation import IAOPAO_Fragmentation
 from vayesta.misc import corrfunc
 from vayesta.mpi import mpi
 
@@ -56,7 +54,6 @@ class UEWF(REWF, UEmbedding):
                 self.log.warning("Global T1 diagnostic: alpha= %.5f beta= %.5f", *t1diag)
             else:
                 self.log.info("Global T1 diagnostic: alpha= %.5f beta= %.5f", *t1diag)
-
 
     # --- Density-matrices
     # --------------------
@@ -171,8 +168,10 @@ class UEWF(REWF, UEmbedding):
             tmpa = np.dot(proj[a][0], dm1a)
             tmpb = np.dot(proj[a][1], dm1b)
             for b in range(natom):
-                ssz[a,b] = (np.sum(tmpa*proj[b][0])
-                          + np.sum(tmpb*proj[b][1]))/4
+                ssz[a,b] = (
+                        + np.sum(tmpa*proj[b][0])
+                        + np.sum(tmpb*proj[b][1])
+                ) / 4
 
         occa = np.s_[:self.nocc[0]]
         occb = np.s_[:self.nocc[1]]
@@ -193,14 +192,18 @@ class UEWF(REWF, UEmbedding):
                 tmpa = np.dot(proj[a][0], ddm1a)
                 tmpb = np.dot(proj[a][1], ddm1b)
                 for b in range(natom):
-                    ssz[a,b] -= (np.sum(tmpa[occa] * proj[b][0][occa])
-                               + np.sum(tmpb[occb] * proj[b][1][occb]))/2
+                    ssz[a,b] -= (
+                            + np.sum(tmpa[occa] * proj[b][0][occa])
+                            + np.sum(tmpb[occb] * proj[b][1][occb])
+                    ) / 2
                     # Note that this contribution cancel to 0 in RHF,
                     # since trpa == trpb and trda == trdb:
-                    ssz[a,b] += ((trpa[a]*trda[b] + trpa[b]*trda[a])      # alpha-alpha
-                               - (trpa[a]*trdb[b] + trpb[b]*trda[a])      # alpha-beta
-                               - (trpb[a]*trda[b] + trpa[b]*trdb[a])      # beta-alpha
-                               + (trpb[a]*trdb[b] + trpb[b]*trdb[a]))/4   # beta-beta
+                    ssz[a,b] += (
+                            + (trpa[a]*trda[b] + trpa[b]*trda[a])      # alpha-alpha
+                            - (trpa[a]*trdb[b] + trpb[b]*trda[a])      # alpha-beta
+                            - (trpb[a]*trda[b] + trpa[b]*trdb[a])      # beta-alpha
+                            + (trpb[a]*trdb[b] + trpb[b]*trdb[a])      # beta-beta
+                    ) / 4
 
         if dm2 is not None:
             dm2aa, dm2ab, dm2bb = dm2

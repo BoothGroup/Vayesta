@@ -1,5 +1,4 @@
 import logging
-from timeit import default_timer as timer
 from datetime import datetime
 import dataclasses
 import copy
@@ -21,14 +20,11 @@ import pyscf.pbc.tools
 import pyscf.lib
 from pyscf.mp.mp2 import _mo_without_core
 
-import vayesta
-from vayesta.core import vlog
 from vayesta.core.foldscf import FoldedSCF, fold_scf
-from vayesta.core.util import *
+from vayesta.core.util import dot, einsum, hstack, energy_string, OptionsBase, log_time, log_method, OrthonormalityError
 from vayesta.core.ao2mo import kao2gmo_cderi
 from vayesta.core.ao2mo import postscf_ao2mo
 from vayesta.core.ao2mo import postscf_kao2gmo
-from vayesta import lattmod
 from vayesta.core.scmf import PDMET, Brueckner
 from vayesta.mpi import mpi
 from .register import FragmentRegister
@@ -70,13 +66,14 @@ class Options(OptionsBase):
         threshold=None, truncation='occupation', project_t2=False, addbuffer=False,
         # General
         canonicalize=True,
-        )
+    )
     # --- Solver options
     solver_options: dict = OptionsBase.dict_with_defaults(
             # CCSD
             solve_lambda=False,
             # Dump
             dumpfile='clusters.h5')
+
 
 class Embedding:
     """Base class for quantum embedding methods.
@@ -150,8 +147,6 @@ class Embedding:
         this will hold the original Gaussian density-fitting object.
     """
 
-
-
     # Shadow these in inherited methods:
     Fragment = Fragment
     Options = Options
@@ -214,7 +209,6 @@ class Embedding:
             # Initialize results
             self._reset()
 
-
     def _mpi_bcast_mf(self, mf):
         """Use mo_energy and mo_coeff from master MPI rank only."""
         # If vayesta.misc.scf_with_mpi was used, we do not need broadcast
@@ -235,7 +229,8 @@ class Embedding:
             mf.mo_coeff = mpi.world.bcast(mf.mo_coeff, root=0)
 
     def init_mf(self, mf):
-        self._mf_orig = mf      # Keep track of original mean-field object - be careful not to modify in any way, to avoid side effects!
+        self._mf_orig = mf      # Keep track of original mean-field object - be
+                                # careful not to modify in any way, to avoid side effects!
 
         # Create shallow copy of mean-field object; this way it can be updated without side effects outside the quantum
         # embedding method if attributes are replaced in their entirety
@@ -286,8 +281,10 @@ class Embedding:
         if self.is_rhf:
             self.log.info("n(AO)= %4d  n(MO)= %4d  n(linear dep.)= %4d", self.nao, self.nmo, self.nao-self.nmo)
         else:
-            self.log.info("n(AO)= %4d  n(alpha/beta-MO)= (%4d, %4d)  n(linear dep.)= (%4d, %4d)",
-                    self.nao, *self.nmo, self.nao-self.nmo[0], self.nao-self.nmo[1])
+            self.log.info(
+                    "n(AO)= %4d  n(alpha/beta-MO)= (%4d, %4d)  n(linear dep.)= (%4d, %4d)",
+                    self.nao, *self.nmo, self.nao-self.nmo[0], self.nao-self.nmo[1],
+            )
 
         self.check_orthonormal(self.mo_coeff, mo_name='MO')
 
@@ -304,7 +301,7 @@ class Embedding:
     def change_options(self, **kwargs):
         self.opts.replace(**kwargs)
         for fx in self.fragments:
-            fkwds = {key : kwargs[key] for key in [key for key in kwargs if hasattr(fx.opts, key)]}
+            fkwds = {key: kwargs[key] for key in [key for key in kwargs if hasattr(fx.opts, key)]}
             fx.change_options(**fkwds)
 
     # --- Basic properties and methods
@@ -346,7 +343,8 @@ class Embedding:
         v_exxdiv: array
             Divergent exact-exchange potential correction in AO basis.
         """
-        if not self.has_exxdiv: return 0, None
+        if not self.has_exxdiv:
+            return 0, None
         sc = np.dot(self.get_ovlp(), self.mo_coeff[:,:self.nocc])
         e_exxdiv = -self.madelung * self.nocc/self.ncells
         v_exxdiv = -self.madelung * np.dot(sc, sc.T)
@@ -372,7 +370,8 @@ class Embedding:
     @property
     def ncells(self):
         """Number of primitive cells within supercell."""
-        if self.kpts is None: return 1
+        if self.kpts is None:
+            return 1
         return len(self.kpts)
 
     @property
@@ -595,7 +594,8 @@ class Embedding:
         spow : (n(AO), n(AO)) array
             Matrix power of AO overlap matrix
         """
-        if power == 1: return self.get_ovlp()
+        if power == 1:
+            return self.get_ovlp()
         if self.kcell is None:
             e, v = np.linalg.eigh(self.get_ovlp())
             return np.dot(v*(e**power), v.T.conj())
@@ -638,7 +638,7 @@ class Embedding:
             return cderi, cderi_neg
         # No PBC:
         blk0 = 0
-        for lab  in self.df.loop(blksize=blksize):
+        for lab in self.df.loop(blksize=blksize):
             blk1 = (blk0 + lab.shape[0])
             blk = np.s_[blk0:blk1]
             blk0 = blk1
@@ -750,7 +750,7 @@ class Embedding:
             unit = symmetry['unit'].lower()
             if unit == 'ang':
                 BOHR = 0.529177210903
-                center = center/BOHR # To Bohr
+                center = center/BOHR  # To Bohr
             elif unit == 'latvec':
                 kcell = self.kcell if self.kcell is not None else self.mol
                 ak = kcell.lattice_vectors()
@@ -806,26 +806,34 @@ class Embedding:
                 elif self.spinsym == 'unrestricted':
                     fragovlp = max(abs(fragovlp[0]).max(), abs(fragovlp[1]).max())
                 if (fragovlp > 1e-8):
-                    self.log.critical("%s of fragment %s not orthogonal to original fragment (overlap= %.3e)!",
-                                sym_op, parent.name, fragovlp)
+                    self.log.critical(
+                            "%s of fragment %s not orthogonal to original fragment (overlap= %.3e)!",
+                            sym_op, parent.name, fragovlp,
+                    )
                     raise RuntimeError("Overlapping fragment spaces.")
 
                 # Add fragment
                 frag_id = self.register.get_next_id()
-                frag = self.Fragment(self, frag_id, name, c_frag_t, c_env_t, sym_parent=parent, sym_op=sym_op,
-                        mpi_rank=parent.mpi_rank, **parent.opts.asdict())
+                frag = self.Fragment(
+                        self, frag_id, name, c_frag_t, c_env_t, sym_parent=parent, sym_op=sym_op,
+                        mpi_rank=parent.mpi_rank, **parent.opts.asdict(),
+                )
                 # Check symmetry
                 # (only for the first rotation or primitive translations (1,0,0), (0,1,0), and (0,0,1)
                 # to reduce number of sym_op(c_env) calls)
                 if (abs(np.asarray(sym)).sum() == 1):
                     charge_err, spin_err = parent.get_symmetry_error(frag, dm1=dm1)
                     if max(charge_err, spin_err) > symtol:
-                        self.log.critical("Mean-field DM1 not symmetric for %s of %s (errors: charge= %.3e, spin= %.3e)!",
-                            sym_op, parent.name, charge_err, spin_err)
+                        self.log.critical(
+                                "Mean-field DM1 not symmetric for %s of %s (errors: charge= %.3e, spin= %.3e)!",
+                                sym_op, parent.name, charge_err, spin_err,
+                        )
                         raise RuntimeError("MF not symmetric under %s" % sym_op)
                     else:
-                        self.log.debugv("Mean-field DM symmetry error for %s of %s: charge= %.3e, spin= %.3e",
-                            sym_op, parent.name, charge_err, spin_err)
+                        self.log.debugv(
+                                "Mean-field DM symmetry error for %s of %s: charge= %.3e, spin= %.3e",
+                                sym_op, parent.name, charge_err, spin_err,
+                        )
 
                 # Insert after parent fragment
                 flist.append(frag)
@@ -858,7 +866,8 @@ class Embedding:
         Parameters
         ----------
         translation: array(3) of integers
-            Each element represent the number of translation vector corresponding to the a0, a1, and a2 lattice vectors of the cell.
+            Each element represent the number of translation vector corresponding to the a0, a1, and a2
+            lattice vectors of the cell.
         symtol: float, optional
             Tolerance for the error of the mean-field density matrix between symmetry related fragments.
             If the largest absolute difference in the density-matrix is above this value,
@@ -909,7 +918,8 @@ class Embedding:
             children = [[] for p in parents]
         parent_ids = [p.id for p in parents]
         for f in self.fragments:
-            if f.sym_parent is None: continue
+            if f.sym_parent is None:
+                continue
             pid = f.sym_parent.id
             assert (pid in parent_ids)
             idx = parent_ids.index(pid)
@@ -1128,8 +1138,18 @@ class Embedding:
             return IAOPAO_Fragmentation(self, minao=minao).get_coeff()
         raise ValueError("Unknown local orbitals: %r" % local_orbitals)
 
-    def pop_analysis(self, dm1, mo_coeff=None, local_orbitals='lowdin', minao='auto', write=True, filename=None, filemode='a',
-            full=False, mpi_rank=0):
+    def pop_analysis(
+            self,
+            dm1,
+            mo_coeff=None,
+            local_orbitals='lowdin',
+            minao='auto',
+            write=True,
+            filename=None,
+            filemode='a',
+            full=False,
+            mpi_rank=0,
+    ):
         """
         Parameters
         ----------
@@ -1184,14 +1204,15 @@ class Embedding:
             aolabels = self.mol.ao_labels()
 
         if filename is None:
-            write = lambda *args : self.log.info(*args)
+            write = lambda *args: self.log.info(*args)
             write("Population analysis")
             write("-------------------")
         else:
             dirname = os.path.dirname(filename)
-            if dirname: os.makedirs(dirname, exist_ok=True)
+            if dirname:
+                os.makedirs(dirname, exist_ok=True)
             f = open(filename, filemode)
-            write = lambda fmt, *args : f.write((fmt+'\n') % args)
+            write = lambda fmt, *args: f.write((fmt+'\n') % args)
             tstamp = datetime.now()
             self.log.info("Writing population analysis to file \"%s\". Time-stamp: %s", filename, tstamp)
             write("# Time-stamp: %s", tstamp)
@@ -1293,8 +1314,10 @@ class Embedding:
             for child in children:
                 charge_err = parent.get_tsymmetry_error(child, dm1=dm1)
                 if (charge_err > charge_tol):
-                    raise RuntimeError("%s and %s not symmetric: charge error= %.3e !"
-                            % (parent.name, child.name, charge_err))
+                    raise RuntimeError(
+                            "%s and %s not symmetric: charge error= %.3e !"
+                            % (parent.name, child.name, charge_err)
+                    )
                 self.log.debugv("Symmetry between %s and %s: charge error= %.3e", parent.name, child.name, charge_err)
 
     # --- Decorators
@@ -1334,8 +1357,10 @@ class Embedding:
             self.log.info("-------------------------------")
             self.log.info("  Iteration   Chemical potential   N(elec) error          Total Energy")
             for i, (cpt, err, etot) in enumerate(iters):
-                self.log.info("  %9d  %19s   %+13.8f   %19s",
-                        i+1, energy_string(cpt), err, energy_string(etot))
+                self.log.info(
+                        "  %9d  %19s   %+13.8f   %19s",
+                        i+1, energy_string(cpt), err, energy_string(etot),
+                )
             if not bisect.converged:
                 self.log.error('Chemical potential not found!')
             return result

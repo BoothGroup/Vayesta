@@ -7,9 +7,8 @@ import pyscf.ci
 import pyscf.cc
 import pyscf.fci
 
-import vayesta
-from vayesta.core.util import *
-from vayesta.core.types.orbitals import *
+from vayesta.core.util import dot, einsum, Object, NotCalculatedError, AbstractMethodError
+from vayesta.core.types.orbitals import SpinOrbitals, SpatialOrbitals
 from vayesta.core.helper import pack_arrays, unpack_arrays
 
 __all__ = [
@@ -19,7 +18,8 @@ __all__ = [
         'CCSD_WaveFunction', 'RCCSD_WaveFunction', 'UCCSD_WaveFunction',
         'CISD_WaveFunction', 'RCISD_WaveFunction', 'UCISD_WaveFunction',
         'FCI_WaveFunction', 'RFCI_WaveFunction', 'UFCI_WaveFunction',
-        ]
+]
+
 
 class WaveFunction:
 
@@ -135,15 +135,18 @@ class WaveFunction:
             return wf
         raise NotImplementedError
 
+
 # --- HF
 
 class RHF_WaveFunction(WaveFunction):
 
     def make_rdm1(self, mo_coeff=None, mo_occ=None, ao_basis=True):
-        if mo_occ is None: mo_occ = self.mo.occ
+        if mo_occ is None:
+            mo_occ = self.mo.occ
         if not ao_basis:
             return np.diag(mo_occ)
-        if mo_coeff is None: mo_coeff = self.mo.coeff
+        if mo_coeff is None:
+            mo_coeff = self.mo.coeff
         occ = (mo_occ > 0)
         return np.dot(mo_coeff[:,occ]*mo_occ[occ], mo_coeff[:,occ].T)
 
@@ -158,11 +161,14 @@ class RHF_WaveFunction(WaveFunction):
     def as_unrestricted(self):
         raise NotImplementedError
 
+
 class UHF_WaveFunction(RHF_WaveFunction):
 
     def make_rdm1(self, mo_coeff=None, mo_occ=None, ao_basis=True):
-        if mo_coeff is None: mo_coeff = self.mo.coeff
-        if mo_occ is None: mo_occ = self.mo.occ
+        if mo_coeff is None:
+            mo_coeff = self.mo.coeff
+        if mo_occ is None:
+            mo_occ = self.mo.occ
         dm1a = super().make_rdm1(mo_coeff=mo_coeff[0], mo_occ=mo_occ[0], ao_basis=ao_basis)
         dm1b = super().make_rdm1(mo_coeff=mo_coeff[1], mo_occ=mo_occ[1], ao_basis=ao_basis)
         return (dm1a, dm1b)
@@ -180,6 +186,7 @@ class UHF_WaveFunction(RHF_WaveFunction):
     def as_unrestricted(self):
         return self
 
+
 def HF_WaveFunction(mo):
     if mo.nspin == 1:
         cls = RHF_WaveFunction
@@ -187,33 +194,46 @@ def HF_WaveFunction(mo):
         cls = UHF_WaveFunction
     return cls(mo)
 
+
 # --- Helper
 
 def project_c1(c1, p):
-    if c1 is None: return None
-    if p is None: return c1
+    if c1 is None:
+        return None
+    if p is None:
+        return c1
     return np.dot(p, c1)
 
+
 def project_c2(c2, p):
-    if c2 is None: return None
-    if p is None: return c2
+    if c2 is None:
+        return None
+    if p is None:
+        return c2
     return np.tensordot(p, c2, axes=1)
 
+
 def project_uc1(c1, p):
-    if c1 is None: return None
-    if p is None: return c1
+    if c1 is None:
+        return None
+    if p is None:
+        return c1
     return (project_c1(c1[0], p[0]),
             project_c1(c1[1], p[1]))
 
+
 def project_uc2(c2, p):
-    if c2 is None: return None
-    if p is None: return c2
+    if c2 is None:
+        return None
+    if p is None:
+        return c2
     c2ba = (c2[2] if len(c2) == 4 else c2[1].transpose(1,0,3,2))
     return (project_c2(c2[0], p[0]),
             project_c2(c2[1], p[0]),
             #einsum('xi,ij...->ix...', p[1], c2[1]),
             project_c2(c2ba, p[1]),
             project_c2(c2[-1], p[1]))
+
 
 def symmetrize_c2(c2, inplace=True):
     if not inplace:
@@ -222,6 +242,7 @@ def symmetrize_c2(c2, inplace=True):
     c2 /= 2
     return c2
 
+
 def symmetrize_uc2(c2, inplace=True):
     if not inplace:
         c2 = tuple(x.copy() for x in c2)
@@ -229,7 +250,7 @@ def symmetrize_uc2(c2, inplace=True):
     # alpha-alpha:
     #c2[0][:] += c2[0].transpose(1,0,3,2) - c2[0].transpose(1,0,2,3) - c2[0].transpose(0,1,3,2)
     #c2[0][:] /= 4
-    ## beta-beta:
+    # beta-beta:
     #c2[-1][:] += c2[-1].transpose(1,0,3,2) - c2[-1].transpose(1,0,2,3) - c2[-1].transpose(0,1,3,2)
     #c2[-1][:] /= 4
     # alpha-alpha:
@@ -244,6 +265,7 @@ def symmetrize_uc2(c2, inplace=True):
         #c2 = (c2[0], c2ab, c2ab.transpose(1,0,3,2), c2[3])
         c2 = (c2[0], c2ab, c2[3])
     return c2
+
 
 # --- MP2
 
@@ -305,7 +327,8 @@ class RMP2_WaveFunction(WaveFunction):
         return wf
 
     def restore(self, projector=None, inplace=False, sym=True):
-        if projector is None: projector = self.projector
+        if projector is None:
+            projector = self.projector
         wf = self.project(projector.T, inplace=inplace)
         wf.projector = None
         if not sym:
@@ -352,6 +375,7 @@ class RMP2_WaveFunction(WaveFunction):
         wf = cls(mo, t2, projector=projector)
         return wf
 
+
 class UMP2_WaveFunction(RMP2_WaveFunction):
 
     @property
@@ -385,7 +409,8 @@ class UMP2_WaveFunction(RMP2_WaveFunction):
         return wf
 
     def restore(self, projector=None, inplace=False, sym=True):
-        if projector is None: projector = self.projector
+        if projector is None:
+            projector = self.projector
         wf = self.project((projector[0].T, projector[1].T), inplace=inplace)
         wf.projector = None
         if not sym:
@@ -425,12 +450,14 @@ class UMP2_WaveFunction(RMP2_WaveFunction):
         t2 = tuple(t.copy() for t in self.t2)
         return UMP2_WaveFunction(self.mo.copy(), t2)
 
+
 def MP2_WaveFunction(mo, t2, **kwargs):
     if mo.nspin == 1:
         cls = RMP2_WaveFunction
     elif mo.nspin == 2:
         cls = UMP2_WaveFunction
     return cls(mo, t2, **kwargs)
+
 
 # CCSD
 
@@ -455,8 +482,10 @@ class RCCSD_WaveFunction(WaveFunction):
             l1, l2 = self.l1, self.l2
         fakecc = Object()
         fakecc.mo_coeff = self.mo.coeff
-        dm1 = type(self)._make_rdm1_backend(fakecc, t1=self.t1, t2=self.t2, l1=l1, l2=l2,
-                with_frozen=False, ao_repr=ao_basis, with_mf=with_mf)
+        dm1 = type(self)._make_rdm1_backend(
+                fakecc, t1=self.t1, t2=self.t2, l1=l1, l2=l2,
+                with_frozen=False, ao_repr=ao_basis, with_mf=with_mf,
+        )
         return dm1
 
     def make_rdm2(self, t_as_lambda=False, with_dm1=True, ao_basis=False, approx_cumulant=True):
@@ -471,8 +500,10 @@ class RCCSD_WaveFunction(WaveFunction):
         fakecc.stdout = None
         fakecc.verbose = 0
         fakecc.max_memory = int(10e9)   # 10 GB
-        dm2 = type(self)._make_rdm2_backend(fakecc, t1=self.t1, t2=self.t2, l1=l1, l2=l2,
-                with_frozen=False, ao_repr=ao_basis, with_dm1=with_dm1)
+        dm2 = type(self)._make_rdm2_backend(
+                fakecc, t1=self.t1, t2=self.t2, l1=l1, l2=l2,
+                with_frozen=False, ao_repr=ao_basis, with_dm1=with_dm1,
+        )
         if not with_dm1:
             if not approx_cumulant:
                 dm2nc = self.make_rdm2_non_cumulant(t_as_lambda=t_as_lambda, ao_basis=ao_basis)
@@ -523,7 +554,8 @@ class RCCSD_WaveFunction(WaveFunction):
         return wf
 
     def restore(self, projector=None, inplace=False, sym=True):
-        if projector is None: projector = self.projector
+        if projector is None:
+            projector = self.projector
         wf = self.project(projector.T, inplace=inplace)
         wf.projector = None
         if not sym:
@@ -550,10 +582,12 @@ class RCCSD_WaveFunction(WaveFunction):
         if self.projector is not None:
             raise NotImplementedError
         mo = self.mo.to_spin_orbitals()
+
         def _to_uccsd(t1, t2):
             t1, t2 = self.t1.copy, self.t2.copy()
             t2aa = t2 - t2.transpose(0,1,3,2)
             return (t1, t1), (t2aa, t2, t2aa)
+
         t1, t2 = _to_uccsd(self.t1, self.t2)
         l1 = l2 = None
         if self.l1 is not None and self.l2 is not None:
@@ -627,7 +661,8 @@ class UCCSD_WaveFunction(RCCSD_WaveFunction):
         return wf
 
     def restore(self, projector=None, inplace=False, sym=True):
-        if projector is None: projector = self.projector
+        if projector is None:
+            projector = self.projector
         wf = self.project((projector[0].T, projector[1].T), inplace=inplace)
         wf.projector = None
         if not sym:
@@ -661,11 +696,20 @@ class UCCSD_WaveFunction(RCCSD_WaveFunction):
             raise NotImplementedError
         c1a = c0*self.t1a
         c1b = c0*self.t1b
-        c2aa = c0*(self.t2aa + einsum('ia,jb->ijab', self.t1a, self.t1a)
-                             - einsum('ib,ja->ijab', self.t1a, self.t1a))
-        c2bb = c0*(self.t2bb + einsum('ia,jb->ijab', self.t1b, self.t1b)
-                             - einsum('ib,ja->ijab', self.t1b, self.t1b))
-        c2ab = c0*(self.t2ab + einsum('ia,jb->ijab', self.t1a, self.t1b))
+        c2aa = c0*(
+                self.t2aa
+                + einsum('ia,jb->ijab', self.t1a, self.t1a)
+                - einsum('ib,ja->ijab', self.t1a, self.t1a)
+        )
+        c2bb = c0*(
+                self.t2bb
+                + einsum('ia,jb->ijab', self.t1b, self.t1b)
+                - einsum('ib,ja->ijab', self.t1b, self.t1b),
+        )
+        c2ab = c0*(
+                self.t2ab
+                + einsum('ia,jb->ijab', self.t1a, self.t1b),
+        )
         c1 = (c1a, c1b)
         if len(self.t2) == 3:
             c2 = (c2aa, c2ab, c2bb)
@@ -696,7 +740,7 @@ class UCCSD_WaveFunction(RCCSD_WaveFunction):
     #    Useful for communication via MPI."""
     #    mo, *unpacked = unpack_arrays(packed)
     #    mo = SpinOrbitals.unpack(mo)
-    #    t1a, t1b, t2, l1, l2, projector = 
+    #    t1a, t1b, t2, l1, l2, projector =
     #    wf = cls(mo, t1, t2, l1=l1, l2=l2)
     #    if projector is not None:
     #        wf.projector = projector
@@ -709,6 +753,7 @@ def CCSD_WaveFunction(mo, t1, t2, **kwargs):
     elif mo.nspin == 2:
         cls = UCCSD_WaveFunction
     return cls(mo, t1, t2, **kwargs)
+
 
 # --- CISD
 
@@ -728,7 +773,8 @@ class RCISD_WaveFunction(WaveFunction):
         return wf
 
     def restore(self, projector=None, inplace=False, sym=True):
-        if projector is None: projector = self.projector
+        if projector is None:
+            projector = self.projector
         wf = self.project(projector.T, inplace=inplace)
         wf.projector = None
         if not sym:
@@ -763,6 +809,7 @@ class RCISD_WaveFunction(WaveFunction):
 
     def as_fci(self):
         raise NotImplementedError
+
 
 class UCISD_WaveFunction(RCISD_WaveFunction):
 
@@ -800,7 +847,8 @@ class UCISD_WaveFunction(RCISD_WaveFunction):
         return wf
 
     def restore(self, projector=None, inplace=False, sym=True):
-        if projector is None: projector = self.projector
+        if projector is None:
+            projector = self.projector
         wf = self.project((projector[0].T, projector[1].T), inplace=inplace)
         wf.projector = None
         if not sym:
@@ -863,6 +911,7 @@ def CISD_WaveFunction(mo, c0, c1, c2, **kwargs):
     elif mo.nspin == 2:
         cls = UCISD_WaveFunction
     return cls(mo, c0, c1, c2, **kwargs)
+
 
 # --- FCI
 
@@ -939,6 +988,7 @@ class RFCI_WaveFunction(WaveFunction):
     def as_fci(self):
         return self
 
+
 class UFCI_WaveFunction(RFCI_WaveFunction):
 
     def make_rdm1(self, ao_basis=False, with_mf=True):
@@ -1002,7 +1052,7 @@ class UFCI_WaveFunction(RFCI_WaveFunction):
         na = pyscf.fci.cistring.num_strings(norba, nocca)
         nb = pyscf.fci.cistring.num_strings(norbb, noccb)
 
-        ci = self.ci.reshape(na,nb)
+        #ci = self.ci.reshape(na,nb)
         c1a = (self.ci[t1addra,0] * t1signa).reshape(nocca,nvira)
         c1b = (self.ci[0,t1addrb] * t1signb).reshape(noccb,nvirb)
 
@@ -1028,6 +1078,7 @@ class UFCI_WaveFunction(RFCI_WaveFunction):
         c2 = (c2aa, c2ab, c2bb)
         return UCISD_WaveFunction(self.mo, c0, c1, c2, projector=self.projector)
 
+
 def FCI_WaveFunction(mo, ci, **kwargs):
     if mo.nspin == 1:
         cls = RFCI_WaveFunction
@@ -1036,6 +1087,7 @@ def FCI_WaveFunction(mo, ci, **kwargs):
     return cls(mo, ci, **kwargs)
 
 
+# flake8: noqa
 if __name__ == '__main__':
 
     import pyscf.gto

@@ -18,6 +18,7 @@ def loop_neighbor_cells(lattice_vectors=None, dimension=3):
             yield np.asarray(dr)
         yield np.dot(dr, lattice_vectors)
 
+
 def get_atom_distances(mol, point, dimension=None):
     """Get array containing the distances of all atoms to the specified point.
 
@@ -44,6 +45,7 @@ def get_atom_distances(mol, point, dimension=None):
         distances.append(np.amin(dists))
     return np.asarray(distances)
 
+
 def get_atom_shells(mol, point, dimension=None, decimals=5):
     distances = get_atom_distances(mol, point, dimension=dimension)
     drounded = distances.round(decimals)
@@ -51,6 +53,7 @@ def get_atom_shells(mol, point, dimension=None, decimals=5):
     d_uniq, inv = np.unique(drounded[sort], return_inverse=True)
     shells = inv[np.argsort(sort)]
     return shells, distances
+
 
 def make_counterpoise_fragments(mol, fragments, full_basis=True, add_rest_fragment=True, dump_input=True):
     '''Make mol objects for counterpoise calculations.
@@ -70,7 +73,7 @@ def make_counterpoise_fragments(mol, fragments, full_basis=True, add_rest_fragme
     atom_symbols = [mol.atom_symbol(atm_id) for atm_id in range(mol.natm)]
 
     def make_frag_mol(frag):
-        f_mask = numpy.isin(atom_symbols, frag)
+        f_mask = np.isin(atom_symbols, frag)
         if sum(f_mask) == 0:
             raise ValueError("No atoms found for fragment: %r", frag)
         fmol = mol.copy()
@@ -105,18 +108,19 @@ def make_counterpoise_fragments(mol, fragments, full_basis=True, add_rest_fragme
 
     # Add fragment containing all atoms not part of any specified fragments
     if add_rest_fragment:
-        rest_mask = numpy.full((mol.natm,), True)
+        rest_mask = np.full((mol.natm,), True)
         # Set all atoms to False that are part of a fragment
         for frag in fragments:
-            rest_mask = numpy.logical_and(numpy.isin(atom_symbols, frag, invert=True), rest_mask)
-        if numpy.any(rest_mask):
-            rest_frag = numpy.asarray(atom_symbols)[rest_mask]
+            rest_mask = np.logical_and(np.isin(atom_symbols, frag, invert=True), rest_mask)
+        if np.any(rest_mask):
+            rest_frag = np.asarray(atom_symbols)[rest_mask]
             fmol = make_frag_mol(rest_frag)
             fmols.append(fmol)
 
     # TODO: Check that no atom is part of more than one fragments
 
     return fmols
+
 
 if __name__ == '__main__':
 
@@ -125,8 +129,6 @@ if __name__ == '__main__':
     import pyscf.pbc.gto
     import pyscf.pbc.tools
 
-    import vayesta
-    import vayesta.misc
     from vayesta.misc import solids
 
     cell = pyscf.pbc.gto.Cell()

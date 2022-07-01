@@ -1,7 +1,5 @@
 # Standard libaries
-from datetime import datetime
 import dataclasses
-from typing import Union
 
 # External libaries
 import numpy as np
@@ -13,22 +11,20 @@ import pyscf.cc
 
 # Local modules
 import vayesta
-from vayesta.core.util import *
+from vayesta.core.util import dot, einsum, hstack, log_time
 from vayesta.core.qemb import Fragment as BaseFragment
 from vayesta.solver import get_solver_class
 from vayesta.core.fragmentation import IAO_Fragmentation
 from vayesta.core.types import RFCI_WaveFunction
 
-from vayesta.core.bath import BNO_Threshold
 from vayesta.core.bath import DMET_Bath
-from vayesta.core.types import Orbitals
-from vayesta.core import ao2mo
 from vayesta.mpi import mpi
 
 from . import ewf
 
 # Get MPI rank of fragment
-get_fragment_mpi_rank = lambda *args : args[0].mpi_rank
+get_fragment_mpi_rank = lambda *args: args[0].mpi_rank
+
 
 @dataclasses.dataclass
 class Options(BaseFragment.Options):
@@ -40,7 +36,8 @@ class Options(BaseFragment.Options):
     bsse_correction: bool = None
     bsse_rmax: float = None
     sc_mode: int = None
-    nelectron_target: int = None                  # If set, adjust bath chemical potential until electron number in fragment equals nelectron_target
+    nelectron_target: int = None            # If set, adjust bath chemical potential until electron number
+                                            # in fragment equals nelectron_target
     # Fragment specific
     # -----------------
     # TODO: move these:
@@ -49,6 +46,7 @@ class Options(BaseFragment.Options):
     c_cas_vir: np.ndarray = None
     # --- Solver options
     tcc_fci_opts: dict = dataclasses.field(default_factory=dict)
+
 
 class Fragment(BaseFragment):
 
@@ -146,7 +144,15 @@ class Fragment(BaseFragment):
         #if init_guess is None: init_guess = {}
         #return init_guess
 
-    #def kernel(self, bno_threshold=None, bno_threshold_occ=None, bno_threshold_vir=None, solver=None, init_guess=None, eris=None):
+    #def kernel(
+    #        self,
+    #        bno_threshold=None,
+    #        bno_threshold_occ=None,
+    #        bno_threshold_vir=None,
+    #        solver=None,
+    #        init_guess=None,
+    #        eris=None,
+    #):
         #"""Run solver for a single BNO threshold.
 
         #Parameters
@@ -200,7 +206,8 @@ class Fragment(BaseFragment):
             eris = self._eris
         #if (eris is not None) and (eris.mo_coeff.size > cluster.c_active.size):
         #    self.log.debugv("Projecting ERIs onto subspace")
-        #    eris = ao2mo.helper.project_ccsd_eris(eris, cluster.c_active, cluster.nocc_active, ovlp=self.base.get_ovlp())
+        #    eris = ao2mo.helper.project_ccsd_eris(
+        #            eris, cluster.c_active, cluster.nocc_active, ovlp=self.base.get_ovlp())
 
         if solver == 'HF':
             return None
@@ -261,7 +268,8 @@ class Fragment(BaseFragment):
         pwf = pwf.project(proj, inplace=False)
 
         # --- Add to results data class
-        self._results = results = self.Results(fid=self.id, n_active=cluster.norb_active,
+        self._results = results = self.Results(
+                fid=self.id, n_active=cluster.norb_active,
                 converged=cluster_solver.converged, wf=cluster_solver.wf, pwf=pwf)
 
         # Keep ERIs stored
@@ -368,7 +376,6 @@ class Fragment(BaseFragment):
         e_corr = (e_singles + e_doubles)
         return e_singles, e_doubles, e_corr
 
-
     # --- Density-matrices
 
     def _ccsd_amplitudes_for_dm(self, t_as_lambda=None, sym_t2=True):
@@ -397,7 +404,7 @@ class Fragment(BaseFragment):
 
     def _get_projected_gamma2_intermediates(self, t_as_lambda=None, sym_t2=True):
         t1, t2, l1, l2, t1x, t2x, l1x, l2x = self._ccsd_amplitudes_for_dm(t_as_lambda=t_as_lambda, sym_t2=sym_t2)
-        cc = self.mf # Only attributes stdout, verbose, and max_memory are needed, just use mean-field object
+        cc = self.mf  # Only attributes stdout, verbose, and max_memory are needed, just use mean-field object
         dovov, *d2rest = pyscf.cc.ccsd_rdm._gamma2_intermediates(cc, t1, t2, l1x, l2x)
         # Correct D2[ovov] part (first element of d2 tuple)
         dtau = ((t2x-t2) + einsum('ia,jb->ijab', (t1x-t1), t1))
@@ -414,7 +421,8 @@ class Fragment(BaseFragment):
         dm1 = pyscf.cc.ccsd_rdm._make_rdm1(None, d1, with_frozen=False, with_mf=False)
         return dm1
 
-    def make_fragment_dm2cumulant(self, t_as_lambda=False, sym_t2=True, sym_dm2=True, full_shape=True,
+    def make_fragment_dm2cumulant(
+            self, t_as_lambda=False, sym_t2=True, sym_dm2=True, full_shape=True,
             approx_cumulant=True):
         """Currently MP2/CCSD only"""
 
@@ -444,8 +452,10 @@ class Fragment(BaseFragment):
             # Remove dm1(cc)^2
             dm1x = self.make_fragment_dm1(t_as_lambda=t_as_lambda, sym_t2=sym_t2)
             dm1 = self.results.wf.make_rdm1(with_mf=False)
-            dm2 -= (einsum('ij,kl->ijkl', dm1, dm1x)/2 + einsum('ij,kl->ijkl', dm1x, dm1)/2
-                  - einsum('ij,kl->iklj', dm1, dm1x)/4 - einsum('ij,kl->iklj', dm1x, dm1)/4)
+            dm2 -= (
+                  + einsum('ij,kl->ijkl', dm1, dm1x)/2 + einsum('ij,kl->ijkl', dm1x, dm1)/2
+                  - einsum('ij,kl->iklj', dm1, dm1x)/4 - einsum('ij,kl->iklj', dm1x, dm1)/4
+            )
 
         if (sym_dm2 and not sym_t2):
             dm2 = (dm2 + dm2.transpose(1,0,3,2) + dm2.transpose(2,3,0,1) + dm2.transpose(3,2,1,0))/4
@@ -459,8 +469,12 @@ class Fragment(BaseFragment):
     #    return e_dm1
 
     def make_fragment_dm2cumulant_energy(self, t_as_lambda=False, sym_t2=True, approx_cumulant=True):
-        dm2 = self.make_fragment_dm2cumulant(t_as_lambda=t_as_lambda, sym_t2=sym_t2, approx_cumulant=approx_cumulant,
-                full_shape=False)
+        dm2 = self.make_fragment_dm2cumulant(
+                t_as_lambda=t_as_lambda,
+                sym_t2=sym_t2,
+                approx_cumulant=approx_cumulant,
+                full_shape=False,
+        )
         fac = (2 if self.solver == 'MP2' else 1)
         if self._eris is None:
             eris = self.base.get_eris_array(self.cluster.c_active)
@@ -500,11 +514,14 @@ class Fragment(BaseFragment):
         #natom_list = []
         #e_mf_list = []
         #e_cm_list = []
-        r_values = np.hstack((np.arange(1.0, int(rmax)+1, 1.0), rmax))
+        #r_values = np.hstack((np.arange(1.0, int(rmax)+1, 1.0), rmax))
         #for r in r_values:
         r = rmax
         natom, e_mf, e_cm, dm = self.counterpoise_calculation(rmax=r, dm0=dm)
-        self.log.debugv("Counterpoise: n(atom)= %3d  E(mf)= %16.8f Ha  E(%s)= % 16.8f Ha", natom, e_mf, self.solver, e_cm)
+        self.log.debugv(
+                "Counterpoise: n(atom)= %3d  E(mf)= %16.8f Ha  E(%s)= % 16.8f Ha",
+                natom, e_mf, self.solver, e_cm,
+        )
 
         e_bsse = self.sym_factor*(e_cm - e_cm0)
         self.log.debugv("Counterpoise: E(BSSE)= % 16.8f Ha", e_bsse)
@@ -526,7 +543,7 @@ class Fragment(BaseFragment):
         elif self.mf.with_df is not None:
             auxbasis = self.mf.with_df.auxbasis
         else:
-            auxbasis=None
+            auxbasis = None
         if auxbasis:
             mf = mf.density_fit(auxbasis=auxbasis)
         # TODO:

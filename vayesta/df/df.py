@@ -8,6 +8,7 @@ import pyscf
 import pyscf.pbc
 import pyscf.pbc.tools
 
+
 # pyscf
 def create_cderi(fname):
     import pyscf.pbc.gto
@@ -49,6 +50,7 @@ def create_cderi(fname):
 
     return cell, gdf, mf
 
+
 def explore(group):
     for key in group.keys():
         print("Key = %s" % key)
@@ -61,7 +63,7 @@ def explore(group):
 def show_hdf5(fname):
     import h5py
     with h5py.File(filename, "r") as f:
-    	# List all groups
+        # List all groups
         explore(f)
         #for key in f.keys():
         #    print("Key = %s" % key)
@@ -71,12 +73,14 @@ def show_hdf5(fname):
         # print values
         print(f['j3c/0/0'][:])
 
+
 libdf = vayesta.libs.load_library('df')
 
 filename = 'bla'
 cell, gdf, mf = create_cderi(filename)
 
 #show_hdf5(filename)
+
 
 def get_jk(mf, gdf, mo_coeff, filename=None, blksize=None, exxdiv=None):
     cell = gdf.cell
@@ -107,7 +111,7 @@ def get_jk(mf, gdf, mo_coeff, filename=None, blksize=None, exxdiv=None):
             ctypes.c_int64(blksize),
             vj.ctypes.data_as(ctypes.c_void_p),
             vk.ctypes.data_as(ctypes.c_void_p),
-            )
+    )
     assert (ierr == 0)
 
     if exxdiv == 'ewald':
@@ -118,6 +122,7 @@ def get_jk(mf, gdf, mo_coeff, filename=None, blksize=None, exxdiv=None):
         vk += madelung * np.linalg.multi_dot((s, dm1, s))
 
     return vj, vk
+
 
 t0 = timer()
 j, k = get_jk(mf, gdf, mf.mo_coeff)

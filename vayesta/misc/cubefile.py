@@ -18,9 +18,17 @@ log = logging.getLogger(__name__)
 
 class CubeFile:
 
-    def __init__(self, cell, filename=None, gridsize=(100, 100, 100), resolution=None,
-            title=None, comment=None, fmt="%13.5E",
-            crop=None):
+    def __init__(
+            self,
+            cell,
+            filename=None,
+            gridsize=(100, 100, 100),
+            resolution=None,
+            title=None,
+            comment=None,
+            fmt="%13.5E",
+            crop=None,
+    ):
         """Initialize a cube file object. Data can be added using the `add_orbital` and `add_density` methods.
 
         This class can also be used as a context manager:
@@ -157,8 +165,9 @@ class CubeFile:
             be labelled as 'Orbital <dset_idx>' or similar. If set to `None`,
             the smallest unused, positive integer will be used. Default: None.
         """
-        coeff = np.array(coeff) # Force copy
-        if coeff.ndim == 1: coeff = coeff[:,np.newaxis]
+        coeff = np.array(coeff)  # Force copy
+        if coeff.ndim == 1:
+            coeff = coeff[:,np.newaxis]
         assert (coeff.ndim == 2)
         for i, c in enumerate(coeff.T):
             idx = dset_idx+i if dset_idx is not None else None
@@ -179,7 +188,8 @@ class CubeFile:
             the smallest unused, positive integer will be used. Default: None.
         """
         dm = np.array(dm)   # Force copy
-        if dm.ndim == 2: dm = dm[np.newaxis]
+        if dm.ndim == 2:
+            dm = dm[np.newaxis]
         assert (dm.ndim == 3)
         for i, d in enumerate(dm):
             idx = dset_idx+i if dset_idx is not None else None
@@ -260,6 +270,7 @@ class CubeFile:
                 for d0, d1 in pyscf.lib.prange(0, len(data), 6):
                     f.write(((d1-d0)*self.fmt + '\n') % tuple(data[d0:d1]))
 
+
 if __name__ == '__main__':
 
     def make_graphene(a, c, atoms=["C", "C"], supercell=None):
@@ -288,19 +299,18 @@ if __name__ == '__main__':
             amat = np.einsum('i,ij->ij', ncopy, amat)
         return amat, atom
 
-
     from pyscf import pbc
     cell = pbc.gto.Cell(
-        basis = 'gth-dzv',
-        pseudo = 'gth-pade',
-        dimension = 2,
+        basis='gth-dzv',
+        pseudo='gth-pade',
+        dimension=2,
         verbose=10)
     cell.a, cell.atom = make_graphene(2.46, 10.0, supercell=(2,2,1))
     hf = pbc.scf.HF(cell)
     hf = hf.density_fit()
     hf.kernel()
 
-    with CubeFile(cell, "graphene.cube", crop={"c0" : 5.0, "c1" : 5.0}) as f:
+    with CubeFile(cell, "graphene.cube", crop={"c0": 5.0, "c1": 5.0}) as f:
         f.add_orbital(hf.mo_coeff[:,0])
         f.add_orbital(hf.mo_coeff[:,6:10])
         f.add_density([hf.make_rdm1(), np.linalg.inv(hf.get_ovlp())-hf.make_rdm1()])

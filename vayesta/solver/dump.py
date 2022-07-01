@@ -16,7 +16,8 @@ class DumpSolver(ClusterSolver):
             h5file = self.opts.filename
         if eris is None:
             eris = self.get_eris()
-        with h5file as f:
+        #with h5file as f:
+        with h5file:
             grp = h5file.create_group('fragment_%d' % self.fragment.id)
             # Attributes
             grp.attrs['id'] = self.fragment.id

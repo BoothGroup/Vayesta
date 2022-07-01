@@ -1,5 +1,4 @@
 import logging
-from timeit import default_timer as timer
 import copy
 import tempfile
 
@@ -16,12 +15,13 @@ from pyscf.pbc import scf
 import pyscf.pbc.df
 
 try:
-    from .util import *
+    from .util import dot, einsum, ImaginaryPartError
 # If run as script:
 except ImportError:
-    from util import *
+    from util import dot, einsum, ImaginaryPartError
 
 log = logging.getLogger(__name__)
+
 
 def fold_scf(kmf, *args, **kwargs):
     """Fold k-point sampled mean-field object to Born-von Karman (BVK) supercell.
@@ -31,6 +31,7 @@ def fold_scf(kmf, *args, **kwargs):
     if isinstance(kmf, pyscf.pbc.scf.kuhf.KUHF):
         return FoldedUHF(kmf, *args, **kwargs)
     raise NotImplementedError("Mean-field type= %r" % kmf)
+
 
 class FoldedSCF:
     """Fold k-point sampled SCF calculation to the BVK (Born-von Karman) supercell.
@@ -56,7 +57,7 @@ class FoldedSCF:
 
     # Propagate the following attributes to the k-point mean-field:
     _from_kmf = ['converged', 'exxdiv', 'verbose', 'max_memory', 'conv_tol', 'conv_tol_grad',
-            'stdout']
+                 'stdout']
 
     def __init__(self, kmf, kpt=np.zeros(3), **kwargs):
         # Create a copy, so that the original mean-field object does not get modified
@@ -125,10 +126,12 @@ class FoldedSCF:
     def get_veff(self, mol=None, dm=None, *args, make_real=True, **kwargs):
         assert (mol is None or mol is self.mol)
         # Unfold DM into k-space
-        if dm is not None: dm = bvk2k_2d(dm, self.kphase)
+        if dm is not None:
+            dm = bvk2k_2d(dm, self.kphase)
         vk = self.kmf.get_veff(self.kmf.mol, dm, *args, **kwargs)
         veff = k2bvk_2d(vk, self.kphase, make_real=make_real)
         return veff
+
 
 class FoldedRHF(FoldedSCF, pyscf.pbc.scf.hf.RHF):
     __doc__ = FoldedSCF.__doc__
@@ -136,8 +139,9 @@ class FoldedRHF(FoldedSCF, pyscf.pbc.scf.hf.RHF):
     def __init__(self, kmf, *args, **kwargs):
         super().__init__(kmf, *args, **kwargs)
         ovlp = self.get_ovlp()
-        self.mo_energy, self.mo_coeff, self.mo_occ = \
-                fold_mos(kmf.mo_energy, kmf.mo_coeff, kmf.mo_occ, self.kphase, ovlp)
+        self.mo_energy, self.mo_coeff, self.mo_occ = fold_mos(
+                kmf.mo_energy, kmf.mo_coeff, kmf.mo_occ, self.kphase, ovlp,
+        )
 
         # Test MO folding
         #nk = self.ncells
@@ -167,6 +171,7 @@ class FoldedRHF(FoldedSCF, pyscf.pbc.scf.hf.RHF):
 
         assert np.all(self.mo_coeff.imag == 0)
 
+
 class FoldedUHF(FoldedSCF, pyscf.pbc.scf.uhf.UHF):
     __doc__ = FoldedSCF.__doc__
 
@@ -179,6 +184,7 @@ class FoldedUHF(FoldedSCF, pyscf.pbc.scf.uhf.UHF):
                 fold_mos(kmf.mo_energy[1], kmf.mo_coeff[1], kmf.mo_occ[1], self.kphase, ovlp))
         assert np.all(self.mo_coeff[0].imag == 0)
         assert np.all(self.mo_coeff[1].imag == 0)
+
 
 #def fold_mos(kmf, kmo_energy, kmo_coeff, kmo_occ, kphase, ovlp, make_real=True):
 #def fold_mos(kmo_energy, kmo_coeff, kmo_occ, kphase, ovlp, make_real=False, sort=False):
@@ -212,6 +218,7 @@ def fold_mos(kmo_energy, kmo_coeff, kmo_occ, kphase, ovlp, make_real=True, sort=
 
     return mo_energy, mo_coeff, mo_occ
 
+
 def log_error_norms(msg, err, error_tol=1e-3, warn_tol=1e-6):
     l2 = np.linalg.norm(err)
     linf = abs(err).max()
@@ -222,6 +229,7 @@ def log_error_norms(msg, err, error_tol=1e-3, warn_tol=1e-6):
         log.warning(msg+" !", l2, linf)
     else:
         log.debug(msg, l2, linf)
+
 
 def make_mo_coeff_real(mo_energy, mo_coeff, ovlp, imag_tol=1e-10):
     mo_coeff = mo_coeff.copy()
@@ -256,14 +264,15 @@ def make_mo_coeff_real(mo_energy, mo_coeff, ovlp, imag_tol=1e-10):
     assert np.all(np.linalg.norm(mo_coeff.imag, axis=0) <= imag_tol)
     return mo_energy, mo_coeff.real
 
+
 def make_mo_coeff_real_2(mo_energy, mo_coeff, mo_occ, ovlp, hcore, imag_tol=1e-8):
     mo_coeff = mo_coeff.copy()
     # Check orthonormality
     ortherr = abs(dot(mo_coeff.T.conj(), ovlp, mo_coeff) - np.eye(mo_coeff.shape[-1])).max()
     log.debugv("Orthonormality error before make_mo_coeff_real: %.2e", ortherr)
 
-    mo_coeff_occ = mo_coeff[:,mo_occ>0]
-    mo_coeff_vir = mo_coeff[:,mo_occ==0]
+    mo_coeff_occ = mo_coeff[:,mo_occ > 0]
+    mo_coeff_vir = mo_coeff[:,mo_occ == 0]
 
     e_hcore_min = scipy.linalg.eigh(hcore, b=ovlp)[0][0]
     shift = (1.0 - e_hcore_min)
@@ -310,6 +319,7 @@ def kpts_to_kmesh(cell, kpts):
     kmesh = [len(np.unique(scaled_k[:,d])) for d in range(3)]
     return kmesh
 
+
 def translation_vectors_for_kmesh(cell, kmesh):
     """Translation vectors to construct super-cell of which the gamma point is
     identical to the k-point mesh of primitive cell"""
@@ -319,18 +329,21 @@ def translation_vectors_for_kmesh(cell, kmesh):
     r_vec_abs = np.dot(r_vec_rel, latt_vec)
     return r_vec_abs
 
+
 def get_phase(cell, kpts, kmesh=None):
     """The unitary transformation that transforms the supercell basis k-mesh
     adapted basis.
 
     Important: This is ordered as (k,R), different to PySCF k2gamma.get_phase!
     """
-    if kmesh is None: kmesh = kpts_to_kmesh(cell, kpts)
+    if kmesh is None:
+        kmesh = kpts_to_kmesh(cell, kpts)
     r_vec_abs = translation_vectors_for_kmesh(cell, kmesh)
     nr = len(r_vec_abs)
     phase = np.exp(1j*np.dot(kpts, r_vec_abs.T)) / np.sqrt(nr)
     scell = tools.super_cell(cell, kmesh)
     return scell, phase
+
 
 def k2bvk_2d(ak, phase, make_real=True, imag_tol=1e-6):
     """Transform unit-cell k-point AO integrals to the supercell gamma-point AO integrals."""
@@ -346,6 +359,7 @@ def k2bvk_2d(ak, phase, make_real=True, imag_tol=1e-6):
     if make_real:
         return ag.real
     return ag
+
 
 def bvk2k_2d(ag, phase):
     """Transform supercell gamma-point AO integrals to the unit-cell k-point AO integrals."""
@@ -445,7 +459,12 @@ def bvk2k_2d(ag, phase):
 #
 #    c_gamma_out = c_gamma.copy()
 #    mo_mask = (np.linalg.norm(c_gamma.imag, axis=0) > imag_tol)
-#    logger.debug(cell, "Number of MOs with imaginary coefficients: %d out of %d", np.count_nonzero(mo_mask), len(mo_mask))
+#    logger.debug(
+#             cell,
+#             "Number of MOs with imaginary coefficients: %d out of %d",
+#             np.count_nonzero(mo_mask),
+#             len(mo_mask),
+#    )
 #    if np.any(mo_mask):
 #        #mo_mask = np.s_[:]
 #        #if np.any(~degen_mask):
@@ -462,7 +481,12 @@ def bvk2k_2d(ag, phase):
 #        shift = 1.0 - min(e_gamma[mo_mask])
 #        cs = np.dot(c_gamma[:,mo_mask].conj().T, s_gamma)
 #        f_gamma = np.dot(cs.T.conj() * (e_gamma[mo_mask] + shift), cs)
-#        logger.debug(cell, "Imaginary parts of Fock matrix: ||Im(F)||= %.2e  max|Im(F)|= %.2e", np.linalg.norm(f_gamma.imag), abs(f_gamma.imag).max())
+#        logger.debug(
+#                cell,
+#                "Imaginary parts of Fock matrix: ||Im(F)||= %.2e  max|Im(F)|= %.2e",
+#                np.linalg.norm(f_gamma.imag),
+#                abs(f_gamma.imag).max(),
+#        )
 #
 #        e, v = eigh(f_gamma.real, s_gamma)
 #
@@ -472,9 +496,19 @@ def bvk2k_2d(ag, phase):
 #        e, v = e[mask], v[:,mask]
 #        e_delta = e_gamma[mo_mask] - (e-shift)
 #        if abs(e_delta).max() > 1e-4:
-#            logger.error(cell, "Error of MO energies: ||dE||= %.2e  max|dE|= %.2e !!!", np.linalg.norm(e_delta), abs(e_delta).max())
+#            logger.error(
+#                    cell,
+#                    "Error of MO energies: ||dE||= %.2e  max|dE|= %.2e !!!",
+#                    np.linalg.norm(e_delta),
+#                    abs(e_delta).max(),
+#            )
 #        else:
-#            logger.debug(cell, "Error of MO energies: ||dE||= %.2e  max|dE|= %.2e", np.linalg.norm(e_delta), abs(e_delta).max())
+#            logger.debug(
+#                    cell,
+#                    "Error of MO energies: ||dE||= %.2e  max|dE|= %.2e",
+#                    np.linalg.norm(e_delta),
+#                    abs(e_delta).max(),
+#            )
 #        c_gamma_out[:,mo_mask] = v
 #
 #    err_imag = abs(c_gamma_out.imag).max()
@@ -540,7 +574,6 @@ def bvk2k_2d(ag, phase):
 #    return mf
 
 
-
 #def to_supercell_mo_integrals(kmf, mo_ints):
 #    '''Transform from the unitcell k-point MO integrals to the supercell
 #    gamma-point MO integrals.
@@ -559,7 +592,6 @@ def bvk2k_2d(ag, phase):
 
 
 if __name__ == '__main__':
-
     import vayesta
     from pyscf.pbc import gto, scf
 
@@ -574,7 +606,7 @@ if __name__ == '__main__':
     cell.basis = 'cc-pvdz'
     cell.a = np.eye(3) * 4.0
     cell.a[2,2] = 20
-    cell.unit='B'
+    cell.unit = 'B'
     cell.dimension = 2
     cell.build()
 

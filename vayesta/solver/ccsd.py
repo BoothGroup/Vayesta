@@ -1,6 +1,5 @@
 import dataclasses
 import copy
-from timeit import default_timer as timer
 
 import numpy as np
 
@@ -10,9 +9,8 @@ import pyscf.cc.dfccsd
 import pyscf.pbc
 import pyscf.pbc.cc
 
-from vayesta.core.util import *
+from vayesta.core.util import dot, einsum, deprecated, log_time, log_method
 from vayesta.core.types import Orbitals
-from vayesta.core.types import WaveFunction
 from vayesta.core.types import CCSD_WaveFunction
 from . import coupling
 from .solver import ClusterSolver
@@ -53,9 +51,12 @@ class CCSD_Solver(ClusterSolver):
         mo_coeff = self.cluster.c_total
         solver = solver_cls(self.mf, mo_coeff=mo_coeff, mo_occ=self.mf.mo_occ, frozen=frozen)
         # Options
-        if self.opts.maxiter is not None: solver.max_cycle = self.opts.maxiter
-        if self.opts.conv_tol is not None: solver.conv_tol = self.opts.conv_tol
-        if self.opts.conv_tol_normt is not None: solver.conv_tol_normt = self.opts.conv_tol_normt
+        if self.opts.maxiter is not None:
+            solver.max_cycle = self.opts.maxiter
+        if self.opts.conv_tol is not None:
+            solver.conv_tol = self.opts.conv_tol
+        if self.opts.conv_tol_normt is not None:
+            solver.conv_tol_normt = self.opts.conv_tol_normt
         self.solver = solver
         self.eris = None
 
@@ -146,7 +147,7 @@ class CCSD_Solver(ClusterSolver):
         return self.eris
 
     def get_init_guess(self):
-        return {'t1' : self.t1 , 't2' : self.t2}
+        return {'t1': self.t1, 't2': self.t2}
 
     def kernel(self, t1=None, t2=None, eris=None, l1=None, l2=None, coupled_fragments=None, t_diagnostic=True):
         """
@@ -197,8 +198,11 @@ class CCSD_Solver(ClusterSolver):
         # This should include the SC mode?
         elif coupled_fragments and np.all([x.results is not None for x in coupled_fragments]):
             self.log.info("Adding tailor function to CCSD.")
-            self.solver.callback = coupling.make_cross_fragment_tcc_function(self, mode=(self.opts.sc_mode or 3),
-                coupled_fragments=coupled_fragments)
+            self.solver.callback = coupling.make_cross_fragment_tcc_function(
+                    self,
+                    mode=(self.opts.sc_mode or 3),
+                    coupled_fragments=coupled_fragments,
+            )
 
         self.log.info("Solving CCSD-equations %s initial guess...", "with" if (t2 is not None) else "without")
         with log_time(self.log.info, "Time for T-equations: %s"):
@@ -228,7 +232,8 @@ class CCSD_Solver(ClusterSolver):
                 self.log.error("Lambda-equations not converged!")
                 self.solver.converged_lambda = False
 
-        if t_diagnostic: self.t_diagnostic()
+        if t_diagnostic:
+            self.t_diagnostic()
 
         mo = Orbitals(self.cluster.c_active, occ=self.cluster.nocc_active)
         self.wf = CCSD_WaveFunction(mo, self.solver.t1, self.solver.t2, l1=self.solver.l1, l2=self.solver.l2)

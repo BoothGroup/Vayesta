@@ -9,7 +9,7 @@ import scipy.linalg
 import scipy
 
 import pyscf.ao2mo
-from vayesta.core.util import *
+from vayesta.core.util import dot, einsum, time_string
 
 
 class ssRPA:
@@ -61,7 +61,7 @@ class ssRPA:
     def e_corr(self):
         try:
             return self.e_corr_ss
-        except AttributeError as e:
+        except AttributeError:
             self.log.critical("Can only access rpa.e_corr after running rpa.kernel.")
 
     @property
@@ -154,8 +154,10 @@ class ssRPA:
         elif version == 2:
             # Linear approximation of all quantities in adiabatic connection.
             e = 0.5 * (np.dot(full_mom0, ApB) - (0.5 * (ApB + AmB) - A_xc)).trace()
-            e -= (einsum("pq,qp->", A_xc + B_xc, full_mom0 + np.eye(self.ov)) +
-                  einsum("pq,qp->", A_xc - B_xc, np.linalg.inv(full_mom0) + np.eye(self.ov))) / 8
+            e -= (
+                + einsum("pq,qp->", A_xc + B_xc, full_mom0 + np.eye(self.ov))
+                + einsum("pq,qp->", A_xc - B_xc, np.linalg.inv(full_mom0) + np.eye(self.ov))
+            ) / 8
         elif version == 3:
             # Linear approximation in AC and approx of inverse.
             e = 0.5 * (np.dot(full_mom0, ApB - B_xc / 2) - (0.5 * (ApB + AmB) - B_xc / 2)).trace()

@@ -4,7 +4,7 @@ import numpy as np
 import pyscf
 import pyscf.lo
 
-from vayesta.core.util import *
+from vayesta.core.util import dot, einsum, fix_orbital_sign
 from .fragmentation import Fragmentation
 from .ufragmentation import Fragmentation_UHF
 
@@ -13,10 +13,13 @@ default_minao = {}
 path = os.path.dirname(__file__)
 with open(os.path.join(path, 'minao.dat'), 'r') as f:
     for line in f:
-        if line.startswith('#'): continue
+        if line.startswith('#'):
+            continue
         (basis, minao) = line.split()
-        if minao == 'none': minao = None
+        if minao == 'none':
+            minao = None
         default_minao[basis] = minao
+
 
 def get_default_minao(basis):
     # TODO: Add more to data file
@@ -28,6 +31,7 @@ def get_default_minao(basis):
         raise ValueError("Could not chose minimal basis for basis %s automatically!", basis)
     return minao
 
+
 class IAO_Fragmentation(Fragmentation):
 
     name = "IAO"
@@ -36,9 +40,15 @@ class IAO_Fragmentation(Fragmentation):
         super().__init__(*args, **kwargs)
         if minao.lower() == 'auto':
             minao = get_default_minao(self.mol.basis)
-            self.log.info("IAO:  computational basis= %s  minimal reference basis= %s (automatically chosen)", self.mol.basis, minao)
+            self.log.info(
+                    "IAO:  computational basis= %s  minimal reference basis= %s (automatically chosen)",
+                    self.mol.basis, minao,
+            )
         else:
-            self.log.debug("IAO:  computational basis= %s  minimal reference basis= %s", self.mol.basis, minao)
+            self.log.debug(
+                    "IAO:  computational basis= %s  minimal reference basis= %s",
+                    self.mol.basis, minao,
+            )
         self.minao = minao
         self.refmol = pyscf.lo.iao.reference_mol(self.mol, minao=self.minao)
 
@@ -54,19 +64,26 @@ class IAO_Fragmentation(Fragmentation):
         c_iao : (n(AO), n(IAO)) array
             Orthonormalized IAO coefficients.
         """
-        if mo_coeff is None: mo_coeff = self.mo_coeff
-        if mo_occ is None: mo_occ = self.mo_occ
+        if mo_coeff is None:
+            mo_coeff = self.mo_coeff
+        if mo_occ is None:
+            mo_occ = self.mo_occ
         ovlp = self.get_ovlp()
 
-        c_occ = mo_coeff[:,mo_occ>0]
+        c_occ = mo_coeff[:, mo_occ > 0]
         c_iao = pyscf.lo.iao.iao(self.mol, c_occ, minao=self.minao)
         n_iao = c_iao.shape[-1]
-        self.log.info("n(AO)= %4d  n(MO)= %4d  n(occ-MO)= %4d  n(IAO)= %4d",
-                mo_coeff.shape[0], mo_coeff.shape[-1], c_occ.shape[-1], n_iao)
+        self.log.info(
+                "n(AO)= %4d  n(MO)= %4d  n(occ-MO)= %4d  n(IAO)= %4d",
+                mo_coeff.shape[0], mo_coeff.shape[-1], c_occ.shape[-1], n_iao,
+        )
 
         # Orthogonalize IAO using symmetric (Lowdin) orthogonalization
         x, e_min = self.symmetric_orth(c_iao, ovlp)
-        self.log.debugv("Lowdin orthogonalization of IAOs: n(in)= %3d -> n(out)= %3d , min(eig)= %.3e", x.shape[0], x.shape[1], e_min)
+        self.log.debugv(
+                "Lowdin orthogonalization of IAOs: n(in)= %3d -> n(out)= %3d , min(eig)= %.3e",
+                x.shape[0], x.shape[1], e_min,
+        )
         if e_min < 1e-10:
             self.log.warning("Small eigenvalue in Lowdin orthogonalization: %.3e !", e_min)
         c_iao = np.dot(c_iao, x)
@@ -85,7 +102,10 @@ class IAO_Fragmentation(Fragmentation):
         ne_iao = einsum('ai,ab,bc,cd,di->', c_iao, ovlp, dm, ovlp, c_iao)
         ne_tot = einsum('ab,ab->', dm, ovlp)
         if abs(ne_iao - ne_tot) > 1e-8:
-            self.log.error("IAOs do not contain the correct number of electrons: IAO= %.8f  total= %.8f", ne_iao, ne_tot)
+            self.log.error(
+                    "IAOs do not contain the correct number of electrons: IAO= %.8f  total= %.8f",
+                    ne_iao, ne_tot,
+            )
         else:
             self.log.debugv("Number of electrons: IAO= %.8f  total= %.8f", ne_iao, ne_tot)
         return ne_iao
@@ -129,7 +149,8 @@ class IAO_Fragmentation(Fragmentation):
         return self.refmol.search_ao_label(labels)
 
     def get_virtual_coeff(self, c_iao, mo_coeff=None):
-        if mo_coeff is None: mo_coeff = self.mo_coeff
+        if mo_coeff is None:
+            mo_coeff = self.mo_coeff
         ovlp = self.get_ovlp()
         # Add remaining virtual space, work in MO space, so that we automatically get the
         # correct linear dependency treatment, if n(MO) < n(AO)
@@ -151,16 +172,22 @@ class IAO_Fragmentation(Fragmentation):
         if np.any(abs(e_iao) > 1e-3):
             self.log.error("CRITICAL: Some IAO eigenvalues of 1-P_IAO are not close to 0:\n%r", e_iao)
         elif np.any(abs(e_iao) > 1e-6):
-            self.log.warning("Some IAO eigenvalues e of 1-P_IAO are not close to 0: n= %d max|e|= %.2e",
-                    np.count_nonzero(abs(e_iao) > 1e-6), abs(e_iao).max())
+            self.log.warning(
+                    "Some IAO eigenvalues e of 1-P_IAO are not close to 0: n= %d max|e|= %.2e",
+                    np.count_nonzero(abs(e_iao) > 1e-6), abs(e_iao).max(),
+            )
         if np.any(abs(1-e_rest) > 1e-3):
             self.log.error("CRITICAL: Some non-IAO eigenvalues of 1-P_IAO are not close to 1:\n%r", e_rest)
         elif np.any(abs(1-e_rest) > 1e-6):
-            self.log.warning("Some non-IAO eigenvalues e of 1-P_IAO are not close to 1: n= %d max|1-e|= %.2e",
-                    np.count_nonzero(abs(1-e_rest) > 1e-6), abs(1-e_rest).max())
+            self.log.warning(
+                    "Some non-IAO eigenvalues e of 1-P_IAO are not close to 1: n= %d max|1-e|= %.2e",
+                    np.count_nonzero(abs(1-e_rest) > 1e-6), abs(1-e_rest).max(),
+            )
 
         if not (np.sum(mask_rest) + c_iao.shape[-1] == mo_coeff.shape[-1]):
-            self.log.critical("Error in construction of remaining virtual orbitals! Eigenvalues of projector 1-P_IAO:\n%r", e)
+            self.log.critical(
+                    "Error in construction of remaining virtual orbitals! Eigenvalues of projector 1-P_IAO:\n%r", e
+            )
             self.log.critical("Number of eigenvalues above 0.5 = %d", np.sum(mask_rest))
             self.log.critical("Total number of orbitals = %d", mo_coeff.shape[-1])
             raise RuntimeError("Incorrect number of remaining virtual orbitals")
@@ -174,8 +201,10 @@ class IAO_Fragmentation(Fragmentation):
 class IAO_Fragmentation_UHF(Fragmentation_UHF, IAO_Fragmentation):
 
     def get_coeff(self, mo_coeff=None, mo_occ=None, add_virtuals=True):
-        if mo_coeff is None: mo_coeff = self.mo_coeff
-        if mo_occ is None: mo_occ = self.mo_occ
+        if mo_coeff is None:
+            mo_coeff = self.mo_coeff
+        if mo_occ is None:
+            mo_occ = self.mo_occ
 
         self.log.info("Alpha-IAOs:")
         c_iao_a = IAO_Fragmentation.get_coeff(self, mo_coeff=mo_coeff[0], mo_occ=mo_occ[0], add_virtuals=add_virtuals)

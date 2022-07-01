@@ -13,7 +13,7 @@ from pyscf.cc.uccsd import _ChemistsERIs as UCCSD_ChemistsERIs
 from pyscf.cc.dfccsd import _ChemistsERIs as DFCCSD_ChemistsERIs
 from pyscf.cc.ccsd import _ChemistsERIs as CCSD_ChemistsERIs
 
-from vayesta.core.util import *
+from vayesta.core.util import dot, replace_attr, brange
 from .kao2gmo import kao2gmo_cderi
 
 
@@ -67,6 +67,7 @@ def postscf_ao2mo(postscf, mo_coeff=None, fock=None, mo_energy=None, e_hf=None):
         eris.mo_energy = mo_energy
 
     return eris
+
 
 def postscf_kao2gmo(postscf, gdf, fock, mo_energy, e_hf, mo_coeff=None):
     """k-AO to Gamma-MO transformation of ERIs for post-SCF calculations of supercells.
@@ -151,6 +152,7 @@ def postscf_kao2gmo(postscf, gdf, fock, mo_energy, e_hf, mo_coeff=None):
             eris.vvvv = _contract_cderi(cderi, cderi_neg, block='vvvv', nocc=nocc, pack_left=pack, pack_right=pack)
 
     return eris
+
 
 def postscf_kao2gmo_uhf(postscf, gdf, fock, mo_energy, e_hf, mo_coeff=None):
     """k-AO to Gamma-MO transformation of ERIs for unrestricted post-SCF calculations of supercells.
@@ -253,10 +255,11 @@ def postscf_kao2gmo_uhf(postscf, gdf, fock, mo_energy, e_hf, mo_coeff=None):
 
     return eris
 
+
 def _contract_cderi(cderi, cderi_neg, block=None, nocc=None, pack_left=False, pack_right=False, imag_tol=1e-8):
     if block is not None:
         slices = {'o': np.s_[:nocc], 'v': np.s_[nocc:]}
-        get_slices = (lambda block : (slices[block[0]], slices[block[1]]))
+        get_slices = (lambda block: (slices[block[0]], slices[block[1]]))
         si, sj = get_slices(block[:2])
         sk, sl = get_slices(block[2:])
     else:
@@ -282,7 +285,7 @@ def _contract_cderi(cderi, cderi_neg, block=None, nocc=None, pack_left=False, pa
     if pack_right:
         cderi_right = pyscf.lib.pack_tril(cderi_right)
     # Avoid allocating another N^4 object:
-    max_memory = int(3e8) # 300 MB
+    max_memory = int(3e8)  # 300 MB
     nblks = int((eri.size * 8 * (1+np.iscomplexobj(eri)))/max_memory)
     size = cderi_left.shape[1]
     blksize = int(size/max(nblks, 1))
@@ -293,11 +296,12 @@ def _contract_cderi(cderi, cderi_neg, block=None, nocc=None, pack_left=False, pa
     assert (eri.size == 0) or (abs(eri.imag).max() < imag_tol)
     return eri
 
+
 def _contract_cderi_mixed(cderi, cderi_neg, block=None, nocc=None, pack_left=False, pack_right=False, imag_tol=1e-8):
     if block is not None:
         noccl, noccr = nocc
         slices = {'o': np.s_[:noccl], 'v': np.s_[noccl:], 'O': np.s_[:noccr], 'V': np.s_[noccr:]}
-        get_slices = (lambda block : (slices[block[0]], slices[block[1]]))
+        get_slices = (lambda block: (slices[block[0]], slices[block[1]]))
         si, sj = get_slices(block[:2])
         sk, sl = get_slices(block[2:])
     else:
@@ -323,7 +327,7 @@ def _contract_cderi_mixed(cderi, cderi_neg, block=None, nocc=None, pack_left=Fal
     if pack_right:
         cderi_right = pyscf.lib.pack_tril(cderi_right)
     # Avoid allocating another N^4 object:
-    max_memory = int(3e8) # 300 MB
+    max_memory = int(3e8)  # 300 MB
     nblks = int((eri.size * 8 * (1+np.iscomplexobj(eri)))/max_memory)
     size = cderi_left.shape[1]
     blksize = int(size/max(nblks, 1))

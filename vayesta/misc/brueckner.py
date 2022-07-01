@@ -7,6 +7,7 @@ import scipy.linalg
 
 log = logging.getLogger(__name__)
 
+
 def update_mo_coeff(mo_coeff, t1, ovlp=None, damping=0.0, diis=None):
     nocc, nvir = t1.shape
     nmo = mo_coeff.shape[-1]
@@ -47,6 +48,7 @@ def update_mo_coeff(mo_coeff, t1, ovlp=None, damping=0.0, diis=None):
     assert np.allclose(np.linalg.multi_dot((bmo.T, ovlp, bmo))-np.eye(nmo), 0)
     return bmo_occ, bmo_vir
 
+
 def update_mf(mf, t1, mo_coeff=None, inplace=False, canonicalize=True, damping=0.0, diis=None):
     """Update occupied MOs based on T1 amplitudes, to converge to Brueckner MOs.
 
@@ -73,14 +75,16 @@ def update_mf(mf, t1, mo_coeff=None, inplace=False, canonicalize=True, damping=0
     if not inplace:
         mf = copy.copy(mf)
 
-    if mo_coeff is None: mo_coeff = mf.mo_coeff
+    if mo_coeff is None:
+        mo_coeff = mf.mo_coeff
     nmo = mo_coeff.shape[-1]
     nocc = np.count_nonzero(mf.mo_occ > 0)
     nvir = (nmo-nocc)
     assert t1.shape == (nocc, nvir)
 
     ovlp = mf.get_ovlp()
-    if np.allclose(ovlp, np.eye(ovlp.shape[-1])): ovlp = None
+    if np.allclose(ovlp, np.eye(ovlp.shape[-1])):
+        ovlp = None
     bmo_occ, bmo_vir = update_mo_coeff(mo_coeff, t1, ovlp, damping=damping, diis=diis)
     # Diagonalize one-electron Hamiltonian or Fock matrix within occupied and virtual space:
     if canonicalize:

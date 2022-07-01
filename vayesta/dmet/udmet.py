@@ -1,7 +1,6 @@
 import numpy as np
 
 from vayesta.core.qemb import UEmbedding
-from vayesta.core.util import *
 
 from vayesta.dmet import RDMET
 from vayesta.dmet.ufragment import UDMETFragment as Fragment
@@ -17,7 +16,7 @@ class UDMET(UEmbedding, RDMET):
         self.log.info("Now running DMET correlation potential fitting")
         # Note that we want the total number of electrons, not just in fragments, and that this uses spatial orbitals.
         vcorr_new = np.array((perform_SDP_fit(self.mol.nelec[0], fock[0], impurity_coeffs[0], [x[0] for x in curr_rdms],
-                                             self.get_ovlp(), self.log),
+                                              self.get_ovlp(), self.log),
                              perform_SDP_fit(self.mol.nelec[1], fock[1], impurity_coeffs[1], [x[1] for x in curr_rdms],
                                              self.get_ovlp(), self.log)))
 

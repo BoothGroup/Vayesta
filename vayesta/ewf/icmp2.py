@@ -4,9 +4,9 @@ import pyscf
 import pyscf.pbc
 import pyscf.pbc.tools
 
-from vayesta.core.util import *
+from vayesta.core.util import dot, einsum, log_time, energy_string
 from vayesta.mpi import mpi
-from vayesta.mpi import RMA_Dict
+
 
 class ClusterRHF:
     """Helper class"""
@@ -26,6 +26,7 @@ class ClusterRHF:
         else:
             self.cderi_neg = None
 
+
 class ClusterUHF:
     """Helper class"""
 
@@ -44,13 +45,23 @@ class ClusterUHF:
         else:
             self.cderi_neg = None
 
-def get_intercluster_mp2_energy_rhf(emb, bno_threshold_occ=None, bno_threshold_vir=1e-8, direct=True, exchange=True,
-        fragments=None, project_dc='vir', vers=1, diagonal=True):
+
+def get_intercluster_mp2_energy_rhf(
+        emb,
+        bno_threshold_occ=None,
+        bno_threshold_vir=1e-8,
+        direct=True,
+        exchange=True,
+        fragments=None,
+        project_dc='vir',
+        vers=1,
+        diagonal=True,
+):
     """Get long-range, inter-cluster energy contribution on the MP2 level.
 
     This constructs T2 amplitudes over two clusters, X and Y, as
 
-        t_ij^ab = \sum_L (ia|L)(L|j'b') / (ei + ej' - ea - eb)
+        t_ij^ab = \\sum_L (ia|L)(L|j'b') / (ei + ej' - ea - eb)
 
     where i,a are in cluster X and j,b are in cluster Y.
 
@@ -132,7 +143,11 @@ def get_intercluster_mp2_energy_rhf(emb, bno_threshold_occ=None, bno_threshold_v
                     sym_op = y.get_symmetry_operation()
                     coll[y.id, 'c_vir'] = sym_op(c_vir)
                     # TODO: Why do we need to invert the atom reordering with argsort?
-                    sym_op_aux = type(sym_op)(auxsym, vector=sym_op.vector, atom_reorder=np.argsort(sym_op.atom_reorder))
+                    sym_op_aux = type(sym_op)(
+                            auxsym,
+                            vector=sym_op.vector,
+                            atom_reorder=np.argsort(sym_op.atom_reorder),
+                    )
                     coll[y.id, 'cderi'] = sym_op_aux(cderi)
                     #cderi_y2 = emb.get_cderi((sym_op(c_occ), sym_op(c_vir)))[0]
                     if cderi_neg is not None:
@@ -147,7 +162,8 @@ def get_intercluster_mp2_energy_rhf(emb, bno_threshold_occ=None, bno_threshold_v
 
             eia_x = cx.e_occ[:,None] - cx.e_vir[None,:]
 
-            # Already contract these parts of P_dc and S_vir, to avoid having the n(AO)^2 overlap matrix in the n(Frag)^2 loop:
+            # Already contract these parts of P_dc and S_vir, to avoid having
+            # the n(AO)^2 overlap matrix in the n(Frag)^2 loop:
             if project_dc in ('occ', 'both'):
                 pdco0 = np.dot(x.cluster.c_active.T, ovlp)
             if project_dc in ('vir', 'both'):
@@ -170,7 +186,7 @@ def get_intercluster_mp2_energy_rhf(emb, bno_threshold_occ=None, bno_threshold_v
                 # Make T2
                 # TODO: save memory by blocked loop
                 # OR: write C function (also useful for BNO build)
-                eris = einsum('Lia,Ljb->ijab', cx.cderi, cy.cderi) # O(n(frag)^2) * O(naux)
+                eris = einsum('Lia,Ljb->ijab', cx.cderi, cy.cderi)  # O(n(frag)^2) * O(naux)
                 if cx.cderi_neg is not None:
                     eris -= einsum('Lia,Ljb->ijab', cx.cderi_neg, cy.cderi_neg)
                 eijab = (eia_x[:,None,:,None] + eia_y[None,:,None,:])
@@ -237,7 +253,10 @@ def get_intercluster_mp2_energy_rhf(emb, bno_threshold_occ=None, bno_threshold_v
         e_exchange /= emb.ncells
         e_icmp2 = e_direct + e_exchange
         if mpi.is_master:
-            emb.log.info("  %-12s  direct= %s  exchange= %s  total= %s", "Total:", estr(e_direct), estr(e_exchange), estr(e_icmp2))
+            emb.log.info(
+                    "  %-12s  direct= %s  exchange= %s  total= %s", "Total:",
+                    estr(e_direct), estr(e_exchange), estr(e_icmp2),
+            )
         coll.clear()    # Important in order to not run out of MPI communicators
 
     return e_icmp2
@@ -248,7 +267,7 @@ def get_intercluster_mp2_energy_uhf(emb, bno_threshold=1e-9, direct=True, exchan
 
     This constructs T2 amplitudes over two clusters, X and Y, as
 
-        t_ij^ab = \sum_L (ia|L)(L|j'b') / (ei + ej' - ea - eb)
+        t_ij^ab = \\sum_L (ia|L)(L|j'b') / (ei + ej' - ea - eb)
 
     where i,a are in cluster X and j,b are in cluster Y.
 
@@ -308,7 +327,11 @@ def get_intercluster_mp2_energy_uhf(emb, bno_threshold=1e-9, direct=True, exchan
                     coll[y.id, 'c_vir_a'] = sym_op(c_vir[0])
                     coll[y.id, 'c_vir_b'] = sym_op(c_vir[1])
                     # TODO: Why do we need to invert the atom reordering with argsort?
-                    sym_op_aux = type(sym_op)(auxsym, vector=sym_op.vector, atom_reorder=np.argsort(sym_op.atom_reorder))
+                    sym_op_aux = type(sym_op)(
+                            auxsym,
+                            vector=sym_op.vector,
+                            atom_reorder=np.argsort(sym_op.atom_reorder),
+                    )
                     coll[y.id, 'cderi_a'] = sym_op_aux(cderi_a)
                     coll[y.id, 'cderi_b'] = sym_op_aux(cderi_b)
                     if cderi_a_neg is not None:
@@ -324,7 +347,8 @@ def get_intercluster_mp2_energy_uhf(emb, bno_threshold=1e-9, direct=True, exchan
             eia_xa = cx.e_occ[0][:,None] - cx.e_vir[0][None,:]
             eia_xb = cx.e_occ[1][:,None] - cx.e_vir[1][None,:]
 
-            # Already contract these parts of P_dc and S_vir, to avoid having the n(AO)^2 overlap matrix in the n(Frag)^2 loop:
+            # Already contract these parts of P_dc and S_vir, to avoid
+            # having the n(AO)^2 overlap matrix in the n(Frag)^2 loop:
             pdcv0a = np.dot(x.cluster.c_active_vir[0].T, ovlp)
             pdcv0b = np.dot(x.cluster.c_active_vir[1].T, ovlp)
             if exchange:
@@ -341,10 +365,10 @@ def get_intercluster_mp2_energy_uhf(emb, bno_threshold=1e-9, direct=True, exchan
                 # Make T2
                 # TODO: save memory by blocked loop
                 # OR: write C function (also useful for BNO build)
-                eris_aa = einsum('Lia,Ljb->ijab', cx.cderi[0], cy.cderi[0]) # O(n(frag)^2) * O(naux)
-                eris_ab = einsum('Lia,Ljb->ijab', cx.cderi[0], cy.cderi[1]) # O(n(frag)^2) * O(naux)
-                eris_ba = einsum('Lia,Ljb->ijab', cx.cderi[1], cy.cderi[0]) # O(n(frag)^2) * O(naux)
-                eris_bb = einsum('Lia,Ljb->ijab', cx.cderi[1], cy.cderi[1]) # O(n(frag)^2) * O(naux)
+                eris_aa = einsum('Lia,Ljb->ijab', cx.cderi[0], cy.cderi[0])  # O(n(frag)^2) * O(naux)
+                eris_ab = einsum('Lia,Ljb->ijab', cx.cderi[0], cy.cderi[1])  # O(n(frag)^2) * O(naux)
+                eris_ba = einsum('Lia,Ljb->ijab', cx.cderi[1], cy.cderi[0])  # O(n(frag)^2) * O(naux)
+                eris_bb = einsum('Lia,Ljb->ijab', cx.cderi[1], cy.cderi[1])  # O(n(frag)^2) * O(naux)
                 if cx.cderi_neg is not None:
                     eris_aa -= einsum('Lia,Ljb->ijab', cx.cderi_neg[0], cy.cderi_neg[0])
                     eris_ab -= einsum('Lia,Ljb->ijab', cx.cderi_neg[0], cy.cderi_neg[1])
@@ -408,7 +432,10 @@ def get_intercluster_mp2_energy_uhf(emb, bno_threshold=1e-9, direct=True, exchan
         e_exchange /= emb.ncells
         e_icmp2 = e_direct + e_exchange
         if mpi.is_master:
-            emb.log.info("  %-12s  direct= %s  exchange= %s  total= %s", "Total:", estr(e_direct), estr(e_exchange), estr(e_icmp2))
+            emb.log.info(
+                    "  %-12s  direct= %s  exchange= %s  total= %s", "Total:",
+                    estr(e_direct), estr(e_exchange), estr(e_icmp2),
+            )
         coll.clear()    # Important in order to not run out of MPI communicators
 
     return e_icmp2

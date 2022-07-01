@@ -1,7 +1,7 @@
 import numpy as np
 import pyscf.lib
 
-from vayesta.core.util import *
+from vayesta.core.util import dot, einsum
 from vayesta.dmet.ufragment import UDMETFragment
 from .fragment import EDMETFragment
 
@@ -118,8 +118,10 @@ class UEDMETFragment(UDMETFragment, EDMETFragment):
     def conv_to_aos(self, ra, rb):
         ra = ra.reshape((-1, self.base.nocc[0], self.base.nvir[0]))
         rb = rb.reshape((-1, self.base.nocc[1], self.base.nvir[1]))
-        return einsum("nia,pi,qa->npq", ra, self.base.mo_coeff_occ[0], self.base.mo_coeff_vir[0]), \
-               einsum("nia,pi,qa->npq", rb, self.base.mo_coeff_occ[1], self.base.mo_coeff_vir[1])
+        return (
+            einsum("nia,pi,qa->npq", ra, self.base.mo_coeff_occ[0], self.base.mo_coeff_vir[0]),
+            einsum("nia,pi,qa->npq", rb, self.base.mo_coeff_occ[1], self.base.mo_coeff_vir[1])
+        )
 
     def get_eri_couplings(self, rot):
         """Obtain eri in a space defined by an arbitrary rotation of the mean-field particle-hole excitations of our
@@ -153,8 +155,10 @@ class UEDMETFragment(UDMETFragment, EDMETFragment):
             eris_bb = eris_bb[:self.base.nocc[1], self.base.nocc[1]:, :self.base.nocc[1], self.base.nocc[1]:].reshape(
                 (self.ov_mf[1], self.ov_mf[1]))
 
-            return dot(rota, eris_aa, rota.T) + dot(rota, eris_ab, rotb.T) + \
-                   dot(rotb, eris_ab.T, rota.T) + dot(rotb, eris_bb, rotb.T)
+            return (
+                + dot(rota, eris_aa, rota.T) + dot(rota, eris_ab, rotb.T)
+                + dot(rotb, eris_ab.T, rota.T) + dot(rotb, eris_bb, rotb.T)
+            )
 
     def get_rbos_split(self):
         r_bos_a = self.r_bos[:, :self.ov_mf[0]]

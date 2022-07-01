@@ -3,7 +3,7 @@ import functools
 from timeit import default_timer
 
 import vayesta
-from vayesta.core.util import *
+from vayesta.core.util import log_time
 from .rma import RMA_Dict
 from .scf import scf_with_mpi
 
@@ -91,12 +91,15 @@ class MPI_Interface:
             # No MPI:
             if self.disabled:
                 return func
+
             @functools.wraps(func)
             def wrapper(*args, **kwargs):
                 res = func(*args, **kwargs)
                 res = self.world.reduce(res, **mpi_kwargs)
                 return res
+
             return wrapper
+
         return decorator
 
     def with_allreduce(self, **mpi_kwargs):
@@ -104,12 +107,15 @@ class MPI_Interface:
             # No MPI:
             if self.disabled:
                 return func
+
             @functools.wraps(func)
             def wrapper(*args, **kwargs):
                 res = func(*args, **kwargs)
                 res = self.world.allreduce(res, **mpi_kwargs)
                 return res
+
             return wrapper
+
         return decorator
 
     def only_master(self):
@@ -117,12 +123,15 @@ class MPI_Interface:
             # No MPI:
             if self.disabled:
                 return func
+
             @functools.wraps(func)
             def wrapper(*args, **kwargs):
-                if not mpi.is_master:
+                if not self.is_master:
                     return None
                 return func(*args, **kwargs)
+
             return wrapper
+
         return decorator
 
     # --- Function wrapper at fragment level
@@ -135,6 +144,7 @@ class MPI_Interface:
                 return func
             # With MPI:
             tag2 = self.get_new_tag() if tag is None else tag
+
             @functools.wraps(func)
             def wrapper(*args, **kwargs):
                 if callable(source):
@@ -156,7 +166,9 @@ class MPI_Interface:
                 else:
                     self.log.debugv("MPI[%d] <do nothing> func=%s source=%d ", self.rank, func.__name__, src)
                 return None
+
             return wrapper
+
         return decorator
 
     def create_rma_dict(self, dictionary):

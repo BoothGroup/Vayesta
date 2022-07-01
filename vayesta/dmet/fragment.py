@@ -1,19 +1,18 @@
 import dataclasses
-from timeit import default_timer as timer
 
 # External libaries
 import numpy as np
 
 from vayesta.core.qemb import Fragment
-from vayesta.core.bath import BNO_Threshold
 from vayesta.solver import get_solver_class
-from vayesta.core.util import *
+from vayesta.core.util import log_time, dot
 
 
 # We might want to move the useful things from here into core, since they seem pretty general.
 
 class DMETFragmentExit(Exception):
     pass
+
 
 @dataclasses.dataclass
 class Results(Fragment.Results):
@@ -22,6 +21,7 @@ class Results(Fragment.Results):
     e2: float = None
     dm1: np.ndarray = None
     dm2: np.ndarray = None
+
 
 class DMETFragment(Fragment):
 
@@ -81,8 +81,10 @@ class DMETFragment(Fragment):
         with log_time(self.log.info, ("Time for %s solver:" % solver) + " %s"):
             cluster_solver.kernel(eris=eris)
 
-        self._results = results = self.Results(fid=self.id, wf=cluster_solver.wf, n_active=self.cluster.norb_active,
-                dm1=cluster_solver.wf.make_rdm1(), dm2=cluster_solver.wf.make_rdm2())
+        self._results = results = self.Results(
+                fid=self.id, wf=cluster_solver.wf, n_active=self.cluster.norb_active,
+                dm1=cluster_solver.wf.make_rdm1(), dm2=cluster_solver.wf.make_rdm2(),
+        )
         results.e1, results.e2 = self.get_dmet_energy_contrib()
 
         return results

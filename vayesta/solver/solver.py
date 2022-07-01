@@ -1,12 +1,10 @@
 import dataclasses
-from timeit import default_timer as timer
-import copy
 
 import numpy as np
 import scipy
 import scipy.optimize
 
-from vayesta.core.util import *
+from vayesta.core.util import dot, einsum, log_time, OptionsBase, break_into_lines, replace_attr, ConvergenceError
 
 
 class ClusterSolver:
@@ -116,10 +114,14 @@ class ClusterSolver:
             oa = np.s_[:self.cluster.nocc_active[0]]
             ob = np.s_[:self.cluster.nocc_active[1]]
             gaa, gab, gbb = eris
-            va = (einsum('iipq->pq', gaa[oa,oa]) + einsum('pqii->pq', gab[:,:,ob,ob])   # Coulomb
-                - einsum('ipqi->pq', gaa[oa,:,:,oa]))                                   # Exchange
-            vb = (einsum('iipq->pq', gbb[ob,ob]) + einsum('iipq->pq', gab[oa,oa])       # Coulomb
-                - einsum('ipqi->pq', gbb[ob,:,:,ob]))                                   # Exchange
+            va = (
+                + einsum('iipq->pq', gaa[oa,oa]) + einsum('pqii->pq', gab[:,:,ob,ob])   # Coulomb
+                - einsum('ipqi->pq', gaa[oa,:,:,oa])                                    # Exchange
+            )
+            vb = (
+                + einsum('iipq->pq', gbb[ob,ob]) + einsum('iipq->pq', gab[oa,oa])       # Coulomb
+                - einsum('ipqi->pq', gbb[ob,:,:,ob])                                    # Exchange
+            )
             h_eff = (fock[0]-va, fock[1]-vb)
             if with_vext and self.v_ext is not None:
                 h_eff = ((h_eff[0] + self.v_ext[0]),
@@ -230,7 +232,7 @@ class ClusterSolver:
 
                 self.reset()
                 with replace_attr(self, **replace):
-                    results = kernel_orig(eris=eris, **kwargs)
+                    kernel_orig(eris=eris, **kwargs)
                 if not self.converged:
                     raise ConvergenceError()
                 #dm1 = self.make_rdm1()
@@ -238,11 +240,16 @@ class ClusterSolver:
                 if self.is_rhf:
                     ne_frag = einsum('xi,ij,xj->', p_frag, dm1, p_frag)
                 else:
-                    ne_frag = (einsum('xi,ij,xj->', p_frag[0], dm1[0], p_frag[0])
-                             + einsum('xi,ij,xj->', p_frag[1], dm1[1], p_frag[1]))
+                    ne_frag = (
+                            + einsum('xi,ij,xj->', p_frag[0], dm1[0], p_frag[0])
+                            + einsum('xi,ij,xj->', p_frag[1], dm1[1], p_frag[1])
+                    )
 
                 err = (ne_frag - nelectron)
-                self.log.debug("Fragment chemical potential= %+12.8f Ha:  electrons= %.8f  error= %+.3e", cpt, ne_frag, err)
+                self.log.debug(
+                        "Fragment chemical potential= %+12.8f Ha:  electrons= %.8f  error= %+.3e",
+                        cpt, ne_frag, err,
+                )
                 iterations += 1
                 if abs(err) < (atol + rtol*nelectron):
                     cpt_opt = cpt
@@ -256,7 +263,11 @@ class ClusterSolver:
             try:
                 err0 = electron_err(cpt_guess)
             except CptFound:
-                self.log.debug("Chemical potential= %.6f leads to electron error= %.3e within tolerance (atol= %.1e, rtol= %.1e)", cpt_guess, err, atol, rtol)
+                self.log.debug(
+                        "Chemical potential= %.6f leads to electron error= %.3e "
+                        "within tolerance (atol= %.1e, rtol= %.1e)",
+                        cpt_guess, err, atol, rtol,
+                )
                 return result
 
             # Not enough electrons in fragment space -> raise fragment chemical potential:
@@ -282,10 +293,19 @@ class ClusterSolver:
 
             for ntry in range(5):
                 try:
-                    cpt, res = scipy.optimize.brentq(electron_err, a=bounds[0], b=bounds[1], xtol=1e-12, full_output=True)
+                    cpt, res = scipy.optimize.brentq(
+                            electron_err,
+                            a=bounds[0],
+                            b=bounds[1],
+                            xtol=1e-12,
+                            full_output=True,
+                    )
                     if res.converged:
-                        raise RuntimeError("Chemical potential converged to %+16.8f, but electron error is still %.3e" % (cpt, err))
-                        #self.log.warning("Chemical potential converged to %+16.8f, but electron error is still %.3e", cpt, err)
+                        raise RuntimeError(
+                                "Chemical potential converged to %+16.8f, but electron error is still %.3e"
+                                % (cpt, err))
+                        #self.log.warning(
+                        #        "Chemical potential converged to %+16.8f, but electron error is still %.3e", cpt, err)
                         #cpt_opt = cpt
                         #raise CptFound
                 except CptFound:
@@ -293,7 +313,10 @@ class ClusterSolver:
                 # Could not find chemical potential in bracket:
                 except ValueError:
                     bounds *= 2
-                    self.log.warning("Interval for chemical potential search too small. New search interval: [%f %f]", *bounds)
+                    self.log.warning(
+                            "Interval for chemical potential search too small. New search interval: [%f %f]",
+                            *bounds,
+                    )
                     continue
                 # Could not convergence in bracket:
                 except ConvergenceError:
@@ -333,8 +356,8 @@ class EBClusterSolver(ClusterSolver):
             noa = nob = no
         else:
             noa, nob = no
-        self._polaritonic_shift = np.multiply(freqs ** (-1), einsum("npp->n", couplings[0][:, :noa, :noa]) +
-                                              einsum("npp->n", couplings[1][:, :nob, :nob]))
+        self._polaritonic_shift = np.multiply(freqs ** (-1), einsum("npp->n", couplings[0][:, :noa, :noa])
+                                              + einsum("npp->n", couplings[1][:, :nob, :nob]))
         self.log.info("Applying Polaritonic shift gives energy change of %e",
                       -sum(np.multiply(self._polaritonic_shift**2, freqs)))
         fock_shift = tuple([- einsum("npq,n->pq", x + x.transpose(0, 2, 1), self.polaritonic_shift) for x in couplings])

@@ -8,14 +8,12 @@ import scipy.spatial
 import pyscf
 import pyscf.symm
 
-import vayesta
-import vayesta.core
-from vayesta.core.util import *
-
+from vayesta.core.util import einsum, AbstractMethodError
 
 log = logging.getLogger(__name__)
 
 BOHR = 0.529177210903
+
 
 class SymmetryOperation:
 
@@ -41,10 +39,12 @@ class SymmetryOperation:
     def __call__(self):
         raise AbstractMethodError()
 
+
 class SymmetryIdentity(SymmetryOperation):
 
     def __call__(self, a, **kwargs):
         return a
+
 
 class SymmetryRotation(SymmetryOperation):
 
@@ -204,7 +204,6 @@ class SymmetryTranslation(SymmetryOperation):
     @property
     def vector_xyz(self):
         """Translation vector in real-space coordinates (unit = Bohr)."""
-        latvecs = self.lattice_vectors
         vector_xyz = np.dot(self.lattice_vectors, self.vector)
         return vector_xyz
 
@@ -231,10 +230,12 @@ class SymmetryTranslation(SymmetryOperation):
         def get_atom_at(pos):
             """pos in internal coordinates."""
             for dx, dy, dz in itertools.product([0,-1,1], repeat=3):
-                if self.group.dimension in (1, 2) and (dz != 0): continue
-                if self.group.dimension == 1 and (dy != 0): continue
+                if self.group.dimension in (1, 2) and (dz != 0):
+                    continue
+                if self.group.dimension == 1 and (dy != 0):
+                    continue
                 dr = np.asarray([dx, dy, dz])
-                phase = np.product(self.boundary_phases[dr!=0])
+                phase = np.product(self.boundary_phases[dr != 0])
                 dists = np.linalg.norm(atom_coords_abc + dr - pos, axis=1)
                 idx = np.argmin(dists)
                 if (dists[idx] < self.xtol):
@@ -288,6 +289,8 @@ class SymmetryTranslation(SymmetryOperation):
         assert np.all(np.arange(self.nao)[reorder][inverse] == np.arange(self.nao))
         return reorder, inverse, phases
 
+
+# flake8: noqa
 if __name__ == '__main__':
 
     def test_translation():

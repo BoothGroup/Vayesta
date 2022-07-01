@@ -9,9 +9,10 @@ import pyscf.scf
 import pyscf.lib
 from pyscf.lib.parameters import BOHR
 
-from vayesta.core.util import *
+from vayesta.core.util import einsum
 
 log = logging.getLogger(__name__)
+
 
 class LatticeMole(pyscf.pbc.gto.Cell):
     """For PySCF compatibility
@@ -39,10 +40,11 @@ class LatticeMole(pyscf.pbc.gto.Cell):
         """
         super().__init__(verbose=verbose, output=output)
         self.nsite = nsite
-        if nelectron is None: nelectron = nsite
+        if nelectron is None:
+            nelectron = nsite
         self.nelectron = nelectron
         self.spin = spin
-        self._basis = {self.atom_symbol(i) : None for i in range(self.nsite)}
+        self._basis = {self.atom_symbol(i): None for i in range(self.nsite)}
         self._built = True
         self.incore_anyway = incore_anyway
         self.order = order
@@ -61,7 +63,7 @@ class LatticeMole(pyscf.pbc.gto.Cell):
         if fmt:
             return ['%s%d' % (self.atom_pure_symbol(i), i) for i in range(self.nsite)]
         elif fmt is None:
-            return [(i, self.atom_pure_symbol(i) , '', '') for i in range(self.nsite)]
+            return [(i, self.atom_pure_symbol(i), '', '') for i in range(self.nsite)]
 
     def atom_symbol(self, site):
         return '%s%d' % (self.atom_pure_symbol(site), site)
@@ -93,8 +95,10 @@ class Hubbard(LatticeMole):
         return aorange
 
     def ao2mo(self, mo_coeffs, compact=False):
-        if compact: raise NotImplementedError()
-        if self.v_nn: raise NotImplementedError()
+        if compact:
+            raise NotImplementedError()
+        if self.v_nn:
+            raise NotImplementedError()
 
         if isinstance(mo_coeffs, np.ndarray) and np.ndim(mo_coeffs) == 2:
             eris = self.hubbard_u*einsum('ai,aj,ak,al->ijkl', mo_coeffs, mo_coeffs, mo_coeffs, mo_coeffs)
@@ -107,7 +111,17 @@ class Hubbard(LatticeMole):
 class Hubbard1D(Hubbard):
     """Hubbard model in 1D."""
 
-    def __init__(self, nsite, nelectron=None, spin=0, hubbard_t=1.0, hubbard_u=0.0, v_nn=0.0, boundary='auto', **kwargs):
+    def __init__(
+            self,
+            nsite,
+            nelectron=None,
+            spin=0,
+            hubbard_t=1.0,
+            hubbard_u=0.0,
+            v_nn=0.0,
+            boundary='auto',
+            **kwargs,
+    ):
         super().__init__(nsite, nelectron, spin, hubbard_t, hubbard_u, v_nn=v_nn, **kwargs)
 
         self.nsites = [nsite]
@@ -152,7 +166,6 @@ class Hubbard1D(Hubbard):
                 eri = eri[order][:,order][:,:,order][:,:,:,order]
         return eri
 
-
     def lattice_vectors(self):
         """Lattice vectors of 1D Hubbard model.
 
@@ -172,8 +185,18 @@ class Hubbard1D(Hubbard):
 
 class Hubbard2D(Hubbard):
 
-    def __init__(self, nsites, nelectron=None, spin=0, hubbard_t=1.0, hubbard_u=0.0, boundary='auto',
-            tiles=(1, 1), order=None, **kwargs):
+    def __init__(
+            self,
+            nsites,
+            nelectron=None,
+            spin=0,
+            hubbard_t=1.0,
+            hubbard_u=0.0,
+            boundary='auto',
+            tiles=(1, 1),
+            order=None,
+            **kwargs,
+    ):
         nsite = nsites[0]*nsites[1]
         if order is None and tiles != (1, 1):
             order = self.get_tiles_order(nsites, tiles)
@@ -239,7 +262,7 @@ class Hubbard2D(Hubbard):
             fac *= bfac[0]
         if j % self.nsites[1] != j:
             fac *= bfac[1]
-        idx = (i%self.nsites[0])*self.nsites[1] + (j%self.nsites[1])
+        idx = (i % self.nsites[0])*self.nsites[1] + (j % self.nsites[1])
         return idx, fac
 
     def get_eri(self, hubbard_u=None, v_nn=None):
@@ -306,7 +329,8 @@ class Hubbard2D(Hubbard):
 class HubbardDF:
 
     def __init__(self, mol):
-        if mol.v_nn: raise NotImplementedError()
+        if mol.v_nn:
+            raise NotImplementedError()
         self.mol = mol
         self.blockdim = self.get_naoaux()
 
@@ -349,6 +373,7 @@ class LatticeSCF:
         self.with_df = HubbardDF(self.mol)
         return self
 
+
 class LatticeRHF(LatticeSCF, pyscf.scf.hf.RHF):
 
     def get_init_guess(self, mol=None, key=None):
@@ -358,8 +383,10 @@ class LatticeRHF(LatticeSCF, pyscf.scf.hf.RHF):
         return dm
 
     def get_jk(self, mol=None, dm=None, *args, **kwargs):
-        if mol is None: mol = self.mol
-        if dm is None: dm = self.make_rdm1()
+        if mol is None:
+            mol = self.mol
+        if dm is None:
+            dm = self.make_rdm1()
         if self.mol.v_nn is not None and mol.v_nn != 0:
             raise NotImplementedError()
         j = np.diag(np.diag(dm))*mol.hubbard_u
@@ -367,7 +394,8 @@ class LatticeRHF(LatticeSCF, pyscf.scf.hf.RHF):
         return j, k
 
     def check_lattice_symmetry(self, dm=None):
-        if dm is None: dm = self.make_rdm1()
+        if dm is None:
+            dm = self.make_rdm1()
         occ = np.diag(dm)
         if not np.all(np.isclose(occ[0], occ)):
             log.warning("Mean-field not lattice symmetric! Site occupations=\n%r", occ)
@@ -419,6 +447,7 @@ class LatticeRHF(LatticeSCF, pyscf.scf.hf.RHF):
 
     #kernel = kernel_hubbard
 
+
 class LatticeUHF(LatticeSCF, pyscf.scf.uhf.UHF):
 
     def get_init_guess(self, mol=None, key=None):
@@ -432,13 +461,15 @@ class LatticeUHF(LatticeSCF, pyscf.scf.uhf.UHF):
         for x in range(self.mol.nsites[0]):
             for y in range(self.mol.nsites[1]):
                 ind, fac = self.mol.get_index(x,y)
-                offset[ind] *= (-1) ** (x%2 + y%2)
+                offset[ind] *= (-1) ** (x % 2 + y % 2)
         dma[np.diag_indices_from(dma)] += offset
         return (dma, dmb)
 
     def get_jk(self, mol=None, dm=None, *args, **kwargs):
-        if mol is None: mol = self.mol
-        if dm is None: dm = self.make_rdm1()
+        if mol is None:
+            mol = self.mol
+        if dm is None:
+            dm = self.make_rdm1()
         if self.mol.v_nn is not None and mol.v_nn != 0:
             raise NotImplementedError()
         dma, dmb = dm

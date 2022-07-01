@@ -3,9 +3,6 @@ from contextlib import contextmanager
 
 import numpy as np
 
-import vayesta
-from vayesta.core.util import *
-
 log = logging.getLogger(__name__)
 
 
@@ -126,7 +123,10 @@ class RMA_Dict:
         if self.mpi.disabled:
             return self._elements[key]
         element = self._elements[key]
-        log.debugv("RMA: origin= %d, target= %d, key= %r, shape= %r, dtype= %r", self.mpi.rank, element.location, key, element.shape, element.dtype)
+        log.debugv(
+                "RMA: origin= %d, target= %d, key= %r, shape= %r, dtype= %r",
+                self.mpi.rank, element.location, key, element.shape, element.dtype,
+        )
         return element.get()
 
     def __setitem__(self, key, value):
@@ -168,7 +168,8 @@ class RMA_Dict:
 
     def _get_metadata(self):
         """Get shapes and datatypes of local data."""
-        #return {key: (getattr(val, 'shape', None), getattr(val, 'dtype', type(None))) for key, val in self.local_data.items()}
+        #return {key: (getattr(val, 'shape', None), getattr(val, 'dtype', type(None)))
+        #        for key, val in self.local_data.items()}
         mdata = {}
         for key, val in self.local_data.items():
             shape = getattr(val, 'shape', None)

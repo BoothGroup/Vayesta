@@ -1,5 +1,6 @@
 import numpy as np
 
+
 def orbital_sign_convention(mo_coeff, inplace=True):
     if not inplace:
         mo_coeff = mo_coeff.copy()
@@ -11,6 +12,7 @@ def orbital_sign_convention(mo_coeff, inplace=True):
     signs[swap] = -1
     return mo_coeff, signs
 
+
 # --- Packing/unpacking arrays
 
 def get_dtype_int(obj):
@@ -19,12 +21,14 @@ def get_dtype_int(obj):
     dtint = np.asarray(obj.dtype.char, dtype='a8').view(int)[()]
     return dtint
 
+
 def get_dtype(dtint):
     if dtint == 0:
         return None
     val = np.asarray(dtint).view('a8')[()]
     dtype = np.dtype(val)
     return dtype
+
 
 def pack_metadata(array, maxdim=8):
     if np.ndim(array) > maxdim:
@@ -39,11 +43,13 @@ def pack_metadata(array, maxdim=8):
     metadata = [dtint, ndim] + shape
     return np.asarray(metadata, dtype=int)
 
+
 def unpack_metadata(array, maxdim=8):
     metadata = array[:maxdim+2].view(int)
     dtype = get_dtype(metadata[0])
     ndim, shape = metadata[1], metadata[2:]
     return dtype, ndim, shape
+
 
 def pack_arrays(*arrays, dtype=float, maxdim=8):
     """Pack multiple arrays into a single array of data type `dtype`.
@@ -61,6 +67,7 @@ def pack_arrays(*arrays, dtype=float, maxdim=8):
     for array in arrays:
         packed.append(pack(array))
     return np.hstack(packed)
+
 
 def unpack_arrays(packed, dtype=float, maxdim=8):
     """Unpack a single array of data type `dtype` into multiple arrays.
@@ -92,7 +99,7 @@ if __name__ == '__main__':
         np.random.rand(70),
         #np.random.rand(70)*1j,
         #np.asarray([True, False, False])
-        ]
+    ]
     pack = pack_arrays(*arrays_in)
 
     print(np.sum([sys.getsizeof(x) for x in arrays_in]))

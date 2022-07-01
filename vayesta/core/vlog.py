@@ -1,7 +1,6 @@
 """Vayesta logging module"""
 
 import logging
-import os
 import contextlib
 
 from vayesta.mpi import mpi
@@ -26,21 +25,22 @@ TRACE   (*)      1  (-vvv)      To trace function flow
 """
 
 LVL_PREFIX = {
-   "FATAL" : "FATAL",
-   "CRITICAL" : "CRITICAL",
-   "ERROR" : "ERROR",
-   "WARNING" : "WARNING",
-   "OUT" : "OUTPUT",
-   "DEBUGV" : "DEBUG",
-   "TRACE" : "TRACE",
-   }
+       "FATAL": "FATAL",
+       "CRITICAL": "CRITICAL",
+       "ERROR": "ERROR",
+       "WARNING": "WARNING",
+       "OUT": "OUTPUT",
+       "DEBUGV": "DEBUG",
+       "TRACE": "TRACE",
+}
 
 
 class NoLogger:
 
     def __getattr__(self, key):
         """Return function which does nothing."""
-        return (lambda *args, **kwargs : None)
+        return (lambda *args, **kwargs: None)
+
 
 class LevelRangeFilter(logging.Filter):
     """Only log events with level in interval [low, high)."""
@@ -57,6 +57,7 @@ class LevelRangeFilter(logging.Filter):
             return (self._low <= record.levelno)
         return (self._low <= record.levelno < self._high)
 
+
 class LevelIncludeFilter(logging.Filter):
     """Only log events with level in include."""
 
@@ -66,6 +67,7 @@ class LevelIncludeFilter(logging.Filter):
 
     def filter(self, record):
         return (record.levelno in self._include)
+
 
 class LevelExcludeFilter(logging.Filter):
     """Only log events with level not in exlude."""
@@ -77,12 +79,13 @@ class LevelExcludeFilter(logging.Filter):
     def filter(self, record):
         return (record.levelno not in self._exclude)
 
+
 class VFormatter(logging.Formatter):
     """Formatter which adds a prefix column and indentation."""
 
     def __init__(self, *args,
-            show_level=True, show_mpi_rank=False, prefix_sep='|',
-            indent=False, indent_char=' ', indent_width=4, **kwargs):
+                 show_level=True, show_mpi_rank=False, prefix_sep='|',
+                 indent=False, indent_char=' ', indent_width=4, **kwargs):
         super().__init__(*args, **kwargs)
 
         self.show_level = show_level
@@ -117,6 +120,7 @@ class VFormatter(logging.Formatter):
             lines = [((prefix + "  " + line) if line else prefix) for line in lines]
         return "\n".join(lines)
 
+
 class VStreamHandler(logging.StreamHandler):
     """Default stream handler with IndentedFormatter"""
 
@@ -125,6 +129,7 @@ class VStreamHandler(logging.StreamHandler):
         if formatter is None:
             formatter = VFormatter()
         self.setFormatter(formatter)
+
 
 class VFileHandler(logging.FileHandler):
     """Default file handler with IndentedFormatter"""
@@ -136,12 +141,14 @@ class VFileHandler(logging.FileHandler):
             formatter = VFormatter()
         self.setFormatter(formatter)
 
+
 def get_logname(name, add_mpi_rank=True, ext='txt'):
     if mpi and add_mpi_rank:
         name = '%s.mpi%d' % (name, mpi.rank)
     if ext and not name.endswith('.%s' % ext):
         name = '%s.%s' % (name, ext)
     return name
+
 
 def init_logging():
     """Call this to initialize and configure logging, when importing Vayesta.
@@ -158,13 +165,17 @@ def init_logging():
     def add_log_level(level, name):
         logging.addLevelName(level, name.upper())
         setattr(logging, name.upper(), level)
+
         def logForLevel(self, message, *args, **kwargs):
             if self.isEnabledFor(level):
                 self._log(level, message, args, **kwargs)
+
         def logToRoot(message, *args, **kwargs):
             logging.log(level, message, *args, **kwargs)
+
         setattr(logging.getLoggerClass(), name, logForLevel)
         setattr(logging, name, logToRoot)
+
     add_log_level(100, "fatal")
     add_log_level(25, "output")
     add_log_level(15, "infov")

@@ -1,0 +1,20 @@
+[flake8]
+
+ignore = \
+        E116, \  # Unexpected indentation (comment)
+        E126, \  # Continuation line over-indented for hanging indent
+        E221, \  # Multiple spaces before operator
+        E222, \  # Multiple spaces after operator
+        E226, \  # Missing whitespace around arithmetic operator
+        E231, \  # Missing whitespace after ",", ";" or ":"
+        E241, \  # Multiple spaces after ","
+        E265, \  # Block comment should start with "# "
+        W503, \  # Line break occurred before a binary operator
+        E721, \  # Do not compare types, use "isinstance()"
+        E731, \  # Do not assign a lambda expression, use a def instead
+        E741, \  # Do not use varialbes named "I", "O" or "l"
+        F811     # Redifinition of unused name
+
+exclude = tests, .git, .github, __pycache__, __init__.py, build, dist, *.egg
+
+max-line-length = 120

@@ -2,8 +2,9 @@ import numpy as np
 import scipy
 import scipy.linalg
 
-from vayesta.core.util import *
+from vayesta.core.util import dot, timer, time_string, fix_orbital_sign
 from . import helper
+
 
 def check_orthonormal(log, mo_coeff, ovlp, mo_name="orbital", tol=1e-7):
     """Check orthonormality of mo_coeff.
@@ -200,7 +201,8 @@ class Fragmentation:
 
     def symmetric_orth(self, mo_coeff, ovlp=None, tol=1e-15):
         """Use as mo_coeff = np.dot(mo_coeff, x) to get orthonormal orbitals."""
-        if ovlp is None: ovlp = self.get_ovlp()
+        if ovlp is None:
+            ovlp = self.get_ovlp()
         m = dot(mo_coeff.T, ovlp, mo_coeff)
         e, v = scipy.linalg.eigh(m)
         e_min = e.min()
@@ -223,12 +225,14 @@ class Fragmentation:
     #    return l2, linf
 
     def check_orthonormal(self, mo_coeff, mo_name=None, tol=1e-7):
-        if mo_name is None: mo_name = self.name
+        if mo_name is None:
+            mo_name = self.name
         return check_orthonormal(self.log, mo_coeff, self.get_ovlp(), mo_name=mo_name, tol=tol)
 
     def get_atom_indices_symbols(self, atoms):
         """Convert a list of integer or strings to atom indices and symbols."""
-        if np.ndim(atoms) == 0: atoms = [atoms]
+        if np.ndim(atoms) == 0:
+            atoms = [atoms]
 
         if isinstance(atoms[0], (int, np.integer)):
             atom_indices = atoms
@@ -264,7 +268,8 @@ class Fragmentation:
             List of fragment orbitals indices, with coefficients corresponding to `self.coeff[:,indices]`.
         """
         atom_indices, atom_symbols = self.get_atom_indices_symbols(atoms)
-        if name is None: name = '/'.join(atom_symbols)
+        if name is None:
+            name = '/'.join(atom_symbols)
         self.log.debugv("Atom indices of fragment %s: %r", name, atom_indices)
         self.log.debugv("Atom symbols of fragment %s: %r", name, atom_symbols)
         # Indices of IAOs based at atoms
@@ -277,7 +282,8 @@ class Fragmentation:
 
     def get_orbital_indices_labels(self, orbitals):
         """Convert a list of integer or strings to orbital indices and labels."""
-        if np.ndim(orbitals) == 0: orbitals = [orbitals]
+        if np.ndim(orbitals) == 0:
+            orbitals = [orbitals]
 
         if isinstance(orbitals[0], (int, np.integer)):
             orbital_indices = orbitals
@@ -298,7 +304,8 @@ class Fragmentation:
         if atom_filter is not None:
             raise NotImplementedError()
         indices, orbital_labels = self.get_orbital_indices_labels(orbitals)
-        if name is None: name = '/'.join(orbital_labels)
+        if name is None:
+            name = '/'.join(orbital_labels)
         self.log.debugv("Orbital indices of fragment %s: %r", name, indices)
         self.log.debugv("Orbital labels of fragment %s: %r", name, orbital_labels)
         return name, indices

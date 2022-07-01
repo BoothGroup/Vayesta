@@ -6,8 +6,9 @@ import pyscf.ao2mo
 import pyscf.ci
 import pyscf.fci
 
-from vayesta.core.util import *
+from vayesta.core.util import dot, einsum, timer, time_string
 from vayesta.mpi import mpi, RMA_Dict
+
 
 def transform_amplitude(t, u_occ, u_vir):
     """(Old basis|new basis)"""
@@ -30,7 +31,7 @@ def make_cas_tcc_function(solver, c_cas_occ, c_cas_vir, eris):
 
     solver.log.info("Running FCI in (%d, %d) CAS", nelec, ncas)
 
-    c_cas = np.hstack((c_cas_occ, c_cas_vir))
+    #c_cas = np.hstack((c_cas_occ, c_cas_vir))
     ovlp = solver.base.get_ovlp()
 
     # Rotation & projection into CAS
@@ -193,7 +194,7 @@ def couple_ccsd_iterations(solver, fragments):
         t1, t2 = kwargs['t1new'], kwargs['t2new']
         cc.force_iter = True
         cc.force_exit = bool(mpi.world.allreduce(int(cc.conv_flag), op=mpi.MPI.PROD))
-        conv = mpi.world.gather(int(cc.conv_flag), root=0)
+        mpi.world.gather(int(cc.conv_flag), root=0)
 
         rma = RMA_Dict.from_dict(mpi, {(mpi.rank, 't1'): t1, (mpi.rank, 't2'): t2})
 
@@ -215,7 +216,14 @@ def couple_ccsd_iterations(solver, fragments):
     return tailorfunc
 
 
-def make_cross_fragment_tcc_function(solver, mode, coupled_fragments=None, correct_t1=True, correct_t2=True, symmetrize_t2=True):
+def make_cross_fragment_tcc_function(
+        solver,
+        mode,
+        coupled_fragments=None,
+        correct_t1=True,
+        correct_t2=True,
+        symmetrize_t2=True
+):
     """Tailor current CCSD calculation with amplitudes of other fragments.
 
     This assumes orthogonal fragment spaces.
@@ -257,29 +265,31 @@ def make_cross_fragment_tcc_function(solver, mode, coupled_fragments=None, corre
     def tailor_func_old(cc, t1, t2):
         """Add external correction to T1 and T2 amplitudes."""
         # Add the correction to dt1 and dt2:
-        if correct_t1: dt1 = np.zeros_like(t1)
-        if correct_t2: dt2 = np.zeros_like(t2)
+        if correct_t1:
+            dt1 = np.zeros_like(t1)
+        if correct_t2:
+            dt2 = np.zeros_like(t2)
 
-        ##t1[:] = 0
-        ##t2[:] = 0
+        #t1[:] = 0
+        #t2[:] = 0
 
-        ##mo_coeff = np.hstack((c_occ, c_vir))
-        ##nsite = mo_coeff.shape[0]
-        ##t1 = np.zeros((nsite, nsite))
-        ##t2 = np.zeros((nsite, nsite, nsite, nsite))
-        ##diag = list(range(nsite))
-        ##val = 1000.0
-        ##t1[diag,diag] = val
-        ##t2[diag,diag,diag,diag] = val
-        ##t1 = einsum('xy,xi,ya->ia', t1, c_occ, c_vir)
-        ##t2 = einsum('xyzw,xi,yj,za,wb->ijab', t2, c_occ, c_occ, c_vir, c_vir)
+        #mo_coeff = np.hstack((c_occ, c_vir))
+        #nsite = mo_coeff.shape[0]
+        #t1 = np.zeros((nsite, nsite))
+        #t2 = np.zeros((nsite, nsite, nsite, nsite))
+        #diag = list(range(nsite))
+        #val = 1000.0
+        #t1[diag,diag] = val
+        #t2[diag,diag,diag,diag] = val
+        #t1 = einsum('xy,xi,ya->ia', t1, c_occ, c_vir)
+        #t2 = einsum('xyzw,xi,yj,za,wb->ijab', t2, c_occ, c_occ, c_vir, c_vir)
 
-        ##def t2loc(t2, site=0):
-        ##    t2 = einsum('xyzw,xi,yj,za,wb->ijab', t2, c_occ.T, c_occ.T, c_vir.T, c_vir.T)
-        ##    return t2[site,site,site,site]
+        #def t2loc(t2, site=0):
+        #    t2 = einsum('xyzw,xi,yj,za,wb->ijab', t2, c_occ.T, c_occ.T, c_vir.T, c_vir.T)
+        #    return t2[site,site,site,site]
 
-        ##print(t2loc(t2, 0))
-        ##print(t2loc(t2, 1))
+        #print(t2loc(t2, 0))
+        #print(t2loc(t2, 1))
 
         # Loop over all *other* fragments/cluster X
         for x in coupled_fragments:
@@ -328,10 +338,12 @@ def make_cross_fragment_tcc_function(solver, mode, coupled_fragments=None, corre
                 dt2 += dtx2
             else:
                 dtx2 = 0
-            solver.log.debugv("Tailoring %12s <- %12s: |dT1|= %.2e  |dT2|= %.2e", solver.fragment, x, np.linalg.norm(dtx1), np.linalg.norm(dtx2))
+            solver.log.debugv(
+                    "Tailoring %12s <- %12s: |dT1|= %.2e  |dT2|= %.2e",
+                    solver.fragment, x, np.linalg.norm(dtx1), np.linalg.norm(dtx2),
+            )
             #print(t2loc(dt2, 0))
             #print(t2loc(dt2, 1))
-
 
         # Store these norms in cc, to log their final value:
         cc._norm_dt1 = np.linalg.norm(dt1) if correct_t1 else 0.0
@@ -351,12 +363,13 @@ def make_cross_fragment_tcc_function(solver, mode, coupled_fragments=None, corre
 
         return t1, t2
 
-
     def tailor_func(cc, t1, t2):
         """Add external correction to T1 and T2 amplitudes."""
         # Add the correction to dt1 and dt2:
-        if correct_t1: dt1 = np.zeros_like(t1)
-        if correct_t2: dt2 = np.zeros_like(t2)
+        if correct_t1:
+            dt1 = np.zeros_like(t1)
+        if correct_t2:
+            dt2 = np.zeros_like(t2)
 
         t1[:] = 0
         t2[:] = 0
@@ -388,7 +401,6 @@ def make_cross_fragment_tcc_function(solver, mode, coupled_fragments=None, corre
         print(t2[0,0,0,0])
         print(t2[0,0,0,1])
         1/0
-
 
         t1 = einsum('xy,xi,ya->ia', t1, c_occ, c_vir)
         t2 = einsum('xyzw,xi,yj,za,wb->ijab', t2, c_occ, c_occ, c_vir, c_vir)
@@ -470,10 +482,12 @@ def make_cross_fragment_tcc_function(solver, mode, coupled_fragments=None, corre
                 dt2 += dtx2
             else:
                 dtx2 = 0
-            solver.log.debugv("Tailoring %12s <- %12s: |dT1|= %.2e  |dT2|= %.2e", solver.fragment, x, np.linalg.norm(dtx1), np.linalg.norm(dtx2))
+            solver.log.debugv(
+                    "Tailoring %12s <- %12s: |dT1|= %.2e  |dT2|= %.2e",
+                    solver.fragment, x, np.linalg.norm(dtx1), np.linalg.norm(dtx2),
+            )
             print(t2loc(dt2, 0))
             print(t2loc(dt2, 1))
-
 
         # Store these norms in cc, to log their final value:
         cc._norm_dt1 = np.linalg.norm(dt1) if correct_t1 else 0.0

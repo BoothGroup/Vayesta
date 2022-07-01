@@ -219,6 +219,7 @@ def _make_cell(a, atom, supercell=None, verbose=10, max_memory=int(1e9), **kwarg
         cell = pyscf.pbc.tools.super_cell(cell, supercell)
     return cell
 
+
 def _make_pbc_mf(cell, kpts=None, df=None, xc=None, restricted=None, **kwargs):
     if restricted is None:
         restricted = (cell.spin == 0)
@@ -316,8 +317,11 @@ def register_system_cell(cache, key):
 
     # Rocksalt LiH
     if key == 'lih_k221':
-        cell = _make_cell(*solids.rocksalt(atoms=['Li', 'H']), basis='def2-svp',
-                exp_to_discard=0.1)
+        cell = _make_cell(
+                *solids.rocksalt(atoms=['Li', 'H']),
+                basis='def2-svp',
+                exp_to_discard=0.1,
+        )
         kpts = cell.make_kpts([2,2,1])
         df = pyscf.pbc.df.GDF(cell, kpts)
         df.auxbasis = 'def2-svp-ri'
@@ -325,8 +329,12 @@ def register_system_cell(cache, key):
         cache._cache[key] = {'cell': cell, 'kpts': kpts, 'rhf': mf, 'uhf': None}
         return
     if key == 'lih_g221':
-        cell = _make_cell(*solids.rocksalt(atoms=['Li', 'H']), basis='def2-svp',
-                exp_to_discard=0.1, supercell=[2,2,1])
+        cell = _make_cell(
+                *solids.rocksalt(atoms=['Li', 'H']),
+                basis='def2-svp',
+                exp_to_discard=0.1,
+                supercell=[2,2,1],
+        )
         df = pyscf.pbc.df.GDF(cell)
         df.auxbasis = 'def2-svp-ri'
         mf = _make_pbc_mf(cell, df=df)
@@ -358,7 +366,14 @@ def register_system_cell(cache, key):
         cache._cache[key] = {'cell': cell, 'kpts': kpts, 'rhf': mf, 'uhf': None}
         return
     if key == 'graphene_g221':
-        cell = _make_cell(*solids.graphene(c=30.0), dimension=2, basis='def2-svp', exp_to_discard=0.1, supercell=[2,2,1], precision=1e-12)
+        cell = _make_cell(
+                *solids.graphene(c=30.0),
+                dimension=2,
+                basis='def2-svp',
+                exp_to_discard=0.1,
+                supercell=[2,2,1],
+                precision=1e-12,
+        )
         df = pyscf.pbc.df.GDF(cell)
         df.auxbasis = 'def2-svp-ri'
         mf = _make_pbc_mf(cell, df=df)
@@ -383,7 +398,6 @@ def register_system_cell(cache, key):
         mf = _make_pbc_mf(cell, df=df)
         cache._cache[key] = {'cell': cell, 'kpts': None, 'rhf': None, 'uhf': mf}
         return
-
 
     cell = pyscf.pbc.gto.Cell()
     kpts = None

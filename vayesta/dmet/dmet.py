@@ -6,7 +6,7 @@ import scipy
 import scipy.linalg
 
 from vayesta.core.qemb import Embedding
-from vayesta.core.util import *
+from vayesta.core.util import break_into_lines, time_string
 from .fragment import DMETFragment, DMETFragmentExit
 
 from .sdp_sc import perform_SDP_fit
@@ -28,14 +28,18 @@ class Options(Embedding.Options):
     mixing_variable: str = "hl rdm"
     oneshot: bool = False
     # --- Solver options
-    solver_options: dict = Embedding.Options.change_dict_defaults('solver_options',
+    solver_options: dict = Embedding.Options.change_dict_defaults(
+            'solver_options',
             # CCSD
-            solve_lambda=True)
+            solve_lambda=True,
+    )
+
 
 @dataclasses.dataclass
 class DMETResults:
     cluster_sizes: np.ndarray = None
     e_corr: float = None
+
 
 class DMET(Embedding):
 
@@ -178,8 +182,12 @@ class DMET(Embedding):
                         break
                 # If we've got to here we've found a bracket.
                 [lo, hi] = sorted([cpt, new_cpt])
-                cpt, res = scipy.optimize.brentq(electron_err, a=lo, b=hi, full_output=True,
-                                                 xtol=self.opts.max_elec_err * nelec_mf)  # self.opts.max_elec_err * nelec_mf)
+                cpt, res = scipy.optimize.brentq(
+                        electron_err,
+                        a=lo,
+                        b=hi,
+                        full_output=True,
+                        xtol=self.opts.max_elec_err * nelec_mf)  # self.opts.max_elec_err * nelec_mf)
                 self.log.info("Converged chemical potential: {:6.4e}".format(cpt))
                 # Recalculate to ensure all fragments have up-to-date info. Brentq strangely seems to do an extra
                 # calculation at the end...
@@ -283,5 +291,6 @@ class DMET(Embedding):
         self.log.info("%3s  %20s  %8s  %4s", "ID", "Name", "Solver", "Size")
         for frag in self.loop():
             self.log.info("%3d  %20s  %8s  %4d", frag.id, frag.name, frag.solver, frag.size)
+
 
 RDMET = DMET

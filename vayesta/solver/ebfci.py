@@ -2,7 +2,7 @@ import dataclasses
 
 import numpy as np
 
-from vayesta.core.util import *
+from vayesta.core.util import timer, time_string, energy_string
 from vayesta.solver.fci import FCI_Solver, UFCI_Solver
 from vayesta.solver.solver import EBClusterSolver
 from .eb_fci import ebfci_slow, uebfci_slow
@@ -122,9 +122,16 @@ class UEBFCI_Solver(EBFCI_Solver, UFCI_Solver):
             couplings = tuple([x+y for x, y in zip(couplings, coupling_shift)])
 
         t0 = timer()
-        self.e_fci, self.civec = uebfci_slow.kernel(heff, eris, couplings,
-                                                   np.diag(self.fragment.bos_freqs), self.ncas, self.nelec, self.nbos,
-                                                   self.opts.max_boson_occ)
+        self.e_fci, self.civec = uebfci_slow.kernel(
+                heff,
+                eris,
+                couplings,
+                np.diag(self.fragment.bos_freqs),
+                self.ncas,
+                self.nelec,
+                self.nbos,
+                self.opts.max_boson_occ,
+        )
         # Getting convergence detail out pretty complicated, and nonconvergence rare- just assume for now.
         self.log.timing("Time for EBFCI: %s", time_string(timer() - t0))
         self.log.debugv("E(CAS)= %s", energy_string(self.e_fci))

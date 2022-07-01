@@ -1,7 +1,5 @@
 """Self-consistent mean-field decorators"""
 
-import copy
-
 import numpy as np
 import scipy
 import scipy.linalg
@@ -9,8 +7,7 @@ import scipy.linalg
 import pyscf
 import pyscf.lib
 
-from vayesta.misc import PCDIIS
-from vayesta.core.util import *
+from vayesta.core.util import dot, energy_string, AbstractMethodError, fix_orbital_sign
 
 
 class SCMF:
@@ -61,15 +58,17 @@ class SCMF:
         raise AbstractMethodError()
 
     def check_convergence(self, e_tot, dm1, e_last=None, dm1_last=None, etol=None, dtol=None):
-        if etol is None: etol = self.etol
-        if dtol is None: dtol = self.dtol
+        if etol is None:
+            etol = self.etol
+        if dtol is None:
+            dtol = self.dtol
         if e_last is not None:
             de = (e_tot - e_last)
-            # RHF:
             if self.emb.is_rhf:
+                # RHF:
                 ddm = abs(dm1-dm1_last).max() / 2
             else:
-            # UHF:
+                # UHF:
                 ddm = max(abs(dm1[0]-dm1_last[0]).max(),
                           abs(dm1[1]-dm1_last[1]).max())
         else:
@@ -253,7 +252,7 @@ class Brueckner_RHF(SCMF):
         t1 = self.get_t1()
         self.log.debug("Norm of T1: L(2)= %.3e  L(inf)= %.3e", np.linalg.norm(t1), abs(t1).max())
         nocc, nvir = t1.shape
-        nmo = (nocc + nvir)
+        #nmo = (nocc + nvir)
         occ, vir = np.s_[:nocc], np.s_[nocc:]
         ovlp = self.emb.get_ovlp()
         # Perform DIIS in original MO basis, then transform back:
@@ -262,7 +261,7 @@ class Brueckner_RHF(SCMF):
             rv = dot(mf.mo_coeff[:,vir].T, ovlp, self._mo_orig)
             t1 = dot(ro.T, t1, rv)
             t1 = diis.update(t1, xerr=t1)
-            ## Transform back
+            # Transform back
             t1 = dot(ro, t1, rv.T)
 
         mo_change = (1-self.damping)*np.dot(mf.mo_coeff[:,vir], t1.T)
@@ -293,15 +292,18 @@ class Brueckner_RHF(SCMF):
         mo_coeff = fix_orbital_sign(mo_coeff)[0]
         return mo_coeff
 
+
 class Brueckner_UHF(Brueckner_RHF):
 
     def update_mo_coeff(self, mf, diis=None):
         t1a, t1b = self.get_t1()
-        self.log.debug("Norm of alpha/beta-T1 L(2)= %.3e %.3e L(inf)= %.3e %.3e",
-                np.linalg.norm(t1a), np.linalg.norm(t1b), abs(t1a).max(), abs(t1b).max())
+        self.log.debug(
+                "Norm of alpha/beta-T1 L(2)= %.3e %.3e L(inf)= %.3e %.3e",
+                np.linalg.norm(t1a), np.linalg.norm(t1b), abs(t1a).max(), abs(t1b).max(),
+        )
         nocca, nvira = t1a.shape
         noccb, nvirb = t1b.shape
-        nmoa, nmob = nocca + nvira, noccb + nvirb
+        #nmoa, nmob = nocca + nvira, noccb + nvirb
         occa, vira = np.s_[:nocca], np.s_[nocca:]
         occb, virb = np.s_[:noccb], np.s_[noccb:]
         ovlp = self.emb.get_ovlp()
@@ -317,14 +319,16 @@ class Brueckner_UHF(Brueckner_RHF):
             t1b = dot(rob.T, t1b, rvb)
             t1a, t1b = diis.update(np.asarry((t1a,t1b)), xerr=np.asarray((t1a,t1b)))
             #t1b = diis.update(t1b, xerr=t1b)
-            ## Transform back
+            # Transform back
             t1a = dot(roa, t1a, rva.T)
             t1b = dot(rob, t1b, rvb.T)
 
         mo_change_a = (1-self.damping)*np.dot(mf.mo_coeff[0][:,vira], t1a.T)
         mo_change_b = (1-self.damping)*np.dot(mf.mo_coeff[1][:,virb], t1b.T)
-        self.log.debug("Change of alpha/beta occupied Brueckner orbitals= %.3e %.3e",
-                np.linalg.norm(mo_change_a), np.linalg.norm(mo_change_b))
+        self.log.debug(
+                "Change of alpha/beta occupied Brueckner orbitals= %.3e %.3e",
+                np.linalg.norm(mo_change_a), np.linalg.norm(mo_change_b)
+        )
         bmo_occ_a = (mf.mo_coeff[0][:,occa] + mo_change_a)
         bmo_occ_b = (mf.mo_coeff[1][:,occb] + mo_change_b)
 

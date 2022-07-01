@@ -17,8 +17,6 @@ except (ModuleNotFoundError, ImportError):
 
 import numpy as np
 import scipy
-import scipy.linalg
-import scipy.optimize
 
 
 modlog = logging.getLogger(__name__)
@@ -38,10 +36,12 @@ __all__ = [
         'timer', 'log_time', 'get_used_memory', 'log_method',
         # Other
         'replace_attr', 'break_into_lines', 'fix_orbital_sign', 'split_into_blocks',
-        ]
+]
+
 
 class Object:
     pass
+
 
 def cache(maxsize_or_user_function=16, typed=False, copy=False):
     """Adds LRU cache to function or method.
@@ -67,11 +67,14 @@ def cache(maxsize_or_user_function=16, typed=False, copy=False):
             return lru_cache(user_function)
         else:
             return lru_cache
+
     def decorator(func):
         cached_func = lru_cache(func)
+
         @functools.wraps(func)
         def wrapper(*args, **kwargs):
             return deepcopy(cached_func(*args, **kwargs))
+
         wrapper.cache_clear = cached_func.cache_clear
         wrapper.cache_info = cached_func.cache_info
         # Python 3.9+
@@ -82,11 +85,13 @@ def cache(maxsize_or_user_function=16, typed=False, copy=False):
 
 # --- NumPy
 
+
 def dot(*args, out=None, ignore_none=False):
     """Like NumPy's multi_dot, but variadic"""
     if ignore_none:
         args = [a for a in args if a is not None]
     return np.linalg.multi_dot(args, out=out)
+
 
 def _einsum_replace_decorated_subscripts(subscripts):
     """Support for decorated indices: a!, b$, c3, d123.
@@ -111,14 +116,15 @@ def _einsum_replace_decorated_subscripts(subscripts):
             subscripts_out += replaced[comb]
     return ''.join(subscripts_out)
 
+
 def _ordered_einsum(einsumfunc, subscripts, *operands, **kwargs):
     """Support for parenthesis in einsum subscripts: '(ab,bc),cd->ad'."""
 
     def resolve(subs, *ops):
         #print('resolve called with %s and %d operands' % (subs, len(ops)))
 
-        idx_right = re.sub('[\]}]', ')', subs).find(')')
-        idx_left = re.sub('[\[{]', '(', subs[:idx_right]).rfind('(')
+        idx_right = re.sub(r'[\]}]', ')', subs).find(')')
+        idx_left = re.sub(r'[\[{]', '(', subs[:idx_right]).rfind('(')
 
         if idx_left == idx_right == -1:
             return einsumfunc(subs, *ops, **kwargs)
@@ -134,7 +140,7 @@ def _ordered_einsum(einsumfunc, subscripts, *operands, **kwargs):
 
         # Split operands
         nops_left = subs_left.count(',')
-        nops_right = subs_right.count(',')
+        #nops_right = subs_right.count(',')
         nops_int = subs_int.count(',') + 1
         ops_int = ops[nops_left:nops_left+nops_int]
         ops_left = ops[:nops_left]
@@ -160,6 +166,7 @@ def _ordered_einsum(einsumfunc, subscripts, *operands, **kwargs):
     res = resolve(subscripts, *operands)
     return res
 
+
 def einsum(subscripts, *operands, **kwargs):
     subscripts = _einsum_replace_decorated_subscripts(subscripts)
 
@@ -181,6 +188,7 @@ def einsum(subscripts, *operands, **kwargs):
         res = res[()]
     return res
 
+
 def hstack(*args, ignore_none=True):
     """Like NumPy's hstack, but variadic, ignores any arguments which are None and improved error message."""
     if ignore_none:
@@ -192,6 +200,7 @@ def hstack(*args, ignore_none=True):
         for x in args:
             modlog.critical("type= %r  shape= %r", type(x), x.shape if hasattr(x, 'shape') else "None")
         raise e
+
 
 def brange(*args, minstep=1, maxstep=None):
     """Similar to PySCF's prange, but returning a slice instead.
@@ -220,6 +229,7 @@ def brange(*args, minstep=1, maxstep=None):
         blk = np.s_[i:min(i+step, stop)]
         yield blk
 
+
 def split_into_blocks(array, axis=0, blocksize=None, max_memory=int(1e9)):
     size = array.shape[axis]
     axis = axis % array.ndim
@@ -234,35 +244,44 @@ def split_into_blocks(array, axis=0, blocksize=None, max_memory=int(1e9)):
         blk = np.s_[i:min(i+blocksize, size)]
         yield blk, array[axis*(slice(None), ) + (blk,)]
 
+
 # --- Exceptions
 
 class AbstractMethodError(NotImplementedError):
     pass
 
+
 class ConvergenceError(RuntimeError):
     pass
+
 
 class ImaginaryPartError(RuntimeError):
     pass
 
+
 class OrthonormalityError(RuntimeError):
     pass
+
 
 class NotCalculatedError(AttributeError):
     """Raise if a necessary attribute has not been calculated."""
     pass
+
 
 # --- Energy
 
 def energy_string(energy, unit='Ha'):
     if unit == 'eV':
         energy *= 27.211386245988
-    if unit: unit = ' %s' % unit
+    if unit:
+        unit = ' %s' % unit
     return '%+16.8f%s' % (energy, unit)
+
 
 # --- Time and memory
 
 timer = default_timer
+
 
 @contextmanager
 def log_time(logger, message, *args, mintime=None, **kwargs):
@@ -285,6 +304,7 @@ def log_time(logger, message, *args, mintime=None, **kwargs):
         if logger and (mintime is None or t >= mintime):
             logger(message, *args, time_string(t), **kwargs)
 
+
 def log_method(message='Time for %(classname).%(funcname): %s', log=None):
     def decorator(func):
         @functools.wraps(func)
@@ -301,6 +321,7 @@ def log_method(message='Time for %(classname).%(funcname): %s', log=None):
         return wrapped
     return decorator
 
+
 def time_string(seconds, show_zeros=False):
     """String representation of seconds."""
     seconds, sign = abs(seconds), np.sign(seconds)
@@ -315,7 +336,9 @@ def time_string(seconds, show_zeros=False):
         tstr = '-%s' %  tstr
     return tstr
 
+
 MEMUNITS = {'b': 1, 'kb': 1e3, 'mb': 1e6, 'gb': 1e9, 'tb': 1e12}
+
 
 def get_used_memory(unit='b'):
     if psutil is not None:
@@ -330,6 +353,7 @@ def get_used_memory(unit='b'):
         mem = 0
     mem /= MEMUNITS[unit.lower()]
     return mem
+
 
 def memory_string(nbytes, fmt='6.2f'):
     """String representation of nbytes"""
@@ -352,6 +376,7 @@ def memory_string(nbytes, fmt='6.2f'):
         unit = "TB"
     return "{:{fmt}} {unit}".format(val, unit=unit, fmt=fmt)
 
+
 # ---
 
 @contextmanager
@@ -371,6 +396,7 @@ def replace_attr(obj, **kwargs):
         for name, attr in orig.items():
             setattr(obj, name, attr)
 
+
 def break_into_lines(string, linelength=100, sep=None, newline='\n'):
     """Break a long string into multiple lines"""
     if len(string) <= linelength:
@@ -384,6 +410,7 @@ def break_into_lines(string, linelength=100, sep=None, newline='\n'):
         else:
             lines[-1] += ' ' + s
     return newline.join(lines)
+
 
 def deprecated(message=None, replacement=None):
     """This is a decorator which can be used to mark functions
@@ -407,6 +434,7 @@ def deprecated(message=None, replacement=None):
             return func(*args, **kwargs)
         return wrapped
     return decorator
+
 
 @dataclasses.dataclass
 class OptionsBase:
@@ -485,6 +513,7 @@ class OptionsBase:
     def change_dict_defaults(cls, field, **kwargs):
         defaults = cls.get_default_factory(field)()
         return cls.dict_with_defaults(**{**defaults, **kwargs})
+
 
 def fix_orbital_sign(mo_coeff, inplace=True):
     # UHF

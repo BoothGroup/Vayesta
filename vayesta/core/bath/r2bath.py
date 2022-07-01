@@ -1,11 +1,11 @@
 import numpy as np
 
-from vayesta.core.util import *
+from vayesta.core.util import dot, einsum, timer, time_string
 from .bath import Bath
 from . import helper
 
-
 BOHR = 0.529177210903
+
 
 def _to_bohr(rcut, unit):
     unit = unit.lower()
@@ -14,6 +14,7 @@ def _to_bohr(rcut, unit):
     if unit.startswith('b'):
         return rcut
     raise ValueError("Invalid unit: %s" % unit)
+
 
 def _get_r2(mol, center, mesh=None):
     if getattr(mol, 'dimension', 0) == 0:
@@ -44,6 +45,7 @@ def _get_r2(mol, center, mesh=None):
     r2 = dvol*einsum('xa,x,xb->ab', gtoval, r2norm, gtoval)
     return r2
 
+
 class R2_Bath_RHF(Bath):
 
     def __init__(self, fragment, dmet_bath, occtype, *args, **kwargs):
@@ -55,7 +57,7 @@ class R2_Bath_RHF(Bath):
         if len(self.fragment.atoms) != 1:
             raise NotImplementedError
         atom = self.fragment.atoms[0]
-        self.center = self.mol.atom_coord(atom) # In Bohr!
+        self.center = self.mol.atom_coord(atom)  # In Bohr!
         self.coeff, self.eig = self.kernel()
 
     @property
@@ -84,13 +86,15 @@ class R2_Bath_RHF(Bath):
         eig, rot = np.linalg.eigh(r2)
         t_diag = timer()-t0
         if np.any(eig < -1e-13):
-            raise RuntimeError("Negative eigenvalues: %r" % eig[eig<0])
+            raise RuntimeError("Negative eigenvalues: %r" % eig[eig < 0])
         eig = np.sqrt(np.clip(eig, 0, None))
         coeff = np.dot(self.c_env, rot)
         self.log.debug("%s eigenvalues (A):\n%r", self.occtype.capitalize(), eig*BOHR)
         self.log_histogram(eig, self.occtype)
-        self.log.timing("Time R2 bath:  R2= %s  diagonal.= %s  total= %s",
-                *map(time_string, (t_r2, t_diag, (timer()-t_init))))
+        self.log.timing(
+                "Time R2 bath:  R2= %s  diagonal.= %s  total= %s",
+                *map(time_string, (t_r2, t_diag, (timer()-t_init)))
+        )
         return coeff, eig
 
     def get_bath(self, rcut, unit='Ang'):

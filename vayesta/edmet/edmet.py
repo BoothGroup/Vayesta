@@ -5,12 +5,12 @@ import numpy as np
 import scipy
 import scipy.linalg
 
-from vayesta.core.util import *
+from vayesta.core.util import dot, time_string
 from vayesta.dmet import RDMET
-from vayesta.dmet.sdp_sc import perform_SDP_fit
 from vayesta.dmet.updates import MixUpdate, DIISUpdate
 from vayesta.rpa import ssRPA, ssRIRPA
 from .fragment import EDMETFragment, EDMETFragmentExit
+
 
 @dataclasses.dataclass
 class Options(RDMET.Options):
@@ -22,10 +22,12 @@ class Options(RDMET.Options):
     boson_xc_kernel: bool = False
     bosonic_interaction: str = "xc"
 
+
 @dataclasses.dataclass
 class EDMETResults:
     cluster_sizes: np.ndarray = None
     e_corr: float = None
+
 
 class EDMET(RDMET):
 
@@ -264,9 +266,9 @@ class EDMET(RDMET):
                                     construct_bath=True):
         self.log.info("Running chemical potential={:8.6e}".format(chempot))
         # Save original one-body hamiltonian calculation.
-        saved_hcore = self.mf.get_hcore
+        #saved_hcore = self.mf.get_hcore
 
-        hl_rdms = [None] * len(parent_fragments)
+        #hl_rdms = [None] * len(parent_fragments)
         hl_dd0 = [None] * len(parent_fragments)
         hl_dd1 = [None] * len(parent_fragments)
         nelec_hl = 0.0
@@ -350,7 +352,7 @@ class EDMET(RDMET):
             if xc_kernel.lower() == "drpa":
                 xc = None
             else:
-                raise ValueError("Unknown xc kernel %s provided".format(xc_kernel))
+                raise ValueError("Unknown xc kernel %s provided" % xc_kernel)
         elif xc_kernel is None:
             xc = self.xc_kernel
         elif isinstance(xc_kernel, tuple) or isinstance(xc_kernel, np.ndarray):
@@ -361,11 +363,15 @@ class EDMET(RDMET):
         if self.with_df:
             # Set up for RIRPA zeroth moment calculation.
             rpa = ssRIRPA(self.mf, xc, self.log)
-            local_rot = [np.concatenate([x.get_rot_to_mf_ov(), x.r_bos], axis=0) for x in self.fragments] if calc_local else None
+            if calc_local:
+                local_rot = [np.concatenate([x.get_rot_to_mf_ov(), x.r_bos], axis=0) for x in self.fragments]
+            else:
+                local_rot = None
             frag_proj = [x.get_fragment_projector_ov() for x in self.fragments] if calc_local else None
             return rpa.direct_AC_integration(local_rot, frag_proj, deg=deg, npoints=npoints,
                                              cluster_constrain=cluster_constrain)
         else:
             raise NotImplementedError
+
 
 REDMET = EDMET

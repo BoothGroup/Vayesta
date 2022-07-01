@@ -1,9 +1,19 @@
 import numpy as np
 
-from vayesta.core.util import *
+from vayesta.core.util import einsum
 
-def make_histogram(values, bins, labels=None, binwidth=5, height=6, fill=':', show_number=False, invertx=True,
-        rstrip=True):
+
+def make_histogram(
+        values,
+        bins,
+        labels=None,
+        binwidth=5,
+        height=6,
+        fill=':',
+        show_number=False,
+        invertx=True,
+        rstrip=True,
+):
     hist = np.histogram(values, bins)[0]
     if invertx:
         bins, hist = bins[::-1], hist[::-1]
@@ -50,6 +60,7 @@ def make_histogram(values, bins, labels=None, binwidth=5, height=6, fill=':', sh
     txt = '\n'.join(lines)
     return txt
 
+
 def make_horizontal_histogram(values, bins=None, maxbarlength=50, invertx=True):
     if bins is None:
         bins = np.hstack([-np.inf, np.logspace(-3, -12, 10)[::-1], np.inf])
@@ -70,6 +81,7 @@ def make_horizontal_histogram(values, bins=None, maxbarlength=50, invertx=True):
         lines.append("  %5.0e - %5.0e  %4d   |%s" % (bins[i+1], bins[i], cumsum, bar))
     txt = '\n'.join(lines)
     return txt
+
 
 def transform_mp2_eris(eris, c_occ, c_vir, ovlp):  # pragma: no cover
     """Transform eris of kind (ov|ov) (occupied-virtual-occupied-virtual)
@@ -111,9 +123,10 @@ def transform_mp2_eris(eris, c_occ, c_vir, ovlp):  # pragma: no cover
     eris.mo_energy = np.diag(eris.fock)
     return eris
 
+
 if __name__ == '__main__':
     vals = sorted(np.random.rand(30))
-    print(make_vertical_histogram(vals))
+    print(make_histogram(vals))
     print('')
     bins = np.linspace(0, 1, 12)
     #for line in horizontal_histogram(vals, bins):

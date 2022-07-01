@@ -2,10 +2,11 @@ import numpy as np
 import scipy
 import scipy.linalg
 
-from vayesta.core.util import *
+from vayesta.core.util import dot, einsum, timer, time_string, fix_orbital_sign
 from .bath import Bath
 
 DEFAULT_DMET_THRESHOLD = 1e-6
+
 
 class DMET_Bath_RHF(Bath):
 
@@ -51,10 +52,19 @@ class DMET_Bath_RHF(Bath):
         c_cluster_occ = self.fragment.canonicalize_mo(c_cluster_occ)[0]
         c_cluster_vir = self.fragment.canonicalize_mo(c_cluster_vir)[0]
         if self.base.is_rhf:
-            self.log.info("Cluster orbitals:  n(occ)= %3d  n(vir)= %3d", c_cluster_occ.shape[-1], c_cluster_vir.shape[-1])
+            self.log.info(
+                    "Cluster orbitals:  n(occ)= %3d  n(vir)= %3d",
+                    c_cluster_occ.shape[-1], c_cluster_vir.shape[-1],
+            )
         else:
-            self.log.info("Alpha-cluster orbitals:  n(occ)= %3d  n(vir)= %3d", c_cluster_occ[0].shape[-1], c_cluster_vir[0].shape[-1])
-            self.log.info(" Beta-cluster orbitals:  n(occ)= %3d  n(vir)= %3d", c_cluster_occ[1].shape[-1], c_cluster_vir[1].shape[-1])
+            self.log.info(
+                    "Alpha-cluster orbitals:  n(occ)= %3d  n(vir)= %3d",
+                    c_cluster_occ[0].shape[-1], c_cluster_vir[0].shape[-1],
+            )
+            self.log.info(
+                    " Beta-cluster orbitals:  n(occ)= %3d  n(vir)= %3d",
+                    c_cluster_occ[1].shape[-1], c_cluster_vir[1].shape[-1],
+            )
         self.log.timing("Time for DMET bath:  %s", time_string(timer()-t0))
         self.log.changeIndentLevel(-1)
 
@@ -112,7 +122,8 @@ class DMET_Bath_RHF(Bath):
 
         # Divide by 2 to get eigenvalues in [0,1]
         sc = np.dot(self.base.get_ovlp(), c_env)
-        if dm1 is None: dm1 = self.mf.make_rdm1()
+        if dm1 is None:
+            dm1 = self.mf.make_rdm1()
         dm_env = dot(sc.T, dm1, sc) / 2
         try:
             eig, r = np.linalg.eigh(dm_env)
@@ -134,8 +145,10 @@ class DMET_Bath_RHF(Bath):
             abseig = abs(eig[np.argsort(abs(eig-0.5))])
             low, up = abseig[nbath-1], abseig[nbath]
             if abs(low - up) < 1e-14:
-                raise RuntimeError("Degeneracy in env. DM does not allow for clear identification of %d bath orbitals!\nabs(eig)= %r"
-                        % (nbath, abseig[:nbath+5]))
+                raise RuntimeError(
+                        "Degeneracy in env. DM does not allow for clear identification "
+                        "of %d bath orbitals!\nabs(eig)= %r" % (nbath, abseig[:nbath+5])
+                )
             tol = (low + up)/2
             self.log.debugv("Tolerance for %3d bath orbitals= %.8g", nbath, tol)
 
@@ -203,7 +216,7 @@ class DMET_Bath_RHF(Bath):
                     "Strongly-entangled bath orbital",
                     "Weakly-entangled occ. bath orbital",
                     "Unentangled occ. env. orbital",
-                    ]
+            ]
             self.log.info("Non-(0 or 1) eigenvalues (n) of environment DM:")
             for i, e in enumerate(eig):
                 name = None
@@ -230,9 +243,12 @@ class DMET_Bath_RHF(Bath):
         mask_bath = np.logical_and(eig >= tol, eig <= 1-tol)
         entropy = np.sum(eig * (1-eig))
         entropy_bath = np.sum(eig[mask_bath] * (1-eig[mask_bath]))
-        self.log.info("Entanglement entropy: total= %.6e  bath= %.6e (%.2f %%)",
-                entropy, entropy_bath, 100.0*entropy_bath/entropy)
+        self.log.info(
+                "Entanglement entropy: total= %.6e  bath= %.6e (%.2f %%)",
+                entropy, entropy_bath, 100.0*entropy_bath/entropy,
+        )
 
+    # flake8: noqa
     def use_ref_orbitals(self, c_bath, c_occenv, c_virenv, c_ref, reftol=0.8):
         """Not maintained!"""
         nref = c_ref.shape[-1]

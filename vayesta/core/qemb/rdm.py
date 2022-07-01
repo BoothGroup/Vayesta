@@ -2,7 +2,7 @@
 
 import numpy as np
 
-from vayesta.core.util import *
+from vayesta.core.util import dot, einsum
 
 
 def make_rdm1_demo_rhf(emb, ao_basis=False, with_mf=True, symmetrize=True):
@@ -26,7 +26,7 @@ def make_rdm1_demo_rhf(emb, ao_basis=False, with_mf=True, symmetrize=True):
     dm1: (n, n) array
         One-particle reduced density matrix in AO (if `ao_basis=True`) or MO basis (default).
     """
-    ovlp = emb.get_ovlp()
+    #ovlp = emb.get_ovlp()
     mo_coeff = emb.mo_coeff
     dm1 = np.zeros((emb.nmo, emb.nmo))
     if with_mf is True:
@@ -42,6 +42,7 @@ def make_rdm1_demo_rhf(emb, ao_basis=False, with_mf=True, symmetrize=True):
     if ao_basis:
         dm1 = dot(mo_coeff, dm1, mo_coeff.T)
     return dm1
+
 
 def make_rdm1_demo_uhf(emb, ao_basis=False, with_mf=True, symmetrize=True):
     """Make democratically partitioned one-particle reduced density-matrix from fragment calculations.
@@ -64,7 +65,7 @@ def make_rdm1_demo_uhf(emb, ao_basis=False, with_mf=True, symmetrize=True):
     dm1: tuple of (n, n) arrays
         Alpha- and beta one-particle reduced density matrix in AO (if `ao_basis=True`) or MO basis (default).
     """
-    ovlp = emb.get_ovlp()
+    #ovlp = emb.get_ovlp()
     mo_coeff = emb.mo_coeff
     dm1a = np.zeros((emb.nmo[0], emb.nmo[0]))
     dm1b = np.zeros((emb.nmo[1], emb.nmo[1]))
@@ -86,11 +87,19 @@ def make_rdm1_demo_uhf(emb, ao_basis=False, with_mf=True, symmetrize=True):
         dm1b = dot(mo_coeff[1], dm1b, mo_coeff[1].T)
     return (dm1a, dm1b)
 
+
 # --- Two-particle
 # ----------------
 
-def make_rdm2_demo_rhf(emb, ao_basis=False, with_mf=True, with_dm1=True, approx_cumulant=True, dmet_dm2=True,
-        symmetrize=True):
+def make_rdm2_demo_rhf(
+        emb,
+        ao_basis=False,
+        with_mf=True,
+        with_dm1=True,
+        approx_cumulant=True,
+        dmet_dm2=True,
+        symmetrize=True,
+):
     """Make democratically partitioned two-particle reduced density-matrix from fragment calculations.
 
     Warning: A democratically partitioned DM is only expected to yield reasonable results
@@ -168,8 +177,10 @@ def make_rdm2_demo_rhf(emb, ao_basis=False, with_mf=True, with_dm1=True, approx_
         if not approx_cumulant:
             dm1x = x.results.wf.make_rdm1()
             dm2x = x.results.wf.make_rdm2()
-            dm2x -= (einsum('ij,kl->ijkl', dm1x, dm1x)
-                   - einsum('ij,kl->iklj', dm1x, dm1x)/2)
+            dm2x -= (
+                + einsum('ij,kl->ijkl', dm1x, dm1x)
+                - einsum('ij,kl->iklj', dm1x, dm1x)/2
+            )
         elif (int(approx_cumulant) == 1):
             dm2x = x.results.wf.make_rdm2(with_dm1=False, approx_cumulant=1)
             if (with_dm1 and dmet_dm2):
@@ -220,8 +231,10 @@ def make_rdm2_demo_rhf(emb, ao_basis=False, with_mf=True, with_dm1=True, approx_
     if with_dm1:
         if not approx_cumulant:
             dm1 = make_rdm1_demo_rhf(emb)
-            dm2 += (einsum('ij,kl->ijkl', dm1, dm1)
-                  - einsum('ij,kl->iklj', dm1, dm1)/2)
+            dm2 += (
+                + einsum('ij,kl->ijkl', dm1, dm1)
+                - einsum('ij,kl->iklj', dm1, dm1)/2
+            )
         elif (int(approx_cumulant) == 1 and not dmet_dm2):
             ddm1 = make_rdm1_demo_rhf(emb, with_mf=False)
             ddm1[np.diag_indices(emb.nocc)] += 1
@@ -242,8 +255,16 @@ def make_rdm2_demo_rhf(emb, ao_basis=False, with_mf=True, with_dm1=True, approx_
         dm2 = einsum('ijkl,pi,qj,rk,sl->pqrs', dm2, *(4*[emb.mo_coeff]))
     return dm2
 
-def make_rdm2_demo_uhf(emb, ao_basis=False, with_mf=True, with_dm1=True, approx_cumulant=True, dmet_dm2=True,
-        symmetrize=True):
+
+def make_rdm2_demo_uhf(
+        emb,
+        ao_basis=False,
+        with_mf=True,
+        with_dm1=True,
+        approx_cumulant=True,
+        dmet_dm2=True,
+        symmetrize=True,
+):
     """Make democratically partitioned two-particle reduced density-matrix from fragment calculations.
 
     Warning: A democratically partitioned DM is only expected to yield reasonable results
@@ -317,8 +338,10 @@ def make_rdm2_demo_uhf(emb, ao_basis=False, with_mf=True, with_dm1=True, approx_
                     ddm2ab[:,:,i,i] += dm1xa
                 dm2aa += einsum('xi,ijkl->xjkl', pa, ddm2aa)
                 dm2bb += einsum('xi,ijkl->xjkl', pb, ddm2bb)
-                dm2ab += (einsum('xi,ijkl->xjkl', pa, ddm2ab)
-                        + einsum('xk,ijkl->ijxl', pb, ddm2ab))/2
+                dm2ab += (
+                        + einsum('xi,ijkl->xjkl', pa, ddm2ab)
+                        + einsum('xk,ijkl->ijxl', pb, ddm2ab)
+                )/2
 
         # Warning: This will give bad results [worse than E(DMET)]:
         elif (approx_cumulant == 2):
@@ -328,8 +351,10 @@ def make_rdm2_demo_uhf(emb, ao_basis=False, with_mf=True, with_dm1=True, approx_
 
         dm2aa += einsum('xi,ijkl,px,qj,rk,sl->pqrs', pxa, dm2xaa, rxa, rxa, rxa, rxa)
         dm2bb += einsum('xi,ijkl,px,qj,rk,sl->pqrs', pxb, dm2xbb, rxb, rxb, rxb, rxb)
-        dm2ab += (einsum('xi,ijkl,px,qj,rk,sl->pqrs', pxa, dm2xab, rxa, rxa, rxb, rxb)
-                + einsum('xk,ijkl,pi,qj,rx,sl->pqrs', pxb, dm2xab, rxa, rxa, rxb, rxb))/2
+        dm2ab += (
+                + einsum('xi,ijkl,px,qj,rk,sl->pqrs', pxa, dm2xab, rxa, rxa, rxb, rxb)
+                + einsum('xk,ijkl,pi,qj,rx,sl->pqrs', pxb, dm2xab, rxa, rxa, rxb, rxb)
+        )/2
 
     if with_dm1:
         if not approx_cumulant:

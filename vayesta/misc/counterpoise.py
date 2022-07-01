@@ -112,7 +112,10 @@ def make_cp_mol(mol, atom, rmax, nimages=1, unit='A', **kwargs):
                             symb = 'Ghost-' + symb
                         distance = np.linalg.norm(coord - center)
                         if (not rmax) or (distance <= rmax):
-                            log.debugv("Counterpoise: adding atom %6s at %8.5f %8.5f %8.5f with distance %8.5f A", symb, *coord, distance)
+                            log.debugv(
+                                    "Counterpoise: adding atom %6s at %8.5f %8.5f %8.5f with distance %8.5f A",
+                                    symb, *coord, distance,
+                            )
                             atoms.append((symb, coord))
         log.info("Counterpoise with rmax %.3f A -> %3d ghost atoms", rmax, (len(atoms)-1))
     mol_cp = mol.copy()

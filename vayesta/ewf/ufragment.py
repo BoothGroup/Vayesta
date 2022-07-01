@@ -3,9 +3,10 @@ import numpy as np
 import pyscf
 import pyscf.cc
 
-from vayesta.core.util import *
+from vayesta.core.util import dot, einsum
 from vayesta.core.qemb import UFragment as BaseFragment
 from .fragment import Fragment as RFragment
+import vayesta.core.ao2mo.helper
 
 
 class Fragment(RFragment, BaseFragment):
@@ -61,8 +62,10 @@ class Fragment(RFragment, BaseFragment):
             assert (len(c1) == 2)
             ca, cb = c1
             if axis1 == 'fragment':
-                e_singles = (einsum('ia,xi,xa->', fova, pxa, ca)
-                           + einsum('ia,xi,xa->', fovb, pxb, cb))
+                e_singles = (
+                        + einsum('ia,xi,xa->', fova, pxa, ca)
+                        + einsum('ia,xi,xa->', fovb, pxb, cb)
+                )
             else:
                 e_singles = np.sum(fova*ca) + np.sum(fovb*cb)
         else:
@@ -95,20 +98,22 @@ class Fragment(RFragment, BaseFragment):
             caa, cab, cba, cbb = c2
             if c2ba_order == 'ab':
                 cba = cba.transpose(1,0,3,2)
-            e_doubles = (einsum('xi,xjab,iajb', pxa, caa, gaa)/4
-                       - einsum('xi,xjab,ibja', pxa, caa, gaa)/4
-                       + einsum('xi,xjab,iajb', pxb, cbb, gbb)/4
-                       - einsum('xi,xjab,ibja', pxb, cbb, gbb)/4
-                       + einsum('xi,xjab,iajb', pxa, cab, gab)/2
-                       + einsum('xi,xjab,jbia', pxb, cba, gab)/2)
+            e_doubles = (
+                    + einsum('xi,xjab,iajb', pxa, caa, gaa)/4
+                    - einsum('xi,xjab,ibja', pxa, caa, gaa)/4
+                    + einsum('xi,xjab,iajb', pxb, cbb, gbb)/4
+                    - einsum('xi,xjab,ibja', pxb, cbb, gbb)/4
+                    + einsum('xi,xjab,iajb', pxa, cab, gab)/2
+                    + einsum('xi,xjab,jbia', pxb, cba, gab)/2)
         else:
             assert len(c2) == 3
             caa, cab, cbb = c2
-            e_doubles = (einsum('ijab,iajb', caa, gaa)/4
-                       - einsum('ijab,ibja', caa, gaa)/4
-                       + einsum('ijab,iajb', cbb, gbb)/4
-                       - einsum('ijab,ibja', cbb, gbb)/4
-                       + einsum('ijab,iajb', cab, gab))
+            e_doubles = (
+                    + einsum('ijab,iajb', caa, gaa)/4
+                    - einsum('ijab,ibja', caa, gaa)/4
+                    + einsum('ijab,iajb', cbb, gbb)/4
+                    - einsum('ijab,ibja', cbb, gbb)/4
+                    + einsum('ijab,iajb', cab, gab))
 
         e_singles = (self.sym_factor * e_singles)
         e_doubles = (self.sym_factor * e_doubles)
@@ -157,8 +162,12 @@ class Fragment(RFragment, BaseFragment):
         return dm2
 
     def make_fragment_dm2cumulant_energy(self, t_as_lambda=False, sym_t2=True, approx_cumulant=True):
-        dm2 = self.make_fragment_dm2cumulant(t_as_lambda=t_as_lambda, sym_t2=sym_t2, approx_cumulant=approx_cumulant,
-                full_shape=False)
+        dm2 = self.make_fragment_dm2cumulant(
+                t_as_lambda=t_as_lambda,
+                sym_t2=sym_t2,
+                approx_cumulant=approx_cumulant,
+                full_shape=False,
+        )
         #fac = (2 if self.solver == 'MP2' else 1)
         if self._eris is None:
             eris = self.base.get_eris_array(self.cluster.c_active)
@@ -170,7 +179,9 @@ class Fragment(RFragment, BaseFragment):
             eris = self._eris
         dm2aa, dm2ab, dm2bb = dm2
         gaa, gab, gbb = eris
-        e_dm2 = (einsum('ijkl,ijkl->', gaa, dm2aa)
-               + einsum('ijkl,ijkl->', gab, dm2ab)*2
-               + einsum('ijkl,ijkl->', gbb, dm2bb))
+        e_dm2 = (
+                + einsum('ijkl,ijkl->', gaa, dm2aa)
+                + einsum('ijkl,ijkl->', gab, dm2ab)*2
+                + einsum('ijkl,ijkl->', gbb, dm2bb)
+        )
         return e_dm2

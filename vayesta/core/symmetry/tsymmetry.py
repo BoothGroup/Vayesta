@@ -9,12 +9,14 @@ from pyscf.lib.parameters import BOHR
 
 log = logging.getLogger(__name__)
 
+
 def to_bohr(a, unit):
     if unit[0].upper() == 'A':
-        return  a/BOHR
+        return a/BOHR
     if unit[0].upper() == 'B':
         return a
     raise ValueError("Unknown unit: %s" % unit)
+
 
 def get_mesh_tvecs(cell, tvecs, unit='Ang'):
     rvecs = cell.lattice_vectors()
@@ -36,6 +38,7 @@ def get_mesh_tvecs(cell, tvecs, unit='Ang'):
         raise ValueError("Unknown set of T-vectors: %r" % tvecs)
     return mesh, tvecs
 
+
 def loop_tvecs(cell, tvecs, unit='Ang', include_origin=False):
     mesh, tvecs = get_mesh_tvecs(cell, tvecs, unit)
     log.debugv("nx= %d ny= %d nz= %d", *mesh)
@@ -45,6 +48,7 @@ def loop_tvecs(cell, tvecs, unit='Ang', include_origin=False):
             continue
         t = dx*tvecs[0] + dy*tvecs[1] + dz*tvecs[2]
         yield (dx, dy, dz), t
+
 
 def tsymmetric_atoms(cell, rvecs, xtol=1e-8, unit='Ang', check_element=True, check_basis=True):
     """Get indices of translationally symmetric atoms.
@@ -103,6 +107,7 @@ def tsymmetric_atoms(cell, rvecs, xtol=1e-8, unit='Ang', check_element=True, che
 
     return indices
 
+
 def compare_atoms(cell, atm1, atm2, check_basis=True):
     type1 = cell.atom_pure_symbol(atm1)
     type2 = cell.atom_pure_symbol(atm2)
@@ -115,6 +120,7 @@ def compare_atoms(cell, atm1, atm2, check_basis=True):
     if bas1 != bas2:
         return False
     return True
+
 
 def reorder_atoms(cell, tvec, boundary=None, unit='Ang', check_basis=True):
     """Reordering of atoms for a given translation.
@@ -162,10 +168,12 @@ def reorder_atoms(cell, tvec, boundary=None, unit='Ang', check_basis=True):
 
     def get_atom_at(pos, xtol=1e-8):
         for dx, dy, dz in itertools.product([0,-1,1], repeat=3):
-            if cell.dimension in (1, 2) and (dz != 0): continue
-            if cell.dimension == 1 and (dy != 0): continue
+            if cell.dimension in (1, 2) and (dz != 0):
+                continue
+            if cell.dimension == 1 and (dy != 0):
+                continue
             dr = np.asarray([dx, dy, dz])
-            phase = np.product(boundary[dr!=0])
+            phase = np.product(boundary[dr != 0])
             #log.debugv("dx= %d dy= %d dz= %d phase= %d", dx, dy, dz, phase)
             #print(atom_coords.shape, dr.shape, pos.shape)
             dists = np.linalg.norm(atom_coords + dr - pos, axis=1)
@@ -195,6 +203,7 @@ def reorder_atoms(cell, tvec, boundary=None, unit='Ang', check_basis=True):
     assert np.all(np.arange(cell.natm)[reorder][inverse] == np.arange(cell.natm))
 
     return reorder, inverse, phases
+
 
 def reorder_atoms2aos(cell, atom_reorder, atom_phases):
     if atom_reorder is None:
@@ -245,6 +254,7 @@ def reorder_aos(cell, tvec, unit='Ang'):
 
     #return reorder, inverse, phases
 
+
 def _make_reorder_op(reorder, phases):
     def reorder_op(a, axis=0):
         if isinstance(a, (tuple, list)):
@@ -253,6 +263,7 @@ def _make_reorder_op(reorder, phases):
         return np.take(a, reorder, axis=axis) * phases[bc]
     return reorder_op
 
+
 def get_tsymmetry_op(cell, tvec, unit='Ang'):
     reorder, inverse, phases = reorder_aos(cell, tvec, unit=unit)
     if reorder is None:
@@ -260,6 +271,7 @@ def get_tsymmetry_op(cell, tvec, unit='Ang'):
         return None
     tsym_op = _make_reorder_op(reorder, phases)
     return tsym_op
+
 
 if __name__ == '__main__':
     import vayesta
@@ -270,8 +282,8 @@ if __name__ == '__main__':
     import pyscf.pbc.tools
 
     cell = pyscf.pbc.gto.Cell()
-    cell.atom='H 0 0 0, H 0 1 2'
-    cell.basis='sto-3g'
+    cell.atom = 'H 0 0 0, H 0 1 2'
+    cell.basis = 'sto-3g'
     cell.a = np.eye(3)
     cell.dimension = 1
     cell.build()

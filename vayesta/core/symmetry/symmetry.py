@@ -11,6 +11,7 @@ def unit_vector(vector):
     """Returns the unit vector of the vector."""
     return vector / np.linalg.norm(vector)
 
+
 def angle_between(v1, v2):
     """Returns the angle in radians between vectors 'v1' and 'v2'::
 
@@ -24,6 +25,7 @@ def angle_between(v1, v2):
     u1 = unit_vector(v1)
     u2 = unit_vector(v2)
     return np.arccos(np.clip(np.dot(u1, u2), -1.0, 1.0))
+
 
 class Symmetry:
 
@@ -58,7 +60,7 @@ class Symmetry:
         mf = getattr(self.mf, 'kmf', self.mf)
         return mf.mol.natm
 
-    def get_unique_atoms(self): #, r_tol=1e-5):
+    def get_unique_atoms(self):  # , r_tol=1e-5):
         return list(range(self.natom_unique))
 
         #if self.nsubcells is None:
@@ -116,7 +118,6 @@ class Symmetry:
             return False
         return True
 
-
     def find_subcells(self, respect_basis=True, respect_labels=False, respect_dm1=None, r_tol=1e-5, dm1_tol=1e-6):
         """Find subcells within cell, with unit cell vectors parallel to the supercell.
 
@@ -125,7 +126,8 @@ class Symmetry:
         respect_basis: bool, optional
             If True, the basis functions are considered when determining the symmetry. Default: True.
         respect_labels: bool, optional
-            If True, the labels of atoms (such as "H1" or "C*") are considered when determining the symmetry. Default: False.
+            If True, the labels of atoms (such as "H1" or "C*") are considered when determining the symmetry.
+            Default: False.
         respect_dm1: array or None, optional
             If a (tuple of) density-matrix is passed, it is considered when determining the symmetry. Default: None.
         r_tol: float, optional
@@ -222,7 +224,6 @@ class Symmetry:
         nsubcells = np.rint(nsubcells).astype(int)
         return nsubcells
 
-
     #def find_primitive_cells_old(self, tol=1e-5):
     #    if self.pbcndims == 0:
     #        raise ValueError()
@@ -235,7 +236,6 @@ class Symmetry:
 
     #    #print(coords[3] - coords[1])
     #    #print(aavecs[3,1])
-
 
     #    tvecs = aavecs.reshape(self.natom*self.natom, 3)
     #    #tvecs = np.unique(tvecs, axis=0)
@@ -274,7 +274,7 @@ class Symmetry:
     #    print(tvecs_dim[1])
     #    print(tvecs_dim[2])
 
-    #    # Find most 
+    #    # Find most
     #    for d in range(3):
     #        pass
 
@@ -298,7 +298,6 @@ if __name__ == '__main__':
     cell.basis = 'def2-svp'
     cell.build()
     #cell.dimension = 2
-
 
     sc = [1, 2, 3]
     cell = pyscf.pbc.tools.super_cell(cell, sc)

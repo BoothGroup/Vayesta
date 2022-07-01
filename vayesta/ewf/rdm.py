@@ -7,7 +7,7 @@ import pyscf.cc
 import pyscf.cc.ccsd_rdm_slow
 import pyscf.lib
 
-from vayesta.core.util import *
+from vayesta.core.util import dot, einsum, NotCalculatedError, Object
 from vayesta.core.types import RMP2_WaveFunction
 from vayesta.core.types import RCCSD_WaveFunction
 from vayesta.mpi import mpi
@@ -111,6 +111,7 @@ def make_rdm1_ccsd(emb, ao_basis=False, t_as_lambda=False, symmetrize=True, with
 
     return dm1
 
+
 def make_rdm1_ccsd_proj_lambda(emb, ao_basis=False, t_as_lambda=False, with_mf=True, sym_t2=True, mpi_target=None):
     """Make one-particle reduced density-matrix from partitioned fragment CCSD wave functions.
 
@@ -149,8 +150,20 @@ def make_rdm1_ccsd_proj_lambda(emb, ao_basis=False, t_as_lambda=False, with_mf=T
         dm1 = dot(emb.mo_coeff, dm1, emb.mo_coeff.T)
     return dm1
 
-def make_rdm1_ccsd_global_wf(emb, ao_basis=False, with_mf=True, t_as_lambda=None, with_t1=True,
-        svd_tol=1e-3, ovlp_tol=None, use_sym=True, late_t2_sym=True, mpi_target=None, slow=False):
+
+def make_rdm1_ccsd_global_wf(
+        emb,
+        ao_basis=False,
+        with_mf=True,
+        t_as_lambda=None,
+        with_t1=True,
+        svd_tol=1e-3,
+        ovlp_tol=None,
+        use_sym=True,
+        late_t2_sym=True,
+        mpi_target=None,
+        slow=False,
+):
     """Make one-particle reduced density-matrix from partitioned fragment CCSD wave functions.
 
     This replaces make_rdm1_ccsd_old.
@@ -251,7 +264,7 @@ def make_rdm1_ccsd_global_wf(emb, ao_basis=False, with_mf=True, t_as_lambda=None
         cx_occ = fx.get_overlap('mo[occ]|cluster[occ]')
         cx_vir = fx.get_overlap('mo[vir]|cluster[vir]')
         cfx = fx.get_overlap('cluster[occ]|frag')
-        mfx = fx.get_overlap('mo[occ]|frag')
+        #mfx = fx.get_overlap('mo[occ]|frag')
 
         # Loop over fragments y:
         for fy_parent in emb.get_fragments(active=True, **symfilter):
@@ -267,8 +280,11 @@ def make_rdm1_ccsd_global_wf(emb, ao_basis=False, with_mf=True, t_as_lambda=None
                 wfy = wfy.restore()
             cfy = fy_parent.get_overlap('cluster[occ]|frag')
 
-            for fy, (cy_frag, cy_occ_ao, cy_vir_ao) in fy_parent.loop_symmetry_children((fy_parent.c_frag,
-                    fy_parent.cluster.c_occ, fy_parent.cluster.c_vir), include_self=True, maxgen=maxgen):
+            for fy, (cy_frag, cy_occ_ao, cy_vir_ao) in fy_parent.loop_symmetry_children(
+                    (fy_parent.c_frag, fy_parent.cluster.c_occ, fy_parent.cluster.c_vir),
+                    include_self=True,
+                    maxgen=maxgen
+            ):
 
                 cy_occ = np.dot(cs_occ, cy_occ_ao)
                 cy_vir = np.dot(cs_vir, cy_vir_ao)
@@ -294,8 +310,9 @@ def make_rdm1_ccsd_global_wf(emb, ao_basis=False, with_mf=True, t_as_lambda=None
                     vxy_occ *= np.sqrt(sxy_occ)[:,np.newaxis]
                     vxy_vir *= np.sqrt(sxy_vir)[:,np.newaxis]
                 else:
-                    nsv = (min(rxy_occ.shape[0], rxy_occ.shape[1])
-                         + min(rxy_vir.shape[0], rxy_vir.shape[1]))
+                    nsv = (
+                        + min(rxy_occ.shape[0], rxy_occ.shape[1])
+                        + min(rxy_vir.shape[0], rxy_vir.shape[1]))
                     total_sv = kept_sv = (total_sv + nsv)
 
                 # --- If ovlp_tol is given, the cluster x-y pairs will be screened based on the
@@ -315,11 +332,11 @@ def make_rdm1_ccsd_global_wf(emb, ao_basis=False, with_mf=True, t_as_lambda=None
 
                 l2 = wfy.t2 if (t_as_lambda or fy_parent.solver == 'MP2') else wfy.l2
                 if l2 is None:
-                    raise RuntimeError("No L2 amplitudes found for %s!" % y)
+                    raise RuntimeError("No L2 amplitudes found for %s!" % fy)
 
                 # Theta_jk^ab * l_ik^ab -> ij
                 #doox -= einsum('jkab,IKAB,kK,aA,bB,QI->jQ', theta, l2, rxy_occ, rxy_vir, rxy_vir, cy_occ)
-                ## Theta_ji^ca * l_ji^cb -> ab
+                # Theta_ji^ca * l_ji^cb -> ab
                 #dvvx += einsum('jica,JICB,jJ,iI,cC,QB->aQ', theta, l2, rxy_occ, rxy_occ, rxy_vir, cy_vir)
 
                 # Only multiply with O(N)-scaling cy_occ/cy_vir in last step:
@@ -328,7 +345,10 @@ def make_rdm1_ccsd_global_wf(emb, ao_basis=False, with_mf=True, t_as_lambda=None
                     if svd_tol is None:
                         tmp = einsum('(ijab,jJ,aA->iJAb),IJAB->iIbB', theta, rxy_occ, rxy_vir, l2)
                     else:
-                        tmp = einsum('(ijab,jS,aP->iSPb),(SJ,PA,IJAB->ISPB)->iIbB', theta, uxy_occ, uxy_vir, vxy_occ, vxy_vir, l2)
+                        tmp = einsum(
+                                '(ijab,jS,aP->iSPb),(SJ,PA,IJAB->ISPB)->iIbB',
+                                theta, uxy_occ, uxy_vir, vxy_occ, vxy_vir, l2,
+                        )
                     tmpo = -einsum('iIbB,bB->iI', tmp, rxy_vir)
                     doox += np.dot(tmpo, cy_occ.T)
                     tmpv = einsum('iIbB,iI->bB', tmp, rxy_occ)
@@ -347,7 +367,7 @@ def make_rdm1_ccsd_global_wf(emb, ao_basis=False, with_mf=True, t_as_lambda=None
                     # --- Occupied
                     # Deal with both virtual overlaps here:
                     if svd_tol is None:
-                        t2tmp = einsum('xjab,aA,bB->xjAB', theta, rxy_vir, rxy_vir) # frag * cluster^4
+                        t2tmp = einsum('xjab,aA,bB->xjAB', theta, rxy_vir, rxy_vir)  # frag * cluster^4
                         l2tmp = l2
                     else:
                         t2tmp = einsum('xjab,aS,bP->xjSP', theta, uxy_vir, uxy_vir)
@@ -496,8 +516,17 @@ def make_rdm2_ccsd_global_wf(emb, ao_basis=False, symmetrize=True, t_as_lambda=F
         dm2 = einsum('ijkl,pi,qj,rk,sl->pqrs', dm2, *(4*[emb.mo_coeff]))
     return dm2
 
-def make_rdm2_ccsd_proj_lambda(emb, with_dm1=True, ao_basis=False, t_as_lambda=False, sym_t2=True, sym_dm2=True,
-        approx_cumulant=True, mpi_target=None):
+
+def make_rdm2_ccsd_proj_lambda(
+        emb,
+        with_dm1=True,
+        ao_basis=False,
+        t_as_lambda=False,
+        sym_t2=True,
+        sym_dm2=True,
+        approx_cumulant=True,
+        mpi_target=None,
+):
     """Make two-particle reduced density-matrix from partitioned fragment CCSD wave functions.
 
     Without 1DM!
@@ -523,7 +552,7 @@ def make_rdm2_ccsd_proj_lambda(emb, with_dm1=True, ao_basis=False, t_as_lambda=F
     """
     # --- Loop over pairs of fragments and add projected density-matrix contributions:
     dm2 = np.zeros((emb.nmo, emb.nmo, emb.nmo, emb.nmo))
-    ovlp = emb.get_ovlp()
+    #ovlp = emb.get_ovlp()
     for x in emb.get_fragments(active=True, mpi_rank=mpi.rank):
         rx = x.get_overlap('mo|cluster')
         dm2x = x.make_fragment_dm2cumulant(t_as_lambda=t_as_lambda, sym_t2=sym_t2, approx_cumulant=approx_cumulant)

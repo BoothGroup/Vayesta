@@ -14,12 +14,12 @@ import pyscf
 import pyscf.pbc
 import pyscf.pbc.tools
 # Package
-from vayesta.core.util import *
+from vayesta.core.util import einsum, timer
 import vayesta.libs
 from vayesta.core.ao2mo import helper
 
-
 log = logging.getLogger(__name__)
+
 
 def kao2gmo_cderi(gdf, mo_coeffs, make_real=True, blksize=None, tril_kij=True, driver='c'):
     """Transform density-fitted ERIs from primtive cell k-AO, to Gamma-point MOs.
@@ -69,13 +69,13 @@ def kao2gmo_cderi(gdf, mo_coeffs, make_real=True, blksize=None, tril_kij=True, d
 
     if blksize is None:
         max_memory = int(1e9)   # 1 GB
-        max_size = int(max_memory / (nao**2 * 16)) # how many naux fit in max_memory
+        max_size = int(max_memory / (nao**2 * 16))  # how many naux fit in max_memory
         blksize = np.clip(max_size, 1, int(1e9))
         log.debugv("max_memory= %.3f MB  max_size= %d  blksize= %d", max_memory/1e6, max_size, blksize)
 
     log.debugv("driver= %s", driver)
     if driver == 'python':
-        transform = lambda cderi_kij, mo1_ki, mo2_kj : einsum('Lab,ai,bj->Lij', cderi_kij, mo1_ki.conj(), mo2_kj)
+        transform = lambda cderi_kij, mo1_ki, mo2_kj: einsum('Lab,ai,bj->Lij', cderi_kij, mo1_ki.conj(), mo2_kj)
     elif driver == 'c':
         libcore = vayesta.libs.libcore
 
@@ -181,7 +181,7 @@ if __name__ == '__main__':
 
     import vayesta.core.ao2mo
 
-    import kao2gmo #import gdf_to_eris
+    import kao2gmo  # import gdf_to_eris
 
     card = 'D'
 
@@ -252,7 +252,7 @@ if __name__ == '__main__':
     t0 = timer()
     cderi, cderi_neg = kao2gmo_cderi(gdf, (mo_coeff, mo_coeff), driver='c')
     print("Time k(C)= %.4f" % (timer()-t0))
-    eri2 = einsum('Lij,Lkl->ijkl', cderi ,cderi)
+    eri2 = einsum('Lij,Lkl->ijkl', cderi, cderi)
     if cderi_neg is not None:
         eri2 -= einsum('Lij,Lkl->ijkl', cderi_neg, cderi_neg)
 

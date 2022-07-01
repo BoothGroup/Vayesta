@@ -11,7 +11,6 @@ class PCDIIS(pyscf.lib.diis.DIIS):
         self.pref = pref
         super().__init__(*args, **kwargs)
 
-
     def update(self, x):
         y = np.dot(x, self.pref)
         y_new = super().update(y)

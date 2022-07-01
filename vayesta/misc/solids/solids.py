@@ -1,5 +1,6 @@
 import numpy as np
 
+
 def diamond(atoms=['C', 'C'], a=3.57):
     """Silicon: a=5.431 A"""
     amat = a * np.asarray([
@@ -9,6 +10,7 @@ def diamond(atoms=['C', 'C'], a=3.57):
     coords = a * np.asarray([[0, 0, 0], [1, 1, 1]])/4
     atom = _make_atom(atoms, coords)
     return amat, atom
+
 
 def graphene(atoms=['C', 'C'], a=2.46, c=20.0):
     """
@@ -25,6 +27,7 @@ def graphene(atoms=['C', 'C'], a=2.46, c=20.0):
     atom = _make_atom(atoms, coords)
     return amat, atom
 
+
 def graphite(atoms=['C', 'C', 'C', 'C'], a=2.461, c=6.708):
     """a = 2.461 A , c = 6.708 A"""
     amat = np.asarray([
@@ -39,6 +42,7 @@ def graphite(atoms=['C', 'C', 'C', 'C'], a=2.461, c=6.708):
     coords = np.dot(coords_internal, amat)
     atom = _make_atom(atoms, coords)
     return amat, atom
+
 
 def rocksalt(atoms=['Na', 'Cl'], a=5.6402, primitive=True):
     """
@@ -73,6 +77,7 @@ def rocksalt(atoms=['Na', 'Cl'], a=5.6402, primitive=True):
     atom = _make_atom(4*[atoms[0]]+4*[atoms[1]], coords)
     return amat, atom
 
+
 def perovskite(atoms=['Sr', 'Ti', 'O'], a=3.905):
     if len(atoms) == 3:
         atoms = [atoms[0], atoms[1]] + 3*[atoms[2]]
@@ -83,9 +88,10 @@ def perovskite(atoms=['Sr', 'Ti', 'O'], a=3.905):
                 [0,     1/2,    1/2],
                 [1/2,   0,      1/2],
                 [1/2,   1/2,    0]
-                ])
+    ])
     atom = _make_atom(atoms, coords)
     return amat, atom
+
 
 def perovskite_tetragonal(atoms=['Sr', 'Ti', 'O'], a=5.507, c=7.796, u=0.241):
     """This is the crystallographic ('quadruple') cell, not the primitive ('double') cell.
@@ -134,31 +140,32 @@ def perovskite_tetragonal(atoms=['Sr', 'Ti', 'O'], a=5.507, c=7.796, u=0.241):
     #            ])
     # Order?
     coords_internal = np.asarray([
-                [0      ,   0.5     ,   0.25],  # Sr
-                [0      ,   0       ,   0],     # Ti
-                [0      ,   0       ,   0.25],  # O (4a)
-                [u      ,   0.5+u   ,   0],     # O
-                [0.5+u  ,   u       ,   0.5],   # O
-                [0.5    ,   0       ,   0.75],  # Sr
-                [0.5    ,   0.5     ,   0.5],   # Ti
-                [0.5    ,   0.5     ,   0.75],  # O (4a)
-                [-u     ,   0.5-u   ,   0],     # O
-                [0.5-u  ,   -u      ,   0.5],   # O
-                [0.5    ,   0       ,   0.25],  # Sr
-                [0      ,   0       ,   0.5],   # Ti
-                [0      ,   0       ,   0.75],  # O (4a)
-                [0.5-u  ,   u       ,   0],     # O
-                [-u     ,   0.5+u   ,   0.5],   # O
-                [0      ,   0.5     ,   0.75],  # Sr
-                [0.5    ,   0.5     ,   0],     # Ti
-                [0.5    ,   0.5     ,   0.25],  # O (4a)
-                [0.5+u  ,   -u      ,   0],     # O
-                [u      ,   0.5-u   ,   0.5],   # O
-                ])
+                [0,         0.5,        0.25],  # Sr
+                [0,         0,          0],     # Ti
+                [0,         0,          0.25],  # O (4a)
+                [u,         0.5+u,      0],     # O
+                [0.5+u,     u,          0.5],   # O
+                [0.5,       0,          0.75],  # Sr
+                [0.5,       0.5,        0.5],   # Ti
+                [0.5,       0.5,        0.75],  # O (4a)
+                [-u,        0.5-u,      0],     # O
+                [0.5-u,     -u,         0.5],   # O
+                [0.5,       0,          0.25],  # Sr
+                [0,         0,          0.5],   # Ti
+                [0,         0,          0.75],  # O (4a)
+                [0.5-u,     u,          0],     # O
+                [-u,        0.5+u,      0.5],   # O
+                [0,         0.5,        0.75],  # Sr
+                [0.5,       0.5,        0],     # Ti
+                [0.5,       0.5,        0.25],  # O (4a)
+                [0.5+u,     -u,         0],     # O
+                [u,         0.5-u,      0.5],   # O
+    ])
     coords = np.dot(coords_internal, amat)
 
     atom = _make_atom(atoms, coords)
     return amat, atom
+
 
 def _make_atom(atoms, coords):
     atom = []

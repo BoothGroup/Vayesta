@@ -5,14 +5,14 @@ import numpy as np
 import pyscf.lib
 import scipy.linalg
 
-from vayesta.core.util import *
+from vayesta.core.util import dot, einsum, time_string, log_time
 from vayesta.dmet.fragment import DMETFragment
-from vayesta.core.bath import BNO_Threshold
 from vayesta.solver import get_solver_class
 from vayesta.core.bath import helper
 
 
 from pyscf import __config__
+
 
 class EDMETFragmentExit(Exception):
     pass
@@ -27,6 +27,7 @@ class Options(DMETFragment.Options):
     boson_xc_kernel: bool = None
     bosonic_interaction: str = None
 
+
 @dataclasses.dataclass
 class Results(DMETFragment.Results):
     dm_eb: np.ndarray = None
@@ -35,6 +36,7 @@ class Results(DMETFragment.Results):
     dd_mom0: np.ndarray = None
     dd_mom1: np.ndarray = None
     e_fb:  float = None
+
 
 class EDMETFragment(DMETFragment):
 
@@ -308,12 +310,12 @@ class EDMETFragment(DMETFragment):
         couplings_aa = np.zeros((self.nbos, nactive_a, nactive_a))
         couplings_bb = np.zeros((self.nbos, nactive_b, nactive_b))
 
-        couplings_aa[:, :self.cluster.nocc_active, self.cluster.nocc_active:] = a[2 * self.ov_active:,
-                                                                                :self.ov_active].reshape(
-            self.nbos, self.cluster.nocc_active, self.cluster.nvir_active)
-        couplings_aa[:, self.cluster.nocc_active:, :self.cluster.nocc_active] = b[2 * self.ov_active:,
-                                                                                :self.ov_active].reshape(
-            self.nbos, self.cluster.nocc_active, self.cluster.nvir_active).transpose([0, 2, 1])
+        couplings_aa[:, :self.cluster.nocc_active, self.cluster.nocc_active:] = \
+            a[2 * self.ov_active:, :self.ov_active].reshape(
+                self.nbos, self.cluster.nocc_active, self.cluster.nvir_active)
+        couplings_aa[:, self.cluster.nocc_active:, :self.cluster.nocc_active] = \
+            b[2 * self.ov_active:, :self.ov_active].reshape(
+                self.nbos, self.cluster.nocc_active, self.cluster.nvir_active).transpose([0, 2, 1])
         couplings_bb[:, :self.cluster.nocc_active, self.cluster.nocc_active:] = \
             a[2 * self.ov_active:, self.ov_active:2 * self.ov_active].reshape(
                 self.nbos, self.cluster.nocc_active, self.cluster.nvir_active)
@@ -366,7 +368,8 @@ class EDMETFragment(DMETFragment):
     def get_xc_couplings(self, xc_kernel, rot):
 
         ov_mf = self.ov_mf
-        if isinstance(ov_mf, int): ov_mf = (ov_mf, ov_mf)
+        if isinstance(ov_mf, int):
+            ov_mf = (ov_mf, ov_mf)
 
         rota, rotb = rot[:, :ov_mf[0]], rot[:, ov_mf[0]:sum(ov_mf)]
 
@@ -439,10 +442,14 @@ class EDMETFragment(DMETFragment):
         # V_n <= C_{nia}f_{ia}
         bos_nonconserv = einsum("npq,pq->n", r_bos_aoa, fa) + einsum("npq,pq->n", r_bos_aob, fb)
         # \Omega_n <= C_{mia}C_{nib}f_{ab} - C_{mia}C_{nja}f_{ij}
-        a_bos = einsum("npq,msr,qr,ps->nm", r_bos_aoa, r_bos_aoa, fa, ovlp) + \
-                einsum("npq,msr,qr,ps->nm", r_bos_aob, r_bos_aob, fb, ovlp)
-        a_bos -= einsum("npq,mrs,pr,qs->nm", r_bos_aoa, r_bos_aoa, fa, ovlp) + \
-                 einsum("npq,mrs,pr,qs->nm", r_bos_aob, r_bos_aob, fb, ovlp)
+        a_bos = (
+            + einsum("npq,msr,qr,ps->nm", r_bos_aoa, r_bos_aoa, fa, ovlp)
+            + einsum("npq,msr,qr,ps->nm", r_bos_aob, r_bos_aob, fb, ovlp)
+        )
+        a_bos -= (
+            + einsum("npq,mrs,pr,qs->nm", r_bos_aoa, r_bos_aoa, fa, ovlp)
+            + einsum("npq,mrs,pr,qs->nm", r_bos_aob, r_bos_aob, fb, ovlp)
+        )
 
         # Write this as a single function for both spin channels, to avoid chance of typos
         def get_fock_couplings_spin_channel(r_bos_ao, f, co, cv, no, nv):
@@ -450,18 +457,24 @@ class EDMETFragment(DMETFragment):
             # No o->v excitation fock contribution.
             # v->o excitation within active space.
             # V_{nai} <= C_{nic}f_{ac} - C_{nka}f_{ik}
-            couplings[:, no:, :no] = einsum("npc,qc,pi,qa->nai", r_bos_ao, f, dot(ovlp, co), cv) - \
-                                        einsum("nkq,pk,pi,qa->nai", r_bos_ao, f, co, dot(ovlp, cv))
+            couplings[:, no:, :no] = (
+                    + einsum("npc,qc,pi,qa->nai", r_bos_ao, f, dot(ovlp, co), cv)
+                    - einsum("nkq,pk,pi,qa->nai", r_bos_ao, f, co, dot(ovlp, cv))
+            )
             # o->o excitation within active space. Note that we're constructing the non-normal ordered parameterisation
             # here, so all signs are flipped for o-o component.
             # V_{nij} <= -(\delta_{ij}C_{nkc}f_{ck} - C_{njc}f_{ic})
             fac = einsum("nck,ck->n", r_bos_ao, f)
-            couplings[:, :no, :no] = -einsum("pq,n->npq", np.eye(no), fac) + \
-                                        einsum("npc,qc,qi,pj->nij", r_bos_ao, f, co, dot(ovlp, co))
+            couplings[:, :no, :no] = (
+                    - einsum("pq,n->npq", np.eye(no), fac)
+                    + einsum("npc,qc,qi,pj->nij", r_bos_ao, f, co, dot(ovlp, co))
+            )
             # v->v excitation within active space.
             # V_{nab} <= C_{nic}f_{ac} C_{nka}f_{ik}
-            couplings[:, no:, no:] = einsum("pq,n->npq", np.eye(nv), fac) - \
-                                        einsum("nkp,kq,pa,qb->nab", r_bos_ao, f, dot(ovlp, cv), cv)
+            couplings[:, no:, no:] = (
+                    + einsum("pq,n->npq", np.eye(nv), fac)
+                    - einsum("nkp,kq,pa,qb->nab", r_bos_ao, f, dot(ovlp, cv), cv)
+            )
             return couplings
 
         fcouplings_aa = get_fock_couplings_spin_channel(r_bos_aoa, fa, coa, cva, noa, nva)
@@ -645,10 +658,12 @@ class EDMETFragment(DMETFragment):
         vdev_b = einsum("nia,mib,ac,bd->nmcd", r_bos_b, r_bos_b, r_v[1], r_v[1])
 
         no_a, no_b = r_o[0].shape[1], r_o[1].shape[1]
-        dev = einsum("nmij,ij->nm", odev_a, np.eye(no_a) - rdm1[0][:no_a, :no_a]) + \
-              einsum("nmij,ij->nm", odev_b, np.eye(no_b) - rdm1[1][:no_b, :no_b]) + \
-              einsum("nmab,ab->nm", vdev_a, rdm1[0][no_a:, no_a:]) + \
-              einsum("nmab,ab->nm", vdev_b, rdm1[1][no_b:, no_b:])
+        dev = (
+            + einsum("nmij,ij->nm", odev_a, np.eye(no_a) - rdm1[0][:no_a, :no_a])
+            + einsum("nmij,ij->nm", odev_b, np.eye(no_b) - rdm1[1][:no_b, :no_b])
+            + einsum("nmab,ab->nm", vdev_a, rdm1[0][no_a:, no_a:])
+            + einsum("nmab,ab->nm", vdev_b, rdm1[1][no_b:, no_b:])
+        )
         self.log.info("Maximum neglected local density fluctuation in quasi-boson commutation=%6.4e", abs(dev.max()))
 
     def get_rbos_split(self):
@@ -663,7 +678,7 @@ class EDMETFragment(DMETFragment):
         solver = solver or self.solver
 
         # Create solver object
-        t0 = timer()
+        #t0 = timer()
         solver_opts = self.get_solver_options(solver)
 
         solver_cls = get_solver_class(self.mf, solver)
@@ -686,8 +701,10 @@ class EDMETFragment(DMETFragment):
         dm1, dm2 = cluster_solver.make_rdm12()
         self.check_qba_approx(dm1)
         dm_eb = cluster_solver.make_rdm_eb()
-        self._results = results = self.Results(fid=self.id, n_active=self.cluster.norb_active,
-                converged=True, dm1=dm1, dm2=dm2, dm_eb=dm_eb)
+        self._results = results = self.Results(
+                fid=self.id, n_active=self.cluster.norb_active,
+                converged=True, dm1=dm1, dm2=dm2, dm_eb=dm_eb,
+        )
         results.e1, results.e2, results.e_fb = self.get_edmet_energy_contrib()
 
         if self.opts.make_dd_moments:
@@ -733,16 +750,17 @@ class EDMETFragment(DMETFragment):
             # dm_eb -> <0|b^+ p^+ q|0> in P[p,q,b].
             # couplings -> <pi||qa>C_{nia} in couplings[n,p,q].
             # Want <pj||qb>C_{njb} ( <b_n^+ q^+ p> - <b_n q^+ p>) so our energy is:
-            efb = 0.25 * (einsum("qr,npq,rpn", p_imp[0], couplings[0], dm_eb[0] - dm_eb[0].transpose(1, 0, 2)) +
-                          einsum("qr,npq,rpn", p_imp[1], couplings[1], dm_eb[1] - dm_eb[1].transpose(1, 0, 2))
-                          )
+            efb = 0.25 * (
+                    + einsum("qr,npq,rpn", p_imp[0], couplings[0], dm_eb[0] - dm_eb[0].transpose(1, 0, 2))
+                    + einsum("qr,npq,rpn", p_imp[1], couplings[1], dm_eb[1] - dm_eb[1].transpose(1, 0, 2))
+            )
             self.delta = efb
         else:
             efb = 0.5 * (
-                    np.einsum("pr,npq,rqn", p_imp[0], couplings[0], dm_eb[0]) +
-                    np.einsum("qr,npq,prn", p_imp[0], couplings[0], dm_eb[0]) +
-                    np.einsum("pr,npq,rqn", p_imp[1], couplings[1], dm_eb[1]) +
-                    np.einsum("qr,npq,prn", p_imp[1], couplings[1], dm_eb[1])
+                    + np.einsum("pr,npq,rqn", p_imp[0], couplings[0], dm_eb[0])
+                    + np.einsum("qr,npq,prn", p_imp[0], couplings[0], dm_eb[0])
+                    + np.einsum("pr,npq,rqn", p_imp[1], couplings[1], dm_eb[1])
+                    + np.einsum("qr,npq,prn", p_imp[1], couplings[1], dm_eb[1])
             )
         return e1, e2, efb
 
@@ -758,8 +776,10 @@ class EDMETFragment(DMETFragment):
 
         r_occ = self.get_overlap('mo[occ]|cluster[occ]')
         r_vir = self.get_overlap('mo[vir]|cluster[vir]')
-        if not isinstance(r_occ, tuple): r_occ = (r_occ, r_occ)
-        if not isinstance(r_vir, tuple): r_vir = (r_vir, r_vir)
+        if not isinstance(r_occ, tuple):
+            r_occ = (r_occ, r_occ)
+        if not isinstance(r_vir, tuple):
+            r_vir = (r_vir, r_vir)
         ov_a, ov_b = self.ov_active_ab
         no_a, no_b = self.nocc_ab
         nv_a, nv_b = self.nvir_ab
@@ -937,7 +957,7 @@ class EDMETFragment(DMETFragment):
         """Construct composite moments using the local solver dd moments and the lattice RPA moments"""
         # Get the ApB, AmB and m0 for this cluster. Note that this is pre-boson decoupling, but we don't actually care
         # about that here and it shouldn't change our answer.
-        apb_orig = self.apb
+        #apb_orig = self.apb
         amb_orig = self.amb
         m0_orig = self.eta0
         # Now want to construct rotations defining which degrees of freedom contribute to two-point quantities.
@@ -950,8 +970,10 @@ class EDMETFragment(DMETFragment):
         def get_updated(orig, update, rot_ovf, rot_fov):
             """Given the original value of a block, the updated solver value, and rotations between appropriate spaces
             generate the updated value of the appropriate block."""
-            if not isinstance(rot_ovf, tuple): rot_ovf = (rot_ovf, rot_ovf)
-            if not isinstance(rot_fov, tuple): rot_fov = (rot_fov, rot_fov)
+            if not isinstance(rot_ovf, tuple):
+                rot_ovf = (rot_ovf, rot_ovf)
+            if not isinstance(rot_fov, tuple):
+                rot_fov = (rot_fov, rot_fov)
             # Generate difference in local, two-point excitation basis.
             diff = update - np.linalg.multi_dot([rot_ovf[0], orig, rot_ovf[1].T])
             return orig + np.linalg.multi_dot([rot_fov[0], diff, rot_fov[1].T])
@@ -1040,9 +1062,10 @@ class EDMETFragment(DMETFragment):
             eta0 = calc_eta0(alpha)
             eta0inv = np.linalg.inv(eta0)
 
-            return -(einsum("pq,qr,rp->", fproj_ov, eta0[:self.ov_active_tot], xc_apb[:, :self.ov_active_tot]) +
-                     einsum("pq,qr,rp->", fproj_ov, eta0inv[:self.ov_active_tot],
-                            xc_amb[:, :self.ov_active_tot])) / 4
+            return -(
+                    + einsum("pq,qr,rp->", fproj_ov, eta0[:self.ov_active_tot], xc_apb[:, :self.ov_active_tot])
+                    + einsum("pq,qr,rp->", fproj_ov, eta0inv[:self.ov_active_tot], xc_amb[:, :self.ov_active_tot])
+            ) / 4
 
         def calc_contrib_direct(alpha):
             eta0 = calc_eta0(alpha)
@@ -1068,11 +1091,14 @@ class EDMETFragment(DMETFragment):
             return sum([w * func(p) for w, p in zip(weights, points)])
 
         if use_plasmon:
-            e_plasmon = (einsum("pq,qr,rp->", fproj_ov, self.eta0[:self.ov_active_tot],
-                                self.apb[:, :self.ov_active_tot]) - (
-                             einsum("pq,qp->", fproj_ov,
-                                    (eps_loc + eris + self.amb_renorm_effect / 2)[:self.ov_active_tot,
-                                    :self.ov_active_tot]))) / 2
+            e_plasmon = (
+                    + einsum("pq,qr,rp->", fproj_ov, self.eta0[:self.ov_active_tot], self.apb[:, :self.ov_active_tot])
+                    - einsum(
+                        "pq,qp->",
+                        fproj_ov,
+                        (eps_loc + eris + self.amb_renorm_effect / 2)[:self.ov_active_tot, :self.ov_active_tot]
+                    )
+            ) / 2
 
             return e_plasmon + run_ac_inter(calc_contrib_partialint, deg)
 
@@ -1106,8 +1132,10 @@ class EDMETFragment(DMETFragment):
             eta0 = calc_eta0(alpha)
             eta0inv = np.linalg.inv(eta0)
 
-            return -(einsum("pq,qp->", eta0, xc_apb) +
-                     einsum("pq,qp->", eta0inv, xc_amb)) / 4
+            return -(
+                    + einsum("pq,qp->", eta0, xc_apb)
+                    + einsum("pq,qp->", eta0inv, xc_amb)
+            ) / 4
 
         def calc_contrib_direct(alpha):
             eta0 = calc_eta0(alpha)
@@ -1128,8 +1156,10 @@ class EDMETFragment(DMETFragment):
             weights /= 2
             return sum([w * func(p) for w, p in zip(weights, points)])
 
-        e_plasmon = (einsum("pq,qp->", self.eta0, self.apb) -
-                     ((eps_loc + eris + self.amb_renorm_effect / 2).trace())) / 2
+        e_plasmon = (
+                + einsum("pq,qp->", self.eta0, self.apb)
+                - ((eps_loc + eris + self.amb_renorm_effect / 2).trace())
+        ) / 2
 
         e_plasmon = e_plasmon + run_ac_inter(calc_contrib_partialint, deg)
 

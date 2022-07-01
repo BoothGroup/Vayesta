@@ -1,9 +1,8 @@
 import numbers
 import numpy as np
-from vayesta.core.util import *
+from vayesta.core.util import dot, einsum, timer, time_string, brange, AbstractMethodError, fix_orbital_sign
 from vayesta.core import spinalg
 from vayesta.core.types import Cluster
-from vayesta.core.linalg import recursive_block_svd
 from . import helper
 from .bath import Bath
 
@@ -97,7 +96,7 @@ class BNO_Bath(Bath):
         if self.occtype == 'occupied':
             return self.dmet_bath.c_cluster_occ.shape[-1]
         if self.occtype == 'virtual':
-            return  self.dmet_bath.c_cluster_vir.shape[-1]
+            return self.dmet_bath.c_cluster_vir.shape[-1]
 
     def kernel(self):
         c_env = self.c_env
@@ -141,13 +140,17 @@ class BNO_Bath(Bath):
             if header:
                 self.log.info(header.capitalize())
             fmt = "  %4s: N= %4d  max= % 9.3g  min= % 9.3g  sum= % 9.3g ( %7.3f %%)"
+
             def log_space(name, n_part):
                 if len(n_part) == 0:
                     self.log.info(fmt[:fmt.index('max')].rstrip(), name, 0)
                     return
-                with np.errstate(invalid='ignore'): # supress 0/0 warning
-                    self.log.info(fmt, name, len(n_part), max(n_part), min(n_part), np.sum(n_part),
-                            100*np.sum(n_part)/np.sum(occup))
+                with np.errstate(invalid='ignore'):  # supress 0/0 warning
+                    self.log.info(
+                            fmt, name, len(n_part), max(n_part), min(n_part), np.sum(n_part),
+                            100*np.sum(n_part)/np.sum(occup),
+                    )
+
             log_space("Bath", occup[:bno_number])
             log_space("Rest", occup[bno_number:])
 
@@ -175,7 +178,7 @@ class BNO_Bath(Bath):
                 r = dot(self.c_buffer.T, ovlp, dmet_bath.c_env_occ)
                 dm_frozen = np.eye(dmet_bath.c_env_occ.shape[-1]) - np.dot(r.T, r)
                 e, r = np.linalg.eigh(dm_frozen)
-                c_frozen_occ = np.dot(dmet_bath.c_env_occ, r[:,e>0.5])
+                c_frozen_occ = np.dot(dmet_bath.c_env_occ, r[:, e > 0.5])
 
             c_active_vir = spinalg.hstack_matrices(dmet_bath.c_cluster_vir, dmet_bath.c_env_vir)
             c_frozen_vir = empty
@@ -330,17 +333,21 @@ class MP2_BNO_Bath(BNO_Bath):
         if self.occtype == 'occupied':
             px = dot(actspace.c_active_vir.T, ovlp, self.dmet_bath.c_cluster_vir)
             t2x = einsum('ax,ijab->ijxb', px, t2)
-            dm = (2*einsum('ikab,jkab->ij', t2x, t2x)
-                  - einsum('ikab,kjab->ij', t2x, t2x)
+            dm = (
+                + 2*einsum('ikab,jkab->ij', t2x, t2x)
+                -   einsum('ikab,kjab->ij', t2x, t2x)
                 + 2*einsum('kiba,kjba->ij', t2x, t2x)
-                  - einsum('kiba,jkba->ij', t2x, t2x))/2
+                -   einsum('kiba,jkba->ij', t2x, t2x)
+            )/2
         elif self.occtype == 'virtual':
             px = dot(actspace.c_active_occ.T, ovlp, self.dmet_bath.c_cluster_occ)
             t2x = einsum('ix,ijab->xjab', px, t2)
-            dm = (2*einsum('ijac,ijbc->ab', t2x, t2x)
-                  - einsum('ijac,ijcb->ab', t2x, t2x)
+            dm = (
+                + 2*einsum('ijac,ijbc->ab', t2x, t2x)
+                -   einsum('ijac,ijcb->ab', t2x, t2x)
                 + 2*einsum('jica,jicb->ab', t2x, t2x)
-                  - einsum('jica,jibc->ab', t2x, t2x))/2
+                -   einsum('jica,jibc->ab', t2x, t2x)
+            )/2
 
         assert np.allclose(dm, dm.T)
         return dm
@@ -379,8 +386,12 @@ class MP2_BNO_Bath(BNO_Bath):
         else:
             c_active_vir = actspace_orig.c_active_vir
             r_vir = None
-        actspace = Cluster.from_coeffs(c_active_occ, c_active_vir,
-                actspace_orig.c_frozen_occ, actspace_orig.c_frozen_vir)
+        actspace = Cluster.from_coeffs(
+                c_active_occ,
+                c_active_vir,
+                actspace_orig.c_frozen_occ,
+                actspace_orig.c_frozen_vir,
+        )
 
         # -- Integral transformation
         if eris is None:
@@ -420,8 +431,10 @@ class MP2_BNO_Bath(BNO_Bath):
         c_bno = spinalg.dot(self.c_env, r_bno)
         c_bno = fix_orbital_sign(c_bno)[0]
 
-        self.log.timing("Time MP2 bath:  integrals= %s  amplitudes= %s  diagonal.= %s  total= %s",
-                *map(time_string, (t_ao2mo, t_amps, t_diag, (timer()-t_init))))
+        self.log.timing(
+                "Time MP2 bath:  integrals= %s  amplitudes= %s  diagonal.= %s  total= %s",
+                *map(time_string, (t_ao2mo, t_amps, t_diag, (timer()-t_init)))
+        )
 
         return c_bno, n_bno
 
@@ -525,16 +538,24 @@ class UMP2_BNO_Bath(MP2_BNO_Bath, BNO_Bath_UHF):
         if not self.project_t2:
             # Construct occupied-occupied DM
             if self.occtype == 'occupied':
-                dma  = (einsum('imef,jmef->ij', taa.conj(), taa)/2
-                      + einsum('imef,jmef->ij', tab.conj(), tab))
-                dmb  = (einsum('imef,jmef->ij', tbb.conj(), tbb)/2
-                      + einsum('mief,mjef->ij', tab.conj(), tab))
+                dma  = (
+                    + einsum('imef,jmef->ij', taa.conj(), taa)/2
+                    + einsum('imef,jmef->ij', tab.conj(), tab)
+                )
+                dmb  = (
+                    + einsum('imef,jmef->ij', tbb.conj(), tbb)/2
+                    + einsum('mief,mjef->ij', tab.conj(), tab)
+                )
             # Construct virtual-virtual DM
             elif self.occtype == 'virtual':
-                dma  = (einsum('mnae,mnbe->ba', taa.conj(), taa)/2
-                      + einsum('mnae,mnbe->ba', tab.conj(), tab))
-                dmb  = (einsum('mnae,mnbe->ba', tbb.conj(), tbb)/2
-                      + einsum('mnea,mneb->ba', tab.conj(), tab))
+                dma  = (
+                    + einsum('mnae,mnbe->ba', taa.conj(), taa)/2
+                    + einsum('mnae,mnbe->ba', tab.conj(), tab)
+                )
+                dmb  = (
+                    + einsum('mnae,mnbe->ba', tbb.conj(), tbb)/2
+                    + einsum('mnea,mneb->ba', tab.conj(), tab)
+                )
         else:
             raise NotImplementedError()
         assert np.allclose(dma, dma.T)
@@ -552,7 +573,9 @@ class UMP2_BNO_Bath(MP2_BNO_Bath, BNO_Bath_UHF):
 #            mask = np.self.logical_and((dm_occ > lower), (dm_occ <= upper))
 #            if np.any(mask):
 #                coeff = c_rot[:,mask]
-#                self.log.info("Plotting MP2 bath density between %.0e and %.0e containing %d orbitals." % (upper, lower, coeff.shape[-1]))
+#                self.log.info(
+#                        "Plotting MP2 bath density between %.0e and %.0e containing %d orbitals."
+#                        % (upper, lower, coeff.shape[-1]))
 #                dm = np.dot(coeff, coeff.T)
 #                dset_idx = (4001 if kind == "occ" else 5001) + idx
 #                self.cubefile.add_density(dm, dset_idx=dset_idx)

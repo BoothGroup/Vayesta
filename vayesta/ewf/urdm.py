@@ -5,11 +5,20 @@ import numpy as np
 import pyscf
 import pyscf.cc
 
-from vayesta.core.util import *
+from vayesta.core.util import dot, einsum, Object
 from vayesta.mpi import mpi
 
 
-def make_rdm1_ccsd(emb, ao_basis=False, t_as_lambda=False, symmetrize=True, with_mf=True, mpi_target=None, mp2=False, ba_order='ba'):
+def make_rdm1_ccsd(
+        emb,
+        ao_basis=False,
+        t_as_lambda=False,
+        symmetrize=True,
+        with_mf=True,
+        mpi_target=None,
+        mp2=False,
+        ba_order='ba',
+):
     """Make one-particle reduced density-matrix from partitioned fragment CCSD wave functions.
 
     MPI parallelized.
@@ -77,8 +86,8 @@ def make_rdm1_ccsd(emb, ao_basis=False, t_as_lambda=False, symmetrize=True, with
         # aa/bb - > dvva/dvvb
         dvva += einsum('ijac,ijbc,Aa,Bb->AB', t2xaa, l2xaa, cva, cva) / 2
         dvvb += einsum('ijac,ijbc,Aa,Bb->AB', t2xbb, l2xbb, cvb, cvb) / 2
-        # We cannot symmetrize the ba/ab -> dooa/doob part between t/l2xab and t/l2xba (and keep a single fragment loop);
-        # instead dooa only uses the "ba" amplitudes and doob only the "ab" amplitudes.
+        # We cannot symmetrize the ba/ab -> dooa/doob part between t/l2xab and t/l2xba (and keep a
+        # single fragment loop); instead dooa only uses the "ba" amplitudes and doob only the "ab" amplitudes.
         # In order to ensure the correct number of alpha and beta electrons, we should use the same choice for the
         # virtual-virtual parts (even though here we could symmetrize them as:
         #dvva += einsum('ijac,ijbc,Aa,Bb->AB', t2xba, l2xba, cva, cva) / 2
@@ -169,8 +178,20 @@ def make_rdm1_ccsd(emb, ao_basis=False, t_as_lambda=False, symmetrize=True, with
 
     return (dm1a, dm1b)
 
-def make_rdm1_ccsd_global_wf(emb, ao_basis=False, with_mf=True, t_as_lambda=False, with_t1=True,
-        svd_tol=1e-3, ovlp_tol=None, use_sym=True, late_t2_sym=True, mpi_target=None, slow=True):
+
+def make_rdm1_ccsd_global_wf(
+        emb,
+        ao_basis=False,
+        with_mf=True,
+        t_as_lambda=False,
+        with_t1=True,
+        svd_tol=1e-3,
+        ovlp_tol=None,
+        use_sym=True,
+        late_t2_sym=True,
+        mpi_target=None,
+        slow=True,
+):
     """Make one-particle reduced density-matrix from partitioned fragment CCSD wave functions.
 
     NOT MPI READY
@@ -213,6 +234,7 @@ def make_rdm1_ccsd_global_wf(emb, ao_basis=False, with_mf=True, t_as_lambda=Fals
     # TODO
     raise NotImplementedError
 
+
 def make_rdm2_ccsd_global_wf(emb, ao_basis=False, symmetrize=False, t_as_lambda=False, slow=True, with_dm1=True):
     """Recreate global two-particle reduced density-matrix from fragment calculations.
 
@@ -254,6 +276,7 @@ def make_rdm2_ccsd_global_wf(emb, ao_basis=False, symmetrize=False, t_as_lambda=
         #dm2 = (dm2 + dm2.transpose(1,0,3,2))/2
     return dm2
 
+
 def make_rdm2_ccsd_proj_lambda(emb, ao_basis=False, t_as_lambda=False, with_dm1=True, mpi_target=None):
     """Make two-particle reduced density-matrix from partitioned fragment CCSD wave functions.
 
@@ -283,7 +306,7 @@ def make_rdm2_ccsd_proj_lambda(emb, ao_basis=False, t_as_lambda=False, with_dm1=
     dm2aa = np.zeros(4*[nmoa])
     dm2ab = np.zeros(2*[nmoa]+2*[nmob])
     dm2bb = np.zeros(4*[nmob])
-    ovlp = emb.get_ovlp()
+    #ovlp = emb.get_ovlp()
     for x in emb.get_fragments(active=True, mpi_rank=mpi.rank):
         dm2xaa, dm2xab, dm2xbb = x.make_fragment_dm2cumulant(t_as_lambda=t_as_lambda)
         ra, rb =  x.get_overlap('mo|cluster')

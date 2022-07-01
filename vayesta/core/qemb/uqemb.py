@@ -9,13 +9,14 @@ from .qemb import Embedding
 from .ufragment import UFragment
 
 from vayesta.core.ao2mo.postscf_ao2mo import postscf_ao2mo
-from vayesta.core.util import *
+from vayesta.core.util import dot, einsum, energy_string, log_method
 from vayesta.core import spinalg
 from vayesta.core.ao2mo import postscf_kao2gmo_uhf
 from vayesta.mpi import mpi
 
 from .rdm import make_rdm1_demo_uhf
 from .rdm import make_rdm2_demo_uhf
+
 
 class UEmbedding(Embedding):
     """Spin unrestricted quantum embedding."""
@@ -106,7 +107,8 @@ class UEmbedding(Embedding):
         v_exxdiv: array
             Divergent exact-exchange potential correction in AO basis.
         """
-        if not self.has_exxdiv: return 0, None
+        if not self.has_exxdiv:
+            return 0, None
         ovlp = self.get_ovlp()
         sca = np.dot(ovlp, self.mo_coeff[0][:,:self.nocc[0]])
         scb = np.dot(ovlp, self.mo_coeff[1][:,:self.nocc[1]])
@@ -142,8 +144,10 @@ class UEmbedding(Embedding):
                 vhf = self.get_veff_for_energy(with_exxdiv=False)
             else:
                 raise ValueError
-            e_dmet += (np.sum(vhf[0] * dm1[0])
-                     + np.sum(vhf[1] * dm1[1]))/2
+            e_dmet += (
+                    + np.sum(vhf[0] * dm1[0])
+                    + np.sum(vhf[1] * dm1[1])
+            )/2
 
         self.log.debugv("E_elec(DMET)= %s", energy_string(e_dmet))
         return e_dmet
@@ -189,9 +193,11 @@ class UEmbedding(Embedding):
     def update_mf(self, mo_coeff, mo_energy=None, veff=None):
         """Update underlying mean-field object."""
         # Chech orthonormal MOs
-        if not (np.allclose(dot(mo_coeff[0].T, self.get_ovlp(), mo_coeff[0]) - np.eye(mo_coeff[0].shape[-1]), 0)
-            and np.allclose(dot(mo_coeff[1].T, self.get_ovlp(), mo_coeff[1]) - np.eye(mo_coeff[1].shape[-1]), 0)):
-                raise ValueError("MO coefficients not orthonormal!")
+        if not (
+            np.allclose(dot(mo_coeff[0].T, self.get_ovlp(), mo_coeff[0]) - np.eye(mo_coeff[0].shape[-1]), 0)
+            and np.allclose(dot(mo_coeff[1].T, self.get_ovlp(), mo_coeff[1]) - np.eye(mo_coeff[1].shape[-1]), 0)
+        ):
+            raise ValueError("MO coefficients not orthonormal!")
         self.mf.mo_coeff = mo_coeff
         dm = self.mf.make_rdm1(mo_coeff=mo_coeff)
         if veff is None:
@@ -212,9 +218,14 @@ class UEmbedding(Embedding):
             for child in children:
                 charge_err, spin_err = parent.get_tsymmetry_error(child, dm1=dm1)
                 if (charge_err > charge_tol) or (spin_err > spin_tol):
-                    raise RuntimeError("%s and %s not symmetric: charge error= %.3e spin error= %.3e !"
-                            % (parent.name, child.name, charge_err, spin_err))
-                self.log.debugv("Symmetry between %s and %s: charge error= %.3e spin error= %.3e", parent.name, child.name, charge_err, spin_err)
+                    raise RuntimeError(
+                            "%s and %s not symmetric: charge error= %.3e spin error= %.3e !"
+                            % (parent.name, child.name, charge_err, spin_err)
+                    )
+                self.log.debugv(
+                        "Symmetry between %s and %s: charge error= %.3e spin error= %.3e",
+                        parent.name, child.name, charge_err, spin_err,
+                )
 
     def check_fragment_nelectron(self):
         nelec_frags = (sum([f.sym_factor*f.nelectron[0] for f in self.loop()]),

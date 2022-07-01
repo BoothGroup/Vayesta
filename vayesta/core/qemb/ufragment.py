@@ -1,8 +1,6 @@
-import itertools
-
 import numpy as np
 
-from vayesta.core.util import *
+from vayesta.core.util import dot, einsum, timer, log_time, time_string, energy_string
 from vayesta.core import spinalg
 from .fragment import Fragment
 
@@ -51,7 +49,8 @@ class UFragment(Fragment):
             Occupation numbers of orbitals.
         """
         mo_coeff = spinalg.hstack_matrices(*mo_coeff)
-        if dm1 is None: dm1 = self.mf.make_rdm1()
+        if dm1 is None:
+            dm1 = self.mf.make_rdm1()
         results = []
         for s, spin in enumerate(('alpha', 'beta')):
             results.append(super().get_mo_occupation(mo_coeff[s], dm1=dm1[s], **kwargs))
@@ -74,7 +73,8 @@ class UFragment(Fragment):
         rot : ndarray
             Rotation matrix: np.dot(mo_coeff, rot) = mo_canon.
         """
-        if fock is None: fock = self.base.get_fock()
+        if fock is None:
+            fock = self.base.get_fock()
         mo_coeff = spinalg.hstack_matrices(*mo_coeff)
         results = []
         for s, spin in enumerate(('alpha', 'beta')):
@@ -100,7 +100,8 @@ class UFragment(Fragment):
             Virtual cluster orbitals.
         """
         mo_coeff = spinalg.hstack_matrices(*mo_coeff)
-        if dm1 is None: dm1 = self.mf.make_rdm1()
+        if dm1 is None:
+            dm1 = self.mf.make_rdm1()
         results = []
         for s, spin in enumerate(('alpha', 'beta')):
             res_s = super().diagonalize_cluster_dm(mo_coeff[s], dm1=dm1[s], norm=norm, **kwargs)
@@ -111,7 +112,8 @@ class UFragment(Fragment):
     # --------------------
 
     def get_fragment_projector(self, coeff, c_proj=None, **kwargs):
-        if c_proj is None: c_proj = self.c_proj
+        if c_proj is None:
+            c_proj = self.c_proj
         projectors = []
         for s in range(2):
             projectors.append(super().get_fragment_projector(coeff[s], c_proj=c_proj[s], **kwargs))
@@ -123,8 +125,10 @@ class UFragment(Fragment):
         Does not include nuclear-nuclear repulsion!
         """
         pa, pb = self.get_fragment_projector(self.base.mo_coeff)
-        hveff = (dot(pa, self.base.mo_coeff[0].T, self.base.get_hcore()+self.base.get_veff()[0]/2, self.base.mo_coeff[0]),
-                 dot(pb, self.base.mo_coeff[1].T, self.base.get_hcore()+self.base.get_veff()[1]/2, self.base.mo_coeff[1]))
+        hveff = (
+            dot(pa, self.base.mo_coeff[0].T, self.base.get_hcore()+self.base.get_veff()[0]/2, self.base.mo_coeff[0]),
+            dot(pb, self.base.mo_coeff[1].T, self.base.get_hcore()+self.base.get_veff()[1]/2, self.base.mo_coeff[1]),
+        )
         occ = ((self.base.mo_occ[0] > 0), (self.base.mo_occ[1] > 0))
         e_mf = np.sum(np.diag(hveff[0])[occ[0]]) + np.sum(np.diag(hveff[1])[occ[1]])
         return e_mf
@@ -137,8 +141,10 @@ class UFragment(Fragment):
         c_active: array, optional
         fock: array, optional
         """
-        if c_active is None: c_active = self.cluster.c_active
-        if fock is None: fock = self.base.get_fock()
+        if c_active is None:
+            c_active = self.cluster.c_active
+        if fock is None:
+            fock = self.base.get_fock()
         mo_energy_a = einsum('ai,ab,bi->i', c_active[0], fock[0], c_active[0])
         mo_energy_b = einsum('ai,ab,bi->i', c_active[1], fock[1], c_active[1])
         return (mo_energy_a, mo_energy_b)
@@ -151,9 +157,11 @@ class UFragment(Fragment):
         Parameters
         ----------
         dm1: array, optional
-            Cluster one-electron reduced density-matrix in cluster basis. If `None`, `self.results.dm1` is used. Default: None.
+            Cluster one-electron reduced density-matrix in cluster basis. If `None`, `self.results.dm1`
+            is used. Default: None.
         dm2: array, optional
-            Cluster two-electron reduced density-matrix in cluster basis. If `None`, `self.results.dm2` is used. Default: None.
+            Cluster two-electron reduced density-matrix in cluster basis. If `None`, `self.results.dm2`
+            is used. Default: None.
         eris: array, optional
             Cluster electron-repulsion integrals in cluster basis. If `None`, the ERIs are reevaluated. Default: None.
 
@@ -162,8 +170,10 @@ class UFragment(Fragment):
         e_dmet: float
             Electronic fragment DMET energy.
         """
-        if dm1 is None: dm1 = self.results.dm1
-        if dm1 is None: raise RuntimeError("DM1 not found for %s" % self)
+        if dm1 is None:
+            dm1 = self.results.dm1
+        if dm1 is None:
+            raise RuntimeError("DM1 not found for %s" % self)
         c_act = self.cluster.c_active
         t0 = timer()
         if eris is None:
@@ -205,10 +215,16 @@ class UFragment(Fragment):
                            dot(c_act[1].T, h1e_eff[1], c_act[1]))
                 oa = np.s_[:self.cluster.nocc_active[0]]
                 ob = np.s_[:self.cluster.nocc_active[1]]
-                va = (einsum('iipq->pq', gaa[oa,oa,:,:]) + einsum('pqii->pq', gab[:,:,ob,ob])
-                    - einsum('ipqi->pq', gaa[oa,:,:,oa]))/2
-                vb = (einsum('iipq->pq', gbb[ob,ob,:,:]) + einsum('iipq->pq', gab[oa,oa,:,:])
-                    - einsum('ipqi->pq', gbb[ob,:,:,ob]))/2
+                va = (
+                    + einsum('iipq->pq', gaa[oa,oa,:,:])
+                    + einsum('pqii->pq', gab[:,:,ob,ob])
+                    - einsum('ipqi->pq', gaa[oa,:,:,oa])
+                )/2
+                vb = (
+                    + einsum('iipq->pq', gbb[ob,ob,:,:])
+                    + einsum('iipq->pq', gab[oa,oa,:,:])
+                    - einsum('ipqi->pq', gbb[ob,:,:,ob])
+                )/2
                 h1e_eff = (h1e_eff[0]-va, h1e_eff[1]-vb)
             elif (version == 2):
                 h1e_eff = self.base.get_hcore_for_energy()
@@ -222,12 +238,16 @@ class UFragment(Fragment):
         self.log.info("Number of local electrons for DMET energy: %.8f %.8f", nea, neb)
 
         # Evaluate energy
-        e1b = (einsum('xj,xi,ij->', h1e_eff[0], p_frag[0], dm1a)
-             + einsum('xj,xi,ij->', h1e_eff[1], p_frag[1], dm1b))
-        e2b = (einsum('xjkl,xi,ijkl->', gaa, p_frag[0], dm2aa)
-             + einsum('xjkl,xi,ijkl->', gbb, p_frag[1], dm2bb)
-             + einsum('xjkl,xi,ijkl->', gab, p_frag[0], dm2ab)
-             + einsum('ijxl,xk,ijkl->', gab, p_frag[1], dm2ab))/2
+        e1b = (
+            + einsum('xj,xi,ij->', h1e_eff[0], p_frag[0], dm1a)
+            + einsum('xj,xi,ij->', h1e_eff[1], p_frag[1], dm1b)
+        )
+        e2b = (
+            + einsum('xjkl,xi,ijkl->', gaa, p_frag[0], dm2aa)
+            + einsum('xjkl,xi,ijkl->', gbb, p_frag[1], dm2bb)
+            + einsum('xjkl,xi,ijkl->', gab, p_frag[0], dm2ab)
+            + einsum('ijxl,xk,ijkl->', gab, p_frag[1], dm2ab)
+        )/2
         self.log.debugv("E(DMET): E(1)= %s E(2)= %s", energy_string(e1b), energy_string(e2b))
         e_dmet = self.opts.sym_factor*(e1b + e2b)
         self.log.debug("Fragment E(DMET)= %+16.8f Ha", e_dmet)
@@ -239,7 +259,8 @@ class UFragment(Fragment):
 
     def get_symmetry_error(self, frag, dm1=None):
         """Get translational symmetry error between two fragments."""
-        if dm1 is None: dm1 = self.mf.make_rdm1()
+        if dm1 is None:
+            dm1 = self.mf.make_rdm1()
         dma, dmb = dm1
         ovlp = self.base.get_ovlp()
         # This fragment (x)

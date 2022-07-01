@@ -25,7 +25,6 @@ class Update:
         return flat_params
 
     def _unflatten_params(self, params):
-        res = []
         x = 0
 
         def get_nonflat(flat_params, shapes, x):

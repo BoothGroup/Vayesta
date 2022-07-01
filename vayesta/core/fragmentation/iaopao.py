@@ -3,7 +3,7 @@ import numpy as np
 import pyscf
 import pyscf.lo
 
-from vayesta.core.util import *
+from vayesta.core.util import dot
 from vayesta.core import spinalg
 from vayesta.core.fragmentation.iao import IAO_Fragmentation
 from vayesta.core.fragmentation.iao import IAO_Fragmentation_UHF
@@ -52,8 +52,10 @@ class IAOPAO_Fragmentation(IAO_Fragmentation):
 
         # Orthogonalize PAOs:
         x, e_min = self.symmetric_orth(pao_coeff, ovlp)
-        self.log.debugv("Lowdin orthogonalization of PAOs: n(in)= %3d -> n(out)= %3d , e(min)= %.3e",
-                x.shape[0], x.shape[1], e_min)
+        self.log.debugv(
+                "Lowdin orthogonalization of PAOs: n(in)= %3d -> n(out)= %3d , e(min)= %.3e",
+                x.shape[0], x.shape[1], e_min,
+        )
         if e_min < 1e-10:
             self.log.warning("Small eigenvalue in Lowdin orthogonalization: %.3e !", e_min)
         pao_coeff = np.dot(pao_coeff, x)
@@ -61,7 +63,8 @@ class IAOPAO_Fragmentation(IAO_Fragmentation):
 
     def get_coeff(self, order=None):
         """Make projected atomic orbitals (PAOs)."""
-        if order is None: order = self.order
+        if order is None:
+            order = self.order
         iao_coeff = IAO_Fragmentation.get_coeff(self, add_virtuals=False)
         pao_coeff = self.get_pao_coeff(iao_coeff)
         coeff = spinalg.hstack_matrices(iao_coeff, pao_coeff)
@@ -73,7 +76,8 @@ class IAOPAO_Fragmentation(IAO_Fragmentation):
         return coeff
 
     def get_labels(self, order=None):
-        if order is None: order = self.order
+        if order is None:
+            order = self.order
         iao_labels = super().get_labels()
         core, valence, rydberg = pyscf.lo.nao._core_val_ryd_list(self.mol)
         pao_labels = [tuple(x) for x in np.asarray(self.mol.ao_labels(None), dtype=tuple)[rydberg]]
@@ -85,11 +89,13 @@ class IAOPAO_Fragmentation(IAO_Fragmentation):
     def search_labels(self, labels):
         return self.mol.search_ao_label(labels)
 
+
 class IAOPAO_Fragmentation_UHF(IAOPAO_Fragmentation, IAO_Fragmentation_UHF):
 
     def get_coeff(self, order=None):
         """Make projected atomic orbitals (PAOs)."""
-        if order is None: order = self.order
+        if order is None:
+            order = self.order
         iao_coeff = IAO_Fragmentation_UHF.get_coeff(self, add_virtuals=False)
 
         pao_coeff_a = IAOPAO_Fragmentation.get_pao_coeff(self, iao_coeff[0])
@@ -105,6 +111,7 @@ class IAOPAO_Fragmentation_UHF(IAOPAO_Fragmentation, IAO_Fragmentation_UHF):
         if order is not None:
             return (coeff[0][:,order], coeff[1][:,order])
         return coeff
+
 
 if __name__ == '__main__':
 

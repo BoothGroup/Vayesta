@@ -10,7 +10,7 @@ import pyscf.mcscf
 import pyscf.fci
 import pyscf.fci.addons
 
-from vayesta.core.util import *
+from vayesta.core.util import einsum, deprecated, timer, time_string, energy_string
 from vayesta.core.types import Orbitals
 from vayesta.core.types import FCI_WaveFunction
 from .solver import ClusterSolver
@@ -36,10 +36,14 @@ class FCI_Solver(ClusterSolver):
         solver = solver_cls(self.mol)
         self.log.debugv("type(solver)= %r", type(solver))
         # Set options
-        if self.opts.threads is not None: solver.threads = self.opts.threads
-        if self.opts.conv_tol is not None: solver.conv_tol = self.opts.conv_tol
-        if self.opts.lindep is not None: solver.lindep = self.opts.lindep
-        if self.opts.max_cycle is not None: solver.max_cycle = self.opts.max_cycle
+        if self.opts.threads is not None:
+            solver.threads = self.opts.threads
+        if self.opts.conv_tol is not None:
+            solver.conv_tol = self.opts.conv_tol
+        if self.opts.lindep is not None:
+            solver.lindep = self.opts.lindep
+        if self.opts.max_cycle is not None:
+            solver.max_cycle = self.opts.max_cycle
         if self.opts.fix_spin not in (None, False):
             spin = self.opts.fix_spin
             self.log.debugv("Fixing spin of FCI solver to S^2= %f", spin)
@@ -73,7 +77,7 @@ class FCI_Solver(ClusterSolver):
         return 2*self.cluster.nocc_active
 
     def get_init_guess(self):
-        return {'ci0' : self.civec}
+        return {'ci0': self.civec}
 
     @deprecated()
     def get_t1(self):
@@ -104,7 +108,8 @@ class FCI_Solver(ClusterSolver):
     def kernel(self, ci0=None, eris=None):
         """Run FCI kernel."""
 
-        if eris is None: eris = self.get_eris()
+        if eris is None:
+            eris = self.get_eris()
         heff = self.get_heff(eris)
 
         t0 = timer()
@@ -164,6 +169,7 @@ class FCI_Solver(ClusterSolver):
         wf = FCI_WaveFunction(mo, ci)
         self.wf = wf
         self.converged = True
+
 
 class UFCI_Solver(FCI_Solver):
     """FCI with UHF orbitals."""
@@ -254,11 +260,13 @@ class UFCI_Solver(FCI_Solver):
         return c0, (c1a, c1b), (c2aa, c2ab, c2bb)
 
     def make_rdm1(self, civec=None):
-        if civec is None: civec = self.civec
+        if civec is None:
+            civec = self.civec
         self.dm1 = self.solver.make_rdm1s(civec, self.ncas, self.nelec)
         return self.dm1
 
     def make_rdm12(self, civec=None):
-        if civec is None: civec = self.civec
+        if civec is None:
+            civec = self.civec
         self.dm1, self.dm2 = self.solver.make_rdm12s(civec, self.ncas, self.nelec)
         return self.dm1, self.dm2

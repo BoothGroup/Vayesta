@@ -1,9 +1,14 @@
 import dataclasses
 import numpy as np
 
-from vayesta.core.util import *
+from vayesta.core.util import dot, einsum, timer, log_time, time_string, energy_string
 # FCI_Solver has infrastructure we require to obtain effective cluster Hamiltonian.
 from .solver import EBClusterSolver
+
+try:
+    from ebcc import ebccsd
+except ImportError:
+    ebccsd = None
 
 
 class EBCCSD_Solver(EBClusterSolver):
@@ -13,9 +18,7 @@ class EBCCSD_Solver(EBClusterSolver):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        try:
-            from ebcc import ebccsd
-        except ImportError as e:
+        if ebccsd is None:
             raise ImportError("Cannot find ebcc; required to use EBCCSD solver.")
 
     @property
@@ -51,8 +54,12 @@ class EBCCSD_Solver(EBClusterSolver):
             f_act = f_act + fock_shift[0]
             couplings = tuple([x + y for x, y in zip(couplings, coupling_shift)])
 
-        return ((f_act, f_act), (eris, eris, eris), (self.cluster.nocc_active, self.cluster.nocc_active),
-               (self.cluster.nvir_active, self.cluster.nvir_active)), tuple([x.transpose(0, 2, 1) for x in couplings])
+        return (
+            (f_act, f_act),
+            (eris, eris, eris),
+            (self.cluster.nocc_active, self.cluster.nocc_active),
+            (self.cluster.nvir_active, self.cluster.nvir_active)
+        ), tuple([x.transpose(0, 2, 1) for x in couplings])
 
     def kernel(self, eris=None):
         """Run FCI kernel."""
@@ -97,8 +104,12 @@ class EBCCSD_Solver(EBClusterSolver):
         # This is in GHF orbital ordering.
         ghf_dm2 = self.solver.make_2rdm_f()
         aindx, bindx = self.get_ghf_to_uhf_indices()
-        self.dm2 = ghf_dm2[np.ix_(aindx, aindx, aindx, aindx)] + ghf_dm2[np.ix_(bindx, bindx, bindx, bindx)] + \
-                   ghf_dm2[np.ix_(aindx, aindx, bindx, bindx)] + ghf_dm2[np.ix_(bindx, bindx, aindx, aindx)]
+        self.dm2 = (
+                + ghf_dm2[np.ix_(aindx, aindx, aindx, aindx)]
+                + ghf_dm2[np.ix_(bindx, bindx, bindx, bindx)]
+                + ghf_dm2[np.ix_(aindx, aindx, bindx, bindx)]
+                + ghf_dm2[np.ix_(bindx, bindx, aindx, aindx)]
+        )
         return self.dm2
 
     def make_rdm12(self):
@@ -162,8 +173,10 @@ class UEBCCSD_Solver(EBCCSD_Solver):
             f_act = tuple([x + y for x, y in zip(f_act, fock_shift)])
             couplings = tuple([x + y for x, y in zip(couplings, coupling_shift)])
 
-        return (f_act, eris, self.cluster.nocc_active, self.cluster.nvir_active), \
-               tuple([x.transpose(0, 2, 1) for x in couplings])
+        return (
+            (f_act, eris, self.cluster.nocc_active, self.cluster.nvir_active),
+            tuple([x.transpose(0, 2, 1) for x in couplings])
+        )
 
     def get_ghf_to_uhf_indices(self):
         no = sum(self.cluster.nocc_active)

@@ -1,8 +1,9 @@
 import numpy as np
 
-from vayesta.core.util import *
+from vayesta.core.util import dot, einsum, log_time
 from vayesta.core.qemb import UFragment
 from .fragment import DMETFragment
+
 
 class UDMETFragment(UFragment, DMETFragment):
 
@@ -25,7 +26,7 @@ class UDMETFragment(UFragment, DMETFragment):
         p_imp_a, p_imp_b = self.get_fragment_projector(self.cluster.c_active)
 
         c_active = self.cluster.c_active
-        t0 = timer()
+        #t0 = timer()
         if eris is None:
             c_act = c_active
             with log_time(self.log.timing, "Time for AO->MO transformation: %s"):
@@ -41,21 +42,29 @@ class UDMETFragment(UFragment, DMETFragment):
         oa = np.s_[:self.cluster.nocc_active[0]]
         ob = np.s_[:self.cluster.nocc_active[1]]
         gaa, gab, gbb = eris
-        va = (einsum('iipq->pq', gaa[oa,oa]) + einsum('pqii->pq', gab[:,:,ob,ob])   # Coulomb
-            - einsum('ipqi->pq', gaa[oa,:,:,oa]))                                   # Exchange
-        vb = (einsum('iipq->pq', gbb[ob,ob]) + einsum('iipq->pq', gab[oa,oa])       # Coulomb
-            - einsum('ipqi->pq', gbb[ob,:,:,ob]))                                   # Exchange
+        va = (
+            + einsum('iipq->pq', gaa[oa,oa]) + einsum('pqii->pq', gab[:,:,ob,ob])   # Coulomb
+            - einsum('ipqi->pq', gaa[oa,:,:,oa])                                    # Exchange
+        )
+        vb = (
+            + einsum('iipq->pq', gbb[ob,ob]) + einsum('iipq->pq', gab[oa,oa])       # Coulomb
+            - einsum('ipqi->pq', gbb[ob,:,:,ob])                                    # Exchange
+        )
         h_eff = (fa-va, fb-vb)
 
         h_bare = tuple([dot(c.T, self.base.get_hcore(), c) for c in c_active])
 
-        e1 = 0.5 * (dot(p_imp_a, h_bare[0] + h_eff[0], self.results.dm1[0]).trace() +
-                    dot(p_imp_b, h_bare[1] + h_eff[1], self.results.dm1[1]).trace())
+        e1 = 0.5 * (
+                + dot(p_imp_a, h_bare[0] + h_eff[0], self.results.dm1[0]).trace()
+                + dot(p_imp_b, h_bare[1] + h_eff[1], self.results.dm1[1]).trace()
+        )
 
-        e2 = 0.5 * (einsum("tp,pqrs,tqrs->", p_imp_a, eris[0], self.results.dm2[0]) +
-                    einsum("tp,pqrs,tqrs->", p_imp_a, eris[1], self.results.dm2[1]) +
-                    einsum("tr,pqrs,pqts->", p_imp_b, eris[1], self.results.dm2[1]) +
-                    einsum("tp,pqrs,tqrs->", p_imp_b, eris[2], self.results.dm2[2]))
+        e2 = 0.5 * (
+                + einsum("tp,pqrs,tqrs->", p_imp_a, eris[0], self.results.dm2[0])
+                + einsum("tp,pqrs,tqrs->", p_imp_a, eris[1], self.results.dm2[1])
+                + einsum("tr,pqrs,pqts->", p_imp_b, eris[1], self.results.dm2[1])
+                + einsum("tp,pqrs,tqrs->", p_imp_b, eris[2], self.results.dm2[2])
+        )
 
         # Code to generate the HF energy contribution for testing purposes.
         # mf_dm1 = np.linalg.multi_dot((c_act.T, self.base.get_ovlp(), self.mf.make_rdm1(),\

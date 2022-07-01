@@ -1,6 +1,7 @@
 import os.path
 import numpy as np
 
+
 def _load_datafile(filename):
     datafile = os.path.join(os.path.dirname(__file__), os.path.join("data", filename))
     data = np.loadtxt(datafile, dtype=[("atoms", object), ("coords", np.float64, (3,))])
@@ -9,6 +10,7 @@ def _load_datafile(filename):
     atom = [[atoms[i], coords[i]] for i in range(len(atoms))]
     return atom
 
+
 def water(atoms=['O', 'H'], origin=(0, 0, 0)):
     origin = np.asarray(origin)
     atom = [[atoms[0], np.asarray([0.0000,  0.0000,  0.1173]) - origin],
@@ -16,12 +18,14 @@ def water(atoms=['O', 'H'], origin=(0, 0, 0)):
             [atoms[1], np.asarray([0.0000, -0.7572, -0.4692]) - origin]]
     return atom
 
+
 def alkane(n, atoms=['C', 'H'], cc_bond=1.54, ch_bond=1.09, scale=1.0, numbering=False):
     """Alkane with idealized tetrahedral (sp3) coordination."""
 
     assert numbering in (False, 'atom', 'unit')
 
     index = 0
+
     def get_symbol(symbol):
         nonlocal index
         if not numbering:
@@ -32,7 +36,7 @@ def alkane(n, atoms=['C', 'H'], cc_bond=1.54, ch_bond=1.09, scale=1.0, numbering
             return out
         return '%s%d' % (symbol, index)
 
-    dk = 1 if (numbering == 'atom') else 0
+    #dk = 1 if (numbering == 'atom') else 0
 
     phi = np.arccos(-1.0/3)
     cph = 1/np.sqrt(3.0)
@@ -66,6 +70,7 @@ def alkane(n, atoms=['C', 'H'], cc_bond=1.54, ch_bond=1.09, scale=1.0, numbering
 
     return atom
 
+
 def alkene(ncarbon, cc_bond=1.33, ch_bond=1.09):
     """Alkene with idealized trigonal planar (sp2) coordination."""
 
@@ -90,6 +95,7 @@ def alkene(ncarbon, cc_bond=1.33, ch_bond=1.09):
 
     return atom
 
+
 def arene(n, atoms=['C', 'H'], cc_bond=1.39, ch_bond=1.09, unit=1.0):
     """Bond length for benzene."""
     r1 = unit*cc_bond/(2*np.sin(np.pi/n))
@@ -102,13 +108,15 @@ def arene(n, atoms=['C', 'H'], cc_bond=1.39, ch_bond=1.09, unit=1.0):
         atom.append((atoms[atomidx+1], (r2*np.cos(phi), r2*np.sin(phi), 0.0)))
     return atom
 
+
 def no2():
     atom = [
-	('N', (0.0000,  0.0000, 0.0000)),
-	('O', (0.0000,  1.0989, 0.4653)),
-	('O', (0.0000, -1.0989, 0.4653)),
-	]
+        ('N', (0.0000,  0.0000, 0.0000)),
+        ('O', (0.0000,  1.0989, 0.4653)),
+        ('O', (0.0000, -1.0989, 0.4653)),
+    ]
     return atom
+
 
 def ethanol(oh_bond=None):
     atom = _load_datafile('ethanol.dat')
@@ -120,6 +128,7 @@ def ethanol(oh_bond=None):
         pos_h = pos_o + oh_bond*voh
         atom[3][1] = pos_h
     return atom
+
 
 def ketene(cc_bond=None):
     atom = _load_datafile('ketene.dat')
@@ -134,6 +143,7 @@ def ketene(cc_bond=None):
         atom[2][1] = new_o
     return atom
 
+
 def ring(atom, natom, bond_length, z=0.0):
     r = bond_length/(2*np.sin(np.pi/natom))
     atoms = []
@@ -141,8 +151,9 @@ def ring(atom, natom, bond_length, z=0.0):
         atom = [atom]
     for i in range(natom):
         theta = i * (2*np.pi/natom)
-        atoms.append([atom[i%len(atom)], np.asarray([r*np.cos(theta), r*np.sin(theta), z])])
+        atoms.append([atom[i % len(atom)], np.asarray([r*np.cos(theta), r*np.sin(theta), z])])
     return atoms
+
 
 # --- From datafiles:
 
@@ -150,30 +161,37 @@ def propyl():
     atom = _load_datafile('propyl.dat')
     return atom
 
+
 def phenyl():
     atom = _load_datafile('phenyl.dat')
     return atom
+
 
 def propanol():
     atom = _load_datafile('propanol.dat')
     return atom
 
+
 def chloroethanol():
     atom = _load_datafile('chloroethanol.dat')
     return atom
+
 
 def neopentane():
     """Structure from B3LYP//aug-cc-pVTZ."""
     atom = _load_datafile('neopentane.dat')
     return atom
 
+
 def boronene():
     atom = _load_datafile('boronene.dat')
     return atom
 
+
 def coronene():
     atom = _load_datafile('coronene.dat')
     return atom
+
 
 def glycine():
     atom = _load_datafile('glycine.dat')

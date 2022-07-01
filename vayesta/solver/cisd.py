@@ -1,9 +1,9 @@
+import copy
 import pyscf
 import pyscf.ci
-from vayesta.core.util import *
+from vayesta.core.util import einsum, log_time, deprecated
 from vayesta.core.types import WaveFunction
 from .ccsd import CCSD_Solver
-from .solver import ClusterSolver
 
 
 class CISD_Solver(CCSD_Solver):
@@ -19,7 +19,8 @@ class CISD_Solver(CCSD_Solver):
     def kernel(self, eris=None):
 
         # Integral transformation
-        if eris is None: eris = self.get_eris()
+        if eris is None:
+            eris = self.get_eris()
 
         # Add additional potential
         if self.v_ext is not None:
@@ -80,13 +81,14 @@ class CISD_Solver(CCSD_Solver):
         return None
 
     def get_init_guess(self):
-        return {'c0' : self.c0, 'c1' : self.c1 , 'c2' : self.c2}
+        return {'c0': self.c0, 'c1': self.c1, 'c2': self.c2}
 
     def make_rdm1(self, *args, **kwargs):
         raise NotImplementedError()
 
     def make_rdm2(self, *args, **kwargs):
         raise NotImplementedError()
+
 
 class UCISD_Solver(CISD_Solver):
 

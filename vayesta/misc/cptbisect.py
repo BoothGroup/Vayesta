@@ -1,9 +1,7 @@
-import logging
 import numpy as np
 import scipy
 
 import vayesta
-from vayesta.core.util import *
 
 
 class ChempotBisection:
@@ -41,6 +39,7 @@ class ChempotBisection:
         upper = max(cpt1, cpt3)
 
         it = 1
+
         def iteration(cpt, *args, **kwargs):
             nonlocal it
             if (cpt == cpt1):
@@ -56,7 +55,7 @@ class ChempotBisection:
                 raise StopIteration
             return err
         try:
-            res = scipy.optimize.brentq(iteration, lower, upper)
+            scipy.optimize.brentq(iteration, lower, upper)
         except StopIteration:
             self.converged = True
         return self.cpt
