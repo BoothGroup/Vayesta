@@ -39,6 +39,12 @@ with emb_iaopao.iaopao_fragmentation() as f:
     f.add_all_atomic_fragments()
 emb_iaopao.kernel()
 
+# Loop over fragments, project T2-amplitudes, and sum up to get global EWF
+t2 = emb_iaopao.get_global_t2()
+
+# Get CCSD 1-RDM from global WF
+dm1 = emb.make_rdm1()
+
 # Parse options and calculate HF energy
 emb_sao = vayesta.ewf.EWF(mf, bath_options=dict(threshold=1e-6),
                           solver_options=dict(solve_lambda=True))
