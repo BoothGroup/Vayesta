@@ -3,7 +3,7 @@
 Using EWF for simulation of Molecules
 =======================================
 
-This tutorial introduces the use of the EWF method to perform electronic structure of molecular simulations in Vayesta_. Firstly, Vayesta_ utilizes 
+This tutorial introduces the use of the `ref:EWF` method to perform electronic structure of molecular simulations in Vayesta_. Firstly, Vayesta_ utilizes 
 electronic structure properties computed with PySCF_. The needed modules can be imported as it is shown in the following snippet:
 
 .. literalinclude:: fragmentation.py
@@ -26,7 +26,7 @@ The PySCF_ results are subsequently parsed to the `ref:EWT` Vayesta_ method as d
    :lines: 25-27
 
 The `ref:EWF1 method requires a fragmentation scheme. Vayesta_ has implemented different methods to perform fragmentations, whose description can be 
-found in REF:VAYESTA_MODULE. The **IAO** fragmentation methodology is set as default and automatically used once the method `.kernel()` is invoked as 
+found in `REF:VAYESTA_MODULE`. The **IAO** fragmentation methodology is set as default and automatically used once the method `.kernel()` is invoked as 
 is shown in these lines of code: 
 
 .. literalinclude:: fragmentation.py
