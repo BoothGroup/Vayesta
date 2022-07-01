@@ -13,5 +13,12 @@ The **html** results can be displayed via an internet browser (chrome, firefox, 
    [~]$ firefox index.html
 
 
+Cloning this branch:
+
+git clone -b tutorials --single-branch git@github.com:BoothGroup/Vayesta.git
+
+Pushing into this branch:
+
+
 
 
