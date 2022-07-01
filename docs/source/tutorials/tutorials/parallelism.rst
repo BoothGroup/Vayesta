@@ -18,14 +18,27 @@ manner:
 
    [~]$ mpirun -np #ncores  vayesta_script.py
 
-However, it is relevant to use a correct number of cores to perform an efficient ***mpi** calculation. To this aim, a new water molecule example is used 
+However, it is relevant to use a correct number of cores to perform an efficient **mpi** calculation. To this aim, a new water molecule example is used 
 explicitly showing the use of the module `ref:vayesta.mpi`. Firstly, the pertinent Vayesta_ modules are loaded in the following way:
 
-.. literalinclude:: fragmentation.py
+.. literalinclude:: parallel.py
    :lines: 6-8
 
+The PySCF_ molecule object is correspondingly built:
 
+.. literalinclude:: parallel.py
+   :lines: 10-20
 
+It is important to define an individual output file for every process as is declared in `ref:mol.output`. The initial mean-field method (in this case is 
+**HF**) used to compute the ground-state wavefunction is also used within the **mpi** methdology in this manner:
+
+.. literalinclude:: parallel.py
+   :lines: 23-25
+   
+The `ref:EWT` method is used in the following manner:
+
+.. literalinclude:: parallel.py
+   :lines: 27-29
 
 
 
