@@ -1,4 +1,4 @@
-.. parallel:
+.. _parallel:
 
 
 Parallelism in Vayesta
@@ -16,9 +16,13 @@ manner:
 
 .. code-block:: console
 
-   [~]$ mpirun -np #cores  vayesta_script.py
+   [~]$ mpirun -np #ncores  vayesta_script.py
 
-In this tutorial, 
+However, it is relevant to use a correct number of cores to perform an efficient ***mpi** calculation. To this aim, a new water molecule example is used 
+explicitly showing the use of the module `ref:vayesta.mpi`. Firstly, the pertinent Vayesta_ modules are loaded in the following way:
+
+.. literalinclude:: fragmentation.py
+   :lines: 6-8
 
 
 
