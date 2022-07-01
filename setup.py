@@ -34,12 +34,14 @@ class CMakeBuild(build_ext):
 
 class DiscoverTests(test):
     user_options = [
-            ("include-veryslow", "i", "Include tests marked as veryslow"),
+            ("include-veryslow", "v", "Include tests marked as veryslow"),
+            ("include-slow", "s", "Include tests marked as slow"),
     ]
 
     def initialize_options(self):
         test.initialize_options(self)
         self.include_veryslow = False
+        self.include_slow = True
 
     def finalize_options(self):
         pass
@@ -51,11 +53,14 @@ class DiscoverTests(test):
         src = os.path.join(setup_src, "vayesta", "tests")
 
         test_args = []
-        if not self.include_veryslow:
+        if not (self.include_slow and self.include_veryslow):
+            test_args.append("-m not (slow or veryslow)")
+        elif not self.include_veryslow:
             test_args.append("-m not veryslow")
+        elif not self.include_slow:
+            test_args.append("-m not slow")
 
         pytest.main([src, *test_args])
-
 
 
 setup(
