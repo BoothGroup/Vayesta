@@ -24,13 +24,14 @@ The PySCF_ results are subsequently used for the *EWF* Vayesta_ method as depict
 .. literalinclude:: fragmentation.py
    :lines: 25-27
 
-The succesfully use the *EWF* method, a fragmentation scheme is needed. Vayesta_ enables many methods to perform fragmentations, which can be found in 
-REF:VAYESTA_MODULE. As an example, the **IAO** fragmentation methodology is set as default if the kernel function has been invoked as is shown below:
+To succesfully use the *EWF* method, a fragmentation scheme is needed. Vayesta_ has implemented different methods to perform fragmentations, whose 
+description can be found in REF:VAYESTA_MODULE. The **IAO** fragmentation methodology is set as default and automatically used once the method `kernel` 
+is invoked as is shown in the following snippet: 
 
 .. literalinclude:: fragmentation.py
    :lines: 29-31
 
-Alternatively, a second fragmentation procedure (i.e the IAO+PAOs method) can be carried out using the following lines:
+Alternatively, a second fragmentation procedure (the IAO+PAOs method) can be used as shown in the following lines:
 
 .. literalinclude:: fragmentation.py
    :lines: 33-40
