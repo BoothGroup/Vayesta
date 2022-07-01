@@ -54,7 +54,13 @@ Due to the flexibility of the embedding methodology different combinations of si
 'ref:add_atomic_fragment' should be correspondingly changed. As an example, a double-site embedding can be declared as:
 
 .. literalinclude:: 1d_hubbard.py
-   :lines: 20-21
+   :lines: 24-25
+
+where the arguments **[0,1]** and **sym_factor=nsite//2** indicates the use of a *dimerized* version of the 1-D Hubbard's model. Finally, the results for 
+this calculation can be obtained as indicated in the following snippet:
+
+.. literalinclude:: 1d_hubbard.py
+   :lines: 27-28
 
 
 
