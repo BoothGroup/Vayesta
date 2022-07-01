@@ -37,8 +37,8 @@ As starting point, the ref:EWT* function uses the result of the previous calcula
 .. literalinclude:: diamond.py
    :lines: 35-38
 
-important to notice is that the **IAO** fragmentation method has been used, together with a **sym_factor=2** variable, since the diamond unit cell there 
-are two C atoms per unit cell. 
+important to notice is that the **IAO** fragmentation method has been used, together with a **sym_factor=2** variable, since the diamond unit cell has 
+two C atoms per unit cell. 
 
 
 
