@@ -7,12 +7,44 @@ from vayesta.tests.ewf import test_h2
 from vayesta.tests import testsystems
 from vayesta.tests.common import TestCase
 
-#class Test_MP2(test_h2.Test_MP2):
-#
-#    @classmethod
-#    def setUpClass(cls):
-#        cls.mf = testsystems.water_631g.rhf()
-#        cls.cc = testsystems.water_631g.rmp2()
+class Test_MP2(test_h2.Test_MP2):
+
+    @classmethod
+    def setUpClass(cls):
+        cls.mf = testsystems.water_631g.rhf()
+        cls.cc = testsystems.water_631g.rmp2()
+
+    @classmethod
+    @cache
+    def emb(cls, bno_threshold):
+        emb = vayesta.ewf.EWF(cls.mf, solver='MP2', bno_threshold=bno_threshold)
+        with emb.sao_fragmentation() as f:
+            f.add_all_atomic_fragments()
+        emb.kernel()
+        return emb
+
+    def test_dm1_demo(self):
+        emb = self.emb(-1)
+        dm1_exact = self.cc.make_rdm1(ao_repr=True)
+        dm1 = emb.make_rdm1_demo(ao_basis=True)
+        self.assertAllclose(dm1, dm1_exact)
+
+    def test_dm2_demo(self):
+        emb = self.emb(-1)
+        dm1_exact = self.cc.make_rdm1(ao_repr=True)
+        dm1 = emb.make_rdm1_demo(ao_basis=True)
+        self.assertAllclose(dm1, dm1_exact)
+
+    def test_dmet_energy(self):
+        """Tests DMET energy."""
+        emb = self.emb(-1)
+        etot_dmet = emb.get_dmet_energy()
+        self.assertAllclose(etot_dmet, self.cc.e_tot, rtol=0)
+        etot_dmet = emb.get_dmet_energy(version=2)
+        self.assertAllclose(etot_dmet, self.cc.e_tot, rtol=0)
+        # Not implemented:
+        #etot_dmet = emb.get_dmet_energy(version=2, approx_cumulant=False)
+        #self.assertAllclose(etot_dmet, self.cc.e_tot, rtol=0)
 
 @pytest.mark.slow
 class Test_CCSD(test_h2.Test_CCSD):
@@ -43,12 +75,33 @@ class Test_CCSD(test_h2.Test_CCSD):
         etot_dmet = emb.get_dmet_energy(version=2, approx_cumulant=False)
         self.assertAllclose(etot_dmet, self.cc.e_tot, rtol=0)
 
-#class Test_UMP2(test_h2.Test_UMP2):
-#
-#    @classmethod
-#    def setUpClass(cls):
-#        cls.mf = testsystems.water_cation_631g.uhf()
-#        cls.cc = testsystems.water_cation_631g.ump2()
+    def test_dm1_demo(self):
+        emb = self.emb(-1)
+        dm1_exact = self.cc.make_rdm1(ao_repr=True)
+        dm1 = emb.make_rdm1_demo(ao_basis=True)
+        self.assertAllclose(dm1, dm1_exact)
+
+    def test_dm2_demo(self):
+        emb = self.emb(-1)
+        dm1_exact = self.cc.make_rdm1(ao_repr=True)
+        dm1 = emb.make_rdm1_demo(ao_basis=True)
+        self.assertAllclose(dm1, dm1_exact)
+
+class Test_UMP2(test_h2.Test_UMP2):
+
+    @classmethod
+    def setUpClass(cls):
+        cls.mf = testsystems.water_cation_631g.uhf()
+        cls.cc = testsystems.water_cation_631g.ump2()
+
+    @classmethod
+    @cache
+    def emb(cls, bno_threshold):
+        emb = vayesta.ewf.EWF(cls.mf, solver='MP2', bno_threshold=bno_threshold)
+        with emb.sao_fragmentation() as f:
+            f.add_all_atomic_fragments()
+        emb.kernel()
+        return emb
 
 @pytest.mark.slow
 class Test_UCCSD(Test_CCSD, test_h2.Test_UCCSD):
@@ -59,7 +112,7 @@ class Test_UCCSD(Test_CCSD, test_h2.Test_UCCSD):
         cls.cc = testsystems.water_cation_631g.uccsd()
 
 @pytest.mark.slow
-class Test_RHF_vs_UHF(TestCase):
+class Test_RCCSD_vs_UCCSD(TestCase):
 
     @classmethod
     def setUpClass(cls):
@@ -74,6 +127,8 @@ class Test_RHF_vs_UHF(TestCase):
         del cls.uhf
         del cls.rcc
         del cls.ucc
+        cls.remb.cache_clear()
+        cls.uemb.cache_clear()
 
     @classmethod
     @cache
@@ -105,6 +160,22 @@ class Test_RHF_vs_UHF(TestCase):
         e_ref = self.rcc.e_tot
         self.assertAllclose(remb.e_tot, e_ref)
         self.assertAllclose(uemb.e_tot, e_ref)
+
+    def test_dm1_global_wf(self):
+        rdm1 = self.remb(-1)._make_rdm1_ccsd_global_wf(ao_basis=True)
+        udm1 = np.sum(self.uemb(-1)._make_rdm1_ccsd_global_wf(ao_basis=True), axis=0)
+        self.assertAllclose(rdm1, udm1)
+
+    def test_dm1_demo(self):
+        rdm1 = self.remb(-1).make_rdm1(ao_basis=True)
+        udm1 = np.sum(self.uemb(-1).make_rdm1(ao_basis=True), axis=0)
+        self.assertAllclose(rdm1, udm1)
+
+    def test_dm2_demo(self):
+        rdm2 = self.remb(-1).make_rdm2(ao_basis=True)
+        udm2aa, udm2ab, udm2bb = self.uemb(-1).make_rdm2(ao_basis=True)
+        udm2 = (udm2aa + udm2ab + udm2ab.transpose(2,3,0,1) + udm2bb)
+        self.assertAllclose(rdm2, udm2)
 
     def test_dmet_energy(self):
         """Tests DMET energy."""

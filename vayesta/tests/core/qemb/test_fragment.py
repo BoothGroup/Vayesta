@@ -108,7 +108,7 @@ class MolFragmentTests(TestCase):
             frag = f.add_orbital_fragment(0)
             self.assertAlmostEqual(frag.get_fragment_mf_energy(), -50.92864009746159, self.PLACES)
             frag = f.add_orbital_fragment('1s')
-            self.assertAlmostEqual(frag.get_fragment_mf_energy(), -54.569723461804, self.PLACES)
+            self.assertAlmostEqual(frag.get_fragment_mf_energy(), -54.56972351221932, self.PLACES)
 
     def test_iaopao_atoms(self):
         """Test IAO+PAO atomic fragmentation.
