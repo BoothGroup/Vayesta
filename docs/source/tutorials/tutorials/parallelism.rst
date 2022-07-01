@@ -40,12 +40,20 @@ The `ref:EWT` method is used in the following manner:
 .. literalinclude:: parallel.py
    :lines: 27-29
 
-In this **mpi** implementation all the results are gathered in the master process. This proccess can be also used for computing the total energies and 
-being compared as is shown in the following snippet:
+In this **mpi** implementation all the results are gathered in the master process. This proccess can be also used for computing the total energies 
+provided at the different levels of theory as is shown in the following snippet:
 
 .. literalinclude:: parallel.py
-   :lines: 27-29
+   :lines: 32-38
 
+To provide a good computational scaling, it is strongly suggested that **N_frag % #ncores = 0**, where **N_frag** is the number of fragments in which the 
+system has been divided. For this specific case, the suggested command is:
+
+.. code-block:: console
+
+   [~]$ mpirun -np 3 python parallel.py 
+
+since the water molecule is fragmented into 3 different "IAO" components. 
 
 .. _OpenBLAS: https://github.com/xianyi/OpenBLAS
 .. _PySCF: https://sunqm.github.io/pyscf/
