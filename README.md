@@ -1,28 +1,25 @@
 # Vayesta
 
-Authors
--------
+Vayesta is a toolkit for quantum embedding methods.
 
-M Nusspickel, OJ Backhouse, B Ibrahim, A Santana-Bonilla, CJC Scott, GH Booth
 
 Installation
 ------------
 
-* Requirements
-    - NumPy
-    - SciPy
-    - PySCF
-    - CVXPY (for DMET functionality)
+To install, clone the repository
 
-* Installation
-    1. Clone from Git repository: `git clone git@github.com:BoothGroup/Vayesta.git`
+```
+git clone git@github.com:BoothGroup/Vayesta.git
+```
 
-    2. Build
+Install via `setuptools` from the top-level directory, which requires `cmake`
 
-        - `cd vayesta/libs`
-        - `mkdir build && cd build`
-        - `cmake ..`
-        - `make`
+```
+python setup.py install
+```
 
-    3. Add Vayesta to your PYTHONPATH environment variable, for example by adding this line to your .bashrc/profile:
-        `export PYTHONPATH=<path to Vayesta>:$PYTHONPATH`
+
+Authors
+-------
+
+M. Nusspickel, O. J. Backhouse, B. Ibrahim, A. Santana-Bonilla, C. J. C. Scott, G. H. Booth
