@@ -40,7 +40,7 @@ The `ref:EWT` method is used in the following manner:
 .. literalinclude:: parallel.py
    :lines: 27-29
 
-
+In this **mpi** implementation all the results are gathered in the master process 
 
 
 .. _OpenBLAS: https://github.com/xianyi/OpenBLAS
