@@ -107,37 +107,6 @@ class MolecularDFEDMETTest(TestCase):
 
         self._test_energy(uemb, known_values)
 
-    @unittest.skipIf(vayesta.ebcc is None, "EBCC installation not found.")
-    def test_h6_sto3g_EBCCSD_IAO_2occ(self):
-        emb = edmet.EDMET(
-                testsystems.h6_sto6g_df.rhf(),
-                solver='EBCCSD',
-                conv_tol=self.CONV_TOL,
-                maxiter=30,
-                bosonic_interaction="qba_bos_ex",
-                occ_proj_kernel=False,
-        )
-        with emb.iao_fragmentation() as f:
-            f.add_all_atomic_fragments()
-        emb.kernel()
-
-        known_values = {'e_tot': -3.282140724303993}
-
-        self._test_energy(emb, known_values)
-
-        uemb = edmet.EDMET(
-                testsystems.h6_sto6g_df.uhf(),
-                solver='EBCCSD',
-                conv_tol=self.CONV_TOL,
-                maxiter=30,
-                bosonic_interaction="qba_bos_ex",
-                occ_proj_kernel=False,
-        )
-        with uemb.iao_fragmentation() as f:
-            f.add_all_atomic_fragments()
-        uemb.kernel()
-
-        self._test_energy(uemb, known_values)
 
 if __name__ == '__main__':
     print('Running %s' % __file__)

@@ -39,8 +39,8 @@ class EBCCSD_Solver(EBClusterSolver):
         if eris is None:
             eris = self.get_eris()
         f_act = dot(self.cluster.c_active.T, self.base.get_fock(), self.cluster.c_active)
-        if self.opts.v_ext is not None:
-            f_act += self.opts.v_ext
+        if self.v_ext is not None:
+            f_act += self.v_ext
         couplings = self.fragment.couplings
         if self.opts.polaritonic_shift:
             fock_shift, coupling_shift = self.get_polaritonic_shift(self.fragment.bos_freqs, self.fragment.couplings)
@@ -153,15 +153,15 @@ class UEBCCSD_Solver(EBCCSD_Solver):
             eris = self.get_eris()
         fock = self.base.get_fock()
         f_act = tuple([dot(self.cluster.c_active[i].T, fock[i], self.cluster.c_active[i]) for i in [0, 1]])
-        if self.opts.v_ext is not None:
-            f_act = [x + y for x, y in zip(f_act, self.opts.v_ext)]
 
         couplings = self.fragment.couplings
         if self.opts.polaritonic_shift:
             fock_shift, coupling_shift = self.get_polaritonic_shift(self.fragment.bos_freqs, self.fragment.couplings)
             f_act = tuple([x + y for x, y in zip(f_act, fock_shift)])
             couplings = tuple([x + y for x, y in zip(couplings, coupling_shift)])
-
+            if  self.v_ext is not None:
+               f_act = ((f_act[0] + self.v_ext[0]),
+                         (f_act[1] + self.v_ext[1]))
         return (f_act, eris, self.cluster.nocc_active, self.cluster.nvir_active), \
                tuple([x.transpose(0, 2, 1) for x in couplings])
 
