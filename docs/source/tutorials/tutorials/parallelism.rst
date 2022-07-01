@@ -11,9 +11,14 @@ In a second layer of optimization, Vayesta_ includes C-extended codes for provid
 an **openmp** parallelization strategy.
 
 Finally, Vayesta_ has implemented a third layer of parallelisation, where different operations between fragments are carried out using a **mpi** strategy 
-aiming for an enhacement in the scaling up of the calculations.
+aiming for an enhacement in the scaling up of the calculations. The **mpi** implementation can be used by running any Vayesta_ script in the following 
+manner:
 
-In this tutorial, the fragment parallelisation scheme is presented (TO BE COMPLETED..)
+.. code-block:: console
+
+   [~]$ mpirun -np #cores  vayesta_script.py
+
+In this tutorial, 
 
 
 
