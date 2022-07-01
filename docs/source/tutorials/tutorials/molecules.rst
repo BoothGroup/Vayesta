@@ -3,7 +3,8 @@
 Using EWF for simulation of Molecules
 =======================================
 
-Vayesta_ employs electronic structure properties computed using PySCF_. The needed modules can be imported as it is shown in the following snipet:
+In this tutorial, we will introduce the use of the module `ref:EWF` to perform calculations in Vayesta_ for a simple molecule like water. Firstly, 
+Vayesta_ utilizes electronic structure properties computed using PySCF_. The needed modules can be imported as it is shown in the following snipet:
 
 .. literalinclude:: fragmentation.py
    :lines: 1-4
