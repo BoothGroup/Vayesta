@@ -1061,11 +1061,11 @@ class Embedding:
             if not approx_cumulant:
                 vhf = self.get_veff_for_energy(dm1=dm1, with_exxdiv=False)
             elif (int(approx_cumulant) == 1):
-                dm1 = 2*dm1 - self.mf.make_rdm1()
+                dm1 = 2*np.asarray(dm1) - self.mf.make_rdm1()
                 vhf = self.get_veff_for_energy(with_exxdiv=False)
             else:
                 raise ValueError
-            e_dmet += np.sum(vhf * dm1)/2
+            e_dmet += np.sum(np.asarray(vhf) * dm1)/2
 
         self.log.debugv("E_elec(DMET)= %s", energy_string(e_dmet))
         return e_dmet / self.ncells

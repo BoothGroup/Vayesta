@@ -1,7 +1,9 @@
+import pytest
 import unittest
-import test_h2
+from vayesta.tests.ewf import test_h2
 from vayesta.tests import testsystems
 
+@pytest.mark.slow
 class Test_MP2(test_h2.Test_MP2):
 
     @classmethod
@@ -9,6 +11,7 @@ class Test_MP2(test_h2.Test_MP2):
         cls.mf = testsystems.water_631g.rhf()
         cls.cc = testsystems.water_631g.rmp2()
 
+@pytest.mark.slow
 class Test_CCSD(test_h2.Test_CCSD):
 
     @classmethod
@@ -16,6 +19,7 @@ class Test_CCSD(test_h2.Test_CCSD):
         cls.mf = testsystems.water_631g.rhf()
         cls.cc = testsystems.water_631g.rccsd()
 
+@pytest.mark.slow
 class Test_UMP2(test_h2.Test_UMP2):
 
     @classmethod
@@ -23,6 +27,7 @@ class Test_UMP2(test_h2.Test_UMP2):
         cls.mf = testsystems.water_cation_631g.uhf()
         cls.cc = testsystems.water_cation_631g.ump2()
 
+@pytest.mark.slow
 class Test_UCCSD(test_h2.Test_UCCSD):
 
     @classmethod

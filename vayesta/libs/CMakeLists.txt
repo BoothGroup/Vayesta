@@ -20,13 +20,18 @@ else()
 endif()
 
 # HDF5
-find_package(HDF5 REQUIRED COMPONENTS C HL)
-message(STATUS "HDF5 libraries: ${HDF5_LIBRARIES}")
+#find_package(HDF5 REQUIRED COMPONENTS C HL)
+#message(STATUS "HDF5 libraries: ${HDF5_LIBRARIES}")
 
 # C FLAGS
 set(CMAKE_C_FLAGS "-Wall ${CMAKE_C_FLAGS}")
 #set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fopenmp")
-set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -march=native")
+include(CheckCCompilerFlag)
+CHECK_C_COMPILER_FLAG("-march=native" COMPILER_SUPPORTS_MARCH_NATIVE)
+if (COMPILER_SUPPORTS_MARCH_NATIVE)
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -march=native")
+endif()
+#set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -mcpu=apple-m1")
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Ofast")
 #set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -funroll-loops -ftree-vectorize")
 
