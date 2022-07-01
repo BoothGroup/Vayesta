@@ -229,10 +229,12 @@ class EDMETFragment(DMETFragment):
                 raise RuntimeError
 
             self.a_bos = a_bos
-
-            self.bos_freqs, x, y = bogoliubov_decouple(a_bos + b_bos, a_bos - b_bos)
-            couplings_aa = einsum("npq,nm->mpq", couplings_aa, x) + einsum("npq,nm->mqp", couplings_aa, y)
-            couplings_bb = np.einsum("npq,nm->mpq", couplings_bb, x) + np.einsum("npq,nm->mqp", couplings_bb, y)
+            if self.nbos >0:
+                self.bos_freqs, x, y = bogoliubov_decouple(a_bos + b_bos, a_bos - b_bos)
+                couplings_aa = einsum("npq,nm->mpq", couplings_aa, x) + einsum("npq,nm->mqp", couplings_aa, y)
+                couplings_bb = np.einsum("npq,nm->mpq", couplings_bb, x) + np.einsum("npq,nm->mqp", couplings_bb, y)
+            else:
+                self.bos_freqs = np.zeros((0,))
             self.couplings = (couplings_aa, couplings_bb)
 
         # Will also want to save the effective local modification resulting from our local construction.
@@ -684,7 +686,8 @@ class EDMETFragment(DMETFragment):
             cluster_solver.kernel(eris=eris)
 
         dm1, dm2 = cluster_solver.make_rdm12()
-        self.check_qba_approx(dm1)
+        if self.nbos > 0:
+            self.check_qba_approx(dm1)
         dm_eb = cluster_solver.make_rdm_eb()
         self._results = results = self.Results(fid=self.id, n_active=self.cluster.norb_active,
                 converged=True, dm1=dm1, dm2=dm2, dm_eb=dm_eb)
@@ -804,12 +807,11 @@ class EDMETFragment(DMETFragment):
             fermionic[:no_l, no_l:, no_r:, :no_r] = bcon.reshape(f_shape).transpose((0, 1, 3, 2))
             fermionic = fermionic + fermionic.transpose((1, 0, 3, 2))
             return fermionic
-        print()
         ferm_aa = get_fermionic_spat_contrib(new_xc_a[:ov_a, :ov_a], new_xc_b[:ov_a, :ov_a], no_a, nv_a, no_a, nv_a)
-        ferm_ab = get_fermionic_spat_contrib(new_xc_a[:ov_a, ov_a:-self.nbos], new_xc_b[:ov_a, ov_a:-self.nbos],
+        ferm_ab = get_fermionic_spat_contrib(new_xc_a[:ov_a, ov_a:ov_a + ov_b], new_xc_b[:ov_a, ov_a:ov_a+ov_b],
                                              no_a, nv_a, no_b, nv_b)
-        ferm_bb = get_fermionic_spat_contrib(new_xc_a[ov_a:-self.nbos, ov_a:-self.nbos],
-                                             new_xc_b[ov_a:-self.nbos, ov_a:-self.nbos], no_b, nv_b, no_b, nv_b)
+        ferm_bb = get_fermionic_spat_contrib(new_xc_a[ov_a:ov_a+ov_b, ov_a:ov_a+ov_b],
+                                             new_xc_b[ov_a:ov_a+ov_b, ov_a:ov_a+ov_b], no_b, nv_b, no_b, nv_b)
 
         def get_fb_spat_contrib(acon, bcon, no, nv):
             fb_shape = (no, nv, self.nbos)
@@ -819,8 +821,8 @@ class EDMETFragment(DMETFragment):
             return fermbos
 
         if self.opts.boson_xc_kernel:
-            fb_a = get_fb_spat_contrib(new_xc_a[:ov_a, -self.nbos:], new_xc_b[:ov_a, -self.nbos:], no_a, nv_a)
-            fb_b = get_fb_spat_contrib(new_xc_a[ov_a:-self.nbos, -self.nbos:], new_xc_b[ov_a:-self.nbos, -self.nbos:],
+            fb_a = get_fb_spat_contrib(new_xc_a[:ov_a, ov_a+ov_b:], new_xc_b[:ov_a, ov_a+ov_b:], no_a, nv_a)
+            fb_b = get_fb_spat_contrib(new_xc_a[ov_a:ov_a+ov_b, ov_a+ov_b:], new_xc_b[ov_a:ov_a+ov_b, ov_a+ov_b:],
                                        no_b, nv_b)
         else:
             fb_a = np.zeros((no_a + nv_a,) * 2 + (0,))

@@ -1,4 +1,4 @@
-
+import pytest
 import unittest
 
 import numpy as np
@@ -9,7 +9,8 @@ from vayesta.core.util import cache
 from vayesta.tests import testsystems
 from vayesta.tests.common import TestCase
 
-class Test(TestCase):
+@pytest.mark.veryslow
+class DiamondEWFTest(TestCase):
 
     @classmethod
     def setUpClass(cls):

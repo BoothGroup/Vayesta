@@ -1,9 +1,10 @@
 import unittest
 from vayesta import dmet
-from vayesta.tests.cache import latts
+from vayesta.tests.common import TestCase
+from vayesta.tests import testsystems
 
 
-class HubbardDMETTests(unittest.TestCase):
+class HubbardDMETTests(TestCase):
     PLACES_ENERGY = 6
     CONV_TOL = 1e-8
 
@@ -21,7 +22,7 @@ class HubbardDMETTests(unittest.TestCase):
     def test_6_u0_1imp(self):
         """Tests for N=6 U=0 Hubbard model with single site impurities.
         """
-        emb = dmet.DMET(latts['hubb_6_u0']['rhf'], solver='FCI', charge_consistent=False,
+        emb = dmet.DMET(testsystems.hubb_6_u0.rhf(), solver='FCI', charge_consistent=False,
                 conv_tol=self.CONV_TOL, maxiter=50)
         with emb.site_fragmentation() as f:
             frag = f.add_atomic_fragment(0)
@@ -36,7 +37,7 @@ class HubbardDMETTests(unittest.TestCase):
     def test_10_u2_2imp(self):
         """Tests for N=10 U=2 Hubbard model with double site impurities.
         """
-        emb = dmet.DMET(latts['hubb_10_u2']['rhf'], solver='FCI', charge_consistent=False,
+        emb = dmet.DMET(testsystems.hubb_10_u2.rhf(), solver='FCI', charge_consistent=False,
                 conv_tol=self.CONV_TOL, maxiter=50)
         with emb.site_fragmentation() as f:
             frag = f.add_atomic_fragment([0, 1])
@@ -51,7 +52,7 @@ class HubbardDMETTests(unittest.TestCase):
     def test_6x6_u0_1x1imp(self):
         """Tests for 6x6 U=0 Hubbard model with single site impurities.
         """
-        emb = dmet.DMET(latts['hubb_6x6_u0_1x1imp']['rhf'], solver='FCI', charge_consistent=False,
+        emb = dmet.DMET(testsystems.hubb_6x6_u0_1x1imp.rhf(), solver='FCI', charge_consistent=False,
                 conv_tol=self.CONV_TOL, maxiter=50)
         with emb.site_fragmentation() as f:
             frag = f.add_atomic_fragment([0])
@@ -66,7 +67,7 @@ class HubbardDMETTests(unittest.TestCase):
     def test_6x6_u6_1x1imp(self):
         """Tests for 6x6 U=6 Hubbard model with single site impurities.
         """
-        emb = dmet.DMET(latts['hubb_6x6_u6_1x1imp']['rhf'], solver='FCI', charge_consistent=False,
+        emb = dmet.DMET(testsystems.hubb_6x6_u6_1x1imp.rhf(), solver='FCI', charge_consistent=False,
                 conv_tol=self.CONV_TOL, maxiter=50)
         with emb.site_fragmentation() as f:
             frag = f.add_atomic_fragment([0])
@@ -81,7 +82,7 @@ class HubbardDMETTests(unittest.TestCase):
     def test_8x8_u2_2x2imp(self):
         """Tests for 8x8 U=2 Hubbard model with 2x2 impurities.
         """
-        emb = dmet.DMET(latts['hubb_8x8_u2_2x2imp']['rhf'], solver='FCI', charge_consistent=False,
+        emb = dmet.DMET(testsystems.hubb_8x8_u2_2x2imp.rhf(), solver='FCI', charge_consistent=False,
                 conv_tol=self.CONV_TOL, maxiter=100)
         with emb.site_fragmentation() as f:
             frag = f.add_atomic_fragment([0, 1, 2, 3])

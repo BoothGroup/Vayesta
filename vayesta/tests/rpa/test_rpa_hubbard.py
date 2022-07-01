@@ -1,10 +1,11 @@
 import unittest
 
 from vayesta import rpa
-from vayesta.tests.cache import latts
+from vayesta.tests.common import TestCase
+from vayesta.tests import testsystems
 
 
-class MoleculeRPATest(unittest.TestCase):
+class MoleculeRPATest(TestCase):
     PLACES = 8
 
     def _test_energy(self, emb, known_values):
@@ -21,15 +22,15 @@ class MoleculeRPATest(unittest.TestCase):
         known_values_rpax = {'e_tot': -8.0}
         known_values_drpa = {'e_tot': -8.0}
 
-        emb = rpa.RPA(latts[key]['rhf'])
+        emb = rpa.RPA(getattr(testsystems, key).rhf())
         emb.kernel('rpax')
         self._test_energy(emb, known_values_rpax)
 
-        emb = rpa.RPA(latts[key]['rhf'])
+        emb = rpa.RPA(getattr(testsystems, key).rhf())
         emb.kernel('drpa')
         self._test_energy(emb, known_values_drpa)
 
-        emb = rpa.ssRPA(latts[key]['rhf'])
+        emb = rpa.ssRPA(getattr(testsystems, key).rhf())
         emb.kernel()
         self._test_energy(emb, known_values_drpa)
 
@@ -41,15 +42,15 @@ class MoleculeRPATest(unittest.TestCase):
         known_values_rpax = {'e_tot': -9.064312326273644}
         known_values_drpa = {'e_tot': -8.824440982421532}
 
-        emb = rpa.RPA(latts[key]['rhf'])
+        emb = rpa.RPA(getattr(testsystems, key).rhf())
         emb.kernel('rpax')
         self._test_energy(emb, known_values_rpax)
 
-        emb = rpa.RPA(latts[key]['rhf'])
+        emb = rpa.RPA(getattr(testsystems, key).rhf())
         emb.kernel('drpa')
         self._test_energy(emb, known_values_drpa)
 
-        emb = rpa.ssRPA(latts[key]['rhf'])
+        emb = rpa.ssRPA(getattr(testsystems, key).rhf())
         emb.kernel()
         self._test_energy(emb, known_values_drpa)
 
@@ -61,15 +62,15 @@ class MoleculeRPATest(unittest.TestCase):
         known_values_rpax = {'e_tot': -56.0}
         known_values_drpa = {'e_tot': -56.0}
 
-        emb = rpa.RPA(latts[key]['rhf'])
+        emb = rpa.RPA(getattr(testsystems, key).rhf())
         emb.kernel('rpax')
         self._test_energy(emb, known_values_rpax)
 
-        emb = rpa.RPA(latts[key]['rhf'])
+        emb = rpa.RPA(getattr(testsystems, key).rhf())
         emb.kernel('drpa')
         self._test_energy(emb, known_values_drpa)
 
-        emb = rpa.ssRPA(latts[key]['rhf'])
+        emb = rpa.ssRPA(getattr(testsystems, key).rhf())
         emb.kernel()
         self._test_energy(emb, known_values_drpa)
 
@@ -81,15 +82,15 @@ class MoleculeRPATest(unittest.TestCase):
         known_values_rpax = {'e_tot': -48.314526436495500}
         known_values_drpa = {'e_tot': -48.740268837302494}
 
-        emb = rpa.RPA(latts[key]['rhf'])
+        emb = rpa.RPA(getattr(testsystems, key).rhf())
         emb.kernel('rpax')
         self._test_energy(emb, known_values_rpax)
 
-        emb = rpa.RPA(latts[key]['rhf'])
+        emb = rpa.RPA(getattr(testsystems, key).rhf())
         emb.kernel('drpa')
         self._test_energy(emb, known_values_drpa)
 
-        emb = rpa.ssRPA(latts[key]['rhf'])
+        emb = rpa.ssRPA(getattr(testsystems, key).rhf())
         emb.kernel()
         self._test_energy(emb, known_values_drpa)
 
