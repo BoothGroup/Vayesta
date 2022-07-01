@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" /><meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Using EWF for Periodic Systems &mdash; vayesta 0.0.01 documentation</title>
+      <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="../../_static/css/theme.css" type="text/css" />
+  <!--[if lt IE 9]>
+    <script src="../../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script data-url_root="../../" id="documentation_options" src="../../_static/documentation_options.js"></script>
+        <script src="../../_static/jquery.js"></script>
+        <script src="../../_static/underscore.js"></script>
+        <script src="../../_static/_sphinx_javascript_frameworks_compat.js"></script>
+        <script src="../../_static/doctools.js"></script>
+    <script src="../../_static/js/theme.js"></script>
+    <link rel="author" title="About these documents" href="../../about.html" />
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" />
+    <link rel="next" title="Custom Hamiltonians" href="1dhubbard.html" />
+    <link rel="prev" title="Using EWF for Molecular simulations" href="molecules.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+            <a href="../../index.html" class="icon icon-home"> vayesta
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../../about.html">About</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../install.html">Installation</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="../tutorials.html">Tutorials</a><ul class="current">
+<li class="toctree-l2 current"><a class="reference internal" href="../tutorials.html#vayesta">Vayesta</a><ul class="current">
+<li class="toctree-l3"><a class="reference internal" href="molecules.html">Using EWF for Molecular simulations</a></li>
+<li class="toctree-l3 current"><a class="current reference internal" href="#">Using EWF for Periodic Systems</a></li>
+<li class="toctree-l3"><a class="reference internal" href="1dhubbard.html">Custom Hamiltonians</a></li>
+<li class="toctree-l3"><a class="reference internal" href="clusterham.html">Dumping Cluster Hamiltonians</a></li>
+<li class="toctree-l3"><a class="reference internal" href="parallelism.html">Parallelism in Vayesta</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../faq.html">FAQ</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../index.html">vayesta</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../index.html" class="icon icon-home"></a> &raquo;</li>
+          <li><a href="../tutorials.html">Tutorials</a> &raquo;</li>
+      <li>Using EWF for Periodic Systems</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../../_sources/tutorials/tutorials/solids.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="using-ewf-for-periodic-systems">
+<span id="solids"></span><h1>Using EWF for Periodic Systems<a class="headerlink" href="#using-ewf-for-periodic-systems" title="Permalink to this heading"></a></h1>
+<p>This tutorial introduces the use of the EWF method to perform electronic structure simulations of periodic systems in <a class="reference external" href="https://github.com/BoothGroup/Vayesta">Vayesta</a>. Additionally to the
+standard molecular quantum chemistry capabilities, <a class="reference external" href="https://sunqm.github.io/pyscf/">PySCF</a> enables the use of a variety of quantum chemistry methods for extended systems with Periodic
+Boundary Conditions (PBC). <a class="reference external" href="https://github.com/BoothGroup/Vayesta">Vayesta</a> utilizes these capabilities of performing ground state calculations as starting point. Initially, the relevant
+modules are imported as shown in the snipet below:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">import</span> <span class="nn">pyscf</span>
+<span class="kn">import</span> <span class="nn">pyscf.pbc</span>
+<span class="kn">import</span> <span class="nn">pyscf.pbc.scf</span>
+<span class="kn">import</span> <span class="nn">pyscf.pbc.cc</span>
+<span class="kn">import</span> <span class="nn">pyscf.pbc.tools</span>
+</pre></div>
+</div>
+<p>Subsequently, the required <a class="reference external" href="https://github.com/BoothGroup/Vayesta">Vayesta</a> modules can be imported as indicated in the following lines of code:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">vayesta</span>
+<span class="kn">import</span> <span class="nn">vayesta.ewf</span>
+</pre></div>
+</div>
+<p><a class="reference external" href="https://sunqm.github.io/pyscf/">PySCF</a> supplies the user with functions that are able to build a crystalline structure and a user-defined <strong>k-mesh</strong> as shown below:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">cell</span> <span class="o">=</span> <span class="n">pyscf</span><span class="o">.</span><span class="n">pbc</span><span class="o">.</span><span class="n">gto</span><span class="o">.</span><span class="n">Cell</span><span class="p">()</span>
+<span class="n">a</span> <span class="o">=</span> <span class="mf">3.57</span>
+<span class="n">cell</span><span class="o">.</span><span class="n">atom</span> <span class="o">=</span> <span class="p">[</span><span class="s1">&#39;C 0.0 0.0 0.0&#39;</span><span class="p">,</span> <span class="s1">&#39;C </span><span class="si">%f</span><span class="s1"> </span><span class="si">%f</span><span class="s1"> </span><span class="si">%f</span><span class="s1">&#39;</span> <span class="o">%</span> <span class="p">(</span><span class="n">a</span><span class="o">/</span><span class="mi">4</span><span class="p">,</span> <span class="n">a</span><span class="o">/</span><span class="mi">4</span><span class="p">,</span> <span class="n">a</span><span class="o">/</span><span class="mi">4</span><span class="p">)]</span>
+<span class="n">cell</span><span class="o">.</span><span class="n">a</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">([</span>
+    <span class="p">[</span><span class="n">a</span><span class="o">/</span><span class="mi">2</span><span class="p">,</span> <span class="n">a</span><span class="o">/</span><span class="mi">2</span><span class="p">,</span> <span class="mi">0</span><span class="p">],</span>
+    <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="n">a</span><span class="o">/</span><span class="mi">2</span><span class="p">,</span> <span class="n">a</span><span class="o">/</span><span class="mi">2</span><span class="p">],</span>
+    <span class="p">[</span><span class="n">a</span><span class="o">/</span><span class="mi">2</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="n">a</span><span class="o">/</span><span class="mi">2</span><span class="p">]])</span>
+<span class="n">cell</span><span class="o">.</span><span class="n">basis</span> <span class="o">=</span> <span class="s1">&#39;def2-svp&#39;</span>
+<span class="n">cell</span><span class="o">.</span><span class="n">output</span> <span class="o">=</span> <span class="s1">&#39;pyscf.out&#39;</span>
+<span class="n">cell</span><span class="o">.</span><span class="n">build</span><span class="p">()</span>
+
+<span class="n">kmesh</span> <span class="o">=</span> <span class="p">[</span><span class="mi">1</span><span class="p">,</span><span class="mi">1</span><span class="p">,</span><span class="mi">2</span><span class="p">]</span>
+<span class="n">kpts</span> <span class="o">=</span> <span class="n">cell</span><span class="o">.</span><span class="n">make_kpts</span><span class="p">(</span><span class="n">kmesh</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>where a diamond crystalline structure has been created. To perform electronic structure calculations with <strong>HF</strong> and using <strong>k-points</strong>, the following
+lines of code are needed:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">kmf</span> <span class="o">=</span> <span class="n">pyscf</span><span class="o">.</span><span class="n">pbc</span><span class="o">.</span><span class="n">scf</span><span class="o">.</span><span class="n">KRHF</span><span class="p">(</span><span class="n">cell</span><span class="p">,</span> <span class="n">kpts</span><span class="p">)</span>
+<span class="n">kmf</span> <span class="o">=</span> <span class="n">kmf</span><span class="o">.</span><span class="n">density_fit</span><span class="p">(</span><span class="n">auxbasis</span><span class="o">=</span><span class="s1">&#39;def2-svp-ri&#39;</span><span class="p">)</span>
+<span class="n">kmf</span><span class="o">.</span><span class="n">kernel</span><span class="p">()</span>
+</pre></div>
+</div>
+<p>Similarly, a full <strong>CCSD</strong> calculation is carried out as presented in the following snipet:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">kcc</span> <span class="o">=</span> <span class="n">pyscf</span><span class="o">.</span><span class="n">pbc</span><span class="o">.</span><span class="n">cc</span><span class="o">.</span><span class="n">KCCSD</span><span class="p">(</span><span class="n">kmf</span><span class="p">)</span>
+<span class="n">kcc</span><span class="o">.</span><span class="n">kernel</span><span class="p">()</span>
+</pre></div>
+</div>
+<p>As starting point, the <cite>ref:EWT</cite> function uses the result of the previous <strong>HF</strong> calculation (denoted by <strong>kmf</strong>) to start the embedding procedure:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">emb</span> <span class="o">=</span> <span class="n">vayesta</span><span class="o">.</span><span class="n">ewf</span><span class="o">.</span><span class="n">EWF</span><span class="p">(</span><span class="n">kmf</span><span class="p">,</span> <span class="n">bno_threshold</span><span class="o">=</span><span class="mf">1e-6</span><span class="p">)</span>
+<span class="n">emb</span><span class="o">.</span><span class="n">iao_fragmentation</span><span class="p">()</span>
+<span class="n">emb</span><span class="o">.</span><span class="n">add_atomic_fragment</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">sym_factor</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span> <span class="c1"># 2 C-atoms per unit cell</span>
+<span class="n">emb</span><span class="o">.</span><span class="n">kernel</span><span class="p">()</span>
+</pre></div>
+</div>
+<p>important to notice is that the <strong>IAO</strong> fragmentation method has been used, together with a <strong>sym_factor=2</strong> variable, since the diamond unit cell has
+two carbon atoms per unit cell. The user-provided k-point mean-field calculation will be automatically folded to the supercell.</p>
+<p>Similarly, <a class="reference external" href="https://sunqm.github.io/pyscf/">PySCF</a> enables the use of explicit supercells for computing mean-field electronic ground-state as shown below:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">scell</span> <span class="o">=</span> <span class="n">pyscf</span><span class="o">.</span><span class="n">pbc</span><span class="o">.</span><span class="n">tools</span><span class="o">.</span><span class="n">super_cell</span><span class="p">(</span><span class="n">cell</span><span class="p">,</span> <span class="n">kmesh</span><span class="p">)</span>
+<span class="n">mf_sc</span> <span class="o">=</span> <span class="n">pyscf</span><span class="o">.</span><span class="n">pbc</span><span class="o">.</span><span class="n">scf</span><span class="o">.</span><span class="n">RHF</span><span class="p">(</span><span class="n">scell</span><span class="p">)</span>
+<span class="n">mf_sc</span> <span class="o">=</span> <span class="n">mf_sc</span><span class="o">.</span><span class="n">density_fit</span><span class="p">(</span><span class="n">auxbasis</span><span class="o">=</span><span class="s1">&#39;def2-svp-ri&#39;</span><span class="p">)</span>
+<span class="n">mf_sc</span><span class="o">.</span><span class="n">kernel</span><span class="p">()</span>
+</pre></div>
+</div>
+<p>The <cite>ref:EWF</cite> embedding procedure can be also carried out using the supercell input as shown below:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">emb_sc</span> <span class="o">=</span> <span class="n">vayesta</span><span class="o">.</span><span class="n">ewf</span><span class="o">.</span><span class="n">EWF</span><span class="p">(</span><span class="n">mf_sc</span><span class="p">,</span> <span class="n">bno_threshold</span><span class="o">=</span><span class="mf">1e-6</span><span class="p">)</span>
+<span class="n">emb_sc</span><span class="o">.</span><span class="n">iao_fragmentation</span><span class="p">()</span>
+<span class="n">ncells</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">product</span><span class="p">(</span><span class="n">kmesh</span><span class="p">)</span>
+<span class="n">emb_sc</span><span class="o">.</span><span class="n">add_atomic_fragment</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">sym_factor</span><span class="o">=</span><span class="mi">2</span><span class="o">*</span><span class="n">ncells</span><span class="p">)</span>
+<span class="n">emb_sc</span><span class="o">.</span><span class="n">kernel</span><span class="p">()</span>
+</pre></div>
+</div>
+<p>in which the <strong>IAO</strong> fragmentation has been used. The <cite>ref:add_atomic_fragment</cite> function is respectively changed by tuning the argument <strong>sym_factor</strong>
+provided by the number of images created to reproduce the kpoint mesh (i.e 2 as computed in the ncells variable).</p>
+<p>The results of these different calculation setups can be shown using the following lines of code:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="nb">print</span><span class="p">(</span><span class="s2">&quot;E(k-HF)=             </span><span class="si">%+16.8f</span><span class="s2"> Ha&quot;</span> <span class="o">%</span> <span class="n">kmf</span><span class="o">.</span><span class="n">e_tot</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;E(sc-HF)=            </span><span class="si">%+16.8f</span><span class="s2"> Ha&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">mf_sc</span><span class="o">.</span><span class="n">e_tot</span><span class="o">/</span><span class="n">ncells</span><span class="p">))</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;E(Emb. CCSD @k-HF)=  </span><span class="si">%+16.8f</span><span class="s2"> Ha&quot;</span> <span class="o">%</span> <span class="n">emb</span><span class="o">.</span><span class="n">e_tot</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;E(Emb. CCSD @sc-HF)= </span><span class="si">%+16.8f</span><span class="s2"> Ha&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">emb_sc</span><span class="o">.</span><span class="n">e_tot</span><span class="o">/</span><span class="n">ncells</span><span class="p">))</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;E(k-CCSD)=           </span><span class="si">%+16.8f</span><span class="s2"> Ha&quot;</span> <span class="o">%</span> <span class="n">kcc</span><span class="o">.</span><span class="n">e_tot</span><span class="p">)</span>
+</pre></div>
+</div>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="molecules.html" class="btn btn-neutral float-left" title="Using EWF for Molecular simulations" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="1dhubbard.html" class="btn btn-neutral float-right" title="Custom Hamiltonians" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2022.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" /><meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>FAQ &mdash; vayesta 0.0.01 documentation</title>
+      <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="_static/css/theme.css" type="text/css" />
+  <!--[if lt IE 9]>
+    <script src="_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script data-url_root="./" id="documentation_options" src="_static/documentation_options.js"></script>
+        <script src="_static/jquery.js"></script>
+        <script src="_static/underscore.js"></script>
+        <script src="_static/_sphinx_javascript_frameworks_compat.js"></script>
+        <script src="_static/doctools.js"></script>
+    <script src="_static/js/theme.js"></script>
+    <link rel="author" title="About these documents" href="about.html" />
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="prev" title="Parallelism in Vayesta" href="tutorials/tutorials/parallelism.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+            <a href="index.html" class="icon icon-home"> vayesta
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="about.html">About</a></li>
+<li class="toctree-l1"><a class="reference internal" href="install.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="tutorials/tutorials.html">Tutorials</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">FAQ</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#installation">Installation</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#cluster-installation">Cluster Installation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#installing-openblas-from-source">Installing OpenBLAS from source</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#python3-environment-in-clusters">Python3 environment in Clusters</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#environment-variables">Environment Variables</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#installing-mpi4py">Installing mpi4py</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#installing-pyscf-from-source">Installing PySCF from source</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#installing-vayesta-from-source">Installing Vayesta from source</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#id2">Environment variables</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#path">PATH</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#pythonpath">PYTHONPATH</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="index.html">vayesta</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="index.html" class="icon icon-home"></a> &raquo;</li>
+      <li>FAQ</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="_sources/faq.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="faq">
+<span id="id1"></span><h1>FAQ<a class="headerlink" href="#faq" title="Permalink to this heading"></a></h1>
+<section id="installation">
+<h2>Installation<a class="headerlink" href="#installation" title="Permalink to this heading"></a></h2>
+<p>Installing <a class="reference external" href="https://github.com/BoothGroup/Vayesta">Vayesta</a> from source can be also carried out using many different options. In this section, we will review different manners of installing <a class="reference external" href="https://github.com/BoothGroup/Vayesta">Vayesta</a> using <a class="reference external" href="https://github.com/xianyi/OpenBLAS">OpenBLAS</a> existing version in HPC facilities.</p>
+<section id="cluster-installation">
+<h3>Cluster Installation<a class="headerlink" href="#cluster-installation" title="Permalink to this heading"></a></h3>
+<p>Vayesta uses <a class="reference external" href="https://github.com/xianyi/OpenBLAS">OpenBLAS</a> for fast numerical operations. If you are a cluster user where the command <cite>module</cite> is available, it is very likely <a class="reference external" href="https://github.com/xianyi/OpenBLAS">OpenBLAS</a> is already installed. To locate the library, the following command can be used:</p>
+<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">[~]$</span> module show openblas
+</pre></div>
+</div>
+<p>which will print the path to the library, the compiler used and more flags used during the installation process. If there are more than one version of the library, one can use the command:</p>
+<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">[~]$</span> module available
+</pre></div>
+</div>
+<p>to print all modules that are installed in the cluster. Once you have found the desired version of <a class="reference external" href="https://github.com/xianyi/OpenBLAS">OpenBLAS</a>, you can enable it by typing:</p>
+<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">[~]$</span> module load openblas/VERSION-openmp/
+</pre></div>
+</div>
+<p>which will make it accessible to compile <a class="reference external" href="https://pyscf.org/">PySCF</a> and <a class="reference external" href="https://github.com/BoothGroup/Vayesta">Vayesta</a> from source.</p>
+</section>
+<section id="installing-openblas-from-source">
+<h3>Installing OpenBLAS from source<a class="headerlink" href="#installing-openblas-from-source" title="Permalink to this heading"></a></h3>
+<p>The installation can be carried out using <strong>gcc</strong> compilers.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>The installation of <a class="reference external" href="https://github.com/xianyi/OpenBLAS">OpenBLAS</a> should be done locally.</p>
+</div>
+<p>To install a local version, a specific directory should be created where the library is stored:</p>
+<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">[~]$</span> mkdir <span class="nv">$HOME</span>/work
+<span class="gp">[~]$</span> <span class="nb">export</span> <span class="nv">WORK</span><span class="o">=</span><span class="nv">$HOME</span>/work
+</pre></div>
+</div>
+<p>The last line of code creates an enviromental variable called WORK, which will store the absolute path declared for the directory <cite>work</cite>.</p>
+<p>To install an <strong>openmp</strong> version of <a class="reference external" href="https://github.com/xianyi/OpenBLAS">OpenBLAS</a>, a series of steps need to be followed. Firstly, specific options should be selected as is shown in the following lines of code:</p>
+<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">[~]$</span> <span class="nb">export</span> <span class="nv">USE_OPENMP</span><span class="o">=</span><span class="m">1</span>
+<span class="gp">[~]$</span> <span class="nb">export</span> <span class="nv">NO_WARMUP</span><span class="o">=</span><span class="m">1</span>
+<span class="gp">[~]$</span> <span class="nb">export</span> <span class="nv">BUILD_RELAPACK</span><span class="o">=</span><span class="m">0</span>
+<span class="gp">[~]$</span> <span class="nb">export</span> <span class="nv">DYNAMIC_ARCH</span><span class="o">=</span><span class="m">0</span>
+<span class="gp">[~]$</span> <span class="nb">export</span> <span class="nv">CC</span><span class="o">=</span>gcc
+<span class="gp">[~]$</span> <span class="nb">export</span> <span class="nv">FC</span><span class="o">=</span>gfortran
+<span class="gp">[~]$</span> <span class="nb">export</span> <span class="nv">HOSTCC</span><span class="o">=</span>gcc
+</pre></div>
+</div>
+<p>The last 3 options ensures the use of <strong>GNU</strong> compilers. Similarly, a set of optimized <cite>FLAGS</cite> is defined in the following way:</p>
+<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">[~]$</span> <span class="nb">export</span> <span class="nv">COMMON_OPT</span><span class="o">=</span><span class="s2">&quot;-O3 -ftree-vectorize -fprefetch-loop-arrays --param prefetch-latency=300&quot;</span>
+<span class="gp">[~]$</span> <span class="nb">export</span> <span class="nv">CFLAGS</span><span class="o">=</span><span class="s2">&quot;-O3 -ftree-vectorize -fprefetch-loop-arrays --param prefetch-latency=300&quot;</span>
+<span class="gp">[~]$</span> <span class="nb">export</span> <span class="nv">FCOMMON_OPT</span><span class="o">=</span><span class="s2">&quot;-O3 -ftree-vectorize -fprefetch-loop-arrays --param prefetch-latency=300&quot;</span>
+<span class="gp">[~]$</span> <span class="nb">export</span> <span class="nv">FCFLAGS</span><span class="o">=</span><span class="s2">&quot;-O3 -ftree-vectorize -fprefetch-loop-arrays --param prefetch-latency=300&quot;</span>
+</pre></div>
+</div>
+<p>To install <a class="reference external" href="https://github.com/xianyi/OpenBLAS">OpenBLAS</a>, the following commands should be used:</p>
+<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">[~]$</span> <span class="nv">OPENBLAS_DIR</span><span class="o">=</span><span class="nv">$HOME</span>/work/openblas
+<span class="gp">[~]$</span> make -j4 <span class="nv">BINARY</span><span class="o">=</span><span class="m">64</span> <span class="nv">INTERFACE</span><span class="o">=</span><span class="m">64</span> <span class="nv">LIBNAMESUFFIX</span><span class="o">=</span>openmp
+<span class="gp">[~]$</span> make <span class="nv">PREFIX</span><span class="o">=</span><span class="nv">$OPENBLAS_DIR</span> <span class="nv">LIBNAMESUFFIX</span><span class="o">=</span>openmp install
+</pre></div>
+</div>
+<p>This concludes the installation of <a class="reference external" href="https://github.com/xianyi/OpenBLAS">OpenBLAS</a>. The library can be found in the path <cite>$HOME/work/openblas</cite>.</p>
+</section>
+<section id="python3-environment-in-clusters">
+<h3>Python3 environment in Clusters<a class="headerlink" href="#python3-environment-in-clusters" title="Permalink to this heading"></a></h3>
+<p>As a cluster user, <a class="reference external" href="https://www.python.org/">Python</a> is also provided as a part of your initial environment. It is important to have an updated version of <a class="reference external" href="https://www.python.org/">Python</a>, since many
+High-Performance Cluster facilities declares as a dafault the version 2.7, whilst <a class="reference external" href="https://github.com/BoothGroup/Vayesta">Vayesta</a> requires a 3+ version. To check the Python version, one can
+simply type:</p>
+<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">[~]$</span> python
+</pre></div>
+</div>
+<p>This will call python and display the following message:</p>
+<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="go">Python 2.7.5 (default, Aug 13 2020, 02:51:10)</span>
+<span class="go">[GCC 4.8.5 20150623 (Red Hat 4.8.5-39)] on linux2</span>
+<span class="go">Type &quot;help&quot;, &quot;copyright&quot;, &quot;credits&quot; or &quot;license&quot; for more information.</span>
+<span class="gp">&gt;</span>&gt;&gt;
+</pre></div>
+</div>
+<p>This indicates that the default version is 2.7.5. In this case, one needs to search for the correct <a class="reference external" href="https://www.python.org/">Python</a> version, that can be done using the module
+command as indicated in the following lines of code:</p>
+<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">[~]$</span> module available
+<span class="gp">[~]$</span> module load pythonX.X
+</pre></div>
+</div>
+<p>where <strong>X.X</strong> indicates the version that has been chosen. We strongly suggest tahe latest available version of <a class="reference external" href="https://www.python.org/">Python</a> available in your cluster.</p>
+</section>
+<section id="environment-variables">
+<h3>Environment Variables<a class="headerlink" href="#environment-variables" title="Permalink to this heading"></a></h3>
+<p>An important point is to configure the command <strong>pip</strong> to point to the directory <cite>$HOME/work</cite>. This can be done by typing the following lines of code:</p>
+<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">[~]$</span> <span class="nb">export</span> <span class="nv">PYTHONUSERBASE</span><span class="o">=</span><span class="si">${</span><span class="nv">WORK</span><span class="si">}</span>/.local
+<span class="gp">[~]$</span> <span class="nb">export</span> <span class="nv">PATH</span><span class="o">=</span><span class="nv">$PYTHONUSERBASE</span>/bin:<span class="nv">$PATH</span>
+<span class="gp">[~]$</span> <span class="nb">export</span> <span class="nv">PYTHONPATH</span><span class="o">=</span><span class="nv">$PYTHONUSERBASE</span>/lib/pythonX.X/site-packages:<span class="nv">$PYTHONPATH</span>
+</pre></div>
+</div>
+<p>This ensures that the future installations will be stored in this directory.</p>
+</section>
+<section id="installing-mpi4py">
+<h3>Installing mpi4py<a class="headerlink" href="#installing-mpi4py" title="Permalink to this heading"></a></h3>
+<p>To install <strong>mpi4py</strong>, the following command is used to build the library:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>env <span class="nv">MPICC</span><span class="o">=</span>/../mpicc python -m pip install --force --user mpi4py
+</pre></div>
+</div>
+<p>This ensures the creation of the library locally.</p>
+</section>
+<section id="installing-pyscf-from-source">
+<h3>Installing PySCF from source<a class="headerlink" href="#installing-pyscf-from-source" title="Permalink to this heading"></a></h3>
+<p>Once the previous steps have been sucessfully carried out, <a class="reference external" href="https://pyscf.org/">PySCF</a> can be installed. The following steps will provide guidance for this process:</p>
+<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">[~]$</span> git clone https://github.com/BoothGroup/pyscf <span class="nv">$WORK</span>/git/pyscf
+<span class="gp">[~]$</span> <span class="nb">cd</span> <span class="nv">$WORK</span>/git/pyscf/pyscf/lib
+<span class="gp">[~]$</span> mkdir build <span class="o">&amp;&amp;</span> <span class="nb">cd</span> build
+</pre></div>
+</div>
+<p>To link <a class="reference external" href="https://pyscf.org/">PySCF</a> with the user compiled <a class="reference external" href="https://github.com/xianyi/OpenBLAS">OpenBLAS</a>, the following lines of code are needed:</p>
+<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">[~]$</span> cmake -DBLAS_LIBRARIES<span class="o">=</span><span class="nv">$WORK</span>/openblas/lib/libopenblas_openmp.so ..
+<span class="gp">[~]$</span> make
+</pre></div>
+</div>
+<p>This compiles a local version of <a class="reference external" href="https://pyscf.org/">PySCF</a> which can be linked to <a class="reference external" href="https://github.com/BoothGroup/Vayesta">Vayesta</a>.</p>
+</section>
+<section id="installing-vayesta-from-source">
+<h3>Installing Vayesta from source<a class="headerlink" href="#installing-vayesta-from-source" title="Permalink to this heading"></a></h3>
+<p>To succesfully construct the <a class="reference external" href="https://github.com/BoothGroup/Vayesta">Vayesta</a> binary, the following steps are needed:</p>
+<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">[~]$</span> git clone https://github.com/BoothGroup/Vayesta <span class="nv">$WORK</span>/git/vayesta
+<span class="gp">[~]$</span> <span class="nb">cd</span> <span class="nv">$WORK</span>/git/vayesta/vayesta/libs
+<span class="gp">[~]$</span> mkdir build <span class="o">&amp;&amp;</span> <span class="nb">cd</span> build
+<span class="gp">[~]$</span> cmake ..
+<span class="gp">[~]$</span> make
+</pre></div>
+</div>
+<p>Following these steps, <a class="reference external" href="https://github.com/BoothGroup/Vayesta">Vayesta</a> can be constructed and the binaries created.</p>
+</section>
+<section id="id2">
+<h3>Environment variables<a class="headerlink" href="#id2" title="Permalink to this heading"></a></h3>
+</section>
+<section id="path">
+<h3>PATH<a class="headerlink" href="#path" title="Permalink to this heading"></a></h3>
+<p>Colon-separated paths where programs can be found.</p>
+</section>
+<section id="pythonpath">
+<h3>PYTHONPATH<a class="headerlink" href="#pythonpath" title="Permalink to this heading"></a></h3>
+<p>Colon-separated paths where Python modules can be found.</p>
+<p>Set these permanently in your <cite>~/.bashrc</cite> file:</p>
+<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$</span> <span class="nb">export</span> <span class="nv">PYTHONPATH</span><span class="o">=</span>&lt;path-to-vayesta-package&gt;:<span class="nv">$PYTHONPATH</span>
+<span class="gp">$</span> <span class="nb">export</span> <span class="nv">PATH</span><span class="o">=</span>&lt;path-to-vayesta-command-line-tools&gt;:<span class="nv">$PATH</span>
+</pre></div>
+</div>
+<p>Once this is done, these changes need to be updated by typing:</p>
+<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">[~]$</span> <span class="nb">source</span>
+</pre></div>
+</div>
+<p>which will incorporate these new paths.</p>
+</section>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="tutorials/tutorials/parallelism.html" class="btn btn-neutral float-left" title="Parallelism in Vayesta" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2022.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

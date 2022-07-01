@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" /><meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Parallelism in Vayesta &mdash; vayesta 0.0.01 documentation</title>
+      <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="../../_static/css/theme.css" type="text/css" />
+  <!--[if lt IE 9]>
+    <script src="../../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script data-url_root="../../" id="documentation_options" src="../../_static/documentation_options.js"></script>
+        <script src="../../_static/jquery.js"></script>
+        <script src="../../_static/underscore.js"></script>
+        <script src="../../_static/_sphinx_javascript_frameworks_compat.js"></script>
+        <script src="../../_static/doctools.js"></script>
+    <script src="../../_static/js/theme.js"></script>
+    <link rel="author" title="About these documents" href="../../about.html" />
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" />
+    <link rel="next" title="FAQ" href="../../faq.html" />
+    <link rel="prev" title="Dumping Cluster Hamiltonians" href="clusterham.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+            <a href="../../index.html" class="icon icon-home"> vayesta
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../../about.html">About</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../install.html">Installation</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="../tutorials.html">Tutorials</a><ul class="current">
+<li class="toctree-l2 current"><a class="reference internal" href="../tutorials.html#vayesta">Vayesta</a><ul class="current">
+<li class="toctree-l3"><a class="reference internal" href="molecules.html">Using EWF for Molecular simulations</a></li>
+<li class="toctree-l3"><a class="reference internal" href="solids.html">Using EWF for Periodic Systems</a></li>
+<li class="toctree-l3"><a class="reference internal" href="1dhubbard.html">Custom Hamiltonians</a></li>
+<li class="toctree-l3"><a class="reference internal" href="clusterham.html">Dumping Cluster Hamiltonians</a></li>
+<li class="toctree-l3 current"><a class="current reference internal" href="#">Parallelism in Vayesta</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../faq.html">FAQ</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../index.html">vayesta</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../index.html" class="icon icon-home"></a> &raquo;</li>
+          <li><a href="../tutorials.html">Tutorials</a> &raquo;</li>
+      <li>Parallelism in Vayesta</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../../_sources/tutorials/tutorials/parallelism.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="parallelism-in-vayesta">
+<span id="parallel"></span><h1>Parallelism in Vayesta<a class="headerlink" href="#parallelism-in-vayesta" title="Permalink to this heading"></a></h1>
+<p><a class="reference external" href="https://github.com/BoothGroup/Vayesta">Vayesta</a> has been constructed to perform parallel calculations at different levels. A first layer of parallelisation is obtained by using the <a class="reference external" href="https://github.com/xianyi/OpenBLAS">OpenBLAS</a>
+library (via the <a class="reference external" href="https://numpy.org/">numpy</a> package) which offers <strong>openmp</strong> parallelization for different mathematical operations.</p>
+<p>In a second layer of optimization, <a class="reference external" href="https://github.com/BoothGroup/Vayesta">Vayesta</a> includes C-extended codes for providing a speed up in the calculations in critical operations employing
+an <strong>openmp</strong> parallelization strategy.</p>
+<p>Finally, <a class="reference external" href="https://github.com/BoothGroup/Vayesta">Vayesta</a> has implemented a third layer of parallelisation, where different operations between fragments are carried out using a <strong>mpi</strong> strategy
+aiming for an enhacement in the scaling up of the calculations. The <strong>mpi</strong> implementation can be used by running any <a class="reference external" href="https://github.com/BoothGroup/Vayesta">Vayesta</a> script in the following
+manner:</p>
+<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">[~]$</span> mpirun -np <span class="c1">#ncores  vayesta_script.py</span>
+</pre></div>
+</div>
+<p>However, it is relevant to use a correct number of cores to perform an efficient <strong>mpi</strong> calculation. To this aim, a new water molecule example is used
+explicitly showing the use of the module <cite>ref:vayesta.mpi</cite>. Firstly, the pertinent <a class="reference external" href="https://github.com/BoothGroup/Vayesta">Vayesta</a> modules are loaded in the following way:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">vayesta</span>
+<span class="kn">import</span> <span class="nn">vayesta.ewf</span>
+<span class="kn">from</span> <span class="nn">vayesta.mpi</span> <span class="k">import</span> <span class="n">mpi</span>
+</pre></div>
+</div>
+<p>The <a class="reference external" href="https://sunqm.github.io/pyscf/">PySCF</a> molecule object is correspondingly built:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">mol</span> <span class="o">=</span> <span class="n">pyscf</span><span class="o">.</span><span class="n">gto</span><span class="o">.</span><span class="n">Mole</span><span class="p">()</span>
+
+<span class="n">mol</span><span class="o">.</span><span class="n">atom</span> <span class="o">=</span> <span class="s2">&quot;&quot;&quot;</span>
+<span class="s2">O  0.0000   0.0000   0.1173</span>
+<span class="s2">H  0.0000   0.7572  -0.4692</span>
+<span class="s2">H  0.0000  -0.7572  -0.4692</span>
+<span class="s2">&quot;&quot;&quot;</span>
+
+<span class="n">mol</span><span class="o">.</span><span class="n">basis</span> <span class="o">=</span> <span class="s1">&#39;cc-pVDZ&#39;</span>
+<span class="n">mol</span><span class="o">.</span><span class="n">output</span> <span class="o">=</span> <span class="s1">&#39;pyscf-mpi</span><span class="si">%d</span><span class="s1">.out&#39;</span> <span class="o">%</span> <span class="n">mpi</span><span class="o">.</span><span class="n">rank</span>
+<span class="n">mol</span><span class="o">.</span><span class="n">build</span><span class="p">()</span>
+</pre></div>
+</div>
+<p>It is important to define an individual output file for every process as is declared in <cite>ref:mol.output</cite>. The initial mean-field method (in this case is
+<strong>HF</strong>) used to compute the ground-state wavefunction is also used within the <strong>mpi</strong> methdology in this manner:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">mf</span> <span class="o">=</span> <span class="n">pyscf</span><span class="o">.</span><span class="n">scf</span><span class="o">.</span><span class="n">RHF</span><span class="p">(</span><span class="n">mol</span><span class="p">)</span>
+<span class="n">mf</span> <span class="o">=</span> <span class="n">mpi</span><span class="o">.</span><span class="n">scf</span><span class="p">(</span><span class="n">mf</span><span class="p">)</span>
+<span class="n">mf</span><span class="o">.</span><span class="n">kernel</span><span class="p">()</span>
+</pre></div>
+</div>
+<p>The <cite>ref:EWT</cite> method is used in the following manner:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="c1"># Embedded CCSD</span>
+<span class="n">emb</span> <span class="o">=</span> <span class="n">vayesta</span><span class="o">.</span><span class="n">ewf</span><span class="o">.</span><span class="n">EWF</span><span class="p">(</span><span class="n">mf</span><span class="p">,</span> <span class="n">bath_options</span><span class="o">=</span><span class="nb">dict</span><span class="p">(</span><span class="n">threshold</span><span class="o">=</span><span class="mf">1e-6</span><span class="p">))</span>
+<span class="n">emb</span><span class="o">.</span><span class="n">kernel</span><span class="p">()</span>
+</pre></div>
+</div>
+<p>In this <strong>mpi</strong> implementation all the results are gathered in the master process. This proccess can be also used for computing the total energies
+provided at the different levels of theory as is shown in the following snippet:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="k">if</span> <span class="n">mpi</span><span class="o">.</span><span class="n">is_master</span><span class="p">:</span>
+    <span class="n">cc</span> <span class="o">=</span> <span class="n">pyscf</span><span class="o">.</span><span class="n">cc</span><span class="o">.</span><span class="n">CCSD</span><span class="p">(</span><span class="n">mf</span><span class="p">)</span>
+    <span class="n">cc</span><span class="o">.</span><span class="n">kernel</span><span class="p">()</span>
+
+    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;E(HF)=        </span><span class="si">%+16.8f</span><span class="s2"> Ha&quot;</span> <span class="o">%</span> <span class="n">mf</span><span class="o">.</span><span class="n">e_tot</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;E(CCSD)=      </span><span class="si">%+16.8f</span><span class="s2"> Ha&quot;</span> <span class="o">%</span> <span class="n">cc</span><span class="o">.</span><span class="n">e_tot</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;E(Emb. CCSD)= </span><span class="si">%+16.8f</span><span class="s2"> Ha&quot;</span> <span class="o">%</span> <span class="n">emb</span><span class="o">.</span><span class="n">e_tot</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>To provide a good computational scaling, it is strongly suggested that <strong>N_frag % #ncores = 0</strong>, where <strong>N_frag</strong> is the number of fragments in which the
+system has been divided. For this specific case, the suggested command is:</p>
+<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">[~]$</span> mpirun -np <span class="m">3</span> python parallel.py
+</pre></div>
+</div>
+<p>since the water molecule is fragmented into 3 different “IAO” components.</p>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="clusterham.html" class="btn btn-neutral float-left" title="Dumping Cluster Hamiltonians" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="../../faq.html" class="btn btn-neutral float-right" title="FAQ" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2022.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>
