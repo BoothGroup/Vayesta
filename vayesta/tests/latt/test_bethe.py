@@ -1,10 +1,13 @@
+import pytest
 import unittest
 import numpy as np
 
 from vayesta.lattmod import bethe
+from vayesta.tests.common import TestCase
 
 
-class BetheTests(unittest.TestCase):
+@pytest.mark.fast
+class BetheTests(TestCase):
     PLACES_ENERGY = 8
     PLACES_DOCC = 8
 

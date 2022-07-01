@@ -1,3 +1,4 @@
+import pytest
 import unittest
 
 import numpy as np
@@ -8,6 +9,8 @@ from vayesta.core.util import cache
 from vayesta.tests import testsystems
 from vayesta.tests.common import TestCase
 
+
+@pytest.mark.slow
 class Test_MP2(TestCase):
 
     @classmethod
@@ -82,6 +85,7 @@ class Test_MP2(TestCase):
         self.assertAllclose(dm1, dm1_exact)
 
 
+@pytest.mark.slow
 class Test_CCSD(Test_MP2):
 
     @classmethod
@@ -175,6 +179,7 @@ class Test_CCSD(Test_MP2):
 
 # --- Unrestricted
 
+@pytest.mark.slow
 class Test_UMP2(Test_MP2):
 
     @classmethod
@@ -226,6 +231,7 @@ class Test_UMP2(Test_MP2):
     def test_dm2_demo(self):
         pass
 
+@pytest.mark.slow
 class Test_UCCSD(Test_CCSD):
 
     @classmethod
@@ -276,6 +282,7 @@ class Test_UCCSD(Test_CCSD):
 
 # --- 2D
 
+@pytest.mark.slow
 class Test_MP2_2D(Test_MP2):
 
     @classmethod
@@ -287,6 +294,7 @@ class Test_MP2_2D(Test_MP2):
                 ('e_tot', 1e-3) : -1.3539205678917514,
                 }
 
+@pytest.mark.slow
 class Test_CCSD_2D(Test_CCSD):
 
     @classmethod

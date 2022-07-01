@@ -1,3 +1,4 @@
+import pytest
 import unittest
 
 import numpy as np
@@ -7,6 +8,7 @@ from vayesta.core.util import einsum
 
 from vayesta.tests.common import TestCase
 
+@pytest.mark.fast
 class TestEinsum(TestCase):
 
     allclose_atol = 1e-12
