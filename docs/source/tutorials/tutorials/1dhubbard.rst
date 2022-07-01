@@ -43,12 +43,18 @@ which indicates the use of **sites** instead of **atoms** as displayed in the fo
    :lines: 14-17
 
 The fragmentation procedure is carried out in the function `ref:site_fragmentation` and all the corresponding fragements are added utilizing the function 
-`ref:add_atomic_fragment`. At this point, the extension of the embedding can be declared as a first argument of this function, where the combination *0* 
-and *sym_factor=nsite* indicates a single-site embedding. The corresponding calculation is performed using the attribute *.kernel()*. The energy per 
-electron can be computed for both cases (i.e MF and EWF) as indicated below:
+`ref:add_atomic_fragment`. At this point, the extension of the embedding can be declared as a first argument of this function, where the combination 
+**0** and **sym_factor=nsite** indicates a single-site embedding. The corresponding calculation is performed using the attribute **.kernel()**. The 
+energy per electron can be computed for both cases (i.e MF and EWF) as indicated below:
 
 .. literalinclude:: 1d_hubbard.py
    :lines: 18-19
+
+Due to the flexibility of the embedding methodology different combinations of site-size clusters can be explored. To do so, the function 
+'ref:add_atomic_fragment' should be correspondingly changed. As an example, a double-site embedding can be declared as:
+
+.. literalinclude:: 1d_hubbard.py
+   :lines: 20-21
 
 
 
