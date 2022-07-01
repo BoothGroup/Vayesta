@@ -1,6 +1,6 @@
 .. _molecules:
 
-Using EWF for simulation of Molecules
+Using EWF for Molecular simulations
 =======================================
 
 This tutorial introduces the use of the `ref:EWF` method to perform electronic structure of molecular simulations in Vayesta_. Firstly, Vayesta_ utilizes 
