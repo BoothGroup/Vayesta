@@ -4,8 +4,8 @@ Custom Hamiltonians
 ==========================
 
 Model Hamiltonians are commonly used for simulating systems of interest both in Quantum Chemistry calculations as well as in Condensed-matter studies. 
-Vayesta_ enables the creation of customized Hamiltonians by employing the module 'ref:lattmod' and the functions `ref:Hubbard_1d` and `ref:LatticeMF`
-contained within. 
+Vayesta_ enables the creation of customized Hamiltonians by employing the module `ref:lattmod` and the functions `ref:Hubbard_1d` and `ref:LatticeMF`
+contained in this class. 
 
 To perform calculations using this feature, the required modules must be imported as shown in the following snippet:
 
