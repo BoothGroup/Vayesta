@@ -56,8 +56,18 @@ Due to the flexibility of the embedding methodology different combinations of si
 .. literalinclude:: 1d_hubbard.py
    :lines: 24-25
 
-where the arguments **[0,1]** and **sym_factor=nsite//2** indicates the use of a *dimerized* version of the 1-D Hubbard's model. Finally, the results for 
-this calculation can be obtained as indicated in the following snippet:
+where the arguments **[0,1]** and **sym_factor=nsite//2** indicates the use of a *dimerized* version of the 1-D Hubbard's model which is depicted in 
+**Figure(1)**.
+  
+.. figure:: 1dhubbfig.png
+   :alt: aperiodic hubbard model
+   :align: center
+   :figclass: align-center
+	      
+   **Figure(1)** Schematic depiction of the 1-D Hubbard model, half filling with double-site embedding fragmentation.
+
+
+Finally, the results for this calculation can be obtained as indicated in the following snippet:
 
 .. literalinclude:: 1d_hubbard.py
    :lines: 27-28
