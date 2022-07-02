@@ -20,48 +20,40 @@ jobs:
           - {python-version: 3.7, os: ubuntu-latest}
     steps:
       - uses: actions/checkout@v2
-        #TODO: do we need to check out actions branch here?
       - name: Set up Python ${{ matrix.python-version }}
         uses: actions/setup-python@v2
         with:
           python-version: ${{ matrix.python-version }}
       - name: Install python dependencies
-        #TODO: how to handle Charlie's extra deps?
         run: |
           python -m pip install --upgrade pip
-          pip install --user -r requirements.txt -v 
-        #TODO: do we need any system dependencies that are not in pyscf?
+          python setup.py egg_info
+          pip install --user -r `grep -v '^\[' *.egg-info/requirements.txt` -v 
       - name: Install Vayesta
-        #TODO: is this the same for mac?
         run: |
-          cd ./vayesta/libs
-          mkdir build; cd build
-          cmake ..
-          make -j4
-          cd ../..
+          python setup.py install
       - name: Run unit tests
         run: |
-          nosetests tests/ -v --with-timer --with-cov --cov-report xml \
-            --cov-report term --cov-config .coveragerc --cov vayesta
-      - name: Upload to codecov
-        uses: codecov/codecov-action@v1.0.13
-        with:
-          token: ${{ secrets.CODECOV_TOKEN }}
-          flags: unittests
-          verbose: true
+          python setup.py test -p "--with-cov --cov-report xml --cov-report term --cov-config .coveragerc --cov vayesta"
+      #TODO enable coverage
+      #- name: Upload to codecov
+      #- uses: codecov/codecov-action@v1.0.13
+      #- with:
+      #-   token: ${{ secrets.CODECOV_TOKEN }}
+      #-   flags: unittests
+      #-   verbose: true
       #TODO: add sphinx documentation
-  #TODO: enable flake8
-  #flake:
-  #  runs-on: ubuntu-latest
-  #  steps:
-  #    - name: Setup Python 3.7
-  #      uses: actions/setup-python@v2
-  #      with:
-  #        python-version: 3.7
-  #    - uses: actions/checkout@v2
-  #    - name: Install flake8
-  #      run: pip install --user -v flake8
-  #    - name: Static analysis with flake8
-  #      run: |
-  #        flake8 --select=E9,F63,F7,F82 --show-source --statistics --config .flake8 vayesta
-  #        flake8 --show-source --statistics --config .flake8 vayesta
+  flake:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Setup Python 3.7
+        uses: actions/setup-python@v2
+        with:
+          python-version: 3.7
+      - uses: actions/checkout@v2
+      - name: Install flake8
+        run: pip install --user -v flake8
+      - name: Static analysis with flake8
+        run: |
+          flake8 --select=E9,F63,F7,F82 --show-source --statistics --config .flake8 vayesta
+          flake8 --show-source --statistics --config .flake8 vayesta
