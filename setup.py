@@ -2,6 +2,7 @@
 
 import os
 import glob
+import shlex
 import shutil
 import subprocess
 from setuptools import setup, find_packages, Extension, Command
@@ -87,12 +88,14 @@ class DiscoverTests(test):
     user_options = [
             ("include-veryslow", "v", "Include tests marked as veryslow"),
             ("include-slow", "s", "Include tests marked as slow"),
+            ("pytest-args=", "p", "Extra arguments for pytest"),
     ]
 
     def initialize_options(self):
         test.initialize_options(self)
         self.include_veryslow = False
         self.include_slow = True
+        self.pytest_args = ""
 
     def finalize_options(self):
         pass
@@ -110,6 +113,7 @@ class DiscoverTests(test):
             test_args.append("-m not veryslow")
         elif not self.include_slow:
             test_args.append("-m not slow")
+        test_args += shlex.split(self.pytest_args)
 
         pytest.main([src, *test_args])
 
