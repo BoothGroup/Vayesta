@@ -25,7 +25,7 @@ import subprocess
 from timeit import default_timer as timer
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--max-test-level', type=int, default=1)
+parser.add_argument('--max-test-level', type=int, default=2)
 parser.add_argument('--test-levels', type=int, nargs='*', default=None)
 parser.add_argument('--coverage', dest='coverage', action='store_true', default=True)
 parser.add_argument('--no-coverage', dest='coverage', action='store_false')
