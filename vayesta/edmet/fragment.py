@@ -777,23 +777,25 @@ class EDMETFragment(DMETFragment):
         # must be taken when symmetrising.
         # Want rotations to and from cluster basis
         c_act = self.cluster.c_active
+        c_tot = self.cluster.c_total
         if self.base.is_rhf:
             c_act = (c_act, c_act)
+            c_tot = (c_tot, c_tot)
         # Also need projector to just local contributions
         p_act = [dot(s, c,  c.T, s) for c in c_act]
         # Only need to average for aa and bb contributions. We do this by adding in half the difference, as appropriate.
         for i, n in enumerate([0, 2]):
-            gammazero_sym[n] = gammazero_sym[n] + 0.5 * (
-                                                            einsum("pqrs,tp,ru->uqts", gammazero[n], c_act[i],
-                                                                   dot(s, c_act[i]))
-                                                            -
-                                                            einsum("pqrs,ru->pqus", gammazero[n], p_act[i])
-                                                            +
-                                                            einsum("pqrs,tq,su->purt", gammazero[n], c_act[i],
-                                                                   dot(s, c_act[i]))
-                                                            -
-                                                            einsum("pqrs,su->pqru", gammazero[n], p_act[i])
-                                                         )
+            # Let's not try to be clever here.
+            # explicitly construct in basis of cluster (while possible)
+            # This is current value.
+            temp1 = einsum("pqrs,rt->pqts", gammazero_sym[n], c_act[i])
+            # This is the value we want this projection to have.
+            temp2 = 0.5 * (temp1 - temp1.transpose(2,1,0,3))
+            diff = temp2 - temp1
+            diff = einsum("pqrs,tr->pqts", diff, dot(self.base.get_ovlp(), c_act[i]))
+            diff = diff + diff.transpose(1,0,3,2)
+            # Now lets add in this update
+            gammazero_sym[n] = gammazero_sym[n] + diff
         # Now construct 1rdm correction...
         ne = self.base.nocc
         if isinstance(ne, int):
@@ -822,7 +824,7 @@ class EDMETFragment(DMETFragment):
                 einsum("npq,qs,nps", l_, p_act[1], einsum("pqrs,npq->nrs", gammazero_sym[2], l_doub[1])) +
                 einsum("npq,qs,nps", l_, p_act[0], einsum("pqrs,npq->nrs", gammazero_sym[3], l_doub[1]))
             )
-            # Exchange contributions; only present for for same-spin components.
+            # Exchange contributions; only present for same-spin components.
             l_sing = [einsum("npq,pr->nrq", l_, c) for c in c_act]  # N^3 step
             e2_eb += (
                     einsum("pqrt,nps,nqr,ts->", gammazero_sym[0], l_sing[0], l_sing[0], p_act[0]) +
