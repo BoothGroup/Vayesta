@@ -11,6 +11,8 @@ from setuptools.command.build_ext import build_ext
 
 setup_src = os.path.abspath(os.path.join(__file__, ".."))
 
+# TODO: mpi4py as optional extra
+
 
 class CMakeExtension(Extension):
     """Initialise the name of a CMake extension.
@@ -168,8 +170,10 @@ setup(
             "scipy>=1.2",
             "h5py>=2.7",
             "cvxpy>=1.1",
-            "mpi4py>=2.0.0",
-            "pyscf @ git+https://github.com/pyscf/pyscf@master#egg=pyscf",  # FIXME when pyscf wheels update
+            "pyscf==2.0.1",
+    ],
+    dependency_links=[
+            "https://github.com/pyscf/pyscf/tarball/master#egg=pyscf-2.0.1",
     ],
     ext_modules=[CMakeExtension("vayesta/libs")],
     cmdclass={
