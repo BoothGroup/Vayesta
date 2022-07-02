@@ -1,38 +1,89 @@
 #!/usr/bin/env python3
 
 import os
+import glob
+import shutil
 import subprocess
-from setuptools import setup, find_packages, Extension
+from setuptools import setup, find_packages, Extension, Command
 from setuptools.command.test import test
 from setuptools.command.build_ext import build_ext
 
 setup_src = os.path.abspath(os.path.join(__file__, ".."))
 
 
+class CMakeExtension(Extension):
+    """Initialise the name of a CMake extension.
+    """
+
+    def __init__(self, name):
+        super().__init__(name, sources=[])
+
+
 class CMakeBuild(build_ext):
+    """Build and configure a CMake extension.
+    """
+
+    def run(self):
+        for ext in self.extensions:
+            self.build_cmake(ext)
+        super().run()
+
     def build_cmake(self, ext):
         src = os.path.join(setup_src, "vayesta", "libs")
-
-        cmake_args = [f"-S{src}", f"-B{self.build_temp}"]
-        build_args = []
 
         if not os.path.exists(self.build_temp):
             os.makedirs(self.build_temp)
 
+        cmake_args = [f"-S{src}", f"-B{self.build_temp}"]
+        if os.getenv("CMAKE_CONFIGURE_ARGS"):
+            cmake_args += os.getenv("CMAKE_CONFIGURE_ARGS").split()
+
+        self.announce("Configuring")
+        self.spawn(["cmake", *cmake_args])
+
+        build_args = []
+        if os.getenv("CMAKE_BUILD_ARGS"):
+            cmake_args += os.getenv("CMAKE_BUILD_ARGS").split()
         if getattr(self, "parallel", False):
             build_args.append(f"-j{self.parallel}")
 
-        subprocess.check_call(
-                ["cmake", ext.sourcedir, *cmake_args],
-                cwd=self.build_temp,
-        )
-        subprocess.check_call(
-                ["cmake", "--build", ".", *build_args],
-                cwd=self.build_temp,
-        )
+        self.announce("Building")
+        self.spawn(["cmake", "--build", self.build_temp, *build_args])
+
+    def get_ext_filename(self, ext_name):
+        ext_path = os.path.join(*ext_name.split("."))
+        fname = build_ext.get_ext_filename(self, ext_name)
+        suffix = os.path.splitext(fname)[1]
+        return ext_path + suffix
+
+
+class CleanCommand(Command):
+    """Clean up files resulting from compilation except for .so shared objects.
+    """
+
+    CLEAN_FILES = ["build", "dist", "*.egg-info"]
+    user_options = []
+
+    def initialize_options(self):
+        pass
+
+    def finalize_options(self):
+        pass
+
+    def run(self):
+        for path_spec in self.CLEAN_FILES:
+            paths = glob.glob(os.path.normpath(os.path.join(setup_src, path_spec)))
+            for path in paths:
+                if not str(path).startswith(setup_src):
+                    # In case CLEAN_FILES contains an address outside the package
+                    raise ValueError("%s is not a path inside %s" % (path, setup_src))
+                shutil.rmtree(path)
 
 
 class DiscoverTests(test):
+    """Discover and dispatch tests.
+    """
+
     user_options = [
             ("include-veryslow", "v", "Include tests marked as veryslow"),
             ("include-slow", "s", "Include tests marked as slow"),
@@ -116,10 +167,11 @@ setup(
             "mpi4py>=2.0.0",
             "pyscf @ git+https://github.com/pyscf/pyscf@master#egg=pyscf",  # FIXME when pyscf wheels update
     ],
-    ext_modules=[Extension("vayesta_lib", [])],
+    ext_modules=[CMakeExtension("vayesta/libs")],
     cmdclass={
             "build_ext": CMakeBuild,
             "test": DiscoverTests,
+            "clean": CleanCommand,
     },
     tests_require=[
             "pytest",
