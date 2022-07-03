@@ -31,8 +31,7 @@ jobs:
           python -m pip install --upgrade pip
       - name: Install Vayesta along with dependencies
         run: |
-          # FIXME: we don't need PySCF's DFT module for tests
-          export CMAKE_CONFIGURE_ARGS="-DBUILD_LIBXC=OFF -DBUILD_XCFUN=OFF"
+          export CMAKE_CONFIGURE_ARGS="-DBUILD_XCFUN=OFF -DWITH_F12=OFF"
           python -m pip install wheel --user
           python -m pip install . --user
       - name: Run unit tests
