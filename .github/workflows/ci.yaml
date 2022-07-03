@@ -33,7 +33,6 @@ jobs:
         run: |
           # FIXME: we don't need PySCF's DFT module for tests
           export CMAKE_CONFIGURE_ARGS="-DENABLE_LIBXC=OFF -DENABLE_XCFUN=OFF"
-          export CMAKE_BUILD_ARGS="-DENABLE_LIBXC=OFF -DENABLE_XCFUN=OFF"
           python -m pip install wheel --user
           python -m pip install . --user
       - name: Run unit tests
