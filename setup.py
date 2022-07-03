@@ -170,11 +170,12 @@ setup(
             "scipy>=1.2",
             "h5py>=2.7",
             "cvxpy>=1.1",
-            "pyscf==2.0.1",
+            #"pyscf==2.0.1",
+            "pyscf @ git+https://github.com/BoothGroup/pyscf@master#egg=pyscf-2.0.1",
     ],
-    dependency_links=[
-            "https://github.com/pyscf/pyscf/tarball/master#egg=pyscf-2.0.1",
-    ],
+    #dependency_links=[
+    #        "https://github.com/pyscf/pyscf/tarball/master#egg=pyscf-2.0.1",
+    #],
     ext_modules=[CMakeExtension("vayesta/libs")],
     cmdclass={
             "build_ext": CMakeBuild,
