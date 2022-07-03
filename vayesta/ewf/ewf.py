@@ -76,13 +76,13 @@ class EWF(Embedding):
 
         # Backwards support
         if bno_threshold is not None:
-            self.log.warning("keyword argument bno_threshold is deprecated!")
+            self.log.deprecated("keyword argument bno_threshold is deprecated!")
             self.opts.bath_options = {**self.opts.bath_options, **dict(threshold=bno_threshold)}
         if bath_type is not None:
-            self.log.warning("keyword argument bath_type is deprecated!")
+            self.log.deprecated("keyword argument bath_type is deprecated!")
             self.opts.bath_options = {**self.opts.bath_options, **dict(bathtype=bath_type)}
         if solve_lambda is not None:
-            self.log.warning("keyword argument solve_lambda is deprecated!")
+            self.log.deprecated("keyword argument solve_lambda is deprecated!")
             self.opts.solver_options = {**self.opts.solver_options, **dict(solve_lambda=solve_lambda)}
 
         with self.log.indent():

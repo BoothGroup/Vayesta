@@ -407,7 +407,7 @@ def deprecated(message=None, replacement=None):
                 log = args[0].log
             else:
                 log = modlog
-            log.warning(msg)
+            log.deprecated(msg)
             return func(*args, **kwargs)
         return wrapped
     return decorator
