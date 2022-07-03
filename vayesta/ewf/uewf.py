@@ -95,7 +95,8 @@ class UEWF(REWF, UEmbedding):
     # --- Other expectation values
 
     def get_atomic_ssz_mf(self, dm1=None, atoms=None, projection='sao'):
-        """dm1 in MO basis"""
+        """TODO: update similar to restricted code
+            dm1 in MO basis"""
         if dm1 is None:
             dm1a = np.zeros((self.nmo[0], self.nmo[0]))
             dm1b = np.zeros((self.nmo[1], self.nmo[1]))

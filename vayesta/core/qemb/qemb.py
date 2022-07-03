@@ -47,6 +47,10 @@ from vayesta.core.fragmentation import CAS_Fragmentation
 
 from vayesta.misc.cptbisect import ChempotBisection
 
+# Expectation values
+from vayesta.core.qemb.expval import get_corrfunc
+from vayesta.core.qemb.expval import get_corrfunc_mf
+
 # --- This Package
 
 from .fragment import Fragment
@@ -1092,6 +1096,9 @@ class Embedding:
             e_dmet += self.get_exxdiv()[0]
         return e_dmet
 
+    get_corrfunc_mf = log_method()(get_corrfunc_mf)
+    get_corrfunc = log_method()(get_corrfunc)
+
     # Utility
     # -------
 
@@ -1117,6 +1124,35 @@ class Embedding:
 
     # --- Population analysis
     # -----------------------
+
+    def _get_atom_projectors(self, atoms=None, projection='sao'):
+        if atoms is None:
+            atoms2 = list(range(self.mol.natm))
+            # For supercell systems, we do not want all supercell-atom pairs,
+            # but only primitive-cell -- supercell pairs:
+            atoms1 = atoms2 if (self.kcell is None) else list(range(self.kcell.natm))
+        elif isinstance(atoms[0], (int, np.integer)):
+            atoms1 = atoms2 = atoms
+        else:
+            atoms1, atoms2 = atoms
+
+        # Get atomic projectors:
+        projection = projection.lower()
+        if projection == 'sao':
+            frag = SAO_Fragmentation(self)
+        elif projection.replace('+', '').replace('/', '') == 'iaopao':
+            frag = IAOPAO_Fragmentation(self)
+        else:
+            raise ValueError("Invalid projection: %s" % projection)
+        frag.kernel()
+        projectors = {}
+        cs = np.dot(self.mo_coeff.T, self.get_ovlp())
+        for atom in sorted(set(atoms1).union(atoms2)):
+            name, indices = frag.get_atomic_fragment_indices(atom)
+            c_atom = frag.get_frag_coeff(indices)
+            r = dot(cs, c_atom)
+            projectors[atom] = dot(r, r.T)
+        return atoms1, atoms2, projectors
 
     def get_lo_coeff(self, local_orbitals='lowdin', minao='auto'):
         if local_orbitals.lower() == 'lowdin':

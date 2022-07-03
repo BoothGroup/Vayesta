@@ -284,4 +284,11 @@ class DMET(Embedding):
         for frag in self.loop():
             self.log.info("%3d  %20s  %8s  %4d", frag.id, frag.name, frag.solver, frag.size)
 
+    def get_corrfunc(self, kind, dm1=None, dm2=None, **kwargs):
+        if dm1 is None:
+            dm1 = self.make_rdm1_demo()
+        if dm2 is None:
+            dm2 = self.make_rdm2_demo()
+        return super().get_corrfunc(kind, dm1=dm1, dm2=dm2, **kwargs)
+
 RDMET = DMET

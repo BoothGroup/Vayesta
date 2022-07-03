@@ -226,3 +226,9 @@ class UEmbedding(Embedding):
             spins[label[0]] += (pop[0][i] - pop[1][i])
         charges += self.mol.atom_charges()
         return charges, spins
+
+    def get_corrfunc_mf(self, *args, **kwargs):
+        raise NotImplementedError
+
+    def get_corrfunc(self, *args, **kwargs):
+        raise NotImplementedError
