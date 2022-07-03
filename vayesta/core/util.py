@@ -26,7 +26,7 @@ modlog = logging.getLogger(__name__)
 # util module can be imported as *, such that the following is imported:
 __all__ = [
         # General
-        'Object', 'OptionsBase', 'brange', 'deprecated', 'cache',
+        'Object', 'OptionsBase', 'brange', 'deprecated', 'cache', 'call_once',
         # NumPy replacements
         'dot', 'einsum', 'hstack',
         # Exceptions
@@ -79,6 +79,10 @@ def cache(maxsize_or_user_function=16, typed=False, copy=False):
             wrapper.cache_parameters = cached_func.cache_parameters
         return wrapper
     return decorator
+
+@functools.lru_cache(None)
+def call_once(func, *args, **kwargs):
+    return func(*args, **kwargs)
 
 # --- NumPy
 

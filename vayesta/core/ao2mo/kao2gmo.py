@@ -15,13 +15,13 @@ import pyscf.pbc
 import pyscf.pbc.tools
 # Package
 from vayesta.core.util import *
-import vayesta.libs
+from vayesta.libs import libcore
 from vayesta.core.ao2mo import helper
 
 
 log = logging.getLogger(__name__)
 
-def kao2gmo_cderi(gdf, mo_coeffs, make_real=True, blksize=None, tril_kij=True, driver='c'):
+def kao2gmo_cderi(gdf, mo_coeffs, make_real=True, blksize=None, tril_kij=True, driver=None):
     """Transform density-fitted ERIs from primtive cell k-AO, to Gamma-point MOs.
 
     (L|ka,k'b) * C1_(Ra)i * C2_(R'b)j -> (R''L|Ri,R'j)
@@ -41,8 +41,9 @@ def kao2gmo_cderi(gdf, mo_coeffs, make_real=True, blksize=None, tril_kij=True, d
     tril_kij: bool, optional
         Only load k-point pairs k >= k', and use the symmetry (L|ka,k'b) = (L|k'b,ka)*.
         Default: True.
-    driver: {'c', 'python'}
-        Use Python or C driver for the transformation. Default: 'c'.
+    driver: {None, 'c', 'python'}
+        Use Python or C driver for the transformation. If None, use C if compiled library is present,
+        if so use C, else use python. Default: None.
 
     Returns
     -------
@@ -73,11 +74,16 @@ def kao2gmo_cderi(gdf, mo_coeffs, make_real=True, blksize=None, tril_kij=True, d
         blksize = np.clip(max_size, 1, int(1e9))
         log.debugv("max_memory= %.3f MB  max_size= %d  blksize= %d", max_memory/1e6, max_size, blksize)
 
-    log.debugv("driver= %s", driver)
+    if driver is None:
+        if libcore is None:
+            driver = 'python'
+            call_once(log.warning, "Libary 'vayesta/libs/libcore.so' not found, using fallback Python driver.")
+        else:
+            driver = 'c'
+    log.debugv("Driver for kao2gmo_cderi= %s", driver)
     if driver == 'python':
         transform = lambda cderi_kij, mo1_ki, mo2_kj : einsum('Lab,ai,bj->Lij', cderi_kij, mo1_ki.conj(), mo2_kj)
     elif driver == 'c':
-        libcore = vayesta.libs.libcore
 
         def transform(cderi_kij, mo1_ki, mo2_kj):
             naux = cderi_kij.shape[0]
