@@ -60,8 +60,9 @@ with h5py.File('clusters-rhf.h5', 'r') as f:
         # The HDF5-group key for each fragment is constructed as 'fragment_%d' % id
         print("\nKey= %s" % key)
         # Name and ID of fragment:
-        print('name= %s, id= %d' % (frag.attrs['name'], frag.attrs['id']))
+        print("name= %s, id= %d" % (frag.attrs['name'], frag.attrs['id']))
         # Number of all/occupied/virtual orbitals:
+        print("Full cluster:")
         norb, nocc, nvir = frag.attrs['norb'], frag.attrs['nocc'], frag.attrs['nvir']
         print("norb= %d, nocc= %d, nvir= %d" % (norb, nocc, nvir))
         # Orbital coefficients:
@@ -79,6 +80,11 @@ with h5py.File('clusters-rhf.h5', 'r') as f:
         print("fock.shape=      (%d, %d)" % frag['fock'].shape)
         # The 2-electron integrals are in chemical ordering: eris[i,j,k,l] = (ij|kl)
         print("eris.shape=      (%d, %d, %d, %d)" % frag['eris'].shape)
+        # DMET cluster:
+        print("DMET cluster:")
+        norb, nocc, nvir = [frag.attrs['%s_dmet_cluster' % x] for x in ('norb', 'nocc', 'nvir')]
+        print("norb= %d, nocc= %d, nvir= %d" % (norb, nocc, nvir))
+        print("c_dmet_cluster.shape=    (%d, %d)" % frag['c_dmet_cluster'].shape)
 
 # --- Open unrestricted dump file:
 print("\nOpening unrestricted dump file:")
@@ -87,7 +93,7 @@ with h5py.File('clusters-uhf.h5', 'r') as f:
     for key, frag in f.items():
         print("\nKey= %s" % key)
         # Name and ID:
-        print('name= %s, id= %d' % (frag.attrs['name'], frag.attrs['id']))
+        print("name= %s, id= %d" % (frag.attrs['name'], frag.attrs['id']))
         # The orbital sizes are now arrays of length 2, representing alpha and beta spin dimension
         norb, nocc, nvir = frag.attrs['norb'], frag.attrs['nocc'], frag.attrs['nvir']
         print("norb= (%d, %d), nocc= (%d, %d), nvir= (%d, %d)" % (*norb, *nocc, *nvir))
@@ -108,3 +114,9 @@ with h5py.File('clusters-uhf.h5', 'r') as f:
         print("eris_aa.shape=     (%d, %d, %d, %d)" % frag['eris_aa'].shape)
         print("eris_ab.shape=     (%d, %d, %d, %d)" % frag['eris_ab'].shape)
         print("eris_bb.shape=     (%d, %d, %d, %d)" % frag['eris_bb'].shape)
+        # DMET cluster:
+        print("DMET cluster:")
+        norb, nocc, nvir = [frag.attrs['%s_dmet_cluster' % x] for x in ('norb', 'nocc', 'nvir')]
+        print("norb= (%d, %d), nocc= (%d, %d), nvir= (%d, %d)" % (*norb, *nocc, *nvir))
+        print("c_dmet_cluster_a.shape=    (%d, %d)" % frag['c_dmet_cluster_a'].shape)
+        print("c_dmet_cluster_b.shape=    (%d, %d)" % frag['c_dmet_cluster_b'].shape)
