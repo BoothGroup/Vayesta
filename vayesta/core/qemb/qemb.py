@@ -130,8 +130,6 @@ class Embedding:
     Attributes
     ----------
     mol
-    has_lattice_vectors
-    boundary_cond
     nao
     ncells
     nmo
@@ -334,14 +332,6 @@ class Embedding:
         return self.mf.mol
 
     @property
-    def has_lattice_vectors(self):
-        """Flag if self.mol has lattice vectors defined."""
-        return (hasattr(self.mol, 'a') and self.mol.a is not None)
-        # This would be better, but would trigger PBC code for Hubbard models, which have lattice vectors defined,
-        # but not 'a':
-        #return hasattr(self.mol, 'lattice_vectors')
-
-    @property
     def has_exxdiv(self):
         """Correction for divergent exact-exchange potential."""
         return (hasattr(self.mf, 'exxdiv') and self.mf.exxdiv is not None)
@@ -364,15 +354,8 @@ class Embedding:
         return e_exxdiv, v_exxdiv
 
     @property
-    def boundary_cond(self):
-        """Type of boundary condition."""
-        if not self.has_lattice_vectors:
-            return 'open'
-        if self.mol.dimension == 1:
-            return 'periodic-1D'
-        if self.mol.dimension == 2:
-            return 'periodic-2D'
-        return 'periodic'
+    def pbc_dimension(self):
+        return getattr(self.mol, 'dimension', 0)
 
     @property
     def nao(self):

@@ -53,19 +53,6 @@ class Options(Embedding.Options):
 
 
 class EWF(Embedding):
-    """Class for embedded wave function (EWF) calculations.
-
-    Parameters
-    ----------
-    mf : pyscf.scf object
-        Converged mean-field object.
-    solver : {'CCSD', None, 'MP2', 'CCSD', 'CISD', 'FCI', 'DUMP'}
-        Solver for embedding problem. Default: 'CCSD'.
-    bath_options :
-    **kwargs :
-        See class `Options` for additional options.
-
-    """
     Fragment = Fragment
     Options = Options
 

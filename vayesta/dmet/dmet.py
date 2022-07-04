@@ -44,13 +44,6 @@ class DMET(Embedding):
     valid_solvers = ['MP2', 'CISD', 'CCSD', 'FCI', 'FCI-SPIN0', 'FCI-SPIN1']
 
     def __init__(self, mf, solver='CCSD', log=None, **kwargs):
-        """Density matrix embedding theory (DMET) calculation object.
-
-        Parameters
-        ----------
-
-        """
-
         t_start = timer()
         # If we're running in oneshot mode will only do a single iteration, regardless of this setting, but good to have
         # consistent settings.
