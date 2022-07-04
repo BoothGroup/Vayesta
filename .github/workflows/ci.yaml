@@ -19,6 +19,7 @@ jobs:
         include:
           # TODO: add other python versions and macOS
           - {python-version: 3.7, os: ubuntu-latest}
+          - {python-version: 3.7, os: macos-latest}
 
     steps:
       - uses: actions/checkout@v2
