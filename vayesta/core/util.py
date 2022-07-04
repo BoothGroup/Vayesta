@@ -463,8 +463,12 @@ class OptionsBase:
         for key, val in kwargs.items():
             if key not in keys:
                 raise TypeError("replace got an unexpected keyword argument '%s'" % key)
-            if isinstance(val, dict) and isinstance(getattr(self, key), dict):
-                setattr(self, key, {**getattr(self, key), **val})
+            selfval = getattr(self, key)
+            if isinstance(val, dict) and isinstance(selfval, dict):
+                for dkey in val.keys():
+                    if dkey not in selfval.keys():
+                        raise TypeError("Replace got an unexpected key for dictionary %s: '%s'" % (key, dkey))
+                setattr(self, key, {**selfval, **val})
             else:
                 setattr(self, key, val)
         return self
