@@ -163,7 +163,7 @@ setup(
             "Operating System :: MacOS :: MacOS X",
             "Operating System :: POSIX :: Linux",
     ],
-    package=find_packages(exclude=["*test*", "*examples*"]),
+    packages=find_packages(exclude=["*tests*", "*examples*"]),
     include_package_data=True,
     install_requires=[
             "wheel",
@@ -171,7 +171,6 @@ setup(
             "scipy>=1.2",
             "h5py>=2.7",
             "cvxpy>=1.1",
-            #"pyscf @ git+https://github.com/BoothGroup/pyscf@master#egg=pyscf-2.0.1",
             "pyscf @ git+https://github.com/BoothGroup/pyscf@master",
     ],
     ext_modules=[CMakeExtension("vayesta/libs")],

@@ -36,7 +36,7 @@ jobs:
       - name: Run unit tests
         run: |
           python -m pip install pytest pytest-cov --user
-          pytest vayesta/tests -m "not veryslow" --cov-report xml --cov-report term --cov-config .coveragerc --cov vayesta
+          python run_tests.py
       # TODO enable coverage
       #- name: Upload to codecov
       #- uses: codecov/codecov-action@v1.0.13
