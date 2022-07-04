@@ -18,7 +18,7 @@ jobs:
       matrix:
         include:
           # TODO: add other python versions and macOS
-          - {python-version: 3.7, os: ubuntu-latest}
+          #- {python-version: 3.7, os: ubuntu-latest}
           - {python-version: 3.7, os: macos-latest}
 
     steps:
@@ -33,6 +33,7 @@ jobs:
       - name: Install MacOS system dependencies
         run: |
           brew install libomp
+          echo $LD_LIBRARY_PATH
         if: contains(matrix.os, 'macos')
       - name: Install Vayesta along with dependencies
         run: |
