@@ -125,7 +125,21 @@ class Embedding:
                 Unit of `rcut`. Default: 'Ang'.
 
     solver_options : dict, optional
-        Solver specific options.
+        Solver specific options. The following solver specific options can be specified.
+
+
+            conv_tol : float
+                Energy convergence tolerance [valid for 'CISD', 'CCSD', 'TCCSD', 'FCI']
+            conv_tol_normt : float
+                Amplitude convergence tolerance [valid for 'CCSD', 'TCCSD']
+            fix_spin : float
+                Target specified spin state [valid for 'FCI']
+            t_as_lambda : bool
+                Use T-amplitudes as Lambda-amplitudes [valid for 'CCSD', 'TCCSD']
+            solve_lambda : bool
+                Solve Lambda-equations [valid for 'CCSD', 'TCCSD']
+            dumpfile : str
+                Dump cluster orbitals and integrals to file [valid for 'Dump']
 
     Attributes
     ----------
