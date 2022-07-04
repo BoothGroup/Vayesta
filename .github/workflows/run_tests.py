@@ -8,9 +8,6 @@ if __name__ == "__main__":
     args = [
         "vayesta/tests",
         "--cov=vayesta",
-        "--cov-report xml",
-        "--cov-report term",
-        "--cov-config .coveragerc",
     ]
 
     if len(sys.argv) == 1 or sys.argv[1] != "--with-veryslow":
