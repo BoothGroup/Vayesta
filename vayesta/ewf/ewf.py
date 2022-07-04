@@ -461,7 +461,7 @@ class EWF(Embedding):
     def get_atomic_ssz(self, dm1=None, dm2=None, atoms=None, projection='sao', dm2_with_dm1=None):
         return self.get_corrfunc('Sz,Sz', dm1=dm1, dm2=dm2, atoms=atoms, projection=projection, dm2_with_dm1=dm2_with_dm1)
 
-    def get_dm_energy_old(self, global_dm1=True, global_dm2=False):
+    def _get_dm_energy_old(self, global_dm1=True, global_dm2=False):
         """Calculate total energy from reduced density-matrices.
 
         RHF ONLY!
@@ -477,9 +477,9 @@ class EWF(Embedding):
         -------
         e_tot : float
         """
-        return self.e_mf + self.get_dm_corr_energy_old(global_dm1=global_dm1, global_dm2=global_dm2)
+        return self.e_mf + self._get_dm_corr_energy_old(global_dm1=global_dm1, global_dm2=global_dm2)
 
-    def get_dm_corr_energy_old(self, global_dm1=True, global_dm2=False):
+    def _get_dm_corr_energy_old(self, global_dm1=True, global_dm2=False):
         """Calculate correlation energy from reduced density-matrices.
 
         RHF ONLY!
