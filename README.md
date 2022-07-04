@@ -12,11 +12,18 @@ To install, clone the repository
 git clone git@github.com:BoothGroup/Vayesta.git
 ```
 
-Install via `setuptools` from the top-level directory, which requires `cmake`
+Install the package using `pip` from the top-level directory, which requires CMake
 
 ```
-python setup.py install
+python -m pip install . --user
 ```
+
+
+Quickstart
+----------
+
+Examples of how to use Vayesta can be found in the `vayesta/examples` directory.
+Alternatively, a tutorial can be found at TODO.
 
 
 Authors
