@@ -2,15 +2,13 @@ cmake_minimum_required (VERSION 3.5)
 project ("Vayesta")
 
 # OpenMP
-find_package(OpenMP)
-if(OPENMP_FOUND)
-  set(HAVE_OPENMP 1)
-  set (CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -lomp")
-  #if (CMAKE_C_COMPILER_ID MATCHES "^(Apple)?Clang")
-  #  set (CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -lomp")
-  #endif()
-else ()
-  set(OpenMP_C_FLAGS " ")
+set(OPENMP_C_PROPERTIES "")
+if(ENABLE_OPENMP)
+  find_package(OpenMP)
+  if(OPENMP_FOUND)
+    set(HAVE_OPENMP 1)
+    set(OPENMP_C_PROPERTIES OpenMP::OpenMP_C)
+  endif()
 endif()
 
 # BLAS
