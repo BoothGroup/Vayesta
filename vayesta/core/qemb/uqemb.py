@@ -117,37 +117,6 @@ class UEmbedding(Embedding):
         self.log.debug("Divergent exact-exchange (exxdiv) correction= %+16.8f Ha", e_exxdiv)
         return e_exxdiv, (v_exxdiv_a, v_exxdiv_b)
 
-    def get_dmet_elec_energy(self, version=0, approx_cumulant=True):
-        """Calculate electronic DMET energy via democratically partitioned density-matrices.
-
-        Returns
-        -------
-        e_dmet: float
-            Electronic DMET energy.
-        """
-        e_dmet = 0.0
-        for f in self.get_fragments(active=True, mpi_rank=mpi.rank):
-            e_dmet += f.get_fragment_dmet_energy(version=version, approx_cumulant=approx_cumulant)
-        if mpi:
-            mpi.world.allreduce(e_dmet)
-        version = (version or 1)
-        if (version == 2):
-            dm1 = self.make_rdm1_demo(ao_basis=True)
-            if not approx_cumulant:
-                vhf = self.get_veff_for_energy(dm1=dm1, with_exxdiv=False)
-            elif (approx_cumulant in (1, True)):
-                dm1_mf = self.mf.make_rdm1()
-                dm1 = (2*dm1[0] - dm1_mf[0],
-                       2*dm1[1] - dm1_mf[1],)
-                vhf = self.get_veff_for_energy(with_exxdiv=False)
-            else:
-                raise ValueError
-            e_dmet += (np.sum(vhf[0] * dm1[0])
-                     + np.sum(vhf[1] * dm1[1]))/2
-
-        self.log.debugv("E_elec(DMET)= %s", energy_string(e_dmet))
-        return e_dmet
-
     def get_eris_object(self, postscf, fock=None):
         """Get ERIs for post-SCF methods.
 
@@ -257,3 +226,9 @@ class UEmbedding(Embedding):
             spins[label[0]] += (pop[0][i] - pop[1][i])
         charges += self.mol.atom_charges()
         return charges, spins
+
+    def get_corrfunc_mf(self, *args, **kwargs):
+        raise NotImplementedError
+
+    def get_corrfunc(self, *args, **kwargs):
+        raise NotImplementedError

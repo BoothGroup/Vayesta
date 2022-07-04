@@ -1,3 +1,4 @@
+import pytest
 import unittest
 import numpy as np
 
@@ -7,13 +8,15 @@ import pyscf.ci
 import vayesta
 import vayesta.ewf
 
-from vayesta.tests import cache
+from vayesta.tests.common import TestCase
+from vayesta.tests import testsystems
 
 
-class TestSolvers(unittest.TestCase):
+@pytest.mark.fast
+class TestSolvers(TestCase):
 
     def _test(self, key):
-        mf = cache.moles[key[0]][key[1]]
+        mf = getattr(getattr(testsystems, key[0]), key[1])()
 
         solver_opts = dict(conv_tol=1e-10)
         emb = vayesta.ewf.EWF(mf, solver='CISD', bath_type='full', solver_options=solver_opts)

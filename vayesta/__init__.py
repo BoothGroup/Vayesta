@@ -1,12 +1,11 @@
-
-__version__ = '0.0.0'
+__version__ = '1.0.0a'
 
 logo = """\
 __    __ ___ __    __ ___ ____ _______ ___
 \ \  / // _ ## \  / // __/ __//__  __// _ #
  \ \/ // /_\ ## \/ // __/\__ \  / /  / /_\ #
   \__//_/   \_##  //____//___/ /_/  /_/   \_#
-   ************/ /****************************
+   ============/ /============================
               /_/""".replace('#', '\\')
 
 import sys
@@ -23,7 +22,10 @@ from .mpi import init_mpi
 args = cmdargs.parse_cmd_args()
 
 # Initialization of MPI
-init_mpi(bool(args.mpi), required=(args.mpi is True))
+if args.mpi is None:
+    init_mpi(True, required=False)
+else:
+    init_mpi(args.mpi)
 from .mpi import mpi
 
 # Logging
@@ -33,7 +35,7 @@ if args.output_dir:
 
 vlog.init_logging()
 log = logging.getLogger(__name__)
-log.setLevel(args.loglevel)
+log.setLevel(args.log_level)
 
 fmt = vlog.VFormatter(indent=True)
 # Log to stream
@@ -77,7 +79,7 @@ def import_package(name, required=True):
         if required:
             log.critical("%s not found.", name)
             raise
-        log.info("%s not found.", name)
+        log.debug("%s not found.", name)
         return None
 
 log.debug("Required packages:")

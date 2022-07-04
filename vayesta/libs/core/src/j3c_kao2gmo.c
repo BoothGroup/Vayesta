@@ -20,6 +20,7 @@
 #endif
 #include "cblas.h"
 
+/* NOT USED ANYMORE */
 int64_t j3c_k2gamma(
         /* In */
         int64_t nk,                 // Number of k-points
@@ -138,6 +139,7 @@ int64_t j3c_k2gamma(
     return ierr;
 }
 
+/* NOT USED ANYMORE */
 /* Transform three-center integrals from k-AOs to Gamma-MOs */
 int64_t j3c_kao2gmo(
         /*** In ***/
@@ -334,83 +336,6 @@ EXIT:
 
     return ierr;
 }
-
-
-/* TODO */
-
-///* Transform three-center integrals from k-AOs to Gamma-MOs */
-//int64_t j3c_kao2gmo_general(
-//        /* In */
-//        int64_t nk,                 // Number of k-points
-//        int64_t nao,                // Number of atomic orbitals in primitive cells
-//        int64_t nmo1,               // Number of output (molecular, cluster,...) orbitals in supercell
-//        int64_t nmo2,               // Number of output (molecular, cluster,...) orbitals in supercell
-//        int64_t naux,               // Number of auxiliary basis functions in primitive cell
-//        int64_t *kconserv,          // (nk, nk) Momentum conserving k-point for each ki,kj
-//        int64_t *kuniqmap,          // (nk, nk) mapping from (ki,kj) -> unique(ki-kj); if NULL, ki*nk+kj is used
-//        double complex *mo_coeff1,  // (nk, nao, nmo1) MO coefficients in k-space representation
-//        double complex *mo_coeff2,  // (nk, nao, nmo2) MO coefficients in k-space representation
-//        double complex *j3c_ao,     // (nkuniq, naux, nao, nao) k-point sampled 3c-integrals. nkuniq is nk**2 if kuniqmap==NULL, or nk*(nk+1)/2 else
-//        /* Out */
-//        double complex *j3c_mo      // (nk,naux,nmo1,nmo2) Three-center integrals (kL|ia)
-//        )
-//{
-//    int64_t ierr = 0;
-//
-//#pragma omp parallel
-//    {
-//    /* Dummy indices */
-//    size_t k1, k2, k3;  // k-points
-//    int64_t k12;        // composite (k1, k2) index
-//    double complex *work = malloc(MAX(nmo1, nmo2)*nao * sizeof(double complex));
-//    double complex *work2 = malloc(nao*nao * sizeof(double complex));
-//    if (!(work && work2)) {
-//        printf("Error allocating temporary memory in j3c_kao2gamma_general. Exiting.\n");
-//        ierr = -1;
-//    }
-//// Do not perform calculation if any threads did not get memory
-//#pragma omp barrier
-//    if (ierr != 0) goto EXIT;
-//
-//#pragma omp for
-//    for (k1 = 0; k1 < nk; k1++) {
-//    for (k2 = 0; k2 < nk; k2++) {
-//
-//        k12 = k1*nk + k2;
-//        k3 = kconserv[k12];
-//        if (kuniqmap) k12 = kuniqmap[k12];
-//
-//        j3c_kao2mo_k12(
-//                /* In */
-//                nao, nmo1, nmo2, naux,
-//                &mo_coeff1[k1*nao*nmo1], &mo_coeff2[k2*nao*nmo2],
-//                &j3c_ao[labs(k12)*naux*nao*nao], (bool)(k12 < 0),
-//                work, work2,
-//                /* out */
-//                &j3c_mo[k3*naux*nmo1*nmo2])
-//
-//    }} // loop over k1,k2
-//
-//    //TODO
-//    ///* Rotate to real values */
-//    //if (phase) {
-//    //    *work = realloc(nk*nmax*nmax * sizeof(double complex));
-//    //    for (ki = 0; ki < nk; ki++) {
-//    //        memcpy(&(work[ki*nocc*nvir]), &(j3c_ov[(ki*naux + l)*nocc*nvir]), nocc*nvir * sizeof(double complex));
-//    //    }
-//    //    cblas_zgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans, nk, nocc*nvir, nk,
-//    //            &Z1, phase, nk, work, nocc*nvir,
-//    //            &Z1, j3c_oc, nao);
-//    //}
-//
-//EXIT:
-//    free(work);
-//    free(work2);
-//    } // end of parallel region
-//
-//    return ierr;
-//}
-//
 
 /* AO->MO Transform 3c integrals */
 int64_t ao2mo_cderi(

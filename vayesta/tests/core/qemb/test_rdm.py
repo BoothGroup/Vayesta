@@ -1,3 +1,4 @@
+import pytest
 import unittest
 
 import numpy as np
@@ -9,6 +10,7 @@ from vayesta.tests import testsystems
 from vayesta.tests.common import TestCase
 
 
+@pytest.mark.slow
 class Test_Water(TestCase):
 
     @classmethod
@@ -46,6 +48,8 @@ class Test_Water(TestCase):
         dm2 = emb.make_rdm2_demo()
         self.assertAllclose(dm2, dm2_ref)
 
+
+@pytest.mark.slow
 class Test_WaterCation(Test_Water):
 
     @classmethod
@@ -78,6 +82,8 @@ class Test_WaterCation(Test_Water):
         for s in range(3):
             self.assertAllclose(dm2[s], dm2_ref[s])
 
+
+@pytest.mark.slow
 class Test_H2Chain(Test_Water):
 
     @classmethod
@@ -114,6 +120,7 @@ class Test_H2Chain(Test_Water):
         emb = self.emb_kpts(-1)
         dm2 = emb.make_rdm2_demo(ao_basis=True)
         self.assertAllclose(dm2, dm2_ref)
+
 
 if __name__ == '__main__':
     print('Running %s' % __file__)

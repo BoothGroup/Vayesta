@@ -1,10 +1,11 @@
 import unittest
 
 from vayesta import ewf
-from vayesta.tests.cache import latts
+from vayesta.tests.common import TestCase
+from vayesta.tests import testsystems
 
 
-class HubbardEWFTests(unittest.TestCase):
+class HubbardEWFTests(TestCase):
     PLACES_ENERGY = 6
     CONV_TOL = None  #FIXME
 
@@ -19,7 +20,7 @@ class HubbardEWFTests(unittest.TestCase):
         """
 
         emb = ewf.EWF(
-                latts['hubb_6_u0']['rhf'],
+                testsystems.hubb_6_u0.rhf(),
                 bno_threshold=1e-8,
                 solver_options={
                     'conv_tol': self.CONV_TOL,
@@ -39,7 +40,7 @@ class HubbardEWFTests(unittest.TestCase):
         """
 
         emb = ewf.EWF(
-                latts['hubb_10_u2']['rhf'],
+                testsystems.hubb_10_u2.rhf(),
                 bno_threshold=1e-8,
                 solver_options={
                     'conv_tol': self.CONV_TOL,
@@ -59,7 +60,7 @@ class HubbardEWFTests(unittest.TestCase):
         """
 
         emb = ewf.EWF(
-                latts['hubb_6x6_u0_1x1imp']['rhf'],
+                testsystems.hubb_6x6_u0_1x1imp.rhf(),
                 bno_threshold=1e-8,
                 solver_options={
                     'conv_tol': self.CONV_TOL,
@@ -79,7 +80,7 @@ class HubbardEWFTests(unittest.TestCase):
         """
 
         emb = ewf.EWF(
-                latts['hubb_6x6_u6_1x1imp']['rhf'],
+                testsystems.hubb_6x6_u6_1x1imp.rhf(),
                 bno_threshold=1e-8,
                 solver_options={
                     'conv_tol': self.CONV_TOL,
@@ -99,7 +100,7 @@ class HubbardEWFTests(unittest.TestCase):
         """
 
         emb = ewf.EWF(
-                latts['hubb_8x8_u2_2x2imp']['rhf'],
+                testsystems.hubb_8x8_u2_2x2imp.rhf(),
                 bno_threshold=1e-8,
                 solver_options={
                     'conv_tol': self.CONV_TOL,

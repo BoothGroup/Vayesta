@@ -1,3 +1,4 @@
+import pytest
 import unittest
 import numpy as np
 
@@ -6,9 +7,11 @@ from pyscf.pbc import gto as pbc_gto, scf as pbc_scf
 
 from vayesta.misc import molecules
 from vayesta.misc import solids
+from vayesta.tests.common import TestCase
 
 
-class MolstructsTests(unittest.TestCase):
+@pytest.mark.fast
+class MolstructsTests(TestCase):
     PLACES_ENERGY = 12
 
     def _test_nuclear_energy(self, mol, known_values):

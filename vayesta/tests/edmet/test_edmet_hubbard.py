@@ -1,10 +1,11 @@
 import unittest
 
 from vayesta import edmet
-from vayesta.tests.cache import latts
+from vayesta.tests.common import TestCase
+from vayesta.tests import testsystems
 
 
-class EDMET_Hubbard_Tests(unittest.TestCase):
+class EDMET_Hubbard_Tests(TestCase):
     PLACES_ENERGY = 6
 
     def _test_energy(self, emb, known_values):
@@ -18,7 +19,7 @@ class EDMET_Hubbard_Tests(unittest.TestCase):
     #    """
 
     #    emb = edmet.EDMET(
-    #            latts['hubb_6_u0']['rhf'],
+    #            testsystems.hubb_6_u0.rhf(),
     #            solver='EBFCI',
     #            max_boson_occ=1,
     #    )
@@ -36,7 +37,7 @@ class EDMET_Hubbard_Tests(unittest.TestCase):
     #    """
 
     #    emb = edmet.EDMET(
-    #            latts['hubb_6_u0']['rhf'],
+    #            testsystems.hubb_6_u0.rhf(),
     #            solver='EBFCI',
     #            max_boson_occ=6,
     #    )
@@ -54,7 +55,7 @@ class EDMET_Hubbard_Tests(unittest.TestCase):
         """
 
         emb = edmet.EDMET(
-                latts['hubb_10_u2']['rhf'],
+                testsystems.hubb_10_u2.rhf(),
                 solver='EBFCI',
                 solver_options={"max_boson_occ": 2},
                 bosonic_interaction="direct",
@@ -76,7 +77,7 @@ class EDMET_Hubbard_Tests(unittest.TestCase):
     #    """
 
     #    emb = edmet.EDMET(
-    #            latts['hubb_14_u0.4']['rhf'],
+    #            testsystems.hubb_14_u0.rhf(),
     #            solver='EBFCI',
     #            solver_options={"max_boson_occ":3},
     #            maxiter=30,
@@ -97,7 +98,7 @@ class EDMET_Hubbard_Tests(unittest.TestCase):
     #    """
 
     #    emb = edmet.EDMET(
-    #            latts['hubb_6x6_u0_1x1imp']['rhf'],
+    #            testsystems.hubb_6x6_u0_1x1imp.rhf(),
     #            solver='EBFCI',
     #            max_boson_occ=2,
     #    )
@@ -115,7 +116,7 @@ class EDMET_Hubbard_Tests(unittest.TestCase):
         """
 
         emb = edmet.EDMET(
-                latts['hubb_6x6_u6_1x1imp']['rhf'],
+                testsystems.hubb_6x6_u6_1x1imp.rhf(),
                 solver='EBFCI',
                 solver_options={"max_boson_occ":2},
                 bosonic_interaction="direct",

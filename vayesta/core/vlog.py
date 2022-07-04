@@ -1,8 +1,9 @@
 """Vayesta logging module"""
 
+import functools
+import contextlib
 import logging
 import os
-import contextlib
 
 from vayesta.mpi import mpi
 
@@ -15,6 +16,7 @@ FATAL   (*)     100             For errors which will raise a non-recoverable Ex
 CRITICAL        50              For errors which will are non-recoverable
 ERROR           40              For errors which are likely non-recoverable
 WARNING         30              For possible errors and important information
+DEPRECATED      30              For deprecated code
 OUTPUT  (*)     25              Main result level - the only level which by default gets streamed to stdout
 INFO            20              Information, readable to users
 INFOV   (*)     15  (-v)        Verbose information, readable to users
@@ -30,6 +32,7 @@ LVL_PREFIX = {
    "CRITICAL" : "CRITICAL",
    "ERROR" : "ERROR",
    "WARNING" : "WARNING",
+   "DEPRECATED" : "WARNING",
    "OUT" : "OUTPUT",
    "DEBUGV" : "DEBUG",
    "TRACE" : "TRACE",
@@ -155,17 +158,20 @@ def init_logging():
 
     # Add new log levels
     # ------------------
-    def add_log_level(level, name):
+    def add_log_level(level, name, log_once=False):
         logging.addLevelName(level, name.upper())
         setattr(logging, name.upper(), level)
         def logForLevel(self, message, *args, **kwargs):
             if self.isEnabledFor(level):
                 self._log(level, message, args, **kwargs)
+        if log_once:
+            logForLevel = functools.lru_cache(None)(logForLevel)
         def logToRoot(message, *args, **kwargs):
             logging.log(level, message, *args, **kwargs)
         setattr(logging.getLoggerClass(), name, logForLevel)
         setattr(logging, name, logToRoot)
     add_log_level(100, "fatal")
+    add_log_level(30, "deprecated", log_once=True)
     add_log_level(25, "output")
     add_log_level(15, "infov")
     add_log_level(12, "timing")

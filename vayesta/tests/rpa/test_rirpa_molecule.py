@@ -2,10 +2,11 @@ import unittest
 import numpy as np
 
 from vayesta import rpa
-from vayesta.tests.cache import moles
+from vayesta.tests.common import TestCase
+from vayesta.tests import testsystems
 
 
-class MoleculeRPATest(unittest.TestCase):
+class MoleculeRPATest(TestCase):
     PLACES = 8
 
     def _test_energy(self, emb, known_values):
@@ -26,13 +27,13 @@ class MoleculeRPATest(unittest.TestCase):
         """Tests for LiH cc-pvdz with dRIRPA.
         """
 
-        orig_rpa = rpa.ssRPA(moles['n2_ccpvdz_df']['rhf'])
+        orig_rpa = rpa.ssRPA(testsystems.n2_ccpvdz_df.rhf())
         orig_rpa.kernel()
 
         known_values = {"e_tot": -109.27376877774732}
         self._test_energy(orig_rpa, known_values)
 
-        rirpa = rpa.ssRIRPA(moles['n2_ccpvdz_df']['rhf'])
+        rirpa = rpa.ssRIRPA(testsystems.n2_ccpvdz_df.rhf())
 
         self._test_mom0(orig_rpa, rirpa)
 
