@@ -107,7 +107,7 @@ class EDMET(RDMET):
             self.set_up_fragments(sym_parents, nsym)
 
             # Need to optimise a global chemical potential to ensure electron number is converged.
-            nelec_mf = self.check_fragment_nelectron()
+            nelec_mf = self._check_fragment_nelectron()
             if type(nelec_mf) == tuple:
                 nelec_mf = sum(nelec_mf)
 

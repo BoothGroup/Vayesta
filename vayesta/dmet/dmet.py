@@ -125,7 +125,7 @@ class DMET(Embedding):
                 if self.opts.charge_consistent:
                     fock = self.get_fock()
             # Need to optimise a global chemical potential to ensure electron number is converged.
-            nelec_mf = self.check_fragment_nelectron()
+            nelec_mf = self._check_fragment_nelectron()
             if type(nelec_mf) == tuple:
                 nelec_mf = sum(nelec_mf)
 

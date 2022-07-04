@@ -47,7 +47,6 @@ class Options(Embedding.Options):
     sc_mode: int = 0
     coupled_iterations: bool = False
     # --- Other
-    absorb_fragments: bool = False
     # --- Debugging
     _debug_wf: str = None
 
@@ -109,7 +108,7 @@ class EWF(Embedding):
             self.log.debug("No fragments found. Adding all atomic IAO fragments.")
             with self.fragmentation() as frag:
                 frag.add_all_atomic_fragments()
-        self.check_fragment_nelectron()
+        self._check_fragment_nelectron()
 
         # Debug: calculate exact WF
         if self.opts._debug_wf is not None:
@@ -139,9 +138,6 @@ class EWF(Embedding):
         if mpi:
             with log_time(self.log.timing, "Time for MPI communication of clusters: %s"):
                 self.communicate_clusters()
-
-        if self.opts.absorb_fragments:
-            self.absorb_fragments()
 
         # --- Loop over fragments with no symmetry parent and with own MPI rank
         self.log.info("")
