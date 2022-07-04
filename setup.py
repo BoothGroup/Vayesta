@@ -168,7 +168,7 @@ setup(
     install_requires=[
             "wheel",
             "numpy>=1.19.0",
-            "scipy>=1.2",
+            "scipy==1.1.0",  # pyscf needs >=1.1.0, cvxpy needs <=1.1.0
             "h5py>=2.7",
             "cvxpy>=1.1",
             "pyscf @ git+https://github.com/BoothGroup/pyscf@master",
