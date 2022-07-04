@@ -3,12 +3,10 @@ project ("Vayesta")
 
 # OpenMP
 set(OPENMP_C_PROPERTIES "")
-if(ENABLE_OPENMP)
-  find_package(OpenMP)
-  if(OPENMP_FOUND)
+find_package(OpenMP)
+if(OPENMP_FOUND)
     set(HAVE_OPENMP 1)
     set(OPENMP_C_PROPERTIES OpenMP::OpenMP_C)
-  endif()
 endif()
 
 # BLAS
