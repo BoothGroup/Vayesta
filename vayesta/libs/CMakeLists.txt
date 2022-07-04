@@ -5,7 +5,7 @@ project ("Vayesta")
 find_package(OpenMP)
 if(OPENMP_FOUND)
   set(HAVE_OPENMP 1)
-  if [[ $CMAKE_C_COMPILER_ID == *"Clang"* ]]; then
+  if (CMAKE_C_COMPILER_ID MATCHES "^(Apple)?Clang")
     set (CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -lomp")
   endif()
 else ()
