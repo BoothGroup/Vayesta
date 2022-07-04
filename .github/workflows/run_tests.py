@@ -8,8 +8,9 @@ if __name__ == "__main__":
         "--cov-report xml",
         "--cov-report term",
         "--cov-config .coveragerc",
+    ]
 
-    if not sys.argv[1] == "--with-veryslow":
+    if len(sys.argv) == 1 or sys.argv[1] != "--with-veryslow":
         args.append("-m not veryslow")
 
     pytest.main(args)
