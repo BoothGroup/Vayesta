@@ -26,7 +26,17 @@ emb.kernel()
 emb_tcc = vayesta.ewf.EWF(mf, solver='TCCSD', bath_options=dict(threshold=1e-4))
 emb_tcc.kernel()
 
-print("E(HF)=         %+16.8f Ha" % mf.e_tot)
-print("E(CCSD)=       %+16.8f Ha" % cc.e_tot)
-print("E(emb. CCSD)=  %+16.8f Ha" % emb.e_tot)
-print("E(emb. TCCSD)= %+16.8f Ha" % emb_tcc.e_tot)
+# Embedded Tailored CCSD with custom CAS
+emb_tcc2 = vayesta.ewf.EWF(mf, solver='TCCSD', bath_options=dict(threshold=1e-4))
+with emb_tcc2.fragmentation() as frag:
+    frag.add_all_atomic_fragments()
+emb_tcc2.fragments[0].set_cas(iaos='0 N 2p')
+emb_tcc2.fragments[1].set_cas(iaos='1 N 2p')
+emb_tcc2.kernel()
+
+
+print("E(HF)=                     %+16.8f Ha" % mf.e_tot)
+print("E(CCSD)=                   %+16.8f Ha" % cc.e_tot)
+print("E(emb. CCSD)=              %+16.8f Ha" % emb.e_tot)
+print("E(emb. TCCSD)=             %+16.8f Ha" % emb_tcc.e_tot)
+print("E(emb. TCCSD, custom CAS)= %+16.8f Ha" % emb_tcc2.e_tot)
