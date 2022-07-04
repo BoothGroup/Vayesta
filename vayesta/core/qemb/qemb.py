@@ -77,8 +77,14 @@ class Options(OptionsBase):
         )
     # --- Solver options
     solver_options: dict = OptionsBase.dict_with_defaults(
+            # General
+            conv_tol=None,
             # CCSD
-            solve_lambda=False,
+            solve_lambda=False, conv_tol_normt=None, t_as_lambda=False,
+            # FCI
+            threads=1, max_cycle=300, fix_spin=0.0, lindep=None,
+            # EBFCI/EBCCSD
+            max_boson_occ=2,
             # Dump
             dumpfile='clusters.h5')
 
