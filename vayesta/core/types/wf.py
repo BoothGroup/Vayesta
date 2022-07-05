@@ -8,8 +8,8 @@ import pyscf.cc
 import pyscf.fci
 
 # TODO: Remove once unnecessary:
-from vayesta.core.types import ccsd_rdm
-from vayesta.core.types import uccsd_rdm
+from vayesta.core.vpyscf import ccsd_rdm
+from vayesta.core.vpyscf import uccsd_rdm
 
 import vayesta
 from vayesta.core.util import *
