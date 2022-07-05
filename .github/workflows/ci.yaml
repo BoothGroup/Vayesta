@@ -2,9 +2,9 @@ name: CI
 
 on:
   # TODO: change this later, for now only run on push and PR to actions branch
-  #push:
-  #  branches:
-  #    - actions
+  push:
+    branches:
+      - actions
   pull_request:
     branches:
       - actions
