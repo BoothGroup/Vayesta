@@ -1,3 +1,6 @@
+Vayesta Docs 
+===================
+
 This is the scaffold of the tutorials. To compile it, one needs only to type the following commands in the outer folder where the make files are.
 
 .. code-block:: console
@@ -23,7 +26,11 @@ Pushing into this branch:
 
 make changes, if you have used the -b tutorials then 
 
-git remote show origin must show the following result:
+.. code-block:: console
+
+   git remote show origin 
+
+must show the following result:
 
 .. code-block:: console
 
@@ -40,12 +47,11 @@ git remote show origin must show the following result:
 
 If this is **true**, then you dont need to do anything else of defining origins. Then, to push changes, you just need to do
 
-git status  
+.. code-block:: console
 
-git add --all -f    
-(sometimes the build directory is seen in the .gitignore)
-
-git pull
-git push
+    git status  
+    git add --all -f  (sometimes the build directory is seen in the .gitignore)
+    git pull
+    git push
 
 and the changes will be done in the tutorials branch.
