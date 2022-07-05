@@ -19,7 +19,6 @@ import pyscf.pbc.gto
 import pyscf.pbc.scf
 import pyscf.pbc.cc
 import pyscf.pbc.tools
-from pyscf.pbc.scf.addons import kconj_symmetry_
 
 from vayesta.lattmod import latt
 from vayesta.misc import molecules
@@ -168,8 +167,6 @@ class TestSolid:
             rhf = rhf.density_fit(auxbasis=self.auxbasis)
         elif self.df == 'rsgdf':
             rhf = rhf.rs_density_fit(auxbasis=self.auxbasis)
-        if self.kpts is not None:
-            rhf = kconj_symmetry_(rhf)
         rhf.conv_tol = 1e-10
         rhf.conv_tol_grad = 1e-6
         rhf.exxdiv = self.exxdiv
@@ -187,8 +184,6 @@ class TestSolid:
             uhf = uhf.density_fit(auxbasis=self.auxbasis)
         elif self.df == 'rsgdf':
             uhf = uhf.rs_density_fit(auxbasis=self.auxbasis)
-        if self.kpts is not None:
-            uhf = kconj_symmetry_(uhf)
         uhf.conv_tol = 1e-10
         uhf.conv_tol_grad = 1e-8
         uhf.exxdiv = self.exxdiv
