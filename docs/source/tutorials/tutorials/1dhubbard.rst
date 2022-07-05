@@ -76,7 +76,3 @@ Finally, the results for this calculation can be obtained as indicated in the fo
 
 
 .. _Vayesta: https://github.com/BoothGroup/
-
-
-
-

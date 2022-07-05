@@ -7,7 +7,7 @@ Collection of examples showing how to perform calculations with Vayesta_. In the
 
 
 Vayesta
---------
+^^^^^^^^
 
 .. toctree::
    :hidden:
@@ -16,9 +16,9 @@ Vayesta
 .. toctree::
    :maxdepth: 3
 
-   tutorials/molecules 
-   tutorials/solids
-   tutorials/1dhubbard.rst
-   tutorials/clusterham
+   tutorials/ewf 
+   tutorials/1dhubbard
+   tutorials/dumpcluster
+   tutorials/dmet
+   tutorials/edmet
    tutorials/parallelism
-   

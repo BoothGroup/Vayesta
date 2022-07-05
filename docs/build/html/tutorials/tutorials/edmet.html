@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" /><meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>EDMET: &mdash; vayesta 0.0.01 documentation</title>
+      <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="../../_static/css/theme.css" type="text/css" />
+  <!--[if lt IE 9]>
+    <script src="../../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script data-url_root="../../" id="documentation_options" src="../../_static/documentation_options.js"></script>
+        <script src="../../_static/jquery.js"></script>
+        <script src="../../_static/underscore.js"></script>
+        <script src="../../_static/_sphinx_javascript_frameworks_compat.js"></script>
+        <script src="../../_static/doctools.js"></script>
+    <script src="../../_static/js/theme.js"></script>
+    <link rel="author" title="About these documents" href="../../about.html" />
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" />
+    <link rel="next" title="Parallelism in Vayesta" href="parallelism.html" />
+    <link rel="prev" title="Density matrix embbeding theory (DMET)" href="dmet.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+            <a href="../../index.html" class="icon icon-home"> vayesta
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../../about.html">About</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../install.html">Installation</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="../tutorials.html">Tutorials</a><ul class="current">
+<li class="toctree-l2 current"><a class="reference internal" href="../tutorials.html#vayesta">Vayesta</a><ul class="current">
+<li class="toctree-l3"><a class="reference internal" href="ewf.html">Embedded Wavefunction (EWF) method</a></li>
+<li class="toctree-l3"><a class="reference internal" href="1dhubbard.html">Custom Hamiltonians</a></li>
+<li class="toctree-l3"><a class="reference internal" href="dumpcluster.html">Dumping Cluster Hamiltonian</a></li>
+<li class="toctree-l3"><a class="reference internal" href="dmet.html">Density matrix embbeding theory (DMET)</a></li>
+<li class="toctree-l3 current"><a class="current reference internal" href="#">EDMET:</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#finite-systems">Finite Systems</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#costum-hamiltonians">Costum Hamiltonians</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="parallelism.html">Parallelism in Vayesta</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../faq.html">FAQ</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../index.html">vayesta</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../index.html" class="icon icon-home"></a> &raquo;</li>
+          <li><a href="../tutorials.html">Tutorials</a> &raquo;</li>
+      <li>EDMET:</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../../_sources/tutorials/tutorials/edmet.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="edmet">
+<span id="id1"></span><h1>EDMET:<a class="headerlink" href="#edmet" title="Permalink to this heading"></a></h1>
+<p>In the following tutorial, the .. (EDMET) as implemented in <a class="reference external" href="https://github.com/BoothGroup/">Vayesta</a> is introduced. Two examples (Finite systems and custom Hamiltonians) are used to illustrate the capabilities of this methodology.</p>
+<section id="finite-systems">
+<h2>Finite Systems<a class="headerlink" href="#finite-systems" title="Permalink to this heading"></a></h2>
+<p>The <a class="reference external" href="https://github.com/BoothGroup/">Vayesta</a> <cite>ref:edmet.EDMET</cite> module is introduced. As starting point, the relevant modules of <a class="reference external" href="https://pyscf.org/">PySCF</a> and <a class="reference external" href="https://github.com/BoothGroup/">Vayesta</a> are loaded:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">pyscf</span>
+<span class="kn">import</span> <span class="nn">pyscf.gto</span>
+<span class="kn">import</span> <span class="nn">pyscf.dft</span>
+<span class="kn">import</span> <span class="nn">pyscf.scf</span>
+<span class="kn">import</span> <span class="nn">pyscf.cc</span>
+<span class="kn">import</span> <span class="nn">vayesta</span>
+<span class="kn">import</span> <span class="nn">vayesta.edmet</span>
+</pre></div>
+</div>
+<p>The pertinent variables to declare a finite system (water molecule) in <a class="reference external" href="https://pyscf.org/">PySCF</a> are shown in the following snippet:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">mol</span> <span class="o">=</span> <span class="n">pyscf</span><span class="o">.</span><span class="n">gto</span><span class="o">.</span><span class="n">Mole</span><span class="p">()</span>
+<span class="n">mol</span><span class="o">.</span><span class="n">atom</span> <span class="o">=</span> <span class="s2">&quot;&quot;&quot;</span>
+<span class="s2">O  0.0000   0.0000   0.1173</span>
+<span class="s2">H  0.0000   0.7572  -0.4692</span>
+<span class="s2">H  0.0000  -0.7572  -0.4692</span>
+<span class="s2">&quot;&quot;&quot;</span>
+<span class="n">mol</span><span class="o">.</span><span class="n">basis</span> <span class="o">=</span> <span class="s1">&#39;cc-pVDZ&#39;</span>
+<span class="n">mol</span><span class="o">.</span><span class="n">output</span> <span class="o">=</span> <span class="s1">&#39;pyscf.out&#39;</span>
+<span class="n">mol</span><span class="o">.</span><span class="n">build</span><span class="p">()</span>
+</pre></div>
+</div>
+<p>The <cite>ref:EDMET</cite> module enables the use of different mean-field approaches, like for instance, Density Functional Theory (DFT). As implemente in <a class="reference external" href="https://pyscf.org/">PySCF</a>, the relevant variables are called as shown in the following lines of code:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="c1"># LDA</span>
+<span class="n">lda</span> <span class="o">=</span> <span class="n">pyscf</span><span class="o">.</span><span class="n">dft</span><span class="o">.</span><span class="n">RKS</span><span class="p">(</span><span class="n">mol</span><span class="p">)</span>
+<span class="n">lda</span><span class="o">.</span><span class="n">xc</span> <span class="o">=</span> <span class="s1">&#39;svwn&#39;</span>
+<span class="n">lda</span> <span class="o">=</span> <span class="n">lda</span><span class="o">.</span><span class="n">density_fit</span><span class="p">()</span>
+<span class="n">lda</span><span class="o">.</span><span class="n">kernel</span><span class="p">()</span>
+</pre></div>
+</div>
+<p>It is important to notice that the features of a DFT object in <a class="reference external" href="https://pyscf.org/">PySCF</a> are not consistent with the characteristics of a Hartree-Fock object and therefore needs to be converted in the followin way:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="c1"># The KS object needs to be converted to a HF object:</span>
+<span class="n">lda</span> <span class="o">=</span> <span class="n">lda</span><span class="o">.</span><span class="n">to_rhf</span><span class="p">()</span>
+</pre></div>
+</div>
+<p>To use the module, the function <cite>ref:edmet</cite> is declared and arguments are provided from previous steps as shown in the snippet below:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">emb_lda</span> <span class="o">=</span> <span class="n">vayesta</span><span class="o">.</span><span class="n">edmet</span><span class="o">.</span><span class="n">EDMET</span><span class="p">(</span><span class="n">lda</span><span class="p">,</span> <span class="n">dmet_threshold</span><span class="o">=</span><span class="mf">1e-12</span><span class="p">,</span> <span class="n">solver</span><span class="o">=</span><span class="s2">&quot;EBCCSD&quot;</span><span class="p">,</span>
+                              <span class="n">oneshot</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">make_dd_moments</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>The arguments <strong>dmet_threshold</strong>, <strong>oneshot</strong>, and <strong>make_dd_moments</strong> are arguments employed to define specific strategies of the algortihm. The <strong>solver</strong> option offers the possibility to use the <strong>EBFCI</strong> and <strong>EBCCSD</strong>, which is the one selected in this example.</p>
+<p>A fragmentation scheme is needed and, in this example, perfomed in the following manner:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="k">with</span> <span class="n">emb_lda</span><span class="o">.</span><span class="n">iao_fragmentation</span><span class="p">()</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+    <span class="n">f</span><span class="o">.</span><span class="n">add_all_atomic_fragments</span><span class="p">()</span>
+<span class="n">emb_lda</span><span class="o">.</span><span class="n">kernel</span><span class="p">()</span>
+</pre></div>
+</div>
+<p>To compare with the <strong>CCSD</strong> reference, the computation can be submitted as shown in the code below:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="c1"># Reference full system CCSD:</span>
+<span class="n">cc</span> <span class="o">=</span> <span class="n">pyscf</span><span class="o">.</span><span class="n">cc</span><span class="o">.</span><span class="n">CCSD</span><span class="p">(</span><span class="n">hf</span><span class="p">)</span>
+<span class="n">cc</span><span class="o">.</span><span class="n">kernel</span><span class="p">()</span>
+</pre></div>
+</div>
+<p>Relevant quantities, such as the total energy, can be printed as displayed in the following lines of code:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="nb">print</span><span class="p">(</span><span class="s2">&quot;E(LDA)=              </span><span class="si">%+16.8f</span><span class="s2"> Ha&quot;</span> <span class="o">%</span> <span class="n">lda</span><span class="o">.</span><span class="n">e_tot</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;E(Emb. CCSD @LDA)=   </span><span class="si">%+16.8f</span><span class="s2"> Ha&quot;</span> <span class="o">%</span> <span class="n">emb_lda</span><span class="o">.</span><span class="n">e_tot</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;E(HF @LDA)=          </span><span class="si">%+16.8f</span><span class="s2"> Ha&quot;</span> <span class="o">%</span> <span class="n">emb_lda</span><span class="o">.</span><span class="n">e_mf</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;E(CCSD)=             </span><span class="si">%+16.8f</span><span class="s2"> Ha&quot;</span> <span class="o">%</span> <span class="n">cc</span><span class="o">.</span><span class="p">)</span>
+</pre></div>
+</div>
+</section>
+<section id="costum-hamiltonians">
+<h2>Costum Hamiltonians<a class="headerlink" href="#costum-hamiltonians" title="Permalink to this heading"></a></h2>
+<p>TO BE COMPLETED….</p>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="dmet.html" class="btn btn-neutral float-left" title="Density matrix embbeding theory (DMET)" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="parallelism.html" class="btn btn-neutral float-right" title="Parallelism in Vayesta" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2022.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

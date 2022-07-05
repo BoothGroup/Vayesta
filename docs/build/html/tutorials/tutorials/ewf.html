@@ -4,7 +4,7 @@
   <meta charset="utf-8" /><meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Using EWF for Periodic Systems &mdash; vayesta 0.0.01 documentation</title>
+  <title>Embedded Wavefunction (EWF) method &mdash; vayesta 0.0.01 documentation</title>
       <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
       <link rel="stylesheet" href="../../_static/css/theme.css" type="text/css" />
   <!--[if lt IE 9]>
@@ -21,7 +21,7 @@
     <link rel="index" title="Index" href="../../genindex.html" />
     <link rel="search" title="Search" href="../../search.html" />
     <link rel="next" title="Custom Hamiltonians" href="1dhubbard.html" />
-    <link rel="prev" title="Using EWF for Molecular simulations" href="molecules.html" /> 
+    <link rel="prev" title="Tutorials" href="../tutorials.html" /> 
 </head>
 
 <body class="wy-body-for-nav"> 
@@ -45,10 +45,15 @@
 <li class="toctree-l1"><a class="reference internal" href="../../install.html">Installation</a></li>
 <li class="toctree-l1 current"><a class="reference internal" href="../tutorials.html">Tutorials</a><ul class="current">
 <li class="toctree-l2 current"><a class="reference internal" href="../tutorials.html#vayesta">Vayesta</a><ul class="current">
-<li class="toctree-l3"><a class="reference internal" href="molecules.html">Using EWF for Molecular simulations</a></li>
-<li class="toctree-l3 current"><a class="current reference internal" href="#">Using EWF for Periodic Systems</a></li>
+<li class="toctree-l3 current"><a class="current reference internal" href="#">Embedded Wavefunction (EWF) method</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#finite-systems">Finite Systems</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#extended-systems">Extended Systems</a></li>
+</ul>
+</li>
 <li class="toctree-l3"><a class="reference internal" href="1dhubbard.html">Custom Hamiltonians</a></li>
-<li class="toctree-l3"><a class="reference internal" href="clusterham.html">Dumping Cluster Hamiltonians</a></li>
+<li class="toctree-l3"><a class="reference internal" href="dumpcluster.html">Dumping Cluster Hamiltonian</a></li>
+<li class="toctree-l3"><a class="reference internal" href="dmet.html">Density matrix embbeding theory (DMET)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="edmet.html">EDMET:</a></li>
 <li class="toctree-l3"><a class="reference internal" href="parallelism.html">Parallelism in Vayesta</a></li>
 </ul>
 </li>
@@ -72,9 +77,9 @@
   <ul class="wy-breadcrumbs">
       <li><a href="../../index.html" class="icon icon-home"></a> &raquo;</li>
           <li><a href="../tutorials.html">Tutorials</a> &raquo;</li>
-      <li>Using EWF for Periodic Systems</li>
+      <li>Embedded Wavefunction (EWF) method</li>
       <li class="wy-breadcrumbs-aside">
-            <a href="../../_sources/tutorials/tutorials/solids.rst.txt" rel="nofollow"> View page source</a>
+            <a href="../../_sources/tutorials/tutorials/ewf.rst.txt" rel="nofollow"> View page source</a>
       </li>
   </ul>
   <hr/>
@@ -82,12 +87,77 @@
           <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
            <div itemprop="articleBody">
              
-  <section id="using-ewf-for-periodic-systems">
-<span id="solids"></span><h1>Using EWF for Periodic Systems<a class="headerlink" href="#using-ewf-for-periodic-systems" title="Permalink to this heading"></a></h1>
-<p>This tutorial introduces the use of the EWF method to perform electronic structure simulations of periodic systems in <a class="reference external" href="https://github.com/BoothGroup/Vayesta">Vayesta</a>. Additionally to the
-standard molecular quantum chemistry capabilities, <a class="reference external" href="https://sunqm.github.io/pyscf/">PySCF</a> enables the use of a variety of quantum chemistry methods for extended systems with Periodic
-Boundary Conditions (PBC). <a class="reference external" href="https://github.com/BoothGroup/Vayesta">Vayesta</a> utilizes these capabilities of performing ground state calculations as starting point. Initially, the relevant
-modules are imported as shown in the snipet below:</p>
+  <section id="embedded-wavefunction-ewf-method">
+<span id="ewf"></span><h1>Embedded Wavefunction (EWF) method<a class="headerlink" href="#embedded-wavefunction-ewf-method" title="Permalink to this heading"></a></h1>
+<p>This tutorial introduces the use of the <cite>ref:ewf.EWF</cite> method to perform electronic structure simulations of finite and extended periodic systems using the embedded wavefunction theory (EWF) as implemnted in <a class="reference external" href="https://github.com/BoothGroup/Vayesta">Vayesta</a>.</p>
+<section id="finite-systems">
+<h2>Finite Systems<a class="headerlink" href="#finite-systems" title="Permalink to this heading"></a></h2>
+<p>As starting point, <a class="reference external" href="https://github.com/BoothGroup/Vayesta">Vayesta</a> utilizes mean-field computed properties provided by the <a class="reference external" href="https://sunqm.github.io/pyscf/">PySCF</a> code. All the relevant modules are imported as shown in the following snippet:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">pyscf</span>
+<span class="kn">import</span> <span class="nn">pyscf.gto</span>
+<span class="kn">import</span> <span class="nn">pyscf.scf</span>
+<span class="kn">import</span> <span class="nn">pyscf.cc</span>
+</pre></div>
+</div>
+<p>The relevant <a class="reference external" href="https://github.com/BoothGroup/Vayesta">Vayesta</a> modules can be imported in a familiar Python way as displayed in the following lines of code:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">vayesta</span>
+<span class="kn">import</span> <span class="nn">vayesta.ewf</span>
+</pre></div>
+</div>
+<p>The mean-field ground state properties are compued at the level of Restricted-Hartree-Fock (RHF) as shown below:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">mol</span> <span class="o">=</span> <span class="n">pyscf</span><span class="o">.</span><span class="n">gto</span><span class="o">.</span><span class="n">Mole</span><span class="p">()</span>
+
+<span class="n">mol</span><span class="o">.</span><span class="n">atom</span> <span class="o">=</span> <span class="s2">&quot;&quot;&quot;</span>
+<span class="s2">O  0.0000   0.0000   0.1173</span>
+<span class="s2">H  0.0000   0.7572  -0.4692</span>
+<span class="s2">H  0.0000  -0.7572  -0.4692</span>
+<span class="s2">&quot;&quot;&quot;</span>
+
+<span class="n">mol</span><span class="o">.</span><span class="n">basis</span> <span class="o">=</span> <span class="s1">&#39;cc-pVDZ&#39;</span>
+<span class="n">mol</span><span class="o">.</span><span class="n">output</span> <span class="o">=</span> <span class="s1">&#39;pyscf.out&#39;</span>
+<span class="n">mol</span><span class="o">.</span><span class="n">build</span><span class="p">()</span>
+
+<span class="c1"># Hartree-Fock</span>
+<span class="n">mf</span> <span class="o">=</span> <span class="n">pyscf</span><span class="o">.</span><span class="n">scf</span><span class="o">.</span><span class="n">RHF</span><span class="p">(</span><span class="n">mol</span><span class="p">)</span>
+<span class="n">mf</span><span class="o">.</span><span class="n">kernel</span><span class="p">()</span>
+</pre></div>
+</div>
+<p>The <a class="reference external" href="https://sunqm.github.io/pyscf/">PySCF</a> results are subsequently parsed to the <cite>ref:ewt.EWT</cite> <a class="reference external" href="https://github.com/BoothGroup/Vayesta">Vayesta</a> method as depicted in the following snippet:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="c1"># Parse options and calculate HF energy</span>
+<span class="n">emb_iao</span> <span class="o">=</span> <span class="n">vayesta</span><span class="o">.</span><span class="n">ewf</span><span class="o">.</span><span class="n">EWF</span><span class="p">(</span><span class="n">mf</span><span class="p">,</span> <span class="n">bath_options</span><span class="o">=</span><span class="nb">dict</span><span class="p">(</span><span class="n">threshold</span><span class="o">=</span><span class="mf">1e-6</span><span class="p">),</span>
+                          <span class="n">solver_options</span><span class="o">=</span><span class="nb">dict</span><span class="p">(</span><span class="n">solve_lambda</span><span class="o">=</span><span class="kc">True</span><span class="p">))</span>
+</pre></div>
+</div>
+<p>The <cite>ref:ewf.EWF</cite> method requires the use of a fragmentation scheme. <a class="reference external" href="https://github.com/BoothGroup/Vayesta">Vayesta</a> has implemented different methods to perform it, whose full description can be found in <cite>REF:VAYESTA_MODULE</cite>. The <strong>IAO</strong> fragmentation methodology is set as default and automatically used once the method <strong>.kernel()</strong> is invoked as is shown in these lines of code:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="c1"># If calling the kernel without initializing the fragmentation,</span>
+<span class="c1"># IAO fragmentation is used automatically:</span>
+<span class="n">emb_iao</span><span class="o">.</span><span class="n">kernel</span><span class="p">()</span>
+</pre></div>
+</div>
+<p>Alternatively, a second fragmentation procedure (the <strong>IAO+PAOs</strong> method) can be used as shown in the following lines:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="c1"># Parse options and calculate HF energy</span>
+<span class="n">emb_iaopao</span> <span class="o">=</span> <span class="n">vayesta</span><span class="o">.</span><span class="n">ewf</span><span class="o">.</span><span class="n">EWF</span><span class="p">(</span><span class="n">mf</span><span class="p">,</span> <span class="n">bath_options</span><span class="o">=</span><span class="nb">dict</span><span class="p">(</span><span class="n">threshold</span><span class="o">=</span><span class="mf">1e-6</span><span class="p">),</span>
+                          <span class="n">solver_options</span><span class="o">=</span><span class="nb">dict</span><span class="p">(</span><span class="n">solve_lambda</span><span class="o">=</span><span class="kc">True</span><span class="p">))</span>
+
+<span class="c1"># To use IAO+PAOs, call emb.iaopao_fragmentation() before the kernel:</span>
+<span class="k">with</span> <span class="n">emb_iaopao</span><span class="o">.</span><span class="n">iaopao_fragmentation</span><span class="p">()</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+    <span class="n">f</span><span class="o">.</span><span class="n">add_all_atomic_fragments</span><span class="p">()</span>
+<span class="n">emb_iaopao</span><span class="o">.</span><span class="n">kernel</span><span class="p">()</span>
+</pre></div>
+</div>
+<p>Important quantities, such as <strong>T2</strong> amplitudes and one-body reduced density matrix (<strong>1-RDM</strong>) can be obtained from the global <strong>EWF</strong>, and computed using the following lines of code:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="c1"># Loop over fragments, project T2-amplitudes, and sum up to get global EWF</span>
+<span class="n">t2</span> <span class="o">=</span> <span class="n">emb_iaopao</span><span class="o">.</span><span class="n">get_global_t2</span><span class="p">()</span>
+
+<span class="c1"># Get CCSD 1-RDM from global WF</span>
+<span class="n">dm1</span> <span class="o">=</span> <span class="n">emb</span><span class="o">.</span><span class="n">make_rdm1</span><span class="p">()</span>
+</pre></div>
+</div>
+<p>Similarly, quantities such as spin-spin correlation functions and different observables can be calculated using <a class="reference external" href="https://github.com/BoothGroup/Vayesta">Vayesta</a> …… (TO BE COMPLETED)</p>
+</section>
+<section id="extended-systems">
+<h2>Extended Systems<a class="headerlink" href="#extended-systems" title="Permalink to this heading"></a></h2>
+<p>Additionally to the standard molecular quantum chemistry capabilities, <a class="reference external" href="https://sunqm.github.io/pyscf/">PySCF</a> enables the use of a variety of quantum chemistry methods for extended systems with Periodic Boundary Conditions (PBC). <a class="reference external" href="https://github.com/BoothGroup/Vayesta">Vayesta</a> utilizes these capabilities of performing ground state calculations as starting point. Initially, the relevant modules are imported as shown in the snipet below:</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
 <span class="kn">import</span> <span class="nn">pyscf</span>
 <span class="kn">import</span> <span class="nn">pyscf.pbc</span>
@@ -164,12 +234,13 @@ provided by the number of images created to reproduce the kpoint mesh (i.e 2 as 
 </pre></div>
 </div>
 </section>
+</section>
 
 
            </div>
           </div>
           <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
-        <a href="molecules.html" class="btn btn-neutral float-left" title="Using EWF for Molecular simulations" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="../tutorials.html" class="btn btn-neutral float-left" title="Tutorials" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
         <a href="1dhubbard.html" class="btn btn-neutral float-right" title="Custom Hamiltonians" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
     </div>
 
