@@ -26,7 +26,7 @@ modlog = logging.getLogger(__name__)
 # util module can be imported as *, such that the following is imported:
 __all__ = [
         # General
-        'Object', 'OptionsBase', 'brange', 'deprecated', 'cache',
+        'Object', 'OptionsBase', 'brange', 'deprecated', 'cache', 'call_once',
         # NumPy replacements
         'dot', 'einsum', 'hstack',
         # Exceptions
@@ -79,6 +79,10 @@ def cache(maxsize_or_user_function=16, typed=False, copy=False):
             wrapper.cache_parameters = cached_func.cache_parameters
         return wrapper
     return decorator
+
+@functools.lru_cache(None)
+def call_once(func, *args, **kwargs):
+    return func(*args, **kwargs)
 
 # --- NumPy
 
@@ -403,7 +407,7 @@ def deprecated(message=None, replacement=None):
                 log = args[0].log
             else:
                 log = modlog
-            log.warning(msg)
+            log.deprecated(msg)
             return func(*args, **kwargs)
         return wrapped
     return decorator
@@ -459,8 +463,12 @@ class OptionsBase:
         for key, val in kwargs.items():
             if key not in keys:
                 raise TypeError("replace got an unexpected keyword argument '%s'" % key)
-            if isinstance(val, dict) and isinstance(getattr(self, key), dict):
-                setattr(self, key, {**getattr(self, key), **val})
+            selfval = getattr(self, key)
+            if isinstance(val, dict) and isinstance(selfval, dict):
+                for dkey in val.keys():
+                    if dkey not in selfval.keys():
+                        raise TypeError("Replace got an unexpected key for dictionary %s: '%s'" % (key, dkey))
+                setattr(self, key, {**selfval, **val})
             else:
                 setattr(self, key, val)
         return self

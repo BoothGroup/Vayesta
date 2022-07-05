@@ -45,7 +45,7 @@ class DMET_Bath_RHF(Bath):
 
         # --- Separate occupied and virtual in cluster
         cluster = [self.c_frag, c_dmet]
-        self.base.check_orthonormal(*cluster, mo_name='cluster MO')
+        self.base._check_orthonormal(*cluster, mo_name='cluster MO')
         c_cluster_occ, c_cluster_vir = self.fragment.diagonalize_cluster_dm(*cluster, tol=2*self.dmet_threshold)
         # Canonicalize
         c_cluster_occ = self.fragment.canonicalize_mo(c_cluster_occ)[0]

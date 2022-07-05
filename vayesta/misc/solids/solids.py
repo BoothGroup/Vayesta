@@ -1,5 +1,14 @@
 import numpy as np
 
+def bcc(atoms, a):
+    """Body-centered cubic.
+    Li: 3.51 A
+    """
+    amat = a*np.eye(a)
+    coords = a * np.asarray([[0, 0, 0], [1, 1, 1]])/2
+    atom = _make_atom(atoms, coords)
+    return amat, atom
+
 def diamond(atoms=['C', 'C'], a=3.57):
     """Silicon: a=5.431 A"""
     amat = a * np.asarray([
