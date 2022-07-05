@@ -30,7 +30,7 @@ make changes, if you have used the -b tutorials then
 
    git remote show origin 
 
-must show the following result:
+must show the following result
 
 .. code-block:: console
 
