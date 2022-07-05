@@ -1,5 +1,6 @@
-import itertools
+import pytest
 import unittest
+import itertools
 
 import numpy as np
 
@@ -13,35 +14,21 @@ import pyscf.pbc.tools
 
 from vayesta.core.ao2mo import postscf_kao2gmo
 from vayesta.core.ao2mo import postscf_kao2gmo_uhf
+from vayesta.tests.common import TestCase
+from vayesta.tests import testsystems
 
 
-class PostSCF_KAO2GMO_Tests(unittest.TestCase):
+@pytest.mark.slow
+class PostSCF_KAO2GMO_Tests(TestCase):
 
     def test_rhf(self):
-        cell = pyscf.pbc.gto.Cell()
-        cell.atom = 'He 0 0 0'
-        cell.basis = 'def2-svp'
-        cell.a = 3.0*np.eye(3)
-        cell.build()
-        kmesh = [3, 2, 1]
-        kpts = cell.make_kpts(kmesh)
-        gdf = pyscf.pbc.df.GDF(cell, kpts)
-        gdf.auxbasis = 'def2-svp-ri'
-        gdf.build()
-        khf = pyscf.pbc.scf.KRHF(cell, kpts)
-        khf.with_df = gdf
-        khf.conv_tol = 1e-12
-        khf.kernel()
-
-        scell = pyscf.pbc.tools.super_cell(cell, kmesh)
-        shf = pyscf.pbc.scf.RHF(scell)
-        gdf_sc = pyscf.pbc.df.GDF(scell)
-        gdf_sc.auxbasis = 'def2-svp-ri'
-        gdf_sc.build()
-        shf.with_df = gdf_sc
-        shf.conv_tol = 1e-12
-        shf.kernel()
-        assert np.isclose(shf.e_tot / len(kpts), khf.e_tot)
+        cell = testsystems.he_k321.mol
+        khf = testsystems.he_k321.rhf()
+        kpts = testsystems.he_k321.kpts
+        gdf = khf.with_df
+        scell = testsystems.he_s321.mol
+        shf = testsystems.he_s321.rhf()
+        self.assertAlmostEqual(shf.e_tot / len(kpts), khf.e_tot)
 
         nao = scell.nao
         nocc = np.count_nonzero(shf.mo_occ > 0)
@@ -70,9 +57,7 @@ class PostSCF_KAO2GMO_Tests(unittest.TestCase):
                 for attr in ['oooo', 'ovoo', 'oovv', 'ovvo', 'ovov', 'ovvv', 'vvvv', 'vvL', 'fock', 'mo_energy', 'e_hf']:
                     expected = getattr(eris_expected, attr, None)
                     if expected is None:
-                        print("Attribute %s not found" % attr)
                         continue
-                    print("Testing class %s attribute %s" % (postscfcls, attr))
                     val = getattr(eris, attr)
 
                     if attr == 'vvL':
@@ -83,32 +68,13 @@ class PostSCF_KAO2GMO_Tests(unittest.TestCase):
                     self.assertIsNone(np.testing.assert_almost_equal(val, expected))
 
     def test_rhf_2d(self):
-        cell = pyscf.pbc.gto.Cell()
-        cell.atom = 'He 0 0 0'
-        cell.basis = 'def2-svp'
-        cell.a = 3.0*np.eye(3)
-        cell.a[2,2] = 20.0
-        cell.dimension = 2
-        cell.build()
-        kmesh = [3, 2, 1]
-        kpts = cell.make_kpts(kmesh)
-        gdf = pyscf.pbc.df.GDF(cell, kpts)
-        gdf.auxbasis = 'def2-svp-ri'
-        gdf.build()
-        khf = pyscf.pbc.scf.KRHF(cell, kpts)
-        khf.with_df = gdf
-        khf.conv_tol = 1e-12
-        khf.kernel()
-
-        scell = pyscf.pbc.tools.super_cell(cell, kmesh)
-        shf = pyscf.pbc.scf.RHF(scell)
-        gdf_sc = pyscf.pbc.df.GDF(scell)
-        gdf_sc.auxbasis = 'def2-svp-ri'
-        gdf_sc.build()
-        shf.with_df = gdf_sc
-        shf.conv_tol = 1e-12
-        shf.kernel()
-        assert np.isclose(shf.e_tot / len(kpts), khf.e_tot)
+        cell = testsystems.he_k32.mol
+        khf = testsystems.he_k32.rhf()
+        kpts = testsystems.he_k32.kpts
+        gdf = khf.with_df
+        scell = testsystems.he_s32.mol
+        shf = testsystems.he_s32.rhf()
+        self.assertAlmostEqual(shf.e_tot / len(kpts), khf.e_tot)
 
         nao = scell.nao
         nocc = np.count_nonzero(shf.mo_occ > 0)
@@ -139,9 +105,7 @@ class PostSCF_KAO2GMO_Tests(unittest.TestCase):
                 for attr in (eriblocks + ['fock', 'mo_energy', 'e_hf']):
                     expected = getattr(eris_expected, attr, None)
                     if expected is None:
-                        print("Attribute %s not found" % attr)
                         continue
-                    print("Testing class %s attribute %s" % (postscfcls, attr))
                     val = getattr(eris, attr)
 
                     if attr == 'vvL':
@@ -152,34 +116,13 @@ class PostSCF_KAO2GMO_Tests(unittest.TestCase):
                     self.assertIsNone(np.testing.assert_almost_equal(val, expected))
 
     def test_uhf(self):
-        cell = pyscf.pbc.gto.Cell()
-        cell.atom = 'Li 0 0 0'
-        cell.basis = 'def2-svp'
-        cell.a = 5.0*np.eye(3)
-        cell.spin = 3
-        cell.exp_to_discard = 0.1
-        cell.build()
-        kmesh = [3, 1, 1]
-        kpts = cell.make_kpts(kmesh)
-        gdf = pyscf.pbc.df.GDF(cell, kpts)
-        gdf.auxbasis = 'def2-svp-ri'
-        gdf.build()
-        khf = pyscf.pbc.scf.KUHF(cell, kpts)
-        khf.with_df = gdf
-        khf.conv_tol = 1e-10
-        khf.kernel()
-
-        scell = pyscf.pbc.tools.super_cell(cell, kmesh)
-        assert (scell.spin == cell.spin)
-        assert (scell.exp_to_discard == cell.exp_to_discard)
-        shf = pyscf.pbc.scf.UHF(scell)
-        gdf_sc = pyscf.pbc.df.GDF(scell)
-        gdf_sc.auxbasis = 'def2-svp-ri'
-        gdf_sc.build()
-        shf.with_df = gdf_sc
-        shf.conv_tol = 1e-10
-        shf.kernel()
-        assert np.isclose(shf.e_tot / len(kpts), khf.e_tot)
+        cell = testsystems.lih_k221.mol
+        khf = testsystems.lih_k221.uhf()
+        kpts = testsystems.lih_k221.kpts
+        gdf = khf.with_df
+        scell = testsystems.lih_s221.mol
+        shf = testsystems.lih_s221.uhf()
+        self.assertAlmostEqual(shf.e_tot / len(kpts), khf.e_tot)
 
         nao = scell.nao
         nocc = np.count_nonzero(shf.mo_occ > 0)
@@ -220,14 +163,13 @@ class PostSCF_KAO2GMO_Tests(unittest.TestCase):
                 for attr in (eriblocks + ['fock', 'mo_energy', 'e_hf']):
                     expected = getattr(eris_expected, attr, None)
                     if expected is None:
-                        print("Attribute %s not found" % attr)
                         continue
-                    print("Testing class %s attribute %s" % (postscfcls, attr))
                     val = getattr(eris, attr)
 
                     if hasattr(expected, 'shape'):
                         self.assertEqual(val.shape, expected.shape)
                     self.assertIsNone(np.testing.assert_almost_equal(val, expected))
+
 
 if __name__ == '__main__':
     print('Running %s' % __file__)

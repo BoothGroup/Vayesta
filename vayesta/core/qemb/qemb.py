@@ -47,6 +47,10 @@ from vayesta.core.fragmentation import CAS_Fragmentation
 
 from vayesta.misc.cptbisect import ChempotBisection
 
+# Expectation values
+from vayesta.core.qemb.expval import get_corrfunc
+from vayesta.core.qemb.expval import get_corrfunc_mf
+
 # --- This Package
 
 from .fragment import Fragment
@@ -73,8 +77,14 @@ class Options(OptionsBase):
         )
     # --- Solver options
     solver_options: dict = OptionsBase.dict_with_defaults(
+            # General
+            conv_tol=None,
             # CCSD
-            solve_lambda=False,
+            solve_lambda=False, conv_tol_normt=None, t_as_lambda=False,
+            # FCI
+            threads=1, max_cycle=300, fix_spin=0.0, lindep=None,
+            # EBFCI/EBCCSD
+            max_boson_occ=2,
             # Dump
             dumpfile='clusters.h5')
 
@@ -155,7 +165,7 @@ class Embedding:
     # Shadow these in inherited methods:
     Fragment = Fragment
     Options = Options
-    valid_solvers = ['HF', 'MP2', 'CISD', 'CCSD', 'TCCSD', 'FCI', 'FCI-SPIN0', 'FCI-SPIN1', 'DUMP']
+    valid_solvers = ['HF', 'MP2', 'CISD', 'CCSD', 'TCCSD', 'FCI', 'FCI-SPIN0', 'FCI-SPIN1', 'Dump']
 
     # Deprecated:
     is_rhf = True
@@ -1061,11 +1071,11 @@ class Embedding:
             if not approx_cumulant:
                 vhf = self.get_veff_for_energy(dm1=dm1, with_exxdiv=False)
             elif (int(approx_cumulant) == 1):
-                dm1 = 2*dm1 - self.mf.make_rdm1()
+                dm1 = 2*np.asarray(dm1) - self.mf.make_rdm1()
                 vhf = self.get_veff_for_energy(with_exxdiv=False)
             else:
                 raise ValueError
-            e_dmet += np.sum(vhf * dm1)/2
+            e_dmet += np.sum(np.asarray(vhf) * dm1)/2
 
         self.log.debugv("E_elec(DMET)= %s", energy_string(e_dmet))
         return e_dmet / self.ncells
@@ -1092,6 +1102,9 @@ class Embedding:
             e_dmet += self.get_exxdiv()[0]
         return e_dmet
 
+    get_corrfunc_mf = log_method()(get_corrfunc_mf)
+    get_corrfunc = log_method()(get_corrfunc)
+
     # Utility
     # -------
 
@@ -1117,6 +1130,35 @@ class Embedding:
 
     # --- Population analysis
     # -----------------------
+
+    def _get_atom_projectors(self, atoms=None, projection='sao'):
+        if atoms is None:
+            atoms2 = list(range(self.mol.natm))
+            # For supercell systems, we do not want all supercell-atom pairs,
+            # but only primitive-cell -- supercell pairs:
+            atoms1 = atoms2 if (self.kcell is None) else list(range(self.kcell.natm))
+        elif isinstance(atoms[0], (int, np.integer)):
+            atoms1 = atoms2 = atoms
+        else:
+            atoms1, atoms2 = atoms
+
+        # Get atomic projectors:
+        projection = projection.lower()
+        if projection == 'sao':
+            frag = SAO_Fragmentation(self)
+        elif projection.replace('+', '').replace('/', '') == 'iaopao':
+            frag = IAOPAO_Fragmentation(self)
+        else:
+            raise ValueError("Invalid projection: %s" % projection)
+        frag.kernel()
+        projectors = {}
+        cs = np.dot(self.mo_coeff.T, self.get_ovlp())
+        for atom in sorted(set(atoms1).union(atoms2)):
+            name, indices = frag.get_atomic_fragment_indices(atom)
+            c_atom = frag.get_frag_coeff(indices)
+            r = dot(cs, c_atom)
+            projectors[atom] = dot(r, r.T)
+        return atoms1, atoms2, projectors
 
     def get_lo_coeff(self, local_orbitals='lowdin', minao='auto'):
         if local_orbitals.lower() == 'lowdin':

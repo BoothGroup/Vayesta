@@ -1,10 +1,11 @@
 import unittest
 
 from vayesta import rpa
-from vayesta.tests.cache import latts
+from vayesta.tests.common import TestCase
+from vayesta.tests import testsystems
 
 
-class MoleculeRPATest(unittest.TestCase):
+class MoleculeRPATest(TestCase):
     PLACES = 8
 
     def _test_energy(self, emb, known_values):
@@ -28,11 +29,11 @@ class MoleculeRPATest(unittest.TestCase):
         key = 'hubb_14_u4_df'
         known_values_drpa = {'e_tot': -7.776536889696544}
 
-        emb = rpa.ssRPA(latts[key]['rhf'])
+        emb = rpa.ssRPA(getattr(testsystems, key).rhf())
         emb.kernel()
         self._test_energy(emb, known_values_drpa)
 
-        rirpa = rpa.ssRIRPA(latts[key]['rhf'])
+        rirpa = rpa.ssRIRPA(getattr(testsystems, key).rhf())
 
         self._test_mom0(emb, rirpa)
 
