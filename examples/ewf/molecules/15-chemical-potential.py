@@ -25,7 +25,6 @@ with emb.sao_fragmentation() as frag:
     frag.add_all_atomic_fragments()
 emb.kernel()
 # Population analyis:
-[print(x.results.wf.l1.shape) for x in emb.fragments]
 dm1 = emb.make_rdm1(ao_basis=True)
 emb.pop_analysis(dm1, filename='pop.txt')
 
