@@ -20,7 +20,7 @@ mf.kernel()
 fci = pyscf.fci.FCI(mf)
 fci.kernel()
 
-# Oneshot DMET
+# One-shot DMET
 dmet = vayesta.dmet.DMET(mf, solver='FCI', maxiter=1)
 with dmet.sao_fragmentation() as f:
     f.add_atomic_fragment([0,1])
@@ -38,7 +38,7 @@ dmet_sc.kernel()
 
 print("Energies")
 print("========")
-print("  HF:                   %+16.8f Ha" % mf.e_tot)
-print("  FCI:                  %+16.8f Ha" % fci.e_tot)
-print("  oneshot DMET:         %+16.8f Ha  (error= %.1f mHa)" % (dmet.e_tot, 1000*(dmet.e_tot-fci.e_tot)))
-print("  self-consistent DMET: %+16.8f Ha  (error= %.1f mHa)" % (dmet_sc.e_tot, 1000*(dmet_sc.e_tot-fci.e_tot)))
+print("  HF:                    %+16.8f Ha" % mf.e_tot)
+print("  FCI:                   %+16.8f Ha" % fci.e_tot)
+print("  DMET(1 iteration):     %+16.8f Ha  (error= %.1f mHa)" % (dmet.e_tot, 1000*(dmet.e_tot-fci.e_tot)))
+print("  DMET(self-consistent): %+16.8f Ha  (error= %.1f mHa)" % (dmet_sc.e_tot, 1000*(dmet_sc.e_tot-fci.e_tot)))
