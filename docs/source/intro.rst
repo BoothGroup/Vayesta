@@ -25,14 +25,14 @@ Features
 --------
 
 - Fragments can be defined in terms of:
-    - `Intrinsic atomic orbitals <IAO_>`_ (IAO) [1]_
-    - `Intrinsic atomic orbitals <IAO_>`_ + orthogonalized `projected atomic orbitals <PAO_>`_ (IAO+PAO)
+    - `Intrinsic atomic orbitals <REF_IAO_>`_ (IAO) [1]_
+    - `Intrinsic atomic orbitals <REF_IAO_>`_ + orthogonalized `projected atomic orbitals <REF_PAO_>`_ (IAO+PAO)
     - Symmetrically (Löwdin) orthogonalized atomic orbitals (SAO)
     - Site basis (for lattice models)
 
 - Bath orbitals:
-    - `Density-matrix embedding theory (DMET) <DMET_>`_ bath orbitals [2]_
-    - `MP2 bath natural orbitals <PRX_>`_ [3]_
+    - `Density-matrix embedding theory (DMET) <REF_DMET_>`_ bath orbitals [2]_
+    - `MP2 bath natural orbitals <REF_PRX_>`_ [3]_
     - Spatially closest bath orbitals (:math:`R^2` bath)
 
 - Quantum embedding problems can be solved with the following PySCF solvers:
@@ -46,25 +46,7 @@ Features
     - Expectation values:
         - Projected wave function correlation energy
         - Democratically partitioned density-matrices
-        - Partitioned 
-
-
-..
-   Vayesta_ has been designed such that it is :
-
-   - **Easy to use**:
-
-     The code has been developed to be easily integrated with further Python_
-     scripting language capabilites.
-
-   - **Flexible**:
-
-     Vayesta_ can perform *ab-initio* calculations....
-
-   - **Open to participation**:
-
-     Vayesta_ has been released under GNU_ Lesser General Public License version
-     3.0 or any later version.
+        - Partitioned
 
 
 .. [1] Gerald Knizia, J. Chem. Theory Comput. 9, 11, 4834 (2013).

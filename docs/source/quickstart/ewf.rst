@@ -4,8 +4,6 @@
 Embedded Wave Function method (EWF)
 ===================================
 
-As presented in PRX_
-
 This tutorial introduces the use of the `ref:ewf.EWF` method to perform electronic structure simulations of molecules
 and periodic systems using the embedded wave function class (EWF) as implemnted in Vayesta_.
 

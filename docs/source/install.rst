@@ -5,49 +5,44 @@
 Installation
 ============
 
-Vayesta_ can be installed using pip_ for a quickstart or also installed
-from source. This section will present instructions in how to build
-Vayesta_.
+Vayesta_ can be installed using pip_ or from source.
 
+Installing with pip
+===================
 
-Using pip
-==========
-
-The simplest way to install Vayesta_ is to use pip_ :
+The simplest way to install Vayesta_ is to use pip_:
 
 .. code-block:: console
 
    pip install vayesta
 
+All required python packages, such as NumPy_ and PySCF_ will be installed automatically.
 
-Installation from source
-==========================
 
-As an alternatie to pip_, Vayesta_ can be cloned from its GitHub repository. This can be done by creating a new folder in your `$HOME` directory in which Vayesta_ is intended to be installed. Once this is done, the following lines of code should create Vayesta_
+Installation from Source
+========================
+
+To install Vayesta_ from source, clone the GitHub repository and use ``cmake`` and ``make`` to compile:
 
 .. code-block:: console
 
-   git clone https://github.com/BoothGroup/Vayesta ./git/vayesta
-   cd git/vayesta/vayesta/libs
+   git clone https://github.com/BoothGroup/Vayesta .
+   cd Vayesta/vayesta/libs
    mkdir build && cd build
    cmake ..
    make
 
 .. note::
+    When installing from source, make sure that PySCF_ and its dependencies are installed first.
 
-   A compiled version of OpenBLAS_ should be accessible in your environment where the libopenblas_XXX.so can be found.
 
+For more detailed installation procedures and troubleshooting, please refer to the :ref:`faq`.
 
-For a more detailed installation procedures, the user can refer to the
-:ref:`faq`. section.
+Running Tests
+=============
 
-Testing Vayesta
-====================
-
-After installation, Vayesta_ can be tested by typing the following command:
+After installation Vayesta_ can run its tests set with the following command:
 
 .. code-block:: console
 
    python setup.py test
-
-which suffices for testing the main computational capabilities of the code.
