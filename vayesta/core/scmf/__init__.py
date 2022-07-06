@@ -1,5 +1,8 @@
-from .scmf import PDMET_RHF, PDMET_UHF
-from .scmf import Brueckner_RHF, Brueckner_UHF
+from .pdmet import PDMET_RHF
+from .pdmet import PDMET_UHF
+from .brueckner import Brueckner_RHF
+from .brueckner import Brueckner_UHF
+
 
 def PDMET(emb, *args, **kwargs):
     if emb.is_rhf:
