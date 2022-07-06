@@ -72,7 +72,7 @@ The computation is carried out using the **FCI** solver. Alternatively, Vayesta_
 
 To specify translation vectors as parts of the full system lattice vectors by passing a list with three integers, **[n, m, l]**; the translation vectors will be set equal to the lattice vectors, divided by **n, m, l** in **a0, a1, and a2** direction, respectively. This is depicted schematically in **Figure(1)**.
 
-.. figure:: 1dhbdtrsym.png
+.. figure:: figures/1dhbdtrsym.png
    :alt: aperiodic hubbard model
    :align: center
    :figclass: align-center

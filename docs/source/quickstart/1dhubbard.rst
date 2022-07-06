@@ -61,7 +61,7 @@ Due to the flexibility of the embedding methodology different combinations of si
 where the arguments **[0,1]** and **sym_factor=nsite//2** indicates the use of a *dimerized* version of the 1-D Hubbard's model which is depicted in
 **Figure(1)**.
 
-.. figure:: 1dhubbfig.png
+.. figure:: figures/1dhubbfig.png
    :alt: aperiodic hubbard model
    :align: center
    :figclass: align-center
