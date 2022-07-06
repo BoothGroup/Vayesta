@@ -6,4 +6,4 @@
 .. _GitHub: https://github.com/
 .. _OpenBLAS: https://github.com/xianyi/OpenBLAS
 .. _pip: https://pypi.org/project/pip/
-.. _numpy: https://numpy.org
+.. _NumPy: https://numpy.org

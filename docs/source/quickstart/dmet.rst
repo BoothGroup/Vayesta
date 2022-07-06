@@ -45,7 +45,7 @@ where the method **dmet.kernel()** performs the computation. Finally, the total 
 Custom Hamiltonians
 ^^^^^^^^^^^^^^^^^^^^
 
-Costumized Hamiltonians can be also studied using the **DMET** methodology as implemented in Vayesta_. Initially, the required Vayesta_ modules are imported (and _numpy as an auxiliary library) as displayed in the following snippet:
+Costumized Hamiltonians can be also studied using the **DMET** methodology as implemented in Vayesta_. Initially, the required Vayesta_ modules are imported (and NumPy_ as an auxiliary library) as displayed in the following snippet:
 
 .. literalinclude:: dmet1dhubbard.py
    :lines: 1-4
