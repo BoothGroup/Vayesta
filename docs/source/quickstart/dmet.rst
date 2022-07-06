@@ -2,48 +2,63 @@
 .. _dmet:
 
 
-Density matrix embbeding theory (DMET)
-========================================
+Density-Matrix Embbeding Theory (DMET)
+======================================
 
-In the following tutorial, the Density-matrix embbeding theory (DMET) as implemented in Vayesta_ is introduced. Two examples (Finite systems and custom Hamiltonians) are used to illustrate the capabilities of this methodology.
+In the following tutorial, the Density-matrix embbeding theory (DMET) as implemented in Vayesta_ is introduced.
+Two examples (Finite systems and custom Hamiltonians) are used to illustrate the capabilities of this methodology.
 
 
-Finite Systems
-^^^^^^^^^^^^^^^^^^
+Simple Molecule
+---------------
 
-To perform calculations using the `ref:DMET` module implemented in Vayesta_, a simple Lithium hydride (LiH) molecule has been selected. To perform electronic structure calculations, the corresponding PySCF_ modules are imported along the relevant Vayesta_ modules as shown in the following snippet:
+A simple DMET calculation of a :math:`\textrm{H}_6` ring can be performed as follows (the example can also be found in ``examples/dmet/01-simple-dmet.py``):
 
-.. literalinclude:: dmetsimple.py
-   :lines: 1-4
+.. literalinclude:: /../../../vayesta/examples/dmet/01-simple-dmet.py
+    :linenos:
 
-The **LiH** system is initialized, using a molecular basis-set **cc-pVDZ** along another PySCF_ important properties which are declared to perform this calculation as displayed below:
 
-.. literalinclude:: dmetsimple.py
-   :lines: 7-12
+In **lines 9--17** the :math:`\textrm{H}_6` molecule is set up
+and a restricted Hartree--Fock (RHF) calculation is performed using PySCF_.
+We also perform an full system full configuration interaction (FCI) calculation (**lines 20--21**),
+to obtain a reference value for the DMET results.
 
-The ground-state mean-field calculations are carried out at the Hartree-Fock (**HF**) level of theory as show in the following snippet:
+In **line 24**, a one-shot DMET calculation is instantiated with the Hartree--Fock object as first argument.
+Additionally, the keyword argument ``solver='FCI'`` is used to select FCI
+as the default solver and ``maxiter=1`` is used to skip the DMET self-consistency cycle.
 
-.. literalinclude:: dmetsimple.py
-   :lines: 14-16
 
-The `ref:dmet.DMET` function can be used by providing two important arguments, namely, a mean-field computed ground-state and a corresponding **solver**. Currently, Vayesta_ offers the posibility to use 6 different solvers (**MP2, CISD, FCI, FCI-SPIN0, FCI_SPIN1**) as presented in the following lines of code:
+In **lines 25--28** the fragments for the calculation are defined.
+This is done with help of the context manager ``dmet.sao_fragmentation()``, which specifies that the
+fragments added in the body of the context manager will refer to symmetrically orthogonalized atomic orbitals (SAOs).
+The method ``f.add_atomic_fragment(atoms)`` adds a fragment comprised of
+all orbitals corresponding to the atom ``atoms`` to the calculation.
+In this case, we split the system into three fragments, containing two neighboring hydrogen atoms each.
 
-.. literalinclude:: dmetsimple.py
-   :lines: 18-19
+.. note::
 
-For perfoming the **DMET** calculation, a fragmentation model is required. In this example, the **IAO** scheme is chosen mapping the Lithium and Hydrogen atom as shown in the snippet below:
+    ``add_atomic_fragment`` is only one of many ways to define fragments. See also TODO
 
-.. literalinclude:: dmetsimple.py
-   :lines: 20-24
+Finally, the two embedding problems are solved by calling ``dmet.kernel()``
+and the resulting total energy is stored in ``dmet.e_tot``.
 
-where the method **dmet.kernel()** performs the computation. Finally, the total energies of the mean-field computation and the dmet calculation can be compared as shown in the following lines of code:
+In **lines 32--37** these steps are repeated for a self-consistent DMET calculation, in which case only
+the keyword argument ``maxiter=1`` has to be dropped.
 
-.. literalinclude:: dmetsimple.py
-   :lines: 26-27
+
+.. note::
+
+    The fragments in the calculation above are symmetry-related by a rotation of 120° or 240° around the `z`-axis.
+    This symmetry can be added to the embedding class, such that only a single fragment needs to be solved:
+
+    .. literalinclude:: /../../../vayesta/examples/dmet/02-rotational-symmetry.py
+        :lines: 25-30
+
+    see also ``example/dmet/02-rotations-symmetry.py``
 
 
 Custom Hamiltonians
-^^^^^^^^^^^^^^^^^^^^
+-------------------
 
 Costumized Hamiltonians can be also studied using the **DMET** methodology as implemented in Vayesta_. Initially, the required Vayesta_ modules are imported (and NumPy_ as an auxiliary library) as displayed in the following snippet:
 

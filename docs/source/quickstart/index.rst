@@ -10,11 +10,11 @@ Collection of examples showing how to perform calculations with Vayesta. In the 
    :hidden:
 
 .. toctree::
-   :maxdepth: 3
+   :maxdepth: 1
 
+   dmet
    ewf
+   parallelism
+   edmet
    1dhubbard
    dumpcluster
-   dmet
-   edmet
-   parallelism

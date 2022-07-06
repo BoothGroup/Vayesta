@@ -33,7 +33,7 @@ Features
 - Bath orbitals:
     - `Density-matrix embedding theory (DMET) <REF_DMET_>`_ bath orbitals [2]_
     - `MP2 bath natural orbitals <REF_PRX_>`_ [3]_
-    - Spatially closest bath orbitals (:math:`R^2` bath)
+    - Spatially closest bath orbitals
 
 - Quantum embedding problems can be solved with the following PySCF solvers:
     - Second-order Møller--Plesset perturbation theory (MP2)
