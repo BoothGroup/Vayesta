@@ -14,13 +14,13 @@ As an initial example, a finite system (water molecule) is used and all the rele
 .. literalinclude:: dump_clusters.py
    :lines: 11-19
 
-The atoms in the water molecule has been labeled as **O1**, **H2**, and **H3**. Then, a mean-field calculation (at the Hartree-Fock level of theory) is performed as shown in the following lines of code: 
-	   
+The atoms in the water molecule has been labeled as **O1**, **H2**, and **H3**. Then, a mean-field calculation (at the Hartree-Fock level of theory) is performed as shown in the following lines of code:
+
 .. literalinclude:: dump_clusters.py
    :lines: 21-23
 
-The Vayesta_ function `ref:ewf.EWF` is used as presented below: 
-	   
+The Vayesta_ function `ref:ewf.EWF` is used as presented below:
+
 .. literalinclude:: dump_clusters.py
    :lines: 25-28
 

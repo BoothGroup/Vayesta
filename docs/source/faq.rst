@@ -4,15 +4,15 @@
 FAQ
 =======
 
-Installation 
+Installation
 ===============
 
-Installing Vayesta_ from source can be also carried out using many different options. In this section, we will review different manners of installing Vayesta_ using OpenBLAS_ existing version in HPC facilities. 
+Installing Vayesta_ from source can be also carried out using many different options. In this section, we will review different manners of installing Vayesta_ using OpenBLAS_ existing version in HPC facilities.
 
 Cluster Installation
 ^^^^^^^^^^^^^^^^^^^^^
 
-Vayesta uses OpenBLAS_ for fast numerical operations. If you are a cluster user where the command `module` is available, it is very likely OpenBLAS_ is already installed. To locate the library, the following command can be used: 
+Vayesta uses OpenBLAS_ for fast numerical operations. If you are a cluster user where the command `module` is available, it is very likely OpenBLAS_ is already installed. To locate the library, the following command can be used:
 
 .. code-block:: console
 
@@ -30,17 +30,17 @@ to print all modules that are installed in the cluster. Once you have found the 
 
    [~]$ module load openblas/VERSION-openmp/
 
-which will make it accessible to compile PySCF_ and Vayesta_ from source. 
+which will make it accessible to compile PySCF_ and Vayesta_ from source.
 
 
 Installing OpenBLAS from source
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-The installation can be carried out using **gcc** compilers. 
+The installation can be carried out using **gcc** compilers.
 
 .. note::
 
-   The installation of OpenBLAS_ should be done locally. 
+   The installation of OpenBLAS_ should be done locally.
 
 To install a local version, a specific directory should be created where the library is stored:
 
@@ -77,18 +77,18 @@ The last 3 options ensures the use of **GNU** compilers. Similarly, a set of opt
 To install OpenBLAS_, the following commands should be used:
 
 .. code-block:: console
-		
-   [~]$ OPENBLAS_DIR=$HOME/work/openblas	
+
+   [~]$ OPENBLAS_DIR=$HOME/work/openblas
    [~]$ make -j4 BINARY=64 INTERFACE=64 LIBNAMESUFFIX=openmp
    [~]$ make PREFIX=$OPENBLAS_DIR LIBNAMESUFFIX=openmp install
 
 This concludes the installation of OpenBLAS_. The library can be found in the path `$HOME/work/openblas`.
-   
+
 Python3 environment in Clusters
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-As a cluster user, Python_ is also provided as a part of your initial environment. It is important to have an updated version of Python_, since many 
-High-Performance Cluster facilities declares as a dafault the version 2.7, whilst Vayesta_ requires a 3+ version. To check the Python version, one can 
+As a cluster user, Python_ is also provided as a part of your initial environment. It is important to have an updated version of Python_, since many
+High-Performance Cluster facilities declares as a dafault the version 2.7, whilst Vayesta_ requires a 3+ version. To check the Python version, one can
 simply type:
 
 .. code-block:: console
@@ -99,12 +99,12 @@ This will call python and display the following message:
 
 .. code-block:: console
 
-   Python 2.7.5 (default, Aug 13 2020, 02:51:10) 
+   Python 2.7.5 (default, Aug 13 2020, 02:51:10)
    [GCC 4.8.5 20150623 (Red Hat 4.8.5-39)] on linux2
    Type "help", "copyright", "credits" or "license" for more information.
-   >>> 
+   >>>
 
-This indicates that the default version is 2.7.5. In this case, one needs to search for the correct Python_ version, that can be done using the module 
+This indicates that the default version is 2.7.5. In this case, one needs to search for the correct Python_ version, that can be done using the module
 command as indicated in the following lines of code:
 
 .. code-block:: console
@@ -144,11 +144,11 @@ Installing PySCF from source
 Once the previous steps have been sucessfully carried out, PySCF_ can be installed. The following steps will provide guidance for this process:
 
 .. code-block:: console
-		
+
    [~]$ git clone https://github.com/BoothGroup/pyscf $WORK/git/pyscf
    [~]$ cd $WORK/git/pyscf/pyscf/lib
    [~]$ mkdir build && cd build
- 
+
 To link PySCF_ with the user compiled OpenBLAS_, the following lines of code are needed:
 
 .. code-block:: console
@@ -171,7 +171,7 @@ To succesfully construct the Vayesta_ binary, the following steps are needed:
    [~]$ cmake ..
    [~]$ make
 
-Following these steps, Vayesta_ can be constructed and the binaries created. 
+Following these steps, Vayesta_ can be constructed and the binaries created.
 
 Environment variables
 ^^^^^^^^^^^^^^^^^^^^^^^^

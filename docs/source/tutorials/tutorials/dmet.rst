@@ -4,7 +4,7 @@
 Density matrix embbeding theory (DMET)
 ========================================
 
-In the following tutorial, the Density-matrix embbeding theory (DMET) as implemented in Vayesta_ is introduced. Two examples (Finite systems and custom Hamiltonians) are used to illustrate the capabilities of this methodology. 
+In the following tutorial, the Density-matrix embbeding theory (DMET) as implemented in Vayesta_ is introduced. Two examples (Finite systems and custom Hamiltonians) are used to illustrate the capabilities of this methodology.
 
 
 Finite Systems
@@ -40,7 +40,7 @@ where the method **dmet.kernel()** performs the computation. Finally, the total 
 .. literalinclude:: dmetsimple.py
    :lines: 26-27
 
-	   
+
 Custom Hamiltonians
 ^^^^^^^^^^^^^^^^^^^^
 
@@ -54,7 +54,7 @@ The most important parameters to set up the 1D Hubbard's model (as done in the m
 .. literalinclude:: dmet1dhubbard.py
    :lines: 7-11
 
-It is important to notice that function `ref:lattmod.Hubbard1D` contains different periodic boundary conditions, which in this case is the anti-periodic boundary condition. Using these variables as arguments, the corresponding `ref:lattmod.Hubbard1D` and `ref:lattmod.LatticeMF` are utilized to perform a mean-field calculation as displayed in this snippet: 
+It is important to notice that function `ref:lattmod.Hubbard1D` contains different periodic boundary conditions, which in this case is the anti-periodic boundary condition. Using these variables as arguments, the corresponding `ref:lattmod.Hubbard1D` and `ref:lattmod.LatticeMF` are utilized to perform a mean-field calculation as displayed in this snippet:
 
 .. literalinclude:: dmet1dhubbard.py
    :lines: 13-16
@@ -71,19 +71,19 @@ The computation is carried out using the **FCI** solver. Alternatively, Vayesta_
 
 To specify translation vectors as parts of the full system lattice vectors by passing a list with three integers, **[n, m, l]**; the translation vectors will be set equal to the lattice vectors, divided by **n, m, l** in **a0, a1, and a2** direction, respectively. This is depicted schematically in **Figure(1)**.
 
-.. figure:: 1dhbdtrsym.png 
+.. figure:: 1dhbdtrsym.png
    :alt: aperiodic hubbard model
    :align: center
    :figclass: align-center
-	      
+
    **Figure(1)** Schematic depiction of the 1-D Hubbard model, half filling with double-site embedding fragmentation using the tsymmetric feature.
 
 In this case, this is done with the following command:
-   
+
 .. literalinclude:: dmet1dhubbard.py
    :lines: 35-37
 
-   
+
 To confirm that this is correct, the number of cpmputed fragments can be counted and validate against the expected number in the following manner:
 
 .. literalinclude:: dmet1dhubbard.py
@@ -93,7 +93,7 @@ Both methodologies can be compared, as shown in the following snippet:
 
 .. literalinclude:: dmet1dhubbard.py
    :lines: 42-44
-	   
+
 .. _PySCF: https://sunqm.github.io/pyscf/
 .. _Vayesta: https://github.com/BoothGroup/Vayesta
 .. _numpy: https://numpy.org

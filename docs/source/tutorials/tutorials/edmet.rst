@@ -5,7 +5,7 @@
 Extended Density-matrix embedding theory EDMET:
 ======================================================
 
-In the following tutorial, the extended density-matrix embbeding theory (EDMET) is introduced as implemented in Vayesta_. Two examples (Finite systems 
+In the following tutorial, the extended density-matrix embbeding theory (EDMET) is introduced as implemented in Vayesta_. Two examples (Finite systems
 and custom Hamiltonians) are used to illustrate the capabilities of this methodology.
 
 
@@ -17,7 +17,7 @@ The Vayesta_ `ref:edmet.EDMET` module is introduced. As starting point, the rele
 .. literalinclude:: edmetfinite.py
    :lines: 1-7
 
-The pertinent variables to declare a finite system (water molecule) in PySCF_ are shown in the following snippet: 
+The pertinent variables to declare a finite system (water molecule) in PySCF_ are shown in the following snippet:
 
 .. literalinclude:: edmetfinite.py
    :lines: 10-18
@@ -31,13 +31,13 @@ It is important to notice that the features of a DFT object in PySCF_ are not co
 
 .. literalinclude:: edmetfinite.py
    :lines: 26-27
-	   
+
 To use the module, the function `ref:edmet` is declared and arguments are provided from previous steps as shown in the snippet below:
 
 .. literalinclude:: edmetfinite.py
    :lines: 29-30
 
-The arguments **dmet_threshold**, **oneshot**, and **make_dd_moments** are arguments employed to define specific strategies of the algortihm. The **solver** option offers the possibility to use the **EBFCI** and **EBCCSD**, which is the one selected in this example. 
+The arguments **dmet_threshold**, **oneshot**, and **make_dd_moments** are arguments employed to define specific strategies of the algortihm. The **solver** option offers the possibility to use the **EBFCI** and **EBCCSD**, which is the one selected in this example.
 
 A fragmentation scheme is needed and, in this example, perfomed in the following manner:
 
@@ -53,7 +53,7 @@ Relevant quantities, such as the total energy, can be printed as displayed in th
 
 .. literalinclude:: edmetfinite.py
    :lines: 65-68
-	   
+
 Costum Hamiltonians
 ^^^^^^^^^^^^^^^^^^^^^
 

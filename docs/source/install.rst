@@ -18,11 +18,11 @@ The simplest way to install Vayesta_ is to use pip_ :
 
    pip install vayesta
 
-   
+
 Installation from source
 ==========================
 
-As an alternatie to pip_, Vayesta_ can be cloned from its GitHub repository. This can be done by creating a new folder in your `$HOME` directory in which Vayesta_ is intended to be installed. Once this is done, the following lines of code should create Vayesta_  
+As an alternatie to pip_, Vayesta_ can be cloned from its GitHub repository. This can be done by creating a new folder in your `$HOME` directory in which Vayesta_ is intended to be installed. Once this is done, the following lines of code should create Vayesta_
 
 .. code-block:: console
 
@@ -30,7 +30,7 @@ As an alternatie to pip_, Vayesta_ can be cloned from its GitHub repository. Thi
    cd git/vayesta/vayesta/libs
    mkdir build && cd build
    cmake ..
-   make 
+   make
 
 .. note::
 
@@ -39,7 +39,7 @@ As an alternatie to pip_, Vayesta_ can be cloned from its GitHub repository. Thi
 
 For a more detailed installation procedures, the user can refer to the
 :ref:`faq`. section.
-   
+
 Testing Vayesta
 ====================
 
@@ -49,8 +49,8 @@ After installation, Vayesta_ can be tested by typing the following command:
 
    python setup.py test
 
-which suffices for testing the main computational capabilities of the code. 
-   
+which suffices for testing the main computational capabilities of the code.
+
 .. _GitHub: https://github.com/
 .. _OpenBLAS: https://github.com/xianyi/OpenBLAS
 .. _Vayesta: https://vayesta.com
