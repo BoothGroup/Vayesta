@@ -44,7 +44,6 @@ class MolFragmentTests(TestCase):
         self.assertIs(frag.mol,           self.mf.mol)
         self.assertIs(frag.mf,            frag.base.mf)
         self.assertIs(frag.n_frag,        frag.c_frag.shape[-1])
-        self.assertIs(frag.boundary_cond, frag.base.boundary_cond)
 
     def test_iao_atoms(self):
         """Test IAO atomic fragmentation.

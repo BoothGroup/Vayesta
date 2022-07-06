@@ -47,25 +47,11 @@ class Options(Embedding.Options):
     sc_mode: int = 0
     coupled_iterations: bool = False
     # --- Other
-    absorb_fragments: bool = False
     # --- Debugging
     _debug_wf: str = None
 
 
 class EWF(Embedding):
-    """Class for embedded wave function (EWF) calculations.
-
-    Parameters
-    ----------
-    mf : pyscf.scf object
-        Converged mean-field object.
-    solver : {'CCSD', None, 'MP2', 'CCSD', 'CISD', 'FCI', 'DUMP'}
-        Solver for embedding problem. Default: 'CCSD'.
-    bath_options :
-    **kwargs :
-        See class `Options` for additional options.
-
-    """
     Fragment = Fragment
     Options = Options
 
@@ -122,7 +108,7 @@ class EWF(Embedding):
             self.log.debug("No fragments found. Adding all atomic IAO fragments.")
             with self.fragmentation() as frag:
                 frag.add_all_atomic_fragments()
-        self.check_fragment_nelectron()
+        self._check_fragment_nelectron()
 
         # Debug: calculate exact WF
         if self.opts._debug_wf is not None:
@@ -152,9 +138,6 @@ class EWF(Embedding):
         if mpi:
             with log_time(self.log.timing, "Time for MPI communication of clusters: %s"):
                 self.communicate_clusters()
-
-        if self.opts.absorb_fragments:
-            self.absorb_fragments()
 
         # --- Loop over fragments with no symmetry parent and with own MPI rank
         self.log.info("")
@@ -478,7 +461,7 @@ class EWF(Embedding):
     def get_atomic_ssz(self, dm1=None, dm2=None, atoms=None, projection='sao', dm2_with_dm1=None):
         return self.get_corrfunc('Sz,Sz', dm1=dm1, dm2=dm2, atoms=atoms, projection=projection, dm2_with_dm1=dm2_with_dm1)
 
-    def get_dm_energy_old(self, global_dm1=True, global_dm2=False):
+    def _get_dm_energy_old(self, global_dm1=True, global_dm2=False):
         """Calculate total energy from reduced density-matrices.
 
         RHF ONLY!
@@ -494,9 +477,9 @@ class EWF(Embedding):
         -------
         e_tot : float
         """
-        return self.e_mf + self.get_dm_corr_energy_old(global_dm1=global_dm1, global_dm2=global_dm2)
+        return self.e_mf + self._get_dm_corr_energy_old(global_dm1=global_dm1, global_dm2=global_dm2)
 
-    def get_dm_corr_energy_old(self, global_dm1=True, global_dm2=False):
+    def _get_dm_corr_energy_old(self, global_dm1=True, global_dm2=False):
         """Calculate correlation energy from reduced density-matrices.
 
         RHF ONLY!

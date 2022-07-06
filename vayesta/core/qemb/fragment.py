@@ -110,7 +110,6 @@ class Fragment:
         size
         nelectron
         id_name
-        boundary_cond
         log : logging.Logger
             Logger object.
         base : Embedding
@@ -224,10 +223,6 @@ class Fragment:
     def id_name(self):
         """Use this whenever a unique name is needed (for example to open a separate file for each fragment)."""
         return "%s-%s" % (self.id, self.trimmed_name())
-
-    @property
-    def boundary_cond(self):
-        return self.base.boundary_cond
 
     def change_options(self, **kwargs):
         self.opts.replace(**kwargs)

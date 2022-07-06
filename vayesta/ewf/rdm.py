@@ -8,10 +8,20 @@ import pyscf.cc.ccsd_rdm_slow
 import pyscf.lib
 
 from vayesta.core.util import *
+from vayesta.core.vpyscf import ccsd_rdm
 from vayesta.core.types import RMP2_WaveFunction
 from vayesta.core.types import RCCSD_WaveFunction
 from vayesta.mpi import mpi
 
+
+def _get_mockcc(mo_coeff, max_memory):
+    cc = Object()
+    cc.mo_coeff = mo_coeff
+    cc.frozen = None
+    cc.stdout = None
+    cc.verbose = 0
+    cc.max_memory = max_memory
+    return cc
 
 def make_rdm1_ccsd(emb, ao_basis=False, t_as_lambda=False, symmetrize=True, with_mf=True, mpi_target=None, mp2=False):
     """Make one-particle reduced density-matrix from partitioned fragment CCSD wave functions.
@@ -196,9 +206,6 @@ def make_rdm1_ccsd_global_wf(emb, ao_basis=False, with_mf=True, t_as_lambda=None
     if slow:
         t1 = emb.get_global_t1()
         t2 = emb.get_global_t2()
-        mockcc = Object()
-        mockcc.frozen = None
-        mockcc.mo_coeff = emb.mo_coeff
         if t_as_lambda:
             l1, l2 = t1, t2
         else:
@@ -206,7 +213,9 @@ def make_rdm1_ccsd_global_wf(emb, ao_basis=False, with_mf=True, t_as_lambda=None
             l2 = emb.get_global_l2()
         if not with_t1:
             t1 = l1 = np.zeros_like(t1)
-        dm1 = pyscf.cc.ccsd_rdm.make_rdm1(mockcc, t1=t1, t2=t2, l1=l1, l2=l2, ao_repr=ao_basis, with_mf=with_mf)
+        mockcc = _get_mockcc(emb.mo_coeff, emb.mf.max_memory)
+        #dm1 = pyscf.cc.ccsd_rdm.make_rdm1(mockcc, t1=t1, t2=t2, l1=l1, l2=l2, ao_repr=ao_basis, with_mf=with_mf)
+        dm1 = ccsd_rdm.make_rdm1(mockcc, t1=t1, t2=t2, l1=l1, l2=l2, ao_repr=ao_basis, with_mf=with_mf)
         return dm1
 
     # === Fast algorithm via fragment-fragment loop
@@ -481,13 +490,14 @@ def make_rdm2_ccsd_global_wf(emb, ao_basis=False, symmetrize=True, t_as_lambda=F
     if slow:
         t1 = emb.get_global_t1()
         t2 = emb.get_global_t2()
-        cc = pyscf.cc.ccsd.CCSD(emb.mf)
         if t_as_lambda:
             l1, l2 = t1, t2
         else:
             l1 = emb.get_global_t1(get_lambda=True)
             l2 = emb.get_global_t2(get_lambda=True)
-        dm2 = cc.make_rdm2(t1=t1, t2=t2, l1=l1, l2=l2, with_frozen=False, with_dm1=with_dm1)
+        mockcc = _get_mockcc(emb.mo_coeff, emb.mf.max_memory)
+        #dm2 = pyscf.cc.ccsd_rdm.make_rdm2(mockcc, t1=t1, t2=t2, l1=l1, l2=l2, with_frozen=False, with_dm1=with_dm1)
+        dm2 = ccsd_rdm.make_rdm2(mockcc, t1=t1, t2=t2, l1=l1, l2=l2, with_frozen=False, with_dm1=with_dm1)
     else:
         raise NotImplementedError
     if symmetrize:

@@ -125,13 +125,25 @@ class Embedding:
                 Unit of `rcut`. Default: 'Ang'.
 
     solver_options : dict, optional
-        Solver specific options.
+        Solver specific options. The following solver specific options can be specified.
+
+
+            conv_tol : float
+                Energy convergence tolerance [valid for 'CISD', 'CCSD', 'TCCSD', 'FCI']
+            conv_tol_normt : float
+                Amplitude convergence tolerance [valid for 'CCSD', 'TCCSD']
+            fix_spin : float
+                Target specified spin state [valid for 'FCI']
+            t_as_lambda : bool
+                Use T-amplitudes as Lambda-amplitudes [valid for 'CCSD', 'TCCSD']
+            solve_lambda : bool
+                Solve Lambda-equations [valid for 'CCSD', 'TCCSD']
+            dumpfile : str
+                Dump cluster orbitals and integrals to file [valid for 'Dump']
 
     Attributes
     ----------
     mol
-    has_lattice_vectors
-    boundary_cond
     nao
     ncells
     nmo
@@ -299,7 +311,7 @@ class Embedding:
             self.log.info("n(AO)= %4d  n(alpha/beta-MO)= (%4d, %4d)  n(linear dep.)= (%4d, %4d)",
                     self.nao, *self.nmo, self.nao-self.nmo[0], self.nao-self.nmo[1])
 
-        self.check_orthonormal(self.mo_coeff, mo_name='MO')
+        self._check_orthonormal(self.mo_coeff, mo_name='MO')
 
         if self.mo_energy is not None:
             if self.is_rhf:
@@ -334,14 +346,6 @@ class Embedding:
         return self.mf.mol
 
     @property
-    def has_lattice_vectors(self):
-        """Flag if self.mol has lattice vectors defined."""
-        return (hasattr(self.mol, 'a') and self.mol.a is not None)
-        # This would be better, but would trigger PBC code for Hubbard models, which have lattice vectors defined,
-        # but not 'a':
-        #return hasattr(self.mol, 'lattice_vectors')
-
-    @property
     def has_exxdiv(self):
         """Correction for divergent exact-exchange potential."""
         return (hasattr(self.mf, 'exxdiv') and self.mf.exxdiv is not None)
@@ -364,15 +368,8 @@ class Embedding:
         return e_exxdiv, v_exxdiv
 
     @property
-    def boundary_cond(self):
-        """Type of boundary condition."""
-        if not self.has_lattice_vectors:
-            return 'open'
-        if self.mol.dimension == 1:
-            return 'periodic-1D'
-        if self.mol.dimension == 2:
-            return 'periodic-2D'
-        return 'periodic'
+    def pbc_dimension(self):
+        return getattr(self.mol, 'dimension', 0)
 
     @property
     def nao(self):
@@ -391,8 +388,6 @@ class Embedding:
 
     @property
     def df(self):
-        #if self.kdf is not None:
-        #    return self.kdf
         if hasattr(self.mf, 'with_df') and self.mf.with_df is not None:
             return self.mf.with_df
         return None
@@ -519,20 +514,20 @@ class Embedding:
 
     # Integrals of the original mean-field object - these cannot be changed:
 
-    def get_ovlp_orig(self):
+    def _get_ovlp_orig(self):
         return self._ovlp_orig
 
-    def get_hcore_orig(self):
+    def _get_hcore_orig(self):
         return self._hcore_orig
 
-    def get_veff_orig(self, with_exxdiv=True):
+    def _get_veff_orig(self, with_exxdiv=True):
         if not with_exxdiv and self.has_exxdiv:
             v_exxdiv = self.get_exxdiv()[1]
-            return self.get_veff_orig() - v_exxdiv
+            return self._get_veff_orig() - v_exxdiv
         return self._veff_orig
 
-    def get_fock_orig(self, with_exxdiv=True):
-        return (self.get_hcore_orig() + self.get_veff_orig(with_exxdiv=with_exxdiv))
+    def _get_fock_orig(self, with_exxdiv=True):
+        return (self._get_hcore_orig() + self._get_veff_orig(with_exxdiv=with_exxdiv))
 
     # Integrals which change with mean-field updates or chemical potential shifts:
 
@@ -736,8 +731,7 @@ class Embedding:
     # --------------------------
 
     def add_symmetric_fragments(self, symmetry, symbol=None, symtol=1e-6):
-        """
-        TODO: combine add_rotsym_fragments and add_transsym_fragments?
+        """Add rotationally or translationally symmetric fragments.
 
         Parameters
         ----------
@@ -844,8 +838,7 @@ class Embedding:
         self.log.info("Added %d %s-symmetry related fragments for each fragment.", len(symlist), symtype)
 
     def add_rotsym_fragments(self, order, axis, center, unit='Ang', **kwargs):
-        """
-        TODO: combine add_rotsym_fragments and add_transsym_fragments?
+        """Add rotationally symmetric fragments.
 
         Parameters
         ----------
@@ -864,7 +857,8 @@ class Embedding:
         return self.add_symmetric_fragments(symmetry, **kwargs)
 
     def add_transsym_fragments(self, translation, **kwargs):
-        """
+        """Add translationally symmetric fragments.
+
         Parameters
         ----------
         translation: array(3) of integers
@@ -973,7 +967,7 @@ class Embedding:
             filtered_fragments.append(frag)
         return filtered_fragments
 
-    def absorb_fragments(self, tol=1e-10):
+    def _absorb_fragments(self, tol=1e-10):
         """TODO"""
         for fx in self.get_fragments(active=True):
             for fy in self.get_fragments(active=True):
@@ -1044,13 +1038,6 @@ class Embedding:
     def make_rdm2_demo(self, *args, **kwargs):
         return make_rdm2_demo_rhf(self, *args, **kwargs)
 
-    def check_fragment_nelectron(self):
-        nelec_frags = sum([f.sym_factor*f.nelectron for f in self.loop()])
-        self.log.info("Total number of mean-field electrons over all fragments= %.8f", nelec_frags)
-        if abs(nelec_frags - np.rint(nelec_frags)) > 1e-4:
-            self.log.warning("Number of electrons not integer!")
-        return nelec_frags
-
     def get_dmet_elec_energy(self, version=0, approx_cumulant=True):
         """Calculate electronic DMET energy via democratically partitioned density-matrices.
 
@@ -1108,7 +1095,7 @@ class Embedding:
     # Utility
     # -------
 
-    def check_orthonormal(self, *mo_coeff, mo_name='', crit_tol=1e-2, err_tol=1e-7):
+    def _check_orthonormal(self, *mo_coeff, mo_name='', crit_tol=1e-2, err_tol=1e-7):
         """Check orthonormality of mo_coeff."""
         mo_coeff = hstack(*mo_coeff)
         err = dot(mo_coeff.T, self.get_ovlp(), mo_coeff) - np.eye(mo_coeff.shape[-1])
@@ -1253,9 +1240,8 @@ class Embedding:
         if filename is not None:
             f.close()
 
-    def check_fragment_nelectron(self):
+    def _check_fragment_nelectron(self):
         nelec_frags = sum([f.sym_factor*f.nelectron for f in self.fragments])
-        #nelec = (self.kcell if self.kcell is not None else self.mol).nelectron
         nelec = self.mol.nelectron
         self.log.info("Number of electrons over all fragments= %.8f , system= %.8f", nelec_frags, nelec)
         if abs(nelec_frags - nelec) > 1e-6:

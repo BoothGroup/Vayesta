@@ -7,6 +7,10 @@ import pyscf.ci
 import pyscf.cc
 import pyscf.fci
 
+# TODO: Remove once unnecessary:
+from vayesta.core.vpyscf import ccsd_rdm
+from vayesta.core.vpyscf import uccsd_rdm
+
 import vayesta
 from vayesta.core.util import *
 from vayesta.core.types.orbitals import *
@@ -436,8 +440,11 @@ def MP2_WaveFunction(mo, t2, **kwargs):
 
 class RCCSD_WaveFunction(WaveFunction):
 
-    _make_rdm1_backend = pyscf.cc.ccsd_rdm.make_rdm1
-    _make_rdm2_backend = pyscf.cc.ccsd_rdm.make_rdm2
+    # TODO: Once standard PySCF accepts additional keyword arguments:
+    #_make_rdm1_backend = pyscf.cc.ccsd_rdm.make_rdm1
+    #_make_rdm2_backend = pyscf.cc.ccsd_rdm.make_rdm2
+    _make_rdm1_backend = ccsd_rdm.make_rdm1
+    _make_rdm2_backend = ccsd_rdm.make_rdm2
 
     def __init__(self, mo, t1, t2, l1=None, l2=None, projector=None):
         super().__init__(mo, projector=projector)
@@ -580,8 +587,11 @@ class RCCSD_WaveFunction(WaveFunction):
 
 class UCCSD_WaveFunction(RCCSD_WaveFunction):
 
-    _make_rdm1_backend = pyscf.cc.uccsd_rdm.make_rdm1
-    _make_rdm2_backend = pyscf.cc.uccsd_rdm.make_rdm2
+    # TODO
+    #_make_rdm1_backend = pyscf.cc.uccsd_rdm.make_rdm1
+    #_make_rdm2_backend = pyscf.cc.uccsd_rdm.make_rdm2
+    _make_rdm1_backend = uccsd_rdm.make_rdm1
+    _make_rdm2_backend = uccsd_rdm.make_rdm2
 
     @property
     def t1a(self):

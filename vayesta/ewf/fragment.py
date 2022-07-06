@@ -479,9 +479,6 @@ class Fragment(BaseFragment):
     def get_fragment_bsse(self, rmax=None, nimages=5, unit='A'):
         self.log.info("Counterpoise Calculation")
         self.log.info("************************")
-        # Currently only PBC
-        #if not self.boundary_cond == 'open':
-        #    raise NotImplementedError()
         if rmax is None:
             rmax = self.opts.bsse_rmax
 

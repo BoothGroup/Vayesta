@@ -44,13 +44,6 @@ class DMET(Embedding):
     valid_solvers = ['MP2', 'CISD', 'CCSD', 'FCI', 'FCI-SPIN0', 'FCI-SPIN1']
 
     def __init__(self, mf, solver='CCSD', log=None, **kwargs):
-        """Density matrix embedding theory (DMET) calculation object.
-
-        Parameters
-        ----------
-
-        """
-
         t_start = timer()
         # If we're running in oneshot mode will only do a single iteration, regardless of this setting, but good to have
         # consistent settings.
@@ -132,7 +125,7 @@ class DMET(Embedding):
                 if self.opts.charge_consistent:
                     fock = self.get_fock()
             # Need to optimise a global chemical potential to ensure electron number is converged.
-            nelec_mf = self.check_fragment_nelectron()
+            nelec_mf = self._check_fragment_nelectron()
             if type(nelec_mf) == tuple:
                 nelec_mf = sum(nelec_mf)
 

@@ -87,12 +87,12 @@ class UEmbedding(Embedding):
         return (self.mo_coeff[0][:,self.nocc[0]:],
                 self.mo_coeff[1][:,self.nocc[1]:])
 
-    def check_orthonormal(self, *mo_coeff, mo_name='', **kwargs):
+    def _check_orthonormal(self, *mo_coeff, mo_name='', **kwargs):
         mo_coeff = spinalg.hstack_matrices(*mo_coeff)
         results = []
         for s, spin in enumerate(('alpha', ' beta')):
             name_s = '-'.join([spin, mo_name])
-            res_s = super().check_orthonormal(mo_coeff[s], mo_name=name_s, **kwargs)
+            res_s = super()._check_orthonormal(mo_coeff[s], mo_name=name_s, **kwargs)
             results.append(res_s)
         return tuple(zip(*results))
 
@@ -185,7 +185,7 @@ class UEmbedding(Embedding):
                             % (parent.name, child.name, charge_err, spin_err))
                 self.log.debugv("Symmetry between %s and %s: charge error= %.3e spin error= %.3e", parent.name, child.name, charge_err, spin_err)
 
-    def check_fragment_nelectron(self):
+    def _check_fragment_nelectron(self):
         nelec_frags = (sum([f.sym_factor*f.nelectron[0] for f in self.loop()]),
                        sum([f.sym_factor*f.nelectron[1] for f in self.loop()]))
         self.log.info("Total number of mean-field electrons over all fragments= %.8f , %.8f", *nelec_frags)

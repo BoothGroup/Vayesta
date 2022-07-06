@@ -35,9 +35,6 @@ class ClusterSolver:
         self.log.info("Parameters of %s:" % self.__class__.__name__)
         self.log.info(break_into_lines(str(self.opts), newline='\n    '))
 
-        # Check MO orthogonality
-        #self.base.check_orthonormal()
-
         # Additional external potential
         self.v_ext = None
 
