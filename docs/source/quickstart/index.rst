@@ -12,9 +12,9 @@ Collection of examples showing how to perform calculations with Vayesta. In the 
 .. toctree::
    :maxdepth: 3
 
-   quickstart/ewf
-   quickstart/1dhubbard
-   quickstart/dumpcluster
-   quickstart/dmet
-   quickstart/edmet
-   quickstart/parallelism
+   ewf
+   1dhubbard
+   dumpcluster
+   dmet
+   edmet
+   parallelism
