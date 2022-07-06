@@ -1,9 +1,9 @@
 
-.. _about:
+.. _intro:
 
-=====
-About
-=====
+============
+Introduction
+============
 
 Vayesta_ has been designed such that it is :
 
