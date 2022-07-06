@@ -225,9 +225,9 @@ class Embedding:
                 raise ValueError("Unknown solver: %s" % solver)
             self.solver = solver
             self.symmetry = SymmetryGroup(self.mol)
-            translation = getattr(self.mf, 'subcellmesh', None)
-            if translation:
-                self.symmetry.set_translation(translation)
+            nimages = getattr(self.mf, 'subcellmesh', None)
+            if nimages:
+                self.symmetry.set_translations(nimages)
             # Rotations need to be added manually!
 
             self.register = FragmentRegister()

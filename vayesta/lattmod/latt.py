@@ -67,7 +67,7 @@ class LatticeMole(pyscf.pbc.gto.Cell):
         return '%s%d' % (self.atom_pure_symbol(site), site)
 
     def atom_pure_symbol(self, site):
-        return 'X'
+        return 'S'
 
     #def build(self):
     #    pass

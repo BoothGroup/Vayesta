@@ -122,7 +122,3 @@ class DMETFragment(Fragment):
 
     def get_nelectron_hl(self):
         return self.get_frag_hl_dm().trace()
-
-    def get_energy_prefactor(self):
-        # Defined for compatibility..
-        return 1.0
