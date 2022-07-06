@@ -2,10 +2,11 @@
 
 
 
-EDMET:
-=====================
+Extended Density-matrix embedding theory EDMET:
+======================================================
 
-In the following tutorial, the .. (EDMET) as implemented in Vayesta_ is introduced. Two examples (Finite systems and custom Hamiltonians) are used to illustrate the capabilities of this methodology.
+In the following tutorial, the extended density-matrix embbeding theory (EDMET) is introduced as implemented in Vayesta_. Two examples (Finite systems 
+and custom Hamiltonians) are used to illustrate the capabilities of this methodology.
 
 
 Finite Systems
@@ -57,6 +58,8 @@ Costum Hamiltonians
 ^^^^^^^^^^^^^^^^^^^^^
 
 TO BE COMPLETED....
-	   
+
+
+
 .. _PySCF: https://pyscf.org/
 .. _Vayesta: https://github.com/BoothGroup/
