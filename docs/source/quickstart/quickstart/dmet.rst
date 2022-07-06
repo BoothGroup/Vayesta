@@ -1,3 +1,4 @@
+.. include:: /include/links.rst
 .. _dmet:
 
 
@@ -93,7 +94,3 @@ Both methodologies can be compared, as shown in the following snippet:
 
 .. literalinclude:: dmet1dhubbard.py
    :lines: 42-44
-
-.. _PySCF: https://sunqm.github.io/pyscf/
-.. _Vayesta: https://github.com/BoothGroup/Vayesta
-.. _numpy: https://numpy.org

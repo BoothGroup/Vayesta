@@ -1,3 +1,4 @@
+.. include:: /include/links.rst
 .. _1dhubbard:
 
 Custom Hamiltonians
@@ -72,7 +73,3 @@ Finally, the results for this calculation can be obtained as indicated in the fo
 
 .. literalinclude:: 1d_hubbard.py
    :lines: 27-28
-
-
-
-.. _Vayesta: https://github.com/BoothGroup/

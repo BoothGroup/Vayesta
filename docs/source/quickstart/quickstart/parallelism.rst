@@ -1,3 +1,4 @@
+.. include:: /include/links.rst
 .. _parallel:
 
 
@@ -54,8 +55,3 @@ system has been divided. For this specific case, the suggested command is:
    [~]$ mpirun -np 3 python parallel.py
 
 since the water molecule is fragmented into 3 different **IAO** components.
-
-.. _OpenBLAS: https://github.com/xianyi/OpenBLAS
-.. _PySCF: https://sunqm.github.io/pyscf/
-.. _Vayesta: https://github.com/BoothGroup/Vayesta
-.. _numpy: https://numpy.org/

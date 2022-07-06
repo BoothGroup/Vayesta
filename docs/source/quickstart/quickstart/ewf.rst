@@ -1,9 +1,13 @@
+.. include:: /include/links.rst
 .. _ewf:
 
-Embedded Wavefunction (EWF) method
-=====================================
+Embedded Wave Function method (EWF)
+===================================
 
-This tutorial introduces the use of the `ref:ewf.EWF` method to perform electronic structure simulations of finite and extended periodic systems using the embedded wavefunction theory (EWF) as implemnted in Vayesta_.
+As presented in PRX_
+
+This tutorial introduces the use of the `ref:ewf.EWF` method to perform electronic structure simulations of molecules
+and periodic systems using the embedded wave function class (EWF) as implemnted in Vayesta_.
 
 Finite Systems
 ^^^^^^^^^^^^^^^
@@ -99,10 +103,3 @@ The results of these different calculation setups can be shown using the followi
 
 .. literalinclude:: diamond.py
    :lines: 52-56
-
-
-
-.. _PySCF: https://sunqm.github.io/pyscf/
-.. _Vayesta: https://github.com/BoothGroup/Vayesta
-
-

@@ -1,3 +1,4 @@
+.. include:: /include/links.rst
 .. _install:
 
 ============
@@ -50,10 +51,3 @@ After installation, Vayesta_ can be tested by typing the following command:
    python setup.py test
 
 which suffices for testing the main computational capabilities of the code.
-
-.. _GitHub: https://github.com/
-.. _OpenBLAS: https://github.com/xianyi/OpenBLAS
-.. _Vayesta: https://vayesta.com
-.. _Python: https://www.python.org/
-.. _PySCF: https://pyscf.org/
-.. _pip: https://pypi.org/project/pip/

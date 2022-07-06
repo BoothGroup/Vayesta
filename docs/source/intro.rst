@@ -1,4 +1,4 @@
-
+.. include:: /include/links.rst
 .. _intro:
 
 ============
@@ -21,8 +21,3 @@ Vayesta_ has been designed such that it is :
 
   Vayesta_ has been released under GNU_ Lesser General Public License version
   3.0 or any later version.
-
-
-.. _Python: https://www.python.org/
-.. _GNU: https://www.gnu.org/licenses/gpl-3.0.en.html
-.. _Vayesta: https://github.com/BoothGroup/

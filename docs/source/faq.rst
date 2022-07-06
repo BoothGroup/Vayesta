@@ -1,3 +1,4 @@
+.. include:: /include/links.rst
 .. _faq:
 
 =======
@@ -198,10 +199,3 @@ Once this is done, these changes need to be updated by typing:
    [~]$ source
 
 which will incorporate these new paths.
-
-.. _GitHub: https://github.com/
-.. _OpenBLAS: https://github.com/xianyi/OpenBLAS
-.. _Vayesta: https://github.com/BoothGroup/Vayesta
-.. _Python: https://www.python.org/
-.. _PySCF: https://pyscf.org/
-.. _pip: https://pypi.org/project/pip/

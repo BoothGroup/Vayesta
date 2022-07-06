@@ -1,5 +1,5 @@
+.. include:: /include/links.rst
 .. _edmet:
-
 
 
 Extended Density-matrix embedding theory EDMET:
@@ -58,8 +58,3 @@ Costum Hamiltonians
 ^^^^^^^^^^^^^^^^^^^^^
 
 TO BE COMPLETED....
-
-
-
-.. _PySCF: https://pyscf.org/
-.. _Vayesta: https://github.com/BoothGroup/

@@ -1,3 +1,5 @@
+.. include:: /include/links.rst
+
 Welcome to Vayesta's documentation!
 ===================================
 
@@ -28,9 +30,3 @@ Indices and tables
 * :ref:`genindex`
 * :ref:`modindex`
 * :ref:`search`
-
-
-.. _Python: https://www.python.org/
-.. _GNU: https://www.gnu.org/licenses/gpl-3.0.en.html
-.. _PySCF: https://pyscf.org/
-.. _Vayesta: https://github.com/BoothGroup/

@@ -1,3 +1,4 @@
+.. include:: /include/links.rst
 .. _dumpcluster:
 
 
@@ -35,9 +36,3 @@ DESCRIPTION OF THE HDF5 FILE...
 
 .. literalinclude:: dump_clusters.py
    :lines: 35-64
-
-
-
-
-.. _PySCF: https://sunqm.github.io/pyscf/
-.. _Vayesta: https://github.com/BoothGroup/Vayesta

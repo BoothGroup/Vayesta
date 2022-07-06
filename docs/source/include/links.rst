@@ -1,0 +1,9 @@
+.. _Python: https://www.python.org/
+.. _GNU: https://www.gnu.org/licenses/gpl-3.0.en.html
+.. _PySCF: https://pyscf.org/
+.. _Vayesta: https://github.com/BoothGroup/
+.. _PRX: https://journals.aps.org/prx/abstract/10.1103/PhysRevX.12.011046
+.. _GitHub: https://github.com/
+.. _OpenBLAS: https://github.com/xianyi/OpenBLAS
+.. _pip: https://pypi.org/project/pip/
+.. _numpy: https://numpy.org

@@ -1,3 +1,4 @@
+.. include:: /include/links.rst
 .. _quickstart:
 
 Quickstart
