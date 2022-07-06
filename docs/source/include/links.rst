@@ -7,3 +7,6 @@
 .. _OpenBLAS: https://github.com/xianyi/OpenBLAS
 .. _pip: https://pypi.org/project/pip/
 .. _NumPy: https://numpy.org
+.. _IAO: https://pubs.acs.org/doi/10.1021/ct400687b
+.. _PAO: https://www.annualreviews.org/doi/abs/10.1146/annurev.pc.44.100193.001241
+.. _DMET: https://pubs.acs.org/doi/full/10.1021/acs.jctc.6b00316
