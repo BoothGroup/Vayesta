@@ -50,12 +50,31 @@ class SymmetryGroup:
         idx = np.argmin(dists)
         return idx, dists[idx]
 
-    def add_rotation(self, order, axis, center, unit='Ang'):
-        """Add rotational symmetry."""
+    def add_rotation(self, order, axis, center, unit='ang'):
+        """Add rotational symmetry.
+
+        Parameters
+        ----------
+        order : int
+            Order of rotational axis. E.g. order 4 corresponds to rotations by 90 degrees.
+        axis : array(3)
+            Vector of the rotational axis.
+        center : array(3)
+            Center of rotation.
+        unit : {'ang', 'bohr', 'latvec'}
+            Unit for axis and center. Default: 'ang'.
+        """
         axis = np.asarray(axis)
         center = np.asarray(center)
         self.rotations.append((order, axis, center, unit))
 
-    def set_translation(self, translation):
-        """Set translational symmetry."""
-        self.translation = np.asarray(translation)
+    def set_translations(self, nimages):
+        """Set translational symmetry.
+
+        Parameters
+        ----------
+        nimages : array(3)
+            Number of translationally symmetric images in the direction of the first, second,
+            and third lattice vector.
+        """
+        self.translation = np.asarray(nimagse)

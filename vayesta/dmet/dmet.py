@@ -115,8 +115,8 @@ class DMET(Embedding):
         self.converged = False
         for iteration in range(1, maxiter + 1):
             self.iteration = iteration
-            self.log.info("Now running iteration= %2d", iteration)
-            self.log.info("****************************************************")
+            self.log.info("Now running iteration %2d", iteration)
+            self.log.info("------------------------")
             if iteration > 1:
                 # For first iteration want to run on provided mean-field state.
                 mo_energy, mo_coeff = mf.eig(fock + self.vcorr, self.get_ovlp())
