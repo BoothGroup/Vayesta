@@ -1,7 +1,7 @@
-.. _tutorials:
+.. _quickstart:
 
-Tutorials
-=========
+Quickstart
+==========
 
 Collection of examples showing how to perform calculations with Vayesta. In the following pages, we will present the different capabilities that Vayesta is able to perform the corresponding calculations:
 
@@ -11,9 +11,9 @@ Collection of examples showing how to perform calculations with Vayesta. In the 
 .. toctree::
    :maxdepth: 3
 
-   tutorials/ewf
-   tutorials/1dhubbard
-   tutorials/dumpcluster
-   tutorials/dmet
-   tutorials/edmet
-   tutorials/parallelism
+   quickstart/ewf
+   quickstart/1dhubbard
+   quickstart/dumpcluster
+   quickstart/dmet
+   quickstart/edmet
+   quickstart/parallelism

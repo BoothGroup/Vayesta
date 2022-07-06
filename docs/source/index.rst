@@ -18,7 +18,7 @@ See the :ref:`Installation <install>`  page for more detailed instructions for i
 
    intro
    install
-   tutorials/tutorials
+   quickstart/index
    faq
 
 
