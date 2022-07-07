@@ -187,6 +187,7 @@ class EDMETFragment(DMETFragment):
         # N^4, so instead deduct projection onto fermionic space.
         rot_ov_pinv = np.linalg.pinv(rot_ov.T)
         env_mom = rpa_mom - dot(rpa_mom, rot_ov.T, rot_ov_pinv)
+        self.env_mom = env_mom
         # v defines the rotation of the mean-field excitation space specifying our bosons.
         u, s, v = np.linalg.svd(env_mom, full_matrices=False)
 
