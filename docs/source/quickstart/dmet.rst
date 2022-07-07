@@ -5,9 +5,9 @@
 Density-Matrix Embbeding Theory (DMET)
 ======================================
 
-In the following tutorial, the Density-matrix embbeding theory (DMET) as implemented in Vayesta_ is introduced.
-Two examples (Finite systems and custom Hamiltonians) are used to illustrate the capabilities of this methodology.
-
+Vayesta_ can be used for DMET calculations of molecules, solids, and lattice models.
+In this section, we give two simple examples: the calculations of a :math:`\textrm{H}_6` `molecule <Simple Molecule_>`_
+and a `1D Hubbard model <Hubbard Model in 1D_>`_.
 
 Simple Molecule
 ---------------
