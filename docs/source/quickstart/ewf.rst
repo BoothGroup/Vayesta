@@ -1,54 +1,47 @@
 .. include:: /include/links.rst
 .. _ewf:
 
-Embedded Wave Function method (EWF)
+Wave Function Based Embedding (EWF)
 ===================================
 
-This tutorial introduces the use of the `ref:ewf.EWF` method to perform electronic structure simulations of molecules
-and periodic systems using the embedded wave function class (EWF) as implemnted in Vayesta_.
+This tutorial introduces the ``EWF`` class to perform wave function based quantum embedding,
+as presented in `Phys. Rev. X 12, 011046 <REF_PRX_>`_ [1]_.
 
-Finite Systems
-^^^^^^^^^^^^^^^
+Water Molecule
+--------------
 
-As starting point, Vayesta_ utilizes mean-field computed properties provided by the PySCF_ code. All the relevant modules are imported as shown in the following snippet:
+.. literalinclude:: /../../../vayesta/examples/ewf/molecules/01-simple-ccsd.py
+    :linenos:
 
-.. literalinclude:: fragmentation.py
-   :lines: 1-4
+Compared to the DMET embedding class presented :ref:`above <dmet>`,
+there are two main differences in the setup of the embedded wave function calculation in **lines 24--25**:
 
-The relevant Vayesta_ modules can be imported in a familiar Python way as displayed in the following lines of code:
+* The keyword argument ``bath_options=dict(threshold=1e-6)`` defines the threshold for the MP2 bath natural orbitals
+  (the variable :math:`\eta` in Ref. `1 <1_>`_) [2]_.
 
-.. literalinclude:: fragmentation.py
-   :lines: 6-7
+* No fragmentation scheme is defined.
 
-The mean-field ground state properties are compued at the level of Restricted-Hartree-Fock (RHF) as shown below:
+In the embedded wave function method, a fragmentation into atomic fragments, defined in terms of `intrinsic atomic orbitals <REF_IAO_>`_ (IAOs)
+is assumed by default. This is equivalent to adding the following lines before calling the kernel in **line 25**:
 
-.. literalinclude:: fragmentation.py
-   :lines: 9-23
+.. code-block:: python
 
-The PySCF_ results are subsequently parsed to the `ref:ewt.EWT` Vayesta_ method as depicted in the following snippet:
+    with emb.iao_fragmentation() as f:
+        f.add_all_atomic_fragments()
 
-.. literalinclude:: fragmentation.py
-   :lines: 25-27
+which, in turn, is equivalent to
 
-The `ref:ewf.EWF` method requires the use of a fragmentation scheme. Vayesta_ has implemented different methods to perform it, whose full description can be found in `REF:VAYESTA_MODULE`. The **IAO** fragmentation methodology is set as default and automatically used once the method **.kernel()** is invoked as is shown in these lines of code:
+.. code-block:: python
 
-.. literalinclude:: fragmentation.py
-   :lines: 29-31
+    with emb.iao_fragmentation() as f:
+        for atom in range(mol.natm):
+            f.add_atomic_fragment(atom)
 
-Alternatively, a second fragmentation procedure (the **IAO+PAOs** method) can be used as shown in the following lines:
+Other fragmentations schemes are still possible, but have to be specified manually.
 
-.. literalinclude:: fragmentation.py
-   :lines: 33-40
-
-Important quantities, such as **T2** amplitudes and one-body reduced density matrix (**1-RDM**) can be obtained from the global **EWF**, and computed using the following lines of code:
-
-.. literalinclude:: fragmentation.py
-   :lines: 42-46
-
-Similarly, quantities such as spin-spin correlation functions and different observables can be calculated using Vayesta_ ...... (TO BE COMPLETED)
 
 Extended Systems
-^^^^^^^^^^^^^^^^^^
+----------------
 
 Additionally to the standard molecular quantum chemistry capabilities, PySCF_ enables the use of a variety of quantum chemistry methods for extended systems with Periodic Boundary Conditions (PBC). Vayesta_ utilizes these capabilities of performing ground state calculations as starting point. Initially, the relevant modules are imported as shown in the snipet below:
 
@@ -101,3 +94,10 @@ The results of these different calculation setups can be shown using the followi
 
 .. literalinclude:: diamond.py
    :lines: 52-56
+
+.. [1] Max Nusspickel and George H. Booth, Phys. Rev. X 12, 011046 (2022).
+.. [2] The definition of :math:`\eta` in Vayesta differs from Ref. 1 by a factor of :math:`1/2`. In Ref. 1 the
+       occupation numbers of the spin traced density matrix (between 0 and 2) are compared against :math:`\eta`, whereas in Vayesta the eigenvalues of
+       the spinned density-matrix (between 0 and 1) are used. The latter definition allows for a more natural comparison between spin-restricted
+       and unrestricted calculations with the same value of :math:`\eta`.
+
