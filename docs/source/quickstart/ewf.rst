@@ -51,7 +51,7 @@ In this example we calculate cubic boron nitride (Zinc Blende structure):
     :linenos:
 
 .. note::
-    The basis set and auxiliary (density fitting) basis set in this example is much to small
+    The basis set and auxiliary (density fitting) basis set in this example is much too small
     for accurate results and only chosen for demonstration.
 
 In **line 34** the setup of the embedding class is performed in the same way as for molecules.
