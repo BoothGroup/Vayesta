@@ -54,3 +54,9 @@ html_theme = 'sphinx_rtd_theme'
 # so a file named "default.css" will overwrite the builtin "default.css".
 #html_static_path = ['_static']
 html_static_path = []
+
+# Numbering for Figures, Tables, etc
+numfig = True
+numfig_format = {
+        'figure': 'Fig. %s:',
+        }

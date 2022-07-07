@@ -57,55 +57,40 @@ the keyword argument ``maxiter=1`` has to be dropped.
     see also ``example/dmet/02-rotations-symmetry.py``
 
 
-Custom Hamiltonians
+Hubbard Model in 1D
 -------------------
 
-Costumized Hamiltonians can be also studied using the **DMET** methodology as implemented in Vayesta_. Initially, the required Vayesta_ modules are imported (and NumPy_ as an auxiliary library) as displayed in the following snippet:
+In order to simulate lattice model systems, such as the Hubbard model, Vayesta_ provides the classes
+``Hubbard1D``, ``Hubbard2D`` and ``LatticeMF`` in the ``lattmod`` package.
+In the following example the half-filled, ten-site Hubbard chain is calculated with :math:`U = 6t` (where :math:`t` is the hopping parameter, which is 1 by default):
 
-.. literalinclude:: dmet1dhubbard.py
-   :lines: 1-4
+.. literalinclude:: /../../../vayesta/examples/dmet/63-hubbard-1d.py
+    :linenos:
 
-The most important parameters to set up the 1D Hubbard's model (as done in the module `ref:Lattmod`) are declared in the following lines of code:
+For lattice model systems, fragments for quantum embedding calculations are usually defined in terms of lattice sites.
+For this purpose, the embedding class has the fragmentation context manager ``dmet.site_fragmentation()``.
+Within the body of this context manager, fragments can be added as before with the method
+``add_atomic_fragment``---for the purpose fo defining fragments, the sites are considered as atoms.
+In **lines 19--20** of this example, the lattice is divided into two-site fragments, as depicted in :numref:`fig_hub1d`
 
-.. literalinclude:: dmet1dhubbard.py
-   :lines: 7-11
-
-It is important to notice that function `ref:lattmod.Hubbard1D` contains different periodic boundary conditions, which in this case is the anti-periodic boundary condition. Using these variables as arguments, the corresponding `ref:lattmod.Hubbard1D` and `ref:lattmod.LatticeMF` are utilized to perform a mean-field calculation as displayed in this snippet:
-
-.. literalinclude:: dmet1dhubbard.py
-   :lines: 13-16
-
-As in the finite case, a fragmentation scheme is needed to perform a **DMET** calculation. In the case of costumized Hamiltonians, the relevant the function is `ref:site_fragmentation`. The fragmentation procedure will be carried out using adjacent sites, as shown in the followin lines of code:
-
-.. literalinclude:: dmet1dhubbard.py
-   :lines: 18-23
-
-The computation is carried out using the **FCI** solver. Alternatively, Vayesta_ can exploit the inherent translation symmetry displayed by the 1D-Hubbard's model. To use this option, one needs to declare a single fragment and then perform the translation over the desired direction. This can be done using the following lines of code:
-
-.. literalinclude:: dmet1dhubbard.py
-   :lines: 25-28
-
-To specify translation vectors as parts of the full system lattice vectors by passing a list with three integers, **[n, m, l]**; the translation vectors will be set equal to the lattice vectors, divided by **n, m, l** in **a0, a1, and a2** direction, respectively. This is depicted schematically in **Figure(1)**.
-
-.. figure:: figures/1dhbdtrsym.png
-   :alt: aperiodic hubbard model
+.. _fig_hub1d:
+.. figure:: figures/1dhubbfig.png
+   :alt:  1D Hubbard model
    :align: center
    :figclass: align-center
 
-   **Figure(1)** Schematic depiction of the 1-D Hubbard model, half filling with double-site embedding fragmentation using the tsymmetric feature.
+   Schematic depiction of the 1-D Hubbard model with two-sites fragments.
 
-In this case, this is done with the following command:
+Just as for the :math:`\mathrm{H}_6` ring molecule in the example `above <Simple Molecule_>`_,
+this lattice model system has an inherent (in this case translational) symmetry between the fragments, which can
+be exploited.
+This is done in the second DMET calculation in **lines 24--32**, where the translational symmetry is specified
+in the following lines:
 
-.. literalinclude:: dmet1dhubbard.py
-   :lines: 35-37
+.. literalinclude:: /../../../vayesta/examples/dmet/63-hubbard-1d.py
+    :lines: 27-28
 
-
-To confirm that this is correct, the number of cpmputed fragments can be counted and validate against the expected number in the following manner:
-
-.. literalinclude:: dmet1dhubbard.py
-   :lines: 38-40
-
-Both methodologies can be compared, as shown in the following snippet:
-
-.. literalinclude:: dmet1dhubbard.py
-   :lines: 42-44
+The three integers in ``nimages`` specify the number of symmetry related copies (including the original)
+along each lattice vector.
+For a 1D system, the first lattice vector corresponds to the periodic dimension and is thus the only dimension
+along which there are more than one copies.
