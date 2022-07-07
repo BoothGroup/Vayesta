@@ -56,6 +56,15 @@ the keyword argument ``maxiter=1`` has to be dropped.
 
     see also ``example/dmet/02-rotations-symmetry.py``
 
+Density-Matrices
+----------------
+
+In DMET expectation values are defined in terms of democratically partitioned one- and two-body density-matices.
+These can be obtained by calling ``dmet.make_rdm1()`` and ``dmet.make_rdm2()`` as shown in example
+``examples/dmet/03-density-matrices.py``:
+
+.. literalinclude:: /../../../vayesta/examples/dmet/03-density-matrices.py
+    :linenos:
 
 Hubbard Model in 1D
 -------------------
