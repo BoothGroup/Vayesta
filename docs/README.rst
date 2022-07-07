@@ -20,6 +20,7 @@ Cloning this branch:
 ^^^^^^^^^^^^^^^^^^^^^^
 
 .. code-block:: console
+
    git clone -b tutorials --single-branch git@github.com:BoothGroup/Vayesta.git
 
 Pushing into this branch:
