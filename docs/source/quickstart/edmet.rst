@@ -53,8 +53,3 @@ Relevant quantities, such as the total energy, can be printed as displayed in th
 
 .. literalinclude:: edmetfinite.py
    :lines: 65-68
-
-Costum Hamiltonians
-^^^^^^^^^^^^^^^^^^^^^
-
-TO BE COMPLETED....
