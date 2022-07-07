@@ -7,6 +7,7 @@
 .. _pip: https://pypi.org/project/pip/
 .. _NumPy: https://numpy.org
 .. _SciPy: https://scipy.org
+.. _HDF5: https://www.hdfgroup.org/solutions/hdf5/
 .. _h5py: https://h5py.org
 .. _MPI: https://www.mpi-forum.org/
 .. _MPI4PY: https://mpi4py.readthedocs.io/en/stable/

@@ -1,38 +1,27 @@
 .. include:: /include/links.rst
+
 .. _dumpcluster:
 
+Dumping Cluster Hamiltonians
+============================
 
-Dumping Cluster Hamiltonian
-===============================
+Some users may want to utilize Vayesta_ to easily define fragments within the system
+and obtain the corresponding cluster Hamiltonians, but solve the embedding problems externally and with their own solvers.
+To accomodate for this, the ``EWF`` class allows setting ``solver='Dump'``, which will dump orbitals and integrals
+of all fragments to an HDF5_ file and exit.
 
-In this tutorial, the dumping cluster Hamiltonian functionality of Vayesta_ is introduced. To illustrate this capability, the pertinent modules of PySCF_ and Vayesta_ are loaded as shown in the following lines:
+The name of the HDF5 file is ``clusters.h5`` by default, but can be adjusted via an additional solver options:
 
-.. literalinclude:: dump_clusters.py
-   :lines: 1-6
+.. literalinclude:: /../../examples/ewf/molecules/20-dump-clusters.py
+    :lines: 26-27
 
-As an initial example, a finite system (water molecule) is used and all the relevant PySCF_ variables are declared as shown in the snippet below:
+The dump file contains a separate group for each fragment which was defined for the embedding.
+The content of each group can be best illustrated via this code snippet from the example ``vayesta/examples/ewf/molecules/20-dump-clusters.py``:
 
-.. literalinclude:: dump_clusters.py
-   :lines: 11-19
+.. literalinclude:: /../../examples/ewf/molecules/20-dump-clusters.py
+    :lines: 56-87
 
-The atoms in the water molecule has been labeled as **O1**, **H2**, and **H3**. Then, a mean-field calculation (at the Hartree-Fock level of theory) is performed as shown in the following lines of code:
+For a spin-unrestricted calculation, the shapes and dataset names are slighlty different:
 
-.. literalinclude:: dump_clusters.py
-   :lines: 21-23
-
-The Vayesta_ function `ref:ewf.EWF` is used as presented below:
-
-.. literalinclude:: dump_clusters.py
-   :lines: 25-28
-
-The arguments includes required values such as the PySCF_ mean-field calculation (stored in **mf**) and the bath option. In this specific case, two new variables are used, namely, the solver **Dump** and the **solver_options** with the argument dumpfile where the clusters are stored.
-
-The content of the file **clusters-rhf.h5** can be browsed, as illustrated in the following lines of code:
-
-.. literalinclude:: dump_clusters.py
-   :lines: 33-34
-
-DESCRIPTION OF THE HDF5 FILE...
-
-.. literalinclude:: dump_clusters.py
-   :lines: 35-64
+.. literalinclude:: /../../examples/ewf/molecules/20-dump-clusters.py
+    :lines: 92-122

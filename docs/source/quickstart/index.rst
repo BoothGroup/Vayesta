@@ -15,6 +15,4 @@ Collection of examples showing how to perform calculations with Vayesta. In the 
    dmet
    ewf
    mpi
-   edmet
-   1dhubbard
    dumpcluster
