@@ -1,6 +1,6 @@
 .. include:: /include/links.rst
-.. _dmet:
 
+.. _dmet:
 
 Density-Matrix Embbeding Theory (DMET)
 ======================================

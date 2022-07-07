@@ -10,6 +10,8 @@ as presented in `Phys. Rev. X 12, 011046 <REF_PRX_>`_ [1]_.
 Water Molecule
 --------------
 
+An embedded wave function calculation of a simple water molecule can be performed with the following code:
+
 .. literalinclude:: /../../../vayesta/examples/ewf/molecules/01-simple-ccsd.py
     :linenos:
 
@@ -21,7 +23,7 @@ there are two main differences in the setup of the embedded wave function calcul
 
 * No fragmentation scheme is defined.
 
-In the embedded wave function method, a fragmentation into atomic fragments, defined in terms of `intrinsic atomic orbitals <REF_IAO_>`_ (IAOs)
+In the embedded wave function method, a fragmentation into atomic fragments, defined in terms of `intrinsic atomic orbitals <REF_IAO_>`_ (IAOs),
 is assumed by default. This is equivalent to adding the following lines before calling the kernel in **line 25**:
 
 .. code-block:: python
@@ -37,63 +39,69 @@ which, in turn, is equivalent to
         for atom in range(mol.natm):
             f.add_atomic_fragment(atom)
 
-Other fragmentations schemes are still possible, but have to be specified manually.
+Other fragmentations schemes can still be used, but have to be specified manually.
 
 
-Extended Systems
-----------------
+Cubic Boron Nitride (cBN)
+-------------------------
 
-Additionally to the standard molecular quantum chemistry capabilities, PySCF_ enables the use of a variety of quantum chemistry methods for extended systems with Periodic Boundary Conditions (PBC). Vayesta_ utilizes these capabilities of performing ground state calculations as starting point. Initially, the relevant modules are imported as shown in the snipet below:
+In this example we calculate cubic boron nitride (Zinc Blende structure):
 
-.. literalinclude:: diamond.py
-   :lines: 1-6
+.. literalinclude:: /../../../vayesta/examples/ewf/solids/03-cubic-BN.py
+    :linenos:
 
-Subsequently, the required Vayesta_ modules can be imported as indicated in the following lines of code:
+.. note::
+    The basis set and auxiliary (density fitting) basis set in this example is much to small
+    for accurate results and only chosen for demonstration.
 
-.. literalinclude:: diamond.py
-   :lines: 8-9
+In **line 34** the setup of the embedding class is performed in the same way as for molecules.
+Vayesta will detect if the mean field object ``mf`` has **k**-point defined, by checking ``mf.kpts``:
+if ``mf.kpts`` is found and not ``None``, the **k**-point sampled mean-field will automatically be folded to
+the :math:`\Gamma`-point of the equivalent (in this case :math:`2\times2\times2`) Born--von Karman supercell.
+Performing the embedding in the supercell allows for optimal utilization of the locality of electron correlation,
+as the embedding problems are only restricted to have the periodicity of the supercell, rather than the **k**-point sampled
+primitive cell.
 
-PySCF_ supplies the user with functions that are able to build a crystalline structure and a user-defined **k-mesh** as shown below:
+.. note::
 
-.. literalinclude:: diamond.py
-   :lines: 11-23
+    **k**-point meshes which do not include the :math:`\Gamma`-point are currently not supported.
 
-where a diamond crystalline structure has been created. To perform electronic structure calculations with **HF** and using **k-points**, the following
-lines of code are needed:
+Properties, such as density-matrix calculated in **line 42**, will recover the full, primitive cell symmetry,
+since they are obtained from a summation over all symmetry equivalent fragments in the supercell.
+This is confirmed by the population analysis, which shows that the boron atom 2 has the same population than
+boron atom 0, despite being part of a different primitive cell within the supercell:
 
-.. literalinclude:: diamond.py
-   :lines: 26-28
+.. code-block:: console
 
-Similarly, a full **CCSD** calculation is carried out as presented in the following snipet:
+    Population analysis
+    -------------------
+	0 B:       q=  0.17325874  s=  0.00000000
+	     0 0 B 1s          =  1.98971008
+	     1 0 B 2s          =  0.76417671
+	     2 0 B 2px         =  0.69095149
+	     3 0 B 2py         =  0.69095149
+	     4 0 B 2pz         =  0.69095149
+	1 N:       q= -0.17325874  s=  0.00000000
+	     5 1 N 1s          =  1.99053993
+	     6 1 N 2s          =  1.17403392
+	     7 1 N 2px         =  1.33622830
+	     8 1 N 2py         =  1.33622830
+	     9 1 N 2pz         =  1.33622830
+	2 B:       q=  0.17325874  s=  0.00000000
+	    10 2 B 1s          =  1.98971008
+	    11 2 B 2s          =  0.76417671
+	    12 2 B 2px         =  0.69095149
+	    13 2 B 2py         =  0.69095149
+	    14 2 B 2pz         =  0.69095149
+	3 N:       q= -0.17325874  s=  0.00000000
+	    15 3 N 1s          =  1.99053993
+	    16 3 N 2s          =  1.17403392
+	    17 3 N 2px         =  1.33622830
+	    18 3 N 2py         =  1.33622830
+	    19 3 N 2pz         =  1.33622830
+        ...
 
-.. literalinclude:: diamond.py
-   :lines: 31-32
 
-As starting point, the `ref:EWT` function uses the result of the previous **HF** calculation (denoted by **kmf**) to start the embedding procedure:
-
-.. literalinclude:: diamond.py
-   :lines: 35-38
-
-important to notice is that the **IAO** fragmentation method has been used, together with a **sym_factor=2** variable, since the diamond unit cell has
-two carbon atoms per unit cell. The user-provided k-point mean-field calculation will be automatically folded to the supercell.
-
-Similarly, PySCF_ enables the use of explicit supercells for computing mean-field electronic ground-state as shown below:
-
-.. literalinclude:: diamond.py
-   :lines: 41-44
-
-The `ref:EWF` embedding procedure can be also carried out using the supercell input as shown below:
-
-.. literalinclude:: diamond.py
-   :lines: 46-50
-
-in which the **IAO** fragmentation has been used. The `ref:add_atomic_fragment` function is respectively changed by tuning the argument **sym_factor**
-provided by the number of images created to reproduce the kpoint mesh (i.e 2 as computed in the ncells variable).
-
-The results of these different calculation setups can be shown using the following lines of code:
-
-.. literalinclude:: diamond.py
-   :lines: 52-56
 
 .. [1] Max Nusspickel and George H. Booth, Phys. Rev. X 12, 011046 (2022).
 .. [2] The definition of :math:`\eta` in Vayesta differs from Ref. 1 by a factor of :math:`1/2`. In Ref. 1 the
