@@ -13,7 +13,7 @@ The **html** results can be displayed via an internet browser (chrome, firefox, 
 .. code-block:: console
 
    [~]$ cd build/html 
-   [~]$ firefox index.html
+   [~]$ firefox intro.html
 
 
 Cloning this branch:
