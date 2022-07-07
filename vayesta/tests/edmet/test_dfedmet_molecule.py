@@ -29,7 +29,7 @@ class MolecularDFEDMETTest(TestCase):
                 oneshot=True,
                 make_dd_moments=False,
         )
-        with emb.iao_fragmentation() as f:
+        with emb.sao_fragmentation() as f:
             f.add_atomic_fragment([0, 1])
             f.add_atomic_fragment([2, 3])
             f.add_atomic_fragment([4, 5])
@@ -49,7 +49,7 @@ class MolecularDFEDMETTest(TestCase):
                 oneshot=True,
                 make_dd_moments=False,
         )
-        with emb.iao_fragmentation() as f:
+        with emb.sao_fragmentation() as f:
             f.add_atomic_fragment([0, 1])
             f.add_atomic_fragment([2, 3])
             f.add_atomic_fragment([4, 5])
@@ -64,7 +64,7 @@ class MolecularDFEDMETTest(TestCase):
                 oneshot=True,
                 make_dd_moments=False,
         )
-        with uemb.iao_fragmentation() as f:
+        with uemb.sao_fragmentation() as f:
             f.add_atomic_fragment([0, 1])
             f.add_atomic_fragment([2, 3])
             f.add_atomic_fragment([4, 5])
@@ -85,7 +85,7 @@ class MolecularDFEDMETTest(TestCase):
                 make_dd_moments=False,
                 bosonic_interaction="direct",
         )
-        with emb.iao_fragmentation() as f:
+        with emb.sao_fragmentation() as f:
             f.add_all_atomic_fragments()
         emb.kernel()
 
@@ -101,7 +101,7 @@ class MolecularDFEDMETTest(TestCase):
                 make_dd_moments=False,
                 bosonic_interaction="direct",
         )
-        with uemb.iao_fragmentation() as f:
+        with uemb.sao_fragmentation() as f:
             f.add_all_atomic_fragments()
         uemb.kernel()
 
