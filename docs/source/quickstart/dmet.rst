@@ -66,6 +66,8 @@ These can be obtained by calling ``dmet.make_rdm1()`` and ``dmet.make_rdm2()`` a
 .. literalinclude:: /../../examples/dmet/03-density-matrices.py
     :linenos:
 
+.. _dmet_hub1d:
+
 Hubbard Model in 1D
 -------------------
 

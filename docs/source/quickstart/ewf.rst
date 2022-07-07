@@ -55,17 +55,27 @@ In this example we calculate cubic boron nitride (Zinc Blende structure):
     for accurate results and only chosen for demonstration.
 
 In **line 34** the setup of the embedding class is performed in the same way as for molecules.
-Vayesta will detect if the mean field object ``mf`` has **k**-point defined, by checking ``mf.kpts``:
+Vayesta will detect if the mean field object ``mf`` has **k**-point defined:
 if ``mf.kpts`` is found and not ``None``, the **k**-point sampled mean-field will automatically be folded to
 the :math:`\Gamma`-point of the equivalent (in this case :math:`2\times2\times2`) Born--von Karman supercell.
-Performing the embedding in the supercell allows for optimal utilization of the locality of electron correlation,
-as the embedding problems are only restricted to have the periodicity of the supercell, rather than the **k**-point sampled
-primitive cell.
 
 .. note::
 
-    **k**-point meshes which do not include the :math:`\Gamma`-point are currently not supported.
+    Only Monkhorst-pack **k**-point meshes which include the :math:`\Gamma`-point are currently supported.
 
+Note that instantiating the embedding class with a **k**-point sampled mean-field object
+will automatically add the translational symmetry to the symmetry group stored in ``emb.symmetry``.
+This assumes that the user will only define fragments within the original primitive unit cell,
+which are then copied throughout the supercell using the translational symmetry.
+For calculations of fragments across multiple primitive cell,
+the translational symmetry should be removed by calling ``emb.symmetry.clear_translations()``
+or overwritten via  ``emb.symmetry.set_translations(nimages)``, as demonstrated in
+for the 1D Hubbard model :ref:`here <dmet_hub1d>`.
+
+
+Performing the embedding in the supercell allows for optimal utilization of the locality of electron correlation,
+as the embedding problems are only restricted to have the periodicity of the supercell, rather than the **k**-point sampled
+primitive cell.
 Properties, such as density-matrix calculated in **line 42**, will recover the full, primitive cell symmetry,
 since they are obtained from a summation over all symmetry equivalent fragments in the supercell.
 This is confirmed by the population analysis, which shows that the boron atom 2 has the same population than
