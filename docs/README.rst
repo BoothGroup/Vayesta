@@ -19,7 +19,8 @@ The **html** results can be displayed via an internet browser (chrome, firefox, 
 Cloning this branch:
 ^^^^^^^^^^^^^^^^^^^^^^
 
-git clone -b tutorials --single-branch git@github.com:BoothGroup/Vayesta.git
+.. code-block:: console
+   git clone -b tutorials --single-branch git@github.com:BoothGroup/Vayesta.git
 
 Pushing into this branch:
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
