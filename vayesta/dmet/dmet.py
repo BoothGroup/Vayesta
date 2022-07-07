@@ -219,7 +219,7 @@ class DMET(Embedding):
         for x, frag in enumerate(parent_fragments):
             msg = "Now running %s" % (frag)
             self.log.info(msg)
-            self.log.info(len(msg) * "*")
+            self.log.info(len(msg) * "-")
             self.log.changeIndentLevel(1)
 
             try:
@@ -261,7 +261,7 @@ class DMET(Embedding):
 
     def print_results(self):  # , results):
         self.log.info("Energies")
-        self.log.info("********")
+        self.log.info("========")
         fmt = "%-20s %+16.8f Ha"
         # for i, frag in enumerate(self.loop()):
         #    e_corr = results["e_corr"][i]

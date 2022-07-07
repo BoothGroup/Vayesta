@@ -77,4 +77,4 @@ class SymmetryGroup:
             Number of translationally symmetric images in the direction of the first, second,
             and third lattice vector.
         """
-        self.translation = np.asarray(nimagse)
+        self.translation = np.asarray(nimages)

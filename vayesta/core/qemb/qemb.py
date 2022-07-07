@@ -226,7 +226,7 @@ class Embedding:
             self.solver = solver
             self.symmetry = SymmetryGroup(self.mol)
             nimages = getattr(self.mf, 'subcellmesh', None)
-            if translation:
+            if nimages:
                 self.symmetry.set_translations(nimages)
             # Rotations need to be added manually!
 
