@@ -41,8 +41,8 @@ For more detailed installation procedures and troubleshooting, please refer to t
 Running Tests
 =============
 
-After installation Vayesta_ can run its tests set with the following command:
+After installation, Vayesta_ can run the test using the following command:
 
 .. code-block:: console
 
-   python setup.py test
+   pytest vayesta/tests
