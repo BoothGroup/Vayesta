@@ -33,7 +33,7 @@ class MoleculeDMETTest(TestCase):
         """
         emb = dmet.DMET(testsystems.h6_sto6g.rhf(), solver='FCI', charge_consistent=True,
                 bath_options=dict(bathtype='dmet'), conv_tol=self.CONV_TOL)
-        with emb.iao_fragmentation() as f:
+        with emb.sao_fragmentation() as f:
             f.add_atomic_fragment([0, 1])
             f.add_atomic_fragment([2, 3])
             f.add_atomic_fragment([4, 5])
@@ -49,7 +49,7 @@ class MoleculeDMETTest(TestCase):
         """
         emb = dmet.DMET(testsystems.h6_sto6g.rhf(), solver='FCI', charge_consistent=False,
                 bath_options=dict(bathtype='dmet'), conv_tol=self.CONV_TOL)
-        with emb.iao_fragmentation() as f:
+        with emb.sao_fragmentation() as f:
             f.add_atomic_fragment([0, 1])
             f.add_atomic_fragment([2, 3])
             f.add_atomic_fragment([4, 5])
@@ -65,7 +65,7 @@ class MoleculeDMETTest(TestCase):
         """
         emb = dmet.DMET(testsystems.h6_sto6g.rhf(), solver='CCSD', charge_consistent=False,
                 bath_options=dict(bathtype='dmet'), conv_tol=self.CONV_TOL)
-        with emb.iao_fragmentation() as f:
+        with emb.sao_fragmentation() as f:
             f.add_atomic_fragment([0, 1])
             f.add_atomic_fragment([2, 3])
             f.add_atomic_fragment([4, 5])
@@ -82,7 +82,7 @@ class MoleculeDMETTest(TestCase):
         """
         emb = dmet.DMET(testsystems.h6_sto6g.rhf(), solver='FCI', charge_consistent=False,
                 bath_options=dict(bathtype='full'), conv_tol=self.CONV_TOL)
-        with emb.iao_fragmentation() as f:
+        with emb.sao_fragmentation() as f:
             f.add_atomic_fragment([0, 1])
             f.add_atomic_fragment([2, 3])
             f.add_atomic_fragment([4, 5])

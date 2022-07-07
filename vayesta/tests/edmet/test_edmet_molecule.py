@@ -30,7 +30,7 @@ class MolecularEDMETTest(TestCase):
                 oneshot=True,
                 make_dd_moments=False,
         )
-        with emb.iao_fragmentation() as f:
+        with emb.sao_fragmentation() as f:
             f.add_atomic_fragment([0, 1])
             f.add_atomic_fragment([2, 3])
             f.add_atomic_fragment([4, 5])
@@ -45,7 +45,7 @@ class MolecularEDMETTest(TestCase):
                 oneshot=True,
                 make_dd_moments=False,
         )
-        with uemb.iao_fragmentation() as f:
+        with uemb.sao_fragmentation() as f:
             f.add_atomic_fragment([0, 1])
             f.add_atomic_fragment([2, 3])
             f.add_atomic_fragment([4, 5])
@@ -63,7 +63,7 @@ class MolecularEDMETTest(TestCase):
                 solver_options={"max_boson_occ":2},
                 conv_tol=self.CONV_TOL,
         )
-        with emb.iao_fragmentation() as f:
+        with emb.sao_fragmentation() as f:
             f.add_atomic_fragment([0, 1])
             f.add_atomic_fragment([2, 3])
             f.add_atomic_fragment([4, 5])
@@ -78,7 +78,7 @@ class MolecularEDMETTest(TestCase):
                 oneshot=True,
                 make_dd_moments=False,
         )
-        with uemb.iao_fragmentation() as f:
+        with uemb.sao_fragmentation() as f:
             f.add_atomic_fragment([0, 1])
             f.add_atomic_fragment([2, 3])
             f.add_atomic_fragment([4, 5])
@@ -100,7 +100,7 @@ class MolecularEDMETTest(TestCase):
                 oneshot=True,
                 make_dd_moments=False,
         )
-        with emb.iao_fragmentation() as f:
+        with emb.sao_fragmentation() as f:
             f.add_atomic_fragment([0, 1])
             f.add_atomic_fragment([2, 3])
             f.add_atomic_fragment([4, 5])
@@ -119,7 +119,7 @@ class MolecularEDMETTest(TestCase):
                 oneshot=True,
                 make_dd_moments=False,
         )
-        with uemb.iao_fragmentation() as f:
+        with uemb.sao_fragmentation() as f:
             f.add_atomic_fragment([0, 1])
             f.add_atomic_fragment([2, 3])
             f.add_atomic_fragment([4, 5])
@@ -137,7 +137,7 @@ class MolecularEDMETTest(TestCase):
                 oneshot=True,
                 make_dd_moments=False,
         )
-        with emb.iao_fragmentation() as f:
+        with emb.sao_fragmentation() as f:
             f.add_all_atomic_fragments()
         emb.kernel()
 
@@ -153,7 +153,7 @@ class MolecularEDMETTest(TestCase):
                 oneshot=True,
                 make_dd_moments=False,
         )
-        with uemb.iao_fragmentation() as f:
+        with uemb.sao_fragmentation() as f:
             f.add_all_atomic_fragments()
         uemb.kernel()
 
