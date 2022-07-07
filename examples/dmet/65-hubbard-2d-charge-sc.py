@@ -1,6 +1,3 @@
-# Compare to PySCF:
-# pyscf/examples/scf/40-customizing_hamiltonian.py
-
 import numpy as np
 import vayesta
 import vayesta.dmet
