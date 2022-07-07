@@ -16,3 +16,9 @@
 .. _REF_PAO: https://www.annualreviews.org/doi/abs/10.1146/annurev.pc.44.100193.001241
 .. _REF_DMET: https://pubs.acs.org/doi/full/10.1021/acs.jctc.6b00316
 .. _Vayesta_issues: https://github.com/BoothGroup/Vayesta/issues
+
+.. role:: python(code)
+   :language: python
+
+.. role:: console(code)
+   :language: console

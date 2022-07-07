@@ -17,12 +17,12 @@
 
 # -- Project information -----------------------------------------------------
 
-project = 'vayesta'
+project = 'Vayesta'
 copyright = '2022'
 author = 'All contributors'
 
 # The full version, including alpha/beta/rc tags
-release = '0.0.01'
+release = '1.0.0'
 
 
 # -- General configuration ---------------------------------------------------

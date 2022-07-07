@@ -71,7 +71,7 @@ These can be obtained by calling ``dmet.make_rdm1()`` and ``dmet.make_rdm2()`` a
 Hubbard Model in 1D
 -------------------
 
-In order to simulate lattice model systems, such as the Hubbard model, Vayesta_ provides the classes
+In order to simulate lattice model systems, such as the Hubbard model, Vayesta provides the classes
 ``Hubbard1D``, ``Hubbard2D`` and ``LatticeMF`` in the ``lattmod`` package.
 In the following example the half-filled, ten-site Hubbard chain is calculated with :math:`U = 6t` (where :math:`t` is the hopping parameter, which is 1 by default):
 

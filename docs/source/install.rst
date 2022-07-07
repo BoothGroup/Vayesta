@@ -10,11 +10,11 @@ Vayesta_ can be installed using pip_ or from source.
 Installing with pip
 ===================
 
-The simplest way to install Vayesta_ is to use pip_:
+The simplest way to install Vayesta is to use pip:
 
 .. code-block:: console
 
-   pip install vayesta
+   [~]$ pip install vayesta
 
 All required python packages, such as NumPy_ and PySCF_ will be installed automatically.
 
@@ -22,27 +22,38 @@ All required python packages, such as NumPy_ and PySCF_ will be installed automa
 Installation from Source
 ========================
 
-To install Vayesta_ from source, clone the GitHub repository and use ``cmake`` and ``make`` to compile:
+.. note::
+    When installing from source, the required Python packages
+    (NumPy_, SciPy_, PySCF_, h5py_) need to be installed manually.
+
+
+To install Vayesta from source, clone the GitHub repository and use ``cmake`` and ``make`` to compile:
 
 .. code-block:: console
 
-   git clone https://github.com/BoothGroup/Vayesta .
-   cd Vayesta/vayesta/libs
-   mkdir build && cd build
-   cmake ..
-   make
+   [~]$ git clone https://github.com/BoothGroup/Vayesta .
+   [~]$ cd Vayesta/vayesta/libs
+   [~]$ mkdir build && cd build
+   [~]$ cmake ..
+   [~]$ make
 
-.. note::
-    When installing from source, make sure that PySCF_ and its dependencies are installed first.
+To ensure that Vayesta is found by the Python interpreter when calling :python:`import vayesta`,
+the installation location needs to be prepended to the ``PYTHONPATH`` environment variable as follows:
 
+.. code-block:: console
 
-For more detailed installation procedures and troubleshooting, please refer to the :ref:`faq`.
+    [~]$ export PYTHONPATH:"/path/to/vayesta":$PYTHONPATH
+
+This command can be added to the ``~/.profile`` file located in the home dirctory, to ensure that it is excecuted for every new shell instance.
+
+..
+    For more detailed installation procedures and troubleshooting, please refer to the :ref:`faq`.
 
 Running Tests
 =============
 
-After installation, Vayesta_ can run the test using the following command:
+After installation it is a good idea to run the test suite with ``pytest`` using the following command:
 
 .. code-block:: console
 
-   pytest vayesta/tests
+   [~]$ pytest vayesta/tests

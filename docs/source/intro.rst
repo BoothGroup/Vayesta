@@ -15,10 +15,10 @@ Introduction
 Vayesta_ is a Python package for quantum embedding calculations in molecules and solids.
 
 It builds on the functionality of the PySCF_ package to set up systems and find their mean-field solution.
-With Vayesta_ one can define fragments within these systems in a highly flexible way
+With Vayesta one can define fragments within these systems in a highly flexible way
 and add bath orbitals to represent the environment of each fragment.
 The resulting quantum embedding problems can be solved with a variety of wave function based solvers,
-making use of the efficient implementations within PySCF_. As a final step, expectation values,
+making use of the efficient implementations within PySCF. As a final step, expectation values,
 such as the energy or reduced density-matrices, can be obtained from the collection of embedding problems.
 
 Features
@@ -26,7 +26,7 @@ Features
 
 - Fragments can be defined in terms of:
     - `Intrinsic atomic orbitals <REF_IAO_>`_ (IAO) [1]_
-    - `Intrinsic atomic orbitals <REF_IAO_>`_ + orthogonalized `projected atomic orbitals <REF_PAO_>`_ (IAO+PAO)
+    - Intrinsic atomic orbitals + orthogonalized `projected atomic orbitals <REF_PAO_>`_ (IAO+PAO)
     - Symmetrically (Löwdin) orthogonalized atomic orbitals (SAO)
     - Site basis (for lattice models)
 

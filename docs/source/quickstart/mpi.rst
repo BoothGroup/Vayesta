@@ -16,12 +16,12 @@ using the `Message Passing Interface (MPI) <MPI_>`_ and the Python bindings prov
 
 .. note::
 
-    ``mpi4py`` can be installed using pip: ``pip install mpi4py``
+    ``mpi4py`` can be installed using pip: :console:`[~]$ pip install mpi4py`
 
 Running an MPI Job
 ------------------
 
-Running a calculation in parallel is as simple as excecuting ``mpirun -np N jobscript.py``
+Running a calculation in parallel is as simple as excecuting :console:`[~]$ mpirun -np N jobscript.py`
 in the console, where ``N`` is the desired number of MPI processes.
 For the best possible parallelization, use as many MPI processes as there are fragments
 (for example three for an atomic fragmentation of a water molecule).
