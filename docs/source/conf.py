@@ -58,5 +58,6 @@ html_static_path = []
 # Numbering for Figures, Tables, etc
 numfig = True
 numfig_format = {
-        'figure': 'Fig. %s:',
+        'figure': 'Fig. %s',
+        'table': 'Table %s',
         }

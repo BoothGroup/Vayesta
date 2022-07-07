@@ -37,7 +37,8 @@ In this case, we split the system into three fragments, containing two neighbori
 
 .. note::
 
-    ``add_atomic_fragment`` is only one of many ways to define fragments. See also TODO
+    For more information on the fragmentation and the ``add_atomic_fragment`` method,
+    see section :ref:`Defining Fragments <fragments>`.
 
 Finally, the two embedding problems are solved by calling ``dmet.kernel()``
 and the resulting total energy is stored in ``dmet.e_tot``.
@@ -82,7 +83,7 @@ For lattice model systems, fragments for quantum embedding calculations are usua
 For this purpose, the embedding class has the fragmentation context manager ``dmet.site_fragmentation()``.
 Within the body of this context manager, fragments can be added as before with the method
 ``add_atomic_fragment``---for the purpose fo defining fragments, the sites are considered as atoms.
-In **lines 19--20** of this example, the lattice is divided into two-site fragments, as depicted in :numref:`fig_hub1d`
+In **lines 19--20** of this example, the lattice is divided into two-site fragments, as depicted in :numref:`fig_hub1d`.
 
 .. _fig_hub1d:
 .. figure:: figures/1dhubbfig.png

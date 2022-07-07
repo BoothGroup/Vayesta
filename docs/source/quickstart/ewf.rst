@@ -1,4 +1,5 @@
 .. include:: /include/links.rst
+
 .. _ewf:
 
 Wave Function Based Embedding (EWF)
@@ -18,7 +19,7 @@ An embedded wave function calculation of a simple water molecule can be performe
 Compared to the DMET embedding class presented :ref:`above <dmet>`,
 there are two main differences in the setup of the embedded wave function calculation in **lines 24--25**:
 
-* The keyword argument ``bath_options=dict(threshold=1e-6)`` defines the threshold for the MP2 bath natural orbitals
+* The keyword argument :python:`bath_options=dict(threshold=1e-6)` defines the threshold for the MP2 bath natural orbitals
   (the variable :math:`\eta` in Ref. `1 <1_>`_) [2]_.
 
 * No fragmentation scheme is defined.
@@ -39,7 +40,7 @@ which, in turn, is equivalent to
         for atom in range(mol.natm):
             f.add_atomic_fragment(atom)
 
-Other fragmentations schemes can still be used, but have to be specified manually.
+Other :ref:`fragmentations schemes <fragments>` can still be used, but have to be specified manually.
 
 
 Cubic Boron Nitride (cBN)
@@ -64,12 +65,12 @@ the :math:`\Gamma`-point of the equivalent (in this case :math:`2\times2\times2`
     Only Monkhorst-pack **k**-point meshes which include the :math:`\Gamma`-point are currently supported.
 
 Note that instantiating the embedding class with a **k**-point sampled mean-field object
-will automatically add the translational symmetry to the symmetry group stored in ``emb.symmetry``.
+will automatically add the translational symmetry to the symmetry group stored in :python:`emb.symmetry`.
 This assumes that the user will only define fragments within the original primitive unit cell,
 which are then copied throughout the supercell using the translational symmetry.
 For calculations of fragments across multiple primitive cell,
-the translational symmetry should be removed by calling ``emb.symmetry.clear_translations()``
-or overwritten via  ``emb.symmetry.set_translations(nimages)``, as demonstrated in
+the translational symmetry should be removed by calling :python:`emb.symmetry.clear_translations()`
+or overwritten via  :python:`emb.symmetry.set_translations(nimages)`, as demonstrated in
 for the 1D Hubbard model :ref:`here <dmet_hub1d>`.
 
 
