@@ -89,7 +89,7 @@ The :python:`add_atomic_fragment` method can accept both atom indices and symbol
 with the :python:`orbital_filter` argument.
 The capabilities are best demonstrated in example ``vayesta/examples/ewf/molecules/12-custom-fragments.py``:
 
-.. literalinclude:: /../../../vayesta/examples/ewf/molecules/12-custom-fragments.py
+.. literalinclude:: ../../../examples/ewf/molecules/12-custom-fragments.py
     :linenos:
 
 The :python:`add_orbital_fragment` method allows selecting orbitals (IAOs, PAOs, or SAOs)
