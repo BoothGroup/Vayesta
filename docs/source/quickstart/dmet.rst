@@ -14,7 +14,7 @@ Simple Molecule
 
 A simple DMET calculation of a :math:`\textrm{H}_6` ring can be performed as follows (the example can also be found in ``examples/dmet/01-simple-dmet.py``):
 
-.. literalinclude:: /../../examples/dmet/01-simple-dmet.py
+.. literalinclude:: ../../../examples/dmet/01-simple-dmet.py
     :linenos:
 
 
@@ -52,7 +52,7 @@ the keyword argument ``maxiter=1`` has to be dropped.
     The fragments in the calculation above are symmetry-related by a rotation of 120° or 240° around the `z`-axis.
     This symmetry can be added to the embedding class, such that only a single fragment needs to be solved:
 
-    .. literalinclude:: /../../../vayesta/examples/dmet/02-rotational-symmetry.py
+    .. literalinclude:: ../../../examples/dmet/02-rotational-symmetry.py
         :lines: 25-30
 
     see also ``example/dmet/02-rotations-symmetry.py``
@@ -64,7 +64,7 @@ In DMET expectation values are defined in terms of democratically partitioned on
 These can be obtained by calling ``dmet.make_rdm1()`` and ``dmet.make_rdm2()`` as shown in example
 ``examples/dmet/03-density-matrices.py``:
 
-.. literalinclude:: /../../examples/dmet/03-density-matrices.py
+.. literalinclude:: ../../../examples/dmet/03-density-matrices.py
     :linenos:
 
 .. _dmet_hub1d:
@@ -76,7 +76,7 @@ In order to simulate lattice model systems, such as the Hubbard model, Vayesta p
 ``Hubbard1D``, ``Hubbard2D`` and ``LatticeMF`` in the ``lattmod`` package.
 In the following example the half-filled, ten-site Hubbard chain is calculated with :math:`U = 6t` (where :math:`t` is the hopping parameter, which is 1 by default):
 
-.. literalinclude:: /../../examples/dmet/63-hubbard-1d.py
+.. literalinclude:: ../../../examples/dmet/63-hubbard-1d.py
     :linenos:
 
 For lattice model systems, fragments for quantum embedding calculations are usually defined in terms of lattice sites.
@@ -99,7 +99,7 @@ be exploited.
 This is done in the second DMET calculation in **lines 24--32**, where the translational symmetry is specified
 in the following lines:
 
-.. literalinclude:: /../../examples/dmet/63-hubbard-1d.py
+.. literalinclude:: ../../../examples/dmet/63-hubbard-1d.py
     :lines: 27-28
 
 The three integers in ``nimages`` specify the number of symmetry related copies (including the original)
