@@ -2,9 +2,9 @@ name: CI
 
 on:
   # TODO: change this later, for now only run on push and PR to actions branch
-  #push:
-  #  branches:
-  #    - actions
+  push:
+    branches:
+      - actions
   pull_request:
     branches:
       - actions
@@ -17,9 +17,9 @@ jobs:
     strategy:
       matrix:
         include:
-          # TODO: add other python versions and macOS
+          # TODO: add other python versions
           - {python-version: 3.7, os: ubuntu-latest}
-          #- {python-version: 3.7, os: macos-latest}
+          - {python-version: 3.7, os: macos-latest}
 
     steps:
       - uses: actions/checkout@v2
