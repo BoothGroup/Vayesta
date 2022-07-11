@@ -120,11 +120,6 @@ class DiscoverTests(test):
         pytest.main([src, *test_args])
 
 
-from distutils.command.build import build
-build.sub_commands = ([c for c in build.sub_commands if c[0] == 'build_ext'] +
-                      [c for c in build.sub_commands if c[0] != 'build_ext'])
-
-
 setup(
     name="Vayesta",
     version="0.0.0",
