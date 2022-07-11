@@ -21,6 +21,10 @@ else()
     message(STATUS "BLAS libraries: ${BLAS_LIBRARIES}")
 endif()
 
+if (APPLE)
+    include_directories("${BLAS_LIBRARIES}/Frameworks/vecLib.framework/Headers")
+endif()
+
 # HDF5
 #find_package(HDF5 REQUIRED COMPONENTS C HL)
 #message(STATUS "HDF5 libraries: ${HDF5_LIBRARIES}")
