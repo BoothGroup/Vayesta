@@ -3,7 +3,7 @@
 Vayesta Documentation
 =====================
 
-Vayesta_ is a Python package for quantum embedding calculations in molecules and solids.
+Vayesta_ is a python package for performing state of the art wave function-based quantum embedding simulations of *ab initio* molecules and solids, as well as support for lattice models.
 
 .. toctree::
    :maxdepth: 3

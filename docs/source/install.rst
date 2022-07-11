@@ -23,9 +23,7 @@ Installation from Source
 ========================
 
 .. note::
-    When installing from source, the required Python packages
-    (NumPy_, SciPy_, PySCF_, h5py_) need to be installed manually.
-
+   Vayesta requires the following python packages when installing from source: NumPy_, SciPy_, PySCF_, and h5py_)
 
 To install Vayesta from source, clone the GitHub repository and use ``cmake`` and ``make`` to compile:
 

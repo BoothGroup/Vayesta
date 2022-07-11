@@ -6,29 +6,29 @@ Defining Fragments
 ==================
 
 Fragments are added within a fragmentation context manager,
-which determines in which way orbitals are associated with atoms.
+which determines in which way orbitals are constructed for particular fragment choices.
 
 Fragmentation
 -------------
 
-In order to define atomic fragments in an *ab initio* system, one needs to specify
-a set of orthogonal projectors onto atomic subspaces.
-There is no unique way to define such projectors---the question where one atom ends and the next one begins
+In order to define fragments in an *ab initio* system, one needs to specify
+a set of orthogonal projectors onto subspaces.
+There is no unique way to define such projectors---the question where one atom or orbital 'ends' and the next one begins
 within a molecule or solid is fundamentally ill-posed.
 
-Nevertheless, we do not require the atomic projectors to be uniquely defined in order to perform quantum embedding calculations.
+Nevertheless, we do not require the projectors to be uniquely defined in order to perform quantum embedding calculations.
 Within the embedded wave function (EWF) framework, the systematic improvability to the exact result is
-guaranteed via an expansion of the bath space [1]_.
-The only requirement on the fragments is that they are orthogonal and taken together span the complete **occupied** space.
-For DMET calculations, they additionally need to span the entire **virtual** space.
+guaranteed via an expansion of the bath space and appropriate choice of property functionals [1]_.
+The only requirement on the fragments is that they are orthogonal and (when taken together) they span the complete *occupied* space.
+For DMET calculations, it is additionally desirable for the union of the fragment spaces to span the entire *virtual* space.
 
-For *ab initio* systems atomic projectors can be defined in terms of three different types of atomic orbitals:
+For *ab initio* systems atomic projectors can be defined in terms of three different types of local atomic orbitals:
 
 * `Intrinsic atomic orbitals (IAO) <REF_IAO_>`_
-* IAO + `projected atomic orbitals (PAO) <REF_PAO_>`_
+* IAOs augmented with `projected atomic orbitals (PAO) <REF_PAO_>`_
 * Symmetrically (Löwdin) orthogonalized atomic orbitals (SAO)
 
-For lattice models, on the other hand, the mapping between the site basis and the sites is unambiguous.
+For lattice models, on the other hand, the mapping between the site basis and the sites is clearer and more natural to define.
 
 :numref:`table_fragmentation` shows a comparison of the the different fragmentation types:
 

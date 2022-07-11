@@ -3,7 +3,7 @@
 Installing mpi4py
 -----------------
 
-To install **mpi4py**, the following command is used to build the library:
+To install **mpi4py**, the following command can be used to build the library:
 
 .. code-block:: bash
 

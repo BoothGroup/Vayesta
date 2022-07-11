@@ -57,6 +57,14 @@ the keyword argument ``maxiter=1`` has to be dropped.
 
     see also ``example/dmet/02-rotations-symmetry.py``
 
+.. note::
+
+    The self-consistent optimization of a correlation potential in DMET can be ill-defined, and will sometimes fail. In this case, changing the tolerance or starting point can sometimes help.
+    The underlying origin of these difficulties are described in Ref. [1]_.
+
+    Our implementation of self-consistent DMET follows that of Ref. [2]_, and requires the python module ``cxvpy``
+    for use.
+
 Density-Matrices
 ----------------
 
@@ -106,3 +114,6 @@ The three integers in ``nimages`` specify the number of symmetry related copies 
 along each lattice vector.
 For a 1D system, the first lattice vector corresponds to the periodic dimension and is thus the only dimension
 along which there are more than one copies.
+
+.. [1] Faulstich et al., J. Chem. Theor. Comput. 18, 851-864 (2022).
+.. [2] Wu et al., Phys. Rev. B 102, 085123 (2020).

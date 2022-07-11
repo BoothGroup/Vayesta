@@ -5,7 +5,7 @@
 Wave Function Based Embedding (EWF)
 ===================================
 
-This tutorial introduces the ``EWF`` class to perform wave function based quantum embedding,
+This introduces the ``EWF`` class to perform a more generalized wave function based quantum embedding that improves on DMET for ab initio systems,
 as presented in `Phys. Rev. X 12, 011046 <REF_PRX_>`_ [1]_.
 
 Water Molecule
@@ -16,16 +16,12 @@ An embedded wave function calculation of a simple water molecule can be performe
 .. literalinclude:: /../../../vayesta/examples/ewf/molecules/01-simple-ccsd.py
     :linenos:
 
-Compared to the DMET embedding class presented :ref:`above <dmet>`,
-there are two main differences in the setup of the embedded wave function calculation in **lines 24--25**:
+There are two main differences in setup compared to the :ref:`DMET embedding class <dmet>` in the definition of the ``EWF`` class (lines 24--25).
 
 * The keyword argument :python:`bath_options=dict(threshold=1e-6)` defines the threshold for the MP2 bath natural orbitals
   (the variable :math:`\eta` in Ref. `1 <1_>`_) [2]_.
 
-* No fragmentation scheme is defined.
-
-In the embedded wave function method, a fragmentation into atomic fragments, defined in terms of `intrinsic atomic orbitals <REF_IAO_>`_ (IAOs),
-is assumed by default. This is equivalent to adding the following lines before calling the kernel in **line 25**:
+* No fragmentation scheme is explicitly provided, which by default results in the system being fully fragmented into simple atomic fragments as defined by `intrinsic atomic orbitals <REF_IAO_>`_ (IAOs). This is equivalent to adding the following lines before calling the embedding kernel method:
 
 .. code-block:: python
 
@@ -48,17 +44,18 @@ Cubic Boron Nitride (cBN)
 
 In this example we calculate cubic boron nitride (Zinc Blende structure):
 
+.. note::
+    The basis set, auxiliary (density fitting) basis set and **k**-point sampling in this example are much too small
+    for accurate results and only chosen for demonstration.
+
+
 .. literalinclude:: /../../../vayesta/examples/ewf/solids/03-cubic-BN.py
     :linenos:
 
-.. note::
-    The basis set and auxiliary (density fitting) basis set in this example is much too small
-    for accurate results and only chosen for demonstration.
-
 In **line 34** the setup of the embedding class is performed in the same way as for molecules.
-Vayesta will detect if the mean field object ``mf`` has **k**-point defined:
-if ``mf.kpts`` is found and not ``None``, the **k**-point sampled mean-field will automatically be folded to
-the :math:`\Gamma`-point of the equivalent (in this case :math:`2\times2\times2`) Born--von Karman supercell.
+Vayesta will detect if the mean field object ``mf`` has **k**-points defined. If these are found, then
+the **k**-point sampled mean-field will automatically be folded to the :math:`\Gamma`-point of the equivalent 
+(in this case :math:`2\times2\times2`) Born--von Karman supercell.
 
 .. note::
 
@@ -67,12 +64,13 @@ the :math:`\Gamma`-point of the equivalent (in this case :math:`2\times2\times2`
 Note that instantiating the embedding class with a **k**-point sampled mean-field object
 will automatically add the translational symmetry to the symmetry group stored in :python:`emb.symmetry`.
 This assumes that the user will only define fragments within the original primitive unit cell,
-which are then copied throughout the supercell using the translational symmetry.
-For calculations of fragments across multiple primitive cell,
+which are then copied throughout the supercell using the translational symmetry (and this symmetry will be exploited 
+to avoid the cost of solving embedded fragments which are symmetrically equivalent to others).
+For calculations of fragments across multiple primitive cells or where the primitive cell has not been explicitly 
+enlarged to encompass the full fragment space,
 the translational symmetry should be removed by calling :python:`emb.symmetry.clear_translations()`
 or overwritten via  :python:`emb.symmetry.set_translations(nimages)`, as demonstrated in
 for the 1D Hubbard model :ref:`here <dmet_hub1d>`.
-
 
 Performing the embedding in the supercell allows for optimal utilization of the locality of electron correlation,
 as the embedding problems are only restricted to have the periodicity of the supercell, rather than the **k**-point sampled
