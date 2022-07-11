@@ -290,7 +290,5 @@ class DMET(Embedding):
             dm2 = self.make_rdm2()
         return super().get_corrfunc(kind, dm1=dm1, dm2=dm2, **kwargs)
 
-    def iao_fragmentation(self, *args, **kwargs):
-        raise ValueError("IAO fragmentation is not available for DMET")
 
 RDMET = DMET
