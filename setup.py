@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import os
+import sys
 import glob
 import shlex
 import shutil
@@ -120,6 +121,11 @@ class DiscoverTests(test):
         pytest.main([src, *test_args])
 
 
+extra_link_args = []
+if sys.platform == "darwin":
+    extra_link_args.append("-Wl,-rpath,@loader_path")
+
+
 setup(
     name="Vayesta",
     version="0.0.0",
@@ -174,7 +180,10 @@ setup(
             "pyscf @ git+https://github.com/pyscf/pyscf@master",
             #"pyscf==2.0.1",
     ],
-    ext_modules=[CMakeExtension("vayesta/libs")],
+    ext_modules=[CMakeExtension(
+        "vayesta/libs",
+        extra_link_args=extra_link_args,
+    )],
     cmdclass={
             "build_ext": CMakeBuild,
             "test": DiscoverTests,

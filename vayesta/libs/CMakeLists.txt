@@ -25,6 +25,16 @@ if (APPLE)
     include_directories("${BLAS_LIBRARIES}/Frameworks/vecLib.framework/Headers")
 endif()
 
+elseif (APPLE)
+    set(CMAKE_BUILD_WITH_INSTALL_RPATH TRUE)
+    set(CMAKE_INSTALL_RPATH "@loader_path;@loader_path/deps/lib;@loader_path/deps/lib64")
+    set(CMAKE_BUILD_RPATH "@loader_path;@loader_path/deps/lib;@loader_path/deps/lib64")
+else ()
+    set(CMAKE_SKIP_BUILD_RPATH  True)
+    set(CMAKE_BUILD_WITH_INSTALL_RPATH True)
+    set(CMAKE_INSTALL_RPATH "\$ORIGIN:\$ORIGIN/deps/lib:\$ORIGIN/deps/lib64")
+endif ()
+
 # HDF5
 #find_package(HDF5 REQUIRED COMPONENTS C HL)
 #message(STATUS "HDF5 libraries: ${HDF5_LIBRARIES}")
