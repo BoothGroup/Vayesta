@@ -97,7 +97,7 @@ class DiscoverTests(test):
             ("include-slow", "s", "Include tests marked as slow"),
             ("pytest-args=", "p", "Extra arguments for pytest"),
     ]
-else
+
     def initialize_options(self):
         test.initialize_options(self)
         self.include_veryslow = False
