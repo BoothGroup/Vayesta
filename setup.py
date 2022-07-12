@@ -58,12 +58,6 @@ class CMakeBuild(build_ext):
         self.announce("Building")
         self.spawn(["cmake", "--build", self.build_temp, *build_args])
 
-    def get_ext_filename(self, ext_name):
-        ext_path = os.path.join(*ext_name.split("."))
-        fname = build_ext.get_ext_filename(self, ext_name)
-        suffix = os.path.splitext(fname)[1]
-        return ext_path + suffix
-
 
 class CleanCommand(Command):
     """Clean up files resulting from compilation except for .so shared objects.
