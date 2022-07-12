@@ -141,7 +141,7 @@ setup(
     version="0.0.0",
     description="A toolkit for quantum embedding methods",
     long_description=long_description,
-    long_description_content_type="test/markdown",
+    long_description_content_type="text/markdown",
     url="https://vayesta.github.io",
     download_url="https://github.com/BoothGroup/Vayesta",
     keywords=[
