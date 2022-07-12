@@ -67,12 +67,6 @@ class CleanCommand(Command):
     user_options = []
 
     def initialize_options(self):
-
-    def get_ext_filename(self, ext_name):
-        ext_path = os.path.join(*ext_name.split("."))
-        fname = build_ext.get_ext_filename(self, ext_name)
-        suffix = os.path.splitext(fname)[1]
-        return ext_path + suffix
         pass
 
     def finalize_options(self):
