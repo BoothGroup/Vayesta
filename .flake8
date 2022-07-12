@@ -1,0 +1,4 @@
+[flake8]
+ignore = E126, E221, E222, E226, E231, E241, E265, W503, E731, E741
+exclude = tests, .git, .github, __pycache__, __init__.py, example.py
+max-line-length = 119
