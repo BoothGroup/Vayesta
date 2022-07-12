@@ -135,7 +135,6 @@ setup(
     name="Vayesta",
     version="0.0.0",
     description="A toolkit for quantum embedding methods",
-    long_description=long_description,
     long_description=os.path.join(setup_src, "README.md").read_text(),
     long_description_content_type="test/markdown",
     url="https://vayesta.github.io",
