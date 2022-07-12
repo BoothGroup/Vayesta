@@ -24,7 +24,6 @@ Quickstart
 ----------
 
 Examples of how to use Vayesta can be found in the `vayesta/examples` directory.
-Alternatively, a tutorial can be found at TODO.
 
 
 Authors
