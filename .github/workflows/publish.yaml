@@ -20,18 +20,21 @@ jobs:
       - name: Upgrade pip
         run: |
           python -m pip install --upgrade pip
-        #- name: Run unit tests
-        #- run: |
-        #-   python -m pip install pytest pytest-cov --user
-        #-   python .github/workflows/run_tests.py
-      - name: Packaging
+      - name: Install Vayesta along with dependencies
         run: |
           python -m pip install wheel --user
           python -m pip install setuptools --upgrade --user
+          python -m pip install . --user
+      #- name: Run unit tests
+      #- run: |
+      #-   python -m pip install pytest pytest-cov --user
+      #-   python .github/workflows/run_tests.py
+      - name: Packaging
+        run: |
           python setup.py sdist
       - name: Publishing
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
           user: __token__
-          #password: ${{ secrets.PYPI_API_TOKEN }}
+          password: ${{ secrets.TESTPYPI_API_TOKEN }}
           repository_url: https://test.pypi.org/legacy
