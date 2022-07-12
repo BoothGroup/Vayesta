@@ -20,7 +20,7 @@ jobs:
         include:
           # TODO: add other python versions
           - {python-version: 3.7, os: ubuntu-latest}
-          - {python-version: 3.7, os: macos-10.15}
+          - {python-version: 3.8, os: macos-10.15}
 
     steps:
       - uses: actions/checkout@v2
@@ -38,7 +38,7 @@ jobs:
       - name: Install Vayesta along with dependencies
         run: |
           python -m pip install wheel --user
-          python -m pip install setuptools cython --upgrade --user
+          python -m pip install setuptools --upgrade --user
           python -m pip install . --user
       - name: Run unit tests
         run: |
