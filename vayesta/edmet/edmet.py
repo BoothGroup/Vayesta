@@ -371,8 +371,8 @@ class EDMET(RDMET):
     def get_active_space_energy(self, idx=0):
         """Helper function to calculate active space energy, including rpa energy correction."""
         f = self.fragments[idx]
-        eact, decomp = f.get_active_space_energy()
-        return eact + self.e_rpa - f.loc_erpa, decomp
+        eact, decomp, dm1 = f.get_active_space_energy()
+        return eact + self.e_rpa - f.loc_erpa, decomp, dm1
 
 
 REDMET = EDMET

@@ -615,6 +615,14 @@ class EDMETFragment(DMETFragment):
         # ccouplings[n,p,q] = <pi||qa>C_{nia}; can use this for energy evaluation later.
         self.energy_couplings = (einsum("nm,npq->mqp", c, ccouplings_aa), einsum("nm,npq->mqp", c, ccouplings_bb))
 
+        # Just for projected approach, let's rotate r_bos and apb/amb as well.
+        rot = scipy.linalg.block_diag(np.eye(self.ov_active_tot), c)
+
+        self.apb = dot(rot.T, self.apb, rot)
+        self.amb = dot(rot.T, self.amb, rot)
+        new_r = dot(c.T, self.r_bos)
+        self.r_bos = new_r
+
         self.log.info("Time for Bosonic Hamiltonian Projection into fragment %d:  %s", self.id,
                       time_string(timer() - t0))
         if exchange_between_bos:
@@ -753,21 +761,21 @@ class EDMETFragment(DMETFragment):
         return e1, e2, efb
 
     def get_active_space_energy(self, eris=None):
-
+        s = self.base.get_ovlp()
         e_ferm, e_core = super().get_active_space_energy(eris)
         # Now, constructed intermediate
         # \Gamma^{(0)}_{pq|rs} = \sum_n (C_{nrs}\Gamma^{eb}_{pq,n} + C_{nsr}\Gamma^{eb}_{qp,n})
         # And average over symmetry-equivalent terms when one of `r` or `s` is within the CAS.
         # Note that we have 4 nonequivalent spin options; aa, ab, bb, and ba.
-        dm = self._results.dm_eb
+        dm_eb = self._results.dm_eb
         c = self.r_bos_ao
         s = self.base.get_ovlp()
 
         gammazero = [
-            einsum("pqn,nrs->pqrs", dm[0], c[0]), # aa
-            einsum("pqn,nrs->pqrs", dm[0], c[1]), # ab
-            einsum("pqn,nrs->pqrs", dm[1], c[1]), # bb
-            einsum("pqn,nrs->pqrs", dm[1], c[0]), # ba
+            einsum("pqn,nrs->pqrs", dm_eb[0], c[0]), # aa
+            einsum("pqn,nrs->pqrs", dm_eb[0], c[1]), # ab
+            einsum("pqn,nrs->pqrs", dm_eb[1], c[1]), # bb
+            einsum("pqn,nrs->pqrs", dm_eb[1], c[0]), # ba
             ]
 
         # Add in deexcitation component for Hermiticity.
@@ -789,11 +797,11 @@ class EDMETFragment(DMETFragment):
             # Let's not try to be clever here.
             # explicitly construct in basis of cluster (while possible)
             # This is current value.
-            temp1 = einsum("pqrs,rt->pqts", gammazero_sym[n], c_act[i])
+            temp1 = einsum("pqrs,rt->pqts", gammazero_sym[n], dot(s, c_act[i]))
             # This is the value we want this projection to have.
             temp2 = 0.5 * (temp1 - temp1.transpose(2,1,0,3))
             diff = temp2 - temp1
-            diff = einsum("pqrs,tr->pqts", diff, dot(self.base.get_ovlp(), c_act[i]))
+            diff = einsum("pqrs,tr->pqts", diff, c_act[i])
             diff = diff + diff.transpose(1,0,3,2)
             # Now lets add in this update
             gammazero_sym[n] = gammazero_sym[n] + diff
@@ -803,9 +811,8 @@ class EDMETFragment(DMETFragment):
             ne *= 2
         else:
             ne = sum(ne)
-        dm1 = (einsum("pprs->rs", gammazero_sym[0]) + einsum("pprs->rs", gammazero_sym[3]) / (ne - 1),
-               einsum("pprs->rs", gammazero_sym[1]) + einsum("pprs->rs", gammazero_sym[2]) / (ne - 1))
-
+        dm1 = ((einsum("pprs->rs", gammazero_sym[0]) + einsum("pprs->rs", gammazero_sym[3])) / (ne - 1),
+               (einsum("pprs->rs", gammazero_sym[1]) + einsum("pprs->rs", gammazero_sym[2])) / (ne - 1))
         # and now one- and two-body energy corrections.
         e1_eb = einsum("pq,qp->", self.base.get_hcore(), dm1[0] + dm1[1])
 
@@ -834,7 +841,33 @@ class EDMETFragment(DMETFragment):
 
         e_tot = e_ferm + e1_eb + e2_eb
 
-        return e_tot, (e_ferm, e1_eb, e2_eb, e_core)
+        e2_v2 = einsum("pqn,npq->", dm_eb[0], self.energy_couplings[0]) + \
+                einsum("pqn,npq->", dm_eb[1], self.energy_couplings[1])
+
+        couplings = self.energy_couplings
+        efb = 0.25 * (einsum("npq,qpn", couplings[0], dm_eb[0] - dm_eb[0].transpose(1, 0, 2)) +
+                      einsum("npq,qpn", couplings[1], dm_eb[1] - dm_eb[1].transpose(1, 0, 2))
+                      )
+
+        return e_tot, (e_ferm, e1_eb, e2_eb, e_core, efb), (gammazero, gammazero_sym, dm1)
+
+    def get_active_space_dm1(self):
+        """Return the CAS-constructed 1rdm, in AOs."""
+
+        mfdm = self.base.mf.make_rdm1()
+        c = self.cluster.c_active
+
+        def replace_local_contrib(orig_dm, loc_dm, cloc):
+            ploc = dot(cloc, cloc.T)
+            s = self.base.get_ovlp()
+            return orig_dm - dot(ploc, s, orig_dm, s, ploc) + dot(cloc, loc_dm, cloc.T)
+
+
+        if self.base.is_rhf:
+            newdm = replace_local_contrib(mfdm, self.results.dm1, c)
+        else:
+            newdm = tuple([replace_local_contrib(a,b,c) for a,b,c in zip(mfdm, self.results.dm1, c)])
+        return newdm
 
 
     # From this point on have functionality to perform self-consistency.
