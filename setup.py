@@ -182,8 +182,7 @@ setup(
             "scipy>=1.1.0",
             "h5py>=2.7",
             "cvxpy>=1.1",
-            "pyscf @ git+https://github.com/pyscf/pyscf@master",
-            #"pyscf==2.0.1",
+            "pyscf @ git+https://github.com/BoothGroup/pyscf@master",
     ],
     ext_modules=[CMakeExtension("vayesta/libs")],
     cmdclass={
