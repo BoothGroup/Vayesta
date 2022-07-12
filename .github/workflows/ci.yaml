@@ -1,12 +1,6 @@
 name: CI
 
-on:
-  #push:
-  #  branches:
-  #    - actions
-  pull_request:
-    branches:
-      - actions
+on: [push, pull_request]
 
 jobs:
   build:
