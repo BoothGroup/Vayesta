@@ -67,6 +67,12 @@ class CleanCommand(Command):
     user_options = []
 
     def initialize_options(self):
+
+    def get_ext_filename(self, ext_name):
+        ext_path = os.path.join(*ext_name.split("."))
+        fname = build_ext.get_ext_filename(self, ext_name)
+        suffix = os.path.splitext(fname)[1]
+        return ext_path + suffix
         pass
 
     def finalize_options(self):
@@ -130,9 +136,18 @@ with open(os.path.join(setup_src, "README.md"), "r") as f:
     long_description = "\n".join(f.readlines())
 
 
+# Get the version from the __init__.py:
+with open(os.path.join(setup_src, "vayesta", "__init__.py"), "r") as f:
+    for line in f.readlines():
+        if line.startswith("__version__ = "):
+            version = line.strip("__version__ = ")
+            version = version.replace("\'", "")
+            version = version.replace("\"", "")
+
+
 setup(
     name="Vayesta",
-    version="0.0.0",
+    version=version,
     description="A toolkit for quantum embedding methods",
     long_description=long_description,
     long_description_content_type="text/markdown",
@@ -161,7 +176,7 @@ setup(
     ],
     python_requires=">=3.7",
     classifiers=[
-            "Development Status :: 2 - Pre-Alpha",
+            "Development Status :: 3 - Alpha",
             "License :: OSI Approved :: Apache Software License",  # FIXME?
             "Intended Audience :: Science/Research",
             "Intended Audience :: Developers",
