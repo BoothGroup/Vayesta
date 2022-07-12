@@ -1,0 +1,16 @@
+include MANIFEST.in
+include README.md setup.py CHANGELOG
+
+global-exclude *.py[cod]
+prune vayesta/libs/build
+
+recursive-include vayesta *.dat
+include vayesta/libs/*.so
+
+# MacOS dynamic libraries
+include vayesta/libs/*.dylib
+
+# Source code
+prune vayesta/libs/build
+recursive-include vayesta/libs *.c *.h CMakeLists.txt
+recursive-exclude vayesta/libs *.cl
