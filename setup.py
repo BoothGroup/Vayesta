@@ -97,7 +97,7 @@ class DiscoverTests(test):
             ("include-slow", "s", "Include tests marked as slow"),
             ("pytest-args=", "p", "Extra arguments for pytest"),
     ]
-
+else
     def initialize_options(self):
         test.initialize_options(self)
         self.include_veryslow = False
@@ -123,6 +123,12 @@ class DiscoverTests(test):
         test_args += shlex.split(self.pytest_args)
 
         pytest.main([src, *test_args])
+
+
+# From PySCF - ensure the order of build sub-commands:
+from distutils.command.build import build
+build.sub_commands = ([c for c in build.sub_commands if c[0] == 'build_ext'] +
+                      [c for c in build.sub_commands if c[0] != 'build_ext'])
 
 
 setup(
