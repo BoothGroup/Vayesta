@@ -133,7 +133,10 @@ build.sub_commands = ([c for c in build.sub_commands if c[0] == 'build_ext'] +
 
 # Grab long description from the docs:
 with open(os.path.join(setup_src, "docs", "source", "intro.rst"), "r") as f:
-    long_description = "\n".join(f.readlines())
+    lines = f.readlines()
+    while not lines[1].startswith("Introduction"):
+        lines.pop(0)
+    long_description = "\n".join(lines)
 
 
 setup(
@@ -177,6 +180,7 @@ setup(
             "Programming Language :: Python :: 3.7",
             "Programming Language :: Python :: 3.8",
             "Programming Language :: Python :: 3.9",
+            "Programming Language :: Python :: 3.10",
             "Programming Language :: C",
             "Operating System :: MacOS :: MacOS X",
             "Operating System :: POSIX :: Linux",
