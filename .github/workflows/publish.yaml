@@ -20,11 +20,11 @@ jobs:
       - name: Upgrade pip
         run: |
           python -m pip install --upgrade pip
-      - name: Install Vayesta along with dependencies
-        run: |
-          python -m pip install wheel --user
-          python -m pip install setuptools --upgrade --user
-          python -m pip install . --user
+      #- name: Install Vayesta along with dependencies
+      #- run: |
+      #-   python -m pip install wheel --user
+      #-   python -m pip install setuptools --upgrade --user
+      #-   python -m pip install . --user
       #- name: Run unit tests
       #- run: |
       #-   python -m pip install pytest pytest-cov --user
@@ -37,4 +37,4 @@ jobs:
         with:
           user: __token__
           password: ${{ secrets.TESTPYPI_API_TOKEN }}
-          repository_url: https://test.pypi.org/legacy
+          repository_url: https://test.pypi.org/legacy/
