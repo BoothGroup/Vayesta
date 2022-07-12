@@ -131,11 +131,16 @@ build.sub_commands = ([c for c in build.sub_commands if c[0] == 'build_ext'] +
                       [c for c in build.sub_commands if c[0] != 'build_ext'])
 
 
+# Get the long_description from the README:
+with open(os.path.join(setup_src, "README.md"), "r") as f:
+    long_description = "\n".join(f.readlines())
+
+
 setup(
     name="Vayesta",
     version="0.0.0",
     description="A toolkit for quantum embedding methods",
-    long_description=os.path.join(setup_src, "README.md").read_text(),
+    long_description=long_description,
     long_description_content_type="test/markdown",
     url="https://vayesta.github.io",
     download_url="https://github.com/BoothGroup/Vayesta",
