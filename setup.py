@@ -10,7 +10,7 @@ from setuptools import setup, find_packages, Extension, Command
 from setuptools.command.test import test
 from setuptools.command.build_ext import build_ext
 
-setup_src = os.path.abspath(os.path.join(__file__, ".."))
+setup_src = os.path.dirname(os.path.realpath(__file__))
 
 # TODO: mpi4py as optional extra
 
