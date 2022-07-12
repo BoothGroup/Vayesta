@@ -6,6 +6,8 @@ import pyscf
 import pyscf.cc
 
 from vayesta.core.util import *
+from vayesta.core.vpyscf import uccsd_rdm
+from vayesta.ewf.rdm import _get_mockcc
 from vayesta.mpi import mpi
 
 
@@ -197,9 +199,6 @@ def make_rdm1_ccsd_global_wf(emb, ao_basis=False, with_mf=True, t_as_lambda=Fals
     if slow:
         t1 = emb.get_global_t1()
         t2 = emb.get_global_t2()
-        mockcc = Object()
-        mockcc.frozen = None
-        mockcc.mo_coeff = emb.mo_coeff
         if t_as_lambda:
             l1, l2 = t1, t2
         else:
@@ -207,7 +206,9 @@ def make_rdm1_ccsd_global_wf(emb, ao_basis=False, with_mf=True, t_as_lambda=Fals
             l2 = emb.get_global_l2()
         if not with_t1:
             t1 = l1 = (np.zeros_like(t1[0]), np.zeros_like(t1[1]))
-        dm1 = pyscf.cc.uccsd_rdm.make_rdm1(mockcc, t1=t1, t2=t2, l1=l1, l2=l2, ao_repr=ao_basis, with_mf=with_mf)
+        mockcc = _get_mockcc(emb.mo_coeff, emb.mf.max_memory)
+        #dm1 = pyscf.cc.uccsd_rdm.make_rdm1(mockcc, t1=t1, t2=t2, l1=l1, l2=l2, ao_repr=ao_basis, with_mf=with_mf)
+        dm1 = uccsd_rdm.make_rdm1(mockcc, t1=t1, t2=t2, l1=l1, l2=l2, ao_repr=ao_basis, with_mf=with_mf)
         return dm1
 
     # TODO
@@ -237,13 +238,14 @@ def make_rdm2_ccsd_global_wf(emb, ao_basis=False, symmetrize=False, t_as_lambda=
     if slow:
         t1 = emb.get_global_t1()
         t2 = emb.get_global_t2()
-        cc = pyscf.cc.uccsd.UCCSD(emb.mf)
         if t_as_lambda:
             l1, l2 = t1, t2
         else:
             l1 = emb.get_global_t1(get_lambda=True)
             l2 = emb.get_global_t2(get_lambda=True)
-        dm2 = cc.make_rdm2(t1=t1, t2=t2, l1=l1, l2=l2, with_frozen=False, with_dm1=with_dm1)
+        mockcc = _get_mockcc(emb.mo_coeff, emb.mf.max_memory)
+        #dm2 = pyscf.cc.uccsd_rdm.make_rdm2(mockcc, t1=t1, t2=t2, l1=l1, l2=l2, with_frozen=False, with_dm1=with_dm1)
+        dm2 = uccsd_rdm.make_rdm2(mockcc, t1=t1, t2=t2, l1=l1, l2=l2, with_frozen=False, with_dm1=with_dm1)
     else:
         raise NotImplementedError()
     if ao_basis:

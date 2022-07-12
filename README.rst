@@ -1,4 +1,5 @@
-# Vayesta
+Vayesta
+=========================
 
 Vayesta is a toolkit for quantum embedding methods.
 

@@ -225,9 +225,9 @@ class Embedding:
                 raise ValueError("Unknown solver: %s" % solver)
             self.solver = solver
             self.symmetry = SymmetryGroup(self.mol)
-            translation = getattr(self.mf, 'subcellmesh', None)
-            if translation:
-                self.symmetry.set_translation(translation)
+            nimages = getattr(self.mf, 'subcellmesh', None)
+            if nimages:
+                self.symmetry.set_translations(nimages)
             # Rotations need to be added manually!
 
             self.register = FragmentRegister()
@@ -265,7 +265,7 @@ class Embedding:
         mf = copy.copy(mf)
         self.log.debugv("type(mf)= %r", type(mf))
         # If the mean-field has k-points, automatically fold to the supercell:
-        if hasattr(mf, 'kpts') and mf.kpts is not None:
+        if getattr(mf, 'kpts', None) is not None:
             with log_time(self.log.timing, "Time for k->G folding of MOs: %s"):
                 mf = fold_scf(mf)
         if isinstance(mf, FoldedSCF):
@@ -1158,7 +1158,7 @@ class Embedding:
         raise ValueError("Unknown local orbitals: %r" % local_orbitals)
 
     def pop_analysis(self, dm1, mo_coeff=None, local_orbitals='lowdin', minao='auto', write=True, filename=None, filemode='a',
-            full=False, mpi_rank=0):
+            orbital_resolved=False, mpi_rank=0):
         """
         Parameters
         ----------
@@ -1192,7 +1192,7 @@ class Embedding:
             pop = einsum('ia,ab,ib->i', cs, dm1, cs)
 
         if write and (mpi.rank == mpi_rank):
-            self.write_population(pop, filename=filename, filemode=filemode, full=full)
+            self.write_population(pop, filename=filename, filemode=filemode, orbital_resolved=orbital_resolved)
         return pop
 
     def get_atomic_charges(self, pop):
@@ -1206,9 +1206,9 @@ class Embedding:
         charges += self.mol.atom_charges()
         return charges, spins
 
-    def write_population(self, pop, filename=None, filemode='a', full=False):
+    def write_population(self, pop, filename=None, filemode='a', orbital_resolved=False):
         charges, spins = self.get_atomic_charges(pop)
-        if full:
+        if orbital_resolved:
             aoslices = self.mol.aoslice_by_atom()[:,2:]
             aolabels = self.mol.ao_labels()
 
@@ -1229,7 +1229,7 @@ class Embedding:
 
         for atom, charge in enumerate(charges):
             write("%3d %-7s  q= % 11.8f  s= % 11.8f", atom, self.mol.atom_symbol(atom) + ':', charge, spins[atom])
-            if full:
+            if orbital_resolved:
                 aos = aoslices[atom]
                 for ao in range(aos[0], aos[1]):
                     label = aolabels[ao]

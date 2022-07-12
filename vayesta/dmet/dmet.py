@@ -91,7 +91,7 @@ class DMET(Embedding):
         if self.opts.bath_options['bathtype'] == 'mp2' and maxiter > 1:
             raise NotImplementedError("MP2 bath calculation is currently ignoring the correlation potential, so does"
                                       " not work properly for self-consistent calculations.")
-        # rdm = self.mf.make_rdm1()
+
         fock = self.get_fock()
         if self.vcorr is None:
             self.vcorr = np.zeros((self.nao,) * 2)
@@ -115,8 +115,8 @@ class DMET(Embedding):
         self.converged = False
         for iteration in range(1, maxiter + 1):
             self.iteration = iteration
-            self.log.info("Now running iteration= %2d", iteration)
-            self.log.info("****************************************************")
+            self.log.info("Now running iteration %2d", iteration)
+            self.log.info("------------------------")
             if iteration > 1:
                 # For first iteration want to run on provided mean-field state.
                 mo_energy, mo_coeff = mf.eig(fock + self.vcorr, self.get_ovlp())
@@ -219,7 +219,7 @@ class DMET(Embedding):
         for x, frag in enumerate(parent_fragments):
             msg = "Now running %s" % (frag)
             self.log.info(msg)
-            self.log.info(len(msg) * "*")
+            self.log.info(len(msg) * "-")
             self.log.changeIndentLevel(1)
 
             try:
@@ -261,7 +261,7 @@ class DMET(Embedding):
 
     def print_results(self):  # , results):
         self.log.info("Energies")
-        self.log.info("********")
+        self.log.info("========")
         fmt = "%-20s %+16.8f Ha"
         # for i, frag in enumerate(self.loop()):
         #    e_corr = results["e_corr"][i]
@@ -277,11 +277,18 @@ class DMET(Embedding):
         for frag in self.loop():
             self.log.info("%3d  %20s  %8s  %4d", frag.id, frag.name, frag.solver, frag.size)
 
+    def make_rdm1(self, *args, **kwargs):
+        return self.make_rdm1_demo(*args, **kwargs)
+
+    def make_rdm2(self, *args, **kwargs):
+        return self.make_rdm2_demo(*args, **kwargs)
+
     def get_corrfunc(self, kind, dm1=None, dm2=None, **kwargs):
         if dm1 is None:
-            dm1 = self.make_rdm1_demo()
+            dm1 = self.make_rdm1()
         if dm2 is None:
-            dm2 = self.make_rdm2_demo()
+            dm2 = self.make_rdm2()
         return super().get_corrfunc(kind, dm1=dm1, dm2=dm2, **kwargs)
+
 
 RDMET = DMET

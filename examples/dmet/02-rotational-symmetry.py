@@ -1,3 +1,5 @@
+"""This example is identical to 01-simple-dmet.py, but uses the rotational symmetry of the system,
+such that only a single fragment needs to be solved"""
 import pyscf.gto
 import pyscf.scf
 import pyscf.fci
@@ -22,18 +24,16 @@ fci.kernel()
 
 # One-shot DMET
 dmet = vayesta.dmet.DMET(mf, solver='FCI', maxiter=1)
+dmet.symmetry.add_rotation(3, axis=[0,0,1], center=[0,0,0])
 with dmet.sao_fragmentation() as f:
     f.add_atomic_fragment([0,1])
-    f.add_atomic_fragment([2,3])
-    f.add_atomic_fragment([4,5])
 dmet.kernel()
 
 # Self-consistent DMET
 dmet_sc = vayesta.dmet.DMET(mf, solver='FCI')
+dmet_sc.symmetry.add_rotation(3, axis=[0,0,1], center=[0,0,0])
 with dmet_sc.sao_fragmentation() as f:
     f.add_atomic_fragment([0,1])
-    f.add_atomic_fragment([2,3])
-    f.add_atomic_fragment([4,5])
 dmet_sc.kernel()
 
 print("Energies")
