@@ -84,5 +84,46 @@ Finally, in the folder where the folder **source** is located, one can compile t
 The **sphinx-apidocs** will take some time to create all the necessary **.rst** docs. Afterwars, one can compile the documentation 
 in the usual **make** way.
 
+Cloning this branch:
+^^^^^^^^^^^^^^^^^^^^^^
+
+.. code-block:: console
+
+   git clone -b apidocs --single-branch git@github.com:BoothGroup/Vayesta.git
+
+Pushing into this branch:
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+make changes, if you have used the -b tutorials then 
+
+.. code-block:: console
+
+   git remote show origin 
+
+must show the following result
+
+.. code-block:: console
+
+   * remote origin
+  Fetch URL: git@github.com:BoothGroup/Vayesta.git
+  Push  URL: git@github.com:BoothGroup/Vayesta.git
+  HEAD branch: master
+  Remote branch:
+    apidocs tracked
+  Local branch configured for 'git pull':
+    apidocs merges with remote apidocs
+  Local ref configured for 'git push':
+    apidocs pushes to apidocs (up-to-date)
+
+If this is **true**, then you dont need to do anything else of defining origins. Then, to push changes, you just need to do
+
+.. code-block:: console
+
+    git status  
+    git add --all -f  (sometimes the build directory is seen in the .gitignore)
+    git pull
+    git push
+
+and the changes will be done in the tutorials branch.
 
 
