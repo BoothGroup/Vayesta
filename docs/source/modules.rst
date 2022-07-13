@@ -1,7 +1,7 @@
-ewf
-===
+Modules
+===========
 
 .. toctree::
    :maxdepth: 4
 
-   ewf
+   vayesta
