@@ -11,6 +11,9 @@ jobs:
       - name: Install dependencies
         run: |
           pip install sphinx sphinx_rtd_theme
+      - Install vayesta without building:
+        run: |
+          export PYTHONPATH=$PYTHONPATH:${GITHUB_WORKSPACE}/vayesta
       - name: Sphinx build
         run : |
           cd docs
