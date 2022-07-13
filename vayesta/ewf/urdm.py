@@ -195,6 +195,9 @@ def make_rdm1_ccsd_global_wf(emb, ao_basis=False, with_mf=True, t_as_lambda=Fals
     if t_as_lambda is None:
         t_as_lambda = emb.opts.t_as_lambda
 
+    nocca, noccb = emb.nocc
+    nvira, nvirb = emb.nvir
+
     # === Slow algorithm (O(N^5)?): Form global N^4 T2/L2-amplitudes first
     if slow:
         t1 = emb.get_global_t1()
@@ -208,11 +211,406 @@ def make_rdm1_ccsd_global_wf(emb, ao_basis=False, with_mf=True, t_as_lambda=Fals
             t1 = l1 = (np.zeros_like(t1[0]), np.zeros_like(t1[1]))
         mockcc = _get_mockcc(emb.mo_coeff, emb.mf.max_memory)
         #dm1 = pyscf.cc.uccsd_rdm.make_rdm1(mockcc, t1=t1, t2=t2, l1=l1, l2=l2, ao_repr=ao_basis, with_mf=with_mf)
-        dm1 = uccsd_rdm.make_rdm1(mockcc, t1=t1, t2=t2, l1=l1, l2=l2, ao_repr=ao_basis, with_mf=with_mf)
-        return dm1
+        dm1a, dm1b = uccsd_rdm.make_rdm1(mockcc, t1=t1, t2=t2, l1=l1, l2=l2, ao_repr=ao_basis, with_mf=with_mf)
+        return dm1a, dm1b
 
-    # TODO
-    raise NotImplementedError
+    # === Fast algorithm via fragment-fragment loop
+    # --- Setup
+    if ovlp_tol is None:
+        ovlp_tol = svd_tol
+    total_sv_a = kept_sv_a = 0
+    total_sv_b = kept_sv_b = 0
+    total_xy = kept_xy = 0
+    # T1/L1-amplitudes can be summed directly
+    if with_t1:
+        t1a, t1b = emb.get_global_t1()
+        l1a, l1b = (t1 if t_as_lambda else emb.get_global_l1())
+    # Preconstruct some matrices, since the construction scales as N^3
+    if use_sym:
+        raise NotImplemented()
+        ovlp = emb.get_ovlp()
+        cs_occ = np.dot(emb.mo_coeff_occ.T, ovlp)
+        cs_vir = np.dot(emb.mo_coeff_vir.T, ovlp)
+    # Make projected WF available via remote memory access
+    if mpi:
+        raise NotImplemented()
+        # TODO: use L-amplitudes of cluster X and T-amplitudes,
+        # Only send T-amplitudes via RMA?
+        rma = {x.id: x.results.pwf.pack() for x in emb.get_fragments(active=True, mpi_rank=mpi.rank)}
+        rma = mpi.create_rma_dict(rma)
+
+    # --- Loop over pairs of fragments and add projected density-matrix contributions:
+
+
+
+    dooa = np.zeros((nocca, nocca))
+    doob = np.zeros((noccb, noccb))
+    dvva = np.zeros((nvira, nvira))
+    dvvb = np.zeros((nvirb, nvirb))
+
+    xt1a = np.zeros((nvira, nocca))
+    xt1b = np.zeros((nvirb, noccb))
+    xt2a = np.zeros((nvira, nocca))
+    xt2b = np.zeros((nvirb, noccb))
+
+    dvoa = np.zeros((nvira, nocca))
+    dvob = np.zeros((nvirb, noccb))
+
+    if with_t1:
+        dova = np.zeros((nocca, nvira))
+        dovb = np.zeros((noccb, nvirb))
+    xfilter = dict(sym_parent=None) if use_sym else {}
+    for x in emb.get_fragments(active=True, mpi_rank=mpi.rank, **xfilter):
+        wfx = x.results.pwf.as_ccsd()
+        if not late_t2_sym:
+            wfx = wfx.restore()
+
+        t2aa = wfx.t2aa
+        t2ab = wfx.t2ab
+        t2bb = wfx.t2bb
+
+        # Intermediates: leave left index in cluster-x basis:
+        dooxa = np.zeros((x.cluster.nocc_active[0], emb.nocc[0]))
+        dooxb = np.zeros((x.cluster.nocc_active[1], emb.nocc[1]))
+        dvvxa = np.zeros((x.cluster.nvir_active[0], emb.nvir[0]))
+        dvvxb = np.zeros((x.cluster.nvir_active[1], emb.nvir[1]))
+        dvoxa = np.zeros((x.cluster.nvir_active[0], x.cluster.nocc_active[0]))
+        dvoxb = np.zeros((x.cluster.nvir_active[1], x.cluster.nocc_active[1]))
+
+        xt1xa = np.zeros((x.cluster.nocc_active[0], nocca))
+        xt1xb = np.zeros((x.cluster.nocc_active[1], noccb))
+        xt2xa = np.zeros((x.cluster.nvir_active[0], nvira))
+        xt2xb = np.zeros((x.cluster.nvir_active[1], nvirb))
+
+        cx_occ_a, cx_occ_b = x.get_overlap('mo[occ]|cluster[occ]')
+        cx_vir_a, cx_vir_b = x.get_overlap('mo[vir]|cluster[vir]')
+
+        # Loop over ALL fragments y:
+        for y in emb.get_fragments(active=True):
+
+            if mpi:
+                if y.solver == 'MP2':
+                    wfy = UMP2_WaveFunction.unpack(rma[y.id]).as_ccsd()
+                else:
+                    wfy = UCCSD_WaveFunction.unpack(rma[y.id])
+            else:
+                wfy = y.results.pwf.as_ccsd()
+            if not late_t2_sym:
+                wfy = wfy.restore()
+
+            # Constructing these overlap matrices scales as N(AO)^2,
+            # however they are cashed and will only be calculated N(frag) times
+            cy_occ_a, cy_occ_b = y.get_overlap('mo[occ]|cluster[occ]')
+            cy_vir_a, cy_vir_b = y.get_overlap('mo[vir]|cluster[vir]')
+            # Overlap between cluster-x and cluster-y:
+            rxy_occ_a, rxy_occ_b = np.dot(cx_occ_a.T, cy_occ_a), np.dot(cx_occ_b.T, cy_occ_b)
+            rxy_vir_a, rxy_vir_b = np.dot(cx_vir_a.T, cy_vir_a), np.dot(cx_vir_b.T, cy_vir_b)
+
+            if svd_tol is not None:
+                raise NotImplemented()
+                def svd(a):
+                    #nonlocal total_sv, kept_sv
+                    u, s, v = np.linalg.svd(a, full_matrices=False)
+                    if svd_tol is not None:
+                        keep = (s >= svd_tol)
+                        total_sv += len(keep)
+                        kept_sv += sum(keep)
+                        u, s, v = u[:,keep], s[keep], v[keep]
+                    return u, s, v
+                uxy_occ, sxy_occ, vxy_occ = svd(rxy_occ)
+                uxy_vir, sxy_vir, vxy_vir = svd(rxy_vir)
+                uxy_occ *= np.sqrt(sxy_occ)[np.newaxis,:]
+                uxy_vir *= np.sqrt(sxy_vir)[np.newaxis,:]
+                vxy_occ *= np.sqrt(sxy_occ)[:,np.newaxis]
+                vxy_vir *= np.sqrt(sxy_vir)[:,np.newaxis]
+            else:
+                nsv_a = (min(rxy_occ_a.shape[0], rxy_occ_a.shape[1])
+                     + min(rxy_vir_a.shape[0], rxy_vir_a.shape[1]))
+                total_sv_a = kept_sv_a = (total_sv_a + nsv_a)
+                nsv_b = (min(rxy_occ_b.shape[0], rxy_occ_b.shape[1])
+                     + min(rxy_vir_b.shape[0], rxy_vir_b.shape[1]))
+                total_sv_b = kept_sv_b = (total_sv_b + nsv_b)
+
+            # --- If ovlp_tol is given, the cluster x-y pairs will be screened based on the
+            # largest singular value of the occupied and virtual overlap matrices
+            total_xy += 1
+            if ovlp_tol is not None:
+                if svd_tol:
+                    rxy_occ_norm = (sxy_occ[0] if len(sxy_occ) > 0 else 0.0)
+                    rxy_vir_norm = (sxy_vir[0] if len(sxy_vir) > 0 else 0.0)
+                else:
+                    rxy_occ_a_norm = np.linalg.norm(rxy_occ_a, ord=2)
+                    rxy_occ_b_norm = np.linalg.norm(rxy_occ_b, ord=2)
+                    rxy_vir_a_norm = np.linalg.norm(rxy_vir_a, ord=2)
+                    rxy_vir_b_norm = np.linalg.norm(rxy_vir_b, ord=2)
+                if (min(rxy_occ_a_norm, rxy_occ_b_norm, rxy_vir_a_norm, rxy_vir_b_norm) < ovlp_tol):
+                    emb.log.debugv("Overlap of fragment pair %s - %s below %.2e; skipping pair.", x, y, ovlp_tol)
+                    continue
+            kept_xy += 1
+
+            l1ya, l1yb = wfy.t1 if (t_as_lambda or y.solver == 'MP2') else wfy.l1
+            l2aa, l2ab, l2bb = wfy.t2 if (t_as_lambda or y.solver == 'MP2') else wfy.l2
+
+            if l2aa is None or l2ab is None or l2bb is None:
+                raise RuntimeError("No L2 amplitudes found for %s!" % y)
+
+            # Theta_jk^ab * l_ik^ab -> ij
+            #doox -= einsum('jkab,IKAB,kK,aA,bB,QI->jQ', theta, l2, rxy_occ, rxy_vir, rxy_vir, cy_occ)
+            ## Theta_ji^ca * l_ji^cb -> ab
+            #dvvx += einsum('jica,JICB,jJ,iI,cC,QB->aQ', theta, l2, rxy_occ, rxy_occ, rxy_vir, cy_vir)
+
+            # Only multiply with O(N)-scaling cy_occ/cy_vir in last step:
+
+            if not late_t2_sym:
+                if svd_tol is None:
+                    tlaa = einsum('(ijab,jJ,aA->iJAb),IJAB->iIbB', t2aa, rxy_occ_a, rxy_vir_a, l2aa)
+                    tlab = einsum('(ijab,jJ,aA->iJAb),IJAB->iIbB', t2ab, rxy_occ_b, rxy_vir_b, l2ab)
+                    tlbb = einsum('(ijab,jJ,aA->iJAb),IJAB->iIbB', t2bb, rxy_occ_b, rxy_vir_b, l2bb)
+
+                    # OO block
+                    dooxa -= 0.5 * einsum('(ijab,jJ,aA,bB,qI),IJAB->iq', t2aa, rxy_occ_a, rxy_vir_a, rxy_vir_a, cy_occ_a, l2aa)
+                    dooxa -= einsum('(ijab,jJ,aA,bB,qI),IJAB->iq', t2ab, rxy_occ_b, rxy_vir_a, rxy_vir_b, cy_occ_a, l2ab)
+                    dooxb -= 0.5 * einsum('(ijab,jJ,aA,bB,qI),IJAB->iq', t2bb, rxy_occ_b, rxy_vir_b, rxy_vir_b, cy_occ_b, l2bb)
+                    dooxb -= einsum('(ijab,iI,aA,bB,qJ),IJAB->jq', t2ab, rxy_occ_a, rxy_vir_a, rxy_vir_b, cy_occ_a, l2ab)
+
+                    # VV block
+                    dvvxa += 0.5 * einsum('(ijab,iI,jJ,bB,qA),IJAB->aq', t2aa, rxy_occ_a, rxy_occ_a, rxy_vir_a, cy_vir_a, l2aa)
+                    dvvxa += einsum('(ijab,iI,jJ,bB,qA),IJAB->aq', t2ab, rxy_occ_a, rxy_occ_b, rxy_vir_b, cy_vir_a, l2ab)
+                    dvvxb += 0.5 * einsum('(ijab,iI,jJ,bB,qA),IJAB->aq', t2bb, rxy_occ_b, rxy_occ_b, rxy_vir_b, cy_vir_b, l2bb)
+                    dvvxb += einsum('(ijab,iI,jJ,aA,qB),IJAB->bq', t2ab, rxy_occ_a, rxy_occ_b, rxy_vir_a, cy_vir_b, l2ab)
+
+                    # VO block
+                    xt1xa += 0.5 * einsum('(ijab,jJ,aA,bB,qI),IJAB->iq', t2aa, rxy_occ_a, rxy_vir_a, rxy_vir_a, cy_occ_a, l2aa)
+                    xt1xa += einsum('(ijab,jJ,aA,bB,qI),IJAB->iq', t2ab, rxy_occ_b, rxy_vir_a, rxy_vir_b, cy_occ_a, l2ab)
+                    xt2xa += 0.5 * einsum('(ijab,iI,jJ,bB,qA),IJAB->aq', t2aa, rxy_occ_a, rxy_occ_a, rxy_vir_a, cy_vir_a, l2aa)
+                    xt2xa += einsum('(ijab,iI,jJ,bB,qA),IJAB->aq', t2ab, rxy_occ_a, rxy_occ_b, rxy_vir_b, cy_vir_a, l2ab)
+
+                    xt1xb += 0.5 * einsum('(ijab,jJ,aA,bB,qI),IJAB->iq', t2bb, rxy_occ_b, rxy_vir_b, rxy_vir_b, cy_occ_b, l2bb)
+                    xt1xb += einsum('(ijab,iI,aA,bB,qJ),IJAB->jq', t2ab, rxy_occ_a, rxy_vir_a, rxy_vir_b, cy_occ_b, l2ab)
+                    xt2xb += 0.5 * einsum('(ijab,iI,jJ,bB,qA),IJAB->aq', t2bb, rxy_occ_b, rxy_occ_b, rxy_vir_b, cy_vir_b, l2bb)
+                    xt2xb += einsum('(ijab,iI,jJ,aA,qB),IJAB->bq', t2ab, rxy_occ_a, rxy_occ_b, rxy_vir_b, cy_vir_b, l2ab)
+
+                    dvoxa += einsum('(ijab,jJ,bB),JB->ai', t2aa, rxy_occ_a, rxy_vir_a, l1ya)
+                    dvoxa += einsum('(ijab,jJ,bB),JB->ai', t2ab, rxy_occ_b, rxy_vir_b, l1yb)
+                    dvoxb += einsum('(ijab,jJ,bB),JB->ai', t2bb, rxy_occ_b, rxy_vir_b, l1yb)
+                    dvoxb += einsum('(ijab,iI,aA),IA->bj', t2ab, rxy_occ_a, rxy_vir_a, l1ya)
+
+                else:
+                    tmp = einsum('(ijab,jS,aP->iSPb),(SJ,PA,IJAB->ISPB)->iIbB', theta, uxy_occ, uxy_vir, vxy_occ, vxy_vir, l2)
+
+                # tmpo = -einsum('iIbB,bB->iI', tmp, rxy_vir)
+                # doox += np.dot(tmpo, cy_occ.T)
+                # tmpv = einsum('iIbB,iI->bB', tmp, rxy_occ)
+                # dvvx += np.dot(tmpv, cy_vir.T)
+            else:
+                raise NotImplemented()
+                # Calculate some overlap matrices:
+                cfx = x.get_overlap('cluster[occ]|frag')
+                cfy = y.get_overlap('cluster[occ]|frag')
+                mfx = x.get_overlap('mo[occ]|frag')
+                mfy = y.get_overlap('mo[occ]|frag')
+                if svd_tol is None:
+                    cfxy_occ = dot(rxy_occ, cfy)
+                    cfyx_occ = dot(rxy_occ.T, cfx)
+                    ffxy = dot(cfx.T, rxy_occ, cfy)
+                else:
+                    cfxy_occ = dot(uxy_occ, vxy_occ, cfy)
+                    cfyx_occ = dot(vxy_occ.T, uxy_occ.T, cfx)
+                    ffxy = dot(cfx.T, uxy_occ, vxy_occ, cfy)
+
+                # --- Occupied
+                # Deal with both virtual overlaps here:
+                if svd_tol is None:
+                    t2tmp = einsum('xjab,aA,bB->xjAB', theta, rxy_vir, rxy_vir) # frag * cluster^4
+                    l2tmp = l2
+                else:
+                    t2tmp = einsum('xjab,aS,bP->xjSP', theta, uxy_vir, uxy_vir)
+                    l2tmp = einsum('yjab,Sa,Pb->yjSP', l2, vxy_vir, vxy_vir)
+                # T2 * L2
+                if svd_tol is None:
+                    tmp = -einsum('(xjAB,jJ->xJAB),YJAB->xY', t2tmp, rxy_occ, l2tmp)/4
+                else:
+                    tmp = -einsum('(xjAB,jS->xSAB),(SJ,YJAB->YSAB)->xY', t2tmp, uxy_occ, vxy_occ, l2tmp)/4
+                doox += dot(cfx, tmp, mfy.T)
+                # T2 * L2.T
+                tmp = -einsum('(xjAB,jY->xYAB),YIBA->xI', t2tmp, cfxy_occ, l2tmp)/4
+                doox += dot(cfx, tmp, cy_occ.T)
+                # T2.T * L2
+                tmp = -einsum('xiBA,(Jx,YJAB->YxAB)->iY', t2tmp, cfyx_occ, l2tmp)/4
+                doox += np.dot(tmp, mfy.T)
+                # T2.T * L2.T
+                tmp = -einsum('xiBA,xY,YIBA->iI', t2tmp, ffxy, l2tmp)/4
+                doox += np.dot(tmp, cy_occ.T)
+
+                # --- Virtual
+                # T2 * L2 and T2.T * L2.T
+                if svd_tol is None:
+                    t2tmp = einsum('xjab,xY,jJ->YJab', theta, ffxy, rxy_occ)
+                    tmp = einsum('(YJab,aA->YJAb),YJAB->bB', t2tmp, rxy_vir, l2)/4
+                    tmp += einsum('(YIba,aA->YIbA),YIBA->bB', t2tmp, rxy_vir, l2)/4
+                else:
+                    raise NotImplemented()
+                    t2tmp = einsum('xjab,jS->xSab', theta, uxy_occ)
+                    l2tmp = einsum('YJAB,SJ,xY->xSAB', l2, vxy_occ, ffxy)
+                    tmp = einsum('(xSab,aP->xSPb),(PA,xSAB->xSPB)->bB', t2tmp, uxy_vir, vxy_vir, l2tmp)/4
+                    tmp += einsum('(xSba,aP->xSbP),(PA,xSBA->xSBP)->bB', t2tmp, uxy_vir, vxy_vir, l2tmp)/4
+                # T2 * L2.T and T2.T * L2
+                t2tmp = einsum('xjab,jY->xYab', theta, cfxy_occ)
+                l2tmp = einsum('Jx,YJAB->YxAB', cfyx_occ, l2)
+                if svd_tol is None:
+                    tmp += einsum('(xYab,aA->xYAb),YxBA->bB', t2tmp, rxy_vir, l2tmp)/4
+                    tmp += einsum('(xYba,aA->xYbA),YxAB->bB', t2tmp, rxy_vir, l2tmp)/4
+                else:
+                    raise NotImplemented()
+                    tmp += einsum('(xYab,aS->xYSb),(SA,YxBA->YxBS)->bB', t2tmp, uxy_vir, vxy_vir, l2tmp)/4
+                    tmp += einsum('(xYba,aS->xYbS),(SA,YxAB->YxSB)->bB', t2tmp, uxy_vir, vxy_vir, l2tmp)/4
+                dvvx += np.dot(tmp, cy_vir.T)
+
+        dooa += np.dot(cx_occ_a, dooxa)
+        doob += np.dot(cx_occ_b, dooxb)
+        dvva += np.dot(cx_vir_a, dvvxa)
+        dvvb += np.dot(cx_vir_b, dvvxb)
+        xt1a += np.dot(cx_occ_a, xt1xa)
+        xt1b += np.dot(cx_occ_b, xt1xb)
+        xt2a += np.dot(cx_vir_a, xt2xa)
+        xt2b += np.dot(cx_vir_b, xt2xb)
+        dvoa += einsum('ij,jk,lk->il', cx_vir_a, dvoxa, cx_occ_a)
+        dvob += einsum('ij,jk,lk->il', cx_vir_b, dvoxa, cx_occ_b)
+        if use_sym:
+            symtree = x.get_symmetry_tree()
+
+        if with_t1:
+            #l1x = dot(cx_occ.T, l1, cx_vir)
+            if not late_t2_sym:
+                pass
+                #dovx = einsum('ijab,jb->ia', theta, l1x)
+                #dov += einsum('ia,Ii,Aa->IA', dovx, cx_occ, cx_vir)
+            else:
+                cfx = x.get_overlap('cluster[occ]|frag')
+                dovx1 = einsum('xjab,jb->xa', theta, l1x)/2
+                dovx2 = einsum('xiba,(jx,jb->xb)->ia', theta, cfx, l1x)/2
+                dov += dot(cx_occ, cfx, dovx1, cx_vir.T)
+                dov += dot(cx_occ, dovx2, cx_vir.T)
+            if use_sym:
+                for x2, x2_children in symtree:
+                    cx2_occ = x2.get_overlap('mo[occ]|cluster[occ]')
+                    cx2_vir = x2.get_overlap('mo[vir]|cluster[vir]')
+                    if not late_t2_sym:
+                        dov += einsum('ia,Ii,Aa->IA', dovx, cx2_occ, cx2_vir)
+                    else:
+                        cfx2 = x2.get_overlap('cluster[occ]|frag')
+                        dov += dot(cx2_occ, cfx2, dovx1, cx2_vir.T)
+                        dov += dot(cx2_occ, dovx2, cx2_vir.T)
+                    for x3, x3_children in x2_children:
+                        assert not x3_children
+                        cx3_occ = x3.get_overlap('mo[occ]|cluster[occ]')
+                        cx3_vir = x3.get_overlap('mo[vir]|cluster[vir]')
+                        if not late_t2_sym:
+                            dov += einsum('ia,Ii,Aa->IA', dovx, cx3_occ, cx3_vir)
+                        else:
+                            cfx3 = x3.get_overlap('cluster[occ]|frag')
+                            dov += dot(cx3_occ, cfx3, dovx1, cx3_vir.T)
+                            dov += dot(cx3_occ, dovx2, cx3_vir.T)
+
+        # --- Use symmetry of fragments (e.g. translations)
+        if use_sym:
+            # Transform right index of intermediates to AO basis:
+            doox = dot(doox, emb.mo_coeff_occ.T)
+            dvvx = dot(dvvx, emb.mo_coeff_vir.T)
+            # Loop over symmetry children of x:
+            for x2, x2_children in symtree:
+                # Apply x->x2 symmetry to right index:
+                doox2 = x2.sym_op(doox, axis=1)
+                dvvx2 = x2.sym_op(dvvx, axis=1)
+                # Symmetry is automatically applied to left index via `x2.cluster` orbitals
+                doo += dot(cs_occ, x2.cluster.c_active_occ, doox2, cs_occ.T)
+                dvv += dot(cs_vir, x2.cluster.c_active_vir, dvvx2, cs_vir.T)
+                # TODO: scaling? precontraction of sym_op(sym_op(...)) ?
+                for x3, x3_children in x2_children:
+                    assert not x3_children
+                    doox3 = x3.sym_op(doox2, axis=1)
+                    dvvx3 = x3.sym_op(dvvx2, axis=1)
+                    # Symmetry is automatically applied to left index via `x3.cluster` orbitals
+                    doo += dot(cs_occ, x3.cluster.c_active_occ, doox3, cs_occ.T)
+                    dvv += dot(cs_vir, x3.cluster.c_active_vir, dvvx3, cs_vir.T)
+
+    if mpi:
+        rma.clear()
+        doo, dov, dvv = mpi.nreduce(doo, dov, dvv, target=mpi_target, logfunc=emb.log.timingv)
+        # Make sure no more MPI calls are made after returning some ranks early!
+        if mpi_target not in (None, mpi.rank):
+            return None
+
+
+    """
+    if with_t1:
+        dov += (t1 + l1 - einsum('ie,me,ma->ia', t1, l1, t1))
+        dov += einsum('im,ma->ia', doo, t1)
+        dov -= einsum('ie,ae->ia', t1, dvv)
+        doo -= einsum('ja,ia->ij', t1, l1)
+        dvv += einsum('ia,ib->ab', t1, l1)
+
+    # --- Combine full DM:
+    occ, vir = np.s_[:emb.nocc], np.s_[emb.nocc:]
+    dm1 = np.zeros((emb.nmo, emb.nmo))
+    dm1[occ,occ] = (doo + doo.T)
+    dm1[vir,vir] = (dvv + dvv.T)
+    if with_t1:
+        dm1[occ,vir] = dov
+        dm1[vir,occ] = dov.T
+    if with_mf:
+        dm1[np.diag_indices(emb.nocc)] += 2
+    if ao_basis:
+        dm1 = dot(emb.mo_coeff, dm1, emb.mo_coeff.T)
+
+    # --- Some information:
+    emb.log.debug("Cluster-pairs: total= %d  kept= %d (%.1f%%)", total_xy, kept_xy, 100*kept_xy/total_xy)
+    emb.log.debug("Singular values: total= %d  kept= %d (%.1f%%)", total_sv, kept_sv, 100*kept_sv/total_sv)
+
+    return dm1
+    """
+    dooa -= einsum('ie,je->ij', l1a, t1a)
+    doob -= einsum('ie,je->ij', l1b, t1b)
+
+    dvva += einsum('ma,mb->ab', t1a, l1a)
+    dvvb += einsum('ma,mb->ab', t1b, l1b)
+
+    xt2a += einsum('ma,me->ae', t1a, l1a)
+    dvoa -= einsum('mi,ma->ai', xt1a, t1a)
+    dvoa -= einsum('ie,ae->ai', t1a, xt2a)
+    dvoa += t1a.T
+
+    xt2b += einsum('ma,me->ae', t1b, l1b)
+    dvob -= einsum('mi,ma->ai', xt1b, t1b)
+    dvob -= einsum('ie,ae->ai', t1b, xt2b)
+    dvob += t1b.T
+
+    dova = l1a
+    dovb = l1b
+
+    nmoa = nocca + nvira
+    dm1a = np.zeros((nmoa,nmoa))
+    dm1a[:nocca,:nocca] = dooa + dooa.conj().T
+    dm1a[:nocca,nocca:] = (dova + dvoa.conj().T )
+    dm1a[nocca:,:nocca] = (dm1a[:nocca,nocca:].conj().T)
+    dm1a[nocca:,nocca:] = dvva + dvva.conj().T
+    dm1a *= 0.5
+    dm1a = (dm1a + dm1a.T)/2
+    dm1a[np.diag_indices(nocca)] += 1
+
+    nmob = noccb + nvirb
+    dm1b = np.zeros((nmob, nmob))
+    dm1b[:noccb,:noccb] = doob + doob.conj().T
+    dm1b[:noccb,noccb:] = (dovb + dvob.conj().T )
+    dm1b[noccb:,:noccb] = (dm1b[:noccb,noccb:].conj().T)
+    dm1b[noccb:,noccb:] = dvvb + dvvb.conj().T
+    dm1b *= 0.5
+    dm1a = (dm1a + dm1a.T)/2
+    dm1b[np.diag_indices(noccb)] += 1
+
+    return dm1a, dm1b
+
+
 
 def make_rdm2_ccsd_global_wf(emb, ao_basis=False, symmetrize=False, t_as_lambda=False, slow=True, with_dm1=True):
     """Recreate global two-particle reduced density-matrix from fragment calculations.
