@@ -37,7 +37,9 @@ jobs:
       - name: Build docs
         run: |
           python -m pip install sphinx sphinx_rtd_theme
+          pip install . 
           cd docs
+          sphinx-apidoc -o source/ ../vayesta/
           make html
           cd ..
         if: matrix.documentation
