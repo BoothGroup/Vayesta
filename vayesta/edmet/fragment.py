@@ -35,6 +35,7 @@ class Results(DMETFragment.Results):
     dd_mom0: np.ndarray = None
     dd_mom1: np.ndarray = None
     e_fb:  float = None
+    b_1rdm: np.ndarray = None
 
 class EDMETFragment(DMETFragment):
 
@@ -274,6 +275,11 @@ class EDMETFragment(DMETFragment):
                                 (apb - (xc_b / 2.0))[:, :self.ov_active_tot])
                          - einsum("pq,qp->", fproj_ov,
                                   ((apb + amb - xc_b) / 2)[:self.ov_active_tot, :self.ov_active_tot])
+                         ) / 2.0
+        # Can also calculate the full local rpa energy, including the bosons.
+        self.loc_erpa_wbos = (einsum("pr,rp->", eta0,
+                                (apb - (xc_b / 2.0)))
+                         - (apb + amb - xc_b).trace() / 2
                          ) / 2.0
 
         # loc_erpa = (einsum("pq,qr,rp->", fproj_ov, eta0[:self.ov_active_tot], eris[:, :self.ov_active_tot])
@@ -700,8 +706,12 @@ class EDMETFragment(DMETFragment):
         if self.nbos > 0:
             self.check_qba_approx(dm1)
         dm_eb = cluster_solver.make_rdm_eb()
+        try:
+            b_1rdm = cluster_solver.make_1rdm_b()
+        except AttributeError:
+            b_1rdm = None
         self._results = results = self.Results(fid=self.id, n_active=self.cluster.norb_active,
-                converged=True, dm1=dm1, dm2=dm2, dm_eb=dm_eb)
+                converged=True, dm1=dm1, dm2=dm2, dm_eb=dm_eb, b_1rdm = b_1rdm)
         results.e1, results.e2, results.e_fb = self.get_edmet_energy_contrib()
 
         if self.opts.make_dd_moments:
@@ -760,7 +770,7 @@ class EDMETFragment(DMETFragment):
             )
         return e1, e2, efb
 
-    def get_active_space_energy(self, eris=None):
+    def get_active_space_energy(self, eris=None, rpa_bb=True):
         s = self.base.get_ovlp()
         e_ferm, e_core = super().get_active_space_energy(eris)
         # Now, constructed intermediate
@@ -792,6 +802,7 @@ class EDMETFragment(DMETFragment):
             c_tot = (c_tot, c_tot)
         # Also need projector to just local contributions
         p_act = [dot(s, c,  c.T, s) for c in c_act]
+        p_env = [s - x for x in p_act]
         # Only need to average for aa and bb contributions. We do this by adding in half the difference, as appropriate.
         for i, n in enumerate([0, 2]):
             # Let's not try to be clever here.
@@ -827,29 +838,29 @@ class EDMETFragment(DMETFragment):
             # First coulomb expressions; need these for each spin.
             l_doub = [einsum("npq,pr,qs->nrs", l_, c, c) for c in c_act]  # N^3 step
             e2_eb += (
-                einsum("npq,qs,nps", l_, p_act[0], einsum("pqrs,npq->nrs", gammazero_sym[0], l_doub[0])) +
-                einsum("npq,qs,nps", l_, p_act[1], einsum("pqrs,npq->nrs", gammazero_sym[1], l_doub[0])) +
-                einsum("npq,qs,nps", l_, p_act[1], einsum("pqrs,npq->nrs", gammazero_sym[2], l_doub[1])) +
-                einsum("npq,qs,nps", l_, p_act[0], einsum("pqrs,npq->nrs", gammazero_sym[3], l_doub[1]))
+                einsum("npq,qs,nps->", l_, p_env[0], einsum("pqrs,npq->nrs", gammazero_sym[0], l_doub[0])) +
+                einsum("npq,qs,nps->", l_, p_env[1], einsum("pqrs,npq->nrs", gammazero_sym[1], l_doub[0])) +
+                einsum("npq,qs,nps->", l_, p_env[1], einsum("pqrs,npq->nrs", gammazero_sym[2], l_doub[1])) +
+                einsum("npq,qs,nps->", l_, p_env[0], einsum("pqrs,npq->nrs", gammazero_sym[3], l_doub[1]))
             )
             # Exchange contributions; only present for same-spin components.
             l_sing = [einsum("npq,pr->nrq", l_, c) for c in c_act]  # N^3 step
             e2_eb += (
-                    einsum("pqrt,nps,nqr,ts->", gammazero_sym[0], l_sing[0], l_sing[0], p_act[0]) +
-                    einsum("pqrt,nps,nqr,ts->", gammazero_sym[2], l_sing[1], l_sing[1], p_act[1])
+                    einsum("pqrt,nps,nqr,ts->", gammazero_sym[0], l_sing[0], l_sing[0], p_env[0]) +
+                    einsum("pqrt,nps,nqr,ts->", gammazero_sym[2], l_sing[1], l_sing[1], p_env[1])
             )
 
         e_tot = e_ferm + e1_eb + e2_eb
-
-        e2_v2 = einsum("pqn,npq->", dm_eb[0], self.energy_couplings[0]) + \
-                einsum("pqn,npq->", dm_eb[1], self.energy_couplings[1])
-
-        couplings = self.energy_couplings
-        efb = 0.25 * (einsum("npq,qpn", couplings[0], dm_eb[0] - dm_eb[0].transpose(1, 0, 2)) +
-                      einsum("npq,qpn", couplings[1], dm_eb[1] - dm_eb[1].transpose(1, 0, 2))
-                      )
-
-        return e_tot, (e_ferm, e1_eb, e2_eb, e_core, efb), (gammazero, gammazero_sym, dm1)
+        e2_b = 0.0
+        if not rpa_bb:
+            # Additional energy contribution from boson-boson interactions.
+            b_1rdm = self._results.b_1rdm
+            freq = self.bos_freqs
+            if b_1rdm is None:
+                raise NotImplementedError("Bosonic 1rdm not yet implemented with this solver.")
+            e2_b = sum(np.multiply(b_1rdm.diagonal(), freq))
+            e_tot += e2_b
+        return e_tot, (e_ferm, e1_eb, e2_eb, e2_b, e_core), (gammazero, gammazero_sym, dm1)
 
     def get_active_space_dm1(self):
         """Return the CAS-constructed 1rdm, in AOs."""

@@ -1,4 +1,5 @@
 import dataclasses
+
 import numpy as np
 
 from vayesta.core.util import *
@@ -52,7 +53,7 @@ class EBCCSD_Solver(EBClusterSolver):
             couplings = tuple([x + y for x, y in zip(couplings, coupling_shift)])
 
         return ((f_act, f_act), (eris, eris, eris), (self.cluster.nocc_active, self.cluster.nocc_active),
-               (self.cluster.nvir_active, self.cluster.nvir_active)), tuple([x.transpose(0, 2, 1) for x in couplings])
+                (self.cluster.nvir_active, self.cluster.nvir_active)), tuple([x.transpose(0, 2, 1) for x in couplings])
 
     def kernel(self, eris=None):
         """Run FCI kernel."""
@@ -137,6 +138,19 @@ class EBCCSD_Solver(EBClusterSolver):
             self.dm_eb = [x + y for x, y in zip(self.dm_eb, self.get_eb_dm_polaritonic_shift())]
         return self.dm_eb
 
+    def make_1rdm_b(self):
+        """ Get <b^+ b>
+        :return:
+        """
+        b_1rdm = self.solver.make_1rdm_b(unshifted_bos=True)
+
+        if self.opts.polaritonic_shift:
+            # Need to remove effect of polaritonic shift.
+            singb_dm = self.solver.make_sing_b_dm()
+            b_1rdm = b_1rdm - einsum("n,nm->nm", np.multiply(self.polaritonic_shift,
+                                                             singb_dm[0] + singb_dm[1]) - self.polaritonic_shift ** 2,
+                                     np.eye(b_1rdm.shape[0]))
+        return b_1rdm
 
 class UEBCCSD_Solver(EBCCSD_Solver):
 
@@ -162,7 +176,7 @@ class UEBCCSD_Solver(EBCCSD_Solver):
             f_act = tuple([x + y for x, y in zip(f_act, fock_shift)])
             couplings = tuple([x + y for x, y in zip(couplings, coupling_shift)])
             if self.v_ext is not None:
-               f_act = ((f_act[0] + self.v_ext[0]),
+                f_act = ((f_act[0] + self.v_ext[0]),
                          (f_act[1] + self.v_ext[1]))
         return (f_act, eris, self.cluster.nocc_active, self.cluster.nvir_active), \
                tuple([x.transpose(0, 2, 1) for x in couplings])
