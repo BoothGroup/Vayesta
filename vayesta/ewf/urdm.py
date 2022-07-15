@@ -317,12 +317,20 @@ def make_rdm1_ccsd_global_wf(emb, ao_basis=False, with_mf=True, t_as_lambda=Fals
                         kept_sv += sum(keep)
                         u, s, v = u[:,keep], s[keep], v[keep]
                     return u, s, v
-                uxy_occ, sxy_occ, vxy_occ = svd(rxy_occ)
-                uxy_vir, sxy_vir, vxy_vir = svd(rxy_vir)
-                uxy_occ *= np.sqrt(sxy_occ)[np.newaxis,:]
-                uxy_vir *= np.sqrt(sxy_vir)[np.newaxis,:]
-                vxy_occ *= np.sqrt(sxy_occ)[:,np.newaxis]
-                vxy_vir *= np.sqrt(sxy_vir)[:,np.newaxis]
+
+                uxy_occ_a, sxy_occ_a, vxy_occ_a = svd(rxy_occ_a)
+                uxy_vir_a, sxy_vir_a, vxy_vir_a = svd(rxy_vir_a)
+                uxy_occ_a *= np.sqrt(sxy_occ_a)[np.newaxis,:]
+                uxy_vir_a *= np.sqrt(sxy_vir_a)[np.newaxis,:]
+                vxy_occ_a *= np.sqrt(sxy_occ_a)[:,np.newaxis]
+                vxy_vir_a *= np.sqrt(sxy_vir_a)[:,np.newaxis]
+
+                uxy_occ_b, sxy_occ_b, vxy_occ_b = svd(rxy_occ_b)
+                uxy_vir_b, sxy_vir_b, vxy_vir_b = svd(rxy_vir_b)
+                uxy_occ_b *= np.sqrt(sxy_occ_b)[np.newaxis,:]
+                uxy_vir_b *= np.sqrt(sxy_vir_b)[np.newaxis,:]
+                vxy_occ_b *= np.sqrt(sxy_occ_b)[:,np.newaxis]
+                vxy_vir_b *= np.sqrt(sxy_vir_b)[:,np.newaxis]
             else:
                 nsv_a = (min(rxy_occ_a.shape[0], rxy_occ_a.shape[1])
                      + min(rxy_vir_a.shape[0], rxy_vir_a.shape[1]))
@@ -336,8 +344,10 @@ def make_rdm1_ccsd_global_wf(emb, ao_basis=False, with_mf=True, t_as_lambda=Fals
             total_xy += 1
             if ovlp_tol is not None:
                 if svd_tol:
-                    rxy_occ_norm = (sxy_occ[0] if len(sxy_occ) > 0 else 0.0)
-                    rxy_vir_norm = (sxy_vir[0] if len(sxy_vir) > 0 else 0.0)
+                    rxy_occ_a_norm = (sxy_occ_a[0] if len(sxy_occ_a) > 0 else 0.0)
+                    rxy_occ_b_norm = (sxy_occ_b[0] if len(sxy_occ_b) > 0 else 0.0)
+                    rxy_vir_a_norm = (sxy_vir_a[0] if len(sxy_vir_a) > 0 else 0.0)
+                    rxy_vir_b_norm = (sxy_vir_b[0] if len(sxy_vir_b) > 0 else 0.0)
                 else:
                     rxy_occ_a_norm = np.linalg.norm(rxy_occ_a, ord=2)
                     rxy_occ_b_norm = np.linalg.norm(rxy_occ_b, ord=2)
@@ -363,32 +373,57 @@ def make_rdm1_ccsd_global_wf(emb, ao_basis=False, with_mf=True, t_as_lambda=Fals
 
             if not late_t2_sym:
                 if svd_tol is None:
-                    tlaa = einsum('(ijab,jJ,aA->iJAb),IJAB->iIbB', t2aa, rxy_occ_a, rxy_vir_a, l2aa)
-                    tlab = einsum('(ijab,jJ,aA->iJAb),IJAB->iIbB', t2ab, rxy_occ_b, rxy_vir_b, l2ab)
-                    tlbb = einsum('(ijab,jJ,aA->iJAb),IJAB->iIbB', t2bb, rxy_occ_b, rxy_vir_b, l2bb)
+#                     tlaa = einsum('(ijab,jJ,aA->iJAb),IJAB->iIbB', t2aa, rxy_occ_a, rxy_vir_a, l2aa)
+#                     tlab = einsum('(ijab,jJ,aA->iJAb),IJAB->iIbB', t2ab, rxy_occ_b, rxy_vir_b, l2ab)
+#                     tlbb = einsum('(ijab,jJ,aA->iJAb),IJAB->iIbB', t2bb, rxy_occ_b, rxy_vir_b, l2bb)
 
-                    # OO block
-                    dooxa -= 0.5 * einsum('(ijab,jJ,aA,bB,qI),IJAB->iq', t2aa, rxy_occ_a, rxy_vir_a, rxy_vir_a, cy_occ_a, l2aa)
-                    dooxa -= einsum('(ijab,jJ,aA,bB,qI),IJAB->iq', t2ab, rxy_occ_b, rxy_vir_a, rxy_vir_b, cy_occ_a, l2ab)
-                    dooxb -= 0.5 * einsum('(ijab,jJ,aA,bB,qI),IJAB->iq', t2bb, rxy_occ_b, rxy_vir_b, rxy_vir_b, cy_occ_b, l2bb)
-                    dooxb -= einsum('(ijab,iI,aA,bB,qJ),IJAB->jq', t2ab, rxy_occ_a, rxy_vir_a, rxy_vir_b, cy_occ_a, l2ab)
+#                     tmpA = einsum('(ijab,jJ,aA,bB),(qI,IJAB)->iq', t2ab, rxy_occ_b, rxy_vir_a, rxy_vir_b, cy_occ_a, l2ab)
+#                     tmpA += 0.5 * einsum('(ijab,jJ,aA,bB),(qI,IJAB)->iq', t2aa, rxy_occ_a, rxy_vir_a, rxy_vir_a, cy_occ_a, l2aa)
 
-                    # VV block
-                    dvvxa += 0.5 * einsum('(ijab,iI,jJ,bB,qA),IJAB->aq', t2aa, rxy_occ_a, rxy_occ_a, rxy_vir_a, cy_vir_a, l2aa)
-                    dvvxa += einsum('(ijab,iI,jJ,bB,qA),IJAB->aq', t2ab, rxy_occ_a, rxy_occ_b, rxy_vir_b, cy_vir_a, l2ab)
-                    dvvxb += 0.5 * einsum('(ijab,iI,jJ,bB,qA),IJAB->aq', t2bb, rxy_occ_b, rxy_occ_b, rxy_vir_b, cy_vir_b, l2bb)
-                    dvvxb += einsum('(ijab,iI,jJ,aA,qB),IJAB->bq', t2ab, rxy_occ_a, rxy_occ_b, rxy_vir_a, cy_vir_b, l2ab)
+#                     tmpB  = einsum('(ijab,iI,aA,bB),(qJ,IJAB)->jq', t2ab, rxy_occ_a, rxy_vir_a, rxy_vir_b, cy_occ_b, l2ab)
+#                     tmpB += 0.5 * einsum('(ijab,jJ,aA,bB),(qI,IJAB)->iq', t2bb, rxy_occ_b, rxy_vir_b, rxy_vir_b, cy_occ_b, l2bb)
 
-                    # VO block
-                    xt1xa += 0.5 * einsum('(ijab,jJ,aA,bB,qI),IJAB->iq', t2aa, rxy_occ_a, rxy_vir_a, rxy_vir_a, cy_occ_a, l2aa)
-                    xt1xa += einsum('(ijab,jJ,aA,bB,qI),IJAB->iq', t2ab, rxy_occ_b, rxy_vir_a, rxy_vir_b, cy_occ_a, l2ab)
-                    xt2xa += 0.5 * einsum('(ijab,iI,jJ,bB,qA),IJAB->aq', t2aa, rxy_occ_a, rxy_occ_a, rxy_vir_a, cy_vir_a, l2aa)
-                    xt2xa += einsum('(ijab,iI,jJ,bB,qA),IJAB->aq', t2ab, rxy_occ_a, rxy_occ_b, rxy_vir_b, cy_vir_a, l2ab)
+#                     tmpC  = einsum('(ijab,iI,jJ,bB),(qA,IJAB)->aq', t2ab, rxy_occ_a, rxy_occ_b, rxy_vir_b, cy_vir_a, l2ab)
+#                     tmpC += 0.5 * einsum('(ijab,iI,jJ,bB),(qA,IJAB)->aq', t2aa, rxy_occ_a, rxy_occ_a, rxy_vir_a, cy_vir_a, l2aa)
 
-                    xt1xb += 0.5 * einsum('(ijab,jJ,aA,bB,qI),IJAB->iq', t2bb, rxy_occ_b, rxy_vir_b, rxy_vir_b, cy_occ_b, l2bb)
-                    xt1xb += einsum('(ijab,iI,aA,bB,qJ),IJAB->jq', t2ab, rxy_occ_a, rxy_vir_a, rxy_vir_b, cy_occ_b, l2ab)
-                    xt2xb += 0.5 * einsum('(ijab,iI,jJ,bB,qA),IJAB->aq', t2bb, rxy_occ_b, rxy_occ_b, rxy_vir_b, cy_vir_b, l2bb)
-                    xt2xb += einsum('(ijab,iI,jJ,aA,qB),IJAB->bq', t2ab, rxy_occ_a, rxy_occ_b, rxy_vir_b, cy_vir_b, l2ab)
+#                     tmpD  = einsum('(ijab,iI,jJ,aA),(qB,IJAB)->bq', t2ab, rxy_occ_a, rxy_occ_b, rxy_vir_a, cy_vir_b, l2ab)
+#                     tmpD += 0.5 * einsum('(ijab,iI,jJ,bB),(qA,IJAB)->aq', t2bb, rxy_occ_b, rxy_occ_b, rxy_vir_b, cy_vir_b, l2bb)
+
+#                     dooxa -= tmpA
+#                     dooxb -= tmpB
+
+#                     dvvxa += tmpC
+#                     dvvxb += tmpD
+
+#                     xt1xa += tmpA
+#                     xt2xa += tmpC
+
+#                     xt1xb += tmpB
+#                     xt2xb += tmpD
+
+
+#                     # OO block
+#                     dooxa -= 0.5 * einsum('(ijab,jJ,aA,bB),(qI,IJAB)->iq', t2aa, rxy_occ_a, rxy_vir_a, rxy_vir_a, cy_occ_a, l2aa)
+#                     dooxa -= einsum('(ijab,jJ,aA,bB),(qI,IJAB)->iq', t2ab, rxy_occ_b, rxy_vir_a, rxy_vir_b, cy_occ_a, l2ab)
+#                     dooxb -= 0.5 * einsum('(ijab,jJ,aA,bB),(qI,IJAB)->iq', t2bb, rxy_occ_b, rxy_vir_b, rxy_vir_b, cy_occ_b, l2bb)
+#                     dooxb -= einsum('(ijab,iI,aA,bB),(qJ,IJAB)->jq', t2ab, rxy_occ_a, rxy_vir_a, rxy_vir_b, cy_occ_b, l2ab)
+
+#                     # VV block
+#                     dvvxa += 0.5 * einsum('(ijab,iI,jJ,bB),(qA,IJAB)->aq', t2aa, rxy_occ_a, rxy_occ_a, rxy_vir_a, cy_vir_a, l2aa)
+#                     dvvxa += einsum('(ijab,iI,jJ,bB),(qA,IJAB)->aq', t2ab, rxy_occ_a, rxy_occ_b, rxy_vir_b, cy_vir_a, l2ab)
+#                     dvvxb += 0.5 * einsum('(ijab,iI,jJ,bB),(qA,IJAB)->aq', t2bb, rxy_occ_b, rxy_occ_b, rxy_vir_b, cy_vir_b, l2bb)
+#                     dvvxb += einsum('(ijab,iI,jJ,aA),(qB,IJAB)->bq', t2ab, rxy_occ_a, rxy_occ_b, rxy_vir_a, cy_vir_b, l2ab)
+
+#                     # VO block
+#                     xt1xa += 0.5 * einsum('(ijab,jJ,aA,bB),(qI,IJAB)->iq', t2aa, rxy_occ_a, rxy_vir_a, rxy_vir_a, cy_occ_a, l2aa)
+#                     xt1xa += einsum('(ijab,jJ,aA,bB),(qI,IJAB)->iq', t2ab, rxy_occ_b, rxy_vir_a, rxy_vir_b, cy_occ_a, l2ab)
+#                     xt2xa += 0.5 * einsum('(ijab,iI,jJ,bB),(qA,IJAB)->aq', t2aa, rxy_occ_a, rxy_occ_a, rxy_vir_a, cy_vir_a, l2aa)
+#                     xt2xa += einsum('(ijab,iI,jJ,bB),(qA,IJAB)->aq', t2ab, rxy_occ_a, rxy_occ_b, rxy_vir_b, cy_vir_a, l2ab)
+
+#                     xt1xb += 0.5 * einsum('(ijab,jJ,aA,bB),(qI,IJAB)->iq', t2bb, rxy_occ_b, rxy_vir_b, rxy_vir_b, cy_occ_b, l2bb)
+#                     xt1xb += einsum('(ijab,iI,aA,bB),(qJ,IJAB)->jq', t2ab, rxy_occ_a, rxy_vir_a, rxy_vir_b, cy_occ_b, l2ab)
+#                     xt2xb += 0.5 * einsum('(ijab,iI,jJ,bB),(qA,IJAB)->aq', t2bb, rxy_occ_b, rxy_occ_b, rxy_vir_b, cy_vir_b, l2bb)
+#                     xt2xb += einsum('(ijab,iI,jJ,aA),(qB,IJAB)->bq', t2ab, rxy_occ_a, rxy_occ_b, rxy_vir_a, cy_vir_b, l2ab)
 
                     dvoxa += einsum('(ijab,jJ,bB),JB->ai', t2aa, rxy_occ_a, rxy_vir_a, l1ya)
                     dvoxa += einsum('(ijab,jJ,bB),JB->ai', t2ab, rxy_occ_b, rxy_vir_b, l1yb)
@@ -475,7 +510,7 @@ def make_rdm1_ccsd_global_wf(emb, ao_basis=False, with_mf=True, t_as_lambda=Fals
         xt2a += np.dot(cx_vir_a, xt2xa)
         xt2b += np.dot(cx_vir_b, xt2xb)
         dvoa += einsum('ij,jk,lk->il', cx_vir_a, dvoxa, cx_occ_a)
-        dvob += einsum('ij,jk,lk->il', cx_vir_b, dvoxa, cx_occ_b)
+        dvob += einsum('ij,jk,lk->il', cx_vir_b, dvoxb, cx_occ_b)
         if use_sym:
             symtree = x.get_symmetry_tree()
 
