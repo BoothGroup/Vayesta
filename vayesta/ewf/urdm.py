@@ -227,13 +227,13 @@ def make_rdm1_ccsd_global_wf(emb, ao_basis=False, with_mf=True, t_as_lambda=Fals
         l1a, l1b = (t1 if t_as_lambda else emb.get_global_l1())
     # Preconstruct some matrices, since the construction scales as N^3
     if use_sym:
-        raise NotImplemented()
         ovlp = emb.get_ovlp()
-        cs_occ = np.dot(emb.mo_coeff_occ.T, ovlp)
-        cs_vir = np.dot(emb.mo_coeff_vir.T, ovlp)
+        cs_occ_a = np.dot(emb.mo_coeff_occ[0].T, ovlp)
+        cs_occ_b = np.dot(emb.mo_coeff_occ[1].T, ovlp)
+        cs_vir_a = np.dot(emb.mo_coeff_vir[0].T, ovlp)
+        cs_vir_b = np.dot(emb.mo_coeff_vir[1].T, ovlp)
     # Make projected WF available via remote memory access
     if mpi:
-        raise NotImplemented()
         # TODO: use L-amplitudes of cluster X and T-amplitudes,
         # Only send T-amplitudes via RMA?
         rma = {x.id: x.results.pwf.pack() for x in emb.get_fragments(active=True, mpi_rank=mpi.rank)}
@@ -426,12 +426,12 @@ def make_rdm1_ccsd_global_wf(emb, ao_basis=False, with_mf=True, t_as_lambda=Fals
                 dvvxb += einsum('iIaA,iI,qA->aq', tlbb, rxy_occ_b, cy_vir_b) * 0.5
                 dvvxb += einsum('iIaA,iI,qA->aq', tlab2, rxy_occ_b, cy_vir_b)
 
-                if with_t1:
-                    # VO block
-                    dvoxa += einsum('(ijab,jJ,bB),JB->ai', t2aa, rxy_occ_a, rxy_vir_a, l1ya)
-                    dvoxa += einsum('(ijab,jJ,bB),JB->ai', t2ab, rxy_occ_b, rxy_vir_b, l1yb)
-                    dvoxb += einsum('(ijab,jJ,bB),JB->ai', t2bb, rxy_occ_b, rxy_vir_b, l1yb)
-                    dvoxb += einsum('(ijab,iI,aA),IA->bj', t2ab, rxy_occ_a, rxy_vir_a, l1ya)
+#                 if with_t1:
+#                     # VO block
+#                     dvoxa += einsum('(ijab,jJ,bB),JB->ai', t2aa, rxy_occ_a, rxy_vir_a, l1ya)
+#                     dvoxa += einsum('(ijab,jJ,bB),JB->ai', t2ab, rxy_occ_b, rxy_vir_b, l1yb)
+#                     dvoxb += einsum('(ijab,jJ,bB),JB->ai', t2bb, rxy_occ_b, rxy_vir_b, l1yb)
+#                     dvoxb += einsum('(ijab,iI,aA),IA->bj', t2ab, rxy_occ_a, rxy_vir_a, l1ya)
             else:
                 raise NotImplemented()
                 # Calculate some overlap matrices:
@@ -479,7 +479,6 @@ def make_rdm1_ccsd_global_wf(emb, ao_basis=False, with_mf=True, t_as_lambda=Fals
                     tmp = einsum('(YJab,aA->YJAb),YJAB->bB', t2tmp, rxy_vir, l2)/4
                     tmp += einsum('(YIba,aA->YIbA),YIBA->bB', t2tmp, rxy_vir, l2)/4
                 else:
-                    raise NotImplemented()
                     t2tmp = einsum('xjab,jS->xSab', theta, uxy_occ)
                     l2tmp = einsum('YJAB,SJ,xY->xSAB', l2, vxy_occ, ffxy)
                     tmp = einsum('(xSab,aP->xSPb),(PA,xSAB->xSPB)->bB', t2tmp, uxy_vir, vxy_vir, l2tmp)/4
@@ -491,7 +490,6 @@ def make_rdm1_ccsd_global_wf(emb, ao_basis=False, with_mf=True, t_as_lambda=Fals
                     tmp += einsum('(xYab,aA->xYAb),YxBA->bB', t2tmp, rxy_vir, l2tmp)/4
                     tmp += einsum('(xYba,aA->xYbA),YxAB->bB', t2tmp, rxy_vir, l2tmp)/4
                 else:
-                    raise NotImplemented()
                     tmp += einsum('(xYab,aS->xYSb),(SA,YxBA->YxBS)->bB', t2tmp, uxy_vir, vxy_vir, l2tmp)/4
                     tmp += einsum('(xYba,aS->xYbS),(SA,YxAB->YxSB)->bB', t2tmp, uxy_vir, vxy_vir, l2tmp)/4
                 dvvx += np.dot(tmp, cy_vir.T)
@@ -504,18 +502,24 @@ def make_rdm1_ccsd_global_wf(emb, ao_basis=False, with_mf=True, t_as_lambda=Fals
         xt1b = -doob.copy()
         xt2a = dvva.copy()
         xt2b = dvvb.copy()
-        dvoa += einsum('ij,jk,lk->il', cx_vir_a, dvoxa, cx_occ_a)
-        dvob += einsum('ij,jk,lk->il', cx_vir_b, dvoxb, cx_occ_b)
+
         if use_sym:
             symtree = x.get_symmetry_tree()
 
         if with_t1:
-            #l1x = dot(cx_occ.T, l1, cx_vir)
+            l1xa = dot(cx_occ_a.T, l1a, cx_vir_a)
+            l1xb = dot(cx_occ_b.T, l1b, cx_vir_b)
             if not late_t2_sym:
-                pass
-                #dovx = einsum('ijab,jb->ia', theta, l1x)
-                #dov += einsum('ia,Ii,Aa->IA', dovx, cx_occ, cx_vir)
+                # VO block
+                dvoxa += einsum('ijab,jb->ai', t2aa, l1xa)
+                dvoxa += einsum('ijab,jb->ai', t2ab, l1xb)
+                dvoxb += einsum('ijab,jb->ai', t2bb, l1xb)
+                dvoxb += einsum('ijab,ia->bj', t2ab, l1xa)
+
+                dvoa += einsum('ai,Ii,Aa->AI', dvoxa, cx_occ_a, cx_vir_a)
+                dvob += einsum('ai,Ii,Aa->AI', dvoxb, cx_occ_b, cx_vir_b)
             else:
+                raise NotImplemented()
                 cfx = x.get_overlap('cluster[occ]|frag')
                 dovx1 = einsum('xjab,jb->xa', theta, l1x)/2
                 dovx2 = einsum('xiba,(jx,jb->xb)->ia', theta, cfx, l1x)/2
@@ -523,21 +527,26 @@ def make_rdm1_ccsd_global_wf(emb, ao_basis=False, with_mf=True, t_as_lambda=Fals
                 dov += dot(cx_occ, dovx2, cx_vir.T)
             if use_sym:
                 for x2, x2_children in symtree:
-                    cx2_occ = x2.get_overlap('mo[occ]|cluster[occ]')
-                    cx2_vir = x2.get_overlap('mo[vir]|cluster[vir]')
+                    cx2_occ_a, cx2_occ_b = x2.get_overlap('mo[occ]|cluster[occ]')
+                    cx2_vir_a, cx2_vir_b = x2.get_overlap('mo[vir]|cluster[vir]')
                     if not late_t2_sym:
-                        dov += einsum('ia,Ii,Aa->IA', dovx, cx2_occ, cx2_vir)
+                        dvoa += einsum('ai,Ii,Aa->AI', dvoxa, cx2_occ_a, cx2_vir_a)
+                        dvob += einsum('ai,Ii,Aa->AI', dvoxb, cx2_occ_b, cx2_vir_b)
                     else:
+                        raise NotImplemented()
                         cfx2 = x2.get_overlap('cluster[occ]|frag')
                         dov += dot(cx2_occ, cfx2, dovx1, cx2_vir.T)
                         dov += dot(cx2_occ, dovx2, cx2_vir.T)
                     for x3, x3_children in x2_children:
                         assert not x3_children
-                        cx3_occ = x3.get_overlap('mo[occ]|cluster[occ]')
-                        cx3_vir = x3.get_overlap('mo[vir]|cluster[vir]')
+                        raise NotImplemented()
+                        cx3_occ_a, cx3_occ_b = x3.get_overlap('mo[occ]|cluster[occ]')
+                        cx3_vir_a, cx3_vir_b = x3.get_overlap('mo[vir]|cluster[vir]')
                         if not late_t2_sym:
-                            dov += einsum('ia,Ii,Aa->IA', dovx, cx3_occ, cx3_vir)
+                            dvoa += einsum('ai,Ii,Aa->AI', dvoxa, cx3_occ_a, cx3_vir_a)
+                            dvob += einsum('ai,Ii,Aa->AI', dvoxb, cx3_occ_b, cx3_vir_b)
                         else:
+                            raise NotImplemented()
                             cfx3 = x3.get_overlap('cluster[occ]|frag')
                             dov += dot(cx3_occ, cfx3, dovx1, cx3_vir.T)
                             dov += dot(cx3_occ, dovx2, cx3_vir.T)
@@ -545,24 +554,34 @@ def make_rdm1_ccsd_global_wf(emb, ao_basis=False, with_mf=True, t_as_lambda=Fals
         # --- Use symmetry of fragments (e.g. translations)
         if use_sym:
             # Transform right index of intermediates to AO basis:
-            doox = dot(doox, emb.mo_coeff_occ.T)
-            dvvx = dot(dvvx, emb.mo_coeff_vir.T)
+            dooxa = dot(dooxa, emb.mo_coeff_occ[0].T)
+            dooxb = dot(dooxb, emb.mo_coeff_occ[1].T)
+            dvvxa = dot(dvvxa, emb.mo_coeff_vir[0].T)
+            dvvxb = dot(dvvxb, emb.mo_coeff_vir[1].T)
             # Loop over symmetry children of x:
             for x2, x2_children in symtree:
                 # Apply x->x2 symmetry to right index:
-                doox2 = x2.sym_op(doox, axis=1)
-                dvvx2 = x2.sym_op(dvvx, axis=1)
+                dooxa2 = x2.sym_op(dooxa, axis=1)
+                dooxb2 = x2.sym_op(dooxb, axis=1)
+                dvvxa2 = x2.sym_op(dvvxa, axis=1)
+                dvvxb2 = x2.sym_op(dvvxb, axis=1)
                 # Symmetry is automatically applied to left index via `x2.cluster` orbitals
-                doo += dot(cs_occ, x2.cluster.c_active_occ, doox2, cs_occ.T)
-                dvv += dot(cs_vir, x2.cluster.c_active_vir, dvvx2, cs_vir.T)
+                dooa += dot(cs_occ_a, x2.cluster.c_active_occ[0], dooxa2, cs_occ_a.T)
+                doob += dot(cs_occ_b, x2.cluster.c_active_occ[1], dooxb2, cs_occ_b.T)
+                dvva += dot(cs_vir_a, x2.cluster.c_active_vir[0], dvvxa2, cs_vir_a.T)
+                dvvb += dot(cs_vir_b, x2.cluster.c_active_vir[1], dvvxb2, cs_vir_b.T)
                 # TODO: scaling? precontraction of sym_op(sym_op(...)) ?
                 for x3, x3_children in x2_children:
                     assert not x3_children
-                    doox3 = x3.sym_op(doox2, axis=1)
-                    dvvx3 = x3.sym_op(dvvx2, axis=1)
+                    dooxa3 = x3.sym_op(dooxa2, axis=1)
+                    dooxb3 = x3.sym_op(dooxb2, axis=1)
+                    dvvxa3 = x3.sym_op(dvvxa2, axis=1)
+                    dvvxb3 = x3.sym_op(dvvxb2, axis=1)
                     # Symmetry is automatically applied to left index via `x3.cluster` orbitals
-                    doo += dot(cs_occ, x3.cluster.c_active_occ, doox3, cs_occ.T)
-                    dvv += dot(cs_vir, x3.cluster.c_active_vir, dvvx3, cs_vir.T)
+                    dooa += dot(cs_occ_a, x3.cluster.c_active_occ[0], dooxa3, cs_occ_a.T)
+                    doob += dot(cs_occ_b, x3.cluster.c_active_occ[1], dooxb3, cs_occ_b.T)
+                    dvva += dot(cs_vir_a, x3.cluster.c_active_vir[0], dvvxa3, cs_vir_a.T)
+                    dvvb += dot(cs_vir_b, x3.cluster.c_active_vir[1], dvvxb3, cs_vir_b.T)
 
     if mpi:
         rma.clear()
@@ -601,7 +620,6 @@ def make_rdm1_ccsd_global_wf(emb, ao_basis=False, with_mf=True, t_as_lambda=Fals
     dm1a *= 0.5
     dm1a = (dm1a + dm1a.T)/2
 
-
     nmob = noccb + nvirb
     dm1b = np.zeros((nmob, nmob))
     dm1b[:noccb,:noccb] = doob + doob.conj().T
@@ -612,10 +630,10 @@ def make_rdm1_ccsd_global_wf(emb, ao_basis=False, with_mf=True, t_as_lambda=Fals
     dm1b *= 0.5
     dm1b = (dm1b + dm1b.T)/2
 
-
     if with_mf:
         dm1a[np.diag_indices(nocca)] += 1
         dm1b[np.diag_indices(noccb)] += 1
+
     if ao_basis:
         dm1a = dot(emb.mo_coeff[0], dm1a, emb.mo_coeff[0].T)
         dm1b = dot(emb.mo_coeff[1], dm1b, emb.mo_coeff[1].T)
@@ -626,7 +644,6 @@ def make_rdm1_ccsd_global_wf(emb, ao_basis=False, with_mf=True, t_as_lambda=Fals
     emb.log.debug("Singular values (β) total= %d  kept= %d (%.1f%%)", total_sv_b, kept_sv_b, 100*kept_sv_b/total_sv_b)
 
     return dm1a, dm1b
-
 
 
 def make_rdm2_ccsd_global_wf(emb, ao_basis=False, symmetrize=False, t_as_lambda=False, slow=True, with_dm1=True):
