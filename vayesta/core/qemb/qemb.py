@@ -1285,30 +1285,8 @@ class Embedding:
         """Initialize the quantum embedding method for the use of site fragments."""
         return CAS_Fragmentation(self, **kwargs)
 
-    def has_complete_fragmentation(self, tol=1e-9):
+    def _check_fragmentation(self, complete_occupied=True, complete_virtual=True, tol=1e-9):
         """Check if union of fragment spaces is orthonormal and complete."""
-        if self.spinsym == 'restricted':
-            nspin = 1
-            tspin = lambda x, s : x
-        elif self.spinsym == 'unrestricted':
-            nspin = 2
-            tspin = lambda x, s : x[s]
-        ovlp = self.get_ovlp()
-        for s in range(nspin):
-            nmo = tspin(self.nmo, s)
-            c_frags = np.hstack([tspin(x.c_frag, s) for x in self.fragments])
-            # Check if complete
-            nfrags = c_frags.shape[-1]
-            if nfrags != nmo:
-                return False
-            # Check if orthonormal
-            csc = dot(c_frags.T, ovlp, c_frags)
-            if not np.allclose(csc, np.eye(nmo), rtol=0, atol=tol):
-                return False
-        return True
-
-    def has_complete_occupied_fragmentation(self, tol=1e-9):
-        """Check if union of fragment spaces is orthonormal and complete in the occupied space."""
         if self.spinsym == 'restricted':
             nspin = 1
             tspin = lambda x, s : x
@@ -1320,18 +1298,40 @@ class Embedding:
         ovlp = self.get_ovlp()
         dm1 = self.mf.make_rdm1()
         for s in range(nspin):
+            nmo_s = tspin(self.nmo, s)
+            nelec_s = tspin(nelec, s)
             c_frags = np.hstack([tspin(x.c_frag, s) for x in self.fragments])
             nfrags = c_frags.shape[-1]
-            # Check if orthonormal
             csc = dot(c_frags.T, ovlp, c_frags)
             if not np.allclose(csc, np.eye(nfrags), rtol=0, atol=tol):
                 return False
-            # Check if occupied complete
-            cs = np.dot(c_frags.T, ovlp)
-            ne = einsum('ia,ab,ib->', cs, tspin(dm1, s), cs)
-            if abs(ne - tspin(nelec, s)) > tol:
-                return False
+            if complete_occupied and complete_virtual:
+                if (nfrags != nmo_s):
+                    return False
+            elif complete_occupied or complete_virtual:
+                cs = np.dot(c_frags.T, ovlp)
+                ne = einsum('ia,ab,ib->', cs, tspin(dm1, s), cs)
+                if complete_occupied and (abs(ne - nelec_s) > tol):
+                    return False
+                if complete_virtual and (abs((nfrags-ne) - (nmo_s-nelec_s)) > tol):
+                    return False
         return True
+
+    def has_orthonormal_fragmentation(self, tol=1e-9):
+        """Check if union of fragment spaces is orthonormal."""
+        return self._check_fragmentation(complete_occupied=False, complete_virtual=False, tol=tol)
+
+    def has_complete_fragmentation(self, tol=1e-9):
+        """Check if union of fragment spaces is orthonormal and complete."""
+        return self._check_fragmentation(complete_occupied=True, complete_virtual=True, tol=tol)
+
+    def has_complete_occupied_fragmentation(self, tol=1e-9):
+        """Check if union of fragment spaces is orthonormal and complete in the occupied space."""
+        return self._check_fragmentation(complete_occupied=True, complete_virtual=False, tol=tol)
+
+    def has_complete_virtual_fragmentation(self, tol=1e-9):
+        """Check if union of fragment spaces is orthonormal and complete in the virtual space."""
+        return self._check_fragmentation(complete_occupied=False, complete_virtual=True, tol=tol)
 
     def require_complete_fragmentation(self, message=None, incl_virtual=True, tol=1e-9):
         if incl_virtual:
