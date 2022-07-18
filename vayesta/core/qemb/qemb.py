@@ -1032,10 +1032,12 @@ class Embedding:
 
     @log_method()
     def make_rdm1_demo(self, *args, **kwargs):
+        self.require_complete_fragmentation("Democratically partitioned DMs will not be accurate.")
         return make_rdm1_demo_rhf(self, *args, **kwargs)
 
     @log_method()
     def make_rdm2_demo(self, *args, **kwargs):
+        self.require_complete_fragmentation("Democratically partitioned DMs will not be accurate.")
         return make_rdm2_demo_rhf(self, *args, **kwargs)
 
     def get_dmet_elec_energy(self, version=0, approx_cumulant=True):
@@ -1046,6 +1048,7 @@ class Embedding:
         e_dmet: float
             Electronic DMET energy.
         """
+        self.require_complete_fragmentation("DMET energy will not be accurate.")
         e_dmet = 0.0
         for x in self.get_fragments(active=True, mpi_rank=mpi.rank, sym_parent=None):
             wx = x.symmetry_factor
@@ -1329,6 +1332,19 @@ class Embedding:
             if abs(ne - tspin(nelec, s)) > tol:
                 return False
         return True
+
+    def require_complete_fragmentation(self, message=None, incl_virtual=True, tol=1e-9):
+        if incl_virtual:
+            complete = self.has_complete_fragmentation(tol=tol)
+        else:
+            complete = self.has_complete_occupied_fragmentation(tol=tol)
+        if complete:
+            return
+        if message:
+            message = ' %s' % message
+        else:
+            message = ''
+        self.log.error("Fragmentation is not complete and orthonormal.%s", message)
 
     # --- Reset
 

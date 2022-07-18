@@ -248,32 +248,39 @@ class EWF(Embedding):
     # DM1
     @log_method()
     def _make_rdm1_mp2(self, *args, **kwargs):
+        self.require_complete_fragmentation("Density-matrices will not be accurate.", incl_virtual=False)
         return make_rdm1_ccsd(self, *args, mp2=True, **kwargs)
 
     @log_method()
     def _make_rdm1_ccsd(self, *args, **kwargs):
+        self.require_complete_fragmentation("Density-matrices will not be accurate.", incl_virtual=False)
         return make_rdm1_ccsd(self, *args, mp2=False, **kwargs)
 
     @log_method()
     @cache(copy=True)
     def _make_rdm1_ccsd_global_wf(self, *args, **kwargs):
+        self.require_complete_fragmentation("Density-matrices will not be accurate.", incl_virtual=False)
         return make_rdm1_ccsd_global_wf(self, *args, **kwargs)
 
     def _make_rdm1_mp2_global_wf(self, *args, **kwargs):
+        self.require_complete_fragmentation("Density-matrices will not be accurate.", incl_virtual=False)
         return self._make_rdm1_ccsd_global_wf(*args, t_as_lambda=True, with_t1=False, **kwargs)
 
     @log_method()
     def _make_rdm1_ccsd_proj_lambda(self, *args, **kwargs):
+        self.require_complete_fragmentation("Density-matrices will not be accurate.", incl_virtual=False)
         return make_rdm1_ccsd_proj_lambda(self, *args, **kwargs)
 
     # DM2
 
     @log_method()
     def _make_rdm2_ccsd_global_wf(self, *args, **kwargs):
+        self.require_complete_fragmentation("Density-matrices will not be accurate.", incl_virtual=False)
         return make_rdm2_ccsd_global_wf(self, *args, **kwargs)
 
     @log_method()
     def _make_rdm2_ccsd_proj_lambda(self, *args, **kwargs):
+        self.require_complete_fragmentation("Density-matrices will not be accurate.", incl_virtual=False)
         return make_rdm2_ccsd_proj_lambda(self, *args, **kwargs)
 
     # --- Energy
@@ -292,6 +299,7 @@ class EWF(Embedding):
 
     @mpi.with_allreduce()
     def get_proj_corr_energy(self):
+        self.require_complete_fragmentation("Energy will not be accurate.", incl_virtual=False)
         e_corr = 0.0
         # Only loop over fragments of own MPI rank
         for x in self.get_fragments(active=True, sym_parent=None, mpi_rank=mpi.rank):
@@ -307,6 +315,7 @@ class EWF(Embedding):
         return e_corr/self.ncells
 
     def get_dm_corr_energy(self, dm1='global-wf', t_as_lambda=None, with_exxdiv=None, sym_t2=True):
+        self.require_complete_fragmentation("Energy will not be accurate.", incl_virtual=False)
         e1 = self.get_dm_corr_energy_e1(dm1=dm1, t_as_lambda=None, with_exxdiv=None)
         e2 = self.get_dm_corr_energy_e2(t_as_lambda=None, sym_t2=sym_t2)
         e_corr = (e1 + e2)
