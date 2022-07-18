@@ -119,6 +119,7 @@ def make_cp_mol(mol, atom, rmax, nimages=1, unit='A', **kwargs):
     mol_cp.atom = atoms
     mol_cp.unit = 'ANG'
     mol_cp.a = None
+    mol_cp.dimension = 0
     for key, val in kwargs.items():
         log.debugv("Counterpoise: setting attribute %s to %r", key, val)
         setattr(mol_cp, key, val)
