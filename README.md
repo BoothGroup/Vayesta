@@ -23,7 +23,7 @@ python -m pip install . --user
 Quickstart
 ----------
 
-Examples of how to use Vayesta can be found in the `vayesta/examples` directory.
+Examples of how to use Vayesta can be found in the `vayesta/examples` directory, and a quickstart can be found in the documentation.
 
 
 Authors

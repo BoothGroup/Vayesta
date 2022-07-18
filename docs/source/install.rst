@@ -10,11 +10,13 @@ Vayesta_ can be installed using pip_ or from source.
 Installing with pip
 ===================
 
-The simplest way to install Vayesta is to use pip:
+The simplest way to install Vayesta is to use the ``setup.py``:
 
 .. code-block:: console
 
-   [~]$ pip install vayesta
+   [~]$ git clone https://github.com/BoothGroup/Vayesta
+   [~]$ cd Vayesta
+   [~]$ pip install .
 
 All required python packages, such as NumPy_ and PySCF_ will be installed automatically.
 
