@@ -137,7 +137,7 @@ class MolecularEDMETTest(TestCase):
                 oneshot=True,
                 make_dd_moments=False,
         )
-        with emb.iao_fragmentation() as f:
+        with emb.iao_fragmentation(minao='minao') as f:
             f.add_all_atomic_fragments()
         emb.kernel()
 
@@ -153,7 +153,7 @@ class MolecularEDMETTest(TestCase):
                 oneshot=True,
                 make_dd_moments=False,
         )
-        with uemb.iao_fragmentation() as f:
+        with uemb.iao_fragmentation(minao='minao') as f:
             f.add_all_atomic_fragments()
         uemb.kernel()
 
