@@ -52,6 +52,8 @@ class Test_MP2(TestCase):
     @cache
     def emb(cls, bno_threshold):
         emb = vayesta.ewf.EWF(cls.mf, bno_threshold=bno_threshold, solver='MP2')
+        with emb.iao_fragmentation(minao='minao') as f:
+            f.add_all_atomic_fragments()
         emb.kernel()
         return emb
 
@@ -133,6 +135,8 @@ class Test_CCSD(Test_MP2):
     @cache
     def emb(cls, bno_threshold):
         emb = vayesta.ewf.EWF(cls.mf, bno_threshold=bno_threshold, solve_lambda=True, solver_options=TIGHT_SOLVER)
+        with emb.iao_fragmentation(minao='minao') as f:
+            f.add_all_atomic_fragments()
         emb.kernel()
         return emb
 
