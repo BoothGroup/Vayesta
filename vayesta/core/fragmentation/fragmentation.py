@@ -67,7 +67,7 @@ class Fragmentation:
         orth = self.emb.has_orthonormal_fragmentation()
         comp = self.emb.has_complete_fragmentation()
         occcomp = self.emb.has_complete_occupied_fragmentation()
-        self.log.info("Fragmentation: orthonormal= %r, occupied-complete= %r, virtual-complete= %r",
+        self.log.info("Fragmentation: orthogonal= %r, occupied-complete= %r, virtual-complete= %r",
                       self.emb.has_orthonormal_fragmentation(),
                       self.emb.has_complete_occupied_fragmentation(),
                       self.emb.has_complete_virtual_fragmentation())
