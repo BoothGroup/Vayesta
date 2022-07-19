@@ -12,16 +12,20 @@
 Introduction
 ============
 
-Vayesta_ is a Python package for performing correlated wave function-based quantum embedding in ab initio molecules and solids, as well as lattice models.
+Vayesta_ is a Python package for performing correlated wave function-based quantum embedding
+in *ab initio* molecules and solids, as well as lattice models.
 
-It builds on the functionality of the PySCF_ package to set up the system and mean-field properties.
+It builds on the functionality of the PySCF_ package to set up the system and obtain mean-field properties.
 With Vayesta one can define fragments within these systems in a highly flexible way
-and add bath orbitals to represent the coupling of each fragment to its extended environment, with various approaches actively developed.
+and add bath orbitals to represent the coupling of each fragment to its extended environment,
+with various approaches actively developed.
 The resulting quantum embedding problems can be solved with a variety of wave function based solvers,
-making use of the efficient implementations within PySCF. As a final step, expectation values,
-such as the energy or reduced density-matrices, can be reconstructed from the collection of individually-solved embedding problems,
-as well as support for self-consistency in the procedure or closer coupling in the solutions of the embedding problems. The package and methods are
-actively developed.
+making use of the efficient implementations within PySCF.
+As a final step, expectation values, such as the energy or reduced density-matrices,
+can be reconstructed from the collection of individually-solved embedding problems.
+Vayesta also offers support for self-consistency in the procedure or closer coupling in the solutions of the embedding problems.
+
+The package and methods are actively developed.
 
 Features
 --------
