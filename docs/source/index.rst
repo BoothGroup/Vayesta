@@ -13,8 +13,8 @@ Vayesta_ is a python package for performing state of the art wave function-based
    install
    quickstart/index
    faq/index
-   modules
-   
+   apidoc/modules
+
 ..
     Indices and tables
     ==================

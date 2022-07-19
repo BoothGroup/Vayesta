@@ -45,11 +45,6 @@ Features
     - Dump orbitals and integrals of resulting embedded cluster to HDF5 file for external processing
 
 Additional functionality is available for self-consistency and the definition of different resulting expectation values.
-..
-    - Expectation values:
-        - Projected wave function correlation energy
-        - Democratically partitioned density-matrices
-        - Partitioned
 
 
 .. [1] Gerald Knizia, J. Chem. Theory Comput. 9, 11, 4834 (2013).
