@@ -1344,7 +1344,7 @@ class Embedding:
             message = ' %s' % message
         else:
             message = ''
-        self.log.error("Fragmentation is not complete and orthonormal.%s", message)
+        self.log.error("Fragmentation is not orthogonal and complete.%s", message)
 
     # --- Reset
 
