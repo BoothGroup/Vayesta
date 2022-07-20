@@ -22,6 +22,15 @@ guaranteed via an expansion of the bath space and appropriate choice of property
 The only requirement on the fragments is that they are orthogonal and (when taken together) they span the complete *occupied* space.
 For DMET calculations, it is additionally desirable for the union of the fragment spaces to span the entire *virtual* space.
 
+.. note::
+
+    To check if a user-defined fragmentation is orthogonal and complete in the occupied/virtual space,
+    lock for the following line in the output:
+
+    .. code-block:: console
+
+        Fragmentation: orthogonal= True, occupied-complete= True, virtual-complete= False
+
 For *ab initio* systems atomic projectors can be defined in terms of three different types of local atomic orbitals:
 
 * `Intrinsic atomic orbitals (IAO) <REF_IAO_>`_

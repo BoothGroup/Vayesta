@@ -59,10 +59,11 @@ the keyword argument ``maxiter=1`` has to be dropped.
 
 .. note::
 
-    The self-consistent optimization of a correlation potential in DMET can be ill-defined, and will sometimes fail. In this case, changing the tolerance or starting point can sometimes help.
+    The self-consistent optimization of a correlation potential in DMET can be ill-defined and will sometimes fail.
+    In this case, changing the tolerance or starting point can sometimes help.
     The underlying origin of these difficulties are described in Ref. [1]_.
 
-    Our implementation of self-consistent DMET follows that of Ref. [2]_, and requires the python module ``cxvpy``
+    Our implementation of self-consistent DMET follows that of Ref. [2]_ and requires the Python package ``cxvpy``
     for use.
 
 Density-Matrices

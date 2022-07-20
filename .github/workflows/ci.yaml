@@ -42,7 +42,7 @@ jobs:
         run: |
           python -m pip install sphinx sphinx_rtd_theme
           cd docs
-          sphinx-apidoc -o source/ ../vayesta/
+          sphinx-apidoc -o source/apidoc -t templates ../vayesta/
           make html
           cd ..
         if: matrix.documentation
@@ -53,4 +53,4 @@ jobs:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: docs/build/html
           force_orphan: true
-        if: matrix.documentation
+        if: matrix.documentation && github.ref == 'refs/heads/master'

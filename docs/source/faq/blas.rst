@@ -3,7 +3,7 @@
 Installing OpenBLAS from source
 -------------------------------
 
-The following is an example of instalation of OpenBLAS, which can be inportant for
+The following is an example of installation of OpenBLAS, which can be important for
 multithreaded solutions to the embedding problems and other linear algebra operations required.
 
 This installation example is carried out using **gcc** compilers.
