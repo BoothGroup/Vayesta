@@ -18,21 +18,21 @@ def make_rdm1_ccsd(emb, ao_basis=False, t_as_lambda=False, symmetrize=True, with
 
     Parameters
     ----------
-    ao_basis: bool, optional
+    ao_basis : bool, optional
         Return the density-matrix in the AO basis. Default: False.
-    t_as_lambda: bool, optional
+    t_as_lambda : bool, optional
         Use T-amplitudes instead of Lambda-amplitudes for CCSD density matrix. Default: False.
-    symmetrize: bool, optional
+    symmetrize : bool, optional
         Use Symemtrized equations, if possible. Default: True.
-    with_mf: bool, optional
+    with_mf : bool, optional
         If False, only the difference to the mean-field density-matrix is returned. Default: True.
-    mpi_target: integer, optional
+    mpi_target : integer, optional
         If set to an integer, the density-matrix will only be constructed on the corresponding MPI rank.
         Default: None.
 
     Returns
     -------
-    dm1: tuple(2) of (n, n) arrays
+    dm1 : tuple(2) of (n, n) arrays
         (alpha, beta) one-particle reduced density matrix in AO (if `ao_basis=True`) or MO basis (default).
     """
 
@@ -179,17 +179,17 @@ def make_rdm1_ccsd_global_wf(emb, ao_basis=False, with_mf=True, t_as_lambda=Fals
 
     Parameters
     ----------
-    ao_basis: bool, optional
+    ao_basis : bool, optional
         Return the density-matrix in the AO basis. Default: False.
-    t_as_lambda: bool, optional
+    t_as_lambda : bool, optional
         Use T-amplitudes instead of Lambda-amplitudes for CCSD density matrix. Default: False.
-    slow: bool, optional
+    slow : bool, optional
         Combine to global CCSD wave function first, then build density matrix.
         Equivalent, but does not scale well. Default: False
 
     Returns
     -------
-    dm1: (n, n) array
+    dm1 : (n, n) array
         One-particle reduced density matrix in AO (if `ao_basis=True`) or MO basis (default).
     """
     if t_as_lambda is None:
@@ -219,19 +219,19 @@ def make_rdm2_ccsd_global_wf(emb, ao_basis=False, symmetrize=False, t_as_lambda=
 
     Parameters
     ----------
-    ao_basis: bool, optional
+    ao_basis : bool, optional
         Return the density-matrix in the AO basis. Default: False.
-    symmetrize: bool, optional
+    symmetrize : bool, optional
         Symmetrize the density-matrix at the end of the calculation. Default: True.
-    t_as_lambda: bool, optional
+    t_as_lambda : bool, optional
         Use T-amplitudes instead of Lambda-amplitudes for CCSD density matrix. Default: False.
-    slow: bool, optional
+    slow : bool, optional
         Combine to global CCSD wave function first, then build density matrix.
         Equivalent, but does not scale well. Default: True.
 
     Returns
     -------
-    dm2: (n, n, n, n) array
+    dm2 : (n, n, n, n) array
         Two-particle reduced density matrix in AO (if `ao_basis=True`) or MO basis (default).
     """
 
@@ -265,19 +265,19 @@ def make_rdm2_ccsd_proj_lambda(emb, ao_basis=False, t_as_lambda=False, with_dm1=
 
     Parameters
     ----------
-    ao_basis: bool, optional
+    ao_basis : bool, optional
         Return the density-matrix in the AO basis. Default: False.
-    t_as_lambda: bool, optional
+    t_as_lambda : bool, optional
         Use T-amplitudes instead of Lambda-amplitudes for CCSD density matrix. Default: False.
-    with_mf: bool, optional
+    with_mf : bool, optional
         If False, only the difference to the mean-field density-matrix is returned. Default: True.
-    mpi_target: integer, optional
+    mpi_target : integer, optional
         If set to an integer, the density-matrix will only be constructed on the corresponding MPI rank.
         Default: None.
 
     Returns
     -------
-    dm1: (n, n) array
+    dm1 : (n, n) array
         One-particle reduced density matrix in AO (if `ao_basis=True`) or MO basis (default).
     """
     # --- Loop over pairs of fragments and add projected density-matrix contributions:
