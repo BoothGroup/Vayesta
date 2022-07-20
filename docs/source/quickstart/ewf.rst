@@ -13,7 +13,7 @@ Water Molecule
 
 An embedded wave function calculation of a simple water molecule can be performed with the following code:
 
-.. literalinclude:: /../../../vayesta/examples/ewf/molecules/01-simple-ccsd.py
+.. literalinclude:: /../../examples/ewf/molecules/01-simple-ccsd.py
     :linenos:
 
 There are two main differences in setup compared to the :ref:`DMET embedding class <dmet>` in the definition of the ``EWF`` class (lines 24--25).
@@ -49,7 +49,7 @@ In this example we calculate cubic boron nitride (Zinc Blende structure):
     for accurate results and only chosen for demonstration.
 
 
-.. literalinclude:: /../../../vayesta/examples/ewf/solids/03-cubic-BN.py
+.. literalinclude:: /../../examples/ewf/solids/03-cubic-BN.py
     :linenos:
 
 In **line 34** the setup of the embedding class is performed in the same way as for molecules.
