@@ -44,7 +44,7 @@ Additional considerations
 
 While any job script should in principle also work in parallel,
 there are some additional considerations, which mainly concern file IO and logging.
-They are demonstrated at this example, which can be found at ``vayeste/examples/ewf/molecules/90-mpi.py``:
+They are demonstrated at this example, which can be found at ``examples/ewf/molecules/90-mpi.py``:
 
 .. literalinclude:: /../../examples/ewf/molecules/90-mpi.py
     :linenos:

@@ -16,7 +16,7 @@ The name of the HDF5 file is ``clusters.h5`` by default, but can be adjusted via
     :lines: 26-27
 
 .. note::
-    The full example can be found at ``vayesta/examples/ewf/molecules/20-dump-clusters.py``
+    The full example can be found at ``examples/ewf/molecules/20-dump-clusters.py``
 
 The dump file contains a separate group for each fragment which was defined for the embedding.
 The content of each group can be best illustrated via this code snippet:
