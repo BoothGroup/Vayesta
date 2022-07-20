@@ -52,7 +52,7 @@ the keyword argument ``maxiter=1`` has to be dropped.
     The fragments in the calculation above are symmetry-related by a rotation of 120° or 240° around the `z`-axis.
     This symmetry can be added to the embedding class, such that only a single fragment needs to be solved:
 
-    .. literalinclude:: /../../../vayesta/examples/dmet/02-rotational-symmetry.py
+    .. literalinclude:: /../../examples/dmet/02-rotational-symmetry.py
         :lines: 25-30
 
     see also ``example/dmet/02-rotations-symmetry.py``
