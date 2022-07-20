@@ -27,9 +27,6 @@
 {{ automodule(pkgname, automodule_options) }}
 {% endif %}
 
-.. warning::
-   The API documentation is work-in-progress!
-
 {%- if subpackages %}
 Subpackages
 -----------
