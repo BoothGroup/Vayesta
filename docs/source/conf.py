@@ -62,6 +62,13 @@ html_static_path = []
 # Numbering for Figures, Tables, etc
 numfig = True
 numfig_format = {
-        'figure': 'Fig. %s',
-        'table': 'Table %s',
-        }
+    'figure': 'Fig. %s',
+    'table': 'Table %s',
+}
+
+# -- Autodoc defaults --------------------------------------------------------
+
+autodoc_default_options = {
+    'member-order': 'bysource',
+    'inherited-members': True,
+}
