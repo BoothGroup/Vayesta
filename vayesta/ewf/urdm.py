@@ -260,6 +260,8 @@ def make_rdm1_ccsd_global_wf(emb, ao_basis=False, with_mf=True, t_as_lambda=Fals
         t2aa = wfx.t2aa
         t2ab = wfx.t2ab
         t2bb = wfx.t2bb
+        if late_t2_sym:
+            t2ba = wfx.t2ba
 
         # Intermediates: leave left index in cluster-x basis:
         dooxa = np.zeros((x.cluster.nocc_active[0], emb.nocc[0]))
@@ -353,7 +355,10 @@ def make_rdm1_ccsd_global_wf(emb, ao_basis=False, with_mf=True, t_as_lambda=Fals
             kept_xy += 1
 
             l1ya, l1yb = wfy.t1 if (t_as_lambda or y.solver == 'MP2') else wfy.l1
-            l2aa, l2ab, l2bb = wfy.t2 if (t_as_lambda or y.solver == 'MP2') else wfy.l2
+            if not late_t2_sym:
+                l2aa, l2ab, l2bb = wfy.t2 if (t_as_lambda or y.solver == 'MP2') else wfy.l2
+            else:
+                l2aa, l2ab, l2ba, l2bb = wfy.t2 if (t_as_lambda or y.solver == 'MP2') else wfy.l2
 
             if l2aa is None or l2ab is None or l2bb is None:
                 raise RuntimeError("No L2 amplitudes found for %s!" % y)
@@ -414,14 +419,13 @@ def make_rdm1_ccsd_global_wf(emb, ao_basis=False, with_mf=True, t_as_lambda=Fals
                 dvvxb += einsum('iIaA,iI,qA->aq', tlbb, rxy_occ_b, cy_vir_b) * 0.5
                 dvvxb += einsum('iIaA,iI,qA->aq', tlab2, rxy_occ_b, cy_vir_b)
 
-#                 if with_t1:
-#                     # VO block
-#                     dvoxa += einsum('(ijab,jJ,bB),JB->ai', t2aa, rxy_occ_a, rxy_vir_a, l1ya)
-#                     dvoxa += einsum('(ijab,jJ,bB),JB->ai', t2ab, rxy_occ_b, rxy_vir_b, l1yb)
-#                     dvoxb += einsum('(ijab,jJ,bB),JB->ai', t2bb, rxy_occ_b, rxy_vir_b, l1yb)
-#                     dvoxb += einsum('(ijab,iI,aA),IA->bj', t2ab, rxy_occ_a, rxy_vir_a, l1ya)
+                if with_t1:
+                    # VO block
+                    dvoxa += einsum('(ijab,jJ,bB),JB->ai', t2aa, rxy_occ_a, rxy_vir_a, l1ya)
+                    dvoxa += einsum('(ijab,jJ,bB),JB->ai', t2ab, rxy_occ_b, rxy_vir_b, l1yb)
+                    dvoxb += einsum('(ijab,jJ,bB),JB->ai', t2bb, rxy_occ_b, rxy_vir_b, l1yb)
+                    dvoxb += einsum('(ijab,iI,aA),IA->bj', t2ab, rxy_occ_a, rxy_vir_a, l1ya)
             else:
-                raise NotImplemented()
                 # Calculate some overlap matrices:
                 cfxa, cfxb = x.get_overlap('cluster[occ]|frag')
                 cfya, cfyb = y.get_overlap('cluster[occ]|frag')
@@ -445,49 +449,155 @@ def make_rdm1_ccsd_global_wf(emb, ao_basis=False, with_mf=True, t_as_lambda=Fals
                 # --- Occupied
                 # Deal with both virtual overlaps here:
                 if svd_tol is None:
-                    t2tmp = einsum('xjab,aA,bB->xjAB', theta, rxy_vir, rxy_vir) # frag * cluster^4
-                    l2tmp = l2
+                    t2aatmp = einsum('xjab,aA,bB->xjAB', t2aa, rxy_vir_a, rxy_vir_a) # frag * cluster^4
+                    t2abtmp = einsum('xjab,aA,bB->xjAB', t2ab, rxy_vir_a, rxy_vir_b)
+                    t2batmp = einsum('xjab,aA,bB->xjAB', t2ba, rxy_vir_b, rxy_vir_a)
+                    t2bbtmp = einsum('xjab,aA,bB->xjAB', t2bb, rxy_vir_b, rxy_vir_b)
+                    l2aatmp, l2abtmp, l2batmp, l2bbtmp = l2aa, l2ab, l2ba, l2bb
                 else:
-                    t2tmp = einsum('xjab,aS,bP->xjSP', theta, uxy_vir, uxy_vir)
-                    l2tmp = einsum('yjab,Sa,Pb->yjSP', l2, vxy_vir, vxy_vir)
+                    t2aatmp = einsum('xjab,aS,bP->xjSP', t2aa, uxy_vir_a, uxy_vir_a)
+                    t2abtmp = einsum('xjab,aS,bP->xjSP', t2ab, uxy_vir_a, uxy_vir_b)
+                    t2batmp = einsum('xjab,aS,bP->xjSP', t2ba, uxy_vir_b, uxy_vir_a)
+                    t2bbtmp = einsum('xjab,aS,bP->xjSP', t2bb, uxy_vir_b, uxy_vir_b)
+
+                    l2aatmp = einsum('yjab,Sa,Pb->yjSP', l2aa, vxy_vir_a, vxy_vir_a)
+                    l2abtmp = einsum('yjab,Sa,Pb->yjSP', l2ab, vxy_vir_a, vxy_vir_b)
+                    l2batmp = einsum('yjab,Sa,Pb->yjSP', l2ba, vxy_vir_b, vxy_vir_a)
+                    l2bbtmp = einsum('yjab,Sa,Pb->yjSP', l2bb, vxy_vir_b, vxy_vir_b)
+
                 # T2 * L2
                 if svd_tol is None:
-                    tmp = -einsum('(xjAB,jJ->xJAB),YJAB->xY', t2tmp, rxy_occ, l2tmp)/4
+#                    dooxa -= einsum('(ijab,jJ,aA,bB),(qI,IJAB)->iq', t2aa, rxy_occ_a, rxy_vir_a, rxy_vir_a, cy_occ_a, l2aa) * 0.5
+#                     dooxa -= einsum('(ijab,jJ,aA,bB),(qI,IJAB)->iq', t2ab, rxy_occ_b, rxy_vir_a, rxy_vir_b, cy_occ_a, l2ab)
+                    tmpa  = -einsum('(xjAB,jJ->xJAB),YJAB->xY', t2aatmp, rxy_occ_a, l2aatmp)/8
+                    tmpa += -einsum('(xjAB,jJ->xJAB),YJAB->xY', t2abtmp, rxy_occ_b, l2abtmp)/4
+
+                    tmpb  = -einsum('(xjAB,jJ->xJAB),YJAB->xY', t2bbtmp, rxy_occ_b, l2bbtmp)/8
+                    tmpb += -einsum('(xjAB,jJ->xJAB),YJAB->xY', t2batmp, rxy_occ_a, l2batmp)/4
                 else:
-                    tmp = -einsum('(xjAB,jS->xSAB),(SJ,YJAB->YSAB)->xY', t2tmp, uxy_occ, vxy_occ, l2tmp)/4
-                doox += dot(cfx, tmp, mfy.T)
+                    tmpa  = -einsum('(xjAB,jS->xSAB),(SJ,YJAB->YSAB)->xY', t2aatmp, uxy_occ_a, vxy_occ_a, l2aatmp)/8
+                    tmpa += -einsum('(xjAB,jS->xSAB),(SJ,YJAB->YSAB)->xY', t2abtmp, uxy_occ_b, vxy_occ_b, l2abtmp)/4
+
+                    tmpb  = -einsum('(xjAB,jS->xSAB),(SJ,YJAB->YSAB)->xY', t2bbtmp, uxy_occ_b, vxy_occ_b, l2bbtmp)/8
+                    tmpb += -einsum('(xjAB,jS->xSAB),(SJ,YJAB->YSAB)->xY', t2batmp, uxy_occ_a, vxy_occ_a, l2batmp)/4
+
+                dooxa += dot(cfxa, tmpa, mfya.T)
+                dooxb += dot(cfxb, tmpb, mfyb.T)
                 # T2 * L2.T
-                tmp = -einsum('(xjAB,jY->xYAB),YIBA->xI', t2tmp, cfxy_occ, l2tmp)/4
-                doox += dot(cfx, tmp, cy_occ.T)
+                tmpa  = -einsum('(xjAB,jY->xYAB),YIBA->xI', t2aatmp, cfxy_occ_a, l2aatmp)/8
+                tmpa += -einsum('(xjAB,jY->xYAB),YIBA->xI', t2abtmp, cfxy_occ_b, l2batmp)/4
+                dooxa += dot(cfxa, tmpa, cy_occ_a.T)
+
+                tmpb  = -einsum('(xjAB,jY->xYAB),YIBA->xI', t2bbtmp, cfxy_occ_b, l2bbtmp)/8
+                tmpb += -einsum('(xjAB,jY->xYAB),YIBA->xI', t2batmp, cfxy_occ_a, l2abtmp)/4
+                dooxb += dot(cfxb, tmpb, cy_occ_b.T)
                 # T2.T * L2
-                tmp = -einsum('xiBA,(Jx,YJAB->YxAB)->iY', t2tmp, cfyx_occ, l2tmp)/4
-                doox += np.dot(tmp, mfy.T)
+                tmpa  = -einsum('xiBA,(Jx,YJAB->YxAB)->iY', t2aatmp, cfyx_occ_a, l2aatmp)/8
+                tmpa += -einsum('xiBA,(Jx,YJAB->YxAB)->iY', t2batmp, cfyx_occ_b, l2abtmp)/4
+                dooxa += np.dot(tmpa, mfya.T)
+
+                tmpb  = -einsum('xiBA,(Jx,YJAB->YxAB)->iY', t2bbtmp, cfyx_occ_b, l2bbtmp)/8
+                tmpb += -einsum('xiBA,(Jx,YJAB->YxAB)->iY', t2abtmp, cfyx_occ_a, l2batmp)/4
+                dooxb += np.dot(tmpb, mfyb.T)
+
                 # T2.T * L2.T
-                tmp = -einsum('xiBA,xY,YIBA->iI', t2tmp, ffxy, l2tmp)/4
-                doox += np.dot(tmp, cy_occ.T)
+                tmpa  = -einsum('xiBA,xY,YIBA->iI', t2aatmp, ffxya, l2aatmp)/8
+                tmpa += -einsum('xiBA,xY,YIBA->iI', t2batmp, ffxyb, l2batmp)/4
+                dooxa += np.dot(tmpa, cy_occ_a.T)
+
+                tmpb  = -einsum('xiBA,xY,YIBA->iI', t2bbtmp, ffxyb, l2bbtmp)/8
+                tmpb += -einsum('xiBA,xY,YIBA->iI', t2abtmp, ffxya, l2abtmp)/4
+                dooxb += np.dot(tmpb, cy_occ_b.T)
 
                 # --- Virtual
                 # T2 * L2 and T2.T * L2.T
                 if svd_tol is None:
-                    t2tmp = einsum('xjab,xY,jJ->YJab', theta, ffxy, rxy_occ)
-                    tmp = einsum('(YJab,aA->YJAb),YJAB->bB', t2tmp, rxy_vir, l2)/4
-                    tmp += einsum('(YIba,aA->YIbA),YIBA->bB', t2tmp, rxy_vir, l2)/4
-                else:
-                    t2tmp = einsum('xjab,jS->xSab', theta, uxy_occ)
-                    l2tmp = einsum('YJAB,SJ,xY->xSAB', l2, vxy_occ, ffxy)
-                    tmp = einsum('(xSab,aP->xSPb),(PA,xSAB->xSPB)->bB', t2tmp, uxy_vir, vxy_vir, l2tmp)/4
-                    tmp += einsum('(xSba,aP->xSbP),(PA,xSBA->xSBP)->bB', t2tmp, uxy_vir, vxy_vir, l2tmp)/4
-                # T2 * L2.T and T2.T * L2
-                t2tmp = einsum('xjab,jY->xYab', theta, cfxy_occ)
-                l2tmp = einsum('Jx,YJAB->YxAB', cfyx_occ, l2)
-                if svd_tol is None:
-                    tmp += einsum('(xYab,aA->xYAb),YxBA->bB', t2tmp, rxy_vir, l2tmp)/4
-                    tmp += einsum('(xYba,aA->xYbA),YxAB->bB', t2tmp, rxy_vir, l2tmp)/4
-                else:
-                    tmp += einsum('(xYab,aS->xYSb),(SA,YxBA->YxBS)->bB', t2tmp, uxy_vir, vxy_vir, l2tmp)/4
-                    tmp += einsum('(xYba,aS->xYbS),(SA,YxAB->YxSB)->bB', t2tmp, uxy_vir, vxy_vir, l2tmp)/4
-                dvvx += np.dot(tmp, cy_vir.T)
+                    t2aatmp = einsum('xjab,xY,jJ->YJab', t2aa, ffxya, rxy_occ_a)
+                    t2abtmp = einsum('xjab,xY,jJ->YJab', t2ab, ffxya, rxy_occ_b)
+                    t2batmp = einsum('xjab,xY,jJ->YJab', t2ba, ffxyb, rxy_occ_a)
+                    t2bbtmp = einsum('xjab,xY,jJ->YJab', t2bb, ffxyb, rxy_occ_b)
 
+#                   dvvxa += einsum('(ijab,iI,jJ,bB),(qA,IJAB)->aq', t2aa, rxy_occ_a, rxy_occ_a, rxy_vir_a, cy_vir_a, l2aa) * 0.5
+#                   dvvxa += einsum('(ijab,iI,jJ,bB),(qA,IJAB)->aq', t2ab, rxy_occ_a, rxy_occ_b, rxy_vir_b, cy_vir_a, l2ab)
+
+                    tmpa  = einsum('(YJab,aA->YJAb),YJAB->bB', t2aatmp, rxy_vir_a, l2aa)/8
+                    tmpa += einsum('(YJab,aA->YJAb),YJAB->bB', t2batmp, rxy_vir_b, l2ba)/4
+
+                    tmpb  = einsum('(YJab,aA->YJAb),YJAB->bB', t2bbtmp, rxy_vir_b, l2bb)/8
+                    tmpb += einsum('(YJab,aA->YJAb),YJAB->bB', t2abtmp, rxy_vir_a, l2ab)/4
+
+
+                    tmpa += einsum('(YIba,aA->YIbA),YIBA->bB', t2aatmp, rxy_vir_a, l2aa)/8
+                    tmpa += einsum('(YIba,aA->YIbA),YIBA->bB', t2abtmp, rxy_vir_b, l2ab)/4
+
+                    tmpb += einsum('(YIba,aA->YIbA),YIBA->bB', t2bbtmp, rxy_vir_b, l2bb)/8
+                    tmpb += einsum('(YIba,aA->YIbA),YIBA->bB', t2batmp, rxy_vir_a, l2ba)/4
+                else:
+                    t2aatmp = einsum('xjab,jS->xSab', t2aa, uxy_occ_a)
+                    t2abtmp = einsum('xjab,jS->xSab', t2ab, uxy_occ_b)
+                    t2batmp = einsum('xjab,jS->xSab', t2ba, uxy_occ_a)
+                    t2bbtmp = einsum('xjab,jS->xSab', t2bb, uxy_occ_b)
+
+                    l2aatmp = einsum('YJAB,SJ,xY->xSAB', l2aa, vxy_occ_a, ffxya)
+                    l2abtmp = einsum('YJAB,SJ,xY->xSAB', l2ab, vxy_occ_b, ffxya)
+                    l2batmp = einsum('YJAB,SJ,xY->xSAB', l2ba, vxy_occ_a, ffxyb)
+                    l2bbtmp = einsum('YJAB,SJ,xY->xSAB', l2bb, vxy_occ_b, ffxyb)
+
+                    tmpa  = einsum('(xSab,aP->xSPb),(PA,xSAB->xSPB)->bB', t2aatmp, uxy_vir_a, vxy_vir_a, l2aatmp)/8
+                    tmpa += einsum('(xSab,aP->xSPb),(PA,xSAB->xSPB)->bB', t2batmp, uxy_vir_b, vxy_vir_b, l2batmp)/4
+
+                    tmpb  = einsum('(xSab,aP->xSPb),(PA,xSAB->xSPB)->bB', t2bbtmp, uxy_vir_b, vxy_vir_b, l2bbtmp)/8
+                    tmpb += einsum('(xSab,aP->xSPb),(PA,xSAB->xSPB)->bB', t2abtmp, uxy_vir_a, vxy_vir_a, l2abtmp)/4
+
+
+                    tmpa += einsum('(xSba,aP->xSbP),(PA,xSBA->xSBP)->bB', t2aatmp, uxy_vir_a, vxy_vir_a, l2aatmp)/8
+                    tmpa += einsum('(xSba,aP->xSbP),(PA,xSBA->xSBP)->bB', t2abtmp, uxy_vir_b, vxy_vir_b, l2abtmp)/4
+
+                    tmpb += einsum('(xSba,aP->xSbP),(PA,xSBA->xSBP)->bB', t2bbtmp, uxy_vir_b, vxy_vir_b, l2bbtmp)/8
+                    tmpb += einsum('(xSba,aP->xSbP),(PA,xSBA->xSBP)->bB', t2batmp, uxy_vir_a, vxy_vir_a, l2batmp)/4
+
+                # T2 * L2.T and T2.T * L2
+                t2aatmp = einsum('xjab,jY->xYab', t2aa, cfxy_occ_a)
+                t2abtmp = einsum('xjab,jY->xYab', t2ab, cfxy_occ_b)
+                t2batmp = einsum('xjab,jY->xYab', t2ba, cfxy_occ_a)
+                t2bbtmp = einsum('xjab,jY->xYab', t2bb, cfxy_occ_b)
+
+                l2aatmp = einsum('Jx,YJAB->YxAB', cfyx_occ_a, l2aa)
+                l2abtmp = einsum('Jx,YJAB->YxAB', cfyx_occ_b, l2ab)
+                l2batmp = einsum('Jx,YJAB->YxAB', cfyx_occ_a, l2ba)
+                l2bbtmp = einsum('Jx,YJAB->YxAB', cfyx_occ_b, l2bb)
+
+                if svd_tol is None:
+                    tmpa += einsum('(xYab,aA->xYAb),YxBA->bB', t2aatmp, rxy_vir_a, l2aatmp)/8
+                    tmpa += einsum('(xYab,aA->xYAb),YxBA->bB', t2batmp, rxy_vir_b, l2abtmp)/4
+
+                    tmpb += einsum('(xYab,aA->xYAb),YxBA->bB', t2bbtmp, rxy_vir_b, l2bbtmp)/8
+                    tmpb += einsum('(xYab,aA->xYAb),YxBA->bB', t2abtmp, rxy_vir_a, l2batmp)/4
+
+
+
+                    tmpa += einsum('(xYba,aA->xYbA),YxAB->bB', t2aatmp, rxy_vir_a, l2aatmp)/8
+                    tmpa += einsum('(xYba,aA->xYbA),YxAB->bB', t2abtmp, rxy_vir_b, l2batmp)/4
+
+                    tmpb += einsum('(xYba,aA->xYbA),YxAB->bB', t2bbtmp, rxy_vir_b, l2bbtmp)/8
+                    tmpb += einsum('(xYba,aA->xYbA),YxAB->bB', t2batmp, rxy_vir_a, l2abtmp)/4
+                else:
+                    tmpa += einsum('(xYab,aS->xYSb),(SA,YxBA->YxBS)->bB', t2aatmp, uxy_vir_a, vxy_vir_a, l2aatmp)/8
+                    tmpa += einsum('(xYab,aS->xYSb),(SA,YxBA->YxBS)->bB', t2batmp, uxy_vir_b, vxy_vir_b, l2abtmp)/4
+
+                    tmpb += einsum('(xYab,aS->xYSb),(SA,YxBA->YxBS)->bB', t2bbtmp, uxy_vir_b, vxy_vir_b, l2bbtmp)/8
+                    tmpb += einsum('(xYab,aS->xYSb),(SA,YxBA->YxBS)->bB', t2abtmp, uxy_vir_a, vxy_vir_a, l2batmp)/4
+
+
+                    tmpa += einsum('(xYba,aS->xYbS),(SA,YxAB->YxSB)->bB', t2aatmp, uxy_vir_a, vxy_vir_a, l2aatmp)/8
+                    tmpa += einsum('(xYba,aS->xYbS),(SA,YxAB->YxSB)->bB', t2abtmp, uxy_vir_b, vxy_vir_b, l2batmp)/4
+
+                    tmpb += einsum('(xYba,aS->xYbS),(SA,YxAB->YxSB)->bB', t2bbtmp, uxy_vir_b, vxy_vir_b, l2bbtmp)/8
+                    tmpb += einsum('(xYba,aS->xYbS),(SA,YxAB->YxSB)->bB', t2batmp, uxy_vir_a, vxy_vir_a, l2abtmp)/4
+
+
+                dvvxa += np.dot(tmpa, cy_vir_a.T)
+                dvvxb += np.dot(tmpb, cy_vir_b.T)
         dooa += np.dot(cx_occ_a, dooxa)
         doob += np.dot(cx_occ_b, dooxb)
         dvva += np.dot(cx_vir_a, dvvxa)
@@ -497,8 +607,9 @@ def make_rdm1_ccsd_global_wf(emb, ao_basis=False, with_mf=True, t_as_lambda=Fals
         xt2a = dvva.copy()
         xt2b = dvvb.copy()
 
-        #dvoa += einsum('ai,Ii,Aa->AI', dvoxa, cx_occ_a, cx_vir_a)
-        #dvob += einsum('ai,Ii,Aa->AI', dvoxb, cx_occ_b, cx_vir_b)
+        if with_t1:
+            dvoa += einsum('ai,Ii,Aa->AI', dvoxa, cx_occ_a, cx_vir_a)
+            dvob += einsum('ai,Ii,Aa->AI', dvoxb, cx_occ_b, cx_vir_b)
 
         if use_sym:
             symtree = x.get_symmetry_tree()
@@ -527,7 +638,7 @@ def make_rdm1_ccsd_global_wf(emb, ao_basis=False, with_mf=True, t_as_lambda=Fals
                 doob += dot(cs_occ_b, cx2_occ_b, dooxb2, cs_occ_b.T)
                 dvvb += dot(cs_vir_b, cx2_vir_b, dvvxb2, cs_vir_b.T)
 
-        if with_t1:
+        if with_t1 and False:
             l1xa = dot(cx_occ_a.T, l1a, cx_vir_a)
             l1xb = dot(cx_occ_b.T, l1b, cx_vir_b)
             if not late_t2_sym:
@@ -540,15 +651,15 @@ def make_rdm1_ccsd_global_wf(emb, ao_basis=False, with_mf=True, t_as_lambda=Fals
                 dvoa += einsum('ai,Ii,Aa->AI', dvoxa, cx_occ_a, cx_vir_a)
                 dvob += einsum('ai,Ii,Aa->AI', dvoxb, cx_occ_b, cx_vir_b)
 
-                print("a")
-
             else:
-                raise NotImplemented()
-                cfx = x.get_overlap('cluster[occ]|frag')
-                dovx1 = einsum('xjab,jb->xa', theta, l1x)/2
-                dovx2 = einsum('xiba,(jx,jb->xb)->ia', theta, cfx, l1x)/2
-                dov += dot(cx_occ, cfx, dovx1, cx_vir.T)
-                dov += dot(cx_occ, dovx2, cx_vir.T)
+                #raise NotImplemented()
+                cfxa, cfxb = x.get_overlap('cluster[occ]|frag')
+                dvoxa1 = einsum('xjab,jb->ax', t2aa, l1xa)/2
+                dvoxa2 = einsum('xiba,(jx,jb->xb)->ai', t2aa, cfxa, l1xa)/2
+                #dvoa += dot(cx_vir_a, dvoxa1, cfxa.T, cx_occ_a.T)
+                #dvoa += dot(cx_vir_a, dvoxa2, cx_occ_a.T)
+                dvoa += einsum('ax,ix,Ii,Aa->AI', dvoxa, cfxa, cx_occ_a, cx_vir_a)
+
             if use_sym:
                 # TODO: Use only one loop
                 for x2, (cx2_occ, cx2_vir) in x.loop_symmetry_children(
@@ -559,8 +670,8 @@ def make_rdm1_ccsd_global_wf(emb, ao_basis=False, with_mf=True, t_as_lambda=Fals
                         dvoa += einsum('ai,Ii,Aa->AI', dvoxa, cx2_occ, cx2_vir)
                     else:
                         raise NotImplemented()
-                        dov += dot(cs_occ, cx2_frag, dovx1, cx2_vir.T)
-                        dov += dot(cx2_occ, dovx2, cx2_vir.T)
+                        dova += dot(cs_occ_a, cx2_frag_a, dvoxa1, cx2_vir_a.T)
+                        dova += dot(cx2_occ_a, dvox2, cx2_vir.T)
                 for x2, (cx2_occ, cx2_vir) in x.loop_symmetry_children(
                     (x.cluster.c_occ[1], x.cluster.c_vir[1]), include_self=False, maxgen=None):
                     cx2_occ = np.dot(cs_occ_b, cx2_occ)
@@ -631,8 +742,9 @@ def make_rdm1_ccsd_global_wf(emb, ao_basis=False, with_mf=True, t_as_lambda=Fals
     emb.log.debug("Cluster-pairs: total= %d  kept= %d (%.1f%%)", total_xy, kept_xy, 100*kept_xy/total_xy)
     emb.log.debug("Singular values (α) total= %d  kept= %d (%.1f%%)", total_sv_a, kept_sv_a, 100*kept_sv_a/total_sv_a)
     emb.log.debug("Singular values (β) total= %d  kept= %d (%.1f%%)", total_sv_b, kept_sv_b, 100*kept_sv_b/total_sv_b)
-
+    
     return dm1a, dm1b
+
 
 
 def make_rdm2_ccsd_global_wf(emb, ao_basis=False, symmetrize=False, t_as_lambda=False, slow=True, with_dm1=True):
