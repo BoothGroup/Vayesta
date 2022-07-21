@@ -32,3 +32,6 @@ class UDMET(UEmbedding, RDMET):
                                                                                                    sym_children)]
             for x in [0, 1]
         ]
+
+UDMET.make_rdm1.__doc__ = UDMET.make_rdm1_demo.__doc__
+UDMET.make_rdm2.__doc__ = UDMET.make_rdm2_demo.__doc__

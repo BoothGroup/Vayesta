@@ -290,5 +290,7 @@ class DMET(Embedding):
             dm2 = self.make_rdm2()
         return super().get_corrfunc(kind, dm1=dm1, dm2=dm2, **kwargs)
 
+DMET.make_rdm1.__doc__ = DMET.make_rdm1_demo.__doc__
+DMET.make_rdm2.__doc__ = DMET.make_rdm2_demo.__doc__
 
 RDMET = DMET
