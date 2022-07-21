@@ -33,7 +33,7 @@ jobs:
         run: |
           python -m pip install sphinx sphinx_rtd_theme
           cd docs
-          sphinx-apidoc -o source/apidoc -t templates ../vayesta/
+          sphinx-apidoc -o source/apidoc ../vayesta/
           make html
           cd ..
       - name: Deploy docs
