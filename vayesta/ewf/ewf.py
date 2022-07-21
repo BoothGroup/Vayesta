@@ -554,7 +554,6 @@ class EWF(Embedding):
 
     # -------------------------------------------------------------------------------------------- #
 
-
     # TODO: Reimplement PMO
     #def make_atom_fragment(self, atoms, name=None, check_atoms=True, **kwargs):
     #    """
