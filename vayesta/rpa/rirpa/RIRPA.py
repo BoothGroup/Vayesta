@@ -88,7 +88,28 @@ class ssRIRPA:
         D = np.concatenate([eps, eps])
         return D
 
-    def kernel_moms(self, target_rot=None, npoints=48, ainit=10, integral_deduct="HO", opt_quad=True,
+    def kernel_moms(self, max_moment, target_rot=None, npoints=48, ainit=10, integral_deduct="HO", opt_quad=True,
+                    adaptive_quad=False, alpha=1.0):
+        if target_rot is None:
+            self.log.warning("Warning; generating full moment rather than local component. Will scale as O(N^5).")
+            target_rot = np.eye(self.ov_tot)
+        # First need to calculate zeroth moment.
+        moments = np.zeros((max_moment+1,) + target_rot.shape)
+        moments[0], err0 = self._kernel_mom0(target_rot, npoints, ainit, integral_deduct, opt_quad, adaptive_quad, alpha)
+
+        if max_moment > 0:
+            # Grab mean.
+            D = self.D
+            ri_mp, ri_apb, ri_amb = self.get_compressed_MP()
+            moments[1] = einsum("pq,q->pq", target_rot, D) + dot(target_rot, ri_amb[0].T, ri_amb[1])
+
+        if max_moment > 1:
+            Dsq = D**2
+            for i in range(2, max_moment+1):
+                moments[i] = einsum("pq,q->pq", moments[i-2], Dsq) + dot(moments[i-2], ri_mp[1].T, ri_mp[0])
+        return moments, err0
+
+    def _kernel_mom0(self, target_rot=None, npoints=48, ainit=10, integral_deduct="HO", opt_quad=True,
                     adaptive_quad=False, alpha=1.0):
 
         if target_rot is None:
@@ -146,8 +167,7 @@ class ssRIRPA:
             self.check_errors(mom0_err, target_rot.size)
         else:
             mom0_err = None
-        return mom0 + moment_offset, mom0_err, \
-               self.test_eta0_error(mom0 + moment_offset, target_rot, ri_apb, ri_amb)
+        return mom0 + moment_offset, (mom0_err, self.test_eta0_error(mom0 + moment_offset, target_rot, ri_apb, ri_amb))
 
     def test_eta0_error(self, mom0, target_rot, ri_apb, ri_amb):
         """Test how well our obtained zeroth moment obeys relation used to derive it, namely
@@ -176,7 +196,7 @@ class ssRIRPA:
         self.log.info("Proportional error in eta0 relation=%6.4e", e_norm / np.linalg.norm(amb_exact))
         self.log.info("Resulting error lower bound: %6.4e", roots.min())
 
-        return roots
+        return roots.min()
 
     def kernel_trMPrt(self, npoints=48, ainit=10):
         """Evaluate Tr((MP)^(1/2))."""
@@ -199,8 +219,9 @@ class ssRIRPA:
 
             if correction.lower() == "linear":
                 ri_a_xc, ri_b_xc = self.get_ab_xc_ri()
-                eta0_xc, err2, err3 = self.kernel_moms(target_rot=ri_b_xc[0], npoints=npoints, ainit=ainit)
-                err += err2
+                eta0_xc, errs = self.kernel_moms(0, target_rot=ri_b_xc[0], npoints=npoints, ainit=ainit)
+                eta0_xc = eta0_xc[0]
+                err += errs[1]
                 val = np.dot(eta0_xc, ri_b_xc[1].T).trace() / 2
                 self.log.info("Approximated correlation energy contribution: %e", val)
                 e2 -= val
@@ -223,8 +244,8 @@ class ssRIRPA:
 
         def get_eta_alpha(alpha, target_rot):
             newrirpa = self.__class__(self.mf, rixc=self.rixc, log=self.log)
-            mom0, err, err2 = newrirpa.kernel_moms(target_rot=target_rot, npoints=npoints, alpha=alpha)
-            return mom0
+            moms, errs = newrirpa.kernel_moms(0, target_rot=target_rot, npoints=npoints, alpha=alpha)
+            return moms[0]
 
         def run_ac_inter(func, deg=5):
             points, weights = np.polynomial.legendre.leggauss(deg)

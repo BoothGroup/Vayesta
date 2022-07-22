@@ -18,9 +18,9 @@ class MoleculeRPATest(TestCase):
         """Test that the RPA and RIRPA zeroth moments agree.
         """
 
-        rim0, error_est1, err_est2 = rirpa.kernel_moms()
+        rim0, error_est = rirpa.kernel_moms(0)
 
-        self.assertAlmostEqual(abs(rim0 - rpa_orig.gen_moms(0)[0]).max(), 0.0, self.PLACES)
+        self.assertAlmostEqual(abs(rim0[0] - rpa_orig.gen_moms(0)[0]).max(), 0.0, self.PLACES)
 
     def test_14_u4(self):
         """Tests for N=14 U=4 Hubbard model.
