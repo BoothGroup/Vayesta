@@ -770,8 +770,7 @@ class EDMETFragment(DMETFragment):
             )
         return e1, e2, efb
 
-    def get_active_space_energy(self, eris=None, rpa_bb=True):
-        s = self.base.get_ovlp()
+    def get_active_space_energy(self, eris=None, rpa_bb=True, boson_exchange=True):
         e_ferm, e_core = super().get_active_space_energy(eris)
         # Now, constructed intermediate
         # \Gamma^{(0)}_{pq|rs} = \sum_n (C_{nrs}\Gamma^{eb}_{pq,n} + C_{nsr}\Gamma^{eb}_{qp,n})
@@ -822,10 +821,10 @@ class EDMETFragment(DMETFragment):
             ne *= 2
         else:
             ne = sum(ne)
-        dm1 = ((einsum("pprs->rs", gammazero_sym[0]) + einsum("pprs->rs", gammazero_sym[3])) / (ne - 1),
+        dm1_eb = ((einsum("pprs->rs", gammazero_sym[0]) + einsum("pprs->rs", gammazero_sym[3])) / (ne - 1),
                (einsum("pprs->rs", gammazero_sym[1]) + einsum("pprs->rs", gammazero_sym[2])) / (ne - 1))
         # and now one- and two-body energy corrections.
-        e1_eb = einsum("pq,qp->", self.base.get_hcore(), dm1[0] + dm1[1])
+        e1_eb = einsum("pq,qp->", self.base.get_hcore(), dm1_eb[0] + dm1_eb[1])
 
         # Generate the anti
         blk_prefactor = self.nbos * (self.mf.mol.nao ** 2)
@@ -851,16 +850,45 @@ class EDMETFragment(DMETFragment):
             )
 
         e_tot = e_ferm + e1_eb + e2_eb
-        e2_b = 0.0
+        e1_bb, e2_bb = 0.0, 0.0
+        dm1_bb = np.zeros_like(dm1_eb)
         if not rpa_bb:
             # Additional energy contribution from boson-boson interactions.
             b_1rdm = self._results.b_1rdm
-            freq = self.bos_freqs
             if b_1rdm is None:
                 raise NotImplementedError("Bosonic 1rdm not yet implemented with this solver.")
-            e2_b = sum(np.multiply(b_1rdm.diagonal(), freq))
-            e_tot += e2_b
-        return e_tot, (e_ferm, e1_eb, e2_eb, e2_b, e_core), (gammazero, gammazero_sym, dm1)
+
+            dm1_bb = tuple(
+                [
+                    (- einsum("npq,mrs,pr,nm->qs", x, x, s, b_1rdm) - einsum("npq,mrs,qs,nm->pr", x, x, s, b_1rdm))
+                    / (ne - 1) for x in c]
+            )
+
+            e1_bb = einsum("pq,qp->", self.base.get_hcore(), dm1_bb[0] + dm1_bb[1])
+
+            for eri1 in self.mf.with_df.loop(blksize):
+                l_ = pyscf.lib.unpack_tril(eri1)
+                # Coulomb contribution.
+                e2_bb += (
+                    einsum("nm,nl,ml->",
+                           einsum("npq,mpq->nm", l_, c[0] + c[1]),
+                           einsum("npq,mpq->nm", l_, c[0] + c[1]),
+                           b_1rdm
+                           )
+                )
+                if boson_exchange:
+                    # Exchange contribution.
+                    e2_bb -= sum(
+                        [einsum("nmqs,nlsq,ml->", # O(N^3)
+                               einsum("npq,mps->nmqs", l_, x), # O(N^4)
+                               einsum("npq,mrq->nmpr", l_, x), # O(N^4)
+                               b_1rdm
+                               )
+                        for x in c]
+                    )
+
+            e_tot += e1_bb + e2_bb
+        return e_tot, (e_ferm, e1_eb, e2_eb, e1_bb, e2_bb, e_core), (gammazero, gammazero_sym, dm1_eb, dm1_bb)
 
     def get_active_space_dm1(self):
         """Return the CAS-constructed 1rdm, in AOs."""
