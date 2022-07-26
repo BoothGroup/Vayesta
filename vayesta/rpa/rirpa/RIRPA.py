@@ -11,15 +11,35 @@ class ssRIRPA:
     """Approach based on equations expressed succinctly in the appendix of
     Furche, F. (2001). PRB, 64(19), 195120. https://doi.org/10.1103/PhysRevB.64.195120
     WARNING: Should only be used with canonical mean-field orbital coefficients in mf.mo_coeff and RHF.
+
+    Parameters
+    ----------
+    dfmf : pyscf.scf.SCF
+        PySCF density-fitted mean-field object.
+    rixc: tuple of tuples or arrays
+        low-rank decomposition of exchange-correlation kernel. First tuple separates two different spin channels, and
+        the second the left- and right-sides of an asymmetric decomposition. Default value is None.
+    log: logging object
+        Default value is None.
+    err_tol: float
+        Threshold defining estimated error at which to print various accuracy warnings.
+        Default value is 1e-6.
+    svd_tol: float
+        Threshold defining negligible singular values when compressing various decompositions.
+        Default value is 1e-12.
+    Lpq:
+        CDERIs in mo basis of provided mean field.
+        Default value is None.
     """
 
-    def __init__(self, dfmf, rixc=None, log=None, err_tol=1e-6, svd_tol=1e-12):
+    def __init__(self, dfmf, rixc=None, log=None, err_tol=1e-6, svd_tol=1e-12, Lpq=None):
         self.mf = dfmf
         self.rixc = rixc
         self.log = log or logging.getLogger(__name__)
         self.err_tol = err_tol
         self.svd_tol = svd_tol
         self.e_corr_ss = None
+        self.Lpq = Lpq
 
     @property
     def nocc(self):
@@ -93,14 +113,17 @@ class ssRIRPA:
         if target_rot is None:
             self.log.warning("Warning; generating full moment rather than local component. Will scale as O(N^5).")
             target_rot = np.eye(self.ov_tot)
+
+        ri_decomps = self.get_compressed_MP()
+        ri_mp, ri_apb, ri_amb = ri_decomps
         # First need to calculate zeroth moment.
         moments = np.zeros((max_moment+1,) + target_rot.shape)
-        moments[0], err0 = self._kernel_mom0(target_rot, npoints, ainit, integral_deduct, opt_quad, adaptive_quad, alpha)
+        moments[0], err0 = self._kernel_mom0(target_rot, npoints, ainit, integral_deduct, opt_quad, adaptive_quad,
+                                             alpha, ri_decomps=ri_decomps)
 
         if max_moment > 0:
             # Grab mean.
             D = self.D
-            ri_mp, ri_apb, ri_amb = self.get_compressed_MP()
             moments[1] = einsum("pq,q->pq", target_rot, D) + dot(target_rot, ri_amb[0].T, ri_amb[1])
 
         if max_moment > 1:
@@ -110,12 +133,15 @@ class ssRIRPA:
         return moments, err0
 
     def _kernel_mom0(self, target_rot=None, npoints=48, ainit=10, integral_deduct="HO", opt_quad=True,
-                    adaptive_quad=False, alpha=1.0):
+                    adaptive_quad=False, alpha=1.0, ri_decomps=None):
 
         if target_rot is None:
             self.log.warning("Warning; generating full moment rather than local component. Will scale as O(N^5).")
             target_rot = np.eye(self.ov_tot)
-        ri_mp, ri_apb, ri_amb = self.get_compressed_MP(alpha)
+        if ri_decomps is None:
+            ri_mp, ri_apb, ri_amb = self.get_compressed_MP(alpha)
+        else:
+            ri_mp, ri_apb, ri_amb = ri_decomps
 
         # We our integral as
         #   integral = (MP)^{1/2} - (moment_offset) P - integral_offset
@@ -426,8 +452,12 @@ class ssRIRPA:
     def get_apb_eri_ri(self):
         # Coulomb integrals only contribute to A+B.
         # This needs to be optimised, but will do for now.
-        v = self.get_3c_integrals()  # pyscf.lib.unpack_tril(self.mf._cderi)
-        Lov = einsum("npq,pi,qa->nia", v, self.mo_coeff_occ, self.mo_coeff_vir).reshape((self.naux_eri, self.ov))
+        if self.Lpq is None:
+            v = self.get_3c_integrals()  # pyscf.lib.unpack_tril(self.mf._cderi)
+            Lov = einsum("npq,pi,qa->nia", v, self.mo_coeff_occ, self.mo_coeff_vir).reshape((self.naux_eri, self.ov))
+        else:
+            Lov = self.Lpq[:, :self.nocc, self.nocc:].reshape((self.naux_eri, self.ov))
+
         ri_apb_eri = np.zeros((self.naux_eri, self.ov_tot))
 
         # Need to include factor of two since eris appear in both A and B.
