@@ -16,18 +16,18 @@ class ssRIRPA:
     ----------
     dfmf : pyscf.scf.SCF
         PySCF density-fitted mean-field object.
-    rixc: tuple of tuples or arrays
+    rixc : tuple of tuples or arrays, optional
         low-rank decomposition of exchange-correlation kernel. First tuple separates two different spin channels, and
         the second the left- and right-sides of an asymmetric decomposition. Default value is None.
-    log: logging object
+    log : logging object, optional
         Default value is None.
-    err_tol: float
+    err_tol : float, optional
         Threshold defining estimated error at which to print various accuracy warnings.
         Default value is 1e-6.
-    svd_tol: float
+    svd_tol : float, optional
         Threshold defining negligible singular values when compressing various decompositions.
         Default value is 1e-12.
-    Lpq:
+    Lpq : np.ndarray, optional
         CDERIs in mo basis of provided mean field.
         Default value is None.
     """
@@ -117,7 +117,7 @@ class ssRIRPA:
         ri_decomps = self.get_compressed_MP()
         ri_mp, ri_apb, ri_amb = ri_decomps
         # First need to calculate zeroth moment.
-        moments = np.zeros((max_moment+1,) + target_rot.shape)
+        moments = np.zeros((max_moment + 1,) + target_rot.shape)
         moments[0], err0 = self._kernel_mom0(target_rot, npoints, ainit, integral_deduct, opt_quad, adaptive_quad,
                                              alpha, ri_decomps=ri_decomps)
 
@@ -127,13 +127,13 @@ class ssRIRPA:
             moments[1] = einsum("pq,q->pq", target_rot, D) + dot(target_rot, ri_amb[0].T, ri_amb[1])
 
         if max_moment > 1:
-            Dsq = D**2
-            for i in range(2, max_moment+1):
-                moments[i] = einsum("pq,q->pq", moments[i-2], Dsq) + dot(moments[i-2], ri_mp[1].T, ri_mp[0])
+            Dsq = D ** 2
+            for i in range(2, max_moment + 1):
+                moments[i] = einsum("pq,q->pq", moments[i - 2], Dsq) + dot(moments[i - 2], ri_mp[1].T, ri_mp[0])
         return moments, err0
 
     def _kernel_mom0(self, target_rot=None, npoints=48, ainit=10, integral_deduct="HO", opt_quad=True,
-                    adaptive_quad=False, alpha=1.0, ri_decomps=None):
+                     adaptive_quad=False, alpha=1.0, ri_decomps=None):
 
         if target_rot is None:
             self.log.warning("Warning; generating full moment rather than local component. Will scale as O(N^5).")
@@ -202,10 +202,10 @@ class ssRIRPA:
         """
         l1 = [dot(mom0, x.T) for x in ri_apb]
         l2 = [dot(target_rot, x.T) for x in ri_amb]
-        #amb_exact = einsum("pq,q,rq->pr", target_rot, self.D, target_rot) + dot(l2[0], l2[1].T)
-        #print(amb_exact)
-        #amb_approx = einsum("pq,q,rq->pr", mom0, self.D, mom0) + dot(l1[0], l1[1].T)
-        #error = amb_approx - amb_exact
+        # amb_exact = einsum("pq,q,rq->pr", target_rot, self.D, target_rot) + dot(l2[0], l2[1].T)
+        # print(amb_exact)
+        # amb_approx = einsum("pq,q,rq->pr", mom0, self.D, mom0) + dot(l1[0], l1[1].T)
+        # error = amb_approx - amb_exact
         amb = np.diag(self.D) + dot(ri_amb[0].T, ri_amb[1])
         apb = np.diag(self.D) + dot(ri_apb[0].T, ri_apb[1])
         amb_exact = dot(target_rot, amb, target_rot.T)
@@ -217,7 +217,7 @@ class ssRIRPA:
         peta_norm = np.linalg.norm(einsum("p,qp->pq", self.D, mom0) + dot(ri_apb[0].T, l1[1].T))
 
         # Now to estimate resulting error estimate in eta0.
-        poly = np.polynomial.Polynomial([e_norm/p_norm, -2 * peta_norm / p_norm, 1])
+        poly = np.polynomial.Polynomial([e_norm / p_norm, -2 * peta_norm / p_norm, 1])
         roots = poly.roots()
         self.log.info("Proportional error in eta0 relation=%6.4e", e_norm / np.linalg.norm(amb_exact))
         self.log.info("Resulting error lower bound: %6.4e", roots.min())
@@ -343,6 +343,7 @@ class ssRIRPA:
             x = np.zeros_like(self.D)
             x[pos] = 1.0
             return x
+
         c0 = [get_unit_vec(pos) for pos in mininds]
 
         def get_lowest_eigenvals(diag, ri_l, ri_r, x0, nroots=1, nosym=False):
@@ -353,6 +354,7 @@ class ssRIRPA:
 
             def precond(x, e, *args):
                 return x / (mdiag - e + 1e-4)
+
             if nosym:
                 # Ensure left isn't in our kwargs.
                 kwargs.pop("left", None)
@@ -373,14 +375,14 @@ class ssRIRPA:
             raise RuntimeError("RPA approximation broken down!")
         # MP is asymmetric, so need to take care to obtain actual eigenvalues.
         # Use Davidson to obtain accurate right eigenvectors...
-        e_mp_r, c_l_approx, c_r = get_lowest_eigenvals(self.D**2, *ri_mp, c0, nroots=nroots, nosym=True)
+        e_mp_r, c_l_approx, c_r = get_lowest_eigenvals(self.D ** 2, *ri_mp, c0, nroots=nroots, nosym=True)
 
         if not calc_xy:
             return e_mp_r ** (0.5)
 
         # Then solve for accurate left eigenvectors, starting from subspace approximation from right eigenvectors. Take
         # the real component since all solutions should be real.
-        e_mp_l, c_r_approx, c_l = get_lowest_eigenvals(self.D**2, ri_mp[1], ri_mp[0], c_l_approx.real,
+        e_mp_l, c_r_approx, c_l = get_lowest_eigenvals(self.D ** 2, ri_mp[1], ri_mp[0], c_l_approx.real,
                                                        nroots=nroots, nosym=True)
         # We use c_r and c_l2, since these are likely the most accurate.
         # Enforce correct RPA orthonormality.
@@ -389,7 +391,7 @@ class ssRIRPA:
         if nroots > 1:
             c_l = np.dot(np.linalg.inv(ovlp), c_l)
             # Now diagonalise in corresponding subspace to get eigenvalues.
-            subspace = einsum("np,p,mp->nm", c_l, self.D**2, c_r) + einsum("np,yp,yq,mq->nm", c_l, *ri_mp, c_r)
+            subspace = einsum("np,p,mp->nm", c_l, self.D ** 2, c_r) + einsum("np,yp,yq,mq->nm", c_l, *ri_mp, c_r)
             e, c_sub = np.linalg.eig(subspace)
             # Now fold these eigenvectors into our definitions,
             xpy = np.dot(c_sub.T, c_r)
@@ -400,11 +402,11 @@ class ssRIRPA:
             xmy = xmy[sorted_args]
             e = e[sorted_args]
         else:
-            xpy = c_r / (ovlp**(0.5))
+            xpy = c_r / (ovlp ** (0.5))
             xmy = c_l / (ovlp ** (0.5))
-            e = einsum("p,p,p->", xmy, self.D**2, xpy) + einsum("p,yp,yq,q->", xmy, *ri_mp, xpy)
+            e = einsum("p,p,p->", xmy, self.D ** 2, xpy) + einsum("p,yp,yq,q->", xmy, *ri_mp, xpy)
 
-        return e**(0.5), xpy, xmy
+        return e ** (0.5), xpy, xmy
 
     def get_compressed_MP(self, alpha=1.0):
         # AB corresponds to scaling RI components at this point.
