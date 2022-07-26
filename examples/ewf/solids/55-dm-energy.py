@@ -15,7 +15,6 @@ cell.a = 3.0 * np.eye(3)
 cell.atom = 'He 0 0 0'
 
 cell.basis = 'cc-pvdz'
-cell.pseudo = 'gth-pade'
 cell.exp_to_discard=0.1
 cell.build()
 
@@ -40,14 +39,14 @@ cc.kernel()
 print("Total Energy")
 print("E(HF)=        %+16.8f Ha" % kmf.e_tot)
 print("E(Proj)=      %+16.8f Ha" % emb.e_tot)
-print("E(RDM2, gl)=  %+16.8f Ha" % emb.get_dm_energy_old(global_dm1=True, global_dm2=False))
-print("E(RDM2, ll)=  %+16.8f Ha" % emb.get_dm_energy_old(global_dm1=False, global_dm2=False))
+print("E(RDM2, gl)=  %+16.8f Ha" % emb._get_dm_energy_old(global_dm1=True, global_dm2=False))
+print("E(RDM2, ll)=  %+16.8f Ha" % emb._get_dm_energy_old(global_dm1=False, global_dm2=False))
 
 print("E(CCSD)=      %+16.8f Ha" % cc.e_tot)
 
 print("\nCorrelation Energy")
 print("E(Proj)=      %+16.8f Ha" % emb.e_corr)
-print("E(RDM2, gl)=  %+16.8f Ha" % emb.get_dm_corr_energy_old(global_dm1=True, global_dm2=False))
-print("E(RDM2, ll)=  %+16.8f Ha" % emb.get_dm_corr_energy_old(global_dm1=False, global_dm2=False))
+print("E(RDM2, gl)=  %+16.8f Ha" % emb._get_dm_corr_energy_old(global_dm1=True, global_dm2=False))
+print("E(RDM2, ll)=  %+16.8f Ha" % emb._get_dm_corr_energy_old(global_dm1=False, global_dm2=False))
 
 print("E(CCSD)=      %+16.8f Ha" % cc.e_corr)
