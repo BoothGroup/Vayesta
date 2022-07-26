@@ -224,3 +224,62 @@ class UEWF(REWF, UEmbedding):
                         pb = proj_x[ix][b]
                         ssz[a,b] += (np.sum(tmpa*pb[0]) + np.sum(tmpb*pb[1]))/4
         return ssz
+
+    def _get_dm_corr_energy_old(self, global_dm1=True, global_dm2=False):
+        """Calculate correlation energy from reduced density-matrices.
+
+        UHF ONLY!
+
+        Parameters
+        ----------
+        global_dm1 : bool
+            Use 1DM calculated from global amplitutes if True, otherwise use in cluster approximation. Default: True
+        global_dm2 : bool
+            Use 2DM calculated from global amplitutes if True, otherwise use in cluster approximation. Default: False
+
+        Returns
+        -------
+        e_corr : float
+        """
+
+        t_as_lambda = self.opts.t_as_lambda
+        mf = self.mf
+        nmo = mf.mo_coeff[0].shape[1], mf.mo_coeff[1].shape[1]
+        nocc = (mf.mo_occ[0] > 0).sum(), (mf.mo_occ[1] > 0).sum()
+
+        if global_dm1:
+            rdm1s = self._make_rdm1_ccsd_global_wf(t_as_lambda=t_as_lambda)
+        else:
+            rdm1s = self._make_rdm1_ccsd(t_as_lambda=t_as_lambda)
+        for i, rdm1 in enumerate(rdm1s):
+            rdm1[np.diag_indices(nocc[i])] -= 1
+
+        # Core Hamiltonian + Non Cumulant 2DM contribution
+        e1 = 0
+        for i, rdm1 in enumerate(rdm1s):
+            e1 += einsum('pi,pq,qj,ij->', self.mo_coeff[i], self.get_fock_for_energy(with_exxdiv=False)[i], self.mo_coeff[i], rdm1)
+
+
+        # Cumulant 2DM contribution
+        if global_dm2:
+            # Calculate global 2RDM and contract with ERIs
+
+            import pyscf.ao2mo #Temporary until uewf.get_eris_array is implemented
+
+            dm2aa, dm2ab, dm2bb = self._make_rdm2_ccsd_global_wf(t_as_lambda=t_as_lambda, with_dm1=False)
+            e2 = 0
+
+            eriaa = pyscf.ao2mo.kernel(mf.mol, [mf.mo_coeff[0]]*4, compact=False).reshape([nmo[0]]*4)
+            e2 += einsum('pqrs,pqrs', eriaa, dm2aa) * 0.5
+
+            eriab = pyscf.ao2mo.kernel(mf.mol, [mf.mo_coeff[i] for i in [0,0,1,1]] , compact=False).reshape([nmo[i] for i in [0,0,1,1]])
+            e2 += einsum('pqrs,pqrs', eriab, dm2ab)
+
+            eribb = pyscf.ao2mo.kernel(mf.mol, [mf.mo_coeff[1]]*4, compact=False).reshape([nmo[1]]*4)
+            e2 += einsum('pqrs,pqrs', eribb, dm2bb) * 0.5
+
+        else:
+            # Fragment Local 2DM cumulant contribution
+            e2 = self.get_dm_corr_energy_e2(t_as_lambda=t_as_lambda)/2 * self.ncells
+        e_corr = (e1 + e2) / self.ncells
+        return e_corr
