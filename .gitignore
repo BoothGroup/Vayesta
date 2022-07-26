@@ -6,6 +6,17 @@ __pycache__/
 # C extensions
 *.so
 
+# Vi swap file
+*.swp
+
+#Vayesta log files
+vlog.txt
+verr.txt
+
+#PySCF temp files
+tmp*
+!tmp*.*
+
 # Distribution / packaging
 .Python
 build/
