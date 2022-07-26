@@ -245,7 +245,7 @@ def contract_dm2_eris(dm2, eris):
 
     Parameters
     ----------
-    dm2 : ndarry or (ndarray, ndarray, ndarry)
+    dm2 : ndarry or (ndarray, ndarray, ndarray)
         Two body density matrix or tuple of aa, ab, bb blocks for UHF
     eris : _ChemistERIs
         PySCF ERIs object
