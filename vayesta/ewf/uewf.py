@@ -240,6 +240,7 @@ class UEWF(REWF, UEmbedding):
         Returns
         -------
         e_corr : float
+            Correlation energy
         """
 
         t_as_lambda = self.opts.t_as_lambda
