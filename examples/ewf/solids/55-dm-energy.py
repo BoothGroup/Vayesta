@@ -42,7 +42,7 @@ print("E(Proj)=      %+16.8f Ha" % emb.e_tot)
 print("E(RDM2, gl)=  %+16.8f Ha" % emb._get_dm_energy_old(global_dm1=True, global_dm2=False))
 print("E(RDM2, ll)=  %+16.8f Ha" % emb._get_dm_energy_old(global_dm1=False, global_dm2=False))
 
-print("E(CCSD)=      %+16.8f Ha" % cc.e_tot)
+print("E(CCSD)=      %+16.8f Ha" % (kmf.e_tot + cc.e_corr))
 
 print("\nCorrelation Energy")
 print("E(Proj)=      %+16.8f Ha" % emb.e_corr)
