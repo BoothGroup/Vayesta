@@ -33,23 +33,23 @@ def make_rdm1_ccsd(emb, ao_basis=False, t_as_lambda=False, symmetrize=True, with
 
     Parameters
     ----------
-    ao_basis: bool, optional
+    ao_basis : bool, optional
         Return the density-matrix in the AO basis. Default: False.
-    t_as_lambda: bool, optional
+    t_as_lambda : bool, optional
         Use T-amplitudes instead of Lambda-amplitudes for CCSD density matrix. Default: False.
-    symmetrize: bool, optional
+    symmetrize : bool, optional
         Use symmetrized equations, if possible. Default: True.
-    with_mf: bool, optional
+    with_mf : bool, optional
         If False, only the difference to the mean-field density-matrix is returned. Default: True.
-    mpi_target: integer, optional
+    mpi_target : integer, optional
         If set to an integer, the density-matrix will only be constructed on the corresponding MPI rank.
-        Default: None.
-    mp2: bool, optional
+        Default : None.
+    mp2 : bool, optional
         Make MP2 density-matrix instead. Default: False.
 
     Returns
     -------
-    dm1: (n, n) array
+    dm1 : (n, n) array
         One-particle reduced density matrix in AO (if `ao_basis=True`) or MO basis (default).
     """
 
@@ -128,19 +128,19 @@ def make_rdm1_ccsd_proj_lambda(emb, ao_basis=False, t_as_lambda=False, with_mf=T
 
     Parameters
     ----------
-    ao_basis: bool, optional
+    ao_basis : bool, optional
         Return the density-matrix in the AO basis. Default: False.
-    t_as_lambda: bool, optional
+    t_as_lambda : bool, optional
         Use T-amplitudes instead of Lambda-amplitudes for CCSD density matrix. Default: False.
-    with_mf: bool, optional
+    with_mf : bool, optional
         If False, only the difference to the mean-field density-matrix is returned. Default: True.
-    mpi_target: integer, optional
+    mpi_target : integer, optional
         If set to an integer, the density-matrix will only be constructed on the corresponding MPI rank.
         Default: None.
 
     Returns
     -------
-    dm1: (n, n) array
+    dm1 : (n, n) array
         One-particle reduced density matrix in AO (if `ao_basis=True`) or MO basis (default).
     """
     # --- Loop over pairs of fragments and add projected density-matrix contributions:
@@ -169,34 +169,34 @@ def make_rdm1_ccsd_global_wf(emb, ao_basis=False, with_mf=True, t_as_lambda=None
 
     Parameters
     ----------
-    ao_basis: bool, optional
+    ao_basis : bool, optional
         Return the density-matrix in the AO basis. Default: False.
-    with_mf: bool, optional
+    with_mf : bool, optional
         Add mean-field contribution to the density-matrix. Default: True.
-    t_as_lambda: bool, optional
+    t_as_lambda : bool, optional
         Use T-amplitudes inplace of Lambda-amplitudes for CCSD density matrix.
         If `None`, `emb.opts.t_as_lambda` will be used. Default: None.
-    with_t1: bool, optional
+    with_t1 : bool, optional
         If False, T1 and L1 amplitudes are assumed 0. Default: False.
-    svd_tol: float, optional
+    svd_tol : float, optional
         Left/right singular vectors of singular values of cluster x-y overlap matrices
         smaller than `svd_tol` will be removed to speed up the calculation. Default: 1e-3.
-    ovlp_tol: float, optional
+    ovlp_tol : float, optional
         Fragment pairs with a smaller than `ovlp_tol` maximum singular value in their cluster overlap,
         will be skipped. Default: None.
-    use_sym: bool, optional
+    use_sym : bool, optional
         Make use of symmetry relations, to speed up calculation. Default: True.
-    late_t2_sym: bool, optional
+    late_t2_sym : bool, optional
         Perform symmetrization of T2/L2-amplitudes late, in order to speed up
         calculation with large N(bath)/N(fragment) ratios. Default: True.
-    mpi_target: int or None, optional
-    slow: bool, optional
+    mpi_target : int or None, optional
+    slow : bool, optional
         Combine to global CCSD wave function first, then build density matrix.
         Equivalent, but does not scale well. Default: False
 
     Returns
     -------
-    dm1: array(n(MO),n(MO)) or array(n(AO),n(AO))
+    dm1 : array(n(MO),n(MO)) or array(n(AO),n(AO))
         One-particle reduced density matrix in AO (if `ao_basis=True`) or MO basis (default).
     """
     if t_as_lambda is None:
@@ -472,19 +472,19 @@ def make_rdm2_ccsd_global_wf(emb, ao_basis=False, symmetrize=True, t_as_lambda=F
 
     Parameters
     ----------
-    ao_basis: bool, optional
+    ao_basis : bool, optional
         Return the density-matrix in the AO basis. Default: False.
-    symmetrize: bool, optional
+    symmetrize : bool, optional
         Symmetrize the density-matrix at the end of the calculation. Default: True.
-    t_as_lambda: bool, optional
+    t_as_lambda : bool, optional
         Use T-amplitudes instead of Lambda-amplitudes for CCSD density matrix. Default: False.
-    slow: bool, optional
+    slow : bool, optional
         Combine to global CCSD wave function first, then build density matrix.
         Equivalent, but does not scale well. Default: True.
 
     Returns
     -------
-    dm2: (n, n, n, n) array
+    dm2 : (n, n, n, n) array
         Two-particle reduced density matrix in AO (if `ao_basis=True`) or MO basis (default).
     """
     if slow:
@@ -516,19 +516,19 @@ def make_rdm2_ccsd_proj_lambda(emb, with_dm1=True, ao_basis=False, t_as_lambda=F
 
     Parameters
     ----------
-    ao_basis: bool, optional
+    ao_basis : bool, optional
         Return the density-matrix in the AO basis. Default: False.
-    t_as_lambda: bool, optional
+    t_as_lambda : bool, optional
         Use T-amplitudes instead of Lambda-amplitudes for CCSD density matrix. Default: False.
-    with_mf: bool, optional
+    with_mf : bool, optional
         If False, only the difference to the mean-field density-matrix is returned. Default: True.
-    mpi_target: integer, optional
+    mpi_target : integer, optional
         If set to an integer, the density-matrix will only be constructed on the corresponding MPI rank.
         Default: None.
 
     Returns
     -------
-    dm1: (n, n) array
+    dm1 : (n, n) array
         One-particle reduced density matrix in AO (if `ao_basis=True`) or MO basis (default).
     """
     # --- Loop over pairs of fragments and add projected density-matrix contributions:

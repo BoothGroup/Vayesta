@@ -220,27 +220,27 @@ class EDMET(RDMET):
             rot_ovs = [f.set_up_fermionic_bath() for f in sym_parents]
             target_rot = np.concatenate(rot_ovs, axis=0)
             if target_rot.shape[0] > 0:
-                mom0_interact, est_error, est_error2 = rpa.kernel_moms(target_rot, npoints=48)
+                moms_interact, est_errors = rpa.kernel_moms(0, target_rot, npoints=48)
             else:
-                mom0_interact = np.zeros_like(target_rot)
+                moms_interact = np.zeros_like(target_rot)
             # Get appropriate slices to obtain required active spaces.
             ovs_active = [f.ov_active_tot for f in sym_parents]
             ovs_active_slices = [slice(sum(ovs_active[:i]), sum(ovs_active[:i + 1])) for i in
                                  range(len(sym_parents))]
             # Use interaction component of moment to generate bosonic degrees of freedom.
-            rot_bos = [f.define_bosons(mom0_interact[sl, :]) for (f, sl) in zip(sym_parents, ovs_active_slices)]
+            rot_bos = [f.define_bosons(moms_interact[0, sl, :]) for (f, sl) in zip(sym_parents, ovs_active_slices)]
             nbos = [x.shape[0] for x in rot_bos]
             bos_slices = [slice(sum(nbos[:i]), sum(nbos[:i + 1])) for i in range(len(sym_parents))]
             if sum(nbos) > 0:
                 # Calculate zeroth moment of bosonic degrees of freedom.
-                mom0_bos, est_error, est_error2 = rpa.kernel_moms(np.concatenate(rot_bos, axis=0), npoints=48)
+                mom0_bos, est_errors = rpa.kernel_moms(0, np.concatenate(rot_bos, axis=0), npoints=48)
             else:
-                mom0_bos = np.zeros((sum(nbos), mom0_interact.shape[1]))
+                mom0_bos = np.zeros((sum(nbos), moms_interact.shape[2]))
             eps = np.concatenate(self.eps)
             # Can then invert relation to generate coupled electron-boson Hamiltonian.
             e_nonlocal = self.e_rpa
             for f, nc, sl in zip(sym_parents, nsym, bos_slices):
-                e_nonlocal -= f.construct_boson_hamil(mom0_bos[sl, :], eps, self.xc_kernel) * nc
+                e_nonlocal -= f.construct_boson_hamil(mom0_bos[0, sl, :], eps, self.xc_kernel) * nc
         else:
             rpa = ssRPA(self.mf, self.log)
             # We need to explicitly solve RPA equations before anything.

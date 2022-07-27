@@ -3,6 +3,7 @@ import numpy as np
 import pyscf
 import pyscf.cc
 
+import vayesta.core.ao2mo
 from vayesta.core.util import *
 from vayesta.core.qemb import UFragment as BaseFragment
 from .fragment import Fragment as RFragment

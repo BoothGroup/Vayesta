@@ -1,28 +1,48 @@
-# Vayesta
+Vayesta
+=======
 
-Authors
--------
+Vayesta is a Python package for performing correlated wave function-based quantum embedding in
+*ab initio* molecules and solids, as well as lattice models.
 
-M Nusspickel, OJ Backhouse, B Ibrahim, A Santana-Bonilla, CJC Scott, GH Booth
+Installation and quickstart guides can be found in the [documentation](https://boothgroup.github.io/Vayesta/intro.html).
+
 
 Installation
 ------------
 
-* Requirements
-    - NumPy
-    - SciPy
-    - PySCF
-    - CVXPY (for DMET functionality)
+To install, clone the repository
 
-* Installation
-    1. Clone from Git repository: `git clone git@github.com:BoothGroup/Vayesta.git`
+```
+git clone git@github.com:BoothGroup/Vayesta.git
+```
 
-    2. Build
+Install the package using `pip` from the top-level directory, which requires CMake
 
-        - `cd vayesta/libs`
-        - `mkdir build && cd build`
-        - `cmake ..`
-        - `make`
+```
+python -m pip install . --user
+```
 
-    3. Add Vayesta to your PYTHONPATH environment variable, for example by adding this line to your .bashrc/profile:
-        `export PYTHONPATH=<path to Vayesta>:$PYTHONPATH`
+
+Quickstart
+----------
+
+Examples of how to use Vayesta can be found in the `vayesta/examples` directory
+and a quickstart guide can be found in the [documentation](https://boothgroup.github.io/Vayesta/quickstart/index.html).
+
+
+Authors
+-------
+
+M. Nusspickel, O. J. Backhouse, B. Ibrahim, A. Santana-Bonilla, C. J. C. Scott, G. H. Booth
+
+
+Citing Vayesta
+--------------
+
+The following paper should be cited in publications which make use of Vayesta:
+
+[Max Nusspickel and George H. Booth, Phys. Rev. X 12, 011046 (2022)](https://journals.aps.org/prx/abstract/10.1103/PhysRevX.12.011046).
+
+Publication which utilize Extended Density-matrix Embedding Theory (EDMET) should also cite:
+
+[Charles J. C. Scott and George H. Booth, Phys. Rev. B 104, 245114 (2021)](https://journals.aps.org/prb/abstract/10.1103/PhysRevB.104.245114).

@@ -33,7 +33,7 @@ emb.pop_analysis(dm1, local_orbitals='lowdin')
 emb.pop_analysis(dm1, local_orbitals='iao+pao')
 
 # Population analysis can also be written to a file, when filename is provided,
-# and include orbital resolution, if full=True:
-emb.pop_analysis(dm1, local_orbitals='mulliken', filename='pop-mulliken-cc.txt', full=True)
-emb.pop_analysis(dm1, local_orbitals='lowdin', filename='pop-lowdin-cc.txt', full=True)
-emb.pop_analysis(dm1, local_orbitals='iao+pao', filename='pop-iaopao-cc.txt', full=True)
+# and include orbital resolution, if orbital_resolved=True:
+emb.pop_analysis(dm1, local_orbitals='mulliken', filename='pop-mulliken-cc.txt', orbital_resolved=True)
+emb.pop_analysis(dm1, local_orbitals='lowdin', filename='pop-lowdin-cc.txt', orbital_resolved=True)
+emb.pop_analysis(dm1, local_orbitals='iao+pao', filename='pop-iaopao-cc.txt', orbital_resolved=True)

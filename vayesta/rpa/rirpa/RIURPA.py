@@ -110,11 +110,15 @@ class ssRIURPA(ssRIRRPA):
     def get_apb_eri_ri(self):
         # Coulomb integrals only contribute to A+B.
         # This needs to be optimised, but will do for now.
-        v = self.get_3c_integrals()
-        Lov_a = einsum("npq,pi,qa->nia", v, self.mo_coeff_occ[0], self.mo_coeff_vir[0]).reshape(
-            (self.naux_eri, self.ov[0]))
-        Lov_b = einsum("npq,pi,qa->nia", v, self.mo_coeff_occ[1], self.mo_coeff_vir[1]).reshape(
-            (self.naux_eri, self.ov[1]))
+        if self.Lpq is None:
+            v = self.get_3c_integrals()
+            Lov_a = einsum("npq,pi,qa->nia", v, self.mo_coeff_occ[0], self.mo_coeff_vir[0]).reshape(
+                (self.naux_eri, self.ov[0]))
+            Lov_b = einsum("npq,pi,qa->nia", v, self.mo_coeff_occ[1], self.mo_coeff_vir[1]).reshape(
+                (self.naux_eri, self.ov[1]))
+        else:
+            Lov_a = self.Lpq[0][:, :self.nocc[0], self.nocc[0]:].reshape((self.naux_eri, self.ov[0]))
+            Lov_b = self.Lpq[1][:, :self.nocc[1], self.nocc[1]:].reshape((self.naux_eri, self.ov[1]))
 
         ri_apb_eri = np.zeros((self.naux_eri, sum(self.ov)))
 

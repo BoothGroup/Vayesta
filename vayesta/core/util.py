@@ -26,7 +26,7 @@ modlog = logging.getLogger(__name__)
 # util module can be imported as *, such that the following is imported:
 __all__ = [
         # General
-        'Object', 'OptionsBase', 'brange', 'deprecated', 'cache', 'call_once',
+        'Object', 'OptionsBase', 'brange', 'deprecated', 'cache', 'call_once', 'with_doc',
         # NumPy replacements
         'dot', 'einsum', 'hstack',
         # Exceptions
@@ -83,6 +83,25 @@ def cache(maxsize_or_user_function=16, typed=False, copy=False):
 @functools.lru_cache(None)
 def call_once(func, *args, **kwargs):
     return func(*args, **kwargs)
+
+def with_doc(doc):
+    """Use this decorator to add doc string for function
+
+        @with_doc(doc)
+        def func:
+            ...
+
+    is equivalent to
+
+        func.__doc__ = doc
+    """
+    if not isinstance(doc, str):
+        if hasattr(doc, '__doc__'):
+            doc = doc.__doc__
+    def func_with_doc(func):
+        func.__doc__ = doc
+        return func
+    return func_with_doc
 
 # --- NumPy
 
