@@ -218,8 +218,7 @@ def make_rdm1_ccsd_global_wf(emb, ao_basis=False, with_mf=True, t_as_lambda=Fals
     # --- Setup
     if ovlp_tol is None:
         ovlp_tol = svd_tol
-    total_sv_a = kept_sv_a = 0
-    total_sv_b = kept_sv_b = 0
+    total_sv = kept_sv = 0
     total_xy = kept_xy = 0
     # T1/L1-amplitudes can be summed directly
     if with_t1:
@@ -293,21 +292,13 @@ def make_rdm1_ccsd_global_wf(emb, ao_basis=False, with_mf=True, t_as_lambda=Fals
             rxy_vir_a, rxy_vir_b = np.dot(cx_vir_a.T, cy_vir_a), np.dot(cx_vir_b.T, cy_vir_b)
 
             if svd_tol is not None:
-                def svd(a,spin):
-                    assert(spin == 'a' or spin == 'b')
-                    if spin == 'a':
-                        nonlocal total_sv_a, kept_sv_a
-                    elif spin == 'b':
-                        nonlocal total_sv_b, kept_sv_b
+                def svd(a):
+                    nonlocal total_sv, kept_sv
                     u, s, v = np.linalg.svd(a, full_matrices=False)
                     if svd_tol is not None:
                         keep = (s >= svd_tol)
-                        if spin == 'a':
-                            total_sv_a += len(keep)
-                            kept_sv_a += sum(keep)
-                        elif spin == 'b':
-                            total_sv_b += len(keep)
-                            kept_sv_b += sum(keep)
+                        total_sv += len(keep)
+                        kept_sv += sum(keep)
                         u, s, v = u[:,keep], s[keep], v[keep]
                     return u, s, v
 
@@ -325,12 +316,12 @@ def make_rdm1_ccsd_global_wf(emb, ao_basis=False, with_mf=True, t_as_lambda=Fals
                 vxy_occ_b *= np.sqrt(sxy_occ_b)[:,np.newaxis]
                 vxy_vir_b *= np.sqrt(sxy_vir_b)[:,np.newaxis]
             else:
-                nsv_a = (min(rxy_occ_a.shape[0], rxy_occ_a.shape[1])
+                nsv = (min(rxy_occ_a.shape[0], rxy_occ_a.shape[1])
                      + min(rxy_vir_a.shape[0], rxy_vir_a.shape[1]))
-                total_sv_a = kept_sv_a = (total_sv_a + nsv_a)
-                nsv_b = (min(rxy_occ_b.shape[0], rxy_occ_b.shape[1])
+                total_sv = kept_sv = (total_sv + nsv)
+                nsv = (min(rxy_occ_b.shape[0], rxy_occ_b.shape[1])
                      + min(rxy_vir_b.shape[0], rxy_vir_b.shape[1]))
-                total_sv_b = kept_sv_b = (total_sv_b + nsv_b)
+                total_sv = kept_sv = (total_sv + nsv)
 
             # --- If ovlp_tol is given, the cluster x-y pairs will be screened based on the
             # largest singular value of the occupied and virtual overlap matrices
@@ -346,7 +337,7 @@ def make_rdm1_ccsd_global_wf(emb, ao_basis=False, with_mf=True, t_as_lambda=Fals
                     rxy_occ_b_norm = np.linalg.norm(rxy_occ_b, ord=2)
                     rxy_vir_a_norm = np.linalg.norm(rxy_vir_a, ord=2)
                     rxy_vir_b_norm = np.linalg.norm(rxy_vir_b, ord=2)
-                if (min(rxy_occ_a_norm, rxy_occ_b_norm, rxy_vir_a_norm, rxy_vir_b_norm) < ovlp_tol):
+                if (min(max(rxy_occ_a_norm, rxy_occ_b_norm), max(rxy_vir_a_norm, rxy_vir_b_norm)) < ovlp_tol):
                     emb.log.debugv("Overlap of fragment pair %s - %s below %.2e; skipping pair.", x, y, ovlp_tol)
                     continue
             kept_xy += 1
@@ -621,7 +612,6 @@ def make_rdm1_ccsd_global_wf(emb, ao_basis=False, with_mf=True, t_as_lambda=Fals
                 dvob += dot(cx_vir_b, dvoxb2, cx_occ_b.T)
 
             if use_sym:
-                # TODO: Use only one loop
                 for x2, (cx2_frag_a, cx2_occ_a, cx2_vir_a, cx2_frag_b, cx2_occ_b, cx2_vir_b) in x.loop_symmetry_children(
                     (x.c_frag[0], x.cluster.c_occ[0], x.cluster.c_vir[0], x.c_frag[1], x.cluster.c_occ[1], x.cluster.c_vir[1]), include_self=False, maxgen=None):
                     cx2_occ_a = np.dot(cs_occ_a, cx2_occ_a)
@@ -694,8 +684,7 @@ def make_rdm1_ccsd_global_wf(emb, ao_basis=False, with_mf=True, t_as_lambda=Fals
 
     # --- Some information:
     emb.log.debug("Cluster-pairs: total= %d  kept= %d (%.1f%%)", total_xy, kept_xy, 100*kept_xy/total_xy)
-    emb.log.debug("Singular values (α) total= %d  kept= %d (%.1f%%)", total_sv_a, kept_sv_a, 100*kept_sv_a/total_sv_a)
-    emb.log.debug("Singular values (β) total= %d  kept= %d (%.1f%%)", total_sv_b, kept_sv_b, 100*kept_sv_b/total_sv_b)
+    emb.log.debug("Singular values total= %d (α) kept= %d (%.1f%%)", total_sv, kept_sv, 100*kept_sv/total_sv)
 
     return dm1a, dm1b
 
