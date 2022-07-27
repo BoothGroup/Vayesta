@@ -78,3 +78,9 @@ class SymmetryGroup:
             and third lattice vector.
         """
         self.translation = np.asarray(nimages)
+
+    def clear_rotations(self):
+        self.rotations = []
+
+    def clear_translations(self):
+        self.translations = None

@@ -197,10 +197,12 @@ class UEmbedding(Embedding):
     # ---------
 
     @log_method()
+    @with_doc(make_rdm1_demo_uhf)
     def make_rdm1_demo(self, *args, **kwargs):
         return make_rdm1_demo_uhf(self, *args, **kwargs)
 
     @log_method()
+    @with_doc(make_rdm2_demo_uhf)
     def make_rdm2_demo(self, *args, **kwargs):
         return make_rdm2_demo_uhf(self, *args, **kwargs)
 

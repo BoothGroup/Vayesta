@@ -308,23 +308,23 @@ class Fragment(BaseFragment):
 
         Parameters
         ----------
-        c1: (n(occ-CO), n(vir-CO)) array
+        c1 : (n(occ-CO), n(vir-CO)) array
             Fragment projected C1-amplitudes.
-        c2: (n(occ-CO), n(occ-CO), n(vir-CO), n(vir-CO)) array
+        c2 : (n(occ-CO), n(occ-CO), n(vir-CO), n(vir-CO)) array
             Fragment projected C2-amplitudes.
-        eris: array or PySCF _ChemistERIs object
+        eris : array or PySCF _ChemistERIs object
             Electron repulsion integrals as returned by ccsd.ao2mo().
-        fock: (n(AO), n(AO)) array, optional
+        fock : (n(AO), n(AO)) array, optional
             Fock matrix in AO representation. If None, self.base.get_fock_for_energy()
             is used. Default: None.
 
         Returns
         -------
-        e_singles: float
+        e_singles : float
             Fragment correlation energy contribution from single excitations.
-        e_doubles: float
+        e_doubles : float
             Fragment correlation energy contribution from double excitations.
-        e_corr: float
+        e_corr : float
             Total fragment correlation energy contribution.
         """
         nocc, nvir = c2.shape[1:3]

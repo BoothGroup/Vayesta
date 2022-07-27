@@ -1,3 +1,6 @@
+# --- gto.basis
+sto3g               sto-3g
+sto6g               sto-6g
 # --- pbc.gto.basis
 # GTH
 gthszv              gth-szv

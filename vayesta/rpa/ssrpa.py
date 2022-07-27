@@ -263,19 +263,13 @@ class ssRPA:
         return ApB * alpha, AmB * alpha
 
     def gen_moms(self, max_mom, xc_kernel=None):
-        res = {}
+        res = np.zeros((max_mom+1, self.ov, self.ov))
         for x in range(max_mom + 1):
             # Have different spin components in general; these are alpha-alpha, alpha-beta and beta-beta.
-            res[x] = np.zeros((self.ov, self.ov))
-            res[x][:self.ova, :self.ova] = np.einsum("pn,n,qn->pq", self.XpY_ss[0], self.freqs_ss ** x, self.XpY_ss[0])
-            res[x][self.ova:, self.ova:] = np.einsum("pn,n,qn->pq", self.XpY_ss[1], self.freqs_ss ** x, self.XpY_ss[1])
-            res[x][:self.ova, self.ova:] = np.einsum("pn,n,qn->pq", self.XpY_ss[0], self.freqs_ss ** x, self.XpY_ss[1])
-            res[x][self.ova:, :self.ova] = res[x][:self.ova, self.ova:].T
-        # Don't want to regenerate these, so use a hideous interface hack to get them to where we need them...
-        M, AmB, ApB, eps, v = self._gen_arrays(xc_kernel)
-        res["AmB"] = AmB
-        res["v"] = v
-        res["ApB"] = ApB
+            res[x, :self.ova, :self.ova] = np.einsum("pn,n,qn->pq", self.XpY_ss[0], self.freqs_ss ** x, self.XpY_ss[0])
+            res[x, self.ova:, self.ova:] = np.einsum("pn,n,qn->pq", self.XpY_ss[1], self.freqs_ss ** x, self.XpY_ss[1])
+            res[x, :self.ova, self.ova:] = np.einsum("pn,n,qn->pq", self.XpY_ss[0], self.freqs_ss ** x, self.XpY_ss[1])
+            res[x, self.ova:, :self.ova] = res[x][:self.ova, self.ova:].T
 
         return res
 

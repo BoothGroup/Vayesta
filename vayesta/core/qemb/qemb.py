@@ -265,7 +265,7 @@ class Embedding:
         mf = copy.copy(mf)
         self.log.debugv("type(mf)= %r", type(mf))
         # If the mean-field has k-points, automatically fold to the supercell:
-        if hasattr(mf, 'kpts') and mf.kpts is not None:
+        if getattr(mf, 'kpts', None) is not None:
             with log_time(self.log.timing, "Time for k->G folding of MOs: %s"):
                 mf = fold_scf(mf)
         if isinstance(mf, FoldedSCF):
@@ -1031,11 +1031,15 @@ class Embedding:
                 x.cluster.mf = self.mf
 
     @log_method()
+    @with_doc(make_rdm1_demo_rhf)
     def make_rdm1_demo(self, *args, **kwargs):
+        self.require_complete_fragmentation("Democratically partitioned DMs will not be accurate.")
         return make_rdm1_demo_rhf(self, *args, **kwargs)
 
     @log_method()
+    @with_doc(make_rdm2_demo_rhf)
     def make_rdm2_demo(self, *args, **kwargs):
+        self.require_complete_fragmentation("Democratically partitioned DMs will not be accurate.")
         return make_rdm2_demo_rhf(self, *args, **kwargs)
 
     def get_dmet_elec_energy(self, version=0, approx_cumulant=True):
@@ -1046,6 +1050,7 @@ class Embedding:
         e_dmet: float
             Electronic DMET energy.
         """
+        self.require_complete_fragmentation("DMET energy will not be accurate.")
         e_dmet = 0.0
         for x in self.get_fragments(active=True, mpi_rank=mpi.rank, sym_parent=None):
             wx = x.symmetry_factor
@@ -1158,7 +1163,7 @@ class Embedding:
         raise ValueError("Unknown local orbitals: %r" % local_orbitals)
 
     def pop_analysis(self, dm1, mo_coeff=None, local_orbitals='lowdin', minao='auto', write=True, filename=None, filemode='a',
-            full=False, mpi_rank=0):
+            orbital_resolved=False, mpi_rank=0):
         """
         Parameters
         ----------
@@ -1192,7 +1197,7 @@ class Embedding:
             pop = einsum('ia,ab,ib->i', cs, dm1, cs)
 
         if write and (mpi.rank == mpi_rank):
-            self.write_population(pop, filename=filename, filemode=filemode, full=full)
+            self.write_population(pop, filename=filename, filemode=filemode, orbital_resolved=orbital_resolved)
         return pop
 
     def get_atomic_charges(self, pop):
@@ -1206,9 +1211,9 @@ class Embedding:
         charges += self.mol.atom_charges()
         return charges, spins
 
-    def write_population(self, pop, filename=None, filemode='a', full=False):
+    def write_population(self, pop, filename=None, filemode='a', orbital_resolved=False):
         charges, spins = self.get_atomic_charges(pop)
-        if full:
+        if orbital_resolved:
             aoslices = self.mol.aoslice_by_atom()[:,2:]
             aolabels = self.mol.ao_labels()
 
@@ -1229,7 +1234,7 @@ class Embedding:
 
         for atom, charge in enumerate(charges):
             write("%3d %-7s  q= % 11.8f  s= % 11.8f", atom, self.mol.atom_symbol(atom) + ':', charge, spins[atom])
-            if full:
+            if orbital_resolved:
                 aos = aoslices[atom]
                 for ao in range(aos[0], aos[1]):
                     label = aolabels[ao]
@@ -1281,6 +1286,67 @@ class Embedding:
     def cas_fragmentation(self, **kwargs):
         """Initialize the quantum embedding method for the use of site fragments."""
         return CAS_Fragmentation(self, **kwargs)
+
+    def _check_fragmentation(self, complete_occupied=True, complete_virtual=True, tol=1e-9):
+        """Check if union of fragment spaces is orthonormal and complete."""
+        if self.spinsym == 'restricted':
+            nspin = 1
+            tspin = lambda x, s : x
+            nelec = self.mol.nelectron
+        elif self.spinsym == 'unrestricted':
+            nspin = 2
+            tspin = lambda x, s : x[s]
+            nelec = self.mol.nelec
+        ovlp = self.get_ovlp()
+        dm1 = self.mf.make_rdm1()
+        for s in range(nspin):
+            nmo_s = tspin(self.nmo, s)
+            nelec_s = tspin(nelec, s)
+            c_frags = np.hstack([tspin(x.c_frag, s) for x in self.fragments])
+            nfrags = c_frags.shape[-1]
+            csc = dot(c_frags.T, ovlp, c_frags)
+            if not np.allclose(csc, np.eye(nfrags), rtol=0, atol=tol):
+                return False
+            if complete_occupied and complete_virtual:
+                if (nfrags != nmo_s):
+                    return False
+            elif complete_occupied or complete_virtual:
+                cs = np.dot(c_frags.T, ovlp)
+                ne = einsum('ia,ab,ib->', cs, tspin(dm1, s), cs)
+                if complete_occupied and (abs(ne - nelec_s) > tol):
+                    return False
+                if complete_virtual and (abs((nfrags-ne) - (nmo_s-nelec_s)) > tol):
+                    return False
+        return True
+
+    def has_orthonormal_fragmentation(self, tol=1e-9):
+        """Check if union of fragment spaces is orthonormal."""
+        return self._check_fragmentation(complete_occupied=False, complete_virtual=False, tol=tol)
+
+    def has_complete_fragmentation(self, tol=1e-9):
+        """Check if union of fragment spaces is orthonormal and complete."""
+        return self._check_fragmentation(complete_occupied=True, complete_virtual=True, tol=tol)
+
+    def has_complete_occupied_fragmentation(self, tol=1e-9):
+        """Check if union of fragment spaces is orthonormal and complete in the occupied space."""
+        return self._check_fragmentation(complete_occupied=True, complete_virtual=False, tol=tol)
+
+    def has_complete_virtual_fragmentation(self, tol=1e-9):
+        """Check if union of fragment spaces is orthonormal and complete in the virtual space."""
+        return self._check_fragmentation(complete_occupied=False, complete_virtual=True, tol=tol)
+
+    def require_complete_fragmentation(self, message=None, incl_virtual=True, tol=1e-9):
+        if incl_virtual:
+            complete = self.has_complete_fragmentation(tol=tol)
+        else:
+            complete = self.has_complete_occupied_fragmentation(tol=tol)
+        if complete:
+            return
+        if message:
+            message = ' %s' % message
+        else:
+            message = ''
+        self.log.error("Fragmentation is not orthogonal and complete.%s", message)
 
     # --- Reset
 

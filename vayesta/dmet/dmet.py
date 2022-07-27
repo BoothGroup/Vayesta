@@ -91,7 +91,7 @@ class DMET(Embedding):
         if self.opts.bath_options['bathtype'] == 'mp2' and maxiter > 1:
             raise NotImplementedError("MP2 bath calculation is currently ignoring the correlation potential, so does"
                                       " not work properly for self-consistent calculations.")
-        # rdm = self.mf.make_rdm1()
+
         fock = self.get_fock()
         if self.vcorr is None:
             self.vcorr = np.zeros((self.nao,) * 2)
@@ -277,11 +277,20 @@ class DMET(Embedding):
         for frag in self.loop():
             self.log.info("%3d  %20s  %8s  %4d", frag.id, frag.name, frag.solver, frag.size)
 
+    def make_rdm1(self, *args, **kwargs):
+        return self.make_rdm1_demo(*args, **kwargs)
+
+    def make_rdm2(self, *args, **kwargs):
+        return self.make_rdm2_demo(*args, **kwargs)
+
     def get_corrfunc(self, kind, dm1=None, dm2=None, **kwargs):
         if dm1 is None:
-            dm1 = self.make_rdm1_demo()
+            dm1 = self.make_rdm1()
         if dm2 is None:
-            dm2 = self.make_rdm2_demo()
+            dm2 = self.make_rdm2()
         return super().get_corrfunc(kind, dm1=dm1, dm2=dm2, **kwargs)
+
+DMET.make_rdm1.__doc__ = DMET.make_rdm1_demo.__doc__
+DMET.make_rdm2.__doc__ = DMET.make_rdm2_demo.__doc__
 
 RDMET = DMET

@@ -63,7 +63,14 @@ class Fragmentation:
             translation = self.emb.symmetry.translation
             if translation is not None:
                 self.emb.add_transsym_fragments(translation)
-
+        # Check if fragmentation is (occupied) complete and orthonormal:
+        orth = self.emb.has_orthonormal_fragmentation()
+        comp = self.emb.has_complete_fragmentation()
+        occcomp = self.emb.has_complete_occupied_fragmentation()
+        self.log.info("Fragmentation: orthogonal= %r, occupied-complete= %r, virtual-complete= %r",
+                      self.emb.has_orthonormal_fragmentation(),
+                      self.emb.has_complete_occupied_fragmentation(),
+                      self.emb.has_complete_virtual_fragmentation())
         self.log.timing("Time for %s fragmentation: %s", self.name, time_string(timer()-self._time0))
         del self._time0
         self.log.changeIndentLevel(-1)

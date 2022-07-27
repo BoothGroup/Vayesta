@@ -85,7 +85,7 @@ class MolecularDFEDMETTest(TestCase):
                 make_dd_moments=False,
                 bosonic_interaction="direct",
         )
-        with emb.iao_fragmentation() as f:
+        with emb.iao_fragmentation(minao='minao') as f:
             f.add_all_atomic_fragments()
         emb.kernel()
 
@@ -101,7 +101,7 @@ class MolecularDFEDMETTest(TestCase):
                 make_dd_moments=False,
                 bosonic_interaction="direct",
         )
-        with uemb.iao_fragmentation() as f:
+        with uemb.iao_fragmentation(minao='minao') as f:
             f.add_all_atomic_fragments()
         uemb.kernel()
 
