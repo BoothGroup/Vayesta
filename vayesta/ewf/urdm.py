@@ -302,15 +302,15 @@ def make_rdm1_ccsd_global_wf(emb, ao_basis=False, with_mf=True, t_as_lambda=Fals
                         u, s, v = u[:,keep], s[keep], v[keep]
                     return u, s, v
 
-                uxy_occ_a, sxy_occ_a, vxy_occ_a = svd(rxy_occ_a, 'a')
-                uxy_vir_a, sxy_vir_a, vxy_vir_a = svd(rxy_vir_a, 'a')
+                uxy_occ_a, sxy_occ_a, vxy_occ_a = svd(rxy_occ_a)
+                uxy_vir_a, sxy_vir_a, vxy_vir_a = svd(rxy_vir_a)
                 uxy_occ_a *= np.sqrt(sxy_occ_a)[np.newaxis,:]
                 uxy_vir_a *= np.sqrt(sxy_vir_a)[np.newaxis,:]
                 vxy_occ_a *= np.sqrt(sxy_occ_a)[:,np.newaxis]
                 vxy_vir_a *= np.sqrt(sxy_vir_a)[:,np.newaxis]
 
-                uxy_occ_b, sxy_occ_b, vxy_occ_b = svd(rxy_occ_b, 'b')
-                uxy_vir_b, sxy_vir_b, vxy_vir_b = svd(rxy_vir_b, 'b')
+                uxy_occ_b, sxy_occ_b, vxy_occ_b = svd(rxy_occ_b)
+                uxy_vir_b, sxy_vir_b, vxy_vir_b = svd(rxy_vir_b)
                 uxy_occ_b *= np.sqrt(sxy_occ_b)[np.newaxis,:]
                 uxy_vir_b *= np.sqrt(sxy_vir_b)[np.newaxis,:]
                 vxy_occ_b *= np.sqrt(sxy_occ_b)[:,np.newaxis]
