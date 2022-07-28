@@ -118,7 +118,7 @@ def get_full_array(eris, mo_coeff=None, out=None):
             eri_ab = out[1]
 
         oa, ob = np.s_[:nocca], np.s_[:noccb]
-        va, vb = np.s_[noccb:], np.s_[noccb:]
+        va, vb = np.s_[nocca:], np.s_[noccb:]
 
         swap = lambda x : x.transpose(2,3,0,1)  # Swap electrons
         conj = lambda x : x.transpose(1,0,3,2)  # Real orbital symmetry
