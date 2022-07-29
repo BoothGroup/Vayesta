@@ -684,7 +684,7 @@ def make_rdm1_ccsd_global_wf(emb, ao_basis=False, with_mf=True, t_as_lambda=Fals
 
     # --- Some information:
     emb.log.debug("Cluster-pairs: total= %d  kept= %d (%.1f%%)", total_xy, kept_xy, 100*kept_xy/total_xy)
-    emb.log.debug("Singular values total= %d (α) kept= %d (%.1f%%)", total_sv, kept_sv, 100*kept_sv/total_sv)
+    emb.log.debug("Singular values total= %d  kept= %d (%.1f%%)", total_sv, kept_sv, 100*kept_sv/total_sv)
 
     return dm1a, dm1b
 
