@@ -11,7 +11,8 @@ from vayesta.ewf.rdm import _get_mockcc
 from vayesta.mpi import mpi
 
 
-def make_rdm1_ccsd(emb, ao_basis=False, t_as_lambda=False, symmetrize=True, with_mf=True, mpi_target=None, mp2=False, ba_order='ba'):
+def make_rdm1_ccsd(emb, ao_basis=False, t_as_lambda=False, symmetrize=True, with_mf=True, mpi_target=None, mp2=False,
+                   ba_order='ba'):
     """Make one-particle reduced density-matrix from partitioned fragment CCSD wave functions.
 
     MPI parallelized.
@@ -389,11 +390,14 @@ def make_rdm1_ccsd_global_wf(emb, ao_basis=False, with_mf=True, t_as_lambda=Fals
 
                     #--------------------------------
 
-                    tlaa = einsum('(ijab,jX,bY->iXaY),(XJ,YB,IJAB)->iIaA', t2aa, uxy_occ_a, uxy_vir_a, vxy_occ_a, vxy_vir_a, l2aa)
-                    tlbb = einsum('(ijab,jX,bY->iXaY),(XJ,YB,IJAB)->iIaA', t2bb, uxy_occ_b, uxy_vir_b, vxy_occ_b, vxy_vir_b, l2bb)
-
-                    tlab1 = einsum('(ijab,jX,bY->iXaY),(XJ,YB,IJAB)->iIaA', t2ab, uxy_occ_b, uxy_vir_b, vxy_occ_b, vxy_vir_b, l2ab)
-                    tlab2 = einsum('(ijab,iX,aY->XjYb),(XI,YA,IJAB)->jJbB', t2ab, uxy_occ_a, uxy_vir_a, vxy_occ_a, vxy_vir_a, l2ab)
+                    tlaa = einsum('(ijab,jX,bY->iXaY),(XJ,YB,IJAB)->iIaA', t2aa, uxy_occ_a, uxy_vir_a,
+                                                                           vxy_occ_a, vxy_vir_a, l2aa)
+                    tlbb = einsum('(ijab,jX,bY->iXaY),(XJ,YB,IJAB)->iIaA', t2bb, uxy_occ_b, uxy_vir_b,
+                                                                           vxy_occ_b, vxy_vir_b, l2bb)
+                    tlab1 = einsum('(ijab,jX,bY->iXaY),(XJ,YB,IJAB)->iIaA', t2ab, uxy_occ_b, uxy_vir_b,
+                                                                            vxy_occ_b, vxy_vir_b, l2ab)
+                    tlab2 = einsum('(ijab,iX,aY->XjYb),(XI,YA,IJAB)->jJbB', t2ab, uxy_occ_a, uxy_vir_a,
+                                                                            vxy_occ_a, vxy_vir_a, l2ab)
 
                 # OO block
                 dooxa -= einsum('iIaA,aA,qI->iq', tlaa, rxy_vir_a, cy_occ_a) * 0.5
@@ -575,8 +579,10 @@ def make_rdm1_ccsd_global_wf(emb, ao_basis=False, with_mf=True, t_as_lambda=Fals
             dvvxa = dot(dvvxa, emb.mo_coeff_vir[0].T)
             dvvxb = dot(dvvxb, emb.mo_coeff_vir[1].T)
             #Loop over symmetry children of x:
-            for x2, (cx2_occ_a, cx2_occ_b, cx2_vir_a, cx2_vir_b, dooxa2, dooxb2, dvvxa2, dvvxb2) in x.loop_symmetry_children(
-                    (x.cluster.c_occ[0], x.cluster.c_occ[1], x.cluster.c_vir[0], x.cluster.c_vir[1], dooxa, dooxb, dvvxa, dvvxb), axes=[0,0,0,0,1,1,1,1]):
+            arrays = (x.cluster.c_occ[0], x.cluster.c_occ[1], x.cluster.c_vir[0], x.cluster.c_vir[1],
+                      dooxa, dooxb, dvvxa, dvvxb)
+            for x2, (cx2_occ_a, cx2_occ_b, cx2_vir_a, cx2_vir_b, dooxa2, dooxb2, dvvxa2, dvvxb2) in \
+                    x.loop_symmetry_children(arrays, axes=[0,0,0,0,1,1,1,1]):
                 dooa += dot(cs_occ_a, cx2_occ_a, dooxa2, cs_occ_a.T)
                 doob += dot(cs_occ_b, cx2_occ_b, dooxb2, cs_occ_b.T)
                 dvva += dot(cs_vir_a, cx2_vir_a, dvvxa2, cs_vir_a.T)
@@ -612,8 +618,10 @@ def make_rdm1_ccsd_global_wf(emb, ao_basis=False, with_mf=True, t_as_lambda=Fals
                 dvob += dot(cx_vir_b, dvoxb2, cx_occ_b.T)
 
             if use_sym:
-                for x2, (cx2_frag_a, cx2_occ_a, cx2_vir_a, cx2_frag_b, cx2_occ_b, cx2_vir_b) in x.loop_symmetry_children(
-                    (x.c_frag[0], x.cluster.c_occ[0], x.cluster.c_vir[0], x.c_frag[1], x.cluster.c_occ[1], x.cluster.c_vir[1]), include_self=False, maxgen=None):
+                arrays = (x.c_frag[0], x.cluster.c_occ[0], x.cluster.c_vir[0], x.c_frag[1], x.cluster.c_occ[1],
+                          x.cluster.c_vir[1])
+                for x2, (cx2_frag_a, cx2_occ_a, cx2_vir_a, cx2_frag_b, cx2_occ_b, cx2_vir_b) in \
+                        x.loop_symmetry_children(arrays, include_self=False, maxgen=None):
                     cx2_occ_a = np.dot(cs_occ_a, cx2_occ_a)
                     cx2_vir_a = np.dot(cs_vir_a, cx2_vir_a)
                     cx2_occ_b = np.dot(cs_occ_b, cx2_occ_b)
@@ -629,7 +637,8 @@ def make_rdm1_ccsd_global_wf(emb, ao_basis=False, with_mf=True, t_as_lambda=Fals
 
     if mpi:
         rma.clear()
-        dooa, doob, dvoa, dvob, dvva, dvvb = mpi.nreduce(dooa, doob, dvoa, dvob, dvva, dvvb, target=mpi_target, logfunc=emb.log.timingv)
+        dooa, doob, dvoa, dvob, dvva, dvvb = mpi.nreduce(dooa, doob, dvoa, dvob, dvva, dvvb,
+                                                         target=mpi_target, logfunc=emb.log.timingv)
         # Make sure no more MPI calls are made after returning some ranks early!
         if mpi_target not in (None, mpi.rank):
             return None
