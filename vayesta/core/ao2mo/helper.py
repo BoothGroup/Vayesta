@@ -143,7 +143,7 @@ def get_full_array(eris, mo_coeff=None, out=None):
         eri_ab[va,va,ob,vb] = swap(get_ovvv(eris, block='OVvv'))
         eri_ab[va,va,vb,ob] = conj(eri_ab[va,va,ob,vb])
 
-        eri_ab[va,va,vb,vb] = get_vvvv(eris, block='vvVV')
+        eri_ab[va,va,vb,vb] = get_vvVV(eris)
 
         return eri_aa, eri_ab, eri_bb
 
@@ -181,54 +181,54 @@ def get_ovvv(eris, block='ovvv'):
         return govvv
 
 def get_vvvv(eris, block='vvvv'):
-    if block in ['vvvv', 'VVVV']:
-        if hasattr(eris,'VVVV'):
-            i = 0 if block == 'vvvv' else 1
-            nmo = eris.fock[i].shape[-1]
-            nocc = eris.nocc[i]
-        else:
-            nmo = eris.fock.shape[-1]
-            nocc = eris.nocc
-        nvir = nmo - nocc
-        #gvvvv = getattr(eris, block)[:]
-        if getattr(eris, block, None) is not None:
-            gvvvv = getattr(eris, block)[:]
-            if gvvvv.ndim == 4:
-                return gvvvv
-            else:
-                return pyscf.ao2mo.restore(1, np.asarray(gvvvv[:]), nvir)
-        # Note that this will not work for 2D systems!:
-        # TODO UHF
-        if eris.vvL.ndim == 2:
-            naux = eris.vvL.shape[-1]
-            vvl = pyscf.lib.unpack_tril(eris.vvL[:], axis=0).reshape(nvir,nvir,naux)
-        else:
-            vvl = eris.vvL[:]
-        gvvvv = einsum('ijQ,klQ->ijkl', vvl, vvl)
-        return gvvvv
-
-    elif block in ['vvVV', 'VVvv']:
-        i, j = (0, 1) if block == 'vvVV' else (1, 0)
-        nmoL = eris.fock[i].shape[-1]
-        nmoR = eris.fock[j].shape[-1]
-        noccL = eris.nocc[i]
-        noccR = eris.nocc[j]
-        nvirL = nmoL - noccL
-        nvirR = nmoR - noccR
+    if hasattr(eris, 'VVVV'):
+        s = (0 if block == 'vvvv' else 1)
+        nmo = eris.fock[s].shape[-1]
+        nocc = eris.nocc[s]
+    else:
+        nmo = eris.fock.shape[-1]
+        nocc = eris.nocc
+    nvir = nmo - nocc
+    if getattr(eris, block, None) is not None:
         gvvvv = getattr(eris, block)[:]
-        if getattr(eris, block, None) is not None:
-            gvvvv = getattr(eris, block)[:]
-            if gvvvv.ndim == 4:
-                return gvvvv[:]
-            else:
-                xVV = pyscf.lib.unpack_tril(gvvvv[:], axis=0).reshape(nvirL**2, -1)
-                return pyscf.lib.unpack_tril(xVV[:], axis=1).reshape(nvirL,nvirL,nvirR,nvirR)
+        if gvvvv.ndim == 4:
+            return gvvvv
+        else:
+            return pyscf.ao2mo.restore(1, np.asarray(gvvvv[:]), nvir)
+    # Note that this will not work for 2D systems:
+    if eris.vvL.ndim == 2:
+        naux = eris.vvL.shape[-1]
+        vvl = pyscf.lib.unpack_tril(eris.vvL[:], axis=0).reshape(nvir,nvir,naux)
+    else:
+        vvl = eris.vvL[:]
+    gvvvv = einsum('ijQ,klQ->ijkl', vvl, vvl)
+    return gvvvv
+
+def get_vvVV(eris, block='vvVV'):
+    sl, sr = ((0, 1) if block == 'vvVV' else (1, 0))
+    nmoL = eris.fock[sl].shape[-1]
+    nmoR = eris.fock[sr].shape[-1]
+    noccL = eris.nocc[sl]
+    noccR = eris.nocc[sr]
+    nvirL = nmoL - noccL
+    nvirR = nmoR - noccR
+    gvvvv = getattr(eris, block)[:]
+    if getattr(eris, block, None) is not None:
+        gvvvv = getattr(eris, block)[:]
+        if gvvvv.ndim == 4:
+            return gvvvv[:]
+        else:
+            xVV = pyscf.lib.unpack_tril(gvvvv[:], axis=0).reshape(nvirL**2, -1)
+            return pyscf.lib.unpack_tril(xVV[:], axis=1).reshape(nvirL,nvirL,nvirR,nvirR)
+    raise NotImplementedError
 
 def get_block(eris, block):
     if block in ['ovvv', 'OVVV', 'ovVV', 'OVvv']:
         return get_ovvv(eris, block=block)
-    if block in ['vvvv', 'VVVV', 'vvVV', 'VVvv']:
+    if block in ['vvvv', 'VVVV']:
         return get_vvvv(eris, block=block)
+    if block in ['vvVV', 'VVvv']:
+        return get_vvVV(eris, block=block)
     return getattr(eris, block)
 
 def pack_ovvv(ovvv):
@@ -342,7 +342,7 @@ def contract_dm2_eris_uhf(dm2, eris):
     #e2 += einsum('pqrs,rspq', dm2ab[va,oa,ob,vb], eris.OVvo) * 4
     e2 += einsum('pqrs,pqrs', dm2ab[oa,vb,vb,vb], get_ovvv(eris, block='ovVV')) * 4
     e2 += einsum('pqrs,rspq', dm2ab[va,va,ob,vb], get_ovvv(eris, block='OVvv')) * 4
-    e2 += einsum('pqrs,pqrs', dm2ab[va,va,vb,vb], get_vvvv(eris, block='vvVV')) * 2
+    e2 += einsum('pqrs,pqrs', dm2ab[va,va,vb,vb], get_vvVV(eris) * 2
     return e2
 
 
