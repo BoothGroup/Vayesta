@@ -197,6 +197,16 @@ def get_vvvv(eris, block='vvvv'):
                 return gvvvv
             else:
                 return pyscf.ao2mo.restore(1, np.asarray(gvvvv[:]), nvir)
+        # Note that this will not work for 2D systems!:
+        # TODO UHF
+        if eris.vvL.ndim == 2:
+            naux = eris.vvL.shape[-1]
+            vvl = pyscf.lib.unpack_tril(eris.vvL[:], axis=0).reshape(nvir,nvir,naux)
+        else:
+            vvl = eris.vvL[:]
+        gvvvv = einsum('ijQ,klQ->ijkl', vvl, vvl)
+        return gvvvv
+
     elif block in ['vvVV', 'VVvv']:
         i, j = (0, 1) if block == 'vvVV' else (1, 0)
         nmoL = eris.fock[i].shape[-1]
@@ -213,16 +223,6 @@ def get_vvvv(eris, block='vvvv'):
             else:
                 xVV = pyscf.lib.unpack_tril(gvvvv[:], axis=0).reshape(nvirL**2, -1)
                 return pyscf.lib.unpack_tril(xVV[:], axis=1).reshape(nvirL,nvirL,nvirR,nvirR)
-
-    # Note that this will not work for 2D systems!:
-    # TODO UHF
-    if eris.vvL.ndim == 2:
-        naux = eris.vvL.shape[-1]
-        vvl = pyscf.lib.unpack_tril(eris.vvL[:], axis=0).reshape(nvir,nvir,naux)
-    else:
-        vvl = eris.vvL[:]
-    gvvvv = einsum('ijQ,klQ->ijkl', vvl, vvl)
-    return gvvvv
 
 def get_block(eris, block):
     if block in ['ovvv', 'OVVV', 'ovVV', 'OVvv']:
