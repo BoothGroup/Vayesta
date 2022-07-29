@@ -138,9 +138,9 @@ def get_full_array(eris, mo_coeff=None, out=None):
         eri_ab[oa,va,ob,vb] = eris.ovOV[:]
         eri_ab[va,oa,vb,ob] = conj(eri_ab[oa,va,ob,vb])
 
-        eri_ab[oa,va,vb,vb] = get_ovvv(eris, block='ovVV')
+        eri_ab[oa,va,vb,vb] = get_ovVV(eris, block='ovVV')
         eri_ab[va,oa,vb,vb] = conj(eri_ab[oa,va,vb,vb])
-        eri_ab[va,va,ob,vb] = swap(get_ovvv(eris, block='OVvv'))
+        eri_ab[va,va,ob,vb] = swap(get_ovVV(eris, block='OVvv'))
         eri_ab[va,va,vb,ob] = conj(eri_ab[va,va,ob,vb])
 
         eri_ab[va,va,vb,vb] = get_vvVV(eris)
@@ -148,37 +148,37 @@ def get_full_array(eris, mo_coeff=None, out=None):
         return eri_aa, eri_ab, eri_bb
 
 def get_ovvv(eris, block='ovvv'):
-    if block in ['ovvv', 'OVVV']:
-        if hasattr(eris,'OOOO'):
-            i = 0 if block == 'ovvv' else 1
-            nmo = eris.fock[i].shape[-1]
-            nocc = eris.nocc[i]
-        else:
-            nmo = eris.fock.shape[-1]
-            nocc = eris.nocc
-        nvir = nmo - nocc
-        govvv = getattr(eris, block)[:]
-        if govvv.ndim == 4:
-            return govvv
-        nvir_pair = nvir*(nvir+1)//2
-        govvv = pyscf.lib.unpack_tril(govvv.reshape(nocc*nvir, nvir_pair))
-        govvv = govvv.reshape(nocc,nvir,nvir,nvir)
+    if hasattr(eris,'OOOO'):
+        s = (0 if block == 'ovvv' else 1)
+        nmo = eris.fock[s].shape[-1]
+        nocc = eris.nocc[s]
+    else:
+        nmo = eris.fock.shape[-1]
+        nocc = eris.nocc
+    nvir = nmo - nocc
+    govvv = getattr(eris, block)[:]
+    if govvv.ndim == 4:
         return govvv
-    elif block in ['ovVV', 'OVvv']:
-        i, j = (0, 1) if block == 'ovVV' else (1, 0)
-        nmoL = eris.fock[i].shape[-1]
-        nmoR = eris.fock[j].shape[-1]
-        noccL = eris.nocc[i]
-        noccR = eris.nocc[j]
-        nvirL = nmoL - noccL
-        nvirR = nmoR - noccR
-        govvv = getattr(eris, block)[:]
-        if govvv.ndim == 4:
-            return govvv
-        nvir_pair = nvirR*(nvirR+1)//2
-        govvv = pyscf.lib.unpack_tril(govvv.reshape(noccL*nvirL, nvir_pair))
-        govvv = govvv.reshape(noccL,nvirL,nvirR,nvirR)
+    nvir_pair = nvir*(nvir+1)//2
+    govvv = pyscf.lib.unpack_tril(govvv.reshape(nocc*nvir, nvir_pair))
+    govvv = govvv.reshape(nocc,nvir,nvir,nvir)
+    return govvv
+
+def get_ovVV(eris, block='ovVV'):
+    sl, sr = (0, 1) if block == 'ovVV' else (1, 0)
+    nmoL = eris.fock[sl].shape[-1]
+    nmoR = eris.fock[sr].shape[-1]
+    noccL = eris.nocc[sl]
+    noccR = eris.nocc[sr]
+    nvirL = nmoL - noccL
+    nvirR = nmoR - noccR
+    govvv = getattr(eris, block)[:]
+    if govvv.ndim == 4:
         return govvv
+    nvir_pair = nvirR*(nvirR+1)//2
+    govvv = pyscf.lib.unpack_tril(govvv.reshape(noccL*nvirL, nvir_pair))
+    govvv = govvv.reshape(noccL,nvirL,nvirR,nvirR)
+    return govvv
 
 def get_vvvv(eris, block='vvvv'):
     if hasattr(eris, 'VVVV'):
@@ -223,8 +223,10 @@ def get_vvVV(eris, block='vvVV'):
     raise NotImplementedError
 
 def get_block(eris, block):
-    if block in ['ovvv', 'OVVV', 'ovVV', 'OVvv']:
+    if block in ['ovvv', 'OVVV']:
         return get_ovvv(eris, block=block)
+    if block in ['ovVV', 'OVvv']:
+        return get_ovVV(eris, block=block)
     if block in ['vvvv', 'VVVV']:
         return get_vvvv(eris, block=block)
     if block in ['vvVV', 'VVvv']:
@@ -340,8 +342,8 @@ def contract_dm2_eris_uhf(dm2, eris):
     e2 += einsum('pqrs,pqrs', dm2ab[oa,vb,vb,ob], eris.ovVO) * 4
     e2 += einsum('pqrs,pqrs', dm2ab[oa,va,ob,vb], eris.ovOV) * 4
     #e2 += einsum('pqrs,rspq', dm2ab[va,oa,ob,vb], eris.OVvo) * 4
-    e2 += einsum('pqrs,pqrs', dm2ab[oa,vb,vb,vb], get_ovvv(eris, block='ovVV')) * 4
-    e2 += einsum('pqrs,rspq', dm2ab[va,va,ob,vb], get_ovvv(eris, block='OVvv')) * 4
+    e2 += einsum('pqrs,pqrs', dm2ab[oa,vb,vb,vb], get_ovVV(eris, block='ovVV')) * 4
+    e2 += einsum('pqrs,rspq', dm2ab[va,va,ob,vb], get_ovVV(eris, block='OVvv')) * 4
     e2 += einsum('pqrs,pqrs', dm2ab[va,va,vb,vb], get_vvVV(eris) * 2
     return e2
 
