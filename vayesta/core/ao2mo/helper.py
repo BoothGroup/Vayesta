@@ -1,13 +1,10 @@
 import logging
-
 import numpy as np
-
 import pyscf
 import pyscf.lib
 import pyscf.ao2mo
-from pyscf.cc.ccsd import _ChemistsERIs
-
 from vayesta.core.util import *
+
 
 log = logging.getLogger(__name__)
 
@@ -54,98 +51,107 @@ def get_kconserv(cell, kpts, nk=3):
 
 def get_full_array(eris, mo_coeff=None, out=None):
     """Get dense ERI array from CCSD _ChemistEris object."""
+    if hasattr(eris, 'OOOO'):
+        return get_full_array_uhf(eris, mo_coeff=mo_coeff, out=out)
+    return get_full_array_rhf(eris, mo_coeff=mo_coeff, out=out)
+
+
+def get_full_array_rhf(eris, mo_coeff=None, out=None):
+    """Get dense ERI array from CCSD _ChemistEris object."""
     if mo_coeff is not None and not np.allclose(mo_coeff, eris.mo_coeff):
         raise NotImplementedError
-    # TODO: Implement for UHF
-    if not hasattr(eris, 'OOOO'):
-        nocc, nvir = eris.ovoo.shape[:2]
-        nmo = nocc + nvir
-        o, v = np.s_[:nocc], np.s_[nocc:]
-        if out is None:
-            out = np.zeros(4*[nmo])
+    nocc, nvir = eris.ovoo.shape[:2]
+    nmo = nocc + nvir
+    o, v = np.s_[:nocc], np.s_[nocc:]
+    if out is None:
+        out = np.zeros(4*[nmo])
 
-        swap = lambda x : x.transpose(2,3,0,1)  # Swap electrons
-        conj = lambda x : x.transpose(1,0,3,2)  # Real orbital symmetry
-        # 4-occ
-        out[o,o,o,o] = eris.oooo
-        # 3-occ
-        out[o,v,o,o] = eris.ovoo[:]
-        out[v,o,o,o] = conj(out[o,v,o,o])
-        out[o,o,o,v] = swap(out[o,v,o,o])
-        out[o,o,v,o] = conj(out[o,o,o,v])
-        # 2-occ
-        out[o,o,v,v] = eris.oovv[:]
-        out[v,v,o,o] = swap(out[o,o,v,v])
-        out[o,v,o,v] = eris.ovov[:]
-        out[v,o,v,o] = conj(out[o,v,o,v])
-        out[o,v,v,o] = eris.ovvo[:]
-        out[v,o,o,v] = swap(eris.ovvo[:])
-        # 1-occ
-        out[o,v,v,v] = get_ovvv(eris)
-        out[v,o,v,v] = conj(out[o,v,v,v])
-        out[v,v,o,v] = swap(out[o,v,v,v])
-        out[v,v,v,o] = conj(out[v,v,o,v])
-        # 0-occ
-        out[v,v,v,v] = get_vvvv(eris)
+    swap = lambda x : x.transpose(2,3,0,1)  # Swap electrons
+    conj = lambda x : x.transpose(1,0,3,2)  # Real orbital symmetry
+    # 4-occ
+    out[o,o,o,o] = eris.oooo
+    # 3-occ
+    out[o,v,o,o] = eris.ovoo[:]
+    out[v,o,o,o] = conj(out[o,v,o,o])
+    out[o,o,o,v] = swap(out[o,v,o,o])
+    out[o,o,v,o] = conj(out[o,o,o,v])
+    # 2-occ
+    out[o,o,v,v] = eris.oovv[:]
+    out[v,v,o,o] = swap(out[o,o,v,v])
+    out[o,v,o,v] = eris.ovov[:]
+    out[v,o,v,o] = conj(out[o,v,o,v])
+    out[o,v,v,o] = eris.ovvo[:]
+    out[v,o,o,v] = swap(eris.ovvo[:])
+    # 1-occ
+    out[o,v,v,v] = get_ovvv(eris)
+    out[v,o,v,v] = conj(out[o,v,v,v])
+    out[v,v,o,v] = swap(out[o,v,v,v])
+    out[v,v,v,o] = conj(out[v,v,o,v])
+    # 0-occ
+    out[v,v,v,v] = get_vvvv(eris)
+    return out
 
-        return out
 
-    else:
-        nocca, noccb = eris.nocc
-        nmoa, nmob = eris.fock[0].shape[-1], eris.fock[1].shape[-1]
-        nvira, nvirb = nmoa - nocca, nmob - noccb
+def getif(obj, key, cond=lambda x: x is not None, default=None):
+    """Returns obj[key] if cond(obj) else default."""
+    if cond(obj):
+        return obj[key]
+    return default
 
-        blocks_aa = ['oooo', 'ovoo', 'oovv', 'ovov', 'ovvo', 'ovvv', 'vvvv']
-        blocks_bb = [i.upper() for i in blocks_aa]
+def get_full_array_uhf(eris, mo_coeff=None, out=None):
+    """Get dense ERI array from CCSD _ChemistEris object."""
+    if mo_coeff is not None and not (np.allclose(mo_coeff[0], eris.mo_coeff[0])
+            and np.allclose(mo_coeff[1], eris.mo_coeff[1])):
+        raise NotImplementedError
+    nocca, noccb = eris.nocc
+    nmoa, nmob = eris.fock[0].shape[-1], eris.fock[1].shape[-1]
+    nvira, nvirb = nmoa - nocca, nmob - noccb
 
-        eris_aa = _ChemistsERIs()
-        eris_aa.fock = eris.fock[0]
-        eris_aa.nocc = nocca
-        for i, block in enumerate(blocks_bb):
-            setattr(eris_aa, blocks_aa[i], getattr(eris, blocks_aa[i]))
-        eri_aa = get_full_array(eris_aa)
+    # Alpha-alpha
+    blocks_aa = ['oooo', 'ovoo', 'oovv', 'ovov', 'ovvo', 'ovvv', 'vvvv']
+    eris_aa = Object()
+    eris_aa.fock = eris.fock[0]
+    eris_aa.nocc = nocca
+    for block in enumerate(blocks_aa):
+        setattr(eris_aa, block, getattr(eris, block))
+    eri_aa = get_full_array_rhf(eris_aa, mo_coeff=getif(mo_coeff, 0), out=getif(out, 0))
+    # Beta-beta
+    eris_bb = Object()
+    eris_bb.fock = eris.fock[1]
+    eris_bb.nocc = noccb
+    blocks_bb = [b.upper() for b in blocks_aa]
+    for i, block in enumerate(blocks_bb):
+        setattr(eris_bb, blocks_aa[i], getattr(eris, block))
+    eri_bb = get_full_array_rhf(eris_bb, mo_coeff=getif(mo_coeff, 1), out=getif(out, 2))
+    # Alpha-beta
+    eri_ab = np.zeros((nmoa,nmoa,nmob,nmob)) if out is None else out[1]
+    oa, ob = np.s_[:nocca], np.s_[:noccb]
+    va, vb = np.s_[nocca:], np.s_[noccb:]
+    swap = lambda x : x.transpose(2,3,0,1)  # Swap electrons
+    conj = lambda x : x.transpose(1,0,3,2)  # Real orbital symmetry
+    # 4-occ
+    eri_ab[oa,oa,ob,ob] = eris.ooOO[:]
+    # 3-occ
+    eri_ab[oa,va,ob,ob] = eris.ovOO[:]
+    eri_ab[va,oa,ob,ob] = conj(eri_ab[oa,va,ob,ob])
+    eri_ab[oa,oa,ob,vb] = swap(eris.OVoo[:])
+    eri_ab[oa,oa,vb,ob] = conj(eri_ab[oa,oa,ob,vb])
+    # 2-occ
+    eri_ab[oa,oa,vb,vb] = eris.ooVV[:]
+    eri_ab[va,va,ob,ob] = swap(eris.OOvv[:])
+    eri_ab[oa,va,vb,ob] = eris.ovVO[:]
+    eri_ab[va,oa,ob,vb] = conj(eri_ab[oa,va,vb,ob])
+    eri_ab[oa,va,ob,vb] = eris.ovOV[:]
+    eri_ab[va,oa,vb,ob] = conj(eri_ab[oa,va,ob,vb])
+    # 1-occ
+    eri_ab[oa,va,vb,vb] = get_ovVV(eris, block='ovVV')
+    eri_ab[va,oa,vb,vb] = conj(eri_ab[oa,va,vb,vb])
+    eri_ab[va,va,ob,vb] = swap(get_ovVV(eris, block='OVvv'))
+    eri_ab[va,va,vb,ob] = conj(eri_ab[va,va,ob,vb])
+    # 0-occ
+    eri_ab[va,va,vb,vb] = get_vvVV(eris)
+    return eri_aa, eri_ab, eri_bb
 
-        eris_bb = _ChemistsERIs()
-        eris_bb.fock = eris.fock[1]
-        eris_bb.nocc = noccb
-        for i, block in enumerate(blocks_bb):
-            setattr(eris_bb, blocks_aa[i], getattr(eris, blocks_bb[i]))
-        eri_bb = get_full_array(eris_bb)
-
-        if out is None:
-            eri_ab = np.zeros((nmoa,nmoa,nmob,nmob))
-        else:
-            eri_ab = out[1]
-
-        oa, ob = np.s_[:nocca], np.s_[:noccb]
-        va, vb = np.s_[nocca:], np.s_[noccb:]
-
-        swap = lambda x : x.transpose(2,3,0,1)  # Swap electrons
-        conj = lambda x : x.transpose(1,0,3,2)  # Real orbital symmetry
-
-        eri_ab[oa,oa,ob,ob] = eris.ooOO[:]
-
-        eri_ab[oa,va,ob,ob] = eris.ovOO[:]
-        eri_ab[va,oa,ob,ob] = conj(eri_ab[oa,va,ob,ob])
-
-        eri_ab[oa,oa,ob,vb] = swap(eris.OVoo[:])
-        eri_ab[oa,oa,vb,ob] = conj(eri_ab[oa,oa,ob,vb])
-
-        eri_ab[oa,oa,vb,vb] = eris.ooVV[:]
-        eri_ab[va,va,ob,ob] = swap(eris.OOvv[:])
-        eri_ab[oa,va,vb,ob] = eris.ovVO[:]
-        eri_ab[va,oa,ob,vb] = conj(eri_ab[oa,va,vb,ob])
-        eri_ab[oa,va,ob,vb] = eris.ovOV[:]
-        eri_ab[va,oa,vb,ob] = conj(eri_ab[oa,va,ob,vb])
-
-        eri_ab[oa,va,vb,vb] = get_ovVV(eris, block='ovVV')
-        eri_ab[va,oa,vb,vb] = conj(eri_ab[oa,va,vb,vb])
-        eri_ab[va,va,ob,vb] = swap(get_ovVV(eris, block='OVvv'))
-        eri_ab[va,va,vb,ob] = conj(eri_ab[va,va,ob,vb])
-
-        eri_ab[va,va,vb,vb] = get_vvVV(eris)
-
-        return eri_aa, eri_ab, eri_bb
 
 def get_ovvv(eris, block='ovvv'):
     if hasattr(eris,'OOOO'):
