@@ -309,8 +309,6 @@ def contract_dm2_eris_uhf(dm2, eris):
     """
     nocca = eris.oooo.shape[0]
     noccb = eris.OOOO.shape[0]
-    nmoa = eris.fock[0].shape[-1]
-    nmob = eris.fock[1].shape[-1]
     dm2aa, dm2ab, dm2bb = dm2
     e2 = 0
     # Alpha-alpha
