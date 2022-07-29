@@ -112,7 +112,7 @@ def get_full_array_uhf(eris, mo_coeff=None, out=None):
     eris_aa = Object()
     eris_aa.fock = eris.fock[0]
     eris_aa.nocc = nocca
-    for block in enumerate(blocks_aa):
+    for block in blocks_aa:
         setattr(eris_aa, block, getattr(eris, block))
     eri_aa = get_full_array_rhf(eris_aa, mo_coeff=getif(mo_coeff, 0), out=getif(out, 0))
     # Beta-beta
@@ -350,7 +350,7 @@ def contract_dm2_eris_uhf(dm2, eris):
     #e2 += einsum('pqrs,rspq', dm2ab[va,oa,ob,vb], eris.OVvo) * 4
     e2 += einsum('pqrs,pqrs', dm2ab[oa,vb,vb,vb], get_ovVV(eris, block='ovVV')) * 4
     e2 += einsum('pqrs,rspq', dm2ab[va,va,ob,vb], get_ovVV(eris, block='OVvv')) * 4
-    e2 += einsum('pqrs,pqrs', dm2ab[va,va,vb,vb], get_vvVV(eris) * 2
+    e2 += einsum('pqrs,pqrs', dm2ab[va,va,vb,vb], get_vvVV(eris)) * 2
     return e2
 
 
