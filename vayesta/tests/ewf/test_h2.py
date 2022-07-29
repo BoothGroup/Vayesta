@@ -133,9 +133,6 @@ class Test_UCCSD(Test_CCSD):
         cls.mf = testsystems.h2anion_dz.uhf()
         cls.cc = testsystems.h2anion_dz.uccsd()
 
-    def test_dm_energy(self):
-        pass
-
     def test_global_dm2(self):
         pass
 
