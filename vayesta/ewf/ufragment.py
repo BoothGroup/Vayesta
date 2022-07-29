@@ -173,5 +173,5 @@ class Fragment(RFragment, BaseFragment):
         gaa, gab, gbb = eris
         e_dm2 = (einsum('ijkl,ijkl->', gaa, dm2aa)
                + einsum('ijkl,ijkl->', gab, dm2ab)*2
-               + einsum('ijkl,ijkl->', gbb, dm2bb))
+               + einsum('ijkl,ijkl->', gbb, dm2bb))/2
         return e_dm2
