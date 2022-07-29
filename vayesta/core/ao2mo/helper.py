@@ -345,10 +345,10 @@ def contract_dm2_eris_uhf(dm2, eris):
     e2 += einsum('pqrs,rspq', dm2ab[oa,oa,ob,vb], eris.OVoo) * 4
     e2 += einsum('pqrs,pqrs', dm2ab[oa,oa,vb,vb], eris.ooVV) * 2
     e2 += einsum('pqrs,rspq', dm2ab[va,va,ob,ob], eris.OOvv) * 2
-    e2 += einsum('pqrs,pqrs', dm2ab[oa,vb,vb,ob], eris.ovVO) * 4
+    e2 += einsum('pqrs,pqrs', dm2ab[oa,va,vb,ob], eris.ovVO) * 4
     e2 += einsum('pqrs,pqrs', dm2ab[oa,va,ob,vb], eris.ovOV) * 4
     #e2 += einsum('pqrs,rspq', dm2ab[va,oa,ob,vb], eris.OVvo) * 4
-    e2 += einsum('pqrs,pqrs', dm2ab[oa,vb,vb,vb], get_ovVV(eris, block='ovVV')) * 4
+    e2 += einsum('pqrs,pqrs', dm2ab[oa,va,vb,vb], get_ovVV(eris, block='ovVV')) * 4
     e2 += einsum('pqrs,rspq', dm2ab[va,va,ob,vb], get_ovVV(eris, block='OVvv')) * 4
     e2 += einsum('pqrs,pqrs', dm2ab[va,va,vb,vb], get_vvVV(eris)) * 2
     return e2
