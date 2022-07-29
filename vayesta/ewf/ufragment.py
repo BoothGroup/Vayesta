@@ -165,7 +165,8 @@ class Fragment(RFragment, BaseFragment):
             eris = self.base.get_eris_array(self.cluster.c_active)
         # CCSD
         elif hasattr(self._eris, 'ovoo'):
-            eris = vayesta.core.ao2mo.helper.get_full_array(self._eris)
+            #eris = vayesta.core.ao2mo.helper.get_full_array(self._eris)
+            return vayesta.core.ao2mo.helper.contract_dm2_eris_uhf(dm2, self._eris)/2
         # MP2
         else:
             eris = self._eris
