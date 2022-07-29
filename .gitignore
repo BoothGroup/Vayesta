@@ -6,17 +6,6 @@ __pycache__/
 # C extensions
 *.so
 
-# Vi swap file
-*.swp
-
-#Vayesta log files
-vlog.txt
-verr.txt
-
-#PySCF temp files
-tmp*
-!tmp*.*
-
 # Distribution / packaging
 .Python
 build/
@@ -139,8 +128,21 @@ dmypy.json
 # Pyre type checker
 .pyre/
 
+# --- Custom:
+
 # PySCF output
 pyscf.out
 
 # Code style
 .codestyle
+
+# Vi swap file
+*.swp
+
+# Vayesta log files
+vlog.txt
+verr.txt
+
+# PySCF temp files
+tmp*
+!tmp*.*
