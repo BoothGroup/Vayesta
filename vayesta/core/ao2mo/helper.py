@@ -241,19 +241,19 @@ def pack_vvvv(vvvv):
     return pyscf.ao2mo.restore(4, vvvv, nvir)
 
 def contract_dm2_eris(dm2, eris):
-    """Contracts _ChemistsERIs with the two body density matrix
+    """Contracts _ChemistsERIs with the two-body density matrix.
 
     Parameters
     ----------
     dm2 : ndarry or (ndarray, ndarray, ndarray)
-        Two body density matrix or tuple of aa, ab, bb blocks for UHF
+        Two-body density matrix or tuple of alpha-alpha, alpha-beta, beta-beta spin blocks for UHF.
     eris : _ChemistERIs
-        PySCF ERIs object
+        PySCF ERIs object.
 
     Returns
-    ----------
+    -------
     e2 : float
-        Two body energy contribution
+        Two-body energy.
     """
 
     if not hasattr(eris, 'OOOO'):
