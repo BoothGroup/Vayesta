@@ -248,7 +248,6 @@ def pack_vvvv(vvvv):
     nvir = vvvv.shape[0]
     return pyscf.ao2mo.restore(4, vvvv, nvir)
 
-
 def contract_dm2_eris(dm2, eris):
     """Contracts _ChemistsERIs with the two-body density matrix.
 
@@ -272,6 +271,13 @@ def contract_dm2_eris(dm2, eris):
     raise ValueError("N(dim) of DM2: %d" % ndim)
 
 
+def _contract_4d(a, b, transpose=None):
+    if transpose is not None:
+        b = b.transpose(transpose)
+    #return einsum('pqrs,pqrs', a, b)
+    return np.dot(a.reshape(-1), b.reshape(-1))
+
+
 def contract_dm2_eris_rhf(dm2, eris):
     """Contracts _ChemistsERIs with the two-body density matrix.
 
@@ -290,13 +296,13 @@ def contract_dm2_eris_rhf(dm2, eris):
     nocc = eris.oooo.shape[0]
     o, v = np.s_[:nocc], np.s_[nocc:]
     e2 = 0
-    e2 += einsum('pqrs,pqrs', dm2[o,o,o,o], eris.oooo)
-    e2 += einsum('pqrs,pqrs', dm2[o,v,o,o], eris.ovoo) * 4
-    e2 += einsum('pqrs,pqrs', dm2[o,o,v,v], eris.oovv) * 2
-    e2 += einsum('pqrs,pqrs', dm2[o,v,o,v], eris.ovov) * 2
-    e2 += einsum('pqrs,pqrs', dm2[o,v,v,o], eris.ovvo) * 2
-    e2 += einsum('pqrs,pqrs', dm2[o,v,v,v], get_ovvv(eris)) * 4
-    e2 += einsum('pqrs,pqrs', dm2[v,v,v,v], get_vvvv(eris))
+    e2 += _contract_4d(dm2[o,o,o,o], eris.oooo)
+    e2 += _contract_4d(dm2[o,v,o,o], eris.ovoo) * 4
+    e2 += _contract_4d(dm2[o,o,v,v], eris.oovv) * 2
+    e2 += _contract_4d(dm2[o,v,o,v], eris.ovov) * 2
+    e2 += _contract_4d(dm2[o,v,v,o], eris.ovvo) * 2
+    e2 += _contract_4d(dm2[o,v,v,v], get_ovvv(eris)) * 4
+    e2 += _contract_4d(dm2[v,v,v,v], get_vvvv(eris))
     return e2
 
 
@@ -321,36 +327,36 @@ def contract_dm2_eris_uhf(dm2, eris):
     e2 = 0
     # Alpha-alpha
     o, v = np.s_[:nocca], np.s_[nocca:]
-    e2 += einsum('pqrs,pqrs', dm2aa[o,o,o,o], eris.oooo)
-    e2 += einsum('pqrs,pqrs', dm2aa[o,v,o,o], eris.ovoo) * 4
-    e2 += einsum('pqrs,pqrs', dm2aa[o,o,v,v], eris.oovv) * 2
-    e2 += einsum('pqrs,pqrs', dm2aa[o,v,o,v], eris.ovov) * 2
-    e2 += einsum('pqrs,pqrs', dm2aa[o,v,v,o], eris.ovvo) * 2
-    e2 += einsum('pqrs,pqrs', dm2aa[o,v,v,v], get_ovvv(eris)) * 4
-    e2 += einsum('pqrs,pqrs', dm2aa[v,v,v,v], get_vvvv(eris))
+    e2 += _contract_4d(dm2aa[o,o,o,o], eris.oooo)
+    e2 += _contract_4d(dm2aa[o,v,o,o], eris.ovoo) * 4
+    e2 += _contract_4d(dm2aa[o,o,v,v], eris.oovv) * 2
+    e2 += _contract_4d(dm2aa[o,v,o,v], eris.ovov) * 2
+    e2 += _contract_4d(dm2aa[o,v,v,o], eris.ovvo) * 2
+    e2 += _contract_4d(dm2aa[o,v,v,v], get_ovvv(eris)) * 4
+    e2 += _contract_4d(dm2aa[v,v,v,v], get_vvvv(eris))
     # Beta-beta
     o, v = np.s_[:noccb], np.s_[noccb:]
-    e2 += einsum('pqrs,pqrs', dm2bb[o,o,o,o], eris.OOOO)
-    e2 += einsum('pqrs,pqrs', dm2bb[o,v,o,o], eris.OVOO) * 4
-    e2 += einsum('pqrs,pqrs', dm2bb[o,o,v,v], eris.OOVV) * 2
-    e2 += einsum('pqrs,pqrs', dm2bb[o,v,o,v], eris.OVOV) * 2
-    e2 += einsum('pqrs,pqrs', dm2bb[o,v,v,o], eris.OVVO) * 2
-    e2 += einsum('pqrs,pqrs', dm2bb[o,v,v,v], get_ovvv(eris, block='OVVV')) * 4
-    e2 += einsum('pqrs,pqrs', dm2bb[v,v,v,v], get_vvvv(eris, block='VVVV'))
+    e2 += _contract_4d(dm2bb[o,o,o,o], eris.OOOO)
+    e2 += _contract_4d(dm2bb[o,v,o,o], eris.OVOO) * 4
+    e2 += _contract_4d(dm2bb[o,o,v,v], eris.OOVV) * 2
+    e2 += _contract_4d(dm2bb[o,v,o,v], eris.OVOV) * 2
+    e2 += _contract_4d(dm2bb[o,v,v,o], eris.OVVO) * 2
+    e2 += _contract_4d(dm2bb[o,v,v,v], get_ovvv(eris, block='OVVV')) * 4
+    e2 += _contract_4d(dm2bb[v,v,v,v], get_vvvv(eris, block='VVVV'))
     # Alpha-beta
     oa, va = np.s_[:nocca], np.s_[nocca:]
     ob, vb = np.s_[:noccb], np.s_[noccb:]
-    e2 += einsum('pqrs,pqrs', dm2ab[oa,oa,ob,ob], eris.ooOO) * 2
-    e2 += einsum('pqrs,pqrs', dm2ab[oa,va,ob,ob], eris.ovOO) * 4
-    e2 += einsum('pqrs,rspq', dm2ab[oa,oa,ob,vb], eris.OVoo) * 4
-    e2 += einsum('pqrs,pqrs', dm2ab[oa,oa,vb,vb], eris.ooVV) * 2
-    e2 += einsum('pqrs,rspq', dm2ab[va,va,ob,ob], eris.OOvv) * 2
-    e2 += einsum('pqrs,pqrs', dm2ab[oa,va,vb,ob], eris.ovVO) * 4
-    e2 += einsum('pqrs,pqrs', dm2ab[oa,va,ob,vb], eris.ovOV) * 4
+    e2 += _contract_4d(dm2ab[oa,oa,ob,ob], eris.ooOO) * 2
+    e2 += _contract_4d(dm2ab[oa,va,ob,ob], eris.ovOO) * 4
+    e2 += _contract_4d(dm2ab[oa,oa,ob,vb], eris.OVoo, transpose=(2,3,0,1)) * 4
+    e2 += _contract_4d(dm2ab[oa,oa,vb,vb], eris.ooVV) * 2
+    e2 += _contract_4d(dm2ab[va,va,ob,ob], eris.OOvv, transpose=(2,3,0,1)) * 2
+    e2 += _contract_4d(dm2ab[oa,va,vb,ob], eris.ovVO) * 4
+    e2 += _contract_4d(dm2ab[oa,va,ob,vb], eris.ovOV) * 4
     #e2 += einsum('pqrs,rspq', dm2ab[va,oa,ob,vb], eris.OVvo) * 4
-    e2 += einsum('pqrs,pqrs', dm2ab[oa,va,vb,vb], get_ovVV(eris, block='ovVV')) * 4
-    e2 += einsum('pqrs,rspq', dm2ab[va,va,ob,vb], get_ovVV(eris, block='OVvv')) * 4
-    e2 += einsum('pqrs,pqrs', dm2ab[va,va,vb,vb], get_vvVV(eris)) * 2
+    e2 += _contract_4d(dm2ab[oa,va,vb,vb], get_ovVV(eris, block='ovVV')) * 4
+    e2 += _contract_4d(dm2ab[va,va,ob,vb], get_ovVV(eris, block='OVvv'), transpose=(2,3,0,1)) * 4
+    e2 += _contract_4d(dm2ab[va,va,vb,vb], get_vvVV(eris)) * 2
     return e2
 
 

@@ -458,6 +458,7 @@ class Fragment(BaseFragment):
     #    e_dm1 = einsum('ij,ji->', fock, dm1)
     #    return e_dm1
 
+    @log_method()
     def make_fragment_dm2cumulant_energy(self, t_as_lambda=False, sym_t2=True, approx_cumulant=True):
         dm2 = self.make_fragment_dm2cumulant(t_as_lambda=t_as_lambda, sym_t2=sym_t2, approx_cumulant=approx_cumulant,
                 full_shape=False)
