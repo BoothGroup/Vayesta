@@ -13,4 +13,4 @@ if __name__ == "__main__":
     if len(sys.argv) == 1 or sys.argv[1] != "--with-veryslow":
         args.append("-m not veryslow")
 
-    pytest.main(args)
+    raise SystemExit(pytest.main())
