@@ -243,11 +243,9 @@ class UEWF(REWF, UEmbedding):
         if t_as_lambda is None:
             t_as_lambda = self.opts.t_as_lambda
         if global_dm1:
-            dm1a, dm1b = self._make_rdm1_ccsd_global_wf(t_as_lambda=t_as_lambda)
+            dm1a, dm1b = self._make_rdm1_ccsd_global_wf(t_as_lambda=t_as_lambda, with_mf=False)
         else:
-            dm1a, dm1b = self._make_rdm1_ccsd(t_as_lambda=t_as_lambda)
-        dm1a[np.diag_indices(self.nocc[0])] -= 1
-        dm1b[np.diag_indices(self.nocc[1])] -= 1
+            dm1a, dm1b = self._make_rdm1_ccsd(t_as_lambda=t_as_lambda, with_mf=False)
 
         # --- Core Hamiltonian + Non-cumulant 2DM contribution
         fa, fb = self.get_fock_for_energy(with_exxdiv=False)
