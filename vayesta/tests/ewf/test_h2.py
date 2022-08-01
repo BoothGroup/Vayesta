@@ -48,7 +48,8 @@ class Test_MP2(TestCase):
     def test_global_dm1(self):
         emb = self.emb(-1)
         dm1_exact = self.cc.make_rdm1()
-
+        dm1 = emb.make_rdm1(slow=True)
+        self.assertAllclose(dm1, dm1_exact)
         dm1 = emb.make_rdm1(late_t2_sym=True)
         self.assertAllclose(dm1, dm1_exact)
         dm1 = emb.make_rdm1(late_t2_sym=False)
@@ -103,7 +104,6 @@ class Test_CCSD(Test_MP2):
     def test_global_dm2(self):
         emb = self.emb(-1)
         dm2_exact = self.cc.make_rdm2()
-
         dm2 = emb._make_rdm2_ccsd_global_wf()
         self.assertAllclose(dm2, dm2_exact)
 
@@ -132,15 +132,6 @@ class Test_UCCSD(Test_CCSD):
     def setUpClass(cls):
         cls.mf = testsystems.h2anion_dz.uhf()
         cls.cc = testsystems.h2anion_dz.uccsd()
-
-    def test_global_dm1(self):
-        emb = self.emb(-1)
-        dm1 = emb._make_rdm1_ccsd()
-        dm1_exact = self.cc.make_rdm1()
-        self.assertAllclose(dm1, dm1_exact)
-
-    def test_dm_energy(self):
-        pass
 
     def test_global_dm2(self):
         pass

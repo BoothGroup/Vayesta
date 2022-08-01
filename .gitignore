@@ -128,8 +128,21 @@ dmypy.json
 # Pyre type checker
 .pyre/
 
+# --- Custom:
+
 # PySCF output
 pyscf.out
 
 # Code style
 .codestyle
+
+# Vi swap file
+*.swp
+
+# Vayesta log files
+vlog.txt
+verr.txt
+
+# PySCF temp files
+tmp*
+!tmp*.*

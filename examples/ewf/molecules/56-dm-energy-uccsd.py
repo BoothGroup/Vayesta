@@ -17,11 +17,11 @@ mol.output = 'pyscf.out'
 mol.build()
 
 # Hartree-Fock
-mf = pyscf.scf.RHF(mol)
+mf = pyscf.scf.UHF(mol)
 mf.kernel()
 
 # Reference full system CCSD:
-cc = pyscf.cc.CCSD(mf)
+cc = pyscf.cc.UCCSD(mf)
 cc.kernel()
 
 # Embedded CCSD

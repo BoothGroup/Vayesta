@@ -224,3 +224,46 @@ class UEWF(REWF, UEmbedding):
                         pb = proj_x[ix][b]
                         ssz[a,b] += (np.sum(tmpa*pb[0]) + np.sum(tmpb*pb[1]))/4
         return ssz
+
+    def _get_dm_corr_energy_old(self, global_dm1=True, global_dm2=False, t_as_lambda=None):
+        """Calculate correlation energy from reduced density-matrices.
+
+        Parameters
+        ----------
+        global_dm1 : bool
+            Use 1DM calculated from global amplitutes if True, otherwise use in cluster approximation. Default: True.
+        global_dm2 : bool
+            Use 2DM calculated from global amplitutes if True, otherwise use in cluster approximation. Default: False.
+
+        Returns
+        -------
+        e_corr : float
+            Correlation energy.
+        """
+        if t_as_lambda is None:
+            t_as_lambda = self.opts.t_as_lambda
+        if global_dm1:
+            dm1a, dm1b = self._make_rdm1_ccsd_global_wf(t_as_lambda=t_as_lambda, with_mf=False)
+        else:
+            dm1a, dm1b = self._make_rdm1_ccsd(t_as_lambda=t_as_lambda, with_mf=False)
+
+        # --- Core Hamiltonian + Non-cumulant 2DM contribution
+        fa, fb = self.get_fock_for_energy(with_exxdiv=False)
+        e1 = (einsum('pi,pq,qj,ij->', self.mo_coeff[0], fa, self.mo_coeff[0], dm1a)
+            + einsum('pi,pq,qj,ij->', self.mo_coeff[1], fb, self.mo_coeff[1], dm1b))/self.ncells
+
+        # --- Cumulant 2-DM contribution
+        # Use global 2-DM
+        if global_dm2:
+            dm2aa, dm2ab, dm2bb = self._make_rdm2_ccsd_global_wf(t_as_lambda=t_as_lambda, with_dm1=False)
+            eriaa = self.get_eris_array(self.mo_coeff[0])
+            e2 = einsum('pqrs,pqrs', eriaa, dm2aa) / 2
+            eriab = self.get_eris_array(2*[self.mo_coeff[0]] + 2*[self.mo_coeff[1]])
+            e2 += einsum('pqrs,pqrs', eriab, dm2ab)
+            eribb = self.get_eris_array(self.mo_coeff[1])
+            e2 += einsum('pqrs,pqrs', eribb, dm2bb) / 2
+        # Use fragment-local 2-DM
+        else:
+            e2 = self.get_dm_corr_energy_e2(t_as_lambda=t_as_lambda)
+        e_corr = (e1 + e2)
+        return e_corr

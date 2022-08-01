@@ -157,6 +157,7 @@ class Fragment(RFragment, BaseFragment):
         dm2 = pyscf.cc.uccsd_rdm._make_rdm2(cc, d1, d2, with_dm1=False, with_frozen=False)
         return dm2
 
+    @log_method()
     def make_fragment_dm2cumulant_energy(self, t_as_lambda=False, sym_t2=True, approx_cumulant=True):
         dm2 = self.make_fragment_dm2cumulant(t_as_lambda=t_as_lambda, sym_t2=sym_t2, approx_cumulant=approx_cumulant,
                 full_shape=False)
@@ -165,7 +166,8 @@ class Fragment(RFragment, BaseFragment):
             eris = self.base.get_eris_array(self.cluster.c_active)
         # CCSD
         elif hasattr(self._eris, 'ovoo'):
-            eris = vayesta.core.ao2mo.helper.get_full_array(self._eris)
+            #eris = vayesta.core.ao2mo.helper.get_full_array(self._eris)
+            return vayesta.core.ao2mo.helper.contract_dm2_eris_uhf(dm2, self._eris)/2
         # MP2
         else:
             eris = self._eris
@@ -173,5 +175,5 @@ class Fragment(RFragment, BaseFragment):
         gaa, gab, gbb = eris
         e_dm2 = (einsum('ijkl,ijkl->', gaa, dm2aa)
                + einsum('ijkl,ijkl->', gab, dm2ab)*2
-               + einsum('ijkl,ijkl->', gbb, dm2bb))
+               + einsum('ijkl,ijkl->', gbb, dm2bb))/2
         return e_dm2
