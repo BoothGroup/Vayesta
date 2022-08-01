@@ -196,9 +196,6 @@ def make_rdm1_ccsd_global_wf(emb, ao_basis=False, with_mf=True, t_as_lambda=Fals
     if t_as_lambda is None:
         t_as_lambda = emb.opts.t_as_lambda
 
-    nocca, noccb = emb.nocc
-    nvira, nvirb = emb.nvir
-
     # === Slow algorithm (O(N^5)?): Form global N^4 T2/L2-amplitudes first
     if slow:
         t1 = emb.get_global_t1()
@@ -217,6 +214,8 @@ def make_rdm1_ccsd_global_wf(emb, ao_basis=False, with_mf=True, t_as_lambda=Fals
 
     # === Fast algorithm via fragment-fragment loop
     # --- Setup
+    nocca, noccb = emb.nocc
+    nvira, nvirb = emb.nvir
     if ovlp_tol is None:
         ovlp_tol = svd_tol
     total_sv = kept_sv = 0
