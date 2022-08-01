@@ -558,7 +558,6 @@ def make_rdm1_ccsd_global_wf(emb, ao_basis=False, with_mf=True, t_as_lambda=Fals
                     tmpb += einsum('(xYab,aS->xYSb),(SA,YxBA->YxBS)->bB', t2bbtmp, uxy_vir_b, vxy_vir_b, l2bbtmp)/8
                     tmpb += einsum('(xYab,aS->xYSb),(SA,YxBA->YxBS)->bB', t2abtmp, uxy_vir_a, vxy_vir_a, l2batmp)/4
 
-
                     tmpa += einsum('(xYba,aS->xYbS),(SA,YxAB->YxSB)->bB', t2aatmp, uxy_vir_a, vxy_vir_a, l2aatmp)/8
                     tmpa += einsum('(xYba,aS->xYbS),(SA,YxAB->YxSB)->bB', t2abtmp, uxy_vir_b, vxy_vir_b, l2batmp)/4
                     tmpb += einsum('(xYba,aS->xYbS),(SA,YxAB->YxSB)->bB', t2bbtmp, uxy_vir_b, vxy_vir_b, l2bbtmp)/8
