@@ -8,12 +8,12 @@ import vayesta.ewf
 from vayesta.tests.common import TestCase
 from vayesta.tests import testsystems
 
-class TestRDMEnergyConvergence(TestCase):
+class Test_RHF(TestCase):
 
-    def test_water(self):
+    def test(self):
 
         #RHF
-        mf = testsystems.water_ccpvdz.rhf()
+        mf = testsystems.water_631g.rhf()
 
         #CCSD
         cc = pyscf.cc.CCSD(mf)
@@ -33,12 +33,12 @@ class TestRDMEnergyConvergence(TestCase):
         self.assertAlmostEqual(lg, cc.e_corr)
         self.assertAlmostEqual(gg, cc.e_corr)
 
-class TestRDMEnergyConvergenceUHF(TestCase):
+class Test_UHF(TestCase):
 
-    def test_water(self):
+    def test(self):
 
         #RHF
-        mf = testsystems.lih_ccpvdz.uhf()
+        mf = testsystems.water_cation_631g.uhf()
 
         #CCSD
         cc = pyscf.cc.UCCSD(mf)
