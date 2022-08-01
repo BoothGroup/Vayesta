@@ -26,6 +26,13 @@ def get_renorm_coulomb_interaction(mf, fragments, log=None, cderi_ov=None, loc_e
     calc_ecorrection : bool, optional.
         Whether to calculate a nonlocal energy correction at the level of RPA
     :return:
+    renorm_eris : list of tuples of np.array
+        Spin-dependent renormalised ERI, for each fragment provided.
+    loc_eris : list of tuples of np.array
+        Local ERI for each fragment provided.
+    deltae_rpa : float
+        Delta RPA correction computed as difference between full system RPA energy and
+        cluster correlation energies; currently only functional in CAS fragmentations.
     """
     if log is None:
         log = logging.getLogger(__name__)
@@ -40,9 +47,9 @@ def get_renorm_coulomb_interaction(mf, fragments, log=None, cderi_ov=None, loc_e
     rpa = ssRIRPA(mf, log=log, Lpq=cderi_ov)
 
     if calc_deltae:
-        e_rpa, energy_error = rpa.kernel_energy(correction="linear")
+        deltae_rpa, energy_error = rpa.kernel_energy(correction="linear")
     else:
-        e_rpa = None
+        deltae_rpa = None
 
     tr = np.concatenate(target_rots, axis=0)
     if sum(sum(ovs_active)) > 0:
@@ -74,8 +81,19 @@ def get_renorm_coulomb_interaction(mf, fragments, log=None, cderi_ov=None, loc_e
                           get_eps_singlespin(no[1], nv[1], mf.mo_energy[1])])
 
     # And use this to perform inversion to calculate interaction in cluster.
+
+    calc_eris = loc_eris is None
+
     renorm_eris = []
-    for i, (f, rot, mom, (ova, ovb)) in enumerate(zip(fragments, target_rots, local_moments, ovs_active)):
+    if loc_eris is None:
+        def get_leris(f):
+            coeff = f.cluster.c_active
+            return (f.base.get_eris_array(coeff[0]),
+                    f.base.get_eris_array((coeff[0], coeff[0], coeff[1], coeff[1])),
+                    f.base.get_eris_array(coeff[1]))
+        loc_eris = [get_leris(f) for f in fragments]
+
+    for i, (f, rot, mom, (ova, ovb), leri) in enumerate(zip(fragments, target_rots, local_moments, ovs_active, loc_eris)):
         amb = einsum("pn,qn,n->pq", rot, rot, eps)
         mominv = np.linalg.inv(mom)
         apb = dot(mominv, amb, mominv)
@@ -84,7 +102,7 @@ def get_renorm_coulomb_interaction(mf, fragments, log=None, cderi_ov=None, loc_e
             # Calculate the effective local correlation energy.
             loc_erpa = 0.5 * (dot(mom, apb).trace() - (amb.trace() + apb.trace())/2)
             # and deduct from total rpa energy to get nonlocal contribution.
-            e_rpa -= loc_erpa
+            deltae_rpa -= loc_erpa
 
         # This is the renormalised coulomb kernel in the cluster.
         # Note that this is only defined in the particle-hole space, but has the same 8-fold symmetry
@@ -100,14 +118,7 @@ def get_renorm_coulomb_interaction(mf, fragments, log=None, cderi_ov=None, loc_e
 
         log.info("Maximum spin symmetry breaking: %e \n"
                  "           and spin dependence; %e", abs(kcaa - kcbb).max(), abs(kcaa - kcab).max())
-
-        if loc_eris is not None:
-            loceri = loc_eris[i]
-        else:
-            coeff = f.cluster.c_active
-            loceri = (f.base.get_eris_array(coeff[0]),
-                    f.base.get_eris_array((coeff[0], coeff[0], coeff[1], coeff[1])),
-                    f.base.get_eris_array(coeff[1]))
+        print(abs(kcaa).max(), abs(kcbb).max(), abs(kcab).max() )
 
         def replace_ph(full, ph_rep):
             res = full.copy()
@@ -117,14 +128,15 @@ def get_renorm_coulomb_interaction(mf, fragments, log=None, cderi_ov=None, loc_e
             res[no1:, :no1, :no2, no2:] = ph_rep.transpose([1, 0, 2, 3])
             res[:no1, no1:, no2:, :no2] = ph_rep.transpose([0, 1, 3, 2])
             res[no1:, :no1, no2:, :no2] = ph_rep.transpose([1, 0, 3, 2])
+
             log.info("Maximum ERI change due to renormalisation: %e (vs maximum eri value %e)",
-                     abs(full - res).max(), abs(full).max())
+                     abs(full - res).max(), abs(full[:no1, no1:, :no2, no2:]).max())
             return res
 
 
-        renorm_eri = tuple([replace_ph(full, ph_rep) for full, ph_rep in zip(loceri, [kcaa, kcab, kcbb])])
+        renorm_eri = tuple([replace_ph(full, ph_rep) for full, ph_rep in zip(leri, [kcaa, kcab, kcbb])])
         renorm_eris += [renorm_eri]
-    return renorm_eris, e_rpa
+    return renorm_eris, loc_eris, deltae_rpa
 
 def get_target_rot(r_active_occs, r_active_virs):
     """Given the definitions of our cluster spaces in terms of rotations of the occupied and virtual

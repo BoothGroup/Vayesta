@@ -42,7 +42,7 @@ class DMETFragment(Fragment):
         super().__init__(*args, **kwargs)
         self.solver_results = None
 
-    def kernel(self, solver=None, init_guess=None, eris=None, construct_bath=True, chempot=None):
+    def kernel(self, solver=None, init_guess=None, eris=None, eeris=None, construct_bath=True, chempot=None):
         """Run solver for a single BNO threshold.
 
         Parameters
@@ -75,15 +75,21 @@ class DMETFragment(Fragment):
         cluster_solver = solver_cls(self.mf, self, cluster, **solver_opts)
         # Chemical potential
         if chempot is not None:
-            cluster_solver.v_ext = -chempot * self.get_fragment_projector(self.cluster.c_active)
+            px = self.get_fragment_projector(self.cluster.c_active)
+            if isinstance(px, tuple):
+                cluster_solver.v_ext = (-chempot * px[0], -chempot * px[1])
+            else:
+                cluster_solver.v_ext = -chempot * px
         if eris is None:
             eris = cluster_solver.get_eris()
+        if eeris is None:
+            eeris = eris
         with log_time(self.log.info, ("Time for %s solver:" % solver) + " %s"):
             cluster_solver.kernel(eris=eris)
 
         self._results = results = self.Results(fid=self.id, wf=cluster_solver.wf, n_active=self.cluster.norb_active,
                 dm1=cluster_solver.wf.make_rdm1(), dm2=cluster_solver.wf.make_rdm2())
-        results.e1, results.e2 = self.get_dmet_energy_contrib()
+        results.e1, results.e2 = self.get_dmet_energy_contrib(eris=eeris)
 
         return results
 

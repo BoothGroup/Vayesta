@@ -7,6 +7,7 @@ import scipy.linalg
 
 from vayesta.core.qemb import Embedding
 from vayesta.core.util import *
+from vayesta.core.renorm_coulomb import get_renorm_coulomb_interaction
 from .fragment import DMETFragment, DMETFragmentExit
 
 from .sdp_sc import perform_SDP_fit
@@ -27,6 +28,7 @@ class Options(Embedding.Options):
     mixing_param: float = 0.5
     mixing_variable: str = "hl rdm"
     oneshot: bool = False
+    renorm_interaction: bool = False
     # --- Solver options
     solver_options: dict = Embedding.Options.change_dict_defaults('solver_options',
             # CCSD
@@ -119,7 +121,7 @@ class DMET(Embedding):
             self.log.info("------------------------")
             if iteration > 1:
                 # For first iteration want to run on provided mean-field state.
-                mo_energy, mo_coeff = mf.eig(fock + self.vcorr, self.get_ovlp())
+                mo_energy, mo_coeff = self.mf.eig(fock + self.vcorr, self.get_ovlp())
                 self.update_mf(mo_coeff, mo_energy)
 
                 if self.opts.charge_consistent:
@@ -129,11 +131,19 @@ class DMET(Embedding):
             if type(nelec_mf) == tuple:
                 nelec_mf = sum(nelec_mf)
 
-            def electron_err(cpt):
-                err = self.calc_electron_number_defect(cpt, nelec_mf, sym_parents, nsym)
+            interaction_eris, energy_eris = None, None
+            if self.opts.renorm_interaction:
+                for f in self.fragments:
+                    f.make_bath()
+                    f.make_cluster()
+                interaction_eris, energy_eris, deltae_rpa = get_renorm_coulomb_interaction(self.mf, self.fragments)
+
+            def electron_err(cpt, construct_bath=False):
+                err = self.calc_electron_number_defect(cpt, nelec_mf, sym_parents, nsym, construct_bath,
+                                                       interaction_eris, energy_eris)
                 return err
 
-            err = electron_err(cpt)
+            err = electron_err(cpt, False)
 
             if abs(err) > self.opts.max_elec_err * nelec_mf:
                 # Need to find chemical potential bracket.
@@ -211,7 +221,8 @@ class DMET(Embedding):
         self.log.info("Total wall time:  %s", time_string(timer() - t_start))
         self.log.info("All done.")
 
-    def calc_electron_number_defect(self, chempot, nelec_target, parent_fragments, nsym, construct_bath=True):
+    def calc_electron_number_defect(self, chempot, nelec_target, parent_fragments, nsym, construct_bath=True,
+                                    interaction_eris=None, energy_eris=None):
         self.log.info("Running chemical potential={:8.6e}".format(chempot))
 
         nelec_hl = 0.0
@@ -221,9 +232,14 @@ class DMET(Embedding):
             self.log.info(msg)
             self.log.info(len(msg) * "-")
             self.log.changeIndentLevel(1)
+            ieri, eeri = None, None
+            if interaction_eris is not None:
+                ieri = interaction_eris[x]
+            if energy_eris is not None:
+                eeri = energy_eris[x]
 
             try:
-                result = frag.kernel(construct_bath=construct_bath, chempot=chempot)
+                result = frag.kernel(construct_bath=construct_bath, chempot=chempot, eris=ieri, eeris=eeri)
             except DMETFragmentExit as e:
                 exit = True
                 self.log.info("Exiting %s", frag)
