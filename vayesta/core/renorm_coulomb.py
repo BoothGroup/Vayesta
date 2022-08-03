@@ -37,8 +37,11 @@ def get_renorm_coulomb_interaction(mf, fragments, log=None, cderi_ov=None, loc_e
     if log is None:
         log = logging.getLogger(__name__)
 
+    log.info("Renormalising Local Coulomb Interactions")
+    log.info("----------------------------------------")
+
     if fragments[0].base.is_rhf:
-        raise NotImplementedError("Currently, renormalised interactions require an unrestricted formalism"
+        raise NotImplementedError("Currently, renormalised interactions require an unrestricted formalism "
                                   "due to spin dependence.")
     r_occs = [f.get_overlap('mo[occ]|cluster[occ]') for f in fragments]
     r_virs = [f.get_overlap('mo[vir]|cluster[vir]') for f in fragments]
@@ -118,7 +121,6 @@ def get_renorm_coulomb_interaction(mf, fragments, log=None, cderi_ov=None, loc_e
 
         log.info("Maximum spin symmetry breaking: %e \n"
                  "           and spin dependence; %e", abs(kcaa - kcbb).max(), abs(kcaa - kcab).max())
-        print(abs(kcaa).max(), abs(kcbb).max(), abs(kcab).max() )
 
         def replace_ph(full, ph_rep):
             res = full.copy()
