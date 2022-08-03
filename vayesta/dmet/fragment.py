@@ -82,8 +82,6 @@ class DMETFragment(Fragment):
                 cluster_solver.v_ext = -chempot * px
         if eris is None:
             eris = cluster_solver.get_eris()
-        if eeris is None:
-            eeris = eris
         with log_time(self.log.info, ("Time for %s solver:" % solver) + " %s"):
             cluster_solver.kernel(eris=eris)
 

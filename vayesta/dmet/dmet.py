@@ -143,7 +143,7 @@ class DMET(Embedding):
                                                        interaction_eris, energy_eris)
                 return err
 
-            err = electron_err(cpt, False)
+            err = electron_err(cpt, construct_bath=not self.opts.renorm_interaction)
 
             if abs(err) > self.opts.max_elec_err * nelec_mf:
                 # Need to find chemical potential bracket.
