@@ -178,7 +178,7 @@ setup(
             "Operating System :: MacOS :: MacOS X",
             "Operating System :: POSIX :: Linux",
     ],
-    packages=find_packages(exclude=["*tests*", "*examples*"]),
+    packages=find_packages(exclude=["*examples*"]),
     include_package_data=True,
     install_requires=[
             "wheel",
