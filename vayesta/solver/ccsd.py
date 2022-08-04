@@ -13,9 +13,9 @@ import pyscf.pbc.cc
 from vayesta.core.types import Orbitals
 from vayesta.core.types import WaveFunction
 from vayesta.core.types import CCSD_WaveFunction
-from vayesta.solver import coupling
-from vayesta.solver import tccsd
-from vayesta.solver import ClusterSolver
+from .solver import ClusterSolver
+from . import coupling
+from . import tccsd
 from vayesta.core.util import *
 
 
