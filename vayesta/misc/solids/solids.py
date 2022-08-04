@@ -1,5 +1,7 @@
 import numpy as np
 
+SQRT2 = np.sqrt(2)
+
 def bcc(atoms, a):
     """Body-centered cubic.
     Li: 3.51 A
@@ -49,12 +51,12 @@ def graphite(atoms=['C', 'C', 'C', 'C'], a=2.461, c=6.708):
     atom = _make_atom(atoms, coords)
     return amat, atom
 
-def rocksalt(atoms=['Na', 'Cl'], a=5.6402, primitive=True):
+def rocksalt(atoms=['Na', 'Cl'], a=5.6402, unitcell='primitive'):
     """
     LiH: a=4.0834
     LiF: a=4.0351
     """
-    if primitive:
+    if unitcell == 'primitive':
         amat = a * np.asarray([
             [0.5, 0.5, 0.0],
             [0.0, 0.5, 0.5],
@@ -66,21 +68,51 @@ def rocksalt(atoms=['Na', 'Cl'], a=5.6402, primitive=True):
         atom = _make_atom(atoms, coords)
         return amat, atom
 
-    amat = a*np.eye(3)
-    internal = np.asarray([
-        # Atom 1:
-        [0, 0, 0],
-        [0, 1/2, 1/2],
-        [1/2, 0, 1/2],
-        [1/2, 1/2, 0],
-        # Atom 2:
-        [0, 0, 1/2],
-        [0, 1/2, 0],
-        [1/2, 0, 0],
-        [1/2, 1/2, 1/2]])
-    coords = np.dot(internal, amat)
-    atom = _make_atom(4*[atoms[0]]+4*[atoms[1]], coords)
-    return amat, atom
+    if unitcell == 'primitive-af1':
+        amat = a * np.asarray([
+            [1/SQRT2,   0,          0],
+            [0,         1/SQRT2,    0],
+            [0,         0,          1]])
+        internal = np.asarray([
+            [0.0, 0.0, 0.0],
+            [0.5, 0.5, 0.0],
+            [0.0, 0.0, 0.5],
+            [0.5, 0.5, 0.5]])
+        coords = np.dot(internal, amat)
+        atom = _make_atom(2*atoms, coords)
+        return amat, atom
+
+    if unitcell == 'primitive-af2':
+        amat = a * np.asarray([
+            [1.00, 0.50, 0.50],
+            [0.50, 1.00, 0.50],
+            [0.50, 0.50, 1.00]])
+        internal = np.asarray([
+            [0.00, 0.00, 0.00],
+            [0.25, 0.25, 0.25],
+            [0.50, 0.50, 0.50],
+            [0.75, 0.75, 0.75]])
+        coords = np.dot(internal, amat)
+        atom = _make_atom(2*atoms, coords)
+        return amat, atom
+
+    if unitcell == 'cubic':
+        amat = a*np.eye(3)
+        internal = np.asarray([
+            # Atom 1:
+            [0, 0, 0],
+            [0, 1/2, 1/2],
+            [1/2, 0, 1/2],
+            [1/2, 1/2, 0],
+            # Atom 2:
+            [0, 0, 1/2],
+            [0, 1/2, 0],
+            [1/2, 0, 0],
+            [1/2, 1/2, 1/2]])
+        coords = np.dot(internal, amat)
+        atom = _make_atom(4*[atoms[0]]+4*[atoms[1]], coords)
+        return amat, atom
+    raise ValueError
 
 def perovskite(atoms=['Sr', 'Ti', 'O'], a=3.905):
     if len(atoms) == 3:

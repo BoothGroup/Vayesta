@@ -153,7 +153,7 @@ class MolstructsTests(TestCase):
         """Tests for rocksalt cell.
         """
 
-        a, atom = solids.rocksalt(primitive=False)
+        a, atom = solids.rocksalt(unitcell='cubic')
         mol = pbc_gto.Cell(atom=atom, a=a, verbose=0, basis='gth-szv-molopt-sr', pseudo='gth-pade')
         mol.exp_to_discard = 0.1
         mol.build()
@@ -163,7 +163,7 @@ class MolstructsTests(TestCase):
 
         self._test_nuclear_energy(mol, known_values)
 
-        a, atom = solids.rocksalt(primitive=True)
+        a, atom = solids.rocksalt(unitcell='primitive')
         mol = pbc_gto.Cell(atom=atom, a=a, verbose=0, basis='gth-szv-molopt-sr', pseudo='gth-pade')
         mol.exp_to_discard = 0.1
         mol.build()
