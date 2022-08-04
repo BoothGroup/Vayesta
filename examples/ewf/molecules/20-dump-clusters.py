@@ -22,7 +22,7 @@ mol.build()
 mf = pyscf.scf.RHF(mol)
 mf.kernel()
 
-# Embedded CCSD
+# Embedding class to form fragment, bath, and cluster spaces
 emb = vayesta.ewf.EWF(mf, solver='Dump', bath_options=dict(threshold=1e-6),
         solver_options=dict(dumpfile='clusters-rhf.h5'))
 emb.kernel()
@@ -44,7 +44,7 @@ mol.build()
 mf = pyscf.scf.UHF(mol)
 mf.kernel()
 
-# Embedded CCSD
+# Embedding class to form fragment, bath, and cluster spaces
 emb = vayesta.ewf.EWF(mf, solver='Dump', bath_options=dict(threshold=1e-6),
         solver_options=dict(dumpfile='clusters-uhf.h5'))
 emb.kernel()
