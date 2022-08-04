@@ -14,6 +14,7 @@ from vayesta.core.util import *
 from vayesta.core.types import Orbitals
 from vayesta.core.types import WaveFunction
 from vayesta.core.types import CCSD_WaveFunction
+from vayesta.core.qemb import scrcoulomb
 from . import coupling
 from .solver import ClusterSolver
 
@@ -172,6 +173,8 @@ class CCSD_Solver(ClusterSolver):
                 eris = self.get_eris()
 
         if seris_ov is not None:
+            raise NotImplementedError
+            # This does not work correctly - does the Fock matrix need to change as well?
             eris = scrcoulomb.get_screened_eris_ccsd(eris, seris_ov)
 
         # Add additional potential
