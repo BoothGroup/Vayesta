@@ -740,7 +740,7 @@ class Embedding:
     # Symmetry between fragments
     # --------------------------
 
-    def add_symmetric_fragments(self, symmetry, symbol=None, symtol=1e-6):
+    def add_symmetric_fragments(self, symmetry, symbol=None, symtol=1e-6, check_mf=True):
         """Add rotationally or translationally symmetric fragments.
 
         Parameters
@@ -791,7 +791,8 @@ class Embedding:
             raise ValueError
 
         ovlp = self.get_ovlp()
-        dm1 = self.mf.make_rdm1()
+        if check_mf:
+            dm1 = self.mf.make_rdm1()
 
         ftree = [[fx] for fx in self.get_fragments()]
         for i, sym in enumerate(symlist):
@@ -831,7 +832,7 @@ class Embedding:
                 # Check symmetry
                 # (only for the first rotation or primitive translations (1,0,0), (0,1,0), and (0,0,1)
                 # to reduce number of sym_op(c_env) calls)
-                if (abs(np.asarray(sym)).sum() == 1):
+                if check_mf and (abs(np.asarray(sym)).sum() == 1):
                     charge_err, spin_err = parent.get_symmetry_error(frag, dm1=dm1)
                     if max(charge_err, spin_err) > symtol:
                         self.log.critical("Mean-field DM1 not symmetric for %s of %s (errors: charge= %.3e, spin= %.3e)!",

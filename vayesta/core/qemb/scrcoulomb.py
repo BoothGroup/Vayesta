@@ -149,6 +149,28 @@ def get_screened_eris_full(eris, seris_ov, copy=True, log=None):
              replace_ov(eris[2], seris_ov[2], 'bb'))
     return seris
 
+def get_screened_eris_ccsd(eris, seris_ov, add_restore_bare=True, log=None):
+
+    saa, sab, sbb = seris_ov
+    # Alpha-alpha
+    eris.ovov += saa
+    eris.ovvo += saa.transpose([0,1,3,2])
+    # Alpha-beta
+    eris.ovOV += sab
+    eris.ovVO += sab.transpose([0,1,3,2])
+    # Beta-beta
+    eris.OVOV += sbb
+    eris.OVVO += sbb.transpose([0,1,3,2])
+    # Beta-alpha
+    eris.OVvo += sab.transpose([2,3,1,0])
+
+    # Add restore_bare function to remove screening later on
+    if add_restore_bare:
+        def restore_bare():
+            return get_screened_eris_ccsd(eris, (-saa, -sab, -sbb), add_restore_bare=False)
+        eris.restore_bare = restore_bare
+    return eris
+
 def _get_target_rot(r_active_occs, r_active_virs):
     """Given the definitions of our cluster spaces in terms of rotations of the occupied and virtual
     orbitals, define the equivalent rotation of the full-system particle-hole excitation space.
