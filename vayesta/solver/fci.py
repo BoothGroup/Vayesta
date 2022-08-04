@@ -13,6 +13,7 @@ import pyscf.fci.addons
 from vayesta.core.util import *
 from vayesta.core.types import Orbitals
 from vayesta.core.types import FCI_WaveFunction
+from vayesta.core.qemb.scrcoulomb import get_screened_eris_full
 from .solver import ClusterSolver
 
 
@@ -106,6 +107,10 @@ class FCI_Solver(ClusterSolver):
 
         if eris is None: eris = self.get_eris()
         heff = self.get_heff(eris)
+
+        # Screening
+        if self.fragment.opts.screening == 'rpa':
+            eris = get_screened_eris_full(eris, self.fragment._seris_ov, log=self.log)
 
         t0 = timer()
         #self.solver.verbose = 10

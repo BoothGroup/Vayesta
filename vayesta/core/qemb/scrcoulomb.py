@@ -126,11 +126,11 @@ def build_screened_eris(emb, fragments=None, cderi_ov=None, calc_delta_e=True, n
 
     return seris_ov, delta_e
 
-def get_screened_eris_full(eris, seris_ov, log=None):
+def get_screened_eris_full(eris, seris_ov, copy=True, log=None):
     """Build full array of screened ERIs, given the bare ERIs and screening."""
 
     def replace_ov(full, ov, spins):
-        out = full.copy()
+        out = full.copy() if copy else full
         no1, no2 = ov.shape[0], ov.shape[2]
         o1, v1 = np.s_[:no1], np.s_[no1:]
         o2, v2 = np.s_[:no2], np.s_[no2:]
