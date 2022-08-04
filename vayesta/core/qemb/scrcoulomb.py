@@ -1,11 +1,12 @@
+import logging
+import numpy as np
+import scipy
+import scipy.linalg
 from vayesta.rpa import ssRIRPA
 from vayesta.core.util import dot, einsum
-import numpy as np
-import scipy.linalg
-import logging
 
 
-def get_screened_eris(emb, fragments=None, cderi_ov=None, loc_eris=None, calc_delta_e=True, log=None):
+def build_screened_eris(emb, fragments=None, cderi_ov=None, calc_delta_e=True, npoints=48, log=None):
     """Generates renormalised coulomb interactions for use in local cluster calculations.
     Currently requires unrestricted system.
 
@@ -19,51 +20,48 @@ def get_screened_eris(emb, fragments=None, cderi_ov=None, loc_eris=None, calc_de
     cderi_ov : np.array or tuple of np.array, optional.
         Cholesky-decomposed ERIs in the particle-hole basis of mf. If mf is unrestricted
         this should be a list of arrays corresponding to the different spin channels.
-    loc_eris : list of np.arrays or list of tuples of np.arrays, optional.
-        List of ERIs in the particle-hole basis' of the fragments provided. If mf is
-        unrestricted separated into spin channels.
     calc_ecorrection : bool, optional.
         Whether to calculate a nonlocal energy correction at the level of RPA
+    npoints : int, optional
+        Number of points for numerical integration. Default: 48.
     log : logging.Logger, optional
         Logger object. If None, the logger of the `emb` object is used. Default: None.
 
     Returns
     -------
-    scr_eris : list of tuples of np.array
-        Spin-dependent renormalised ERI, for each fragment provided.
-    loc_eris : list of tuples of np.array
-        Local ERI for each fragment provided.
+    seris_ov : list of tuples of np.array
+        List of spin-dependent screened (ov|ov), for each fragment provided.
     delta_e: float
         Delta RPA correction computed as difference between full system RPA energy and
         cluster correlation energies; currently only functional in CAS fragmentations.
     """
     if log is None:
         log = log or emb.log or logging.getLogger(__name__)
-    log.info("Renormalising Local Coulomb Interactions")
-    log.info("----------------------------------------")
+    log.info("Calculating screened Coulomb interactions")
+    log.info("-----------------------------------------")
+
+    # --- Setup
     if fragments is None:
         fragments = emb.get_fragments(sym_parent=None)
-
     if emb.spinsym != 'unrestricted':
-        raise NotImplementedError("Currently renormalised interactions require a spin-unrestricted formalism "
-                                  "due to spin dependent interaction.")
-
+        raise NotImplementedError("Screened interactions require a spin-unrestricted formalism.")
+    if emb.df is None:
+        raise NotImplementedError("Screened interactions require density-fitting.")
     r_occs = [f.get_overlap('mo[occ]|cluster[occ]') for f in fragments]
     r_virs = [f.get_overlap('mo[vir]|cluster[vir]') for f in fragments]
     target_rots, ovs_active = _get_target_rot(r_occs, r_virs)
 
     rpa = ssRIRPA(emb.mf, log=log, Lpq=cderi_ov)
-
     if calc_delta_e:
         # This scales as O(N^4)
-        delta_e, energy_error = rpa.kernel_energy(correction="linear")
+        delta_e, energy_error = rpa.kernel_energy(correction='linear')
     else:
         delta_e = None
 
     tr = np.concatenate(target_rots, axis=0)
     if sum(sum(ovs_active)) > 0:
         # Computation scales as O(N^4)
-        moms_interact, est_errors = rpa.kernel_moms(0, tr, npoints=48)
+        moms_interact, est_errors = rpa.kernel_moms(0, tr, npoints=npoints)
         momzero_interact = moms_interact[0]
     else:
         momzero_interact = np.zeros_like(np.concatenate(tr, axis=0))
@@ -92,16 +90,8 @@ def get_screened_eris(emb, fragments=None, cderi_ov=None, loc_eris=None, calc_de
                           get_eps_singlespin(no[1], nv[1], emb.mf.mo_energy[1])])
 
     # And use this to perform inversion to calculate interaction in cluster.
-    scr_eris = []
-    if loc_eris is None:
-        def get_leris(f):
-            coeff = f.cluster.c_active
-            return (f.base.get_eris_array(coeff[0]),
-                    f.base.get_eris_array((coeff[0], coeff[0], coeff[1], coeff[1])),
-                    f.base.get_eris_array(coeff[1]))
-        loc_eris = [get_leris(f) for f in fragments]
-
-    for i, (f, rot, mom, (ova, ovb), leri) in enumerate(zip(fragments, target_rots, local_moments, ovs_active, loc_eris)):
+    seris_ov = []
+    for i, (f, rot, mom, (ova, ovb)) in enumerate(zip(fragments, target_rots, local_moments, ovs_active)):
         amb = einsum("pn,qn,n->pq", rot, rot, eps)  # O(N^2 N_clus^4)
         # Everything from here on is independent of system size, scaling at most as O(N_clus^6)
         # (arrays have side length equal to number of cluster single-particle excitations).
@@ -126,27 +116,38 @@ def get_screened_eris(emb, fragments=None, cderi_ov=None, loc_eris=None, calc_de
         kcab = kc[:ova, ova:].reshape((no[0], nv[0], no[1], nv[1]))
         kcbb = kc[ova:, ova:].reshape((no[1], nv[1], no[1], nv[1]))
 
-        log.info("Maximum spin symmetry breaking: %e \n"
-                 "           and spin dependence; %e", abs(kcaa - kcbb).max(), abs(kcaa - kcab).max())
+        if kcaa.shape == kcbb.shape:
+            # This is not that meaningful, since the alpha and beta basis themselves may be different:
+            log.info("Screened interations in %s: spin-symmetry= %.3e  spin-dependence= %.3e",
+                     f.name, abs(kcaa-kcbb).max(), abs((kcaa+kcbb)/2-kcab).max())
+        kc = (kcaa, kcab, kcbb)
+        f._seris_ov = kc
+        seris_ov.append(kc)
 
-        def replace_ph(full, ph_rep):
-            res = full.copy()
-            no1 = ph_rep.shape[0]
-            no2 = ph_rep.shape[2]
-            res[:no1, no1:, :no2, no2:] = ph_rep
-            res[no1:, :no1, :no2, no2:] = ph_rep.transpose([1, 0, 2, 3])
-            res[:no1, no1:, no2:, :no2] = ph_rep.transpose([0, 1, 3, 2])
-            res[no1:, :no1, no2:, :no2] = ph_rep.transpose([1, 0, 3, 2])
+    return seris_ov, delta_e
 
-            log.info("Maximum ERI change due to renormalisation: %e (vs maximum eri value %e)",
-                     abs(full - res).max(), abs(full[:no1, no1:, :no2, no2:]).max())
-            return res
+def get_screened_eris_full(eris, seris_ov, log=None):
+    """Build full array of screened ERIs, given the bare ERIs and screening."""
 
+    def replace_ov(full, ov, spins):
+        out = full.copy()
+        no1, no2 = ov.shape[0], ov.shape[2]
+        o1, v1 = np.s_[:no1], np.s_[no1:]
+        o2, v2 = np.s_[:no2], np.s_[no2:]
+        out[o1,v1,o2,v2] = ov
+        out[v1,o1,o2,v2] = ov.transpose([1, 0, 2, 3])
+        out[o1,v1,v2,o2] = ov.transpose([0, 1, 3, 2])
+        out[v1,o1,v2,o2] = ov.transpose([1, 0, 3, 2])
+        if log:
+            maxidx = np.unravel_index(np.argmax(abs(full-out)), full.shape)
+            log.info("Maximally screened element of W(%2s|%2s): V= %.3e -> W= %.3e (delta= %.3e)",
+                     2*spins[0], 2*spins[1], full[maxidx], out[maxidx], out[maxidx]-full[maxidx])
+        return out
 
-        scr_eri = tuple([replace_ph(full, ph_rep) for full, ph_rep in zip(leri, [kcaa, kcab, kcbb])])
-        scr_eris += [scr_eri]
-    return scr_eris, loc_eris, delta_e
-
+    seris = (replace_ov(eris[0], seris_ov[0], 'aa'),
+             replace_ov(eris[1], seris_ov[1], 'ab'),
+             replace_ov(eris[2], seris_ov[2], 'bb'))
+    return seris
 
 def _get_target_rot(r_active_occs, r_active_virs):
     """Given the definitions of our cluster spaces in terms of rotations of the occupied and virtual

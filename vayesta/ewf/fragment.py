@@ -1,7 +1,7 @@
 # Standard libaries
 from datetime import datetime
 import dataclasses
-from typing import Union
+from typing import Optional, Union
 
 # External libaries
 import numpy as np
@@ -41,6 +41,7 @@ class Options(BaseFragment.Options):
     bsse_rmax: float = None
     sc_mode: int = None
     nelectron_target: int = None                  # If set, adjust bath chemical potential until electron number in fragment equals nelectron_target
+    screening: Optional[str] = None
     # Fragment specific
     # -----------------
     # TODO: move these:

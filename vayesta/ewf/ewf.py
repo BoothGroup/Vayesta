@@ -1,7 +1,7 @@
 # --- Standard
 import dataclasses
 import functools
-from typing import Union
+from typing import Optional, Union
 # --- External
 import numpy as np
 # --- Internal
@@ -47,6 +47,7 @@ class Options(Embedding.Options):
     sc_mode: int = 0
     coupled_iterations: bool = False
     # --- Other
+    screening: Optional[str] = None
     # --- Debugging
     _debug_wf: str = None
 
@@ -138,6 +139,17 @@ class EWF(Embedding):
         if mpi:
             with log_time(self.log.timing, "Time for MPI communication of clusters: %s"):
                 self.communicate_clusters()
+
+        # --- Screened Coulomb interaction
+        if self.opts.screening is None:
+            pass
+        elif self.opts.screening == 'rpa':
+            self.log.info("")
+            self.log.info("SCREENING INTERACTIONS")
+            self.log.info("======================")
+            self.build_screened_eris()
+        else:
+            raise ValueError
 
         # --- Loop over fragments with no symmetry parent and with own MPI rank
         self.log.info("")

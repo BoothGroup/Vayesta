@@ -324,6 +324,7 @@ class Fragment:
             self.get_overlap.cache_clear()
         if reset_eris:
             self._eris = None
+            self._seris_ov = None
         self._results = None
 
     def get_fragments_with_overlap(self, tol=1e-8, **kwargs):

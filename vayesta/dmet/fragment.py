@@ -5,6 +5,7 @@ from timeit import default_timer as timer
 import numpy as np
 
 from vayesta.core.qemb import Fragment
+from vayesta.core.qemb import scrcoulomb
 from vayesta.core.bath import BNO_Threshold
 from vayesta.solver import get_solver_class
 from vayesta.core.util import *
@@ -42,7 +43,7 @@ class DMETFragment(Fragment):
         super().__init__(*args, **kwargs)
         self.solver_results = None
 
-    def kernel(self, solver=None, init_guess=None, eris=None, eeris=None, construct_bath=True, chempot=None):
+    def kernel(self, solver=None, init_guess=None, eris=None, seris_ov=None, construct_bath=True, chempot=None):
         """Run solver for a single BNO threshold.
 
         Parameters
@@ -82,12 +83,18 @@ class DMETFragment(Fragment):
                 cluster_solver.v_ext = -chempot * px
         if eris is None:
             eris = cluster_solver.get_eris()
+        if seris_ov is None:
+            seris_ov = self._seris_ov
+        if seris_ov is None:
+            seris = eris
+        else:
+            seris = scrcoulomb.get_screened_eris_full(eris, seris_ov, log=self.log)
         with log_time(self.log.info, ("Time for %s solver:" % solver) + " %s"):
-            cluster_solver.kernel(eris=eris)
+            cluster_solver.kernel(eris=seris)
 
         self._results = results = self.Results(fid=self.id, wf=cluster_solver.wf, n_active=self.cluster.norb_active,
                 dm1=cluster_solver.wf.make_rdm1(), dm2=cluster_solver.wf.make_rdm2())
-        results.e1, results.e2 = self.get_dmet_energy_contrib(eris=eeris)
+        results.e1, results.e2 = self.get_dmet_energy_contrib(eris=eris)
 
         return results
 

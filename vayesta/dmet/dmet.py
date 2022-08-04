@@ -130,16 +130,14 @@ class DMET(Embedding):
             if type(nelec_mf) == tuple:
                 nelec_mf = sum(nelec_mf)
 
-            interaction_eris, energy_eris = None, None
             if self.opts.renorm_interaction:
                 for f in self.get_fragments(sym_parent=None):
                     f.make_bath()
                     f.make_cluster()
-                interaction_eris, energy_eris, deltae_rpa = self.get_screened_eris()
+                self.build_screened_eris()
 
             def electron_err(cpt, construct_bath=False):
-                err = self.calc_electron_number_defect(cpt, nelec_mf, sym_parents, nsym, construct_bath,
-                                                       interaction_eris, energy_eris)
+                err = self.calc_electron_number_defect(cpt, nelec_mf, sym_parents, nsym, construct_bath)
                 return err
 
             err = electron_err(cpt, construct_bath=not self.opts.renorm_interaction)
@@ -220,8 +218,7 @@ class DMET(Embedding):
         self.log.info("Total wall time:  %s", time_string(timer() - t_start))
         self.log.info("All done.")
 
-    def calc_electron_number_defect(self, chempot, nelec_target, parent_fragments, nsym, construct_bath=True,
-                                    interaction_eris=None, energy_eris=None):
+    def calc_electron_number_defect(self, chempot, nelec_target, parent_fragments, nsym, construct_bath=True):
         self.log.info("Running chemical potential={:8.6e}".format(chempot))
 
         nelec_hl = 0.0
@@ -231,14 +228,8 @@ class DMET(Embedding):
             self.log.info(msg)
             self.log.info(len(msg) * "-")
             self.log.changeIndentLevel(1)
-            ieri, eeri = None, None
-            if interaction_eris is not None:
-                ieri = interaction_eris[x]
-            if energy_eris is not None:
-                eeri = energy_eris[x]
-
             try:
-                result = frag.kernel(construct_bath=construct_bath, chempot=chempot, eris=ieri, eeris=eeri)
+                result = frag.kernel(construct_bath=construct_bath, chempot=chempot)
             except DMETFragmentExit as e:
                 exit = True
                 self.log.info("Exiting %s", frag)
