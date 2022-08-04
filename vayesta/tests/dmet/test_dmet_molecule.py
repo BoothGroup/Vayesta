@@ -86,7 +86,7 @@ class MoleculeDMETTest(TestCase):
             f.add_atomic_fragment([4, 5])
         emb.kernel()
 
-        known_values = {'e_tot': -3.2534055801969295}
+        known_values = {'e_tot': -3.2536357694705185}
 
         self._test_energy(emb, known_values)
 

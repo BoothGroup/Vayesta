@@ -106,16 +106,10 @@ class FCI_Solver(ClusterSolver):
         """Run FCI kernel."""
 
         if eris is None: eris = self.get_eris()
-
-        # Screening
-        # TODO: screening should happen after heff ?
-        if seris_ov is not None:
-            eris = get_screened_eris_full(eris, seris_ov, log=self.log)
-
         heff = self.get_heff(eris)
         # Screening
-        #if seris_ov is not None:
-        #    eris = get_screened_eris_full(eris, seris_ov, log=self.log)
+        if seris_ov is not None:
+            eris = get_screened_eris_full(eris, seris_ov, log=self.log)
 
         t0 = timer()
         #self.solver.verbose = 10
