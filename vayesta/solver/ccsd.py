@@ -10,13 +10,14 @@ import pyscf.cc.dfccsd
 import pyscf.pbc
 import pyscf.pbc.cc
 
-from vayesta.core.util import *
 from vayesta.core.types import Orbitals
 from vayesta.core.types import WaveFunction
 from vayesta.core.types import CCSD_WaveFunction
 from vayesta.core.qemb import scrcoulomb
-from . import coupling
 from .solver import ClusterSolver
+from . import coupling
+from . import tccsd
+from vayesta.core.util import *
 
 
 class CCSD_Solver(ClusterSolver):
@@ -192,7 +193,7 @@ class CCSD_Solver(ClusterSolver):
 
         # Tailored CC
         if self.opts.tcc:
-            self.set_callback(coupling.make_cas_tcc_function(
+            self.set_callback(tccsd.make_cas_tcc_function(
                               self, c_cas_occ=self.opts.c_cas_occ, c_cas_vir=self.opts.c_cas_vir, eris=eris))
         elif self.opts.sc_mode and self.base.iteration > 1:
             self.set_callback(coupling.make_cross_fragment_tcc_function(self, mode=self.opts.sc_mode))

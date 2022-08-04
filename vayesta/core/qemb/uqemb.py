@@ -215,7 +215,6 @@ class UEmbedding(Embedding):
             mo = (mo_coeff[s] if mo_coeff is not None else None)
             lo = (local_orbitals if isinstance(local_orbitals, str) else local_orbitals[s])
             pop.append(super().pop_analysis(dm1[s], mo_coeff=mo, local_orbitals=lo, write=False, **kwargs))
-        pop = tuple(pop)
         if write and (mpi.rank == mpi_rank):
             self.write_population(pop, **kwargs)
         return pop

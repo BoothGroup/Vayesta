@@ -1298,7 +1298,7 @@ class Embedding:
         """Initialize the quantum embedding method for the use of site fragments."""
         return CAS_Fragmentation(self, **kwargs)
 
-    def _check_fragmentation(self, complete_occupied=True, complete_virtual=True, tol=1e-9):
+    def _check_fragmentation(self, complete_occupied=True, complete_virtual=True, tol=1e-7):
         """Check if union of fragment spaces is orthonormal and complete."""
         if self.spinsym == 'restricted':
             nspin = 1
@@ -1317,6 +1317,7 @@ class Embedding:
             nfrags = c_frags.shape[-1]
             csc = dot(c_frags.T, ovlp, c_frags)
             if not np.allclose(csc, np.eye(nfrags), rtol=0, atol=tol):
+                self.log.debug("Non-orthogonal error= %.3e", abs(csc - np.eye(nfrags)).max())
                 return False
             if complete_occupied and complete_virtual:
                 if (nfrags != nmo_s):
@@ -1330,27 +1331,27 @@ class Embedding:
                     return False
         return True
 
-    def has_orthonormal_fragmentation(self, tol=1e-9):
+    def has_orthonormal_fragmentation(self, **kwargs):
         """Check if union of fragment spaces is orthonormal."""
-        return self._check_fragmentation(complete_occupied=False, complete_virtual=False, tol=tol)
+        return self._check_fragmentation(complete_occupied=False, complete_virtual=False, **kwargs)
 
-    def has_complete_fragmentation(self, tol=1e-9):
+    def has_complete_fragmentation(self, **kwargs):
         """Check if union of fragment spaces is orthonormal and complete."""
-        return self._check_fragmentation(complete_occupied=True, complete_virtual=True, tol=tol)
+        return self._check_fragmentation(complete_occupied=True, complete_virtual=True, **kwargs)
 
-    def has_complete_occupied_fragmentation(self, tol=1e-9):
+    def has_complete_occupied_fragmentation(self, **kwargs):
         """Check if union of fragment spaces is orthonormal and complete in the occupied space."""
-        return self._check_fragmentation(complete_occupied=True, complete_virtual=False, tol=tol)
+        return self._check_fragmentation(complete_occupied=True, complete_virtual=False, **kwargs)
 
-    def has_complete_virtual_fragmentation(self, tol=1e-9):
+    def has_complete_virtual_fragmentation(self, **kwargs):
         """Check if union of fragment spaces is orthonormal and complete in the virtual space."""
-        return self._check_fragmentation(complete_occupied=False, complete_virtual=True, tol=tol)
+        return self._check_fragmentation(complete_occupied=False, complete_virtual=True, **kwargs)
 
-    def require_complete_fragmentation(self, message=None, incl_virtual=True, tol=1e-9):
+    def require_complete_fragmentation(self, message=None, incl_virtual=True, **kwargs):
         if incl_virtual:
-            complete = self.has_complete_fragmentation(tol=tol)
+            complete = self.has_complete_fragmentation(**kwargs)
         else:
-            complete = self.has_complete_occupied_fragmentation(tol=tol)
+            complete = self.has_complete_occupied_fragmentation(**kwargs)
         if complete:
             return
         if message:
@@ -1405,7 +1406,7 @@ class Embedding:
     # --- Decorators
     # These replace the qemb.kernel method!
 
-    def optimize_chempot(self, cpt_init=0.0, dm1func=None, dm1kwds=None):
+    def optimize_chempot(self, cpt_init=0.0, dm1func=None, dm1kwds=None, robust=False):
 
         if dm1func is None:
             dm1func = self.make_rdm1_demo
@@ -1426,10 +1427,10 @@ class Embedding:
             else:
                 ne = np.trace(dm1[0]) + np.trace(dm1[1])
             err = (ne - self.mol.nelectron)
-            iters.append((cpt, err, self.e_tot))
+            iters.append((cpt, err, self.converged, self.e_tot))
             return err
 
-        bisect = ChempotBisection(func, cpt_init=cpt_init, log=self.log)
+        bisect = ChempotBisection(func, cpt_init=cpt_init, robust=robust, log=self.log)
 
         def kernel(self, *args, **kwargs):
             nonlocal iters, result
@@ -1437,10 +1438,10 @@ class Embedding:
             # Print info:
             self.log.info("Chemical potential optimization")
             self.log.info("-------------------------------")
-            self.log.info("  Iteration   Chemical potential   N(elec) error          Total Energy")
-            for i, (cpt, err, etot) in enumerate(iters):
-                self.log.info("  %9d  %19s   %+13.8f   %19s",
-                        i+1, energy_string(cpt), err, energy_string(etot))
+            self.log.info("  Iteration   Chemical potential   N(elec) error  Converged         Total Energy")
+            for i, (cpt, err, conv, etot) in enumerate(iters):
+                self.log.info("  %9d  %19s  %+14.8f  %9r  %19s",
+                        i+1, energy_string(cpt), err, conv, energy_string(etot))
             if not bisect.converged:
                 self.log.error('Chemical potential not found!')
             return result

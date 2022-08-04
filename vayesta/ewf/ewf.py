@@ -168,11 +168,7 @@ class EWF(Embedding):
             return
 
         # --- Check convergence of fragments
-        conv = True
-        for fx in self.get_fragments(active=True, sym_parent=None, mpi_rank=mpi.rank):
-            conv = (conv and fx.results.converged)
-        if mpi:
-            conv = mpi.world.allreduce(conv, op=mpi.MPI.LAND)
+        conv = self._all_converged()
         if not conv:
             self.log.error("Some fragments did not converge!")
         self.converged = conv
@@ -184,6 +180,14 @@ class EWF(Embedding):
         self.log.output('E(tot)=  %s', energy_string(self.e_tot))
         self.log.info("Total wall time:  %s", time_string(timer()-t_start))
         return self.e_tot
+
+    def _all_converged(self):
+        conv = True
+        for fx in self.get_fragments(active=True, sym_parent=None, mpi_rank=mpi.rank):
+            conv = (conv and fx.results.converged)
+        if mpi:
+            conv = mpi.world.allreduce(conv, op=mpi.MPI.LAND)
+        return conv
 
     # --- CC Amplitudes
     # -----------------
