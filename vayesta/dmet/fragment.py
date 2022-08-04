@@ -8,6 +8,7 @@ from vayesta.core.qemb import Fragment
 from vayesta.core.qemb import scrcoulomb
 from vayesta.core.bath import BNO_Threshold
 from vayesta.solver import get_solver_class
+from vayesta.core import ao2mo
 from vayesta.core.util import *
 
 
@@ -104,13 +105,22 @@ class DMETFragment(Fragment):
         return solver_opts
 
     def get_dmet_energy_contrib(self, eris=None):
-        """Calculate the contribution of this fragment to the overall DMET energy."""
+        """Calculate the contribution of this fragment to the overall DMET energy.
+
+        TODO: use core.qemb.fragment.get_fragment_dmet_energy instead?
+        """
         # Projector to the impurity in the active basis.
         P_imp = self.get_fragment_projector(self.cluster.c_active)
         c_act = self.cluster.c_active
         if eris is None:
+            eris = self._eris
+        if eris is None:
             with log_time(self.log.timing, "Time for AO->MO transformation: %s"):
                 eris = self.base.get_eris_array(c_act)
+        if not isinstance(eris, np.ndarray):
+            self.log.debugv("Extracting ERI array from CCSD ERIs object.")
+            eris = ao2mo.helper.get_full_array(eris, c_act)
+
         nocc = self.cluster.c_active_occ.shape[1]
         occ = np.s_[:nocc]
         # Calculate the effective onebody interaction within the cluster.

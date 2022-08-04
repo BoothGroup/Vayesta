@@ -46,8 +46,6 @@ class Options(Embedding.Options):
     # --- Couple embedding problems (currently only CCSD)
     sc_mode: int = 0
     coupled_iterations: bool = False
-    # --- Other
-    screening: Optional[str] = None
     # --- Debugging
     _debug_wf: str = None
 

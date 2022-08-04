@@ -6,6 +6,7 @@ import copy
 import itertools
 import os
 import os.path
+from typing import Optional
 
 import numpy as np
 
@@ -88,6 +89,8 @@ class Options(OptionsBase):
             max_boson_occ=2,
             # Dump
             dumpfile='clusters.h5')
+    # --- Other
+    screening: Optional[str] = None
 
 class Embedding:
     """Base class for quantum embedding methods.

@@ -27,7 +27,6 @@ class Options(Embedding.Options):
     mixing_param: float = 0.5
     mixing_variable: str = "hl rdm"
     oneshot: bool = False
-    renorm_interaction: bool = False
     # --- Solver options
     solver_options: dict = Embedding.Options.change_dict_defaults('solver_options',
             # CCSD
@@ -130,7 +129,7 @@ class DMET(Embedding):
             if type(nelec_mf) == tuple:
                 nelec_mf = sum(nelec_mf)
 
-            if self.opts.renorm_interaction:
+            if self.opts.screening == 'rpa':
                 for f in self.get_fragments(sym_parent=None):
                     f.make_bath()
                     f.make_cluster()
@@ -140,7 +139,7 @@ class DMET(Embedding):
                 err = self.calc_electron_number_defect(cpt, nelec_mf, sym_parents, nsym, construct_bath)
                 return err
 
-            err = electron_err(cpt, construct_bath=not self.opts.renorm_interaction)
+            err = electron_err(cpt, construct_bath=not self.opts.screening)
 
             if abs(err) > self.opts.max_elec_err * nelec_mf:
                 # Need to find chemical potential bracket.
