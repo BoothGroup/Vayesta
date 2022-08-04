@@ -7,7 +7,6 @@ import scipy.linalg
 
 from vayesta.core.qemb import Embedding
 from vayesta.core.util import *
-from vayesta.core.renorm_coulomb import get_renorm_coulomb_interaction
 from .fragment import DMETFragment, DMETFragmentExit
 
 from .sdp_sc import perform_SDP_fit
@@ -133,10 +132,10 @@ class DMET(Embedding):
 
             interaction_eris, energy_eris = None, None
             if self.opts.renorm_interaction:
-                for f in self.fragments:
+                for f in self.get_fragments(sym_parent=None):
                     f.make_bath()
                     f.make_cluster()
-                interaction_eris, energy_eris, deltae_rpa = get_renorm_coulomb_interaction(self.mf, self.fragments)
+                interaction_eris, energy_eris, deltae_rpa = self.get_screened_eris()
 
             def electron_err(cpt, construct_bath=False):
                 err = self.calc_electron_number_defect(cpt, nelec_mf, sym_parents, nsym, construct_bath,

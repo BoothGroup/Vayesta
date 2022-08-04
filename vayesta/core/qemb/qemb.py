@@ -30,6 +30,7 @@ from vayesta.core.ao2mo import postscf_ao2mo
 from vayesta.core.ao2mo import postscf_kao2gmo
 from vayesta import lattmod
 from vayesta.core.scmf import PDMET, Brueckner
+from vayesta.core.qemb.scrcoulomb import get_screened_eris
 from vayesta.mpi import mpi
 from .register import FragmentRegister
 
@@ -726,6 +727,11 @@ class Embedding:
         # Regular AO->MO transformation
         eris = postscf_ao2mo(postscf, fock=fock, mo_energy=mo_energy, e_hf=e_hf)
         return eris
+
+    @log_method()
+    @with_doc(get_screened_eris)
+    def get_screened_eris(self, *args, **kwargs):
+        return get_screened_eris(self, *args, **kwargs)
 
     # Symmetry between fragments
     # --------------------------

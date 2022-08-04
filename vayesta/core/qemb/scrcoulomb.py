@@ -5,18 +5,17 @@ import scipy.linalg
 import logging
 
 
-def get_renorm_coulomb_interaction(mf, fragments, log=None, cderi_ov=None, loc_eris=None, calc_deltae=True):
+def get_screened_eris(emb, fragments=None, cderi_ov=None, loc_eris=None, calc_delta_e=True, log=None):
     """Generates renormalised coulomb interactions for use in local cluster calculations.
     Currently requires unrestricted system.
 
     Parameters
     ----------
-    mf : pyscf.scf.SCF
-        PySCF mean-field object.
-    fragments : list of vayesta.qemb.Fragment subclasses
+    emb : Embedding
+        Embedding instance.
+    fragments : list of vayesta.qemb.Fragment subclasses, optional
         List of fragments for the calculation, used to define local interaction spaces.
-    log : logging.Logger, optional.
-        Logger object. If None, the logger of the `base` object is used. Default: None.
+        If None, `emb.get_fragments(sym_parent=None)` is used. Default: None.
     cderi_ov : np.array or tuple of np.array, optional.
         Cholesky-decomposed ERIs in the particle-hole basis of mf. If mf is unrestricted
         this should be a list of arrays corresponding to the different spin channels.
@@ -25,35 +24,41 @@ def get_renorm_coulomb_interaction(mf, fragments, log=None, cderi_ov=None, loc_e
         unrestricted separated into spin channels.
     calc_ecorrection : bool, optional.
         Whether to calculate a nonlocal energy correction at the level of RPA
-    :return:
-    renorm_eris : list of tuples of np.array
+    log : logging.Logger, optional
+        Logger object. If None, the logger of the `emb` object is used. Default: None.
+
+    Returns
+    -------
+    scr_eris : list of tuples of np.array
         Spin-dependent renormalised ERI, for each fragment provided.
     loc_eris : list of tuples of np.array
         Local ERI for each fragment provided.
-    deltae_rpa : float
+    delta_e: float
         Delta RPA correction computed as difference between full system RPA energy and
         cluster correlation energies; currently only functional in CAS fragmentations.
     """
     if log is None:
-        log = logging.getLogger(__name__)
-
+        log = log or emb.log or logging.getLogger(__name__)
     log.info("Renormalising Local Coulomb Interactions")
     log.info("----------------------------------------")
+    if fragments is None:
+        fragments = emb.get_fragments(sym_parent=None)
 
-    if fragments[0].base.is_rhf:
-        raise NotImplementedError("Currently, renormalised interactions require an unrestricted formalism "
-                                  "due to spin dependence.")
+    if emb.spinsym != 'unrestricted':
+        raise NotImplementedError("Currently renormalised interactions require a spin-unrestricted formalism "
+                                  "due to spin dependent interaction.")
+
     r_occs = [f.get_overlap('mo[occ]|cluster[occ]') for f in fragments]
     r_virs = [f.get_overlap('mo[vir]|cluster[vir]') for f in fragments]
-    target_rots, ovs_active = get_target_rot(r_occs, r_virs)
+    target_rots, ovs_active = _get_target_rot(r_occs, r_virs)
 
-    rpa = ssRIRPA(mf, log=log, Lpq=cderi_ov)
+    rpa = ssRIRPA(emb.mf, log=log, Lpq=cderi_ov)
 
-    if calc_deltae:
+    if calc_delta_e:
         # This scales as O(N^4)
-        deltae_rpa, energy_error = rpa.kernel_energy(correction="linear")
+        delta_e, energy_error = rpa.kernel_energy(correction="linear")
     else:
-        deltae_rpa = None
+        delta_e = None
 
     tr = np.concatenate(target_rots, axis=0)
     if sum(sum(ovs_active)) > 0:
@@ -73,8 +78,8 @@ def get_renorm_coulomb_interaction(mf, fragments, log=None, cderi_ov=None, loc_e
         n += sum(nov)
 
     # Then construct the RPA coupling matrix A-B, given by the diagonal matrix of energy differences.
-    no = np.array(sum(mf.mo_occ.T > 0))
-    norb = mf.mo_coeff.shape[1]
+    no = np.array(sum(emb.mf.mo_occ.T > 0))
+    norb = emb.mo_coeff.shape[1]
     nv = norb - no
 
     def get_eps_singlespin(no_, nv_, mo_energy):
@@ -83,11 +88,11 @@ def get_renorm_coulomb_interaction(mf, fragments, log=None, cderi_ov=None, loc_e
         eps = (eps.T - mo_energy[:no_]).T
         eps = eps.reshape(-1)
         return eps
-    eps = np.concatenate([get_eps_singlespin(no[0], nv[0], mf.mo_energy[0]),
-                          get_eps_singlespin(no[1], nv[1], mf.mo_energy[1])])
+    eps = np.concatenate([get_eps_singlespin(no[0], nv[0], emb.mf.mo_energy[0]),
+                          get_eps_singlespin(no[1], nv[1], emb.mf.mo_energy[1])])
 
     # And use this to perform inversion to calculate interaction in cluster.
-    renorm_eris = []
+    scr_eris = []
     if loc_eris is None:
         def get_leris(f):
             coeff = f.cluster.c_active
@@ -103,11 +108,11 @@ def get_renorm_coulomb_interaction(mf, fragments, log=None, cderi_ov=None, loc_e
         mominv = np.linalg.inv(mom)
         apb = dot(mominv, amb, mominv)
 
-        if calc_deltae:
+        if calc_delta_e:
             # Calculate the effective local correlation energy.
             loc_erpa = 0.5 * (dot(mom, apb).trace() - (amb.trace() + apb.trace())/2)
             # and deduct from total rpa energy to get nonlocal contribution.
-            deltae_rpa -= loc_erpa
+            delta_e -= loc_erpa
 
         # This is the renormalised coulomb kernel in the cluster.
         # Note that this is only defined in the particle-hole space, but has the same 8-fold symmetry
@@ -138,19 +143,22 @@ def get_renorm_coulomb_interaction(mf, fragments, log=None, cderi_ov=None, loc_e
             return res
 
 
-        renorm_eri = tuple([replace_ph(full, ph_rep) for full, ph_rep in zip(leri, [kcaa, kcab, kcbb])])
-        renorm_eris += [renorm_eri]
-    return renorm_eris, loc_eris, deltae_rpa
+        scr_eri = tuple([replace_ph(full, ph_rep) for full, ph_rep in zip(leri, [kcaa, kcab, kcbb])])
+        scr_eris += [scr_eri]
+    return scr_eris, loc_eris, delta_e
 
-def get_target_rot(r_active_occs, r_active_virs):
+
+def _get_target_rot(r_active_occs, r_active_virs):
     """Given the definitions of our cluster spaces in terms of rotations of the occupied and virtual
     orbitals, define the equivalent rotation of the full-system particle-hole excitation space.
+
     Parameters
     ----------
     mf : pyscf.scf.SCF
         PySCF mean-field object.
     fragments : list of vayesta.qemb.Fragment subclasses
         List of fragments for the calculation, used to define local interaction spaces.
+
     Returns
     -------
     target_rots : list of np.array
