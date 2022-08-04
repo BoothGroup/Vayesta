@@ -50,21 +50,24 @@ def get_renorm_coulomb_interaction(mf, fragments, log=None, cderi_ov=None, loc_e
     rpa = ssRIRPA(mf, log=log, Lpq=cderi_ov)
 
     if calc_deltae:
+        # This scales as O(N^4)
         deltae_rpa, energy_error = rpa.kernel_energy(correction="linear")
     else:
         deltae_rpa = None
 
     tr = np.concatenate(target_rots, axis=0)
     if sum(sum(ovs_active)) > 0:
+        # Computation scales as O(N^4)
         moms_interact, est_errors = rpa.kernel_moms(0, tr, npoints=48)
         momzero_interact = moms_interact[0]
     else:
-        moms_interact = np.zeros_like(np.concatenate(tr, axis=0))
+        momzero_interact = np.zeros_like(np.concatenate(tr, axis=0))
 
     # Now need to separate into local contributions
     n = 0
     local_moments = []
     for nov, rot in zip(ovs_active, target_rots):
+        # Computation costs O(N^2 N_clus^2)
         # Get corresponding section of overall moment, then project to just local contribution.
         local_moments += [dot(momzero_interact[n:n+sum(nov)], rot.T)]
         n += sum(nov)
@@ -84,9 +87,6 @@ def get_renorm_coulomb_interaction(mf, fragments, log=None, cderi_ov=None, loc_e
                           get_eps_singlespin(no[1], nv[1], mf.mo_energy[1])])
 
     # And use this to perform inversion to calculate interaction in cluster.
-
-    calc_eris = loc_eris is None
-
     renorm_eris = []
     if loc_eris is None:
         def get_leris(f):
@@ -97,7 +97,9 @@ def get_renorm_coulomb_interaction(mf, fragments, log=None, cderi_ov=None, loc_e
         loc_eris = [get_leris(f) for f in fragments]
 
     for i, (f, rot, mom, (ova, ovb), leri) in enumerate(zip(fragments, target_rots, local_moments, ovs_active, loc_eris)):
-        amb = einsum("pn,qn,n->pq", rot, rot, eps)
+        amb = einsum("pn,qn,n->pq", rot, rot, eps)  # O(N^2 N_clus^4)
+        # Everything from here on is independent of system size, scaling at most as O(N_clus^6)
+        # (arrays have side length equal to number of cluster single-particle excitations).
         mominv = np.linalg.inv(mom)
         apb = dot(mominv, amb, mominv)
 
