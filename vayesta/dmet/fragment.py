@@ -5,7 +5,6 @@ from timeit import default_timer as timer
 import numpy as np
 
 from vayesta.core.qemb import Fragment
-from vayesta.core.qemb import scrcoulomb
 from vayesta.core.bath import BNO_Threshold
 from vayesta.solver import get_solver_class
 from vayesta.core import ao2mo
@@ -84,14 +83,11 @@ class DMETFragment(Fragment):
                 cluster_solver.v_ext = -chempot * px
         if eris is None:
             eris = cluster_solver.get_eris()
-        if seris_ov is None:
-            seris_ov = self._seris_ov
-        if seris_ov is None:
-            seris = eris
-        else:
-            seris = scrcoulomb.get_screened_eris_full(eris, seris_ov, log=self.log)
         with log_time(self.log.info, ("Time for %s solver:" % solver) + " %s"):
-            cluster_solver.kernel(eris=seris)
+            if self.opts.screening:
+                cluster_solver.kernel(eris=eris, seris_ov=self._seris_ov)
+            else:
+                cluster_solver.kernel(eris=eris)
 
         self._results = results = self.Results(fid=self.id, wf=cluster_solver.wf, n_active=self.cluster.norb_active,
                 dm1=cluster_solver.wf.make_rdm1(), dm2=cluster_solver.wf.make_rdm2())

@@ -102,15 +102,20 @@ class FCI_Solver(ClusterSolver):
     def get_l2(self, **kwargs):
         return None
 
-    def kernel(self, ci0=None, eris=None):
+    def kernel(self, ci0=None, eris=None, seris_ov=None):
         """Run FCI kernel."""
 
         if eris is None: eris = self.get_eris()
-        heff = self.get_heff(eris)
 
         # Screening
-        if self.fragment.opts.screening == 'rpa':
-            eris = get_screened_eris_full(eris, self.fragment._seris_ov, log=self.log)
+        # TODO: screening should happen after heff ?
+        if seris_ov is not None:
+            eris = get_screened_eris_full(eris, seris_ov, log=self.log)
+
+        heff = self.get_heff(eris)
+        # Screening
+        #if seris_ov is not None:
+        #    eris = get_screened_eris_full(eris, seris_ov, log=self.log)
 
         t0 = timer()
         #self.solver.verbose = 10
