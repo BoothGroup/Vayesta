@@ -8,13 +8,14 @@ from vayesta.core.util import *
 
 class ChempotBisection:
 
-    def __init__(self, func, cpt_init=0.0, tol=1e-8, maxiter=30, log=None):
+    def __init__(self, func, cpt_init=0.0, tol=1e-8, maxiter=30, robust=False, log=None):
         self.func = func
         self.cpt = cpt_init
         self.converged = False
         # Options
         self.tol = tol
         self.maxiter = maxiter
+        self.robust = robust
         self.log = (log or vayesta.log)
 
     def kernel(self, *args, **kwargs):
@@ -29,10 +30,21 @@ class ChempotBisection:
         cpt2 = cpt1 + np.sign(err1)*1e-3
         err2 = self.func(cpt2, *args, **kwargs)
         m = (err2-err1) / (cpt2-cpt1)
-        for powerof2 in range(1, 4):
-            cpt3 = cpt1 - (2**powerof2)*err1/m
+        self.log.debug("cpt1= %.8f  err1= %.3e", cpt1, err1)
+        self.log.debug("cpt2= %.8f  err2= %.3e", cpt2, err2)
+        self.log.debug("gradient m= %.3e", m)
+        # In some cases the system becomes difficult to converge if a chemical potential is applied.
+        # With robust=True the optimization becomes more stable
+        if self.robust:
+            base, exp0 = 1.3, 0
+        else:
+            base, exp0 = 2, 1
+        for exp in range(exp0, 4):
+            cpt3 = cpt1 - (base**exp)*err1/m
             err3 = self.func(cpt3, *args, **kwargs)
+            self.log.debug("cpt3= %.8f  err3= %.3e", cpt3, err3)
             if (err1 * err3) <= 0:
+                self.log.debug('Chemical potential in [%.8f, %.8f] (errors=[%.3e, %.3e])' % (cpt1, cpt3, err1, err3))
                 break
             self.log.info('Chemical potential not in [%.8f, %.8f] (errors=[%.3e, %.3e])' % (cpt1, cpt3, err1, err3))
         else:

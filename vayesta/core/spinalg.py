@@ -58,3 +58,8 @@ def eigh(a, b=None, *args, **kwargs):
     results = (scipy.linalg.eigh(a[0], b=b[0], *args, **kwargs),
                scipy.linalg.eigh(a[1], b=b[1], *args, **kwargs))
     return tuple(zip(*results))
+
+def transpose(a, axes=None):
+    if np.ndim(a[0]) == 1:
+        return np.transpose(a, axes=axes)
+    return (transpose(a[0], axes=axes), transpose(a[1], axes=axes))
