@@ -69,16 +69,26 @@ def rocksalt(atoms=['Na', 'Cl'], a=5.6402, unitcell='primitive'):
         return amat, atom
 
     if unitcell == 'primitive-af1':
+        # wrong:
+        #amat = a * np.asarray([
+        #    [1/SQRT2,   0,          0],
+        #    [0,         1/SQRT2,    0],
+        #    [0,         0,          1]])
+        #internal = np.asarray([
+        #    [0.0, 0.0, 0.0],
+        #    [0.5, 0.5, 0.0],
+        #    [0.0, 0.0, 0.5],
+        #    [0.5, 0.5, 0.5]])
+        # arXiv:2207.12064v1:
         amat = a * np.asarray([
-            [1/SQRT2,   0,          0],
-            [0,         1/SQRT2,    0],
-            [0,         0,          1]])
-        internal = np.asarray([
-            [0.0, 0.0, 0.0],
-            [0.5, 0.5, 0.0],
-            [0.0, 0.0, 0.5],
-            [0.5, 0.5, 0.5]])
-        coords = np.dot(internal, amat)
+            [0.5,   0,  0.5],
+            [0.5,   0,  -0.5],
+            [0,     1,  0.0]])
+        coords = a/2 * np.asarray([
+            [0, 0, 0],
+            [1, 0, 0],
+            [1, 1, 0],
+            [0, 1, 0]])
         atom = _make_atom(2*atoms, coords)
         return amat, atom
 
