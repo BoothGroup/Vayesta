@@ -76,6 +76,19 @@ class MoleculeDMETTest(TestCase):
         self._test_converged(emb)
         self._test_energy(emb, known_values)
 
+    def test_renorm_interaction(self):
+        emb = dmet.DMET(testsystems.h6_sto6g_df.uhf(), solver='FCI', charge_consistent=False,
+                bath_options=dict(bathtype='dmet'), conv_tol=self.CONV_TOL, oneshot=True,
+                screening='rpa')
+        with emb.iao_fragmentation() as f:
+            f.add_atomic_fragment([0, 1])
+            f.add_atomic_fragment([2, 3])
+            f.add_atomic_fragment([4, 5])
+        emb.kernel()
+
+        known_values = {'e_tot': -3.2536357694705185}
+
+        self._test_energy(emb, known_values)
 
     def test_full_bath(self):
         """Test H6 STO-6G with FCI solver, IAO fragmentation and complete bath.

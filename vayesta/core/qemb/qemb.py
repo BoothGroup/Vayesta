@@ -6,6 +6,7 @@ import copy
 import itertools
 import os
 import os.path
+from typing import Optional
 
 import numpy as np
 
@@ -30,6 +31,7 @@ from vayesta.core.ao2mo import postscf_ao2mo
 from vayesta.core.ao2mo import postscf_kao2gmo
 from vayesta import lattmod
 from vayesta.core.scmf import PDMET, Brueckner
+from vayesta.core.qemb.scrcoulomb import build_screened_eris
 from vayesta.mpi import mpi
 from .register import FragmentRegister
 
@@ -87,6 +89,8 @@ class Options(OptionsBase):
             max_boson_occ=2,
             # Dump
             dumpfile='clusters.h5')
+    # --- Other
+    screening: Optional[str] = None
 
 class Embedding:
     """Base class for quantum embedding methods.
@@ -727,10 +731,16 @@ class Embedding:
         eris = postscf_ao2mo(postscf, fock=fock, mo_energy=mo_energy, e_hf=e_hf)
         return eris
 
+    @log_method()
+    @with_doc(build_screened_eris)
+    def build_screened_eris(self, *args, **kwargs):
+        seris_ov, delta_e = build_screened_eris(self, *args, **kwargs)
+        return seris_ov, delta_e
+
     # Symmetry between fragments
     # --------------------------
 
-    def add_symmetric_fragments(self, symmetry, symbol=None, symtol=1e-6):
+    def add_symmetric_fragments(self, symmetry, symbol=None, symtol=1e-6, check_mf=True):
         """Add rotationally or translationally symmetric fragments.
 
         Parameters
@@ -781,7 +791,8 @@ class Embedding:
             raise ValueError
 
         ovlp = self.get_ovlp()
-        dm1 = self.mf.make_rdm1()
+        if check_mf:
+            dm1 = self.mf.make_rdm1()
 
         ftree = [[fx] for fx in self.get_fragments()]
         for i, sym in enumerate(symlist):
@@ -821,7 +832,7 @@ class Embedding:
                 # Check symmetry
                 # (only for the first rotation or primitive translations (1,0,0), (0,1,0), and (0,0,1)
                 # to reduce number of sym_op(c_env) calls)
-                if (abs(np.asarray(sym)).sum() == 1):
+                if check_mf and (abs(np.asarray(sym)).sum() == 1):
                     charge_err, spin_err = parent.get_symmetry_error(frag, dm1=dm1)
                     if max(charge_err, spin_err) > symtol:
                         self.log.critical("Mean-field DM1 not symmetric for %s of %s (errors: charge= %.3e, spin= %.3e)!",

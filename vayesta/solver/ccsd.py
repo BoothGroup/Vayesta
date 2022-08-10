@@ -13,6 +13,7 @@ import pyscf.pbc.cc
 from vayesta.core.types import Orbitals
 from vayesta.core.types import WaveFunction
 from vayesta.core.types import CCSD_WaveFunction
+from vayesta.core.qemb import scrcoulomb
 from .solver import ClusterSolver
 from . import coupling
 from . import tccsd
@@ -149,7 +150,7 @@ class CCSD_Solver(ClusterSolver):
     def get_init_guess(self):
         return {'t1' : self.t1 , 't2' : self.t2}
 
-    def kernel(self, t1=None, t2=None, eris=None, l1=None, l2=None, coupled_fragments=None, t_diagnostic=True):
+    def kernel(self, t1=None, t2=None, eris=None, l1=None, l2=None, seris_ov=None, coupled_fragments=None, t_diagnostic=True):
         """
 
         Parameters
@@ -171,6 +172,11 @@ class CCSD_Solver(ClusterSolver):
         if eris is None:
             with log_time(self.log.info, "Time for ERIs: %s"):
                 eris = self.get_eris()
+
+        if seris_ov is not None:
+            raise NotImplementedError
+            # This does not work correctly - does the Fock matrix need to change as well?
+            eris = scrcoulomb.get_screened_eris_ccsd(eris, seris_ov)
 
         # Add additional potential
         if self.v_ext is not None:
@@ -223,6 +229,10 @@ class CCSD_Solver(ClusterSolver):
             if not self.solver.converged_lambda:
                 self.log.error("Lambda-equations not converged!")
                 self.solver.converged_lambda = False
+
+        # Remove screening (for energy calculation etc)
+        if hasattr(eris, 'restore_bare'):
+            eris.restore_bare()
 
         if t_diagnostic: self.t_diagnostic()
 

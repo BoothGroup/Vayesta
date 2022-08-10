@@ -119,7 +119,7 @@ class DMET(Embedding):
             self.log.info("------------------------")
             if iteration > 1:
                 # For first iteration want to run on provided mean-field state.
-                mo_energy, mo_coeff = mf.eig(fock + self.vcorr, self.get_ovlp())
+                mo_energy, mo_coeff = self.mf.eig(fock + self.vcorr, self.get_ovlp())
                 self.update_mf(mo_coeff, mo_energy)
 
                 if self.opts.charge_consistent:
@@ -129,11 +129,17 @@ class DMET(Embedding):
             if type(nelec_mf) == tuple:
                 nelec_mf = sum(nelec_mf)
 
-            def electron_err(cpt):
-                err = self.calc_electron_number_defect(cpt, nelec_mf, sym_parents, nsym)
+            if self.opts.screening == 'rpa':
+                for f in self.get_fragments(sym_parent=None):
+                    f.make_bath()
+                    f.make_cluster()
+                self.build_screened_eris()
+
+            def electron_err(cpt, construct_bath=False):
+                err = self.calc_electron_number_defect(cpt, nelec_mf, sym_parents, nsym, construct_bath)
                 return err
 
-            err = electron_err(cpt)
+            err = electron_err(cpt, construct_bath=not self.opts.screening)
 
             if abs(err) > self.opts.max_elec_err * nelec_mf:
                 # Need to find chemical potential bracket.
@@ -221,7 +227,6 @@ class DMET(Embedding):
             self.log.info(msg)
             self.log.info(len(msg) * "-")
             self.log.changeIndentLevel(1)
-
             try:
                 result = frag.kernel(construct_bath=construct_bath, chempot=chempot)
             except DMETFragmentExit as e:

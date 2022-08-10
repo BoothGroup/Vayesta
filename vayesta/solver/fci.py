@@ -13,6 +13,7 @@ import pyscf.fci.addons
 from vayesta.core.util import *
 from vayesta.core.types import Orbitals
 from vayesta.core.types import FCI_WaveFunction
+from vayesta.core.qemb.scrcoulomb import get_screened_eris_full
 from .solver import ClusterSolver
 
 
@@ -101,11 +102,14 @@ class FCI_Solver(ClusterSolver):
     def get_l2(self, **kwargs):
         return None
 
-    def kernel(self, ci0=None, eris=None):
+    def kernel(self, ci0=None, eris=None, seris_ov=None):
         """Run FCI kernel."""
 
         if eris is None: eris = self.get_eris()
         heff = self.get_heff(eris)
+        # Screening
+        if seris_ov is not None:
+            eris = get_screened_eris_full(eris, seris_ov, log=self.log)
 
         t0 = timer()
         #self.solver.verbose = 10

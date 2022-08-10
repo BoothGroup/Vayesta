@@ -1,7 +1,7 @@
 # Standard libaries
 from datetime import datetime
 import dataclasses
-from typing import Union
+from typing import Optional, Union
 
 # External libaries
 import numpy as np
@@ -241,7 +241,10 @@ class Fragment(BaseFragment):
         # Normal solver
         if not self.base.opts._debug_wf:
             with log_time(self.log.info, ("Time for %s solver:" % solver) + " %s"):
-                cluster_solver.kernel(eris=eris, **init_guess)
+                if self.opts.screening:
+                    cluster_solver.kernel(eris=eris, seris_ov=self._seris_ov, **init_guess)
+                else:
+                    cluster_solver.kernel(eris=eris, **init_guess)
         # Special debug "solver"
         else:
             if self.base.opts._debug_wf == 'random':
