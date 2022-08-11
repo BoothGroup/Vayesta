@@ -145,7 +145,8 @@ class EWF(Embedding):
             self.log.info("")
             self.log.info("SCREENING INTERACTIONS")
             self.log.info("======================")
-            self.build_screened_eris()
+            with log_time(self.log.timing, "Time for screened interations: %s"):
+                self.build_screened_eris()
         else:
             raise ValueError
 
