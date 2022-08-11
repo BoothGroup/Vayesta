@@ -26,6 +26,7 @@ import vayesta
 from vayesta.core import vlog
 from vayesta.core.foldscf import FoldedSCF, fold_scf
 from vayesta.core.util import *
+from vayesta.core import spinalg
 from vayesta.core.ao2mo import kao2gmo_cderi
 from vayesta.core.ao2mo import postscf_ao2mo
 from vayesta.core.ao2mo import postscf_kao2gmo
@@ -50,8 +51,8 @@ from vayesta.core.fragmentation import CAS_Fragmentation
 from vayesta.misc.cptbisect import ChempotBisection
 
 # Expectation values
-from vayesta.core.qemb.expval import get_corrfunc
-from vayesta.core.qemb.expval import get_corrfunc_mf
+from vayesta.core.qemb.corrfunc import get_corrfunc
+from vayesta.core.qemb.corrfunc import get_corrfunc_mf
 
 # --- This Package
 
@@ -1154,13 +1155,15 @@ class Embedding:
         else:
             raise ValueError("Invalid projection: %s" % projection)
         frag.kernel()
+        ovlp = self.get_ovlp()
         projectors = {}
-        cs = np.dot(self.mo_coeff.T, self.get_ovlp())
+        cs = spinalg.dot(spinalg.transpose(self.mo_coeff), ovlp)
         for atom in sorted(set(atoms1).union(atoms2)):
             name, indices = frag.get_atomic_fragment_indices(atom)
             c_atom = frag.get_frag_coeff(indices)
-            r = dot(cs, c_atom)
-            projectors[atom] = dot(r, r.T)
+            r = spinalg.dot(cs, c_atom)
+            projectors[atom] = spinalg.dot(r, spinalg.transpose(r))
+
         return atoms1, atoms2, projectors
 
     def get_lo_coeff(self, local_orbitals='lowdin', minao='auto'):

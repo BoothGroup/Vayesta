@@ -94,6 +94,7 @@ class UEWF(REWF, UEmbedding):
 
     # --- Other expectation values
 
+    @deprecated(replacement='get_corrfunc_mf')
     def get_atomic_ssz_mf(self, dm1=None, atoms=None, projection='sao'):
         """TODO: update similar to restricted code
             dm1 in MO basis"""
@@ -121,6 +122,7 @@ class UEWF(REWF, UEmbedding):
         return ssz
 
     @log_method()
+    @deprecated(replacement='get_corrfunc')
     def get_atomic_ssz(self, dm1=None, dm2=None, atoms=None, projection='sao', dm2_with_dm1=None):
         """Get expectation values <P(A) S_z^2 P(B)>, where P(X) are projectors onto atoms.
 
