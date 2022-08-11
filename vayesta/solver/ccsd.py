@@ -166,7 +166,7 @@ class CCSD_Solver(ClusterSolver):
         seris.fock = (seris.focka, seris.fockb)
         return seris
 
-    def add_vext(self, eris, v_ext):
+    def add_potential(self, eris, v_ext):
         self.log.debugv("Adding self.v_ext to eris.fock")
         # Make sure there are no side effects:
         eris = copy.copy(eris)
