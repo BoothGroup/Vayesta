@@ -17,6 +17,7 @@ from vayesta.core.qemb import scrcoulomb
 from .solver import ClusterSolver
 from . import coupling
 from . import tccsd
+from vayesta.core.ao2mo import helper
 from vayesta.core.util import *
 
 
@@ -150,6 +151,34 @@ class CCSD_Solver(ClusterSolver):
     def get_init_guess(self):
         return {'t1' : self.t1 , 't2' : self.t2}
 
+    def add_screening(self, eris, seris_ov):
+        seris = scrcoulomb.get_screened_eris_ccsd(eris, seris_ov)
+        # Correct virtual-virtual cluster Fock matrix:
+        nocca, noccb = eris.nocc
+        gaa, gab, gbb = seris.get_bare()
+        saa, sab, sbb = seris_ov
+        dfvva = -einsum('ipiq->pq', (saa-gaa))
+        dfvvb = -einsum('ipiq->pq', (sbb-gbb))
+        va = np.s_[nocca:]
+        vb = np.s_[noccb:]
+        seris.focka[va,va] += dfvva
+        seris.fockb[vb,vb] += dfvvb
+        seris.fock = (seris.focka, seris.fockb)
+        return seris
+
+    def add_potential(self, eris, v_ext):
+        self.log.debugv("Adding self.v_ext to eris.fock")
+        # Make sure there are no side effects:
+        eris = copy.copy(eris)
+        # Replace fock instead of modifying it!
+        if self.is_rhf:
+            eris.fock = (eris.fock + v_ext)
+        else:
+            eris.focka = eris.fock[0] + v_ext[0]
+            eris.fockb = eris.fock[1] + v_ext[1]
+            eris.fock = (eris.focka, eris.fockb)
+        return eris
+
     def kernel(self, t1=None, t2=None, eris=None, l1=None, l2=None, seris_ov=None, coupled_fragments=None, t_diagnostic=True):
         """
 
@@ -173,23 +202,13 @@ class CCSD_Solver(ClusterSolver):
             with log_time(self.log.info, "Time for ERIs: %s"):
                 eris = self.get_eris()
 
+        # Add screening [optional]
         if seris_ov is not None:
-            raise NotImplementedError
-            # This does not work correctly - does the Fock matrix need to change as well?
-            eris = scrcoulomb.get_screened_eris_ccsd(eris, seris_ov)
+            eris = self.add_screening(eris, seris_ov)
 
-        # Add additional potential
+        # Add additional potential [optional]
         if self.v_ext is not None:
-            self.log.debugv("Adding self.v_ext to eris.fock")
-            # Make sure there are no side effects:
-            eris = copy.copy(eris)
-            # Replace fock instead of modifying it!
-            if self.is_rhf:
-                eris.fock = (eris.fock + self.v_ext)
-            else:
-                eris.focka = eris.fock[0] + self.v_ext[0]
-                eris.fockb = eris.fock[1] + self.v_ext[1]
-                eris.fock = (eris.focka, eris.fockb)
+            eris = self.add_potential(eris, self.v_ext)
 
         # Tailored CC
         if self.opts.tcc:
@@ -318,3 +337,34 @@ class UCCSD_Solver(CCSD_Solver):
     def t_diagnostic(self):
         """T diagnostic not implemented for UCCSD in PySCF."""
         self.log.info("T diagnostic not implemented for UCCSD in PySCF.")
+
+    def _debug_exact_wf(self, wf):
+        mo = Orbitals(self.cluster.c_active, occ=self.cluster.nocc_active)
+        # Project onto cluster:
+        ovlp = self.fragment.base.get_ovlp()
+        roa = dot(wf.mo.coeff_occ[0].T, ovlp, mo.coeff_occ[0])
+        rob = dot(wf.mo.coeff_occ[1].T, ovlp, mo.coeff_occ[1])
+        rva = dot(wf.mo.coeff_vir[0].T, ovlp, mo.coeff_vir[0])
+        rvb = dot(wf.mo.coeff_vir[1].T, ovlp, mo.coeff_vir[1])
+        t1a = dot(roa.T, wf.t1a, rva)
+        t1b = dot(rob.T, wf.t1b, rvb)
+        t2aa = einsum('Ii,Jj,IJAB,Aa,Bb->ijab', roa, roa, wf.t2aa, rva, rva)
+        t2ab = einsum('Ii,Jj,IJAB,Aa,Bb->ijab', roa, rob, wf.t2ab, rva, rvb)
+        t2bb = einsum('Ii,Jj,IJAB,Aa,Bb->ijab', rob, rob, wf.t2bb, rvb, rvb)
+        t1 = (t1a, t1b)
+        t2 = (t2aa, t2ab, t2bb)
+        if wf.l1 is not None:
+            l1a = dot(roa.T, wf.l1a, rva)
+            l1b = dot(rob.T, wf.l1b, rvb)
+            l2aa = einsum('Ii,Jj,IJAB,Aa,Bb->ijab', roa, roa, wf.l2aa, rva, rva)
+            l2ab = einsum('Ii,Jj,IJAB,Aa,Bb->ijab', roa, rob, wf.l2ab, rva, rvb)
+            l2bb = einsum('Ii,Jj,IJAB,Aa,Bb->ijab', rob, rob, wf.l2bb, rvb, rvb)
+            l1 = (l1a, l1b)
+            l2 = (l2aa, l2ab, l2bb)
+        else:
+            l1 = l2 = None
+        self.wf = CCSD_WaveFunction(mo, t1, t2, l1=l1, l2=l2)
+        self.converged = True
+
+    def _debug_random_wf(self):
+        raise NotImplementedError

@@ -151,24 +151,36 @@ def get_screened_eris_full(eris, seris_ov, copy=True, log=None):
 
 def get_screened_eris_ccsd(eris, seris_ov, add_restore_bare=True, log=None):
 
+    if add_restore_bare:
+        gaa = eris.ovov[:]
+        gab = eris.ovOV[:]
+        gbb = eris.OVOV[:]
+
     saa, sab, sbb = seris_ov
     # Alpha-alpha
-    eris.ovov += saa
-    eris.ovvo += saa.transpose([0,1,3,2])
+    eris.ovov = saa
+    eris.ovvo = saa.transpose([0,1,3,2])
     # Alpha-beta
-    eris.ovOV += sab
-    eris.ovVO += sab.transpose([0,1,3,2])
+    eris.ovOV = sab
+    eris.ovVO = sab.transpose([0,1,3,2])
     # Beta-beta
-    eris.OVOV += sbb
-    eris.OVVO += sbb.transpose([0,1,3,2])
+    eris.OVOV = sbb
+    eris.OVVO = sbb.transpose([0,1,3,2])
     # Beta-alpha
-    eris.OVvo += sab.transpose([2,3,1,0])
+    eris.OVvo = sab.transpose([2,3,1,0])
 
     # Add restore_bare function to remove screening later on
     if add_restore_bare:
-        def restore_bare():
-            return get_screened_eris_ccsd(eris, (-saa, -sab, -sbb), add_restore_bare=False)
-        eris.restore_bare = restore_bare
+        def get_bare(eris):
+            return (gaa, gab, gbb)
+        def restore_bare(eris):
+            eris = get_screened_eris_ccsd(eris, eris.get_bare(), add_restore_bare=False)
+            del eris.get_bare, eris.restore_bare
+            return eris
+
+        eris.get_bare = get_bare.__get__(eris)
+        eris.restore_bare = restore_bare.__get__(eris)
+
     return eris
 
 def _get_target_rot(r_active_occs, r_active_virs):

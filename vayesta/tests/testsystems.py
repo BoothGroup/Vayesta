@@ -47,6 +47,8 @@ class TestMolecule:
     def rhf(self):
         rhf = pyscf.scf.RHF(self.mol)
         if self.auxbasis is not None:
+            if self.auxbasis is True:
+                self.auxbasis = None
             rhf = rhf.density_fit(auxbasis=self.auxbasis)
         rhf.conv_tol = 1e-10
         rhf.conv_tol_grad = 1e-8
@@ -58,6 +60,8 @@ class TestMolecule:
     def uhf(self):
         uhf = pyscf.scf.UHF(self.mol)
         if self.auxbasis is not None:
+            if self.auxbasis is True:
+                self.auxbasis = None
             uhf = uhf.density_fit(auxbasis=self.auxbasis)
         uhf.conv_tol = 1e-10
         uhf.conv_tol_grad = 1e-8
@@ -348,6 +352,9 @@ h3_ccpvdz = TestMolecule(atom="H1 0 0 0; H2 0 0 1.0; H3 0 1.0 0", basis="cc-pvdz
 h3_ccpvdz_df = TestMolecule(atom="H1 0 0 0; H2 0 0 1.0; H3 0 1.0 0", basis="cc-pvdz", auxbasis="cc-pvdz-jkfit", spin=1)
 
 n2_ccpvdz_df = TestMolecule("N1 0 0 0; N2 0 0 1.1", basis="cc-pvdz", auxbasis="cc-pvdz-jkfit")
+
+f2_sto6g = TestMolecule(atom="F 0 0 0; F 0 0 1.2", basis='sto-6g')
+f2_sto6g_df = TestMolecule(atom="F 0 0 0; F 0 0 1.2", basis='sto-6g', auxbasis=True)
 
 
 # Solids

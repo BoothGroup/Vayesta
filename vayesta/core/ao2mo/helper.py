@@ -273,9 +273,9 @@ def contract_dm2_eris(dm2, eris):
 
 def _contract_4d(a, b, transpose=None):
     if transpose is not None:
-        b = b.transpose(transpose)
+        b = b[:].transpose(transpose)
     #return einsum('pqrs,pqrs', a, b)
-    return np.dot(a.reshape(-1), b.reshape(-1))
+    return np.dot(a[:].reshape(-1), b[:].reshape(-1))
 
 
 def contract_dm2_eris_rhf(dm2, eris):
