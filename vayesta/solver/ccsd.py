@@ -17,6 +17,7 @@ from vayesta.core.qemb import scrcoulomb
 from .solver import ClusterSolver
 from . import coupling
 from . import tccsd
+from vayesta.core.ao2mo import helper
 from vayesta.core.util import *
 
 
@@ -150,6 +151,34 @@ class CCSD_Solver(ClusterSolver):
     def get_init_guess(self):
         return {'t1' : self.t1 , 't2' : self.t2}
 
+    def add_screening(self, eris, seris_ov):
+        seris = scrcoulomb.get_screened_eris_ccsd(eris, seris_ov)
+        # Correct virtual-virtual cluster Fock matrix:
+        nocca, noccb = eris.nocc
+        gaa, gab, gbb = seris.get_bare()
+        saa, sab, sbb = seris_ov
+        dfvva = -einsum('ipiq->pq', (saa-gaa))
+        dfvvb = -einsum('ipiq->pq', (sbb-gbb))
+        va = np.s_[nocca:]
+        vb = np.s_[noccb:]
+        seris.focka[va,va] += dfvva
+        seris.fockb[vb,vb] += dfvvb
+        seris.fock = (seris.focka, seris.fockb)
+        return seris
+
+    def add_vext(self, eris, v_ext):
+        self.log.debugv("Adding self.v_ext to eris.fock")
+        # Make sure there are no side effects:
+        eris = copy.copy(eris)
+        # Replace fock instead of modifying it!
+        if self.is_rhf:
+            eris.fock = (eris.fock + v_ext)
+        else:
+            eris.focka = eris.fock[0] + v_ext[0]
+            eris.fockb = eris.fock[1] + v_ext[1]
+            eris.fock = (eris.focka, eris.fockb)
+        return eris
+
     def kernel(self, t1=None, t2=None, eris=None, l1=None, l2=None, seris_ov=None, coupled_fragments=None, t_diagnostic=True):
         """
 
@@ -173,23 +202,13 @@ class CCSD_Solver(ClusterSolver):
             with log_time(self.log.info, "Time for ERIs: %s"):
                 eris = self.get_eris()
 
+        # Add screening [optional]
         if seris_ov is not None:
-            raise NotImplementedError
-            # This does not work correctly - does the Fock matrix need to change as well?
-            eris = scrcoulomb.get_screened_eris_ccsd(eris, seris_ov)
+            eris = self.add_screening(eris, seris_ov)
 
-        # Add additional potential
+        # Add additional potential [optional]
         if self.v_ext is not None:
-            self.log.debugv("Adding self.v_ext to eris.fock")
-            # Make sure there are no side effects:
-            eris = copy.copy(eris)
-            # Replace fock instead of modifying it!
-            if self.is_rhf:
-                eris.fock = (eris.fock + self.v_ext)
-            else:
-                eris.focka = eris.fock[0] + self.v_ext[0]
-                eris.fockb = eris.fock[1] + self.v_ext[1]
-                eris.fock = (eris.focka, eris.fockb)
+            eris = self.add_potential(eris, self.v_ext)
 
         # Tailored CC
         if self.opts.tcc:

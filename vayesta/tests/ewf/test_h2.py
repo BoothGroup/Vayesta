@@ -1,7 +1,5 @@
 import unittest
-
 import numpy as np
-
 import vayesta
 import vayesta.ewf
 from vayesta.core.util import cache
