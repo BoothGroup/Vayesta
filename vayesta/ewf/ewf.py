@@ -469,7 +469,6 @@ class EWF(Embedding):
         else:
             raise ValueError("Invalid projection: %s" % projection)
         frag.kernel()
-        ovlp = self.get_ovlp()
         c_atom = []
         for atom in atoms:
             name, indices = frag.get_atomic_fragment_indices(atom)
