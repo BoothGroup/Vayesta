@@ -5,22 +5,21 @@ from vayesta.mpi import mpi, RMA_Dict
 
 
 def transform_amplitude(t, u_occ, u_vir, u_occ2=None, u_vir2=None, spinsym='restricted', inverse=False):
-    """(Old basis|New basis)"""
+    """u: (old basis|new basis)"""
     if u_occ2 is None:
         u_occ2 = u_occ
     if u_vir2 is None:
         u_vir2 = u_vir
     if spinsym == 'restricted':
+        if inverse:
+            u_occ = u_occ.T
+            u_occ2 = u_occ2.T
+            u_vir = u_vir.T
+            u_vir2 = u_vir2.T
         if np.ndim(t) == 2:
-            if inverse:
-                return einsum('ia,xi,ya->xy', t, u_occ, u_vir)
-            else:
-                return einsum('ia,xi,ya->xy', t, u_occ, u_vir)
+            return einsum('ia,xi,ya->xy', t, u_occ, u_vir)
         if np.ndim(t) == 4:
-            if inverse:
-                return einsum('ijab,xi,yj,za,wb->xyzw', t, u_occ, u_occ2, u_vir, u_vir2)
-            else:
-                return einsum('ijab,ix,jy,az,bw->xyzw', t, u_occ, u_occ2, u_vir, u_vir2)
+            return einsum('ijab,ix,jy,az,bw->xyzw', t, u_occ, u_occ2, u_vir, u_vir2)
     if spinsym == 'unrestricted':
         if np.ndim(t[0]) == 2:
             ta = transform_amplitude(t[0], u_occ[0], u_vir[0], inverse=inverse)
@@ -117,40 +116,48 @@ def tailor_with_fragments(solver, fragments, project=False, tailor_t1=True, tail
     tailor_func : function(cc, t1, t2) -> t1, t2
         Tailoring function for CCSD.
     """
-    fx = solver.fragment
-    cx = solver.cluster
+    fragment = solver.fragment
+    cluster = solver.cluster
     ovlp = solver.base.get_ovlp()   # AO overlap matrix
-    c_occ = cluster.c_active_occ    # Occupied active orbitals of current cluster
-    c_vir = cluster.c_active_vir    # Virtual  active orbitals of current cluster
-    cs_occ = spinalg.dot(spinalg.tranpose(c_occ), ovlp)
-    cs_vir = spinalg.dot(spinalg.tranpose(c_vir), ovlp)
+    cx_occ = cluster.c_active_occ    # Occupied active orbitals of current cluster
+    cx_vir = cluster.c_active_vir    # Virtual  active orbitals of current cluster
+    cxs_occ = spinalg.dot(spinalg.tranpose(cx_occ), ovlp)
+    cxs_vir = spinalg.dot(spinalg.tranpose(cx_vir), ovlp)
 
     def _tailor_func(kwargs):
         """Add external correction to T1 and T2 amplitudes."""
         t1, t2 = kwargs['t1new'], kwargs['t2new']
-        # Add the correction to dt1 and dt2:
-        if tailor_t1: dt1 = np.zeros_like(t1)
-        if tailor_t2: dt2 = np.zeros_like(t2)
+        # Collect all changes to the amplitudes in dt1 and dt2:
+        if tailor_t1:
+            dt1 = spinalg.zeros_like(t1)
+        if tailor_t2:
+            dt2 = spinalg.zeros_like(t2)
 
         # Loop over all *other* fragments/cluster X
         for fy in fragments:
-            assert (fy is not solver.fragment)
+            assert (fy is not fragment)
 
             # Rotation & projections from cluster X active space to current fragment active space
-            rxy_occ = spinalg.dot(cx_occ, fy.c_active_occ)
-            rxy_vir = spinalg.dot(cx_vir, fy.c_active_vir)
+            rxy_occ = spinalg.dot(cxs_occ, fy.c_active_occ)
+            rxy_vir = spinalg.dot(cxs_vir, fy.c_active_vir)
             # Skip fragment if there is no overlap
-            if min(abs(rxy_occ).max(), abs(rxy_vir).max()) < ovlp_tol:
+            if solver.spinsym == 'restricted':
+                maxovlp = min(abs(rxy_occ).max(), abs(rxy_vir).max())
+            elif solver.spinsym == 'unrestricted':
+                maxovlp = min(max(abs(rxy_occ[0]).max(), abs(rxy_occ[1]).max()),
+                              max(abs(rxy_vir[0]).max(), abs(rxy_vir[1]).max()))
+            if maxovlp < ovlp_tol:
                 continue
 
             wfy = fy.results.wf.as_ccsd()
+            # Transform to x-amplitudes to y-space, instead of y-amplitudes to x-space:
+            # x may be CCSD and y FCI, such that x-space >> y-space
             if tailor_t1:
-                #t1y = transform_amplitude(wfy.t1, rxy_occ, rxy_vir, spinsym=solver.spinsym, inverse=True)
                 t1x = transform_amplitude(t1, rxy_occ, rxy_vir, spinsym=solver.spinsym)
-                dt1 = (wfy.t1 - t1x)
+                dt1y = spinalg.subtract(wfy.t1, t1x)
             if tailor_t2:
                 t2x = transform_amplitude(t2, rxy_occ, rxy_vir, spinsym=solver.spinsym)
-                dt2 = (wfy.t2 - t2x)
+                dt2y = spinalg.subtract(wfy.t2, t2x)
 
 
 
