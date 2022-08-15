@@ -450,8 +450,9 @@ class OptionsBase:
             return getattr(self, attr)
         return default
 
-    def asdict(self):
-        """Do not use `dataclasses.asdict(self)`, which creates deep copies of values."""
+    def asdict(self, deepcopy=False):
+        if deepcopy:
+            return dataclasses.asdict(self)
         return self.__dict__
 
     def keys(self):
