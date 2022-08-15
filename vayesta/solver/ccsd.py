@@ -40,6 +40,8 @@ class CCSD_Solver(ClusterSolver):
         # Active space methods
         c_cas_occ: np.array = None
         c_cas_vir: np.array = None
+        # Tailor with fragments
+        tailoring: bool = False
         # Lambda equations
         solve_lambda: bool = False
 
@@ -212,12 +214,19 @@ class CCSD_Solver(ClusterSolver):
 
         # Tailored CC
         if self.opts.tcc:
+            if self.spinsym == 'unrestricted':
+                raise NotImplementedError
             self.set_callback(tccsd.make_cas_tcc_function(
                               self, c_cas_occ=self.opts.c_cas_occ, c_cas_vir=self.opts.c_cas_vir, eris=eris))
+        elif self.opts.tailoring:
+            frag = self.fragment
+            self.set_callback(coupling.tailor_with_fragments(self, frag._tailor_fragments, project=frag._tailor_project))
         elif self.opts.sc_mode and self.base.iteration > 1:
+            raise NotImplementedError
             self.set_callback(coupling.make_cross_fragment_tcc_function(self, mode=self.opts.sc_mode))
         # This should include the SC mode?
         elif coupled_fragments and np.all([x.results is not None for x in coupled_fragments]):
+            raise NotImplementedError
             self.set_callback(coupling.make_cross_fragment_tcc_function(self, mode=(self.opts.sc_mode or 3),
                               coupled_fragments=coupled_fragments))
 

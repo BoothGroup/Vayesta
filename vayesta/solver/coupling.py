@@ -1,15 +1,36 @@
 import numpy as np
 from vayesta.core.util import *
+from vayesta.core import spinalg
 from vayesta.mpi import mpi, RMA_Dict
 
 
-def transform_amplitude(t, u_occ, u_vir):
-    """(Old basis|new basis)"""
-    if np.ndim(t) == 2:
-        return einsum("ia,ix,ay->xy", t, u_occ, u_vir)
-    if np.ndim(t) == 4:
-        return einsum("ijab,ix,jy,az,bw->xyzw", t, u_occ, u_occ, u_vir, u_vir)
-    raise NotImplementedError('Transformation of amplitudes with ndim=%d' % np.ndim(t))
+def transform_amplitude(t, u_occ, u_vir, u_occ2=None, u_vir2=None, spinsym='restricted', inverse=False):
+    """u: (old basis|new basis)"""
+    if u_occ2 is None:
+        u_occ2 = u_occ
+    if u_vir2 is None:
+        u_vir2 = u_vir
+    if spinsym == 'restricted':
+        if inverse:
+            u_occ = u_occ.T
+            u_occ2 = u_occ2.T
+            u_vir = u_vir.T
+            u_vir2 = u_vir2.T
+        if np.ndim(t) == 2:
+            return einsum('ia,ix,ay->xy', t, u_occ, u_vir)
+        if np.ndim(t) == 4:
+            return einsum('ijab,ix,jy,az,bw->xyzw', t, u_occ, u_occ2, u_vir, u_vir2)
+    if spinsym == 'unrestricted':
+        if np.ndim(t[0]) == 2:
+            ta = transform_amplitude(t[0], u_occ[0], u_vir[0], inverse=inverse)
+            tb = transform_amplitude(t[1], u_occ[1], u_vir[1], inverse=inverse)
+            return (ta, tb)
+        if np.ndim(t[0]) == 4:
+            taa = transform_amplitude(t[0], u_occ[0], u_vir[0], inverse=inverse)
+            tab = transform_amplitude(t[1], u_occ[0], u_vir[0], u_occ[1], u_vir[1], inverse=inverse)
+            tbb = transform_amplitude(t[2], u_occ[1], u_vir[1], inverse=inverse)
+            return (taa, tab, tbb)
+    raise NotImplementedError("Transformation of %s amplitudes with ndim=%d" % (spinsym, np.ndim(t[0])+1))
 
 
 def couple_ccsd_iterations(solver, fragments):
@@ -69,7 +90,7 @@ def couple_ccsd_iterations(solver, fragments):
     return tailorfunc
 
 
-def make_cross_fragment_tcc_function(solver, mode, coupled_fragments=None, correct_t1=True, correct_t2=True, symmetrize_t2=True):
+def tailor_with_fragments(solver, fragments, project=False, tailor_t1=True, tailor_t2=True, ovlp_tol=1e-6):
     """Tailor current CCSD calculation with amplitudes of other fragments.
 
     This assumes orthogonal fragment spaces.
@@ -95,256 +116,101 @@ def make_cross_fragment_tcc_function(solver, mode, coupled_fragments=None, corre
     tailor_func : function(cc, t1, t2) -> t1, t2
         Tailoring function for CCSD.
     """
-    if mode not in (1, 2, 3):
-        raise ValueError()
-    solver.log.debugv("TCC mode= %d", mode)
+    fragment = solver.fragment
     cluster = solver.cluster
-    ovlp = solver.base.get_ovlp()     # AO overlap matrix
-    c_occ = cluster.c_active_occ       # Occupied active orbitals of current cluster
-    c_vir = cluster.c_active_vir       # Virtual  active orbitals of current cluster
+    ovlp = solver.base.get_ovlp()   # AO overlap matrix
+    cx_occ = cluster.c_active_occ    # Occupied active orbitals of current cluster
+    cx_vir = cluster.c_active_vir    # Virtual  active orbitals of current cluster
+    cxs_occ = spinalg.dot(spinalg.T(cx_occ), ovlp)
+    cxs_vir = spinalg.dot(spinalg.T(cx_vir), ovlp)
 
-    if coupled_fragments is None:
-        coupled_fragments = solver.fragment.opts.coupled_fragments
-
-    #mode = 1
-
-    def tailor_func_old(cc, t1, t2):
+    def tailor_func(kwargs):
         """Add external correction to T1 and T2 amplitudes."""
-        # Add the correction to dt1 and dt2:
-        if correct_t1: dt1 = np.zeros_like(t1)
-        if correct_t2: dt2 = np.zeros_like(t2)
-
-        ##t1[:] = 0
-        ##t2[:] = 0
-
-        ##mo_coeff = np.hstack((c_occ, c_vir))
-        ##nsite = mo_coeff.shape[0]
-        ##t1 = np.zeros((nsite, nsite))
-        ##t2 = np.zeros((nsite, nsite, nsite, nsite))
-        ##diag = list(range(nsite))
-        ##val = 1000.0
-        ##t1[diag,diag] = val
-        ##t2[diag,diag,diag,diag] = val
-        ##t1 = einsum('xy,xi,ya->ia', t1, c_occ, c_vir)
-        ##t2 = einsum('xyzw,xi,yj,za,wb->ijab', t2, c_occ, c_occ, c_vir, c_vir)
-
-        ##def t2loc(t2, site=0):
-        ##    t2 = einsum('xyzw,xi,yj,za,wb->ijab', t2, c_occ.T, c_occ.T, c_vir.T, c_vir.T)
-        ##    return t2[site,site,site,site]
-
-        ##print(t2loc(t2, 0))
-        ##print(t2loc(t2, 1))
+        t1, t2 = kwargs['t1new'], kwargs['t2new']
+        # Collect all changes to the amplitudes in dt1 and dt2:
+        if tailor_t1:
+            dt1 = spinalg.zeros_like(t1)
+        if tailor_t2:
+            dt2 = spinalg.zeros_like(t2)
 
         # Loop over all *other* fragments/cluster X
-        for x in coupled_fragments:
-            assert (x is not solver.fragment)
+        for fy in fragments:
+            assert (fy is not fragment)
 
             # Rotation & projections from cluster X active space to current fragment active space
-            p_occ = np.linalg.multi_dot((x.c_active_occ.T, ovlp, c_occ))
-            p_vir = np.linalg.multi_dot((x.c_active_vir.T, ovlp, c_vir))
-            px = x.get_fragment_projector(c_occ)    # this is C_occ^T . S . C_frag . C_frag^T . S . C_occ
-            assert np.allclose(px, px.T)
-            #pxv = x.get_fragment_projector(c_vir)   # this is C_occ^T . S . C_frag . C_frag^T . S . C_occ
-            #assert np.allclose(pxv, pxv.T)
-            if x.results.t1 is None and x.results.c1 is not None:
-                solver.log.debugv("Converting C-amplitudes of %s to T-amplitudes", x)
-                x.results.convert_amp_c_to_t()
-            # Transform fragment X T-amplitudes to current active space and form difference
-            if correct_t1:
-                tx1 = transform_amplitude(x.results.t1, p_occ, p_vir)   # ia,ix,ap->xp
-                #tx1[:] = 0
-                dtx1 = (tx1 - t1)
-                dtx1 = np.dot(px, dtx1)
-                #dtx1o = np.dot(px, dtx1)
-                #dtx1v = np.dot(dtx1, pxv)
-                #dtx1 = dtx1o + dtx1v - np.linalg.multi_dot((px, dtx1, pxv))
-                assert dtx1.shape == dt1.shape
-                dt1 += dtx1
-            else:
-                dtx1 = 0
-            if correct_t2:
-                tx2 = transform_amplitude(x.results.t2, p_occ, p_vir)   # ijab,ix,jy,ap,bq->xypq
-                #tx2[:] = 0
-                dtx2 = (tx2 - t2)
-                if mode == 1:
-                    dtx2 = einsum('xi,yj,ijab->xyab', px, px, dtx2)
-                    #dtx2 = einsum('xi,yj,ijab,pa,qb->xypq', px, px, dtx2, pxv, pxv)
-                    #dtx2o = einsum('xi,yj,ijab->xyab', px, px, dtx2)
-                    #dtx2v = einsum('xa,yb,ijab->ijxy', pxv, pxv, dtx2)
-                    #dtx2dc = einsum('xi,yj,ijab,pa,qb->xypq', px, px, dtx2, pxv, pxv)
-                    #dtx2 = dtx2o + dtx2v - dtx2dc
-                elif mode == 2:
-                    py = solver.fragment.get_fragment_projector(c_occ, inverse=True)
-                    dtx2 = einsum('xi,yj,ijab->xyab', px, py, dtx2)
-                elif mode == 3:
-                    dtx2 = einsum('xi,ijab->xjab', px, dtx2)
-                assert dtx2.shape == dt2.shape
-                dt2 += dtx2
-            else:
-                dtx2 = 0
-            solver.log.debugv("Tailoring %12s <- %12s: |dT1|= %.2e  |dT2|= %.2e", solver.fragment, x, np.linalg.norm(dtx1), np.linalg.norm(dtx2))
-            #print(t2loc(dt2, 0))
-            #print(t2loc(dt2, 1))
+            rxy_occ = spinalg.dot(cxs_occ, fy.cluster.c_active_occ)
+            rxy_vir = spinalg.dot(cxs_vir, fy.cluster.c_active_vir)
+            # Skip fragment if there is no overlap
+            if solver.spinsym == 'restricted':
+                maxovlp = min(abs(rxy_occ).max(), abs(rxy_vir).max())
+            elif solver.spinsym == 'unrestricted':
+                maxovlp = min(max(abs(rxy_occ[0]).max(), abs(rxy_occ[1]).max()),
+                              max(abs(rxy_vir[0]).max(), abs(rxy_vir[1]).max()))
+            if maxovlp < ovlp_tol:
+                continue
 
+            wfy = fy.results.wf.to_ccsd()
+            # Transform to x-amplitudes to y-space, instead of y-amplitudes to x-space:
+            # x may be CCSD and y FCI, such that x-space >> y-space
+            if tailor_t1:
+                t1x = transform_amplitude(t1, rxy_occ, rxy_vir, spinsym=solver.spinsym)
+                dt1y = spinalg.subtract(wfy.t1, t1x)
+            if tailor_t2:
+                t2x = transform_amplitude(t2, rxy_occ, rxy_vir, spinsym=solver.spinsym)
+                dt2y = spinalg.subtract(wfy.t2, t2x)
 
-        # Store these norms in cc, to log their final value:
-        cc._norm_dt1 = np.linalg.norm(dt1) if correct_t1 else 0.0
-        cc._norm_dt2 = np.linalg.norm(dt2) if correct_t2 else 0.0
+            # Project
+            if project:
+                proj = fy.get_overlap('frag|cluster-occ')
+                proj = spinalg.dot(spinalg.T(proj), proj)
+                # Project first occupied index onto fragment(y) space:
+                if int(project) == 1:
+                    if tailor_t1:
+                        dt1y = spinalg.dot(proj, dt1y)
+                    if tailor_t2:
+                        if solver.spinsym == 'restricted':
+                            dt2y = einsum('xi,i...->x...', proj, dt2y)
+                            dt2y = (dt2y + dt2y.transpose(1,0,3,2))/2
+                        elif solver.spinsym == 'unrestricted':
+                            dt2y_aa = einsum('xi,i...->x...', proj[0], dt2y[0])/2
+                            dt2y_bb = einsum('xi,i...->x...', proj[1], dt2y[2])/2
+                            dt2y_aa = (dt2y_aa + dt2y_aa.transpose(1,0,3,2))/2
+                            dt2y_bb = (dt2y_bb + dt2y_bb.transpose(1,0,3,2))/2
+                            dt2y_ab = (einsum('xi,i...->x...', proj[0], dt2y[1])
+                                     + einsum('xj,ij...->x...', proj[1], dt2y[1]))
+                            dt2y = (dt2y_aa, dt2y_ab, dt2y_bb)
+
+                # Project first and second occupied index onto fragment(y) space:
+                elif project == 2:
+                    raise NotImplementedError
+                else:
+                    raise ValueError("project= %s" % project)
+
+            # Transform back to x-space and add:
+            if tailor_t1:
+                dt1 += transform_amplitude(dt1y, rxy_occ, rxy_vir, spinsym=solver.spinsym, inverse=True)
+            if tailor_t2:
+                dt2 += transform_amplitude(dt2y, rxy_occ, rxy_vir, spinsym=solver.spinsym, inverse=True)
+            if solver.spinsym == 'restricted':
+                solver.log.debug("Tailoring %12s with %12s:  |dT1|= %.2e  |dT2|= %.2e", fragment, fy, np.linalg.norm(dt1), np.linalg.norm(dt2))
+            elif solver.spinsym == 'unrestricted':
+                solver.log.debug("Tailoring %12s with %12s:  |dT1|= %.2e  |dT2|= %.2e", fragment, fy,
+                        (np.linalg.norm(dt1[0])+np.linalg.norm(dt1[1]))/2,
+                        (np.linalg.norm(dt2[0])+2*np.linalg.norm(dt2[1])+np.linalg.norm(dt2[2]))/4)
+
         # Add correction:
-        if correct_t1:
-            t1 = (t1 + dt1)
-        if correct_t2:
-            if symmetrize_t2:
-                solver.log.debugv("T2 symmetry error: %e", np.linalg.norm(dt2 - dt2.transpose(1,0,3,2))/2)
-                dt2 = (dt2 + dt2.transpose(1,0,3,2))/2
-            t2 = (t2 + dt2)
+        if tailor_t1:
+            if solver.spinsym == 'restricted':
+                t1[:] += dt1
+            elif solver.spinsym == 'unrestricted':
+                t1[0][:] += dt1[0]
+                t1[1][:] += dt1[1]
+        if tailor_t2:
+            if solver.spinsym == 'restricted':
+                t2[:] += dt2
+            elif solver.spinsym == 'unrestricted':
+                t2[0][:] += dt2[0]
+                t2[1][:] += dt2[1]
+                t2[2][:] += dt2[2]
 
-        #print(np.linalg.norm(t1))
-        #print(np.linalg.norm(t2))
-        #1/0
-
-        return t1, t2
-
-
-    def tailor_func(cc, t1, t2):
-        """Add external correction to T1 and T2 amplitudes."""
-        # Add the correction to dt1 and dt2:
-        if correct_t1: dt1 = np.zeros_like(t1)
-        if correct_t2: dt2 = np.zeros_like(t2)
-
-        t1[:] = 0
-        t2[:] = 0
-
-        mo_coeff = np.hstack((c_occ, c_vir))
-        nsite = mo_coeff.shape[0]
-        t1 = np.zeros((nsite, nsite))
-        t2 = np.zeros((nsite, nsite, nsite, nsite))
-        diag = list(range(nsite))
-        val = 1000.0
-        t1[diag,diag] = val
-        t2[diag,diag,diag,diag] = val
-
-        p_occ = np.dot(c_occ, c_occ.T)
-        p_vir = np.dot(c_vir, c_vir.T)
-
-        e, v = np.linalg.eigh(p_occ)
-        print(e)
-        e, v = np.linalg.eigh(p_vir)
-        print(e)
-
-        print(t2[0,0,0,0])
-        print(t2[0,0,0,1])
-
-        # Make "physical"
-        t1 = einsum('xy,xi,ya->ia', t1, p_occ, p_vir)
-        t2 = einsum('xyzw,xi,yj,za,wb->ijab', t2, p_occ, p_occ, p_vir, p_vir)
-
-        print(t2[0,0,0,0])
-        print(t2[0,0,0,1])
-        1/0
-
-
-        t1 = einsum('xy,xi,ya->ia', t1, c_occ, c_vir)
-        t2 = einsum('xyzw,xi,yj,za,wb->ijab', t2, c_occ, c_occ, c_vir, c_vir)
-
-        def t1loc(t1, site=0):
-            t1 = einsum('xz,xi,za->ia', t1, c_occ.T, c_vir.T)
-            return t1[site,site]
-
-        def t2loc(t2, site=0):
-            t2 = einsum('xyzw,xi,yj,za,wb->ijab', t2, c_occ.T, c_occ.T, c_vir.T, c_vir.T)
-            return t2
-            #return t2[site,site,site,site+1]
-
-        t2l = t2loc(t2)
-        print(t2l[0,0,0,0])
-        print(t2l[0,0,0,1])
-        1/0
-
-        print(t2loc(t2, 0))
-        print(t2loc(t2, 1))
-        1/0
-
-        for x in coupled_fragments:
-            p_occ = np.linalg.multi_dot((x.c_active_occ.T, ovlp, c_occ))
-            #p = np.dot(p_occ.T, p_occ)
-            dt = np.einsum('xi,yj,ijab->xyab', p_occ, p_occ, t2)
-            px = x.get_fragment_projector(x.c_active_occ)    # this is C_occ^T . S . C_frag . C_frag^T . S . C_occ
-            #dt = np.einsum('xi,yj,ijab->xyab', px, px, dt)
-            dt = np.einsum('xi,ijab->xjab', px, dt)
-            dt = -np.einsum('xi,yj,ijab->xyab', p_occ.T, p_occ.T, dt)
-            dt2 += dt
-            print(t2loc(dt2, 0))
-            print(t2loc(dt2, 1))
-
-        1/0
-
-        # Loop over all *other* fragments/cluster X
-        for x in coupled_fragments:
-            assert (x is not solver.fragment)
-
-            # Rotation & projections from cluster X active space to current fragment active space
-            p_occ = np.linalg.multi_dot((x.c_active_occ.T, ovlp, c_occ))
-            p_vir = np.linalg.multi_dot((x.c_active_vir.T, ovlp, c_vir))
-            px = x.get_fragment_projector(x.c_active_occ)    # this is C_occ^T . S . C_frag . C_frag^T . S . C_occ
-            assert np.allclose(px, px.T)
-            #assert np.allclose(pxv, pxv.T)
-            if x.results.t1 is None and x.results.c1 is not None:
-                solver.log.debugv("Converting C-amplitudes of %s to T-amplitudes", x)
-                tx1, tx2 = x.results.convert_amp_c_to_t()
-            else:
-                tx1, tx2 = x.results.t1, x.results.t2
-            tx1 = tx1.copy()
-            tx2 = tx2.copy()
-            tx1[:] = 0
-            tx2[:] = 0
-
-            # Project CC T amplitudes to cluster space of fragment X
-            if correct_t1:
-                tx1_cc = transform_amplitude(t1, p_occ.T, p_vir.T)
-                dtx1 = (tx1 - tx1_cc)
-                dtx1 = np.dot(px, dtx1)
-                dtx1 = transform_amplitude(dtx1, p_occ, p_vir)   # Transform back
-                assert dtx1.shape == dt1.shape
-                dt1 += dtx1
-            else:
-                dtx1 = 0
-            if correct_t2:
-                tx2_cc = transform_amplitude(t2, p_occ.T, p_vir.T)   # ijab,ix,jy,ap,bq->xypq
-                dtx2 = (tx2 - tx2_cc)
-                if mode == 1:
-                    dtx2 = einsum('xi,yj,ijab->xyab', px, px, dtx2)
-                elif mode == 2:
-                    env = solver.fragment.get_fragment_projector(x.c_active_occ, inverse=True)
-                    dtx2 = einsum('xi,yj,ijab->xyab', px, env, dtx2)
-                elif mode == 3:
-                    dtx2 = einsum('xi,ijab->xjab', px, dtx2)
-                dtx2 = transform_amplitude(dtx2, p_occ, p_vir)   # Transform back
-                assert dtx2.shape == dt2.shape
-                dt2 += dtx2
-            else:
-                dtx2 = 0
-            solver.log.debugv("Tailoring %12s <- %12s: |dT1|= %.2e  |dT2|= %.2e", solver.fragment, x, np.linalg.norm(dtx1), np.linalg.norm(dtx2))
-            print(t2loc(dt2, 0))
-            print(t2loc(dt2, 1))
-
-
-        # Store these norms in cc, to log their final value:
-        cc._norm_dt1 = np.linalg.norm(dt1) if correct_t1 else 0.0
-        cc._norm_dt2 = np.linalg.norm(dt2) if correct_t2 else 0.0
-        # Add correction:
-        if correct_t1:
-            t1 = (t1 + dt1)
-        if correct_t2:
-            if symmetrize_t2:
-                solver.log.debugv("T2 symmetry error: %e", np.linalg.norm(dt2 - dt2.transpose(1,0,3,2))/2)
-                dt2 = (dt2 + dt2.transpose(1,0,3,2))/2
-            t2 = (t2 + dt2)
-
-        print(np.linalg.norm(t1))
-        print(np.linalg.norm(t2))
-        1/0
-
-        return t1, t2
-
-    return tailor_func_old
+    return tailor_func

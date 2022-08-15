@@ -4,6 +4,7 @@ import scipy
 import scipy.linalg
 from vayesta.rpa import ssRIRPA
 from vayesta.core.util import dot, einsum
+from vayesta.mpi import mpi
 
 
 def build_screened_eris(emb, fragments=None, cderi_ov=None, calc_delta_e=True, npoints=48, log=None):
@@ -42,7 +43,8 @@ def build_screened_eris(emb, fragments=None, cderi_ov=None, calc_delta_e=True, n
 
     # --- Setup
     if fragments is None:
-        fragments = emb.get_fragments(sym_parent=None)
+        fragments = emb.get_fragments(active=True, sym_parent=None, mpi_rank=mpi.rank)
+    fragments = [f for f in fragments if f.opts.screening == 'rpa']
     if emb.spinsym != 'unrestricted':
         raise NotImplementedError("Screened interactions require a spin-unrestricted formalism.")
     if emb.df is None:
