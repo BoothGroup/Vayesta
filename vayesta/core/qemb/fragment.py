@@ -141,9 +141,9 @@ class Fragment:
         self.base = base
 
         # Options
-        self.opts = self.Options()                  # Default options
-        self.opts.update(**self.base.opts.asdict()) # Update with embedding class options
-        self.opts.replace(**kwargs)                 # Replace with keyword arguments
+        self.opts = self.Options()                                  # Default options
+        self.opts.update(**self.base.opts.asdict(deepcopy=True))    # Update with embedding class options
+        self.opts.replace(**kwargs)                                 # Replace with keyword arguments
 
         solver = solver or self.base.solver
         if solver not in self.base.valid_solvers:
