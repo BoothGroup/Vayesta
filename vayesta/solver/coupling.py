@@ -1,15 +1,37 @@
 import numpy as np
 from vayesta.core.util import *
+from vayesta.core import spinalg
 from vayesta.mpi import mpi, RMA_Dict
 
 
-def transform_amplitude(t, u_occ, u_vir):
-    """(Old basis|new basis)"""
-    if np.ndim(t) == 2:
-        return einsum("ia,ix,ay->xy", t, u_occ, u_vir)
-    if np.ndim(t) == 4:
-        return einsum("ijab,ix,jy,az,bw->xyzw", t, u_occ, u_occ, u_vir, u_vir)
-    raise NotImplementedError('Transformation of amplitudes with ndim=%d' % np.ndim(t))
+def transform_amplitude(t, u_occ, u_vir, u_occ2=None, u_vir2=None, spinsym='restricted', inverse=False):
+    """(Old basis|New basis)"""
+    if u_occ2 is None:
+        u_occ2 = u_occ
+    if u_vir2 is None:
+        u_vir2 = u_vir
+    if spinsym == 'restricted':
+        if np.ndim(t) == 2:
+            if inverse:
+                return einsum('ia,xi,ya->xy', t, u_occ, u_vir)
+            else:
+                return einsum('ia,xi,ya->xy', t, u_occ, u_vir)
+        if np.ndim(t) == 4:
+            if inverse:
+                return einsum('ijab,xi,yj,za,wb->xyzw', t, u_occ, u_occ2, u_vir, u_vir2)
+            else:
+                return einsum('ijab,ix,jy,az,bw->xyzw', t, u_occ, u_occ2, u_vir, u_vir2)
+    if spinsym == 'unrestricted':
+        if np.ndim(t[0]) == 2:
+            ta = transform_amplitude(t[0], u_occ[0], u_vir[0], inverse=inverse)
+            tb = transform_amplitude(t[1], u_occ[1], u_vir[1], inverse=inverse)
+            return (ta, tb)
+        if np.ndim(t[0]) == 4:
+            taa = transform_amplitude(t[0], u_occ[0], u_vir[0], inverse=inverse)
+            tab = transform_amplitude(t[1], u_occ[0], u_vir[0], u_occ[1], u_vir[1], inverse=inverse)
+            tbb = transform_amplitude(t[2], u_occ[1], u_vir[1], inverse=inverse)
+            return (taa, tab, tbb)
+    raise NotImplementedError("Transformation of %s amplitudes with ndim=%d" % (spinsym, np.ndim(t[0])+1))
 
 
 def couple_ccsd_iterations(solver, fragments):
@@ -69,7 +91,7 @@ def couple_ccsd_iterations(solver, fragments):
     return tailorfunc
 
 
-def make_cross_fragment_tcc_function(solver, mode, coupled_fragments=None, correct_t1=True, correct_t2=True, symmetrize_t2=True):
+def tailor_with_fragments(solver, fragments, project=False, tailor_t1=True, tailor_t2=True, ovlp_tol=1e-6):
     """Tailor current CCSD calculation with amplitudes of other fragments.
 
     This assumes orthogonal fragment spaces.
@@ -95,53 +117,46 @@ def make_cross_fragment_tcc_function(solver, mode, coupled_fragments=None, corre
     tailor_func : function(cc, t1, t2) -> t1, t2
         Tailoring function for CCSD.
     """
-    if mode not in (1, 2, 3):
-        raise ValueError()
-    solver.log.debugv("TCC mode= %d", mode)
-    cluster = solver.cluster
-    ovlp = solver.base.get_ovlp()     # AO overlap matrix
-    c_occ = cluster.c_active_occ       # Occupied active orbitals of current cluster
-    c_vir = cluster.c_active_vir       # Virtual  active orbitals of current cluster
+    fx = solver.fragment
+    cx = solver.cluster
+    ovlp = solver.base.get_ovlp()   # AO overlap matrix
+    c_occ = cluster.c_active_occ    # Occupied active orbitals of current cluster
+    c_vir = cluster.c_active_vir    # Virtual  active orbitals of current cluster
+    cs_occ = spinalg.dot(spinalg.tranpose(c_occ), ovlp)
+    cs_vir = spinalg.dot(spinalg.tranpose(c_vir), ovlp)
 
-    if coupled_fragments is None:
-        coupled_fragments = solver.fragment.opts.coupled_fragments
-
-    #mode = 1
-
-    def tailor_func_old(cc, t1, t2):
+    def _tailor_func(kwargs):
         """Add external correction to T1 and T2 amplitudes."""
+        t1, t2 = kwargs['t1new'], kwargs['t2new']
         # Add the correction to dt1 and dt2:
-        if correct_t1: dt1 = np.zeros_like(t1)
-        if correct_t2: dt2 = np.zeros_like(t2)
-
-        ##t1[:] = 0
-        ##t2[:] = 0
-
-        ##mo_coeff = np.hstack((c_occ, c_vir))
-        ##nsite = mo_coeff.shape[0]
-        ##t1 = np.zeros((nsite, nsite))
-        ##t2 = np.zeros((nsite, nsite, nsite, nsite))
-        ##diag = list(range(nsite))
-        ##val = 1000.0
-        ##t1[diag,diag] = val
-        ##t2[diag,diag,diag,diag] = val
-        ##t1 = einsum('xy,xi,ya->ia', t1, c_occ, c_vir)
-        ##t2 = einsum('xyzw,xi,yj,za,wb->ijab', t2, c_occ, c_occ, c_vir, c_vir)
-
-        ##def t2loc(t2, site=0):
-        ##    t2 = einsum('xyzw,xi,yj,za,wb->ijab', t2, c_occ.T, c_occ.T, c_vir.T, c_vir.T)
-        ##    return t2[site,site,site,site]
-
-        ##print(t2loc(t2, 0))
-        ##print(t2loc(t2, 1))
+        if tailor_t1: dt1 = np.zeros_like(t1)
+        if tailor_t2: dt2 = np.zeros_like(t2)
 
         # Loop over all *other* fragments/cluster X
-        for x in coupled_fragments:
-            assert (x is not solver.fragment)
+        for fy in fragments:
+            assert (fy is not solver.fragment)
 
             # Rotation & projections from cluster X active space to current fragment active space
-            p_occ = np.linalg.multi_dot((x.c_active_occ.T, ovlp, c_occ))
-            p_vir = np.linalg.multi_dot((x.c_active_vir.T, ovlp, c_vir))
+            rxy_occ = spinalg.dot(cx_occ, fy.c_active_occ)
+            rxy_vir = spinalg.dot(cx_vir, fy.c_active_vir)
+            # Skip fragment if there is no overlap
+            if min(abs(rxy_occ).max(), abs(rxy_vir).max()) < ovlp_tol:
+                continue
+
+            wfy = fy.results.wf.as_ccsd()
+            if tailor_t1:
+                #t1y = transform_amplitude(wfy.t1, rxy_occ, rxy_vir, spinsym=solver.spinsym, inverse=True)
+                t1x = transform_amplitude(t1, rxy_occ, rxy_vir, spinsym=solver.spinsym)
+                dt1 = (wfy.t1 - t1x)
+            if tailor_t2:
+                t2x = transform_amplitude(t2, rxy_occ, rxy_vir, spinsym=solver.spinsym)
+                dt2 = (wfy.t2 - t2x)
+
+
+
+
+
+
             px = x.get_fragment_projector(c_occ)    # this is C_occ^T . S . C_frag . C_frag^T . S . C_occ
             assert np.allclose(px, px.T)
             #pxv = x.get_fragment_projector(c_vir)   # this is C_occ^T . S . C_frag . C_frag^T . S . C_occ
