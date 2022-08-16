@@ -37,8 +37,11 @@ class Options(Embedding.Options):
     project_eris: bool = False          # Project ERIs from a pervious larger cluster (corresponding to larger eta), can result in a loss of accuracy especially for large basis sets!
     project_init_guess: bool = True     # Project converted T1,T2 amplitudes from a previous larger cluster
     energy_functional: str = 'projected'
+    # Calculation modes
+    calc_e_wf_corr: bool = True
+    calc_e_dm_corr: bool = False
     # --- Solver settings
-    t_as_lambda: bool = False           # If True, use T-amplitudes inplace of Lambda-amplitudes
+    t_as_lambda: bool = None           # If True, use T-amplitudes inplace of Lambda-amplitudes
     # Counterpoise correction of BSSE
     bsse_correction: bool = True
     bsse_rmax: float = 5.0              # In Angstrom
@@ -198,15 +201,17 @@ class EWF(Embedding):
     get_global_t2 = get_global_t2_rhf
 
     # Lambda-amplitudes
-    def get_global_l1(self, *args, **kwargs):
-        return self.get_global_t1(*args, get_lambda=True, **kwargs)
-    def get_global_l2(self, *args, **kwargs):
-        return self.get_global_t2(*args, get_lambda=True, **kwargs)
+    def get_global_l1(self, *args, t_as_lambda=None, **kwargs):
+        get_lambda = True if not t_as_lambda else False
+        return self.get_global_t1(*args, get_lambda=get_lambda, **kwargs)
+    def get_global_l2(self, *args, t_as_lambda=None, **kwargs):
+        get_lambda = True if not t_as_lambda else False
+        return self.get_global_t2(*args, get_lambda=get_lambda, **kwargs)
 
     def t1_diagnostic(self, warntol=0.02):
         # Per cluster
         for fx in self.get_fragments(active=True, mpi_rank=mpi.rank):
-            wfx = fx.results.wf.to_ccsd()
+            wfx = fx.results.wf.as_ccsd()
             t1 = wfx.t1
             nelec = 2*t1.shape[0]
             t1diag = np.linalg.norm(t1) / np.sqrt(nelec)
@@ -318,28 +323,26 @@ class EWF(Embedding):
         e_corr = 0.0
         # Only loop over fragments of own MPI rank
         for x in self.get_fragments(active=True, sym_parent=None, mpi_rank=mpi.rank):
-            try:
+            if x.results.e_corr is not None:
+                ex = x.results.e_corr
+            else:
                 wf = x.results.wf.as_cisd(c0=1.0)
-            except AttributeError:
-                wf = x.results.wf.to_cisd(c0=1.0)
-            px = x.get_overlap('frag|cluster-occ')
-            wf = wf.project(px)
-            es, ed, ex = x.get_fragment_energy(wf.c1, wf.c2)
-            self.log.debug("%20s:  E(S)= %s  E(D)= %s  E(tot)= %s", x, energy_string(es), energy_string(ed), energy_string(ex))
+                px = x.get_overlap('frag|cluster-occ')
+                wf = wf.project(px)
+                es, ed, ex = x.get_fragment_energy(wf.c1, wf.c2)
+                self.log.debug("%20s:  E(S)= %s  E(D)= %s  E(tot)= %s", x, energy_string(es), energy_string(ed), energy_string(ex))
             e_corr += x.symmetry_factor * ex
         return e_corr/self.ncells
 
-    def get_dm_corr_energy(self, dm1='global-wf', t_as_lambda=None, with_exxdiv=None, sym_t2=True):
+    def get_dm_corr_energy(self, dm1='global-wf', t_as_lambda=None, with_exxdiv=None):
         self.require_complete_fragmentation("Energy will not be accurate.", incl_virtual=False)
         e1 = self.get_dm_corr_energy_e1(dm1=dm1, t_as_lambda=None, with_exxdiv=None)
-        e2 = self.get_dm_corr_energy_e2(t_as_lambda=None, sym_t2=sym_t2)
+        e2 = self.get_dm_corr_energy_e2(t_as_lambda=t_as_lambda)
         e_corr = (e1 + e2)
         self.log.debug("Ecorr(1)= %s  Ecorr(2)= %s  Ecorr= %s", *map(energy_string, (e1, e2, e_corr)))
         return e_corr
 
     def get_dm_corr_energy_e1(self, dm1=None, t_as_lambda=None, with_exxdiv=None):
-        if t_as_lambda is None:
-            t_as_lambda = self.opts.t_as_lambda
         # Correlation energy due to changes in 1-DM and non-cumulant 2-DM:
         if dm1 is None or dm1 == 'global-wf':
             dm1 = self._make_rdm1_ccsd_global_wf(with_mf=False, t_as_lambda=t_as_lambda, ao_basis=True)
@@ -363,14 +366,16 @@ class EWF(Embedding):
         return e1/self.ncells
 
     @mpi.with_allreduce()
-    def get_dm_corr_energy_e2(self, t_as_lambda=None, sym_t2=True):
+    def get_dm_corr_energy_e2(self, t_as_lambda=None):
         """Correlation energy due to cumulant"""
         if t_as_lambda is None:
             t_as_lambda = self.opts.t_as_lambda
         e2 = 0.0
         for x in self.get_fragments(active=True, sym_parent=None, mpi_rank=mpi.rank):
-            wx = x.symmetry_factor * x.sym_factor
-            e2 += wx * x.make_fragment_dm2cumulant_energy(t_as_lambda=t_as_lambda, sym_t2=sym_t2)
+            ex = x.results.e_corr_dm2cumulant
+            if ex is None or (t_as_lambda is not None and (t_as_lambda != x.opts.t_as_lambda)):
+                ex = x.make_fragment_dm2cumulant_energy(t_as_lambda=t_as_lambda)
+            e2 += x.symmetry_factor * x.sym_factor * ex
         return e2/self.ncells
 
     def get_ccsd_corr_energy(self, full_wf=False):
@@ -444,8 +449,8 @@ class EWF(Embedding):
         e_corr = self.get_proj_corr_energy()
         return self.e_mf + e_corr
 
-    def get_dm_energy(self, dm1='global-wf', t_as_lambda=None, with_exxdiv=None, sym_t2=True):
-        e_corr = self.get_dm_corr_energy(dm1=dm1, t_as_lambda=t_as_lambda, with_exxdiv=with_exxdiv, sym_t2=sym_t2)
+    def get_dm_energy(self, dm1='global-wf', t_as_lambda=None, with_exxdiv=None):
+        e_corr = self.get_dm_corr_energy(dm1=dm1, t_as_lambda=t_as_lambda, with_exxdiv=with_exxdiv)
         return self.e_mf + e_corr
 
     def get_ccsd_energy(self, full_wf=False):

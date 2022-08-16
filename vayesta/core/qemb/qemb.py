@@ -656,6 +656,7 @@ class Embedding:
             cderi[blk] = einsum('Lab,ai,bj->Lij', lab, mo_coeff[0], mo_coeff[1])
         return cderi, None
 
+    @log_method()
     def get_eris_array(self, mo_coeff, compact=False):
         """Get electron-repulsion integrals in MO basis as a NumPy array.
 
@@ -697,6 +698,7 @@ class Embedding:
             eris = eris.reshape(shape)
         return eris
 
+    @log_method()
     def get_eris_object(self, postscf, fock=None):
         """Get ERIs for post-SCF methods.
 
