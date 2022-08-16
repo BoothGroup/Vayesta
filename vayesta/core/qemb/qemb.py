@@ -1318,7 +1318,7 @@ class Embedding:
         for s in range(nspin):
             nmo_s = tspin(self.nmo, s)
             nelec_s = tspin(nelec, s)
-            c_frags = np.hstack([tspin(x.c_frag, s) for x in self.fragments])
+            c_frags = np.hstack([tspin(x.c_frag, s) for x in self.get_fragments(active=True)])
             nfrags = c_frags.shape[-1]
             csc = dot(c_frags.T, ovlp, c_frags)
             if not np.allclose(csc, np.eye(nfrags), rtol=0, atol=tol):

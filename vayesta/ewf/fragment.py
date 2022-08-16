@@ -95,7 +95,8 @@ class Fragment(BaseFragment):
 
     def reset(self, *args, **kwargs):
         super().reset(*args, **kwargs)
-        self._tailor_wfs = []
+        self._tailor_fragments = []
+        self._tailor_project = True
 
     def set_cas(self, iaos=None, c_occ=None, c_vir=None, minao='auto', dmet_threshold=None):
         """Set complete active space for tailored CCSD"""
@@ -121,16 +122,11 @@ class Fragment(BaseFragment):
         self.opts.c_cas_vir = c_cas_vir
         return c_cas_occ, c_cas_vir
 
-    def tailor_with(self, fragment, space='full'):
-        """
-        Parameters
-        ----------
-        space : ['fragment', 'full'], optional
-        """
+    def tailor_with_fragments(self, fragments, project=True):
         if self.solver != 'CCSD':
             raise NotImplementedError
-        wf = fragment.results.wf.as_ccsd()
-        self._tailor_wfs.append(wf)
+        self._tailor_fragments = fragments
+        self._tailor_project = project
 
     def get_init_guess(self, init_guess, solver, cluster):
         # FIXME
@@ -318,6 +314,8 @@ class Fragment(BaseFragment):
             solver_opts['tcc_fci_opts'] = self.opts.tcc_fci_opts
         elif solver.upper() == 'DUMP':
             solver_opts['filename'] = self.opts.solver_options['dumpfile']
+        if self._tailor_fragments:
+            solver_opts['tailoring'] = True
         return solver_opts
 
     # --- Expectation values

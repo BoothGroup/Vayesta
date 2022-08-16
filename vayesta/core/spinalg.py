@@ -63,3 +63,34 @@ def transpose(a, axes=None):
     if np.ndim(a[0]) == 1:
         return np.transpose(a, axes=axes)
     return (transpose(a[0], axes=axes), transpose(a[1], axes=axes))
+
+T = transpose
+
+def _guess_spinsym(a):
+    if isinstance(a, (tuple, list)):
+        return 'unrestricted'
+    return 'restricted'
+
+def _make_func(func, nargs=1):
+
+    def _func(a, *args, spinsym=None, **kwargs):
+        spinsym = spinsym or _guess_spinsym(a)
+        if spinsym == 'restricted':
+            return func(a, *args, **kwargs)
+        if nargs == 1:
+            return tuple(func(a[i], *args, **kwargs) for i in range(len(a)))
+        if nargs == 2:
+            assert len(args) >= 1
+            b, args = args[0], args[1:]
+            return tuple(func(a[i], b[i], *args, **kwargs) for i in range(len(a)))
+        if nargs == 3:
+            assert len(args) >= 2
+            b, c, args = args[0], args[1], args[2:]
+            return tuple(func(a[i], b[i], c[i], *args, **kwargs) for i in range(len(a)))
+        raise NotImplementedError
+    return _func
+
+
+zeros_like = _make_func(np.zeros_like)
+add = _make_func(np.add, nargs=2)
+subtract = _make_func(np.subtract, nargs=2)
