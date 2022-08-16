@@ -88,7 +88,7 @@ class EWF(Embedding):
         super()._reset(**kwargs)
         # TODO: Redo self-consistencies
         self.iteration = 0
-        self._make_rdm1_ccsd_global_wf.cache_clear()
+        self._make_rdm1_ccsd_global_wf_cached.cache_clear()
 
     # Default fragmentation
     def fragmentation(self, *args, **kwargs):
