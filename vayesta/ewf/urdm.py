@@ -189,7 +189,7 @@ def make_rdm1_ccsd_global_wf(emb, t_as_lambda=None, with_t1=True, svd_tol=1e-3, 
     Returns
     -------
     dm1 : (n, n) array
-        One-particle reduced density matrix in AO (if `ao_basis=True`) or MO basis (default).
+        One-particle reduced density matrix in MO basis.
     """
     if t_as_lambda is None:
         t_as_lambda = emb.opts.t_as_lambda
@@ -203,8 +203,8 @@ def make_rdm1_ccsd_global_wf(emb, t_as_lambda=None, with_t1=True, svd_tol=1e-3, 
         if not with_t1:
             t1 = l1 = (np.zeros_like(t1[0]), np.zeros_like(t1[1]))
         mockcc = _get_mockcc(emb.mo_coeff, emb.mf.max_memory)
-        #dm1 = pyscf.cc.uccsd_rdm.make_rdm1(mockcc, t1=t1, t2=t2, l1=l1, l2=l2, ao_repr=ao_basis, with_mf=with_mf)
-        dm1a, dm1b = uccsd_rdm.make_rdm1(mockcc, t1=t1, t2=t2, l1=l1, l2=l2, ao_repr=ao_basis, with_mf=with_mf)
+        #dm1 = pyscf.cc.uccsd_rdm.make_rdm1(mockcc, t1=t1, t2=t2, l1=l1, l2=l2, with_mf=False)
+        dm1a, dm1b = uccsd_rdm.make_rdm1(mockcc, t1=t1, t2=t2, l1=l1, l2=l2, with_mf=False)
         return dm1a, dm1b
 
     # === Fast algorithm via fragment-fragment loop

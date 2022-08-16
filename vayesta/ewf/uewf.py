@@ -73,7 +73,7 @@ class UEWF(REWF, UEmbedding):
 
     @log_method()
     def _make_rdm1_ccsd_global_wf(self, *args, ao_basis=False, with_mf=True, **kwargs):
-        dm1a, dm1b = self._make_rdm1_ccsd_global_wf_cached(self, *args, **kwargs)
+        dm1a, dm1b = self._make_rdm1_ccsd_global_wf_cached(*args, **kwargs)
         if with_mf:
             dm1a[np.diag_indices(self.nocc[0])] += 1
             dm1b[np.diag_indices(self.nocc[1])] += 1
