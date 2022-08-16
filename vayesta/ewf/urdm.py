@@ -172,16 +172,14 @@ def make_rdm1_ccsd(emb, ao_basis=False, t_as_lambda=None, symmetrize=True, with_
 
     return (dm1a, dm1b)
 
-def make_rdm1_ccsd_global_wf(emb, ao_basis=False, with_mf=True, t_as_lambda=None, with_t1=True,
-        svd_tol=1e-3, ovlp_tol=None, use_sym=True, late_t2_sym=True, mpi_target=None, slow=False):
+def make_rdm1_ccsd_global_wf(emb, t_as_lambda=None, with_t1=True, svd_tol=1e-3, ovlp_tol=None, use_sym=True,
+                             late_t2_sym=True, mpi_target=None, slow=False):
     """Make one-particle reduced density-matrix from partitioned fragment CCSD wave functions.
 
     NOT MPI READY
 
     Parameters
     ----------
-    ao_basis : bool, optional
-        Return the density-matrix in the AO basis. Default: False.
     t_as_lambda : bool, optional
         Use T-amplitudes instead of Lambda-amplitudes for CCSD density matrix. Default: False.
     slow : bool, optional
@@ -677,14 +675,6 @@ def make_rdm1_ccsd_global_wf(emb, ao_basis=False, with_mf=True, t_as_lambda=None
         dm1b[:noccb,noccb:] =  dvob.conj().T
         dm1b[noccb:,:noccb] = (dm1b[:noccb,noccb:].conj().T)
     dm1b = (dm1b + dm1b.T)/4
-
-    if with_mf:
-        dm1a[np.diag_indices(nocca)] += 1
-        dm1b[np.diag_indices(noccb)] += 1
-
-    if ao_basis:
-        dm1a = dot(emb.mo_coeff[0], dm1a, emb.mo_coeff[0].T)
-        dm1b = dot(emb.mo_coeff[1], dm1b, emb.mo_coeff[1].T)
 
     # --- Some information:
     emb.log.debug("Cluster-pairs: total= %d  kept= %d (%.1f%%)", total_xy, kept_xy, 100*kept_xy/total_xy)

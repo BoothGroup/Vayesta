@@ -159,8 +159,8 @@ def make_rdm1_ccsd_proj_lambda(emb, ao_basis=False, t_as_lambda=None, with_mf=Tr
         dm1 = dot(emb.mo_coeff, dm1, emb.mo_coeff.T)
     return dm1
 
-def make_rdm1_ccsd_global_wf(emb, ao_basis=False, with_mf=True, t_as_lambda=None, with_t1=True,
-        svd_tol=1e-3, ovlp_tol=None, use_sym=True, late_t2_sym=True, mpi_target=None, slow=False):
+def make_rdm1_ccsd_global_wf(emb, t_as_lambda=None, with_t1=True, svd_tol=1e-3, ovlp_tol=None, use_sym=True,
+                             late_t2_sym=True, mpi_target=None, slow=False):
     """Make one-particle reduced density-matrix from partitioned fragment CCSD wave functions.
 
     This replaces make_rdm1_ccsd_old.
@@ -169,10 +169,6 @@ def make_rdm1_ccsd_global_wf(emb, ao_basis=False, with_mf=True, t_as_lambda=None
 
     Parameters
     ----------
-    ao_basis : bool, optional
-        Return the density-matrix in the AO basis. Default: False.
-    with_mf : bool, optional
-        Add mean-field contribution to the density-matrix. Default: True.
     t_as_lambda : bool, optional
         Use T-amplitudes inplace of Lambda-amplitudes for CCSD density matrix.
         If `None`, `emb.opts.t_as_lambda` will be used. Default: None.
@@ -446,10 +442,6 @@ def make_rdm1_ccsd_global_wf(emb, ao_basis=False, with_mf=True, t_as_lambda=None
     if with_t1:
         dm1[occ,vir] = dov
         dm1[vir,occ] = dov.T
-    if with_mf:
-        dm1[np.diag_indices(emb.nocc)] += 2
-    if ao_basis:
-        dm1 = dot(emb.mo_coeff, dm1, emb.mo_coeff.T)
 
     # --- Some information:
     emb.log.debug("Cluster-pairs: total= %d  kept= %d (%.1f%%)", total_xy, kept_xy, 100*kept_xy/total_xy)

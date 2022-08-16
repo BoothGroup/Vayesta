@@ -72,8 +72,18 @@ class UEWF(REWF, UEmbedding):
         return make_rdm1_ccsd(self, *args, mp2=False, **kwargs)
 
     @log_method()
+    def _make_rdm1_ccsd_global_wf(self, *args, ao_basis=False, with_mf=True, **kwargs):
+        dm1a, dm1b = self._make_rdm1_ccsd_global_wf_cached(self, *args, **kwargs)
+        if with_mf:
+            dm1a[np.diag_indices(self.nocc[0])] += 1
+            dm1b[np.diag_indices(self.nocc[1])] += 1
+        if ao_basis:
+            dm1a = dot(self.mo_coeff[0], dm1a, self.mo_coeff[0].T)
+            dm1b = dot(self.mo_coeff[1], dm1b, self.mo_coeff[1].T)
+        return (dm1a, dm1b)
+
     @cache(copy=True)
-    def _make_rdm1_ccsd_global_wf(self, *args, **kwargs):
+    def _make_rdm1_ccsd_global_wf_cached(self, *args, **kwargs):
         return make_rdm1_ccsd_global_wf(self, *args, **kwargs)
 
     @log_method()

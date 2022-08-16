@@ -277,9 +277,17 @@ class EWF(Embedding):
         return make_rdm1_ccsd(self, *args, mp2=False, **kwargs)
 
     @log_method()
-    @cache(copy=True)
-    def _make_rdm1_ccsd_global_wf(self, *args, **kwargs):
+    def _make_rdm1_ccsd_global_wf(self, *args, ao_basis=False, with_mf=True, **kwargs):
         self.require_complete_fragmentation("Density-matrices will not be accurate.", incl_virtual=False)
+        dm1 = self._make_rdm1_ccsd_global_wf_cached(*args, **kwargs)
+        if with_mf:
+            dm1[np.diag_indices(self.nocc)] += 2
+        if ao_basis:
+            dm1 = dot(self.mo_coeff, dm1, self.mo_coeff.T)
+        return dm1
+
+    @cache(copy=True)
+    def _make_rdm1_ccsd_global_wf_cached(self, *args, **kwargs):
         return make_rdm1_ccsd_global_wf(self, *args, **kwargs)
 
     def _make_rdm1_mp2_global_wf(self, *args, **kwargs):
