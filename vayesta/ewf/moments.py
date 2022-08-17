@@ -88,5 +88,54 @@ def make_ip_moms(cc, t1, t2, l1, l2, niter=0):
                     e_vec = -matvec([e_vec])[0]  # <--- minus sign only needed for IP
                     ei[q], eija[q] = eom.vector_to_amplitudes(e_vec)
 
+        return t
+
+def make_ea_moms(cc, t1, t2, l1, l2, niter=0):
+        nocc, nvir = t1.shape
+        nmo = nocc + nvir
+
+        eom = pyscf.cc.eom_rccsd.EOMEA(cc)
+        matvec, diag = eom.gen_matvec()
+
+        ba = np.zeros((nmo, nvir))
+        biab = np.zeros((nmo, nocc, nvir, nvir))
+
+        ea = np.zeros((nmo, nvir))
+        eiab = np.zeros((nmo, nocc, nvir, nvir))
+
+        for p in range(nmo):
+            # Build bra vector for orbital p
+            b = pyscf.cc.gfccsd.build_bra_part(cc, eom, t1, t2, l1, l2, p)
+            # Unpack bra vector into 1h and 2h1p amplitudes
+            b1, b2 = eom.vector_to_amplitudes(b)
+            #print('nocc: %d     nvir: %d    nmo: %d'%(nocc,nvir,nmo))
+            #print(bi.shape)
+            ba[p] = b1
+            biab[p] = b2
+
+            # Build ket vector for orbital p
+            e = pyscf.cc.gfccsd.build_ket_part(cc, eom, t1, t2, p)
+            # Unpack ket vector into 1h and 2h1p amplitudes
+            e1, e2 = eom.vector_to_amplitudes(e)
+            ea[p] = e1
+            eiab[p] = e2
+
+            nmom = 2 * niter + 2
+            t = np.zeros((nmom, nmo, nmo))
+
+        # Loop over q orbitals
+        for q in range(nmo):
+            # Loop over moments
+            for n in range(nmom):
+                # Loop over p orbitals
+                for p in range(nmo):
+                    # Contract 1h and 2h1p parts of b and e to moment
+                    t[n, p, q] -= np.einsum("i,i->", ba[p], ea[q])
+                    t[n, p, q] -= np.einsum("ija,ija->", biab[p], eiab[q])
+                if (n+1) != nmom:
+                    # Scale e = H e for the next moment
+                    e_vec = eom.amplitudes_to_vector(ea[q], eiab[q])
+                    e_vec = matvec([e_vec])[0]  # <--- minus sign only needed for IP
+                    ea[q], eiab[q] = eom.vector_to_amplitudes(e_vec)
 
         return t
