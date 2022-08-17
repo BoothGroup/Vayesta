@@ -13,6 +13,7 @@ from vayesta.core.util import *
 from vayesta.core import spinalg
 from vayesta.core.ao2mo import postscf_kao2gmo_uhf
 from vayesta.mpi import mpi
+from vayesta.core.qemb.corrfunc import get_corrfunc_unrestricted
 
 from .rdm import make_rdm1_demo_uhf
 from .rdm import make_rdm2_demo_uhf
@@ -215,7 +216,6 @@ class UEmbedding(Embedding):
             mo = (mo_coeff[s] if mo_coeff is not None else None)
             lo = (local_orbitals if isinstance(local_orbitals, str) else local_orbitals[s])
             pop.append(super().pop_analysis(dm1[s], mo_coeff=mo, local_orbitals=lo, write=False, **kwargs))
-        pop = tuple(pop)
         if write and (mpi.rank == mpi_rank):
             self.write_population(pop, **kwargs)
         return pop
@@ -229,8 +229,4 @@ class UEmbedding(Embedding):
         charges += self.mol.atom_charges()
         return charges, spins
 
-    def get_corrfunc_mf(self, *args, **kwargs):
-        raise NotImplementedError
-
-    def get_corrfunc(self, *args, **kwargs):
-        raise NotImplementedError
+    get_corrfunc = log_method()(get_corrfunc_unrestricted)

@@ -18,9 +18,15 @@ def parse_cmd_args():
     parser.add_argument('--errlog-level', type=int, default=DEFAULT_ERRLVL,
                         help="logging level for the error log file [default: %d]" % DEFAULT_ERRLVL)
     parser.add_argument('-q', '--quiet', action='store_true', help='Do not print to terminal')
-    parser.add_argument('-v',   action='store_const', dest='log_level', const=15, help="Enables verbose logging output.")                            # Enables infov
-    parser.add_argument('-vv',  action='store_const', dest='log_level', const=10, help="Enables very verbose logging output.")                            # Enables debug, timing
-    parser.add_argument('-vvv', action='store_const', dest='log_level', const=1, help="Enables complete logging output.")                             # Enables debugv, timingv, trace
+    # Enables infov:
+    parser.add_argument('-v',   action='store_const', dest='log_level', const=15,
+                        help="Enables verbose logging output.")
+    # Enables debug, timing
+    parser.add_argument('-vv',  action='store_const', dest='log_level', const=10,
+                        help="Enables very verbose logging output.")
+    # Enables debugv, timingv, trace
+    parser.add_argument('-vvv', action='store_const', dest='log_level', const=1,
+                        help="Enables complete logging output.")
     # MPI
     parser.add_argument('--mpi', action='store_true', dest='mpi', default=None, help='Import mpi4py [default: attempt import]')
     parser.add_argument('--no-mpi', action='store_false', dest='mpi', default=None, help='Do not import mpi4py')

@@ -1,12 +1,10 @@
 import logging
-
 import numpy as np
-
 import pyscf
 import pyscf.lib
 import pyscf.ao2mo
-
 from vayesta.core.util import *
+
 
 log = logging.getLogger(__name__)
 
@@ -53,12 +51,15 @@ def get_kconserv(cell, kpts, nk=3):
 
 def get_full_array(eris, mo_coeff=None, out=None):
     """Get dense ERI array from CCSD _ChemistEris object."""
+    if hasattr(eris, 'OOOO'):
+        return get_full_array_uhf(eris, mo_coeff=mo_coeff, out=out)
+    return get_full_array_rhf(eris, mo_coeff=mo_coeff, out=out)
+
+
+def get_full_array_rhf(eris, mo_coeff=None, out=None):
+    """Get dense ERI array from CCSD _ChemistEris object."""
     if mo_coeff is not None and not np.allclose(mo_coeff, eris.mo_coeff):
         raise NotImplementedError
-    # TODO: Implement for UHF
-    if hasattr(eris, 'OOOO'):
-        raise NotImplementedError
-
     nocc, nvir = eris.ovoo.shape[:2]
     nmo = nocc + nvir
     o, v = np.s_[:nocc], np.s_[nocc:]
@@ -88,14 +89,80 @@ def get_full_array(eris, mo_coeff=None, out=None):
     out[v,v,v,o] = conj(out[v,v,o,v])
     # 0-occ
     out[v,v,v,v] = get_vvvv(eris)
-
     return out
 
-def get_ovvv(eris):
-    nmo = eris.fock.shape[-1]
-    nocc = eris.nocc
+
+def getif(obj, key, cond=lambda x: x is not None, default=None):
+    """Returns obj[key] if cond(obj) else default."""
+    if cond(obj):
+        return obj[key]
+    return default
+
+def get_full_array_uhf(eris, mo_coeff=None, out=None):
+    """Get dense ERI array from CCSD _ChemistEris object."""
+    if mo_coeff is not None and not (np.allclose(mo_coeff[0], eris.mo_coeff[0])
+            and np.allclose(mo_coeff[1], eris.mo_coeff[1])):
+        raise NotImplementedError
+    nocca, noccb = eris.nocc
+    nmoa, nmob = eris.fock[0].shape[-1], eris.fock[1].shape[-1]
+    nvira, nvirb = nmoa - nocca, nmob - noccb
+
+    # Alpha-alpha
+    blocks_aa = ['oooo', 'ovoo', 'oovv', 'ovov', 'ovvo', 'ovvv', 'vvvv']
+    eris_aa = Object()
+    eris_aa.fock = eris.fock[0]
+    eris_aa.nocc = nocca
+    for block in blocks_aa:
+        setattr(eris_aa, block, getattr(eris, block))
+    eri_aa = get_full_array_rhf(eris_aa, mo_coeff=getif(mo_coeff, 0), out=getif(out, 0))
+    # Beta-beta
+    eris_bb = Object()
+    eris_bb.fock = eris.fock[1]
+    eris_bb.nocc = noccb
+    blocks_bb = [b.upper() for b in blocks_aa]
+    for i, block in enumerate(blocks_bb):
+        setattr(eris_bb, blocks_aa[i], getattr(eris, block))
+    eri_bb = get_full_array_rhf(eris_bb, mo_coeff=getif(mo_coeff, 1), out=getif(out, 2))
+    # Alpha-beta
+    eri_ab = np.zeros((nmoa,nmoa,nmob,nmob)) if out is None else out[1]
+    oa, ob = np.s_[:nocca], np.s_[:noccb]
+    va, vb = np.s_[nocca:], np.s_[noccb:]
+    swap = lambda x : x.transpose(2,3,0,1)  # Swap electrons
+    conj = lambda x : x.transpose(1,0,3,2)  # Real orbital symmetry
+    # 4-occ
+    eri_ab[oa,oa,ob,ob] = eris.ooOO[:]
+    # 3-occ
+    eri_ab[oa,va,ob,ob] = eris.ovOO[:]
+    eri_ab[va,oa,ob,ob] = conj(eri_ab[oa,va,ob,ob])
+    eri_ab[oa,oa,ob,vb] = swap(eris.OVoo[:])
+    eri_ab[oa,oa,vb,ob] = conj(eri_ab[oa,oa,ob,vb])
+    # 2-occ
+    eri_ab[oa,oa,vb,vb] = eris.ooVV[:]
+    eri_ab[va,va,ob,ob] = swap(eris.OOvv[:])
+    eri_ab[oa,va,vb,ob] = eris.ovVO[:]
+    eri_ab[va,oa,ob,vb] = conj(eri_ab[oa,va,vb,ob])
+    eri_ab[oa,va,ob,vb] = eris.ovOV[:]
+    eri_ab[va,oa,vb,ob] = conj(eri_ab[oa,va,ob,vb])
+    # 1-occ
+    eri_ab[oa,va,vb,vb] = get_ovVV(eris, block='ovVV')
+    eri_ab[va,oa,vb,vb] = conj(eri_ab[oa,va,vb,vb])
+    eri_ab[va,va,ob,vb] = swap(get_ovVV(eris, block='OVvv'))
+    eri_ab[va,va,vb,ob] = conj(eri_ab[va,va,ob,vb])
+    # 0-occ
+    eri_ab[va,va,vb,vb] = get_vvVV(eris)
+    return eri_aa, eri_ab, eri_bb
+
+
+def get_ovvv(eris, block='ovvv'):
+    if hasattr(eris,'OOOO'):
+        s = (0 if block == 'ovvv' else 1)
+        nmo = eris.fock[s].shape[-1]
+        nocc = eris.nocc[s]
+    else:
+        nmo = eris.fock.shape[-1]
+        nocc = eris.nocc
     nvir = nmo - nocc
-    govvv = eris.ovvv[:]
+    govvv = getattr(eris, block)[:]
     if govvv.ndim == 4:
         return govvv
     nvir_pair = nvir*(nvir+1)//2
@@ -103,16 +170,38 @@ def get_ovvv(eris):
     govvv = govvv.reshape(nocc,nvir,nvir,nvir)
     return govvv
 
-def get_vvvv(eris):
-    nmo = eris.fock.shape[-1]
-    nocc = eris.nocc
+def get_ovVV(eris, block='ovVV'):
+    sl, sr = (0, 1) if block == 'ovVV' else (1, 0)
+    nmoL = eris.fock[sl].shape[-1]
+    nmoR = eris.fock[sr].shape[-1]
+    noccL = eris.nocc[sl]
+    noccR = eris.nocc[sr]
+    nvirL = nmoL - noccL
+    nvirR = nmoR - noccR
+    govvv = getattr(eris, block)[:]
+    if govvv.ndim == 4:
+        return govvv
+    nvir_pair = nvirR*(nvirR+1)//2
+    govvv = pyscf.lib.unpack_tril(govvv.reshape(noccL*nvirL, nvir_pair))
+    govvv = govvv.reshape(noccL,nvirL,nvirR,nvirR)
+    return govvv
+
+def get_vvvv(eris, block='vvvv'):
+    if hasattr(eris, 'VVVV'):
+        s = (0 if block == 'vvvv' else 1)
+        nmo = eris.fock[s].shape[-1]
+        nocc = eris.nocc[s]
+    else:
+        nmo = eris.fock.shape[-1]
+        nocc = eris.nocc
     nvir = nmo - nocc
-    if getattr(eris, 'vvvv', None) is not None:
-        if eris.vvvv.ndim == 4:
-            return eris.vvvv[:]
+    if getattr(eris, block, None) is not None:
+        gvvvv = getattr(eris, block)[:]
+        if gvvvv.ndim == 4:
+            return gvvvv
         else:
-            return pyscf.ao2mo.restore(1, np.asarray(eris.vvvv[:]), nvir)
-    # Note that this will not work for 2D systems!:
+            return pyscf.ao2mo.restore(1, np.asarray(gvvvv[:]), nvir)
+    # Note that this will not work for 2D systems:
     if eris.vvL.ndim == 2:
         naux = eris.vvL.shape[-1]
         vvl = pyscf.lib.unpack_tril(eris.vvL[:], axis=0).reshape(nvir,nvir,naux)
@@ -120,6 +209,35 @@ def get_vvvv(eris):
         vvl = eris.vvL[:]
     gvvvv = einsum('ijQ,klQ->ijkl', vvl, vvl)
     return gvvvv
+
+def get_vvVV(eris, block='vvVV'):
+    sl, sr = ((0, 1) if block == 'vvVV' else (1, 0))
+    nmoL = eris.fock[sl].shape[-1]
+    nmoR = eris.fock[sr].shape[-1]
+    noccL = eris.nocc[sl]
+    noccR = eris.nocc[sr]
+    nvirL = nmoL - noccL
+    nvirR = nmoR - noccR
+    gvvvv = getattr(eris, block)[:]
+    if getattr(eris, block, None) is not None:
+        gvvvv = getattr(eris, block)[:]
+        if gvvvv.ndim == 4:
+            return gvvvv[:]
+        else:
+            xVV = pyscf.lib.unpack_tril(gvvvv[:], axis=0).reshape(nvirL**2, -1)
+            return pyscf.lib.unpack_tril(xVV[:], axis=1).reshape(nvirL,nvirL,nvirR,nvirR)
+    raise NotImplementedError
+
+def get_block(eris, block):
+    if block in ['ovvv', 'OVVV']:
+        return get_ovvv(eris, block=block)
+    if block in ['ovVV', 'OVvv']:
+        return get_ovVV(eris, block=block)
+    if block in ['vvvv', 'VVVV']:
+        return get_vvvv(eris, block=block)
+    if block in ['vvVV', 'VVvv']:
+        return get_vvVV(eris, block=block)
+    return getattr(eris, block)
 
 def pack_ovvv(ovvv):
     nocc, nvir = ovvv.shape[:2]
@@ -130,12 +248,117 @@ def pack_vvvv(vvvv):
     nvir = vvvv.shape[0]
     return pyscf.ao2mo.restore(4, vvvv, nvir)
 
-def get_block(eris, block):
-    if block == 'ovvv':
-        return get_ovvv(eris)
-    if block == 'vvvv':
-        return get_vvvv(eris)
-    return getattr(eris, block)
+def contract_dm2_eris(dm2, eris):
+    """Contracts _ChemistsERIs with the two-body density matrix.
+
+    Parameters
+    ----------
+    dm2 : ndarry or (ndarray, ndarray, ndarray)
+        Two-body density matrix or tuple of alpha-alpha, alpha-beta, beta-beta spin blocks for UHF.
+    eris : _ChemistERIs
+        PySCF ERIs object.
+
+    Returns
+    -------
+    e2 : float
+        Two-body energy.
+    """
+    ndim = np.ndim(dm2[0]) + 1
+    if ndim == 4:
+        return contract_dm2_eris_rhf(dm2, eris)
+    if ndim == 5:
+        return contract_dm2_eris_rhf(dm2, eris)
+    raise ValueError("N(dim) of DM2: %d" % ndim)
+
+
+def _contract_4d(a, b, transpose=None):
+    if transpose is not None:
+        b = b[:].transpose(transpose)
+    #return einsum('pqrs,pqrs', a, b)
+    return np.dot(a[:].reshape(-1), b[:].reshape(-1))
+
+
+def contract_dm2_eris_rhf(dm2, eris):
+    """Contracts _ChemistsERIs with the two-body density matrix.
+
+    Parameters
+    ----------
+    dm2 : ndarry
+        Two-body density matrix.
+    eris : _ChemistERIs
+        PySCF ERIs object.
+
+    Returns
+    -------
+    e2 : float
+        Two-body energy.
+    """
+    nocc = eris.oooo.shape[0]
+    o, v = np.s_[:nocc], np.s_[nocc:]
+    e2 = 0
+    e2 += _contract_4d(dm2[o,o,o,o], eris.oooo)
+    e2 += _contract_4d(dm2[o,v,o,o], eris.ovoo) * 4
+    e2 += _contract_4d(dm2[o,o,v,v], eris.oovv) * 2
+    e2 += _contract_4d(dm2[o,v,o,v], eris.ovov) * 2
+    e2 += _contract_4d(dm2[o,v,v,o], eris.ovvo) * 2
+    e2 += _contract_4d(dm2[o,v,v,v], get_ovvv(eris)) * 4
+    e2 += _contract_4d(dm2[v,v,v,v], get_vvvv(eris))
+    return e2
+
+
+def contract_dm2_eris_uhf(dm2, eris):
+    """Contracts _ChemistsERIs with the two-body density matrix.
+
+    Parameters
+    ----------
+    dm2 : tuple(ndarray, ndarray, ndarray)
+        Two-body density matrix as a tuple of alpha-alpha, alpha-beta, beta-beta spin blocks.
+    eris : _ChemistERIs
+        PySCF ERIs object.
+
+    Returns
+    -------
+    e2 : float
+        Two-body energy.
+    """
+    nocca = eris.oooo.shape[0]
+    noccb = eris.OOOO.shape[0]
+    dm2aa, dm2ab, dm2bb = dm2
+    e2 = 0
+    # Alpha-alpha
+    o, v = np.s_[:nocca], np.s_[nocca:]
+    e2 += _contract_4d(dm2aa[o,o,o,o], eris.oooo)
+    e2 += _contract_4d(dm2aa[o,v,o,o], eris.ovoo) * 4
+    e2 += _contract_4d(dm2aa[o,o,v,v], eris.oovv) * 2
+    e2 += _contract_4d(dm2aa[o,v,o,v], eris.ovov) * 2
+    e2 += _contract_4d(dm2aa[o,v,v,o], eris.ovvo) * 2
+    e2 += _contract_4d(dm2aa[o,v,v,v], get_ovvv(eris)) * 4
+    e2 += _contract_4d(dm2aa[v,v,v,v], get_vvvv(eris))
+    # Beta-beta
+    o, v = np.s_[:noccb], np.s_[noccb:]
+    e2 += _contract_4d(dm2bb[o,o,o,o], eris.OOOO)
+    e2 += _contract_4d(dm2bb[o,v,o,o], eris.OVOO) * 4
+    e2 += _contract_4d(dm2bb[o,o,v,v], eris.OOVV) * 2
+    e2 += _contract_4d(dm2bb[o,v,o,v], eris.OVOV) * 2
+    e2 += _contract_4d(dm2bb[o,v,v,o], eris.OVVO) * 2
+    e2 += _contract_4d(dm2bb[o,v,v,v], get_ovvv(eris, block='OVVV')) * 4
+    e2 += _contract_4d(dm2bb[v,v,v,v], get_vvvv(eris, block='VVVV'))
+    # Alpha-beta
+    oa, va = np.s_[:nocca], np.s_[nocca:]
+    ob, vb = np.s_[:noccb], np.s_[noccb:]
+    e2 += _contract_4d(dm2ab[oa,oa,ob,ob], eris.ooOO) * 2
+    e2 += _contract_4d(dm2ab[oa,va,ob,ob], eris.ovOO) * 4
+    e2 += _contract_4d(dm2ab[oa,oa,ob,vb], eris.OVoo, transpose=(2,3,0,1)) * 4
+    e2 += _contract_4d(dm2ab[oa,oa,vb,vb], eris.ooVV) * 2
+    e2 += _contract_4d(dm2ab[va,va,ob,ob], eris.OOvv, transpose=(2,3,0,1)) * 2
+    e2 += _contract_4d(dm2ab[oa,va,vb,ob], eris.ovVO) * 4
+    e2 += _contract_4d(dm2ab[oa,va,ob,vb], eris.ovOV) * 4
+    #e2 += einsum('pqrs,rspq', dm2ab[va,oa,ob,vb], eris.OVvo) * 4
+    e2 += _contract_4d(dm2ab[oa,va,vb,vb], get_ovVV(eris, block='ovVV')) * 4
+    e2 += _contract_4d(dm2ab[va,va,ob,vb], get_ovVV(eris, block='OVvv'), transpose=(2,3,0,1)) * 4
+    e2 += _contract_4d(dm2ab[va,va,vb,vb], get_vvVV(eris)) * 2
+    return e2
+
 
 def project_ccsd_eris(eris, mo_coeff, nocc, ovlp, check_subspace=True):
     """Project CCSD ERIs to a subset of orbital coefficients.

@@ -1,7 +1,7 @@
 # --- Standard
 import dataclasses
 import functools
-from typing import Union
+from typing import Optional, Union
 # --- External
 import numpy as np
 # --- Internal
@@ -48,7 +48,6 @@ class Options(Embedding.Options):
     # --- Couple embedding problems (currently only CCSD)
     sc_mode: int = 0
     coupled_iterations: bool = False
-    # --- Other
     # --- Debugging
     _debug_wf: str = None
 
@@ -141,6 +140,18 @@ class EWF(Embedding):
             with log_time(self.log.timing, "Time for MPI communication of clusters: %s"):
                 self.communicate_clusters()
 
+        # --- Screened Coulomb interaction
+        if self.opts.screening is None:
+            pass
+        elif self.opts.screening == 'rpa':
+            self.log.info("")
+            self.log.info("SCREENING INTERACTIONS")
+            self.log.info("======================")
+            with log_time(self.log.timing, "Time for screened interations: %s"):
+                self.build_screened_eris()
+        else:
+            raise ValueError
+
         # --- Loop over fragments with no symmetry parent and with own MPI rank
         self.log.info("")
         self.log.info("RUNNING SOLVERS")
@@ -160,11 +171,7 @@ class EWF(Embedding):
             return
 
         # --- Check convergence of fragments
-        conv = True
-        for fx in self.get_fragments(active=True, sym_parent=None, mpi_rank=mpi.rank):
-            conv = (conv and fx.results.converged)
-        if mpi:
-            conv = mpi.world.allreduce(conv, op=mpi.MPI.LAND)
+        conv = self._all_converged()
         if not conv:
             self.log.error("Some fragments did not converge!")
         self.converged = conv
@@ -176,6 +183,14 @@ class EWF(Embedding):
         self.log.output('E(tot)=  %s', energy_string(self.e_tot))
         self.log.info("Total wall time:  %s", time_string(timer()-t_start))
         return self.e_tot
+
+    def _all_converged(self):
+        conv = True
+        for fx in self.get_fragments(active=True, sym_parent=None, mpi_rank=mpi.rank):
+            conv = (conv and fx.results.converged)
+        if mpi:
+            conv = mpi.world.allreduce(conv, op=mpi.MPI.LAND)
+        return conv
 
     # --- CC Amplitudes
     # -----------------
@@ -457,7 +472,6 @@ class EWF(Embedding):
         else:
             raise ValueError("Invalid projection: %s" % projection)
         frag.kernel()
-        ovlp = self.get_ovlp()
         c_atom = []
         for atom in atoms:
             name, indices = frag.get_atomic_fragment_indices(atom)

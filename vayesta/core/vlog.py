@@ -34,6 +34,7 @@ LVL_PREFIX = {
    "WARNING" : "WARNING",
    "DEPRECATED" : "WARNING",
    "OUT" : "OUTPUT",
+   "DEBUG" : "DEBUG",
    "DEBUGV" : "DEBUG",
    "TRACE" : "TRACE",
    }

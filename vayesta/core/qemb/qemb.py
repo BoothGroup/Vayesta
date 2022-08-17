@@ -6,6 +6,7 @@ import copy
 import itertools
 import os
 import os.path
+from typing import Optional
 
 import numpy as np
 
@@ -25,11 +26,13 @@ import vayesta
 from vayesta.core import vlog
 from vayesta.core.foldscf import FoldedSCF, fold_scf
 from vayesta.core.util import *
+from vayesta.core import spinalg
 from vayesta.core.ao2mo import kao2gmo_cderi
 from vayesta.core.ao2mo import postscf_ao2mo
 from vayesta.core.ao2mo import postscf_kao2gmo
 from vayesta import lattmod
 from vayesta.core.scmf import PDMET, Brueckner
+from vayesta.core.qemb.scrcoulomb import build_screened_eris
 from vayesta.mpi import mpi
 from .register import FragmentRegister
 
@@ -48,8 +51,8 @@ from vayesta.core.fragmentation import CAS_Fragmentation
 from vayesta.misc.cptbisect import ChempotBisection
 
 # Expectation values
-from vayesta.core.qemb.expval import get_corrfunc
-from vayesta.core.qemb.expval import get_corrfunc_mf
+from vayesta.core.qemb.corrfunc import get_corrfunc
+from vayesta.core.qemb.corrfunc import get_corrfunc_mf
 
 # --- This Package
 
@@ -87,6 +90,8 @@ class Options(OptionsBase):
             max_boson_occ=2,
             # Dump
             dumpfile='clusters.h5')
+    # --- Other
+    screening: Optional[str] = None
 
 class Embedding:
     """Base class for quantum embedding methods.
@@ -727,10 +732,16 @@ class Embedding:
         eris = postscf_ao2mo(postscf, fock=fock, mo_energy=mo_energy, e_hf=e_hf)
         return eris
 
+    @log_method()
+    @with_doc(build_screened_eris)
+    def build_screened_eris(self, *args, **kwargs):
+        seris_ov, delta_e = build_screened_eris(self, *args, **kwargs)
+        return seris_ov, delta_e
+
     # Symmetry between fragments
     # --------------------------
 
-    def add_symmetric_fragments(self, symmetry, symbol=None, symtol=1e-6):
+    def add_symmetric_fragments(self, symmetry, symbol=None, symtol=1e-6, check_mf=True):
         """Add rotationally or translationally symmetric fragments.
 
         Parameters
@@ -781,7 +792,8 @@ class Embedding:
             raise ValueError
 
         ovlp = self.get_ovlp()
-        dm1 = self.mf.make_rdm1()
+        if check_mf:
+            dm1 = self.mf.make_rdm1()
 
         ftree = [[fx] for fx in self.get_fragments()]
         for i, sym in enumerate(symlist):
@@ -821,7 +833,7 @@ class Embedding:
                 # Check symmetry
                 # (only for the first rotation or primitive translations (1,0,0), (0,1,0), and (0,0,1)
                 # to reduce number of sym_op(c_env) calls)
-                if (abs(np.asarray(sym)).sum() == 1):
+                if check_mf and (abs(np.asarray(sym)).sum() == 1):
                     charge_err, spin_err = parent.get_symmetry_error(frag, dm1=dm1)
                     if max(charge_err, spin_err) > symtol:
                         self.log.critical("Mean-field DM1 not symmetric for %s of %s (errors: charge= %.3e, spin= %.3e)!",
@@ -1143,13 +1155,15 @@ class Embedding:
         else:
             raise ValueError("Invalid projection: %s" % projection)
         frag.kernel()
+        ovlp = self.get_ovlp()
         projectors = {}
-        cs = np.dot(self.mo_coeff.T, self.get_ovlp())
+        cs = spinalg.dot(spinalg.transpose(self.mo_coeff), ovlp)
         for atom in sorted(set(atoms1).union(atoms2)):
             name, indices = frag.get_atomic_fragment_indices(atom)
             c_atom = frag.get_frag_coeff(indices)
-            r = dot(cs, c_atom)
-            projectors[atom] = dot(r, r.T)
+            r = spinalg.dot(cs, c_atom)
+            projectors[atom] = spinalg.dot(r, spinalg.transpose(r))
+
         return atoms1, atoms2, projectors
 
     def get_lo_coeff(self, local_orbitals='lowdin', minao='auto'):
@@ -1287,7 +1301,7 @@ class Embedding:
         """Initialize the quantum embedding method for the use of site fragments."""
         return CAS_Fragmentation(self, **kwargs)
 
-    def _check_fragmentation(self, complete_occupied=True, complete_virtual=True, tol=1e-9):
+    def _check_fragmentation(self, complete_occupied=True, complete_virtual=True, tol=1e-7):
         """Check if union of fragment spaces is orthonormal and complete."""
         if self.spinsym == 'restricted':
             nspin = 1
@@ -1306,6 +1320,7 @@ class Embedding:
             nfrags = c_frags.shape[-1]
             csc = dot(c_frags.T, ovlp, c_frags)
             if not np.allclose(csc, np.eye(nfrags), rtol=0, atol=tol):
+                self.log.debug("Non-orthogonal error= %.3e", abs(csc - np.eye(nfrags)).max())
                 return False
             if complete_occupied and complete_virtual:
                 if (nfrags != nmo_s):
@@ -1319,27 +1334,27 @@ class Embedding:
                     return False
         return True
 
-    def has_orthonormal_fragmentation(self, tol=1e-9):
+    def has_orthonormal_fragmentation(self, **kwargs):
         """Check if union of fragment spaces is orthonormal."""
-        return self._check_fragmentation(complete_occupied=False, complete_virtual=False, tol=tol)
+        return self._check_fragmentation(complete_occupied=False, complete_virtual=False, **kwargs)
 
-    def has_complete_fragmentation(self, tol=1e-9):
+    def has_complete_fragmentation(self, **kwargs):
         """Check if union of fragment spaces is orthonormal and complete."""
-        return self._check_fragmentation(complete_occupied=True, complete_virtual=True, tol=tol)
+        return self._check_fragmentation(complete_occupied=True, complete_virtual=True, **kwargs)
 
-    def has_complete_occupied_fragmentation(self, tol=1e-9):
+    def has_complete_occupied_fragmentation(self, **kwargs):
         """Check if union of fragment spaces is orthonormal and complete in the occupied space."""
-        return self._check_fragmentation(complete_occupied=True, complete_virtual=False, tol=tol)
+        return self._check_fragmentation(complete_occupied=True, complete_virtual=False, **kwargs)
 
-    def has_complete_virtual_fragmentation(self, tol=1e-9):
+    def has_complete_virtual_fragmentation(self, **kwargs):
         """Check if union of fragment spaces is orthonormal and complete in the virtual space."""
-        return self._check_fragmentation(complete_occupied=False, complete_virtual=True, tol=tol)
+        return self._check_fragmentation(complete_occupied=False, complete_virtual=True, **kwargs)
 
-    def require_complete_fragmentation(self, message=None, incl_virtual=True, tol=1e-9):
+    def require_complete_fragmentation(self, message=None, incl_virtual=True, **kwargs):
         if incl_virtual:
-            complete = self.has_complete_fragmentation(tol=tol)
+            complete = self.has_complete_fragmentation(**kwargs)
         else:
-            complete = self.has_complete_occupied_fragmentation(tol=tol)
+            complete = self.has_complete_occupied_fragmentation(**kwargs)
         if complete:
             return
         if message:
@@ -1394,7 +1409,7 @@ class Embedding:
     # --- Decorators
     # These replace the qemb.kernel method!
 
-    def optimize_chempot(self, cpt_init=0.0, dm1func=None, dm1kwds=None):
+    def optimize_chempot(self, cpt_init=0.0, dm1func=None, dm1kwds=None, robust=False):
 
         if dm1func is None:
             dm1func = self.make_rdm1_demo
@@ -1415,10 +1430,10 @@ class Embedding:
             else:
                 ne = np.trace(dm1[0]) + np.trace(dm1[1])
             err = (ne - self.mol.nelectron)
-            iters.append((cpt, err, self.e_tot))
+            iters.append((cpt, err, self.converged, self.e_tot))
             return err
 
-        bisect = ChempotBisection(func, cpt_init=cpt_init, log=self.log)
+        bisect = ChempotBisection(func, cpt_init=cpt_init, robust=robust, log=self.log)
 
         def kernel(self, *args, **kwargs):
             nonlocal iters, result
@@ -1426,10 +1441,10 @@ class Embedding:
             # Print info:
             self.log.info("Chemical potential optimization")
             self.log.info("-------------------------------")
-            self.log.info("  Iteration   Chemical potential   N(elec) error          Total Energy")
-            for i, (cpt, err, etot) in enumerate(iters):
-                self.log.info("  %9d  %19s   %+13.8f   %19s",
-                        i+1, energy_string(cpt), err, energy_string(etot))
+            self.log.info("  Iteration   Chemical potential   N(elec) error  Converged         Total Energy")
+            for i, (cpt, err, conv, etot) in enumerate(iters):
+                self.log.info("  %9d  %19s  %+14.8f  %9r  %19s",
+                        i+1, energy_string(cpt), err, conv, energy_string(etot))
             if not bisect.converged:
                 self.log.error('Chemical potential not found!')
             return result

@@ -54,7 +54,9 @@ class Fragmentation:
         self.kernel()
         return self
 
-    def __exit__(self, type, value, traceback):
+    def __exit__(self, exc_type, exc_value, exc_traceback):
+        if exc_type is not None:
+            return
         if self.add_symmetric:
             # Rotational symmetries:
             for idx, (order, axis, center, unit) in enumerate(self.emb.symmetry.rotations):
@@ -144,6 +146,8 @@ class Fragmentation:
         return fragments
 
     def _add_fragment(self, indices, name, **kwargs):
+        if len(indices) == 0:
+            raise ValueError("Fragment %s is empty." % name)
         c_frag = self.get_frag_coeff(indices)
         c_env = self.get_env_coeff(indices)
         fid, mpirank = self.emb.register.get_next()
