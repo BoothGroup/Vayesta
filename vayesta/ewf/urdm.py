@@ -11,7 +11,7 @@ from vayesta.ewf.rdm import _get_mockcc
 from vayesta.mpi import mpi
 
 
-def make_rdm1_ccsd(emb, ao_basis=False, t_as_lambda=False, symmetrize=True, with_mf=True, mpi_target=None, mp2=False,
+def make_rdm1_ccsd(emb, ao_basis=False, t_as_lambda=None, symmetrize=True, with_mf=True, mpi_target=None, mp2=False,
                    ba_order='ba'):
     """Make one-particle reduced density-matrix from partitioned fragment CCSD wave functions.
 
@@ -172,16 +172,14 @@ def make_rdm1_ccsd(emb, ao_basis=False, t_as_lambda=False, symmetrize=True, with
 
     return (dm1a, dm1b)
 
-def make_rdm1_ccsd_global_wf(emb, ao_basis=False, with_mf=True, t_as_lambda=False, with_t1=True,
-        svd_tol=1e-3, ovlp_tol=None, use_sym=True, late_t2_sym=True, mpi_target=None, slow=False):
+def make_rdm1_ccsd_global_wf(emb, t_as_lambda=None, with_t1=True, svd_tol=1e-3, ovlp_tol=None, use_sym=True,
+                             late_t2_sym=True, mpi_target=None, slow=False):
     """Make one-particle reduced density-matrix from partitioned fragment CCSD wave functions.
 
     NOT MPI READY
 
     Parameters
     ----------
-    ao_basis : bool, optional
-        Return the density-matrix in the AO basis. Default: False.
     t_as_lambda : bool, optional
         Use T-amplitudes instead of Lambda-amplitudes for CCSD density matrix. Default: False.
     slow : bool, optional
@@ -191,7 +189,7 @@ def make_rdm1_ccsd_global_wf(emb, ao_basis=False, with_mf=True, t_as_lambda=Fals
     Returns
     -------
     dm1 : (n, n) array
-        One-particle reduced density matrix in AO (if `ao_basis=True`) or MO basis (default).
+        One-particle reduced density matrix in MO basis.
     """
     if t_as_lambda is None:
         t_as_lambda = emb.opts.t_as_lambda
@@ -200,16 +198,13 @@ def make_rdm1_ccsd_global_wf(emb, ao_basis=False, with_mf=True, t_as_lambda=Fals
     if slow:
         t1 = emb.get_global_t1()
         t2 = emb.get_global_t2()
-        if t_as_lambda:
-            l1, l2 = t1, t2
-        else:
-            l1 = emb.get_global_l1()
-            l2 = emb.get_global_l2()
+        l1 = emb.get_global_l1() if not t_as_lambda else t1
+        l2 = emb.get_global_l2() if not t_as_lambda else t2
         if not with_t1:
             t1 = l1 = (np.zeros_like(t1[0]), np.zeros_like(t1[1]))
         mockcc = _get_mockcc(emb.mo_coeff, emb.mf.max_memory)
-        #dm1 = pyscf.cc.uccsd_rdm.make_rdm1(mockcc, t1=t1, t2=t2, l1=l1, l2=l2, ao_repr=ao_basis, with_mf=with_mf)
-        dm1a, dm1b = uccsd_rdm.make_rdm1(mockcc, t1=t1, t2=t2, l1=l1, l2=l2, ao_repr=ao_basis, with_mf=with_mf)
+        #dm1 = pyscf.cc.uccsd_rdm.make_rdm1(mockcc, t1=t1, t2=t2, l1=l1, l2=l2, with_mf=False)
+        dm1a, dm1b = uccsd_rdm.make_rdm1(mockcc, t1=t1, t2=t2, l1=l1, l2=l2, with_mf=False)
         return dm1a, dm1b
 
     # === Fast algorithm via fragment-fragment loop
@@ -223,7 +218,7 @@ def make_rdm1_ccsd_global_wf(emb, ao_basis=False, with_mf=True, t_as_lambda=Fals
     # T1/L1-amplitudes can be summed directly
     if with_t1:
         t1a, t1b = emb.get_global_t1()
-        l1a, l1b = (t1 if t_as_lambda else emb.get_global_l1())
+        l1a, l1b = emb.get_global_l1() if not t_as_lambda else (t1a, t1b)
     # Preconstruct some matrices, since the construction scales as N^3
     if use_sym:
         ovlp = emb.get_ovlp()
@@ -342,7 +337,7 @@ def make_rdm1_ccsd_global_wf(emb, ao_basis=False, with_mf=True, t_as_lambda=Fals
                     continue
             kept_xy += 1
 
-            l1ya, l1yb = wfy.t1 if (t_as_lambda or y.solver == 'MP2') else wfy.l1
+            l1ya, l1yb = wfy.t1 if (t_as_lambda or y.opts.t_as_lambda or y.solver == 'MP2') else wfy.l1
             if not late_t2_sym:
                 l2aa, l2ab, l2bb = wfy.t2 if (t_as_lambda or y.solver == 'MP2') else wfy.l2
             else:
@@ -681,14 +676,6 @@ def make_rdm1_ccsd_global_wf(emb, ao_basis=False, with_mf=True, t_as_lambda=Fals
         dm1b[noccb:,:noccb] = (dm1b[:noccb,noccb:].conj().T)
     dm1b = (dm1b + dm1b.T)/4
 
-    if with_mf:
-        dm1a[np.diag_indices(nocca)] += 1
-        dm1b[np.diag_indices(noccb)] += 1
-
-    if ao_basis:
-        dm1a = dot(emb.mo_coeff[0], dm1a, emb.mo_coeff[0].T)
-        dm1b = dot(emb.mo_coeff[1], dm1b, emb.mo_coeff[1].T)
-
     # --- Some information:
     emb.log.debug("Cluster-pairs: total= %d  kept= %d (%.1f%%)", total_xy, kept_xy, 100*kept_xy/total_xy)
     emb.log.debug("Singular values total= %d  kept= %d (%.1f%%)", total_sv, kept_sv, 100*kept_sv/total_sv)
@@ -696,7 +683,7 @@ def make_rdm1_ccsd_global_wf(emb, ao_basis=False, with_mf=True, t_as_lambda=Fals
     return dm1a, dm1b
 
 
-def make_rdm2_ccsd_global_wf(emb, ao_basis=False, symmetrize=False, t_as_lambda=False, slow=True, with_dm1=True):
+def make_rdm2_ccsd_global_wf(emb, ao_basis=False, symmetrize=False, t_as_lambda=None, slow=True, with_dm1=True):
     """Recreate global two-particle reduced density-matrix from fragment calculations.
 
     Parameters
@@ -720,11 +707,8 @@ def make_rdm2_ccsd_global_wf(emb, ao_basis=False, symmetrize=False, t_as_lambda=
     if slow:
         t1 = emb.get_global_t1()
         t2 = emb.get_global_t2()
-        if t_as_lambda:
-            l1, l2 = t1, t2
-        else:
-            l1 = emb.get_global_t1(get_lambda=True)
-            l2 = emb.get_global_t2(get_lambda=True)
+        l1 = emb.get_global_l1() if not t_as_lambda else t1
+        l2 = emb.get_global_l2() if not t_as_lambda else t2
         mockcc = _get_mockcc(emb.mo_coeff, emb.mf.max_memory)
         #dm2 = pyscf.cc.uccsd_rdm.make_rdm2(mockcc, t1=t1, t2=t2, l1=l1, l2=l2, with_frozen=False, with_dm1=with_dm1)
         dm2 = uccsd_rdm.make_rdm2(mockcc, t1=t1, t2=t2, l1=l1, l2=l2, with_frozen=False, with_dm1=with_dm1)
@@ -738,7 +722,7 @@ def make_rdm2_ccsd_global_wf(emb, ao_basis=False, symmetrize=False, t_as_lambda=
         #dm2 = (dm2 + dm2.transpose(1,0,3,2))/2
     return dm2
 
-def make_rdm2_ccsd_proj_lambda(emb, ao_basis=False, t_as_lambda=False, with_dm1=True, mpi_target=None):
+def make_rdm2_ccsd_proj_lambda(emb, ao_basis=False, t_as_lambda=None, with_dm1=True, mpi_target=None):
     """Make two-particle reduced density-matrix from partitioned fragment CCSD wave functions.
 
     Without 1DM!

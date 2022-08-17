@@ -267,7 +267,7 @@ def contract_dm2_eris(dm2, eris):
     if ndim == 4:
         return contract_dm2_eris_rhf(dm2, eris)
     if ndim == 5:
-        return contract_dm2_eris_rhf(dm2, eris)
+        return contract_dm2_eris_uhf(dm2, eris)
     raise ValueError("N(dim) of DM2: %d" % ndim)
 
 
