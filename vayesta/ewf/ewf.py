@@ -39,6 +39,8 @@ class Options(Embedding.Options):
     energy_functional: str = 'projected'
     # --- Solver settings
     t_as_lambda: bool = False           # If True, use T-amplitudes inplace of Lambda-amplitudes
+    calc_moments: bool = True
+    nmoments: int = 5
     # Counterpoise correction of BSSE
     bsse_correction: bool = True
     bsse_rmax: float = 5.0              # In Angstrom

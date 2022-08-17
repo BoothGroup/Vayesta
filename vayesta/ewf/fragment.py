@@ -26,6 +26,7 @@ from vayesta.core import ao2mo
 from vayesta.mpi import mpi
 
 from . import ewf
+from .moments import make_ip_moms, make_ea_moms
 
 # Get MPI rank of fragment
 get_fragment_mpi_rank = lambda *args : args[0].mpi_rank
@@ -260,6 +261,13 @@ class Fragment(BaseFragment):
         proj = self.get_overlap('frag|cluster-occ')
         pwf = pwf.project(proj, inplace=False)
 
+        # --- Make IP/EA Moments
+        if self.base.opts.calc_moments:
+            nmom = self.base.opts.nmoments
+            ip, ea = self.make_fragment_moments_eb(cluster_solver.solver, cluster_solver.wf, nmom)
+            self.ip_moms = ip
+            self.ea_moms = ea
+
         # --- Add to results data class
         self._results = results = self.Results(fid=self.id, n_active=cluster.norb_active,
                 converged=cluster_solver.converged, wf=cluster_solver.wf, pwf=pwf)
@@ -473,6 +481,24 @@ class Fragment(BaseFragment):
         e_dm2 = fac*einsum('ijkl,ijkl->', eris, dm2)/2
         return e_dm2
 
+    # --- Moments
+
+
+    def make_fragment_moments_eb(self, cc, wf, nmom, t_as_lambda=None, sym_t2=True):
+        if t_as_lambda is None:
+            t_as_lambda = self.opts.t_as_lambda
+
+        t1, t2 = wf.t1.copy(), wf.t2.copy()
+        if t_as_lambda:
+            l1, l2 = t1, t2
+        else:
+            l1, l2 = wf.l1, wf.l2
+        #t1, t2, l1, l2, t1x, t2x, l1x, l2x = self._ccsd_amplitudes_for_dm(t_as_lambda=t_as_lambda, sym_t2=sym_t2)
+
+        ip = make_ip_moms(cc, t1, t2, l1, l2, nmom=nmom, contract_be=False)
+        ea = make_ea_moms(cc, t1, t2, l1, l2, nmom=nmom, contract_be=False)
+
+        return ip, ea
     # --- Other
     # ---------
 

@@ -1,5 +1,7 @@
 """Routines to generate CCSD Green's function  moments () from spin-restricted embedded CCSD calculations."""
 
+import numpy as np
+
 import pyscf
 import pyscf.cc
 
@@ -167,7 +169,7 @@ def make_ea_moms(cc, t1, t2, l1, l2, nmom=3, contract_be=True):
                     if (n+1) != nmom:
                         # Scale e = H e for the next moment
                         e_vec = eom.amplitudes_to_vector(ea[q], eiab[q])
-                        e_vec = -matvec([e_vec])[0]
+                        e_vec = matvec([e_vec])[0]
                         ea[q], eiab[q] = eom.vector_to_amplitudes(e_vec)
 
             return ba, biab, hea, heiab
