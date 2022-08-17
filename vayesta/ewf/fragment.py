@@ -480,17 +480,16 @@ class Fragment(BaseFragment):
 
     @log_method()
     def make_fragment_dm2cumulant_energy(self, eris=None, t_as_lambda=None, sym_t2=True, approx_cumulant=True):
-        dm2 = self.make_fragment_dm2cumulant(t_as_lambda=t_as_lambda, sym_t2=sym_t2, approx_cumulant=approx_cumulant,
-                full_shape=False)
-        fac = (2 if self.solver == 'MP2' else 1)
         if eris is None:
             eris = self._eris
         if eris is None:
             eris = self.base.get_eris_array(self.cluster.c_active)
+        dm2 = self.make_fragment_dm2cumulant(t_as_lambda=t_as_lambda, sym_t2=sym_t2, approx_cumulant=approx_cumulant,
+                full_shape=False)
         # CCSD
-        elif hasattr(eris, 'ovoo'):
-            #eris = vayesta.core.ao2mo.helper.get_full_array(eris)
+        if hasattr(eris, 'ovoo'):
             return vayesta.core.ao2mo.helper.contract_dm2_eris(dm2, eris)/2
+        fac = (2 if self.solver == 'MP2' else 1)
         e_dm2 = fac*einsum('ijkl,ijkl->', eris, dm2)/2
         return e_dm2
 
