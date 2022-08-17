@@ -4,6 +4,7 @@ import pyscf
 import pyscf.ao2mo
 import vayesta
 from vayesta.core.ao2mo import helper
+from vayesta.core.vpyscf import uccsd_rdm
 from vayesta.tests.common import TestCase
 from vayesta.tests import testsystems
 
@@ -56,6 +57,12 @@ class Test_UHF(TestCase):
         cls.g_ref_ab = g_ref_ab.reshape(2*[nmoa] + 2*[nmob])
         cls.g_ref_bb = g_ref_bb.reshape(4*[nmob])
 
+        #cls.dm2 = cls.cc.make_rdm2()
+        cls.dm2 = uccsd_rdm.make_rdm2(cls.cc, cls.cc.t1, cls.cc.t2, cls.cc.l1, cls.cc.l2, with_dm1=False)
+        cls.e_ref = (np.einsum('ijkl,ijkl', cls.dm2[0], cls.g_ref_aa)
+                   + np.einsum('ijkl,ijkl', cls.dm2[1], cls.g_ref_ab)*2
+                   + np.einsum('ijkl,ijkl', cls.dm2[2], cls.g_ref_bb))
+
     @classmethod
     def tearDownClass(cls):
         del cls.mf
@@ -64,6 +71,8 @@ class Test_UHF(TestCase):
         del cls.g_ref_aa
         del cls.g_ref_ab
         del cls.g_ref_bb
+        del cls.dm2
+        del cls.e_ref
 
     def test_get_full_array_ccsd(self):
         g_test_aa, g_test_ab, g_test_bb = helper.get_full_array_uhf(self.eris)
@@ -72,12 +81,14 @@ class Test_UHF(TestCase):
         self.assertAllclose(self.g_ref_bb, g_test_bb)
 
     def test_dm2_eris_ccsd(self):
-        dm2 = self.cc.make_rdm2()
-        e_ref = (np.einsum('ijkl,ijkl', dm2[0], self.g_ref_aa)
-               + np.einsum('ijkl,ijkl', dm2[1], self.g_ref_ab)*2
-               + np.einsum('ijkl,ijkl', dm2[2], self.g_ref_bb))
-        e_test = helper.contract_dm2_eris_uhf(dm2, self.eris)
-        self.assertAllclose(e_ref, e_test)
+        e_test = helper.contract_dm2_eris_uhf(self.dm2, self.eris)
+        self.assertAllclose(e_test, self.e_ref)
+
+    def test_dm2intermeds_eris_ccsd(self):
+        cc = self.cc
+        d2 = uccsd_rdm._gamma2_intermediates(cc, cc.t1, cc.t2, cc.l1, cc.l2)
+        e_test = helper.contract_dm2intermeds_eris_uhf(d2, self.eris)
+        self.assertAllclose(e_test, self.e_ref)
 
 
 if __name__ == '__main__':
