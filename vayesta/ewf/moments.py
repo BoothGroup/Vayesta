@@ -41,3 +41,52 @@ def make_ccsdgf_moms(emb, niter=0, ao_basis=False, t_as_lambda=False, symmetrize
 
     else:
         raise NotImplementedError()
+
+def make_ip_moms(cc, t1, t2, l1, l2, niter=0):
+        nocc, nvir = t1.shape
+        nmo = nocc + nvir
+
+        eom = pyscf.cc.eom_rccsd.EOMIP(cc)
+        matvec, diag = eom.gen_matvec()
+
+        bi = np.zeros((nmo, nocc))
+        bija = np.zeros((nmo, nocc, nocc, nvir))
+
+        ei = np.zeros((nmo, nocc))
+        eija = np.zeros((nmo, nocc, nocc, nvir))
+
+        for p in range(nmo):
+            # Build bra vector for orbital p
+            b = pyscf.cc.gfccsd.build_bra_hole(cc, eom, t1, t2, l1, l2, p)
+            # Unpack bra vector into 1h and 2h1p amplitudes
+            b1, b2 = eom.vector_to_amplitudes(b)
+            bi[p] = b1
+            bija[p] = b2
+
+            # Build ket vector for orbital p
+            e = pyscf.cc.gfccsd.build_ket_hole(cc, eom, t1, t2, p)
+            # Unpack ket vector into 1h and 2h1p amplitudes
+            e1, e2 = eom.vector_to_amplitudes(e)
+            ei[p] = e1
+            eija[p] = e2
+
+            nmom = 2 * niter + 2
+            t = np.zeros((nmom, nmo, nmo))
+
+        # Loop over q orbitals
+        for q in range(nmo):
+            # Loop over moments
+            for n in range(nmom):
+                # Loop over p orbitals
+                for p in range(nmo):
+                    # Contract 1h and 2h1p parts of b and e to moment
+                    t[n, p, q] += np.einsum("i,i->", bi[p], ei[q])
+                    t[n, p, q] += np.einsum("ija,ija->", bija[p], eija[q])
+                if (n+1) != nmom:
+                    # Scale e = H e for the next moment
+                    e_vec = eom.amplitudes_to_vector(ei[q], eija[q])
+                    e_vec = -matvec([e_vec])[0]  # <--- minus sign only needed for IP
+                    ei[q], eija[q] = eom.vector_to_amplitudes(e_vec)
+
+
+        return t
