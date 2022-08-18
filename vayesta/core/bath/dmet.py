@@ -110,7 +110,7 @@ class DMET_Bath_RHF(Bath):
         # No environemnt -> no bath/environment orbitals
         if c_env.shape[-1] == 0:
             nao = c_env.shape[0]
-            return np.zeros((nao, 0)), np.zeros((nao, 0)), np.zeros((nao, 0))
+            return np.zeros((nao, 0)), np.zeros((0,)), np.zeros((nao, 0)), np.zeros((nao, 0))
 
         tol = self.dmet_threshold
 
