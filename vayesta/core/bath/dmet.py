@@ -196,47 +196,32 @@ class DMET_Bath_RHF(Bath):
         c_bath = np.dot(cb, ub/sab[mask_bath])
         return c_bath
 
-    def log_info(self, eig, c_bath, print_tol=1e-10, strong_tol=0.1):
-        """Orbitals in [print_tol, 1-print_tol] will be printed (even if they don't fall in the DMET tol range)
-        DMET bath orbitals with eigenvalue in [strong_tol, 1-strong_tol] are printed as strongly entangled."""
+    def log_info(self, eig, c_bath, threshold=1e-10):
         tol = self.dmet_threshold
-        limits = [print_tol, tol, strong_tol, 1-strong_tol, 1-tol, 1-print_tol]
-        if np.any(np.logical_and(eig > limits[0], eig <= limits[-1])):
-            names = [
-                    "Unentangled vir. env. orbital",
-                    "Weakly-entangled vir. bath orbital",
-                    "Strongly-entangled bath orbital",
-                    "Weakly-entangled occ. bath orbital",
-                    "Unentangled occ. env. orbital",
-                    ]
-            self.log.info("Non-(0 or 1) eigenvalues (n) of environment DM:")
-            for i, e in enumerate(eig):
-                name = None
-                for j, llim in enumerate(limits[:-1]):
-                    ulim = limits[j+1]
-                    if (llim < e and e <= ulim):
-                        name = names[j]
-                        break
-                if name:
-                    self.log.info("  > %-34s  n= %12.6g  1-n= %12.6g  n*(1-n)= %12.6g", name, e, 1-e, e*(1-e))
-
-        # DMET bath analysis
-        self.log.info("DMET bath character:")
-        for i in range(c_bath.shape[-1]):
-            ovlp = einsum('a,b,ba->a', c_bath[:,i], c_bath[:,i], self.base.get_ovlp())
-            sort = np.argsort(-ovlp)
-            ovlp = ovlp[sort]
-            n = np.amin((len(ovlp), 6))     # Get the six largest overlaps
-            labels = np.asarray(self.mol.ao_labels())[sort][:n]
-            lines = [('%s= %.5f' % (labels[i].strip(), ovlp[i])) for i in range(n)]
-            self.log.info("  > %2d:  %s", i+1, '  '.join(lines))
-
+        mask = np.logical_and(eig >= threshold, eig <= 1-threshold)
+        ovlp = self.base.get_ovlp()
+        maxocc = 2 if self.base.spinsym == 'restricted' else 1
+        if np.any(mask):
+            self.log.info("Mean-field entangled orbitals:")
+            self.log.info("      Bath  Occupation  Entanglement  Character")
+            self.log.info("      ----  ----------  ------------  ------------------------------------------------------")
+            for idx, e in enumerate(eig[mask]):
+                bath = tol <= e <= 1-tol
+                bath = ['No', 'Yes'][bath]
+                entang = 4*e*(1-e)
+                # Mulliken population of DMET orbital:
+                pop = einsum('a,b,ba->a', c_bath[:,idx], c_bath[:,idx], ovlp)
+                sort = np.argsort(-pop)
+                pop = pop[sort]
+                labels = np.asarray(self.mol.ao_labels(None))[sort][:min(len(pop), 4)]
+                char = ', '.join('%s %s%s (%.0f%%)' % (*(l[1:]), 100*pop[i]) for (i,l) in enumerate(labels))
+                self.log.info("  %2d  %4s  %10.3g  %12.3g  %s", idx+1, bath, e*maxocc, entang, char)
         # Calculate entanglement entropy
         mask_bath = np.logical_and(eig >= tol, eig <= 1-tol)
         entropy = np.sum(eig * (1-eig))
         entropy_bath = np.sum(eig[mask_bath] * (1-eig[mask_bath]))
-        self.log.info("Entanglement entropy: total= %.6e  bath= %.6e (%.2f %%)",
-                entropy, entropy_bath, 100.0*entropy_bath/entropy)
+        self.log.info("Entanglement entropy: total= %.3e  bath= %.3e (%.2f %%)",
+                entropy, entropy_bath, 100*entropy_bath/entropy)
 
     def use_ref_orbitals(self, c_bath, c_occenv, c_virenv, c_ref, reftol=0.8):
         """Not maintained!"""
