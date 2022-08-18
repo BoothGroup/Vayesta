@@ -587,7 +587,7 @@ class UMP2_BNO_Bath(MP2_BNO_Bath, BNO_Bath_UHF):
                 t2aa = einsum('xi,i...->x...', proja, t2aa)
                 t2bb = einsum('xi,i...->x...', projb, t2bb)
                 t2ab = (einsum('xi,i...->x...', proja, t2ab)
-                      + einsum('xj,ij...->ix...', projb, t2ab))
+                      + einsum('xj,ij...->ix...', projb, t2ab))/2
             t2aa = (t2aa + t2aa.transpose(1,0,3,2))/2
             t2bb = (t2bb + t2bb.transpose(1,0,3,2))/2
         else:
