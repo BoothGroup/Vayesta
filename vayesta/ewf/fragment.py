@@ -89,7 +89,7 @@ class Fragment(BaseFragment):
         super().__init__(*args, **kwargs)
         if self.opts.t_as_lambda is None:
             self.opts.t_as_lambda = not self.opts.solver_options['solve_lambda']
-            self.log.info("T-as-Lambda= %s", self.opts.t_as_lambda)
+            self.log.debugv("T-as-Lambda= %s", self.opts.t_as_lambda)
         # For self-consistent mode
         self.solver_results = None
 
@@ -487,6 +487,7 @@ class Fragment(BaseFragment):
         dm2 = self.make_fragment_dm2cumulant(t_as_lambda=t_as_lambda, sym_t2=sym_t2, approx_cumulant=approx_cumulant,
                 full_shape=False)
         # CCSD
+        # TODO: contract intermediates (see UHF version)
         if hasattr(eris, 'ovoo'):
             return vayesta.core.ao2mo.helper.contract_dm2_eris(dm2, eris)/2
         fac = (2 if self.solver == 'MP2' else 1)

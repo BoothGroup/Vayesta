@@ -337,11 +337,11 @@ def make_rdm1_ccsd_global_wf(emb, t_as_lambda=None, with_t1=True, svd_tol=1e-3, 
                     continue
             kept_xy += 1
 
-            l1ya, l1yb = wfy.t1 if (t_as_lambda or y.opts.t_as_lambda or y.solver == 'MP2') else wfy.l1
+            tasl = (t_as_lambda or y.opts.t_as_lambda or y.solver == 'MP2')
             if not late_t2_sym:
-                l2aa, l2ab, l2bb = wfy.t2 if (t_as_lambda or y.solver == 'MP2') else wfy.l2
+                l2aa, l2ab, l2bb = wfy.t2 if tasl else wfy.l2
             else:
-                l2aa, l2ab, l2ba, l2bb = wfy.t2 if (t_as_lambda or y.solver == 'MP2') else wfy.l2
+                l2aa, l2ab, l2ba, l2bb = wfy.t2 if tasl else wfy.l2
 
             if l2aa is None or l2ab is None or l2bb is None:
                 raise RuntimeError("No L2 amplitudes found for %s!" % y)

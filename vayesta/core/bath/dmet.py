@@ -14,6 +14,7 @@ class DMET_Bath_RHF(Bath):
         self.dmet_threshold = dmet_threshold
         # Output
         self.c_dmet = None
+        self.n_dmet = None
         self.c_cluster_occ = None
         self.c_cluster_vir = None
         self.c_env_occ = None
@@ -41,7 +42,7 @@ class DMET_Bath_RHF(Bath):
         self.log.info("----------------")
         self.log.changeIndentLevel(1)
         t0 = timer()
-        c_dmet, c_env_occ, c_env_vir = self.make_dmet_bath(self.fragment.c_env)
+        c_dmet, n_dmet, c_env_occ, c_env_vir = self.make_dmet_bath(self.fragment.c_env)
 
         # --- Separate occupied and virtual in cluster
         cluster = [self.c_frag, c_dmet]
@@ -59,6 +60,7 @@ class DMET_Bath_RHF(Bath):
         self.log.changeIndentLevel(-1)
 
         self.c_dmet = c_dmet
+        self.n_dmet = n_dmet
         self.c_env_occ = c_env_occ
         self.c_env_vir = c_env_vir
         self.c_cluster_occ = c_cluster_occ
@@ -97,6 +99,8 @@ class DMET_Bath_RHF(Bath):
         -------
         c_bath : (n(AO), n(bath)) array
             DMET bath orbitals.
+        eig : n(bath) array
+            DMET orbital occupation numbers (in [0,1]).
         c_occenv : (n(AO), n(occ. env)) array
             Occupied environment orbitals.
         c_virenv : (n(AO), n(vir. env)) array
@@ -106,7 +110,7 @@ class DMET_Bath_RHF(Bath):
         # No environemnt -> no bath/environment orbitals
         if c_env.shape[-1] == 0:
             nao = c_env.shape[0]
-            return np.zeros((nao, 0)), np.zeros((nao, 0)), np.zeros((nao, 0))
+            return np.zeros((nao, 0)), np.zeros((0,)), np.zeros((nao, 0)), np.zeros((nao, 0))
 
         tol = self.dmet_threshold
 
@@ -154,11 +158,12 @@ class DMET_Bath_RHF(Bath):
 
         if verbose:
             self.log_info(eig, c_bath)
+        n_dmet = eig[mask_bath]
         # Complete DMET orbital space using reference orbitals
         # NOT MAINTAINED!
         if c_ref is not None:
             c_bath, c_occenv, c_virenv = self.use_ref_orbitals(c_bath, c_occenv, c_virenv, c_ref, reftol)
-        return c_bath, c_occenv, c_virenv
+        return c_bath, n_dmet, c_occenv, c_virenv
 
     def make_dmet_bath_fast(self, c_env, dm1=None):
         """Fast DMET orbitals.

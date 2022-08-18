@@ -317,7 +317,7 @@ class CellFragmentTests(TestCase):
         frags = [frag] + frag.add_tsymmetric_fragments([2, 2, 2])
 
         bath = DMET_Bath(frags[1], frags[1].opts.bath_options['dmet_threshold'])
-        c_bath, c_occenv, c_virenv = bath.make_dmet_bath(frags[0].c_env)
+        c_bath, n_bath, c_occenv, c_virenv = bath.make_dmet_bath(frags[0].c_env)
         self.assertAlmostEqual(self.trace(c_bath),    3.34569601263718, self.PLACES)
         self.assertAlmostEqual(self.trace(c_occenv),  8.60026059294578, self.PLACES)
         self.assertAlmostEqual(self.trace(c_virenv), 38.23956564189844, self.PLACES)
@@ -333,7 +333,7 @@ class CellFragmentTests(TestCase):
             frags = [f.add_atomic_fragment([i*2, i*2+1]) for i in range(len(qemb.kpts))]
 
         bath = DMET_Bath(frags[0], 1e-5)
-        c_bath, c_occenv, c_virenv = bath.make_dmet_bath(frags[0].c_env, verbose=False)
+        c_bath, n_bath, c_occenv, c_virenv = bath.make_dmet_bath(frags[0].c_env, verbose=False)
         self.assertAlmostEqual(self.trace(c_bath),    0.00000000000000, self.PLACES)
         self.assertAlmostEqual(self.trace(c_occenv),  8.60025893931299, self.PLACES)
         self.assertAlmostEqual(self.trace(c_virenv), 38.23956182500297, self.PLACES)
