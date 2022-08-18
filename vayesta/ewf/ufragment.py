@@ -157,7 +157,21 @@ class Fragment(RFragment, BaseFragment):
             dOVOV = t2xbb.transpose(0,2,1,3)
             if not full_shape:
                 return (dovov, dovOV, dOVOV)
-            raise NotImplementedError
+            nocca, nvira, noccb, nvirb = dovOV.shape
+            norba = nocca + nvira
+            norbb = noccb + nvirb
+            oa, va = np.s_[:nocca], np.s_[nocca:]
+            ob, vb = np.s_[:noccb], np.s_[noccb:]
+            dm2aa = np.zeros(4*[norba])
+            dm2ab = np.zeros(2*[norba] + 2*[norbb])
+            dm2bb = np.zeros(4*[norbb])
+            dm2aa[oa,va,oa,va] = dovov
+            dm2aa[va,oa,va,oa] = dovov.transpose(1,0,3,2)
+            dm2ab[oa,va,ob,vb] = dovOV
+            dm2ab[va,oa,vb,ob] = dovOV.transpose(1,0,3,2)
+            dm2bb[ob,vb,ob,vb] = dOVOV
+            dm2bb[vb,ob,vb,ob] = dOVOV.transpose(1,0,3,2)
+            return (dm2aa, dm2ab, dm2bb)
 
         cc = d1 = None
         d2 = self._get_projected_gamma2_intermediates(t_as_lambda=t_as_lambda, sym_t2=sym_t2)
