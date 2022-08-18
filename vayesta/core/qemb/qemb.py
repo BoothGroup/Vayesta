@@ -1131,8 +1131,19 @@ class Embedding:
             self.log.debugv("Orthonormality error%s: L(2)= %.2e  L(inf)= %.2e", mo_name, l2, linf)
         return l2, linf
 
-    def get_average_cluster_size(self):
+    def get_mean_cluster_size(self):
         return np.mean([x.cluster.norb_active for x in self.fragments])
+
+    def get_average_cluster_size(self, average='mean'):
+        if average == 'mean':
+            return self.get_mean_cluster_size()
+        raise ValueError
+
+    def get_min_cluster_size(self):
+        return np.min([x.cluster.norb_active for x in self.fragments])
+
+    def get_max_cluster_size(self):
+        return np.max([x.cluster.norb_active for x in self.fragments])
 
     # --- Population analysis
     # -----------------------

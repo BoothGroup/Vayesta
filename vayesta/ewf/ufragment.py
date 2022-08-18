@@ -147,11 +147,18 @@ class Fragment(RFragment, BaseFragment):
         return d2
 
     def make_fragment_dm2cumulant(self, t_as_lambda=None, sym_t2=True, approx_cumulant=True, full_shape=True):
-        """TODO: MP2"""
+        if int(approx_cumulant) != 1:
+            raise NotImplementedError
+
         if self.solver == 'MP2':
+            t2xaa, t2xab, t2xbb = self.results.pwf.restore(sym=sym_t2).as_ccsd().t2
+            dovov = t2xaa.transpose(0,2,1,3)
+            dovOV = t2xab.transpose(0,2,1,3)
+            dOVOV = t2xbb.transpose(0,2,1,3)
+            if not full_shape:
+                return (dovov, dovOV, dOVOV)
             raise NotImplementedError
-        if (approx_cumulant not in (1, True)):
-            raise NotImplementedError
+
         cc = d1 = None
         d2 = self._get_projected_gamma2_intermediates(t_as_lambda=t_as_lambda, sym_t2=sym_t2)
         dm2 = pyscf.cc.uccsd_rdm._make_rdm2(cc, d1, d2, with_dm1=False, with_frozen=False)
@@ -173,7 +180,8 @@ class Fragment(RFragment, BaseFragment):
                 full_shape=False)
         dm2aa, dm2ab, dm2bb = dm2
         gaa, gab, gbb = eris
-        e_dm2 = (einsum('ijkl,ijkl->', gaa, dm2aa)
-               + einsum('ijkl,ijkl->', gab, dm2ab)*2
-               + einsum('ijkl,ijkl->', gbb, dm2bb))/2
+        fac = (2 if self.solver == 'MP2' else 1)
+        e_dm2 = fac*(einsum('ijkl,ijkl->', gaa, dm2aa)
+                   + einsum('ijkl,ijkl->', gab, dm2ab)*2
+                   + einsum('ijkl,ijkl->', gbb, dm2bb))/2
         return e_dm2
