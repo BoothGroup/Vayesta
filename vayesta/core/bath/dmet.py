@@ -206,8 +206,7 @@ class DMET_Bath_RHF(Bath):
             self.log.info("      Bath  Occupation  Entanglement  Character")
             self.log.info("      ----  ----------  ------------  ------------------------------------------------------")
             for idx, e in enumerate(eig[mask]):
-                bath = tol <= e <= 1-tol
-                bath = ['No', 'Yes'][bath]
+                bath = 'Yes' if (tol <= e <= 1-tol) else 'No'
                 entang = 4*e*(1-e)
                 # Mulliken population of DMET orbital:
                 pop = einsum('a,b,ba->a', c_env[:,mask][:,idx], c_env[:,mask][:,idx], ovlp)
