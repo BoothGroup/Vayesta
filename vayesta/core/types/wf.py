@@ -306,7 +306,7 @@ class RMP2_WaveFunction(WaveFunction):
 
     def change_sign(self):
         """Inplace"""
-        self.sign *= 1
+        self.sign *= -1
         self.t2 = spinalg.multiply(self.t2, -1)
 
     def project(self, projector, inplace=False):
@@ -330,7 +330,7 @@ class RMP2_WaveFunction(WaveFunction):
     def as_cisd(self, c0=1.0):
         nocc1 = self.t2.shape[0]
         c1 = np.zeros((nocc1, self.nvir))
-        c2 = sign*c0*self.t2
+        c2 = self.sign*c0*self.t2
         return RCISD_WaveFunction(self.mo, c0, c1, c2, projector=self.projector, sign=self.sign)
 
     def as_ccsd(self):
@@ -344,7 +344,7 @@ class RMP2_WaveFunction(WaveFunction):
     def copy(self):
         proj = callif(spinalg.copy, self.projector)
         t2 = spinalg.multiply(spinalg.copy(self.t2), self.sign)
-        return type(self)(self.mo.copy(), t2, projector=proj, sign=sign)
+        return type(self)(self.mo.copy(), t2, projector=proj, sign=self.sign)
 
     def pack(self, dtype=float):
         """Pack into a single array of data type `dtype`.
@@ -511,7 +511,7 @@ class RCCSD_WaveFunction(WaveFunction):
 
     def change_sign(self):
         """Inplace"""
-        self.sign *= 1
+        self.sign *= -1
         self.t1 = spinalg.multiply(self.t1, -1)
         self.t2 = spinalg.multiply(self.t2, -1)
         if self.l1 is not None:
