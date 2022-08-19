@@ -179,7 +179,7 @@ class Fragment(RFragment, BaseFragment):
         return dm2
 
     @log_method()
-    def make_fragment_dm2cumulant_energy(self, eris=None, t_as_lambda=False, sym_t2=True, approx_cumulant=True):
+    def make_fragment_dm2cumulant_energy(self, eris=None, t_as_lambda=None, sym_t2=True, approx_cumulant=True):
         if eris is None:
             eris = self._eris
         if eris is None:
