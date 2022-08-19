@@ -179,11 +179,11 @@ class Fragment(RFragment, BaseFragment):
         return dm2
 
     @log_method()
-    def make_fragment_dm2cumulant_energy(self, eris=None, t_as_lambda=False, sym_t2=True, approx_cumulant=True):
+    def make_fragment_dm2cumulant_energy(self, eris=None, t_as_lambda=None, sym_t2=True, approx_cumulant=True):
         if eris is None:
             eris = self._eris
         if eris is None:
-            eris = self.base.get_eris_array(self.cluster.c_active)
+            eris = self.base.get_eris_array_uhf(self.cluster.c_active)
         # For CCSD we can contract the ERIs with the DM2-intermediates
         if hasattr(eris, 'ovoo'):
             cc = d1 = None

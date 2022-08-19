@@ -445,12 +445,7 @@ class UMP2_BNO_Bath(MP2_BNO_Bath, BNO_Bath_UHF):
 
     def _get_eris(self, actspace):
         # We only need the (ov|ov) block for MP2:
-        mo_a = [actspace.c_active_occ[0], actspace.c_active_vir[0]]
-        mo_b = [actspace.c_active_occ[1], actspace.c_active_vir[1]]
-        eris_aa = self.base.get_eris_array(mo_a + mo_a)
-        eris_ab = self.base.get_eris_array(mo_a + mo_b)
-        eris_bb = self.base.get_eris_array(mo_b + mo_b)
-        return (eris_aa, eris_ab, eris_bb)
+        return self.base.get_eris_array_uhf(actspace.c_active_occ, mo_coeff2=actspace.c_active_vir)
 
     def _get_cderi(self, actspace):
         # We only need the (ov|ov) block for MP2:
