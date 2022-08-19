@@ -11,6 +11,7 @@ from .ufragment import UFragment
 from vayesta.core.ao2mo.postscf_ao2mo import postscf_ao2mo
 from vayesta.core.util import *
 from vayesta.core import spinalg
+from vayesta.core.ao2mo import kao2gmo_cderi
 from vayesta.core.ao2mo import postscf_kao2gmo_uhf
 from vayesta.mpi import mpi
 from vayesta.core.qemb.corrfunc import get_corrfunc_unrestricted
