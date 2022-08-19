@@ -157,7 +157,7 @@ class DMET_Bath_RHF(Bath):
         c_virenv = c_env[:,mask_virenv].copy()
 
         if verbose:
-            self.log_info(eig, c_bath)
+            self.log_info(eig, c_env)
         n_dmet = eig[mask_bath]
         # Complete DMET orbital space using reference orbitals
         # NOT MAINTAINED!
@@ -196,7 +196,7 @@ class DMET_Bath_RHF(Bath):
         c_bath = np.dot(cb, ub/sab[mask_bath])
         return c_bath
 
-    def log_info(self, eig, c_bath, threshold=1e-10):
+    def log_info(self, eig, c_env, threshold=1e-10):
         tol = self.dmet_threshold
         mask = np.logical_and(eig >= threshold, eig <= 1-threshold)
         ovlp = self.base.get_ovlp()
@@ -210,7 +210,7 @@ class DMET_Bath_RHF(Bath):
                 bath = ['No', 'Yes'][bath]
                 entang = 4*e*(1-e)
                 # Mulliken population of DMET orbital:
-                pop = einsum('a,b,ba->a', c_bath[:,idx], c_bath[:,idx], ovlp)
+                pop = einsum('a,b,ba->a', c_env[:,mask][:,idx], c_env[:,mask][:,idx], ovlp)
                 sort = np.argsort(-pop)
                 pop = pop[sort]
                 labels = np.asarray(self.mol.ao_labels(None))[sort][:min(len(pop), 4)]
