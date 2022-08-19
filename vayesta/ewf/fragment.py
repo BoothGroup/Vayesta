@@ -266,6 +266,7 @@ class Fragment(BaseFragment):
 
         # --- Make IP/EA Moments
         if self.base.opts.calc_moments:
+            # TODO define moment type
             nmom = self.base.opts.nmoments
             ip, ea = self.make_fragment_moments_eb(cluster_solver.solver, cluster_solver.wf, nmom)
             self.ip_moms = ip
@@ -488,7 +489,6 @@ class Fragment(BaseFragment):
 
     # --- Moments
 
-
     def make_fragment_moments_eb(self, cc, wf, nmom, t_as_lambda=None, sym_t2=True):
         if t_as_lambda is None:
             t_as_lambda = self.opts.t_as_lambda
@@ -504,6 +504,7 @@ class Fragment(BaseFragment):
         ea = make_ea_moms(cc, t1, t2, l1, l2, nmom=nmom, contract_be=False)
 
         return ip, ea
+
     # --- Other
     # ---------
 
