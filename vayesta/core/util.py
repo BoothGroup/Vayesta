@@ -38,6 +38,7 @@ __all__ = [
         'timer', 'log_time', 'get_used_memory', 'log_method',
         # Other
         'replace_attr', 'break_into_lines', 'fix_orbital_sign', 'split_into_blocks',
+        'getif', 'callif',
         ]
 
 class Object:
@@ -529,3 +530,15 @@ def fix_orbital_sign(mo_coeff, inplace=True):
     signs = np.ones((nmo,), dtype=int)
     signs[swap] = -1
     return mo_coeff, signs
+
+def getif(obj, key, cond=lambda x: x is not None, default=None):
+    """Returns obj[key] if cond(obj) else default."""
+    if cond(obj):
+        return obj[key]
+    return default
+
+def callif(func, arg, cond=lambda x, **kw: x is not None, default=None, **kwargs):
+    """Returns func(arg, **kwargs) if cond(arg, **kwargs) else default."""
+    if cond(arg, **kwargs):
+        return func(arg, **kwargs)
+    return default

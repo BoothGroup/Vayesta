@@ -13,6 +13,7 @@ from vayesta.core.vpyscf import uccsd_rdm
 
 import vayesta
 from vayesta.core.util import *
+from vayesta.core import spinalg
 from vayesta.core.types.orbitals import *
 from vayesta.core.helper import pack_arrays, unpack_arrays
 
@@ -27,9 +28,10 @@ __all__ = [
 
 class WaveFunction:
 
-    def __init__(self, mo, projector=None):
+    def __init__(self, mo, projector=None, sign=1):
         self.mo = mo
         self.projector = projector
+        self.sign = sign
 
     def __repr__(self):
         return "%s(norb= %r, nocc= %r, nvir=%r)" % (self.__class__.__name__, self.norb, self.nocc, self.nvir)
@@ -253,9 +255,9 @@ def symmetrize_uc2(c2, inplace=True):
 
 class RMP2_WaveFunction(WaveFunction):
 
-    def __init__(self, mo, t2, projector=None):
-        super().__init__(mo, projector=projector)
-        self.t2 = t2
+    def __init__(self, mo, t2, projector=None, sign=1):
+        super().__init__(mo, projector=projector, sign=sign)
+        self.t2 = spinalg.multiply(t2, sign)
 
     def make_rdm1(self, with_mf=True, ao_basis=False):
         t2 = self.t2
@@ -302,6 +304,11 @@ class RMP2_WaveFunction(WaveFunction):
         t2 = (t2aa, t2, t2aa)
         return UMP2_WaveFunction(mo, t2)
 
+    def change_sign(self):
+        """Inplace"""
+        self.sign *= 1
+        self.t2 = spinalg.multiply(self.t2, -1)
+
     def project(self, projector, inplace=False):
         wf = self if inplace else self.copy()
         wf.t2 = project_c2(wf.t2, projector)
@@ -323,24 +330,28 @@ class RMP2_WaveFunction(WaveFunction):
     def as_cisd(self, c0=1.0):
         nocc1 = self.t2.shape[0]
         c1 = np.zeros((nocc1, self.nvir))
-        c2 = c0*self.t2
-        return RCISD_WaveFunction(self.mo, c0, c1, c2, projector=self.projector)
+        c2 = sign*c0*self.t2
+        return RCISD_WaveFunction(self.mo, c0, c1, c2, projector=self.projector, sign=self.sign)
 
     def as_ccsd(self):
         nocc1 = self.t2.shape[0]
         t1 = np.zeros((nocc1, self.nvir))
-        return CCSD_WaveFunction(self.mo, t1, self.t2, l1=t1, l2=self.t2, projector=self.projector)
+        return CCSD_WaveFunction(self.mo, t1, self.t2, l1=t1, l2=self.t2, projector=self.projector, sign=self.sign)
 
     def as_fci(self):
         raise NotImplementedError
 
     def copy(self):
-        return RMP2_WaveFunction(self.mo.copy(), self.t2.copy())
+        proj = callif(spinalg.copy, self.projector)
+        t2 = spinalg.multiply(spinalg.copy(self.t2), self.sign)
+        return type(self)(self.mo.copy(), t2, projector=proj, sign=sign)
 
     def pack(self, dtype=float):
         """Pack into a single array of data type `dtype`.
 
         Useful for communication via MPI."""
+        if self.sign != 1:
+            raise NotImplementedError
         mo = self.mo.pack(dtype=dtype)
         data = (mo, self.t2, self.projector)
         pack = pack_arrays(*data, dtype=dtype)
@@ -405,29 +416,26 @@ class UMP2_WaveFunction(RMP2_WaveFunction):
         nocc1b = self.t2bb.shape[0]
         c1 = (np.zeros((nocc1a, self.nvira)),
               np.zeros((nocc1b, self.nvirb)))
-        c2aa = c0*self.t2aa
-        c2ab = c0*self.t2ab
-        c2bb = c0*self.t2bb
+        c2aa = sign*c0*self.t2aa
+        c2ab = sign*c0*self.t2ab
+        c2bb = sign*c0*self.t2bb
         if len(self.t2) == 3:
             c2 = (c2aa, c2ab, c2bb)
         elif len(self.t2) == 4:
-            c2ba = c0*self.t2ba
+            c2ba = sign*c0*self.t2ba
             c2 = (c2aa, c2ab, c2ba, c2bb)
-        return UCISD_WaveFunction(self.mo, c0, c1, c2, projector=self.projector)
+        return UCISD_WaveFunction(self.mo, c0, c1, c2, projector=self.projector, sign=self.sign)
 
     def as_ccsd(self):
         nocc1a = self.t2aa.shape[0]
         nocc1b = self.t2bb.shape[0]
         t1 = (np.zeros((nocc1a, self.nvira)),
               np.zeros((nocc1b, self.nvirb)))
-        return UCCSD_WaveFunction(self.mo, t1, self.t2, l1=t1, l2=self.t2, projector=self.projector)
+        return UCCSD_WaveFunction(self.mo, t1, self.t2, l1=t1, l2=self.t2, projector=self.projector, sign=self.sign)
 
     def as_fci(self):
         return NotImplementedError
 
-    def copy(self):
-        t2 = tuple(t.copy() for t in self.t2)
-        return UMP2_WaveFunction(self.mo.copy(), t2)
 
 def MP2_WaveFunction(mo, t2, **kwargs):
     if mo.nspin == 1:
@@ -446,12 +454,12 @@ class RCCSD_WaveFunction(WaveFunction):
     _make_rdm1_backend = ccsd_rdm.make_rdm1
     _make_rdm2_backend = ccsd_rdm.make_rdm2
 
-    def __init__(self, mo, t1, t2, l1=None, l2=None, projector=None):
-        super().__init__(mo, projector=projector)
-        self.t1 = t1
-        self.t2 = t2
-        self.l1 = l1
-        self.l2 = l2
+    def __init__(self, mo, t1, t2, l1=None, l2=None, projector=None, sign=1):
+        super().__init__(mo, projector=projector, sign=sign)
+        self.t1 = spinalg.multiply(t1, sign)
+        self.t2 = spinalg.multiply(t2, sign)
+        self.l1 = spinalg.multiply(l1, sign) if l1 is not None else None
+        self.l2 = spinalg.multiply(l2, sign) if l2 is not None else None
 
     def make_rdm1(self, t_as_lambda=False, with_mf=True, ao_basis=False):
         if t_as_lambda:
@@ -501,6 +509,16 @@ class RCCSD_WaveFunction(WaveFunction):
         dm2 = (einsum('ij,kl->ijkl', dm1, dm1) - einsum('ij,kl->iklj', dm1, dm1)/2)
         return dm2
 
+    def change_sign(self):
+        """Inplace"""
+        self.sign *= 1
+        self.t1 = spinalg.multiply(self.t1, -1)
+        self.t2 = spinalg.multiply(self.t2, -1)
+        if self.l1 is not None:
+            self.l1 = spinalg.multiply(self.l1, -1)
+        if self.l2 is not None:
+            self.l2 = spinalg.multiply(self.l2, -1)
+
     def project(self, projector, inplace=False):
         wf = self if inplace else self.copy()
         wf.t1 = project_c1(wf.t1, projector)
@@ -514,6 +532,8 @@ class RCCSD_WaveFunction(WaveFunction):
         """Pack into a single array of data type `dtype`.
 
         Useful for communication via MPI."""
+        if self.sign != 1:
+            raise NotImplementedError
         mo = self.mo.pack(dtype=dtype)
         data = (mo, self.t1, self.t2, self.l1, self.l2, self.projector)
         pack = pack_arrays(*data, dtype=dtype)
@@ -542,19 +562,17 @@ class RCCSD_WaveFunction(WaveFunction):
         return wf
 
     def copy(self):
-        t1 = self.t1.copy()
-        t2 = self.t2.copy()
-        l1 = l2 = proj = None
-        if self.l1 is not None:
-            l1 = self.l1.copy()
-        if self.l2 is not None:
-            l2 = self.l2.copy()
-        if self.projector is not None:
-            proj = self.projector.copy()
-        return RCCSD_WaveFunction(self.mo.copy(), t1, t2, l1=l1, l2=l2, projector=proj)
+        t1 = spinalg.copy(spinalg.multiply(self.t1, self.sign))
+        t2 = spinalg.copy(spinalg.multiply(self.t2, self.sign))
+        l1 = callif(spinalg.copy, callif(spinalg.multiply, self.l1, sign=self.sign))
+        l2 = callif(spinalg.copy, callif(spinalg.multiply, self.l2, sign=self.sign))
+        proj = callif(spinalg.copy, self.projector)
+        return type(self)(self.mo.copy(), t1, t2, l1=l1, l2=l2, projector=proj, sign=self.sign)
 
     def as_unrestricted(self):
         if self.projector is not None:
+            raise NotImplementedError
+        if self.sign != 1:
             raise NotImplementedError
         mo = self.mo.to_spin_orbitals()
         def _to_uccsd(t1, t2):
@@ -574,9 +592,9 @@ class RCCSD_WaveFunction(WaveFunction):
         """In intermediate normalization."""
         if self.projector is not None:
             raise NotImplementedError
-        c1 = c0*self.t1
-        c2 = c0*(self.t2 + einsum('ia,jb->ijab', self.t1, self.t1))
-        return RCISD_WaveFunction(self.mo, c0, c1, c2, projector=self.projector)
+        c1 = self.sign*c0*self.t1
+        c2 = c0*(self.sign*self.t2 + einsum('ia,jb->ijab', self.t1, self.t1))
+        return RCISD_WaveFunction(self.mo, c0, c1, c2, projector=self.projector, sign=self.sign)
 
     def as_ccsd(self):
         return self
@@ -678,38 +696,26 @@ class UCCSD_WaveFunction(RCCSD_WaveFunction):
         wf.l2 = symmetrize_uc2(wf.l2)
         return wf
 
-    def copy(self):
-        t1 = tuple(t.copy() for t in self.t1)
-        t2 = tuple(t.copy() for t in self.t2)
-        l1 = l2 = proj = None
-        if self.l1 is not None:
-            l1 = tuple(t.copy() for t in self.l1)
-        if self.l2 is not None:
-            l2 = tuple(t.copy() for t in self.l2)
-        if self.projector is not None:
-            proj = tuple(t.copy() for t in self.projector)
-        return UCCSD_WaveFunction(self.mo.copy(), t1, t2, l1=l1, l2=l2, projector=proj)
-
     def as_mp2(self):
         raise NotImplementedError
 
     def as_cisd(self, c0=1.0):
         if self.projector is not None:
             raise NotImplementedError
-        c1a = c0*self.t1a
-        c1b = c0*self.t1b
-        c2aa = c0*(self.t2aa + einsum('ia,jb->ijab', self.t1a, self.t1a)
-                             - einsum('ib,ja->ijab', self.t1a, self.t1a))
-        c2bb = c0*(self.t2bb + einsum('ia,jb->ijab', self.t1b, self.t1b)
-                             - einsum('ib,ja->ijab', self.t1b, self.t1b))
-        c2ab = c0*(self.t2ab + einsum('ia,jb->ijab', self.t1a, self.t1b))
+        c1a = self.sign*c0*self.t1a
+        c1b = self.sign*c0*self.t1b
+        c2aa = c0*(self.sign*self.t2aa + einsum('ia,jb->ijab', self.t1a, self.t1a)
+                                       - einsum('ib,ja->ijab', self.t1a, self.t1a))
+        c2bb = c0*(self.sign*self.t2bb + einsum('ia,jb->ijab', self.t1b, self.t1b)
+                                       - einsum('ib,ja->ijab', self.t1b, self.t1b))
+        c2ab = c0*(self.sign*self.t2ab + einsum('ia,jb->ijab', self.t1a, self.t1b))
         c1 = (c1a, c1b)
         if len(self.t2) == 3:
             c2 = (c2aa, c2ab, c2bb)
         elif len(self.t2) == 4:
-            c2ba = c0*self.t2ba + einsum('ia,jb->ijab', c1b, c1a)
+            c2ba = self.sign*c0*self.t2ba + einsum('ia,jb->ijab', c1b, c1a)
             c2 = (c2aa, c2ab, c2ba, c2bb)
-        return UCISD_WaveFunction(self.mo, c0, c1, c2, projector=self.projector)
+        return UCISD_WaveFunction(self.mo, c0, c1, c2, projector=self.projector, sign=self.sign)
 
     def as_ccsd(self):
         return self
@@ -736,7 +742,7 @@ class UCCSD_WaveFunction(RCCSD_WaveFunction):
     #    Useful for communication via MPI."""
     #    mo, *unpacked = unpack_arrays(packed)
     #    mo = SpinOrbitals.unpack(mo)
-    #    t1a, t1b, t2, l1, l2, projector = 
+    #    t1a, t1b, t2, l1, l2, projector =
     #    wf = cls(mo, t1, t2, l1=l1, l2=l2)
     #    if projector is not None:
     #        wf.projector = projector
@@ -754,11 +760,11 @@ def CCSD_WaveFunction(mo, t1, t2, **kwargs):
 
 class RCISD_WaveFunction(WaveFunction):
 
-    def __init__(self, mo, c0, c1, c2, projector=None):
-        super().__init__(mo, projector=projector)
-        self.c0 = c0
-        self.c1 = c1
-        self.c2 = c2
+    def __init__(self, mo, c0, c1, c2, projector=None, sign=1):
+        super().__init__(mo, projector=projector, sign=sign)
+        self.c0 = spinalg.multiply(c0, sign)
+        self.c1 = spinalg.multiply(c1, sign)
+        self.c2 = spinalg.multiply(c2, sign)
 
     def project(self, projector, inplace=False):
         wf = self if inplace else self.copy()
@@ -777,7 +783,12 @@ class RCISD_WaveFunction(WaveFunction):
         return wf
 
     def copy(self):
-        return RCISD_WaveFunction(self.mo.copy(), self.c0, self.c1.copy(), self.c2.copy())
+        if self.projector is not None:
+            raise NotImplementedError
+        c0 = self.sign*self.c0
+        c1 = spinalg.copy(spinalg.multiply(self.c1, self.sign))
+        c2 = spinalg.copy(spinalg.multiply(self.c2, self.sign))
+        return RCISD_WaveFunction(self.mo.copy(), c0, c1, c2, sign=self.sign)
 
     def as_mp2(self):
         raise NotImplementedError
@@ -787,7 +798,7 @@ class RCISD_WaveFunction(WaveFunction):
             return self
         c1 = self.c1 * c0/self.c0
         c2 = self.c2 * c0/self.c0
-        return RCISD_WaveFunction(self.mo, c0, c1, c2, projector=self.projector)
+        return RCISD_WaveFunction(self.mo, c0, c1, c2, projector=self.projector, sign=self.sign)
 
     def as_ccsd(self):
         proj = self.projector
@@ -796,13 +807,14 @@ class RCISD_WaveFunction(WaveFunction):
         t1 = self.c1/self.c0
         t2 = self.c2/self.c0 - einsum('ia,jb->ijab', t1, t1)
         l1, l2 = t1, t2
-        wf = RCCSD_WaveFunction(self.mo, t1, t2, l1=l1, l2=l2, projector=self.projector)
+        wf = RCCSD_WaveFunction(self.mo, t1, t2, l1=l1, l2=l2, projector=self.projector, sign=self.sign)
         if proj is not None:
             wf = wf.project(proj)
         return wf
 
     def as_fci(self):
         raise NotImplementedError
+
 
 class UCISD_WaveFunction(RCISD_WaveFunction):
 
@@ -848,11 +860,6 @@ class UCISD_WaveFunction(RCISD_WaveFunction):
         wf.c2 = symmetrize_uc2(wf.c2)
         return wf
 
-    def copy(self):
-        c1 = tuple(t.copy() for t in self.c1)
-        c2 = tuple(t.copy() for t in self.c2)
-        return UCISD_WaveFunction(self.mo.copy(), self.c0, c1, c2)
-
     def as_mp2(self):
         raise NotImplementedError
 
@@ -870,9 +877,11 @@ class UCISD_WaveFunction(RCISD_WaveFunction):
         elif len(self.c2) == 4:
             c2ba = self.c2ba * c0/self.c0
             c2 = (c2aa, c2ab, c2ba, c2bb)
-        return UCISD_WaveFunction(self.mo, c0, c1, c2, projector=self.projector)
+        return UCISD_WaveFunction(self.mo, c0, c1, c2, projector=self.projector, sign=self.sign)
 
     def as_ccsd(self):
+        if self.sign != 1:
+            raise NotImplementedError
         proj = self.projector
         if proj is not None:
             self = self.restore()
@@ -908,9 +917,9 @@ def CISD_WaveFunction(mo, c0, c1, c2, **kwargs):
 
 class RFCI_WaveFunction(WaveFunction):
 
-    def __init__(self, mo, ci, projector=None):
-        super().__init__(mo, projector=projector)
-        self.ci = ci
+    def __init__(self, mo, ci, projector=None, sign=1):
+        super().__init__(mo, projector=projector, sign=sign)
+        self.ci = sign*ci
 
     def make_rdm1(self, ao_basis=False, with_mf=True):
         dm1 = pyscf.fci.direct_spin1.make_rdm1(self.ci, self.norb, self.nelec)
@@ -958,6 +967,8 @@ class RFCI_WaveFunction(WaveFunction):
         raise self.as_cisd().as_mp2()
 
     def as_cisd(self, c0=None):
+        if self.sign != 1:
+            raise NotImplementedError
         if self.projector is not None:
             raise NotImplementedError
         norb, nocc, nvir = self.norb, self.nocc, self.nvir
@@ -1030,6 +1041,8 @@ class UFCI_WaveFunction(RFCI_WaveFunction):
 
     def as_cisd(self, c0=None):
         if self.projector is not None:
+            raise NotImplementedError
+        if self.sign != 1:
             raise NotImplementedError
         norba, norbb = self.norb
         nocca, noccb = self.nocc

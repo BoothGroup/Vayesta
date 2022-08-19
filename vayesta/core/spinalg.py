@@ -94,3 +94,5 @@ def _make_func(func, nargs=1):
 zeros_like = _make_func(np.zeros_like)
 add = _make_func(np.add, nargs=2)
 subtract = _make_func(np.subtract, nargs=2)
+multiply = _make_func(np.multiply, nargs=2)
+copy = _make_func(np.copy, nargs=1)
