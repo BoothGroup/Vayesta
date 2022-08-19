@@ -336,7 +336,8 @@ class RMP2_WaveFunction(WaveFunction):
     def as_ccsd(self):
         nocc1 = self.t2.shape[0]
         t1 = np.zeros((nocc1, self.nvir))
-        return CCSD_WaveFunction(self.mo, t1, self.t2, l1=t1, l2=self.t2, projector=self.projector, sign=self.sign)
+        t2 = self.sign*self.t2
+        return CCSD_WaveFunction(self.mo, t1, t2, l1=t1, l2=t2, projector=self.projector, sign=self.sign)
 
     def as_fci(self):
         raise NotImplementedError
