@@ -672,6 +672,8 @@ class Embedding:
         """
         # PBC with k-points:
         if self.kdf is not None:
+            if compact:
+                raise NotImplementedError
             if np.ndim(mo_coeff[0]) == 1:
                 mo_coeff = 4*[mo_coeff]
             cderi1, cderi1_neg = kao2gmo_cderi(self.kdf, mo_coeff[:2])

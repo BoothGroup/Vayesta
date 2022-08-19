@@ -124,13 +124,7 @@ class UMP2_Solver(MP2_Solver):
 
     def get_eris(self):
         # We only need the (ov|ov), (ov|OV) and (OV|OV) blocks for MP2:
-        c_aa = [self.cluster.c_active_occ[0], self.cluster.c_active_vir[0]]
-        c_bb = [self.cluster.c_active_occ[1], self.cluster.c_active_vir[1]]
-        eris_aa = self.base.get_eris_array(c_aa + c_aa)
-        eris_ab = self.base.get_eris_array(c_aa + c_bb)
-        eris_bb = self.base.get_eris_array(c_bb + c_bb)
-        eris = (eris_aa, eris_ab, eris_bb)
-        return eris
+        return self.base.get_eris_array_uhf(self.cluster.c_active_occ, mo_coeff2=self.cluster.c_active_vir)
 
     def get_cderi(self):
         # We only need the (L|ov) and (L|OV) blocks for MP2:

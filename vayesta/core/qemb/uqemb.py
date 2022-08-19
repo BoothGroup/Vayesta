@@ -118,6 +118,45 @@ class UEmbedding(Embedding):
         self.log.debug("Divergent exact-exchange (exxdiv) correction= %+16.8f Ha", e_exxdiv)
         return e_exxdiv, (v_exxdiv_a, v_exxdiv_b)
 
+    @log_method()
+    def get_eris_array_uhf(self, mo_coeff, mo_coeff2=None, compact=False):
+        """Get electron-repulsion integrals in MO basis as a NumPy array.
+
+        Parameters
+        ----------
+        mo_coeff: tuple(2) of (n(AO), n(MO)) array
+            MO coefficients.
+
+        Returns
+        -------
+        eris:
+            Electron-repulsion integrals in MO basis.
+        """
+        if mo_coeff2 is None:
+            mo_coeff2 = mo_coeff
+        moa, mob = mo_coeff
+        mo2a, mo2b = mo_coeff2
+        # PBC with k-points:
+        if self.kdf is not None:
+            if compact:
+                raise NotImplementedError
+            cderia, cderia_neg = kao2gmo_cderi(self.kdf, (moa, mo2a))
+            cderib, cderib_neg = kao2gmo_cderi(self.kdf, (mob, mo2b))
+            eris_aa = einsum('Lij,Lkl->ijkl', cderia.conj(), cderia)
+            eris_ab = einsum('Lij,Lkl->ijkl', cderia.conj(), cderib)
+            eris_bb = einsum('Lij,Lkl->ijkl', cderib.conj(), cderib)
+            if cderia_neg is not None:
+                eris_aa -= einsum('Lij,Lkl->ijkl', cderia_neg.conj(), cderia_neg)
+                eris_ab -= einsum('Lij,Lkl->ijkl', cderia_neg.conj(), cderib_neg)
+                eris_bb -= einsum('Lij,Lkl->ijkl', cderib_neg.conj(), cderib_neg)
+            return (eris_aa, eris_ab, eris_bb)
+
+        eris_aa = super().get_eris_array((moa, mo2a, moa, mo2a), compact=compact)
+        eris_ab = super().get_eris_array((moa, mo2a, mob, mo2b), compact=compact)
+        eris_bb = super().get_eris_array((mob, mo2b, mob, mo2b), compact=compact)
+        return (eris_aa, eris_ab, eris_bb)
+
+    @log_method()
     def get_eris_object(self, postscf, fock=None):
         """Get ERIs for post-SCF methods.
 

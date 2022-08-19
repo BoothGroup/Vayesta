@@ -129,9 +129,7 @@ class ClusterSolver:
             if self.spinsym == 'restricted':
                 eris = self.base.get_eris_array(coeff)
             elif self.spinsym == 'unrestricted':
-                eris = (self.base.get_eris_array(coeff[0]),
-                        self.base.get_eris_array((coeff[0], coeff[0], coeff[1], coeff[1])),
-                        self.base.get_eris_array(coeff[1]))
+                eris = self.base.get_eris_array_uhf(coeff)
         return eris
 
     def reset(self):

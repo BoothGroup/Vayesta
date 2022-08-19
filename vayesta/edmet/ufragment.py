@@ -143,9 +143,7 @@ class UEDMETFragment(UDMETFragment, EDMETFragment):
         else:
             # This is painful to do for each fragment, but comes from working with 4-index eris.
             c_act = self.mf.mo_coeff
-            eris_aa = self.base.get_eris_array(c_act[0])
-            eris_ab = self.base.get_eris_array((c_act[0], c_act[0], c_act[1], c_act[1]))
-            eris_bb = self.base.get_eris_array(c_act[1])
+            eris_aa, eris_ab, eris_bb = self.base.get_eris_array_uhf((c_act[0], c_act[1]))
             eris_aa = eris_aa[:self.base.nocc[0], self.base.nocc[0]:, :self.base.nocc[0], self.base.nocc[0]:].reshape(
                 (self.ov_mf[0], self.ov_mf[0]))
             eris_ab = eris_ab[:self.base.nocc[0], self.base.nocc[0]:, :self.base.nocc[1], self.base.nocc[1]:].reshape(

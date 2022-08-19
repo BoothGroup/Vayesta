@@ -170,18 +170,14 @@ class UFragment(Fragment):
             eris = self._eris
         if eris is None:
             with log_time(self.log.timingv, "Time for AO->MO transformation: %s"):
-                gaa = self.base.get_eris_array(c_act[0])
-                gab = self.base.get_eris_array((c_act[0], c_act[0], c_act[1], c_act[1]))
-                gbb = self.base.get_eris_array(c_act[1])
+                gaa, gab, gbb = self.base.get_eris_array_uhf((c_act[0], c_act[1]))
         elif isinstance(eris, tuple) and len(eris) == 3:
             gaa, gab, gbb = eris
         else:
             # TODO: Extract integrals from CCSD ERIs object
             # Temporary solution:
             with log_time(self.log.timingv, "Time for AO->MO transformation: %s"):
-                gaa = self.base.get_eris_array(c_act[0])
-                gab = self.base.get_eris_array((c_act[0], c_act[0], c_act[1], c_act[1]))
-                gbb = self.base.get_eris_array(c_act[1])
+                gaa, gab, gbb = self.base.get_eris_array_uhf((c_act[0], c_act[1]))
 
         version = (version or 1)
         if (version == 1):

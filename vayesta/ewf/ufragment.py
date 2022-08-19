@@ -183,7 +183,7 @@ class Fragment(RFragment, BaseFragment):
         if eris is None:
             eris = self._eris
         if eris is None:
-            eris = self.base.get_eris_array(self.cluster.c_active)
+            eris = self.base.get_eris_array_uhf(self.cluster.c_active)
         # For CCSD we can contract the ERIs with the DM2-intermediates
         if hasattr(eris, 'ovoo'):
             cc = d1 = None
