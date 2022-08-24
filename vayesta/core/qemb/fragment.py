@@ -3,6 +3,7 @@ import dataclasses
 import itertools
 import copy
 import os.path
+from typing import Optional
 # --- External
 import numpy as np
 import scipy
@@ -45,6 +46,7 @@ class Options(OptionsBase):
     # --- Other
     store_eris: bool = None     # If True, ERIs will be stored in Fragment._eris
     dm_with_frozen: bool = None # TODO: is still used?
+    screening: Optional[str] = None
     # Fragment specific
     # -----------------
     coupled_fragments: list = dataclasses.field(default_factory=list)
@@ -324,6 +326,7 @@ class Fragment:
             self.get_overlap.cache_clear()
         if reset_eris:
             self._eris = None
+            self._seris_ov = None
         self._results = None
 
     def get_fragments_with_overlap(self, tol=1e-8, **kwargs):

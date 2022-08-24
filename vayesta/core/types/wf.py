@@ -593,6 +593,8 @@ class UCCSD_WaveFunction(RCCSD_WaveFunction):
     _make_rdm1_backend = uccsd_rdm.make_rdm1
     _make_rdm2_backend = uccsd_rdm.make_rdm2
 
+    # Spin blocks of T-Amplitudes
+
     @property
     def t1a(self):
         return self.t1[0]
@@ -618,6 +620,34 @@ class UCCSD_WaveFunction(RCCSD_WaveFunction):
     @property
     def t2bb(self):
         return self.t2[-1]
+
+    # Spin blocks of L-Amplitudes
+
+    @property
+    def l1a(self):
+        return self.l1[0]
+
+    @property
+    def l1b(self):
+        return self.l1[1]
+
+    @property
+    def l2aa(self):
+        return self.l2[0]
+
+    @property
+    def l2ab(self):
+        return self.l2[1]
+
+    @property
+    def l2ba(self):
+        if len(self.l2) == 4:
+            return self.l2[2]
+        return self.l2ab.transpose(1,0,3,2)
+
+    @property
+    def l2bb(self):
+        return self.l2[-1]
 
     def make_rdm2_non_cumulant(self, t_as_lambda=False, ao_basis=False):
         dm1a, dm1b = self.make_rdm1(t_as_lambda=t_as_lambda, with_mf=False, ao_basis=ao_basis)

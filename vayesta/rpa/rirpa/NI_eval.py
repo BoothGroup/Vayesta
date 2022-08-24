@@ -187,8 +187,8 @@ class NumericalIntegratorBase:
                 raise NIException("Could not optimise `a' value.")
             solve = res.x
             self.log.info(
-                "Used minimisation to optimise quadrature grid; resulting `a` and penalty value: %4.2e & %4.2e"
-                "(the closer to zero better)", solve, res.fun)
+                "Used minimisation to optimise quadrature grid: a= %.2e  penalty value= %.2e "
+                "(smaller is better)", solve, res.fun)
         return solve
 
     def fix_params(self):

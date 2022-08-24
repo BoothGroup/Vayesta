@@ -7,6 +7,7 @@ import numpy as np
 from vayesta.core.qemb import Fragment
 from vayesta.core.bath import BNO_Threshold
 from vayesta.solver import get_solver_class
+from vayesta.core import ao2mo
 from vayesta.core.util import *
 
 
@@ -42,7 +43,7 @@ class DMETFragment(Fragment):
         super().__init__(*args, **kwargs)
         self.solver_results = None
 
-    def kernel(self, solver=None, init_guess=None, eris=None, construct_bath=True, chempot=None):
+    def kernel(self, solver=None, init_guess=None, eris=None, seris_ov=None, construct_bath=True, chempot=None):
         """Run solver for a single BNO threshold.
 
         Parameters
@@ -75,15 +76,22 @@ class DMETFragment(Fragment):
         cluster_solver = solver_cls(self.mf, self, cluster, **solver_opts)
         # Chemical potential
         if chempot is not None:
-            cluster_solver.v_ext = -chempot * self.get_fragment_projector(self.cluster.c_active)
+            px = self.get_fragment_projector(self.cluster.c_active)
+            if isinstance(px, tuple):
+                cluster_solver.v_ext = (-chempot * px[0], -chempot * px[1])
+            else:
+                cluster_solver.v_ext = -chempot * px
         if eris is None:
             eris = cluster_solver.get_eris()
         with log_time(self.log.info, ("Time for %s solver:" % solver) + " %s"):
-            cluster_solver.kernel(eris=eris)
+            if self.opts.screening:
+                cluster_solver.kernel(eris=eris, seris_ov=self._seris_ov)
+            else:
+                cluster_solver.kernel(eris=eris)
 
         self._results = results = self.Results(fid=self.id, wf=cluster_solver.wf, n_active=self.cluster.norb_active,
                 dm1=cluster_solver.wf.make_rdm1(), dm2=cluster_solver.wf.make_rdm2())
-        results.e1, results.e2 = self.get_dmet_energy_contrib()
+        results.e1, results.e2 = self.get_dmet_energy_contrib(eris=eris)
 
         return results
 
@@ -93,13 +101,22 @@ class DMETFragment(Fragment):
         return solver_opts
 
     def get_dmet_energy_contrib(self, eris=None):
-        """Calculate the contribution of this fragment to the overall DMET energy."""
+        """Calculate the contribution of this fragment to the overall DMET energy.
+
+        TODO: use core.qemb.fragment.get_fragment_dmet_energy instead?
+        """
         # Projector to the impurity in the active basis.
         P_imp = self.get_fragment_projector(self.cluster.c_active)
         c_act = self.cluster.c_active
         if eris is None:
+            eris = self._eris
+        if eris is None:
             with log_time(self.log.timing, "Time for AO->MO transformation: %s"):
                 eris = self.base.get_eris_array(c_act)
+        if not isinstance(eris, np.ndarray):
+            self.log.debugv("Extracting ERI array from CCSD ERIs object.")
+            eris = ao2mo.helper.get_full_array(eris, c_act)
+
         nocc = self.cluster.c_active_occ.shape[1]
         occ = np.s_[:nocc]
         # Calculate the effective onebody interaction within the cluster.
