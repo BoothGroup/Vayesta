@@ -565,8 +565,10 @@ class RCCSD_WaveFunction(WaveFunction):
     def copy(self):
         t1 = spinalg.copy(spinalg.multiply(self.t1, self.sign))
         t2 = spinalg.copy(spinalg.multiply(self.t2, self.sign))
-        l1 = callif(spinalg.copy, callif(spinalg.multiply, self.l1, sign=self.sign))
-        l2 = callif(spinalg.copy, callif(spinalg.multiply, self.l2, sign=self.sign))
+        if self.l1 is not None:
+            l1 = spinalg.copy(spinalg.multiply(self.l1, self.sign))
+        if self.l2 is not None:
+            l2 = spinalg.copy(spinalg.multiply(self.l2, self.sign))
         proj = callif(spinalg.copy, self.projector)
         return type(self)(self.mo.copy(), t1, t2, l1=l1, l2=l2, projector=proj, sign=self.sign)
 
