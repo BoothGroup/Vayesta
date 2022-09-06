@@ -10,8 +10,8 @@ from .fci import FCI_Solver
 from .fci import UFCI_Solver
 from .ebfci import EBFCI_Solver
 from .ebfci import UEBFCI_Solver
-from .ebccsd import EBCCSD_Solver
-from .ebccsd import UEBCCSD_Solver
+from ._ebcc import REBCC_Solver
+from ._ebcc import UEBCC_Solver
 from .dump import DumpSolver
 
 
@@ -41,10 +41,10 @@ def get_solver_class(mf, solver):
         if uhf:
             return UEBFCI_Solver
         return EBFCI_Solver
-    if solver == 'EBCCSD':
+    if solver == 'EBCC':
         if uhf:
-            return UEBCCSD_Solver
-        return EBCCSD_Solver
+            return UEBCC_Solver
+        return REBCC_Solver
     if solver == 'DUMP':
         return DumpSolver
     raise ValueError("Unknown solver: %s" % solver)

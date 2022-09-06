@@ -1,3 +1,5 @@
+from types import SimpleNamespace
+
 import numpy as np
 
 import pyscf
@@ -138,6 +140,14 @@ class WaveFunction:
             wf = RFCI_WaveFunction(mo, obj.ci)
             return wf
         raise NotImplementedError
+
+    @staticmethod
+    def from_ebcc(obj, **kwargs):
+        from ebcc import REBCC, UEBCC
+        if isinstance(obj, UEBCC):
+            return UEBCC_WaveFunction(obj)
+        if isinstance(obj, REBCC):
+            return REBCC_WaveFunction(obj)
 
 # --- HF
 
@@ -1074,6 +1084,142 @@ def FCI_WaveFunction(mo, ci, **kwargs):
     elif mo.nspin == 2:
         cls = UFCI_WaveFunction
     return cls(mo, ci, **kwargs)
+
+
+# EBCC
+
+class REBCC_WaveFunction(WaveFunction):
+
+    def __init__(self, solver):
+        super().__init__(solver.mo_coeff, projector=None)
+        self.solver = solver  # FIXME: is this not intended by these classes? 
+                              #        It's the cleanest way here unles we
+                              #        pass through the ansatz options
+
+        for key, val in solver.amplitudes.__dict__.items():
+            if isinstance(val, SimpleNamespace):
+                for key1, val1 in val.__dict__.items():
+                    # t1aa, t2abab, ...
+                    setattr(self, key+key1, val1)
+            else:
+                # t1, t2, ...
+                setattr(self, key, val)
+
+        if solver.lambdas is not None:
+            for key, val in solver.lambdas.__dict__.items():
+                if isinstance(val, SimpleNamespace):
+                    for key1, val1 in val.__dict__.items():
+                        # l1aa, l2abab, ...
+                        setattr(self, key+key1, val1)
+                else:
+                    # l1, l2, ...
+                    setattr(self, key, val)
+
+    def make_rdm1_f(self, t_as_lambda=False, ao_basis=False):
+        if t_as_lambda:
+            lambdas = self.solver.init_lams(amplitdes=self.amplitdes)
+        elif self.lambdas is None:
+            raise NotCalculatedError("Lambda-amplitudes required for RDM1.")
+        else:
+            lambdas = self.lambdas
+
+        dm1 = self.solver.make_rdm1_f(amplitudes=amplitudes, lambdas=lambdas)
+
+        if ao_repr:
+            dm1 = einsum("pq,pi,qj->ij", dm1, self.solver.mo_coeff, self.solver.mo_coeff)
+
+        return dm1
+
+    make_rdm1 = make_rdm1_f
+
+    def make_rdm2_f(self, t_as_lambda=False, ao_basis=False):
+        if t_as_lambda:
+            lambdas = self.solver.init_lams(amplitdes=self.amplitdes)
+        elif self.lambdas is None:
+            raise NotCalculatedError("Lambda-amplitudes required for RDM1.")
+        else:
+            lambdas = self.lambdas
+
+        dm2 = self.solver.make_rdm2_f(amplitudes=amplitudes, lambdas=lambdas)
+
+        if ao_repr:
+            dm2 = einsum(
+                    "pqrs,pi,qj,rk,sl->ijkl", dm2, 
+                    self.solver.mo_coeff, self.solver.mo_coeff,
+                    self.solver.mo_coeff, self.solver.mo_coeff,
+            )
+
+        return dm2
+
+    make_rdm2 = make_rdm2_f
+
+    def make_dd_moms(self, max_mom):
+        raise NotImplementedError
+
+
+class UEBCC_WaveFunction(REBCC_WaveFunction):
+
+    def make_rdm1_f(self, t_as_lambda=False, ao_basis=False):
+        if t_as_lambda:
+            lambdas = self.solver.init_lams(amplitdes=self.amplitdes)
+        elif self.lambdas is None:
+            raise NotCalculatedError("Lambda-amplitudes required for RDM1.")
+        else:
+            lambdas = self.lambdas
+
+        dm1 = self.solver.make_rdm1(amplitudes=amplitudes, lambdas=lambdas)
+        dm1aa, dm1bb = dm1.aa, dm1.bb
+
+        if ao_repr:
+            dm1aa = einsum(
+                    "pq,pi,qj->ij",
+                    dm1aa,
+                    self.solver.mo_coeff[0],
+                    self.solver.mo_coeff[0],
+            )
+            dm1bb = einsum(
+                    "pq,pi,qj->ij",
+                    dm1bb,
+                    self.solver.mo_coeff[1],
+                    self.solver.mo_coeff[1],
+            )
+
+        return (dm1aa, dm1bb)
+
+    make_rdm1 = make_rdm1_f
+
+    def make_rdm2_f(self, t_as_lambda=False, ao_basis=False):
+        if t_as_lambda:
+            lambdas = self.solver.init_lams(amplitdes=self.amplitdes)
+        elif self.lambdas is None:
+            raise NotCalculatedError("Lambda-amplitudes required for RDM1.")
+        else:
+            lambdas = self.lambdas
+
+        dm2 = self.solver.make_rdm2(amplitudes=amplitudes, lambdas=lambdas)
+        dm2aaaa, dm2aabb, dm2bbbb = dm2.aaaa, dm2.aabb, dm2.bbbb
+
+        if ao_repr:
+            dm2aaaa = einsum(
+                    "pqrs,pi,qj,rk,sl->ijkl", dm2aaaa, 
+                    self.solver.mo_coeff[0], self.solver.mo_coeff[0],
+                    self.solver.mo_coeff[0], self.solver.mo_coeff[0],
+            )
+            dm2aabb = einsum(
+                    "pqrs,pi,qj,rk,sl->ijkl", dm2aabb, 
+                    self.solver.mo_coeff[0], self.solver.mo_coeff[0],
+                    self.solver.mo_coeff[1], self.solver.mo_coeff[1],
+            )
+            dm2bbbb = einsum(
+                    "pqrs,pi,qj,rk,sl->ijkl", dm2bbbb, 
+                    self.solver.mo_coeff[1], self.solver.mo_coeff[1],
+                    self.solver.mo_coeff[1], self.solver.mo_coeff[1],
+            )
+
+        return (dm2aaaa, dm2aabb, dm2bbbb)
+
+    make_rdm2 = make_rdm2_f
+
 
 
 if __name__ == '__main__':
