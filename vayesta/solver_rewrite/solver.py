@@ -45,7 +45,6 @@ class ClusterSolver:
 
     @property
     def base(self):
-        """TODO: Remove fragment/embedding dependence...?"""
         return self.fragment.base
 
     def get_fock(self):

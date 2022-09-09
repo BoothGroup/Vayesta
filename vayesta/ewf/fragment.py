@@ -15,7 +15,8 @@ import pyscf.cc
 import vayesta
 from vayesta.core.util import *
 from vayesta.core.qemb import Fragment as BaseFragment
-from vayesta.solver import get_solver_class
+# from vayesta.solver import get_solver_class
+from vayesta.solver_rewrite import get_solver_class
 from vayesta.core.fragmentation import IAO_Fragmentation
 from vayesta.core.types import RFCI_WaveFunction
 

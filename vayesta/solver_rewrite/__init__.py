@@ -1,10 +1,12 @@
 import numpy as np
 
 from .ebcc import EBCC_Solver, UEBCC_Solver, EB_EBCC_Solver, UEB_EBCC_Solver
+from vayesta.solver import get_solver_class as get_solver_class_other
 
 
 def is_uhf(mf):
     return (np.ndim(mf.mo_coeff[0]) == 2)
+
 
 def get_solver_class(mf, solver):
     solver = solver.upper()
@@ -19,6 +21,7 @@ def get_solver_class(mf, solver):
             return solverclass
         else:
             specrank = solver[4:]
+
             def get_right_CC(*args, **kwargs):
                 print("!!")
                 print(kwargs)
@@ -30,8 +33,11 @@ def get_solver_class(mf, solver):
                             "Please use only specify via one approach, or ensure they agree.")
                 kwargs["rank"] = specrank
                 return solverclass(*args, **kwargs)
+
             return get_right_CC
-    raise ValueError("Unknown solver: %s" % solver)
+    return get_solver_class_other(mf, solver)
+    # raise ValueError("Unknown solver: %s" % solver)
+
 
 def get_eb_solver_class(mf, solver):
     solver = solver.upper()
@@ -60,9 +66,11 @@ def get_eb_solver_class(mf, solver):
                     inp[key] = val
 
                 update_opts(kwargs, "fermion_excitations", specrank[0])
-                update_opts(kwargs, "boson_excitations", "SD"[:int(specrank[1])+1])
+                update_opts(kwargs, "boson_excitations", "SD"[:int(specrank[1]) + 1])
                 update_opts(kwargs, "fermion_coupling_rank", int(specrank[2]))
                 update_opts(kwargs, "boson_coupling_rank", int(specrank[2]))
                 return solverclass(*args, **kwargs)
+
             return get_right_CC
-    raise ValueError("Unknown solver: %s" % solver)
+    return get_solver_class_other(mf, solver)
+    # raise ValueError("Unknown solver: %s" % solver)
