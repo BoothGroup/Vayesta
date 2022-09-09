@@ -6,7 +6,9 @@ import numpy as np
 
 from vayesta.core.qemb import Fragment
 from vayesta.core.bath import BNO_Threshold
-from vayesta.solver import get_solver_class
+#from vayesta.solver import get_solver_class
+from vayesta.solver_rewrite import get_solver_class
+
 from vayesta.core import ao2mo
 from vayesta.core.util import *
 

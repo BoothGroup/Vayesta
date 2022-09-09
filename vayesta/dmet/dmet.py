@@ -41,7 +41,7 @@ class DMET(Embedding):
 
     Fragment = DMETFragment
     Options = Options
-    valid_solvers = ['MP2', 'CISD', 'CCSD', 'FCI', 'FCI-SPIN0', 'FCI-SPIN1']
+    valid_solvers = ["EBCC"] #['MP2', 'CISD', 'CCSD', 'FCI', 'FCI-SPIN0', 'FCI-SPIN1']
 
     def __init__(self, mf, solver='CCSD', log=None, **kwargs):
         t_start = timer()
