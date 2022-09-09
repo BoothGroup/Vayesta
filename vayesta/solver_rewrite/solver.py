@@ -67,14 +67,17 @@ class ClusterSolver:
 
     def make_clus_mf(self, screening=None):
         bare_eris = self.get_eris()
-        heff = self.get_heff(bare_eris)
+        heff, mo_energy = self.get_heff(bare_eris)
         clusmol, mo_coeff, mo_occ = self.get_clus_info()
 
         clusmf = self._scf_class(clusmol)
         clusmf.get_hcore = lambda *args: heff
         clusmf.get_ovlp = lambda *args: np.eye(clusmol.nao)
+        fock = self.get_fock()
+        clusmf.get_fock = lambda *args: fock
         clusmf.mo_coeff = mo_coeff
         clusmf.mo_occ = mo_occ
+        #clusmf.mo_energy = mo_energy
 
         if screening is None:
             clusmf._eri = bare_eris
@@ -90,13 +93,15 @@ class ClusterSolver:
         mo_coeff = np.eye(clusmol.nao)
 
         mo_occ = np.zeros((clusmol.nao,))
-        mo_occ[:clusmol.nelec[0]] = 1.0
+        mo_occ[:clusmol.nelec[0]] = 2.0
 
         return clusmol, mo_coeff, mo_occ
 
     def get_heff(self, eris, fock=None, with_vext=True):
         if fock is None:
             fock = self.get_fock()
+        mo_energy = np.diag(fock)
+
         occ = np.s_[:self.cluster.nocc_active]
         v_act = 2 * einsum('iipq->pq', eris[occ, occ]) - einsum('iqpi->pq', eris[occ, :, :, occ])
         h_eff = fock - v_act
@@ -107,7 +112,7 @@ class ClusterSolver:
         # h_eff = np.linalg.multi_dot((self.c_active.T, self.base.get_hcore()+v_core, self.c_active))
         if with_vext and self.v_ext is not None:
             h_eff += self.v_ext
-        return h_eff
+        return h_eff, mo_energy
 
     def get_eris(self, *args, **kwargs):
         with log_time(self.log.timing, "Time for AO->MO of ERIs:  %s"):
@@ -129,7 +134,7 @@ class UClusterSolver(ClusterSolver):
     def _scf_class(self):
         return scf.UHF
 
-    def make_clus_mol(self):
+    def get_clus_info(self):
         clusmol = self.mf.mol.__class__()
         clusmol.nelec = self.cluster.nocc_active
         na, nb = self.cluster.norb_active
@@ -137,13 +142,20 @@ class UClusterSolver(ClusterSolver):
         assert (na == nb)
         clusmol.nao = na
         mo_coeff = np.zeros((2, clusmol.nao, clusmol.nao))
-        mo_coeff[0, :clusmol.nelec[0], :clusmol.nelec[0]] = np.eye(clusmol.nelec[0])
-        mo_coeff[1, :clusmol.nelec[1], :clusmol.nelec[1]] = np.eye(clusmol.nelec[1])
-        return clusmol, mo_coeff
+        mo_coeff[0] = np.eye(clusmol.nao)
+        mo_coeff[1] = np.eye(clusmol.nao)
+
+        mo_occ = np.zeros((2, clusmol.nao))
+        mo_occ[0, :clusmol.nelec[0]] = 1
+        mo_occ[1, :clusmol.nelec[1]] = 1
+
+        return clusmol, mo_coeff, mo_occ
 
     def get_heff(self, eris, fock=None, with_vext=True):
         if fock is None:
             fock = self.get_fock()
+        mo_energy = np.diagonal(fock, 1, 2)
+
         oa = np.s_[:self.cluster.nocc_active[0]]
         ob = np.s_[:self.cluster.nocc_active[1]]
         gaa, gab, gbb = eris
@@ -155,7 +167,7 @@ class UClusterSolver(ClusterSolver):
         if with_vext and self.v_ext is not None:
             h_eff = ((h_eff[0] + self.v_ext[0]),
                      (h_eff[1] + self.v_ext[1]))
-        return h_eff
+        return h_eff, mo_energy
 
     def get_eris(self, *args, **kwargs):
         with log_time(self.log.timing, "Time for AO->MO of ERIs:  %s"):

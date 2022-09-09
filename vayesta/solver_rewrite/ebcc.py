@@ -27,16 +27,32 @@ class EBCC_Solver(ClusterSolver):
             mycc.solve_lambda()
         # Now just need to wrangle EBCC results into wavefunction format.
         mo = Orbitals(self.cluster.c_active, occ=self.cluster.nocc_active)
-        # Use this for now; could replace with explicit generators from our method if we wanted.
-        #self.wf = WaveFunction(mo)
-        #self.wf.make_rdm1 = mycc.make_rdm1_f
-        #self.wf.make_rdm2 = mycc.make_rdm2_f
-        self.wf = CCSD_WaveFunction(mo, mycc.t1, mycc.t2, l1=mycc.l1.transpose(1,0), l2=mycc.l2.transpose(2,3,0,1))
+        self.construct_wavefunction(mycc, mo)
+
+    def construct_wavefunction(self, mycc, mo):
+        # Simply alias required quantities for now; this ensures functionality for arbitrary orders of CC.
+        self.wf = WaveFunction(mo)
+        self.wf.make_rdm1 = mycc.make_rdm1_f
+        self.wf.make_rdm2 = mycc.make_rdm2_f
 
 
 class UEBCC_Solver(UClusterSolver, EBCC_Solver):
-    # This should automatically work.
-    pass
+    # This should automatically work other than ensuring spin components are in a tuple.
+    def construct_wavefunction(self, mycc, mo):
+        # Simply alias required quantities for now; this ensures functionality for arbitrary orders of CC.
+        self.wf = WaveFunction(mo)
+
+        def make_rdm1(*args, **kwargs):
+            dm = mycc.make_rdm1_f(*args, **kwargs)
+            return (dm.aa, dm.bb)
+
+        self.wf.make_rdm1 = make_rdm1
+
+        def make_rdm2(*args, **kwargs):
+            dm = mycc.make_rdm2_f(*args, **kwargs)
+            return (dm.aaaa, dm.aabb, dm.bbbb)
+
+        self.wf.make_rdm2 = make_rdm2
 
 
 class EB_EBCC_Solver(EBClusterSolver, EBCC_Solver):
