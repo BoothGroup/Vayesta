@@ -125,7 +125,7 @@ class Test_CCSD(Test_MP2):
         nk = len(cls.mf.kpts)
         cls.ref_values = {
                 ('e_corr', -1) : cls.cc.e_corr/nk,
-                ('e_tot', -1) : cls.cc.e_tot/nk + cls.get_e_exxdiv(),
+                ('e_tot', -1) : cls.cc.e_tot/nk,
                 ('e_corr', 1e-3) : -0.0153692736073979,
                 ('e_tot', 1e-3) : -1.2835024529439953,
                 }
