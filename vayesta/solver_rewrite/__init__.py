@@ -1,6 +1,7 @@
 import numpy as np
 
 from .ebcc import EBCC_Solver, UEBCC_Solver, EB_EBCC_Solver, UEB_EBCC_Solver
+from .fci import FCI_Solver, UFCI_Solver
 from vayesta.solver import get_solver_class as get_solver_class_other
 
 
@@ -35,6 +36,10 @@ def get_solver_class(mf, solver):
                 return solverclass(*args, **kwargs)
 
             return get_right_CC
+    if solver == "FCI":
+        if uhf:
+            return UFCI_Solver
+        return FCI_Solver
     return get_solver_class_other(mf, solver)
     # raise ValueError("Unknown solver: %s" % solver)
 
@@ -44,9 +49,9 @@ def get_eb_solver_class(mf, solver):
     uhf = is_uhf(mf)
     if solver == "EBCC":
         if uhf:
-            solverclass = UEBCC_Solver
+            solverclass = UEB_EBCC_Solver
         else:
-            solverclass = EBCC_Solver
+            solverclass = EB_EBCC_Solver
         if len(solver) == 4:
             return solverclass
         else:
