@@ -313,7 +313,7 @@ class Test_MP2_2D(Test_MP2):
                 ('e_corr', -1) : cls.cc.e_corr/nk,
                 ('e_tot', -1) : cls.cc.e_tot/nk,
                 ('e_corr', 1e-3) : -0.013767085896414821,
-                ('e_tot', 1e-3) : -1.3539205678917514,
+                ('e_tot', 1e-3) : -1.3539208319963207,
                 }
 
 @pytest.mark.slow
