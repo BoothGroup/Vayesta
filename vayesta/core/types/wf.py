@@ -303,8 +303,8 @@ class RMP2_WaveFunction(WaveFunction):
         t2 = (t2aa, t2, t2aa)
         return UMP2_WaveFunction(mo, t2)
 
-    def change_sign(self):
-        self.t2 = spinalg.multiply(self.t2, -1)
+    def multiply(self, factor):
+        self.t2 = spinalg.multiply(self.t2, factor)
 
     def project(self, projector, inplace=False):
         wf = self if inplace else self.copy()
@@ -504,14 +504,6 @@ class RCCSD_WaveFunction(WaveFunction):
         dm2 = (einsum('ij,kl->ijkl', dm1, dm1) - einsum('ij,kl->iklj', dm1, dm1)/2)
         return dm2
 
-    def change_sign(self):
-        self.t1 = spinalg.multiply(self.t1, -1)
-        self.t2 = spinalg.multiply(self.t2, -1)
-        if self.l1 is not None:
-            self.l1 = spinalg.multiply(self.l1, -1)
-        if self.l2 is not None:
-            self.l2 = spinalg.multiply(self.l2, -1)
-
     def project(self, projector, inplace=False):
         wf = self if inplace else self.copy()
         wf.t1 = project_c1(wf.t1, projector)
@@ -555,10 +547,8 @@ class RCCSD_WaveFunction(WaveFunction):
     def copy(self):
         t1 = spinalg.copy(self.t1)
         t2 = spinalg.copy(self.t2)
-        if self.l1 is not None:
-            l1 = spinalg.copy(self.l1)
-        if self.l2 is not None:
-            l2 = spinalg.copy(self.l2)
+        l1 = callif(spinalg.copy, self.l1)
+        l2 = callif(spinalg.copy, self.l2)
         proj = callif(spinalg.copy, self.projector)
         return type(self)(self.mo.copy(), t1, t2, l1=l1, l2=l2, projector=proj)
 

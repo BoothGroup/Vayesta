@@ -44,9 +44,12 @@ class Options(BaseFragment.Options):
     # Calculation modes
     calc_e_wf_corr: bool = None
     calc_e_dm_corr: bool = None
+    # Delta-WF
+    deltawf_solver: str = None
+    deltawf_eta: Optional[float] = None
     # Fragment specific
     # -----------------
-    wf_sign: int = 1
+    wf_factor: Optional[int] = None
     # TODO: move these:
     # CAS methods
     c_cas_occ: np.ndarray = None
@@ -259,8 +262,8 @@ class Fragment(BaseFragment):
         if solver.lower() == 'dump':
             return
 
-        if self.opts.wf_sign == -1:
-            cluster_solver.wf.change_sign()
+        if self.opts.wf_factor is not None:
+            cluster_solver.wf.multiply(self.opts.wf_factor)
 
         # ---Make T-projected WF
         if isinstance(cluster_solver.wf, RFCI_WaveFunction):

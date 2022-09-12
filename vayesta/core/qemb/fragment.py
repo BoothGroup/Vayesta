@@ -524,6 +524,20 @@ class Fragment:
     # --- Symmetry
     # ============
 
+    def copy(self, fid=None, name=None,  **kwargs):
+        if fid is None:
+            fid = self.base.register.get_next_id()
+        name = name or ('%s(copy)' % self.name)
+        kwargs_copy = self.opts.asdict().copy()
+        kwargs_copy.update(kwargs)
+        attrs = ['c_frag', 'c_env', 'solver', 'atoms', 'aos', 'active', 'sym_parent', 'sym_op', 'mpi_rank', 'log']
+        for attr in attrs:
+            if attr in kwargs_copy:
+                continue
+            kwargs_copy[attr] = getattr(self, attr)
+        frag = type(self)(self.base, fid, name, **kwargs_copy)
+        return frag
+
     @deprecated()
     def add_tsymmetric_fragments(self, tvecs, symtol=1e-6):
         """
