@@ -326,9 +326,9 @@ class Test_CCSD_2D(Test_CCSD):
         nk = len(cls.mf.kpts)
         cls.ref_values = {
                 ('e_corr', -1) : cls.cc.e_corr/nk,
-                ('e_tot', -1) : cls.cc.e_tot/nk + cls.get_e_exxdiv(),
+                ('e_tot', -1) : cls.cc.e_tot/nk,
                 ('e_corr', 1e-3) : -0.01982005986990425,
-                ('e_tot', 1e-3) : -1.3599735418652414,
+                ('e_tot', 1e-3) : -1.3599738060050732,
                 }
 
 if __name__ == '__main__':
