@@ -260,7 +260,7 @@ class Test_UCCSD(Test_CCSD):
         nk = len(cls.mf.kpts)
         cls.ref_values = {
                 ('e_corr', -1) : cls.cc.e_corr/nk,
-                ('e_tot', -1) : cls.cc.e_tot/nk + cls.get_e_exxdiv(),
+                ('e_tot', -1) : cls.cc.e_tot/nk,
                 ('e_corr', 1e-3) : -0.01654717440912164,
                 ('e_tot', 1e-3) : -1.7250820680314027,
                 }
