@@ -313,7 +313,7 @@ class Test_MP2_2D(Test_MP2):
                 ('e_corr', -1) : cls.cc.e_corr/nk,
                 ('e_tot', -1) : cls.cc.e_tot/nk,
                 ('e_corr', 1e-3) : -0.013767085896414821,
-                ('e_tot', 1e-3) : -1.3539208319963207,
+                ('e_tot', 1e-3) : -1.3539212721083465,
                 }
 
 @pytest.mark.slow
@@ -328,7 +328,7 @@ class Test_CCSD_2D(Test_CCSD):
                 ('e_corr', -1) : cls.cc.e_corr/nk,
                 ('e_tot', -1) : cls.cc.e_tot/nk,
                 ('e_corr', 1e-3) : -0.01982005986990425,
-                ('e_tot', 1e-3) : -1.3599738060050732,
+                ('e_tot', 1e-3) : -1.359974246172939,
                 }
 
 if __name__ == '__main__':

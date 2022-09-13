@@ -29,7 +29,7 @@ class TestMolecule:
     """Molecular test system.
     """
 
-    def __init__(self, atom, basis, auxbasis=None, verbose=0, **kwargs):
+    def __init__(self, atom, basis, auxbasis=None, verbose=4, **kwargs):
         super().__init__()
         mol = pyscf.gto.Mole()
         mol.atom = atom
@@ -125,27 +125,17 @@ class TestMolecule:
 
 
 class TestSolid:
-    """Solid test system.
-    """
+    """Solid test system."""
 
-    def __init__(
-            self,
-            a,
-            atom,
-            basis,
-            kmesh=None,
-            auxbasis=None,
-            supercell=None,
-            exxdiv='ewald',
-            verbose=0,
-            df='gdf',
-            **kwargs,
-    ):
+    def __init__(self, a, atom, basis, kmesh=None, auxbasis=None, supercell=None, exxdiv='ewald', df='gdf',
+                 precision=1e-9, verbose=4, **kwargs):
         super().__init__()
         mol = pyscf.pbc.gto.Cell()
         mol.a = a
         mol.atom = atom
         mol.basis = basis
+        if precision is not None:
+            mol.precision = precision
         for key, val in kwargs.items():
             setattr(mol, key, val)
         mol.verbose = verbose
@@ -172,7 +162,7 @@ class TestSolid:
         elif self.df == 'rsgdf':
             rhf = rhf.rs_density_fit(auxbasis=self.auxbasis)
         rhf.conv_tol = 1e-10
-        rhf.conv_tol_grad = 1e-6
+        rhf.conv_tol_grad = 1e-8
         rhf.exxdiv = self.exxdiv
         rhf.kernel()
         assert rhf.converged
