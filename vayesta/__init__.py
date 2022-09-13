@@ -1,13 +1,3 @@
-__version__ = '1.0.0a1'
-
-logo = """\
-__    __ ___ __    __ ___ ____ _______ ___
-\ \  / // _ ## \  / // __/ __//__  __// _ #
- \ \/ // /_\ ## \/ // __/\__ \  / /  / /_\ #
-  \__//_/   \_##  //____//___/ /_/  /_/   \_#
-   ============/ /============================
-              /_/""".replace('#', '\\')
-
 import sys
 import os.path
 import logging
@@ -17,6 +7,9 @@ import importlib
 
 from .core import cmdargs
 from .mpi import init_mpi
+
+
+__version__ = '1.0.0a1'
 
 # Command line arguments
 args = cmdargs.parse_cmd_args()
@@ -65,6 +58,8 @@ if errlog:
     log.addHandler(errhandler)
 
 # Print Logo
+with open(os.path.join(os.path.dirname(__file__), 'logo.txt'), 'r') as f:
+    logo = f.read()
 log.info(logo + (' Version %s' % __version__) + '\n')
 
 # --- Required modules

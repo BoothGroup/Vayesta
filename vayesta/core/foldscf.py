@@ -60,10 +60,13 @@ class FoldedSCF:
 
     def __init__(self, kmf, kpt=np.zeros(3), **kwargs):
         # Create a copy, so that the original mean-field object does not get modified
-        self.kmf = copy.copy(kmf)
+        kmf = copy.copy(kmf)
+        # Support for k-point symmetry:
+        if hasattr(kmf, 'to_khf'):
+            kmf = kmf.to_khf()
+        self.kmf = kmf
         self.subcellmesh = kpts_to_kmesh(self.kmf.cell, kmf.kpts)
         cell, self.kphase = get_phase(self.kcell, self.kmf.kpts)
-
         # We cannot call the PySCF __init__....
         #super().__init__(scell, **kwargs)
         # ... so we have to intialize a few attributes here:
@@ -137,7 +140,7 @@ class FoldedRHF(FoldedSCF, pyscf.pbc.scf.hf.RHF):
         super().__init__(kmf, *args, **kwargs)
         ovlp = self.get_ovlp()
         self.mo_energy, self.mo_coeff, self.mo_occ = \
-                fold_mos(kmf.mo_energy, kmf.mo_coeff, kmf.mo_occ, self.kphase, ovlp)
+                fold_mos(self.kmf.mo_energy, self.kmf.mo_coeff, self.kmf.mo_occ, self.kphase, ovlp)
 
         # Test MO folding
         #nk = self.ncells
@@ -175,8 +178,8 @@ class FoldedUHF(FoldedSCF, pyscf.pbc.scf.uhf.UHF):
 
         ovlp = self.get_ovlp()
         self.mo_energy, self.mo_coeff, self.mo_occ = zip(
-                fold_mos(kmf.mo_energy[0], kmf.mo_coeff[0], kmf.mo_occ[0], self.kphase, ovlp),
-                fold_mos(kmf.mo_energy[1], kmf.mo_coeff[1], kmf.mo_occ[1], self.kphase, ovlp))
+                fold_mos(self.kmf.mo_energy[0], self.kmf.mo_coeff[0], self.kmf.mo_occ[0], self.kphase, ovlp),
+                fold_mos(self.kmf.mo_energy[1], self.kmf.mo_coeff[1], self.kmf.mo_occ[1], self.kphase, ovlp))
         assert np.all(self.mo_coeff[0].imag == 0)
         assert np.all(self.mo_coeff[1].imag == 0)
 
