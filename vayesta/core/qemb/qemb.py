@@ -25,7 +25,7 @@ from vayesta.core.ao2mo import kao2gmo_cderi
 from vayesta.core.ao2mo import postscf_ao2mo
 from vayesta.core.ao2mo import postscf_kao2gmo
 from vayesta.core.scmf import PDMET, Brueckner
-from vayesta.core.qemb.scrcoulomb import build_screened_eris
+from vayesta.core.screening.screening_moment import build_screened_eris
 from vayesta.mpi import mpi
 from vayesta.core.qemb.register import FragmentRegister
 from vayesta.rpa import ssRIRPA

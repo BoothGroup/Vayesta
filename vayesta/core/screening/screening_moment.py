@@ -21,7 +21,7 @@ def build_screened_eris(emb, fragments=None, cderi_ov=None, calc_e=True, npoints
     cderi_ov : np.array or tuple of np.array, optional.
         Cholesky-decomposed ERIs in the particle-hole basis of mf. If mf is unrestricted
         this should be a list of arrays corresponding to the different spin channels.
-    calc_ecorrection : bool, optional.
+    calc_delta_e : bool, optional.
         Whether to calculate a nonlocal energy correction at the level of RPA
     npoints : int, optional
         Number of points for numerical integration. Default: 48.
@@ -117,7 +117,7 @@ def build_screened_eris(emb, fragments=None, cderi_ov=None, calc_e=True, npoints
             log.info("Screened interations in %s: spin-symmetry= %.3e  spin-dependence= %.3e",
                      f.name, abs(kcaa-kcbb).max(), abs((kcaa+kcbb)/2-kcab).max())
         kc = (kcaa, kcab, kcbb)
-        f._seris_ov = kc
+        f._seris_ov = (kc, mom, amb)
         seris_ov.append(kc)
 
     return seris_ov, erpa

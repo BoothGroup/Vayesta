@@ -6,7 +6,7 @@ import pyscf.lib
 import pyscf.scf
 import scipy.linalg
 
-from vayesta.core.qemb import scrcoulomb
+from vayesta.core.screening import screening_moment
 from vayesta.core.types import Orbitals
 from vayesta.core.util import dot, einsum, OptionsBase, break_into_lines, log_time
 from vayesta.rpa import ssRPA
@@ -366,7 +366,7 @@ class RClusterHamiltonian:
             # Use bare coulomb interaction from hamiltonian; this could well be cached in future.
             bare_eris = self.get_eris_bare()
 
-            self._seris = scrcoulomb.get_screened_eris_full(bare_eris, seris_intermed)
+            self._seris = screening_moment.get_screened_eris_full(bare_eris, seris_intermed)
 
         elif self.opts.screening == "crpa":
             raise NotImplementedError()
