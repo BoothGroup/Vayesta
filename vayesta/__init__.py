@@ -58,8 +58,12 @@ if errlog:
     log.addHandler(errhandler)
 
 # Print Logo
-with open(os.path.join(os.path.dirname(__file__), 'logo.txt'), 'r') as f:
-    logo = f.read()
+try:
+    with open(os.path.join(os.path.dirname(__file__), 'logo.txt'), 'r') as f:
+        logo = f.read()
+except FileNotFoundError:
+    with open(os.path.join(os.path.dirname(__file__), 'vayesta/logo.txt'), 'r') as f:
+        logo = f.read()
 log.info(logo + (' Version %s' % __version__) + '\n')
 
 # --- Required modules
