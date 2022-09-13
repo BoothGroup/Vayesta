@@ -821,10 +821,10 @@ class Embedding:
                     fragovlp = abs(fragovlp).max()
                 elif self.spinsym == 'unrestricted':
                     fragovlp = max(abs(fragovlp[0]).max(), abs(fragovlp[1]).max())
-                if (fragovlp > 1e-8):
+                if (fragovlp > 1e-7):
                     self.log.critical("%s of fragment %s not orthogonal to original fragment (overlap= %.3e)!",
                                 sym_op, parent.name, fragovlp)
-                    raise RuntimeError("Overlapping fragment spaces.")
+                    raise RuntimeError("Overlapping fragment spaces (overlap= %.3e)" % fragovlp)
 
                 # Add fragment
                 frag_id = self.register.get_next_id()
