@@ -1,12 +1,9 @@
 import pytest
 import unittest
-
 import numpy as np
-
 import pyscf
 import pyscf.pbc
 import pyscf.pbc.tools
-
 import vayesta
 import vayesta.ewf
 from vayesta.core.util import cache
@@ -14,7 +11,10 @@ from vayesta.tests import testsystems
 from vayesta.tests.common import TestCase
 
 
+pyscf_version = [int(x) for x in pyscf.__version__.split('.')]
+pyscf_version_atleast_2_1 = np.all(np.asarray(pyscf_version) >= (2, 1, 0))
 TIGHT_SOLVER = dict(conv_tol=1e-10, conv_tol_normt=1e-8)
+
 
 @pytest.mark.slow
 class Test_MP2(TestCase):
@@ -129,6 +129,8 @@ class Test_CCSD(Test_MP2):
                 ('e_corr', 1e-3) : -0.0153692736073979,
                 ('e_tot', 1e-3) : -1.2835024529439953,
                 }
+        if not pyscf_version_atleast_2_1:
+            cls.ref_values[('e_tot', -1)] += cls.get_e_exxdiv()
 
     @classmethod
     @cache
@@ -264,6 +266,8 @@ class Test_UCCSD(Test_CCSD):
                 ('e_corr', 1e-3) : -0.01654717440912164,
                 ('e_tot', 1e-3) : -1.7250820680314027,
                 }
+        if not pyscf_version_atleast_2_1:
+            cls.ref_values[('e_tot', -1)] += cls.get_e_exxdiv()
 
     def _get_ref_t1_ao(self, t1):
         t1a, t1b = t1
