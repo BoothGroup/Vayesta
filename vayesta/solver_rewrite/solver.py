@@ -352,7 +352,7 @@ class EBClusterSolver(ClusterSolver):
             raise e
 
     def get_heff(self, eris, fock=None, with_vext=True):
-        heff = super().get_heff(eris, fock, with_vext)
+        heff, mo_energy = super().get_heff(eris, fock, with_vext)
 
         if self.opts.polaritonic_shift:
             fock_shift = self.get_polaritonic_fock_shift(self.fragment.couplings)
@@ -360,7 +360,7 @@ class EBClusterSolver(ClusterSolver):
                 self.log.critical("Polaritonic shift breaks cluster spin symmetry; please either use an unrestricted"
                                   "formalism or bosons without polaritonic shift.")
             heff = heff + fock_shift[0]
-        return heff
+        return heff, mo_energy
 
     def set_polaritonic_shift(self, freqs, couplings):
         no = self.cluster.nocc_active
@@ -378,7 +378,12 @@ class EBClusterSolver(ClusterSolver):
 
     def get_polaritonic_shifted_couplings(self, freqs, couplings):
         temp = np.multiply(self.polaritonic_shift, freqs) / (2 * self.cluster.nocc_active)
-        return tuple([x - einsum("pq,n->npq", np.eye(x.shape[1]), temp) for x in couplings])
+        couplings = tuple([x - einsum("pq,n->npq", np.eye(x.shape[1]), temp) for x in couplings])
+        if not np.allclose(couplings[0], couplings[1]):
+            self.log.critical("Polaritonic shifted bosonic fermion-boson couplings break cluster spin symmetry; please"
+                              "use an unrestricted formalism.")
+            raise RuntimeError()
+        return couplings[0]
 
     def get_eb_dm_polaritonic_shift(self):
         shift = self.polaritonic_shift
@@ -394,12 +399,12 @@ class EBClusterSolver(ClusterSolver):
 class UEBClusterSolver(EBClusterSolver, UClusterSolver):
 
     def get_heff(self, eris, fock=None, with_vext=True):
-        heff = super().get_heff(eris, fock, with_vext)
+        heff, mo_energy = super().get_heff(eris, fock, with_vext)
 
         if self.opts.polaritonic_shift:
             fock_shift = self.get_polaritonic_fock_shift(self.fragment.couplings)
             heff = tuple([x + y for x, y in zip(heff, fock_shift)])
-        return heff
+        return heff, mo_energy
 
     def get_polaritonic_shifted_couplings(self, freqs, couplings):
         temp = np.multiply(self.polaritonic_shift, freqs) / sum(self.cluster.nocc_active)

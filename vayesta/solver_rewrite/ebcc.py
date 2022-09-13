@@ -2,7 +2,7 @@ import dataclasses
 import numpy as np
 from .solver import ClusterSolver, UClusterSolver, EBClusterSolver, UEBClusterSolver
 from vayesta.core.types import Orbitals
-from vayesta.core.types import WaveFunction, CCSD_WaveFunction, UCCSD_WaveFunction
+from vayesta.core.types import WaveFunction, CCSD_WaveFunction
 
 
 class EBCC_Solver(ClusterSolver):
@@ -46,6 +46,9 @@ class EBCC_Solver(ClusterSolver):
 
 
 class UEBCC_Solver(UClusterSolver, EBCC_Solver):
+    @dataclasses.dataclass
+    class Options(EBCC_Solver.Options, UClusterSolver.Options):
+        pass
     # This should automatically work other than ensuring spin components are in a tuple.
     def construct_wavefunction(self, mycc, mo):
         if self.is_fCCSD:
@@ -80,7 +83,8 @@ class UEBCC_Solver(UClusterSolver, EBCC_Solver):
 
 
 class EB_EBCC_Solver(EBClusterSolver, EBCC_Solver):
-    class Options(EBCC_Solver.Options):
+    @dataclasses.dataclass
+    class Options(EBCC_Solver.Options, EBClusterSolver.Options):
         boson_excitations: str = "S"
         fermion_coupling_rank: int = 1
         boson_coupling_rank: int = 1
@@ -103,12 +107,23 @@ class EB_EBCC_Solver(EBClusterSolver, EBCC_Solver):
 
     def construct_wavefunction(self, mycc, mo):
         self.wf = WaveFunction(mo)
+        self.wf.make_rdm1 = mycc.make_rdm1_f
+        self.wf.make_rdm2 = mycc.make_rdm2_f
 
-        def make_rdm1(cc, t_as_lambda=False, with_mf=True, ao_basis=False):
-            cc.make_rdm1_f()
+
+class UEB_EBCC_Solver(UEBClusterSolver, EB_EBCC_Solver, UEBCC_Solver):
+    def construct_wavefunction(self, mycc, mo):
+        # Simply alias required quantities for now; this ensures functionality for arbitrary orders of CC.
+        self.wf = WaveFunction(mo)
+
+        def make_rdm1(*args, **kwargs):
+            dm = mycc.make_rdm1_f(*args, **kwargs)
+            return (dm.aa, dm.bb)
 
         self.wf.make_rdm1 = make_rdm1
 
+        def make_rdm2(*args, **kwargs):
+            dm = mycc.make_rdm2_f(*args, **kwargs)
+            return (dm.aaaa, dm.aabb, dm.bbbb)
 
-class UEB_EBCC_Solver(EB_EBCC_Solver, UEBClusterSolver, UEBCC_Solver):
-    pass
+        self.wf.make_rdm2 = make_rdm2

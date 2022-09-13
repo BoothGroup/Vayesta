@@ -7,7 +7,6 @@ import scipy.linalg
 
 from vayesta.core.util import *
 from vayesta.dmet import RDMET
-from vayesta.dmet.sdp_sc import perform_SDP_fit
 from vayesta.dmet.updates import MixUpdate, DIISUpdate
 from vayesta.rpa import ssRPA, ssRIRPA
 from .fragment import EDMETFragment, EDMETFragmentExit
@@ -21,6 +20,9 @@ class Options(RDMET.Options):
     occ_proj_kernel: bool = False
     boson_xc_kernel: bool = False
     bosonic_interaction: str = "xc"
+    solver_options: dict = RDMET.Options.change_dict_defaults('solver_options',
+            polaritonic_shift=True)
+
 
 @dataclasses.dataclass
 class EDMETResults:
