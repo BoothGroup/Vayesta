@@ -383,8 +383,10 @@ diamond_sto3g_s333 = TestSolid(a=a, atom=atom, supercell=mesh, **opts)
 
 a = np.eye(3) * 3.0
 a[2, 2] = 20.0
-he_k32 = TestSolid(a, atom="He 0 0 0", dimension=2, basis="def2-svp", auxbasis="def2-svp-ri", kmesh=(3, 2, 1))
-he_s32 = TestSolid(a, atom="He 0 0 0", dimension=2, basis="def2-svp", auxbasis="def2-svp-ri", supercell=(3, 2, 1))
+# TODO: precision lowered to 1e-15 due to bug in PySCF v2.1
+# Use precision 1e-8 again once this is fixed
+he_k32 = TestSolid(a, atom="He 0 0 0", dimension=2, basis="def2-svp", auxbasis="def2-svp-ri", precision=1e-15, kmesh=(3, 2, 1))
+he_s32 = TestSolid(a, atom="He 0 0 0", dimension=2, basis="def2-svp", auxbasis="def2-svp-ri", precision=1e-15, supercell=(3, 2, 1))
 
 a = np.eye(3) * 3.0
 a[1, 1] = a[2, 2] = 30.0
