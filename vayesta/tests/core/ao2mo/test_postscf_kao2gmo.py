@@ -3,9 +3,9 @@ import unittest
 from vayesta.tests.common import TestCase
 from vayesta.tests import testsystems
 from vayesta.core.util import replace_attr
-
 from vayesta.core.ao2mo import postscf_kao2gmo
 from vayesta.core.ao2mo import postscf_kao2gmo_uhf
+
 
 @pytest.mark.slow
 class Test_CCSD(TestCase):
@@ -37,7 +37,9 @@ class Test_CCSD(TestCase):
         self.assertAllclose(eris.vvvv.flatten(), eris_ref.vvvv.flatten())
         self.assertAllclose(eris.fock, eris_ref.fock)
         self.assertAllclose(eris.mo_energy, eris_ref.mo_energy)
-        self.assertAllclose(eris.e_hf, eris_ref.e_hf)
+        # PySCF version < v2.1:
+        if hasattr(eris, 'e_hf'):
+            self.assertAllclose(eris.e_hf, eris_ref.e_hf)
 
 @pytest.mark.slow
 class Test_UCCSD(Test_CCSD):
@@ -88,7 +90,9 @@ class Test_UCCSD(Test_CCSD):
         # Other
         self.assertAllclose(eris.fock, eris_ref.fock)
         self.assertAllclose(eris.mo_energy, eris_ref.mo_energy)
-        self.assertAllclose(eris.e_hf, eris_ref.e_hf)
+        # PySCF version < v2.1:
+        if hasattr(eris, 'e_hf'):
+            self.assertAllclose(eris.e_hf, eris_ref.e_hf)
 
 
 if __name__ == '__main__':
