@@ -58,8 +58,7 @@ class DMETFragment(Fragment):
         results : DMETFragmentResults
         """
         solver = solver or self.base.solver
-        if solver not in self.base.valid_solvers:
-            raise ValueError("Unknown solver: %s" % solver)
+        get_solver_class(self.mf, solver)
         if self._dmet_bath is None or construct_bath:
             self.make_bath()
 

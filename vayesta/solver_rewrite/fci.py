@@ -1,7 +1,7 @@
 import dataclasses
 from .solver import ClusterSolver, UClusterSolver, EBClusterSolver, UEBClusterSolver
 from vayesta.core.types import Orbitals
-from vayesta.core.types import FCI_WaveFunction, UFCI_WaveFunction
+from vayesta.core.types import WaveFunction, FCI_WaveFunction
 import pyscf.fci
 
 
@@ -21,10 +21,11 @@ class FCI_Solver(ClusterSolver):
         # Pyscf can detect restricted or not from mean-field..
         solver = pyscf.fci.FCI(mf_clus, singlet=not self.opts.solver_spin)
         solver.conv_tol = self.opts.conv_tol
-        solver.conv_tol = self.opts.conv_tol
         e, civec = solver.kernel()
+        self.converged = solver.converged
         mo = Orbitals(self.cluster.c_active, occ=self.cluster.nocc_active)
         self.wf = FCI_WaveFunction(mo, civec)
+
 
 class UFCI_Solver(UClusterSolver, FCI_Solver):
 

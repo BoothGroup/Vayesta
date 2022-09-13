@@ -1,8 +1,20 @@
 from .solver import EBClusterSolver, UEBClusterSolver
-from vayesta.core.types import Orbitals
-from vayesta.solver_rewrite.eb_fci import ebfci_slow, uebfci_slow
+from .eb_fci import EBFCI
+from vayesta.core.types import Orbitals, WaveFunction
+import dataclasses
+
 class EB_EBFCI_Solver(EBClusterSolver):
 
-    def kernel_solver(self, mf_clus, eris_energy=None):
+    @dataclasses.dataclass
+    class Options(EBClusterSolver.Options):
+        polaritonic_shift: bool = True
 
-        pass
+    def kernel_solver(self, mf_clus, freqs, couplings):
+
+        solver = EBFCI(mf_clus, freqs, couplings)
+        e_fci, civec = solver.kernel()
+        mo = Orbitals(self.cluster.c_active, occ=self.cluster.nocc_active)
+        self.wf = WaveFunction(mo)
+
+
+

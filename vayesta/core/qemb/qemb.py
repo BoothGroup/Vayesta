@@ -88,6 +88,8 @@ class Options(OptionsBase):
             threads=1, max_cycle=300, fix_spin=0.0, lindep=None,
             # EBFCI/EBCCSD
             max_boson_occ=2,
+            # EBCC
+            fermion_excitations="SD", boson_excitations="S", fermion_coupling_rank=1, boson_coupling_rank=1,
             # Dump
             dumpfile='clusters.h5')
     # --- Other
@@ -226,8 +228,9 @@ class Embedding:
 
             # 5) Other
             # --------
-            if solver not in self.valid_solvers:
-                raise ValueError("Unknown solver: %s" % solver)
+
+            #if solver not in self.valid_solvers:
+            #    raise ValueError("Unknown solver: %s" % solver)
             self.solver = solver
             self.symmetry = SymmetryGroup(self.mol)
             nimages = getattr(self.mf, 'subcellmesh', None)

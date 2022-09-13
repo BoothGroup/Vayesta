@@ -146,8 +146,8 @@ class Fragment:
         self.opts.replace(**kwargs)                                 # Replace with keyword arguments
 
         solver = solver or self.base.solver
-        if solver not in self.base.valid_solvers:
-            raise ValueError("Unknown solver: %s" % solver)
+        #if solver not in self.base.valid_solvers:
+        #    raise ValueError("Unknown solver: %s" % solver)
         self.solver = solver
         self.c_frag = c_frag
         self.c_env = c_env
