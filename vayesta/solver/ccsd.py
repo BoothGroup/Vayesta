@@ -151,20 +151,8 @@ class CCSD_Solver(ClusterSolver):
     def get_init_guess(self):
         return {'t1' : self.t1 , 't2' : self.t2}
 
-    def add_screening(self, eris, seris_ov):
-        seris = scrcoulomb.get_screened_eris_ccsd(eris, seris_ov)
-        # Correct virtual-virtual cluster Fock matrix:
-        nocca, noccb = eris.nocc
-        gaa, gab, gbb = seris.get_bare()
-        saa, sab, sbb = seris_ov
-        dfvva = -einsum('ipiq->pq', (saa-gaa))
-        dfvvb = -einsum('ipiq->pq', (sbb-gbb))
-        va = np.s_[nocca:]
-        vb = np.s_[noccb:]
-        seris.focka[va,va] += dfvva
-        seris.fockb[vb,vb] += dfvvb
-        seris.fock = (seris.focka, seris.fockb)
-        return seris
+    def add_screening(self, *args, **kwargs):
+        raise NotImplementedError("Screening only implemented for unrestricted spin-symmetry.")
 
     def add_potential(self, eris, v_ext):
         self.log.debugv("Adding self.v_ext to eris.fock")
@@ -333,6 +321,21 @@ class UCCSD_Solver(CCSD_Solver):
         cbb = tbb + einsum('ia,jb->ijab', tb, tb) - einsum('ib,ja->ijab', tb, tb)
         cab = tab + einsum('ia,jb->ijab', ta, tb)
         return (caa, cab, cbb)
+
+    def add_screening(self, eris, seris_ov):
+        seris = scrcoulomb.get_screened_eris_ccsd(eris, seris_ov)
+        # Correct virtual-virtual cluster Fock matrix:
+        nocca, noccb = eris.nocc
+        gaa, gab, gbb = seris.get_bare()
+        saa, sab, sbb = seris_ov
+        dfvva = -einsum('ipiq->pq', (saa-gaa))
+        dfvvb = -einsum('ipiq->pq', (sbb-gbb))
+        va = np.s_[nocca:]
+        vb = np.s_[noccb:]
+        seris.focka[va,va] += dfvva
+        seris.fockb[vb,vb] += dfvvb
+        seris.fock = (seris.focka, seris.fockb)
+        return seris
 
     def t_diagnostic(self):
         """T diagnostic not implemented for UCCSD in PySCF."""
