@@ -281,6 +281,7 @@ class UClusterSolver(ClusterSolver):
         # NB if the number of alpha and beta active orbitals is different this approach can't work.
         assert (na == nb)
         clusmol.nao = na
+        clusmol.build()
         mo_coeff = np.zeros((2, clusmol.nao, clusmol.nao))
         mo_coeff[0] = np.eye(clusmol.nao)
         mo_coeff[1] = np.eye(clusmol.nao)
