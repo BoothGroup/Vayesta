@@ -74,7 +74,7 @@ class Options(OptionsBase):
         # R2 bath
         rcut=None, unit='Ang',
         # MP2 bath
-        threshold=None, truncation='occupation', project_t2=False, addbuffer=False,
+        threshold=None, truncation='occupation', project_dmet=False, addbuffer=False,
         # General
         canonicalize=True,
         )

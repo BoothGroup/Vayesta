@@ -250,8 +250,8 @@ class BNO_Bath_UHF(BNO_Bath):
 
 class MP2_BNO_Bath(BNO_Bath):
 
-    def __init__(self, *args, project_t2=False, **kwargs):
-        self.project_t2 = project_t2
+    def __init__(self, *args, project_dmet=False, **kwargs):
+        self.project_dmet = project_dmet
         super().__init__(*args, **kwargs)
 
     def _make_t2(self, mo_energy, eris=None, cderi=None, cderi_neg=None, blksize=None):
@@ -305,24 +305,22 @@ class MP2_BNO_Bath(BNO_Bath):
     def make_delta_dm1(self, t2, actspace):
         """Delta MP2 density matrix"""
 
-        if self.project_t2:
-            self.log.debugv("Constructing DM from projected amplitudes (method= %s).", self.project_t2)
+        if self.project_dmet:
+            self.log.info("Projecting DMET space for MP2 bath (method= %s).", self.project_dmet)
             eig = self.dmet_bath.n_dmet
             assert np.all(eig > -1e-10)
             assert np.all(eig-1 < 1e-10)
             eig = np.clip(eig, 0, 1)
-            if self.project_t2 == 'fragment':
+            if self.project_dmet == 'full':
                 weights = len(eig)*[0]
-            elif self.project_t2 == 'full':
-                weights = len(eig)*[1]
-            elif self.project_t2 == 'linear':
+            elif self.project_dmet == 'linear':
                 weights = 2*abs(np.fmin(eig, 1-eig))
-            elif self.project_t2 == 'entropy':
+            elif self.project_dmet == 'entropy':
                 weights = 4*eig*(1-eig)
-            elif self.project_t2 == 'sqrt-entropy':
+            elif self.project_dmet == 'sqrt-entropy':
                 weights = 2*np.sqrt(eig*(1-eig))
             else:
-                raise ValueError("Unknown value for project_t2: %s" % self.project_t2)
+                raise ValueError("Invalid value for project_dmet: %s" % self.project_dmet)
             assert np.all(weights > -1e-14)
             assert np.all(weights-1 < 1e-14)
             weights = hstack(self.fragment.n_frag*[1], weights)
@@ -527,8 +525,8 @@ class UMP2_BNO_Bath(MP2_BNO_Bath, BNO_Bath_UHF):
     def make_delta_dm1(self, t2, actspace):
         t2aa, t2ab, t2bb = t2
 
-        if self.project_t2:
-            self.log.debugv("Constructing DM from projected amplitudes (method= %s).", self.project_t2)
+        if self.project_dmet:
+            self.log.info("Projecting DMET space for MP2 bath (method= %s).", self.project_dmet)
             eiga, eigb = self.dmet_bath.n_dmet
             assert np.all(eiga > -1e-10)
             assert np.all(eigb > -1e-10)
@@ -536,24 +534,20 @@ class UMP2_BNO_Bath(MP2_BNO_Bath, BNO_Bath_UHF):
             assert np.all(eigb-1 < 1e-10)
             eiga = np.clip(eiga, 0, 1)
             eigb = np.clip(eigb, 0, 1)
-            if self.project_t2 == 'fragment':
+            if self.project_dmet == 'full':
                 weightsa = len(eiga)*[0]
                 weightsb = len(eigb)*[0]
-            elif self.project_t2 == 'full':
-                weightsa = len(eiga)*[1]
-                weightsb = len(eigb)*[1]
-            elif self.project_t2 == 'linear':
+            elif self.project_dmet == 'linear':
                 weightsa = 2*abs(np.fmin(eiga, 1-eiga))
                 weightsb = 2*abs(np.fmin(eigb, 1-eigb))
-            elif self.project_t2 == 'entropy':
+            elif self.project_dmet == 'entropy':
                 weightsa = 4*eiga*(1-eiga)
                 weightsb = 4*eigb*(1-eigb)
-            elif self.project_t2 == 'sqrt-entropy':
+            elif self.project_dmet == 'sqrt-entropy':
                 weightsa = 2*np.sqrt(eiga*(1-eiga))
                 weightsb = 2*np.sqrt(eigb*(1-eigb))
             else:
-                raise ValueError
-                raise ValueError("Unknown value for project_t2: %s" % self.project_t2)
+                raise ValueError("Invalid value for project_dmet: %s" % self.project_dmet)
             assert np.all(weightsa > -1e-14)
             assert np.all(weightsb > -1e-14)
             assert np.all(weightsa-1 < 1e-14)
