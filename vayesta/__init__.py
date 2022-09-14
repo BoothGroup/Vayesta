@@ -59,12 +59,12 @@ if errlog:
 
 # Print Logo
 try:
-    with open(os.path.join(os.path.dirname(__file__), 'logo.txt'), 'r') as f:
+    with open(os.path.abspath(os.path.join(os.path.dirname(__file__), 'logo.txt')), 'r') as f:
         logo = f.read()
+    log.info(logo + (" Version %s\n" % __version__))
 except FileNotFoundError:
-    with open(os.path.join(os.path.dirname(__file__), 'vayesta/logo.txt'), 'r') as f:
-        logo = f.read()
-log.info(logo + (' Version %s' % __version__) + '\n')
+    log.error("logo.txt not found.")
+    log.info("Version %s\n" % __version__)
 
 # --- Required modules
 
