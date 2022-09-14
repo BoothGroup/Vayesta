@@ -656,6 +656,7 @@ class Embedding:
             cderi[blk] = einsum('Lab,ai,bj->Lij', lab, mo_coeff[0], mo_coeff[1])
         return cderi, None
 
+    @log_method()
     def get_eris_array(self, mo_coeff, compact=False):
         """Get electron-repulsion integrals in MO basis as a NumPy array.
 
@@ -671,6 +672,8 @@ class Embedding:
         """
         # PBC with k-points:
         if self.kdf is not None:
+            if compact:
+                raise NotImplementedError
             if np.ndim(mo_coeff[0]) == 1:
                 mo_coeff = 4*[mo_coeff]
             cderi1, cderi1_neg = kao2gmo_cderi(self.kdf, mo_coeff[:2])
@@ -697,6 +700,7 @@ class Embedding:
             eris = eris.reshape(shape)
         return eris
 
+    @log_method()
     def get_eris_object(self, postscf, fock=None):
         """Get ERIs for post-SCF methods.
 
@@ -1129,8 +1133,19 @@ class Embedding:
             self.log.debugv("Orthonormality error%s: L(2)= %.2e  L(inf)= %.2e", mo_name, l2, linf)
         return l2, linf
 
-    def get_average_cluster_size(self):
+    def get_mean_cluster_size(self):
         return np.mean([x.cluster.norb_active for x in self.fragments])
+
+    def get_average_cluster_size(self, average='mean'):
+        if average == 'mean':
+            return self.get_mean_cluster_size()
+        raise ValueError
+
+    def get_min_cluster_size(self):
+        return np.min([x.cluster.norb_active for x in self.fragments])
+
+    def get_max_cluster_size(self):
+        return np.max([x.cluster.norb_active for x in self.fragments])
 
     # --- Population analysis
     # -----------------------
@@ -1316,7 +1331,7 @@ class Embedding:
         for s in range(nspin):
             nmo_s = tspin(self.nmo, s)
             nelec_s = tspin(nelec, s)
-            c_frags = np.hstack([tspin(x.c_frag, s) for x in self.fragments])
+            c_frags = np.hstack([tspin(x.c_frag, s) for x in self.get_fragments(active=True)])
             nfrags = c_frags.shape[-1]
             csc = dot(c_frags.T, ovlp, c_frags)
             if not np.allclose(csc, np.eye(nfrags), rtol=0, atol=tol):

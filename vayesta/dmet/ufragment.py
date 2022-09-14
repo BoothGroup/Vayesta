@@ -29,11 +29,7 @@ class UDMETFragment(UFragment, DMETFragment):
         if eris is None:
             c_act = c_active
             with log_time(self.log.timing, "Time for AO->MO transformation: %s"):
-                #eris = self.base.get_eris_array(c_act)
-                gaa = self.base.get_eris_array(c_act[0])
-                gab = self.base.get_eris_array((c_act[0], c_act[0], c_act[1], c_act[1]))
-                gbb = self.base.get_eris_array(c_act[1])
-                eris = (gaa, gab, gbb)
+                gaa, gab, gbb = eris = self.base.get_eris_array_uhf((c_act[0], c_act[1]))
 
         fock = self.base.get_fock()
         fa = dot(c_active[0].T, fock[0], c_active[0])

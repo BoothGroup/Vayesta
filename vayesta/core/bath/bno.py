@@ -305,43 +305,52 @@ class MP2_BNO_Bath(BNO_Bath):
     def make_delta_dm1(self, t2, actspace):
         """Delta MP2 density matrix"""
 
-        if self.project_t2 == 'double' and self.occtype == 'virtual':
+        if self.project_t2:
+            self.log.debugv("Constructing DM from projected amplitudes (method= %s).", self.project_t2)
+            eig = self.dmet_bath.n_dmet
+            assert np.all(eig > -1e-10)
+            assert np.all(eig-1 < 1e-10)
+            eig = np.clip(eig, 0, 1)
+            if self.project_t2 == 'fragment':
+                weights = len(eig)*[0]
+            elif self.project_t2 == 'full':
+                weights = len(eig)*[1]
+            elif self.project_t2 == 'linear':
+                weights = 2*abs(np.fmin(eig, 1-eig))
+            elif self.project_t2 == 'entropy':
+                weights = 4*eig*(1-eig)
+            elif self.project_t2 == 'sqrt-entropy':
+                weights = 2*np.sqrt(eig*(1-eig))
+            else:
+                raise ValueError("Unknown value for project_t2: %s" % self.project_t2)
+            assert np.all(weights > -1e-14)
+            assert np.all(weights-1 < 1e-14)
+            weights = hstack(self.fragment.n_frag*[1], weights)
+
+            # Project and symmetrize:
             ovlp = self.fragment.base.get_ovlp()
-            rx = dot(actspace.c_active_occ.T, ovlp, self.dmet_bath.c_cluster_occ)
-            t2 = einsum('xi,yj,ijab->xyab', rx.T, rx.T, t2)
-
-        if not self.project_t2 or self.project_t2 == 'double':
-            self.log.debugv("Constructing DM from full T2-amplitudes.")
-            # This is equivalent to:
-            # do, dv = pyscf.mp.mp2._gamma1_intermediates(mp2, eris=eris)
-            # do, dv = -2*do, 2*dv
+            c_fragdmet = hstack(self.fragment.c_frag, self.dmet_bath.c_dmet)
             if self.occtype == 'occupied':
-                dm = (2*einsum('ikab,jkab->ij', t2, t2)
-                      - einsum('ikab,kjab->ij', t2, t2))
+                rot = dot(actspace.c_active_vir.T, ovlp, c_fragdmet)
+                proj = einsum('ix,x,jx->ij', rot, weights, rot)
+                t2 = einsum('xa,ijab->ijxb', proj, t2)
             elif self.occtype == 'virtual':
-                dm = (2*einsum('ijac,ijbc->ab', t2, t2)
-                      - einsum('ijac,ijcb->ab', t2, t2))
-            assert np.allclose(dm, dm.T)
-            return dm
+                rot = dot(actspace.c_active_occ.T, ovlp, c_fragdmet)
+                proj = einsum('ix,x,jx->ij', rot, weights, rot)
+                t2 = einsum('xi,i...->x...', proj, t2)
+            t2 = (t2 + t2.transpose(1,0,3,2))/2
+        else:
+            self.log.debugv("Constructing DM from complete amplitudes")
 
-        # Project one T-amplitude onto fragment
-        self.log.debugv("Constructing DM from projected T2-amplitudes.")
-        ovlp = self.fragment.base.get_ovlp()
+        # This is equivalent to:
+        # do, dv = pyscf.mp.mp2._gamma1_intermediates(mp2, eris=eris)
+        # do, dv = -2*do, 2*dv
         if self.occtype == 'occupied':
-            px = dot(actspace.c_active_vir.T, ovlp, self.dmet_bath.c_cluster_vir)
-            t2x = einsum('ax,ijab->ijxb', px, t2)
-            dm = (2*einsum('ikab,jkab->ij', t2x, t2x)
-                  - einsum('ikab,kjab->ij', t2x, t2x)
-                + 2*einsum('kiba,kjba->ij', t2x, t2x)
-                  - einsum('kiba,jkba->ij', t2x, t2x))/2
+            dm = (2*einsum('ikab,jkab->ij', t2, t2)
+                  - einsum('ikab,jkba->ij', t2, t2))
         elif self.occtype == 'virtual':
-            px = dot(actspace.c_active_occ.T, ovlp, self.dmet_bath.c_cluster_occ)
-            t2x = einsum('ix,ijab->xjab', px, t2)
-            dm = (2*einsum('ijac,ijbc->ab', t2x, t2x)
-                  - einsum('ijac,ijcb->ab', t2x, t2x)
-                + 2*einsum('jica,jicb->ab', t2x, t2x)
-                  - einsum('jica,jibc->ab', t2x, t2x))/2
-
+            dm = (2*einsum('ijac,ijbc->ab', t2, t2)
+                  - einsum('ijac,ijcb->ab', t2, t2))
         assert np.allclose(dm, dm.T)
         return dm
 
@@ -436,12 +445,7 @@ class UMP2_BNO_Bath(MP2_BNO_Bath, BNO_Bath_UHF):
 
     def _get_eris(self, actspace):
         # We only need the (ov|ov) block for MP2:
-        mo_a = [actspace.c_active_occ[0], actspace.c_active_vir[0]]
-        mo_b = [actspace.c_active_occ[1], actspace.c_active_vir[1]]
-        eris_aa = self.base.get_eris_array(mo_a + mo_a)
-        eris_ab = self.base.get_eris_array(mo_a + mo_b)
-        eris_bb = self.base.get_eris_array(mo_b + mo_b)
-        return (eris_aa, eris_ab, eris_bb)
+        return self.base.get_eris_array_uhf(actspace.c_active_occ, mo_coeff2=actspace.c_active_vir)
 
     def _get_cderi(self, actspace):
         # We only need the (ov|ov) block for MP2:
@@ -521,22 +525,81 @@ class UMP2_BNO_Bath(MP2_BNO_Bath, BNO_Bath_UHF):
         return (t2aa, t2ab, t2bb)
 
     def make_delta_dm1(self, t2, actspace):
-        taa, tab, tbb = t2
-        if not self.project_t2:
-            # Construct occupied-occupied DM
+        t2aa, t2ab, t2bb = t2
+
+        if self.project_t2:
+            self.log.debugv("Constructing DM from projected amplitudes (method= %s).", self.project_t2)
+            eiga, eigb = self.dmet_bath.n_dmet
+            assert np.all(eiga > -1e-10)
+            assert np.all(eigb > -1e-10)
+            assert np.all(eiga-1 < 1e-10)
+            assert np.all(eigb-1 < 1e-10)
+            eiga = np.clip(eiga, 0, 1)
+            eigb = np.clip(eigb, 0, 1)
+            if self.project_t2 == 'fragment':
+                weightsa = len(eiga)*[0]
+                weightsb = len(eigb)*[0]
+            elif self.project_t2 == 'full':
+                weightsa = len(eiga)*[1]
+                weightsb = len(eigb)*[1]
+            elif self.project_t2 == 'linear':
+                weightsa = 2*abs(np.fmin(eiga, 1-eiga))
+                weightsb = 2*abs(np.fmin(eigb, 1-eigb))
+            elif self.project_t2 == 'entropy':
+                weightsa = 4*eiga*(1-eiga)
+                weightsb = 4*eigb*(1-eigb)
+            elif self.project_t2 == 'sqrt-entropy':
+                weightsa = 2*np.sqrt(eiga*(1-eiga))
+                weightsb = 2*np.sqrt(eigb*(1-eigb))
+            else:
+                raise ValueError
+                raise ValueError("Unknown value for project_t2: %s" % self.project_t2)
+            assert np.all(weightsa > -1e-14)
+            assert np.all(weightsb > -1e-14)
+            assert np.all(weightsa-1 < 1e-14)
+            assert np.all(weightsb-1 < 1e-14)
+            weightsa = hstack(self.fragment.n_frag[0]*[1], weightsa)
+            weightsb = hstack(self.fragment.n_frag[1]*[1], weightsb)
+
+            # Project and symmetrize:
+            ovlp = self.fragment.base.get_ovlp()
+            c_fragdmet_a = hstack(self.fragment.c_frag[0], self.dmet_bath.c_dmet[0])
+            c_fragdmet_b = hstack(self.fragment.c_frag[1], self.dmet_bath.c_dmet[1])
             if self.occtype == 'occupied':
-                dma  = (einsum('imef,jmef->ij', taa.conj(), taa)/2
-                      + einsum('imef,jmef->ij', tab.conj(), tab))
-                dmb  = (einsum('imef,jmef->ij', tbb.conj(), tbb)/2
-                      + einsum('mief,mjef->ij', tab.conj(), tab))
-            # Construct virtual-virtual DM
+                rota = dot(actspace.c_active_vir[0].T, ovlp, c_fragdmet_a)
+                rotb = dot(actspace.c_active_vir[1].T, ovlp, c_fragdmet_b)
+                proja = einsum('ix,x,jx->ij', rota, weightsa, rota)
+                projb = einsum('ix,x,jx->ij', rotb, weightsb, rotb)
+                t2aa = einsum('xa,ijab->ijxb', proja, t2aa)
+                t2bb = einsum('xa,ijab->ijxb', projb, t2bb)
+                t2ab = (einsum('xa,ijab->ijxb', proja, t2ab)
+                      + einsum('xb,ijab->ijax', projb, t2ab))/2
             elif self.occtype == 'virtual':
-                dma  = (einsum('mnae,mnbe->ba', taa.conj(), taa)/2
-                      + einsum('mnae,mnbe->ba', tab.conj(), tab))
-                dmb  = (einsum('mnae,mnbe->ba', tbb.conj(), tbb)/2
-                      + einsum('mnea,mneb->ba', tab.conj(), tab))
+                rota = dot(actspace.c_active_occ[0].T, ovlp, c_fragdmet_a)
+                rotb = dot(actspace.c_active_occ[1].T, ovlp, c_fragdmet_b)
+                proja = einsum('ix,x,jx->ij', rota, weightsa, rota)
+                projb = einsum('ix,x,jx->ij', rotb, weightsb, rotb)
+                t2aa = einsum('xi,i...->x...', proja, t2aa)
+                t2bb = einsum('xi,i...->x...', projb, t2bb)
+                t2ab = (einsum('xi,i...->x...', proja, t2ab)
+                      + einsum('xj,ij...->ix...', projb, t2ab))/2
+            t2aa = (t2aa + t2aa.transpose(1,0,3,2))/2
+            t2bb = (t2bb + t2bb.transpose(1,0,3,2))/2
         else:
-            raise NotImplementedError()
+            self.log.debugv("Constructing DM from complete amplitudes")
+
+        # Construct occupied-occupied DM
+        if self.occtype == 'occupied':
+            dma  = (einsum('imef,jmef->ij', t2aa.conj(), t2aa)/2
+                  + einsum('imef,jmef->ij', t2ab.conj(), t2ab))
+            dmb  = (einsum('imef,jmef->ij', t2bb.conj(), t2bb)/2
+                  + einsum('mief,mjef->ij', t2ab.conj(), t2ab))
+        # Construct virtual-virtual DM
+        elif self.occtype == 'virtual':
+            dma  = (einsum('mnae,mnbe->ba', t2aa.conj(), t2aa)/2
+                  + einsum('mnae,mnbe->ba', t2ab.conj(), t2ab))
+            dmb  = (einsum('mnae,mnbe->ba', t2bb.conj(), t2bb)/2
+                  + einsum('mnea,mneb->ba', t2ab.conj(), t2ab))
         assert np.allclose(dma, dma.T)
         assert np.allclose(dmb, dmb.T)
         return (dma, dmb)

@@ -147,33 +147,55 @@ class Fragment(RFragment, BaseFragment):
         return d2
 
     def make_fragment_dm2cumulant(self, t_as_lambda=None, sym_t2=True, approx_cumulant=True, full_shape=True):
-        """TODO: MP2"""
+        if int(approx_cumulant) != 1:
+            raise NotImplementedError
+
         if self.solver == 'MP2':
-            raise NotImplementedError
-        if (approx_cumulant not in (1, True)):
-            raise NotImplementedError
+            t2xaa, t2xab, t2xbb = self.results.pwf.restore(sym=sym_t2).as_ccsd().t2
+            dovov = t2xaa.transpose(0,2,1,3)
+            dovOV = t2xab.transpose(0,2,1,3)
+            dOVOV = t2xbb.transpose(0,2,1,3)
+            if not full_shape:
+                return (dovov, dovOV, dOVOV)
+            nocca, nvira, noccb, nvirb = dovOV.shape
+            norba = nocca + nvira
+            norbb = noccb + nvirb
+            oa, va = np.s_[:nocca], np.s_[nocca:]
+            ob, vb = np.s_[:noccb], np.s_[noccb:]
+            dm2aa = np.zeros(4*[norba])
+            dm2ab = np.zeros(2*[norba] + 2*[norbb])
+            dm2bb = np.zeros(4*[norbb])
+            dm2aa[oa,va,oa,va] = dovov
+            dm2aa[va,oa,va,oa] = dovov.transpose(1,0,3,2)
+            dm2ab[oa,va,ob,vb] = dovOV
+            dm2ab[va,oa,vb,ob] = dovOV.transpose(1,0,3,2)
+            dm2bb[ob,vb,ob,vb] = dOVOV
+            dm2bb[vb,ob,vb,ob] = dOVOV.transpose(1,0,3,2)
+            return (dm2aa, dm2ab, dm2bb)
+
         cc = d1 = None
         d2 = self._get_projected_gamma2_intermediates(t_as_lambda=t_as_lambda, sym_t2=sym_t2)
         dm2 = pyscf.cc.uccsd_rdm._make_rdm2(cc, d1, d2, with_dm1=False, with_frozen=False)
         return dm2
 
     @log_method()
-    def make_fragment_dm2cumulant_energy(self, t_as_lambda=False, sym_t2=True, approx_cumulant=True):
+    def make_fragment_dm2cumulant_energy(self, eris=None, t_as_lambda=None, sym_t2=True, approx_cumulant=True):
+        if eris is None:
+            eris = self._eris
+        if eris is None:
+            eris = self.base.get_eris_array_uhf(self.cluster.c_active)
+        # For CCSD we can contract the ERIs with the DM2-intermediates
+        if hasattr(eris, 'ovoo'):
+            cc = d1 = None
+            d2 = self._get_projected_gamma2_intermediates(t_as_lambda=t_as_lambda, sym_t2=sym_t2)
+            return vayesta.core.ao2mo.helper.contract_dm2intermeds_eris_uhf(d2, eris)/2
+        # TODO: other solvers
         dm2 = self.make_fragment_dm2cumulant(t_as_lambda=t_as_lambda, sym_t2=sym_t2, approx_cumulant=approx_cumulant,
                 full_shape=False)
-        #fac = (2 if self.solver == 'MP2' else 1)
-        if self._eris is None:
-            eris = self.base.get_eris_array(self.cluster.c_active)
-        # CCSD
-        elif hasattr(self._eris, 'ovoo'):
-            #eris = vayesta.core.ao2mo.helper.get_full_array(self._eris)
-            return vayesta.core.ao2mo.helper.contract_dm2_eris_uhf(dm2, self._eris)/2
-        # MP2
-        else:
-            eris = self._eris
         dm2aa, dm2ab, dm2bb = dm2
         gaa, gab, gbb = eris
-        e_dm2 = (einsum('ijkl,ijkl->', gaa, dm2aa)
-               + einsum('ijkl,ijkl->', gab, dm2ab)*2
-               + einsum('ijkl,ijkl->', gbb, dm2bb))/2
+        fac = (2 if self.solver == 'MP2' else 1)
+        e_dm2 = fac*(einsum('ijkl,ijkl->', gaa, dm2aa)
+                   + einsum('ijkl,ijkl->', gab, dm2ab)*2
+                   + einsum('ijkl,ijkl->', gbb, dm2bb))/2
         return e_dm2

@@ -58,9 +58,13 @@ if errlog:
     log.addHandler(errhandler)
 
 # Print Logo
-with open(os.path.join(os.path.dirname(__file__), 'logo.txt'), 'r') as f:
-    logo = f.read()
-log.info(logo + (' Version %s' % __version__) + '\n')
+try:
+    with open(os.path.abspath(os.path.join(os.path.dirname(__file__), 'logo.txt')), 'r') as f:
+        logo = f.read()
+    log.info(logo + (" Version %s\n" % __version__))
+except FileNotFoundError:
+    log.error("logo.txt not found.")
+    log.info("Version %s\n" % __version__)
 
 # --- Required modules
 

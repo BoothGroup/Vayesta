@@ -267,7 +267,7 @@ def contract_dm2_eris(dm2, eris):
     if ndim == 4:
         return contract_dm2_eris_rhf(dm2, eris)
     if ndim == 5:
-        return contract_dm2_eris_rhf(dm2, eris)
+        return contract_dm2_eris_uhf(dm2, eris)
     raise ValueError("N(dim) of DM2: %d" % ndim)
 
 
@@ -357,6 +357,83 @@ def contract_dm2_eris_uhf(dm2, eris):
     e2 += _contract_4d(dm2ab[oa,va,vb,vb], get_ovVV(eris, block='ovVV')) * 4
     e2 += _contract_4d(dm2ab[va,va,ob,vb], get_ovVV(eris, block='OVvv'), transpose=(2,3,0,1)) * 4
     e2 += _contract_4d(dm2ab[va,va,vb,vb], get_vvVV(eris)) * 2
+    return e2
+
+
+def _dm2intermeds_to_dict_uhf(dm2):
+    dm2dict = {}
+
+    def _add_spinblocks(block, idx):
+        b0, b1 = block[:2], block[2:]
+        dm2i = dm2[idx]
+        dm2dict[block.lower()] = np.asarray(dm2i[0])
+        dm2dict[b0.lower() + b1.upper()] = np.asarray(dm2i[1])
+        dm2dict[b0.upper() + b1.lower()] = np.asarray(dm2i[2])
+        dm2dict[block.upper()] = np.asarray(dm2i[3])
+
+    _add_spinblocks('ovov', 0)
+    _add_spinblocks('vvvv', 1)
+    _add_spinblocks('oooo', 2)
+    _add_spinblocks('oovv', 3)
+    _add_spinblocks('ovvo', 4)
+    _add_spinblocks('vvov', 5)
+    _add_spinblocks('ovvv', 6)
+    _add_spinblocks('ooov', 7)
+    return dm2dict
+
+
+def contract_dm2intermeds_eris_uhf(dm2, eris, destroy_dm2=True):
+    """Contracts _ChemistsERIs with the two-body density matrix.
+
+    TODO: RHF
+
+    Parameters
+    ----------
+    dm2 : tuple
+        Intermediates of two-body density matrix.
+    eris : _ChemistERIs
+        PySCF ERIs object.
+
+    Returns
+    -------
+    e2 : float
+        Two-body energy.
+    """
+    dm2 = _dm2intermeds_to_dict_uhf(dm2)
+
+    def _get_block(block, keep=False):
+        if destroy_dm2 and not keep:
+            return dm2.pop(block)
+        return dm2[block]
+
+    e2 = 0
+    # Alpha-alpha
+    e2 += _contract_4d(_get_block('oooo'), eris.oooo)
+    e2 += _contract_4d(_get_block('ooov'), eris.ovoo, transpose=(2,3,0,1)) * 4
+    e2 += _contract_4d(_get_block('ovvo', keep=True), eris.oovv, transpose=(0,3,2,1)) * -2
+    e2 += _contract_4d(_get_block('ovov'), eris.ovov) * 2
+    e2 += _contract_4d(_get_block('ovvo'), eris.ovvo) * 2
+    e2 += _contract_4d(_get_block('ovvv'), get_ovvv(eris)) * 4
+    e2 += _contract_4d(_get_block('vvvv'), get_vvvv(eris))
+    # Beta-beta
+    e2 += _contract_4d(_get_block('OOOO'), eris.OOOO)
+    e2 += _contract_4d(_get_block('OOOV'), eris.OVOO, transpose=(2,3,0,1)) * 4
+    e2 += _contract_4d(_get_block('OVVO', keep=True), eris.OOVV, transpose=(0,3,2,1)) * -2
+    e2 += _contract_4d(_get_block('OVOV'), eris.OVOV) * 2
+    e2 += _contract_4d(_get_block('OVVO'), eris.OVVO) * 2
+    e2 += _contract_4d(_get_block('OVVV'), get_ovvv(eris, block='OVVV')) * 4
+    e2 += _contract_4d(_get_block('VVVV'), get_vvvv(eris, block='VVVV'))
+    # Alpha-beta
+    e2 += _contract_4d(_get_block('ooOO'), eris.ooOO) * 2
+    e2 += _contract_4d(_get_block('OOov'), eris.ovOO, transpose=(2,3,0,1)) * 4
+    e2 += _contract_4d(_get_block('ooOV'), eris.OVoo, transpose=(2,3,0,1)) * 4
+    e2 += _contract_4d(_get_block('ooVV'), eris.ooVV) * 2
+    e2 += _contract_4d(_get_block('OOvv'), eris.OOvv) * 2
+    e2 += _contract_4d(_get_block('ovVO'), eris.ovVO) * 4
+    e2 += _contract_4d(_get_block('ovOV'), eris.ovOV) * 4
+    e2 += _contract_4d(_get_block('ovVV'), get_ovVV(eris, block='ovVV')) * 4
+    e2 += _contract_4d(_get_block('OVvv'), get_ovVV(eris, block='OVvv')) * 4
+    e2 += _contract_4d(_get_block('vvVV'), get_vvVV(eris)) * 2
     return e2
 
 

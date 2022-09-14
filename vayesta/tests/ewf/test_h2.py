@@ -119,10 +119,6 @@ class Test_UMP2(Test_MP2):
         dm1_exact = self.cc.make_rdm1()
         self.assertAllclose(dm1, dm1_exact)
 
-    # Missing: make_fragment_dm2cumulant in ewf.ufragment for MP2 solver
-    def test_dm_energy(self):
-        pass
-
 
 class Test_UCCSD(Test_CCSD):
 

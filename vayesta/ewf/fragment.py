@@ -41,6 +41,9 @@ class Options(BaseFragment.Options):
     bsse_rmax: float = None
     sc_mode: int = None
     nelectron_target: int = None                  # If set, adjust bath chemical potential until electron number in fragment equals nelectron_target
+    # Calculation modes
+    calc_e_wf_corr: bool = None
+    calc_e_dm_corr: bool = None
     # Fragment specific
     # -----------------
     # TODO: move these:
@@ -56,6 +59,7 @@ class Fragment(BaseFragment):
 
     @dataclasses.dataclass
     class Results(BaseFragment.Results):
+        e_corr_dm2cumulant: float = None
         n_active: int = None
         ip_energy: np.ndarray = None
         ea_energy: np.ndarray = None
@@ -83,12 +87,16 @@ class Fragment(BaseFragment):
             Name of fragment.
         """
         super().__init__(*args, **kwargs)
+        if self.opts.t_as_lambda is None:
+            self.opts.t_as_lambda = not self.opts.solver_options['solve_lambda']
+            self.log.debugv("T-as-Lambda= %s", self.opts.t_as_lambda)
         # For self-consistent mode
         self.solver_results = None
 
     def reset(self, *args, **kwargs):
         super().reset(*args, **kwargs)
-        self._tailor_wfs = []
+        self._tailor_fragments = []
+        self._tailor_project = True
 
     def set_cas(self, iaos=None, c_occ=None, c_vir=None, minao='auto', dmet_threshold=None):
         """Set complete active space for tailored CCSD"""
@@ -114,16 +122,11 @@ class Fragment(BaseFragment):
         self.opts.c_cas_vir = c_cas_vir
         return c_cas_occ, c_cas_vir
 
-    def tailor_with(self, fragment, space='full'):
-        """
-        Parameters
-        ----------
-        space : ['fragment', 'full'], optional
-        """
+    def tailor_with_fragments(self, fragments, project=True):
         if self.solver != 'CCSD':
             raise NotImplementedError
-        wf = fragment.results.wf.to_ccsd()
-        self._tailor_wfs.append(wf)
+        self._tailor_fragments = fragments
+        self._tailor_project = project
 
     def get_init_guess(self, init_guess, solver, cluster):
         # FIXME
@@ -255,9 +258,9 @@ class Fragment(BaseFragment):
         if solver.lower() == 'dump':
             return
 
-        # ---Make projected WF
+        # ---Make T-projected WF
         if isinstance(cluster_solver.wf, RFCI_WaveFunction):
-            pwf = cluster_solver.wf.to_cisd()
+            pwf = cluster_solver.wf.as_cisd()
         else:
             pwf = cluster_solver.wf
         proj = self.get_overlap('frag|cluster-occ')
@@ -267,9 +270,21 @@ class Fragment(BaseFragment):
         self._results = results = self.Results(fid=self.id, n_active=cluster.norb_active,
                 converged=cluster_solver.converged, wf=cluster_solver.wf, pwf=pwf)
 
+        # --- Correlation energy contributions
+        if self.opts.calc_e_wf_corr:
+            ci = cluster_solver.wf.as_cisd(c0=1.0)
+            ci = ci.project(proj)
+            es, ed, results.e_corr = self.get_fragment_energy(ci.c1, ci.c2, eris=eris)
+            self.log.debug("E(S)= %s  E(D)= %s  E(tot)= %s", energy_string(es), energy_string(ed),
+                                                             energy_string(results.e_corr))
+        if self.opts.calc_e_dm_corr:
+            results.e_corr_dm2cumulant = self.make_fragment_dm2cumulant_energy(eris=eris)
+
         # Keep ERIs stored
         if (self.opts.store_eris or self.base.opts.store_eris):
             self._eris = eris
+        else:
+            del eris
 
         return results
 
@@ -299,6 +314,8 @@ class Fragment(BaseFragment):
             solver_opts['tcc_fci_opts'] = self.opts.tcc_fci_opts
         elif solver.upper() == 'DUMP':
             solver_opts['filename'] = self.opts.solver_options['dumpfile']
+        if self._tailor_fragments:
+            solver_opts['tailoring'] = True
         return solver_opts
 
     # --- Expectation values
@@ -417,7 +434,7 @@ class Fragment(BaseFragment):
         dm1 = pyscf.cc.ccsd_rdm._make_rdm1(None, d1, with_frozen=False, with_mf=False)
         return dm1
 
-    def make_fragment_dm2cumulant(self, t_as_lambda=False, sym_t2=True, sym_dm2=True, full_shape=True,
+    def make_fragment_dm2cumulant(self, t_as_lambda=None, sym_t2=True, sym_dm2=True, full_shape=True,
             approx_cumulant=True):
         """Currently MP2/CCSD only"""
 
@@ -462,19 +479,18 @@ class Fragment(BaseFragment):
     #    return e_dm1
 
     @log_method()
-    def make_fragment_dm2cumulant_energy(self, t_as_lambda=False, sym_t2=True, approx_cumulant=True):
+    def make_fragment_dm2cumulant_energy(self, eris=None, t_as_lambda=None, sym_t2=True, approx_cumulant=True):
+        if eris is None:
+            eris = self._eris
+        if eris is None:
+            eris = self.base.get_eris_array(self.cluster.c_active)
         dm2 = self.make_fragment_dm2cumulant(t_as_lambda=t_as_lambda, sym_t2=sym_t2, approx_cumulant=approx_cumulant,
                 full_shape=False)
-        fac = (2 if self.solver == 'MP2' else 1)
-        if self._eris is None:
-            eris = self.base.get_eris_array(self.cluster.c_active)
         # CCSD
-        elif hasattr(self._eris, 'ovoo'):
-            #eris = vayesta.core.ao2mo.helper.get_full_array(self._eris)
-            return vayesta.core.ao2mo.helper.contract_dm2_eris(dm2, self._eris)/2
-        # MP2
-        else:
-            eris = self._eris
+        # TODO: contract intermediates (see UHF version)
+        if hasattr(eris, 'ovoo'):
+            return vayesta.core.ao2mo.helper.contract_dm2_eris(dm2, eris)/2
+        fac = (2 if self.solver == 'MP2' else 1)
         e_dm2 = fac*einsum('ijkl,ijkl->', eris, dm2)/2
         return e_dm2
 

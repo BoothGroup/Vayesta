@@ -31,7 +31,7 @@ def get_global_t1_rhf(emb, get_lambda=False, mpi_target=None, ao_basis=False):
     cs_vir = np.dot(emb.mo_coeff_vir.T, ovlp)
     for x in emb.get_fragments(active=True, mpi_rank=mpi.rank, sym_parent=None):
         pwf = x.results.pwf.restore().as_ccsd()
-        t1x = pwf.l1 if get_lambda else pwf.t1
+        t1x = pwf.l1 if (get_lambda and not x.opts.t_as_lambda) else pwf.t1
         if t1x is None:
             raise NotCalculatedError
         for x2, (cx2_occ, cx2_vir) in x.loop_symmetry_children((x.cluster.c_occ, x.cluster.c_vir), include_self=True):
@@ -71,7 +71,7 @@ def get_global_t2_rhf(emb, get_lambda=False, symmetrize=True, mpi_target=None, a
         ro = x.get_overlap('mo[occ]|cluster[occ]')
         rv = x.get_overlap('mo[vir]|cluster[vir]')
         pwf = x.results.pwf.restore().as_ccsd()
-        t2x = pwf.l2 if get_lambda else pwf.t2
+        t2x = pwf.l2 if (get_lambda and not x.opts.t_as_lambda) else pwf.t2
         if t2x is None:
             raise NotCalculatedError
         t2 += einsum('ijab,Ii,Jj,Aa,Bb->IJAB', t2x, ro, ro, rv, rv)
@@ -107,7 +107,7 @@ def get_global_t1_uhf(emb, get_lambda=False, mpi_target=None, ao_basis=False):
         roa, rob = x.get_overlap('mo[occ]|cluster[occ]')
         rva, rvb = x.get_overlap('mo[vir]|cluster[vir]')
         pwf = x.results.pwf.restore().as_ccsd()
-        t1xa, t1xb = pwf.l1 if get_lambda else pwf.t1
+        t1xa, t1xb = pwf.l1 if (get_lambda and not x.opts.t_as_lambda) else pwf.t1
         if t1xa is None:
             raise NotCalculatedError
         t1a += einsum('ia,Ii,Aa->IA', t1xa, roa, rva)
@@ -146,7 +146,7 @@ def get_global_t2_uhf(emb, get_lambda=False, symmetrize=True, mpi_target=None, a
         roa, rob = x.get_overlap('mo[occ]|cluster[occ]')
         rva, rvb = x.get_overlap('mo[vir]|cluster[vir]')
         pwf = x.results.pwf.restore().as_ccsd()
-        t2xaa, t2xab, t2xbb = pwf.l2 if get_lambda else pwf.t2
+        t2xaa, t2xab, t2xbb = pwf.l2 if (get_lambda and not x.opts.t_as_lambda) else pwf.t2
         if t2xaa is None:
             raise NotCalculatedError
         t2aa += einsum('ijab,Ii,Jj,Aa,Bb->IJAB', t2xaa, roa, roa, rva, rva)
