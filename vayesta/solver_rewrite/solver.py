@@ -64,7 +64,33 @@ class ClusterSolver:
     def _scf_class(self):
         return scf.RHF
 
+    def make_clus_hamil(self, screening=None):
+        nelec, nao, mo_coeff, mo_occ = self.get_clus_info()
+        bare_eris = self.get_eris()
+        heff, mo_energy = self.get_heff(bare_eris)
+        if screening is None:
+            seris = bare_eris
+        else:
+            seris = None
+        return nelec, nao, mo_coeff, mo_occ, mo_energy, heff, bare_eris, seris
+
     def make_clus_mf(self, screening=None):
+        nelec, nao, mo_coeff, mo_occ, mo_energy, heff, bare_eris, seris = self.make_clus_hamil(screening)
+        clusmf = self._scf_class(self.mf.mol)
+        clusmf.get_hcore = lambda *args: heff
+        fock = self.get_fock()
+        clusmf.get_fock = lambda *args: fock
+        clusmf.mo_coeff = mo_coeff
+        clusmf.mo_occ = mo_occ
+        clusmf.mo_energy = mo_energy
+        raise NotImplementedError("Unfinished...")
+        return clusmf
+
+    def make_clus_mf(self, screening=None):
+
+
+
+
         bare_eris = self.get_eris()
         heff, mo_energy = self.get_heff(bare_eris)
         clusmol, mo_coeff, mo_occ = self.get_clus_info()
@@ -85,16 +111,12 @@ class ClusterSolver:
         return clusmf
 
     def get_clus_info(self):
-        clusmol = self.mf.mol.__class__()
-        clusmol.nelec = (self.cluster.nocc_active, self.cluster.nocc_active)
-        clusmol.nao = self.cluster.norb_active
-        clusmol.build()
-        mo_coeff = np.eye(clusmol.nao)
-
-        mo_occ = np.zeros((clusmol.nao,))
-        mo_occ[:clusmol.nelec[0]] = 2.0
-
-        return clusmol, mo_coeff, mo_occ
+        nelec = (self.cluster.nocc_active, self.cluster.nocc_active)
+        nao = self.cluster.norb_active
+        mo_coeff = self.cluster.c_active
+        mo_occ = np.zeros((nao,))
+        mo_occ[:nelec[0]] = 2.0
+        return nelec, nao, mo_coeff, mo_occ
 
     def get_heff(self, eris, fock=None, with_vext=True):
         if fock is None:
