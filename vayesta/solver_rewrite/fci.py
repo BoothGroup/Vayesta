@@ -1,5 +1,5 @@
 import dataclasses
-from .solver import ClusterSolver, UClusterSolver, EBClusterSolver, UEBClusterSolver
+from .solver import ClusterSolver, UClusterSolver
 from vayesta.core.types import Orbitals
 from vayesta.core.types import WaveFunction, FCI_WaveFunction
 import pyscf.fci

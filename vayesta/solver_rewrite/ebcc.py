@@ -1,6 +1,6 @@
 import dataclasses
 import numpy as np
-from .solver import ClusterSolver, UClusterSolver, EBClusterSolver, UEBClusterSolver
+from .solver import ClusterSolver, UClusterSolver
 from vayesta.core.types import Orbitals
 from vayesta.core.types import WaveFunction, CCSD_WaveFunction
 
@@ -22,8 +22,10 @@ class EBCC_Solver(ClusterSolver):
     def is_fCCSD(self):
         return self.opts.fermion_excitations == "SD"
 
-    def kernel_solver(self, mf_clus, eris_energy=None):
+    def kernel(self):
         import ebcc
+        # Use pyscf mean-field representation.
+        mf_clus = self.hamil.to_pyscf_mf()
         mycc = ebcc.EBCC(mf_clus, log=self.log, fermion_excitations=self.opts.fermion_excitations)
         mycc.kernel()
         self.converged = mycc.converged
@@ -31,8 +33,7 @@ class EBCC_Solver(ClusterSolver):
             mycc.solve_lambda()
             self.converged = self.converged and mycc.converged_lambda
         # Now just need to wrangle EBCC results into wavefunction format.
-        mo = Orbitals(self.cluster.c_active, occ=self.cluster.nocc_active)
-        self.construct_wavefunction(mycc, mo)
+        self.construct_wavefunction(mycc, self.hamil.mo)
 
     def construct_wavefunction(self, mycc, mo):
         if self.is_fCCSD:
@@ -49,6 +50,7 @@ class UEBCC_Solver(UClusterSolver, EBCC_Solver):
     @dataclasses.dataclass
     class Options(EBCC_Solver.Options, UClusterSolver.Options):
         pass
+
     # This should automatically work other than ensuring spin components are in a tuple.
     def construct_wavefunction(self, mycc, mo):
         if self.is_fCCSD:
@@ -82,48 +84,39 @@ class UEBCC_Solver(UClusterSolver, EBCC_Solver):
             self.wf.make_rdm2 = make_rdm2
 
 
-class EB_EBCC_Solver(EBClusterSolver, EBCC_Solver):
+class EB_EBCC_Solver(EBCC_Solver):
     @dataclasses.dataclass
-    class Options(EBCC_Solver.Options, EBClusterSolver.Options):
+    class Options(EBCC_Solver.Options):
         boson_excitations: str = "S"
         fermion_coupling_rank: int = 1
         boson_coupling_rank: int = 1
 
-    def kernel_solver(self, mf_clus, freqs, couplings):
+    @property
+    def is_fCCSD(self):
+        return False
+
+    def kernel(self):
         import ebcc
+        mf_clus = self.hamil.to_pyscf_mf()
         mycc = ebcc.EBCC(mf_clus, log=self.log, fermion_excitations=self.opts.fermion_excitations,
                          boson_excitations=self.opts.boson_excitations,
                          fermion_coupling_rank=self.opts.fermion_coupling_rank,
                          boson_coupling_rank=self.opts.boson_coupling_rank,
-                         omega=freqs, g=couplings)
+                         omega=self.hamil.bos_freqs, g=self.hamil.couplings)
         mycc.kernel()
+        self.converged = mycc.converged
         if not self.opts.t_as_lambda:
             mycc.solve_lambda()
             self.converged = self.converged and mycc.converged_lambda
-        # Now just need to wrangle EBCC results into wavefunction format.
-        mo = Orbitals(self.cluster.c_active, occ=self.cluster.nocc_active)
         # Currently no electron-boson implementation of wavefunction approaches, so need to use dummy object.
-        self.construct_wavefunction(mycc, mo)
+        self.construct_wavefunction(mycc, self.hamil.mo)
 
     def construct_wavefunction(self, mycc, mo):
-        self.wf = WaveFunction(mo)
-        self.wf.make_rdm1 = mycc.make_rdm1_f
-        self.wf.make_rdm2 = mycc.make_rdm2_f
+        super().construct_wavefunction(mycc, mo)
+        self.wf.make_rdmeb = None
 
 
-class UEB_EBCC_Solver(UEBClusterSolver, EB_EBCC_Solver, UEBCC_Solver):
+class UEB_EBCC_Solver(UEBCC_Solver, EB_EBCC_Solver):
     def construct_wavefunction(self, mycc, mo):
-        # Simply alias required quantities for now; this ensures functionality for arbitrary orders of CC.
-        self.wf = WaveFunction(mo)
-
-        def make_rdm1(*args, **kwargs):
-            dm = mycc.make_rdm1_f(*args, **kwargs)
-            return (dm.aa, dm.bb)
-
-        self.wf.make_rdm1 = make_rdm1
-
-        def make_rdm2(*args, **kwargs):
-            dm = mycc.make_rdm2_f(*args, **kwargs)
-            return (dm.aaaa, dm.aabb, dm.bbbb)
-
-        self.wf.make_rdm2 = make_rdm2
+        super().construct_wavefunction(mycc, mo)
+        self.wf.make_rdmeb = None
