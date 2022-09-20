@@ -236,15 +236,10 @@ class Fragment(BaseFragment):
                 raise RuntimeError("coupled_iterations requires as many MPI processes as there are fragments.")
             cluster_solver.couple_iterations(self.base.fragments)
 
-        if eris is None:
-            eris = cluster_solver.get_eris()
         # Normal solver
         if not self.base.opts._debug_wf:
             with log_time(self.log.info, ("Time for %s solver:" % solver) + " %s"):
-                if self.opts.screening:
-                    cluster_solver.kernel(eris=eris, seris_ov=self._seris_ov, **init_guess)
-                else:
-                    cluster_solver.kernel(eris=eris, **init_guess)
+                cluster_solver.kernel()
         # Special debug "solver"
         else:
             if self.base.opts._debug_wf == 'random':
@@ -279,9 +274,7 @@ class Fragment(BaseFragment):
 
         # Keep ERIs stored
         if (self.opts.store_eris or self.base.opts.store_eris):
-            self._eris = eris
-        else:
-            del eris
+            self._eris = cluster_solver.hamil.get_eris()
 
         return results
 

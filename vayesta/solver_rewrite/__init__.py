@@ -19,6 +19,8 @@ def get_solver_class(ham, solver):
     uhf = is_uhf(ham)
     eb = is_eb(ham)
 
+    if solver == "CCSD": solver = "EBCC"
+
     if solver[:4] == "EBCC":
         if uhf:
             if eb:
