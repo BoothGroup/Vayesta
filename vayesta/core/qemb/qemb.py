@@ -78,6 +78,9 @@ class Options(OptionsBase):
         # General
         canonicalize=True,
         )
+    # --- Cluster Hamiltonian options
+    solver_options: dict = OptionsBase.dict_with_defaults(
+            screening=None)
     # --- Solver options
     solver_options: dict = OptionsBase.dict_with_defaults(
             # General

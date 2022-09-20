@@ -6,8 +6,6 @@ import numpy as np
 
 from vayesta.core.qemb import Fragment
 from vayesta.core.bath import BNO_Threshold
-#from vayesta.solver import get_solver_class
-from vayesta.solver_rewrite import get_solver_class
 
 from vayesta.core import ao2mo
 from vayesta.core.util import *
@@ -58,7 +56,7 @@ class DMETFragment(Fragment):
         results : DMETFragmentResults
         """
         solver = solver or self.base.solver
-        get_solver_class(self.mf, solver)
+        #get_solver_class(self.mf, solver)
         if self._dmet_bath is None or construct_bath:
             self.make_bath()
 
@@ -71,10 +69,7 @@ class DMETFragment(Fragment):
         if solver is None:
             return None
 
-        # Create solver object
-        solver_cls = get_solver_class(self.mf, solver)
-        solver_opts = self.get_solver_options(solver)
-        cluster_solver = solver_cls(self.mf, self, cluster, **solver_opts)
+        cluster_solver = self.get_solver(solver)
         # Chemical potential
         if chempot is not None:
             px = self.get_fragment_projector(self.cluster.c_active)
@@ -82,16 +77,18 @@ class DMETFragment(Fragment):
                 cluster_solver.v_ext = (-chempot * px[0], -chempot * px[1])
             else:
                 cluster_solver.v_ext = -chempot * px
-        if eris is None:
-            eris = cluster_solver.get_eris()
+
         with log_time(self.log.info, ("Time for %s solver:" % solver) + " %s"):
             if self.opts.screening:
-                cluster_solver.kernel(eris=eris, seris_ov=self._seris_ov)
+                cluster_solver.kernel()
             else:
-                cluster_solver.kernel(eris=eris)
+                cluster_solver.kernel()
 
         self._results = results = self.Results(fid=self.id, wf=cluster_solver.wf, n_active=self.cluster.norb_active,
                 dm1=cluster_solver.wf.make_rdm1(), dm2=cluster_solver.wf.make_rdm2())
+        if eris is None:
+            # We can cache these if they're used in the actualy calculation.
+            eris = cluster_solver.hamil.get_eris_bare()
         results.e1, results.e2 = self.get_dmet_energy_contrib(eris=eris)
 
         return results

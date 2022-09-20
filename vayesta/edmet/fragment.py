@@ -8,7 +8,7 @@ import scipy.linalg
 from vayesta.core.util import *
 from vayesta.dmet.fragment import DMETFragment
 from vayesta.core.bath import BNO_Threshold
-from vayesta.solver_rewrite import get_eb_solver_class
+from vayesta.solver_rewrite import get_solver_class
 from vayesta.core.bath import helper
 
 
@@ -666,11 +666,7 @@ class EDMETFragment(DMETFragment):
 
         # Create solver object
         t0 = timer()
-        solver_opts = self.get_solver_options(solver)
-
-        solver_cls = get_eb_solver_class(self.mf, solver)
-
-        cluster_solver = solver_cls(self.mf, self, self.cluster, **solver_opts)
+        cluster_solver = self.get_solver(solver)
         # Chemical potential
         if chempot is not None:
             px =  self.get_fragment_projector(self.cluster.c_active)

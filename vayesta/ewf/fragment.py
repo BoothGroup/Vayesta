@@ -15,8 +15,6 @@ import pyscf.cc
 import vayesta
 from vayesta.core.util import *
 from vayesta.core.qemb import Fragment as BaseFragment
-# from vayesta.solver import get_solver_class
-from vayesta.solver_rewrite import get_solver_class
 from vayesta.core.fragmentation import IAO_Fragmentation
 from vayesta.core.types import RFCI_WaveFunction
 
@@ -212,9 +210,7 @@ class Fragment(BaseFragment):
         init_guess = self.get_init_guess(init_guess, solver, cluster)
 
         # Create solver object
-        solver_cls = get_solver_class(self.mf, solver)
-        solver_opts = self.get_solver_options(solver)
-        cluster_solver = solver_cls(self.mf, self, cluster, **solver_opts)
+        cluster_solver = self.get_solver(solver)
 
         # --- Chemical potential
         cpt_frag = self.base.opts.global_frag_chempot

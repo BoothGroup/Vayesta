@@ -24,7 +24,9 @@ class RClusterHamiltonian:
     class Options(OptionsBase):
         screening: Optional[str] = None
 
-    _scf_class = pyscf.scf.RHF
+    @property
+    def _scf_class(self):
+        return pyscf.scf.RHF
 
     def __init__(self, fragment, mf, log=None, **kwargs):
 
@@ -51,37 +53,40 @@ class RClusterHamiltonian:
         return Orbitals(self.cluster.c_active, occ=self.cluster.nocc_active)
 
     @property
+    def nelec(self):
+        return (self.cluster.nocc_active, self.cluster.nocc_active)
+
+    @property
+    def ncas(self):
+        return (self.cluster.norb_active, self.cluster.norb_active)
+
+    @property
     def target_space_projector(self):
         """Projector to the target fragment space within our cluster."""
         return self._fragment.get_fragment_projector(self.cluster.c_active)
 
     def get_fock(self):
-        return self._fragment.get_fock()
+        c = self.cluster.c_active
+        return dot(c.T, self.mf.get_fock(), c)
 
-    def get_clus_info(self, ao_basis=False):
-        nelec = (self.cluster.nocc_active, self.cluster.nocc_active)
-        ncas = (self.cluster.norb_active, self.cluster.norb_active)
+    def get_clus_mf_info(self, ao_basis=False):
         if ao_basis:
             nao = self.cluster.c_active.shape[1]
         else:
-            nao = ncas
-        return nelec, ncas, nao
-
-    def get_clus_mf_info(self, ao_basis=False):
-        nelec, ncas, nao = self.get_clus_info(ao_basis)
+            nao = self.ncas
         mo_energy = np.diag(self.get_fock())
         mo_occ = np.zeros_like(mo_energy)
-        mo_occ[:nelec[0]] = 2.0
+        mo_occ[:self.nelec[0]] = 2.0
         # Determine whether we want our cluster orbitals expressed in the basis of active orbitals, or in the AO basis.
         if ao_basis:
             mo_coeff = self.cluster.c_active
             ovlp = self.mf.get_ovlp()
         else:
-            mo_coeff = np.eye(ncas[0])
-            ovlp = np.eye(ncas[0])
-        return nelec, ncas, nao, mo_coeff, mo_energy, mo_occ, ovlp
+            mo_coeff = np.eye(self.ncas[0])
+            ovlp = np.eye(self.ncas[0])
+        return nao, mo_coeff, mo_energy, mo_occ, ovlp
 
-    def get_hamils(self, bare_eris=None, with_vext=True):
+    def get_integrals(self, bare_eris=None, with_vext=True):
         heff = self.get_heff(bare_eris, with_vext=with_vext)
         # Depending on calculation this may be the same as bare_eris
         seris = self.get_eris()
@@ -115,26 +120,27 @@ class RClusterHamiltonian:
         return eris
 
     def to_pyscf_mf(self):
-        nelec, ncas, nao, mo_coeff, mo_energy, mo_occ, ovlp = self.get_clus_mf_info(ao_basis=False)
+        # Using this requires equal spin channels.
+        self.assert_equal_spin_channels()
+        nao, mo_coeff, mo_energy, mo_occ, ovlp = self.get_clus_mf_info(ao_basis=False)
 
         clusmol = self.mf.mol.__class__()
-        clusmol.nelec = nelec
-        na, nb = ncas
+        clusmol.nelec = self.nelec
         # NB if the number of alpha and beta active orbitals is different then will likely need to ensure the `ao2mo`
         # of pyscf approaches is replaced in Vayesta to support this.
         # If we wanted to actually run a HF calculation would need to replace `scf.energy_elec()` to support
         # spin-dependent output to `get_hcore()`.
-        if (na != nb):
-            self.log.warning("Number of active orbitals is different for different spin channels.")
-        clusmol.nao = ncas
+
+        clusmol.nao = self.ncas[0]
         clusmol.build()
 
-        heff, eris = self.get_hamils(with_vext=True)
+        heff, eris = self.get_integrals(with_vext=True)
         clusmf = self._scf_class(clusmol)
         clusmf.get_hcore = lambda *args, **kwargs: heff
         clusmf.get_ovlp = lambda *args, **kwargs: ovlp
+        clusmf.get_fock = lambda *args, **kwargs: self.get_fock()
         # This could be replaced by a density fitted approach if we wanted.
-        clusmf._eris = lambda *args, **kwargs: eris
+        clusmf._eri = eris
         clusmf.mo_coeff = mo_coeff
         clusmf.mo_occ = mo_occ
         clusmf.mo_energy = mo_energy
@@ -144,34 +150,49 @@ class RClusterHamiltonian:
         """Add screened interactions into the Hamiltonian."""
         raise NotImplementedError
 
+    def assert_equal_spin_channels(self):
+        na, nb = self.ncas
+        if na != nb:
+            raise NotImplementedError("Active spaces with different number of alpha and beta orbitals are not yet "
+                                      "supported with this solver.")
+
 
 class UClusterHamiltonian(RClusterHamiltonian):
-    _scf_class = pyscf.scf.UHF
+    @property
+    def _scf_class(self):
+        return pyscf.scf.UHF
 
-    def get_clus_info(self, ao_basis=False):
-        nelec = self.cluster.nocc_active
-        ncas = self.cluster.norb_active
+    @property
+    def ncas(self):
+        return self.cluster.norb_active
+
+    @property
+    def nelec(self):
+        return self.cluster.nocc_active
+
+    def get_fock(self):
+        ca, cb = self.cluster.c_active
+        fa, fb = self.mf.get_fock()
+        return (dot(ca.T, fa, ca), dot(cb.T, fb, cb))
+
+    def get_clus_mf_info(self, ao_basis=False):
         if ao_basis:
             nao = self.cluster.c_active.shape[1]
         else:
-            nao = ncas
-        return nelec, ncas, nao
-
-    def get_clus_mf_info(self, ao_basis=False):
-        nelec, ncas, nao = self.get_clus_info(ao_basis)
+            nao = self.ncas
         fock = self.get_fock()
         mo_energy = (np.diag(fock[0]), np.diag(fock[1]))
         mo_occ = tuple([np.zeros_like(x) for x in mo_energy])
-        mo_occ[0][:nelec[0]] = 1.0
-        mo_occ[1][:nelec[1]] = 1.0
+        mo_occ[0][:self.nelec[0]] = 1.0
+        mo_occ[1][:self.nelec[1]] = 1.0
         # Determine whether we want our cluster orbitals expressed in the basis of active orbitals, or in the AO basis.
         if ao_basis:
             mo_coeff = self.cluster.c_active
             ovlp = self.mf.get_ovlp()
         else:
-            mo_coeff = (np.eye(ncas[0]), np.eye(ncas[1]))
-            ovlp = (np.eye(ncas[0]), np.eye(ncas[1]))
-        return nelec, ncas, nao, mo_coeff, mo_energy, mo_occ, ovlp
+            mo_coeff = (np.eye(self.ncas[0]), np.eye(self.ncas[1]))
+            ovlp = (np.eye(self.ncas[0]), np.eye(self.ncas[1]))
+        return nao, mo_coeff, mo_energy, mo_occ, ovlp
 
     def get_heff(self, eris=None, fock=None, with_vext=True):
         if eris is None:

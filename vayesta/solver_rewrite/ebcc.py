@@ -5,7 +5,7 @@ from vayesta.core.types import Orbitals
 from vayesta.core.types import WaveFunction, CCSD_WaveFunction
 
 
-class EBCC_Solver(ClusterSolver):
+class REBCC_Solver(ClusterSolver):
     @dataclasses.dataclass
     class Options(ClusterSolver.Options):
         fermion_excitations: str = "SD"
@@ -46,9 +46,9 @@ class EBCC_Solver(ClusterSolver):
             self.wf.make_rdm2 = mycc.make_rdm2_f
 
 
-class UEBCC_Solver(UClusterSolver, EBCC_Solver):
+class UEBCC_Solver(UClusterSolver, REBCC_Solver):
     @dataclasses.dataclass
-    class Options(EBCC_Solver.Options, UClusterSolver.Options):
+    class Options(REBCC_Solver.Options, UClusterSolver.Options):
         pass
 
     # This should automatically work other than ensuring spin components are in a tuple.
@@ -59,7 +59,7 @@ class UEBCC_Solver(UClusterSolver, EBCC_Solver):
                 return x.aa, x.bb
 
             def to_spin_tuple2(x):
-                return x.aaaa, x.abab, x.baba, x.bbbb
+                return x.aaaa, x.abab, x.bbbb
 
             self.wf = CCSD_WaveFunction(mo,
                                         to_spin_tuple1(mycc.t1),
@@ -84,9 +84,9 @@ class UEBCC_Solver(UClusterSolver, EBCC_Solver):
             self.wf.make_rdm2 = make_rdm2
 
 
-class EB_EBCC_Solver(EBCC_Solver):
+class EB_REBCC_Solver(REBCC_Solver):
     @dataclasses.dataclass
-    class Options(EBCC_Solver.Options):
+    class Options(REBCC_Solver.Options):
         boson_excitations: str = "S"
         fermion_coupling_rank: int = 1
         boson_coupling_rank: int = 1
@@ -116,7 +116,7 @@ class EB_EBCC_Solver(EBCC_Solver):
         self.wf.make_rdmeb = None
 
 
-class UEB_EBCC_Solver(UEBCC_Solver, EB_EBCC_Solver):
+class EB_UEBCC_Solver(UEBCC_Solver, EB_REBCC_Solver):
     def construct_wavefunction(self, mycc, mo):
         super().construct_wavefunction(mycc, mo)
         self.wf.make_rdmeb = None

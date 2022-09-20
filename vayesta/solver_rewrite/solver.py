@@ -106,7 +106,7 @@ class ClusterSolver:
                     v_ext_0 = (self.v_ext if self.v_ext is not None else 0)
                     replace['v_ext'] = self.get_vext(v_ext_0, cpt)
                 self.reset()
-                with replace_attr(self, **replace):
+                with replace_attr(self.hamil, **replace):
                     results = kernel_orig(eris=eris, **kwargs)
                 if not self.converged:
                     raise ConvergenceError()

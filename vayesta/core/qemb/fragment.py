@@ -30,7 +30,7 @@ from vayesta.core.bath import R2_Bath
 # Other
 from vayesta.misc.cubefile import CubeFile
 from vayesta.mpi import mpi
-
+from vayesta.solver_rewrite import get_solver_class, ClusterHamiltonian
 
 # Get MPI rank of fragment
 get_fragment_mpi_rank = lambda *args : args[0].mpi_rank
@@ -41,6 +41,9 @@ class Options(OptionsBase):
     # ------------------------
     # --- Bath options
     bath_options: dict = None
+    # --- Cluster hamiltonian options
+    hamiltonian_options: dict = OptionsBase.dict_with_defaults(
+    )
     # --- Solver options
     solver_options: dict = None
     # --- Other
@@ -973,3 +976,14 @@ class Fragment:
         cube = CubeFile(self.mol, filename=filename, nx=nx, ny=ny, nz=nz, **kwargs)
         cube.add_orbital(self.c_frag)
         cube.write()
+
+    def get_solver(self, solver=None):
+        # This detects based on fragment what kind of Hamiltonian is appropriate (restricted and/or EB).
+        cl_ham = ClusterHamiltonian(self, self.mf, self.log, **self.opts.hamiltonian_options)
+        solver_cls = get_solver_class(cl_ham, solver)
+        solver_opts = self.get_solver_options(solver)
+        cluster_solver = solver_cls(cl_ham, **solver_opts)
+        return cluster_solver
+
+    def get_solver_options(self, *args, **kwargs):
+        raise AbstractMethodError

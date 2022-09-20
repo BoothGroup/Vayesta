@@ -2,7 +2,10 @@ import dataclasses
 from .solver import ClusterSolver, UClusterSolver
 from vayesta.core.types import Orbitals
 from vayesta.core.types import WaveFunction, FCI_WaveFunction
+from vayesta.core.util import log_time
+
 import pyscf.fci
+import pyscf.fci.addons
 
 
 class FCI_Solver(ClusterSolver):
@@ -17,14 +20,38 @@ class FCI_Solver(ClusterSolver):
         #fix_spin_penalty: float = 1.0
         fix_spin_penalty: float = 1e3
 
-    def kernel_solver(self, mf_clus, eris_energy=None):
-        # Pyscf can detect restricted or not from mean-field..
-        solver = pyscf.fci.FCI(mf_clus, singlet=not self.opts.solver_spin)
-        solver.conv_tol = self.opts.conv_tol
-        e, civec = solver.kernel()
-        self.converged = solver.converged
-        mo = Orbitals(self.cluster.c_active, occ=self.cluster.nocc_active)
-        self.wf = FCI_WaveFunction(mo, civec)
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        solver_cls = self.get_solver_class()
+        # This just uses mol to initialise various outputting defaults.
+        solver = solver_cls(self.hamil.mf.mol)
+        self.log.debugv("type(solver)= %r", type(solver))
+        # Set options
+        if self.opts.threads is not None: solver.threads = self.opts.threads
+        if self.opts.conv_tol is not None: solver.conv_tol = self.opts.conv_tol
+        if self.opts.lindep is not None: solver.lindep = self.opts.lindep
+        if self.opts.max_cycle is not None: solver.max_cycle = self.opts.max_cycle
+        if self.opts.fix_spin not in (None, False):
+            spin = self.opts.fix_spin
+            self.log.debugv("Fixing spin of FCI solver to S^2= %f", spin)
+            solver = pyscf.fci.addons.fix_spin_(solver, shift=self.opts.fix_spin_penalty, ss=spin)
+        self.solver = solver
+
+    def get_solver_class(self):
+        if self.opts.solver_spin:
+            return pyscf.fci.direct_spin1.FCISolver
+        return pyscf.fci.direct_spin0.FCISolver
+
+    def kernel(self):
+        self.hamil.assert_equal_spin_channels()
+
+        heff, eris = self.hamil.get_integrals(with_vext=True)
+
+        with log_time(self.log.timing, "Time for FCI: %s"):
+            e_fci, self.civec = self.solver.kernel(heff, eris, self.hamil.ncas[0], self.hamil.nelec)
+        self.converged = self.solver.converged
+        self.wf = FCI_WaveFunction(self.hamil.mo, self.civec)
 
 
 class UFCI_Solver(UClusterSolver, FCI_Solver):
@@ -32,3 +59,6 @@ class UFCI_Solver(UClusterSolver, FCI_Solver):
     @dataclasses.dataclass
     class Options(FCI_Solver.Options):
         fix_spin: float = None
+
+    def get_solver_class(self):
+        return pyscf.fci.direct_uhf.FCISolver
