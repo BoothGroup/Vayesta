@@ -44,11 +44,13 @@ class ClusterUHF:
         else:
             self.cderi_neg = None
 
-def get_intercluster_mp2_energy_rhf(emb, bno_threshold_occ=None, bno_threshold_vir=1e-8, direct=True, exchange=True,
-        fragments=None, project_dc='vir', vers=1, diagonal=True):
+def get_intercluster_mp2_energy_rhf(emb, bno_threshold=1e-9, bno_threshold_occ=None, bno_threshold_vir=None,
+        direct=True, exchange=True, fragments=None, project_dc='vir', vers=1, diagonal=True):
     """Get long-range, inter-cluster energy contribution on the MP2 level.
 
     This constructs T2 amplitudes over two clusters, X and Y, as
+
+    .. math::
 
         t_ij^ab = \sum_L (ia|L)(L|j'b') / (ei + ej' - ea - eb)
 
@@ -56,10 +58,12 @@ def get_intercluster_mp2_energy_rhf(emb, bno_threshold_occ=None, bno_threshold_v
 
     Parameters
     ----------
+    bno_threshold: float, optional
+        Threshold for BNO space. Default: 1e-9.
     bno_threshold_occ: float, optional
         Threshold for occupied BNO space. Default: None.
     bno_threshold_vir: float, optional
-        Threshold for virtual BNO space. Default: 1e-8.
+        Threshold for virtual BNO space. Default: None.
     direct: bool, optional
         Calculate energy contribution from the second-order direct MP2 term. Default: True.
     exchange: bool, optional
@@ -75,6 +79,10 @@ def get_intercluster_mp2_energy_rhf(emb, bno_threshold_occ=None, bno_threshold_v
         raise ValueError()
     if not emb.has_df:
         raise RuntimeError("Intercluster MP2 energy requires density-fitting.")
+    if bno_threshold_occ is None:
+        bno_threshold_occ = bno_threshold
+    if bno_threshold_vir is None:
+        bno_threshold_vir = bno_threshold
 
     e_direct = e_exchange = 0.0
     with log_time(emb.log.timing, "Time for intercluster MP2 energy: %s"):
@@ -247,6 +255,8 @@ def get_intercluster_mp2_energy_uhf(emb, bno_threshold=1e-9, direct=True, exchan
     """Get long-range, inter-cluster energy contribution on the MP2 level.
 
     This constructs T2 amplitudes over two clusters, X and Y, as
+
+    .. math::
 
         t_ij^ab = \sum_L (ia|L)(L|j'b') / (ei + ej' - ea - eb)
 
