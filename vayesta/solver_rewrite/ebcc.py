@@ -11,7 +11,7 @@ class REBCC_Solver(ClusterSolver):
         fermion_excitations: str = "SD"
         t_as_lambda: bool = False  # If true, use Lambda=T approximation
         # Convergence
-        maxiter: int = 100              # Max number of iterations
+        max_cycle: int = 200              # Max number of iterations
         conv_tol: float = None          # Convergence energy tolerance
         conv_tol_normt: float = None    # Convergence amplitude tolerance
 
@@ -31,7 +31,7 @@ class REBCC_Solver(ClusterSolver):
         # Use pyscf mean-field representation.
         mf_clus = self.hamil.to_pyscf_mf()
         mycc = ebcc.EBCC(mf_clus, log=self.log, fermion_excitations=self.opts.fermion_excitations,
-                         e_tol=self.opts.conv_tol, t_tol=self.opts.conv_tol_normt, maxiter=self.opts.maxiter)
+                         **self.get_nonull_solver_opts())
         mycc.kernel()
         self.converged = mycc.converged
         if not self.opts.t_as_lambda:
@@ -39,6 +39,16 @@ class REBCC_Solver(ClusterSolver):
             self.converged = self.converged and mycc.converged_lambda
         # Now just need to wrangle EBCC results into wavefunction format.
         self.construct_wavefunction(mycc, self.hamil.mo)
+
+    def get_nonull_solver_opts(self):
+        def add_nonull_opt(d, key, newkey):
+            val = self.opts.get(key)
+            if val is not None:
+                d[newkey] = val
+        opts = {}
+        for key, newkey in zip(["max_cycle", "conv_tol", "conv_tol_normt"], ["maxiter", "e_tol", "t_tol"]):
+            add_nonull_opt(opts, key, newkey)
+        return opts
 
     def construct_wavefunction(self, mycc, mo):
         if self.is_fCCSD:
@@ -162,7 +172,8 @@ class EB_REBCC_Solver(REBCC_Solver):
                          boson_excitations=self.opts.boson_excitations,
                          fermion_coupling_rank=self.opts.fermion_coupling_rank,
                          boson_coupling_rank=self.opts.boson_coupling_rank,
-                         omega=self.hamil.bos_freqs, g=self.hamil.couplings)
+                         omega=self.hamil.bos_freqs, g=self.hamil.couplings,
+                         **self.get_nonull_solver_opts())
         mycc.kernel()
         self.converged = mycc.converged
         if not self.opts.t_as_lambda:
