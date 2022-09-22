@@ -778,14 +778,14 @@ class Fragment:
                 return R2_Bath(self, dmet, occtype=occtype)
             # MP2 bath natural orbitals
             if btype == 'mp2':
-                project_t2 = get_opt('project_t2', occtype)
+                project_dmet = get_opt('project_dmet', occtype)
                 addbuffer = get_opt('addbuffer', occtype) and occtype == 'virtual'
                 if addbuffer:
                     other = 'occ' if (otype == 'vir') else 'vir'
                     c_buffer = getattr(dmet, 'c_env_%s' % other)
                 else:
                     c_buffer = None
-                return MP2_Bath(self, dmet_bath=dmet, occtype=occtype, c_buffer=c_buffer, project_t2=project_t2)
+                return MP2_Bath(self, dmet_bath=dmet, occtype=occtype, c_buffer=c_buffer, project_dmet=project_dmet)
             raise NotImplementedError('bathtype= %s' % btype)
         self._bath_factory_occ = get_bath(occtype='occupied')
         self._bath_factory_vir = get_bath(occtype='virtual')

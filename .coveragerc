@@ -3,11 +3,9 @@ branch = True
 source = vayesta
 omit =
         */libs/*
-        */test_*.py
-        */core/k2gamma.py
-        */dmet/pdmet.py
-        */misc/brueckner.py
-        */misc/counterpoise.py
+        */tests/*
+        */tools/*
+        */core/DEL/*
 
 [report]
 exclude_lines =

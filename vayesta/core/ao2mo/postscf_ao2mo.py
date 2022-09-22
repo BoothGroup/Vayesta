@@ -19,6 +19,9 @@ from .kao2gmo import kao2gmo_cderi
 
 log = logging.getLogger(__name__)
 
+pyscf_version = [int(x) for x in pyscf.__version__.split('.')]
+pyscf_version_atleast_2_1 = np.all(np.asarray(pyscf_version) >= (2, 1, 0))
+
 
 def postscf_ao2mo(postscf, mo_coeff=None, fock=None, mo_energy=None, e_hf=None):
     """AO to MO transformation of ERIs for post-SCF calculations.
@@ -48,7 +51,8 @@ def postscf_ao2mo(postscf, mo_coeff=None, fock=None, mo_energy=None, e_hf=None):
     replace = {}
     if fock is not None:
         replace['get_fock'] = (fock if callable(fock) else lambda *args, **kwargs: fock)
-    if e_hf is not None:
+    # e_hf does not need to be added to ERIs object in PySCF v2.1+
+    if e_hf is not None and not pyscf_version_atleast_2_1:
         replace['energy_tot'] = (e_hf if callable(e_hf) else lambda *args, **kwargs: e_hf)
     if (fock is not None and e_hf is not None):
         # make_rdm1 and get_veff are called within postscf.ao2mo, to generate
@@ -68,7 +72,7 @@ def postscf_ao2mo(postscf, mo_coeff=None, fock=None, mo_energy=None, e_hf=None):
 
     return eris
 
-def postscf_kao2gmo(postscf, gdf, fock, mo_energy, e_hf, mo_coeff=None):
+def postscf_kao2gmo(postscf, gdf, fock, mo_energy, e_hf=None, mo_coeff=None):
     """k-AO to Gamma-MO transformation of ERIs for post-SCF calculations of supercells.
 
     This can be used to avoid performing the expensive density-fitting in the supercell,
@@ -126,7 +130,9 @@ def postscf_kao2gmo(postscf, gdf, fock, mo_energy, e_hf, mo_coeff=None):
 
     eris.mo_coeff = mo_coeff
     eris.nocc = nocc
-    eris.e_hf = e_hf
+    # e_hf does not need to be added to ERIs object in PySCF v2.1+
+    if not pyscf_version_atleast_2_1:
+        eris.e_hf = e_hf
     eris.fock = dot(mo_coeff.T, fock, mo_coeff)
     eris.mo_energy = mo_energy
 
@@ -152,7 +158,7 @@ def postscf_kao2gmo(postscf, gdf, fock, mo_energy, e_hf, mo_coeff=None):
 
     return eris
 
-def postscf_kao2gmo_uhf(postscf, gdf, fock, mo_energy, e_hf, mo_coeff=None):
+def postscf_kao2gmo_uhf(postscf, gdf, fock, mo_energy, e_hf=None, mo_coeff=None):
     """k-AO to Gamma-MO transformation of ERIs for unrestricted post-SCF calculations of supercells.
 
     This can be used to avoid performing the expensive density-fitting in the supercell,
@@ -203,7 +209,9 @@ def postscf_kao2gmo_uhf(postscf, gdf, fock, mo_energy, e_hf, mo_coeff=None):
 
     eris.mo_coeff = mo_coeff
     eris.nocc = nocc
-    eris.e_hf = e_hf
+    # e_hf does not need to be added to ERIs object in PySCF v2.1+
+    if not pyscf_version_atleast_2_1:
+        eris.e_hf = e_hf
     eris.focka = dot(moa.T, fock[0], moa)
     eris.fockb = dot(mob.T, fock[1], mob)
     eris.fock = (eris.focka, eris.fockb)
