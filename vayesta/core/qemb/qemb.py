@@ -70,7 +70,7 @@ class Options(OptionsBase):
     # --- Bath options
     bath_options: dict = OptionsBase.dict_with_defaults(
         # DMET bath
-        bathtype='dmet', dmet_threshold=1e-6,
+        bathtype='dmet', dmet_threshold=1e-8,
         # R2 bath
         rcut=None, unit='Ang',
         # MP2 bath

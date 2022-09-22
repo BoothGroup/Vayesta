@@ -312,9 +312,15 @@ class MP2_BNO_Bath(BNO_Bath):
             assert np.all(eig-1 < 1e-10)
             eig = np.clip(eig, 0, 1)
             if self.project_dmet == 'full':
-                weights = len(eig)*[0]
+                weights = np.zeros(len(eig))
+            elif self.project_dmet == 'half':
+                weights = np.full(len(eig), 0.5)
             elif self.project_dmet == 'linear':
                 weights = 2*abs(np.fmin(eig, 1-eig))
+            elif self.project_dmet == 'cosine':
+                weights = (1-np.cos(2*eig*np.pi))/2
+            elif self.project_dmet == 'cosine-half':
+                weights = (1-np.cos(2*eig*np.pi))/4
             elif self.project_dmet == 'entropy':
                 weights = 4*eig*(1-eig)
             elif self.project_dmet == 'sqrt-entropy':
@@ -535,11 +541,20 @@ class UMP2_BNO_Bath(MP2_BNO_Bath, BNO_Bath_UHF):
             eiga = np.clip(eiga, 0, 1)
             eigb = np.clip(eigb, 0, 1)
             if self.project_dmet == 'full':
-                weightsa = len(eiga)*[0]
-                weightsb = len(eigb)*[0]
+                weightsa = np.zeros(len(eiga))
+                weightsb = np.zeros(len(eigb))
+            elif self.project_dmet == 'half':
+                weightsa = np.full(len(eiga), 0.5)
+                weightsb = np.full(len(eigb), 0.5)
             elif self.project_dmet == 'linear':
                 weightsa = 2*abs(np.fmin(eiga, 1-eiga))
                 weightsb = 2*abs(np.fmin(eigb, 1-eigb))
+            elif self.project_dmet == 'cosine':
+                weightsa = (1-np.cos(2*eiga*np.pi))/2
+                weightsb = (1-np.cos(2*eigb*np.pi))/2
+            elif self.project_dmet == 'cosine-half':
+                weightsa = (1-np.cos(2*eiga*np.pi))/4
+                weightsb = (1-np.cos(2*eigb*np.pi))/4
             elif self.project_dmet == 'entropy':
                 weightsa = 4*eiga*(1-eiga)
                 weightsb = 4*eigb*(1-eigb)
