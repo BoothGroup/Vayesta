@@ -223,8 +223,6 @@ class EWF(Embedding):
         for fx in self.fragments.copy():
             if fx.opts.deltawf_eta is None:
                 continue
-            #_create(fx, name='%s(dwf)' % fx.name, wf_factor=0.5, bath_options=dict(threshold=self.opts.deltawf_eta))
-            #_create(fx, name='%s(dwf-dc)' % fx.name, wf_factor=-0.5)
             _create(fx, name='%s(dwf)' % fx.name, bath_options=dict(threshold=self.opts.deltawf_eta))
             _create(fx, name='%s(dwf-dc)' % fx.name, wf_factor=-1)
 
