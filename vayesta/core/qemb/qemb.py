@@ -35,6 +35,7 @@ from vayesta.core.scmf import PDMET, Brueckner
 from vayesta.core.qemb.scrcoulomb import build_screened_eris
 from vayesta.mpi import mpi
 from .register import FragmentRegister
+from vayesta.rpa import ssRIRPA
 
 # Symmetry
 from vayesta.core.symmetry import SymmetryGroup
@@ -78,9 +79,6 @@ class Options(OptionsBase):
         # General
         canonicalize=True,
         )
-    # --- Cluster Hamiltonian options
-    solver_options: dict = OptionsBase.dict_with_defaults(
-            screening=None)
     # --- Solver options
     solver_options: dict = OptionsBase.dict_with_defaults(
             # General
@@ -745,8 +743,12 @@ class Embedding:
     @log_method()
     @with_doc(build_screened_eris)
     def build_screened_eris(self, *args, **kwargs):
-        seris_ov, delta_e = build_screened_eris(self, *args, **kwargs)
-        return seris_ov, delta_e
+        if self.opts.screening is not None:
+            # Calculate total dRPA energy in N^4 time; this is cheaper than screening calculations.
+            rpa = ssRIRPA(self.mf, log=self.log)
+            self.e_nonlocal, energy_error = rpa.kernel_energy(correction='linear')
+            if self.opts.screening == "mrpa":
+                build_screened_eris(self, *args, **kwargs)
 
     # Symmetry between fragments
     # --------------------------

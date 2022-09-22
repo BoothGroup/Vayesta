@@ -12,7 +12,7 @@ class ssURPA(ssRPA):
 
     @property
     def norb(self):
-        return self.mf.mo_coeff.shape[1]
+        return self.mf.mo_coeff[0].shape[1]
 
     @property
     def nocc(self):
@@ -38,13 +38,13 @@ class ssURPA(ssRPA):
     def mo_coeff_occ(self):
         """Occupied MO coefficients."""
         na, nb = self.nocc
-        return self.mo_coeff[0, :, :na], self.mo_coeff[1, :, :nb]
+        return self.mo_coeff[0][:, :na], self.mo_coeff[1][:, :nb]
 
     @property
     def mo_coeff_vir(self):
         """Virtual MO coefficients."""
         na, nb = self.nocc
-        return self.mo_coeff[0, :, na:], self.mo_coeff[1, :, nb:]
+        return self.mo_coeff[0][:, na:], self.mo_coeff[1][:, nb:]
 
     def _gen_arrays(self, xc_kernel=None, alpha=1.0):
         t0 = timer()
@@ -53,18 +53,29 @@ class ssURPA(ssRPA):
         nvir_a, nvir_b = self.nvir
         # Only have diagonal components in canonical basis.
         epsa = np.zeros((nocc_a, nvir_a))
-        epsa = epsa + self.mf.mo_energy[0, nocc_a:]
-        epsa = (epsa.T - self.mf.mo_energy[0, :nocc_a]).T
+        epsa = epsa + self.mf.mo_energy[0][nocc_a:]
+        epsa = (epsa.T - self.mf.mo_energy[0][:nocc_a]).T
         epsa = epsa.reshape((self.ova,))
 
         epsb = np.zeros((nocc_a, nvir_a))
-        epsb = epsb + self.mf.mo_energy[1, nocc_b:]
-        epsb = (epsb.T - self.mf.mo_energy[1, :nocc_b]).T
+        epsb = epsb + self.mf.mo_energy[1][nocc_b:]
+        epsb = (epsb.T - self.mf.mo_energy[1][:nocc_b]).T
         epsb = epsb.reshape((self.ovb,))
+
+        if self.ov_rot is not None:
+            epsa = einsum("pn,n,qn->pq", self.ov_rot[0], epsa, self.ov_rot[0])
+            epsa, ca = scipy.linalg.eigh(epsa)
+            epsb = einsum("pn,n,qn->pq", self.ov_rot[1], epsb, self.ov_rot[1])
+            epsb, cb = scipy.linalg.eigh(epsb)
+            self.ov_rot = (dot(ca.T, self.ov_rot[0]), dot(cb.T, self.ov_rot[1]))
 
         AmB = np.concatenate([epsa, epsb])
         fullv = self.get_k()
         ApB = 2 * fullv * alpha
+        if self.ov_rot is not None:
+            fullrot = scipy.linalg.block_diagonal(self.ov_rot[0], self.ov_rot[1])
+            ApB = dot(fullrot, ApB, fullrot.T)
+
         # At this point AmB is just epsilon so add in.
         ApB[np.diag_indices_from(ApB)] += AmB
 
@@ -103,11 +114,18 @@ class ssURPA(ssRPA):
         """Get the ERIs in MO basis
         """
         mo_coeff = self.mo_coeff if mo_coeff is None else mo_coeff
-        # Call three-times to spin-restricted embedding
-        self.log.debugv("Making (aa|aa) ERIs...")
-        eris_aa = super().ao2mo(mo_coeff[0])
-        self.log.debugv("Making (bb|bb) ERIs...")
-        eris_bb = super().ao2mo(mo_coeff[1])
-        self.log.debugv("Making (aa|bb) ERIs...")
-        eris_ab = super().ao2mo((mo_coeff[0], mo_coeff[0], mo_coeff[1], mo_coeff[1]))
+        # Just in case have spin dependent integrals...
+        if isinstance(self.mf._eri, tuple):
+            eris_aa = pyscf.ao2mo.kernel(self.mf._eri[0], mo_coeff[0], compact=False)
+            eris_bb = pyscf.ao2mo.kernel(self.mf._eri[2], mo_coeff[1], compact=False)
+            eris_ab = pyscf.ao2mo.kernel(self.mf._eri[1], (mo_coeff[0], mo_coeff[0], mo_coeff[1], mo_coeff[1]),
+                                         compact=False)
+        else:
+            # Call three-times to spin-restricted embedding
+            self.log.debugv("Making (aa|aa) ERIs...")
+            eris_aa = super().ao2mo(mo_coeff[0])
+            self.log.debugv("Making (bb|bb) ERIs...")
+            eris_bb = super().ao2mo(mo_coeff[1])
+            self.log.debugv("Making (aa|bb) ERIs...")
+            eris_ab = super().ao2mo((mo_coeff[0], mo_coeff[0], mo_coeff[1], mo_coeff[1]))
         return (eris_aa, eris_ab, eris_bb)

@@ -73,7 +73,7 @@ class ClusterSolver:
         kernel_orig = self.kernel
         # Make projector into fragment space
 
-        p_frag = self.hamil.target_space_projector
+        p_frag = self.hamil.target_space_projector()
 
         class CptFound(RuntimeError):
             """Raise when electron error is below tolerance."""
@@ -189,7 +189,7 @@ class ClusterSolver:
 class UClusterSolver(ClusterSolver):
 
     def get_vext(self, v_ext_0, cpt):
-        pfrag = self.hamil.target_space_projector
+        pfrag = self.hamil.target_space_projector()
         # Surely None would be a better default?
         if v_ext_0 == 0:
             v_ext_0 = (v_ext_0, v_ext_0)

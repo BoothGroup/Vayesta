@@ -1,10 +1,13 @@
 import numpy as np
+import scipy.linalg
+
 from vayesta.core.util import *
 import dataclasses
 import pyscf.scf
 from typing import Optional
 from vayesta.core.types import Orbitals
-
+from vayesta.core.qemb import scrcoulomb
+from vayesta.rpa import ssRPA
 
 def ClusterHamiltonian(fragment, mf, log=None, **kwargs):
     rhf = np.ndim(mf.mo_coeff[0]) == 1
@@ -60,10 +63,11 @@ class RClusterHamiltonian:
     def ncas(self):
         return (self.cluster.norb_active, self.cluster.norb_active)
 
-    @property
-    def target_space_projector(self):
+    def target_space_projector(self, c=None):
         """Projector to the target fragment space within our cluster."""
-        return self._fragment.get_fragment_projector(self.cluster.c_active)
+        if c is None:
+            c = self.cluster.c_active
+        return self._fragment.get_fragment_projector(c)
 
     def get_fock(self):
         c = self.cluster.c_active
@@ -119,7 +123,7 @@ class RClusterHamiltonian:
             eris = self._fragment.base.get_eris_array(coeff)
         return eris
 
-    def to_pyscf_mf(self):
+    def to_pyscf_mf(self, force_bare_eris=False):
         # Using this requires equal spin channels.
         self.assert_equal_spin_channels()
         nao, mo_coeff, mo_energy, mo_occ, ovlp = self.get_clus_mf_info(ao_basis=False)
@@ -134,21 +138,65 @@ class RClusterHamiltonian:
         clusmol.nao = self.ncas[0]
         clusmol.build()
 
-        heff, eris = self.get_integrals(with_vext=True)
+        bare_eris = self.get_eris_bare()
+
+        heff = self.get_heff(eris=bare_eris, with_vext=True)
+
         clusmf = self._scf_class(clusmol)
         clusmf.get_hcore = lambda *args, **kwargs: heff
         clusmf.get_ovlp = lambda *args, **kwargs: ovlp
         clusmf.get_fock = lambda *args, **kwargs: self.get_fock()
         # This could be replaced by a density fitted approach if we wanted.
-        clusmf._eri = eris
+        if force_bare_eris:
+            clusmf._eri = bare_eris
+        else:
+            clusmf._eri = self.get_eris()
         clusmf.mo_coeff = mo_coeff
         clusmf.mo_occ = mo_occ
         clusmf.mo_energy = mo_energy
         return clusmf
 
-    def add_screening(self, seris):
+    def calc_loc_erpa(self):
+
+        clusmf = self.to_pyscf_mf(force_bare_eris=True)
+        clusrpa = ssRPA(clusmf)
+        M, AmB, ApB, eps, v = clusrpa._gen_arrays()
+        erpa = clusrpa.kernel()
+        m0 = clusrpa.gen_moms(0)
+
+        def get_product_projector():
+            nocc = self.nelec
+            nvir = tuple([x - y for x, y in zip(self.ncas, self.nelec)])
+            p_occ_frag = self.target_space_projector(self.cluster.c_active_occ)
+
+            if (not isinstance(p_occ_frag, tuple)) and np.ndim(p_occ_frag) == 2:
+                p_occ_frag = (p_occ_frag, p_occ_frag)
+
+            def get_product_projector(p_o, p_v, no, nv):
+                return einsum("ij,ab->iajb", p_o, p_v).reshape((no*nv, no*nv))
+            pa = get_product_projector(p_occ_frag[0], np.eye(nvir[0]), nocc[0], nvir[0])
+            pb = get_product_projector(p_occ_frag[1], np.eye(nvir[1]), nocc[1], nvir[1])
+            return scipy.linalg.block_diag(pa, pb)
+
+        proj = get_product_projector()
+        eloc = 0.5 * einsum("pq,qr,rp->", proj, m0, ApB) - einsum("pq,qp->", proj, ApB + AmB)
+        return eloc
+
+    def add_screening(self, seris_intermed=None):
         """Add screened interactions into the Hamiltonian."""
-        raise NotImplementedError
+        if self.opts.screening == "mrpa":
+            assert(seris_intermed is not None)
+
+            # Use bare coulomb interaction from hamiltonian; this could well be cached in future.
+            bare_eris = self.get_eris_bare()
+
+            self._seris = scrcoulomb.get_screened_eris_full(bare_eris, seris_intermed)
+
+        elif self.opts.screening == "crpa":
+            raise NotImplementedError()
+
+        else:
+            raise ValueError("Unknown cluster screening protocol: %s" % self.opts.screening)
 
     def assert_equal_spin_channels(self):
         na, nb = self.ncas
