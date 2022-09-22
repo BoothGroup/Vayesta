@@ -208,18 +208,20 @@ class ssRPA:
         eps = eps.reshape((self.ova,))
 
         if self.ov_rot is not None:
-            eps = einsum("pn,n,qn->pq", self.ov_rot, eps, self.ov_rot)
-            # want to ensure diagonalise eps in our new basis; nb this also rotates the existing rotation for
-            # consistency.
-            eps, c = scipy.linalg.eigh(eps)
-            self.ov_rot = dot(c.T, self.ov_rot)
+            epsa = einsum("pn,n,qn->pq", self.ov_rot[0], eps, self.ov_rot[0])
+            epsa, ca = scipy.linalg.eigh(epsa)
+            epsb = einsum("pn,n,qn->pq", self.ov_rot[1], eps, self.ov_rot[1])
+            epsb, cb = scipy.linalg.eigh(epsb)
+            self.ov_rot = (dot(ca.T, self.ov_rot[0]), dot(cb.T, self.ov_rot[1]))
+        else:
+            epsa = epsb = eps
 
-        AmB = np.concatenate([eps, eps])
+        AmB = np.concatenate([epsa, epsb])
 
         fullv = self.get_k()
         ApB = 2 * fullv * alpha
         if self.ov_rot is not None:
-            fullrot = scipy.linalg.block_diagonal(self.ov_rot, self.ov_rot)
+            fullrot = scipy.linalg.block_diag(self.ov_rot[0], self.ov_rot[1])
             ApB = dot(fullrot, ApB, fullrot.T)
 
         # At this point AmB is just epsilon so add in.
@@ -239,7 +241,7 @@ class ssRPA:
             M = dot(AmBrt, ApB, AmBrt)
 
         self.log.timing("Time to build RPA arrays: %s", time_string(timer() - t0))
-        return M, AmB, ApB, (eps, eps), fullv
+        return M, AmB, ApB, (epsa, epsb), fullv
 
     def get_k(self):
         eris = self.ao2mo()

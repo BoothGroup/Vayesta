@@ -78,7 +78,7 @@ class ssURPA(ssRPA):
         fullv = self.get_k()
         ApB = 2 * fullv * alpha
         if self.ov_rot is not None:
-            fullrot = scipy.linalg.block_diagonal(self.ov_rot[0], self.ov_rot[1])
+            fullrot = scipy.linalg.block_diag(self.ov_rot[0], self.ov_rot[1])
             ApB = dot(fullrot, ApB, fullrot.T)
 
         # At this point AmB is just epsilon so add in.

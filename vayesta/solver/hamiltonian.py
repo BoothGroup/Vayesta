@@ -6,9 +6,10 @@ import pyscf.lib
 import pyscf.scf
 import scipy.linalg
 
-from vayesta.core.screening import screening_moment
-from vayesta.core.types import Orbitals
 from vayesta.core.util import dot, einsum, OptionsBase, break_into_lines, log_time
+from typing import Optional
+from vayesta.core.types import Orbitals
+from vayesta.core.screening import screening_moment, screening_crpa
 from vayesta.rpa import ssRPA
 
 
@@ -400,6 +401,22 @@ class RClusterHamiltonian:
         proj = get_product_projector()
         eloc = 0.5 * einsum("pq,qr,rp->", proj, m0, ApB) - einsum("pq,qp->", proj, ApB + AmB)
         return eloc
+
+    def add_screening(self, seris_intermed=None):
+        """Add screened interactions into the Hamiltonian."""
+        if self.opts.screening == "mrpa":
+            assert(seris_intermed is not None)
+
+            # Use bare coulomb interaction from hamiltonian; this could well be cached in future.
+            bare_eris = self.get_eris_bare()
+
+            self._seris = screening_moment.get_screened_eris_full(bare_eris, seris_intermed)
+
+        elif self.opts.screening == "crpa":
+            raise NotImplementedError()
+
+        else:
+            raise ValueError("Unknown cluster screening protocol: %s" % self.opts.screening)
 
     def assert_equal_spin_channels(self, message=""):
         na, nb = self.ncas
