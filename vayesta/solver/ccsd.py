@@ -203,7 +203,7 @@ class CCSD_Solver(ClusterSolver):
         # Tailored CC
         if self.opts.tcc:
             if self.spinsym == 'unrestricted':
-                raise NotImplementedError
+                raise NotImplementedError("TCCSD for unrestricted spin-symmetry")
             self.set_callback(tccsd.make_cas_tcc_function(
                               self, c_cas_occ=self.opts.c_cas_occ, c_cas_vir=self.opts.c_cas_vir, eris=eris))
         elif self.opts.tailoring:
