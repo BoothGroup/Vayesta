@@ -149,7 +149,7 @@ def tailor_with_fragments(solver, fragments, project=False, tailor_t1=True, tail
             if maxovlp < ovlp_tol:
                 continue
 
-            wfy = fy.results.wf.to_ccsd()
+            wfy = fy.results.wf.as_ccsd()
             # Transform to x-amplitudes to y-space, instead of y-amplitudes to x-space:
             # x may be CCSD and y FCI, such that x-space >> y-space
             if tailor_t1:
