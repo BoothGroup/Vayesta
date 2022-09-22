@@ -936,13 +936,13 @@ class Embedding:
             children[idx].append(f)
         return children
 
-    def get_fragments(self, fragments=None, **filters):
+    def get_fragments(self, fragments=None, options=None, **filters):
         """Return all fragments which obey the specified conditions.
 
         Arguments
         ---------
-        **kwargs:
-            List of returned fragmens will be filtered according to specified
+        **filters:
+            List of returned fragments will be filtered according to specified
             keyword arguments.
 
         Returns
@@ -965,17 +965,33 @@ class Embedding:
             fragments = self.fragments
         if not filters:
             return fragments
-        filters = {k: (v if callable(v) else np.atleast_1d(v)) for k, v in filters.items()}
+        if options is None:
+            options = {}
+
+        def _values_atleast_1d(d):
+            return {k: (v if callable(v) else np.atleast_1d(v)) for k, v in d.items()}
+        filters = _values_atleast_1d(filters)
+        options = _values_atleast_1d(options)
+
         filtered_fragments = []
         for frag in fragments:
             skip = False
-            for key, filtr in filters.items():
+            # Check filters:
+            for key, filt in filters.items():
                 attr = getattr(frag, key)
-                if callable(filtr):
-                    if not filtr(attr):
+                if callable(filt):
+                    if not filt(attr):
                         skip = True
                         break
-                elif attr not in filtr:
+                elif attr not in filt:
+                    skip = True
+                    break
+            if skip:
+                continue
+            # Check options:
+            for key, filt in options.items():
+                attr = getattr_recursive(frag.opts, key)
+                if attr not in filt:
                     skip = True
                     break
             if skip:

@@ -40,13 +40,15 @@ class Options(BaseFragment.Options):
     bsse_correction: bool = None
     bsse_rmax: float = None
     sc_mode: int = None
-    nelectron_target: int = None                  # If set, adjust bath chemical potential until electron number in fragment equals nelectron_target
+    nelectron_target: int = None            # If set, adjust bath chemical potential until electron number in fragment equals nelectron_target
     # Calculation modes
     calc_e_wf_corr: bool = None
     calc_e_dm_corr: bool = None
     # Delta-WF
     deltawf_solver: str = None
     deltawf_eta: Optional[float] = None
+    # Intercluster MP2
+    icmp2_active: bool = None               # If True, the fragment is used in the intercluster MP2 correction
     # Fragment specific
     # -----------------
     wf_factor: Optional[int] = None

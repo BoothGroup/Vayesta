@@ -44,8 +44,13 @@ class ClusterUHF:
         else:
             self.cderi_neg = None
 
-def get_intercluster_mp2_energy_rhf(emb, bno_threshold=1e-9, bno_threshold_occ=None, bno_threshold_vir=None,
-        direct=True, exchange=True, fragments=None, project_dc='vir', vers=1, diagonal=True):
+
+def _get_icmp2_fragments(emb, **kwargs):
+        return emb.get_fragments(active=True, options=dict(icmp2_active=True), **kwargs)
+
+
+def get_intercluster_mp2_energy_rhf(emb, bno_threshold_occ=None, bno_threshold_vir=1e-9,
+        direct=True, exchange=True, fragments=None, project_dc='occ', vers=1, diagonal=True):
     """Get long-range, inter-cluster energy contribution on the MP2 level.
 
     This constructs T2 amplitudes over two clusters, X and Y, as
@@ -79,10 +84,6 @@ def get_intercluster_mp2_energy_rhf(emb, bno_threshold=1e-9, bno_threshold_occ=N
         raise ValueError()
     if not emb.has_df:
         raise RuntimeError("Intercluster MP2 energy requires density-fitting.")
-    if bno_threshold_occ is None:
-        bno_threshold_occ = bno_threshold
-    if bno_threshold_vir is None:
-        bno_threshold_vir = bno_threshold
 
     e_direct = e_exchange = 0.0
     with log_time(emb.log.timing, "Time for intercluster MP2 energy: %s"):
@@ -101,7 +102,7 @@ def get_intercluster_mp2_energy_rhf(emb, bno_threshold=1e-9, bno_threshold_occ=N
         with log_time(emb.log.timing, "Time for intercluster MP2 energy setup: %s"):
             coll = {}
             # Loop over symmetry unique fragments X
-            for x in emb.get_fragments(active=True, mpi_rank=mpi.rank, sym_parent=None):
+            for x in _get_icmp2_fragments(emb, mpi_rank=mpi.rank, sym_parent=None):
                 # Occupied orbitals:
                 if bno_threshold_occ is None:
                     c_occ = x._dmet_bath.c_cluster_occ
@@ -136,7 +137,7 @@ def get_intercluster_mp2_energy_rhf(emb, bno_threshold=1e-9, bno_threshold_occ=N
                 if cderi_neg is not None:
                     coll[x.id, 'cderi_neg'] = cderi_neg
                 # Fragments Y, which are symmetry related to X
-                for y in emb.get_fragments(active=True, sym_parent=x):
+                for y in _get_icmp2_fragments(emb, sym_parent=x):
                     sym_op = y.get_symmetry_operation()
                     coll[y.id, 'c_vir'] = sym_op(c_vir)
                     # TODO: Why do we need to invert the atom reordering with argsort?
@@ -149,8 +150,7 @@ def get_intercluster_mp2_energy_rhf(emb, bno_threshold=1e-9, bno_threshold_occ=N
             if mpi:
                 coll = mpi.create_rma_dict(coll)
 
-        #for ix, x in enumerate(emb.get_fragments(mpi_rank=mpi.rank)):
-        for ix, x in enumerate(emb.get_fragments(fragments, active=True, mpi_rank=mpi.rank, sym_parent=None)):
+        for ix, x in enumerate(_get_icmp2_fragments(emb, fragments=fragments, mpi_rank=mpi.rank, sym_parent=None)):
             cx = ClusterRHF(x, coll)
 
             eia_x = cx.e_occ[:,None] - cx.e_vir[None,:]
@@ -164,7 +164,7 @@ def get_intercluster_mp2_energy_rhf(emb, bno_threshold=1e-9, bno_threshold_occ=N
             svir0 = np.dot(cx.c_vir.T, ovlp)
 
             # Loop over all other fragments
-            for iy, y in enumerate(emb.get_fragments(active=True)):
+            for iy, y in enumerate(_get_icmp2_fragments(emb)):
                 cy = ClusterRHF(y, coll)
 
                 # TESTING
@@ -251,7 +251,7 @@ def get_intercluster_mp2_energy_rhf(emb, bno_threshold=1e-9, bno_threshold_occ=N
     return e_icmp2
 
 
-def get_intercluster_mp2_energy_uhf(emb, bno_threshold=1e-9, direct=True, exchange=True):
+def get_intercluster_mp2_energy_uhf(emb, bno_threshold=1e-9, direct=True, exchange=True, project_dc='vir'):
     """Get long-range, inter-cluster energy contribution on the MP2 level.
 
     This constructs T2 amplitudes over two clusters, X and Y, as
@@ -276,6 +276,8 @@ def get_intercluster_mp2_energy_uhf(emb, bno_threshold=1e-9, direct=True, exchan
     e_icmp2: float
         Intercluster MP2 energy contribution.
     """
+    if project_vir != 'vir':
+        raise NotImplementedError
 
     e_direct = 0.0
     e_exchange = 0.0
@@ -295,7 +297,7 @@ def get_intercluster_mp2_energy_uhf(emb, bno_threshold=1e-9, direct=True, exchan
         with log_time(emb.log.timing, "Time for intercluster MP2 energy setup: %s"):
             coll = {}
             # Loop over symmetry unique fragments
-            for x in emb.get_fragments(mpi_rank=mpi.rank, sym_parent=None):
+            for x in _get_icmp2_fragments(emb, mpi_rank=mpi.rank, sym_parent=None):
                 #c_occ = x.bath.dmet_bath.c_cluster_occ
                 c_occ = x._dmet_bath.c_cluster_occ
                 coll[x.id, 'p_frag_a'] = dot(x.c_proj[0].T, ovlp, c_occ[0])
@@ -313,7 +315,7 @@ def get_intercluster_mp2_energy_uhf(emb, bno_threshold=1e-9, direct=True, exchan
                     coll[x.id, 'cderi_a_neg'] = cderi_a_neg
                     coll[x.id, 'cderi_b_neg'] = cderi_b_neg
                 # Symmetry related fragments
-                for y in emb.get_fragments(active=True, sym_parent=x):
+                for y in _get_icmp2_fragments(emb, sym_parent=x):
                     sym_op = y.get_symmetry_operation()
                     coll[y.id, 'c_vir_a'] = sym_op(c_vir[0])
                     coll[y.id, 'c_vir_b'] = sym_op(c_vir[1])
@@ -328,7 +330,7 @@ def get_intercluster_mp2_energy_uhf(emb, bno_threshold=1e-9, direct=True, exchan
             if mpi:
                 coll = mpi.create_rma_dict(coll)
 
-        for ix, x in enumerate(emb.get_fragments(active=True, mpi_rank=mpi.rank, sym_parent=None)):
+        for ix, x in enumerate(_get_icmp2_fragments(emb, mpi_rank=mpi.rank)):
             cx = ClusterUHF(x, coll)
 
             eia_xa = cx.e_occ[0][:,None] - cx.e_vir[0][None,:]
@@ -342,7 +344,7 @@ def get_intercluster_mp2_energy_uhf(emb, bno_threshold=1e-9, direct=True, exchan
                 svir0b = np.dot(cx.c_vir[1].T, ovlp)
 
             # Loop over all other fragments
-            for iy, y in enumerate(emb.get_fragments(active=True)):
+            for iy, y in enumerate(_get_icmp2_fragments(emb)):
                 cy = ClusterUHF(y, coll)
 
                 eia_ya = cy.e_occ[0][:,None] - cy.e_vir[0][None,:]

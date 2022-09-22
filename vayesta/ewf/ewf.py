@@ -41,7 +41,7 @@ class Options(Embedding.Options):
     calc_e_wf_corr: bool = True
     calc_e_dm_corr: bool = False
     # --- Solver settings
-    t_as_lambda: bool = None           # If True, use T-amplitudes inplace of Lambda-amplitudes
+    t_as_lambda: bool = None            # If True, use T-amplitudes inplace of Lambda-amplitudes
     # Counterpoise correction of BSSE
     bsse_correction: bool = True
     bsse_rmax: float = 5.0              # In Angstrom
@@ -49,6 +49,8 @@ class Options(Embedding.Options):
     # Delta-WF
     deltawf_solver: str = 'MP2'
     deltawf_eta: Optional[float] = None
+    # Intercluster MP2
+    icmp2_active: bool = True           # If True, the fragment is used in the intercluster MP2 correction
     # --- Couple embedding problems (currently only CCSD)
     sc_mode: int = 0
     coupled_iterations: bool = False
@@ -224,7 +226,8 @@ class EWF(Embedding):
             if fx.opts.deltawf_eta is None:
                 continue
             _create(fx, name='%s(dwf)' % fx.name, bath_options=dict(threshold=self.opts.deltawf_eta))
-            _create(fx, name='%s(dwf-dc)' % fx.name, wf_factor=-1)
+            _create(fx, name='%s(dwf-dc)' % fx.name, wf_factor=-1, icmp2_active=False)
+            fx.opts.icmp2_active = False
 
     # --- CC Amplitudes
     # -----------------
@@ -499,7 +502,10 @@ class EWF(Embedding):
 
     # --- Energy corrections
 
-    get_intercluster_mp2_energy = get_intercluster_mp2_energy_rhf
+
+    @log_method()
+    def get_intercluster_mp2_energy(self, *args, **kwargs):
+        return get_intercluster_mp2_energy_rhf(self, *args, **kwargs)
 
     # --- Deprecated
 

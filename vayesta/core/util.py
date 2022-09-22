@@ -37,6 +37,7 @@ __all__ = [
         # Time & memory
         'timer', 'log_time', 'get_used_memory', 'log_method',
         # Other
+	'getattr_recursive', 'setattr_recursive',
         'replace_attr', 'break_into_lines', 'fix_orbital_sign', 'split_into_blocks',
         'getif', 'callif',
         ]
@@ -377,6 +378,17 @@ def memory_string(nbytes, fmt='6.2f'):
     return "{:{fmt}} {unit}".format(val, unit=unit, fmt=fmt)
 
 # ---
+
+# Recursive get- and setattr
+
+def getattr_recursive(obj, attr, *args):
+    def _getattr(obj, attr):
+        return getattr(obj, attr, *args)
+    return functools.reduce(_getattr, [obj] + attr.split('.'))
+
+def setattr_recursive(obj, attr, val):
+    pre, _, post = attr.rpartition('.')
+    return setattr(rgetattr(obj, pre) if pre else obj, post, val)
 
 @contextmanager
 def replace_attr(obj, **kwargs):

@@ -100,7 +100,9 @@ class UEWF(REWF, UEmbedding):
     def _make_rdm2_ccsd_proj_lambda(self, *args, **kwargs):
         return make_rdm2_ccsd_proj_lambda(self, *args, **kwargs)
 
-    get_intercluster_mp2_energy = get_intercluster_mp2_energy_uhf
+    @log_method()
+    def get_intercluster_mp2_energy(self, *args, **kwargs):
+        return get_intercluster_mp2_energy_uhf(self, *args, **kwargs)
 
     # --- Other expectation values
 
