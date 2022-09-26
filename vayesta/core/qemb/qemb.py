@@ -760,8 +760,8 @@ class Embedding:
             # Calculate total dRPA energy in N^4 time; this is cheaper than screening calculations.
             rpa = ssRIRPA(self.mf, log=self.log)
             self.e_nonlocal, energy_error = rpa.kernel_energy(correction='linear')
-            if scrfrags.count("mrpa") > 0:
-                build_screened_eris(self, *args, **kwargs)
+        if scrfrags.count("mrpa") > 0:
+            build_screened_eris(self, *args, **kwargs)
 
     # Symmetry between fragments
     # --------------------------

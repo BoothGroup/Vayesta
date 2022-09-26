@@ -11,16 +11,6 @@ from pyscf.ao2mo import _ao2mo
 from pyscf import __config__
 
 
-def get_crpa_deltaW(emb, fragments=None, log=None):
-
-    if fragments is None:
-        fragments = emb.get_fragments(sym_parent=None)
-    if emb.spinsym != 'unrestricted':
-        raise NotImplementedError("Screened interactions require a spin-unrestricted formalism.")
-    if emb.df is None:
-        raise NotImplementedError("Screened interactions require density-fitting.")
-
-
 def get_frag_deltaW(mf, fragment, log=None):
     """Generates change in coulomb interaction due to screening at the level of cRPA.
     Note that this currently scales as O(N_frag N^6), so is not practical without further refinement.
@@ -40,39 +30,55 @@ def get_frag_deltaW(mf, fragment, log=None):
         Change in cluster local coulomb interaction due to cRPA screening.
     """
 
+    is_rhf = np.ndim(mf.mo_coeff[1]) == 1
+    if not hasattr(mf, "with_df"):
+        raise NotImplementedError("Screened interactions require density-fitting.")
+
     crpa = get_crpa(mf, fragment)
-
-    # Apply static approximation to interaction.
-    static_factor = crpa.freqs_ss ** (-1)
     # Now need to calculate interactions.
-
     nmo = mf.mo_coeff.shape[1]
     nocc = sum(mf.mo_occ.T > 0)
+    c = mf.mo_coeff
+    if is_rhf:
+        nocc = (nocc, nocc)
+        c = (c, c)
+    # First calculate alpha contribution.
+    lov_a = ao2mo(mf, mo_coeff=c[0], ijslice=(0, nocc[0], nocc[0], nmo[0])).reshape((-1, crpa.ova))
+    lov_a = dot(lov_a, crpa.ov_rot[0].T)
 
+    l_aux = dot(lov_a, crpa.XpY_ss[0])
+    del lov_a
+    lov_b = ao2mo(mf, mo_coeff=c[1], ijslice=(0, nocc[1], nocc[1], nmo[1])).reshape((-1, crpa.ovb))
+    lov_b = dot(lov_b, crpa.ov_rot[1].T)
 
+    # This is a decomposition of the cRPA reducible dd response in the auxilliary basis
+    l_aux += dot(lov_b, crpa.XpY_ss[1])
+    del lov_b
 
-
-
-
-    Lov_aenv = ao2mo(new_mf, mo_coeff=new_mf.mo_coeff[0], ijslice=(0, nocc[0], nocc[0], nmo[0])).reshape((-1, crpa.ova))
-    Lov_benv = ao2mo(new_mf, mo_coeff=new_mf.mo_coeff[1], ijslice=(0, nocc[1], nocc[1], nmo[1])).reshape((-1, crpa.ovb))
-
-    # This is the coefficient of the cRPA reducible dd response in the auxilliary basis
-    L_aux = dot(Lov_aenv, crpa.XpY_ss[0]) + dot(Lov_benv, crpa.XpY_ss[1])
-    del Lov_aenv, Lov_benv
-    # This is the static approximation for the screened coulomb interaction in the auxiliary basis.
-    chi_aux = einsum("nx,x,mx->nm", L_aux, crpa.freqs_ss ** (-1), L_aux)
     # This is expensive, and we'd usually want to avoid doing it twice unnecessarily, but other things will be worse.
     # Now calculate the coupling back to the fragment itself.
-    Lpqa_loc = ao2mo(new_mf, mo_coeff=fragment.cluster.c_active[0])
-    Lpqb_loc = ao2mo(new_mf, mo_coeff=fragment.cluster.c_active[1])
+    c_act = fragment.cluster.c_active
+    if is_rhf:
+        c_act = (c_act, c_act)
 
-    deltaW = (
-        einsum("npq,nm,mrs->pqrs", Lpqa_loc, chi_aux, Lpqa_loc),
-        einsum("npq,nm,mrs->pqrs", Lpqa_loc, chi_aux, Lpqb_loc),
-        einsum("npq,nm,mrs->pqrs", Lpqb_loc, chi_aux, Lpqb_loc),
+    lpqa_loc = ao2mo(mf, mo_coeff=c_act[0])
+    lpqb_loc = ao2mo(mf, mo_coeff=c_act[1])
+
+    # Calculating this quantity scales as O(N^3), rather than O(N^4) if we explicitly calculated the cRPA dd response
+    # in the auxiliary basis.
+    l_a = einsum("npq,nm->mpq", lpqa_loc, l_aux)
+    del lov_a
+    l_b = einsum("npq,nm->mpq", lpqb_loc, l_aux)
+    del lov_b
+
+    static_fac = crpa.freqs_ss ** (-1)
+
+    delta_w = (
+        einsum("npq,n,nrs->pqrs", l_a, static_fac, l_a),
+        einsum("npq,n,nrs->pqrs", l_a, static_fac, l_b),
+        einsum("npq,n,nrs->pqrs", l_b, static_fac, l_b),
     )
-    return deltaW
+    return delta_w
 
 
 def get_crpa(orig_mf, f):

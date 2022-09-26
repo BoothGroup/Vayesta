@@ -404,17 +404,42 @@ class RClusterHamiltonian:
 
     def add_screening(self, seris_intermed=None):
         """Add screened interactions into the Hamiltonian."""
+        seris = self._add_screening(seris_intermed)
+        # Need to spin-integrate resultant interaction in restricted formalism.
+        seris_spat = (seris[0] + seris[2] + seris[1] + seris[1].transpose((2, 3, 0, 1))) / 4.0
+
+        dev = [abs(x - seris_spat).max() for x in seris] + [abs(seris[2].transpose(2, 3, 0, 1) - seris_spat).max()]
+        self.log.info("Largest change in screened interactions due to spin integration: %e", max(dev))
+        self._seris = seris_spat
+
+    def _add_screening(self, seris_intermed=None, spin_integrate=True):
+
+        def spin_integrate_and_report(m):
+            spat = (m[0] + m[1] + m[2] + seris[1].transpose((2, 3, 0, 1))) / 4.0
+
+            dev = [abs(x - spat).max() for x in m] + [abs(m[2].transpose(2, 3, 0, 1) - spat).max()]
+            self.log.info("Largest change in screened interactions due to spin integration: %e", max(dev))
+            return spat
+
+        if self.opts.screening is None:
+            raise ValueError("Attempted to add screening to fragment with no screening protocol specified.")
         if self.opts.screening == "mrpa":
             assert(seris_intermed is not None)
-
             # Use bare coulomb interaction from hamiltonian; this could well be cached in future.
             bare_eris = self.get_eris_bare()
-
-            self._seris = screening_moment.get_screened_eris_full(bare_eris, seris_intermed)
-
+            seris = screening_moment.get_screened_eris_full(bare_eris, seris_intermed)
+            if spin_integrate:
+                seris = spin_integrate_and_report(seris)
+            return seris
         elif self.opts.screening == "crpa":
-            raise NotImplementedError()
-
+            bare_eris = self.get_eris_bare()
+            delta = screening_crpa.get_frag_deltaW(self.mf, self._fragment, self.log)
+            if spin_integrate:
+                delta = spin_integrate_and_report(delta)
+                seris = bare_eris + delta
+            else:
+                seris = tuple([x + y for x, y in zip(bare_eris, delta)])
+            return seris
         else:
             raise ValueError("Unknown cluster screening protocol: %s" % self.opts.screening)
 
@@ -629,6 +654,10 @@ class UClusterHamiltonian(RClusterHamiltonian):
         getter = self.get_eris_bare if force_bare else self.get_eris_screened
         fock = self.get_fock(with_vext=with_vext, use_seris=not force_bare, with_exxdiv=with_exxdiv)
         return DummyERIs(getter, valid_blocks=ValidUHFKeys(), fock=fock, nocc=self.cluster.nocc_active)
+
+    def add_screening(self, seris_intermed=None):
+        """Add screened interactions into the Hamiltonian."""
+        self._seris = self._add_screening(seris_intermed)
 
 
 class EB_RClusterHamiltonian(RClusterHamiltonian):

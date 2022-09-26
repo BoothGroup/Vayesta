@@ -94,8 +94,8 @@ class ssRPA:
             AmBrtinv = einsum("pn,n,qn->pq", c2, e2 ** (-0.5), c2)
             XpY = np.einsum("n,pq,qn->pn", self.freqs_ss ** (-0.5), AmBrt, c)
             XmY = np.einsum("n,pq,qn->pn", self.freqs_ss ** (0.5), AmBrtinv, c)
-        self.XpY_ss = (XpY[: self.ova], XpY[self.ova :])
-        self.XmY_ss = (XmY[: self.ova], XmY[self.ova :])
+        self.XpY_ss = (XpY[:self.ov_rot[0].shape[0]], XpY[self.ov_rot[0].shape[0]:])
+        self.XmY_ss = (XmY[:self.ov_rot[0].shape[0]], XmY[self.ov_rot[0].shape[0]:])
 
         self.freqs_sf = None
         self.log.timing("Time to solve RPA problem: %s", time_string(timer() - t0))
