@@ -69,9 +69,12 @@ class RClusterHamiltonian:
             c = self.cluster.c_active
         return self._fragment.get_fragment_projector(c)
 
-    def get_fock(self):
+    def get_fock(self, with_vext=True):
         c = self.cluster.c_active
-        return dot(c.T, self.mf.get_fock(), c)
+        fock = dot(c.T, self.mf.get_fock(), c)
+        if with_vext and self.v_ext is not None:
+            fock += self.v_ext
+        return fock
 
     def get_clus_mf_info(self, ao_basis=False):
         if ao_basis:
@@ -198,11 +201,11 @@ class RClusterHamiltonian:
         else:
             raise ValueError("Unknown cluster screening protocol: %s" % self.opts.screening)
 
-    def assert_equal_spin_channels(self):
+    def assert_equal_spin_channels(self, message=""):
         na, nb = self.ncas
         if na != nb:
             raise NotImplementedError("Active spaces with different number of alpha and beta orbitals are not yet "
-                                      "supported with this solver.")
+                                      "supported with this configuration. %s", message)
 
 
 class UClusterHamiltonian(RClusterHamiltonian):
@@ -218,10 +221,14 @@ class UClusterHamiltonian(RClusterHamiltonian):
     def nelec(self):
         return self.cluster.nocc_active
 
-    def get_fock(self):
+    def get_fock(self, with_vext=True):
         ca, cb = self.cluster.c_active
         fa, fb = self.mf.get_fock()
-        return (dot(ca.T, fa, ca), dot(cb.T, fb, cb))
+        fock = (dot(ca.T, fa, ca), dot(cb.T, fb, cb))
+        if with_vext and self.v_ext is not None:
+            h_eff = ((fock[0] + self.v_ext[0]),
+                     (fock[1] + self.v_ext[1]))
+        return fock
 
     def get_clus_mf_info(self, ao_basis=False):
         if ao_basis:

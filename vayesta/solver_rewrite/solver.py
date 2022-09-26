@@ -31,9 +31,6 @@ class ClusterSolver:
         self.log.info("Parameters of %s:" % self.__class__.__name__)
         self.log.info(break_into_lines(str(self.opts), newline='\n    '))
 
-        # Additional external potential
-        self.v_ext = None
-
         # --- Results
         self.converged = False
         self.e_corr = 0
@@ -41,12 +38,20 @@ class ClusterSolver:
         self.dm1 = None
         self.dm2 = None
 
+    @property
+    def v_ext(self):
+        return self.hamil.v_ext
+
+    @v_ext.setter
+    def v_ext(self, val):
+        self.hamil.v_ext = val
+
     def kernel(self, *args, **kwargs):
         """Set up everything for a calculation on the CAS and pass this to the solver-specific kernel that runs on this
         information."""
         raise AbstractMethodError
 
-    def optimize_cpt(self, nelectron, cpt_guess=0, atol=1e-6, rtol=1e-6, cpt_radius=0.5):
+    def optimize_cpt(self, nelectron, p_frag=None, cpt_guess=0, atol=1e-6, rtol=1e-6, cpt_radius=0.5):
         """Enables chemical potential optimization to match a number of electrons in the fragment space.
 
         Parameters
@@ -73,7 +78,8 @@ class ClusterSolver:
         kernel_orig = self.kernel
         # Make projector into fragment space
 
-        p_frag = self.hamil.target_space_projector()
+        if p_frag is None:
+            p_frag = self.hamil.target_space_projector()
 
         class CptFound(RuntimeError):
             """Raise when electron error is below tolerance."""
@@ -104,7 +110,7 @@ class ClusterSolver:
                 replace = {}
                 if cpt:
                     v_ext_0 = (self.v_ext if self.v_ext is not None else 0)
-                    replace['v_ext'] = self.get_vext(v_ext_0, cpt)
+                    replace['v_ext'] = self.calc_v_ext(v_ext_0, cpt)
                 self.reset()
                 with replace_attr(self.hamil, **replace):
                     results = kernel_orig(eris=eris, **kwargs)
@@ -182,13 +188,13 @@ class ClusterSolver:
         # Replace kernel:
         self.kernel = kernel.__get__(self)
 
-    def get_vext(self, v_ext_0, cpt):
+    def calc_v_ext(self, v_ext_0, cpt):
         return v_ext_0 - cpt * self.hamil.active_space_projector
 
 
 class UClusterSolver(ClusterSolver):
 
-    def get_vext(self, v_ext_0, cpt):
+    def calc_v_ext(self, v_ext_0, cpt):
         pfrag = self.hamil.target_space_projector()
         # Surely None would be a better default?
         if v_ext_0 == 0:
