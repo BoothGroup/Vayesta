@@ -8,7 +8,7 @@ from vayesta.core.util import dot, einsum
 class REBCC_Solver(ClusterSolver):
     @dataclasses.dataclass
     class Options(ClusterSolver.Options):
-        fermion_excitations: str = "SD"
+        ansatz: str = "CCSD"
         t_as_lambda: bool = False  # If true, use Lambda=T approximation
         # Convergence
         max_cycle: int = 200              # Max number of iterations
@@ -24,13 +24,13 @@ class REBCC_Solver(ClusterSolver):
 
     @property
     def is_fCCSD(self):
-        return self.opts.fermion_excitations == "SD"
+        return self.opts.ansatz == "CCSD"
 
     def kernel(self):
         import ebcc
         # Use pyscf mean-field representation.
         mf_clus = self.hamil.to_pyscf_mf()
-        mycc = ebcc.EBCC(mf_clus, log=self.log, fermion_excitations=self.opts.fermion_excitations,
+        mycc = ebcc.EBCC(mf_clus, log=self.log, ansatz=self.opts.ansatz,
                          **self.get_nonull_solver_opts())
         mycc.kernel()
         self.converged = mycc.converged
@@ -168,7 +168,7 @@ class EB_REBCC_Solver(REBCC_Solver):
     def kernel(self):
         import ebcc
         mf_clus = self.hamil.to_pyscf_mf()
-        mycc = ebcc.EBCC(mf_clus, log=self.log, fermion_excitations=self.opts.fermion_excitations,
+        mycc = ebcc.EBCC(mf_clus, log=self.log, ansatz=self.opts.ansatz,
                          boson_excitations=self.opts.boson_excitations,
                          fermion_coupling_rank=self.opts.fermion_coupling_rank,
                          boson_coupling_rank=self.opts.boson_coupling_rank,

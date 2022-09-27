@@ -35,15 +35,15 @@ def get_solver_class(ham, solver):
         if len(solver) == 4:
             return solverclass
         else:
-            specrank = solver[4:]
+            specrank = solver[2:]
 
             def get_right_CC(*args, **kwargs):
-                if "fermion_excitations" in kwargs:
-                    if specrank != kwargs["fermion_excitations"]:
+                if "ansatz" in kwargs:
+                    if specrank != kwargs["ansatz"]:
                         raise RuntimeError(
                             "Desired CC rank specified differently in solver specifier and solver_options."
                             "Please use only specify via one approach, or ensure they agree.")
-                kwargs["fermion_excitations"] = specrank
+                kwargs["ansatz"] = specrank
                 return solverclass(*args, **kwargs)
 
             return get_right_CC

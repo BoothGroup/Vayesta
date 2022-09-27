@@ -90,7 +90,7 @@ class Options(OptionsBase):
             # EBFCI/EBCCSD
             max_boson_occ=2,
             # EBCC
-            fermion_excitations="SD", boson_excitations="S", fermion_coupling_rank=1, boson_coupling_rank=1,
+            ansatz="CCSD", boson_excitations="S", fermion_coupling_rank=1, boson_coupling_rank=1,
             # Dump
             dumpfile='clusters.h5')
     # --- Other
