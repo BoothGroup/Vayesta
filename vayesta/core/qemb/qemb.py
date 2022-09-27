@@ -761,7 +761,11 @@ class Embedding:
             rpa = ssRIRPA(self.mf, log=self.log)
             self.e_nonlocal, energy_error = rpa.kernel_energy(correction='linear')
         if scrfrags.count("mrpa") > 0:
-            build_screened_eris(self, *args, **kwargs)
+            self.log.info("")
+            self.log.info("SCREENED INTERACTION SETUP")
+            self.log.info("==========================")
+            with log_time(self.log.timing, "Time for screened interation setup: %s"):
+                build_screened_eris(self, *args, **kwargs)
 
     # Symmetry between fragments
     # --------------------------

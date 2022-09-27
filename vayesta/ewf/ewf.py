@@ -139,12 +139,7 @@ class EWF(Embedding):
                 self.communicate_clusters()
 
         # --- Screened Coulomb interaction
-        if any(x.opts.screening is not None for x in fragments):
-            self.log.info("")
-            self.log.info("SCREENING INTERACTIONS")
-            self.log.info("======================")
-            with log_time(self.log.timing, "Time for screened interations: %s"):
-                self.build_screened_eris()
+        self.build_screened_eris()
 
         # --- Loop over fragments with no symmetry parent and with own MPI rank
         self.log.info("")

@@ -30,6 +30,8 @@ def get_frag_deltaW(mf, fragment, log=None):
         Change in cluster local coulomb interaction due to cRPA screening.
     """
 
+    log.info("Generating screened interaction via static limit of cRPA.")
+
     is_rhf = np.ndim(mf.mo_coeff[1]) == 1
     if not hasattr(mf, "with_df"):
         raise NotImplementedError("Screened interactions require density-fitting.")
@@ -42,13 +44,13 @@ def get_frag_deltaW(mf, fragment, log=None):
     if is_rhf:
         nocc = (nocc, nocc)
         c = (c, c)
-    # First calculate alpha contribution.
-    lov_a = ao2mo(mf, mo_coeff=c[0], ijslice=(0, nocc[0], nocc[0], nmo[0])).reshape((-1, crpa.ova))
-    lov_a = dot(lov_a, crpa.ov_rot[0].T)
 
+    # First calculate alpha contribution.
+    lov_a = ao2mo(mf, mo_coeff=c[0], ijslice=(0, nocc[0], nocc[0], nmo)).reshape((-1, crpa.ova))
+    lov_a = dot(lov_a, crpa.ov_rot[0].T)
     l_aux = dot(lov_a, crpa.XpY_ss[0])
     del lov_a
-    lov_b = ao2mo(mf, mo_coeff=c[1], ijslice=(0, nocc[1], nocc[1], nmo[1])).reshape((-1, crpa.ovb))
+    lov_b = ao2mo(mf, mo_coeff=c[1], ijslice=(0, nocc[1], nocc[1], nmo)).reshape((-1, crpa.ovb))
     lov_b = dot(lov_b, crpa.ov_rot[1].T)
 
     # This is a decomposition of the cRPA reducible dd response in the auxilliary basis
@@ -61,15 +63,14 @@ def get_frag_deltaW(mf, fragment, log=None):
     if is_rhf:
         c_act = (c_act, c_act)
 
-    lpqa_loc = ao2mo(mf, mo_coeff=c_act[0])
-    lpqb_loc = ao2mo(mf, mo_coeff=c_act[1])
-
     # Calculating this quantity scales as O(N^3), rather than O(N^4) if we explicitly calculated the cRPA dd response
     # in the auxiliary basis.
+    lpqa_loc = ao2mo(mf, mo_coeff=c_act[0])
     l_a = einsum("npq,nm->mpq", lpqa_loc, l_aux)
-    del lov_a
+    del lpqa_loc
+    lpqb_loc = ao2mo(mf, mo_coeff=c_act[1])
     l_b = einsum("npq,nm->mpq", lpqb_loc, l_aux)
-    del lov_b
+    del lpqb_loc
 
     static_fac = crpa.freqs_ss ** (-1)
 

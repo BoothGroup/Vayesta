@@ -67,6 +67,7 @@ class DMETFragment(Fragment):
             return None
 
         cluster_solver = self.get_solver(solver)
+
         # Chemical potential
         if chempot is not None:
             px = self.get_fragment_projector(self.cluster.c_active)

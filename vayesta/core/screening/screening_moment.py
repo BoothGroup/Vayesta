@@ -125,6 +125,8 @@ def build_screened_eris(emb, fragments=None, cderi_ov=None, calc_e=True, npoints
 def get_screened_eris_full(eris, seris_ov, copy=True, log=None):
     """Build full array of screened ERIs, given the bare ERIs and screening."""
 
+    log.info("Generating screened interaction to conserve zeroth moment of the dd response.")
+
     def replace_ov(full, ov, spins):
         out = full.copy() if copy else full
         no1, no2 = ov.shape[0], ov.shape[2]
