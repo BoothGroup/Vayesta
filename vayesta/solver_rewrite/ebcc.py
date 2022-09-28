@@ -1,7 +1,6 @@
 import dataclasses
 import numpy as np
 from .solver import ClusterSolver, UClusterSolver
-from vayesta.core.types import Orbitals
 from vayesta.core.types import WaveFunction, CCSD_WaveFunction
 from vayesta.core.util import dot, einsum
 
@@ -9,7 +8,7 @@ class REBCC_Solver(ClusterSolver):
     @dataclasses.dataclass
     class Options(ClusterSolver.Options):
         ansatz: str = "CCSD"
-        t_as_lambda: bool = False  # If true, use Lambda=T approximation
+        solve_lambda: bool = False  # If false, use Lambda=T approximation
         # Convergence
         max_cycle: int = 200              # Max number of iterations
         conv_tol: float = None          # Convergence energy tolerance
@@ -34,7 +33,7 @@ class REBCC_Solver(ClusterSolver):
                          **self.get_nonull_solver_opts())
         mycc.kernel()
         self.converged = mycc.converged
-        if not self.opts.t_as_lambda:
+        if self.opts.solve_lambda:
             mycc.solve_lambda()
             self.converged = self.converged and mycc.converged_lambda
         # Now just need to wrangle EBCC results into wavefunction format.
@@ -176,7 +175,7 @@ class EB_REBCC_Solver(REBCC_Solver):
                          **self.get_nonull_solver_opts())
         mycc.kernel()
         self.converged = mycc.converged
-        if not self.opts.t_as_lambda:
+        if self.opts.solve_lambda:
             mycc.solve_lambda()
             self.converged = self.converged and mycc.converged_lambda
         # Currently no electron-boson implementation of wavefunction approaches, so need to use dummy object.

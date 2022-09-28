@@ -5,7 +5,7 @@ from .fci import FCI_Solver, UFCI_Solver
 from .ebfci import EB_EBFCI_Solver, EB_UEBFCI_Solver
 from vayesta.solver import get_solver_class as get_solver_class_other
 from .hamiltonian import *
-
+from .ccsd import RCCSD_Solver, UCCSD_Solver
 
 def is_uhf(ham):
     return issubclass(type(ham), UClusterHamiltonian)
@@ -19,8 +19,16 @@ def get_solver_class(ham, solver):
     uhf = is_uhf(ham)
     eb = is_eb(ham)
 
-    if solver == "CCSD": solver = "EBCC"
-
+    if solver == "CCSD":
+        if eb:
+            # EB solvers only available via EBCC.
+            solver = "EBCCSD"
+        else:
+            # Use pyscf solvers.
+            if uhf:
+                return UCCSD_Solver
+            else:
+                return RCCSD_Solver
     if solver[:4] == "EBCC":
         if uhf:
             if eb:
@@ -58,5 +66,7 @@ def get_solver_class(ham, solver):
                 return EB_EBFCI_Solver
             else:
                 return FCI_Solver
+
+
     return get_solver_class_other(ham.mf, solver)
     # raise ValueError("Unknown solver: %s" % solver)

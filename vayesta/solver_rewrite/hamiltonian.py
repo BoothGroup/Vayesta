@@ -126,7 +126,7 @@ class RClusterHamiltonian:
             eris = self._fragment.base.get_eris_array(coeff)
         return eris
 
-    def to_pyscf_mf(self, force_bare_eris=False):
+    def to_pyscf_mf(self, force_bare_eris=False, overwrite_fock=False):
         # Using this requires equal spin channels.
         self.assert_equal_spin_channels()
         nao, mo_coeff, mo_energy, mo_occ, ovlp = self.get_clus_mf_info(ao_basis=False)
@@ -148,7 +148,9 @@ class RClusterHamiltonian:
         clusmf = self._scf_class(clusmol)
         clusmf.get_hcore = lambda *args, **kwargs: heff
         clusmf.get_ovlp = lambda *args, **kwargs: ovlp
-        clusmf.get_fock = lambda *args, **kwargs: self.get_fock()
+        if overwrite_fock:
+            clusmf.get_fock = lambda *args, **kwargs: self.get_fock(with_vext=True)
+            clusmf.get_veff = lambda *args, **kwargs: np.array(clusmf.get_fock(*args, **kwargs)) - np.array(clusmf.get_hcore())
         # This could be replaced by a density fitted approach if we wanted.
         if force_bare_eris:
             clusmf._eri = bare_eris
@@ -211,7 +213,33 @@ class RClusterHamiltonian:
 class UClusterHamiltonian(RClusterHamiltonian):
     @property
     def _scf_class(self):
-        return pyscf.scf.UHF
+        class UHF_spindep(pyscf.scf.uhf.UHF):
+            def energy_elec(mf, dm=None, h1e=None, vhf=None):
+                '''Electronic energy of Unrestricted Hartree-Fock
+
+                Note this function has side effects which cause mf.scf_summary updated.
+
+                Returns:
+                    Hartree-Fock electronic energy and the 2-electron part contribution
+                '''
+                if dm is None: dm = mf.make_rdm1()
+                if h1e is None:
+                    h1e = mf.get_hcore()
+                if isinstance(dm, np.ndarray) and dm.ndim == 2:
+                    dm = np.array((dm * .5, dm * .5))
+                if vhf is None:
+                    vhf = mf.get_veff(mf.mol, dm)
+                e1 = np.einsum('ij,ji->', h1e[0], dm[0])
+                e1 += np.einsum('ij,ji->', h1e[1], dm[1])
+                e_coul = (np.einsum('ij,ji->', vhf[0], dm[0]) +
+                          np.einsum('ij,ji->', vhf[1], dm[1])) * .5
+                e_elec = (e1 + e_coul).real
+                mf.scf_summary['e1'] = e1.real
+                mf.scf_summary['e2'] = e_coul.real
+                #logger.debug(mf, 'E1 = %s  Ecoul = %s', e1, e_coul.real)
+                return e_elec, e_coul
+
+        return UHF_spindep
 
     @property
     def ncas(self):
@@ -226,7 +254,7 @@ class UClusterHamiltonian(RClusterHamiltonian):
         fa, fb = self.mf.get_fock()
         fock = (dot(ca.T, fa, ca), dot(cb.T, fb, cb))
         if with_vext and self.v_ext is not None:
-            h_eff = ((fock[0] + self.v_ext[0]),
+            fock = ((fock[0] + self.v_ext[0]),
                      (fock[1] + self.v_ext[1]))
         return fock
 
@@ -253,7 +281,7 @@ class UClusterHamiltonian(RClusterHamiltonian):
         if eris is None:
             eris = self.get_eris_bare()
         if fock is None:
-            fock = self.get_fock()
+            fock = self.get_fock(with_vext=False)
 
         oa = np.s_[:self.cluster.nocc_active[0]]
         ob = np.s_[:self.cluster.nocc_active[1]]
@@ -275,6 +303,10 @@ class UClusterHamiltonian(RClusterHamiltonian):
                     self._fragment.base.get_eris_array((coeff[0], coeff[0], coeff[1], coeff[1])),
                     self._fragment.base.get_eris_array(coeff[1]))
         return eris
+
+    def to_pyscf_mf(self, force_bare_eris=False):
+        # For
+        return super().to_pyscf_mf(overwrite_fock=True, force_bare_eris=force_bare_eris)
 
 
 class EB_RClusterHamiltonian(RClusterHamiltonian):
