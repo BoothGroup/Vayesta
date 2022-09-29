@@ -52,7 +52,10 @@ class REBCC_Solver(ClusterSolver):
     def construct_wavefunction(self, mycc, mo):
         if self.is_fCCSD:
             # Can use existing functionality
-            self.wf = CCSD_WaveFunction(mo, mycc.t1, mycc.t2, l1=mycc.l1.T, l2=mycc.l2.transpose(2, 3, 0, 1))
+            try:
+                self.wf = CCSD_WaveFunction(mo, mycc.t1, mycc.t2, l1=mycc.l1.T, l2=mycc.l2.transpose(2, 3, 0, 1))
+            except TypeError:
+                self.wf = CCSD_WaveFunction(mo, mycc.t1, mycc.t2)
         else:
             # Simply alias required quantities for now; this ensures functionality for arbitrary orders of CC via ebcc.
             self.wf = WaveFunction(mo)
@@ -99,13 +102,18 @@ class UEBCC_Solver(UClusterSolver, REBCC_Solver):
 
             def to_spin_tuple2(x):
                 return x.aaaa, x.abab, x.bbbb
-
-            self.wf = CCSD_WaveFunction(mo,
-                                        to_spin_tuple1(mycc.t1),
-                                        to_spin_tuple2(mycc.t2),
-                                        l1=tuple([x.T for x in to_spin_tuple1(mycc.l1)]),
-                                        l2=tuple([x.transpose(2, 3, 0, 1) for x in to_spin_tuple2(mycc.l2)]),
-                                        )
+            try:
+                self.wf = CCSD_WaveFunction(mo,
+                                            to_spin_tuple1(mycc.t1),
+                                            to_spin_tuple2(mycc.t2),
+                                            l1=tuple([x.T for x in to_spin_tuple1(mycc.l1)]),
+                                            l2=tuple([x.transpose(2, 3, 0, 1) for x in to_spin_tuple2(mycc.l2)]),
+                                            )
+            except TypeError:
+                self.wf = CCSD_WaveFunction(mo,
+                                            to_spin_tuple1(mycc.t1),
+                                            to_spin_tuple2(mycc.t2)
+                                            )
         else:
             # Simply alias required quantities for now; this ensures functionality for arbitrary orders of CC.
             self.wf = WaveFunction(mo)
