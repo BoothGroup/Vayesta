@@ -71,11 +71,22 @@ class RClusterHamiltonian:
             c = self.cluster.c_active
         return self._fragment.get_fragment_projector(c)
 
-    def get_fock(self, with_vext=True):
+    def get_fock(self, with_vext=True, use_seris=True):
         c = self.cluster.c_active
         fock = dot(c.T, self.mf.get_fock(), c)
         if with_vext and self.v_ext is not None:
             fock += self.v_ext
+
+        if self._seris is not None and use_seris:
+            occ = np.s_[:self.cluster.nocc_active]
+
+            eris = self.get_eris_bare()
+            v_act_bare = 2 * einsum('iipq->pq', eris[occ, occ]) - einsum('iqpi->pq', eris[occ, :, :, occ])
+            v_act_seris = 2 * einsum('iipq->pq', self._seris[occ, occ]) - \
+                          einsum('iqpi->pq', self._seris[occ, :, :, occ])
+
+            fock += v_act_seris - v_act_bare
+
         return fock
 
     def get_clus_mf_info(self, ao_basis=False):
@@ -105,7 +116,7 @@ class RClusterHamiltonian:
         if eris is None:
             eris = self.get_eris_bare()
         if fock is None:
-            fock = self.get_fock()
+            fock = self.get_fock(with_vext=False, use_seris=False)
         occ = np.s_[:self.cluster.nocc_active]
         v_act = 2 * einsum('iipq->pq', eris[occ, occ]) - einsum('iqpi->pq', eris[occ, :, :, occ])
         h_eff = fock - v_act
@@ -257,13 +268,30 @@ class UClusterHamiltonian(RClusterHamiltonian):
     def nelec(self):
         return self.cluster.nocc_active
 
-    def get_fock(self, with_vext=True):
+    def get_fock(self, with_vext=True, use_seris=True):
         ca, cb = self.cluster.c_active
         fa, fb = self.mf.get_fock()
         fock = (dot(ca.T, fa, ca), dot(cb.T, fb, cb))
         if with_vext and self.v_ext is not None:
             fock = ((fock[0] + self.v_ext[0]),
                      (fock[1] + self.v_ext[1]))
+        if self._seris is not None and use_seris:
+            noa, nob = self.cluster.nocc_active
+            oa = np.s_[:noa]
+            ob = np.s_[:nob]
+            saa, sab, sbb = self._seris
+            dfa = (einsum('iipq->pq', saa[oa, oa]) + einsum('pqii->pq', sab[:, :, ob, ob])  # Coulomb
+                  - einsum('ipqi->pq', saa[oa, :, :, oa]))  # Exchange
+            dfb = (einsum('iipq->pq', sbb[ob, ob]) + einsum('iipq->pq', sab[oa, oa])  # Coulomb
+                  - einsum('ipqi->pq', sbb[ob, :, :, ob]))  # Exchange
+            gaa, gab, gbb = self.get_eris_bare()
+            dfa -= (einsum('iipq->pq', gaa[oa, oa]) + einsum('pqii->pq', gab[:, :, ob, ob])  # Coulomb
+                  - einsum('ipqi->pq', gaa[oa, :, :, oa]))  # Exchange
+            dfb -= (einsum('iipq->pq', gbb[ob, ob]) + einsum('iipq->pq', gab[oa, oa])  # Coulomb
+                  - einsum('ipqi->pq', gbb[ob, :, :, ob]))  # Exchange
+            fock = ((fock[0] + dfa),
+                     (fock[1] + dfb))
+
         return fock
 
     def get_clus_mf_info(self, ao_basis=False):
@@ -289,7 +317,7 @@ class UClusterHamiltonian(RClusterHamiltonian):
         if eris is None:
             eris = self.get_eris_bare()
         if fock is None:
-            fock = self.get_fock(with_vext=False)
+            fock = self.get_fock(with_vext=False, use_seris=False)
 
         oa = np.s_[:self.cluster.nocc_active[0]]
         ob = np.s_[:self.cluster.nocc_active[1]]
