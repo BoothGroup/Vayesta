@@ -64,9 +64,17 @@ class ssURPA(ssRPA):
 
         if self.ov_rot is not None:
             epsa = einsum("pn,n,qn->pq", self.ov_rot[0], epsa, self.ov_rot[0])
-            epsa, ca = scipy.linalg.eigh(epsa)
+            try:
+                epsa, ca = scipy.linalg.eigh(epsa)
+            except Exception as e:
+                print(epsa)
+                raise e
             epsb = einsum("pn,n,qn->pq", self.ov_rot[1], epsb, self.ov_rot[1])
-            epsb, cb = scipy.linalg.eigh(epsb)
+            try:
+                epsb, cb = scipy.linalg.eigh(epsb)
+            except Exception as e:
+                print(epsb)
+                raise e
             self.ov_rot = (dot(ca.T, self.ov_rot[0]), dot(cb.T, self.ov_rot[1]))
 
         AmB = np.concatenate([epsa, epsb])

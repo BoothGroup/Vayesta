@@ -26,6 +26,7 @@ class RClusterHamiltonian:
     @dataclasses.dataclass
     class Options(OptionsBase):
         screening: Optional[str] = None
+        cache_eris: bool = True
 
     @property
     def _scf_class(self):
@@ -46,6 +47,7 @@ class RClusterHamiltonian:
         self.v_ext = None
         self._seris = None
         self.seris_initialised = self.opts.screening is None
+        self._eris = None
 
     @property
     def cluster(self):
@@ -121,9 +123,15 @@ class RClusterHamiltonian:
         return self._seris
 
     def get_eris_bare(self):
-        with log_time(self.log.timing, "Time for AO->MO of ERIs:  %s"):
-            coeff = self.cluster.c_active
-            eris = self._fragment.base.get_eris_array(coeff)
+        if self._eris is None:
+            with log_time(self.log.timing, "Time for AO->MO of ERIs:  %s"):
+                coeff = self.cluster.c_active
+                eris = self._fragment.base.get_eris_array(coeff)
+            if self.opts.cache_eris:
+                self._eris = eris
+        else:
+            eris = self._eris
+
         return eris
 
     def to_pyscf_mf(self, force_bare_eris=False, overwrite_fock=False):
