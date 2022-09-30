@@ -1,0 +1,49 @@
+on: 
+  workflow_dispatch: push
+  
+  schedule:
+    - cron: '1 0 8  * *'
+    - cron: '1 0 24 * *'
+    
+jobs:
+  test-curl-action:
+    name: "Perform REST API"
+    runs-on: ubuntu-latest
+    steps:
+      - name: get views    
+        run: |
+            curl \
+				-H "Accept: application/vnd.github+json" \
+				-H "Authorization: Bearer ${{ secrets.VAYESTA_TOKEN }}" \
+				--request GET https://api.github.com/repos/BoothGroup/Vayesta/traffic/views \
+				-o views.json 
+ 
+      - name: get clones
+        run: |
+            curl 
+				-H "Accept: application/vnd.github+json" \
+				-H "Authorization: Bearer ${{ secrets.VAYESTA_TOKEN }}" \
+				--request GET https://api.github.com/repos/BoothGroup/Vayesta/traffic/clones \
+				-o clones.json 
+
+      - name: get referrals
+        run: |
+            curl \
+				-H "Accept: application/vnd.github+json" \
+				-H "Authorization: Bearer ${{ secrets.VAYESTA_TOKEN }}" \
+				--request GET https://api.github.com/repos/BoothGroup/Vayesta/traffic/popular/referrers \
+				-o referrers.json 
+ 
+      - name: get paths
+        run: |
+            curl \
+				-H "Accept: application/vnd.github+json" \
+				-H "Authorization: Bearer ${{ secrets.VAYESTA_TOKEN }}" \
+				--request GET https://api.github.com/repos/BoothGroup/Vayesta/traffic/popular/paths \
+				-o paths.json 
+     
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: my-artifact
+          path: ./*.json
