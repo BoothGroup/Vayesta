@@ -57,16 +57,18 @@ if errlog:
     errhandler.setLevel(args.errlog_level)
     log.addHandler(errhandler)
 
-# Print Logo
-logofile = os.path.abspath(os.path.join(os.path.dirname(__file__), 'logo.txt'))
-try:
-    with open(logofile, 'r') as f:
-        logo = f.read()
-    logo = (logo.rstrip() + ' ')
-except FileNotFoundError:
-    log.error("%s not found.", logofile)
-    logo = ''
-log.info("%sVersion %s\n", logo, __version__)
+# Print Logo, unless interactive Python interpreter
+is_interactive = hasattr(sys, 'ps1')
+if not is_interactive:
+    logofile = os.path.abspath(os.path.join(os.path.dirname(__file__), 'logo.txt'))
+    try:
+        with open(logofile, 'r') as f:
+            logo = f.read()
+        logo = (logo.rstrip() + ' ')
+    except FileNotFoundError:
+        log.error("%s not found.", logofile)
+        logo = ''
+    log.info("%sVersion %s\n", logo, __version__)
 
 # --- Required modules
 
