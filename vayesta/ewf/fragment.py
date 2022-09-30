@@ -274,7 +274,7 @@ class Fragment(BaseFragment):
 
         # Keep ERIs stored
         if (self.opts.store_eris or self.base.opts.store_eris):
-            self._eris = cluster_solver.hamil.get_eris()
+            self._eris = cluster_solver.hamil.get_eris_bare()
 
         return results
 
