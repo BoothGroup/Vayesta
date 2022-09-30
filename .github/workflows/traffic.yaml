@@ -1,6 +1,6 @@
 on: 
-  workflow_dispatch: push
-  
+  push:
+    branches: [traffic]
   schedule:
     - cron: '1 0 8  * *'
     - cron: '1 0 24 * *'
