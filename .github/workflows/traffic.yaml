@@ -12,36 +12,16 @@ jobs:
     steps:
       - name: get views    
         run: |
-            curl \
-				-H "Accept: application/vnd.github+json" \
-				-H "Authorization: Bearer ${{ secrets.VAYESTA_TOKEN }}" \
-				--request GET https://api.github.com/repos/BoothGroup/Vayesta/traffic/views \
-				-o views.json 
- 
+            curl -H "Accept: application/vnd.github+json" -H "Authorization: Bearer ${{ secrets.VAYESTA_TOKEN }}" --request GET https://api.github.com/repos/BoothGroup/Vayesta/traffic/views -o views.json 
       - name: get clones
         run: |
-            curl 
-				-H "Accept: application/vnd.github+json" \
-				-H "Authorization: Bearer ${{ secrets.VAYESTA_TOKEN }}" \
-				--request GET https://api.github.com/repos/BoothGroup/Vayesta/traffic/clones \
-				-o clones.json 
-
+            curl -H "Accept: application/vnd.github+json" -H "Authorization: Bearer ${{ secrets.VAYESTA_TOKEN }}" --request GET https://api.github.com/repos/BoothGroup/Vayesta/traffic/clones -o clones.json 
       - name: get referrals
         run: |
-            curl \
-				-H "Accept: application/vnd.github+json" \
-				-H "Authorization: Bearer ${{ secrets.VAYESTA_TOKEN }}" \
-				--request GET https://api.github.com/repos/BoothGroup/Vayesta/traffic/popular/referrers \
-				-o referrers.json 
- 
+            curl -H "Accept: application/vnd.github+json" -H "Authorization: Bearer ${{ secrets.VAYESTA_TOKEN }}" --request GET https://api.github.com/repos/BoothGroup/Vayesta/traffic/popular/referrers -o referrers.json 
       - name: get paths
         run: |
-            curl \
-				-H "Accept: application/vnd.github+json" \
-				-H "Authorization: Bearer ${{ secrets.VAYESTA_TOKEN }}" \
-				--request GET https://api.github.com/repos/BoothGroup/Vayesta/traffic/popular/paths \
-				-o paths.json 
-     
+            curl -H "Accept: application/vnd.github+json" -H "Authorization: Bearer ${{ secrets.VAYESTA_TOKEN }}" --request GET https://api.github.com/repos/BoothGroup/Vayesta/traffic/popular/paths -o paths.json 
       - name: Upload Artifact
         uses: actions/upload-artifact@v3
         with:
