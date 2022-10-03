@@ -109,9 +109,9 @@ class Test_MP2(TestCase):
     #    e_ref = self.ref_values[('e_tot', -1)]
     #    etot_dmet = emb.get_dmet_energy()
     #    self.assertAllclose(etot_dmet, e_ref, rtol=0)
-    #    etot_dmet = emb.get_dmet_energy(version=2)
+    #    etot_dmet = emb.get_dmet_energy(part_cumulant=False)
     #    self.assertAllclose(etot_dmet, e_ref, rtol=0)
-    #    etot_dmet = emb.get_dmet_energy(version=2, approx_cumulant=False)
+    #    etot_dmet = emb.get_dmet_energy(approx_cumulant=False)
     #    self.assertAllclose(etot_dmet, e_ref, rtol=0)
 
 
@@ -146,10 +146,10 @@ class Test_CCSD(Test_MP2):
         e_ref = self.ref_values[('e_tot', -1)]
         etot_dmet = emb.get_dmet_energy()
         self.assertAllclose(etot_dmet, e_ref, rtol=0)
-        etot_dmet = emb.get_dmet_energy(version=2)
+        etot_dmet = emb.get_dmet_energy(part_cumulant=False)
         self.assertAllclose(etot_dmet, e_ref, rtol=0)
         # Broken for non-zero exxdiv correction:
-        #etot_dmet = emb.get_dmet_energy(version=2, approx_cumulant=False)
+        #etot_dmet = emb.get_dmet_energy(approx_cumulant=False)
         #self.assertAllclose(etot_dmet, e_ref, rtol=0)
 
     def test_t_amplitudes(self):
