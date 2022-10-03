@@ -36,7 +36,7 @@ class Options(Embedding.Options):
     # If multiple bno thresholds are to be calculated, we can project integrals and amplitudes from a previous larger cluster:
     project_eris: bool = False          # Project ERIs from a pervious larger cluster (corresponding to larger eta), can result in a loss of accuracy especially for large basis sets!
     project_init_guess: bool = True     # Project converted T1,T2 amplitudes from a previous larger cluster
-    energy_functional: str = 'projected'
+    energy_functional: str = 'wf'
     # Calculation modes
     calc_e_wf_corr: bool = True
     calc_e_dm_corr: bool = False
@@ -313,17 +313,21 @@ class EWF(Embedding):
 
     # Correlation
 
-    def get_e_corr(self, **kwargs):
-        if self.opts.energy_functional == 'projected':
-            return self.get_proj_corr_energy(**kwargs)
-        if self.opts.energy_functional == 'dm-t2only':
+    def get_e_corr(self, functional=None, **kwargs):
+        functional = (functional or self.opts.energy_functional)
+        if functional == 'projected':
+            # TODO: print deprecation message
+            functional = 'wf'
+        if functional == 'wf':
+            return self.get_wf_corr_energy(**kwargs)
+        if functional == 'dm-t2only':
             return self.get_dm_corr_energy(t_as_lambda=True, **kwargs)
-        if self.opts.energy_functional == 'dm':
+        if functional == 'dm':
             return self.get_dm_corr_energy(**kwargs)
-        raise ValueError("Unknown energy functional: '%s'" % self.opts.energy_functional)
+        raise ValueError("Unknown energy functional: '%s'" % functional)
 
     @mpi.with_allreduce()
-    def get_proj_corr_energy(self):
+    def get_wf_corr_energy(self):
         self.require_complete_fragmentation("Energy will not be accurate.", incl_virtual=False)
         e_corr = 0.0
         # Only loop over fragments of own MPI rank
@@ -339,7 +343,11 @@ class EWF(Embedding):
             e_corr += x.symmetry_factor * ex
         return e_corr/self.ncells
 
-    def get_dm_corr_energy(self, dm1='global-wf', dm2='projected-lambda', t_as_lambda=None, with_exxdiv=None):
+    def get_proj_corr_energy(self):
+        """TODO: deprecate in favor of get_wf_corr_energy."""
+        return self.get_wf_corr_energy()
+
+    def get_dm_corr_energy(self, dm1='global-wf', t_as_lambda=None, with_exxdiv=None):
         self.require_complete_fragmentation("Energy will not be accurate.", incl_virtual=False)
         e1 = self.get_dm_corr_energy_e1(dm1=dm1, t_as_lambda=None, with_exxdiv=None)
         e2 = self.get_dm_corr_energy_e2(dm2=dm2, t_as_lambda=t_as_lambda)
@@ -467,12 +475,16 @@ class EWF(Embedding):
         """Total energy."""
         return self.e_mf + self.e_corr
 
-    def get_proj_energy(self):
-        e_corr = self.get_proj_corr_energy()
+    def get_wf_energy(self):
+        e_corr = self.get_wf_corr_energy()
         return self.e_mf + e_corr
 
-    def get_dm_energy(self, dm1='global-wf', dm2='projected-lambda', t_as_lambda=None, with_exxdiv=None):
-        e_corr = self.get_dm_corr_energy(dm1=dm1, dm2=dm2, t_as_lambda=t_as_lambda, with_exxdiv=with_exxdiv)
+    def get_proj_energy(self):
+        """TODO: deprecate in favor of get_wf_energy."""
+        return self.get_wf_energy()
+
+    def get_dm_energy(self, dm1='global-wf', t_as_lambda=None, with_exxdiv=None):
+        e_corr = self.get_dm_corr_energy(dm1=dm1, t_as_lambda=t_as_lambda, with_exxdiv=with_exxdiv)
         return self.e_mf + e_corr
 
     def get_ccsd_energy(self, full_wf=False):
