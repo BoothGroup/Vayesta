@@ -347,7 +347,7 @@ class EWF(Embedding):
         """TODO: deprecate in favor of get_wf_corr_energy."""
         return self.get_wf_corr_energy()
 
-    def get_dm_corr_energy(self, dm1='global-wf', t_as_lambda=None, with_exxdiv=None):
+    def get_dm_corr_energy(self, dm1='global-wf', dm2='projected-lambda', t_as_lambda=None, with_exxdiv=None):
         self.require_complete_fragmentation("Energy will not be accurate.", incl_virtual=False)
         e1 = self.get_dm_corr_energy_e1(dm1=dm1, t_as_lambda=None, with_exxdiv=None)
         e2 = self.get_dm_corr_energy_e2(dm2=dm2, t_as_lambda=t_as_lambda)
