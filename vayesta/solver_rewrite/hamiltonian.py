@@ -317,7 +317,7 @@ class EB_RClusterHamiltonian(RClusterHamiltonian):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.unshifted_couplings = self._fragment.couplings
-        self.bos_freqs = self._fragments.freqs
+        self.bos_freqs = self._fragment.bos_freqs
         if self.opts.polaritonic_shift:
             self.set_polaritonic_shift(self.bos_freqs, self.unshifted_couplings)
 

@@ -195,6 +195,10 @@ class EB_REBCC_Solver(REBCC_Solver):
 
 
 class EB_UEBCC_Solver(UEBCC_Solver, EB_REBCC_Solver):
+    @dataclasses.dataclass
+    class Options(UEBCC_Solver.Options, EB_REBCC_Solver.Options):
+        pass
+
     def construct_wavefunction(self, mycc, mo):
         super().construct_wavefunction(mycc, mo)
         self.wf.make_rdmeb = None
