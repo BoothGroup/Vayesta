@@ -143,25 +143,8 @@ class UFragment(Fragment):
         mo_energy_b = einsum('ai,ab,bi->i', c_active[1], fock[1], c_active[1])
         return (mo_energy_a, mo_energy_b)
 
-    def get_fragment_dmet_energy(self, dm1=None, dm2=None, h1e_eff=None, eris=None, version=0, approx_cumulant=True):
-        """Get fragment contribution to whole system DMET energy.
-
-        After fragment summation, the nuclear-nuclear repulsion must be added to get the total energy!
-
-        Parameters
-        ----------
-        dm1: array, optional
-            Cluster one-electron reduced density-matrix in cluster basis. If `None`, `self.results.dm1` is used. Default: None.
-        dm2: array, optional
-            Cluster two-electron reduced density-matrix in cluster basis. If `None`, `self.results.dm2` is used. Default: None.
-        eris: array, optional
-            Cluster electron-repulsion integrals in cluster basis. If `None`, the ERIs are reevaluated. Default: None.
-
-        Returns
-        -------
-        e_dmet: float
-            Electronic fragment DMET energy.
-        """
+    @with_doc(Fragment.get_fragment_dmet_energy)
+    def get_fragment_dmet_energy(self, dm1=None, dm2=None, h1e_eff=None, eris=None, part_cumulant=True, approx_cumulant=True):
         if dm1 is None: dm1 = self.results.dm1
         if dm1 is None: raise RuntimeError("DM1 not found for %s" % self)
         c_act = self.cluster.c_active
@@ -178,23 +161,18 @@ class UFragment(Fragment):
             # Temporary solution:
             with log_time(self.log.timingv, "Time for AO->MO transformation: %s"):
                 gaa, gab, gbb = self.base.get_eris_array_uhf((c_act[0], c_act[1]))
-
-        version = (version or 1)
-        if (version == 1):
-            if dm2 is None:
-                dm2 = self.results.wf.make_rdm2()
-        elif (version == 2):
-            if dm2 is None:
-                dm2 = self.results.wf.make_rdm2(with_dm1=False, approx_cumulant=approx_cumulant)
-        else:
-            raise ValueError
-
+        if dm2 is None:
+            dm2 = self.results.wf.make_rdm2(with_dm1=not part_cumulant, approx_cumulant=approx_cumulant)
         dm1a, dm1b = dm1
         dm2aa, dm2ab, dm2bb = dm2
 
         # Get effective core potential
         if h1e_eff is None:
-            if (version == 1):
+            if part_cumulant:
+                h1e_eff = self.base.get_hcore_for_energy()
+                h1e_eff = (dot(c_act[0].T, h1e_eff, c_act[0]),
+                           dot(c_act[1].T, h1e_eff, c_act[1]))
+            else:
                 # Use the original Hcore (without chemical potential modifications), but updated mf-potential!
                 h1e_eff = self.base.get_hcore_for_energy() + self.base.get_veff_for_energy(with_exxdiv=False)/2
                 h1e_eff = (dot(c_act[0].T, h1e_eff[0], c_act[0]),
@@ -206,10 +184,6 @@ class UFragment(Fragment):
                 vb = (einsum('iipq->pq', gbb[ob,ob,:,:]) + einsum('iipq->pq', gab[oa,oa,:,:])
                     - einsum('ipqi->pq', gbb[ob,:,:,ob]))/2
                 h1e_eff = (h1e_eff[0]-va, h1e_eff[1]-vb)
-            elif (version == 2):
-                h1e_eff = self.base.get_hcore_for_energy()
-                h1e_eff = (dot(c_act[0].T, h1e_eff, c_act[0]),
-                           dot(c_act[1].T, h1e_eff, c_act[1]))
 
         p_frag = self.get_fragment_projector(c_act)
         # Check number of electrons
