@@ -891,7 +891,6 @@ class Fragment:
         if not isinstance(eris, np.ndarray):
             self.log.debugv("Extracting ERI array from CCSD ERIs object.")
             eris = vayesta.core.ao2mo.helper.get_full_array(eris, c_act)
-
         if dm2 is None:
             dm2 = self.results.wf.make_rdm2(with_dm1=not part_cumulant, approx_cumulant=approx_cumulant)
 
