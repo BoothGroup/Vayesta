@@ -10,9 +10,38 @@ from pyscf.lib import logger
 from pyscf.ao2mo import _ao2mo
 from pyscf import __config__
 
+def get_frag_W(mf, fragment, log=None):
+    """Generates screened coulomb interaction due to screening at the level of cRPA.
+    Note that this currently scales as O(N_frag N^6), so is not practical without further refinement.
+
+    Parameters
+    ----------
+    mf : pyscf.scf object
+        Mean-field instance.
+    fragment : vayesta.qemb.Fragment subclass
+        Fragments for the calculation, used to define local interaction space.
+    log : logging.Logger, optional
+        Logger object. If None, the logger of the `emb` object is used. Default: None.
+
+    Returns
+    -------
+    freqs : np.array
+        Effective bosonic frequencies for cRPA screening.
+    couplings : np.array
+        Effective bosonic couplings for cRPA screening.
+    """
+
+    log.info("Generating screened interaction via frequency dependent cRPA.")
+
+    l_a, l_b, crpa = set_up_W_crpa(mf, fragment, log)
+    freqs = crpa.freqs_ss
+    log.info("cRPA resulted in %d poles", len(freqs))
+    couplings = (l_a, l_b)
+    return freqs, couplings
+
 
 def get_frag_deltaW(mf, fragment, log=None):
-    """Generates change in coulomb interaction due to screening at the level of cRPA.
+    """Generates change in coulomb interaction due to screening at the level of static limit of cRPA.
     Note that this currently scales as O(N_frag N^6), so is not practical without further refinement.
 
     Parameters
@@ -32,6 +61,18 @@ def get_frag_deltaW(mf, fragment, log=None):
 
     log.info("Generating screened interaction via static limit of cRPA.")
 
+    l_a, l_b, crpa = set_up_W_crpa(mf, fragment, log)
+
+    static_fac = crpa.freqs_ss ** (-1)
+
+    delta_w = (
+        einsum("npq,n,nrs->pqrs", l_a, static_fac, l_a),
+        einsum("npq,n,nrs->pqrs", l_a, static_fac, l_b),
+        einsum("npq,n,nrs->pqrs", l_b, static_fac, l_b),
+    )
+    return delta_w, crpa
+
+def set_up_W_crpa(mf, fragment, log=None):
     is_rhf = np.ndim(mf.mo_coeff[1]) == 1
     if not hasattr(mf, "with_df"):
         raise NotImplementedError("Screened interactions require density-fitting.")
@@ -71,15 +112,7 @@ def get_frag_deltaW(mf, fragment, log=None):
     lpqb_loc = ao2mo(mf, mo_coeff=c_act[1])
     l_b = einsum("npq,nm->mpq", lpqb_loc, l_aux)
     del lpqb_loc
-
-    static_fac = crpa.freqs_ss ** (-1)
-
-    delta_w = (
-        einsum("npq,n,nrs->pqrs", l_a, static_fac, l_a),
-        einsum("npq,n,nrs->pqrs", l_a, static_fac, l_b),
-        einsum("npq,n,nrs->pqrs", l_b, static_fac, l_b),
-    )
-    return delta_w
+    return l_a, l_b, crpa
 
 
 def get_crpa(orig_mf, f):

@@ -425,15 +425,20 @@ class RClusterHamiltonian:
             if spin_integrate:
                 seris = spin_integrate_and_report(seris)
             return seris
-        elif self.opts.screening == "crpa":
+        elif self.opts.screening[:4] == "crpa":
             bare_eris = self.get_eris_bare()
-            delta = screening_crpa.get_frag_deltaW(self.mf, self._fragment, self.log)
-            if spin_integrate:
-                delta = spin_integrate_and_report(delta)
-                seris = bare_eris + delta
+            delta, crpa = screening_crpa.get_frag_deltaW(self.mf, self._fragment, self.log)
+            if "store" in self.opts.screening:
+                self.crpa = crpa
+            if "full" in self.opts.screening:
+                pass
             else:
-                seris = tuple([x + y for x, y in zip(bare_eris, delta)])
-            return seris
+                if spin_integrate:
+                    delta = spin_integrate_and_report(delta)
+                    seris = bare_eris + delta
+                else:
+                    seris = tuple([x - y for x, y in zip(bare_eris, delta)])
+                return seris
         else:
             raise ValueError("Unknown cluster screening protocol: %s" % self.opts.screening)
 
@@ -716,6 +721,8 @@ class EB_RClusterHamiltonian(RClusterHamiltonian):
     def get_eb_dm_polaritonic_shift(self, dm1):
         return (-einsum("n,pq->pqn", self.polaritonic_shift, dm1 / 2),) * 2
 
+    def _add_screening(self, seris_intermed=None, spin_integrate=True):
+        return self.get_eris_bare()
 
 class EB_UClusterHamiltonian(UClusterHamiltonian, EB_RClusterHamiltonian):
     @dataclasses.dataclass
