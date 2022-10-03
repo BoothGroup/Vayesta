@@ -475,16 +475,16 @@ class EWF(Embedding):
         """Total energy."""
         return self.e_mf + self.e_corr
 
-    def get_wf_energy(self):
-        e_corr = self.get_wf_corr_energy()
+    def get_wf_energy(self, *args, **kwargs):
+        e_corr = self.get_wf_corr_energy(*args, **kwargs)
         return self.e_mf + e_corr
 
-    def get_proj_energy(self):
+    def get_proj_energy(self, *args, **kwargs):
         """TODO: deprecate in favor of get_wf_energy."""
-        return self.get_wf_energy()
+        return self.get_wf_energy(*args, **kwargs)
 
-    def get_dm_energy(self, dm1='global-wf', t_as_lambda=None, with_exxdiv=None):
-        e_corr = self.get_dm_corr_energy(dm1=dm1, t_as_lambda=t_as_lambda, with_exxdiv=with_exxdiv)
+    def get_dm_energy(self, *args, **kwargs):
+        e_corr = self.get_dm_corr_energy(*args, **kwargs)
         return self.e_mf + e_corr
 
     def get_ccsd_energy(self, full_wf=False):
