@@ -347,22 +347,24 @@ class EWF(Embedding):
         """TODO: deprecate in favor of get_wf_corr_energy."""
         return self.get_wf_corr_energy()
 
-    def get_dm_corr_energy(self, dm1='global-wf', t_as_lambda=None, with_exxdiv=None):
+    def get_dm_corr_energy(self, dm1='global-wf', dm2='projected-lambda', t_as_lambda=None, with_exxdiv=None):
         self.require_complete_fragmentation("Energy will not be accurate.", incl_virtual=False)
         e1 = self.get_dm_corr_energy_e1(dm1=dm1, t_as_lambda=None, with_exxdiv=None)
-        e2 = self.get_dm_corr_energy_e2(t_as_lambda=t_as_lambda)
+        e2 = self.get_dm_corr_energy_e2(dm2=dm2, t_as_lambda=t_as_lambda)
         e_corr = (e1 + e2)
         self.log.debug("Ecorr(1)= %s  Ecorr(2)= %s  Ecorr= %s", *map(energy_string, (e1, e2, e_corr)))
         return e_corr
 
-    def get_dm_corr_energy_e1(self, dm1=None, t_as_lambda=None, with_exxdiv=None):
+    def get_dm_corr_energy_e1(self, dm1='global-wf', t_as_lambda=None, with_exxdiv=None):
         # Correlation energy due to changes in 1-DM and non-cumulant 2-DM:
-        if dm1 is None or dm1 == 'global-wf':
+        if dm1 == 'global-wf':
             dm1 = self._make_rdm1_ccsd_global_wf(with_mf=False, t_as_lambda=t_as_lambda, ao_basis=True)
         elif dm1 == '2p1l':
             dm1 = self._make_rdm1_ccsd(with_mf=False, t_as_lambda=t_as_lambda, ao_basis=True)
         elif dm1 == '1p1l':
             dm1 = self._make_rdm1_ccsd_1p1l(with_mf=False, t_as_lambda=t_as_lambda, ao_basis=True)
+        else:
+            raise ValueError
 
         if with_exxdiv is None:
             if self.has_exxdiv:
@@ -379,16 +381,31 @@ class EWF(Embedding):
         return e1/self.ncells
 
     @mpi.with_allreduce()
-    def get_dm_corr_energy_e2(self, t_as_lambda=None):
+    def get_dm_corr_energy_e2(self, dm2='projected-lambda', t_as_lambda=None):
         """Correlation energy due to cumulant"""
         if t_as_lambda is None:
             t_as_lambda = self.opts.t_as_lambda
-        e2 = 0.0
-        for x in self.get_fragments(active=True, sym_parent=None, mpi_rank=mpi.rank):
-            ex = x.results.e_corr_dm2cumulant
-            if ex is None or (t_as_lambda is not None and (t_as_lambda != x.opts.t_as_lambda)):
-                ex = x.make_fragment_dm2cumulant_energy(t_as_lambda=t_as_lambda)
-            e2 += x.symmetry_factor * x.sym_factor * ex
+        if dm2 == 'global-wf':
+            dm2 = self._make_rdm2_ccsd_global_wf(t_as_lambda=t_as_lambda, with_dm1=False)
+            # TODO: AO basis, late DF contraction
+            if self.spinsym == 'restricted':
+                g = self.get_eris_array(self.mo_coeff)
+                e2 = einsum('pqrs,pqrs', g, dm2)/2
+            else:
+                dm2aa, dm2ab, dm2bb = dm2
+                gaa, gab, gbb = self.get_eris_array_uhf(self.mo_coeff)
+                e2 = (einsum('pqrs,pqrs', gaa, dm2aa)/2
+                    + einsum('pqrs,pqrs', gbb, dm2bb)/2
+                    + einsum('pqrs,pqrs', gab, dm2ab))
+        elif dm2 == 'projected-lambda':
+            e2 = 0.0
+            for x in self.get_fragments(active=True, sym_parent=None, mpi_rank=mpi.rank):
+                ex = x.results.e_corr_dm2cumulant
+                if ex is None or (t_as_lambda is not None and (t_as_lambda != x.opts.t_as_lambda)):
+                    ex = x.make_fragment_dm2cumulant_energy(t_as_lambda=t_as_lambda)
+                e2 += x.symmetry_factor * x.sym_factor * ex
+        else:
+            raise ValueError("Unknown value for dm2: '%s'" % dm2)
         return e2/self.ncells
 
     def get_ccsd_corr_energy(self, full_wf=False):

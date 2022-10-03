@@ -40,10 +40,10 @@ class Test_MP2(test_h2.Test_MP2):
         emb = self.emb(-1)
         etot_dmet = emb.get_dmet_energy()
         self.assertAllclose(etot_dmet, self.cc.e_tot, rtol=0)
-        etot_dmet = emb.get_dmet_energy(version=2)
+        etot_dmet = emb.get_dmet_energy(part_cumulant=False)
         self.assertAllclose(etot_dmet, self.cc.e_tot, rtol=0)
         # Not implemented:
-        #etot_dmet = emb.get_dmet_energy(version=2, approx_cumulant=False)
+        #etot_dmet = emb.get_dmet_energy(approx_cumulant=False)
         #self.assertAllclose(etot_dmet, self.cc.e_tot, rtol=0)
 
 @pytest.mark.slow
@@ -70,9 +70,9 @@ class Test_CCSD(test_h2.Test_CCSD):
         emb = self.emb(-1)
         etot_dmet = emb.get_dmet_energy()
         self.assertAllclose(etot_dmet, self.cc.e_tot, rtol=0)
-        etot_dmet = emb.get_dmet_energy(version=2)
+        etot_dmet = emb.get_dmet_energy(part_cumulant=False)
         self.assertAllclose(etot_dmet, self.cc.e_tot, rtol=0)
-        etot_dmet = emb.get_dmet_energy(version=2, approx_cumulant=False)
+        etot_dmet = emb.get_dmet_energy(approx_cumulant=False)
         self.assertAllclose(etot_dmet, self.cc.e_tot, rtol=0)
 
     def test_dm1_demo(self):
@@ -187,12 +187,12 @@ class Test_RCCSD_vs_UCCSD(TestCase):
         e_udmet = uemb.get_dmet_energy()
         self.assertAllclose(e_rdmet, e_ref)
         self.assertAllclose(e_udmet, e_ref)
-        e_rdmet = remb.get_dmet_energy(version=2)
-        e_udmet = uemb.get_dmet_energy(version=2)
+        e_rdmet = remb.get_dmet_energy(part_cumulant=False)
+        e_udmet = uemb.get_dmet_energy(part_cumulant=False)
         self.assertAllclose(e_rdmet, e_ref)
         self.assertAllclose(e_udmet, e_ref)
-        e_rdmet = remb.get_dmet_energy(version=2, approx_cumulant=False)
-        e_udmet = uemb.get_dmet_energy(version=2, approx_cumulant=False)
+        e_rdmet = remb.get_dmet_energy(approx_cumulant=False)
+        e_udmet = uemb.get_dmet_energy(approx_cumulant=False)
         self.assertAllclose(e_rdmet, e_ref)
         self.assertAllclose(e_udmet, e_ref)
 
@@ -203,11 +203,11 @@ class Test_RCCSD_vs_UCCSD(TestCase):
         e_rdmet = remb.get_dmet_energy()
         e_udmet = uemb.get_dmet_energy()
         self.assertAllclose(e_rdmet, e_udmet)
-        e_rdmet = remb.get_dmet_energy(version=2)
-        e_udmet = uemb.get_dmet_energy(version=2)
+        e_rdmet = remb.get_dmet_energy(part_cumulant=False)
+        e_udmet = uemb.get_dmet_energy(part_cumulant=False)
         self.assertAllclose(e_rdmet, e_udmet)
-        e_rdmet = remb.get_dmet_energy(version=2, approx_cumulant=False)
-        e_udmet = uemb.get_dmet_energy(version=2, approx_cumulant=False)
+        e_rdmet = remb.get_dmet_energy(approx_cumulant=False)
+        e_udmet = uemb.get_dmet_energy(approx_cumulant=False)
         self.assertAllclose(e_rdmet, e_udmet)
 
 

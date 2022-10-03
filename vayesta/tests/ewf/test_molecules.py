@@ -24,7 +24,7 @@ class MoleculeEWFTests(TestCase):
         """Tests the DMET energy.
         """
 
-        self.assertAlmostEqual(emb.get_dmet_energy(), known_values['e_dmet'], self.PLACES_ENERGY)
+        self.assertAlmostEqual(emb.get_dmet_energy(part_cumulant=False), known_values['e_dmet'], self.PLACES_ENERGY)
 
     def _test_t1(self, emb, known_values):
         """Tests the T1 and L1 amplitudes.

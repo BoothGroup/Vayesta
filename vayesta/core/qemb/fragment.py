@@ -849,7 +849,7 @@ class Fragment:
         return mo_energy
 
     @mpi.with_send(source=get_fragment_mpi_rank)
-    def get_fragment_dmet_energy(self, dm1=None, dm2=None, h1e_eff=None, eris=None, version=0, approx_cumulant=True):
+    def get_fragment_dmet_energy(self, dm1=None, dm2=None, h1e_eff=None, eris=None, part_cumulant=True, approx_cumulant=True):
         """Get fragment contribution to whole system DMET energy from cluster DMs.
 
         After fragment summation, the nuclear-nuclear repulsion must be added to get the total energy!
@@ -862,6 +862,13 @@ class Fragment:
             Cluster two-electron reduced density-matrix in cluster basis. If `None`, `self.results.dm2` is used. Default: None.
         eris: array, optional
             Cluster electron-repulsion integrals in cluster basis. If `None`, the ERIs are reevaluated. Default: None.
+        part_cumulant: bool, optional
+            If True, the 2-DM cumulant will be partitioned to calculate the energy. If False,
+            the full 2-DM will be partitioned, as it is done in most of the DMET literature.
+            True is recommended, unless checking for agreement with literature results. Default: True.
+        approx_cumulant: bool, optional
+            If True, the approximate cumulant, containing (delta 1-DM)-squared terms, is partitioned,
+            instead of the true cumulant, if `part_cumulant=True`. Default: True.
 
         Returns
         -------
@@ -884,28 +891,20 @@ class Fragment:
         if not isinstance(eris, np.ndarray):
             self.log.debugv("Extracting ERI array from CCSD ERIs object.")
             eris = vayesta.core.ao2mo.helper.get_full_array(eris, c_act)
-
-        version = (version or 1)
-        if (version == 1):
-            if dm2 is None:
-                dm2 = self.results.wf.make_rdm2()
-        elif (version == 2):
-            if dm2 is None:
-                dm2 = self.results.wf.make_rdm2(with_dm1=False, approx_cumulant=approx_cumulant)
-        else:
-            raise ValueError
+        if dm2 is None:
+            dm2 = self.results.wf.make_rdm2(with_dm1=not part_cumulant, approx_cumulant=approx_cumulant)
 
         # Get effective core potential
         if h1e_eff is None:
-            if (version == 1):
+            if part_cumulant:
+                h1e_eff = dot(c_act.T, self.base.get_hcore_for_energy(), c_act)
+            else:
                 # Use the original Hcore (without chemical potential modifications), but updated mf-potential!
                 h1e_eff = self.base.get_hcore_for_energy() + self.base.get_veff_for_energy(with_exxdiv=False)/2
                 h1e_eff = dot(c_act.T, h1e_eff, c_act)
                 occ = np.s_[:self.cluster.nocc_active]
                 v_act = einsum('iipq->pq', eris[occ,occ,:,:]) - einsum('iqpi->pq', eris[occ,:,:,occ])/2
                 h1e_eff -= v_act
-            elif (version == 2):
-                h1e_eff = dot(c_act.T, self.base.get_hcore_for_energy(), c_act)
 
         p_frag = self.get_fragment_projector(c_act)
         # Check number of electrons
