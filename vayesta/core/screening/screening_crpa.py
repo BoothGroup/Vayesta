@@ -62,8 +62,9 @@ def get_frag_deltaW(mf, fragment, log=None):
     log.info("Generating screened interaction via static limit of cRPA.")
 
     l_a, l_b, crpa = set_up_W_crpa(mf, fragment, log)
-
-    static_fac = crpa.freqs_ss ** (-1)
+    # Have a factor of -2 due to negative value of RPA dd response, and summation of
+    # the excitation and deexcitation branches of the dd response.
+    static_fac = - 2.0 * (crpa.freqs_ss ** (-1))
 
     delta_w = (
         einsum("npq,n,nrs->pqrs", l_a, static_fac, l_a),

@@ -437,7 +437,7 @@ class RClusterHamiltonian:
                     delta = spin_integrate_and_report(delta)
                     seris = bare_eris + delta
                 else:
-                    seris = tuple([x - y for x, y in zip(bare_eris, delta)])
+                    seris = tuple([x + y for x, y in zip(bare_eris, delta)])
                 return seris
         else:
             raise ValueError("Unknown cluster screening protocol: %s" % self.opts.screening)
