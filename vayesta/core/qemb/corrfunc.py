@@ -1,6 +1,7 @@
 """Expectation values for quantum embedding methods."""
 
 import functools
+import itertools
 import numpy as np
 import vayesta
 from vayesta.core.util import *
@@ -210,42 +211,41 @@ def get_corrfunc_unrestricted(emb, kind, dm1=None, dm2=None, atoms=None, project
     with log_time(emb.log.timing, "Time for 1-DM contribution: %s"):
         if dm1 is None:
             dm1 = emb.make_rdm1()
-        for a, atom1 in enumerate(atoms1):
-            tmpa = np.dot(proj[atom1][0], dm1[0])
-            tmpb = np.dot(proj[atom1][1], dm1[1])
-            for b, atom2 in enumerate(atoms2):
-                corr[a,b] = f1*(np.sum(tmpa*proj[atom2][0])
-                              + np.sum(tmpb*proj[atom2][1]))
+        # Loop over spin:
+        for s in range(2):
+            for a, atom1 in enumerate(atoms1):
+                tmp = np.dot(proj[atom1][s], dm1[s])
+                for b, atom2 in enumerate(atoms2):
+                    corr[a,b] += f1*np.sum(tmp*proj[atom2][s])
 
     # Non-(approximate cumulant) DM2 contribution:
     if not dm2_with_dm1:
         with log_time(emb.log.timing, "Time for non-cumulant 2-DM contribution: %s"):
-            occa = np.s_[:emb.nocc[0]]
-            occb = np.s_[:emb.nocc[1]]
-            occdiaga = np.diag_indices(emb.nocc[0])
-            occdiagb = np.diag_indices(emb.nocc[1])
             ddm1 = (dm1[0].copy(), dm1[1].copy())
-            ddm1[0][occdiaga] -= 0.5
-            ddm1[1][occdiagb] -= 0.5
-            for a, atom1 in enumerate(atoms1):
-                tmpa = np.dot(proj[atom1][0], ddm1[0])
-                tmpb = np.dot(proj[atom1][1], ddm1[1])
-                for b, atom2 in enumerate(atoms2):
-                    corr[a,b] -= f2*(np.sum(tmpa[occa] * proj[atom2][0][occa])
-                                   + np.sum(tmpb[occb] * proj[atom2][1][occb])) # N_atom^2 * N^2 scaling
+            ddm1[0][np.diag_indices(emb.nocc[0])] -= 0.5
+            ddm1[1][np.diag_indices(emb.nocc[1])] -= 0.5
+            for s in range(2):
+                occ = np.s_[:emb.nocc[s]]
+                for a, atom1 in enumerate(atoms1):
+                    tmp = np.dot(proj[atom1][s], ddm1[s])
+                    for b, atom2 in enumerate(atoms2):
+                        corr[a,b] -= f2*np.sum(tmp[occ] * proj[atom2][s][occ]) # N_atom^2 * N^2 scaling
 
-            # Note that this contribution cancel to 0 in RHF,
-            # since tr1a == tr1b and tr2a == tr2b:
-            tr1a = {a: np.trace(p[0][occa,occa]) for a, p in proj.items()}  # DM(HF)
-            tr1b = {a: np.trace(p[1][occb,occb]) for a, p in proj.items()}  # DM(HF)
-            tr2a = {a: np.sum(p[0] * ddm1[0]) for a, p in proj.items()}     # DM(CC) + DM(HF)/2
-            tr2b = {a: np.sum(p[1] * ddm1[1]) for a, p in proj.items()}     # DM(CC) + DM(HF)/2
-            for a, atom1 in enumerate(atoms1):
-                for b, atom2 in enumerate(atoms2):
-                    corr[a,b] += ((tr1a[atom1]*tr2a[atom2] + tr1a[atom2]*tr2a[atom1])      # alpha-alpha
-                                - (tr1a[atom1]*tr2b[atom2] + tr1b[atom2]*tr2a[atom1])      # alpha-beta
-                                - (tr1b[atom1]*tr2a[atom2] + tr1a[atom2]*tr2b[atom1])      # beta-alpha
-                                + (tr1b[atom1]*tr2b[atom2] + tr1b[atom2]*tr2b[atom1]))/4   # beta-beta
+            ## Note that this contribution cancel to 0 in RHF,
+            # since tr1[0] == tr1[1] and tr2[0] == tr2[1]:
+            tr1 = []
+            tr2 = []
+            # Loop over spin:
+            for s in range(2):
+                occ = np.s_[:emb.nocc[s]]
+                tr1.append({a: np.trace(p[s][occ,occ]) for a, p in proj.items()})   # DM(HF)
+                tr2.append({a: np.sum(p[s] * ddm1[s]) for a, p in proj.items()})    # DM(CC) + DM(HF)/2
+            # Loop over spins s1, s2:
+            for s1, s2 in itertools.product(range(2), repeat=2):
+                sign = (1 if (s1 == s2) else -1)
+                for a, atom1 in enumerate(atoms1):
+                    for b, atom2 in enumerate(atoms2):
+                        corr[a,b] += sign*(tr1[s1][atom1]*tr2[s2][atom2] + tr1[s1][atom2]*tr2[s2][atom1])/4
 
             if kind in ('n,n', 'dn,dn'):
                 # TODO
