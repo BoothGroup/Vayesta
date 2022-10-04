@@ -2,7 +2,7 @@ import logging
 import numpy as np
 import scipy
 import scipy.linalg
-from vayesta.rpa import ssRIRPA
+from vayesta.rpa import ssRIRPA, ssRPA
 from vayesta.core.util import dot, einsum
 from vayesta.mpi import mpi
 
@@ -53,29 +53,9 @@ def build_screened_eris(emb, fragments=None, cderi_ov=None, calc_e=True, npoints
     r_virs = [f.get_overlap('mo[vir]|cluster[vir]') for f in fragments]
     target_rots, ovs_active = _get_target_rot(r_occs, r_virs)
 
-    rpa = ssRIRPA(emb.mf, log=log, Lpq=cderi_ov)
-    if calc_e:
-        # This scales as O(N^4)
-        erpa, energy_error = rpa.kernel_energy(correction='linear')
-    else:
-        erpa = None
-
-    tr = np.concatenate(target_rots, axis=0)
-    if sum(sum(ovs_active)) > 0:
-        # Computation scales as O(N^4)
-        moms_interact, est_errors = rpa.kernel_moms(0, tr, npoints=npoints)
-        momzero_interact = moms_interact[0]
-    else:
-        momzero_interact = np.zeros_like(np.concatenate(tr, axis=0))
-
-    # Now need to separate into local contributions
-    n = 0
-    local_moments = []
-    for nov, rot in zip(ovs_active, target_rots):
-        # Computation costs O(N^2 N_clus^2)
-        # Get corresponding section of overall moment, then project to just local contribution.
-        local_moments += [dot(momzero_interact[n:n+sum(nov)], rot.T)]
-        n += sum(nov)
+    local_moments, erpa = calc_moms_RIRPA(emb.mf, target_rots, ovs_active, log, cderi_ov, calc_e, npoints)
+    # Could generate moments using N^6 moments instead, but just for debugging.
+    #local_moments, erpa = calc_moms_RPA(emb.mf, target_rots, ovs_active, log, cderi_ov, calc_e, npoints)
 
     # Then construct the RPA coupling matrix A-B, given by the diagonal matrix of energy differences.
     no = np.array(sum(emb.mf.mo_occ.T > 0))
@@ -97,7 +77,12 @@ def build_screened_eris(emb, fragments=None, cderi_ov=None, calc_e=True, npoints
         amb = einsum("pn,qn,n->pq", rot, rot, eps)  # O(N^2 N_clus^4)
         # Everything from here on is independent of system size, scaling at most as O(N_clus^6)
         # (arrays have side length equal to number of cluster single-particle excitations).
-        mominv = np.linalg.inv(mom)
+        mominv2 = np.linalg.inv(mom)
+        e, c = np.linalg.eigh(mom)
+        log.info("Minimal eigenvalue of local zeroth moment: %e", min(e))
+
+        mominv = einsum("pn,n,qn->pq", c, e**(-1), c)
+        log.info("Deviation in different inversion approaches: %e", abs(mominv - mominv2))
         apb = dot(mominv, amb, mominv)
 
         # This is the renormalised coulomb kernel in the cluster.
@@ -121,6 +106,45 @@ def build_screened_eris(emb, fragments=None, cderi_ov=None, calc_e=True, npoints
         seris_ov.append(kc)
 
     return seris_ov, erpa
+
+def calc_moms_RIRPA(mf, target_rots, ovs_active, log, cderi_ov, calc_e, npoints):
+    rpa = ssRIRPA(mf, log=log, Lpq=cderi_ov)
+    if calc_e:
+        # This scales as O(N^4)
+        erpa, energy_error = rpa.kernel_energy(correction='linear')
+    else:
+        erpa = None
+
+    tr = np.concatenate(target_rots, axis=0)
+    if sum(sum(ovs_active)) > 0:
+        # Computation scales as O(N^4)
+        moms_interact, est_errors = rpa.kernel_moms(0, tr, npoints=npoints)
+        momzero_interact = moms_interact[0]
+    else:
+        momzero_interact = np.zeros_like(np.concatenate(tr, axis=0))
+
+    # Now need to separate into local contributions
+    n = 0
+    local_moments = []
+    for nov, rot in zip(ovs_active, target_rots):
+        # Computation costs O(N^2 N_clus^2)
+        # Get corresponding section of overall moment, then project to just local contribution.
+        mom = dot(momzero_interact[n:n+sum(nov)], rot.T)
+        # This isn't exactly symmetric due to numerical integration, so enforce here.
+        mom = (mom + mom.T) / 2
+        local_moments += [mom]
+        n += sum(nov)
+
+    return local_moments, erpa
+
+def calc_moms_RPA(mf, target_rots, ovs_active, log, cderi_ov, calc_e, npoints):
+    rpa = ssRPA(mf, log=log)
+    erpa = rpa.kernel()
+    mom0 = rpa.gen_moms(0)[0]
+    local_moments = []
+    for rot in target_rots:
+        local_moments += [dot(rot, mom0, rot.T)]
+    return local_moments, erpa
 
 def get_screened_eris_full(eris, seris_ov, copy=True, log=None):
     """Build full array of screened ERIs, given the bare ERIs and screening."""
