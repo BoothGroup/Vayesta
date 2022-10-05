@@ -40,7 +40,6 @@ def _run_ccsd(hf):
     cc.kernel()
     return cc
 
-@unittest.skipUnless(__name__ == '__main__', "Only run testset if script is called directly")
 class Test_TestSet(TestCase):
 
     @classmethod
@@ -83,8 +82,9 @@ class Test_TestSet(TestCase):
         return vayesta.ewf.EWF(hf, *args, **kwargs)
 
     @classmethod
-    def add_tests(cls, testset, solver, basis, petas):
-        for key, mol in testset.loop(min_atoms=2, basis=basis):
+    def add_tests(cls, testset, solver, basis, petas, **kwargs):
+        kwargs['min_atoms'] = kwargs.get('min_atoms', 2)
+        for key, mol in testset.loop(basis=basis, **kwargs):
             for peta in petas:
                 cls.add_test(mol, key, solver, peta)
 
@@ -132,11 +132,12 @@ class Test_W411_DZ_project_dmet(Test_TestSet):
         kwargs['bath_options']['project_dmet'] = 'full'
         return vayesta.ewf.EWF(hf, *args, **kwargs)
 
-petas = np.arange(3.0, 9.1, 0.5)
-Test_W411_DZ.add_tests(gmtkn55.W411, 'MP2', 'cc-pvtz', petas)
-Test_W411_DZ_project_dmet.add_tests(gmtkn55.W411, 'MP2', 'cc-pvtz', petas)
-
 
 if __name__ == '__main__':
     print('Running %s' % __file__)
+
+    petas = np.arange(3.0, 9.1, 0.5)
+    Test_W411_DZ.add_tests(gmtkn55.W411, 'MP2', 'cc-pvdz', petas)
+    Test_W411_DZ_project_dmet.add_tests(gmtkn55.W411, 'MP2', 'cc-pvdz', petas)
+
     unittest.main()
