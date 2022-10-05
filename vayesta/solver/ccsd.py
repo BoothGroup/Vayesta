@@ -29,7 +29,6 @@ class CCSD_Solver(ClusterSolver):
         maxiter: int = 100              # Max number of iterations
         conv_tol: float = None          # Convergence energy tolerance
         conv_tol_normt: float = None    # Convergence amplitude tolerance
-        t_as_lambda: bool = False       # If true, use Lambda=T approximation
         # Self-consistent mode
         sc_mode: int = None
         # DM
@@ -43,7 +42,7 @@ class CCSD_Solver(ClusterSolver):
         # Tailor with fragments
         tailoring: bool = False
         # Lambda equations
-        solve_lambda: bool = False
+        solve_lambda: bool = True
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -77,72 +76,6 @@ class CCSD_Solver(ClusterSolver):
     def reset(self):
         super().reset()
         self.eris = None
-
-    @property
-    @deprecated()
-    def t1(self):
-        return self.wf.t1
-
-    @property
-    @deprecated()
-    def t2(self):
-        return self.wf.t2
-
-    @property
-    @deprecated()
-    def l1(self):
-        return self.wf.l1
-
-    @property
-    @deprecated()
-    def l2(self):
-        return self.wf.l2
-
-    @deprecated()
-    def get_t1(self):
-        return self.t1
-
-    @deprecated()
-    def get_t2(self):
-        return self.t2
-
-    @deprecated()
-    def get_c1(self, intermed_norm=True):
-        """C1 in intermediate normalization."""
-        if not intermed_norm:
-            raise ValueError()
-        return self.t1
-
-    @deprecated()
-    def get_c2(self, intermed_norm=True):
-        """C2 in intermediate normalization."""
-        if not intermed_norm:
-            raise ValueError()
-        return self.t2 + einsum('ia,jb->ijab', self.t1, self.t1)
-
-    @deprecated()
-    def get_l1(self, t_as_lambda=None, solve_lambda=True):
-        if t_as_lambda is None:
-            t_as_lambda = self.opts.t_as_lambda
-        if t_as_lambda:
-            return self.t1
-        if self.l1 is None:
-            if not solve_lambda:
-                return None
-            self.solve_lambda()
-        return self.l1
-
-    @deprecated()
-    def get_l2(self, t_as_lambda=None, solve_lambda=True):
-        if t_as_lambda is None:
-            t_as_lambda = self.opts.t_as_lambda
-        if t_as_lambda:
-            return self.t2
-        if self.l2 is None:
-            if not solve_lambda:
-                return None
-            self.solve_lambda()
-        return self.l2
 
     def get_eris(self):
         self.log.debugv("Getting ERIs for type(self.solver)= %r", type(self.solver))
@@ -241,10 +174,13 @@ class CCSD_Solver(ClusterSolver):
         if self.opts.solve_lambda:
             self.log.info("Solving lambda-equations with%s initial guess...", ("out" if (l2 is None) else ""))
             with log_time(self.log.info, "Time for Lambda-equations: %s"):
-                self.solver.solve_lambda(l1=l1, l2=l2, eris=eris)
+                l1, l2 = self.solver.solve_lambda(l1=l1, l2=l2, eris=eris)
             if not self.solver.converged_lambda:
                 self.log.error("Lambda-equations not converged!")
-                self.solver.converged_lambda = False
+        else:
+            self.log.info("Using Lambda=T approximation for Lambda-amplitudes.")
+            l1, l2 = solver.t1, solver.t2
+
 
         # Remove screening (for energy calculation etc)
         if hasattr(eris, 'restore_bare'):
@@ -253,7 +189,7 @@ class CCSD_Solver(ClusterSolver):
         if t_diagnostic: self.t_diagnostic()
 
         mo = Orbitals(self.cluster.c_active, occ=self.cluster.nocc_active)
-        self.wf = CCSD_WaveFunction(mo, self.solver.t1, self.solver.t2, l1=self.solver.l1, l2=self.solver.l2)
+        self.wf = CCSD_WaveFunction(mo, self.solver.t1, self.solver.t2, l1=l1, l2=l2)
 
     @log_method()
     def t_diagnostic(self):
