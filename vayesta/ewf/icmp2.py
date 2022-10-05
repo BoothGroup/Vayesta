@@ -276,7 +276,7 @@ def get_intercluster_mp2_energy_uhf(emb, bno_threshold=1e-9, direct=True, exchan
     e_icmp2: float
         Intercluster MP2 energy contribution.
     """
-    if project_vir != 'vir':
+    if project_dc != 'vir':
         raise NotImplementedError
 
     e_direct = 0.0
@@ -330,7 +330,7 @@ def get_intercluster_mp2_energy_uhf(emb, bno_threshold=1e-9, direct=True, exchan
             if mpi:
                 coll = mpi.create_rma_dict(coll)
 
-        for ix, x in enumerate(_get_icmp2_fragments(emb, mpi_rank=mpi.rank)):
+        for ix, x in enumerate(_get_icmp2_fragments(emb, mpi_rank=mpi.rank, sym_parent=None)):
             cx = ClusterUHF(x, coll)
 
             eia_xa = cx.e_occ[0][:,None] - cx.e_vir[0][None,:]

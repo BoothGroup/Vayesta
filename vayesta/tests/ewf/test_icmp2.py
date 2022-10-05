@@ -35,6 +35,7 @@ class ICMP2_Test(TestCase):
         emb.kernel()
         return emb
 
+
 class ICMP2_RHF_Test(ICMP2_Test):
 
     @classmethod
@@ -43,15 +44,16 @@ class ICMP2_RHF_Test(ICMP2_Test):
 
     def test_dmet_bath(self):
         emb = self.emb(np.inf)
-        e_ic = emb.get_intercluster_mp2_energy(bno_threshold_vir=1e-3)
+        e_ic = emb.get_intercluster_mp2_energy(bno_threshold_vir=1e-3, project_dc='vir')
         self.assertAllclose(e_ic, -0.05927010355296033)
-        e_ic = emb.get_intercluster_mp2_energy(bno_threshold_vir=1e-5)
+        e_ic = emb.get_intercluster_mp2_energy(bno_threshold_vir=1e-5, project_dc='vir')
         self.assertAllclose(e_ic, -0.0721498800072952)
 
     def test_full_bath(self):
         emb = self.emb(-np.inf)
         e_ic = emb.get_intercluster_mp2_energy(bno_threshold_vir=1e-4)
         self.assertAllclose(e_ic, 0)
+
 
 class ICMP2_UHF_Test(ICMP2_Test):
 
@@ -71,6 +73,7 @@ class ICMP2_UHF_Test(ICMP2_Test):
         e_ic = emb.get_intercluster_mp2_energy(1e-4)
         self.assertAllclose(e_ic, 0)
 
+
 class ICMP2_RHF_PBC_Test(ICMP2_Test):
 
     @classmethod
@@ -79,17 +82,18 @@ class ICMP2_RHF_PBC_Test(ICMP2_Test):
 
     def test_dmet_bath(self):
         emb = self.emb(np.inf)
-        e_ic = emb.get_intercluster_mp2_energy(1e-1)
+        e_ic = emb.get_intercluster_mp2_energy(1e-1, project_dc='vir')
         self.assertAllclose(e_ic, -0.0002008447130808661)
-        e_ic = emb.get_intercluster_mp2_energy(1e-8)
+        e_ic = emb.get_intercluster_mp2_energy(1e-8, project_dc='vir')
         self.assertAllclose(e_ic, -0.00020293482504415167)
 
     def test_dmet_bath_nosym(self):
         emb = self.emb_nosym(np.inf)
-        e_ic = emb.get_intercluster_mp2_energy(1e-1)
+        e_ic = emb.get_intercluster_mp2_energy(1e-1, project_dc='vir')
         self.assertAllclose(e_ic, -0.0002008447130808661)
-        e_ic = emb.get_intercluster_mp2_energy(1e-8)
+        e_ic = emb.get_intercluster_mp2_energy(1e-8, project_dc='vir')
         self.assertAllclose(e_ic, -0.00020293482504415167)
+
 
 class ICMP2_UHF_PBC_Test(ICMP2_Test):
 
