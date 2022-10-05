@@ -39,8 +39,8 @@ class TestSet:
 
             self.systems[key] = (structure, charge, multiplicity)
 
-    def loop(self, min_atoms=0, max_atoms=np.inf, include_uhf=True, **kwargs):
-        for key in self.systems:
+    def loop(self, min_atoms=0, max_atoms=np.inf, include_uhf=True, systems=None, **kwargs):
+        for key in (systems or self.systems):
             mol = self.get_mol(key, **kwargs)
             if mol.natm < min_atoms or mol.natm > max_atoms:
                 continue
