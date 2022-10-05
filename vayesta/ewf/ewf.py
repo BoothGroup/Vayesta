@@ -541,27 +541,22 @@ class EWF(Embedding):
         -------
         e_corr : float
         """
-
         t_as_lambda = self.opts.t_as_lambda
-        mf = self.mf
-        nmo = mf.mo_coeff.shape[1]
-        nocc = (mf.mo_occ > 0).sum()
 
         if global_dm1:
-            rdm1 = self._make_rdm1_ccsd_global_wf(t_as_lambda=t_as_lambda)
+            dm1 = self._make_rdm1_ccsd_global_wf(t_as_lambda=t_as_lambda, ao_basis=True, with_mf=False)
         else:
-            rdm1 = self._make_rdm1_ccsd(t_as_lambda=t_as_lambda)
-        rdm1[np.diag_indices(nocc)] -= 2
+            dm1 = self._make_rdm1_ccsd(t_as_lambda=t_as_lambda, ao_basis=True, with_mf=False)
 
         # Core Hamiltonian + Non Cumulant 2DM contribution
-        e1 = einsum('pi,pq,qj,ij->', self.mo_coeff, self.get_fock_for_energy(with_exxdiv=False), self.mo_coeff, rdm1)
+        e1 = np.sum(self.get_fock_for_energy(with_exxdiv=False) * dm1)
 
         # Cumulant 2DM contribution
         if global_dm2:
             # Calculate global 2RDM and contract with ERIs
-            eri = self.get_eris_array(self.mo_coeff)
             rdm2 = self._make_rdm2_ccsd_global_wf(t_as_lambda=t_as_lambda, with_dm1=False)
-            e2 = einsum('pqrs,pqrs', eri, rdm2) * 0.5
+            eris = self.get_eris_array(self.mo_coeff)
+            e2 = einsum('pqrs,pqrs', eris, rdm2)/2
         else:
             # Fragment Local 2DM cumulant contribution
             e2 = self.get_dm_corr_energy_e2(t_as_lambda=t_as_lambda) * self.ncells
