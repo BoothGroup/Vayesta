@@ -3,7 +3,7 @@ import dataclasses
 import itertools
 import copy
 import os.path
-from typing import Optional
+import typing
 # --- External
 import numpy as np
 import scipy
@@ -35,6 +35,7 @@ from vayesta.mpi import mpi
 # Get MPI rank of fragment
 get_fragment_mpi_rank = lambda *args : args[0].mpi_rank
 
+
 @dataclasses.dataclass
 class Options(OptionsBase):
     # Inherited from Embedding
@@ -46,15 +47,27 @@ class Options(OptionsBase):
     # --- Other
     store_eris: bool = None     # If True, ERIs will be stored in Fragment._eris
     dm_with_frozen: bool = None # TODO: is still used?
-    screening: Optional[str] = None
+    screening: typing.Optional[str] = None
     # Fragment specific
     # -----------------
     coupled_fragments: list = dataclasses.field(default_factory=list)
     sym_factor: float = 1.0
 
+
+@dataclasses.dataclass
+class Flags:
+    is_secfrag: bool = False
+    # Secondary fragment parameter
+    secfrag_solver: typing.Optional[str] = None
+    secfrag_bno_threshold: typing.Optional[float] = None
+    secfrag_bno_threshold_factor: float = 0.1
+    bath_parent_fragment: typing.Any = None
+
+
 class Fragment:
 
     Options = Options
+    Flags = Flags
 
     @dataclasses.dataclass
     class Results:
@@ -71,7 +84,7 @@ class Fragment:
             solver=None,
             atoms=None, aos=None, active=True,
             sym_parent=None, sym_op=None,
-            mpi_rank=0,
+            mpi_rank=0, flags=None,
             log=None, **kwargs):
         """Abstract base class for quantum embedding fragments.
 
@@ -144,6 +157,9 @@ class Fragment:
         self.opts = self.Options()                                  # Default options
         self.opts.update(**self.base.opts.asdict(deepcopy=True))    # Update with embedding class options
         self.opts.replace(**kwargs)                                 # Replace with keyword arguments
+
+        # Flags
+        self.flags = self.Flags(**(flags or {}))
 
         solver = solver or self.base.solver
         if solver not in self.base.valid_solvers:
@@ -525,6 +541,7 @@ class Fragment:
     # ============
 
     def copy(self, fid=None, name=None,  **kwargs):
+        """Create copy of fragment, without adding it to the fragments list."""
         if fid is None:
             fid = self.base.register.get_next_id()
         name = name or ('%s(copy)' % self.name)

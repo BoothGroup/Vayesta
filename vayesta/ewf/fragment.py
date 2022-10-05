@@ -27,8 +27,10 @@ from vayesta.mpi import mpi
 
 from . import ewf
 
+
 # Get MPI rank of fragment
 get_fragment_mpi_rank = lambda *args : args[0].mpi_rank
+
 
 @dataclasses.dataclass
 class Options(BaseFragment.Options):
@@ -59,26 +61,36 @@ class Options(BaseFragment.Options):
     # --- Solver options
     tcc_fci_opts: dict = dataclasses.field(default_factory=dict)
 
+
+@dataclasses.dataclass
+class Flags(BaseFragment.Flags):
+    pass
+
+
+@dataclasses.dataclass
+class Results(BaseFragment.Results):
+    e_corr_dm2cumulant: float = None
+    n_active: int = None
+    ip_energy: np.ndarray = None
+    ea_energy: np.ndarray = None
+
+    @property
+    def dm1(self):
+        """Cluster 1DM"""
+        return self.wf.make_rdm1()
+
+    @property
+    def dm2(self):
+        """Cluster 2DM"""
+        return self.wf.make_rdm2()
+
+
 class Fragment(BaseFragment):
 
     Options = Options
+    Flags = Flags
+    Results = Results
 
-    @dataclasses.dataclass
-    class Results(BaseFragment.Results):
-        e_corr_dm2cumulant: float = None
-        n_active: int = None
-        ip_energy: np.ndarray = None
-        ea_energy: np.ndarray = None
-
-        @property
-        def dm1(self):
-            """Cluster 1DM"""
-            return self.wf.make_rdm1()
-
-        @property
-        def dm2(self):
-            """Cluster 2DM"""
-            return self.wf.make_rdm2()
 
     def __init__(self, *args, **kwargs):
 

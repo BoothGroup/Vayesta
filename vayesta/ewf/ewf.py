@@ -46,9 +46,6 @@ class Options(Embedding.Options):
     bsse_correction: bool = True
     bsse_rmax: float = 5.0              # In Angstrom
     nelectron_target: int = None
-    # Delta-WF
-    deltawf_solver: str = 'MP2'
-    deltawf_eta: Optional[float] = None
     # Intercluster MP2
     icmp2_active: bool = True           # If True, the fragment is used in the intercluster MP2 correction
     # --- Couple embedding problems (currently only CCSD)
@@ -59,6 +56,7 @@ class Options(Embedding.Options):
 
 
 class EWF(Embedding):
+
     Fragment = Fragment
     Options = Options
 
@@ -77,6 +75,7 @@ class EWF(Embedding):
             self.log.deprecated("keyword argument solve_lambda is deprecated!")
             self.opts.solver_options = {**self.opts.solver_options, **dict(solve_lambda=solve_lambda)}
 
+        # Logging
         with self.log.indent():
             # Options
             self.log.info("Parameters of %s:", self.__class__.__name__)
@@ -125,41 +124,30 @@ class EWF(Embedding):
         if mpi:
             mpi.world.Barrier()
         self.log.info("")
-        self.log.info("MAKING BATH")
-        self.log.info("===========")
-        with log_time(self.log.timing, "Total time for bath: %s"):
+        self.log.info("MAKING BATH AND CLUSTERS")
+        self.log.info("========================")
+        with log_time(self.log.timing, "Total time for bath and clusters: %s"):
             for x in self.get_fragments(active=True, sym_parent=None, mpi_rank=mpi.rank):
                 if x._results is not None:
                     self.log.debug("Resetting %s" % x)
                     x.reset()
-                msg = "Making bath for %s%s" % (x, (" on MPI process %d" % mpi.rank) if mpi else "")
+                msg = "Making bath and clusters for %s%s" % (x, (" on MPI process %d" % mpi.rank) if mpi else "")
                 self.log.info(msg)
                 self.log.info(len(msg)*"-")
                 with self.log.indent():
                     if x._dmet_bath is None:
-                        x.make_bath()
-            if mpi:
-                mpi.world.Barrier()
-
-        # --- Delta WF
-        self._add_deltawf_fragments()
-
-        # --- Create clusters
-        if mpi:
-            mpi.world.Barrier()
-        self.log.info("")
-        self.log.info("MAKING CLUSTERS")
-        self.log.info("===============")
-        with log_time(self.log.timing, "Total time for clusters: %s"):
-            for x in self.get_fragments(active=True, sym_parent=None, mpi_rank=mpi.rank):
-                msg = "Making cluster for %s%s" % (x, (" on MPI process %d" % mpi.rank) if mpi else "")
-                self.log.info(msg)
-                self.log.info(len(msg)*"-")
-                with self.log.indent():
+                        # Make own bath:
+                        if x.flags.bath_parent_fragment is None:
+                            x.make_bath()
+                        # Copy bath (DMET, occupied, virtual) from other fragment:
+                        else:
+                            for attr in ('_dmet_bath', '_bath_factory_occ', '_bath_factory_vir'):
+                                setattr(x, attr, getattr(x.flags.bath_parent_fragment, attr))
                     if x._cluster is None:
                         x.make_cluster()
             if mpi:
                 mpi.world.Barrier()
+
         if mpi:
             with log_time(self.log.timing, "Time for MPI communication of clusters: %s"):
                 self.communicate_clusters()
@@ -211,23 +199,6 @@ class EWF(Embedding):
         if mpi:
             conv = mpi.world.allreduce(conv, op=mpi.MPI.LAND)
         return conv
-
-    def _add_deltawf_fragments(self):
-
-        def _create(fx, **kwargs):
-            fx_copy = fx.copy(solver=self.opts.deltawf_solver, deltawf_eta=None, **kwargs)
-            fx_copy._dmet_bath = fx._dmet_bath
-            fx_copy._bath_factory_occ = fx._bath_factory_occ
-            fx_copy._bath_factory_vir = fx._bath_factory_vir
-            self.fragments.append(fx_copy)
-            self.log.info("Delta-WF: adding %s", fx_copy)
-
-        for fx in self.fragments.copy():
-            if fx.opts.deltawf_eta is None:
-                continue
-            _create(fx, name='%s(dwf)' % fx.name, bath_options=dict(threshold=self.opts.deltawf_eta))
-            _create(fx, name='%s(dwf-dc)' % fx.name, wf_factor=-1, icmp2_active=False)
-            fx.opts.icmp2_active = False
 
     # --- CC Amplitudes
     # -----------------

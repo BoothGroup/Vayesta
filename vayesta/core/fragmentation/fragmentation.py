@@ -1,3 +1,4 @@
+import contextlib
 import numpy as np
 import scipy
 import scipy.linalg
@@ -41,6 +42,8 @@ class Fragmentation:
         #
         self.coeff = None
         self.labels = None
+        self.secfrag = False
+        self.secfrag_state = None
 
     def kernel(self):
         self.coeff = self.get_coeff()
@@ -57,6 +60,12 @@ class Fragmentation:
     def __exit__(self, exc_type, exc_value, exc_traceback):
         if exc_type is not None:
             return
+        # Add secondary (e.g. MP2) fragments plus double-counting correction:
+        if self.secfrag:
+            frags_sec = self._add_secondary_fragments()
+            self.log.info("Adding %d secondary fragments", len(frags_sec))
+            self.emb.fragments += frags_sec
+
         if self.add_symmetric:
             # Rotational symmetries:
             for idx, (order, axis, center, unit) in enumerate(self.emb.symmetry.rotations):
@@ -158,7 +167,60 @@ class Fragmentation:
         self.log.debug("Fragment %ss of fragment %s:", self.name, name)
         labels = np.asarray(self.labels)[indices]
         helper.log_orbitals(self.log.debug, labels)
+        # Secondary fragments:
+        if self.secfrag_state:
+            frag.flags.secfrag_solver = self.secfrag_state['solver']
+            frag.flags.secfrag_bno_threshold = self.secfrag_state['bno_threshold']
+            frag.flags.secfrag_bno_threshold_factor = self.secfrag_state['bno_threshold_factor']
         return frag
+
+    # --- Secondary fragments
+
+    @contextlib.contextmanager
+    def secondary_fragments(self, bno_threshold=None, bno_threshold_factor=0.1, solver='MP2'):
+        self.secfrag = True
+        self.secfrag_state = dict(bno_threshold=bno_threshold, bno_threshold_factor=bno_threshold_factor,
+                                   solver=solver)
+        yield
+        self.secfrag_state = None
+
+    def _add_secondary_fragments(self):
+        # Only consider fragments with flags.secfrag_solver set:
+        fragments = self.emb.get_fragments(flags=dict(secfrag_solver=lambda x: x is not None))
+
+        def _create_fragment(fx, **kwargs):
+            if fx.sym_parent is not None:
+                raise NotImplementedError("Secondary fragments need to be added before symmetry-derived fragments")
+            solver = fx.flags.secfrag_solver
+            fx_copy = fx.copy(solver=solver, flags=dict(is_secfrag=True), **kwargs)
+            fx_copy.flags.bath_parent_fragment = fx
+            self.log.debugv("Adding secondary fragment: %s", fx_copy)
+            return fx_copy
+
+        fragments_sec = []
+        for fx in fragments:
+
+            bath_opts = fx.opts.bath_options.copy()
+            bno_threshold = fx.flags.secfrag_bno_threshold
+            if bno_threshold is not None:
+                bath_opts['threshold'] = bno_threshold
+                bath_opts.pop('threshold_occ', None)
+                bath_opts.pop('threshold_vir', None)
+            else:
+                bno_threshold_factor = fx.flags.secfrag_bno_threshold_factor
+                if bath_opts.get('threshold', None) is not None:
+                    bath_opts['threshold'] *= bno_threshold_factor
+                if bath_opts.get('threshold_occ', None) is not None:
+                    bath_opts['threshold_occ'] *= bno_threshold_factor
+                if bath_opts.get('threshold_vir', None) is not None:
+                    bath_opts['threshold_vir'] *= bno_threshold_factor
+            frag = _create_fragment(fx, name='%s(secondary)' % fx.name, bath_options=bath_opts)
+            fragments_sec.append(frag)
+            # Double counting
+            frag = _create_fragment(fx, name='%s(secondary-dc)' % fx.name, wf_factor=-1, icmp2_active=False)
+            fragments_sec.append(frag)
+            fx.opts.icmp2_active = False
+        return fragments_sec
 
     # --- For convenience:
 

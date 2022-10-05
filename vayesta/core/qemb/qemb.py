@@ -936,7 +936,7 @@ class Embedding:
             children[idx].append(f)
         return children
 
-    def get_fragments(self, fragments=None, options=None, **filters):
+    def get_fragments(self, fragments=None, options=None, flags=None, **filters):
         """Return all fragments which obey the specified conditions.
 
         Arguments
@@ -963,15 +963,21 @@ class Embedding:
         """
         if fragments is None:
             fragments = self.fragments
-        if not filters:
+        options = options or {}
+        flags = flags or {}
+        if not (filters or options or flags):
             return fragments
-        if options is None:
-            options = {}
 
         def _values_atleast_1d(d):
             return {k: (v if callable(v) else np.atleast_1d(v)) for k, v in d.items()}
         filters = _values_atleast_1d(filters)
         options = _values_atleast_1d(options)
+        flags = _values_atleast_1d(flags)
+
+        def _skip(attr, filt):
+            if callable(filt):
+                return not filt(attr)
+            return attr not in filt
 
         filtered_fragments = []
         for frag in fragments:
@@ -979,21 +985,20 @@ class Embedding:
             # Check filters:
             for key, filt in filters.items():
                 attr = getattr(frag, key)
-                if callable(filt):
-                    if not filt(attr):
-                        skip = True
-                        break
-                elif attr not in filt:
-                    skip = True
-                    break
+                skip = _skip(attr, filt)
+                if skip: break
             if skip:
                 continue
             # Check options:
             for key, filt in options.items():
                 attr = getattr_recursive(frag.opts, key)
-                if attr not in filt:
-                    skip = True
-                    break
+                skip = _skip(attr, filt)
+                if skip: break
+            # Check flags:
+            for key, filt in flags.items():
+                attr = getattr_recursive(frag.flags, key)
+                skip = _skip(attr, filt)
+                if skip: break
             if skip:
                 continue
             filtered_fragments.append(frag)
@@ -1347,7 +1352,8 @@ class Embedding:
         for s in range(nspin):
             nmo_s = tspin(self.nmo, s)
             nelec_s = tspin(nelec, s)
-            c_frags = np.hstack([tspin(x.c_frag, s) for x in self.get_fragments(active=True)])
+            fragments = self.get_fragments(active=True, flags=dict(is_secfrag=False))
+            c_frags = np.hstack([tspin(x.c_frag, s) for x in fragments])
             nfrags = c_frags.shape[-1]
             csc = dot(c_frags.T, ovlp, c_frags)
             if not np.allclose(csc, np.eye(nfrags), rtol=0, atol=tol):

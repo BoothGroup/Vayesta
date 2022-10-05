@@ -504,6 +504,14 @@ class RCCSD_WaveFunction(WaveFunction):
         dm2 = (einsum('ij,kl->ijkl', dm1, dm1) - einsum('ij,kl->iklj', dm1, dm1)/2)
         return dm2
 
+    def multiply(self, factor):
+        self.t1 = spinalg.multiply(self.t1, factor)
+        self.t2 = spinalg.multiply(self.t2, factor)
+        if self.l1 is not None:
+            self.t1 = spinalg.multiply(self.l1, factor)
+        if self.l2 is not None:
+            self.t2 = spinalg.multiply(self.l2, factor)
+
     def project(self, projector, inplace=False):
         wf = self if inplace else self.copy()
         wf.t1 = project_c1(wf.t1, projector)
