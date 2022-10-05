@@ -25,11 +25,13 @@ from vayesta.misc import molecules
 from vayesta.misc import solids
 
 
+PYSCF_VERBOSITY = 0
+
 class TestMolecule:
     """Molecular test system.
     """
 
-    def __init__(self, atom, basis, auxbasis=None, verbose=4, **kwargs):
+    def __init__(self, atom, basis, auxbasis=None, verbose=PYSCF_VERBOSITY, **kwargs):
         super().__init__()
         mol = pyscf.gto.Mole()
         mol.atom = atom
@@ -128,7 +130,7 @@ class TestSolid:
     """Solid test system."""
 
     def __init__(self, a, atom, basis, kmesh=None, auxbasis=None, supercell=None, exxdiv='ewald', df='gdf',
-                 precision=1e-9, verbose=4, **kwargs):
+                 precision=1e-9, verbose=PYSCF_VERBOSITY, **kwargs):
         super().__init__()
         mol = pyscf.pbc.gto.Cell()
         mol.a = a
@@ -323,9 +325,9 @@ h6_sto6g_df = TestMolecule(
 water_sto3g = TestMolecule(atom=molecules.water(), basis='sto3g')
 water_cation_sto3g = TestMolecule(atom=molecules.water(), basis='sto3g', charge=1, spin=1)
 
-water_631g = TestMolecule(atom=molecules.water(), basis='6-31G')
+water_631g = TestMolecule(atom=molecules.water(), basis='6-31G', incore_anyway=True)
+water_cation_631g = TestMolecule(atom=molecules.water(), basis='6-31G', charge=1, spin=1, incore_anyway=True)
 water_631g_df = TestMolecule(atom=molecules.water(), basis='6-31G', auxbasis='6-31G')
-water_cation_631g = TestMolecule(atom=molecules.water(), basis='6-31G', charge=1, spin=1)
 water_cation_631g_df = TestMolecule(atom=molecules.water(), basis='6-31G', auxbasis='6-31G', charge=1, spin=1)
 
 water_ccpvdz = TestMolecule(atom=molecules.water(), basis="cc-pvdz")
