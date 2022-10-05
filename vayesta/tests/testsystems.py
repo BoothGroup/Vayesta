@@ -325,9 +325,9 @@ h6_sto6g_df = TestMolecule(
 water_sto3g = TestMolecule(atom=molecules.water(), basis='sto3g')
 water_cation_sto3g = TestMolecule(atom=molecules.water(), basis='sto3g', charge=1, spin=1)
 
-water_631g = TestMolecule(atom=molecules.water(), basis='6-31G')
+water_631g = TestMolecule(atom=molecules.water(), basis='6-31G', incore_anyway=True)
+water_cation_631g = TestMolecule(atom=molecules.water(), basis='6-31G', charge=1, spin=1, incore_anyway=True)
 water_631g_df = TestMolecule(atom=molecules.water(), basis='6-31G', auxbasis='6-31G')
-water_cation_631g = TestMolecule(atom=molecules.water(), basis='6-31G', charge=1, spin=1)
 water_cation_631g_df = TestMolecule(atom=molecules.water(), basis='6-31G', auxbasis='6-31G', charge=1, spin=1)
 
 water_ccpvdz = TestMolecule(atom=molecules.water(), basis="cc-pvdz")
