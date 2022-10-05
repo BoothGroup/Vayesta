@@ -1,6 +1,7 @@
 import numpy as np
 import scipy.integrate
 import scipy.optimize
+import scipy.special
 
 
 class NIException(BaseException):
@@ -330,15 +331,26 @@ class NumericalIntegratorGaussianSemiInfinite(NumericalIntegratorBase):
 
     @property
     def npoints(self):
-        return self._npoints
+        return len(self._points)
 
     @npoints.setter
     def npoints(self, value):
         """For Gaussian quadrature recalculating the points and weights every time won't be performant;
         instead lets cache them each time npoints is changed."""
         self._points, self._weights = np.polynomial.laguerre.laggauss(value)
+        if any(self._points < 0.0):
+            self.log.warn("%d erroneous negative frequency points encountered when generating %d-point Gauss-Laguerre quadrature."
+                          "Regenerating..", sum(self._points < 0.0), self.npoints)
+            # Generally seems to regenerate the same, so use alternative scipy implementation.
+            self._points, self._weights = scipy.special.roots_laguerre(value)
+
+            if any(self._points < 0.0):
+                sumweights = sum(abs(self._weights[self._points<0.0]))
+                self.log.warning("Summed weight of negative freqency points: %e", sumweights)
+                self.log.critical("Could not generate %d-point Gauss-Laguerre quadrature.", format(self.npoints))
+                raise RuntimeError("Could not generate {:d}-point Gauss-Laguerre quadrature.".format(self.npoints))
+
         self._weights = np.array([w * np.exp(p) for (p, w) in zip(self._points, self._weights)])
-        self._npoints = value
 
     def get_quad(self, a):
         return a * self._points, a * self._weights
