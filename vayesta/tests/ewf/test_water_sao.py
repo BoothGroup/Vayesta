@@ -35,16 +35,22 @@ class Test_MP2(test_h2.Test_MP2):
         dm1 = emb.make_rdm1_demo(ao_basis=True)
         self.assertAllclose(dm1, dm1_exact)
 
-    def test_dmet_energy(self):
+    def test_dmet_energy_full_bath(self):
         """Tests DMET energy."""
         emb = self.emb(-1)
         etot_dmet = emb.get_dmet_energy()
         self.assertAllclose(etot_dmet, self.cc.e_tot, rtol=0)
-        etot_dmet = emb.get_dmet_energy(version=2)
+        etot_dmet = emb.get_dmet_energy(part_cumulant=False)
         self.assertAllclose(etot_dmet, self.cc.e_tot, rtol=0)
         # Not implemented:
-        #etot_dmet = emb.get_dmet_energy(version=2, approx_cumulant=False)
+        #etot_dmet = emb.get_dmet_energy(approx_cumulant=False)
         #self.assertAllclose(etot_dmet, self.cc.e_tot, rtol=0)
+
+    def test_dmet_energy_dmet_bath(self):
+        emb = self.emb(np.inf)
+        self.assertAllclose(emb.get_dmet_energy(), -76.13138293069929, rtol=0)
+        self.assertAllclose(emb.get_dmet_energy(part_cumulant=False), -76.14003024590309, rtol=0)
+
 
 @pytest.mark.slow
 class Test_CCSD(test_h2.Test_CCSD):
@@ -65,15 +71,20 @@ class Test_CCSD(test_h2.Test_CCSD):
         emb.kernel()
         return emb
 
-    def test_dmet_energy(self):
+    def test_dmet_energy_full_bath(self):
         """Tests DMET energy."""
         emb = self.emb(-1)
         etot_dmet = emb.get_dmet_energy()
         self.assertAllclose(etot_dmet, self.cc.e_tot, rtol=0)
-        etot_dmet = emb.get_dmet_energy(version=2)
+        etot_dmet = emb.get_dmet_energy(part_cumulant=False)
         self.assertAllclose(etot_dmet, self.cc.e_tot, rtol=0)
-        etot_dmet = emb.get_dmet_energy(version=2, approx_cumulant=False)
+        etot_dmet = emb.get_dmet_energy(approx_cumulant=False)
         self.assertAllclose(etot_dmet, self.cc.e_tot, rtol=0)
+
+    def test_dmet_energy_dmet_bath(self):
+        emb = self.emb(np.inf)
+        self.assertAllclose(emb.get_dmet_energy(), -76.12825899582526, rtol=0)
+        self.assertAllclose(emb.get_dmet_energy(part_cumulant=False), -76.16067576457522, rtol=0)
 
     def test_dm1_demo(self):
         emb = self.emb(-1)
@@ -86,6 +97,7 @@ class Test_CCSD(test_h2.Test_CCSD):
         dm1_exact = self.cc.make_rdm1(ao_repr=True)
         dm1 = emb.make_rdm1_demo(ao_basis=True)
         self.assertAllclose(dm1, dm1_exact)
+
 
 class Test_UMP2(test_h2.Test_UMP2):
 
@@ -103,6 +115,7 @@ class Test_UMP2(test_h2.Test_UMP2):
         emb.kernel()
         return emb
 
+
 @pytest.mark.slow
 class Test_UCCSD(Test_CCSD, test_h2.Test_UCCSD):
 
@@ -110,6 +123,12 @@ class Test_UCCSD(Test_CCSD, test_h2.Test_UCCSD):
     def setUpClass(cls):
         cls.mf = testsystems.water_cation_631g.uhf()
         cls.cc = testsystems.water_cation_631g.uccsd()
+
+    def test_dmet_energy_dmet_bath(self):
+        emb = self.emb(np.inf)
+        self.assertAllclose(emb.get_dmet_energy(), -75.69175122675338, rtol=0)
+        self.assertAllclose(emb.get_dmet_energy(part_cumulant=False), -75.69526013218531, rtol=0)
+
 
 @pytest.mark.slow
 class Test_RCCSD_vs_UCCSD(TestCase):
@@ -177,37 +196,35 @@ class Test_RCCSD_vs_UCCSD(TestCase):
         udm2 = (udm2aa + udm2ab + udm2ab.transpose(2,3,0,1) + udm2bb)
         self.assertAllclose(rdm2, udm2)
 
-    def test_dmet_energy(self):
+    def test_dmet_energy_full_bath(self):
         """Tests DMET energy."""
         remb = self.remb(-1)
         uemb = self.uemb(-1)
-
         e_ref = self.rcc.e_tot
         e_rdmet = remb.get_dmet_energy()
         e_udmet = uemb.get_dmet_energy()
         self.assertAllclose(e_rdmet, e_ref)
         self.assertAllclose(e_udmet, e_ref)
-        e_rdmet = remb.get_dmet_energy(version=2)
-        e_udmet = uemb.get_dmet_energy(version=2)
+        e_rdmet = remb.get_dmet_energy(part_cumulant=False)
+        e_udmet = uemb.get_dmet_energy(part_cumulant=False)
         self.assertAllclose(e_rdmet, e_ref)
         self.assertAllclose(e_udmet, e_ref)
-        e_rdmet = remb.get_dmet_energy(version=2, approx_cumulant=False)
-        e_udmet = uemb.get_dmet_energy(version=2, approx_cumulant=False)
+        e_rdmet = remb.get_dmet_energy(approx_cumulant=False)
+        e_udmet = uemb.get_dmet_energy(approx_cumulant=False)
         self.assertAllclose(e_rdmet, e_ref)
         self.assertAllclose(e_udmet, e_ref)
 
-    def test_dmet_energy_finite_bath(self):
+    def test_dmet_energy_dmet_bath(self):
         remb = self.remb(np.inf)
         uemb = self.uemb(np.inf)
-
         e_rdmet = remb.get_dmet_energy()
         e_udmet = uemb.get_dmet_energy()
         self.assertAllclose(e_rdmet, e_udmet)
-        e_rdmet = remb.get_dmet_energy(version=2)
-        e_udmet = uemb.get_dmet_energy(version=2)
+        e_rdmet = remb.get_dmet_energy(part_cumulant=False)
+        e_udmet = uemb.get_dmet_energy(part_cumulant=False)
         self.assertAllclose(e_rdmet, e_udmet)
-        e_rdmet = remb.get_dmet_energy(version=2, approx_cumulant=False)
-        e_udmet = uemb.get_dmet_energy(version=2, approx_cumulant=False)
+        e_rdmet = remb.get_dmet_energy(approx_cumulant=False)
+        e_udmet = uemb.get_dmet_energy(approx_cumulant=False)
         self.assertAllclose(e_rdmet, e_udmet)
 
 

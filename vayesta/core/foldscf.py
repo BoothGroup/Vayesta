@@ -139,8 +139,8 @@ class FoldedRHF(FoldedSCF, pyscf.pbc.scf.hf.RHF):
     def __init__(self, kmf, *args, **kwargs):
         super().__init__(kmf, *args, **kwargs)
         ovlp = self.get_ovlp()
-        self.mo_energy, self.mo_coeff, self.mo_occ = \
-                fold_mos(self.kmf.mo_energy, self.kmf.mo_coeff, self.kmf.mo_occ, self.kphase, ovlp)
+        self.mo_energy, self.mo_coeff, self.mo_occ = fold_mos(self.kmf.mo_energy, self.kmf.mo_coeff, self.kmf.mo_occ,
+                                                              self.kphase, ovlp)
 
         # Test MO folding
         #nk = self.ncells
@@ -208,10 +208,17 @@ def fold_mos(kmo_energy, kmo_coeff, kmo_occ, kphase, ovlp, make_real=True, sort=
         #mo_energy, mo_coeff = make_mo_coeff_real_2(mo_energy, mo_coeff, mo_occ, ovlp, hcore)
     # Check orthonormality of folded MOs
     err = abs(dot(mo_coeff.T.conj(), ovlp, mo_coeff) - np.eye(mo_coeff.shape[-1])).max()
-    if err > 1e-7:
-        raise RuntimeError("Folded MOs not orthonormal! L(inf)= %.3e" % err)
+    if err > 1e-4:
+        log.critical("Supercell MOs are not orthonormal (max error= %.3e)", err)
+        raise OrthonormalityError("Supercell MOs are not orthonormal")
     else:
-        log.debugv("Folded MOs orthonormality error: L(inf)= %.3e", err)
+        if err > 1e-6:
+            logf = log.error
+        elif err > 1e-8:
+            logf = log.warning
+        else:
+            logf = log.debugv
+        logf("Supercell MO orthonormality error: L(inf)= %.3e", err)
 
     return mo_energy, mo_coeff, mo_occ
 

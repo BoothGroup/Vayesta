@@ -365,10 +365,10 @@ class Embedding:
         """
         if not self.has_exxdiv: return 0, None
         sc = np.dot(self.get_ovlp(), self.mo_coeff[:,:self.nocc])
-        e_exxdiv = -self.madelung * self.nocc/self.ncells
+        e_exxdiv = -self.madelung * self.nocc
         v_exxdiv = -self.madelung * np.dot(sc, sc.T)
         self.log.debugv("Divergent exact-exchange (exxdiv) correction= %+16.8f Ha", e_exxdiv)
-        return e_exxdiv, v_exxdiv
+        return e_exxdiv/self.ncells, v_exxdiv
 
     @property
     def pbc_dimension(self):
@@ -1077,8 +1077,18 @@ class Embedding:
         self.require_complete_fragmentation("Democratically partitioned DMs will not be accurate.")
         return make_rdm2_demo_rhf(self, *args, **kwargs)
 
-    def get_dmet_elec_energy(self, version=0, approx_cumulant=True):
+    def get_dmet_elec_energy(self, part_cumulant=True, approx_cumulant=True):
         """Calculate electronic DMET energy via democratically partitioned density-matrices.
+
+        Parameters
+        ----------
+        part_cumulant: bool, optional
+            If True, the 2-DM cumulant will be partitioned to calculate the energy. If False,
+            the full 2-DM will be partitioned, as it is done in most of the DMET literature.
+            True is recommended, unless checking for agreement with literature results. Default: True.
+        approx_cumulant: bool, optional
+            If True, the approximate cumulant, containing (delta 1-DM)-squared terms, is partitioned,
+            instead of the true cumulant, if `part_cumulant=True`. Default: True.
 
         Returns
         -------
@@ -1089,11 +1099,10 @@ class Embedding:
         e_dmet = 0.0
         for x in self.get_fragments(active=True, mpi_rank=mpi.rank, sym_parent=None):
             wx = x.symmetry_factor
-            e_dmet += wx*x.get_fragment_dmet_energy(version=version, approx_cumulant=approx_cumulant)
+            e_dmet += wx*x.get_fragment_dmet_energy(part_cumulant=part_cumulant, approx_cumulant=approx_cumulant)
         if mpi:
             mpi.world.allreduce(e_dmet)
-        version = (version or 1)
-        if (version == 2):
+        if part_cumulant:
             dm1 = self.make_rdm1_demo(ao_basis=True)
             if not approx_cumulant:
                 vhf = self.get_veff_for_energy(dm1=dm1, with_exxdiv=False)
@@ -1107,11 +1116,18 @@ class Embedding:
         self.log.debugv("E_elec(DMET)= %s", energy_string(e_dmet))
         return e_dmet / self.ncells
 
-    def get_dmet_energy(self, with_nuc=True, with_exxdiv=True, version=0, approx_cumulant=True):
+    def get_dmet_energy(self, part_cumulant=True, approx_cumulant=True, with_nuc=True, with_exxdiv=True):
         """Calculate DMET energy via democratically partitioned density-matrices.
 
         Parameters
         ----------
+        part_cumulant: bool, optional
+            If True, the 2-DM cumulant will be partitioned to calculate the energy. If False,
+            the full 2-DM will be partitioned, as it is done in most of the DMET literature.
+            True is recommended, unless checking for agreement with literature results. Default: True.
+        approx_cumulant: bool, optional
+            If True, the approximate cumulant, containing (delta 1-DM)-squared terms, is partitioned,
+            instead of the true cumulant, if `part_cumulant=True`. Default: True.
         with_nuc: bool, optional
             Include nuclear-repulsion energy. Default: True.
         with_exxdiv: bool, optional
@@ -1122,7 +1138,7 @@ class Embedding:
         e_dmet: float
             DMET energy.
         """
-        e_dmet = self.get_dmet_elec_energy(version=version, approx_cumulant=approx_cumulant)
+        e_dmet = self.get_dmet_elec_energy(part_cumulant=part_cumulant, approx_cumulant=approx_cumulant)
         if with_nuc:
             e_dmet += self.e_nuc
         if with_exxdiv and self.has_exxdiv:

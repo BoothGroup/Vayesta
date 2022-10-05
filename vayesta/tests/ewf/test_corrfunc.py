@@ -151,22 +151,30 @@ class Test_UCCSD(TestCase):
         uemb.kernel()
         return uemb
 
-    def test_full_bath(self):
+    def _test_full_bath(self, projection):
         eta = -1
         uemb = self.uemb(eta)
 
         dm1 = self.ucc.make_rdm1()
         dm2 = self.ucc.make_rdm2()
-        ssz = uemb.get_atomic_ssz(dm1=dm1, dm2=dm2)
-
-        # Full 2DMs
+        # Deprecated: get_atomic_ssz:
+        ssz = uemb.get_atomic_ssz(dm1=dm1, dm2=dm2, projection=projection)
         udm2 = uemb.make_rdm2()
-        ssz_2 = uemb.get_atomic_ssz(dm2=udm2, dm2_with_dm1=True)
+        ssz_2 = uemb.get_atomic_ssz(dm2=udm2, dm2_with_dm1=True, projection=projection)
         self.assertAllclose(ssz_2, ssz, atol=1e-6)
 
-        # NEW
-        ssz_3 = uemb.get_corrfunc('Sz,Sz', dm2=udm2, dm2_with_dm1=True)
+        # Replacement: get_corrfunc('Sz,Sz', ...)
+        ssz_3 = uemb.get_corrfunc('Sz,Sz', dm2=udm2, dm2_with_dm1=True, projection=projection)
         self.assertAllclose(ssz_3, ssz, atol=1e-6)
+        ssz_4 = uemb.get_corrfunc('Sz,Sz', projection=projection)
+        self.assertAllclose(ssz_4, ssz, atol=1e-6)
+
+    def test_full_bath_sao(self):
+        self._test_full_bath('sao')
+
+    def test_full_bath_iaopao(self):
+        self._test_full_bath('iaopao')
+
 
 class Test_UMP2(Test_UCCSD):
 
