@@ -69,7 +69,7 @@ class MoleculeEWFTests(TestCase):
         dm = emb.make_rdm2_demo()
         self.assertAlmostEqual(trace(dm), known_values['rdm2_demo'], self.PLACES_DM)
 
-        dm = emb.make_rdm2_demo(ao_basis=True)
+        dm = emb.make_rdm2_demo(ao_basis=True, part_cumulant=False)
         self.assertAlmostEqual(trace(dm), known_values['rdm2_demo_ao'], self.PLACES_DM)
 
         dm = emb._make_rdm2_ccsd_global_wf()
