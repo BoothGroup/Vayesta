@@ -105,9 +105,6 @@ class Fragment(BaseFragment):
             Name of fragment.
         """
         super().__init__(*args, **kwargs)
-        if self.opts.t_as_lambda is None:
-            self.opts.t_as_lambda = not self.opts.solver_options['solve_lambda']
-            self.log.debugv("T-as-Lambda= %s", self.opts.t_as_lambda)
         # For self-consistent mode
         self.solver_results = None
 
@@ -312,11 +309,11 @@ class Fragment(BaseFragment):
     def get_solver_options(self, solver):
         # TODO: fix this mess...
         solver_opts = {}
+        # conv_tol, solve_lambda,...:
         solver_opts.update(self.opts.solver_options)
-        #pass_through = ['make_rdm1', 'make_rdm2']
         pass_through = []
         if 'CCSD' in solver.upper():
-            pass_through += ['t_as_lambda', 'sc_mode', 'dm_with_frozen']
+            pass_through += ['sc_mode', 'dm_with_frozen']
         for attr in pass_through:
             self.log.debugv("Passing fragment option %s to solver.", attr)
             solver_opts[attr] = getattr(self.opts, attr)
@@ -412,9 +409,7 @@ class Fragment(BaseFragment):
 
     # --- Density-matrices
 
-    def _ccsd_amplitudes_for_dm(self, t_as_lambda=None, sym_t2=True):
-        if t_as_lambda is None:
-            t_as_lambda = self.opts.t_as_lambda
+    def _ccsd_amplitudes_for_dm(self, t_as_lambda=False, sym_t2=True):
         wf = self.results.wf.as_ccsd()
         t1, t2 = wf.t1, wf.t2
         pwf = self.results.pwf.restore(sym=sym_t2).as_ccsd()
@@ -428,7 +423,7 @@ class Fragment(BaseFragment):
             l1x, l2x = pwf.l1, pwf.l2
         return t1, t2, l1, l2, t1x, t2x, l1x, l2x
 
-    def _get_projected_gamma1_intermediates(self, t_as_lambda=None, sym_t2=True):
+    def _get_projected_gamma1_intermediates(self, t_as_lambda=False, sym_t2=True):
         t1, t2, l1, l2, t1x, t2x, l1x, l2x = self._ccsd_amplitudes_for_dm(t_as_lambda=t_as_lambda, sym_t2=sym_t2)
         doo, dov, dvo, dvv = pyscf.cc.ccsd_rdm._gamma1_intermediates(None, t1, t2, l1x, l2x)
         # Correction for term without Lambda amplitude:
@@ -436,7 +431,7 @@ class Fragment(BaseFragment):
         d1 = (doo, dov, dvo, dvv)
         return d1
 
-    def _get_projected_gamma2_intermediates(self, t_as_lambda=None, sym_t2=True):
+    def _get_projected_gamma2_intermediates(self, t_as_lambda=False, sym_t2=True):
         t1, t2, l1, l2, t1x, t2x, l1x, l2x = self._ccsd_amplitudes_for_dm(t_as_lambda=t_as_lambda, sym_t2=sym_t2)
         cc = self.mf # Only attributes stdout, verbose, and max_memory are needed, just use mean-field object
         dovov, *d2rest = pyscf.cc.ccsd_rdm._gamma2_intermediates(cc, t1, t2, l1x, l2x)
@@ -447,7 +442,7 @@ class Fragment(BaseFragment):
         d2 = (dovov, *d2rest)
         return d2
 
-    def make_fragment_dm1(self, t_as_lambda=None, sym_t2=True):
+    def make_fragment_dm1(self, t_as_lambda=False, sym_t2=True):
         """Currently CCSD only.
 
         Without mean-field contribution!"""
@@ -455,7 +450,7 @@ class Fragment(BaseFragment):
         dm1 = pyscf.cc.ccsd_rdm._make_rdm1(None, d1, with_frozen=False, with_mf=False)
         return dm1
 
-    def make_fragment_dm2cumulant(self, t_as_lambda=None, sym_t2=True, sym_dm2=True, full_shape=True,
+    def make_fragment_dm2cumulant(self, t_as_lambda=False, sym_t2=True, sym_dm2=True, full_shape=True,
             approx_cumulant=True):
         """Currently MP2/CCSD only"""
 
@@ -500,7 +495,7 @@ class Fragment(BaseFragment):
     #    return e_dm1
 
     @log_method()
-    def make_fragment_dm2cumulant_energy(self, eris=None, t_as_lambda=None, sym_t2=True, approx_cumulant=True):
+    def make_fragment_dm2cumulant_energy(self, eris=None, t_as_lambda=False, sym_t2=True, approx_cumulant=True):
         if eris is None:
             eris = self._eris
         if eris is None:

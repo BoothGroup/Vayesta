@@ -23,7 +23,7 @@ def _get_mockcc(mo_coeff, max_memory):
     cc.max_memory = max_memory
     return cc
 
-def make_rdm1_ccsd(emb, ao_basis=False, t_as_lambda=None, symmetrize=True, with_mf=True, mpi_target=None, mp2=False):
+def make_rdm1_ccsd(emb, ao_basis=False, t_as_lambda=False, symmetrize=True, with_mf=True, mpi_target=None, mp2=False):
     """Make one-particle reduced density-matrix from partitioned fragment CCSD wave functions.
 
     This utilizes index permutations of the CCSD RDM1 equations, such that the RDM1 can be
@@ -121,7 +121,7 @@ def make_rdm1_ccsd(emb, ao_basis=False, t_as_lambda=None, symmetrize=True, with_
 
     return dm1
 
-def make_rdm1_ccsd_proj_lambda(emb, ao_basis=False, t_as_lambda=None, with_mf=True, sym_t2=True, mpi_target=None):
+def make_rdm1_ccsd_proj_lambda(emb, ao_basis=False, t_as_lambda=False, with_mf=True, sym_t2=True, mpi_target=None):
     """Make one-particle reduced density-matrix from partitioned fragment CCSD wave functions.
 
     MPI parallelized.
@@ -159,7 +159,7 @@ def make_rdm1_ccsd_proj_lambda(emb, ao_basis=False, t_as_lambda=None, with_mf=Tr
         dm1 = dot(emb.mo_coeff, dm1, emb.mo_coeff.T)
     return dm1
 
-def make_rdm1_ccsd_global_wf(emb, t_as_lambda=None, with_t1=True, svd_tol=1e-3, ovlp_tol=None, use_sym=True,
+def make_rdm1_ccsd_global_wf(emb, t_as_lambda=False, with_t1=True, svd_tol=1e-3, ovlp_tol=None, use_sym=True,
                              late_t2_sym=True, mpi_target=None, slow=False):
     """Make one-particle reduced density-matrix from partitioned fragment CCSD wave functions.
 
@@ -170,8 +170,7 @@ def make_rdm1_ccsd_global_wf(emb, t_as_lambda=None, with_t1=True, svd_tol=1e-3, 
     Parameters
     ----------
     t_as_lambda : bool, optional
-        Use T-amplitudes inplace of Lambda-amplitudes for CCSD density matrix.
-        If `None`, `emb.opts.t_as_lambda` will be used. Default: None.
+        Use T-amplitudes inplace of Lambda-amplitudes for CCSD density matrix. Default: False.
     with_t1 : bool, optional
         If False, T1 and L1 amplitudes are assumed 0. Default: False.
     svd_tol : float, optional

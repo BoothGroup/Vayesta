@@ -83,7 +83,7 @@ class Options(OptionsBase):
             # General
             conv_tol=None,
             # CCSD
-            solve_lambda=False, conv_tol_normt=None, t_as_lambda=False,
+            solve_lambda=True, conv_tol_normt=None,
             # FCI
             threads=1, max_cycle=300, fix_spin=0.0, lindep=None,
             # EBFCI/EBCCSD
@@ -139,10 +139,8 @@ class Embedding:
                 Amplitude convergence tolerance [valid for 'CCSD', 'TCCSD']
             fix_spin : float
                 Target specified spin state [valid for 'FCI']
-            t_as_lambda : bool
-                Use T-amplitudes as Lambda-amplitudes [valid for 'CCSD', 'TCCSD']
             solve_lambda : bool
-                Solve Lambda-equations [valid for 'CCSD', 'TCCSD']
+                Solve Lambda-equations [valid for 'CCSD', 'TCCSD']. If False, T-amplitudes are used instead.
             dumpfile : str
                 Dump cluster orbitals and integrals to file [valid for 'Dump']
 
