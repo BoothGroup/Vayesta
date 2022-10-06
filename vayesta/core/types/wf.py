@@ -801,9 +801,12 @@ class RCISD_WaveFunction(WaveFunction):
             wf = wf.project(proj)
         return wf
 
-    def as_fci(self):
-        raise NotImplementedError
+    def get_cisdvec(self):
+        return np.hstack((self.c0, self.c1.ravel(), self.c2.ravel()))
 
+    def as_fci(self):
+        ci = pyscf.ci.cisd.to_fcivec(self.get_cisdvec(), self.mo.norb, self.mo.nelec)
+        return RFCI_WaveFunction(self.mo, ci, projector=self.projector)
 
 class UCISD_WaveFunction(RCISD_WaveFunction):
 

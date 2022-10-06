@@ -15,6 +15,7 @@ from vayesta.core.types import Orbitals
 from vayesta.core.types import FCI_WaveFunction
 from vayesta.core.qemb.scrcoulomb import get_screened_eris_full
 from .solver import ClusterSolver
+from .cisd import CISD_Solver
 
 
 class FCI_Solver(ClusterSolver):
@@ -27,8 +28,8 @@ class FCI_Solver(ClusterSolver):
         conv_tol: float = None      # Convergence tolerance. If None, use PySCF default
         solver_spin: bool = True    # Use direct_spin1 if True, or direct_spin0 otherwise
         fix_spin: float = 0.0       # If set to a number, the given S^2 value will be enforced
-        #fix_spin_penalty: float = 1.0
         fix_spin_penalty: float = 1e3
+        init_guess: str = 'CISD'
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -102,6 +103,13 @@ class FCI_Solver(ClusterSolver):
     def get_l2(self, **kwargs):
         return None
 
+    def get_cisd_init_guess(self):
+        self.log.info("Generating intitial guess from CISD.")
+        cisd = CISD_Solver(self.mf, self.fragment, self.cluster)
+        cisd.kernel()
+        ci = cisd.wf.as_fci().ci
+        return ci
+
     def kernel(self, ci0=None, eris=None, seris_ov=None):
         """Run FCI kernel."""
 
@@ -110,6 +118,9 @@ class FCI_Solver(ClusterSolver):
         # Screening
         if seris_ov is not None:
             eris = get_screened_eris_full(eris, seris_ov, log=self.log)
+
+        if ci0 is None and self.opts.init_guess == 'CISD':
+            ci0 = self.get_cisd_init_guess()
 
         t0 = timer()
         #self.solver.verbose = 10
