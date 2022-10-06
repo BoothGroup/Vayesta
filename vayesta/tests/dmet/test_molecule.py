@@ -5,7 +5,7 @@ from vayesta.tests.common import TestCase
 from vayesta.tests import testsystems
 
 
-class MoleculeDMETTest(TestCase):
+class MoleculeTest(TestCase):
     PLACES_ENERGY = 7
     CONV_TOL = 1e-9
 

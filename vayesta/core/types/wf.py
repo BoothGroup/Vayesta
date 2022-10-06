@@ -772,12 +772,11 @@ class RCISD_WaveFunction(WaveFunction):
         return wf
 
     def copy(self):
-        if self.projector is not None:
-            raise NotImplementedError
         c0 = self.c0
         c1 = spinalg.copy(self.c1)
         c2 = spinalg.copy(self.c2)
-        return type(self)(self.mo.copy(), c0, c1, c2)
+        proj = callif(spinalg.copy, self.projector)
+        return type(self)(self.mo.copy(), c0, c1, c2, projector=proj)
 
     def as_mp2(self):
         raise NotImplementedError
@@ -802,6 +801,8 @@ class RCISD_WaveFunction(WaveFunction):
         return wf
 
     def get_cisdvec(self):
+        if self.projector is not None:
+            raise NotImplementedError
         return np.hstack((self.c0, self.c1.ravel(), self.c2.ravel()))
 
     def as_fci(self):
@@ -892,8 +893,18 @@ class UCISD_WaveFunction(RCISD_WaveFunction):
             wf = wf.project(proj)
         return wf
 
+    def get_cisdvec(self):
+        if self.projector is not None:
+            raise NotImplementedError
+        return pyscf.ci.ucisd.amplitudes_to_cisdvec(self.c0, self.c1, self.c2)
+
     def as_fci(self):
-        raise NotImplementedError
+        norb = self.mo.norb
+        if norb[0] != norb[1]:
+            # TODO: Allow padding via frozen argument?
+            raise NotImplementedError
+        ci = pyscf.ci.ucisd.to_fcivec(self.get_cisdvec(), norb[0], self.mo.nelec)
+        return RFCI_WaveFunction(self.mo, ci, projector=self.projector)
 
 
 def CISD_WaveFunction(mo, c0, c1, c2, **kwargs):
