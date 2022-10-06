@@ -238,15 +238,14 @@ class UFCI_Solver(FCI_Solver):
         norm = 1/self.c0 if intermed_norm else 1
         return (norm*self.c2[0], norm*self.c2[1], norm*self.c2[2])
 
-    #def get_cisd_amps(self, civec):
-    #    cisdvec = pyscf.ci.ucisd.from_fcivec(civec, self.ncas, self.nelec)
-    #    c0, (c1a, c1b), (c2aa, c2ab, c2bb) = pyscf.ci.ucisd.cisdvec_to_amplitudes(cisdvec, 2*[self.ncas], self.nelec)
-    #    c1a = c1a/c0
-    #    c1b = c1b/c0
-    #    c2aa = c2aa/c0
-    #    c2ab = c2ab/c0
-    #    c2bb = c2bb/c0
-    #    return c0, (c1a, c1b), (c2aa, c2ab, c2bb)
+    def get_cisd_init_guess(self):
+        """Remove once PySCF PR #1450 is accepted."""
+        if getattr(self.mf, 'with_df', None) is not None:
+            try:
+                return super().get_cisd_init_guess()
+            except NotImplementedError:
+                self.log.warning("DF-UCISD not implemented in PySCF. Using HF determinant as initial guess.")
+                return None
 
     def get_cisd_amps(self, civec, intermed_norm=False):
         norba, norbb = self.cluster.norb_active
