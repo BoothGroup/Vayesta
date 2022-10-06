@@ -179,8 +179,7 @@ class CCSD_Solver(ClusterSolver):
                 self.log.error("Lambda-equations not converged!")
         else:
             self.log.info("Using Lambda=T approximation for Lambda-amplitudes.")
-            l1, l2 = solver.t1, solver.t2
-
+            l1, l2 = self.solver.t1, self.solver.t2
 
         # Remove screening (for energy calculation etc)
         if hasattr(eris, 'restore_bare'):
