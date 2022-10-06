@@ -77,12 +77,11 @@ def build_screened_eris(emb, fragments=None, cderi_ov=None, calc_e=True, npoints
         amb = einsum("pn,qn,n->pq", rot, rot, eps)  # O(N^2 N_clus^4)
         # Everything from here on is independent of system size, scaling at most as O(N_clus^6)
         # (arrays have side length equal to number of cluster single-particle excitations).
-        mominv2 = np.linalg.inv(mom)
         e, c = np.linalg.eigh(mom)
-        log.info("Minimal eigenvalue of local zeroth moment: %e", min(e))
+        if min(e) < 1e-4:
+            log.warning("Small eigenvalue of local rpa moment in %s: %e", f.name, min(e))
 
         mominv = einsum("pn,n,qn->pq", c, e**(-1), c)
-        log.info("Deviation in different inversion approaches: %e", abs(mominv - mominv2))
         apb = dot(mominv, amb, mominv)
 
         # This is the renormalised coulomb kernel in the cluster.
@@ -97,10 +96,6 @@ def build_screened_eris(emb, fragments=None, cderi_ov=None, calc_e=True, npoints
         kcab = kc[:ova, ova:].reshape((no[0], nv[0], no[1], nv[1]))
         kcbb = kc[ova:, ova:].reshape((no[1], nv[1], no[1], nv[1]))
 
-        if kcaa.shape == kcbb.shape:
-            # This is not that meaningful, since the alpha and beta basis themselves may be different:
-            log.info("Screened interations in %s: spin-symmetry= %.3e  spin-dependence= %.3e",
-                     f.name, abs(kcaa-kcbb).max(), abs((kcaa+kcbb)/2-kcab).max())
         kc = (kcaa, kcab, kcbb)
         f._seris_ov = (kc, mom, amb)
         seris_ov.append(kc)
@@ -160,10 +155,6 @@ def get_screened_eris_full(eris, seris_ov, copy=True, log=None):
         out[v1,o1,o2,v2] = ov.transpose([1, 0, 2, 3])
         out[o1,v1,v2,o2] = ov.transpose([0, 1, 3, 2])
         out[v1,o1,v2,o2] = ov.transpose([1, 0, 3, 2])
-        if log:
-            maxidx = np.unravel_index(np.argmax(abs(full-out)), full.shape)
-            log.info("Maximally screened element of W(%2s|%2s): V= %.3e -> W= %.3e (delta= %.3e)",
-                     2*spins[0], 2*spins[1], full[maxidx], out[maxidx], out[maxidx]-full[maxidx])
         return out
 
     seris = (replace_ov(eris[0], seris_ov[0], 'aa'),

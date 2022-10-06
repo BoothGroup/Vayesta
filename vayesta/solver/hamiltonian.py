@@ -414,7 +414,7 @@ class RClusterHamiltonian:
             dev = [abs(x - spat).max() for x in m] + [abs(m[2].transpose(2, 3, 0, 1) - spat).max()]
             self.log.info("Largest change in screened interactions due to spin integration: %e", max(dev))
             return spat
-
+        seris = None
         if self.opts.screening is None:
             raise ValueError("Attempted to add screening to fragment with no screening protocol specified.")
         if self.opts.screening == "mrpa":
@@ -424,7 +424,6 @@ class RClusterHamiltonian:
             seris = screening_moment.get_screened_eris_full(bare_eris, seris_intermed[0], log=self.log)
             if spin_integrate:
                 seris = spin_integrate_and_report(seris)
-            return seris
         elif self.opts.screening[:4] == "crpa":
             bare_eris = self.get_eris_bare()
             delta, crpa = screening_crpa.get_frag_deltaW(self.mf, self._fragment, self.log)
@@ -438,9 +437,42 @@ class RClusterHamiltonian:
                     seris = bare_eris + delta
                 else:
                     seris = tuple([x + y for x, y in zip(bare_eris, delta)])
-                return seris
         else:
             raise ValueError("Unknown cluster screening protocol: %s" % self.opts.screening)
+
+        def report_screening(screened, bare, spins):
+            maxidx = np.unravel_index(np.argmax(abs(screened-bare)), bare.shape)
+            if spins is None:
+                wstring = "W"
+            else:
+                wstring = "W(%2s|%2s)" % (2*spins[0], 2*spins[1])
+            self.log.info(
+                "Maximally screened element of %s: V= %.3e -> W= %.3e (delta= %.3e)",
+                     wstring, bare[maxidx], screened[maxidx], screened[maxidx]-bare[maxidx])
+            #self.log.info(
+            #    "           Corresponding norms%s: ||V||= %.3e, ||W||= %.3e, ||delta||= %.3e",
+            #              " " * len(wstring), np.linalg.norm(bare), np.linalg.norm(screened),
+            #              np.linalg.norm(screened-bare))
+
+        if spin_integrate:
+            report_screening(seris, bare_eris, None)
+        else:
+            report_screening(seris[0], bare_eris[0], "aa")
+            report_screening(seris[1], bare_eris[1], "ab")
+            report_screening(seris[2], bare_eris[2], "bb")
+
+            def get_sym_breaking(norm_aa, norm_ab, norm_bb):
+                spinsym = abs(norm_aa - norm_bb)/ ((norm_aa + norm_bb)/2)
+                spindep = abs((norm_aa+norm_bb)/2-norm_ab) / ((norm_aa+norm_bb+norm_ab)/3)
+                return spinsym, spindep
+
+            bss, bsd = get_sym_breaking(*[np.linalg.norm(x) for x in bare_eris])
+            sss, ssd = get_sym_breaking(*[np.linalg.norm(x) for x in seris])
+            dss, dsd = get_sym_breaking(*[np.linalg.norm(x-y) for x,y in zip(bare_eris, seris)])
+
+            self.log.info("Proportional spin symmetry breaking in norms: V= %.3e, W= %.3e, (W-V= %.3e)", bss, sss, dss)
+            self.log.info("Proportional spin dependence in norms: V= %.3e, W= %.3e, (W-V= %.3e)", bsd, ssd, dsd)
+        return seris
 
     def assert_equal_spin_channels(self, message=""):
         na, nb = self.ncas
