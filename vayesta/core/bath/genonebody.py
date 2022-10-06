@@ -167,12 +167,27 @@ class Gen_1b_Bath_RHF(Bath):
             # mo_svd returns the orbitals in the basis of the occupied environment states
             # sv returns the singular values of all bath orbitals (zero if environment)
             # orders returns the order of the bath orbitals (inf if environment)
-            mo_svd, sv, orders = recursive_block_svd(mat_1b, n=nproj_space,    \
+            mo_svd, sv, orders, weights = recursive_block_svd(mat_1b, n=nproj_space,    \
                     tol=self.svd_tol, maxblock=self.depth[mat_ind])
 
             nbath_order = [np.count_nonzero(np.isclose(orders, float(x))) for x in range(1,self.depth[mat_ind]+1)]
             nbath = np.sum(nbath_order)
             nbath_svd += nbath
+            trunc_thresh = np.full((nbath,), 0.0)
+            cum_weights = np.full((nbath,), 0.0)
+
+            for i in range(nbath):
+                order = int(round(orders[i]))
+                if order == 1:
+                    trunc_thresh[i] = sv[i]
+                    cum_weights[i] = np.dot(weights[:,i],weights[:,i])
+                elif order > 1:
+                    mask_prev_ord = np.isclose(orders, float(order-1))
+                    for j in range(nbath_order[order-2]):
+                        cum_weights[i] = cum_weights[mask_prev_ord][j] * sv[mask_prev_ord][j] * weights[j,i]**2
+                        trunc_thresh[i] = cum_weights[i] * sv[i]
+                else:
+                    raise ValueError
 
             # Store the singular values, the order depth of each bath, and which matrix the bath was derived from
             if svs is None:
@@ -186,10 +201,14 @@ class Gen_1b_Bath_RHF(Bath):
             assert(mat_svd.shape[0] == orders_full.shape[0])
 
             for i in range(self.depth[mat_ind]):
+                if nbath_order[i] == 0:
+                    self.log.info("At recursion level {}, we get no more bath orbitals, so cannot go to the full recursion depth desired".format(i+1))
+                    self.log.info("If this is not the full space, then decrease svd_tol to continue to grow the bath space...")
+                    break
                 self.log.info("From recursion {}, we get {} {} bath orbitals (of possible {})".format(i+1, nbath_order[i], self.occtype, nproj_space))
                 self.log.info("SVs = %r",sv[np.isclose(orders, float(i+1))])
             self.log.changeIndentLevel(-1)
-
+            
             # Rotate to AO
             c = dot(c_env, mo_svd)
             # Update the environment space to consist of the singular right vectors, and bath space found

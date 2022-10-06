@@ -26,12 +26,16 @@ def recursive_block_svd(a, n, tol=1e-10, maxblock=100):
         Singular values.
     order : (m-n) array
         Orders.
+    weights : (n, m-n) array
+        Left singular vectors from each successive SVD, in the basis of previous singular vectors,
+        i.e. the weights of the given vector in the basis of the previous order singular vectors
     """
     size = a.shape[-1]
     log.debugv("Recursive block SVD of %dx%d matrix" % a.shape)
     coeff = np.eye(size)
     sv = np.full((size-n,), 0.0)
     orders = np.full((size-n,), np.inf)
+    weights = np.full((n,size), 0.0)
 
     ndone = 0
     low = np.s_[:n]
@@ -54,6 +58,7 @@ def recursive_block_svd(a, n, tol=1e-10, maxblock=100):
         coeff[:,env] = np.dot(coeff[:,env], rot)
         sv[ndone:(ndone+ncpl)] = s[:ncpl]
         orders[ndone:(ndone+ncpl)] = order
+        weights[:u.shape[0],ndone:(ndone+ncpl)] = u[:,:ncpl]
         # Update spaces
         low = np.s_[(n+ndone):(n+ndone+ncpl)]
         env = np.s_[(n+ndone+ncpl):]
@@ -70,7 +75,7 @@ def recursive_block_svd(a, n, tol=1e-10, maxblock=100):
     assert np.allclose(np.dot(coeff.T, coeff)-np.eye(coeff.shape[-1]), 0)
     log.debugv("SV= %r", sv)
     log.debugv("orders= %r", orders)
-    return coeff, sv, orders
+    return coeff, sv, orders, weights
 
 
 if __name__ == '__main__':
