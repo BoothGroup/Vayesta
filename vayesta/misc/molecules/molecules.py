@@ -9,11 +9,11 @@ def _load_datafile(filename):
     atom = [[atoms[i], coords[i]] for i in range(len(atoms))]
     return atom
 
-def water(atoms=['O', 'H'], origin=(0, 0, 0)):
+def water(atoms=['O', 'H'], origin=(0, 0, 0), scale=1):
     origin = np.asarray(origin)
-    atom = [[atoms[0], np.asarray([0.0000,  0.0000,  0.1173]) - origin],
-            [atoms[1], np.asarray([0.0000,  0.7572, -0.4692]) - origin],
-            [atoms[1], np.asarray([0.0000, -0.7572, -0.4692]) - origin]]
+    atom = [[atoms[0], scale*np.asarray([0.0000,  0.0000,  0.1173]) - origin],
+            [atoms[1], scale*np.asarray([0.0000,  0.7572, -0.4692]) - origin],
+            [atoms[1], scale*np.asarray([0.0000, -0.7572, -0.4692]) - origin]]
     return atom
 
 def alkane(n, atoms=['C', 'H'], cc_bond=1.54, ch_bond=1.09, scale=1.0, numbering=False):
