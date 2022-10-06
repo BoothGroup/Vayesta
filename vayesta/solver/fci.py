@@ -31,7 +31,7 @@ class FCI_Solver(ClusterSolver):
         fix_spin: float = 0.0       # If set to a number, the given S^2 value will be enforced
         fix_spin_penalty: float = 1.0
         davidson_only: bool = True
-        init_guess: str = 'CISD'
+        init_guess: str = 'default'
         init_guess_noise: float = 1e-5
 
     cisd_solver = CISD_Solver
@@ -43,6 +43,8 @@ class FCI_Solver(ClusterSolver):
         solver = solver_cls(self.mol)
         self.log.debugv("type(solver)= %r", type(solver))
         # Set options
+        if self.opts.init_guess == 'default':
+            self.opts.init_guess = 'CISD'
         if self.opts.threads is not None:
             solver.threads = self.opts.threads
         if self.opts.conv_tol is not None:
