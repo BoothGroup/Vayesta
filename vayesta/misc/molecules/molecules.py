@@ -1,11 +1,11 @@
 import os.path
 import numpy as np
 
-def _load_datafile(filename):
+def _load_datafile(filename, scale=1):
     datafile = os.path.join(os.path.dirname(__file__), os.path.join("data", filename))
     data = np.loadtxt(datafile, dtype=[("atoms", object), ("coords", np.float64, (3,))])
     atoms = data["atoms"]
-    coords = data["coords"]
+    coords = scale*data["coords"]
     atom = [[atoms[i], coords[i]] for i in range(len(atoms))]
     return atom
 
@@ -110,8 +110,8 @@ def no2():
 	]
     return atom
 
-def ethanol(oh_bond=None):
-    atom = _load_datafile('ethanol.dat')
+def ethanol(oh_bond=None, scale=1):
+    atom = _load_datafile('ethanol.dat', scale=scale)
     if oh_bond is not None:
         pos_o = atom[2][1]
         pos_h = atom[3][1]
