@@ -173,9 +173,14 @@ class Gen_1b_Bath_RHF(Bath):
             nbath_order = [np.count_nonzero(np.isclose(orders, float(x))) for x in range(1,self.depth[mat_ind]+1)]
             nbath = np.sum(nbath_order)
             nbath_svd += nbath
+
+            # Find a truncation threshold for each (potential) bath orbital.
+            # This is found by taking the singular value of the vector, and multiplying it by
+            # the singular values of the previous order states to which it is coupled, multiplied
+            # by the weight (left singular vectors), and so on, recursively until it is describing
+            # the coupling to the original fragment states.
             trunc_thresh = np.full((nbath,), 0.0)
             cum_weights = np.full((nbath,), 0.0)
-
             for i in range(nbath):
                 order = int(round(orders[i]))
                 if order == 1:
@@ -183,9 +188,10 @@ class Gen_1b_Bath_RHF(Bath):
                     cum_weights[i] = np.dot(weights[:,i],weights[:,i])
                 elif order > 1:
                     mask_prev_ord = np.isclose(orders, float(order-1))
+                    cum_weights[i] = 0.
                     for j in range(nbath_order[order-2]):
-                        cum_weights[i] = cum_weights[mask_prev_ord][j] * sv[mask_prev_ord][j] * weights[j,i]**2
-                        trunc_thresh[i] = cum_weights[i] * sv[i]
+                        cum_weights[i] += cum_weights[mask_prev_ord][j] * sv[mask_prev_ord][j] * weights[j,i]**2
+                    trunc_thresh[i] = cum_weights[i] * sv[i]
                 else:
                     raise ValueError
 
@@ -194,10 +200,12 @@ class Gen_1b_Bath_RHF(Bath):
                 svs = sv[np.isfinite(orders)]
                 orders_full = orders[np.isfinite(orders)]
                 mat_svd = np.asarray([mat_ind]*nbath)
+                trunc_thresh_full = trunc_thresh.copy()
             else:
                 svs = np.concatenate((svs, sv[np.isfinite(orders)]))
                 orders_full = np.concatenate((orders_full, orders[np.isfinite(orders)]))
                 mat_svd = np.concatenate((mat_svd, np.asarray([mat_ind]*nbath)))
+                trunc_thresh_full = np.concatenate((trunc_thresh_full, trunc_thresh))
             assert(mat_svd.shape[0] == orders_full.shape[0])
 
             for i in range(self.depth[mat_ind]):
@@ -208,6 +216,14 @@ class Gen_1b_Bath_RHF(Bath):
                 self.log.info("From recursion {}, we get {} {} bath orbitals (of possible {})".format(i+1, nbath_order[i], self.occtype, nproj_space))
                 self.log.info("SVs = %r",sv[np.isclose(orders, float(i+1))])
             self.log.changeIndentLevel(-1)
+            print(np.power(weights,2))
+            print('***')
+            print(orders_full)
+            print('***')
+            print(svs)
+            print('***')
+            print(trunc_thresh_full)
+            1./0
             
             # Rotate to AO
             c = dot(c_env, mo_svd)
