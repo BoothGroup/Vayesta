@@ -154,6 +154,10 @@ class Fragmentation:
             fragments.append(frag)
         return fragments
 
+    def add_full_system(self, name='full-system', **kwargs):
+        atoms = list(range(self.mol.natm))
+        return self.add_atomic_fragment(atoms, name=name, **kwargs)
+
     def _add_fragment(self, indices, name, **kwargs):
         if len(indices) == 0:
             raise ValueError("Fragment %s is empty." % name)
