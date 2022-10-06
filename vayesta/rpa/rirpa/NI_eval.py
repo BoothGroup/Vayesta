@@ -174,14 +174,12 @@ class NumericalIntegratorBase:
         try:
             solve, res = scipy.optimize.newton(get_val, x0=ainit, fprime=get_grad, tol=1e-8, maxiter=30,
                                                fprime2=get_deriv2, full_output=True)
-        except RuntimeError or NIException:
+        except (RuntimeError, NIException):
             opt_min = True
         else:
             # Did we find a root?
             opt_min = not res.converged
         if opt_min:
-            fmin = abs(get_val(mini))
-            fmax = abs(get_val(maxi))
             res = scipy.optimize.minimize_scalar(lambda freq: abs(get_val(freq)),
                                                  bounds=(mini, maxi), method="bounded")
             if not res.success:
@@ -314,6 +312,7 @@ class NumericalIntegratorClenCurInfinite(NumericalIntegratorClenCur):
         self.even = even
 
     def get_quad(self, a):
+        # Don't care about negative values, since grid should be symmetric about x=0.
         return gen_ClenCur_quad_inf(a, self.npoints, self.even)
 
 
@@ -322,6 +321,8 @@ class NumericalIntegratorClenCurSemiInfinite(NumericalIntegratorClenCur):
         super().__init__(out_shape, diag_shape, npoints, log)
 
     def get_quad(self, a):
+        if a < 0:
+            raise NIException("Negative quadrature scaling factor not permitted.")
         return gen_ClenCur_quad_semiinf(a, self.npoints)
 
 
@@ -337,22 +338,15 @@ class NumericalIntegratorGaussianSemiInfinite(NumericalIntegratorBase):
     def npoints(self, value):
         """For Gaussian quadrature recalculating the points and weights every time won't be performant;
         instead lets cache them each time npoints is changed."""
+        if value > 100:
+            self.log.warning("Gauss-Laguerre quadrature with degree over 100 may be problematic due to numerical "
+                             "ill-conditioning in the quadrature construction. Watch out for floating-point overflows!")
         self._points, self._weights = np.polynomial.laguerre.laggauss(value)
-        if any(self._points < 0.0):
-            self.log.warn("%d erroneous negative frequency points encountered when generating %d-point Gauss-Laguerre quadrature."
-                          "Regenerating..", sum(self._points < 0.0), self.npoints)
-            # Generally seems to regenerate the same, so use alternative scipy implementation.
-            self._points, self._weights = scipy.special.roots_laguerre(value)
-
-            if any(self._points < 0.0):
-                sumweights = sum(abs(self._weights[self._points<0.0]))
-                self.log.warning("Summed weight of negative freqency points: %e", sumweights)
-                self.log.critical("Could not generate %d-point Gauss-Laguerre quadrature.", format(self.npoints))
-                raise RuntimeError("Could not generate {:d}-point Gauss-Laguerre quadrature.".format(self.npoints))
-
         self._weights = np.array([w * np.exp(p) for (p, w) in zip(self._points, self._weights)])
 
     def get_quad(self, a):
+        if a < 0:
+            raise NIException("Negative quadrature scaling factor not permitted.")
         return a * self._points, a * self._weights
 
 
