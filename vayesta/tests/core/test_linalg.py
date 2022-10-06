@@ -32,7 +32,7 @@ class LinalgTests(TestCase):
         nimp = c_frag.shape[-1]
         c = np.hstack((c_frag, c_env))
         f = np.linalg.multi_dot((c.T, fock, c))
-        mo_svd2, sv, orders = linalg.recursive_block_svd(f, n=nimp)
+        mo_svd2, sv, orders, weights = linalg.recursive_block_svd(f, n=nimp)
         mo_svd2 = np.dot(c_env, mo_svd2)
 
         e_svd = np.linalg.eigh(np.dot(mo_svd, mo_svd.T))[0]
