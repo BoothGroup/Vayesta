@@ -27,6 +27,7 @@ from vayesta.core.bath import EwDMET_Bath
 from vayesta.core.bath import MP2_Bath
 from vayesta.core.bath import Full_Bath
 from vayesta.core.bath import R2_Bath
+from vayesta.core.bath import Gen_1b_Bath
 # Other
 from vayesta.misc.cubefile import CubeFile
 from vayesta.mpi import mpi
@@ -772,6 +773,14 @@ class Fragment:
                 else:
                     c_buffer = None
                 return MP2_Bath(self, dmet_bath=dmet, occtype=occtype, c_buffer=c_buffer, project_t2=project_t2)
+            # Generalized one-body bath from entanglement from arbitrary one-body objects
+            if btype == 'gen-onebody':
+                svd_tol = get_opt('svd_tol', occtype)
+                depth = get_opt('depth', occtype)
+                oneb_mats = get_opt('oneb_mats', occtype)
+                covariant = get_opt('covariant', occtype)
+                return Gen_1b_Bath(self, dmet_bath=dmet, occtype=occtype, svd_tol=svd_tol, depth=depth, \
+                        oneb_mats=oneb_mats, covariant=covariant)
             raise NotImplementedError('bathtype= %s' % btype)
         self._bath_factory_occ = get_bath(occtype='occupied')
         self._bath_factory_vir = get_bath(occtype='virtual')
@@ -799,6 +808,8 @@ class Fragment:
                 truncation = get_opt('truncation', occtype)
                 bno_threshold = BNO_Threshold(truncation, threshold)
                 c_bath, c_frozen = factory.get_bath(bno_threshold)
+            if btype == 'gen-onebody':
+                c_bath, c_frozen = factory.get_bath()
             return c_bath, c_frozen
 
         c_bath_occ, c_frozen_occ = get_orbitals('occupied')
