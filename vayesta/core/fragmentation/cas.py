@@ -27,15 +27,15 @@ class CAS_Fragmentation(Fragmentation):
             return orbital_indices, orbital_labels
         raise ValueError("A list of integers is required! orbitals= %r" % orbitals)
 
-    def add_cas_fragment(self, nelec, ncas, name=None, degen_tol=1e-10):
+    def add_cas_fragment(self, ncas, nelec, name=None, degen_tol=1e-10):
         """Create a single fragment containing a CAS.
 
         Parameters
         ----------
-        nelec: int
-            Number of electrons within the fragment.
         ncas: int
             Number of spatial orbitals within the fragment.
+        nelec: int
+            Number of electrons within the fragment.
         name: str, optional
             Name for the fragment. If None, a name is automatically generated from the orbital indices. Default: None.
         """
@@ -61,19 +61,36 @@ class CAS_Fragmentation(Fragmentation):
             raise ValueError(
                 "Cannot create CAS with required properties around Fermi level with current MO occupancy.")
 
-        def check_for_degen(energies, po, pv):
-            ogap = abs(energies[po] - energies[po - 1])
+        def check_for_degen(energies, po, pv, name=""):
+            if po > 0:
+                ogap = energies[po] - energies[po - 1]
+                self.log.info(name+"CAS occupied energy gap: %e (= %e - %e)", ogap, energies[po], energies[po - 1])
+            elif po == 0:
+                self.log.info(name+"CAS contains all occupied orbitals.")
+                ogap = np.inf
+            else:
+                # Shouldn't reach this as would require CAS to have more electrons than the full system.
+                raise ValueError("CAS would contain more electrons than full system.")
+
             if ogap < degen_tol:
-                raise ValueError("Requested CAS splits degenerate occupied orbitals.")
-            vgap = abs(energies[pv] - energies[pv + 1])
+                raise ValueError("Requested {:s}CAS splits degenerate occupied orbitals.".format(name))
+
+            try:
+                vgap = energies[pv] - energies[pv - 1]
+            except IndexError:
+                assert(pv == len(energies))
+                self.log.info(" "*len(name)+"    contains all virtual orbitals.")
+                vgap = np.inf
+            else:
+                self.log.info(" "*len(name)+"    virtual energy gap: %e (= %e - %e)", vgap, energies[pv], energies[pv - 1])
             if vgap < degen_tol:
                 raise ValueError("Requested CAS splits degenerate virtual orbitals.")
 
         if self.emb.is_rhf:
             check_for_degen(self.emb.mo_energy, anyocc[-1] - offset, anyocc[-1] - offset + ncas)
         else:
-            check_for_degen(self.emb.mo_energy[0], anyocc[-1] - offset, anyocc[-1] - offset + ncas)
-            check_for_degen(self.emb.mo_energy[1], anyocc[-1] - offset, anyocc[-1] - offset + ncas)
+            check_for_degen(self.emb.mo_energy[0], anyocc[-1] - offset, anyocc[-1] - offset + ncas, "alpha ")
+            check_for_degen(self.emb.mo_energy[1], anyocc[-1] - offset, anyocc[-1] - offset + ncas, "beta ")
 
         orbs = list(range(anyocc[-1] - offset, anyocc[-1] - offset + ncas))
         self.add_orbital_fragment(orbs, name=name)

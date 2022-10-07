@@ -390,7 +390,7 @@ class MoleculeTestsUnrestricted(unittest.TestCase):
                 },
         )
         with rewf.cas_fragmentation() as f:
-            f.add_cas_fragment(2, 4)
+            f.add_cas_fragment(4, 2)
         rewf.kernel()
 
         uewf = ewf.UEWF(
@@ -402,7 +402,7 @@ class MoleculeTestsUnrestricted(unittest.TestCase):
                 },
         )
         with uewf.cas_fragmentation() as f:
-            f.add_cas_fragment(2, 4)
+            f.add_cas_fragment(4, 2)
         uewf.kernel()
 
         self.assertAlmostEqual(rewf.e_corr, uewf.e_corr, self.PLACES_ENERGY)
