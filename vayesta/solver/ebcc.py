@@ -172,9 +172,12 @@ class EB_REBCC_Solver(REBCC_Solver):
     @dataclasses.dataclass
     class Options(REBCC_Solver.Options):
         ansatz: str = "CCSD-S-1-1"
+        fermion_wf: bool = False
 
     @property
     def is_fCCSD(self):
+        if self.opts.fermion_wf:
+            return super().is_fCCSD
         return False
 
     def get_nonnull_solver_opts(self):
