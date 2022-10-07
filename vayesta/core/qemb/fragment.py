@@ -980,6 +980,8 @@ class Fragment:
         solver_cls = get_solver_class(cl_ham, solver)
         solver_opts = self.get_solver_options(solver)
         cluster_solver = solver_cls(cl_ham, **solver_opts)
+        if self.opts.screening is not None:
+            cluster_solver.hamil.add_screening(self._seris_ov)
         return cluster_solver
 
     def get_solver_options(self, *args, **kwargs):

@@ -44,7 +44,7 @@ def build_screened_eris(emb, fragments=None, cderi_ov=None, calc_e=True, npoints
     # --- Setup
     if fragments is None:
         fragments = emb.get_fragments(active=True, sym_parent=None, mpi_rank=mpi.rank)
-    fragments = [f for f in fragments if f.opts.screening == 'rpa']
+    fragments = [f for f in fragments if f.opts.screening == 'mrpa']
     if emb.spinsym != 'unrestricted':
         raise NotImplementedError("Screened interactions require a spin-unrestricted formalism.")
     if emb.df is None:

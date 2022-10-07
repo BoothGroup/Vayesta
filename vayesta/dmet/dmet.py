@@ -128,7 +128,7 @@ class DMET(Embedding):
             if type(nelec_mf) == tuple:
                 nelec_mf = sum(nelec_mf)
 
-            if self.opts.screening == 'rpa':
+            if self.opts.screening == 'mrpa':
                 for f in self.get_fragments(sym_parent=None):
                     f.make_bath()
                     f.make_cluster()

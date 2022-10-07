@@ -262,6 +262,8 @@ class Fragment(BaseFragment):
         self._results = results = self.Results(fid=self.id, n_active=cluster.norb_active,
                 converged=cluster_solver.converged, wf=cluster_solver.wf, pwf=pwf)
 
+        eris = cluster_solver.hamil.get_eris_bare()
+
         # --- Correlation energy contributions
         if self.opts.calc_e_wf_corr:
             ci = cluster_solver.wf.as_cisd(c0=1.0)
