@@ -224,7 +224,8 @@ def get_vvVV(eris, block='vvVV'):
         if gvvvv.ndim == 4:
             return gvvvv[:]
         else:
-            xVV = pyscf.lib.unpack_tril(gvvvv[:], axis=0).reshape(nvirL**2, -1)
+            nvv = (-1 if gvvvv.size else 0)
+            xVV = pyscf.lib.unpack_tril(gvvvv[:], axis=0).reshape(nvirL**2, nvv)
             return pyscf.lib.unpack_tril(xVV[:], axis=1).reshape(nvirL,nvirL,nvirR,nvirR)
     raise NotImplementedError
 
@@ -433,9 +434,7 @@ def contract_dm2intermeds_eris_uhf(dm2, eris, destroy_dm2=True):
     e2 += _contract_4d(_get_block('ovOV'), eris.ovOV) * 4
     e2 += _contract_4d(_get_block('ovVV'), get_ovVV(eris, block='ovVV')) * 4
     e2 += _contract_4d(_get_block('OVvv'), get_ovVV(eris, block='OVvv')) * 4
-    gamma_vvVV = _get_block('vvVV')
-    if not 0 in gamma_vvVV.shape:
-        e2 += _contract_4d(gamma_vvVV, get_vvVV(eris)) * 2
+    e2 += _contract_4d(_get_block('vvVV'), get_vvVV(eris)) * 2
     return e2
 
 
