@@ -26,7 +26,15 @@ class TestCase(unittest.TestCase):
                 self.assertAllclose(actual[i], desired[i], rtol=rtol, atol=atol, **kwargs)
             return
         # Compare single pair of arrays:
-        np.testing.assert_allclose(actual, desired, rtol=rtol, atol=atol, **kwargs)
+        try:
+            np.testing.assert_allclose(actual, desired, rtol=rtol, atol=atol, **kwargs)
+        except AssertionError as e:
+            # Add higher precision output:
+            message = e.args[0]
+            args = e.args[1:]
+            message += '\nHigh precision:\n x: %r\n y: %r' % (actual, desired)
+            e.args = (message, *args)
+            raise
 
 
 if __name__ == '__main__':
