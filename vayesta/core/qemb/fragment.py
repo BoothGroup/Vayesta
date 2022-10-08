@@ -1027,11 +1027,9 @@ class Fragment:
         check_solver_config(is_uhf, is_eb, solver, self.log)
 
     def get_solver(self, solver=None):
-
         if solver is None:
             solver = self.solver
         cl_ham = self.hamil
-
         solver_cls = get_solver_class(cl_ham, solver)
         solver_opts = self.get_solver_options(solver)
         cluster_solver = solver_cls(cl_ham, **solver_opts)
@@ -1040,9 +1038,10 @@ class Fragment:
         return cluster_solver
 
     def get_frag_hamil(self):
+        if self.opts.screening is not None:
+            if "crpa_full" in self.opts.screening:
+                self.bos_freqs, self.couplings = get_frag_W(self.mf, self, self.log)
         # This detects based on fragment what kind of Hamiltonian is appropriate (restricted and/or EB).
-        if "crpa_full" in self.opts.screening:
-            self.bos_freqs, self.couplings = get_frag_W(self.mf, self, self.log)
         return ClusterHamiltonian(self, self.mf, self.log, screening=self.opts.screening,
                                   cache_eris=self.opts.store_eris)
 
