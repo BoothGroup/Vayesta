@@ -408,11 +408,16 @@ class RClusterHamiltonian:
 
     def _add_screening(self, seris_intermed=None, spin_integrate=True):
 
-        def spin_integrate_and_report(m):
+        def spin_integrate_and_report(m, warn_threshold=1e-6):
             spat = (m[0] + m[1] + m[2] + m[1].transpose((2, 3, 0, 1))) / 4.0
 
             dev = [abs(x - spat).max() for x in m] + [abs(m[2].transpose(2, 3, 0, 1) - spat).max()]
             self.log.info("Largest change in screened interactions due to spin integration: %e", max(dev))
+            if max(dev) > warn_threshold:
+                self.log.warning("Significant change in screened interactions due to spin integration: %e", max(dev))
+            else:
+                self.log.info("Largest change in screened interactions due to spin integration: %e", max(dev))
+
             return spat
         seris = None
         if self.opts.screening is None:

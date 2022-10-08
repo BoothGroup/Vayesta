@@ -45,8 +45,6 @@ def build_screened_eris(emb, fragments=None, cderi_ov=None, calc_e=True, npoints
     if fragments is None:
         fragments = emb.get_fragments(active=True, sym_parent=None, mpi_rank=mpi.rank)
     fragments = [f for f in fragments if f.opts.screening == 'mrpa']
-    if emb.spinsym != 'unrestricted':
-        raise NotImplementedError("Screened interactions require a spin-unrestricted formalism.")
     if emb.df is None:
         raise NotImplementedError("Screened interactions require density-fitting.")
     r_occs = [f.get_overlap('mo[occ]|cluster[occ]') for f in fragments]
@@ -59,8 +57,14 @@ def build_screened_eris(emb, fragments=None, cderi_ov=None, calc_e=True, npoints
 
     # Then construct the RPA coupling matrix A-B, given by the diagonal matrix of energy differences.
     no = np.array(sum(emb.mf.mo_occ.T > 0))
-    norb = np.array(emb.mo_coeff).shape[1]
+    if no.size == 1: no = np.array([int(no), int(no)])
+    norb = emb.mo_coeff[0].shape[0]
     nv = norb - no
+
+    mo_e = emb.mf.mo_energy
+
+    if isinstance(mo_e[0], float):
+        mo_e = np.array([mo_e, mo_e])
 
     def get_eps_singlespin(no_, nv_, mo_energy):
         eps = np.zeros((no_, nv_))
@@ -68,8 +72,8 @@ def build_screened_eris(emb, fragments=None, cderi_ov=None, calc_e=True, npoints
         eps = (eps.T - mo_energy[:no_]).T
         eps = eps.reshape(-1)
         return eps
-    eps = np.concatenate([get_eps_singlespin(no[0], nv[0], emb.mf.mo_energy[0]),
-                          get_eps_singlespin(no[1], nv[1], emb.mf.mo_energy[1])])
+    eps = np.concatenate([get_eps_singlespin(no[0], nv[0], mo_e[0]),
+                          get_eps_singlespin(no[1], nv[1], mo_e[1])])
 
     # And use this to perform inversion to calculate interaction in cluster.
     seris_ov = []
@@ -92,6 +96,10 @@ def build_screened_eris(emb, fragments=None, cderi_ov=None, calc_e=True, npoints
         # indices.
         no = f.cluster.nocc_active
         nv = f.cluster.nvir_active
+        if isinstance(no, int):
+            no = (no, no)
+            nv = (nv, nv)
+
         kcaa = kc[:ova, :ova].reshape((no[0], nv[0], no[0], nv[0]))
         kcab = kc[:ova, ova:].reshape((no[0], nv[0], no[1], nv[1]))
         kcbb = kc[ova:, ova:].reshape((no[1], nv[1], no[1], nv[1]))
@@ -156,6 +164,9 @@ def get_screened_eris_full(eris, seris_ov, copy=True, log=None):
         out[o1,v1,v2,o2] = ov.transpose([0, 1, 3, 2])
         out[v1,o1,v2,o2] = ov.transpose([1, 0, 3, 2])
         return out
+
+    if isinstance(eris, np.ndarray):
+        eris = (eris, eris, eris)
 
     seris = (replace_ov(eris[0], seris_ov[0], 'aa'),
              replace_ov(eris[1], seris_ov[1], 'ab'),
@@ -242,6 +253,10 @@ def _get_target_rot(r_active_occs, r_active_virs):
     target_rots = []
 
     for i, (r_o, r_v) in enumerate(zip(r_active_occs, r_active_virs)):
+
+        if isinstance(r_o, np.ndarray):
+            r_o = (r_o, r_o)
+            r_v = (r_v, r_v)
 
         arot, ova = get_target_rot_spat(r_o[0], r_v[0])
         brot, ovb = get_target_rot_spat(r_o[1], r_v[1])
