@@ -10,6 +10,10 @@ from pyscf.lib import logger
 from pyscf.ao2mo import _ao2mo
 from pyscf import __config__
 
+
+class cRPAError(RuntimeError):
+    pass
+
 def get_frag_W(mf, fragment, log=None):
     """Generates screened coulomb interaction due to screening at the level of cRPA.
     Note that this currently scales as O(N_frag N^6), so is not practical without further refinement.
@@ -32,11 +36,17 @@ def get_frag_W(mf, fragment, log=None):
     """
 
     log.info("Generating screened interaction via frequency dependent cRPA.")
-
-    l_a, l_b, crpa = set_up_W_crpa(mf, fragment, log)
-    freqs = crpa.freqs_ss
+    try:
+        l_a, l_b, crpa = set_up_W_crpa(mf, fragment, log)
+    except cRPAError as e:
+        freqs = np.zeros((0,))
+        nmo = mf.mo_coeff.shape[1]
+        couplings = (np.zeros((0, nmo, nmo)), np.zeros((0, nmo, nmo)))
+    else:
+        freqs = crpa.freqs_ss
+        couplings = (l_a, l_b)
     log.info("cRPA resulted in %d poles", len(freqs))
-    couplings = (l_a, l_b)
+
     return freqs, couplings
 
 
@@ -60,25 +70,29 @@ def get_frag_deltaW(mf, fragment, log=None):
     """
 
     log.info("Generating screened interaction via static limit of cRPA.")
+    try:
+        l_a, l_b, crpa = set_up_W_crpa(mf, fragment, log)
+    except cRPAError as e:
+        nmo = mf.mo_coeff.shape[1]
+        delta_w = tuple([np.zeros([nmo] * 4)] * 4)
+        crpa = None
+    else:
+        # Have a factor of -2 due to negative value of RPA dd response, and summation of
+        # the excitation and deexcitation branches of the dd response.
+        static_fac = - 2.0 * (crpa.freqs_ss ** (-1))
 
-    l_a, l_b, crpa = set_up_W_crpa(mf, fragment, log)
-    # Have a factor of -2 due to negative value of RPA dd response, and summation of
-    # the excitation and deexcitation branches of the dd response.
-    static_fac = - 2.0 * (crpa.freqs_ss ** (-1))
-
-    delta_w = (
-        einsum("npq,n,nrs->pqrs", l_a, static_fac, l_a),
-        einsum("npq,n,nrs->pqrs", l_a, static_fac, l_b),
-        einsum("npq,n,nrs->pqrs", l_b, static_fac, l_b),
-    )
+        delta_w = (
+            einsum("npq,n,nrs->pqrs", l_a, static_fac, l_a),
+            einsum("npq,n,nrs->pqrs", l_a, static_fac, l_b),
+            einsum("npq,n,nrs->pqrs", l_b, static_fac, l_b),
+        )
     return delta_w, crpa
 
 def set_up_W_crpa(mf, fragment, log=None):
     is_rhf = np.ndim(mf.mo_coeff[1]) == 1
     if not hasattr(mf, "with_df"):
         raise NotImplementedError("Screened interactions require density-fitting.")
-
-    crpa = get_crpa(mf, fragment)
+    crpa = get_crpa(mf, fragment, log)
     # Now need to calculate interactions.
     nmo = mf.mo_coeff.shape[1]
     nocc = sum(mf.mo_occ.T > 0)
@@ -116,7 +130,7 @@ def set_up_W_crpa(mf, fragment, log=None):
     return l_a, l_b, crpa
 
 
-def get_crpa(orig_mf, f):
+def get_crpa(orig_mf, f, log):
 
     def construct_crpa_rot(f):
         """Constructs the rotation of the overall mean-field space into which """
@@ -136,10 +150,12 @@ def get_crpa(orig_mf, f):
         return scipy.linalg.null_space(rot_ova).T, scipy.linalg.null_space(rot_ovb).T
 
     rot_ov = construct_crpa_rot(f)
+    if rot_ov[0].shape[0] == 0 and rot_ov[1].shape[0] == 0:
+        log.warning("cRPA space contains no excitations! Interactions will be unscreened.")
+        raise cRPAError("cRPA space contains no excitations!")
     # RPA calculation and new_mf will contain all required information for the response.
     crpa = ssRPA(orig_mf, ov_rot=rot_ov)
     crpa.kernel()
-
     return crpa
 
 

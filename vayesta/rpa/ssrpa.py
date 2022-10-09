@@ -213,11 +213,14 @@ class ssRPA:
         eps = eps.reshape((self.ova,))
 
         if self.ov_rot is not None:
-            epsa = einsum("pn,n,qn->pq", self.ov_rot[0], eps, self.ov_rot[0])
-            epsa, ca = scipy.linalg.eigh(epsa)
-            epsb = einsum("pn,n,qn->pq", self.ov_rot[1], eps, self.ov_rot[1])
-            epsb, cb = scipy.linalg.eigh(epsb)
-            self.ov_rot = (dot(ca.T, self.ov_rot[0]), dot(cb.T, self.ov_rot[1]))
+            if self.ov_rot[0].shape[0] > 0:
+                epsa = einsum("pn,n,qn->pq", self.ov_rot[0], eps, self.ov_rot[0])
+                epsa, ca = scipy.linalg.eigh(epsa)
+                self.ov_rot = (dot(ca.T, self.ov_rot[0]), self.ov_rot[1])
+            if self.ov_rot[1].shape[0] > 0:
+                epsb = einsum("pn,n,qn->pq", self.ov_rot[1], eps, self.ov_rot[1])
+                epsb, cb = scipy.linalg.eigh(epsb)
+                self.ov_rot = (self.ov_rot[0], dot(cb.T, self.ov_rot[1]))
         else:
             epsa = epsb = eps
 
