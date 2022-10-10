@@ -7,9 +7,8 @@ from vayesta.core.util import *
 
 from vayesta.solver import coupling, tccsd
 
-from pyscf import lib, ao2mo
 import pyscf.cc
-from . import _uccsd_eris
+from ._uccsd_eris import uao2mo
 
 
 class RCCSD_Solver(ClusterSolver):
@@ -166,25 +165,4 @@ class UCCSD_Solver(UClusterSolver, RCCSD_Solver):
 
 # Subclass pyscf UCCSD to enable support of
 class UCCSD(pyscf.cc.uccsd.UCCSD):
-    def ao2mo(self, mo_coeff=None):
-        nmoa, nmob = self.get_nmo()
-        nao = self.mo_coeff[0].shape[0]
-        nmo_pair = nmoa * (nmoa + 1) // 2
-        nao_pair = nao * (nao + 1) // 2
-        mem_incore = (max(nao_pair ** 2, nmoa ** 4) + nmo_pair ** 2) * 8 / 1e6
-        mem_now = lib.current_memory()[0]
-        if (self._scf._eri is not None):
-            assert (np.ndim(self._scf._eri[0]) == 4)
-            if (mem_incore + mem_now < self.max_memory or self.incore_complete):
-                ao2mofn = (
-                    lambda mo_coeff: ao2mo.restore(1, ao2mo.full(self._scf._eri[0], mo_coeff), mo_coeff.shape[1]),
-                    lambda mo_coeff: ao2mo.general(self._scf._eri[1], mo_coeff),
-                    lambda mo_coeff: ao2mo.restore(1, ao2mo.full(self._scf._eri[2], mo_coeff), mo_coeff.shape[1]),
-                )
-
-                return _uccsd_eris._make_eris_incore(self, mo_coeff, ao2mofn=ao2mofn)
-            else:
-                raise RuntimeError("Dense Cluster ERIs predicted to exceed available memory.")
-        else:
-            raise NotImplementedError("Current modifications to only support spin-dependent eris in UCCSD without "
-                                      "density fitting.")
+    ao2mo = uao2mo

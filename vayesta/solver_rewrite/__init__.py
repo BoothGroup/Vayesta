@@ -7,6 +7,7 @@ from vayesta.solver import get_solver_class as get_solver_class_other
 from .hamiltonian import *
 from .ccsd import RCCSD_Solver, UCCSD_Solver
 from .mp2 import RMP2_Solver, UMP2_Solver
+from.cisd import RCISD_Solver, UCISD_Solver
 
 def is_uhf(ham):
     return issubclass(type(ham), UClusterHamiltonian)
@@ -74,4 +75,11 @@ def get_solver_class(ham, solver):
             return UMP2_Solver
         else:
             return RMP2_Solver
+    if solver == "CISD":
+        if eb:
+            raise ValueError("CISD solver is not implemented for coupled electron-boson systems!")
+        if uhf:
+            return UCISD_Solver
+        else:
+            return RCISD_Solver
     raise ValueError("Unknown solver: %s" % solver)
