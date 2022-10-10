@@ -6,7 +6,7 @@ from vayesta.core.util import *
 from vayesta.mpi import mpi
 
 
-def get_global_t1_rhf(emb, get_lambda=False, mpi_target=None, ao_basis=False):
+def get_global_t1_rhf(emb, get_lambda=False, mpi_target=None, ao_basis=False, for_dm2=False):
     """Get global CCSD T1 amplitudes from fragment calculations.
 
     Runtime: N(frag)/N(MPI) * N^2
@@ -31,9 +31,11 @@ def get_global_t1_rhf(emb, get_lambda=False, mpi_target=None, ao_basis=False):
     cs_vir = np.dot(emb.mo_coeff_vir.T, ovlp)
     for x in emb.get_fragments(active=True, mpi_rank=mpi.rank, sym_parent=None):
         pwf = x.results.pwf.restore().as_ccsd()
+        if for_dm2 and x.solver == 'MP2':
+            continue
         t1x = pwf.l1 if (get_lambda and not x.opts.t_as_lambda) else pwf.t1
         if t1x is None:
-            raise NotCalculatedError
+            raise NotCalculatedError("Fragment %s" % x)
         for x2, (cx2_occ, cx2_vir) in x.loop_symmetry_children((x.cluster.c_occ, x.cluster.c_vir), include_self=True):
             ro = np.dot(cs_occ, cx2_occ)
             rv = np.dot(cs_vir, cx2_vir)
@@ -45,7 +47,7 @@ def get_global_t1_rhf(emb, get_lambda=False, mpi_target=None, ao_basis=False):
         t1 = dot(emb.mo_coeff_occ, t1, emb.mo_coeff_vir.T)
     return t1
 
-def get_global_t2_rhf(emb, get_lambda=False, symmetrize=True, mpi_target=None, ao_basis=False):
+def get_global_t2_rhf(emb, get_lambda=False, symmetrize=True, mpi_target=None, ao_basis=False, for_dm2=False):
     """Get global CCSD T2 amplitudes from fragment calculations.
 
     Runtime: N(frag)/N(MPI) * N^4
@@ -71,9 +73,15 @@ def get_global_t2_rhf(emb, get_lambda=False, symmetrize=True, mpi_target=None, a
         ro = x.get_overlap('mo[occ]|cluster[occ]')
         rv = x.get_overlap('mo[vir]|cluster[vir]')
         pwf = x.results.pwf.restore().as_ccsd()
-        t2x = pwf.l2 if (get_lambda and not x.opts.t_as_lambda) else pwf.t2
+        if for_dm2 and x.solver == 'MP2':
+            # Lambda=0 for DM2(MP2)
+            if get_lambda:
+                continue
+            t2x = 2*pwf.t2
+        else:
+            t2x = pwf.l2 if (get_lambda and not x.opts.t_as_lambda) else pwf.t2
         if t2x is None:
-            raise NotCalculatedError
+            raise NotCalculatedError("Fragment %s" % x)
         t2 += einsum('ijab,Ii,Jj,Aa,Bb->IJAB', t2x, ro, ro, rv, rv)
     # --- MPI
     if mpi:
@@ -109,7 +117,7 @@ def get_global_t1_uhf(emb, get_lambda=False, mpi_target=None, ao_basis=False):
         pwf = x.results.pwf.restore().as_ccsd()
         t1xa, t1xb = pwf.l1 if (get_lambda and not x.opts.t_as_lambda) else pwf.t1
         if t1xa is None:
-            raise NotCalculatedError
+            raise NotCalculatedError("Fragment %s" % x)
         t1a += einsum('ia,Ii,Aa->IA', t1xa, roa, rva)
         t1b += einsum('ia,Ii,Aa->IA', t1xb, rob, rvb)
     # --- MPI
@@ -148,7 +156,7 @@ def get_global_t2_uhf(emb, get_lambda=False, symmetrize=True, mpi_target=None, a
         pwf = x.results.pwf.restore().as_ccsd()
         t2xaa, t2xab, t2xbb = pwf.l2 if (get_lambda and not x.opts.t_as_lambda) else pwf.t2
         if t2xaa is None:
-            raise NotCalculatedError
+            raise NotCalculatedError("Fragment %s" % x)
         t2aa += einsum('ijab,Ii,Jj,Aa,Bb->IJAB', t2xaa, roa, roa, rva, rva)
         t2ab += einsum('ijab,Ii,Jj,Aa,Bb->IJAB', t2xab, roa, rob, rva, rvb)
         t2bb += einsum('ijab,Ii,Jj,Aa,Bb->IJAB', t2xbb, rob, rob, rvb, rvb)

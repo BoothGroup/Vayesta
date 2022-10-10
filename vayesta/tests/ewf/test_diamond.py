@@ -65,6 +65,7 @@ class DiamondEWFTest(TestCase):
         corr_sym = emb.get_corrfunc('Sz,Sz', use_symmetry=True)
         self.assertAllclose(corr_sym, corr_nosym)
 
+
 if __name__ == '__main__':
     print('Running %s' % __file__)
     unittest.main()

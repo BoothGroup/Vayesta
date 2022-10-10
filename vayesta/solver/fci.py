@@ -15,6 +15,8 @@ from vayesta.core.types import Orbitals
 from vayesta.core.types import FCI_WaveFunction
 from vayesta.core.qemb.scrcoulomb import get_screened_eris_full
 from .solver import ClusterSolver
+from .cisd import CISD_Solver
+from .cisd import UCISD_Solver
 
 
 class FCI_Solver(ClusterSolver):
@@ -24,11 +26,15 @@ class FCI_Solver(ClusterSolver):
         threads: int = 1            # Number of threads for multi-threaded FCI
         max_cycle: int = 300
         lindep: float = None        # Linear dependency tolerance. If None, use PySCF default
-        conv_tol: float = None      # Convergence tolerance. If None, use PySCF default
+        conv_tol: float = 1e-12     # Convergence tolerance. If None, use PySCF default
         solver_spin: bool = True    # Use direct_spin1 if True, or direct_spin0 otherwise
         fix_spin: float = 0.0       # If set to a number, the given S^2 value will be enforced
-        #fix_spin_penalty: float = 1.0
-        fix_spin_penalty: float = 1e3
+        fix_spin_penalty: float = 1.0
+        davidson_only: bool = True
+        init_guess: str = 'default'
+        init_guess_noise: float = 1e-5
+
+    cisd_solver = CISD_Solver
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -37,10 +43,18 @@ class FCI_Solver(ClusterSolver):
         solver = solver_cls(self.mol)
         self.log.debugv("type(solver)= %r", type(solver))
         # Set options
-        if self.opts.threads is not None: solver.threads = self.opts.threads
-        if self.opts.conv_tol is not None: solver.conv_tol = self.opts.conv_tol
-        if self.opts.lindep is not None: solver.lindep = self.opts.lindep
-        if self.opts.max_cycle is not None: solver.max_cycle = self.opts.max_cycle
+        if self.opts.init_guess == 'default':
+            self.opts.init_guess = 'CISD'
+        if self.opts.threads is not None:
+            solver.threads = self.opts.threads
+        if self.opts.conv_tol is not None:
+            solver.conv_tol = self.opts.conv_tol
+        if self.opts.lindep is not None:
+            solver.lindep = self.opts.lindep
+        if self.opts.max_cycle is not None:
+            solver.max_cycle = self.opts.max_cycle
+        if self.opts.davidson_only is not None:
+            solver.davidson_only = self.opts.davidson_only
         if self.opts.fix_spin not in (None, False):
             spin = self.opts.fix_spin
             self.log.debugv("Fixing spin of FCI solver to S^2= %f", spin)
@@ -102,6 +116,15 @@ class FCI_Solver(ClusterSolver):
     def get_l2(self, **kwargs):
         return None
 
+    def get_cisd_init_guess(self):
+        self.log.info("Generating intitial guess from CISD.")
+        cisd = self.cisd_solver(self.mf, self.fragment, self.cluster)
+        cisd.kernel()
+        ci = cisd.wf.as_fci().ci
+        if self.opts.init_guess_noise:
+            ci += self.opts.init_guess_noise * np.random.random(ci.shape)
+        return ci
+
     def kernel(self, ci0=None, eris=None, seris_ov=None):
         """Run FCI kernel."""
 
@@ -110,6 +133,9 @@ class FCI_Solver(ClusterSolver):
         # Screening
         if seris_ov is not None:
             eris = get_screened_eris_full(eris, seris_ov, log=self.log)
+
+        if ci0 is None and self.opts.init_guess == 'CISD':
+            ci0 = self.get_cisd_init_guess()
 
         t0 = timer()
         #self.solver.verbose = 10
@@ -123,6 +149,8 @@ class FCI_Solver(ClusterSolver):
         # TODO: This requires the E_core energy (and nuc-nuc repulsion)
         self.e_corr = np.nan
         self.converged = self.solver.converged
+        self.c0, self.c1, self.c2 = self.get_cisd_amps(self.civec)
+        self.log.info("FCI: weight of reference determinant= %.8g", abs(self.c0))
         s2, mult = self.solver.spin_square(self.civec, self.ncas, self.nelec)
         if not isinstance(self, UFCI_Solver) and (abs(s2) > 1e-8):
             if abs(s2) > 0.1:
@@ -131,8 +159,6 @@ class FCI_Solver(ClusterSolver):
             self.log.warning("FCI: S^2= %.10f  multiplicity= %.10f", s2, mult)
         else:
             self.log.info("FCI: S^2= %.10f  multiplicity= %.10f", s2, mult)
-        self.c0, self.c1, self.c2 = self.get_cisd_amps(self.civec)
-        self.log.info("FCI: weight of reference determinant= %.8g", abs(self.c0))
         mo = Orbitals(self.cluster.c_active, occ=self.cluster.nocc_active)
         self.wf = FCI_WaveFunction(mo, self.civec)
 
@@ -169,8 +195,11 @@ class FCI_Solver(ClusterSolver):
         self.wf = wf
         self.converged = True
 
+
 class UFCI_Solver(FCI_Solver):
     """FCI with UHF orbitals."""
+
+    cisd_solver = UCISD_Solver
 
     @dataclasses.dataclass
     class Options(FCI_Solver.Options):
@@ -209,15 +238,14 @@ class UFCI_Solver(FCI_Solver):
         norm = 1/self.c0 if intermed_norm else 1
         return (norm*self.c2[0], norm*self.c2[1], norm*self.c2[2])
 
-    #def get_cisd_amps(self, civec):
-    #    cisdvec = pyscf.ci.ucisd.from_fcivec(civec, self.ncas, self.nelec)
-    #    c0, (c1a, c1b), (c2aa, c2ab, c2bb) = pyscf.ci.ucisd.cisdvec_to_amplitudes(cisdvec, 2*[self.ncas], self.nelec)
-    #    c1a = c1a/c0
-    #    c1b = c1b/c0
-    #    c2aa = c2aa/c0
-    #    c2ab = c2ab/c0
-    #    c2bb = c2bb/c0
-    #    return c0, (c1a, c1b), (c2aa, c2ab, c2bb)
+    def get_cisd_init_guess(self):
+        """Remove once PySCF PR #1450 is accepted."""
+        if getattr(self.mf, 'with_df', None) is not None:
+            try:
+                return super().get_cisd_init_guess()
+            except NotImplementedError:
+                self.log.warning("DF-UCISD not implemented in PySCF. Using HF determinant as initial guess.")
+                return None
 
     def get_cisd_amps(self, civec, intermed_norm=False):
         norba, norbb = self.cluster.norb_active

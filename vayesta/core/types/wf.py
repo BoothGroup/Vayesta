@@ -13,6 +13,7 @@ from vayesta.core.vpyscf import uccsd_rdm
 
 import vayesta
 from vayesta.core.util import *
+from vayesta.core import spinalg
 from vayesta.core.types.orbitals import *
 from vayesta.core.helper import pack_arrays, unpack_arrays
 
@@ -302,6 +303,9 @@ class RMP2_WaveFunction(WaveFunction):
         t2 = (t2aa, t2, t2aa)
         return UMP2_WaveFunction(mo, t2)
 
+    def multiply(self, factor):
+        self.t2 = spinalg.multiply(self.t2, factor)
+
     def project(self, projector, inplace=False):
         wf = self if inplace else self.copy()
         wf.t2 = project_c2(wf.t2, projector)
@@ -335,7 +339,9 @@ class RMP2_WaveFunction(WaveFunction):
         raise NotImplementedError
 
     def copy(self):
-        return RMP2_WaveFunction(self.mo.copy(), self.t2.copy())
+        proj = callif(spinalg.copy, self.projector)
+        t2 = spinalg.copy(self.t2)
+        return type(self)(self.mo.copy(), t2, projector=proj)
 
     def pack(self, dtype=float):
         """Pack into a single array of data type `dtype`.
@@ -425,9 +431,6 @@ class UMP2_WaveFunction(RMP2_WaveFunction):
     def as_fci(self):
         return NotImplementedError
 
-    def copy(self):
-        t2 = tuple(t.copy() for t in self.t2)
-        return UMP2_WaveFunction(self.mo.copy(), t2)
 
 def MP2_WaveFunction(mo, t2, **kwargs):
     if mo.nspin == 1:
@@ -501,6 +504,14 @@ class RCCSD_WaveFunction(WaveFunction):
         dm2 = (einsum('ij,kl->ijkl', dm1, dm1) - einsum('ij,kl->iklj', dm1, dm1)/2)
         return dm2
 
+    def multiply(self, factor):
+        self.t1 = spinalg.multiply(self.t1, factor)
+        self.t2 = spinalg.multiply(self.t2, factor)
+        if self.l1 is not None:
+            self.t1 = spinalg.multiply(self.l1, factor)
+        if self.l2 is not None:
+            self.t2 = spinalg.multiply(self.l2, factor)
+
     def project(self, projector, inplace=False):
         wf = self if inplace else self.copy()
         wf.t1 = project_c1(wf.t1, projector)
@@ -542,16 +553,12 @@ class RCCSD_WaveFunction(WaveFunction):
         return wf
 
     def copy(self):
-        t1 = self.t1.copy()
-        t2 = self.t2.copy()
-        l1 = l2 = proj = None
-        if self.l1 is not None:
-            l1 = self.l1.copy()
-        if self.l2 is not None:
-            l2 = self.l2.copy()
-        if self.projector is not None:
-            proj = self.projector.copy()
-        return RCCSD_WaveFunction(self.mo.copy(), t1, t2, l1=l1, l2=l2, projector=proj)
+        t1 = spinalg.copy(self.t1)
+        t2 = spinalg.copy(self.t2)
+        l1 = callif(spinalg.copy, self.l1)
+        l2 = callif(spinalg.copy, self.l2)
+        proj = callif(spinalg.copy, self.projector)
+        return type(self)(self.mo.copy(), t1, t2, l1=l1, l2=l2, projector=proj)
 
     def as_unrestricted(self):
         if self.projector is not None:
@@ -678,18 +685,6 @@ class UCCSD_WaveFunction(RCCSD_WaveFunction):
         wf.l2 = symmetrize_uc2(wf.l2)
         return wf
 
-    def copy(self):
-        t1 = tuple(t.copy() for t in self.t1)
-        t2 = tuple(t.copy() for t in self.t2)
-        l1 = l2 = proj = None
-        if self.l1 is not None:
-            l1 = tuple(t.copy() for t in self.l1)
-        if self.l2 is not None:
-            l2 = tuple(t.copy() for t in self.l2)
-        if self.projector is not None:
-            proj = tuple(t.copy() for t in self.projector)
-        return UCCSD_WaveFunction(self.mo.copy(), t1, t2, l1=l1, l2=l2, projector=proj)
-
     def as_mp2(self):
         raise NotImplementedError
 
@@ -777,7 +772,11 @@ class RCISD_WaveFunction(WaveFunction):
         return wf
 
     def copy(self):
-        return RCISD_WaveFunction(self.mo.copy(), self.c0, self.c1.copy(), self.c2.copy())
+        c0 = self.c0
+        c1 = spinalg.copy(self.c1)
+        c2 = spinalg.copy(self.c2)
+        proj = callif(spinalg.copy, self.projector)
+        return type(self)(self.mo.copy(), c0, c1, c2, projector=proj)
 
     def as_mp2(self):
         raise NotImplementedError
@@ -801,8 +800,14 @@ class RCISD_WaveFunction(WaveFunction):
             wf = wf.project(proj)
         return wf
 
+    def get_cisdvec(self):
+        if self.projector is not None:
+            raise NotImplementedError
+        return np.hstack((self.c0, self.c1.ravel(), self.c2.ravel()))
+
     def as_fci(self):
-        raise NotImplementedError
+        ci = pyscf.ci.cisd.to_fcivec(self.get_cisdvec(), self.mo.norb, self.mo.nelec)
+        return RFCI_WaveFunction(self.mo, ci, projector=self.projector)
 
 class UCISD_WaveFunction(RCISD_WaveFunction):
 
@@ -848,11 +853,6 @@ class UCISD_WaveFunction(RCISD_WaveFunction):
         wf.c2 = symmetrize_uc2(wf.c2)
         return wf
 
-    def copy(self):
-        c1 = tuple(t.copy() for t in self.c1)
-        c2 = tuple(t.copy() for t in self.c2)
-        return UCISD_WaveFunction(self.mo.copy(), self.c0, c1, c2)
-
     def as_mp2(self):
         raise NotImplementedError
 
@@ -893,8 +893,18 @@ class UCISD_WaveFunction(RCISD_WaveFunction):
             wf = wf.project(proj)
         return wf
 
+    def get_cisdvec(self):
+        if self.projector is not None:
+            raise NotImplementedError
+        return pyscf.ci.ucisd.amplitudes_to_cisdvec(self.c0, self.c1, self.c2)
+
     def as_fci(self):
-        raise NotImplementedError
+        norb = self.mo.norb
+        if norb[0] != norb[1]:
+            # TODO: Allow padding via frozen argument?
+            raise NotImplementedError
+        ci = pyscf.ci.ucisd.to_fcivec(self.get_cisdvec(), norb[0], self.mo.nelec)
+        return RFCI_WaveFunction(self.mo, ci, projector=self.projector)
 
 
 def CISD_WaveFunction(mo, c0, c1, c2, **kwargs):

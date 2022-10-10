@@ -92,12 +92,6 @@ def get_full_array_rhf(eris, mo_coeff=None, out=None):
     return out
 
 
-def getif(obj, key, cond=lambda x: x is not None, default=None):
-    """Returns obj[key] if cond(obj) else default."""
-    if cond(obj):
-        return obj[key]
-    return default
-
 def get_full_array_uhf(eris, mo_coeff=None, out=None):
     """Get dense ERI array from CCSD _ChemistEris object."""
     if mo_coeff is not None and not (np.allclose(mo_coeff[0], eris.mo_coeff[0])

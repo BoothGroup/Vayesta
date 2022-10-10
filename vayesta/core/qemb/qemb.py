@@ -70,11 +70,11 @@ class Options(OptionsBase):
     # --- Bath options
     bath_options: dict = OptionsBase.dict_with_defaults(
         # DMET bath
-        bathtype='dmet', dmet_threshold=1e-6,
+        bathtype='dmet', dmet_threshold=1e-8,
         # R2 bath
         rcut=None, unit='Ang',
         # MP2 bath
-        threshold=None, truncation='occupation', project_t2=False, addbuffer=False,
+        threshold=None, truncation='occupation', project_dmet=False, addbuffer=False,
         # General
         canonicalize=True,
         )
@@ -83,9 +83,10 @@ class Options(OptionsBase):
             # General
             conv_tol=None,
             # CCSD
-            solve_lambda=True, conv_tol_normt=None, t_as_lambda=False,
+            solve_lambda=True, conv_tol_normt=None,
             # FCI
             threads=1, max_cycle=300, fix_spin=0.0, lindep=None,
+            davidson_only=True, init_guess='default',
             # EBFCI/EBCCSD
             max_boson_occ=2,
             # Dump
@@ -139,10 +140,8 @@ class Embedding:
                 Amplitude convergence tolerance [valid for 'CCSD', 'TCCSD']
             fix_spin : float
                 Target specified spin state [valid for 'FCI']
-            t_as_lambda : bool
-                Use T-amplitudes as Lambda-amplitudes [valid for 'CCSD', 'TCCSD']
             solve_lambda : bool
-                Solve Lambda-equations [valid for 'CCSD', 'TCCSD']
+                Solve Lambda-equations [valid for 'CCSD', 'TCCSD']. If False, T-amplitudes are used instead.
             dumpfile : str
                 Dump cluster orbitals and integrals to file [valid for 'Dump']
 
@@ -936,13 +935,13 @@ class Embedding:
             children[idx].append(f)
         return children
 
-    def get_fragments(self, fragments=None, **filters):
+    def get_fragments(self, fragments=None, options=None, flags=None, **filters):
         """Return all fragments which obey the specified conditions.
 
         Arguments
         ---------
-        **kwargs:
-            List of returned fragmens will be filtered according to specified
+        **filters:
+            List of returned fragments will be filtered according to specified
             keyword arguments.
 
         Returns
@@ -963,21 +962,42 @@ class Embedding:
         """
         if fragments is None:
             fragments = self.fragments
-        if not filters:
+        options = options or {}
+        flags = flags or {}
+        if not (filters or options or flags):
             return fragments
-        filters = {k: (v if callable(v) else np.atleast_1d(v)) for k, v in filters.items()}
+
+        def _values_atleast_1d(d):
+            return {k: (v if callable(v) else np.atleast_1d(v)) for k, v in d.items()}
+        filters = _values_atleast_1d(filters)
+        options = _values_atleast_1d(options)
+        flags = _values_atleast_1d(flags)
+
+        def _skip(attr, filt):
+            if callable(filt):
+                return not filt(attr)
+            return attr not in filt
+
         filtered_fragments = []
         for frag in fragments:
             skip = False
-            for key, filtr in filters.items():
+            # Check filters:
+            for key, filt in filters.items():
                 attr = getattr(frag, key)
-                if callable(filtr):
-                    if not filtr(attr):
-                        skip = True
-                        break
-                elif attr not in filtr:
-                    skip = True
-                    break
+                skip = _skip(attr, filt)
+                if skip: break
+            if skip:
+                continue
+            # Check options:
+            for key, filt in options.items():
+                attr = getattr_recursive(frag.opts, key)
+                skip = _skip(attr, filt)
+                if skip: break
+            # Check flags:
+            for key, filt in flags.items():
+                attr = getattr_recursive(frag.flags, key)
+                skip = _skip(attr, filt)
+                if skip: break
             if skip:
                 continue
             filtered_fragments.append(frag)
@@ -1347,7 +1367,8 @@ class Embedding:
         for s in range(nspin):
             nmo_s = tspin(self.nmo, s)
             nelec_s = tspin(nelec, s)
-            c_frags = np.hstack([tspin(x.c_frag, s) for x in self.get_fragments(active=True)])
+            fragments = self.get_fragments(active=True, flags=dict(is_secfrag=False))
+            c_frags = np.hstack([tspin(x.c_frag, s) for x in fragments])
             nfrags = c_frags.shape[-1]
             csc = dot(c_frags.T, ovlp, c_frags)
             if not np.allclose(csc, np.eye(nfrags), rtol=0, atol=tol):

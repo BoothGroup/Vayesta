@@ -41,11 +41,13 @@ class Options(Embedding.Options):
     calc_e_wf_corr: bool = True
     calc_e_dm_corr: bool = False
     # --- Solver settings
-    t_as_lambda: bool = None           # If True, use T-amplitudes inplace of Lambda-amplitudes
+    t_as_lambda: bool = None            # If True, use T-amplitudes inplace of Lambda-amplitudes
     # Counterpoise correction of BSSE
     bsse_correction: bool = True
     bsse_rmax: float = 5.0              # In Angstrom
     nelectron_target: int = None
+    # Intercluster MP2
+    icmp2_active: bool = True           # If True, the fragment is used in the intercluster MP2 correction
     # --- Couple embedding problems (currently only CCSD)
     sc_mode: int = 0
     coupled_iterations: bool = False
@@ -54,6 +56,7 @@ class Options(Embedding.Options):
 
 
 class EWF(Embedding):
+
     Fragment = Fragment
     Options = Options
 
@@ -72,6 +75,7 @@ class EWF(Embedding):
             self.log.deprecated("keyword argument solve_lambda is deprecated!")
             self.opts.solver_options = {**self.opts.solver_options, **dict(solve_lambda=solve_lambda)}
 
+        # Logging
         with self.log.indent():
             # Options
             self.log.info("Parameters of %s:", self.__class__.__name__)
@@ -120,29 +124,35 @@ class EWF(Embedding):
         if mpi:
             mpi.world.Barrier()
         self.log.info("")
-        self.log.info("MAKING CLUSTERS")
-        self.log.info("===============")
+        self.log.info("MAKING BATH AND CLUSTERS")
+        self.log.info("========================")
         with log_time(self.log.timing, "Total time for bath and clusters: %s"):
             for x in self.get_fragments(active=True, sym_parent=None, mpi_rank=mpi.rank):
                 if x._results is not None:
                     self.log.debug("Resetting %s" % x)
                     x.reset()
-                msg = "Making bath for %s%s" % (x, (" on MPI process %d" % mpi.rank) if mpi else "")
+                msg = "Making bath and clusters for %s%s" % (x, (" on MPI process %d" % mpi.rank) if mpi else "")
                 self.log.info(msg)
                 self.log.info(len(msg)*"-")
                 with self.log.indent():
                     if x._dmet_bath is None:
-                        x.make_bath()
+                        # Make own bath:
+                        if x.flags.bath_parent_fragment is None:
+                            x.make_bath()
+                        # Copy bath (DMET, occupied, virtual) from other fragment:
+                        else:
+                            for attr in ('_dmet_bath', '_bath_factory_occ', '_bath_factory_vir'):
+                                setattr(x, attr, getattr(x.flags.bath_parent_fragment, attr))
                     if x._cluster is None:
                         x.make_cluster()
             if mpi:
                 mpi.world.Barrier()
+
         if mpi:
             with log_time(self.log.timing, "Time for MPI communication of clusters: %s"):
                 self.communicate_clusters()
 
         # --- Screened Coulomb interaction
-
         if any(x.opts.screening is not None for x in self.get_fragments(active=True, sym_parent=None, mpi_rank=mpi.rank)):
             self.log.info("")
             self.log.info("SCREENING INTERACTIONS")
@@ -492,7 +502,10 @@ class EWF(Embedding):
 
     # --- Energy corrections
 
-    get_intercluster_mp2_energy = get_intercluster_mp2_energy_rhf
+
+    @log_method()
+    def get_intercluster_mp2_energy(self, *args, **kwargs):
+        return get_intercluster_mp2_energy_rhf(self, *args, **kwargs)
 
     # --- Deprecated
 
@@ -557,27 +570,22 @@ class EWF(Embedding):
         -------
         e_corr : float
         """
-
         t_as_lambda = self.opts.t_as_lambda
-        mf = self.mf
-        nmo = mf.mo_coeff.shape[1]
-        nocc = (mf.mo_occ > 0).sum()
 
         if global_dm1:
-            rdm1 = self._make_rdm1_ccsd_global_wf(t_as_lambda=t_as_lambda)
+            dm1 = self._make_rdm1_ccsd_global_wf(t_as_lambda=t_as_lambda, ao_basis=True, with_mf=False)
         else:
-            rdm1 = self._make_rdm1_ccsd(t_as_lambda=t_as_lambda)
-        rdm1[np.diag_indices(nocc)] -= 2
+            dm1 = self._make_rdm1_ccsd(t_as_lambda=t_as_lambda, ao_basis=True, with_mf=False)
 
         # Core Hamiltonian + Non Cumulant 2DM contribution
-        e1 = einsum('pi,pq,qj,ij->', self.mo_coeff, self.get_fock_for_energy(with_exxdiv=False), self.mo_coeff, rdm1)
+        e1 = np.sum(self.get_fock_for_energy(with_exxdiv=False) * dm1)
 
         # Cumulant 2DM contribution
         if global_dm2:
             # Calculate global 2RDM and contract with ERIs
-            eri = self.get_eris_array(self.mo_coeff)
             rdm2 = self._make_rdm2_ccsd_global_wf(t_as_lambda=t_as_lambda, with_dm1=False)
-            e2 = einsum('pqrs,pqrs', eri, rdm2) * 0.5
+            eris = self.get_eris_array(self.mo_coeff)
+            e2 = einsum('pqrs,pqrs', eris, rdm2)/2
         else:
             # Fragment Local 2DM cumulant contribution
             e2 = self.get_dm_corr_energy_e2(t_as_lambda=t_as_lambda) * self.ncells

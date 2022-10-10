@@ -91,6 +91,16 @@ class MP2_Solver(ClusterSolver):
             t2[blk] = (gijab / eijab)
         return t2
 
+    #def _project_out_subspace(self, t2, c_occ, c_vir):
+    #    """Alternative way to implement double counting correction."""
+    #    ovlp = self.base.get_ovlp()
+    #    r_occ = dot(self.cluster.c_active_occ.T, ovlp, c_occ)
+    #    r_vir = dot(self.cluster.c_active_vir.T, ovlp, c_vir)
+    #    p_occ = np.dot(r_occ, r_occ.T)
+    #    p_vir = np.dot(r_vir, r_vir.T)
+    #    t2_proj = einsum('IJAB,Ii,Jj,Aa,Bb->ijab', t2, p_occ, p_occ, p_vir, p_vir)
+    #    return (t2 - t2_proj)
+
     def kernel(self, eris=None):
         if eris is None:
             eris = cderi = cderi_neg = None
@@ -105,6 +115,13 @@ class MP2_Solver(ClusterSolver):
         mo_energy = self.get_mo_energy()
         with log_time(self.log.timing, "Time for MP2 T-amplitudes: %s"):
             t2 = self.make_t2(mo_energy, eris=eris, cderi=cderi, cderi_neg=cderi_neg)
+        # Alternative double counting correction for secondary fragments:
+        #if self.fragment.flags.secondary_fragment:
+        #    f = self.fragment.flags.bath_parent_fragment
+        #    c_sub_occ = f.cluster.c_active_occ
+        #    c_sub_vir = f.cluster.c_active_vir
+        #    t2 = self._project_out_subspace(t2, c_sub_occ, c_sub_vir)
+
         self.t2 = t2
         mo = Orbitals(self.cluster.c_active, energy=mo_energy, occ=self.cluster.nocc_active)
         self.wf = MP2_WaveFunction(mo, t2)

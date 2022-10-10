@@ -42,6 +42,32 @@ def scf_with_mpi(mpi, mf, mpi_rank=0, log=None):
             self.mo_coeff = bcast(self.mo_coeff)
         return res
 
+    # TODO: Distribute diagonalization over k-points
+    #def mpi_eig(self, h_kpts, s_kpts):
+    #    nkpts = len(h_kpts)
+    #    #mo_energy = []
+    #    #mo_coeff = []
+
+    #    # Broadcast hcore
+    #    send = [[] for i in len(mpi)]
+    #    for k in range(nkpts):
+    #        send[k].append(h_kpts)
+    #    h_list = mpi.world.scatter(send, root=mpi_rank)
+
+    #    # Broadcast overlap
+    #    send = [[] for i in len(mpi)]
+    #    for k in range(nkpts):
+    #        send[k].append(s_kpts)
+    #    s_list = mpi.world.scatter(send, root=mpi_rank)
+
+    #    # Diagonalize locally
+    #    mo_energy_list, mo_coeff_list = eig_orig(h_list, s_list)
+
+    #    # Gather results
+    #    mo_energy = mpi.world.gather(mo_energy_list, root=mpi_rank)
+    #    mo_coeff = mpi.world.gather(mo_coeff_list, root=mpi_rank)
+    #    return mo_energy, mo_coeff
+
     mf.kernel = mpi_kernel.__get__(mf)
     mf.with_mpi = True
 
