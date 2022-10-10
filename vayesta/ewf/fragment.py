@@ -59,35 +59,31 @@ class Options(BaseFragment.Options):
     tcc_fci_opts: dict = dataclasses.field(default_factory=dict)
 
 
-@dataclasses.dataclass
-class Flags(BaseFragment.Flags):
-    pass
-
-
-@dataclasses.dataclass
-class Results(BaseFragment.Results):
-    e_corr_dm2cumulant: float = None
-    n_active: int = None
-    ip_energy: np.ndarray = None
-    ea_energy: np.ndarray = None
-
-    @property
-    def dm1(self):
-        """Cluster 1DM"""
-        return self.wf.make_rdm1()
-
-    @property
-    def dm2(self):
-        """Cluster 2DM"""
-        return self.wf.make_rdm2()
-
-
 class Fragment(BaseFragment):
 
     Options = Options
-    Flags = Flags
-    Results = Results
 
+    @dataclasses.dataclass
+    class Flags(BaseFragment.Flags):
+        pass
+
+    @dataclasses.dataclass
+    class Results(BaseFragment.Results):
+        e_corr_dm2cumulant: float = None
+        e_fbc: float = None                 # Finite bath correction
+        n_active: int = None
+        ip_energy: np.ndarray = None
+        ea_energy: np.ndarray = None
+
+        @property
+        def dm1(self):
+            """Cluster 1DM"""
+            return self.wf.make_rdm1()
+
+        @property
+        def dm2(self):
+            """Cluster 2DM"""
+            return self.wf.make_rdm2()
 
     def __init__(self, *args, **kwargs):
 
@@ -284,6 +280,10 @@ class Fragment(BaseFragment):
         # --- Add to results data class
         self._results = results = self.Results(fid=self.id, n_active=cluster.norb_active,
                 converged=cluster_solver.converged, wf=cluster_solver.wf, pwf=pwf)
+        # --- Finite bath correction
+        e_fbc = getattr(cluster, 'e_fbc', None)
+        if e_fbc is not None:
+            self._results.e_fbc = e_fbc
 
         # --- Correlation energy contributions
         if self.opts.calc_e_wf_corr:

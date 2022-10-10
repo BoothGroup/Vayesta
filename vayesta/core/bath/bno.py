@@ -69,8 +69,8 @@ class BNO_Bath(Bath):
         if np.ndim(canonicalize) == 0:
             canonicalize = (canonicalize, canonicalize)
         self.canonicalize = canonicalize
-        # Coefficients and occupations:
-        self.coeff, self.occup = self.kernel()
+        # Coefficients, occupations, and pair correlation energies:
+        self.coeff, self.occup, self.ecorr_pair = self.kernel()
 
     @property
     def c_cluster_occ(self):
@@ -102,18 +102,18 @@ class BNO_Bath(Bath):
     def kernel(self):
         c_env = self.c_env
         if self.spin_restricted and (c_env.shape[-1] == 0):
-            return c_env, np.zeros(0)
+            return c_env, np.zeros(0), np.zeros((0,0))
         if self.spin_unrestricted and (c_env[0].shape[-1] + c_env[1].shape[-1] == 0):
-            return c_env, tuple(2*[np.zeros(0)])
+            return c_env, tuple(2*[np.zeros(0)]), tuple(2*[np.zeros((0,0))])
         self.log.info("Making %s BNOs", self.occtype.capitalize())
         self.log.info("-------%s-----", len(self.occtype)*'-')
         self.log.changeIndentLevel(1)
-        coeff, occup = self.make_bno_coeff()
+        coeff, occup, ecorr_pair = self.make_bno_coeff()
         self.log_histogram(occup)
         self.log.changeIndentLevel(-1)
         self.coeff = coeff
         self.occup = occup
-        return coeff, occup
+        return coeff, occup, ecorr_pair
 
     def log_histogram(self, n_bno):
         if len(n_bno) == 0:
@@ -136,6 +136,15 @@ class BNO_Bath(Bath):
         nelec_cluster = self.dmet_bath.get_cluster_electrons()
         bno_number = bno_threshold.get_number(occup, electron_total=nelec_cluster)
 
+        # Finite bath correction
+        if self.ecorr_pair is not None:
+            e1 = np.sum(self.ecorr_pair)
+            act = np.s_[:(self.ncluster+bno_number)]
+            e0 = np.sum(self.ecorr_pair[act,act])
+            e_fbc = e1-e0
+        else:
+            e_fbc = None
+
         # Logging
         if verbose:
             if header:
@@ -152,7 +161,7 @@ class BNO_Bath(Bath):
             log_space("Rest", occup[bno_number:])
 
         c_bath, c_rest = np.hsplit(coeff, [bno_number])
-        return c_bath, c_rest
+        return c_bath, c_rest, e_fbc
 
     def get_active_space(self):
         dmet_bath = self.dmet_bath
@@ -243,8 +252,8 @@ class BNO_Bath_UHF(BNO_Bath):
             self.log.info(ha[i] + '   ' + hb[i])
 
     def truncate_bno(self, coeff, occup, *args, **kwargs):
-        c_bath_a, c_rest_a = super().truncate_bno(coeff[0], occup[0], *args, **kwargs)
-        c_bath_b, c_rest_b = super().truncate_bno(coeff[1], occup[1], *args, **kwargs)
+        c_bath_a, c_rest_a, e_fbc_a = super().truncate_bno(coeff[0], occup[0], *args, **kwargs)
+        c_bath_b, c_rest_b, e_fbc_b = super().truncate_bno(coeff[1], occup[1], *args, **kwargs)
         return (c_bath_a, c_bath_b), (c_rest_a, c_rest_b)
 
 
@@ -254,8 +263,8 @@ class MP2_BNO_Bath(BNO_Bath):
         self.project_dmet = project_dmet
         super().__init__(*args, **kwargs)
 
-    def _make_t2(self, mo_energy, eris=None, cderi=None, cderi_neg=None, blksize=None):
-        """Make T2 amplitudes"""
+    def _make_t2(self, actspace, mo_energy, eris=None, cderi=None, cderi_neg=None, max_memory=None, blksize=None):
+        """Make T2 amplitudes and pair correlation energies."""
         # (ov|ov)
         if eris is not None:
             self.log.debugv("Making T2 amplitudes from ERIs")
@@ -270,10 +279,19 @@ class MP2_BNO_Bath(BNO_Bath):
         else:
             raise ValueError()
 
+        # Fragment projector:
+        ovlp = self.fragment.base.get_ovlp()
+        rfrag = dot(actspace.c_active_occ.T, ovlp, self.c_frag)
+        pfrag = dot(rfrag, rfrag.T)
+
         t2 = np.empty((nocc, nocc, nvir, nvir))
         eia = (mo_energy[:nocc,None] - mo_energy[None,nocc:])
+        if max_memory is None:
+            max_memory = 1e9
         if blksize is None:
-            blksize = int(1e9 / max(nocc*nvir*nvir * 8, 1))
+            blksize = int(max_memory / max(nocc*nvir*nvir*8, 1))
+        nenv = (nocc if self.occtype == 'occupied' else nvir)
+        ecorr_pair = np.zeros((nenv, nenv))
         for blk in brange(0, nocc, blksize):
             if eris is not None:
                 gijab = eris[blk].transpose(0,2,1,3)
@@ -283,7 +301,18 @@ class MP2_BNO_Bath(BNO_Bath):
                     gijab -= einsum('Lia,Ljb->ijab', cderi_neg[:,blk], cderi_neg)
             eijab = (eia[blk][:,None,:,None] + eia[None,:,None,:])
             t2[blk] = (gijab / eijab)
-        return t2
+            # Pair energy matrix:
+            #tp = einsum('ix,i...->x...', rfrag, t2[blk])
+            #gp = einsum('ix,i...->x...', rfrag, gijab)
+            gp = einsum('ji,i...->j...', pfrag[blk], gijab)
+            if self.occtype == 'occupied':
+                ecorr_pair += (2*einsum('ijab,ijab->ij', t2[blk], gp)
+                               - einsum('ijab,ijba->ij', t2[blk], gp))
+            else:
+                ecorr_pair += (2*einsum('ijab,ijab->ab', t2[blk], gp)
+                               - einsum('ijab,ijba->ab', t2[blk], gp))
+
+        return t2, ecorr_pair
 
     def _get_mo_energy(self, fock, actspace):
         c_act = actspace.c_active
@@ -415,7 +444,7 @@ class MP2_BNO_Bath(BNO_Bath):
 
         mo_energy = self._get_mo_energy(fock, actspace)
         t0 = timer()
-        t2 = self._make_t2(mo_energy, eris=eris, cderi=cderi, cderi_neg=cderi_neg)
+        t2, ecorr_pair = self._make_t2(actspace, mo_energy, eris=eris, cderi=cderi, cderi_neg=cderi_neg)
         t_amps = timer()-t0
 
         dm = self.make_delta_dm1(t2, actspace)
@@ -423,8 +452,10 @@ class MP2_BNO_Bath(BNO_Bath):
         # --- Undo canonicalization
         if self.occtype == 'occupied' and r_occ is not None:
             dm = self._undo_canonicalization(dm, r_occ)
+            ecorr_pair = self._undo_canonicalization(ecorr_pair, r_occ)
         elif self.occtype == 'virtual' and r_vir is not None:
             dm = self._undo_canonicalization(dm, r_vir)
+            ecorr_pair = self._undo_canonicalization(ecorr_pair, r_vir)
         # --- Diagonalize environment-environment block
         dm = self._dm_take_env(dm)
         t0 = timer()
@@ -436,7 +467,7 @@ class MP2_BNO_Bath(BNO_Bath):
         self.log.timing("Time MP2 bath:  integrals= %s  amplitudes= %s  diagonal.= %s  total= %s",
                 *map(time_string, (t_ao2mo, t_amps, t_diag, (timer()-t_init))))
 
-        return c_bno, n_bno
+        return c_bno, n_bno, ecorr_pair
 
 
 class UMP2_BNO_Bath(MP2_BNO_Bath, BNO_Bath_UHF):
@@ -459,7 +490,7 @@ class UMP2_BNO_Bath(MP2_BNO_Bath, BNO_Bath_UHF):
         cderi_b, cderi_neg_b = self.base.get_cderi(mo_b)
         return (cderi_a, cderi_b), (cderi_neg_a, cderi_neg_b)
 
-    def _make_t2(self, mo_energy, eris=None, cderi=None, cderi_neg=None, blksize=None, workmem=int(1e9)):
+    def _make_t2(self, actspace, mo_energy, eris=None, cderi=None, cderi_neg=None, blksize=None, workmem=int(1e9)):
         """Make T2 amplitudes"""
         # (ov|ov)
         if eris is not None:

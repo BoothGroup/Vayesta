@@ -814,6 +814,7 @@ class Fragment:
         def get_orbitals(occtype):
             factory = getattr(self, '_bath_factory_%s' % occtype[:3])
             btype = self._get_bath_option('bathtype', occtype)
+            e_fbc = 0    # finite bath correction
             if btype == 'dmet':
                 c_bath = None
                 c_frozen = getattr(self._dmet_bath, 'c_env_%s' % occtype[:3])
@@ -827,11 +828,11 @@ class Fragment:
                 threshold = self._get_bath_option('threshold', occtype)
                 truncation = self._get_bath_option('truncation', occtype)
                 bno_threshold = BNO_Threshold(truncation, threshold)
-                c_bath, c_frozen = factory.get_bath(bno_threshold)
-            return c_bath, c_frozen
+                c_bath, c_frozen, e_fbc = factory.get_bath(bno_threshold)
+            return c_bath, c_frozen, e_fbc
 
-        c_bath_occ, c_frozen_occ = get_orbitals('occupied')
-        c_bath_vir, c_frozen_vir = get_orbitals('virtual')
+        c_bath_occ, c_frozen_occ, e_fbc_occ = get_orbitals('occupied')
+        c_bath_vir, c_frozen_vir, e_fbc_vir = get_orbitals('virtual')
         c_active_occ = spinalg.hstack_matrices(self._dmet_bath.c_cluster_occ, c_bath_occ)
         c_active_vir = spinalg.hstack_matrices(self._dmet_bath.c_cluster_vir, c_bath_vir)
         # Canonicalize orbitals
@@ -840,6 +841,10 @@ class Fragment:
         if self._get_bath_option('canonicalize', 'virtual'):
             c_active_vir = self.canonicalize_mo(c_active_vir)[0]
         cluster = Cluster.from_coeffs(c_active_occ, c_active_vir, c_frozen_occ, c_frozen_vir)
+        # Add finite bath correction to cluster object
+        cluster.e_fbc = e_fbc_occ + e_fbc_vir
+        self.log.debug("Finite bath correction:  occ= %s  vir= %s  tot= %s", energy_string(e_fbc_occ),
+                       energy_string(e_fbc_vir), energy_string(cluster.e_fbc))
 
         # Check occupations
         def check_occup(mo_coeff, expected):

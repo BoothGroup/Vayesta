@@ -478,6 +478,14 @@ class EWF(Embedding):
         e_corr = (e_singles + e_doubles)
         return e_corr / self.ncells
 
+    @mpi.with_allreduce()
+    def get_finite_bath_correction(self):
+        e_fbc = 0.0
+        # Only loop over fragments of own MPI rank
+        for fx in self.get_fragments(active=True, sym_parent=None, mpi_rank=mpi.rank):
+            e_fbc += fx.symmetry_factor * fx.results.e_fbc
+        return e_fbc/self.ncells
+
     # Total energy
 
     @property
