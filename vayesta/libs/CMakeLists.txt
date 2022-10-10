@@ -22,7 +22,8 @@ else()
 endif()
 
 if (APPLE)
-    include_directories("${BLAS_LIBRARIES}/Frameworks/vecLib.framework/Headers")
+    #include_directories("${BLAS_LIBRARIES}/Frameworks/vecLib.framework/Headers")
+    include_directories("${BLAS_LIBRARIES}")
 endif()
 
 if (APPLE)

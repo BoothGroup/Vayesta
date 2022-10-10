@@ -67,7 +67,8 @@ class Options(OptionsBase):
     store_eris: bool = True             # If True, ERIs will be stored in Fragment._eris
     global_frag_chempot: float = None   # Global fragment chemical potential (e.g. for democratically partitioned DMs)
     dm_with_frozen: bool = False        # Add frozen parts to cluster DMs
-    # --- Bath options
+    # --- Bath options. Note that if '_occ' or '_vir' is added to any options, then these will be occupied or
+    #                   virtual-specific.
     bath_options: dict = OptionsBase.dict_with_defaults(
         # DMET bath
         bathtype='dmet', dmet_threshold=1e-6,
@@ -75,7 +76,9 @@ class Options(OptionsBase):
         rcut=None, unit='Ang',
         # MP2 bath
         threshold=None, truncation='occupation', project_t2=False, addbuffer=False,
-        # General
+        # Generalized one-body bath, created from arbitrary one-body objects
+        # Matrices in the AO repr (covariant or contra)
+        depth=None, oneb_mats=None, covariant=None, svd_tol=1e-7,
         canonicalize=True,
         )
     # --- Solver options
@@ -128,6 +131,22 @@ class Embedding:
                 as bath orbitals.
             unit : {'Ang', 'Bohr'}, optional
                 Unit of `rcut`. Default: 'Ang'.
+
+        Generalized SVD bath (`bathtype = 'gen-onebody'`):
+
+            svd_tol : float, optional
+                Cutoff for the singular values of bath states. Note that unless this is small, it will
+                not formally converge to completeness with increasing order. Default: 1e-7
+            depth : list, optional
+                Provides the depth of the recursion for each one-body matrix passed in
+                (i.e. the order to which the entanglement is spanned for that object)
+            oneb_mats : list[ndarray]
+                The one-body objects for which the bath is constructed. Note that this is
+                order dependent, since it will span the entanglement of the lower indexed
+                arrays first
+            covariant : list[bool]
+                Whether the matrices in the list above are covariant or contravariant.
+                Will default to (fully) covariant.
 
     solver_options : dict, optional
         Solver specific options. The following solver specific options can be specified.
