@@ -316,9 +316,9 @@ class Test_MP2_2D(Test_MP2):
         cls.ref_values = {
                 ('e_corr', -1) : cls.cc.e_corr/nk,
                 ('e_tot', -1) : cls.cc.e_tot/nk,
-                ('e_corr', 1e-3) : -0.013768225879056828,
-                ('e_tot', 1e-3) : -1.3539350680412634,
+                ('e_corr', 1e-3) : -0.013768516654027911,
                 }
+        cls.ref_values[('e_tot', 1e-3)] = cls.mf.e_tot + cls.ref_values[('e_corr', 1e-3)]
 
 @pytest.mark.slow
 class Test_CCSD_2D(Test_CCSD):
@@ -331,9 +331,9 @@ class Test_CCSD_2D(Test_CCSD):
         cls.ref_values = {
                 ('e_corr', -1) : cls.cc.e_corr/nk,
                 ('e_tot', -1) : cls.cc.e_tot/nk,
-                ('e_corr', 1e-3) : -0.01982151735237517,
-                ('e_tot', 1e-3) : -1.3599883595145819,
+                ('e_corr', 1e-3) : -0.019821885830904003,
                 }
+        cls.ref_values[('e_tot', 1e-3)] = cls.mf.e_tot + cls.ref_values[('e_corr', 1e-3)]
 
 if __name__ == '__main__':
     print('Running %s' % __file__)

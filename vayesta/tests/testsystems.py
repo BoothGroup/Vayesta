@@ -134,7 +134,7 @@ class TestSolid:
     """Solid test system."""
 
     def __init__(self, a, atom, basis, kmesh=None, auxbasis=None, supercell=None, exxdiv='ewald', df='gdf',
-                 precision=1e-9, verbose=PYSCF_VERBOSITY, **kwargs):
+                 precision=1e-10, verbose=PYSCF_VERBOSITY, **kwargs):
         super().__init__()
         mol = pyscf.pbc.gto.Cell()
         mol.a = a
