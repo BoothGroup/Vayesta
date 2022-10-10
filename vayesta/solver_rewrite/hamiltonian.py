@@ -301,7 +301,7 @@ class UClusterHamiltonian(RClusterHamiltonian):
             nao = self.ncas
         fock = self.get_fock()
         mo_energy = (np.diag(fock[0]), np.diag(fock[1]))
-        mo_occ = tuple([np.zeros_like(x) for x in mo_energy])
+        mo_occ = np.array([np.zeros_like(x) for x in mo_energy])
         mo_occ[0][:self.nelec[0]] = 1.0
         mo_occ[1][:self.nelec[1]] = 1.0
         # Determine whether we want our cluster orbitals expressed in the basis of active orbitals, or in the AO basis.

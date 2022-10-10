@@ -6,6 +6,7 @@ from .ebfci import EB_EBFCI_Solver, EB_UEBFCI_Solver
 from vayesta.solver import get_solver_class as get_solver_class_other
 from .hamiltonian import *
 from .ccsd import RCCSD_Solver, UCCSD_Solver
+from .mp2 import RMP2_Solver, UMP2_Solver
 
 def is_uhf(ham):
     return issubclass(type(ham), UClusterHamiltonian)
@@ -66,7 +67,11 @@ def get_solver_class(ham, solver):
                 return EB_EBFCI_Solver
             else:
                 return FCI_Solver
-
-
-    return get_solver_class_other(ham.mf, solver)
-    # raise ValueError("Unknown solver: %s" % solver)
+    if solver == "MP2":
+        if eb:
+            raise ValueError("MP2 solver is not implemented for coupled electron-boson systems!")
+        if uhf:
+            return UMP2_Solver
+        else:
+            return RMP2_Solver
+    raise ValueError("Unknown solver: %s" % solver)

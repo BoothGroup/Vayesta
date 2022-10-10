@@ -1,7 +1,7 @@
 import dataclasses
 import numpy as np
 from .solver import ClusterSolver, UClusterSolver
-from vayesta.core.types import WaveFunction, CCSD_WaveFunction
+from vayesta.core.types import CCSD_WaveFunction
 from vayesta.core.util import dot, einsum
 from vayesta.core.util import *
 
@@ -120,13 +120,13 @@ class RCCSD_Solver(ClusterSolver):
         self.converged = True
 
 
-class UCCSD_Solver(RCCSD_Solver):
+class UCCSD_Solver(UClusterSolver, RCCSD_Solver):
     @dataclasses.dataclass
     class Options(RCCSD_Solver.Options):
         pass
 
     def get_solver_class(self):
-        return UCCSD_spindep
+        return UCCSD
 
     def t_diagnostic(self, solver):
         """T diagnostic not implemented for UCCSD in PySCF."""
@@ -164,8 +164,8 @@ class UCCSD_Solver(RCCSD_Solver):
         raise NotImplementedError
 
 
-# Subclass UCCSD to enable support of
-class UCCSD_spindep(pyscf.cc.uccsd.UCCSD):
+# Subclass pyscf UCCSD to enable support of
+class UCCSD(pyscf.cc.uccsd.UCCSD):
     def ao2mo(self, mo_coeff=None):
         nmoa, nmob = self.get_nmo()
         nao = self.mo_coeff[0].shape[0]
