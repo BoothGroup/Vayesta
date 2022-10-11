@@ -334,9 +334,10 @@ class RClusterHamiltonian:
 
         clusmf.get_hcore = lambda *args, **kwargs: heff
         if overwrite_fock:
-            clusmf.get_fock = lambda *args, **kwargs: pad_to_match(self.get_fock(with_vext=True), dummy_energy)
-            clusmf.get_veff = lambda *args, **kwargs: np.array(clusmf.get_fock(*args, **kwargs)) - np.array(
-                clusmf.get_hcore())
+            clusmf.get_fock = lambda *args, **kwargs: pad_to_match(
+                self.get_fock(with_vext=True, use_seris=not force_bare_eris), dummy_energy)
+            clusmf.get_veff = lambda *args, **kwargs: np.array(clusmf.get_fock(*args, **kwargs)) - \
+                                                      np.array(clusmf.get_hcore())
 
         return clusmf, orbs_to_freeze
 
@@ -371,7 +372,6 @@ class RClusterHamiltonian:
 
         elif self.opts.screening == "crpa":
             raise NotImplementedError()
-
         else:
             raise ValueError("Unknown cluster screening protocol: %s" % self.opts.screening)
 
@@ -433,9 +433,13 @@ class RClusterHamiltonian:
             bare_eris = self.get_eris_bare()
             delta, crpa = screening_crpa.get_frag_deltaW(self.mf, self._fragment, self.log)
             if "store" in self.opts.screening:
+                self.log.warning("Storing cRPA object in Hamiltonian- O(N^4) memory cost!")
                 self.crpa = crpa
             if "full" in self.opts.screening:
-                pass
+                # Add a check just in case.
+                self.log.critical("Static screening of frequency-dependent interactions not supported")
+                self.log.critical("This statement should be impossible to reach!")
+                raise ValueError("Static screening of frequency-dependent interactions not supported")
             else:
                 if spin_integrate:
                     delta = spin_integrate_and_report(delta)
