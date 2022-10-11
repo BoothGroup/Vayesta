@@ -109,8 +109,7 @@ class Test_TestSet(TestCase):
                 raise ValueError
             # --- Embedding
             t0 = timer()
-            emb = self.get_embedding(hf, solver=solver, bath_options=dict(threshold=eta),
-                                     solver_options=dict(solve_lambda=True))
+            emb = self.get_embedding(hf, solver=solver, bath_options=dict(threshold=eta))
             emb.kernel()
             time = timer() - t0
             ncluster_mean = emb.get_mean_cluster_size()

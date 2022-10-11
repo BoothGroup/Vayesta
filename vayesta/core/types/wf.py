@@ -304,7 +304,7 @@ class RMP2_WaveFunction(WaveFunction):
         return UMP2_WaveFunction(mo, t2)
 
     def multiply(self, factor):
-        self.t2 = spinalg.multiply(self.t2, len(self.t2)*[factor])
+        self.t2 *= factor
 
     def project(self, projector, inplace=False):
         wf = self if inplace else self.copy()
@@ -431,6 +431,9 @@ class UMP2_WaveFunction(RMP2_WaveFunction):
     def as_fci(self):
         return NotImplementedError
 
+    def multiply(self, factor):
+        self.t2 = spinalg.multiply(self.t2, len(self.t2)*[factor])
+
 
 def MP2_WaveFunction(mo, t2, **kwargs):
     if mo.nspin == 1:
@@ -505,12 +508,12 @@ class RCCSD_WaveFunction(WaveFunction):
         return dm2
 
     def multiply(self, factor):
-        self.t1 = spinalg.multiply(self.t1, factor)
-        self.t2 = spinalg.multiply(self.t2, factor)
+        self.t1 *= factor
+        self.t2 *= factor
         if self.l1 is not None:
-            self.t1 = spinalg.multiply(self.l1, factor)
+            self.l1 *= factor
         if self.l2 is not None:
-            self.t2 = spinalg.multiply(self.l2, factor)
+            self.l2 *= factor
 
     def project(self, projector, inplace=False):
         wf = self if inplace else self.copy()
@@ -711,6 +714,14 @@ class UCCSD_WaveFunction(RCCSD_WaveFunction):
 
     def as_fci(self):
         raise NotImplementedError
+
+    def multiply(self, factor):
+        self.t1 = spinalg.multiply(self.t1, len(self.t1)*[factor])
+        self.t2 = spinalg.multiply(self.t2, len(self.t2)*[factor])
+        if self.l1 is not None:
+            self.l1 = spinalg.multiply(self.l1, len(self.l1)*[factor])
+        if self.l2 is not None:
+            self.l2 = spinalg.multiply(self.l2, len(self.l2)*[factor])
 
     #def pack(self, dtype=float):
     #    """Pack into a single array of data type `dtype`.
