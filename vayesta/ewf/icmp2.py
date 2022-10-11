@@ -46,7 +46,7 @@ class ClusterUHF:
 
 
 def _get_icmp2_fragments(emb, **kwargs):
-        return emb.get_fragments(active=True, options=dict(icmp2_active=True), **kwargs)
+        return emb.get_fragments(active=True, flags=dict(is_envelop=True), **kwargs)
 
 
 def get_intercluster_mp2_energy_rhf(emb, bno_threshold_occ=None, bno_threshold_vir=1e-9,

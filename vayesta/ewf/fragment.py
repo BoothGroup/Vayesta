@@ -46,8 +46,6 @@ class Options(BaseFragment.Options):
     # Calculation modes
     calc_e_wf_corr: bool = None
     calc_e_dm_corr: bool = None
-    # Intercluster MP2
-    icmp2_active: bool = None               # If True, the fragment is used in the intercluster MP2 correction
     # Fragment specific
     # -----------------
     wf_factor: Optional[int] = None

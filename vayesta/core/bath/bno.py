@@ -69,7 +69,7 @@ class BNO_Bath(Bath):
         if np.ndim(canonicalize) == 0:
             canonicalize = (canonicalize, canonicalize)
         self.canonicalize = canonicalize
-        # Coefficients, occupations, and pair correlation energies:
+        # Coefficients, occupations, and correlation energy:
         self.coeff, self.occup, self.ecorr = self.kernel()
 
     @property
@@ -124,18 +124,17 @@ class BNO_Bath(Bath):
         self.log.info(helper.make_histogram(n_bno, bins=bins, labels=labels))
 
     def get_bath(self, bno_threshold=None, **kwargs):
-        c_bath, c_rest = self.truncate_bno(self.coeff, self.occup, bno_threshold=bno_threshold, **kwargs)
-        # Finite bath correction
-        if c_rest.shape[-1] > 0:
-            e_fbc = self.get_finite_bath_correction(c_bath)
-        else:
-            e_fbc = 0
-        self.log.debugv("E(finite-bath-correction)= %s", energy_string(e_fbc))
-        return c_bath, c_rest, e_fbc
+        return self.truncate_bno(self.coeff, self.occup, bno_threshold=bno_threshold, **kwargs)
 
-    def get_finite_bath_correction(self, c_active):
+    @staticmethod
+    def _no_rest(c_rest):
+        return c_rest.shape[-1] == 0
+
+    def get_finite_bath_correction(self, c_bath, c_rest):
+        if self._no_rest(c_rest):
+            return 0
         e1 = self.ecorr
-        actspace = self.get_active_space(c_env=c_active)
+        actspace = self.get_active_space(c_env=c_bath)
         # --- Canonicalization
         fock = self.base.get_fock_for_bath()
         if self.canonicalize[0]:
@@ -275,15 +274,10 @@ class BNO_Bath_UHF(BNO_Bath):
         c_bath_b, c_rest_b = super().truncate_bno(coeff[1], occup[1], *args, **kwargs)
         return (c_bath_a, c_bath_b), (c_rest_a, c_rest_b)
 
-    def get_bath(self, bno_threshold=None, **kwargs):
-        c_bath, c_rest = self.truncate_bno(self.coeff, self.occup, bno_threshold=bno_threshold, **kwargs)
-        # Finite bath correction
-        if (c_rest[0].shape[-1] + c_rest[1].shape[-1]) > 0:
-            e_fbc = self.get_finite_bath_correction(c_bath)
-        else:
-            e_fbc = 0
-        self.log.debugv("E(finite-bath-correction)= %s", energy_string(e_fbc))
-        return c_bath, c_rest, e_fbc
+    @staticmethod
+    def _no_rest(c_rest):
+        return (c_rest[0].shape[-1] + c_rest[1].shape[-1]) == 0
+
 
 class MP2_BNO_Bath(BNO_Bath):
 

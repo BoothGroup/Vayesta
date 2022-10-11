@@ -46,8 +46,6 @@ class Options(Embedding.Options):
     bsse_correction: bool = True
     bsse_rmax: float = 5.0              # In Angstrom
     nelectron_target: int = None
-    # Intercluster MP2
-    icmp2_active: bool = True           # If True, the fragment is used in the intercluster MP2 correction
     # --- Couple embedding problems (currently only CCSD)
     sc_mode: int = 0
     coupled_iterations: bool = False
@@ -482,11 +480,14 @@ class EWF(Embedding):
     def get_finite_bath_correction(self, occupied=True, virtual=True):
         e_fbc = 0.0
         # Only loop over fragments of own MPI rank
-        for fx in self.get_fragments(active=True, sym_parent=None, mpi_rank=mpi.rank):
+        for fx in self.get_fragments(active=True, sym_parent=None, flags=dict(is_envelop=True), mpi_rank=mpi.rank):
+            ex = 0
             if occupied:
-                e_fbc += fx.symmetry_factor * fx.results.e_fbc_occ
+                ex += fx.symmetry_factor * fx.results.e_fbc_occ
             if virtual:
-                e_fbc += fx.symmetry_factor * fx.results.e_fbc_vir
+                ex += fx.symmetry_factor * fx.results.e_fbc_vir
+            e_fbc += ex
+            self.log.debugv("FBC from %-30s  dE= %s", fx, energy_string(ex))
         return e_fbc/self.ncells
 
     @with_doc(get_finite_bath_correction)
