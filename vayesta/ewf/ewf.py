@@ -476,25 +476,6 @@ class EWF(Embedding):
         e_corr = (e_singles + e_doubles)
         return e_corr / self.ncells
 
-    @mpi.with_allreduce()
-    def get_finite_bath_correction(self, occupied=True, virtual=True):
-        e_fbc = 0.0
-        # Only loop over fragments of own MPI rank
-        for fx in self.get_fragments(active=True, sym_parent=None, flags=dict(is_envelop=True), mpi_rank=mpi.rank):
-            ex = 0
-            if occupied:
-                ex += fx.symmetry_factor * fx.results.e_fbc_occ
-            if virtual:
-                ex += fx.symmetry_factor * fx.results.e_fbc_vir
-            e_fbc += ex
-            self.log.debugv("FBC from %-30s  dE= %s", fx, energy_string(ex))
-        return e_fbc/self.ncells
-
-    @with_doc(get_finite_bath_correction)
-    def get_fbc(self, *args, **kwargs):
-        """Alias for get_finite_bath_correction."""
-        return self.get_finite_bath_correction(*args, **kwargs)
-
     # Total energy
 
     @property
@@ -519,6 +500,55 @@ class EWF(Embedding):
 
     # --- Energy corrections
 
+    @mpi.with_allreduce()
+    @log_method()
+    def get_fbc_energy(self, occupied=True, virtual=True):
+        """Get finite-bath correction (FBC) energy.
+
+        This correction consists of two independent contributions, one due to the finite occupied,
+        and one due to the finite virtual space.
+
+        The virtual correction for a given fragment x is calculated as
+        "E(MP2)[occ=D,vir=F] - E(MP2)[occ=D,vir=C]", where D is the DMET cluster space,
+        F is the full space, and C is the full cluster space. For the occupied correction,
+        occ and vir spaces are swapped. Fragments which do not have a BNO bath are skipped.
+
+        Parameters
+        ----------
+        occupied: bool, optional
+            If True, the FBC energy from the occupied space is included. Default: True.
+        virtual: bool, optional
+            If True, the FBC energy from the virtual space is included. Default: True.
+
+        Returns
+        -------
+        e_fbc: float
+            Finite bath correction (FBC) energy.
+        """
+        if not (occupied or virtual):
+            raise ValueError
+
+        e_fbc = 0.0
+        # Only loop over fragments of own MPI rank
+        for fx in self.get_fragments(active=True, sym_parent=None, flags=dict(is_envelop=True), mpi_rank=mpi.rank):
+            ex = 0
+            if occupied:
+                get_fbc = getattr(fx._bath_factory_occ, 'get_finite_bath_correction', False)
+                if get_fbc:
+                    ex += get_fbc(fx.cluster.c_active_occ, fx.cluster.c_frozen_occ)
+                else:
+                    self.log.warning("%s does not have occupied BNOs - skipping fragment for FBC energy.", fx)
+            if virtual:
+                get_fbc = getattr(fx._bath_factory_vir, 'get_finite_bath_correction', False)
+                if get_fbc:
+                    ex += get_fbc(fx.cluster.c_active_vir, fx.cluster.c_frozen_vir)
+                else:
+                    self.log.warning("%s does not have virtual BNOs - skipping fragment for FBC energy.", fx)
+            self.log.debug("FBC from %-30s  dE= %s", fx, energy_string(ex))
+            e_fbc += fx.symmetry_factor * ex
+        e_fbc /= self.ncells
+        self.log.debug("E(FBC)= %s", energy_string(e_fbc))
+        return e_fbc
 
     @log_method()
     def get_intercluster_mp2_energy(self, *args, **kwargs):

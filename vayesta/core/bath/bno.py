@@ -127,14 +127,14 @@ class BNO_Bath(Bath):
         return self.truncate_bno(self.coeff, self.occup, bno_threshold=bno_threshold, **kwargs)
 
     @staticmethod
-    def _no_rest(c_rest):
-        return c_rest.shape[-1] == 0
+    def _has_frozen(c_frozen):
+        return c_frozen.shape[-1] > 0
 
-    def get_finite_bath_correction(self, c_bath, c_rest):
-        if self._no_rest(c_rest):
+    def get_finite_bath_correction(self, c_active, c_frozen):
+        if not self._has_frozen(c_frozen):
             return 0
         e1 = self.ecorr
-        actspace = self.get_active_space(c_env=c_bath)
+        actspace = self.get_active_space(c_active=c_active)
         # --- Canonicalization
         fock = self.base.get_fock_for_bath()
         if self.canonicalize[0]:
@@ -181,21 +181,25 @@ class BNO_Bath(Bath):
         c_bath, c_rest = np.hsplit(coeff, [bno_number])
         return c_bath, c_rest
 
-    def get_active_space(self, c_env=None):
+    def get_active_space(self, c_active=None):
         dmet_bath = self.dmet_bath
         nao = self.mol.nao
-        if c_env is None:
-            c_env = self.c_env
         empty = np.zeros((nao, 0)) if self.spin_restricted else np.zeros((2, nao, 0))
         if self.occtype == 'occupied':
-            c_active_occ = spinalg.hstack_matrices(dmet_bath.c_cluster_occ, c_env)
+            if c_active is None:
+                c_active_occ = spinalg.hstack_matrices(dmet_bath.c_cluster_occ, self.c_env)
+            else:
+                c_active_occ = c_active
             c_frozen_occ = empty
             if self.c_buffer is not None:
                 raise NotImplementedError
             c_active_vir = dmet_bath.c_cluster_vir
             c_frozen_vir = dmet_bath.c_env_vir
         elif self.occtype == 'virtual':
-            c_active_vir = spinalg.hstack_matrices(dmet_bath.c_cluster_vir, c_env)
+            if c_active is None:
+                c_active_vir = spinalg.hstack_matrices(dmet_bath.c_cluster_vir, self.c_env)
+            else:
+                c_active_vir = c_active
             c_frozen_vir = empty
             if self.c_buffer is None:
                 c_active_occ = dmet_bath.c_cluster_occ
@@ -275,8 +279,8 @@ class BNO_Bath_UHF(BNO_Bath):
         return (c_bath_a, c_bath_b), (c_rest_a, c_rest_b)
 
     @staticmethod
-    def _no_rest(c_rest):
-        return (c_rest[0].shape[-1] + c_rest[1].shape[-1]) == 0
+    def _has_frozen(c_frozen):
+        return (c_frozen[0].shape[-1] + c_frozen[1].shape[-1]) > 0
 
 
 class MP2_BNO_Bath(BNO_Bath):

@@ -68,9 +68,6 @@ class Fragment(BaseFragment):
     @dataclasses.dataclass
     class Results(BaseFragment.Results):
         e_corr_dm2cumulant: float = None
-        # Finite bath correction
-        e_fbc_occ: float = None
-        e_fbc_vir: float = None
         n_active: int = None
         ip_energy: np.ndarray = None
         ea_energy: np.ndarray = None
@@ -280,13 +277,6 @@ class Fragment(BaseFragment):
         # --- Add to results data class
         self._results = results = self.Results(fid=self.id, n_active=cluster.norb_active,
                 converged=cluster_solver.converged, wf=cluster_solver.wf, pwf=pwf)
-        # --- Finite bath correction
-        e_fbc_occ = getattr(cluster, 'e_fbc_occ', None)
-        e_fbc_vir = getattr(cluster, 'e_fbc_vir', None)
-        if e_fbc_occ is not None:
-            self._results.e_fbc_occ = e_fbc_occ
-        if e_fbc_vir is not None:
-            self._results.e_fbc_vir = e_fbc_vir
 
         # --- Correlation energy contributions
         if self.opts.calc_e_wf_corr:
