@@ -77,6 +77,14 @@ class Options(OptionsBase):
         threshold=None, truncation='occupation', project_dmet=False, addbuffer=False,
         # General
         canonicalize=True,
+        # The following options can be set occupied/virtual-specific:
+        bathtype_occ=None, bathtype_vir=None,
+        rcut_occ=None, rcut_vir=None,
+        unit_occ=None, unit_vir=None,
+        threshold_occ=None, threshold_vir=None,
+        truncation_occ=None, truncation_vir=None,
+        project_dmet_occ=None, bathtype_dmet_vir=None,
+        addbuffer_occ=None, addbuffer_dmet_vir=None,
         )
     # --- Solver options
     solver_options: dict = OptionsBase.dict_with_defaults(
