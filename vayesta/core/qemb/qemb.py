@@ -85,6 +85,7 @@ class Options(OptionsBase):
         truncation_occ=None, truncation_vir=None,
         project_dmet_occ=None, bathtype_dmet_vir=None,
         addbuffer_occ=None, addbuffer_dmet_vir=None,
+        canonicalize_occ=None, canonicalize_vir=None,
         )
     # --- Solver options
     solver_options: dict = OptionsBase.dict_with_defaults(
