@@ -329,29 +329,20 @@ class ssRPA:
         return ApB * alpha, AmB * alpha
 
     def gen_moms(self, max_mom, xc_kernel=None):
-        res = np.zeros((max_mom + 1, self.ov, self.ov))
+        nova = self.ova
+        nov = self.ov
+        if self.ov_rot is not None:
+            nova = self.ov_rot[0].shape[0]
+            nov = nova + self.ov_rot[1].shape[0]
+        res = np.zeros((max_mom+1, nov, nov))
         for x in range(max_mom + 1):
             # Have different spin components in general; these are alpha-alpha, alpha-beta and beta-beta.
-            res[x, : self.ova, : self.ova] = np.einsum(
-                "pn,n,qn->pq", self.XpY_ss[0], self.freqs_ss**x, self.XpY_ss[0]
-            )
-            res[x, self.ova :, self.ova :] = np.einsum(
-                "pn,n,qn->pq", self.XpY_ss[1], self.freqs_ss**x, self.XpY_ss[1]
-            )
-            res[x, : self.ova, self.ova :] = np.einsum(
-                "pn,n,qn->pq", self.XpY_ss[0], self.freqs_ss**x, self.XpY_ss[1]
-            )
-            res[x, self.ova :, : self.ova] = res[x][: self.ova, self.ova :].T
+            res[x, :nova, :nova] = np.einsum("pn,n,qn->pq", self.XpY_ss[0], self.freqs_ss ** x, self.XpY_ss[0])
+            res[x, nova:, nova:] = np.einsum("pn,n,qn->pq", self.XpY_ss[1], self.freqs_ss ** x, self.XpY_ss[1])
+            res[x, :nova, nova:] = np.einsum("pn,n,qn->pq", self.XpY_ss[0], self.freqs_ss ** x, self.XpY_ss[1])
+            res[x, nova:, :nova] = res[x][:nova, nova:].T
 
         return res
-
-    @property
-    def mo_coeff(self):
-        return self.mf.mo_coeff
-
-    @property
-    def nao(self):
-        return self.mf.mol.nao
 
     def ao2mo(self, mo_coeff=None, compact=False):
         """Get the ERIs in MO basis"""
