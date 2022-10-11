@@ -304,7 +304,7 @@ class RMP2_WaveFunction(WaveFunction):
         return UMP2_WaveFunction(mo, t2)
 
     def multiply(self, factor):
-        self.t2 = spinalg.multiply(self.t2, factor)
+        self.t2 = spinalg.multiply(self.t2, len(self.t2)*[factor])
 
     def project(self, projector, inplace=False):
         wf = self if inplace else self.copy()
