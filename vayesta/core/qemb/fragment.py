@@ -842,9 +842,10 @@ class Fragment:
             c_active_vir = self.canonicalize_mo(c_active_vir)[0]
         cluster = Cluster.from_coeffs(c_active_occ, c_active_vir, c_frozen_occ, c_frozen_vir)
         # Add finite bath correction to cluster object
-        cluster.e_fbc = e_fbc_occ + e_fbc_vir
+        cluster.e_fbc_occ = e_fbc_occ
+        cluster.e_fbc_vir = e_fbc_vir
         self.log.debug("Finite bath correction:  occ= %s  vir= %s  tot= %s", energy_string(e_fbc_occ),
-                       energy_string(e_fbc_vir), energy_string(cluster.e_fbc))
+                       energy_string(e_fbc_vir), energy_string(e_fbc_occ+e_fbc_vir))
 
         # Check occupations
         def check_occup(mo_coeff, expected):
