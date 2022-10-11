@@ -757,16 +757,18 @@ class Fragment:
     # Bath and cluster
     # ----------------
 
+    def _get_bath_option(self, key, occtype):
+        """Get bath-option, checking if a occupied-virtual specific option has been set."""
+        opts = self.opts.bath_options
+        opt = opts.get('%s_%s' % (key, occtype[:3]), None)
+        if opt is not None:
+            return opt
+        return opts[key]
+
     def make_bath(self):
 
-        # --- Bath options
-        bath_opts = self.opts.bath_options
-        self.log.debug("bath_options: %s", break_into_lines(str(bath_opts)))
-        def get_opt(key, occtype):
-            return (bath_opts.get('%s_%s' % (key, occtype[:3]), False) or bath_opts[key])
-
         # --- DMET bath
-        dmet = DMET_Bath(self, dmet_threshold=bath_opts['dmet_threshold'])
+        dmet = DMET_Bath(self, dmet_threshold=self.opts.bath_options['dmet_threshold'])
         dmet.kernel()
         self._dmet_bath = dmet
 
@@ -774,7 +776,7 @@ class Fragment:
         def get_bath(occtype):
             otype = occtype[:3]
             assert otype in ('occ', 'vir')
-            btype = get_opt('bathtype', occtype)
+            btype = self._get_bath_option('bathtype', occtype)
             if btype is None:
                 self.log.warning("bathtype=None is deprecated; use bathtype='dmet'.")
                 btype = 'dmet'
@@ -795,8 +797,8 @@ class Fragment:
                 return R2_Bath(self, dmet, occtype=occtype)
             # MP2 bath natural orbitals
             if btype == 'mp2':
-                project_dmet = get_opt('project_dmet', occtype)
-                addbuffer = get_opt('addbuffer', occtype) and occtype == 'virtual'
+                project_dmet = self._get_bath_option('project_dmet', occtype)
+                addbuffer = self._get_bath_option('addbuffer', occtype) and occtype == 'virtual'
                 if addbuffer:
                     other = 'occ' if (otype == 'vir') else 'vir'
                     c_buffer = getattr(dmet, 'c_env_%s' % other)
@@ -809,25 +811,21 @@ class Fragment:
 
     def make_cluster(self):
 
-        bath_opts = self.opts.bath_options
-        def get_opt(key, occtype):
-            return (bath_opts.get('%s_%s' % (key, occtype[:3]), False) or bath_opts[key])
-
         def get_orbitals(occtype):
             factory = getattr(self, '_bath_factory_%s' % occtype[:3])
-            btype = get_opt('bathtype', occtype)
+            btype = self._get_bath_option('bathtype', occtype)
             if btype == 'dmet':
                 c_bath = None
                 c_frozen = getattr(self._dmet_bath, 'c_env_%s' % occtype[:3])
             if btype == 'full':
                 c_bath, c_frozen = factory.get_bath()
             if btype == 'r2':
-                rcut = get_opt('rcut', occtype)
-                unit = get_opt('unit', occtype)
+                rcut = self._get_bath_option('rcut', occtype)
+                unit = self._get_bath_option('unit', occtype)
                 c_bath, c_frozen = factory.get_bath(rcut=rcut)
             if btype == 'mp2':
-                threshold = get_opt('threshold', occtype)
-                truncation = get_opt('truncation', occtype)
+                threshold = self._get_bath_option('threshold', occtype)
+                truncation = self._get_bath_option('truncation', occtype)
                 bno_threshold = BNO_Threshold(truncation, threshold)
                 c_bath, c_frozen = factory.get_bath(bno_threshold)
             return c_bath, c_frozen
@@ -837,9 +835,9 @@ class Fragment:
         c_active_occ = spinalg.hstack_matrices(self._dmet_bath.c_cluster_occ, c_bath_occ)
         c_active_vir = spinalg.hstack_matrices(self._dmet_bath.c_cluster_vir, c_bath_vir)
         # Canonicalize orbitals
-        if get_opt('canonicalize', 'occupied'):
+        if self._get_bath_option('canonicalize', 'occupied'):
             c_active_occ = self.canonicalize_mo(c_active_occ)[0]
-        if get_opt('canonicalize', 'virtual'):
+        if self._get_bath_option('canonicalize', 'virtual'):
             c_active_vir = self.canonicalize_mo(c_active_vir)[0]
         cluster = Cluster.from_coeffs(c_active_occ, c_active_vir, c_frozen_occ, c_frozen_vir)
 
