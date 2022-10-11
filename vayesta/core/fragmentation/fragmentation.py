@@ -192,11 +192,13 @@ class Fragmentation:
         # Only consider fragments with flags.secfrag_solver set:
         fragments = self.emb.get_fragments(flags=dict(secfrag_solver=lambda x: x is not None))
 
-        def _create_fragment(fx, **kwargs):
+        def _create_fragment(fx, flags=None, **kwargs):
             if fx.sym_parent is not None:
                 raise NotImplementedError("Secondary fragments need to be added before symmetry-derived fragments")
             solver = fx.flags.secfrag_solver
-            fx_copy = fx.copy(solver=solver, flags=dict(is_secfrag=True), **kwargs)
+            flags = (flags or {}).copy()
+            flags['is_secfrag'] = True
+            fx_copy = fx.copy(solver=solver, flags=flags, **kwargs)
             fx_copy.flags.bath_parent_fragment = fx
             self.log.debugv("Adding secondary fragment: %s", fx_copy)
             return fx_copy
@@ -221,9 +223,9 @@ class Fragmentation:
             frag = _create_fragment(fx, name='%s(secondary)' % fx.name, bath_options=bath_opts)
             fragments_sec.append(frag)
             # Double counting
-            frag = _create_fragment(fx, name='%s(secondary-dc)' % fx.name, wf_factor=-1, icmp2_active=False)
+            frag = _create_fragment(fx, name='%s(secondary-dc)' % fx.name, wf_factor=-1, flags=dict(is_envelop=False))
             fragments_sec.append(frag)
-            fx.opts.icmp2_active = False
+            fx.flags.is_envelop = False
         return fragments_sec
 
     # --- For convenience:

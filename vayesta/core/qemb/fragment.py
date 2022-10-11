@@ -54,20 +54,22 @@ class Options(OptionsBase):
     sym_factor: float = 1.0
 
 
-@dataclasses.dataclass
-class Flags:
-    is_secfrag: bool = False
-    # Secondary fragment parameter
-    secfrag_solver: typing.Optional[str] = None
-    secfrag_bno_threshold: typing.Optional[float] = None
-    secfrag_bno_threshold_factor: float = 0.1
-    bath_parent_fragment: typing.Any = None
-
-
 class Fragment:
 
     Options = Options
-    Flags = Flags
+
+    @dataclasses.dataclass
+    class Flags:
+        # If multiple cluster exist for a given atom, the envelop fragment is
+        # the one with the largest (super) cluster space. This is used, for example,
+        # for the finite-bath and ICMP2 corrections
+        is_envelop: bool = True
+        is_secfrag: bool = False
+        # Secondary fragment parameter
+        secfrag_solver: typing.Optional[str] = None
+        secfrag_bno_threshold: typing.Optional[float] = None
+        secfrag_bno_threshold_factor: float = 0.1
+        bath_parent_fragment: typing.Any = None
 
     @dataclasses.dataclass
     class Results:

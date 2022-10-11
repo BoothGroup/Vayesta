@@ -20,14 +20,15 @@ def add_numbers(*args):
 def hstack_matrices(*args, ignore_none=True):
     if ignore_none:
         args = [x for x in args if x is not None]
+    ndims = np.asarray([(arg[0].ndim+1) for arg in args])
     # RHF
-    if np.all([(arg[0].ndim == 1) for arg in args]):
+    if np.all(ndims == 2):
         return util.hstack(*args)
     # UHF
-    if np.all([(arg[0].ndim == 2) for arg in args]):
+    if np.all(ndims == 3):
         return (util.hstack(*[arg[0] for arg in args]),
                 util.hstack(*[arg[1] for arg in args]))
-    raise ValueError
+    raise ValueError("ndims= %r" % ndims)
 
 def dot(*args, out=None):
     """Generalizes dot with or without spin channel: ij,jk->ik or Sij,Sjk->Sik

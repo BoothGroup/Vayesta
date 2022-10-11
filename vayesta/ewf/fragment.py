@@ -46,8 +46,6 @@ class Options(BaseFragment.Options):
     # Calculation modes
     calc_e_wf_corr: bool = None
     calc_e_dm_corr: bool = None
-    # Intercluster MP2
-    icmp2_active: bool = None               # If True, the fragment is used in the intercluster MP2 correction
     # Fragment specific
     # -----------------
     wf_factor: Optional[int] = None
@@ -59,35 +57,30 @@ class Options(BaseFragment.Options):
     tcc_fci_opts: dict = dataclasses.field(default_factory=dict)
 
 
-@dataclasses.dataclass
-class Flags(BaseFragment.Flags):
-    pass
-
-
-@dataclasses.dataclass
-class Results(BaseFragment.Results):
-    e_corr_dm2cumulant: float = None
-    n_active: int = None
-    ip_energy: np.ndarray = None
-    ea_energy: np.ndarray = None
-
-    @property
-    def dm1(self):
-        """Cluster 1DM"""
-        return self.wf.make_rdm1()
-
-    @property
-    def dm2(self):
-        """Cluster 2DM"""
-        return self.wf.make_rdm2()
-
-
 class Fragment(BaseFragment):
 
     Options = Options
-    Flags = Flags
-    Results = Results
 
+    @dataclasses.dataclass
+    class Flags(BaseFragment.Flags):
+        pass
+
+    @dataclasses.dataclass
+    class Results(BaseFragment.Results):
+        e_corr_dm2cumulant: float = None
+        n_active: int = None
+        ip_energy: np.ndarray = None
+        ea_energy: np.ndarray = None
+
+        @property
+        def dm1(self):
+            """Cluster 1DM"""
+            return self.wf.make_rdm1()
+
+        @property
+        def dm2(self):
+            """Cluster 2DM"""
+            return self.wf.make_rdm2()
 
     def __init__(self, *args, **kwargs):
 
