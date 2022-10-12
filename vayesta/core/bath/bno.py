@@ -386,11 +386,11 @@ class MP2_BNO_Bath(BNO_Bath):
             assert np.all(eig > -1e-10)
             assert np.all(eig-1 < 1e-10)
             eig = np.clip(eig, 0, 1)
-            if self.project_dmet_mode in ('full', 'double'):
+            if self.project_dmet_mode == 'full':
                 weights = np.zeros(len(eig))
             elif self.project_dmet_mode == 'half':
                 weights = np.full(len(eig), 0.5)
-            elif self.project_dmet_mode in ('linear', 'linear-double'):
+            elif self.project_dmet_mode == 'linear':
                 weights = 2*abs(np.fmin(eig, 1-eig))
             elif self.project_dmet_mode == 'cosine':
                 weights = (1-np.cos(2*eig*np.pi))/2
