@@ -1319,12 +1319,16 @@ class Embedding:
         if filename is not None:
             f.close()
 
-    def _check_fragment_nelectron(self):
-        nelec_frags = sum([f.sym_factor*f.nelectron for f in self.fragments])
-        nelec = self.mol.nelectron
-        self.log.info("Number of electrons over all fragments= %.8f , system= %.8f", nelec_frags, nelec)
+    def _check_fragment_nelectron(self, fragments=None, nelec=None):
+        if fragments is None:
+            fragments = self.get_fragments(flags=dict(is_envelop=True))
+        if nelec is None:
+            nelec = self.mol.nelectron
+        nelec_frags = sum([f.sym_factor*f.nelectron for f in fragments])
+
+        self.log.info("Number of electrons over %d fragments= %.8f  target= %.8f", len(fragments), nelec_frags, nelec)
         if abs(nelec_frags - nelec) > 1e-6:
-            self.log.warning("Number of electrons over all fragments not equal to the system's number of electrons.")
+            self.log.warning("Number of mean-field electrons in fragments not equal to the target number of electrons.")
         return nelec_frags
 
     # --- Fragmentation methods
