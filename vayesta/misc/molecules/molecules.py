@@ -146,6 +146,10 @@ def ring(atom, natom, bond_length, z=0.0):
 
 # --- From datafiles:
 
+def acetic_acid():
+    atom = _load_datafile('acetic.dat')
+    return atom
+
 def propyl():
     atom = _load_datafile('propyl.dat')
     return atom
