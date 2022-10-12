@@ -199,7 +199,7 @@ class Fragmentation:
             flags = (flags or {}).copy()
             flags['is_secfrag'] = True
             fx_copy = fx.copy(solver=solver, flags=flags, **kwargs)
-            fx_copy.flags.bath_parent_fragment = fx
+            fx_copy.flags.bath_parent_fragment_id = fx.id
             self.log.debugv("Adding secondary fragment: %s", fx_copy)
             return fx_copy
 

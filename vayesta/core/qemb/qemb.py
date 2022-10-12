@@ -841,7 +841,7 @@ class Embedding:
                 # Add fragment
                 frag_id = self.register.get_next_id()
                 frag = self.Fragment(self, frag_id, name, c_frag_t, c_env_t, sym_parent=parent, sym_op=sym_op,
-                        mpi_rank=parent.mpi_rank, **parent.opts.asdict())
+                        mpi_rank=parent.mpi_rank, flags=dataclasses.asdict(parent.flags), **parent.opts.asdict())
                 # Check symmetry
                 # (only for the first rotation or primitive translations (1,0,0), (0,1,0), and (0,0,1)
                 # to reduce number of sym_op(c_env) calls)
