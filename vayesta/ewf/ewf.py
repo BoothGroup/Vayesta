@@ -124,8 +124,10 @@ class EWF(Embedding):
         self.log.info("")
         self.log.info("MAKING BATH AND CLUSTERS")
         self.log.info("========================")
+        fragments = self.get_fragments(active=True, sym_parent=None, mpi_rank=mpi.rank)
+        fragdict = {f.id: f for f in fragments}
         with log_time(self.log.timing, "Total time for bath and clusters: %s"):
-            for x in self.get_fragments(active=True, sym_parent=None, mpi_rank=mpi.rank):
+            for x in fragments:
                 if x._results is not None:
                     self.log.debug("Resetting %s" % x)
                     x.reset()
@@ -135,12 +137,13 @@ class EWF(Embedding):
                 with self.log.indent():
                     if x._dmet_bath is None:
                         # Make own bath:
-                        if x.flags.bath_parent_fragment is None:
+                        if x.flags.bath_parent_fragment_id is None:
                             x.make_bath()
                         # Copy bath (DMET, occupied, virtual) from other fragment:
                         else:
+                            bath_parent = fragdict[x.flags.bath_parent_fragment_id]
                             for attr in ('_dmet_bath', '_bath_factory_occ', '_bath_factory_vir'):
-                                setattr(x, attr, getattr(x.flags.bath_parent_fragment, attr))
+                                setattr(x, attr, getattr(bath_parent, attr))
                     if x._cluster is None:
                         x.make_cluster()
             if mpi:
@@ -151,7 +154,7 @@ class EWF(Embedding):
                 self.communicate_clusters()
 
         # --- Screened Coulomb interaction
-        if any(x.opts.screening is not None for x in self.get_fragments(active=True, sym_parent=None, mpi_rank=mpi.rank)):
+        if any(x.opts.screening is not None for x in fragments):
             self.log.info("")
             self.log.info("SCREENING INTERACTIONS")
             self.log.info("======================")
@@ -163,7 +166,7 @@ class EWF(Embedding):
         self.log.info("RUNNING SOLVERS")
         self.log.info("===============")
         with log_time(self.log.timing, "Total time for solvers: %s"):
-            for x in self.get_fragments(active=True, sym_parent=None, mpi_rank=mpi.rank):
+            for x in fragments:
                 msg = "Solving %s%s" % (x, (" on MPI process %d" % mpi.rank) if mpi else "")
                 self.log.info(msg)
                 self.log.info(len(msg)*"-")
@@ -177,7 +180,7 @@ class EWF(Embedding):
             return
 
         # --- Check convergence of fragments
-        conv = self._all_converged()
+        conv = self._all_converged(fragments)
         if not conv:
             self.log.error("Some fragments did not converge!")
         self.converged = conv
@@ -190,9 +193,9 @@ class EWF(Embedding):
         self.log.info("Total wall time:  %s", time_string(timer()-t_start))
         return self.e_tot
 
-    def _all_converged(self):
+    def _all_converged(self, fragments):
         conv = True
-        for fx in self.get_fragments(active=True, sym_parent=None, mpi_rank=mpi.rank):
+        for fx in fragments:
             conv = (conv and fx.results.converged)
         if mpi:
             conv = mpi.world.allreduce(conv, op=mpi.MPI.LAND)
