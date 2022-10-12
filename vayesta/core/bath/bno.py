@@ -285,8 +285,14 @@ class BNO_Bath_UHF(BNO_Bath):
 
 class MP2_BNO_Bath(BNO_Bath):
 
-    def __init__(self, *args, project_dmet=False, **kwargs):
-        self.project_dmet = project_dmet
+    def __init__(self, *args, project_dmet_order=0, project_dmet_mode='full', project_dmet=None, **kwargs):
+        # Backwards compatibility:
+        if project_dmet:
+            project_dmet_order = 1
+            project_dmet_mode = project_dmet
+            # TODO: deprecate
+        self.project_dmet_order = project_dmet_order
+        self.project_dmet_mode = project_dmet_mode
         super().__init__(*args, **kwargs)
 
     def _make_t2(self, actspace, fock, eris=None, max_memory=None, blksize=None, energy_only=False):
@@ -373,28 +379,29 @@ class MP2_BNO_Bath(BNO_Bath):
     def make_delta_dm1(self, t2, actspace):
         """Delta MP2 density matrix"""
 
-        if self.project_dmet:
-            self.log.info("Projecting DMET space for MP2 bath (method= %s).", self.project_dmet)
+        if self.project_dmet_order > 0:
+            self.log.info("Projecting DMET space for MP2 bath (mode= %s, order= %d).",
+                          self.project_dmet_mode, self.project_dmet_order)
             eig = self.dmet_bath.n_dmet
             assert np.all(eig > -1e-10)
             assert np.all(eig-1 < 1e-10)
             eig = np.clip(eig, 0, 1)
-            if self.project_dmet == 'full':
+            if self.project_dmet_mode in ('full', 'double'):
                 weights = np.zeros(len(eig))
-            elif self.project_dmet == 'half':
+            elif self.project_dmet_mode == 'half':
                 weights = np.full(len(eig), 0.5)
-            elif self.project_dmet == 'linear':
+            elif self.project_dmet_mode in ('linear', 'linear-double'):
                 weights = 2*abs(np.fmin(eig, 1-eig))
-            elif self.project_dmet == 'cosine':
+            elif self.project_dmet_mode == 'cosine':
                 weights = (1-np.cos(2*eig*np.pi))/2
-            elif self.project_dmet == 'cosine-half':
+            elif self.project_dmet_mode == 'cosine-half':
                 weights = (1-np.cos(2*eig*np.pi))/4
-            elif self.project_dmet == 'entropy':
+            elif self.project_dmet_mode == 'entropy':
                 weights = 4*eig*(1-eig)
-            elif self.project_dmet == 'sqrt-entropy':
+            elif self.project_dmet_mode == 'sqrt-entropy':
                 weights = 2*np.sqrt(eig*(1-eig))
             else:
-                raise ValueError("Invalid value for project_dmet: %s" % self.project_dmet)
+                raise ValueError("Invalid value for project_dmet_mode: %s" % self.project_dmet_mode)
             assert np.all(weights > -1e-14)
             assert np.all(weights-1 < 1e-14)
             weights = hstack(self.fragment.n_frag*[1], weights)
@@ -405,11 +412,21 @@ class MP2_BNO_Bath(BNO_Bath):
             if self.occtype == 'occupied':
                 rot = dot(actspace.c_active_vir.T, ovlp, c_fragdmet)
                 proj = einsum('ix,x,jx->ij', rot, weights, rot)
-                t2 = einsum('xa,ijab->ijxb', proj, t2)
+                if self.project_dmet_order == 1:
+                    t2 = einsum('xa,ijab->ijxb', proj, t2)
+                elif self.project_dmet_order == 2:
+                    t2 = einsum('xa,yb,ijab->ijxy', proj, proj, t2)
+                else:
+                    raise ValueError
             elif self.occtype == 'virtual':
                 rot = dot(actspace.c_active_occ.T, ovlp, c_fragdmet)
                 proj = einsum('ix,x,jx->ij', rot, weights, rot)
-                t2 = einsum('xi,i...->x...', proj, t2)
+                if self.project_dmet_order == 1:
+                    t2 = einsum('xi,i...->x...', proj, t2)
+                elif self.project_dmet_order == 2:
+                    t2 = einsum('xi,yj,ij...->xy...', proj, proj, t2)
+                else:
+                    raise ValueError
             t2 = (t2 + t2.transpose(1,0,3,2))/2
         else:
             self.log.debugv("Constructing DM from complete amplitudes")
@@ -619,8 +636,9 @@ class UMP2_BNO_Bath(MP2_BNO_Bath, BNO_Bath_UHF):
     def make_delta_dm1(self, t2, actspace):
         t2aa, t2ab, t2bb = t2
 
-        if self.project_dmet:
-            self.log.info("Projecting DMET space for MP2 bath (method= %s).", self.project_dmet)
+        if self.project_dmet_order > 0:
+            self.log.info("Projecting DMET space for MP2 bath (mode= %s, order= %d).",
+                          self.project_dmet_mode, self.project_dmet_order)
             eiga, eigb = self.dmet_bath.n_dmet
             assert np.all(eiga > -1e-10)
             assert np.all(eigb > -1e-10)
@@ -628,29 +646,29 @@ class UMP2_BNO_Bath(MP2_BNO_Bath, BNO_Bath_UHF):
             assert np.all(eigb-1 < 1e-10)
             eiga = np.clip(eiga, 0, 1)
             eigb = np.clip(eigb, 0, 1)
-            if self.project_dmet == 'full':
+            if self.project_dmet_mode == 'full':
                 weightsa = np.zeros(len(eiga))
                 weightsb = np.zeros(len(eigb))
-            elif self.project_dmet == 'half':
+            elif self.project_dmet_mode == 'half':
                 weightsa = np.full(len(eiga), 0.5)
                 weightsb = np.full(len(eigb), 0.5)
-            elif self.project_dmet == 'linear':
+            elif self.project_dmet_mode == 'linear':
                 weightsa = 2*abs(np.fmin(eiga, 1-eiga))
                 weightsb = 2*abs(np.fmin(eigb, 1-eigb))
-            elif self.project_dmet == 'cosine':
+            elif self.project_dmet_mode == 'cosine':
                 weightsa = (1-np.cos(2*eiga*np.pi))/2
                 weightsb = (1-np.cos(2*eigb*np.pi))/2
-            elif self.project_dmet == 'cosine-half':
+            elif self.project_dmet_mode == 'cosine-half':
                 weightsa = (1-np.cos(2*eiga*np.pi))/4
                 weightsb = (1-np.cos(2*eigb*np.pi))/4
-            elif self.project_dmet == 'entropy':
+            elif self.project_dmet_mode == 'entropy':
                 weightsa = 4*eiga*(1-eiga)
                 weightsb = 4*eigb*(1-eigb)
-            elif self.project_dmet == 'sqrt-entropy':
+            elif self.project_dmet_mode == 'sqrt-entropy':
                 weightsa = 2*np.sqrt(eiga*(1-eiga))
                 weightsb = 2*np.sqrt(eigb*(1-eigb))
             else:
-                raise ValueError("Invalid value for project_dmet: %s" % self.project_dmet)
+                raise ValueError("Invalid value for project_dmet_mode: %s" % self.project_dmet_mode)
             assert np.all(weightsa > -1e-14)
             assert np.all(weightsb > -1e-14)
             assert np.all(weightsa-1 < 1e-14)
@@ -667,19 +685,39 @@ class UMP2_BNO_Bath(MP2_BNO_Bath, BNO_Bath_UHF):
                 rotb = dot(actspace.c_active_vir[1].T, ovlp, c_fragdmet_b)
                 proja = einsum('ix,x,jx->ij', rota, weightsa, rota)
                 projb = einsum('ix,x,jx->ij', rotb, weightsb, rotb)
-                t2aa = einsum('xa,ijab->ijxb', proja, t2aa)
-                t2bb = einsum('xa,ijab->ijxb', projb, t2bb)
-                t2ab = (einsum('xa,ijab->ijxb', proja, t2ab)
-                      + einsum('xb,ijab->ijax', projb, t2ab))/2
+                if self.project_dmet_order == 1:
+                    t2aa = einsum('xa,ijab->ijxb', proja, t2aa)
+                    t2bb = einsum('xa,ijab->ijxb', projb, t2bb)
+                    t2ab = (einsum('xa,ijab->ijxb', proja, t2ab)
+                          + einsum('xb,ijab->ijax', projb, t2ab))/2
+                # Not tested:
+                elif self.project_dmet_order == 2:
+                    t2aa = einsum('xa,yb,ijab->ijxy', proja, proja, t2aa)
+                    t2bb = einsum('xa,yb,ijab->ijxy', projb, projb, t2bb)
+                    t2ab = (einsum('xa,yb,ijab->ijxy', proja, projb, t2ab)
+                          + einsum('xb,ya,ijab->ijyx', projb, proja, t2ab))/2
+                else:
+                    raise ValueError
+
             elif self.occtype == 'virtual':
                 rota = dot(actspace.c_active_occ[0].T, ovlp, c_fragdmet_a)
                 rotb = dot(actspace.c_active_occ[1].T, ovlp, c_fragdmet_b)
                 proja = einsum('ix,x,jx->ij', rota, weightsa, rota)
                 projb = einsum('ix,x,jx->ij', rotb, weightsb, rotb)
-                t2aa = einsum('xi,i...->x...', proja, t2aa)
-                t2bb = einsum('xi,i...->x...', projb, t2bb)
-                t2ab = (einsum('xi,i...->x...', proja, t2ab)
-                      + einsum('xj,ij...->ix...', projb, t2ab))/2
+                if self.project_dmet_order == 1:
+                    t2aa = einsum('xi,i...->x...', proja, t2aa)
+                    t2bb = einsum('xi,i...->x...', projb, t2bb)
+                    t2ab = (einsum('xi,i...->x...', proja, t2ab)
+                          + einsum('xj,ij...->ix...', projb, t2ab))/2
+                # Not tested:
+                elif self.project_dmet_order == 2:
+                    t2aa = einsum('xi,yj,ij...->xy...', proja, proja, t2aa)
+                    t2bb = einsum('xi,yj,ij...->xy...', projb, projb, t2bb)
+                    t2ab = (einsum('xi,yj,ij...->xy...', proja, projb, t2ab)
+                          + einsum('xj,xi,ij...->yx...', projb, proja, t2ab))/2
+                else:
+                    raise ValueError
+
             t2aa = (t2aa + t2aa.transpose(1,0,3,2))/2
             t2bb = (t2bb + t2bb.transpose(1,0,3,2))/2
         else:
