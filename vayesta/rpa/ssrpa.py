@@ -204,8 +204,7 @@ class ssRPA:
 
         return e
 
-    def _gen_arrays(self, xc_kernel=None, alpha=1.0):
-        t0 = timer()
+    def _gen_eps(self):
         # Only have diagonal components in canonical basis.
         eps = np.zeros((self.nocc, self.nvir))
         eps = eps + self.mf.mo_energy[self.nocc :]
@@ -223,6 +222,13 @@ class ssRPA:
                 self.ov_rot = (self.ov_rot[0], dot(cb.T, self.ov_rot[1]))
         else:
             epsa = epsb = eps
+        return epsa, epsb
+
+
+    def _gen_arrays(self, xc_kernel=None, alpha=1.0):
+        t0 = timer()
+
+        epsa, epsb = self._gen_eps()
 
         AmB = np.concatenate([epsa, epsb])
 

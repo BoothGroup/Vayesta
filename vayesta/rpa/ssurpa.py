@@ -43,9 +43,7 @@ class ssURPA(ssRPA):
         na, nb = self.nocc
         return self.mo_coeff[0][:, na:], self.mo_coeff[1][:, nb:]
 
-    def _gen_arrays(self, xc_kernel=None, alpha=1.0):
-        t0 = timer()
-
+    def _gen_eps(self):
         nocc_a, nocc_b = self.nocc
         nvir_a, nvir_b = self.nvir
         # Only have diagonal components in canonical basis.
@@ -58,6 +56,11 @@ class ssURPA(ssRPA):
         epsb = epsb + self.mf.mo_energy[1][nocc_b:]
         epsb = (epsb.T - self.mf.mo_energy[1][:nocc_b]).T
         epsb = epsb.reshape((self.ovb,))
+        return epsa, epsb
+
+    def _gen_arrays(self, xc_kernel=None, alpha=1.0):
+        t0 = timer()
+        epsa, epsb = self._gen_eps()
 
         if self.ov_rot is not None:
             epsa = einsum("pn,n,qn->pq", self.ov_rot[0], epsa, self.ov_rot[0])

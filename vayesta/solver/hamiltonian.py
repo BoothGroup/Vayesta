@@ -431,7 +431,8 @@ class RClusterHamiltonian:
                 seris = spin_integrate_and_report(seris)
         elif self.opts.screening[:4] == "crpa":
             bare_eris = self.get_eris_bare()
-            delta, crpa = screening_crpa.get_frag_deltaW(self.mf, self._fragment, self.log)
+            delta, crpa = screening_crpa.get_frag_deltaW(self.mf, self._fragment,
+                                                         pcoupling=not ("old" in self.opts.screening), log=self.log)
             if "store" in self.opts.screening:
                 self.log.warning("Storing cRPA object in Hamiltonian- O(N^4) memory cost!")
                 self.crpa = crpa
@@ -755,8 +756,9 @@ class EB_RClusterHamiltonian(RClusterHamiltonian):
         couplings = tuple([x - einsum("pq,n->npq", np.eye(x.shape[1]), temp) for x in self.unshifted_couplings])
         if not np.allclose(couplings[0], couplings[1]):
             self.log.critical("Polaritonic shifted bosonic fermion-boson couplings break cluster spin symmetry; please"
-                              "use an unrestricted formalism.")
-            raise RuntimeError()
+                              " use an unrestricted formalism.")
+            raise RuntimeError("Polaritonic shifted bosonic fermion-boson couplings break cluster spin symmetry; please"
+                              " use an unrestricted formalism.")
         return couplings[0]
 
     def get_eb_dm_polaritonic_shift(self, dm1):
