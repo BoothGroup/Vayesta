@@ -376,60 +376,66 @@ class MP2_BNO_Bath(BNO_Bath):
         #    eris = transform_mp2_eris(eris, actspace.c_active_occ, actspace.c_active_vir, ovlp=self.base.get_ovlp())
         return eris, cderi, cderi_neg
 
+    def _get_dmet_projector_weights(self, eig):
+        assert np.all(eig > -1e-10)
+        assert np.all(eig-1 < 1e-10)
+        eig = np.clip(eig, 0, 1)
+        mode = self.project_dmet_mode
+        if mode == 'full':
+            weights = np.zeros(len(eig))
+        elif mode == 'half':
+            weights = np.full(len(eig), 0.5)
+        elif mode == 'linear':
+            weights = 2*abs(np.fmin(eig, 1-eig))
+        elif mode == 'cosine':
+            weights = (1-np.cos(2*eig*np.pi))/2
+        elif mode == 'cosine-half':
+            weights = (1-np.cos(2*eig*np.pi))/4
+        elif mode == 'entropy':
+            weights = 4*eig*(1-eig)
+        elif mode == 'sqrt-entropy':
+            weights = 2*np.sqrt(eig*(1-eig))
+        else:
+            raise ValueError("Invalid value for project_dmet_mode: %s" % mode)
+        assert np.all(weights > -1e-14)
+        assert np.all(weights-1 < 1e-14)
+        weights = np.clip(weights, 0, 1)
+        return weights
+
+    def _project_t2(self, t2, actspace):
+        """Project and symmetrize T2 amplitudes"""
+        self.log.info("Projecting DMET space for MP2 bath (mode= %s, order= %d).",
+                      self.project_dmet_mode, self.project_dmet_order)
+        weights = self._get_dmet_projector_weights(self.dmet_bath.n_dmet)
+        weights = hstack(self.fragment.n_frag*[1], weights)
+        ovlp = self.fragment.base.get_ovlp()
+        c_fragdmet = hstack(self.fragment.c_frag, self.dmet_bath.c_dmet)
+        if self.occtype == 'occupied':
+            rot = dot(actspace.c_active_vir.T, ovlp, c_fragdmet)
+            proj = einsum('ix,x,jx->ij', rot, weights, rot)
+            if self.project_dmet_order == 1:
+                t2 = einsum('xa,ijab->ijxb', proj, t2)
+            elif self.project_dmet_order == 2:
+                t2 = einsum('xa,yb,ijab->ijxy', proj, proj, t2)
+            else:
+                raise ValueError
+        elif self.occtype == 'virtual':
+            rot = dot(actspace.c_active_occ.T, ovlp, c_fragdmet)
+            proj = einsum('ix,x,jx->ij', rot, weights, rot)
+            if self.project_dmet_order == 1:
+                t2 = einsum('xi,i...->x...', proj, t2)
+            elif self.project_dmet_order == 2:
+                t2 = einsum('xi,yj,ij...->xy...', proj, proj, t2)
+            else:
+                raise ValueError
+        t2 = (t2 + t2.transpose(1,0,3,2))/2
+        return t2
+
     def make_delta_dm1(self, t2, actspace):
         """Delta MP2 density matrix"""
 
         if self.project_dmet_order > 0:
-            self.log.info("Projecting DMET space for MP2 bath (mode= %s, order= %d).",
-                          self.project_dmet_mode, self.project_dmet_order)
-            eig = self.dmet_bath.n_dmet
-            assert np.all(eig > -1e-10)
-            assert np.all(eig-1 < 1e-10)
-            eig = np.clip(eig, 0, 1)
-            if self.project_dmet_mode == 'full':
-                weights = np.zeros(len(eig))
-            elif self.project_dmet_mode == 'half':
-                weights = np.full(len(eig), 0.5)
-            elif self.project_dmet_mode == 'linear':
-                weights = 2*abs(np.fmin(eig, 1-eig))
-            elif self.project_dmet_mode == 'cosine':
-                weights = (1-np.cos(2*eig*np.pi))/2
-            elif self.project_dmet_mode == 'cosine-half':
-                weights = (1-np.cos(2*eig*np.pi))/4
-            elif self.project_dmet_mode == 'entropy':
-                weights = 4*eig*(1-eig)
-            elif self.project_dmet_mode == 'sqrt-entropy':
-                weights = 2*np.sqrt(eig*(1-eig))
-            else:
-                raise ValueError("Invalid value for project_dmet_mode: %s" % self.project_dmet_mode)
-            assert np.all(weights > -1e-14)
-            assert np.all(weights-1 < 1e-14)
-            weights = hstack(self.fragment.n_frag*[1], weights)
-
-            # Project and symmetrize:
-            ovlp = self.fragment.base.get_ovlp()
-            c_fragdmet = hstack(self.fragment.c_frag, self.dmet_bath.c_dmet)
-            if self.occtype == 'occupied':
-                rot = dot(actspace.c_active_vir.T, ovlp, c_fragdmet)
-                proj = einsum('ix,x,jx->ij', rot, weights, rot)
-                if self.project_dmet_order == 1:
-                    t2 = einsum('xa,ijab->ijxb', proj, t2)
-                elif self.project_dmet_order == 2:
-                    t2 = einsum('xa,yb,ijab->ijxy', proj, proj, t2)
-                else:
-                    raise ValueError
-            elif self.occtype == 'virtual':
-                rot = dot(actspace.c_active_occ.T, ovlp, c_fragdmet)
-                proj = einsum('ix,x,jx->ij', rot, weights, rot)
-                if self.project_dmet_order == 1:
-                    t2 = einsum('xi,i...->x...', proj, t2)
-                elif self.project_dmet_order == 2:
-                    t2 = einsum('xi,yj,ij...->xy...', proj, proj, t2)
-                else:
-                    raise ValueError
-            t2 = (t2 + t2.transpose(1,0,3,2))/2
-        else:
-            self.log.debugv("Constructing DM from complete amplitudes")
+            t2 = self._project_t2(t2, actspace)
 
         # This is equivalent to:
         # do, dv = pyscf.mp.mp2._gamma1_intermediates(mp2, eris=eris)
@@ -633,96 +639,67 @@ class UMP2_BNO_Bath(MP2_BNO_Bath, BNO_Bath_UHF):
 
         return (t2aa, t2ab, t2bb), ecorr
 
-    def make_delta_dm1(self, t2, actspace):
+    def _project_t2(self, t2, actspace):
+        """Project and symmetrize T2 amplitudes"""
+        self.log.info("Projecting DMET space for MP2 bath (mode= %s, order= %d).",
+                      self.project_dmet_mode, self.project_dmet_order)
+        weightsa = self._get_dmet_projector_weights(self.dmet_bath.n_dmet[0])
+        weightsb = self._get_dmet_projector_weights(self.dmet_bath.n_dmet[1])
+        weightsa = hstack(self.fragment.n_frag[0]*[1], weightsa)
+        weightsb = hstack(self.fragment.n_frag[1]*[1], weightsb)
+
+        # Project and symmetrize:
         t2aa, t2ab, t2bb = t2
+        ovlp = self.fragment.base.get_ovlp()
+        c_fragdmet_a = hstack(self.fragment.c_frag[0], self.dmet_bath.c_dmet[0])
+        c_fragdmet_b = hstack(self.fragment.c_frag[1], self.dmet_bath.c_dmet[1])
+        if self.occtype == 'occupied':
+            rota = dot(actspace.c_active_vir[0].T, ovlp, c_fragdmet_a)
+            rotb = dot(actspace.c_active_vir[1].T, ovlp, c_fragdmet_b)
+            proja = einsum('ix,x,jx->ij', rota, weightsa, rota)
+            projb = einsum('ix,x,jx->ij', rotb, weightsb, rotb)
+            if self.project_dmet_order == 1:
+                t2aa = einsum('xa,ijab->ijxb', proja, t2aa)
+                t2bb = einsum('xa,ijab->ijxb', projb, t2bb)
+                t2ab = (einsum('xa,ijab->ijxb', proja, t2ab)
+                      + einsum('xb,ijab->ijax', projb, t2ab))/2
+            # Not tested:
+            elif self.project_dmet_order == 2:
+                t2aa = einsum('xa,yb,ijab->ijxy', proja, proja, t2aa)
+                t2bb = einsum('xa,yb,ijab->ijxy', projb, projb, t2bb)
+                t2ab = (einsum('xa,yb,ijab->ijxy', proja, projb, t2ab)
+                      + einsum('xb,ya,ijab->ijyx', projb, proja, t2ab))/2
+            else:
+                raise ValueError
+        elif self.occtype == 'virtual':
+            rota = dot(actspace.c_active_occ[0].T, ovlp, c_fragdmet_a)
+            rotb = dot(actspace.c_active_occ[1].T, ovlp, c_fragdmet_b)
+            proja = einsum('ix,x,jx->ij', rota, weightsa, rota)
+            projb = einsum('ix,x,jx->ij', rotb, weightsb, rotb)
+            if self.project_dmet_order == 1:
+                t2aa = einsum('xi,i...->x...', proja, t2aa)
+                t2bb = einsum('xi,i...->x...', projb, t2bb)
+                t2ab = (einsum('xi,i...->x...', proja, t2ab)
+                      + einsum('xj,ij...->ix...', projb, t2ab))/2
+            # Not tested:
+            elif self.project_dmet_order == 2:
+                t2aa = einsum('xi,yj,ij...->xy...', proja, proja, t2aa)
+                t2bb = einsum('xi,yj,ij...->xy...', projb, projb, t2bb)
+                t2ab = (einsum('xi,yj,ij...->xy...', proja, projb, t2ab)
+                      + einsum('xj,yi,ij...->yx...', projb, proja, t2ab))/2
+            else:
+                raise ValueError
+        t2aa = (t2aa + t2aa.transpose(1,0,3,2))/2
+        t2bb = (t2bb + t2bb.transpose(1,0,3,2))/2
+        return (t2aa, t2ab, t2bb)
+
+    def make_delta_dm1(self, t2, actspace):
+        """Delta MP2 density matrix"""
 
         if self.project_dmet_order > 0:
-            self.log.info("Projecting DMET space for MP2 bath (mode= %s, order= %d).",
-                          self.project_dmet_mode, self.project_dmet_order)
-            eiga, eigb = self.dmet_bath.n_dmet
-            assert np.all(eiga > -1e-10)
-            assert np.all(eigb > -1e-10)
-            assert np.all(eiga-1 < 1e-10)
-            assert np.all(eigb-1 < 1e-10)
-            eiga = np.clip(eiga, 0, 1)
-            eigb = np.clip(eigb, 0, 1)
-            if self.project_dmet_mode == 'full':
-                weightsa = np.zeros(len(eiga))
-                weightsb = np.zeros(len(eigb))
-            elif self.project_dmet_mode == 'half':
-                weightsa = np.full(len(eiga), 0.5)
-                weightsb = np.full(len(eigb), 0.5)
-            elif self.project_dmet_mode == 'linear':
-                weightsa = 2*abs(np.fmin(eiga, 1-eiga))
-                weightsb = 2*abs(np.fmin(eigb, 1-eigb))
-            elif self.project_dmet_mode == 'cosine':
-                weightsa = (1-np.cos(2*eiga*np.pi))/2
-                weightsb = (1-np.cos(2*eigb*np.pi))/2
-            elif self.project_dmet_mode == 'cosine-half':
-                weightsa = (1-np.cos(2*eiga*np.pi))/4
-                weightsb = (1-np.cos(2*eigb*np.pi))/4
-            elif self.project_dmet_mode == 'entropy':
-                weightsa = 4*eiga*(1-eiga)
-                weightsb = 4*eigb*(1-eigb)
-            elif self.project_dmet_mode == 'sqrt-entropy':
-                weightsa = 2*np.sqrt(eiga*(1-eiga))
-                weightsb = 2*np.sqrt(eigb*(1-eigb))
-            else:
-                raise ValueError("Invalid value for project_dmet_mode: %s" % self.project_dmet_mode)
-            assert np.all(weightsa > -1e-14)
-            assert np.all(weightsb > -1e-14)
-            assert np.all(weightsa-1 < 1e-14)
-            assert np.all(weightsb-1 < 1e-14)
-            weightsa = hstack(self.fragment.n_frag[0]*[1], weightsa)
-            weightsb = hstack(self.fragment.n_frag[1]*[1], weightsb)
+            t2 = self._project_t2(t2, actspace)
 
-            # Project and symmetrize:
-            ovlp = self.fragment.base.get_ovlp()
-            c_fragdmet_a = hstack(self.fragment.c_frag[0], self.dmet_bath.c_dmet[0])
-            c_fragdmet_b = hstack(self.fragment.c_frag[1], self.dmet_bath.c_dmet[1])
-            if self.occtype == 'occupied':
-                rota = dot(actspace.c_active_vir[0].T, ovlp, c_fragdmet_a)
-                rotb = dot(actspace.c_active_vir[1].T, ovlp, c_fragdmet_b)
-                proja = einsum('ix,x,jx->ij', rota, weightsa, rota)
-                projb = einsum('ix,x,jx->ij', rotb, weightsb, rotb)
-                if self.project_dmet_order == 1:
-                    t2aa = einsum('xa,ijab->ijxb', proja, t2aa)
-                    t2bb = einsum('xa,ijab->ijxb', projb, t2bb)
-                    t2ab = (einsum('xa,ijab->ijxb', proja, t2ab)
-                          + einsum('xb,ijab->ijax', projb, t2ab))/2
-                # Not tested:
-                elif self.project_dmet_order == 2:
-                    t2aa = einsum('xa,yb,ijab->ijxy', proja, proja, t2aa)
-                    t2bb = einsum('xa,yb,ijab->ijxy', projb, projb, t2bb)
-                    t2ab = (einsum('xa,yb,ijab->ijxy', proja, projb, t2ab)
-                          + einsum('xb,ya,ijab->ijyx', projb, proja, t2ab))/2
-                else:
-                    raise ValueError
-
-            elif self.occtype == 'virtual':
-                rota = dot(actspace.c_active_occ[0].T, ovlp, c_fragdmet_a)
-                rotb = dot(actspace.c_active_occ[1].T, ovlp, c_fragdmet_b)
-                proja = einsum('ix,x,jx->ij', rota, weightsa, rota)
-                projb = einsum('ix,x,jx->ij', rotb, weightsb, rotb)
-                if self.project_dmet_order == 1:
-                    t2aa = einsum('xi,i...->x...', proja, t2aa)
-                    t2bb = einsum('xi,i...->x...', projb, t2bb)
-                    t2ab = (einsum('xi,i...->x...', proja, t2ab)
-                          + einsum('xj,ij...->ix...', projb, t2ab))/2
-                # Not tested:
-                elif self.project_dmet_order == 2:
-                    t2aa = einsum('xi,yj,ij...->xy...', proja, proja, t2aa)
-                    t2bb = einsum('xi,yj,ij...->xy...', projb, projb, t2bb)
-                    t2ab = (einsum('xi,yj,ij...->xy...', proja, projb, t2ab)
-                          + einsum('xj,xi,ij...->yx...', projb, proja, t2ab))/2
-                else:
-                    raise ValueError
-
-            t2aa = (t2aa + t2aa.transpose(1,0,3,2))/2
-            t2bb = (t2bb + t2bb.transpose(1,0,3,2))/2
-        else:
-            self.log.debugv("Constructing DM from complete amplitudes")
-
+        t2aa, t2ab, t2bb = t2
         # Construct occupied-occupied DM
         if self.occtype == 'occupied':
             dma  = (einsum('imef,jmef->ij', t2aa.conj(), t2aa)/2
