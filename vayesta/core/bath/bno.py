@@ -395,6 +395,8 @@ class MP2_BNO_Bath(BNO_Bath):
             weights = 4*eig*(1-eig)
         elif mode == 'sqrt-entropy':
             weights = 2*np.sqrt(eig*(1-eig))
+        elif mode == 'squared-entropy':
+            weights = (4*eig*(1-eig))**2
         else:
             raise ValueError("Invalid value for project_dmet_mode: %s" % mode)
         assert np.all(weights > -1e-14)
