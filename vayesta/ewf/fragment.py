@@ -414,6 +414,7 @@ class Fragment(BaseFragment):
         return t1, t2, l1, l2, t1x, t2x, l1x, l2x
 
     def _get_projected_gamma1_intermediates(self, t_as_lambda=False, sym_t2=True):
+        """Intermediates for 1-DM, projected in Lambda-amplitudes and linear T-term."""
         t1, t2, l1, l2, t1x, t2x, l1x, l2x = self._ccsd_amplitudes_for_dm(t_as_lambda=t_as_lambda, sym_t2=sym_t2)
         doo, dov, dvo, dvv = pyscf.cc.ccsd_rdm._gamma1_intermediates(None, t1, t2, l1x, l2x)
         # Correction for term without Lambda amplitude:
@@ -422,6 +423,7 @@ class Fragment(BaseFragment):
         return d1
 
     def _get_projected_gamma2_intermediates(self, t_as_lambda=False, sym_t2=True):
+        """Intermediates for 2-DM, projected in Lambda-amplitudes and linear T-term."""
         t1, t2, l1, l2, t1x, t2x, l1x, l2x = self._ccsd_amplitudes_for_dm(t_as_lambda=t_as_lambda, sym_t2=sym_t2)
         cc = self.mf # Only attributes stdout, verbose, and max_memory are needed, just use mean-field object
         dovov, *d2rest = pyscf.cc.ccsd_rdm._gamma2_intermediates(cc, t1, t2, l1x, l2x)
@@ -493,9 +495,9 @@ class Fragment(BaseFragment):
         dm2 = self.make_fragment_dm2cumulant(t_as_lambda=t_as_lambda, sym_t2=sym_t2, approx_cumulant=approx_cumulant,
                 full_shape=False)
         # CCSD
-        # TODO: contract intermediates (see UHF version)
         if hasattr(eris, 'ovoo'):
-            return vayesta.core.ao2mo.helper.contract_dm2_eris(dm2, eris)/2
+            d2 = self._get_projected_gamma2_intermediates(t_as_lambda=t_as_lambda, sym_t2=sym_t2)
+            return vayesta.core.ao2mo.helper.contract_dm2intermeds_eris_rhf(d2, eris)/2
         fac = (2 if self.solver == 'MP2' else 1)
         e_dm2 = fac*einsum('ijkl,ijkl->', eris, dm2)/2
         return e_dm2
