@@ -150,6 +150,10 @@ def acetic_acid():
     atom = _load_datafile('acetic.dat')
     return atom
 
+def ferrocene():
+    atom = _load_datafile('ferrocene.dat')
+    return atom
+
 def propyl():
     atom = _load_datafile('propyl.dat')
     return atom
