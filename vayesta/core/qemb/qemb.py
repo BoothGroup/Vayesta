@@ -74,7 +74,7 @@ class Options(OptionsBase):
         # R2 bath
         rcut=None, unit='Ang',
         # MP2 bath
-        threshold=None, truncation='occupation', project_dmet=False, addbuffer=False,
+        threshold=None, truncation='occupation', project_dmet_order=0, project_dmet_mode='full', addbuffer=False,
         # General
         canonicalize=True,
         # The following options can be set occupied/virtual-specific:
@@ -83,7 +83,8 @@ class Options(OptionsBase):
         unit_occ=None, unit_vir=None,
         threshold_occ=None, threshold_vir=None,
         truncation_occ=None, truncation_vir=None,
-        project_dmet_occ=None, bathtype_dmet_vir=None,
+        project_dmet_order_occ=None, project_dmet_order_vir=None,
+        project_dmet_mode_occ=None, project_dmet_mode_vir=None,
         addbuffer_occ=None, addbuffer_dmet_vir=None,
         canonicalize_occ=None, canonicalize_vir=None,
         )
