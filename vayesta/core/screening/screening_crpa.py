@@ -14,7 +14,7 @@ from pyscf import __config__
 class cRPAError(RuntimeError):
     pass
 
-def get_frag_W(mf, fragment, pcoupling=True, log=None):
+def get_frag_W(mf, fragment, pcoupling=True, only_ov_screened=False, log=None):
     """Generates screened coulomb interaction due to screening at the level of cRPA.
     Note that this currently scales as O(N_frag N^6), so is not practical without further refinement.
 
@@ -37,7 +37,7 @@ def get_frag_W(mf, fragment, pcoupling=True, log=None):
 
     log.info("Generating screened interaction via frequency dependent cRPA.")
     try:
-        l_a, l_b, crpa = set_up_W_crpa(mf, fragment, pcoupling, log=log)
+        l_a, l_b, crpa = set_up_W_crpa(mf, fragment, pcoupling, only_ov_screened, log=log)
     except cRPAError as e:
         freqs = np.zeros((0,))
         nmo = mf.mo_coeff.shape[1]
@@ -50,7 +50,7 @@ def get_frag_W(mf, fragment, pcoupling=True, log=None):
     return freqs, couplings
 
 
-def get_frag_deltaW(mf, fragment, pcoupling=True, log=None):
+def get_frag_deltaW(mf, fragment, pcoupling=True, only_ov_screened=False, log=None):
     """Generates change in coulomb interaction due to screening at the level of static limit of cRPA.
     Note that this currently scales as O(N_frag N^6), so is not practical without further refinement.
 
@@ -71,7 +71,7 @@ def get_frag_deltaW(mf, fragment, pcoupling=True, log=None):
 
     log.info("Generating screened interaction via static limit of cRPA.")
     try:
-        l_a, l_b, crpa = set_up_W_crpa(mf, fragment, pcoupling, log=log)
+        l_a, l_b, crpa = set_up_W_crpa(mf, fragment, pcoupling, only_ov_screened=only_ov_screened, log=log)
     except cRPAError as e:
         nmo = mf.mo_coeff.shape[1]
         delta_w = tuple([np.zeros([nmo] * 4)] * 4)
@@ -88,7 +88,7 @@ def get_frag_deltaW(mf, fragment, pcoupling=True, log=None):
         )
     return delta_w, crpa
 
-def set_up_W_crpa(mf, fragment, pcoupling=True, log=None):
+def set_up_W_crpa(mf, fragment, pcoupling=True, only_ov_screened=False, log=None):
     is_rhf = np.ndim(mf.mo_coeff[1]) == 1
     if not hasattr(mf, "with_df"):
         raise NotImplementedError("Screened interactions require density-fitting.")
@@ -153,6 +153,15 @@ def set_up_W_crpa(mf, fragment, pcoupling=True, log=None):
         l_a[:, no[0]:, :no[0]] += b_fb[0].T.reshape((b_fb[0].shape[-1], no[0], nv[0])).transpose(0,2,1)
         l_b[:, no[1]:, :no[1]] += b_fb[1].T.reshape((b_fb[1].shape[-1], no[1], nv[1])).transpose(0,2,1)
 
+    if only_ov_screened:
+        # Zero out all contributions screening oo or vv contributions.
+        no = fragment.cluster.nocc_active
+        if isinstance(no, int):
+            no = (no, no)
+        l_a[:, no[0]:, no[0]:] = 0.0
+        l_a[:, :no[0], :no[0]] = 0.0
+        l_b[:, no[1]:, no[1]:] = 0.0
+        l_b[:, :no[1], :no[1]] = 0.0
     return l_a, l_b, crpa
 
 

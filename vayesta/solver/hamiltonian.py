@@ -432,7 +432,9 @@ class RClusterHamiltonian:
         elif self.opts.screening[:4] == "crpa":
             bare_eris = self.get_eris_bare()
             delta, crpa = screening_crpa.get_frag_deltaW(self.mf, self._fragment,
-                                                         pcoupling=not ("old" in self.opts.screening), log=self.log)
+                                                         pcoupling=("pcoupled" in self.opts.screening),
+                                                         only_ov_screened= ("ov" in self.opts.screening),
+                                                         log=self.log)
             if "store" in self.opts.screening:
                 self.log.warning("Storing cRPA object in Hamiltonian- O(N^4) memory cost!")
                 self.crpa = crpa

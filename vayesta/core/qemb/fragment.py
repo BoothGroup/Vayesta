@@ -1040,7 +1040,8 @@ class Fragment:
     def get_frag_hamil(self):
         if self.opts.screening is not None:
             if "crpa_full" in self.opts.screening:
-                self.bos_freqs, self.couplings = get_frag_W(self.mf, self, pcoupling=not ("old" in self.opts.screening),
+                self.bos_freqs, self.couplings = get_frag_W(self.mf, self, pcoupling=("pcoupled" in self.opts.screening),
+                                                            only_ov_screened=("ov" in self.opts.screening),
                                                             log=self.log)
         # This detects based on fragment what kind of Hamiltonian is appropriate (restricted and/or EB).
         return ClusterHamiltonian(self, self.mf, self.log, screening=self.opts.screening,
