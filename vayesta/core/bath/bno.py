@@ -612,8 +612,8 @@ class UMP2_BNO_Bath(MP2_BNO_Bath, BNO_Bath_UHF):
             gp = einsum('ix,i...->x...', rfrag[0][blk], gijab)
             ecorr += einsum('ijab,ijab->', tp, gp)/2
             # Beta projected:
-            tp = einsum('jx,ij...->ix...', rfrag[1][blk], t2blk)
-            gp = einsum('jx,ij...->ix...', rfrag[1][blk], gijab)
+            tp = einsum('jx,ij...->ix...', rfrag[1], t2blk)
+            gp = einsum('jx,ij...->ix...', rfrag[1], gijab)
             ecorr += einsum('ijab,ijab->', tp, gp)/2
 
         # Beta-beta:
