@@ -347,6 +347,8 @@ h2_ccpvdz_df = TestMolecule(atom="H1 0 0 0; H2 0 0 1.0", basis="cc-pvdz", auxbas
 h3_ccpvdz = TestMolecule(atom="H1 0 0 0; H2 0 0 1.0; H3 0 1.0 0", basis="cc-pvdz", spin=1)
 h3_ccpvdz_df = TestMolecule(atom="H1 0 0 0; H2 0 0 1.0; H3 0 1.0 0", basis="cc-pvdz", auxbasis="cc-pvdz-jkfit", spin=1)
 
+h6_dz = TestMolecule(atom=molecules.ring('H', 6, 1.0), basis='cc-pVDZ')
+
 n2_ccpvdz_df = TestMolecule("N1 0 0 0; N2 0 0 1.1", basis="cc-pvdz", auxbasis="cc-pvdz-jkfit")
 
 f2_sto6g = TestMolecule(atom="F 0 0 0; F 0 0 1.2", basis='sto-6g')
