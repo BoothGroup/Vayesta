@@ -794,6 +794,11 @@ class Fragment:
             # Full bath (for debugging)
             if btype == 'full':
                 return Full_Bath(self, dmet_bath=dmet, occtype=occtype)
+            # Energy-weighted DMET bath
+            if btype == 'ewdmet':
+                threshold = self._get_bath_option('threshold', occtype)
+                max_order = self._get_bath_option('max_order', occtype)
+                return EwDMET_Bath(self, dmet_bath=dmet, occtype=occtype, threshold=threshold, max_order=max_order)
             # Spatially close orbitals
             if btype == 'r2':
                 return R2_Bath(self, dmet, occtype=occtype)
@@ -821,17 +826,22 @@ class Fragment:
             if btype == 'dmet':
                 c_bath = None
                 c_frozen = getattr(self._dmet_bath, 'c_env_%s' % occtype[:3])
-            if btype == 'full':
+            elif btype == 'full':
                 c_bath, c_frozen = factory.get_bath()
-            if btype == 'r2':
+            elif btype == 'r2':
                 rcut = self._get_bath_option('rcut', occtype)
                 unit = self._get_bath_option('unit', occtype)
                 c_bath, c_frozen = factory.get_bath(rcut=rcut)
-            if btype == 'mp2':
+            elif btype == 'ewdmet':
+                order = self._get_bath_option('order', occtype)
+                c_bath, c_frozen = factory.get_bath(order)
+            elif btype == 'mp2':
                 threshold = self._get_bath_option('threshold', occtype)
                 truncation = self._get_bath_option('truncation', occtype)
                 bno_threshold = BNO_Threshold(truncation, threshold)
                 c_bath, c_frozen = factory.get_bath(bno_threshold)
+            else:
+                raise ValueError
             return c_bath, c_frozen
 
         c_bath_occ, c_frozen_occ = get_orbitals('occupied')
