@@ -111,15 +111,28 @@ class SymmetryRotation(SymmetryOperation):
         reorder = np.full((self.natom,), -1, dtype=int)
         inverse = np.full((self.natom,), -1, dtype=int)
         rot = self.as_matrix()
-        for atom0, r0 in enumerate(self.mol.atom_coords()):
-            r1 = np.dot(rot, (r0 - self.center)) + self.center
-            atom1, dist = self.group.get_closest_atom(r1)
-            if dist > self.xtol:
-                return None, None
-            if not self.group.compare_atoms(atom0, atom1):
-                return None, None
-            reorder[atom1] = atom0
-            inverse[atom0] = atom1
+
+        def assign():
+            success = True
+            for atom0, r0 in enumerate(self.mol.atom_coords()):
+                r1 = np.dot(rot, (r0 - self.center)) + self.center
+                atom1, dist = self.group.get_closest_atom(r1)
+                if dist > self.xtol:
+                    log.error("No symmetry related atom found for atom %d. Closest atom is %d with distance %.3e a.u.",
+                              atom0, atom1, dist)
+                    success = False
+                elif not self.group.compare_atoms(atom0, atom1):
+                    log.error("Atom %d is not symmetry related to atom %d.", atom1, atom0)
+                    success = False
+                else:
+                    log.debug("Atom %d is symmetry related to atom %d.", atom1, atom0)
+                    reorder[atom1] = atom0
+                    inverse[atom0] = atom1
+            return success
+
+        if not assign():
+            return None, None
+
         assert (not np.any(reorder == -1))
         assert (not np.any(inverse == -1))
         assert np.all(np.arange(self.natom)[reorder][inverse] == np.arange(self.natom))
