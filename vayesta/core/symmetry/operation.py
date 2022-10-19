@@ -113,14 +113,15 @@ class SymmetryOperation:
             if l == 0:
                 ao_start = ao_end
                 continue
-            #rot = self.angular_rotmats[l]
             rot = rotmats[l]
             size = ao_end - ao_start
-            assert (rot.shape == (size, size))
-            slc = np.s_[ao_start:ao_end]
-            #log.debugv("bas= %d, ao_start= %d, ao_end= %d, l= %d, diag(rot)= %r",
-            #    bas, ao_start, ao_end, l, np.diag(rot))
-            b[slc] = einsum('x...,xy->y...', a[slc], rot)
+
+            # It is possible that multiple shells are contained in a single 'bas'!
+            nl = rot.shape[0]
+            assert (size % nl == 0)
+            for shell0 in range(0, size, nl):
+                shell = np.s_[ao_start+shell0:ao_start+shell0+nl]
+                b[shell] = einsum('x...,xy->y...', a[shell], rot)
             ao_start = ao_end
         return b
 
@@ -206,7 +207,7 @@ class SymmetryReflection(SymmetryOperation):
         return np.eye(3) - 2*np.outer(self.axis, self.axis)
 
     def apply_to_point(self, r0):
-        """Householder transformation/"""
+        """Householder transformation."""
         r1 = r0 - 2*np.dot(np.outer(self.axis, self.axis), r0)
         return r1
 
