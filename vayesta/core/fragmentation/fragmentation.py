@@ -1,3 +1,4 @@
+import contextlib
 import numpy as np
 import scipy
 import scipy.linalg
@@ -38,9 +39,15 @@ class Fragmentation:
         self.log.info('%s Fragmentation' % self.name)
         self.log.info('%s--------------' % (len(self.name)*'-'))
         self.ovlp = self.mf.get_ovlp()
-        #
+        # Secondary fragment state:
+        self.secfrag_register = []
+        # Rotational symmetry state:
+        self.sym_register = []
+        # -- Output:
         self.coeff = None
         self.labels = None
+        # Generated fragments:
+        self.fragments = []
 
     def kernel(self):
         self.coeff = self.get_coeff()
@@ -57,14 +64,21 @@ class Fragmentation:
     def __exit__(self, exc_type, exc_value, exc_traceback):
         if exc_type is not None:
             return
+
         if self.add_symmetric:
-            # Rotational symmetries:
-            for idx, (order, axis, center, unit) in enumerate(self.emb.symmetry.rotations):
-                self.emb.add_rotsym_fragments(order, axis, center, unit, symbol='R%d' % (idx+1))
-            # Translation symmetry:
+            # Rotational + inversion symmetries are now done within own context
+            # Translation symmetry are done in the fragmentation context (here):
             translation = self.emb.symmetry.translation
             if translation is not None:
-                self.emb.add_transsym_fragments(translation)
+                fragments_sym = self.emb.create_transsym_fragments(translation, fragments=self.fragments)
+                self.log.info("Adding %d translationally-symmetry related fragments from %d base fragments",
+                              len(fragments_sym), len(self.fragments))
+                self.fragments.extend(fragments_sym)
+
+        # Add fragments to embedding class
+        self.log.debug("Adding %d fragments to embedding class", len(self.fragments))
+        self.emb.fragments.extend(self.fragments)
+
         # Check if fragmentation is (occupied) complete and orthonormal:
         orth = self.emb.has_orthonormal_fragmentation()
         comp = self.emb.has_complete_fragmentation()
@@ -98,7 +112,7 @@ class Fragmentation:
         """
         atom_indices, atom_symbols = self.get_atom_indices_symbols(atoms)
         name, indices = self.get_atomic_fragment_indices(atoms, orbital_filter=orbital_filter, name=name)
-        return self._add_fragment(indices, name, atoms=atom_indices, **kwargs)
+        return self._create_fragment(indices, name, atoms=atom_indices, **kwargs)
 
     def add_atomshell_fragment(self, atoms, shells, **kwargs):
         if isinstance(shells, (int, np.integer)):
@@ -128,7 +142,7 @@ class Fragmentation:
             Fragment object.
         """
         name, indices = self.get_orbital_fragment_indices(orbitals, atom_filter=atom_filter, name=name)
-        return self._add_fragment(indices, name, **kwargs)
+        return self._create_fragment(indices, name, **kwargs)
 
     def add_all_atomic_fragments(self, **kwargs):
         """Create a single fragment for each atom in the system.
@@ -145,20 +159,131 @@ class Fragmentation:
             fragments.append(frag)
         return fragments
 
-    def _add_fragment(self, indices, name, **kwargs):
+    def add_full_system(self, name='full-system', **kwargs):
+        atoms = list(range(self.mol.natm))
+        return self.add_atomic_fragment(atoms, name=name, **kwargs)
+
+    def _create_fragment(self, indices, name, **kwargs):
         if len(indices) == 0:
             raise ValueError("Fragment %s is empty." % name)
         c_frag = self.get_frag_coeff(indices)
         c_env = self.get_env_coeff(indices)
         fid, mpirank = self.emb.register.get_next()
         frag = self.emb.Fragment(self.emb, fid, name, c_frag, c_env, mpi_rank=mpirank, **kwargs)
-        self.emb.fragments.append(frag)
+        self.fragments.append(frag)
+
         # Log fragment orbitals:
         self.log.debugv("Fragment %ss:\n%r", self.name, indices)
         self.log.debug("Fragment %ss of fragment %s:", self.name, name)
         labels = np.asarray(self.labels)[indices]
         helper.log_orbitals(self.log.debug, labels)
+        # Secondary fragments:
+        if self.secfrag_register:
+            self.secfrag_register[0].append(frag)
+        # Symmetric fragments:
+        for sym in self.sym_register:
+            sym.append(frag)
+
         return frag
+
+    # --- Rotational symmetry fragments:
+
+    @contextlib.contextmanager
+    def rotational_symmetry(self, order, axis, center=(0,0,0), unit='ang'):
+        if self.secfrag_register:
+            raise NotImplementedError("Rotational symmetries have to be added before adding secondary fragments")
+        self.sym_register.append([])
+        yield
+        fragments = self.sym_register.pop()
+        fragments_sym = self.emb.create_rotsym_fragments(order, axis, center, fragments=fragments, unit=unit,
+                                                         symbol='R%d' % len(self.sym_register))
+        self.log.info("Adding %d rotationally-symmetric fragments", len(fragments_sym))
+        self.fragments.extend(fragments_sym)
+        # For additional (nested) symmetries:
+        for sym in self.sym_register:
+            sym.extend(fragments_sym)
+
+    @contextlib.contextmanager
+    def inversion_symmetry(self, center=(0,0,0)):
+        if self.secfrag_register:
+            raise NotImplementedError("Symmetries have to be added before adding secondary fragments")
+        self.sym_register.append([])
+        yield
+        fragments = self.sym_register.pop()
+        fragments_sym = self.emb.create_invsym_fragments(center, fragments=fragments, symbol='I')
+        self.log.info("Adding %d inversion-symmetric fragments", len(fragments_sym))
+        self.fragments.extend(fragments_sym)
+        # For additional (nested) symmetries:
+        for sym in self.sym_register:
+            sym.extend(fragments_sym)
+
+    @contextlib.contextmanager
+    def mirror_symmetry(self, axis, center=(0,0,0)):
+        if self.secfrag_register:
+            raise NotImplementedError("Symmetries have to be added before adding secondary fragments")
+        self.sym_register.append([])
+        yield
+        fragments = self.sym_register.pop()
+        fragments_sym = self.emb.create_mirrorsym_fragments(axis, center=center, fragments=fragments, symbol='M')
+        self.log.info("Adding %d mirror-symmetric fragments", len(fragments_sym))
+        self.fragments.extend(fragments_sym)
+        # For additional (nested) symmetries:
+        for sym in self.sym_register:
+            sym.extend(fragments_sym)
+
+
+    # --- Secondary fragments:
+
+    @contextlib.contextmanager
+    def secondary_fragments(self, bno_threshold=None, bno_threshold_factor=0.1, solver='MP2'):
+        if self.secfrag_register:
+            raise NotImplementedError("Nested secondary fragments")
+        self.secfrag_register.append([])
+        yield
+        fragments = self.secfrag_register.pop()
+        fragments_sec = self._create_secondary_fragments(fragments, bno_threshold=bno_threshold,
+                                                         bno_threshold_factor=bno_threshold_factor, solver=solver)
+        self.log.info("Adding %d secondary fragments", len(fragments_sec))
+        self.fragments.extend(fragments_sec)
+        # If we are already in a symmetry context, the symmetry-related secondary fragments should also be added:
+        for sym in self.sym_register:
+            sym.extend(fragments_sec)
+
+    def _create_secondary_fragments(self, fragments, bno_threshold=None, bno_threshold_factor=0.1, solver='MP2'):
+
+        def _create_fragment(fx, flags=None, **kwargs):
+            if fx.sym_parent is not None:
+                raise NotImplementedError("Secondary fragments need to be added before symmetry-derived fragments")
+            flags = (flags or {}).copy()
+            flags['is_secfrag'] = True
+            fx_copy = fx.copy(solver=solver, flags=flags, **kwargs)
+            fx_copy.flags.bath_parent_fragment_id = fx.id
+            self.log.debugv("Adding secondary fragment: %s", fx_copy)
+            return fx_copy
+
+        fragments_sec = []
+        for fx in fragments:
+
+            bath_opts = fx.opts.bath_options.copy()
+            if bno_threshold is not None:
+                bath_opts['threshold'] = bno_threshold
+                bath_opts.pop('threshold_occ', None)
+                bath_opts.pop('threshold_vir', None)
+            else:
+                if bath_opts.get('threshold', None) is not None:
+                    bath_opts['threshold'] *= bno_threshold_factor
+                if bath_opts.get('threshold_occ', None) is not None:
+                    bath_opts['threshold_occ'] *= bno_threshold_factor
+                if bath_opts.get('threshold_vir', None) is not None:
+                    bath_opts['threshold_vir'] *= bno_threshold_factor
+            frag = _create_fragment(fx, name='%s[x%d|+%s]' % (fx.name, fx.id, solver), bath_options=bath_opts)
+            fragments_sec.append(frag)
+            # Double counting
+            wf_factor = -(fx.opts.wf_factor or 1)
+            frag = _create_fragment(fx, name='%s[x%d|-%s]' % (fx.name, fx.id, solver), wf_factor=wf_factor, flags=dict(is_envelop=False))
+            fragments_sec.append(frag)
+            fx.flags.is_envelop = False
+        return fragments_sec
 
     # --- For convenience:
 

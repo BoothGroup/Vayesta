@@ -85,7 +85,7 @@ class Test_DM_UHF(Test_DM):
 class Test_DM_FCI(Test_DM):
 
     solver = 'FCI'
-    solver_opts = {}
+    solver_opts = dict(conv_tol=1e-14)
 
     @classmethod
     def setUpClass(cls):

@@ -69,8 +69,8 @@ class BNO_Bath(Bath):
         if np.ndim(canonicalize) == 0:
             canonicalize = (canonicalize, canonicalize)
         self.canonicalize = canonicalize
-        # Coefficients and occupations:
-        self.coeff, self.occup = self.kernel()
+        # Coefficients, occupations, and correlation energy:
+        self.coeff, self.occup, self.ecorr = self.kernel()
 
     @property
     def c_cluster_occ(self):
@@ -102,18 +102,18 @@ class BNO_Bath(Bath):
     def kernel(self):
         c_env = self.c_env
         if self.spin_restricted and (c_env.shape[-1] == 0):
-            return c_env, np.zeros(0)
+            return c_env, np.zeros(0), None
         if self.spin_unrestricted and (c_env[0].shape[-1] + c_env[1].shape[-1] == 0):
-            return c_env, tuple(2*[np.zeros(0)])
+            return c_env, tuple(2*[np.zeros(0)]), None
         self.log.info("Making %s BNOs", self.occtype.capitalize())
         self.log.info("-------%s-----", len(self.occtype)*'-')
         self.log.changeIndentLevel(1)
-        coeff, occup = self.make_bno_coeff()
+        coeff, occup, ecorr = self.make_bno_coeff()
         self.log_histogram(occup)
         self.log.changeIndentLevel(-1)
         self.coeff = coeff
         self.occup = occup
-        return coeff, occup
+        return coeff, occup, ecorr
 
     def log_histogram(self, n_bno):
         if len(n_bno) == 0:
@@ -125,6 +125,33 @@ class BNO_Bath(Bath):
 
     def get_bath(self, bno_threshold=None, **kwargs):
         return self.truncate_bno(self.coeff, self.occup, bno_threshold=bno_threshold, **kwargs)
+
+    @staticmethod
+    def _has_frozen(c_frozen):
+        return c_frozen.shape[-1] > 0
+
+    def get_finite_bath_correction(self, c_active, c_frozen):
+        if not self._has_frozen(c_frozen):
+            return 0
+        e1 = self.ecorr
+        actspace = self.get_active_space(c_active=c_active)
+        # --- Canonicalization
+        fock = self.base.get_fock_for_bath()
+        if self.canonicalize[0]:
+            self.log.debugv("Canonicalizing occupied orbitals")
+            c_active_occ = self.fragment.canonicalize_mo(actspace.c_active_occ, fock=fock)[0]
+        else:
+            c_active_occ = actspace.c_active_occ
+        if self.canonicalize[1]:
+            self.log.debugv("Canonicalizing virtual orbitals")
+            c_active_vir = self.fragment.canonicalize_mo(actspace.c_active_vir, fock=fock)[0]
+        else:
+            c_active_vir = actspace.c_active_vir
+        actspace = Cluster.from_coeffs(c_active_occ, c_active_vir,
+                actspace.c_frozen_occ, actspace.c_frozen_vir)
+        e0 = self._make_t2(actspace, fock, energy_only=True)[1]
+        e_fbc = e1-e0
+        return e_fbc
 
     def truncate_bno(self, coeff, occup, bno_threshold=None, verbose=True):
         """Split natural orbitals (NO) into bath and rest."""
@@ -154,18 +181,26 @@ class BNO_Bath(Bath):
         c_bath, c_rest = np.hsplit(coeff, [bno_number])
         return c_bath, c_rest
 
-    def get_active_space(self):
+    def get_active_space(self, c_active=None):
         dmet_bath = self.dmet_bath
         nao = self.mol.nao
         empty = np.zeros((nao, 0)) if self.spin_restricted else np.zeros((2, nao, 0))
         if self.occtype == 'occupied':
-            c_active_occ = spinalg.hstack_matrices(dmet_bath.c_cluster_occ, dmet_bath.c_env_occ)
+            if c_active is None:
+                c_active_occ = spinalg.hstack_matrices(dmet_bath.c_cluster_occ, self.c_env)
+            else:
+                c_active_occ = c_active
             c_frozen_occ = empty
             if self.c_buffer is not None:
                 raise NotImplementedError
             c_active_vir = dmet_bath.c_cluster_vir
             c_frozen_vir = dmet_bath.c_env_vir
         elif self.occtype == 'virtual':
+            if c_active is None:
+                c_active_vir = spinalg.hstack_matrices(dmet_bath.c_cluster_vir, self.c_env)
+            else:
+                c_active_vir = c_active
+            c_frozen_vir = empty
             if self.c_buffer is None:
                 c_active_occ = dmet_bath.c_cluster_occ
                 c_frozen_occ = dmet_bath.c_env_occ
@@ -177,13 +212,10 @@ class BNO_Bath(Bath):
                 e, r = np.linalg.eigh(dm_frozen)
                 c_frozen_occ = np.dot(dmet_bath.c_env_occ, r[:,e>0.5])
 
-            c_active_vir = spinalg.hstack_matrices(dmet_bath.c_cluster_vir, dmet_bath.c_env_vir)
-            c_frozen_vir = empty
         actspace = Cluster.from_coeffs(c_active_occ, c_active_vir, c_frozen_occ, c_frozen_vir)
         return actspace
 
-    def _undo_canonicalization(self, dm, rot):
-        self.log.debugv("Undoing canonicalization")
+    def _rotate_dm(self, dm, rot):
         return dot(rot, dm, rot.T)
 
     def _dm_take_env(self, dm):
@@ -204,10 +236,9 @@ class BNO_Bath(Bath):
 
 class BNO_Bath_UHF(BNO_Bath):
 
-    def _undo_canonicalization(self, dm, rot):
-        self.log.debugv("Undoing canonicalization")
-        return (dot(rot[0], dm[0], rot[0].T),
-                dot(rot[1], dm[1], rot[1].T))
+    def _rotate_dm(self, dm, rot):
+        return (super()._rotate_dm(dm[0], rot[0]),
+                super()._rotate_dm(dm[1], rot[1]))
 
     @property
     def ncluster(self):
@@ -247,15 +278,28 @@ class BNO_Bath_UHF(BNO_Bath):
         c_bath_b, c_rest_b = super().truncate_bno(coeff[1], occup[1], *args, **kwargs)
         return (c_bath_a, c_bath_b), (c_rest_a, c_rest_b)
 
+    @staticmethod
+    def _has_frozen(c_frozen):
+        return (c_frozen[0].shape[-1] + c_frozen[1].shape[-1]) > 0
+
 
 class MP2_BNO_Bath(BNO_Bath):
 
-    def __init__(self, *args, project_t2=False, **kwargs):
-        self.project_t2 = project_t2
+    def __init__(self, *args, project_dmet_order=0, project_dmet_mode='full', project_dmet=None, **kwargs):
+        # Backwards compatibility:
+        if project_dmet:
+            project_dmet_order = 1
+            project_dmet_mode = project_dmet
+            # TODO: deprecate
+        self.project_dmet_order = project_dmet_order
+        self.project_dmet_mode = project_dmet_mode
         super().__init__(*args, **kwargs)
 
-    def _make_t2(self, mo_energy, eris=None, cderi=None, cderi_neg=None, blksize=None):
-        """Make T2 amplitudes"""
+    def _make_t2(self, actspace, fock, eris=None, max_memory=None, blksize=None, energy_only=False):
+        """Make T2 amplitudes and pair correlation energies."""
+
+        if eris is None:
+            eris, cderi, cderi_neg = self.get_eris_or_cderi(actspace)
         # (ov|ov)
         if eris is not None:
             self.log.debugv("Making T2 amplitudes from ERIs")
@@ -270,10 +314,18 @@ class MP2_BNO_Bath(BNO_Bath):
         else:
             raise ValueError()
 
-        t2 = np.empty((nocc, nocc, nvir, nvir))
+        # Fragment projector:
+        ovlp = self.base.get_ovlp()
+        rfrag = dot(actspace.c_active_occ.T, ovlp, self.c_frag)
+
+        t2 = np.empty((nocc, nocc, nvir, nvir)) if not energy_only else None
+        mo_energy = self._get_mo_energy(fock, actspace)
         eia = (mo_energy[:nocc,None] - mo_energy[None,nocc:])
+        max_memory = max_memory or int(1e9)
         if blksize is None:
-            blksize = int(1e9 / max(nocc*nvir*nvir * 8, 1))
+            blksize = int(max_memory / max(nocc*nvir*nvir*8, 1))
+        nenv = (nocc if self.occtype == 'occupied' else nvir)
+        ecorr = 0
         for blk in brange(0, nocc, blksize):
             if eris is not None:
                 gijab = eris[blk].transpose(0,2,1,3)
@@ -282,8 +334,16 @@ class MP2_BNO_Bath(BNO_Bath):
                 if cderi_neg is not None:
                     gijab -= einsum('Lia,Ljb->ijab', cderi_neg[:,blk], cderi_neg)
             eijab = (eia[blk][:,None,:,None] + eia[None,:,None,:])
-            t2[blk] = (gijab / eijab)
-        return t2
+            t2blk = (gijab / eijab)
+            if not energy_only:
+                t2[blk] = t2blk
+            # Projected correlation energy:
+            tp = einsum('ix,i...->x...', rfrag[blk], t2blk)
+            gp = einsum('ix,i...->x...', rfrag[blk], gijab)
+            ecorr += (2*einsum('ijab,ijab->', tp, gp)
+                      - einsum('ijab,ijba->', tp, gp))
+
+        return t2, ecorr
 
     def _get_mo_energy(self, fock, actspace):
         c_act = actspace.c_active
@@ -302,45 +362,82 @@ class MP2_BNO_Bath(BNO_Bath):
         cderi, cderi_neg = self.base.get_cderi(mo_coeff)
         return cderi, cderi_neg
 
+    def get_eris_or_cderi(self, actspace):
+        eris = cderi = cderi_neg = None
+        t0 = timer()
+        if self.fragment.base.has_df:
+            cderi, cderi_neg = self._get_cderi(actspace)
+        else:
+            eris = self._get_eris(actspace)
+        self.log.timingv("Time for AO->MO transformation: %s", time_string(timer()-t0))
+        # TODO: Reuse previously obtained integral transformation into N^2 sized quantity (rather than N^4)
+        #else:
+        #    self.log.debug("Transforming previous eris.")
+        #    eris = transform_mp2_eris(eris, actspace.c_active_occ, actspace.c_active_vir, ovlp=self.base.get_ovlp())
+        return eris, cderi, cderi_neg
+
+    def _get_dmet_projector_weights(self, eig):
+        assert np.all(eig > -1e-10)
+        assert np.all(eig-1 < 1e-10)
+        eig = np.clip(eig, 0, 1)
+        mode = self.project_dmet_mode
+        if mode == 'full':
+            weights = np.zeros(len(eig))
+        elif mode == 'half':
+            weights = np.full(len(eig), 0.5)
+        elif mode == 'linear':
+            weights = 2*abs(np.fmin(eig, 1-eig))
+        elif mode == 'cosine':
+            weights = (1-np.cos(2*eig*np.pi))/2
+        elif mode == 'cosine-half':
+            weights = (1-np.cos(2*eig*np.pi))/4
+        elif mode == 'entropy':
+            weights = 4*eig*(1-eig)
+        elif mode == 'sqrt-entropy':
+            weights = 2*np.sqrt(eig*(1-eig))
+        elif mode == 'squared-entropy':
+            weights = (4*eig*(1-eig))**2
+        else:
+            raise ValueError("Invalid value for project_dmet_mode: %s" % mode)
+        assert np.all(weights > -1e-14)
+        assert np.all(weights-1 < 1e-14)
+        weights = np.clip(weights, 0, 1)
+        return weights
+
+    def _project_t2(self, t2, actspace):
+        """Project and symmetrize T2 amplitudes"""
+        self.log.info("Projecting DMET space for MP2 bath (mode= %s, order= %d).",
+                      self.project_dmet_mode, self.project_dmet_order)
+        weights = self._get_dmet_projector_weights(self.dmet_bath.n_dmet)
+        weights = hstack(self.fragment.n_frag*[1], weights)
+        ovlp = self.fragment.base.get_ovlp()
+        c_fragdmet = hstack(self.fragment.c_frag, self.dmet_bath.c_dmet)
+        if self.occtype == 'occupied':
+            rot = dot(actspace.c_active_vir.T, ovlp, c_fragdmet)
+            proj = einsum('ix,x,jx->ij', rot, weights, rot)
+            if self.project_dmet_order == 1:
+                t2 = einsum('xa,ijab->ijxb', proj, t2)
+            elif self.project_dmet_order == 2:
+                t2 = einsum('xa,yb,ijab->ijxy', proj, proj, t2)
+            else:
+                raise ValueError
+        elif self.occtype == 'virtual':
+            rot = dot(actspace.c_active_occ.T, ovlp, c_fragdmet)
+            proj = einsum('ix,x,jx->ij', rot, weights, rot)
+            if self.project_dmet_order == 1:
+                t2 = einsum('xi,i...->x...', proj, t2)
+            elif self.project_dmet_order == 2:
+                t2 = einsum('xi,yj,ij...->xy...', proj, proj, t2)
+            else:
+                raise ValueError
+        t2 = (t2 + t2.transpose(1,0,3,2))/2
+        return t2
+
     def make_delta_dm1(self, t2, actspace):
         """Delta MP2 density matrix"""
 
-        if self.project_t2:
-            self.log.debugv("Constructing DM from projected amplitudes (method= %s).", self.project_t2)
-            eig = self.dmet_bath.n_dmet
-            assert np.all(eig > -1e-10)
-            assert np.all(eig-1 < 1e-10)
-            eig = np.clip(eig, 0, 1)
-            if self.project_t2 == 'fragment':
-                weights = len(eig)*[0]
-            elif self.project_t2 == 'full':
-                weights = len(eig)*[1]
-            elif self.project_t2 == 'linear':
-                weights = 2*abs(np.fmin(eig, 1-eig))
-            elif self.project_t2 == 'entropy':
-                weights = 4*eig*(1-eig)
-            elif self.project_t2 == 'sqrt-entropy':
-                weights = 2*np.sqrt(eig*(1-eig))
-            else:
-                raise ValueError("Unknown value for project_t2: %s" % self.project_t2)
-            assert np.all(weights > -1e-14)
-            assert np.all(weights-1 < 1e-14)
-            weights = hstack(self.fragment.n_frag*[1], weights)
-
-            # Project and symmetrize:
-            ovlp = self.fragment.base.get_ovlp()
-            c_fragdmet = hstack(self.fragment.c_frag, self.dmet_bath.c_dmet)
-            if self.occtype == 'occupied':
-                rot = dot(actspace.c_active_vir.T, ovlp, c_fragdmet)
-                proj = einsum('ix,x,jx->ij', rot, weights, rot)
-                t2 = einsum('xa,ijab->ijxb', proj, t2)
-            elif self.occtype == 'virtual':
-                rot = dot(actspace.c_active_occ.T, ovlp, c_fragdmet)
-                proj = einsum('ix,x,jx->ij', rot, weights, rot)
-                t2 = einsum('xi,i...->x...', proj, t2)
-            t2 = (t2 + t2.transpose(1,0,3,2))/2
-        else:
-            self.log.debugv("Constructing DM from complete amplitudes")
+        if self.project_dmet_order > 0:
+            t2 = self._project_t2(t2, actspace)
 
         # This is equivalent to:
         # do, dv = pyscf.mp.mp2._gamma1_intermediates(mp2, eris=eris)
@@ -373,7 +470,7 @@ class MP2_BNO_Bath(BNO_Bath):
         t_init = timer()
 
         actspace_orig = self.get_active_space()
-        fock = self.fragment.base.get_fock_for_bath()
+        fock = self.base.get_fock_for_bath()
 
         # --- Canonicalization [optional]
         if self.canonicalize[0]:
@@ -391,36 +488,17 @@ class MP2_BNO_Bath(BNO_Bath):
         actspace = Cluster.from_coeffs(c_active_occ, c_active_vir,
                 actspace_orig.c_frozen_occ, actspace_orig.c_frozen_vir)
 
-        # -- Integral transformation
-        if eris is None:
-            eris = cderi = cderi_neg = None
-            t0 = timer()
-            if self.fragment.base.has_df:
-                cderi, cderi_neg = self._get_cderi(actspace)
-            else:
-                eris = self._get_eris(actspace)
-            t_ao2mo = timer()-t0
-        # Reuse previously obtained integral transformation into N^2 sized quantity (rather than N^4)
-        #else:
-        #    self.log.debug("Transforming previous eris.")
-        #    eris = transform_mp2_eris(eris, actspace.c_active_occ, actspace.c_active_vir, ovlp=self.base.get_ovlp())
-        # TODO: DF-MP2
-        #assert (eris.ovov is not None)
-        #nocc = actspace.nocc_active
-        #nvir = actspace.nvir_active
-
-        mo_energy = self._get_mo_energy(fock, actspace)
         t0 = timer()
-        t2 = self._make_t2(mo_energy, eris=eris, cderi=cderi, cderi_neg=cderi_neg)
+        t2, ecorr = self._make_t2(actspace, fock, eris=eris)
         t_amps = timer()-t0
 
         dm = self.make_delta_dm1(t2, actspace)
 
         # --- Undo canonicalization
         if self.occtype == 'occupied' and r_occ is not None:
-            dm = self._undo_canonicalization(dm, r_occ)
+            dm = self._rotate_dm(dm, r_occ)
         elif self.occtype == 'virtual' and r_vir is not None:
-            dm = self._undo_canonicalization(dm, r_vir)
+            dm = self._rotate_dm(dm, r_vir)
         # --- Diagonalize environment-environment block
         dm = self._dm_take_env(dm)
         t0 = timer()
@@ -429,10 +507,10 @@ class MP2_BNO_Bath(BNO_Bath):
         c_bno = spinalg.dot(self.c_env, r_bno)
         c_bno = fix_orbital_sign(c_bno)[0]
 
-        self.log.timing("Time MP2 bath:  integrals= %s  amplitudes= %s  diagonal.= %s  total= %s",
-                *map(time_string, (t_ao2mo, t_amps, t_diag, (timer()-t_init))))
+        self.log.timing("Time MP2 bath:  amplitudes= %s  diagonal.= %s  total= %s",
+                *map(time_string, (t_amps, t_diag, (timer()-t_init))))
 
-        return c_bno, n_bno
+        return c_bno, n_bno, ecorr
 
 
 class UMP2_BNO_Bath(MP2_BNO_Bath, BNO_Bath_UHF):
@@ -455,8 +533,11 @@ class UMP2_BNO_Bath(MP2_BNO_Bath, BNO_Bath_UHF):
         cderi_b, cderi_neg_b = self.base.get_cderi(mo_b)
         return (cderi_a, cderi_b), (cderi_neg_a, cderi_neg_b)
 
-    def _make_t2(self, mo_energy, eris=None, cderi=None, cderi_neg=None, blksize=None, workmem=int(1e9)):
+    def _make_t2(self, actspace, fock, eris=None, max_memory=None, blksize=None, energy_only=False):
         """Make T2 amplitudes"""
+
+        if eris is None:
+            eris, cderi, cderi_neg = self.get_eris_or_cderi(actspace)
         # (ov|ov)
         if eris is not None:
             assert len(eris) == 3
@@ -475,17 +556,27 @@ class UMP2_BNO_Bath(MP2_BNO_Bath, BNO_Bath_UHF):
         else:
             raise ValueError()
 
-        t2aa = np.empty((nocca, nocca, nvira, nvira))
-        t2ab = np.empty((nocca, noccb, nvira, nvirb))
-        t2bb = np.empty((noccb, noccb, nvirb, nvirb))
+        # Fragment projector:
+        ovlp = self.base.get_ovlp()
+        rfrag = spinalg.dot(spinalg.T(actspace.c_active_occ), ovlp, self.c_frag)
+
+        if not energy_only:
+            t2aa = np.empty((nocca, nocca, nvira, nvira))
+            t2ab = np.empty((nocca, noccb, nvira, nvirb))
+            t2bb = np.empty((noccb, noccb, nvirb, nvirb))
+        else:
+            t2aa = t2ab = t2bb = None
+        mo_energy = self._get_mo_energy(fock, actspace)
         eia_a = (mo_energy[0][:nocca,None] - mo_energy[0][None,nocca:])
         eia_b = (mo_energy[1][:noccb,None] - mo_energy[1][None,noccb:])
 
         # Alpha-alpha and Alpha-beta:
+        max_memory = max_memory or int(1e9)
         if blksize is None:
-            blksize_a = int(workmem / max(nocca*nvira*nvira * 8, 1))
+            blksize_a = int(max_memory / max(nocca*nvira*nvira * 8, 1))
         else:
             blksize_a = blksize
+        ecorr = 0
         for blk in brange(0, nocca, blksize_a):
             # Alpha-alpha
             if eris is not None:
@@ -495,8 +586,15 @@ class UMP2_BNO_Bath(MP2_BNO_Bath, BNO_Bath_UHF):
                 if cderi_neg[0] is not None:
                     gijab -= einsum('Lia,Ljb->ijab', cderi_neg[0][:,blk], cderi_neg[0])
             eijab = (eia_a[blk][:,None,:,None] + eia_a[None,:,None,:])
-            t2aa[blk] = (gijab / eijab)
-            t2aa[blk] -= t2aa[blk].transpose(0,1,3,2)
+            t2blk = (gijab / eijab)
+            t2blk -= t2blk.transpose(0,1,3,2)
+            if not energy_only:
+                t2aa[blk] = t2blk
+            # Projected correlation energy:
+            tp = einsum('ix,i...->x...', rfrag[0][blk], t2blk)
+            gp = einsum('ix,i...->x...', rfrag[0][blk], gijab)
+            ecorr += (einsum('ijab,ijab->', tp, gp)
+                    - einsum('ijab,ijba->', tp, gp))/4
             # Alpha-beta
             if eris is not None:
                 gijab = eris[1][blk].transpose(0,2,1,3)
@@ -505,10 +603,22 @@ class UMP2_BNO_Bath(MP2_BNO_Bath, BNO_Bath_UHF):
                 if cderi_neg[0] is not None:
                     gijab -= einsum('Lia,Ljb->ijab', cderi_neg[0][:,blk], cderi_neg[1])
             eijab = (eia_a[blk][:,None,:,None] + eia_b[None,:,None,:])
-            t2ab[blk] = (gijab / eijab)
+            t2blk = (gijab / eijab)
+            if not energy_only:
+                t2ab[blk] = t2blk
+            # Projected correlation energy:
+            # Alpha projected:
+            tp = einsum('ix,i...->x...', rfrag[0][blk], t2blk)
+            gp = einsum('ix,i...->x...', rfrag[0][blk], gijab)
+            ecorr += einsum('ijab,ijab->', tp, gp)/2
+            # Beta projected:
+            tp = einsum('jx,ij...->ix...', rfrag[1], t2blk)
+            gp = einsum('jx,ij...->ix...', rfrag[1], gijab)
+            ecorr += einsum('ijab,ijab->', tp, gp)/2
+
         # Beta-beta:
         if blksize is None:
-            blksize_b = int(workmem / max(noccb*nvirb*nvirb * 8, 1))
+            blksize_b = int(max_memory / max(noccb*nvirb*nvirb * 8, 1))
         else:
             blksize_b = blksize
         for blk in brange(0, noccb, blksize_b):
@@ -519,75 +629,79 @@ class UMP2_BNO_Bath(MP2_BNO_Bath, BNO_Bath_UHF):
                 if cderi_neg[0] is not None:
                     gijab -= einsum('Lia,Ljb->ijab', cderi_neg[1][:,blk], cderi_neg[1])
             eijab = (eia_b[blk][:,None,:,None] + eia_b[None,:,None,:])
-            t2bb[blk] = (gijab / eijab)
-            t2bb[blk] -= t2bb[blk].transpose(0,1,3,2)
+            t2blk = (gijab / eijab)
+            t2blk -= t2blk.transpose(0,1,3,2)
+            if not energy_only:
+                t2bb[blk] = t2blk
+            # Projected correlation energy:
+            tp = einsum('ix,i...->x...', rfrag[1][blk], t2blk)
+            gp = einsum('ix,i...->x...', rfrag[1][blk], gijab)
+            ecorr += (einsum('ijab,ijab->', tp, gp)
+                    - einsum('ijab,ijba->', tp, gp))/4
 
-        return (t2aa, t2ab, t2bb)
+        return (t2aa, t2ab, t2bb), ecorr
 
-    def make_delta_dm1(self, t2, actspace):
+    def _project_t2(self, t2, actspace):
+        """Project and symmetrize T2 amplitudes"""
+        self.log.info("Projecting DMET space for MP2 bath (mode= %s, order= %d).",
+                      self.project_dmet_mode, self.project_dmet_order)
+        weightsa = self._get_dmet_projector_weights(self.dmet_bath.n_dmet[0])
+        weightsb = self._get_dmet_projector_weights(self.dmet_bath.n_dmet[1])
+        weightsa = hstack(self.fragment.n_frag[0]*[1], weightsa)
+        weightsb = hstack(self.fragment.n_frag[1]*[1], weightsb)
+
+        # Project and symmetrize:
         t2aa, t2ab, t2bb = t2
-
-        if self.project_t2:
-            self.log.debugv("Constructing DM from projected amplitudes (method= %s).", self.project_t2)
-            eiga, eigb = self.dmet_bath.n_dmet
-            assert np.all(eiga > -1e-10)
-            assert np.all(eigb > -1e-10)
-            assert np.all(eiga-1 < 1e-10)
-            assert np.all(eigb-1 < 1e-10)
-            eiga = np.clip(eiga, 0, 1)
-            eigb = np.clip(eigb, 0, 1)
-            if self.project_t2 == 'fragment':
-                weightsa = len(eiga)*[0]
-                weightsb = len(eigb)*[0]
-            elif self.project_t2 == 'full':
-                weightsa = len(eiga)*[1]
-                weightsb = len(eigb)*[1]
-            elif self.project_t2 == 'linear':
-                weightsa = 2*abs(np.fmin(eiga, 1-eiga))
-                weightsb = 2*abs(np.fmin(eigb, 1-eigb))
-            elif self.project_t2 == 'entropy':
-                weightsa = 4*eiga*(1-eiga)
-                weightsb = 4*eigb*(1-eigb)
-            elif self.project_t2 == 'sqrt-entropy':
-                weightsa = 2*np.sqrt(eiga*(1-eiga))
-                weightsb = 2*np.sqrt(eigb*(1-eigb))
-            else:
-                raise ValueError
-                raise ValueError("Unknown value for project_t2: %s" % self.project_t2)
-            assert np.all(weightsa > -1e-14)
-            assert np.all(weightsb > -1e-14)
-            assert np.all(weightsa-1 < 1e-14)
-            assert np.all(weightsb-1 < 1e-14)
-            weightsa = hstack(self.fragment.n_frag[0]*[1], weightsa)
-            weightsb = hstack(self.fragment.n_frag[1]*[1], weightsb)
-
-            # Project and symmetrize:
-            ovlp = self.fragment.base.get_ovlp()
-            c_fragdmet_a = hstack(self.fragment.c_frag[0], self.dmet_bath.c_dmet[0])
-            c_fragdmet_b = hstack(self.fragment.c_frag[1], self.dmet_bath.c_dmet[1])
-            if self.occtype == 'occupied':
-                rota = dot(actspace.c_active_vir[0].T, ovlp, c_fragdmet_a)
-                rotb = dot(actspace.c_active_vir[1].T, ovlp, c_fragdmet_b)
-                proja = einsum('ix,x,jx->ij', rota, weightsa, rota)
-                projb = einsum('ix,x,jx->ij', rotb, weightsb, rotb)
+        ovlp = self.fragment.base.get_ovlp()
+        c_fragdmet_a = hstack(self.fragment.c_frag[0], self.dmet_bath.c_dmet[0])
+        c_fragdmet_b = hstack(self.fragment.c_frag[1], self.dmet_bath.c_dmet[1])
+        if self.occtype == 'occupied':
+            rota = dot(actspace.c_active_vir[0].T, ovlp, c_fragdmet_a)
+            rotb = dot(actspace.c_active_vir[1].T, ovlp, c_fragdmet_b)
+            proja = einsum('ix,x,jx->ij', rota, weightsa, rota)
+            projb = einsum('ix,x,jx->ij', rotb, weightsb, rotb)
+            if self.project_dmet_order == 1:
                 t2aa = einsum('xa,ijab->ijxb', proja, t2aa)
                 t2bb = einsum('xa,ijab->ijxb', projb, t2bb)
                 t2ab = (einsum('xa,ijab->ijxb', proja, t2ab)
                       + einsum('xb,ijab->ijax', projb, t2ab))/2
-            elif self.occtype == 'virtual':
-                rota = dot(actspace.c_active_occ[0].T, ovlp, c_fragdmet_a)
-                rotb = dot(actspace.c_active_occ[1].T, ovlp, c_fragdmet_b)
-                proja = einsum('ix,x,jx->ij', rota, weightsa, rota)
-                projb = einsum('ix,x,jx->ij', rotb, weightsb, rotb)
+            # Not tested:
+            elif self.project_dmet_order == 2:
+                t2aa = einsum('xa,yb,ijab->ijxy', proja, proja, t2aa)
+                t2bb = einsum('xa,yb,ijab->ijxy', projb, projb, t2bb)
+                t2ab = (einsum('xa,yb,ijab->ijxy', proja, projb, t2ab)
+                      + einsum('xb,ya,ijab->ijyx', projb, proja, t2ab))/2
+            else:
+                raise ValueError
+        elif self.occtype == 'virtual':
+            rota = dot(actspace.c_active_occ[0].T, ovlp, c_fragdmet_a)
+            rotb = dot(actspace.c_active_occ[1].T, ovlp, c_fragdmet_b)
+            proja = einsum('ix,x,jx->ij', rota, weightsa, rota)
+            projb = einsum('ix,x,jx->ij', rotb, weightsb, rotb)
+            if self.project_dmet_order == 1:
                 t2aa = einsum('xi,i...->x...', proja, t2aa)
                 t2bb = einsum('xi,i...->x...', projb, t2bb)
                 t2ab = (einsum('xi,i...->x...', proja, t2ab)
                       + einsum('xj,ij...->ix...', projb, t2ab))/2
-            t2aa = (t2aa + t2aa.transpose(1,0,3,2))/2
-            t2bb = (t2bb + t2bb.transpose(1,0,3,2))/2
-        else:
-            self.log.debugv("Constructing DM from complete amplitudes")
+            # Not tested:
+            elif self.project_dmet_order == 2:
+                t2aa = einsum('xi,yj,ij...->xy...', proja, proja, t2aa)
+                t2bb = einsum('xi,yj,ij...->xy...', projb, projb, t2bb)
+                t2ab = (einsum('xi,yj,ij...->xy...', proja, projb, t2ab)
+                      + einsum('xj,yi,ij...->yx...', projb, proja, t2ab))/2
+            else:
+                raise ValueError
+        t2aa = (t2aa + t2aa.transpose(1,0,3,2))/2
+        t2bb = (t2bb + t2bb.transpose(1,0,3,2))/2
+        return (t2aa, t2ab, t2bb)
 
+    def make_delta_dm1(self, t2, actspace):
+        """Delta MP2 density matrix"""
+
+        if self.project_dmet_order > 0:
+            t2 = self._project_t2(t2, actspace)
+
+        t2aa, t2ab, t2bb = t2
         # Construct occupied-occupied DM
         if self.occtype == 'occupied':
             dma  = (einsum('imef,jmef->ij', t2aa.conj(), t2aa)/2

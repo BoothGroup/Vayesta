@@ -1,19 +1,19 @@
 import os.path
 import numpy as np
 
-def _load_datafile(filename):
+def _load_datafile(filename, scale=1):
     datafile = os.path.join(os.path.dirname(__file__), os.path.join("data", filename))
     data = np.loadtxt(datafile, dtype=[("atoms", object), ("coords", np.float64, (3,))])
     atoms = data["atoms"]
-    coords = data["coords"]
+    coords = scale*data["coords"]
     atom = [[atoms[i], coords[i]] for i in range(len(atoms))]
     return atom
 
-def water(atoms=['O', 'H'], origin=(0, 0, 0)):
+def water(atoms=['O', 'H'], origin=(0, 0, 0), scale=1):
     origin = np.asarray(origin)
-    atom = [[atoms[0], np.asarray([0.0000,  0.0000,  0.1173]) - origin],
-            [atoms[1], np.asarray([0.0000,  0.7572, -0.4692]) - origin],
-            [atoms[1], np.asarray([0.0000, -0.7572, -0.4692]) - origin]]
+    atom = [[atoms[0], scale*np.asarray([0.0000,  0.0000,  0.1173]) - origin],
+            [atoms[1], scale*np.asarray([0.0000,  0.7572, -0.4692]) - origin],
+            [atoms[1], scale*np.asarray([0.0000, -0.7572, -0.4692]) - origin]]
     return atom
 
 def alkane(n, atoms=['C', 'H'], cc_bond=1.54, ch_bond=1.09, scale=1.0, numbering=False):
@@ -110,8 +110,8 @@ def no2():
 	]
     return atom
 
-def ethanol(oh_bond=None):
-    atom = _load_datafile('ethanol.dat')
+def ethanol(oh_bond=None, scale=1):
+    atom = _load_datafile('ethanol.dat', scale=scale)
     if oh_bond is not None:
         pos_o = atom[2][1]
         pos_h = atom[3][1]
@@ -145,6 +145,14 @@ def ring(atom, natom, bond_length, z=0.0):
     return atoms
 
 # --- From datafiles:
+
+def acetic_acid():
+    atom = _load_datafile('acetic.dat')
+    return atom
+
+def ferrocene():
+    atom = _load_datafile('ferrocene.dat')
+    return atom
 
 def propyl():
     atom = _load_datafile('propyl.dat')

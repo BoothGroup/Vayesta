@@ -54,7 +54,7 @@ class EwDMET_Bath_Test(TestCase):
                 print("Testing EwDMET bath: kmax= %d moment= %d" % (kmax, order))
                 self.assertIsNone(np.testing.assert_allclose(mom_cluster[order], mom_full[order], atol=1e-7, rtol=1e-7))
 
-class BNO_Bath_Test(unittest.TestCase):
+class BNO_Test(TestCase):
 
     def test_bno_Bath(self):
         rhf = testsystems.ethanol_ccpvdz.rhf()
@@ -105,10 +105,48 @@ class BNO_Bath_Test(unittest.TestCase):
         self.assertAlmostEqual(np.mean(ubno_bath_vir.occup[1]), n_vir_mean)
 
         # Compare RHF and UHF
-        self.assertIsNone(np.testing.assert_allclose(rbno_bath_occ.occup, ubno_bath_occ.occup[0], atol=1e-8))
-        self.assertIsNone(np.testing.assert_allclose(rbno_bath_occ.occup, ubno_bath_occ.occup[1], atol=1e-8))
-        self.assertIsNone(np.testing.assert_allclose(rbno_bath_vir.occup, ubno_bath_vir.occup[0], atol=1e-8))
-        self.assertIsNone(np.testing.assert_allclose(rbno_bath_vir.occup, ubno_bath_vir.occup[1], atol=1e-8))
+        self.assertAllclose(rbno_bath_occ.occup, ubno_bath_occ.occup[0])
+        self.assertAllclose(rbno_bath_occ.occup, ubno_bath_occ.occup[1])
+        self.assertAllclose(rbno_bath_vir.occup, ubno_bath_vir.occup[0])
+        self.assertAllclose(rbno_bath_vir.occup, ubno_bath_vir.occup[1])
+
+    def test_project_dmet(self):
+
+        rhf = testsystems.ethanol_ccpvdz.rhf()
+        uhf = testsystems.ethanol_ccpvdz.uhf()
+
+        remb = Embedding(rhf)
+        with remb.iao_fragmentation() as f:
+            rfrag = f.add_atomic_fragment('O')
+        rdmet_bath = DMET_Bath(rfrag)
+        rdmet_bath.kernel()
+        rbno_bath_occ = MP2_Bath(rfrag, rdmet_bath, project_dmet='linear', occtype='occupied')
+        rbno_bath_vir = MP2_Bath(rfrag, rdmet_bath, project_dmet='linear', occtype='virtual')
+
+        uemb = UEmbedding(uhf)
+        with uemb.iao_fragmentation() as f:
+            ufrag = f.add_atomic_fragment('O')
+        udmet_bath = DMET_Bath(ufrag)
+        udmet_bath.kernel()
+        ubno_bath_occ = MP2_Bath(ufrag, udmet_bath, project_dmet='linear', occtype='occupied')
+        ubno_bath_vir = MP2_Bath(ufrag, udmet_bath, project_dmet='linear', occtype='virtual')
+
+        # Check maximum, minimum, and mean occupations
+        n_occ_mean = 7.377564076299791e-05
+        n_vir_mean = 0.0005062785110509356
+        # RHF
+        self.assertAlmostEqual(np.mean(rbno_bath_occ.occup), n_occ_mean)
+        self.assertAlmostEqual(np.mean(rbno_bath_vir.occup), n_vir_mean)
+        # UHF
+        self.assertAlmostEqual(np.mean(ubno_bath_occ.occup[0]), n_occ_mean)
+        self.assertAlmostEqual(np.mean(ubno_bath_occ.occup[1]), n_occ_mean)
+        self.assertAlmostEqual(np.mean(ubno_bath_vir.occup[0]), n_vir_mean)
+        self.assertAlmostEqual(np.mean(ubno_bath_vir.occup[1]), n_vir_mean)
+        # Compare RHF and UHF
+        self.assertAllclose(rbno_bath_occ.occup, ubno_bath_occ.occup[0])
+        self.assertAllclose(rbno_bath_occ.occup, ubno_bath_occ.occup[1])
+        self.assertAllclose(rbno_bath_vir.occup, ubno_bath_vir.occup[0])
+        self.assertAllclose(rbno_bath_vir.occup, ubno_bath_vir.occup[1])
 
 
 if __name__ == '__main__':

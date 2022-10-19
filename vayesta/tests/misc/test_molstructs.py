@@ -12,7 +12,7 @@ from vayesta.tests.common import TestCase
 
 @pytest.mark.fast
 class MolstructsTests(TestCase):
-    PLACES_ENERGY = 12
+    PLACES_ENERGY = 7
 
     def _test_nuclear_energy(self, mol, known_values):
         """Test the nuclear energy.

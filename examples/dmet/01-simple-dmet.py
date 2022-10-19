@@ -5,6 +5,7 @@ import vayesta
 import vayesta.dmet
 from vayesta.misc.molecules import ring
 
+
 # H6 ring
 mol = pyscf.gto.Mole()
 mol.atom = ring(atom='H', natom=6, bond_length=2.0)

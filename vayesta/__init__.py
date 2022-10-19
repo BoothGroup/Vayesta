@@ -9,7 +9,7 @@ from .core import cmdargs
 from .mpi import init_mpi
 
 
-__version__ = '1.0.0a1'
+__version__ = '1.0.0'
 
 # Command line arguments
 args = cmdargs.parse_cmd_args()
@@ -57,14 +57,18 @@ if errlog:
     errhandler.setLevel(args.errlog_level)
     log.addHandler(errhandler)
 
-# Print Logo
-try:
-    with open(os.path.abspath(os.path.join(os.path.dirname(__file__), 'logo.txt')), 'r') as f:
-        logo = f.read()
-    log.info(logo + (" Version %s\n" % __version__))
-except FileNotFoundError:
-    log.error("logo.txt not found.")
-    log.info("Version %s\n" % __version__)
+# Print Logo, unless interactive Python interpreter
+is_interactive = hasattr(sys, 'ps1')
+if not is_interactive:
+    logofile = os.path.abspath(os.path.join(os.path.dirname(__file__), 'logo.txt'))
+    try:
+        with open(logofile, 'r') as f:
+            logo = f.read()
+        logo = (logo.rstrip() + ' ')
+    except FileNotFoundError:
+        log.error("%s not found.", logofile)
+        logo = ''
+    log.info("%sVersion %s\n", logo, __version__)
 
 # --- Required modules
 

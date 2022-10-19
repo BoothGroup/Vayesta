@@ -7,7 +7,7 @@ from vayesta.tests.common import TestCase
 from vayesta.tests import testsystems
 
 
-class MoleculeEWFTests(TestCase):
+class MoleculeTests(TestCase):
     PLACES_ENERGY = 7
     PLACES_T = 6
     PLACES_DM = 6
@@ -69,7 +69,7 @@ class MoleculeEWFTests(TestCase):
         dm = emb.make_rdm2_demo()
         self.assertAlmostEqual(trace(dm), known_values['rdm2_demo'], self.PLACES_DM)
 
-        dm = emb.make_rdm2_demo(ao_basis=True)
+        dm = emb.make_rdm2_demo(ao_basis=True, part_cumulant=False)
         self.assertAlmostEqual(trace(dm), known_values['rdm2_demo_ao'], self.PLACES_DM)
 
         dm = emb._make_rdm2_ccsd_global_wf()
@@ -78,7 +78,7 @@ class MoleculeEWFTests(TestCase):
         dm = emb._make_rdm2_ccsd_global_wf(ao_basis=True)
         self.assertAlmostEqual(trace(dm), known_values['rdm2_ccsd_ao'], self.PLACES_DM)
 
-    def test_lih_ccpvdz_iao_atoms(self):
+    def test_lih_iao_atoms(self):
         """Tests EWF for LiH cc-pvdz with IAO atomic fragmentation.
         """
 
@@ -117,7 +117,7 @@ class MoleculeEWFTests(TestCase):
         self._test_rdm1(emb, known_values)
         self._test_rdm2(emb, known_values)
 
-    def test_lih_ccpvdz_sao_orbitals(self):
+    def test_lih_sao_orbitals(self):
         """Tests EWF for LiH cc-pvdz with SAO orbital fragmentation.
         """
 
@@ -138,7 +138,7 @@ class MoleculeEWFTests(TestCase):
 
         self._test_energy(emb, known_values)
 
-    def test_lih_ccpvdz_sao_atoms(self):
+    def test_lih_sao_atoms(self):
         """Tests EWF for LiH cc-pvdz with SAO atomic fragmentation.
         """
 
@@ -158,7 +158,7 @@ class MoleculeEWFTests(TestCase):
 
         self._test_energy(emb, known_values)
 
-    def test_h2o_ccpvdz_FCI(self):
+    def test_h2o_FCI(self):
         """Tests EWF for H2O cc-pvdz with FCI solver.
         """
 
@@ -166,9 +166,8 @@ class MoleculeEWFTests(TestCase):
                 testsystems.water_ccpvdz.rhf(),
                 bath_type='dmet',
                 solver='FCI',
-                bno_threshold=100,
                 solver_options={
-                    'conv_tol': self.CONV_TOL,
+                    'conv_tol': 1e-12,
                     'fix_spin': 0.0,
                 }
         )
@@ -181,7 +180,7 @@ class MoleculeEWFTests(TestCase):
 
         self._test_energy(emb, known_values)
 
-    def test_h2o_ccpvdz_TCCSD(self):
+    def test_h2o_TCCSD(self):
         """Tests EWF for H2O cc-pvdz with FCI solver.
         """
 
@@ -202,7 +201,7 @@ class MoleculeEWFTests(TestCase):
         known_values = {'e_tot': -76.23613576956096}
         self.assertAlmostEqual(emb.e_tot, known_values['e_tot'], 6)
 
-    def test_h2o_ccpvdz_TCCSD_CAS(self):
+    def test_h2o_TCCSD_CAS(self):
         """Tests EWF for H2O cc-pvdz with TCCSD solver and CAS picker.
         """
 
@@ -225,7 +224,7 @@ class MoleculeEWFTests(TestCase):
 
         self._test_energy(emb, known_values)
 
-    def test_h2o_ccpvdz_sc(self):
+    def test_h2o_sc(self):
         """Tests EWF for H2O cc-pvdz with self-consistency.
         """
 
@@ -247,7 +246,7 @@ class MoleculeEWFTests(TestCase):
 
         self._test_energy(emb, known_values)
 
-    def test_h2_ccpvdz_cisd(self):
+    def test_h2_cisd(self):
         """Compares CCSD and CISD solvers for a two-electron system.
         """
 
@@ -278,12 +277,12 @@ class MoleculeEWFTests(TestCase):
 
 
 
-class UMoleculeEWFTests(unittest.TestCase):
+class MoleculeTestsUnrestricted(unittest.TestCase):
     PLACES_ENERGY = 7
     CONV_TOL = 1e-9
     CONV_TOL_NORMT = 1e-7
 
-    def test_lih_ccpvdz_rhf_vs_uhf(self):
+    def test_lih_rhf_vs_uhf(self):
         """Compares RHF to UHF LiH cc-pvdz.
         """
 
@@ -314,7 +313,7 @@ class UMoleculeEWFTests(unittest.TestCase):
         self.assertAlmostEqual(rewf.e_corr, uewf.e_corr, self.PLACES_ENERGY)
         self.assertAlmostEqual(rewf.e_tot, uewf.e_tot, self.PLACES_ENERGY)
 
-    def test_lih_ccpvdz_rhf_vs_uhf_cisd(self):
+    def test_lih_rhf_vs_uhf_cisd(self):
         """Compares RHF to UHF LiH cc-pvdz.
         """
 
@@ -347,7 +346,7 @@ class UMoleculeEWFTests(unittest.TestCase):
         self.assertAlmostEqual(rewf.e_corr, uewf.e_corr, self.PLACES_ENERGY)
         self.assertAlmostEqual(rewf.e_tot, uewf.e_tot, self.PLACES_ENERGY)
 
-    def test_h2_ccpvdz_rhf_vs_uhf_fci(self):
+    def test_h2_rhf_vs_uhf_fci(self):
         """Compares RHF to UHF with an FCI solver for H2 cc-pvdz.
         """
 
@@ -356,7 +355,7 @@ class UMoleculeEWFTests(unittest.TestCase):
                 solver='FCI',
                 bath_type='dmet',
                 solver_options={
-                    'conv_tol': self.CONV_TOL,
+                    'conv_tol': 1e-12,
                 },
         )
         with rewf.sao_fragmentation() as f:
@@ -368,7 +367,7 @@ class UMoleculeEWFTests(unittest.TestCase):
                 solver='FCI',
                 bath_type='dmet',
                 solver_options={
-                    'conv_tol': self.CONV_TOL,
+                    'conv_tol': 1e-12,
                 },
         )
         with uewf.sao_fragmentation() as f:
@@ -378,7 +377,7 @@ class UMoleculeEWFTests(unittest.TestCase):
         self.assertAlmostEqual(rewf.e_corr, uewf.e_corr, self.PLACES_ENERGY)
         self.assertAlmostEqual(rewf.e_tot, uewf.e_tot, self.PLACES_ENERGY)
 
-    def test_lih_ccpvdz_rhf_vs_uhf_CAS(self):
+    def test_lih_rhf_vs_uhf_CAS(self):
         """Compares RHF to UHF LiH cc-pvdz using a 2,4 CAS as a fragment.
         """
 

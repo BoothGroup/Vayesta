@@ -19,6 +19,7 @@ mol.build()
 
 # Hartree-Fock
 mf = pyscf.scf.RHF(mol)
+mf = mf.density_fit()
 mf = mpi.scf(mf)
 mf.kernel()
 

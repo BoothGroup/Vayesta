@@ -41,7 +41,7 @@ class Options(Embedding.Options):
     calc_e_wf_corr: bool = True
     calc_e_dm_corr: bool = False
     # --- Solver settings
-    t_as_lambda: bool = None           # If True, use T-amplitudes inplace of Lambda-amplitudes
+    t_as_lambda: bool = None            # If True, use T-amplitudes inplace of Lambda-amplitudes
     # Counterpoise correction of BSSE
     bsse_correction: bool = True
     bsse_rmax: float = 5.0              # In Angstrom
@@ -54,6 +54,7 @@ class Options(Embedding.Options):
 
 
 class EWF(Embedding):
+
     Fragment = Fragment
     Options = Options
 
@@ -72,6 +73,7 @@ class EWF(Embedding):
             self.log.deprecated("keyword argument solve_lambda is deprecated!")
             self.opts.solver_options = {**self.opts.solver_options, **dict(solve_lambda=solve_lambda)}
 
+        # Logging
         with self.log.indent():
             # Options
             self.log.info("Parameters of %s:", self.__class__.__name__)
@@ -120,30 +122,39 @@ class EWF(Embedding):
         if mpi:
             mpi.world.Barrier()
         self.log.info("")
-        self.log.info("MAKING CLUSTERS")
-        self.log.info("===============")
+        self.log.info("MAKING BATH AND CLUSTERS")
+        self.log.info("========================")
+        fragments = self.get_fragments(active=True, sym_parent=None, mpi_rank=mpi.rank)
+        fragdict = {f.id: f for f in fragments}
         with log_time(self.log.timing, "Total time for bath and clusters: %s"):
-            for x in self.get_fragments(active=True, sym_parent=None, mpi_rank=mpi.rank):
+            for x in fragments:
                 if x._results is not None:
                     self.log.debug("Resetting %s" % x)
                     x.reset()
-                msg = "Making bath for %s%s" % (x, (" on MPI process %d" % mpi.rank) if mpi else "")
+                msg = "Making bath and clusters for %s%s" % (x, (" on MPI process %d" % mpi.rank) if mpi else "")
                 self.log.info(msg)
                 self.log.info(len(msg)*"-")
                 with self.log.indent():
                     if x._dmet_bath is None:
-                        x.make_bath()
+                        # Make own bath:
+                        if x.flags.bath_parent_fragment_id is None:
+                            x.make_bath()
+                        # Copy bath (DMET, occupied, virtual) from other fragment:
+                        else:
+                            bath_parent = fragdict[x.flags.bath_parent_fragment_id]
+                            for attr in ('_dmet_bath', '_bath_factory_occ', '_bath_factory_vir'):
+                                setattr(x, attr, getattr(bath_parent, attr))
                     if x._cluster is None:
                         x.make_cluster()
             if mpi:
                 mpi.world.Barrier()
+
         if mpi:
             with log_time(self.log.timing, "Time for MPI communication of clusters: %s"):
                 self.communicate_clusters()
 
         # --- Screened Coulomb interaction
-
-        if any(x.opts.screening is not None for x in self.get_fragments(active=True, sym_parent=None, mpi_rank=mpi.rank)):
+        if any(x.opts.screening is not None for x in fragments):
             self.log.info("")
             self.log.info("SCREENING INTERACTIONS")
             self.log.info("======================")
@@ -155,7 +166,7 @@ class EWF(Embedding):
         self.log.info("RUNNING SOLVERS")
         self.log.info("===============")
         with log_time(self.log.timing, "Total time for solvers: %s"):
-            for x in self.get_fragments(active=True, sym_parent=None, mpi_rank=mpi.rank):
+            for x in fragments:
                 msg = "Solving %s%s" % (x, (" on MPI process %d" % mpi.rank) if mpi else "")
                 self.log.info(msg)
                 self.log.info(len(msg)*"-")
@@ -169,7 +180,7 @@ class EWF(Embedding):
             return
 
         # --- Check convergence of fragments
-        conv = self._all_converged()
+        conv = self._all_converged(fragments)
         if not conv:
             self.log.error("Some fragments did not converge!")
         self.converged = conv
@@ -182,9 +193,9 @@ class EWF(Embedding):
         self.log.info("Total wall time:  %s", time_string(timer()-t_start))
         return self.e_tot
 
-    def _all_converged(self):
+    def _all_converged(self, fragments):
         conv = True
-        for fx in self.get_fragments(active=True, sym_parent=None, mpi_rank=mpi.rank):
+        for fx in fragments:
             conv = (conv and fx.results.converged)
         if mpi:
             conv = mpi.world.allreduce(conv, op=mpi.MPI.LAND)
@@ -492,7 +503,59 @@ class EWF(Embedding):
 
     # --- Energy corrections
 
-    get_intercluster_mp2_energy = get_intercluster_mp2_energy_rhf
+    @mpi.with_allreduce()
+    @log_method()
+    def get_fbc_energy(self, occupied=True, virtual=True):
+        """Get finite-bath correction (FBC) energy.
+
+        This correction consists of two independent contributions, one due to the finite occupied,
+        and one due to the finite virtual space.
+
+        The virtual correction for a given fragment x is calculated as
+        "E(MP2)[occ=D,vir=F] - E(MP2)[occ=D,vir=C]", where D is the DMET cluster space,
+        F is the full space, and C is the full cluster space. For the occupied correction,
+        occ and vir spaces are swapped. Fragments which do not have a BNO bath are skipped.
+
+        Parameters
+        ----------
+        occupied: bool, optional
+            If True, the FBC energy from the occupied space is included. Default: True.
+        virtual: bool, optional
+            If True, the FBC energy from the virtual space is included. Default: True.
+
+        Returns
+        -------
+        e_fbc: float
+            Finite bath correction (FBC) energy.
+        """
+        if not (occupied or virtual):
+            raise ValueError
+
+        e_fbc = 0.0
+        # Only loop over fragments of own MPI rank
+        for fx in self.get_fragments(active=True, sym_parent=None, flags=dict(is_envelop=True), mpi_rank=mpi.rank):
+            ex = 0
+            if occupied:
+                get_fbc = getattr(fx._bath_factory_occ, 'get_finite_bath_correction', False)
+                if get_fbc:
+                    ex += get_fbc(fx.cluster.c_active_occ, fx.cluster.c_frozen_occ)
+                else:
+                    self.log.warning("%s does not have occupied BNOs - skipping fragment for FBC energy.", fx)
+            if virtual:
+                get_fbc = getattr(fx._bath_factory_vir, 'get_finite_bath_correction', False)
+                if get_fbc:
+                    ex += get_fbc(fx.cluster.c_active_vir, fx.cluster.c_frozen_vir)
+                else:
+                    self.log.warning("%s does not have virtual BNOs - skipping fragment for FBC energy.", fx)
+            self.log.debug("FBC from %-30s  dE= %s", fx, energy_string(ex))
+            e_fbc += fx.symmetry_factor * ex
+        e_fbc /= self.ncells
+        self.log.debug("E(FBC)= %s", energy_string(e_fbc))
+        return e_fbc
+
+    @log_method()
+    def get_intercluster_mp2_energy(self, *args, **kwargs):
+        return get_intercluster_mp2_energy_rhf(self, *args, **kwargs)
 
     # --- Deprecated
 
@@ -557,27 +620,22 @@ class EWF(Embedding):
         -------
         e_corr : float
         """
-
         t_as_lambda = self.opts.t_as_lambda
-        mf = self.mf
-        nmo = mf.mo_coeff.shape[1]
-        nocc = (mf.mo_occ > 0).sum()
 
         if global_dm1:
-            rdm1 = self._make_rdm1_ccsd_global_wf(t_as_lambda=t_as_lambda)
+            dm1 = self._make_rdm1_ccsd_global_wf(t_as_lambda=t_as_lambda, ao_basis=True, with_mf=False)
         else:
-            rdm1 = self._make_rdm1_ccsd(t_as_lambda=t_as_lambda)
-        rdm1[np.diag_indices(nocc)] -= 2
+            dm1 = self._make_rdm1_ccsd(t_as_lambda=t_as_lambda, ao_basis=True, with_mf=False)
 
         # Core Hamiltonian + Non Cumulant 2DM contribution
-        e1 = einsum('pi,pq,qj,ij->', self.mo_coeff, self.get_fock_for_energy(with_exxdiv=False), self.mo_coeff, rdm1)
+        e1 = np.sum(self.get_fock_for_energy(with_exxdiv=False) * dm1)
 
         # Cumulant 2DM contribution
         if global_dm2:
             # Calculate global 2RDM and contract with ERIs
-            eri = self.get_eris_array(self.mo_coeff)
             rdm2 = self._make_rdm2_ccsd_global_wf(t_as_lambda=t_as_lambda, with_dm1=False)
-            e2 = einsum('pqrs,pqrs', eri, rdm2) * 0.5
+            eris = self.get_eris_array(self.mo_coeff)
+            e2 = einsum('pqrs,pqrs', eris, rdm2)/2
         else:
             # Fragment Local 2DM cumulant contribution
             e2 = self.get_dm_corr_energy_e2(t_as_lambda=t_as_lambda) * self.ncells

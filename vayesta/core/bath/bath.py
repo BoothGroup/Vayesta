@@ -18,6 +18,10 @@ class Bath:
         return (np.ndim(self.mf.mo_coeff[0]) == 2)
 
     @property
+    def spinsym(self):
+        return self.fragment.spinsym
+
+    @property
     def mf(self):
         return self.fragment.mf
 

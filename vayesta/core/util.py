@@ -37,7 +37,9 @@ __all__ = [
         # Time & memory
         'timer', 'log_time', 'get_used_memory', 'log_method',
         # Other
+	'getattr_recursive', 'setattr_recursive',
         'replace_attr', 'break_into_lines', 'fix_orbital_sign', 'split_into_blocks',
+        'getif', 'callif',
         ]
 
 class Object:
@@ -377,6 +379,17 @@ def memory_string(nbytes, fmt='6.2f'):
 
 # ---
 
+# Recursive get- and setattr
+
+def getattr_recursive(obj, attr, *args):
+    def _getattr(obj, attr):
+        return getattr(obj, attr, *args)
+    return functools.reduce(_getattr, [obj] + attr.split('.'))
+
+def setattr_recursive(obj, attr, val):
+    pre, _, post = attr.rpartition('.')
+    return setattr(rgetattr(obj, pre) if pre else obj, post, val)
+
 @contextmanager
 def replace_attr(obj, **kwargs):
     """Temporary replace attributes and methods of object."""
@@ -529,3 +542,15 @@ def fix_orbital_sign(mo_coeff, inplace=True):
     signs = np.ones((nmo,), dtype=int)
     signs[swap] = -1
     return mo_coeff, signs
+
+def getif(obj, key, cond=lambda x: x is not None, default=None):
+    """Returns obj[key] if cond(obj) else default."""
+    if cond(obj):
+        return obj[key]
+    return default
+
+def callif(func, arg, cond=lambda x, **kw: x is not None, default=None, **kwargs):
+    """Returns func(arg, **kwargs) if cond(arg, **kwargs) else default."""
+    if cond(arg, **kwargs):
+        return func(arg, **kwargs)
+    return default

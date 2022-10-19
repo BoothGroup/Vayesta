@@ -88,6 +88,7 @@ class CISD_Solver(CCSD_Solver):
     def make_rdm2(self, *args, **kwargs):
         raise NotImplementedError()
 
+
 class UCISD_Solver(CISD_Solver):
 
     def get_solver_class(self):

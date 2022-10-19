@@ -149,7 +149,7 @@ def tailor_with_fragments(solver, fragments, project=False, tailor_t1=True, tail
             if maxovlp < ovlp_tol:
                 continue
 
-            wfy = fy.results.wf.to_ccsd()
+            wfy = fy.results.wf.as_ccsd()
             # Transform to x-amplitudes to y-space, instead of y-amplitudes to x-space:
             # x may be CCSD and y FCI, such that x-space >> y-space
             if tailor_t1:
@@ -172,12 +172,13 @@ def tailor_with_fragments(solver, fragments, project=False, tailor_t1=True, tail
                             dt2y = einsum('xi,i...->x...', proj, dt2y)
                             dt2y = (dt2y + dt2y.transpose(1,0,3,2))/2
                         elif solver.spinsym == 'unrestricted':
-                            dt2y_aa = einsum('xi,i...->x...', proj[0], dt2y[0])/2
-                            dt2y_bb = einsum('xi,i...->x...', proj[1], dt2y[2])/2
+                            dt2y_aa = einsum('xi,i...->x...', proj[0], dt2y[0])
+                            dt2y_bb = einsum('xi,i...->x...', proj[1], dt2y[2])
+                            dt2y_ab = einsum('xi,i...->x...', proj[0], dt2y[1])
+                            dt2y_ba = einsum('xj,ij...->ix...', proj[1], dt2y[1])
                             dt2y_aa = (dt2y_aa + dt2y_aa.transpose(1,0,3,2))/2
                             dt2y_bb = (dt2y_bb + dt2y_bb.transpose(1,0,3,2))/2
-                            dt2y_ab = (einsum('xi,i...->x...', proj[0], dt2y[1])
-                                     + einsum('xj,ij...->x...', proj[1], dt2y[1]))
+                            dt2y_ab = (dt2y_ab + dt2y_ba.transpose(1,0,3,2))/2
                             dt2y = (dt2y_aa, dt2y_ab, dt2y_bb)
 
                 # Project first and second occupied index onto fragment(y) space:
@@ -188,15 +189,16 @@ def tailor_with_fragments(solver, fragments, project=False, tailor_t1=True, tail
 
             # Transform back to x-space and add:
             if tailor_t1:
-                dt1 += transform_amplitude(dt1y, rxy_occ, rxy_vir, spinsym=solver.spinsym, inverse=True)
+                dt1 = spinalg.add(dt1, transform_amplitude(dt1y, rxy_occ, rxy_vir, spinsym=solver.spinsym, inverse=True))
             if tailor_t2:
-                dt2 += transform_amplitude(dt2y, rxy_occ, rxy_vir, spinsym=solver.spinsym, inverse=True)
+                dt2 = spinalg.add(dt2, transform_amplitude(dt2y, rxy_occ, rxy_vir, spinsym=solver.spinsym, inverse=True))
+
             if solver.spinsym == 'restricted':
                 solver.log.debug("Tailoring %12s with %12s:  |dT1|= %.2e  |dT2|= %.2e", fragment, fy, np.linalg.norm(dt1), np.linalg.norm(dt2))
             elif solver.spinsym == 'unrestricted':
                 solver.log.debug("Tailoring %12s with %12s:  |dT1|= %.2e  |dT2|= %.2e", fragment, fy,
                         (np.linalg.norm(dt1[0])+np.linalg.norm(dt1[1]))/2,
-                        (np.linalg.norm(dt2[0])+2*np.linalg.norm(dt2[1])+np.linalg.norm(dt2[2]))/4)
+                        (np.linalg.norm(dt2[0])+2*np.linalg.norm(dt2[1])+np.linalg.norm(dt2[2]))/2)
 
         # Add correction:
         if tailor_t1:

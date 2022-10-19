@@ -116,15 +116,11 @@ class Fragment(RFragment, BaseFragment):
         e_corr = (e_singles + e_doubles)
         return e_singles, e_doubles, e_corr
 
+    @with_doc(RFragment._get_projected_gamma1_intermediates)
     def _get_projected_gamma1_intermediates(self, t_as_lambda=None, sym_t2=True):
         raise NotImplementedError
-        t1, t2, l1, l2, t1x, t2x, l1x, l2x = self._ccsd_amplitudes_for_dm(t_as_lambda=t_as_lambda, sym_t2=sym_t2)
-        doo, dov, dvo, dvv = pyscf.cc.uccsd_rdm._gamma1_intermediates(None, t1, t2, l1x, l2x)
-        # Correction for term without Lambda amplitude:
-        #dvo += (t1x - t1).T
-        #d1 = (doo, dov, dvo, dvv)
-        #return d1
 
+    @with_doc(RFragment._get_projected_gamma2_intermediates)
     def _get_projected_gamma2_intermediates(self, t_as_lambda=None, sym_t2=True):
         t1, t2, l1, l2, t1x, t2x, l1x, l2x = self._ccsd_amplitudes_for_dm(t_as_lambda=t_as_lambda, sym_t2=sym_t2)
         # Only incore for UCCSD:
@@ -186,7 +182,6 @@ class Fragment(RFragment, BaseFragment):
             eris = self.base.get_eris_array_uhf(self.cluster.c_active)
         # For CCSD we can contract the ERIs with the DM2-intermediates
         if hasattr(eris, 'ovoo'):
-            cc = d1 = None
             d2 = self._get_projected_gamma2_intermediates(t_as_lambda=t_as_lambda, sym_t2=sym_t2)
             return vayesta.core.ao2mo.helper.contract_dm2intermeds_eris_uhf(d2, eris)/2
         # TODO: other solvers

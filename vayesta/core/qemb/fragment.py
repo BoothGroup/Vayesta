@@ -3,7 +3,7 @@ import dataclasses
 import itertools
 import copy
 import os.path
-from typing import Optional
+import typing
 # --- External
 import numpy as np
 import scipy
@@ -35,6 +35,7 @@ from vayesta.solver_rewrite import get_solver_class, ClusterHamiltonian
 # Get MPI rank of fragment
 get_fragment_mpi_rank = lambda *args : args[0].mpi_rank
 
+
 @dataclasses.dataclass
 class Options(OptionsBase):
     # Inherited from Embedding
@@ -46,15 +47,26 @@ class Options(OptionsBase):
     # --- Other
     store_eris: bool = None     # If True, ERIs will be stored in Fragment._eris
     dm_with_frozen: bool = None # TODO: is still used?
-    screening: Optional[str] = None
+    screening: typing.Optional[str] = None
     # Fragment specific
     # -----------------
     coupled_fragments: list = dataclasses.field(default_factory=list)
     sym_factor: float = 1.0
 
+
 class Fragment:
 
     Options = Options
+
+    @dataclasses.dataclass
+    class Flags:
+        # If multiple cluster exist for a given atom, the envelop fragment is
+        # the one with the largest (super) cluster space. This is used, for example,
+        # for the finite-bath and ICMP2 corrections
+        is_envelop: bool = True
+        is_secfrag: bool = False
+        # Secondary fragment parameter
+        bath_parent_fragment_id: typing.Optional[int] = None
 
     @dataclasses.dataclass
     class Results:
@@ -71,7 +83,7 @@ class Fragment:
             solver=None,
             atoms=None, aos=None, active=True,
             sym_parent=None, sym_op=None,
-            mpi_rank=0,
+            mpi_rank=0, flags=None,
             log=None, **kwargs):
         """Abstract base class for quantum embedding fragments.
 
@@ -144,6 +156,9 @@ class Fragment:
         self.opts = self.Options()                                  # Default options
         self.opts.update(**self.base.opts.asdict(deepcopy=True))    # Update with embedding class options
         self.opts.replace(**kwargs)                                 # Replace with keyword arguments
+
+        # Flags
+        self.flags = self.Flags(**(flags or {}))
 
         solver = solver or self.base.solver
         #if solver not in self.base.valid_solvers:
@@ -524,6 +539,21 @@ class Fragment:
     # --- Symmetry
     # ============
 
+    def copy(self, fid=None, name=None,  **kwargs):
+        """Create copy of fragment, without adding it to the fragments list."""
+        if fid is None:
+            fid = self.base.register.get_next_id()
+        name = name or ('%s(copy)' % self.name)
+        kwargs_copy = self.opts.asdict().copy()
+        kwargs_copy.update(kwargs)
+        attrs = ['c_frag', 'c_env', 'solver', 'atoms', 'aos', 'active', 'sym_parent', 'sym_op', 'mpi_rank', 'log']
+        for attr in attrs:
+            if attr in kwargs_copy:
+                continue
+            kwargs_copy[attr] = getattr(self, attr)
+        frag = type(self)(self.base, fid, name, **kwargs_copy)
+        return frag
+
     @deprecated()
     def add_tsymmetric_fragments(self, tvecs, symtol=1e-6):
         """
@@ -726,16 +756,18 @@ class Fragment:
     # Bath and cluster
     # ----------------
 
+    def _get_bath_option(self, key, occtype):
+        """Get bath-option, checking if a occupied-virtual specific option has been set."""
+        opts = self.opts.bath_options
+        opt = opts.get('%s_%s' % (key, occtype[:3]), None)
+        if opt is not None:
+            return opt
+        return opts[key]
+
     def make_bath(self):
 
-        # --- Bath options
-        bath_opts = self.opts.bath_options
-        self.log.debug("bath_options: %s", break_into_lines(str(bath_opts)))
-        def get_opt(key, occtype):
-            return (bath_opts.get('%s_%s' % (key, occtype[:3]), False) or bath_opts[key])
-
         # --- DMET bath
-        dmet = DMET_Bath(self, dmet_threshold=bath_opts['dmet_threshold'])
+        dmet = DMET_Bath(self, dmet_threshold=self.opts.bath_options['dmet_threshold'])
         dmet.kernel()
         self._dmet_bath = dmet
 
@@ -743,7 +775,7 @@ class Fragment:
         def get_bath(occtype):
             otype = occtype[:3]
             assert otype in ('occ', 'vir')
-            btype = get_opt('bathtype', occtype)
+            btype = self._get_bath_option('bathtype', occtype)
             if btype is None:
                 self.log.warning("bathtype=None is deprecated; use bathtype='dmet'.")
                 btype = 'dmet'
@@ -759,46 +791,54 @@ class Fragment:
             # Full bath (for debugging)
             if btype == 'full':
                 return Full_Bath(self, dmet_bath=dmet, occtype=occtype)
+            # Energy-weighted DMET bath
+            if btype == 'ewdmet':
+                threshold = self._get_bath_option('threshold', occtype)
+                max_order = self._get_bath_option('max_order', occtype)
+                return EwDMET_Bath(self, dmet_bath=dmet, occtype=occtype, threshold=threshold, max_order=max_order)
             # Spatially close orbitals
             if btype == 'r2':
                 return R2_Bath(self, dmet, occtype=occtype)
             # MP2 bath natural orbitals
             if btype == 'mp2':
-                project_t2 = get_opt('project_t2', occtype)
-                addbuffer = get_opt('addbuffer', occtype) and occtype == 'virtual'
+                project_dmet_order = self._get_bath_option('project_dmet_order', occtype)
+                project_dmet_mode = self._get_bath_option('project_dmet_mode', occtype)
+                addbuffer = self._get_bath_option('addbuffer', occtype) and occtype == 'virtual'
                 if addbuffer:
                     other = 'occ' if (otype == 'vir') else 'vir'
                     c_buffer = getattr(dmet, 'c_env_%s' % other)
                 else:
                     c_buffer = None
-                return MP2_Bath(self, dmet_bath=dmet, occtype=occtype, c_buffer=c_buffer, project_t2=project_t2)
+                return MP2_Bath(self, dmet_bath=dmet, occtype=occtype, c_buffer=c_buffer,
+                                project_dmet_order=project_dmet_order, project_dmet_mode=project_dmet_mode)
             raise NotImplementedError('bathtype= %s' % btype)
         self._bath_factory_occ = get_bath(occtype='occupied')
         self._bath_factory_vir = get_bath(occtype='virtual')
 
     def make_cluster(self):
 
-        bath_opts = self.opts.bath_options
-        def get_opt(key, occtype):
-            return (bath_opts.get('%s_%s' % (key, occtype[:3]), False) or bath_opts[key])
-
         def get_orbitals(occtype):
             factory = getattr(self, '_bath_factory_%s' % occtype[:3])
-            btype = get_opt('bathtype', occtype)
+            btype = self._get_bath_option('bathtype', occtype)
             if btype == 'dmet':
                 c_bath = None
                 c_frozen = getattr(self._dmet_bath, 'c_env_%s' % occtype[:3])
-            if btype == 'full':
+            elif btype == 'full':
                 c_bath, c_frozen = factory.get_bath()
-            if btype == 'r2':
-                rcut = get_opt('rcut', occtype)
-                unit = get_opt('unit', occtype)
+            elif btype == 'r2':
+                rcut = self._get_bath_option('rcut', occtype)
+                unit = self._get_bath_option('unit', occtype)
                 c_bath, c_frozen = factory.get_bath(rcut=rcut)
-            if btype == 'mp2':
-                threshold = get_opt('threshold', occtype)
-                truncation = get_opt('truncation', occtype)
+            elif btype == 'ewdmet':
+                order = self._get_bath_option('order', occtype)
+                c_bath, c_frozen = factory.get_bath(order)
+            elif btype == 'mp2':
+                threshold = self._get_bath_option('threshold', occtype)
+                truncation = self._get_bath_option('truncation', occtype)
                 bno_threshold = BNO_Threshold(truncation, threshold)
                 c_bath, c_frozen = factory.get_bath(bno_threshold)
+            else:
+                raise ValueError
             return c_bath, c_frozen
 
         c_bath_occ, c_frozen_occ = get_orbitals('occupied')
@@ -806,9 +846,9 @@ class Fragment:
         c_active_occ = spinalg.hstack_matrices(self._dmet_bath.c_cluster_occ, c_bath_occ)
         c_active_vir = spinalg.hstack_matrices(self._dmet_bath.c_cluster_vir, c_bath_vir)
         # Canonicalize orbitals
-        if get_opt('canonicalize', 'occupied'):
+        if self._get_bath_option('canonicalize', 'occupied'):
             c_active_occ = self.canonicalize_mo(c_active_occ)[0]
-        if get_opt('canonicalize', 'virtual'):
+        if self._get_bath_option('canonicalize', 'virtual'):
             c_active_vir = self.canonicalize_mo(c_active_vir)[0]
         cluster = Cluster.from_coeffs(c_active_occ, c_active_vir, c_frozen_occ, c_frozen_vir)
 

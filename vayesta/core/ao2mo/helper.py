@@ -92,12 +92,6 @@ def get_full_array_rhf(eris, mo_coeff=None, out=None):
     return out
 
 
-def getif(obj, key, cond=lambda x: x is not None, default=None):
-    """Returns obj[key] if cond(obj) else default."""
-    if cond(obj):
-        return obj[key]
-    return default
-
 def get_full_array_uhf(eris, mo_coeff=None, out=None):
     """Get dense ERI array from CCSD _ChemistEris object."""
     if mo_coeff is not None and not (np.allclose(mo_coeff[0], eris.mo_coeff[0])
@@ -170,6 +164,7 @@ def get_ovvv(eris, block='ovvv'):
     govvv = govvv.reshape(nocc,nvir,nvir,nvir)
     return govvv
 
+
 def get_ovVV(eris, block='ovVV'):
     sl, sr = (0, 1) if block == 'ovVV' else (1, 0)
     nmoL = eris.fock[sl].shape[-1]
@@ -185,6 +180,7 @@ def get_ovVV(eris, block='ovVV'):
     govvv = pyscf.lib.unpack_tril(govvv.reshape(noccL*nvirL, nvir_pair))
     govvv = govvv.reshape(noccL,nvirL,nvirR,nvirR)
     return govvv
+
 
 def get_vvvv(eris, block='vvvv'):
     if hasattr(eris, 'VVVV'):
@@ -210,6 +206,7 @@ def get_vvvv(eris, block='vvvv'):
     gvvvv = einsum('ijQ,klQ->ijkl', vvl, vvl)
     return gvvvv
 
+
 def get_vvVV(eris, block='vvVV'):
     sl, sr = ((0, 1) if block == 'vvVV' else (1, 0))
     nmoL = eris.fock[sl].shape[-1]
@@ -224,9 +221,11 @@ def get_vvVV(eris, block='vvVV'):
         if gvvvv.ndim == 4:
             return gvvvv[:]
         else:
-            xVV = pyscf.lib.unpack_tril(gvvvv[:], axis=0).reshape(nvirL**2, -1)
+            nvv = (-1 if gvvvv.size else 0)
+            xVV = pyscf.lib.unpack_tril(gvvvv[:], axis=0).reshape(nvirL**2, nvv)
             return pyscf.lib.unpack_tril(xVV[:], axis=1).reshape(nvirL,nvirL,nvirR,nvirR)
     raise NotImplementedError
+
 
 def get_block(eris, block):
     if block in ['ovvv', 'OVVV']:
@@ -239,14 +238,17 @@ def get_block(eris, block):
         return get_vvVV(eris, block=block)
     return getattr(eris, block)
 
+
 def pack_ovvv(ovvv):
     nocc, nvir = ovvv.shape[:2]
     ovvv = pyscf.lib.pack_tril(ovvv.reshape(nocc*nvir, nvir, nvir))
     return ovvv.reshape(nocc, nvir, -1)
 
+
 def pack_vvvv(vvvv):
     nvir = vvvv.shape[0]
     return pyscf.ao2mo.restore(4, vvvv, nvir)
+
 
 def contract_dm2_eris(dm2, eris):
     """Contracts _ChemistsERIs with the two-body density matrix.
@@ -295,14 +297,21 @@ def contract_dm2_eris_rhf(dm2, eris):
     """
     nocc = eris.oooo.shape[0]
     o, v = np.s_[:nocc], np.s_[nocc:]
-    e2 = 0
-    e2 += _contract_4d(dm2[o,o,o,o], eris.oooo)
-    e2 += _contract_4d(dm2[o,v,o,o], eris.ovoo) * 4
-    e2 += _contract_4d(dm2[o,o,v,v], eris.oovv) * 2
-    e2 += _contract_4d(dm2[o,v,o,v], eris.ovov) * 2
-    e2 += _contract_4d(dm2[o,v,v,o], eris.ovvo) * 2
-    e2 += _contract_4d(dm2[o,v,v,v], get_ovvv(eris)) * 4
-    e2 += _contract_4d(dm2[v,v,v,v], get_vvvv(eris))
+    e_oooo = _contract_4d(dm2[o,o,o,o], eris.oooo)
+    e_ovoo = _contract_4d(dm2[o,v,o,o], eris.ovoo) * 4
+    e_oovv = _contract_4d(dm2[o,o,v,v], eris.oovv) * 2
+    e_ovov = _contract_4d(dm2[o,v,o,v], eris.ovov) * 2
+    e_ovvo = _contract_4d(dm2[o,v,v,o], eris.ovvo) * 2
+    e_ovvv = _contract_4d(dm2[o,v,v,v], get_ovvv(eris)) * 4
+    e_vvvv = _contract_4d(dm2[v,v,v,v], get_vvvv(eris))
+    log.debugv("E(oooo)= %s", energy_string(e_oooo))
+    log.debugv("E(ovoo)= %s", energy_string(e_ovoo))
+    log.debugv("E(oovv)= %s", energy_string(e_oovv))
+    log.debugv("E(ovov)= %s", energy_string(e_ovov))
+    log.debugv("E(ovvo)= %s", energy_string(e_ovvo))
+    log.debugv("E(ovvv)= %s", energy_string(e_ovvv))
+    log.debugv("E(vvvv)= %s", energy_string(e_vvvv))
+    e2 = e_oooo + e_ovoo + e_oovv + e_ovov + e_ovvo + e_ovvv + e_vvvv
     return e2
 
 
@@ -360,6 +369,15 @@ def contract_dm2_eris_uhf(dm2, eris):
     return e2
 
 
+# Order used in PySCF for 2-DM intermediates:
+dm2intermeds = ['ovov', 'vvvv', 'oooo', 'oovv', 'ovvo', 'vvov', 'ovvv', 'ooov',]
+
+
+def _dm2intermeds_to_dict_rhf(dm2):
+    dm2dict = {block: dm2[idx] for (idx, block) in enumerate(dm2intermeds)}
+    return dm2dict
+
+
 def _dm2intermeds_to_dict_uhf(dm2):
     dm2dict = {}
 
@@ -371,26 +389,58 @@ def _dm2intermeds_to_dict_uhf(dm2):
         dm2dict[b0.upper() + b1.lower()] = np.asarray(dm2i[2])
         dm2dict[block.upper()] = np.asarray(dm2i[3])
 
-    _add_spinblocks('ovov', 0)
-    _add_spinblocks('vvvv', 1)
-    _add_spinblocks('oooo', 2)
-    _add_spinblocks('oovv', 3)
-    _add_spinblocks('ovvo', 4)
-    _add_spinblocks('vvov', 5)
-    _add_spinblocks('ovvv', 6)
-    _add_spinblocks('ooov', 7)
+    for idx, block in enumerate(dm2intermeds):
+        _add_spinblocks(block, idx)
     return dm2dict
+
+
+def contract_dm2intermeds_eris_rhf(dm2, eris, destroy_dm2=True):
+    """Contracts _ChemistsERIs with the two-body density matrix.
+
+    Parameters
+    ----------
+    dm2 : tuple
+        Intermediates of spin-restricted two-body density matrix.
+    eris : _ChemistERIs
+        PySCF ERIs object.
+
+    Returns
+    -------
+    e2 : float
+        Two-body energy.
+    """
+    dm2 = _dm2intermeds_to_dict_rhf(dm2)
+
+    def _get_block(block, keep=False):
+        if destroy_dm2 and not keep:
+            return dm2.pop(block)
+        return dm2[block]
+
+    e_oooo = _contract_4d(_get_block('oooo'), eris.oooo) * 4
+    e_ovoo = _contract_4d(_get_block('ooov'), eris.ovoo, transpose=(2,3,0,1)) * 4
+    e_oovv = _contract_4d(_get_block('oovv'), eris.oovv) * 4
+    e_ovov = _contract_4d(_get_block('ovov'), eris.ovov) * 4
+    e_ovvo = _contract_4d(_get_block('ovvo'), eris.ovvo) * 4
+    e_ovvv = _contract_4d(_get_block('ovvv'), get_ovvv(eris)) * 4
+    e_vvvv = _contract_4d(_get_block('vvvv'), get_vvvv(eris)) * 4
+    log.debugv("E(oooo)= %s", energy_string(e_oooo))
+    log.debugv("E(ovoo)= %s", energy_string(e_ovoo))
+    log.debugv("E(oovv)= %s", energy_string(e_oovv))
+    log.debugv("E(ovov)= %s", energy_string(e_ovov))
+    log.debugv("E(ovvo)= %s", energy_string(e_ovvo))
+    log.debugv("E(ovvv)= %s", energy_string(e_ovvv))
+    log.debugv("E(vvvv)= %s", energy_string(e_vvvv))
+    e2 = e_oooo + e_ovoo + e_oovv + e_ovov + e_ovvo + e_ovvv + e_vvvv
+    return e2
 
 
 def contract_dm2intermeds_eris_uhf(dm2, eris, destroy_dm2=True):
     """Contracts _ChemistsERIs with the two-body density matrix.
 
-    TODO: RHF
-
     Parameters
     ----------
     dm2 : tuple
-        Intermediates of two-body density matrix.
+        Intermediates of spin-unrestricted two-body density matrix.
     eris : _ChemistERIs
         PySCF ERIs object.
 
@@ -410,7 +460,8 @@ def contract_dm2intermeds_eris_uhf(dm2, eris, destroy_dm2=True):
     # Alpha-alpha
     e2 += _contract_4d(_get_block('oooo'), eris.oooo)
     e2 += _contract_4d(_get_block('ooov'), eris.ovoo, transpose=(2,3,0,1)) * 4
-    e2 += _contract_4d(_get_block('ovvo', keep=True), eris.oovv, transpose=(0,3,2,1)) * -2
+    #e2 += _contract_4d(_get_block('ovvo', keep=True), eris.oovv, transpose=(0,3,2,1)) * -2
+    e2 += _contract_4d(_get_block('oovv'), eris.oovv) * 2
     e2 += _contract_4d(_get_block('ovov'), eris.ovov) * 2
     e2 += _contract_4d(_get_block('ovvo'), eris.ovvo) * 2
     e2 += _contract_4d(_get_block('ovvv'), get_ovvv(eris)) * 4
@@ -418,7 +469,8 @@ def contract_dm2intermeds_eris_uhf(dm2, eris, destroy_dm2=True):
     # Beta-beta
     e2 += _contract_4d(_get_block('OOOO'), eris.OOOO)
     e2 += _contract_4d(_get_block('OOOV'), eris.OVOO, transpose=(2,3,0,1)) * 4
-    e2 += _contract_4d(_get_block('OVVO', keep=True), eris.OOVV, transpose=(0,3,2,1)) * -2
+    #e2 += _contract_4d(_get_block('OVVO', keep=True), eris.OOVV, transpose=(0,3,2,1)) * -2
+    e2 += _contract_4d(_get_block('OOVV'), eris.OOVV) * 2
     e2 += _contract_4d(_get_block('OVOV'), eris.OVOV) * 2
     e2 += _contract_4d(_get_block('OVVO'), eris.OVVO) * 2
     e2 += _contract_4d(_get_block('OVVV'), get_ovvv(eris, block='OVVV')) * 4
@@ -530,6 +582,7 @@ def project_ccsd_eris(eris, mo_coeff, nocc, ovlp, check_subspace=True):
     eris.fock = dot(r_all, eris.fock, r_all.T)
     eris.mo_energy = np.diag(eris.fock)
     return eris
+
 
 if __name__ == '__main__':
     def test1():

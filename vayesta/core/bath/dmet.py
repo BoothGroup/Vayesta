@@ -124,10 +124,10 @@ class DMET_Bath_RHF(Bath):
             eig, r = scipy.linalg.eigh(dm_env)
         # Sort: occ. env -> DMET bath -> vir. env
         eig, r = eig[::-1], r[:,::-1]
-        if (eig.min() < -1e-9):
-            self.log.error("Min eigenvalue of env. DM = %.6e !", eig.min())
-        if ((eig.max()-1) > 1e-9):
-            self.log.error("Max eigenvalue of env. DM = %.6e !", eig.max())
+        if (eig.min() < -1e-8):
+            self.log.error("Smallest eigenvalue of environment 1-DM below 0:  n= %.10e !", eig.min())
+        if ((eig.max()-1) > 1e-8):
+            self.log.error("Largest eigenvalue of environment 1-DM above 1:  n= %.10e !", eig.max())
         c_env = np.dot(c_env, r)
         c_env = fix_orbital_sign(c_env)[0]
 

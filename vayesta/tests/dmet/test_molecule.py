@@ -5,7 +5,9 @@ from vayesta.tests.common import TestCase
 from vayesta.tests import testsystems
 
 
-class MoleculeDMETTest(TestCase):
+FCI_SOLVER_OPTS = dict(davidson_only=False, init_guess=None)
+
+class MoleculeTest(TestCase):
     PLACES_ENERGY = 7
     CONV_TOL = 1e-9
 
@@ -32,7 +34,7 @@ class MoleculeDMETTest(TestCase):
         """Test H6 STO-6G with FCI solver, IAO fragmentation and charge consistency.
         """
         emb = dmet.DMET(testsystems.h6_sto6g.rhf(), solver='FCI', charge_consistent=True,
-                bath_options=dict(bathtype='dmet'), conv_tol=self.CONV_TOL)
+                bath_options=dict(bathtype='dmet'), conv_tol=self.CONV_TOL, solver_options=FCI_SOLVER_OPTS)
         with emb.iao_fragmentation() as f:
             f.add_atomic_fragment([0, 1])
             f.add_atomic_fragment([2, 3])
@@ -48,7 +50,7 @@ class MoleculeDMETTest(TestCase):
         """Test H6 STO-6G with FCI solver, IAO fragmentation and no charge consistency.
         """
         emb = dmet.DMET(testsystems.h6_sto6g.rhf(), solver='FCI', charge_consistent=False,
-                bath_options=dict(bathtype='dmet'), conv_tol=self.CONV_TOL)
+                bath_options=dict(bathtype='dmet'), conv_tol=self.CONV_TOL, solver_options=FCI_SOLVER_OPTS)
         with emb.iao_fragmentation() as f:
             f.add_atomic_fragment([0, 1])
             f.add_atomic_fragment([2, 3])
@@ -64,7 +66,7 @@ class MoleculeDMETTest(TestCase):
         """Test H6 STO-6G with FCI solver, IAO fragmentation and no charge consistency.
         """
         emb = dmet.DMET(testsystems.h6_sto6g.rhf(), solver='CCSD', charge_consistent=False,
-                bath_options=dict(bathtype='dmet'), conv_tol=self.CONV_TOL)
+                bath_options=dict(bathtype='dmet'), conv_tol=self.CONV_TOL, solver_options=FCI_SOLVER_OPTS)
         with emb.iao_fragmentation() as f:
             f.add_atomic_fragment([0, 1])
             f.add_atomic_fragment([2, 3])
@@ -79,7 +81,7 @@ class MoleculeDMETTest(TestCase):
     def test_renorm_interaction(self):
         emb = dmet.DMET(testsystems.h6_sto6g_df.uhf(), solver='FCI', charge_consistent=False,
                 bath_options=dict(bathtype='dmet'), conv_tol=self.CONV_TOL, oneshot=True,
-                screening='mrpa')
+                screening='mrpa', solver_options=FCI_SOLVER_OPTS)
         with emb.iao_fragmentation() as f:
             f.add_atomic_fragment([0, 1])
             f.add_atomic_fragment([2, 3])
@@ -94,7 +96,7 @@ class MoleculeDMETTest(TestCase):
         """Test H6 STO-6G with FCI solver, IAO fragmentation and complete bath.
         """
         emb = dmet.DMET(testsystems.h6_sto6g.rhf(), solver='FCI', charge_consistent=False,
-                bath_options=dict(bathtype='full'), conv_tol=self.CONV_TOL)
+                bath_options=dict(bathtype='full'), conv_tol=self.CONV_TOL, solver_options=FCI_SOLVER_OPTS)
         with emb.iao_fragmentation() as f:
             f.add_atomic_fragment([0, 1])
             f.add_atomic_fragment([2, 3])

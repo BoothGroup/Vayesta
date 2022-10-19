@@ -165,10 +165,7 @@ class PostSCF_KAO2GMO_Tests(TestCase):
                     if expected is None:
                         continue
                     val = getattr(eris, attr)
-
-                    if hasattr(expected, 'shape'):
-                        self.assertEqual(val.shape, expected.shape)
-                    self.assertIsNone(np.testing.assert_almost_equal(val, expected))
+                    self.assertAllclose(val, expected)
 
 
 if __name__ == '__main__':

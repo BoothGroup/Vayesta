@@ -34,9 +34,9 @@ class DiamondEWFTest(TestCase):
     def emb_rotsym(cls, bno_threshold):
         emb = vayesta.ewf.EWF(cls.mf, bath_options=dict(threshold=bno_threshold),
                 solver_options=dict(solve_lambda=True))
-        emb.symmetry.add_rotation(2, axis=[1, 0, -1], center=[1/8, 1/8, 1/8], unit='latvec')
         with emb.fragmentation() as frag:
-            frag.add_atomic_fragment(0)
+            with frag.rotational_symmetry(2, axis=(1, 0, -1), center=(1/8, 1/8, 1/8), unit='latvec'):
+                frag.add_atomic_fragment(0)
         emb.kernel()
         return emb
 
@@ -64,6 +64,7 @@ class DiamondEWFTest(TestCase):
         corr_nosym = emb.get_corrfunc('Sz,Sz', use_symmetry=False)
         corr_sym = emb.get_corrfunc('Sz,Sz', use_symmetry=True)
         self.assertAllclose(corr_sym, corr_nosym)
+
 
 if __name__ == '__main__':
     print('Running %s' % __file__)

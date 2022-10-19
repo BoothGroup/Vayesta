@@ -25,11 +25,13 @@ from vayesta.misc import molecules
 from vayesta.misc import solids
 
 
+PYSCF_VERBOSITY = 0
+
 class TestMolecule:
     """Molecular test system.
     """
 
-    def __init__(self, atom, basis, auxbasis=None, verbose=4, **kwargs):
+    def __init__(self, atom, basis, auxbasis=None, verbose=PYSCF_VERBOSITY, **kwargs):
         super().__init__()
         mol = pyscf.gto.Mole()
         mol.atom = atom
@@ -113,6 +115,8 @@ class TestMolecule:
     def rfci(self):
         rfci = pyscf.fci.FCI(self.rhf())
         rfci.threads = 1
+        rfci.conv_tol = 1e-12
+        rfci.davidson_only = True
         rfci.kernel()
         return rfci
 
@@ -120,6 +124,8 @@ class TestMolecule:
     def ufci(self):
         ufci = pyscf.fci.FCI(self.uhf())
         ufci.threads = 1
+        ufci.conv_tol = 1e-12
+        ufci.davidson_only = True
         ufci.kernel()
         return ufci
 
@@ -128,7 +134,7 @@ class TestSolid:
     """Solid test system."""
 
     def __init__(self, a, atom, basis, kmesh=None, auxbasis=None, supercell=None, exxdiv='ewald', df='gdf',
-                 precision=1e-9, verbose=4, **kwargs):
+                 precision=1e-10, verbose=PYSCF_VERBOSITY, **kwargs):
         super().__init__()
         mol = pyscf.pbc.gto.Cell()
         mol.a = a
@@ -323,9 +329,9 @@ h6_sto6g_df = TestMolecule(
 water_sto3g = TestMolecule(atom=molecules.water(), basis='sto3g')
 water_cation_sto3g = TestMolecule(atom=molecules.water(), basis='sto3g', charge=1, spin=1)
 
-water_631g = TestMolecule(atom=molecules.water(), basis='6-31G')
+water_631g = TestMolecule(atom=molecules.water(), basis='6-31G', incore_anyway=True)
+water_cation_631g = TestMolecule(atom=molecules.water(), basis='6-31G', charge=1, spin=1, incore_anyway=True)
 water_631g_df = TestMolecule(atom=molecules.water(), basis='6-31G', auxbasis='6-31G')
-water_cation_631g = TestMolecule(atom=molecules.water(), basis='6-31G', charge=1, spin=1)
 water_cation_631g_df = TestMolecule(atom=molecules.water(), basis='6-31G', auxbasis='6-31G', charge=1, spin=1)
 
 water_ccpvdz = TestMolecule(atom=molecules.water(), basis="cc-pvdz")
@@ -340,6 +346,8 @@ h2_ccpvdz_df = TestMolecule(atom="H1 0 0 0; H2 0 0 1.0", basis="cc-pvdz", auxbas
 
 h3_ccpvdz = TestMolecule(atom="H1 0 0 0; H2 0 0 1.0; H3 0 1.0 0", basis="cc-pvdz", spin=1)
 h3_ccpvdz_df = TestMolecule(atom="H1 0 0 0; H2 0 0 1.0; H3 0 1.0 0", basis="cc-pvdz", auxbasis="cc-pvdz-jkfit", spin=1)
+
+h6_dz = TestMolecule(atom=molecules.ring('H', 6, 1.0), basis='cc-pVDZ')
 
 n2_ccpvdz_df = TestMolecule("N1 0 0 0; N2 0 0 1.1", basis="cc-pvdz", auxbasis="cc-pvdz-jkfit")
 
