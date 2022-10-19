@@ -41,8 +41,6 @@ mf.kernel()
 
 # Embedded CCSD with rotational symmetry:
 emb_sym = vayesta.ewf.EWF(mf, solver='MP2', bath_options=dict(threshold=1e-4), symmetry_tol=1e-5)
-emb_sym.symmetry.add_rotation(order=6, axis=(0,0,1), center=(0,0,0))
-
 # Do not call add_all_atomic_fragments, as it add the symmetry related atoms as fragments!
 with emb_sym.iao_fragmentation() as frag:
     # Add rotational symmetry:
