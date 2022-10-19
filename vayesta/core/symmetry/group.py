@@ -1,5 +1,8 @@
+import logging
 import numpy as np
 
+
+log = logging.getLogger(__name__)
 
 class SymmetryGroup:
     """Detect symemtry group automatically (use spglib?)."""
@@ -9,7 +12,6 @@ class SymmetryGroup:
         self.xtol = xtol
         self.check_basis = check_basis
         self.check_label = check_label
-        self.rotations = []
         self.translation = None
 
     @property
@@ -51,22 +53,9 @@ class SymmetryGroup:
         return idx, dists[idx]
 
     def add_rotation(self, order, axis, center, unit='ang'):
-        """Add rotational symmetry.
-
-        Parameters
-        ----------
-        order : int
-            Order of rotational axis. E.g. order 4 corresponds to rotations by 90 degrees.
-        axis : array(3)
-            Vector of the rotational axis.
-        center : array(3)
-            Center of rotation.
-        unit : {'ang', 'bohr', 'latvec'}
-            Unit for axis and center. Default: 'ang'.
-        """
-        axis = np.asarray(axis)
-        center = np.asarray(center)
-        self.rotations.append((order, axis, center, unit))
+        log.critical(("The specification of rotational symmetry between fragments has changed."
+                      " Check examples/ewf/73-rotational-symmetry.py for the new syntax."))
+        raise NotImplementedError
 
     def set_translations(self, nimages):
         """Set translational symmetry.
@@ -78,9 +67,6 @@ class SymmetryGroup:
             and third lattice vector.
         """
         self.translation = np.asarray(nimages)
-
-    def clear_rotations(self):
-        self.rotations = []
 
     def clear_translations(self):
         self.translations = None

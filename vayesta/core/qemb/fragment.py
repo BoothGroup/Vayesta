@@ -66,9 +66,6 @@ class Fragment:
         is_envelop: bool = True
         is_secfrag: bool = False
         # Secondary fragment parameter
-        secfrag_solver: typing.Optional[str] = None
-        secfrag_bno_threshold: typing.Optional[float] = None
-        secfrag_bno_threshold_factor: float = 0.1
         bath_parent_fragment_id: typing.Optional[int] = None
 
     @dataclasses.dataclass
