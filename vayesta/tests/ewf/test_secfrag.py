@@ -39,6 +39,7 @@ class Test_Restricted(TestCase):
         emb = self.emb(-1)
         self.assertAllclose(emb.e_tot, -76.11935398347251)
 
+
 class Test_RestrictedRotsym(Test_Restricted):
     """Test secondary fragments in combination with rotational symmetry."""
 
@@ -60,10 +61,10 @@ class Test_RestrictedRotsym(Test_Restricted):
     @cache
     def emb_sym(cls, bno_threshold):
         emb = vayesta.ewf.EWF(cls.mf, bath_options=dict(threshold=bno_threshold))
-        emb.symmetry.add_rotation(order=6, axis=(0,0,1), center=(0,0,0))
         with emb.sao_fragmentation() as f:
-            with f.secondary_fragments(solver='MP2', bno_threshold_factor=0.1):
-                f.add_atomic_fragment(0)
+            with f.rotational_symmetry(order=6, axis=(0,0,1)):
+                with f.secondary_fragments(solver='MP2', bno_threshold_factor=0.1):
+                    f.add_atomic_fragment(0)
         emb.kernel()
         return emb
 

@@ -49,6 +49,7 @@ class SymmetryIdentity(SymmetryOperation):
 class SymmetryRotation(SymmetryOperation):
 
     def __init__(self, group, rotvec, center=(0,0,0), unit='Bohr'):
+        log.debugv("Creating symmetry:  rotvec= %r  center= %r  unit= %r", rotvec, center, unit)
         super().__init__(group)
         self.rotvec = np.asarray(rotvec, dtype=float)
         self.center = np.asarray(center, dtype=float)

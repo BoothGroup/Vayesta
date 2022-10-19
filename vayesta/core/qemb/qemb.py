@@ -106,6 +106,8 @@ class Options(OptionsBase):
             # Dump
             dumpfile='clusters.h5')
     # --- Other
+    symmetry_tol: float = 1e-6              # Tolerance (in Bohr) for atomic positions
+    symmetry_mf_tol: float = 1e-5           # Tolerance for mean-field solution
     screening: Optional[str] = None
 
 class Embedding:
@@ -242,7 +244,7 @@ class Embedding:
             if solver not in self.valid_solvers:
                 raise ValueError("Unknown solver: %s" % solver)
             self.solver = solver
-            self.symmetry = SymmetryGroup(self.mol)
+            self.symmetry = SymmetryGroup(self.mol, xtol=self.opts.symmetry_tol)
             nimages = getattr(self.mf, 'subcellmesh', None)
             if nimages:
                 self.symmetry.set_translations(nimages)
@@ -758,26 +760,27 @@ class Embedding:
     # Symmetry between fragments
     # --------------------------
 
-    def add_symmetric_fragments(self, symmetry, symbol=None, symtol=1e-6, check_mf=True):
+    def create_symmetric_fragments(self, symmetry, fragments=None, symbol=None, mf_tol=None, check_mf=True):
         """Add rotationally or translationally symmetric fragments.
 
         Parameters
         ----------
-        symtol: float, optional
+        mf_tol: float, optional
             Tolerance for the error of the mean-field density matrix between symmetry related fragments.
             If the largest absolute difference in the density-matrix is above this value,
-            and exception will be raised. Default: 1e-6.
+            and exception will be raised. Default: self.opts.symmetry_mf_tol.
 
         Returns
         -------
         fragments: list
-            List of T-symmetry related fragments. These will be automatically added to base.fragments and
-            have the attributes `sym_parent` and `sym_op` set.
+            List of T-symmetry related fragments. These will have the attributes `sym_parent` and `sym_op` set.
         """
         symtype = symmetry['type']
         if symtype == 'rotation':
             order = symmetry['order']
-            axis = np.asarray(symmetry['axis'], dtype=float)
+            axis = symmetry['axis']
+            axes = {'x': (1,0,0), 'y': (0,1,0), 'z': (0,0,1)}
+            axis = np.asarray(axes.get(axis, axis), dtype=float)
             center = np.asarray(symmetry['center'], dtype=float)
             unit = symmetry['unit'].lower()
             if unit == 'ang':
@@ -812,7 +815,9 @@ class Embedding:
         if check_mf:
             dm1 = self.mf.make_rdm1()
 
-        ftree = [[fx] for fx in self.get_fragments()]
+        if fragments is None:
+            fragments = self.get_fragments()
+        ftree = [[fx] for fx in fragments]
         for i, sym in enumerate(symlist):
 
             if symtype == 'rotation':
@@ -839,9 +844,9 @@ class Embedding:
                 elif self.spinsym == 'unrestricted':
                     fragovlp = max(abs(fragovlp[0]).max(), abs(fragovlp[1]).max())
                 if (fragovlp > 1e-7):
-                    self.log.critical("%s of fragment %s not orthogonal to original fragment (overlap= %.3e)!",
+                    self.log.critical("%s of fragment %s not orthogonal to original fragment (overlap= %.1e)!",
                                 sym_op, parent.name, fragovlp)
-                    raise RuntimeError("Overlapping fragment spaces (overlap= %.3e)" % fragovlp)
+                    raise RuntimeError("Overlapping fragment spaces (overlap= %.1e)" % fragovlp)
 
                 # Add fragment
                 frag_id = self.register.get_next_id()
@@ -852,22 +857,21 @@ class Embedding:
                 # to reduce number of sym_op(c_env) calls)
                 if check_mf and (abs(np.asarray(sym)).sum() == 1):
                     charge_err, spin_err = parent.get_symmetry_error(frag, dm1=dm1)
-                    if max(charge_err, spin_err) > symtol:
-                        self.log.critical("Mean-field DM1 not symmetric for %s of %s (errors: charge= %.3e, spin= %.3e)!",
+                    if max(charge_err, spin_err) > (mf_tol or self.opts.symmetry_mf_tol):
+                        self.log.critical("Mean-field DM1 not symmetric for %s of %s (errors: charge= %.1e, spin= %.1e)!",
                             sym_op, parent.name, charge_err, spin_err)
                         raise RuntimeError("MF not symmetric under %s" % sym_op)
                     else:
-                        self.log.debugv("Mean-field DM symmetry error for %s of %s: charge= %.3e, spin= %.3e",
+                        self.log.debugv("Mean-field DM symmetry error for %s of %s: charge= %.1e, spin= %.1e",
                             sym_op, parent.name, charge_err, spin_err)
 
                 # Insert after parent fragment
                 flist.append(frag)
-        # Update fragment list
-        self.fragments = [fx for flist in ftree for fx in flist]
-        self.log.info("Added %d %s-symmetry related fragments for each fragment.", len(symlist), symtype)
+        fragments_sym = [fx for flist in ftree for fx in flist[1:]]
+        return fragments_sym
 
-    def add_rotsym_fragments(self, order, axis, center, unit='Ang', **kwargs):
-        """Add rotationally symmetric fragments.
+    def create_rotsym_fragments(self, order, axis, center, fragments=None, unit='Ang', **kwargs):
+        """Create rotationally symmetric fragments.
 
         Parameters
         ----------
@@ -879,14 +883,13 @@ class Embedding:
         Returns
         -------
         fragments: list
-            List of T-symmetry related fragments. These will be automatically added to base.fragments and
-            have the attributes `sym_parent` and `sym_op` set.
+            List of T-symmetry related fragments. These will have have the attributes `sym_parent` and `sym_op` set.
         """
         symmetry = dict(type='rotation', order=order, axis=axis, center=center, unit=unit)
-        return self.add_symmetric_fragments(symmetry, **kwargs)
+        return self.create_symmetric_fragments(symmetry, fragments=fragments, **kwargs)
 
-    def add_transsym_fragments(self, translation, **kwargs):
-        """Add translationally symmetric fragments.
+    def create_transsym_fragments(self, translation, fragments=None, **kwargs):
+        """Create translationally symmetric fragments.
 
         Parameters
         ----------
@@ -900,11 +903,10 @@ class Embedding:
         Returns
         -------
         fragments: list
-            List of T-symmetry related fragments. These will be automatically added to base.fragments and
-            have the attributes `sym_parent` and `sym_op` set.
+            List of T-symmetry related fragments. These will have the attributes `sym_parent` and `sym_op` set.
         """
         symmetry = dict(type='translation', translation=translation)
-        return self.add_symmetric_fragments(symmetry, **kwargs)
+        return self.create_symmetric_fragments(symmetry, fragments=fragments, **kwargs)
 
     def get_symmetry_parent_fragments(self):
         """Returns a list of all fragments, which are parents to symmetry related child fragments.
