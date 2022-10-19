@@ -53,7 +53,7 @@ the keyword argument ``maxiter=1`` has to be dropped.
     This symmetry can be added to the embedding class, such that only a single fragment needs to be solved:
 
     .. literalinclude:: /../../examples/dmet/02-rotational-symmetry.py
-        :lines: 25-30
+        :lines: 27-32
 
     see also ``example/dmet/02-rotations-symmetry.py``
 
