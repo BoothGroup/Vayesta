@@ -67,7 +67,7 @@ class REBFCI:
         h1e, eris = self.get_hamil(eris)
 
         if dm1 is None:
-            dm1 = self.make_rdm1(civec)
+            dm1 = self.make_rdm1()
 
         self.dd_moms = self.solver.calc_dd_resp_mom(
             civec, self.e_fci, max_mom, self.norb, self.nelec, self.nbos, h1e, eris,
