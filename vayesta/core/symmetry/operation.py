@@ -39,7 +39,7 @@ class SymmetryOperation:
     def nao(self):
         return self.group.nao
 
-    def __call__(self):
+    def __call__(self, *args, **kwargs):
         raise AbstractMethodError
 
     def apply_to_point(self, r0):
@@ -173,6 +173,55 @@ class SymmetryInversion(SymmetryOperation):
         # Invert angular momentum in shells with l=1,3,5,... (p,f,h,...):
         rotmats = [(-1)**i * np.eye(n) for (i, n) in enumerate(range(1,19,2))]
         a = self.rotate_angular_orbitals(a, rotmats)
+        a = np.moveaxis(a, 0, axis)
+        return a
+
+
+class SymmetryReflection(SymmetryOperation):
+
+    def __init__(self, group, axis, center=(0,0,0)):
+        if not np.all(np.asarray(center) == 0):
+            raise NotImplementedError
+        self.center = center
+        self.axis = np.asarray(axis)/np.linalg.norm(axis)
+        super().__init__(group)
+
+        self.atom_reorder = self.get_atom_reorder()[0]
+        if self.atom_reorder is None:
+            raise RuntimeError("Symmetry %s not found" % self)
+        self.ao_reorder = self.get_ao_reorder(self.atom_reorder)[0]
+
+        # A reflection can be decomposed into a C2-rotation + inversion
+        # We use this to derive the angular transformation matrix:
+        rot = scipy.spatial.transform.Rotation.from_rotvec(self.axis*np.pi).as_matrix()
+        angular_rotmats = pyscf.symm.basis._ao_rotation_matrices(self.mol, rot)
+        # Inversion of p,f,h,... shells:
+        self.angular_rotmats =[(-1)**i * x for (i, x) in enumerate(angular_rotmats)]
+
+    def __repr__(self):
+        return "Reflection(%g,%g,%g)" % tuple(self.axis)
+
+    def as_matrix(self):
+        """Householder matrix."""
+        return np.eye(3) - 2*np.outer(self.axis, self.axis)
+
+    def apply_to_point(self, r0):
+        """Householder transformation/"""
+        r1 = r0 - 2*np.dot(np.outer(self.axis, self.axis), r0)
+        return r1
+
+    def __call__(self, a, axis=0):
+        if hasattr(axis, '__len__'):
+            for ax in axis:
+                a = self(a, axis=ax)
+            return a
+        if isinstance(a, (tuple, list)):
+            return tuple([self(x, axis=axis) for x in a])
+        a = np.moveaxis(a, axis, 0)
+        # Reorder AOs according to new atomic center
+        a = a[self.ao_reorder]
+        # Rotate between orbitals in p,d,f,... shells
+        a = self.rotate_angular_orbitals(a, self.angular_rotmats)
         a = np.moveaxis(a, 0, axis)
         return a
 

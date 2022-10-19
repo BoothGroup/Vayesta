@@ -39,26 +39,25 @@ mol.build()
 mf = pyscf.scf.RHF(mol)
 mf.kernel()
 
-# Embedded CCSD with rotational symmetry:
+# Embedded CCSD with symmetry:
 emb_sym = vayesta.ewf.EWF(mf, solver='MP2', bath_options=dict(threshold=1e-4), symmetry_tol=1e-5)
 # Do not call add_all_atomic_fragments, as it add the symmetry related atoms as fragments!
 with emb_sym.iao_fragmentation() as frag:
-    # Add rotational symmetry:
-    # Set order of rotation (2: 180 degrees, 3: 120 degrees, 4: 90: degrees,...),
-    # axis along which to rotate and center of rotation (default units for axis and center are Angstroms):
-    #with frag.rotational_symmetry(order=6, axis=(0,0,1), center=(0,0,0)):
-    #    frag.add_atomic_fragment(0)
     frag.add_atomic_fragment('Fe1')
-    with frag.rotational_symmetry(order=5, axis=(0,0,1), center=(0,0,0)):
-        frag.add_atomic_fragment('C2')
-        frag.add_atomic_fragment('C7')
-        frag.add_atomic_fragment('H12')
-        frag.add_atomic_fragment('H17')
+    # Add mirror (reflection) symmetry
+    # Set axis of reflection [tuple(3) or 'x', 'y', 'z']
+    with frag.mirror_symmetry(axis='z'):
+        # Add rotational symmetry
+        # Set order of rotation (2: 180 degrees, 3: 120 degrees, 4: 90: degrees,...),
+        # axis along which to rotate and center of rotation (default units for axis and center are Angstroms):
+        with frag.rotational_symmetry(order=5, axis='z'):
+            frag.add_atomic_fragment('C2')
+            frag.add_atomic_fragment('H12')
 
 emb_sym.kernel()
 dm1_sym = emb_sym.make_rdm1()
 
-# Reference calculation without rotational symmetry:
+# Reference calculation without symmetry:
 emb = vayesta.ewf.EWF(mf, solver='MP2', bath_options=dict(threshold=1e-4))
 emb.kernel()
 dm1 = emb.make_rdm1()

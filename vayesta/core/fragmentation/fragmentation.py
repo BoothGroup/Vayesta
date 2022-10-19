@@ -217,6 +217,21 @@ class Fragmentation:
         for sym in self.sym_register:
             sym.extend(fragments_sym)
 
+    @contextlib.contextmanager
+    def mirror_symmetry(self, axis, center=(0,0,0)):
+        if self.secfrag_register:
+            raise NotImplementedError("Symmetries have to be added before adding secondary fragments")
+        self.sym_register.append([])
+        yield
+        fragments = self.sym_register.pop()
+        fragments_sym = self.emb.create_mirrorsym_fragments(axis, center=center, fragments=fragments, symbol='M')
+        self.log.info("Adding %d mirror-symmetric fragments", len(fragments_sym))
+        self.fragments.extend(fragments_sym)
+        # For additional (nested) symmetries:
+        for sym in self.sym_register:
+            sym.extend(fragments_sym)
+
+
     # --- Secondary fragments:
 
     @contextlib.contextmanager

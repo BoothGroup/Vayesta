@@ -39,6 +39,7 @@ from .register import FragmentRegister
 # Symmetry
 from vayesta.core.symmetry import SymmetryGroup
 from vayesta.core.symmetry import SymmetryInversion
+from vayesta.core.symmetry import SymmetryReflection
 from vayesta.core.symmetry import SymmetryRotation
 from vayesta.core.symmetry import SymmetryTranslation
 
@@ -776,17 +777,24 @@ class Embedding:
         fragments: list
             List of T-symmetry related fragments. These will have the attributes `sym_parent` and `sym_op` set.
         """
+        default_axes = {'x': (1,0,0), 'y': (0,1,0), 'z': (0,0,1)}
         symtype = symmetry['type']
         if symtype == 'inversion':
             center = symmetry['center']
             unit = symmetry['unit']
             symbol = symbol or 'I'
             symlist = [1]
+        elif symtype == 'reflection':
+            center = symmetry['center']
+            axis = symmetry['axis']
+            axis = np.asarray(default_axes.get(axis, axis), dtype=float)
+            unit = symmetry['unit']
+            symbol = symbol or 'M'
+            symlist = [1]
         elif symtype == 'rotation':
             order = symmetry['order']
             axis = symmetry['axis']
-            axes = {'x': (1,0,0), 'y': (0,1,0), 'z': (0,0,1)}
-            axis = np.asarray(axes.get(axis, axis), dtype=float)
+            axis = np.asarray(default_axes.get(axis, axis), dtype=float)
             center = np.asarray(symmetry['center'], dtype=float)
             unit = symmetry['unit'].lower()
             if unit == 'ang':
@@ -828,6 +836,10 @@ class Embedding:
 
             if symtype == 'inversion':
                 sym_op = SymmetryInversion(self.symmetry, center=center)
+            elif symtype == 'inversion':
+                sym_op = SymmetryReflection(self.symmetry, axis=axis, center=center)
+            elif symtype == 'reflection':
+                sym_op = SymmetryReflection(self.symmetry, axis=axis, center=center)
             elif symtype == 'rotation':
                 rotvec = 2*np.pi * (sym/order) * axis/np.linalg.norm(axis)
                 sym_op = SymmetryRotation(self.symmetry, rotvec, center=center)
@@ -839,6 +851,8 @@ class Embedding:
                 parent = flist[0]
                 # Name for symmetry related fragment
                 if symtype == 'inversion':
+                    name = '%s_%s' % (parent.name, symbol)
+                elif symtype == 'reflection':
                     name = '%s_%s' % (parent.name, symbol)
                 elif symtype == 'rotation':
                     name = '%s_%s(%d)' % (parent.name, symbol, sym)
@@ -893,9 +907,27 @@ class Embedding:
         Returns
         -------
         fragments: list
-            List of T-symmetry related fragments. These will have have the attributes `sym_parent` and `sym_op` set.
+            List of inversion-symmetry related fragments. These will have have the attributes `sym_parent` and `sym_op` set.
         """
         symmetry = dict(type='inversion', center=center, unit=unit)
+        return self.create_symmetric_fragments(symmetry, fragments=fragments, **kwargs)
+
+    def create_mirrorsym_fragments(self, axis, center, fragments=None, unit='Ang', **kwargs):
+        """Create mirror symmetric fragments.
+
+        Parameters
+        ----------
+        mf_tol: float, optional
+            Tolerance for the error of the mean-field density matrix between symmetry related fragments.
+            If the largest absolute difference in the density-matrix is above this value,
+            and exception will be raised. Default: 1e-6.
+
+        Returns
+        -------
+        fragments: list
+            List of mirror-symmetry related fragments. These will have have the attributes `sym_parent` and `sym_op` set.
+        """
+        symmetry = dict(type='reflection', axis=axis, center=center, unit=unit)
         return self.create_symmetric_fragments(symmetry, fragments=fragments, **kwargs)
 
     def create_rotsym_fragments(self, order, axis, center, fragments=None, unit='Ang', **kwargs):
@@ -911,7 +943,7 @@ class Embedding:
         Returns
         -------
         fragments: list
-            List of T-symmetry related fragments. These will have have the attributes `sym_parent` and `sym_op` set.
+            List of rotationally-symmetry related fragments. These will have have the attributes `sym_parent` and `sym_op` set.
         """
         symmetry = dict(type='rotation', order=order, axis=axis, center=center, unit=unit)
         return self.create_symmetric_fragments(symmetry, fragments=fragments, **kwargs)
