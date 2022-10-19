@@ -197,9 +197,6 @@ class Fragment(BaseFragment):
             raise RuntimeError
         cluster = self.cluster
 
-        # For self-consistent calculations, we can reuse ERIs:
-        if eris is None:
-            eris = self._eris
         #if (eris is not None) and (eris.mo_coeff.size > cluster.c_active.size):
         #    self.log.debugv("Projecting ERIs onto subspace")
         #    eris = ao2mo.helper.project_ccsd_eris(eris, cluster.c_active, cluster.nocc_active, ovlp=self.base.get_ovlp())

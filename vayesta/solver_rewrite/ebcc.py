@@ -191,14 +191,13 @@ class EB_REBCC_Solver(REBCC_Solver):
 
     def construct_wavefunction(self, mycc, mo):
         super().construct_wavefunction(mycc, mo)
-        self.wf.make_rdmeb = None
+        def make_rdmeb(*args, **kwargs):
+            dm = mycc.make_eb_coup_rdm()
+            return dm[0].transpose(1,2,0), dm[1].transpose(1,2,0)
+        self.wf.make_rdmeb = make_rdmeb
 
 
-class EB_UEBCC_Solver(UEBCC_Solver, EB_REBCC_Solver):
+class EB_UEBCC_Solver(EB_REBCC_Solver, UEBCC_Solver):
     @dataclasses.dataclass
     class Options(UEBCC_Solver.Options, EB_REBCC_Solver.Options):
         pass
-
-    def construct_wavefunction(self, mycc, mo):
-        super().construct_wavefunction(mycc, mo)
-        self.wf.make_rdmeb = None

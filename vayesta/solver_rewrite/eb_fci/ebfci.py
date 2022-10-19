@@ -6,15 +6,15 @@ import numpy as np
 class REBFCI:
     """Performs FCI on coupled electron-boson systems.
     Input:
-        -system specification.
+        -system specification, via hamiltonian object along with bosonic parameters.
     Output:
         -FCI RDMs.
         -FCI response specification.
     """
     solver = ebfci_slow
 
-    def __init__(self, mf, freqs, couplings, max_boson_occ=5, conv_tol=1e-12):
-        self.mf = mf
+    def __init__(self, hamil, freqs, couplings, max_boson_occ=5, conv_tol=1e-12):
+        self.hamil = hamil
         self.max_boson_occ = max_boson_occ
         self.freqs = freqs
         self.couplings = couplings
@@ -22,43 +22,40 @@ class REBFCI:
 
     @property
     def norb(self):
-        return self.mf.mol.nao
+        return self.hamil.ncas[0]
 
     @property
     def nelec(self):
-        return self.mf.nelec[0]
+        return self.hamil.nelec
 
     @property
     def nbos(self):
-        return len(self.freqs.shape)
+        return len(self.hamil.bos_freqs)
 
     def kernel(self, eris=None):
         # Get MO eris.
         h1e, eris = self.get_hamil(eris)
-        ne = self.mf.mol.nelectron
-        nc = self.mf.mol.nao
-        self.e_fci, self.civec = self.solver.kernel(h1e, eris, self.couplings,
-                                                    np.diag(self.freqs), self.norb, self.nelec, self.nbos,
-                                                    self.max_boson_occ, tol=self.conv_tol)
+        couplings = self.hamil.couplings
+        bos_freqs = self.hamil.bos_freqs
+        self.e_fci, self.civec = self.solver.kernel(h1e, eris, couplings, np.diag(bos_freqs), self.norb, self.nelec,
+                                                    self.nbos, self.max_boson_occ, tol=self.conv_tol)
 
         return self.e_fci, self.civec
 
     def get_hamil(self, eris=None):
-        mo_coeff = self.mf.mo_coeff
-        if eris is None:
-            eris = ao2mo.full(self.mf._eri, mo_coeff, compact=False)
-        h1e = np.dot(mo_coeff.T, np.dot(self.mf.get_hcore(), mo_coeff))
+        h1e = self.hamil.get_heff(eris)
+        eris = self.hamil.get_eris()
         return h1e, eris
 
     def make_rdm1(self):
         return self.solver.make_rdm1(self.civec, self.norb, self.nelec)
 
     def make_rdm2(self):
-        dm1, dm2 = self.solver.make_rdm12(self.civec, self.norb, self.nelec)
+        dm1, dm2 = self.make_rdm12()
         return dm2
 
     def make_rdm12(self):
-        return self.solver.make_rdm12s(self.civec, self.norb, self.nelec)
+        return self.solver.make_rdm12(self.civec, self.norb, self.nelec)
 
     def make_rdm_eb(self):
         # Note this is always spin-resolved, since bosonic couplings can have spin-dependence.
@@ -82,6 +79,5 @@ class REBFCI:
 class UEBFCI(REBFCI):
     solver = uebfci_slow
 
-    @property
-    def nelec(self):
-        return self.mf.nelec
+    def make_rdm12(self):
+        return self.solver.make_rdm12s(self.civec, self.norb, self.nelec)

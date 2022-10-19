@@ -16,17 +16,16 @@ from vayesta.core.util import *
 class DMETFragmentExit(Exception):
     pass
 
-@dataclasses.dataclass
-class Results(Fragment.Results):
-    n_active: int = None
-    e1: float = None
-    e2: float = None
-    dm1: np.ndarray = None
-    dm2: np.ndarray = None
+
 
 class DMETFragment(Fragment):
-
-    Results = Results
+    @dataclasses.dataclass
+    class Results(Fragment.Results):
+        n_active: int = None
+        e1: float = None
+        e2: float = None
+        dm1: np.ndarray = None
+        dm2: np.ndarray = None
 
     def __init__(self, *args, **kwargs):
 

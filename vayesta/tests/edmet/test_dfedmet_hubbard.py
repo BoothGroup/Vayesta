@@ -22,7 +22,7 @@ class HubbardDFEDMETTests(TestCase):
         """
         emb = edmet.EDMET(
             testsystems.hubb_14_u4.rhf(),
-            solver='EBFCI',
+            solver='FCI',
             solver_options={"max_boson_occ":2},
             maxiter=1,
             max_elec_err=1e-6
@@ -34,7 +34,7 @@ class HubbardDFEDMETTests(TestCase):
 
         dfedmet = edmet.EDMET(
             testsystems.hubb_14_u4_df.rhf(),
-                solver='EBFCI',
+                solver='FCI',
                 solver_options={"max_boson_occ":2},
                 maxiter=1,
                 max_elec_err=1e-6

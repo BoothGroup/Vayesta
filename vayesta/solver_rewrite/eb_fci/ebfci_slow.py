@@ -14,16 +14,16 @@ from pyscf.fci import fci_slow
 
 def contract_all(h1e, g2e, hep, hpp, ci0, norbs, nelec, nbosons, max_occ,
                  ecore=0.0, adj_zero_pho=False):
-    # ci1  = contract_1e(h1e, ci0, nelec, norbs, nbosons, max_occ)
-    contrib1 = contract_2e(g2e, ci0, nelec, norbs, nbosons, max_occ)
+    # ci1  = contract_1e(h1e, ci0, norbs, nelec, nbosons, max_occ)
+    contrib1 = contract_2e(g2e, ci0, norbs, nelec, nbosons, max_occ)
     incbosons = (nbosons > 0 and max_occ > 0)
 
     if incbosons:
-        contrib2 = contract_ep(hep, ci0, nelec, norbs, nbosons, max_occ,
+        contrib2 = contract_ep(hep, ci0, norbs, nelec, nbosons, max_occ,
                                adj_zero_pho=adj_zero_pho)
-        contrib3 = contract_pp(hpp, ci0, nelec, norbs, nbosons, max_occ)
+        contrib3 = contract_pp(hpp, ci0, norbs, nelec, nbosons, max_occ)
 
-    cishape = make_shape(nelec, norbs, nbosons, max_occ)
+    cishape = make_shape(norbs, nelec, nbosons, max_occ)
 
     # print("1+2-body")
     # print(contrib1.reshape(cishape))
@@ -60,7 +60,7 @@ def contract_1e(h1e, fcivec, norb, nelec, nbosons, max_occ):
     link_indexa = cistring.gen_linkstr_index(range(norb), neleca)
     link_indexb = cistring.gen_linkstr_index(range(norb), nelecb)
 
-    cishape = make_shape(nelec, norb, nbosons, max_occ)
+    cishape = make_shape(norb, nelec, nbosons, max_occ)
 
     ci0 = fcivec.reshape(cishape)
     fcinew = numpy.zeros(cishape, dtype=fcivec.dtype)
@@ -84,7 +84,6 @@ def contract_2e(eri, fcivec, norb, nelec, nbosons, max_occ):
     link_indexb = cistring.gen_linkstr_index(range(norb), nelecb)
 
     cishape = make_shape(norb, nelec, nbosons, max_occ)
-
     ci0 = fcivec.reshape(cishape)
     t1 = numpy.zeros((norb, norb) + cishape, dtype=fcivec.dtype)
     for str0, tab in enumerate(link_indexa):
@@ -198,7 +197,6 @@ def contract_pp(hpp, fcivec, norb, nelec, nbosons, max_occ):
     #        t1[(psite_id,)+slices0] += ci0[slices1] * phonon_cre[i]     # annihilation
 
     t1 = apply_bos_annihilation(ci0, nbosons, max_occ)
-
     t1 = lib.dot(hpp, t1.reshape(nbosons, -1)).reshape(t1.shape)
 
     for psite_id in range(nbosons):
@@ -315,7 +313,6 @@ def kernel(h1e, g2e, hep, hpp, norb, nelec, nbosons, max_occ,
     # Add noise for initial guess, remove it if problematic
     ci0 += numpy.random.random(ci0.shape) * 1e-10
     ci0.__setitem__((0, 0) + (0,) * nbosons, 1)
-
     def hop(c):
         hc = contract_all(h1e, h2e, hep, hpp, c, norb,
                           nelec, nbosons, max_occ, adj_zero_pho=adj_zero_pho)

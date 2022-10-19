@@ -20,7 +20,7 @@ class EDMET_Hubbard_Tests(TestCase):
 
     #    emb = edmet.EDMET(
     #            testsystems.hubb_6_u0.rhf(),
-    #            solver='EBFCI',
+    #            solver='FCI',
     #            max_boson_occ=1,
     #    )
     #    emb.site_fragmentation()
@@ -38,7 +38,7 @@ class EDMET_Hubbard_Tests(TestCase):
 
     #    emb = edmet.EDMET(
     #            testsystems.hubb_6_u0.rhf(),
-    #            solver='EBFCI',
+    #            solver='FCI',
     #            max_boson_occ=6,
     #    )
     #    emb.site_fragmentation()
@@ -56,7 +56,7 @@ class EDMET_Hubbard_Tests(TestCase):
 
         emb = edmet.EDMET(
                 testsystems.hubb_10_u2.rhf(),
-                solver='EBFCI',
+                solver='FCI',
                 solver_options={"max_boson_occ": 2},
                 bosonic_interaction="direct",
                 oneshot=True,
@@ -78,7 +78,7 @@ class EDMET_Hubbard_Tests(TestCase):
 
     #    emb = edmet.EDMET(
     #            testsystems.hubb_14_u0.rhf(),
-    #            solver='EBFCI',
+    #            solver='FCI',
     #            solver_options={"max_boson_occ":3},
     #            maxiter=30,
     #            max_elec_err=1e-6
@@ -99,7 +99,7 @@ class EDMET_Hubbard_Tests(TestCase):
 
     #    emb = edmet.EDMET(
     #            testsystems.hubb_6x6_u0_1x1imp.rhf(),
-    #            solver='EBFCI',
+    #            solver='FCI',
     #            max_boson_occ=2,
     #    )
     #    emb.site_fragmentation()
@@ -117,7 +117,7 @@ class EDMET_Hubbard_Tests(TestCase):
 
         emb = edmet.EDMET(
                 testsystems.hubb_6x6_u6_1x1imp.rhf(),
-                solver='EBFCI',
+                solver='FCI',
                 solver_options={"max_boson_occ":2},
                 bosonic_interaction="direct",
                 oneshot=True,

@@ -150,7 +150,7 @@ class RClusterHamiltonian:
         self.assert_equal_spin_channels()
         nao, mo_coeff, mo_energy, mo_occ, ovlp = self.get_clus_mf_info(ao_basis=False)
 
-        clusmol = self.mf.mol.__class__()
+        clusmol = pyscf.gto.mole.Mole()
         clusmol.nelec = self.nelec
         # NB if the number of alpha and beta active orbitals is different then will likely need to ensure the `ao2mo`
         # of pyscf approaches is replaced in Vayesta to support this.
@@ -413,7 +413,7 @@ class EB_UClusterHamiltonian(UClusterHamiltonian, EB_RClusterHamiltonian):
     class Options(EB_RClusterHamiltonian.Options):
         polaritonic_shift: bool = True
 
-    def get_heff(self, eris, fock=None, with_vext=True):
+    def get_heff(self, eris=None, fock=None, with_vext=True):
         heff = super().get_heff(eris, fock, with_vext)
 
         if self.opts.polaritonic_shift:
