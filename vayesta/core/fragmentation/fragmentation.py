@@ -42,7 +42,7 @@ class Fragmentation:
         # Secondary fragment state:
         self.secfrag_register = []
         # Rotational symmetry state:
-        self.rotsym_register = []
+        self.sym_register = []
         # -- Output:
         self.coeff = None
         self.labels = None
@@ -66,7 +66,7 @@ class Fragmentation:
             return
 
         if self.add_symmetric:
-            # Rotational symmetries are now done within own context
+            # Rotational + inversion symmetries are now done within own context
             # Translation symmetry are done in the fragmentation context (here):
             translation = self.emb.symmetry.translation
             if translation is not None:
@@ -180,9 +180,9 @@ class Fragmentation:
         # Secondary fragments:
         if self.secfrag_register:
             self.secfrag_register[0].append(frag)
-        # Rotationally symmetric fragments:
-        for rot in self.rotsym_register:
-            rot.append(frag)
+        # Symmetric fragments:
+        for sym in self.sym_register:
+            sym.append(frag)
 
         return frag
 
@@ -192,16 +192,30 @@ class Fragmentation:
     def rotational_symmetry(self, order, axis, center=(0,0,0), unit='ang'):
         if self.secfrag_register:
             raise NotImplementedError("Rotational symmetries have to be added before adding secondary fragments")
-        self.rotsym_register.append([])
+        self.sym_register.append([])
         yield
-        fragments = self.rotsym_register.pop()
+        fragments = self.sym_register.pop()
         fragments_sym = self.emb.create_rotsym_fragments(order, axis, center, fragments=fragments, unit=unit,
-                                                         symbol='R%d' % len(self.rotsym_register))
+                                                         symbol='R%d' % len(self.sym_register))
         self.log.info("Adding %d rotationally-symmetric fragments", len(fragments_sym))
         self.fragments.extend(fragments_sym)
-        # For additional (nested) rotational symmetries:
-        for rot in self.rotsym_register:
-            rot.extend(fragments_sym)
+        # For additional (nested) symmetries:
+        for sym in self.sym_register:
+            sym.extend(fragments_sym)
+
+    @contextlib.contextmanager
+    def inversion_symmetry(self, center=(0,0,0)):
+        if self.secfrag_register:
+            raise NotImplementedError("Symmetries have to be added before adding secondary fragments")
+        self.sym_register.append([])
+        yield
+        fragments = self.sym_register.pop()
+        fragments_sym = self.emb.create_invsym_fragments(center, fragments=fragments, symbol='I')
+        self.log.info("Adding %d inversion-symmetric fragments", len(fragments_sym))
+        self.fragments.extend(fragments_sym)
+        # For additional (nested) symmetries:
+        for sym in self.sym_register:
+            sym.extend(fragments_sym)
 
     # --- Secondary fragments:
 
@@ -216,9 +230,9 @@ class Fragmentation:
                                                          bno_threshold_factor=bno_threshold_factor, solver=solver)
         self.log.info("Adding %d secondary fragments", len(fragments_sec))
         self.fragments.extend(fragments_sec)
-        # If we are already in a rotational context, the rotations of secondary fragments should also be added:
-        for rot in self.rotsym_register:
-            rot.extend(fragments_sec)
+        # If we are already in a symmetry context, the symmetry-related secondary fragments should also be added:
+        for sym in self.sym_register:
+            sym.extend(fragments_sec)
 
     def _create_secondary_fragments(self, fragments, bno_threshold=None, bno_threshold_factor=0.1, solver='MP2'):
 

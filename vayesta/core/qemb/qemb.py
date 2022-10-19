@@ -38,6 +38,7 @@ from .register import FragmentRegister
 
 # Symmetry
 from vayesta.core.symmetry import SymmetryGroup
+from vayesta.core.symmetry import SymmetryInversion
 from vayesta.core.symmetry import SymmetryRotation
 from vayesta.core.symmetry import SymmetryTranslation
 
@@ -776,7 +777,12 @@ class Embedding:
             List of T-symmetry related fragments. These will have the attributes `sym_parent` and `sym_op` set.
         """
         symtype = symmetry['type']
-        if symtype == 'rotation':
+        if symtype == 'inversion':
+            center = symmetry['center']
+            unit = symmetry['unit']
+            symbol = symbol or 'I'
+            symlist = [1]
+        elif symtype == 'rotation':
             order = symmetry['order']
             axis = symmetry['axis']
             axes = {'x': (1,0,0), 'y': (0,1,0), 'z': (0,0,1)}
@@ -820,7 +826,9 @@ class Embedding:
         ftree = [[fx] for fx in fragments]
         for i, sym in enumerate(symlist):
 
-            if symtype == 'rotation':
+            if symtype == 'inversion':
+                sym_op = SymmetryInversion(self.symmetry, center=center)
+            elif symtype == 'rotation':
                 rotvec = 2*np.pi * (sym/order) * axis/np.linalg.norm(axis)
                 sym_op = SymmetryRotation(self.symmetry, rotvec, center=center)
             elif symtype == 'translation':
@@ -830,7 +838,9 @@ class Embedding:
             for flist in ftree:
                 parent = flist[0]
                 # Name for symmetry related fragment
-                if symtype == 'rotation':
+                if symtype == 'inversion':
+                    name = '%s_%s' % (parent.name, symbol)
+                elif symtype == 'rotation':
                     name = '%s_%s(%d)' % (parent.name, symbol, sym)
                 elif symtype == 'translation':
                     name = '%s_%s(%d,%d,%d)' % (parent.name, symbol, *sym)
@@ -870,12 +880,30 @@ class Embedding:
         fragments_sym = [fx for flist in ftree for fx in flist[1:]]
         return fragments_sym
 
+    def create_invsym_fragments(self, center, fragments=None, unit='Ang', **kwargs):
+        """Create inversion symmetric fragments.
+
+        Parameters
+        ----------
+        mf_tol: float, optional
+            Tolerance for the error of the mean-field density matrix between symmetry related fragments.
+            If the largest absolute difference in the density-matrix is above this value,
+            and exception will be raised. Default: 1e-6.
+
+        Returns
+        -------
+        fragments: list
+            List of T-symmetry related fragments. These will have have the attributes `sym_parent` and `sym_op` set.
+        """
+        symmetry = dict(type='inversion', center=center, unit=unit)
+        return self.create_symmetric_fragments(symmetry, fragments=fragments, **kwargs)
+
     def create_rotsym_fragments(self, order, axis, center, fragments=None, unit='Ang', **kwargs):
         """Create rotationally symmetric fragments.
 
         Parameters
         ----------
-        symtol: float, optional
+        mf_tol: float, optional
             Tolerance for the error of the mean-field density matrix between symmetry related fragments.
             If the largest absolute difference in the density-matrix is above this value,
             and exception will be raised. Default: 1e-6.
@@ -895,7 +923,7 @@ class Embedding:
         ----------
         translation: array(3) of integers
             Each element represent the number of translation vector corresponding to the a0, a1, and a2 lattice vectors of the cell.
-        symtol: float, optional
+        mf_tol: float, optional
             Tolerance for the error of the mean-field density matrix between symmetry related fragments.
             If the largest absolute difference in the density-matrix is above this value,
             and exception will be raised. Default: 1e-6.

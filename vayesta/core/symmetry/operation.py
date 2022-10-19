@@ -21,6 +21,7 @@ class SymmetryOperation:
 
     def __init__(self, group):
         self.group = group
+        log.debugv("Creating %s", self)
 
     @property
     def mol(self):
@@ -39,64 +40,10 @@ class SymmetryOperation:
         return self.group.nao
 
     def __call__(self):
-        raise AbstractMethodError()
+        raise AbstractMethodError
 
-class SymmetryIdentity(SymmetryOperation):
-
-    def __call__(self, a, **kwargs):
-        return a
-
-class SymmetryRotation(SymmetryOperation):
-
-    def __init__(self, group, rotvec, center=(0,0,0), unit='Bohr'):
-        log.debugv("Creating symmetry:  rotvec= %r  center= %r  unit= %r", rotvec, center, unit)
-        super().__init__(group)
-        self.rotvec = np.asarray(rotvec, dtype=float)
-        self.center = np.asarray(center, dtype=float)
-        if unit.lower().startswith('ang'):
-            self.center = self.center/BOHR
-
-        self.atom_reorder = self.get_atom_reorder()[0]
-        if self.atom_reorder is None:
-            raise RuntimeError("Symmetry %s not found" % self)
-        self.ao_reorder = self.get_ao_reorder(self.atom_reorder)[0]
-
-        self.angular_rotmats = pyscf.symm.basis._ao_rotation_matrices(self.mol, self.as_matrix())
-
-    def __repr__(self):
-        return "Rotation(%g,%g,%g)" % tuple(self.rotvec)
-
-    def as_matrix(self):
-        return scipy.spatial.transform.Rotation.from_rotvec(self.rotvec).as_matrix()
-
-    def __call__(self, a, axis=0):
-        if hasattr(axis, '__len__'):
-            for ax in axis:
-                a = self(a, axis=ax)
-            return a
-        if isinstance(a, (tuple, list)):
-            return tuple([self(x, axis=axis) for x in a])
-        a = np.moveaxis(a, axis, 0)
-        # Reorder AOs according to new atomic center
-        a = a[self.ao_reorder]
-        # Rotate between orbitals in p,d,f,... shells
-        ao_loc = self.mol.ao_loc
-        ao_start = ao_loc[0]
-        for bas, ao_end in enumerate(ao_loc[1:]):
-            l = self.mol.bas_angular(bas)
-            if l == 0:
-                ao_start = ao_end
-                continue
-            rot = self.angular_rotmats[l]
-            size = ao_end - ao_start
-            assert (rot.shape == (size, size))
-            slc = np.s_[ao_start:ao_end]
-            #log.debugv("bas= %d, ao_start= %d, ao_end= %d, l= %d, diag(rot)= %r",
-            #    bas, ao_start, ao_end, l, np.diag(rot))
-            a[slc] = einsum('x...,xy->y...', a[slc], rot)
-            ao_start = ao_end
-        a = np.moveaxis(a, 0, axis)
-        return a
+    def apply_to_point(self, r0):
+        raise AbstractMethodError
 
     def get_atom_reorder(self):
         """Reordering of atoms for a given rotation.
@@ -111,12 +58,11 @@ class SymmetryRotation(SymmetryOperation):
         """
         reorder = np.full((self.natom,), -1, dtype=int)
         inverse = np.full((self.natom,), -1, dtype=int)
-        rot = self.as_matrix()
 
         def assign():
             success = True
             for atom0, r0 in enumerate(self.mol.atom_coords()):
-                r1 = np.dot(rot, (r0 - self.center)) + self.center
+                r1 = self.apply_to_point(r0)
                 atom1, dist = self.group.get_closest_atom(r1)
                 if dist > self.xtol:
                     log.error("No symmetry related atom found for atom %d. Closest atom is %d with distance %.3e a.u.",
@@ -156,12 +102,127 @@ class SymmetryRotation(SymmetryOperation):
         assert np.all(np.arange(self.nao)[reorder][inverse] == np.arange(self.nao))
         return reorder, inverse
 
+    def rotate_angular_orbitals(self, a, rotmats):
+        """Rotate between orbitals in p,d,f,... shells."""
+        ao_loc = self.mol.ao_loc
+        ao_start = ao_loc[0]
+        b = a.copy()
+        for bas, ao_end in enumerate(ao_loc[1:]):
+            l = self.mol.bas_angular(bas)
+            # s orbitals do not require rotation:
+            if l == 0:
+                ao_start = ao_end
+                continue
+            #rot = self.angular_rotmats[l]
+            rot = rotmats[l]
+            size = ao_end - ao_start
+            assert (rot.shape == (size, size))
+            slc = np.s_[ao_start:ao_end]
+            #log.debugv("bas= %d, ao_start= %d, ao_end= %d, l= %d, diag(rot)= %r",
+            #    bas, ao_start, ao_end, l, np.diag(rot))
+            b[slc] = einsum('x...,xy->y...', a[slc], rot)
+            ao_start = ao_end
+        return b
+
+
+class SymmetryIdentity(SymmetryOperation):
+
+    def __repr__(self):
+        return "Identity"
+
+    def __call__(self, a, **kwargs):
+        return a
+
+    def apply_to_point(self, r0):
+        return r0
+
+    def get_atom_reorder(self):
+        reorder = list(range(self.mol.natm))
+        return reorder, reorder
+
+
+class SymmetryInversion(SymmetryOperation):
+
+    def __init__(self, group, center=(0,0,0)):
+        if not np.all(np.asarray(center) == 0):
+            raise NotImplementedError
+        self.center = center
+        super().__init__(group)
+
+        self.atom_reorder = self.get_atom_reorder()[0]
+        if self.atom_reorder is None:
+            raise RuntimeError("Symmetry %s not found" % self)
+        self.ao_reorder = self.get_ao_reorder(self.atom_reorder)[0]
+
+    def __repr__(self):
+        return "Inversion(%g,%g,%g)" % tuple(self.center)
+
+    def apply_to_point(self, r0):
+        return -r0
+
+    def __call__(self, a, axis=0):
+        if hasattr(axis, '__len__'):
+            for ax in axis:
+                a = self(a, axis=ax)
+            return a
+        if isinstance(a, (tuple, list)):
+            return tuple([self(x, axis=axis) for x in a])
+        a = np.moveaxis(a, axis, 0)
+        # Reorder AOs according to new atomic center
+        a = a[self.ao_reorder]
+        # Invert angular momentum in shells with l=1,3,5,... (p,f,h,...):
+        rotmats = [(-1)**i * np.eye(n) for (i, n) in enumerate(range(1,19,2))]
+        a = self.rotate_angular_orbitals(a, rotmats)
+        a = np.moveaxis(a, 0, axis)
+        return a
+
+
+class SymmetryRotation(SymmetryOperation):
+
+    def __init__(self, group, rotvec, center=(0,0,0), unit='Bohr'):
+        self.rotvec = np.asarray(rotvec, dtype=float)
+        self.center = np.asarray(center, dtype=float)
+        if unit.lower().startswith('ang'):
+            self.center = self.center/BOHR
+        super().__init__(group)
+
+        self.atom_reorder = self.get_atom_reorder()[0]
+        if self.atom_reorder is None:
+            raise RuntimeError("Symmetry %s not found" % self)
+        self.ao_reorder = self.get_ao_reorder(self.atom_reorder)[0]
+
+        self.angular_rotmats = pyscf.symm.basis._ao_rotation_matrices(self.mol, self.as_matrix())
+
+    def __repr__(self):
+        return "Rotation(%g,%g,%g)" % tuple(self.rotvec)
+
+    def as_matrix(self):
+        return scipy.spatial.transform.Rotation.from_rotvec(self.rotvec).as_matrix()
+
+    def apply_to_point(self, r0):
+        rot = self.as_matrix()
+        return np.dot(rot, (r0 - self.center)) + self.center
+
+    def __call__(self, a, axis=0):
+        if hasattr(axis, '__len__'):
+            for ax in axis:
+                a = self(a, axis=ax)
+            return a
+        if isinstance(a, (tuple, list)):
+            return tuple([self(x, axis=axis) for x in a])
+        a = np.moveaxis(a, axis, 0)
+        # Reorder AOs according to new atomic center
+        a = a[self.ao_reorder]
+        # Rotate between orbitals in p,d,f,... shells
+        a = self.rotate_angular_orbitals(a, self.angular_rotmats)
+        a = np.moveaxis(a, 0, axis)
+        return a
 
 class SymmetryTranslation(SymmetryOperation):
 
     def __init__(self, group, vector, boundary=None, atom_reorder=None, ao_reorder=None):
-        super().__init__(group)
         self.vector = np.asarray(vector)
+        super().__init__(group)
 
         if boundary is None:
             boundary = getattr(self.mol, 'boundary', 'PBC')
