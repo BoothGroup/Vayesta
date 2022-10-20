@@ -1,11 +1,12 @@
 import logging
 
 import numpy as np
+import scipy.sparse.linalg
 
 import pyscf.lib
 from vayesta.core.util import *
 from vayesta.rpa.rirpa import momzero_NI, energy_NI
-
+from .util import cg_inv
 
 class ssRIRPA:
     """Approach based on equations expressed succinctly in the appendix of
@@ -108,8 +109,7 @@ class ssRIRPA:
         D = np.concatenate([eps, eps])
         return D
 
-    def kernel_moms(self, max_moment, target_rot=None, npoints=48, ainit=10, integral_deduct="HO", opt_quad=True,
-                    adaptive_quad=False, alpha=1.0):
+    def kernel_moms(self, max_moment, target_rot=None, **kwargs):
         if target_rot is None:
             self.log.warning("Warning; generating full moment rather than local component. Will scale as O(N^5).")
             target_rot = np.eye(self.ov_tot)
@@ -118,8 +118,7 @@ class ssRIRPA:
         ri_mp, ri_apb, ri_amb = ri_decomps
         # First need to calculate zeroth moment.
         moments = np.zeros((max_moment + 1,) + target_rot.shape)
-        moments[0], err0 = self._kernel_mom0(target_rot, npoints, ainit, integral_deduct, opt_quad, adaptive_quad,
-                                             alpha, ri_decomps=ri_decomps)
+        moments[0], err0 = self._kernel_mom0(target_rot, ri_decomps=ri_decomps, **kwargs)
 
         if max_moment > 0:
             # Grab mean.
@@ -133,7 +132,7 @@ class ssRIRPA:
         return moments, err0
 
     def _kernel_mom0(self, target_rot=None, npoints=48, ainit=10, integral_deduct="HO", opt_quad=True,
-                     adaptive_quad=False, alpha=1.0, ri_decomps=None):
+                     adaptive_quad=False, alpha=1.0, ri_decomps=None, iterative=True):
 
         if target_rot is None:
             self.log.warning("Warning; generating full moment rather than local component. Will scale as O(N^5).")
@@ -180,20 +179,41 @@ class ssRIRPA:
         else:
             integral, err = niworker.kernel(a=ainit, opt_quad=opt_quad)
         # Need to construct RI representation of P^{-1}
-        ri_apb_inv = self.compress_low_rank(*construct_inverse_RI(self.D, ri_apb), name="(A+B)^-1")
-        mom0 = einsum("pq,q->pq", integral + integral_offset, self.D ** (-1)) - np.dot(
-            np.dot(integral + integral_offset, ri_apb_inv[0].T), ri_apb_inv[1])
+
+        mom0, pinv_norm = self.mult_pinv(integral+integral_offset, ri_apb, iterative=iterative)
+
         # Also need to convert error estimate of the integral into one for the actual evaluated quantity.
         # Use Cauchy-Schwartz to both obtain an upper bound on resulting mom0 error, and efficiently obtain upper bound
         # on norm of low-rank portion of P^{-1}.
         if err is not None:
-            pinv_norm = (sum(self.D ** (-2)) + 2 * einsum("p,np,np->", self.D ** (-1), ri_apb_inv[0], ri_apb_inv[1]) +
-                         np.linalg.norm(ri_apb_inv) ** 4) ** (0.5)
             mom0_err = err * pinv_norm
             self.check_errors(mom0_err, target_rot.size)
         else:
             mom0_err = None
         return mom0 + moment_offset, (mom0_err, self.test_eta0_error(mom0 + moment_offset, target_rot, ri_apb, ri_amb))
+
+    def mult_pinv(self, intval, ri_apb, iterative=True):
+        if iterative:
+            # Define operator for application of P.
+            def matvec(v):
+                if len(v.shape) == 2:
+                    assert(v.shape[1] == 1)
+                    v = v[:,0]
+                return np.multiply(self.D, v) + dot(ri_apb[0].T, dot(ri_apb[1], v))
+            op = scipy.sparse.linalg.LinearOperator((self.ov_tot, self.ov_tot), matvec=matvec)
+            mom0 = cg_inv(op, intval.T, log=self.log, inplace=True).T
+
+            # Need to find efficient scheme to approximate norm of inverse.
+            pinv_norm = 1.0
+
+        else:
+            ri_apb_inv = self.compress_low_rank(*construct_inverse_RI(self.D, ri_apb), name="(A+B)^-1")
+
+            pinv_norm = (sum(self.D ** (-2)) + 2 * einsum("p,np,np->", self.D ** (-1), ri_apb_inv[0], ri_apb_inv[1]) +
+                         np.linalg.norm(ri_apb_inv) ** 4) ** (0.5)
+
+            mom0 = einsum("pq,q->pq", intval, self.D ** (-1)) - np.dot(np.dot(intval, ri_apb_inv[0].T), ri_apb_inv[1])
+        return mom0, pinv_norm
 
     def test_eta0_error(self, mom0, target_rot, ri_apb, ri_amb):
         """Test how well our obtained zeroth moment obeys relation used to derive it, namely

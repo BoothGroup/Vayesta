@@ -211,6 +211,11 @@ class MomzeroOffsetCalcGaussLag(BaseMomzeroOffset, NumericalIntegratorGaussianSe
 class MomzeroOffsetCalcCC(BaseMomzeroOffset, NumericalIntegratorClenCurSemiInfinite):
     pass
 
+class NIMomZeroIterative(MomzeroDeductHigherOrder):
+
+    def eval_contrib(self, freq):
+        self.target_rot
+
 def diag_sqrt_contrib(D, freq):
     M = (D + freq ** 2) ** (-1)
     return (np.full_like(D, fill_value=1.0) - (freq ** 2) * M) / np.pi
