@@ -27,7 +27,7 @@ class CCSD_Solver(ClusterSolver):
     @dataclasses.dataclass
     class Options(ClusterSolver.Options):
         # Convergence
-        maxiter: int = 100              # Max number of iterations
+        max_cycle: int = 100            # Max number of iterations
         conv_tol: float = None          # Convergence energy tolerance
         conv_tol_normt: float = None    # Convergence amplitude tolerance
         init_guess: str = 'MP2'         # ['MP2', 'CISD']
@@ -59,7 +59,7 @@ class CCSD_Solver(ClusterSolver):
         mo_coeff = self.cluster.c_total
         solver = solver_cls(self.mf, mo_coeff=mo_coeff, mo_occ=self.mf.mo_occ, frozen=frozen)
         # Options
-        if self.opts.maxiter is not None: solver.max_cycle = self.opts.maxiter
+        if self.opts.max_cycle is not None: solver.max_cycle = self.opts.max_cycle
         if self.opts.conv_tol is not None: solver.conv_tol = self.opts.conv_tol
         if self.opts.conv_tol_normt is not None: solver.conv_tol_normt = self.opts.conv_tol_normt
         self.solver = solver
