@@ -299,7 +299,7 @@ class Fragment(BaseFragment):
     def get_solver_options(self, solver):
         # TODO: fix this mess...
         solver_opts = {}
-        # conv_tol, solve_lambda,...:
+        # conv_tol, max_cycle, solve_lambda,...:
         solver_opts.update(self.opts.solver_options)
         pass_through = []
         if 'CCSD' in solver.upper():

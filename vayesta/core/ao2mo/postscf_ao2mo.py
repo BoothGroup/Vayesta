@@ -4,6 +4,7 @@ import numpy as np
 
 import pyscf
 import pyscf.mp
+import pyscf.ci
 import pyscf.cc
 import pyscf.lib
 from pyscf.mp.mp2 import _mo_without_core
@@ -120,7 +121,7 @@ def postscf_kao2gmo(postscf, gdf, fock, mo_energy, e_hf=None, mo_coeff=None):
         mo_coeffs = (mo_coeff, mo_coeff)
         pack = True
         store_vvl = True
-    elif isinstance(postscf, pyscf.cc.ccsd.CCSD):
+    elif isinstance(postscf, (pyscf.ci.cisd.CISD, pyscf.cc.ccsd.CCSD)):
         eris = CCSD_ChemistsERIs()
         mo_coeffs = (mo_coeff, mo_coeff)
         pack = True
@@ -199,7 +200,7 @@ def postscf_kao2gmo_uhf(postscf, gdf, fock, mo_energy, e_hf=None, mo_coeff=None)
         # Only occ-vir block needed for MP2
         mo_coeffs_a = (moa[:,occa], moa[:,vira])
         mo_coeffs_b = (mob[:,occb], mob[:,virb])
-    elif isinstance(postscf, pyscf.cc.uccsd.UCCSD):
+    elif isinstance(postscf, (pyscf.ci.ucisd.UCISD, pyscf.cc.uccsd.UCCSD)):
         eris = UCCSD_ChemistsERIs()
         mo_coeffs_a = (moa, moa)
         mo_coeffs_b = (mob, mob)
