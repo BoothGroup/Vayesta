@@ -30,7 +30,7 @@ from vayesta.core.bath import R2_Bath
 # Other
 from vayesta.misc.cubefile import CubeFile
 from vayesta.mpi import mpi
-from vayesta.solver_rewrite import get_solver_class, ClusterHamiltonian
+from vayesta.solver_rewrite import get_solver_class, check_solver_config, ClusterHamiltonian
 
 # Get MPI rank of fragment
 get_fragment_mpi_rank = lambda *args : args[0].mpi_rank
@@ -80,11 +80,11 @@ class Fragment:
 
 
     def __init__(self, base, fid, name, c_frag, c_env,
-            solver=None,
-            atoms=None, aos=None, active=True,
-            sym_parent=None, sym_op=None,
-            mpi_rank=0, flags=None,
-            log=None, **kwargs):
+                 solver=None,
+                 atoms=None, aos=None, active=True,
+                 sym_parent=None, sym_op=None,
+                 mpi_rank=0, flags=None,
+                 log=None, **kwargs):
         """Abstract base class for quantum embedding fragments.
 
         The fragment may keep track of associated atoms or atomic orbitals, using
@@ -163,6 +163,9 @@ class Fragment:
         solver = solver or self.base.solver
         #if solver not in self.base.valid_solvers:
         #    raise ValueError("Unknown solver: %s" % solver)
+
+        self.check_solver(solver)
+
         self.solver = solver
         self.c_frag = c_frag
         self.c_env = c_env
@@ -191,7 +194,7 @@ class Fragment:
     def __repr__(self):
         if mpi:
             return '%s(id= %d, name= %s, mpi_rank= %d)' % (
-                    self.__class__.__name__, self.id, self.name, self.mpi_rank)
+                self.__class__.__name__, self.id, self.name, self.mpi_rank)
         return '%s(id= %d, name= %s)' % (self.__class__.__name__, self.id, self.name)
 
     def __str__(self):
@@ -331,7 +334,7 @@ class Fragment:
 
     def reset(self, reset_bath=True, reset_cluster=True, reset_eris=True):
         self.log.debugv("Resetting %s (reset_bath= %r, reset_cluster= %r, reset_eris= %r)",
-                self, reset_bath, reset_cluster, reset_eris)
+                        self, reset_bath, reset_cluster, reset_eris)
         if reset_bath:
             self._dmet_bath = None
             self._bath_factory_occ = None
@@ -597,14 +600,14 @@ class Fragment:
                 fragovlp = max(abs(fragovlp[0]).max(), abs(fragovlp[1]).max())
             if (fragovlp > 1e-8):
                 self.log.critical("Translation (%d,%d,%d) of fragment %s not orthogonal to original fragment (overlap= %.3e)!",
-                            dx, dy, dz, self.name, fragovlp)
+                                  dx, dy, dz, self.name, fragovlp)
                 raise RuntimeError("Overlapping fragment spaces.")
 
             # Add fragment
             frag_id = self.base.register.get_next_id()
             frag = self.base.Fragment(self.base, frag_id, name, c_frag_t, c_env_t,
-                    sym_parent=self, sym_op=sym_op, mpi_rank=self.mpi_rank,
-                    **self.opts.asdict())
+                                      sym_parent=self, sym_op=sym_op, mpi_rank=self.mpi_rank,
+                                      **self.opts.asdict())
             self.base.fragments.append(frag)
             # Check symmetry
             # (only for the primitive translations (1,0,0), (0,1,0), and (0,0,1) to reduce number of sym_op(c_env) calls)
@@ -612,11 +615,11 @@ class Fragment:
                 charge_err, spin_err = self.get_symmetry_error(frag, dm1=dm1)
                 if max(charge_err, spin_err) > symtol:
                     self.log.critical("Mean-field DM1 not symmetric for translation (%d,%d,%d) of %s (errors: charge= %.3e, spin= %.3e)!",
-                        dx, dy, dz, self.name, charge_err, spin_err)
+                                      dx, dy, dz, self.name, charge_err, spin_err)
                     raise RuntimeError("MF not symmetric under translation (%d,%d,%d)" % (dx, dy, dz))
                 else:
                     self.log.debugv("Mean-field DM symmetry error for translation (%d,%d,%d) of %s: charge= %.3e, spin= %.3e",
-                        dx, dy, dz, self.name, charge_err, spin_err)
+                                    dx, dy, dz, self.name, charge_err, spin_err)
 
             fragments.append(frag)
         return fragments
@@ -1013,6 +1016,14 @@ class Fragment:
         cube = CubeFile(self.mol, filename=filename, nx=nx, ny=ny, nz=nz, **kwargs)
         cube.add_orbital(self.c_frag)
         cube.write()
+
+    def check_solver(self, solver):
+        is_uhf = np.ndim(self.base.mo_coeff[1]) == 2
+        if self.opts.screening:
+            is_eb = "crpa_full" in self.opts.screening
+        else:
+            is_eb = False
+        check_solver_config(is_uhf, is_eb, solver, self.log)
 
     def get_solver(self, solver=None):
         # This detects based on fragment what kind of Hamiltonian is appropriate (restricted and/or EB).

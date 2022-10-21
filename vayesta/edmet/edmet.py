@@ -10,6 +10,7 @@ from vayesta.dmet import RDMET
 from vayesta.dmet.updates import MixUpdate, DIISUpdate
 from vayesta.rpa import ssRPA, ssRIRPA
 from .fragment import EDMETFragment, EDMETFragmentExit
+from vayesta.solver_rewrite import check_solver_config
 
 @dataclasses.dataclass
 class Options(RDMET.Options):
@@ -54,6 +55,11 @@ class EDMET(RDMET):
         eps = (eps.T - self.mo_energy[:self.nocc]).T
         eps = eps.reshape(-1)
         return eps, eps
+
+    def check_solver(self, solver):
+        is_uhf = np.ndim(self.mo_coeff[1]) == 2
+        is_eb = True
+        check_solver_config(is_uhf, is_eb, solver, self.log)
 
     def kernel(self):
 

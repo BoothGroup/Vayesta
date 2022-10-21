@@ -36,6 +36,7 @@ from vayesta.core.qemb.scrcoulomb import build_screened_eris
 from vayesta.mpi import mpi
 from .register import FragmentRegister
 from vayesta.rpa import ssRIRPA
+from vayesta.solver_rewrite import check_solver_config
 
 # Symmetry
 from vayesta.core.symmetry import SymmetryGroup
@@ -197,12 +198,9 @@ class Embedding:
         this will hold the original Gaussian density-fitting object.
     """
 
-
-
     # Shadow these in inherited methods:
     Fragment = Fragment
     Options = Options
-    valid_solvers = ['HF', 'MP2', 'CISD', 'CCSD', 'TCCSD', 'FCI', 'FCI-SPIN0', 'FCI-SPIN1', 'Dump', 'EBCC']
 
     # Deprecated:
     is_rhf = True
@@ -246,9 +244,7 @@ class Embedding:
 
             # 5) Other
             # --------
-
-            #if solver not in self.valid_solvers:
-            #    raise ValueError("Unknown solver: %s" % solver)
+            self.check_solver(solver)
             self.solver = solver
             self.symmetry = SymmetryGroup(self.mol, xtol=self.opts.symmetry_tol)
             nimages = getattr(self.mf, 'subcellmesh', None)
@@ -1599,3 +1595,11 @@ class Embedding:
         """Decorator for Brueckner-DMET."""
         self.with_scmf = Brueckner(self, *args, **kwargs)
         self.kernel = self.with_scmf.kernel.__get__(self)
+
+    def check_solver(self, solver):
+        is_uhf = np.ndim(self.mo_coeff[1]) == 2
+        if self.opts.screening:
+            is_eb = "crpa_full" in self.opts.screening
+        else:
+            is_eb = False
+        check_solver_config(is_uhf, is_eb, solver, self.log)

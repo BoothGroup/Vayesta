@@ -7,8 +7,7 @@ import scipy.linalg
 
 from vayesta.core.util import *
 from vayesta.dmet.fragment import DMETFragment
-from vayesta.core.bath import BNO_Threshold
-from vayesta.solver_rewrite import get_solver_class
+from vayesta.solver_rewrite import check_solver_config
 from vayesta.core.bath import helper
 
 
@@ -115,6 +114,11 @@ class EDMETFragment(DMETFragment):
     @energy_couplings.setter
     def energy_couplings(self, value):
         self._ecouplings = value
+
+    def check_solver(self, solver):
+        is_uhf = np.ndim(self.base.mo_coeff[1]) == 2
+        is_eb = True
+        check_solver_config(is_uhf, is_eb, solver, self.log)
 
     def get_fock(self):
         f = self.base.get_fock()
