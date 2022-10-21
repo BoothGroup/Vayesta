@@ -40,7 +40,7 @@ def get_amplitude_norm(t1, t2):
         t2norm = np.linalg.norm(t2)
     # Unrestricted
     elif np.ndim(t1[0]) == 2:
-        t1norm = (np.linalg.norm(t1[0])+np.linalg.norm(t1[1]))/2,
+        t1norm = (np.linalg.norm(t1[0])+np.linalg.norm(t1[1]))/2
         t2norm = (np.linalg.norm(t2[0])+2*np.linalg.norm(t2[1])+np.linalg.norm(t2[2]))/2
     return t1norm, t2norm
 
