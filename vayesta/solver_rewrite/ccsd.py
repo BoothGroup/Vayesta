@@ -26,8 +26,8 @@ class RCCSD_Solver(ClusterSolver):
         tcc_fci_opts: dict = dataclasses.field(default_factory=dict)
 
     def kernel(self, t1=None, t2=None, l1=None, l2=None, coupled_fragments=None, t_diagnostic=True):
-        mf_clus = self.hamil.to_pyscf_mf()
-        mycc = self.get_solver_class()(mf_clus)
+        mf_clus, frozen = self.hamil.to_pyscf_mf(allow_dummy_orbs=True)
+        mycc = self.get_solver_class()(mf_clus, frozen=frozen)
 
         if self.opts.max_cycle is not None:
             mycc.max_cycle = self.opts.max_cycle

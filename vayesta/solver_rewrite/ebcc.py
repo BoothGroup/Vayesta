@@ -28,7 +28,7 @@ class REBCC_Solver(ClusterSolver):
     def kernel(self):
         import ebcc
         # Use pyscf mean-field representation.
-        mf_clus = self.hamil.to_pyscf_mf()
+        mf_clus, frozen = self.hamil.to_pyscf_mf(allow_dummy_orbs=False)
         mycc = ebcc.EBCC(mf_clus, log=self.log, ansatz=self.opts.ansatz,
                          **self.get_nonull_solver_opts())
         mycc.kernel()
@@ -174,7 +174,7 @@ class EB_REBCC_Solver(REBCC_Solver):
 
     def kernel(self):
         import ebcc
-        mf_clus = self.hamil.to_pyscf_mf()
+        mf_clus, frozen = self.hamil.to_pyscf_mf(allow_dummy_orbs=False)
 
         mycc = ebcc.EBCC(mf_clus, log=self.log, ansatz=self.opts.ansatz,
                          boson_excitations=self.opts.boson_excitations,

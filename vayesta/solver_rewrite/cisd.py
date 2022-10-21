@@ -7,9 +7,9 @@ from ._uccsd_eris import uao2mo
 class RCISD_Solver(ClusterSolver):
 
     def kernel(self, *args, **kwargs):
-        mf_clus = self.hamil.to_pyscf_mf()
+        mf_clus, frozen = self.hamil.to_pyscf_mf(allow_dummy_orbs=True)
         solver_class = self.get_solver_class()
-        mycisd = solver_class(mf_clus)
+        mycisd = solver_class(mf_clus, frozen=frozen)
         ecisd, civec = mycisd.kernel()
         c0, c1, c2 = mycisd.cisdvec_to_amplitudes(civec)
         self.wf = CISD_WaveFunction(self.hamil.mo, c0, c1, c2)

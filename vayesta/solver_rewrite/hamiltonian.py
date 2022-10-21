@@ -145,10 +145,66 @@ class RClusterHamiltonian:
 
         return eris
 
-    def to_pyscf_mf(self, force_bare_eris=False, overwrite_fock=False):
+    def to_pyscf_mf(self, allow_dummy_orbs=False, force_bare_eris=False, overwrite_fock=False):
+        """
+
+        Parameters
+        ----------
+        allow_dummy_orbs : bool, optional
+            Whether the introduction of dummy orbitals into the mean-field, which are then frozen, is permitted.
+            Default is False
+        force_bare_eris : bool, optional
+            Forces resultant mean-field object to use unscreened eris.
+            Default is False
+        overwrite_fock : bool, optional
+            Whether `mf.get_fock` should be set to `self.get_fock`. Mainly for use in UHF.
+            Default is False
+
+        Returns
+        -------
+        clusmf : pyscf.scf.SCF
+            Representation of cluster as pyscf mean-field.
+        orbs_to_freeze : list of lists
+            Which orbitals to freeze in each spin channel.
+        """
         # Using this requires equal spin channels.
-        self.assert_equal_spin_channels()
+        if not allow_dummy_orbs:
+            self.assert_equal_spin_channels()
+
+        nmo = max(self.ncas)
+        nsm = min(self.ncas)
+        # Now, define function to equalise spin channels.
+        if nsm == nmo:
+            def pad_to_match(array, diag_val=0.0):
+                return array
+            orbs_to_freeze = None
+        else:
+            padchannel = self.ncas.index(nmo)
+            orbs_to_freeze = [[], []]
+            orbs_to_freeze[padchannel] = list(range(nsm, nmo))
+
+            def pad_to_match(array, diag_val=0.0):
+                # Pad the smaller spin channel to match larger one.
+                unpadded = array[padchannel]
+                new = np.zeros((nmo,) * np.ndim(unpadded))
+                inds = (slice(0, nsm),) * np.ndim(unpadded)
+                new[inds] = unpadded
+                for i in range(nsm, nmo):
+                    idx = (i,) * np.ndim(unpadded)
+                    new[idx] = diag_val
+                array[padchannel] = new
+                return np.array(array)
+
         nao, mo_coeff, mo_energy, mo_occ, ovlp = self.get_clus_mf_info(ao_basis=False)
+
+        mo_coeff = pad_to_match(mo_coeff, 1.0)
+        dummy_energy = 1.0 + np.array(mo_energy).max()
+        mo_energy = pad_to_match(mo_energy, dummy_energy)
+        mo_occ = pad_to_match(mo_occ, 0.0)
+        ovlp = pad_to_match(ovlp, 1.0)
+
+        bare_eris = pad_to_match(self.get_eris_bare(), 0.0)
+        heff = pad_to_match(self.get_heff(eris=bare_eris, with_vext=True), 0.0)
 
         clusmol = pyscf.gto.mole.Mole()
         clusmol.nelec = self.nelec
@@ -157,28 +213,24 @@ class RClusterHamiltonian:
         # If we wanted to actually run a HF calculation would need to replace `scf.energy_elec()` to support
         # spin-dependent output to `get_hcore()`.
 
-        clusmol.nao = self.ncas[0]
+        clusmol.nao = nmo
         clusmol.build()
-
-        bare_eris = self.get_eris_bare()
-
-        heff = self.get_heff(eris=bare_eris, with_vext=True)
 
         clusmf = self._scf_class(clusmol)
         clusmf.get_hcore = lambda *args, **kwargs: heff
         clusmf.get_ovlp = lambda *args, **kwargs: ovlp
         if overwrite_fock:
-            clusmf.get_fock = lambda *args, **kwargs: self.get_fock(with_vext=True)
+            clusmf.get_fock = lambda *args, **kwargs: pad_to_match(self.get_fock(with_vext=True), dummy_energy)
             clusmf.get_veff = lambda *args, **kwargs: np.array(clusmf.get_fock(*args, **kwargs)) - np.array(clusmf.get_hcore())
         # This could be replaced by a density fitted approach if we wanted.
         if force_bare_eris:
             clusmf._eri = bare_eris
         else:
-            clusmf._eri = self.get_eris()
+            clusmf._eri = pad_to_match(self.get_eris())
         clusmf.mo_coeff = mo_coeff
         clusmf.mo_occ = mo_occ
         clusmf.mo_energy = mo_energy
-        return clusmf
+        return clusmf, orbs_to_freeze
 
     def calc_loc_erpa(self):
 
@@ -340,9 +392,9 @@ class UClusterHamiltonian(RClusterHamiltonian):
                     self._fragment.base.get_eris_array(coeff[1]))
         return eris
 
-    def to_pyscf_mf(self, force_bare_eris=False):
-        # For
-        return super().to_pyscf_mf(overwrite_fock=True, force_bare_eris=force_bare_eris)
+    def to_pyscf_mf(self, allow_dummy_orbs=True, force_bare_eris=False, overwrite_fock=False):
+        # Need to overwrite fock integrals to avoid errors.
+        return super().to_pyscf_mf(allow_dummy_orbs=allow_dummy_orbs, force_bare_eris=force_bare_eris, overwrite_fock=True)
 
 
 class EB_RClusterHamiltonian(RClusterHamiltonian):
