@@ -239,7 +239,7 @@ class Fragment:
     @property
     def id_name(self):
         """Use this whenever a unique name is needed (for example to open a separate file for each fragment)."""
-        return "%s-%s" % (self.id, self.trimmed_name())
+        return "%d-%s" % (self.id, self.trimmed_name())
 
     def change_options(self, **kwargs):
         self.opts.replace(**kwargs)
