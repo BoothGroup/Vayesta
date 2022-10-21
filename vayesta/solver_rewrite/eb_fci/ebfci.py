@@ -13,12 +13,12 @@ class REBFCI:
     """
     solver = ebfci_slow
 
-    def __init__(self, hamil, freqs, couplings, max_boson_occ=5, conv_tol=1e-12):
+    def __init__(self, hamil, freqs, couplings, max_boson_occ=5, conv_tol=None):
         self.hamil = hamil
         self.max_boson_occ = max_boson_occ
         self.freqs = freqs
         self.couplings = couplings
-        self.conv_tol = conv_tol
+        self.conv_tol = conv_tol or 1e-12
 
     @property
     def norb(self):

@@ -9,6 +9,7 @@ from .ccsd import RCCSD_Solver, UCCSD_Solver
 from .mp2 import RMP2_Solver, UMP2_Solver
 from.cisd import RCISD_Solver, UCISD_Solver
 
+
 def is_uhf(ham):
     return issubclass(type(ham), UClusterHamiltonian)
 

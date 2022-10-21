@@ -23,7 +23,7 @@ class MolecularDFEDMETTest(TestCase):
         emb = edmet.EDMET(
                 testsystems.h6_sto6g_df.rhf(),
                 solver='FCI',
-                solver_options={"max_boson_occ":1},
+                solver_options={"max_boson_occ":1, "conv_tol":1e-12},
                 conv_tol=self.CONV_TOL,
                 bosonic_interaction="direct",
                 oneshot=True,
@@ -43,7 +43,7 @@ class MolecularDFEDMETTest(TestCase):
         emb = edmet.EDMET(
                 testsystems.h6_sto6g_df.rhf(),
                 solver='FCI',
-                solver_options={"max_boson_occ":2},
+                solver_options={"max_boson_occ":2, "conv_tol":1e-12},
                 conv_tol=self.CONV_TOL,
                 bosonic_interaction="direct",
                 oneshot=True,
@@ -58,7 +58,7 @@ class MolecularDFEDMETTest(TestCase):
         uemb = edmet.EDMET(
                 testsystems.h6_sto6g_df.uhf(),
                 solver='FCI',
-                solver_options={"max_boson_occ":2},
+                solver_options={"max_boson_occ":2, "conv_tol":1e-12},
                 conv_tol=self.CONV_TOL,
                 bosonic_interaction="direct",
                 oneshot=True,
@@ -79,7 +79,7 @@ class MolecularDFEDMETTest(TestCase):
     def test_h2o_ccpvdz_EBCCSD_IAO(self):
         emb = edmet.EDMET(
                 testsystems.water_ccpvdz_df.rhf(),
-                solver='EBCCSD',
+                solver='CCSD',
                 conv_tol=self.CONV_TOL,
                 oneshot=True,
                 make_dd_moments=False,
@@ -95,7 +95,7 @@ class MolecularDFEDMETTest(TestCase):
 
         uemb = edmet.EDMET(
                 testsystems.water_ccpvdz_df.uhf(),
-                solver='EBCCSD',
+                solver='CCSD',
                 conv_tol=self.CONV_TOL,
                 oneshot=True,
                 make_dd_moments=False,
