@@ -134,14 +134,20 @@ def ketene(cc_bond=None):
         atom[2][1] = new_o
     return atom
 
-def ring(atom, natom, bond_length, z=0.0):
-    r = bond_length/(2*np.sin(np.pi/natom))
+def ring(atom, natom, bond_length=None, radius=None, z=0.0, numbering=None):
+    if radius is None:
+        r = bond_length/(2*np.sin(np.pi/natom))
+    else:
+        r = radius
     atoms = []
     if isinstance(atom, str):
         atom = [atom]
     for i in range(natom):
         theta = i * (2*np.pi/natom)
-        atoms.append([atom[i%len(atom)], np.asarray([r*np.cos(theta), r*np.sin(theta), z])])
+        atom_i = atom[i%len(atom)]
+        if numbering is not None:
+            atom_i += str(int(numbering) + i)
+        atoms.append([atom_i, np.asarray([r*np.cos(theta), r*np.sin(theta), z])])
     return atoms
 
 # --- From datafiles:
@@ -150,8 +156,23 @@ def acetic_acid():
     atom = _load_datafile('acetic.dat')
     return atom
 
-def ferrocene():
+def ferrocene_b3lyp():
     atom = _load_datafile('ferrocene.dat')
+    return atom
+
+def ferrocene(atoms=['Fe', 'C', 'H'], conformation='eclipsed', dFeCp=1.648, dCC=1.427, dCH=1.079, aCpH=0.52, numbering=None):
+    """From https://pubs.acs.org/doi/pdf/10.1021/ct700152c"""
+    if conformation != 'eclipsed':
+        raise NotImplementedError
+
+    atom = [(atoms[0] + ('1' if numbering else ''), np.asarray((0, 0, 0)))]
+    atom += ring(atoms[1], 5, dCC, z=dFeCp, numbering=2 if numbering else None)
+    atom += ring(atoms[1], 5, dCC, z=-dFeCp, numbering=7 if numbering else None)
+    rHH = dCC/(2*np.sin(np.pi/5)) + dCH*np.cos(aCpH*np.pi/180)
+    zH = dCH*np.sin(aCpH*np.pi/180)
+    atom += ring(atoms[2], 5, radius=rHH, z=dFeCp-zH, numbering=12 if numbering else None)
+    atom += ring(atoms[2], 5, radius=rHH, z=-dFeCp+zH, numbering=17 if numbering else None)
+
     return atom
 
 def propyl():
