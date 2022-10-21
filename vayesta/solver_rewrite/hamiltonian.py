@@ -369,7 +369,7 @@ class EB_RClusterHamiltonian(RClusterHamiltonian):
     def couplings(self):
         if self.opts.polaritonic_shift:
             return self.get_polaritonic_shifted_couplings()
-        return self.unshifted_couplings
+        return self.unshifted_couplings[0]
 
     def set_polaritonic_shift(self, freqs, couplings):
         no = self.cluster.nocc_active
@@ -413,6 +413,12 @@ class EB_UClusterHamiltonian(UClusterHamiltonian, EB_RClusterHamiltonian):
     class Options(EB_RClusterHamiltonian.Options):
         polaritonic_shift: bool = True
 
+    @property
+    def couplings(self):
+        if self.opts.polaritonic_shift:
+            return self.get_polaritonic_shifted_couplings()
+        return self.unshifted_couplings
+
     def get_heff(self, eris=None, fock=None, with_vext=True):
         heff = super().get_heff(eris, fock, with_vext)
 
@@ -422,7 +428,7 @@ class EB_UClusterHamiltonian(UClusterHamiltonian, EB_RClusterHamiltonian):
         return heff
 
     def get_polaritonic_shifted_couplings(self):
-        temp = np.multiply(self.polaritonic_shift, self.bos_freqs) /  sum(self.cluster.nocc_active)
+        temp = np.multiply(self.polaritonic_shift, self.bos_freqs) / sum(self.cluster.nocc_active)
         return tuple([x - einsum("pq,n->npq", np.eye(x.shape[1]), temp) for x in self.unshifted_couplings])
 
     def get_eb_dm_polaritonic_shift(self, dm1):

@@ -175,11 +175,12 @@ class EB_REBCC_Solver(REBCC_Solver):
     def kernel(self):
         import ebcc
         mf_clus = self.hamil.to_pyscf_mf()
+
         mycc = ebcc.EBCC(mf_clus, log=self.log, ansatz=self.opts.ansatz,
                          boson_excitations=self.opts.boson_excitations,
                          fermion_coupling_rank=self.opts.fermion_coupling_rank,
                          boson_coupling_rank=self.opts.boson_coupling_rank,
-                         omega=self.hamil.bos_freqs, g=self.hamil.couplings,
+                         omega=self.hamil.bos_freqs, g=self.get_couplings(),
                          **self.get_nonull_solver_opts())
         mycc.kernel()
         self.converged = mycc.converged
@@ -189,11 +190,17 @@ class EB_REBCC_Solver(REBCC_Solver):
         # Currently no electron-boson implementation of wavefunction approaches, so need to use dummy object.
         self.construct_wavefunction(mycc, self.hamil.mo)
 
+    def get_couplings(self):
+        # EBCC wants contribution  g_{xpq} p^\\dagger q b; need to transpose to get this contribution.
+        return self.hamil.couplings.transpose(0, 2, 1)
+
     def construct_wavefunction(self, mycc, mo):
         super().construct_wavefunction(mycc, mo)
         def make_rdmeb(*args, **kwargs):
             dm = mycc.make_eb_coup_rdm()
-            return dm[0].transpose(1,2,0), dm[1].transpose(1,2,0)
+            # We just want the bosonic excitation component.
+            dm = dm[0].transpose(1, 2, 0)
+            return (dm/2, dm/2)
         self.wf.make_rdmeb = make_rdmeb
 
 
@@ -201,3 +208,16 @@ class EB_UEBCC_Solver(EB_REBCC_Solver, UEBCC_Solver):
     @dataclasses.dataclass
     class Options(UEBCC_Solver.Options, EB_REBCC_Solver.Options):
         pass
+
+    def get_couplings(self):
+        # EBCC wants contribution  g_{xpq} p^\\dagger q b; need to transpose to get this contribution.
+        return tuple([x.transpose(0, 2, 1) for x in self.hamil.couplings])
+
+    def construct_wavefunction(self, mycc, mo):
+        super().construct_wavefunction(mycc, mo)
+        def make_rdmeb(*args, **kwargs):
+            dm = mycc.make_eb_coup_rdm()
+            # We just want the bosonic excitation component.
+            dm = (dm.aa[0].transpose(1, 2, 0), dm.bb[0].transpose(1, 2, 0))
+            return dm
+        self.wf.make_rdmeb = make_rdmeb

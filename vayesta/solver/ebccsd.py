@@ -62,8 +62,8 @@ class EBCCSD_Solver(EBClusterSolver):
         # This interface handles all conversion into GHF quantities for us.
         # [TODO] Double check if we need this transpose in the couplings.
         #  EBCC expects the annihilation term but may also swap the indexing of fermionic operators...
-        inp, couplings = self.get_input(eris)
-        self.solver = ebccsd.EBCCSD.fromUHFarrays(*inp,
+        #inp, couplings = self.get_input(eris)
+        self.solver = ebccsd.EBCCSD.fromUHFobj(self.hamil.to_pyscf_mf().to_uhf(),
                                                   gmat=couplings,
                                                   omega=self.fragment.bos_freqs,
                                                   rank=self.opts.rank, autogen_code=True)
