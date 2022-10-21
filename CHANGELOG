@@ -1,0 +1,24 @@
+Vayesta 1.0.1 (19/10/2022)
+==========================
+
+    Additions
+    ---------
+    - Symmetry operations as contextmanager (see examples ewf/molecules/73 and ewf/molecules/74)
+    - Inversion and reflection symmetry
+    - Direct contraction of ERI blocks with 2-DM cumulant blocks for RCCSD,
+      without building complete cluster 2-DM cumulant.
+    - Support for two DMET-cluster projectors in MP2-BNO construction
+    - EwDMET (energy-weighted DMET) bath orbitals
+    - CISD initial guess for CCSD solver
+
+    Fixes
+    -----
+    - MPI SCF decorator for molecules with density-fitting
+    - Wrong shape bug in UMP2-BNO construction in large systems
+    - Wrong shape bug for rotational symmetry for basis sets with
+      multiple l>0 shells per PySCF bas index
+
+Vayesta 1.0.0 (12/10/2022)
+==========================
+
+    Initial release

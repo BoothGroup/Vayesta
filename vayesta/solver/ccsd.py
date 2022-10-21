@@ -14,11 +14,12 @@ from vayesta.core.types import Orbitals
 from vayesta.core.types import WaveFunction
 from vayesta.core.types import CCSD_WaveFunction
 from vayesta.core.qemb import scrcoulomb
-from .solver import ClusterSolver
-from . import coupling
-from . import tccsd
 from vayesta.core.ao2mo import helper
 from vayesta.core.util import *
+from .solver import ClusterSolver
+
+from . import coupling
+from . import tccsd
 
 
 class CCSD_Solver(ClusterSolver):
@@ -26,9 +27,10 @@ class CCSD_Solver(ClusterSolver):
     @dataclasses.dataclass
     class Options(ClusterSolver.Options):
         # Convergence
-        maxiter: int = 100              # Max number of iterations
+        max_cycle: int = 100            # Max number of iterations
         conv_tol: float = None          # Convergence energy tolerance
         conv_tol_normt: float = None    # Convergence amplitude tolerance
+        init_guess: str = 'MP2'         # ['MP2', 'CISD']
         # Self-consistent mode
         sc_mode: int = None
         # DM
@@ -57,7 +59,7 @@ class CCSD_Solver(ClusterSolver):
         mo_coeff = self.cluster.c_total
         solver = solver_cls(self.mf, mo_coeff=mo_coeff, mo_occ=self.mf.mo_occ, frozen=frozen)
         # Options
-        if self.opts.maxiter is not None: solver.max_cycle = self.opts.maxiter
+        if self.opts.max_cycle is not None: solver.max_cycle = self.opts.max_cycle
         if self.opts.conv_tol is not None: solver.conv_tol = self.opts.conv_tol
         if self.opts.conv_tol_normt is not None: solver.conv_tol_normt = self.opts.conv_tol_normt
         self.solver = solver
@@ -73,6 +75,10 @@ class CCSD_Solver(ClusterSolver):
             return pyscf.cc.dfccsd.RCCSD
         return pyscf.cc.ccsd.CCSD
 
+    def get_cisd_solver(self):
+        from vayesta.solver import CISD_Solver
+        return CISD_Solver
+
     def reset(self):
         super().reset()
         self.eris = None
@@ -83,8 +89,16 @@ class CCSD_Solver(ClusterSolver):
             self.eris = self.base.get_eris_object(self.solver)
         return self.eris
 
-    def get_init_guess(self):
-        return {'t1' : self.t1 , 't2' : self.t2}
+    def get_init_guess(self, eris=None):
+        if self.opts.init_guess in ('default', 'MP2'):
+            # CCSD will build MP2 amplitudes
+            return None, None
+        if self.opts.init_guess == 'CISD':
+            cisd = self.get_cisd_solver()(self.mf, self.fragment, self.cluster)
+            cisd.kernel(eris=eris)
+            wf = cisd.wf.as_ccsd()
+            return wf.t1, wf.t2
+        raise ValueError("init_guess= %r" % self.opts.init_guess)
 
     def add_screening(self, *args, **kwargs):
         raise NotImplementedError("Screening only implemented for unrestricted spin-symmetry.")
@@ -151,7 +165,12 @@ class CCSD_Solver(ClusterSolver):
             self.set_callback(coupling.make_cross_fragment_tcc_function(self, mode=(self.opts.sc_mode or 3),
                               coupled_fragments=coupled_fragments))
 
-        self.log.info("Solving CCSD-equations %s initial guess...", "with" if (t2 is not None) else "without")
+        # Initial guess
+        if t1 is not None or t2 is not None:
+            self.log.info("Solving CCSD-equations with initial guess...")
+        else:
+            t1, t2 = self.get_init_guess(eris=eris)
+
         with log_time(self.log.info, "Time for T-equations: %s"):
             self.solver.kernel(t1=t1, t2=t2, eris=eris)
         if not self.solver.converged:
@@ -253,6 +272,10 @@ class UCCSD_Solver(CCSD_Solver):
         if self.base.pbc_dimension > 0:
             return pyscf.pbc.cc.ccsd.UCCSD
         return pyscf.cc.uccsd.UCCSD
+
+    def get_cisd_solver(self):
+        from vayesta.solver import UCISD_Solver
+        return UCISD_Solver
 
     @deprecated()
     def get_c2(self, intermed_norm=True):

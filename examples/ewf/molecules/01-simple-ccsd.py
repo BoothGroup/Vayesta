@@ -13,7 +13,7 @@ H  0.0000   0.7572  -0.4692
 H  0.0000  -0.7572  -0.4692
 """
 mol.basis = 'cc-pVDZ'
-mol.output = 'pyscf.out'
+mol.output = 'pyscf.txt'
 mol.build()
 
 # Hartree-Fock

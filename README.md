@@ -4,7 +4,9 @@ Vayesta
 Vayesta is a Python package for performing correlated wave function-based quantum embedding in
 *ab initio* molecules and solids, as well as lattice models.
 
-Installation and quickstart guides can be found in the [documentation](https://boothgroup.github.io/Vayesta/intro.html).
+* [Documentation](https://boothgroup.github.io/Vayesta/intro.html)
+* [Quickstart](https://boothgroup.github.io/Vayesta/quickstart/index.html)
+* [Changelog](../master/CHANGELOG)
 
 
 Installation

@@ -9,7 +9,7 @@ from .core import cmdargs
 from .mpi import init_mpi
 
 
-__version__ = '1.0.0'
+__version__ = '1.0.1'
 
 # Command line arguments
 args = cmdargs.parse_cmd_args()

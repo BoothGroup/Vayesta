@@ -66,7 +66,7 @@ class MoleculeTest(TestCase):
         """Test H6 STO-6G with FCI solver, IAO fragmentation and no charge consistency.
         """
         emb = dmet.DMET(testsystems.h6_sto6g.rhf(), solver='CCSD', charge_consistent=False,
-                bath_options=dict(bathtype='dmet'), conv_tol=self.CONV_TOL, solver_options=FCI_SOLVER_OPTS)
+                bath_options=dict(bathtype='dmet'), conv_tol=self.CONV_TOL)
         with emb.iao_fragmentation() as f:
             f.add_atomic_fragment([0, 1])
             f.add_atomic_fragment([2, 3])
