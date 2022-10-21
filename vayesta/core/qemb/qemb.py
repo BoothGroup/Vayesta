@@ -1079,6 +1079,33 @@ class Embedding:
             filtered_fragments.append(frag)
         return filtered_fragments
 
+    def get_fragment_overlap_norm(self, fragments=None, occupied=True, virtual=True, norm=2):
+        """Get matrix of overlap norms between fragments."""
+        if fragments is None:
+            fragments = self.get_fragments()
+        if isinstance(fragments[0], self.Fragment):
+            fragments = 2*[fragments]
+
+        if not (occupied or virtual):
+            raise ValueError
+        overlap = np.zeros((len(fragments[0]), len(fragments[1])))
+        ovlp = self.get_ovlp()
+        nxy_occ = nxy_vir = np.inf
+        for i, fx in enumerate(fragments[0]):
+            if occupied:
+                cxs_occ = spinalg.dot(spinalg.T(fx.cluster.c_occ), ovlp)
+            if virtual:
+                cxs_vir = spinalg.dot(spinalg.T(fx.cluster.c_vir), ovlp)
+            for j, fy in enumerate(fragments[1]):
+                if occupied:
+                    rxy_occ = spinalg.dot(cxs_occ, fy.cluster.c_occ)
+                    nxy_occ = np.amax(spinalg.norm(rxy_occ, ord=norm))
+                if virtual:
+                    rxy_vir = spinalg.dot(cxs_vir, fy.cluster.c_vir)
+                    nxy_vir = np.amax(spinalg.norm(rxy_vir, ord=norm))
+                overlap[i,j] = np.amin((nxy_occ, nxy_vir))
+        return overlap
+
     def _absorb_fragments(self, tol=1e-10):
         """TODO"""
         for fx in self.get_fragments(active=True):
