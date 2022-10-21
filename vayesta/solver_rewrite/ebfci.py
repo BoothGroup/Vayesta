@@ -9,7 +9,7 @@ class EB_EBFCI_Solver(ClusterSolver):
     @dataclasses.dataclass
     class Options(ClusterSolver.Options):
         # Convergence
-        maxiter: int = 100  # Max number of iterations
+        max_cycle: int = 100  # Max number of iterations
         conv_tol: float = None  # Convergence energy tolerance
         # Parameterisation
         max_boson_occ: int = 2

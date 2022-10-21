@@ -45,7 +45,7 @@ class REBCC_Solver(ClusterSolver):
             if val is not None:
                 d[newkey] = val
         opts = {}
-        for key, newkey in zip(["max_cycle", "conv_tol", "conv_tol_normt"], ["maxiter", "e_tol", "t_tol"]):
+        for key, newkey in zip(["max_cycle", "conv_tol", "conv_tol_normt"], ["max_cycle", "e_tol", "t_tol"]):
             add_nonull_opt(opts, key, newkey)
         return opts
 

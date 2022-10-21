@@ -1,7 +1,8 @@
 from . import ebfci_slow, uebfci_slow
 from pyscf import ao2mo
 import numpy as np
-
+import dataclasses
+from vayesta.core.util import OptionsBase
 
 class REBFCI:
     """Performs FCI on coupled electron-boson systems.
@@ -13,12 +14,17 @@ class REBFCI:
     """
     solver = ebfci_slow
 
-    def __init__(self, hamil, freqs, couplings, max_boson_occ=5, conv_tol=None):
+    @dataclasses.dataclass
+    class Options(OptionsBase):
+        max_boson_occ: int = 2
+        conv_tol: float = 1e-12
+        max_cycle: int = 100
+
+    def __init__(self, hamil, freqs, couplings, **kwargs):
         self.hamil = hamil
-        self.max_boson_occ = max_boson_occ
         self.freqs = freqs
         self.couplings = couplings
-        self.conv_tol = conv_tol or 1e-12
+        self.opts = self.Options().replace(**kwargs)
 
     @property
     def norb(self):
@@ -38,8 +44,8 @@ class REBFCI:
         couplings = self.hamil.couplings
         bos_freqs = self.hamil.bos_freqs
         self.e_fci, self.civec = self.solver.kernel(h1e, eris, couplings, np.diag(bos_freqs), self.norb, self.nelec,
-                                                    self.nbos, self.max_boson_occ, tol=self.conv_tol)
-
+                                                    self.nbos, max_occ=self.opts.max_boson_occ, tol=self.opts.conv_tol,
+                                                    max_cycle=self.opts.max_cycle)
         return self.e_fci, self.civec
 
     def get_hamil(self, eris=None):
@@ -59,7 +65,7 @@ class REBFCI:
 
     def make_rdm_eb(self):
         # Note this is always spin-resolved, since bosonic couplings can have spin-dependence.
-        return self.solver.make_eb_rdm(self.civec, self.norb, self.nelec, self.nbos, self.max_boson_occ)
+        return self.solver.make_eb_rdm(self.civec, self.norb, self.nelec, self.nbos, self.opts.max_boson_occ)
 
     def make_dd_moms(self, max_mom, dm1=None, coeffs=None, civec=None, eris=None):
         if civec is None:
@@ -71,7 +77,7 @@ class REBFCI:
 
         self.dd_moms = self.solver.calc_dd_resp_mom(
             civec, self.e_fci, max_mom, self.norb, self.nelec, self.nbos, h1e, eris,
-            np.diag(self.freqs), self.couplings, self.max_boson_occ, dm1,
+            np.diag(self.freqs), self.couplings, self.opts.max_boson_occ, dm1,
             coeffs=coeffs)
         return self.dd_moms
 

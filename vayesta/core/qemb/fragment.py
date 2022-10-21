@@ -161,9 +161,6 @@ class Fragment:
         self.flags = self.Flags(**(flags or {}))
 
         solver = solver or self.base.solver
-        #if solver not in self.base.valid_solvers:
-        #    raise ValueError("Unknown solver: %s" % solver)
-
         self.check_solver(solver)
 
         self.solver = solver

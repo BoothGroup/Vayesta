@@ -15,7 +15,7 @@ class RCCSD_Solver(ClusterSolver):
     @dataclasses.dataclass
     class Options(ClusterSolver.Options):
         # Convergence
-        maxiter: int = 100  # Max number of iterations
+        max_cycle: int = 100  # Max number of iterations
         conv_tol: float = None  # Convergence energy tolerance
         conv_tol_normt: float = None  # Convergence amplitude tolerance
         solve_lambda: bool = False  # If false, use Lambda=T approximation
@@ -29,8 +29,8 @@ class RCCSD_Solver(ClusterSolver):
         mf_clus = self.hamil.to_pyscf_mf()
         mycc = self.get_solver_class()(mf_clus)
 
-        if self.opts.maxiter is not None:
-            mycc.max_cycle = self.opts.maxiter
+        if self.opts.max_cycle is not None:
+            mycc.max_cycle = self.opts.max_cycle
         if self.opts.conv_tol is not None:
             mycc.conv_tol = self.opts.conv_tol
         if self.opts.conv_tol_normt is not None:

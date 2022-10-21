@@ -34,7 +34,6 @@ class EDMET(RDMET):
 
     Fragment = EDMETFragment
     Options = Options
-    valid_solvers = ['EBFCI', 'EBCCSD']
 
     def __init__(self, mf, solver='EBFCI', log=None, **kwargs):
         # If we aren't running in oneshot mode we need to calculate the dd moments.

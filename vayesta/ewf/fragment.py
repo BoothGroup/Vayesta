@@ -196,8 +196,7 @@ class Fragment(BaseFragment):
     def kernel(self, solver=None, init_guess=None, eris=None):
 
         solver = solver or self.solver
-        if solver not in self.base.valid_solvers:
-            raise ValueError("Unknown solver: %s" % solver)
+        self.check_solver(solver)
         if self.cluster is None:
             raise RuntimeError
         cluster = self.cluster
