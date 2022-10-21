@@ -33,6 +33,18 @@ def transform_amplitude(t, u_occ, u_vir, u_occ2=None, u_vir2=None, spinsym='rest
     raise NotImplementedError("Transformation of %s amplitudes with ndim=%d" % (spinsym, np.ndim(t[0])+1))
 
 
+def get_amplitude_norm(t1, t2):
+    # Restricted:
+    if np.ndim(t1[0]) == 1:
+        t1norm = np.linalg.norm(t1)
+        t2norm = np.linalg.norm(t2)
+    # Unrestricted
+    elif np.ndim(t1[0]) == 2:
+        t1norm = (np.linalg.norm(t1[0])+np.linalg.norm(t1[1]))/2,
+        t2norm = (np.linalg.norm(t2[0])+2*np.linalg.norm(t2[1])+np.linalg.norm(t2[2]))/2
+    return t1norm, t2norm
+
+
 def couple_ccsd_iterations(solver, fragments):
     """
 
@@ -97,13 +109,13 @@ def tailor_with_fragments(solver, fragments, project=False, tailor_t1=True, tail
 
     Parameters
     ----------
-    mode : int, optional
+    project: int, optional
         Level of external correction of T2 amplitudes:
         1: Both occupied indices are projected to each other fragment X.
         2: Both occupied indices are projected to each other fragment X
            and combinations of other fragments X,Y.
         3: Only the first occupied indices is projected to each other fragment X.
-    coupled_fragments : list, optional
+    coupled_fragments: list, optional
         List of fragments, which are used for the external correction.
         Each fragment x must have the following attributes defined:
         `c_active_occ` : Active occupied MO orbitals of fragment x
@@ -118,11 +130,14 @@ def tailor_with_fragments(solver, fragments, project=False, tailor_t1=True, tail
     """
     fragment = solver.fragment
     cluster = solver.cluster
-    ovlp = solver.base.get_ovlp()   # AO overlap matrix
-    cx_occ = cluster.c_active_occ    # Occupied active orbitals of current cluster
-    cx_vir = cluster.c_active_vir    # Virtual  active orbitals of current cluster
+    ovlp = solver.base.get_ovlp()       # AO overlap matrix
+    cx_occ = cluster.c_active_occ       # Occupied active orbitals of current cluster
+    cx_vir = cluster.c_active_vir       # Virtual  active orbitals of current cluster
     cxs_occ = spinalg.dot(spinalg.T(cx_occ), ovlp)
     cxs_vir = spinalg.dot(spinalg.T(cx_vir), ovlp)
+    project = int(project)
+    nxy_occ = solver.base.get_fragment_overlap_norm(fragments=([fragment], fragments), virtual=False, norm=None)[0]
+    nxy_vir = solver.base.get_fragment_overlap_norm(fragments=([fragment], fragments), occupied=False, norm=None)[0]
 
     def tailor_func(kwargs):
         """Add external correction to T1 and T2 amplitudes."""
@@ -134,7 +149,7 @@ def tailor_with_fragments(solver, fragments, project=False, tailor_t1=True, tail
             dt2 = spinalg.zeros_like(t2)
 
         # Loop over all *other* fragments/cluster X
-        for fy in fragments:
+        for y, fy in enumerate(fragments):
             assert (fy is not fragment)
 
             # Rotation & projections from cluster X active space to current fragment active space
@@ -147,6 +162,7 @@ def tailor_with_fragments(solver, fragments, project=False, tailor_t1=True, tail
                 maxovlp = min(max(abs(rxy_occ[0]).max(), abs(rxy_occ[1]).max()),
                               max(abs(rxy_vir[0]).max(), abs(rxy_vir[1]).max()))
             if maxovlp < ovlp_tol:
+                self.log.debug("Skipping tailoring fragment %s due to small overlap= %.1e", fy, maxovlp)
                 continue
 
             wfy = fy.results.wf.as_ccsd()
@@ -164,7 +180,7 @@ def tailor_with_fragments(solver, fragments, project=False, tailor_t1=True, tail
                 proj = fy.get_overlap('frag|cluster-occ')
                 proj = spinalg.dot(spinalg.T(proj), proj)
                 # Project first occupied index onto fragment(y) space:
-                if int(project) == 1:
+                if project == 1:
                     if tailor_t1:
                         dt1y = spinalg.dot(proj, dt1y)
                     if tailor_t2:
@@ -193,12 +209,8 @@ def tailor_with_fragments(solver, fragments, project=False, tailor_t1=True, tail
             if tailor_t2:
                 dt2 = spinalg.add(dt2, transform_amplitude(dt2y, rxy_occ, rxy_vir, spinsym=solver.spinsym, inverse=True))
 
-            if solver.spinsym == 'restricted':
-                solver.log.debug("Tailoring %12s with %12s:  |dT1|= %.2e  |dT2|= %.2e", fragment, fy, np.linalg.norm(dt1), np.linalg.norm(dt2))
-            elif solver.spinsym == 'unrestricted':
-                solver.log.debug("Tailoring %12s with %12s:  |dT1|= %.2e  |dT2|= %.2e", fragment, fy,
-                        (np.linalg.norm(dt1[0])+np.linalg.norm(dt1[1]))/2,
-                        (np.linalg.norm(dt2[0])+2*np.linalg.norm(dt2[1])+np.linalg.norm(dt2[2]))/2)
+            solver.log.debug("Tailoring with fragment %3d (%s):  S(occ)= %.3e  S(vir)= %.3e  dT1= %.3e  dT2= %.3e",
+                             fy.id, fy.solver, nxy_occ[y], nxy_vir[y], *get_amplitude_norm(dt1y, dt2y))
 
         # Add correction:
         if tailor_t1:
@@ -214,5 +226,6 @@ def tailor_with_fragments(solver, fragments, project=False, tailor_t1=True, tail
                 t2[0][:] += dt2[0]
                 t2[1][:] += dt2[1]
                 t2[2][:] += dt2[2]
+        solver.log.debug("Tailoring total:  dT1= %.3e  dT2= %.3e", *get_amplitude_norm(dt1, dt2))
 
     return tailor_func

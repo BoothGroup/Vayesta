@@ -1,7 +1,7 @@
 # Standard libaries
 from datetime import datetime
 import dataclasses
-from typing import Optional, Union
+from typing import Optional, Union, List
 
 # External libaries
 import numpy as np
@@ -54,8 +54,8 @@ class Options(BaseFragment.Options):
     c_cas_occ: np.ndarray = None
     c_cas_vir: np.ndarray = None
     # --- Solver options
+    # "TCCSD-solver":
     tcc_fci_opts: dict = dataclasses.field(default_factory=dict)
-
 
 class Fragment(BaseFragment):
 
@@ -63,7 +63,9 @@ class Fragment(BaseFragment):
 
     @dataclasses.dataclass
     class Flags(BaseFragment.Flags):
-        pass
+        # "Tailoring with FCI fragments":
+        tcc_fragments: Optional[List[int]] = None       # Fragment IDs used for tailoring
+        tcc_projectors: int = 1                         # Number of fragment projectors [0, 1, 2]
 
     @dataclasses.dataclass
     class Results(BaseFragment.Results):
@@ -98,11 +100,6 @@ class Fragment(BaseFragment):
         # For self-consistent mode
         self.solver_results = None
 
-    def reset(self, *args, **kwargs):
-        super().reset(*args, **kwargs)
-        self._tailor_fragments = []
-        self._tailor_project = True
-
     def set_cas(self, iaos=None, c_occ=None, c_vir=None, minao='auto', dmet_threshold=None):
         """Set complete active space for tailored CCSD"""
         if dmet_threshold is None:
@@ -127,11 +124,11 @@ class Fragment(BaseFragment):
         self.opts.c_cas_vir = c_cas_vir
         return c_cas_occ, c_cas_vir
 
-    def tailor_with_fragments(self, fragments, project=True):
+    def tailor_with_fragments(self, fragments, projectors=1):
         if self.solver != 'CCSD':
             raise NotImplementedError
-        self._tailor_fragments = fragments
-        self._tailor_project = project
+        self.flags.tcc_fragments = [f.id for f in fragments]
+        self.flags.tcc_projectors = projectors
 
     def get_init_guess(self, init_guess, solver, cluster):
         # FIXME
@@ -322,8 +319,8 @@ class Fragment(BaseFragment):
             solver_opts['tcc_fci_opts'] = self.opts.tcc_fci_opts
         elif solver.upper() == 'DUMP':
             solver_opts['filename'] = self.opts.solver_options['dumpfile']
-        if self._tailor_fragments:
-            solver_opts['tailoring'] = True
+        solver_opts['tcc_fragments'] = self.flags.tcc_fragments
+        solver_opts['tcc_projectors'] = self.flags.tcc_projectors
         return solver_opts
 
     # --- Expectation values

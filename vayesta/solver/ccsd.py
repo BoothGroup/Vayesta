@@ -1,5 +1,6 @@
 import dataclasses
 import copy
+from typing import Optional, List
 from timeit import default_timer as timer
 
 import numpy as np
@@ -41,8 +42,9 @@ class CCSD_Solver(ClusterSolver):
         # Active space methods
         c_cas_occ: np.array = None
         c_cas_vir: np.array = None
-        # Tailor with fragments
-        tailoring: bool = False
+        # Tailor CCSD with other fragments
+        tcc_fragments: Optional[List[int]] = None
+        tcc_projectors: int = 1
         # Lambda equations
         solve_lambda: bool = True
 
@@ -147,15 +149,18 @@ class CCSD_Solver(ClusterSolver):
         if self.v_ext is not None:
             eris = self.add_potential(eris, self.v_ext)
 
-        # Tailored CC
+        # Tailored CC "solver"
         if self.opts.tcc:
             if self.spinsym == 'unrestricted':
                 raise NotImplementedError("TCCSD for unrestricted spin-symmetry")
             self.set_callback(tccsd.make_cas_tcc_function(
                               self, c_cas_occ=self.opts.c_cas_occ, c_cas_vir=self.opts.c_cas_vir, eris=eris))
-        elif self.opts.tailoring:
-            frag = self.fragment
-            self.set_callback(coupling.tailor_with_fragments(self, frag._tailor_fragments, project=frag._tailor_project))
+        # "Tailoring with other fragments"
+        elif self.opts.tcc_fragments:
+            tfrags = self.base.get_fragments(id=self.opts.tcc_fragments)
+            proj = self.opts.tcc_projectors
+            self.log.info("Tailoring CCSD with %d fragments (projectors= %d)", len(tfrags), proj)
+            self.set_callback(coupling.tailor_with_fragments(self, tfrags, project=proj))
         elif self.opts.sc_mode and self.base.iteration > 1:
             raise NotImplementedError
             self.set_callback(coupling.make_cross_fragment_tcc_function(self, mode=self.opts.sc_mode))
