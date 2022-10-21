@@ -1172,13 +1172,11 @@ class Embedding:
     @log_method()
     @with_doc(make_rdm1_demo_rhf)
     def make_rdm1_demo(self, *args, **kwargs):
-        self.require_complete_fragmentation("Democratically partitioned DMs will not be accurate.")
         return make_rdm1_demo_rhf(self, *args, **kwargs)
 
     @log_method()
     @with_doc(make_rdm2_demo_rhf)
     def make_rdm2_demo(self, *args, **kwargs):
-        self.require_complete_fragmentation("Democratically partitioned DMs will not be accurate.")
         return make_rdm2_demo_rhf(self, *args, **kwargs)
 
     def get_dmet_elec_energy(self, part_cumulant=True, approx_cumulant=True):
@@ -1199,7 +1197,6 @@ class Embedding:
         e_dmet: float
             Electronic DMET energy.
         """
-        self.require_complete_fragmentation("DMET energy will not be accurate.")
         e_dmet = 0.0
         for x in self.get_fragments(active=True, mpi_rank=mpi.rank, sym_parent=None):
             wx = x.symmetry_factor
