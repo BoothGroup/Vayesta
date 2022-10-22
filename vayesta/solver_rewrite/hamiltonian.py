@@ -174,37 +174,46 @@ class RClusterHamiltonian:
         nmo = max(self.ncas)
         nsm = min(self.ncas)
         # Now, define function to equalise spin channels.
+
+        nao, mo_coeff, mo_energy, mo_occ, ovlp = self.get_clus_mf_info(ao_basis=False)
+
+
         if nsm == nmo:
             def pad_to_match(array, diag_val=0.0):
                 return array
             orbs_to_freeze = None
+            dummy_energy = 0.0
         else:
-            padchannel = self.ncas.index(nmo)
+            padchannel = self.ncas.index(nsm)
             orbs_to_freeze = [[], []]
             orbs_to_freeze[padchannel] = list(range(nsm, nmo))
+            dummy_energy = 10.0 + max([x.max() for x in mo_energy])
 
-            def pad_to_match(array, diag_val=0.0):
-                # Pad the smaller spin channel to match larger one.
-                unpadded = array[padchannel]
-                new = np.zeros((nmo,) * np.ndim(unpadded))
-                inds = (slice(0, nsm),) * np.ndim(unpadded)
-                new[inds] = unpadded
-                for i in range(nsm, nmo):
-                    idx = (i,) * np.ndim(unpadded)
-                    new[idx] = diag_val
-                array[padchannel] = new
-                return np.array(array)
+            def pad_to_match(array_tup, diag_val=0.0):
 
-        nao, mo_coeff, mo_energy, mo_occ, ovlp = self.get_clus_mf_info(ao_basis=False)
+                def pad(a, diag_val):
+                    topad = np.array(a.shape) < nmo
+                    if any(topad):
+                        sl = tuple([slice(nsm) if x else slice(None) for x in topad])
+                        new = np.zeros((nmo,) * a.ndim)
+                        new[sl] = a
+                        a = new
+                    if all(topad):
+                        for i in range(nsm, nmo):
+                            a[(i,) * a.ndim] = diag_val
+                    return a
+                return [pad(x, diag_val) for x in array_tup]
+
 
         mo_coeff = pad_to_match(mo_coeff, 1.0)
-        dummy_energy = 1.0 + np.array(mo_energy).max()
+
         mo_energy = pad_to_match(mo_energy, dummy_energy)
-        mo_occ = pad_to_match(mo_occ, 0.0)
+        mo_occ = np.array(pad_to_match(mo_occ, 0.0))
         ovlp = pad_to_match(ovlp, 1.0)
 
-        bare_eris = pad_to_match(self.get_eris_bare(), 0.0)
-        heff = pad_to_match(self.get_heff(eris=bare_eris, with_vext=True), 0.0)
+        bare_eris = self.get_eris_bare()
+        heff = pad_to_match(self.get_heff(eris=bare_eris, with_vext=True), dummy_energy)
+        bare_eris = pad_to_match(bare_eris, 0.0)
 
         clusmol = pyscf.gto.mole.Mole()
         clusmol.nelec = self.nelec
@@ -353,9 +362,11 @@ class UClusterHamiltonian(RClusterHamiltonian):
             nao = self.ncas
         fock = self.get_fock()
         mo_energy = (np.diag(fock[0]), np.diag(fock[1]))
-        mo_occ = np.array([np.zeros_like(x) for x in mo_energy])
+        mo_occ = [np.zeros_like(x) for x in mo_energy]
         mo_occ[0][:self.nelec[0]] = 1.0
         mo_occ[1][:self.nelec[1]] = 1.0
+        if mo_occ[0].shape == mo_occ[1].shape:
+            mo_occ = np.array(mo_occ)
         # Determine whether we want our cluster orbitals expressed in the basis of active orbitals, or in the AO basis.
         if ao_basis:
             mo_coeff = self.cluster.c_active
