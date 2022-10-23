@@ -4,8 +4,13 @@ from vayesta.core.types import MP2_WaveFunction
 from vayesta.core.util import *
 from .solver import ClusterSolver, UClusterSolver
 
+import dataclasses
+
 
 class RMP2_Solver(ClusterSolver):
+    @dataclasses.dataclass
+    class Options(ClusterSolver.Options):
+        compress_cderi: bool = False
 
     def kernel(self, *args, **kwargs):
 
@@ -14,7 +19,7 @@ class RMP2_Solver(ClusterSolver):
         eris = cderi = cderi_neg = None
         if not self.hamil.has_screening:
             try:
-                cderi, cderi_neg = self.hamil.get_cderi_bare(only_ov=True)
+                cderi, cderi_neg = self.hamil.get_cderi_bare(only_ov=True, compress=self.opts.compress_cderi)
             except AttributeError:
                 cderi = cderi_neg = None
 

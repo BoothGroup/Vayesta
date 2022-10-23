@@ -1,13 +1,15 @@
+import dataclasses
+from typing import Optional
+
 import numpy as np
 import scipy.linalg
 
-from vayesta.core.util import *
-import dataclasses
 import pyscf.scf
-from typing import Optional
-from vayesta.core.types import Orbitals
 from vayesta.core.qemb import scrcoulomb
+from vayesta.core.types import Orbitals
+from vayesta.core.util import *
 from vayesta.rpa import ssRPA
+
 
 def ClusterHamiltonian(fragment, mf, log=None, **kwargs):
     rhf = np.ndim(mf.mo_coeff[0]) == 1
@@ -148,16 +150,31 @@ class RClusterHamiltonian:
 
         return eris
 
-    def get_cderi_bare(self, only_ov=False):
-        if only_ov:
-            # We only need the (L|ov) block for MP2:
-            mo_coeff = (self.cluster.c_active_occ, self.cluster.c_active_vir)
-            with log_time(self.log.timing, "Time for 2e-integral transformation: %s"):
-                cderi, cderi_neg = self._fragment.base.get_cderi(mo_coeff)
-            return cderi, cderi_neg
-        else:
+    def get_cderi_bare(self, only_ov=False, compress=False, svd_threshold=1e-12):
+        if not only_ov:
             raise NotImplementedError("Cluster CDERIs are only implemented for MP2 or similar calculations only "
                                       "requiring the ov-block.")
+
+        # We only need the (L|ov) block for MP2:
+        mo_coeff = (self.cluster.c_active_occ, self.cluster.c_active_vir)
+        with log_time(self.log.timing, "Time for 2e-integral transformation: %s"):
+            cderi, cderi_neg = self._fragment.base.get_cderi(mo_coeff)
+
+        if compress:
+            # SVD and compress the cderi tensor. Given that only naux scales with system size, this should be cheap
+            # and save both memory and computation.
+            def compress_cderi(cd):
+                naux, nocc, nvir = cd.shape
+                u, s, v = np.linalg.svd(cd.reshape(naux, nocc * nvir), full_matrices=False)
+                want = s > svd_threshold
+                self.log.debugv("CDERIs auxbas compressed from %d to %d in size", naux, sum(want))
+                return einsum("pn,n,nq->pq", u[:, want], s[want], v[want]).reshape(naux, nocc, nvir)
+
+            cderi = compress_cderi(cderi)
+            if cderi_neg is not None:
+                cderi_neg = compress_cderi(cderi_neg)
+
+        return cderi, cderi_neg
 
     def to_pyscf_mf(self, allow_dummy_orbs=False, force_bare_eris=False, overwrite_fock=False):
         """
@@ -191,10 +208,10 @@ class RClusterHamiltonian:
 
         nao, mo_coeff, mo_energy, mo_occ, ovlp = self.get_clus_mf_info(ao_basis=False)
 
-
         if nsm == nmo:
             def pad_to_match(array, diag_val=0.0):
                 return array
+
             orbs_to_freeze = None
             dummy_energy = 0.0
         else:
@@ -216,8 +233,8 @@ class RClusterHamiltonian:
                         for i in range(nsm, nmo):
                             a[(i,) * a.ndim] = diag_val
                     return a
-                return [pad(x, diag_val) for x in array_tup]
 
+                return [pad(x, diag_val) for x in array_tup]
 
         mo_coeff = pad_to_match(mo_coeff, 1.0)
 
@@ -244,7 +261,8 @@ class RClusterHamiltonian:
         clusmf.get_ovlp = lambda *args, **kwargs: ovlp
         if overwrite_fock:
             clusmf.get_fock = lambda *args, **kwargs: pad_to_match(self.get_fock(with_vext=True), dummy_energy)
-            clusmf.get_veff = lambda *args, **kwargs: np.array(clusmf.get_fock(*args, **kwargs)) - np.array(clusmf.get_hcore())
+            clusmf.get_veff = lambda *args, **kwargs: np.array(clusmf.get_fock(*args, **kwargs)) - np.array(
+                clusmf.get_hcore())
         # This could be replaced by a density fitted approach if we wanted.
         if force_bare_eris:
             clusmf._eri = bare_eris
@@ -272,7 +290,8 @@ class RClusterHamiltonian:
                 p_occ_frag = (p_occ_frag, p_occ_frag)
 
             def get_product_projector(p_o, p_v, no, nv):
-                return einsum("ij,ab->iajb", p_o, p_v).reshape((no*nv, no*nv))
+                return einsum("ij,ab->iajb", p_o, p_v).reshape((no * nv, no * nv))
+
             pa = get_product_projector(p_occ_frag[0], np.eye(nvir[0]), nocc[0], nvir[0])
             pb = get_product_projector(p_occ_frag[1], np.eye(nvir[1]), nocc[1], nvir[1])
             return scipy.linalg.block_diag(pa, pb)
@@ -284,7 +303,7 @@ class RClusterHamiltonian:
     def add_screening(self, seris_intermed=None):
         """Add screened interactions into the Hamiltonian."""
         if self.opts.screening == "mrpa":
-            assert(seris_intermed is not None)
+            assert (seris_intermed is not None)
 
             # Use bare coulomb interaction from hamiltonian; this could well be cached in future.
             bare_eris = self.get_eris_bare()
@@ -330,7 +349,7 @@ class UClusterHamiltonian(RClusterHamiltonian):
                 e_elec = (e1 + e_coul).real
                 mf.scf_summary['e1'] = e1.real
                 mf.scf_summary['e2'] = e_coul.real
-                #logger.debug(mf, 'E1 = %s  Ecoul = %s', e1, e_coul.real)
+                # logger.debug(mf, 'E1 = %s  Ecoul = %s', e1, e_coul.real)
                 return e_elec, e_coul
 
         return UHF_spindep
@@ -349,23 +368,23 @@ class UClusterHamiltonian(RClusterHamiltonian):
         fock = (dot(ca.T, fa, ca), dot(cb.T, fb, cb))
         if with_vext and self.v_ext is not None:
             fock = ((fock[0] + self.v_ext[0]),
-                     (fock[1] + self.v_ext[1]))
+                    (fock[1] + self.v_ext[1]))
         if self._seris is not None and use_seris:
             noa, nob = self.cluster.nocc_active
             oa = np.s_[:noa]
             ob = np.s_[:nob]
             saa, sab, sbb = self._seris
             dfa = (einsum('iipq->pq', saa[oa, oa]) + einsum('pqii->pq', sab[:, :, ob, ob])  # Coulomb
-                  - einsum('ipqi->pq', saa[oa, :, :, oa]))  # Exchange
+                   - einsum('ipqi->pq', saa[oa, :, :, oa]))  # Exchange
             dfb = (einsum('iipq->pq', sbb[ob, ob]) + einsum('iipq->pq', sab[oa, oa])  # Coulomb
-                  - einsum('ipqi->pq', sbb[ob, :, :, ob]))  # Exchange
+                   - einsum('ipqi->pq', sbb[ob, :, :, ob]))  # Exchange
             gaa, gab, gbb = self.get_eris_bare()
             dfa -= (einsum('iipq->pq', gaa[oa, oa]) + einsum('pqii->pq', gab[:, :, ob, ob])  # Coulomb
-                  - einsum('ipqi->pq', gaa[oa, :, :, oa]))  # Exchange
+                    - einsum('ipqi->pq', gaa[oa, :, :, oa]))  # Exchange
             dfb -= (einsum('iipq->pq', gbb[ob, ob]) + einsum('iipq->pq', gab[oa, oa])  # Coulomb
-                  - einsum('ipqi->pq', gbb[ob, :, :, ob]))  # Exchange
+                    - einsum('ipqi->pq', gbb[ob, :, :, ob]))  # Exchange
             fock = ((fock[0] + dfa),
-                     (fock[1] + dfb))
+                    (fock[1] + dfb))
 
         return fock
 
@@ -417,23 +436,42 @@ class UClusterHamiltonian(RClusterHamiltonian):
                     self._fragment.base.get_eris_array(coeff[1]))
         return eris
 
-    def get_cderi_bare(self, only_ov=False):
-        if only_ov:
-            # We only need the (L|ov) and (L|OV) blocks:
-            c_aa = [self.cluster.c_active_occ[0], self.cluster.c_active_vir[0]]
-            c_bb = [self.cluster.c_active_occ[1], self.cluster.c_active_vir[1]]
-            cderi_a, cderi_neg_a = self._fragment.base.get_cderi(c_aa)
-            cderi_b, cderi_neg_b = self._fragment.base.get_cderi(c_bb)
-            cderi = (cderi_a, cderi_b)
-            cderi_neg = (cderi_neg_a, cderi_neg_b)
-            return cderi, cderi_neg
-        else:
+    def get_cderi_bare(self, only_ov=False, compress=False, svd_threshold=1e-12):
+
+        if not only_ov:
             raise NotImplementedError("Cluster CDERIs are only implemented for MP2 or similar calculations only "
                                       "requiring the ov-block.")
 
+        # We only need the (L|ov) and (L|OV) blocks:
+        c_aa = [self.cluster.c_active_occ[0], self.cluster.c_active_vir[0]]
+        c_bb = [self.cluster.c_active_occ[1], self.cluster.c_active_vir[1]]
+        cderi_a, cderi_neg_a = self._fragment.base.get_cderi(c_aa)
+        cderi_b, cderi_neg_b = self._fragment.base.get_cderi(c_bb)
+        cderi = (cderi_a, cderi_b)
+        cderi_neg = (cderi_neg_a, cderi_neg_b)
+
+        if compress:
+            # SVD and compress the cderi tensor. Given that only naux scales with system size, this should be cheap
+            # and save both memory and computation.
+            def compress_cderi(cd):
+                naux, nocc, nvir = cd.shape
+                u, s, v = np.linalg.svd(cd.reshape(naux, nocc * nvir), full_matrices=False)
+                want = s > svd_threshold
+                self.log.debugv("CDERIs auxbas compressed from %d to %d in size", naux, sum(want))
+                return einsum("pn,n,nq->pq", u[:, want], s[want], v[want]).reshape(naux, nocc, nvir)
+
+            cderi = (compress_cderi(cderi[0]), compress_cderi(cderi[0]))
+            if cderi_neg[0] is not None:
+                cderi_neg = (compress_cderi(cderi_neg[0]), cderi_neg[1])
+            if cderi_neg[1] is not None:
+                cderi_neg = (cderi_neg[0], compress_cderi(cderi_neg[1]))
+
+        return cderi, cderi_neg
+
     def to_pyscf_mf(self, allow_dummy_orbs=True, force_bare_eris=False, overwrite_fock=False):
         # Need to overwrite fock integrals to avoid errors.
-        return super().to_pyscf_mf(allow_dummy_orbs=allow_dummy_orbs, force_bare_eris=force_bare_eris, overwrite_fock=True)
+        return super().to_pyscf_mf(allow_dummy_orbs=allow_dummy_orbs, force_bare_eris=force_bare_eris,
+                                   overwrite_fock=True)
 
 
 class EB_RClusterHamiltonian(RClusterHamiltonian):

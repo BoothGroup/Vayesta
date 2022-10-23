@@ -110,7 +110,9 @@ class Options(OptionsBase):
             # EBCC
             ansatz="CCSD", boson_excitations="S", fermion_coupling_rank=1, boson_coupling_rank=1,
             # Dump
-            dumpfile='clusters.h5')
+            dumpfile='clusters.h5',
+            # MP2
+            compress_cderi=False)
     # --- Other
     symmetry_tol: float = 1e-6              # Tolerance (in Bohr) for atomic positions
     symmetry_mf_tol: float = 1e-5           # Tolerance for mean-field solution
