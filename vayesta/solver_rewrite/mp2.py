@@ -10,9 +10,21 @@ class RMP2_Solver(ClusterSolver):
     def kernel(self, *args, **kwargs):
 
         nao, mo_coeff, mo_energy, mo_occ, ovlp = self.hamil.get_clus_mf_info(ao_basis=False)
-        eris = self.hamil.get_eris()
-        nocc = sum(mo_occ.T > 0)
-        t2 = self.make_t2(mo_energy, self.get_ov_eris(eris, nocc))
+
+        eris = cderi = cderi_neg = None
+        if not self.hamil.has_screening:
+            try:
+                cderi, cderi_neg = self.hamil.get_cderi_bare(only_ov=True)
+            except AttributeError:
+                cderi = cderi_neg = None
+
+        if cderi is None:
+            cderi = cderi_neg = None
+            nocc = sum(mo_occ.T > 0)
+            eris = self.hamil.get_eris()
+            eris = self.get_ov_eris(eris, nocc)
+        with log_time(self.log.timing, "Time for MP2 T-amplitudes: %s"):
+            t2 = self.make_t2(mo_energy, eris=eris, cderi=cderi, cderi_neg=cderi_neg)
         self.wf = MP2_WaveFunction(self.hamil.mo, t2)
         self.converged = True
 
@@ -71,6 +83,7 @@ class UMP2_Solver(UClusterSolver, RMP2_Solver):
         """Make T2 amplitudes"""
         # (ov|ov)
         if eris is not None:
+            self.log.debugv("Making T2 amplitudes from ERIs")
             assert len(eris) == 3
             assert (eris[0].ndim == 4)
             assert (eris[1].ndim == 4)
@@ -79,6 +92,7 @@ class UMP2_Solver(UClusterSolver, RMP2_Solver):
             noccb, nvirb = eris[2].shape[:2]
         # (L|ov)
         elif cderi is not None:
+            self.log.debugv("Making T2 amplitudes from CD-ERIs")
             assert len(cderi) == 2
             assert (cderi[0].ndim == 3)
             assert (cderi[1].ndim == 3)

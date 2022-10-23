@@ -46,7 +46,6 @@ class RClusterHamiltonian:
         self.log.info(break_into_lines(str(self.opts), newline='\n    '))
         self.v_ext = None
         self._seris = None
-        self.seris_initialised = self.opts.screening is None
         self._eris = None
 
     @property
@@ -64,6 +63,10 @@ class RClusterHamiltonian:
     @property
     def ncas(self):
         return (self.cluster.norb_active, self.cluster.norb_active)
+
+    @property
+    def has_screening(self):
+        return self._seris is not None
 
     def target_space_projector(self, c=None):
         """Projector to the target fragment space within our cluster."""
@@ -144,6 +147,17 @@ class RClusterHamiltonian:
             eris = self._eris
 
         return eris
+
+    def get_cderi_bare(self, only_ov=False):
+        if only_ov:
+            # We only need the (L|ov) block for MP2:
+            mo_coeff = (self.cluster.c_active_occ, self.cluster.c_active_vir)
+            with log_time(self.log.timing, "Time for 2e-integral transformation: %s"):
+                cderi, cderi_neg = self._fragment.base.get_cderi(mo_coeff)
+            return cderi, cderi_neg
+        else:
+            raise NotImplementedError("Cluster CDERIs are only implemented for MP2 or similar calculations only "
+                                      "requiring the ov-block.")
 
     def to_pyscf_mf(self, allow_dummy_orbs=False, force_bare_eris=False, overwrite_fock=False):
         """
@@ -402,6 +416,20 @@ class UClusterHamiltonian(RClusterHamiltonian):
                     self._fragment.base.get_eris_array((coeff[0], coeff[0], coeff[1], coeff[1])),
                     self._fragment.base.get_eris_array(coeff[1]))
         return eris
+
+    def get_cderi_bare(self, only_ov=False):
+        if only_ov:
+            # We only need the (L|ov) and (L|OV) blocks:
+            c_aa = [self.cluster.c_active_occ[0], self.cluster.c_active_vir[0]]
+            c_bb = [self.cluster.c_active_occ[1], self.cluster.c_active_vir[1]]
+            cderi_a, cderi_neg_a = self._fragment.base.get_cderi(c_aa)
+            cderi_b, cderi_neg_b = self._fragment.base.get_cderi(c_bb)
+            cderi = (cderi_a, cderi_b)
+            cderi_neg = (cderi_neg_a, cderi_neg_b)
+            return cderi, cderi_neg
+        else:
+            raise NotImplementedError("Cluster CDERIs are only implemented for MP2 or similar calculations only "
+                                      "requiring the ov-block.")
 
     def to_pyscf_mf(self, allow_dummy_orbs=True, force_bare_eris=False, overwrite_fock=False):
         # Need to overwrite fock integrals to avoid errors.
