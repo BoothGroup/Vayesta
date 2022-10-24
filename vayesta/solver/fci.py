@@ -203,7 +203,9 @@ class UFCI_Solver(FCI_Solver):
 
     @dataclasses.dataclass
     class Options(FCI_Solver.Options):
-        fix_spin: bool = False              # Does not work for UFCI?
+        # fix_spin does not work for unrestricted orbitals!
+        # (However, the UHF might be a converted ROHF solution, in which case it seems to work)
+        fix_spin: bool = False
 
     cisd_solver = UCISD_Solver
 

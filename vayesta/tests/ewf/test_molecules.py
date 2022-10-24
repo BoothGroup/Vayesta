@@ -236,8 +236,8 @@ class MoleculeTests(TestCase):
             frag_o = f.add_atomic_fragment(0, active=False)
             frag_h = f.add_atomic_fragment(1, sym_factor=2, active=False)
         emb.kernel()
-        frag_o.tailor_with_fragments([cas_o], project=0)
-        frag_h.tailor_with_fragments([cas_h], project=0)
+        frag_o.tailor_with_fragments([cas_o], projectors=0)
+        frag_h.tailor_with_fragments([cas_h], projectors=0)
         cas_o.active = cas_h.active = False
         frag_o.active = frag_h.active = True
         emb.kernel()
