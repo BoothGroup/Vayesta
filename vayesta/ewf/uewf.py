@@ -35,7 +35,7 @@ class UEWF(REWF, UEmbedding):
     def t1_diagnostic(self, warn_tol=0.02):
         # Per cluster
         for f in self.get_fragments(active=True, mpi_rank=mpi.rank):
-            t1 = f.results.t1
+            t1 = f.results.wf.t1
             if t1 is None:
                 self.log.error("No T1 amplitudes found for %s.", f)
                 continue
@@ -57,6 +57,16 @@ class UEWF(REWF, UEmbedding):
             else:
                 self.log.info("Global T1 diagnostic: alpha= %.5f beta= %.5f", *t1diag)
 
+    def d1_diagnostic(self):
+        """Global wave function diagnostic."""
+        t1a, t1b = self.get_global_t1()
+        f = lambda x: np.sqrt(np.sort(np.abs(x[0])))[-1]
+        d1ao = f(np.linalg.eigh(np.dot(t1a, t1a.T)))
+        d1av = f(np.linalg.eigh(np.dot(t1a.T, t1a)))
+        d1bo = f(np.linalg.eigh(np.dot(t1b, t1b.T)))
+        d1bv = f(np.linalg.eigh(np.dot(t1b.T, t1b)))
+        d1norm = max((d1ao, d1av, d1bo, d1bv))
+        return d1norm
 
     # --- Density-matrices
     # --------------------

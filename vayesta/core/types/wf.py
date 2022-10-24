@@ -709,9 +709,6 @@ class UCCSD_WaveFunction(RCCSD_WaveFunction):
             c2 = (c2aa, c2ab, c2ba, c2bb)
         return UCISD_WaveFunction(self.mo, c0, c1, c2, projector=self.projector)
 
-    def as_ccsd(self):
-        return self
-
     def as_fci(self):
         raise NotImplementedError
 
