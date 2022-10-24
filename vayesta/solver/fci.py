@@ -28,7 +28,8 @@ class FCI_Solver(ClusterSolver):
         lindep: float = None        # Linear dependency tolerance. If None, use PySCF default
         conv_tol: float = 1e-12     # Convergence tolerance. If None, use PySCF default
         solver_spin: bool = True    # Use direct_spin1 if True, or direct_spin0 otherwise
-        fix_spin: float = 0.0       # If set to a number, the given S^2 value will be enforced
+        fix_spin: bool = True           # If True, the given S^2 expectation value will be targeted
+        fix_spin_value: float = None    # S^2 expectation value (None: Sz*(Sz+1), where 2*Sz = n(alpha)-n(beta))
         fix_spin_penalty: float = 1.0
         davidson_only: bool = True
         init_guess: str = 'default'
@@ -55,10 +56,11 @@ class FCI_Solver(ClusterSolver):
             solver.max_cycle = self.opts.max_cycle
         if self.opts.davidson_only is not None:
             solver.davidson_only = self.opts.davidson_only
-        if self.opts.fix_spin not in (None, False):
-            spin = self.opts.fix_spin
-            self.log.debugv("Fixing spin of FCI solver to S^2= %f", spin)
-            solver = pyscf.fci.addons.fix_spin_(solver, shift=self.opts.fix_spin_penalty, ss=spin)
+        if self.opts.fix_spin:
+            value = self.opts.fix_spin_value
+            penalty = self.opts.fix_spin_penalty
+            self.log.info("Fixing S^2 expectation value of FCI solver (value= %r, penalty= %f)", value, penalty)
+            solver = pyscf.fci.addons.fix_spin_(solver, shift=penalty, ss=value)
         self.solver = solver
 
         # --- Results
@@ -199,17 +201,17 @@ class FCI_Solver(ClusterSolver):
 class UFCI_Solver(FCI_Solver):
     """FCI with UHF orbitals."""
 
-    cisd_solver = UCISD_Solver
-
     @dataclasses.dataclass
     class Options(FCI_Solver.Options):
-        fix_spin: float = None
+        fix_spin: bool = False              # Does not work for UFCI?
+
+    cisd_solver = UCISD_Solver
 
     @property
     def ncas(self):
         ncas = self.cluster.norb_active
         if ncas[0] != ncas[1]:
-            raise NotImplementedError()
+            raise NotImplementedError("Different number of alpha and beta orbitals for FCI solver: alpha= %d beta= %d" % ncas)
         return ncas[0]
 
     @property
