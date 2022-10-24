@@ -298,9 +298,9 @@ class Fragment(BaseFragment):
 
     def get_solver_options(self, solver):
         # TODO: fix this mess...
-        solver_opts = {}
-        # conv_tol, max_cycle, solve_lambda,...:
-        solver_opts.update(self.opts.solver_options)
+        # Use those values from solver_options, which are not None
+        # (conv_tol, max_cycle, solve_lambda,...)
+        solver_opts = {key: val for (key, val) in self.opts.solver_options.items() if val is not None}
         pass_through = []
         if 'CCSD' in solver.upper():
             pass_through += ['sc_mode', 'dm_with_frozen']
