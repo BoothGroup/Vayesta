@@ -408,6 +408,47 @@ class MoleculeTestsUnrestricted(unittest.TestCase):
         self.assertAlmostEqual(rewf.e_corr, uewf.e_corr, self.PLACES_ENERGY)
         self.assertAlmostEqual(rewf.e_tot, uewf.e_tot, self.PLACES_ENERGY)
 
+    def test_h2o_mp2_compression(self):
+        """Compares MP2 solver with ERIs, uncompressed CDERIs, and compressed CDERIs.
+        """
+        rewf = ewf.EWF(
+                testsystems.water_ccpvdz.rhf(),
+                bath_type='dmet',
+                solver="MP2"
+        )
+
+        with rewf.iao_fragmentation() as f:
+            f.add_all_atomic_fragments()
+        rewf.kernel()
+
+        df_rewf = ewf.EWF(
+                testsystems.water_ccpvdz_df.rhf(),
+                bath_type='dmet',
+                solver="MP2",
+                solver_options={
+                    "compress_cderi":False
+                }
+        )
+        with df_rewf.iao_fragmentation() as f:
+            f.add_all_atomic_fragments()
+        df_rewf.kernel()
+        # Check that density fitting error is smaller than in mean-field.
+        self.assertAlmostEqual(rewf.e_corr, df_rewf.e_corr, int(np.log10(abs(rewf.e_mf - df_rewf.e_mf))))
+
+        cdf_rewf = ewf.EWF(
+                testsystems.water_ccpvdz_df.rhf(),
+                bath_type='dmet',
+                solver="MP2",
+                solver_options={
+                    "compress_cderi":True
+                }
+        )
+        with cdf_rewf.iao_fragmentation() as f:
+            f.add_all_atomic_fragments()
+        cdf_rewf.kernel()
+        # Compression shouldn't change the answer.
+        self.assertAlmostEqual(df_rewf.e_tot, cdf_rewf.e_tot, self.PLACES_ENERGY)
+
 
 if __name__ == '__main__':
     print('Running %s' % __file__)
