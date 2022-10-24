@@ -38,6 +38,9 @@ class TestRestricted(TestCase):
         elif tailoring == 'all-1p':
             ccsd1.tailor_with_fragments([fci1, fci2], projectors=1)
             ccsd2.tailor_with_fragments([fci1, fci2], projectors=1)
+        elif tailoring == 'all-2p':
+            ccsd1.tailor_with_fragments([fci1, fci2], projectors=2)
+            ccsd2.tailor_with_fragments([fci1, fci2], projectors=2)
         else:
             raise ValueError
         # Solve (tailored) CCSD
@@ -59,6 +62,14 @@ class TestRestricted(TestCase):
     def test_dm_energy_all(self):
         emb = self.emb(1e-4, 'all-1p')
         self.assertAllclose(emb.get_dm_corr_energy(), -0.4067136384165535, atol=1e-6, rtol=0)
+
+    def test_wf_energy_all_2p(self):
+        emb = self.emb(1e-4, 'all-2p')
+        self.assertAllclose(emb.e_corr, -0.4216611412243197, atol=1e-6, rtol=0)
+
+    def test_dm_energy_all_2p(self):
+        emb = self.emb(1e-4, 'all-2p')
+        self.assertAllclose(emb.get_dm_corr_energy(), -0.4109557775015299, atol=1e-6, rtol=0)
 
 
 class TestUnrestrictedS0(TestRestricted):
@@ -89,6 +100,14 @@ class TestUnrestrictedS4(TestRestricted):
     def test_dm_energy_all(self):
         emb = self.emb(1e-4, 'all-1p')
         self.assertAllclose(emb.get_dm_corr_energy(), -0.21845089572304, atol=1e-6, rtol=0)
+
+    def test_wf_energy_all_2p(self):
+        emb = self.emb(1e-4, 'all-2p')
+        self.assertAllclose(emb.e_corr, -0.2025278277300585, atol=1e-6, rtol=0)
+
+    def test_dm_energy_all_2p(self):
+        emb = self.emb(1e-4, 'all-2p')
+        self.assertAllclose(emb.get_dm_corr_energy(), -0.21849821198673974, atol=1e-6, rtol=0)
 
 
 if __name__ == '__main__':
