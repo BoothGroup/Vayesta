@@ -45,6 +45,34 @@ def get_amplitude_norm(t1, t2):
     return t1norm, t2norm
 
 
+def project_t2_rspin(t2, proj, projectors):
+    if projectors == 0:
+        return t2
+    if projectors == 1:
+        t2 = einsum('xi,i...->x...', proj, t2)
+        return (t2 + t2.transpose(1,0,3,2))/2
+    if projectors == 2:
+        return einsum('xi,yj,ij...->xy...', proj, proj, t2)
+    raise ValueError
+
+
+def project_t2_uspin(t2, proj, projectors):
+    if projectors == 0:
+        return t2
+    t2aa = project_t2_rspin(t2[0], proj[0], projectors=projectors)
+    t2bb = project_t2_rspin(t2[2], proj[1], projectors=projectors)
+    if projectors == 1:
+        # Average between projecting alpha and beta:
+        t2ab = (einsum('xi,ij...->xj...', proj[0], t2[1])
+              + einsum('xj,ij...->ix...', proj[1], t2[1]))/2
+    elif projectors == 2:
+        t2ab = einsum('xi,yj,ij...->xy...', proj[0], proj[1], t2[1])
+    else:
+        raise ValueError
+    #assert np.allclose(t2ab, -t2ab.transpose(0,1,3,2))
+    return (t2aa, t2ab, t2bb)
+
+
 def couple_ccsd_iterations(solver, fragments):
     """
 
@@ -175,33 +203,19 @@ def tailor_with_fragments(solver, fragments, project=False, tailor_t1=True, tail
                 t2x = transform_amplitude(t2, rxy_occ, rxy_vir, spinsym=solver.spinsym)
                 dt2y = spinalg.subtract(wfy.t2, t2x)
 
-            # Project
+            # Project first one/two occupied index/indices onto fragment(y) space:
             if project:
                 proj = fy.get_overlap('frag|cluster-occ')
                 proj = spinalg.dot(spinalg.T(proj), proj)
-                # Project first occupied index onto fragment(y) space:
-                if project == 1:
-                    if tailor_t1:
-                        dt1y = spinalg.dot(proj, dt1y)
-                    if tailor_t2:
-                        if solver.spinsym == 'restricted':
-                            dt2y = einsum('xi,i...->x...', proj, dt2y)
-                            dt2y = (dt2y + dt2y.transpose(1,0,3,2))/2
-                        elif solver.spinsym == 'unrestricted':
-                            dt2y_aa = einsum('xi,i...->x...', proj[0], dt2y[0])
-                            dt2y_bb = einsum('xi,i...->x...', proj[1], dt2y[2])
-                            dt2y_ab = einsum('xi,i...->x...', proj[0], dt2y[1])
-                            dt2y_ba = einsum('xj,ij...->ix...', proj[1], dt2y[1])
-                            dt2y_aa = (dt2y_aa + dt2y_aa.transpose(1,0,3,2))/2
-                            dt2y_bb = (dt2y_bb + dt2y_bb.transpose(1,0,3,2))/2
-                            dt2y_ab = (dt2y_ab + dt2y_ba)/2
-                            dt2y = (dt2y_aa, dt2y_ab, dt2y_bb)
-
-                # Project first and second occupied index onto fragment(y) space:
-                elif project == 2:
-                    raise NotImplementedError
-                else:
-                    raise ValueError("project= %s" % project)
+                if tailor_t1:
+                    dt1y = spinalg.dot(proj, dt1y)
+                if tailor_t2:
+                    if solver.spinsym == 'restricted':
+                        dt2y = project_t2_rspin(dt2y, proj, projectors=project)
+                    elif solver.spinsym == 'unrestricted':
+                        dt2y = project_t2_uspin(dt2y, proj, projectors=project)
+                    else:
+                        raise ValueError
 
             # Transform back to x-space and add:
             if tailor_t1:

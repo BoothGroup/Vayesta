@@ -33,11 +33,11 @@ class TestRestricted(TestCase):
         fci1.active = fci2.active = False
         ccsd1.active = ccsd2.active = True
         if tailoring == 'onsite':
-            ccsd1.tailor_with_fragments([fci1], project=0)
-            ccsd2.tailor_with_fragments([fci2], project=0)
+            ccsd1.tailor_with_fragments([fci1], projectors=0)
+            ccsd2.tailor_with_fragments([fci2], projectors=0)
         elif tailoring == 'all-1p':
-            ccsd1.tailor_with_fragments([fci1, fci2], project=1)
-            ccsd2.tailor_with_fragments([fci1, fci2], project=1)
+            ccsd1.tailor_with_fragments([fci1, fci2], projectors=1)
+            ccsd2.tailor_with_fragments([fci1, fci2], projectors=1)
         else:
             raise ValueError
         # Solve (tailored) CCSD
