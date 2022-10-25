@@ -81,8 +81,44 @@ class RFCI_WaveFunction(wf_types.WaveFunction):
             c2 *= c0/self.c0
         return wf_types.RCISD_WaveFunction(self.mo, c0, c1, c2, projector=self.projector)
 
+    def as_cisdtq(self, c0=None):
+        if self.projector is not None:
+            raise NotImplementedError
+        norb, nocc, nvir = self.norb, self.nocc, self.nvir
+        t1addr, t1sign = pyscf.ci.cisd.t1strs(norb, nocc)
+        t2addr, t2sign = pyscf.ci.cisd.tn_addrs_signs(norb, nocc, 2)
+        t3addr, t3sign = pyscf.ci.cisd.tn_addrs_signs(norb, nocc, 3)
+        t4addr, t4sign = pyscf.ci.cisd.tn_addrs_signs(norb, nocc, 4)
+        # C1 & C2 (from CISD code)
+        c1 = self.ci[0,t1addr] * t1sign
+        c2 = einsum('i,j,ij->ij', t1sign, t1sign, self.ci[t1addr[:,None],t1addr])
+        # C3 & C4 (TODO)
+        # Check also UCISD code to understand what is going on?
+        # (for example, t2addr are not needed for RCISD, but are in UCISD)
+        raise NotImplementedError
+        #c3 = ...
+        #c4 = ...
+        # Sort occupied indices to the front:
+        nov = (nocc, nvir)
+        c1 = c1.reshape(nov)
+        c2 = c2.reshape(2*nov).transpose(0,2,1,3)
+        c3 = c3.reshape(3*nov).transpose(0,2,4,1,3,5)
+        c4 = c4.reshape(4*nov).transpose(0,2,4,6,1,3,5,7)
+
+        if c0 is None:
+            c0 = self.c0
+        else:
+            c1 *= c0/self.c0
+            c2 *= c0/self.c0
+            c3 *= c0/self.c0
+            c4 *= c0/self.c0
+        return wf_types.RCISDTQ_WaveFunction(self.mo, c0, c1, c2, c3, c4)
+
     def as_ccsd(self):
         return self.as_cisd().as_ccsd()
+
+    def as_ccsdtq(self):
+        return self.as_cisdtq().as_ccsdtq()
 
     def as_fci(self):
         return self
