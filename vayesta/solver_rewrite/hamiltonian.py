@@ -76,6 +76,14 @@ class RClusterHamiltonian:
             c = self.cluster.c_active
         return self._fragment.get_fragment_projector(c)
 
+    # Integrals for the cluster calculations.
+
+    def get_integrals(self, bare_eris=None, with_vext=True):
+        heff = self.get_heff(bare_eris, with_vext=with_vext)
+        # Depending on calculation this may be the same as bare_eris
+        seris = self.get_eris()
+        return heff, seris
+
     def get_fock(self, with_vext=True, use_seris=True):
         c = self.cluster.c_active
         fock = dot(c.T, self.mf.get_fock(), c)
@@ -93,29 +101,6 @@ class RClusterHamiltonian:
             fock += v_act_seris - v_act_bare
 
         return fock
-
-    def get_clus_mf_info(self, ao_basis=False):
-        if ao_basis:
-            nao = self.cluster.c_active.shape[1]
-        else:
-            nao = self.ncas
-        mo_energy = np.diag(self.get_fock())
-        mo_occ = np.zeros_like(mo_energy)
-        mo_occ[:self.nelec[0]] = 2.0
-        # Determine whether we want our cluster orbitals expressed in the basis of active orbitals, or in the AO basis.
-        if ao_basis:
-            mo_coeff = self.cluster.c_active
-            ovlp = self.mf.get_ovlp()
-        else:
-            mo_coeff = np.eye(self.ncas[0])
-            ovlp = np.eye(self.ncas[0])
-        return nao, mo_coeff, mo_energy, mo_occ, ovlp
-
-    def get_integrals(self, bare_eris=None, with_vext=True):
-        heff = self.get_heff(bare_eris, with_vext=with_vext)
-        # Depending on calculation this may be the same as bare_eris
-        seris = self.get_eris()
-        return heff, seris
 
     def get_heff(self, eris=None, fock=None, with_vext=True):
         if eris is None:
@@ -151,24 +136,25 @@ class RClusterHamiltonian:
         return eris
 
     def get_cderi_bare(self, only_ov=False, compress=False, svd_threshold=1e-12):
-        if not only_ov:
-            raise NotImplementedError("Cluster CDERIs are only implemented for MP2 or similar calculations only "
-                                      "requiring the ov-block.")
 
-        # We only need the (L|ov) block for MP2:
-        mo_coeff = (self.cluster.c_active_occ, self.cluster.c_active_vir)
+        if only_ov:
+            # We only need the (L|ov) block for MP2:
+            mo_coeff = (self.cluster.c_active_occ, self.cluster.c_active_vir)
+        else:
+            mo_coeff = self.cluster.c_active
+
         with log_time(self.log.timing, "Time for 2e-integral transformation: %s"):
             cderi, cderi_neg = self._fragment.base.get_cderi(mo_coeff)
 
         if compress:
-            # SVD and compress the cderi tensor. Given that only naux scales with system size, this should be cheap
-            # and save both memory and computation.
+            # SVD and compress the cderi tensor. This scales as O(N_{aux} N_{clus}^4), so this will be worthwhile
+            # provided the following approach has a lower scaling than this.
             def compress_cderi(cd):
-                naux, nocc, nvir = cd.shape
-                u, s, v = np.linalg.svd(cd.reshape(naux, nocc * nvir), full_matrices=False)
+                naux, n1, n2 = cd.shape
+                u, s, v = np.linalg.svd(cd.reshape(naux, n1 * n2), full_matrices=False)
                 want = s > svd_threshold
                 self.log.debugv("CDERIs auxbas compressed from %d to %d in size", naux, sum(want))
-                return einsum("pn,n,nq->pq", u[:, want], s[want], v[want]).reshape(naux, nocc, nvir)
+                return einsum("n,nq->nq", s[want], v[want]).reshape(-1, n1, n2)
 
             cderi = compress_cderi(cderi)
             if cderi_neg is not None:
@@ -176,8 +162,11 @@ class RClusterHamiltonian:
 
         return cderi, cderi_neg
 
+    # Generate mean-field object representing the cluster.
+
     def to_pyscf_mf(self, allow_dummy_orbs=False, force_bare_eris=False, overwrite_fock=False):
         """
+        Generate pyscf.scf object representing this active space Hamiltonian.
 
         Parameters
         ----------
@@ -273,6 +262,41 @@ class RClusterHamiltonian:
         clusmf.mo_energy = mo_energy
         return clusmf, orbs_to_freeze
 
+    def get_clus_mf_info(self, ao_basis=False):
+        if ao_basis:
+            nao = self.cluster.c_active.shape[1]
+        else:
+            nao = self.ncas
+        mo_energy = np.diag(self.get_fock())
+        mo_occ = np.zeros_like(mo_energy)
+        mo_occ[:self.nelec[0]] = 2.0
+        # Determine whether we want our cluster orbitals expressed in the basis of active orbitals, or in the AO basis.
+        if ao_basis:
+            mo_coeff = self.cluster.c_active
+            ovlp = self.mf.get_ovlp()
+        else:
+            mo_coeff = np.eye(self.ncas[0])
+            ovlp = np.eye(self.ncas[0])
+        return nao, mo_coeff, mo_energy, mo_occ, ovlp
+
+    # Functionality for use with screened interactions and external corrections.
+
+    def add_screening(self, seris_intermed=None):
+        """Add screened interactions into the Hamiltonian."""
+        if self.opts.screening == "mrpa":
+            assert (seris_intermed is not None)
+
+            # Use bare coulomb interaction from hamiltonian; this could well be cached in future.
+            bare_eris = self.get_eris_bare()
+
+            self._seris = scrcoulomb.get_screened_eris_full(bare_eris, seris_intermed)
+
+        elif self.opts.screening == "crpa":
+            raise NotImplementedError()
+
+        else:
+            raise ValueError("Unknown cluster screening protocol: %s" % self.opts.screening)
+
     def calc_loc_erpa(self):
 
         clusmf = self.to_pyscf_mf(force_bare_eris=True)
@@ -299,22 +323,6 @@ class RClusterHamiltonian:
         proj = get_product_projector()
         eloc = 0.5 * einsum("pq,qr,rp->", proj, m0, ApB) - einsum("pq,qp->", proj, ApB + AmB)
         return eloc
-
-    def add_screening(self, seris_intermed=None):
-        """Add screened interactions into the Hamiltonian."""
-        if self.opts.screening == "mrpa":
-            assert (seris_intermed is not None)
-
-            # Use bare coulomb interaction from hamiltonian; this could well be cached in future.
-            bare_eris = self.get_eris_bare()
-
-            self._seris = scrcoulomb.get_screened_eris_full(bare_eris, seris_intermed)
-
-        elif self.opts.screening == "crpa":
-            raise NotImplementedError()
-
-        else:
-            raise ValueError("Unknown cluster screening protocol: %s" % self.opts.screening)
 
     def assert_equal_spin_channels(self, message=""):
         na, nb = self.ncas
@@ -362,6 +370,8 @@ class UClusterHamiltonian(RClusterHamiltonian):
     def nelec(self):
         return self.cluster.nocc_active
 
+    # Integrals for the cluster calculations.
+
     def get_fock(self, with_vext=True, use_seris=True):
         ca, cb = self.cluster.c_active
         fa, fb = self.mf.get_fock()
@@ -387,27 +397,6 @@ class UClusterHamiltonian(RClusterHamiltonian):
                     (fock[1] + dfb))
 
         return fock
-
-    def get_clus_mf_info(self, ao_basis=False):
-        if ao_basis:
-            nao = self.cluster.c_active.shape[1]
-        else:
-            nao = self.ncas
-        fock = self.get_fock()
-        mo_energy = (np.diag(fock[0]), np.diag(fock[1]))
-        mo_occ = [np.zeros_like(x) for x in mo_energy]
-        mo_occ[0][:self.nelec[0]] = 1.0
-        mo_occ[1][:self.nelec[1]] = 1.0
-        if mo_occ[0].shape == mo_occ[1].shape:
-            mo_occ = np.array(mo_occ)
-        # Determine whether we want our cluster orbitals expressed in the basis of active orbitals, or in the AO basis.
-        if ao_basis:
-            mo_coeff = self.cluster.c_active
-            ovlp = self.mf.get_ovlp()
-        else:
-            mo_coeff = (np.eye(self.ncas[0]), np.eye(self.ncas[1]))
-            ovlp = (np.eye(self.ncas[0]), np.eye(self.ncas[1]))
-        return nao, mo_coeff, mo_energy, mo_occ, ovlp
 
     def get_heff(self, eris=None, fock=None, with_vext=True):
         if eris is None:
@@ -438,27 +427,28 @@ class UClusterHamiltonian(RClusterHamiltonian):
 
     def get_cderi_bare(self, only_ov=False, compress=False, svd_threshold=1e-12):
 
-        if not only_ov:
-            raise NotImplementedError("Cluster CDERIs are only implemented for MP2 or similar calculations only "
-                                      "requiring the ov-block.")
+        if only_ov:
+            # We only need the (L|ov) and (L|OV) blocks:
+            c_aa = [self.cluster.c_active_occ[0], self.cluster.c_active_vir[0]]
+            c_bb = [self.cluster.c_active_occ[1], self.cluster.c_active_vir[1]]
+        else:
+            c_aa, c_bb = self.cluster.c_active
 
-        # We only need the (L|ov) and (L|OV) blocks:
-        c_aa = [self.cluster.c_active_occ[0], self.cluster.c_active_vir[0]]
-        c_bb = [self.cluster.c_active_occ[1], self.cluster.c_active_vir[1]]
-        cderi_a, cderi_neg_a = self._fragment.base.get_cderi(c_aa)
-        cderi_b, cderi_neg_b = self._fragment.base.get_cderi(c_bb)
+        with log_time(self.log.timing, "Time for 2e-integral transformation: %s"):
+            cderi_a, cderi_neg_a = self._fragment.base.get_cderi(c_aa)
+            cderi_b, cderi_neg_b = self._fragment.base.get_cderi(c_bb)
         cderi = (cderi_a, cderi_b)
         cderi_neg = (cderi_neg_a, cderi_neg_b)
 
         if compress:
-            # SVD and compress the cderi tensor. Given that only naux scales with system size, this should be cheap
-            # and save both memory and computation.
+            # SVD and compress the cderi tensor. This scales as O(N_{aux} N_{clus}^4), so this will be worthwhile
+            # provided the following approach has a lower scaling than this.
             def compress_cderi(cd):
-                naux, nocc, nvir = cd.shape
-                u, s, v = np.linalg.svd(cd.reshape(naux, nocc * nvir), full_matrices=False)
+                naux, n1, n2 = cd.shape
+                u, s, v = np.linalg.svd(cd.reshape(naux, n1 * n2), full_matrices=False)
                 want = s > svd_threshold
                 self.log.debugv("CDERIs auxbas compressed from %d to %d in size", naux, sum(want))
-                return einsum("pn,n,nq->pq", u[:, want], s[want], v[want]).reshape(naux, nocc, nvir)
+                return einsum("n,nq->nq", s[want], v[want]).reshape(-1, n1, n2)
 
             cderi = (compress_cderi(cderi[0]), compress_cderi(cderi[0]))
             if cderi_neg[0] is not None:
@@ -468,10 +458,33 @@ class UClusterHamiltonian(RClusterHamiltonian):
 
         return cderi, cderi_neg
 
+    # Generate mean-field object representing the cluster.
+
     def to_pyscf_mf(self, allow_dummy_orbs=True, force_bare_eris=False, overwrite_fock=False):
         # Need to overwrite fock integrals to avoid errors.
         return super().to_pyscf_mf(allow_dummy_orbs=allow_dummy_orbs, force_bare_eris=force_bare_eris,
                                    overwrite_fock=True)
+
+    def get_clus_mf_info(self, ao_basis=False):
+        if ao_basis:
+            nao = self.cluster.c_active.shape[1]
+        else:
+            nao = self.ncas
+        fock = self.get_fock()
+        mo_energy = (np.diag(fock[0]), np.diag(fock[1]))
+        mo_occ = [np.zeros_like(x) for x in mo_energy]
+        mo_occ[0][:self.nelec[0]] = 1.0
+        mo_occ[1][:self.nelec[1]] = 1.0
+        if mo_occ[0].shape == mo_occ[1].shape:
+            mo_occ = np.array(mo_occ)
+        # Determine whether we want our cluster orbitals expressed in the basis of active orbitals, or in the AO basis.
+        if ao_basis:
+            mo_coeff = self.cluster.c_active
+            ovlp = self.mf.get_ovlp()
+        else:
+            mo_coeff = (np.eye(self.ncas[0]), np.eye(self.ncas[1]))
+            ovlp = (np.eye(self.ncas[0]), np.eye(self.ncas[1]))
+        return nao, mo_coeff, mo_energy, mo_occ, ovlp
 
 
 class EB_RClusterHamiltonian(RClusterHamiltonian):
