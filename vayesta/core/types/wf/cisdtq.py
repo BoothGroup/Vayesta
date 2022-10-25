@@ -22,7 +22,7 @@ class RCISDTQ_WaveFunction(wf_types.WaveFunction):
         self.c3 = c3
         self.c4 = c4
 
-    def as_ccsd(self):
+    def as_ccsdtq(self):
         t1 = self.c1/self.c0
         t2 = self.c2/self.c0 - einsum('ia,jb->ijab', t1, t1)
         raise NotImplementedError
