@@ -6,7 +6,7 @@ from vayesta.core.vpyscf import uccsd_rdm
 # import pyscf.cc
 from vayesta.core import spinalg
 from vayesta.core.util import *
-from vayesta.core.types import wf
+from vayesta.core.types import wf as wf_types
 from vayesta.core.types.orbitals import *
 from vayesta.core.types.wf.project import *
 
@@ -19,7 +19,7 @@ def CCSD_WaveFunction(mo, t1, t2, **kwargs):
     return cls(mo, t1, t2, **kwargs)
 
 
-class RCCSD_WaveFunction(wf.WaveFunction):
+class RCCSD_WaveFunction(wf_types.WaveFunction):
 
     # TODO: Once standard PySCF accepts additional keyword arguments:
     #_make_rdm1_backend = pyscf.cc.ccsd_rdm.make_rdm1
@@ -115,8 +115,7 @@ class RCCSD_WaveFunction(wf.WaveFunction):
         Useful for communication via MPI."""
         mo, t1, t2, l1, l2, projector = unpack_arrays(packed)
         mo = SpatialOrbitals.unpack(mo)
-        wf = cls(mo, t1, t2, l1=l1, l2=l2, projector=projector)
-        return wf
+        return cls(mo, t1, t2, l1=l1, l2=l2, projector=projector)
 
     def restore(self, projector=None, inplace=False, sym=True):
         if projector is None: projector = self.projector
@@ -161,7 +160,7 @@ class RCCSD_WaveFunction(wf.WaveFunction):
             raise NotImplementedError
         c1 = c0*self.t1
         c2 = c0*(self.t2 + einsum('ia,jb->ijab', self.t1, self.t1))
-        return wf.RCISD_WaveFunction(self.mo, c0, c1, c2, projector=self.projector)
+        return wf_types.RCISD_WaveFunction(self.mo, c0, c1, c2, projector=self.projector)
 
     def as_ccsd(self):
         return self
@@ -282,7 +281,7 @@ class UCCSD_WaveFunction(RCCSD_WaveFunction):
         elif len(self.t2) == 4:
             c2ba = c0*self.t2ba + einsum('ia,jb->ijab', c1b, c1a)
             c2 = (c2aa, c2ab, c2ba, c2bb)
-        return wf.UCISD_WaveFunction(self.mo, c0, c1, c2, projector=self.projector)
+        return wf_types.UCISD_WaveFunction(self.mo, c0, c1, c2, projector=self.projector)
 
     def as_fci(self):
         raise NotImplementedError

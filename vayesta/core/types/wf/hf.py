@@ -1,7 +1,7 @@
 import numpy as np
 import vayesta
 from vayesta.core.util import *
-from vayesta.core.types import wf
+from vayesta.core.types import wf as wf_types
 
 
 def HF_WaveFunction(mo):
@@ -12,7 +12,7 @@ def HF_WaveFunction(mo):
     return cls(mo)
 
 
-class RHF_WaveFunction(wf.WaveFunction):
+class RHF_WaveFunction(wf_types.WaveFunction):
 
     def make_rdm1(self, mo_coeff=None, mo_occ=None, ao_basis=True):
         if mo_occ is None: mo_occ = self.mo.occ

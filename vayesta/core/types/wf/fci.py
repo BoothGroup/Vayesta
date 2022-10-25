@@ -3,7 +3,7 @@ import pyscf
 import pyscf.fci
 import vayesta
 from vayesta.core.util import *
-from vayesta.core.types import wf
+from vayesta.core.types import wf as wf_types
 
 
 def FCI_WaveFunction(mo, ci, **kwargs):
@@ -14,7 +14,7 @@ def FCI_WaveFunction(mo, ci, **kwargs):
     return cls(mo, ci, **kwargs)
 
 
-class RFCI_WaveFunction(wf.WaveFunction):
+class RFCI_WaveFunction(wf_types.WaveFunction):
 
     def __init__(self, mo, ci, projector=None):
         super().__init__(mo, projector=projector)
@@ -79,7 +79,7 @@ class RFCI_WaveFunction(wf.WaveFunction):
         else:
             c1 *= c0/self.c0
             c2 *= c0/self.c0
-        return wf.RCISD_WaveFunction(self.mo, c0, c1, c2, projector=self.projector)
+        return wf_types.RCISD_WaveFunction(self.mo, c0, c1, c2, projector=self.projector)
 
     def as_ccsd(self):
         return self.as_cisd().as_ccsd()
@@ -175,4 +175,4 @@ class UFCI_WaveFunction(RFCI_WaveFunction):
             c2bb *= c0/self.c0
         c1 = (c1a, c1b)
         c2 = (c2aa, c2ab, c2bb)
-        return wf.UCISD_WaveFunction(self.mo, c0, c1, c2, projector=self.projector)
+        return wf_types.UCISD_WaveFunction(self.mo, c0, c1, c2, projector=self.projector)

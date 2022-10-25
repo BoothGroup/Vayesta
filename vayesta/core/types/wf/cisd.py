@@ -4,7 +4,7 @@ import pyscf.ci
 import vayesta
 from vayesta.core import spinalg
 from vayesta.core.util import *
-from vayesta.core.types import wf
+from vayesta.core.types import wf as wf_types
 from vayesta.core.types.wf.project import *
 
 
@@ -16,7 +16,7 @@ def CISD_WaveFunction(mo, c0, c1, c2, **kwargs):
     return cls(mo, c0, c1, c2, **kwargs)
 
 
-class RCISD_WaveFunction(wf.WaveFunction):
+class RCISD_WaveFunction(wf_types.WaveFunction):
 
     def __init__(self, mo, c0, c1, c2, projector=None):
         super().__init__(mo, projector=projector)
@@ -64,7 +64,7 @@ class RCISD_WaveFunction(wf.WaveFunction):
         t1 = self.c1/self.c0
         t2 = self.c2/self.c0 - einsum('ia,jb->ijab', t1, t1)
         l1, l2 = t1, t2
-        wf = wf.RCCSD_WaveFunction(self.mo, t1, t2, l1=l1, l2=l2, projector=self.projector)
+        wf = wf_types.RCCSD_WaveFunction(self.mo, t1, t2, l1=l1, l2=l2, projector=self.projector)
         if proj is not None:
             wf = wf.project(proj)
         return wf
@@ -76,7 +76,7 @@ class RCISD_WaveFunction(wf.WaveFunction):
 
     def as_fci(self):
         ci = pyscf.ci.cisd.to_fcivec(self.get_cisdvec(), self.mo.norb, self.mo.nelec)
-        return wf.RFCI_WaveFunction(self.mo, ci, projector=self.projector)
+        return wf_types.RFCI_WaveFunction(self.mo, ci, projector=self.projector)
 
 
 class UCISD_WaveFunction(RCISD_WaveFunction):
@@ -140,7 +140,7 @@ class UCISD_WaveFunction(RCISD_WaveFunction):
         elif len(self.c2) == 4:
             c2ba = self.c2ba * c0/self.c0
             c2 = (c2aa, c2ab, c2ba, c2bb)
-        return wf.UCISD_WaveFunction(self.mo, c0, c1, c2, projector=self.projector)
+        return wf_types.UCISD_WaveFunction(self.mo, c0, c1, c2, projector=self.projector)
 
     def as_ccsd(self):
         proj = self.projector
@@ -158,7 +158,7 @@ class UCISD_WaveFunction(RCISD_WaveFunction):
             t2ba = self.c2ab/self.c0 - einsum('ia,jb->ijab', t1b, t1a)
             t2 = (t2aa, t2ab, t2ba, t2bb)
         l1, l2 = t1, t2
-        wf = wf.UCCSD_WaveFunction(self.mo, t1, t2, l1=l1, l2=l2, projector=self.projector)
+        wf = wf_types.UCCSD_WaveFunction(self.mo, t1, t2, l1=l1, l2=l2, projector=self.projector)
         if proj is not None:
             wf = wf.project(proj)
         return wf
@@ -174,4 +174,4 @@ class UCISD_WaveFunction(RCISD_WaveFunction):
             # TODO: Allow padding via frozen argument?
             raise NotImplementedError
         ci = pyscf.ci.ucisd.to_fcivec(self.get_cisdvec(), norb[0], self.mo.nelec)
-        return wf.RFCI_WaveFunction(self.mo, ci, projector=self.projector)
+        return wf_types.RFCI_WaveFunction(self.mo, ci, projector=self.projector)

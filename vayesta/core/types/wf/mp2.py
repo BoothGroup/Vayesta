@@ -1,7 +1,7 @@
 import numpy as np
 from vayesta.core import spinalg
 from vayesta.core.util import *
-from vayesta.core.types import wf
+from vayesta.core.types import wf as wf_types
 from vayesta.core.types.orbitals import *
 from vayesta.core.types.wf.project import *
 
@@ -14,7 +14,7 @@ def MP2_WaveFunction(mo, t2, **kwargs):
     return cls(mo, t2, **kwargs)
 
 
-class RMP2_WaveFunction(wf.WaveFunction):
+class RMP2_WaveFunction(wf_types.WaveFunction):
 
     def __init__(self, mo, t2, projector=None):
         super().__init__(mo, projector=projector)
@@ -90,12 +90,12 @@ class RMP2_WaveFunction(wf.WaveFunction):
         nocc1 = self.t2.shape[0]
         c1 = np.zeros((nocc1, self.nvir))
         c2 = c0*self.t2
-        return wf.RCISD_WaveFunction(self.mo, c0, c1, c2, projector=self.projector)
+        return wf_types.RCISD_WaveFunction(self.mo, c0, c1, c2, projector=self.projector)
 
     def as_ccsd(self):
         nocc1 = self.t2.shape[0]
         t1 = np.zeros((nocc1, self.nvir))
-        return wf.CCSD_WaveFunction(self.mo, t1, self.t2, l1=t1, l2=self.t2, projector=self.projector)
+        return wf_types.CCSD_WaveFunction(self.mo, t1, self.t2, l1=t1, l2=self.t2, projector=self.projector)
 
     def as_fci(self):
         raise NotImplementedError
@@ -121,8 +121,7 @@ class RMP2_WaveFunction(wf.WaveFunction):
         Useful for communication via MPI."""
         mo, t2, projector = unpack_arrays(packed)
         mo = SpatialOrbitals.unpack(mo)
-        wf = cls(mo, t2, projector=projector)
-        return wf
+        return cls(mo, t2, projector=projector)
 
 
 class UMP2_WaveFunction(RMP2_WaveFunction):
@@ -182,14 +181,14 @@ class UMP2_WaveFunction(RMP2_WaveFunction):
         elif len(self.t2) == 4:
             c2ba = c0*self.t2ba
             c2 = (c2aa, c2ab, c2ba, c2bb)
-        return wf.UCISD_WaveFunction(self.mo, c0, c1, c2, projector=self.projector)
+        return wf_types.UCISD_WaveFunction(self.mo, c0, c1, c2, projector=self.projector)
 
     def as_ccsd(self):
         nocc1a = self.t2aa.shape[0]
         nocc1b = self.t2bb.shape[0]
         t1 = (np.zeros((nocc1a, self.nvira)),
               np.zeros((nocc1b, self.nvirb)))
-        return wf.UCCSD_WaveFunction(self.mo, t1, self.t2, l1=t1, l2=self.t2, projector=self.projector)
+        return wf_types.UCCSD_WaveFunction(self.mo, t1, self.t2, l1=t1, l2=self.t2, projector=self.projector)
 
     def as_fci(self):
         return NotImplementedError
