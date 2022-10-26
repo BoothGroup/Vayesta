@@ -26,7 +26,7 @@ class RCCSD_Solver(ClusterSolver):
         tcc_fci_opts: dict = dataclasses.field(default_factory=dict)
 
     def kernel(self, t1=None, t2=None, l1=None, l2=None, coupled_fragments=None, t_diagnostic=True):
-        mf_clus, frozen = self.hamil.to_pyscf_mf(allow_dummy_orbs=True)
+        mf_clus, frozen = self.hamil.to_pyscf_mf(allow_dummy_orbs=True, allow_df=True)
         solver_cls = self.get_solver_class(mf_clus)
         self.log.debugv("PySCF solver class= %r" % solver_cls)
         mycc = solver_cls(mf_clus, frozen=frozen)

@@ -39,7 +39,6 @@ class RClusterHamiltonian:
 
         self.mf = mf
         # Do we want to populate all parameters at initialisation, so fragment isn't actually saved here?
-        # This would be more of a computational
         self._fragment = fragment
         self.log = (log or fragment.log)
         # --- Options:
@@ -165,7 +164,7 @@ class RClusterHamiltonian:
 
     # Generate mean-field object representing the cluster.
 
-    def to_pyscf_mf(self, allow_dummy_orbs=False, force_bare_eris=False, overwrite_fock=False):
+    def to_pyscf_mf(self, allow_dummy_orbs=False, force_bare_eris=False, overwrite_fock=False, allow_df=False):
         """
         Generate pyscf.scf object representing this active space Hamiltonian.
         This should be able to be passed into a standard post-hf `pyscf` solver without modification.
@@ -180,6 +179,10 @@ class RClusterHamiltonian:
             Default is False
         overwrite_fock : bool, optional
             Whether `mf.get_fock` should be set to `self.get_fock`. Mainly for use in UHF.
+            Default is False
+        allow_df : bool, optional
+            Whether the resultant mean-field object should include a `.with_df` object containing the projection of the
+            CDERIs into the cluster space.
             Default is False
 
         Returns
@@ -246,7 +249,7 @@ class RClusterHamiltonian:
         #   -using bare ERIs in cluster.
         #   -ERIs are PSD.
         #   -our mean-field has DF.
-        use_df = np.ndim(clusmf.mo_coeff[1]) == 1 and self.opts.screening is None and \
+        use_df = allow_df and np.ndim(clusmf.mo_coeff[1]) == 1 and self.opts.screening is None and \
                  not (self._fragment.base.pbc_dimension in (1, 2)) and hasattr(self.mf, 'with_df') \
                  and self.mf.with_df is not None
         if use_df:
