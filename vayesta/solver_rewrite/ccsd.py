@@ -27,7 +27,9 @@ class RCCSD_Solver(ClusterSolver):
 
     def kernel(self, t1=None, t2=None, l1=None, l2=None, coupled_fragments=None, t_diagnostic=True):
         mf_clus, frozen = self.hamil.to_pyscf_mf(allow_dummy_orbs=True)
-        mycc = self.get_solver_class()(mf_clus, frozen=frozen)
+        solver_cls = self.get_solver_class(mf_clus)
+        self.log.debugv("PySCF solver class= %r" % solver_cls)
+        mycc = solver_cls(mf_clus, frozen=frozen)
 
         if self.opts.max_cycle is not None:
             mycc.max_cycle = self.opts.max_cycle
@@ -61,7 +63,9 @@ class RCCSD_Solver(ClusterSolver):
 
         self.wf = CCSD_WaveFunction(self.hamil.mo, mycc.t1, mycc.t2, l1=mycc.l1, l2=mycc.l2)
 
-    def get_solver_class(self):
+    def get_solver_class(self, mf):
+        if hasattr(mf, "with_df") and mf.with_df is not None:
+            return pyscf.cc.dfccsd.RCCSD
         return pyscf.cc.ccsd.RCCSD
 
     @log_method()
@@ -124,7 +128,7 @@ class UCCSD_Solver(UClusterSolver, RCCSD_Solver):
     class Options(RCCSD_Solver.Options):
         pass
 
-    def get_solver_class(self):
+    def get_solver_class(self, mf):
         return UCCSD
 
     def t_diagnostic(self, solver):
@@ -163,6 +167,6 @@ class UCCSD_Solver(UClusterSolver, RCCSD_Solver):
         raise NotImplementedError
 
 
-# Subclass pyscf UCCSD to enable support of
+# Subclass pyscf UCCSD to enable support of spin-dependent ERIs.
 class UCCSD(pyscf.cc.uccsd.UCCSD):
     ao2mo = uao2mo

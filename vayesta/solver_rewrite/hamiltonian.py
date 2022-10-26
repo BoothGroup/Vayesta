@@ -4,6 +4,7 @@ from typing import Optional
 import numpy as np
 import scipy.linalg
 
+import pyscf.lib
 import pyscf.scf
 from vayesta.core.qemb import scrcoulomb
 from vayesta.core.types import Orbitals
@@ -167,6 +168,7 @@ class RClusterHamiltonian:
     def to_pyscf_mf(self, allow_dummy_orbs=False, force_bare_eris=False, overwrite_fock=False):
         """
         Generate pyscf.scf object representing this active space Hamiltonian.
+        This should be able to be passed into a standard post-hf `pyscf` solver without modification.
 
         Parameters
         ----------
@@ -185,32 +187,30 @@ class RClusterHamiltonian:
         clusmf : pyscf.scf.SCF
             Representation of cluster as pyscf mean-field.
         orbs_to_freeze : list of lists
-            Which orbitals to freeze in each spin channel.
+            Which orbitals to freeze, split by spin channel if UHF.
         """
-        # Using this requires equal spin channels.
+        # Using this approach requires dummy orbitals or equal spin channels.
         if not allow_dummy_orbs:
             self.assert_equal_spin_channels()
-
         nmo = max(self.ncas)
         nsm = min(self.ncas)
-        # Now, define function to equalise spin channels.
-
+        # Get dummy information on mf state. Note our `AOs` are in fact the rotated MOs.
         nao, mo_coeff, mo_energy, mo_occ, ovlp = self.get_clus_mf_info(ao_basis=False)
-
+        # Now, define function to equalise spin channels.
         if nsm == nmo:
+            # No need to pad, these functions don't need to do anything.
             def pad_to_match(array, diag_val=0.0):
                 return array
-
             orbs_to_freeze = None
             dummy_energy = 0.0
         else:
+            # Note that this branch is actually UHF-exclusive.
             padchannel = self.ncas.index(nsm)
             orbs_to_freeze = [[], []]
             orbs_to_freeze[padchannel] = list(range(nsm, nmo))
-            dummy_energy = 10.0 + max([x.max() for x in mo_energy])
-
+            # Pad all indices which are smaller than nmo to this size with zeros.
+            # Optionally introduce value on diagonal if all indices are padded.
             def pad_to_match(array_tup, diag_val=0.0):
-
                 def pad(a, diag_val):
                     topad = np.array(a.shape) < nmo
                     if any(topad):
@@ -222,44 +222,57 @@ class RClusterHamiltonian:
                         for i in range(nsm, nmo):
                             a[(i,) * a.ndim] = diag_val
                     return a
-
                 return [pad(x, diag_val) for x in array_tup]
+            # For appropriate one-body quantities (hcore, fock) set diagonal dummy index value to effective virtual
+            # orbital energy higher than highest actual orbital energy.
+            dummy_energy = 10.0 + max([x.max() for x in mo_energy])
 
-        mo_coeff = pad_to_match(mo_coeff, 1.0)
-
-        mo_energy = pad_to_match(mo_energy, dummy_energy)
-        mo_occ = np.array(pad_to_match(mo_occ, 0.0))
-        ovlp = pad_to_match(ovlp, 1.0)
-
-        bare_eris = self.get_eris_bare()
-        heff = pad_to_match(self.get_heff(eris=bare_eris, with_vext=True), dummy_energy)
-        bare_eris = pad_to_match(bare_eris, 0.0)
-
+        # Set up dummy mol object representing cluster.
         clusmol = pyscf.gto.mole.Mole()
         clusmol.nelec = self.nelec
-        # NB if the number of alpha and beta active orbitals is different then will likely need to ensure the `ao2mo`
-        # of pyscf approaches is replaced in Vayesta to support this.
-        # If we wanted to actually run a HF calculation would need to replace `scf.energy_elec()` to support
-        # spin-dependent output to `get_hcore()`.
-
         clusmol.nao = nmo
         clusmol.build()
-
+        # Then scf object representing mean-field electronic state.
         clusmf = self._scf_class(clusmol)
+        # First set mean-field parameters.
+        clusmf.mo_coeff = pad_to_match(mo_coeff, 1.0)
+        clusmf.mo_occ = np.array(pad_to_match(mo_occ, 0.0))
+        clusmf.mo_energy = pad_to_match(mo_energy, dummy_energy)
+        clusmf.get_ovlp = lambda *args, **kwargs: pad_to_match(ovlp, 1.0)
+
+        # Determine if we want to use DF within the cluster to reduce memory costs.
+        # Only want this if
+        #   -using RHF (UHF would be more complicated).
+        #   -using bare ERIs in cluster.
+        #   -ERIs are PSD.
+        #   -our mean-field has DF.
+        use_df = np.ndim(clusmf.mo_coeff[1]) == 1 and self.opts.screening is None and \
+                 not (self._fragment.base.pbc_dimension in (1, 2)) and hasattr(self.mf, 'with_df') \
+                 and self.mf.with_df is not None
+        if use_df:
+            # Set up with DF
+            clusmf = clusmf.density_fit()
+            # Populate a dummy density fitting object.
+            cderis = pyscf.lib.pack_tril(self.get_cderi_bare(only_ov=False, compress=True)[0])
+            clusmf.with_df._cderi = cderis
+            # This gives us enough information to generate the local effective interaction.
+            # This works since it must also be RHF.
+            heff = self.get_fock(with_vext=True, use_seris=False) - clusmf.get_veff()
+        else:
+            # Just set up heff using standard bare eris.
+            bare_eris = self.get_eris_bare()
+            heff = pad_to_match(self.get_heff(eris=bare_eris, with_vext=True), dummy_energy)
+            if force_bare_eris:
+                clusmf._eri = pad_to_match(bare_eris, 0.0)
+            else:
+                clusmf._eri = pad_to_match(self.get_eris())
+
         clusmf.get_hcore = lambda *args, **kwargs: heff
-        clusmf.get_ovlp = lambda *args, **kwargs: ovlp
         if overwrite_fock:
             clusmf.get_fock = lambda *args, **kwargs: pad_to_match(self.get_fock(with_vext=True), dummy_energy)
             clusmf.get_veff = lambda *args, **kwargs: np.array(clusmf.get_fock(*args, **kwargs)) - np.array(
                 clusmf.get_hcore())
-        # This could be replaced by a density fitted approach if we wanted.
-        if force_bare_eris:
-            clusmf._eri = bare_eris
-        else:
-            clusmf._eri = pad_to_match(self.get_eris())
-        clusmf.mo_coeff = mo_coeff
-        clusmf.mo_occ = mo_occ
-        clusmf.mo_energy = mo_energy
+
         return clusmf, orbs_to_freeze
 
     def get_clus_mf_info(self, ao_basis=False):
