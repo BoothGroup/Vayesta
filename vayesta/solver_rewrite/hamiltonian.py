@@ -476,10 +476,10 @@ class UClusterHamiltonian(RClusterHamiltonian):
 
     # Generate mean-field object representing the cluster.
 
-    def to_pyscf_mf(self, allow_dummy_orbs=True, force_bare_eris=False, overwrite_fock=False):
+    def to_pyscf_mf(self, allow_dummy_orbs=True, force_bare_eris=False, overwrite_fock=True, allow_df=False):
         # Need to overwrite fock integrals to avoid errors.
         return super().to_pyscf_mf(allow_dummy_orbs=allow_dummy_orbs, force_bare_eris=force_bare_eris,
-                                   overwrite_fock=True)
+                                   overwrite_fock=True, allow_df=allow_df)
 
     def get_clus_mf_info(self, ao_basis=False):
         if ao_basis:
