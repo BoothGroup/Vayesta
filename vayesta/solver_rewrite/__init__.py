@@ -4,10 +4,8 @@ from .ebfci import EB_EBFCI_Solver, EB_UEBFCI_Solver
 from .hamiltonian import is_ham, is_uhf_ham, is_eb_ham, ClusterHamiltonian
 from .ccsd import RCCSD_Solver, UCCSD_Solver
 from .mp2 import RMP2_Solver, UMP2_Solver
-from.cisd import RCISD_Solver, UCISD_Solver
-
-
-
+from .cisd import RCISD_Solver, UCISD_Solver
+from .tccsd import TRCCSD_Solver
 
 def get_solver_class(ham, solver):
     assert(is_ham(ham))
@@ -76,18 +74,20 @@ def _get_solver_class(is_uhf, is_eb, solver):
                 return EB_EBFCI_Solver
             else:
                 return FCI_Solver
+    if is_eb:
+        raise ValueError("%s solver is not implemented for coupled electron-boson systems!", solver)
     if solver == "MP2":
-        if is_eb:
-            raise ValueError("MP2 solver is not implemented for coupled electron-boson systems!")
         if is_uhf:
             return UMP2_Solver
         else:
             return RMP2_Solver
     if solver == "CISD":
-        if is_eb:
-            raise ValueError("CISD solver is not implemented for coupled electron-boson systems!")
         if is_uhf:
             return UCISD_Solver
         else:
             return RCISD_Solver
+    if solver == "TCCSD":
+        if is_uhf:
+            raise ValueError("TCCSD is not implemented for unrestricted calculations!")
+        return TRCCSD_Solver
     raise ValueError("Unknown solver: %s" % solver)

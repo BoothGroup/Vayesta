@@ -23,9 +23,6 @@ class RCCSD_Solver(ClusterSolver):
         solve_lambda: bool = False  # If false, use Lambda=T approximation
         # Self-consistent mode
         sc_mode: int = None
-        # Tailored-CCSD
-        tcc: bool = False
-        tcc_fci_opts: dict = dataclasses.field(default_factory=dict)
 
     def kernel(self, t1=None, t2=None, l1=None, l2=None, coupled_fragments=None, t_diagnostic=True):
         mf_clus, frozen = self.hamil.to_pyscf_mf(allow_dummy_orbs=True, allow_df=True)
@@ -39,17 +36,14 @@ class RCCSD_Solver(ClusterSolver):
             mycc.conv_tol = self.opts.conv_tol
         if self.opts.conv_tol_normt is not None:
             mycc.conv_tol_normt = self.opts.conv_tol_normt
+        mycc.callback = self.get_callback()
 
-        # Tailored CC
-        if self.opts.tcc:
-            self.set_callback(tccsd.make_cas_tcc_function(
-                self, c_cas_occ=self.opts.c_cas_occ, c_cas_vir=self.opts.c_cas_vir, eris=eris))
-        elif self.opts.sc_mode and self.base.iteration > 1:
-            self.set_callback(coupling.make_cross_fragment_tcc_function(self, mode=self.opts.sc_mode))
+        #if self.opts.sc_mode and self.base.iteration > 1:
+        #    self.set_callback(coupling.make_cross_fragment_tcc_function(self, mode=self.opts.sc_mode))
         # This should include the SC mode?
-        elif coupled_fragments and np.all([x.results is not None for x in coupled_fragments]):
-            self.set_callback(coupling.make_cross_fragment_tcc_function(self, mode=(self.opts.sc_mode or 3),
-                                                                        coupled_fragments=coupled_fragments))
+        #elif coupled_fragments and np.all([x.results is not None for x in coupled_fragments]):
+        #    self.set_callback(coupling.make_cross_fragment_tcc_function(self, mode=(self.opts.sc_mode or 3),
+        #                                                                coupled_fragments=coupled_fragments))
 
         t1, t2 = self.get_init_guess()
 
@@ -60,6 +54,9 @@ class RCCSD_Solver(ClusterSolver):
 
         if t_diagnostic:
             self.t_diagnostic(mycc)
+
+        self.print_extra_info(mycc)
+
 
         if self.opts.solve_lambda:
             mycc.solve_lambda(l1=l1, l2=l2)
@@ -103,11 +100,11 @@ class RCCSD_Solver(ClusterSolver):
         except Exception as e:
             self.log.error("Exception in T-diagnostic: %s", e)
 
-    def set_callback(self, callback):
-        if not hasattr(self.solver, 'callback'):
-            raise AttributeError("CCSD does not have attribute 'callback'.")
-        self.log.debug("Adding callback function to CCSD.")
-        self.solver.callback = callback
+    def get_callback(self):
+        return None
+
+    def print_extra_info(self, mycc):
+        pass
 
     def couple_iterations(self, fragments):
         self.set_callback(coupling.couple_ccsd_iterations(self, fragments))

@@ -2,25 +2,54 @@ from .ccsd import RCCSD_Solver
 from .fci import FCI_Solver
 import numpy as np
 import dataclasses
-
+from vayesta.core.types import Orbitals, Cluster
+from vayesta.core.spinalg import hstack_matrices
+from vayesta.core.util import dot, einsum
 
 class TRCCSD_Solver(RCCSD_Solver):
     @dataclasses.dataclass
     class Options(RCCSD_Solver.Options):
-        tcc_fci_opts: dict = dataclasses.field(default_factory=dict)
+        fci_opts: dict = dataclasses.field(default_factory=dict)
         c_cas_occ: np.array = None
         c_cas_vir: np.array = None
 
+    def get_callback(self):
+        # Just need to generate FCI soln to reduced cluster, then make callback function.
+        orbs = Orbitals(hstack_matrices(self.opts.c_cas_occ, self.opts.c_cas_vir), occ=self.opts.c_cas_occ.shape[-1])
+        # Dummy cluster without any environmental orbitals.
+        tclus = Cluster(orbs, None)
+        tham = self.hamil.with_new_cluster(tclus)
+        fci = FCI_Solver(tham)
+        fci.kernel()
+        if not fci.converged:
+            self.log.error("FCI not converged!")
+        wf = fci.wf.as_ccsd()
+        # Now have FCI solution in the fragment, just need to write tailor function.
 
-    def kernel(self, t1=None, t2=None, l1=None, l2=None, coupled_fragments=None, t_diagnostic=True):
+        ro = dot(self.hamil.cluster.c_active_occ.T, self.hamil.mf.get_ovlp(), tclus.c_active_occ)
+        rv = dot(self.hamil.cluster.c_active_vir.T, self.hamil.mf.get_ovlp(), tclus.c_active_vir)
+        # Delete everything for the FCI.
+        del fci, tham
 
+        def tailor_func(kwargs):
+            cc = kwargs['mycc']
+            t1, t2 = kwargs['t1new'], kwargs['t2new']
+            # Rotate & project CC amplitudes to CAS
+            t1_cc = einsum('IA,Ii,Aa->ia', t1, ro, rv)
+            t2_cc = einsum('IJAB,Ii,Jj,Aa,Bb->ijab', t2, ro, ro, rv, rv)
+            # Take difference wrt to FCI
+            dt1 = (wf.t1 - t1_cc)
+            dt2 = (wf.t2 - t2_cc)
+            # Rotate back to CC space
+            dt1 = einsum('ia,Ii,Aa->IA', dt1, ro, rv)
+            dt2 = einsum('ijab,Ii,Jj,Aa,Bb->IJAB', dt2, ro, ro, rv, rv)
+            # Add correction
+            t1 += dt1
+            t2 += dt2
+            cc._norm_dt1 = np.linalg.norm(dt1)
+            cc._norm_dt2 = np.linalg.norm(dt2)
+        return tailor_func
 
-
-
-        # Now usual setup for full CCSD calculation.
-        mf_clus, frozen = self.hamil.to_pyscf_mf(allow_dummy_orbs=True, allow_df=True)
-        solver_cls = self.get_solver_class(mf_clus)
-        self.log.debugv("PySCF solver class= %r" % solver_cls)
-        mycc = solver_cls(mf_clus, frozen=frozen)
-
-    def
+    def print_extra_info(self, mycc):
+        self.log.debug("Tailored CC: |dT1|= %.2e |dT2|= %.2e", mycc._norm_dt1, mycc._norm_dt2)
+        del mycc._norm_dt1, mycc._norm_dt2

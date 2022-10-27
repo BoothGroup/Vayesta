@@ -356,6 +356,9 @@ class RClusterHamiltonian:
             raise NotImplementedError("Active spaces with different number of alpha and beta orbitals are not yet "
                                       "supported with this configuration. %s", message)
 
+    def with_new_cluster(self, cluster):
+        return self.__class__(self._fragment, self.mf, self.log, cluster, **self.opts.asdict())
+
 
 class UClusterHamiltonian(RClusterHamiltonian):
     @property
