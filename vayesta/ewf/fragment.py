@@ -308,8 +308,6 @@ class Fragment(BaseFragment):
             solver_opts['c_cas_occ'] = self.opts.c_cas_occ
             solver_opts['c_cas_vir'] = self.opts.c_cas_vir
             solver_opts['tcc_fci_opts'] = self.opts.tcc_fci_opts
-        elif solver.upper() == 'DUMP':
-            solver_opts['filename'] = self.opts.solver_options['dumpfile']
         if self._tailor_fragments:
             solver_opts['tailoring'] = True
         return solver_opts

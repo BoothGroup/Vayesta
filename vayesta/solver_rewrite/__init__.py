@@ -6,6 +6,7 @@ from .ccsd import RCCSD_Solver, UCCSD_Solver
 from .mp2 import RMP2_Solver, UMP2_Solver
 from .cisd import RCISD_Solver, UCISD_Solver
 from .tccsd import TRCCSD_Solver
+from .dump import DumpSolver
 
 def get_solver_class(ham, solver):
     assert(is_ham(ham))
@@ -90,4 +91,6 @@ def _get_solver_class(is_uhf, is_eb, solver):
         if is_uhf:
             raise ValueError("TCCSD is not implemented for unrestricted calculations!")
         return TRCCSD_Solver
+    if solver == "DUMP":
+        return DumpSolver
     raise ValueError("Unknown solver: %s" % solver)
