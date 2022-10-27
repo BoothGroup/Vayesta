@@ -1,6 +1,7 @@
 import dataclasses
 import numpy as np
 from .solver import ClusterSolver, UClusterSolver
+from .cisd import CISD_Solver
 from vayesta.core.types import CCSD_WaveFunction
 from vayesta.core.util import dot, einsum
 from vayesta.core.util import *
@@ -18,6 +19,7 @@ class RCCSD_Solver(ClusterSolver):
         max_cycle: int = 100  # Max number of iterations
         conv_tol: float = None  # Convergence energy tolerance
         conv_tol_normt: float = None  # Convergence amplitude tolerance
+        init_guess: str = 'MP2'         # ['MP2', 'CISD']
         solve_lambda: bool = False  # If false, use Lambda=T approximation
         # Self-consistent mode
         sc_mode: int = None
@@ -49,9 +51,11 @@ class RCCSD_Solver(ClusterSolver):
             self.set_callback(coupling.make_cross_fragment_tcc_function(self, mode=(self.opts.sc_mode or 3),
                                                                         coupled_fragments=coupled_fragments))
 
+        t1, t2 = self.get_init_guess()
+
         self.log.info("Solving CCSD-equations %s initial guess...", "with" if (t2 is not None) else "without")
 
-        mycc.kernel()
+        mycc.kernel(t1=t1, t2=t2)
         self.converged = mycc.converged
 
         if t_diagnostic:
@@ -67,6 +71,17 @@ class RCCSD_Solver(ClusterSolver):
         if hasattr(mf, "with_df") and mf.with_df is not None:
             return pyscf.cc.dfccsd.RCCSD
         return pyscf.cc.ccsd.RCCSD
+
+    def get_init_guess(self, eris=None):
+        if self.opts.init_guess in ('default', 'MP2'):
+            # CCSD will build MP2 amplitudes
+            return None, None
+        if self.opts.init_guess == 'CISD':
+            cisd = CISD_Solver(self.hamil)
+            cisd.kernel()
+            wf = cisd.wf.as_ccsd()
+            return wf.t1, wf.t2
+        raise ValueError("init_guess= %r" % self.opts.init_guess)
 
     @log_method()
     def t_diagnostic(self, solver):

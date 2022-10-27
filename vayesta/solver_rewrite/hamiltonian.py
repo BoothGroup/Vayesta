@@ -11,6 +11,15 @@ from vayesta.core.types import Orbitals
 from vayesta.core.util import *
 from vayesta.rpa import ssRPA
 
+def is_ham(ham):
+    return issubclass(type(ham), RClusterHamiltonian)
+
+def is_uhf_ham(ham):
+    return issubclass(type(ham), UClusterHamiltonian)
+
+def is_eb_ham(ham):
+    return issubclass(type(ham), EB_RClusterHamiltonian)
+
 
 def ClusterHamiltonian(fragment, mf, log=None, **kwargs):
     rhf = np.ndim(mf.mo_coeff[0]) == 1
@@ -35,11 +44,12 @@ class RClusterHamiltonian:
     def _scf_class(self):
         return pyscf.scf.RHF
 
-    def __init__(self, fragment, mf, log=None, **kwargs):
+    def __init__(self, fragment, mf, log=None, cluster=None, **kwargs):
 
         self.mf = mf
         # Do we want to populate all parameters at initialisation, so fragment isn't actually saved here?
         self._fragment = fragment
+        self._cluster = cluster
         self.log = (log or fragment.log)
         # --- Options:
         self.opts = self.Options()
@@ -52,7 +62,7 @@ class RClusterHamiltonian:
 
     @property
     def cluster(self):
-        return self._fragment.cluster
+        return self._cluster or self._fragment.cluster
 
     @property
     def mo(self):
