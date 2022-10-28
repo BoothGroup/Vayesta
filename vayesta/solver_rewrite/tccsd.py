@@ -1,3 +1,5 @@
+import scipy.linalg
+
 from .ccsd import RCCSD_Solver
 from .fci import FCI_Solver
 import numpy as np
@@ -5,6 +7,7 @@ import dataclasses
 from vayesta.core.types import Orbitals, Cluster
 from vayesta.core.spinalg import hstack_matrices
 from vayesta.core.util import dot, einsum
+
 
 class TRCCSD_Solver(RCCSD_Solver):
     @dataclasses.dataclass
@@ -20,14 +23,19 @@ class TRCCSD_Solver(RCCSD_Solver):
         tclus = Cluster(orbs, None)
         tham = self.hamil.with_new_cluster(tclus)
         fci = FCI_Solver(tham)
+        # Need to set v_ext for the FCI calculation. Just want rotation into our current basis.
+        ro = dot(self.hamil.cluster.c_active_occ.T, self.hamil.mf.get_ovlp(), tclus.c_active_occ)
+        rv = dot(self.hamil.cluster.c_active_vir.T, self.hamil.mf.get_ovlp(), tclus.c_active_vir)
+        r = scipy.linalg.block_diag(ro, rv)
+
+        if self.v_ext is not None:
+            fci.v_ext = dot(r.T, self.v_ext, r)
+
         fci.kernel()
         if not fci.converged:
             self.log.error("FCI not converged!")
         wf = fci.wf.as_ccsd()
         # Now have FCI solution in the fragment, just need to write tailor function.
-
-        ro = dot(self.hamil.cluster.c_active_occ.T, self.hamil.mf.get_ovlp(), tclus.c_active_occ)
-        rv = dot(self.hamil.cluster.c_active_vir.T, self.hamil.mf.get_ovlp(), tclus.c_active_vir)
         # Delete everything for the FCI.
         del fci, tham
 
