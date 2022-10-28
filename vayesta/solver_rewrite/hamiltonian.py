@@ -96,11 +96,12 @@ class RClusterHamiltonian:
 
     def get_fock(self, with_vext=True, use_seris=True):
         c = self.cluster.c_active
-        fock = dot(c.T, self.mf.get_fock(), c)
+        fock = dot(c.T, self._fragment.base.get_fock(), c)
         if with_vext and self.v_ext is not None:
             fock += self.v_ext
 
         if self._seris is not None and use_seris:
+            # Generates the fock matrix if screened ERIs are used in place of bare eris.
             occ = np.s_[:self.cluster.nocc_active]
 
             eris = self.get_eris_bare()
@@ -403,12 +404,13 @@ class UClusterHamiltonian(RClusterHamiltonian):
 
     def get_fock(self, with_vext=True, use_seris=True):
         ca, cb = self.cluster.c_active
-        fa, fb = self.mf.get_fock()
+        fa, fb = self._fragment.base.get_fock()
         fock = (dot(ca.T, fa, ca), dot(cb.T, fb, cb))
         if with_vext and self.v_ext is not None:
             fock = ((fock[0] + self.v_ext[0]),
                     (fock[1] + self.v_ext[1]))
         if self._seris is not None and use_seris:
+            # Generates the fock matrix if screened ERIs are used in place of bare eris.
             noa, nob = self.cluster.nocc_active
             oa = np.s_[:noa]
             ob = np.s_[:nob]
