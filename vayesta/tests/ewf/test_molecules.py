@@ -201,10 +201,8 @@ class MoleculeTests(TestCase):
         known_values = {'e_tot': -76.23613576956096}
         self.assertAlmostEqual(emb.e_tot, known_values['e_tot'], 6)
 
-    def test_h2o_TCCSD_CAS(self):
-        """Tests EWF for H2O cc-pvdz with TCCSD solver and CAS picker.
-        """
-
+    def test_tccsd_solver(self):
+        """Tests EWF for H2O cc-pvdz with TCCSD solver and CAS picker."""
         emb = ewf.EWF(
                 testsystems.water_ccpvdz.rhf(),
                 solver='TCCSD',
@@ -219,10 +217,31 @@ class MoleculeTests(TestCase):
             f.add_atomic_fragment(1, sym_factor=2)
         frag1.set_cas(['0 O 2p'])
         emb.kernel()
+        self.assertAllclose(emb.e_tot, -76.23559827815198, rtol=0)
 
-        known_values = {'e_tot': -76.23559827815198}
-
-        self._test_energy(emb, known_values)
+    def test_tccsd_via_fragment(self):
+        """Tests EWF for H2O cc-pvdz with tailoring FCI fragment.
+        (Should reproduce result of test_tccsd_solver)"""
+        emb = ewf.EWF(
+                testsystems.water_ccpvdz.rhf(),
+                bno_threshold=1e-4/2,
+                solver_options={
+                    'conv_tol': self.CONV_TOL,
+                    'conv_tol_normt': self.CONV_TOL_NORMT,
+                },
+        )
+        with emb.iao_fragmentation() as f:
+            cas_o = f.add_atomic_fragment(0, orbital_filter='2p', solver='FCI', bath_options=dict(bathtype='dmet'))
+            cas_h = f.add_atomic_fragment(1, solver='FCI', bath_options=dict(bathtype='dmet'))
+            frag_o = f.add_atomic_fragment(0, active=False)
+            frag_h = f.add_atomic_fragment(1, sym_factor=2, active=False)
+        emb.kernel()
+        frag_o.tailor_with_fragments([cas_o], project=0)
+        frag_h.tailor_with_fragments([cas_h], project=0)
+        cas_o.active = cas_h.active = False
+        frag_o.active = frag_h.active = True
+        emb.kernel()
+        self.assertAllclose(emb.e_tot, -76.23559827815198, atol=1e-6, rtol=0)
 
     def test_h2o_sc(self):
         """Tests EWF for H2O cc-pvdz with self-consistency.

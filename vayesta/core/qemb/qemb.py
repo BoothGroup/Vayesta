@@ -103,7 +103,7 @@ class Options(OptionsBase):
             # CCSD
             solve_lambda=True, conv_tol_normt=None,
             # FCI
-            threads=1, max_cycle=300, fix_spin=0.0, lindep=None,
+            threads=1, max_cycle=300, fix_spin=None, lindep=None,
             davidson_only=True, init_guess='default',
             # EBFCI/EBCCSD
             max_boson_occ=2,

@@ -178,7 +178,7 @@ def tailor_with_fragments(solver, fragments, project=False, tailor_t1=True, tail
                             dt2y_ba = einsum('xj,ij...->ix...', proj[1], dt2y[1])
                             dt2y_aa = (dt2y_aa + dt2y_aa.transpose(1,0,3,2))/2
                             dt2y_bb = (dt2y_bb + dt2y_bb.transpose(1,0,3,2))/2
-                            dt2y_ab = (dt2y_ab + dt2y_ba.transpose(1,0,3,2))/2
+                            dt2y_ab = (dt2y_ab + dt2y_ba)/2
                             dt2y = (dt2y_aa, dt2y_ab, dt2y_bb)
 
                 # Project first and second occupied index onto fragment(y) space:
