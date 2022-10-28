@@ -14,7 +14,7 @@ class RMP2_Solver(ClusterSolver):
 
     def kernel(self, *args, **kwargs):
 
-        nao, mo_coeff, mo_energy, mo_occ, ovlp = self.hamil.get_clus_mf_info(ao_basis=False)
+        nao, mo_coeff, mo_energy, mo_occ, ovlp = self.hamil.get_clus_mf_info(ao_basis=False, with_exxdiv=True)
 
         eris = cderi = cderi_neg = None
         if not self.hamil.has_screening:

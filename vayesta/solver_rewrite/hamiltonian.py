@@ -94,9 +94,9 @@ class RClusterHamiltonian:
         seris = self.get_eris()
         return heff, seris
 
-    def get_fock(self, with_vext=True, use_seris=True):
+    def get_fock(self, with_vext=True, use_seris=True, with_exxdiv=False):
         c = self.cluster.c_active
-        fock = dot(c.T, self._fragment.base.get_fock(), c)
+        fock = dot(c.T, self._fragment.base.get_fock(with_exxdiv=with_exxdiv), c)
         if with_vext and self.v_ext is not None:
             fock += self.v_ext
 
@@ -113,11 +113,11 @@ class RClusterHamiltonian:
 
         return fock
 
-    def get_heff(self, eris=None, fock=None, with_vext=True):
+    def get_heff(self, eris=None, fock=None, with_vext=True, with_exxdiv=False):
         if eris is None:
             eris = self.get_eris_bare()
         if fock is None:
-            fock = self.get_fock(with_vext=False, use_seris=False)
+            fock = self.get_fock(with_vext=False, use_seris=False, with_exxdiv=with_exxdiv)
         occ = np.s_[:self.cluster.nocc_active]
         v_act = 2 * einsum('iipq->pq', eris[occ, occ]) - einsum('iqpi->pq', eris[occ, :, :, occ])
         h_eff = fock - v_act
@@ -289,12 +289,12 @@ class RClusterHamiltonian:
 
         return clusmf, orbs_to_freeze
 
-    def get_clus_mf_info(self, ao_basis=False):
+    def get_clus_mf_info(self, ao_basis=False, with_exxdiv=False):
         if ao_basis:
             nao = self.cluster.c_active.shape[1]
         else:
             nao = self.ncas
-        mo_energy = np.diag(self.get_fock())
+        mo_energy = np.diag(self.get_fock(with_vext=True, with_exxdiv=with_exxdiv))
         mo_occ = np.zeros_like(mo_energy)
         mo_occ[:self.nelec[0]] = 2.0
         # Determine whether we want our cluster orbitals expressed in the basis of active orbitals, or in the AO basis.
@@ -402,9 +402,9 @@ class UClusterHamiltonian(RClusterHamiltonian):
 
     # Integrals for the cluster calculations.
 
-    def get_fock(self, with_vext=True, use_seris=True):
+    def get_fock(self, with_vext=True, use_seris=True, with_exxdiv=False):
         ca, cb = self.cluster.c_active
-        fa, fb = self._fragment.base.get_fock()
+        fa, fb = self._fragment.base.get_fock(with_exxdiv=with_exxdiv)
         fock = (dot(ca.T, fa, ca), dot(cb.T, fb, cb))
         if with_vext and self.v_ext is not None:
             fock = ((fock[0] + self.v_ext[0]),
@@ -429,11 +429,11 @@ class UClusterHamiltonian(RClusterHamiltonian):
 
         return fock
 
-    def get_heff(self, eris=None, fock=None, with_vext=True):
+    def get_heff(self, eris=None, fock=None, with_vext=True, with_exxdiv=False):
         if eris is None:
             eris = self.get_eris_bare()
         if fock is None:
-            fock = self.get_fock(with_vext=False, use_seris=False)
+            fock = self.get_fock(with_vext=False, use_seris=False, with_exxdiv=with_exxdiv)
 
         oa = np.s_[:self.cluster.nocc_active[0]]
         ob = np.s_[:self.cluster.nocc_active[1]]
@@ -496,12 +496,12 @@ class UClusterHamiltonian(RClusterHamiltonian):
         return super().to_pyscf_mf(allow_dummy_orbs=allow_dummy_orbs, force_bare_eris=force_bare_eris,
                                    overwrite_fock=True, allow_df=allow_df)
 
-    def get_clus_mf_info(self, ao_basis=False):
+    def get_clus_mf_info(self, ao_basis=False, with_exxdiv=False):
         if ao_basis:
             nao = self.cluster.c_active.shape[1]
         else:
             nao = self.ncas
-        fock = self.get_fock()
+        fock = self.get_fock(with_exxdiv=with_exxdiv)
         mo_energy = (np.diag(fock[0]), np.diag(fock[1]))
         mo_occ = [np.zeros_like(x) for x in mo_energy]
         mo_occ[0][:self.nelec[0]] = 1.0
