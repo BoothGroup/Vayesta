@@ -1,6 +1,6 @@
 from .solver import ClusterSolver, UClusterSolver
 from .eb_fci import REBFCI, UEBFCI
-from vayesta.core.types import Orbitals, WaveFunction
+from vayesta.core.types import WaveFunction
 import dataclasses
 import numpy as np
 
@@ -19,7 +19,7 @@ class EB_EBFCI_Solver(ClusterSolver):
 
     def kernel(self):
         solver = self.get_solver(self.hamil, self.hamil.bos_freqs, self.hamil.couplings,
-                                 max_boson_occ=self.opts.max_boson_occ, conv_tol=self.opts.conv_tol)
+                                 max_boson_occ=self.opts.max_boson_occ, conv_tol=self.opts.conv_tol or 1e-12)
         e_fci, civec = solver.kernel()
         self.wf = WaveFunction(self.hamil.mo)
         self.wf.make_rdm1 = lambda *args, **kwargs: solver.make_rdm1(*args, **kwargs)
