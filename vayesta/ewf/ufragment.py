@@ -186,10 +186,10 @@ class Fragment(RFragment, BaseFragment):
             return vayesta.core.ao2mo.helper.contract_dm2intermeds_eris_uhf(d2, eris)/2
         # TODO: other solvers
         dm2 = self.make_fragment_dm2cumulant(t_as_lambda=t_as_lambda, sym_t2=sym_t2, approx_cumulant=approx_cumulant,
-                full_shape=False)
+                full_shape=True)
         dm2aa, dm2ab, dm2bb = dm2
         gaa, gab, gbb = eris
-        fac = (2 if self.solver == 'MP2' else 1)
+        fac = 1#(2 if self.solver == 'MP2' else 1)
         e_dm2 = fac*(einsum('ijkl,ijkl->', gaa, dm2aa)
                    + einsum('ijkl,ijkl->', gab, dm2ab)*2
                    + einsum('ijkl,ijkl->', gbb, dm2bb))/2

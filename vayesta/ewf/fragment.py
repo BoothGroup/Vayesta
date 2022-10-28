@@ -479,12 +479,12 @@ class Fragment(BaseFragment):
         if eris is None:
             eris = self.base.get_eris_array(self.cluster.c_active)
         dm2 = self.make_fragment_dm2cumulant(t_as_lambda=t_as_lambda, sym_t2=sym_t2, approx_cumulant=approx_cumulant,
-                full_shape=False)
+                full_shape=True)
         # CCSD
         if hasattr(eris, 'ovoo'):
             d2 = self._get_projected_gamma2_intermediates(t_as_lambda=t_as_lambda, sym_t2=sym_t2)
             return vayesta.core.ao2mo.helper.contract_dm2intermeds_eris_rhf(d2, eris)/2
-        fac = (2 if self.solver == 'MP2' else 1)
+        fac = 1#(2 if self.solver == 'MP2' else 1)
         e_dm2 = fac*einsum('ijkl,ijkl->', eris, dm2)/2
         return e_dm2
 
