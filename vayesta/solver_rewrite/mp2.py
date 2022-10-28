@@ -25,7 +25,10 @@ class RMP2_Solver(ClusterSolver):
 
         if cderi is None:
             cderi = cderi_neg = None
-            nocc = sum(mo_occ.T > 0)
+            try:
+                nocc = sum(mo_occ.T > 0)
+            except AttributeError:
+                nocc = np.array((sum(mo_occ[0] > 0), sum(mo_occ[1] > 0)))
             eris = self.hamil.get_eris()
             eris = self.get_ov_eris(eris, nocc)
         with log_time(self.log.timing, "Time for MP2 T-amplitudes: %s"):
