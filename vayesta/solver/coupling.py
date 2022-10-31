@@ -25,14 +25,14 @@ def transform_amplitude(t, u_occ, u_vir, u_occ2=None, u_vir2=None, inverse=False
         return einsum('ijab,ix,jy,az,bw->xyzw', t, u_occ, u_occ2, u_vir, u_vir2)
     # Unrestricted T1:
     if ndim == 3:
-        ta = transform_amplitude(t[0], u_occ[0], u_vir[0], inverse=inverse)
-        tb = transform_amplitude(t[1], u_occ[1], u_vir[1], inverse=inverse)
+        ta = transform_amplitude(t[0], u_occ[0], u_vir[0])
+        tb = transform_amplitude(t[1], u_occ[1], u_vir[1])
         return (ta, tb)
     # Unrestricted T2:
     if ndim == 5:
-        taa = transform_amplitude(t[0], u_occ[0], u_vir[0], inverse=inverse)
-        tab = transform_amplitude(t[1], u_occ[0], u_vir[0], u_occ[1], u_vir[1], inverse=inverse)
-        tbb = transform_amplitude(t[2], u_occ[1], u_vir[1], inverse=inverse)
+        taa = transform_amplitude(t[0], u_occ[0], u_vir[0])
+        tab = transform_amplitude(t[1], u_occ[0], u_vir[0], u_occ[1], u_vir[1])
+        tbb = transform_amplitude(t[2], u_occ[1], u_vir[1])
         return (taa, tab, tbb)
     raise NotImplementedError("Transformation of %s amplitudes with ndim=%d" % (spinsym, np.ndim(t[0])+1))
 
