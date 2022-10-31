@@ -301,10 +301,13 @@ def externally_correct(solver, external_corrections):
     for y, corrtype, projectors in external_corrections:
 
         assert corrtype == 'external'
-        fy = frag_dir[y]
+        fy = frag_dir[y] # Get fragment y object from its index
         assert (y != fx.id)
 
         # Make CCSDTQ wave function from cluster y
+        # TODO: Future improvement - make option to directly
+        # store these amplitudes precontracted, to avoid
+        # storing all
         wfy = fy.results.wf.as_ccsdtq()
         t1, t2, t3, t4 = wfy.t1, wfy.t2, wfy.t3, wfy.t4
 
@@ -321,7 +324,7 @@ def externally_correct(solver, external_corrections):
             raise NotImplementedError
         occ = np.s_[:fy.cluster.nocc_active]
         vir = np.s_[fy.cluster.nocc_active:]
-        govov = eris[occ,vir,occ,vir]
+        govov = eris[occ,vir,occ,vir] # Integrals of fragment y
         fov = dot(fy.cluster.c_active_occ.T, fock, fy.cluster.c_active_vir)
 
         # --- Make correction to T1 and T2 amplitudes
@@ -346,6 +349,8 @@ def externally_correct(solver, external_corrections):
 
         # Project T1 and T2 corrections:
         if projectors:
+            # projectors is an integer giving the number of projectors onto
+            # occupied fragment
             proj = fy.get_overlap('frag|cluster-occ')
             proj = spinalg.dot(spinalg.T(proj), proj)
             dt1y = spinalg.dot(proj, dt1y)
