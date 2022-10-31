@@ -286,6 +286,9 @@ def _get_delta_t_for_extcorr(fragment, fock):
     emb = fragment.base
 
     # Make CCSDTQ wave function from cluster y
+    # TODO: Future improvement - make option to directly store these amplitudes precontracted,
+    # to avoid storing all
+
     wf = fragment.results.wf.as_ccsdtq()
     t1, t2, t3, t4 = wf.t1, wf.t2, wf.t3, wf.t4
 
@@ -371,13 +374,15 @@ def externally_correct(solver, external_corrections):
     for y, corrtype, projectors in external_corrections:
 
         assert corrtype == 'external'
-        fy = frag_dir[y]
+        fy = frag_dir[y] # Get fragment y object from its index
         assert (y != fx.id)
 
         dt1y, dt2y = _get_delta_t_for_extcorr(fy, fock)
 
         # Project T1 and T2 corrections:
         if projectors:
+            # projectors is an integer giving the number of projectors onto
+            # occupied fragment
             proj = fy.get_overlap('frag|cluster-occ')
             proj = spinalg.dot(spinalg.T(proj), proj)
             dt1y = spinalg.dot(proj, dt1y)
