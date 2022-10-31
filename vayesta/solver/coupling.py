@@ -4,32 +4,36 @@ from vayesta.core import spinalg
 from vayesta.mpi import mpi, RMA_Dict
 
 
-def transform_amplitude(t, u_occ, u_vir, u_occ2=None, u_vir2=None, spinsym='restricted', inverse=False):
+def transform_amplitude(t, u_occ, u_vir, u_occ2=None, u_vir2=None, inverse=False):
     """u: (old basis|new basis)"""
     if u_occ2 is None:
         u_occ2 = u_occ
     if u_vir2 is None:
         u_vir2 = u_vir
-    if spinsym == 'restricted':
-        if inverse:
-            u_occ = u_occ.T
-            u_occ2 = u_occ2.T
-            u_vir = u_vir.T
-            u_vir2 = u_vir2.T
-        if np.ndim(t) == 2:
-            return einsum('ia,ix,ay->xy', t, u_occ, u_vir)
-        if np.ndim(t) == 4:
-            return einsum('ijab,ix,jy,az,bw->xyzw', t, u_occ, u_occ2, u_vir, u_vir2)
-    if spinsym == 'unrestricted':
-        if np.ndim(t[0]) == 2:
-            ta = transform_amplitude(t[0], u_occ[0], u_vir[0], inverse=inverse)
-            tb = transform_amplitude(t[1], u_occ[1], u_vir[1], inverse=inverse)
-            return (ta, tb)
-        if np.ndim(t[0]) == 4:
-            taa = transform_amplitude(t[0], u_occ[0], u_vir[0], inverse=inverse)
-            tab = transform_amplitude(t[1], u_occ[0], u_vir[0], u_occ[1], u_vir[1], inverse=inverse)
-            tbb = transform_amplitude(t[2], u_occ[1], u_vir[1], inverse=inverse)
-            return (taa, tab, tbb)
+    if inverse:
+        u_occ = spinalg.T(u_occ)
+        u_occ2 = spinalg.T(u_occ2)
+        u_vir = spinalg.T(u_vir)
+        u_vir2 = spinalg.T(u_vir2)
+
+    ndim = t[0].ndim + 1
+    # Restricted T1:
+    if ndim == 2:
+        return einsum('ia,ix,ay->xy', t, u_occ, u_vir)
+    # Restricted T2:
+    if ndim == 4:
+        return einsum('ijab,ix,jy,az,bw->xyzw', t, u_occ, u_occ2, u_vir, u_vir2)
+    # Unrestricted T1:
+    if ndim == 3:
+        ta = transform_amplitude(t[0], u_occ[0], u_vir[0], inverse=inverse)
+        tb = transform_amplitude(t[1], u_occ[1], u_vir[1], inverse=inverse)
+        return (ta, tb)
+    # Unrestricted T2:
+    if ndim == 5:
+        taa = transform_amplitude(t[0], u_occ[0], u_vir[0], inverse=inverse)
+        tab = transform_amplitude(t[1], u_occ[0], u_vir[0], u_occ[1], u_vir[1], inverse=inverse)
+        tbb = transform_amplitude(t[2], u_occ[1], u_vir[1], inverse=inverse)
+        return (taa, tab, tbb)
     raise NotImplementedError("Transformation of %s amplitudes with ndim=%d" % (spinsym, np.ndim(t[0])+1))
 
 
@@ -43,6 +47,15 @@ def get_amplitude_norm(t1, t2):
         t1norm = (np.linalg.norm(t1[0])+np.linalg.norm(t1[1]))/2
         t2norm = (np.linalg.norm(t2[0])+2*np.linalg.norm(t2[1])+np.linalg.norm(t2[2]))/2
     return t1norm, t2norm
+
+
+def project_t2(t2, proj, projectors):
+    ndim = t2[0].ndim + 1
+    if ndim == 4:
+        return project_t2_rspin(t2, proj, projectors)
+    if ndim == 5:
+        return project_t2_rspin(t2, proj, projectors)
+    raise ValueError
 
 
 def project_t2_rspin(t2, proj, projectors):
@@ -197,10 +210,10 @@ def tailor_with_fragments(solver, fragments, project=False, tailor_t1=True, tail
             # Transform to x-amplitudes to y-space, instead of y-amplitudes to x-space:
             # x may be CCSD and y FCI, such that x-space >> y-space
             if tailor_t1:
-                t1x = transform_amplitude(t1, rxy_occ, rxy_vir, spinsym=solver.spinsym)
+                t1x = transform_amplitude(t1, rxy_occ, rxy_vir)
                 dt1y = spinalg.subtract(wfy.t1, t1x)
             if tailor_t2:
-                t2x = transform_amplitude(t2, rxy_occ, rxy_vir, spinsym=solver.spinsym)
+                t2x = transform_amplitude(t2, rxy_occ, rxy_vir)
                 dt2y = spinalg.subtract(wfy.t2, t2x)
 
             # Project first one/two occupied index/indices onto fragment(y) space:
@@ -210,18 +223,13 @@ def tailor_with_fragments(solver, fragments, project=False, tailor_t1=True, tail
                 if tailor_t1:
                     dt1y = spinalg.dot(proj, dt1y)
                 if tailor_t2:
-                    if solver.spinsym == 'restricted':
-                        dt2y = project_t2_rspin(dt2y, proj, projectors=project)
-                    elif solver.spinsym == 'unrestricted':
-                        dt2y = project_t2_uspin(dt2y, proj, projectors=project)
-                    else:
-                        raise ValueError
+                    dt2y = project_t2(dt2y, proj, projectors=project)
 
             # Transform back to x-space and add:
             if tailor_t1:
-                dt1 = spinalg.add(dt1, transform_amplitude(dt1y, rxy_occ, rxy_vir, spinsym=solver.spinsym, inverse=True))
+                dt1 = spinalg.add(dt1, transform_amplitude(dt1y, rxy_occ, rxy_vir, inverse=True))
             if tailor_t2:
-                dt2 = spinalg.add(dt2, transform_amplitude(dt2y, rxy_occ, rxy_vir, spinsym=solver.spinsym, inverse=True))
+                dt2 = spinalg.add(dt2, transform_amplitude(dt2y, rxy_occ, rxy_vir, inverse=True))
 
             solver.log.debug("Tailoring with fragment %3d (%s):  S(occ)= %.3e  S(vir)= %.3e  dT1= %.3e  dT2= %.3e",
                              fy.id, fy.solver, nxy_occ[y], nxy_vir[y], *get_amplitude_norm(dt1y, dt2y))
@@ -243,3 +251,133 @@ def tailor_with_fragments(solver, fragments, project=False, tailor_t1=True, tail
         solver.log.debug("Tailoring total:  dT1= %.3e  dT2= %.3e", *get_amplitude_norm(dt1, dt2))
 
     return tailor_func
+
+
+def externally_correct(solver, external_corrections):
+    """Build callback function for CCSD, to add external correction from other fragments.
+
+    TODO: combine with `tailor_with_fragments`?
+
+    Parameters
+    ----------
+    solver: CCSD_Solver
+        Vayesta CCSD solver.
+    external_corrections: list[tuple(int, str, int)]
+        List of external corrections. Each tuple contains the fragment ID, type of correction,
+        and number of projectors for the given external correction.
+
+    Returns
+    -------
+    callback: callable
+        Callback function for PySCF's CCSD solver.
+    """
+
+    fx = solver.fragment
+    cluster = solver.cluster
+    emb = solver.base
+    nocc = cluster.nocc
+    nvir = cluster.nvir
+    ovlp = emb.get_ovlp()               # AO overlap matrix
+    cx_occ = cluster.c_active_occ       # Occupied active orbitals of current cluster
+    cx_vir = cluster.c_active_vir       # Virtual  active orbitals of current cluster
+    cxs_occ = spinalg.dot(spinalg.T(cx_occ), ovlp)
+    cxs_vir = spinalg.dot(spinalg.T(cx_vir), ovlp)
+
+    # delta-T1 and delta-T2 amplitudes, to be added to the CCSD amplitudes
+    if solver.spinsym == 'restricted':
+        dt1 = np.zeros((nocc, nvir))
+        dt2 = np.zeros((nocc, nocc, nvir, nvir))
+    elif solver.spinsym == 'unrestricted':
+        dt1 = (np.zeros((nocc[0], nvir[0])),
+               np.zeros((nocc[1], nvir[1])))
+        dt2 = (np.zeros((nocc[0], nocc[0], nvir[0], nvir[0])),
+               np.zeros((nocc[0], nocc[1], nvir[0], nvir[1])),
+               np.zeros((nocc[1], nocc[1], nvir[1], nvir[1])))
+
+    frag_dir = {f.id: f for f in emb.fragments}
+    # CCSD uses exxdiv-uncorrected Fock matrix:
+    fock = emb.get_fock(with_exxdiv=False)
+
+    for y, corrtype, projectors in external_corrections:
+
+        assert corrtype == 'external'
+        fy = frag_dir[y]
+        assert (y != fx.id)
+
+        # Make CCSDTQ wave function from cluster y
+        wfy = fy.results.wf.as_ccsdtq()
+        t1, t2, t3, t4 = wfy.t1, wfy.t2, wfy.t3, wfy.t4
+
+        # Get ERIs and Fock matrix
+        eris = fy._eris
+        if eris is None:
+            solver.log.debug("Rebuilding ERIs of fragment %s.", fy)
+            if solver.spinsym == 'restricted':
+                eris = emb.get_eris_array(fy.cluster.c_active)
+            else:
+                eris = emb.get_eris_array_uhf(fy.cluster.c_active)
+        # TODO
+        if solver.spinsym == 'unrestricted':
+            raise NotImplementedError
+        occ = np.s_[:fy.cluster.nocc_active]
+        vir = np.s_[fy.cluster.nocc_active:]
+        govov = eris[occ,vir,occ,vir]
+        fov = dot(fy.cluster.c_active_occ.T, fock, fy.cluster.c_active_vir)
+
+        # --- Make correction to T1 and T2 amplitudes
+        # J. Chem. Theory Comput. 2021, 17, 182−190
+        # [what is v_ef^mn? (em|fn) ?]
+        dt1y = np.zeros_like(t1)
+        dt2y = np.zeros_like(t2)
+        # --- T1
+        # T3 * V
+        #dt1y += einsum('imnaef,menf->ia', t3, govov)
+        # --- T2
+        # F * T3
+        #dt2y += einsum('me,ijmabe->ijab', fov, t3)
+        # T1 * T3 * V
+        #dt2y += einsum('me,ijnabf,menf->ijab', t1, t3, govov)
+        # TODO:
+        # P(ab) T3 * V
+        # P(ij) T3 * V
+        # P(ij) T1 * T3 * V
+        # P(ab) T1 * T3 * V
+        # T4 * V
+
+        # Project T1 and T2 corrections:
+        if projectors:
+            proj = fy.get_overlap('frag|cluster-occ')
+            proj = spinalg.dot(spinalg.T(proj), proj)
+            dt1y = spinalg.dot(proj, dt1y)
+            dt2y = project_t2(dt2y, proj, projectors=projectors)
+
+        # Transform back to fragment x space and add:
+        rxy_occ = spinalg.dot(cxs_occ, fy.cluster.c_active_occ)
+        rxy_vir = spinalg.dot(cxs_vir, fy.cluster.c_active_vir)
+        dt1y = transform_amplitude(dt1y, rxy_occ, rxy_vir, inverse=True)
+        dt2y = transform_amplitude(dt2y, rxy_occ, rxy_vir, inverse=True)
+        dt1 = spinalg.add(dt1, dt1y)
+        dt2 = spinalg.add(dt2, dt2y)
+        solver.log.info("External correction from fragment %3d (%s):  dT1= %.3e  dT2= %.3e",
+                        fy.id, fy.solver, *get_amplitude_norm(dt1y, dt2y))
+
+    if solver.spinsym == 'restricted':
+
+        def callback(kwargs):
+            """Add external correction to T1 and T2 amplitudes."""
+            t1, t2 = kwargs['t1new'], kwargs['t2new']
+            t1[:] += dt1
+            t2[:] += dt2
+
+    elif solver.spinsym == 'unrestricted':
+
+        def callback(kwargs):
+            """Add external correction to T1 and T2 amplitudes."""
+            t1, t2 = kwargs['t1new'], kwargs['t2new']
+            t1[0][:] += dt1[0]
+            t1[1][:] += dt1[1]
+            t2[0][:] += dt2[0]
+            t2[1][:] += dt2[1]
+            t2[2][:] += dt2[2]
+
+    return callback

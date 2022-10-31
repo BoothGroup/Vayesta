@@ -44,7 +44,7 @@ for d in np.arange(1.0, 3.1, 0.25):
     # Solve FCI
     tcc.kernel()
     fci_x1.active = fci_x2.active = False
-    ccsd.tailor_with_fragments([fci_x1, fci_x2])
+    ccsd.add_external_corrections([fci_x1, fci_x2], correction_type='tailor')
     ccsd.active = True
     # Solve CCSD
     tcc.kernel()

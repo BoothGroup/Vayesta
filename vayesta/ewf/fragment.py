@@ -1,6 +1,7 @@
 # Standard libaries
 from datetime import datetime
 import dataclasses
+import typing
 from typing import Optional, Union, List
 
 # External libaries
@@ -63,9 +64,8 @@ class Fragment(BaseFragment):
 
     @dataclasses.dataclass
     class Flags(BaseFragment.Flags):
-        # "Tailoring with FCI fragments":
-        tcc_fragments: Optional[List[int]] = None       # Fragment IDs used for tailoring
-        tcc_projectors: int = 1                         # Number of fragment projectors [0, 1, 2]
+        # Tailoring and external correction of CCSD
+        external_corrections: Optional[List[typing.Any]] = dataclasses.field(default_factory=list)
 
     @dataclasses.dataclass
     class Results(BaseFragment.Results):
@@ -124,11 +124,36 @@ class Fragment(BaseFragment):
         self.opts.c_cas_vir = c_cas_vir
         return c_cas_occ, c_cas_vir
 
+    @deprecated(replacement='add_ccsd_corrections')
     def tailor_with_fragments(self, fragments, projectors=1):
+        return self.add_external_corrections(fragments, projectors=projectors)
+
+    def add_external_corrections(self, fragments, correction_type='tailor', projectors=1):
+        """Add tailoring or external correction from other fragment solutions to CCSD solver.
+
+        Parameters
+        ----------
+        fragments: list
+            List of solved fragments, used for the correction.
+        correction_type: str, optional
+            Type of correction:
+                'tailor': replace CCSD T1 and T2 amplitudes with FCI amplitudes.
+                'external': externally correct CCSD T1 and T2 amplitudes from FCI T3 and T4 amplitudes.
+            Default: 'tailor'.
+        projectors: int, optional
+            Maximum number of projections applied to the occupied dimensions of the amplitude corrections.
+            Default: 1.
+        """
+        if correction_type not in ('tailor', 'external'):
+            raise ValueError
         if self.solver != 'CCSD':
-            raise NotImplementedError
-        self.flags.tcc_fragments = [f.id for f in fragments]
-        self.flags.tcc_projectors = projectors
+            raise RuntimeError
+        self.flags.external_corrections.extend(
+                [(f.id, correction_type, projectors) for f in fragments])
+
+    def clear_external_corrections(self):
+        """Remove all tailoring or external correction which were added via add_external_corrections."""
+        self.flags.external_corrections = []
 
     def get_init_guess(self, init_guess, solver, cluster):
         # FIXME
@@ -319,8 +344,7 @@ class Fragment(BaseFragment):
             solver_opts['tcc_fci_opts'] = self.opts.tcc_fci_opts
         elif solver.upper() == 'DUMP':
             solver_opts['filename'] = self.opts.solver_options['dumpfile']
-        solver_opts['tcc_fragments'] = self.flags.tcc_fragments
-        solver_opts['tcc_projectors'] = self.flags.tcc_projectors
+        solver_opts['external_corrections'] = self.flags.external_corrections
         return solver_opts
 
     # --- Expectation values

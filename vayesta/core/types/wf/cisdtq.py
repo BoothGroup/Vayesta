@@ -27,8 +27,9 @@ class RCISDTQ_WaveFunction(wf_types.WaveFunction):
         t2 = self.c2/self.c0 - einsum('ia,jb->ijab', t1, t1)
         raise NotImplementedError
         # TODO:
-        t3 = self.c3/self.c0 # - C1*C2 - C1^3
-        t4 = self.c4/self.c0 # - C1*C3 - C2^2 - C1^4
+        # see also THE JOURNAL OF CHEMICAL PHYSICS 147, 154105 (2017)
+        t3 = self.c3/self.c0 # - C1*C2 - (C1^3)/3
+        t4 = self.c4/self.c0 # - C1*C3 - (C2^2)/2 - C1^2*C2 - (C1^4)/4
         return wf_types.RCCSDTQ_WaveFunction(self.mo, t1=t1, t2=t2, t3=t3, t4=t4)
 
 

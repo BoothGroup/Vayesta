@@ -1,5 +1,6 @@
 import dataclasses
 import copy
+import typing
 from typing import Optional, List
 from timeit import default_timer as timer
 
@@ -42,9 +43,8 @@ class CCSD_Solver(ClusterSolver):
         # Active space methods
         c_cas_occ: np.array = None
         c_cas_vir: np.array = None
-        # Tailor CCSD with other fragments
-        tcc_fragments: Optional[List[int]] = None
-        tcc_projectors: int = 1
+        # Tailor/externally correct CCSD with other fragments
+        external_corrections: Optional[List[typing.Any]] = dataclasses.field(default_factory=list)
         # Lambda equations
         solve_lambda: bool = True
 
@@ -155,12 +155,25 @@ class CCSD_Solver(ClusterSolver):
                 raise NotImplementedError("TCCSD for unrestricted spin-symmetry")
             self.set_callback(tccsd.make_cas_tcc_function(
                               self, c_cas_occ=self.opts.c_cas_occ, c_cas_vir=self.opts.c_cas_vir, eris=eris))
-        # "Tailoring with other fragments"
-        elif self.opts.tcc_fragments:
-            tfrags = self.base.get_fragments(id=self.opts.tcc_fragments)
-            proj = self.opts.tcc_projectors
-            self.log.info("Tailoring CCSD with %d fragments (projectors= %d)", len(tfrags), proj)
-            self.set_callback(coupling.tailor_with_fragments(self, tfrags, project=proj))
+        # Tailoring or external corrections from other fragments
+        elif self.opts.external_corrections:
+            # Tailoring of T1 and T2
+            tailors = [ec for ec in self.opts.external_corrections if (ec[1] == 'tailor')]
+            externals = [ec for ec in self.opts.external_corrections if (ec[1] == 'external')]
+            if tailors and externals:
+                raise NotImplementedError
+            if tailors:
+                tailor_frags = self.base.get_fragments(id=[t[0] for t in tailors])
+                proj = tailors[0][2]
+                if np.any([(t[2] != proj) for t in tailors]):
+                    raise NotImplementedError
+                self.log.info("Tailoring CCSD from %d fragments (projectors= %d)", len(tailor_frags), proj)
+                self.set_callback(coupling.tailor_with_fragments(self, tailor_frags, project=proj))
+            # External correction of T1 and T2
+            if externals:
+                self.log.info("Externally correct CCSD from %d fragments", len(externals))
+                self.set_callback(coupling.externally_correct(self, externals))
+
         elif self.opts.sc_mode and self.base.iteration > 1:
             raise NotImplementedError
             self.set_callback(coupling.make_cross_fragment_tcc_function(self, mode=self.opts.sc_mode))
