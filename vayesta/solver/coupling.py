@@ -54,7 +54,7 @@ def project_t2(t2, proj, projectors):
     if ndim == 4:
         return project_t2_rspin(t2, proj, projectors)
     if ndim == 5:
-        return project_t2_rspin(t2, proj, projectors)
+        return project_t2_uspin(t2, proj, projectors)
     raise ValueError
 
 
