@@ -779,7 +779,8 @@ class Fragment:
                 depth = get_opt('depth', occtype)
                 oneb_mats = get_opt('oneb_mats', occtype)
                 covariant = get_opt('covariant', occtype)
-                return Gen_1b_Bath(self, dmet_bath=dmet, occtype=occtype, svd_tol=svd_tol, depth=depth, \
+                thresh = get_opt('threshold', occtype)
+                return Gen_1b_Bath(self, dmet_bath=dmet, occtype=occtype, svd_tol=svd_tol, threshold=thresh, depth=depth, \
                         oneb_mats=oneb_mats, covariant=covariant)
             raise NotImplementedError('bathtype= %s' % btype)
         self._bath_factory_occ = get_bath(occtype='occupied')

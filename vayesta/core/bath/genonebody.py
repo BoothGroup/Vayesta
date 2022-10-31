@@ -16,8 +16,8 @@ class Gen_1b_Bath_RHF(Bath):
         and include dmet space in one-body objects)
     """
 
-    def __init__(self, fragment, dmet_bath, occtype, svd_tol=1e-8, depth=None, oneb_mats=None, \
-            covariant=None, entanglement_coupling='fragment', *args, **kwargs):
+    def __init__(self, fragment, dmet_bath, occtype, svd_tol=1e-8, threshold=None, depth=None, oneb_mats=None, \
+            covariant=None, entanglement_coupling='cluster_weighted', *args, **kwargs):
         """
         Parameters
         ----------
@@ -65,6 +65,13 @@ class Gen_1b_Bath_RHF(Bath):
             raise ValueError("depth must be a list in Gen_1b_Bath")
         assert (len(self.depth) == self.len_oneb)
         self.svd_tol = svd_tol # Singular value cutoff
+
+        self.selection = 'sv_trunc'
+        self.weight_trunc = threshold
+        if self.selection == 'sv_trunc':
+            self.depth = [1000]*self.len_oneb
+        self.dmet_bath_weight = 0.25
+
         # Coefficients and occupations
         self.coeff, self.nbath_svd, self.sing_vals, self.orders  = self.kernel()
 
@@ -139,12 +146,27 @@ class Gen_1b_Bath_RHF(Bath):
             coeff = spinalg.hstack_matrices(c_frag, c_env)
             norb = coeff.shape[-1]
             nproj_space = nproj_space0 = c_frag.shape[-1]
+
+            # The weight on the original projection space (fragment), i.e.
+            # how strongly do we want to weight the coupling to these states
+            orig_proj_weights = np.ones(nproj_space0)
         elif self.entanglement_coupling == 'cluster':
-            # Left projecting the operators into the full cluster space (inc. DMET and previous bath spaces found).
+            # Left projecting the operators into the occ/vir cluster space (inc. DMET and previous bath spaces found).
             # This space will therefore grow as you increase the number of operators.
             coeff = spinalg.hstack_matrices(c_clust, c_env)    # Full occ / vir of system
             norb = coeff.shape[-1]
             nproj_space = nproj_space0 = c_clust.shape[-1]
+        elif self.entanglement_coupling == 'cluster_weighted':
+            # Left projecting the operators into the DMET cluster (full) space
+            # This space will NOT therefore grow as you increase the number of operators, as the left projection is only DMET space.
+            coeff = spinalg.hstack_matrices(c_frag, self.dmet_bath.c_dmet, c_env)
+            norb = coeff.shape[-1]
+            nproj_space = nproj_space0 = c_frag.shape[-1] + self.dmet_bath.c_dmet.shape[-1]
+            # The weight on the original projection space (fragment), i.e.
+            # how strongly do we want to weight the coupling to these states
+            orig_proj_weights = np.ones(nproj_space0)
+            self.log.info("Weighting coupling to DMET bath space at only {} of a fragment coupling in selection criteria.".format(self.dmet_bath_weight))
+            orig_proj_weights[c_frag.shape[-1]:] = self.dmet_bath_weight   # Weight DMET bath orbitals less.
         else:
             raise NotImplementedError('entanglement_coupling= %s' % self.entanglement_coupling)
         c_svd_bath = None
@@ -172,41 +194,34 @@ class Gen_1b_Bath_RHF(Bath):
 
             nbath_order = [np.count_nonzero(np.isclose(orders, float(x))) for x in range(1,self.depth[mat_ind]+1)]
             nbath = np.sum(nbath_order)
-            nbath_svd += nbath
+
+            renorm_sv = sv.copy()
+            renorm_sv = np.sqrt(renorm_sv)
+#            for i in range(1, self.depth[mat_ind]+1):
+#                renorm_sv[np.isclose(orders, float(i))] = renorm_sv[np.isclose(orders, float(i))] / \
+#                        np.sum(renorm_sv[np.isclose(orders, float(i))])
+
 
             # Find a truncation threshold for each (potential) bath orbital.
             # This is found by taking the singular value of the vector, and multiplying it by
             # the singular values of the previous order states to which it is coupled, multiplied
             # by the weight (left singular vectors), and so on, recursively until it is describing
-            # the coupling to the original fragment states.
-            trunc_thresh = np.full((nbath,), 0.0)
-            cum_weights = np.full((nbath,), 0.0)
+            # the coupling to the original fragment states with a pre-set weight given by orig_proj_weight.
+            trunc_thresh = np.zeros_like(sv)
+            cum_weights = np.zeros_like(sv)
             for i in range(nbath):
                 order = int(round(orders[i]))
                 if order == 1:
-                    trunc_thresh[i] = sv[i]
-                    cum_weights[i] = np.dot(weights[:,i],weights[:,i])
+                    for j in range(nproj_space0):
+                        cum_weights[i] += orig_proj_weights[j] * weights[j,i]**2
+                    trunc_thresh[i] = renorm_sv[i] * cum_weights[i]
                 elif order > 1:
                     mask_prev_ord = np.isclose(orders, float(order-1))
-                    cum_weights[i] = 0.
                     for j in range(nbath_order[order-2]):
-                        cum_weights[i] += cum_weights[mask_prev_ord][j] * sv[mask_prev_ord][j] * weights[j,i]**2
-                    trunc_thresh[i] = cum_weights[i] * sv[i]
+                        cum_weights[i] += cum_weights[mask_prev_ord][j] * renorm_sv[mask_prev_ord][j] * weights[j,i]**2
+                    trunc_thresh[i] = sv[i] * cum_weights[i]
                 else:
                     raise ValueError
-
-            # Store the singular values, the order depth of each bath, and which matrix the bath was derived from
-            if svs is None:
-                svs = sv[np.isfinite(orders)]
-                orders_full = orders[np.isfinite(orders)]
-                mat_svd = np.asarray([mat_ind]*nbath)
-                trunc_thresh_full = trunc_thresh.copy()
-            else:
-                svs = np.concatenate((svs, sv[np.isfinite(orders)]))
-                orders_full = np.concatenate((orders_full, orders[np.isfinite(orders)]))
-                mat_svd = np.concatenate((mat_svd, np.asarray([mat_ind]*nbath)))
-                trunc_thresh_full = np.concatenate((trunc_thresh_full, trunc_thresh))
-            assert(mat_svd.shape[0] == orders_full.shape[0])
 
             for i in range(self.depth[mat_ind]):
                 if nbath_order[i] == 0:
@@ -215,25 +230,50 @@ class Gen_1b_Bath_RHF(Bath):
                     break
                 self.log.info("From recursion {}, we get {} {} bath orbitals (of possible {})".format(i+1, nbath_order[i], self.occtype, nproj_space))
                 self.log.info("SVs = %r",sv[np.isclose(orders, float(i+1))])
+                self.log.info("Trunc. weight = %r",trunc_thresh[np.isclose(orders, float(i+1))])
             self.log.changeIndentLevel(-1)
-            print(np.power(weights,2))
-            print('***')
-            print(orders_full)
-            print('***')
-            print(svs)
-            print('***')
-            print(trunc_thresh_full)
-            1./0
             
-            # Rotate to AO
+            # Rotate all bath and environment states to AO repr
             c = dot(c_env, mo_svd)
+            
+            if self.selection == 'sv_trunc':
+                # Select states from all orders by trunc_thresh
+                # Reorder all states from SVD according to this truncation criteria
+                self.log.info("Picking bath orbitals from all orders based on trunction weight")
+                # Negate truncation, so that it gives indices from largest to smallest.
+                idx = (-trunc_thresh).argsort()
+                trunc_thresh = trunc_thresh[idx]
+                c = c[:,idx]
+                sv = sv[idx]
+                orders = orders[idx]
+
+                # Update the number of bath orbitals based on the truncation criteria
+                # These should be ordered first.
+                nbath = np.count_nonzero(trunc_thresh >= self.weight_trunc)
+
             # Update the environment space to consist of the singular right vectors, and bath space found
             c_env = c[:, nbath:]
             if c_svd_bath:
                 c_svd_bath = spinalg.hstack_matrices(c_svd_bath, c[:,:nbath])
             else:
                 c_svd_bath = c[:,:nbath]
+            
+            # Store the singular values, the order depth and truncation threshold of each bath, and which matrix the bath was derived from
+            if svs is None:
+                svs = sv[:nbath]
+                orders_full = orders[:nbath]
+                mat_svd = np.asarray([mat_ind]*nbath)
+                trunc_thresh_full = trunc_thresh[:nbath]
+            else:
+                svs = np.concatenate((svs, sv[:nbath]))
+                orders_full = np.concatenate((orders_full, orders[:nbath]))
+                mat_svd = np.concatenate((mat_svd, np.asarray([mat_ind]*nbath)))
+                trunc_thresh_full = np.concatenate((trunc_thresh_full, trunc_thresh))
+            assert(mat_svd.shape[0] == orders_full.shape[0])
 
+            # Update total number of bath states selected over all matrices
+            nbath_svd += nbath
+            
             if self.entanglement_coupling == 'cluster':
                 # The first nbath of these now join the cluster space, with the rest being the env
                 c_clust = spinalg.hstack_matrices(c_clust, c_svd_bath)
@@ -241,14 +281,23 @@ class Gen_1b_Bath_RHF(Bath):
                 coeff = spinalg.hstack_matrices(c_clust, c_env)
                 assert(coeff.shape[-1] == norb)
             elif self.entanglement_coupling == 'fragment':
+                # Just remove all bath spaces chosen from consideration
                 coeff = spinalg.hstack_matrices(c_frag, c_env)
-
+            elif self.entanglement_coupling == 'cluster_weighted':
+                coeff = spinalg.hstack_matrices(c_frag, self.dmet_bath.c_dmet, c_env)
 
         self.log.changeIndentLevel(-1)
+        self.log.info("{} bath orbitals chosen...".format(nbath_svd))
+        for i in range(nbath_svd):
+            self.log.info("Ind  mat   order   trunc. weight")
+            self.log.info("{}     {}    {}    {:.3g}".format(i,mat_svd[i],int(round(orders_full[i])),trunc_thresh_full[i]))
+
         if self.entanglement_coupling == 'fragment':
             # Ensure that coeff returns the full space. This is always true for the 'cluster' coupling, since
             # the bath is included in the coeff definition.
             # For fragment coupling, the c_clust is still just the DMET space.
+            coeff = spinalg.hstack_matrices(c_clust, c_svd_bath, c_env)
+        elif self.entanglement_coupling == 'cluster_weighted':
             coeff = spinalg.hstack_matrices(c_clust, c_svd_bath, c_env)
         self.log.timing("Time gen SVD bath:  total= %s", timer()-t_init)
         
