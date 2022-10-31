@@ -42,6 +42,7 @@ class Options(Embedding.Options):
     calc_e_dm_corr: bool = False
     # --- Solver settings
     t_as_lambda: bool = None            # If True, use T-amplitudes inplace of Lambda-amplitudes
+    store_wf_type: str = None           # If set, fragment WFs will be converted to the respective type, before storing them
     # Counterpoise correction of BSSE
     bsse_correction: bool = True
     bsse_rmax: float = 5.0              # In Angstrom

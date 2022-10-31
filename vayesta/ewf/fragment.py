@@ -49,6 +49,7 @@ class Options(BaseFragment.Options):
     # Calculation modes
     calc_e_wf_corr: bool = None
     calc_e_dm_corr: bool = None
+    store_wf_type: str = None               # If set, fragment WFs will be converted to the respective type, before storing them
     # Fragment specific
     # -----------------
     wf_factor: Optional[int] = None
@@ -288,24 +289,28 @@ class Fragment(BaseFragment):
         if solver.lower() == 'dump':
             return
 
+        wf = cluster_solver.wf
+        # Multiply WF by factor [optional]
         if self.opts.wf_factor is not None:
-            cluster_solver.wf.multiply(self.opts.wf_factor)
-
+            wf.multiply(self.opts.wf_factor)
+        # Convert WF to different type [optional]
+        if self.opts.store_wf_type is not None:
+            wf = getattr(wf, 'as_%s' % self.opts.store_wf_type.lower())()
         # ---Make T-projected WF
-        if isinstance(cluster_solver.wf, RFCI_WaveFunction):
-            pwf = cluster_solver.wf.as_cisd()
-        else:
-            pwf = cluster_solver.wf
+        pwf = wf
+        # Projection of FCI wave function is not implemented - convert to CISD
+        if isinstance(wf, RFCI_WaveFunction):
+            pwf = wf.as_cisd()
         proj = self.get_overlap('frag|cluster-occ')
         pwf = pwf.project(proj, inplace=False)
 
         # --- Add to results data class
         self._results = results = self.Results(fid=self.id, n_active=cluster.norb_active,
-                converged=cluster_solver.converged, wf=cluster_solver.wf, pwf=pwf)
+                converged=cluster_solver.converged, wf=wf, pwf=pwf)
 
         # --- Correlation energy contributions
         if self.opts.calc_e_wf_corr:
-            ci = cluster_solver.wf.as_cisd(c0=1.0)
+            ci = wf.as_cisd(c0=1.0)
             ci = ci.project(proj)
             es, ed, results.e_corr = self.get_fragment_energy(ci.c1, ci.c2, eris=eris)
             self.log.debug("E(S)= %s  E(D)= %s  E(tot)= %s", energy_string(es), energy_string(ed),

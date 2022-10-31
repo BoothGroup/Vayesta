@@ -37,9 +37,12 @@ for d in np.arange(1.0, 3.1, 0.25):
 
     # Tailor single CCSD with two atomic FCI fragments (projected in first index onto fragment space)
     tcc = vayesta.ewf.EWF(mf, solver='CCSD', bath_options=dict(bathtype='full'), solve_lambda=True)
+    # store_wf_type determines the type of wave function which will be stored.
+    # For the tailoring below, only the T1 and T2 amplitudes of the FCI fragments are needed,
+    # and the FCI wave function can thus be converted + truncated to a CCSD wave function:
     with tcc.fragmentation() as f:
-        fci_x1 = f.add_atomic_fragment(0, solver='FCI', bath_options=dict(bathtype='dmet'))
-        fci_x2 = f.add_atomic_fragment(1, solver='FCI', bath_options=dict(bathtype='dmet'))
+        fci_x1 = f.add_atomic_fragment(0, solver='FCI', bath_options=dict(bathtype='dmet'), store_wf_type='CCSD')
+        fci_x2 = f.add_atomic_fragment(1, solver='FCI', bath_options=dict(bathtype='dmet'), store_wf_type='CCSD')
         ccsd = f.add_atomic_fragment([0, 1], active=False)
     # Solve FCI
     tcc.kernel()
