@@ -43,7 +43,9 @@ class Options(BaseFragment.Options):
     bsse_correction: bool = None
     bsse_rmax: float = None
     sc_mode: int = None
-    nelectron_target: int = None            # If set, adjust bath chemical potential until electron number in fragment equals nelectron_target
+    nelectron_target: float = None          # If set, adjust bath chemical potential until electron number in fragment equals nelectron_target
+    nelectron_target_atol: float = 1e-6
+    nelectron_target_rtol: float = 1e-6
     # Calculation modes
     calc_e_wf_corr: bool = None
     calc_e_dm_corr: bool = None
@@ -245,7 +247,8 @@ class Fragment(BaseFragment):
         # --- Chemical potential
         cpt_frag = self.base.opts.global_frag_chempot
         if self.opts.nelectron_target is not None:
-            cluster_solver.optimize_cpt(self.opts.nelectron_target, c_frag=self.c_proj)
+            cluster_solver.optimize_cpt(self.opts.nelectron_target, c_frag=self.c_proj, atol=self.opts.nelectron_target_atol,
+                                        rtol=self.opts.nelectron_target_rtol)
         elif cpt_frag:
             # Add chemical potential to fragment space
             r = self.get_overlap('cluster|frag')

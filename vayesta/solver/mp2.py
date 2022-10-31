@@ -39,6 +39,9 @@ class MP2_Solver(ClusterSolver):
             raise ValueError()
         return self.t2
 
+    def get_init_guess(self):
+        return {}
+
     def get_eris(self):
         # We only need the (ov|ov) block for MP2:
         mo_coeff = 2*[self.cluster.c_active_occ, self.cluster.c_active_vir]
@@ -102,6 +105,10 @@ class MP2_Solver(ClusterSolver):
     #    return (t2 - t2_proj)
 
     def kernel(self, eris=None):
+
+        if self.v_ext is not None:
+            raise NotImplementedError
+
         if eris is None:
             eris = cderi = cderi_neg = None
             with log_time(self.log.timing, "Time for AO->MO transformation: %s"):

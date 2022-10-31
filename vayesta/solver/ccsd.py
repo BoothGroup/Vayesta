@@ -94,13 +94,19 @@ class CCSD_Solver(ClusterSolver):
     def get_init_guess(self, eris=None):
         if self.opts.init_guess in ('default', 'MP2'):
             # CCSD will build MP2 amplitudes
-            return None, None
+            return dict(t1=None, t2=None)
         if self.opts.init_guess == 'CISD':
             cisd = self.get_cisd_solver()(self.mf, self.fragment, self.cluster)
             cisd.kernel(eris=eris)
             wf = cisd.wf.as_ccsd()
-            return wf.t1, wf.t2
+            return dict(t1=wf.t1, t2=wf.t2)
         raise ValueError("init_guess= %r" % self.opts.init_guess)
+
+    def init_guess_from_solution(self):
+        """Generate initial guess from wave function solution."""
+        if self.wf is None:
+            raise RuntimeError
+        return dict(t1=self.wf.t1, t2=self.wf.t2)
 
     def add_screening(self, *args, **kwargs):
         raise NotImplementedError("Screening only implemented for unrestricted spin-symmetry.")
@@ -187,7 +193,10 @@ class CCSD_Solver(ClusterSolver):
         if t1 is not None or t2 is not None:
             self.log.info("Solving CCSD-equations with initial guess...")
         else:
-            t1, t2 = self.get_init_guess(eris=eris)
+            self.log.info("Solving CCSD-equations without initial guess...")
+            init_guess = self.get_init_guess(eris=eris)
+            t1 = init_guess['t1']
+            t2 = init_guess['t2']
 
         with log_time(self.log.info, "Time for T-equations: %s"):
             self.solver.kernel(t1=t1, t2=t2, eris=eris)
