@@ -35,6 +35,29 @@ class RCISDTQ_WaveFunction(wf_types.WaveFunction):
 
 class UCISDTQ_WaveFunction(RCISDTQ_WaveFunction):
 
-    def as_ccsd(self):
-        """TODO"""
+    def as_ccsdtq(self):
+        c1a, c1b = self.c1
+        c2aa, c2ab, c2bb = self.c2
+        # TODO
+        #c3aaa, c3aab, ... = self.c3
+        #c4aaaa, c4aaab, ... = self.c4
+
+        # T1
+        t1a = c1a/self.c0
+        t1b = c1b/self.c0
+        # T2
+        t2aa = c2aa/self.c0 - einsum('ia,jb->ijab', t1a, t1a) + einsum('ib,ja->ijab', t1a, t1a)
+        t2bb = c2bb/self.c0 - einsum('ia,jb->ijab', t1b, t1b) + einsum('ib,ja->ijab', t1b, t1b)
+        t2ab = c2ab/self.c0 - einsum('ia,jb->ijab', t1a, t1b)
+        # T3
         raise NotImplementedError
+        #t3aaa = c3aaa/self.c0 - einsum('ijab,kc->ijkabc', t2a, t1a) - ...
+        # T4
+        #t4aaaa = c4aaaa/self.c0 - einsum('ijkabc,ld->ijklabcd', t3a, t1a) - ...
+
+        t1 = (t1a, t1b)
+        t2 = (t2aa, t2ab, t2bb)
+        # TODO
+        #t3 = (t3aaa, t3aab, ...)
+        #t4 = (t4aaaa, t4aaab, ...)
+        return wf_types.UCCSDTQ_WaveFunction(self.mo, t1=t1, t2=t2, t3=t3, t4=t4)

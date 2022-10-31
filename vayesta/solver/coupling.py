@@ -253,6 +253,76 @@ def tailor_with_fragments(solver, fragments, project=False, tailor_t1=True, tail
     return tailor_func
 
 
+def _integrals_for_extcorr(fragment, fock):
+    eris = fragment._eris
+    cluster = fragment.cluster
+    emb = fragment.base
+    if eris is None:
+        if emb.spinsym == 'restricted':
+            eris = emb.get_eris_array(cluster.c_active)
+        else:
+            eris = emb.get_eris_array_uhf(cluster.c_active)
+    if emb.spinsym == 'restricted':
+        occ = np.s_[:cluster.nocc_active]
+        vir = np.s_[cluster.nocc_active:]
+        govov = eris[occ,vir,occ,vir]
+        fov = dot(cluster.c_active_occ.T, fock, cluster.c_active_vir)
+    if emb.spinsym == 'unrestricted':
+        oa = np.s_[:cluster.nocc_active[0]]
+        ob = np.s_[:cluster.nocc_active[1]]
+        va = np.s_[cluster.nocc_active[0]:]
+        vb = np.s_[cluster.nocc_active[1]:]
+        fova = dot(cluster.c_active_occ[0].T, fock[0], cluster.c_active_vir[0])
+        fovb = dot(cluster.c_active_occ[1].T, fock[1], cluster.c_active_vir[1])
+        govovaa = eris[oa,va,oa,va]
+        govovab = eris[oa,va,ob,vb]
+        govovbb = eris[ob,vb,ob,vb]
+        fov = (fova, fovb)
+        govov = (govovaa, govovab, govovbb)
+    return fov, govov
+
+
+def _get_delta_t_for_extcorr(fragment, fock):
+    emb = fragment.base
+
+    # Make CCSDTQ wave function from cluster y
+    wf = fragment.results.wf.as_ccsdtq()
+    t1, t2, t3, t4 = wf.t1, wf.t2, wf.t3, wf.t4
+
+    # Get ERIs and Fock matrix
+    fov, govov = _integrals_for_extcorr(fragment, fock)
+    # --- Make correction to T1 and T2 amplitudes
+    # J. Chem. Theory Comput. 2021, 17, 182−190
+    # [what is v_ef^mn? (em|fn) ?]
+    dt1 = spinalg.zeros_like(t1)
+    dt2 = spinalg.zeros_like(t2)
+
+    raise NotImplementedError
+    if emb.spinsym == 'restricted':
+        # --- T1
+        # T3 * V
+        #dt1 += einsum('imnaef,menf->ia', t3, govov)
+        # --- T2
+        # F * T3
+        #dt2 += einsum('me,ijmabe->ijab', fov, t3)
+        # T1 * T3 * V
+        #dt2 += einsum('me,ijnabf,menf->ijab', t1, t3, govov)
+        # TODO:
+        # P(ab) T3 * V
+        # P(ij) T3 * V
+        # P(ij) T1 * T3 * V
+        # P(ab) T1 * T3 * V
+        # T4 * V
+        pass
+    elif emb.spinsym == 'unrestricted':
+        # TODO
+        pass
+    else:
+        raise ValueError
+
+    return dt1, dt2
+
+
 def externally_correct(solver, external_corrections):
     """Build callback function for CCSD, to add external correction from other fragments.
 
@@ -304,45 +374,7 @@ def externally_correct(solver, external_corrections):
         fy = frag_dir[y]
         assert (y != fx.id)
 
-        # Make CCSDTQ wave function from cluster y
-        wfy = fy.results.wf.as_ccsdtq()
-        t1, t2, t3, t4 = wfy.t1, wfy.t2, wfy.t3, wfy.t4
-
-        # Get ERIs and Fock matrix
-        eris = fy._eris
-        if eris is None:
-            solver.log.debug("Rebuilding ERIs of fragment %s.", fy)
-            if solver.spinsym == 'restricted':
-                eris = emb.get_eris_array(fy.cluster.c_active)
-            else:
-                eris = emb.get_eris_array_uhf(fy.cluster.c_active)
-        # TODO
-        if solver.spinsym == 'unrestricted':
-            raise NotImplementedError
-        occ = np.s_[:fy.cluster.nocc_active]
-        vir = np.s_[fy.cluster.nocc_active:]
-        govov = eris[occ,vir,occ,vir]
-        fov = dot(fy.cluster.c_active_occ.T, fock, fy.cluster.c_active_vir)
-
-        # --- Make correction to T1 and T2 amplitudes
-        # J. Chem. Theory Comput. 2021, 17, 182−190
-        # [what is v_ef^mn? (em|fn) ?]
-        dt1y = np.zeros_like(t1)
-        dt2y = np.zeros_like(t2)
-        # --- T1
-        # T3 * V
-        #dt1y += einsum('imnaef,menf->ia', t3, govov)
-        # --- T2
-        # F * T3
-        #dt2y += einsum('me,ijmabe->ijab', fov, t3)
-        # T1 * T3 * V
-        #dt2y += einsum('me,ijnabf,menf->ijab', t1, t3, govov)
-        # TODO:
-        # P(ab) T3 * V
-        # P(ij) T3 * V
-        # P(ij) T1 * T3 * V
-        # P(ab) T1 * T3 * V
-        # T4 * V
+        dt1y, dt2y = _get_delta_t_for_extcorr(fy, fock)
 
         # Project T1 and T2 corrections:
         if projectors:
