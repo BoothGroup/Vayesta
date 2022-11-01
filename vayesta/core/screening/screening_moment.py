@@ -7,7 +7,7 @@ from vayesta.core.util import dot, einsum
 from vayesta.mpi import mpi
 
 
-def build_screened_eris(emb, fragments=None, cderi_ov=None, calc_e=True, npoints=48, log=None):
+def build_screened_eris(emb, fragments=None, cderi_ov=None, store_m0=True, npoints=48, log=None):
     """Generates renormalised coulomb interactions for use in local cluster calculations.
     Currently requires unrestricted system.
 
@@ -21,8 +21,8 @@ def build_screened_eris(emb, fragments=None, cderi_ov=None, calc_e=True, npoints
     cderi_ov : np.array or tuple of np.array, optional.
         Cholesky-decomposed ERIs in the particle-hole basis of mf. If mf is unrestricted
         this should be a list of arrays corresponding to the different spin channels.
-    calc_delta_e : bool, optional.
-        Whether to calculate a nonlocal energy correction at the level of RPA
+    store_m0 : bool, optional.
+        Whether to store the local zeroth moment in the fragment class for use later.
     npoints : int, optional
         Number of points for numerical integration. Default: 48.
     log : logging.Logger, optional
@@ -51,7 +51,7 @@ def build_screened_eris(emb, fragments=None, cderi_ov=None, calc_e=True, npoints
     r_virs = [f.get_overlap('mo[vir]|cluster[vir]') for f in fragments]
     target_rots, ovs_active = _get_target_rot(r_occs, r_virs)
 
-    local_moments, erpa = calc_moms_RIRPA(emb.mf, target_rots, ovs_active, log, cderi_ov, calc_e, npoints)
+    local_moments = calc_moms_RIRPA(emb.mf, target_rots, ovs_active, log, cderi_ov, npoints)
     # Could generate moments using N^6 moments instead, but just for debugging.
     #local_moments, erpa = calc_moms_RPA(emb.mf, target_rots, ovs_active, log, cderi_ov, calc_e, npoints)
 
@@ -105,18 +105,12 @@ def build_screened_eris(emb, fragments=None, cderi_ov=None, calc_e=True, npoints
         kcbb = kc[ova:, ova:].reshape((no[1], nv[1], no[1], nv[1]))
 
         kc = (kcaa, kcab, kcbb)
-        f._seris_ov = (kc, mom, amb)
+        f._seris_ov = (kc, mom, amb) if store_m0 else (kc,)
         seris_ov.append(kc)
 
-    return seris_ov, erpa
 
-def calc_moms_RIRPA(mf, target_rots, ovs_active, log, cderi_ov, calc_e, npoints):
+def calc_moms_RIRPA(mf, target_rots, ovs_active, log, cderi_ov, npoints):
     rpa = ssRIRPA(mf, log=log, Lpq=cderi_ov)
-    if calc_e:
-        # This scales as O(N^4)
-        erpa, energy_error = rpa.kernel_energy(correction='linear')
-    else:
-        erpa = None
 
     tr = np.concatenate(target_rots, axis=0)
     if sum(sum(ovs_active)) > 0:
@@ -138,7 +132,7 @@ def calc_moms_RIRPA(mf, target_rots, ovs_active, log, cderi_ov, calc_e, npoints)
         local_moments += [mom]
         n += sum(nov)
 
-    return local_moments, erpa
+    return local_moments
 
 def calc_moms_RPA(mf, target_rots, ovs_active, log, cderi_ov, calc_e, npoints):
     rpa = ssRPA(mf, log=log)

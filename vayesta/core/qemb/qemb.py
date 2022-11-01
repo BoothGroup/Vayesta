@@ -114,6 +114,7 @@ class Options(OptionsBase):
     symmetry_tol: float = 1e-6              # Tolerance (in Bohr) for atomic positions
     symmetry_mf_tol: float = 1e-5           # Tolerance for mean-field solution
     screening: Optional[str] = None
+    ext_rpa_correction: bool = False
 
 class Embedding:
     """Base class for quantum embedding methods.
@@ -518,6 +519,12 @@ class Embedding:
         """Nuclear-repulsion energy per unit cell (not folded supercell)."""
         return self.mol.energy_nuc()/self.ncells
 
+    @property
+    def e_nonlocal(self):
+        if not self.opts.ext_rpa_correction:
+            return 0.0
+        return self.e_rpa - sum([x.results.e_corr_rpa * x.symmetry_factor for x in self.get_fragments(sym_parent=None)])
+
     # Embedding properties
 
     @property
@@ -755,17 +762,19 @@ class Embedding:
     @log_method()
     @with_doc(build_screened_eris)
     def build_screened_eris(self, *args, **kwargs):
-        scrfrags = [x.opts.screening for x in self.fragments if x.opts.screening is not None]
-        if len(scrfrags) > 0:
+        nmomscr = len([x.opts.screening for x in self.fragments if x.opts.screening == "mrpa"])
+        if self.opts.ext_rpa_correction:
+            if nmomscr < self.nfrag:
+                raise NotImplementedError("External dRPA correction currently requires all fragments use mrpa screening.")
             # Calculate total dRPA energy in N^4 time; this is cheaper than screening calculations.
             rpa = ssRIRPA(self.mf, log=self.log)
-            self.e_nonlocal, energy_error = rpa.kernel_energy(correction='linear')
-        if scrfrags.count("mrpa") > 0:
+            self.e_rpa, energy_error = rpa.kernel_energy(correction='linear')
+        if nmomscr > 0:
             self.log.info("")
             self.log.info("SCREENED INTERACTION SETUP")
             self.log.info("==========================")
             with log_time(self.log.timing, "Time for screened interation setup: %s"):
-                build_screened_eris(self, *args, **kwargs)
+                build_screened_eris(self, *args, store_m0=self.opts.ext_rpa_correction, **kwargs)
 
     # Symmetry between fragments
     # --------------------------
@@ -1565,6 +1574,7 @@ class Embedding:
     def _reset(self):
         self.e_corr = None
         self.converged = False
+        self.e_rpa = None
 
     def reset(self, *args, **kwargs):
         self._reset()

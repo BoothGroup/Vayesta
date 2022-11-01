@@ -189,7 +189,7 @@ class Fragment(BaseFragment):
         init_guess = self.get_init_guess(init_guess, solver, cluster)
 
         # Create solver object
-        cluster_solver = self.get_solver(solver)
+        cluster_solver, e_corr_rpa = self.get_solver(solver)
 
         # --- Chemical potential
         cpt_frag = self.base.opts.global_frag_chempot
@@ -253,7 +253,7 @@ class Fragment(BaseFragment):
         
         # --- Add to results data class
         self._results = results = self.Results(fid=self.id, n_active=cluster.norb_active,
-                converged=cluster_solver.converged, wf=wf, pwf=pwf, moms=moms)
+                converged=cluster_solver.converged, wf=wf, pwf=pwf, moms=moms, e_corr_rpa=e_corr_rpa)
 
         self.hamil = cluster_solver.hamil
 

@@ -360,47 +360,38 @@ class RClusterHamiltonian:
 
     # Functionality for use with screened interactions and external corrections.
 
-    def add_screening(self, seris_intermed=None):
-        """Add screened interactions into the Hamiltonian."""
-        if self.opts.screening == "mrpa":
-            assert (seris_intermed is not None)
+    def calc_loc_erpa(self, m0, amb):
 
-            # Use bare coulomb interaction from hamiltonian; this could well be cached in future.
-            bare_eris = self.get_eris_bare()
+        no, nv = self.cluster.nocc_active, self.cluster.nvir_active
+        nov = no * nv
+        # Bare coulomb interaction in cluster ov-ov space.
+        v = self.get_eris_bare()[:no, no:, :no, no:].reshape((nov, nov))
+        ro = self._fragment.get_overlap("fragment|cluster-occ")
+        po = dot(ro.T, ro)
 
-            self._seris = screening_moment.get_screened_eris_full(bare_eris, seris_intermed)
+        def gen_spin_components(mat):
+            return mat[:nov, :nov], mat[:nov, nov:], mat[nov:, nov:]
 
-        elif self.opts.screening == "crpa":
-            raise NotImplementedError()
-        else:
-            raise ValueError("Unknown cluster screening protocol: %s" % self.opts.screening)
+        m0_aa, m0_ab, m0_bb = gen_spin_components(m0)
+        d_aa, d_ab, d_bb = gen_spin_components(amb)
+        # This should be zero.
+        assert(abs(d_ab).max() < 1e-10)
 
-    def calc_loc_erpa(self):
+        def compute_e_rrpa(proj):
+            def pr(m):
+                m = m.reshape((no, nv, no*nv))
+                m = np.tensordot(proj, m, axes=[0, 0])
+                return m.reshape((no*nv, no*nv))
+            erpa = 0.5 * (einsum("pq,qp->", pr(m0_aa), d_aa) + einsum("pq,qp->", pr(m0_bb), d_bb))
+            erpa += einsum("pq,qp->", pr(m0_aa + m0_ab + m0_ab.T + m0_bb), v)
+            erpa -= 0.5 * (pr(d_aa + v + d_bb + v).trace())
+            self.log.info("Computed fragment RPA energy contribution for cluster %s as %s", self._fragment.id,
+                          energy_string(erpa))
+            return erpa
 
-        clusmf = self.to_pyscf_mf(force_bare_eris=True)
-        clusrpa = ssRPA(clusmf)
-        M, AmB, ApB, eps, v = clusrpa._gen_arrays()
-        erpa = clusrpa.kernel()
-        m0 = clusrpa.gen_moms(0)
+        compute_e_rrpa(np.eye(no))
 
-        def get_product_projector():
-            nocc = self.nelec
-            nvir = tuple([x - y for x, y in zip(self.ncas, self.nelec)])
-            p_occ_frag = self.target_space_projector(self.cluster.c_active_occ)
-
-            if (not isinstance(p_occ_frag, tuple)) and np.ndim(p_occ_frag) == 2:
-                p_occ_frag = (p_occ_frag, p_occ_frag)
-
-            def get_product_projector(p_o, p_v, no, nv):
-                return einsum("ij,ab->iajb", p_o, p_v).reshape((no * nv, no * nv))
-
-            pa = get_product_projector(p_occ_frag[0], np.eye(nvir[0]), nocc[0], nvir[0])
-            pb = get_product_projector(p_occ_frag[1], np.eye(nvir[1]), nocc[1], nvir[1])
-            return scipy.linalg.block_diag(pa, pb)
-
-        proj = get_product_projector()
-        eloc = 0.5 * einsum("pq,qr,rp->", proj, m0, ApB) - einsum("pq,qp->", proj, ApB + AmB)
-        return eloc
+        return compute_e_rrpa(po)
 
     def add_screening(self, seris_intermed=None):
         """Add screened interactions into the Hamiltonian."""
@@ -424,7 +415,7 @@ class RClusterHamiltonian:
             raise ValueError("Attempted to add screening to fragment with no screening protocol specified.")
         if self.opts.screening == "mrpa":
             assert(seris_intermed is not None)
-            # Use bare coulomb interaction from hamiltonian; this could well be cached in future.
+            # Use bare coulomb interaction from hamiltonian.
             bare_eris = self.get_eris_bare()
             seris = screening_moment.get_screened_eris_full(bare_eris, seris_intermed[0], log=self.log)
             if spin_integrate:
@@ -794,3 +785,6 @@ class EB_UClusterHamiltonian(UClusterHamiltonian, EB_RClusterHamiltonian):
 
     def get_eb_dm_polaritonic_shift(self, dm1):
         return tuple([-einsum("n,pq->pqn", self.polaritonic_shift, x) for x in dm1])
+
+    def calc_loc_erpa(self, m0, amb):
+        raise NotImplementedError()

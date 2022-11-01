@@ -74,6 +74,7 @@ class Fragment:
         converged: bool = None      # True, if solver reached convergence criterion or no convergence required (eg. MP2 solver)
         # --- Energies
         e_corr: float = None        # Fragment correlation energy contribution
+        e_corr_rpa: float = None    # Fragment correlation energy contribution at the level of RPA.
         # --- Wave-function
         wf: WaveFunction = None     # WaveFunction object (MP2, CCSD,...)
         pwf: WaveFunction = None    # Fragment-projected wave function
@@ -1035,7 +1036,10 @@ class Fragment:
         cluster_solver = solver_cls(cl_ham, **solver_opts)
         if self.opts.screening is not None:
             cluster_solver.hamil.add_screening(self._seris_ov)
-        return cluster_solver
+        e_loc_rpa = None
+        if self.base.opts.ext_rpa_correction:
+            e_loc_rpa = cl_ham.calc_loc_erpa(*self._seris_ov[1:])
+        return cluster_solver, e_loc_rpa
 
     def get_frag_hamil(self):
         if self.opts.screening is not None:

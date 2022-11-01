@@ -291,6 +291,7 @@ class EWF(Embedding):
 
     def get_e_corr(self, functional=None, **kwargs):
         functional = (functional or self.opts.energy_functional)
+
         if functional == 'projected':
             self.log.warning("functional='projected' is deprecated; use functional='wf' instead.")
             functional = 'wf'
