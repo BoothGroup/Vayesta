@@ -51,7 +51,7 @@ class ClusterSolver:
         information."""
         raise AbstractMethodError
 
-    def optimize_cpt(self, nelectron, p_frag=None, cpt_guess=0, atol=1e-6, rtol=1e-6, cpt_radius=0.5):
+    def optimize_cpt(self, nelectron, c_frag, cpt_guess=0, atol=1e-6, rtol=1e-6, cpt_radius=0.5):
         """Enables chemical potential optimization to match a number of electrons in the fragment space.
 
         Parameters
@@ -78,24 +78,19 @@ class ClusterSolver:
         kernel_orig = self.kernel
         # Make projector into fragment space
 
-        if p_frag is None:
-            p_frag = self.hamil.target_space_projector()
+        p_frag = self.hamil.target_space_projector(c=c_frag)
 
         class CptFound(RuntimeError):
             """Raise when electron error is below tolerance."""
             pass
 
-        def kernel(self, *args, eris=None, **kwargs):
+        def kernel(self, *args, **kwargs):
             result = None
             err = None
             cpt_opt = None
             iterations = 0
             init_guess = {}
             err0 = None
-
-            # Avoid calculating the ERIs multiple times:
-            if eris is None:
-                eris = self.get_eris()
 
             def electron_err(cpt):
                 nonlocal result, err, err0, cpt_opt, iterations, init_guess
@@ -104,20 +99,21 @@ class ClusterSolver:
                     self.log.debugv("Chemical potential %f already calculated - returning error= %.8f", cpt, err0)
                     return err0
 
-                kwargs.update(init_guess)
+                kwargs.update(**init_guess)
                 self.log.debugv("kwargs keys for solver: %r", kwargs.keys())
 
                 replace = {}
                 if cpt:
                     v_ext_0 = (self.v_ext if self.v_ext is not None else 0)
                     replace['v_ext'] = self.calc_v_ext(v_ext_0, cpt)
-                self.reset()
+                #self.reset()
+                self.converged=False
                 with replace_attr(self.hamil, **replace):
-                    results = kernel_orig(eris=eris, **kwargs)
+                    results = kernel_orig(**kwargs)
                 if not self.converged:
                     raise ConvergenceError()
                 dm1 = self.wf.make_rdm1()
-                if self.is_rhf:
+                if np.ndim(p_frag[0]) == 1:
                     ne_frag = einsum('xi,ij,xj->', p_frag, dm1, p_frag)
                 else:
                     ne_frag = (einsum('xi,ij,xj->', p_frag[0], dm1[0], p_frag[0])
@@ -189,7 +185,10 @@ class ClusterSolver:
         self.kernel = kernel.__get__(self)
 
     def calc_v_ext(self, v_ext_0, cpt):
-        return v_ext_0 - cpt * self.hamil.active_space_projector
+        return v_ext_0 - cpt * self.hamil.target_space_projector()
+
+    def get_init_guess(self):
+        return {}
 
 
 class UClusterSolver(ClusterSolver):

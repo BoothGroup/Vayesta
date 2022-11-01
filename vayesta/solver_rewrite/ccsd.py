@@ -45,7 +45,8 @@ class RCCSD_Solver(ClusterSolver):
         #    self.set_callback(coupling.make_cross_fragment_tcc_function(self, mode=(self.opts.sc_mode or 3),
         #                                                                coupled_fragments=coupled_fragments))
 
-        t1, t2 = self.get_init_guess()
+        if t1 is None and t2 is None:
+            t1, t2 = self.generate_init_guess()
 
         self.log.info("Solving CCSD-equations %s initial guess...", "with" if (t2 is not None) else "without")
 
@@ -69,7 +70,7 @@ class RCCSD_Solver(ClusterSolver):
             return pyscf.cc.dfccsd.RCCSD
         return pyscf.cc.ccsd.RCCSD
 
-    def get_init_guess(self, eris=None):
+    def generate_init_guess(self, eris=None):
         if self.opts.init_guess in ('default', 'MP2'):
             # CCSD will build MP2 amplitudes
             return None, None
