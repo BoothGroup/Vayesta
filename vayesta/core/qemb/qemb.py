@@ -758,11 +758,12 @@ class Embedding:
     @log_method()
     @with_doc(build_screened_eris)
     def build_screened_eris(self, *args, **kwargs):
-        if self.opts.screening is not None:
+        scrfrags = [x.opts.screening for x in self.fragments if x.opts.screening is not None]
+        if len(scrfrags) > 0:
             # Calculate total dRPA energy in N^4 time; this is cheaper than screening calculations.
             rpa = ssRIRPA(self.mf, log=self.log)
             self.e_nonlocal, energy_error = rpa.kernel_energy(correction='linear')
-            if self.opts.screening == "mrpa":
+            if scrfrags.count("mrpa") > 0:
                 build_screened_eris(self, *args, **kwargs)
 
     # Symmetry between fragments
