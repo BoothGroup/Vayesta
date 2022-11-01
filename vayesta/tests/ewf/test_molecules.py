@@ -294,7 +294,46 @@ class MoleculeTests(TestCase):
         self.assertAlmostEqual(ecisd.e_corr, eccsd.e_corr)
         self.assertAlmostEqual(ecisd.e_tot, eccsd.e_tot)
 
+    def test_h2o_mp2_compression(self):
+        """Compares MP2 solver with ERIs, uncompressed CDERIs, and compressed CDERIs.
+        """
+        rewf = ewf.EWF(
+                testsystems.water_ccpvdz.rhf(),
+                bath_type='dmet',
+                solver="MP2"
+        )
 
+        with rewf.iao_fragmentation() as f:
+            f.add_all_atomic_fragments()
+        rewf.kernel()
+
+        df_rewf = ewf.EWF(
+                testsystems.water_ccpvdz_df.rhf(),
+                bath_type='dmet',
+                solver="MP2",
+                solver_options={
+                    "compress_cderi":False
+                }
+        )
+        with df_rewf.iao_fragmentation() as f:
+            f.add_all_atomic_fragments()
+        df_rewf.kernel()
+        # Check that density fitting error is smaller than in mean-field.
+        self.assertAlmostEqual(rewf.e_corr, df_rewf.e_corr, int(np.log10(abs(rewf.e_mf - df_rewf.e_mf))))
+
+        cdf_rewf = ewf.EWF(
+                testsystems.water_ccpvdz_df.rhf(),
+                bath_type='dmet',
+                solver="MP2",
+                solver_options={
+                    "compress_cderi":True
+                }
+        )
+        with cdf_rewf.iao_fragmentation() as f:
+            f.add_all_atomic_fragments()
+        cdf_rewf.kernel()
+        # Compression shouldn't change the answer.
+        self.assertAlmostEqual(df_rewf.e_tot, cdf_rewf.e_tot, self.PLACES_ENERGY)
 
 class MoleculeTestsUnrestricted(unittest.TestCase):
     PLACES_ENERGY = 7
@@ -427,46 +466,47 @@ class MoleculeTestsUnrestricted(unittest.TestCase):
         self.assertAlmostEqual(rewf.e_corr, uewf.e_corr, self.PLACES_ENERGY)
         self.assertAlmostEqual(rewf.e_tot, uewf.e_tot, self.PLACES_ENERGY)
 
-    def test_h2o_mp2_compression(self):
-        """Compares MP2 solver with ERIs, uncompressed CDERIs, and compressed CDERIs.
-        """
-        rewf = ewf.EWF(
+    def test_h2o_nelectron_target(self):
+        """Tests `nelectron_target` fragment option results in a local dm1 with correct number of electrons in fragment space.
+        Also compares to ensure UHF obtains the same result."""
+
+        remb = ewf.EWF(
                 testsystems.water_ccpvdz.rhf(),
-                bath_type='dmet',
-                solver="MP2"
-        )
-
-        with rewf.iao_fragmentation() as f:
-            f.add_all_atomic_fragments()
-        rewf.kernel()
-
-        df_rewf = ewf.EWF(
-                testsystems.water_ccpvdz_df.rhf(),
-                bath_type='dmet',
-                solver="MP2",
+                bath_options={
+                    "bathtype":"dmet"
+                },
                 solver_options={
-                    "compress_cderi":False
-                }
+                    'conv_tol': self.CONV_TOL,
+                    'conv_tol_normt': self.CONV_TOL_NORMT,
+                },
         )
-        with df_rewf.iao_fragmentation() as f:
-            f.add_all_atomic_fragments()
-        df_rewf.kernel()
-        # Check that density fitting error is smaller than in mean-field.
-        self.assertAlmostEqual(rewf.e_corr, df_rewf.e_corr, int(np.log10(abs(rewf.e_mf - df_rewf.e_mf))))
+        with remb.iao_fragmentation() as f:
+            f.add_atomic_fragment([0], nelectron_target=8.0)
 
-        cdf_rewf = ewf.EWF(
-                testsystems.water_ccpvdz_df.rhf(),
-                bath_type='dmet',
-                solver="MP2",
+        remb.kernel()
+
+        fr = remb.fragments[0]
+        p = fr.get_fragment_projector(fr.cluster.c_active)
+        nel = np.einsum("pq,qr,rp->", p, fr.results.wf.make_rdm1(), p)
+        self.assertAlmostEqual(nel, 8.0, places=4)
+
+        uemb = ewf.EWF(
+                testsystems.water_ccpvdz.uhf(),
+                bath_options={
+                    "bathtype":"dmet"
+                },
                 solver_options={
-                    "compress_cderi":True
-                }
+                    'conv_tol': self.CONV_TOL,
+                    'conv_tol_normt': self.CONV_TOL_NORMT,
+                },
         )
-        with cdf_rewf.iao_fragmentation() as f:
-            f.add_all_atomic_fragments()
-        cdf_rewf.kernel()
-        # Compression shouldn't change the answer.
-        self.assertAlmostEqual(df_rewf.e_tot, cdf_rewf.e_tot, self.PLACES_ENERGY)
+        with uemb.iao_fragmentation() as f:
+            f.add_atomic_fragment([0], nelectron_target=8.0)
+
+        uemb.kernel()
+
+        self.assertAlmostEqual(remb.e_corr, uemb.e_corr, self.PLACES_ENERGY)
+        self.assertAlmostEqual(remb.e_corr, -0.018721331700187655, self.PLACES_ENERGY)
 
 
 if __name__ == '__main__':
