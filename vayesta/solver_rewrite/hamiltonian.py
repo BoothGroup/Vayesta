@@ -82,16 +82,14 @@ class RClusterHamiltonian:
 
     def target_space_projector(self, c=None):
         """Projector to the target fragment space within our cluster."""
-        if c is None:
-            c = self.cluster.c_active
-        return self._fragment.get_fragment_projector(c)
+        return self._fragment.get_fragment_projector(self.cluster.c_active, c)
 
     # Integrals for the cluster calculations.
 
     def get_integrals(self, bare_eris=None, with_vext=True):
         heff = self.get_heff(bare_eris, with_vext=with_vext)
         # Depending on calculation this may be the same as bare_eris
-        seris = self.get_eris()
+        seris = self.get_eris_screened()
         return heff, seris
 
     def get_fock(self, with_vext=True, use_seris=True, with_exxdiv=False):
@@ -125,7 +123,7 @@ class RClusterHamiltonian:
             h_eff += self.v_ext
         return h_eff
 
-    def get_eris(self):
+    def get_eris_screened(self):
         # This will only return the bare eris if no screening is expected
         if self.opts.screening is None:
             return self.get_eris_bare()
@@ -279,7 +277,7 @@ class RClusterHamiltonian:
             if force_bare_eris:
                 clusmf._eri = pad_to_match(bare_eris, 0.0)
             else:
-                clusmf._eri = pad_to_match(self.get_eris())
+                clusmf._eri = pad_to_match(self.get_eris_screened())
 
         clusmf.get_hcore = lambda *args, **kwargs: heff
         if overwrite_fock:

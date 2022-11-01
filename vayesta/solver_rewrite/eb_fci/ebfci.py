@@ -50,7 +50,7 @@ class REBFCI:
 
     def get_hamil(self, eris=None):
         h1e = self.hamil.get_heff(eris)
-        eris = self.hamil.get_eris()
+        eris = self.hamil.get_eris_screened()
         return h1e, eris
 
     def make_rdm1(self):
