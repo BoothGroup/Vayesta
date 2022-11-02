@@ -2,6 +2,7 @@ import numpy as np
 from vayesta.core.util import *
 from vayesta.core import spinalg
 from vayesta.mpi import mpi, RMA_Dict
+from vayesta.solver.simple import CCSD as SimpleCCSD
 
 
 def transform_amplitude(t, u_occ, u_vir, u_occ2=None, u_vir2=None, inverse=False):
@@ -325,6 +326,33 @@ def _get_delta_t_for_extcorr(fragment, fock):
 
     return dt1, dt2
 
+def _get_delta_t_for_delta_tailor(fragment, fock):
+    wf = fragment.results.wf.as_ccsd()
+    t1, t2 = wf.t1, wf.t2
+    # CCSD
+    cluster = fragment.cluster
+    fock = spinalg.dot(spinalg.T(cluster.c_active), fock, cluster.c_active)
+    nocc = wf.mo.nocc
+    if fragment.base.spinsym == 'restricted':
+        mo_energy = np.diag(fock).copy()
+        if fragment.base.has_exxdiv:
+            mo_energy[:nocc] -= fragment.base.madelung
+    else:
+        mo_energy = (np.diag(fock[0]).copy(), np.diag(fock[1]).copy())
+        if fragment.base.has_exxdiv:
+            moa, mob = mo_energy
+            moa[:nocc[0]] -= fragment.base.madelung
+            mob[:nocc[1]] -= fragment.base.madelung
+            mo_energy = (moa, mob)
+
+    eris = fragment._eris
+    ccsd = SimpleCCSD(fock, eris, nocc, mo_energy=mo_energy)
+    ccsd.kernel(t1=t1, t2=t2)
+    assert ccsd.converged
+    dt1 = spinalg.subtract(t1, ccsd.t1)
+    dt2 = spinalg.subtract(t2, ccsd.t2)
+    return dt1, dt2
+
 
 def externally_correct(solver, external_corrections):
     """Build callback function for CCSD, to add external correction from other fragments.
@@ -373,11 +401,15 @@ def externally_correct(solver, external_corrections):
 
     for y, corrtype, projectors in external_corrections:
 
-        assert corrtype == 'external'
         fy = frag_dir[y] # Get fragment y object from its index
         assert (y != fx.id)
 
-        dt1y, dt2y = _get_delta_t_for_extcorr(fy, fock)
+        if corrtype == 'external':
+            dt1y, dt2y = _get_delta_t_for_extcorr(fy, fock)
+        elif corrtype == 'delta-tailor':
+            dt1y, dt2y = _get_delta_t_for_delta_tailor(fy, fock)
+        else:
+            raise ValueError
 
         # Project T1 and T2 corrections:
         if projectors:

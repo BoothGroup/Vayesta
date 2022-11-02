@@ -27,7 +27,7 @@ class CAS_Fragmentation(Fragmentation):
             return orbital_indices, orbital_labels
         raise ValueError("A list of integers is required! orbitals= %r" % orbitals)
 
-    def add_cas_fragment(self, ncas, nelec, name=None, degen_tol=1e-10):
+    def add_cas_fragment(self, ncas, nelec, name=None, degen_tol=1e-10, **kwargs):
         """Create a single fragment containing a CAS.
 
         Parameters
@@ -93,10 +93,13 @@ class CAS_Fragmentation(Fragmentation):
             check_for_degen(self.emb.mo_energy[1], anyocc[-1] - offset, anyocc[-1] - offset + ncas, "beta ")
 
         orbs = list(range(anyocc[-1] - offset, anyocc[-1] - offset + ncas))
-        self.add_orbital_fragment(orbs, name=name)
+        return self.add_orbital_fragment(orbs, name=name, **kwargs)
 
 
 class CAS_Fragmentation_UHF(Fragmentation_UHF, CAS_Fragmentation):
 
     def get_labels(self):
         return [("", "", "HF", str(x)) for x in range(0, self.nmo[0])]
+
+    def get_coeff(self):
+        return (self.mo_coeff[0].copy(), self.mo_coeff[1].copy())

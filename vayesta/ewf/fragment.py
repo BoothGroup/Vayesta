@@ -141,13 +141,14 @@ class Fragment(BaseFragment):
         correction_type: str, optional
             Type of correction:
                 'tailor': replace CCSD T1 and T2 amplitudes with FCI amplitudes.
+                'delta-tailor': Add the difference of FCI and CCSD T1 and T2 amplitudes
                 'external': externally correct CCSD T1 and T2 amplitudes from FCI T3 and T4 amplitudes.
             Default: 'tailor'.
         projectors: int, optional
             Maximum number of projections applied to the occupied dimensions of the amplitude corrections.
             Default: 1.
         """
-        if correction_type not in ('tailor', 'external'):
+        if correction_type not in ('tailor', 'delta-tailor', 'external'):
             raise ValueError
         if self.solver != 'CCSD':
             raise RuntimeError
