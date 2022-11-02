@@ -196,10 +196,9 @@ class ssRIRPA:
         if iterative:
             # Define operator for application of P.
             def matvec(v):
-                if len(v.shape) == 2:
-                    assert(v.shape[1] == 1)
-                    v = v[:,0]
-                return np.multiply(self.D, v) + dot(ri_apb[0].T, dot(ri_apb[1], v))
+                if len(v.shape) == 1:
+                    v = v.reshape((v.shape[0], 1))
+                return einsum("p,pq->pq", self.D, v) + dot(ri_apb[0].T, dot(ri_apb[1], v))
             op = scipy.sparse.linalg.LinearOperator((self.ov_tot, self.ov_tot), matvec=matvec)
             mom0 = cg_inv(op, intval.T, log=self.log, inplace=True).T
 
