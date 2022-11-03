@@ -261,6 +261,8 @@ class RClusterHamiltonian:
         use_df = allow_df and np.ndim(clusmf.mo_coeff[1]) == 1 and self.opts.screening is None and \
                  not (self._fragment.base.pbc_dimension in (1, 2)) and hasattr(self.mf, 'with_df') \
                  and self.mf.with_df is not None
+        clusmol.incore_anyway = not use_df
+
         if use_df:
             # Set up with DF
             clusmf = clusmf.density_fit()
