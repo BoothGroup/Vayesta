@@ -225,12 +225,17 @@ class ssRIRPA:
         # print(amb_exact)
         # amb_approx = einsum("pq,q,rq->pr", mom0, self.D, mom0) + dot(l1[0], l1[1].T)
         # error = amb_approx - amb_exact
-        amb = np.diag(self.D) + dot(ri_amb[0].T, ri_amb[1])
-        apb = np.diag(self.D) + dot(ri_apb[0].T, ri_apb[1])
-        amb_exact = dot(target_rot, amb, target_rot.T)
-        self.save = (apb, amb_exact, mom0)
-        error = amb_exact - dot(mom0, apb, mom0.T)
-        self.error = error
+        #amb = np.diag(self.D) + dot(ri_amb[0].T, ri_amb[1])
+        #apb = np.diag(self.D) + dot(ri_apb[0].T, ri_apb[1])
+
+        amb_exact = einsum("pq,q,rq->pr", target_rot, self.D, target_rot) + \
+                    einsum("pq,nq,nr,sr->ps", target_rot, ri_amb[0], ri_amb[1], target_rot)
+
+        amb = einsum("pq,q,rq->pr", mom0, self.D, target_rot) + \
+                    einsum("pq,nq,nr,sr->ps", target_rot, ri_apb[0], ri_apb[1], mom0)
+
+
+        error = amb_exact - amb
         e_norm = np.linalg.norm(error)
         p_norm = np.linalg.norm(self.D) + np.linalg.norm(ri_apb) ** 2
         peta_norm = np.linalg.norm(einsum("p,qp->pq", self.D, mom0) + dot(ri_apb[0].T, l1[1].T))
