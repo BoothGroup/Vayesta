@@ -28,7 +28,7 @@ __all__ = [
         # General
         'Object', 'OptionsBase', 'brange', 'deprecated', 'cache', 'call_once', 'with_doc',
         # NumPy replacements
-        'dot', 'einsum', 'hstack',
+        'dot', 'tril_indices_ndim', 'einsum', 'hstack',
         # Exceptions
         'AbstractMethodError', 'ConvergenceError', 'OrthonormalityError', 'ImaginaryPartError',
         'NotCalculatedError',
@@ -106,6 +106,34 @@ def with_doc(doc):
     return func_with_doc
 
 # --- NumPy
+
+def tril_indices_ndim(n, dims, include_diagonal=False):
+    """Return lower triangular indices for a multidimensional array."""
+
+    ranges = [np.arange(n)] * dims
+
+    if dims == 0:
+        return tuple()
+    elif dims == 1:
+        return (ranges[0],)
+
+    if include_diagonal:
+        func = np.greater_equal
+    else:
+        func = np.greater
+
+    slices = [
+        tuple(slice(None) if i == j else np.newaxis for i in range(dims)) for j in range(dims)
+    ]
+
+    casted = [rng[ind] for rng, ind in zip(ranges, slices)]
+    mask = functools.reduce(np.logical_and, [func(a, b) for a, b in zip(casted[:-1], casted[1:])])
+
+    tril = tuple(
+        np.broadcast_to(inds, mask.shape)[mask] for inds in np.indices(mask.shape, sparse=True)
+    )
+
+    return tril
 
 def dot(*args, out=None, ignore_none=False):
     """Like NumPy's multi_dot, but variadic"""
