@@ -30,7 +30,7 @@ class TestRSpin(TestCase):
         """Convert to _ChemistERIs and back"""
         eris_pyscf = pyscf_eris.make_ccsd_eris(self.fock, self.eris, self.nocc)
         eris = helper.get_full_array_rhf(eris_pyscf)
-        self.assertAllclose(eris, self.eris, atol=1e-14, rtol=0)
+        self.assertAllclose(eris, self.eris, atol=1e-13, rtol=0)
 
 
 class TestUSpin(TestRSpin):
@@ -53,7 +53,7 @@ class TestUSpin(TestRSpin):
         """Convert to _ChemistERIs and back"""
         eris_pyscf = pyscf_eris.make_uccsd_eris(self.fock, self.eris, self.nocc)
         eris = helper.get_full_array_uhf(eris_pyscf)
-        self.assertAllclose(eris, self.eris, atol=1e-14, rtol=0)
+        self.assertAllclose(eris, self.eris, atol=1e-13, rtol=0)
 
 
 if __name__ == '__main__':
