@@ -114,7 +114,7 @@ class Options(OptionsBase):
     symmetry_tol: float = 1e-6              # Tolerance (in Bohr) for atomic positions
     symmetry_mf_tol: float = 1e-5           # Tolerance for mean-field solution
     screening: Optional[str] = None
-    ext_rpa_correction: bool = False
+    ext_rpa_correction: Optional[str] = None
 
 class Embedding:
     """Base class for quantum embedding methods.
@@ -521,7 +521,7 @@ class Embedding:
 
     @property
     def e_nonlocal(self):
-        if not self.opts.ext_rpa_correction:
+        if self.opts.ext_rpa_correction is None:
             return 0.0
         return self.e_rpa - sum([x.results.e_corr_rpa * x.symmetry_factor for x in self.get_fragments(sym_parent=None)])
 
@@ -764,11 +764,25 @@ class Embedding:
     def build_screened_eris(self, *args, **kwargs):
         nmomscr = len([x.opts.screening for x in self.fragments if x.opts.screening == "mrpa"])
         if self.opts.ext_rpa_correction:
+            cumulant = self.opts.ext_rpa_correction == "cumulant"
             if nmomscr < self.nfrag:
                 raise NotImplementedError("External dRPA correction currently requires all fragments use mrpa screening.")
-            # Calculate total dRPA energy in N^4 time; this is cheaper than screening calculations.
-            rpa = ssRIRPA(self.mf, log=self.log)
-            self.e_rpa, energy_error = rpa.kernel_energy(correction='linear')
+
+            if self.opts.ext_rpa_correction not in ["erpa", "cumulant"]:
+                raise ValueError("Unknown external rpa correction %s specified.")
+            l_ = self.get_cderi(self.mf.mo_coeff)[0]
+            rpa = ssRIRPA(self.mf, log=self.log, Lpq=l_)
+            if cumulant:
+                l_ = l_[:, :self.nocc, self.nocc:].reshape((l_.shape[0], -1))
+                l_ = np.concatenate([l_, l_], axis=1)
+
+                m0 = rpa.kernel_moms(0, target_rot=l_)[0][0]
+                # Just need to project the RHS and we're done.
+                self.e_rpa = - 0.5 * einsum("pq,pq->", m0, l_)
+            else:
+                # Calculate total dRPA energy in N^4 time; this is cheaper than screening calculations.
+                self.e_rpa, energy_error = rpa.kernel_energy(correction='linear')
+            self.log.info("Set total RPA correlation energy contribution as %s", energy_string(self.e_rpa))
         if nmomscr > 0:
             self.log.info("")
             self.log.info("SCREENED INTERACTION SETUP")

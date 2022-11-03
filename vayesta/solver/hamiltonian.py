@@ -360,7 +360,7 @@ class RClusterHamiltonian:
 
     # Functionality for use with screened interactions and external corrections.
 
-    def calc_loc_erpa(self, m0, amb):
+    def calc_loc_erpa(self, m0, amb, only_cumulant=False):
 
         no, nv = self.cluster.nocc_active, self.cluster.nvir_active
         nov = no * nv
@@ -373,21 +373,36 @@ class RClusterHamiltonian:
             return mat[:nov, :nov], mat[:nov, nov:], mat[nov:, nov:]
 
         m0_aa, m0_ab, m0_bb = gen_spin_components(m0)
-        d_aa, d_ab, d_bb = gen_spin_components(amb)
-        # This should be zero.
-        assert(abs(d_ab).max() < 1e-10)
 
-        def compute_e_rrpa(proj):
-            def pr(m):
-                m = m.reshape((no, nv, no*nv))
-                m = np.tensordot(proj, m, axes=[0, 0])
-                return m.reshape((no*nv, no*nv))
-            erpa = 0.5 * (einsum("pq,qp->", pr(m0_aa), d_aa) + einsum("pq,qp->", pr(m0_bb), d_bb))
-            erpa += einsum("pq,qp->", pr(m0_aa + m0_ab + m0_ab.T + m0_bb), v)
-            erpa -= 0.5 * (pr(d_aa + v + d_bb + v).trace())
-            self.log.info("Computed fragment RPA energy contribution for cluster %s as %s", self._fragment.id,
-                          energy_string(erpa))
-            return erpa
+
+        if only_cumulant:
+
+            def compute_e_rrpa(proj):
+                def pr(m):
+                    m = m.reshape((no, nv, no*nv))
+                    m = np.tensordot(proj, m, axes=[0, 0])
+                    return m.reshape((no*nv, no*nv))
+                erpa = - 0.5 * einsum("pq,qp->", pr(m0_aa + m0_ab + m0_ab.T + m0_bb), v)
+                self.log.info("Computed fragment RPA cumulant energy contribution for cluster %s as %s", self._fragment.id,
+                              energy_string(erpa))
+                return erpa
+
+        else:
+            d_aa, d_ab, d_bb = gen_spin_components(amb)
+            # This should be zero.
+            assert(abs(d_ab).max() < 1e-10)
+
+            def compute_e_rrpa(proj):
+                def pr(m):
+                    m = m.reshape((no, nv, no*nv))
+                    m = np.tensordot(proj, m, axes=[0, 0])
+                    return m.reshape((no*nv, no*nv))
+                erpa = 0.5 * (einsum("pq,qp->", pr(m0_aa), d_aa) + einsum("pq,qp->", pr(m0_bb), d_bb))
+                erpa += einsum("pq,qp->", pr(m0_aa + m0_ab + m0_ab.T + m0_bb), v)
+                erpa -= 0.5 * (pr(d_aa + v + d_bb + v).trace())
+                self.log.info("Computed fragment RPA energy contribution for cluster %s as %s", self._fragment.id,
+                              energy_string(erpa))
+                return erpa
 
         compute_e_rrpa(np.eye(no))
 
