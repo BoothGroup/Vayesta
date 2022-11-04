@@ -14,12 +14,13 @@ def CCSDTQ_WaveFunction(mo, *args, **kwargs):
 
 class RCCSDTQ_WaveFunction(wf_types.WaveFunction):
 
-    def __init__(self, mo, t1, t2, t3, t4):
+    def __init__(self, mo, t1, t2, t3, t4_abab, t4_abaa):
         super().__init__(mo)
         self.t1 = t1
         self.t2 = t2
         self.t3 = t3
-        self.t4 = t4
+        self.t4_abab = t4_abab
+        self.t4_abaa = t4_abaa
 
     def as_ccsdtq(self):
         return self
