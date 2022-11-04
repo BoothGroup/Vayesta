@@ -21,8 +21,7 @@ class RCCSDTQ_WaveFunction(wf_types.WaveFunction):
         self.t3 = t3
         self.t4 = t4
         if not (isinstance(t4, tuple) and len(t4) == 2):
-            raise ValueError('''t4 definition in RCCSDTQ wfn requires 
-                    tuple of (abaa, abab) spin signatures''')
+            raise ValueError("t4 definition in RCCSDTQ wfn requires tuple of (abaa, abab) spin signatures")
 
     def as_ccsdtq(self):
         return self
