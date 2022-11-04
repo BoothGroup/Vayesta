@@ -14,13 +14,15 @@ def CCSDTQ_WaveFunction(mo, *args, **kwargs):
 
 class RCCSDTQ_WaveFunction(wf_types.WaveFunction):
 
-    def __init__(self, mo, t1, t2, t3, t4_abab, t4_abaa):
+    def __init__(self, mo, t1, t2, t3, t4):
         super().__init__(mo)
         self.t1 = t1
         self.t2 = t2
         self.t3 = t3
-        self.t4_abab = t4_abab
-        self.t4_abaa = t4_abaa
+        self.t4 = t4
+        if not (isinstance(t4, tuple) and len(t4) == 2):
+            raise ValueError('''t4 definition in RCCSDTQ wfn requires 
+                    tuple of (abaa, abab) spin signatures''')
 
     def as_ccsdtq(self):
         return self

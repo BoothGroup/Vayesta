@@ -279,7 +279,6 @@ class RFCI_WaveFunction(wf_types.WaveFunction):
 
         assert(np.allclose(c4_comp, np.einsum('i,j,ij->ij', t3sign, t1sign, \
                 self.ci[t3addr[:,None], t1addr])))
-        del c4_comp
 
         if c0 is None:
             c0 = self.c0
@@ -289,7 +288,8 @@ class RFCI_WaveFunction(wf_types.WaveFunction):
             c3 *= c0/self.c0
             c4_abab *= c0/self.c0
             c4_abaa *= c0/self.c0
-        return wf_types.RCISDTQ_WaveFunction(self.mo, c0, c1, c2, c3, c4_abab, c4_abaa)
+
+        return wf_types.RCISDTQ_WaveFunction(self.mo, c0, c1, c2, c3, (c4_abaa, c4_abab))
 
     def as_ccsd(self):
         return self.as_cisd().as_ccsd()

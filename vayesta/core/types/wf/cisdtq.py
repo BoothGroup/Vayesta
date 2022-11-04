@@ -14,14 +14,16 @@ def CISDTQ_WaveFunction(mo, *args, **kwargs):
 
 class RCISDTQ_WaveFunction(wf_types.WaveFunction):
 
-    def __init__(self, mo, c0, c1, c2, c3, c4_abab, c4_abaa):
+    def __init__(self, mo, c0, c1, c2, c3, c4):
         super().__init__(mo)
         self.c0 = c0
         self.c1 = c1
         self.c2 = c2
         self.c3 = c3
-        self.c4_abab = c4_abab
-        self.c4_abaa = c4_abaa
+        self.c4 = c4
+        if not (isinstance(c4, tuple) and len(c4)==2):
+            raise ValueError('''c4 definition in RCISDTQ wfn requires 
+                    tuple of (abaa, abab) spin signatures''')
 
     def as_ccsdtq(self):
         t1 = self.c1/self.c0
@@ -46,8 +48,10 @@ class RCISDTQ_WaveFunction(wf_types.WaveFunction):
         t3 += t1t1t1.transpose(0,1,2,5,4,3)
 
         # === t4_abaa === (Note that we construct both the abaa and abab spin signatures)
+        # Unpack c4 array into spin signatures
+        c4_abaa, c4_abab = self.c4
         # Construct the abaa first
-        t4_abaa = self.c4_abaa/self.c0
+        t4_abaa = c4_abaa/self.c0
 
         # A useful intermediate is the t3_aaa. Construct this from t3 (_aba) mixed spin.
         t3_aaa = t3 - t3.transpose(0,2,1,3,4,5) - t3.transpose(1,0,2,3,4,5)
@@ -126,7 +130,7 @@ class RCISDTQ_WaveFunction(wf_types.WaveFunction):
         t4_abaa += t1t1t1t1.transpose(0,1,2,3,7,5,6,4)
 
         # Now construct t4 with spin signature (abab -> abab)
-        t4_abab = self.c4_abab/self.c0
+        t4_abab = c4_abab/self.c0
 
         # (t1 t3) terms + permutations
         t1t3a = einsum('ia, jklbcd -> ijklabcd', t1, t3)
@@ -186,9 +190,11 @@ class RCISDTQ_WaveFunction(wf_types.WaveFunction):
         t4_abab += t1t1t1t1.transpose(0,1,2,3,4,7,6,5)
         t4_abab += t1t1t1t1.transpose(0,1,2,3,6,5,4,7)
         t4_abab -= t1t1t1t1.transpose(0,1,2,3,6,7,4,5)
+
+        # Pack two spin signatures into single tuple
+        t4 = (t4_abaa, t4_abab)
         
-        return wf_types.RCCSDTQ_WaveFunction(self.mo, t1=t1, t2=t2, t3=t3, \
-                t4_abab=t4_abab, t4_abaa=t4_abaa)
+        return wf_types.RCCSDTQ_WaveFunction(self.mo, t1=t1, t2=t2, t3=t3, t4=t4)
 
 class UCISDTQ_WaveFunction(RCISDTQ_WaveFunction):
 
