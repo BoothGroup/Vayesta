@@ -777,8 +777,8 @@ class Embedding:
                 l_ = np.concatenate([l_, l_], axis=1)
 
                 m0 = rpa.kernel_moms(0, target_rot=l_)[0][0]
-                # Just need to project the RHS and we're done.
-                self.e_rpa = - 0.5 * einsum("pq,pq->", m0, l_)
+                # Deduct effective mean-field contribution and project the RHS and we're done.
+                self.e_rpa = 0.5 * einsum("pq,pq->", m0 - l_, l_)
             else:
                 # Calculate total dRPA energy in N^4 time; this is cheaper than screening calculations.
                 self.e_rpa, energy_error = rpa.kernel_energy(correction='linear')

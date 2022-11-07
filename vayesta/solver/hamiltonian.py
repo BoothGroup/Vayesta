@@ -4,13 +4,11 @@ from typing import Optional
 import numpy as np
 import pyscf.lib
 import pyscf.scf
-import scipy.linalg
 
 from vayesta.core.util import dot, einsum, OptionsBase, break_into_lines, log_time
-from typing import Optional
-from vayesta.core.types import Orbitals
 from vayesta.core.screening import screening_moment, screening_crpa
-from vayesta.rpa import ssRPA
+from vayesta.core.types import Orbitals
+from typing import Optional
 
 
 def is_ham(ham):
@@ -374,29 +372,31 @@ class RClusterHamiltonian:
 
         m0_aa, m0_ab, m0_bb = gen_spin_components(m0)
 
-
         if only_cumulant:
 
             def compute_e_rrpa(proj):
                 def pr(m):
-                    m = m.reshape((no, nv, no*nv))
+                    m = m.reshape((no, nv, no * nv))
                     m = np.tensordot(proj, m, axes=[0, 0])
-                    return m.reshape((no*nv, no*nv))
-                erpa = - 0.5 * einsum("pq,qp->", pr(m0_aa + m0_ab + m0_ab.T + m0_bb), v)
-                self.log.info("Computed fragment RPA cumulant energy contribution for cluster %s as %s", self._fragment.id,
+                    return m.reshape((no * nv, no * nv))
+
+                erpa = 0.5 * einsum("pq,qp->", pr(m0_aa + m0_ab + m0_ab.T + m0_bb - 2 * np.eye(nov)), v)
+                self.log.info("Computed fragment RPA cumulant energy contribution for cluster %s as %s",
+                              self._fragment.id,
                               energy_string(erpa))
                 return erpa
 
         else:
             d_aa, d_ab, d_bb = gen_spin_components(amb)
             # This should be zero.
-            assert(abs(d_ab).max() < 1e-10)
+            assert (abs(d_ab).max() < 1e-10)
 
             def compute_e_rrpa(proj):
                 def pr(m):
-                    m = m.reshape((no, nv, no*nv))
+                    m = m.reshape((no, nv, no * nv))
                     m = np.tensordot(proj, m, axes=[0, 0])
-                    return m.reshape((no*nv, no*nv))
+                    return m.reshape((no * nv, no * nv))
+
                 erpa = 0.5 * (einsum("pq,qp->", pr(m0_aa), d_aa) + einsum("pq,qp->", pr(m0_bb), d_bb))
                 erpa += einsum("pq,qp->", pr(m0_aa + m0_ab + m0_ab.T + m0_bb), v)
                 erpa -= 0.5 * (pr(d_aa + v + d_bb + v).trace())
@@ -425,11 +425,12 @@ class RClusterHamiltonian:
                 self.log.info("Largest change in screened interactions due to spin integration: %e", max(dev))
 
             return spat
+
         seris = None
         if self.opts.screening is None:
             raise ValueError("Attempted to add screening to fragment with no screening protocol specified.")
         if self.opts.screening == "mrpa":
-            assert(seris_intermed is not None)
+            assert (seris_intermed is not None)
             # Use bare coulomb interaction from hamiltonian.
             bare_eris = self.get_eris_bare()
             seris = screening_moment.get_screened_eris_full(bare_eris, seris_intermed[0], log=self.log)
@@ -439,7 +440,7 @@ class RClusterHamiltonian:
             bare_eris = self.get_eris_bare()
             delta, crpa = screening_crpa.get_frag_deltaW(self.mf, self._fragment,
                                                          pcoupling=("pcoupled" in self.opts.screening),
-                                                         only_ov_screened= ("ov" in self.opts.screening),
+                                                         only_ov_screened=("ov" in self.opts.screening),
                                                          log=self.log)
             if "store" in self.opts.screening:
                 self.log.warning("Storing cRPA object in Hamiltonian- O(N^4) memory cost!")
@@ -459,15 +460,15 @@ class RClusterHamiltonian:
             raise ValueError("Unknown cluster screening protocol: %s" % self.opts.screening)
 
         def report_screening(screened, bare, spins):
-            maxidx = np.unravel_index(np.argmax(abs(screened-bare)), bare.shape)
+            maxidx = np.unravel_index(np.argmax(abs(screened - bare)), bare.shape)
             if spins is None:
                 wstring = "W"
             else:
-                wstring = "W(%2s|%2s)" % (2*spins[0], 2*spins[1])
+                wstring = "W(%2s|%2s)" % (2 * spins[0], 2 * spins[1])
             self.log.info(
                 "Maximally screened element of %s: V= %.3e -> W= %.3e (delta= %.3e)",
-                     wstring, bare[maxidx], screened[maxidx], screened[maxidx]-bare[maxidx])
-            #self.log.info(
+                wstring, bare[maxidx], screened[maxidx], screened[maxidx] - bare[maxidx])
+            # self.log.info(
             #    "           Corresponding norms%s: ||V||= %.3e, ||W||= %.3e, ||delta||= %.3e",
             #              " " * len(wstring), np.linalg.norm(bare), np.linalg.norm(screened),
             #              np.linalg.norm(screened-bare))
@@ -480,13 +481,13 @@ class RClusterHamiltonian:
             report_screening(seris[2], bare_eris[2], "bb")
 
             def get_sym_breaking(norm_aa, norm_ab, norm_bb):
-                spinsym = abs(norm_aa - norm_bb)/ ((norm_aa + norm_bb)/2)
-                spindep = abs((norm_aa+norm_bb)/2-norm_ab) / ((norm_aa+norm_bb+norm_ab)/3)
+                spinsym = abs(norm_aa - norm_bb) / ((norm_aa + norm_bb) / 2)
+                spindep = abs((norm_aa + norm_bb) / 2 - norm_ab) / ((norm_aa + norm_bb + norm_ab) / 3)
                 return spinsym, spindep
 
             bss, bsd = get_sym_breaking(*[np.linalg.norm(x) for x in bare_eris])
             sss, ssd = get_sym_breaking(*[np.linalg.norm(x) for x in seris])
-            dss, dsd = get_sym_breaking(*[np.linalg.norm(x-y) for x,y in zip(bare_eris, seris)])
+            dss, dsd = get_sym_breaking(*[np.linalg.norm(x - y) for x, y in zip(bare_eris, seris)])
 
             self.log.info("Proportional spin symmetry breaking in norms: V= %.3e, W= %.3e, (W-V= %.3e)", bss, sss, dss)
             self.log.info("Proportional spin dependence in norms: V= %.3e, W= %.3e, (W-V= %.3e)", bsd, ssd, dsd)
@@ -766,7 +767,7 @@ class EB_RClusterHamiltonian(RClusterHamiltonian):
             self.log.critical("Polaritonic shifted bosonic fermion-boson couplings break cluster spin symmetry; please"
                               " use an unrestricted formalism.")
             raise RuntimeError("Polaritonic shifted bosonic fermion-boson couplings break cluster spin symmetry; please"
-                              " use an unrestricted formalism.")
+                               " use an unrestricted formalism.")
         return couplings[0]
 
     def get_eb_dm_polaritonic_shift(self, dm1):
@@ -774,6 +775,7 @@ class EB_RClusterHamiltonian(RClusterHamiltonian):
 
     def _add_screening(self, seris_intermed=None, spin_integrate=True):
         return self.get_eris_bare()
+
 
 class EB_UClusterHamiltonian(UClusterHamiltonian, EB_RClusterHamiltonian):
     @dataclasses.dataclass
