@@ -132,7 +132,7 @@ class ssRIRPA:
         return moments, err0
 
     def _kernel_mom0(self, target_rot=None, npoints=48, ainit=10, integral_deduct="HO", opt_quad=True,
-                     adaptive_quad=False, alpha=1.0, ri_decomps=None, iterative=True):
+                     adaptive_quad=False, alpha=1.0, ri_decomps=None, iterative=False):
 
         if target_rot is None:
             self.log.warning("Warning; generating full moment rather than local component. Will scale as O(N^5).")
@@ -192,7 +192,7 @@ class ssRIRPA:
             mom0_err = None
         return mom0 + moment_offset, (mom0_err, self.test_eta0_error(mom0 + moment_offset, target_rot, ri_apb, ri_amb))
 
-    def mult_pinv(self, intval, ri_apb, iterative=True):
+    def mult_pinv(self, intval, ri_apb, iterative=False):
         if iterative:
             # Define operator for application of P.
             def matvec(v):
