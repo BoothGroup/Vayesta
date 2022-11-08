@@ -8,6 +8,7 @@ from vayesta.core.util import *
 from vayesta.rpa.rirpa import momzero_NI, energy_NI
 from .util import cg_inv
 
+
 class ssRIRPA:
     """Approach based on equations expressed succinctly in the appendix of
     Furche, F. (2001). PRB, 64(19), 195120. https://doi.org/10.1103/PhysRevB.64.195120
@@ -180,7 +181,7 @@ class ssRIRPA:
             integral, err = niworker.kernel(a=ainit, opt_quad=opt_quad)
         # Need to construct RI representation of P^{-1}
 
-        mom0, pinv_norm = self.mult_pinv(integral+integral_offset, ri_apb, iterative=iterative)
+        mom0, pinv_norm = self.mult_pinv(integral + integral_offset, ri_apb, iterative=iterative)
 
         # Also need to convert error estimate of the integral into one for the actual evaluated quantity.
         # Use Cauchy-Schwartz to both obtain an upper bound on resulting mom0 error, and efficiently obtain upper bound
@@ -199,6 +200,7 @@ class ssRIRPA:
                 if len(v.shape) == 1:
                     v = v.reshape((v.shape[0], 1))
                 return einsum("p,pq->pq", self.D, v) + dot(ri_apb[0].T, dot(ri_apb[1], v))
+
             op = scipy.sparse.linalg.LinearOperator((self.ov_tot, self.ov_tot), matvec=matvec)
             mom0 = cg_inv(op, intval.T, log=self.log, inplace=True).T
 
@@ -221,20 +223,15 @@ class ssRIRPA:
         """
         l1 = [dot(mom0, x.T) for x in ri_apb]
         l2 = [dot(target_rot, x.T) for x in ri_amb]
-        # amb_exact = einsum("pq,q,rq->pr", target_rot, self.D, target_rot) + dot(l2[0], l2[1].T)
-        # print(amb_exact)
-        # amb_approx = einsum("pq,q,rq->pr", mom0, self.D, mom0) + dot(l1[0], l1[1].T)
-        # error = amb_approx - amb_exact
-        #amb = np.diag(self.D) + dot(ri_amb[0].T, ri_amb[1])
-        #apb = np.diag(self.D) + dot(ri_apb[0].T, ri_apb[1])
-
-        amb_exact = einsum("pq,q,rq->pr", target_rot, self.D, target_rot) + \
-                    einsum("pq,nq,nr,sr->ps", target_rot, ri_amb[0], ri_amb[1], target_rot)
-
-        amb = einsum("pq,q,rq->pr", mom0, self.D, target_rot) + \
-                    einsum("pq,nq,nr,sr->ps", target_rot, ri_apb[0], ri_apb[1], mom0)
-
-
+        # This keeps using excessive memory; don't trust einsum with potentially memory-intensive contraction.
+        amb_exact = (einsum("pq,q,rq->pr", target_rot, self.D, target_rot) +
+                     dot(dot(target_rot, ri_amb[0].T), dot(ri_amb[1], target_rot.T))
+                     # einsum("pq,nq,nr,sr->ps", target_rot, ri_amb[0], ri_amb[1], target_rot)
+                     )
+        amb = (einsum("pq,q,rq->pr", mom0, self.D, target_rot) + \
+               dot(dot(target_rot, ri_apb[0].T), dot(ri_apb[1], mom0.T))
+               # einsum("pq,nq,nr,sr->ps", target_rot, ri_apb[0], ri_apb[1], mom0)
+               )
         error = amb_exact - amb
         e_norm = np.linalg.norm(error)
         p_norm = np.linalg.norm(self.D) + np.linalg.norm(ri_apb) ** 2
@@ -242,7 +239,7 @@ class ssRIRPA:
 
         # Now to estimate resulting error estimate in eta0.
         try:
-            poly = np.polynomial.Polynomial([e_norm/p_norm, -2 * peta_norm / p_norm, 1])
+            poly = np.polynomial.Polynomial([e_norm / p_norm, -2 * peta_norm / p_norm, 1])
             roots = poly.roots()
         except np.linalg.LinAlgError:
             self.log.warning("Could not obtain eta0 error lower bound; this is usually due to vanishing norms: %e, "
