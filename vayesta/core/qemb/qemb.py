@@ -80,7 +80,8 @@ class Options(OptionsBase):
         # EwDMET bath
         order=None, max_order=20, # +threshold (same as MP2 bath)
         # MP2 bath
-        threshold=None, truncation='occupation', project_dmet_order=0, project_dmet_mode='full', addbuffer=False,
+        threshold=None, truncation='occupation', project_dmet_order=2, 
+        project_dmet_mode='squared-entropy', addbuffer=False,
         # The following options can be set occupied/virtual-specific:
         bathtype_occ=None, bathtype_vir=None,
         rcut_occ=None, rcut_vir=None,
