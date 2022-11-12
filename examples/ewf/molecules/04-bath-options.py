@@ -32,6 +32,24 @@ assert abs(cc.e_tot-emb.e_tot) < 1e-8
 emb_mp2 = vayesta.ewf.EWF(mf, bath_options=dict(bathtype='mp2', threshold=1e-4))
 emb_mp2.kernel()
 
+# Note that the MP2 bath orbitals can also be constructed including projectors
+# to weight coupling to the DMET bath orbitals differently to the fragment orbitals
+# Turn off any DMET projection below (used for 10.1103/PhysRevX.12.011046)
+emb_mp2_noproj = vayesta.ewf.EWF(mf, bath_options=dict(bathtype='mp2', threshold=1e-4, \
+        project_dmet_order=0))
+emb_mp2_noproj.kernel()
+
+# Default is to partially project both occupied cluster indices of the T2
+# amplitudes onto the DMET bath orbitals according to their entanglement spectrum.
+# This weights coupling to the fragment over the DMET bath orbitals in the resulting choice
+# of BNOs for a given threshold, and results in a smaller bath for a given threshold.
+# Other options (not shown) include projecting out all bath coupling, or just projecting
+# one index.
+emb_mp2_projdmet = vayesta.ewf.EWF(mf, bath_options=dict(bathtype='mp2', threshold=1e-4, \
+        project_dmet_order=2, project_dmet_mode='squared-entropy'))
+emb_mp2_projdmet.kernel()
+1./0
+
 # Use maximally R^2-localized bath orbitals:
 # rcut is the cutoff distance in Angstrom
 emb_r2 = vayesta.ewf.EWF(mf, bath_options=dict(bathtype='r2', rcut=2.0))
@@ -43,9 +61,11 @@ emb_mix = vayesta.ewf.EWF(mf, bath_options=bath)
 emb_mix.kernel()
 
 
-print("E(CCSD)=       %+16.8f Ha" % cc.e_tot)
+print("E(CCSD)=                          %+16.8f Ha" % cc.e_tot)
 print("Embedded CCSD")
-print("E(full bath)=  %+16.8f Ha" % emb.e_tot)
-print("E(MP2 bath)=   %+16.8f Ha" % emb_mp2.e_tot)
-print("E(R2 bath)=    %+16.8f Ha" % emb_r2.e_tot)
-print("E(mixed bath)= %+16.8f Ha" % emb_mix.e_tot)
+print("E(full bath)=                     %+16.8f Ha" % emb.e_tot)
+print("E(MP2 bath)=                      %+16.8f Ha" % emb_mp2.e_tot)
+print("E(MP2 bath no dmet projector)=    %+16.8f Ha" % emb_mp2_noproj.e_tot)
+print("E(MP2 bath with dmet projector)=  %+16.8f Ha" % emb_mp2_projdmet.e_tot)
+print("E(R2 bath)=                       %+16.8f Ha" % emb_r2.e_tot)
+print("E(mixed bath)=                    %+16.8f Ha" % emb_mix.e_tot)
