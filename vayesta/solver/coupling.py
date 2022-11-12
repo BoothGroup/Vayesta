@@ -266,7 +266,7 @@ def _integrals_for_extcorr(fragment, fock):
     if emb.spinsym == 'restricted':
         occ = np.s_[:cluster.nocc_active]
         vir = np.s_[cluster.nocc_active:]
-        govov = eris[occ,vir,occ,vir]
+        govov = eris[occ,vir,occ,vir] # chemical notation 
         fov = dot(cluster.c_active_occ.T, fock, cluster.c_active_vir)
     if emb.spinsym == 'unrestricted':
         oa = np.s_[:cluster.nocc_active[0]]
@@ -291,9 +291,10 @@ def _get_delta_t_for_extcorr(fragment, fock):
     # to avoid storing all
 
     wf = fragment.results.wf.as_ccsdtq()
-    t1, t2, t3, t4 = wf.t1, wf.t2, wf.t3, wf.t4
+    t1, t2, t3 = wf.t1, wf.t2, wf.t3
+    t4_abaa, t4_abab = wf.t4
 
-    # Get ERIs and Fock matrix
+    # Get ERIs and Fock matrix for the given fragment
     fov, govov = _integrals_for_extcorr(fragment, fock)
     # --- Make correction to T1 and T2 amplitudes
     # J. Chem. Theory Comput. 2021, 17, 182−190
@@ -301,13 +302,39 @@ def _get_delta_t_for_extcorr(fragment, fock):
     dt1 = spinalg.zeros_like(t1)
     dt2 = spinalg.zeros_like(t2)
 
-    raise NotImplementedError
     if emb.spinsym == 'restricted':
+        # TODO: o Are the f_ov blocks just ignored? Only (ov) block contributes - check if it is zero or not.
+        #       o If not, will need to integrate it from the spin-orbital expressions.
+        #       o Compare to equations in literature??
+
+        #       o Some terms want to be contracted with the integrals in the parent cluster. Don't pass back delta_T2,
+        #           but quantities to contract with in parent cluster. This is option to max_coul_coup.
+        #       o When do we want to project terms. Presumably not after contraction with integrals if we can help it?
+        #       o For just testing of correctness, we can just do it naievely to start, as it should still be exact.
+
+        #       TO TEST: 
+        #           o Exact cf FCI for four electron systems and full CCSD and FCI fragments
+        #           o Exact cf FCI for four electron systems and full bath CCSD and FCI fragments? Or just one? (only if zero projectors?)
+        #           o Rotate (ov) space and ensure invariant
+        #           o Extensivity checks for separated fragments? (Two LiH clusters separated should be exact, then check approximate systems)
         # --- T1
         # T3 * V
+        # V are antisymmetrized integrals of V[i,j,a,b] = 2<ij|ab> - <ij|ba>
+        # Vint are the <ij|ab>
+        dt1 += einsum('ijab, jiupab -> up', 2.*govov - govov.transpose(0,3,2,1), self.T3)
         #dt1 += einsum('imnaef,menf->ia', t3, govov)
         # --- T2
+        self.T3onT2 = 0.5*np.einsum('bmef, jimeaf -> ijab', (self.Vint - self.Vint.swapaxes(2,3))[v,o,v,v], self.T3) \
+                      +    np.einsum('bmef, ijmaef -> ijab', self.Vint[v,o,v,v], self.T3)                             \
+                      -0.5*np.einsum('mnje, minbae -> ijab', (self.Vint - self.Vint.swapaxes(2,3))[o,o,o,v], self.T3) \
+                      -    np.einsum('mnje, imnabe -> ijab', self.Vint[o,o,o,v], self.T3)
+
+        self.T3onT2 = self.T3onT2 + np.einsum('ijab -> jiba', self.T3onT2)
+
+
+
         # F * T3
+
         #dt2 += einsum('me,ijmabe->ijab', fov, t3)
         # T1 * T3 * V
         #dt2 += einsum('me,ijnabf,menf->ijab', t1, t3, govov)
@@ -319,6 +346,7 @@ def _get_delta_t_for_extcorr(fragment, fock):
         # T4 * V
         pass
     elif emb.spinsym == 'unrestricted':
+        raise NotImplementedError
         # TODO
         pass
     else:
