@@ -267,6 +267,9 @@ def _integrals_for_extcorr(fragment, fock):
         occ = np.s_[:cluster.nocc_active]
         vir = np.s_[cluster.nocc_active:]
         govov = eris[occ,vir,occ,vir] # chemical notation 
+        gvvov = eris[vir,vir,occ,vir]
+        gooov = eris[occ,occ,occ,vir]
+        govoo = eris[occ,vir,occ,occ]
         fov = dot(cluster.c_active_occ.T, fock, cluster.c_active_vir)
     if emb.spinsym == 'unrestricted':
         oa = np.s_[:cluster.nocc_active[0]]
@@ -280,72 +283,102 @@ def _integrals_for_extcorr(fragment, fock):
         govovbb = eris[ob,vb,ob,vb]
         fov = (fova, fovb)
         govov = (govovaa, govovab, govovbb)
-    return fov, govov
+        gvvov = None
+        gooov = None
+        govoo = None
+        raise NotImplementedError
+    return fov, govov, gvvov, gooov, govoo
 
 
-def _get_delta_t_for_extcorr(fragment, fock):
-    emb = fragment.base
+def _get_delta_t_for_extcorr(fragment, fock, include_t3v=True):
+    ''' Make T3 and T4 correction to CCSD wave function for given fragment.
+    If include_t3v, then these terms are included. If not, they are left out
+    (to be contracted later with cluster y integrals).
 
-    # Make CCSDTQ wave function from cluster y
-    # TODO: Future improvement - make option to directly store these amplitudes precontracted,
-    # to avoid storing all
+    TODO: Option: Contract T4's down at original solver point to save memory.
+
+    TO TEST:    Exact for 4-e systems for full CCSD and FCI fragments.
+                Exact for 4-e systems for full CCSD and FCI baths (depending on projectors)
+                Rotate (ov) space to check invariance?
+                Extensivity checks for separated fragments'''
 
     wf = fragment.results.wf.as_ccsdtq()
     t1, t2, t3 = wf.t1, wf.t2, wf.t3
     t4_abaa, t4_abab = wf.t4
 
     # Get ERIs and Fock matrix for the given fragment
-    fov, govov = _integrals_for_extcorr(fragment, fock)
+    # govov is (ia|jb)
+    fov, govov, gvvov, gooov, govoo = _integrals_for_extcorr(fragment, fock)
     # --- Make correction to T1 and T2 amplitudes
     # J. Chem. Theory Comput. 2021, 17, 182−190
-    # [what is v_ef^mn? (em|fn) ?]
+    # also with reference to git@github.com:gustavojra/Methods.git
     dt1 = spinalg.zeros_like(t1)
     dt2 = spinalg.zeros_like(t2)
 
-    if emb.spinsym == 'restricted':
-        # TODO: o Are the f_ov blocks just ignored? Only (ov) block contributes - check if it is zero or not.
-        #       o If not, will need to integrate it from the spin-orbital expressions.
-        #       o Compare to equations in literature??
+    if fragment.base.spinsym == 'restricted':
+        # Construct physical antisymmetrized integrals for some contractions
+        # Note that some contractions are with physical and some chemical integrals (govov)
+        antiphys_g = (govov - govov.transpose(0,3,2,1)).transpose(0,2,1,3)
+        spinned_antiphys_g = (2.0*govov - govov.transpose(0,3,2,1)).transpose(0,2,1,3)
 
-        #       o Some terms want to be contracted with the integrals in the parent cluster. Don't pass back delta_T2,
-        #           but quantities to contract with in parent cluster. This is option to max_coul_coup.
-        #       o When do we want to project terms. Presumably not after contraction with integrals if we can help it?
-        #       o For just testing of correctness, we can just do it naievely to start, as it should still be exact.
+        # --- T1 update
+        # --- T3 * V
+        dt1 += einsum('ijab, jiupab -> up', spinned_antiphys_g, t3)
 
-        #       TO TEST: 
-        #           o Exact cf FCI for four electron systems and full CCSD and FCI fragments
-        #           o Exact cf FCI for four electron systems and full bath CCSD and FCI fragments? Or just one? (only if zero projectors?)
-        #           o Rotate (ov) space and ensure invariant
-        #           o Extensivity checks for separated fragments? (Two LiH clusters separated should be exact, then check approximate systems)
-        # --- T1
-        # T3 * V
-        # V are antisymmetrized integrals of V[i,j,a,b] = 2<ij|ab> - <ij|ba>
-        # Vint are the <ij|ab>
-        dt1 += einsum('ijab, jiupab -> up', 2.*govov - govov.transpose(0,3,2,1), self.T3)
-        #dt1 += einsum('imnaef,menf->ia', t3, govov)
-        # --- T2
-        self.T3onT2 = 0.5*np.einsum('bmef, jimeaf -> ijab', (self.Vint - self.Vint.swapaxes(2,3))[v,o,v,v], self.T3) \
-                      +    np.einsum('bmef, ijmaef -> ijab', self.Vint[v,o,v,v], self.T3)                             \
-                      -0.5*np.einsum('mnje, minbae -> ijab', (self.Vint - self.Vint.swapaxes(2,3))[o,o,o,v], self.T3) \
-                      -    np.einsum('mnje, imnabe -> ijab', self.Vint[o,o,o,v], self.T3)
+        # --- T2 update
+        # --- T3 * F
+        if np.allclose(fov, np.zeros_like(fov)):
+            solver.log.info("fov block zero: No T3 * f contribution.")
+        # (Fa) (Taba) contraction
+        dt2 += einsum('em, ijmabe -> ijab', fov, t3)
+        # (Fb) (Tabb) contraction
+        dt2 += einsum('em, jimbae -> ijab', fov, t3)
+        solver.log.info("(T3 * F) -> T2 update norm from fragment {}: {}".format(fragment.id, np.linalg.norm(dt2)))
 
-        self.T3onT2 = self.T3onT2 + np.einsum('ijab -> jiba', self.T3onT2)
+        # --- T4 * V
+        # (Vaa) (Tabaa) contraction
+        t4v = 0.25 * einsum('mnef, ijmnabef -> ijab', antiphys_g, t4_abaa)
+        dt2 += t4v
+        dt2 += t4v.transpose(1,0,3,2)
+        # (Vab) (Tabab) contraction
+        dt2 += einsum('menf, ijmnabef -> ijab', govov, t4_abab)
 
+        # --- (T1 T3) * V
+        # Note: Approximate T1 by the CCSDTQ T1 amplitudes of this fragment.
+        # TODO: Relax this approximation?
+        t1t3v = np.zeros_like(dt2)
+        X_ = einsum('mnef, me -> nf', spinned_antiphys_g, t1)
+        t1t3v += einsum('nf, nijfab -> ijab', X_, t3)
 
+        X_ =  0.5*einsum('mnef, njiebf -> ijmb', antiphys_g, t3)
+        X_ += einsum('menf, jinfeb -> ijmb', govov, t3)
+        t1t3v += einsum('ijmb, ma -> ijab', X_, t1)
 
-        # F * T3
+        X_ = 0.5*einsum('mnef, mjnfba -> ejab', antiphys_g, t3)
+        X_ += einsum('menf, nmjbaf -> ejab', govov, t3)
+        t1t3v += einsum('ejab, ie -> ijab', X_, t1)
+        # apply permutation
+        dt2 += t1t3v + t1t3v.transpose(1,0,3,2)
 
-        #dt2 += einsum('me,ijmabe->ijab', fov, t3)
-        # T1 * T3 * V
-        #dt2 += einsum('me,ijnabf,menf->ijab', t1, t3, govov)
-        # TODO:
-        # P(ab) T3 * V
-        # P(ij) T3 * V
-        # P(ij) T1 * T3 * V
-        # P(ab) T1 * T3 * V
-        # T4 * V
-        pass
-    elif emb.spinsym == 'unrestricted':
+        # --- T3 * V 
+        if include_t3v:
+            # Option to leave out this term, and instead perform T3 * V with the
+            # integrals in the parent cluster later.
+            # This will give a different result since the V operators
+            # will span a different space. Instead, here we just contract T3 with integrals 
+            # in cluster y (FCI), rather than cluster x (CCSD)
+            
+            # Note that this requires (vv|ov) [first term], (oo|ov) and (ov|oo) [second term]
+            t3v = np.zeros_like(dt2)
+            # First term: 1/2 P_ab [t_ijmaef v_efbm]
+            t3v += 0.5*einsum('bemf, jimeaf -> ijab', gvvov - gvvov.transpose(0,3,2,1), t3)
+            t3v += einsum('bemf, ijmaef -> ijab', gvvov, t3)
+            # Second term: -1/2 P_ij [t_imnabe v_jemn]
+            t3v -= 0.5*einsum('mjne, minbae -> ijab', gooov - govoo.transpose(0,3,2,1), t3)
+            t3v -= einsum('mjne, imnabe -> ijab', gooov, t3)
+            dt2 += t3v + t3v.transpose(1,0,3,2)
+
+    elif fragment.base.spinsym == 'unrestricted':
         raise NotImplementedError
         # TODO
         pass
@@ -353,6 +386,9 @@ def _get_delta_t_for_extcorr(fragment, fock):
         raise ValueError
 
     return dt1, dt2
+
+def _get_delta_t2_from_t3v()
+    pass
 
 def _get_delta_t_for_delta_tailor(fragment, fock):
     wf = fragment.results.wf.as_ccsd()
@@ -427,13 +463,17 @@ def externally_correct(solver, external_corrections):
     # CCSD uses exxdiv-uncorrected Fock matrix:
     fock = emb.get_fock(with_exxdiv=False)
 
+
+
     for y, corrtype, projectors in external_corrections:
 
         fy = frag_dir[y] # Get fragment y object from its index
         assert (y != fx.id)
 
-        if corrtype == 'external':
-            dt1y, dt2y = _get_delta_t_for_extcorr(fy, fock)
+        if corrtype == 'external' or 'external-fciv':
+            dt1y, dt2y = _get_delta_t_for_extcorr(fy, fock, include_t3v=True)
+        elif corrtype == 'external-ccsdv':
+            dt1y, dt2y = _get_delta_t_for_extcorr(fy, fock, include_t3v=False)
         elif corrtype == 'delta-tailor':
             dt1y, dt2y = _get_delta_t_for_delta_tailor(fy, fock)
         else:
@@ -455,6 +495,12 @@ def externally_correct(solver, external_corrections):
         dt2y = transform_amplitude(dt2y, rxy_occ, rxy_vir, inverse=True)
         dt1 = spinalg.add(dt1, dt1y)
         dt2 = spinalg.add(dt2, dt2y)
+
+        if corrtype == 'external-ccsdv':
+            # Include the t3v term, contracting with the integrals from the x cluster
+            dt2y_t3v = _get_delta_t2_from_t3v()
+            dt2 = spinalg.add(dt2, dt2y_t3v)
+
         solver.log.info("External correction from fragment %3d (%s):  dT1= %.3e  dT2= %.3e",
                         fy.id, fy.solver, *get_amplitude_norm(dt1y, dt2y))
 
