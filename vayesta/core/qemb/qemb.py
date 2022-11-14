@@ -80,7 +80,7 @@ class Options(OptionsBase):
         # EwDMET bath
         order=None, max_order=20, # +threshold (same as MP2 bath)
         # MP2 bath
-        threshold=None, truncation='occupation', project_dmet_order=2, 
+        threshold=None, truncation='occupation', project_dmet_order=2,
         project_dmet_mode='squared-entropy', addbuffer=False,
         # The following options can be set occupied/virtual-specific:
         bathtype_occ=None, bathtype_vir=None,
@@ -1474,6 +1474,8 @@ class Embedding:
             nmo_s = tspin(self.nmo, s)
             nelec_s = tspin(nelec, s)
             fragments = self.get_fragments(active=True, flags=dict(is_secfrag=False))
+            if not fragments:
+                return False
             c_frags = np.hstack([tspin(x.c_frag, s) for x in fragments])
             nfrags = c_frags.shape[-1]
             csc = dot(c_frags.T, ovlp, c_frags)

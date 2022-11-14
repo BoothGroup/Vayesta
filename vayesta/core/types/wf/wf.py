@@ -1,3 +1,4 @@
+import importlib
 import numpy as np
 import pyscf
 import pyscf.scf
@@ -70,38 +71,38 @@ class WaveFunction:
     def from_pyscf(obj, **kwargs):
         # HF
         # TODO
+        def eris_init(obj, mod):
+            if 'eris' in kwargs:
+                return kwargs['eris']
+            eris = importlib.import_module(mod.__name__)._ChemistsERIs()
+            eris._common_init_(obj)
+            return eris
         # MP2
         if isinstance(obj, pyscf.mp.ump2.UMP2):
-            from pyscf.mp.ump2 import _ChemistsERIs
-            eris = kwargs.get('eris', _ChemistsERIs()._common_init_(obj))
+            eris = eris_init(obj, pyscf.mp.ump2)
             mo = SpinOrbitals(eris.mo_coeff, energy=eris.mo_energy, occ=obj.nocc)
             return wf.UMP2_WaveFunction(mo, obj.t2)
         if isinstance(obj, pyscf.mp.mp2.MP2):
-            from pyscf.mp.mp2 import _ChemistsERIs
-            eris = kwargs.get('eris', _ChemistsERIs()._common_init_(obj))
+            eris = eris_init(obj, pyscf.mp.mp2)
             mo = SpatialOrbitals(eris.mo_coeff, energy=eris.mo_energy, occ=obj.nocc)
             return wf.RMP2_WaveFunction(mo, obj.t2)
         # CCSD
         if isinstance(obj, pyscf.cc.uccsd.UCCSD):
-            from pyscf.cc.uccsd import _ChemistsERIs
-            eris = kwargs.get('eris', _ChemistsERIs()._common_init_(obj))
+            eris = eris_init(obj, pyscf.cc.uccsd)
             mo = SpinOrbitals(eris.mo_coeff, energy=eris.mo_energy, occ=obj.nocc)
             return wf.UCCSD_WaveFunction(mo, obj.t1, obj.t2, l1=obj.l1, l2=obj.l2)
         if isinstance(obj, pyscf.cc.ccsd.CCSD):
-            from pyscf.cc.ccsd import _ChemistsERIs
-            eris = kwargs.get('eris', _ChemistsERIs()._common_init_(obj))
+            eris = eris_init(obj, pyscf.cc.ccsd)
             mo = SpatialOrbitals(eris.mo_coeff, energy=eris.mo_energy, occ=obj.nocc)
             return wf.RCCSD_WaveFunction(mo, obj.t1, obj.t2, l1=obj.l1, l2=obj.l2)
         # CISD
         if isinstance(obj, pyscf.ci.ucisd.UCISD):
-            from pyscf.cc.uccsd import _ChemistsERIs
-            eris = kwargs.get('eris', _ChemistsERIs()._common_init_(obj))
+            eris = eris_init(obj, pyscf.cc.uccsd)
             mo = SpinOrbitals(eris.mo_coeff, energy=eris.mo_energy, occ=obj.nocc)
             c0, c1, c2 = obj.cisdvec_to_amplitudes(obj.ci)
             return wf.UCISD_WaveFunction(mo, c0, c1, c2)
         if isinstance(obj, pyscf.ci.cisd.CISD):
-            from pyscf.cc.ccsd import _ChemistsERIs
-            eris = kwargs.get('eris', _ChemistsERIs()._common_init_(obj))
+            eris = eris_init(obj, pyscf.cc.ccsd)
             mo = SpatialOrbitals(eris.mo_coeff, energy=eris.mo_energy, occ=obj.nocc)
             c0, c1, c2 = obj.cisdvec_to_amplitudes(obj.ci)
             return wf.RCISD_WaveFunction(mo, c0, c1, c2)
