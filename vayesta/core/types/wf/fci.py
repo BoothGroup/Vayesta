@@ -130,7 +130,7 @@ class RFCI_WaveFunction(wf_types.WaveFunction):
         # excitations in the FCI array. To get the orbital indices that they correspond to,
         # use ooidx and vvidx
         t2addr, t2sign = pyscf.ci.cisd.tn_addrs_signs(norb, nocc, 2)
-        assert(t2addr.shape[0] == ij_pairs * ab_pairs)
+        assert(len(t2addr) == ij_pairs * ab_pairs)
 
         # First find the ijk -> abc excitations, where ijab are alpha, and kc are beta
         c3_comp = np.zeros((ij_pairs * ab_pairs, nocc * nvir))
