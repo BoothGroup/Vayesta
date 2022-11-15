@@ -296,7 +296,7 @@ def _get_delta_t_for_extcorr(fragment, fock, solver, include_t3v=True):
 
     TODO: Option: Contract T4's down at original solver point to save memory.
 
-    TO TEST:    Exact for 4-e systems for all IAO CCSD and FCI fragments and full bath.
+    TO TEST:
                 Rotate (ov) space to check invariance?
                 Extensivity checks for separated fragments'''
 
@@ -312,7 +312,7 @@ def _get_delta_t_for_extcorr(fragment, fock, solver, include_t3v=True):
     # also with reference to git@github.com:gustavojra/Methods.git
     dt1 = spinalg.zeros_like(t1)
     dt2 = spinalg.zeros_like(t2)
-
+    
     if fragment.base.spinsym == 'restricted':
         # Construct physical antisymmetrized integrals for some contractions
         # Note that some contractions are with physical and some chemical integrals (govov)
@@ -321,7 +321,7 @@ def _get_delta_t_for_extcorr(fragment, fock, solver, include_t3v=True):
 
         # --- T1 update
         # --- T3 * V
-        dt1 += einsum('ijab, jiupab -> up', spinned_antiphys_g, t3)
+        dt1 -= einsum('ijab, jiupab -> up', spinned_antiphys_g, t3)
 
         # --- T2 update
         # --- T3 * F
@@ -336,14 +336,14 @@ def _get_delta_t_for_extcorr(fragment, fock, solver, include_t3v=True):
         # --- T4 * V
         # (Vaa) (Tabaa) contraction
         t4v = 0.25 * einsum('mnef, ijmnabef -> ijab', antiphys_g, t4_abaa)
-        dt2 += t4v
-        dt2 += t4v.transpose(1,0,3,2)
+        t4v += t4v.transpose(1,0,3,2)
         # (Vab) (Tabab) contraction
-        dt2 += einsum('menf, ijmnabef -> ijab', govov, t4_abab)
+        t4v += einsum('menf, ijmnabef -> ijab', govov, t4_abab)
+        dt2 += t4v
 
         # --- (T1 T3) * V
         # Note: Approximate T1 by the CCSDTQ T1 amplitudes of this fragment.
-        # TODO: Relax this approximation?
+        # TODO: Relax this approximation via the callback?
         t1t3v = np.zeros_like(dt2)
         X_ = einsum('mnef, me -> nf', spinned_antiphys_g, t1)
         t1t3v += einsum('nf, nijfab -> ijab', X_, t3)
@@ -356,7 +356,8 @@ def _get_delta_t_for_extcorr(fragment, fock, solver, include_t3v=True):
         X_ += einsum('menf, nmjbaf -> ejab', govov, t3)
         t1t3v += einsum('ejab, ie -> ijab', X_, t1)
         # apply permutation
-        dt2 += t1t3v + t1t3v.transpose(1,0,3,2)
+        t1t3v += t1t3v.transpose(1,0,3,2)
+        dt2 += t1t3v
 
         # --- T3 * V 
         if include_t3v:
@@ -374,7 +375,9 @@ def _get_delta_t_for_extcorr(fragment, fock, solver, include_t3v=True):
             # Second term: -1/2 P_ij [t_imnabe v_jemn]
             t3v -= 0.5*einsum('mjne, minbae -> ijab', gooov - govoo.transpose(0,3,2,1), t3)
             t3v -= einsum('mjne, imnabe -> ijab', gooov, t3)
-            dt2 += t3v + t3v.transpose(1,0,3,2)
+            # Permutation
+            t3v += t3v.transpose(1,0,3,2)
+            dt2 += t3v
 
     elif fragment.base.spinsym == 'unrestricted':
         raise NotImplementedError
@@ -487,6 +490,8 @@ def externally_correct(solver, external_corrections):
     """Build callback function for CCSD, to add external correction from other fragments.
 
     TODO: combine with `tailor_with_fragments`?
+    TODO: Improve efficiency of callback, by contracting update with energy denominators once.
+          (Need to make sure use correct MO energies here...)
 
     Parameters
     ----------
@@ -572,16 +577,31 @@ def externally_correct(solver, external_corrections):
             dt2y_t3v = _get_delta_t2_from_t3v(gvvov_x, gooov_x, govoo_x, fy, rxy_occ, rxy_vir, cxs_occ, projectors)
             dt2 = spinalg.add(dt2, dt2y_t3v)
 
+        # Note that the lines below don't actually give the norm of the T updates, since they are missing the
+        # energy denominators
         solver.log.info("External correction from fragment %3d (%s):  dT1= %.3e  dT2= %.3e",
                         fy.id, fy.solver, *get_amplitude_norm(dt1y, dt2y))
+    solver.log.info("Total external correction from all fragments:  dT1= %.3e  dT2= %.3e",*get_amplitude_norm(dt1, dt2))
 
     if solver.spinsym == 'restricted':
 
         def callback(kwargs):
             """Add external correction to T1 and T2 amplitudes."""
             t1, t2 = kwargs['t1new'], kwargs['t2new']
-            t1[:] += dt1
-            t2[:] += dt2
+
+            # Note that this will not work with a level shift
+            # TODO: Do this properly, using the correct MO energies, and precontracting
+            # outside the callback function.
+            eris = kwargs['eris']
+            mo_energy = eris.mo_energy
+            nocc = t1.shape[0]
+            eia = mo_energy[:nocc,None] - mo_energy[None,nocc:]
+            eijab = mo_energy[:nocc,None,None,None] + mo_energy[None,:nocc,None,None] \
+                    - mo_energy[None,None,nocc:,None] - mo_energy[None,None,None,nocc:]
+
+            # Divide by energy denominators
+            t1[:] += (dt1 / eia)
+            t2[:] += (dt2 / eijab)
 
     elif solver.spinsym == 'unrestricted':
 
