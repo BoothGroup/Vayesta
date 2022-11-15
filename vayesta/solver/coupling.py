@@ -289,16 +289,14 @@ def _integrals_for_extcorr(fragment, fock):
         raise NotImplementedError
     return fov, govov, gvvov, gooov, govoo
 
-
-def _get_delta_t_for_extcorr(fragment, fock, include_t3v=True):
+def _get_delta_t_for_extcorr(fragment, fock, solver, include_t3v=True):
     ''' Make T3 and T4 correction to CCSD wave function for given fragment.
     If include_t3v, then these terms are included. If not, they are left out
     (to be contracted later with cluster y integrals).
 
     TODO: Option: Contract T4's down at original solver point to save memory.
 
-    TO TEST:    Exact for 4-e systems for full CCSD and FCI fragments.
-                Exact for 4-e systems for full CCSD and FCI baths (depending on projectors)
+    TO TEST:    Exact for 4-e systems for all IAO CCSD and FCI fragments and full bath.
                 Rotate (ov) space to check invariance?
                 Extensivity checks for separated fragments'''
 
@@ -330,9 +328,9 @@ def _get_delta_t_for_extcorr(fragment, fock, include_t3v=True):
         if np.allclose(fov, np.zeros_like(fov)):
             solver.log.info("fov block zero: No T3 * f contribution.")
         # (Fa) (Taba) contraction
-        dt2 += einsum('em, ijmabe -> ijab', fov, t3)
+        dt2 += einsum('me, ijmabe -> ijab', fov, t3)
         # (Fb) (Tabb) contraction
-        dt2 += einsum('em, jimbae -> ijab', fov, t3)
+        dt2 += einsum('me, jimbae -> ijab', fov, t3)
         solver.log.info("(T3 * F) -> T2 update norm from fragment {}: {}".format(fragment.id, np.linalg.norm(dt2)))
 
         # --- T4 * V
@@ -387,8 +385,75 @@ def _get_delta_t_for_extcorr(fragment, fock, include_t3v=True):
 
     return dt1, dt2
 
-def _get_delta_t2_from_t3v()
-    pass
+def _get_delta_t2_from_t3v(gvvov_x, gooov_x, govoo_x, frag_child, rxy_occ, rxy_vir, cxs_occ, projectors):
+    """Perform the (T3 * V) contraction for the external correction, with the V integrals
+    in the parent basis (x). This will change the results as the V retains one open index
+    in the resulting T2 contributions.
+
+    Parameters
+    ----------
+    gvvov_x, gooov_x, govoo_x: ndarray
+        Integrals over various occ, vir slices in the parent (x) cluster
+    frag_child: fragment type
+        Fragment of the child cluster (y)
+    rxy_occ, rxy_vir: ndarray
+        Projection operator from x cluster to y cluster in the occ (vir) space
+    cxs_occ: ndarray
+        Cluster orbitals of cluster x contracted with overlap
+    projectors: int
+        Number of projectors onto the fragment space of y
+
+    Returns
+    -------
+    dt2: ndarray
+        Update to T2 amplitudes in the parent (x) basis
+    """
+    
+    wf = frag_child.results.wf.as_ccsdtq()
+    t3 = wf.t3
+
+    if frag_child.base.spinsym == 'restricted':
+
+        # First term, using (vv|ov): 1/2 P_ab [t_ijmaef v_efbm]
+        # Three-quarter transform of passed-in integrals from parent (x) to child (y) basis
+        # Keep first index of vvov integrals in x basis. Transform rest to y basis.
+        gvvov_ = einsum('abic,bB,iI,cC -> aBIC', gvvov_x, rxy_vir, rxy_occ, rxy_vir)
+
+        # Contract with T3 amplitudes in the y basis
+        t3v_ = 0.5*einsum('bemf, jimeaf -> ijab', gvvov_ - gvvov_.transpose(0,3,2,1), t3)
+        t3v_ += einsum('bemf, ijmaef -> ijab', gvvov_, t3)
+        # Final is in a mixed basis form, with last index in t3v here in the x basis
+        # Rotate remaining indices into x basis: another three-quarter transform
+        t3v_x = einsum('IJAb,iI,jJ,aA -> ijab', t3v_, rxy_occ, rxy_occ, rxy_vir)
+
+        # Second term: -1/2 P_ij [t_imnabe v_jemn]
+        # ooov three-quarter transform, to IjKA (capital is y (child) basis)
+        gooov_ = einsum('ijka,iI,kK,aA -> IjKA', gooov_x, rxy_occ, rxy_occ, rxy_vir)
+        # ovoo three-quarter transform, to IAJk (capital is y (child) basis)
+        govoo_ = einsum('iajk,iI,aA,jJ -> IAJk', govoo_x, rxy_occ, rxy_vir, rxy_occ)
+
+        # Second index of t3v_ in the parent (x) basis
+        t3v_ = -0.5*einsum('mjne, minbae -> ijab', gooov_ - govoo_.transpose(0,3,2,1), t3)
+        t3v_ -= einsum('mjne, imnabe -> ijab', gooov_, t3)
+        # Rotate remaining indices into x basis: another three-quarter transform
+        t3v_x += einsum('IjAB,iI,aA,bB -> ijab', t3v_, rxy_occ, rxy_vir, rxy_vir)
+
+        # Include permutation
+        dt2 = t3v_x + t3v_x.transpose(1,0,3,2)
+
+        # Find the fragment projector of cluster y (child) in the basis of cluster x (parent)
+        c_frag_xocc = spinalg.dot(spinalg.T(frag_child.c_frag), spinalg.T(cxs_occ))
+        proj_y_in_x = spinalg.dot(spinalg.T(c_frag_xocc), c_frag_xocc)
+        
+        # Project (t3 v) contribution onto fragment of cluster y
+        dt2 = project_t2(dt2, proj_y_in_x, projectors=projectors)
+
+    elif frag_child.base.spinsym == 'unrestricted':
+        raise NotImplementedError
+    else:
+        raise ValueError
+
+    return dt2
 
 def _get_delta_t_for_delta_tailor(fragment, fock):
     wf = fragment.results.wf.as_ccsd()
@@ -463,7 +528,11 @@ def externally_correct(solver, external_corrections):
     # CCSD uses exxdiv-uncorrected Fock matrix:
     fock = emb.get_fock(with_exxdiv=False)
 
-
+    if any([corr[1] == 'external-ccsdv' for corr in external_corrections]):
+        # At least one fragment is externally corrected, *and* contracted with
+        # integrals in the parent cluster. Form the required integrals
+        # for this parent cluster. Note that not all of these are needed.
+        fov_x, govov_x, gvvov_x, gooov_x, govoo_x = _integrals_for_extcorr(fx, fock)
 
     for y, corrtype, projectors in external_corrections:
 
@@ -471,9 +540,9 @@ def externally_correct(solver, external_corrections):
         assert (y != fx.id)
 
         if corrtype == 'external' or 'external-fciv':
-            dt1y, dt2y = _get_delta_t_for_extcorr(fy, fock, include_t3v=True)
+            dt1y, dt2y = _get_delta_t_for_extcorr(fy, fock, solver, include_t3v=True)
         elif corrtype == 'external-ccsdv':
-            dt1y, dt2y = _get_delta_t_for_extcorr(fy, fock, include_t3v=False)
+            dt1y, dt2y = _get_delta_t_for_extcorr(fy, fock, solver, include_t3v=False)
         elif corrtype == 'delta-tailor':
             dt1y, dt2y = _get_delta_t_for_delta_tailor(fy, fock)
         else:
@@ -498,7 +567,9 @@ def externally_correct(solver, external_corrections):
 
         if corrtype == 'external-ccsdv':
             # Include the t3v term, contracting with the integrals from the x cluster
-            dt2y_t3v = _get_delta_t2_from_t3v()
+            # These have already been fragment projected, and rotated into the x cluster
+            # in this function.
+            dt2y_t3v = _get_delta_t2_from_t3v(gvvov_x, gooov_x, govoo_x, fy, rxy_occ, rxy_vir, cxs_occ, projectors)
             dt2 = spinalg.add(dt2, dt2y_t3v)
 
         solver.log.info("External correction from fragment %3d (%s):  dT1= %.3e  dT2= %.3e",

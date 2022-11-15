@@ -143,12 +143,14 @@ class Fragment(BaseFragment):
                 'tailor': replace CCSD T1 and T2 amplitudes with FCI amplitudes.
                 'delta-tailor': Add the difference of FCI and CCSD T1 and T2 amplitudes
                 'external': externally correct CCSD T1 and T2 amplitudes from FCI T3 and T4 amplitudes.
+                'external-fciv': externally correct CCSD T1 and T2 amplitudes from FCI T3 and T4 amplitudes (note T3V term contracted with integrals from the cluster providing the constraints). 'external' is the same as this.
+                'external-ccsdv': externally correct CCSD T1 and T2 amplitudes from FCI T3 and T4 amplitudes (note T3V term contracted with integrals from the cluster being constrained). Should be more accurate?
             Default: 'tailor'.
         projectors: int, optional
             Maximum number of projections applied to the occupied dimensions of the amplitude corrections.
             Default: 1.
         """
-        if correction_type not in ('tailor', 'delta-tailor', 'external'):
+        if correction_type not in ('tailor', 'delta-tailor', 'external', 'external-fciv', 'external-ccsdv'):
             raise ValueError
         if self.solver != 'CCSD':
             raise RuntimeError

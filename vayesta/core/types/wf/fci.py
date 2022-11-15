@@ -158,8 +158,10 @@ class RFCI_WaveFunction(wf_types.WaveFunction):
                 c3[j,k,i,a,c,b] = -c3_comp[d_cnt, s_cnt]
                 c3[i,k,j,b,c,a] = -c3_comp[d_cnt, s_cnt]
                 c3[j,k,i,b,c,a] = c3_comp[d_cnt, s_cnt]
-        assert(np.allclose(c3_comp, np.einsum('i,j,ij->ij', \
-            t2sign, t1sign, self.ci[t2addr[:,None], t1addr])))
+
+        if len(t2addr) > 0:
+            assert(np.allclose(c3_comp, np.einsum('i,j,ij->ij', \
+                t2sign, t1sign, self.ci[t2addr[:,None], t1addr])))
         del c3_comp
 
         # === C4 amplitudes ===
@@ -205,14 +207,16 @@ class RFCI_WaveFunction(wf_types.WaveFunction):
                 c4_abab[j, J, i, I, a, B, b, A] = -c4_comp[d_cnt_a, d_cnt_b]
                 c4_abab[j, J, i, I, b, A, a, B] = -c4_comp[d_cnt_a, d_cnt_b]
                 c4_abab[j, J, i, I, b, B, a, A] =  c4_comp[d_cnt_a, d_cnt_b]
-        assert(np.allclose(c4_comp, np.einsum('i,j,ij->ij', t2sign, t2sign, \
-                self.ci[t2addr[:,None], t2addr])))
+
+        if len(t2addr) > 0:
+            assert(np.allclose(c4_comp, np.einsum('i,j,ij->ij', t2sign, t2sign, \
+                    self.ci[t2addr[:,None], t2addr])))
         del c4_comp
 
         # abaa spin signature. Get this from the aaab->aaab excitations.
         # This requires the index of the (alpha, alpha, alpha) -> (alpha, alpha, alpha) excits.
         t3addr, t3sign = pyscf.ci.cisd.tn_addrs_signs(norb, nocc, 3)
-        assert(t3addr.shape[0] == ijk_pairs * abc_pairs)
+        assert(len(t3addr) == ijk_pairs * abc_pairs)
 
         c4_abaa = np.zeros((nocc, nocc, nocc, nocc, nvir, nvir, nvir, nvir))
         c4_comp = np.zeros((ijk_pairs * abc_pairs, nocc * nvir))
@@ -277,8 +281,9 @@ class RFCI_WaveFunction(wf_types.WaveFunction):
                 c4_abaa[j, I, k, i, b, A, c, a] =  c4_comp[t_cnt_a, s_cnt_b]
                 c4_abaa[k, I, i, j, b, A, c, a] =  c4_comp[t_cnt_a, s_cnt_b]
 
-        assert(np.allclose(c4_comp, np.einsum('i,j,ij->ij', t3sign, t1sign, \
-                self.ci[t3addr[:,None], t1addr])))
+        if len(t3addr) > 0:
+            assert(np.allclose(c4_comp, np.einsum('i,j,ij->ij', t3sign, t1sign, \
+                    self.ci[t3addr[:,None], t1addr])))
 
         if c0 is None:
             c0 = self.c0
