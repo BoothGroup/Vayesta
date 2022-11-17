@@ -1,4 +1,5 @@
 import numpy as np
+from vayesta.core.ao2mo import helper as ao2mo_helper
 from vayesta.core.util import *
 from vayesta.core import spinalg
 from vayesta.mpi import mpi, RMA_Dict
@@ -486,12 +487,10 @@ def _get_delta_t_for_delta_tailor(fragment, fock):
     return dt1, dt2
 
 
-def externally_correct(solver, external_corrections):
+def externally_correct(solver, external_corrections, eris=None):
     """Build callback function for CCSD, to add external correction from other fragments.
 
     TODO: combine with `tailor_with_fragments`?
-    TODO: Improve efficiency of callback, by contracting update with energy denominators once.
-          (Need to make sure use correct MO energies here...)
 
     Parameters
     ----------
@@ -500,6 +499,12 @@ def externally_correct(solver, external_corrections):
     external_corrections: list[tuple(int, str, int)]
         List of external corrections. Each tuple contains the fragment ID, type of correction,
         and number of projectors for the given external correction.
+    eris: _ChemistsERIs
+        ERIs for parent CCSD fragment. Used for MO energies in residual contraction, and for
+        type of correction == 'external-ccsdv', where the parent Coulomb integral is contracted.
+        If not passed in, MO energy if needed will be constructed from the diagonal of 
+        get_fock() of embedding base class, and the eris will be also be obtained from the
+        embedding base class. Optional.
 
     Returns
     -------
@@ -517,7 +522,32 @@ def externally_correct(solver, external_corrections):
     cx_vir = cluster.c_active_vir       # Virtual  active orbitals of current cluster
     cxs_occ = spinalg.dot(spinalg.T(cx_occ), ovlp)
     cxs_vir = spinalg.dot(spinalg.T(cx_vir), ovlp)
+    # CCSD uses exxdiv-uncorrected Fock matrix for residuals
+    fock = emb.get_fock(with_exxdiv=False)
+    if eris is None:
+        # Note that if no MO energies are passed in, we construct them from the 
+        # get_fock function without with_exxdiv=False. For PBC CCSD, this may be different
+        # behaviour.
+        mo_energy = einsum('ai,ab,bi->i', cluster.c_active, emb.get_fock(), cluster.c_active)
+    else:
+        mo_energy = eris.mo_energy
 
+    if any([corr[1] == 'external-ccsdv' for corr in external_corrections]):
+        # At least one fragment is externally corrected, *and* contracted with
+        # integrals in the parent cluster. We can take the integrals from eris
+        # if passed in. Otherwise, form the required integrals
+        # for this parent cluster. Note that not all of these are needed.
+        if eris is None:
+            _, _, gvvov_x, gooov_x, govoo_x = _integrals_for_extcorr(fx, fock)
+        else:
+            if emb.spinsym == 'restricted':
+                print(vars(eris))
+                gvvov_x = ao2mo_helper.get_ovvv(eris).transpose(2,3,0,1)
+                gooov_x = eris.ovoo.transpose(2,3,0,1)
+                govoo_x = eris.ovoo
+            elif emb.spinsym == 'unrestricted':
+                raise NotImplementedError
+    
     # delta-T1 and delta-T2 amplitudes, to be added to the CCSD amplitudes
     if solver.spinsym == 'restricted':
         dt1 = np.zeros((nocc, nvir))
@@ -530,15 +560,6 @@ def externally_correct(solver, external_corrections):
                np.zeros((nocc[1], nocc[1], nvir[1], nvir[1])))
 
     frag_dir = {f.id: f for f in emb.fragments}
-    # CCSD uses exxdiv-uncorrected Fock matrix:
-    fock = emb.get_fock(with_exxdiv=False)
-
-    if any([corr[1] == 'external-ccsdv' for corr in external_corrections]):
-        # At least one fragment is externally corrected, *and* contracted with
-        # integrals in the parent cluster. Form the required integrals
-        # for this parent cluster. Note that not all of these are needed.
-        fov_x, govov_x, gvvov_x, gooov_x, govoo_x = _integrals_for_extcorr(fx, fock)
-
     for y, corrtype, projectors in external_corrections:
 
         fy = frag_dir[y] # Get fragment y object from its index
@@ -562,7 +583,7 @@ def externally_correct(solver, external_corrections):
             dt1y = spinalg.dot(proj, dt1y)
             dt2y = project_t2(dt2y, proj, projectors=projectors)
 
-        # Transform back to fragment x space and add:
+        # Transform back to fragment x space
         rxy_occ = spinalg.dot(cxs_occ, fy.cluster.c_active_occ)
         rxy_vir = spinalg.dot(cxs_vir, fy.cluster.c_active_vir)
         dt1y = transform_amplitude(dt1y, rxy_occ, rxy_vir, inverse=True)
@@ -577,33 +598,33 @@ def externally_correct(solver, external_corrections):
             dt2y_t3v = _get_delta_t2_from_t3v(gvvov_x, gooov_x, govoo_x, fy, rxy_occ, rxy_vir, cxs_occ, projectors)
             dt2 = spinalg.add(dt2, dt2y_t3v)
 
-        # Note that the lines below don't actually give the norm of the T updates, since they are missing the
-        # energy denominators
-        solver.log.info("External correction from fragment %3d (%s):  dT1= %.3e  dT2= %.3e",
+        solver.log.info("External correction residuals from fragment %3d (%s):  dT1= %.3e  dT2= %.3e",
                         fy.id, fy.solver, *get_amplitude_norm(dt1y, dt2y))
-    solver.log.info("Total external correction from all fragments:  dT1= %.3e  dT2= %.3e",*get_amplitude_norm(dt1, dt2))
-
+    
     if solver.spinsym == 'restricted':
+        
+        if corrtype in ['external', 'external-fciv', 'external-ccsdv']:
+            # Contract with fragment x (CCSD) energy denominators
+            # Note that this will not work correctly if a level shift used
+            eia = mo_energy[:nocc, None] - mo_energy[None, nocc:]
+            # TODO: Not the most memory efficient way to contract with
+            # energy denominators here. Improve to reduce N^4 memory cost?
+            eijab = mo_energy[:nocc, None, None, None] + mo_energy[None, :nocc, None, None] \
+                    - mo_energy[None, None, nocc:, None] - mo_energy[None, None, None, nocc:]
+            dt1 /= eia
+            dt2 /= eijab
+
+        solver.log.info("Total external correction amplitudes from all fragments:  dT1= %.3e  dT2= %.3e", \
+                *get_amplitude_norm(dt1, dt2))
 
         def callback(kwargs):
             """Add external correction to T1 and T2 amplitudes."""
             t1, t2 = kwargs['t1new'], kwargs['t2new']
-
-            # Note that this will not work with a level shift
-            # TODO: Do this properly, using the correct MO energies, and precontracting
-            # outside the callback function.
-            eris = kwargs['eris']
-            mo_energy = eris.mo_energy
-            nocc = t1.shape[0]
-            eia = mo_energy[:nocc,None] - mo_energy[None,nocc:]
-            eijab = mo_energy[:nocc,None,None,None] + mo_energy[None,:nocc,None,None] \
-                    - mo_energy[None,None,nocc:,None] - mo_energy[None,None,None,nocc:]
-
-            # Divide by energy denominators
-            t1[:] += (dt1 / eia)
-            t2[:] += (dt2 / eijab)
+            t1[:] += dt1
+            t2[:] += dt2
 
     elif solver.spinsym == 'unrestricted':
+        # TODO: Not working - need to contract properly with energy denominators
 
         def callback(kwargs):
             """Add external correction to T1 and T2 amplitudes."""
