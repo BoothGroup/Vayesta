@@ -279,6 +279,7 @@ def _integrals_for_extcorr(fragment, fock):
         vb = np.s_[cluster.nocc_active[1]:]
         fova = dot(cluster.c_active_occ[0].T, fock[0], cluster.c_active_vir[0])
         fovb = dot(cluster.c_active_occ[1].T, fock[1], cluster.c_active_vir[1])
+        # TODO: Sort out the code below: Should be referring to eris[0], eris[1] and eris[2]
         govovaa = eris[oa,va,oa,va]
         govovab = eris[oa,va,ob,vb]
         govovbb = eris[ob,vb,ob,vb]
@@ -291,7 +292,7 @@ def _integrals_for_extcorr(fragment, fock):
     return fov, govov, gvvov, gooov, govoo
 
 def _get_delta_t_for_extcorr(fragment, fock, solver, include_t3v=True):
-    ''' Make T3 and T4 correction to CCSD wave function for given fragment.
+    """Make T3 and T4 correction to CCSD wave function for given fragment.
     If include_t3v, then these terms are included. If not, they are left out
     (to be contracted later with cluster y integrals).
 
@@ -299,7 +300,8 @@ def _get_delta_t_for_extcorr(fragment, fock, solver, include_t3v=True):
 
     TO TEST:
                 Rotate (ov) space to check invariance?
-                Extensivity checks for separated fragments'''
+                Extensivity checks for separated fragments
+    """
 
     wf = fragment.results.wf.as_ccsdtq()
     t1, t2, t3 = wf.t1, wf.t2, wf.t3
@@ -336,7 +338,7 @@ def _get_delta_t_for_extcorr(fragment, fock, solver, include_t3v=True):
 
         # --- T4 * V
         # (Vaa) (Tabaa) contraction
-        t4v = 0.25 * einsum('mnef, ijmnabef -> ijab', antiphys_g, t4_abaa)
+        t4v = einsum('mnef, ijmnabef -> ijab', antiphys_g, t4_abaa) / 4
         t4v += t4v.transpose(1,0,3,2)
         # (Vab) (Tabab) contraction
         t4v += einsum('menf, ijmnabef -> ijab', govov, t4_abab)
@@ -349,11 +351,11 @@ def _get_delta_t_for_extcorr(fragment, fock, solver, include_t3v=True):
         X_ = einsum('mnef, me -> nf', spinned_antiphys_g, t1)
         t1t3v += einsum('nf, nijfab -> ijab', X_, t3)
 
-        X_ =  0.5*einsum('mnef, njiebf -> ijmb', antiphys_g, t3)
+        X_ =  einsum('mnef, njiebf -> ijmb', antiphys_g, t3) / 2
         X_ += einsum('menf, jinfeb -> ijmb', govov, t3)
         t1t3v += einsum('ijmb, ma -> ijab', X_, t1)
 
-        X_ = 0.5*einsum('mnef, mjnfba -> ejab', antiphys_g, t3)
+        X_ = einsum('mnef, mjnfba -> ejab', antiphys_g, t3) / 2
         X_ += einsum('menf, nmjbaf -> ejab', govov, t3)
         t1t3v += einsum('ejab, ie -> ijab', X_, t1)
         # apply permutation
@@ -371,10 +373,10 @@ def _get_delta_t_for_extcorr(fragment, fock, solver, include_t3v=True):
             # Note that this requires (vv|ov) [first term], (oo|ov) and (ov|oo) [second term]
             t3v = np.zeros_like(dt2)
             # First term: 1/2 P_ab [t_ijmaef v_efbm]
-            t3v += 0.5*einsum('bemf, jimeaf -> ijab', gvvov - gvvov.transpose(0,3,2,1), t3)
+            t3v += einsum('bemf, jimeaf -> ijab', gvvov - gvvov.transpose(0,3,2,1), t3) / 2
             t3v += einsum('bemf, ijmaef -> ijab', gvvov, t3)
             # Second term: -1/2 P_ij [t_imnabe v_jemn]
-            t3v -= 0.5*einsum('mjne, minbae -> ijab', gooov - govoo.transpose(0,3,2,1), t3)
+            t3v -= einsum('mjne, minbae -> ijab', gooov - govoo.transpose(0,3,2,1), t3) / 2
             t3v -= einsum('mjne, imnabe -> ijab', gooov, t3)
             # Permutation
             t3v += t3v.transpose(1,0,3,2)
@@ -541,7 +543,6 @@ def externally_correct(solver, external_corrections, eris=None):
             _, _, gvvov_x, gooov_x, govoo_x = _integrals_for_extcorr(fx, fock)
         else:
             if emb.spinsym == 'restricted':
-                print(vars(eris))
                 gvvov_x = ao2mo_helper.get_ovvv(eris).transpose(2,3,0,1)
                 gooov_x = eris.ovoo.transpose(2,3,0,1)
                 govoo_x = eris.ovoo
@@ -565,7 +566,7 @@ def externally_correct(solver, external_corrections, eris=None):
         fy = frag_dir[y] # Get fragment y object from its index
         assert (y != fx.id)
 
-        if corrtype == 'external' or 'external-fciv':
+        if corrtype in ['external', 'external-fciv']:
             dt1y, dt2y = _get_delta_t_for_extcorr(fy, fock, solver, include_t3v=True)
         elif corrtype == 'external-ccsdv':
             dt1y, dt2y = _get_delta_t_for_extcorr(fy, fock, solver, include_t3v=False)

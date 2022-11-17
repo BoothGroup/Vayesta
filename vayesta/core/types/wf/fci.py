@@ -222,7 +222,7 @@ class RFCI_WaveFunction(wf_types.WaveFunction):
         c4_comp = np.zeros((ijk_pairs * abc_pairs, nocc * nvir))
         for t_cnt_a, trip_ind_a in enumerate(t3addr):
             # Find alpha i,j,k -> a,b,c indices
-            ijk_alpha = int(t_cnt_a / abc_pairs)
+            ijk_alpha = t_cnt_a // abc_pairs
             abc_alpha = t_cnt_a % abc_pairs
             i, j, k = oooidx[0][ijk_alpha], oooidx[1][ijk_alpha], oooidx[2][ijk_alpha]
             a, b, c = vvvidx[0][abc_alpha], vvvidx[1][abc_alpha], vvvidx[2][abc_alpha]

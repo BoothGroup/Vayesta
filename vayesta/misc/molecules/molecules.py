@@ -150,7 +150,7 @@ def ring(atom, natom, bond_length=None, radius=None, z=0.0, numbering=None):
         atoms.append([atom_i, np.asarray([r*np.cos(theta), r*np.sin(theta), z])])
     return atoms
 
-def chain(atom, natom, bond_length=None, numbering=None):
+def chain(atom, natom, bond_length, numbering=None):
     '''Open boundary condition version of 1D ring'''
     atoms = []
     if isinstance(atom, str):
