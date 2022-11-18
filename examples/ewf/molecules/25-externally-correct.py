@@ -39,7 +39,7 @@ emb.kernel()
 for fci_frag in fci_frags:
     fci_frag.active = False
 ccsd_frag.active = True
-# Setup the external correction from the FCI fragments.
+# Setup the external correction from the CCSD fragments.
 # Two main options: correction_type='external-ccsdv' and 'external-fciv'. For the important T3 * V contribution to the
 #   T2 amplitudes, this determines whether the V is expressed in the FCI or CCSD cluster space. The CCSD cluster is
 #   larger, and hence this is likely to be better, as the correction is longer-ranged (though slightly more expensive).

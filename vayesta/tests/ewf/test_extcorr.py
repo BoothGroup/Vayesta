@@ -149,6 +149,8 @@ class TestSolvers(TestCase):
         self.assertAlmostEqual(emb.e_corr, fci.e_tot - mf.e_tot)
         self.assertAlmostEqual(emb.e_tot, fci.e_tot)
 
+        # Also check the use of symmetry here...
+
     def test_hub_ec_2impfci_proj0_fciv(self):
         return self._test_10_u4_2impfci(mode='external-fciv')
     def test_hub_ec_2impfci_proj0_ccsdv(self):

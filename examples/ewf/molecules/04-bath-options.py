@@ -48,7 +48,6 @@ emb_mp2_noproj.kernel()
 emb_mp2_projdmet = vayesta.ewf.EWF(mf, bath_options=dict(bathtype='mp2', threshold=1e-4, \
         project_dmet_order=2, project_dmet_mode='squared-entropy'))
 emb_mp2_projdmet.kernel()
-1./0
 
 # Use maximally R^2-localized bath orbitals:
 # rcut is the cutoff distance in Angstrom
