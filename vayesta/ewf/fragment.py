@@ -18,7 +18,7 @@ from vayesta.core.util import *
 from vayesta.core.qemb import Fragment as BaseFragment
 from vayesta.solver import get_solver_class
 from vayesta.core.fragmentation import IAO_Fragmentation
-from vayesta.core.types import RFCI_WaveFunction
+from vayesta.core.types import RFCI_WaveFunction, RCCSDTQ_WaveFunction
 
 from vayesta.core.bath import BNO_Threshold
 from vayesta.core.bath import DMET_Bath
@@ -69,6 +69,9 @@ class Fragment(BaseFragment):
     class Flags(BaseFragment.Flags):
         # Tailoring and external correction of CCSD
         external_corrections: Optional[List[typing.Any]] = dataclasses.field(default_factory=list)
+        # Whether to perform additional checks on external corrections
+        test_extcorr: bool = False
+
 
     @dataclasses.dataclass
     class Results(BaseFragment.Results):
@@ -131,7 +134,7 @@ class Fragment(BaseFragment):
     def tailor_with_fragments(self, fragments, projectors=1):
         return self.add_external_corrections(fragments, projectors=projectors)
 
-    def add_external_corrections(self, fragments, correction_type='tailor', projectors=1):
+    def add_external_corrections(self, fragments, correction_type='tailor', projectors=1, test_extcorr=False):
         """Add tailoring or external correction from other fragment solutions to CCSD solver.
 
         Parameters
@@ -149,6 +152,8 @@ class Fragment(BaseFragment):
         projectors: int, optional
             Maximum number of projections applied to the occupied dimensions of the amplitude corrections.
             Default: 1.
+        test_extcorr: bool, optional
+            Whether to perform additional checks on the external corrections.
         """
         if correction_type not in ('tailor', 'delta-tailor', 'external', 'external-fciv', 'external-ccsdv'):
             raise ValueError
@@ -156,10 +161,12 @@ class Fragment(BaseFragment):
             raise RuntimeError
         self.flags.external_corrections.extend(
                 [(f.id, correction_type, projectors) for f in fragments])
+        self.flags.test_extcorr = test_extcorr
 
     def clear_external_corrections(self):
         """Remove all tailoring or external correction which were added via add_external_corrections."""
         self.flags.external_corrections = []
+        self.flags.test_extcorr = False
 
     def get_init_guess(self, init_guess, solver, cluster):
         # FIXME
@@ -304,6 +311,9 @@ class Fragment(BaseFragment):
         # Projection of FCI wave function is not implemented - convert to CISD
         if isinstance(wf, RFCI_WaveFunction):
             pwf = wf.as_cisd()
+        # Projection of CCSDTQ wave function is not implemented - convert to CCSD
+        elif isinstance(wf, RCCSDTQ_WaveFunction):
+            pwf = wf.as_ccsd()
         proj = self.get_overlap('frag|cluster-occ')
         pwf = pwf.project(proj, inplace=False)
 
@@ -356,6 +366,7 @@ class Fragment(BaseFragment):
         elif solver.upper() == 'DUMP':
             solver_opts['filename'] = self.opts.solver_options['dumpfile']
         solver_opts['external_corrections'] = self.flags.external_corrections
+        solver_opts['test_extcorr'] = self.flags.test_extcorr
         return solver_opts
 
     # --- Expectation values

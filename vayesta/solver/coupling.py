@@ -1,4 +1,6 @@
 import numpy as np
+import pyscf
+from pyscf.lib import direct_sum
 from vayesta.core.ao2mo import helper as ao2mo_helper
 from vayesta.core.util import *
 from vayesta.core import spinalg
@@ -291,16 +293,36 @@ def _integrals_for_extcorr(fragment, fock):
         raise NotImplementedError
     return fov, govov, gvvov, gooov, govoo
 
-def _get_delta_t_for_extcorr(fragment, fock, solver, include_t3v=True):
-    """Make T3 and T4 correction to CCSD wave function for given fragment.
-    If include_t3v, then these terms are included. If not, they are left out
-    (to be contracted later with cluster y integrals).
+def _get_delta_t_for_extcorr(fragment, fock, solver, include_t3v=True, test_extcorr=False):
+    """Make T3 and T4 residual correction to CCSD wave function for given fragment.
+    Expressions consistent with J. Chem. Phys. 86, 2881 (1987): G. E. Scuseria et al.
+    and verified same behaviour as implementation in git@github.com:gustavojra/Methods.git
+    TODO
+    ----
+    o Add Option: Contract T4's down at original solver point to save memory.
+    o UHF implementation
 
-    TODO: Option: Contract T4's down at original solver point to save memory.
+    Parameters
+    ----------
+    fragment: Fragment class
+        FCI fragment with FCI, CISDTQ or CCSDTQ wave function object in results
+    fock: ndarray
+        Full system for matrix used for CCSD residuals
+    solver: Solver class
+        Used for logging options
+    include_t3v: Bool
+        If include_t3v, then these terms are included. If not, they are left out
+        (to be contracted later with cluster y integrals). 
+    test_extcorr: Bool
+        Perform additional tests on expressions, comparing to the EC-CC implementation
+        with fully UHF T3 and T4 of Seunghoon Lee (https://github.com/seunghoonlee89/excc).
 
-    TO TEST:
-                Rotate (ov) space to check invariance?
-                Extensivity checks for separated fragments
+    Returns
+    -------
+    dt1, dt2: ndarray
+        T1 and T2 expressions. 
+    NOTE: These expressions still need to be contracted with energy denominators 
+    for full amplitude updates.
     """
 
     wf = fragment.results.wf.as_ccsdtq()
@@ -326,6 +348,17 @@ def _get_delta_t_for_extcorr(fragment, fock, solver, include_t3v=True):
         # --- T3 * V
         dt1 -= einsum('ijab, jiupab -> up', spinned_antiphys_g, t3)
 
+        if test_extcorr:
+            # A useful intermediate is the t3_aaa. Construct this from t3 (_aba) mixed spin.
+            t3_aaa = t3 - t3.transpose(0,2,1,3,4,5) - t3.transpose(1,0,2,3,4,5)
+            t3_aab = t3.transpose(0,2,1,3,5,4)
+            dt1_test =  einsum('kcld,iklacd->ia', govov, t3_aaa)
+            dt1_test += einsum('kcld,iklacd->ia', govov, t3_aab)
+            dt1_test += einsum('kcld,ilkadc->ia', govov, t3_aab)
+            dt1_test += einsum('kcld,klicda->ia', govov, t3_aab)
+            dt1_test *= 0.5
+            assert(np.allclose(dt1_test, dt1))
+
         # --- T2 update
         # --- T3 * F
         if np.allclose(fov, np.zeros_like(fov)):
@@ -335,6 +368,10 @@ def _get_delta_t_for_extcorr(fragment, fock, solver, include_t3v=True):
         # (Fb) (Tabb) contraction
         dt2 += einsum('me, jimbae -> ijab', fov, t3)
         solver.log.info("(T3 * F) -> T2 update norm from fragment {}: {}".format(fragment.id, np.linalg.norm(dt2)))
+        if test_extcorr:
+            t3tmp = t3_aab + t3_aab.transpose(0,2,1,3,5,4)
+            dt2_test = np.einsum('kc,kijcab->ijab', fov, t3tmp)
+            assert(np.allclose(dt2, dt2_test))
 
         # --- T4 * V
         # (Vaa) (Tabaa) contraction
@@ -343,6 +380,13 @@ def _get_delta_t_for_extcorr(fragment, fock, solver, include_t3v=True):
         # (Vab) (Tabab) contraction
         t4v += einsum('menf, ijmnabef -> ijab', govov, t4_abab)
         dt2 += t4v
+        if test_extcorr:
+            t4aaab = t4_abaa.transpose(0,2,3,1,4,6,7,5)
+            t4aabb = t4_abab.transpose(0,2,1,3,4,6,5,7)
+            tmp1   = t4aaab + t4aaab.transpose(0,1,3,2,4,5,7,6)
+            tmp1  += t4aabb.transpose(0,2,1,3,4,6,5,7)
+            tmp1  += t4aabb.transpose(1,2,0,3,5,6,4,7)
+            t4v_test = 0.5 * einsum('kcld,klijcdab->ijab', govov, tmp1)
 
         # --- (T1 T3) * V
         # Note: Approximate T1 by the CCSDTQ T1 amplitudes of this fragment.
@@ -361,6 +405,19 @@ def _get_delta_t_for_extcorr(fragment, fock, solver, include_t3v=True):
         # apply permutation
         t1t3v += t1t3v.transpose(1,0,3,2)
         dt2 += t1t3v
+        if test_extcorr:
+            tmp2  = einsum('kdlc,id->kilc', govov, t1)
+            t1t3v_test = -einsum('kilc,lkjcab->ijab', tmp2, t3tmp)
+            tmp2  = einsum('kdlc,jd->kjlc', govov, t1)
+            t1t3v_test -= einsum('kjlc,likcab->ijab', tmp2, t3tmp)
+            tmp2  = -einsum('kcld,lb->kcbd', govov, t1)
+            t1t3v_test += einsum('kcbd,kijcad->ijab', tmp2, t3tmp)
+            tmp2  = -einsum('kcld,la->kcad', govov, t1)
+            t1t3v_test += einsum('kcad,kijcdb->ijab', tmp2, t3tmp)
+            tmp2  = 2*einsum('kcld,ld->kc', govov, t1)
+            tmp2 +=  -einsum('kdlc,ld->kc', govov, t1)
+            t1t3v_test +=  einsum('kc,kijcab->ijab', tmp2, t3tmp)
+            assert(np.allclose(t1t3v_test, t1t3v))
 
         # --- T3 * V 
         if include_t3v:
@@ -381,6 +438,13 @@ def _get_delta_t_for_extcorr(fragment, fock, solver, include_t3v=True):
             # Permutation
             t3v += t3v.transpose(1,0,3,2)
             dt2 += t3v
+            if test_extcorr:
+                govvv = gvvov.transpose(2,3,0,1)
+                t3v_test = -einsum('kilc,lkjcab->ijab', gooov, t3tmp)
+                t3v_test -= einsum('kjlc,likcab->ijab', gooov, t3tmp)
+                t3v_test += einsum('kcbd,kijcad->ijab', govvv, t3tmp)
+                t3v_test += einsum('kcad,kijcdb->ijab', govvv, t3tmp)
+                assert(np.allclose(t3v_test, t3v))
 
     elif fragment.base.spinsym == 'unrestricted':
         raise NotImplementedError
@@ -489,7 +553,7 @@ def _get_delta_t_for_delta_tailor(fragment, fock):
     return dt1, dt2
 
 
-def externally_correct(solver, external_corrections, eris=None):
+def externally_correct(solver, external_corrections, eris=None, test_extcorr=False):
     """Build callback function for CCSD, to add external correction from other fragments.
 
     TODO: combine with `tailor_with_fragments`?
@@ -507,6 +571,9 @@ def externally_correct(solver, external_corrections, eris=None):
         If not passed in, MO energy if needed will be constructed from the diagonal of 
         get_fock() of embedding base class, and the eris will be also be obtained from the
         embedding base class. Optional.
+    test_extcorr: Bool
+        Perform additional tests on correctness of contractions, comparing to an alternative
+        implementation. Optional.
 
     Returns
     -------
@@ -567,9 +634,9 @@ def externally_correct(solver, external_corrections, eris=None):
         assert (y != fx.id)
 
         if corrtype in ['external', 'external-fciv']:
-            dt1y, dt2y = _get_delta_t_for_extcorr(fy, fock, solver, include_t3v=True)
+            dt1y, dt2y = _get_delta_t_for_extcorr(fy, fock, solver, include_t3v=True, test_extcorr=test_extcorr)
         elif corrtype == 'external-ccsdv':
-            dt1y, dt2y = _get_delta_t_for_extcorr(fy, fock, solver, include_t3v=False)
+            dt1y, dt2y = _get_delta_t_for_extcorr(fy, fock, solver, include_t3v=False, test_extcorr=test_extcorr)
         elif corrtype == 'delta-tailor':
             dt1y, dt2y = _get_delta_t_for_delta_tailor(fy, fock)
         else:
@@ -610,8 +677,7 @@ def externally_correct(solver, external_corrections, eris=None):
             eia = mo_energy[:nocc, None] - mo_energy[None, nocc:]
             # TODO: Not the most memory efficient way to contract with
             # energy denominators here. Improve to reduce N^4 memory cost?
-            eijab = mo_energy[:nocc, None, None, None] + mo_energy[None, :nocc, None, None] \
-                    - mo_energy[None, None, nocc:, None] - mo_energy[None, None, None, nocc:]
+            eijab = pyscf.lib.direct_sum('ia,jb->ijab',eia,eia)
             dt1 /= eia
             dt2 /= eijab
 

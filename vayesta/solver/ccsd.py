@@ -47,6 +47,8 @@ class CCSD_Solver(ClusterSolver):
         external_corrections: Optional[List[typing.Any]] = dataclasses.field(default_factory=list)
         # Lambda equations
         solve_lambda: bool = True
+        # Whether to perform additional checks on external corrections
+        test_extcorr: bool = False
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -178,7 +180,7 @@ class CCSD_Solver(ClusterSolver):
             # External correction of T1 and T2
             if externals:
                 self.log.info("Externally correct CCSD from %d fragments", len(externals))
-                self.set_callback(coupling.externally_correct(self, externals, eris=eris))
+                self.set_callback(coupling.externally_correct(self, externals, eris=eris, test_extcorr=self.opts.test_extcorr))
 
         elif self.opts.sc_mode and self.base.iteration > 1:
             raise NotImplementedError

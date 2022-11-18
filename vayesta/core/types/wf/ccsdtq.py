@@ -13,6 +13,7 @@ def CCSDTQ_WaveFunction(mo, *args, **kwargs):
 
 
 class RCCSDTQ_WaveFunction(wf_types.WaveFunction):
+    # TODO: Contract T4's down to intermediates to reduce EC-CC memory overheads.
 
     def __init__(self, mo, t1, t2, t3, t4):
         super().__init__(mo)
@@ -26,6 +27,13 @@ class RCCSDTQ_WaveFunction(wf_types.WaveFunction):
     def as_ccsdtq(self):
         return self
 
+    def as_ccsd(self):
+        if self.projector is not None:
+            raise NotImplementedError
+        return wf_types.RCCSD_WaveFunction(self.mo, self.t1, self.t2)
+
+    def as_cisd(self, c0=1.0):
+        return self.as_ccsd().as_cisd()
 
 class UCCSDTQ_WaveFunction(RCCSDTQ_WaveFunction):
     pass
