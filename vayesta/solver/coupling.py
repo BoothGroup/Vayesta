@@ -610,9 +610,13 @@ def externally_correct(solver, external_corrections, eris=None, test_extcorr=Fal
             _, _, gvvov_x, gooov_x, govoo_x = _integrals_for_extcorr(fx, fock)
         else:
             if emb.spinsym == 'restricted':
-                gvvov_x = ao2mo_helper.get_ovvv(eris).transpose(2,3,0,1)
-                gooov_x = eris.ovoo.transpose(2,3,0,1)
-                govoo_x = eris.ovoo
+                try:
+                    # TODO: Sort this out for when integrals are stored in HDF5 files
+                    gvvov_x = ao2mo_helper.get_ovvv(eris).transpose(2,3,0,1)
+                    gooov_x = eris.ovoo.transpose(2,3,0,1)
+                    govoo_x = eris.ovoo
+                except:
+                    _, _, gvvov_x, gooov_x, govoo_x = _integrals_for_extcorr(fx, fock)
             elif emb.spinsym == 'unrestricted':
                 raise NotImplementedError
     
@@ -666,8 +670,8 @@ def externally_correct(solver, external_corrections, eris=None, test_extcorr=Fal
             dt2y_t3v = _get_delta_t2_from_t3v(gvvov_x, gooov_x, govoo_x, fy, rxy_occ, rxy_vir, cxs_occ, projectors)
             dt2 = spinalg.add(dt2, dt2y_t3v)
 
-        solver.log.info("External correction residuals from fragment %3d (%s):  dT1= %.3e  dT2= %.3e",
-                        fy.id, fy.solver, *get_amplitude_norm(dt1y, dt2y))
+        solver.log.info("External correction residuals from fragment %3d (%s via %s):  dT1= %.3e  dT2= %.3e",
+                        fy.id, fy.solver, corrtype, *get_amplitude_norm(dt1y, dt2y))
     
     if solver.spinsym == 'restricted':
         
