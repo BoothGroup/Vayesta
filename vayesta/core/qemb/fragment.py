@@ -329,20 +329,23 @@ class Fragment:
             raise RuntimeError("Cannot set attribute cluster in symmetry derived fragment.")
         self._cluster = value
 
-    def reset(self, reset_bath=True, reset_cluster=True, reset_eris=True):
-        self.log.debugv("Resetting %s (reset_bath= %r, reset_cluster= %r, reset_eris= %r)",
-                self, reset_bath, reset_cluster, reset_eris)
-        if reset_bath:
-            self._dmet_bath = None
-            self._bath_factory_occ = None
-            self._bath_factory_vir = None
-        if reset_cluster:
-            self._cluster = None
-            self.get_overlap.cache_clear()
-        if reset_eris:
-            self._eris = None
-            self._seris_ov = None
-        self._results = None
+    def reset(self, reset_bath=True, reset_cluster=True, reset_eris=True, reset_inactive=True):
+        self.log.debugv("Resetting %s (reset_bath= %r, reset_cluster= %r, reset_eris= %r, reset_inactive= %r)",
+                self, reset_bath, reset_cluster, reset_eris, reset_inactive)
+        if not reset_inactive and not self.active: 
+            return
+        else:
+            if reset_bath:
+                self._dmet_bath = None
+                self._bath_factory_occ = None
+                self._bath_factory_vir = None
+            if reset_cluster:
+                self._cluster = None
+                self.get_overlap.cache_clear()
+            if reset_eris:
+                self._eris = None
+                self._seris_ov = None
+            self._results = None
 
     def get_fragments_with_overlap(self, tol=1e-8, **kwargs):
         """Get list of fragments which overlap both in occupied and virtual space."""

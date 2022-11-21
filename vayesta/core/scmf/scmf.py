@@ -85,7 +85,8 @@ class SCMF:
             self.log.info("%s==============", len(self.name)*"=")
 
             if self.iteration > 1:
-                self.emb.reset()
+                # Don't reset inactive clusters for external corrections
+                self.emb.reset(reset_inactive=False)
 
             # Run clusters, save results
             res = self.kernel_orig(*args, **kwargs)

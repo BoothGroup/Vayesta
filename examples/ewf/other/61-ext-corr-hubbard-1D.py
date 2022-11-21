@@ -45,7 +45,7 @@ with emb.site_fragmentation() as f:
 #fci_frags = fci_frags.add_tsymmetric_fragments(tvecs=[5, 1, 1])
 emb.kernel()
 
-def ext_corr(emb_, fci_frags, ccsd_frag, mode='external-ccsdv', projectors=0):
+def ext_corr(emb, fci_frags, ccsd_frag, mode='external-ccsdv', projectors=0):
     """Setup the external correction from the CCSD fragments.
     Two main options: correction_type='external-ccsdv' and 'external-fciv'. For the important T3 * V contribution to the
     T2 amplitudes, this determines whether the V is expressed in the FCI or CCSD cluster space. The CCSD cluster is
@@ -62,8 +62,8 @@ def ext_corr(emb_, fci_frags, ccsd_frag, mode='external-ccsdv', projectors=0):
     ccsd_frag.active = True
     ccsd_frag.add_external_corrections(fci_frags, correction_type=mode, projectors=projectors)
     # Run kernel again
-    emb_.kernel()
-    return emb_.e_tot
+    emb.kernel()
+    return emb.e_tot
 
 # Change number of projectors and/or Coulomb type, and re-run to get change
 e_extcorr = []
