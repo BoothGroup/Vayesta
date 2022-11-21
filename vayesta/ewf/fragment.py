@@ -302,7 +302,7 @@ class Fragment(BaseFragment):
         # Projection of FCI wave function is not implemented - convert to CISD
         if isinstance(wf, RFCI_WaveFunction):
             pwf = wf.as_cisd()
-        proj = self.get_overlap('frag|cluster-occ')
+        proj = self.get_overlap('proj|cluster-occ')
         pwf = pwf.project(proj, inplace=False)
 
         # --- Add to results data class
@@ -388,7 +388,7 @@ class Fragment(BaseFragment):
         nocc, nvir = c2.shape[1:3]
         occ, vir = np.s_[:nocc], np.s_[nocc:]
         if axis1 == 'fragment':
-            px = self.get_overlap('frag|cluster-occ')
+            px = self.get_overlap('proj|cluster-occ')
 
         # --- Singles energy (zero for HF-reference)
         if c1 is not None:

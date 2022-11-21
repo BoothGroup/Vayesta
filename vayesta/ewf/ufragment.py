@@ -44,7 +44,7 @@ class Fragment(RFragment, BaseFragment):
         oa, ob = np.s_[:nocc[0]], np.s_[:nocc[1]]
         va, vb = np.s_[nocc[0]:], np.s_[nocc[1]:]
         if axis1 == 'fragment':
-            pxa, pxb = self.get_overlap('frag|cluster-occ')
+            pxa, pxb = self.get_overlap('proj|cluster-occ')
 
         # --- Singles energy (zero for HF-reference)
         if c1 is not None:
