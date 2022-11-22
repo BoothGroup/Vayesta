@@ -13,7 +13,7 @@ from vayesta.tests import testsystems
 
 
 @pytest.mark.fast
-class TestSolvers(TestCase):
+class TestFullEC(TestCase):
 
     def _test(self, key, proj=0, mode='external-fciv', store_wf_ccsdtq=True):
         mf = getattr(getattr(testsystems, key[0]), key[1])()
@@ -74,6 +74,9 @@ class TestSolvers(TestCase):
     def test_r_exact_ec_lih_proj2_ccsdv_nostore(self):
         return self._test(('lih_ccpvdz', 'rhf'), proj=2, mode='external-ccsdv', store_wf_ccsdtq=False)
 
+@pytest.mark.fast
+class TestHubCompleteEC(TestCase):
+
     def _test_10_u4_2imp(self, mode, proj):
         """Tests for N=10 U=4 Hubbard model with double site CCSD impurities
         and complete FCI fragment
@@ -119,6 +122,9 @@ class TestSolvers(TestCase):
     def test_hub_ec_2imp_proj2_fciv(self):
         return self._test_10_u4_2imp(mode='external-fciv', proj=2)
 
+@pytest.mark.fast
+class TestHubBathEC(TestCase):
+
     def _test_10_u2_2impfci(self, mode):
         """Tests for N=10 U=2 Hubbard model with double site CCSD impurities
         and 2-site FCI fragment (but complete bath). With no projectors on
@@ -153,6 +159,9 @@ class TestSolvers(TestCase):
         return self._test_10_u2_2impfci(mode='external-fciv')
     def test_hub_ec_2impfci_proj0_ccsdv(self):
         return self._test_10_u2_2impfci(mode='external-ccsdv')
+
+@pytest.mark.fast
+class TestECSym(TestCase):
 
     def _test_10_u2_eccc_sym(self, mode, proj=0):
         """Test symmetry in external correction via comparison to system without use of symmetry
@@ -217,6 +226,9 @@ class TestSolvers(TestCase):
         return self._test_10_u2_eccc_sym(mode='delta-tailor', proj=1)
     def test_hub_ec_sym_proj1_tailor(self):
         return self._test_10_u2_eccc_sym(mode='tailor', proj=1)
+
+@pytest.mark.fast
+class TestRegEC_CCSD(TestCase):
 
     def _test_water_ec_regression(self, mode=None, projectors=None):
     

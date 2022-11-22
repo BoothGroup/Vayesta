@@ -1,3 +1,4 @@
+import numpy as np
 import pyscf
 import pyscf.gto
 import pyscf.scf
@@ -46,7 +47,7 @@ emb_mp2.kernel()
 # Other options (not shown) include projecting out all couplings to the DMET bath space, or just projecting
 # one index.
 # The options below are default
-emb_mp2_projdmet = vayesta.ewf.EWF(mf, bath_options=dict(bathtype='mp2', threshold=1e-4, \
+emb_mp2_projdmet = vayesta.ewf.EWF(mf, bath_options=dict(bathtype='mp2', threshold=1e-4, 
         project_dmet_order=2, project_dmet_mode='squared-entropy'))
 emb_mp2_projdmet.kernel()
 assert(np.allclose(emb_mp2_projdmet.e_tot, emb_mp2.e_tot))
