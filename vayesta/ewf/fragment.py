@@ -314,7 +314,7 @@ class Fragment(BaseFragment):
         # Projection of CCSDTQ wave function is not implemented - convert to CCSD
         elif isinstance(wf, RCCSDTQ_WaveFunction):
             pwf = wf.as_ccsd()
-        proj = self.get_overlap('frag|cluster-occ')
+        proj = self.get_overlap('proj|cluster-occ')
         pwf = pwf.project(proj, inplace=False)
 
         # --- Add to results data class
@@ -401,7 +401,7 @@ class Fragment(BaseFragment):
         nocc, nvir = c2.shape[1:3]
         occ, vir = np.s_[:nocc], np.s_[nocc:]
         if axis1 == 'fragment':
-            px = self.get_overlap('frag|cluster-occ')
+            px = self.get_overlap('proj|cluster-occ')
 
         # --- Singles energy (zero for HF-reference)
         if c1 is not None:

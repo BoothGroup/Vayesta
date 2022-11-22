@@ -30,7 +30,7 @@ with emb_sym.iao_fragmentation() as frag:
         # axis along which to rotate and center of rotation (default units for axis and center are Angstroms):
         with frag.rotational_symmetry(order=5, axis='z'):
             frag.add_atomic_fragment('C2')
-            frag.add_atomic_fragment('H12')
+            frag.add_atomic_fragment('H7')
 
 emb_sym.kernel()
 dm1_sym = emb_sym.make_rdm1()

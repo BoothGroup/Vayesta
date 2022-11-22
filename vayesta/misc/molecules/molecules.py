@@ -177,12 +177,13 @@ def ferrocene(atoms=['Fe', 'C', 'H'], conformation='eclipsed', dFeCp=1.648, dCC=
     if conformation != 'eclipsed':
         raise NotImplementedError
 
-    atom = [(atoms[0] + ('1' if numbering else ''), np.asarray((0, 0, 0)))]
-    atom += ring(atoms[1], 5, dCC, z=dFeCp, numbering=2 if numbering else None)
-    atom += ring(atoms[1], 5, dCC, z=-dFeCp, numbering=7 if numbering else None)
     rHH = dCC/(2*np.sin(np.pi/5)) + dCH*np.cos(aCpH*np.pi/180)
     zH = dCH*np.sin(aCpH*np.pi/180)
-    atom += ring(atoms[2], 5, radius=rHH, z=dFeCp-zH, numbering=12 if numbering else None)
+
+    atom = [(atoms[0] + ('1' if numbering else ''), np.asarray((0, 0, 0)))]
+    atom += ring(atoms[1], 5, dCC, z=dFeCp, numbering=2 if numbering else None)
+    atom += ring(atoms[2], 5, radius=rHH, z=dFeCp-zH, numbering=7 if numbering else None)
+    atom += ring(atoms[1], 5, dCC, z=-dFeCp, numbering=12 if numbering else None)
     atom += ring(atoms[2], 5, radius=rHH, z=-dFeCp+zH, numbering=17 if numbering else None)
 
     return atom

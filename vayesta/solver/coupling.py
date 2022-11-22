@@ -549,10 +549,10 @@ def _get_delta_t_for_delta_tailor(fragment, fock):
         # Symmetry-derived fragments may not have eris stored
         eris = fragment.base.get_eris_array(cluster.c_active)
     ccsd = SimpleCCSD(fock, eris, nocc, mo_energy=mo_energy)
-    ccsd.kernel(t1=t1, t2=t2)
+    wf = ccsd.kernel(t1=t1, t2=t2)
     assert ccsd.converged
-    dt1 = spinalg.subtract(t1, ccsd.t1)
-    dt2 = spinalg.subtract(t2, ccsd.t2)
+    dt1 = spinalg.subtract(t1, wf.t1)
+    dt2 = spinalg.subtract(t2, wf.t2)
     return dt1, dt2
 
 

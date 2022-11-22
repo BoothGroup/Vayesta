@@ -20,7 +20,7 @@ class Test_Restricted(TestCase):
     @classmethod
     @cache
     def emb(cls, bno_threshold):
-        emb = vayesta.ewf.EWF(cls.mf, bath_options=dict(threshold=bno_threshold))
+        emb = vayesta.ewf.EWF(cls.mf, bath_options=dict(threshold=bno_threshold, project_dmet_order=0))
         with emb.fragmentation() as f:
             with f.secondary_fragments(solver='MP2', bno_threshold_factor=0.1):
                 f.add_all_atomic_fragments()
@@ -50,7 +50,7 @@ class Test_RestrictedSym(Test_Restricted):
     @classmethod
     @cache
     def emb_nosym(cls, bno_threshold):
-        emb = vayesta.ewf.EWF(cls.mf, bath_options=dict(threshold=bno_threshold))
+        emb = vayesta.ewf.EWF(cls.mf, bath_options=dict(threshold=bno_threshold, project_dmet_order=0))
         with emb.sao_fragmentation() as f:
             with f.secondary_fragments(solver='MP2', bno_threshold_factor=0.1):
                 f.add_all_atomic_fragments()
@@ -60,7 +60,7 @@ class Test_RestrictedSym(Test_Restricted):
     @classmethod
     @cache
     def emb_rotsym(cls, bno_threshold):
-        emb = vayesta.ewf.EWF(cls.mf, bath_options=dict(threshold=bno_threshold))
+        emb = vayesta.ewf.EWF(cls.mf, bath_options=dict(threshold=bno_threshold, project_dmet_order=0))
         with emb.sao_fragmentation() as f:
             with f.rotational_symmetry(order=6, axis='z'):
                 with f.secondary_fragments(solver='MP2', bno_threshold_factor=0.1):
@@ -71,7 +71,7 @@ class Test_RestrictedSym(Test_Restricted):
     @classmethod
     @cache
     def emb_invsym(cls, bno_threshold):
-        emb = vayesta.ewf.EWF(cls.mf, bath_options=dict(threshold=bno_threshold))
+        emb = vayesta.ewf.EWF(cls.mf, bath_options=dict(threshold=bno_threshold, project_dmet_order=0))
         with emb.sao_fragmentation() as f:
             with f.inversion_symmetry():
                 with f.rotational_symmetry(order=3, axis='z'):
@@ -83,7 +83,7 @@ class Test_RestrictedSym(Test_Restricted):
     @classmethod
     @cache
     def emb_mirrorsym(cls, bno_threshold):
-        emb = vayesta.ewf.EWF(cls.mf, bath_options=dict(threshold=bno_threshold))
+        emb = vayesta.ewf.EWF(cls.mf, bath_options=dict(threshold=bno_threshold, project_dmet_order=0))
         with emb.sao_fragmentation() as f:
             with f.mirror_symmetry(axis='x'):
                 with f.secondary_fragments(solver='MP2', bno_threshold_factor=0.1):

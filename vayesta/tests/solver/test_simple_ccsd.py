@@ -33,9 +33,9 @@ class TestRSpin(TestCase):
         eris = pyscf.ao2mo.kernel(mf.mol, mf.mo_coeff, compact=False).reshape(4*[nmo])
         nocc = np.count_nonzero(mf.mo_occ > 0)
         ccsd = vayesta.solver.simple.CCSD(fock, eris, nocc, conv_tol=1e-10, conv_tol_normt=1e-8)
-        ccsd.kernel()
-        self.assertAllclose(ccsd.t1, self.cc.t1)
-        self.assertAllclose(ccsd.t2, self.cc.t2)
+        wf = ccsd.kernel()
+        self.assertAllclose(wf.t1, self.cc.t1)
+        self.assertAllclose(wf.t2, self.cc.t2)
 
 
 @pytest.mark.fast
@@ -56,9 +56,9 @@ class TestUSpin(TestRSpin):
         eris = (eris_aa, eris_ab, eris_bb)
         nocc = (np.count_nonzero(mf.mo_occ[0] > 0), np.count_nonzero(mf.mo_occ[1] > 0))
         ccsd = vayesta.solver.simple.CCSD(fock, eris, nocc, conv_tol=1e-10, conv_tol_normt=1e-8)
-        ccsd.kernel()
-        self.assertAllclose(ccsd.t1, self.cc.t1)
-        self.assertAllclose(ccsd.t2, self.cc.t2)
+        wf = ccsd.kernel()
+        self.assertAllclose(wf.t1, self.cc.t1)
+        self.assertAllclose(wf.t2, self.cc.t2)
 
 
 if __name__ == '__main__':

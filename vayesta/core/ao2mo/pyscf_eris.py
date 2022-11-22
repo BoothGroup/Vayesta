@@ -61,6 +61,7 @@ def make_ccsd_eris(fock, eris, nocc, mo_energy=None):
     if mo_energy is None:
         mo_energy = fock.diagonal()
     eris_out.mo_energy = mo_energy
+    eris_out.mo_coeff = np.eye(nmo)
     return eris_out
 
 
@@ -128,4 +129,5 @@ def make_uccsd_eris(fock, eris, nocc, mo_energy=None):
     if mo_energy is None:
         mo_energy = (fock[0].diagonal(), fock[1].diagonal())
     eris_out.mo_energy = mo_energy
+    eris_out.mo_coeff = (np.eye(nmo[0]), np.eye(nmo[1]))
     return eris_out

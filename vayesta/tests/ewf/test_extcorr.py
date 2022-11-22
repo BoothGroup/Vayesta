@@ -119,8 +119,8 @@ class TestSolvers(TestCase):
     def test_hub_ec_2imp_proj2_fciv(self):
         return self._test_10_u4_2imp(mode='external-fciv', proj=2)
 
-    def _test_10_u4_2impfci(self, mode):
-        """Tests for N=10 U=4 Hubbard model with double site CCSD impurities
+    def _test_10_u2_2impfci(self, mode):
+        """Tests for N=10 U=2 Hubbard model with double site CCSD impurities
         and 2-site FCI fragment (but complete bath). With no projectors on
         external correction, should still be exact.
         """
@@ -149,12 +149,74 @@ class TestSolvers(TestCase):
         self.assertAlmostEqual(emb.e_corr, fci.e_tot - mf.e_tot)
         self.assertAlmostEqual(emb.e_tot, fci.e_tot)
 
-        # Also check the use of symmetry here...
-
     def test_hub_ec_2impfci_proj0_fciv(self):
-        return self._test_10_u4_2impfci(mode='external-fciv')
+        return self._test_10_u2_2impfci(mode='external-fciv')
     def test_hub_ec_2impfci_proj0_ccsdv(self):
-        return self._test_10_u4_2impfci(mode='external-ccsdv')
+        return self._test_10_u2_2impfci(mode='external-ccsdv')
+
+    def _test_10_u2_eccc_sym(self, mode, proj=0):
+        """Test symmetry in external correction via comparison to system without use of symmetry
+        """
+
+        mf = testsystems.hubb_10_u2.rhf()
+
+        emb = vayesta.ewf.EWF(mf)
+        fci_frags = []
+        with emb.site_fragmentation() as f:
+            # Set up a two-site FCI fragment on all symmetrically equivalent fragments
+            fci_frags.append(f.add_atomic_fragment([0, 1], solver='FCI', bath_options=dict(bathtype='dmet'), store_wf_type='CCSDTQ'))
+            fci_frags.append(f.add_atomic_fragment([2, 3], solver='FCI', bath_options=dict(bathtype='dmet'), store_wf_type='CCSDTQ'))
+            fci_frags.append(f.add_atomic_fragment([4, 5], solver='FCI', bath_options=dict(bathtype='dmet'), store_wf_type='CCSDTQ'))
+            fci_frags.append(f.add_atomic_fragment([6, 7], solver='FCI', bath_options=dict(bathtype='dmet'), store_wf_type='CCSDTQ'))
+            fci_frags.append(f.add_atomic_fragment([8, 9], solver='FCI', bath_options=dict(bathtype='dmet'), store_wf_type='CCSDTQ'))
+            ccsd_frag = f.add_full_system(solver='CCSD', bath_options=dict(bathtype='full'), active=False)
+        emb.kernel()
+
+        for fci_frag in fci_frags:
+            fci_frag.active = False
+        ccsd_frag.active = True
+        # Note that proj=0 will 'over correct' here and double-count bath-bath tailoring contributions.
+        # However, it should still be equivalent to the non symmetry version
+        ccsd_frag.add_external_corrections(fci_frags, correction_type=mode, projectors=proj, test_extcorr=True)
+        emb.kernel()
+        e_tot_nosym = emb.e_tot
+
+        # use symmetry of FCI clusters.
+        emb = vayesta.ewf.EWF(mf)
+        fci_frags = []
+        with emb.site_fragmentation() as f:
+            fci_frags.append(f.add_atomic_fragment([0, 1], solver='FCI', bath_options=dict(bathtype='dmet'), store_wf_type='CCSDTQ'))
+            ccsd_frag = f.add_full_system(solver='CCSD', bath_options=dict(bathtype='full'), active=False)
+
+        # Add the symmetry-derived FCI fragments
+        for fci_frag_sym in fci_frags[0].add_tsymmetric_fragments(tvecs=[5, 1, 1]):
+            fci_frags.append(fci_frag_sym)
+        emb.kernel()
+
+        for fci_frag in fci_frags:
+            fci_frag.active = False
+        ccsd_frag.active = True
+        ccsd_frag.add_external_corrections(fci_frags, correction_type=mode, projectors=proj, test_extcorr=True)
+        emb.kernel()
+
+        self.assertAlmostEqual(emb.e_tot, e_tot_nosym)
+
+    def test_hub_ec_sym_proj0_fciv(self):
+        return self._test_10_u2_eccc_sym(mode='external-fciv', proj=0)
+    def test_hub_ec_sym_proj1_fciv(self):
+        return self._test_10_u2_eccc_sym(mode='external-fciv', proj=1)
+    def test_hub_ec_sym_proj2_fciv(self):
+        return self._test_10_u2_eccc_sym(mode='external-fciv', proj=2)
+    def test_hub_ec_sym_proj0_ccsdv(self):
+        return self._test_10_u2_eccc_sym(mode='external-ccsdv', proj=0)
+    def test_hub_ec_sym_proj1_ccsdv(self):
+        return self._test_10_u2_eccc_sym(mode='external-ccsdv', proj=1)
+    def test_hub_ec_sym_proj2_ccsdv(self):
+        return self._test_10_u2_eccc_sym(mode='external-ccsdv', proj=2)
+    def test_hub_ec_sym_proj1_dtailor(self):
+        return self._test_10_u2_eccc_sym(mode='delta-tailor', proj=1)
+    def test_hub_ec_sym_proj1_tailor(self):
+        return self._test_10_u2_eccc_sym(mode='tailor', proj=1)
 
     def _test_water_ec_regression(self, mode=None, projectors=None):
     

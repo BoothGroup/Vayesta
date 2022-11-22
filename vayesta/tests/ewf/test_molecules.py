@@ -7,6 +7,9 @@ from vayesta.tests.common import TestCase
 from vayesta.tests import testsystems
 
 
+BATH_OPTS = dict(project_dmet_order = 0)
+
+
 class MoleculeTests(TestCase):
     PLACES_ENERGY = 7
     PLACES_T = 6
@@ -84,9 +87,9 @@ class MoleculeTests(TestCase):
 
         emb = ewf.EWF(
                 testsystems.lih_ccpvdz.rhf(),
-                bath_type='full',
-                solve_lambda=True,
+                bath_options={'bathtype': 'full', **BATH_OPTS},
                 solver_options={
+                    'solve_lambda': True,
                     'conv_tol': self.CONV_TOL,
                     'conv_tol_normt': self.CONV_TOL_NORMT,
                 },
@@ -123,7 +126,7 @@ class MoleculeTests(TestCase):
 
         emb = ewf.EWF(
                 testsystems.lih_ccpvdz.rhf(),
-                bno_threshold=1e-5/2,
+                bath_options={'threshold': 1e-5/2, **BATH_OPTS},
                 solver_options={
                     'conv_tol': self.CONV_TOL,
                     'conv_tol_normt': self.CONV_TOL_NORMT,
@@ -144,7 +147,7 @@ class MoleculeTests(TestCase):
 
         emb = ewf.EWF(
                 testsystems.lih_ccpvdz.rhf(),
-                bath_type='dmet',
+                bath_options={'bathtype': 'dmet'},
                 solver_options={
                     'conv_tol': self.CONV_TOL,
                     'conv_tol_normt': self.CONV_TOL_NORMT,
@@ -164,7 +167,7 @@ class MoleculeTests(TestCase):
 
         emb = ewf.EWF(
                 testsystems.water_ccpvdz.rhf(),
-                bath_type='dmet',
+                bath_options={'bathtype': 'dmet'},
                 solver='FCI',
                 solver_options={
                     'conv_tol': 1e-12,
@@ -187,7 +190,7 @@ class MoleculeTests(TestCase):
         emb = ewf.EWF(
                 testsystems.water_ccpvdz.rhf(),
                 solver='TCCSD',
-                bno_threshold=1e-4/2,
+                bath_options={'threshold': 1e-4/2, **BATH_OPTS},
                 solver_options={
                     'conv_tol': self.CONV_TOL,
                     'conv_tol_normt': self.CONV_TOL_NORMT,
@@ -206,7 +209,7 @@ class MoleculeTests(TestCase):
         emb = ewf.EWF(
                 testsystems.water_ccpvdz.rhf(),
                 solver='TCCSD',
-                bno_threshold=1e-4/2,
+                bath_options={'threshold': 1e-4/2, **BATH_OPTS},
                 solver_options={
                     'conv_tol': self.CONV_TOL,
                     'conv_tol_normt': self.CONV_TOL_NORMT,
@@ -224,7 +227,7 @@ class MoleculeTests(TestCase):
         (Should reproduce result of test_tccsd_solver)"""
         emb = ewf.EWF(
                 testsystems.water_ccpvdz.rhf(),
-                bno_threshold=1e-4/2,
+                bath_options={'threshold': 1e-4/2, **BATH_OPTS},
                 solver_options={
                     'conv_tol': self.CONV_TOL,
                     'conv_tol_normt': self.CONV_TOL_NORMT,
@@ -249,7 +252,7 @@ class MoleculeTests(TestCase):
 
         emb = ewf.EWF(
                 testsystems.water_ccpvdz.rhf(),
-                bno_threshold=1e-4/2,   # redefinition of eta
+                bath_options={'threshold': 1e-4/2, **BATH_OPTS},
                 sc_mode=1,
                 solver_options={
                     'conv_tol': self.CONV_TOL,

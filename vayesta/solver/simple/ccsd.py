@@ -9,6 +9,7 @@ import pyscf.lib
 import pyscf.ao2mo
 import vayesta
 import vayesta.core.ao2mo.pyscf_eris
+from vayesta.core.types.wf import WaveFunction
 
 
 def _pack_ovvv(ovvv):
@@ -24,10 +25,12 @@ def _pack_vvvv(vvvv):
 
 
 def CCSD(fock, eris, nocc, **kwargs):
-    if fock[0].ndim == 1:
+    ndim = (np.ndim(fock[0]) + 1)
+    if ndim == 2:
         return RCCSD(fock, eris, nocc, **kwargs)
-    if fock[0].ndim == 2:
+    if ndim == 3:
         return UCCSD(fock, eris, nocc, **kwargs)
+    raise ValueError("Fock ndim= %d" % ndim)
 
 
 class RCCSD:
@@ -40,9 +43,12 @@ class RCCSD:
         self.solver.conv_tol = conv_tol
         self.solver.conv_tol_normt = conv_tol_normt
         self.solver.get_e_hf = (lambda self: 0.0).__get__(self.solver)
+        # Result
+        self.wf = None
 
     def init_mf(self, fock, nocc):
         mol = pyscf.gto.M()
+        mol.verbose = 0
         mf = pyscf.scf.RHF(mol)
         nmo = fock.shape[-1]
         nvir = nmo - nocc
@@ -58,7 +64,7 @@ class RCCSD:
         raise NotImplementedError
 
     def __getattr__(self, key):
-        if key in ['converged', 'e_corr', 't1', 't2']:
+        if key in ['converged', 'e_corr']:
             return getattr(self.solver, key)
         raise AttributeError
 
@@ -66,13 +72,16 @@ class RCCSD:
         return vayesta.core.ao2mo.pyscf_eris.make_ccsd_eris(fock, eris, nocc, mo_energy=mo_energy)
 
     def kernel(self, t1=None, t2=None):
-        return self.solver.kernel(t1=t1, t2=t2, eris=self.eris)
+        self.solver.kernel(t1=t1, t2=t2, eris=self.eris)
+        self.wf = WaveFunction.from_pyscf(self.solver, eris=self.eris)
+        return self.wf
 
 
 class UCCSD(RCCSD):
 
     def init_mf(self, fock, nocc):
         mol = pyscf.gto.M()
+        mol.verbose = 0
         mf = pyscf.scf.UHF(mol)
         nmo = (fock[0].shape[-1], fock[1].shape[-1])
         nvir = (nmo[0]-nocc[0], nmo[1]-nocc[1])

@@ -285,6 +285,8 @@ class Fragment:
         def _get_coeff(key):
             if 'frag' in key:
                 return self.c_frag
+            if 'proj' in key:
+                return self.c_proj
             if 'occ' in key:
                 part = '_occ'
             elif 'vir' in key:
