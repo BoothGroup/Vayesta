@@ -7,7 +7,7 @@ import vayesta.lattmod
 
 nsite = 10
 nelectron = nsite
-hubbard_u = 5.0
+hubbard_u = 4.0
 mol = vayesta.lattmod.Hubbard1D(nsite, nelectron=nelectron, hubbard_u=hubbard_u)
 mf = vayesta.lattmod.LatticeMF(mol)
 mf.kernel()
@@ -35,14 +35,11 @@ with emb.site_fragmentation() as f:
     # Set up a two-site FCI fragmentation of full system
     # Ensure the right number of electrons on each fragment space of the FCI calculation.
     fci_frags.append(f.add_atomic_fragment([0, 1], solver='FCI', bath_options=dict(bathtype='dmet'), store_wf_type='CCSDTQ', nelectron_target=2*nelectron/nsite))
-    fci_frags.append(f.add_atomic_fragment([2, 3], solver='FCI', bath_options=dict(bathtype='dmet'), store_wf_type='CCSDTQ', nelectron_target=2*nelectron/nsite))
-    fci_frags.append(f.add_atomic_fragment([4, 5], solver='FCI', bath_options=dict(bathtype='dmet'), store_wf_type='CCSDTQ', nelectron_target=2*nelectron/nsite))
-    fci_frags.append(f.add_atomic_fragment([6, 7], solver='FCI', bath_options=dict(bathtype='dmet'), store_wf_type='CCSDTQ', nelectron_target=2*nelectron/nsite))
-    fci_frags.append(f.add_atomic_fragment([8, 9], solver='FCI', bath_options=dict(bathtype='dmet'), store_wf_type='CCSDTQ', nelectron_target=2*nelectron/nsite))
     # Add single 'complete' CCSD fragment covering all sites (currently inactive)
     ccsd_frag = f.add_full_system(solver='CCSD', bath_options=dict(bathtype='full'), solver_options=dict(solve_lambda=False, init_guess='CISD'), active=False)
-# FCI fragment symmetry not available for external correction
-#fci_frags = fci_frags.add_tsymmetric_fragments(tvecs=[5, 1, 1])
+for fci_sym_frag in fci_frags[0].add_tsymmetric_fragments(tvecs=[5, 1, 1]):
+    # Add symmetry-derived FCI fragments to avoid multiple calculations
+    fci_frags.append(fci_sym_frag)
 emb.kernel()
 assert(emb.converged)
 
@@ -54,6 +51,9 @@ def ext_corr(emb, fci_frags, ccsd_frag, mode='external-ccsdv', projectors=0):
     The other option is 'projectors', which should be an integer between 0 and 2 (inclusive).
     The larger the number, the more fragment projectors are applied to the correcting T2 contributions, and less
     'bath' correlation from the FCI clusters is used as a constraint in the external correction of the CCSD clusters.
+    NOTE that with multiple FCI fragments providing constraints and overlapping bath spaces, proj=0 will
+    overcount the correction, so do not use with multiple FCI clusters. It will not e.g. tend to the right answer as
+    the FCI bath space becomes complete. Only use with a single FCI fragment.
     """
 
     ccsd_frag.clear_external_corrections() # Clear any previous corrections applied
@@ -108,15 +108,11 @@ print("E(MF)=                                   %+16.8f Ha, conv = %s" % (mf.e_t
 print("E(CCSD)=                                 %+16.8f Ha, conv = %s" % (cc.e_tot/nsite, cc.converged))
 print("E(FCI)=                                  %+16.8f Ha, conv = %s" % (fci.e_tot/nsite, fci.converged))
 print("E(Emb. FCI, 2-site)=                     %+16.8f Ha, conv = %s" % (emb_simp.e_tot/nsite, emb_simp.converged))
-print("E(EC-CCSD, 2-site FCI, 0 proj, ccsd V)=  %+16.8f Ha, conv = %s" % ((e_extcorr[0]/nsite), extcorr_conv[0]))
 print("E(EC-CCSD, 2-site FCI, 1 proj, ccsd V)=  %+16.8f Ha, conv = %s" % ((e_extcorr[1]/nsite), extcorr_conv[1]))
 print("E(EC-CCSD, 2-site FCI, 2 proj, ccsd V)=  %+16.8f Ha, conv = %s" % ((e_extcorr[2]/nsite), extcorr_conv[2]))
-print("E(EC-CCSD, 2-site FCI, 0 proj, fci V)=   %+16.8f Ha, conv = %s" % ((e_extcorr[3]/nsite), extcorr_conv[3]))
 print("E(EC-CCSD, 2-site FCI, 1 proj, fci V)=   %+16.8f Ha, conv = %s" % ((e_extcorr[4]/nsite), extcorr_conv[4]))
 print("E(EC-CCSD, 2-site FCI, 2 proj, fci V)=   %+16.8f Ha, conv = %s" % ((e_extcorr[5]/nsite), extcorr_conv[5]))
-print("E(T-CCSD, 2-site FCI, 0 proj)=           %+16.8f Ha, conv = %s" % ((e_tailor[0]/nsite), tailor_conv[0]))
 print("E(T-CCSD, 2-site FCI, 1 proj)=           %+16.8f Ha, conv = %s" % ((e_tailor[1]/nsite), tailor_conv[1]))
 print("E(T-CCSD, 2-site FCI, 2 proj)=           %+16.8f Ha, conv = %s" % ((e_tailor[2]/nsite), tailor_conv[2]))
-print("E(DT-CCSD, 2-site FCI, 0 proj)=          %+16.8f Ha, conv = %s" % ((e_dtailor[0]/nsite), dtailor_conv[0]))
 print("E(DT-CCSD, 2-site FCI, 1 proj)=          %+16.8f Ha, conv = %s" % ((e_dtailor[1]/nsite), dtailor_conv[1]))
 print("E(DT-CCSD, 2-site FCI, 2 proj)=          %+16.8f Ha, conv = %s" % ((e_dtailor[2]/nsite), dtailor_conv[2]))

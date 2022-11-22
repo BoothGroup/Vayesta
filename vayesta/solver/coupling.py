@@ -604,6 +604,14 @@ def externally_correct(solver, external_corrections, eris=None, test_extcorr=Fal
     else:
         mo_energy = eris.mo_energy
 
+    if (len(external_corrections) > 1) and any([corr[2] == 0 for corr in external_corrections]):
+        # We are externally correcting from multiple fragments, but not projecting them
+        # into their fragment spaces. This means we are at risk of double-counting the external
+        # corrections.
+        solver.log.warn("Multiple external correcting fragments, but not fragment-projecting the resulting correction!")
+        solver.log.warn("This will likely lead to double-counting of external correction.")
+        solver.log.warn("Are you sure you want to do this?!")
+
     if any([corr[1] == 'external-ccsdv' for corr in external_corrections]):
         # At least one fragment is externally corrected, *and* contracted with
         # integrals in the parent cluster. We can take the integrals from eris
