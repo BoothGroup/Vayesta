@@ -50,6 +50,8 @@ class Options(OptionsBase):
     screening: typing.Optional[str] = None
     # Fragment specific
     # -----------------
+    # Auxiliary fragments are treated before non-auxiliary fragments, but do not contribute to expectation values
+    auxiliary: bool = False
     coupled_fragments: list = dataclasses.field(default_factory=list)
     sym_factor: float = 1.0
 
@@ -388,6 +390,11 @@ class Fragment:
         occ = (self.base.mo_occ > 0)
         e_mf = np.sum(np.diag(hveff)[occ])
         return e_mf
+
+    @property
+    def contributes(self):
+        """True if fragment contributes to expectation values, else False."""
+        return (self.active and not self.opts.auxiliary)
 
     def get_fragment_projector(self, coeff, c_proj=None, inverse=False):
         """Projector for one index of amplitudes local energy expression.

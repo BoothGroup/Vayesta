@@ -52,8 +52,6 @@ class Options(BaseFragment.Options):
     store_wf_type: str = None               # If set, fragment WFs will be converted to the respective type, before storing them
     # Fragment specific
     # -----------------
-    # Auxiliary fragments are treated before non-auxiliary fragments, but do not contribute to expectation values
-    auxiliary: bool = False
     wf_factor: Optional[int] = None
     # TODO: move these:
     # CAS methods
@@ -362,11 +360,6 @@ class Fragment(BaseFragment):
 
     # --- Expectation values
     # ----------------------
-
-    @property
-    def contributes(self):
-        """True if fragment contributes to expectation values, else False."""
-        return (self.active and not self.opts.auxiliary)
 
     # --- Energies
 
