@@ -176,7 +176,7 @@ class UEWF(REWF, UEmbedding):
         # Fragment dependent projection operator:
         if dm2 is None:
             proj_x = []
-            for x in self.get_fragments(active=True):
+            for x in self.get_fragments(contributes=True):
                 tmpa = np.dot(x.cluster.c_active[0].T, ovlp)
                 tmpb = np.dot(x.cluster.c_active[1].T, ovlp)
                 proj_x.append([])
@@ -238,7 +238,7 @@ class UEWF(REWF, UEmbedding):
                     ssz[a,b] += (np.sum(tmpa*pb[0]) + np.sum(tmpb*pb[1]))/4
         else:
             # Cumulant DM2 contribution:
-            for ix, x in enumerate(self.get_fragments(active=True)):
+            for ix, x in enumerate(self.get_fragments(contributes=True)):
                 dm2aa, dm2ab, dm2bb = x.make_fragment_dm2cumulant()
                 for a in range(natom):
                     pa = proj_x[ix][a]

@@ -167,14 +167,18 @@ class EWF(Embedding):
         self.log.info("RUNNING SOLVERS")
         self.log.info("===============")
         with log_time(self.log.timing, "Total time for solvers: %s"):
-            for x in fragments:
-                msg = "Solving %s%s" % (x, (" on MPI process %d" % mpi.rank) if mpi else "")
-                self.log.info(msg)
-                self.log.info(len(msg)*"-")
-                with self.log.indent():
-                    x.kernel()
-            if mpi:
-                mpi.world.Barrier()
+            # Split fragments in auxiliary and regular, solve auxiliary fragments first
+            fragments_aux = [x for x in fragments if x.opts.auxiliary]
+            fragments_reg = [x for x in fragments if not x.opts.auxiliary]
+            for frags in [fragments_aux, fragments_reg]:
+                for x in frags:
+                    msg = "Solving %s%s" % (x, (" on MPI process %d" % mpi.rank) if mpi else "")
+                    self.log.info(msg)
+                    self.log.info(len(msg)*"-")
+                    with self.log.indent():
+                        x.kernel()
+                if mpi:
+                    mpi.world.Barrier()
 
         if self.solver.lower() == 'dump':
             self.log.output("Clusters dumped to file '%s'", self.opts.solver_options['dumpfile'])
@@ -335,7 +339,7 @@ class EWF(Embedding):
     def get_wf_corr_energy(self):
         e_corr = 0.0
         # Only loop over fragments of own MPI rank
-        for x in self.get_fragments(active=True, sym_parent=None, mpi_rank=mpi.rank):
+        for x in self.get_fragments(contributes=True, sym_parent=None, mpi_rank=mpi.rank):
             if x.results.e_corr is not None:
                 ex = x.results.e_corr
             else:
@@ -402,7 +406,7 @@ class EWF(Embedding):
                     + einsum('pqrs,pqrs', gab, dm2ab))
         elif dm2 == 'projected-lambda':
             e2 = 0.0
-            for x in self.get_fragments(active=True, sym_parent=None, mpi_rank=mpi.rank):
+            for x in self.get_fragments(contributes=True, sym_parent=None, mpi_rank=mpi.rank):
                 ex = x.results.e_corr_dm2cumulant
                 if ex is None or (t_as_lambda is not None and (t_as_lambda != x.opts.t_as_lambda)):
                     ex = x.make_fragment_dm2cumulant_energy(t_as_lambda=t_as_lambda)
@@ -435,7 +439,7 @@ class EWF(Embedding):
                          - einsum('ijab,ibaj', c2, eris))
         else:
             e_doubles = 0.0
-            for x in self.get_fragments(active=True, sym_parent=None, mpi_rank=mpi.rank):
+            for x in self.get_fragments(contributes=True, sym_parent=None, mpi_rank=mpi.rank):
                 pwf = x.results.pwf.as_ccsd()
                 ro = x.get_overlap('mo-occ|cluster-occ')
                 rv = x.get_overlap('mo-vir|cluster-vir')
@@ -525,7 +529,7 @@ class EWF(Embedding):
 
         e_fbc = 0.0
         # Only loop over fragments of own MPI rank
-        for fx in self.get_fragments(active=True, sym_parent=None, flags=dict(is_envelop=True), mpi_rank=mpi.rank):
+        for fx in self.get_fragments(contributes=True, sym_parent=None, flags=dict(is_envelop=True), mpi_rank=mpi.rank):
             ex = 0
             if occupied:
                 get_fbc = getattr(fx._bath_factory_occ, 'get_finite_bath_correction', False)
