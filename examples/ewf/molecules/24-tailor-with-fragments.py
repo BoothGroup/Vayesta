@@ -39,17 +39,14 @@ for d in np.arange(1.0, 3.1, 0.25):
     tcc = vayesta.ewf.EWF(mf, solver='CCSD', bath_options=dict(bathtype='full'), solve_lambda=True)
     # store_wf_type determines the type of wave function which will be stored.
     # For the tailoring below, only the T1 and T2 amplitudes of the FCI fragments are needed,
-    # and the FCI wave function can thus be converted + truncated to a CCSD wave function:
+    # and the FCI wave function can thus be converted + truncated to a CCSD wave function.
+    # Setting auxilary to true, makes sure that the FCI fragments are solved first, but do not contribute
+    # to expectation values.
     with tcc.fragmentation() as f:
-        fci_x1 = f.add_atomic_fragment(0, solver='FCI', bath_options=dict(bathtype='dmet'), store_wf_type='CCSD')
-        fci_x2 = f.add_atomic_fragment(1, solver='FCI', bath_options=dict(bathtype='dmet'), store_wf_type='CCSD')
-        ccsd = f.add_atomic_fragment([0, 1], active=False)
-    # Solve FCI
-    tcc.kernel()
-    fci_x1.active = fci_x2.active = False
+        fci_x1 = f.add_atomic_fragment(0, solver='FCI', bath_options=dict(bathtype='dmet'), store_wf_type='CCSD', auxiliary=True)
+        fci_x2 = f.add_atomic_fragment(1, solver='FCI', bath_options=dict(bathtype='dmet'), store_wf_type='CCSD', auxiliary=True)
+        ccsd = f.add_atomic_fragment([0, 1])
     ccsd.add_external_corrections([fci_x1, fci_x2], correction_type='tailor')
-    ccsd.active = True
-    # Solve CCSD
     tcc.kernel()
 
     energies = [mf.e_tot, cc.e_tot if cc.converged else np.nan, fci.e_tot, tcc.e_tot, tcc.get_dm_energy()]

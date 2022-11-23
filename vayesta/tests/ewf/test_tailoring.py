@@ -27,14 +27,10 @@ class TestRestricted(TestCase):
         solver_opts = dict(conv_tol= 1e-12, conv_tol_normt=1e-8, solve_lambda=False)
         emb = vayesta.ewf.EWF(cls.mf, bath_options=dict(threshold=bno_threshold), solver_options=solver_opts)
         with emb.iao_fragmentation() as f:
-            fci1 = f.add_atomic_fragment(0, solver='FCI', bath_options=dict(bathtype='dmet'))
-            fci2 = f.add_atomic_fragment(1, solver='FCI', bath_options=dict(bathtype='dmet'))
-            ccsd1 = f.add_atomic_fragment(0, active=False)
-            ccsd2 = f.add_atomic_fragment(1, active=False)
-        # Solve FCI
-        emb.kernel()
-        fci1.active = fci2.active = False
-        ccsd1.active = ccsd2.active = True
+            fci1 = f.add_atomic_fragment(0, solver='FCI', bath_options=dict(bathtype='dmet'), auxiliary=True)
+            fci2 = f.add_atomic_fragment(1, solver='FCI', bath_options=dict(bathtype='dmet'), auxiliary=True)
+            ccsd1 = f.add_atomic_fragment(0)
+            ccsd2 = f.add_atomic_fragment(1)
         if tailoring == 'onsite':
             ccsd1.add_external_corrections([fci1], correction_type, projectors=0)
             ccsd2.add_external_corrections([fci2], correction_type, projectors=0)
@@ -46,7 +42,6 @@ class TestRestricted(TestCase):
             ccsd2.add_external_corrections([fci1, fci2], correction_type, projectors=2)
         else:
             raise ValueError
-        # Solve (tailored) CCSD
         emb.kernel()
         return emb
 

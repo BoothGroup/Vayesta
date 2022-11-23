@@ -38,16 +38,10 @@ for d in np.arange(1.0, 3.1, 0.1):
     def make_tcc(correction_type):
         tcc = vayesta.ewf.EWF(mf, solver='CCSD', bath_options=dict(bathtype='full'), solver_options=dict(solve_lambda=True))
         with tcc.cas_fragmentation() as f:
-            cas = f.add_cas_fragment(*cassize, solver='FCI', store_wf_type='CCSD', bath_options=dict(bathtype='dmet'))
+            cas = f.add_cas_fragment(*cassize, solver='FCI', store_wf_type='CCSD', bath_options=dict(bathtype='dmet'), auxiliary=True)
         with tcc.sao_fragmentation() as f:
-            ccsd = f.add_atomic_fragment([0, 1], active=False)
-        # Solve FCI
-        tcc.kernel()
-        assert tcc.converged
-        cas.active = False
+            ccsd = f.add_atomic_fragment([0, 1])
         ccsd.add_external_corrections([cas], correction_type=correction_type, projectors=0)
-        ccsd.active = True
-        # Solve CCSD
         tcc.kernel()
         return tcc
 

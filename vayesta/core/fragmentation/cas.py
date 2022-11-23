@@ -65,7 +65,7 @@ class CAS_Fragmentation(Fragmentation):
 
         def check_for_degen(energies, po, pv, name=""):
             # Log orbital energies
-            for i in range(po-2, pv+2):
+            for i in range(max(po-2, 0), min(pv+2, len(energies))):
                 if i < po:
                     orbtype = 'core'
                 elif i >= pv:
