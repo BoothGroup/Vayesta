@@ -139,7 +139,7 @@ class Fragment(BaseFragment):
         Parameters
         ----------
         fragments: list
-            List of solved fragments, used for the correction.
+            List of solved or auxiliary fragments, used for the correction.
         correction_type: str, optional
             Type of correction:
                 'tailor': replace CCSD T1 and T2 amplitudes with FCI amplitudes.
@@ -154,6 +154,8 @@ class Fragment(BaseFragment):
             raise ValueError
         if self.solver != 'CCSD':
             raise RuntimeError
+        if np.any([(getattr_recursive(f, 'results.wf', None) is None and not f.opts.auxiliary) for f in fragments]):
+            raise ValueError("Fragments for external correction need to be already solved or defined as auxiliary fragments.")
         self.flags.external_corrections.extend(
                 [(f.id, correction_type, projectors) for f in fragments])
 
