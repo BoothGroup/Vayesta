@@ -9,6 +9,199 @@ from vayesta.core.util import *
 from vayesta.ewf.rdm import _get_mockcc
 from vayesta.mpi import mpi
 
+
+def get_global_ip_bra(emb, slow=True, t_as_lambda=False):
+
+    if t_as_lambda is None:
+        t_as_lambda = emb.opts.t_as_lambda
+
+    if slow:
+        t1 = emb.get_global_t1()
+        t2 = emb.get_global_t2()
+        l1 = t1 if t_as_lambda else emb.get_global_l1()
+        l2 = t2 if t_as_lambda else emb.get_global_l2()
+
+        nocc, nvir = t1.shape
+        nmo = nocc + nvir
+
+        ei_o = np.eye(nocc) - np.dot(t1, l1.T) #- einsum('imab,pmab->pi', l2, (2*t2 - t2.transpose(0,1,3,2))) #problem term
+        ei_v = l1.T
+        eija_o = einsum('ijea,pe->pija', (l2.transpose(1,0,2,3) - 2*l2), t1) #+ 2*einsum('ja,pi->pija', l1, np.eye(nocc)) - einsum('ia,pj->pija', l1, np.eye(nocc))
+        eija_v = 2*l2.transpose(2,0,1,3) - l2.transpose(3,0,1,2)
+
+        ei = np.concatenate((ei_o, ei_v))
+        eija = np.concatenate((eija_o, eija_v))
+
+        return ei, eija
+
+    ovlp = emb.get_ovlp()
+    cs_occ = np.dot(emb.mo_coeff_occ.T, ovlp)
+    cs_vir = np.dot(emb.mo_coeff_vir.T, ovlp)
+
+    t1g = emb.get_global_t1()
+    l1g = t1 if t_as_lambda else emb.get_global_l1()
+
+    nocc, nvir = cs_occ.shape[0], cs_vir.shape[0]
+    nmo = nocc + nvir
+
+    ei = np.zeros((nmo, nocc))
+    eija = np.zeros((nmo, nocc, nocc, nvir))
+
+
+    symfilter = {}#dict(sym_parent=None) if use_sym else {}
+    for fx in emb.get_fragments(active=True, mpi_rank=mpi.rank, **symfilter):
+
+        cx_occ = fx.get_overlap('mo[occ]|cluster[occ]')
+        cx_vir = fx.get_overlap('mo[vir]|cluster[vir]')
+        cx = fx.get_overlap('mo|cluster')
+        cfx = fx.get_overlap('cluster[occ]|frag')
+        #mfx = fx.get_overlap('mo[occ]|frag')
+        cfc = cfx.dot(cfx.T)
+        # No late symmetrisation
+
+        t1 = einsum('iI,aA,ia->IA', cx_occ, cx_vir, t1g)
+        l1 = einsum('iI,aA,ia->IA', cx_occ, cx_vir, l1g)
+
+        wfx = fx.results.pwf.as_ccsd().restore()
+        t2 = wfx.t2
+        l2 = t2 if t_as_lambda else wfx.l2
+        nocc, nvir = t1.shape
+        nmo = nocc + nvir
+
+        ei_o = cfc - einsum('ia,ja->ij', t1, l1)#0.5*einsum('xi,ia,ja->xj', cfc, t1, l1) - 0.5*einsum('xj,ia,ja->ix', cfc, t1, l1) #- einsum('imab,pmab->pi', l2, (2*t2 - t2.transpose(0,1,3,2))) #problem term
+        for fy in emb.get_fragments(active=True, mpi_rank=mpi.rank, **symfilter):
+            #cy_occ = np.dot(cs_occ, cy_occ_ao)
+            #cy_vir = np.dot(cs_vir, cy_vir_ao)
+            cy_occ = fy.get_overlap('mo[occ]|cluster[occ]')
+            cy_vir = fy.get_overlap('mo[vir]|cluster[vir]')
+            cfy = fy.get_overlap('cluster[occ]|frag')
+            cy = fy.get_overlap('mo|cluster')
+            # Overlap between cluster x and cluster y:
+            rxy_occ = np.dot(cx_occ.T, cy_occ)
+            rxy_vir = np.dot(cx_vir.T, cy_vir)
+            #mfy = np.dot(cs_occ, cy_frag)
+
+            wfy = fy.results.pwf.as_ccsd().restore()
+            l2y = wfy.t2 if t_as_lambda else wfy.l2
+            theta = 2*t2 - t2.transpose(0,1,3,2)
+            #ei_o -= einsum('IMAB,iI,mM,aA,bB,pmab->pi', l2y, rxy_occ, rxy_occ, rxy_vir, rxy_vir, theta)
+
+        ei_v = wfx.l1.T#.dot(cfc)
+        eija_o  = einsum('ijea,pe->pija', (l2.transpose(1,0,2,3) - 2*l2), t1)
+        #eija_o += 2*einsum('ja,pi->pija', l1, cfc)
+        #eija_o -= einsum('ia,pj->pija', l1, cfc)
+        eija_v = 2*l2.transpose(2,0,1,3) - l2.transpose(3,0,1,2)
+
+        ei_x = np.concatenate((ei_o, ei_v))
+        eija_x = np.concatenate((eija_o, eija_v))
+
+        ei += einsum('pP,iI,PI->pi', cx, cx_occ, ei_x)
+        eija += einsum('pP,iI,jJ,aA,PIJA->pija', cx, cx_occ, cx_occ, cx_vir, eija_x)
+
+    return ei, eija
+
+def _build_bra(t1, t2, l1, l2):
+    nocc, nvir = t1.shape
+    nmo = nocc+nvir
+    ei_o = np.eye(nocc) - np.dot(t1, l1.T) - einsum('imab,pmab->pi', l2, (2*t2 - t2.transpose(0,1,3,2))) #problem term
+    ei_v = l1.T
+    eija_o = einsum('ijea,pe->pija', (l2.transpose(1,0,2,3) - 2*l2), t1) + 2*einsum('ja,pi->pija', l1, np.eye(nocc)) - einsum('ia,pj->pija', l1, np.eye(nocc))
+    eija_v = 2*l2.transpose(2,0,1,3) - l2.transpose(3,0,1,2)
+
+    ei = np.concatenate((ei_o, ei_v))
+    eija = np.concatenate((eija_o, eija_v))
+
+    return ei, eija
+
+def _build_ket(t1, t2, l1, l2):
+    nocc, nvir = t1.shape
+    nmo = nocc+nvir
+    bi_o = np.eye(nocc)
+    bi_v = t1.T
+    bija_o = np.zeros((nocc,nocc,nocc,nvir))
+    bija_v = t2.transpose(2,0,1,3)
+
+    bi = np.concatenate((bi_o, bi_v))
+    bija = np.concatenate((bija_o, bija_v))
+
+    return bi, bija
+
+def get_global_ip_ket(emb, slow=True, t_as_lambda=False):
+
+    if t_as_lambda is None:
+        t_as_lambda = emb.opts.t_as_lambda
+    if slow:
+        t1 = emb.get_global_t1()
+        t2 = emb.get_global_t2()
+
+        nocc, nvir = t1.shape
+        #nmo = nocc+nvir
+
+        bi_o = np.eye(nocc)
+        bi_v = t1.T
+        bija_o = np.zeros((nocc,nocc,nocc,nvir))
+        bija_v = t2.transpose(2,0,1,3)
+
+        bi = np.concatenate((bi_o, bi_v))
+        bija = np.concatenate((bija_o, bija_v))
+
+        return bi, bija
+
+    ovlp = emb.get_ovlp()
+    cs_occ = np.dot(emb.mo_coeff_occ.T, ovlp)
+    cs_vir = np.dot(emb.mo_coeff_vir.T, ovlp)
+
+    nocc, nvir = cs_occ.shape[0], cs_vir.shape[0]
+    nmo = nocc + nvir
+
+    bi = np.zeros((nmo, nocc))
+    bija = np.zeros((nmo, nocc, nocc, nvir))
+
+
+    symfilter = {}#dict(sym_parent=None) if use_sym else {}
+    for fx in emb.get_fragments(active=True, mpi_rank=mpi.rank, **symfilter):
+
+        cx_occ = fx.get_overlap('mo[occ]|cluster[occ]')
+        cx_vir = fx.get_overlap('mo[vir]|cluster[vir]')
+        cx = fx.get_overlap('mo|cluster')
+        cfx = fx.get_overlap('cluster[occ]|frag')
+        #mfx = fx.get_overlap('mo[occ]|frag')
+
+        # No late symmetrisation
+        wfx = fx.results.pwf.as_ccsd().restore()
+        t1, t2 = wfx.t1, wfx.t2
+
+        nocc, nvir = t1.shape
+        nmo = nocc + nvir
+
+        bi_o = cfx.dot(cfx.T) #np.eye(nocc) Identity matrix projected onto fragment
+        bi_v = t1.T
+        bija_o = np.zeros((nocc,nocc,nocc,nvir))
+        bija_v = t2.transpose(2,0,1,3)
+
+        bi_x = np.concatenate((bi_o, bi_v))
+        bija_x = np.concatenate((bija_o, bija_v))
+
+        bi += einsum('pP,iI,PI->pi', cx, cx_occ, bi_x)
+        bija += einsum('pP,iI,jJ,aA,PIJA->pija', cx, cx_occ, cx_occ, cx_vir, bija_x)
+
+
+    return bi, bija
+
+def get_global_ea_bra(emb, slow=True, t_as_lambda=False):
+
+    if t_as_lambda is None:
+        t_as_lambda = emb.opts.t_as_lambda
+    if slow:
+        raise NotImplementedError()
+
+def get_global_ea_ket(emb, slow=True, t_as_lambda=False):
+
+    if t_as_lambda is None:
+        t_as_lambda = emb.opts.t_as_lambda
+    if slow:
+        raise NotImplementedError()
+
 def make_ccsdgf_moms(emb, ao_basis=False, t_as_lambda=False, ovlp_tol=None, svd_tol=None, symmetrize=False, use_sym=False, mpi_target=None, slow=True):
     nmom = emb.opts.nmoments
     if t_as_lambda is None:
@@ -268,6 +461,3 @@ def make_ea_moms(cc, t1, t2, l1, l2, nmom=3, contract_be=True):
                         ea[q], eiab[q] = eom.vector_to_amplitudes(e_vec)
 
             return ba, biab, hea, heiab
-
-
-

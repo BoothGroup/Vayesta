@@ -279,7 +279,7 @@ class Fragment(BaseFragment):
         # Keep ERIs stored
         if (self.opts.store_eris or self.base.opts.store_eris):
             self._eris = eris
-
+        self._solver = cluster_solver
         return results
 
     def get_solver_options(self, solver):
