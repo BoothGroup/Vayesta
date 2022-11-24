@@ -1555,16 +1555,18 @@ class Embedding:
         self.mf.mo_energy = mo_energy
         self.mf.e_tot = self.mf.energy_tot(dm=dm, h1e=self.get_hcore(), vhf=veff)
 
-    def check_fragment_symmetry(self, dm1, charge_tol=1e-6, spin_tol=1e-6):
+    def check_fragment_symmetry(self, dm1, symtol=1e-6):
+        """Check that the mean-field obeys the symmetry between fragments."""
         frags = self.get_symmetry_child_fragments(include_parents=True)
         for group in frags:
             parent, children = group[0], group[1:]
             for child in children:
-                charge_err = parent.get_tsymmetry_error(child, dm1=dm1)
-                if (charge_err > charge_tol):
-                    raise RuntimeError("%s and %s not symmetric: charge error= %.3e !"
-                            % (parent.name, child.name, charge_err))
-                self.log.debugv("Symmetry between %s and %s: charge error= %.3e", parent.name, child.name, charge_err)
+                charge_err, spin_err = parent.get_symmetry_error(child, dm1=dm1)
+                if (max(charge_err, spin_err) > symtol):
+                    raise RuntimeError("%s and %s not symmetric! Errors:  charge= %.2e  spin= %.2e"
+                                       % (parent.name, child.name, charge_err, spin_err))
+                    self.log.debugv("Symmetry between %s and %s: Errors:  charge= %.2e  spin= %.2e",
+                                    parent.name, child.name, charge_err, spin_err)
 
     # --- Decorators
     # These replace the qemb.kernel method!

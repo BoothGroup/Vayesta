@@ -734,7 +734,8 @@ class Fragment:
 
     def get_symmetry_error(self, frag, dm1=None):
         """Get translational symmetry error between two fragments."""
-        if dm1 is None: dm1 = self.mf.make_rdm1()
+        if dm1 is None:
+            dm1 = self.mf.make_rdm1()
         ovlp = self.base.get_ovlp()
         # This fragment (x)
         cx = np.hstack((self.c_frag, self.get_coeff_env()))
