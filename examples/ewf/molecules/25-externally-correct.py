@@ -31,23 +31,21 @@ emb = vayesta.ewf.EWF(mf)
 with emb.iao_fragmentation() as f:
     # Add all atomic FCI fragments with DMET bath
     # Store the FCI wave functions as CCSDTQ types, so they can be used for correction later.
-    fci_frags = f.add_all_atomic_fragments(solver='FCI', bath_options=dict(bathtype='dmet'), store_wf_type='CCSDTQ')
-    # Add single 'complete' CCSD fragment covering all IAOs, but set as inactive
-    ccsd_frag = f.add_full_system(solver='CCSD', bath_options=dict(bathtype='full'), active=False)
-emb.kernel()
-# Switch active <-> inactive fragments, and run the full system CCSD fragment, applying external correction
-for fci_frag in fci_frags:
-    fci_frag.active = False
-ccsd_frag.active = True
-# Setup the external correction from the CCSD fragments.
+    # These want to be flagged as 'auxiliary', as they are solved first, and then used as constraints for the 
+    # non-auxiliary fragments.
+    fci_frags = f.add_all_atomic_fragments(solver='FCI', bath_options=dict(bathtype='dmet'), store_wf_type='CCSDTQ', auxiliary=True)
+    # Add single 'complete' CCSD fragment covering all IAOs
+    ccsd_frag = f.add_full_system(solver='CCSD', bath_options=dict(bathtype='full'))
+# Setup the external correction from the CCSD fragment.
 # Two main options: correction_type='external-ccsdv' and 'external-fciv'. For the important T3 * V contribution to the
 #   T2 amplitudes, this determines whether the V is expressed in the FCI or CCSD cluster space. The CCSD cluster is
 #   larger, and hence this is likely to be better, as the correction is longer-ranged (though slightly more expensive).
 #   The other option is 'projectors', which should be an integer between 0 and 2 (inclusive).
 #   The larger the number, the more fragment projectors are applied to the correcting T2 contributions, and less
 #   'bath' correlation from the FCI clusters is used as a constraint in the external correction of the CCSD clusters.
+#   For multiple constraining fragments, proj=0 will double-count the correction due to overlapping bath spaces, and 
+#   in this case, only proj=1 will be exact in the limit of enlarging (FCI) bath spaces.
 ccsd_frag.add_external_corrections(fci_frags, correction_type='external-ccsdv', projectors=1)
-# Run kernel again
 emb.kernel()
 print('Total energy from full system CCSD tailored (CCSD Coulomb interaction) by atomic FCI fragments (projectors=1): {}'.format(emb.e_tot))
 
@@ -55,14 +53,9 @@ print('Total energy from full system CCSD tailored (CCSD Coulomb interaction) by
 # Similar set up, but we now have multiple CCSD clusters.
 emb = vayesta.ewf.EWF(mf)
 with emb.iao_fragmentation() as f:
-    fci_frags = f.add_all_atomic_fragments(solver='FCI', bath_options=dict(bathtype='dmet'), store_wf_type='CCSDTQ')
-    ccsd_frags = f.add_all_atomic_fragments(solver='CCSD', bath_options=dict(bathtype='mp2', threshold=1.e-5), active=False)
-emb.kernel()
-for fci_frag in fci_frags:
-    fci_frag.active = False
-for ccsd_frag in ccsd_frags:
-    ccsd_frag.active = True
-    # Now add external corrections to all CCSD clusters, and use 'external-fciv' correction, with 2 projectors
-    ccsd_frag.add_external_corrections(fci_frags, correction_type='external-fciv', projectors=2)
+    fci_frags = f.add_all_atomic_fragments(solver='FCI', bath_options=dict(bathtype='dmet'), store_wf_type='CCSDTQ', auxiliary=True)
+    ccsd_frags = f.add_all_atomic_fragments(solver='CCSD', bath_options=dict(bathtype='mp2', threshold=1.e-5))
+# Now add external corrections to all CCSD clusters, and use 'external-fciv' correction, with 2 projectors
+ccsd_frag.add_external_corrections(fci_frags, correction_type='external-fciv', projectors=2)
 emb.kernel()
 print('Total energy from embedded CCSD tailored (FCI Coulomb interaction) by atomic FCI fragments (projectors=2): {}'.format(emb.e_tot))

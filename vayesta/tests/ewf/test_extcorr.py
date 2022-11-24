@@ -32,9 +32,9 @@ class TestFullEC(TestCase):
 
         fci_frag.active = False
         ccsd.add_external_corrections([fci_frag], correction_type=mode, projectors=proj, test_extcorr=True)
-        ccsd.active=True
+        ccsd.active = True
         ccsd2.add_external_corrections([fci_frag], correction_type=mode, projectors=proj, test_extcorr=True)
-        ccsd2.active=True
+        ccsd2.active = True
         emb.kernel()
 
         fci = pyscf.fci.FCI(mf)
@@ -46,6 +46,17 @@ class TestFullEC(TestCase):
         self.assertAlmostEqual(fci_frag_ecorr, fci.e_tot - mf.e_tot)
         self.assertAlmostEqual(fci_frag_etot, fci.e_tot)
         self.assertAlmostEqual(emb.e_corr, fci_frag_ecorr)
+        self.assertAlmostEqual(emb.e_tot, fci_frag_etot)
+
+        # Rather than setting fragments to active and inactive, we should also be able to run the external correction
+        # in a single kernel call, setting the FCI fragments with auxiliary flags
+        fci_frag.opts.active = True
+        fci_frag.opts.auxiliary = True
+        ccsd.clear_external_corrections()
+        ccsd.add_external_corrections([fci_frag], correction_type=mode, projectors=proj, test_extcorr=True)
+        ccsd2.clear_external_corrections()
+        ccsd2.add_external_corrections([fci_frag], correction_type=mode, projectors=proj, test_extcorr=True)
+        emb.kernel()
         self.assertAlmostEqual(emb.e_tot, fci_frag_etot)
 
     # Test all combinations of options
