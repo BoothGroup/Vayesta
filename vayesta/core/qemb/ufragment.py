@@ -209,7 +209,8 @@ class UFragment(Fragment):
 
     def get_symmetry_error(self, frag, dm1=None):
         """Get translational symmetry error between two fragments."""
-        if dm1 is None: dm1 = self.mf.make_rdm1()
+        if dm1 is None:
+            dm1 = self.mf.make_rdm1()
         dma, dmb = dm1
         ovlp = self.base.get_ovlp()
         # This fragment (x)
