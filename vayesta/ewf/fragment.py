@@ -52,8 +52,6 @@ class Options(BaseFragment.Options):
     store_wf_type: str = None               # If set, fragment WFs will be converted to the respective type, before storing them
     # Fragment specific
     # -----------------
-    # Auxiliary fragments are treated before non-auxiliary fragments, but do not contribute to expectation values
-    auxiliary: bool = False
     wf_factor: Optional[int] = None
     # TODO: move these:
     # CAS methods
@@ -142,7 +140,7 @@ class Fragment(BaseFragment):
         Parameters
         ----------
         fragments: list
-            List of solved fragments, used for the correction.
+            List of solved or auxiliary fragments, used for the correction.
         correction_type: str, optional
             Type of correction:
                 'tailor': replace CCSD T1 and T2 amplitudes with FCI amplitudes.
@@ -161,6 +159,8 @@ class Fragment(BaseFragment):
             raise ValueError
         if self.solver != 'CCSD':
             raise RuntimeError
+        if np.any([(getattr_recursive(f, 'results.wf', None) is None and not f.opts.auxiliary) for f in fragments]):
+            raise ValueError("Fragments for external correction need to be already solved or defined as auxiliary fragments.")
         self.flags.external_corrections.extend(
                 [(f.id, correction_type, projectors) for f in fragments])
         self.flags.test_extcorr = test_extcorr
@@ -373,11 +373,6 @@ class Fragment(BaseFragment):
 
     # --- Expectation values
     # ----------------------
-
-    @property
-    def contributes(self):
-        """True if fragment contributes to expectation values, else False."""
-        return (self.active and not self.opts.auxiliary)
 
     # --- Energies
 

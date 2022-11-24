@@ -473,7 +473,7 @@ def make_rdm2_ccsd_global_wf(emb, ao_basis=False, symmetrize=True, t_as_lambda=N
         Two-particle reduced density matrix in AO (if `ao_basis=True`) or MO basis (default).
     """
     if slow:
-        if with_dm1 and np.any([(x.solver == 'MP2') for x in emb.fragments]):
+        if with_dm1 and np.any([(x.solver == 'MP2') for x in emb.get_fragments(contributes=True)]):
             raise NotImplementedError
         t1 = emb.get_global_t1(for_dm2=True)
         t2 = emb.get_global_t2(for_dm2=True)
