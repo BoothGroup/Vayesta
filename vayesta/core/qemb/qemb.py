@@ -115,6 +115,7 @@ class Options(OptionsBase):
     symmetry_mf_tol: float = 1e-5           # Tolerance for mean-field solution
     screening: Optional[str] = None
     ext_rpa_correction: Optional[str] = None
+    match_cluster_fock: bool = False
 
 class Embedding:
     """Base class for quantum embedding methods.

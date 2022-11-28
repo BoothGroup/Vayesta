@@ -59,6 +59,7 @@ class RClusterHamiltonian:
     class Options(OptionsBase):
         screening: Optional[str] = None
         cache_eris: bool = True
+        match_fock: bool = True
 
     @property
     def _scf_class(self):
@@ -111,7 +112,11 @@ class RClusterHamiltonian:
         seris = self.get_eris_screened()
         return heff, seris
 
-    def get_fock(self, with_vext=True, use_seris=True, with_exxdiv=False):
+    def get_fock(self, with_vext=True, use_seris=None, with_exxdiv=False):
+        if use_seris is None:
+            # Actual default depends on self.opts.match_fock; to reproduce fock we will effectively modify heff
+            use_seris = not self.opts.match_fock
+
         c = self.cluster.c_active
         fock = dot(c.T, self._fragment.base.get_fock(with_exxdiv=with_exxdiv), c)
         if with_vext and self.v_ext is not None:
@@ -132,9 +137,9 @@ class RClusterHamiltonian:
 
     def get_heff(self, eris=None, fock=None, with_vext=True, with_exxdiv=False):
         if eris is None:
-            eris = self.get_eris_bare()
+            eris = self.get_eris_screened()
         if fock is None:
-            fock = self.get_fock(with_vext=False, use_seris=False, with_exxdiv=with_exxdiv)
+            fock = self.get_fock(with_vext=False, with_exxdiv=with_exxdiv)
         occ = np.s_[:self.cluster.nocc_active]
         v_act = 2 * einsum('iipq->pq', eris[occ, occ]) - einsum('iqpi->pq', eris[occ, :, :, occ])
         h_eff = fock - v_act
@@ -324,11 +329,13 @@ class RClusterHamiltonian:
         else:
             # Just set up heff using standard bare eris.
             bare_eris = self.get_eris_bare()
-            heff = pad_to_match(self.get_heff(eris=bare_eris, with_vext=True), dummy_energy)
             if force_bare_eris:
                 clusmf._eri = pad_to_match(bare_eris, 0.0)
             else:
                 clusmf._eri = pad_to_match(self.get_eris_screened())
+
+            heff = pad_to_match(self.get_heff(with_vext=True), dummy_energy)
+
 
         clusmf.get_hcore = lambda *args, **kwargs: heff
         if overwrite_fock:

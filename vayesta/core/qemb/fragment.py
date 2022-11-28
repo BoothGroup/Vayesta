@@ -46,6 +46,7 @@ class Options(OptionsBase):
     store_eris: bool = None     # If True, ERIs will be cached in Fragment.hamil
     dm_with_frozen: bool = None # TODO: is still used?
     screening: typing.Optional[str] = None
+    match_cluster_fock: bool = None
     # Fragment specific
     # -----------------
     # Auxiliary fragments are treated before non-auxiliary fragments, but do not contribute to expectation values
@@ -1052,7 +1053,7 @@ class Fragment:
                                                             log=self.log)
         # This detects based on fragment what kind of Hamiltonian is appropriate (restricted and/or EB).
         return ClusterHamiltonian(self, self.mf, self.log, screening=self.opts.screening,
-                                  cache_eris=self.opts.store_eris)
+                                  cache_eris=self.opts.store_eris, match_fock=self.opts.match_cluster_fock)
 
     def get_solver_options(self, *args, **kwargs):
         raise AbstractMethodError
