@@ -24,9 +24,10 @@ def get_global_ip_bra(emb, slow=True, t_as_lambda=False):
         nocc, nvir = t1.shape
         nmo = nocc + nvir
 
-        ei_o = np.eye(nocc) - np.dot(t1, l1.T) #- einsum('imab,pmab->pi', l2, (2*t2 - t2.transpose(0,1,3,2))) #problem term
+        ei_o = np.eye(nocc) - np.dot(t1, l1.T) - einsum('imab,pmab->pi', l2, (2*t2 - t2.transpose(0,1,3,2))) #problem term
         ei_v = l1.T
-        eija_o = einsum('ijea,pe->pija', (l2.transpose(1,0,2,3) - 2*l2), t1) #+ 2*einsum('ja,pi->pija', l1, np.eye(nocc)) - einsum('ia,pj->pija', l1, np.eye(nocc))
+
+        eija_o = einsum('ijea,pe->pija', (l2.transpose(1,0,2,3) - 2*l2), t1) + 2*einsum('ja,pi->pija', l1, np.eye(nocc)) - einsum('ia,pj->pija', l1, np.eye(nocc))
         eija_v = 2*l2.transpose(2,0,1,3) - l2.transpose(3,0,1,2)
 
         ei = np.concatenate((ei_o, ei_v))
@@ -44,9 +45,11 @@ def get_global_ip_bra(emb, slow=True, t_as_lambda=False):
     nocc, nvir = cs_occ.shape[0], cs_vir.shape[0]
     nmo = nocc + nvir
 
-    ei = np.zeros((nmo, nocc))
-    eija = np.zeros((nmo, nocc, nocc, nvir))
-
+    #ei = np.zeros((nmo, nocc))
+    ei_o = np.eye(nocc) -  einsum('ia,ja->ij', t1g, l1g)
+    ei_v = l1g.T#np.zeros((nvir, nocc))
+    eija_o = np.zeros((nocc , nocc, nocc, nvir))
+    eija_v = np.zeros((nvir , nocc, nocc, nvir))
 
     symfilter = {}#dict(sym_parent=None) if use_sym else {}
     for fx in emb.get_fragments(active=True, mpi_rank=mpi.rank, **symfilter):
@@ -59,16 +62,23 @@ def get_global_ip_bra(emb, slow=True, t_as_lambda=False):
         cfc = cfx.dot(cfx.T)
         # No late symmetrisation
 
-        t1 = einsum('iI,aA,ia->IA', cx_occ, cx_vir, t1g)
-        l1 = einsum('iI,aA,ia->IA', cx_occ, cx_vir, l1g)
+        #t1 = einsum('iI,aA,ia->IA', cx_occ, cx_vir, t1g)
+        #l1 = einsum('iI,aA,ia->IA', cx_occ, cx_vir, l1g)
 
         wfx = fx.results.pwf.as_ccsd().restore()
         t2 = wfx.t2
         l2 = t2 if t_as_lambda else wfx.l2
+
+        t1 = wfx.t1
+        l1 = t1 if t_as_lambda else wfx.l1
+
         nocc, nvir = t1.shape
         nmo = nocc + nvir
 
-        ei_o = cfc - einsum('ia,ja->ij', t1, l1)#0.5*einsum('xi,ia,ja->xj', cfc, t1, l1) - 0.5*einsum('xj,ia,ja->ix', cfc, t1, l1) #- einsum('imab,pmab->pi', l2, (2*t2 - t2.transpose(0,1,3,2))) #problem term
+        #ei_o += cfc #- einsum('ia,ja->ij', t1, l1)#0.5*einsum('xi,ia,ja->xj', cfc, t1, l1) - 0.5*einsum('xj,ia,ja->ix', cfc, t1, l1) #- einsum('imab,pmab->pi', l2, (2*t2 - t2.transpose(0,1,3,2))) #problem term
+        ei_o_x = np.zeros((nocc, ei_o.shape[0]))
+        eija_o_x = np.zeros(( ei_o.shape[0], nocc, nocc, nvir))
+
         for fy in emb.get_fragments(active=True, mpi_rank=mpi.rank, **symfilter):
             #cy_occ = np.dot(cs_occ, cy_occ_ao)
             #cy_vir = np.dot(cs_vir, cy_vir_ao)
@@ -81,23 +91,44 @@ def get_global_ip_bra(emb, slow=True, t_as_lambda=False):
             rxy_vir = np.dot(cx_vir.T, cy_vir)
             #mfy = np.dot(cs_occ, cy_frag)
 
+
+
             wfy = fy.results.pwf.as_ccsd().restore()
             l2y = wfy.t2 if t_as_lambda else wfy.l2
+            t1y = wfy.t1
+            #ei_o_x -= einsum('iI,Ia,aA,jJ,JA->ij', cx_occ, wfx.t1, rxy_vir, cy_occ, wfy.l1)
+
             theta = 2*t2 - t2.transpose(0,1,3,2)
-            #ei_o -= einsum('IMAB,iI,mM,aA,bB,pmab->pi', l2y, rxy_occ, rxy_occ, rxy_vir, rxy_vir, theta)
+            ei_o_x -= einsum('IMAB,iI,mM,aA,bB,pmab->pi', l2y, cy_occ, rxy_occ, rxy_vir, rxy_vir, theta)
 
-        ei_v = wfx.l1.T#.dot(cfc)
-        eija_o  = einsum('ijea,pe->pija', (l2.transpose(1,0,2,3) - 2*l2), t1)
-        #eija_o += 2*einsum('ja,pi->pija', l1, cfc)
-        #eija_o -= einsum('ia,pj->pija', l1, cfc)
-        eija_v = 2*l2.transpose(2,0,1,3) - l2.transpose(3,0,1,2)
+            cfc = cfy.dot(cfy.T)
 
-        ei_x = np.concatenate((ei_o, ei_v))
-        eija_x = np.concatenate((eija_o, eija_v))
+            #eija_o_xy = einsum('IJEA,pe->pija', (l2.transpose(1,0,2,3) - 2*l2), t1y)
 
-        ei += einsum('pP,iI,PI->pi', cx, cx_occ, ei_x)
-        eija += einsum('pP,iI,jJ,aA,PIJA->pija', cx, cx_occ, cx_occ, cx_vir, eija_x)
+            #tmp += 2*einsum('ja,pi->pija', l1, np.eye(nocc)) - einsum('ia,pj->pija', l1, np.eye(nocc))
 
+            eija_o_x += einsum('ijea,eE,pP,PE->pija', (l2.transpose(1,0,2,3) - 2*l2), rxy_vir, cy_occ, t1y)
+
+            eija_o += 2*einsum('jJ,aA,JA,pP,iI,PI->pija', cx_occ, cx_vir, l1, cy_occ, cy_occ, cfc)
+            eija_o -= einsum('iI,aA,IA,pP,jJ,PJ->pija', cx_occ, cx_vir, l1, cy_occ, cy_occ, cfc)
+
+        #ei_v = wfx.l1.T#.dot(cfc)
+        #t1gx = einsum('iI,aA,ia->IA', cx_occ, cx_vir, t1g)
+        #eija_o_x  = einsum('ijea,pe->pija', (l2.transpose(1,0,2,3) - 2*l2), t1gx)
+        #eija_o_x += 2*einsum('ja,pi->pija', l1, cfc)
+        #eija_o_x -= einsum('ia,pj->pija', l1, cfc)
+
+        eija_v_x = 2*l2.transpose(2,0,1,3) - l2.transpose(3,0,1,2)
+
+        #ei_x = np.concatenate((ei_o, ei_v))
+        #eija_x = np.concatenate((eija_o, eija_v))
+
+        ei_o += einsum('pP,Pi->pi', cx_occ, ei_o_x)
+        eija_o += einsum('iI,jJ,aA,pIJA->pija', cx_occ, cx_occ, cx_vir, eija_o_x)
+        eija_v += einsum('pP,iI,jJ,aA,PIJA->pija', cx_vir, cx_occ, cx_occ, cx_vir, eija_v_x)
+
+    ei = np.concatenate((ei_o, ei_v))
+    eija = np.concatenate((eija_o, eija_v))
     return ei, eija
 
 def _build_bra(t1, t2, l1, l2):
