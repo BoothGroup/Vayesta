@@ -52,7 +52,7 @@ jobs:
           bash make_apidoc.sh
           make html
           cd ..
-        if: matrix.documentation
+        if: ${{ matrix.documentation }}
       - name: Deploy docs
         uses: peaceiris/actions-gh-pages@v3
         with:
@@ -60,4 +60,4 @@ jobs:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: docs/build/html
           force_orphan: true
-        if: matrix.documentation && github.ref == 'refs/heads/master'
+        if: ${{ matrix.documentation && github.ref == 'refs/heads/master' && github.event_name != 'schedule' }}
