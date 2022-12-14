@@ -195,7 +195,7 @@ class SymmetryReflection(SymmetryOperation):
         # A reflection can be decomposed into a C2-rotation + inversion
         # We use this to derive the angular transformation matrix:
         rot = scipy.spatial.transform.Rotation.from_rotvec(self.axis*np.pi).as_matrix()
-        angular_rotmats = pyscf.symm.basis._ao_rotation_matrices(self.mol, rot)
+        angular_rotmats = pyscf.symm.basis._momentum_rotation_matrices(self.mol, rot)
         # Inversion of p,f,h,... shells:
         self.angular_rotmats =[(-1)**i * x for (i, x) in enumerate(angular_rotmats)]
 
@@ -241,7 +241,7 @@ class SymmetryRotation(SymmetryOperation):
             raise RuntimeError("Symmetry %s not found" % self)
         self.ao_reorder = self.get_ao_reorder(self.atom_reorder)[0]
 
-        self.angular_rotmats = pyscf.symm.basis._ao_rotation_matrices(self.mol, self.as_matrix())
+        self.angular_rotmats = pyscf.symm.basis._momentum_rotation_matrices(self.mol, self.as_matrix())
 
     def __repr__(self):
         return "Rotation(%g,%g,%g)" % tuple(self.rotvec)
