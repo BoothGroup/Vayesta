@@ -108,8 +108,7 @@ class ssRIRPA:
         D = np.concatenate([eps, eps])
         return D
 
-    def kernel_moms(self, max_moment, target_rot=None, npoints=48, ainit=10, integral_deduct="HO", opt_quad=True,
-                    adaptive_quad=False, alpha=1.0):
+    def kernel_moms(self, max_moment, target_rot=None, **kwargs):
         if target_rot is None:
             self.log.warning("Warning; generating full moment rather than local component. Will scale as O(N^5).")
             target_rot = np.eye(self.ov_tot)
@@ -118,8 +117,7 @@ class ssRIRPA:
         ri_mp, ri_apb, ri_amb = ri_decomps
         # First need to calculate zeroth moment.
         moments = np.zeros((max_moment + 1,) + target_rot.shape)
-        moments[0], err0 = self._kernel_mom0(target_rot, npoints, ainit, integral_deduct, opt_quad, adaptive_quad,
-                                             alpha, ri_decomps=ri_decomps)
+        moments[0], err0 = self._kernel_mom0(target_rot, **kwargs, ri_decomps=ri_decomps)
 
         if max_moment > 0:
             # Grab mean.
@@ -133,7 +131,8 @@ class ssRIRPA:
         return moments, err0
 
     def _kernel_mom0(self, target_rot=None, npoints=48, ainit=10, integral_deduct="HO", opt_quad=True,
-                     adaptive_quad=False, alpha=1.0, ri_decomps=None, return_niworker=False):
+                     adaptive_quad=False, alpha=1.0, ri_decomps=None, return_niworker=False,
+                     analytic_lower_bound=False, linear_error_tol=None):
 
         if target_rot is None:
             self.log.warning("Warning; generating full moment rather than local component. Will scale as O(N^5).")
@@ -173,15 +172,19 @@ class ssRIRPA:
             moment_offset = np.zeros_like(target_rot)
         else:
             raise ValueError("Unknown integral offset specification.`")
+
+        if linear_error_tol:
+            niworker.linear_error_tol = linear_error_tol
+
         if return_niworker:
             return niworker, offset_niworker
 
         # niworker.test_diag_derivs(4.0)
         if adaptive_quad:
             # Can also make use of scipy adaptive quadrature routines; this is more expensive but a good sense-check.
-            integral, err = 2 * niworker.kernel_adaptive()
+            integral, upper_bound = 2 * niworker.kernel_adaptive()
         else:
-            integral, err = niworker.kernel(a=ainit, opt_quad=opt_quad)
+            integral, upper_bound = niworker.kernel(a=ainit, opt_quad=opt_quad)
         # Need to construct RI representation of P^{-1}
         ri_apb_inv = self.compress_low_rank(*construct_inverse_RI(self.D, ri_apb), name="(A+B)^-1")
         mom0 = einsum("pq,q->pq", integral + integral_offset, self.D ** (-1)) - np.dot(
@@ -189,22 +192,24 @@ class ssRIRPA:
         # Also need to convert error estimate of the integral into one for the actual evaluated quantity.
         # Use Cauchy-Schwartz to both obtain an upper bound on resulting mom0 error, and efficiently obtain upper bound
         # on norm of low-rank portion of P^{-1}.
-        if err is not None:
-            pinv_norm = (sum(self.D ** (-2)) + 2 * einsum("p,np,np->", self.D ** (-1), ri_apb_inv[0], ri_apb_inv[1]) +
-                         np.linalg.norm(ri_apb_inv) ** 4) ** (0.5)
-            mom0_err = err * pinv_norm
-            self.check_errors(mom0_err, target_rot.size)
+        if upper_bound is not None:
+            pinv_norm = np.linalg.norm(self.D ** (-2)) + np.linalg.norm(ri_apb_inv[0]) * np.linalg.norm(ri_apb_inv[1])
+            mom0_ub = upper_bound * pinv_norm
+            self.check_errors(mom0_ub, target_rot.size)
         else:
-            mom0_err = None
-        return mom0 + moment_offset, (mom0_err, self.test_eta0_error(mom0 + moment_offset, target_rot, ri_apb, ri_amb))
+            mom0_ub = None
+
+        mom_lb = self.test_eta0_error(mom0 + moment_offset, target_rot, ri_apb, ri_amb) if analytic_lower_bound else None
+
+        return mom0 + moment_offset, (mom0_ub, mom_lb)
 
     def test_eta0_error(self, mom0, target_rot, ri_apb, ri_amb):
         """Test how well our obtained zeroth moment obeys relation used to derive it, namely
                 A-B = eta0 (A+B) eta0
         From this we can estimate the error in eta0 using Cauchy-Schwartz.
         """
-        l1 = [dot(mom0, x.T) for x in ri_apb]
-        l2 = [dot(target_rot, x.T) for x in ri_amb]
+        #l1 = [dot(mom0, x.T) for x in ri_apb]
+        #l2 = [dot(target_rot, x.T) for x in ri_amb]
         # amb_exact = einsum("pq,q,rq->pr", target_rot, self.D, target_rot) + dot(l2[0], l2[1].T)
         # print(amb_exact)
         # amb_approx = einsum("pq,q,rq->pr", mom0, self.D, mom0) + dot(l1[0], l1[1].T)
@@ -212,13 +217,13 @@ class ssRIRPA:
         amb = np.diag(self.D) + dot(ri_amb[0].T, ri_amb[1])
         apb = np.diag(self.D) + dot(ri_apb[0].T, ri_apb[1])
         amb_exact = dot(target_rot, amb, target_rot.T)
-        self.save = (apb, amb_exact, mom0)
+
         error = amb_exact - dot(mom0, apb, mom0.T)
         self.error = error
         e_norm = np.linalg.norm(error)
-        p_norm = np.linalg.norm(self.D) + np.linalg.norm(ri_apb) ** 2
-        peta_norm = np.linalg.norm(einsum("p,qp->pq", self.D, mom0) + dot(ri_apb[0].T, l1[1].T))
-
+        p_norm = np.linalg.norm(self.D) + np.linalg.norm(ri_apb[0]) * np.linalg.norm(ri_apb[1])
+        peta_norm = np.linalg.norm(einsum("p,qp->pq", self.D, mom0) +
+                                   dot(ri_apb[0].T, dot(ri_apb[1], mom0.T)))
         # Now to estimate resulting error estimate in eta0.
         try:
             poly = np.polynomial.Polynomial([e_norm/p_norm, -2 * peta_norm / p_norm, 1])
@@ -230,7 +235,7 @@ class ssRIRPA:
             return 0.0
         else:
             self.log.info("Proportional error in eta0 relation=%6.4e", e_norm / np.linalg.norm(amb_exact))
-            self.log.info("Resulting error lower bound: %6.4e", roots.min())
+            self.log.info("Resulting error bounds: %6.4e to %6.4e", *roots)
             return roots.min()
 
     def kernel_trMPrt(self, npoints=48, ainit=10):
