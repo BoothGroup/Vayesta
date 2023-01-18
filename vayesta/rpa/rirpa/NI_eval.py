@@ -241,10 +241,6 @@ class NumericalIntegratorBase:
 
 class NumericalIntegratorClenCur(NumericalIntegratorBase):
 
-    def __init__(self, *args, linear_error_tol=1e-1, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.linear_error_tol = linear_error_tol
-
     @property
     def npoints(self):
         return self._npoints
@@ -277,13 +273,13 @@ class NumericalIntegratorClenCur(NumericalIntegratorBase):
         b = scipy.linalg.norm(integral_half - integral)
         # Using a simple approximation gives these expressions; we instead use a more complicated cubic expression in
         # calculate_error
-        error = b ** 3 / a ** 2
-        error_error = b ** 2 / a ** 2
+        #error = b ** 3 / a ** 2
+        #error_error = b ** 2 / a ** 2
 
-        if error_error > self.linear_error_tol:
-            self.log.info("Error in linear approx for eta0 error exceeded %4.2f (%4.2f); falling back to quadratic model.",
-                          self.linear_error_tol, error_error)
-            error = self.calculate_error(a, b)
+        #if error_error > self.linear_error_tol:
+        #    self.log.info("Error in linear approx for eta0 error exceeded %4.2f (%4.2f); falling back to cubic model.",
+        #                  self.linear_error_tol, error_error)
+        error = self.calculate_error(a, b)
         #error = self.calculate_error(a, b)
         self.log.info("Numerical Integration performed with estimated L2 norm error %6.4e.",
                       error)
@@ -305,10 +301,10 @@ class NumericalIntegratorClenCur(NumericalIntegratorBase):
         # is even possible) take the largest.
         real_roots = roots[abs(roots.imag) < 1e-10].real
         if len(real_roots) > 1:
-            self.log.info("Nested quadrature error estimation gives %d real roots.", len(real_roots))
+            self.log.warning("Nested quadrature error estimation gives %d real roots.", len(real_roots))
             self.log.warning("Taking smallest positive root ")
         else:
-            self.log.info("Nested quadrature error estimation gives %d real root.", len(real_roots))
+            self.log.debug("Nested quadrature error estimation gives %d real root.", len(real_roots))
 
         if not (any((real_roots > 0.0) & (real_roots < 1.0))):
             self.log.critical("No real root found between 0 and 1 in NI error estimation; returning nan.")

@@ -132,7 +132,7 @@ class ssRIRPA:
 
     def _kernel_mom0(self, target_rot=None, npoints=48, ainit=10, integral_deduct="HO", opt_quad=True,
                      adaptive_quad=False, alpha=1.0, ri_decomps=None, return_niworker=False,
-                     analytic_lower_bound=False, linear_error_tol=None):
+                     analytic_lower_bound=False):
 
         if target_rot is None:
             self.log.warning("Warning; generating full moment rather than local component. Will scale as O(N^5).")
@@ -172,9 +172,6 @@ class ssRIRPA:
             moment_offset = np.zeros_like(target_rot)
         else:
             raise ValueError("Unknown integral offset specification.`")
-
-        if linear_error_tol:
-            niworker.linear_error_tol = linear_error_tol
 
         if return_niworker:
             return niworker, offset_niworker
