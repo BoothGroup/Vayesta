@@ -5,6 +5,7 @@ import numpy as np
 import pyscf.lib
 from vayesta.core.util import *
 from vayesta.rpa.rirpa import momzero_NI, energy_NI
+from timeit import default_timer as timer
 
 
 class ssRIRPA:
@@ -140,13 +141,7 @@ class ssRIRPA:
             ri_decomps: iterable of three tuples of np.arrays or None, optional.
                 Low-rank RI expressions (S_L,S_R) for (A-B)(A+B), A+B and A-B, such that the non-diagonal contribution
                 to each is given by S_L S_R^T. If `None' these will be contructed at O(N^4) cost. Default: None
-            return_niworker: bool, optional.
-                Whether to return the objects responsible for the work of numerical integration, rather than performing
-                computation and returning results. Used to allow plotting of integrands.
-                If this is True the function instead returns `ni_worker_integrand', `ni_worker_offset', that is the
-                lower-level objects responsible for each numerical integrations; `ni_worker_offset' is None unless
-                `integral_deduct'="HO".
-                Default: False.
+
             analytic_lower_bound: bool, optional.
                 Whether to compute analytic lower bound on the error of the computed zeroth dd moment. Computation
                 requires O(N^4) operation, and given limited utility of lower bound this is optional.
@@ -159,6 +154,7 @@ class ssRIRPA:
                 Bounds on the error, in form (upper_bound, lower_bound). If `analytic_lower_bound'=False lower bound
                 will be None.
         """
+        t_start = timer()
 
         if target_rot is None:
             self.log.warning("Warning; generating full moment rather than local component. Will scale as O(N^5).")
@@ -179,12 +175,34 @@ class ssRIRPA:
             Dsq = D ** 2
             for i in range(2, max_moment + 1):
                 moments[i] = einsum("pq,q->pq", moments[i - 2], Dsq) + dot(moments[i - 2], ri_mp[1].T, ri_mp[0])
+        if max_moment > 0:
+            self.log.info("RIRPA Higher Moments wall time:  %s", time_string(timer() - t_start))
         return moments, err0
 
     def _kernel_mom0(self, target_rot=None, npoints=48, ainit=10, integral_deduct="HO", opt_quad=True,
                      adaptive_quad=False, alpha=1.0, ri_decomps=None, return_niworker=False,
                      analytic_lower_bound=False):
+        """
+        Most inputs documented in `kernel_moms'.
 
+        Parameters
+        ----------
+        return_niworker: bool, optional.
+            Whether to return the objects responsible for the work of numerical integration, rather than performing
+            computation and returning results. Used to allow plotting of integrands.
+            If this is True the function instead returns `ni_worker_integrand', `ni_worker_offset', that is the
+            lower-level objects responsible for each numerical integrations; `ni_worker_offset' is None unless
+            `integral_deduct'="HO".
+            Default: False.
+
+        Returns
+        -------
+            mom0: np.array, shape (n_{tar}, o_a v_a + o_b v_b)
+                Zeroth moment estimate.
+            errs: tuple of floats.
+                Error estimate in zeroth moment computation.
+        """
+        t_start = timer()
         if target_rot is None:
             self.log.warning("Warning; generating full moment rather than local component. Will scale as O(N^5).")
             target_rot = np.eye(self.ov_tot)
@@ -248,6 +266,8 @@ class ssRIRPA:
             mom0_ub = None
 
         mom_lb = self.test_eta0_error(mom0 + moment_offset, target_rot, ri_apb, ri_amb) if analytic_lower_bound else None
+
+        self.log.info("RIRPA Zeroth Moment wall time:  %s", time_string(timer() - t_start))
 
         return mom0 + moment_offset, (mom0_ub, mom_lb)
 
