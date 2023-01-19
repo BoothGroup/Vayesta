@@ -109,6 +109,57 @@ class ssRIRPA:
         return D
 
     def kernel_moms(self, max_moment, target_rot=None, **kwargs):
+        """Calculates all density-density moments up to and including `max_moment' with one index projected into
+        `target_rot'  space.
+
+        Runtime: O(n_{points} ((n_{target} + n_{aux}) n_{aux} ov + n_{aux}^3)
+
+        Parameters
+        ----------
+            max_moment: integer
+                Maximum moment of the dd response to return.
+            target_rot: np.array, of size (n_{target}, o_a v_a + o_b v_b)
+                Projector for one index of the moment.
+            npoints: int, optional.
+                Integer number of points to use in numerical integrations; will be increased to next highest multiple of
+                4 for error estimation purposes. Default: 48 (excessive).
+            integral_deduct: str, optional.
+                What terms to deduct from numerical integration.
+                Options are "HO" (default), "D", and None, corresponding to deducting both the mean-field contribution
+                and additional higher-order terms, just the mean-field contribution, or nothing.
+            ainit: float, optional.
+                Value of grid scaling to initialise optimisation from. If `opt_quad' is False, this value of a is used.
+                 Default: 10.0
+            opt_quad: bool, optional.
+                Whether to optimise the grid spacing `a'. Default: True
+            adaptive_quad: bool, optional.
+                Whether to use scipy adaptive quadrature for calculation. Requires prohibitvely more evaluations but can
+                 provide validation of usual approach. Default: False
+            alpha: float, optional.
+                Value or electron interaction scaling in adiabatic connection. Default: 1.0
+            ri_decomps: iterable of three tuples of np.arrays or None, optional.
+                Low-rank RI expressions (S_L,S_R) for (A-B)(A+B), A+B and A-B, such that the non-diagonal contribution
+                to each is given by S_L S_R^T. If `None' these will be contructed at O(N^4) cost. Default: None
+            return_niworker: bool, optional.
+                Whether to return the objects responsible for the work of numerical integration, rather than performing
+                computation and returning results. Used to allow plotting of integrands.
+                If this is True the function instead returns `ni_worker_integrand', `ni_worker_offset', that is the
+                lower-level objects responsible for each numerical integrations; `ni_worker_offset' is None unless
+                `integral_deduct'="HO".
+                Default: False.
+            analytic_lower_bound: bool, optional.
+                Whether to compute analytic lower bound on the error of the computed zeroth dd moment. Computation
+                requires O(N^4) operation, and given limited utility of lower bound this is optional.
+                Default: False.
+        Returns
+        -------
+            moments: np.array, shape (max_moment + 1, n_{tar}, o_a v_a + o_b v_b)
+                Array storing the i^th dd moment in the space defined by `target_rot' in moments[i].
+            err0: tuple.
+                Bounds on the error, in form (upper_bound, lower_bound). If `analytic_lower_bound'=False lower bound
+                will be None.
+        """
+
         if target_rot is None:
             self.log.warning("Warning; generating full moment rather than local component. Will scale as O(N^5).")
             target_rot = np.eye(self.ov_tot)
