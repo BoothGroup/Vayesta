@@ -195,7 +195,19 @@ class RCISDTQ_WaveFunction(wf_types.WaveFunction):
         
         return wf_types.RCCSDTQ_WaveFunction(self.mo, t1=t1, t2=t2, t3=t3, t4=t4)
 
-class UCISDTQ_WaveFunction(RCISDTQ_WaveFunction):
+class UCISDTQ_WaveFunction(wf_types.WaveFunction):
+
+    def __init__(self, mo, c0, c1, c2, c3, c4):
+        super().__init__(mo)
+        self.c0 = c0
+        self.c1 = c1
+        self.c2 = c2
+        self.c3 = c3
+        self.c4 = c4
+        if not (isinstance(c3, tuple) and len(c3) == 6):
+            raise ValueError("c4 definition in UCISDTQ wfn requires tuple of (aaa, aba, abb, bab, bba, bbb) spin signatures")
+        if not (isinstance(c4, tuple) and len(c4) == 8):
+            raise ValueError("c4 definition in UCISDTQ wfn requires tuple of (aaaa, aaab, aaba, abaa, abab, bbab, bbba, bbbb) spin signatures")
 
     def as_ccsdtq(self):
         c1a, c1b = self.c1

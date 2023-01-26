@@ -1542,7 +1542,7 @@ class Embedding:
     def update_mf(self, mo_coeff, mo_energy=None, veff=None):
         """Update underlying mean-field object."""
         # Chech orthonormal MOs
-        if not np.allclose(dot(mo_coeff.T, self.get_ovlp(), mo_coeff) - np.eye(mo_coeff.shape[-1]), 0):
+        if not np.allclose(dot(mo_coeff.T, self.get_ovlp(), mo_coeff) - np.eye(mo_coeff.shape[-1]), 0.):
             raise ValueError("MO coefficients not orthonormal!")
         self.mf.mo_coeff = mo_coeff
         dm = self.mf.make_rdm1(mo_coeff=mo_coeff)

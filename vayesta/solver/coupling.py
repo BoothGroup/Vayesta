@@ -405,6 +405,7 @@ def _get_delta_t_for_extcorr(fragment, fock, solver, include_t3v=True, test_extc
         # apply permutation
         t1t3v += t1t3v.transpose(1,0,3,2)
         dt2 += t1t3v
+        solver.log.info("T1 norm in ext corr from fragment {}: {}".format(fragment.id, np.linalg.norm(t1)))
         if test_extcorr:
             tmp2  = einsum('kdlc,id->kilc', govov, t1)
             t1t3v_test = -einsum('kilc,lkjcab->ijab', tmp2, t3tmp)
