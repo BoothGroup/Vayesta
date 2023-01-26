@@ -21,6 +21,7 @@ from .rdm import make_rdm1_ccsd_global_wf
 from .rdm import make_rdm2_ccsd_global_wf
 from .rdm import make_rdm1_ccsd_proj_lambda
 from .rdm import make_rdm2_ccsd_proj_lambda
+from .fci_prop import get_fci_var_energy
 from .icmp2 import get_intercluster_mp2_energy_rhf
 
 
@@ -334,7 +335,11 @@ class EWF(Embedding):
         if functional == 'dm-t2only':
             return self.get_dm_corr_energy(t_as_lambda=True, **kwargs)
         if functional == 'dm':
-            return self.get_dm_corr_energy(**kwargs)
+            # FCI and CC solvers are different here. Can no longer map a FCI solver to CC for CC-DM.
+            if self.solver.lower() == 'fci':
+                return get_fci_var_energy(self, **kwargs) - self.e_mf
+            else:
+                return self.get_dm_corr_energy(**kwargs)
         raise ValueError("Unknown energy functional: '%s'" % functional)
 
     @mpi.with_allreduce()

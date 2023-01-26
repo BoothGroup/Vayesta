@@ -266,11 +266,11 @@ class Fragment(BaseFragment):
         if self.opts.wf_factor is not None:
             cluster_solver.wf.multiply(self.opts.wf_factor)
 
-        # ---Make T-projected WF
-        if isinstance(cluster_solver.wf, RFCI_WaveFunction):
-            pwf = cluster_solver.wf.as_cisd()
-        else:
-            pwf = cluster_solver.wf
+        # ---Make and store fragment-projected WF
+        #if isinstance(cluster_solver.wf, RFCI_WaveFunction):
+        #    pwf = cluster_solver.wf.as_cisd()
+        #else:
+        #    pwf = cluster_solver.wf
         proj = self.get_overlap('frag|cluster-occ')
         pwf = pwf.project(proj, inplace=False)
 
