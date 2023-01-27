@@ -281,11 +281,11 @@ def _integrals_for_extcorr(fragment, fock):
         vb = np.s_[cluster.nocc_active[1]:]
         fova = dot(cluster.c_active_occ[0].T, fock[0], cluster.c_active_vir[0])
         fovb = dot(cluster.c_active_occ[1].T, fock[1], cluster.c_active_vir[1])
-        # TODO make consistent with RHF return value
+        # TODO make consistent with RHF return value, remove redundancies
         fov = (fova, fovb)
-        gooov = (eris[0][oa, oa, oa, va], eris[1][oa, oa, ob, vb], eris[2][ob, ob, ob, vb])
-        govov = (eris[0][oa, va, oa, va], eris[1][oa, va, ob, vb], eris[2][ob, vb, ob, vb])
-        govvv = (eris[0][oa, va, va, va], eris[1][oa, va, vb, vb], eris[2][ob, vb, vb, vb])
+        gooov = (eris[0][oa, oa, oa, va], eris[1][oa, oa, ob, vb], eris[1].transpose(2, 3, 0, 1)[ob, vb, oa, oa], eris[2][ob, ob, ob, vb])
+        govov = (eris[0][oa, va, oa, va], eris[1][oa, va, ob, vb], eris[1].transpose(2, 3, 0, 1)[ob, vb, oa, va], eris[2][ob, vb, ob, vb])
+        govvv = (eris[0][oa, va, va, va], eris[1][oa, va, vb, vb], eris[1].transpose(2, 3, 0, 1)[vb, vb, oa, va], eris[2][ob, vb, vb, vb])
         return fov, gooov, govov, govvv
     return fov, govov, gvvov, gooov, govoo
 
@@ -448,14 +448,17 @@ def _get_delta_t_for_extcorr(fragment, fock, solver, include_t3v=True, test_extc
     elif fragment.base.spinsym == 'unrestricted':
         # Get ERIs and Fock matrix for the given fragment
         (f_aa_ov, f_bb_ov), \
-                (v_aaaa_ooov, v_aabb_ooov, v_bbbb_ooov), \
-                (v_aaaa_ovov, v_aabb_ovov, v_bbbb_ovov), \
-                (v_aaaa_ovvv, v_aabb_ovvv, v_bbbb_ovvv) = _integrals_for_extcorr(fragment, fock)
+                (v_aaaa_ooov, v_aabb_ooov, v_bbaa_ooov, v_bbbb_ooov), \
+                (v_aaaa_ovov, v_aabb_ovov, v_bbaa_ovov, v_bbbb_ovov), \
+                (v_aaaa_ovvv, v_aabb_ovvv, v_bbaa_ovvv, v_bbbb_ovvv) = _integrals_for_extcorr(fragment, fock)
 
         t1_aa, t1_bb = wf.t1
         t2_aaaa, t2_abab, t2_bbbb = wf.t2
         t3_aaaaaa, t3_abaaba, t3_abbabb, t3_babbab, t3_bbabba, t3_bbbbbb = wf.t3
         t4_aaaaaaaa, t4_aaabaaab, t4_aabaaaba, t4_abaaabaa, t4_abababab, t4_bbabbbab, t4_bbbabbba, t4_bbbbbbbb = wf.t4
+
+        nocc = fragment.base.nocc
+        nvir = fragment.base.nvir
 
         dt1_aa = np.zeros((nocc[0], nvir[0]), dtype=np.float64)
         dt1_aa += einsum("jbkc,ijkabc->ia", v_bbaa_ovov, t3_abaaba)
@@ -741,7 +744,7 @@ def externally_correct(solver, external_corrections, eris=None, test_extcorr=Fal
                 except:
                     _, _, gvvov_x, gooov_x, govoo_x = _integrals_for_extcorr(fx, fock)
             elif emb.spinsym == 'unrestricted':
-                raise NotImplementedError
+                pass  # TODO is this only needed for external-ccsdv?
     
     # delta-T1 and delta-T2 amplitudes, to be added to the CCSD amplitudes
     if solver.spinsym == 'restricted':
@@ -820,9 +823,10 @@ def externally_correct(solver, external_corrections, eris=None, test_extcorr=Fal
     elif solver.spinsym == 'unrestricted':
 
         if corrtype in ["external", "external-fciv", "external-ccsdv"]:
-            ei = (mo_energy[:nocc[0]], mo_energy[:nocc[1]])
-            ea = (mo_energy[nocc[0]:], mo_energy[nocc[1]:])
-            e_ia = pyscf.lib.direct_sum("si-sa->sia", ei, ea)
+            e_ia = (
+                pyscf.lib.direct_sum("i-a->ia", mo_energy[0][:nocc[0]], mo_energy[0][nocc[0]:]),
+                pyscf.lib.direct_sum("i-a->ia", mo_energy[1][:nocc[1]], mo_energy[1][nocc[1]:]),
+            )
 
             dt1 = (dt1[0] / e_ia[0], dt1[1] / e_ia[1])
             dt2 = (

@@ -18,7 +18,7 @@ from vayesta.core.util import *
 from vayesta.core.qemb import Fragment as BaseFragment
 from vayesta.solver import get_solver_class
 from vayesta.core.fragmentation import IAO_Fragmentation
-from vayesta.core.types import RFCI_WaveFunction, RCCSDTQ_WaveFunction
+from vayesta.core.types import RFCI_WaveFunction, RCCSDTQ_WaveFunction, UCCSDTQ_WaveFunction
 
 from vayesta.core.bath import BNO_Threshold
 from vayesta.core.bath import DMET_Bath
@@ -314,7 +314,7 @@ class Fragment(BaseFragment):
         if isinstance(wf, RFCI_WaveFunction):
             pwf = wf.as_cisd()
         # Projection of CCSDTQ wave function is not implemented - convert to CCSD
-        elif isinstance(wf, RCCSDTQ_WaveFunction):
+        elif isinstance(wf, (RCCSDTQ_WaveFunction, UCCSDTQ_WaveFunction)):
             pwf = wf.as_ccsd()
         proj = self.get_overlap('proj|cluster-occ')
         pwf = pwf.project(proj, inplace=False)
