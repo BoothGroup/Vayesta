@@ -587,6 +587,7 @@ class UFCI_WaveFunction(RFCI_WaveFunction):
             c3_aab.transpose(0, 2, 1, 3, 5, 4),
             c3_abb,
             c3_abb.transpose(1, 0, 2, 4, 3, 5),
+            c3_abb.transpose(2, 1, 0, 5, 4, 3),
             c3_bbb,
         )
         c4 = (
