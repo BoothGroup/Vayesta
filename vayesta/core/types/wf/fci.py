@@ -398,9 +398,33 @@ class UFCI_WaveFunction(RFCI_WaveFunction):
     def as_cisdtq(self, c0=None):
         if self.projector is not None:
             raise NotImplementedError
+        
         norba, norbb = self.norb
         nocca, noccb = self.nocc
         nvira, nvirb = self.nvir
+        
+        ij_pairs_a = int(nocca * (nocca - 1) / 2)
+        ab_pairs_a = int(nvira * (nvira - 1) / 2)
+        ij_pairs_b = int(noccb * (noccb - 1) / 2)
+        ab_pairs_b = int(nvirb * (nvirb - 1) / 2)
+        ooidx_a = np.tril_indices(nocca, -1) # second index lower than first
+        vvidx_a = np.tril_indices(nvira, -1) # second index lower than first
+        ooidx_b = np.tril_indices(noccb, -1) # second index lower than first
+        vvidx_b = np.tril_indices(nvirb, -1) # second index lower than first
+        # For packed 3D arrays
+        oooidx_a = tril_indices_ndim(nocca, 3) # i > j > k
+        vvvidx_a = tril_indices_ndim(nvira, 3) # a > b > c
+        ijk_pairs_a = int(nocca * (nocca - 1) * (nocca - 2) / 6)
+        abc_pairs_a = int(nvira * (nvira - 1) * (nvira - 2) / 6)
+        oooidx_b = tril_indices_ndim(noccb, 3) # i > j > k
+        vvvidx_b = tril_indices_ndim(nvirb, 3) # a > b > c
+        ijk_pairs_b = int(noccb * (noccb - 1) * (noccb - 2) / 6)
+        abc_pairs_b = int(nvirb * (nvirb - 1) * (nvirb - 2) / 6)
+        
+        ijkl_pairs_a = int(nocca * (nocca - 1) * (nocca - 2) * (nocca - 3) / 24)
+        abcd_pairs_a = int(nvira * (nvira - 1) * (nvira - 2) * (nvira - 3) / 24)
+        ijkl_pairs_b = int(noccb * (noccb - 1) * (noccb - 2) * (noccb - 3) / 24)
+        abcd_pairs_b = int(nvirb * (nvirb - 1) * (nvirb - 2) * (nvirb - 3) / 24)
 
         t1addra, t1signa = pyscf.ci.cisd.tn_addrs_signs(norba, nocca, 1)
         t1addrb, t1signb = pyscf.ci.cisd.tn_addrs_signs(norbb, noccb, 1)
@@ -419,17 +443,81 @@ class UFCI_WaveFunction(RFCI_WaveFunction):
         c1a = (self.ci[t1addra,0] * t1signa).reshape(nocca,nvira)
         c1b = (self.ci[0,t1addrb] * t1signb).reshape(noccb,nvirb)
         # C2
-        nocca_comp = nocca*(nocca-1)//2
-        noccb_comp = noccb*(noccb-1)//2
-        nvira_comp = nvira*(nvira-1)//2
-        nvirb_comp = nvirb*(nvirb-1)//2
-        c2aa = (self.ci[t2addra,0] * t2signa).reshape(nocca_comp, nvira_comp)
-        c2bb = (self.ci[0,t2addrb] * t2signb).reshape(noccb_comp, nvirb_comp)
+        c2aa = (self.ci[t2addra,0] * t2signa).reshape(ij_pairs_a, ab_pairs_a)
+        c2bb = (self.ci[0,t2addrb] * t2signb).reshape(ij_pairs_b, ab_pairs_b)
         c2aa = pyscf.cc.ccsd._unpack_4fold(c2aa, nocca, nvira)
         c2bb = pyscf.cc.ccsd._unpack_4fold(c2bb, noccb, nvirb)
         c2ab = einsum('i,j,ij->ij', t1signa, t1signb, self.ci[t1addra[:,None],t1addrb])
         c2ab = c2ab.reshape(nocca,nvira,noccb,nvirb).transpose(0,2,1,3)
         # C3
+
+        # Get the following spin signatures in packed form, and then Ollie will unpack later!
+        # T3: aaa, aba, abb, bab, bba, bbb
+        # aaa
+        c3_aaa_pack = (self.ci[t3addra,0] * t3signa).reshape(ijk_pairs_a, abc_pairs_a)
+        # bbb
+        c3_bbb_pack = (self.ci[0,t3addrb] * t3signb).reshape(ijk_pairs_b, abc_pairs_b)
+        # aab
+        c3_aab_pack = np.einsum('i,j,ij->ij', t2signa, t1signb, self.ci[t2addra[:,None], t1addrb])
+        assert(c3_aab_pack.shape == (ij_pairs_a * ab_pairs_a, noccb * nvirb))
+        # bba
+        c3_abb_pack = np.einsum('i,j,ij->ij', t1signa, t2signb, self.ci[t1addra[:,None], t2addrb])
+        assert(c3_abb_pack.shape == (nocca * nvirb, ij_pairs_b * ab_pairs_b))
+
+        # Now, unpack... TODO
+
+        # T4: aaaa, aaab, aaba, abaa, abab, bbab, bbba, bbbb
+        # aaaa
+        c4_aaaa_pack = (self.ci[t4addra,0] * t4signa).reshape(ijkl_pairs_a, abcd_pairs_a)
+        # bbbb
+        c4_bbbb_pack = (self.ci[0,t4addrb] * t4signb).reshape(ijkl_pairs_b, abcd_pairs_b)
+        # aaab
+        c4_aaab_pack = np.einsum('i,j,ij->ij', t3signa, t1signb, self.ci[t3addra[:,None], t1addrb])
+        assert(c4_aaab_pack.shape == (ijk_pairs_a * abc_pairs_a, noccb * nvirb))
+        # aabb
+        c4_aabb_pack = np.einsum('i,j,ij->ij', t2signa, t2signb, self.ci[t2addra[:,None], t2addrb])
+        assert(c4_aabb_pack.shape == (ij_pairs_a * ab_pairs_a, ij_pairs_b * ab_pairs_b))
+        # abbb
+        c4_abbb_pack = np.einsum('i,j,ij->ij', t1signa, t3signb, self.ci[t1addra[:,None], t3addrb])
+        assert(c4_aabb_pack.shape == (nocca * nvirb, ijk_pairs_b * abc_pairs_b))
+
+        # Now, unpack... TODO
+
+        # alpha, beta, alpha: Use this longhand code as a sanity check
+        # First find the ijk -> abc excitations, where ijab are alpha, and kc are beta
+        c3_comp = np.zeros((ij_pairs_a * ab_pairs_a, noccb * nvirb))
+        c3_aba = np.zeros((nocca, noccb, nocca, nvira, nvirb, nvira))
+        for d_cnta, doub_inda in enumerate(t2addra):
+            ij_a = int(d_cnta / ab_pairs_a)
+            ab_a = d_cnta % ab_pairs_a
+            i, j = ooidx_a[0][ij_a], ooidx_a[1][ij_a] # j ind < i ind
+            a, b = vvidx_a[0][ab_a], vvidx_a[1][ab_a] # b ind < a ind
+            for s_cntb, sing_indb in enumerate(t1addrb):
+                # First index of c3_comp is a compound index of ijab (alpha, alpha) excitations, 
+                # with the second index being the kc (beta, beta) single excitation.
+                c3_comp[d_cnta, s_cntb] = self.ci[doub_inda, sing_indb] * t2signa[d_cnta] * t1signa[s_cntb]
+
+                k = int(s_cntb / nvirb)
+                c = s_cntb % nvirb
+                # Note, we want aba -> aba spin signature, not aab -> aab, which is what we have.
+                # We can therefore swap (jk) and (bc). This does not cause an overall sign change.
+                # We then also want to fill up the contributions between permutations 
+                # amongst the alpha electrons and alpha holes.
+                # If only one is permuted, then this will indeed cause a sign change.
+                assert(i != j)
+                assert(a != b)
+                c3_aba[i,k,j,a,c,b] = c3_comp[d_cnta, s_cntb]
+                c3_aba[j,k,i,a,c,b] = -c3_comp[d_cnta, s_cntb]
+                c3_aba[i,k,j,b,c,a] = -c3_comp[d_cnta, s_cntb]
+                c3_aba[j,k,i,b,c,a] = c3_comp[d_cnta, s_cntb]
+
+        if len(t2addra) > 0:
+            # This is a better way of doing it, and then expand! Put rest in a test.
+            assert(np.allclose(c3_comp, np.einsum('i,j,ij->ij', \
+                t2signa, t1signb, self.ci[t2addra[:,None], t1addrb])))
+        del c3_comp
+
+
         raise NotImplementedError
         # C4
         raise NotImplementedError
@@ -449,6 +537,7 @@ class UFCI_WaveFunction(RFCI_WaveFunction):
         # TODO
         #c3 = (c3aaa, ...
         #c4 = (c4aaaa, ...
+        # Are any of them 'packed'?
         return wf_types.UCISDTQ_WaveFunction(self.mo, c0, c1, c2, c3, c4, projector=self.projector)
 
     def as_ccsd(self):
