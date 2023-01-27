@@ -818,7 +818,18 @@ def externally_correct(solver, external_corrections, eris=None, test_extcorr=Fal
             t2[:] += dt2
 
     elif solver.spinsym == 'unrestricted':
-        # TODO: Not working - need to contract properly with energy denominators
+
+        if corrtype in ["external", "external-fciv", "external-ccsdv"]:
+            ei = (mo_energy[:nocc[0]], mo_energy[:nocc[1]])
+            ea = (mo_energy[nocc[0]:], mo_energy[nocc[1]:])
+            e_ia = pyscf.lib.direct_sum("si-sa->sia", ei, ea)
+
+            dt1 = (dt1[0] / e_ia[0], dt1[1] / e_ia[1])
+            dt2 = (
+                dt2[0] / pyscf.lib.direct_sum("ia,jb->ijab", e_ia[0], e_ia[0]),
+                dt2[1] / pyscf.lib.direct_sum("ia,jb->ijab", e_ia[0], e_ia[1]),
+                dt2[2] / pyscf.lib.direct_sum("ia,jb->ijab", e_ia[1], e_ia[1]),
+            )
 
         def callback(kwargs):
             """Add external correction to T1 and T2 amplitudes."""
