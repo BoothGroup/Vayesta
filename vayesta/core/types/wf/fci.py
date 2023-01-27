@@ -440,15 +440,15 @@ class UFCI_WaveFunction(RFCI_WaveFunction):
 
         ci = self.ci.reshape(na,nb)
         # C1
-        c1a = (self.ci[t1addra,0] * t1signa).reshape(nocca,nvira)
-        c1b = (self.ci[0,t1addrb] * t1signb).reshape(noccb,nvirb)
+        c1_a = (self.ci[t1addra,0] * t1signa).reshape(nocca,nvira)
+        c1_b = (self.ci[0,t1addrb] * t1signb).reshape(noccb,nvirb)
         # C2
-        c2aa = (self.ci[t2addra,0] * t2signa).reshape(ij_pairs_a, ab_pairs_a)
-        c2bb = (self.ci[0,t2addrb] * t2signb).reshape(ij_pairs_b, ab_pairs_b)
-        c2aa = pyscf.cc.ccsd._unpack_4fold(c2aa, nocca, nvira)
-        c2bb = pyscf.cc.ccsd._unpack_4fold(c2bb, noccb, nvirb)
-        c2ab = einsum('i,j,ij->ij', t1signa, t1signb, self.ci[t1addra[:,None],t1addrb])
-        c2ab = c2ab.reshape(nocca,nvira,noccb,nvirb).transpose(0,2,1,3)
+        c2_aa = (self.ci[t2addra,0] * t2signa).reshape(ij_pairs_a, ab_pairs_a)
+        c2_bb = (self.ci[0,t2addrb] * t2signb).reshape(ij_pairs_b, ab_pairs_b)
+        c2_aa = pyscf.cc.ccsd._unpack_4fold(c2_aa, nocca, nvira)
+        c2_bb = pyscf.cc.ccsd._unpack_4fold(c2_bb, noccb, nvirb)
+        c2_ab = einsum('i,j,ij->ij', t1signa, t1signb, self.ci[t1addra[:,None],t1addrb])
+        c2_ab = c2_ab.reshape(nocca,nvira,noccb,nvirb).transpose(0,2,1,3)
         # C3
 
         # Get the following spin signatures in packed form, and then Ollie will unpack later!
@@ -465,6 +465,33 @@ class UFCI_WaveFunction(RFCI_WaveFunction):
         assert(c3_abb_pack.shape == (nocca * nvirb, ij_pairs_b * ab_pairs_b))
 
         # Now, unpack... TODO
+        from ebcc.util import decompress_axes
+        c3_aaa = decompress_axes(
+                "iiiaaa",
+                c3_aaa_pack,
+                shape=(nocca, nocca, nocca, nvira, nvira, nvira),
+                symmetry="------",
+        )
+        c3_bbb = decompress_axes(
+                "iiiaaa",
+                c3_bbb_pack,
+                shape=(noccb, noccb, noccb, nvirb, nvirb, nvirb),
+                symmetry="------",
+        )
+        c3_aab = decompress_axes(
+                "iiaajb",
+                c3_aab_pack,
+                shape=(nocca, nocca, nvira, nvira, noccb, nvirb),
+                symmetry="------",
+        )
+        c3_aab = c3_aab.transpose(0, 1, 4, 2, 3, 5)
+        c3_abb = decompress_axes(
+                "iajjbb",
+                c3_abb_pack,
+                shape=(nocca, nvirb, noccb, noccb, nvirb, nvirb),
+                symmetry="------",
+        )
+        c3_abb = c3_abb.transpose(0, 2, 3, 1, 4, 5)
 
         # T4: aaaa, aaab, aaba, abaa, abab, bbab, bbba, bbbb
         # aaaa
@@ -479,9 +506,42 @@ class UFCI_WaveFunction(RFCI_WaveFunction):
         assert(c4_aabb_pack.shape == (ij_pairs_a * ab_pairs_a, ij_pairs_b * ab_pairs_b))
         # abbb
         c4_abbb_pack = np.einsum('i,j,ij->ij', t1signa, t3signb, self.ci[t1addra[:,None], t3addrb])
-        assert(c4_aabb_pack.shape == (nocca * nvirb, ijk_pairs_b * abc_pairs_b))
+        assert(c4_abbb_pack.shape == (nocca * nvirb, ijk_pairs_b * abc_pairs_b))
 
         # Now, unpack... TODO
+        c4_aaaa = decompress_axes(
+                "iiiiaaaa",
+                c4_aaaa_pack,
+                shape=(nocca, nocca, nocca, nocca, nvira, nvira, nvira, nvira),
+                symmetry="--------",
+        )
+        c4_bbbb = decompress_axes(
+                "iiiiaaaa",
+                c4_bbbb_pack,
+                shape=(noccb, noccb, noccb, noccb, nvirb, nvirb, nvirb, nvirb),
+                symmetry="--------",
+        )
+        c4_aaab = decompress_axes(
+                "iiiaaajb",
+                c4_aaab_pack,
+                shape=(nocca, nocca, nocca, nvira, nvira, nvira, noccb, nvirb),
+                symmetry="--------",
+        )
+        c4_aaab = c4_aaab.transpose(0, 1, 2, 6, 3, 4, 5, 7)
+        c4_aabb = decompress_axes(
+                "iiaajjbb",
+                c4_aabb_pack,
+                shape=(nocca, nocca, nvira, nvira, noccb, noccb, nvirb, nvirb),
+                symmetry="--------",
+        )
+        c4_aabb = c4_aabb.transpose(0, 1, 4, 5, 2, 3, 6, 7)
+        c4_abbb = decompress_axes(
+                "iajjjbbb",
+                c4_abbb_pack,
+                shape=(nocca, nvirb, noccb, noccb, noccb, nvirb, nvirb, nvirb),
+                symmetry="--------",
+        )
+        c4_abbb = c4_abbb.transpose(0, 2, 3, 4, 1, 5, 6, 7)
 
         # alpha, beta, alpha: Use this longhand code as a sanity check
         # First find the ijk -> abc excitations, where ijab are alpha, and kc are beta
@@ -517,28 +577,40 @@ class UFCI_WaveFunction(RFCI_WaveFunction):
                 t2signa, t1signb, self.ci[t2addra[:,None], t1addrb])))
         del c3_comp
 
+        assert np.allclose(c3_aba, c3_aab.transpose(0, 2, 1, 3, 5, 4))
 
-        raise NotImplementedError
-        # C4
-        raise NotImplementedError
+        # TODO remove degenerate permutations
+        c1 = (c1_a, c1_b)
+        c2 = (c2_aa, c2_ab, c2_bb)
+        c3 = (
+            c3_aaa,
+            c3_aab.transpose(0, 2, 1, 3, 5, 4),
+            c3_abb,
+            c3_abb.transpose(1, 0, 2, 4, 3, 5),
+            c3_bbb,
+        )
+        c4 = (
+            c4_aaaa,
+            c4_aaab,
+            c4_aaab.transpose(0, 1, 3, 2, 4, 5, 7, 6),
+            c4_aaab.transpose(0, 3, 2, 1, 4, 7, 6, 5),
+            c4_aabb.transpose(0, 2, 1, 3, 4, 6, 5, 7),
+            c4_abbb.transpose(2, 1, 0, 3, 6, 5, 4, 7),
+            c4_abbb.transpose(3, 1, 2, 0, 7, 5, 6, 4),
+            c4_bbbb,
+        )
 
         if c0 is None:
             c0 = self.c0
         else:
-            c1a *= c0/self.c0
-            c1b *= c0/self.c0
-            c2aa *= c0/self.c0
-            c2ab *= c0/self.c0
-            c2bb *= c0/self.c0
-            # TODO
-            c3aaa *= c0/self.c0
-        c1 = (c1a, c1b)
-        c2 = (c2aa, c2ab, c2bb)
-        # TODO
-        #c3 = (c3aaa, ...
-        #c4 = (c4aaaa, ...
-        # Are any of them 'packed'?
-        return wf_types.UCISDTQ_WaveFunction(self.mo, c0, c1, c2, c3, c4, projector=self.projector)
+            fac = c0 / self.c0
+            c1 = tuple(c * fac for c in c1)
+            c2 = tuple(c * fac for c in c2)
+            c3 = tuple(c * fac for c in c3)
+            c4 = tuple(c * fac for c in c4)
+
+        # FIXME unexpected keyword argument 'projector'
+        return wf_types.UCISDTQ_WaveFunction(self.mo, c0, c1, c2, c3, c4)#, projector=self.projector)
 
     def as_ccsd(self):
         return self.as_cisd().as_ccsd()
