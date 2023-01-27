@@ -460,6 +460,7 @@ def _get_delta_t_for_extcorr(fragment, fock, solver, include_t3v=True, test_extc
         nocc = fragment.base.nocc
         nvir = fragment.base.nvir
 
+        # TODO: Use spinalg.zeros_like(t1/t2)
         dt1_aa = np.zeros((nocc[0], nvir[0]), dtype=np.float64)
         dt1_aa += einsum("jbkc,ijkabc->ia", v_bbaa_ovov, t3_abaaba)
         dt1_aa += einsum("jbkc,ikjacb->ia", v_aabb_ovov, t3_abaaba)
@@ -572,10 +573,16 @@ def _get_delta_t_for_extcorr(fragment, fock, solver, include_t3v=True, test_extc
         dt2_abab += einsum("kc,kcld,ijlabd->ijab", t1_bb, v_bbbb_ovov, t3_abbabb) * 2.0
         dt2_abab += einsum("kc,kdlc,ijlabd->ijab", t1_bb, v_bbbb_ovov, t3_abbabb) * -2.0
 
+<<<<<<< Updated upstream
         dt2_abab += einsum("kcld,ijklabcd->ijab", v_aabb_ovov, t4_abababab) * 2.0
         dt2_abab += einsum("kcld,ijlkabdc->ijab", v_bbaa_ovov, t4_abababab) * 2.0
         dt2_abab += einsum("kcld,ijklabcd->ijab", v_aaaa_ovov, t4_abaaabaa) * 3.0
         dt2_abab += einsum("kcld,ijklabcd->ijab", v_bbbb_ovov, t4_abbbabbb) * 3.0
+=======
+        if not include_t3v:
+            # TODO
+            raise NotImplementedError
+>>>>>>> Stashed changes
 
         dt1 = (dt1_aa, dt1_bb)
         dt2 = (dt2_aaaa, dt2_abab, dt2_bbbb)
