@@ -462,7 +462,7 @@ class UFCI_WaveFunction(RFCI_WaveFunction):
         assert(c3_aab_pack.shape == (ij_pairs_a * ab_pairs_a, noccb * nvirb))
         # bba
         c3_abb_pack = np.einsum('i,j,ij->ij', t1signa, t2signb, self.ci[t1addra[:,None], t2addrb])
-        assert(c3_abb_pack.shape == (nocca * nvirb, ij_pairs_b * ab_pairs_b))
+        assert(c3_abb_pack.shape == (nocca * nvira, ij_pairs_b * ab_pairs_b))
 
         # Now, unpack... TODO
         from ebcc.util import decompress_axes
@@ -488,7 +488,7 @@ class UFCI_WaveFunction(RFCI_WaveFunction):
         c3_abb = decompress_axes(
                 "iajjbb",
                 c3_abb_pack,
-                shape=(nocca, nvirb, noccb, noccb, nvirb, nvirb),
+                shape=(nocca, nvira, noccb, noccb, nvirb, nvirb),
                 symmetry="------",
         )
         c3_abb = c3_abb.transpose(0, 2, 3, 1, 4, 5)
@@ -506,7 +506,7 @@ class UFCI_WaveFunction(RFCI_WaveFunction):
         assert(c4_aabb_pack.shape == (ij_pairs_a * ab_pairs_a, ij_pairs_b * ab_pairs_b))
         # abbb
         c4_abbb_pack = np.einsum('i,j,ij->ij', t1signa, t3signb, self.ci[t1addra[:,None], t3addrb])
-        assert(c4_abbb_pack.shape == (nocca * nvirb, ijk_pairs_b * abc_pairs_b))
+        assert(c4_abbb_pack.shape == (nocca * nvira, ijk_pairs_b * abc_pairs_b))
 
         # Now, unpack... TODO
         c4_aaaa = decompress_axes(
@@ -538,7 +538,7 @@ class UFCI_WaveFunction(RFCI_WaveFunction):
         c4_abbb = decompress_axes(
                 "iajjjbbb",
                 c4_abbb_pack,
-                shape=(nocca, nvirb, noccb, noccb, noccb, nvirb, nvirb, nvirb),
+                shape=(nocca, nvira, noccb, noccb, noccb, nvirb, nvirb, nvirb),
                 symmetry="--------",
         )
         c4_abbb = c4_abbb.transpose(0, 2, 3, 4, 1, 5, 6, 7)
@@ -571,12 +571,12 @@ class UFCI_WaveFunction(RFCI_WaveFunction):
                 c3_aba[i,k,j,b,c,a] = -c3_comp[d_cnta, s_cntb]
                 c3_aba[j,k,i,b,c,a] = c3_comp[d_cnta, s_cntb]
 
+        # NOTE:  this all fails for open shell
         if len(t2addra) > 0:
             # This is a better way of doing it, and then expand! Put rest in a test.
             assert(np.allclose(c3_comp, np.einsum('i,j,ij->ij', \
                 t2signa, t1signb, self.ci[t2addra[:,None], t1addrb])))
         del c3_comp
-
         assert np.allclose(c3_aba, c3_aab.transpose(0, 2, 1, 3, 5, 4))
 
         # TODO remove degenerate permutations

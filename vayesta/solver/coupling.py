@@ -283,9 +283,9 @@ def _integrals_for_extcorr(fragment, fock):
         fovb = dot(cluster.c_active_occ[1].T, fock[1], cluster.c_active_vir[1])
         # TODO make consistent with RHF return value, remove redundancies
         fov = (fova, fovb)
-        gooov = (eris[0][oa, oa, oa, va], eris[1][oa, oa, ob, vb], eris[1].transpose(2, 3, 0, 1)[ob, vb, oa, oa], eris[2][ob, ob, ob, vb])
+        gooov = (eris[0][oa, oa, oa, va], eris[1][oa, oa, ob, vb], eris[1].transpose(2, 3, 0, 1)[ob, ob, oa, va], eris[2][ob, ob, ob, vb])
         govov = (eris[0][oa, va, oa, va], eris[1][oa, va, ob, vb], eris[1].transpose(2, 3, 0, 1)[ob, vb, oa, va], eris[2][ob, vb, ob, vb])
-        govvv = (eris[0][oa, va, va, va], eris[1][oa, va, vb, vb], eris[1].transpose(2, 3, 0, 1)[vb, vb, oa, va], eris[2][ob, vb, vb, vb])
+        govvv = (eris[0][oa, va, va, va], eris[1][oa, va, vb, vb], eris[1].transpose(2, 3, 0, 1)[ob, vb, va, va], eris[2][ob, vb, vb, vb])
         return fov, gooov, govov, govvv
     return fov, govov, gvvov, gooov, govoo
 
