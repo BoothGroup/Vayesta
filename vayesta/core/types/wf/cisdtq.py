@@ -216,7 +216,7 @@ class UCISDTQ_WaveFunction(wf_types.WaveFunction):
         c1_aa, c1_bb = (c / self.c0 for c in self.c1)
         c2_aaaa, c2_abab, c2_bbbb = (c / self.c0 for c in self.c2)
         c3_aaaaaa, c3_abaaba, c3_abbabb, c3_babbab, c3_bbabba, c3_bbbbbb = (c / self.c0 for c in self.c3)
-        c4_aaaaaaaa, c4_aaabaaab, c4_aabaaaba, c4_abaaabaa, c4_abababab, c4_bbabbbab, c4_bbbabbba, c4_bbbbbbbb = (c / self.c0 for c in self.c4)
+        c4_aaaaaaaa, c4_aaabaaab, c4_aabaaaba, c4_abaaabaa, c4_abababab, c4_abbbabbb, c4_bbabbbab, c4_bbbabbba, c4_bbbbbbbb = (c / self.c0 for c in self.c4)
 
         nocc = self.nocc
         nvir = self.nvir
@@ -659,6 +659,61 @@ class UCISDTQ_WaveFunction(wf_types.WaveFunction):
         t4_abababab += einsum("ic,ka,jb,ld->ijklabcd", t1_aa, t1_aa, t1_bb, t1_bb)
         t4_abababab += einsum("ic,ka,jd,lb->ijklabcd", t1_aa, t1_aa, t1_bb, t1_bb) * -1.0
 
+        t4_abbbabbb = np.zeros((nocc[0], nocc[1], nocc[1], nocc[1], nvir[0], nvir[1], nvir[1], nvir[1]), dtype=np.float64)
+        t4_abbbabbb += einsum("ijklabcd->ijklabcd", c4_abbbabbb) * 6.0
+        t4_abbbabbb += einsum("ia,jklbcd->ijklabcd", t1_aa, t3_bbbbbb) * -6.0
+        t4_abbbabbb += einsum("jb,iklacd->ijklabcd", t1_bb, t3_abbabb) * -2.0
+        t4_abbbabbb += einsum("jc,iklabd->ijklabcd", t1_bb, t3_abbabb) * 2.0
+        t4_abbbabbb += einsum("jd,iklabc->ijklabcd", t1_bb, t3_abbabb) * -2.0
+        t4_abbbabbb += einsum("kb,ijlacd->ijklabcd", t1_bb, t3_abbabb) * 2.0
+        t4_abbbabbb += einsum("kc,ijlabd->ijklabcd", t1_bb, t3_abbabb) * -2.0
+        t4_abbbabbb += einsum("kd,ijlabc->ijklabcd", t1_bb, t3_abbabb) * 2.0
+        t4_abbbabbb += einsum("lb,ijkacd->ijklabcd", t1_bb, t3_abbabb) * -2.0
+        t4_abbbabbb += einsum("lc,ijkabd->ijklabcd", t1_bb, t3_abbabb) * 2.0
+        t4_abbbabbb += einsum("ld,ijkabc->ijklabcd", t1_bb, t3_abbabb) * -2.0
+        t4_abbbabbb += einsum("ikac,jlbd->ijklabcd", t2_abab, t2_bbbb) * -2.0
+        t4_abbbabbb += einsum("ikad,jlbc->ijklabcd", t2_abab, t2_bbbb) * 2.0
+        t4_abbbabbb += einsum("ikab,jlcd->ijklabcd", t2_abab, t2_bbbb) * 2.0
+        t4_abbbabbb += einsum("ilac,jkbd->ijklabcd", t2_abab, t2_bbbb) * 2.0
+        t4_abbbabbb += einsum("ilad,jkbc->ijklabcd", t2_abab, t2_bbbb) * -2.0
+        t4_abbbabbb += einsum("ilab,jkcd->ijklabcd", t2_abab, t2_bbbb) * -2.0
+        t4_abbbabbb += einsum("ijac,klbd->ijklabcd", t2_abab, t2_bbbb) * 2.0
+        t4_abbbabbb += einsum("ijad,klbc->ijklabcd", t2_abab, t2_bbbb) * -2.0
+        t4_abbbabbb += einsum("ijab,klcd->ijklabcd", t2_abab, t2_bbbb) * -2.0
+        t4_abbbabbb += einsum("ia,jb,klcd->ijklabcd", t1_aa, t1_bb, t2_bbbb) * -2.0
+        t4_abbbabbb += einsum("ia,jc,klbd->ijklabcd", t1_aa, t1_bb, t2_bbbb) * 2.0
+        t4_abbbabbb += einsum("ia,jd,klbc->ijklabcd", t1_aa, t1_bb, t2_bbbb) * -2.0
+        t4_abbbabbb += einsum("ia,kb,jlcd->ijklabcd", t1_aa, t1_bb, t2_bbbb) * 2.0
+        t4_abbbabbb += einsum("ia,kc,jlbd->ijklabcd", t1_aa, t1_bb, t2_bbbb) * -2.0
+        t4_abbbabbb += einsum("ia,kd,jlbc->ijklabcd", t1_aa, t1_bb, t2_bbbb) * 2.0
+        t4_abbbabbb += einsum("ia,lb,jkcd->ijklabcd", t1_aa, t1_bb, t2_bbbb) * -2.0
+        t4_abbbabbb += einsum("ia,lc,jkbd->ijklabcd", t1_aa, t1_bb, t2_bbbb) * 2.0
+        t4_abbbabbb += einsum("ia,ld,jkbc->ijklabcd", t1_aa, t1_bb, t2_bbbb) * -2.0
+        t4_abbbabbb += einsum("jb,kc,ilad->ijklabcd", t1_bb, t1_bb, t2_abab) * -1.0
+        t4_abbbabbb += einsum("jb,kd,ilac->ijklabcd", t1_bb, t1_bb, t2_abab)
+        t4_abbbabbb += einsum("jc,kb,ilad->ijklabcd", t1_bb, t1_bb, t2_abab)
+        t4_abbbabbb += einsum("jc,kd,ilab->ijklabcd", t1_bb, t1_bb, t2_abab) * -1.0
+        t4_abbbabbb += einsum("jd,kb,ilac->ijklabcd", t1_bb, t1_bb, t2_abab) * -1.0
+        t4_abbbabbb += einsum("jd,kc,ilab->ijklabcd", t1_bb, t1_bb, t2_abab)
+        t4_abbbabbb += einsum("jb,lc,ikad->ijklabcd", t1_bb, t1_bb, t2_abab)
+        t4_abbbabbb += einsum("jb,ld,ikac->ijklabcd", t1_bb, t1_bb, t2_abab) * -1.0
+        t4_abbbabbb += einsum("jc,lb,ikad->ijklabcd", t1_bb, t1_bb, t2_abab) * -1.0
+        t4_abbbabbb += einsum("jc,ld,ikab->ijklabcd", t1_bb, t1_bb, t2_abab)
+        t4_abbbabbb += einsum("jd,lb,ikac->ijklabcd", t1_bb, t1_bb, t2_abab)
+        t4_abbbabbb += einsum("jd,lc,ikab->ijklabcd", t1_bb, t1_bb, t2_abab) * -1.0
+        t4_abbbabbb += einsum("kb,lc,ijad->ijklabcd", t1_bb, t1_bb, t2_abab) * -1.0
+        t4_abbbabbb += einsum("kb,ld,ijac->ijklabcd", t1_bb, t1_bb, t2_abab)
+        t4_abbbabbb += einsum("kc,lb,ijad->ijklabcd", t1_bb, t1_bb, t2_abab)
+        t4_abbbabbb += einsum("kc,ld,ijab->ijklabcd", t1_bb, t1_bb, t2_abab) * -1.0
+        t4_abbbabbb += einsum("kd,lb,ijac->ijklabcd", t1_bb, t1_bb, t2_abab) * -1.0
+        t4_abbbabbb += einsum("kd,lc,ijab->ijklabcd", t1_bb, t1_bb, t2_abab)
+        t4_abbbabbb += einsum("ia,jb,kc,ld->ijklabcd", t1_aa, t1_bb, t1_bb, t1_bb) * -1.0
+        t4_abbbabbb += einsum("ia,jb,kd,lc->ijklabcd", t1_aa, t1_bb, t1_bb, t1_bb)
+        t4_abbbabbb += einsum("ia,jc,kb,ld->ijklabcd", t1_aa, t1_bb, t1_bb, t1_bb)
+        t4_abbbabbb += einsum("ia,jc,kd,lb->ijklabcd", t1_aa, t1_bb, t1_bb, t1_bb) * -1.0
+        t4_abbbabbb += einsum("ia,jd,kb,lc->ijklabcd", t1_aa, t1_bb, t1_bb, t1_bb) * -1.0
+        t4_abbbabbb += einsum("ia,jd,kc,lb->ijklabcd", t1_aa, t1_bb, t1_bb, t1_bb)
+
         t4_bbabbbab = np.zeros((nocc[1], nocc[1], nocc[0], nocc[1], nvir[1], nvir[1], nvir[0], nvir[1]), dtype=np.float64)
         t4_bbabbbab += einsum("ijklabcd->ijklabcd", c4_bbabbbab) * 6.0
         t4_bbabbbab += einsum("kc,ijlabd->ijklabcd", t1_aa, t3_bbbbbb) * -6.0
@@ -905,6 +960,6 @@ class UCISDTQ_WaveFunction(wf_types.WaveFunction):
         t1 = (t1_aa, t1_bb)
         t2 = (t2_aaaa, t2_abab, t2_bbbb)
         t3 = (t3_aaaaaa, t3_abaaba, t3_abbabb, t3_babbab, t3_bbabba, t3_bbbbbb)
-        t4 = (t4_aaaaaaaa, t4_aaabaaab, t4_aabaaaba, t4_abaaabaa, t4_abababab, t4_bbabbbab, t4_bbbabbba, t4_bbbbbbbb)
+        t4 = (t4_aaaaaaaa, t4_aaabaaab, t4_aabaaaba, t4_abaaabaa, t4_abababab, t4_abbbabbb, t4_bbabbbab, t4_bbbabbba, t4_bbbbbbbb)
 
         return wf_types.UCCSDTQ_WaveFunction(self.mo, t1=t1, t2=t2, t3=t3, t4=t4)

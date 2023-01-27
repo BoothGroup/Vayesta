@@ -455,7 +455,7 @@ def _get_delta_t_for_extcorr(fragment, fock, solver, include_t3v=True, test_extc
         t1_aa, t1_bb = wf.t1
         t2_aaaa, t2_abab, t2_bbbb = wf.t2
         t3_aaaaaa, t3_abaaba, t3_abbabb, t3_babbab, t3_bbabba, t3_bbbbbb = wf.t3
-        t4_aaaaaaaa, t4_aaabaaab, t4_aabaaaba, t4_abaaabaa, t4_abababab, t4_bbabbbab, t4_bbbabbba, t4_bbbbbbbb = wf.t4
+        t4_aaaaaaaa, t4_aaabaaab, t4_aabaaaba, t4_abaaabaa, t4_abababab, t4_abbbabbb, t4_bbabbbab, t4_bbbabbba, t4_bbbbbbbb = wf.t4
 
         nocc = fragment.base.nocc
         nvir = fragment.base.nvir
@@ -502,6 +502,11 @@ def _get_delta_t_for_extcorr(fragment, fock, solver, include_t3v=True, test_extc
         dt2_aaaa += einsum("kc,kdlc,iljadb->ijab", t1_bb, v_bbbb_ovov, t3_abaaba) * -2.0
         dt2_aaaa += einsum("kc,kcld,ijlabd->ijab", t1_bb, v_bbaa_ovov, t3_aaaaaa) * 6.0
 
+        dt2_aaaa += einsum("kcld,ikjlacbd->ijab", v_bbbb_ovov, t4_abababab) * 2.0
+        dt2_aaaa += einsum("kcld,ijklabcd->ijab", v_aaaa_ovov, t4_aaaaaaaa) * 12.0
+        dt2_aaaa += einsum("kcld,ijklabcd->ijab", v_aabb_ovov, t4_aaabaaab) * 3.0
+        dt2_aaaa += einsum("kcld,ijklabcd->ijab", v_bbaa_ovov, t4_aabaaaba) * 3.0
+
         dt2_bbbb = np.zeros((nocc[1], nocc[1], nvir[1], nvir[1]), dtype=np.float64)
         dt2_bbbb += einsum("kc,ijkabc->ijab", f_aa_ov, t3_bbabba) * 2.0
         dt2_bbbb += einsum("kc,ijkabc->ijab", f_bb_ov, t3_bbbbbb) * 6.0
@@ -532,6 +537,11 @@ def _get_delta_t_for_extcorr(fragment, fock, solver, include_t3v=True, test_extc
         dt2_bbbb += einsum("kc,kcld,ijlabd->ijab", t1_bb, v_bbbb_ovov, t3_bbbbbb) * 6.0
         dt2_bbbb += einsum("kc,kdlc,ijlabd->ijab", t1_bb, v_bbbb_ovov, t3_bbbbbb) * -6.0
 
+        dt2_bbbb += einsum("kcld,kiljcadb->ijab", v_aaaa_ovov, t4_abababab) * 2.0
+        dt2_bbbb += einsum("kcld,ijklabcd->ijab", v_aabb_ovov, t4_bbabbbab) * 3.0
+        dt2_bbbb += einsum("kcld,ijklabcd->ijab", v_bbaa_ovov, t4_bbbabbba) * 3.0
+        dt2_bbbb += einsum("kcld,ijklabcd->ijab", v_bbbb_ovov, t4_bbbbbbbb) * 12.0
+
         dt2_abab = np.zeros((nocc[0], nocc[1], nvir[0], nvir[1]), dtype=np.float64)
         dt2_abab += einsum("kc,ijkabc->ijab", f_aa_ov, t3_abaaba) * 2.0
         dt2_abab += einsum("kc,ijkabc->ijab", f_bb_ov, t3_abbabb) * 2.0
@@ -561,6 +571,11 @@ def _get_delta_t_for_extcorr(fragment, fock, solver, include_t3v=True, test_extc
         dt2_abab += einsum("kb,kcld,ijlacd->ijab", t1_bb, v_bbbb_ovov, t3_abbabb) * -2.0
         dt2_abab += einsum("kc,kcld,ijlabd->ijab", t1_bb, v_bbbb_ovov, t3_abbabb) * 2.0
         dt2_abab += einsum("kc,kdlc,ijlabd->ijab", t1_bb, v_bbbb_ovov, t3_abbabb) * -2.0
+
+        dt2_abab += einsum("kcld,ijklabcd->ijab", v_aabb_ovov, t4_abababab) * 2.0
+        dt2_abab += einsum("kcld,ijlkabdc->ijab", v_bbaa_ovov, t4_abababab) * 2.0
+        dt2_abab += einsum("kcld,ijklabcd->ijab", v_aaaa_ovov, t4_abaaabaa) * 3.0
+        dt2_abab += einsum("kcld,ijklabcd->ijab", v_bbbb_ovov, t4_abbbabbb) * 3.0
 
         dt1 = (dt1_aa, dt1_bb)
         dt2 = (dt2_aaaa, dt2_abab, dt2_bbbb)
@@ -823,6 +838,7 @@ def externally_correct(solver, external_corrections, eris=None, test_extcorr=Fal
     elif solver.spinsym == 'unrestricted':
 
         if corrtype in ["external", "external-fciv", "external-ccsdv"]:
+            # FIXME is this done correctly? I update my T amplitudes as T = R / D - T'
             e_ia = (
                 pyscf.lib.direct_sum("i-a->ia", mo_energy[0][:nocc[0]], mo_energy[0][nocc[0]:]),
                 pyscf.lib.direct_sum("i-a->ia", mo_energy[1][:nocc[1]], mo_energy[1][nocc[1]:]),
@@ -835,9 +851,13 @@ def externally_correct(solver, external_corrections, eris=None, test_extcorr=Fal
                 dt2[2] / pyscf.lib.direct_sum("ia,jb->ijab", e_ia[1], e_ia[1]),
             )
 
+        solver.log.info("Total external correction amplitudes from all fragments:  dT1= %.3e  dT2= %.3e", \
+                *get_amplitude_norm(dt1, dt2))
+
         def callback(kwargs):
             """Add external correction to T1 and T2 amplitudes."""
             t1, t2 = kwargs['t1new'], kwargs['t2new']
+
             t1[0][:] += dt1[0]
             t1[1][:] += dt1[1]
             t2[0][:] += dt2[0]
