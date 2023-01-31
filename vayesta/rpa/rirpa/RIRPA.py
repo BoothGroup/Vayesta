@@ -41,7 +41,14 @@ class ssRIRPA:
         self.svd_tol = svd_tol
         self.e_corr_ss = None
         self.Lpq = Lpq
-
+        # Determine how many times to attempt compression of low-rank expressions for various matrices.
+        self.compress = 0
+        # Thresholds are:
+        #  - above 0: Compress representation of (A+B)(A-B) once constructed, prior to main calculation.
+        #  - above 3: Compress representations of A+B and A-B separately prior to constructing (A+B)(A-B) or (A+B)^{-1}
+        #  - above 5: Compress representation of (A+B)^{-1} prior to contracting. This is basically never worthwhile.
+        # Note that in all cases these operations will have computational cost O(N^4), and so a tradeoff must be made
+        # between reducing the N_{aux} in later calculations vs the cost of compression.
     @property
     def nocc(self):
         return sum(self.mf.mo_occ > 0)
@@ -252,7 +259,9 @@ class ssRIRPA:
         else:
             integral, upper_bound = niworker.kernel(a=ainit, opt_quad=opt_quad)
         # Need to construct RI representation of P^{-1}
-        ri_apb_inv = self.compress_low_rank(*construct_inverse_RI(self.D, ri_apb), name="(A+B)^-1")
+        ri_apb_inv = construct_inverse_RI(self.D, ri_apb)
+        if self.compress > 5:
+            ri_apb_inv = self.compress_low_rank(*ri_apb_inv, name="(A+B)^-1")
         mom0 = einsum("pq,q->pq", integral + integral_offset, self.D ** (-1)) - np.dot(
             np.dot(integral + integral_offset, ri_apb_inv[0].T), ri_apb_inv[1])
         # Also need to convert error estimate of the integral into one for the actual evaluated quantity.
@@ -496,12 +505,15 @@ class ssRIRPA:
         # Compress RI representations before manipulation, since compression costs O(N^2 N_aux) while most operations
         # are O(N^2 N_aux^2), so for systems large enough that calculation cost is noticeable the cost reduction
         # from a reduced rank will exceed the cost of compression.
-        ri_apb = self.compress_low_rank(*ri_apb, name="A+B")
-        ri_amb = self.compress_low_rank(*ri_amb, name="A-B")
+        if self.compress > 3:
+            ri_apb = self.compress_low_rank(*ri_apb, name="A+B")
+            ri_amb = self.compress_low_rank(*ri_amb, name="A-B")
         ri_apb = [x * alpha ** (0.5) for x in ri_apb]
         ri_amb = [x * alpha ** (0.5) for x in ri_amb]
 
-        ri_mp = self.compress_low_rank(*construct_product_RI(self.D, ri_amb, ri_apb), name="(A-B)(A+B)")
+        ri_mp = construct_product_RI(self.D, ri_amb, ri_apb)
+        if self.compress > 0:
+            ri_mp = self.compress_low_rank(*ri_mp, name="(A-B)(A+B)")
         return ri_mp, ri_apb, ri_amb
 
     def check_errors(self, error, nelements):
