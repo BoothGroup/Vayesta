@@ -348,17 +348,17 @@ def make_ccsdgf_moms(emb, ao_basis=False, t_as_lambda=False, ovlp_tol=None, svd_
             heiab = einsum('iI,npIab->npiab', cfcy, heija)
 
             ea_mom_xy = einsum('pa,aA,nQA->npQ', ba, rxy_vir, hea)
-            ea_mom_xy += einsum('piab,iI,aA,bB,nQIAB->npQ', biab, rxy_occ, rxy_vir, rxy_vir, heiab)
+            #ea_mom_xy += einsum('piab,iI,aA,bB,nQIAB->npQ', biab, rxy_occ, rxy_vir, rxy_vir, heiab)
 
             print(ip_mom_x.shape)
             print(cy.shape)
             print(ip_mom_xy.shape)
             ip_mom_x += einsum('qQ,npQ->npq', cy, ip_mom_xy)
-            ea_mom_x += einsum('qQ,npQ->npq', cy, ea_mom_xy)
+            #ea_mom_x += einsum('qQ,npQ->npq', cy, ea_mom_xy)
 
         # TODO: Symmetry
         ip_mom += einsum('pP,nPq', cx, ip_mom_x)
-        ea_mom += einsum('pP,nPq', cx, ea_mom_x)
+        #ea_mom += einsum('pP,nPq', cx, ea_mom_x)
 
     return ip_mom
 
