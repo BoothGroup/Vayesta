@@ -47,8 +47,9 @@ class ssRIRPA:
         #  - above 0: Compress representation of (A+B)(A-B) once constructed, prior to main calculation.
         #  - above 3: Compress representations of A+B and A-B separately prior to constructing (A+B)(A-B) or (A+B)^{-1}
         #  - above 5: Compress representation of (A+B)^{-1} prior to contracting. This is basically never worthwhile.
-        # Note that in all cases these operations will have computational cost O(N^4), and so a tradeoff must be made
-        # between reducing the N_{aux} in later calculations vs the cost of compression.
+        # Note that in all cases these compressions will have computational cost O(N_{aux}^2 ov), the same as our later
+        # computations, and so a tradeoff must be made between reducing the N_{aux} in later calculations vs the cost
+        # of compression.
     @property
     def nocc(self):
         return sum(self.mf.mo_occ > 0)
@@ -502,9 +503,6 @@ class ssRIRPA:
     def get_compressed_MP(self, alpha=1.0):
         # AB corresponds to scaling RI components at this point.
         ri_apb, ri_amb = self.construct_RI_AB()
-        # Compress RI representations before manipulation, since compression costs O(N^2 N_aux) while most operations
-        # are O(N^2 N_aux^2), so for systems large enough that calculation cost is noticeable the cost reduction
-        # from a reduced rank will exceed the cost of compression.
         if self.compress > 3:
             ri_apb = self.compress_low_rank(*ri_apb, name="A+B")
             ri_amb = self.compress_low_rank(*ri_amb, name="A-B")
