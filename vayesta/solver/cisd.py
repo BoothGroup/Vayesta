@@ -1,115 +1,49 @@
-import pyscf
-import pyscf.ci
-from vayesta.core.util import *
-from vayesta.core.types import WaveFunction
-import vayesta.solver.ccsd as ccsd
-from .solver import ClusterSolver
+from .solver import ClusterSolver, UClusterSolver
+from .hamiltonian import is_uhf_ham, is_eb_ham
+
+from vayesta.core.types import CISD_WaveFunction
+from pyscf import ci
+from ._uccsd_eris import uao2mo
+import dataclasses
 
 
-class CISD_Solver(ccsd.CCSD_Solver):
+def CISD_Solver(hamil, *args, **kwargs):
+    if is_eb_ham(hamil):
+        raise NotImplementedError("Coupled electron-boson CISD solver not implemented.")
+    if is_uhf_ham(hamil):
+        return UCISD_Solver(hamil, *args, **kwargs)
+    else:
+        return RCISD_Solver(hamil, *args, **kwargs)
 
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        # Results
-        self.civec = None
-        self.c0 = None
-        self.c1 = None      # In intermediate normalization!
-        self.c2 = None      # In intermediate normalization!
 
-    def kernel(self, eris=None):
+class RCISD_Solver(ClusterSolver):
+    @dataclasses.dataclass
+    class Options(ClusterSolver.Options):
+        conv_tol: float = None  # Convergence tolerance. If None, use PySCF default
 
-        # Integral transformation
-        if eris is None: eris = self.get_eris()
-
-        # Add additional potential
-        if self.v_ext is not None:
-            self.log.debugv("Adding self.v_ext to eris.fock")
-            # Make sure there are no side effects:
-            eris = copy.copy(eris)
-            # Replace fock instead of modifying it!
-            eris.fock = (eris.fock + self.v_ext)
-        #self.log.debugv("sum(eris.mo_energy)= %.8e", sum(eris.mo_energy))
-        #self.log.debugv("Tr(eris.fock)= %.8e", np.trace(eris.fock))
-
-        # Tailored CC
-        with log_time(self.log.timing, "Time for CISD: %s"):
-            #self.log.info("Solving CISD-equations %s initial guess...", "with" if (t2 is not None) else "without")
-            self.log.info("Solving CISD-equations")
-            self.solver.kernel(eris=eris)
-            if not self.solver.converged:
-                self.log.error("%s not converged!", self.__class__.__name__)
-            else:
-                self.log.debugv("%s converged.", self.__class__.__name__)
-            self.e_corr = self.solver.e_corr
-            self.converged = self.solver.converged
-            self.log.debug("Cluster: E(corr)= % 16.8f Ha", self.solver.e_corr)
-
-        self.civec = self.solver.ci
-        self.c0, self.c1, self.c2 = self.solver.cisdvec_to_amplitudes(self.civec)
-
-        self.wf = WaveFunction.from_pyscf(self.solver)
+    def kernel(self, *args, **kwargs):
+        mf_clus, frozen = self.hamil.to_pyscf_mf(allow_dummy_orbs=True)
+        solver_class = self.get_solver_class()
+        mycisd = solver_class(mf_clus, frozen=frozen)
+        if self.opts.conv_tol:
+            mycisd.conv_tol = self.opts.conv_tol
+        ecisd, civec = mycisd.kernel()
+        c0, c1, c2 = mycisd.cisdvec_to_amplitudes(civec)
+        self.wf = CISD_WaveFunction(self.hamil.mo, c0, c1, c2)
+        self.converged = True
 
     def get_solver_class(self):
-        # No DF version for CISD
-        return pyscf.ci.cisd.CISD
-
-    @deprecated()
-    def get_t1(self):
-        return self.get_c1(intermed_norm=True)
-
-    @deprecated()
-    def get_t2(self):
-        return (self.c2 - einsum('ia,jb->ijab', self.c1, self.c1))/self.c0
-
-    @deprecated()
-    def get_c1(self, intermed_norm=False):
-        norm = 1/self.c0 if intermed_norm else 1
-        return norm*self.c1
-
-    @deprecated()
-    def get_c2(self, intermed_norm=False):
-        norm = 1/self.c0 if intermed_norm else 1
-        return norm*self.c2
-
-    @deprecated()
-    def get_l1(self, **kwargs):
-        return None
-
-    @deprecated()
-    def get_l2(self, **kwargs):
-        return None
-
-    def get_init_guess(self):
-        return {'c0' : self.c0, 'c1' : self.c1 , 'c2' : self.c2}
-
-    def make_rdm1(self, *args, **kwargs):
-        raise NotImplementedError()
-
-    def make_rdm2(self, *args, **kwargs):
-        raise NotImplementedError()
+        return ci.RCISD
 
 
-class UCISD_Solver(CISD_Solver):
+class UCISD_Solver(UClusterSolver, RCISD_Solver):
+    @dataclasses.dataclass
+    class Options(RCISD_Solver.Options):
+        pass
 
     def get_solver_class(self):
-        # No DF version for UCISD
-        return pyscf.ci.ucisd.UCISD
+        return UCISD
 
-    @deprecated()
-    def get_t2(self):
-        ca, cb = self.get_c1(intermed_norm=True)
-        caa, cab, cbb = self.get_c2(intermed_norm=True)
-        taa = caa - einsum('ia,jb->ijab', ca, ca) + einsum('ib,ja->ijab', ca, ca)
-        tbb = cbb - einsum('ia,jb->ijab', cb, cb) + einsum('ib,ja->ijab', cb, cb)
-        tab = cab - einsum('ia,jb->ijab', ca, cb)
-        return (taa, tab, tbb)
 
-    @deprecated()
-    def get_c1(self, intermed_norm=False):
-        norm = 1/self.c0 if intermed_norm else 1
-        return (norm*self.c1[0], norm*self.c1[1])
-
-    @deprecated()
-    def get_c2(self, intermed_norm=False):
-        norm = 1/self.c0 if intermed_norm else 1
-        return (norm*self.c2[0], norm*self.c2[1], norm*self.c2[2])
+class UCISD(ci.ucisd.UCISD):
+    ao2mo = uao2mo

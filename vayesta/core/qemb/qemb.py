@@ -36,7 +36,7 @@ from vayesta.core.qemb.scrcoulomb import build_screened_eris
 from vayesta.mpi import mpi
 from .register import FragmentRegister
 from vayesta.rpa import ssRIRPA
-from vayesta.solver_rewrite import check_solver_config
+from vayesta.solver import check_solver_config
 
 # Symmetry
 from vayesta.core.symmetry import SymmetryGroup
