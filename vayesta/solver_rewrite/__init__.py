@@ -34,6 +34,10 @@ def _get_solver_class(is_uhf, is_eb, solver):
             return UCCSD_Solver
         else:
             return RCCSD_Solver
+    if solver == "TCCSD":
+        if is_uhf or is_eb:
+            raise ValueError("TCCSD is not implemented for unrestricted or electron-boson calculations!")
+        return TRCCSD_Solver
     # Now consider general CC ansatzes; these are solved via EBCC.
     if "CC" in solver:
         if is_uhf:
@@ -89,10 +93,6 @@ def _get_solver_class(is_uhf, is_eb, solver):
             return UCISD_Solver
         else:
             return RCISD_Solver
-    if solver == "TCCSD":
-        if is_uhf:
-            raise ValueError("TCCSD is not implemented for unrestricted calculations!")
-        return TRCCSD_Solver
     if solver == "DUMP":
         return DumpSolver
     raise ValueError("Unknown solver: %s" % solver)
