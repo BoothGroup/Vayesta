@@ -149,7 +149,6 @@ class ssRIRPA:
             ri_decomps: iterable of three tuples of np.arrays or None, optional.
                 Low-rank RI expressions (S_L,S_R) for (A-B)(A+B), A+B and A-B, such that the non-diagonal contribution
                 to each is given by S_L S_R^T. If `None' these will be contructed at O(N^4) cost. Default: None
-
             analytic_lower_bound: bool, optional.
                 Whether to compute analytic lower bound on the error of the computed zeroth dd moment. Computation
                 requires O(N^4) operation, and given limited utility of lower bound this is optional.
