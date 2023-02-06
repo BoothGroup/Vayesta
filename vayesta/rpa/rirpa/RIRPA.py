@@ -335,12 +335,13 @@ class ssRIRPA:
         ri_apb_eri = self.get_apb_eri_ri()
         # Note that eri contribution to A and B is equal, so can get trace over one by dividing by two
         e3 = sum(self.D) + einsum("np,np->", ri_apb_eri, ri_apb_eri) / 2
+        err /= 2
         if self.rixc is not None and correction is not None:
             if correction.lower() == "linear":
                 ri_a_xc, ri_b_xc = self.get_ab_xc_ri()
                 eta0_xc, errs = self.kernel_moms(0, target_rot=ri_b_xc[0], npoints=npoints, ainit=ainit)
                 eta0_xc = eta0_xc[0]
-                err += errs[1]
+                err = tuple([(err**2 + x/2**2)**0.5 if x is not None else None for x in errs])
                 val = np.dot(eta0_xc, ri_b_xc[1].T).trace() / 2
                 self.log.info("Approximated correlation energy contribution: %e", val)
                 e2 -= val
@@ -348,7 +349,6 @@ class ssRIRPA:
             elif correction.lower() == "xc_ac":
                 pass
         self.e_corr_ss = 0.5 * (e1 + e2 - e3)
-        err /= 2
         self.log.info("Total RIRPA Energy Calculation wall time:  %s", time_string(timer() - t_start))
         return self.e_corr_ss, err
 
