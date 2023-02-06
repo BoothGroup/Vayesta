@@ -14,7 +14,6 @@ def scf_with_mpi(mpi, mf, mpi_rank=0, log=None):
     if not mpi:
         return mf
 
-    bcast = functools.partial(mpi.world.bcast, root=mpi_rank)
     kernel_orig = mf.kernel
     log = log or mpi.log or logging.getLogger(__name__)
 
@@ -39,21 +38,11 @@ def scf_with_mpi(mpi, mf, mpi_rank=0, log=None):
         mpi.world.barrier()
 
         # Broadcast results
+        bcast = functools.partial(mpi.bcast, root=mpi_rank)
         with log_time(log.timing, "Time for MPI broadcast of SCF results: %s"):
-            if mpi.rank == mpi_rank:
-                cderi_shape = list(df._cderi.shape)
-            else: 
-                cderi_shape = []
-            cderi_shape = bcast(cderi_shape)
-            cderi_shape = tuple(cderi_shape)
-            if mpi.rank != mpi_rank:
-                df._cderi = np.empty(cderi_shape)
             res = bcast(res)
             if df is not None:
-                print("2^31   = %d\nnbytes = %d\nsizeof = %d"%(2**31, df._cderi.nbytes, df._cderi.__sizeof__()))
-                print("type = %s\nshape = %s"%(str(type(df._cderi)), str(df._cderi.shape)))
-                #df._cderi = bcast(df._cderi)
-                mpi.world.Bcast(df._cderi, root=mpi_rank)
+                df._cderi = bcast(df._cderi)
             self.converged = bcast(self.converged)
             self.e_tot = bcast(self.e_tot)
             self.mo_energy = bcast(self.mo_energy)
