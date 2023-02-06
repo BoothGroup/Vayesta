@@ -31,8 +31,10 @@ class MoleculeRPATest(TestCase):
         self._test_energy(orig_rpa, known_values)
 
         rirpa = rpa.ssRIRPA(testsystems.n2_ccpvdz_df.rhf())
-        rirpa_moms, error_est = rirpa.kernel_moms(3, analytic_lower_bound=True)
+        rirpa.kernel_energy()
+        self._test_energy(rirpa, known_values)
 
+        rirpa_moms, error_est = rirpa.kernel_moms(3, analytic_lower_bound=True)
         self._test_mom0(orig_rpa, rirpa_moms)
 
     def test_n2_ccpvdz_dRIRPA_error_estimates(self):

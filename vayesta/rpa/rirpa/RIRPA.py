@@ -173,6 +173,7 @@ class ssRIRPA:
         moments = np.zeros((max_moment + 1,) + target_rot.shape)
         moments[0], err0 = self._kernel_mom0(target_rot, **kwargs, ri_decomps=ri_decomps)
 
+        t_start_higher = timer()
         if max_moment > 0:
             # Grab mean.
             D = self.D
@@ -183,7 +184,8 @@ class ssRIRPA:
             for i in range(2, max_moment + 1):
                 moments[i] = einsum("pq,q->pq", moments[i - 2], Dsq) + dot(moments[i - 2], ri_mp[1].T, ri_mp[0])
         if max_moment > 0:
-            self.log.info("RIRPA Higher Moments wall time:  %s", time_string(timer() - t_start))
+            self.log.info("RIRPA Higher Moments wall time:  %s", time_string(timer() - t_start_higher))
+            self.log.info("Overall RIRPA Moments wall time:  %s", time_string(timer() - t_start))
         return moments, err0
 
     def _kernel_mom0(self, target_rot=None, npoints=48, ainit=10, integral_deduct="HO", opt_quad=True,
@@ -327,13 +329,13 @@ class ssRIRPA:
         return integral[0] + offset, err
 
     def kernel_energy(self, npoints=48, ainit=10, correction="linear"):
+        t_start = timer()
         e1, err = self.kernel_trMPrt(npoints, ainit)
         e2 = 0.0
         ri_apb_eri = self.get_apb_eri_ri()
         # Note that eri contribution to A and B is equal, so can get trace over one by dividing by two
         e3 = sum(self.D) + einsum("np,np->", ri_apb_eri, ri_apb_eri) / 2
         if self.rixc is not None and correction is not None:
-
             if correction.lower() == "linear":
                 ri_a_xc, ri_b_xc = self.get_ab_xc_ri()
                 eta0_xc, errs = self.kernel_moms(0, target_rot=ri_b_xc[0], npoints=npoints, ainit=ainit)
@@ -347,6 +349,7 @@ class ssRIRPA:
                 pass
         self.e_corr_ss = 0.5 * (e1 + e2 - e3)
         err /= 2
+        self.log.info("Total RIRPA Energy Calculation wall time:  %s", time_string(timer() - t_start))
         return self.e_corr_ss, err
 
     def direct_AC_integration(self, local_rot=None, fragment_projectors=None, deg=5, npoints=48,
