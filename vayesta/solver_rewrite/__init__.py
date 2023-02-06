@@ -27,18 +27,15 @@ def check_solver_config(is_uhf, is_eb, solver, log):
 
 def _get_solver_class(is_uhf, is_eb, solver):
     solver = solver.upper()
-
-    if solver == "CCSD":
-        if is_eb:
-            # EB solvers only available via EBCC.
-            solver = "EBCCSD"
+    # First check if we have a CC approach as implemented in pyscf.
+    if solver == "CCSD" and not is_eb:
+        # Use pyscf solvers.
+        if is_uhf:
+            return UCCSD_Solver
         else:
-            # Use pyscf solvers.
-            if is_uhf:
-                return UCCSD_Solver
-            else:
-                return RCCSD_Solver
-    if solver[:4] == "EBCC":
+            return RCCSD_Solver
+    # Now consider general CC ansatzes; these are solved via EBCC.
+    if "CC" in solver:
         if is_uhf:
             if is_eb:
                 solverclass = EB_UEBCC_Solver
@@ -49,21 +46,26 @@ def _get_solver_class(is_uhf, is_eb, solver):
                 solverclass = EB_REBCC_Solver
             else:
                 solverclass = REBCC_Solver
-        if len(solver) == 4:
+        if solver == "EBCC":
+            # Default to `opts.ansatz`.
             return solverclass
-        else:
-            specrank = solver[2:]
+        if solver[:2] == "EB":
+            solver = solver[2:]
+        if solver == "CCSD" and is_eb:
+            # Need to specify CC level for coupled electron-boson model; throw an error rather than assume.
+            raise ValueError(
+                "Please specify a coupled electron-boson CC ansatz as a solver, for example CCSD-S-1-1,"
+                "rather than CCSD")
+        def get_right_CC(*args, **kwargs):
 
-            def get_right_CC(*args, **kwargs):
-                if "ansatz" in kwargs:
-                    if specrank != kwargs["ansatz"]:
-                        raise ValueError(
-                            "Desired CC rank specified differently in solver specifier and solver_options."
-                            "Please use only specify via one approach, or ensure they agree.")
-                kwargs["ansatz"] = specrank
-                return solverclass(*args, **kwargs)
+            if kwargs.get("ansatz", None) is not None:
+                raise ValueError(
+                    "Desired CC ansatz specified differently in solver and solver_options.ansatz."
+                    "Please use only specify via one approach, or ensure they agree.")
+            kwargs["ansatz"] = solver
+            return solverclass(*args, **kwargs)
 
-            return get_right_CC
+        return get_right_CC
     if solver == "FCI":
         if is_uhf:
             if is_eb:

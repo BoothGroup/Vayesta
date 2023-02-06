@@ -108,7 +108,7 @@ class Options(OptionsBase):
             # EBFCI/EBCCSD
             max_boson_occ=2,
             # EBCC
-            ansatz="CCSD", boson_excitations="S", fermion_coupling_rank=1, boson_coupling_rank=1,
+            ansatz=None,
             # Dump
             dumpfile='clusters.h5',
             # MP2

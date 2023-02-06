@@ -79,7 +79,7 @@ class MolecularDFEDMETTest(TestCase):
     def test_h2o_ccpvdz_EBCCSD_IAO(self):
         emb = edmet.EDMET(
                 testsystems.water_ccpvdz_df.rhf(),
-                solver='CCSD',
+                solver='CCSD-S-1-1',
                 conv_tol=self.CONV_TOL,
                 oneshot=True,
                 make_dd_moments=False,
@@ -95,7 +95,7 @@ class MolecularDFEDMETTest(TestCase):
 
         uemb = edmet.EDMET(
                 testsystems.water_ccpvdz_df.uhf(),
-                solver='CCSD',
+                solver='CCSD-S-1-1',
                 conv_tol=self.CONV_TOL,
                 oneshot=True,
                 make_dd_moments=False,

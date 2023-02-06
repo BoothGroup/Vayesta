@@ -131,7 +131,7 @@ class MolecularEDMETTest(TestCase):
     def test_h2o_ccpvdz_EBCCSD_IAO_2occ(self):
         emb = edmet.EDMET(
                 testsystems.water_ccpvdz.rhf(),
-                solver='EBCCSD',
+                solver='CCSD-S-1-1',
                 conv_tol=self.CONV_TOL,
                 bosonic_interaction="direct",
                 oneshot=True,
@@ -147,7 +147,7 @@ class MolecularEDMETTest(TestCase):
 
         uemb = edmet.EDMET(
                 testsystems.water_ccpvdz.uhf(),
-                solver='EBCCSD',
+                solver='CCSD-S-1-1',
                 conv_tol=self.CONV_TOL,
                 bosonic_interaction="direct",
                 oneshot=True,

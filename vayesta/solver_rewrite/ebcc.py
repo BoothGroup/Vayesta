@@ -30,7 +30,7 @@ class REBCC_Solver(ClusterSolver):
         # Use pyscf mean-field representation.
         mf_clus, frozen = self.hamil.to_pyscf_mf(allow_dummy_orbs=False)
         mycc = ebcc.EBCC(mf_clus, log=self.log, ansatz=self.opts.ansatz,
-                         **self.get_nonull_solver_opts())
+                         **self.get_nonnull_solver_opts())
         mycc.kernel()
         self.converged = mycc.converged
         if self.opts.solve_lambda:
@@ -39,7 +39,7 @@ class REBCC_Solver(ClusterSolver):
         # Now just need to wrangle EBCC results into wavefunction format.
         self.construct_wavefunction(mycc, self.hamil.mo)
 
-    def get_nonull_solver_opts(self):
+    def get_nonnull_solver_opts(self):
         def add_nonull_opt(d, key, newkey):
             val = self.opts.get(key)
             if val is not None:
@@ -164,31 +164,17 @@ class UEBCC_Solver(UClusterSolver, REBCC_Solver):
 class EB_REBCC_Solver(REBCC_Solver):
     @dataclasses.dataclass
     class Options(REBCC_Solver.Options):
-        boson_excitations: str = "S"
-        fermion_coupling_rank: int = 1
-        boson_coupling_rank: int = 1
+        ansatz: str = "CCSD-S-1-1"
 
     @property
     def is_fCCSD(self):
         return False
 
-    def kernel(self):
-        import ebcc
-        mf_clus, frozen = self.hamil.to_pyscf_mf(allow_dummy_orbs=False)
-
-        mycc = ebcc.EBCC(mf_clus, log=self.log, ansatz=self.opts.ansatz,
-                         boson_excitations=self.opts.boson_excitations,
-                         fermion_coupling_rank=self.opts.fermion_coupling_rank,
-                         boson_coupling_rank=self.opts.boson_coupling_rank,
-                         omega=self.hamil.bos_freqs, g=self.get_couplings(),
-                         **self.get_nonull_solver_opts())
-        mycc.kernel()
-        self.converged = mycc.converged
-        if self.opts.solve_lambda:
-            mycc.solve_lambda()
-            self.converged = self.converged and mycc.converged_lambda
-        # Currently no electron-boson implementation of wavefunction approaches, so need to use dummy object.
-        self.construct_wavefunction(mycc, self.hamil.mo)
+    def get_nonnull_solver_opts(self):
+        opts = super().get_nonnull_solver_opts()
+        opts["omega"] = self.hamil.bos_freqs
+        opts["g"] = self.get_couplings()
+        return opts
 
     def get_couplings(self):
         # EBCC wants contribution  g_{xpq} p^\\dagger q b; need to transpose to get this contribution.
