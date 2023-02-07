@@ -3,9 +3,13 @@
 import numpy as np
 
 from vayesta.core.util import *
-from vayesta.rpa.rirpa.NI_eval import NumericalIntegratorClenCurInfinite, \
-    NumericalIntegratorClenCurSemiInfinite, NumericalIntegratorGaussianSemiInfinite, NumericalIntegratorBase, \
-    NIException
+from vayesta.rpa.rirpa.NI_eval import (
+    NumericalIntegratorClenCurInfinite,
+    NumericalIntegratorClenCurSemiInfinite,
+    NumericalIntegratorGaussianSemiInfinite,
+    NumericalIntegratorBase,
+    NIException,
+)
 
 
 class NIMomZero(NumericalIntegratorClenCurInfinite):
@@ -21,11 +25,11 @@ class NIMomZero(NumericalIntegratorClenCurInfinite):
 
     @property
     def n_aux(self):
-        assert (self.S_L.shape == self.S_R.shape)
+        assert self.S_L.shape == self.S_R.shape
         return self.S_L.shape[0]
 
     def get_F(self, freq):
-        return (self.D ** 2 + freq ** 2) ** (-1)
+        return (self.D**2 + freq**2) ** (-1)
 
     def get_Q(self, freq):
         """Efficiently construct Q = S_R (D^{-1} G) S_L^T
@@ -41,7 +45,9 @@ class NIMomZero(NumericalIntegratorClenCurInfinite):
     @diagmat1.setter
     def diagmat1(self, val):
         if val is not None and any(val < 0.0):
-            raise NIException("Error in numerical integration; diagonal approximation is non-PSD")
+            raise NIException(
+                "Error in numerical integration; diagonal approximation is non-PSD"
+            )
         self._diagmat1 = val
 
     @property
@@ -51,15 +57,16 @@ class NIMomZero(NumericalIntegratorClenCurInfinite):
     @diagmat2.setter
     def diagmat2(self, val):
         if val is not None and any(val < 0.0):
-            raise NIException("Error in numerical integration; diagonal approximation is non-PSD")
+            raise NIException(
+                "Error in numerical integration; diagonal approximation is non-PSD"
+            )
         self._diagmat2 = val
 
 
 class MomzeroDeductNone(NIMomZero):
-
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.diagmat1 = self.D ** 2 + einsum("np,np->p", self.S_L, self.S_R)
+        self.diagmat1 = self.D**2 + einsum("np,np->p", self.S_L, self.S_R)
 
     def eval_diag_contrib(self, freq):
         val = diag_sqrt_contrib(self.diagmat1, freq)
@@ -87,8 +94,10 @@ class MomzeroDeductNone(NIMomZero):
 
     def eval_contrib(self, freq):
         if not (self.diagmat2 is None):
-            raise ValueError("Diagonal deducted quantity specified without being included in full contribution "
-                             "evaluation; please update overwrite .eval_contrib() for subclass.")
+            raise ValueError(
+                "Diagonal deducted quantity specified without being included in full contribution "
+                "evaluation; please update overwrite .eval_contrib() for subclass."
+            )
         F = self.get_F(freq)
         Q = self.get_Q(freq)
 
@@ -97,14 +106,13 @@ class MomzeroDeductNone(NIMomZero):
         val_aux = np.linalg.inv(np.eye(self.n_aux) + Q)
         lres = np.dot(lrot, self.S_L.T)
         res = dot(dot(lres, val_aux), einsum("np,p->np", self.S_R, rrot))
-        return (self.target_rot + (freq ** 2) * (res - lrot)) / np.pi
+        return (self.target_rot + (freq**2) * (res - lrot)) / np.pi
 
 
 class MomzeroDeductD(MomzeroDeductNone):
-
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.diagmat2 = self.D ** 2
+        self.diagmat2 = self.D**2
 
     def eval_contrib(self, freq):
         Q = self.get_Q(freq)
@@ -113,13 +121,14 @@ class MomzeroDeductD(MomzeroDeductNone):
         rrot = F
         lrot = einsum("lq,q->lq", self.target_rot, F)
         val_aux = np.linalg.inv(np.eye(self.n_aux) + Q)
-        res = dot(dot(dot(lrot, self.S_L.T), val_aux), einsum("np,p->np", self.S_R, rrot))
-        res = (freq ** 2) * res / np.pi
+        res = dot(
+            dot(dot(lrot, self.S_L.T), val_aux), einsum("np,p->np", self.S_R, rrot)
+        )
+        res = (freq**2) * res / np.pi
         return res
 
 
 class MomzeroDeductHigherOrder(MomzeroDeductD):
-
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.diagRI = einsum("np,np->p", self.S_L, self.S_R)
@@ -129,21 +138,21 @@ class MomzeroDeductHigherOrder(MomzeroDeductD):
     def eval_diag_contrib(self, freq):
         Dval = super().eval_diag_contrib(freq)
         F = self.get_F(freq)
-        HOval = (freq ** 2) * (F ** 2)
+        HOval = (freq**2) * (F**2)
         HOval = np.multiply(HOval, self.diagRI) / np.pi
         return Dval - HOval
 
     def eval_diag_deriv_contrib(self, freq):
         Dval = super().eval_diag_deriv_contrib(freq)
         F = self.get_F(freq)
-        HOval = (2 * freq * (F ** 2)) - (4 * (freq ** 3) * (F ** 3))
+        HOval = (2 * freq * (F**2)) - (4 * (freq**3) * (F**3))
         HOval = np.multiply(HOval, self.diagRI) / np.pi
         return Dval - HOval
 
     def eval_diag_deriv2_contrib(self, freq):
         Dval = super().eval_diag_deriv2_contrib(freq)
         F = self.get_F(freq)
-        HOval = 2 * F ** 2 - 20 * freq ** 2 * F ** 3 + 24 * freq ** 4 * F ** 4
+        HOval = 2 * F**2 - 20 * freq**2 * F**3 + 24 * freq**4 * F**4
         HOval = np.multiply(HOval, self.diagRI) / np.pi
         return Dval - HOval
 
@@ -159,8 +168,10 @@ class MomzeroDeductHigherOrder(MomzeroDeductD):
         rrot = F
         lrot = einsum("lq,q->lq", self.target_rot, F)
         val_aux = np.linalg.inv(np.eye(self.n_aux) + Q) - np.eye(self.n_aux)
-        res = dot(dot(dot(lrot, self.S_L.T), val_aux), einsum("np,p->np", self.S_R, rrot))
-        res = (freq ** 2) * res / np.pi
+        res = dot(
+            dot(dot(lrot, self.S_L.T), val_aux), einsum("np,p->np", self.S_R, rrot)
+        )
+        res = (freq**2) * res / np.pi
         return res
 
 
@@ -197,30 +208,33 @@ class BaseMomzeroOffset(NumericalIntegratorBase):
         return np.multiply(expval, self.diagRI)
 
     def eval_diag_deriv2_contrib(self, freq):
-        expval = 4 * (np.multiply(self.D ** 2, np.exp(-2 * freq * self.D)))
+        expval = 4 * (np.multiply(self.D**2, np.exp(-2 * freq * self.D)))
         return np.multiply(expval, self.diagRI)
 
     def eval_diag_exact(self):
         return 0.5 * np.multiply(self.D ** (-1), self.diagRI)
 
 
-class MomzeroOffsetCalcGaussLag(BaseMomzeroOffset, NumericalIntegratorGaussianSemiInfinite):
+class MomzeroOffsetCalcGaussLag(
+    BaseMomzeroOffset, NumericalIntegratorGaussianSemiInfinite
+):
     pass
 
 
 class MomzeroOffsetCalcCC(BaseMomzeroOffset, NumericalIntegratorClenCurSemiInfinite):
     pass
 
+
 def diag_sqrt_contrib(D, freq):
-    M = (D + freq ** 2) ** (-1)
-    return (np.full_like(D, fill_value=1.0) - (freq ** 2) * M) / np.pi
+    M = (D + freq**2) ** (-1)
+    return (np.full_like(D, fill_value=1.0) - (freq**2) * M) / np.pi
 
 
 def diag_sqrt_grad(D, freq):
-    M = (D + freq ** 2) ** (-1)
-    return (2 * ((freq ** 3) * M ** 2 - freq * M)) / np.pi
+    M = (D + freq**2) ** (-1)
+    return (2 * ((freq**3) * M**2 - freq * M)) / np.pi
 
 
 def diag_sqrt_deriv2(D, freq):
-    M = (D + freq ** 2) ** (-1)
-    return (- 2 * M + 10 * (freq ** 2) * (M ** 2) - 8 * (freq ** 4) * (M ** 3)) / np.pi
+    M = (D + freq**2) ** (-1)
+    return (-2 * M + 10 * (freq**2) * (M**2) - 8 * (freq**4) * (M**3)) / np.pi
