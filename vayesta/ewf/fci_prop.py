@@ -5,6 +5,7 @@ except:
 
 def get_fci_var_energy(emb, kwargs=...):
     """Get variational energy from non-orthogonal FCI solutions over all cluster pairs.
+    Also return 1RDM, and H and S between (unprojected) cluster FCI solutions.
     """
     
     emb.require_complete_fragmentation("Energy will not be accurate.", incl_virtual=False)
@@ -16,9 +17,8 @@ def get_fci_var_energy(emb, kwargs=...):
 
     for fx in emb.get_fragments(active=True, mpi_rank=mpi.rank):
 
-        # Check fx.results.pwf.as_ccsd() is FCI wave function
+        # Check fx.results.wf is FCI wave function of cluster fx
 
-        # What does .restore do on wfn object?
         cx_occ = fx.get_overlap('mo[occ]|cluster[occ]')
         cx_vir = fx.get_overlap('mo[vir]|cluster[vir]')
         cfx = fx.get_overlap('cluster[occ]|frag')
@@ -40,4 +40,4 @@ def get_fci_var_energy(emb, kwargs=...):
 
             # TODO: If using MPI, we'll need to get these via RMA
 
-            # Check fy.results.pwf is FCI object
+            # Check fy.results.wf is FCI object

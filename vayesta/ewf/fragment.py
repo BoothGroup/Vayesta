@@ -312,6 +312,8 @@ class Fragment(BaseFragment):
         pwf = wf
         # Projection of FCI wave function is not implemented - convert to CISD
         if isinstance(wf, RFCI_WaveFunction):
+            # There are now specific FCI projectors implemented, but here (for consistency with the
+            # CCSD linear energy estimator), we just convert to CISD, and use the normal projector
             pwf = wf.as_cisd()
         # Projection of CCSDTQ wave function is not implemented - convert to CCSD
         elif isinstance(wf, (RCCSDTQ_WaveFunction, UCCSDTQ_WaveFunction)):

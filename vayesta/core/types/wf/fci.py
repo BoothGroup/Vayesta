@@ -47,10 +47,21 @@ class RFCI_WaveFunction(wf_types.WaveFunction):
             return dm2
         return einsum('ijkl,ai,bj,ck,dl->abcd', dm2, *(4*[self.mo.coeff]))
 
-    def project(self, projector, inplace=False):
+    def project_occ(self, projector, inplace=False):
+        """ Apply second quantized representation of the occupied-fragment projector"""
+        proj_ci = pyscf.fci.direct_spin1.contract_1e(op, self.ci, self.norb, self.nelec)
+        raise NotImplementedError
+
+    def project_frag(self, projector, inplace=False):
+        """ Apply second quantized representation of the full fragment projector.
+        """
+        raise NotImplementedError
+
+    def project():
         raise NotImplementedError
 
     def restore(self, projector=None, inplace=False):
+        '''converting between representations of the amplitudes, restore should convert a projected amplitude from (frag,cluster...) indices to (cluster,cluster...) indices'''
         raise NotImplementedError
 
     @property
