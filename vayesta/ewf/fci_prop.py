@@ -1,4 +1,7 @@
-
+try:
+    import pygnme
+except:
+    raise ImportError
 
 def get_fci_var_energy(emb, kwargs=...):
     """Get variational energy from non-orthogonal FCI solutions over all cluster pairs.
