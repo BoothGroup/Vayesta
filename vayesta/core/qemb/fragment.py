@@ -50,6 +50,8 @@ class Options(OptionsBase):
     screening: typing.Optional[str] = None
     # Fragment specific
     # -----------------
+    # Auxiliary fragments are treated before non-auxiliary fragments, but do not contribute to expectation values
+    auxiliary: bool = False
     coupled_fragments: list = dataclasses.field(default_factory=list)
     sym_factor: float = 1.0
 
@@ -239,7 +241,7 @@ class Fragment:
     @property
     def id_name(self):
         """Use this whenever a unique name is needed (for example to open a separate file for each fragment)."""
-        return "%s-%s" % (self.id, self.trimmed_name())
+        return "%d-%s" % (self.id, self.trimmed_name())
 
     def change_options(self, **kwargs):
         self.opts.replace(**kwargs)
@@ -285,6 +287,8 @@ class Fragment:
         def _get_coeff(key):
             if 'frag' in key:
                 return self.c_frag
+            if 'proj' in key:
+                return self.c_proj
             if 'occ' in key:
                 part = '_occ'
             elif 'vir' in key:
@@ -329,9 +333,11 @@ class Fragment:
             raise RuntimeError("Cannot set attribute cluster in symmetry derived fragment.")
         self._cluster = value
 
-    def reset(self, reset_bath=True, reset_cluster=True, reset_eris=True):
-        self.log.debugv("Resetting %s (reset_bath= %r, reset_cluster= %r, reset_eris= %r)",
-                self, reset_bath, reset_cluster, reset_eris)
+    def reset(self, reset_bath=True, reset_cluster=True, reset_eris=True, reset_inactive=True):
+        self.log.debugv("Resetting %s (reset_bath= %r, reset_cluster= %r, reset_eris= %r, reset_inactive= %r)",
+                self, reset_bath, reset_cluster, reset_eris, reset_inactive)
+        if not reset_inactive and not self.active: 
+            return
         if reset_bath:
             self._dmet_bath = None
             self._bath_factory_occ = None
@@ -386,6 +392,11 @@ class Fragment:
         occ = (self.base.mo_occ > 0)
         e_mf = np.sum(np.diag(hveff)[occ])
         return e_mf
+
+    @property
+    def contributes(self):
+        """True if fragment contributes to expectation values, else False."""
+        return (self.active and not self.opts.auxiliary)
 
     def get_fragment_projector(self, coeff, c_proj=None, inverse=False):
         """Projector for one index of amplitudes local energy expression.
@@ -725,7 +736,8 @@ class Fragment:
 
     def get_symmetry_error(self, frag, dm1=None):
         """Get translational symmetry error between two fragments."""
-        if dm1 is None: dm1 = self.mf.make_rdm1()
+        if dm1 is None:
+            dm1 = self.mf.make_rdm1()
         ovlp = self.base.get_ovlp()
         # This fragment (x)
         cx = np.hstack((self.c_frag, self.get_coeff_env()))

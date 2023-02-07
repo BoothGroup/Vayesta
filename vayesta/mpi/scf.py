@@ -2,6 +2,8 @@ import functools
 import logging
 import pyscf
 import pyscf.df
+import pyscf.pbc
+import pyscf.pbc.df
 import vayesta
 import vayesta.core
 from vayesta.core.util import *
@@ -53,3 +55,33 @@ def scf_with_mpi(mpi, mf, mpi_rank=0, log=None):
     mf.with_mpi = True
 
     return mf
+
+
+def gdf_with_mpi(mpi, df, mpi_rank=0, log=None):
+
+    log = log or mpi.log or logging.getLogger(__name__)
+
+    if not isinstance(df._cderi_to_save, str):
+        raise NotImplementedError
+
+    build_orig = df.build
+
+    pbc = isinstance(df, pyscf.pbc.df.GDF)
+
+    cderi_file = getattr(df._cderi_to_save, 'name', df._cderi_to_save)
+    df._cderi_to_save = mpi.world.bcast(cderi_file, root=mpi_rank)
+    log.debug("df._cderi_to_save= %s", df._cderi_to_save)
+
+    def mpi_build(self, *args, **kwargs):
+        if mpi.rank == mpi_rank:
+            res = build_orig(*args, **kwargs)
+        else:
+            res = build_orig(*args, with_j3c=False, **kwargs) if pbc else None
+            df._cderi = df._cderi_to_save
+        mpi.world.barrier()
+        return res
+
+    df.build = mpi_build.__get__(df)
+    df.with_mpi = True
+
+    return df

@@ -43,6 +43,7 @@ class Options(Embedding.Options):
     calc_e_dm_corr: bool = False
     # --- Solver settings
     t_as_lambda: bool = None            # If True, use T-amplitudes inplace of Lambda-amplitudes
+    store_wf_type: str = None           # If set, fragment WFs will be converted to the respective type, before storing them
     # Counterpoise correction of BSSE
     bsse_correction: bool = True
     bsse_rmax: float = 5.0              # In Angstrom
@@ -167,14 +168,18 @@ class EWF(Embedding):
         self.log.info("RUNNING SOLVERS")
         self.log.info("===============")
         with log_time(self.log.timing, "Total time for solvers: %s"):
-            for x in fragments:
-                msg = "Solving %s%s" % (x, (" on MPI process %d" % mpi.rank) if mpi else "")
-                self.log.info(msg)
-                self.log.info(len(msg)*"-")
-                with self.log.indent():
-                    x.kernel()
-            if mpi:
-                mpi.world.Barrier()
+            # Split fragments in auxiliary and regular, solve auxiliary fragments first
+            fragments_aux = [x for x in fragments if x.opts.auxiliary]
+            fragments_reg = [x for x in fragments if not x.opts.auxiliary]
+            for frags in [fragments_aux, fragments_reg]:
+                for x in frags:
+                    msg = "Solving %s%s" % (x, (" on MPI process %d" % mpi.rank) if mpi else "")
+                    self.log.info(msg)
+                    self.log.info(len(msg)*"-")
+                    with self.log.indent():
+                        x.kernel()
+                if mpi:
+                    mpi.world.Barrier()
 
         if self.solver.lower() == 'dump':
             self.log.output("Clusters dumped to file '%s'", self.opts.solver_options['dumpfile'])
@@ -277,17 +282,14 @@ class EWF(Embedding):
     # DM1
     @log_method()
     def _make_rdm1_mp2(self, *args, **kwargs):
-        self.require_complete_fragmentation("Density-matrices will not be accurate.", incl_virtual=False)
         return make_rdm1_ccsd(self, *args, mp2=True, **kwargs)
 
     @log_method()
     def _make_rdm1_ccsd(self, *args, **kwargs):
-        self.require_complete_fragmentation("Density-matrices will not be accurate.", incl_virtual=False)
         return make_rdm1_ccsd(self, *args, mp2=False, **kwargs)
 
     @log_method()
     def _make_rdm1_ccsd_global_wf(self, *args, ao_basis=False, with_mf=True, **kwargs):
-        self.require_complete_fragmentation("Density-matrices will not be accurate.", incl_virtual=False)
         dm1 = self._make_rdm1_ccsd_global_wf_cached(*args, **kwargs)
         if with_mf:
             dm1[np.diag_indices(self.nocc)] += 2
@@ -300,24 +302,20 @@ class EWF(Embedding):
         return make_rdm1_ccsd_global_wf(self, *args, **kwargs)
 
     def _make_rdm1_mp2_global_wf(self, *args, **kwargs):
-        self.require_complete_fragmentation("Density-matrices will not be accurate.", incl_virtual=False)
         return self._make_rdm1_ccsd_global_wf(*args, t_as_lambda=True, with_t1=False, **kwargs)
 
     @log_method()
     def _make_rdm1_ccsd_proj_lambda(self, *args, **kwargs):
-        self.require_complete_fragmentation("Density-matrices will not be accurate.", incl_virtual=False)
         return make_rdm1_ccsd_proj_lambda(self, *args, **kwargs)
 
     # DM2
 
     @log_method()
     def _make_rdm2_ccsd_global_wf(self, *args, **kwargs):
-        self.require_complete_fragmentation("Density-matrices will not be accurate.", incl_virtual=False)
         return make_rdm2_ccsd_global_wf(self, *args, **kwargs)
 
     @log_method()
     def _make_rdm2_ccsd_proj_lambda(self, *args, **kwargs):
-        self.require_complete_fragmentation("Density-matrices will not be accurate.", incl_virtual=False)
         return make_rdm2_ccsd_proj_lambda(self, *args, **kwargs)
 
     # --- Energy
@@ -344,10 +342,9 @@ class EWF(Embedding):
 
     @mpi.with_allreduce()
     def get_wf_corr_energy(self):
-        self.require_complete_fragmentation("Energy will not be accurate.", incl_virtual=False)
         e_corr = 0.0
         # Only loop over fragments of own MPI rank
-        for x in self.get_fragments(active=True, sym_parent=None, mpi_rank=mpi.rank):
+        for x in self.get_fragments(contributes=True, sym_parent=None, mpi_rank=mpi.rank):
             if x.results.e_corr is not None:
                 ex = x.results.e_corr
             else:
@@ -364,7 +361,6 @@ class EWF(Embedding):
         return self.get_wf_corr_energy()
 
     def get_dm_corr_energy(self, dm1='global-wf', dm2='projected-lambda', t_as_lambda=None, with_exxdiv=None):
-        self.require_complete_fragmentation("Energy will not be accurate.", incl_virtual=False)
         e1 = self.get_dm_corr_energy_e1(dm1=dm1, t_as_lambda=None, with_exxdiv=None)
         e2 = self.get_dm_corr_energy_e2(dm2=dm2, t_as_lambda=t_as_lambda)
         e_corr = (e1 + e2)
@@ -415,7 +411,7 @@ class EWF(Embedding):
                     + einsum('pqrs,pqrs', gab, dm2ab))
         elif dm2 == 'projected-lambda':
             e2 = 0.0
-            for x in self.get_fragments(active=True, sym_parent=None, mpi_rank=mpi.rank):
+            for x in self.get_fragments(contributes=True, sym_parent=None, mpi_rank=mpi.rank):
                 ex = x.results.e_corr_dm2cumulant
                 if ex is None or (t_as_lambda is not None and (t_as_lambda != x.opts.t_as_lambda)):
                     ex = x.make_fragment_dm2cumulant_energy(t_as_lambda=t_as_lambda)
@@ -448,7 +444,7 @@ class EWF(Embedding):
                          - einsum('ijab,ibaj', c2, eris))
         else:
             e_doubles = 0.0
-            for x in self.get_fragments(active=True, sym_parent=None, mpi_rank=mpi.rank):
+            for x in self.get_fragments(contributes=True, sym_parent=None, mpi_rank=mpi.rank):
                 pwf = x.results.pwf.as_ccsd()
                 ro = x.get_overlap('mo-occ|cluster-occ')
                 rv = x.get_overlap('mo-vir|cluster-vir')
@@ -538,7 +534,7 @@ class EWF(Embedding):
 
         e_fbc = 0.0
         # Only loop over fragments of own MPI rank
-        for fx in self.get_fragments(active=True, sym_parent=None, flags=dict(is_envelop=True), mpi_rank=mpi.rank):
+        for fx in self.get_fragments(contributes=True, sym_parent=None, flags=dict(is_envelop=True), mpi_rank=mpi.rank):
             ex = 0
             if occupied:
                 get_fbc = getattr(fx._bath_factory_occ, 'get_finite_bath_correction', False)

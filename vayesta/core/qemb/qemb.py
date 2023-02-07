@@ -80,7 +80,8 @@ class Options(OptionsBase):
         # EwDMET bath
         order=None, max_order=20, # +threshold (same as MP2 bath)
         # MP2 bath
-        threshold=None, truncation='occupation', project_dmet_order=0, project_dmet_mode='full', addbuffer=False,
+        threshold=None, truncation='occupation', project_dmet_order=2,
+        project_dmet_mode='squared-entropy', addbuffer=False,
         # The following options can be set occupied/virtual-specific:
         bathtype_occ=None, bathtype_vir=None,
         rcut_occ=None, rcut_vir=None,
@@ -867,15 +868,16 @@ class Embedding:
                     fragovlp = abs(fragovlp).max()
                 elif self.spinsym == 'unrestricted':
                     fragovlp = max(abs(fragovlp[0]).max(), abs(fragovlp[1]).max())
-                if (fragovlp > 1e-7):
+                if (fragovlp > 1e-6):
                     self.log.critical("%s of fragment %s not orthogonal to original fragment (overlap= %.1e)!",
                                 sym_op, parent.name, fragovlp)
                     raise RuntimeError("Overlapping fragment spaces (overlap= %.1e)" % fragovlp)
 
                 # Add fragment
                 frag_id = self.register.get_next_id()
-                frag = self.Fragment(self, frag_id, name, c_frag_t, c_env_t, sym_parent=parent, sym_op=sym_op,
-                        mpi_rank=parent.mpi_rank, flags=dataclasses.asdict(parent.flags), **parent.opts.asdict())
+                frag = self.Fragment(self, frag_id, name, c_frag_t, c_env_t, solver=parent.solver, sym_parent=parent,
+                                     sym_op=sym_op, mpi_rank=parent.mpi_rank, flags=dataclasses.asdict(parent.flags),
+                                     **parent.opts.asdict())
                 # Check symmetry
                 # (only for the first rotation or primitive translations (1,0,0), (0,1,0), and (0,0,1)
                 # to reduce number of sym_op(c_env) calls)
@@ -1079,6 +1081,33 @@ class Embedding:
             filtered_fragments.append(frag)
         return filtered_fragments
 
+    def get_fragment_overlap_norm(self, fragments=None, occupied=True, virtual=True, norm=2):
+        """Get matrix of overlap norms between fragments."""
+        if fragments is None:
+            fragments = self.get_fragments()
+        if isinstance(fragments[0], self.Fragment):
+            fragments = 2*[fragments]
+
+        if not (occupied or virtual):
+            raise ValueError
+        overlap = np.zeros((len(fragments[0]), len(fragments[1])))
+        ovlp = self.get_ovlp()
+        nxy_occ = nxy_vir = np.inf
+        for i, fx in enumerate(fragments[0]):
+            if occupied:
+                cxs_occ = spinalg.dot(spinalg.T(fx.cluster.c_occ), ovlp)
+            if virtual:
+                cxs_vir = spinalg.dot(spinalg.T(fx.cluster.c_vir), ovlp)
+            for j, fy in enumerate(fragments[1]):
+                if occupied:
+                    rxy_occ = spinalg.dot(cxs_occ, fy.cluster.c_occ)
+                    nxy_occ = np.amax(spinalg.norm(rxy_occ, ord=norm))
+                if virtual:
+                    rxy_vir = spinalg.dot(cxs_vir, fy.cluster.c_vir)
+                    nxy_vir = np.amax(spinalg.norm(rxy_vir, ord=norm))
+                overlap[i,j] = np.amin((nxy_occ, nxy_vir))
+        return overlap
+
     def _absorb_fragments(self, tol=1e-10):
         """TODO"""
         for fx in self.get_fragments(active=True):
@@ -1145,13 +1174,11 @@ class Embedding:
     @log_method()
     @with_doc(make_rdm1_demo_rhf)
     def make_rdm1_demo(self, *args, **kwargs):
-        self.require_complete_fragmentation("Democratically partitioned DMs will not be accurate.")
         return make_rdm1_demo_rhf(self, *args, **kwargs)
 
     @log_method()
     @with_doc(make_rdm2_demo_rhf)
     def make_rdm2_demo(self, *args, **kwargs):
-        self.require_complete_fragmentation("Democratically partitioned DMs will not be accurate.")
         return make_rdm2_demo_rhf(self, *args, **kwargs)
 
     def get_dmet_elec_energy(self, part_cumulant=True, approx_cumulant=True):
@@ -1172,7 +1199,6 @@ class Embedding:
         e_dmet: float
             Electronic DMET energy.
         """
-        self.require_complete_fragmentation("DMET energy will not be accurate.")
         e_dmet = 0.0
         for x in self.get_fragments(active=True, mpi_rank=mpi.rank, sym_parent=None):
             wx = x.symmetry_factor
@@ -1448,6 +1474,8 @@ class Embedding:
             nmo_s = tspin(self.nmo, s)
             nelec_s = tspin(nelec, s)
             fragments = self.get_fragments(active=True, flags=dict(is_secfrag=False))
+            if not fragments:
+                return False
             c_frags = np.hstack([tspin(x.c_frag, s) for x in fragments])
             nfrags = c_frags.shape[-1]
             csc = dot(c_frags.T, ovlp, c_frags)
@@ -1514,7 +1542,7 @@ class Embedding:
     def update_mf(self, mo_coeff, mo_energy=None, veff=None):
         """Update underlying mean-field object."""
         # Chech orthonormal MOs
-        if not np.allclose(dot(mo_coeff.T, self.get_ovlp(), mo_coeff) - np.eye(mo_coeff.shape[-1]), 0):
+        if not np.allclose(dot(mo_coeff.T, self.get_ovlp(), mo_coeff) - np.eye(mo_coeff.shape[-1]), 0.):
             raise ValueError("MO coefficients not orthonormal!")
         self.mf.mo_coeff = mo_coeff
         dm = self.mf.make_rdm1(mo_coeff=mo_coeff)
@@ -1527,16 +1555,18 @@ class Embedding:
         self.mf.mo_energy = mo_energy
         self.mf.e_tot = self.mf.energy_tot(dm=dm, h1e=self.get_hcore(), vhf=veff)
 
-    def check_fragment_symmetry(self, dm1, charge_tol=1e-6, spin_tol=1e-6):
+    def check_fragment_symmetry(self, dm1, symtol=1e-6):
+        """Check that the mean-field obeys the symmetry between fragments."""
         frags = self.get_symmetry_child_fragments(include_parents=True)
         for group in frags:
             parent, children = group[0], group[1:]
             for child in children:
-                charge_err = parent.get_tsymmetry_error(child, dm1=dm1)
-                if (charge_err > charge_tol):
-                    raise RuntimeError("%s and %s not symmetric: charge error= %.3e !"
-                            % (parent.name, child.name, charge_err))
-                self.log.debugv("Symmetry between %s and %s: charge error= %.3e", parent.name, child.name, charge_err)
+                charge_err, spin_err = parent.get_symmetry_error(child, dm1=dm1)
+                if (max(charge_err, spin_err) > symtol):
+                    raise RuntimeError("%s and %s not symmetric! Errors:  charge= %.2e  spin= %.2e"
+                                       % (parent.name, child.name, charge_err, spin_err))
+                    self.log.debugv("Symmetry between %s and %s: Errors:  charge= %.2e  spin= %.2e",
+                                    parent.name, child.name, charge_err, spin_err)
 
     # --- Decorators
     # These replace the qemb.kernel method!

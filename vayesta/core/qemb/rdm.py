@@ -1,8 +1,11 @@
 """Democratically partitioned RDMs"""
 
 import numpy as np
-
 from vayesta.core.util import *
+
+
+def _get_fragments(emb):
+    return emb.get_fragments(contributes=True)
 
 
 def make_rdm1_demo_rhf(emb, ao_basis=False, with_mf=True, symmetrize=True):
@@ -31,7 +34,7 @@ def make_rdm1_demo_rhf(emb, ao_basis=False, with_mf=True, symmetrize=True):
     dm1 = np.zeros((emb.nmo, emb.nmo))
     if with_mf is True:
         dm1[np.diag_indices(emb.nocc)] = 2
-    for x in emb.fragments:
+    for x in _get_fragments(emb):
         emb.log.debugv("Now adding projected DM of fragment %s", x)
         dm1x = x.results.wf.make_rdm1(with_mf=False)
         rx = x.get_overlap('mo|cluster')
@@ -42,6 +45,7 @@ def make_rdm1_demo_rhf(emb, ao_basis=False, with_mf=True, symmetrize=True):
     if ao_basis:
         dm1 = dot(mo_coeff, dm1, mo_coeff.T)
     return dm1
+
 
 def make_rdm1_demo_uhf(emb, ao_basis=False, with_mf=True, symmetrize=True):
     """Make democratically partitioned one-particle reduced density-matrix from fragment calculations.
@@ -71,7 +75,7 @@ def make_rdm1_demo_uhf(emb, ao_basis=False, with_mf=True, symmetrize=True):
     if with_mf is True:
         dm1a[np.diag_indices(emb.nocc[0])] = 1
         dm1b[np.diag_indices(emb.nocc[1])] = 1
-    for x in emb.fragments:
+    for x in _get_fragments(emb):
         emb.log.debugv("Now adding projected DM of fragment %s", x)
         dm1xa, dm1xb = x.results.wf.make_rdm1(with_mf=False)
         rxa, rxb = x.get_overlap('mo|cluster')
@@ -85,6 +89,7 @@ def make_rdm1_demo_uhf(emb, ao_basis=False, with_mf=True, symmetrize=True):
         dm1a = dot(mo_coeff[0], dm1a, mo_coeff[0].T)
         dm1b = dot(mo_coeff[1], dm1b, mo_coeff[1].T)
     return (dm1a, dm1b)
+
 
 # --- Two-particle
 # ----------------
@@ -162,7 +167,7 @@ def make_rdm2_demo_rhf(emb, ao_basis=False, with_mf=True, with_dm1=True,
 
     # Loop over fragments to get cumulant contributions + non-cumulant contributions,
     # if (approx_cumulant and part_cumulant):
-    for x in emb.fragments:
+    for x in _get_fragments(emb):
         rx = x.get_overlap('mo|cluster')
         px = x.get_overlap('cluster|frag|cluster')
 
@@ -235,6 +240,7 @@ def make_rdm2_demo_rhf(emb, ao_basis=False, with_mf=True, with_dm1=True,
         dm2 = einsum('ijkl,pi,qj,rk,sl->pqrs', dm2, *(4*[emb.mo_coeff]))
     return dm2
 
+
 @with_doc(make_rdm2_demo_rhf)
 def make_rdm2_demo_uhf(emb, ao_basis=False, with_mf=True, with_dm1=True,
                        part_cumulant=True, approx_cumulant=True, symmetrize=True):
@@ -245,7 +251,7 @@ def make_rdm2_demo_uhf(emb, ao_basis=False, with_mf=True, with_dm1=True,
 
     # Loop over fragments to get cumulant contributions + non-cumulant contributions,
     # if (approx_cumulant and part_cumulant):
-    for x in emb.fragments:
+    for x in _get_fragments(emb):
         rxa, rxb = x.get_overlap('mo|cluster')
         pxa, pxb = x.get_overlap('cluster|frag|cluster')
 

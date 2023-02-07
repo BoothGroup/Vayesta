@@ -1,7 +1,8 @@
 # Standard libaries
 from datetime import datetime
 import dataclasses
-from typing import Optional, Union
+import typing
+from typing import Optional, Union, List
 
 # External libaries
 import numpy as np
@@ -17,7 +18,7 @@ from vayesta.core.util import *
 from vayesta.core.qemb import Fragment as BaseFragment
 from vayesta.solver import get_solver_class
 from vayesta.core.fragmentation import IAO_Fragmentation
-from vayesta.core.types import RFCI_WaveFunction
+from vayesta.core.types import RFCI_WaveFunction, RCCSDTQ_WaveFunction, UCCSDTQ_WaveFunction
 
 from vayesta.core.bath import BNO_Threshold
 from vayesta.core.bath import DMET_Bath
@@ -42,10 +43,13 @@ class Options(BaseFragment.Options):
     bsse_correction: bool = None
     bsse_rmax: float = None
     sc_mode: int = None
-    nelectron_target: int = None            # If set, adjust bath chemical potential until electron number in fragment equals nelectron_target
+    nelectron_target: float = None          # If set, adjust bath chemical potential until electron number in fragment equals nelectron_target
+    nelectron_target_atol: float = 1e-6
+    nelectron_target_rtol: float = 1e-6
     # Calculation modes
     calc_e_wf_corr: bool = None
     calc_e_dm_corr: bool = None
+    store_wf_type: str = None               # If set, fragment WFs will be converted to the respective type, before storing them
     # Fragment specific
     # -----------------
     wf_factor: Optional[int] = None
@@ -54,8 +58,8 @@ class Options(BaseFragment.Options):
     c_cas_occ: np.ndarray = None
     c_cas_vir: np.ndarray = None
     # --- Solver options
+    # "TCCSD-solver":
     tcc_fci_opts: dict = dataclasses.field(default_factory=dict)
-
 
 class Fragment(BaseFragment):
 
@@ -63,7 +67,11 @@ class Fragment(BaseFragment):
 
     @dataclasses.dataclass
     class Flags(BaseFragment.Flags):
-        pass
+        # Tailoring and external correction of CCSD
+        external_corrections: Optional[List[typing.Any]] = dataclasses.field(default_factory=list)
+        # Whether to perform additional checks on external corrections
+        test_extcorr: bool = False
+
 
     @dataclasses.dataclass
     class Results(BaseFragment.Results):
@@ -98,11 +106,6 @@ class Fragment(BaseFragment):
         # For self-consistent mode
         self.solver_results = None
 
-    def reset(self, *args, **kwargs):
-        super().reset(*args, **kwargs)
-        self._tailor_fragments = []
-        self._tailor_project = True
-
     def set_cas(self, iaos=None, c_occ=None, c_vir=None, minao='auto', dmet_threshold=None):
         """Set complete active space for tailored CCSD"""
         if dmet_threshold is None:
@@ -127,11 +130,45 @@ class Fragment(BaseFragment):
         self.opts.c_cas_vir = c_cas_vir
         return c_cas_occ, c_cas_vir
 
-    def tailor_with_fragments(self, fragments, project=True):
+    @deprecated(replacement='add_external_corrections')
+    def tailor_with_fragments(self, fragments, projectors=1):
+        return self.add_external_corrections(fragments, projectors=projectors)
+
+    def add_external_corrections(self, fragments, correction_type='tailor', projectors=1, test_extcorr=False):
+        """Add tailoring or external correction from other fragment solutions to CCSD solver.
+
+        Parameters
+        ----------
+        fragments: list
+            List of solved or auxiliary fragments, used for the correction.
+        correction_type: str, optional
+            Type of correction:
+                'tailor': replace CCSD T1 and T2 amplitudes with FCI amplitudes.
+                'delta-tailor': Add the difference of FCI and CCSD T1 and T2 amplitudes
+                'external': externally correct CCSD T1 and T2 amplitudes from FCI T3 and T4 amplitudes.
+                'external-fciv': externally correct CCSD T1 and T2 amplitudes from FCI T3 and T4 amplitudes (note T3V term contracted with integrals from the cluster providing the constraints). 'external' is the same as this.
+                'external-ccsdv': externally correct CCSD T1 and T2 amplitudes from FCI T3 and T4 amplitudes (note T3V term contracted with integrals from the cluster being constrained). Should be more accurate?
+            Default: 'tailor'.
+        projectors: int, optional
+            Maximum number of projections applied to the occupied dimensions of the amplitude corrections.
+            Default: 1.
+        test_extcorr: bool, optional
+            Whether to perform additional checks on the external corrections.
+        """
+        if correction_type not in ('tailor', 'delta-tailor', 'external', 'external-fciv', 'external-ccsdv'):
+            raise ValueError
         if self.solver != 'CCSD':
-            raise NotImplementedError
-        self._tailor_fragments = fragments
-        self._tailor_project = project
+            raise RuntimeError
+        if np.any([(getattr_recursive(f, 'results.wf', None) is None and not f.opts.auxiliary) for f in fragments]):
+            raise ValueError("Fragments for external correction need to be already solved or defined as auxiliary fragments.")
+        self.flags.external_corrections.extend(
+                [(f.id, correction_type, projectors) for f in fragments])
+        self.flags.test_extcorr = test_extcorr
+
+    def clear_external_corrections(self):
+        """Remove all tailoring or external correction which were added via add_external_corrections."""
+        self.flags.external_corrections = []
+        self.flags.test_extcorr = False
 
     def get_init_guess(self, init_guess, solver, cluster):
         # FIXME
@@ -223,7 +260,8 @@ class Fragment(BaseFragment):
         # --- Chemical potential
         cpt_frag = self.base.opts.global_frag_chempot
         if self.opts.nelectron_target is not None:
-            cluster_solver.optimize_cpt(self.opts.nelectron_target, c_frag=self.c_proj)
+            cluster_solver.optimize_cpt(self.opts.nelectron_target, c_frag=self.c_proj, atol=self.opts.nelectron_target_atol,
+                                        rtol=self.opts.nelectron_target_rtol)
         elif cpt_frag:
             # Add chemical potential to fragment space
             r = self.get_overlap('cluster|frag')
@@ -263,24 +301,31 @@ class Fragment(BaseFragment):
         if solver.lower() == 'dump':
             return
 
+        wf = cluster_solver.wf
+        # Multiply WF by factor [optional]
         if self.opts.wf_factor is not None:
-            cluster_solver.wf.multiply(self.opts.wf_factor)
-
-        # ---Make and store fragment-projected WF
-        #if isinstance(cluster_solver.wf, RFCI_WaveFunction):
-        #    pwf = cluster_solver.wf.as_cisd()
-        #else:
-        #    pwf = cluster_solver.wf
-        proj = self.get_overlap('frag|cluster-occ')
+            wf.multiply(self.opts.wf_factor)
+        # Convert WF to different type [optional]
+        if self.opts.store_wf_type is not None:
+            wf = getattr(wf, 'as_%s' % self.opts.store_wf_type.lower())()
+        # ---Make T-projected WF
+        pwf = wf
+        # Projection of FCI wave function is not implemented - convert to CISD
+        if isinstance(wf, RFCI_WaveFunction):
+            pwf = wf.as_cisd()
+        # Projection of CCSDTQ wave function is not implemented - convert to CCSD
+        elif isinstance(wf, (RCCSDTQ_WaveFunction, UCCSDTQ_WaveFunction)):
+            pwf = wf.as_ccsd()
+        proj = self.get_overlap('proj|cluster-occ')
         pwf = pwf.project(proj, inplace=False)
 
         # --- Add to results data class
         self._results = results = self.Results(fid=self.id, n_active=cluster.norb_active,
-                converged=cluster_solver.converged, wf=cluster_solver.wf, pwf=pwf)
+                converged=cluster_solver.converged, wf=wf, pwf=pwf)
 
         # --- Correlation energy contributions
         if self.opts.calc_e_wf_corr:
-            ci = cluster_solver.wf.as_cisd(c0=1.0)
+            ci = wf.as_cisd(c0=1.0)
             ci = ci.project(proj)
             es, ed, results.e_corr = self.get_fragment_energy(ci.c1, ci.c2, eris=eris)
             self.log.debug("E(S)= %s  E(D)= %s  E(tot)= %s", energy_string(es), energy_string(ed),
@@ -322,8 +367,8 @@ class Fragment(BaseFragment):
             solver_opts['tcc_fci_opts'] = self.opts.tcc_fci_opts
         elif solver.upper() == 'DUMP':
             solver_opts['filename'] = self.opts.solver_options['dumpfile']
-        if self._tailor_fragments:
-            solver_opts['tailoring'] = True
+        solver_opts['external_corrections'] = self.flags.external_corrections
+        solver_opts['test_extcorr'] = self.flags.test_extcorr
         return solver_opts
 
     # --- Expectation values
@@ -358,7 +403,7 @@ class Fragment(BaseFragment):
         nocc, nvir = c2.shape[1:3]
         occ, vir = np.s_[:nocc], np.s_[nocc:]
         if axis1 == 'fragment':
-            px = self.get_overlap('frag|cluster-occ')
+            px = self.get_overlap('proj|cluster-occ')
 
         # --- Singles energy (zero for HF-reference)
         if c1 is not None:

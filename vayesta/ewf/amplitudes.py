@@ -29,7 +29,7 @@ def get_global_t1_rhf(emb, get_lambda=False, mpi_target=None, ao_basis=False, fo
     ovlp = emb.get_ovlp()
     cs_occ = np.dot(emb.mo_coeff_occ.T, ovlp)
     cs_vir = np.dot(emb.mo_coeff_vir.T, ovlp)
-    for x in emb.get_fragments(active=True, mpi_rank=mpi.rank, sym_parent=None):
+    for x in emb.get_fragments(contributes=True, mpi_rank=mpi.rank, sym_parent=None):
         pwf = x.results.pwf.restore().as_ccsd()
         if for_dm2 and x.solver == 'MP2':
             continue
@@ -68,7 +68,7 @@ def get_global_t2_rhf(emb, get_lambda=False, symmetrize=True, mpi_target=None, a
     """
     t2 = np.zeros((emb.nocc, emb.nocc, emb.nvir, emb.nvir))
     # Add fragment WFs in intermediate normalization
-    for x in emb.get_fragments(active=True, mpi_rank=mpi.rank):
+    for x in emb.get_fragments(contributes=True, mpi_rank=mpi.rank):
         emb.log.debugv("Now adding projected %s-amplitudes of fragment %s", ("L" if get_lambda else "T"), x)
         ro = x.get_overlap('mo[occ]|cluster[occ]')
         rv = x.get_overlap('mo[vir]|cluster[vir]')
@@ -110,7 +110,7 @@ def get_global_t1_uhf(emb, get_lambda=False, mpi_target=None, ao_basis=False):
     t1a = np.zeros((emb.nocc[0], emb.nvir[0]))
     t1b = np.zeros((emb.nocc[1], emb.nvir[1]))
     # Add fragment WFs in intermediate normalization
-    for x in emb.get_fragments(active=True, mpi_rank=mpi.rank):
+    for x in emb.get_fragments(contributes=True, mpi_rank=mpi.rank):
         emb.log.debugv("Now adding projected %s-amplitudes of fragment %s", ("L" if get_lambda else "T"), x)
         roa, rob = x.get_overlap('mo[occ]|cluster[occ]')
         rva, rvb = x.get_overlap('mo[vir]|cluster[vir]')
@@ -149,7 +149,7 @@ def get_global_t2_uhf(emb, get_lambda=False, symmetrize=True, mpi_target=None, a
     t2ab = np.zeros((emb.nocc[0], emb.nocc[1], emb.nvir[0], emb.nvir[1]))
     t2bb = np.zeros((emb.nocc[1], emb.nocc[1], emb.nvir[1], emb.nvir[1]))
     # Add fragment WFs in intermediate normalization
-    for x in emb.get_fragments(active=True, mpi_rank=mpi.rank):
+    for x in emb.get_fragments(contributes=True, mpi_rank=mpi.rank):
         emb.log.debugv("Now adding projected %s-amplitudes of fragment %s", ("L" if get_lambda else "T"), x)
         roa, rob = x.get_overlap('mo[occ]|cluster[occ]')
         rva, rvb = x.get_overlap('mo[vir]|cluster[vir]')

@@ -90,7 +90,26 @@ class FCI_Solver(ClusterSolver):
         return 2*self.cluster.nocc_active
 
     def get_init_guess(self):
-        return {'ci0' : self.civec}
+        if self.opts.init_guess is None:
+            return dict(ci0=None)
+        if self.opts.init_guess == 'CISD':
+            self.log.info("Generating intitial guess from CISD.")
+            return dict(ci0=self.get_cisd_init_guess())
+        raise ValueError
+
+    def get_cisd_init_guess(self):
+        cisd = self.cisd_solver(self.mf, self.fragment, self.cluster)
+        cisd.kernel()
+        ci = cisd.wf.as_fci().ci
+        if self.opts.init_guess_noise:
+            ci += self.opts.init_guess_noise * np.random.random(ci.shape)
+        return ci
+
+    def init_guess_from_solution(self):
+        """Generate initial guess from wave function solution."""
+        if self.wf is None:
+            raise RuntimeError
+        return dict(ci0=self.wf.ci)
 
     @deprecated()
     def get_t1(self):
@@ -118,15 +137,6 @@ class FCI_Solver(ClusterSolver):
     def get_l2(self, **kwargs):
         return None
 
-    def get_cisd_init_guess(self):
-        self.log.info("Generating intitial guess from CISD.")
-        cisd = self.cisd_solver(self.mf, self.fragment, self.cluster)
-        cisd.kernel()
-        ci = cisd.wf.as_fci().ci
-        if self.opts.init_guess_noise:
-            ci += self.opts.init_guess_noise * np.random.random(ci.shape)
-        return ci
-
     def kernel(self, ci0=None, eris=None, seris_ov=None):
         """Run FCI kernel."""
 
@@ -136,8 +146,8 @@ class FCI_Solver(ClusterSolver):
         if seris_ov is not None:
             eris = get_screened_eris_full(eris, seris_ov, log=self.log)
 
-        if ci0 is None and self.opts.init_guess == 'CISD':
-            ci0 = self.get_cisd_init_guess()
+        if ci0 is None:
+            ci0 = self.get_init_guess()['ci0']
 
         t0 = timer()
         #self.solver.verbose = 10
@@ -203,7 +213,9 @@ class UFCI_Solver(FCI_Solver):
 
     @dataclasses.dataclass
     class Options(FCI_Solver.Options):
-        fix_spin: bool = False              # Does not work for UFCI?
+        # fix_spin does not work for unrestricted orbitals!
+        # (However, the UHF might be a converted ROHF solution, in which case it seems to work)
+        fix_spin: bool = False
 
     cisd_solver = UCISD_Solver
 

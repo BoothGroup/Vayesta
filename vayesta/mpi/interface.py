@@ -6,6 +6,7 @@ import vayesta
 from vayesta.core.util import *
 from .rma import RMA_Dict
 from .scf import scf_with_mpi
+from .scf import gdf_with_mpi
 
 
 class MPI_Interface:
@@ -167,3 +168,6 @@ class MPI_Interface:
 
     def scf(self, mf, mpi_rank=0, log=None):
         return scf_with_mpi(self, mf, mpi_rank=mpi_rank, log=log)
+
+    def gdf(self, df, mpi_rank=0, log=None):
+        return gdf_with_mpi(self, df, mpi_rank=mpi_rank, log=log)

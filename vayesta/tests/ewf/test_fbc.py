@@ -20,7 +20,7 @@ class Test_Restricted(TestCase):
     @classmethod
     @cache
     def emb(cls, bno_threshold):
-        emb = vayesta.ewf.EWF(cls.mf, bath_options=dict(threshold=bno_threshold))
+        emb = vayesta.ewf.EWF(cls.mf, bath_options=dict(threshold=bno_threshold, project_dmet_order=0))
         emb.kernel()
         return emb
 
