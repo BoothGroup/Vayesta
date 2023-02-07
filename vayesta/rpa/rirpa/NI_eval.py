@@ -314,11 +314,6 @@ class NumericalIntegratorClenCur(NumericalIntegratorBase):
 
         a = scipy.linalg.norm(integral_quarter - integral)
         b = scipy.linalg.norm(integral_half - integral)
-        # Using the simple approximation that the error is dominated by the smallest number of points gives the
-        # expressions
-        #   error = b ** 3 / a ** 2
-        #   error_error = b ** 2 / a ** 2.
-        # we instead assume the error is the sum, which results in a cubic equation for the result.
         error = self.calculate_error(a, b)
         self.log.info(
             "Numerical Integration performed with estimated L2 norm error %6.4e.", error
@@ -331,14 +326,23 @@ class NumericalIntegratorClenCur(NumericalIntegratorBase):
         generally overestimates the resulting error, which suits us well.
         This also overestimates the error since it doesn't account for the effect of quadrature grid optimisation, which
         leads to our actual estimates converging more rapidly than they would with a static grid spacing parameter.
+
+        This approach is detailed in Appendix B of https://arxiv.org/abs/2301.09107, Eqs. 100-104.
+
+        To understand the general behaviour of this approach, we can instead consider the simpler approximation that
+        the magnitude of a given difference is dominated by the least accurate estimate. This leads to the estimate of
+        the error resulting from our most accurate estimate as
+           error = b ** 3 / a ** 2
+        with the error in this approximation given by
+           error_error = b ** 2 / a ** 2.
         """
         if a - b < 1e-10:
             self.log.info("RIRPA error numerically zero.")
             return 0.0
-
+        # This is Eq. 103 from https://arxiv.org/abs/2301.09107
         roots = np.roots([1, 0, a / (a - b), -b / (a - b)])
-        # Need to choose root with no imaginary part and real part between zero and one; if there are multiple (if this
-        # is even possible) take the largest.
+        # From physical considerations require real root between zero and one, since this is value of e^{-\beta n_p}.
+        # If there are multiple (if this is even possible) we take the largest.
         real_roots = roots[abs(roots.imag) < 1e-10].real
         if len(real_roots) > 1:
             self.log.warning(

@@ -131,6 +131,7 @@ class ssRIRPA:
     def kernel_moms(self, max_moment, target_rot=None, **kwargs):
         """Calculates all density-density moments up to and including `max_moment' with one index projected into
         `target_rot'  space.
+        For details of numerical integration approach see https://arxiv.org/abs/2301.09107.
 
         Runtime: O(n_{points} ((n_{target} + n_{aux}) n_{aux} ov + n_{aux}^3)
 
@@ -147,6 +148,7 @@ class ssRIRPA:
             What terms to deduct from numerical integration.
             Options are "HO" (default), "D", and None, corresponding to deducting both the mean-field contribution
             and additional higher-order terms, just the mean-field contribution, or nothing.
+            For discussion of the specific approaches see Appendix A of https://arxiv.org/abs/2301.09107.
         ainit: float, optional.
             Value of grid scaling to initialise optimisation from. If `opt_quad' is False, this value of a is used.
             Default: 10.0
@@ -330,6 +332,7 @@ class ssRIRPA:
         """Test how well our obtained zeroth moment obeys relation used to derive it, namely
                 A-B = eta0 (A+B) eta0
         From this we can estimate the error in eta0 using Cauchy-Schwartz.
+        For details see Appendix B of https://arxiv.org/abs/2301.09107, Eq. 96-99.
         """
         amb = np.diag(self.D) + dot(ri_amb[0].T, ri_amb[1])
         apb = np.diag(self.D) + dot(ri_apb[0].T, ri_apb[1])
