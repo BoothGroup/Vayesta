@@ -5,7 +5,6 @@ import numpy as np
 import pyscf.lib
 from vayesta.core.util import *
 from vayesta.rpa.rirpa import momzero_NI, energy_NI
-from timeit import default_timer as timer
 
 
 class ssRIRPA:
@@ -31,9 +30,18 @@ class ssRIRPA:
     Lpq : np.ndarray, optional
         CDERIs in mo basis of provided mean field.
         Default value is None.
+    compress : int, optional
+        How thoroughly to attempt compression of the low-rank representations of various matrices.
+        Thresholds are:
+        - above 0: Compress representation of (A+B)(A-B) once constructed, prior to main calculation.
+        - above 3: Compress representations of A+B and A-B separately prior to constructing (A+B)(A-B) or (A+B)^{-1}
+        - above 5: Compress representation of (A+B)^{-1} prior to contracting. This is basically never worthwhile.
+        Note that in all cases these compressions will have computational cost O(N_{aux}^2 ov), the same as our later
+        computations, and so a tradeoff must be made between reducing the N_{aux} in later calculations vs the cost
+        of compression. Default value is 0.
     """
 
-    def __init__(self, dfmf, rixc=None, log=None, err_tol=1e-6, svd_tol=1e-12, Lpq=None):
+    def __init__(self, dfmf, rixc=None, log=None, err_tol=1e-6, svd_tol=1e-12, Lpq=None, compress=0):
         self.mf = dfmf
         self.rixc = rixc
         self.log = log or logging.getLogger(__name__)
@@ -42,14 +50,8 @@ class ssRIRPA:
         self.e_corr_ss = None
         self.Lpq = Lpq
         # Determine how many times to attempt compression of low-rank expressions for various matrices.
-        self.compress = 0
-        # Thresholds are:
-        #  - above 0: Compress representation of (A+B)(A-B) once constructed, prior to main calculation.
-        #  - above 3: Compress representations of A+B and A-B separately prior to constructing (A+B)(A-B) or (A+B)^{-1}
-        #  - above 5: Compress representation of (A+B)^{-1} prior to contracting. This is basically never worthwhile.
-        # Note that in all cases these compressions will have computational cost O(N_{aux}^2 ov), the same as our later
-        # computations, and so a tradeoff must be made between reducing the N_{aux} in later calculations vs the cost
-        # of compression.
+        self.compress = compress
+
     @property
     def nocc(self):
         return sum(self.mf.mo_occ > 0)
@@ -125,41 +127,41 @@ class ssRIRPA:
 
         Parameters
         ----------
-            max_moment: integer
-                Maximum moment of the dd response to return.
-            target_rot: np.array, of size (n_{target}, o_a v_a + o_b v_b)
-                Projector for one index of the moment.
-            npoints: int, optional.
-                Integer number of points to use in numerical integrations; will be increased to next highest multiple of
-                4 for error estimation purposes. Default: 48 (excessive).
-            integral_deduct: str, optional.
-                What terms to deduct from numerical integration.
-                Options are "HO" (default), "D", and None, corresponding to deducting both the mean-field contribution
-                and additional higher-order terms, just the mean-field contribution, or nothing.
-            ainit: float, optional.
-                Value of grid scaling to initialise optimisation from. If `opt_quad' is False, this value of a is used.
-                 Default: 10.0
-            opt_quad: bool, optional.
-                Whether to optimise the grid spacing `a'. Default: True
-            adaptive_quad: bool, optional.
-                Whether to use scipy adaptive quadrature for calculation. Requires prohibitvely more evaluations but can
-                 provide validation of usual approach. Default: False
-            alpha: float, optional.
-                Value or electron interaction scaling in adiabatic connection. Default: 1.0
-            ri_decomps: iterable of three tuples of np.arrays or None, optional.
-                Low-rank RI expressions (S_L,S_R) for (A-B)(A+B), A+B and A-B, such that the non-diagonal contribution
-                to each is given by S_L S_R^T. If `None' these will be contructed at O(N^4) cost. Default: None
-            analytic_lower_bound: bool, optional.
-                Whether to compute analytic lower bound on the error of the computed zeroth dd moment. Computation
-                requires O(N^4) operation, and given limited utility of lower bound this is optional.
-                Default: False.
+        max_moment: int
+            Maximum moment of the dd response to return.
+        target_rot: array_like, of size (n_{target}, o_a v_a + o_b v_b)
+            Projector for one index of the moment.
+        npoints: int, optional.
+            Integer number of points to use in numerical integrations; will be increased to next highest multiple of
+            4 for error estimation purposes. Default: 48 (excessive).
+        integral_deduct: str, optional.
+            What terms to deduct from numerical integration.
+            Options are "HO" (default), "D", and None, corresponding to deducting both the mean-field contribution
+            and additional higher-order terms, just the mean-field contribution, or nothing.
+        ainit: float, optional.
+            Value of grid scaling to initialise optimisation from. If `opt_quad' is False, this value of a is used.
+            Default: 10.0
+        opt_quad: bool, optional.
+            Whether to optimise the grid spacing `a'. Default: True
+        adaptive_quad: bool, optional.
+            Whether to use scipy adaptive quadrature for calculation. Requires prohibitively more evaluations but can
+            provide validation of usual approach. Default: False
+        alpha: float, optional.
+            Value or electron interaction scaling in adiabatic connection. Default: 1.0
+        ri_decomps: iterable of three tuples of array_like or None, optional.
+            Low-rank RI expressions (S_L,S_R) for (A-B)(A+B), A+B and A-B, such that the non-diagonal contribution
+            to each is given by S_L S_R^T. If `None' these will be contructed at O(N^4) cost. Default: None
+        analytic_lower_bound: bool, optional.
+            Whether to compute analytic lower bound on the error of the computed zeroth dd moment. Computation
+            requires O(N^4) operation, and given limited utility of lower bound this is optional.
+            Default: False.
         Returns
         -------
-            moments: np.array, shape (max_moment + 1, n_{tar}, o_a v_a + o_b v_b)
-                Array storing the i^th dd moment in the space defined by `target_rot' in moments[i].
-            err0: tuple.
-                Bounds on the error, in form (upper_bound, lower_bound). If `analytic_lower_bound'=False lower bound
-                will be None.
+        moments: array_like, shape (max_moment + 1, n_{tar}, o_a v_a + o_b v_b)
+            Array storing the i^th dd moment in the space defined by `target_rot' in moments[i].
+        err0: tuple.
+            Bounds on the error, in form (upper_bound, lower_bound). If `analytic_lower_bound'=False lower bound
+            will be None.
         """
         t_start = timer()
 
@@ -171,7 +173,7 @@ class ssRIRPA:
         ri_mp, ri_apb, ri_amb = ri_decomps
         # First need to calculate zeroth moment.
         moments = np.zeros((max_moment + 1,) + target_rot.shape)
-        moments[0], err0 = self._kernel_mom0(target_rot, **kwargs, ri_decomps=ri_decomps)
+        moments[0], err0 = self._kernel_mom0(target_rot, ri_decomps=ri_decomps, **kwargs)
 
         t_start_higher = timer()
         if max_moment > 0:
@@ -180,9 +182,8 @@ class ssRIRPA:
             moments[1] = einsum("pq,q->pq", target_rot, D) + dot(target_rot, ri_amb[0].T, ri_amb[1])
 
         if max_moment > 1:
-            Dsq = D ** 2
             for i in range(2, max_moment + 1):
-                moments[i] = einsum("pq,q->pq", moments[i - 2], Dsq) + dot(moments[i - 2], ri_mp[1].T, ri_mp[0])
+                moments[i] = einsum("pq,q->pq", moments[i - 2], D ** 2) + dot(moments[i - 2], ri_mp[1].T, ri_mp[0])
         if max_moment > 0:
             self.log.info("RIRPA Higher Moments wall time:  %s", time_string(timer() - t_start_higher))
             self.log.info("Overall RIRPA Moments wall time:  %s", time_string(timer() - t_start))
@@ -206,10 +207,10 @@ class ssRIRPA:
 
         Returns
         -------
-            mom0: np.array, shape (n_{tar}, o_a v_a + o_b v_b)
-                Zeroth moment estimate.
-            errs: tuple of floats.
-                Error estimate in zeroth moment computation.
+        mom0: array_like, shape (n_{tar}, o_a v_a + o_b v_b)
+            Zeroth moment estimate.
+        errs: tuple of floats.
+            Error estimate in zeroth moment computation.
         """
         t_start = timer()
         if target_rot is None:
@@ -287,12 +288,6 @@ class ssRIRPA:
                 A-B = eta0 (A+B) eta0
         From this we can estimate the error in eta0 using Cauchy-Schwartz.
         """
-        #l1 = [dot(mom0, x.T) for x in ri_apb]
-        #l2 = [dot(target_rot, x.T) for x in ri_amb]
-        # amb_exact = einsum("pq,q,rq->pr", target_rot, self.D, target_rot) + dot(l2[0], l2[1].T)
-        # print(amb_exact)
-        # amb_approx = einsum("pq,q,rq->pr", mom0, self.D, mom0) + dot(l1[0], l1[1].T)
-        # error = amb_approx - amb_exact
         amb = np.diag(self.D) + dot(ri_amb[0].T, ri_amb[1])
         apb = np.diag(self.D) + dot(ri_apb[0].T, ri_apb[1])
         amb_exact = dot(target_rot, amb, target_rot.T)
@@ -329,6 +324,7 @@ class ssRIRPA:
         return integral[0] + offset, err
 
     def kernel_energy(self, npoints=48, ainit=10, correction="linear"):
+
         t_start = timer()
         e1, err = self.kernel_trMPrt(npoints, ainit)
         e2 = 0.0

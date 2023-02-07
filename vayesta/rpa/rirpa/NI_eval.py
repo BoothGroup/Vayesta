@@ -271,16 +271,12 @@ class NumericalIntegratorClenCur(NumericalIntegratorBase):
 
         a = scipy.linalg.norm(integral_quarter - integral)
         b = scipy.linalg.norm(integral_half - integral)
-        # Using a simple approximation gives these expressions; we instead use a more complicated cubic expression in
-        # calculate_error
-        #error = b ** 3 / a ** 2
-        #error_error = b ** 2 / a ** 2
-
-        #if error_error > self.linear_error_tol:
-        #    self.log.info("Error in linear approx for eta0 error exceeded %4.2f (%4.2f); falling back to cubic model.",
-        #                  self.linear_error_tol, error_error)
+        # Using the simple approximation that the error is dominated by the smallest number of points gives the
+        # expressions
+        #   error = b ** 3 / a ** 2
+        #   error_error = b ** 2 / a ** 2.
+        # we instead assume the error is the sum, which results in a cubic equation for the result.
         error = self.calculate_error(a, b)
-        #error = self.calculate_error(a, b)
         self.log.info("Numerical Integration performed with estimated L2 norm error %6.4e.",
                       error)
         return integral, error
@@ -301,22 +297,22 @@ class NumericalIntegratorClenCur(NumericalIntegratorBase):
         # is even possible) take the largest.
         real_roots = roots[abs(roots.imag) < 1e-10].real
         if len(real_roots) > 1:
-            self.log.warning("Nested quadrature error estimation gives %d real roots.", len(real_roots))
-            self.log.warning("Taking smallest positive root ")
+            self.log.warning("Nested quadrature error estimation gives %d real roots. Taking smallest positive root.",
+                             len(real_roots))
         else:
             self.log.debug("Nested quadrature error estimation gives %d real root.", len(real_roots))
 
-        if not (any((real_roots > 0.0) & (real_roots < 1.0))):
+        if not (any((real_roots > 0) & (real_roots < 1))):
             self.log.critical("No real root found between 0 and 1 in NI error estimation; returning nan.")
             return np.nan
         else:
-            wanted_root = real_roots[real_roots > 0.0].min()  # This defines the values of e^{-\beta n_p}, where we seek the value of
-            # \alpha e^{-4 \beta n_p}
-        # Could go via
-        # exp_beta_4n = wanted_root ** 4
-        # alpha = a * (exp_beta_n + exp_beta_4n**(1/4))**(-1)
-        # But instead
-        error = b * (1 + wanted_root ** (-2.0)) ** (-1)
+            # This defines the values of e^{-\beta n_p}, where we seek the value of \alpha e^{-4 \beta n_p}
+            wanted_root = real_roots[real_roots > 0.0].min()
+        # We could go via the steps
+        #   exp_beta_4n = wanted_root ** 4
+        #   alpha = a * (exp_beta_n + exp_beta_4n**(1/4))**(-1)
+        # But instead go straight for
+        error = b / (1 + wanted_root ** (-2.0))
         return error
 
     def eval_NI_approx(self, a):
