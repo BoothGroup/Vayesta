@@ -58,7 +58,7 @@ class RFCI_WaveFunction(wf_types.WaveFunction):
         """
         wf = self if inplace else self.copy()
         # Apply one-body operator of projector to ci string.
-        wf.ci = self._apply_projector(projector)
+        wf.ci = self._apply_onebody(projector)
         return wf
 
     def project_occ(self, projector, inplace=False):
@@ -83,11 +83,8 @@ class RFCI_WaveFunction(wf_types.WaveFunction):
 
         # Set up sparse LinearOperator object to apply the hole counting operator to the FCI string.
         def myop(ci):
-            return (self.nelec + 1) * ci - self._apply_projector(mf_density_op, ci)
+            return (self.nelec + 1) * ci - self._apply_onebody(mf_density_op, ci)
         r_lin_op = scipy.sparse.linalg.LinearOperator((self.nfci, self.nfci), myop)
-        print(wf.ci)
-        print(myop(wf.ci))
-        print(r_lin_op(wf.ci.reshape(-1)))
         cishape = wf.ci.shape
         wf.ci, err = scipy.sparse.linalg.cg(r_lin_op, wf.ci.reshape(-1))
         wf.ci = wf.ci.reshape(cishape)
@@ -96,9 +93,8 @@ class RFCI_WaveFunction(wf_types.WaveFunction):
 
         return wf
 
-    def _apply_projector(self, proj, ci=None):
+    def _apply_onebody(self, proj, ci=None):
         ci = self.ci if ci is None else ci
-        print(ci.shape, self.nfci)
         return pyscf.fci.direct_spin1.contract_1e(proj, ci, self.norb, self.nelec)
 
     def restore(self, projector=None, inplace=False):

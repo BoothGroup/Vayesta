@@ -14,13 +14,17 @@ def owndata(x):
     return x
 
 
-def get_wf_couplings(emb, fs=None):
+def get_wf_couplings(emb, fs=None, wfs=None):
     """Calculate the hamiltonian element between multiple FCI wavefunctions in different fragments.
     This requires the CI coefficients and the basis set in which they are defined.
     """
     if fs is None:
         fs = emb.fragments
-    wfs = [x.results.wf for x in fs]
+    if wfs is None:
+        wfs = [x.results.wf for x in fs]
+
+    if len(fs) != len(wfs):
+        raise ValueError("Number of fragments and wavefunctions provided don't match.")
 
     h1e = emb.get_hcore()
     h2e = emb.get_eris_array(np.eye(emb.nao)).reshape((emb.nao**2, emb.nao**2))
@@ -31,22 +35,15 @@ def get_wf_couplings(emb, fs=None):
     mo = [x.cluster.c_total for x in fs]
     nact = [x.mo.norb for x in wfs]
     ncore = [emb.nocc - x.mo.nocc for x in wfs]
-    print(emb.mol.nelectron, emb.nao)
     rdm1, h, s = calc_ci_elements(ci, h1e, h2e, ovlp, mo, nmo, nocc, nact, ncore, emb.e_nuc)
     return h, s, rdm1
 
 
 def calc_ci_elements(ci, h1e, h2e, ovlp, mo, nmo, nocc, nact, ncore, enuc=0.0):
-    print(ci[0].shape, ci[1].shape, mo[0].shape, mo[1].shape)
-    print(h1e.shape, h2e.shape, ovlp.shape)
-    print(nmo, nocc, nact, ncore)
 
     ci = tuple([owndata(x) for x in ci])
     h1e, h2e, ovlp = owndata(h1e), owndata(h2e), owndata(ovlp)
     mo = tuple([owndata(x) for x in mo])
-
-
-
 
     # Compute coupling terms
     nstate = len(ci)
@@ -86,21 +83,5 @@ def calc_ci_elements(ci, h1e, h2e, ovlp, mo, nmo, nocc, nact, ncore, enuc=0.0):
             h[w, x] = h[x, w]
             s[w, x] = s[x, w]
             rdm1[w, x] = rdm1[x, w].T
-
-    for x in range(nstate):
-        for w in range(nstate):
-            print("\n RDM-1 for ⟨Ψ_%d| and |Ψ_%d⟩" % (x, w))
-            print(rdm1[x, w])
-
-    print("\n Hamiltonian")
-    print(h)
-    print("\n Overlap")
-    print(s)
-
-    #w, v = scipy.linalg.eigh(h, b=s)
-    #print("\n Recoupled NO-CAS-CI eigenvalues")
-    #print(w)
-    #print("\n Recoupled NO-CAS-CI eigenvectors")
-    #print(v)
 
     return rdm1, h, s
