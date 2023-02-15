@@ -1,5 +1,6 @@
 import functools
 import logging
+import numpy as np
 import pyscf
 import pyscf.df
 import vayesta
@@ -13,7 +14,6 @@ def scf_with_mpi(mpi, mf, mpi_rank=0, log=None):
     if not mpi:
         return mf
 
-    bcast = functools.partial(mpi.world.bcast, root=mpi_rank)
     kernel_orig = mf.kernel
     log = log or mpi.log or logging.getLogger(__name__)
 
@@ -38,6 +38,7 @@ def scf_with_mpi(mpi, mf, mpi_rank=0, log=None):
         mpi.world.barrier()
 
         # Broadcast results
+        bcast = functools.partial(mpi.bcast, root=mpi_rank)
         with log_time(log.timing, "Time for MPI broadcast of SCF results: %s"):
             res = bcast(res)
             if df is not None:

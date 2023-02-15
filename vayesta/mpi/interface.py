@@ -1,12 +1,15 @@
+from collections import namedtuple
 import logging
 import functools
 from timeit import default_timer
-
+import numpy as np
 import vayesta
 from vayesta.core.util import *
 from .rma import RMA_Dict
 from .scf import scf_with_mpi
 
+
+NdArrayMetadata = namedtuple('NdArrayMetadata', ['shape', 'dtype'])
 
 class MPI_Interface:
 
@@ -82,6 +85,45 @@ class MPI_Interface:
         if len(res) == 1:
             return res[0]
         return tuple(res)
+
+    def bcast(self, obj, root=0):
+        """Common function to broadcast NumPy arrays or general objects.
+
+        Parameters
+        ----------
+        obj: ndarray or Any
+            Array or object to be broadcasted.
+        root: int
+            Root MPI process.
+
+        Returns
+        -------
+        obj: ndarray or Any
+            Broadcasted array or object.
+        """
+        # --- First bcast using the pickle interface
+        # if obj is a NumPy array, only broadcast the shape and dtype information,
+        # within a NdArrayMetadata object. Otherwise, broadcast the object itself.
+        if self.rank == root:
+            if isinstance(obj, np.ndarray):
+                data = NdArrayMetadata(obj.shape, obj.dtype)
+            else:
+                data = obj
+        else:
+            data = None
+        data = self.world.bcast(data, root=root)
+        # If the object itself was broadcasted, we can return here:
+        if not isinstance(data, NdArrayMetadata):
+            return data
+
+        # --- Second Bcast using buffer interface
+        if self.rank == root:
+            obj = np.ascontiguousarray(obj)
+        else:
+            obj = np.empty(data.shape, dtype=data.dtype)
+        self.log.debug("Broadcasting array: size= %d memory= %s", obj.size, memory_string(obj.nbytes))
+        self.world.Bcast(obj, root=root)
+        return obj
 
     # --- Function wrapper at embedding level
     # ---------------------------------------
