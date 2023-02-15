@@ -68,7 +68,7 @@ if not is_interactive:
     except FileNotFoundError:
         log.error("%s not found.", logofile)
         logo = ''
-    log.info("%sVersion %s\n", logo, __version__)
+    log.info(logo + '\n', "version " + __version__)
 
 # --- Required modules
 
