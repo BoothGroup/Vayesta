@@ -2,7 +2,7 @@ import numpy as np
 import scipy.linalg
 from pyscf import gto, scf, mcscf, ao2mo
 from pygnme import wick, utils
-
+from vayesta.core.types import RFCI_WaveFunction, SpatialOrbitals
 
 def owndata(x):
     # CARMA requires numpy arrays to have data ownership
@@ -14,14 +14,19 @@ def owndata(x):
     return x
 
 
-def get_wf_couplings(emb, fs=None, wfs=None):
+def get_wf_couplings(emb, fs=None, wfs=None, mos=None, inc_mf=False):
     """Calculate the hamiltonian element between multiple FCI wavefunctions in different fragments.
     This requires the CI coefficients and the basis set in which they are defined.
+
+    If `inc_bare` is True, then the mean-field determinant of emb will be included in the calculation.
     """
+
     if fs is None:
         fs = emb.fragments
     if wfs is None:
         wfs = [x.results.wf for x in fs]
+    if mos is None:
+        mos = [x.cluster.c_total for x in fs]
 
     if len(fs) != len(wfs):
         raise ValueError("Number of fragments and wavefunctions provided don't match.")
@@ -32,10 +37,19 @@ def get_wf_couplings(emb, fs=None, wfs=None):
     nmo, nocc = emb.nao, emb.nocc
 
     ci = [x.ci for x in wfs]
-    mo = [x.cluster.c_total for x in fs]
     nact = [x.mo.norb for x in wfs]
     ncore = [emb.nocc - x.mo.nocc for x in wfs]
-    rdm1, h, s = calc_ci_elements(ci, h1e, h2e, ovlp, mo, nmo, nocc, nact, ncore, emb.e_nuc)
+
+    if inc_mf:
+        mfwf = np.zeros_like(ci[-1])
+        mfwf[0,0] = 1.0
+        ci += [mfwf]
+
+        mos += [mos[-1]]
+        nact += [nact[-1]]
+        ncore += [ncore[-1]]
+
+    rdm1, h, s = calc_ci_elements(ci, h1e, h2e, ovlp, mos, nmo, nocc, nact, ncore, emb.e_nuc)
     return h, s, rdm1
 
 

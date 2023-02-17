@@ -63,15 +63,20 @@ class RFCI_WaveFunction(wf_types.WaveFunction):
 
     def project_occ(self, projector, inplace=False):
         """Apply projector onto the occupied indices of all CI coefficient tensors.
-        Note that `projector` is nocc x nocc"""
+        Note that `projector` is nocc x nocc.
 
+        Action of occupied projector can be written as
+        P^{x}_{occ} = P_{ij}^{x}
+        """
+        c0 = self.c0
         # Get result of applying bare projector; need to keep original ci string just in case
         ci0 = self.ci
         # Pad projector from occupied to full orbital space.
         projector = np.pad(projector, ((0, self.nvir),))
 
-        wf = self.project(projector, inplace)
-        wf.ci = ci0 - wf.ci
+        wf = self.project(projector.T, inplace)
+        wf.ci = (2*sum(np.diag(projector)) * ci0 - wf.ci) / c0
+
         # Now just have to divide each coefficient by its excitation level; this corresponds to action of
         #    R^{-1} = (1 + \sum_{i\in occ} i i^+)^{-1} = (N_{elec} + 1 - \sum_{i\in occ} i^+ i)^{-1}
         # So we seek x to solve
@@ -79,18 +84,19 @@ class RFCI_WaveFunction(wf_types.WaveFunction):
         # which can be obtained straightforwardly by solving
         #           Rx = a
         # Set up one-body operator onto mean-field density.
-        mf_density_op = np.pad(np.eye(self.nocc), ((0, self.nvir),))
+        mf_vdensity_op = np.eye(self.norb) - np.pad(np.eye(self.nocc), ((0, self.nvir),))
 
         # Set up sparse LinearOperator object to apply the hole counting operator to the FCI string.
         def myop(ci):
-            return (self.nelec + 1) * ci - self._apply_onebody(mf_density_op, ci)
-        r_lin_op = scipy.sparse.linalg.LinearOperator((self.nfci, self.nfci), myop)
-        cishape = wf.ci.shape
-        wf.ci, err = scipy.sparse.linalg.cg(r_lin_op, wf.ci.reshape(-1))
-        wf.ci = wf.ci.reshape(cishape)
-        if err != 0:
-            raise RuntimeError("Application of hole density projector did not converge!")
+            return self._apply_onebody(mf_vdensity_op, ci)
 
+        save = wf.ci
+
+        cishape = wf.ci.shape
+        # Calculate excitation level+1 for all states using this operation.
+        ex_lvl = myop(np.full_like(wf.ci, fill_value=1.0).reshape(-1)).reshape(cishape)
+        ex_lvl[0,0] = 1.0
+        wf.ci = einsum("pq,pq->pq", ex_lvl**(-1), wf.ci)
         return wf
 
     def _apply_onebody(self, proj, ci=None):
