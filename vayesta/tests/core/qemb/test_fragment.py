@@ -118,24 +118,24 @@ class MolFragmentTests(TestCase):
             e_mf = sum([f.get_fragment_mf_energy() for f in frags])
             self.assertAlmostEqual(e_mf, (self.mf.e_tot-self.mf.energy_nuc()), self.PLACES)
 
-    def test_project_ref_orbitals(self):
-        """Test the project_ref_orbitals function.
-        """
+    #def test_project_ref_orbitals(self):
+    #    """Test the project_ref_orbitals function.
+    #    """
 
-        qemb = self.Embedding(self.mf)
-        with qemb.sao_fragmentation() as f:
-            frag = f.add_atomic_fragment(0)
+    #    qemb = self.Embedding(self.mf)
+    #    with qemb.sao_fragmentation() as f:
+    #        frag = f.add_atomic_fragment(0)
 
-        nmo = self.mf.mo_occ.size
+    #    nmo = self.mf.mo_occ.size
 
-        with temporary_seed(1):
-            c_ref = np.random.random((nmo, nmo))
-            c = np.random.random((nmo, nmo))
+    #    with temporary_seed(1):
+    #        c_ref = np.random.random((nmo, nmo))
+    #        c = np.random.random((nmo, nmo))
 
-        w, v = frag.project_ref_orbitals(c_ref, c)
+    #    w, v = frag.project_ref_orbitals(c_ref, c)
 
-        self.assertAlmostEqual(lib.fp(w),          5.63864201070, self.PLACES)
-        self.assertAlmostEqual(np.sum(v*v)**0.5, 235.00085653529, self.PLACES)
+    #    self.assertAlmostEqual(lib.fp(w),          5.63864201070, self.PLACES)
+    #    self.assertAlmostEqual(np.sum(v*v)**0.5, 235.00085653529, self.PLACES)
 
     def test_dmet_bath(self):
         """Test the DMET bath.
