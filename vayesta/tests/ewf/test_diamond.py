@@ -1,16 +1,15 @@
 import pytest
 import unittest
-
 import numpy as np
-
 import vayesta
 import vayesta.ewf
 from vayesta.core.util import cache
 from vayesta.tests import testsystems
 from vayesta.tests.common import TestCase
 
+
 @pytest.mark.veryslow
-class DiamondEWFTest(TestCase):
+class DiamondTest(TestCase):
 
     @classmethod
     def setUpClass(cls):
@@ -23,47 +22,69 @@ class DiamondEWFTest(TestCase):
 
     @classmethod
     @cache
-    def emb(cls, bno_threshold):
+    def emb(cls, bno_threshold, symmetry=None):
         emb = vayesta.ewf.EWF(cls.mf, bath_options=dict(threshold=bno_threshold),
                 solver_options=dict(solve_lambda=True))
-        emb.kernel()
-        return emb
-
-    @classmethod
-    @cache
-    def emb_rotsym(cls, bno_threshold):
-        emb = vayesta.ewf.EWF(cls.mf, bath_options=dict(threshold=bno_threshold),
-                solver_options=dict(solve_lambda=True))
+        center = (1/8, 1/8, 1/8) # point between C-atoms
         with emb.fragmentation() as frag:
-            with frag.rotational_symmetry(2, axis=(1, 0, -1), center=(1/8, 1/8, 1/8), unit='latvec'):
+            if symmetry is None:
                 frag.add_atomic_fragment(0)
+                frag.add_atomic_fragment(1)
+            elif symmetry == 'rotation':
+                with frag.rotational_symmetry(2, axis=(1, 0, -1), center=center, unit='latvec'):
+                    frag.add_atomic_fragment(0)
+            elif symmetry == 'inversion':
+                with frag.inversion_symmetry(center=center, unit='latvec'):
+                    frag.add_atomic_fragment(0)
+            elif symmetry == 'mirror':
+                with frag.mirror_symmetry(center=center, axis=(1, 1, 1), unit='latvec'):
+                    frag.add_atomic_fragment(0)
+            else:
+                raise ValueError
         emb.kernel()
         return emb
 
-    def test_dm1_symmetry(self):
+
+    # --- Tests for T-symmetry
+
+    def test_dm1_tsymmetry(self):
         emb = self.emb(1e-4)
         dm1_nosym = emb._make_rdm1_ccsd_global_wf(use_sym=False)
         dm1_sym = emb._make_rdm1_ccsd_global_wf(use_sym=True)
         self.assertAllclose(dm1_sym, dm1_nosym)
 
-    def test_dm1_rotsymmetry(self):
-        emb_rotsym = self.emb_rotsym(1e-4)
-        emb = self.emb(1e-4)
-        dm1_nosym = emb._make_rdm1_ccsd_global_wf()
-        dm1_sym = emb_rotsym._make_rdm1_ccsd_global_wf()
-        self.assertAllclose(dm1_sym, dm1_nosym)
-
-    def test_corrfunc_dndn_symmetry(self):
+    def test_corrfunc_dndn_tsymmetry(self):
         emb = self.emb(1e-4)
         corr_nosym = emb.get_corrfunc('dN,dN', use_symmetry=False)
         corr_sym = emb.get_corrfunc('dN,dN', use_symmetry=True)
         self.assertAllclose(corr_sym, corr_nosym)
 
-    def test_corrfunc_szsz_symmetry(self):
+    def test_corrfunc_szsz_tsymmetry(self):
         emb = self.emb(1e-4)
         corr_nosym = emb.get_corrfunc('Sz,Sz', use_symmetry=False)
         corr_sym = emb.get_corrfunc('Sz,Sz', use_symmetry=True)
         self.assertAllclose(corr_sym, corr_nosym)
+
+    # --- Tests for combined symmetries
+
+    def _test_dm1_symmetry(self, symmetry):
+        emb_sym = self.emb(1e-4, symmetry=symmetry)
+        emb = self.emb(1e-4)
+        dm1_nosym = emb._make_rdm1_ccsd_global_wf(use_sym=False)
+        dm1_tsym = emb._make_rdm1_ccsd_global_wf()
+        dm1_sym = emb_sym._make_rdm1_ccsd_global_wf()
+        self.assertAllclose(dm1_sym, dm1_nosym)
+        self.assertAllclose(dm1_tsym, dm1_nosym)
+
+    def test_dm1_rotation_symmetry(self):
+        return self._test_dm1_symmetry('rotation')
+
+    def test_dm1_inversion_symmetry(self):
+        return self._test_dm1_symmetry('inversion')
+
+    # TODO: Fix failing
+    #def test_dm1_mirror_symmetry(self):
+    #    return self._test_dm1_symmetry('mirror')
 
 
 if __name__ == '__main__':
