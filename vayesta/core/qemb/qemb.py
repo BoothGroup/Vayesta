@@ -1574,6 +1574,7 @@ class Embedding:
                 if (max(charge_err, spin_err) > symtol):
                     raise RuntimeError("%s and %s not symmetric! Errors:  charge= %.2e  spin= %.2e"
                                        % (parent.name, child.name, charge_err, spin_err))
+                else:
                     self.log.debugv("Symmetry between %s and %s: Errors:  charge= %.2e  spin= %.2e",
                                     parent.name, child.name, charge_err, spin_err)
 
