@@ -1,3 +1,27 @@
+Vayesta 1.0.2 (26/02/2023)
+==========================
+
+    Additions
+    ---------
+    - Changes number of projections in default BNO construction (project_dmet_order) to 2
+    - Changes projection in default BNO construnction (project_dmet_mode) to 'squared-entropy'
+    - Updates to the RIRPA functionality
+    - Auxiliary fragment option. Auxiliary fragments are solved before regular fragments, but do not contribute
+      to expectation values.
+    - Inversion and mirror (reflection) symmetry around arbitrary points (instead of origin only)
+    - store_wf_type option for Fragments, to only store a reduced wave function representation
+    - GDF with MPI decorator
+    - D1-diagnostics of UEWF global T1-amplitudes
+
+    Removals
+    --------
+    - Complete fragmentation checks for expectation values
+
+    Fixes
+    -----
+    - Tailoring of CCSD solver in unrestricted calculations
+    - MPI broadcast of large arrays in SCF decorator
+
 Vayesta 1.0.1 (19/10/2022)
 ==========================
 
