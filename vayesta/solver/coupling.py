@@ -457,8 +457,11 @@ def _get_delta_t_for_extcorr(fragment, fock, solver, include_t3v=True, test_extc
         t3_aaaaaa, t3_abaaba, t3_abbabb, t3_babbab, t3_bbabba, t3_bbbbbb = wf.t3
         t4_aaaaaaaa, t4_aaabaaab, t4_aabaaaba, t4_abaaabaa, t4_abababab, t4_abbbabbb, t4_bbabbbab, t4_bbbabbba, t4_bbbbbbbb = wf.t4
 
-        nocc = fragment.base.nocc
-        nvir = fragment.base.nvir
+        # FIXME pull from property
+        nocc_a, nvir_a = t1_aa.shape
+        nocc_b, nvir_b = t1_bb.shape
+        nocc = (nocc_a, nocc_b)
+        nvir = (nvir_a, nvir_b)
 
         # TODO: Use spinalg.zeros_like(t1/t2)
         dt1_aa = np.zeros((nocc[0], nvir[0]), dtype=np.float64)
