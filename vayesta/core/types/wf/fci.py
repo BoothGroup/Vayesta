@@ -435,6 +435,16 @@ class UFCI_WaveFunction(RFCI_WaveFunction):
         t4addra, t4signa = pyscf.ci.cisd.tn_addrs_signs(norba, nocca, 4)
         t4addrb, t4signb = pyscf.ci.cisd.tn_addrs_signs(norbb, noccb, 4)
 
+        # Change to arrays, in case of empty slice
+        t1addra = np.asarray(t1addra, dtype=int)
+        t1addrb = np.asarray(t1addrb, dtype=int)
+        t2addra = np.asarray(t2addra, dtype=int)
+        t2addrb = np.asarray(t2addrb, dtype=int)
+        t3addra = np.asarray(t3addra, dtype=int)
+        t3addrb = np.asarray(t3addrb, dtype=int)
+        t4addra = np.asarray(t4addra, dtype=int)
+        t4addrb = np.asarray(t4addrb, dtype=int)
+
         na = pyscf.fci.cistring.num_strings(norba, nocca)
         nb = pyscf.fci.cistring.num_strings(norbb, noccb)
 

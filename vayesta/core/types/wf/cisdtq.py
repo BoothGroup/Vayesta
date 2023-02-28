@@ -192,7 +192,7 @@ class RCISDTQ_WaveFunction(wf_types.WaveFunction):
 
         # Pack two spin signatures into single tuple
         t4 = (t4_abaa, t4_abab)
-        
+
         return wf_types.RCCSDTQ_WaveFunction(self.mo, t1=t1, t2=t2, t3=t3, t4=t4)
 
 class UCISDTQ_WaveFunction(wf_types.WaveFunction):
