@@ -69,7 +69,7 @@ class RCISDTQ_WaveFunction(wf_types.WaveFunction):
         t4_abaa -= t1t3a.transpose(3,1,2,0,4,5,7,6) 
         t4_abaa += t1t3b.transpose(0,1,3,2,4,5,7,6) 
         t4_abaa -= t1t3b.transpose(0,1,3,2,4,5,6,7)
-
+        
         # (t2 t2) terms + permutations
         t2t2a = einsum('ijab, klcd -> ijklabcd', t2, t2aa)
         t2t2b = einsum('ljcb, kida -> ijklabcd', t2, t2aa)

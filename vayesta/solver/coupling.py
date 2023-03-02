@@ -385,6 +385,7 @@ def _get_delta_t_for_extcorr(fragment, fock, solver, include_t3v=True, test_extc
             tmp1  += t4aabb.transpose(0,2,1,3,4,6,5,7)
             tmp1  += t4aabb.transpose(1,2,0,3,5,6,4,7)
             t4v_test = 0.5 * einsum('kcld,klijcdab->ijab', govov, tmp1)
+            assert(np.allclose(t4v, t4v_test))
 
         # --- (T1 T3) * V
         # Note: Approximate T1 by the CCSDTQ T1 amplitudes of this fragment.

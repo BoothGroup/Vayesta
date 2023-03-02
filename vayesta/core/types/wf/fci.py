@@ -231,8 +231,8 @@ class RFCI_WaveFunction(wf_types.WaveFunction):
                         t3sign[t_cnt_a] * t1sign[s_cnt_b]
 
                 # Beta singles values
-                I = int(s_cnt / nvir)
-                A = s_cnt % nvir
+                I = int(s_cnt_b / nvir)
+                A = s_cnt_b % nvir
 
                 # Swap aaab -> abaa spin signature. No sign change required.
                 c4_abaa[i, I, j, k, a, A, b, c] = c4_comp[t_cnt_a, s_cnt_b]
