@@ -4,6 +4,7 @@ import numpy as np
 
 import pyscf
 import pyscf.cc
+from pyscf.scf import convert_to_uhf
 
 import vayesta
 import vayesta.ewf
@@ -17,8 +18,24 @@ class TestFullEC(TestCase):
 
     def _test(self, key, proj=0, mode='external-fciv', store_wf_ccsdtq=True):
         mf = getattr(getattr(testsystems, key[0]), key[1])()
-
+        
+        if len(key) == 3:
+            if key[2] == 'rhf_to_uhf':
+                mf = pyscf.scf.convert_to_uhf(mf)
+        
         emb = vayesta.ewf.EWF(mf)
+        
+        if len(key) == 3:
+            if key[1] == 'rhf':
+                if key[2] == 'rhf_to_uhf':
+                    self.assertEqual(emb.is_uhf, True)
+                else:
+                    self.assertEqual(emb.is_rhf, True)
+        if key[1] == 'rhf' and len(key) == 2:
+            self.assertEqual(emb.is_rhf, True)
+        if key[1] == 'uhf':
+            self.assertEqual(emb.is_uhf, True)
+
         with emb.iao_fragmentation() as f:
             if store_wf_ccsdtq:
                 fci_frag = f.add_atomic_fragment([0, 1], solver='FCI', bath_options=dict(bathtype='full'), store_wf_type='CCSDTQ')
@@ -60,6 +77,58 @@ class TestFullEC(TestCase):
         self.assertAlmostEqual(emb.e_tot, fci_frag_etot)
 
     # Test all combinations of options
+
+    def test_r_to_u_exact_ec_lih_proj0_fciv_store(self):
+        return self._test(('lih_ccpvdz', 'rhf', 'rhf_to_uhf'), proj=0, mode='external-fciv', store_wf_ccsdtq=True)
+    def test_r_to_u_exact_ec_lih_proj1_fciv_store(self):
+        return self._test(('lih_ccpvdz', 'rhf', 'rhf_to_uhf'), proj=1, mode='external-fciv', store_wf_ccsdtq=True)
+    def test_r_to_u_exact_ec_lih_proj2_fciv_store(self):
+        return self._test(('lih_ccpvdz', 'rhf', 'rhf_to_uhf'), proj=2, mode='external-fciv', store_wf_ccsdtq=True)
+    def test_r_to_u_exact_ec_lih_proj0_fciv_nostore(self):
+        return self._test(('lih_ccpvdz', 'rhf', 'rhf_to_uhf'), proj=0, mode='external-fciv', store_wf_ccsdtq=False)
+    def test_r_to_u_exact_ec_lih_proj1_fciv_nostore(self):
+        return self._test(('lih_ccpvdz', 'rhf', 'rhf_to_uhf'), proj=1, mode='external-fciv', store_wf_ccsdtq=False)
+    def test_r_to_u_exact_ec_lih_proj2_fciv_nostore(self):
+        return self._test(('lih_ccpvdz', 'rhf', 'rhf_to_uhf'), proj=2, mode='external-fciv', store_wf_ccsdtq=False)
+    def test_r_to_u_exact_ec_lih_proj0_ccsdv_store(self):
+        return self._test(('lih_ccpvdz', 'rhf', 'rhf_to_uhf'), proj=0, mode='external-ccsdv', store_wf_ccsdtq=True)
+    def test_r_to_u_exact_ec_lih_proj1_ccsdv_store(self):
+        return self._test(('lih_ccpvdz', 'rhf', 'rhf_to_uhf'), proj=1, mode='external-ccsdv', store_wf_ccsdtq=True)
+    def test_r_to_u_exact_ec_lih_proj2_ccsdv_store(self):
+        return self._test(('lih_ccpvdz', 'rhf', 'rhf_to_uhf'), proj=2, mode='external-ccsdv', store_wf_ccsdtq=True)
+    def test_r_to_u_exact_ec_lih_proj0_ccsdv_nostore(self):
+        return self._test(('lih_ccpvdz', 'rhf', 'rhf_to_uhf'), proj=0, mode='external-ccsdv', store_wf_ccsdtq=False)
+    def test_r_to_u_exact_ec_lih_proj1_ccsdv_nostore(self):
+        return self._test(('lih_ccpvdz', 'rhf', 'rhf_to_uhf'), proj=1, mode='external-ccsdv', store_wf_ccsdtq=False)
+    def test_r_to_u_exact_ec_lih_proj2_ccsdv_nostore(self):
+        return self._test(('lih_ccpvdz', 'rhf', 'rhf_to_uhf'), proj=2, mode='external-ccsdv', store_wf_ccsdtq=False)
+
+
+    def test_u_exact_ec_lih_proj0_fciv_store(self):
+        return self._test(('lih_ccpvdz', 'uhf'), proj=0, mode='external-fciv', store_wf_ccsdtq=True)
+    def test_u_exact_ec_lih_proj1_fciv_store(self):
+        return self._test(('lih_ccpvdz', 'uhf'), proj=1, mode='external-fciv', store_wf_ccsdtq=True)
+    def test_u_exact_ec_lih_proj2_fciv_store(self):
+        return self._test(('lih_ccpvdz', 'uhf'), proj=2, mode='external-fciv', store_wf_ccsdtq=True)
+    def test_u_exact_ec_lih_proj0_fciv_nostore(self):
+        return self._test(('lih_ccpvdz', 'uhf'), proj=0, mode='external-fciv', store_wf_ccsdtq=False)
+    def test_u_exact_ec_lih_proj1_fciv_nostore(self):
+        return self._test(('lih_ccpvdz', 'uhf'), proj=1, mode='external-fciv', store_wf_ccsdtq=False)
+    def test_u_exact_ec_lih_proj2_fciv_nostore(self):
+        return self._test(('lih_ccpvdz', 'uhf'), proj=2, mode='external-fciv', store_wf_ccsdtq=False)
+    def test_u_exact_ec_lih_proj0_ccsdv_store(self):
+        return self._test(('lih_ccpvdz', 'uhf'), proj=0, mode='external-ccsdv', store_wf_ccsdtq=True)
+    def test_u_exact_ec_lih_proj1_ccsdv_store(self):
+        return self._test(('lih_ccpvdz', 'uhf'), proj=1, mode='external-ccsdv', store_wf_ccsdtq=True)
+    def test_u_exact_ec_lih_proj2_ccsdv_store(self):
+        return self._test(('lih_ccpvdz', 'uhf'), proj=2, mode='external-ccsdv', store_wf_ccsdtq=True)
+    def test_u_exact_ec_lih_proj0_ccsdv_nostore(self):
+        return self._test(('lih_ccpvdz', 'uhf'), proj=0, mode='external-ccsdv', store_wf_ccsdtq=False)
+    def test_u_exact_ec_lih_proj1_ccsdv_nostore(self):
+        return self._test(('lih_ccpvdz', 'uhf'), proj=1, mode='external-ccsdv', store_wf_ccsdtq=False)
+    def test_u_exact_ec_lih_proj2_ccsdv_nostore(self):
+        return self._test(('lih_ccpvdz', 'uhf'), proj=2, mode='external-ccsdv', store_wf_ccsdtq=False)
+
     def test_r_exact_ec_lih_proj0_fciv_store(self):
         return self._test(('lih_ccpvdz', 'rhf'), proj=0, mode='external-fciv', store_wf_ccsdtq=True)
     def test_r_exact_ec_lih_proj1_fciv_store(self):
