@@ -305,6 +305,9 @@ class NotCalculatedError(AttributeError):
     """Raise if a necessary attribute has not been calculated."""
     pass
 
+class SymmetryError(RuntimeError):
+    pass
+
 # --- Energy
 
 def energy_string(energy, unit='Ha'):

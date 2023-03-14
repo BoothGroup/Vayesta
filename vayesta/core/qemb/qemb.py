@@ -1542,7 +1542,7 @@ class Embedding:
     def update_mf(self, mo_coeff, mo_energy=None, veff=None):
         """Update underlying mean-field object."""
         # Chech orthonormal MOs
-        if not np.allclose(dot(mo_coeff.T, self.get_ovlp(), mo_coeff) - np.eye(mo_coeff.shape[-1]), 0.):
+        if not np.allclose(dot(mo_coeff.T, self.get_ovlp(), mo_coeff) - np.eye(mo_coeff.shape[-1]), 0):
             raise ValueError("MO coefficients not orthonormal!")
         self.mf.mo_coeff = mo_coeff
         dm = self.mf.make_rdm1(mo_coeff=mo_coeff)
@@ -1563,7 +1563,7 @@ class Embedding:
             for child in children:
                 charge_err, spin_err = parent.get_symmetry_error(child, dm1=dm1)
                 if (max(charge_err, spin_err) > symtol):
-                    raise RuntimeError("%s and %s not symmetric! Errors:  charge= %.2e  spin= %.2e"
+                    raise SymmetryError("%s and %s not symmetric! Errors:  charge= %.2e  spin= %.2e"
                                        % (parent.name, child.name, charge_err, spin_err))
                     self.log.debugv("Symmetry between %s and %s: Errors:  charge= %.2e  spin= %.2e",
                                     parent.name, child.name, charge_err, spin_err)
