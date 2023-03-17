@@ -2,6 +2,7 @@ import numpy as np
 import vayesta
 from vayesta.core.util import *
 from vayesta.core.types import wf as wf_types
+from vayesta.core.types.wf import t_to_c
 
 
 def CISDTQ_WaveFunction(mo, *args, **kwargs):
@@ -218,12 +219,6 @@ class UCISDTQ_WaveFunction(wf_types.WaveFunction):
         c3_aaaaaa, c3_abaaba, c3_abbabb, c3_babbab, c3_bbabba, c3_bbbbbb = (c / self.c0 for c in self.c3)
         c4_aaaaaaaa, c4_aaabaaab, c4_aabaaaba, c4_abaaabaa, c4_abababab, c4_abbbabbb, c4_bbabbbab, c4_bbbabbba, c4_bbbbbbbb = (c / self.c0 for c in self.c4)
 
-        from ._conversion_routines import \
-                t1_uhf_aa, t1_uhf_bb, \
-                t2_uhf_aaaa, t2_uhf_abab, t2_uhf_bbbb, \
-                t3_uhf_aaaaaa, t3_uhf_abaaba, t3_uhf_abbabb, t3_uhf_babbab, t3_uhf_bbabba, t3_uhf_bbbbbb, \
-                t4_uhf_aaaaaaaa, t4_uhf_aaabaaab, t4_uhf_aabaaaba, t4_uhf_abaaabaa, t4_uhf_abababab, t4_uhf_abbbabbb, t4_uhf_bbabbbab, t4_uhf_bbbabbba, t4_uhf_bbbbbbbb
-
         from types import SimpleNamespace
         c1 = SimpleNamespace(aa=c1_aa, bb=c1_bb)
         c2 = SimpleNamespace(aaaa=c2_aaaa, abab=c2_abab, bbbb=c2_bbbb)
@@ -233,32 +228,32 @@ class UCISDTQ_WaveFunction(wf_types.WaveFunction):
         nocc = (c1.aa.shape[0], c1.bb.shape[0])
         nvir = (c1.aa.shape[1], c1.bb.shape[1])
 
-        t1_aa = t1_uhf_aa(c1=c1, nocc=nocc, nvir=nvir)
-        t1_bb = t1_uhf_bb(c1=c1, nocc=nocc, nvir=nvir)
+        t1_aa = t_to_c.t1_uhf_aa(c1=c1, nocc=nocc, nvir=nvir)
+        t1_bb = t_to_c.t1_uhf_bb(c1=c1, nocc=nocc, nvir=nvir)
         t1 = SimpleNamespace(aa=t1_aa, bb=t1_bb)
 
-        t2_aaaa = t2_uhf_aaaa(c2=c2, t1=t1, nocc=nocc, nvir=nvir)
-        t2_abab = t2_uhf_abab(c2=c2, t1=t1, nocc=nocc, nvir=nvir)
-        t2_bbbb = t2_uhf_bbbb(c2=c2, t1=t1, nocc=nocc, nvir=nvir)
+        t2_aaaa = t_to_c.t2_uhf_aaaa(c2=c2, t1=t1, nocc=nocc, nvir=nvir)
+        t2_abab = t_to_c.t2_uhf_abab(c2=c2, t1=t1, nocc=nocc, nvir=nvir)
+        t2_bbbb = t_to_c.t2_uhf_bbbb(c2=c2, t1=t1, nocc=nocc, nvir=nvir)
         t2 = SimpleNamespace(aaaa=t2_aaaa, abab=t2_abab, bbbb=t2_bbbb)
 
-        t3_aaaaaa = t3_uhf_aaaaaa(c3=c3, t1=t1, t2=t2, nocc=nocc, nvir=nvir)
-        t3_abaaba = t3_uhf_abaaba(c3=c3, t1=t1, t2=t2, nocc=nocc, nvir=nvir)
-        t3_abbabb = t3_uhf_abbabb(c3=c3, t1=t1, t2=t2, nocc=nocc, nvir=nvir)
-        t3_babbab = t3_uhf_babbab(c3=c3, t1=t1, t2=t2, nocc=nocc, nvir=nvir)
-        t3_bbabba = t3_uhf_bbabba(c3=c3, t1=t1, t2=t2, nocc=nocc, nvir=nvir)
-        t3_bbbbbb = t3_uhf_bbbbbb(c3=c3, t1=t1, t2=t2, nocc=nocc, nvir=nvir)
+        t3_aaaaaa = t_to_c.t3_uhf_aaaaaa(c3=c3, t1=t1, t2=t2, nocc=nocc, nvir=nvir)
+        t3_abaaba = t_to_c.t3_uhf_abaaba(c3=c3, t1=t1, t2=t2, nocc=nocc, nvir=nvir)
+        t3_abbabb = t_to_c.t3_uhf_abbabb(c3=c3, t1=t1, t2=t2, nocc=nocc, nvir=nvir)
+        t3_babbab = t_to_c.t3_uhf_babbab(c3=c3, t1=t1, t2=t2, nocc=nocc, nvir=nvir)
+        t3_bbabba = t_to_c.t3_uhf_bbabba(c3=c3, t1=t1, t2=t2, nocc=nocc, nvir=nvir)
+        t3_bbbbbb = t_to_c.t3_uhf_bbbbbb(c3=c3, t1=t1, t2=t2, nocc=nocc, nvir=nvir)
         t3 = SimpleNamespace(aaaaaa=t3_aaaaaa, abaaba=t3_abaaba, abbabb=t3_abbabb, babbab=t3_babbab, bbabba=t3_bbabba, bbbbbb=t3_bbbbbb)
 
-        t4_aaaaaaaa = t4_uhf_aaaaaaaa(c4=c4, t1=t1, t2=t2, t3=t3, nocc=nocc, nvir=nvir)
-        t4_aaabaaab = t4_uhf_aaabaaab(c4=c4, t1=t1, t2=t2, t3=t3, nocc=nocc, nvir=nvir)
-        t4_aabaaaba = t4_uhf_aabaaaba(c4=c4, t1=t1, t2=t2, t3=t3, nocc=nocc, nvir=nvir)
-        t4_abaaabaa = t4_uhf_abaaabaa(c4=c4, t1=t1, t2=t2, t3=t3, nocc=nocc, nvir=nvir)
-        t4_abababab = t4_uhf_abababab(c4=c4, t1=t1, t2=t2, t3=t3, nocc=nocc, nvir=nvir)
-        t4_abbbabbb = t4_uhf_abbbabbb(c4=c4, t1=t1, t2=t2, t3=t3, nocc=nocc, nvir=nvir)
-        t4_bbabbbab = t4_uhf_bbabbbab(c4=c4, t1=t1, t2=t2, t3=t3, nocc=nocc, nvir=nvir)
-        t4_bbbabbba = t4_uhf_bbbabbba(c4=c4, t1=t1, t2=t2, t3=t3, nocc=nocc, nvir=nvir)
-        t4_bbbbbbbb = t4_uhf_bbbbbbbb(c4=c4, t1=t1, t2=t2, t3=t3, nocc=nocc, nvir=nvir)
+        t4_aaaaaaaa = t_to_c.t4_uhf_aaaaaaaa(c4=c4, t1=t1, t2=t2, t3=t3, nocc=nocc, nvir=nvir)
+        t4_aaabaaab = t_to_c.t4_uhf_aaabaaab(c4=c4, t1=t1, t2=t2, t3=t3, nocc=nocc, nvir=nvir)
+        t4_aabaaaba = t_to_c.t4_uhf_aabaaaba(c4=c4, t1=t1, t2=t2, t3=t3, nocc=nocc, nvir=nvir)
+        t4_abaaabaa = t_to_c.t4_uhf_abaaabaa(c4=c4, t1=t1, t2=t2, t3=t3, nocc=nocc, nvir=nvir)
+        t4_abababab = t_to_c.t4_uhf_abababab(c4=c4, t1=t1, t2=t2, t3=t3, nocc=nocc, nvir=nvir)
+        t4_abbbabbb = t_to_c.t4_uhf_abbbabbb(c4=c4, t1=t1, t2=t2, t3=t3, nocc=nocc, nvir=nvir)
+        t4_bbabbbab = t_to_c.t4_uhf_bbabbbab(c4=c4, t1=t1, t2=t2, t3=t3, nocc=nocc, nvir=nvir)
+        t4_bbbabbba = t_to_c.t4_uhf_bbbabbba(c4=c4, t1=t1, t2=t2, t3=t3, nocc=nocc, nvir=nvir)
+        t4_bbbbbbbb = t_to_c.t4_uhf_bbbbbbbb(c4=c4, t1=t1, t2=t2, t3=t3, nocc=nocc, nvir=nvir)
 
         t1 = (t1_aa, t1_bb)
         t2 = (t2_aaaa, t2_abab, t2_bbbb)
