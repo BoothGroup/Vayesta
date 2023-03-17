@@ -56,6 +56,7 @@ with emb.iao_fragmentation() as f:
     fci_frags = f.add_all_atomic_fragments(solver='FCI', bath_options=dict(bathtype='dmet'), store_wf_type='CCSDTQ', auxiliary=True)
     ccsd_frags = f.add_all_atomic_fragments(solver='CCSD', bath_options=dict(bathtype='mp2', threshold=1.e-5))
 # Now add external corrections to all CCSD clusters, and use 'external-fciv' correction, with 2 projectors
-ccsd_frag.add_external_corrections(fci_frags, correction_type='external-fciv', projectors=2)
+for cc_frag in ccsd_frags:
+    cc_frag.add_external_corrections(fci_frags, correction_type='external-fciv', projectors=2)
 emb.kernel()
 print('Total energy from embedded CCSD tailored (FCI Coulomb interaction) by atomic FCI fragments (projectors=2): {}'.format(emb.e_tot))
