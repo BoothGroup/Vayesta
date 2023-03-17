@@ -6,6 +6,7 @@ from vayesta.core.util import *
 from vayesta.core import spinalg
 from vayesta.mpi import mpi, RMA_Dict
 from vayesta.solver.simple import CCSD as SimpleCCSD
+from vayesta.solver import ccsdtq
 
 
 def transform_amplitude(t, u_occ, u_vir, u_occ2=None, u_vir2=None, inverse=False):
@@ -283,10 +284,12 @@ def _integrals_for_extcorr(fragment, fock):
         fovb = dot(cluster.c_active_occ[1].T, fock[1], cluster.c_active_vir[1])
         # TODO make consistent with RHF return value, remove redundancies
         fov = (fova, fovb)
-        gooov = (eris[0][oa, oa, oa, va], eris[1][oa, oa, ob, vb], eris[1].transpose(2, 3, 0, 1)[ob, ob, oa, va], eris[2][ob, ob, ob, vb])
-        govov = (eris[0][oa, va, oa, va], eris[1][oa, va, ob, vb], eris[1].transpose(2, 3, 0, 1)[ob, vb, oa, va], eris[2][ob, vb, ob, vb])
-        govvv = (eris[0][oa, va, va, va], eris[1][oa, va, vb, vb], eris[1].transpose(2, 3, 0, 1)[ob, vb, va, va], eris[2][ob, vb, vb, vb])
-        return fov, gooov, govov, govvv
+        gooov = (eris[0][oa, oa, oa, va], eris[1][oa, oa, ob, vb], eris[2][ob, ob, ob, vb])
+        govov = (eris[0][oa, va, oa, va], eris[1][oa, va, ob, vb], eris[2][ob, vb, ob, vb])
+        govvv = (eris[0][oa, va, va, va], eris[1][oa, va, vb, vb], eris[2][ob, vb, vb, vb])
+        gvvov = (None, eris[1][va, va, ob, vb], None)
+        govoo = (None, eris[1][oa, va, ob, ob], None)
+        return fov, (gooov, govov, govvv, gvvov, govoo)
     return fov, govov, gvvov, gooov, govoo
 
 def _get_delta_t_for_extcorr(fragment, fock, solver, include_t3v=True, test_extcorr=False):
@@ -448,143 +451,14 @@ def _get_delta_t_for_extcorr(fragment, fock, solver, include_t3v=True, test_extc
 
     elif fragment.base.spinsym == 'unrestricted':
         # Get ERIs and Fock matrix for the given fragment
-        (f_aa_ov, f_bb_ov), \
-                (v_aaaa_ooov, v_aabb_ooov, v_bbaa_ooov, v_bbbb_ooov), \
-                (v_aaaa_ovov, v_aabb_ovov, v_bbaa_ovov, v_bbbb_ovov), \
-                (v_aaaa_ovvv, v_aabb_ovvv, v_bbaa_ovvv, v_bbbb_ovvv) = _integrals_for_extcorr(fragment, fock)
+        f, v = _integrals_for_extcorr(fragment, fock)
 
-        t1_aa, t1_bb = wf.t1
-        t2_aaaa, t2_abab, t2_bbbb = wf.t2
-        t3_aaaaaa, t3_abaaba, t3_abbabb, t3_babbab, t3_bbabba, t3_bbbbbb = wf.t3
-        t4_aaaaaaaa, t4_aaabaaab, t4_aabaaaba, t4_abaaabaa, t4_abababab, t4_abbbabbb, t4_bbabbbab, t4_bbbabbba, t4_bbbbbbbb = wf.t4
+        dt1 = ccsdtq.t1_residual_uhf(wf.t1, wf.t2, wf.t3, wf.t4, f, v)
+        dt2 = ccsdtq.t2_residual_uhf(wf.t1, wf.t2, wf.t3, wf.t4, f, v)
 
-        # FIXME pull from property
-        nocc_a, nvir_a = t1_aa.shape
-        nocc_b, nvir_b = t1_bb.shape
-        nocc = (nocc_a, nocc_b)
-        nvir = (nvir_a, nvir_b)
-
-        # TODO: Use spinalg.zeros_like(t1/t2)
-        dt1_aa = np.zeros((nocc[0], nvir[0]), dtype=np.float64)
-        dt1_aa += einsum("jbkc,ijkabc->ia", v_bbaa_ovov, t3_abaaba) * 0.5
-        dt1_aa += einsum("jbkc,ikjacb->ia", v_aabb_ovov, t3_abaaba) * 0.5
-        dt1_aa += einsum("jbkc,ijkabc->ia", v_aaaa_ovov, t3_aaaaaa) * 0.5
-        dt1_aa += einsum("jbkc,ijkabc->ia", v_bbbb_ovov, t3_abbabb) * 0.5
-
-        dt1_bb = np.zeros((nocc[1], nvir[1]), dtype=np.float64)
-        dt1_bb += einsum("jbkc,jikbac->ia", v_aaaa_ovov, t3_abaaba) * 0.5
-        dt1_bb += einsum("jbkc,ijkabc->ia", v_aabb_ovov, t3_babbab) * 0.5
-        dt1_bb += einsum("jbkc,ijkabc->ia", v_bbaa_ovov, t3_bbabba) * 0.5
-        dt1_bb += einsum("jbkc,ijkabc->ia", v_bbbb_ovov, t3_bbbbbb) * 0.5
-
-        dt2_aaaa = np.zeros((nocc[0], nocc[0], nvir[0], nvir[0]), dtype=np.float64)
-        dt2_aaaa += einsum("kc,ikjacb->ijab", f_bb_ov, t3_abaaba)
-        dt2_aaaa += einsum("kc,ijkabc->ijab", f_aa_ov, t3_aaaaaa)
-        dt2_aaaa += einsum("iklc,jlkacb->ijab", v_aabb_ooov, t3_abaaba)
-        dt2_aaaa += einsum("jklc,ilkacb->ijab", v_aabb_ooov, t3_abaaba) * -1.0
-        dt2_aaaa += einsum("kcad,ikjbcd->ijab", v_bbaa_ovvv, t3_abaaba) * -1.0
-        dt2_aaaa += einsum("kcbd,ikjacd->ijab", v_bbaa_ovvv, t3_abaaba)
-        dt2_aaaa += einsum("iklc,jklabc->ijab", v_aaaa_ooov, t3_aaaaaa)
-        dt2_aaaa += einsum("jklc,iklabc->ijab", v_aaaa_ooov, t3_aaaaaa) * -1.0
-        dt2_aaaa += einsum("kcad,ijkbcd->ijab", v_aaaa_ovvv, t3_aaaaaa)
-        dt2_aaaa += einsum("kcbd,ijkacd->ijab", v_aaaa_ovvv, t3_aaaaaa) * -1.0
-        dt2_aaaa += einsum("kcld,ikjlacbd->ijab", v_bbbb_ovov, t4_abababab) * 0.5
-        dt2_aaaa += einsum("kcld,ijklabcd->ijab", v_aaaa_ovov, t4_aaaaaaaa) * 0.5
-        dt2_aaaa += einsum("kcld,ijklabcd->ijab", v_aabb_ovov, t4_aaabaaab) * 0.5
-        dt2_aaaa += einsum("kcld,ijklabcd->ijab", v_bbaa_ovov, t4_aabaaaba) * 0.5
-        dt2_aaaa += einsum("ic,kcld,jlkadb->ijab", t1_aa, v_aabb_ovov, t3_abaaba) * 0.5
-        dt2_aaaa += einsum("ic,kdlc,jkladb->ijab", t1_aa, v_bbaa_ovov, t3_abaaba) * 0.5
-        dt2_aaaa += einsum("jc,kcld,ilkadb->ijab", t1_aa, v_aabb_ovov, t3_abaaba) * -0.5
-        dt2_aaaa += einsum("jc,kdlc,ikladb->ijab", t1_aa, v_bbaa_ovov, t3_abaaba) * -0.5
-        dt2_aaaa += einsum("ka,kcld,iljbdc->ijab", t1_aa, v_aabb_ovov, t3_abaaba)
-        dt2_aaaa += einsum("kb,kcld,iljadc->ijab", t1_aa, v_aabb_ovov, t3_abaaba) * -1.0
-        dt2_aaaa += einsum("kc,kcld,iljadb->ijab", t1_aa, v_aabb_ovov, t3_abaaba)
-        dt2_aaaa += einsum("ic,kcld,jklabd->ijab", t1_aa, v_aaaa_ovov, t3_aaaaaa) * 0.5
-        dt2_aaaa += einsum("ic,kdlc,jklabd->ijab", t1_aa, v_aaaa_ovov, t3_aaaaaa) * -0.5
-        dt2_aaaa += einsum("jc,kcld,iklabd->ijab", t1_aa, v_aaaa_ovov, t3_aaaaaa) * -0.5
-        dt2_aaaa += einsum("jc,kdlc,iklabd->ijab", t1_aa, v_aaaa_ovov, t3_aaaaaa) * 0.5
-        dt2_aaaa += einsum("ka,kcld,ijlbcd->ijab", t1_aa, v_aaaa_ovov, t3_aaaaaa)
-        dt2_aaaa += einsum("kb,kcld,ijlacd->ijab", t1_aa, v_aaaa_ovov, t3_aaaaaa) * -1.0
-        dt2_aaaa += einsum("kc,kcld,ijlabd->ijab", t1_aa, v_aaaa_ovov, t3_aaaaaa)
-        dt2_aaaa += einsum("kc,kdlc,ijlabd->ijab", t1_aa, v_aaaa_ovov, t3_aaaaaa) * -1.0
-        dt2_aaaa += einsum("kc,kcld,iljadb->ijab", t1_bb, v_bbbb_ovov, t3_abaaba)
-        dt2_aaaa += einsum("kc,kdlc,iljadb->ijab", t1_bb, v_bbbb_ovov, t3_abaaba) * -1.0
-        dt2_aaaa += einsum("kc,kcld,ijlabd->ijab", t1_bb, v_bbaa_ovov, t3_aaaaaa)
-
-        dt2_bbbb = np.zeros((nocc[1], nocc[1], nvir[1], nvir[1]), dtype=np.float64)
-        dt2_bbbb += einsum("kc,ijkabc->ijab", f_aa_ov, t3_bbabba)
-        dt2_bbbb += einsum("kc,ijkabc->ijab", f_bb_ov, t3_bbbbbb)
-        dt2_bbbb += einsum("iklc,jklabc->ijab", v_bbaa_ooov, t3_bbabba)
-        dt2_bbbb += einsum("iklc,jklabc->ijab", v_bbbb_ooov, t3_bbbbbb)
-        dt2_bbbb += einsum("jklc,iklabc->ijab", v_bbaa_ooov, t3_bbabba) * -1.0
-        dt2_bbbb += einsum("jklc,iklabc->ijab", v_bbbb_ooov, t3_bbbbbb) * -1.0
-        dt2_bbbb += einsum("kcad,ijkbcd->ijab", v_bbbb_ovvv, t3_bbbbbb)
-        dt2_bbbb += einsum("kcad,ijkbdc->ijab", v_aabb_ovvv, t3_bbabba) * -1.0
-        dt2_bbbb += einsum("kcbd,ijkacd->ijab", v_bbbb_ovvv, t3_bbbbbb) * -1.0
-        dt2_bbbb += einsum("kcbd,ijkadc->ijab", v_aabb_ovvv, t3_bbabba)
-        dt2_bbbb += einsum("kcld,kiljcadb->ijab", v_aaaa_ovov, t4_abababab) * 0.5
-        dt2_bbbb += einsum("kcld,ijklabcd->ijab", v_aabb_ovov, t4_bbabbbab) * 0.5
-        dt2_bbbb += einsum("kcld,ijklabcd->ijab", v_bbaa_ovov, t4_bbbabbba) * 0.5
-        dt2_bbbb += einsum("kcld,ijklabcd->ijab", v_bbbb_ovov, t4_bbbbbbbb) * 0.5
-        dt2_bbbb += einsum("kc,kcld,ijlabd->ijab", t1_aa, v_aaaa_ovov, t3_bbabba)
-        dt2_bbbb += einsum("kc,kcld,ijlabd->ijab", t1_aa, v_aabb_ovov, t3_bbbbbb)
-        dt2_bbbb += einsum("kc,kdlc,ijlabd->ijab", t1_aa, v_aaaa_ovov, t3_bbabba) * -1.0
-        dt2_bbbb += einsum("ic,kcld,jklabd->ijab", t1_bb, v_bbaa_ovov, t3_bbabba) * 0.5
-        dt2_bbbb += einsum("ic,kcld,jklabd->ijab", t1_bb, v_bbbb_ovov, t3_bbbbbb) * 0.5
-        dt2_bbbb += einsum("ic,kdlc,jklabd->ijab", t1_bb, v_bbbb_ovov, t3_bbbbbb) * -0.5
-        dt2_bbbb += einsum("ic,kdlc,jkladb->ijab", t1_bb, v_aabb_ovov, t3_babbab) * 0.5
-        dt2_bbbb += einsum("jc,kcld,iklabd->ijab", t1_bb, v_bbaa_ovov, t3_bbabba) * -0.5
-        dt2_bbbb += einsum("jc,kcld,iklabd->ijab", t1_bb, v_bbbb_ovov, t3_bbbbbb) * -0.5
-        dt2_bbbb += einsum("jc,kdlc,ikladb->ijab", t1_bb, v_aabb_ovov, t3_babbab) * -0.5
-        dt2_bbbb += einsum("jc,kdlc,iklabd->ijab", t1_bb, v_bbbb_ovov, t3_bbbbbb) * 0.5
-        dt2_bbbb += einsum("ka,kcld,ijlbcd->ijab", t1_bb, v_bbaa_ovov, t3_bbabba)
-        dt2_bbbb += einsum("ka,kcld,ijlbcd->ijab", t1_bb, v_bbbb_ovov, t3_bbbbbb)
-        dt2_bbbb += einsum("kb,kcld,ijlacd->ijab", t1_bb, v_bbaa_ovov, t3_bbabba) * -1.0
-        dt2_bbbb += einsum("kb,kcld,ijlacd->ijab", t1_bb, v_bbbb_ovov, t3_bbbbbb) * -1.0
-        dt2_bbbb += einsum("kc,kcld,ijlabd->ijab", t1_bb, v_bbaa_ovov, t3_bbabba)
-        dt2_bbbb += einsum("kc,kcld,ijlabd->ijab", t1_bb, v_bbbb_ovov, t3_bbbbbb)
-        dt2_bbbb += einsum("kc,kdlc,ijlabd->ijab", t1_bb, v_bbbb_ovov, t3_bbbbbb) * -1.0
-
-        dt2_abab = np.zeros((nocc[0], nocc[1], nvir[0], nvir[1]), dtype=np.float64)
-        dt2_abab += einsum("kc,ijkabc->ijab", f_aa_ov, t3_abaaba)
-        dt2_abab += einsum("kc,ijkabc->ijab", f_bb_ov, t3_abbabb)
-        dt2_abab += einsum("iklc,kjlabc->ijab", v_aaaa_ooov, t3_abaaba) * -1.0
-        dt2_abab += einsum("jklc,iklabc->ijab", v_bbaa_ooov, t3_abaaba) * -1.0
-        dt2_abab += einsum("kcad,ijkcbd->ijab", v_aaaa_ovvv, t3_abaaba) * -1.0
-        dt2_abab += einsum("kcbd,ijkadc->ijab", v_aabb_ovvv, t3_abaaba)
-        dt2_abab += einsum("iklc,jklbac->ijab", v_aabb_ooov, t3_babbab) * -1.0
-        dt2_abab += einsum("jklc,iklabc->ijab", v_bbbb_ooov, t3_abbabb) * -1.0
-        dt2_abab += einsum("kcad,ijkdbc->ijab", v_bbaa_ovvv, t3_abbabb)
-        dt2_abab += einsum("kcbd,ijkacd->ijab", v_bbbb_ovvv, t3_abbabb) * -1.0
-        dt2_abab += einsum("kcld,ijklabcd->ijab", v_aabb_ovov, t4_abababab) * 0.5
-        dt2_abab += einsum("kcld,ijlkabdc->ijab", v_bbaa_ovov, t4_abababab) * 0.5
-        dt2_abab += einsum("kcld,ijklabcd->ijab", v_aaaa_ovov, t4_abaaabaa) * 0.5
-        dt2_abab += einsum("kcld,ijklabcd->ijab", v_bbbb_ovov, t4_abbbabbb) * 0.5
-        dt2_abab += einsum("ic,kcld,kjlabd->ijab", t1_aa, v_aaaa_ovov, t3_abaaba) * -0.5
-        dt2_abab += einsum("ic,kdlc,kjlabd->ijab", t1_aa, v_aaaa_ovov, t3_abaaba) * 0.5
-        dt2_abab += einsum("ka,kcld,ijlcbd->ijab", t1_aa, v_aaaa_ovov, t3_abaaba) * -1.0
-        dt2_abab += einsum("kc,kcld,ijlabd->ijab", t1_aa, v_aaaa_ovov, t3_abaaba)
-        dt2_abab += einsum("kc,kdlc,ijlabd->ijab", t1_aa, v_aaaa_ovov, t3_abaaba) * -1.0
-        dt2_abab += einsum("ic,kcld,jklbad->ijab", t1_aa, v_aabb_ovov, t3_babbab) * -0.5
-        dt2_abab += einsum("ic,kdlc,jklbda->ijab", t1_aa, v_bbaa_ovov, t3_bbabba) * -0.5
-        dt2_abab += einsum("ka,kcld,ijlcbd->ijab", t1_aa, v_aabb_ovov, t3_abbabb) * -1.0
-        dt2_abab += einsum("kc,kcld,ijlabd->ijab", t1_aa, v_aabb_ovov, t3_abbabb)
-        dt2_abab += einsum("jc,kcld,iklabd->ijab", t1_bb, v_bbaa_ovov, t3_abaaba) * -0.5
-        dt2_abab += einsum("jc,kdlc,ilkabd->ijab", t1_bb, v_aabb_ovov, t3_abaaba) * -0.5
-        dt2_abab += einsum("kb,kcld,ijlacd->ijab", t1_bb, v_bbaa_ovov, t3_abaaba) * -1.0
-        dt2_abab += einsum("kc,kcld,ijlabd->ijab", t1_bb, v_bbaa_ovov, t3_abaaba)
-        dt2_abab += einsum("jc,kcld,iklabd->ijab", t1_bb, v_bbbb_ovov, t3_abbabb) * -0.5
-        dt2_abab += einsum("jc,kdlc,iklabd->ijab", t1_bb, v_bbbb_ovov, t3_abbabb) * 0.5
-        dt2_abab += einsum("kb,kcld,ijlacd->ijab", t1_bb, v_bbbb_ovov, t3_abbabb) * -1.0
-        dt2_abab += einsum("kc,kcld,ijlabd->ijab", t1_bb, v_bbbb_ovov, t3_abbabb)
-        dt2_abab += einsum("kc,kdlc,ijlabd->ijab", t1_bb, v_bbbb_ovov, t3_abbabb) * -1.0
-        
         if not include_t3v:
             # TODO
             raise NotImplementedError
-
-        dt1 = (dt1_aa, dt1_bb)
-        dt2 = (dt2_aaaa, dt2_abab, dt2_bbbb)
 
     else:
         raise ValueError

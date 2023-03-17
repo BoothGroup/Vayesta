@@ -595,20 +595,14 @@ class UFCI_WaveFunction(RFCI_WaveFunction):
         c3 = (
             c3_aaa,
             c3_aab.transpose(0, 2, 1, 3, 5, 4),
-            c3_abb,
             c3_abb.transpose(1, 0, 2, 4, 3, 5),
-            c3_abb.transpose(2, 1, 0, 5, 4, 3),
             c3_bbb,
         )
         c4 = (
             c4_aaaa,
             c4_aaab,
-            c4_aaab.transpose(0, 1, 3, 2, 4, 5, 7, 6),
-            c4_aaab.transpose(0, 3, 2, 1, 4, 7, 6, 5),
             c4_aabb.transpose(0, 2, 1, 3, 4, 6, 5, 7),
             c4_abbb,
-            c4_abbb.transpose(2, 1, 0, 3, 6, 5, 4, 7),
-            c4_abbb.transpose(3, 1, 2, 0, 7, 5, 6, 4),
             c4_bbbb,
         )
 
