@@ -287,11 +287,11 @@ def _integrals_for_extcorr(fragment, fock):
         fovb = dot(cluster.c_active_occ[1].T, fock[1], cluster.c_active_vir[1])
         # TODO make consistent with RHF return value, remove redundancies
         fov = (fova, fovb)
-        gooov = (eris[0][oa, oa, oa, va], eris[1][oa, oa, ob, vb], eris[2][ob, ob, ob, vb])
-        govov = (eris[0][oa, va, oa, va], eris[1][oa, va, ob, vb], eris[2][ob, vb, ob, vb])
-        govvv = (eris[0][oa, va, va, va], eris[1][oa, va, vb, vb], eris[2][ob, vb, vb, vb])
-        gvvov = (None, eris[1][va, va, ob, vb], None)
-        govoo = (None, eris[1][oa, va, ob, ob], None)
+        gooov = (eris[0][oa,oa,oa,va], eris[1][oa,oa,ob,vb], eris[2][ob,ob,ob,vb])
+        govov = (eris[0][oa,va,oa,va], eris[1][oa,va,ob,vb], eris[2][ob,vb,ob,vb])
+        govvv = (eris[0][oa,va,va,va], eris[1][oa,va,vb,vb], eris[2][ob,vb,vb,vb])
+        gvvov = (None, eris[1][va,va,ob,vb], None)
+        govoo = (None, eris[1][oa,va,ob,ob], None)
         return fov, (gooov, govov, govvv, gvvov, govoo)
 
     else:
@@ -584,9 +584,7 @@ def externally_correct(solver, external_corrections, eris=None):
             # Contract with fragment x (CCSD) energy denominators
             # Note that this will not work correctly if a level shift used
             eia = mo_energy[:nocc, None] - mo_energy[None, nocc:]
-            # TODO: Not the most memory efficient way to contract with
-            # energy denominators here. Improve to reduce N^4 memory cost?
-            eijab = pyscf.lib.direct_sum('ia,jb->ijab',eia,eia)
+            eijab = pyscf.lib.direct_sum('ia,jb->ijab', eia, eia)
             dt1 /= eia
             dt2 /= eijab
 
@@ -602,18 +600,14 @@ def externally_correct(solver, external_corrections, eris=None):
     elif solver.spinsym == 'unrestricted':
 
         if corrtype in ["external", "external-fciv", "external-ccsdv"]:
-            # FIXME is this done correctly? I update my T amplitudes as T = R / D - T'
-            e_ia = (
-                pyscf.lib.direct_sum("i-a->ia", mo_energy[0][:nocc[0]], mo_energy[0][nocc[0]:]),
-                pyscf.lib.direct_sum("i-a->ia", mo_energy[1][:nocc[1]], mo_energy[1][nocc[1]:]),
-            )
+            eia_a = mo_energy[0][:nocc[0], None] - mo_energy[0][None, nocc[0]:]
+            eia_b = mo_energy[1][:nocc[1], None] - mo_energy[1][None, nocc[1]:]
+            eijab_aa = pyscf.lib.direct_sum('ia,jb->ijab', eia_a, eia_a)
+            eijab_ab = pyscf.lib.direct_sum('ia,jb->ijab', eia_a, eia_b)
+            eijab_bb = pyscf.lib.direct_sum('ia,jb->ijab', eia_b, eia_b)
 
-            dt1 = (dt1[0] / e_ia[0], dt1[1] / e_ia[1])
-            dt2 = (
-                dt2[0] / pyscf.lib.direct_sum("ia,jb->ijab", e_ia[0], e_ia[0]),
-                dt2[1] / pyscf.lib.direct_sum("ia,jb->ijab", e_ia[0], e_ia[1]),
-                dt2[2] / pyscf.lib.direct_sum("ia,jb->ijab", e_ia[1], e_ia[1]),
-            )
+            dt1 = (dt1[0] / eia_a, dt1[1] / eia_b)
+            dt2 = (dt2[0] / eijab_aa, dt2[1] / eijab_ab, dt2[2] / eijab_bb)
 
         solver.log.info("Total external correction amplitudes from all fragments:  dT1= %.3e  dT2= %.3e", \
                 *get_amplitude_norm(dt1, dt2))

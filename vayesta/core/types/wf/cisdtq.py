@@ -51,7 +51,8 @@ class UCISDTQ_WaveFunction(wf_types.WaveFunction):
         if not (isinstance(c3, tuple) and len(c3) == 4):
             raise ValueError("c4 definition in UCISDTQ wfn requires tuple of (aaa, aba, bab, bbb) spin signatures")
         if not (isinstance(c4, tuple) and len(c4) == 5):
-            raise ValueError("c4 definition in UCISDTQ wfn requires tuple of (aaaa, aaab, abab, abbb, bbbb) spin signatures")
+            raise ValueError(
+                    "c4 definition in UCISDTQ wfn requires tuple of (aaaa, aaab, abab, abbb, bbbb) spin signatures")
 
     def as_ccsdtq(self):
         c1 = tuple(c / self.c0 for c in self.c1)

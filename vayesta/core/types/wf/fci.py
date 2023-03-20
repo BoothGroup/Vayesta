@@ -367,12 +367,3 @@ class UFCI_WaveFunction(RFCI_WaveFunction):
             c4 = tuple(c * fac for c in c4)
 
         return wf_types.UCISDTQ_WaveFunction(self.mo, c0, c1, c2, c3, c4)
-
-    def as_ccsd(self):
-        return self.as_cisd().as_ccsd()
-
-    def as_ccsdtq(self):
-        return self.as_cisdtq().as_ccsdtq()
-
-    def as_fci(self):
-        return self
