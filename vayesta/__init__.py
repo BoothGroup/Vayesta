@@ -94,6 +94,8 @@ pyscf = import_package('PySCF')
 import_package('mpi4py', False)
 import_package('cvxpy', False)
 ebcc = import_package('ebcc', False)
+import_package('pygnme', False)
+
 
 # --- Git hashes
 
