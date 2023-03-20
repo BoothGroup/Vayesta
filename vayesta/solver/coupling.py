@@ -521,7 +521,7 @@ def externally_correct(solver, external_corrections, eris=None):
                     gooov_x = eris.ovoo.transpose(2,3,0,1)
                     govoo_x = eris.ovoo
                 except:
-                    _, _, gvvov_x, gooov_x, govoo_x = _integrals_for_extcorr(fx, fock)
+                    _, (_, gvvov_x, gooov_x, govoo_x) = _integrals_for_extcorr(fx, fock)
             elif emb.spinsym == 'unrestricted':
                 pass  # TODO is this only needed for external-ccsdv?
     
