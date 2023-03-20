@@ -95,195 +95,50 @@ class RFCI_WaveFunction(wf_types.WaveFunction):
         ijk_pairs = int(nocc * (nocc - 1) * (nocc - 2) / 6)
         abc_pairs = int(nvir * (nvir - 1) * (nvir - 2) / 6)
 
+        t1addr, t1sign = pyscf.ci.cisd.tn_addrs_signs(norb, nocc, 1)
+        t2addr, t2sign = pyscf.ci.cisd.tn_addrs_signs(norb, nocc, 2)
+        t3addr, t3sign = pyscf.ci.cisd.tn_addrs_signs(norb, nocc, 3)
+        t4addr, t4sign = pyscf.ci.cisd.tn_addrs_signs(norb, nocc, 4)
+
+        t1addr = np.asarray(t1addr, dtype=int)
+        t2addr = np.asarray(t2addr, dtype=int)
+        t3addr = np.asarray(t3addr, dtype=int)
+        t4addr = np.asarray(t4addr, dtype=int)
+
         # === C1 amplitudes ===
         # These functions extract out the indicies and signs of 
         # the *same spin* excitations of a given rank from the FCI vector
-        t1addr, t1sign = pyscf.ci.cisd.tn_addrs_signs(norb, nocc, 1)
         # C1 are taken to be the beta -> beta excitations (which should be 
         # the same as alpha -> alpha), by taking the first (alpha) index to be doubly occupied.
         c1 = self.ci[0,t1addr] * t1sign
         c1 = c1.reshape((nocc, nvir))
 
-        # Longhand check (to be put into a test)
-        c1_ = np.zeros(t1addr.shape[0])
-        c1_full = np.zeros_like(c1)
-        for s_cnt, sing_ind in enumerate(t1addr):
-            c1_[s_cnt] = self.ci[0, sing_ind] * t1sign[s_cnt]
-            i = int(s_cnt / nvir)
-            a = s_cnt % nvir
-            c1_full[i,a] = c1_[s_cnt]
-        assert(np.allclose(c1, c1_full))
-
         # === C2 amplitudes ===
         # For RHF, we want the (alpha, beta) -> (alpha, beta) excitation amplitudes.
         # Therefore, we can just take single excitations of alpha and 
         # combine with the single excitations of beta.
-        c2 = np.einsum('i,j,ij->ij', t1sign, t1sign, self.ci[t1addr[:,None],t1addr])
-        # Reorder occupied indices to the front
-        c2 = c2.reshape((nocc, nvir, nocc, nvir)).transpose(0,2,1,3)
+        c2 = np.einsum('i,j,ij->ij', t1sign, t1sign, self.ci[t1addr[:, None], t1addr])
+        c2 = c2.reshape((nocc, nvir, nocc, nvir))
+        c2 = c2.transpose(0, 2, 1, 3)
 
         # === C3 amplitudes ===
         # For the C3 amplitudes, we want to find the ijk -> abc amplitudes of 
         # spin signature (alpha, beta, alpha) -> (alpha, beta, alpha)
-
-        # t2addr, t2sign is the index and sign of the packed (alpha, alpha) -> (alpha, alpha) 
-        # excitations in the FCI array. To get the orbital indices that they correspond to,
-        # use ooidx and vvidx
-        t2addr, t2sign = pyscf.ci.cisd.tn_addrs_signs(norb, nocc, 2)
-        assert(len(t2addr) == ij_pairs * ab_pairs)
-
-        # First find the ijk -> abc excitations, where ijab are alpha, and kc are beta
-        c3_comp = np.zeros((ij_pairs * ab_pairs, nocc * nvir))
-        c3 = np.zeros((nocc, nocc, nocc, nvir, nvir, nvir))
-        for d_cnt, doub_ind in enumerate(t2addr):
-            ij = int(d_cnt / ab_pairs)
-            ab = d_cnt % ab_pairs
-            i, j = ooidx[0][ij], ooidx[1][ij] # j ind < i ind
-            a, b = vvidx[0][ab], vvidx[1][ab] # b ind < a ind
-            for s_cnt, sing_ind in enumerate(t1addr):
-                # First index of c3_comp is a compound index of ijab (alpha, alpha) excitations, 
-                # with the second index being the kc (beta, beta) single excitation.
-                c3_comp[d_cnt, s_cnt] = self.ci[doub_ind, sing_ind] * t2sign[d_cnt] * t1sign[s_cnt]
-
-                k = int(s_cnt / nvir)
-                c = s_cnt % nvir
-                # Note, we want aba -> aba spin signature, not aab -> aab, which is what we have.
-                # We can therefore swap (jk) and (bc). This does not cause an overall sign change.
-                # We then also want to fill up the contributions between permutations 
-                # amongst the alpha electrons and alpha holes.
-                # If only one is permuted, then this will indeed cause a sign change.
-                assert(i != j)
-                assert(a != b)
-                c3[i,k,j,a,c,b] = c3_comp[d_cnt, s_cnt]
-                c3[j,k,i,a,c,b] = -c3_comp[d_cnt, s_cnt]
-                c3[i,k,j,b,c,a] = -c3_comp[d_cnt, s_cnt]
-                c3[j,k,i,b,c,a] = c3_comp[d_cnt, s_cnt]
-
-        if len(t2addr) > 0:
-            assert(np.allclose(c3_comp, np.einsum('i,j,ij->ij', \
-                t2sign, t1sign, self.ci[t2addr[:,None], t1addr])))
-        del c3_comp
+        c3 = np.einsum('i,j,ij->ij', t2sign, t1sign, self.ci[t2addr[:, None], t1addr])
+        c3 = decompress_axes("iiaajb", c3, shape=(nocc, nocc, nvir, nvir, nocc, nvir))
+        c3 = c3.transpose(0, 4, 1, 2, 5, 3)
 
         # === C4 amplitudes ===
         # For the C4 amplitudes, ijkl -> abcd, we are going to store two different spin
         # signatures: 
         # (alpha, beta, alpha, beta)  -> (alpha, beta, alpha, beta) and
         # (alpha, beta, alpha, alpha) -> (alpha, beta, alpha, alpha)
-        # TODO: Can we store the information as a single combined spatial orbital representation?
-
-        # Start with abab. We will first get this as aabb -> aabb, via a product of
-        # alpha-alpha double excitations and beta-beta double excitations and then reorder.
-        c4_abab = np.zeros((nocc, nocc, nocc, nocc, nvir, nvir, nvir, nvir))
-        c4_comp = np.zeros((ij_pairs * ab_pairs, ij_pairs * ab_pairs))
-        for d_cnt_a, doub_ind_a in enumerate(t2addr):
-            ij_alpha = int(d_cnt_a / ab_pairs)
-            ab_alpha = d_cnt_a % ab_pairs
-            i, j = ooidx[0][ij_alpha], ooidx[1][ij_alpha]
-            a, b = vvidx[0][ab_alpha], vvidx[1][ab_alpha]
-            for d_cnt_b, doub_ind_b in enumerate(t2addr):
-                ij_beta = int(d_cnt_b / ab_pairs)
-                ab_beta = d_cnt_b % ab_pairs
-                I, J = ooidx[0][ij_beta], ooidx[1][ij_beta]
-                A, B = vvidx[0][ab_beta], vvidx[1][ab_beta]
-                
-                # Swap aabb -> abab spin signature. No sign change required.
-                c4_comp[d_cnt_a, d_cnt_b] = self.ci[doub_ind_a, doub_ind_b] \
-                        * t2sign[d_cnt_a] * t2sign[d_cnt_b]
-                # Consider all possible (antisymmetric) permutations of (i_alpha, j_alpha), 
-                # (i_beta, j_beta), (a_alpha, b_alpha), (a_beta, b_beta). 16 options.
-                c4_abab[i, I, j, J, a, A, b, B] =  c4_comp[d_cnt_a, d_cnt_b]
-                c4_abab[i, I, j, J, a, B, b, A] = -c4_comp[d_cnt_a, d_cnt_b]
-                c4_abab[i, I, j, J, b, A, a, B] = -c4_comp[d_cnt_a, d_cnt_b]
-                c4_abab[i, I, j, J, b, B, a, A] =  c4_comp[d_cnt_a, d_cnt_b]
-                c4_abab[i, J, j, I, a, A, b, B] = -c4_comp[d_cnt_a, d_cnt_b]
-                c4_abab[i, J, j, I, a, B, b, A] =  c4_comp[d_cnt_a, d_cnt_b]
-                c4_abab[i, J, j, I, b, A, a, B] =  c4_comp[d_cnt_a, d_cnt_b]
-                c4_abab[i, J, j, I, b, B, a, A] = -c4_comp[d_cnt_a, d_cnt_b]
-                c4_abab[j, I, i, J, a, A, b, B] = -c4_comp[d_cnt_a, d_cnt_b]
-                c4_abab[j, I, i, J, a, B, b, A] =  c4_comp[d_cnt_a, d_cnt_b]
-                c4_abab[j, I, i, J, b, A, a, B] =  c4_comp[d_cnt_a, d_cnt_b]
-                c4_abab[j, I, i, J, b, B, a, A] = -c4_comp[d_cnt_a, d_cnt_b]
-                c4_abab[j, J, i, I, a, A, b, B] =  c4_comp[d_cnt_a, d_cnt_b]
-                c4_abab[j, J, i, I, a, B, b, A] = -c4_comp[d_cnt_a, d_cnt_b]
-                c4_abab[j, J, i, I, b, A, a, B] = -c4_comp[d_cnt_a, d_cnt_b]
-                c4_abab[j, J, i, I, b, B, a, A] =  c4_comp[d_cnt_a, d_cnt_b]
-
-        if len(t2addr) > 0:
-            assert(np.allclose(c4_comp, np.einsum('i,j,ij->ij', t2sign, t2sign, \
-                    self.ci[t2addr[:,None], t2addr])))
-        del c4_comp
-
-        # abaa spin signature. Get this from the aaab->aaab excitations.
-        # This requires the index of the (alpha, alpha, alpha) -> (alpha, alpha, alpha) excits.
-        t3addr, t3sign = pyscf.ci.cisd.tn_addrs_signs(norb, nocc, 3)
-        assert(len(t3addr) == ijk_pairs * abc_pairs)
-
-        c4_abaa = np.zeros((nocc, nocc, nocc, nocc, nvir, nvir, nvir, nvir))
-        c4_comp = np.zeros((ijk_pairs * abc_pairs, nocc * nvir))
-        for t_cnt_a, trip_ind_a in enumerate(t3addr):
-            # Find alpha i,j,k -> a,b,c indices
-            ijk_alpha = t_cnt_a // abc_pairs
-            abc_alpha = t_cnt_a % abc_pairs
-            i, j, k = oooidx[0][ijk_alpha], oooidx[1][ijk_alpha], oooidx[2][ijk_alpha]
-            a, b, c = vvvidx[0][abc_alpha], vvvidx[1][abc_alpha], vvvidx[2][abc_alpha]
-            for s_cnt_b, sing_ind_b in enumerate(t1addr):
-                c4_comp[t_cnt_a, s_cnt_b] = self.ci[trip_ind_a, sing_ind_b] * \
-                        t3sign[t_cnt_a] * t1sign[s_cnt_b]
-
-                # Beta singles values
-                I = int(s_cnt_b / nvir)
-                A = s_cnt_b % nvir
-
-                # Swap aaab -> abaa spin signature. No sign change required.
-                c4_abaa[i, I, j, k, a, A, b, c] = c4_comp[t_cnt_a, s_cnt_b]
-                # All antisym permutations of (ijk) x (abc) amongst alpha orbitals.
-                # Six permutations each, making 36 overall
-                # just rearrange occupied
-                c4_abaa[i, I, j, k, a, A, b, c] =  c4_comp[t_cnt_a, s_cnt_b]
-                c4_abaa[i, I, k, j, a, A, b, c] = -c4_comp[t_cnt_a, s_cnt_b]
-                c4_abaa[k, I, j, i, a, A, b, c] = -c4_comp[t_cnt_a, s_cnt_b]
-                c4_abaa[j, I, i, k, a, A, b, c] = -c4_comp[t_cnt_a, s_cnt_b]
-                c4_abaa[j, I, k, i, a, A, b, c] =  c4_comp[t_cnt_a, s_cnt_b]
-                c4_abaa[k, I, i, j, a, A, b, c] =  c4_comp[t_cnt_a, s_cnt_b]
-                # swap ac
-                c4_abaa[i, I, j, k, c, A, b, a] = -c4_comp[t_cnt_a, s_cnt_b]
-                c4_abaa[i, I, k, j, c, A, b, a] =  c4_comp[t_cnt_a, s_cnt_b]
-                c4_abaa[k, I, j, i, c, A, b, a] =  c4_comp[t_cnt_a, s_cnt_b]
-                c4_abaa[j, I, i, k, c, A, b, a] =  c4_comp[t_cnt_a, s_cnt_b]
-                c4_abaa[j, I, k, i, c, A, b, a] = -c4_comp[t_cnt_a, s_cnt_b]
-                c4_abaa[k, I, i, j, c, A, b, a] = -c4_comp[t_cnt_a, s_cnt_b]
-                # swap ab
-                c4_abaa[i, I, j, k, b, A, a, c] = -c4_comp[t_cnt_a, s_cnt_b]
-                c4_abaa[i, I, k, j, b, A, a, c] =  c4_comp[t_cnt_a, s_cnt_b]
-                c4_abaa[k, I, j, i, b, A, a, c] =  c4_comp[t_cnt_a, s_cnt_b]
-                c4_abaa[j, I, i, k, b, A, a, c] =  c4_comp[t_cnt_a, s_cnt_b]
-                c4_abaa[j, I, k, i, b, A, a, c] = -c4_comp[t_cnt_a, s_cnt_b]
-                c4_abaa[k, I, i, j, b, A, a, c] = -c4_comp[t_cnt_a, s_cnt_b]
-                # swap bc
-                c4_abaa[i, I, j, k, a, A, c, b] = -c4_comp[t_cnt_a, s_cnt_b]
-                c4_abaa[i, I, k, j, a, A, c, b] =  c4_comp[t_cnt_a, s_cnt_b]
-                c4_abaa[k, I, j, i, a, A, c, b] =  c4_comp[t_cnt_a, s_cnt_b]
-                c4_abaa[j, I, i, k, a, A, c, b] =  c4_comp[t_cnt_a, s_cnt_b]
-                c4_abaa[j, I, k, i, a, A, c, b] = -c4_comp[t_cnt_a, s_cnt_b]
-                c4_abaa[k, I, i, j, a, A, c, b] = -c4_comp[t_cnt_a, s_cnt_b]
-                # swap abc -> cab
-                c4_abaa[i, I, j, k, c, A, a, b] =  c4_comp[t_cnt_a, s_cnt_b]
-                c4_abaa[i, I, k, j, c, A, a, b] = -c4_comp[t_cnt_a, s_cnt_b]
-                c4_abaa[k, I, j, i, c, A, a, b] = -c4_comp[t_cnt_a, s_cnt_b]
-                c4_abaa[j, I, i, k, c, A, a, b] = -c4_comp[t_cnt_a, s_cnt_b]
-                c4_abaa[j, I, k, i, c, A, a, b] =  c4_comp[t_cnt_a, s_cnt_b]
-                c4_abaa[k, I, i, j, c, A, a, b] =  c4_comp[t_cnt_a, s_cnt_b]
-                # swap abc -> bca
-                c4_abaa[i, I, j, k, b, A, c, a] =  c4_comp[t_cnt_a, s_cnt_b]
-                c4_abaa[i, I, k, j, b, A, c, a] = -c4_comp[t_cnt_a, s_cnt_b]
-                c4_abaa[k, I, j, i, b, A, c, a] = -c4_comp[t_cnt_a, s_cnt_b]
-                c4_abaa[j, I, i, k, b, A, c, a] = -c4_comp[t_cnt_a, s_cnt_b]
-                c4_abaa[j, I, k, i, b, A, c, a] =  c4_comp[t_cnt_a, s_cnt_b]
-                c4_abaa[k, I, i, j, b, A, c, a] =  c4_comp[t_cnt_a, s_cnt_b]
-
-        if len(t3addr) > 0:
-            assert(np.allclose(c4_comp, np.einsum('i,j,ij->ij', t3sign, t1sign, \
-                    self.ci[t3addr[:,None], t1addr])))
+        c4_abaa = np.einsum('i,j,ij->ij', t3sign, t1sign, self.ci[t3addr[:, None], t1addr])
+        c4_abaa = decompress_axes("iiiaaajb", c4_abaa, shape=(nocc, nocc, nocc, nvir, nvir, nvir, nocc, nvir))
+        c4_abaa = c4_abaa.transpose(0, 6, 2, 1, 3, 7, 5, 4)
+        c4_abab = np.einsum('i,j,ij->ij', t2sign, t2sign, self.ci[t2addr[:, None], t2addr])
+        c4_abab = decompress_axes("iiaajjbb", c4_abab, shape=(nocc, nocc, nvir, nvir, nocc, nocc, nvir, nvir))
+        c4_abab = c4_abab.transpose(0, 4, 1, 5, 2, 6, 3, 7)
 
         if c0 is None:
             c0 = self.c0
@@ -420,7 +275,7 @@ class UFCI_WaveFunction(RFCI_WaveFunction):
         vvvidx_b = tril_indices_ndim(nvirb, 3) # a > b > c
         ijk_pairs_b = int(noccb * (noccb - 1) * (noccb - 2) / 6)
         abc_pairs_b = int(nvirb * (nvirb - 1) * (nvirb - 2) / 6)
-        
+
         ijkl_pairs_a = int(nocca * (nocca - 1) * (nocca - 2) * (nocca - 3) / 24)
         abcd_pairs_a = int(nvira * (nvira - 1) * (nvira - 2) * (nvira - 3) / 24)
         ijkl_pairs_b = int(noccb * (noccb - 1) * (noccb - 2) * (noccb - 3) / 24)
@@ -448,163 +303,59 @@ class UFCI_WaveFunction(RFCI_WaveFunction):
         na = pyscf.fci.cistring.num_strings(norba, nocca)
         nb = pyscf.fci.cistring.num_strings(norbb, noccb)
 
-        ci = self.ci.reshape(na,nb)
         # C1
         c1_a = (self.ci[t1addra,0] * t1signa).reshape(nocca,nvira)
         c1_b = (self.ci[0,t1addrb] * t1signb).reshape(noccb,nvirb)
+
         # C2
         c2_aa = (self.ci[t2addra,0] * t2signa).reshape(ij_pairs_a, ab_pairs_a)
-        c2_bb = (self.ci[0,t2addrb] * t2signb).reshape(ij_pairs_b, ab_pairs_b)
         c2_aa = pyscf.cc.ccsd._unpack_4fold(c2_aa, nocca, nvira)
+
+        c2_bb = (self.ci[0,t2addrb] * t2signb).reshape(ij_pairs_b, ab_pairs_b)
         c2_bb = pyscf.cc.ccsd._unpack_4fold(c2_bb, noccb, nvirb)
-        c2_ab = einsum('i,j,ij->ij', t1signa, t1signb, self.ci[t1addra[:,None],t1addrb])
-        c2_ab = c2_ab.reshape(nocca,nvira,noccb,nvirb).transpose(0,2,1,3)
+
+        c2_ab = einsum('i,j,ij->ij', t1signa, t1signb, self.ci[t1addra[:, None], t1addrb])
+        c2_ab = c2_ab.reshape(nocca, nvira, noccb, nvirb)
+        c2_ab = c2_ab.transpose(0, 2, 1, 3)
+
         # C3
+        c3_aaa = (self.ci[t3addra,0] * t3signa).reshape(ijk_pairs_a, abc_pairs_a)
+        c3_aaa = decompress_axes("iiiaaa", c3_aaa, shape=(nocca, nocca, nocca, nvira, nvira, nvira))
 
-        # Get the following spin signatures in packed form, and then Ollie will unpack later!
-        # T3: aaa, aba, abb, bab, bba, bbb
-        # aaa
-        c3_aaa_pack = (self.ci[t3addra,0] * t3signa).reshape(ijk_pairs_a, abc_pairs_a)
-        # bbb
-        c3_bbb_pack = (self.ci[0,t3addrb] * t3signb).reshape(ijk_pairs_b, abc_pairs_b)
-        # aab
-        c3_aab_pack = np.einsum('i,j,ij->ij', t2signa, t1signb, self.ci[t2addra[:,None], t1addrb])
-        assert(c3_aab_pack.shape == (ij_pairs_a * ab_pairs_a, noccb * nvirb))
-        # bba
-        c3_abb_pack = np.einsum('i,j,ij->ij', t1signa, t2signb, self.ci[t1addra[:,None], t2addrb])
-        assert(c3_abb_pack.shape == (nocca * nvira, ij_pairs_b * ab_pairs_b))
+        c3_bbb = (self.ci[0,t3addrb] * t3signb).reshape(ijk_pairs_b, abc_pairs_b)
+        c3_bbb = decompress_axes("iiiaaa", c3_bbb, shape=(noccb, noccb, noccb, nvirb, nvirb, nvirb))
 
-        # Now, unpack... TODO
-        from ebcc.util import decompress_axes
-        c3_aaa = decompress_axes(
-                "iiiaaa",
-                c3_aaa_pack,
-                shape=(nocca, nocca, nocca, nvira, nvira, nvira),
-                symmetry="------",
-        )
-        c3_bbb = decompress_axes(
-                "iiiaaa",
-                c3_bbb_pack,
-                shape=(noccb, noccb, noccb, nvirb, nvirb, nvirb),
-                symmetry="------",
-        )
-        c3_aab = decompress_axes(
-                "iiaajb",
-                c3_aab_pack,
-                shape=(nocca, nocca, nvira, nvira, noccb, nvirb),
-                symmetry="------",
-        )
-        c3_aab = c3_aab.transpose(0, 1, 4, 2, 3, 5)
-        c3_abb = decompress_axes(
-                "iajjbb",
-                c3_abb_pack,
-                shape=(nocca, nvira, noccb, noccb, nvirb, nvirb),
-                symmetry="------",
-        )
-        c3_abb = c3_abb.transpose(0, 2, 3, 1, 4, 5)
+        c3_aba = np.einsum('i,j,ij->ij', t2signa, t1signb, self.ci[t2addra[:, None], t1addrb])
+        c3_aba = decompress_axes("iiaajb", c3_aba, shape=(nocca, nocca, nvira, nvira, noccb, nvirb))
+        c3_aba = c3_aba.transpose(0, 4, 1, 2, 5, 3)
 
-        # T4: aaaa, aaab, aaba, abaa, abab, bbab, bbba, bbbb
-        # aaaa
-        c4_aaaa_pack = (self.ci[t4addra,0] * t4signa).reshape(ijkl_pairs_a, abcd_pairs_a)
-        # bbbb
-        c4_bbbb_pack = (self.ci[0,t4addrb] * t4signb).reshape(ijkl_pairs_b, abcd_pairs_b)
-        # aaab
-        c4_aaab_pack = np.einsum('i,j,ij->ij', t3signa, t1signb, self.ci[t3addra[:,None], t1addrb])
-        assert(c4_aaab_pack.shape == (ijk_pairs_a * abc_pairs_a, noccb * nvirb))
-        # aabb
-        c4_aabb_pack = np.einsum('i,j,ij->ij', t2signa, t2signb, self.ci[t2addra[:,None], t2addrb])
-        assert(c4_aabb_pack.shape == (ij_pairs_a * ab_pairs_a, ij_pairs_b * ab_pairs_b))
-        # abbb
-        c4_abbb_pack = np.einsum('i,j,ij->ij', t1signa, t3signb, self.ci[t1addra[:,None], t3addrb])
-        assert(c4_abbb_pack.shape == (nocca * nvira, ijk_pairs_b * abc_pairs_b))
+        c3_bab = np.einsum('i,j,ij->ij', t1signa, t2signb, self.ci[t1addra[:, None], t2addrb])
+        c3_bab = decompress_axes("iajjbb", c3_bab, shape=(nocca, nvira, noccb, noccb, nvirb, nvirb))
+        c3_bab = c3_bab.transpose(2, 0, 3, 4, 1, 5)
 
-        # Now, unpack... TODO
-        c4_aaaa = decompress_axes(
-                "iiiiaaaa",
-                c4_aaaa_pack,
-                shape=(nocca, nocca, nocca, nocca, nvira, nvira, nvira, nvira),
-                symmetry="--------",
-        )
-        c4_bbbb = decompress_axes(
-                "iiiiaaaa",
-                c4_bbbb_pack,
-                shape=(noccb, noccb, noccb, noccb, nvirb, nvirb, nvirb, nvirb),
-                symmetry="--------",
-        )
-        c4_aaab = decompress_axes(
-                "iiiaaajb",
-                c4_aaab_pack,
-                shape=(nocca, nocca, nocca, nvira, nvira, nvira, noccb, nvirb),
-                symmetry="--------",
-        )
+        # C4
+        c4_aaaa = (self.ci[t4addra,0] * t4signa).reshape(ijkl_pairs_a, abcd_pairs_a)
+        c4_aaaa = decompress_axes("iiiiaaaa", c4_aaaa, shape=(nocca, nocca, nocca, nocca, nvira, nvira, nvira, nvira))
+
+        c4_bbbb = (self.ci[0,t4addrb] * t4signb).reshape(ijkl_pairs_b, abcd_pairs_b)
+        c4_bbbb = decompress_axes("iiiiaaaa", c4_bbbb, shape=(noccb, noccb, noccb, noccb, nvirb, nvirb, nvirb, nvirb))
+
+        c4_aaab = np.einsum('i,j,ij->ij', t3signa, t1signb, self.ci[t3addra[:,None], t1addrb])
+        c4_aaab = decompress_axes("iiiaaajb", c4_aaab, shape=(nocca, nocca, nocca, nvira, nvira, nvira, noccb, nvirb))
         c4_aaab = c4_aaab.transpose(0, 1, 2, 6, 3, 4, 5, 7)
-        c4_aabb = decompress_axes(
-                "iiaajjbb",
-                c4_aabb_pack,
-                shape=(nocca, nocca, nvira, nvira, noccb, noccb, nvirb, nvirb),
-                symmetry="--------",
-        )
-        c4_aabb = c4_aabb.transpose(0, 1, 4, 5, 2, 3, 6, 7)
-        c4_abbb = decompress_axes(
-                "iajjjbbb",
-                c4_abbb_pack,
-                shape=(nocca, nvira, noccb, noccb, noccb, nvirb, nvirb, nvirb),
-                symmetry="--------",
-        )
+
+        c4_abab = np.einsum('i,j,ij->ij', t2signa, t2signb, self.ci[t2addra[:,None], t2addrb])
+        c4_abab = decompress_axes("iiaajjbb", c4_abab, shape=(nocca, nocca, nvira, nvira, noccb, noccb, nvirb, nvirb))
+        c4_abab = c4_abab.transpose(0, 4, 1, 5, 2, 6, 3, 7)
+
+        c4_abbb = np.einsum('i,j,ij->ij', t1signa, t3signb, self.ci[t1addra[:,None], t3addrb])
+        c4_abbb = decompress_axes("iajjjbbb", c4_abbb, shape=(nocca, nvira, noccb, noccb, noccb, nvirb, nvirb, nvirb))
         c4_abbb = c4_abbb.transpose(0, 2, 3, 4, 1, 5, 6, 7)
 
-        # alpha, beta, alpha: Use this longhand code as a sanity check
-        # First find the ijk -> abc excitations, where ijab are alpha, and kc are beta
-        c3_comp = np.zeros((ij_pairs_a * ab_pairs_a, noccb * nvirb))
-        c3_aba = np.zeros((nocca, noccb, nocca, nvira, nvirb, nvira))
-        for d_cnta, doub_inda in enumerate(t2addra):
-            ij_a = int(d_cnta / ab_pairs_a)
-            ab_a = d_cnta % ab_pairs_a
-            i, j = ooidx_a[0][ij_a], ooidx_a[1][ij_a] # j ind < i ind
-            a, b = vvidx_a[0][ab_a], vvidx_a[1][ab_a] # b ind < a ind
-            for s_cntb, sing_indb in enumerate(t1addrb):
-                # First index of c3_comp is a compound index of ijab (alpha, alpha) excitations, 
-                # with the second index being the kc (beta, beta) single excitation.
-                c3_comp[d_cnta, s_cntb] = self.ci[doub_inda, sing_indb] * t2signa[d_cnta] * t1signa[s_cntb]
-
-                k = int(s_cntb / nvirb)
-                c = s_cntb % nvirb
-                # Note, we want aba -> aba spin signature, not aab -> aab, which is what we have.
-                # We can therefore swap (jk) and (bc). This does not cause an overall sign change.
-                # We then also want to fill up the contributions between permutations 
-                # amongst the alpha electrons and alpha holes.
-                # If only one is permuted, then this will indeed cause a sign change.
-                assert(i != j)
-                assert(a != b)
-                c3_aba[i,k,j,a,c,b] = c3_comp[d_cnta, s_cntb]
-                c3_aba[j,k,i,a,c,b] = -c3_comp[d_cnta, s_cntb]
-                c3_aba[i,k,j,b,c,a] = -c3_comp[d_cnta, s_cntb]
-                c3_aba[j,k,i,b,c,a] = c3_comp[d_cnta, s_cntb]
-
-        # NOTE:  this all fails for open shell
-        if len(t2addra) > 0:
-            # This is a better way of doing it, and then expand! Put rest in a test.
-            assert(np.allclose(c3_comp, np.einsum('i,j,ij->ij', \
-                t2signa, t1signb, self.ci[t2addra[:,None], t1addrb])))
-        del c3_comp
-        assert np.allclose(c3_aba, c3_aab.transpose(0, 2, 1, 3, 5, 4))
-
-        # TODO remove degenerate permutations
         c1 = (c1_a, c1_b)
         c2 = (c2_aa, c2_ab, c2_bb)
-        c3 = (
-            c3_aaa,
-            c3_aab.transpose(0, 2, 1, 3, 5, 4),
-            c3_abb.transpose(1, 0, 2, 4, 3, 5),
-            c3_bbb,
-        )
-        c4 = (
-            c4_aaaa,
-            c4_aaab,
-            c4_aabb.transpose(0, 2, 1, 3, 4, 6, 5, 7),
-            c4_abbb,
-            c4_bbbb,
-        )
+        c3 = (c3_aaa, c3_aba, c3_bab, c3_bbb)
+        c4 = (c4_aaaa, c4_aaab, c4_abab, c4_abbb, c4_bbbb)
 
         if c0 is None:
             c0 = self.c0
@@ -615,8 +366,7 @@ class UFCI_WaveFunction(RFCI_WaveFunction):
             c3 = tuple(c * fac for c in c3)
             c4 = tuple(c * fac for c in c4)
 
-        # FIXME unexpected keyword argument 'projector'
-        return wf_types.UCISDTQ_WaveFunction(self.mo, c0, c1, c2, c3, c4)#, projector=self.projector)
+        return wf_types.UCISDTQ_WaveFunction(self.mo, c0, c1, c2, c3, c4)
 
     def as_ccsd(self):
         return self.as_cisd().as_ccsd()
