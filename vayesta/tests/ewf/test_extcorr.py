@@ -139,20 +139,20 @@ class TestFullEC_tailor(TestCase):
 # uhf tests
 
 
-    #@pytest.mark.slow
-    #def test_u_exact_ec_lih_631g_atomicfrags_proj0_ccsdv_store(self):
-    #    e_tot, fci_e_tot = self._test(('lih_631g', 'uhf'), proj=0, bathtype='full', fcifragtype = 'atomic', mode='external-ccsdv', store_wf_ccsdtq=True)
-    #    self.assertAlmostEqual(e_tot, fci_e_tot)
+    @pytest.mark.slow
+    def test_u_exact_ec_lih_631g_atomicfrags_proj0_ccsdv_store(self):
+        e_tot, fci_e_tot = self._test(('lih_631g', 'uhf'), proj=0, bathtype='full', fcifragtype = 'atomic', mode='external-ccsdv', store_wf_ccsdtq=True)
+        self.assertAlmostEqual(e_tot, fci_e_tot)
 
-    #@pytest.mark.slow
-    #def test_u_exact_ec_lih_631g_atomicfrags_proj1_ccsdv_store(self):
-    #    e_tot, fci_e_tot = self._test(('lih_631g', 'uhf'), proj=1, bathtype='full', fcifragtype = 'atomic', mode='external-ccsdv', store_wf_ccsdtq=True)
-    #    self.assertAlmostEqual(e_tot, fci_e_tot)
+    @pytest.mark.slow
+    def test_u_exact_ec_lih_631g_atomicfrags_proj1_ccsdv_store(self):
+        e_tot, fci_e_tot = self._test(('lih_631g', 'uhf'), proj=1, bathtype='full', fcifragtype = 'atomic', mode='external-ccsdv', store_wf_ccsdtq=True)
+        self.assertAlmostEqual(e_tot, fci_e_tot)
 
-    #@pytest.mark.slow
-    #def test_u_exact_ec_lih_631g_atomicfrags_proj2_ccsdv_store(self):
-    #    e_tot, fci_e_tot = self._test(('lih_631g', 'uhf'), proj=2, bathtype='full', fcifragtype = 'atomic', mode='external-ccsdv', store_wf_ccsdtq=True)
-    #    self.assertAlmostEqual(e_tot, fci_e_tot)
+    @pytest.mark.slow
+    def test_u_exact_ec_lih_631g_atomicfrags_proj2_ccsdv_store(self):
+        e_tot, fci_e_tot = self._test(('lih_631g', 'uhf'), proj=2, bathtype='full', fcifragtype = 'atomic', mode='external-ccsdv', store_wf_ccsdtq=True)
+        self.assertAlmostEqual(e_tot, fci_e_tot)
 
     @pytest.mark.slow
     def test_u_regression_ec_lih_631g_atomicfrags_proj0_fciv_store(self):
@@ -176,20 +176,20 @@ class TestFullEC_tailor(TestCase):
         self.assertAlmostEqual(e_tot, -7.988937336775954)
 
 
-    #@pytest.mark.fast
-    #def test_u_exact_ec_lih_631g_fullsystem_proj0_ccsdv_store(self):
-    #    e_tot, fci_e_tot = self._test(('lih_631g', 'uhf'), proj=0, bathtype='full', fcifragtype = 'fullsystem', mode='external-ccsdv', store_wf_ccsdtq=True)
-    #    self.assertAlmostEqual(e_tot, fci_e_tot)
+    @pytest.mark.fast
+    def test_u_exact_ec_lih_631g_fullsystem_proj0_ccsdv_store(self):
+        e_tot, fci_e_tot = self._test(('lih_631g', 'uhf'), proj=0, bathtype='full', fcifragtype = 'fullsystem', mode='external-ccsdv', store_wf_ccsdtq=True)
+        self.assertAlmostEqual(e_tot, fci_e_tot)
 
-    #@pytest.mark.slow
-    #def test_u_exact_ec_lih_631g_fullsystem_proj1_ccsdv_store(self):
-    #    e_tot, fci_e_tot = self._test(('lih_631g', 'uhf'), proj=1, bathtype='full', fcifragtype = 'fullsystem', mode='external-ccsdv', store_wf_ccsdtq=True)
-    #    self.assertAlmostEqual(e_tot, fci_e_tot)
+    @pytest.mark.slow
+    def test_u_exact_ec_lih_631g_fullsystem_proj1_ccsdv_store(self):
+        e_tot, fci_e_tot = self._test(('lih_631g', 'uhf'), proj=1, bathtype='full', fcifragtype = 'fullsystem', mode='external-ccsdv', store_wf_ccsdtq=True)
+        self.assertAlmostEqual(e_tot, fci_e_tot)
 
-    #@pytest.mark.fast
-    #def test_u_exact_ec_lih_631g_fullsystem_proj2_ccsdv_store(self):
-    #    e_tot, fci_e_tot = self._test(('lih_631g', 'uhf'), proj=2, bathtype='full', fcifragtype = 'fullsystem', mode='external-ccsdv', store_wf_ccsdtq=True)
-    #    self.assertAlmostEqual(e_tot, fci_e_tot)
+    @pytest.mark.fast
+    def test_u_exact_ec_lih_631g_fullsystem_proj2_ccsdv_store(self):
+        e_tot, fci_e_tot = self._test(('lih_631g', 'uhf'), proj=2, bathtype='full', fcifragtype = 'fullsystem', mode='external-ccsdv', store_wf_ccsdtq=True)
+        self.assertAlmostEqual(e_tot, fci_e_tot)
 
     @pytest.mark.slow
     def test_u_exact_ec_lih_631g_fullsystem_proj0_fciv_store(self):
@@ -283,20 +283,20 @@ class TestFullEC_tailor(TestCase):
     # uhf tests
 
 
-    #@pytest.mark.slow
-    #def test_u_ec_lih_631g_atomicfrags_bathype_dmet_proj0_ccsdv_store(self):
-    #    e_tot, fci_e_tot = self._test(('lih_631g', 'uhf'), proj=0, bathtype='dmet', fcifragtype = 'atomic', mode='external-ccsdv', store_wf_ccsdtq=True)
-    #    self.assertAlmostEqual(e_tot, fci_e_tot)
+    @pytest.mark.slow
+    def test_u_ec_lih_631g_atomicfrags_bathype_dmet_proj0_ccsdv_store(self):
+        e_tot, fci_e_tot = self._test(('lih_631g', 'uhf'), proj=0, bathtype='dmet', fcifragtype = 'atomic', mode='external-ccsdv', store_wf_ccsdtq=True)
+        self.assertAlmostEqual(e_tot, fci_e_tot)
 
-    #@pytest.mark.slow
-    #def test_u_exact_ec_lih_631g_atomicfrags_bathype_dmet_proj1_ccsdv_store(self):
-    #    e_tot, fci_e_tot = self._test(('lih_631g', 'uhf'), proj=1, bathtype='dmet', fcifragtype = 'atomic', mode='external-ccsdv', store_wf_ccsdtq=True)
-    #    self.assertAlmostEqual(e_tot, fci_e_tot)
+    @pytest.mark.slow
+    def test_u_exact_ec_lih_631g_atomicfrags_bathype_dmet_proj1_ccsdv_store(self):
+        e_tot, fci_e_tot = self._test(('lih_631g', 'uhf'), proj=1, bathtype='dmet', fcifragtype = 'atomic', mode='external-ccsdv', store_wf_ccsdtq=True)
+        self.assertAlmostEqual(e_tot, fci_e_tot)
 
-    #@pytest.mark.slow
-    #def test_u_ec_lih_631g_atomicfrags_bathype_dmet_proj2_ccsdv_store(self):
-    #    e_tot, fci_e_tot = self._test(('lih_631g', 'uhf'), proj=2, bathtype='dmet', fcifragtype = 'atomic', mode='external-ccsdv', store_wf_ccsdtq=True)
-    #    self.assertAlmostEqual(e_tot, fci_e_tot)
+    @pytest.mark.slow
+    def test_u_ec_lih_631g_atomicfrags_bathype_dmet_proj2_ccsdv_store(self):
+        e_tot, fci_e_tot = self._test(('lih_631g', 'uhf'), proj=2, bathtype='dmet', fcifragtype = 'atomic', mode='external-ccsdv', store_wf_ccsdtq=True)
+        self.assertAlmostEqual(e_tot, fci_e_tot)
 
     @pytest.mark.slow
     def test_u_regression_ec_lih_631g_atomicfrags_bathype_dmet_proj0_fciv_store(self):
@@ -320,20 +320,20 @@ class TestFullEC_tailor(TestCase):
         self.assertAlmostEqual(e_tot, -7.988931393739511)
 
 
-    #@pytest.mark.fast
-    #def test_u_exact_ec_lih_631g_fullsystem_bathype_dmet_proj0_ccsdv_store(self):
-    #    e_tot, fci_e_tot = self._test(('lih_631g', 'uhf'), proj=0, bathtype='dmet', fcifragtype = 'fullsystem', mode='external-ccsdv', store_wf_ccsdtq=True)
-    #    self.assertAlmostEqual(e_tot, fci_e_tot)
+    @pytest.mark.fast
+    def test_u_exact_ec_lih_631g_fullsystem_bathype_dmet_proj0_ccsdv_store(self):
+        e_tot, fci_e_tot = self._test(('lih_631g', 'uhf'), proj=0, bathtype='dmet', fcifragtype = 'fullsystem', mode='external-ccsdv', store_wf_ccsdtq=True)
+        self.assertAlmostEqual(e_tot, fci_e_tot)
 
-    #@pytest.mark.slow
-    #def test_u_exact_ec_lih_631g_fullsystem_bathype_dmet_proj1_ccsdv_store(self):
-    #    e_tot, fci_e_tot = self._test(('lih_631g', 'uhf'), proj=1, bathtype='dmet', fcifragtype = 'fullsystem', mode='external-ccsdv', store_wf_ccsdtq=True)
-    #    self.assertAlmostEqual(e_tot, fci_e_tot)
+    @pytest.mark.slow
+    def test_u_exact_ec_lih_631g_fullsystem_bathype_dmet_proj1_ccsdv_store(self):
+        e_tot, fci_e_tot = self._test(('lih_631g', 'uhf'), proj=1, bathtype='dmet', fcifragtype = 'fullsystem', mode='external-ccsdv', store_wf_ccsdtq=True)
+        self.assertAlmostEqual(e_tot, fci_e_tot)
 
-    #@pytest.mark.fast
-    #def test_u_exact_ec_lih_631g_fullsystem_bathype_dmet_proj2_ccsdv_store(self):
-    #    e_tot, fci_e_tot = self._test(('lih_631g', 'uhf'), proj=2, bathtype='dmet', fcifragtype = 'fullsystem', mode='external-ccsdv', store_wf_ccsdtq=True)
-    #    self.assertAlmostEqual(e_tot, fci_e_tot)
+    @pytest.mark.fast
+    def test_u_exact_ec_lih_631g_fullsystem_bathype_dmet_proj2_ccsdv_store(self):
+        e_tot, fci_e_tot = self._test(('lih_631g', 'uhf'), proj=2, bathtype='dmet', fcifragtype = 'fullsystem', mode='external-ccsdv', store_wf_ccsdtq=True)
+        self.assertAlmostEqual(e_tot, fci_e_tot)
 
     @pytest.mark.slow
     def test_u_regression_ec_lih_631g_fullsystem_bathype_dmet_proj0_fciv_store(self):
