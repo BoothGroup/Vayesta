@@ -107,6 +107,7 @@ def t2_residual_uhf_t3v(solver, fragment, t3, v):
     dt2_aaaa = np.zeros((nocc[0], nocc[0], nvir[0], nvir[0]), dtype=np.float64)
     dt2_aaaa += einsum("ijab->ijab", x2) * -1.0
     dt2_aaaa += einsum("jiab->ijab", x2)
+
     x3 = np.zeros((nocc[0], nocc[0], nvir[0], nvir[0]), dtype=np.float64)
     x3 += einsum("bdkc,ikjacd->ijab", v_aabb_vvov, t3_abaaba)
     x4 = np.zeros((nocc[0], nocc[0], nvir[0], nvir[0]), dtype=np.float64)
@@ -116,6 +117,7 @@ def t2_residual_uhf_t3v(solver, fragment, t3, v):
     x5 += einsum("ijab->ijab", x4) * -1.0
     dt2_aaaa += einsum("ijab->ijab", x5)
     dt2_aaaa += einsum("ijba->ijab", x5) * -1.0
+
     x0 = np.zeros((nocc[1], nocc[1], nvir[1], nvir[1]), dtype=np.float64)
     x0 += einsum("jklc,iklabc->ijab", v_bbbb_ooov, t3_bbbbbb)
     x1 = np.zeros((nocc[1], nocc[1], nvir[1], nvir[1]), dtype=np.float64)
@@ -126,6 +128,7 @@ def t2_residual_uhf_t3v(solver, fragment, t3, v):
     dt2_bbbb = np.zeros((nocc[1], nocc[1], nvir[1], nvir[1]), dtype=np.float64)
     dt2_bbbb += einsum("ijab->ijab", x2) * -1.0
     dt2_bbbb += einsum("jiab->ijab", x2)
+
     x3 = np.zeros((nocc[1], nocc[1], nvir[1], nvir[1]), dtype=np.float64)
     x3 += einsum("kdbc,ijkacd->ijab", v_bbbb_ovvv, t3_bbbbbb) * -1.0
     x4 = np.zeros((nocc[1], nocc[1], nvir[1], nvir[1]), dtype=np.float64)
@@ -135,6 +138,7 @@ def t2_residual_uhf_t3v(solver, fragment, t3, v):
     x5 += einsum("ijab->ijab", x4) * -1.0
     dt2_bbbb += einsum("ijab->ijab", x5) * -1.0
     dt2_bbbb += einsum("ijba->ijab", x5)
+
     dt2_abab = np.zeros((nocc[0], nocc[1], nvir[0], nvir[1]), dtype=np.float64)
     dt2_abab += einsum("ilkc,jlkbac->ijab", v_aabb_ooov, t3_babbab) * -1.0
     dt2_abab += einsum("ldjk,iklabd->ijab", v_aabb_ovoo, t3_abaaba) * -1.0

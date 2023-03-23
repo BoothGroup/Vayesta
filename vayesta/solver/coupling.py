@@ -464,21 +464,21 @@ def _get_delta_t2_from_t3v(govvv_x, gvvov_x, gooov_x, govoo_x, frag_child, rxy_o
         dt2_bbbb += einsum("ijab->ijab", x2) * -1.0
         dt2_bbbb += einsum("ijba->ijab", x2)
 
-        x0 =  einsum("Ilkc,jlkbac->Ijab", gooov_aabb, t3_bab) * -1.0
-        x0 += einsum("Ilmd,ljmabd->Ijab", gooov_aaaa, t3_aba) * -1.0
+        x0 =  einsum("Ilkc,jlkbac->Ijab", gooov_aabb_, t3_bab) * -1.0
+        x0 += einsum("Ilmd,ljmabd->Ijab", gooov_aaaa_, t3_aba) * -1.0
         dt2_abab =  einsum("Ijab,Jj,Aa,Bb->IJAB", x0, rxy_occ[1], rxy_vir[0], rxy_vir[1])
 
-        x0 =  einsum("Jnkc,kinbac->iJab", gooov_bbbb, t3_bab)
-        x0 += einsum("ldJk,iklabd->iJab", govoo_aabb, t3_aba) * -1.0
+        x0 =  einsum("Jnkc,kinbac->iJab", gooov_bbbb_, t3_bab)
+        x0 += einsum("ldJk,iklabd->iJab", govoo_aabb_, t3_aba) * -1.0
         dt2_abab += einsum("iJab,Ii,Aa,Bb->IJAB", x0, rxy_occ[0], rxy_vir[0], rxy_vir[1])
 
-        x0 =  einsum("ldAe,ijldbe->ijAb", govvv_aaaa, t3_aba) * -1.0
-        x0 += einsum("Adkc,jikbdc->ijAb", gvvov_aabb, t3_bab)
+        x0 =  einsum("ldAe,ijldbe->ijAb", govvv_aaaa_, t3_aba) * -1.0
+        x0 += einsum("Adkc,jikbdc->ijAb", gvvov_aabb_, t3_bab)
         dt2_abab += einsum("ijAb,Ii,Jj,Bb->IJAB", x0, rxy_occ[0], rxy_occ[1], rxy_vir[1])
 
-        x0 =  einsum("ldBc,ijlacd->ijaB", govvv_aabb, t3_aba)
-        x0 += einsum("kcBf,jikcaf->ijaB", govvv_bbbb, t3_bab) * -1.0
-        dt2_abab =  einsum("ijaB,Ii,Jj,Aa->IJAB", x0, rxy_occ[0], rxy_occ[1], rxy_vir[0])
+        x0 =  einsum("ldBc,ijlacd->ijaB", govvv_aabb_, t3_aba)
+        x0 += einsum("kcBf,jikcaf->ijaB", govvv_bbbb_, t3_bab) * -1.0
+        dt2_abab += einsum("ijaB,Ii,Jj,Aa->IJAB", x0, rxy_occ[0], rxy_occ[1], rxy_vir[0])
 
         dt2 = (dt2_aaaa, dt2_abab, dt2_bbbb)
 
@@ -592,26 +592,18 @@ def externally_correct(solver, external_corrections, eris=None):
                 gooov_x = np.array(eris.ovoo).transpose(2,3,0,1)
                 govoo_x = np.array(eris.ovoo)
             elif emb.spinsym == 'unrestricted':
-                govvv_x = (
-                        np.array(ao2mo_helper.get_ovvv(eris, block="ovvv")),
-                        np.array(ao2mo_helper.get_ovvv(eris, block="ovVV")),
-                        np.array(ao2mo_helper.get_ovvv(eris, block="OVVV")),
-                )
-                gvvov_x = (
-                        np.array(ao2mo_helper.get_ovvv(eris, block="ovvv")).transpose(2,3,0,1),
-                        np.array(ao2mo_helper.get_ovvv(eris, block="OVvv")).transpose(2,3,0,1),
-                        np.array(ao2mo_helper.get_ovvv(eris, block="OVVV")).transpose(2,3,0,1),
-                )
-                gooov_x = (
-                        np.array(eris.ovoo).transpose(2,3,0,1),
-                        np.array(eris.OVoo).transpose(2,3,0,1),
-                        np.array(eris.OVOO).transpose(2,3,0,1),
-                )
-                govoo_x = (
-                        np.array(eris.ovoo),
-                        np.array(eris.OVoo),
-                        np.array(eris.OVOO),
-                )
+                govvv_x = (np.array(ao2mo_helper.get_ovvv(eris, block="ovvv")),
+                           np.array(ao2mo_helper.get_ovvv(eris, block="ovVV")),
+                           np.array(ao2mo_helper.get_ovvv(eris, block="OVVV")))
+                gvvov_x = (np.array(ao2mo_helper.get_ovvv(eris, block="ovvv")).transpose(2,3,0,1),
+                           np.array(ao2mo_helper.get_ovvv(eris, block="OVvv")).transpose(2,3,0,1),
+                           np.array(ao2mo_helper.get_ovvv(eris, block="OVVV")).transpose(2,3,0,1))
+                gooov_x = (np.array(eris.ovoo).transpose(2,3,0,1),
+                           np.array(eris.OVoo).transpose(2,3,0,1),
+                           np.array(eris.OVOO).transpose(2,3,0,1))
+                govoo_x = (np.array(eris.ovoo),
+                           np.array(eris.ovOO),
+                           np.array(eris.OVOO))
     
     # delta-T1 and delta-T2 amplitudes, to be added to the CCSD amplitudes
     if solver.spinsym == 'restricted':
