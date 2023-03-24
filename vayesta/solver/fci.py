@@ -174,16 +174,13 @@ class FCI_Solver(ClusterSolver):
         mo = Orbitals(self.cluster.c_active, occ=self.cluster.nocc_active)
         self.wf = FCI_WaveFunction(mo, self.civec)
 
-    #def get_cisd_amps(self, civec):
-    #    cisdvec = pyscf.ci.cisd.from_fcivec(civec, self.ncas, self.nelec)
-    #    c0, c1, c2 = pyscf.ci.cisd.cisdvec_to_amplitudes(cisdvec, self.ncas, self.cluster.nocc_active)
-    #    c1 = c1/c0
-    #    c2 = c2/c0
-    #    return c0, c1, c2
-
     def get_cisd_amps(self, civec, intermed_norm=False):
         nocc, nvir = self.cluster.nocc_active, self.cluster.nvir_active
         t1addr, t1sign = pyscf.ci.cisd.t1strs(self.ncas, nocc)
+
+        # Change to arrays, in case of empty slice
+        t1addr = np.asarray(t1addr, dtype=int)
+
         c0 = civec[0,0]
         c1 = civec[0,t1addr] * t1sign
         c2 = einsum('i,j,ij->ij', t1sign, t1sign, civec[t1addr[:,None],t1addr])
@@ -270,6 +267,11 @@ class UFCI_Solver(FCI_Solver):
         t1addrb, t1signb = pyscf.ci.cisd.tn_addrs_signs(norbb, noccb, 1)
         t2addra, t2signa = pyscf.ci.cisd.tn_addrs_signs(norba, nocca, 2)
         t2addrb, t2signb = pyscf.ci.cisd.tn_addrs_signs(norbb, noccb, 2)
+
+        # Change to arrays, in case of empty slice
+        t1addra = np.asarray(t1addra, dtype=int)
+        t1addrb = np.asarray(t1addrb, dtype=int)
+
         na = pyscf.fci.cistring.num_strings(norba, nocca)
         nb = pyscf.fci.cistring.num_strings(norbb, noccb)
 

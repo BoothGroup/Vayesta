@@ -69,6 +69,10 @@ class RFCI_WaveFunction(wf_types.WaveFunction):
             raise NotImplementedError
         norb, nocc, nvir = self.norb, self.nocc, self.nvir
         t1addr, t1sign = pyscf.ci.cisd.t1strs(norb, nocc)
+
+        # Change to arrays, in case of empty slice
+        t1addr = np.asarray(t1addr, dtype=int)
+
         c1 = self.ci[0,t1addr] * t1sign
         c2 = einsum('i,j,ij->ij', t1sign, t1sign, self.ci[t1addr[:,None],t1addr])
         c1 = c1.reshape(nocc,nvir)
@@ -221,6 +225,11 @@ class UFCI_WaveFunction(RFCI_WaveFunction):
         t1addrb, t1signb = pyscf.ci.cisd.tn_addrs_signs(norbb, noccb, 1)
         t2addra, t2signa = pyscf.ci.cisd.tn_addrs_signs(norba, nocca, 2)
         t2addrb, t2signb = pyscf.ci.cisd.tn_addrs_signs(norbb, noccb, 2)
+
+        # Change to arrays, in case of empty slice
+        t1addra = np.asarray(t1addra, dtype=int)
+        t1addrb = np.asarray(t1addrb, dtype=int)
+
         na = pyscf.fci.cistring.num_strings(norba, nocca)
         nb = pyscf.fci.cistring.num_strings(norbb, noccb)
 
