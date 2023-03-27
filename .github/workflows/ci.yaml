@@ -4,7 +4,6 @@ on:
   push:
     branches: [master, dev]
   pull_request:
-    branches: [master, dev]
   schedule:
     - cron: '0 2 * * *'
 
@@ -61,3 +60,4 @@ jobs:
           publish_dir: docs/build/html
           force_orphan: true
         if: ${{ matrix.documentation && github.ref == 'refs/heads/master' && github.event_name != 'schedule' }}
+
