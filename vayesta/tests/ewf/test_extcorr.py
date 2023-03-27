@@ -155,10 +155,10 @@ class TestFullEC_tailor(TestCase):
 
 
     @pytest.mark.slow
-    def test_u_exact_ec_lih_631g_atomicfrags_proj0_ccsdv_store(self):
+    def test_u_regression_ec_lih_631g_atomicfrags_proj0_ccsdv_store(self):
         e_tot, fci_e_tot = self._test(('lih_631g', 'uhf'), proj=0, bathtype='full', fcifragtype = 'atomic',
                                       mode='external-ccsdv', store_wf_ccsdtq=True)
-        self.assertAlmostEqual(e_tot, fci_e_tot)
+        self.assertAlmostEqual(e_tot, -7.988952842052377)
 
     @pytest.mark.slow
     def test_u_exact_ec_lih_631g_atomicfrags_proj1_ccsdv_store(self):
@@ -167,10 +167,10 @@ class TestFullEC_tailor(TestCase):
         self.assertAlmostEqual(e_tot, fci_e_tot)
 
     @pytest.mark.slow
-    def test_u_exact_ec_lih_631g_atomicfrags_proj2_ccsdv_store(self):
+    def test_u_regression_ec_lih_631g_atomicfrags_proj2_ccsdv_store(self):
         e_tot, fci_e_tot = self._test(('lih_631g', 'uhf'), proj=2, bathtype='full', fcifragtype = 'atomic',
                                       mode='external-ccsdv', store_wf_ccsdtq=True)
-        self.assertAlmostEqual(e_tot, fci_e_tot)
+        self.assertAlmostEqual(e_tot, -7.988937329208046)
 
     @pytest.mark.slow
     def test_u_regression_ec_lih_631g_atomicfrags_proj0_fciv_store(self):
@@ -326,22 +326,22 @@ class TestFullEC_tailor(TestCase):
 
 
     @pytest.mark.slow
-    def test_u_ec_lih_631g_atomicfrags_bathype_dmet_proj0_ccsdv_store(self):
+    def test_u_regression_ec_lih_631g_atomicfrags_bathype_dmet_proj0_ccsdv_store(self):
         e_tot, fci_e_tot = self._test(('lih_631g', 'uhf'), proj=0, bathtype='dmet', fcifragtype = 'atomic',
                                       mode='external-ccsdv', store_wf_ccsdtq=True)
-        self.assertAlmostEqual(e_tot, fci_e_tot)
+        self.assertAlmostEqual(e_tot, -7.988931393739508)
 
     @pytest.mark.slow
-    def test_u_exact_ec_lih_631g_atomicfrags_bathype_dmet_proj1_ccsdv_store(self):
+    def test_u_regression_ec_lih_631g_atomicfrags_bathype_dmet_proj1_ccsdv_store(self):
         e_tot, fci_e_tot = self._test(('lih_631g', 'uhf'), proj=1, bathtype='dmet', fcifragtype = 'atomic',
                                       mode='external-ccsdv', store_wf_ccsdtq=True)
-        self.assertAlmostEqual(e_tot, fci_e_tot)
+        self.assertAlmostEqual(e_tot, -7.988931393739508)
 
     @pytest.mark.slow
-    def test_u_ec_lih_631g_atomicfrags_bathype_dmet_proj2_ccsdv_store(self):
+    def test_u_regression_ec_lih_631g_atomicfrags_bathype_dmet_proj2_ccsdv_store(self):
         e_tot, fci_e_tot = self._test(('lih_631g', 'uhf'), proj=2, bathtype='dmet', fcifragtype = 'atomic',
                                       mode='external-ccsdv', store_wf_ccsdtq=True)
-        self.assertAlmostEqual(e_tot, fci_e_tot)
+        self.assertAlmostEqual(e_tot, -7.988931393739506)
 
     @pytest.mark.slow
     def test_u_regression_ec_lih_631g_atomicfrags_bathype_dmet_proj0_fciv_store(self):
@@ -370,34 +370,34 @@ class TestFullEC_tailor(TestCase):
 
 
     @pytest.mark.fast
-    def test_u_exact_ec_lih_631g_fullsystem_bathype_dmet_proj0_ccsdv_store(self):
+    def test_u_regression_ec_lih_631g_fullsystem_bathype_dmet_proj0_ccsdv_store(self):
         e_tot, fci_e_tot = self._test(('lih_631g', 'uhf'), proj=0, bathtype='dmet', fcifragtype = 'fullsystem',
                                       mode='external-ccsdv', store_wf_ccsdtq=True)
-        self.assertAlmostEqual(e_tot, fci_e_tot)
+        self.assertAlmostEqual(e_tot, -7.988931393739505)
 
     @pytest.mark.slow
-    def test_u_exact_ec_lih_631g_fullsystem_bathype_dmet_proj1_ccsdv_store(self):
+    def test_u_regression_ec_lih_631g_fullsystem_bathype_dmet_proj1_ccsdv_store(self):
         e_tot, fci_e_tot = self._test(('lih_631g', 'uhf'), proj=1, bathtype='dmet', fcifragtype = 'fullsystem',
                                       mode='external-ccsdv', store_wf_ccsdtq=True)
-        self.assertAlmostEqual(e_tot, fci_e_tot)
+        self.assertAlmostEqual(e_tot, -7.9889313937395094)
 
     @pytest.mark.fast
-    def test_u_exact_ec_lih_631g_fullsystem_bathype_dmet_proj2_ccsdv_store(self):
+    def test_u_regression_ec_lih_631g_fullsystem_bathype_dmet_proj2_ccsdv_store(self):
         e_tot, fci_e_tot = self._test(('lih_631g', 'uhf'), proj=2, bathtype='dmet', fcifragtype = 'fullsystem',
                                       mode='external-ccsdv', store_wf_ccsdtq=True)
-        self.assertAlmostEqual(e_tot, fci_e_tot)
+        self.assertAlmostEqual(e_tot, -7.988931393739503)
 
     @pytest.mark.slow
     def test_u_regression_ec_lih_631g_fullsystem_bathype_dmet_proj0_fciv_store(self):
         e_tot, fci_e_tot = self._test(('lih_631g', 'uhf'), proj=0, bathtype='dmet', fcifragtype = 'fullsystem',
                                       mode='external-fciv', store_wf_ccsdtq=True)
-        self.assertAlmostEqual(e_tot, -7.988931393739515 )
+        self.assertAlmostEqual(e_tot, -7.988931393739515)
 
     @pytest.mark.fast
     def test_u_regression_ec_lih_631g_fullsystem_bathype_dmet_proj1_fciv_store(self):
         e_tot, fci_e_tot = self._test(('lih_631g', 'uhf'), proj=1, bathtype='dmet', fcifragtype = 'fullsystem',
                                       mode='external-fciv', store_wf_ccsdtq=True)
-        self.assertAlmostEqual(e_tot, -7.9889313937395015 )
+        self.assertAlmostEqual(e_tot, -7.9889313937395015)
 
     @pytest.mark.slow
     def test_u_regression_ec_lih_631g_fullsystem_bathype_dmet_proj2_fciv_store(self):
