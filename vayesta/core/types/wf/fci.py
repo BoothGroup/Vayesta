@@ -72,25 +72,23 @@ class RFCI_WaveFunction(wf_types.WaveFunction):
         # Get result of applying bare projector; need to keep original ci string just in case
         ci0 = self.ci
         # Pad projector from occupied to full orbital space.
-        projector = np.pad(projector, ((0, self.nvir),))
+        projector = np.pad(projector, ((0, self.nvir),)).T
 
-        wf = self.project(projector.T, inplace)
+        wf = self.project(projector, inplace)
         wf.ci = (2*sum(np.diag(projector)) * ci0 - wf.ci) / c0
 
         # Now just have to divide each coefficient by its excitation level; this corresponds to action of
         #    R^{-1} = (1 + \sum_{i\in occ} i i^+)^{-1} = (N_{elec} + 1 - \sum_{i\in occ} i^+ i)^{-1}
         # So we seek x to solve
         #           x = R^{-1} a
-        # which can be obtained straightforwardly by solving
-        #           Rx = a
-        # Set up one-body operator onto mean-field density.
+        # which could be obtained straightforwardly by solving
+        #           Rx = a.
+        # In practice, it is more stable to just compute the excitation level of each state and divide by it.
         mf_vdensity_op = np.eye(self.norb) - np.pad(np.eye(self.nocc), ((0, self.nvir),))
 
         # Set up sparse LinearOperator object to apply the hole counting operator to the FCI string.
         def myop(ci):
             return self._apply_onebody(mf_vdensity_op, ci)
-
-        save = wf.ci
 
         cishape = wf.ci.shape
         # Calculate excitation level+1 for all states using this operation.
@@ -270,6 +268,47 @@ class UFCI_WaveFunction(RFCI_WaveFunction):
         return (einsum('ijkl,ai,bj,ck,dl->abcd', dm2[0], *(4*[moa])),
                 einsum('ijkl,ai,bj,ck,dl->abcd', dm2[1], *[moa, moa, mob, mob]),
                 einsum('ijkl,ai,bj,ck,dl->abcd', dm2[2], *(4*[mob])))
+
+    def project_occ(self, projector, inplace=False):
+        """Apply projector onto the occupied indices of all CI coefficient tensors.
+        Note that `projector` is nocc x nocc.
+
+        Action of occupied projector can be written as
+        P^{x}_{occ} = P_{ij}^{x}
+        """
+        c0 = self.c0
+        # Get result of applying bare projector; need to keep original ci string just in case
+        ci0 = self.ci
+        # Pad projector from occupied to full orbital space.
+        projector = (np.pad(projector[0], ((0, self.nvir[0]),)).T, np.pad(projector[1], ((0, self.nvir[1]),)).T)
+
+        wf = self.project(projector, inplace)
+        wf.ci = ((projector[0].trace() + projector[1].trace()) * ci0 - wf.ci) / c0
+
+        # Now just have to divide each coefficient by its excitation level; this corresponds to action of
+        #    R^{-1} = (1 + \sum_{i\in occ} i i^+)^{-1} = (N_{elec} + 1 - \sum_{i\in occ} i^+ i)^{-1}
+        # So we seek x to solve
+        #           x = R^{-1} a
+        # which could be obtained straightforwardly by solving
+        #           Rx = a.
+        # In practice, it is more stable to just compute the excitation level of each state and divide by it.
+        mf_vdensity_op = tuple([np.eye(self.norb[i]) - np.pad(np.eye(self.nocc[i]), ((0, self.nvir[i]),)) for i in [0, 1]])
+
+        # Set up sparse LinearOperator object to apply the hole counting operator to the FCI string.
+        def myop(ci):
+            return self._apply_onebody(mf_vdensity_op, ci)
+
+        cishape = wf.ci.shape
+        # Calculate excitation level+1 for all states using this operation.
+        ex_lvl = myop(np.full_like(wf.ci, fill_value=1.0).reshape(-1)).reshape(cishape)
+        ex_lvl[0,0] = 1.0
+        wf.ci = einsum("pq,pq->pq", ex_lvl**(-1), wf.ci)
+        return wf
+
+    def _apply_onebody(self, proj, ci=None):
+        ci = self.ci if ci is None else ci
+        assert(self.norb[0] == self.norb[1])
+        return pyscf.fci.direct_uhf.contract_1e(proj, ci, self.norb[0], self.nelec)
 
     def as_cisd(self, c0=None):
         if self.projector is not None:

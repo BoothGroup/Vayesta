@@ -57,6 +57,63 @@ def calc_ci_elements(ci, h1e, h2e, ovlp, mo, nmo, nocc, nact, ncore, enuc=0.0):
 
     return rdm1, h, s
 
+def calc_ci_elements_uhf(ci, h1e, h2e, ovlp, mo, nmo, nocc, nact, ncore, enuc=0.0):
+
+    h1e, h2e, ovlp = owndata(h1e), owndata(h2e), owndata(ovlp)
+    mo = tuple([tuple([owndata(y) for y in x]) for x in mo])
+
+    # Compute coupling terms
+    nstate = len(ci)
+    h = np.zeros((nstate, nstate))
+    s = np.zeros((nstate, nstate))
+    rdm1 = np.zeros((nstate, nstate, 2, nmo, nmo))
+    for x in range(nstate):
+        for w in range(x, nstate):
+
+            nact1, ncore1, mo1 = nact[x], ncore[x], mo[x]
+            nact2, ncore2, mo2 = nact[w], ncore[w], mo[w]
+
+            # Can't currently support different size active spaces.
+            assert(nact1[0] == nact2[0] and nact1[1] == nact2[1])
+            assert(ncore1[0] == ncore2[0] and ncore1[1] == ncore2[1])
+            orbs1 = wick.wick_orbitals[float, float](nmo, nmo, nocc[0], mo1[0], mo2[0], ovlp, nact1[0], ncore1[0])
+            orbs2 = wick.wick_orbitals[float, float](nmo, nmo, nocc[1], mo1[1], mo2[1], ovlp, nact1[1], ncore1[1])
+
+            mb = wick.wick_uscf[float, float, float](orbs1, orbs2, ovlp, enuc)
+            mb.add_one_body(h1e)
+            mb.add_two_body(h2e)
+
+            vxa = utils.fci_bitset_list(nocc[0] - ncore1[0], nact1[0])
+            vxb = utils.fci_bitset_list(nocc[1] - ncore1[1], nact1[1])
+
+            vwa = utils.fci_bitset_list(nocc[0] - ncore2[0], nact2[0])
+            vwb = utils.fci_bitset_list(nocc[1] - ncore2[1], nact2[1])
+            # Loop over FCI occupation strings
+            for iwa in range(len(vwa)):
+                for iwb in range(len(vwb)):
+                    for ixa in range(len(vxa)):
+                        for ixb in range(len(vxb)):
+                            # Compute S and H contribution for this pair of determinants
+                            stmp, htmp = mb.evaluate(vxa[ixa], vxb[ixb], vwa[iwa], vwb[iwb])
+                            h[x, w] += htmp * ci[w][iwa, iwb] * ci[x][ixa, ixb]
+                            s[x, w] += stmp * ci[w][iwa, iwb] * ci[x][ixa, ixb]
+
+                            # Compute RDM1 contribution for this pair of determinants
+                            tmpPa = np.zeros((orbs1.m_nmo, orbs1.m_nmo))
+                            tmpPb = np.zeros((orbs1.m_nmo, orbs1.m_nmo))
+                            mb.evaluate_rdm1(vxa[ixa], vxb[ixb], vwa[iwa], vwb[iwb], stmp, tmpPa, tmpPb)
+                            rdm1[x, w, 0] += tmpPa * ci[w][iwa, iwb] * ci[x][ixa, ixb]
+                            rdm1[x, w, 1] += tmpPb * ci[w][iwa, iwb] * ci[x][ixa, ixb]
+
+            rdm1[x, w, 0] = np.linalg.multi_dot((mo2[0], rdm1[x, w, 0], mo1[0].T))
+            rdm1[x, w, 0] = np.linalg.multi_dot((mo2[1], rdm1[x, w, 1], mo1[1].T))
+
+            h[w, x] = h[x, w]
+            s[w, x] = s[x, w]
+            rdm1[w, x, 0] = rdm1[x, w, 0].T
+            rdm1[w, x, 1] = rdm1[x, w, 1].T
+    return rdm1, h, s
+
 
 def calc_full_couplings(h1e, h2e, ovlp, mo1, mo2, nmo, nocc, nact1, nact2, ncore1, ncore2, enuc=0.0):
 
@@ -86,6 +143,7 @@ def calc_full_couplings(h1e, h2e, ovlp, mo1, mo2, nmo, nocc, nact1, nact2, ncore
                     s[i1a, i1b, i2a, i2b] = stmp
 
     return h.reshape((len(v1)**2, len(v2)**2)), s.reshape((len(v1)**2, len(v2)**2))
+
 
 def calc_full_couplings_uhf(h1e, h2e, ovlp, mo1, mo2, nmo, nocc, nact1, nact2, ncore1, ncore2, enuc=0.0):
 

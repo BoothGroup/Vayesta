@@ -2,7 +2,23 @@ import numpy as np
 import scipy.linalg
 from pyscf import gto, scf, mcscf, ao2mo, lib
 from vayesta.core.types import RFCI_WaveFunction, SpatialOrbitals
-from .calc_nonorth_couplings import calc_full_couplings, calc_ci_elements, calc_full_couplings_uhf
+from .calc_nonorth_couplings import calc_full_couplings, calc_full_couplings_uhf, calc_ci_elements, calc_ci_elements_uhf
+
+def get_emb_info(emb, wfs):
+    h1e = emb.get_hcore()
+    ovlp = emb.get_ovlp()
+
+    if emb.is_rhf:
+        h2e = emb.get_eris_array(np.eye(emb.nao)).reshape((emb.nao**2, emb.nao**2))
+        nmo, nocc = emb.nao, emb.nocc
+        nact = [x.mo.norb for x in wfs]
+        ncore = [emb.nocc - x.mo.nocc for x in wfs]
+    else:
+        h2e = emb.get_eris_array(np.eye(emb.nao)).reshape((emb.nao**2, emb.nao**2))
+        nmo, nocc = emb.nao, emb.nocc
+        nact = [x.mo.norb for x in wfs]
+        ncore = [[y - z for y,z in zip(emb.nocc, x.mo.nocc)] for x in wfs]
+    return ovlp, h1e, h2e, nmo, nocc, nact, ncore
 
 def optimise_full_varwav(emb, fs=None, lindep=1e-12, replace_wf=False):
     fullham, fullovlp = gen_loc_hams(emb, fs)
@@ -35,23 +51,13 @@ def gen_loc_hams(emb, fs=None):
     wfs = [x.results.wf for x in fs]
     mos = [x.cluster.c_total for x in fs]
 
-    h1e = emb.get_hcore()
-    ovlp = emb.get_ovlp()
+    ovlp, h1e, h2e, nmo, nocc, nact, ncore = get_emb_info(emb, wfs)
 
     if emb.is_rhf:
-        h2e = emb.get_eris_array(np.eye(emb.nao)).reshape((emb.nao**2, emb.nao**2))
-        nmo, nocc = emb.nao, emb.nocc
-        nact = [x.mo.norb for x in wfs]
-        ncore = [emb.nocc - x.mo.nocc for x in wfs]
-
         coupl_func = calc_full_couplings
-
     else:
-        h2e = emb.get_eris_array(np.eye(emb.nao)).reshape((emb.nao**2, emb.nao**2))
-        nmo, nocc = emb.nao, emb.nocc
-        nact = [x.mo.norb for x in wfs]
-        ncore = [[y - z for y,z in zip(emb.nocc, x.mo.nocc)] for x in wfs]
         coupl_func = calc_full_couplings_uhf
+
     fullham = np.zeros((len(fs), len(fs)), dtype=object)
     fullovlp = np.zeros_like(fullham)
     for i in range(len(fs)):
@@ -101,14 +107,9 @@ def get_wf_couplings(emb, fs=None, wfs=None, mos=None, inc_mf=False):
     if len(fs) != len(wfs):
         raise ValueError("Number of fragments and wavefunctions provided don't match.")
 
-    h1e = emb.get_hcore()
-    h2e = emb.get_eris_array(np.eye(emb.nao)).reshape((emb.nao**2, emb.nao**2))
-    ovlp = emb.get_ovlp()
-    nmo, nocc = emb.nao, emb.nocc
+    ovlp, h1e, h2e, nmo, nocc, nact, ncore = get_emb_info(emb, wfs)
 
     ci = [x.ci for x in wfs]
-    nact = [x.mo.norb for x in wfs]
-    ncore = [emb.nocc - x.mo.nocc for x in wfs]
 
     if inc_mf:
         mfwf = np.zeros_like(ci[-1])
@@ -119,5 +120,8 @@ def get_wf_couplings(emb, fs=None, wfs=None, mos=None, inc_mf=False):
         nact += [nact[-1]]
         ncore += [ncore[-1]]
 
-    rdm1, h, s = calc_ci_elements(ci, h1e, h2e, ovlp, mos, nmo, nocc, nact, ncore, emb.e_nuc)
+    if emb.is_rhf:
+        rdm1, h, s = calc_ci_elements(ci, h1e, h2e, ovlp, mos, nmo, nocc, nact, ncore, emb.e_nuc)
+    else:
+        rdm1, h, s = calc_ci_elements_uhf(ci, h1e, h2e, ovlp, mos, nmo, nocc, nact, ncore, emb.e_nuc)
     return h, s, rdm1
