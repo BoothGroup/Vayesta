@@ -125,6 +125,7 @@ class Hubbard1D(Hubbard):
             bfac = 1
         elif boundary.upper() == 'APBC':
             bfac = -1
+        self.bfac = bfac
         h1e = np.zeros((nsite, nsite))
         for i in range(nsite-1):
             h1e[i,i+1] = h1e[i+1,i] = -hubbard_t
@@ -169,6 +170,13 @@ class Hubbard1D(Hubbard):
             coords = coords[self.order]
         return coords / BOHR
 
+    def get_index(self, i):
+        bfac = self.bfac
+        fac = 1
+        if i % self.nsites[0] != i:
+            fac *= bfac[0] * (i // self.nsites[0])
+        idx = i
+        return idx, fac
 
 class Hubbard2D(Hubbard):
 
@@ -429,10 +437,17 @@ class LatticeUHF(LatticeSCF, pyscf.scf.uhf.UHF):
         # Create small random offset to break symmetries.
 
         offset = np.full_like(dma.diagonal(), fill_value=1e-2)
-        for x in range(self.mol.nsites[0]):
-            for y in range(self.mol.nsites[1]):
-                ind, fac = self.mol.get_index(x,y)
-                offset[ind] *= (-1) ** (x%2 + y%2)
+        if self.mol.dimension == 1:
+            for x in range(self.mol.nsites[0]):
+                ind, fac = self.mol.get_index(x)
+                offset[ind] *= (-1) ** (x%2)
+        elif self.mol.dimension == 2:
+            for x in range(self.mol.nsites[0]):
+                for y in range(self.mol.nsites[1]):
+                    ind, fac = self.mol.get_index(x,y)
+                    offset[ind] *= (-1) ** (x%2 + y%2)
+        else:
+            raise NotImplementedError("LatticeUHF only supports 1- and 2-D Hubbard models.")
         dma[np.diag_indices_from(dma)] += offset
         return (dma, dmb)
 
