@@ -301,7 +301,7 @@ class TestLattice:
 
     @cache
     def uhf(self):
-        uhf = latt.LatticeRHF(self.mol)
+        uhf = latt.LatticeUHF(self.mol)
         if self.with_df:
             uhf = uhf.density_fit()
         uhf.conv_tol = 1e-12

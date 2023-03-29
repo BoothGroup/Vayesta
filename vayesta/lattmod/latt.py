@@ -125,6 +125,7 @@ class Hubbard1D(Hubbard):
             bfac = 1
         elif boundary.upper() == 'APBC':
             bfac = -1
+        self.bfac = bfac
         h1e = np.zeros((nsite, nsite))
         for i in range(nsite-1):
             h1e[i,i+1] = h1e[i+1,i] = -hubbard_t
@@ -169,6 +170,13 @@ class Hubbard1D(Hubbard):
             coords = coords[self.order]
         return coords / BOHR
 
+    def get_index(self, i):
+        bfac = self.bfac
+        fac = 1
+        if i % self.nsites[0] != i:
+            fac *= bfac[0] * (i // self.nsites[0])
+        idx = i
+        return idx, fac
 
 class Hubbard2D(Hubbard):
 
@@ -374,50 +382,6 @@ class LatticeRHF(LatticeSCF, pyscf.scf.hf.RHF):
         else:
             log.debugv("Mean-field site occupations=\n%r", occ)
 
-    #def kernel_hubbard(self):
-    #    mo_energy, mo_coeff = np.linalg.eigh(self.mol.h1e)
-    #    nocc = self.mol.nelectron//2
-    #    occ = np.s_[:nocc]
-    #    dm0 = 2*np.dot(mo_coeff[:,occ], mo_coeff[:,occ].T)
-    #    veff = self.get_veff(dm=dm0)
-    #    fock = self.get_hcore() + veff
-    #    mo_energy, mo_coeff = np.linalg.eigh(fock)
-    #    nvir = self.mol.nsite - nocc
-    #    self.mo_energy = mo_energy
-    #    log.info("MO energies:")
-    #    for i in range(0, len(mo_energy), 5):
-    #        e = mo_energy[i:i+5]
-    #        fmt = '  ' + len(e)*'  %+16.8f'
-    #        log.info(fmt, *e)
-    #    if nocc > 0:
-    #        homo = self.mo_energy[nocc-1]
-    #    else:
-    #        homo = np.nan
-    #    if nvir > 0:
-    #        lumo = self.mo_energy[nocc]
-    #    else:
-    #        lumo = np.nan
-    #    gap = (lumo-homo)
-    #    log.info("HOMO= %+16.8f  LUMO= %+16.8f  gap= %+16.8f", homo, lumo, gap)
-    #    if gap < 1e-8:
-    #        log.critical("Zero HOMO-LUMO gap!")
-    #        raise RuntimeError("Zero HOMO-LUMO gap!")
-    #    elif gap < 1e-2:
-    #        log.warning("Small HOMO-LUMO gap!")
-
-    #    self.mo_coeff = mo_coeff
-    #    self.mo_occ = np.asarray((nocc*[2] + nvir*[0]))
-
-    #    # Check lattice symmetry
-    #    dm = self.make_rdm1()
-    #    self.check_lattice_symmetry(dm)
-    #    veff = self.get_veff()
-    #    self.e_tot = np.einsum('ab,ba->', (self.get_hcore() + veff/2), dm)
-    #    self.converged = True
-
-    #    return self.e_tot
-
-    #kernel = kernel_hubbard
 
 class LatticeUHF(LatticeSCF, pyscf.scf.uhf.UHF):
 
@@ -429,10 +393,17 @@ class LatticeUHF(LatticeSCF, pyscf.scf.uhf.UHF):
         # Create small random offset to break symmetries.
 
         offset = np.full_like(dma.diagonal(), fill_value=1e-2)
-        for x in range(self.mol.nsites[0]):
-            for y in range(self.mol.nsites[1]):
-                ind, fac = self.mol.get_index(x,y)
-                offset[ind] *= (-1) ** (x%2 + y%2)
+        if self.mol.dimension == 1:
+            for x in range(self.mol.nsites[0]):
+                ind, fac = self.mol.get_index(x)
+                offset[ind] *= (-1) ** (x%2)
+        elif self.mol.dimension == 2:
+            for x in range(self.mol.nsites[0]):
+                for y in range(self.mol.nsites[1]):
+                    ind, fac = self.mol.get_index(x,y)
+                    offset[ind] *= (-1) ** (x%2 + y%2)
+        else:
+            raise NotImplementedError("LatticeUHF only supports 1- and 2-D Hubbard models.")
         dma[np.diag_indices_from(dma)] += offset
         return (dma, dmb)
 
