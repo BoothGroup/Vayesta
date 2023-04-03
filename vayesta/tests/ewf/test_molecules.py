@@ -2,7 +2,6 @@ import unittest
 import numpy as np
 
 from vayesta import ewf
-from vayesta.solver.ccsd import CCSD_Solver
 from vayesta.tests.common import TestCase
 from vayesta.tests import testsystems
 
