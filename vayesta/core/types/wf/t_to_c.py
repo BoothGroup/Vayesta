@@ -1,3 +1,8 @@
+"""
+These expressions were obtained from https://doi.org/10.1063/1.4996044 for
+GHF, and then spin integrated to RHF and UHF expressions.
+"""
+
 import numpy as np
 from vayesta.core.util import einsum
 

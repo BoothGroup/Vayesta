@@ -560,8 +560,6 @@ def externally_correct(solver, external_corrections, eris=None):
     cx_vir = cluster.c_active_vir       # Virtual  active orbitals of current cluster
     cxs_occ = spinalg.dot(spinalg.T(cx_occ), ovlp)
     cxs_vir = spinalg.dot(spinalg.T(cx_vir), ovlp)
-    # CCSD uses exxdiv-uncorrected Fock matrix for residuals
-    fock = emb.get_fock(with_exxdiv=False)
     if eris is None:
         # Note that if no MO energies are passed in, we construct them from the 
         # get_fock function without with_exxdiv=False. For PBC CCSD, this may be different
@@ -577,6 +575,9 @@ def externally_correct(solver, external_corrections, eris=None):
         solver.log.warn("Multiple external correcting fragments, but not fragment-projecting the resulting correction!")
         solver.log.warn("This will likely lead to double-counting of external correction.")
         solver.log.warn("Are you sure you want to do this?!")
+
+    # CCSD uses exxdiv-uncorrected Fock matrix for residuals
+    fock = emb.get_fock(with_exxdiv=False)
 
     if any([corr[1] == 'external-ccsdv' for corr in external_corrections]):
         # At least one fragment is externally corrected, *and* contracted with
@@ -669,7 +670,7 @@ def externally_correct(solver, external_corrections, eris=None):
             dt1 /= eia
             dt2 /= eijab
 
-        solver.log.info("Total external correction amplitudes from all fragments:  dT1= %.3e  dT2= %.3e", \
+        solver.log.info("Total external correction amplitudes from all fragments:  dT1= %.3e  dT2= %.3e",
                 *get_amplitude_norm(dt1, dt2))
 
         def callback(kwargs):

@@ -37,9 +37,8 @@ with emb.site_fragmentation() as f:
     fci_frags.append(f.add_atomic_fragment([0, 1], solver='FCI', bath_options=dict(bathtype='dmet'), store_wf_type='CCSDTQ', nelectron_target=2*nelectron/nsite, auxiliary=True))
     # Add single 'complete' CCSD fragment covering all sites
     ccsd_frag = f.add_full_system(solver='CCSD', bath_options=dict(bathtype='full'), solver_options=dict(solve_lambda=False, init_guess='CISD'))
-for fci_sym_frag in fci_frags[0].add_tsymmetric_fragments(tvecs=[5, 1, 1]):
-    # Add symmetry-derived FCI fragments to avoid multiple calculations
-    fci_frags.append(fci_sym_frag)
+# Add symmetry-derived FCI fragments to avoid multiple calculations
+fci_frags.extend(fci_frags[0].add_tsymmetric_fragments(tvecs=[5, 1, 1])
 
 e_extcorr = []
 extcorr_conv = []
