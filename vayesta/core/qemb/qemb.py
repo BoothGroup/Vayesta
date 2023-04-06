@@ -1299,7 +1299,7 @@ class Embedding:
     # --- Population analysis
     # -----------------------
 
-    def _get_atom_projectors(self, atoms=None, projection='sao'):
+    def _get_atom_projectors(self, atoms=None, projection='sao', orbital_filter=None):
         if atoms is None:
             atoms2 = list(range(self.mol.natm))
             # For supercell systems, we do not want all supercell-atom pairs,
@@ -1317,8 +1317,8 @@ class Embedding:
         elif projection.replace('+', '').replace('/', '') == 'iaopao':
             frag = IAOPAO_Fragmentation(self)
         elif projection == 'iao':
-            self.log.warning("IAO projection is not recommended for population analysis. Use SAO or IAO+PAO instead.")
             frag = IAO_Fragmentation(self)
+            self.log.warning("IAO projection is not recommended for population analysis! Use IAO+SAO instead.")
         else:
             raise ValueError("Invalid projection: %s" % projection)
         frag.kernel()
@@ -1326,8 +1326,11 @@ class Embedding:
         projectors = {}
         cs = spinalg.dot(spinalg.transpose(self.mo_coeff), ovlp)
         for atom in sorted(set(atoms1).union(atoms2)):
-            name, indices = frag.get_atomic_fragment_indices(atom)
+            name, indices = frag.get_atomic_fragment_indices(atom, orbital_filter=orbital_filter)
             c_atom = frag.get_frag_coeff(indices)
+            if c_atom.shape[1] == 0 and orbital_filter is not None:
+                self.log.error("No orbitals found for atom %d when filtered!" % atom)
+                raise ValueError("No orbitals found for atom %d when filtered" % atom)
             r = spinalg.dot(cs, c_atom)
             projectors[atom] = spinalg.dot(r, spinalg.transpose(r))
 
