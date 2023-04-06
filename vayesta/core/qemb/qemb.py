@@ -1316,6 +1316,9 @@ class Embedding:
             frag = SAO_Fragmentation(self)
         elif projection.replace('+', '').replace('/', '') == 'iaopao':
             frag = IAOPAO_Fragmentation(self)
+        elif projection == 'iao':
+            self.log.warning("IAO projection is not recommended for population analysis. Use SAO or IAO+PAO instead.")
+            frag = IAO_Fragmentation(self)
         else:
             raise ValueError("Invalid projection: %s" % projection)
         frag.kernel()
