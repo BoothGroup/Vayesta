@@ -7,7 +7,6 @@ from .RIRPA import ssRIRRPA
 
 
 class ssRIURPA(ssRIRRPA):
-
     @property
     def mo_occ(self):
         return self.mf.mo_occ
@@ -15,20 +14,23 @@ class ssRIURPA(ssRIRRPA):
     @property
     def nmo(self):
         """Total number of molecular orbitals (MOs)."""
-        return (self.mo_coeff[0].shape[-1],
-                self.mo_coeff[1].shape[-1])
+        return (self.mo_coeff[0].shape[-1], self.mo_coeff[1].shape[-1])
 
     @property
     def nocc(self):
         """Number of occupied MOs."""
-        return (np.count_nonzero(self.mo_occ[0] > 0),
-                np.count_nonzero(self.mo_occ[1] > 0))
+        return (
+            np.count_nonzero(self.mo_occ[0] > 0),
+            np.count_nonzero(self.mo_occ[1] > 0),
+        )
 
     @property
     def nvir(self):
         """Number of virtual MOs."""
-        return (np.count_nonzero(self.mo_occ[0] == 0),
-                np.count_nonzero(self.mo_occ[1] == 0))
+        return (
+            np.count_nonzero(self.mo_occ[0] == 0),
+            np.count_nonzero(self.mo_occ[1] == 0),
+        )
 
     @property
     def naux_eri(self):
@@ -42,14 +44,18 @@ class ssRIURPA(ssRIRRPA):
     @property
     def mo_coeff_occ(self):
         """Occupied MO coefficients."""
-        return (self.mo_coeff[0][:, :self.nocc[0]],
-                self.mo_coeff[1][:, :self.nocc[1]])
+        return (
+            self.mo_coeff[0][:, : self.nocc[0]],
+            self.mo_coeff[1][:, : self.nocc[1]],
+        )
 
     @property
     def mo_coeff_vir(self):
         """Virtual MO coefficients."""
-        return (self.mo_coeff[0][:, self.nocc[0]:],
-                self.mo_coeff[1][:, self.nocc[1]:])
+        return (
+            self.mo_coeff[0][:, self.nocc[0] :],
+            self.mo_coeff[1][:, self.nocc[1] :],
+        )
 
     @property
     def mo_energy(self):
@@ -57,11 +63,11 @@ class ssRIURPA(ssRIRRPA):
 
     @property
     def mo_energy_occ(self):
-        return self.mo_energy[0][:self.nocc[0]], self.mo_energy[1][:self.nocc[1]]
+        return self.mo_energy[0][: self.nocc[0]], self.mo_energy[1][: self.nocc[1]]
 
     @property
     def mo_energy_vir(self):
-        return self.mo_energy[0][self.nocc[0]:], self.mo_energy[1][self.nocc[1]:]
+        return self.mo_energy[0][self.nocc[0] :], self.mo_energy[1][self.nocc[1] :]
 
     @property
     def ov(self):
@@ -94,10 +100,14 @@ class ssRIURPA(ssRIRRPA):
         if self.rixc is not None:
             ri_a_xc, ri_b_xc = self.get_ab_xc_ri()
 
-            ri_apb_xc = [np.concatenate([ri_a_xc[0], ri_b_xc[0]], axis=0), np.concatenate([ri_a_xc[1], ri_b_xc[1]],
-                                                                                          axis=0)]
-            ri_amb_xc = [np.concatenate([ri_a_xc[0], ri_b_xc[0]], axis=0), np.concatenate([ri_a_xc[1], -ri_b_xc[1]],
-                                                                                          axis=0)]
+            ri_apb_xc = [
+                np.concatenate([ri_a_xc[0], ri_b_xc[0]], axis=0),
+                np.concatenate([ri_a_xc[1], ri_b_xc[1]], axis=0),
+            ]
+            ri_amb_xc = [
+                np.concatenate([ri_a_xc[0], ri_b_xc[0]], axis=0),
+                np.concatenate([ri_a_xc[1], -ri_b_xc[1]], axis=0),
+            ]
         else:
             ri_apb_xc = [np.zeros((0, self.ov_tot))] * 2
             ri_amb_xc = [np.zeros((0, self.ov_tot))] * 2
@@ -112,37 +122,61 @@ class ssRIURPA(ssRIRRPA):
         # This needs to be optimised, but will do for now.
         if self.Lpq is None:
             v = self.get_3c_integrals()
-            Lov_a = einsum("npq,pi,qa->nia", v, self.mo_coeff_occ[0], self.mo_coeff_vir[0]).reshape(
-                (self.naux_eri, self.ov[0]))
-            Lov_b = einsum("npq,pi,qa->nia", v, self.mo_coeff_occ[1], self.mo_coeff_vir[1]).reshape(
-                (self.naux_eri, self.ov[1]))
+            Lov_a = einsum(
+                "npq,pi,qa->nia", v, self.mo_coeff_occ[0], self.mo_coeff_vir[0]
+            ).reshape((self.naux_eri, self.ov[0]))
+            Lov_b = einsum(
+                "npq,pi,qa->nia", v, self.mo_coeff_occ[1], self.mo_coeff_vir[1]
+            ).reshape((self.naux_eri, self.ov[1]))
         else:
-            Lov_a = self.Lpq[0][:, :self.nocc[0], self.nocc[0]:].reshape((self.naux_eri, self.ov[0]))
-            Lov_b = self.Lpq[1][:, :self.nocc[1], self.nocc[1]:].reshape((self.naux_eri, self.ov[1]))
+            Lov_a = self.Lpq[0][:, : self.nocc[0], self.nocc[0] :].reshape(
+                (self.naux_eri, self.ov[0])
+            )
+            Lov_b = self.Lpq[1][:, : self.nocc[1], self.nocc[1] :].reshape(
+                (self.naux_eri, self.ov[1])
+            )
 
         ri_apb_eri = np.zeros((self.naux_eri, sum(self.ov)))
 
         # Need to include factor of two since eris appear in both A and B.
-        ri_apb_eri[:, :self.ov[0]] = np.sqrt(2) * Lov_a
-        ri_apb_eri[:, self.ov[0]:self.ov_tot] = np.sqrt(2) * Lov_b
+        ri_apb_eri[:, : self.ov[0]] = np.sqrt(2) * Lov_a
+        ri_apb_eri[:, self.ov[0] : self.ov_tot] = np.sqrt(2) * Lov_b
         return ri_apb_eri
 
     def get_ab_xc_ri(self):
         # Have low-rank representation for interactions over and above coulomb interaction.
         # Note that this is usually asymmetric, as correction is non-PSD.
-        ri_a_aa = [einsum("npq,pi,qa->nia", x, self.mo_coeff_occ[0], self.mo_coeff_vir[0]).reshape((-1, self.ov[0])) for
-                   x in
-                   self.rixc[0]]
-        ri_a_bb = [einsum("npq,pi,qa->nia", x, self.mo_coeff_occ[1], self.mo_coeff_vir[1]).reshape((-1, self.ov[1])) for
-                   x in
-                   self.rixc[1]]
+        ri_a_aa = [
+            einsum(
+                "npq,pi,qa->nia", x, self.mo_coeff_occ[0], self.mo_coeff_vir[0]
+            ).reshape((-1, self.ov[0]))
+            for x in self.rixc[0]
+        ]
+        ri_a_bb = [
+            einsum(
+                "npq,pi,qa->nia", x, self.mo_coeff_occ[1], self.mo_coeff_vir[1]
+            ).reshape((-1, self.ov[1]))
+            for x in self.rixc[1]
+        ]
 
-        ri_b_aa = [ri_a_aa[0],
-                   einsum("npq,qi,pa->nia", self.rixc[0][1], self.mo_coeff_occ[0], self.mo_coeff_vir[0]).reshape(
-                       (-1, self.ov[0]))]
-        ri_b_bb = [ri_a_bb[0],
-                   einsum("npq,qi,pa->nia", self.rixc[1][1], self.mo_coeff_occ[1], self.mo_coeff_vir[1]).reshape(
-                       (-1, self.ov[1]))]
+        ri_b_aa = [
+            ri_a_aa[0],
+            einsum(
+                "npq,qi,pa->nia",
+                self.rixc[0][1],
+                self.mo_coeff_occ[0],
+                self.mo_coeff_vir[0],
+            ).reshape((-1, self.ov[0])),
+        ]
+        ri_b_bb = [
+            ri_a_bb[0],
+            einsum(
+                "npq,qi,pa->nia",
+                self.rixc[1][1],
+                self.mo_coeff_occ[1],
+                self.mo_coeff_vir[1],
+            ).reshape((-1, self.ov[1])),
+        ]
 
         ri_a_xc = [np.concatenate([x, y], axis=1) for x, y in zip(ri_a_aa, ri_a_bb)]
         ri_b_xc = [np.concatenate([x, y], axis=1) for x, y in zip(ri_b_aa, ri_b_bb)]

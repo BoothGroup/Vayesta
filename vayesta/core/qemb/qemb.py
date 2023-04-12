@@ -780,43 +780,52 @@ class Embedding:
         """
         default_axes = {'x': (1,0,0), 'y': (0,1,0), 'z': (0,0,1)}
         symtype = symmetry['type']
+
+        def to_bohr(point, unit):
+            unit = unit.lower()
+            point = np.asarray(point, dtype=float)
+            if unit.startswith('ang'):
+                return point / 0.529177210903
+            if unit == 'latvec':
+                #kcell = self.kcell if self.kcell is not None else self.mol
+                return np.dot(point, (self.kcell or self.mol).lattice_vectors())
+            if unit.startswith('bohr'):
+                return point
+            raise ValueError("unit= %s" % unit)
+
+        def shift_point_to_supercell(point):
+            """Shift point in primitive cell to equivalent, scaled point in supercell."""
+            if self.kcell is None:
+                # No PBC or no supercell
+                return point
+            ak = self.kcell.lattice_vectors()   # primtive cell lattice vectors
+            bk = np.linalg.inv(ak)
+            a = self.mol.lattice_vectors()      # supercell lattice vectors
+            shift = (np.diag(a)/np.diag(ak) - 1)/2
+            # Shift in internal coordinates, then transform back
+            point = np.dot(np.dot(point, bk) + shift, ak)
+            return point
+
         if symtype == 'inversion':
-            center = symmetry['center']
-            unit = symmetry['unit']
+            center = to_bohr(symmetry['center'], symmetry['unit'])
+            center = shift_point_to_supercell(center)
             symbol = symbol or 'I'
             symlist = [1]
         elif symtype == 'reflection':
-            center = symmetry['center']
+            center = to_bohr(symmetry['center'], symmetry['unit'])
+            center = shift_point_to_supercell(center)
             axis = symmetry['axis']
             axis = np.asarray(default_axes.get(axis, axis), dtype=float)
-            unit = symmetry['unit']
+            axis = to_bohr(axis, symmetry['unit'])
             symbol = symbol or 'M'
             symlist = [1]
         elif symtype == 'rotation':
             order = symmetry['order']
             axis = symmetry['axis']
             axis = np.asarray(default_axes.get(axis, axis), dtype=float)
-            center = np.asarray(symmetry['center'], dtype=float)
-            unit = symmetry['unit'].lower()
-            if unit == 'ang':
-                BOHR = 0.529177210903
-                center = center/BOHR # To Bohr
-            elif unit == 'latvec':
-                kcell = self.kcell if self.kcell is not None else self.mol
-                ak = kcell.lattice_vectors()
-                center = np.dot(center, ak)
-                # units of lattice vectors also change the axis:
-                axis = np.dot(axis, ak)
-            if self.kcell is not None:
-                # center needs to be moved to the supercell center!
-                ak = self.kcell.lattice_vectors()
-                bk = np.linalg.inv(ak)
-                a = self.mol.lattice_vectors()
-                shift = (np.diag(a)/np.diag(ak) - 1)/2
-                # Shift in internal coordinates
-                self.log.debugv("Primitive cell rotation center= %r" % center)
-                center = np.dot(np.dot(center, bk) + shift, ak)
-                self.log.debugv("Supercell rotation center= %r" % center)
+            axis = to_bohr(axis, symmetry['unit'])
+            center = to_bohr(symmetry['center'], symmetry['unit'])
+            center = shift_point_to_supercell(center)
             symlist = range(1, order)
             symbol = symbol or 'R'
         elif symtype == 'translation':
@@ -824,7 +833,7 @@ class Embedding:
             symlist = list(itertools.product(range(translation[0]), range(translation[1]), range(translation[2])))[1:]
             symbol = symbol or 'T'
         else:
-            raise ValueError
+            raise ValueError("Symmetry type= %s" % symtype)
 
         ovlp = self.get_ovlp()
         if check_mf:
@@ -1565,6 +1574,7 @@ class Embedding:
                 if (max(charge_err, spin_err) > symtol):
                     raise SymmetryError("%s and %s not symmetric! Errors:  charge= %.2e  spin= %.2e"
                                        % (parent.name, child.name, charge_err, spin_err))
+                else:
                     self.log.debugv("Symmetry between %s and %s: Errors:  charge= %.2e  spin= %.2e",
                                     parent.name, child.name, charge_err, spin_err)
 

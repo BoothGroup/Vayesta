@@ -41,7 +41,7 @@ class Test_Restricted(TestCase):
 
 
 class Test_RestrictedSym(Test_Restricted):
-    """Test secondary fragments in combination with rotational symmetry."""
+    """Test secondary fragments in combination with symmetry."""
 
     @classmethod
     def setUpClass(cls):

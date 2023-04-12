@@ -1,13 +1,10 @@
 import logging
 import itertools
-
 import numpy as np
 import scipy
 import scipy.spatial
-
 import pyscf
 import pyscf.symm
-
 import vayesta
 import vayesta.core
 from vayesta.core.util import *
@@ -39,7 +36,27 @@ class SymmetryOperation:
     def nao(self):
         return self.group.nao
 
-    def __call__(self, *args, **kwargs):
+    def __call__(self, a, *args, axis=0, **kwargs):
+        return self.call_wrapper(a, *args, axis=axis, **kwargs)
+
+    def call_wrapper(self, a, *args, axis=0, **kwargs):
+        """Common pre- and post-processing for all symmetries.
+
+        Symmetry specific processing is performed in call_kernel."""
+        if hasattr(axis, '__len__'):
+            for ax in axis:
+                a = self(a, *args, axis=ax, **kwargs)
+            return a
+        if isinstance(a, (tuple, list)):
+            return tuple([self(x, *args, axis=axis, **kwargs) for x in a])
+        a = np.moveaxis(a, axis, 0)
+        # Reorder AOs according to new atomic center
+        a = a[self.ao_reorder]
+        a = self.call_kernel(a, *args, **kwargs)
+        a = np.moveaxis(a, 0, axis)
+        return a
+
+    def call_kernel(self, *args, **kwargs):
         raise AbstractMethodError
 
     def apply_to_point(self, r0):
@@ -145,9 +162,9 @@ class SymmetryIdentity(SymmetryOperation):
 class SymmetryInversion(SymmetryOperation):
 
     def __init__(self, group, center=(0,0,0)):
-        if not np.all(np.asarray(center) == 0):
-            raise NotImplementedError
+        center = np.asarray(center, dtype=float)
         self.center = center
+
         super().__init__(group)
 
         self.atom_reorder = self.get_atom_reorder()[0]
@@ -159,30 +176,18 @@ class SymmetryInversion(SymmetryOperation):
         return "Inversion(%g,%g,%g)" % tuple(self.center)
 
     def apply_to_point(self, r0):
-        return -r0
+        return 2*self.center - r0
 
-    def __call__(self, a, axis=0):
-        if hasattr(axis, '__len__'):
-            for ax in axis:
-                a = self(a, axis=ax)
-            return a
-        if isinstance(a, (tuple, list)):
-            return tuple([self(x, axis=axis) for x in a])
-        a = np.moveaxis(a, axis, 0)
-        # Reorder AOs according to new atomic center
-        a = a[self.ao_reorder]
-        # Invert angular momentum in shells with l=1,3,5,... (p,f,h,...):
+    def call_kernel(self, a):
         rotmats = [(-1)**i * np.eye(n) for (i, n) in enumerate(range(1,19,2))]
         a = self.rotate_angular_orbitals(a, rotmats)
-        a = np.moveaxis(a, 0, axis)
         return a
 
 
 class SymmetryReflection(SymmetryOperation):
 
     def __init__(self, group, axis, center=(0,0,0)):
-        if not np.all(np.asarray(center) == 0):
-            raise NotImplementedError
+        center = np.asarray(center, dtype=float)
         self.center = center
         self.axis = np.asarray(axis)/np.linalg.norm(axis)
         super().__init__(group)
@@ -206,48 +211,35 @@ class SymmetryReflection(SymmetryOperation):
         return "Reflection(%g,%g,%g)" % tuple(self.axis)
 
     def as_matrix(self):
-        """Householder matrix."""
+        """Householder matrix. Does not account for shifted origin!"""
         return np.eye(3) - 2*np.outer(self.axis, self.axis)
 
     def apply_to_point(self, r0):
         """Householder transformation."""
-        r1 = r0 - 2*np.dot(np.outer(self.axis, self.axis), r0)
+        r1 = r0 - 2*np.dot(np.outer(self.axis, self.axis), r0-self.center)
         return r1
 
-    def __call__(self, a, axis=0):
-        if hasattr(axis, '__len__'):
-            for ax in axis:
-                a = self(a, axis=ax)
-            return a
-        if isinstance(a, (tuple, list)):
-            return tuple([self(x, axis=axis) for x in a])
-        a = np.moveaxis(a, axis, 0)
-        # Reorder AOs according to new atomic center
-        a = a[self.ao_reorder]
-        # Rotate between orbitals in p,d,f,... shells
+    def call_kernel(self, a):
         a = self.rotate_angular_orbitals(a, self.angular_rotmats)
-        a = np.moveaxis(a, 0, axis)
         return a
 
 
 class SymmetryRotation(SymmetryOperation):
 
-    def __init__(self, group, rotvec, center=(0,0,0), unit='Bohr'):
+    def __init__(self, group, rotvec, center=(0,0,0)):
         self.rotvec = np.asarray(rotvec, dtype=float)
         self.center = np.asarray(center, dtype=float)
-        if unit.lower().startswith('ang'):
-            self.center = self.center/BOHR
         super().__init__(group)
 
         self.atom_reorder = self.get_atom_reorder()[0]
         if self.atom_reorder is None:
             raise RuntimeError("Symmetry %s not found" % self)
         self.ao_reorder = self.get_ao_reorder(self.atom_reorder)[0]
-        
         try:
             self.angular_rotmats = pyscf.symm.basis._momentum_rotation_matrices(self.mol, self.as_matrix())
         except AttributeError:
-            self.angular_rotmats = pyscf.symm.basis._ao_rotation_matrices(self.mol, self.as_matrix()) 
+            self.angular_rotmats = pyscf.symm.basis._ao_rotation_matrices(self.mol, self.as_matrix())
+
     def __repr__(self):
         return "Rotation(%g,%g,%g)" % tuple(self.rotvec)
 
@@ -258,25 +250,15 @@ class SymmetryRotation(SymmetryOperation):
         rot = self.as_matrix()
         return np.dot(rot, (r0 - self.center)) + self.center
 
-    def __call__(self, a, axis=0):
-        if hasattr(axis, '__len__'):
-            for ax in axis:
-                a = self(a, axis=ax)
-            return a
-        if isinstance(a, (tuple, list)):
-            return tuple([self(x, axis=axis) for x in a])
-        a = np.moveaxis(a, axis, 0)
-        # Reorder AOs according to new atomic center
-        a = a[self.ao_reorder]
-        # Rotate between orbitals in p,d,f,... shells
+    def call_kernel(self, a):
         a = self.rotate_angular_orbitals(a, self.angular_rotmats)
-        a = np.moveaxis(a, 0, axis)
         return a
+
 
 class SymmetryTranslation(SymmetryOperation):
 
     def __init__(self, group, vector, boundary=None, atom_reorder=None, ao_reorder=None):
-        self.vector = np.asarray(vector)
+        self.vector = np.asarray(vector, dtype=float)
         super().__init__(group)
 
         if boundary is None:
@@ -303,18 +285,10 @@ class SymmetryTranslation(SymmetryOperation):
     def __repr__(self):
         return "Translation(%f,%f,%f)" % tuple(self.vector)
 
-    def __call__(self, a, axis=0):
-        """Apply symmetry operation along AO axis."""
-        if hasattr(axis, '__len__'):
-            for ax in axis:
-                a = self(a, axis=ax)
-            return a
-        if isinstance(a, (tuple, list)):
-            return tuple([self(x, axis=axis) for x in a])
+    def call_kernel(self, a):
         if self.ao_reorder_phases is None:
-            return np.take(a, self.ao_reorder, axis=axis)
-        bc = tuple(axis*[None] + [slice(None, None, None)] + (a.ndim-axis-1)*[None])
-        return np.take(a, self.ao_reorder, axis=axis) * self.ao_reorder_phases[bc]
+            return a
+        return a * self.ao_reorder_phases[tuple([np.s_[:]] + (a.ndim-1)*[None])]
 
     def inverse(self):
         return type(self)(self.mol, -self.vector, boundary=self.boundary, atom_reorder=np.argsort(self.atom_reorder))
@@ -417,67 +391,3 @@ class SymmetryTranslation(SymmetryOperation):
             assert not np.any(phases == 0)
         assert np.all(np.arange(self.nao)[reorder][inverse] == np.arange(self.nao))
         return reorder, inverse, phases
-
-if __name__ == '__main__':
-
-    def test_translation():
-        import pyscf
-        import pyscf.pbc
-        import pyscf.pbc.gto
-        import pyscf.pbc.scf
-        import pyscf.pbc.tools
-        import pyscf.pbc.df
-
-        cell = pyscf.pbc.gto.Cell()
-        cell.a = 3*np.eye(3)
-        cell.atom = 'He 0 0 0'
-        cell.unit = 'Bohr'
-        cell.basis = 'def2-svp'
-        #cell.basis = 'sto-3g'
-        cell.build()
-        #cell.dimension = 2
-
-        sc = [1,1,2]
-        cell = pyscf.pbc.tools.super_cell(cell, sc)
-
-        t = Translation(cell, [0, 0, 1/2])
-
-        df = pyscf.pbc.df.GDF(cell)
-        df.auxbasis = 'def2-svp-ri'
-        df.build()
-
-        #print(t.ao_reorder)
-        #aux_reorder = t.get_ao_reorder(cell=df.auxcell)[0]
-        #print(aux_reorder)
-        taux = t.change_cell(df.auxcell)
-        print(t.ao_reorder)
-        print(taux.ao_reorder)
-
-        #print(trans.atom_reorder)
-        #print(trans.ao_reorder)
-        #trans = Translation(cell, [0,1/5,2/3])
-        #trans = Translation(cell, [0,3/5,2/3])
-
-        #mo0 = np.eye(cell.nao)
-        #mo1 = trans(mo0)
-
-    def test_rotation():
-        import pyscf
-        import pyscf.gto
-        import vayesta.misc
-        import vayesta.misc.molecules
-
-        mol = pyscf.gto.Mole()
-        mol.atom = vayesta.misc.molecules.arene(6)
-        mol.build()
-
-        vec = np.asarray([0, 0, 1])
-        op = SymmetryRotation(mol, 6, vec)
-
-        reorder, inv = op.get_atom_reorder()
-        print(reorder)
-        print(inv)
-
-
-
-    test_rotation()
