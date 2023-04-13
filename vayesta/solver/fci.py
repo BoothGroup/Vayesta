@@ -90,7 +90,7 @@ class FCI_Solver(ClusterSolver):
         return 2*self.cluster.nocc_active
 
     def get_init_guess(self):
-        if self.opts.init_guess is None:
+        if self.opts.init_guess in ["none", "None"]:
             return dict(ci0=None)
         if self.opts.init_guess == 'CISD':
             self.log.info("Generating intitial guess from CISD.")
