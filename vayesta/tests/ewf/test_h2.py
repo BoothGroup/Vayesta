@@ -179,10 +179,7 @@ class Test_UFCI_dissoc(TestCase):
     @classmethod
     @cache
     def emb(cls, bno_threshold):
-        # TODO: fix this running with a CISD solver or initial guess.
-        #  This relates to https://github.com/BoothGroup/Vayesta/issues/83
-        emb = vayesta.ewf.EWF(cls.mf, bath_options=dict(bathtype="dmet"), solver='FCI',
-                              solver_options=dict(init_guess=None))
+        emb = vayesta.ewf.EWF(cls.mf, bath_options=dict(bathtype="dmet"), solver='FCI')
         emb.kernel()
         return emb
 

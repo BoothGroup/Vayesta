@@ -363,5 +363,18 @@ class UCCSD_Solver(CCSD_Solver):
         self.wf = CCSD_WaveFunction(mo, t1, t2, l1=l1, l2=l2)
         self.converged = True
 
+    def get_eris(self):
+        """Get ERI object."""
+
+        # This is to compensate for possible issues with PySCF's UCCSD._make_df_eris_outcore method when one spin
+        # channel has no occupied and/or virtual orbitals.
+        try:
+            return super().get_eris()
+        except ValueError:
+            if any(np.array(self.cluster.nocc_active) == 0) or any(np.array(self.cluster.nvir_active) == 0):
+                self.log.info("Cluster has no occupied and/or virtual orbitals in one spin channel.")
+                with setattr(self.mf.mol, incore_anyway=True):
+                    return super().get_eris()
+
     def _debug_random_wf(self):
         raise NotImplementedError
