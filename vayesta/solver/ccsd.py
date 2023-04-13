@@ -370,11 +370,14 @@ class UCCSD_Solver(CCSD_Solver):
         # channel has no occupied and/or virtual orbitals.
         try:
             return super().get_eris()
-        except ValueError:
+        except ValueError as e:
             if any(np.array(self.cluster.nocc_active) == 0) or any(np.array(self.cluster.nvir_active) == 0):
                 self.log.info("Cluster has no occupied and/or virtual orbitals in one spin channel.")
                 with setattr(self.mf.mol, incore_anyway=True):
                     return super().get_eris()
+            else:
+                # Need to ensure we raise the error that will otherwise be suppressed.
+                raise e
 
     def _debug_random_wf(self):
         raise NotImplementedError
