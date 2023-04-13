@@ -93,7 +93,7 @@ class FCI_Solver(ClusterSolver):
         if self.opts.init_guess in ["none", "None"]:
             return dict(ci0=None)
         if self.opts.init_guess == 'CISD':
-            self.log.info("Generating intitial guess from CISD.")
+            self.log.info("Generating initial guess from CISD.")
             return dict(ci0=self.get_cisd_init_guess())
         raise ValueError
 
