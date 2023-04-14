@@ -33,6 +33,10 @@ class CCSD_Solver(ClusterSolver):
         conv_tol: float = None          # Convergence energy tolerance
         conv_tol_normt: float = None    # Convergence amplitude tolerance
         init_guess: str = 'MP2'         # ['MP2', 'CISD']
+        level_shift: float = 0.0        # Level shift on virtual orbital energies to stabilize convergence
+        diis_space: int = None          # DIIS space
+        diis_start_cycle: int = None     # DIIS start cycle
+        iterative_damping: float = None  # Iterative damping
         # Self-consistent mode
         sc_mode: int = None
         # DM
@@ -63,6 +67,10 @@ class CCSD_Solver(ClusterSolver):
         # Options
         if self.opts.max_cycle is not None: solver.max_cycle = self.opts.max_cycle
         if self.opts.conv_tol is not None: solver.conv_tol = self.opts.conv_tol
+        if self.opts.level_shift is not None: solver.level_shift = self.opts.level_shift
+        if self.opts.diis_space is not None: solver.diis_space = self.opts.diis_space
+        if self.opts.diis_start_cycle is not None: solver.diis_start_cycle = self.opts.diis_start_cycle
+        if self.opts.iterative_damping is not None: solver.iterative_damping = self.opts.iterative_damping
         if self.opts.conv_tol_normt is not None: solver.conv_tol_normt = self.opts.conv_tol_normt
         self.solver = solver
         self.eris = None
