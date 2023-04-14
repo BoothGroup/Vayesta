@@ -89,7 +89,7 @@ class CISD_Solver(ccsd.CCSD_Solver):
         raise NotImplementedError()
 
 
-class UCISD_Solver(CISD_Solver):
+class UCISD_Solver(CISD_Solver, ccsd.UCCSD_Solver):
 
     def get_solver_class(self):
         # No DF version for UCISD
