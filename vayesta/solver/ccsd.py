@@ -373,7 +373,7 @@ class UCCSD_Solver(CCSD_Solver):
         except ValueError as e:
             if any(np.array(self.cluster.nocc_active) == 0) or any(np.array(self.cluster.nvir_active) == 0):
                 self.log.info("Cluster has no occupied and/or virtual orbitals in one spin channel.")
-                with replace_attr(self.mf.mol, incore_anyway=True):
+                with replace_attr(self.solver, incore_complete=True):
                     return super().get_eris()
             else:
                 # Need to ensure we raise the error that will otherwise be suppressed.
