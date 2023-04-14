@@ -534,12 +534,13 @@ def externally_correct(solver, external_corrections, eris=None):
     ----------
     solver : CCSD_Solver
         Vayesta CCSD solver.
-    external_corrections : list of tuple of (int, str, int)
+    external_corrections : list of tuple of (int, str, int, bool)
         List of external corrections. Each tuple contains the fragment ID, type of correction,
-        and number of projectors for the given external correction.
+        and number of projectors for the given external correction. Final element is boolean giving
+        the low_level_coul optional argument.
     eris : _ChemistsERIs
         ERIs for parent CCSD fragment. Used for MO energies in residual contraction, and for
-        type of correction == 'external-ccsdv', where the parent Coulomb integral is contracted.
+        the case of low_level_coul, where the parent Coulomb integral is contracted.
         If not passed in, MO energy if needed will be constructed from the diagonal of 
         get_fock() of embedding base class, and the eris will be also be obtained from the
         embedding base class. Optional.
@@ -579,9 +580,9 @@ def externally_correct(solver, external_corrections, eris=None):
     # CCSD uses exxdiv-uncorrected Fock matrix for residuals
     fock = emb.get_fock(with_exxdiv=False)
 
-    if any([corr[1] == 'external-ccsdv' for corr in external_corrections]):
+    if any([corr[3] and corr[1] == 'external' for corr in external_corrections]):
         # At least one fragment is externally corrected, *and* contracted with
-        # integrals in the parent cluster. We can take the integrals from eris
+        # integrals in the parent (i.e. CCSD) cluster. We can take the integrals from eris
         # if passed in. Otherwise, form the required integrals
         # for this parent cluster. Note that not all of these are needed.
         if eris is None:
@@ -618,15 +619,16 @@ def externally_correct(solver, external_corrections, eris=None):
                np.zeros((nocc[1], nocc[1], nvir[1], nvir[1])))
 
     frag_dir = {f.id: f for f in emb.fragments}
-    for y, corrtype, projectors in external_corrections:
+    for y, corrtype, projectors, low_level_coul in external_corrections:
 
         fy = frag_dir[y] # Get fragment y object from its index
         assert (y != fx.id)
 
-        if corrtype in ['external', 'external-fciv']:
-            dt1y, dt2y = _get_delta_t_for_extcorr(fy, fock, solver, include_t3v=True)
-        elif corrtype == 'external-ccsdv':
-            dt1y, dt2y = _get_delta_t_for_extcorr(fy, fock, solver, include_t3v=False)
+        if corrtype == 'external':
+            if low_level_coul:
+                dt1y, dt2y = _get_delta_t_for_extcorr(fy, fock, solver, include_t3v=False)
+            else:
+                dt1y, dt2y = _get_delta_t_for_extcorr(fy, fock, solver, include_t3v=True)
         elif corrtype == 'delta-tailor':
             dt1y, dt2y = _get_delta_t_for_delta_tailor(fy, fock)
         else:
@@ -649,7 +651,7 @@ def externally_correct(solver, external_corrections, eris=None):
         dt1 = spinalg.add(dt1, dt1y)
         dt2 = spinalg.add(dt2, dt2y)
 
-        if corrtype == 'external-ccsdv':
+        if low_level_coul: 
             # Include the t3v term, contracting with the integrals from the x cluster
             # These have already been fragment projected, and rotated into the x cluster
             # in this function.
@@ -662,7 +664,7 @@ def externally_correct(solver, external_corrections, eris=None):
     
     if solver.spinsym == 'restricted':
         
-        if corrtype in ['external', 'external-fciv', 'external-ccsdv']:
+        if corrtype == 'external':
             # Contract with fragment x (CCSD) energy denominators
             # Note that this will not work correctly if a level shift used
             eia = mo_energy[:nocc, None] - mo_energy[None, nocc:]
@@ -681,7 +683,7 @@ def externally_correct(solver, external_corrections, eris=None):
 
     elif solver.spinsym == 'unrestricted':
 
-        if corrtype in ["external", "external-fciv", "external-ccsdv"]:
+        if corrtype == "external":
             eia_a = mo_energy[0][:nocc[0], None] - mo_energy[0][None, nocc[0]:]
             eia_b = mo_energy[1][:nocc[1], None] - mo_energy[1][None, nocc[1]:]
             eijab_aa = pyscf.lib.direct_sum('ia,jb->ijab', eia_a, eia_a)

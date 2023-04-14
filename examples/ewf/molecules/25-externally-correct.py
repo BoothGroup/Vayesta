@@ -37,15 +37,15 @@ with emb.iao_fragmentation() as f:
     # Add single 'complete' CCSD fragment covering all IAOs
     ccsd_frag = f.add_full_system(solver='CCSD', bath_options=dict(bathtype='full'))
 # Setup the external correction from the CCSD fragment.
-# Two main options: correction_type='external-ccsdv' and 'external-fciv'. For the important T3 * V contribution to the
-#   T2 amplitudes, this determines whether the V is expressed in the FCI or CCSD cluster space. The CCSD cluster is
-#   larger, and hence this is likely to be better, as the correction is longer-ranged (though slightly more expensive).
-#   The other option is 'projectors', which should be an integer between 0 and 2 (inclusive).
-#   The larger the number, the more fragment projectors are applied to the correcting T2 contributions, and less
-#   'bath' correlation from the FCI clusters is used as a constraint in the external correction of the CCSD clusters.
-#   For multiple constraining fragments, proj=0 will double-count the correction due to overlapping bath spaces, and 
-#   in this case, only proj=1 will be exact in the limit of enlarging (FCI) bath spaces.
-ccsd_frag.add_external_corrections(fci_frags, correction_type='external-ccsdv', projectors=1)
+# Main option is 'projectors', which should be an integer between 0 and 2 (inclusive).
+# The larger the number, the more fragment projectors are applied to the correcting T2 contributions, and less
+# 'bath' correlation from the FCI clusters is used as a constraint in the external correction of the CCSD clusters.
+# For multiple constraining fragments, proj=0 will double-count the correction due to overlapping bath spaces, and 
+# in this case, only proj=1 will be exact in the limit of enlarging (FCI) bath spaces.
+# Note that there is also the option 'low_level_coul' (default True). For the important T3 * V contribution to the
+# T2 amplitudes, this determines whether the V is expressed in the FCI or CCSD cluster space. The CCSD cluster is
+# larger, and hence this is likely to be better (and is default), as the correction is longer-ranged (though slightly more expensive).
+ccsd_frag.add_external_corrections(fci_frags, correction_type='external', projectors=1)
 emb.kernel()
 print('Total energy from full system CCSD tailored (CCSD Coulomb interaction) by atomic FCI fragments (projectors=1): {}'.format(emb.e_tot))
 
@@ -55,8 +55,8 @@ emb = vayesta.ewf.EWF(mf)
 with emb.iao_fragmentation() as f:
     fci_frags = f.add_all_atomic_fragments(solver='FCI', bath_options=dict(bathtype='dmet'), store_wf_type='CCSDTQ', auxiliary=True)
     ccsd_frags = f.add_all_atomic_fragments(solver='CCSD', bath_options=dict(bathtype='mp2', threshold=1.e-5))
-# Now add external corrections to all CCSD clusters, and use 'external-fciv' correction, with 2 projectors
+# Now add external corrections to all CCSD clusters, and use 'external' correction, with 2 projectors and only contracting with the FCI integrals
 for cc_frag in ccsd_frags:
-    cc_frag.add_external_corrections(fci_frags, correction_type='external-fciv', projectors=2)
+    cc_frag.add_external_corrections(fci_frags, correction_type='external', projectors=2, low_level_coul=False)
 emb.kernel()
 print('Total energy from embedded CCSD tailored (FCI Coulomb interaction) by atomic FCI fragments (projectors=2): {}'.format(emb.e_tot))
