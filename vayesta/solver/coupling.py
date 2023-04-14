@@ -516,6 +516,8 @@ def _get_delta_t_for_delta_tailor(fragment, fock):
     eris = fragment._eris
     if eris is None:
         # Symmetry-derived fragments may not have eris stored
+        # TODO: This may not scale well, since we are performing
+        # integral transformations for all fragments. Can be improved.
         eris = fragment.base.get_eris_array(cluster.c_active)
     ccsd = SimpleCCSD(fock, eris, nocc, mo_energy=mo_energy)
     wf = ccsd.kernel(t1=t1, t2=t2)
