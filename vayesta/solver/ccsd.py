@@ -33,7 +33,7 @@ class CCSD_Solver(ClusterSolver):
         conv_tol: float = None          # Convergence energy tolerance
         conv_tol_normt: float = None    # Convergence amplitude tolerance
         init_guess: str = 'MP2'         # ['MP2', 'CISD']
-        level_shift: float = 0.0        # Level shift on virtual orbital energies to stabilize convergence
+        level_shift: float = None       # Level shift on virtual orbital energies to stabilize convergence
         diis_space: int = None          # DIIS space
         diis_start_cycle: int = None     # DIIS start cycle
         iterative_damping: float = None  # Iterative damping
