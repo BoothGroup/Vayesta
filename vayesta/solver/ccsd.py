@@ -178,7 +178,7 @@ class CCSD_Solver(ClusterSolver):
             # External correction of T1 and T2
             if externals:
                 self.log.info("Externally correct CCSD from %d fragments", len(externals))
-                self.set_callback(coupling.externally_correct(self, externals))
+                self.set_callback(coupling.externally_correct(self, externals, eris=eris))
 
         elif self.opts.sc_mode and self.base.iteration > 1:
             raise NotImplementedError

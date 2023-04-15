@@ -2,6 +2,7 @@ import numpy as np
 import vayesta
 from vayesta.core.util import *
 from vayesta.core.types import wf as wf_types
+from vayesta.core.types.wf import t_to_c
 
 
 def CISDTQ_WaveFunction(mo, *args, **kwargs):
@@ -21,43 +22,47 @@ class RCISDTQ_WaveFunction(wf_types.WaveFunction):
         self.c2 = c2
         self.c3 = c3
         self.c4 = c4
+        if not (isinstance(c4, tuple) and len(c4) == 2):
+            raise ValueError("c4 definition in RCISDTQ wfn requires tuple of (abaa, abab) spin signatures")
 
     def as_ccsdtq(self):
-        t1 = self.c1/self.c0
-        t2 = self.c2/self.c0 - einsum('ia,jb->ijab', t1, t1)
-        raise NotImplementedError
-        # TODO:
-        # see also THE JOURNAL OF CHEMICAL PHYSICS 147, 154105 (2017)
-        t3 = self.c3/self.c0 # - C1*C2 - (C1^3)/3
-        t4 = self.c4/self.c0 # - C1*C3 - (C2^2)/2 - C1^2*C2 - (C1^4)/4
+        c1 = self.c1 / self.c0
+        c2 = self.c2 / self.c0
+        c3 = self.c3 / self.c0
+        c4 = tuple(c / self.c0 for c in self.c4)
+
+        t1 = t_to_c.t1_rhf(c1)
+        t2 = t_to_c.t2_rhf(t1, c2)
+        t3 = t_to_c.t3_rhf(t1, t2, c3)
+        t4 = t_to_c.t4_rhf(t1, t2, t3, c4)
+
         return wf_types.RCCSDTQ_WaveFunction(self.mo, t1=t1, t2=t2, t3=t3, t4=t4)
 
 
-class UCISDTQ_WaveFunction(RCISDTQ_WaveFunction):
+class UCISDTQ_WaveFunction(wf_types.WaveFunction):
+
+    def __init__(self, mo, c0, c1, c2, c3, c4):
+        super().__init__(mo)
+        self.c0 = c0
+        self.c1 = c1
+        self.c2 = c2
+        self.c3 = c3
+        self.c4 = c4
+        if not (isinstance(c3, tuple) and len(c3) == 4):
+            raise ValueError("c4 definition in UCISDTQ wfn requires tuple of (aaa, aba, bab, bbb) spin signatures")
+        if not (isinstance(c4, tuple) and len(c4) == 5):
+            raise ValueError(
+                    "c4 definition in UCISDTQ wfn requires tuple of (aaaa, aaab, abab, abbb, bbbb) spin signatures")
 
     def as_ccsdtq(self):
-        c1a, c1b = self.c1
-        c2aa, c2ab, c2bb = self.c2
-        # TODO
-        #c3aaa, c3aab, ... = self.c3
-        #c4aaaa, c4aaab, ... = self.c4
+        c1 = tuple(c / self.c0 for c in self.c1)
+        c2 = tuple(c / self.c0 for c in self.c2)
+        c3 = tuple(c / self.c0 for c in self.c3)
+        c4 = tuple(c / self.c0 for c in self.c4)
 
-        # T1
-        t1a = c1a/self.c0
-        t1b = c1b/self.c0
-        # T2
-        t2aa = c2aa/self.c0 - einsum('ia,jb->ijab', t1a, t1a) + einsum('ib,ja->ijab', t1a, t1a)
-        t2bb = c2bb/self.c0 - einsum('ia,jb->ijab', t1b, t1b) + einsum('ib,ja->ijab', t1b, t1b)
-        t2ab = c2ab/self.c0 - einsum('ia,jb->ijab', t1a, t1b)
-        # T3
-        raise NotImplementedError
-        #t3aaa = c3aaa/self.c0 - einsum('ijab,kc->ijkabc', t2a, t1a) - ...
-        # T4
-        #t4aaaa = c4aaaa/self.c0 - einsum('ijkabc,ld->ijklabcd', t3a, t1a) - ...
+        t1 = t_to_c.t1_uhf(c1)
+        t2 = t_to_c.t2_uhf(t1, c2)
+        t3 = t_to_c.t3_uhf(t1, t2, c3)
+        t4 = t_to_c.t4_uhf(t1, t2, t3, c4)
 
-        t1 = (t1a, t1b)
-        t2 = (t2aa, t2ab, t2bb)
-        # TODO
-        #t3 = (t3aaa, t3aab, ...)
-        #t4 = (t4aaaa, t4aaab, ...)
         return wf_types.UCCSDTQ_WaveFunction(self.mo, t1=t1, t2=t2, t3=t3, t4=t4)

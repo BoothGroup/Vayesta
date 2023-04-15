@@ -21,19 +21,21 @@ mf = pyscf.scf.RHF(mol)
 mf.kernel()
 
 # Embedded CCSD
-emb_iao = vayesta.ewf.EWF(mf, bno_threshold=1e-6)
+emb_iao = vayesta.ewf.EWF(mf, bath_options=dict(threshold=1e-6))
 # If calling the kernel without initializing the fragmentation,
-# IAO fragmentation is used automatically:
-# It can be initialized manually by calling emb.iao_fragmentation()
+# IAO fragmentation is used automatically.
+# It can be initialized manually by calling:
+with emb_iao.iao_fragmentation() as f:
+    f.add_all_atomic_fragments()
 emb_iao.kernel()
 
-emb_iaopao = vayesta.ewf.EWF(mf, bno_threshold=1e-6)
+emb_iaopao = vayesta.ewf.EWF(mf, bath_options=dict(threshold=1e-6))
 # To use IAO+PAOs, call emb.iaopao_fragmentation() before the kernel:
 with emb_iaopao.iaopao_fragmentation() as f:
     f.add_all_atomic_fragments()
 emb_iaopao.kernel()
 
-emb_sao = vayesta.ewf.EWF(mf, bno_threshold=1e-6)
+emb_sao = vayesta.ewf.EWF(mf, bath_options=dict(threshold=1e-6))
 # To use Lowdin AOs (SAOs), call emb.sao_fragmentation() before the kernel:
 with emb_sao.sao_fragmentation() as f:
     f.add_all_atomic_fragments()

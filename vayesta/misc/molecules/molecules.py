@@ -150,6 +150,18 @@ def ring(atom, natom, bond_length=None, radius=None, z=0.0, numbering=None):
         atoms.append([atom_i, np.asarray([r*np.cos(theta), r*np.sin(theta), z])])
     return atoms
 
+def chain(atom, natom, bond_length, numbering=None):
+    '''Open boundary condition version of 1D ring'''
+    atoms = []
+    if isinstance(atom, str):
+        atom = [atom]
+    for i in range(natom):
+        atom_i = atom[i%len(atom)]
+        if numbering is not None:
+            atom_i += str(int(numbering) + i)
+        atoms.append([atom_i, np.asarray([i*bond_length, 0.0, 0.0])])
+    return atoms
+
 # --- From datafiles:
 
 def acetic_acid():

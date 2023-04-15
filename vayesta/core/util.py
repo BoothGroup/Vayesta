@@ -1,5 +1,6 @@
 from contextlib import contextmanager
 from copy import deepcopy
+import itertools
 import dataclasses
 import functools
 import logging
@@ -28,7 +29,7 @@ __all__ = [
         # General
         'Object', 'OptionsBase', 'brange', 'deprecated', 'cache', 'call_once', 'with_doc',
         # NumPy replacements
-        'dot', 'einsum', 'hstack',
+        'dot', 'tril_indices_ndim', 'einsum', 'hstack', 'decompress_axes',
         # Exceptions
         'AbstractMethodError', 'ConvergenceError', 'OrthonormalityError', 'ImaginaryPartError',
         'NotCalculatedError',
@@ -39,7 +40,7 @@ __all__ = [
         # Other
 	'getattr_recursive', 'setattr_recursive',
         'replace_attr', 'break_into_lines', 'fix_orbital_sign', 'split_into_blocks',
-        'getif', 'callif',
+        'getif', 'callif', 'permutations_with_signs',
         ]
 
 class Object:
@@ -106,6 +107,118 @@ def with_doc(doc):
     return func_with_doc
 
 # --- NumPy
+
+def tril_indices_ndim(n, dims, include_diagonal=False):
+    """Return lower triangular indices for a multidimensional array.
+    
+    Copied from ebcc.
+    """
+
+    ranges = [np.arange(n)] * dims
+
+    if dims == 0:
+        return tuple()
+    elif dims == 1:
+        return (ranges[0],)
+
+    if include_diagonal:
+        func = np.greater_equal
+    else:
+        func = np.greater
+
+    slices = [
+        tuple(slice(None) if i == j else np.newaxis for i in range(dims)) for j in range(dims)
+    ]
+
+    casted = [rng[ind] for rng, ind in zip(ranges, slices)]
+    mask = functools.reduce(np.logical_and, [func(a, b) for a, b in zip(casted[:-1], casted[1:])])
+
+    tril = tuple(
+        np.broadcast_to(inds, mask.shape)[mask] for inds in np.indices(mask.shape, sparse=True)
+    )
+
+    return tril
+
+def decompress_axes(subscript, array_flat, shape, include_diagonal=False, symmetry=None):
+    """Decompress an array that has dimensions flattened according to
+    permutation symmetries in the signs.
+
+    Copied from ebcc.
+    """
+
+    assert "->" not in subscript
+
+    # Get symmetry string if needed:
+    if symmetry is None:
+        symmetry = "-" * len(subscript)
+
+    # Initialise decompressed array
+    array = np.zeros(shape)
+
+    # Substitute the input characters so that they are ordered:
+    subs = {}
+    i = 0
+    for char in subscript:
+        if char not in subs:
+            subs[char] = chr(97 + i)
+            i += 1
+    subscript = "".join([subs[s] for s in subscript])
+
+    # Reshape array so that all axes of the same character are adjacent:
+    arg = np.argsort(list(subscript))
+    array = array.transpose(arg)
+    subscript = "".join([subscript[i] for i in arg])
+
+    # Reshape array so that all axes of the same character are flattened:
+    sizes = {}
+    for char, n in zip(subscript, array.shape):
+        if char in sizes:
+            assert sizes[char] == n
+        else:
+            sizes[char] = n
+    array = array.reshape([sizes[char] ** subscript.count(char) for char in sorted(set(subscript))])
+
+    # Check the symmetry string, and compress it:
+    n = 0
+    symmetry_compressed = ""
+    for char in sorted(set(subscript)):
+        assert len(set(symmetry[n : n + subscript.count(char)])) == 1
+        symmetry_compressed += symmetry[n]
+        n += subscript.count(char)
+
+    # For each axis type, get the necessary lower-triangular indices:
+    indices = [
+        tril_indices_ndim(sizes[char], subscript.count(char), include_diagonal=include_diagonal)
+        for char in sorted(set(subscript))
+    ]
+
+    # Iterate over permutations with signs:
+    for tup in itertools.product(*[permutations_with_signs(ind) for ind in indices]):
+        indices_perm, signs = zip(*tup)
+        signs = [s if symm == "-" else 1 for s, symm in zip(signs, symmetry_compressed)]
+
+        # Apply the indices:
+        indices_perm = [
+            np.ravel_multi_index(ind, (sizes[char],) * subscript.count(char))
+            for ind, char in zip(indices_perm, sorted(set(subscript)))
+        ]
+        indices_perm = [
+            ind[tuple(np.newaxis if i != j else slice(None) for i in range(len(indices_perm)))]
+            for j, ind in enumerate(indices_perm)
+        ]
+        shape = array[tuple(indices_perm)].shape
+        array[tuple(indices_perm)] = array_flat.reshape(shape) * np.prod(signs)
+
+    # Reshape array to non-flattened format
+    array = array.reshape(
+        sum([(sizes[char],) * subscript.count(char) for char in sorted(set(subscript))], tuple())
+    )
+
+    # Undo transpose:
+    arg = np.argsort(arg)
+    array = array.transpose(arg)
+
+    return array
 
 def dot(*args, out=None, ignore_none=False):
     """Like NumPy's multi_dot, but variadic"""
@@ -275,6 +388,9 @@ class OrthonormalityError(RuntimeError):
 
 class NotCalculatedError(AttributeError):
     """Raise if a necessary attribute has not been calculated."""
+    pass
+
+class SymmetryError(RuntimeError):
     pass
 
 # --- Energy
@@ -554,3 +670,26 @@ def callif(func, arg, cond=lambda x, **kw: x is not None, default=None, **kwargs
     if cond(arg, **kwargs):
         return func(arg, **kwargs)
     return default
+
+def permutations_with_signs(seq):
+    """Generate permutations of seq, yielding also a sign which is
+    equal to +1 for an even number of swaps, and -1 for an odd number
+    of swaps.
+
+    Copied from ebcc.
+    """
+
+    def _permutations(seq):
+        if not seq:
+            return [[]]
+
+        items = []
+        for i, item in enumerate(_permutations(seq[:-1])):
+            inds = range(len(item) + 1)
+            if i % 2 == 0:
+                inds = reversed(inds)
+            items += [item[:i] + seq[-1:] + item[i:] for i in inds]
+
+        return items
+
+    return [(item, -1 if i % 2 else 1) for i, item in enumerate(_permutations(list(seq)))]

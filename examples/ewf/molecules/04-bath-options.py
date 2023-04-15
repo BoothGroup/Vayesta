@@ -1,3 +1,4 @@
+import numpy as np
 import pyscf
 import pyscf.gto
 import pyscf.scf
@@ -45,6 +46,11 @@ emb_mp2.kernel()
 # of BNOs for a given threshold, and results in a smaller bath for a given threshold.
 # Other options (not shown) include projecting out all couplings to the DMET bath space, or just projecting
 # one index.
+# The options below are default
+emb_mp2_projdmet = vayesta.ewf.EWF(mf, bath_options=dict(bathtype='mp2', threshold=1e-4, 
+        project_dmet_order=2, project_dmet_mode='squared-entropy'))
+emb_mp2_projdmet.kernel()
+assert(np.allclose(emb_mp2_projdmet.e_tot, emb_mp2.e_tot))
 # To turn off this projection (which was not used in 10.1103/PhysRevX.12.011046),
 # use `project_dmet_order = 0`:
 bath = dict(bathtype='mp2', threshold=1e-4, project_dmet_order=0)

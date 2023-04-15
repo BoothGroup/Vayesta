@@ -100,7 +100,12 @@ class SCMF:
 
             dm1 = self.mf.make_rdm1()
             # Check symmetry
-            self.emb.check_fragment_symmetry(dm1)
+            try:
+                self.emb.check_fragment_symmetry(dm1)
+            except SymmetryError:
+                self.log.error("Symmetry check failed in %s", self.name)
+                self.converged = False
+                break
 
             # Check convergence
             conv, de, ddm = self.check_convergence(e_tot, dm1, e_last, dm1_last)

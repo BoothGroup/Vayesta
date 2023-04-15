@@ -18,7 +18,7 @@ from vayesta.core.util import *
 from vayesta.core.qemb import Fragment as BaseFragment
 from vayesta.solver import get_solver_class
 from vayesta.core.fragmentation import IAO_Fragmentation
-from vayesta.core.types import RFCI_WaveFunction
+from vayesta.core.types import RFCI_WaveFunction, RCCSDTQ_WaveFunction, UCCSDTQ_WaveFunction
 
 from vayesta.core.bath import BNO_Threshold
 from vayesta.core.bath import DMET_Bath
@@ -69,6 +69,9 @@ class Fragment(BaseFragment):
     class Flags(BaseFragment.Flags):
         # Tailoring and external correction of CCSD
         external_corrections: Optional[List[typing.Any]] = dataclasses.field(default_factory=list)
+        # Whether to perform additional checks on external corrections
+        test_extcorr: bool = False
+
 
     @dataclasses.dataclass
     class Results(BaseFragment.Results):
@@ -131,7 +134,7 @@ class Fragment(BaseFragment):
     def tailor_with_fragments(self, fragments, projectors=1):
         return self.add_external_corrections(fragments, projectors=projectors)
 
-    def add_external_corrections(self, fragments, correction_type='tailor', projectors=1):
+    def add_external_corrections(self, fragments, correction_type='tailor', projectors=1, test_extcorr=False, low_level_coul=True):
         """Add tailoring or external correction from other fragment solutions to CCSD solver.
 
         Parameters
@@ -147,19 +150,32 @@ class Fragment(BaseFragment):
         projectors: int, optional
             Maximum number of projections applied to the occupied dimensions of the amplitude corrections.
             Default: 1.
+        test_extcorr: bool, optional
+            Whether to perform additional checks on the external corrections.
+        low_level_coul: bool, optional
+            This is an option specific to the 'external' correction.
+            If True, then the T3V term is contracted with integrals spanning the 'low-level' (i.e. CCSD) solver, i.e. the cluster being constrained.
+            If False, then the T3V term is contracted with the integrals in the 'high-level' (i.e. FCI) solver, i.e. the cluster providing the constraints.
+            In general, there should be a slight speed increase, and slight loss of accuracy for the low_level_coul=False option, but in practice, we find only
+            minor differences.
+            Default: True
         """
         if correction_type not in ('tailor', 'delta-tailor', 'external'):
             raise ValueError
         if self.solver != 'CCSD':
             raise RuntimeError
+        if (not low_level_coul) and correction_type != 'external':
+            raise ValueError("low_level_coul optional argument only meaningful with 'external' correction of fragments.")
         if np.any([(getattr_recursive(f, 'results.wf', None) is None and not f.opts.auxiliary) for f in fragments]):
             raise ValueError("Fragments for external correction need to be already solved or defined as auxiliary fragments.")
         self.flags.external_corrections.extend(
-                [(f.id, correction_type, projectors) for f in fragments])
+                [(f.id, correction_type, projectors, low_level_coul) for f in fragments])
+        self.flags.test_extcorr = test_extcorr
 
     def clear_external_corrections(self):
         """Remove all tailoring or external correction which were added via add_external_corrections."""
         self.flags.external_corrections = []
+        self.flags.test_extcorr = False
 
     def get_init_guess(self, init_guess, solver, cluster):
         # FIXME
@@ -304,6 +320,9 @@ class Fragment(BaseFragment):
         # Projection of FCI wave function is not implemented - convert to CISD
         if isinstance(wf, RFCI_WaveFunction):
             pwf = wf.as_cisd()
+        # Projection of CCSDTQ wave function is not implemented - convert to CCSD
+        elif isinstance(wf, (RCCSDTQ_WaveFunction, UCCSDTQ_WaveFunction)):
+            pwf = wf.as_ccsd()
         proj = self.get_overlap('proj|cluster-occ')
         pwf = pwf.project(proj, inplace=False)
 
@@ -356,6 +375,7 @@ class Fragment(BaseFragment):
         elif solver.upper() == 'DUMP':
             solver_opts['filename'] = self.opts.solver_options['dumpfile']
         solver_opts['external_corrections'] = self.flags.external_corrections
+        solver_opts['test_extcorr'] = self.flags.test_extcorr
         return solver_opts
 
     # --- Expectation values
