@@ -134,7 +134,7 @@ class Fragment(BaseFragment):
     def tailor_with_fragments(self, fragments, projectors=1):
         return self.add_external_corrections(fragments, projectors=projectors)
 
-    def add_external_corrections(self, fragments, correction_type='tailor', projectors=1, test_extcorr=False):
+    def add_external_corrections(self, fragments, correction_type='tailor', projectors=1, test_extcorr=False, low_level_coul=True):
         """Add tailoring or external correction from other fragment solutions to CCSD solver.
 
         Parameters
@@ -146,23 +146,30 @@ class Fragment(BaseFragment):
                 'tailor': replace CCSD T1 and T2 amplitudes with FCI amplitudes.
                 'delta-tailor': Add the difference of FCI and CCSD T1 and T2 amplitudes
                 'external': externally correct CCSD T1 and T2 amplitudes from FCI T3 and T4 amplitudes.
-                'external-fciv': externally correct CCSD T1 and T2 amplitudes from FCI T3 and T4 amplitudes (note T3V term contracted with integrals from the cluster providing the constraints). 'external' is the same as this.
-                'external-ccsdv': externally correct CCSD T1 and T2 amplitudes from FCI T3 and T4 amplitudes (note T3V term contracted with integrals from the cluster being constrained). Should be more accurate?
             Default: 'tailor'.
         projectors: int, optional
             Maximum number of projections applied to the occupied dimensions of the amplitude corrections.
             Default: 1.
         test_extcorr: bool, optional
             Whether to perform additional checks on the external corrections.
+        low_level_coul: bool, optional
+            This is an option specific to the 'external' correction.
+            If True, then the T3V term is contracted with integrals spanning the 'low-level' (i.e. CCSD) solver, i.e. the cluster being constrained.
+            If False, then the T3V term is contracted with the integrals in the 'high-level' (i.e. FCI) solver, i.e. the cluster providing the constraints.
+            In general, there should be a slight speed increase, and slight loss of accuracy for the low_level_coul=False option, but in practice, we find only
+            minor differences.
+            Default: True
         """
-        if correction_type not in ('tailor', 'delta-tailor', 'external', 'external-fciv', 'external-ccsdv'):
+        if correction_type not in ('tailor', 'delta-tailor', 'external'):
             raise ValueError
         if self.solver != 'CCSD':
             raise RuntimeError
+        if (not low_level_coul) and correction_type != 'external':
+            raise ValueError("low_level_coul optional argument only meaningful with 'external' correction of fragments.")
         if np.any([(getattr_recursive(f, 'results.wf', None) is None and not f.opts.auxiliary) for f in fragments]):
             raise ValueError("Fragments for external correction need to be already solved or defined as auxiliary fragments.")
         self.flags.external_corrections.extend(
-                [(f.id, correction_type, projectors) for f in fragments])
+                [(f.id, correction_type, projectors, low_level_coul) for f in fragments])
         self.flags.test_extcorr = test_extcorr
 
     def clear_external_corrections(self):

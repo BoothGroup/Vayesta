@@ -42,16 +42,13 @@ fci_frags.extend(fci_frags[0].add_tsymmetric_fragments(tvecs=[5, 1, 1])
 
 e_extcorr = []
 extcorr_conv = []
-#Two main options: correction_type='external-ccsdv' and 'external-fciv'. For the important T3 * V contribution to the
-#T2 amplitudes, this determines whether the V is expressed in the FCI or CCSD cluster space. The CCSD cluster is
-#larger, and hence this is likely to be better, as the correction is longer-ranged (though slightly more expensive).
-#The other option is 'projectors', which should be an integer between 0 and 2 (inclusive).
+#Main options: 'projectors', which should be an integer between 0 and 2 (inclusive).
 #The larger the number, the more fragment projectors are applied to the correcting T2 contributions, and less
 #'bath' correlation from the FCI clusters is used as a constraint in the external correction of the CCSD clusters.
 #NOTE that with multiple FCI fragments providing constraints and overlapping bath spaces, proj=0 will
 #overcount the correction, so do not use with multiple FCI clusters. It will not e.g. tend to the right answer as
 #the FCI bath space becomes complete (for which you must have proj=1). Only use with a single FCI fragment.
-ccsd_frag.add_external_corrections(fci_frags, correction_type='external-ccsdv', projectors=1)
+ccsd_frag.add_external_corrections(fci_frags, correction_type='external', projectors=1)
 emb.kernel()
 e_extcorr.append(emb.e_tot); extcorr_conv.append(emb.converged)
 
@@ -61,17 +58,17 @@ for fci_frag in fci_frags:
     fci_frag.active = False
 
 ccsd_frag.clear_external_corrections() # Clear any previous corrections applied
-ccsd_frag.add_external_corrections(fci_frags, correction_type='external-ccsdv', projectors=2)
+ccsd_frag.add_external_corrections(fci_frags, correction_type='external', projectors=2)
 emb.kernel()
 e_extcorr.append(emb.e_tot); extcorr_conv.append(emb.converged)
 
 ccsd_frag.clear_external_corrections() # Clear any previous corrections applied
-ccsd_frag.add_external_corrections(fci_frags, correction_type='external-fciv', projectors=1)
+ccsd_frag.add_external_corrections(fci_frags, correction_type='external', projectors=1, low_level_coul=False)
 emb.kernel()
 e_extcorr.append(emb.e_tot); extcorr_conv.append(emb.converged)
 
 ccsd_frag.clear_external_corrections() # Clear any previous corrections applied
-ccsd_frag.add_external_corrections(fci_frags, correction_type='external-fciv', projectors=2)
+ccsd_frag.add_external_corrections(fci_frags, correction_type='external', projectors=2, low_level_coul=False)
 emb.kernel()
 e_extcorr.append(emb.e_tot); extcorr_conv.append(emb.converged)
 

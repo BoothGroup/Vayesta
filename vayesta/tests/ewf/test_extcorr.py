@@ -42,7 +42,7 @@ class TestFullEC_tailor(TestCase):
         del cls.mf
 
 
-    def _test(cls, key, proj=0, bathtype='full', fcifragtype = 'atomic', mode='external-fciv', store_wf_ccsdtq=True):
+    def _test(cls, key, proj=0, bathtype='full', fcifragtype = 'atomic', mode='external', low_level_coul=False, store_wf_ccsdtq=True):
         mf = getattr(getattr(testsystems, key[0]), key[1])()
         if fcifragtype == 'fullsystem':
             emb = vayesta.ewf.EWF(mf, solver_options={'conv_tol':1.0e-12} )
@@ -55,7 +55,7 @@ class TestFullEC_tailor(TestCase):
                     fci_frags.append(f.add_full_system(solver='FCI', bath_options=dict(bathtype=bathtype),
                                                        auxiliary=True))
                 ccsd_frag = f.add_full_system(solver='CCSD', bath_options=dict(bathtype='full'))
-            ccsd_frag.add_external_corrections(fci_frags, correction_type=mode, projectors=proj,test_extcorr=True)
+            ccsd_frag.add_external_corrections(fci_frags, correction_type=mode, projectors=proj, low_level_coul=low_level_coul, test_extcorr=True)
             emb.kernel()
 
 
@@ -69,7 +69,7 @@ class TestFullEC_tailor(TestCase):
                     fci_frag = f.add_all_atomic_fragments(solver='FCI', bath_options=dict(bathtype=bathtype),
                                                           auxiliary=True)
                 ccsd_frag = f.add_full_system(solver='CCSD', bath_options=dict(bathtype='full'))
-            ccsd_frag.add_external_corrections(fci_frag, correction_type=mode, projectors=proj, test_extcorr=True)
+            ccsd_frag.add_external_corrections(fci_frag, correction_type=mode, projectors=proj, low_level_coul=low_level_coul, test_extcorr=True)
             
             emb.kernel()
 
@@ -82,31 +82,31 @@ class TestFullEC_tailor(TestCase):
     @pytest.mark.fast
     def test_r_exact_ec_lih_631g_atomicfrags_proj1_ccsdv_store(self):
         e_tot, fci_e_tot = self._test(('lih_631g', 'rhf'), proj=1, bathtype='full', fcifragtype = 'atomic',
-                                      mode='external-ccsdv', store_wf_ccsdtq=True)
+                                      mode='external', low_level_coul=True, store_wf_ccsdtq=True)
         self.assertAlmostEqual(e_tot, fci_e_tot)
 
     @pytest.mark.fast
     def test_r_regression_ec_lih_631g_atomicfrags_proj2_ccsdv_store(self):
         e_tot, fci_e_tot = self._test(('lih_631g', 'rhf'), proj=2, bathtype='full', fcifragtype = 'atomic',
-                                      mode='external-ccsdv', store_wf_ccsdtq=True)
+                                      mode='external', low_level_coul=True, store_wf_ccsdtq=True)
         self.assertAlmostEqual(e_tot,  -7.98893732925952)
 
     @pytest.mark.slow
     def test_r_exact_ec_lih_631g_fullsystem_proj0_ccsdv_store(self):
         e_tot, fci_e_tot = self._test(('lih_631g', 'rhf'), proj=0, bathtype='full', fcifragtype = 'fullsystem',
-                                      mode='external-ccsdv', store_wf_ccsdtq=True)
+                                      mode='external', low_level_coul=True, store_wf_ccsdtq=True)
         self.assertAlmostEqual(e_tot, fci_e_tot)
 
     @pytest.mark.slow
     def test_r_exact_ec_lih_631g_fullsystem_proj1_ccsdv_store(self):
         e_tot, fci_e_tot = self._test(('lih_631g', 'rhf'), proj=1, bathtype='full', fcifragtype = 'fullsystem',
-                                      mode='external-ccsdv', store_wf_ccsdtq=True)
+                                      mode='external', low_level_coul=True, store_wf_ccsdtq=True)
         self.assertAlmostEqual(e_tot, fci_e_tot)
 
     @pytest.mark.slow
     def test_r_exact_ec_lih_631g_fullsystem_proj2_ccsdv_store(self):
         e_tot, fci_e_tot = self._test(('lih_631g', 'rhf'), proj=2, bathtype='full', fcifragtype = 'fullsystem',
-                                      mode='external-ccsdv', store_wf_ccsdtq=True)
+                                      mode='external', low_level_coul=True, store_wf_ccsdtq=True)
         self.assertAlmostEqual(e_tot, fci_e_tot)
 
 
@@ -115,31 +115,31 @@ class TestFullEC_tailor(TestCase):
     @pytest.mark.slow
     def test_u_exact_ec_lih_631g_atomicfrags_proj1_ccsdv_store(self):
         e_tot, fci_e_tot = self._test(('lih_631g', 'uhf'), proj=1, bathtype='full', fcifragtype = 'atomic',
-                                      mode='external-ccsdv', store_wf_ccsdtq=True)
+                                      mode='external', low_level_coul=True, store_wf_ccsdtq=True)
         self.assertAlmostEqual(e_tot, fci_e_tot)
 
     @pytest.mark.slow
     def test_u_regression_ec_lih_631g_atomicfrags_proj2_ccsdv_store(self):
         e_tot, fci_e_tot = self._test(('lih_631g', 'uhf'), proj=2, bathtype='full', fcifragtype = 'atomic',
-                                      mode='external-ccsdv', store_wf_ccsdtq=True)
+                                      mode='external', low_level_coul=True, store_wf_ccsdtq=True)
         self.assertAlmostEqual(e_tot, -7.988937329208046)
 
     @pytest.mark.fast
     def test_u_exact_ec_lih_631g_fullsystem_proj0_ccsdv_store(self):
         e_tot, fci_e_tot = self._test(('lih_631g', 'uhf'), proj=0, bathtype='full', fcifragtype = 'fullsystem',
-                                      mode='external-ccsdv', store_wf_ccsdtq=True)
+                                      mode='external', low_level_coul=True, store_wf_ccsdtq=True)
         self.assertAlmostEqual(e_tot, fci_e_tot)
 
     @pytest.mark.slow
     def test_u_exact_ec_lih_631g_fullsystem_proj1_ccsdv_store(self):
         e_tot, fci_e_tot = self._test(('lih_631g', 'uhf'), proj=1, bathtype='full', fcifragtype = 'fullsystem',
-                                      mode='external-ccsdv', store_wf_ccsdtq=True)
+                                      mode='external', low_level_coul=True, store_wf_ccsdtq=True)
         self.assertAlmostEqual(e_tot, fci_e_tot)
 
     @pytest.mark.fast
     def test_u_exact_ec_lih_631g_fullsystem_proj2_ccsdv_store(self):
         e_tot, fci_e_tot = self._test(('lih_631g', 'uhf'), proj=2, bathtype='full', fcifragtype = 'fullsystem',
-                                      mode='external-ccsdv', store_wf_ccsdtq=True)
+                                      mode='external', low_level_coul=True, store_wf_ccsdtq=True)
         self.assertAlmostEqual(e_tot, fci_e_tot)
 
     #  FCI fragment bathtype = dmet
@@ -148,31 +148,31 @@ class TestFullEC_tailor(TestCase):
     @pytest.mark.fast
     def test_r_regression_ec_lih_631g_atomicfrags_bathype_dmet_proj1_ccsdv_store(self):
         e_tot, fci_e_tot = self._test(('lih_631g', 'rhf'), proj=1, bathtype='dmet', fcifragtype = 'atomic',
-                                      mode='external-ccsdv', store_wf_ccsdtq=True)
+                                      mode='external', low_level_coul=True, store_wf_ccsdtq=True)
         self.assertAlmostEqual(e_tot, -7.988931393747468)
 
     @pytest.mark.fast
     def test_r_regression_ec_lih_631g_atomicfrags_bathype_dmet_proj2_ccsdv_store(self):
         e_tot, fci_e_tot = self._test(('lih_631g', 'rhf'), proj=2, bathtype='dmet', fcifragtype = 'atomic',
-                                      mode='external-ccsdv', store_wf_ccsdtq=True)
+                                      mode='external', low_level_coul=True, store_wf_ccsdtq=True)
         self.assertAlmostEqual(e_tot,  -7.988931393747468)
 
     @pytest.mark.slow
     def test_r_regression_ec_lih_631g_fullsystem_bathype_dmet_proj0_ccsdv_store(self):
         e_tot, fci_e_tot = self._test(('lih_631g', 'rhf'), proj=0, bathtype='dmet', fcifragtype = 'fullsystem',
-                                      mode='external-ccsdv', store_wf_ccsdtq=True)
+                                      mode='external', low_level_coul=True, store_wf_ccsdtq=True)
         self.assertAlmostEqual(e_tot, -7.988931393745471)
 
     @pytest.mark.slow
     def test_r_regression_ec_lih_631g_fullsystem_bathype_dmet_proj1_ccsdv_store(self):
         e_tot, fci_e_tot = self._test(('lih_631g', 'rhf'), proj=1, bathtype='dmet', fcifragtype = 'fullsystem',
-                                      mode='external-ccsdv', store_wf_ccsdtq=True)
+                                      mode='external', low_level_coul=True, store_wf_ccsdtq=True)
         self.assertAlmostEqual(e_tot, -7.988931393747714)
 
     @pytest.mark.slow
     def test_r_regression_ec_lih_631g_fullsystem_bathype_dmet_proj2_ccsdv_store(self):
         e_tot, fci_e_tot = self._test(('lih_631g', 'rhf'), proj=2, bathtype='dmet', fcifragtype = 'fullsystem',
-                                      mode='external-ccsdv', store_wf_ccsdtq=True)
+                                      mode='external', low_level_coul=True, store_wf_ccsdtq=True)
         self.assertAlmostEqual(e_tot, -7.98893139374664)
 
    # uhf tests
@@ -180,37 +180,37 @@ class TestFullEC_tailor(TestCase):
     @pytest.mark.slow
     def test_u_regression_ec_lih_631g_atomicfrags_bathype_dmet_proj1_ccsdv_store(self):
         e_tot, fci_e_tot = self._test(('lih_631g', 'uhf'), proj=1, bathtype='dmet', fcifragtype = 'atomic',
-                                      mode='external-ccsdv', store_wf_ccsdtq=True)
+                                      mode='external', low_level_coul=True, store_wf_ccsdtq=True)
         self.assertAlmostEqual(e_tot, -7.988931393739508)
 
     @pytest.mark.slow
     def test_u_regression_ec_lih_631g_atomicfrags_bathype_dmet_proj2_ccsdv_store(self):
         e_tot, fci_e_tot = self._test(('lih_631g', 'uhf'), proj=2, bathtype='dmet', fcifragtype = 'atomic',
-                                      mode='external-ccsdv', store_wf_ccsdtq=True)
+                                      mode='external', low_level_coul=True, store_wf_ccsdtq=True)
         self.assertAlmostEqual(e_tot, -7.988931393739506)
 
 
     @pytest.mark.fast
     def test_u_regression_ec_lih_631g_fullsystem_bathype_dmet_proj0_ccsdv_store(self):
         e_tot, fci_e_tot = self._test(('lih_631g', 'uhf'), proj=0, bathtype='dmet', fcifragtype = 'fullsystem',
-                                      mode='external-ccsdv', store_wf_ccsdtq=True)
+                                      mode='external', low_level_coul=True, store_wf_ccsdtq=True)
         self.assertAlmostEqual(e_tot, -7.988931393739505)
 
     @pytest.mark.slow
     def test_u_regression_ec_lih_631g_fullsystem_bathype_dmet_proj1_ccsdv_store(self):
         e_tot, fci_e_tot = self._test(('lih_631g', 'uhf'), proj=1, bathtype='dmet', fcifragtype = 'fullsystem',
-                                      mode='external-ccsdv', store_wf_ccsdtq=True)
+                                      mode='external', low_level_coul=True, store_wf_ccsdtq=True)
         self.assertAlmostEqual(e_tot, -7.9889313937395094)
 
     @pytest.mark.fast
     def test_u_regression_ec_lih_631g_fullsystem_bathype_dmet_proj2_ccsdv_store(self):
         e_tot, fci_e_tot = self._test(('lih_631g', 'uhf'), proj=2, bathtype='dmet', fcifragtype = 'fullsystem',
-                                      mode='external-ccsdv', store_wf_ccsdtq=True)
+                                      mode='external', low_level_coul=True, store_wf_ccsdtq=True)
         self.assertAlmostEqual(e_tot, -7.988931393739503)
 
 @pytest.mark.fast
 class TestHubCompleteEC(TestCase):
-    def _test_10_u4_2imp(self, mode, proj):
+    def _test_10_u4_2imp(self, mode, proj, low_level_coul=True):
         """Tests for N=10 U=4 Hubbard model with double site CCSD impurities
         and complete FCI fragment
         """
@@ -230,7 +230,7 @@ class TestHubCompleteEC(TestCase):
 
         fci_frag.active = False
         ccsd_frag.active = True
-        ccsd_frag.add_external_corrections([fci_frag], correction_type=mode, projectors=proj, test_extcorr=True)
+        ccsd_frag.add_external_corrections([fci_frag], correction_type=mode, projectors=proj, low_level_coul=low_level_coul, test_extcorr=True)
         emb.kernel()
 
         fci = pyscf.fci.FCI(mf)
@@ -245,21 +245,21 @@ class TestHubCompleteEC(TestCase):
         self.assertAlmostEqual(emb.e_tot, fci_frag_etot)
     
     def test_hub_ec_2imp_proj0_ccsdv(self):
-        return self._test_10_u4_2imp(mode='external-ccsdv', proj=0)
-    def test_hub_ec_2imp_proj1_ccsdv(self):
-        return self._test_10_u4_2imp(mode='external-ccsdv', proj=1)
-    def test_hub_ec_2imp_proj2_ccsdv(self):
-        return self._test_10_u4_2imp(mode='external-ccsdv', proj=2)
-    def test_hub_ec_2imp_proj0_fciv(self):
-        return self._test_10_u4_2imp(mode='external-fciv', proj=0)
-    def test_hub_ec_2imp_proj1_fciv(self):
-        return self._test_10_u4_2imp(mode='external-fciv', proj=1)
-    def test_hub_ec_2imp_proj2_fciv(self):
-        return self._test_10_u4_2imp(mode='external-fciv', proj=2)
+        return self._test_10_u4_2imp(mode='external', proj=0, low_level_coul=True)
+    def test_hub_ec_2imp_proj1_ccsdv(self):                                      
+        return self._test_10_u4_2imp(mode='external', proj=1, low_level_coul=True)
+    def test_hub_ec_2imp_proj2_ccsdv(self):                                      
+        return self._test_10_u4_2imp(mode='external', proj=2, low_level_coul=True)
+    def test_hub_ec_2imp_proj0_fciv(self):                                       
+        return self._test_10_u4_2imp(mode='external', proj=0, low_level_coul=False)
+    def test_hub_ec_2imp_proj1_fciv(self):                                       
+        return self._test_10_u4_2imp(mode='external', proj=1, low_level_coul=False)
+    def test_hub_ec_2imp_proj2_fciv(self):                                       
+        return self._test_10_u4_2imp(mode='external', proj=2, low_level_coul=False)
 
 @pytest.mark.fast
 class TestHubBathEC(TestCase):
-    def _test_10_u2_2impfci(self, mode):
+    def _test_10_u2_2impfci(self, mode, low_level_coul=True):
         """Tests for N=10 U=2 Hubbard model with double site CCSD impurities
         and 2-site FCI fragment (but complete bath). With no projectors on
         external correction, should still be exact.
@@ -280,7 +280,7 @@ class TestHubBathEC(TestCase):
         fci_frag.active = False
         ccsd_frag.active = True
         # Given the complete bath of the FCI fragment, should still be exact
-        ccsd_frag.add_external_corrections([fci_frag], correction_type=mode, projectors=0, test_extcorr=True)
+        ccsd_frag.add_external_corrections([fci_frag], correction_type=mode, projectors=0, low_level_coul=low_level_coul, test_extcorr=True)
         emb.kernel()
 
         fci = pyscf.fci.FCI(mf)
@@ -293,13 +293,13 @@ class TestHubBathEC(TestCase):
         self.assertAlmostEqual(emb.e_tot, fci.e_tot)
 
     def test_hub_ec_2impfci_proj0_fciv(self):
-        return self._test_10_u2_2impfci(mode='external-fciv')
+        return self._test_10_u2_2impfci(mode='external', low_level_coul=False)
     def test_hub_ec_2impfci_proj0_ccsdv(self):
-        return self._test_10_u2_2impfci(mode='external-ccsdv')
+        return self._test_10_u2_2impfci(mode='external', low_level_coul=True)
 
 @pytest.mark.fast
 class TestECSym(TestCase):
-    def _test_10_u2_eccc_sym(self, mode, proj=0):
+    def _test_10_u2_eccc_sym(self, mode, low_level_coul=True, proj=0):
         """Test symmetry in external correction via comparison to system without use of symmetry
         """
 
@@ -329,7 +329,7 @@ class TestECSym(TestCase):
         ccsd_frag.active = True
         # Note that proj=0 will 'over correct' here and double-count bath-bath tailoring contributions.
         # However, it should still be equivalent to the non symmetry version
-        ccsd_frag.add_external_corrections(fci_frags, correction_type=mode, projectors=proj, test_extcorr=True)
+        ccsd_frag.add_external_corrections(fci_frags, correction_type=mode, projectors=proj, low_level_coul=low_level_coul, test_extcorr=True)
         emb.kernel()
         e_tot_nosym = emb.e_tot
 
@@ -351,23 +351,23 @@ class TestECSym(TestCase):
         for fci_frag in fci_frags:
             fci_frag.active = False
         ccsd_frag.active = True
-        ccsd_frag.add_external_corrections(fci_frags, correction_type=mode, projectors=proj, test_extcorr=True)
+        ccsd_frag.add_external_corrections(fci_frags, correction_type=mode, projectors=proj, low_level_coul=low_level_coul, test_extcorr=True)
         emb.kernel()
 
         self.assertAlmostEqual(emb.e_tot, e_tot_nosym)
 
     def test_hub_ec_sym_proj0_fciv(self):
-        return self._test_10_u2_eccc_sym(mode='external-fciv', proj=0)
+        return self._test_10_u2_eccc_sym(mode='external', proj=0, low_level_coul=False)
     def test_hub_ec_sym_proj1_fciv(self):
-        return self._test_10_u2_eccc_sym(mode='external-fciv', proj=1)
+        return self._test_10_u2_eccc_sym(mode='external', proj=1, low_level_coul=False)
     def test_hub_ec_sym_proj2_fciv(self):
-        return self._test_10_u2_eccc_sym(mode='external-fciv', proj=2)
+        return self._test_10_u2_eccc_sym(mode='external', proj=2, low_level_coul=False)
     def test_hub_ec_sym_proj0_ccsdv(self):
-        return self._test_10_u2_eccc_sym(mode='external-ccsdv', proj=0)
+        return self._test_10_u2_eccc_sym(mode='external', proj=0, low_level_coul=True)
     def test_hub_ec_sym_proj1_ccsdv(self):
-        return self._test_10_u2_eccc_sym(mode='external-ccsdv', proj=1)
+        return self._test_10_u2_eccc_sym(mode='external', proj=1, low_level_coul=True)
     def test_hub_ec_sym_proj2_ccsdv(self):
-        return self._test_10_u2_eccc_sym(mode='external-ccsdv', proj=2)
+        return self._test_10_u2_eccc_sym(mode='external', proj=2, low_level_coul=True)
     def test_hub_ec_sym_proj1_dtailor(self):
         return self._test_10_u2_eccc_sym(mode='delta-tailor', proj=1)
     def test_hub_ec_sym_proj1_tailor(self):
@@ -375,7 +375,7 @@ class TestECSym(TestCase):
 
 @pytest.mark.fast
 class TestRegEC_CCSD(TestCase):
-    def _test_water_ec_regression(self, mode=None, projectors=None):
+    def _test_water_ec_regression(self, mode=None, projectors=None, low_level_coul=True):
     
         mf = testsystems.water_ccpvdz_df.rhf()
         
@@ -394,29 +394,29 @@ class TestRegEC_CCSD(TestCase):
 
         for ccsd_frag in ccsd_frags:
             ccsd_frag.active = True
-            ccsd_frag.add_external_corrections(fci_frags, correction_type=mode, projectors=projectors,
+            ccsd_frag.add_external_corrections(fci_frags, correction_type=mode, projectors=projectors, low_level_coul=low_level_coul,
                                                test_extcorr=True)
 
         emb.kernel()
         return emb.e_tot
 
     def test_water_ec_regression_proj0_fciv(self):
-        e_tot = self._test_water_ec_regression(mode='external-fciv', projectors=0)
+        e_tot = self._test_water_ec_regression(mode='external', projectors=0, low_level_coul=False)
         self.assertAlmostEqual(e_tot, -76.2402530047042)
     def test_water_ec_regression_proj0_ccsdv(self):
-        e_tot = self._test_water_ec_regression(mode='external-ccsdv', projectors=0)
+        e_tot = self._test_water_ec_regression(mode='external', projectors=0, low_level_coul=True)
         self.assertAlmostEqual(e_tot, -76.24018922136538)
     def test_water_ec_regression_proj1_fciv(self):
-        e_tot = self._test_water_ec_regression(mode='external-fciv', projectors=1)
+        e_tot = self._test_water_ec_regression(mode='external', projectors=1, low_level_coul=False)
         self.assertAlmostEqual(e_tot, -76.24022612405739)
     def test_water_ec_regression_proj1_ccsdv(self):
-        e_tot = self._test_water_ec_regression(mode='external-ccsdv', projectors=1)
+        e_tot = self._test_water_ec_regression(mode='external', projectors=1, low_level_coul=True)
         self.assertAlmostEqual(e_tot, -76.24017967220551)
     def test_water_ec_regression_proj2_fciv(self):
-        e_tot = self._test_water_ec_regression(mode='external-fciv', projectors=2)
+        e_tot = self._test_water_ec_regression(mode='external', projectors=2, low_level_coul=False)
         self.assertAlmostEqual(e_tot, -76.24020498388937)
     def test_water_ec_regression_proj2_ccsdv(self):
-        e_tot = self._test_water_ec_regression(mode='external-ccsdv', projectors=2)
+        e_tot = self._test_water_ec_regression(mode='external', projectors=2, low_level_coul=True)
         self.assertAlmostEqual(e_tot, -76.24017093290053)
 
 

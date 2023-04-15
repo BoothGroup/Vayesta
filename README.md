@@ -41,7 +41,9 @@ M. Nusspickel, O. J. Backhouse, B. Ibrahim, A. Santana-Bonilla, C. J. C. Scott, 
 Citing Vayesta
 --------------
 
-The following paper should be cited in publications which make use of Vayesta:
+The following papers should be cited in publications which make use of Vayesta:
+
+[Max Nusspickel, Basil Ibrahim and George H. Booth, arXiv:2210.14561 (2023)](https://arxiv.org/abs/2210.14561).
 
 [Max Nusspickel and George H. Booth, Phys. Rev. X 12, 011046 (2022)](https://journals.aps.org/prx/abstract/10.1103/PhysRevX.12.011046).
 

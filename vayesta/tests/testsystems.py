@@ -76,7 +76,12 @@ class TestMolecule:
     def uhf_stable(self):
         # Get uhf solution, and copy to avoid changing attributes.
         uhf = copy.copy(self.uhf())
-        # Repeat this procedure a few times; it should converge pretty rapidly, but we don't want to get stuck in an
+        # Follow procedure from pyscf/examples/scf/32-break_spin_symm.py to ensure symmetry breaking in initial guess.
+        # Use standard calculation as initial guess.
+        dm0 = uhf.make_rdm1()
+        uhf.kernel(dm0=(dm0[0], np.zeros_like(dm0[1])))
+
+        # Repeat this procedure a few times; it should converge rapidly, but we don't want to get stuck in an
         # infinite loop if it doesn't.
         for i in range(5):
             # Check stability of current solution.
@@ -320,7 +325,7 @@ class TestLattice:
 
     @cache
     def uhf(self):
-        uhf = latt.LatticeRHF(self.mol)
+        uhf = latt.LatticeUHF(self.mol)
         if self.with_df:
             uhf = uhf.density_fit()
         uhf.conv_tol = 1e-12
@@ -334,7 +339,7 @@ class TestLattice:
 
 h2_dz = TestMolecule("H 0 0 0; H 0 0 0.74", basis="cc-pvdz")
 h2anion_dz = TestMolecule("H 0 0 0; H 0 0 0.74", basis="cc-pvdz", charge=-1, spin=1)
-h2_sto3g_dissoc_df = TestMolecule("H 0 0 0; H 0 0 10.0", basis="sto3g", auxbasis=True)
+h2_sto3g_dissoc = TestMolecule("H 0 0 0; H 0 0 10.0", basis="sto3g")
 
 h6_sto6g = TestMolecule(
         atom=["H %f %f %f" % xyz for xyz in pyscf.tools.ring.make(6, 1.0)],

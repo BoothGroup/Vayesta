@@ -60,3 +60,4 @@ jobs:
           publish_dir: docs/build/html
           force_orphan: true
         if: ${{ matrix.documentation && github.ref == 'refs/heads/master' && github.event_name != 'schedule' }}
+
