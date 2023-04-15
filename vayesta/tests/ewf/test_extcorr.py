@@ -148,7 +148,7 @@ class TestFullEC_tailor(TestCase):
     @pytest.mark.fast
     def test_r_regression_ec_lih_631g_atomicfrags_bathype_dmet_proj1_ccsdv_store(self):
         e_tot, fci_e_tot = self._test(('lih_631g', 'rhf'), proj=1, bathtype='dmet', fcifragtype = 'atomic',
-                                      mode='external', low_level_coul=True store_wf_ccsdtq=True)
+                                      mode='external', low_level_coul=True, store_wf_ccsdtq=True)
         self.assertAlmostEqual(e_tot, -7.988931393747468)
 
     @pytest.mark.fast
@@ -210,7 +210,7 @@ class TestFullEC_tailor(TestCase):
 
 @pytest.mark.fast
 class TestHubCompleteEC(TestCase):
-    def _test_10_u4_2imp(self, mode, proj):
+    def _test_10_u4_2imp(self, mode, proj, low_level_coul=True):
         """Tests for N=10 U=4 Hubbard model with double site CCSD impurities
         and complete FCI fragment
         """
@@ -230,7 +230,7 @@ class TestHubCompleteEC(TestCase):
 
         fci_frag.active = False
         ccsd_frag.active = True
-        ccsd_frag.add_external_corrections([fci_frag], correction_type=mode, projectors=proj, test_extcorr=True)
+        ccsd_frag.add_external_corrections([fci_frag], correction_type=mode, projectors=proj, low_level_coul=low_level_coul, test_extcorr=True)
         emb.kernel()
 
         fci = pyscf.fci.FCI(mf)
@@ -245,17 +245,17 @@ class TestHubCompleteEC(TestCase):
         self.assertAlmostEqual(emb.e_tot, fci_frag_etot)
     
     def test_hub_ec_2imp_proj0_ccsdv(self):
-        return self._test_10_u4_2imp(mode='external', low_level_coul=True, proj=0)
-    def test_hub_ec_2imp_proj1_ccsdv(self):
-        return self._test_10_u4_2imp(mode='external', low_level_coul=True, proj=1)
-    def test_hub_ec_2imp_proj2_ccsdv(self):
-        return self._test_10_u4_2imp(mode='external', low_level_coul=True, proj=2)
-    def test_hub_ec_2imp_proj0_fciv(self):
-        return self._test_10_u4_2imp(mode='external', low_level_coul=False, proj=0)
-    def test_hub_ec_2imp_proj1_fciv(self):
-        return self._test_10_u4_2imp(mode='external', low_level_coul=False, proj=1)
-    def test_hub_ec_2imp_proj2_fciv(self):
-        return self._test_10_u4_2imp(mode='external', low_level_coul=False, proj=2)
+        return self._test_10_u4_2imp(mode='external', proj=0, low_level_coul=True)
+    def test_hub_ec_2imp_proj1_ccsdv(self):                                      
+        return self._test_10_u4_2imp(mode='external', proj=1, low_level_coul=True)
+    def test_hub_ec_2imp_proj2_ccsdv(self):                                      
+        return self._test_10_u4_2imp(mode='external', proj=2, low_level_coul=True)
+    def test_hub_ec_2imp_proj0_fciv(self):                                       
+        return self._test_10_u4_2imp(mode='external', proj=0, low_level_coul=False)
+    def test_hub_ec_2imp_proj1_fciv(self):                                       
+        return self._test_10_u4_2imp(mode='external', proj=1, low_level_coul=False)
+    def test_hub_ec_2imp_proj2_fciv(self):                                       
+        return self._test_10_u4_2imp(mode='external', proj=2, low_level_coul=False)
 
 @pytest.mark.fast
 class TestHubBathEC(TestCase):

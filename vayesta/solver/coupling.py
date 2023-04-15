@@ -653,7 +653,7 @@ def externally_correct(solver, external_corrections, eris=None):
         dt1 = spinalg.add(dt1, dt1y)
         dt2 = spinalg.add(dt2, dt2y)
 
-        if low_level_coul: 
+        if low_level_coul and corrtype == 'external': 
             # Include the t3v term, contracting with the integrals from the x cluster
             # These have already been fragment projected, and rotated into the x cluster
             # in this function.
