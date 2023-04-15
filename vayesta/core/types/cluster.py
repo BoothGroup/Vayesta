@@ -124,7 +124,10 @@ class Cluster:
         cp.frozen_orbitals.basis_transform(trafo, inplace=True)
         return cp
 
+
 class ClusterRHF(Cluster):
+
+    spinsym = 'restricted'
 
     def __repr__(self):
         return '%s(norb_active= %d, norb_frozen= %d)' % (self.__class__.__name__,
@@ -155,6 +158,8 @@ class ClusterRHF(Cluster):
 
 
 class ClusterUHF(Cluster):
+
+    spinsym = 'unrestricted'
 
     def __repr__(self):
         return '%s(norb_active= (%d, %d), norb_frozen= (%d, %d))' % (self.__class__.__name__,

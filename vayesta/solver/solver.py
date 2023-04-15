@@ -228,7 +228,6 @@ class ClusterSolver:
                     results = kernel_orig(eris=eris, **kwargs)
                 if not self.converged:
                     raise ConvergenceError()
-                #dm1 = self.make_rdm1()
                 dm1 = self.wf.make_rdm1()
                 if self.is_rhf:
                     ne_frag = einsum('xi,ij,xj->', p_frag, dm1, p_frag)
@@ -243,8 +242,7 @@ class ClusterSolver:
                     cpt_opt = cpt
                     raise CptFound()
                 # Initial guess for next chemical potential
-                #init_guess = results.get_init_guess()
-                init_guess = self.get_init_guess()
+                init_guess = self.init_guess_from_solution()
                 return err
 
             # First run with cpt_guess:

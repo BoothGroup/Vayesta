@@ -57,7 +57,7 @@ def make_rdm1_ccsd(emb, ao_basis=False, t_as_lambda=None, symmetrize=True, with_
         dovb = np.zeros((noccb, nvirb))
     # MPI loop
 
-    for frag in emb.get_fragments(active=True, mpi_rank=mpi.rank):
+    for frag in emb.get_fragments(contributes=True, mpi_rank=mpi.rank):
         wfx = frag.results.pwf.as_ccsd()
         t2xaa, t2xab, t2xba, t2xbb = wfx.t2
         l2xaa, l2xab, l2xba, l2xbb = wfx.l2 if not t_as_lambda else wfx.t2
@@ -230,7 +230,7 @@ def make_rdm1_ccsd_global_wf(emb, t_as_lambda=None, with_t1=True, svd_tol=1e-3, 
     if mpi:
         # TODO: use L-amplitudes of cluster X and T-amplitudes,
         # Only send T-amplitudes via RMA?
-        rma = {x.id: x.results.pwf.pack() for x in emb.get_fragments(active=True, mpi_rank=mpi.rank)}
+        rma = {x.id: x.results.pwf.pack() for x in emb.get_fragments(contributes=True, mpi_rank=mpi.rank)}
         rma = mpi.create_rma_dict(rma)
 
     # --- Loop over pairs of fragments and add projected density-matrix contributions:
@@ -244,7 +244,7 @@ def make_rdm1_ccsd_global_wf(emb, t_as_lambda=None, with_t1=True, svd_tol=1e-3, 
         dvob = np.zeros((nvirb, noccb))
 
     xfilter = dict(sym_parent=None) if use_sym else {}
-    for x in emb.get_fragments(active=True, mpi_rank=mpi.rank, **xfilter):
+    for x in emb.get_fragments(contributes=True, mpi_rank=mpi.rank, **xfilter):
         wfx = x.results.pwf.as_ccsd()
         if not late_t2_sym:
             wfx = wfx.restore()
@@ -267,7 +267,7 @@ def make_rdm1_ccsd_global_wf(emb, t_as_lambda=None, with_t1=True, svd_tol=1e-3, 
         cx_vir_a, cx_vir_b = x.get_overlap('mo[vir]|cluster[vir]')
 
         # Loop over ALL fragments y:
-        for y in emb.get_fragments(active=True):
+        for y in emb.get_fragments(contributes=True):
             if mpi:
                 if y.solver == 'MP2':
                     wfy = UMP2_WaveFunction.unpack(rma[y.id]).as_ccsd()
@@ -752,7 +752,7 @@ def make_rdm2_ccsd_proj_lambda(emb, ao_basis=False, t_as_lambda=None, with_dm1=T
     dm2ab = np.zeros(2*[nmoa]+2*[nmob])
     dm2bb = np.zeros(4*[nmob])
     ovlp = emb.get_ovlp()
-    for x in emb.get_fragments(active=True, mpi_rank=mpi.rank):
+    for x in emb.get_fragments(contributes=True, mpi_rank=mpi.rank):
         dm2xaa, dm2xab, dm2xbb = x.make_fragment_dm2cumulant(t_as_lambda=t_as_lambda)
         ra, rb =  x.get_overlap('mo|cluster')
         dm2aa += einsum('ijkl,Ii,Jj,Kk,Ll->IJKL', dm2xaa, ra, ra, ra, ra)

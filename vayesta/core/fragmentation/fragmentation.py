@@ -189,7 +189,7 @@ class Fragmentation:
     # --- Rotational symmetry fragments:
 
     @contextlib.contextmanager
-    def rotational_symmetry(self, order, axis, center=(0,0,0), unit='ang'):
+    def rotational_symmetry(self, order, axis, center=(0,0,0), unit='Ang'):
         if self.secfrag_register:
             raise NotImplementedError("Rotational symmetries have to be added before adding secondary fragments")
         self.sym_register.append([])
@@ -204,13 +204,13 @@ class Fragmentation:
             sym.extend(fragments_sym)
 
     @contextlib.contextmanager
-    def inversion_symmetry(self, center=(0,0,0)):
+    def inversion_symmetry(self, center=(0,0,0), unit='Ang'):
         if self.secfrag_register:
             raise NotImplementedError("Symmetries have to be added before adding secondary fragments")
         self.sym_register.append([])
         yield
         fragments = self.sym_register.pop()
-        fragments_sym = self.emb.create_invsym_fragments(center, fragments=fragments, symbol='I')
+        fragments_sym = self.emb.create_invsym_fragments(center, fragments=fragments, unit=unit, symbol='I')
         self.log.info("Adding %d inversion-symmetric fragments", len(fragments_sym))
         self.fragments.extend(fragments_sym)
         # For additional (nested) symmetries:
@@ -218,13 +218,14 @@ class Fragmentation:
             sym.extend(fragments_sym)
 
     @contextlib.contextmanager
-    def mirror_symmetry(self, axis, center=(0,0,0)):
+    def mirror_symmetry(self, axis, center=(0,0,0), unit='Ang'):
         if self.secfrag_register:
             raise NotImplementedError("Symmetries have to be added before adding secondary fragments")
         self.sym_register.append([])
         yield
         fragments = self.sym_register.pop()
-        fragments_sym = self.emb.create_mirrorsym_fragments(axis, center=center, fragments=fragments, symbol='M')
+        fragments_sym = self.emb.create_mirrorsym_fragments(axis, center=center, fragments=fragments, unit=unit,
+                                                            symbol='M')
         self.log.info("Adding %d mirror-symmetric fragments", len(fragments_sym))
         self.fragments.extend(fragments_sym)
         # For additional (nested) symmetries:

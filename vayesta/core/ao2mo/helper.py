@@ -166,6 +166,7 @@ def get_ovvv(eris, block='ovvv'):
 
 
 def get_ovVV(eris, block='ovVV'):
+    assert block in ('ovVV', 'OVvv')
     sl, sr = (0, 1) if block == 'ovVV' else (1, 0)
     nmoL = eris.fock[sl].shape[-1]
     nmoR = eris.fock[sr].shape[-1]
