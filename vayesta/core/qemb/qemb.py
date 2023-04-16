@@ -101,6 +101,8 @@ class Options(OptionsBase):
             conv_tol=None,
             # CCSD
             solve_lambda=True, conv_tol_normt=None,
+            level_shift=None, diis_space=None, diis_start_cycle=None,
+            iterative_damping=None,
             # FCI
             threads=1, max_cycle=300, fix_spin=None, lindep=None,
             davidson_only=True, init_guess='default',
