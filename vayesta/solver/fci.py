@@ -96,7 +96,7 @@ class FCI_Solver(ClusterSolver):
         elif self.opts.init_guess == 'CISD':
             self.log.info("Generating initial guess from CISD.")
             return dict(ci0=self.get_cisd_init_guess())
-        raise ValueError
+        raise ValueError("Unknown initial guess: %s" % self.opts.init_guess)
 
     def get_cisd_init_guess(self):
         cisd = self.cisd_solver(self.mf, self.fragment, self.cluster)
