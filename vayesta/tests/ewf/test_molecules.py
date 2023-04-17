@@ -192,7 +192,7 @@ class MoleculeTests(TestCase):
                 bath_options={'bathtype': 'dmet'},
                 solver='FCI',
                 solver_options={
-                    'init_guess': 'None',
+                    'init_guess': 'meanfield',
                     'conv_tol': 100,
                 }
         )
