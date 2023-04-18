@@ -163,6 +163,31 @@ class Test_UFCI(TestCase):
         cls.mf = testsystems.h2anion_dz.uhf()
         cls.fci = testsystems.h2anion_dz.ufci()
 
+class Test_UFCI_dissoc(TestCase):
+
+    @classmethod
+    def setUpClass(cls):
+        # TODO ensure this tests works if density fitting is used.
+        cls.mf = testsystems.h2_sto3g_dissoc.uhf_stable()
+        cls.fci = testsystems.h2_sto3g_dissoc.ufci()
+
+    @classmethod
+    def tearDownClass(cls):
+        del cls.mf
+        del cls.fci
+        cls.emb.cache_clear()
+
+    @classmethod
+    @cache
+    def emb(cls, bno_threshold):
+        emb = vayesta.ewf.EWF(cls.mf, bath_options=dict(bathtype="dmet"), solver='FCI')
+        emb.kernel()
+        return emb
+
+    def test_energy(self):
+        emb = self.emb(-1)
+        self.assertAllclose(emb.e_tot, self.fci.e_tot, rtol=0)
+
 
 if __name__ == '__main__':
     print('Running %s' % __file__)

@@ -4,6 +4,7 @@ except ImportError:
     from functools import lru_cache
     cache = lru_cache(maxsize=None)
 import numpy as np
+import copy
 
 import pyscf
 # Open boundary
@@ -70,6 +71,29 @@ class TestMolecule:
         uhf.kernel()
         assert uhf.converged
         return uhf
+
+    @cache
+    def uhf_stable(self):
+        # Get uhf solution, and copy to avoid changing attributes.
+        uhf = copy.copy(self.uhf())
+        # Follow procedure from pyscf/examples/scf/32-break_spin_symm.py to ensure symmetry breaking in initial guess.
+        # Use standard calculation as initial guess.
+        dm0 = uhf.make_rdm1()
+        uhf.kernel(dm0=(dm0[0], np.zeros_like(dm0[1])))
+
+        # Repeat this procedure a few times; it should converge rapidly, but we don't want to get stuck in an
+        # infinite loop if it doesn't.
+        for i in range(5):
+            # Check stability of current solution.
+            int_c, ext_c, int_stab, ext_stab = uhf.stability(return_status=True)
+            # If we have a converged solution which is stable return.
+            if int_stab and uhf.converged:
+                return uhf
+            # Run new calculation starting from result of stability analysis.
+            uhf.kernel(dm0=uhf.make_rdm1(mo_coeff=int_c))
+        else:
+            # Don't want to get stuck in an infinite loop.
+            raise RuntimeError("Could not obtain converged, stable UHF solution.")
 
     # --- MP2
 
@@ -301,7 +325,7 @@ class TestLattice:
 
     @cache
     def uhf(self):
-        uhf = latt.LatticeRHF(self.mol)
+        uhf = latt.LatticeUHF(self.mol)
         if self.with_df:
             uhf = uhf.density_fit()
         uhf.conv_tol = 1e-12
@@ -315,6 +339,7 @@ class TestLattice:
 
 h2_dz = TestMolecule("H 0 0 0; H 0 0 0.74", basis="cc-pvdz")
 h2anion_dz = TestMolecule("H 0 0 0; H 0 0 0.74", basis="cc-pvdz", charge=-1, spin=1)
+h2_sto3g_dissoc = TestMolecule("H 0 0 0; H 0 0 10.0", basis="sto3g")
 
 h6_sto6g = TestMolecule(
         atom=["H %f %f %f" % xyz for xyz in pyscf.tools.ring.make(6, 1.0)],
@@ -340,6 +365,7 @@ water_ccpvdz_df = TestMolecule(atom=molecules.water(), basis="cc-pvdz", auxbasis
 ethanol_ccpvdz = TestMolecule(atom=molecules.ethanol(), basis="cc-pvdz")
 
 lih_ccpvdz = TestMolecule(atom="Li 0 0 0; H 0 0 1.4", basis="cc-pvdz")
+lih_631g = TestMolecule(atom="Li 0 0 0; H 0 0 1.4", basis="6-31g")
 
 h2_ccpvdz = TestMolecule(atom="H1 0 0 0; H2 0 0 1.0", basis="cc-pvdz")
 h2_ccpvdz_df = TestMolecule(atom="H1 0 0 0; H2 0 0 1.0", basis="cc-pvdz", auxbasis="cc-pvdz-jkfit")

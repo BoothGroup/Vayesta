@@ -5,7 +5,7 @@ import numpy as np
 log = logging.getLogger(__name__)
 
 class SymmetryGroup:
-    """Detect symemtry group automatically (use spglib?)."""
+    """Detect symmetry group automatically (use spglib?)."""
 
     def __init__(self, mol, xtol=1e-8, check_basis=True, check_label=False):
         self.mol = mol

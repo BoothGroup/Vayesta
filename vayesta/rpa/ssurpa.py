@@ -9,7 +9,6 @@ import pyscf.ao2mo
 
 
 class ssURPA(ssRPA):
-
     @property
     def norb(self):
         return self.mf.mo_coeff[0].shape[1]
@@ -91,7 +90,9 @@ class ssURPA(ssRPA):
             M = np.einsum("p,pq,q->pq", AmB ** (0.5), ApB, AmB ** (0.5))
         else:
             # Grab A and B contributions for XC kernel.
-            ApB_xc, AmB_xc = self.get_xc_contribs(xc_kernel, self.mo_coeff_occ, self.mo_coeff_vir, alpha)
+            ApB_xc, AmB_xc = self.get_xc_contribs(
+                xc_kernel, self.mo_coeff_occ, self.mo_coeff_vir, alpha
+            )
             ApB = ApB + ApB_xc
             AmB = np.diag(AmB) + AmB_xc
             del ApB_xc, AmB_xc
@@ -112,15 +113,14 @@ class ssURPA(ssRPA):
         vbb = vbb[:nocc_b, nocc_b:, :nocc_b, nocc_b:].reshape((self.ovb, self.ovb))
 
         fullv = np.zeros((self.ov, self.ov))
-        fullv[:self.ova, :self.ova] = vaa
-        fullv[:self.ova, self.ova:] = vab
-        fullv[self.ova:, :self.ova] = vab.T
-        fullv[self.ova:, self.ova:] = vbb
+        fullv[: self.ova, : self.ova] = vaa
+        fullv[: self.ova, self.ova :] = vab
+        fullv[self.ova :, : self.ova] = vab.T
+        fullv[self.ova :, self.ova :] = vbb
         return fullv
 
     def ao2mo(self, mo_coeff=None):
-        """Get the ERIs in MO basis
-        """
+        """Get the ERIs in MO basis"""
         mo_coeff = self.mo_coeff if mo_coeff is None else mo_coeff
         # Just in case have spin dependent integrals...
         if isinstance(self.mf._eri, tuple):

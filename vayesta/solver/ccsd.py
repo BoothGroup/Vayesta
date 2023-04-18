@@ -1,5 +1,7 @@
 import dataclasses
 import copy
+import typing
+from typing import Optional, List
 from timeit import default_timer as timer
 
 import numpy as np
@@ -31,6 +33,10 @@ class CCSD_Solver(ClusterSolver):
         conv_tol: float = None          # Convergence energy tolerance
         conv_tol_normt: float = None    # Convergence amplitude tolerance
         init_guess: str = 'MP2'         # ['MP2', 'CISD']
+        level_shift: float = None       # Level shift on virtual orbital energies to stabilize convergence
+        diis_space: int = None          # DIIS space
+        diis_start_cycle: int = None     # DIIS start cycle
+        iterative_damping: float = None  # Iterative damping
         # Self-consistent mode
         sc_mode: int = None
         # DM
@@ -41,8 +47,8 @@ class CCSD_Solver(ClusterSolver):
         # Active space methods
         c_cas_occ: np.array = None
         c_cas_vir: np.array = None
-        # Tailor with fragments
-        tailoring: bool = False
+        # Tailor/externally correct CCSD with other fragments
+        external_corrections: Optional[List[typing.Any]] = dataclasses.field(default_factory=list)
         # Lambda equations
         solve_lambda: bool = True
 
@@ -61,6 +67,10 @@ class CCSD_Solver(ClusterSolver):
         # Options
         if self.opts.max_cycle is not None: solver.max_cycle = self.opts.max_cycle
         if self.opts.conv_tol is not None: solver.conv_tol = self.opts.conv_tol
+        if self.opts.level_shift is not None: solver.level_shift = self.opts.level_shift
+        if self.opts.diis_space is not None: solver.diis_space = self.opts.diis_space
+        if self.opts.diis_start_cycle is not None: solver.diis_start_cycle = self.opts.diis_start_cycle
+        if self.opts.iterative_damping is not None: solver.iterative_damping = self.opts.iterative_damping
         if self.opts.conv_tol_normt is not None: solver.conv_tol_normt = self.opts.conv_tol_normt
         self.solver = solver
         self.eris = None
@@ -92,13 +102,19 @@ class CCSD_Solver(ClusterSolver):
     def get_init_guess(self, eris=None):
         if self.opts.init_guess in ('default', 'MP2'):
             # CCSD will build MP2 amplitudes
-            return None, None
+            return dict(t1=None, t2=None)
         if self.opts.init_guess == 'CISD':
             cisd = self.get_cisd_solver()(self.mf, self.fragment, self.cluster)
             cisd.kernel(eris=eris)
             wf = cisd.wf.as_ccsd()
-            return wf.t1, wf.t2
+            return dict(t1=wf.t1, t2=wf.t2)
         raise ValueError("init_guess= %r" % self.opts.init_guess)
+
+    def init_guess_from_solution(self):
+        """Generate initial guess from wave function solution."""
+        if self.wf is None:
+            raise RuntimeError
+        return dict(t1=self.wf.t1, t2=self.wf.t2)
 
     def add_screening(self, *args, **kwargs):
         raise NotImplementedError("Screening only implemented for unrestricted spin-symmetry.")
@@ -147,15 +163,31 @@ class CCSD_Solver(ClusterSolver):
         if self.v_ext is not None:
             eris = self.add_potential(eris, self.v_ext)
 
-        # Tailored CC
+        # Tailored CC "solver"
         if self.opts.tcc:
             if self.spinsym == 'unrestricted':
                 raise NotImplementedError("TCCSD for unrestricted spin-symmetry")
             self.set_callback(tccsd.make_cas_tcc_function(
                               self, c_cas_occ=self.opts.c_cas_occ, c_cas_vir=self.opts.c_cas_vir, eris=eris))
-        elif self.opts.tailoring:
-            frag = self.fragment
-            self.set_callback(coupling.tailor_with_fragments(self, frag._tailor_fragments, project=frag._tailor_project))
+        # Tailoring or external corrections from other fragments
+        elif self.opts.external_corrections:
+            # Tailoring of T1 and T2
+            tailors = [ec for ec in self.opts.external_corrections if (ec[1] == 'tailor')]
+            externals = [ec for ec in self.opts.external_corrections if (ec[1] in ('external', 'delta-tailor'))]
+            if tailors and externals:
+                raise NotImplementedError
+            if tailors:
+                tailor_frags = self.base.get_fragments(id=[t[0] for t in tailors])
+                proj = tailors[0][2]
+                if np.any([(t[2] != proj) for t in tailors]):
+                    raise NotImplementedError
+                self.log.info("Tailoring CCSD from %d fragments (projectors= %d)", len(tailor_frags), proj)
+                self.set_callback(coupling.tailor_with_fragments(self, tailor_frags, project=proj))
+            # External correction of T1 and T2
+            if externals:
+                self.log.info("Externally correct CCSD from %d fragments", len(externals))
+                self.set_callback(coupling.externally_correct(self, externals, eris=eris))
+
         elif self.opts.sc_mode and self.base.iteration > 1:
             raise NotImplementedError
             self.set_callback(coupling.make_cross_fragment_tcc_function(self, mode=self.opts.sc_mode))
@@ -169,7 +201,10 @@ class CCSD_Solver(ClusterSolver):
         if t1 is not None or t2 is not None:
             self.log.info("Solving CCSD-equations with initial guess...")
         else:
-            t1, t2 = self.get_init_guess(eris=eris)
+            self.log.info("Solving CCSD-equations without initial guess...")
+            init_guess = self.get_init_guess(eris=eris)
+            t1 = init_guess['t1']
+            t2 = init_guess['t2']
 
         with log_time(self.log.info, "Time for T-equations: %s"):
             self.solver.kernel(t1=t1, t2=t2, eris=eris)

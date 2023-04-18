@@ -134,7 +134,7 @@ def get_corrfunc(emb, kind, dm1=None, dm2=None, atoms=None, projection='sao', dm
             ffilter = dict(sym_parent=None) if use_symmetry else {}
             maxgen = None if use_symmetry else 0
             cst = np.dot(emb.get_ovlp(), emb.mo_coeff)
-            for fx in emb.get_fragments(active=True, **ffilter):
+            for fx in emb.get_fragments(contributes=True, **ffilter):
                 # Currently only defined for EWF
                 # (but could also be defined for a democratically partitioned cumulant):
                 dm2 = fx.make_fragment_dm2cumulant()
@@ -277,7 +277,7 @@ def get_corrfunc_unrestricted(emb, kind, dm1=None, dm2=None, atoms=None, project
             ovlp = emb.get_ovlp()
             csta = np.dot(ovlp, emb.mo_coeff[0])
             cstb = np.dot(ovlp, emb.mo_coeff[1])
-            for fx in emb.get_fragments(active=True, **ffilter):
+            for fx in emb.get_fragments(contributes=True, **ffilter):
                 # Currently only defined for EWF
                 # (but could also be defined for a democratically partitioned cumulant):
                 dm2aa, dm2ab, dm2bb = fx.make_fragment_dm2cumulant()

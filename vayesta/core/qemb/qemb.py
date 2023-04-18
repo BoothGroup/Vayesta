@@ -82,7 +82,8 @@ class Options(OptionsBase):
         # EwDMET bath
         order=None, max_order=20, # +threshold (same as MP2 bath)
         # MP2 bath
-        threshold=None, truncation='occupation', project_dmet_order=0, project_dmet_mode='full', addbuffer=False,
+        threshold=None, truncation='occupation', project_dmet_order=2,
+        project_dmet_mode='squared-entropy', addbuffer=False,
         # The following options can be set occupied/virtual-specific:
         bathtype_occ=None, bathtype_vir=None,
         rcut_occ=None, rcut_vir=None,
@@ -102,6 +103,8 @@ class Options(OptionsBase):
             conv_tol=None,
             # CCSD
             solve_lambda=True, conv_tol_normt=None,
+            level_shift=None, diis_space=None, diis_start_cycle=None,
+            iterative_damping=None,
             # FCI
             threads=1, max_cycle=300, fix_spin=None, lindep=None,
             davidson_only=True, init_guess='default',
@@ -786,43 +789,52 @@ class Embedding:
         """
         default_axes = {'x': (1,0,0), 'y': (0,1,0), 'z': (0,0,1)}
         symtype = symmetry['type']
+
+        def to_bohr(point, unit):
+            unit = unit.lower()
+            point = np.asarray(point, dtype=float)
+            if unit.startswith('ang'):
+                return point / 0.529177210903
+            if unit == 'latvec':
+                #kcell = self.kcell if self.kcell is not None else self.mol
+                return np.dot(point, (self.kcell or self.mol).lattice_vectors())
+            if unit.startswith('bohr'):
+                return point
+            raise ValueError("unit= %s" % unit)
+
+        def shift_point_to_supercell(point):
+            """Shift point in primitive cell to equivalent, scaled point in supercell."""
+            if self.kcell is None:
+                # No PBC or no supercell
+                return point
+            ak = self.kcell.lattice_vectors()   # primtive cell lattice vectors
+            bk = np.linalg.inv(ak)
+            a = self.mol.lattice_vectors()      # supercell lattice vectors
+            shift = (np.diag(a)/np.diag(ak) - 1)/2
+            # Shift in internal coordinates, then transform back
+            point = np.dot(np.dot(point, bk) + shift, ak)
+            return point
+
         if symtype == 'inversion':
-            center = symmetry['center']
-            unit = symmetry['unit']
+            center = to_bohr(symmetry['center'], symmetry['unit'])
+            center = shift_point_to_supercell(center)
             symbol = symbol or 'I'
             symlist = [1]
         elif symtype == 'reflection':
-            center = symmetry['center']
+            center = to_bohr(symmetry['center'], symmetry['unit'])
+            center = shift_point_to_supercell(center)
             axis = symmetry['axis']
             axis = np.asarray(default_axes.get(axis, axis), dtype=float)
-            unit = symmetry['unit']
+            axis = to_bohr(axis, symmetry['unit'])
             symbol = symbol or 'M'
             symlist = [1]
         elif symtype == 'rotation':
             order = symmetry['order']
             axis = symmetry['axis']
             axis = np.asarray(default_axes.get(axis, axis), dtype=float)
-            center = np.asarray(symmetry['center'], dtype=float)
-            unit = symmetry['unit'].lower()
-            if unit == 'ang':
-                BOHR = 0.529177210903
-                center = center/BOHR # To Bohr
-            elif unit == 'latvec':
-                kcell = self.kcell if self.kcell is not None else self.mol
-                ak = kcell.lattice_vectors()
-                center = np.dot(center, ak)
-                # units of lattice vectors also change the axis:
-                axis = np.dot(axis, ak)
-            if self.kcell is not None:
-                # center needs to be moved to the supercell center!
-                ak = self.kcell.lattice_vectors()
-                bk = np.linalg.inv(ak)
-                a = self.mol.lattice_vectors()
-                shift = (np.diag(a)/np.diag(ak) - 1)/2
-                # Shift in internal coordinates
-                self.log.debugv("Primitive cell rotation center= %r" % center)
-                center = np.dot(np.dot(center, bk) + shift, ak)
-                self.log.debugv("Supercell rotation center= %r" % center)
+            axis = to_bohr(axis, symmetry['unit'])
+            center = to_bohr(symmetry['center'], symmetry['unit'])
+            center = shift_point_to_supercell(center)
             symlist = range(1, order)
             symbol = symbol or 'R'
         elif symtype == 'translation':
@@ -830,7 +842,7 @@ class Embedding:
             symlist = list(itertools.product(range(translation[0]), range(translation[1]), range(translation[2])))[1:]
             symbol = symbol or 'T'
         else:
-            raise ValueError
+            raise ValueError("Symmetry type= %s" % symtype)
 
         ovlp = self.get_ovlp()
         if check_mf:
@@ -874,15 +886,16 @@ class Embedding:
                     fragovlp = abs(fragovlp).max()
                 elif self.spinsym == 'unrestricted':
                     fragovlp = max(abs(fragovlp[0]).max(), abs(fragovlp[1]).max())
-                if (fragovlp > 1e-7):
+                if (fragovlp > 1e-6):
                     self.log.critical("%s of fragment %s not orthogonal to original fragment (overlap= %.1e)!",
                                 sym_op, parent.name, fragovlp)
                     raise RuntimeError("Overlapping fragment spaces (overlap= %.1e)" % fragovlp)
 
                 # Add fragment
                 frag_id = self.register.get_next_id()
-                frag = self.Fragment(self, frag_id, name, c_frag_t, c_env_t, sym_parent=parent, sym_op=sym_op,
-                        mpi_rank=parent.mpi_rank, flags=dataclasses.asdict(parent.flags), **parent.opts.asdict())
+                frag = self.Fragment(self, frag_id, name, c_frag_t, c_env_t, solver=parent.solver, sym_parent=parent,
+                                     sym_op=sym_op, mpi_rank=parent.mpi_rank, flags=dataclasses.asdict(parent.flags),
+                                     **parent.opts.asdict())
                 # Check symmetry
                 # (only for the first rotation or primitive translations (1,0,0), (0,1,0), and (0,0,1)
                 # to reduce number of sym_op(c_env) calls)
@@ -1086,6 +1099,33 @@ class Embedding:
             filtered_fragments.append(frag)
         return filtered_fragments
 
+    def get_fragment_overlap_norm(self, fragments=None, occupied=True, virtual=True, norm=2):
+        """Get matrix of overlap norms between fragments."""
+        if fragments is None:
+            fragments = self.get_fragments()
+        if isinstance(fragments[0], self.Fragment):
+            fragments = 2*[fragments]
+
+        if not (occupied or virtual):
+            raise ValueError
+        overlap = np.zeros((len(fragments[0]), len(fragments[1])))
+        ovlp = self.get_ovlp()
+        nxy_occ = nxy_vir = np.inf
+        for i, fx in enumerate(fragments[0]):
+            if occupied:
+                cxs_occ = spinalg.dot(spinalg.T(fx.cluster.c_occ), ovlp)
+            if virtual:
+                cxs_vir = spinalg.dot(spinalg.T(fx.cluster.c_vir), ovlp)
+            for j, fy in enumerate(fragments[1]):
+                if occupied:
+                    rxy_occ = spinalg.dot(cxs_occ, fy.cluster.c_occ)
+                    nxy_occ = np.amax(spinalg.norm(rxy_occ, ord=norm))
+                if virtual:
+                    rxy_vir = spinalg.dot(cxs_vir, fy.cluster.c_vir)
+                    nxy_vir = np.amax(spinalg.norm(rxy_vir, ord=norm))
+                overlap[i,j] = np.amin((nxy_occ, nxy_vir))
+        return overlap
+
     def _absorb_fragments(self, tol=1e-10):
         """TODO"""
         for fx in self.get_fragments(active=True):
@@ -1152,13 +1192,11 @@ class Embedding:
     @log_method()
     @with_doc(make_rdm1_demo_rhf)
     def make_rdm1_demo(self, *args, **kwargs):
-        self.require_complete_fragmentation("Democratically partitioned DMs will not be accurate.")
         return make_rdm1_demo_rhf(self, *args, **kwargs)
 
     @log_method()
     @with_doc(make_rdm2_demo_rhf)
     def make_rdm2_demo(self, *args, **kwargs):
-        self.require_complete_fragmentation("Democratically partitioned DMs will not be accurate.")
         return make_rdm2_demo_rhf(self, *args, **kwargs)
 
     def get_dmet_elec_energy(self, part_cumulant=True, approx_cumulant=True):
@@ -1179,7 +1217,6 @@ class Embedding:
         e_dmet: float
             Electronic DMET energy.
         """
-        self.require_complete_fragmentation("DMET energy will not be accurate.")
         e_dmet = 0.0
         for x in self.get_fragments(active=True, mpi_rank=mpi.rank, sym_parent=None):
             wx = x.symmetry_factor
@@ -1455,6 +1492,8 @@ class Embedding:
             nmo_s = tspin(self.nmo, s)
             nelec_s = tspin(nelec, s)
             fragments = self.get_fragments(active=True, flags=dict(is_secfrag=False))
+            if not fragments:
+                return False
             c_frags = np.hstack([tspin(x.c_frag, s) for x in fragments])
             nfrags = c_frags.shape[-1]
             csc = dot(c_frags.T, ovlp, c_frags)
@@ -1534,16 +1573,19 @@ class Embedding:
         self.mf.mo_energy = mo_energy
         self.mf.e_tot = self.mf.energy_tot(dm=dm, h1e=self.get_hcore(), vhf=veff)
 
-    def check_fragment_symmetry(self, dm1, charge_tol=1e-6, spin_tol=1e-6):
+    def check_fragment_symmetry(self, dm1, symtol=1e-6):
+        """Check that the mean-field obeys the symmetry between fragments."""
         frags = self.get_symmetry_child_fragments(include_parents=True)
         for group in frags:
             parent, children = group[0], group[1:]
             for child in children:
-                charge_err = parent.get_tsymmetry_error(child, dm1=dm1)
-                if (charge_err > charge_tol):
-                    raise RuntimeError("%s and %s not symmetric: charge error= %.3e !"
-                            % (parent.name, child.name, charge_err))
-                self.log.debugv("Symmetry between %s and %s: charge error= %.3e", parent.name, child.name, charge_err)
+                charge_err, spin_err = parent.get_symmetry_error(child, dm1=dm1)
+                if (max(charge_err, spin_err) > symtol):
+                    raise SymmetryError("%s and %s not symmetric! Errors:  charge= %.2e  spin= %.2e"
+                                       % (parent.name, child.name, charge_err, spin_err))
+                else:
+                    self.log.debugv("Symmetry between %s and %s: Errors:  charge= %.2e  spin= %.2e",
+                                    parent.name, child.name, charge_err, spin_err)
 
     # --- Decorators
     # These replace the qemb.kernel method!

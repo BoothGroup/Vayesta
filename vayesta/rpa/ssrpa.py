@@ -51,12 +51,12 @@ class ssRPA:
     @property
     def mo_coeff_occ(self):
         """Occupied MO coefficients."""
-        return self.mo_coeff[:, :self.nocc]
+        return self.mo_coeff[:, : self.nocc]
 
     @property
     def mo_coeff_vir(self):
         """Virtual MO coefficients."""
-        return self.mo_coeff[:, self.nocc:]
+        return self.mo_coeff[:, self.nocc :]
 
     @property
     def e_corr(self):
@@ -82,20 +82,20 @@ class ssRPA:
 
         e, c = np.linalg.eigh(M)
         self.freqs_ss = e ** (0.5)
-        assert (all(e > 1e-12))
+        assert all(e > 1e-12)
 
         if xc_kernel is None:
             XpY = np.einsum("n,p,pn->pn", self.freqs_ss ** (-0.5), AmB ** (0.5), c)
             XmY = np.einsum("n,p,pn->pn", self.freqs_ss ** (0.5), AmB ** (-0.5), c)
         else:
             e2, c2 = np.linalg.eigh(AmB)
-            assert (all(e2 > 1e-12))
+            assert all(e2 > 1e-12)
             AmBrt = einsum("pn,n,qn->pq", c2, e2 ** (0.5), c2)
             AmBrtinv = einsum("pn,n,qn->pq", c2, e2 ** (-0.5), c2)
             XpY = np.einsum("n,pq,qn->pn", self.freqs_ss ** (-0.5), AmBrt, c)
             XmY = np.einsum("n,pq,qn->pn", self.freqs_ss ** (0.5), AmBrtinv, c)
-        self.XpY_ss = (XpY[:self.ova], XpY[self.ova:])
-        self.XmY_ss = (XmY[:self.ova], XmY[self.ova:])
+        self.XpY_ss = (XpY[: self.ova], XpY[self.ova :])
+        self.XmY_ss = (XmY[: self.ova], XmY[self.ova :])
 
         self.freqs_sf = None
         self.log.timing("Time to solve RPA problem: %s", time_string(timer() - t0))
@@ -111,10 +111,14 @@ class ssRPA:
 
     def calc_energy_correction(self, xc_kernel, version=3):
         if xc_kernel is None:
-            raise ValueError("Without an xc-kernel the plasmon formula energy is exact.")
+            raise ValueError(
+                "Without an xc-kernel the plasmon formula energy is exact."
+            )
         t0 = timer()
         M, AmB, ApB, eps, fullv = self._gen_arrays(xc_kernel)
-        ApB_xc, AmB_xc = self.get_xc_contribs(xc_kernel, self.mo_coeff_occ, self.mo_coeff_vir)
+        ApB_xc, AmB_xc = self.get_xc_contribs(
+            xc_kernel, self.mo_coeff_occ, self.mo_coeff_vir
+        )
         A_xc = (ApB_xc + AmB_xc) / 2
         B_xc = (ApB_xc - AmB_xc) / 2
         full_mom0 = self.gen_moms(0, xc_kernel)[0]
@@ -133,34 +137,53 @@ class ssRPA:
             return sum([w * func(p) for w, p in zip(weights, points)])
 
         if version == 0:
-            e_plasmon = 0.5 * (np.dot(full_mom0, ApB) - (0.5 * (ApB + AmB) - A_xc)).trace()
+            e_plasmon = (
+                0.5 * (np.dot(full_mom0, ApB) - (0.5 * (ApB + AmB) - A_xc)).trace()
+            )
 
             # Full integration of the adiabatic connection.
             def get_val_alpha(alpha):
                 eta0 = get_eta_alpha(alpha)
-                return (einsum("pq,qp", A_xc + B_xc, eta0) + einsum("pq,qp", A_xc - B_xc, np.linalg.inv(eta0))) / 4
+                return (
+                    einsum("pq,qp", A_xc + B_xc, eta0)
+                    + einsum("pq,qp", A_xc - B_xc, np.linalg.inv(eta0))
+                ) / 4
 
             e = e_plasmon - run_ac_inter(get_val_alpha)
             e = (e, get_val_alpha)
         elif version == 1:
-            e_plasmon = 0.5 * (np.dot(full_mom0, ApB) - (0.5 * (ApB + AmB) - A_xc)).trace()
+            e_plasmon = (
+                0.5 * (np.dot(full_mom0, ApB) - (0.5 * (ApB + AmB) - A_xc)).trace()
+            )
 
             # Integration of adiabatic connection, but with approximation of the inverse eta0`
             def get_val_alpha(alpha):
                 eta0 = get_eta_alpha(alpha)
-                return (A_xc.trace() + einsum("pq,qp", B_xc, eta0 - np.eye(self.ov))) / 2
+                return (
+                    A_xc.trace() + einsum("pq,qp", B_xc, eta0 - np.eye(self.ov))
+                ) / 2
 
             e = e_plasmon - run_ac_inter(get_val_alpha)
             e = (e, get_val_alpha)
         elif version == 2:
             # Linear approximation of all quantities in adiabatic connection.
             e = 0.5 * (np.dot(full_mom0, ApB) - (0.5 * (ApB + AmB) - A_xc)).trace()
-            e -= (einsum("pq,qp->", A_xc + B_xc, full_mom0 + np.eye(self.ov)) +
-                  einsum("pq,qp->", A_xc - B_xc, np.linalg.inv(full_mom0) + np.eye(self.ov))) / 8
+            e -= (
+                einsum("pq,qp->", A_xc + B_xc, full_mom0 + np.eye(self.ov))
+                + einsum(
+                    "pq,qp->", A_xc - B_xc, np.linalg.inv(full_mom0) + np.eye(self.ov)
+                )
+            ) / 8
         elif version == 3:
             # Linear approximation in AC and approx of inverse.
-            e = 0.5 * (np.dot(full_mom0, ApB - B_xc / 2) - (0.5 * (ApB + AmB) - B_xc / 2)).trace()
+            e = (
+                0.5
+                * (
+                    np.dot(full_mom0, ApB - B_xc / 2) - (0.5 * (ApB + AmB) - B_xc / 2)
+                ).trace()
+            )
         elif version == 4:
+
             def get_val_alpha(alpha):
                 eta0 = get_eta_alpha(alpha)
                 return einsum("pq,qp->", eta0 - np.eye(self.ov), fullv)
@@ -180,8 +203,8 @@ class ssRPA:
         t0 = timer()
         # Only have diagonal components in canonical basis.
         eps = np.zeros((self.nocc, self.nvir))
-        eps = eps + self.mf.mo_energy[self.nocc:]
-        eps = (eps.T - self.mf.mo_energy[:self.nocc]).T
+        eps = eps + self.mf.mo_energy[self.nocc :]
+        eps = (eps.T - self.mf.mo_energy[: self.nocc]).T
         eps = eps.reshape((self.ova,))
 
         if self.ov_rot is not None:
@@ -206,7 +229,9 @@ class ssRPA:
             M = np.einsum("p,pq,q->pq", AmB ** (0.5), ApB, AmB ** (0.5))
         else:
             # Grab A and B contributions for XC kernel.
-            ApB_xc, AmB_xc = self.get_xc_contribs(xc_kernel, self.mo_coeff_occ, self.mo_coeff_vir, alpha)
+            ApB_xc, AmB_xc = self.get_xc_contribs(
+                xc_kernel, self.mo_coeff_occ, self.mo_coeff_vir, alpha
+            )
             ApB = ApB + ApB_xc
             AmB = np.diag(AmB) + AmB_xc
             del ApB_xc, AmB_xc
@@ -219,10 +244,13 @@ class ssRPA:
     def get_k(self):
         eris = self.ao2mo()
         # Get coulomb interaction in occupied-virtual space.
-        v = eris[:self.nocc, self.nocc:, :self.nocc, self.nocc:].reshape((self.ova, self.ova))
+        v = eris[: self.nocc, self.nocc :, : self.nocc, self.nocc :].reshape(
+            (self.ova, self.ova)
+        )
         fullv = np.zeros((self.ov, self.ov))
-        fullv[:self.ova, :self.ova] = fullv[self.ova:, self.ova:] = fullv[:self.ova, self.ova:] = \
-            fullv[self.ova:, :self.ova] = v
+        fullv[: self.ova, : self.ova] = fullv[self.ova :, self.ova :] = fullv[
+            : self.ova, self.ova :
+        ] = fullv[self.ova :, : self.ova] = v
         return fullv
 
     def get_xc_contribs(self, xc_kernel, c_o, c_v, alpha=1.0):
@@ -238,39 +266,45 @@ class ssRPA:
         ApB = np.zeros((self.ov, self.ov))
         AmB = np.zeros_like(ApB)
 
-        V_A_aa = einsum("pqrs,pi,qa,rj,sb->iajb", xc_kernel[0], c_o_a, c_v_a, c_o_a, c_v_a).reshape(
-            (self.ova, self.ova))
-        ApB[:self.ova, :self.ova] += V_A_aa
-        AmB[:self.ova, :self.ova] += V_A_aa
+        V_A_aa = einsum(
+            "pqrs,pi,qa,rj,sb->iajb", xc_kernel[0], c_o_a, c_v_a, c_o_a, c_v_a
+        ).reshape((self.ova, self.ova))
+        ApB[: self.ova, : self.ova] += V_A_aa
+        AmB[: self.ova, : self.ova] += V_A_aa
         del V_A_aa
-        V_B_aa = einsum("pqsr,pi,qa,rj,sb->iajb", xc_kernel[0], c_o_a, c_v_a, c_o_a, c_v_a).reshape(
-            (self.ova, self.ova))
-        ApB[:self.ova, :self.ova] += V_B_aa
-        AmB[:self.ova, :self.ova] -= V_B_aa
+        V_B_aa = einsum(
+            "pqsr,pi,qa,rj,sb->iajb", xc_kernel[0], c_o_a, c_v_a, c_o_a, c_v_a
+        ).reshape((self.ova, self.ova))
+        ApB[: self.ova, : self.ova] += V_B_aa
+        AmB[: self.ova, : self.ova] -= V_B_aa
         del V_B_aa
-        V_A_ab = einsum("pqrs,pi,qa,rj,sb->iajb", xc_kernel[1], c_o_a, c_v_a, c_o_b, c_v_b).reshape(
-            (self.ova, self.ovb))
-        ApB[:self.ova, self.ova:] += V_A_ab
-        ApB[self.ova:, :self.ova] += V_A_ab.T
-        AmB[:self.ova, self.ova:] += V_A_ab
-        AmB[self.ova:, :self.ova] += V_A_ab.T
+        V_A_ab = einsum(
+            "pqrs,pi,qa,rj,sb->iajb", xc_kernel[1], c_o_a, c_v_a, c_o_b, c_v_b
+        ).reshape((self.ova, self.ovb))
+        ApB[: self.ova, self.ova :] += V_A_ab
+        ApB[self.ova :, : self.ova] += V_A_ab.T
+        AmB[: self.ova, self.ova :] += V_A_ab
+        AmB[self.ova :, : self.ova] += V_A_ab.T
         del V_A_ab
-        V_B_ab = einsum("pqsr,pi,qa,rj,sb->iajb", xc_kernel[1], c_o_a, c_v_a, c_o_b, c_v_b).reshape(
-            (self.ova, self.ovb))
-        ApB[:self.ova, self.ova:] += V_B_ab
-        ApB[self.ova:, :self.ova] += V_B_ab.T
-        AmB[:self.ova, self.ova:] -= V_B_ab
-        AmB[self.ova:, :self.ova] -= V_B_ab.T
+        V_B_ab = einsum(
+            "pqsr,pi,qa,rj,sb->iajb", xc_kernel[1], c_o_a, c_v_a, c_o_b, c_v_b
+        ).reshape((self.ova, self.ovb))
+        ApB[: self.ova, self.ova :] += V_B_ab
+        ApB[self.ova :, : self.ova] += V_B_ab.T
+        AmB[: self.ova, self.ova :] -= V_B_ab
+        AmB[self.ova :, : self.ova] -= V_B_ab.T
         del V_B_ab
-        V_A_bb = einsum("pqrs,pi,qa,rj,sb->iajb", xc_kernel[2], c_o_b, c_v_b, c_o_b, c_v_b).reshape(
-            (self.ovb, self.ovb))
-        ApB[self.ova:, self.ova:] += V_A_bb
-        AmB[self.ova:, self.ova:] += V_A_bb
+        V_A_bb = einsum(
+            "pqrs,pi,qa,rj,sb->iajb", xc_kernel[2], c_o_b, c_v_b, c_o_b, c_v_b
+        ).reshape((self.ovb, self.ovb))
+        ApB[self.ova :, self.ova :] += V_A_bb
+        AmB[self.ova :, self.ova :] += V_A_bb
         del V_A_bb
-        V_B_bb = einsum("pqsr,pi,qa,rj,sb->iajb", xc_kernel[2], c_o_b, c_v_b, c_o_b, c_v_b).reshape(
-            (self.ovb, self.ovb))
-        ApB[self.ova:, self.ova:] += V_B_bb
-        AmB[self.ova:, self.ova:] -= V_B_bb
+        V_B_bb = einsum(
+            "pqsr,pi,qa,rj,sb->iajb", xc_kernel[2], c_o_b, c_v_b, c_o_b, c_v_b
+        ).reshape((self.ovb, self.ovb))
+        ApB[self.ova :, self.ova :] += V_B_bb
+        AmB[self.ova :, self.ova :] -= V_B_bb
         del V_B_bb
 
         if self.ov_rot is not None:
@@ -285,13 +319,19 @@ class ssRPA:
         return ApB * alpha, AmB * alpha
 
     def gen_moms(self, max_mom, xc_kernel=None):
-        res = np.zeros((max_mom+1, self.ov, self.ov))
+        res = np.zeros((max_mom + 1, self.ov, self.ov))
         for x in range(max_mom + 1):
             # Have different spin components in general; these are alpha-alpha, alpha-beta and beta-beta.
-            res[x, :self.ova, :self.ova] = np.einsum("pn,n,qn->pq", self.XpY_ss[0], self.freqs_ss ** x, self.XpY_ss[0])
-            res[x, self.ova:, self.ova:] = np.einsum("pn,n,qn->pq", self.XpY_ss[1], self.freqs_ss ** x, self.XpY_ss[1])
-            res[x, :self.ova, self.ova:] = np.einsum("pn,n,qn->pq", self.XpY_ss[0], self.freqs_ss ** x, self.XpY_ss[1])
-            res[x, self.ova:, :self.ova] = res[x][:self.ova, self.ova:].T
+            res[x, : self.ova, : self.ova] = np.einsum(
+                "pn,n,qn->pq", self.XpY_ss[0], self.freqs_ss**x, self.XpY_ss[0]
+            )
+            res[x, self.ova :, self.ova :] = np.einsum(
+                "pn,n,qn->pq", self.XpY_ss[1], self.freqs_ss**x, self.XpY_ss[1]
+            )
+            res[x, : self.ova, self.ova :] = np.einsum(
+                "pn,n,qn->pq", self.XpY_ss[0], self.freqs_ss**x, self.XpY_ss[1]
+            )
+            res[x, self.ova :, : self.ova] = res[x][: self.ova, self.ova :].T
 
         return res
 
@@ -304,12 +344,11 @@ class ssRPA:
         return self.mf.mol.nao
 
     def ao2mo(self, mo_coeff=None, compact=False):
-        """Get the ERIs in MO basis
-        """
+        """Get the ERIs in MO basis"""
         mo_coeff = self.mo_coeff if mo_coeff is None else mo_coeff
 
         t0 = timer()
-        if hasattr(self.mf, 'with_df') and self.mf.with_df is not None:
+        if hasattr(self.mf, "with_df") and self.mf.with_df is not None:
             eris = self.mf.with_df.ao2mo(mo_coeff, compact=compact)
         elif self.mf._eri is not None:
             eris = pyscf.ao2mo.kernel(self.mf._eri, mo_coeff, compact=compact)
