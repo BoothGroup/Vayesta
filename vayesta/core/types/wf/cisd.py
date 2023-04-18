@@ -173,5 +173,15 @@ class UCISD_WaveFunction(RCISD_WaveFunction):
         if norb[0] != norb[1]:
             # TODO: Allow padding via frozen argument?
             raise NotImplementedError
-        ci = pyscf.ci.ucisd.to_fcivec(self.get_cisdvec(), norb[0], self.mo.nelec)
-        return wf_types.RFCI_WaveFunction(self.mo, ci, projector=self.projector)
+        try:
+            ci = pyscf.ci.ucisd.to_fcivec(self.get_cisdvec(), norb[0], self.mo.nelec)
+        except ValueError as e:
+            nocca, noccb = self.mo.nelec
+            nvira, nvirb = norb[0] - nocca, norb[1] - noccb
+
+            if 0 in [nocca, noccb, nvira, nvirb]:
+                ci = np.zeros((0, 0))
+            else:
+                raise e
+
+        return wf_types.UFCI_WaveFunction(self.mo, ci, projector=self.projector)
