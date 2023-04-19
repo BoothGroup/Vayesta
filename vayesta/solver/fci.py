@@ -90,12 +90,13 @@ class FCI_Solver(ClusterSolver):
         return 2*self.cluster.nocc_active
 
     def get_init_guess(self):
-        if self.opts.init_guess is None:
+
+        if self.opts.init_guess in ["mf", "meanfield"]:
             return dict(ci0=None)
-        if self.opts.init_guess == 'CISD':
-            self.log.info("Generating intitial guess from CISD.")
+        elif self.opts.init_guess == 'CISD':
+            self.log.info("Generating initial guess from CISD.")
             return dict(ci0=self.get_cisd_init_guess())
-        raise ValueError
+        raise ValueError("Unknown initial guess: %s" % self.opts.init_guess)
 
     def get_cisd_init_guess(self):
         cisd = self.cisd_solver(self.mf, self.fragment, self.cluster)
