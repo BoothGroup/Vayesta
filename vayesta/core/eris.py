@@ -19,7 +19,11 @@ def get_cderi(emb, mo_coeff, compact=False, blksize=None):
         mo_coeff = (mo_coeff, mo_coeff)
 
     nao = emb.mol.nao
-    naux = (emb.df.auxcell.nao if hasattr(emb.df, 'auxcell') else emb.df.auxmol.nao)
+    try:
+        naux = (emb.df.auxcell.nao if hasattr(emb.df, 'auxcell') else emb.df.auxmol.nao)
+    except AttributeError:
+        naux = emb.df.get_naoaux()
+
     cderi = np.zeros((naux, mo_coeff[0].shape[-1], mo_coeff[1].shape[-1]))
     cderi_neg = None
     if blksize is None:
