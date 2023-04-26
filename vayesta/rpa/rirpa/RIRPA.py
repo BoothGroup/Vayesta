@@ -5,7 +5,7 @@ import numpy as np
 import pyscf.lib
 from vayesta.core.util import dot, einsum, time_string, timer
 from vayesta.rpa.rirpa import momzero_NI, energy_NI
-
+from vayesta.core.eris import get_cderi
 
 class ssRIRPA:
     """Approach based on equations expressed succinctly in the appendix of
@@ -27,8 +27,8 @@ class ssRIRPA:
     svd_tol : float, optional
         Threshold defining negligible singular values when compressing various decompositions.
         Default value is 1e-12.
-    Lpq : np.ndarray, optional
-        CDERIs in mo basis of provided mean field.
+    lov : np.ndarray or tuple of np.ndarray, optional
+        occupied-virtual CDERIs in mo basis of provided mean field. If None recalculated from AOs.
         Default value is None.
     compress : int, optional
         How thoroughly to attempt compression of the low-rank representations of various matrices.
@@ -48,7 +48,7 @@ class ssRIRPA:
         log=None,
         err_tol=1e-6,
         svd_tol=1e-12,
-        Lpq=None,
+        lov=None,
         compress=0,
     ):
         self.mf = dfmf
@@ -57,9 +57,18 @@ class ssRIRPA:
         self.err_tol = err_tol
         self.svd_tol = svd_tol
         self.e_corr_ss = None
-        self.Lpq = Lpq
+        self.lov = lov
         # Determine how many times to attempt compression of low-rank expressions for various matrices.
         self.compress = compress
+        self.kdf = None
+
+    @property
+    def mol(self):
+        return self.mf.mol
+
+    @property
+    def df(self):
+        return self.mf.with_df
 
     @property
     def nocc(self):
@@ -388,9 +397,11 @@ class ssRIRPA:
         t_start = timer()
         e1, err = self.kernel_trMPrt(npoints, ainit)
         e2 = 0.0
-        ri_apb_eri = self.get_apb_eri_ri()
+        ri_apb_eri, ri_apb_eri_neg = self.get_apb_eri_ri()
         # Note that eri contribution to A and B is equal, so can get trace over one by dividing by two
         e3 = sum(self.D) + einsum("np,np->", ri_apb_eri, ri_apb_eri) / 2
+        if ri_apb_eri_neg is not None:
+             e3 -= einsum("np,np->", ri_apb_eri_neg, ri_apb_eri_neg) / 2
         err /= 2
         if self.rixc is not None and correction is not None:
             if correction.lower() == "linear":
@@ -435,8 +446,8 @@ class ssRIRPA:
         local_rot describes the rotation of the ov-excitations to the space of local excitations within a cluster, while
         fragment_projectors gives the projector within this local excitation space to the actual fragment."""
         # Get the coulomb integrals.
-        ri_eri = self.get_apb_eri_ri() / np.sqrt(2)
-
+        ri_eri, ri_eri_neg = self.get_apb_eri_ri() / np.sqrt(2)
+        # TODO use ri_eri_neg here.
         def get_eta_alpha(alpha, target_rot):
             newrirpa = self.__class__(self.mf, rixc=self.rixc, log=self.log)
             moms, errs = newrirpa.kernel_moms(
@@ -634,28 +645,32 @@ class ssRIRPA:
 
     def construct_RI_AB(self):
         """Construct the RI expressions for the deviation of A+B and A-B from D."""
-        ri_apb_eri = self.get_apb_eri_ri()
+        ri_apb_eri, ri_neg_apb_eri = self.get_apb_eri_ri()
         # Use empty AmB contrib initially; this is the dRPA contrib.
-        ri_amb_eri = np.zeros((0, self.ov * 2))
+        ri_amb_eri = np.zeros((0, ri_apb_eri.shape[1]))
+
+        apb_lhs = [ri_apb_eri]
+        apb_rhs = [ri_apb_eri]
+
+        if ri_neg_apb_eri is not None:
+            # Negative is factored in on only one side.
+            apb_lhs += [ri_neg_apb_eri]
+            apb_rhs += [-ri_neg_apb_eri]
+
+        amb_lhs = [ri_amb_eri]
+        amb_rhs = [ri_amb_eri]
+
         if self.rixc is not None:
             ri_a_xc, ri_b_xc = self.get_ab_xc_ri()
 
-            ri_apb_xc = [
-                np.concatenate([ri_a_xc[0], ri_b_xc[0]], axis=0),
-                np.concatenate([ri_a_xc[1], ri_b_xc[1]], axis=0),
-            ]
-            ri_amb_xc = [
-                np.concatenate([ri_a_xc[0], ri_b_xc[0]], axis=0),
-                np.concatenate([ri_a_xc[1], -ri_b_xc[1]], axis=0),
-            ]
-        else:
-            ri_apb_xc = [np.zeros((0, self.ov * 2))] * 2
-            ri_amb_xc = [np.zeros((0, self.ov * 2))] * 2
+            apb_lhs += [np.concatenate([ri_a_xc[0], ri_b_xc[0]], axis=0)]
+            apb_rhs += [np.concatenate([ri_a_xc[1], ri_b_xc[1]], axis=0)]
 
-        ri_apb = [np.concatenate([ri_apb_eri, x], axis=0) for x in ri_apb_xc]
-        ri_amb = [np.concatenate([ri_amb_eri, x], axis=0) for x in ri_amb_xc]
+            amb_lhs += [np.concatenate([ri_a_xc[0], ri_b_xc[0]], axis=0)]
+            amb_rhs += [np.concatenate([ri_a_xc[1], -ri_b_xc[1]], axis=0)]
 
-        return ri_apb, ri_amb
+        return (tuple([np.concatenate(x, axis=0) for x in [apb_lhs, apb_rhs]]),
+                tuple([np.concatenate(x, axis=0) for x in [amb_lhs, amb_rhs]]))
 
     def compress_low_rank(self, ri_l, ri_r, name=None):
         return compress_low_rank(ri_l, ri_r, tol=self.svd_tol, log=self.log, name=name)
@@ -663,23 +678,28 @@ class ssRIRPA:
     def get_apb_eri_ri(self):
         # Coulomb integrals only contribute to A+B.
         # This needs to be optimised, but will do for now.
-        if self.Lpq is None:
-            v = self.get_3c_integrals()  # pyscf.lib.unpack_tril(self.mf._cderi)
-            Lov = einsum(
-                "npq,pi,qa->nia", v, self.mo_coeff_occ, self.mo_coeff_vir
-            ).reshape((self.naux_eri, self.ov))
+        if self.lov is None:
+            lov, lov_neg = self.get_cderi()  # pyscf.lib.unpack_tril(self.mf._cderi)
         else:
-            Lov = self.Lpq[:, : self.nocc, self.nocc :].reshape(
-                (self.naux_eri, self.ov)
-            )
+            if isinstance(self.lov, tuple):
+                lov, lov_neg = self.lov
+            else:
+                assert self.lov.shape == (self.naux_eri, self.nocc, self.nvir)
+                lov = self.lov
+                lov_neg = None
 
-        ri_apb_eri = np.zeros((self.naux_eri, self.ov_tot))
+        lov = lov.reshape((lov.shape[0], -1))
+        if lov_neg is not None:
+            lov_neg = lov_neg.reshape((lov_neg.shape[0], -1))
 
         # Need to include factor of two since eris appear in both A and B.
-        ri_apb_eri[:, : self.ov] = ri_apb_eri[:, self.ov : 2 * self.ov] = (
-            np.sqrt(2) * Lov
-        )
-        return ri_apb_eri
+        ri_apb_eri = np.sqrt(2) * np.concatenate([lov, lov], axis = 1)
+
+        ri_neg_apb_eri = None
+        if lov_neg is not None:
+            ri_neg_apb_eri = np.sqrt(2) * np.concatenate([lov_neg, lov_neg], axis=1)
+
+        return ri_apb_eri, ri_neg_apb_eri
 
     def get_ab_xc_ri(self):
         # Have low-rank representation for interactions over and above coulomb interaction.
@@ -714,8 +734,8 @@ class ssRIRPA:
         ri_b_xc = [np.concatenate([x, y], axis=1) for x, y in zip(ri_b_aa, ri_b_bb)]
         return ri_a_xc, ri_b_xc
 
-    def get_3c_integrals(self):
-        return pyscf.lib.unpack_tril(next(self.mf.with_df.loop(blksize=self.naux_eri)))
+    def get_cderi(self, blksize=None):
+        return get_cderi(self, (self.mo_coeff_occ, self.mo_coeff_vir), compact=False, blksize=blksize)
 
     def test_spectral_rep(self, freqs):
         from vayesta.rpa import ssRPA

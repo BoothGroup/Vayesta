@@ -647,6 +647,7 @@ class Embedding:
     @with_doc(build_screened_eris)
     def build_screened_eris(self, *args, **kwargs):
         nmomscr = len([x.opts.screening for x in self.fragments if x.opts.screening == "mrpa"])
+        lov = None
         if self.opts.ext_rpa_correction:
             cumulant = self.opts.ext_rpa_correction == "cumulant"
             if nmomscr < self.nfrag:
@@ -654,10 +655,13 @@ class Embedding:
 
             if self.opts.ext_rpa_correction not in ["erpa", "cumulant"]:
                 raise ValueError("Unknown external rpa correction %s specified.")
-            l_ = self.get_cderi(self.mf.mo_coeff)[0]
-            rpa = ssRIRPA(self.mf, log=self.log, Lpq=l_)
+            lov = self.get_cderi((self.mo_coeff_occ, self.mo_coeff_vir))
+            rpa = ssRIRPA(self.mf, log=self.log, lov=l_)
             if cumulant:
-                l_ = l_[:, :self.nocc, self.nocc:].reshape((l_.shape[0], -1))
+                if lov[1] is not None:
+                    raise NotImplementedError("Cumulant energy correct not yet compatible with ")
+                l_ = lov[0]
+                l_ = l_.reshape((l_.shape[0], -1))
                 l_ = np.concatenate([l_, l_], axis=1)
 
                 m0 = rpa.kernel_moms(0, target_rot=l_)[0][0]
@@ -672,7 +676,7 @@ class Embedding:
             self.log.info("SCREENED INTERACTION SETUP")
             self.log.info("==========================")
             with log_time(self.log.timing, "Time for screened interation setup: %s"):
-                build_screened_eris(self, *args, store_m0=self.opts.ext_rpa_correction, **kwargs)
+                build_screened_eris(self, *args, store_m0=self.opts.ext_rpa_correction, cderi_ov=lov, **kwargs)
 
     # Symmetry between fragments
     # --------------------------

@@ -110,7 +110,7 @@ def build_screened_eris(emb, fragments=None, cderi_ov=None, store_m0=True, npoin
 
 
 def calc_moms_RIRPA(mf, target_rots, ovs_active, log, cderi_ov, npoints):
-    rpa = ssRIRPA(mf, log=log, Lpq=cderi_ov)
+    rpa = ssRIRPA(mf, log=log, lov=cderi_ov)
 
     tr = np.concatenate(target_rots, axis=0)
     if sum(sum(ovs_active)) > 0:

@@ -2,6 +2,11 @@ import numpy as np
 from vayesta.core.util import einsum
 
 from vayesta.rpa.rirpa.RIRPA import ssRIRRPA
+import pyscf.lib
+from vayesta.core.util import einsum
+from vayesta.core.eris import get_cderi
+
+from .RIRPA import ssRIRRPA
 
 
 class ssRIURPA(ssRIRRPA):
@@ -90,31 +95,6 @@ class ssRIURPA(ssRIRRPA):
         D = np.concatenate([epsa, epsb])
         return D
 
-    def construct_RI_AB(self):
-        """Construct the RI expressions for the deviation of A+B and A-B from D."""
-        ri_apb_eri = self.get_apb_eri_ri()
-        # Use empty AmB contrib initially; this is the dRPA contrib.
-        ri_amb_eri = np.zeros((0, self.ov_tot))
-        if self.rixc is not None:
-            ri_a_xc, ri_b_xc = self.get_ab_xc_ri()
-
-            ri_apb_xc = [
-                np.concatenate([ri_a_xc[0], ri_b_xc[0]], axis=0),
-                np.concatenate([ri_a_xc[1], ri_b_xc[1]], axis=0),
-            ]
-            ri_amb_xc = [
-                np.concatenate([ri_a_xc[0], ri_b_xc[0]], axis=0),
-                np.concatenate([ri_a_xc[1], -ri_b_xc[1]], axis=0),
-            ]
-        else:
-            ri_apb_xc = [np.zeros((0, self.ov_tot))] * 2
-            ri_amb_xc = [np.zeros((0, self.ov_tot))] * 2
-
-        ri_apb = [np.concatenate([ri_apb_eri, x], axis=0) for x in ri_apb_xc]
-        ri_amb = [np.concatenate([ri_amb_eri, x], axis=0) for x in ri_amb_xc]
-
-        return ri_apb, ri_amb
-
     def get_apb_eri_ri(self):
         # Coulomb integrals only contribute to A+B.
         # This needs to be optimised, but will do for now.
@@ -141,41 +121,40 @@ class ssRIURPA(ssRIRRPA):
         ri_apb_eri[:, self.ov[0] : self.ov_tot] = np.sqrt(2) * Lov_b
         return ri_apb_eri
 
-    def get_ab_xc_ri(self):
-        # Have low-rank representation for interactions over and above coulomb interaction.
-        # Note that this is usually asymmetric, as correction is non-PSD.
-        ri_a_aa = [
-            einsum(
-                "npq,pi,qa->nia", x, self.mo_coeff_occ[0], self.mo_coeff_vir[0]
-            ).reshape((-1, self.ov[0]))
-            for x in self.rixc[0]
-        ]
-        ri_a_bb = [
-            einsum(
-                "npq,pi,qa->nia", x, self.mo_coeff_occ[1], self.mo_coeff_vir[1]
-            ).reshape((-1, self.ov[1]))
-            for x in self.rixc[1]
-        ]
+    def get_apb_eri_ri(self):
+        # Coulomb integrals only contribute to A+B.
+        # This needs to be optimised, but will do for now.
+        if self.lov is None:
+            (lova, lovb), (lova_neg, lovb_neg) = self.get_cderi()  # pyscf.lib.unpack_tril(self.mf._cderi)
+        else:
+            if isinstance(self.lov, tuple):
+                (lova, lovb), (lova_neg, lovb_neg) = self.lov
+            else:
+                assert self.lov[0][0].shape == (self.naux_eri, self.nocc[0], self.nvir[0])
+                assert self.lov[0][1].shape == (self.naux_eri, self.nocc[1], self.nvir[1])
+                lova, lovb = self.lov
+                lova_neg = lovb_neg = None
 
-        ri_b_aa = [
-            ri_a_aa[0],
-            einsum(
-                "npq,qi,pa->nia",
-                self.rixc[0][1],
-                self.mo_coeff_occ[0],
-                self.mo_coeff_vir[0],
-            ).reshape((-1, self.ov[0])),
-        ]
-        ri_b_bb = [
-            ri_a_bb[0],
-            einsum(
-                "npq,qi,pa->nia",
-                self.rixc[1][1],
-                self.mo_coeff_occ[1],
-                self.mo_coeff_vir[1],
-            ).reshape((-1, self.ov[1])),
-        ]
+        lova = lova.reshape((lova.shape[0], -1))
+        lovb = lovb.reshape((lovb.shape[0], -1))
+        if lova_neg is not None:
+            if lovb_neg is None:
+                raise RuntimeError("Encountered negative cderi contribution in only one spin channel."
+                                   "Isn't this impossible?")
+            lova_neg = lova_neg.reshape((lova_neg.shape[0], -1))
+            lovb_neg = lovb_neg.reshape((lovb_neg.shape[0], -1))
 
-        ri_a_xc = [np.concatenate([x, y], axis=1) for x, y in zip(ri_a_aa, ri_a_bb)]
-        ri_b_xc = [np.concatenate([x, y], axis=1) for x, y in zip(ri_b_aa, ri_b_bb)]
-        return ri_a_xc, ri_b_xc
+        # Need to include factor of two since eris appear in both A and B.
+        ri_apb_eri = np.sqrt(2) * np.concatenate([lova, lovb], axis = 1)
+
+        ri_neg_apb_eri = None
+        if lova_neg is not None:
+            ri_neg_apb_eri = np.sqrt(2) * np.concatenate([lova_neg, lovb_neg], axis=1)
+
+        return ri_apb_eri, ri_neg_apb_eri
+
+    def get_cderi(self, blksize=None):
+
+        la, la_neg = get_cderi(self, (self.mo_coeff_occ[0], self.mo_coeff_vir[0]), compact=False, blksize=blksize)
+        lb, lb_neg = get_cderi(self, (self.mo_coeff_occ[1], self.mo_coeff_vir[1]), compact=False, blksize=blksize)
+        return (la, lb), (la_neg, lb_neg)
