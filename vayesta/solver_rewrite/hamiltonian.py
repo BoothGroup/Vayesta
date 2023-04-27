@@ -123,26 +123,47 @@ class RClusterHamiltonian:
             h_eff += self.v_ext
         return h_eff
 
-    def get_eris_screened(self):
+    def get_eris_screened(self, block=None):
         # This will only return the bare eris if no screening is expected
         if self.opts.screening is None:
-            return self.get_eris_bare()
+            return self.get_eris_bare(block)
         if self._seris is None:
             self.log.critical("ERIs requested before expected screened interactions have been initialised.")
             raise RuntimeError("ERIs requested before expected screened interactions have been initialised.")
-        return self._seris
-
-    def get_eris_bare(self):
-        if self._eris is None:
-            with log_time(self.log.timing, "Time for AO->MO of ERIs:  %s"):
-                coeff = self.cluster.c_active
-                eris = self._fragment.base.get_eris_array(coeff)
-            if self.opts.cache_eris:
-                self._eris = eris
+        if block is None:
+            return self._seris
         else:
-            eris = self._eris
+            return self._get_eris_block(self._seris, block)
 
-        return eris
+    def get_eris_bare(self, block=None):
+        if block is None:
+            if self._eris is None:
+                with log_time(self.log.timing, "Time for AO->MO of ERIs:  %s"):
+                    coeff = self.cluster.c_active
+                    eris = self._fragment.base.get_eris_array(coeff)
+                if self.opts.cache_eris:
+                    self._eris = eris
+                return eris
+            else:
+                return self._eris
+        else:
+            assert len(block) == 4 and set(block.lower()).issubset({"o", "v"})
+            if True:#self._eris is None:
+                # Actually generate the relevant block.
+                coeffs = [self.cluster.c_active_occ if i == "o" else self.cluster.c_active_vir for i in block.lower()]
+                return self._fragment.base.get_eris_array(coeffs)
+            else:
+                return self._get_eris_block(self._eris, block)
+
+    def _get_eris_block(self, eris, block):
+        assert len(block) == 4 and set(block.lower()).issubset({"o", "v"})
+        # Just get slices of cached eri.
+        # This can be done a little  more elegantly with tuple unpacking in indexing, but support for that
+        # apparently isn't supported in at least python 3.9 and before.
+        occ = range(self.cluster.nocc_active)
+        vir = range(self.cluster.nocc_active, self.cluster.norb_active)
+        sl = [occ if i == "o" else vir for i in block.lower()]
+        return eris[np.ix_(sl)]
 
     def get_cderi_bare(self, only_ov=False, compress=False, svd_threshold=1e-12):
 
@@ -448,13 +469,37 @@ class UClusterHamiltonian(RClusterHamiltonian):
                      (h_eff[1] + self.v_ext[1]))
         return h_eff
 
-    def get_eris_bare(self, *args, **kwargs):
-        with log_time(self.log.timing, "Time for AO->MO of ERIs:  %s"):
-            coeff = self.cluster.c_active
-            eris = (self._fragment.base.get_eris_array(coeff[0]),
-                    self._fragment.base.get_eris_array((coeff[0], coeff[0], coeff[1], coeff[1])),
-                    self._fragment.base.get_eris_array(coeff[1]))
-        return eris
+    def get_eris_bare(self, block=None):
+        if block is None:
+            if self._eris is None:
+                with log_time(self.log.timing, "Time for AO->MO of ERIs:  %s"):
+                    eris = self._fragment.base.get_eris_array_uhf(self.cluster.c_active)
+                if self.opts.cache_eris:
+                    self._eris = eris
+                return eris
+            else:
+                return self._eris
+        else:
+            if True:#self._eris is None:
+                coeffs = [self.cluster.c_active_occ[int(i.upper() == i)] if i.lower() == "o" else
+                          self.cluster.c_active_vir[int(i.upper() == i)] for i in block]
+                return self._fragment.base.get_eris_array(coeffs)
+            else:
+                return self._get_eris_block(self._eris, block)
+
+    def _get_eris_block(self, eris, block):
+        assert len(block) == 4 and set(block.lower()).issubset({"o", "v"})
+        sp = [int(i.upper()==i) for i in block]
+        flip = sum(sp) == 2 and sp[0] == 1
+        if flip: block = block[::-1]
+        d = {"o": range(self.cluster.nocc_active[0]), "O": range(self.cluster.nocc_active[1]),
+                "v": range(self.cluster.nocc_active[0], self.cluster.norb_active[0]),
+                "V": range(self.cluster.nocc_active[1], self.cluster.norb_active[1])
+                }
+        sl = [d[i] for i in block]
+        res = eris[sum(sp)//2][np.ix_(sl)]
+        if flip: res = res.transpose(3, 2, 1, 0)
+        return res
 
     def get_cderi_bare(self, only_ov=False, compress=False, svd_threshold=1e-12):
 

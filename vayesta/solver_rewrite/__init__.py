@@ -6,6 +6,7 @@ from .ccsd import RCCSD_Solver, UCCSD_Solver
 from .mp2 import RMP2_Solver, UMP2_Solver
 from .cisd import RCISD_Solver, UCISD_Solver
 from .tccsd import TRCCSD_Solver
+from .ext_ccsd import extRCCSD_Solver, extUCCSD_Solver
 from .dump import DumpSolver
 
 def get_solver_class(ham, solver):
@@ -38,6 +39,14 @@ def _get_solver_class(is_uhf, is_eb, solver):
         if is_uhf or is_eb:
             raise ValueError("TCCSD is not implemented for unrestricted or electron-boson calculations!")
         return TRCCSD_Solver
+    if solver == "EXTCCSD":
+
+        if is_eb:
+            raise ValueError("extCCSD is not implemented for electron-boson calculations!")
+        if is_uhf:
+            return extUCCSD_Solver
+        return extRCCSD_Solver
+
     # Now consider general CC ansatzes; these are solved via EBCC.
     if "CC" in solver:
         if is_uhf:

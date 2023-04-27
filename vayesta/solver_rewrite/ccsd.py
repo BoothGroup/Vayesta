@@ -20,7 +20,7 @@ class RCCSD_Solver(ClusterSolver):
         conv_tol: float = None  # Convergence energy tolerance
         conv_tol_normt: float = None  # Convergence amplitude tolerance
         init_guess: str = 'MP2'         # ['MP2', 'CISD']
-        solve_lambda: bool = False  # If false, use Lambda=T approximation
+        solve_lambda: bool = True  # If false, use Lambda=T approximation
         # Self-consistent mode
         sc_mode: int = None
 
@@ -38,13 +38,6 @@ class RCCSD_Solver(ClusterSolver):
             mycc.conv_tol_normt = self.opts.conv_tol_normt
         mycc.callback = self.get_callback()
 
-        #if self.opts.sc_mode and self.base.iteration > 1:
-        #    self.set_callback(coupling.make_cross_fragment_tcc_function(self, mode=self.opts.sc_mode))
-        # This should include the SC mode?
-        #elif coupled_fragments and np.all([x.results is not None for x in coupled_fragments]):
-        #    self.set_callback(coupling.make_cross_fragment_tcc_function(self, mode=(self.opts.sc_mode or 3),
-        #                                                                coupled_fragments=coupled_fragments))
-
         if t1 is None and t2 is None:
             t1, t2 = self.generate_init_guess()
 
@@ -57,7 +50,6 @@ class RCCSD_Solver(ClusterSolver):
             self.t_diagnostic(mycc)
 
         self.print_extra_info(mycc)
-
 
         if self.opts.solve_lambda:
             mycc.solve_lambda(l1=l1, l2=l2)

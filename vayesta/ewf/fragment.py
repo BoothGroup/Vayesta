@@ -161,7 +161,7 @@ class Fragment(BaseFragment):
         """
         if correction_type not in ('tailor', 'delta-tailor', 'external'):
             raise ValueError
-        if self.solver != 'CCSD':
+        if self.solver != 'extCCSD':
             raise RuntimeError
         if (not low_level_coul) and correction_type != 'external':
             raise ValueError("low_level_coul optional argument only meaningful with 'external' correction of fragments.")
