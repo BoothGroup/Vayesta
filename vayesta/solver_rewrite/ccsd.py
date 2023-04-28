@@ -52,10 +52,13 @@ class RCCSD_Solver(ClusterSolver):
         self.print_extra_info(mycc)
 
         if self.opts.solve_lambda:
-            mycc.solve_lambda(l1=l1, l2=l2)
+            l1, l2 = mycc.solve_lambda(l1=l1, l2=l2)
             self.converged = self.converged and mycc.converged_lambda
+        else:
+            self.log.info("Using Lambda=T approximation for Lambda-amplitudes.")
+            l1, l2 = mycc.t1, mycc.t2
 
-        self.wf = CCSD_WaveFunction(self.hamil.mo, mycc.t1, mycc.t2, l1=mycc.l1, l2=mycc.l2)
+        self.wf = CCSD_WaveFunction(self.hamil.mo, mycc.t1, mycc.t2, l1=l1, l2=l2)
 
     def get_solver_class(self, mf):
         if hasattr(mf, "with_df") and mf.with_df is not None:
