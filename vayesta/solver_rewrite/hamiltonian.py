@@ -148,7 +148,7 @@ class RClusterHamiltonian:
                 return self._eris
         else:
             assert len(block) == 4 and set(block.lower()).issubset({"o", "v"})
-            if True:#self._eris is None:
+            if self._eris is None:
                 # Actually generate the relevant block.
                 coeffs = [self.cluster.c_active_occ if i == "o" else self.cluster.c_active_vir for i in block.lower()]
                 return self._fragment.base.get_eris_array(coeffs)
@@ -158,12 +158,10 @@ class RClusterHamiltonian:
     def _get_eris_block(self, eris, block):
         assert len(block) == 4 and set(block.lower()).issubset({"o", "v"})
         # Just get slices of cached eri.
-        # This can be done a little  more elegantly with tuple unpacking in indexing, but support for that
-        # apparently isn't supported in at least python 3.9 and before.
-        occ = range(self.cluster.nocc_active)
-        vir = range(self.cluster.nocc_active, self.cluster.norb_active)
-        sl = [occ if i == "o" else vir for i in block.lower()]
-        return eris[np.ix_(sl)]
+        occ = slice(self.cluster.nocc_active)
+        vir = slice(self.cluster.nocc_active, self.cluster.norb_active)
+        sl = tuple([occ if i == "o" else vir for i in block.lower()])
+        return eris[sl]
 
     def get_cderi_bare(self, only_ov=False, compress=False, svd_threshold=1e-12):
 
@@ -480,7 +478,7 @@ class UClusterHamiltonian(RClusterHamiltonian):
             else:
                 return self._eris
         else:
-            if True:#self._eris is None:
+            if self._eris is None:
                 coeffs = [self.cluster.c_active_occ[int(i.upper() == i)] if i.lower() == "o" else
                           self.cluster.c_active_vir[int(i.upper() == i)] for i in block]
                 return self._fragment.base.get_eris_array(coeffs)
@@ -492,12 +490,12 @@ class UClusterHamiltonian(RClusterHamiltonian):
         sp = [int(i.upper()==i) for i in block]
         flip = sum(sp) == 2 and sp[0] == 1
         if flip: block = block[::-1]
-        d = {"o": range(self.cluster.nocc_active[0]), "O": range(self.cluster.nocc_active[1]),
-                "v": range(self.cluster.nocc_active[0], self.cluster.norb_active[0]),
-                "V": range(self.cluster.nocc_active[1], self.cluster.norb_active[1])
+        d = {"o": slice(self.cluster.nocc_active[0]), "O": slice(self.cluster.nocc_active[1]),
+                "v": slice(self.cluster.nocc_active[0], self.cluster.norb_active[0]),
+                "V": slice(self.cluster.nocc_active[1], self.cluster.norb_active[1])
                 }
-        sl = [d[i] for i in block]
-        res = eris[sum(sp)//2][np.ix_(sl)]
+        sl = tuple([d[i] for i in block])
+        res = eris[sum(sp)//2][sl]
         if flip: res = res.transpose(3, 2, 1, 0)
         return res
 

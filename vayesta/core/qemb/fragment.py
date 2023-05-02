@@ -1035,6 +1035,8 @@ class Fragment:
         check_solver_config(is_uhf, is_eb, solver, self.log)
 
     def get_solver(self, solver=None):
+        if solver is None:
+            solver = self.solver
         # This detects based on fragment what kind of Hamiltonian is appropriate (restricted and/or EB).
         cl_ham = ClusterHamiltonian(self, self.mf, self.log, screening=self.opts.screening)
         solver_cls = get_solver_class(cl_ham, solver)
