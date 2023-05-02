@@ -376,3 +376,116 @@ class UFCI_WaveFunction(RFCI_WaveFunction):
             c4 = tuple(c * fac for c in c4)
 
         return wf_types.UCISDTQ_WaveFunction(self.mo, c0, c1, c2, c3, c4)
+
+
+class UFCI_WaveFunction_w_dummy(UFCI_WaveFunction):
+    """Class to allow use of dummy orbitals to balance alpha and beta spin channels.
+    This is done by introducing a dummy `SpinOrbitals` object during calculation of properties in orbital basis, then
+    removal of dummy indices from these quantities.
+    We currently choose to only introduce virtual orbitals.
+
+    TODO check all quantities removed are negligible.
+    """
+
+    def __init__(self, mo, ci, dummy_orbs, projector=None):
+        super().__init__(mo, ci, projector)
+        self.dummy_orbs = dummy_orbs
+
+        if len(dummy_orbs[0]) > 0:
+            dummy_occ = min(dummy_orbs[0]) < self.nocca
+        else:
+            dummy_occ = min(dummy_orbs[1]) < self.noccb
+        if dummy_occ:
+            raise NotImplementedError("Only dummy virtual orbitals are supported.")
+        norb = np.array(self.ndummy) + np.array(self.norb)
+        if norb[0] != norb[1]:
+            raise RuntimeError("Including padded orbitals doesn't match the number of orbitals in each spin channel!"
+                               " %d != %d (%d + %d != %d + %d)" % (norb[0], norb[1], self.ndummy[0], self.norb[0],
+                                                                   self.ndummy[1], self.norb[1]))
+
+    @property
+    def ndummy(self):
+        return tuple([len(x) for x in self.dummy_orbs])
+
+    @property
+    def dummy_mo(self):
+        # Dummy orbital object to impersonate correct number of orbitals for pyscf routines.
+        coeff = self.mo.coeff
+        norb = np.array(self.ndummy) + np.array(self.norb)
+        nao = coeff[0].shape[0]
+        # Generate coefficients of correct dimension, but with zero contribution.
+
+        coeff_w_dummy = [np.zeros((norb[0], nao)), np.zeros((norb[0], nao))]
+        sa, sb = self._phys_ind_orbs()
+
+        coeff_w_dummy[0][sa] = coeff[0].T
+        coeff_w_dummy[1][sb] = coeff[1].T
+
+        coeff_w_dummy = [x.T for x in coeff_w_dummy]
+        return type(self.mo)(coeff_w_dummy, occ=self.mo.nocc)
+
+    def _phys_ind_orbs(self):
+        return [np.array([i for i in range(y) if i not in x]) for x, y in zip(self.dummy_orbs, self.norb)]
+
+    def _phys_ind_vir(self):
+        return [np.array([i for i in range(y) if i + z not in x]) for x, y, z in zip(self.dummy_orbs, self.nvir, self.nocc)]
+
+    def make_rdm1(self, ao_basis=False, *args, **kwargs):
+        with replace_attr(self, mo=self.dummy_mo):
+            dm1 = super().make_rdm1(*args, ao_basis=ao_basis, **kwargs)
+        if ao_basis:
+            return dm1
+        sa, sb = self._phys_ind_orbs()
+        return (dm1[0][np.ix_(sa, sa)], dm1[1][np.ix_(sb, sb)])
+
+    def make_rdm2(self, ao_basis=False, *args, **kwargs):
+        with replace_attr(self, mo=self.dummy_mo):
+            dm2 = super().make_rdm2(*args, ao_basis=ao_basis, **kwargs)
+        if ao_basis:
+            return dm2
+        sa, sb = self._phys_ind_orbs()
+        return (dm2[0][np.ix_(sa, sa, sa, sa)], dm2[1][np.ix_(sa, sa, sb, sb)], dm2[2][np.ix_(sb, sb, sb, sb)])
+
+    def as_cisd(self, *args, **kwargs):
+        self.check_norb()
+        with replace_attr(self, mo=self.dummy_mo):
+            wf_cisd = super().as_cisd(*args, **kwargs)
+            va, vb = self._phys_ind_vir()
+
+        c1a, c1b = wf_cisd.c1
+        c2aa, c2ab, c2bb = wf_cisd.c2
+
+        # Define function to apply slices to virtual orbitals only
+        def vsl(a, sl):
+            # Swap slicelist order as well for consistency
+            return a.transpose()[np.ix_(*sl[::-1])].transpose()
+
+        c1 = (vsl(c1a, [va]), vsl(c1b, [vb]))
+        c2 = (vsl(c2aa, [va, va]), vsl(c2ab, [va, vb]), vsl(c2bb, [vb, vb]))
+        return wf_types.UCISD_WaveFunction(self.mo, wf_cisd.c0, c1, c2, projector=self.projector)
+
+    def as_cisdtq(self, *args, **kwargs):
+        with replace_attr(self, mo=self.dummy_mo):
+            wf_cisdtq = super().as_cisdtq(*args, **kwargs)
+            va, vb = self._phys_ind_vir()
+
+        # Have wavefunction, but with dummy indices.
+        c1a, c1b = wf_cisdtq.c1
+        c2aa, c2ab, c2bb = wf_cisdtq.c2
+        c3aaa, c3aba, c3bab, c3bbb = wf_cisdtq.c3
+        c4aaaa, c4aaab, c4abab, c4abbb, c4bbbb = wf_cisdtq.c4
+
+        # Define function to apply slices to virtual orbitals only
+        def vsl(a, sl):
+            # Swap slicelist order as well for consistency
+            return a.transpose()[np.ix_(*sl[::-1])].transpose()
+
+        c1 = (vsl(c1a, [va]), vsl(c1b, [vb]))
+        c2 = (vsl(c2aa, [va, va]), vsl(c2ab, [va, vb]), vsl(c2bb, [vb, vb]))
+
+        c3 = (vsl(c3aaa, [va, va, va]), vsl(c3aba, [va, vb, va]), vsl(c3bab, [vb, va, vb]), vsl(c3bbb, [vb, vb, vb]))
+
+        c4 = (vsl(c4aaaa, [va, va, va, va]), vsl(c4aaab, [va, va, va, vb]), vsl(c4abab, [va, vb, va, vb]),
+              vsl(c4abbb, [va, vb, vb, vb]), vsl(c4bbbb, [vb, vb, vb, vb]))
+
+        return wf_types.UCISDTQ_WaveFunction(self.mo, wf_cisdtq.c0, c1, c2, c3, c4)
