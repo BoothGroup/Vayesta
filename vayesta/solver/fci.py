@@ -111,5 +111,4 @@ class UFCI_Solver(UClusterSolver, FCI_Solver):
         with log_time(self.log.timing, "Time for FCI: %s"):
             e_fci, self.civec = self.solver.kernel(heff, eris, mf.mol.nao, self.hamil.nelec, ci0=ci)
         self.converged = self.solver.converged
-        self.log.critical("%d %d", *self.hamil.mo.norb)
         self.wf = UFCI_WaveFunction_w_dummy(self.hamil.mo, self.civec, dummy_orbs=orbs_to_freeze)

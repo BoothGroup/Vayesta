@@ -256,7 +256,7 @@ class RClusterHamiltonian:
             orbs_to_freeze = None
             dummy_energy = 0.0
         else:
-            self.log.info("Using %d dummy orbitals to pad local Hamiltonian. %d!=%d", nmo - nsm, *self.ncas)
+            self.log.info("Using %d dummy orbital(s) to pad local Hamiltonian.", nmo - nsm)
             # Note that this branch is actually UHF-exclusive.
             padchannel = self.ncas.index(nsm)
             orbs_to_freeze = [[], []]
