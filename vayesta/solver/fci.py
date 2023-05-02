@@ -5,6 +5,7 @@ import pyscf.fci
 import pyscf.fci.addons
 
 from vayesta.core.types import FCI_WaveFunction
+from vayesta.core.types.wf.fci import UFCI_WaveFunction_w_dummy
 from vayesta.core.util import log_time
 from vayesta.solver.cisd import RCISD_Solver, UCISD_Solver
 from vayesta.solver.solver import ClusterSolver, UClusterSolver
@@ -87,3 +88,28 @@ class UFCI_Solver(UClusterSolver, FCI_Solver):
 
     def get_solver_class(self):
         return pyscf.fci.direct_uhf.FCISolver
+
+    def kernel(self, ci=None):
+
+        na, nb = self.hamil.ncas
+        if na == nb:
+            super().kernel(ci)
+            return
+        # Only consider this functionality when it's needed.
+        if ci is None and self.opts.init_guess == "CISD":
+            cisd = self.cisd_solver(self.hamil)
+            cisd.kernel()
+            ci = cisd.wf.as_fci().ci
+            if self.opts.init_guess_noise:
+                ci += self.opts.init_guess_noise * np.random.random(ci.shape)
+
+        mf, orbs_to_freeze = self.hamil.to_pyscf_mf(allow_dummy_orbs=True, allow_df=False)
+
+        heff = mf.get_hcore()
+        eris = mf._eri
+
+        with log_time(self.log.timing, "Time for FCI: %s"):
+            e_fci, self.civec = self.solver.kernel(heff, eris, mf.mol.nao, self.hamil.nelec, ci0=ci)
+        self.converged = self.solver.converged
+        self.log.critical("%d %d", *self.hamil.mo.norb)
+        self.wf = UFCI_WaveFunction_w_dummy(self.hamil.mo, self.civec, dummy_orbs=orbs_to_freeze)
