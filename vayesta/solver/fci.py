@@ -97,18 +97,17 @@ class UFCI_Solver(UClusterSolver, FCI_Solver):
             return
         # Only consider this functionality when it's needed.
         if ci is None and self.opts.init_guess == "CISD":
-            cisd = self.cisd_solver(self.hamil)
-            cisd.kernel()
-            ci = cisd.wf.as_fci().ci
-            if self.opts.init_guess_noise:
-                ci += self.opts.init_guess_noise * np.random.random(ci.shape)
-
+            self.log.warning(
+                "CISD initial guess not implemented for UHF FCI solver with different numbers of alpha and beta orbitals."
+                "Using meanfield guess.")
+        # Get dummy meanfield object, with padding, to represent the cluster.
         mf, orbs_to_freeze = self.hamil.to_pyscf_mf(allow_dummy_orbs=True, allow_df=False)
-
+        # Get padded integrals from this.
         heff = mf.get_hcore()
         eris = mf._eri
-
+        # Run calculation with them.
         with log_time(self.log.timing, "Time for FCI: %s"):
             e_fci, self.civec = self.solver.kernel(heff, eris, mf.mol.nao, self.hamil.nelec, ci0=ci)
         self.converged = self.solver.converged
+        # Generate wavefunction object with dummy orbitals.
         self.wf = UFCI_WaveFunction_w_dummy(self.hamil.mo, self.civec, dummy_orbs=orbs_to_freeze)
