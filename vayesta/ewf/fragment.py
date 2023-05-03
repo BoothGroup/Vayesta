@@ -36,8 +36,6 @@ get_fragment_mpi_rank = lambda *args : args[0].mpi_rank
 class Options(BaseFragment.Options):
     # Inherited from Embedding
     # ------------------------
-    # --- Couple embedding problems (currently only CCSD and MPI)
-    coupled_iterations: bool = None
     t_as_lambda: bool = None                # If True, use T-amplitudes inplace of Lambda-amplitudes
     bsse_correction: bool = None
     bsse_rmax: float = None
@@ -59,6 +57,8 @@ class Options(BaseFragment.Options):
     # --- Solver options
     # "TCCSD-solver":
     tcc_fci_opts: dict = dataclasses.field(default_factory=dict)
+    # --- Couple embedding problems (currently only CCSD and MPI)
+    # coupled_iterations: bool = None # Now accessible through solver=coupledCCSD setting.
 
 class Fragment(BaseFragment):
 
@@ -277,14 +277,12 @@ class Fragment(BaseFragment):
                 cluster_solver.v_ext = (cpt_frag * p_frag[0], cpt_frag * p_frag[1])
 
         # --- Coupled fragments
-        if self.opts.coupled_iterations:
-            if solver != 'CCSD':
-                raise NotImplementedError()
+        if solver == 'coupledCCSD':
             if not mpi:
                 raise RuntimeError("coupled_iterations requires MPI.")
             if len(self.base.fragments) != len(mpi):
                 raise RuntimeError("coupled_iterations requires as many MPI processes as there are fragments.")
-            cluster_solver.couple_iterations(self.base.fragments)
+            cluster_solver.set_coupled_fragments(self.base.fragments)
 
         # Normal solver
         if not self.base.opts._debug_wf:

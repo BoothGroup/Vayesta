@@ -7,17 +7,22 @@ from .mp2 import RMP2_Solver, UMP2_Solver
 from .cisd import RCISD_Solver, UCISD_Solver
 from .tccsd import TRCCSD_Solver
 from .ext_ccsd import extRCCSD_Solver, extUCCSD_Solver
+from .coupled_ccsd import coupledRCCSD_Solver
 from .dump import DumpSolver
 
 def get_solver_class(ham, solver):
     assert(is_ham(ham))
     uhf = is_uhf_ham(ham)
     eb = is_eb_ham(ham)
-    return _get_solver_class(uhf, eb, solver)
+    return _get_solver_class(uhf, eb, solver, ham.log)
 
 def check_solver_config(is_uhf, is_eb, solver, log):
+    _get_solver_class(is_uhf, is_eb, solver, log)
+
+def _get_solver_class(is_uhf, is_eb, solver, log):
     try:
         solver = _get_solver_class(is_uhf, is_eb, solver)
+        return solver
     except ValueError as e:
         spinmessage = "unrestricted" if is_uhf else "restricted"
         bosmessage = "coupled electron-boson" if is_eb else "purely electronic"
@@ -26,7 +31,7 @@ def check_solver_config(is_uhf, is_eb, solver, log):
         raise e
 
 
-def _get_solver_class(is_uhf, is_eb, solver):
+def _get_solver_class_internal(is_uhf, is_eb, solver):
     solver = solver.upper()
     # First check if we have a CC approach as implemented in pyscf.
     if solver == "CCSD" and not is_eb:
@@ -40,12 +45,18 @@ def _get_solver_class(is_uhf, is_eb, solver):
             raise ValueError("TCCSD is not implemented for unrestricted or electron-boson calculations!")
         return TRCCSD_Solver
     if solver == "EXTCCSD":
-
         if is_eb:
             raise ValueError("extCCSD is not implemented for electron-boson calculations!")
         if is_uhf:
             return extUCCSD_Solver
         return extRCCSD_Solver
+    if solver == "COUPLEDCCSD":
+        if is_eb:
+            raise ValueError("coupledCCSD is not implemented for electron-boson calculations!")
+        if is_uhf:
+            raise ValueError("coupledCCSD is not implemented for unrestricted calculations!")
+        return coupledRCCSD_Solver
+
 
     # Now consider general CC ansatzes; these are solved via EBCC.
     if "CC" in solver:

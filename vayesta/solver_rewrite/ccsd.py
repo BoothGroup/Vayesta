@@ -102,9 +102,6 @@ class RCCSD_Solver(ClusterSolver):
     def print_extra_info(self, mycc):
         pass
 
-    def couple_iterations(self, fragments):
-        self.set_callback(coupling.couple_ccsd_iterations(self, fragments))
-
     def _debug_exact_wf(self, wf):
         mo = self.hamil.mo
         # Project onto cluster:
