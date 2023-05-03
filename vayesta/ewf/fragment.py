@@ -161,6 +161,10 @@ class Fragment(BaseFragment):
         """
         if correction_type not in ('tailor', 'delta-tailor', 'external'):
             raise ValueError
+        if self.solver == "CCSD":
+            # Automatically update this cluster to use external correction solver.
+            self.solver = "extCCSD"
+            self.check_solver(self.solver)
         if self.solver != 'extCCSD':
             raise RuntimeError
         if (not low_level_coul) and correction_type != 'external':
