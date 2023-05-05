@@ -21,14 +21,15 @@ def check_solver_config(is_uhf, is_eb, solver, log):
 
 def _get_solver_class(is_uhf, is_eb, solver, log):
     try:
-        solver = _get_solver_class(is_uhf, is_eb, solver)
-        return solver
+        solver_cls = _get_solver_class_internal(is_uhf, is_eb, solver)
+        return solver_cls
     except ValueError as e:
         spinmessage = "unrestricted" if is_uhf else "restricted"
         bosmessage = "coupled electron-boson" if is_eb else "purely electronic"
 
-        log.critical("Error; solver %s not available for %s %s systems", solver, spinmessage, bosmessage)
-        raise e
+        fullmessage = f"Error; solver {solver} not available for {spinmessage} {bosmessage} systems"
+        log.critical(fullmessage)
+        raise ValueError(fullmessage)
 
 
 def _get_solver_class_internal(is_uhf, is_eb, solver):
