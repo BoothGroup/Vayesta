@@ -19,8 +19,7 @@ class FCI_Solver(ClusterSolver):
         conv_tol: float = None  # Convergence tolerance. If None, use PySCF default
         solver_spin: bool = True  # Use direct_spin1 if True, or direct_spin0 otherwise
         fix_spin: float = 0.0  # If set to a number, the given S^2 value will be enforced
-        # fix_spin_penalty: float = 1.0
-        fix_spin_penalty: float = 1e3
+        fix_spin_penalty: float = 1.0  # Penalty for fixing spin
         davidson_only: bool = True
         init_guess: str = 'default'
         init_guess_noise: float = 1e-5
