@@ -1,12 +1,10 @@
 import numpy as np
 import pyscf
-from pyscf.lib import direct_sum
-from vayesta.core.ao2mo import helper as ao2mo_helper
 from vayesta.core.util import *
 from vayesta.core import spinalg
 from vayesta.mpi import mpi, RMA_Dict
 from vayesta.solver.simple import CCSD as SimpleCCSD
-from vayesta.solver import ccsdtq
+from vayesta.solver_rewrite import ccsdtq
 
 
 def transform_amplitude(t, u_occ, u_vir, u_occ2=None, u_vir2=None, inverse=False):
