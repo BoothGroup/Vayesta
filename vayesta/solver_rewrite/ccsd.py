@@ -8,6 +8,8 @@ from vayesta.core.util import *
 
 from vayesta.solver import coupling, tccsd
 
+from dyson.expressions import CCSD
+
 import pyscf.cc
 from ._uccsd_eris import uao2mo
 
@@ -23,6 +25,7 @@ class RCCSD_Solver(ClusterSolver):
         solve_lambda: bool = True  # If false, use Lambda=T approximation
         # Self-consistent mode
         sc_mode: int = None
+        n_moments = None
 
     def kernel(self, t1=None, t2=None, l1=None, l2=None, coupled_fragments=None, t_diagnostic=True):
         mf_clus, frozen = self.hamil.to_pyscf_mf(allow_dummy_orbs=True, allow_df=True)
@@ -57,6 +60,17 @@ class RCCSD_Solver(ClusterSolver):
         else:
             self.log.info("Using Lambda=T approximation for Lambda-amplitudes.")
             l1, l2 = mycc.t1, mycc.t2
+
+        # In-cluster Moments
+        nmom = self.opts.n_moments
+        print('nmom = %s'%str(nmom))
+        if nmom is not None:
+
+            self.log.info("Calculating in-cluster CCSD moments %s"%str(nmom))
+            expr = CCSD["1h"](mf_clus, t1=mycc.t1, t2=mycc.t2, l1=l1, l2=l2)
+            self.hole_moments = expr.build_gf_moments(nmom[0])
+            expr = CCSD["1p"](mf_clus, t1=mycc.t1, t2=mycc.t2, l1=l1, l2=l2)
+            self.particle_moments = expr.build_gf_moments(nmom[1])
 
         self.wf = CCSD_WaveFunction(self.hamil.mo, mycc.t1, mycc.t2, l1=l1, l2=l2)
 
