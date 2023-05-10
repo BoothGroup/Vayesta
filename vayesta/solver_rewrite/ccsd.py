@@ -1,5 +1,8 @@
 import dataclasses
 import numpy as np
+
+from dyson.expressions import CCSD
+
 from .solver import ClusterSolver, UClusterSolver
 from .cisd import CISD_Solver
 from vayesta.core.types import CCSD_WaveFunction
@@ -7,8 +10,6 @@ from vayesta.core.util import dot, einsum
 from vayesta.core.util import *
 
 from vayesta.solver import coupling, tccsd
-
-from dyson.expressions import CCSD
 
 import pyscf.cc
 from ._uccsd_eris import uao2mo
@@ -68,9 +69,18 @@ class RCCSD_Solver(ClusterSolver):
 
             self.log.info("Calculating in-cluster CCSD moments %s"%str(nmom))
             expr = CCSD["1h"](mf_clus, t1=mycc.t1, t2=mycc.t2, l1=l1, l2=l2)
-            self.hole_moments = expr.build_gf_moments(nmom[0])
+            vecs_bra = expr.build_gf_vectors(nmom[0], left=True)
+            amps_bra = [expr.eom.vector_to_amplitudes(amps[n,p], ccm.nmo, ccm.nocc) for p in range(ccm.nmo) for n in range(nmom)]
+            vecs_ket = expr.build_gf_vectors(nmom[0], left=False)
+            amps_ket = [expr.eom.vector_to_amplitudes(amps[n,p], ccm.nmo, ccm.nocc) for p in range(ccm.nmo) for n in range(nmom)]
+            self.ip_moment_amplitudes = (amps_bra, amps_ket)
+
             expr = CCSD["1p"](mf_clus, t1=mycc.t1, t2=mycc.t2, l1=l1, l2=l2)
-            self.particle_moments = expr.build_gf_moments(nmom[1])
+            vecs_bra = expr.build_gf_vectors(nmom[0], left=True)
+            amps_bra = [expr.eom.vector_to_amplitudes(amps[n,p], ccm.nmo, ccm.nocc) for p in range(ccm.nmo) for n in range(nmom)]
+            vecs_ket = expr.build_gf_vectors(nmom[0], left=False)
+            amps_ket = [expr.eom.vector_to_amplitudes(amps[n,p], ccm.nmo, ccm.nocc) for p in range(ccm.nmo) for n in range(nmom)]
+            self.ea_moment_amplitudes = (amps_bra, amps_ket)
 
         self.wf = CCSD_WaveFunction(self.hamil.mo, mycc.t1, mycc.t2, l1=l1, l2=l2)
 
