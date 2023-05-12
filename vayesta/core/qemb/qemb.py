@@ -1183,11 +1183,11 @@ class Embedding:
             for x in self.get_fragments(sym_parent=None):
                 source = x.mpi_rank
                 if (mpi.rank == source):
-                    x.cluster.mf = None
+                    x.cluster.orig_mf = None
                 cluster = mpi.world.bcast(x.cluster, root=source)
                 if (mpi.rank != source):
                     x.cluster = cluster
-                x.cluster.mf = self.mf
+                x.cluster.orig_mf = self.mf
 
     @log_method()
     @with_doc(make_rdm1_demo_rhf)

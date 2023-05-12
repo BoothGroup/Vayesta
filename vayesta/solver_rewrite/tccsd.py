@@ -24,8 +24,8 @@ class TRCCSD_Solver(RCCSD_Solver):
         tham = self.hamil.with_new_cluster(tclus)
         fci = FCI_Solver(tham)
         # Need to set v_ext for the FCI calculation. Just want rotation into our current basis.
-        ro = dot(self.hamil.cluster.c_active_occ.T, self.hamil.mf.get_ovlp(), tclus.c_active_occ)
-        rv = dot(self.hamil.cluster.c_active_vir.T, self.hamil.mf.get_ovlp(), tclus.c_active_vir)
+        ro = dot(self.hamil.cluster.c_active_occ.T, self.hamil.orig_mf.get_ovlp(), tclus.c_active_occ)
+        rv = dot(self.hamil.cluster.c_active_vir.T, self.hamil.orig_mf.get_ovlp(), tclus.c_active_vir)
         r = scipy.linalg.block_diag(ro, rv)
 
         if self.v_ext is not None:

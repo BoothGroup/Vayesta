@@ -46,7 +46,7 @@ class RClusterHamiltonian:
 
     def __init__(self, fragment, mf, log=None, cluster=None, **kwargs):
 
-        self.mf = mf
+        self.orig_mf = mf
         # Do we want to populate all parameters at initialisation, so fragment isn't actually saved here?
         self._fragment = fragment
         self._cluster = cluster
@@ -260,6 +260,10 @@ class RClusterHamiltonian:
 
         # Set up dummy mol object representing cluster.
         clusmol = pyscf.gto.mole.Mole()
+        # Copy over all output controls from original mol object.
+        clusmol.verbose = self.orig_mf.mol.verbose
+        clusmol.output = self.orig_mf.mol.output
+        # Set information as required for our cluster.
         clusmol.nelec = self.nelec
         clusmol.nao = nmo
         clusmol.build()
@@ -278,8 +282,8 @@ class RClusterHamiltonian:
         #   -ERIs are PSD.
         #   -our mean-field has DF.
         use_df = allow_df and np.ndim(clusmf.mo_coeff[1]) == 1 and self.opts.screening is None and \
-                 not (self._fragment.base.pbc_dimension in (1, 2)) and hasattr(self.mf, 'with_df') \
-                 and self.mf.with_df is not None
+                 not (self._fragment.base.pbc_dimension in (1, 2)) and hasattr(self.orig_mf, 'with_df') \
+                 and self.orig_mf.with_df is not None
         clusmol.incore_anyway = not use_df
 
         if use_df:
@@ -319,7 +323,7 @@ class RClusterHamiltonian:
         # Determine whether we want our cluster orbitals expressed in the basis of active orbitals, or in the AO basis.
         if ao_basis:
             mo_coeff = self.cluster.c_active
-            ovlp = self.mf.get_ovlp()
+            ovlp = self.orig_mf.get_ovlp()
         else:
             mo_coeff = np.eye(self.ncas[0])
             ovlp = np.eye(self.ncas[0])
@@ -377,7 +381,7 @@ class RClusterHamiltonian:
                                       "supported with this configuration. %s", message)
 
     def with_new_cluster(self, cluster):
-        return self.__class__(self._fragment, self.mf, self.log, cluster, **self.opts.asdict())
+        return self.__class__(self._fragment, self.orig_mf, self.log, cluster, **self.opts.asdict())
 
 
 class UClusterHamiltonian(RClusterHamiltonian):
@@ -554,7 +558,7 @@ class UClusterHamiltonian(RClusterHamiltonian):
         # Determine whether we want our cluster orbitals expressed in the basis of active orbitals, or in the AO basis.
         if ao_basis:
             mo_coeff = self.cluster.c_active
-            ovlp = self.mf.get_ovlp()
+            ovlp = self.orig_mf.get_ovlp()
         else:
             mo_coeff = (np.eye(self.ncas[0]), np.eye(self.ncas[1]))
             ovlp = (np.eye(self.ncas[0]), np.eye(self.ncas[1]))

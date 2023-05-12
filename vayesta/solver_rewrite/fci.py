@@ -31,7 +31,7 @@ class FCI_Solver(ClusterSolver):
 
         solver_cls = self.get_solver_class()
         # This just uses mol to initialise various outputting defaults.
-        solver = solver_cls(self.hamil.mf.mol)
+        solver = solver_cls(self.hamil.orig_mf.mol)
         self.log.debugv("type(solver)= %r", type(solver))
         # Set options
         if self.opts.init_guess == 'default':
