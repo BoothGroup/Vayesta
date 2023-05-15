@@ -101,6 +101,7 @@ class Options(OptionsBase):
     solver_options: dict = OptionsBase.dict_with_defaults(
             # General
             conv_tol=None,
+            n_moments=None,
             # CCSD
             solve_lambda=True, conv_tol_normt=None,
             level_shift=None, diis_space=None, diis_start_cycle=None,
