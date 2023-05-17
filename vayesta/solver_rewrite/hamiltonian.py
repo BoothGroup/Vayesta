@@ -34,6 +34,18 @@ def ClusterHamiltonian(fragment, mf, log=None, **kwargs):
     return UClusterHamiltonian(fragment, mf, log=log, **kwargs)
 
 
+class DummyERIs:
+    def __init__(self, getter, valid_keys):
+        self.getter = getter
+        self.valid_keys = valid_keys
+
+    def __getattr__(self, key: str) -> np.ndarray:
+        """Just-in-time attribute getter."""
+        if key in self.valid_keys:
+            return self.getter(block=key)
+        return self.__dict__[key]
+
+
 class RClusterHamiltonian:
     @dataclasses.dataclass
     class Options(OptionsBase):
@@ -147,7 +159,7 @@ class RClusterHamiltonian:
             else:
                 return self._eris
         else:
-            assert len(block) == 4 and set(block.lower()).issubset({"o", "v"})
+            assert len(block) == 4 and set(block.lower()).issubset(set("ov"))
             if self._eris is None:
                 # Actually generate the relevant block.
                 coeffs = [self.cluster.c_active_occ if i == "o" else self.cluster.c_active_vir for i in block.lower()]
@@ -383,6 +395,14 @@ class RClusterHamiltonian:
     def with_new_cluster(self, cluster):
         return self.__class__(self._fragment, self.orig_mf, self.log, cluster, **self.opts.asdict())
 
+    def get_dummy_eri_object(self, force_bare=False):
+        # Avoid enumerating all possible keys.
+        class ValidRHFKeys:
+            def __contains__(self, item):
+                return type(item) == str and len(item) == 4 and set(item.lower()).issubset(set("ov"))
+
+        getter = self.get_eris_bare if force_bare else self.get_eris_screened
+        return DummyERIs(getter, valid_keys=ValidRHFKeys())
 
 class UClusterHamiltonian(RClusterHamiltonian):
     @property
@@ -493,14 +513,16 @@ class UClusterHamiltonian(RClusterHamiltonian):
         assert len(block) == 4 and set(block.lower()).issubset({"o", "v"})
         sp = [int(i.upper()==i) for i in block]
         flip = sum(sp) == 2 and sp[0] == 1
-        if flip: block = block[::-1]
+        if flip:  # Store ab not ba contribution.
+            block = block[::-1]
         d = {"o": slice(self.cluster.nocc_active[0]), "O": slice(self.cluster.nocc_active[1]),
                 "v": slice(self.cluster.nocc_active[0], self.cluster.norb_active[0]),
                 "V": slice(self.cluster.nocc_active[1], self.cluster.norb_active[1])
                 }
         sl = tuple([d[i] for i in block])
         res = eris[sum(sp)//2][sl]
-        if flip: res = res.transpose(3, 2, 1, 0)
+        if flip:
+            res = res.transpose(3, 2, 1, 0).conjugate()
         return res
 
     def get_cderi_bare(self, only_ov=False, compress=False, svd_threshold=1e-12):
@@ -564,6 +586,14 @@ class UClusterHamiltonian(RClusterHamiltonian):
             ovlp = (np.eye(self.ncas[0]), np.eye(self.ncas[1]))
         return nao, mo_coeff, mo_energy, mo_occ, ovlp
 
+    def get_dummy_eri_object(self, force_bare=False):
+        # Avoid enumerating all possible keys.
+        class ValidUHFKeys:
+            def __contains__(self, item):
+                return type(item) == str and len(item) == 4 and set(item).issubset(set("ovOV"))
+
+        getter = self.get_eris_bare if force_bare else self.get_eris_screened
+        return DummyERIs(getter, valid_keys=ValidUHFKeys())
 
 class EB_RClusterHamiltonian(RClusterHamiltonian):
     @dataclasses.dataclass

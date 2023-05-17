@@ -45,7 +45,7 @@ class Options(OptionsBase):
     # --- Solver options
     solver_options: dict = None
     # --- Other
-    store_eris: bool = None     # If True, ERIs will be stored in Fragment._eris
+    store_eris: bool = None     # If True, ERIs will be cached in Fragment.hamil
     dm_with_frozen: bool = None # TODO: is still used?
     screening: typing.Optional[str] = None
     # Fragment specific
@@ -184,7 +184,7 @@ class Fragment:
         # of the fragment. By default it is equal to `self.c_frag`.
         self.c_proj = self.c_frag
 
-        # Initialize self.bath, self._cluster, self._results, self._eris
+        # Initialize self.bath, self._cluster, self._results, self.hamil
         self.reset()
 
         self.log.debugv("Creating %r", self)
@@ -245,6 +245,17 @@ class Fragment:
 
     def change_options(self, **kwargs):
         self.opts.replace(**kwargs)
+
+    @property
+    def hamil(self):
+        # Cache the hamiltonian object; note that caching or not of eris is handled inside the hamiltonian object.
+        if self._hamil is None:
+            self.hamil = self.get_frag_hamil()
+        return self._hamil
+
+    @hamil.setter
+    def hamil(self, value):
+        self._hamil = value
 
     # --- Overlap matrices
     # --------------------
@@ -346,7 +357,7 @@ class Fragment:
             self._cluster = None
             self.get_overlap.cache_clear()
         if reset_eris:
-            self._eris = None
+            self.hamil = None
             self._seris_ov = None
         self._results = None
 
@@ -901,7 +912,7 @@ class Fragment:
         return mo_energy
 
     @mpi.with_send(source=get_fragment_mpi_rank)
-    def get_fragment_dmet_energy(self, dm1=None, dm2=None, h1e_eff=None, eris=None, part_cumulant=True, approx_cumulant=True):
+    def get_fragment_dmet_energy(self, dm1=None, dm2=None, h1e_eff=None, hamil=None, part_cumulant=True, approx_cumulant=True):
         """Get fragment contribution to whole system DMET energy from cluster DMs.
 
         After fragment summation, the nuclear-nuclear repulsion must be added to get the total energy!
@@ -912,8 +923,8 @@ class Fragment:
             Cluster one-electron reduced density-matrix in cluster basis. If `None`, `self.results.dm1` is used. Default: None.
         dm2: array, optional
             Cluster two-electron reduced density-matrix in cluster basis. If `None`, `self.results.dm2` is used. Default: None.
-        eris: array, optional
-            Cluster electron-repulsion integrals in cluster basis. If `None`, the ERIs are reevaluated. Default: None.
+        hamil : ClusterHamiltonian object.
+            Object representing cluster hamiltonian, possibly including cached ERIs.
         part_cumulant: bool, optional
             If True, the 2-DM cumulant will be partitioned to calculate the energy. If False,
             the full 2-DM will be partitioned, as it is done in most of the DMET literature.
@@ -932,17 +943,13 @@ class Fragment:
         if dm1 is None: raise RuntimeError("DM1 not found for %s" % self)
         c_act = self.cluster.c_active
         t0 = timer()
-        if eris is None:
-            eris = self._eris
-            # Fix for MP2:
-            if isinstance(eris, np.ndarray) and (eris.shape[:2] == (self.cluster.nocc_active, self.cluster.nvir_active)):
-                eris = None
-        if eris is None:
-            with log_time(self.log.timingv, "Time for AO->MO transformation: %s"):
-                eris = self.base.get_eris_array(c_act)
-        if not isinstance(eris, np.ndarray):
-            self.log.debugv("Extracting ERI array from CCSD ERIs object.")
-            eris = vayesta.core.ao2mo.helper.get_full_array(eris, c_act)
+        if hamil is None:
+            hamil = self._hamil
+        if hamil is None:
+            hamil = self.get_frag_hamil()
+
+        eris = hamil.get_eris_bare()
+
         if dm2 is None:
             dm2 = self.results.wf.make_rdm2(with_dm1=not part_cumulant, approx_cumulant=approx_cumulant)
 
@@ -1037,14 +1044,18 @@ class Fragment:
     def get_solver(self, solver=None):
         if solver is None:
             solver = self.solver
-        # This detects based on fragment what kind of Hamiltonian is appropriate (restricted and/or EB).
-        cl_ham = ClusterHamiltonian(self, self.mf, self.log, screening=self.opts.screening)
+        cl_ham = self.hamil
         solver_cls = get_solver_class(cl_ham, solver)
         solver_opts = self.get_solver_options(solver)
         cluster_solver = solver_cls(cl_ham, **solver_opts)
         if self.opts.screening is not None:
             cluster_solver.hamil.add_screening(self._seris_ov)
         return cluster_solver
+
+    def get_frag_hamil(self):
+        # This detects based on fragment what kind of Hamiltonian is appropriate (restricted and/or EB).
+        return ClusterHamiltonian(self, self.mf, self.log, screening=self.opts.screening,
+                                  cache_eris=self.opts.store_eris)
 
     def get_solver_options(self, *args, **kwargs):
         raise AbstractMethodError

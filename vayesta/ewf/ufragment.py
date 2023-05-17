@@ -14,7 +14,7 @@ class Fragment(RFragment, BaseFragment):
     def set_cas(self, *args, **kwargs):
         raise NotImplementedError()
 
-    def get_fragment_energy(self, c1, c2, eris=None, fock=None, axis1='fragment', c2ba_order='ba'):
+    def get_fragment_energy(self, c1, c2, hamil=None, fock=None, axis1='fragment', c2ba_order='ba'):
         """Calculate fragment correlation energy contribution from projected C1, C2.
 
         Parameters
@@ -23,8 +23,8 @@ class Fragment(RFragment, BaseFragment):
             Fragment projected C1-amplitudes.
         c2: (n(occ-CO), n(occ-CO), n(vir-CO), n(vir-CO)) array
             Fragment projected C2-amplitudes.
-        eris: array or PySCF _ChemistERIs object
-            Electron repulsion integrals as returned by ccsd.ao2mo().
+        hamil : ClusterHamiltonian object.
+            Object representing cluster hamiltonian, possibly including cached ERIs.
         fock: (n(AO), n(AO)) array, optional
             Fock matrix in AO representation. If None, self.base.get_fock_for_energy()
             is used. Default: None.
@@ -70,27 +70,12 @@ class Fragment(RFragment, BaseFragment):
             e_singles = 0
         # Doubles energy
         # TODO: loop to reduce memory?
-        if eris is None:
-            eris = self._eris
-        if hasattr(eris, 'ovov'):
-            gaa = eris.ovov
-            #gaa = eris.ovov - eris.ovov.transpose(0,3,2,1)
-            gab = eris.ovOV
-            gbb = eris.OVOV
-            #gbb = eris.OVOV - eris.OVOV.transpose(0,3,2,1)
-        elif eris[0].shape == (nocc[0], nvir[0], nocc[0], nvir[0]):
-            gaa, gab, gbb = eris
-        else:
-            assert (len(eris) == 3)
-            gaa = eris[0][oa,va,oa,va]
-            gab = eris[1][oa,va,ob,vb]
-            gbb = eris[2][ob,vb,ob,vb]
+        if hamil is None:
+            hamil = self.hamil
+        gaa = hamil.get_eris_bare(block="ovov")
+        gab = hamil.get_eris_bare(block="ovOV")
+        gbb = hamil.get_eris_bare(block="OVOV")
 
-        #caa = caa + einsum('ia,jb->ijab', ca, ca) - einsum('ib,ja->ijab', ca, ca)
-        #cbb = cbb + einsum('ia,jb->ijab', cb, cb) - einsum('ib,ja->ijab', cb, cb)
-        #e_d = (einsum('ijab,iajb', caa, gaa)/4
-        #     + einsum('ijab,iajb', cbb, gbb)/4
-        #     + einsum('ijab,iajb', cab, gab))
         if axis1 == 'fragment':
             assert len(c2) == 4
             caa, cab, cba, cbb = c2
@@ -175,22 +160,29 @@ class Fragment(RFragment, BaseFragment):
         return dm2
 
     @log_method()
-    def make_fragment_dm2cumulant_energy(self, eris=None, t_as_lambda=None, sym_t2=True, approx_cumulant=True):
-        if eris is None:
-            eris = self._eris
-        if eris is None:
-            eris = self.base.get_eris_array_uhf(self.cluster.c_active)
-        # For CCSD we can contract the ERIs with the DM2-intermediates
-        if hasattr(eris, 'ovoo'):
+    def make_fragment_dm2cumulant_energy(self, hamil=None, t_as_lambda=None, sym_t2=True, approx_cumulant=True):
+        if hamil is None:
+            hamil = self.hamil
+        if self.solver == "MP2":
+            dm2 = self.make_fragment_dm2cumulant(t_as_lambda=t_as_lambda, sym_t2=sym_t2,
+                                                 approx_cumulant=approx_cumulant)
+            dm2aa, dm2ab, dm2bb = dm2
+            gaa = hamil.get_eris_bare(block="ovov")
+            gab = hamil.get_eris_bare(block="ovOV")
+            gbb = hamil.get_eris_bare(block="OVOV")
+            return 2.0 * (einsum('ijkl,ijkl->', gaa, dm2aa)
+                          + einsum('ijkl,ijkl->', gab, dm2ab) * 2
+                          + einsum('ijkl,ijkl->', gbb, dm2bb)) / 2
+        elif approx_cumulant:
+            # Working hypothesis: this branch will effectively always uses `approx_cumulant=True`.
+            eris = hamil.get_dummy_eri_object(force_bare=True)
             d2 = self._get_projected_gamma2_intermediates(t_as_lambda=t_as_lambda, sym_t2=sym_t2)
             return vayesta.core.ao2mo.helper.contract_dm2intermeds_eris_uhf(d2, eris)/2
-        # TODO: other solvers
-        dm2 = self.make_fragment_dm2cumulant(t_as_lambda=t_as_lambda, sym_t2=sym_t2, approx_cumulant=approx_cumulant,
-                full_shape=True)
-        dm2aa, dm2ab, dm2bb = dm2
-        gaa, gab, gbb = eris
-        fac = 1#(2 if self.solver == 'MP2' else 1)
-        e_dm2 = fac*(einsum('ijkl,ijkl->', gaa, dm2aa)
-                   + einsum('ijkl,ijkl->', gab, dm2ab)*2
-                   + einsum('ijkl,ijkl->', gbb, dm2bb))/2
-        return e_dm2
+        else:
+            dm2 = self.make_fragment_dm2cumulant(t_as_lambda=t_as_lambda, sym_t2=sym_t2,
+                                                 approx_cumulant=approx_cumulant, full_shape=True)
+            dm2aa, dm2ab, dm2bb = dm2
+            gaa, gab, gbb = hamil.get_eris_bare()
+            return (einsum('ijkl,ijkl->', gaa, dm2aa)
+                    + einsum('ijkl,ijkl->', gab, dm2ab)*2
+                    + einsum('ijkl,ijkl->', gbb, dm2bb))/2

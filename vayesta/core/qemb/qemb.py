@@ -68,7 +68,7 @@ from .rdm import make_rdm2_demo_rhf
 
 @dataclasses.dataclass
 class Options(OptionsBase):
-    store_eris: bool = True             # If True, ERIs will be stored in Fragment._eris
+    store_eris: bool = True             # If True, ERIs will be stored in Fragment.hamil; otherwise they will be recalculated whenever needed.
     global_frag_chempot: float = None   # Global fragment chemical potential (e.g. for democratically partitioned DMs)
     dm_with_frozen: bool = False        # Add frozen parts to cluster DMs
     # --- Bath options

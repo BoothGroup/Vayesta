@@ -42,7 +42,7 @@ class DMETFragment(Fragment):
         super().__init__(*args, **kwargs)
         self.solver_results = None
 
-    def kernel(self, solver=None, init_guess=None, eris=None, seris_ov=None, construct_bath=True, chempot=None):
+    def kernel(self, solver=None, init_guess=None, seris_ov=None, construct_bath=True, chempot=None):
         """Run solver for a single BNO threshold.
 
         Parameters
@@ -55,7 +55,6 @@ class DMETFragment(Fragment):
         results : DMETFragmentResults
         """
         solver = solver or self.base.solver
-        #get_solver_class(self.mf, solver)
         if self._dmet_bath is None or construct_bath:
             self.make_bath()
 
@@ -78,17 +77,12 @@ class DMETFragment(Fragment):
                 cluster_solver.v_ext = -chempot * px
 
         with log_time(self.log.info, ("Time for %s solver:" % solver) + " %s"):
-            if self.opts.screening:
-                cluster_solver.kernel()
-            else:
-                cluster_solver.kernel()
-
+            cluster_solver.kernel()
+        self.hamil = cluster_solver.hamil
         self._results = results = self.Results(fid=self.id, wf=cluster_solver.wf, n_active=self.cluster.norb_active,
                 dm1=cluster_solver.wf.make_rdm1(), dm2=cluster_solver.wf.make_rdm2())
-        if eris is None:
-            # We can cache these if they're used in the actualy calculation.
-            eris = cluster_solver.hamil.get_eris_bare()
-        results.e1, results.e2 = self.get_dmet_energy_contrib(eris=eris)
+
+        results.e1, results.e2 = self.get_dmet_energy_contrib(hamil=cluster_solver.hamil)
 
         return results
 
@@ -97,7 +91,7 @@ class DMETFragment(Fragment):
         solver_opts.update(self.opts.solver_options)
         return solver_opts
 
-    def get_dmet_energy_contrib(self, eris=None):
+    def get_dmet_energy_contrib(self, hamil=None):
         """Calculate the contribution of this fragment to the overall DMET energy.
 
         TODO: use core.qemb.fragment.get_fragment_dmet_energy instead?
@@ -105,14 +99,9 @@ class DMETFragment(Fragment):
         # Projector to the impurity in the active basis.
         P_imp = self.get_fragment_projector(self.cluster.c_active)
         c_act = self.cluster.c_active
-        if eris is None:
-            eris = self._eris
-        if eris is None:
-            with log_time(self.log.timing, "Time for AO->MO transformation: %s"):
-                eris = self.base.get_eris_array(c_act)
-        if not isinstance(eris, np.ndarray):
-            self.log.debugv("Extracting ERI array from CCSD ERIs object.")
-            eris = ao2mo.helper.get_full_array(eris, c_act)
+        if hamil is None:
+            eris = self.hamil
+        eris = hamil.get_eris_bare()
 
         nocc = self.cluster.c_active_occ.shape[1]
         occ = np.s_[:nocc]

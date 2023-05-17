@@ -3,7 +3,6 @@ import pyscf
 from vayesta.core.util import *
 from vayesta.core import spinalg
 from vayesta.mpi import mpi, RMA_Dict
-from vayesta.solver.simple import CCSD as SimpleCCSD
 from vayesta.solver_rewrite import ccsdtq
 
 
@@ -260,14 +259,9 @@ def tailor_with_fragments(solver, fragments, project=False, tailor_t1=True, tail
 
 
 def _integrals_for_extcorr(fragment, fock):
-    eris = fragment._eris
     cluster = fragment.cluster
     emb = fragment.base
-    if eris is None:
-        if emb.spinsym == 'restricted':
-            eris = emb.get_eris_array(cluster.c_active)
-        else:
-            eris = emb.get_eris_array_uhf(cluster.c_active)
+    eris = fragment.hamil.get_eris_screened()
 
     if emb.spinsym == 'restricted':
         occ = np.s_[:cluster.nocc_active]
@@ -498,31 +492,11 @@ def _get_delta_t2_from_t3v(govvv_x, gvvov_x, gooov_x, govoo_x, frag_child, rxy_o
 def _get_delta_t_for_delta_tailor(fragment, fock):
     wf = fragment.results.wf.as_ccsd()
     t1, t2 = wf.t1, wf.t2
-    # CCSD
-    cluster = fragment.cluster
-    fock = spinalg.dot(spinalg.T(cluster.c_active), fock, cluster.c_active)
-    nocc = wf.mo.nocc
-    if fragment.base.spinsym == 'restricted':
-        mo_energy = np.diag(fock).copy()
-        if fragment.base.has_exxdiv:
-            mo_energy[:nocc] -= fragment.base.madelung
-    else:
-        mo_energy = (np.diag(fock[0]).copy(), np.diag(fock[1]).copy())
-        if fragment.base.has_exxdiv:
-            moa, mob = mo_energy
-            moa[:nocc[0]] -= fragment.base.madelung
-            mob[:nocc[1]] -= fragment.base.madelung
-            mo_energy = (moa, mob)
-
-    eris = fragment._eris
-    if eris is None:
-        # Symmetry-derived fragments may not have eris stored
-        # TODO: This may not scale well, since we are performing
-        # integral transformations for all fragments. Can be improved.
-        eris = fragment.base.get_eris_array(cluster.c_active)
-    ccsd = SimpleCCSD(fock, eris, nocc, mo_energy=mo_energy)
-    wf = ccsd.kernel(t1=t1, t2=t2)
+    # Run CCSD calculation with same Hamiltonian.
+    ccsd = fragment.get_solver("CCSD")
+    ccsd.kernel()
     assert ccsd.converged
+    wf = ccsd.wf
     dt1 = spinalg.subtract(t1, wf.t1)
     dt2 = spinalg.subtract(t2, wf.t2)
     return dt1, dt2

@@ -144,23 +144,15 @@ class UFragment(Fragment):
         return (mo_energy_a, mo_energy_b)
 
     @with_doc(Fragment.get_fragment_dmet_energy)
-    def get_fragment_dmet_energy(self, dm1=None, dm2=None, h1e_eff=None, eris=None, part_cumulant=True, approx_cumulant=True):
+    def get_fragment_dmet_energy(self, dm1=None, dm2=None, h1e_eff=None, hamil=None, part_cumulant=True, approx_cumulant=True):
         if dm1 is None: dm1 = self.results.dm1
         if dm1 is None: raise RuntimeError("DM1 not found for %s" % self)
         c_act = self.cluster.c_active
         t0 = timer()
-        if eris is None:
-            eris = self._eris
-        if eris is None:
-            with log_time(self.log.timingv, "Time for AO->MO transformation: %s"):
-                gaa, gab, gbb = self.base.get_eris_array_uhf((c_act[0], c_act[1]))
-        elif isinstance(eris, tuple) and len(eris) == 3:
-            gaa, gab, gbb = eris
-        else:
-            # TODO: Extract integrals from CCSD ERIs object
-            # Temporary solution:
-            with log_time(self.log.timingv, "Time for AO->MO transformation: %s"):
-                gaa, gab, gbb = self.base.get_eris_array_uhf((c_act[0], c_act[1]))
+        if hamil is None:
+            hamil = self.hamil
+        gaa, gab, gbb = hamil.get_eris_bare()
+
         if dm2 is None:
             dm2 = self.results.wf.make_rdm2(with_dm1=not part_cumulant, approx_cumulant=approx_cumulant)
         dm1a, dm1b = dm1
