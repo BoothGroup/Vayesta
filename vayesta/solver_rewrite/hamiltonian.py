@@ -35,16 +35,21 @@ def ClusterHamiltonian(fragment, mf, log=None, **kwargs):
 
 
 class DummyERIs:
-    def __init__(self, getter, valid_keys):
+    def __init__(self, getter, valid_blocks, **kwargs):
         self.getter = getter
-        self.valid_keys = valid_keys
+        self.valid_blocks = valid_blocks
+        for k, v in kwargs.items():
+            if k in self.valid_blocks:
+                raise ValueError("DummyERIs object passed same attribute twice!")
+            else:
+                self.__setattr__(k, v)
 
-    def __getattr__(self, key: str) -> np.ndarray:
+    def __getattr__(self, key: str):
         """Just-in-time attribute getter."""
-        if key in self.valid_keys:
+        if key in self.valid_blocks:
             return self.getter(block=key)
-        return self.__dict__[key]
-
+        else:
+            raise AttributeError
 
 class RClusterHamiltonian:
     @dataclasses.dataclass
@@ -57,7 +62,6 @@ class RClusterHamiltonian:
         return pyscf.scf.RHF
 
     def __init__(self, fragment, mf, log=None, cluster=None, **kwargs):
-
         self.orig_mf = mf
         # Do we want to populate all parameters at initialisation, so fragment isn't actually saved here?
         self._fragment = fragment
@@ -238,7 +242,7 @@ class RClusterHamiltonian:
         nmo = max(self.ncas)
         nsm = min(self.ncas)
         # Get dummy information on mf state. Note our `AOs` are in fact the rotated MOs.
-        nao, mo_coeff, mo_energy, mo_occ, ovlp = self.get_clus_mf_info(ao_basis=False)
+        nao, mo_coeff, mo_energy, mo_occ, ovlp = self.get_clus_mf_info(ao_basis=False, with_vext=True)
         # Now, define function to equalise spin channels.
         if nsm == nmo:
             # No need to pad, these functions don't need to do anything.
@@ -324,12 +328,12 @@ class RClusterHamiltonian:
 
         return clusmf, orbs_to_freeze
 
-    def get_clus_mf_info(self, ao_basis=False, with_exxdiv=False):
+    def get_clus_mf_info(self, ao_basis=False, with_vext=True, with_exxdiv=False):
         if ao_basis:
             nao = self.cluster.c_active.shape[1]
         else:
             nao = self.ncas
-        mo_energy = np.diag(self.get_fock(with_vext=True, with_exxdiv=with_exxdiv))
+        mo_energy = np.diag(self.get_fock(with_vext=with_vext, with_exxdiv=with_exxdiv))
         mo_occ = np.zeros_like(mo_energy)
         mo_occ[:self.nelec[0]] = 2.0
         # Determine whether we want our cluster orbitals expressed in the basis of active orbitals, or in the AO basis.
@@ -395,14 +399,16 @@ class RClusterHamiltonian:
     def with_new_cluster(self, cluster):
         return self.__class__(self._fragment, self.orig_mf, self.log, cluster, **self.opts.asdict())
 
-    def get_dummy_eri_object(self, force_bare=False):
+    def get_dummy_eri_object(self, force_bare=False, with_vext=True, with_exxdiv=False):
         # Avoid enumerating all possible keys.
         class ValidRHFKeys:
             def __contains__(self, item):
-                return type(item) == str and len(item) == 4 and set(item.lower()).issubset(set("ov"))
+                return type(item) == str and len(item) == 4 and set(item).issubset(set("ov"))
 
         getter = self.get_eris_bare if force_bare else self.get_eris_screened
-        return DummyERIs(getter, valid_keys=ValidRHFKeys())
+        fock = self.get_fock(with_vext=with_vext, use_seris=not force_bare, with_exxdiv=with_exxdiv)
+        return DummyERIs(getter, valid_blocks=ValidRHFKeys(), fock=fock, nocc=self.cluster.nocc_active)
+
 
 class UClusterHamiltonian(RClusterHamiltonian):
     @property
@@ -565,12 +571,12 @@ class UClusterHamiltonian(RClusterHamiltonian):
         return super().to_pyscf_mf(allow_dummy_orbs=allow_dummy_orbs, force_bare_eris=force_bare_eris,
                                    overwrite_fock=True, allow_df=allow_df)
 
-    def get_clus_mf_info(self, ao_basis=False, with_exxdiv=False):
+    def get_clus_mf_info(self, ao_basis=False, with_vext=True, with_exxdiv=False):
         if ao_basis:
             nao = self.cluster.c_active.shape[1]
         else:
             nao = self.ncas
-        fock = self.get_fock(with_exxdiv=with_exxdiv)
+        fock = self.get_fock(with_vext=with_vext, with_exxdiv=with_exxdiv)
         mo_energy = (np.diag(fock[0]), np.diag(fock[1]))
         mo_occ = [np.zeros_like(x) for x in mo_energy]
         mo_occ[0][:self.nelec[0]] = 1.0
@@ -586,14 +592,15 @@ class UClusterHamiltonian(RClusterHamiltonian):
             ovlp = (np.eye(self.ncas[0]), np.eye(self.ncas[1]))
         return nao, mo_coeff, mo_energy, mo_occ, ovlp
 
-    def get_dummy_eri_object(self, force_bare=False):
+    def get_dummy_eri_object(self, force_bare=False, with_vext=True, with_exxdiv=False):
         # Avoid enumerating all possible keys.
         class ValidUHFKeys:
             def __contains__(self, item):
                 return type(item) == str and len(item) == 4 and set(item).issubset(set("ovOV"))
 
         getter = self.get_eris_bare if force_bare else self.get_eris_screened
-        return DummyERIs(getter, valid_keys=ValidUHFKeys())
+        fock = self.get_fock(with_vext=with_vext, use_seris=not force_bare, with_exxdiv=with_exxdiv)
+        return DummyERIs(getter, valid_blocks=ValidUHFKeys(), fock=fock, nocc=self.cluster.nocc_active)
 
 class EB_RClusterHamiltonian(RClusterHamiltonian):
     @dataclasses.dataclass

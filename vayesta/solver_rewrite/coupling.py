@@ -489,11 +489,13 @@ def _get_delta_t2_from_t3v(govvv_x, gvvov_x, gooov_x, govoo_x, frag_child, rxy_o
 
     return dt2
 
-def _get_delta_t_for_delta_tailor(fragment, fock):
+def _get_delta_t_for_delta_tailor(fragment):
     wf = fragment.results.wf.as_ccsd()
     t1, t2 = wf.t1, wf.t2
-    # Run CCSD calculation with same Hamiltonian.
+    # Run CCSD calculation with same Hamiltonian. Don't need lambda amplitudes.
+    # TODO set up passing through solver_options from tailored CCSD calculation
     ccsd = fragment.get_solver("CCSD")
+    ccsd.opts.solve_lambda=False
     ccsd.kernel()
     assert ccsd.converged
     wf = ccsd.wf
@@ -601,7 +603,7 @@ def externally_correct(solver, external_corrections, hamil=None):  # eris=None):
             else:
                 dt1y, dt2y = _get_delta_t_for_extcorr(fy, fock, solver, include_t3v=True)
         elif corrtype == 'delta-tailor':
-            dt1y, dt2y = _get_delta_t_for_delta_tailor(fy, fock)
+            dt1y, dt2y = _get_delta_t_for_delta_tailor(fy)
         else:
             raise ValueError
 

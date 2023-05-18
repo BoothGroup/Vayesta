@@ -165,7 +165,7 @@ class Fragment(RFragment, BaseFragment):
             hamil = self.hamil
         if self.solver == "MP2":
             dm2 = self.make_fragment_dm2cumulant(t_as_lambda=t_as_lambda, sym_t2=sym_t2,
-                                                 approx_cumulant=approx_cumulant)
+                                                 approx_cumulant=approx_cumulant, full_shape=False)
             dm2aa, dm2ab, dm2bb = dm2
             gaa = hamil.get_eris_bare(block="ovov")
             gab = hamil.get_eris_bare(block="ovOV")
@@ -175,7 +175,7 @@ class Fragment(RFragment, BaseFragment):
                           + einsum('ijkl,ijkl->', gbb, dm2bb)) / 2
         elif approx_cumulant:
             # Working hypothesis: this branch will effectively always uses `approx_cumulant=True`.
-            eris = hamil.get_dummy_eri_object(force_bare=True)
+            eris = hamil.get_dummy_eri_object(force_bare=True, with_vext=False)
             d2 = self._get_projected_gamma2_intermediates(t_as_lambda=t_as_lambda, sym_t2=sym_t2)
             return vayesta.core.ao2mo.helper.contract_dm2intermeds_eris_uhf(d2, eris)/2
         else:

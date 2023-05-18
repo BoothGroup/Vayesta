@@ -32,7 +32,6 @@ class TestTwoElectron(TestCase):
     def test_ccsd(self):
         emb = self.emb(np.inf, 'CCSD')
         emb.kernel()
-        print(emb.e_tot)
         self.assertAllclose(emb.e_tot, self.e_ref)
 
     def test_fci(self):

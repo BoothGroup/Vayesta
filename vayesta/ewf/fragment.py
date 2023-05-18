@@ -533,7 +533,7 @@ class Fragment(BaseFragment):
             return 2 * einsum('ijkl,ijkl->', hamil.get_eris_bare("ovov"), dm2)/2
         elif approx_cumulant:
             # Working hypothesis: this branch will effectively always uses `approx_cumulant=True`.
-            eris = hamil.get_dummy_eri_object(force_bare=True)
+            eris = hamil.get_dummy_eri_object(force_bare=True, with_vext=False)
             d2 = self._get_projected_gamma2_intermediates(t_as_lambda=t_as_lambda, sym_t2=sym_t2)
             return vayesta.core.ao2mo.helper.contract_dm2intermeds_eris_rhf(d2, eris)/2
         else:
