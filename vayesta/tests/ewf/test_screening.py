@@ -25,7 +25,7 @@ class TestTwoElectron(TestCase):
     @cache
     def emb(cls, bno_threshold, solver):
         emb = vayesta.ewf.EWF(cls.mf, bath_options=dict(threshold=bno_threshold), solver=solver,
-                screening='mrpa', solver_options=dict(conv_tol=1e-10))
+                screening='mrpa', solver_options=dict(conv_tol=1e-12))
         emb.kernel()
         return emb
 
