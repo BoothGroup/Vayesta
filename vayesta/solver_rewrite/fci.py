@@ -4,7 +4,7 @@ import dataclasses
 import pyscf.fci
 import pyscf.fci.addons
 
-from dyson.expressions import CCSD
+from dyson.expressions import FCI
 
 from vayesta.core.types import FCI_WaveFunction
 from vayesta.core.util import log_time
@@ -79,14 +79,13 @@ class FCI_Solver(ClusterSolver):
 
         # In-cluster Moments
         nmom = self.opts.n_moments
-        print('nmom = %s'%str(nmom))
         if nmom is not None:
 
-            self.log.info("Calculating in-cluster CCSD moments %s"%str(nmom))
+            self.log.info("Calculating in-cluster FCI moments %s"%str(nmom))
             mf_clus, frozen = self.hamil.to_pyscf_mf(allow_dummy_orbs=True, allow_df=True)
-            expr = FCI["1h"](mf_clus, c_ci=self.ci_vec)
+            expr = FCI["1h"](mf_clus, c_ci=self.civec)
             self.hole_moments = expr.build_gf_moments(nmom[0])
-            expr = FCI["1p"](mf_clus, c_ci=self.ci_vec)
+            expr = FCI["1p"](mf_clus, c_ci=self.civec)
             self.particle_moments = expr.build_gf_moments(nmom[1])
 
 

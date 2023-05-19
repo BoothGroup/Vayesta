@@ -82,9 +82,9 @@ class RCCSD_Solver(ClusterSolver):
             # self.ea_moment_amplitudes = (amps_bra, amps_ket)
 
             expr = CCSD["1h"](mf_clus, t1=mycc.t1, t2=mycc.t2, l1=l1, l2=l2)
-            self.ip_moment_amplitudes = expr.build_gf_moments(nmom[0])
+            self.hole_moments = expr.build_gf_moments(nmom[0])
             expr = CCSD["1p"](mf_clus, t1=mycc.t1, t2=mycc.t2, l1=l1, l2=l2)
-            self.ea_moment_amplitudes = expr.build_gf_moments(nmom[1])
+            self.particle_moments = expr.build_gf_moments(nmom[1])
 
         self.wf = CCSD_WaveFunction(self.hamil.mo, mycc.t1, mycc.t2, l1=l1, l2=l2)
 
