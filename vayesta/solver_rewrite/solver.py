@@ -37,7 +37,8 @@ class ClusterSolver:
         self.wf = None
         self.dm1 = None
         self.dm2 = None
-        #self.nmom = n_moments
+        self.hole_moments = None
+        self.particle_moments = None
 
     @property
     def v_ext(self):
