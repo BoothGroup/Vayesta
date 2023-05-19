@@ -33,6 +33,8 @@ class Test_RHF(TestCase):
         self.assertAlmostEqual(lg, cc.e_corr)
         self.assertAlmostEqual(gg, cc.e_corr)
 
+        self.assertAlmostEqual(ewf.get_dm_energy(), cc.e_tot)
+
 class Test_UHF(TestCase):
 
     def test(self):
@@ -57,6 +59,8 @@ class Test_UHF(TestCase):
         self.assertAlmostEqual(gl, cc.e_corr)
         self.assertAlmostEqual(lg, cc.e_corr)
         self.assertAlmostEqual(gg, cc.e_corr)
+
+        self.assertAlmostEqual(ewf.get_dm_energy(), cc.e_tot)
 
 #    def test_h2_solid(self):
 #
