@@ -19,17 +19,16 @@ class UDMETFragment(UFragment, DMETFragment):
         dma, dmb = self.get_frag_hl_dm()
         return dma.trace() + dmb.trace()
 
-    def get_dmet_energy_contrib(self, eris=None):
+    def get_dmet_energy_contrib(self, hamil=None):
         """Calculate the contribution of this fragment to the overall DMET energy."""
         # Projector to the impurity in the active basis.
         p_imp_a, p_imp_b = self.get_fragment_projector(self.cluster.c_active)
 
         c_active = self.cluster.c_active
         t0 = timer()
-        if eris is None:
-            c_act = c_active
-            with log_time(self.log.timing, "Time for AO->MO transformation: %s"):
-                gaa, gab, gbb = eris = self.base.get_eris_array_uhf((c_act[0], c_act[1]))
+        if hamil is None:
+            hamil = self.hamil
+        eris = hamil.get_eris_bare()
 
         fock = self.base.get_fock()
         fa = dot(c_active[0].T, fock[0], c_active[0])

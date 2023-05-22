@@ -720,9 +720,9 @@ class EDMETFragment(DMETFragment):
 
         return solver_opts
 
-    def get_edmet_energy_contrib(self, eris=None):
+    def get_edmet_energy_contrib(self, hamil=None):
         """Generate EDMET energy contribution, according to expression given in appendix of EDMET preprint"""
-        e1, e2 = self.get_dmet_energy_contrib(eris)
+        e1, e2 = self.get_dmet_energy_contrib(hamil)
         c_act = self.cluster.c_active
         p_imp = self.get_fragment_projector(c_act)
         if not isinstance(p_imp, tuple):

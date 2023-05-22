@@ -82,7 +82,9 @@ class DMETFragment(Fragment):
         self._results = results = self.Results(fid=self.id, wf=cluster_solver.wf, n_active=self.cluster.norb_active,
                 dm1=cluster_solver.wf.make_rdm1(), dm2=cluster_solver.wf.make_rdm2())
 
-        results.e1, results.e2 = self.get_dmet_energy_contrib(hamil=cluster_solver.hamil)
+        self.hamil = cluster_solver.hamil
+
+        results.e1, results.e2 = self.get_dmet_energy_contrib(hamil=self.hamil)
 
         return results
 
@@ -100,7 +102,7 @@ class DMETFragment(Fragment):
         P_imp = self.get_fragment_projector(self.cluster.c_active)
         c_act = self.cluster.c_active
         if hamil is None:
-            eris = self.hamil
+            hamil = self.hamil
         eris = hamil.get_eris_bare()
 
         nocc = self.cluster.c_active_occ.shape[1]
