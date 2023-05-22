@@ -77,6 +77,7 @@ class SCMF:
 
     def kernel(self, *args, **kwargs):
         self.log.warning("In SCMF, self is: %s", str(type(self)))
+        self.log.warning("Args is %s", str(args))
         self.log.warning(f"self.with_scmf.diis: {self.with_scmf.diis}")
         self.log.warning(f"self.diis: {self.diis}")
         diis = (self.get_diis() if self.diis else None)
