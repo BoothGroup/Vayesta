@@ -16,7 +16,7 @@ class FCI_Solver(ClusterSolver):
         threads: int = 1  # Number of threads for multi-threaded FCI
         max_cycle: int = 300
         lindep: float = None  # Linear dependency tolerance. If None, use PySCF default
-        conv_tol: float = None  # Convergence tolerance. If None, use PySCF default
+        conv_tol: float = 1e-12  # Convergence tolerance. If None, use PySCF default
         solver_spin: bool = True  # Use direct_spin1 if True, or direct_spin0 otherwise
         fix_spin: float = 0.0  # If set to a number, the given S^2 value will be enforced
         fix_spin_penalty: float = 1.0  # Penalty for fixing spin
