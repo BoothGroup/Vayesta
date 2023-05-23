@@ -7,7 +7,7 @@ import scipy.linalg
 
 from vayesta.core.util import *
 from vayesta.dmet.fragment import DMETFragment
-from vayesta.solver_rewrite import check_solver_config
+from vayesta.solver import check_solver_config
 from vayesta.core.bath import helper
 
 

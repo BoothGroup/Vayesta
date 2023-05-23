@@ -10,7 +10,7 @@ from vayesta.dmet import RDMET
 from vayesta.dmet.updates import MixUpdate, DIISUpdate
 from vayesta.rpa import ssRPA, ssRIRPA
 from .fragment import EDMETFragment, EDMETFragmentExit
-from vayesta.solver_rewrite import check_solver_config
+from vayesta.solver import check_solver_config
 
 @dataclasses.dataclass
 class Options(RDMET.Options):

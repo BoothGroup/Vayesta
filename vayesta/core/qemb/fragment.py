@@ -30,7 +30,7 @@ from vayesta.core.bath import R2_Bath
 # Other
 from vayesta.misc.cubefile import CubeFile
 from vayesta.mpi import mpi
-from vayesta.solver_rewrite import get_solver_class, check_solver_config, ClusterHamiltonian
+from vayesta.solver import get_solver_class, check_solver_config, ClusterHamiltonian
 
 # Get MPI rank of fragment
 get_fragment_mpi_rank = lambda *args : args[0].mpi_rank
