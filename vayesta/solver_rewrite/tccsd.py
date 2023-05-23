@@ -1,12 +1,13 @@
+import dataclasses
+
+import numpy as np
 import scipy.linalg
 
+from vayesta.core.spinalg import hstack_matrices
+from vayesta.core.types import Orbitals, Cluster
+from vayesta.core.util import dot, einsum
 from .ccsd import RCCSD_Solver
 from .fci import FCI_Solver
-import numpy as np
-import dataclasses
-from vayesta.core.types import Orbitals, Cluster
-from vayesta.core.spinalg import hstack_matrices
-from vayesta.core.util import dot, einsum
 
 
 class TRCCSD_Solver(RCCSD_Solver):
@@ -56,6 +57,7 @@ class TRCCSD_Solver(RCCSD_Solver):
             t2 += dt2
             cc._norm_dt1 = np.linalg.norm(dt1)
             cc._norm_dt2 = np.linalg.norm(dt2)
+
         return tailor_func
 
     def print_extra_info(self, mycc):

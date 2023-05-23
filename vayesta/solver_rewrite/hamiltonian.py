@@ -2,20 +2,23 @@ import dataclasses
 from typing import Optional
 
 import numpy as np
-import scipy.linalg
-
 import pyscf.lib
 import pyscf.scf
+import scipy.linalg
+
 from vayesta.core.qemb import scrcoulomb
 from vayesta.core.types import Orbitals
 from vayesta.core.util import *
 from vayesta.rpa import ssRPA
 
+
 def is_ham(ham):
     return issubclass(type(ham), RClusterHamiltonian)
 
+
 def is_uhf_ham(ham):
     return issubclass(type(ham), UClusterHamiltonian)
+
 
 def is_eb_ham(ham):
     return issubclass(type(ham), EB_RClusterHamiltonian)
@@ -50,6 +53,7 @@ class DummyERIs:
             return self.getter(block=key)
         else:
             raise AttributeError
+
 
 class RClusterHamiltonian:
     @dataclasses.dataclass
@@ -248,6 +252,7 @@ class RClusterHamiltonian:
             # No need to pad, these functions don't need to do anything.
             def pad_to_match(array, diag_val=0.0):
                 return array
+
             orbs_to_freeze = None
             dummy_energy = 0.0
         else:
@@ -255,6 +260,7 @@ class RClusterHamiltonian:
             padchannel = self.ncas.index(nsm)
             orbs_to_freeze = [[], []]
             orbs_to_freeze[padchannel] = list(range(nsm, nmo))
+
             # Pad all indices which are smaller than nmo to this size with zeros.
             # Optionally introduce value on diagonal if all indices are padded.
             def pad_to_match(array_tup, diag_val=0.0):
@@ -269,7 +275,9 @@ class RClusterHamiltonian:
                         for i in range(nsm, nmo):
                             a[(i,) * a.ndim] = diag_val
                     return a
+
                 return [pad(x, diag_val) for x in array_tup]
+
             # For appropriate one-body quantities (hcore, fock) set diagonal dummy index value to effective virtual
             # orbital energy higher than highest actual orbital energy.
             dummy_energy = 10.0 + max([x.max() for x in mo_energy])
@@ -517,16 +525,16 @@ class UClusterHamiltonian(RClusterHamiltonian):
 
     def _get_eris_block(self, eris, block):
         assert len(block) == 4 and set(block.lower()).issubset({"o", "v"})
-        sp = [int(i.upper()==i) for i in block]
+        sp = [int(i.upper() == i) for i in block]
         flip = sum(sp) == 2 and sp[0] == 1
         if flip:  # Store ab not ba contribution.
             block = block[::-1]
         d = {"o": slice(self.cluster.nocc_active[0]), "O": slice(self.cluster.nocc_active[1]),
-                "v": slice(self.cluster.nocc_active[0], self.cluster.norb_active[0]),
-                "V": slice(self.cluster.nocc_active[1], self.cluster.norb_active[1])
-                }
+             "v": slice(self.cluster.nocc_active[0], self.cluster.norb_active[0]),
+             "V": slice(self.cluster.nocc_active[1], self.cluster.norb_active[1])
+             }
         sl = tuple([d[i] for i in block])
-        res = eris[sum(sp)//2][sl]
+        res = eris[sum(sp) // 2][sl]
         if flip:
             res = res.transpose(3, 2, 1, 0).conjugate()
         return res
@@ -601,6 +609,7 @@ class UClusterHamiltonian(RClusterHamiltonian):
         getter = self.get_eris_bare if force_bare else self.get_eris_screened
         fock = self.get_fock(with_vext=with_vext, use_seris=not force_bare, with_exxdiv=with_exxdiv)
         return DummyERIs(getter, valid_blocks=ValidUHFKeys(), fock=fock, nocc=self.cluster.nocc_active)
+
 
 class EB_RClusterHamiltonian(RClusterHamiltonian):
     @dataclasses.dataclass

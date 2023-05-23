@@ -1,10 +1,8 @@
-from .ccsd import RCCSD_Solver, UCCSD_Solver
-import numpy as np
 import dataclasses
-
-from typing import Optional, List, Any
+from typing import Optional, List
 
 from . import coupling
+from .ccsd import RCCSD_Solver
 
 
 class coupledRCCSD_Solver(RCCSD_Solver):

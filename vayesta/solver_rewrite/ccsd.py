@@ -1,15 +1,13 @@
 import dataclasses
+
 import numpy as np
-from .solver import ClusterSolver, UClusterSolver
-from .cisd import CISD_Solver
-from vayesta.core.types import CCSD_WaveFunction
-from vayesta.core.util import dot, einsum
-from vayesta.core.util import *
-
-from vayesta.solver import coupling, tccsd
-
 import pyscf.cc
+
+from vayesta.core.types import CCSD_WaveFunction
+from vayesta.core.util import *
 from ._uccsd_eris import uao2mo
+from .cisd import CISD_Solver
+from .solver import ClusterSolver, UClusterSolver
 
 
 class RCCSD_Solver(ClusterSolver):
@@ -19,7 +17,7 @@ class RCCSD_Solver(ClusterSolver):
         max_cycle: int = 100  # Max number of iterations
         conv_tol: float = None  # Convergence energy tolerance
         conv_tol_normt: float = None  # Convergence amplitude tolerance
-        init_guess: str = 'MP2'         # ['MP2', 'CISD']
+        init_guess: str = 'MP2'  # ['MP2', 'CISD']
         solve_lambda: bool = True  # If false, use Lambda=T approximation
         # Self-consistent mode
         sc_mode: int = None

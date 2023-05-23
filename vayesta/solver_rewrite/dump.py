@@ -1,11 +1,12 @@
 import dataclasses
+
 import h5py
+
 from vayesta.core import spinalg
 from .solver import ClusterSolver
 
 
 class DumpSolver(ClusterSolver):
-
     @dataclasses.dataclass
     class Options(ClusterSolver.Options):
         dumpfile: str = None

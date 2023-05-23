@@ -1,12 +1,10 @@
-import scipy.linalg
-
-from .ccsd import RCCSD_Solver, UCCSD_Solver
-import numpy as np
 import dataclasses
-
 from typing import Optional, List, Any
 
+import numpy as np
+
 from . import coupling
+from .ccsd import RCCSD_Solver, UCCSD_Solver
 
 
 class extRCCSD_Solver(RCCSD_Solver):

@@ -1,8 +1,10 @@
-from .solver import ClusterSolver, UClusterSolver
-from .eb_fci import REBFCI, UEBFCI
-from vayesta.core.types import WaveFunction
 import dataclasses
+
 import numpy as np
+
+from vayesta.core.types import WaveFunction
+from .eb_fci import REBFCI, UEBFCI
+from .solver import ClusterSolver, UClusterSolver
 
 
 class EB_EBFCI_Solver(ClusterSolver):

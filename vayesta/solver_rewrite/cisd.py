@@ -1,10 +1,11 @@
-from .solver import ClusterSolver, UClusterSolver
-from .hamiltonian import is_uhf_ham, is_eb_ham
+import dataclasses
+
+from pyscf import ci
 
 from vayesta.core.types import CISD_WaveFunction
-from pyscf import ci
 from ._uccsd_eris import uao2mo
-import dataclasses
+from .hamiltonian import is_uhf_ham, is_eb_ham
+from .solver import ClusterSolver, UClusterSolver
 
 
 def CISD_Solver(hamil, *args, **kwargs):

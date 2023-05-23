@@ -1,8 +1,10 @@
-from . import ebfci_slow, uebfci_slow
-from pyscf import ao2mo
-import numpy as np
 import dataclasses
+
+import numpy as np
+
 from vayesta.core.util import OptionsBase
+from . import ebfci_slow, uebfci_slow
+
 
 class REBFCI:
     """Performs FCI on coupled electron-boson systems.

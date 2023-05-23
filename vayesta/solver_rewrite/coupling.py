@@ -1,7 +1,8 @@
 import numpy as np
 import pyscf
-from vayesta.core.util import *
+
 from vayesta.core import spinalg
+from vayesta.core.util import *
 from vayesta.mpi import mpi, RMA_Dict
 from vayesta.solver_rewrite import ccsdtq
 
@@ -36,7 +37,7 @@ def transform_amplitude(t, u_occ, u_vir, u_occ2=None, u_vir2=None, inverse=False
         tab = transform_amplitude(t[1], u_occ[0], u_vir[0], u_occ[1], u_vir[1])
         tbb = transform_amplitude(t[2], u_occ[1], u_vir[1])
         return (taa, tab, tbb)
-    raise NotImplementedError("Transformation of %s amplitudes with ndim=%d" % (spinsym, np.ndim(t[0])+1))
+    raise NotImplementedError("Transformation of %s amplitudes with ndim=%d" % (spinsym, np.ndim(t[0]) + 1))
 
 
 def get_amplitude_norm(t1, t2):
@@ -46,8 +47,8 @@ def get_amplitude_norm(t1, t2):
         t2norm = np.linalg.norm(t2)
     # Unrestricted
     elif np.ndim(t1[0]) == 2:
-        t1norm = (np.linalg.norm(t1[0])+np.linalg.norm(t1[1]))/2
-        t2norm = (np.linalg.norm(t2[0])+2*np.linalg.norm(t2[1])+np.linalg.norm(t2[2]))/2
+        t1norm = (np.linalg.norm(t1[0]) + np.linalg.norm(t1[1])) / 2
+        t2norm = (np.linalg.norm(t2[0]) + 2 * np.linalg.norm(t2[1]) + np.linalg.norm(t2[2])) / 2
     return t1norm, t2norm
 
 
@@ -65,7 +66,7 @@ def project_t2_rspin(t2, proj, projectors):
         return t2
     if projectors == 1:
         t2 = einsum('xi,i...->x...', proj, t2)
-        return (t2 + t2.transpose(1,0,3,2))/2
+        return (t2 + t2.transpose(1, 0, 3, 2)) / 2
     if projectors == 2:
         return einsum('xi,yj,ij...->xy...', proj, proj, t2)
     raise ValueError
@@ -79,12 +80,12 @@ def project_t2_uspin(t2, proj, projectors):
     if projectors == 1:
         # Average between projecting alpha and beta:
         t2ab = (einsum('xi,ij...->xj...', proj[0], t2[1])
-              + einsum('xj,ij...->ix...', proj[1], t2[1]))/2
+                + einsum('xj,ij...->ix...', proj[1], t2[1])) / 2
     elif projectors == 2:
         t2ab = einsum('xi,yj,ij...->xy...', proj[0], proj[1], t2[1])
     else:
         raise ValueError
-    #assert np.allclose(t2ab, -t2ab.transpose(0,1,3,2))
+    # assert np.allclose(t2ab, -t2ab.transpose(0,1,3,2))
     return (t2aa, t2ab, t2bb)
 
 
@@ -134,10 +135,10 @@ def couple_ccsd_iterations(solver, fragments):
             po = p_occ[y.id]
             ro = r_occ[y.id]
             rv = r_vir[y.id]
-            #print(solver.fragment.id, y.id, py.shape, t1_out.shape, t1y.shape)
+            # print(solver.fragment.id, y.id, py.shape, t1_out.shape, t1y.shape)
             t1_out += einsum('Ii,ia,Aa->IA', po, t1y, rv)
             t2_out += einsum('Ii,Jj,ijab,Aa,Bb->IJAB', po, ro, t2y, rv, rv)
-        solver.log.info("Tailoring: |dT1|= %.3e  |dT2|= %.3e", np.linalg.norm(t1_out-t1), np.linalg.norm(t2_out-t2))
+        solver.log.info("Tailoring: |dT1|= %.3e  |dT2|= %.3e", np.linalg.norm(t1_out - t1), np.linalg.norm(t2_out - t2))
         rma.clear()
         t1[:] = t1_out
         t2[:] = t2_out
@@ -174,9 +175,9 @@ def tailor_with_fragments(solver, fragments, project=False, tailor_t1=True, tail
     fragment = solver.hamil._fragment
     cluster = solver.hamil.cluster
     base = fragment.base
-    ovlp = base.get_ovlp()       # AO overlap matrix
-    cx_occ = cluster.c_active_occ       # Occupied active orbitals of current cluster
-    cx_vir = cluster.c_active_vir       # Virtual  active orbitals of current cluster
+    ovlp = base.get_ovlp()  # AO overlap matrix
+    cx_occ = cluster.c_active_occ  # Occupied active orbitals of current cluster
+    cx_vir = cluster.c_active_vir  # Virtual  active orbitals of current cluster
     cxs_occ = spinalg.dot(spinalg.T(cx_occ), ovlp)
     cxs_vir = spinalg.dot(spinalg.T(cx_vir), ovlp)
     project = int(project)
@@ -266,10 +267,10 @@ def _integrals_for_extcorr(fragment, fock):
     if emb.spinsym == 'restricted':
         occ = np.s_[:cluster.nocc_active]
         vir = np.s_[cluster.nocc_active:]
-        govov = eris[occ,vir,occ,vir] # chemical notation 
-        gvvov = eris[vir,vir,occ,vir]
-        gooov = eris[occ,occ,occ,vir]
-        govoo = eris[occ,vir,occ,occ]
+        govov = eris[occ, vir, occ, vir]  # chemical notation
+        gvvov = eris[vir, vir, occ, vir]
+        gooov = eris[occ, occ, occ, vir]
+        govoo = eris[occ, vir, occ, occ]
         fov = dot(cluster.c_active_occ.T, fock, cluster.c_active_vir)
         return fov, (govov, gvvov, gooov, govoo)
 
@@ -281,15 +282,16 @@ def _integrals_for_extcorr(fragment, fock):
         fova = dot(cluster.c_active_occ[0].T, fock[0], cluster.c_active_vir[0])
         fovb = dot(cluster.c_active_occ[1].T, fock[1], cluster.c_active_vir[1])
         fov = (fova, fovb)
-        gooov = (eris[0][oa,oa,oa,va], eris[1][oa,oa,ob,vb], eris[2][ob,ob,ob,vb])
-        govov = (eris[0][oa,va,oa,va], eris[1][oa,va,ob,vb], eris[2][ob,vb,ob,vb])
-        govvv = (eris[0][oa,va,va,va], eris[1][oa,va,vb,vb], eris[2][ob,vb,vb,vb])
-        gvvov = (None, eris[1][va,va,ob,vb], None)
-        govoo = (None, eris[1][oa,va,ob,ob], None)
+        gooov = (eris[0][oa, oa, oa, va], eris[1][oa, oa, ob, vb], eris[2][ob, ob, ob, vb])
+        govov = (eris[0][oa, va, oa, va], eris[1][oa, va, ob, vb], eris[2][ob, vb, ob, vb])
+        govvv = (eris[0][oa, va, va, va], eris[1][oa, va, vb, vb], eris[2][ob, vb, vb, vb])
+        gvvov = (None, eris[1][va, va, ob, vb], None)
+        govoo = (None, eris[1][oa, va, ob, ob], None)
         return fov, (gooov, govov, govvv, gvvov, govoo)
 
     else:
         raise NotImplementedError(emb.spinsym)
+
 
 def _get_delta_t_for_extcorr(fragment, fock, solver, include_t3v=True):
     """Make T3 and T4 residual correction to CCSD wave function for given fragment.
@@ -326,7 +328,7 @@ def _get_delta_t_for_extcorr(fragment, fock, solver, include_t3v=True):
     # --- Make correction to T1 and T2 amplitudes
     # J. Chem. Theory Comput. 2021, 17, 182−190
     # also with reference to git@github.com:gustavojra/Methods.git
-    
+
     if fragment.base.spinsym == 'restricted':
         # Get ERIs and Fock matrix for the given fragment
         f, v = _integrals_for_extcorr(fragment, fock)
@@ -345,6 +347,7 @@ def _get_delta_t_for_extcorr(fragment, fock, solver, include_t3v=True):
         raise ValueError
 
     return dt1, dt2
+
 
 def _get_delta_t2_from_t3v(govvv_x, gvvov_x, gooov_x, govoo_x, frag_child, rxy_occ, rxy_vir, cxs_occ, projectors):
     """Perform the (T3 * V) contraction for the external correction, with the V integrals
@@ -370,7 +373,7 @@ def _get_delta_t2_from_t3v(govvv_x, gvvov_x, gooov_x, govoo_x, frag_child, rxy_o
     dt2 : numpy.ndarray
         Update to T2 amplitudes in the parent (x) basis
     """
-    
+
     wf = frag_child.results.wf.as_ccsdtq()
     t3 = wf.t3
 
@@ -382,7 +385,7 @@ def _get_delta_t2_from_t3v(govvv_x, gvvov_x, gooov_x, govoo_x, frag_child, rxy_o
         gvvov_ = einsum('abic,bB,iI,cC -> aBIC', gvvov_x, rxy_vir, rxy_occ, rxy_vir)
 
         # Contract with T3 amplitudes in the y basis
-        t3v_ = 0.5*einsum('bemf, jimeaf -> ijab', gvvov_ - gvvov_.transpose(0,3,2,1), t3)
+        t3v_ = 0.5 * einsum('bemf, jimeaf -> ijab', gvvov_ - gvvov_.transpose(0, 3, 2, 1), t3)
         t3v_ += einsum('bemf, ijmaef -> ijab', gvvov_, t3)
         # Final is in a mixed basis form, with last index in t3v here in the x basis
         # Rotate remaining indices into x basis: another three-quarter transform
@@ -395,13 +398,13 @@ def _get_delta_t2_from_t3v(govvv_x, gvvov_x, gooov_x, govoo_x, frag_child, rxy_o
         govoo_ = einsum('iajk,iI,aA,jJ -> IAJk', govoo_x, rxy_occ, rxy_vir, rxy_occ)
 
         # Second index of t3v_ in the parent (x) basis
-        t3v_ = -0.5*einsum('mjne, minbae -> ijab', gooov_ - govoo_.transpose(0,3,2,1), t3)
+        t3v_ = -0.5 * einsum('mjne, minbae -> ijab', gooov_ - govoo_.transpose(0, 3, 2, 1), t3)
         t3v_ -= einsum('mjne, imnabe -> ijab', gooov_, t3)
         # Rotate remaining indices into x basis: another three-quarter transform
         t3v_x += einsum('IjAB,iI,aA,bB -> ijab', t3v_, rxy_occ, rxy_vir, rxy_vir)
 
         # Include permutation
-        dt2 = t3v_x + t3v_x.transpose(1,0,3,2)
+        dt2 = t3v_x + t3v_x.transpose(1, 0, 3, 2)
 
     elif frag_child.base.spinsym == 'unrestricted':
         gooov_aaaa, gooov_aabb, gooov_bbbb = gooov_x
@@ -429,49 +432,49 @@ def _get_delta_t2_from_t3v(govvv_x, gvvov_x, gooov_x, govoo_x, frag_child, rxy_o
 
         x0 = einsum("Jlkc,iklacb->iJab", gooov_aabb_, t3_aba)
         x1 = einsum("Jlkc,iklabc->iJab", gooov_aaaa_, t3_aaa) * -1.0
-        x2 =  einsum("iJba->iJab", x0) * -1.0
+        x2 = einsum("iJba->iJab", x0) * -1.0
         x2 += einsum("iJba->iJab", x1) * -1.0
-        x2 =  einsum("iJab,Ii,Aa,Bb->IJAB", x2, rxy_occ[0], rxy_vir[0], rxy_vir[0])
-        dt2_aaaa =  einsum("ijab->ijab", x2) * -1.0
+        x2 = einsum("iJab,Ii,Aa,Bb->IJAB", x2, rxy_occ[0], rxy_vir[0], rxy_vir[0])
+        dt2_aaaa = einsum("ijab->ijab", x2) * -1.0
         dt2_aaaa += einsum("jiab->ijab", x2)
 
         x0 = einsum("Bdkc,ikjacd->ijaB", gvvov_aabb_, t3_aba)
         x1 = einsum("kcBd,ijkacd->ijaB", govvv_aaaa_, t3_aaa)
-        x2 =  einsum("ijaB->ijaB", x0)
+        x2 = einsum("ijaB->ijaB", x0)
         x2 += einsum("ijaB->ijaB", x1) * -1.0
-        x2 =  einsum("ijaB,Ii,Jj,Aa->IJAB", x2, rxy_occ[0], rxy_occ[0], rxy_vir[0])
+        x2 = einsum("ijaB,Ii,Jj,Aa->IJAB", x2, rxy_occ[0], rxy_occ[0], rxy_vir[0])
         dt2_aaaa += einsum("ijab->ijab", x2)
         dt2_aaaa += einsum("ijba->ijab", x2) * -1.0
 
         x0 = einsum("Jklc,iklabc->iJab", gooov_bbbb_, t3_bbb)
         x1 = einsum("lcJk,ilkacb->iJab", govoo_aabb_, t3_bab)
-        x2 =  einsum("iJba->iJab", x0) * -1.0
+        x2 = einsum("iJba->iJab", x0) * -1.0
         x2 += einsum("iJba->iJab", x1) * -1.0
-        x2 =  einsum("iJab,Ii,Aa,Bb->IJAB", x2, rxy_occ[1], rxy_vir[1], rxy_vir[1])
-        dt2_bbbb =  einsum("ijab->ijab", x2) * -1.0
+        x2 = einsum("iJab,Ii,Aa,Bb->IJAB", x2, rxy_occ[1], rxy_vir[1], rxy_vir[1])
+        dt2_bbbb = einsum("ijab->ijab", x2) * -1.0
         dt2_bbbb += einsum("jiab->ijab", x2)
 
         x0 = einsum("kdBc,ijkacd->ijaB", govvv_bbbb_, t3_bbb) * -1.0
         x1 = einsum("kdBc,ikjadc->ijaB", govvv_aabb_, t3_bab)
-        x2 =  einsum("ijaB->ijaB", x0)
+        x2 = einsum("ijaB->ijaB", x0)
         x2 += einsum("ijaB->ijaB", x1) * -1.0
-        x2 =  einsum("ijaB,Ii,Jj,Aa->IJAB", x2, rxy_occ[1], rxy_occ[1], rxy_vir[1])
+        x2 = einsum("ijaB,Ii,Jj,Aa->IJAB", x2, rxy_occ[1], rxy_occ[1], rxy_vir[1])
         dt2_bbbb += einsum("ijab->ijab", x2) * -1.0
         dt2_bbbb += einsum("ijba->ijab", x2)
 
-        x0 =  einsum("Ilkc,jlkbac->Ijab", gooov_aabb_, t3_bab) * -1.0
+        x0 = einsum("Ilkc,jlkbac->Ijab", gooov_aabb_, t3_bab) * -1.0
         x0 += einsum("Ilmd,ljmabd->Ijab", gooov_aaaa_, t3_aba) * -1.0
-        dt2_abab =  einsum("Ijab,Jj,Aa,Bb->IJAB", x0, rxy_occ[1], rxy_vir[0], rxy_vir[1])
+        dt2_abab = einsum("Ijab,Jj,Aa,Bb->IJAB", x0, rxy_occ[1], rxy_vir[0], rxy_vir[1])
 
-        x0 =  einsum("Jnkc,kinbac->iJab", gooov_bbbb_, t3_bab)
+        x0 = einsum("Jnkc,kinbac->iJab", gooov_bbbb_, t3_bab)
         x0 += einsum("ldJk,iklabd->iJab", govoo_aabb_, t3_aba) * -1.0
         dt2_abab += einsum("iJab,Ii,Aa,Bb->IJAB", x0, rxy_occ[0], rxy_vir[0], rxy_vir[1])
 
-        x0 =  einsum("ldAe,ijldbe->ijAb", govvv_aaaa_, t3_aba) * -1.0
+        x0 = einsum("ldAe,ijldbe->ijAb", govvv_aaaa_, t3_aba) * -1.0
         x0 += einsum("Adkc,jikbdc->ijAb", gvvov_aabb_, t3_bab)
         dt2_abab += einsum("ijAb,Ii,Jj,Bb->IJAB", x0, rxy_occ[0], rxy_occ[1], rxy_vir[1])
 
-        x0 =  einsum("ldBc,ijlacd->ijaB", govvv_aabb_, t3_aba)
+        x0 = einsum("ldBc,ijlacd->ijaB", govvv_aabb_, t3_aba)
         x0 += einsum("kcBf,jikcaf->ijaB", govvv_bbbb_, t3_bab) * -1.0
         dt2_abab += einsum("ijaB,Ii,Jj,Aa->IJAB", x0, rxy_occ[0], rxy_occ[1], rxy_vir[0])
 
@@ -483,11 +486,12 @@ def _get_delta_t2_from_t3v(govvv_x, gvvov_x, gooov_x, govoo_x, frag_child, rxy_o
     # Find the fragment projector of cluster y (child) in the basis of cluster x (parent)
     c_frag_xocc = spinalg.dot(spinalg.T(frag_child.c_frag), spinalg.T(cxs_occ))
     proj_y_in_x = spinalg.dot(spinalg.T(c_frag_xocc), c_frag_xocc)
-    
+
     # Project (t3 v) contribution onto fragment of cluster y
     dt2 = project_t2(dt2, proj_y_in_x, projectors=projectors)
 
     return dt2
+
 
 def _get_delta_t_for_delta_tailor(fragment):
     wf = fragment.results.wf.as_ccsd()
@@ -495,7 +499,7 @@ def _get_delta_t_for_delta_tailor(fragment):
     # Run CCSD calculation with same Hamiltonian. Don't need lambda amplitudes.
     # TODO set up passing through solver_options from tailored CCSD calculation
     ccsd = fragment.get_solver("CCSD")
-    ccsd.opts.solve_lambda=False
+    ccsd.opts.solve_lambda = False
     ccsd.kernel()
     assert ccsd.converged
     wf = ccsd.wf
@@ -535,9 +539,9 @@ def externally_correct(solver, external_corrections, hamil=None):  # eris=None):
     emb = fx.base
     nocc = cluster.nocc
     nvir = cluster.nvir
-    ovlp = emb.get_ovlp()               # AO overlap matrix
-    cx_occ = cluster.c_active_occ       # Occupied active orbitals of current cluster
-    cx_vir = cluster.c_active_vir       # Virtual  active orbitals of current cluster
+    ovlp = emb.get_ovlp()  # AO overlap matrix
+    cx_occ = cluster.c_active_occ  # Occupied active orbitals of current cluster
+    cx_vir = cluster.c_active_vir  # Virtual  active orbitals of current cluster
     cxs_occ = spinalg.dot(spinalg.T(cx_occ), ovlp)
     cxs_vir = spinalg.dot(spinalg.T(cx_vir), ovlp)
     if hamil is None:
@@ -546,7 +550,7 @@ def externally_correct(solver, external_corrections, hamil=None):  # eris=None):
         # behaviour.
         mo_energy = einsum('ai,ab,bi->i', cluster.c_active, emb.get_fock(), cluster.c_active)
     else:
-        mo_energy = hamil.get_clus_mf_info(with_exxdiv=False)[2] # Do we want this True or False?
+        mo_energy = hamil.get_clus_mf_info(with_exxdiv=False)[2]  # Do we want this True or False?
 
     if (len(external_corrections) > 1) and any([corr[2] == 0 for corr in external_corrections]):
         # We are externally correcting from multiple fragments, but not projecting them
@@ -579,7 +583,7 @@ def externally_correct(solver, external_corrections, hamil=None):  # eris=None):
                 gvvov_x = (eri_generator("vvov"), eri_generator("vvOV"), eri_generator("VVOV"))
                 gooov_x = (eri_generator("ooov"), eri_generator("ooOV"), eri_generator("OOOV"))
                 govoo_x = (eri_generator("ovoo"), eri_generator("ovOO"), eri_generator("OVOO"))
-    
+
     # delta-T1 and delta-T2 amplitudes, to be added to the CCSD amplitudes
     if emb.spinsym == 'restricted':
         dt1 = np.zeros((nocc, nvir))
@@ -594,7 +598,7 @@ def externally_correct(solver, external_corrections, hamil=None):  # eris=None):
     frag_dir = {f.id: f for f in emb.fragments}
     for y, corrtype, projectors, low_level_coul in external_corrections:
 
-        fy = frag_dir[y] # Get fragment y object from its index
+        fy = frag_dir[y]  # Get fragment y object from its index
         assert (y != fx.id)
 
         if corrtype == 'external':
@@ -624,7 +628,7 @@ def externally_correct(solver, external_corrections, hamil=None):  # eris=None):
         dt1 = spinalg.add(dt1, dt1y)
         dt2 = spinalg.add(dt2, dt2y)
 
-        if low_level_coul and corrtype == 'external': 
+        if low_level_coul and corrtype == 'external':
             # Include the t3v term, contracting with the integrals from the x cluster
             # These have already been fragment projected, and rotated into the x cluster
             # in this function.
@@ -634,9 +638,9 @@ def externally_correct(solver, external_corrections, hamil=None):  # eris=None):
 
         solver.log.info("External correction residuals from fragment %3d (%s via %s):  dT1= %.3e  dT2= %.3e",
                         fy.id, fy.solver, corrtype, *get_amplitude_norm(dt1y, dt2y))
-    
+
     if emb.spinsym == 'restricted':
-        
+
         if corrtype == 'external':
             # Contract with fragment x (CCSD) energy denominators
             # Note that this will not work correctly if a level shift used
@@ -646,7 +650,7 @@ def externally_correct(solver, external_corrections, hamil=None):  # eris=None):
             dt2 /= eijab
 
         solver.log.info("Total external correction amplitudes from all fragments:  dT1= %.3e  dT2= %.3e",
-                *get_amplitude_norm(dt1, dt2))
+                        *get_amplitude_norm(dt1, dt2))
 
         def callback(kwargs):
             """Add external correction to T1 and T2 amplitudes."""
@@ -667,7 +671,7 @@ def externally_correct(solver, external_corrections, hamil=None):  # eris=None):
             dt2 = (dt2[0] / eijab_aa, dt2[1] / eijab_ab, dt2[2] / eijab_bb)
 
         solver.log.info("Total external correction amplitudes from all fragments:  dT1= %.3e  dT2= %.3e", \
-                *get_amplitude_norm(dt1, dt2))
+                        *get_amplitude_norm(dt1, dt2))
 
         def callback(kwargs):
             """Add external correction to T1 and T2 amplitudes."""

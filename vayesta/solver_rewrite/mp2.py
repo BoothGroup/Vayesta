@@ -1,10 +1,10 @@
+import dataclasses
+
 import numpy as np
 
 from vayesta.core.types import MP2_WaveFunction
 from vayesta.core.util import *
 from .solver import ClusterSolver, UClusterSolver
-
-import dataclasses
 
 
 class RMP2_Solver(ClusterSolver):

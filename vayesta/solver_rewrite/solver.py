@@ -1,12 +1,8 @@
 import dataclasses
-from timeit import default_timer as timer
-import copy
 
 import numpy as np
 import scipy
 import scipy.optimize
-
-from pyscf import scf
 
 from vayesta.core.util import *
 
@@ -106,8 +102,8 @@ class ClusterSolver:
                 if cpt:
                     v_ext_0 = (self.v_ext if self.v_ext is not None else 0)
                     replace['v_ext'] = self.calc_v_ext(v_ext_0, cpt)
-                #self.reset()
-                self.converged=False
+                # self.reset()
+                self.converged = False
                 with replace_attr(self.hamil, **replace):
                     results = kernel_orig(**kwargs)
                 if not self.converged:

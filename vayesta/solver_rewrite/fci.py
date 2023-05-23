@@ -1,13 +1,13 @@
-import numpy as np
 import dataclasses
 
+import numpy as np
 import pyscf.fci
 import pyscf.fci.addons
 
 from vayesta.core.types import FCI_WaveFunction
 from vayesta.core.util import log_time
-from .solver import ClusterSolver, UClusterSolver
 from .cisd import RCISD_Solver, UCISD_Solver
+from .solver import ClusterSolver, UClusterSolver
 
 
 class FCI_Solver(ClusterSolver):

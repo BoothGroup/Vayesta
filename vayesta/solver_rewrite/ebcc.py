@@ -1,8 +1,11 @@
 import dataclasses
+
 import numpy as np
-from .solver import ClusterSolver, UClusterSolver
+
 from vayesta.core.types import WaveFunction, CCSD_WaveFunction
 from vayesta.core.util import dot, einsum
+from .solver import ClusterSolver, UClusterSolver
+
 
 class REBCC_Solver(ClusterSolver):
     @dataclasses.dataclass
@@ -10,9 +13,9 @@ class REBCC_Solver(ClusterSolver):
         ansatz: str = "CCSD"
         solve_lambda: bool = False  # If false, use Lambda=T approximation
         # Convergence
-        max_cycle: int = 200              # Max number of iterations
-        conv_tol: float = None          # Convergence energy tolerance
-        conv_tol_normt: float = None    # Convergence amplitude tolerance
+        max_cycle: int = 200  # Max number of iterations
+        conv_tol: float = None  # Convergence energy tolerance
+        conv_tol_normt: float = None  # Convergence amplitude tolerance
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -44,6 +47,7 @@ class REBCC_Solver(ClusterSolver):
             val = self.opts.get(key)
             if val is not None:
                 d[newkey] = val
+
         opts = {}
         for key, newkey in zip(["max_cycle", "conv_tol", "conv_tol_normt"], ["max_cycle", "e_tol", "t_tol"]):
             add_nonull_opt(opts, key, newkey)
@@ -63,7 +67,7 @@ class REBCC_Solver(ClusterSolver):
             self.wf.make_rdm2 = mycc.make_rdm2_f
 
     def _debug_exact_wf(self, wf):
-        assert(self.is_fCCSD)
+        assert (self.is_fCCSD)
         mo = self.hamil.mo
         # Project onto cluster:
         ovlp = self.hamil._fragment.base.get_ovlp()
@@ -88,6 +92,7 @@ class REBCC_Solver(ClusterSolver):
         self.wf = CCSD_WaveFunction(mo, t1, t2, l1=l1, l2=l2)
         self.converged = True
 
+
 class UEBCC_Solver(UClusterSolver, REBCC_Solver):
     @dataclasses.dataclass
     class Options(REBCC_Solver.Options, UClusterSolver.Options):
@@ -102,6 +107,7 @@ class UEBCC_Solver(UClusterSolver, REBCC_Solver):
 
             def to_spin_tuple2(x):
                 return x.aaaa, x.abab, x.bbbb
+
             try:
                 self.wf = CCSD_WaveFunction(mo,
                                             to_spin_tuple1(mycc.t1),
@@ -161,6 +167,7 @@ class UEBCC_Solver(UClusterSolver, REBCC_Solver):
     def _debug_random_wf(self):
         raise NotImplementedError
 
+
 class EB_REBCC_Solver(REBCC_Solver):
     @dataclasses.dataclass
     class Options(REBCC_Solver.Options):
@@ -182,11 +189,13 @@ class EB_REBCC_Solver(REBCC_Solver):
 
     def construct_wavefunction(self, mycc, mo):
         super().construct_wavefunction(mycc, mo)
+
         def make_rdmeb(*args, **kwargs):
             dm = mycc.make_eb_coup_rdm()
             # We just want the bosonic excitation component.
             dm = dm[0].transpose(1, 2, 0)
-            return (dm/2, dm/2)
+            return (dm / 2, dm / 2)
+
         self.wf.make_rdmeb = make_rdmeb
 
 
@@ -201,9 +210,11 @@ class EB_UEBCC_Solver(EB_REBCC_Solver, UEBCC_Solver):
 
     def construct_wavefunction(self, mycc, mo):
         super().construct_wavefunction(mycc, mo)
+
         def make_rdmeb(*args, **kwargs):
             dm = mycc.make_eb_coup_rdm()
             # We just want the bosonic excitation component.
             dm = (dm.aa[0].transpose(1, 2, 0), dm.bb[0].transpose(1, 2, 0))
             return dm
+
         self.wf.make_rdmeb = make_rdmeb

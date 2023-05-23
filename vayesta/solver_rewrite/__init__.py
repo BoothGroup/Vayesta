@@ -1,23 +1,26 @@
-from .ebcc import REBCC_Solver, UEBCC_Solver, EB_REBCC_Solver, EB_UEBCC_Solver
-from .fci import FCI_Solver, UFCI_Solver
-from .ebfci import EB_EBFCI_Solver, EB_UEBFCI_Solver
-from .hamiltonian import is_ham, is_uhf_ham, is_eb_ham, ClusterHamiltonian
 from .ccsd import RCCSD_Solver, UCCSD_Solver
-from .mp2 import RMP2_Solver, UMP2_Solver
 from .cisd import RCISD_Solver, UCISD_Solver
-from .tccsd import TRCCSD_Solver
-from .ext_ccsd import extRCCSD_Solver, extUCCSD_Solver
 from .coupled_ccsd import coupledRCCSD_Solver
 from .dump import DumpSolver
+from .ebcc import REBCC_Solver, UEBCC_Solver, EB_REBCC_Solver, EB_UEBCC_Solver
+from .ebfci import EB_EBFCI_Solver, EB_UEBFCI_Solver
+from .ext_ccsd import extRCCSD_Solver, extUCCSD_Solver
+from .fci import FCI_Solver, UFCI_Solver
+from .hamiltonian import is_ham, is_uhf_ham, is_eb_ham, ClusterHamiltonian
+from .mp2 import RMP2_Solver, UMP2_Solver
+from .tccsd import TRCCSD_Solver
+
 
 def get_solver_class(ham, solver):
-    assert(is_ham(ham))
+    assert (is_ham(ham))
     uhf = is_uhf_ham(ham)
     eb = is_eb_ham(ham)
     return _get_solver_class(uhf, eb, solver, ham.log)
 
+
 def check_solver_config(is_uhf, is_eb, solver, log):
     _get_solver_class(is_uhf, is_eb, solver, log)
+
 
 def _get_solver_class(is_uhf, is_eb, solver, log):
     try:
@@ -58,7 +61,6 @@ def _get_solver_class_internal(is_uhf, is_eb, solver):
             raise ValueError("coupledCCSD is not implemented for unrestricted calculations!")
         return coupledRCCSD_Solver
 
-
     # Now consider general CC ansatzes; these are solved via EBCC.
     if "CC" in solver:
         if is_uhf:
@@ -81,6 +83,7 @@ def _get_solver_class_internal(is_uhf, is_eb, solver):
             raise ValueError(
                 "Please specify a coupled electron-boson CC ansatz as a solver, for example CCSD-S-1-1,"
                 "rather than CCSD")
+
         def get_right_CC(*args, **kwargs):
 
             if kwargs.get("ansatz", None) is not None:
