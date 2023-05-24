@@ -60,12 +60,15 @@ class FCI_Solver(ClusterSolver):
     def kernel(self, ci=None):
         self.hamil.assert_equal_spin_channels()
 
-        if ci is None and self.opts.init_guess == "CISD":
+        if self.opts.init_guess == "CISD":
             cisd = self.cisd_solver(self.hamil)
             cisd.kernel()
             ci = cisd.wf.as_fci().ci
-            if self.opts.init_guess_noise:
-                ci += self.opts.init_guess_noise * np.random.random(ci.shape)
+        elif self.opts.init_guess in ["mf", "meanfield"]:
+            ci = None
+
+        if self.opts.init_guess_noise and ci is not None:
+            ci += self.opts.init_guess_noise * np.random.random(ci.shape)
 
         heff, eris = self.hamil.get_integrals(with_vext=True)
 

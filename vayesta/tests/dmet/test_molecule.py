@@ -5,7 +5,7 @@ from vayesta.tests.common import TestCase
 from vayesta.tests import testsystems
 
 
-FCI_SOLVER_OPTS = dict(davidson_only=False, init_guess=None)
+FCI_SOLVER_OPTS = dict(davidson_only=False, init_guess="mf")
 
 class MoleculeTest(TestCase):
     PLACES_ENERGY = 7
