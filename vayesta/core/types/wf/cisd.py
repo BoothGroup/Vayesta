@@ -179,8 +179,8 @@ class UCISD_WaveFunction(RCISD_WaveFunction):
             nocca, noccb = self.mo.nelec
             nvira, nvirb = norb[0] - nocca, norb[1] - noccb
 
-            if 0 in [nocca, noccb, nvira, nvirb]:
-                ci = np.zeros((0, 0))
+            if (0 in [nocca, nvira]) and (0 in [noccb, nvirb]):
+                ci = np.full((1, 1), fill_value=1.0)
             else:
                 raise e
 
