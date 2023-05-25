@@ -187,11 +187,11 @@ setup(
             "h5py>=2.7",
             "pyscf @ git+https://github.com/pyscf/pyscf@master",
     ],
-    extras_require=[
+    extras_require={
             "dmet": ["cvxpy>=1.1"],
             "mpi": ["mpi4py>=3.0.0"],
             "ebcc": ["ebcc @ git+https://github.com/BoothGroup/ebcc@master"],
-    ],
+    },
     ext_modules=[CMakeExtension("vayesta/libs")],
     cmdclass={
             "build_ext": CMakeBuild,
