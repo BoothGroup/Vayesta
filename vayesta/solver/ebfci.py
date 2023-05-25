@@ -3,8 +3,8 @@ import dataclasses
 import numpy as np
 
 from vayesta.core.types import WaveFunction
-from .eb_fci import REBFCI, UEBFCI
-from .solver import ClusterSolver, UClusterSolver
+from vayesta.solver.eb_fci import REBFCI, UEBFCI
+from vayesta.solver.solver import ClusterSolver, UClusterSolver
 
 
 class EB_EBFCI_Solver(ClusterSolver):

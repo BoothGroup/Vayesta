@@ -3,8 +3,8 @@ import dataclasses
 import numpy as np
 
 from vayesta.core.types import MP2_WaveFunction
-from vayesta.core.util import *
-from .solver import ClusterSolver, UClusterSolver
+from vayesta.core.util import log_time, brange, einsum
+from vayesta.solver.solver import ClusterSolver, UClusterSolver
 
 
 class RMP2_Solver(ClusterSolver):

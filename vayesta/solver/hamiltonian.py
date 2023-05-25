@@ -8,7 +8,7 @@ import scipy.linalg
 
 from vayesta.core.qemb import scrcoulomb
 from vayesta.core.types import Orbitals
-from vayesta.core.util import *
+from vayesta.core.util import dot, einsum, OptionsBase, break_into_lines, log_time
 from vayesta.rpa import ssRPA
 
 

@@ -6,8 +6,8 @@ import scipy.linalg
 from vayesta.core.spinalg import hstack_matrices
 from vayesta.core.types import Orbitals, Cluster
 from vayesta.core.util import dot, einsum
-from .ccsd import RCCSD_Solver
-from .fci import FCI_Solver
+from vayesta.solver.ccsd import RCCSD_Solver
+from vayesta.solver.fci import FCI_Solver
 
 
 class TRCCSD_Solver(RCCSD_Solver):

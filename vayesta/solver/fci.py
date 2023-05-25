@@ -6,8 +6,8 @@ import pyscf.fci.addons
 
 from vayesta.core.types import FCI_WaveFunction
 from vayesta.core.util import log_time
-from .cisd import RCISD_Solver, UCISD_Solver
-from .solver import ClusterSolver, UClusterSolver
+from vayesta.solver.cisd import RCISD_Solver, UCISD_Solver
+from vayesta.solver.solver import ClusterSolver, UClusterSolver
 
 
 class FCI_Solver(ClusterSolver):

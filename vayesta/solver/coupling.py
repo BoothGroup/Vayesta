@@ -2,7 +2,7 @@ import numpy as np
 import pyscf
 
 from vayesta.core import spinalg
-from vayesta.core.util import *
+from vayesta.core.util import einsum, dot
 from vayesta.mpi import mpi, RMA_Dict
 from vayesta.solver import ccsdtq
 

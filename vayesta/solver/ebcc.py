@@ -4,7 +4,7 @@ import numpy as np
 
 from vayesta.core.types import WaveFunction, CCSD_WaveFunction
 from vayesta.core.util import dot, einsum
-from .solver import ClusterSolver, UClusterSolver
+from vayesta.solver.solver import ClusterSolver, UClusterSolver
 
 
 class REBCC_Solver(ClusterSolver):

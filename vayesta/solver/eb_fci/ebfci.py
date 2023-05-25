@@ -3,7 +3,7 @@ import dataclasses
 import numpy as np
 
 from vayesta.core.util import OptionsBase
-from . import ebfci_slow, uebfci_slow
+from vayesta.solver.eb_fci import ebfci_slow, uebfci_slow
 
 
 class REBFCI:

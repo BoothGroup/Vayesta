@@ -4,10 +4,10 @@ import numpy as np
 import pyscf.cc
 
 from vayesta.core.types import CCSD_WaveFunction
-from vayesta.core.util import *
-from ._uccsd_eris import uao2mo
-from .cisd import CISD_Solver
-from .solver import ClusterSolver, UClusterSolver
+from vayesta.core.util import dot, log_method, einsum
+from vayesta.solver._uccsd_eris import uao2mo
+from vayesta.solver.cisd import CISD_Solver
+from vayesta.solver.solver import ClusterSolver, UClusterSolver
 
 
 class RCCSD_Solver(ClusterSolver):

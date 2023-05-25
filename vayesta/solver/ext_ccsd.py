@@ -3,7 +3,7 @@ from typing import Optional, List, Any
 
 import numpy as np
 
-from . import coupling
+from vayesta.solver.coupling import tailor_with_fragments, externally_correct
 from .ccsd import RCCSD_Solver, UCCSD_Solver
 
 
@@ -25,11 +25,11 @@ class extRCCSD_Solver(RCCSD_Solver):
             if np.any([(t[2] != proj) for t in tailors]):
                 raise NotImplementedError
             self.log.info("Tailoring CCSD from %d fragments (projectors= %d)", len(tailor_frags), proj)
-            return coupling.tailor_with_fragments(self, tailor_frags, project=proj)
+            return tailor_with_fragments(self, tailor_frags, project=proj)
         # External correction of T1 and T2
         if externals:
             self.log.info("Externally correct CCSD from %d fragments", len(externals))
-            return coupling.externally_correct(self, externals, hamil=self.hamil)
+            return externally_correct(self, externals, hamil=self.hamil)
         # No correction applied; no callback function to apply.
         return None
 

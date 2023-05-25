@@ -1,8 +1,8 @@
 import dataclasses
 from typing import Optional, List
 
-from . import coupling
-from .ccsd import RCCSD_Solver
+from vayesta.solver.coupling import couple_ccsd_iterations
+from vayesta.solver.ccsd import RCCSD_Solver
 
 
 class coupledRCCSD_Solver(RCCSD_Solver):
@@ -17,4 +17,4 @@ class coupledRCCSD_Solver(RCCSD_Solver):
     def get_callback(self):
         if self.opts.fragments is None:
             raise ValueError("Please specify fragments to couple CCSD calculation with.")
-        return coupling.couple_ccsd_iterations(self, self.opts.fragments)
+        return couple_ccsd_iterations(self, self.opts.fragments)
