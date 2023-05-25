@@ -2,7 +2,7 @@ import functools
 
 import numpy as np
 
-from vayesta.core.util import *
+from vayesta.core.util import NotCalculatedError, dot, einsum
 from vayesta.mpi import mpi
 
 

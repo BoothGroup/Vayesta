@@ -25,7 +25,8 @@ from pyscf.mp.mp2 import _mo_without_core
 import vayesta
 from vayesta.core import vlog
 from vayesta.core.foldscf import FoldedSCF, fold_scf
-from vayesta.core.util import *
+from vayesta.core.util import (OptionsBase, OrthonormalityError, SymmetryError, dot, einsum, energy_string,
+                               getattr_recursive, hstack, log_method, log_time, with_doc)
 from vayesta.core import spinalg
 from vayesta.core.ao2mo import kao2gmo_cderi
 from vayesta.core.ao2mo import postscf_ao2mo

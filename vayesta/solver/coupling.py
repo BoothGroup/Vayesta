@@ -2,7 +2,7 @@ import numpy as np
 import pyscf
 from pyscf.lib import direct_sum
 from vayesta.core.ao2mo import helper as ao2mo_helper
-from vayesta.core.util import *
+from vayesta.core.util import dot, einsum
 from vayesta.core import spinalg
 from vayesta.mpi import mpi, RMA_Dict
 from vayesta.solver.simple import CCSD as SimpleCCSD
@@ -39,7 +39,7 @@ def transform_amplitude(t, u_occ, u_vir, u_occ2=None, u_vir2=None, inverse=False
         tab = transform_amplitude(t[1], u_occ[0], u_vir[0], u_occ[1], u_vir[1])
         tbb = transform_amplitude(t[2], u_occ[1], u_vir[1])
         return (taa, tab, tbb)
-    raise NotImplementedError("Transformation of %s amplitudes with ndim=%d" % (spinsym, np.ndim(t[0])+1))
+    raise NotImplementedError("Transformation of amplitudes with ndim=%d" % (np.ndim(t[0])+1))
 
 
 def get_amplitude_norm(t1, t2):
@@ -208,7 +208,7 @@ def tailor_with_fragments(solver, fragments, project=False, tailor_t1=True, tail
                 maxovlp = min(max(abs(rxy_occ[0]).max(), abs(rxy_occ[1]).max()),
                               max(abs(rxy_vir[0]).max(), abs(rxy_vir[1]).max()))
             if maxovlp < ovlp_tol:
-                self.log.debug("Skipping tailoring fragment %s due to small overlap= %.1e", fy, maxovlp)
+                solver.log.debug("Skipping tailoring fragment %s due to small overlap= %.1e", fy, maxovlp)
                 continue
 
             wfy = fy.results.wf.as_ccsd()

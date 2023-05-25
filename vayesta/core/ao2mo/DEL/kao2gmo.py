@@ -22,7 +22,7 @@ import pyscf.pbc
 import pyscf.pbc.df
 import pyscf.pbc.tools
 # Package
-from vayesta.core.util import *
+from vayesta.core.util import dot, einsum, memory_string, time_string
 import vayesta.libs
 from vayesta.core.ao2mo import helper
 

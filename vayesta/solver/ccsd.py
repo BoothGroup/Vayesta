@@ -17,7 +17,7 @@ from vayesta.core.types import WaveFunction
 from vayesta.core.types import CCSD_WaveFunction
 from vayesta.core.qemb import scrcoulomb
 from vayesta.core.ao2mo import helper
-from vayesta.core.util import *
+from vayesta.core.util import deprecated, dot, einsum, log_method, log_time
 from vayesta.solver.solver import ClusterSolver
 
 from vayesta.solver import coupling

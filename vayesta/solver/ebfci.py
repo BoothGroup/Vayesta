@@ -2,7 +2,7 @@ import dataclasses
 
 import numpy as np
 
-from vayesta.core.util import *
+from vayesta.core.util import energy_string, time_string, timer
 from vayesta.solver.fci import FCI_Solver, UFCI_Solver
 from vayesta.solver.solver import EBClusterSolver
 from vayesta.solver.eb_fci import ebfci_slow, uebfci_slow

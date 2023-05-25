@@ -2,7 +2,7 @@
 
 import numpy as np
 
-from vayesta.core.util import *
+from vayesta.core.util import dot, einsum
 from vayesta.rpa.rirpa.NI_eval import (
     NumericalIntegratorClenCurInfinite,
     NumericalIntegratorClenCurSemiInfinite,

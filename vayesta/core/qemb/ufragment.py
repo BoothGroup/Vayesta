@@ -2,7 +2,7 @@ import itertools
 
 import numpy as np
 
-from vayesta.core.util import *
+from vayesta.core.util import dot, einsum, energy_string, log_time, time_string, timer, with_doc
 from vayesta.core import spinalg
 from vayesta.core.qemb.fragment import Fragment
 

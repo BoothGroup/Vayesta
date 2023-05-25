@@ -1,6 +1,6 @@
 import numpy as np
 
-from vayesta.core.util import *
+from vayesta.core.util import dot, einsum, time_string, timer
 from vayesta.core.bath.bath import Bath
 from vayesta.core.bath import helper
 

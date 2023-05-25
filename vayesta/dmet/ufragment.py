@@ -1,6 +1,6 @@
 import numpy as np
 
-from vayesta.core.util import *
+from vayesta.core.util import dot, einsum, log_time, timer
 from vayesta.core.qemb import UFragment
 from vayesta.dmet.fragment import DMETFragment
 

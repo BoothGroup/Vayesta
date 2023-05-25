@@ -8,7 +8,7 @@ from vayesta.core.qemb import Fragment
 from vayesta.core.bath import BNO_Threshold
 from vayesta.solver import get_solver_class
 from vayesta.core import ao2mo
-from vayesta.core.util import *
+from vayesta.core.util import dot, log_time
 
 
 # We might want to move the useful things from here into core, since they seem pretty general.

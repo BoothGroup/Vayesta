@@ -1,6 +1,7 @@
+import copy
 import pyscf
 import pyscf.ci
-from vayesta.core.util import *
+from vayesta.core.util import deprecated, einsum, log_time
 from vayesta.core.types import WaveFunction
 import vayesta.solver.ccsd as ccsd
 from vayesta.solver.solver import ClusterSolver

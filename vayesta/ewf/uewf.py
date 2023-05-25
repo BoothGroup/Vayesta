@@ -1,7 +1,7 @@
 import numpy as np
 
 from vayesta.core.qemb import UEmbedding
-from vayesta.core.util import *
+from vayesta.core.util import cache, deprecated, dot, einsum, log_method
 
 from vayesta.ewf import REWF
 from vayesta.ewf.ufragment import Fragment

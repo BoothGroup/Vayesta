@@ -14,7 +14,7 @@ import pyscf.cc
 
 # Local modules
 import vayesta
-from vayesta.core.util import *
+from vayesta.core.util import deprecated, dot, einsum, energy_string, getattr_recursive, hstack, log_method, log_time
 from vayesta.core.qemb import Fragment as BaseFragment
 from vayesta.solver import get_solver_class
 from vayesta.core.fragmentation import IAO_Fragmentation

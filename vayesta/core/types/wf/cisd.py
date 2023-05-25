@@ -3,9 +3,10 @@ import pyscf
 import pyscf.ci
 import vayesta
 from vayesta.core import spinalg
-from vayesta.core.util import *
+from vayesta.core.util import callif, einsum
 from vayesta.core.types import wf as wf_types
-from vayesta.core.types.wf.project import *
+from vayesta.core.types.wf.project import (project_c1, project_c2, project_uc1, project_uc2, symmetrize_c2,
+                                           symmetrize_uc2)
 
 
 def CISD_WaveFunction(mo, c0, c1, c2, **kwargs):

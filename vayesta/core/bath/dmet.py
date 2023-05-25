@@ -2,7 +2,7 @@ import numpy as np
 import scipy
 import scipy.linalg
 
-from vayesta.core.util import *
+from vayesta.core.util import dot, einsum, fix_orbital_sign, time_string, timer
 from vayesta.core.bath.bath import Bath
 
 DEFAULT_DMET_THRESHOLD = 1e-6
@@ -225,6 +225,7 @@ class DMET_Bath_RHF(Bath):
     def use_ref_orbitals(self, c_bath, c_occenv, c_virenv, c_ref, reftol=0.8):
         """Not maintained!"""
         nref = c_ref.shape[-1]
+        nbath = c_bath.shape[-1]
         self.log.debug("%d reference DMET orbitals given.", nref)
         nmissing = nref - nbath
 
@@ -256,7 +257,7 @@ class DMET_Bath_RHF(Bath):
             c_bath = np.hstack((c_bath, c_occenv[:,mask_occref], c_virenv[:,mask_virref]))
             c_occenv = c_occenv[:,mask_occenv].copy()
             c_virenv = c_virenv[:,mask_virenv].copy()
-            nbath = C_bath.shape[-1]
+            nbath = c_bath.shape[-1]
             self.log.debug("New number of occupied environment orbitals: %d", c_occenv.shape[-1])
             self.log.debug("New number of virtual environment orbitals: %d", c_virenv.shape[-1])
             if nbath != nref:

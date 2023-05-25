@@ -4,7 +4,7 @@ import pyscf
 import pyscf.cc
 
 import vayesta.core.ao2mo
-from vayesta.core.util import *
+from vayesta.core.util import dot, einsum, log_method, with_doc
 from vayesta.core.qemb import UFragment as BaseFragment
 from vayesta.ewf.fragment import Fragment as RFragment
 

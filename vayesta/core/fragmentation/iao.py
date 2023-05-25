@@ -4,7 +4,7 @@ import numpy as np
 import pyscf
 import pyscf.lo
 
-from vayesta.core.util import *
+from vayesta.core.util import dot, einsum, fix_orbital_sign
 from vayesta.core.fragmentation.fragmentation import Fragmentation
 from vayesta.core.fragmentation.ufragmentation import Fragmentation_UHF
 

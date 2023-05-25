@@ -1,6 +1,5 @@
 import numpy as np
 import vayesta
-from vayesta.core.util import *
 from vayesta.core.types import wf as wf_types
 
 

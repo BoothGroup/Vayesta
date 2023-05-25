@@ -2,7 +2,7 @@ import numpy as np
 
 from vayesta.solver.solver import ClusterSolver
 
-from vayesta.core.util import *
+from vayesta.core.util import brange, deprecated, einsum, log_time
 from vayesta.core.types import Orbitals
 from vayesta.core.types import MP2_WaveFunction
 

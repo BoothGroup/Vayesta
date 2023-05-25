@@ -7,7 +7,7 @@ import pyscf.pbc
 import pyscf.pbc.df
 import vayesta
 import vayesta.core
-from vayesta.core.util import *
+from vayesta.core.util import log_time
 
 
 def scf_with_mpi(mpi, mf, mpi_rank=0, log=None):

@@ -7,7 +7,7 @@ import pyscf.cc
 import pyscf.cc.ccsd_rdm_slow
 import pyscf.lib
 
-from vayesta.core.util import *
+from vayesta.core.util import NotCalculatedError, Object, dot, einsum
 from vayesta.core.vpyscf import ccsd_rdm
 from vayesta.core.types import RMP2_WaveFunction
 from vayesta.core.types import RCCSD_WaveFunction
@@ -477,7 +477,7 @@ def make_rdm2_ccsd_global_wf(emb, ao_basis=False, symmetrize=True, t_as_lambda=N
             raise NotImplementedError
         t1 = emb.get_global_t1(for_dm2=True)
         t2 = emb.get_global_t2(for_dm2=True)
-        l1 = emb.get_global_l1(for_dm2=True) if not t_as_lambda else t12
+        l1 = emb.get_global_l1(for_dm2=True) if not t_as_lambda else t1
         l2 = emb.get_global_l2(for_dm2=True) if not t_as_lambda else t2
         mockcc = _get_mockcc(emb.mo_coeff, emb.mf.max_memory)
         #dm2 = pyscf.cc.ccsd_rdm.make_rdm2(mockcc, t1=t1, t2=t2, l1=l1, l2=l2, with_frozen=False, with_dm1=with_dm1)

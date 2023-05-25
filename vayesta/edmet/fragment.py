@@ -5,7 +5,7 @@ import numpy as np
 import pyscf.lib
 import scipy.linalg
 
-from vayesta.core.util import *
+from vayesta.core.util import dot, einsum, log_time, time_string
 from vayesta.dmet.fragment import DMETFragment
 from vayesta.core.bath import BNO_Threshold
 from vayesta.solver import get_solver_class

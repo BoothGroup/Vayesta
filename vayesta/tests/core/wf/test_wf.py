@@ -9,7 +9,7 @@ import pyscf.fci
 
 import vayesta
 import vayesta.ewf
-from vayesta.core.util import *
+from vayesta.core.util import cache, einsum
 from vayesta.tests.common import TestCase
 from vayesta.tests import testsystems
 

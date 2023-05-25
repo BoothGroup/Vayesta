@@ -3,7 +3,7 @@
 import numpy as np
 import pyscf
 import pyscf.lib
-from vayesta.core.util import *
+from vayesta.core.util import AbstractMethodError, SymmetryError, energy_string
 
 
 class SCMF:

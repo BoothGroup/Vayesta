@@ -10,7 +10,7 @@ import pyscf.mcscf
 import pyscf.fci
 import pyscf.fci.addons
 
-from vayesta.core.util import *
+from vayesta.core.util import deprecated, einsum, energy_string, time_string, timer
 from vayesta.core.types import Orbitals
 from vayesta.core.types import FCI_WaveFunction
 from vayesta.core.qemb.scrcoulomb import get_screened_eris_full

@@ -9,7 +9,7 @@ from vayesta.core.qemb.qemb import Embedding
 from vayesta.core.qemb.ufragment import UFragment
 
 from vayesta.core.ao2mo.postscf_ao2mo import postscf_ao2mo
-from vayesta.core.util import *
+from vayesta.core.util import dot, einsum, log_method, with_doc
 from vayesta.core import spinalg
 from vayesta.core.ao2mo import kao2gmo_cderi
 from vayesta.core.ao2mo import postscf_kao2gmo_uhf

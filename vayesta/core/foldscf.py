@@ -15,11 +15,7 @@ from pyscf.pbc import tools
 from pyscf.pbc import scf
 import pyscf.pbc.df
 
-try:
-    from vayesta.core.util import *
-# If run as script:
-except ImportError:
-    from util import *
+from vayesta.core.util import ImaginaryPartError, OrthonormalityError, dot, einsum
 
 log = logging.getLogger(__name__)
 

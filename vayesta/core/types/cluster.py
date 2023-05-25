@@ -1,7 +1,7 @@
 import numpy as np
 
 from vayesta.core.types.orbitals import Orbitals
-from vayesta.core.spinalg import *
+from vayesta.core.spinalg import add_numbers, hstack_matrices
 
 __all__ = ['Cluster', 'ClusterRHF', 'ClusterUHF']
 

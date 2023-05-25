@@ -3,7 +3,7 @@ import numpy as np
 import pyscf
 import pyscf.lo
 
-from vayesta.core.util import *
+from vayesta.core.util import dot
 from vayesta.core import spinalg
 from vayesta.core.fragmentation.iao import IAO_Fragmentation
 from vayesta.core.fragmentation.iao import IAO_Fragmentation_UHF

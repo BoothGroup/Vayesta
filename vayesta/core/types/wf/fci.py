@@ -2,7 +2,7 @@ import numpy as np
 import pyscf
 import pyscf.fci
 import vayesta
-from vayesta.core.util import *
+from vayesta.core.util import decompress_axes, dot, einsum, tril_indices_ndim
 from vayesta.core.types import wf as wf_types
 
 def FCI_WaveFunction(mo, ci, **kwargs):

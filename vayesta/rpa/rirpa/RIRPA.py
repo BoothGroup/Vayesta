@@ -3,7 +3,7 @@ import logging
 import numpy as np
 
 import pyscf.lib
-from vayesta.core.util import *
+from vayesta.core.util import dot, einsum, time_string, timer
 from vayesta.rpa.rirpa import momzero_NI, energy_NI
 
 

@@ -3,7 +3,7 @@ import numpy as np
 import scipy
 import scipy.linalg
 
-from vayesta.core.util import *
+from vayesta.core.util import dot, fix_orbital_sign, time_string, timer
 from vayesta.core.fragmentation import helper
 
 def check_orthonormal(log, mo_coeff, ovlp, mo_name="orbital", tol=1e-7):

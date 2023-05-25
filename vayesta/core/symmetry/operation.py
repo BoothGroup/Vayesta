@@ -7,7 +7,7 @@ import pyscf
 import pyscf.symm
 import vayesta
 import vayesta.core
-from vayesta.core.util import *
+from vayesta.core.util import AbstractMethodError, einsum
 
 
 log = logging.getLogger(__name__)

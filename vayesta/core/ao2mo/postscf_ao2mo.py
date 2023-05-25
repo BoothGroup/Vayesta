@@ -14,7 +14,7 @@ from pyscf.cc.uccsd import _ChemistsERIs as UCCSD_ChemistsERIs
 from pyscf.cc.dfccsd import _ChemistsERIs as DFCCSD_ChemistsERIs
 from pyscf.cc.ccsd import _ChemistsERIs as CCSD_ChemistsERIs
 
-from vayesta.core.util import *
+from vayesta.core.util import brange, dot, replace_attr
 from vayesta.core.ao2mo.kao2gmo import kao2gmo_cderi
 
 

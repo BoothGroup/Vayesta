@@ -4,7 +4,7 @@ import pyscf.lib
 import pyscf.ao2mo
 import pyscf.ci
 import pyscf.fci
-from vayesta.core.util import *
+from vayesta.core.util import dot, einsum, time_string, timer
 
 
 def make_cas_tcc_function(solver, c_cas_occ, c_cas_vir, eris):

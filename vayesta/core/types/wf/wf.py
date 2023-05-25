@@ -7,9 +7,9 @@ import pyscf.ci
 import pyscf.cc
 import pyscf.fci
 import vayesta
-from vayesta.core.util import *
+from vayesta.core.util import AbstractMethodError
 from vayesta.core.types import wf
-from vayesta.core.types.orbitals import *
+from vayesta.core.types.orbitals import SpatialOrbitals, SpinOrbitals
 
 
 class WaveFunction:

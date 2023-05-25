@@ -6,7 +6,7 @@ import scipy
 import scipy.linalg
 
 from vayesta.core.qemb import Embedding
-from vayesta.core.util import *
+from vayesta.core.util import break_into_lines, time_string
 from vayesta.dmet.fragment import DMETFragment, DMETFragmentExit
 
 from vayesta.dmet.sdp_sc import perform_SDP_fit

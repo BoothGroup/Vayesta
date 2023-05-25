@@ -6,7 +6,7 @@ import numpy as np
 import scipy
 import scipy.optimize
 
-from vayesta.core.util import *
+from vayesta.core.util import ConvergenceError, OptionsBase, break_into_lines, dot, einsum, log_time, replace_attr
 
 
 class ClusterSolver:

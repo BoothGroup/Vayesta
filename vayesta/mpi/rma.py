@@ -4,7 +4,6 @@ from contextlib import contextmanager
 import numpy as np
 
 import vayesta
-from vayesta.core.util import *
 
 log = logging.getLogger(__name__)
 

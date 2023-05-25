@@ -5,8 +5,9 @@ import numpy as np
 import pyscf
 import pyscf.cc
 
-from vayesta.core.util import *
+from vayesta.core.util import dot, einsum
 from vayesta.core.vpyscf import uccsd_rdm
+from vayesta.core.types.wf import UMP2_WaveFunction, UCCSD_WaveFunction
 from vayesta.ewf.rdm import _get_mockcc
 from vayesta.mpi import mpi
 

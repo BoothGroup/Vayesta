@@ -6,7 +6,8 @@ from typing import Optional, Union
 import numpy as np
 # --- Internal
 import vayesta
-from vayesta.core.util import *
+from vayesta.core.util import (NotCalculatedError, break_into_lines, cache, deprecated, dot, einsum, energy_string,
+                               log_method, log_time, time_string, timer)
 from vayesta.core.qemb import Embedding
 from vayesta.core.fragmentation import SAO_Fragmentation
 from vayesta.core.fragmentation import IAOPAO_Fragmentation
