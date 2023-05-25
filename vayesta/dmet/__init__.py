@@ -10,6 +10,7 @@ import logging
 try:
     import cvxpy
 except ModuleNotFoundError as e:
+    cvxpy = None
     raise ModuleNotFoundError("CVXPY is required for DMET correlation potential fitting.") from e
 
 from .dmet import RDMET

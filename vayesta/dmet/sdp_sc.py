@@ -1,5 +1,6 @@
-import cvxpy as cp
 import numpy as np
+
+from vayesta.dmet import cvxpy
 
 
 def perform_SDP_fit(nelec, fock, impurity_projectors, target_rdms, ovlp, log):
