@@ -4,7 +4,7 @@ import numpy as np
 
 from vayesta.core.util import *
 from vayesta.core import spinalg
-from .fragment import Fragment
+from vayesta.core.qemb.fragment import Fragment
 
 
 class UFragment(Fragment):

@@ -14,9 +14,9 @@ from vayesta.core.util import *
 from vayesta.core.types import Orbitals
 from vayesta.core.types import FCI_WaveFunction
 from vayesta.core.qemb.scrcoulomb import get_screened_eris_full
-from .solver import ClusterSolver
-from .cisd import CISD_Solver
-from .cisd import UCISD_Solver
+from vayesta.solver.solver import ClusterSolver
+from vayesta.solver.cisd import CISD_Solver
+from vayesta.solver.cisd import UCISD_Solver
 
 
 class FCI_Solver(ClusterSolver):

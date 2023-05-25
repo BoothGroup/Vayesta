@@ -16,7 +16,7 @@ from pyscf.cc.rccsd import _ChemistsERIs as _ChemistsERIs_cc
 from pyscf.pbc import tools
 from pyscf.pbc.lib import kpts_helper
 
-from .util import einsum, memory_string
+from vayesta.ewf.OBSOLETE.util import einsum, memory_string
 
 log = logging.getLogger(__name__)
 

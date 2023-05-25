@@ -10,7 +10,7 @@ from mpl_toolkits.mplot3d import Axes3D
 import pyscf
 import pyscf.pbc
 
-from .colors import atom_colors
+from vayesta.tools.plotting.colors import atom_colors
 
 
 def plot_mol(mol, size=30, indices=False, colors=None, colormap='bwr', add_images=False, **kwargs):

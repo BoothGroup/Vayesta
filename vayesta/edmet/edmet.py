@@ -10,7 +10,7 @@ from vayesta.dmet import RDMET
 from vayesta.dmet.sdp_sc import perform_SDP_fit
 from vayesta.dmet.updates import MixUpdate, DIISUpdate
 from vayesta.rpa import ssRPA, ssRIRPA
-from .fragment import EDMETFragment, EDMETFragmentExit
+from vayesta.edmet.fragment import EDMETFragment, EDMETFragmentExit
 
 @dataclasses.dataclass
 class Options(RDMET.Options):

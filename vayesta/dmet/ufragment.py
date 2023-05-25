@@ -2,7 +2,7 @@ import numpy as np
 
 from vayesta.core.util import *
 from vayesta.core.qemb import UFragment
-from .fragment import DMETFragment
+from vayesta.dmet.fragment import DMETFragment
 
 class UDMETFragment(UFragment, DMETFragment):
 

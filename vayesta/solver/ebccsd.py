@@ -3,7 +3,7 @@ import numpy as np
 
 from vayesta.core.util import *
 # FCI_Solver has infrastructure we require to obtain effective cluster Hamiltonian.
-from .solver import EBClusterSolver
+from vayesta.solver.solver import EBClusterSolver
 
 
 class EBCCSD_Solver(EBClusterSolver):

@@ -10,7 +10,7 @@ import plotly.express as px
 import pyscf
 import pyscf.pbc
 
-from .colors import get_atom_color
+from vayesta.tools.plotting.colors import get_atom_color
 
 
 def mol_supercell(mol, charges, spins):

@@ -26,7 +26,7 @@ from vayesta.core.types import Orbitals
 from vayesta.core import ao2mo
 from vayesta.mpi import mpi
 
-from . import ewf
+from vayesta.ewf import ewf
 
 
 # Get MPI rank of fragment

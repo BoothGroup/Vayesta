@@ -1,6 +1,6 @@
 import numpy as np
 
-from .solver import ClusterSolver
+from vayesta.solver.solver import ClusterSolver
 
 from vayesta.core.util import *
 from vayesta.core.types import Orbitals

@@ -5,8 +5,8 @@ import pyscf.mp
 import pyscf.ci
 import pyscf.cc
 
-from .qemb import Embedding
-from .ufragment import UFragment
+from vayesta.core.qemb.qemb import Embedding
+from vayesta.core.qemb.ufragment import UFragment
 
 from vayesta.core.ao2mo.postscf_ao2mo import postscf_ao2mo
 from vayesta.core.util import *
@@ -16,8 +16,8 @@ from vayesta.core.ao2mo import postscf_kao2gmo_uhf
 from vayesta.mpi import mpi
 from vayesta.core.qemb.corrfunc import get_corrfunc_unrestricted
 
-from .rdm import make_rdm1_demo_uhf
-from .rdm import make_rdm2_demo_uhf
+from vayesta.core.qemb.rdm import make_rdm1_demo_uhf
+from vayesta.core.qemb.rdm import make_rdm2_demo_uhf
 
 class UEmbedding(Embedding):
     """Spin unrestricted quantum embedding."""

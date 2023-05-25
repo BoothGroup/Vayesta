@@ -2,7 +2,7 @@ import dataclasses
 import h5py
 import vayesta
 from vayesta.core import spinalg
-from .solver import ClusterSolver
+from vayesta.solver.solver import ClusterSolver
 
 
 class DumpSolver(ClusterSolver):

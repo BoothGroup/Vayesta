@@ -18,10 +18,10 @@ from vayesta.core.types import CCSD_WaveFunction
 from vayesta.core.qemb import scrcoulomb
 from vayesta.core.ao2mo import helper
 from vayesta.core.util import *
-from .solver import ClusterSolver
+from vayesta.solver.solver import ClusterSolver
 
-from . import coupling
-from . import tccsd
+from vayesta.solver import coupling
+from vayesta.solver import tccsd
 
 
 class CCSD_Solver(ClusterSolver):

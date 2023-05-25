@@ -3,7 +3,7 @@ import pyscf.lib
 
 from vayesta.core.util import *
 from vayesta.dmet.ufragment import UDMETFragment
-from .fragment import EDMETFragment
+from vayesta.edmet.fragment import EDMETFragment
 
 
 class UEDMETFragment(UDMETFragment, EDMETFragment):

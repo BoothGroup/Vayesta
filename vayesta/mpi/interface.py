@@ -5,9 +5,9 @@ from timeit import default_timer
 import numpy as np
 import vayesta
 from vayesta.core.util import *
-from .rma import RMA_Dict
-from .scf import scf_with_mpi
-from .scf import gdf_with_mpi
+from vayesta.mpi.rma import RMA_Dict
+from vayesta.mpi.scf import scf_with_mpi
+from vayesta.mpi.scf import gdf_with_mpi
 
 
 NdArrayMetadata = namedtuple('NdArrayMetadata', ['shape', 'dtype'])

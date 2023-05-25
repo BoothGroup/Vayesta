@@ -3,7 +3,7 @@ import scipy
 import scipy.linalg
 
 from vayesta.core.util import *
-from .bath import Bath
+from vayesta.core.bath.bath import Bath
 
 DEFAULT_DMET_THRESHOLD = 1e-6
 

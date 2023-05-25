@@ -3,7 +3,7 @@ import pyscf.ci
 from vayesta.core.util import *
 from vayesta.core.types import WaveFunction
 import vayesta.solver.ccsd as ccsd
-from .solver import ClusterSolver
+from vayesta.solver.solver import ClusterSolver
 
 
 class CISD_Solver(ccsd.CCSD_Solver):

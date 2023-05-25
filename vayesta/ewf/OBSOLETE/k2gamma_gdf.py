@@ -11,7 +11,7 @@ from pyscf.pbc.lib import kpts_helper
 from pyscf.pbc.tools import k2gamma as k2gamma
 
 try:
-    from .util import *
+    from vayesta.ewf.OBSOLETE.util import *
 except (SystemError, ImportError):
     import functools
     einsum = functools.partial(np.einsum, optimize=True)

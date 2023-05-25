@@ -1,18 +1,18 @@
 import numpy as np
 
-from .mp2 import MP2_Solver
-from .mp2 import UMP2_Solver
-from .ccsd import CCSD_Solver
-from .ccsd import UCCSD_Solver
-from .cisd import CISD_Solver
-from .cisd import UCISD_Solver
-from .fci import FCI_Solver
-from .fci import UFCI_Solver
-from .ebfci import EBFCI_Solver
-from .ebfci import UEBFCI_Solver
-from .ebccsd import EBCCSD_Solver
-from .ebccsd import UEBCCSD_Solver
-from .dump import DumpSolver
+from vayesta.solver.mp2 import MP2_Solver
+from vayesta.solver.mp2 import UMP2_Solver
+from vayesta.solver.ccsd import CCSD_Solver
+from vayesta.solver.ccsd import UCCSD_Solver
+from vayesta.solver.cisd import CISD_Solver
+from vayesta.solver.cisd import UCISD_Solver
+from vayesta.solver.fci import FCI_Solver
+from vayesta.solver.fci import UFCI_Solver
+from vayesta.solver.ebfci import EBFCI_Solver
+from vayesta.solver.ebfci import UEBFCI_Solver
+from vayesta.solver.ebccsd import EBCCSD_Solver
+from vayesta.solver.ebccsd import UEBCCSD_Solver
+from vayesta.solver.dump import DumpSolver
 
 
 def is_uhf(mf):

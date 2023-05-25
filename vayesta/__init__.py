@@ -5,8 +5,8 @@ import subprocess
 import platform
 import importlib
 
-from .core import cmdargs
-from .mpi import init_mpi
+from vayesta.core import cmdargs
+from vayesta.mpi import init_mpi
 
 
 __version__ = '1.0.1'
@@ -19,10 +19,10 @@ if args.mpi is None:
     init_mpi(True, required=False)
 else:
     init_mpi(args.mpi)
-from .mpi import mpi
+from vayesta.mpi import mpi
 
 # Logging
-from .core import vlog
+from vayesta.core import vlog
 if args.output_dir:
     os.makedirs(args.output_dir, exist_ok=True)
 

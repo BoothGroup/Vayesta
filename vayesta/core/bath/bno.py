@@ -4,8 +4,8 @@ from vayesta.core.util import *
 from vayesta.core import spinalg
 from vayesta.core.types import Cluster
 from vayesta.core.linalg import recursive_block_svd
-from . import helper
-from .bath import Bath
+from vayesta.core.bath import helper
+from vayesta.core.bath.bath import Bath
 
 
 class BNO_Threshold:

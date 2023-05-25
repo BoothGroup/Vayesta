@@ -34,7 +34,7 @@ from vayesta import lattmod
 from vayesta.core.scmf import PDMET, Brueckner
 from vayesta.core.qemb.scrcoulomb import build_screened_eris
 from vayesta.mpi import mpi
-from .register import FragmentRegister
+from vayesta.core.qemb.register import FragmentRegister
 
 # Symmetry
 from vayesta.core.symmetry import SymmetryGroup
@@ -58,10 +58,10 @@ from vayesta.core.qemb.corrfunc import get_corrfunc_mf
 
 # --- This Package
 
-from .fragment import Fragment
+from vayesta.core.qemb.fragment import Fragment
 #from . import helper
-from .rdm import make_rdm1_demo_rhf
-from .rdm import make_rdm2_demo_rhf
+from vayesta.core.qemb.rdm import make_rdm1_demo_rhf
+from vayesta.core.qemb.rdm import make_rdm2_demo_rhf
 
 
 @dataclasses.dataclass

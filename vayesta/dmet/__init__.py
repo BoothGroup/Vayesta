@@ -13,8 +13,8 @@ except ModuleNotFoundError as e:
     cvxpy = None
     raise ModuleNotFoundError("CVXPY is required for DMET correlation potential fitting.") from e
 
-from .dmet import RDMET
-from .udmet import UDMET
+from vayesta.dmet.dmet import RDMET
+from vayesta.dmet.udmet import UDMET
 
 log = logging.getLogger(__name__)
 

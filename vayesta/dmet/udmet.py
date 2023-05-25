@@ -6,7 +6,7 @@ from vayesta.core.util import *
 from vayesta.dmet import RDMET
 from vayesta.dmet.ufragment import UDMETFragment as Fragment
 
-from .sdp_sc import perform_SDP_fit
+from vayesta.dmet.sdp_sc import perform_SDP_fit
 
 
 class UDMET(UEmbedding, RDMET):

@@ -1,7 +1,7 @@
 import logging
 
 import numpy as np
-from . import tsymmetry
+from vayesta.core.symmetry import tsymmetry
 
 
 log = logging.getLogger(__name__)

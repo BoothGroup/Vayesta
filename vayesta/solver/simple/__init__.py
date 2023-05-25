@@ -1,3 +1,3 @@
-from .ccsd import CCSD
-from .ccsd import RCCSD
-from .ccsd import UCCSD
+from vayesta.solver.simple.ccsd import CCSD
+from vayesta.solver.simple.ccsd import RCCSD
+from vayesta.solver.simple.ccsd import UCCSD

@@ -5,8 +5,8 @@ import pyscf
 import pyscf.lo
 
 from vayesta.core.util import *
-from .fragmentation import Fragmentation
-from .ufragmentation import Fragmentation_UHF
+from vayesta.core.fragmentation.fragmentation import Fragmentation
+from vayesta.core.fragmentation.ufragmentation import Fragmentation_UHF
 
 # Load default minimal basis set on module initialization
 default_minao = {}

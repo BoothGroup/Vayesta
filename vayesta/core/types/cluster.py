@@ -1,6 +1,6 @@
 import numpy as np
 
-from .orbitals import Orbitals
+from vayesta.core.types.orbitals import Orbitals
 from vayesta.core.spinalg import *
 
 __all__ = ['Cluster', 'ClusterRHF', 'ClusterUHF']

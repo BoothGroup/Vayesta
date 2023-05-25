@@ -16,7 +16,7 @@ from pyscf.pbc import scf
 import pyscf.pbc.df
 
 try:
-    from .util import *
+    from vayesta.core.util import *
 # If run as script:
 except ImportError:
     from util import *

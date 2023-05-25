@@ -3,7 +3,7 @@ import numpy as np
 import pyscf.lib
 from vayesta.core.util import *
 
-from .RIRPA import ssRIRRPA
+from vayesta.rpa.rirpa.RIRPA import ssRIRRPA
 
 
 class ssRIURPA(ssRIRRPA):

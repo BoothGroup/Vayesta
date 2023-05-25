@@ -5,7 +5,7 @@ import numpy as np
 from vayesta.core.util import *
 from vayesta.solver.fci import FCI_Solver, UFCI_Solver
 from vayesta.solver.solver import EBClusterSolver
-from .eb_fci import ebfci_slow, uebfci_slow
+from vayesta.solver.eb_fci import ebfci_slow, uebfci_slow
 
 
 class EBFCI_Solver(FCI_Solver, EBClusterSolver):

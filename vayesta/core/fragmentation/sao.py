@@ -1,8 +1,8 @@
 import numpy as np
 
 from vayesta.core.util import *
-from .fragmentation import Fragmentation
-from .ufragmentation import Fragmentation_UHF
+from vayesta.core.fragmentation.fragmentation import Fragmentation
+from vayesta.core.fragmentation.ufragmentation import Fragmentation_UHF
 
 class SAO_Fragmentation(Fragmentation):
 

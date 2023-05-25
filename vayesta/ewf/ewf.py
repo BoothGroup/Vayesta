@@ -12,16 +12,16 @@ from vayesta.core.fragmentation import SAO_Fragmentation
 from vayesta.core.fragmentation import IAOPAO_Fragmentation
 from vayesta.mpi import mpi
 # --- Package
-from . import helper
-from .fragment import Fragment
-from .amplitudes import get_global_t1_rhf
-from .amplitudes import get_global_t2_rhf
-from .rdm import make_rdm1_ccsd
-from .rdm import make_rdm1_ccsd_global_wf
-from .rdm import make_rdm2_ccsd_global_wf
-from .rdm import make_rdm1_ccsd_proj_lambda
-from .rdm import make_rdm2_ccsd_proj_lambda
-from .icmp2 import get_intercluster_mp2_energy_rhf
+from vayesta.ewf import helper
+from vayesta.ewf.fragment import Fragment
+from vayesta.ewf.amplitudes import get_global_t1_rhf
+from vayesta.ewf.amplitudes import get_global_t2_rhf
+from vayesta.ewf.rdm import make_rdm1_ccsd
+from vayesta.ewf.rdm import make_rdm1_ccsd_global_wf
+from vayesta.ewf.rdm import make_rdm2_ccsd_global_wf
+from vayesta.ewf.rdm import make_rdm1_ccsd_proj_lambda
+from vayesta.ewf.rdm import make_rdm2_ccsd_proj_lambda
+from vayesta.ewf.icmp2 import get_intercluster_mp2_energy_rhf
 
 
 @dataclasses.dataclass
