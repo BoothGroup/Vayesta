@@ -5,14 +5,11 @@ import sys
 import glob
 import shlex
 import shutil
-import subprocess
 from setuptools import setup, find_packages, Extension, Command
 from setuptools.command.test import test
 from setuptools.command.build_ext import build_ext
 
 setup_src = os.path.dirname(os.path.realpath(__file__))
-
-# TODO: mpi4py as optional extra
 
 
 class CMakeExtension(Extension):
@@ -125,78 +122,14 @@ build.sub_commands = ([c for c in build.sub_commands if c[0] == 'build_ext'] +
                       [c for c in build.sub_commands if c[0] != 'build_ext'])
 
 
-# Get the version from the __init__.py:
-with open(os.path.join(setup_src, "vayesta", "__init__.py"), "r") as f:
-    for line in f.readlines():
-        if line.startswith("__version__ = "):
-            version = line.strip("__version__ = ")
-            version = version.replace("\'", "")
-            version = version.replace("\"", "")
-
-
 setup(
-    name="Vayesta",
-    version=version,
-    description="A toolkit for quantum embedding methods",
-    url="https://vayesta.github.io",
-    download_url="https://github.com/BoothGroup/Vayesta",
-    keywords=[
-            "embedding",
-            "quantum", "chemistry",
-            "material", "science",
-            "electronic", "structure",
-            "dmet", "rpa",
-    ],
-    author=", ".join([
-            "M. Nusspickel",
-            "O. J. Backhouse",
-            "B. Ibrahim",
-            "A. Santana-Bonilla",
-            "C. J. C. Scott",
-            "G. H. Booth",
-    ]),
-    author_email="vayesta.embedding@gmail.com",
-    license="Apache License 2.0",  # FIXME?
-    platforms=[
-            "Linux",
-            "Mac OS-X",
-    ],
-    python_requires=">=3.7",
-    classifiers=[
-            "Development Status :: 3 - Alpha",
-            "License :: OSI Approved :: Apache Software License",  # FIXME?
-            "Intended Audience :: Science/Research",
-            "Intended Audience :: Developers",
-            "Topic :: Scientific/Engineering",
-            "Topic :: Software Development",
-            "Programming Language :: Python",
-            "Programming Language :: Python :: 3.7",
-            "Programming Language :: Python :: 3.8",
-            "Programming Language :: Python :: 3.9",
-            "Programming Language :: Python :: 3.10",
-            "Programming Language :: C",
-            "Operating System :: MacOS :: MacOS X",
-            "Operating System :: POSIX :: Linux",
-    ],
     packages=find_packages(exclude=["*examples*"]),
     include_package_data=True,
-    install_requires=[
-            "wheel",
-            "numpy>=1.19.0",
-            "scipy>=1.1.0",
-            "h5py>=2.7",
-            "cvxpy>=1.1",
-            "pyscf @ git+https://github.com/pyscf/pyscf@master",
-    ],
     ext_modules=[CMakeExtension("vayesta/libs")],
     cmdclass={
             "build_ext": CMakeBuild,
             "test": DiscoverTests,
             "clean": CleanCommand,
     },
-    tests_require=[
-            "pytest",
-            "pytest-cov",
-    ],
     zip_safe=False,
 )
