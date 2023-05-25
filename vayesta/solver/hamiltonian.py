@@ -5,7 +5,7 @@ import numpy as np
 import pyscf.lib
 import pyscf.scf
 
-from vayesta.core.util import dot, einsum, OptionsBase, break_into_lines, log_time
+from vayesta.core.util import dot, einsum, OptionsBase, break_into_lines, log_time, energy_string
 from vayesta.core.screening import screening_moment, screening_crpa
 from vayesta.core.types import Orbitals
 from typing import Optional
@@ -445,7 +445,7 @@ class RClusterHamiltonian:
                 seris = spin_integrate_and_report(seris)
         elif self.opts.screening[:4] == "crpa":
             bare_eris = self.get_eris_bare()
-            delta, crpa = screening_crpa.get_frag_deltaW(self.mf, self._fragment,
+            delta, crpa = screening_crpa.get_frag_deltaW(self.orig_mf, self._fragment,
                                                          pcoupling=("pcoupled" in self.opts.screening),
                                                          only_ov_screened=("ov" in self.opts.screening),
                                                          log=self.log)
