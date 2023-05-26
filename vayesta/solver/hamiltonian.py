@@ -286,7 +286,9 @@ class RClusterHamiltonian:
         clusmol = pyscf.gto.mole.Mole()
         # Copy over all output controls from original mol object.
         clusmol.verbose = self.orig_mf.mol.verbose
-        clusmol.output = self.orig_mf.mol.output
+        if self.orig_mf.mol.output is not None:
+            clusmol.output = f"f{self._fragment.id}_{self.orig_mf.mol.output}"
+            self.log.debugv("Setting solver output file to %s", clusmol.output)
         # Set information as required for our cluster.
         clusmol.nelec = self.nelec
         clusmol.nao = nmo

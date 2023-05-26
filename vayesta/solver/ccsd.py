@@ -17,6 +17,10 @@ class RCCSD_Solver(ClusterSolver):
         max_cycle: int = 100  # Max number of iterations
         conv_tol: float = None  # Convergence energy tolerance
         conv_tol_normt: float = None  # Convergence amplitude tolerance
+        diis_space: int = None # DIIS space size
+        diis_start_cycle: int = None  # The step to start DIIS, default is 0
+        iterative_damping: float = None  # self-consistent damping parameter
+        level_shift: float = None  # Level shift for virtual orbitals to stabilize ccsd iterations
         init_guess: str = 'MP2'  # ['MP2', 'CISD']
         solve_lambda: bool = True  # If false, use Lambda=T approximation
         # Self-consistent mode
@@ -30,6 +34,14 @@ class RCCSD_Solver(ClusterSolver):
 
         if self.opts.max_cycle is not None:
             mycc.max_cycle = self.opts.max_cycle
+        if self.opts.diis_space is not None:
+            mycc.diis_space = self.opts.diis_space
+        if self.opts.diis_start_cycle is not None:
+            mycc.diis_start_cycle = self.opts.diis_start_cycle
+        if self.opts.iterative_damping is not None:
+            mycc.iterative_damping = self.opts.iterative_damping
+        if self.opts.level_shift is not None:
+            mycc.level_shift = self.opts.level_shift
         if self.opts.conv_tol is not None:
             mycc.conv_tol = self.opts.conv_tol
         if self.opts.conv_tol_normt is not None:
