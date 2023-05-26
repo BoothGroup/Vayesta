@@ -1,6 +1,4 @@
 import dataclasses
-from timeit import default_timer as timer
-import copy
 
 import numpy as np
 import scipy

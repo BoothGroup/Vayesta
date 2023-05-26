@@ -1,6 +1,5 @@
 import numpy as np
 import pyscf
-from pyscf.lib import direct_sum
 from vayesta.core.ao2mo import helper as ao2mo_helper
 from vayesta.core.util import dot, einsum
 from vayesta.core import spinalg

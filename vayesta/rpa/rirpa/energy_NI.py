@@ -5,10 +5,7 @@ import numpy as np
 from vayesta.core.util import dot, einsum
 from vayesta.rpa.rirpa.NI_eval import (
     NumericalIntegratorClenCurInfinite,
-    NumericalIntegratorClenCurSemiInfinite,
-    NumericalIntegratorGaussianSemiInfinite,
-    NumericalIntegratorBase,
-    NIException,
+    NIException
 )
 
 from vayesta.rpa.rirpa.momzero_NI import diag_sqrt_contrib, diag_sqrt_grad, diag_sqrt_deriv2

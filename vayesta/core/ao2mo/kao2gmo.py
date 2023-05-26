@@ -9,8 +9,6 @@ import ctypes
 import logging
 # External
 import numpy as np
-# PySCF
-import pyscf
 import pyscf.pbc
 import pyscf.pbc.tools
 # Package
@@ -177,12 +175,9 @@ def kao2gmo_cderi(gdf, mo_coeffs, make_real=True, blksize=None, tril_kij=True, d
 
 
 if __name__ == '__main__':
-
-    import pyscf
     import pyscf.pbc
     import pyscf.pbc.gto
     import pyscf.pbc.df
-    import pyscf.pbc.dft
     import pyscf.pbc.tools
 
     import vayesta.core.ao2mo

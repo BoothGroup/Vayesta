@@ -3,11 +3,7 @@ import itertools
 import numbers
 
 import numpy as np
-import matplotlib
 from matplotlib import pyplot as plt
-from mpl_toolkits.mplot3d import Axes3D
-
-import pyscf
 import pyscf.pbc
 
 from vayesta.tools.plotting.colors import atom_colors
@@ -97,7 +93,6 @@ def plot_mol(mol, size=30, indices=False, colors=None, colormap='bwr', add_image
 
 
 if __name__ == '__main__':
-    import pyscf
     import pyscf.gto
 
     mol = pyscf.gto.Mole()

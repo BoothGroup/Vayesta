@@ -2,7 +2,6 @@ import dataclasses
 import copy
 import typing
 from typing import Optional, List
-from timeit import default_timer as timer
 
 import numpy as np
 
@@ -13,10 +12,8 @@ import pyscf.pbc
 import pyscf.pbc.cc
 
 from vayesta.core.types import Orbitals
-from vayesta.core.types import WaveFunction
 from vayesta.core.types import CCSD_WaveFunction
 from vayesta.core.qemb import scrcoulomb
-from vayesta.core.ao2mo import helper
 from vayesta.core.util import deprecated, dot, einsum, log_method, log_time
 from vayesta.solver.solver import ClusterSolver
 

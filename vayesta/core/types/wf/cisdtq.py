@@ -1,5 +1,3 @@
-import numpy as np
-import vayesta
 from vayesta.core.types import wf as wf_types
 from vayesta.core.types.wf import t_to_c
 

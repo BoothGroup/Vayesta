@@ -1,5 +1,4 @@
 import numpy as np
-import vayesta
 from vayesta.core.util import energy_string
 from vayesta.core.fragmentation.fragmentation import Fragmentation
 from vayesta.core.fragmentation.ufragmentation import Fragmentation_UHF

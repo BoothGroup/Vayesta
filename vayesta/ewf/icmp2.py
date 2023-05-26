@@ -6,7 +6,6 @@ import pyscf.pbc.tools
 
 from vayesta.core.util import dot, einsum, energy_string, log_time
 from vayesta.mpi import mpi
-from vayesta.mpi import RMA_Dict
 
 class ClusterRHF:
     """Helper class"""

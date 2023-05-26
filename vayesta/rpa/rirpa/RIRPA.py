@@ -720,7 +720,6 @@ class ssRIRPA:
     def test_spectral_rep(self, freqs):
         from vayesta.rpa import ssRPA
         import scipy
-        import scipy.integrate
 
         xc_kernel = None
         if self.rixc is not None:

@@ -1,12 +1,9 @@
-import numpy as np
 import pyscf
 import pyscf.gto
 import pyscf.scf
 import pyscf.cc
-import pyscf.fci
 import vayesta
 import vayesta.ewf
-from vayesta.misc import molecules
 
 mol = pyscf.gto.Mole()
 mol.atom = """

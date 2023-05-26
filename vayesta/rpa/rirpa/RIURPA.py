@@ -1,6 +1,4 @@
 import numpy as np
-
-import pyscf.lib
 from vayesta.core.util import einsum
 
 from vayesta.rpa.rirpa.RIRPA import ssRIRRPA

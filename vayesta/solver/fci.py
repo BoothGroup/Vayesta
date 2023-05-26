@@ -3,10 +3,8 @@ import dataclasses
 import numpy as np
 
 import pyscf
-import pyscf.ao2mo
 import pyscf.ci
 import pyscf.cc
-import pyscf.mcscf
 import pyscf.fci
 import pyscf.fci.addons
 

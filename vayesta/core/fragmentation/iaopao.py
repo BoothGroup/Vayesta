@@ -1,6 +1,4 @@
 import numpy as np
-
-import pyscf
 import pyscf.lo
 
 from vayesta.core.util import dot
@@ -110,8 +108,6 @@ if __name__ == '__main__':
 
     import logging
     log = logging.getLogger(__name__)
-
-    import pyscf
     import pyscf.gto
     import pyscf.scf
 

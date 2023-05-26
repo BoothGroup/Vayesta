@@ -4,7 +4,6 @@ import numpy as np
 
 import pyscf
 import pyscf.ao2mo
-import pyscf.cc
 
 import vayesta
 

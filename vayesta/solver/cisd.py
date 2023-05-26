@@ -4,7 +4,6 @@ import pyscf.ci
 from vayesta.core.util import deprecated, einsum, log_time
 from vayesta.core.types import WaveFunction
 import vayesta.solver.ccsd as ccsd
-from vayesta.solver.solver import ClusterSolver
 
 
 class CISD_Solver(ccsd.CCSD_Solver):

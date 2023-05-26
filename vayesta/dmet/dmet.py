@@ -3,7 +3,6 @@ from timeit import default_timer as timer
 
 import numpy as np
 import scipy
-import scipy.linalg
 
 from vayesta.core.qemb import Embedding
 from vayesta.core.util import break_into_lines, time_string

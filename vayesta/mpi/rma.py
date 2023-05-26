@@ -3,8 +3,6 @@ from contextlib import contextmanager
 
 import numpy as np
 
-import vayesta
-
 log = logging.getLogger(__name__)
 
 

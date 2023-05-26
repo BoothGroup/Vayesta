@@ -1,10 +1,7 @@
 import pytest
 import unittest
-import numpy as np
 
 import pyscf
-import pyscf.cc
-from pyscf.scf import convert_to_uhf
 
 import vayesta
 import vayesta.ewf

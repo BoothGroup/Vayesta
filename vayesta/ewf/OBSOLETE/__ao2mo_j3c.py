@@ -4,7 +4,6 @@ raise NotImplementedError()
 
 """AO to MO transformation routines for density-fitted three-center integrals
 """
-from timeit import default_timer as timer
 import logging
 
 import numpy as np
@@ -14,9 +13,8 @@ from pyscf.mp.mp2 import _mo_without_core
 from pyscf.mp.mp2 import _ChemistsERIs as _ChemistsERIs_mp2
 from pyscf.cc.rccsd import _ChemistsERIs as _ChemistsERIs_cc
 from pyscf.pbc import tools
-from pyscf.pbc.lib import kpts_helper
 
-from vayesta.ewf.OBSOLETE.util import einsum, memory_string
+from vayesta.ewf.OBSOLETE.util import einsum
 
 log = logging.getLogger(__name__)
 

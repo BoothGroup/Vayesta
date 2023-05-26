@@ -1,6 +1,5 @@
 import dataclasses
 import h5py
-import vayesta
 from vayesta.core import spinalg
 from vayesta.solver.solver import ClusterSolver
 

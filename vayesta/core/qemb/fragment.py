@@ -1,15 +1,11 @@
 # --- Standard library
 import dataclasses
 import itertools
-import copy
 import os.path
 import typing
 # --- External
 import numpy as np
-import scipy
-import scipy.linalg
 import pyscf
-import pyscf.lib
 import pyscf.lo
 # --- Internal
 from vayesta.core.util import (OptionsBase, cache, deprecated, dot, einsum, energy_string, fix_orbital_sign, hstack,

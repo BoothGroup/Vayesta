@@ -1,19 +1,13 @@
 # --- Standard
 import dataclasses
-import functools
-from typing import Optional, Union
 # --- External
 import numpy as np
-# --- Internal
-import vayesta
 from vayesta.core.util import (NotCalculatedError, break_into_lines, cache, deprecated, dot, einsum, energy_string,
                                log_method, log_time, time_string, timer)
 from vayesta.core.qemb import Embedding
 from vayesta.core.fragmentation import SAO_Fragmentation
 from vayesta.core.fragmentation import IAOPAO_Fragmentation
 from vayesta.mpi import mpi
-# --- Package
-from vayesta.ewf import helper
 from vayesta.ewf.fragment import Fragment
 from vayesta.ewf.amplitudes import get_global_t1_rhf
 from vayesta.ewf.amplitudes import get_global_t2_rhf

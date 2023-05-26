@@ -3,11 +3,9 @@ from timeit import default_timer as timer
 
 import numpy as np
 import scipy
-import scipy.linalg
 
 from vayesta.core.util import dot, time_string
 from vayesta.dmet import RDMET
-from vayesta.dmet.sdp_sc import perform_SDP_fit
 from vayesta.dmet.updates import MixUpdate, DIISUpdate
 from vayesta.rpa import ssRPA, ssRIRPA
 from vayesta.edmet.fragment import EDMETFragment, EDMETFragmentExit

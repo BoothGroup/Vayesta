@@ -1,7 +1,6 @@
 import numpy as np
 import pyscf
 import pyscf.ci
-import vayesta
 from vayesta.core import spinalg
 from vayesta.core.util import callif, einsum
 from vayesta.core.types import wf as wf_types

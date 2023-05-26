@@ -1,4 +1,4 @@
-from pyscf.pbc import gto, scf
+from pyscf.pbc import gto
 from pyscf.pbc import df as df_pyscf
 from vayesta.misc import gdf
 import numpy as np

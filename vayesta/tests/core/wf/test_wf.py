@@ -1,12 +1,6 @@
 import unittest
 import numpy as np
 
-import pyscf
-import pyscf.mp
-import pyscf.ci
-import pyscf.cc
-import pyscf.fci
-
 import vayesta
 import vayesta.ewf
 from vayesta.core.util import cache, einsum

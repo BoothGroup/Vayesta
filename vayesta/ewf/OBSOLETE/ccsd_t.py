@@ -208,7 +208,6 @@ if True:
     #import ctypes
     import numpy
     from pyscf import lib
-    from pyscf import symm
     from pyscf.lib import logger
     #from pyscf.cc import _ccsd
     

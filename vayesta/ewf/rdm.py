@@ -2,11 +2,6 @@
 
 import numpy as np
 
-import pyscf
-import pyscf.cc
-import pyscf.cc.ccsd_rdm_slow
-import pyscf.lib
-
 from vayesta.core.util import NotCalculatedError, Object, dot, einsum
 from vayesta.core.vpyscf import ccsd_rdm
 from vayesta.core.types import RMP2_WaveFunction

@@ -5,8 +5,6 @@ import scipy.linalg
 from timeit import default_timer as timer
 from vayesta.core.util import dot, time_string
 
-import pyscf.ao2mo
-
 
 class ssURPA(ssRPA):
     @property

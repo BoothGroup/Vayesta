@@ -1,7 +1,5 @@
 import numpy as np
 
-from vayesta.core.qemb import UEmbedding
-
 from vayesta.dmet import UDMET
 from vayesta.edmet import REDMET
 from vayesta.edmet.ufragment import UEDMETFragment as Fragment

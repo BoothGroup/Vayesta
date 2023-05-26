@@ -1,6 +1,4 @@
 import numpy as np
-
-import vayesta
 from vayesta.core.helper import pack_arrays, unpack_arrays
 
 __all__ = [

@@ -5,8 +5,6 @@ from vayesta.core.util import cache, deprecated, dot, einsum, log_method
 
 from vayesta.ewf import REWF
 from vayesta.ewf.ufragment import Fragment
-from vayesta.core.fragmentation import SAO_Fragmentation
-from vayesta.core.fragmentation import IAOPAO_Fragmentation
 from vayesta.misc import corrfunc
 from vayesta.mpi import mpi
 

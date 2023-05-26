@@ -1,5 +1,4 @@
 import unittest
-import numpy as np
 from vayesta import dmet
 from vayesta.tests.common import TestCase
 from vayesta.tests import testsystems

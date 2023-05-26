@@ -5,7 +5,6 @@ import sys
 import glob
 import shlex
 import shutil
-import subprocess
 from setuptools import setup, find_packages, Extension, Command
 from setuptools.command.test import test
 from setuptools.command.build_ext import build_ext

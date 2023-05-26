@@ -281,7 +281,6 @@ def load_j3c(cell, gdf, kij, compact=False, include_sign=False):
 if __name__ == "__main__":
 
     from pyscf.pbc import gto, scf
-    from pyscf.pbc import df, tools
 
     logging.basicConfig(filename="k2gamma.log", level=logging.DEBUG)
     log = logging.getLogger("k2gamma.log")

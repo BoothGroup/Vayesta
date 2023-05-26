@@ -1,15 +1,13 @@
 # Standard libaries
-from datetime import datetime
 import dataclasses
 import typing
-from typing import Optional, Union, List
+from typing import Optional, List
 
 # External libaries
 import numpy as np
 
 # Internal libaries
 import pyscf
-import pyscf.pbc
 import pyscf.cc
 
 # Local modules
@@ -19,11 +17,7 @@ from vayesta.core.qemb import Fragment as BaseFragment
 from vayesta.solver import get_solver_class
 from vayesta.core.fragmentation import IAO_Fragmentation
 from vayesta.core.types import RFCI_WaveFunction, RCCSDTQ_WaveFunction, UCCSDTQ_WaveFunction
-
-from vayesta.core.bath import BNO_Threshold
 from vayesta.core.bath import DMET_Bath
-from vayesta.core.types import Orbitals
-from vayesta.core import ao2mo
 from vayesta.mpi import mpi
 
 from vayesta.ewf import ewf

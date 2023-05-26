@@ -1,16 +1,9 @@
 import pytest
 import unittest
-import itertools
 
 import numpy as np
 
 import pyscf
-import pyscf.pbc
-import pyscf.pbc.gto
-import pyscf.pbc.df
-import pyscf.pbc.scf
-import pyscf.pbc.cc
-import pyscf.pbc.tools
 
 from vayesta.core.ao2mo import postscf_kao2gmo
 from vayesta.core.ao2mo import postscf_kao2gmo_uhf
