@@ -1627,9 +1627,9 @@ class Embedding:
     def pdmet_scmf(self, *args, **kwargs):
         """Decorator for p-DMET."""
         self.with_scmf = PDMET(self, *args, **kwargs)
-        self.kernel = self.with_scmf.kernel.__get__(self)
+        self.kernel = self.with_scmf.kernel
 
     def brueckner_scmf(self, *args, **kwargs):
         """Decorator for Brueckner-DMET."""
         self.with_scmf = Brueckner(self, *args, **kwargs)
-        self.kernel = self.with_scmf.kernel.__get__(self)
+        self.kernel = self.with_scmf.kernel
