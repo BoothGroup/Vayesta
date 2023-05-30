@@ -463,6 +463,10 @@ class ssRIRPA:
             weights /= 2
             return sum([w * func(p) for w, p in zip(weights, points)])
 
+        if ri_eri_neg is not None:
+            raise NotImplementedError("Use of negative CDERI contributions with direct integration for the RIRPA "
+                                      "correlation energy not yet supported.")
+
         naux_eri = ri_eri.shape[0]
         if local_rot is None or fragment_projectors is None:
             lrot = ri_eri
