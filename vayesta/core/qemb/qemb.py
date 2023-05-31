@@ -656,17 +656,23 @@ class Embedding:
             if self.opts.ext_rpa_correction not in ["erpa", "cumulant"]:
                 raise ValueError("Unknown external rpa correction %s specified.")
             lov = self.get_cderi((self.mo_coeff_occ, self.mo_coeff_vir))
-            rpa = ssRIRPA(self.mf, log=self.log, lov=l_)
+            rpa = ssRIRPA(self.mf, log=self.log, lov=lov)
             if cumulant:
+                lp = lov[0]
+                lp = lp.reshape((lp.shape[0], -1))
+                l_ = l_2 = lp
+
                 if lov[1] is not None:
-                    raise NotImplementedError("Cumulant energy correct not yet compatible with ")
-                l_ = lov[0]
-                l_ = l_.reshape((l_.shape[0], -1))
+                    ln = lov[1].reshape((lov[1].shape[0], -1))
+                    l_ = np.concatenate([lp, ln], axis=1)
+                    l_2 = np.concatenate([lp, -ln], axis=1)
+
                 l_ = np.concatenate([l_, l_], axis=1)
+                l_2 = np.concatenate([l_2, l_2], axis=1)
 
                 m0 = rpa.kernel_moms(0, target_rot=l_)[0][0]
                 # Deduct effective mean-field contribution and project the RHS and we're done.
-                self.e_rpa = 0.5 * einsum("pq,pq->", m0 - l_, l_)
+                self.e_rpa = 0.5 * einsum("pq,pq->", m0 - l_, l_2)
             else:
                 # Calculate total dRPA energy in N^4 time; this is cheaper than screening calculations.
                 self.e_rpa, energy_error = rpa.kernel_energy(correction='linear')
