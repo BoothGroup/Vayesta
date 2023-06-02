@@ -59,7 +59,8 @@ class Test_UFCI_wf_w_dummy(TestCase):
         fci_frags=[]
         with emb.iao_fragmentation() as f:
             fci_frags.append(f.add_full_system(solver='FCI',
-                bath_options=dict(bathtype='dmet'), store_wf_type='CCSDTQ', auxiliary=True))
+                bath_options=dict(bathtype='dmet'), store_wf_type='CCSDTQ', auxiliary=True,
+                                               solver_options={"init_guess":"mf"}))
             ccsd_frag = f.add_full_system(solver='CCSD', bath_options=dict(bathtype='full'))
         ccsd_frag.add_external_corrections(fci_frags, correction_type='external', projectors=1, low_level_coul=True)
         emb.kernel()
