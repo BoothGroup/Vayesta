@@ -13,9 +13,7 @@ keywords = [
 ]
 author = "M. Nusspickel, O. J. Backhouse, B. Ibrahim, A. Santana-Bonilla, C. J. C. Scott, A. Khedkar, G. H. Booth"
 author_email = "vayesta.embedding@gmail.com"
-license = {
-    file = "LICENSE",
-}
+license = {file = "LICENSE"}
 readme = "README.md"
 requires-python = ">=3.7"
 classifiers = [
@@ -45,6 +43,9 @@ dependencies = [
 [build-system]
 requires = ["setuptools>=61.0.0"]
 build-backend = "setuptools.build_meta"
+
+[tools.setuptools]
+license-files = ["LICENSE"]
 
 [tools.setuptools.dynamic]
 version = {attr = "vayesta.__version__"}
