@@ -2,7 +2,6 @@ import unittest
 import numpy as np
 import pyscf
 import pyscf.ao2mo
-import vayesta
 from vayesta.core.ao2mo import helper
 from vayesta.core.vpyscf import uccsd_rdm
 from vayesta.tests.common import TestCase

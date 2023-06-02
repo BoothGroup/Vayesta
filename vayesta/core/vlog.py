@@ -3,7 +3,6 @@
 import functools
 import contextlib
 import logging
-import os
 
 from vayesta.mpi import mpi
 

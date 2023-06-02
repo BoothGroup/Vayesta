@@ -14,8 +14,8 @@ import pyscf.pbc
 import pyscf.pbc.mp
 import pyscf.ao2mo
 
-from .util import *
-from . import ao2mo_j3c
+from vayesta.ewf.OBSOLETE.util import *
+from vayesta.ewf.OBSOLETE import ao2mo_j3c
 
 __all__ = [
         #"project_ref_orbitals",

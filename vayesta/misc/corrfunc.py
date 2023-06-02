@@ -1,7 +1,7 @@
 """Correlation function"""
 
 import numpy as np
-from vayesta.core.util import dot, einsum
+from vayesta.core.util import einsum
 
 
 def _get_proj_per_spin(p):

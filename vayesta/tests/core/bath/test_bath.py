@@ -1,9 +1,6 @@
 import unittest
 
 import numpy as np
-
-import vayesta
-import vayesta.core
 from vayesta.core.bath import DMET_Bath
 from vayesta.core.bath import EwDMET_Bath
 from vayesta.core.bath import MP2_Bath

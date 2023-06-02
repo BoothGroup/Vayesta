@@ -124,9 +124,6 @@ if __name__ == '__main__':
     import pyscf.pbc
     import pyscf.pbc.gto
     import pyscf.pbc.tools
-
-    import vayesta
-    import vayesta.misc
     from vayesta.misc import solids
 
     cell = pyscf.pbc.gto.Cell()

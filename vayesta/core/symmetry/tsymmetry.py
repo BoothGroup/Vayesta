@@ -3,8 +3,6 @@ import logging
 import itertools
 
 import numpy as np
-
-import pyscf
 from pyscf.lib.parameters import BOHR
 
 log = logging.getLogger(__name__)

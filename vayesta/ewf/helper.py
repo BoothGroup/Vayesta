@@ -2,7 +2,7 @@ import logging
 
 import numpy as np
 
-from vayesta.core.util import *
+from vayesta.core.util import einsum
 
 log = logging.getLogger(__name__)
 

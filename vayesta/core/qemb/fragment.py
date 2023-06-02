@@ -1,18 +1,15 @@
 # --- Standard library
 import dataclasses
 import itertools
-import copy
 import os.path
 import typing
 # --- External
 import numpy as np
-import scipy
-import scipy.linalg
 import pyscf
-import pyscf.lib
 import pyscf.lo
 # --- Internal
-from vayesta.core.util import *
+from vayesta.core.util import (OptionsBase, cache, deprecated, dot, einsum, energy_string, fix_orbital_sign, hstack,
+                               log_time, time_string, timer)
 from vayesta.core import spinalg
 from vayesta.core.types import Cluster
 from vayesta.core.symmetry import SymmetryIdentity
@@ -376,7 +373,7 @@ class Fragment:
             s_occ = svd(c_occ, cx_occ)
             if s_occ.max() < tol:
                 continue
-            cy_occ = fy.get_overlap('mo[vir]|cluster[vir]')
+            cx_vir = fx.get_overlap('mo[vir]|cluster[vir]')
             s_vir = svd(c_vir, cx_vir)
             if s_vir.max() < tol:
                 continue

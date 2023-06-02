@@ -1,7 +1,6 @@
 import pytest
 import unittest
-import numpy as np
-from pyscf.pbc import scf, tools
+from pyscf.pbc import scf
 from vayesta.core import foldscf
 from vayesta.tests.common import TestCase
 from vayesta.tests import testsystems

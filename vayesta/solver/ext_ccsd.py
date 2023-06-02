@@ -4,7 +4,7 @@ from typing import Optional, List, Any
 import numpy as np
 
 from vayesta.solver.coupling import tailor_with_fragments, externally_correct
-from .ccsd import RCCSD_Solver, UCCSD_Solver
+from vayesta.solver.ccsd import RCCSD_Solver, UCCSD_Solver
 
 
 class extRCCSD_Solver(RCCSD_Solver):

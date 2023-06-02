@@ -1,16 +1,16 @@
-from .dmet import DMET_Bath_RHF
-from .dmet import DMET_Bath_UHF
-from .full import Full_Bath_RHF
-from .full import Full_Bath_UHF
+from vayesta.core.bath.dmet import DMET_Bath_RHF
+from vayesta.core.bath.dmet import DMET_Bath_UHF
+from vayesta.core.bath.full import Full_Bath_RHF
+from vayesta.core.bath.full import Full_Bath_UHF
 
-from .ewdmet import EwDMET_Bath_RHF
+from vayesta.core.bath.ewdmet import EwDMET_Bath_RHF
 
-from .bno import BNO_Threshold
-from .bno import BNO_Bath
-from .bno import MP2_BNO_Bath as MP2_Bath_RHF
-from .bno import UMP2_BNO_Bath as MP2_Bath_UHF
+from vayesta.core.bath.bno import BNO_Threshold
+from vayesta.core.bath.bno import BNO_Bath
+from vayesta.core.bath.bno import MP2_BNO_Bath as MP2_Bath_RHF
+from vayesta.core.bath.bno import UMP2_BNO_Bath as MP2_Bath_UHF
 
-from .r2bath import R2_Bath_RHF
+from vayesta.core.bath.r2bath import R2_Bath_RHF
 
 def DMET_Bath(fragment, *args, **kwargs):
     if fragment.base.is_rhf:

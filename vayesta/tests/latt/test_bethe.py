@@ -1,6 +1,5 @@
 import pytest
 import unittest
-import numpy as np
 
 from vayesta.lattmod import bethe
 from vayesta.tests.common import TestCase

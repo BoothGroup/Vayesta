@@ -3,7 +3,7 @@ import logging
 import numpy as np
 
 import pyscf.lib
-from vayesta.core.util import *
+from vayesta.core.util import dot, einsum, time_string, timer
 from vayesta.rpa.rirpa import momzero_NI, energy_NI
 
 
@@ -720,7 +720,6 @@ class ssRIRPA:
     def test_spectral_rep(self, freqs):
         from vayesta.rpa import ssRPA
         import scipy
-        import scipy.integrate
 
         xc_kernel = None
         if self.rixc is not None:

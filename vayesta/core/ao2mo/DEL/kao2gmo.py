@@ -12,17 +12,14 @@ import logging
 import numpy as np
 # PySCF
 import pyscf
-import pyscf.mp
-import pyscf.cc
 import pyscf.lib
 import pyscf.mp
 import pyscf.cc
 from pyscf.mp.mp2 import _mo_without_core
 import pyscf.pbc
-import pyscf.pbc.df
 import pyscf.pbc.tools
 # Package
-from vayesta.core.util import *
+from vayesta.core.util import dot, einsum, memory_string, time_string
 import vayesta.libs
 from vayesta.core.ao2mo import helper
 
@@ -59,15 +56,12 @@ def gdf_to_pyscf_eris(mf, gdf, cm, fock, mo_energy, e_hf):
     store_vvl = False
     # MP2 ERIs
     if isinstance(cm, pyscf.mp.mp2.MP2):
-        from pyscf.mp.mp2 import _ChemistsERIs
         sym = False
         only_ovov = True
     # Coupled-cluster ERIs
     elif isinstance(cm, pyscf.cc.rccsd.RCCSD):
-        from pyscf.cc.rccsd import _ChemistsERIs
         sym = False
     elif isinstance(cm, pyscf.cc.dfccsd.RCCSD):
-        from pyscf.cc.dfccsd import _ChemistsERIs
         store_vvl = True
         sym = True
     elif isinstance(cm, pyscf.cc.ccsd.CCSD):

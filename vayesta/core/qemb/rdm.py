@@ -1,7 +1,7 @@
 """Democratically partitioned RDMs"""
 
 import numpy as np
-from vayesta.core.util import *
+from vayesta.core.util import dot, einsum, with_doc
 
 
 def _get_fragments(emb):

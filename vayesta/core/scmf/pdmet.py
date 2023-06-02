@@ -1,5 +1,5 @@
 import numpy as np
-from vayesta.core.util import *
+from vayesta.core.util import dot, fix_orbital_sign
 from vayesta.core.scmf.scmf import SCMF
 
 
