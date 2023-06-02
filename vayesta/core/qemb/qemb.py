@@ -664,8 +664,8 @@ class Embedding:
 
                 if lov[1] is not None:
                     ln = lov[1].reshape((lov[1].shape[0], -1))
-                    l_ = np.concatenate([lp, ln], axis=1)
-                    l_2 = np.concatenate([lp, -ln], axis=1)
+                    l_ = np.concatenate([lp, ln], axis=0)
+                    l_2 = np.concatenate([lp, -ln], axis=0)
 
                 l_ = np.concatenate([l_, l_], axis=1)
                 l_2 = np.concatenate([l_2, l_2], axis=1)
