@@ -59,20 +59,9 @@ class EWF(Embedding):
     Fragment = Fragment
     Options = Options
 
-    def __init__(self, mf, solver='CCSD', bno_threshold=None, bath_type=None, solve_lambda=None, log=None, **kwargs):
+    def __init__(self, mf, solver='CCSD', log=None, **kwargs):
         t0 = timer()
         super().__init__(mf, solver=solver, log=log, **kwargs)
-
-        # Backwards support
-        if bno_threshold is not None:
-            self.log.deprecated("keyword argument bno_threshold is deprecated!")
-            self.opts.bath_options = {**self.opts.bath_options, **dict(threshold=bno_threshold)}
-        if bath_type is not None:
-            self.log.deprecated("keyword argument bath_type is deprecated!")
-            self.opts.bath_options = {**self.opts.bath_options, **dict(bathtype=bath_type)}
-        if solve_lambda is not None:
-            self.log.deprecated("keyword argument solve_lambda is deprecated!")
-            self.opts.solver_options = {**self.opts.solver_options, **dict(solve_lambda=solve_lambda)}
 
         # Logging
         with self.log.indent():

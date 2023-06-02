@@ -19,7 +19,7 @@ class SCMF_Test(TestCase):
     @classmethod
     @cache
     def emb(cls, scmf=None):
-        emb = ewf.EWF(cls.mf, solve_lambda=True, bath_type='dmet')
+        emb = ewf.EWF(cls.mf, solver_options=dict(solve_lambda=True), bath_options=dict(bathtype='dmet'))
         with emb.sao_fragmentation() as f:
             f.add_all_atomic_fragments()
         if scmf == 'pdmet':

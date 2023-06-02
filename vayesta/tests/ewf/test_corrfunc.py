@@ -29,7 +29,9 @@ class Test_RCCSD(TestCase):
     @classmethod
     @cache
     def remb(cls, bno_threshold, run_kernel=True):
-        remb = vayesta.ewf.EWF(cls.rhf, solver=cls.solver, bno_threshold=bno_threshold, solve_lambda=True)
+        remb = vayesta.ewf.EWF(cls.rhf, solver=cls.solver,
+                               bath_options=dict(threshold=bno_threshold),
+                               solver_options=dict(solve_lambda=True))
         if run_kernel:
             remb.kernel()
         return remb
@@ -37,7 +39,9 @@ class Test_RCCSD(TestCase):
     @classmethod
     @cache
     def uemb(cls, bno_threshold, run_kernel=True):
-        uemb = vayesta.ewf.EWF(cls.uhf, solver=cls.solver, bno_threshold=bno_threshold, solve_lambda=True)
+        uemb = vayesta.ewf.EWF(cls.uhf, solver=cls.solver,
+                               bath_options=dict(threshold=bno_threshold),
+                               solver_options=dict(solve_lambda=True))
         if run_kernel:
             uemb.kernel()
         return uemb
@@ -147,7 +151,9 @@ class Test_UCCSD(TestCase):
     @classmethod
     @cache
     def uemb(cls, bno_threshold):
-        uemb = vayesta.ewf.EWF(cls.uhf, solver=cls.solver, bno_threshold=bno_threshold, solve_lambda=True)
+        uemb = vayesta.ewf.EWF(cls.uhf, solver=cls.solver,
+                               bath_options=dict(threshold=bno_threshold),
+                               solver_options=dict(solve_lambda=True))
         uemb.kernel()
         return uemb
 
