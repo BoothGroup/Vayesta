@@ -62,12 +62,16 @@ dmet = [
 mpi = [
     "mpi4py>=3.0.0",
 ]
+dyson = [
+    "dyson @ git+https://github.com/BoothGroup/dyson@master",
+]
 ebcc = [
     "ebcc @ git+https://github.com/BoothGroup/ebcc@master",
 ]
 dev = [
     "cvxpy>=1.1",
     "mpi4py>=3.0.0",
+    "dyson @ git+https://github.com/BoothGroup/dyson@master",
     "ebcc @ git+https://github.com/BoothGroup/ebcc@master",
     "pytest",
     "pytest-cov",
