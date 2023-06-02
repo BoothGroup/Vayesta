@@ -1,16 +1,16 @@
 import pyscf
 import pyscf.scf
 
-from .sao import SAO_Fragmentation as SAO_Fragmentation_RHF
-from .sao import SAO_Fragmentation_UHF
-from .iao import IAO_Fragmentation as IAO_Fragmentation_RHF
-from .iao import IAO_Fragmentation_UHF
-from .iaopao import IAOPAO_Fragmentation as IAOPAO_Fragmentation_RHF
-from .iaopao import IAOPAO_Fragmentation_UHF
-from .site import Site_Fragmentation as Site_Fragmentation_RHF
-from .site import Site_Fragmentation_UHF
-from .cas import CAS_Fragmentation as CAS_Fragmentation_RHF
-from .cas import CAS_Fragmentation_UHF
+from vayesta.core.fragmentation.sao import SAO_Fragmentation as SAO_Fragmentation_RHF
+from vayesta.core.fragmentation.sao import SAO_Fragmentation_UHF
+from vayesta.core.fragmentation.iao import IAO_Fragmentation as IAO_Fragmentation_RHF
+from vayesta.core.fragmentation.iao import IAO_Fragmentation_UHF
+from vayesta.core.fragmentation.iaopao import IAOPAO_Fragmentation as IAOPAO_Fragmentation_RHF
+from vayesta.core.fragmentation.iaopao import IAOPAO_Fragmentation_UHF
+from vayesta.core.fragmentation.site import Site_Fragmentation as Site_Fragmentation_RHF
+from vayesta.core.fragmentation.site import Site_Fragmentation_UHF
+from vayesta.core.fragmentation.cas import CAS_Fragmentation as CAS_Fragmentation_RHF
+from vayesta.core.fragmentation.cas import CAS_Fragmentation_UHF
 
 def SAO_Fragmentation(emb, *args, **kwargs):
     if emb.is_uhf:

@@ -2,7 +2,6 @@ import unittest
 import numpy as np
 
 import vayesta
-from vayesta import ewf
 
 from vayesta.core.util import cache
 from vayesta.tests.common import TestCase

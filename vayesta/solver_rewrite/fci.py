@@ -77,16 +77,7 @@ class FCI_Solver(ClusterSolver):
         self.converged = self.solver.converged
         self.wf = FCI_WaveFunction(self.hamil.mo, self.civec)
 
-        # In-cluster Moments
-        nmom = self.opts.n_moments
-        if nmom is not None:
 
-            self.log.info("Calculating in-cluster FCI moments %s"%str(nmom))
-            mf_clus, frozen = self.hamil.to_pyscf_mf(allow_dummy_orbs=True, allow_df=True)
-            expr = FCI["1h"](mf_clus, c_ci=self.civec)
-            self.hole_moments = expr.build_gf_moments(nmom[0])
-            expr = FCI["1p"](mf_clus, c_ci=self.civec)
-            self.particle_moments = expr.build_gf_moments(nmom[1])
 
 
 

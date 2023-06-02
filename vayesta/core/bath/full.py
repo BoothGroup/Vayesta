@@ -1,5 +1,5 @@
 import numpy as np
-from .bath import Bath
+from vayesta.core.bath.bath import Bath
 
 
 class Full_Bath_RHF(Bath):

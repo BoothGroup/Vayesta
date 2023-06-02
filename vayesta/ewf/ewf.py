@@ -1,27 +1,22 @@
 # --- Standard
 import dataclasses
-import functools
-from typing import Optional, Union
 # --- External
 import numpy as np
-# --- Internal
-import vayesta
-from vayesta.core.util import *
+from vayesta.core.util import (NotCalculatedError, break_into_lines, cache, deprecated, dot, einsum, energy_string,
+                               log_method, log_time, time_string, timer)
 from vayesta.core.qemb import Embedding
 from vayesta.core.fragmentation import SAO_Fragmentation
 from vayesta.core.fragmentation import IAOPAO_Fragmentation
 from vayesta.mpi import mpi
-# --- Package
-from . import helper
-from .fragment import Fragment
-from .amplitudes import get_global_t1_rhf
-from .amplitudes import get_global_t2_rhf
-from .rdm import make_rdm1_ccsd
-from .rdm import make_rdm1_ccsd_global_wf
-from .rdm import make_rdm2_ccsd_global_wf
-from .rdm import make_rdm1_ccsd_proj_lambda
-from .rdm import make_rdm2_ccsd_proj_lambda
-from .icmp2 import get_intercluster_mp2_energy_rhf
+from vayesta.ewf.fragment import Fragment
+from vayesta.ewf.amplitudes import get_global_t1_rhf
+from vayesta.ewf.amplitudes import get_global_t2_rhf
+from vayesta.ewf.rdm import make_rdm1_ccsd
+from vayesta.ewf.rdm import make_rdm1_ccsd_global_wf
+from vayesta.ewf.rdm import make_rdm2_ccsd_global_wf
+from vayesta.ewf.rdm import make_rdm1_ccsd_proj_lambda
+from vayesta.ewf.rdm import make_rdm2_ccsd_proj_lambda
+from vayesta.ewf.icmp2 import get_intercluster_mp2_energy_rhf
 
 
 @dataclasses.dataclass
@@ -449,20 +444,9 @@ class EWF(Embedding):
 
                 noccx = x.cluster.nocc_active
                 nvirx = x.cluster.nvir_active
-                eris = x._eris
-                if eris is None:
-                    raise NotCalculatedError
-                if hasattr(eris, 'ovvo'):
-                    eris = eris.ovvo[:]
-                elif hasattr(eris, 'ovov'):
-                    # MP2 only has eris.ovov - for real integrals we transpose
-                    eris = eris.ovov[:].reshape(noccx,nvirx,noccx,nvirx).transpose(0,1,3,2).conj()
-                elif eris.shape == (noccx, nvirx, noccx, nvirx):
-                    eris = eris.transpose(0,1,3,2)
-                else:
-                    occ = np.s_[:noccx]
-                    vir = np.s_[noccx:]
-                    eris = eris[occ,vir,vir,occ]
+
+                eris = x.hamil.get_eris_bare("ovvo")
+
                 px = x.get_overlap('frag|cluster-occ')
                 eris = einsum('xi,iabj->xabj', px, eris)
                 wx = x.symmetry_factor * x.sym_factor

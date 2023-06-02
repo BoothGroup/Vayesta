@@ -1,4 +1,5 @@
 import numpy as np
+
 from vayesta.core.util import einsum
 
 
@@ -8,13 +9,13 @@ def t2_residual_rhf_t3v(solver, fragment, t3, v):
     dt2 = np.zeros((nocc, nocc, nvir, nvir))
 
     # First term: 1/2 P_ab [t_ijmaef v_efbm]
-    dt2 += einsum('bemf, jimeaf -> ijab', gvvov - gvvov.transpose(0,3,2,1), t3) / 2
+    dt2 += einsum('bemf, jimeaf -> ijab', gvvov - gvvov.transpose(0, 3, 2, 1), t3) / 2
     dt2 += einsum('bemf, ijmaef -> ijab', gvvov, t3)
     # Second term: -1/2 P_ij [t_imnabe v_jemn]
-    dt2 -= einsum('mjne, minbae -> ijab', gooov - govoo.transpose(0,3,2,1), t3) / 2
+    dt2 -= einsum('mjne, minbae -> ijab', gooov - govoo.transpose(0, 3, 2, 1), t3) / 2
     dt2 -= einsum('mjne, imnabe -> ijab', gooov, t3)
     # Permutation
-    dt2 += dt2.transpose(1,0,3,2)
+    dt2 += dt2.transpose(1, 0, 3, 2)
 
     return dt2
 
@@ -30,8 +31,8 @@ def t_residual_rhf(solver, fragment, t1, t2, t3, t4, f, v, include_t3v=False):
 
     # Construct physical antisymmetrized integrals for some contractions
     # Note that some contractions are with physical and some chemical integrals (govov)
-    antiphys_g = (govov - govov.transpose(0,3,2,1)).transpose(0,2,1,3)
-    spinned_antiphys_g = (2.0*govov - govov.transpose(0,3,2,1)).transpose(0,2,1,3)
+    antiphys_g = (govov - govov.transpose(0, 3, 2, 1)).transpose(0, 2, 1, 3)
+    spinned_antiphys_g = (2.0 * govov - govov.transpose(0, 3, 2, 1)).transpose(0, 2, 1, 3)
 
     # --- T1 update
     # --- T3 * V
@@ -50,7 +51,7 @@ def t_residual_rhf(solver, fragment, t1, t2, t3, t4, f, v, include_t3v=False):
     # --- T4 * V
     # (Vaa) (Tabaa) contraction
     t4v = einsum('mnef, ijmnabef -> ijab', antiphys_g, t4_abaa) / 4
-    t4v += t4v.transpose(1,0,3,2)
+    t4v += t4v.transpose(1, 0, 3, 2)
     # (Vab) (Tabab) contraction
     t4v += einsum('menf, ijmnabef -> ijab', govov, t4_abab)
     dt2 += t4v
@@ -62,7 +63,7 @@ def t_residual_rhf(solver, fragment, t1, t2, t3, t4, f, v, include_t3v=False):
     X_ = einsum('mnef, me -> nf', spinned_antiphys_g, t1)
     t1t3v += einsum('nf, nijfab -> ijab', X_, t3)
 
-    X_ =  einsum('mnef, njiebf -> ijmb', antiphys_g, t3) / 2
+    X_ = einsum('mnef, njiebf -> ijmb', antiphys_g, t3) / 2
     X_ += einsum('menf, jinfeb -> ijmb', govov, t3)
     t1t3v += einsum('ijmb, ma -> ijab', X_, t1)
 
@@ -70,7 +71,7 @@ def t_residual_rhf(solver, fragment, t1, t2, t3, t4, f, v, include_t3v=False):
     X_ += einsum('menf, nmjbaf -> ejab', govov, t3)
     t1t3v += einsum('ejab, ie -> ijab', X_, t1)
     # apply permutation
-    t1t3v += t1t3v.transpose(1,0,3,2)
+    t1t3v += t1t3v.transpose(1, 0, 3, 2)
     dt2 += t1t3v
     solver.log.info("T1 norm in ext corr from fragment {}: {}".format(fragment.id, np.linalg.norm(t1)))
 

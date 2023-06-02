@@ -4,12 +4,12 @@ Based on the fci_slow.py code within pyscf.
 
 import numpy
 import numpy as np
-from pyscf import lib
 from pyscf import ao2mo
+from pyscf import lib
 from pyscf.fci import cistring
+from pyscf.fci import fci_slow
 from pyscf.fci import rdm
 from pyscf.fci.direct_spin1 import _unpack_nelec
-from pyscf.fci import fci_slow
 
 
 def contract_all(h1e, g2e, hep, hpp, ci0, norbs, nelec, nbosons, max_occ,
@@ -313,6 +313,7 @@ def kernel(h1e, g2e, hep, hpp, norb, nelec, nbosons, max_occ,
     # Add noise for initial guess, remove it if problematic
     ci0 += numpy.random.random(ci0.shape) * 1e-10
     ci0.__setitem__((0, 0) + (0,) * nbosons, 1)
+
     def hop(c):
         hc = contract_all(h1e, h2e, hep, hpp, c, norb,
                           nelec, nbosons, max_occ, adj_zero_pho=adj_zero_pho)

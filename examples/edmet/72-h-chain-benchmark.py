@@ -1,7 +1,5 @@
 import numpy as np
 import pyscf.cc
-import pyscf.fci
-import pyscf.tools
 import vayesta.dmet
 import vayesta.edmet
 

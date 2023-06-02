@@ -3,14 +3,13 @@ from timeit import default_timer as timer
 
 import numpy as np
 import scipy
-import scipy.linalg
 
-from vayesta.core.util import *
+from vayesta.core.util import dot, time_string
 from vayesta.dmet import RDMET
 from vayesta.dmet.updates import MixUpdate, DIISUpdate
 from vayesta.rpa import ssRPA, ssRIRPA
-from .fragment import EDMETFragment, EDMETFragmentExit
-from vayesta.solver_rewrite import check_solver_config
+from vayesta.edmet.fragment import EDMETFragment, EDMETFragmentExit
+from vayesta.solver import check_solver_config
 
 @dataclasses.dataclass
 class Options(RDMET.Options):
@@ -106,6 +105,7 @@ class EDMET(RDMET):
             self.log.info("Now running iteration= %2d", iteration)
             self.log.info("****************************************************")
             if iteration > 1:
+                self.reset()
                 # For first iteration want to run on provided mean-field state.
                 mo_energy, mo_coeff = mf.eig(fock + self.vcorr, self.get_ovlp())
                 self.update_mf(mo_coeff, mo_energy)

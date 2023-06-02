@@ -1,9 +1,8 @@
 import pytest
 import unittest
-import numpy as np
 
-from pyscf import gto, scf
-from pyscf.pbc import gto as pbc_gto, scf as pbc_scf
+from pyscf import gto
+from pyscf.pbc import gto as pbc_gto
 
 from vayesta.misc import molecules
 from vayesta.misc import solids

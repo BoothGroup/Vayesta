@@ -2,7 +2,6 @@ import unittest
 import numpy as np
 
 from vayesta import ewf
-from vayesta.solver.ccsd import CCSD_Solver
 from vayesta.tests.common import TestCase
 from vayesta.tests import testsystems
 
@@ -180,6 +179,25 @@ class MoleculeTests(TestCase):
         emb.kernel()
 
         known_values = {'e_tot': -76.06365118513072}
+
+        self._test_energy(emb, known_values)
+
+    def test_h2o_FCI_noguess(self):
+        """Tests EWF for H2O cc-pvdz with FCI solver.
+        """
+
+        emb = ewf.EWF(
+                testsystems.water_ccpvdz.rhf(),
+                bath_options={'bathtype': 'dmet'},
+                solver='FCI',
+                solver_options={
+                    'init_guess': 'meanfield',
+                    'conv_tol': 100,
+                }
+        )
+        emb.kernel()
+
+        known_values = {'e_tot': -76.02677312899381}
 
         self._test_energy(emb, known_values)
 

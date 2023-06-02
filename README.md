@@ -24,6 +24,8 @@ Install the package using `pip` from the top-level directory, which requires CMa
 python -m pip install . --user
 ```
 
+To perform DMET calculations, leverage MPI parallelism, and to use [`ebcc`](https://github.com/BoothGroup/ebcc) solvers, optional dependencies must be installed. See the documentation for details.
+
 
 Quickstart
 ----------

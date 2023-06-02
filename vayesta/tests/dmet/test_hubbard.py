@@ -68,7 +68,7 @@ class HubbardDMETTests(TestCase):
         """Tests for 6x6 U=6 Hubbard model with single site impurities.
         """
         emb = dmet.DMET(testsystems.hubb_6x6_u6_1x1imp.rhf(), solver='FCI', charge_consistent=False,
-                conv_tol=self.CONV_TOL, maxiter=50)
+                conv_tol=self.CONV_TOL, maxiter=50, solver_options={"conv_tol": 1e-12})
         with emb.site_fragmentation() as f:
             frag = f.add_atomic_fragment([0])
             frag.add_tsymmetric_fragments(tvecs=[6, 6, 1])
@@ -83,7 +83,7 @@ class HubbardDMETTests(TestCase):
         """Tests for 8x8 U=2 Hubbard model with 2x2 impurities.
         """
         emb = dmet.DMET(testsystems.hubb_8x8_u2_2x2imp.rhf(), solver='FCI', charge_consistent=False,
-                conv_tol=self.CONV_TOL, maxiter=100)
+                conv_tol=self.CONV_TOL, maxiter=100, solver_options={"conv_tol": 1e-12})
         with emb.site_fragmentation() as f:
             frag = f.add_atomic_fragment([0, 1, 2, 3])
             frag.add_tsymmetric_fragments(tvecs=[4, 4, 1])

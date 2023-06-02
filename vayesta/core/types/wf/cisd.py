@@ -1,11 +1,11 @@
 import numpy as np
 import pyscf
 import pyscf.ci
-import vayesta
 from vayesta.core import spinalg
-from vayesta.core.util import *
+from vayesta.core.util import callif, einsum
 from vayesta.core.types import wf as wf_types
-from vayesta.core.types.wf.project import *
+from vayesta.core.types.wf.project import (project_c1, project_c2, project_uc1, project_uc2, symmetrize_c2,
+                                           symmetrize_uc2)
 
 
 def CISD_WaveFunction(mo, c0, c1, c2, **kwargs):
@@ -179,8 +179,8 @@ class UCISD_WaveFunction(RCISD_WaveFunction):
             nocca, noccb = self.mo.nelec
             nvira, nvirb = norb[0] - nocca, norb[1] - noccb
 
-            if 0 in [nocca, noccb, nvira, nvirb]:
-                ci = np.zeros((0, 0))
+            if (0 in [nocca, nvira]) and (0 in [noccb, nvirb]):
+                ci = np.full((1, 1), fill_value=1.0)
             else:
                 raise e
 

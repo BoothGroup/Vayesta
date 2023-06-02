@@ -7,8 +7,8 @@ import pyscf
 import pyscf.scf
 import logging
 
-from .edmet import REDMET
-from .uedmet import UEDMET
+from vayesta.edmet.edmet import REDMET
+from vayesta.edmet.uedmet import UEDMET
 
 log = logging.getLogger(__name__)
 

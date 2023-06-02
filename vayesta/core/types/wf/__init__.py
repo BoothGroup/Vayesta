@@ -3,15 +3,15 @@
 TODO: spin-off projections (delegation, inheritance?)
 """
 
-from .wf import WaveFunction
-from .hf import HF_WaveFunction, RHF_WaveFunction, UHF_WaveFunction
-from .mp2 import MP2_WaveFunction, RMP2_WaveFunction, UMP2_WaveFunction
-from .cisd import CISD_WaveFunction, RCISD_WaveFunction, UCISD_WaveFunction
-from .ccsd import CCSD_WaveFunction, RCCSD_WaveFunction, UCCSD_WaveFunction
-from .fci import FCI_WaveFunction, RFCI_WaveFunction, UFCI_WaveFunction
+from vayesta.core.types.wf.wf import WaveFunction
+from vayesta.core.types.wf.hf import HF_WaveFunction, RHF_WaveFunction, UHF_WaveFunction
+from vayesta.core.types.wf.mp2 import MP2_WaveFunction, RMP2_WaveFunction, UMP2_WaveFunction
+from vayesta.core.types.wf.cisd import CISD_WaveFunction, RCISD_WaveFunction, UCISD_WaveFunction
+from vayesta.core.types.wf.ccsd import CCSD_WaveFunction, RCCSD_WaveFunction, UCCSD_WaveFunction
+from vayesta.core.types.wf.fci import FCI_WaveFunction, RFCI_WaveFunction, UFCI_WaveFunction
 # WIP:
-from .cisdtq import CISDTQ_WaveFunction, RCISDTQ_WaveFunction, UCISDTQ_WaveFunction
-from .ccsdtq import CCSDTQ_WaveFunction, RCCSDTQ_WaveFunction, UCCSDTQ_WaveFunction
+from vayesta.core.types.wf.cisdtq import CISDTQ_WaveFunction, RCISDTQ_WaveFunction, UCISDTQ_WaveFunction
+from vayesta.core.types.wf.ccsdtq import CCSDTQ_WaveFunction, RCCSDTQ_WaveFunction, UCCSDTQ_WaveFunction
 
 
 __all__ = [

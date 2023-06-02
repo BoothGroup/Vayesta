@@ -2,16 +2,13 @@
 
 import numpy as np
 
-from vayesta.core.util import *
+from vayesta.core.util import dot, einsum
 from vayesta.rpa.rirpa.NI_eval import (
     NumericalIntegratorClenCurInfinite,
-    NumericalIntegratorClenCurSemiInfinite,
-    NumericalIntegratorGaussianSemiInfinite,
-    NumericalIntegratorBase,
-    NIException,
+    NIException
 )
 
-from .momzero_NI import diag_sqrt_contrib, diag_sqrt_grad, diag_sqrt_deriv2
+from vayesta.rpa.rirpa.momzero_NI import diag_sqrt_contrib, diag_sqrt_grad, diag_sqrt_deriv2
 
 
 class NIError(Exception):

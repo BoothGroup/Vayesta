@@ -3,8 +3,7 @@
 import functools
 import itertools
 import numpy as np
-import vayesta
-from vayesta.core.util import *
+from vayesta.core.util import dot, einsum, log_time
 from vayesta.misc import corrfunc
 
 
