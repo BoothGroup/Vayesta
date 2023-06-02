@@ -428,12 +428,8 @@ class RClusterHamiltonian:
             self.log.info("Largest change in screened interactions due to spin integration: %e", max(dev))
             if max(dev) > warn_threshold:
                 self.log.warning("Significant change in screened interactions due to spin integration: %e", max(dev))
-            else:
-                self.log.info("Largest change in screened interactions due to spin integration: %e", max(dev))
-
             return spat
 
-        seris = None
         if self.opts.screening is None:
             raise ValueError("Attempted to add screening to fragment with no screening protocol specified.")
         if self.opts.screening == "mrpa":
