@@ -1,11 +1,11 @@
 include MANIFEST.in
-include README.md setup.py CHANGELOG LICENSE
+include README.md pyproject.toml setup.py CHANGELOG LICENSE
 
 global-exclude *.py[cod]
 prune vayesta/libs/build
 
 recursive-include vayesta *.dat
-recursive-include vayesta *.txt
+recursive-include vayesta/misc/gmtkn *
 include vayesta/libs/*.so
 
 # MacOS dynamic libraries
