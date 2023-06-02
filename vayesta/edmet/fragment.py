@@ -7,7 +7,7 @@ import scipy.linalg
 
 from vayesta.core.util import dot, einsum, log_time, time_string
 from vayesta.dmet.fragment import DMETFragment
-from vayesta.solver import get_solver_class
+from vayesta.solver import check_solver_config
 from vayesta.core.bath import helper
 
 
@@ -26,19 +26,19 @@ class Options(DMETFragment.Options):
     boson_xc_kernel: bool = None
     bosonic_interaction: str = None
 
-@dataclasses.dataclass
-class Results(DMETFragment.Results):
-    dm_eb: np.ndarray = None
-    eb_couplings: np.ndarray = None
-    boson_freqs: tuple = None
-    dd_mom0: np.ndarray = None
-    dd_mom1: np.ndarray = None
-    e_fb:  float = None
 
 class EDMETFragment(DMETFragment):
 
     Options = Options
-    Results = Results
+
+    @dataclasses.dataclass
+    class Results(DMETFragment.Results):
+        dm_eb: np.ndarray = None
+        eb_couplings: np.ndarray = None
+        boson_freqs: tuple = None
+        dd_mom0: np.ndarray = None
+        dd_mom1: np.ndarray = None
+        e_fb: float = None
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -114,6 +114,11 @@ class EDMETFragment(DMETFragment):
     @energy_couplings.setter
     def energy_couplings(self, value):
         self._ecouplings = value
+
+    def check_solver(self, solver):
+        is_uhf = np.ndim(self.base.mo_coeff[1]) == 2
+        is_eb = True
+        check_solver_config(is_uhf, is_eb, solver, self.log)
 
     def get_fock(self):
         f = self.base.get_fock()
@@ -665,11 +670,7 @@ class EDMETFragment(DMETFragment):
 
         # Create solver object
         t0 = timer()
-        solver_opts = self.get_solver_options(solver)
-
-        solver_cls = get_solver_class(self.mf, solver)
-
-        cluster_solver = solver_cls(self.mf, self, self.cluster, **solver_opts)
+        cluster_solver = self.get_solver(solver)
         # Chemical potential
         if chempot is not None:
             px =  self.get_fragment_projector(self.cluster.c_active)
@@ -678,18 +679,18 @@ class EDMETFragment(DMETFragment):
             else:
                 cluster_solver.v_ext = -chempot*px
 
-        if eris is None:
-            eris = cluster_solver.get_eris()
-
         with log_time(self.log.info, ("Time for %s solver:" % solver) + " %s"):
-            cluster_solver.kernel(eris=eris)
+            cluster_solver.kernel()
 
-        dm1, dm2 = cluster_solver.make_rdm12()
+        wf = cluster_solver.wf
+
+        dm1 = wf.make_rdm1()
+        dm2 = wf.make_rdm2()
         if self.nbos > 0:
             self.check_qba_approx(dm1)
-        dm_eb = cluster_solver.make_rdm_eb()
+        dm_eb = wf.make_rdmeb()
         self._results = results = self.Results(fid=self.id, n_active=self.cluster.norb_active,
-                converged=True, dm1=dm1, dm2=dm2, dm_eb=dm_eb)
+                converged=True, wf=wf, dm1=dm1, dm2=dm2, dm_eb=dm_eb)
         results.e1, results.e2, results.e_fb = self.get_edmet_energy_contrib()
 
         if self.opts.make_dd_moments:
@@ -700,7 +701,7 @@ class EDMETFragment(DMETFragment):
             else:
                 r = np.concatenate([r_o, r_v], axis=0)
 
-            ddmoms = cluster_solver.make_dd_moms(1, coeffs=r)
+            ddmoms = wf.make_dd_moms(1, coeffs=r)
             if self.opts.old_sc_condition:
                 ddmoms[0] = [np.einsum("ppqq->pq", x) for x in ddmoms[0]]
                 ddmoms[1] = [np.einsum("ppqq->pq", x) for x in ddmoms[1]]
@@ -719,9 +720,9 @@ class EDMETFragment(DMETFragment):
 
         return solver_opts
 
-    def get_edmet_energy_contrib(self, eris=None):
+    def get_edmet_energy_contrib(self, hamil=None):
         """Generate EDMET energy contribution, according to expression given in appendix of EDMET preprint"""
-        e1, e2 = self.get_dmet_energy_contrib(eris)
+        e1, e2 = self.get_dmet_energy_contrib(hamil)
         c_act = self.cluster.c_active
         p_imp = self.get_fragment_projector(c_act)
         if not isinstance(p_imp, tuple):

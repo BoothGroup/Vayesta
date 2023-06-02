@@ -28,8 +28,8 @@ class TestRestricted(TestCase):
         with emb.iao_fragmentation() as f:
             fci1 = f.add_atomic_fragment(0, solver='FCI', bath_options=dict(bathtype='dmet'), auxiliary=True)
             fci2 = f.add_atomic_fragment(1, solver='FCI', bath_options=dict(bathtype='dmet'), auxiliary=True)
-            ccsd1 = f.add_atomic_fragment(0)
-            ccsd2 = f.add_atomic_fragment(1)
+            ccsd1 = f.add_atomic_fragment(0, solver='extCCSD')
+            ccsd2 = f.add_atomic_fragment(1, solver='extCCSD')
         if tailoring == 'onsite':
             ccsd1.add_external_corrections([fci1], correction_type, projectors=0)
             ccsd2.add_external_corrections([fci2], correction_type, projectors=0)

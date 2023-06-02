@@ -444,20 +444,9 @@ class EWF(Embedding):
 
                 noccx = x.cluster.nocc_active
                 nvirx = x.cluster.nvir_active
-                eris = x._eris
-                if eris is None:
-                    raise NotCalculatedError
-                if hasattr(eris, 'ovvo'):
-                    eris = eris.ovvo[:]
-                elif hasattr(eris, 'ovov'):
-                    # MP2 only has eris.ovov - for real integrals we transpose
-                    eris = eris.ovov[:].reshape(noccx,nvirx,noccx,nvirx).transpose(0,1,3,2).conj()
-                elif eris.shape == (noccx, nvirx, noccx, nvirx):
-                    eris = eris.transpose(0,1,3,2)
-                else:
-                    occ = np.s_[:noccx]
-                    vir = np.s_[noccx:]
-                    eris = eris[occ,vir,vir,occ]
+
+                eris = x.hamil.get_eris_bare("ovvo")
+
                 px = x.get_overlap('frag|cluster-occ')
                 eris = einsum('xi,iabj->xabj', px, eris)
                 wx = x.symmetry_factor * x.sym_factor

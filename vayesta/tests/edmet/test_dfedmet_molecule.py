@@ -14,11 +14,11 @@ class MolecularDFEDMETTest(TestCase):
         """
         self.assertAlmostEqual(emb.e_tot, known_values['e_tot'], self.ENERGY_PLACES)
 
-    def test_h6_sto6g_EBFCI_IAO_1occ(self):
+    def test_h6_sto6g_FCI_IAO_1occ(self):
         emb = edmet.EDMET(
                 testsystems.h6_sto6g_df.rhf(),
-                solver='EBFCI',
-                solver_options={"max_boson_occ":1},
+                solver='FCI',
+                solver_options={"max_boson_occ":1, "conv_tol":1e-12},
                 conv_tol=self.CONV_TOL,
                 bosonic_interaction="direct",
                 oneshot=True,
@@ -34,11 +34,11 @@ class MolecularDFEDMETTest(TestCase):
 
         self._test_energy(emb, known_values)
 
-    def test_h6_sto6g_EBFCI_IAO_2occ(self):
+    def test_h6_sto6g_FCI_IAO_2occ(self):
         emb = edmet.EDMET(
                 testsystems.h6_sto6g_df.rhf(),
-                solver='EBFCI',
-                solver_options={"max_boson_occ":2},
+                solver='FCI',
+                solver_options={"max_boson_occ":2, "conv_tol":1e-12},
                 conv_tol=self.CONV_TOL,
                 bosonic_interaction="direct",
                 oneshot=True,
@@ -52,8 +52,8 @@ class MolecularDFEDMETTest(TestCase):
 
         uemb = edmet.EDMET(
                 testsystems.h6_sto6g_df.uhf(),
-                solver='EBFCI',
-                solver_options={"max_boson_occ":2},
+                solver='FCI',
+                solver_options={"max_boson_occ":2, "conv_tol":1e-12},
                 conv_tol=self.CONV_TOL,
                 bosonic_interaction="direct",
                 oneshot=True,
@@ -74,7 +74,7 @@ class MolecularDFEDMETTest(TestCase):
     def test_h2o_ccpvdz_EBCCSD_IAO(self):
         emb = edmet.EDMET(
                 testsystems.water_ccpvdz_df.rhf(),
-                solver='EBCCSD',
+                solver='CCSD-S-1-1',
                 conv_tol=self.CONV_TOL,
                 oneshot=True,
                 make_dd_moments=False,
@@ -90,7 +90,7 @@ class MolecularDFEDMETTest(TestCase):
 
         uemb = edmet.EDMET(
                 testsystems.water_ccpvdz_df.uhf(),
-                solver='EBCCSD',
+                solver='CCSD-S-1-1',
                 conv_tol=self.CONV_TOL,
                 oneshot=True,
                 make_dd_moments=False,
