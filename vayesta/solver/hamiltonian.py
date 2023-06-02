@@ -416,10 +416,19 @@ class RClusterHamiltonian:
         return compute_e_rrpa(po)
 
     def add_screening(self, seris_intermed=None):
-        """Add screened interactions into the Hamiltonian."""
+        """
+        Adds appropriate screening according to the value of self.opts.screening.
+         -`None`: gives bare interactions, but this function shouldn't be called in that case.
+         -'mrpa': moment-conserving interactions.
+         -'crpa': gives cRPA interactions. Including 'ov' after 'crpa' will only apply cRPA screening in the o-v channel.
+            Including 'pcoupling' similarly will account for the polarisability in non-canonical cluster spaces.
+
+        seris_intermed is only required for mRPA interactions.
+        """
         self._seris = self._add_screening(seris_intermed, spin_integrate=True)
 
     def _add_screening(self, seris_intermed=None, spin_integrate=True):
+
 
         def spin_integrate_and_report(m, warn_threshold=1e-6):
             spat = (m[0] + m[1] + m[2] + m[1].transpose((2, 3, 0, 1))) / 4.0

@@ -113,7 +113,7 @@ class Options(OptionsBase):
     # --- Other
     symmetry_tol: float = 1e-6              # Tolerance (in Bohr) for atomic positions
     symmetry_mf_tol: float = 1e-5           # Tolerance for mean-field solution
-    screening: Optional[str] = None
+    screening: Optional[str] = None         # What form of screening to use in clusters.
     ext_rpa_correction: Optional[str] = None
     match_cluster_fock: bool = False
 
