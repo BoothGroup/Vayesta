@@ -1,5 +1,8 @@
 import numpy as np
 
+import pyscf
+import pyscf.scf 
+
 import vayesta
 import vayesta.dmet
 from vayesta.misc.molecules import ring
