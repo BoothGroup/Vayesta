@@ -30,8 +30,8 @@ cc.kernel()
 
 # Test exact limit using bath_type='full'
 ecc = vayesta.ewf.EWF(mf, bath_type='full')
-ecc.iao_fragmentation()
-ecc.add_all_atomic_fragments()
+with ecc.iao_fragmentation() as f:
+    f.add_all_atomic_fragments()
 ecc.kernel()
 
 nocca = np.count_nonzero(mf.mo_occ[0]>0)

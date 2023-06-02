@@ -34,8 +34,8 @@ kcc.kernel()
 
 # Embedded calculation will automatically fold the k-point sampled mean-field to the supercell
 emb = vayesta.ewf.EWF(kmf, bno_threshold=1e-6)
-emb.iao_fragmentation()
-emb.add_atomic_fragment(0, sym_factor=2) # 2 C-atoms per unit cell
+with emb.iao_fragmentation() as f:
+    f.add_atomic_fragment(0, sym_factor=2) # 2 C-atoms per unit cell
 emb.kernel()
 
 # Hartree-Fock in supercell
@@ -45,9 +45,9 @@ mf_sc = mf_sc.density_fit(auxbasis='def2-svp-ri')
 mf_sc.kernel()
 
 emb_sc = vayesta.ewf.EWF(mf_sc, bno_threshold=1e-6)
-emb_sc.iao_fragmentation()
-ncells = np.product(kmesh)
-emb_sc.add_atomic_fragment(0, sym_factor=2*ncells)
+with emb_sc.iao_fragmentation() as f:
+    ncells = np.product(kmesh)
+    f.add_atomic_fragment(0, sym_factor=2*ncells)
 emb_sc.kernel()
 
 print("E(k-HF)=             %+16.8f Ha" % kmf.e_tot)

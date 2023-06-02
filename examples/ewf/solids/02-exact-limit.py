@@ -28,8 +28,8 @@ cc.kernel()
 
 # Test exact limit using bno_threshold = -1
 ecc = vayesta.ewf.EWF(mf, bno_threshold=-1)
-ecc.iao_fragmentation()
-ecc.add_all_atomic_fragments()
+with ecc.iao_fragmentation() as f:
+    f.add_all_atomic_fragments()
 ecc.kernel()
 
 nocc = np.count_nonzero(mf.mo_occ>0)
