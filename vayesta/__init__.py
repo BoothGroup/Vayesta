@@ -119,7 +119,7 @@ dhash = get_git_hash(ddir)
 log.debug("  * Dyson:    %s", dhash)
 edir = os.path.dirname(os.path.dirname(ebcc.__file__))
 ehash = get_git_hash(edir)
-log.debug("  * EBCC:    %s", ehash)
+log.debug("  * EBCC:     %s", ehash)
 
 # --- System information
 log.debug('System:  node= %s  processor= %s' % (platform.node(), platform.processor()))
