@@ -81,7 +81,7 @@ class MoleculeTest(TestCase):
     def test_renorm_interaction(self):
         emb = dmet.DMET(testsystems.h6_sto6g_df.uhf(), solver='FCI', charge_consistent=False,
                 bath_options=dict(bathtype='dmet'), conv_tol=self.CONV_TOL, oneshot=True,
-                screening='rpa', solver_options=FCI_SOLVER_OPTS)
+                screening='mrpa', solver_options=FCI_SOLVER_OPTS)
         with emb.iao_fragmentation() as f:
             f.add_atomic_fragment([0, 1])
             f.add_atomic_fragment([2, 3])

@@ -4,12 +4,12 @@ Based on the fci_slow.py code within pyscf.
 
 import numpy
 import numpy as np
-from pyscf import lib
 from pyscf import ao2mo
+from pyscf import lib
 from pyscf.fci import cistring
+from pyscf.fci import direct_uhf
 from pyscf.fci import rdm
 from pyscf.fci.direct_spin1 import _unpack_nelec
-from pyscf.fci import direct_uhf
 
 
 def contract_all(h1e, g2e, hep, hpp, ci0, norbs, nelec, nbosons, max_occ,
@@ -89,7 +89,7 @@ def contract_2e(eri, fcivec, norb, nelec, nbosons, max_occ):
     # t1 = lib.einsum('bjai,aiAB...->bjAB...', eri.reshape([norb]*4), t1)
     t1a_ = numpy.tensordot(eri[0].reshape([norb] * 4), t1a, 2) + numpy.tensordot(eri[1].reshape([norb] * 4), t1b, 2)
     t1b_ = numpy.tensordot(eri[2].reshape([norb] * 4), t1b, 2) + numpy.tensordot(eri[1].reshape([norb] * 4), t1a,
-                                                                                [[0,1], [0,1]])
+                                                                                 [[0, 1], [0, 1]])
     t1a, t1b = t1a_, t1b_
 
     fcinew = numpy.zeros_like(ci0)
@@ -366,6 +366,7 @@ def kernel_multiroot(h1e, g2e, hep, hpp, norb, nelec, nbosons, max_occ,
                           **kwargs)
     return es, cs
 
+
 # dm_pq = <|p^+ q|>
 def make_rdm1(fcivec, norb, nelec):
     '''1-electron density matrix dm_pq = <|p^+ q|>'''
@@ -439,7 +440,7 @@ def make_rdm12s(fcivec, norb, nelec, reorder=True):
     dm1a = numpy.zeros((norb, norb))
     dm1b = numpy.zeros_like(dm1a)
 
-    dm2aa = numpy.zeros((norb,norb,norb,norb))
+    dm2aa = numpy.zeros((norb, norb, norb, norb))
     dm2ab = numpy.zeros_like(dm2aa)
     dm2bb = numpy.zeros_like(dm2aa)
 

@@ -30,7 +30,7 @@ from vayesta.core.bath import R2_Bath
 # Other
 from vayesta.misc.cubefile import CubeFile
 from vayesta.mpi import mpi
-
+from vayesta.solver import get_solver_class, check_solver_config, ClusterHamiltonian
 
 # Get MPI rank of fragment
 get_fragment_mpi_rank = lambda *args : args[0].mpi_rank
@@ -45,7 +45,7 @@ class Options(OptionsBase):
     # --- Solver options
     solver_options: dict = None
     # --- Other
-    store_eris: bool = None     # If True, ERIs will be stored in Fragment._eris
+    store_eris: bool = None     # If True, ERIs will be cached in Fragment.hamil
     dm_with_frozen: bool = None # TODO: is still used?
     screening: typing.Optional[str] = None
     # Fragment specific
@@ -82,11 +82,11 @@ class Fragment:
 
 
     def __init__(self, base, fid, name, c_frag, c_env,
-            solver=None,
-            atoms=None, aos=None, active=True,
-            sym_parent=None, sym_op=None,
-            mpi_rank=0, flags=None,
-            log=None, **kwargs):
+                 solver=None,
+                 atoms=None, aos=None, active=True,
+                 sym_parent=None, sym_op=None,
+                 mpi_rank=0, flags=None,
+                 log=None, **kwargs):
         """Abstract base class for quantum embedding fragments.
 
         The fragment may keep track of associated atoms or atomic orbitals, using
@@ -163,8 +163,8 @@ class Fragment:
         self.flags = self.Flags(**(flags or {}))
 
         solver = solver or self.base.solver
-        if solver not in self.base.valid_solvers:
-            raise ValueError("Unknown solver: %s" % solver)
+        self.check_solver(solver)
+
         self.solver = solver
         self.c_frag = c_frag
         self.c_env = c_env
@@ -184,7 +184,7 @@ class Fragment:
         # of the fragment. By default it is equal to `self.c_frag`.
         self.c_proj = self.c_frag
 
-        # Initialize self.bath, self._cluster, self._results, self._eris
+        # Initialize self.bath, self._cluster, self._results, self.hamil
         self.reset()
 
         self.log.debugv("Creating %r", self)
@@ -193,7 +193,7 @@ class Fragment:
     def __repr__(self):
         if mpi:
             return '%s(id= %d, name= %s, mpi_rank= %d)' % (
-                    self.__class__.__name__, self.id, self.name, self.mpi_rank)
+                self.__class__.__name__, self.id, self.name, self.mpi_rank)
         return '%s(id= %d, name= %s)' % (self.__class__.__name__, self.id, self.name)
 
     def __str__(self):
@@ -245,6 +245,17 @@ class Fragment:
 
     def change_options(self, **kwargs):
         self.opts.replace(**kwargs)
+
+    @property
+    def hamil(self):
+        # Cache the hamiltonian object; note that caching or not of eris is handled inside the hamiltonian object.
+        if self._hamil is None:
+            self.hamil = self.get_frag_hamil()
+        return self._hamil
+
+    @hamil.setter
+    def hamil(self, value):
+        self._hamil = value
 
     # --- Overlap matrices
     # --------------------
@@ -336,7 +347,7 @@ class Fragment:
     def reset(self, reset_bath=True, reset_cluster=True, reset_eris=True, reset_inactive=True):
         self.log.debugv("Resetting %s (reset_bath= %r, reset_cluster= %r, reset_eris= %r, reset_inactive= %r)",
                 self, reset_bath, reset_cluster, reset_eris, reset_inactive)
-        if not reset_inactive and not self.active: 
+        if not reset_inactive and not self.active:
             return
         if reset_bath:
             self._dmet_bath = None
@@ -346,7 +357,7 @@ class Fragment:
             self._cluster = None
             self.get_overlap.cache_clear()
         if reset_eris:
-            self._eris = None
+            self.hamil = None
             self._seris_ov = None
         self._results = None
 
@@ -608,14 +619,14 @@ class Fragment:
                 fragovlp = max(abs(fragovlp[0]).max(), abs(fragovlp[1]).max())
             if (fragovlp > 1e-8):
                 self.log.critical("Translation (%d,%d,%d) of fragment %s not orthogonal to original fragment (overlap= %.3e)!",
-                            dx, dy, dz, self.name, fragovlp)
+                                  dx, dy, dz, self.name, fragovlp)
                 raise RuntimeError("Overlapping fragment spaces.")
 
             # Add fragment
             frag_id = self.base.register.get_next_id()
             frag = self.base.Fragment(self.base, frag_id, name, c_frag_t, c_env_t,
-                    sym_parent=self, sym_op=sym_op, mpi_rank=self.mpi_rank,
-                    **self.opts.asdict())
+                                      sym_parent=self, sym_op=sym_op, mpi_rank=self.mpi_rank,
+                                      **self.opts.asdict())
             self.base.fragments.append(frag)
             # Check symmetry
             # (only for the primitive translations (1,0,0), (0,1,0), and (0,0,1) to reduce number of sym_op(c_env) calls)
@@ -623,11 +634,11 @@ class Fragment:
                 charge_err, spin_err = self.get_symmetry_error(frag, dm1=dm1)
                 if max(charge_err, spin_err) > symtol:
                     self.log.critical("Mean-field DM1 not symmetric for translation (%d,%d,%d) of %s (errors: charge= %.3e, spin= %.3e)!",
-                        dx, dy, dz, self.name, charge_err, spin_err)
+                                      dx, dy, dz, self.name, charge_err, spin_err)
                     raise RuntimeError("MF not symmetric under translation (%d,%d,%d)" % (dx, dy, dz))
                 else:
                     self.log.debugv("Mean-field DM symmetry error for translation (%d,%d,%d) of %s: charge= %.3e, spin= %.3e",
-                        dx, dy, dz, self.name, charge_err, spin_err)
+                                    dx, dy, dz, self.name, charge_err, spin_err)
 
             fragments.append(frag)
         return fragments
@@ -901,7 +912,7 @@ class Fragment:
         return mo_energy
 
     @mpi.with_send(source=get_fragment_mpi_rank)
-    def get_fragment_dmet_energy(self, dm1=None, dm2=None, h1e_eff=None, eris=None, part_cumulant=True, approx_cumulant=True):
+    def get_fragment_dmet_energy(self, dm1=None, dm2=None, h1e_eff=None, hamil=None, part_cumulant=True, approx_cumulant=True):
         """Get fragment contribution to whole system DMET energy from cluster DMs.
 
         After fragment summation, the nuclear-nuclear repulsion must be added to get the total energy!
@@ -912,8 +923,8 @@ class Fragment:
             Cluster one-electron reduced density-matrix in cluster basis. If `None`, `self.results.dm1` is used. Default: None.
         dm2: array, optional
             Cluster two-electron reduced density-matrix in cluster basis. If `None`, `self.results.dm2` is used. Default: None.
-        eris: array, optional
-            Cluster electron-repulsion integrals in cluster basis. If `None`, the ERIs are reevaluated. Default: None.
+        hamil : ClusterHamiltonian object.
+            Object representing cluster hamiltonian, possibly including cached ERIs.
         part_cumulant: bool, optional
             If True, the 2-DM cumulant will be partitioned to calculate the energy. If False,
             the full 2-DM will be partitioned, as it is done in most of the DMET literature.
@@ -932,17 +943,13 @@ class Fragment:
         if dm1 is None: raise RuntimeError("DM1 not found for %s" % self)
         c_act = self.cluster.c_active
         t0 = timer()
-        if eris is None:
-            eris = self._eris
-            # Fix for MP2:
-            if isinstance(eris, np.ndarray) and (eris.shape[:2] == (self.cluster.nocc_active, self.cluster.nvir_active)):
-                eris = None
-        if eris is None:
-            with log_time(self.log.timingv, "Time for AO->MO transformation: %s"):
-                eris = self.base.get_eris_array(c_act)
-        if not isinstance(eris, np.ndarray):
-            self.log.debugv("Extracting ERI array from CCSD ERIs object.")
-            eris = vayesta.core.ao2mo.helper.get_full_array(eris, c_act)
+        if hamil is None:
+            hamil = self._hamil
+        if hamil is None:
+            hamil = self.get_frag_hamil()
+
+        eris = hamil.get_eris_bare()
+
         if dm2 is None:
             dm2 = self.results.wf.make_rdm2(with_dm1=not part_cumulant, approx_cumulant=approx_cumulant)
 
@@ -1025,3 +1032,30 @@ class Fragment:
         cube = CubeFile(self.mol, filename=filename, nx=nx, ny=ny, nz=nz, **kwargs)
         cube.add_orbital(self.c_frag)
         cube.write()
+
+    def check_solver(self, solver):
+        is_uhf = np.ndim(self.base.mo_coeff[1]) == 2
+        if self.opts.screening:
+            is_eb = "crpa_full" in self.opts.screening
+        else:
+            is_eb = False
+        check_solver_config(is_uhf, is_eb, solver, self.log)
+
+    def get_solver(self, solver=None):
+        if solver is None:
+            solver = self.solver
+        cl_ham = self.hamil
+        solver_cls = get_solver_class(cl_ham, solver)
+        solver_opts = self.get_solver_options(solver)
+        cluster_solver = solver_cls(cl_ham, **solver_opts)
+        if self.opts.screening is not None:
+            cluster_solver.hamil.add_screening(self._seris_ov)
+        return cluster_solver
+
+    def get_frag_hamil(self):
+        # This detects based on fragment what kind of Hamiltonian is appropriate (restricted and/or EB).
+        return ClusterHamiltonian(self, self.mf, self.log, screening=self.opts.screening,
+                                  cache_eris=self.opts.store_eris)
+
+    def get_solver_options(self, *args, **kwargs):
+        raise AbstractMethodError

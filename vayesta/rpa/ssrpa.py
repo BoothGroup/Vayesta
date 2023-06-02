@@ -18,9 +18,10 @@ class ssRPA:
     WARNING: Should only be used with canonical mean-field orbital coefficients in mf.mo_coeff and RHF.
     """
 
-    def __init__(self, mf, log=None):
+    def __init__(self, mf, log=None, ov_rot=None):
         self.mf = mf
         self.log = log or logging.getLogger(__name__)
+        self.ov_rot = ov_rot
 
     @property
     def nocc(self):
@@ -206,10 +207,21 @@ class ssRPA:
         eps = (eps.T - self.mf.mo_energy[: self.nocc]).T
         eps = eps.reshape((self.ova,))
 
+        if self.ov_rot is not None:
+            eps = einsum("pn,n,qn->pq", self.ov_rot, eps, self.ov_rot)
+            # want to ensure diagonalise eps in our new basis; nb this also rotates the existing rotation for
+            # consistency.
+            eps, c = scipy.linalg.eigh(eps)
+            self.ov_rot = dot(c.T, self.ov_rot)
+
         AmB = np.concatenate([eps, eps])
 
         fullv = self.get_k()
         ApB = 2 * fullv * alpha
+        if self.ov_rot is not None:
+            fullrot = scipy.linalg.block_diagonal(self.ov_rot, self.ov_rot)
+            ApB = dot(fullrot, ApB, fullrot.T)
+
         # At this point AmB is just epsilon so add in.
         ApB[np.diag_indices_from(ApB)] += AmB
 
@@ -294,6 +306,16 @@ class ssRPA:
         ApB[self.ova :, self.ova :] += V_B_bb
         AmB[self.ova :, self.ova :] -= V_B_bb
         del V_B_bb
+
+        if self.ov_rot is not None:
+            if isinstance(self.ov_rot, tuple):
+                fullrot = scipy.linalg.block_diag(self.ov_rot[0], self.ov_rot[1])
+            else:
+                fullrot = scipy.linalg.block_diag(self.ov_rot, self.ov_rot)
+
+            ApB = dot(fullrot, ApB, fullrot.T)
+            AmB = dot(fullrot, AmB, fullrot.T)
+
         return ApB * alpha, AmB * alpha
 
     def gen_moms(self, max_mom, xc_kernel=None):

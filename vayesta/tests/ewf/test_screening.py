@@ -25,14 +25,13 @@ class TestTwoElectron(TestCase):
     @cache
     def emb(cls, bno_threshold, solver):
         emb = vayesta.ewf.EWF(cls.mf, bath_options=dict(threshold=bno_threshold), solver=solver,
-                screening='rpa', solver_options=dict(conv_tol=1e-10))
+                screening='mrpa', solver_options=dict(conv_tol=1e-12))
         emb.kernel()
         return emb
 
     def test_ccsd(self):
         emb = self.emb(np.inf, 'CCSD')
         emb.kernel()
-        print(emb.e_tot)
         self.assertAllclose(emb.e_tot, self.e_ref)
 
     def test_fci(self):

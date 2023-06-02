@@ -54,7 +54,7 @@ class TestFullEC_tailor(TestCase):
                 else:
                     fci_frags.append(f.add_full_system(solver='FCI', bath_options=dict(bathtype=bathtype),
                                                        auxiliary=True))
-                ccsd_frag = f.add_full_system(solver='CCSD', bath_options=dict(bathtype='full'))
+                ccsd_frag = f.add_full_system(solver='extCCSD', bath_options=dict(bathtype='full'))
             ccsd_frag.add_external_corrections(fci_frags, correction_type=mode, projectors=proj, low_level_coul=low_level_coul, test_extcorr=True)
             emb.kernel()
 
@@ -68,7 +68,7 @@ class TestFullEC_tailor(TestCase):
                 else:
                     fci_frag = f.add_all_atomic_fragments(solver='FCI', bath_options=dict(bathtype=bathtype),
                                                           auxiliary=True)
-                ccsd_frag = f.add_full_system(solver='CCSD', bath_options=dict(bathtype='full'))
+                ccsd_frag = f.add_full_system(solver='extCCSD', bath_options=dict(bathtype='full'))
             ccsd_frag.add_external_corrections(fci_frag, correction_type=mode, projectors=proj, low_level_coul=low_level_coul, test_extcorr=True)
             
             emb.kernel()
@@ -222,7 +222,7 @@ class TestHubCompleteEC(TestCase):
 
         with emb.site_fragmentation() as f:
             fci_frag = f.add_atomic_fragment(list(range(10)), solver='FCI', store_wf_type='CCSDTQ')
-            ccsd_frag = f.add_atomic_fragment([0, 1], solver='CCSD', bath_options=dict(bathtype='full'), active=False)
+            ccsd_frag = f.add_atomic_fragment([0, 1], solver='extCCSD', bath_options=dict(bathtype='full'), active=False)
         ccsd_frag.add_tsymmetric_fragments(tvecs=[5, 1, 1])
         emb.kernel()
         fci_frag_ecorr = emb.e_corr
@@ -273,7 +273,7 @@ class TestHubBathEC(TestCase):
         with emb.site_fragmentation() as f:
             fci_frag = f.add_atomic_fragment([0, 1], solver='FCI', bath_options=dict(bathtype='full'),
                                              store_wf_type='CCSDTQ')
-            ccsd_frag = f.add_atomic_fragment([0, 1], solver='CCSD', bath_options=dict(bathtype='full'), active=False)
+            ccsd_frag = f.add_atomic_fragment([0, 1], solver='extCCSD', bath_options=dict(bathtype='full'), active=False)
         ccsd_frag.add_tsymmetric_fragments(tvecs=[5, 1, 1])
         emb.kernel()
 
@@ -321,7 +321,7 @@ class TestECSym(TestCase):
                                                    store_wf_type='CCSDTQ'))
             fci_frags.append(f.add_atomic_fragment([8, 9], solver='FCI', bath_options=dict(bathtype='dmet'),
                                                    store_wf_type='CCSDTQ'))
-            ccsd_frag = f.add_full_system(solver='CCSD', bath_options=dict(bathtype='full'), active=False)
+            ccsd_frag = f.add_full_system(solver='extCCSD', bath_options=dict(bathtype='full'), active=False)
         emb.kernel()
 
         for fci_frag in fci_frags:
@@ -341,7 +341,7 @@ class TestECSym(TestCase):
         with emb.site_fragmentation() as f:
             fci_frags.append(f.add_atomic_fragment([0, 1], solver='FCI', bath_options=dict(bathtype='dmet'),
                                                    store_wf_type='CCSDTQ'))
-            ccsd_frag = f.add_full_system(solver='CCSD', bath_options=dict(bathtype='full'), active=False)
+            ccsd_frag = f.add_full_system(solver='extCCSD', bath_options=dict(bathtype='full'), active=False)
 
         # Add the symmetry-derived FCI fragments
         for fci_frag_sym in fci_frags[0].add_tsymmetric_fragments(tvecs=[5, 1, 1]):
@@ -386,7 +386,7 @@ class TestRegEC_CCSD(TestCase):
         with emb.iao_fragmentation() as f:
             fci_frags = f.add_all_atomic_fragments(solver='FCI', bath_options=dict(bathtype='dmet'),
                                                    store_wf_type='CCSDTQ')
-            ccsd_frags = f.add_all_atomic_fragments(solver='CCSD', bath_options=dict(bathtype='full'), active=False)
+            ccsd_frags = f.add_all_atomic_fragments(solver='extCCSD', bath_options=dict(bathtype='full'), active=False)
         emb.kernel()
 
         for fci_frag in fci_frags:

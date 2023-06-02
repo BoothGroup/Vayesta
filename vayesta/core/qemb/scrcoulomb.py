@@ -7,7 +7,7 @@ from vayesta.core.util import dot, einsum
 from vayesta.mpi import mpi
 
 
-def build_screened_eris(emb, fragments=None, cderi_ov=None, calc_delta_e=True, npoints=48, log=None):
+def build_screened_eris(emb, fragments=None, cderi_ov=None, calc_e=True, npoints=48, log=None):
     """Generates renormalised coulomb interactions for use in local cluster calculations.
     Currently requires unrestricted system.
 
@@ -32,7 +32,7 @@ def build_screened_eris(emb, fragments=None, cderi_ov=None, calc_delta_e=True, n
     -------
     seris_ov : list of tuples of np.array
         List of spin-dependent screened (ov|ov), for each fragment provided.
-    delta_e: float
+    erpa: float
         Delta RPA correction computed as difference between full system RPA energy and
         cluster correlation energies; currently only functional in CAS fragmentations.
     """
@@ -44,7 +44,7 @@ def build_screened_eris(emb, fragments=None, cderi_ov=None, calc_delta_e=True, n
     # --- Setup
     if fragments is None:
         fragments = emb.get_fragments(active=True, sym_parent=None, mpi_rank=mpi.rank)
-    fragments = [f for f in fragments if f.opts.screening == 'rpa']
+    fragments = [f for f in fragments if f.opts.screening == 'mrpa']
     if emb.spinsym != 'unrestricted':
         raise NotImplementedError("Screened interactions require a spin-unrestricted formalism.")
     if emb.df is None:
@@ -54,11 +54,11 @@ def build_screened_eris(emb, fragments=None, cderi_ov=None, calc_delta_e=True, n
     target_rots, ovs_active = _get_target_rot(r_occs, r_virs)
 
     rpa = ssRIRPA(emb.mf, log=log, Lpq=cderi_ov)
-    if calc_delta_e:
+    if calc_e:
         # This scales as O(N^4)
-        delta_e, energy_error = rpa.kernel_energy(correction='linear')
+        erpa, energy_error = rpa.kernel_energy(correction='linear')
     else:
-        delta_e = None
+        erpa = None
 
     tr = np.concatenate(target_rots, axis=0)
     if sum(sum(ovs_active)) > 0:
@@ -100,12 +100,6 @@ def build_screened_eris(emb, fragments=None, cderi_ov=None, calc_delta_e=True, n
         mominv = np.linalg.inv(mom)
         apb = dot(mominv, amb, mominv)
 
-        if calc_delta_e:
-            # Calculate the effective local correlation energy.
-            loc_erpa = 0.5 * (dot(mom, apb).trace() - (amb.trace() + apb.trace())/2)
-            # and deduct from total rpa energy to get nonlocal contribution.
-            delta_e -= loc_erpa
-
         # This is the renormalised coulomb kernel in the cluster.
         # Note that this is only defined in the particle-hole space, but has the same 8-fold symmetry
         # as the (assumed real) coulomb interaction.
@@ -126,7 +120,7 @@ def build_screened_eris(emb, fragments=None, cderi_ov=None, calc_delta_e=True, n
         f._seris_ov = kc
         seris_ov.append(kc)
 
-    return seris_ov, delta_e
+    return seris_ov, erpa
 
 def get_screened_eris_full(eris, seris_ov, copy=True, log=None):
     """Build full array of screened ERIs, given the bare ERIs and screening."""
