@@ -27,7 +27,7 @@ from vayesta.core.ao2mo import postscf_kao2gmo
 from vayesta.core.scmf import PDMET, Brueckner
 from vayesta.core.qemb.scrcoulomb import build_screened_eris
 from vayesta.mpi import mpi
-from .register import FragmentRegister
+from vayesta.core.qemb.register import FragmentRegister
 from vayesta.rpa import ssRIRPA
 from vayesta.solver import check_solver_config
 

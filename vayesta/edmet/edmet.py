@@ -8,7 +8,7 @@ from vayesta.core.util import dot, time_string
 from vayesta.dmet import RDMET
 from vayesta.dmet.updates import MixUpdate, DIISUpdate
 from vayesta.rpa import ssRPA, ssRIRPA
-from .fragment import EDMETFragment, EDMETFragmentExit
+from vayesta.edmet.fragment import EDMETFragment, EDMETFragmentExit
 from vayesta.solver import check_solver_config
 
 @dataclasses.dataclass
