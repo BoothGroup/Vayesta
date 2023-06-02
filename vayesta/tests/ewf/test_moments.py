@@ -19,7 +19,7 @@ class Test_RFCI(TestCase):
         try:
             from dyson.expressions import FCI
         except ImportError:
-            vayesta.logger.info("Could not import Dyson. Skipping FCI moment tests.")
+            vayesta.log.info("Could not import Dyson. Skipping FCI moment tests.")
             return
 
         fci = FCI["1h"](mf)
@@ -53,7 +53,7 @@ class Test_RCCSD(TestCase):
         try:
             from dyson.expressions import CCSD
         except ImportError:
-            vayesta.logger.info("Could not import Dyson. Skipping FCI moment tests.")
+            vayesta.log.info("Could not import Dyson. Skipping FCI moment tests.")
             return
 
         fci = CCSD["1h"](mf)
