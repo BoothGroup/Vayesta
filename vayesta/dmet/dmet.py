@@ -41,7 +41,6 @@ class DMET(Embedding):
 
     Fragment = DMETFragment
     Options = Options
-    valid_solvers = ['MP2', 'CISD', 'CCSD', 'FCI', 'FCI-SPIN0', 'FCI-SPIN1']
 
     def __init__(self, mf, solver='CCSD', log=None, **kwargs):
         t_start = timer()
@@ -118,6 +117,7 @@ class DMET(Embedding):
             self.log.info("Now running iteration %2d", iteration)
             self.log.info("------------------------")
             if iteration > 1:
+                self.reset()
                 # For first iteration want to run on provided mean-field state.
                 mo_energy, mo_coeff = self.mf.eig(fock + self.vcorr, self.get_ovlp())
                 self.update_mf(mo_coeff, mo_energy)
@@ -129,7 +129,7 @@ class DMET(Embedding):
             if type(nelec_mf) == tuple:
                 nelec_mf = sum(nelec_mf)
 
-            if self.opts.screening == 'rpa':
+            if self.opts.screening == 'mrpa':
                 for f in self.get_fragments(sym_parent=None):
                     f.make_bath()
                     f.make_cluster()

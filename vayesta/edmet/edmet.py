@@ -7,10 +7,10 @@ import scipy.linalg
 
 from vayesta.core.util import *
 from vayesta.dmet import RDMET
-from vayesta.dmet.sdp_sc import perform_SDP_fit
 from vayesta.dmet.updates import MixUpdate, DIISUpdate
 from vayesta.rpa import ssRPA, ssRIRPA
 from .fragment import EDMETFragment, EDMETFragmentExit
+from vayesta.solver import check_solver_config
 
 @dataclasses.dataclass
 class Options(RDMET.Options):
@@ -21,6 +21,9 @@ class Options(RDMET.Options):
     occ_proj_kernel: bool = False
     boson_xc_kernel: bool = False
     bosonic_interaction: str = "xc"
+    solver_options: dict = RDMET.Options.change_dict_defaults('solver_options',
+            polaritonic_shift=True)
+
 
 @dataclasses.dataclass
 class EDMETResults:
@@ -31,7 +34,6 @@ class EDMET(RDMET):
 
     Fragment = EDMETFragment
     Options = Options
-    valid_solvers = ['EBFCI', 'EBCCSD']
 
     def __init__(self, mf, solver='EBFCI', log=None, **kwargs):
         # If we aren't running in oneshot mode we need to calculate the dd moments.
@@ -52,6 +54,11 @@ class EDMET(RDMET):
         eps = (eps.T - self.mo_energy[:self.nocc]).T
         eps = eps.reshape(-1)
         return eps, eps
+
+    def check_solver(self, solver):
+        is_uhf = np.ndim(self.mo_coeff[1]) == 2
+        is_eb = True
+        check_solver_config(is_uhf, is_eb, solver, self.log)
 
     def kernel(self):
 
@@ -99,6 +106,7 @@ class EDMET(RDMET):
             self.log.info("Now running iteration= %2d", iteration)
             self.log.info("****************************************************")
             if iteration > 1:
+                self.reset()
                 # For first iteration want to run on provided mean-field state.
                 mo_energy, mo_coeff = mf.eig(fock + self.vcorr, self.get_ovlp())
                 self.update_mf(mo_coeff, mo_energy)
@@ -170,14 +178,14 @@ class EDMET(RDMET):
                 emf += frag.get_fragment_mf_energy() * nsym[x]
 
             self.e_corr = e1 + e2 + efb + self.e_nonlocal - emf
-            self.log.info("Total EDMET energy {:8.4f}".format(self.e_tot))
+            self.log.info("Total EDMET energy {:12.8f}".format(self.e_tot))
             self.log.info(
-                "Energy Contributions: 1-body={:8.4f} \n"
-                "                      2-body={:8.4f} \n"
-                "               coupled-boson={:8.4f} \n"
-                " nonlocal correlation energy={:8.4f} \n"
-                "           mean-field energy={:8.4f} \n"
-                "          correlation energy={:8.4f}".format(e1, e2, efb, self.e_nonlocal, emf, self.e_corr))
+                "Energy Contributions: 1-body={:12.8f} \n"
+                "                      2-body={:12.8f} \n"
+                "               coupled-boson={:12.8f} \n"
+                " nonlocal correlation energy={:12.8f} \n"
+                "           mean-field energy={:12.8f} \n"
+                "          correlation energy={:12.8f}".format(e1, e2, efb, self.e_nonlocal, emf, self.e_corr))
             if self.opts.oneshot:
                 break
             # Want to do coupled DIIS optimisation of high-level rdms and local dd response moments.

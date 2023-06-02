@@ -31,13 +31,12 @@ class SCMF_Test(TestCase):
 
     def test_pdmet(self):
         """Test p-DMET."""
-        return
         emb0 = self.emb()
         emb = self.emb('pdmet')
         self.assertAllclose(emb.with_scmf.e_tot_oneshot, emb0.e_tot)
         self.assertAllclose(emb.with_scmf.e_tot_oneshot, -1.1419060823155505)
         self.assertTrue(emb.with_scmf.converged)
-        self.assertAllclose(emb.with_scmf.e_tot, -1.1417159316065975)
+        self.assertAllclose(emb.with_scmf.e_tot, -1.1417348230969397)
 
     def test_brueckner(self):
         """Test Brueckner DMET."""

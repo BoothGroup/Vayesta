@@ -153,10 +153,11 @@ setup(
             "B. Ibrahim",
             "A. Santana-Bonilla",
             "C. J. C. Scott",
+            "A. Khedkar",
             "G. H. Booth",
     ]),
     author_email="vayesta.embedding@gmail.com",
-    license="Apache License 2.0",  # FIXME?
+    license="Apache License 2.0",
     platforms=[
             "Linux",
             "Mac OS-X",
@@ -164,7 +165,7 @@ setup(
     python_requires=">=3.7",
     classifiers=[
             "Development Status :: 3 - Alpha",
-            "License :: OSI Approved :: Apache Software License",  # FIXME?
+            "License :: OSI Approved :: Apache Software License",
             "Intended Audience :: Science/Research",
             "Intended Audience :: Developers",
             "Topic :: Scientific/Engineering",
