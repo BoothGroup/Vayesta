@@ -76,7 +76,12 @@ class RCCSD_Solver(ClusterSolver):
         # In-cluster Moments
         nmom = self.opts.n_moments
         if nmom is not None:
-
+            try:
+                 from dyson.expressions import CCSD
+            except ImportError:
+                self.log.error("Dyson not found - required for moment calculations")
+                self.log.info("Skipping in-cluster moment calculations")
+                return
             self.log.info("Calculating in-cluster CCSD moments %s"%str(nmom))
             # expr = CCSD["1h"](mf_clus, t1=mycc.t1, t2=mycc.t2, l1=l1, l2=l2)
             # vecs_bra = expr.build_gf_vectors(nmom[0], left=True)

@@ -81,7 +81,7 @@ class FCI_Solver(ClusterSolver):
         nmom = self.opts.n_moments
         if nmom is not None:
             try:
-                 from dyson.expressions import CCSD
+                 from dyson.expressions import FCI
             except ImportError:
                 self.log.error("Dyson not found - required for moment calculations")
                 self.log.info("Skipping in-cluster moment calculations")
