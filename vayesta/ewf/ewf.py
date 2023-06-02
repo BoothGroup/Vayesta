@@ -242,20 +242,6 @@ class EWF(Embedding):
             else:
                 self.log.info("Global T1 diagnostic: %.5f", t1diag)
 
-    # --- Bardwards compatibility:
-    @deprecated("get_t1 is deprecated - use get_global_t1 instead.")
-    def get_t1(self, *args, **kwargs):
-        return self.get_global_t1(*args, **kwargs)
-    @deprecated("get_t2 is deprecated - use get_global_t2 instead.")
-    def get_t2(self, *args, **kwargs):
-        return self.get_global_t2(*args, **kwargs)
-    @deprecated("get_l1 is deprecated - use get_global_l1 instead.")
-    def get_l1(self, *args, **kwargs):
-        return self.get_global_l1(*args, **kwargs)
-    @deprecated("get_l2 is deprecated - use get_global_l2 instead.")
-    def get_l2(self, *args, **kwargs):
-        return self.get_global_l2(*args, **kwargs)
-
     # --- Density-matrices
     # --------------------
 
