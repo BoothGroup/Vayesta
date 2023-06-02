@@ -16,7 +16,6 @@ import pyscf.cc
 import vayesta
 from vayesta.core.util import *
 from vayesta.core.qemb import Fragment as BaseFragment
-from vayesta.solver import get_solver_class
 from vayesta.core.fragmentation import IAO_Fragmentation
 from vayesta.core.types import RFCI_WaveFunction, RCCSDTQ_WaveFunction, UCCSDTQ_WaveFunction
 
@@ -37,8 +36,6 @@ get_fragment_mpi_rank = lambda *args : args[0].mpi_rank
 class Options(BaseFragment.Options):
     # Inherited from Embedding
     # ------------------------
-    # --- Couple embedding problems (currently only CCSD and MPI)
-    coupled_iterations: bool = None
     t_as_lambda: bool = None                # If True, use T-amplitudes inplace of Lambda-amplitudes
     bsse_correction: bool = None
     bsse_rmax: float = None
@@ -60,6 +57,8 @@ class Options(BaseFragment.Options):
     # --- Solver options
     # "TCCSD-solver":
     tcc_fci_opts: dict = dataclasses.field(default_factory=dict)
+    # --- Couple embedding problems (currently only CCSD and MPI)
+    # coupled_iterations: bool = None # Now accessible through solver=coupledCCSD setting.
 
 class Fragment(BaseFragment):
 
@@ -162,7 +161,11 @@ class Fragment(BaseFragment):
         """
         if correction_type not in ('tailor', 'delta-tailor', 'external'):
             raise ValueError
-        if self.solver != 'CCSD':
+        if self.solver == "CCSD":
+            # Automatically update this cluster to use external correction solver.
+            self.solver = "extCCSD"
+            self.check_solver(self.solver)
+        if self.solver != 'extCCSD':
             raise RuntimeError
         if (not low_level_coul) and correction_type != 'external':
             raise ValueError("low_level_coul optional argument only meaningful with 'external' correction of fragments.")
@@ -238,21 +241,13 @@ class Fragment(BaseFragment):
         #if mpi:
         #    self.base.communicate_clusters()
 
-    def kernel(self, solver=None, init_guess=None, eris=None):
+    def kernel(self, solver=None, init_guess=None):
 
         solver = solver or self.solver
-        if solver not in self.base.valid_solvers:
-            raise ValueError("Unknown solver: %s" % solver)
+        self.check_solver(solver)
         if self.cluster is None:
             raise RuntimeError
         cluster = self.cluster
-
-        # For self-consistent calculations, we can reuse ERIs:
-        if eris is None:
-            eris = self._eris
-        #if (eris is not None) and (eris.mo_coeff.size > cluster.c_active.size):
-        #    self.log.debugv("Projecting ERIs onto subspace")
-        #    eris = ao2mo.helper.project_ccsd_eris(eris, cluster.c_active, cluster.nocc_active, ovlp=self.base.get_ovlp())
 
         if solver == 'HF':
             return None
@@ -260,9 +255,7 @@ class Fragment(BaseFragment):
         init_guess = self.get_init_guess(init_guess, solver, cluster)
 
         # Create solver object
-        solver_cls = get_solver_class(self.mf, solver)
-        solver_opts = self.get_solver_options(solver)
-        cluster_solver = solver_cls(self.mf, self, cluster, **solver_opts)
+        cluster_solver = self.get_solver(solver)
 
         # --- Chemical potential
         cpt_frag = self.base.opts.global_frag_chempot
@@ -279,25 +272,19 @@ class Fragment(BaseFragment):
                 p_frag = (np.dot(r[0], r[0].T), np.dot(r[1], r[1].T))
                 cluster_solver.v_ext = (cpt_frag * p_frag[0], cpt_frag * p_frag[1])
 
-        # --- Coupled fragments
-        if self.opts.coupled_iterations:
-            if solver != 'CCSD':
-                raise NotImplementedError()
+        # --- Coupled fragments.
+        # TODO rework this functionality to combine with external corrections/tailoring.
+        if solver == 'coupledCCSD':
             if not mpi:
                 raise RuntimeError("coupled_iterations requires MPI.")
             if len(self.base.fragments) != len(mpi):
                 raise RuntimeError("coupled_iterations requires as many MPI processes as there are fragments.")
-            cluster_solver.couple_iterations(self.base.fragments)
+            cluster_solver.set_coupled_fragments(self.base.fragments)
 
-        if eris is None:
-            eris = cluster_solver.get_eris()
         # Normal solver
         if not self.base.opts._debug_wf:
             with log_time(self.log.info, ("Time for %s solver:" % solver) + " %s"):
-                if self.opts.screening:
-                    cluster_solver.kernel(eris=eris, seris_ov=self._seris_ov, **init_guess)
-                else:
-                    cluster_solver.kernel(eris=eris, **init_guess)
+                cluster_solver.kernel()
         # Special debug "solver"
         else:
             if self.base.opts._debug_wf == 'random':
@@ -330,22 +317,17 @@ class Fragment(BaseFragment):
         self._results = results = self.Results(fid=self.id, n_active=cluster.norb_active,
                 converged=cluster_solver.converged, wf=wf, pwf=pwf)
 
+        self.hamil = cluster_solver.hamil
+
         # --- Correlation energy contributions
         if self.opts.calc_e_wf_corr:
             ci = wf.as_cisd(c0=1.0)
             ci = ci.project(proj)
-            es, ed, results.e_corr = self.get_fragment_energy(ci.c1, ci.c2, eris=eris)
+            es, ed, results.e_corr = self.get_fragment_energy(ci.c1, ci.c2, hamil=self.hamil)
             self.log.debug("E(S)= %s  E(D)= %s  E(tot)= %s", energy_string(es), energy_string(ed),
                                                              energy_string(results.e_corr))
         if self.opts.calc_e_dm_corr:
-            results.e_corr_dm2cumulant = self.make_fragment_dm2cumulant_energy(eris=eris)
-
-        # Keep ERIs stored
-        if (self.opts.store_eris or self.base.opts.store_eris):
-            self._eris = eris
-        else:
-            del eris
-
+            results.e_corr_dm2cumulant = self.make_fragment_dm2cumulant_energy(hamil=self.hamil)
         return results
 
     def get_solver_options(self, solver):
@@ -383,7 +365,7 @@ class Fragment(BaseFragment):
 
     # --- Energies
 
-    def get_fragment_energy(self, c1, c2, eris=None, fock=None, c2ba_order='ba', axis1='fragment'):
+    def get_fragment_energy(self, c1, c2, hamil=None, fock=None, c2ba_order='ba', axis1='fragment'):
         """Calculate fragment correlation energy contribution from projected C1, C2.
 
         Parameters
@@ -392,8 +374,8 @@ class Fragment(BaseFragment):
             Fragment projected C1-amplitudes.
         c2 : (n(occ-CO), n(occ-CO), n(vir-CO), n(vir-CO)) array
             Fragment projected C2-amplitudes.
-        eris : array or PySCF _ChemistERIs object
-            Electron repulsion integrals as returned by ccsd.ao2mo().
+        hamil : ClusterHamiltonian object.
+            Object representing cluster hamiltonian, possibly including cached ERIs.
         fock : (n(AO), n(AO)) array, optional
             Fock matrix in AO representation. If None, self.base.get_fock_for_energy()
             is used. Default: None.
@@ -407,8 +389,6 @@ class Fragment(BaseFragment):
         e_corr : float
             Total fragment correlation energy contribution.
         """
-        nocc, nvir = c2.shape[1:3]
-        occ, vir = np.s_[:nocc], np.s_[nocc:]
         if axis1 == 'fragment':
             px = self.get_overlap('proj|cluster-occ')
 
@@ -416,7 +396,7 @@ class Fragment(BaseFragment):
         if c1 is not None:
             if fock is None:
                 fock = self.base.get_fock_for_energy()
-            fov =  dot(self.cluster.c_active_occ.T, fock, self.cluster.c_active_vir)
+            fov = dot(self.cluster.c_active_occ.T, fock, self.cluster.c_active_vir)
             if axis1 == 'fragment':
                 e_singles = 2*einsum('ia,xi,xa->', fov, px, c1)
             else:
@@ -424,17 +404,10 @@ class Fragment(BaseFragment):
         else:
             e_singles = 0
         # --- Doubles energy
-        if eris is None:
-            eris = self._eris
-        if hasattr(eris, 'ovvo'):
-            g_ovvo = eris.ovvo[:]
-        elif hasattr(eris, 'ovov'):
-            # MP2 only has eris.ovov - for real integrals we transpose
-            g_ovvo = eris.ovov[:].reshape(nocc,nvir,nocc,nvir).transpose(0, 1, 3, 2).conj()
-        elif eris.shape == (nocc, nvir, nocc, nvir):
-            g_ovvo = eris.transpose(0,1,3,2)
-        else:
-            g_ovvo = eris[occ,vir,vir,occ]
+        if hamil is None:
+            hamil = self.hamil
+        # This automatically either slices a stored ERI tensor or calculates it on the fly.
+        g_ovvo = hamil.get_eris_bare(block="ovvo")
 
         if axis1 == 'fragment':
             e_doubles = (2*einsum('xi,xjab,iabj', px, c2, g_ovvo)
@@ -539,19 +512,35 @@ class Fragment(BaseFragment):
     #    return e_dm1
 
     @log_method()
-    def make_fragment_dm2cumulant_energy(self, eris=None, t_as_lambda=False, sym_t2=True, approx_cumulant=True):
-        if eris is None:
-            eris = self._eris
-        if eris is None:
-            eris = self.base.get_eris_array(self.cluster.c_active)
-        dm2 = self.make_fragment_dm2cumulant(t_as_lambda=t_as_lambda, sym_t2=sym_t2, approx_cumulant=approx_cumulant,
-                full_shape=False)
-        # CCSD
-        if hasattr(eris, 'ovoo'):
+    def make_fragment_dm2cumulant_energy(self, hamil=None, t_as_lambda=False, sym_t2=True, approx_cumulant=True):
+        if hamil is None:
+            hamil = self.hamil
+
+        # This is a refactor of original functionality with three forks.
+        #   - MP2 solver so dm2 cumulant is just ovov, and we just want to contract this.
+        #   - CCSD solver so want to use approximate cumulant and can use optimal contraction of different ERI blocks
+        #     making use of permutational symmetries.
+        #   - All other solvers where we just use a dense eri contraction and may or may not use the approximate
+        #     cumulant.
+        # With the new hamiltonian object we can always use the optimal contraction for the approximate cumulant,
+        # regardless of solver, and we support `approx_cumulant=False` for CCSD.
+
+        if self.solver == "MP2":
+            # This is just ovov shape in this case. TODO neater way to handle this?
+            dm2 = self.make_fragment_dm2cumulant(t_as_lambda=t_as_lambda, sym_t2=sym_t2,
+                                                 approx_cumulant=approx_cumulant,
+                                                 full_shape=False)
+            return 2 * einsum('ijkl,ijkl->', hamil.get_eris_bare("ovov"), dm2)/2
+        elif approx_cumulant:
+            # Working hypothesis: this branch will effectively always uses `approx_cumulant=True`.
+            eris = hamil.get_dummy_eri_object(force_bare=True, with_vext=False)
             d2 = self._get_projected_gamma2_intermediates(t_as_lambda=t_as_lambda, sym_t2=sym_t2)
             return vayesta.core.ao2mo.helper.contract_dm2intermeds_eris_rhf(d2, eris)/2
-        fac = (2 if self.solver == 'MP2' else 1)
-        e_dm2 = fac*einsum('ijkl,ijkl->', eris, dm2)/2
+        else:
+            dm2 = self.make_fragment_dm2cumulant(t_as_lambda=t_as_lambda, sym_t2=sym_t2,
+                                                 approx_cumulant=approx_cumulant,
+                                                 full_shape=True)
+            e_dm2 = einsum('ijkl,ijkl->', hamil.get_eris_bare(), dm2)/2
         return e_dm2
 
     # --- Other

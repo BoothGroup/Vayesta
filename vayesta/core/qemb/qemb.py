@@ -35,6 +35,8 @@ from vayesta.core.scmf import PDMET, Brueckner
 from vayesta.core.qemb.scrcoulomb import build_screened_eris
 from vayesta.mpi import mpi
 from .register import FragmentRegister
+from vayesta.rpa import ssRIRPA
+from vayesta.solver import check_solver_config
 
 # Symmetry
 from vayesta.core.symmetry import SymmetryGroup
@@ -66,7 +68,7 @@ from .rdm import make_rdm2_demo_rhf
 
 @dataclasses.dataclass
 class Options(OptionsBase):
-    store_eris: bool = True             # If True, ERIs will be stored in Fragment._eris
+    store_eris: bool = True             # If True, ERIs will be stored in Fragment.hamil; otherwise they will be recalculated whenever needed.
     global_frag_chempot: float = None   # Global fragment chemical potential (e.g. for democratically partitioned DMs)
     dm_with_frozen: bool = False        # Add frozen parts to cluster DMs
     # --- Bath options
@@ -108,8 +110,12 @@ class Options(OptionsBase):
             davidson_only=True, init_guess='default',
             # EBFCI/EBCCSD
             max_boson_occ=2,
+            # EBCC
+            ansatz=None,
             # Dump
-            dumpfile='clusters.h5')
+            dumpfile='clusters.h5',
+            # MP2
+            compress_cderi=False)
     # --- Other
     symmetry_tol: float = 1e-6              # Tolerance (in Bohr) for atomic positions
     symmetry_mf_tol: float = 1e-5           # Tolerance for mean-field solution
@@ -197,12 +203,9 @@ class Embedding:
         this will hold the original Gaussian density-fitting object.
     """
 
-
-
     # Shadow these in inherited methods:
     Fragment = Fragment
     Options = Options
-    valid_solvers = ['HF', 'MP2', 'CISD', 'CCSD', 'TCCSD', 'FCI', 'FCI-SPIN0', 'FCI-SPIN1', 'Dump']
 
     # Deprecated:
     is_rhf = True
@@ -246,8 +249,7 @@ class Embedding:
 
             # 5) Other
             # --------
-            if solver not in self.valid_solvers:
-                raise ValueError("Unknown solver: %s" % solver)
+            self.check_solver(solver)
             self.solver = solver
             self.symmetry = SymmetryGroup(self.mol, xtol=self.opts.symmetry_tol)
             nimages = getattr(self.mf, 'subcellmesh', None)
@@ -759,8 +761,13 @@ class Embedding:
     @log_method()
     @with_doc(build_screened_eris)
     def build_screened_eris(self, *args, **kwargs):
-        seris_ov, delta_e = build_screened_eris(self, *args, **kwargs)
-        return seris_ov, delta_e
+        scrfrags = [x.opts.screening for x in self.fragments if x.opts.screening is not None]
+        if len(scrfrags) > 0:
+            # Calculate total dRPA energy in N^4 time; this is cheaper than screening calculations.
+            rpa = ssRIRPA(self.mf, log=self.log)
+            self.e_nonlocal, energy_error = rpa.kernel_energy(correction='linear')
+            if scrfrags.count("mrpa") > 0:
+                build_screened_eris(self, *args, **kwargs)
 
     # Symmetry between fragments
     # --------------------------
@@ -1176,11 +1183,11 @@ class Embedding:
             for x in self.get_fragments(sym_parent=None):
                 source = x.mpi_rank
                 if (mpi.rank == source):
-                    x.cluster.mf = None
+                    x.cluster.orig_mf = None
                 cluster = mpi.world.bcast(x.cluster, root=source)
                 if (mpi.rank != source):
                     x.cluster = cluster
-                x.cluster.mf = self.mf
+                x.cluster.orig_mf = self.mf
 
     @log_method()
     @with_doc(make_rdm1_demo_rhf)
@@ -1633,3 +1640,11 @@ class Embedding:
         """Decorator for Brueckner-DMET."""
         self.with_scmf = Brueckner(self, *args, **kwargs)
         self.kernel = self.with_scmf.kernel
+
+    def check_solver(self, solver):
+        is_uhf = np.ndim(self.mo_coeff[1]) == 2
+        if self.opts.screening:
+            is_eb = "crpa_full" in self.opts.screening
+        else:
+            is_eb = False
+        check_solver_config(is_uhf, is_eb, solver, self.log)

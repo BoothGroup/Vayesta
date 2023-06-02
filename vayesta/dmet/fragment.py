@@ -6,7 +6,7 @@ import numpy as np
 
 from vayesta.core.qemb import Fragment
 from vayesta.core.bath import BNO_Threshold
-from vayesta.solver import get_solver_class
+
 from vayesta.core import ao2mo
 from vayesta.core.util import *
 
@@ -16,17 +16,16 @@ from vayesta.core.util import *
 class DMETFragmentExit(Exception):
     pass
 
-@dataclasses.dataclass
-class Results(Fragment.Results):
-    n_active: int = None
-    e1: float = None
-    e2: float = None
-    dm1: np.ndarray = None
-    dm2: np.ndarray = None
+
 
 class DMETFragment(Fragment):
-
-    Results = Results
+    @dataclasses.dataclass
+    class Results(Fragment.Results):
+        n_active: int = None
+        e1: float = None
+        e2: float = None
+        dm1: np.ndarray = None
+        dm2: np.ndarray = None
 
     def __init__(self, *args, **kwargs):
 
@@ -43,7 +42,7 @@ class DMETFragment(Fragment):
         super().__init__(*args, **kwargs)
         self.solver_results = None
 
-    def kernel(self, solver=None, init_guess=None, eris=None, seris_ov=None, construct_bath=True, chempot=None):
+    def kernel(self, solver=None, init_guess=None, seris_ov=None, construct_bath=True, chempot=None):
         """Run solver for a single BNO threshold.
 
         Parameters
@@ -56,8 +55,6 @@ class DMETFragment(Fragment):
         results : DMETFragmentResults
         """
         solver = solver or self.base.solver
-        if solver not in self.base.valid_solvers:
-            raise ValueError("Unknown solver: %s" % solver)
         if self._dmet_bath is None or construct_bath:
             self.make_bath()
 
@@ -70,10 +67,7 @@ class DMETFragment(Fragment):
         if solver is None:
             return None
 
-        # Create solver object
-        solver_cls = get_solver_class(self.mf, solver)
-        solver_opts = self.get_solver_options(solver)
-        cluster_solver = solver_cls(self.mf, self, cluster, **solver_opts)
+        cluster_solver = self.get_solver(solver)
         # Chemical potential
         if chempot is not None:
             px = self.get_fragment_projector(self.cluster.c_active)
@@ -81,17 +75,16 @@ class DMETFragment(Fragment):
                 cluster_solver.v_ext = (-chempot * px[0], -chempot * px[1])
             else:
                 cluster_solver.v_ext = -chempot * px
-        if eris is None:
-            eris = cluster_solver.get_eris()
-        with log_time(self.log.info, ("Time for %s solver:" % solver) + " %s"):
-            if self.opts.screening:
-                cluster_solver.kernel(eris=eris, seris_ov=self._seris_ov)
-            else:
-                cluster_solver.kernel(eris=eris)
 
+        with log_time(self.log.info, ("Time for %s solver:" % solver) + " %s"):
+            cluster_solver.kernel()
+        self.hamil = cluster_solver.hamil
         self._results = results = self.Results(fid=self.id, wf=cluster_solver.wf, n_active=self.cluster.norb_active,
                 dm1=cluster_solver.wf.make_rdm1(), dm2=cluster_solver.wf.make_rdm2())
-        results.e1, results.e2 = self.get_dmet_energy_contrib(eris=eris)
+
+        self.hamil = cluster_solver.hamil
+
+        results.e1, results.e2 = self.get_dmet_energy_contrib(hamil=self.hamil)
 
         return results
 
@@ -100,7 +93,7 @@ class DMETFragment(Fragment):
         solver_opts.update(self.opts.solver_options)
         return solver_opts
 
-    def get_dmet_energy_contrib(self, eris=None):
+    def get_dmet_energy_contrib(self, hamil=None):
         """Calculate the contribution of this fragment to the overall DMET energy.
 
         TODO: use core.qemb.fragment.get_fragment_dmet_energy instead?
@@ -108,14 +101,9 @@ class DMETFragment(Fragment):
         # Projector to the impurity in the active basis.
         P_imp = self.get_fragment_projector(self.cluster.c_active)
         c_act = self.cluster.c_active
-        if eris is None:
-            eris = self._eris
-        if eris is None:
-            with log_time(self.log.timing, "Time for AO->MO transformation: %s"):
-                eris = self.base.get_eris_array(c_act)
-        if not isinstance(eris, np.ndarray):
-            self.log.debugv("Extracting ERI array from CCSD ERIs object.")
-            eris = ao2mo.helper.get_full_array(eris, c_act)
+        if hamil is None:
+            hamil = self.hamil
+        eris = hamil.get_eris_bare()
 
         nocc = self.cluster.c_active_occ.shape[1]
         occ = np.s_[:nocc]
