@@ -13,7 +13,9 @@ keywords = [
 ]
 author = "M. Nusspickel, O. J. Backhouse, B. Ibrahim, A. Santana-Bonilla, C. J. C. Scott, A. Khedkar, G. H. Booth"
 author_email = "vayesta.embedding@gmail.com"
-license = "Apache License 2.0"
+license = {
+    file = "LICENSE",
+}
 readme = "README.md"
 requires-python = ">=3.7"
 classifiers = [
