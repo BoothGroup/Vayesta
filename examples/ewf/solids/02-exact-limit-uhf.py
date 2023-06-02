@@ -41,7 +41,7 @@ e_exxdiv = -nocc*pyscf.pbc.tools.madelung(cell, kpts=np.zeros((3,))) / 2
 print("E(exx-div)=  %+16.8f Ha" % e_exxdiv)
 
 print("E(HF)=       %+16.8f Ha" % mf.e_tot)
-print("E(CCSD)=     %+16.8f Ha" % (cc.e_tot + e_exxdiv))
+print("E(CCSD)=     %+16.8f Ha" % cc.e_tot )
 print("E(EWF-CCSD)= %+16.8f Ha" % ecc.e_tot)
 
-assert np.allclose(cc.e_tot + e_exxdiv, ecc.e_tot)
+assert np.allclose(cc.e_tot, ecc.e_tot)
