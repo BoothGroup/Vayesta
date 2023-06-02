@@ -1,8 +1,6 @@
 [project]
 name = "Vayesta"
 description = "A toolkit for quantum embedding methods"
-homepage = "https://vayesta.github.io"
-repository = "https//github.com/BoothGroup/Vayesta"
 keywords = [
     "embedding",
     "quantum", "chemistry",
@@ -11,16 +9,13 @@ keywords = [
     "dmet", "rpa"
 ]
 authors = [
-    "Vayesta Developers <vayesta.embedding@gmail.com>",
-]
-maintainers = [
-    "M. Nusspickel",
-    "O. J. Backhouse",
-    "B. Ibrahim",
-    "A. Santana-Bonilla",
-    "C. J. C. Scott",
-    "A. Khedkar",
-    "G. H. Booth",
+    {name="M. Nusspickel", email="vayesta.embedding@gmail.com"},
+    {name="O. J. Backhouse", email="vayesta.embedding@gmail.com"},
+    {name="B. Ibrahim", email="vayesta.embedding@gmail.com"},
+    {name="A. Santana-Bonilla", email="vayesta.embedding@gmail.com"},
+    {name="C. J. C. Scott", email="vayesta.embedding@gmail.com"},
+    {name="A. Khedkar", email="vayesta.embedding@gmail.com"},
+    {name="G. H. Booth", email="vayesta.embedding@gmail.com"},
 ]
 license = {file = "LICENSE"}
 readme = "README.md"
