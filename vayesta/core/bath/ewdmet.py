@@ -1,8 +1,8 @@
 import numpy as np
 from vayesta.core.linalg import recursive_block_svd
-from vayesta.core.util import *
+from vayesta.core.util import dot
 from vayesta.core import spinalg
-from .bath import Bath
+from vayesta.core.bath.bath import Bath
 
 
 class EwDMET_Bath_RHF(Bath):

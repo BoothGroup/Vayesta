@@ -7,8 +7,7 @@ import pyscf.mp
 import pyscf.cc
 import vayesta
 import vayesta.ewf
-import vayesta.misc
-from vayesta.core.util import *
+from vayesta.core.util import timer
 from vayesta.misc import gmtkn55
 from vayesta.tests.common import TestCase
 

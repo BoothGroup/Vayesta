@@ -1,3 +1,3 @@
 """Molecular structures"""
 
-from .molecules import *
+from vayesta.misc.molecules.molecules import *

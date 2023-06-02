@@ -9,7 +9,7 @@ import pyscf.gto
 import pyscf.lo
 import pyscf.pbc
 
-from vayesta.core.util import *
+from vayesta.core.util import dot, einsum
 
 def get_lowdin_orth_x(coeff, ovlp, tol=1e-15):
     """Use as mo_coeff = np.dot(mo_coeff, x) to get orthonormal orbitals."""

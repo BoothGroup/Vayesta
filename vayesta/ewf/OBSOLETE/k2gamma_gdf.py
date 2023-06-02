@@ -11,7 +11,7 @@ from pyscf.pbc.lib import kpts_helper
 from pyscf.pbc.tools import k2gamma as k2gamma
 
 try:
-    from .util import *
+    from vayesta.ewf.OBSOLETE.util import *
 except (SystemError, ImportError):
     import functools
     einsum = functools.partial(np.einsum, optimize=True)
@@ -281,7 +281,6 @@ def load_j3c(cell, gdf, kij, compact=False, include_sign=False):
 if __name__ == "__main__":
 
     from pyscf.pbc import gto, scf
-    from pyscf.pbc import df, tools
 
     logging.basicConfig(filename="k2gamma.log", level=logging.DEBUG)
     log = logging.getLogger("k2gamma.log")

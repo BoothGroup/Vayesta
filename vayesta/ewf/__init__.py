@@ -8,8 +8,8 @@ import pyscf.scf
 import logging 
 
 #from .ewf import EWF as REWF
-from .ewf import REWF
-from .uewf import UEWF
+from vayesta.ewf.ewf import REWF
+from vayesta.ewf.uewf import UEWF
 
 log = logging.getLogger(__name__)
 

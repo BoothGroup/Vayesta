@@ -1,9 +1,7 @@
-import logging
 import numpy as np
 import scipy
 
 import vayesta
-from vayesta.core.util import *
 
 
 class ChempotBisection:

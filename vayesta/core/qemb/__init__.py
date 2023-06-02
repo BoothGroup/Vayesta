@@ -1,6 +1,6 @@
-from .qemb import Embedding
-from .fragment import Fragment
+from vayesta.core.qemb.qemb import Embedding
+from vayesta.core.qemb.fragment import Fragment
 
 # Unrestricted
-from .uqemb import UEmbedding
-from .ufragment import UFragment
+from vayesta.core.qemb.uqemb import UEmbedding
+from vayesta.core.qemb.ufragment import UFragment

@@ -1,9 +1,4 @@
 import unittest
-import numpy as np
-
-import pyscf.gto
-import pyscf.scf
-import pyscf.tools.ring
 
 import vayesta
 from vayesta import edmet

@@ -5,7 +5,6 @@ import sys
 import glob
 import shlex
 import shutil
-import subprocess
 from setuptools import setup, find_packages, Extension, Command
 from setuptools.command.test import test
 from setuptools.command.build_ext import build_ext
@@ -186,9 +185,13 @@ setup(
             "numpy>=1.19.0",
             "scipy>=1.1.0",
             "h5py>=2.7",
-            "cvxpy>=1.1",
             "pyscf @ git+https://github.com/pyscf/pyscf@master",
     ],
+    extras_require={
+            "dmet": ["cvxpy>=1.1"],
+            "mpi": ["mpi4py>=3.0.0"],
+            "ebcc": ["ebcc @ git+https://github.com/BoothGroup/ebcc@master"],
+    },
     ext_modules=[CMakeExtension("vayesta/libs")],
     cmdclass={
             "build_ext": CMakeBuild,

@@ -1,13 +1,5 @@
 import unittest
 import numpy as np
-
-import pyscf.gto
-import pyscf.scf
-import pyscf.pbc.gto
-import pyscf.pbc.scf
-import pyscf.pbc.tools
-import pyscf.mp
-import pyscf.pbc.mp
 from pyscf import lib
 
 from vayesta.core.qemb import Embedding, UEmbedding

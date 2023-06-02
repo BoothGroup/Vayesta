@@ -4,7 +4,6 @@ import pyscf
 import pyscf.pbc
 import pyscf.pbc.scf
 import pyscf.pbc.cc
-import pyscf.pbc.tools
 
 import vayesta
 import vayesta.ewf

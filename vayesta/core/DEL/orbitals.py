@@ -1,6 +1,6 @@
 import numpy as np
 
-from vayesta.core.util import *
+from vayesta.core.util import hstack
 
 def is_rhf(coeff):
     return (coeff[0].ndim == 1)

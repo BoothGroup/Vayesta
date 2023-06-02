@@ -1,5 +1,5 @@
-from .interface import MPI_Interface
-from .rma import RMA_Dict
+from vayesta.mpi.interface import MPI_Interface
+from vayesta.mpi.rma import RMA_Dict
 
 mpi = None
 

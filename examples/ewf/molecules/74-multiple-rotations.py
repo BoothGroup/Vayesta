@@ -4,7 +4,6 @@ import pyscf.gto
 import pyscf.scf
 import vayesta
 import vayesta.ewf
-from vayesta.misc import molecules
 
 
 mol = pyscf.gto.Mole()

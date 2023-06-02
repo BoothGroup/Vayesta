@@ -1,6 +1,4 @@
 import numpy
-
-import pyscf
 from pyscf import lib
 from pyscf.ao2mo import _ao2mo
 from pyscf.mp.mp2 import _mo_without_core

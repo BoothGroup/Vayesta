@@ -1,5 +1,4 @@
 import logging
-from timeit import default_timer as timer
 from datetime import datetime
 import dataclasses
 import copy
@@ -11,30 +10,24 @@ from typing import Optional
 import numpy as np
 
 import pyscf
-import pyscf.gto
 import pyscf.mp
 import pyscf.ci
 import pyscf.cc
-import pyscf.lo
 import pyscf.pbc
-import pyscf.pbc.df
 import pyscf.pbc.tools
 import pyscf.lib
 from pyscf.mp.mp2 import _mo_without_core
-
-import vayesta
-from vayesta.core import vlog
 from vayesta.core.foldscf import FoldedSCF, fold_scf
-from vayesta.core.util import *
+from vayesta.core.util import (OptionsBase, OrthonormalityError, SymmetryError, dot, einsum, energy_string,
+                               getattr_recursive, hstack, log_method, log_time, with_doc)
 from vayesta.core import spinalg
 from vayesta.core.ao2mo import kao2gmo_cderi
 from vayesta.core.ao2mo import postscf_ao2mo
 from vayesta.core.ao2mo import postscf_kao2gmo
-from vayesta import lattmod
 from vayesta.core.scmf import PDMET, Brueckner
 from vayesta.core.qemb.scrcoulomb import build_screened_eris
 from vayesta.mpi import mpi
-from .register import FragmentRegister
+from vayesta.core.qemb.register import FragmentRegister
 from vayesta.rpa import ssRIRPA
 from vayesta.solver import check_solver_config
 
@@ -60,10 +53,10 @@ from vayesta.core.qemb.corrfunc import get_corrfunc_mf
 
 # --- This Package
 
-from .fragment import Fragment
+from vayesta.core.qemb.fragment import Fragment
 #from . import helper
-from .rdm import make_rdm1_demo_rhf
-from .rdm import make_rdm2_demo_rhf
+from vayesta.core.qemb.rdm import make_rdm1_demo_rhf
+from vayesta.core.qemb.rdm import make_rdm2_demo_rhf
 
 
 @dataclasses.dataclass

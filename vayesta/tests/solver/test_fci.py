@@ -1,14 +1,11 @@
 import pytest
 import unittest
-import numpy as np
 
 import pyscf
 import pyscf.fci
 
 import vayesta
 import vayesta.ewf
-
-from vayesta.tests.common import TestCase
 from vayesta.tests import testsystems
 
 

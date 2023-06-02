@@ -1,7 +1,6 @@
 import numpy as np
 import scipy.integrate
 import scipy.optimize
-import scipy.special
 
 
 class NIException(BaseException):

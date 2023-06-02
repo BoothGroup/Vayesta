@@ -1,2 +1,2 @@
-from .pcdiis import PCDIIS
-from .cubefile import CubeFile
+from vayesta.misc.pcdiis import PCDIIS
+from vayesta.misc.cubefile import CubeFile

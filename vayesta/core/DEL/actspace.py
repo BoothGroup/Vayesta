@@ -1,7 +1,7 @@
 import numpy as np
 
-from .orbitals import OrbitalSpace
-from . import helper
+from vayesta.core.DEL.orbitals import OrbitalSpace
+from vayesta.core.DEL import helper
 
 
 def ActiveSpace(mf, *args, **kwargs):
