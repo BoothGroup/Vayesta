@@ -1,9 +1,7 @@
 [project]
 name = "Vayesta"
-dynamic = ["version"]
 description = "A toolkit for quantum embedding methods"
 url = "https://vayesta.github.io"
-download_url = "https://github.com/BoothGroup/Vayesta"
 keywords = [
     "embedding",
     "quantum", "chemistry",
@@ -39,6 +37,7 @@ dependencies = [
     "cvxpy>=1.1",
     "pyscf @ git+https://github.com/pyscf/pyscf@master",
 ]
+dynamic = ["version"]
 
 [build-system]
 requires = ["setuptools>=61.0.0"]
