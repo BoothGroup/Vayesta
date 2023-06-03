@@ -34,7 +34,7 @@ jobs:
         run: |
           python -m pip install wheel --user
           python -m pip install setuptools --upgrade --user
-          python -m pip install .[dev] --user
+          python -m pip install .[dmet,mpi,ebcc] --user
       - name: Run unit tests
         run: |
           python -m pip install pytest pytest-cov --user
