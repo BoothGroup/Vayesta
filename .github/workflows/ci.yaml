@@ -34,6 +34,7 @@ jobs:
         run: |
           python -m pip install wheel --user
           python -m pip install setuptools --upgrade --user
+          python -m pip install https://github.com/BoothGroup/ebcc/archive/master.zip
           python -m pip install .[dmet] --user
       - name: Run unit tests
         run: |
