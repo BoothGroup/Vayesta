@@ -1,3 +1,5 @@
+import sys
+import pytest
 import unittest
 
 from vayesta import edmet
@@ -5,6 +7,7 @@ from vayesta.tests.common import TestCase
 from vayesta.tests import testsystems
 
 
+@pytest.mark.skipif("cvxpy" not in sys.modules, reason="requires cvxpy")
 class EDMET_Hubbard_Tests(TestCase):
     PLACES_ENERGY = 6
 

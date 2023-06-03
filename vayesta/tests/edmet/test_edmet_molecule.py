@@ -1,3 +1,5 @@
+import sys
+import pytest
 import unittest
 
 import vayesta
@@ -6,6 +8,7 @@ from vayesta.tests.common import TestCase
 from vayesta.tests import testsystems
 
 
+@pytest.mark.skipif("cvxpy" not in sys.modules, reason="requires cvxpy")
 class MolecularEDMETTest(TestCase):
     ENERGY_PLACES = 7
     CONV_TOL = 1e-9
