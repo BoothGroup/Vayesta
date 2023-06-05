@@ -16,7 +16,6 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - {python-version: "3.7", os: ubuntu-latest, documentation: False}
           - {python-version: "3.8", os: ubuntu-latest, documentation: True}
           - {python-version: "3.9", os: ubuntu-latest, documentation: False}
           - {python-version: "3.10", os: ubuntu-latest, documentation: False}
@@ -34,6 +33,7 @@ jobs:
         run: |
           python -m pip install wheel --user
           python -m pip install setuptools --upgrade --user
+          python -m pip install https://github.com/BoothGroup/dyson/archive/master.zip
           python -m pip install .[dmet] --user
       - name: Run unit tests
         run: |
