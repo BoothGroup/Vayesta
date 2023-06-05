@@ -32,13 +32,10 @@ ecc.kernel()
 # (conservative external correction)
 # sc_mode = 2: Project only the first occupied index of other's fragment T2-amplitude onto it's fragment space
 # (more substantional external correction)
-scecc = vayesta.ewf.EWF(mf, bno_threshold=1e-4, sc_mode=1)
-scecc.iao_fragmentation()
-f0 = scecc.add_atomic_fragment(0)
-f1 = scecc.add_atomic_fragment(1)
-# Additional we need to define which fragment is considered in the tailoring of each other fragment:
-f0.add_tailor_fragment(f1)
-f1.add_tailor_fragment(f0)
+scecc = vayesta.ewf.EWF(mf, solver='TCCSD', bno_threshold=1e-4, sc_mode=1)
+with scecc.iao_fragmentation() as frag:
+    f0 = frag.add_atomic_fragment(0)
+    f1 = frag.add_atomic_fragment(1)
 # If each fragment should be tailored by all others (like here), you can also call ecc.tailor_all_fragments()
 scecc.kernel()
 
