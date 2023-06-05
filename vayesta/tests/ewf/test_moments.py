@@ -39,8 +39,8 @@ class Test_RFCI(TestCase):
             ip = np.einsum('pP,qQ,nPQ->npq', cx, cx, ip)
             ea = np.einsum('pP,qQ,nPQ->npq', cx, cx, ea)
 
-            self.assertTrue(np.allclose(ip, fci_ip))
-            self.assertTrue(np.allclose(ea, fci_ea))
+            self.assertTrue(np.allclose(ip, fci_ip, atol=1e-14))
+            self.assertTrue(np.allclose(ea, fci_ea, atol=1e-14))
 
 
 class Test_RCCSD(TestCase):
@@ -79,3 +79,4 @@ class Test_RCCSD(TestCase):
 if __name__ == '__main__':
     print("Running %s" % __file__)
     unittest.main()
+
