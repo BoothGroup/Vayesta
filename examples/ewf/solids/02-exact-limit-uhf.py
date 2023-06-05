@@ -21,7 +21,7 @@ cell.build()
 cell = pyscf.pbc.tools.super_cell(cell, [2,2,2])
 
 # Hartree-Fock
-mf = pyscf.pbc.scf.UHF(cell)
+mf = pyscf.pbc.scf.UHF(cell).density_fit()
 mf.kernel()
 
 # Reference full system CCSD:
