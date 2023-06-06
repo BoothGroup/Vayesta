@@ -24,7 +24,7 @@ def gen_comparison(hubbard_u, nimp=2):
         mf = gen_hub(nsite, hubbard_u)
 
         dmet = vayesta.dmet.DMET(mf, solver='FCI', charge_consistent=True, maxiter=1,
-                                 bath_type=None)
+                                 bath_options=dict(bathtype='dmet'))
         with dmet.site_fragmentation() as f:
             frag = f.add_atomic_fragment(list(range(nimp)))
         # Add fragments which are translationally symmetric to f - the results of the fragment f
@@ -33,7 +33,7 @@ def gen_comparison(hubbard_u, nimp=2):
         symfrags = frag.make_tsymmetric_fragments(tvecs=[nsite // nimp, 1, 1])
         res_dmet += [sum(dmet.fragments[0].get_dmet_energy_contrib())/nimp]
 
-        edmet = vayesta.edmet.EDMET(mf, solver="EBFCI", charge_consistent = True,maxiter=1, bath_type=None)
+        edmet = vayesta.edmet.EDMET(mf, solver="FCI", charge_consistent = True,maxiter=1, bath_options=dict(bathtype='dmet'))
         with edmet.site_fragmentation() as f:
             frag = f.add_atomic_fragment(list(range(nimp)))
         # Add fragments which are translationally symmetric to f - the results of the fragment f
