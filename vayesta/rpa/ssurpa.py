@@ -3,7 +3,7 @@ import numpy as np
 import scipy.linalg
 
 from timeit import default_timer as timer
-from vayesta.core.util import dot, time_string
+from vayesta.core.util import dot, time_string, einsum
 
 
 class ssURPA(ssRPA):
