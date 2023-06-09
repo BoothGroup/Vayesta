@@ -21,7 +21,7 @@ from pyscf.mp.mp2 import _mo_without_core
 from vayesta.core.foldscf import FoldedSCF, fold_scf
 from vayesta.core.util import (OptionsBase, OrthonormalityError, SymmetryError, dot, einsum, energy_string,
                                getattr_recursive, hstack, log_method, log_time, with_doc)
-from vayesta.core import spinalg
+from vayesta.core import spinalg, eris
 from vayesta.core.scmf import PDMET, Brueckner
 from vayesta.core.screening.screening_moment import build_screened_eris
 from vayesta.mpi import mpi
