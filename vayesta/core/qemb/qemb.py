@@ -1328,7 +1328,12 @@ class Embedding:
         for atom in sorted(set(atoms1).union(atoms2)):
             name, indices = frag.get_atomic_fragment_indices(atom, orbital_filter=orbital_filter)
             c_atom = frag.get_frag_coeff(indices)
-            if c_atom.shape[1] == 0 and orbital_filter is not None:
+            if isinstance(c_atom, tuple):
+                no_orbs = c_atom[0].shape[1] == 0 and c_atom[1].shape[1] == 0
+            else:
+                no_orbs = c_atom.shape[1] == 0
+
+            if no_orbs and orbital_filter is not None:
                 self.log.error("No orbitals found for atom %d when filtered!" % atom)
                 raise ValueError("No orbitals found for atom %d when filtered" % atom)
             r = spinalg.dot(cs, c_atom)
