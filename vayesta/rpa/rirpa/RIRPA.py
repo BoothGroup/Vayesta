@@ -60,7 +60,6 @@ class ssRIRPA:
         self.lov = lov
         # Determine how many times to attempt compression of low-rank expressions for various matrices.
         self.compress = compress
-        self.kdf = None
 
     @property
     def mol(self):
@@ -69,6 +68,15 @@ class ssRIRPA:
     @property
     def df(self):
         return self.mf.with_df
+
+    @property
+    def kdf(self):
+        if hasattr(self.mf, "kmf"):
+            return self.mf.kmf.with_df
+        if hasattr(self.mf, "kpts"):
+            if self.mf.kpts is not None:
+                return self.mf.with_df
+        return None
 
     @property
     def nocc(self):
