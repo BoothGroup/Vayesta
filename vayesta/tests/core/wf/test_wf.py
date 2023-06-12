@@ -80,7 +80,7 @@ class Test_DM(TestCase):
     @cache
     def frag(cls):
         emb = vayesta.ewf.EWF(cls.mf, bath_options=dict(bathtype='full'), solver=cls.solver,
-                              solver_options=cls.solver_opts.update(dict(solve_lambda=True)))
+                              solver_options=dict(**cls.solver_opts, solve_lambda=True))
         with emb.iao_fragmentation() as f:
             frag = f.add_atomic_fragment(list(range(emb.mol.natm)))
         emb.kernel()
