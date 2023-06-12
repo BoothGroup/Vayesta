@@ -29,7 +29,7 @@ cc = pyscf.pbc.cc.UCCSD(mf)
 cc.kernel()
 
 # Test exact limit using bath_type='full'
-ecc = vayesta.ewf.EWF(mf, bath_type='full')
+ecc = vayesta.ewf.EWF(mf, bath_options=dict(bathtype='full'))
 with ecc.iao_fragmentation() as f:
     f.add_all_atomic_fragments()
 ecc.kernel()

@@ -33,7 +33,7 @@ kcc = pyscf.pbc.cc.KCCSD(kmf)
 kcc.kernel()
 
 # Embedded calculation will automatically fold the k-point sampled mean-field to the supercell
-emb = vayesta.ewf.EWF(kmf, bno_threshold=1e-6)
+emb = vayesta.ewf.EWF(kmf, bath_options=dict(threshold=1e-6))
 with emb.iao_fragmentation() as f:
     f.add_atomic_fragment(0, sym_factor=2) # 2 C-atoms per unit cell
 emb.kernel()
@@ -44,7 +44,7 @@ mf_sc = pyscf.pbc.scf.RHF(scell)
 mf_sc = mf_sc.density_fit(auxbasis='def2-svp-ri')
 mf_sc.kernel()
 
-emb_sc = vayesta.ewf.EWF(mf_sc, bno_threshold=1e-6)
+emb_sc = vayesta.ewf.EWF(mf_sc, bath_options=dict(threshold=1e-6))
 with emb_sc.iao_fragmentation() as f:
     ncells = np.product(kmesh)
     f.add_atomic_fragment(0, sym_factor=2*ncells)

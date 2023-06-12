@@ -26,7 +26,7 @@ kmf = kmf.density_fit(auxbasis='def2-svp-ri')
 kmf.kernel()
 
 # Embedded calculation will automatically fold the k-point sampled mean-field to the supercell
-emb = vayesta.ewf.EWF(kmf, bno_threshold=-1)
+emb = vayesta.ewf.EWF(kmf, bath_options=dict(threshold=-1))
 emb.kernel()
 
 dm1_demo = emb.make_rdm1_demo(ao_basis=True)

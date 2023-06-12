@@ -27,7 +27,7 @@ cc = pyscf.pbc.cc.CCSD(mf)
 cc.kernel()
 
 # Test exact limit using bno_threshold = -1
-ecc = vayesta.ewf.EWF(mf, bno_threshold=-1)
+ecc = vayesta.ewf.EWF(mf, bath_options=dict(threshold=-1))
 with ecc.iao_fragmentation() as f:
     f.add_all_atomic_fragments()
 ecc.kernel()
