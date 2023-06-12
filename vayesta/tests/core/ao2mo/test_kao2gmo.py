@@ -6,7 +6,6 @@ import numpy as np
 
 import pyscf
 import pyscf.pbc
-import pyscf.pbc.gto
 import pyscf.pbc.df
 import pyscf.pbc.tools
 

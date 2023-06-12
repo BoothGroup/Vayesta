@@ -1,6 +1,6 @@
 import numpy as np
 
-from .fragmentation import Fragmentation
+from vayesta.core.fragmentation.fragmentation import Fragmentation
 
 # TODO: Allow different indices for alpha and beta
 

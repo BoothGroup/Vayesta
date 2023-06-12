@@ -3,7 +3,7 @@ import numpy as np
 import pyscf
 import pyscf.lib
 import pyscf.ao2mo
-from vayesta.core.util import *
+from vayesta.core.util import Object, dot, einsum, energy_string, getif
 
 
 log = logging.getLogger(__name__)
@@ -590,8 +590,6 @@ if __name__ == '__main__':
         import pyscf.gto
         import pyscf.scf
         import pyscf.cc
-
-        import vayesta
         from vayesta.misc.molecules import water
 
         mol = pyscf.gto.Mole()
@@ -614,7 +612,6 @@ if __name__ == '__main__':
         assert np.allclose(eris2, eris_test)
 
     def test2():
-        import pyscf
         import pyscf.pbc
         import pyscf.pbc.gto
         from vayesta.misc import solids

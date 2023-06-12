@@ -9,7 +9,7 @@ import pyscf.scf
 import pyscf.lib
 from pyscf.lib.parameters import BOHR
 
-from vayesta.core.util import *
+from vayesta.core.util import einsum
 
 log = logging.getLogger(__name__)
 

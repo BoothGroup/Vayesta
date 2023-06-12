@@ -11,7 +11,7 @@ import numpy as np
 import scipy.linalg
 
 from pyscf import ao2mo
-from vayesta.core.util import *
+from vayesta.core.util import time_string
 
 
 class RPA:

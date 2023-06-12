@@ -20,6 +20,9 @@ The simplest way to install Vayesta is to use the ``setup.py``:
 
 All required python packages, such as NumPy_ and PySCF_ will be installed automatically.
 
+Optional dependencies are required to perform DMET calculations, to leverage MPI parallelism, or to use [``ebcc``](https://github.com/BoothGroup/ebcc) solvers.
+These can be specified by adding the modifiers ``[dmet]``, ``[mpi]``, and ``[ebcc]``, respectively.
+
 
 Installation from Source
 ========================

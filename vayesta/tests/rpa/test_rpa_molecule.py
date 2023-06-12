@@ -1,5 +1,4 @@
 import unittest
-import numpy as np
 
 from vayesta import rpa
 from vayesta.tests.common import TestCase

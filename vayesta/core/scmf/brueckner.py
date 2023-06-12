@@ -2,7 +2,7 @@ import numpy as np
 import scipy
 import scipy.linalg
 #from vayesta.misc import PCDIIS
-from vayesta.core.util import *
+from vayesta.core.util import dot, fix_orbital_sign
 from vayesta.core.scmf.scmf import SCMF
 
 

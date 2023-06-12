@@ -4,10 +4,10 @@ import functools
 from timeit import default_timer
 import numpy as np
 import vayesta
-from vayesta.core.util import *
-from .rma import RMA_Dict
-from .scf import scf_with_mpi
-from .scf import gdf_with_mpi
+from vayesta.core.util import log_time, memory_string
+from vayesta.mpi.rma import RMA_Dict
+from vayesta.mpi.scf import scf_with_mpi
+from vayesta.mpi.scf import gdf_with_mpi
 
 
 NdArrayMetadata = namedtuple('NdArrayMetadata', ['shape', 'dtype'])
@@ -162,7 +162,7 @@ class MPI_Interface:
                 return func
             @functools.wraps(func)
             def wrapper(*args, **kwargs):
-                if not mpi.is_master:
+                if not self.is_master:
                     return None
                 return func(*args, **kwargs)
             return wrapper

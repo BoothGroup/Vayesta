@@ -1,25 +1,17 @@
 import logging
-from timeit import default_timer as timer
 import copy
 import tempfile
 
 import numpy as np
 import scipy
 import scipy.linalg
-import scipy.sparse
-import scipy.sparse.csgraph
 
 import pyscf
 from pyscf import lib
 from pyscf.pbc import tools
-from pyscf.pbc import scf
 import pyscf.pbc.df
 
-try:
-    from .util import *
-# If run as script:
-except ImportError:
-    from util import *
+from vayesta.core.util import ImaginaryPartError, OrthonormalityError, dot, einsum
 
 log = logging.getLogger(__name__)
 

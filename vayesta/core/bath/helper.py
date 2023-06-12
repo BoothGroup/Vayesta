@@ -1,6 +1,6 @@
 import numpy as np
 
-from vayesta.core.util import *
+from vayesta.core.util import einsum
 
 def make_histogram(values, bins, labels=None, binwidth=5, height=6, fill=':', show_number=False, invertx=True,
         rstrip=True):

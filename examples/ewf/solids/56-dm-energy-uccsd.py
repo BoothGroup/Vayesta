@@ -7,7 +7,6 @@ import pyscf.pbc.cc
 
 import vayesta
 import vayesta.ewf
-from vayesta.misc import solids
 
 
 cell = pyscf.pbc.gto.Cell()

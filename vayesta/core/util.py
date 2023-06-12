@@ -17,9 +17,6 @@ except (ModuleNotFoundError, ImportError):
     psutil = None
 
 import numpy as np
-import scipy
-import scipy.linalg
-import scipy.optimize
 
 
 modlog = logging.getLogger(__name__)

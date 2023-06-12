@@ -1,6 +1,6 @@
 import numpy as np
 
-from . import wf
+from vayesta.core.types import wf
 from vayesta.core.util import *
 
 class EBWavefunction(wf.Wavefunction):

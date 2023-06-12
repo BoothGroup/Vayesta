@@ -1,7 +1,7 @@
-from .pdmet import PDMET_RHF
-from .pdmet import PDMET_UHF
-from .brueckner import Brueckner_RHF
-from .brueckner import Brueckner_UHF
+from vayesta.core.scmf.pdmet import PDMET_RHF
+from vayesta.core.scmf.pdmet import PDMET_UHF
+from vayesta.core.scmf.brueckner import Brueckner_RHF
+from vayesta.core.scmf.brueckner import Brueckner_UHF
 
 
 def PDMET(emb, *args, **kwargs):

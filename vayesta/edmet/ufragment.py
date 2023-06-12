@@ -1,9 +1,9 @@
 import numpy as np
 import pyscf.lib
 
-from vayesta.core.util import *
+from vayesta.core.util import dot, einsum
 from vayesta.dmet.ufragment import UDMETFragment
-from .fragment import EDMETFragment
+from vayesta.edmet.fragment import EDMETFragment
 
 
 class UEDMETFragment(UDMETFragment, EDMETFragment):
