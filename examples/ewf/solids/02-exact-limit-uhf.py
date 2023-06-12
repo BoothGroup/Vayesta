@@ -21,7 +21,7 @@ cell.build()
 cell = pyscf.pbc.tools.super_cell(cell, [2,2,2])
 
 # Hartree-Fock
-mf = pyscf.pbc.scf.UHF(cell)
+mf = pyscf.pbc.scf.UHF(cell).density_fit()
 mf.kernel()
 
 # Reference full system CCSD:
@@ -30,8 +30,8 @@ cc.kernel()
 
 # Test exact limit using bath_type='full'
 ecc = vayesta.ewf.EWF(mf, bath_type='full')
-ecc.iao_fragmentation()
-ecc.add_all_atomic_fragments()
+with ecc.iao_fragmentation() as f:
+    f.add_all_atomic_fragments()
 ecc.kernel()
 
 nocca = np.count_nonzero(mf.mo_occ[0]>0)
@@ -41,7 +41,7 @@ e_exxdiv = -nocc*pyscf.pbc.tools.madelung(cell, kpts=np.zeros((3,))) / 2
 print("E(exx-div)=  %+16.8f Ha" % e_exxdiv)
 
 print("E(HF)=       %+16.8f Ha" % mf.e_tot)
-print("E(CCSD)=     %+16.8f Ha" % (cc.e_tot + e_exxdiv))
+print("E(CCSD)=     %+16.8f Ha" % cc.e_tot )
 print("E(EWF-CCSD)= %+16.8f Ha" % ecc.e_tot)
 
-assert np.allclose(cc.e_tot + e_exxdiv, ecc.e_tot)
+assert np.allclose(cc.e_tot, ecc.e_tot)

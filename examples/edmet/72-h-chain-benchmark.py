@@ -42,12 +42,12 @@ for d in np.arange(1.0, 3.7, 0.2):
     #dmet_diis.add_all_atomic_fragments()
     #dmet_diis.kernel()
     # Single-shot EDMET
-    edmet_oneshot = vayesta.edmet.EDMET(mf, solver='EBFCI', max_elec_err=1e-6, maxiter=1, bos_occ_cutoff=4)
+    edmet_oneshot = vayesta.edmet.EDMET(mf, solver='FCI', max_elec_err=1e-6, maxiter=1, solver_options=dict(max_boson_occ=4))
     with edmet_oneshot.iao_fragmentation() as f:
         f.add_all_atomic_fragments()
     edmet_oneshot.kernel()
     # Full DMET
-    edmet_diis = vayesta.edmet.EDMET(mf, solver='EBFCI', charge_consistent=True, max_elec_err=1e-6, maxiter=40, bos_occ_cutoff=4)
+    edmet_diis = vayesta.edmet.EDMET(mf, solver='FCI', charge_consistent=True, max_elec_err=1e-6, maxiter=40, solver_options=dict(max_boson_occ=4))
     with edmet_diis.iao_fragmentation() as f:
         f.add_all_atomic_fragments()
     edmet_diis.kernel()

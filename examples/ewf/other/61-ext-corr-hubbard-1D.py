@@ -38,7 +38,7 @@ with emb.site_fragmentation() as f:
     # Add single 'complete' CCSD fragment covering all sites
     ccsd_frag = f.add_full_system(solver='CCSD', bath_options=dict(bathtype='full'), solver_options=dict(solve_lambda=False, init_guess='CISD'))
 # Add symmetry-derived FCI fragments to avoid multiple calculations
-fci_frags.extend(fci_frags[0].add_tsymmetric_fragments(tvecs=[5, 1, 1])
+fci_frags.extend(fci_frags[0].add_tsymmetric_fragments(tvecs=[5, 1, 1]))
 
 e_extcorr = []
 extcorr_conv = []

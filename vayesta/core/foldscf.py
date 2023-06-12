@@ -48,7 +48,7 @@ class FoldedSCF:
 
     # Propagate the following attributes to the k-point mean-field:
     _from_kmf = ['converged', 'exxdiv', 'verbose', 'max_memory', 'conv_tol', 'conv_tol_grad',
-            'stdout']
+            'stdout', '_eri']
 
     def __init__(self, kmf, kpt=np.zeros(3), **kwargs):
         # Create a copy, so that the original mean-field object does not get modified

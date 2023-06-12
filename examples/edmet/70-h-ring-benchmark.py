@@ -51,21 +51,21 @@ for d in np.arange(0.5, 3.0001, 0.25):
             f.add_atomic_fragment([i, i + 1])
     dmet_diis.kernel()
     # Single-shot EDMET
-    edmet_oneshot = vayesta.edmet.EDMET(mf, solver='EBFCI', max_elec_err=1e-4, maxiter=1, max_boson_occ=2)
+    edmet_oneshot = vayesta.edmet.EDMET(mf, solver='FCI', max_elec_err=1e-4, maxiter=1, solver_options=dict(max_boson_occ=2))
     with edmet_oneshot.iao_fragmentation() as f:
         for i in range(0, natom, 2):
             f.add_atomic_fragment([i, i + 1])
     edmet_oneshot.kernel()
     # Full DMET
-    edmet_orig = vayesta.edmet.EDMET(mf, solver='EBFCI', charge_consistent=True, max_elec_err=1e-4, maxiter=40,
-                                     max_boson_occ=2, old_sc_condition=True)
+    edmet_orig = vayesta.edmet.EDMET(mf, solver='FCI', charge_consistent=True, max_elec_err=1e-4, maxiter=40,
+                                     solver_options=dict(max_boson_occ=2), old_sc_condition=True)
     with edmet_orig.iao_fragmentation() as f:
         for i in range(0, natom, 2):
             f.add_atomic_fragment([i, i + 1])
     edmet_orig.kernel()
 
-    edmet_new = vayesta.edmet.EDMET(mf, solver='EBFCI', charge_consistent=True, max_elec_err=1e-4, maxiter=40,
-                                    max_boson_occ=2)
+    edmet_new = vayesta.edmet.EDMET(mf, solver='FCI', charge_consistent=True, max_elec_err=1e-4, maxiter=40,
+                                    solver_options=dict(max_boson_occ=2))
     with edmet_new.iao_fragmentation() as f:
         for i in range(0, natom, 2):
             f.add_atomic_fragment([i, i + 1])
