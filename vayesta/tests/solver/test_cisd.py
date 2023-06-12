@@ -18,7 +18,7 @@ class TestSolvers(TestCase):
         mf = getattr(getattr(testsystems, key[0]), key[1])()
 
         solver_opts = dict(conv_tol=1e-10)
-        emb = vayesta.ewf.EWF(mf, solver='CISD', bath_type='full', solver_options=solver_opts)
+        emb = vayesta.ewf.EWF(mf, solver='CISD', bath_options=dict(bathtype='full'), solver_options=solver_opts)
         emb.kernel()
 
         ci = pyscf.ci.CISD(mf)
