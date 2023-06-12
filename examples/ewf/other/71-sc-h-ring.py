@@ -35,13 +35,13 @@ for d in np.arange(0.5, 3.0001, 0.25):
     cc.kernel()
 
     # One-shot EWF-CCSD
-    ecc = vayesta.ewf.EWF(mf, bno_threshold=1e-4)
+    ecc = vayesta.ewf.EWF(mf, bath_options=dict(threshold=1e-4))
     with ecc.iao_fragmentation() as f:
         f.add_all_atomic_fragments()
     ecc.kernel()
 
     # Self-consistent EWF-CCSD
-    scecc = vayesta.ewf.EWF(mf, solver='TCCSD', bno_threshold=1e-4, sc_mode=1)
+    scecc = vayesta.ewf.EWF(mf, solver='TCCSD', bath_options=dict(threshold=1e-6), sc_mode=1)
     with scecc.iao_fragmentation() as f:
         f.add_all_atomic_fragments()
     scecc.kernel()

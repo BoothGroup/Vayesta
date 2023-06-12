@@ -24,7 +24,7 @@ cc = pyscf.cc.CCSD(mf)
 cc.kernel()
 
 # Reference one-shot EWF-CCSD
-ecc = vayesta.ewf.EWF(mf, bno_threshold=1e-4)
+ecc = vayesta.ewf.EWF(mf, bath_options=dict(threshold=1e-4))
 ecc.kernel()
 
 # Enable self-consistency (SC) mode by setting sc_mode:
@@ -32,7 +32,7 @@ ecc.kernel()
 # (conservative external correction)
 # sc_mode = 2: Project only the first occupied index of other's fragment T2-amplitude onto it's fragment space
 # (more substantional external correction)
-scecc = vayesta.ewf.EWF(mf, solver='TCCSD', bno_threshold=1e-4, sc_mode=1)
+scecc = vayesta.ewf.EWF(mf, solver='TCCSD', bath_options=dict(threshold=1e-4), sc_mode=1)
 with scecc.iao_fragmentation() as frag:
     f0 = frag.add_atomic_fragment(0)
     f1 = frag.add_atomic_fragment(1)
