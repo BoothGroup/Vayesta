@@ -40,7 +40,19 @@ class IAO_Fragmentation(Fragmentation):
         else:
             self.log.debug("IAO:  computational basis= %s  minimal reference basis= %s", self.mol.basis, minao)
         self.minao = minao
-        self.refmol = pyscf.lo.iao.reference_mol(self.mol, minao=self.minao)
+        try:
+            self.refmol = pyscf.lo.iao.reference_mol(self.mol, minao=self.minao)
+        except IndexError as e:
+            if hasattr(self.mol, "space_group_symmetry"):
+                if self.mol.space_group_symmetry:
+                    self.log.error("Could not find IAOs when using space group symmetry.")
+                    self.log.error("This is a known issue with some PySCF versions.")
+                    self.log.error(
+                        "Please set `emb.mf.mol.space_group_symmetry=False` when initialising the fragmentation (it can be turned back on afterwards).")
+                    raise ValueError(
+                        "Could not find IAOs when using space group symmetry. Please set `emb.mf.mol.space_group_symmetry=False`.")
+            raise e
+
 
     @property
     def n_iao(self):
