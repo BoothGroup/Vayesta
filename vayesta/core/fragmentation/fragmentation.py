@@ -211,7 +211,7 @@ class Fragmentation:
         self.sym_register.append([])
         yield
         fragments = self.sym_register.pop()
-        fragments_sym = self.emb.create_invsym_fragments(center, fragments=fragments, unit=unit, symbol='I')
+        fragments_sym = self.emb.create_invsym_fragments(tuple(center), fragments=fragments, unit=unit, symbol='I')
         self.log.info("Adding %d inversion-symmetric fragments", len(fragments_sym))
         self.fragments.extend(fragments_sym)
         # For additional (nested) symmetries:
@@ -225,7 +225,8 @@ class Fragmentation:
         self.sym_register.append([])
         yield
         fragments = self.sym_register.pop()
-        fragments_sym = self.emb.create_mirrorsym_fragments(axis, center=center, fragments=fragments, unit=unit,
+        axis = axis if type(axis) is str else tuple(axis)
+        fragments_sym = self.emb.create_mirrorsym_fragments(axis, center=tuple(center), fragments=fragments, unit=unit,
                                                             symbol='M')
         self.log.info("Adding %d mirror-symmetric fragments", len(fragments_sym))
         self.fragments.extend(fragments_sym)
