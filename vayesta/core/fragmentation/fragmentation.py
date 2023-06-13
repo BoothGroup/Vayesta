@@ -195,7 +195,8 @@ class Fragmentation:
         self.sym_register.append([])
         yield
         fragments = self.sym_register.pop()
-        fragments_sym = self.emb.create_rotsym_fragments(order, tuple(axis), tuple(center), fragments=fragments, unit=unit,
+        axis = axis if type(axis) is str else tuple(axis)
+        fragments_sym = self.emb.create_rotsym_fragments(order, axis, tuple(center), fragments=fragments, unit=unit,
                                                          symbol='R%d' % len(self.sym_register))
         self.log.info("Adding %d rotationally-symmetric fragments", len(fragments_sym))
         self.fragments.extend(fragments_sym)
