@@ -7,6 +7,60 @@ from vayesta.core.util import cache, einsum
 from vayesta.tests.common import TestCase
 from vayesta.tests import testsystems
 
+
+
+
+class Test_UFCI_wf_w_dummy(TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.mf = testsystems.heli_631g.uhf()
+        cls.ufci = testsystems.heli_631g.ufci()
+
+    @classmethod
+    def tearDownClass(cls):
+        del cls.mf
+        del cls.ufci
+
+    def get_ufci_ref(self):
+        return self.ufci.e_tot
+
+    def test_ufci_w_dummy_atomic_fragmentation(self):
+        emb = vayesta.ewf.EWF(self.mf)
+
+        with emb.iao_fragmentation() as f:
+            fci_frags = f.add_all_atomic_fragments(solver='FCI',
+         bath_options=dict(bathtype='full'), store_wf_type='CCSDTQ', auxiliary=True)
+            ccsd_frag = f.add_full_system(solver='CCSD', bath_options=dict(bathtype='full'))
+        ccsd_frag.add_external_corrections(fci_frags, correction_type='external', projectors=1, low_level_coul=True)
+        emb.kernel()
+
+        self.assertAlmostEqual(emb.e_tot, self.get_ufci_ref())
+
+    def test_ufci_w_dummy_full_system_fragment(self):
+        emb = vayesta.ewf.EWF(self.mf)
+        fci_frags=[]
+        with emb.iao_fragmentation() as f:
+            fci_frags.append(f.add_full_system(solver='FCI',
+         bath_options=dict(bathtype='full'), store_wf_type='CCSDTQ', auxiliary=True))
+            ccsd_frag = f.add_full_system(solver='CCSD', bath_options=dict(bathtype='full'))
+        ccsd_frag.add_external_corrections(fci_frags, correction_type='external', projectors=1, low_level_coul=True)
+        emb.kernel()
+
+        self.assertAlmostEqual(emb.e_tot, self.get_ufci_ref())
+
+    def test_ufci_w_dummy_regression_full_system_fragment(self):
+        emb = vayesta.ewf.EWF(self.mf)
+        fci_frags=[]
+        with emb.iao_fragmentation() as f:
+            fci_frags.append(f.add_full_system(solver='FCI',
+                bath_options=dict(bathtype='dmet'), store_wf_type='CCSDTQ', auxiliary=True,
+                                               solver_options={"init_guess":"mf"}))
+            ccsd_frag = f.add_full_system(solver='CCSD', bath_options=dict(bathtype='full'))
+        ccsd_frag.add_external_corrections(fci_frags, correction_type='external', projectors=1, low_level_coul=True)
+        emb.kernel()
+
+        self.assertAlmostEqual(emb.e_tot, -10.290621999634174)
+
 class Test_DM(TestCase):
 
     solver = 'CCSD'

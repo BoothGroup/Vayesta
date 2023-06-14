@@ -79,7 +79,7 @@ def build_screened_eris(emb, fragments=None, cderi_ov=None, calc_e=True, npoints
 
     # Then construct the RPA coupling matrix A-B, given by the diagonal matrix of energy differences.
     no = np.array(sum(emb.mf.mo_occ.T > 0))
-    norb = emb.mo_coeff.shape[1]
+    norb = np.array(emb.mo_coeff).shape[1]
     nv = norb - no
 
     def get_eps_singlespin(no_, nv_, mo_energy):

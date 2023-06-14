@@ -256,6 +256,7 @@ class RClusterHamiltonian:
             orbs_to_freeze = None
             dummy_energy = 0.0
         else:
+            self.log.info("Using %d dummy orbital(s) to pad local Hamiltonian.", nmo - nsm)
             # Note that this branch is actually UHF-exclusive.
             padchannel = self.ncas.index(nsm)
             orbs_to_freeze = [[], []]
@@ -404,7 +405,7 @@ class RClusterHamiltonian:
         na, nb = self.ncas
         if na != nb:
             raise NotImplementedError("Active spaces with different number of alpha and beta orbitals are not yet "
-                                      "supported with this configuration. %s", message)
+                                      "supported with this configuration. %s" % message)
 
     def with_new_cluster(self, cluster):
         return self.__class__(self._fragment, self.orig_mf, self.log, cluster, **self.opts.asdict())

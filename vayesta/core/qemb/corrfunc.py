@@ -42,7 +42,8 @@ def get_corrfunc_mf(emb, kind, dm1=None, atoms=None, projection='sao'):
     return corr
 
 
-def get_corrfunc(emb, kind, dm1=None, dm2=None, atoms=None, projection='sao', dm2_with_dm1=None, use_symmetry=True):
+def get_corrfunc(emb, kind, dm1=None, dm2=None, atoms=None, projection='sao', dm2_with_dm1=None, use_symmetry=True,
+                 orbital_filter=None):
     """Get expectation values <P(A) S_z P(B) S_z>, where P(X) are projectors onto atoms X.
 
     TODO: MPI
@@ -80,7 +81,7 @@ def get_corrfunc(emb, kind, dm1=None, dm2=None, atoms=None, projection='sao', dm
             norm = einsum('iikk->', dm2)
             ne2 = emb.mol.nelectron*(emb.mol.nelectron-1)
             dm2_with_dm1 = (norm > ne2/2)
-    atoms1, atoms2, proj = emb._get_atom_projectors(atoms, projection)
+    atoms1, atoms2, proj = emb._get_atom_projectors(atoms, projection, orbital_filter=orbital_filter)
     corr = np.zeros((len(atoms1), len(atoms2)))
 
     # 1-DM contribution:
@@ -164,7 +165,7 @@ def get_corrfunc(emb, kind, dm1=None, dm2=None, atoms=None, projection='sao', dm
     return corr
 
 def get_corrfunc_unrestricted(emb, kind, dm1=None, dm2=None, atoms=None, projection='sao', dm2_with_dm1=None,
-                              use_symmetry=True):
+                              use_symmetry=True, orbital_filter=None):
     """Get expectation values <P(A) S_z P(B) S_z>, where P(X) are projectors onto atoms X.
 
     TODO: MPI
@@ -203,7 +204,7 @@ def get_corrfunc_unrestricted(emb, kind, dm1=None, dm2=None, atoms=None, project
             norm = einsum('iikk->', dm2[0]) + 2*einsum('iikk->', dm2[1]) + einsum('iikk->', dm2[2])
             ne2 = emb.mol.nelectron*(emb.mol.nelectron-1)
             dm2_with_dm1 = (norm > ne2/2)
-    atoms1, atoms2, proj = emb._get_atom_projectors(atoms, projection)
+    atoms1, atoms2, proj = emb._get_atom_projectors(atoms, projection, orbital_filter=orbital_filter)
     corr = np.zeros((len(atoms1), len(atoms2)))
 
     # 1-DM contribution:
