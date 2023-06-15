@@ -7,7 +7,7 @@ from vayesta.core.util import dot, einsum, time_string, timer
 from vayesta.rpa.rirpa import momzero_NI, energy_NI
 from vayesta.core.eris import get_cderi
 
-class ssRIRPA:
+class ssRIRRPA:
     """Approach based on equations expressed succinctly in the appendix of
     Furche, F. (2001). PRB, 64(19), 195120. https://doi.org/10.1103/PhysRevB.64.195120
     WARNING: Should only be used with canonical mean-field orbital coefficients in mf.mo_coeff and RHF.
@@ -284,12 +284,10 @@ class ssRIRPA:
             # Evaluate (MP)^{1/2} - D,
             niworker = momzero_NI.MomzeroDeductD(*inputs)
             integral_offset = einsum("lp,p->lp", target_rot, self.D)
-            moment_offset = np.zeros_like(target_rot)
         elif integral_deduct is None:
             # Explicitly evaluate (MP)^{1/2}, with no offsets.
             niworker = momzero_NI.MomzeroDeductNone(*inputs)
             integral_offset = np.zeros_like(target_rot)
-            moment_offset = np.zeros_like(target_rot)
         elif integral_deduct == "HO":
             niworker = momzero_NI.MomzeroDeductHigherOrder(*inputs)
             offset_niworker = momzero_NI.MomzeroOffsetCalcGaussLag(*inputs)
@@ -301,26 +299,19 @@ class ssRIRPA:
             # estval2 = einsum("rp,pq,np,nq->rq", target_rot, mat ** (-1), ri_mp[0], ri_mp[1])
             # self.log.info("Error in numerical Offset Approximation=%6.4e",abs(estval - estval2).max())
             integral_offset = einsum("lp,p->lp", target_rot, self.D) + estval
-            moment_offset = np.zeros_like(target_rot)
         else:
             raise ValueError("Unknown integral offset specification.`")
 
         if return_niworker:
             return niworker, offset_niworker
 
-        # niworker.test_diag_derivs(4.0)
         if adaptive_quad:
             # Can also make use of scipy adaptive quadrature routines; this is more expensive but a good sense-check.
             integral, upper_bound = 2 * niworker.kernel_adaptive()
         else:
             integral, upper_bound = niworker.kernel(a=ainit, opt_quad=opt_quad)
-        # Need to construct RI representation of P^{-1}
-        ri_apb_inv = construct_inverse_RI(self.D, ri_apb)
-        if self.compress > 5:
-            ri_apb_inv = self.compress_low_rank(*ri_apb_inv, name="(A+B)^-1")
-        mom0 = einsum("pq,q->pq", integral + integral_offset, self.D ** (-1)) - np.dot(
-            np.dot(integral + integral_offset, ri_apb_inv[0].T), ri_apb_inv[1]
-        )
+
+        mom0, ri_apb_inv = self.mult_apbinv(integral + integral_offset, ri_apb)
         # Also need to convert error estimate of the integral into one for the actual evaluated quantity.
         # Use Cauchy-Schwartz to both obtain an upper bound on resulting mom0 error, and efficiently obtain upper bound
         # on norm of low-rank portion of P^{-1}.
@@ -334,7 +325,7 @@ class ssRIRPA:
             mom0_ub = None
 
         mom_lb = (
-            self.test_eta0_error(mom0 + moment_offset, target_rot, ri_apb, ri_amb)
+            self.test_eta0_error(mom0, target_rot, ri_apb, ri_amb)
             if analytic_lower_bound
             else None
         )
@@ -343,7 +334,14 @@ class ssRIRPA:
             "RIRPA Zeroth Moment wall time:  %s", time_string(timer() - t_start)
         )
 
-        return mom0 + moment_offset, (mom0_ub, mom_lb)
+        return mom0, (mom0_ub, mom_lb)
+
+    def mult_apbinv(self, integral, ri_apb):
+        ri_apb_inv = construct_inverse_RI(self.D, ri_apb)
+        if self.compress > 5:
+            ri_apb_inv = self.compress_low_rank(*ri_apb_inv, name="(A+B)^-1")
+        mom0 = integral * (self.D ** (-1))[None] - dot(dot(integral, ri_apb_inv[0].T), ri_apb_inv[1])
+        return mom0, ri_apb_inv
 
     def test_eta0_error(self, mom0, target_rot, ri_apb, ri_amb):
         """Test how well our obtained zeroth moment obeys relation used to derive it, namely
@@ -865,6 +863,3 @@ def compress_low_rank(ri_l, ri_r, tol=1e-12, log=None, name=None):
                 nwant,
             )
     return ri_l, ri_r
-
-
-ssRIRRPA = ssRIRPA
