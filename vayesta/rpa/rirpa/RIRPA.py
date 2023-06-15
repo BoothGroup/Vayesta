@@ -7,6 +7,9 @@ from vayesta.core.util import dot, einsum, time_string, timer
 from vayesta.rpa.rirpa import momzero_NI, energy_NI
 from vayesta.core.eris import get_cderi
 
+memory_string = lambda: "Memory usage: %.2f GB" % (pyscf.lib.current_memory()[0] / 1e3)
+
+
 class ssRIRRPA:
     """Approach based on equations expressed succinctly in the appendix of
     Furche, F. (2001). PRB, 64(19), 195120. https://doi.org/10.1103/PhysRevB.64.195120
@@ -137,11 +140,17 @@ class ssRIRRPA:
         return self.mf.e_tot + self.e_corr
 
     @property
-    def D(self):
+    def eps(self):
         eps = np.zeros((self.nocc, self.nvir))
         eps = eps + self.mo_energy_vir
         eps = (eps.T - self.mo_energy_occ).T
         eps = eps.reshape((self.ov,))
+        return eps
+
+
+    @property
+    def D(self):
+        eps = self.eps
         D = np.concatenate([eps, eps])
         return D
 
@@ -220,6 +229,7 @@ class ssRIRRPA:
                 moments[i] = einsum("pq,q->pq", moments[i - 2], D**2) + dot(
                     moments[i - 2], ri_mp[1].T, ri_mp[0]
                 )
+        self.record_memory()
         if max_moment > 0:
             self.log.info(
                 "RIRPA Higher Moments wall time:  %s",
@@ -311,7 +321,9 @@ class ssRIRRPA:
         else:
             integral, upper_bound = niworker.kernel(a=ainit, opt_quad=opt_quad)
 
-        mom0, ri_apb_inv = self.mult_apbinv(integral + integral_offset, ri_apb)
+        ri_apb_inv = construct_inverse_RI(self.D, ri_apb)
+
+        mom0 = self.mult_apbinv(integral + integral_offset, ri_apb_inv)
         # Also need to convert error estimate of the integral into one for the actual evaluated quantity.
         # Use Cauchy-Schwartz to both obtain an upper bound on resulting mom0 error, and efficiently obtain upper bound
         # on norm of low-rank portion of P^{-1}.
@@ -336,12 +348,11 @@ class ssRIRRPA:
 
         return mom0, (mom0_ub, mom_lb)
 
-    def mult_apbinv(self, integral, ri_apb):
-        ri_apb_inv = construct_inverse_RI(self.D, ri_apb)
+    def mult_apbinv(self, integral, ri_apb_inv):
         if self.compress > 5:
             ri_apb_inv = self.compress_low_rank(*ri_apb_inv, name="(A+B)^-1")
         mom0 = integral * (self.D ** (-1))[None] - dot(dot(integral, ri_apb_inv[0].T), ri_apb_inv[1])
-        return mom0, ri_apb_inv
+        return mom0
 
     def test_eta0_error(self, mom0, target_rot, ri_apb, ri_amb):
         """Test how well our obtained zeroth moment obeys relation used to derive it, namely
@@ -687,16 +698,7 @@ class ssRIRRPA:
 
     def get_apb_eri_ri(self):
         # Coulomb integrals only contribute to A+B.
-        # This needs to be optimised, but will do for now.
-        if self.lov is None:
-            lov, lov_neg = self.get_cderi()  # pyscf.lib.unpack_tril(self.mf._cderi)
-        else:
-            if isinstance(self.lov, tuple):
-                lov, lov_neg = self.lov
-            else:
-                assert self.lov.shape == (self.naux_eri, self.nocc, self.nvir)
-                lov = self.lov
-                lov_neg = None
+        lov, lov_neg = self.get_cderi()
 
         lov = lov.reshape((lov.shape[0], -1))
         if lov_neg is not None:
@@ -745,7 +747,16 @@ class ssRIRRPA:
         return ri_a_xc, ri_b_xc
 
     def get_cderi(self, blksize=None):
-        return get_cderi(self, (self.mo_coeff_occ, self.mo_coeff_vir), compact=False, blksize=blksize)
+        if self.lov is None:
+            return get_cderi(self, (self.mo_coeff_occ, self.mo_coeff_vir), compact=False, blksize=blksize)
+        else:
+            if isinstance(self.lov, tuple):
+                lov, lov_neg = self.lov
+            else:
+                assert self.lov.shape == (self.naux_eri, self.nocc, self.nvir)
+                lov = self.lov
+                lov_neg = None
+            return lov, lov_neg
 
     def test_spectral_rep(self, freqs):
         from vayesta.rpa import ssRPA
@@ -787,6 +798,8 @@ class ssRIRRPA:
 
         return log_qvals, log_specvals, get_log_qval, get_log_specvals
 
+    def record_memory(self):
+        self.log.info("  %s", memory_string())
 
 def construct_product_RI(D, ri_1, ri_2):
     """Given two matrices expressed as low-rank modifications, cderi_1 and cderi_2, of some full-rank matrix D,
@@ -838,14 +851,15 @@ def construct_inverse_RI(D, ri):
 
 def compress_low_rank(ri_l, ri_r, tol=1e-12, log=None, name=None):
     naux_init = ri_l.shape[0]
-    u, s, v = np.linalg.svd(ri_l, full_matrices=False)
-    nwant = sum(s > tol)
-    rot = u[:, :nwant]
-    ri_l = dot(rot.T, ri_l)
-    ri_r = dot(rot.T, ri_r)
-    u, s, v = np.linalg.svd(ri_r, full_matrices=False)
-    nwant = sum(s > tol)
-    rot = u[:, :nwant]
+
+    inner_prod = dot(ri_l, ri_r.T)
+
+    e, c = np.linalg.eig(inner_prod)
+
+    want = e > tol
+    nwant = sum(want)
+    rot = c[:, want]
+
     ri_l = dot(rot.T, ri_l)
     ri_r = dot(rot.T, ri_r)
     if nwant < naux_init and log is not None:

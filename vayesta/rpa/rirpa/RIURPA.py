@@ -98,42 +98,7 @@ class ssRIURPA(ssRIRRPA):
     def get_apb_eri_ri(self):
         # Coulomb integrals only contribute to A+B.
         # This needs to be optimised, but will do for now.
-        if self.Lpq is None:
-            v = self.get_3c_integrals()
-            Lov_a = einsum(
-                "npq,pi,qa->nia", v, self.mo_coeff_occ[0], self.mo_coeff_vir[0]
-            ).reshape((self.naux_eri, self.ov[0]))
-            Lov_b = einsum(
-                "npq,pi,qa->nia", v, self.mo_coeff_occ[1], self.mo_coeff_vir[1]
-            ).reshape((self.naux_eri, self.ov[1]))
-        else:
-            Lov_a = self.Lpq[0][:, : self.nocc[0], self.nocc[0] :].reshape(
-                (self.naux_eri, self.ov[0])
-            )
-            Lov_b = self.Lpq[1][:, : self.nocc[1], self.nocc[1] :].reshape(
-                (self.naux_eri, self.ov[1])
-            )
-
-        ri_apb_eri = np.zeros((self.naux_eri, sum(self.ov)))
-
-        # Need to include factor of two since eris appear in both A and B.
-        ri_apb_eri[:, : self.ov[0]] = np.sqrt(2) * Lov_a
-        ri_apb_eri[:, self.ov[0] : self.ov_tot] = np.sqrt(2) * Lov_b
-        return ri_apb_eri
-
-    def get_apb_eri_ri(self):
-        # Coulomb integrals only contribute to A+B.
-        # This needs to be optimised, but will do for now.
-        if self.lov is None:
-            (lova, lovb), (lova_neg, lovb_neg) = self.get_cderi()  # pyscf.lib.unpack_tril(self.mf._cderi)
-        else:
-            if isinstance(self.lov, tuple):
-                (lova, lovb), (lova_neg, lovb_neg) = self.lov
-            else:
-                assert self.lov[0][0].shape == (self.naux_eri, self.nocc[0], self.nvir[0])
-                assert self.lov[0][1].shape == (self.naux_eri, self.nocc[1], self.nvir[1])
-                lova, lovb = self.lov
-                lova_neg = lovb_neg = None
+        (lova, lovb), (lova_neg, lovb_neg) = self.get_cderi()
 
         lova = lova.reshape((lova.shape[0], -1))
         lovb = lovb.reshape((lovb.shape[0], -1))
@@ -145,7 +110,7 @@ class ssRIURPA(ssRIRRPA):
             lovb_neg = lovb_neg.reshape((lovb_neg.shape[0], -1))
 
         # Need to include factor of two since eris appear in both A and B.
-        ri_apb_eri = np.sqrt(2) * np.concatenate([lova, lovb], axis = 1)
+        ri_apb_eri = np.sqrt(2) * np.concatenate([lova, lovb], axis=1)
 
         ri_neg_apb_eri = None
         if lova_neg is not None:
@@ -154,7 +119,15 @@ class ssRIURPA(ssRIRRPA):
         return ri_apb_eri, ri_neg_apb_eri
 
     def get_cderi(self, blksize=None):
-
-        la, la_neg = get_cderi(self, (self.mo_coeff_occ[0], self.mo_coeff_vir[0]), compact=False, blksize=blksize)
-        lb, lb_neg = get_cderi(self, (self.mo_coeff_occ[1], self.mo_coeff_vir[1]), compact=False, blksize=blksize)
+        if self.lov is None:
+            la, la_neg = get_cderi(self, (self.mo_coeff_occ[0], self.mo_coeff_vir[0]), compact=False, blksize=blksize)
+            lb, lb_neg = get_cderi(self, (self.mo_coeff_occ[1], self.mo_coeff_vir[1]), compact=False, blksize=blksize)
+        else:
+            if isinstance(self.lov, tuple):
+                (la, lb), (la_neg, lb_neg) = self.lov
+            else:
+                assert self.lov[0][0].shape == (self.naux_eri, self.nocc[0], self.nvir[0])
+                assert self.lov[0][1].shape == (self.naux_eri, self.nocc[1], self.nvir[1])
+                la, lb = self.lov
+                la_neg = lb_neg = None
         return (la, lb), (la_neg, lb_neg)
