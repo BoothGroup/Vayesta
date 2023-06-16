@@ -28,8 +28,12 @@ class MoleculeRPATest(TestCase):
 
         known_values = {"e_tot": -109.27376877774732}
         self._test_energy(orig_rpa, known_values)
-
+        # Check dRPA specialised RHF code.
         rirpa = rpa.ssRIRPA(testsystems.n2_ccpvdz_df.rhf())
+        rirpa.kernel_energy()
+        self._test_energy(rirpa, known_values)
+        # Check spin-generic code.
+        rirpa = rirpa.ssRRIRPA(testsystems.n2_ccpvdz_df.rhf())
         rirpa.kernel_energy()
         self._test_energy(rirpa, known_values)
 
@@ -37,7 +41,7 @@ class MoleculeRPATest(TestCase):
         self._test_mom0(orig_rpa, rirpa_moms)
 
     def test_n2_ccpvdz_dRIRPA_error_estimates(self):
-        rirpa = rpa.ssRIRPA(testsystems.n2_ccpvdz_df.rhf())
+        rirpa = rpa.rirpa.ssRIRRPA(testsystems.n2_ccpvdz_df.rhf())
         # Use number of points where errors will be meaningful.
         rirpa_moms, error_est = rirpa.kernel_moms(0, analytic_lower_bound=True, npoints=4)
         self.assertAlmostEqual(error_est[0], 0.0600120085568549,)

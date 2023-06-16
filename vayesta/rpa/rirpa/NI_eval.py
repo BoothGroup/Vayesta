@@ -216,6 +216,11 @@ class NumericalIntegratorBase:
                 solve,
                 res.fun,
             )
+        else:
+            self.log.info(
+                "Used newton optimisation to find optimal quadrature grid: a= %.2e",
+                solve,
+            )
         return solve
 
     def fix_params(self):
