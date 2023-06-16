@@ -48,7 +48,7 @@ class Test_RCCSD(TestCase):
     def test(self):
 
         #RHF
-        mf = testsystems.water_ccpvdz.rhf()
+        mf = testsystems.water_sto3g.rhf()
 
         try:
             from dyson.expressions import CCSD
