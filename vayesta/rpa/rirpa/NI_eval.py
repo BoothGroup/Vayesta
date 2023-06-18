@@ -181,9 +181,8 @@ class NumericalIntegratorBase:
             optval = fvals[optarg]
             # Now find the values which are within reach of lowest value
             relevant = np.where(fvals < relevance_factor * optval)[0]
-
             minarg = min(relevant[0], optarg - 1)
-            maxarg = min(relevant[-1], optarg + 1)
+            maxarg = max(relevant[-1], optarg + 1)
             return [ainit * scale_fac**x for x in (optarg, minarg, maxarg)]
 
         solve = 1
