@@ -238,3 +238,13 @@ def diag_sqrt_grad(D, freq):
 def diag_sqrt_deriv2(D, freq):
     M = (D + freq**2) ** (-1)
     return (-2 * M + 10 * (freq**2) * (M**2) - 8 * (freq**4) * (M**3)) / np.pi
+
+
+# Subclass for performing calculations with RHF quantities.
+
+class MomzeroDeductHigherOrder_dRHF(MomzeroDeductHigherOrder):
+    """All provided quantities are now in spatial orbitals. This actually only requires an additional factor in the
+    get_Q method."""
+    def get_Q(self, freq):
+        # Have equal contributions from both spin channels.
+        return 2 * super().get_Q(freq)

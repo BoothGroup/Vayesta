@@ -1,9 +1,8 @@
 import numpy as np
 
 from vayesta.rpa.rirpa.RIRPA import ssRIRRPA
-from vayesta.rpa.rirpa.momzero_NI_direct_restricted import MomzeroDeductNone_dRHF, MomzeroDeductD_dRHF, MomzeroDeductHigherOrder_dRHF
-from vayesta.rpa.rirpa.momzero_NI import MomzeroOffsetCalcGaussLag
-from vayesta.core.util import dot, einsum, time_string, timer, with_doc
+from vayesta.rpa.rirpa.momzero_NI import MomzeroOffsetCalcGaussLag, MomzeroDeductHigherOrder_dRHF
+from vayesta.core.util import dot, time_string, timer, with_doc
 
 from pyscf import lib
 
