@@ -73,6 +73,8 @@ class Test_RCCSD(TestCase):
             ip = np.einsum('pP,qQ,nPQ->npq', cx, cx, ip)
             ea = np.einsum('pP,qQ,nPQ->npq', cx, cx, ea)
 
+            for i in range(len(ip)):
+                print(i, np.trace(np.dot(ip[i], ip[i])), np.trace(np.dot(cc_ip[i], cc_ip[i])), abs(np.trace(np.dot(ip[i], ip[i])) - np.trace(np.dot(cc_ip[i], cc_ip[i]))))
             print('Norm %f'%np.linalg.norm(ip- cc_ip))
             print('IP %f'%np.linalg.norm(ea- cc_ea))
             self.assertAlmostEqual(np.linalg.norm(ip- cc_ip), 0.0)
