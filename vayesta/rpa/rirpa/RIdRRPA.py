@@ -13,37 +13,53 @@ class ssRIdRRPA(ssRIRRPA):
     """
 
     @with_doc(ssRIRRPA.kernel_moms)
-    def kernel_moms(self, max_moment, target_rot=None, **kwargs):
+    def kernel_moms(self, max_moment, target_rot=None, return_spatial=False, **kwargs):
         t_start = timer()
-
+        self.log.debug("Running dRPA RHF code.")
         tr_rot = None
-
-        if target_rot is None:
-            self.log.warning(
-                "Warning; generating full moment rather than local component. Will scale as O(N^5)."
-            )
-            target_rot = np.eye(self.ov)
-        else:
-            target_rot = self.check_target_rot(target_rot)
-            if self.compress > -1:
-                target_rot, tr_rot = self.compress_target_rot(target_rot)
 
         ri_decomps = self.get_compressed_MP()
         ri_mp, ri_apb, ri_amb = ri_decomps
-        # First need to calculate zeroth moment.
-        moments = np.zeros((max_moment + 1,) + target_rot.shape)
-        moments[0], err0 = self._kernel_mom0(
-            target_rot, ri_decomps=ri_decomps, **kwargs
+        # First need to calculate zeroth moment. This only generates the spin-independent contribution in a single
+        # spin channel; the spin-dependent contribution is just the identity rotated to our target rotation.
+        mom0, err0 = self._kernel_mom0(
+            target_rot, ri_decomps=ri_decomps, return_spatial=return_spatial, **kwargs
         )
 
+        moments = np.zeros((max_moment + 1,) + mom0.shape, dtype=mom0.dtype)
+
+        moments[0] = mom0
+
         t_start_higher = timer()
-        if max_moment > 0:
-            # Grab mean.
-            eps = self.eps
+
+        if max_moment == 0:
+            return moments, err0
+
+        eps = self.eps
+
+        if return_spatial:
+            # Must have spatial target rotation.
+            def gen_new_moment(prev_mom):
+                return prev_mom * (eps**2)[None] + 2 * dot(prev_mom, ri_mp[1].T, ri_mp[0])
+
             moments[1] = target_rot * eps[None]
-            if max_moment > 1:
-                for i in range(2, max_moment + 1):
-                    moments[i] = moments[i - 2] * (eps**2)[None] + 2 * dot(moments[i - 2], ri_mp[1].T, ri_mp[0])
+
+        else:
+            def gen_new_moment(prev_mom):
+                prev_aa, prev_bb = prev_mom[:, :self.ov], prev_mom[:, self.ov:]
+                spat_vv = dot(prev_aa + prev_bb, ri_mp[1].T, ri_mp[0])
+                new_aa = spat_vv + prev_aa * (eps**2)[None]
+                new_bb = spat_vv + prev_bb * (eps**2)[None]
+                return np.concatenate((new_aa, new_bb), axis=1)
+
+            if target_rot.shape[1] == self.ov:
+                moments[1, :, :self.ov] = target_rot * eps[None]
+            else:
+                moments[1] = target_rot * self.D[None]
+
+        if max_moment > 1:
+            for i in range(2, max_moment + 1):
+                moments[i] = gen_new_moment(moments[i - 2])
         self.record_memory()
         if max_moment > 0:
             self.log.info(
@@ -70,18 +86,19 @@ class ssRIdRRPA(ssRIRRPA):
         ri_decomps=None,
         return_niworker=False,
         analytic_lower_bound=False,
+        return_spatial=False
     ):
         t_start = timer()
-        if analytic_lower_bound or adaptive_quad:
-            raise NotImplementedError("Only main functionality is implemented for dRPA specific code.")
-
-        if target_rot is None:
-            self.log.warning(
-                "Warning; generating full moment rather than local component. Will scale as O(N^5)."
-            )
-            target_rot = np.eye(self.ov)
-        else:
-            target_rot = self.check_target_rot(target_rot)
+        if analytic_lower_bound or adaptive_quad or integral_deduct != "HO":
+            raise NotImplementedError("Only mcore functionality is implemented in dRPA specific code.")
+        # If we have a rotation in the spinorbital basis, use the different spin channels as extra spatial contributions.
+        target_rot, stack_spin = self.check_target_rot(target_rot)
+        trrot = None
+        # We can then compress the spatial rotation.
+        if stack_spin:
+            if return_spatial:
+                raise ValueError("Requested spatially integrated calculation, but target_rot is spin-dependent.")
+            target_rot, trrot = self.compress_target_rot(target_rot)
 
         if ri_decomps is None:
             ri_mp, ri_apb, ri_amb = self.get_compressed_MP(alpha)
@@ -91,37 +108,26 @@ class ssRIdRRPA(ssRIRRPA):
 
         offset_niworker = None
         inputs = (self.eps, ri_mp[0], ri_mp[1], target_rot, npoints, self.log)
-        if integral_deduct == "D":
-            # Evaluate (MP)^{1/2} - D,
-            niworker = MomzeroDeductD_dRHF(*inputs)
-            integral_offset = target_rot * self.eps[None]
-        elif integral_deduct is None:
-            # Explicitly evaluate (MP)^{1/2}, with no offsets.
-            niworker = MomzeroDeductNone_dRHF(*inputs)
-            integral_offset = np.zeros_like(target_rot)
-        elif integral_deduct == "HO":
-            niworker = MomzeroDeductHigherOrder_dRHF(*inputs)
-            offset_niworker = MomzeroOffsetCalcGaussLag(*inputs)
-            estval, offset_err = offset_niworker.kernel()
-            integral_offset = target_rot * self.eps[None] + estval
-        else:
-            raise ValueError("Unknown integral offset specification.`")
+
+        # We are computing our values using spatial quantities, but relating our calculations to the spinorbital
+        # resolved basis. As such, we need to be careful to ensure we know which terms are spin-diagonal and which are
+        # spin-invariant.
+
+        niworker = MomzeroDeductHigherOrder_dRHF(*inputs)
+        offset_niworker = MomzeroOffsetCalcGaussLag(*inputs)
 
         if return_niworker:
             return niworker, offset_niworker
         self.record_memory()
 
-        integral, upper_bound = niworker.kernel(a=ainit, opt_quad=opt_quad)
+        integral, upper_bound = niworker.kernel(a=ainit, opt_quad=opt_quad)  # This contribution is spin-invariant.
+        integral += offset_niworker.kernel()[0]  # As is this one.
 
         self.record_memory()
 
         # Free memory.
         del ri_mp, inputs, niworker
         self.record_memory()
-        print("Norm integral offset", np.linalg.norm(integral_offset))
-        print("Norm integral", np.linalg.norm(integral))
-        integral += integral_offset
-        del integral_offset
 
         # Construct A+B inverse.
         eps = self.eps
@@ -129,23 +135,47 @@ class ssRIdRRPA(ssRIRRPA):
         # Factor of two from different spin channels.
         u = 2 * dot(ri_apb[0] * epsinv[None], ri_apb[1].T)
         u = np.linalg.inv(np.eye(u.shape[0]) + u)
-        print("U", np.linalg.norm(u), sum(u.ravel()))
         self.record_memory()
-        mom0 = integral / self.eps[None]
+
+        # First, compute contribution which is spin-dependent (diagonal in both the integrated value, and (A+B)^-1).
+        mom0_spinindependent = integral * epsinv[None]
+
         # Factor of two from sum over spin channels.
-        mom0 -= 2 * dot(
+        mom0_spinindependent -= dot(
             dot(
                 dot(
-                    integral, (ri_apb[0] * epsinv[None]).T
+                    target_rot * self.eps[None] + 2 * integral, (ri_apb[1] * epsinv[None]).T
                     ),
                 u
             ),
-            ri_apb[1] * epsinv[None]
+            ri_apb[0] * epsinv[None]
         )
+
 
         self.log.info(
             "RIRPA Zeroth Moment wall time:  %s", time_string(timer() - t_start)
         )
+
+        if trrot is not None:
+            target_rot = dot(trrot, target_rot)
+            mom0_spinindependent = dot(trrot, mom0_spinindependent)
+
+        if return_spatial:
+            mom0 = target_rot + 2 * mom0_spinindependent
+        else:
+            # Want to return quantities in spin-orbital basis.
+            n = target_rot.shape[0]
+            if stack_spin:
+                # Half of target rot are actually other spin.
+                 n = n// 2
+            mom0 = np.zeros((n, self.ov_tot))
+
+            if stack_spin:
+                mom0[:, :self.ov] = target_rot[:n] + mom0_spinindependent[:n] + mom0_spinindependent[n:]  # Has aa and ab interactions.
+                mom0[:, self.ov:] = target_rot[n:] + mom0_spinindependent[n:] + mom0_spinindependent[:n]  # Has bb and ba interactions.
+            else:
+                mom0[:, :self.ov] = target_rot + mom0_spinindependent
+                mom0[:, self.ov:] = mom0_spinindependent
 
         return mom0, (None, None)
 
@@ -173,22 +203,24 @@ class ssRIdRRPA(ssRIRRPA):
         return ri_mp, ri_apb, ri_amb
 
     def check_target_rot(self, target_rot):
+        stack_spins = False
         if target_rot is None:
             self.log.warning(
                 "Warning; generating full moment rather than local component. Will scale as O(N^5)."
             )
             target_rot = np.eye(self.ov)
         elif target_rot.shape[1] == self.ov_tot:
-            # Provided rotation in spinorbital space.
-            target_rot = target_rot[:, :self.ov] + target_rot[:, self.ov:]
-
-        return target_rot
+            # Provided rotation is in spinorbital space. We want to convert to spatial, but record that we've done this
+            # so we can convert back later.
+            target_rot = np.concatenate([target_rot[:, :self.ov], target_rot[:, self.ov:]], axis=0)
+            stack_spins = True
+        return target_rot, stack_spins
 
     def compress_target_rot(self, target_rot, tol=1e-10):
-        inner_prod = dot(target_rot.T, target_rot)
+        inner_prod = dot(target_rot, target_rot.T)
         e, c = np.linalg.eigh(inner_prod)
         want = e > tol
         rot = c[:, want]
         if rot.shape[1] == target_rot.shape[1]:
             return target_rot, None
-        return dot(target_rot, rot), rot
+        return dot(rot.T, target_rot), rot

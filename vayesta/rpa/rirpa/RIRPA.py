@@ -321,12 +321,10 @@ class ssRIRRPA:
         else:
             integral, upper_bound = niworker.kernel(a=ainit, opt_quad=opt_quad)
 
-        print("Norm integral offset", np.linalg.norm(integral_offset[:,:self.ov]))
-        print("Norm integral", np.linalg.norm(integral[:,:self.ov]))
-
         ri_apb_inv = construct_inverse_RI(self.D, ri_apb)
 
         mom0 = self.mult_apbinv(integral + integral_offset, ri_apb_inv)
+
         # Also need to convert error estimate of the integral into one for the actual evaluated quantity.
         # Use Cauchy-Schwartz to both obtain an upper bound on resulting mom0 error, and efficiently obtain upper bound
         # on norm of low-rank portion of P^{-1}.
@@ -354,7 +352,8 @@ class ssRIRRPA:
     def mult_apbinv(self, integral, ri_apb_inv):
         if self.compress > 5:
             ri_apb_inv = self.compress_low_rank(*ri_apb_inv, name="(A+B)^-1")
-        mom0 = integral * (self.D ** (-1))[None] - dot(dot(integral, ri_apb_inv[0].T), ri_apb_inv[1])
+        mom0 = integral * (self.D ** (-1))[None]
+        mom0 -= dot(dot(integral, ri_apb_inv[0].T), ri_apb_inv[1])
         return mom0
 
     def test_eta0_error(self, mom0, target_rot, ri_apb, ri_amb):
@@ -842,7 +841,6 @@ def construct_inverse_RI(D, ri):
     U = einsum("np,p,mp->nm", ri_R, D ** (-1), ri_L)
     # This inversion and square root should only scale as O(N^3).
     U = np.linalg.inv(np.eye(naux) + U)
-    print("U", np.linalg.norm(U), sum(U.ravel()))
     # Want to split matrix between left and right fairly evenly; could just associate to one side or the other.
     u, s, v = np.linalg.svd(U)
     urt_l = einsum("nm,m->nm", u, s ** (0.5))
