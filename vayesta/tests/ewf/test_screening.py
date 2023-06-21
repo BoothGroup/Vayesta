@@ -49,10 +49,19 @@ class TestTwoElectron(TestCase):
         emb.kernel()
         self.assertAllclose(emb.e_tot, self.e_ref['crpa'])
 
+
 class TestTwoHole(TestTwoElectron):
 
     system = testsystems.f2_sto6g_df
     e_ref = {"mrpa":-197.84155758368854, "crpa":-197.83928243962046}
+
+
+class TestTwoHoleRHF(TestTwoElectron):
+
+    @classmethod
+    def setUpClass(cls):
+        cls.mf = cls.system.rhf()
+
 
 if __name__ == '__main__':
     print('Running %s' % __file__)
