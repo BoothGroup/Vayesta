@@ -576,7 +576,6 @@ class Fragment:
         frag = type(self)(self.base, fid, name, **kwargs_copy)
         return frag
 
-    @deprecated()
     def add_tsymmetric_fragments(self, tvecs, symtol=1e-6):
         """
 
@@ -642,10 +641,6 @@ class Fragment:
 
             fragments.append(frag)
         return fragments
-
-    @deprecated(replacement='add_tsymmetric_fragment')
-    def make_tsymmetric_fragments(self, *args, **kwargs):  # pragma: no cover
-        return self.add_tsymmetric_fragments(*args, **kwargs)
 
     def get_symmetry_parent(self):
         if self.sym_parent is None:
@@ -799,15 +794,6 @@ class Fragment:
             otype = occtype[:3]
             assert otype in ('occ', 'vir')
             btype = self._get_bath_option('bathtype', occtype)
-            if btype is None:
-                self.log.warning("bathtype=None is deprecated; use bathtype='dmet'.")
-                btype = 'dmet'
-            if btype == 'all':
-                self.log.warning("bathtype='all' is deprecated; use bathtype='full'.")
-                btype = 'full'
-            if btype == 'mp2-bno':
-                self.log.warning("bathtype='mp2-bno' is deprecated; use bathtype='mp2'.")
-                btype = 'mp2'
             # DMET bath only
             if btype == 'dmet':
                 return None

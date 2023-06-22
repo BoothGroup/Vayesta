@@ -53,7 +53,7 @@ class Test_RCCSD(TestCase):
         ssz_u = uemb.get_corrfunc_mf('Sz,Sz')
         self.assertAllclose(ssz_r, ssz_u, atol=1e-6)
         # OLD
-        ssz_old_u = uemb.get_atomic_ssz_mf()
+        ssz_old_u = uemb.get_corrfunc_mf('Sz,Sz')
         self.assertAllclose(ssz_old_u, ssz_u, atol=1e-6)
 
     def test_full_bath(self):
@@ -63,10 +63,10 @@ class Test_RCCSD(TestCase):
 
         dm1 = self.rcc.make_rdm1()
         dm2 = self.rcc.make_rdm2()
-        ssz = remb.get_atomic_ssz(dm1=dm1, dm2=dm2)
+        ssz = remb.get_corrfunc('Sz,Sz', dm1=dm1, dm2=dm2)
 
-        rssz = remb.get_atomic_ssz()
-        ussz = uemb.get_atomic_ssz()
+        rssz = remb.get_corrfunc('Sz,Sz')
+        ussz = uemb.get_corrfunc('Sz,Sz')
         self.assertAllclose(rssz, ssz, atol=1e-6)
         self.assertAllclose(ussz, ssz, atol=1e-6)
 
@@ -79,8 +79,8 @@ class Test_RCCSD(TestCase):
         # Full 2DMs
         rdm2 = remb.make_rdm2()
         udm2 = uemb.make_rdm2()
-        rssz = remb.get_atomic_ssz(dm2=rdm2)
-        ussz = uemb.get_atomic_ssz(dm2=udm2)
+        rssz = remb.get_corrfunc('Sz,Sz', dm2=rdm2)
+        ussz = uemb.get_corrfunc('Sz,Sz', dm2=udm2)
         self.assertAllclose(rssz, ssz, atol=1e-6)
         self.assertAllclose(ussz, ssz, atol=1e-6)
 
@@ -95,8 +95,8 @@ class Test_RCCSD(TestCase):
         remb = self.remb(eta)
         uemb = self.uemb(eta)
 
-        ssz = rssz = remb.get_atomic_ssz()
-        ussz = uemb.get_atomic_ssz()
+        ssz = rssz = remb.get_corrfunc('Sz,Sz')
+        ussz = uemb.get_corrfunc('Sz,Sz')
         self.assertAllclose(rssz, ssz, atol=1e-6)
         self.assertAllclose(ussz, ssz, atol=1e-6)
 
@@ -109,8 +109,8 @@ class Test_RCCSD(TestCase):
         # Full 2DMs
         rdm2 = remb.make_rdm2()
         udm2 = uemb.make_rdm2()
-        rssz = remb.get_atomic_ssz(dm2=rdm2)
-        ussz = uemb.get_atomic_ssz(dm2=udm2)
+        rssz = remb.get_corrfunc('Sz,Sz', dm2=rdm2)
+        ussz = uemb.get_corrfunc('Sz,Sz', dm2=udm2)
         self.assertAllclose(rssz, ssz, atol=1e-6)
         self.assertAllclose(ussz, ssz, atol=1e-6)
 
@@ -163,10 +163,10 @@ class Test_UCCSD(TestCase):
 
         dm1 = self.ucc.make_rdm1()
         dm2 = self.ucc.make_rdm2()
-        # Deprecated: get_atomic_ssz:
-        ssz = uemb.get_atomic_ssz(dm1=dm1, dm2=dm2, projection=projection)
+        # Deprecated: get_corrfunc:
+        ssz = uemb.get_corrfunc('Sz,Sz', dm1=dm1, dm2=dm2, projection=projection)
         udm2 = uemb.make_rdm2()
-        ssz_2 = uemb.get_atomic_ssz(dm2=udm2, dm2_with_dm1=True, projection=projection)
+        ssz_2 = uemb.get_corrfunc('Sz,Sz', dm2=udm2, dm2_with_dm1=True, projection=projection)
         self.assertAllclose(ssz_2, ssz, atol=1e-6)
 
         # Replacement: get_corrfunc('Sz,Sz', ...)

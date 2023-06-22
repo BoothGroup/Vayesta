@@ -300,7 +300,7 @@ class EWF(Embedding):
     def get_e_corr(self, functional=None, **kwargs):
         functional = (functional or self.opts.energy_functional)
         if functional == 'projected':
-            # TODO: print deprecation message
+            self.log.warning("functional='projected' is deprecated; use functional='wf' instead.")
             functional = 'wf'
         if functional == 'wf':
             return self.get_wf_corr_energy(**kwargs)
@@ -326,8 +326,8 @@ class EWF(Embedding):
             e_corr += x.symmetry_factor * ex
         return e_corr/self.ncells
 
+    @deprecated(replacement="get_wf_corr_energy")
     def get_proj_corr_energy(self):
-        """TODO: deprecate in favor of get_wf_corr_energy."""
         return self.get_wf_corr_energy()
 
     def get_dm_corr_energy(self, dm1='global-wf', dm2='projected-lambda', t_as_lambda=None, with_exxdiv=None):
@@ -450,8 +450,8 @@ class EWF(Embedding):
         e_corr = self.get_wf_corr_energy(*args, **kwargs)
         return self.e_mf + e_corr
 
+    @deprecated(replacement="get_wf_energy")
     def get_proj_energy(self, *args, **kwargs):
-        """TODO: deprecate in favor of get_wf_energy."""
         return self.get_wf_energy(*args, **kwargs)
 
     def get_dm_energy(self, *args, **kwargs):
@@ -537,14 +537,6 @@ class EWF(Embedding):
             name, indices = frag.get_atomic_fragment_indices(atom)
             c_atom.append(frag.get_frag_coeff(indices))
         return c_atom
-
-    @deprecated(replacement='get_corrfunc_mf')
-    def get_atomic_ssz_mf(self, dm1=None, atoms=None, projection='sao'):
-        return self.get_corrfunc_mf('Sz,Sz', dm1=dm1, atoms=atoms, projection=projection)
-
-    @deprecated(replacement='get_corrfunc')
-    def get_atomic_ssz(self, dm1=None, dm2=None, atoms=None, projection='sao', dm2_with_dm1=None):
-        return self.get_corrfunc('Sz,Sz', dm1=dm1, dm2=dm2, atoms=atoms, projection=projection, dm2_with_dm1=dm2_with_dm1)
 
     def _get_dm_energy_old(self, global_dm1=True, global_dm2=False):
         """Calculate total energy from reduced density-matrices.
