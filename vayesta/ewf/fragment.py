@@ -129,10 +129,6 @@ class Fragment(BaseFragment):
         self.opts.c_cas_vir = c_cas_vir
         return c_cas_occ, c_cas_vir
 
-    @deprecated(replacement='add_external_corrections')
-    def tailor_with_fragments(self, fragments, projectors=1):
-        return self.add_external_corrections(fragments, projectors=projectors)
-
     def add_external_corrections(self, fragments, correction_type='tailor', projectors=1, test_extcorr=False, low_level_coul=True):
         """Add tailoring or external correction from other fragment solutions to CCSD solver.
 

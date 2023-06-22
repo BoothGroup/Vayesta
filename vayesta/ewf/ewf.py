@@ -326,10 +326,6 @@ class EWF(Embedding):
             e_corr += x.symmetry_factor * ex
         return e_corr/self.ncells
 
-    @deprecated(replacement="get_wf_corr_energy")
-    def get_proj_corr_energy(self):
-        return self.get_wf_corr_energy()
-
     def get_dm_corr_energy(self, dm1='global-wf', dm2='projected-lambda', t_as_lambda=None, with_exxdiv=None):
         e1 = self.get_dm_corr_energy_e1(dm1=dm1, t_as_lambda=None, with_exxdiv=None)
         e2 = self.get_dm_corr_energy_e2(dm2=dm2, t_as_lambda=t_as_lambda)
@@ -450,10 +446,6 @@ class EWF(Embedding):
         e_corr = self.get_wf_corr_energy(*args, **kwargs)
         return self.e_mf + e_corr
 
-    @deprecated(replacement="get_wf_energy")
-    def get_proj_energy(self, *args, **kwargs):
-        return self.get_wf_energy(*args, **kwargs)
-
     def get_dm_energy(self, *args, **kwargs):
         e_corr = self.get_dm_corr_energy(*args, **kwargs)
         return self.e_mf + e_corr
@@ -516,27 +508,6 @@ class EWF(Embedding):
     @log_method()
     def get_intercluster_mp2_energy(self, *args, **kwargs):
         return get_intercluster_mp2_energy_rhf(self, *args, **kwargs)
-
-    # --- Deprecated
-
-    @deprecated(replacement='_get_atom_projectors')
-    def _get_atomic_coeffs(self, atoms=None, projection='sao'):
-        if atoms is None:
-            atoms = list(range(self.mol.natm))
-        natom = len(atoms)
-        projection = projection.lower()
-        if projection == 'sao':
-            frag = SAO_Fragmentation(self)
-        elif projection.replace('+', '').replace('/', '') == 'iaopao':
-            frag = IAOPAO_Fragmentation(self)
-        else:
-            raise ValueError("Invalid projection: %s" % projection)
-        frag.kernel()
-        c_atom = []
-        for atom in atoms:
-            name, indices = frag.get_atomic_fragment_indices(atom)
-            c_atom.append(frag.get_frag_coeff(indices))
-        return c_atom
 
     def _get_dm_energy_old(self, global_dm1=True, global_dm2=False):
         """Calculate total energy from reduced density-matrices.
