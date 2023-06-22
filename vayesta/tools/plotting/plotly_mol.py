@@ -1,16 +1,10 @@
-import string
-import itertools
-import numbers
 
 import numpy as np
 
 import plotly.graph_objects as go
-import plotly.express as px
-
-import pyscf
 import pyscf.pbc
 
-from .colors import get_atom_color
+from vayesta.tools.plotting.colors import get_atom_color
 
 
 def mol_supercell(mol, charges, spins):
@@ -162,7 +156,6 @@ def plot_mol(mol, charges=None, spins=None, add_images=False, **kwargs):
 
 
 if __name__ == '__main__':
-    import pyscf
     import pyscf.gto
 
     mol = pyscf.gto.Mole()

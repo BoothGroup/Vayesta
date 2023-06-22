@@ -1,3 +1,3 @@
 """Solid structures"""
 
-from .solids import *
+from vayesta.misc.solids.solids import *

@@ -1,14 +1,11 @@
 import pytest
 import unittest
-import numpy as np
 
 import pyscf
 import pyscf.fci
 
 import vayesta
 import vayesta.ewf
-
-from vayesta.tests.common import TestCase
 from vayesta.tests import testsystems
 
 
@@ -18,7 +15,7 @@ class TestSolvers(unittest.TestCase):
     def _test(self, key, ss=None, places=8):
         mf = getattr(getattr(testsystems, key[0]), key[1])()
 
-        emb = vayesta.ewf.EWF(mf, solver='FCI', bath_type='full', solver_options={'conv_tol' : 1e-12})
+        emb = vayesta.ewf.EWF(mf, solver='FCI', bath_options=dict(bathtype='full'), solver_options={'conv_tol' : 1e-12})
         emb.kernel()
 
         fci = pyscf.fci.FCI(mf)

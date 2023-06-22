@@ -1,5 +1,5 @@
-from .sao import SAO_Fragmentation
-from .sao import SAO_Fragmentation_UHF
+from vayesta.core.fragmentation.sao import SAO_Fragmentation
+from vayesta.core.fragmentation.sao import SAO_Fragmentation_UHF
 
 class Site_Fragmentation(SAO_Fragmentation):
 

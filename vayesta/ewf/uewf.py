@@ -1,24 +1,22 @@
 import numpy as np
 
 from vayesta.core.qemb import UEmbedding
-from vayesta.core.util import *
+from vayesta.core.util import cache, deprecated, dot, einsum, log_method
 
 from vayesta.ewf import REWF
 from vayesta.ewf.ufragment import Fragment
-from vayesta.core.fragmentation import SAO_Fragmentation
-from vayesta.core.fragmentation import IAOPAO_Fragmentation
 from vayesta.misc import corrfunc
 from vayesta.mpi import mpi
 
 # Amplitudes
-from .amplitudes import get_global_t1_uhf
-from .amplitudes import get_global_t2_uhf
+from vayesta.ewf.amplitudes import get_global_t1_uhf
+from vayesta.ewf.amplitudes import get_global_t2_uhf
 # Density-matrices
-from .urdm import make_rdm1_ccsd
-from .urdm import make_rdm1_ccsd_global_wf
-from .urdm import make_rdm2_ccsd_global_wf
-from .urdm import make_rdm2_ccsd_proj_lambda
-from .icmp2 import get_intercluster_mp2_energy_uhf
+from vayesta.ewf.urdm import make_rdm1_ccsd
+from vayesta.ewf.urdm import make_rdm1_ccsd_global_wf
+from vayesta.ewf.urdm import make_rdm2_ccsd_global_wf
+from vayesta.ewf.urdm import make_rdm2_ccsd_proj_lambda
+from vayesta.ewf.icmp2 import get_intercluster_mp2_energy_uhf
 
 
 class UEWF(REWF, UEmbedding):

@@ -35,14 +35,17 @@ for d in np.arange(0.5, 3.0001, 0.25):
     cc.kernel()
 
     # One-shot EWF-CCSD
-    ecc = vayesta.ewf.EWF(mf, bno_threshold=1e-4)
-    ecc.add_all_atomic_fragments()
+    ecc = vayesta.ewf.EWF(mf, bath_options=dict(threshold=1e-4))
+    with ecc.iao_fragmentation() as f:
+        with f.rotational_symmetry(6, axis='z'):
+            f.add_atomic_fragment([0])
     ecc.kernel()
 
     # Self-consistent EWF-CCSD
-    scecc = vayesta.ewf.EWF(mf, bno_threshold=1e-4, sc_mode=1)
-    scecc.add_all_atomic_fragments()
-    scecc.tailor_all_fragments()
+    scecc = vayesta.ewf.EWF(mf, solver='TCCSD', bath_options=dict(threshold=1e-6), sc_mode=1)
+    with scecc.iao_fragmentation() as f:
+        with f.rotational_symmetry(6, axis='z'):
+            f.add_atomic_fragment([0])
     scecc.kernel()
 
     print("E%-14s %+16.8f Ha" % ('(HF)=', mf.e_tot))

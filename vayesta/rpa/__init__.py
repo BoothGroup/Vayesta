@@ -3,10 +3,10 @@ Author: Charles Scott
 email:  cjcargillscott@gmail.com
 """
 
-from .rirpa import ssRIRPA
-from .rpa import RPA
-from .ssrpa import ssRRPA
-from .ssurpa import ssURPA
+from vayesta.rpa.rirpa import ssRIRPA
+from vayesta.rpa.rpa import RPA
+from vayesta.rpa.ssrpa import ssRRPA
+from vayesta.rpa.ssurpa import ssURPA
 
 import pyscf.scf
 

@@ -7,7 +7,6 @@ import pyscf.pbc.cc
 
 import vayesta
 import vayesta.ewf
-from vayesta.misc import solids
 
 
 cell = pyscf.pbc.gto.Cell()
@@ -26,7 +25,7 @@ kmf = kmf.rs_density_fit(auxbasis='cc-pvdz-ri')
 kmf.kernel()
 
 # --- Embedding
-emb = vayesta.ewf.EWF(kmf, bath_type='full', solve_lambda=True)
+emb = vayesta.ewf.EWF(kmf, bath_options=dict(bathtype='full'), solver_options=dict(solve_lambda=True))
 emb.kernel()
 e_dm = emb.get_dm_energy()
 

@@ -2,8 +2,6 @@ import pytest
 import unittest
 
 import numpy as np
-
-import vayesta
 from vayesta.core.util import einsum
 
 from vayesta.tests.common import TestCase

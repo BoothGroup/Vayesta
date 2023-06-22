@@ -4,7 +4,6 @@ import pyscf
 import pyscf.pbc
 import pyscf.pbc.scf
 import pyscf.pbc.cc
-import pyscf.pbc.tools
 
 import vayesta
 import vayesta.ewf
@@ -27,11 +26,11 @@ kmf = kmf.density_fit(auxbasis='def2-svp-ri')
 kmf.kernel()
 
 # Embedded calculation will automatically fold the k-point sampled mean-field to the supercell
-emb = vayesta.ewf.EWF(kmf, bno_threshold=-1, store_dm1=True)
+emb = vayesta.ewf.EWF(kmf, bath_options=dict(threshold=-1))
 emb.kernel()
 
 dm1_demo = emb.make_rdm1_demo(ao_basis=True)
-dm1_emb = emb.make_rdm1_ccsd(ao_basis=True)
+dm1_emb = emb.make_rdm1(ao_basis=True)
 
 # Full system reference CCSD
 mf = emb.mf.density_fit(auxbasis='def2-svp-ri')

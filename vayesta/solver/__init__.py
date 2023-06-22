@@ -1,14 +1,14 @@
-from .ccsd import RCCSD_Solver, UCCSD_Solver
-from .cisd import RCISD_Solver, UCISD_Solver
-from .coupled_ccsd import coupledRCCSD_Solver
-from .dump import DumpSolver
-from .ebcc import REBCC_Solver, UEBCC_Solver, EB_REBCC_Solver, EB_UEBCC_Solver
-from .ebfci import EB_EBFCI_Solver, EB_UEBFCI_Solver
-from .ext_ccsd import extRCCSD_Solver, extUCCSD_Solver
-from .fci import FCI_Solver, UFCI_Solver
-from .hamiltonian import is_ham, is_uhf_ham, is_eb_ham, ClusterHamiltonian
-from .mp2 import RMP2_Solver, UMP2_Solver
-from .tccsd import TRCCSD_Solver
+from vayesta.solver.ccsd import RCCSD_Solver, UCCSD_Solver
+from vayesta.solver.cisd import RCISD_Solver, UCISD_Solver
+from vayesta.solver.coupled_ccsd import coupledRCCSD_Solver
+from vayesta.solver.dump import DumpSolver
+from vayesta.solver.ebcc import REBCC_Solver, UEBCC_Solver, EB_REBCC_Solver, EB_UEBCC_Solver
+from vayesta.solver.ebfci import EB_EBFCI_Solver, EB_UEBFCI_Solver
+from vayesta.solver.ext_ccsd import extRCCSD_Solver, extUCCSD_Solver
+from vayesta.solver.fci import FCI_Solver, UFCI_Solver
+from vayesta.solver.hamiltonian import is_ham, is_uhf_ham, is_eb_ham, ClusterHamiltonian
+from vayesta.solver.mp2 import RMP2_Solver, UMP2_Solver
+from vayesta.solver.tccsd import TRCCSD_Solver
 
 
 def get_solver_class(ham, solver):

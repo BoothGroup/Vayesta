@@ -1,5 +1,4 @@
 import logging
-from timeit import default_timer as timer
 from datetime import datetime
 import dataclasses
 import copy
@@ -11,30 +10,24 @@ from typing import Optional
 import numpy as np
 
 import pyscf
-import pyscf.gto
 import pyscf.mp
 import pyscf.ci
 import pyscf.cc
-import pyscf.lo
 import pyscf.pbc
-import pyscf.pbc.df
 import pyscf.pbc.tools
 import pyscf.lib
 from pyscf.mp.mp2 import _mo_without_core
-
-import vayesta
-from vayesta.core import vlog
 from vayesta.core.foldscf import FoldedSCF, fold_scf
-from vayesta.core.util import *
+from vayesta.core.util import (OptionsBase, OrthonormalityError, SymmetryError, dot, einsum, energy_string,
+                               getattr_recursive, hstack, log_method, log_time, with_doc)
 from vayesta.core import spinalg
 from vayesta.core.ao2mo import kao2gmo_cderi
 from vayesta.core.ao2mo import postscf_ao2mo
 from vayesta.core.ao2mo import postscf_kao2gmo
-from vayesta import lattmod
 from vayesta.core.scmf import PDMET, Brueckner
 from vayesta.core.qemb.scrcoulomb import build_screened_eris
 from vayesta.mpi import mpi
-from .register import FragmentRegister
+from vayesta.core.qemb.register import FragmentRegister
 from vayesta.rpa import ssRIRPA
 from vayesta.solver import check_solver_config
 
@@ -60,10 +53,10 @@ from vayesta.core.qemb.corrfunc import get_corrfunc_mf
 
 # --- This Package
 
-from .fragment import Fragment
+from vayesta.core.qemb.fragment import Fragment
 #from . import helper
-from .rdm import make_rdm1_demo_rhf
-from .rdm import make_rdm2_demo_rhf
+from vayesta.core.qemb.rdm import make_rdm1_demo_rhf
+from vayesta.core.qemb.rdm import make_rdm2_demo_rhf
 
 
 @dataclasses.dataclass
@@ -788,6 +781,12 @@ class Embedding:
             List of T-symmetry related fragments. These will have the attributes `sym_parent` and `sym_op` set.
         """
         default_axes = {'x': (1,0,0), 'y': (0,1,0), 'z': (0,0,1)}
+
+        def catch_default_axes(axis):
+            if isinstance(axis, str):
+                return default_axes[axis.lower()]
+            return axis
+
         symtype = symmetry['type']
 
         def to_bohr(point, unit):
@@ -824,14 +823,14 @@ class Embedding:
             center = to_bohr(symmetry['center'], symmetry['unit'])
             center = shift_point_to_supercell(center)
             axis = symmetry['axis']
-            axis = np.asarray(default_axes.get(axis, axis), dtype=float)
+            axis = np.asarray(catch_default_axes(axis), dtype=float)
             axis = to_bohr(axis, symmetry['unit'])
             symbol = symbol or 'M'
             symlist = [1]
         elif symtype == 'rotation':
             order = symmetry['order']
             axis = symmetry['axis']
-            axis = np.asarray(default_axes.get(axis, axis), dtype=float)
+            axis = np.asarray(catch_default_axes(axis), dtype=float)
             axis = to_bohr(axis, symmetry['unit'])
             center = to_bohr(symmetry['center'], symmetry['unit'])
             center = shift_point_to_supercell(center)

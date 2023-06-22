@@ -9,7 +9,7 @@ import scipy.linalg
 import scipy
 
 import pyscf.ao2mo
-from vayesta.core.util import *
+from vayesta.core.util import dot, einsum, time_string
 
 
 class ssRPA:

@@ -1,14 +1,11 @@
 import pytest
 import unittest
-import numpy as np
 
 import pyscf
 import pyscf.mp
 
 import vayesta
 import vayesta.ewf
-
-from vayesta.tests.common import TestCase
 from vayesta.tests import testsystems
 
 
@@ -18,7 +15,7 @@ class TestSolvers(unittest.TestCase):
     def _test(self, key):
         mf = getattr(getattr(testsystems, key[0]), key[1])()
 
-        emb = vayesta.ewf.EWF(mf, solver='MP2', bath_type='full')
+        emb = vayesta.ewf.EWF(mf, solver='MP2', bath_options=dict(bathtype='full'))
         emb.kernel()
 
         mp2 = pyscf.mp.MP2(mf)

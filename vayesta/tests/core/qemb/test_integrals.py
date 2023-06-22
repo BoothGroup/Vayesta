@@ -5,9 +5,6 @@ import numpy as np
 import pyscf
 import pyscf.scf
 import pyscf.ao2mo
-
-
-import vayesta
 from vayesta.tests.common import TestCase
 from vayesta.tests import testsystems
 from vayesta.core.qemb import Embedding, UEmbedding
