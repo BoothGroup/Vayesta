@@ -2,6 +2,7 @@ import numpy as np
 
 from vayesta.rpa.rirpa.RIRPA import ssRIRRPA
 from vayesta.rpa.rirpa.momzero_NI import MomzeroOffsetCalcGaussLag, MomzeroDeductHigherOrder_dRHF
+from vayesta.rpa.rirpa.energy_NI import NITrRootMP_dRHF
 from vayesta.core.util import dot, time_string, timer, with_doc
 
 from pyscf import lib
@@ -177,6 +178,38 @@ class ssRIdRRPA(ssRIRRPA):
                 mom0[:, self.ov:] = mom0_spinindependent
 
         return mom0, (None, None)
+
+    def kernel_trMPrt(self, npoints=48, ainit=10):
+        """Evaluate Tr((MP)^(1/2))."""
+        ri_mp, ri_apb, ri_amb = self.get_compressed_MP()
+        inputs = (self.eps, ri_mp[0], ri_mp[1], npoints, self.log)
+
+        niworker = NITrRootMP_dRHF(*inputs)
+        integral, err = niworker.kernel(a=ainit, opt_quad=True)
+        # Compute offset; possible analytically in N^3 for diagonal.
+        offset = 2 * sum(self.eps) + np.tensordot(ri_mp[0] * self.eps ** (-1), ri_mp[1], ((0, 1), (0, 1)))
+        return integral[0] + offset, err
+
+    def kernel_energy(self, npoints=48, ainit=10, correction="linear"):
+
+        t_start = timer()
+        e1, err = self.kernel_trMPrt(npoints, ainit)
+        e2 = 0.0
+        cderi, cderi_neg = self.get_cderi()
+        cderi = cderi.reshape((-1, self.ov))
+        if cderi_neg is not None:
+            cderi_neg = cderi_neg.reshape((-1, self.ov))
+        # Note that eri contribution to A and B is equal, so can get trace over one by dividing by two
+        e3 = 2 * (sum(self.eps) + np.tensordot(cderi, cderi, ((0, 1), (0, 1))))
+        if cderi_neg is not None:
+             e3 -= np.tensordot(cderi_neg, cderi_neg, ((0, 1), (0, 1)))
+        err /= 2
+        self.e_corr_ss = 0.5 * (e1 + e2 - e3)
+        self.log.info(
+            "Total RIRPA Energy Calculation wall time:  %s",
+            time_string(timer() - t_start),
+        )
+        return self.e_corr_ss, err
 
     def get_compressed_MP(self, alpha=1.0):
         lov, lov_neg = self.get_cderi()

@@ -406,9 +406,7 @@ class ssRIRRPA:
         niworker = energy_NI.NITrRootMP(*inputs)
         integral, err = niworker.kernel(a=ainit, opt_quad=True)
         # Compute offset; possible analytically in N^3 for diagonal.
-        offset = sum(self.D) + 0.5 * einsum(
-            "p,np,np->", self.D ** (-1), ri_mp[0], ri_mp[1]
-        )
+        offset = sum(self.D) + 0.5 * np.tensordot(ri_mp[0] * (self.D ** (-1)), ri_mp[1], ((0, 1), (0, 1)))
         return integral[0] + offset, err
 
     def kernel_energy(self, npoints=48, ainit=10, correction="linear"):
