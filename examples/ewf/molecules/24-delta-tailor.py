@@ -9,7 +9,7 @@ import vayesta.ewf
 
 
 dm1 = None
-for d in np.arange(2.0, 3.1, 0.1):
+for d in np.arange(1.0, 1.5, 0.2):
 
     mol = pyscf.gto.Mole()
     mol.atom = 'N 0 0 0 ; N 0 0 %f' % d
