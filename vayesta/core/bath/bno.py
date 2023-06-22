@@ -288,9 +288,9 @@ class MP2_BNO_Bath(BNO_Bath):
     def __init__(self, *args, project_dmet_order=0, project_dmet_mode='full', project_dmet=None, **kwargs):
         # Backwards compatibility:
         if project_dmet:
+            self.log.warning("project_dmet is deprecated; use project_dmet_order and project_dmet_mode.")
             project_dmet_order = 1
             project_dmet_mode = project_dmet
-            # TODO: deprecate
         self.project_dmet_order = project_dmet_order
         self.project_dmet_mode = project_dmet_mode
         super().__init__(*args, **kwargs)
