@@ -8,7 +8,7 @@ on:
     - cron: '0 2 * * *'
 
 jobs:
-  build:
+  full:
     name: python ${{ matrix.python-version }} on ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
 
@@ -16,10 +16,10 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - {python-version: "3.7", os: ubuntu-latest, documentation: False}
           - {python-version: "3.8", os: ubuntu-latest, documentation: True}
           - {python-version: "3.9", os: ubuntu-latest, documentation: False}
           - {python-version: "3.10", os: ubuntu-latest, documentation: False}
+          - {python-version: "3.11", os: ubuntu-latest, documentation: False}
 
     steps:
       - uses: actions/checkout@v2
@@ -34,7 +34,7 @@ jobs:
         run: |
           python -m pip install wheel --user
           python -m pip install setuptools --upgrade --user
-          python -m pip install .[dmet] --user
+          python -m pip install .[dmet,ebcc] --user
       - name: Run unit tests
         run: |
           python -m pip install pytest pytest-cov --user
@@ -60,4 +60,30 @@ jobs:
           publish_dir: docs/build/html
           force_orphan: true
         if: ${{ matrix.documentation && github.ref == 'refs/heads/master' && github.event_name != 'schedule' }}
+
+  bare:
+    name: python 3.8 on ubuntu-latest with no optional dependencies
+    runs-on: ubuntu-latest
+
+    strategy:
+      fail-fast: false
+
+    steps:
+      - uses: actions/checkout@v2
+      - name: Set up Python 3.8
+        uses: actions/setup-python@v2
+        with:
+          python-version: 3.8
+      - name: Upgrade pip
+        run: |
+          python -m pip install --upgrade pip
+      - name: Install Vayesta
+        run: |
+          python -m pip install wheel --user
+          python -m pip install setuptools --upgrade --user
+          python -m pip install . --user
+      - name: Run unit tests
+        run: |
+          python -m pip install pytest pytest-cov --user
+          python .github/workflows/run_tests.py
 

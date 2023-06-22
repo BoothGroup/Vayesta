@@ -1,3 +1,5 @@
+import sys
+import pytest
 import unittest
 
 import vayesta
@@ -9,6 +11,13 @@ from vayesta.tests import testsystems
 class MolecularEDMETTest(TestCase):
     ENERGY_PLACES = 7
     CONV_TOL = 1e-9
+
+    @classmethod
+    def setUpClass(cls):
+        try:
+            import cvxpy
+        except ImportError:
+            pytest.skip("Requires cvxpy.")
 
     def _test_energy(self, emb, known_values):
         """Tests that the energy matfhes a known values.
