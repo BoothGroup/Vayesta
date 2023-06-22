@@ -7,9 +7,15 @@ from vayesta.tests.common import TestCase
 from vayesta.tests import testsystems
 
 
-@pytest.mark.skipif("cvxpy" not in sys.modules, reason="requires cvxpy")
 class EDMET_Hubbard_Tests(TestCase):
     PLACES_ENERGY = 6
+
+    @classmethod
+    def setUpClass(cls):
+        try:
+            import cvxpy
+        except ImportError:
+            pytest.skip("Requires cvxpy")
 
     def _test_energy(self, emb, known_values):
         """Test that the energy matches a known value.

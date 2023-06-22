@@ -8,13 +8,16 @@ from vayesta.tests import testsystems
 
 FCI_SOLVER_OPTS = dict(davidson_only=False, init_guess="mf")
 
-@pytest.mark.skipif("cvxpy" not in sys.modules, reason="requires cvxpy")
 class MoleculeTest(TestCase):
     PLACES_ENERGY = 7
     CONV_TOL = 1e-9
 
     @classmethod
     def setUpClass(cls):
+        try:
+            import cvxpy
+        except ImportError:
+            pytest.skip("Requires cvxpy")
         cls.mf = testsystems.h6_sto6g.rhf()
 
     @classmethod

@@ -7,9 +7,15 @@ from vayesta.tests.common import TestCase
 from vayesta.tests import testsystems
 
 
-@pytest.mark.skipif("cvxpy" not in sys.modules, reason="requires cvxpy")
 class HubbardDFEDMETTests(TestCase):
     PLACES_ENERGY = 9
+
+    @classmethod
+    def setUpClass(cls):
+        try:
+            import cvxpy
+        except ImportError:
+            pytest.skip("Requires cvxpy")
 
     def _test_energy(self, emb, dfedmet, known_values):
         """Test that the energy contributions match a known value and the non-density fitted value.
