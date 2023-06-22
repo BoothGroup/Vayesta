@@ -287,12 +287,14 @@ class MP2_BNO_Bath(BNO_Bath):
     def __init__(self, *args, project_dmet_order=0, project_dmet_mode='full', project_dmet=None, **kwargs):
         # Backwards compatibility:
         if project_dmet:
-            self.log.warning("project_dmet is deprecated; use project_dmet_order and project_dmet_mode.")
             project_dmet_order = 1
             project_dmet_mode = project_dmet
         self.project_dmet_order = project_dmet_order
         self.project_dmet_mode = project_dmet_mode
         super().__init__(*args, **kwargs)
+        if project_dmet:
+            # Log isn't set at the top of the function
+            self.log.warning("project_dmet is deprecated; use project_dmet_order and project_dmet_mode.")
 
     def _make_t2(self, actspace, fock, eris=None, max_memory=None, blksize=None, energy_only=False):
         """Make T2 amplitudes and pair correlation energies."""
