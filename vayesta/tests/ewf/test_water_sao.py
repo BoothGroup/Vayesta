@@ -17,7 +17,7 @@ class Test_MP2(test_h2.Test_MP2):
     @classmethod
     @cache
     def emb(cls, bno_threshold):
-        emb = vayesta.ewf.EWF(cls.mf, solver='MP2', bno_threshold=bno_threshold)
+        emb = vayesta.ewf.EWF(cls.mf, solver='MP2', bath_options=dict(threshold=bno_threshold))
         with emb.sao_fragmentation() as f:
             f.add_all_atomic_fragments()
         emb.kernel()
@@ -63,9 +63,9 @@ class Test_CCSD(test_h2.Test_CCSD):
     @classmethod
     @cache
     def emb(cls, bno_threshold):
-        solver_opts = dict(conv_tol= 1e-10, conv_tol_normt=1e-8)
-        emb = vayesta.ewf.EWF(cls.mf, bno_threshold=bno_threshold, solve_lambda=True,
-                solver_options=solver_opts)
+        solver_opts = dict(conv_tol= 1e-10, conv_tol_normt=1e-8, solve_lambda=True)
+        emb = vayesta.ewf.EWF(cls.mf, bath_options=dict(threshold=bno_threshold),
+                              solver_options=solver_opts)
         with emb.sao_fragmentation() as f:
             f.add_all_atomic_fragments()
         emb.kernel()
@@ -109,7 +109,7 @@ class Test_UMP2(test_h2.Test_UMP2):
     @classmethod
     @cache
     def emb(cls, bno_threshold):
-        emb = vayesta.ewf.EWF(cls.mf, solver='MP2', bno_threshold=bno_threshold)
+        emb = vayesta.ewf.EWF(cls.mf, solver='MP2', bath_options=dict(threshold=bno_threshold))
         with emb.sao_fragmentation() as f:
             f.add_all_atomic_fragments()
         emb.kernel()
@@ -152,9 +152,9 @@ class Test_RCCSD_vs_UCCSD(TestCase):
     @classmethod
     @cache
     def remb(cls, bno_threshold):
-        solver_opts = dict(conv_tol= 1e-10, conv_tol_normt=1e-8)
-        emb = vayesta.ewf.EWF(cls.rhf, bno_threshold=bno_threshold, solve_lambda=True,
-                solver_options=solver_opts)
+        solver_opts = dict(conv_tol= 1e-10, conv_tol_normt=1e-8, solve_lambda=True)
+        emb = vayesta.ewf.EWF(cls.rhf, bath_options=dict(threshold=bno_threshold),
+                              solver_options=solver_opts)
         with emb.sao_fragmentation() as f:
             f.add_all_atomic_fragments()
         emb.kernel()
@@ -163,9 +163,9 @@ class Test_RCCSD_vs_UCCSD(TestCase):
     @classmethod
     @cache
     def uemb(cls, bno_threshold):
-        solver_opts = dict(conv_tol= 1e-10, conv_tol_normt=1e-8)
-        emb = vayesta.ewf.EWF(cls.uhf, bno_threshold=bno_threshold, solve_lambda=True,
-                solver_options=solver_opts)
+        solver_opts = dict(conv_tol= 1e-10, conv_tol_normt=1e-8, solve_lambda=True)
+        emb = vayesta.ewf.EWF(cls.uhf, bath_options=dict(threshold=bno_threshold),
+                              solver_options=solver_opts)
         with emb.sao_fragmentation() as f:
             f.add_all_atomic_fragments()
         emb.kernel()

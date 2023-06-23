@@ -8,11 +8,27 @@ import vayesta.edmet
 
 
 natom = 6
-filename = "energies_scEDMET_h{:d}_compare.txt".format(natom)
+filename = "energies_scEDMET_h{:d}_compare_df.txt".format(natom)
 
 with open(filename, "a") as f:
     f.write(("%6s" + "  %16s  " * 8) % (
     "d", "HF", "CCSD", "FCI", "DMET (Oneshot)", "DMET", "EDMET (Oneshot)", "EDMET (old)", "EDMET (new)"))
+
+import numpy as np
+import pyscf.cc
+import pyscf.fci
+import pyscf.tools
+import pyscf.tools.ring
+import vayesta.dmet
+import vayesta.edmet
+
+
+natom = 6
+filename = "energies_h{:d}_compare_df.txt".format(natom)
+
+with open(filename, "a") as f:
+    f.write(("%6s" + "  %16s  " * 6 + "\n") % (
+    "d", "HF", "CCSD", "FCI", "DMET (Oneshot)", "DMET", "EDMET (Oneshot)"))
 
 for d in np.arange(0.5, 3.0001, 0.25):
 
@@ -27,7 +43,10 @@ for d in np.arange(0.5, 3.0001, 0.25):
     mol.build()
 
     # Hartree-Fock
-    mf = pyscf.scf.RHF(mol)
+    # Replace with
+    # mf = pyscf.scf.RHF(mol)
+    # to run without density fitting.
+    mf = pyscf.scf.RHF(mol).density_fit()
     mf.kernel()
 
     # Reference full system CCSD:
@@ -51,28 +70,13 @@ for d in np.arange(0.5, 3.0001, 0.25):
             f.add_atomic_fragment([i, i + 1])
     dmet_diis.kernel()
     # Single-shot EDMET
-    edmet_oneshot = vayesta.edmet.EDMET(mf, solver='EBFCI', max_elec_err=1e-4, maxiter=1, max_boson_occ=2)
+    edmet_oneshot = vayesta.edmet.EDMET(mf, solver='FCI', max_elec_err=1e-4, maxiter=1,
+                                        solver_options=dict(max_boson_occ=2), oneshot=True)
     with edmet_oneshot.iao_fragmentation() as f:
         for i in range(0, natom, 2):
             f.add_atomic_fragment([i, i + 1])
     edmet_oneshot.kernel()
-    # Full DMET
-    edmet_orig = vayesta.edmet.EDMET(mf, solver='EBFCI', charge_consistent=True, max_elec_err=1e-4, maxiter=40,
-                                     max_boson_occ=2, old_sc_condition=True)
-    with edmet_orig.iao_fragmentation() as f:
-        for i in range(0, natom, 2):
-            f.add_atomic_fragment([i, i + 1])
-    edmet_orig.kernel()
 
-    edmet_new = vayesta.edmet.EDMET(mf, solver='EBFCI', charge_consistent=True, max_elec_err=1e-4, maxiter=40,
-                                    max_boson_occ=2)
-    with edmet_new.iao_fragmentation() as f:
-        for i in range(0, natom, 2):
-            f.add_atomic_fragment([i, i + 1])
-    edmet_new.kernel()
-
-    e_sc_edmet1 = edmet_orig.e_tot if edmet_orig.converged else np.NaN
-    e_sc_edmet2 = edmet_new.e_tot if edmet_new.converged else np.NaN
     e_cc = mycc.e_tot if mycc.converged else np.NaN
     e_dmet = dmet_diis.e_tot if dmet_diis.converged else np.NaN
     print("E%-14s %+16.8f Ha" % ('(HF)=', mf.e_tot))
@@ -80,14 +84,12 @@ for d in np.arange(0.5, 3.0001, 0.25):
     print("E%-14s %+16.8f Ha" % ('(FCI)=', myfci.e_tot))
     print("E%-14s %+16.8f Ha" % ('(DMET-FCI)=', dmet_oneshot.e_tot))
     print("E%-14s %+16.8f Ha" % ('(EDMET-FCI-Oneshot)=', edmet_oneshot.e_tot))
-    print("E%-14s %+16.8f Ha" % ('(EDMET1-FCI)=', e_sc_edmet1))
-    print("E%-14s %+16.8f Ha" % ('(EDMET2-FCI)=', e_sc_edmet2))
+
 
     with open(filename, "a") as f:
-        f.write("%.2f  % 16.8f  % 16.8f  % 16.8f  %16.8f  %16.8f  %16.8f  %16.8f  %16.8f\n" % (d, mf.e_tot, e_cc,
+        f.write("%.2f  % 16.8f  % 16.8f  % 16.8f  %16.8f  %16.8f  %16.8f\n" % (d, mf.e_tot, e_cc,
                                                                                                myfci.e_tot,
                                                                                                dmet_oneshot.e_tot,
                                                                                                e_dmet,
-                                                                                               edmet_oneshot.e_tot,
-                                                                                               e_sc_edmet1,
-                                                                                               e_sc_edmet2))
+                                                                                               edmet_oneshot.e_tot
+                                                                                               ))

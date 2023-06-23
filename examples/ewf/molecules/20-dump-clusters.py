@@ -70,11 +70,10 @@ with h5py.File('clusters-rhf.h5', 'r') as f:
         print("c_cluster.shape= (%d, %d)" % frag['c_cluster'].shape)
         print("c_frag.shape=    (%d, %d)" % frag['c_frag'].shape)
         # Integral arrays:
-        # hcore, fock, and eris are the 1-electron Hamiltonian, Fock, and 2-electron Hamiltonian
+        # fock, and eris are the Fock, and 2-electron Hamiltonian
         # matrix elements in the cluster space.
-        # heff is equal to hcore, plus an additional potential due to the Coulomb and exchange
+        # heff is the 1-electron Hamiltonian, plus an additional potential due to the Coulomb and exchange
         # interaction with the occupied environment orbitals outside the cluster.
-        print("hcore.shape=     (%d, %d)" % frag['hcore'].shape)
         print("heff.shape=      (%d, %d)" % frag['heff'].shape)
         print("fock.shape=      (%d, %d)" % frag['fock'].shape)
         # The 2-electron integrals are in chemical ordering: eris[i,j,k,l] = (ij|kl)
@@ -102,8 +101,6 @@ with h5py.File('clusters-uhf.h5', 'r') as f:
         print("c_frag_a.shape=    (%d, %d)" % frag['c_frag_a'].shape)
         print("c_frag_b.shape=    (%d, %d)" % frag['c_frag_b'].shape)
         # Integral arrays:
-        print("hcore_a.shape=     (%d, %d)" % frag['hcore_a'].shape)
-        print("hcore_b.shape=     (%d, %d)" % frag['hcore_b'].shape)
         print("heff_a.shape=      (%d, %d)" % frag['heff_a'].shape)
         print("heff_b.shape=      (%d, %d)" % frag['heff_b'].shape)
         print("fock_a.shape=      (%d, %d)" % frag['fock_a'].shape)

@@ -46,8 +46,8 @@ with emb_sym.iao_fragmentation() as frag:
     # Important when using multiple rotations:
     # Only use the minimal set of rotations which generate all atomic fragments,
     # i.e. do not add multiple 4th-order rotations here!
-    with frag.rotational_symmetry(order=4, axis='z'):
-        with frag.rotational_symmetry(order=2, axis='y'):
+    with frag.rotational_symmetry(order=4, axis=[0,0,1]):
+        with frag.rotational_symmetry(order=2, axis=[0,1,0]):
             frag.add_atomic_fragment('C1')
             frag.add_atomic_fragment('H9')
 emb_sym.kernel()

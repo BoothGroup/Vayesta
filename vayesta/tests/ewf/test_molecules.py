@@ -257,8 +257,8 @@ class MoleculeTests(TestCase):
             frag_o = f.add_atomic_fragment(0, solver='extCCSD', active=False)
             frag_h = f.add_atomic_fragment(1, solver='extCCSD', sym_factor=2, active=False)
         emb.kernel()
-        frag_o.tailor_with_fragments([cas_o], projectors=0)
-        frag_h.tailor_with_fragments([cas_h], projectors=0)
+        frag_o.add_external_corrections([cas_o], projectors=0)
+        frag_h.add_external_corrections([cas_h], projectors=0)
         cas_o.active = cas_h.active = False
         frag_o.active = frag_h.active = True
         emb.kernel()
@@ -292,7 +292,7 @@ class MoleculeTests(TestCase):
 
         ecisd = ewf.EWF(
                 testsystems.h2_ccpvdz.rhf(),
-                bath_type='dmet',
+                bath_options=dict(bathtype='dmet'),
                 solver='CISD',
                 solver_options={
                     'conv_tol': self.CONV_TOL,
@@ -303,7 +303,7 @@ class MoleculeTests(TestCase):
 
         eccsd = ewf.EWF(
                 testsystems.h2_ccpvdz.rhf(),
-                bath_type='dmet',
+                bath_options=dict(bathtype='dmet'),
                 solver='CCSD',
                 solver_options={
                     'conv_tol': self.CONV_TOL,
@@ -320,7 +320,7 @@ class MoleculeTests(TestCase):
         """
         rewf = ewf.EWF(
                 testsystems.water_ccpvdz.rhf(),
-                bath_type='dmet',
+                bath_options=dict(bathtype='dmet'),
                 solver="MP2"
         )
 
@@ -330,7 +330,7 @@ class MoleculeTests(TestCase):
 
         df_rewf = ewf.EWF(
                 testsystems.water_ccpvdz_df.rhf(),
-                bath_type='dmet',
+                bath_options=dict(bathtype='dmet'),
                 solver="MP2",
                 solver_options={
                     "compress_cderi":False
@@ -344,7 +344,7 @@ class MoleculeTests(TestCase):
 
         cdf_rewf = ewf.EWF(
                 testsystems.water_ccpvdz_df.rhf(),
-                bath_type='dmet',
+                bath_options=dict(bathtype='dmet'),
                 solver="MP2",
                 solver_options={
                     "compress_cderi":True
@@ -367,7 +367,7 @@ class MoleculeTestsUnrestricted(unittest.TestCase):
 
         rewf = ewf.EWF(
                 testsystems.lih_ccpvdz.rhf(),
-                bath_type='dmet',
+                bath_options=dict(bathtype='dmet'),
                 solver_options={
                     'conv_tol': self.CONV_TOL,
                     'conv_tol_normt': self.CONV_TOL_NORMT,
@@ -379,7 +379,7 @@ class MoleculeTestsUnrestricted(unittest.TestCase):
 
         uewf = ewf.UEWF(
                 testsystems.lih_ccpvdz.uhf(),
-                bath_type='dmet',
+                bath_options=dict(bathtype='dmet'),
                 solver_options={
                     'conv_tol': self.CONV_TOL,
                     'conv_tol_normt': self.CONV_TOL_NORMT,
@@ -399,7 +399,7 @@ class MoleculeTestsUnrestricted(unittest.TestCase):
         rewf = ewf.EWF(
                 testsystems.lih_ccpvdz.rhf(),
                 solver='CISD',
-                bath_type='dmet',
+                bath_options=dict(bathtype='dmet'),
                 solver_options={
                     'conv_tol': self.CONV_TOL,
                     'conv_tol_normt': self.CONV_TOL_NORMT,
@@ -412,7 +412,7 @@ class MoleculeTestsUnrestricted(unittest.TestCase):
         uewf = ewf.UEWF(
                 testsystems.lih_ccpvdz.uhf(),
                 solver='CISD',
-                bath_type='dmet',
+                bath_options=dict(bathtype='dmet'),
                 solver_options={
                     'conv_tol': self.CONV_TOL,
                     'conv_tol_normt': self.CONV_TOL_NORMT,
@@ -432,7 +432,7 @@ class MoleculeTestsUnrestricted(unittest.TestCase):
         rewf = ewf.EWF(
                 testsystems.h2_ccpvdz.rhf(),
                 solver='FCI',
-                bath_type='dmet',
+                bath_options=dict(bathtype='dmet'),
                 solver_options={
                     'conv_tol': 1e-12,
                 },
@@ -444,7 +444,7 @@ class MoleculeTestsUnrestricted(unittest.TestCase):
         uewf = ewf.UEWF(
                 testsystems.h2_ccpvdz.uhf(),
                 solver='FCI',
-                bath_type='dmet',
+                bath_options=dict(bathtype='dmet'),
                 solver_options={
                     'conv_tol': 1e-12,
                 },
@@ -462,7 +462,7 @@ class MoleculeTestsUnrestricted(unittest.TestCase):
 
         rewf = ewf.EWF(
                 testsystems.lih_ccpvdz.rhf(),
-                bath_type='dmet',
+                bath_options=dict(bathtype='dmet'),
                 solver_options={
                     'conv_tol': self.CONV_TOL,
                     'conv_tol_normt': self.CONV_TOL_NORMT,
@@ -474,7 +474,7 @@ class MoleculeTestsUnrestricted(unittest.TestCase):
 
         uewf = ewf.UEWF(
                 testsystems.lih_ccpvdz.uhf(),
-                bath_type='dmet',
+                bath_options=dict(bathtype='dmet'),
                 solver_options={
                     'conv_tol': self.CONV_TOL,
                     'conv_tol_normt': self.CONV_TOL_NORMT,
