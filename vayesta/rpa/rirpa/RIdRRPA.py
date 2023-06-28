@@ -15,7 +15,7 @@ class ssRIdRRPA(ssRIRRPA):
     @with_doc(ssRIRRPA.kernel_moms)
     def kernel_moms(self, max_moment, target_rot=None, return_spatial=False, **kwargs):
         t_start = timer()
-        self.log.debug("Running dRPA RHF code.")
+        self.log.info("Running dRPA RHF code.")
         tr_rot = None
 
         ri_decomps = self.get_compressed_MP()
@@ -214,11 +214,11 @@ class ssRIdRRPA(ssRIRRPA):
     def get_compressed_MP(self, alpha=1.0):
         lov, lov_neg = self.get_cderi()
 
-        lov = lov.reshape(lov.shape[0], -1)
+        lov = lov.reshape(lov.shape[0], self.ov)
         ri_apb = [lov, lov]
 
         if lov_neg is not None:
-            lov_neg.reshape(lov_neg.shape[0], -1)
+            lov_neg = lov_neg.reshape(lov_neg.shape[0], self.ov)
 
             ri_apb = [np.concatenate([lov, lov_neg], axis=0),
                       np.concatenate([lov, -lov_neg], axis=0)]
