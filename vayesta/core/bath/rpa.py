@@ -7,6 +7,7 @@ from vayesta.rpa.rirpa import ssRIdRRPA
 
 from vayesta.core.eris import get_cderi
 from vayesta.core import spinalg
+from vayesta.core.bath import helper
 
 
 import numpy as np
@@ -40,81 +41,93 @@ class RPA_BNO_Bath(BNO_Bath):
         if cderis is None:
             cderis = get_cderi(self.base, (self.base.mo_coeff_occ, self.base.mo_coeff_vir), compact=False)
 
+        if self.occtype == "occupied":
+            proj = dot(self.dmet_bath.c_cluster_vir.T, self.base.get_ovlp(), self.fragment.c_frag,
+                       self.fragment.c_frag.T, self.base.get_ovlp(), self.dmet_bath.c_cluster_vir)
 
+            rot_vir = dot(self.dmet_bath.c_cluster_vir.T, self.base.get_ovlp(), self.base.mo_coeff_vir)
+            rot_occ = np.eye(self.base.nocc)
+        else:
+            proj = dot(self.dmet_bath.c_cluster_occ.T, self.base.get_ovlp(), self.fragment.c_frag, self.fragment.c_frag.T,
+                             self.base.get_ovlp(), self.dmet_bath.c_cluster_occ)
+            rot_occ = dot(self.dmet_bath.c_cluster_occ.T, self.base.get_ovlp(), self.base.mo_coeff_occ)
+            rot_vir = np.eye(self.base.nvir)
 
-
-        c_active_occ = self.dmet_bath.c_cluster_occ
-
-        target_occ = dot(c_active_occ.T, self.base.get_ovlp(), self.fragment.c_frag, self.fragment.c_frag.T,
-                         self.base.get_ovlp(), self.base.mo_coeff_occ)
-
-        nocc_dmet = target_occ.shape[0]
-        nvir = self.base.nvir
-
-        print("c_active_occ.shape:", c_active_occ.shape)
+        loc_excit_shape = (rot_occ.shape[0], rot_vir.shape[0])
 
         # Get target rotation in particle-hole excitation space.
         # This is of size O(N), so this whole procedure scales as O(N^4)
-        target = einsum("ij,ab->iajb", target_occ, np.eye(nvir))
-        target = target.reshape((target_occ.shape[0] * nvir, self.base.nocc * nvir))
+
+        target_rot = einsum("ij,ab->iajb", rot_occ, rot_vir)
+        target_rot = target_rot.reshape(np.product(target_rot.shape[:2]), np.product(target_rot.shape[2:]))
+
+        print(proj.shape, rot_vir.shape, rot_occ.shape, loc_excit_shape, target_rot.shape)
+
         t0 = timer()
         myrpa = ssRIdRRPA(self.base.mf, lov=cderis)
+        # This initially calculates the spin-summed zeroth moment, then deducts the spin-dependent component and
+        # accounts for factor of two from different spin channels.
+        m0 = (myrpa.kernel_moms(0, target_rot=target_rot, return_spatial=True)[0][0] - target_rot) / 2.0
+        self.fragment._rpa_bath_intermed = m0
+        print("m0 shape (generated):", m0.shape)
 
-        # Hacky workaround for restrictive bath construction interface only allowing totally decoupled occupied/virtual
-        # bath constructions...
-        if hasattr(self.fragment, "_rpa_bath_intermed"):
-            m0 = self.fragment._rpa_bath_intermed
-            print("m0 shape (read):", m0.shape)
-        else:
-            # This initially calculates the spin-summed zeroth moment, then deducts the spin-dependent component and
-            # accounts for factor of two.
-            m0 = (myrpa.kernel_moms(0, target_rot=target, return_spatial=True)[0][0] - target) / 2.0
-            self.fragment._rpa_bath_intermed = m0
-            print("m0 shape (generated):", m0.shape)
         # Get eps with occupied index in DMET cluster.
-        eps = einsum("ia,ji->ja",myrpa.eps.reshape((myrpa.nocc, myrpa.nvir)), target_occ)
+        eps = dot(target_rot, myrpa.eps.reshape(-1)).reshape((rot_occ.shape[0], rot_vir.shape[0]))
         # First calculate contributions to occupied and virtual matrices.
         if self.occtype == "occupied":
-            econtrib = dot(target_occ.T,
-                               einsum("ia,iaja->ij", eps,
-                                      m0.reshape((target_occ.shape[0], myrpa.nvir, myrpa.nocc, myrpa.nvir))))
+            econtrib = np.diag(einsum("ab,iaib->i", proj,
+                              dot(m0 * myrpa.eps[None], target_rot.T).reshape(loc_excit_shape+loc_excit_shape)))
         else:
-            econtrib = einsum("ia,iajb,ij->ab", eps,
-                                  m0.reshape((target_occ.shape[0], myrpa.nvir, myrpa.nocc, myrpa.nvir)), target_occ)
+            econtrib = np.diag(einsum("ij,iaja->a", proj,
+                              dot(m0 * myrpa.eps[None], target_rot.T).reshape(loc_excit_shape+loc_excit_shape)))
 
-        # Generate cderi in occupied-cluster virtual-full space.
-        vloc = einsum("nia,ji->nja", cderis[0], target_occ).reshape((cderis[0].shape[0], -1))
-        m02 = dot(vloc, m0).reshape(vloc.shape[0], myrpa.nocc, myrpa.nvir)
+        cderi_loc = dot(cderis[0].reshape(-1, myrpa.ov), target_rot.T).reshape((cderis[0].shape[0],)+loc_excit_shape)
 
-        m02_neg = None
         if cderis[1] is not None:
-            vloc_neg = einsum("nia,ji->nja", cderis[1], target_occ).reshape((cderis[1].shape[0], -1))
-            m02_neg = dot(vloc_neg, m0).reshape(vloc_neg.shape[0], myrpa.nocc, myrpa.nvir)
+            cderi_neg_loc = dot(cderis[1].reshape(-1, myrpa.ov), target_rot.T).reshape(
+                (cderis[1].shape[0],) + loc_excit_shape)
+
+        #m0 = dot(m0, target_rot.T).reshape(loc_excit_shape + loc_excit_shape)
+        #mycderis = (cderi_loc, cderi_neg_loc)
+        m0 = m0.reshape(loc_excit_shape + (myrpa.nocc, myrpa.nvir))
+        mycderis = cderis
+
 
         if self.occtype == "occupied":
-            econtrib += 4 * einsum("nia,nja->ij", cderis[0], m02)
-            if m02_neg is not None:
-                econtrib -= 4 * einsum("nia,nja->ij", cderis[1], m02_neg)
+
+            # Since loc excit space only scales as O(N), all steps are limited to N^4 scaling.
+            m02 = einsum("jbia,nia->jbni", m0, mycderis[0])
+            econtrib += 4 * einsum("njc,cb,jbni->ji", cderi_loc, proj, m02)
+            if cderis[1] is not None:
+                m02 = einsum("jbia,nia->jbni", m0, mycderis[1])
+                econtrib -= 4 * einsum("njc,cb,jbni->ji", cderi_neg_loc, proj, m02)
+
         else:
-            econtrib += 4 * einsum("nia,nib->ab", cderis[0], m02)
-            if m02_neg is not None:
-                econtrib -= 4 * einsum("nia,nib->ab", cderis[1], m02_neg)
+            # Since loc excit space only scales as O(N), all steps are limited to N^4 scaling.
+            m02 = einsum("jbia,nia->jbna", m0, mycderis[0])
+
+            econtrib += 4 * einsum("nkb,kj,jbna->ba", cderi_loc, proj, m02)
+            if cderis[1] is not None:
+                m02 = einsum("jbia,nia->jbna", m0, mycderis[1])
+                econtrib -= 4 * einsum("nkb,kj,jbna->ba", cderi_neg_loc, proj, m02)
 
         # Finally add in pure coulombic contribution.
-        temp = dot(vloc.T, vloc).reshape((nocc_dmet, nvir, nocc_dmet, nvir))
         if self.occtype == "occupied":
-            econtrib += dot(target_occ.T, einsum("iaja->ij", temp), target_occ)
+            econtrib += einsum("nia,njb,ab->ij", cderi_loc, cderi_loc, proj)
+            if cderis[1] is not None:
+                econtrib -= einsum("nia,njb,ab->ij", cderi_neg_loc, cderi_neg_loc, proj)
+
         else:
-            econtrib += einsum("iaib->ab", temp)
+            econtrib += einsum("nia,njb,ij->ab", cderi_loc, cderi_loc, proj)
+            if cderis[1] is not None:
+                econtrib -= einsum("nia,njb,ij->ab", cderi_neg_loc, cderi_neg_loc, proj)
 
         t_eval = timer()-t0
 
-        # econtrib is asymmetric; we can symmetrise.
+        self.log.info("Energy contrib asymmetry: %e", np.max(np.abs(econtrib - econtrib.T)))
+
+        # econtrib is asymmetric; we can symmetrise as separation is arbitrary.
         econtrib = (econtrib + econtrib.T) / 2.0
-
-
-        print(myrpa.nocc, myrpa.nvir, target_occ.shape)
-        print(econtrib.shape)
 
         # --- Diagonalize environment-environment block
         if self.occtype == 'occupied':
@@ -141,5 +154,21 @@ class RPA_BNO_Bath(BNO_Bath):
         return c_bno, an_bno, 0.0
 
 
+    def log_histogram(self, n_bno):
+        if len(n_bno) == 0:
+            return
+        self.log.info("%s BNO histogram:", self.occtype.capitalize())
 
+        min = int(np.floor(np.log10(n_bno.min())))
+        max = int(np.ceil(np.log10(n_bno.max())))
+
+        print("limits:", min, max)
+
+        if max - min > 8:
+            max = min + 8
+
+        bins = np.hstack([-np.inf, np.logspace(max, min, 1 + max-min)[::-1], np.inf])
+        print("bins:", bins)
+        labels = '    ' + ''.join('{:{w}}'.format('E-%d' % d, w=5) for d in range(-max, -min, 1))
+        self.log.info(helper.make_histogram(n_bno, bins=bins, labels=labels))
 
