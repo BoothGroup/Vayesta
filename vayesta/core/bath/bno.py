@@ -123,6 +123,7 @@ class BNO_Bath(Bath):
         self.log.info(helper.make_histogram(n_bno, bins=bins, labels=labels))
 
     def get_bath(self, bno_threshold=None, **kwargs):
+        print(self, bno_threshold)
         return self.truncate_bno(self.coeff, self.occup, bno_threshold=bno_threshold, **kwargs)
 
     @staticmethod
