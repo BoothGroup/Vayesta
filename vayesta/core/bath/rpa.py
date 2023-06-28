@@ -40,11 +40,14 @@ class RPA_BNO_Bath(BNO_Bath):
         if cderis is None:
             cderis = get_cderi(self.base, (self.base.mo_coeff_occ, self.base.mo_coeff_vir), compact=False)
 
+
+
+
         c_active_occ = self.dmet_bath.c_cluster_occ
 
-        fock = self.base.get_fock_for_bath()
+        target_occ = dot(c_active_occ.T, self.base.get_ovlp(), self.fragment.c_frag, self.fragment.c_frag.T,
+                         self.base.get_ovlp(), self.base.mo_coeff_occ)
 
-        target_occ = dot(c_active_occ.T, self.base.get_ovlp(), self.base.mo_coeff_occ)
         nocc_dmet = target_occ.shape[0]
         nvir = self.base.nvir
 
@@ -129,7 +132,13 @@ class RPA_BNO_Bath(BNO_Bath):
 
         print(n_bno)
 
-        return c_bno, abs(n_bno), 0.0
+        an_bno = abs(n_bno)
+
+        c_bno = c_bno[:, np.argsort(an_bno)[::-1]]
+        an_bno = np.array(sorted(an_bno)[::-1])
+
+
+        return c_bno, an_bno, 0.0
 
 
 
