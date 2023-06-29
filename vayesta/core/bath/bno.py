@@ -504,6 +504,7 @@ class MP2_BNO_Bath(BNO_Bath):
         dm = self._dm_take_env(dm)
         t0 = timer()
         r_bno, n_bno = self._diagonalize_dm(dm)
+        print(self.occtype, n_bno)
         t_diag = timer()-t0
         c_bno = spinalg.dot(self.c_env, r_bno)
         c_bno = fix_orbital_sign(c_bno)[0]
