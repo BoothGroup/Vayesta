@@ -37,7 +37,6 @@ class RPA_BNO_Bath(BNO_Bath):
             Bath natural orbital occupation numbers.
         """
 
-        print("Entering RPA_BNO_Bath.make_bno_coeff")
         t_init = timer()
 
         if cderis is None:
@@ -62,8 +61,6 @@ class RPA_BNO_Bath(BNO_Bath):
 
         target_rot = einsum("ij,ab->iajb", rot_occ, rot_vir)
         target_rot = target_rot.reshape(np.product(target_rot.shape[:2]), np.product(target_rot.shape[2:]))
-
-        print(proj.shape, rot_vir.shape, rot_occ.shape, loc_excit_shape, target_rot.shape)
 
         t0 = timer()
         myrpa = ssRIdRRPA(self.base.mf, lov=cderis)
@@ -93,7 +90,8 @@ class RPA_BNO_Bath(BNO_Bath):
         self.log.timing("Time RPA bath:  evaluation= %s  diagonal.= %s  total= %s",
                 *map(time_string, (t_eval, t_diag, (timer()-t_init))))
 
-        print(n_bno)
+        if min(n_bno) < 0.0:
+            self.log.critical("Negative bath occupation number encountered: %s", n_bno)
 
         return c_bno, n_bno, 0.0
 
@@ -117,7 +115,6 @@ class RPAcorr_BNO_Bath(RPA_BNO_Bath):
             Bath natural orbital occupation numbers.
         """
 
-        print("Entering RPA_BNO_Bath.make_bno_coeff")
         t_init = timer()
 
         if cderis is None:
@@ -143,15 +140,12 @@ class RPAcorr_BNO_Bath(RPA_BNO_Bath):
         target_rot = einsum("ij,ab->iajb", rot_occ, rot_vir)
         target_rot = target_rot.reshape(np.product(target_rot.shape[:2]), np.product(target_rot.shape[2:]))
 
-        print(proj.shape, rot_vir.shape, rot_occ.shape, loc_excit_shape, target_rot.shape)
-
         t0 = timer()
         myrpa = ssRIdRRPA(self.base.mf, lov=cderis)
         # This initially calculates the spin-summed zeroth moment, then deducts the spin-dependent component and
         # accounts for factor of two from different spin channels.
         m0 = (myrpa.kernel_moms(0, target_rot=target_rot, return_spatial=True)[0][0] - target_rot) / 2.0
         self.fragment._rpa_bath_intermed = m0
-        print("m0 shape (generated):", m0.shape)
 
         # Get eps with occupied index in DMET cluster.
         eps = dot(target_rot, myrpa.eps.reshape(-1)).reshape((rot_occ.shape[0], rot_vir.shape[0]))
@@ -169,11 +163,8 @@ class RPAcorr_BNO_Bath(RPA_BNO_Bath):
             cderi_neg_loc = dot(cderis[1].reshape(-1, myrpa.ov), target_rot.T).reshape(
                 (cderis[1].shape[0],) + loc_excit_shape)
 
-        #m0 = dot(m0, target_rot.T).reshape(loc_excit_shape + loc_excit_shape)
-        #mycderis = (cderi_loc, cderi_neg_loc)
         m0 = m0.reshape(loc_excit_shape + (myrpa.nocc, myrpa.nvir))
         mycderis = cderis
-
 
         if self.occtype == "occupied":
 
@@ -224,8 +215,6 @@ class RPAcorr_BNO_Bath(RPA_BNO_Bath):
 
         self.log.timing("Time RPA bath:  evaluation= %s  diagonal.= %s  total= %s",
                 *map(time_string, (t_eval, t_diag, (timer()-t_init))))
-
-        print(n_bno)
 
         an_bno = abs(n_bno)
 
