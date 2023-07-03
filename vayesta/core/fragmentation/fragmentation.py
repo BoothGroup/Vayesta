@@ -1,10 +1,15 @@
 import contextlib
+import dataclasses
 import numpy as np
 import scipy
 import scipy.linalg
 
 from vayesta.core.util import dot, fix_orbital_sign, time_string, timer
 from vayesta.core.fragmentation import helper
+from vayesta.core.symmetry.operation import PointGroupOperation
+
+from pymatgen.core import Molecule
+from pymatgen.symmetry.analyzer import PointGroupAnalyzer
 
 def check_orthonormal(log, mo_coeff, ovlp, mo_name="orbital", tol=1e-7):
     """Check orthonormality of mo_coeff.
@@ -92,6 +97,62 @@ class Fragmentation:
         self.log.changeIndentLevel(-1)
 
     # --- Adding fragments:
+    def autosym(self):
+        atom = self.emb.mf.mol.atom
+        atom, coords = list(zip(*atom))
+        mol = Molecule(atom, coords)
+        p = PointGroupAnalyzer(mol)
+        print('Point group: %s' % p.get_pointgroup())
+        
+        d = p.get_equivalent_atoms()
+        eq, ops = d['eq_sets'], d['sym_ops']
+        ovlp = self.emb.get_ovlp()
+        for parent, children in eq.items():
+            
+            #add parent
+            atom_indices, atom_symbols = self.get_atom_indices_symbols(parent)
+            name = atom[parent]
+            name, indices = self.get_atomic_fragment_indices(parent, name=name)
+            parent_frag = self._create_fragment(indices, name, atoms=atom_indices)
+            print('\n\n\n\n\n\n')
+            print(parent_frag)
+            for child in children:
+                if child == parent:
+                    continue
+                sym_op = PointGroupOperation(self.emb.symmetry, ops[parent][child])
+
+                # Translated coefficients
+                c_frag_t = sym_op(parent_frag.c_frag)
+                c_env_t = None  # Avoid expensive symmetry operation on environment orbitals
+                # Check that translated fragment does not overlap with current fragment:
+                fragovlp = parent_frag._csc_dot(parent_frag.c_frag, c_frag_t, ovlp=ovlp)
+                # if self.emb.spinsym == 'restricted':
+                #     fragovlp = abs(fragovlp).max()
+                # elif self.emb.spinsym == 'unrestricted':
+                #     fragovlp = max(abs(fragovlp[0]).max(), abs(fragovlp[1]).max())
+                # if (fragovlp > 1e-6):
+                #     self.log.critical("%s of fragment %s not orthogonal to original fragment (overlap= %.1e)!",
+                #                 sym_op, parent_frag.name, fragovlp)
+                #     raise RuntimeError("Overlapping fragment spaces (overlap= %.1e)" % fragovlp)
+
+                #add child
+                frag_id = self.emb.register.get_next_id()
+                frag = self.emb.Fragment(self.emb, frag_id, name, c_frag_t, c_env_t, solver=parent_frag.solver, sym_parent=parent_frag,
+                                     sym_op=sym_op, mpi_rank=parent_frag.mpi_rank, flags=dataclasses.asdict(parent_frag.flags),
+                                     **parent_frag.opts.asdict())
+                self.fragments.append(frag)
+                # # Check symmetry
+                # # (only for the first rotation or primitive translations (1,0,0), (0,1,0), and (0,0,1)
+                # # to reduce number of sym_op(c_env) calls)
+                # if check_mf and (abs(np.asarray(sym)).sum() == 1):
+                #     charge_err, spin_err = parent_frag.get_symmetry_error(frag, dm1=dm1)
+                #     if max(charge_err, spin_err) > (mf_tol or self.opts.symmetry_mf_tol):
+                #         self.log.critical("Mean-field DM1 not symmetric for %s of %s (errors: charge= %.1e, spin= %.1e)!",
+                #             sym_op, parent_frag.name, charge_err, spin_err)
+                #         raise RuntimeError("MF not symmetric under %s" % sym_op)
+                #     else:
+                #         self.log.debugv("Mean-field DM symmetry error for %s of %s: charge= %.1e, spin= %.1e",
+                #             sym_op, parent_frag.name, charge_err, spin_err)
 
     def add_atomic_fragment(self, atoms, orbital_filter=None, name=None, **kwargs):
         """Create a fragment of one or multiple atoms, which will be solved by the embedding method.

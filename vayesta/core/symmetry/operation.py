@@ -141,6 +141,44 @@ class SymmetryOperation:
         return b
 
 
+class PointGroupOperation(SymmetryOperation):
+
+    def __init__(self, group, mat):
+        self.mat = np.asarray(mat, dtype=float)
+        if np.allclose(np.linalg.det(mat), 1):
+            self.op_type = 'Rotation'
+        else:
+            self.op_type = 'Reflection' 
+        super().__init__(group)
+
+        self.atom_reorder = self.get_atom_reorder()[0]
+        if self.atom_reorder is None:
+            raise RuntimeError("Symmetry %s not found" % self)
+        self.ao_reorder = self.get_ao_reorder(self.atom_reorder)[0]
+        try:
+            self.angular_rotmats = pyscf.symm.basis._momentum_rotation_matrices(self.mol, self.as_matrix())
+        except AttributeError:
+            self.angular_rotmats = pyscf.symm.basis._ao_rotation_matrices(self.mol, self.as_matrix())
+        
+        # Inversion of p,f,h,... shells:
+        if self.op_type == 'Reflection':
+            self.angular_rotmats =[(-1)**i * x for (i, x) in enumerate(self.angular_rotmats)]
+    def __repr__(self):
+        return "%s" %self.op_type#% tuple(self.rotvec) #fix me
+
+    def as_matrix(self):
+        return self.mat #scipy.spatial.transform.Rotation.from_rotvec(self.rotvec).as_matrix()
+
+    def apply_to_point(self, r0):
+        #rot = self.as_matrix()
+        #return np.dot(rot, (r0 - self.center)) + self.center
+        return np.dot(self.mat, r0)
+    def call_kernel(self, a):
+        a = self.rotate_angular_orbitals(a, self.angular_rotmats)
+        return a
+
+
+
 class SymmetryIdentity(SymmetryOperation):
 
     def __repr__(self):
