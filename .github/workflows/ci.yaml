@@ -34,12 +34,9 @@ jobs:
         run: |
           python -m pip install wheel --user
           python -m pip install setuptools --upgrade --user
-<<<<<<< HEAD
+
           python -m pip install https://github.com/BoothGroup/dyson/archive/master.zip
-          python -m pip install .[dmet] --user
-=======
           python -m pip install .[dmet,ebcc] --user
->>>>>>> master
       - name: Run unit tests
         run: |
           python -m pip install pytest pytest-cov --user
