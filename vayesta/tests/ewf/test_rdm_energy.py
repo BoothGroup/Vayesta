@@ -31,7 +31,6 @@ class Test_RHF(TestCase):
         self.assertAlmostEqual(gl, cc.e_corr)
         self.assertAlmostEqual(lg, cc.e_corr)
         self.assertAlmostEqual(gg, cc.e_corr)
-
         self.assertAlmostEqual(ewf.get_dm_energy(), cc.e_tot)
 
 class Test_UHF(TestCase):
@@ -58,8 +57,6 @@ class Test_UHF(TestCase):
         self.assertAlmostEqual(gl, cc.e_corr)
         self.assertAlmostEqual(lg, cc.e_corr)
         self.assertAlmostEqual(gg, cc.e_corr)
-
-<<<<<<< HEAD
         self.assertAlmostEqual(ewf.get_dm_energy(), cc.e_tot)
 
 #    def test_h2_solid(self):
@@ -84,8 +81,7 @@ class Test_UHF(TestCase):
 #        self.assertAlmostEqual(gl, cc.e_corr)
 #        self.assertAlmostEqual(lg, cc.e_corr)
 #        self.assertAlmostEqual(gg, cc.e_corr)
-=======
->>>>>>> master
+
 
 if __name__ == '__main__':
     print("Running %s" % __file__)
