@@ -27,7 +27,7 @@ fci.kernel()
 # One-shot DMET
 dmet = vayesta.dmet.DMET(mf, solver='FCI', maxiter=1)
 with dmet.sao_fragmentation() as f:
-    with f.rotational_symmetry(3, axis='z'):
+    with f.rotational_symmetry(3, axis=[0,0,1]):
         f.add_atomic_fragment([0,1])
 dmet.kernel()
 

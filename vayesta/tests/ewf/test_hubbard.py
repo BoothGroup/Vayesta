@@ -21,7 +21,7 @@ class HubbardEWFTests(TestCase):
 
         emb = ewf.EWF(
                 testsystems.hubb_6_u0.rhf(),
-                bno_threshold=1e-8,
+                bath_options=dict(threshold=1e-8),
                 solver_options={
                     'conv_tol': self.CONV_TOL,
                 },
@@ -41,7 +41,7 @@ class HubbardEWFTests(TestCase):
 
         emb = ewf.EWF(
                 testsystems.hubb_10_u2.rhf(),
-                bno_threshold=1e-8,
+                bath_options=dict(threshold=1e-8),
                 solver_options={
                     'conv_tol': self.CONV_TOL,
                 },
@@ -61,7 +61,7 @@ class HubbardEWFTests(TestCase):
 
         emb = ewf.EWF(
                 testsystems.hubb_10_u2.rhf(),
-                bno_threshold=1e-2,
+                bath_options=dict(threshold=1e-2),
                 solver_options={
                     'conv_tol': self.CONV_TOL,
                 },
@@ -75,7 +75,7 @@ class HubbardEWFTests(TestCase):
 
         uemb = ewf.EWF(
                 testsystems.hubb_10_u2.uhf(),
-                bno_threshold=1e-2,
+                bath_options=dict(threshold=1e-2),
                 solver_options={
                     'conv_tol': self.CONV_TOL,
                 },
@@ -96,7 +96,7 @@ class HubbardEWFTests(TestCase):
 
         emb = ewf.EWF(
                 testsystems.hubb_6x6_u0_1x1imp.rhf(),
-                bno_threshold=1e-8,
+                bath_options=dict(threshold=1e-8),
                 solver_options={
                     'conv_tol': self.CONV_TOL,
                 },
@@ -116,7 +116,7 @@ class HubbardEWFTests(TestCase):
 
         emb = ewf.EWF(
                 testsystems.hubb_6x6_u6_1x1imp.rhf(),
-                bno_threshold=1e-8,
+                bath_options=dict(threshold=1e-8),
                 solver_options={
                     'conv_tol': self.CONV_TOL,
                 },
@@ -136,7 +136,7 @@ class HubbardEWFTests(TestCase):
 
         emb = ewf.EWF(
                 testsystems.hubb_8x8_u2_2x2imp.rhf(),
-                bno_threshold=1e-8,
+                bath_options=dict(threshold=1e-8),
                 solver_options={
                     'conv_tol': self.CONV_TOL,
                 },

@@ -1,3 +1,5 @@
+import sys
+import pytest
 import unittest
 
 from vayesta import edmet
@@ -7,6 +9,13 @@ from vayesta.tests import testsystems
 
 class EDMET_Hubbard_Tests(TestCase):
     PLACES_ENERGY = 6
+
+    @classmethod
+    def setUpClass(cls):
+        try:
+            import cvxpy
+        except ImportError:
+            pytest.skip("Requires cvxpy")
 
     def _test_energy(self, emb, known_values):
         """Test that the energy matches a known value.

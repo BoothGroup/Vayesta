@@ -35,7 +35,7 @@ __all__ = [
         # Time & memory
         'timer', 'log_time', 'get_used_memory', 'log_method',
         # Other
-	'getattr_recursive', 'setattr_recursive',
+        'getattr_recursive', 'setattr_recursive',
         'replace_attr', 'break_into_lines', 'fix_orbital_sign', 'split_into_blocks',
         'getif', 'callif', 'permutations_with_signs',
         ]

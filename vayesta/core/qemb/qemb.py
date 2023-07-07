@@ -782,6 +782,12 @@ class Embedding:
             List of T-symmetry related fragments. These will have the attributes `sym_parent` and `sym_op` set.
         """
         default_axes = {'x': (1,0,0), 'y': (0,1,0), 'z': (0,0,1)}
+
+        def catch_default_axes(axis):
+            if isinstance(axis, str):
+                return default_axes[axis.lower()]
+            return axis
+
         symtype = symmetry['type']
 
         def to_bohr(point, unit):
@@ -818,14 +824,14 @@ class Embedding:
             center = to_bohr(symmetry['center'], symmetry['unit'])
             center = shift_point_to_supercell(center)
             axis = symmetry['axis']
-            axis = np.asarray(default_axes.get(axis, axis), dtype=float)
+            axis = np.asarray(catch_default_axes(axis), dtype=float)
             axis = to_bohr(axis, symmetry['unit'])
             symbol = symbol or 'M'
             symlist = [1]
         elif symtype == 'rotation':
             order = symmetry['order']
             axis = symmetry['axis']
-            axis = np.asarray(default_axes.get(axis, axis), dtype=float)
+            axis = np.asarray(catch_default_axes(axis), dtype=float)
             axis = to_bohr(axis, symmetry['unit'])
             center = to_bohr(symmetry['center'], symmetry['unit'])
             center = shift_point_to_supercell(center)

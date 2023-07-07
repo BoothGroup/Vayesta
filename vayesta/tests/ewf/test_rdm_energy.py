@@ -19,7 +19,7 @@ class Test_RHF(TestCase):
         cc.kernel()
 
         #Full bath EWF
-        ewf = vayesta.ewf.EWF(mf, bath_type='full', solve_lambda=True)
+        ewf = vayesta.ewf.EWF(mf, bath_options=dict(bathtype='full'), solver_options=dict(solve_lambda=True))
         ewf.kernel()
 
         ll = ewf._get_dm_corr_energy_old(global_dm1=False, global_dm2=False)
@@ -46,7 +46,7 @@ class Test_UHF(TestCase):
         cc.kernel()
 
         #Full bath EWF
-        ewf = vayesta.ewf.EWF(mf, bath_type='full', solve_lambda=True)
+        ewf = vayesta.ewf.EWF(mf, bath_options=dict(bathtype='full'), solver_options=dict(solve_lambda=True))
         ewf.kernel()
 
         ll = ewf._get_dm_corr_energy_old(global_dm1=False, global_dm2=False)
@@ -59,6 +59,7 @@ class Test_UHF(TestCase):
         self.assertAlmostEqual(lg, cc.e_corr)
         self.assertAlmostEqual(gg, cc.e_corr)
 
+<<<<<<< HEAD
         self.assertAlmostEqual(ewf.get_dm_energy(), cc.e_tot)
 
 #    def test_h2_solid(self):
@@ -83,6 +84,8 @@ class Test_UHF(TestCase):
 #        self.assertAlmostEqual(gl, cc.e_corr)
 #        self.assertAlmostEqual(lg, cc.e_corr)
 #        self.assertAlmostEqual(gg, cc.e_corr)
+=======
+>>>>>>> master
 
 if __name__ == '__main__':
     print("Running %s" % __file__)

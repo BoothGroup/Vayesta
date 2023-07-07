@@ -1,3 +1,5 @@
+import sys
+import pytest
 import unittest
 from vayesta import dmet
 from vayesta.tests.common import TestCase
@@ -7,6 +9,13 @@ from vayesta.tests import testsystems
 class HubbardDMETTests(TestCase):
     PLACES_ENERGY = 6
     CONV_TOL = 1e-8
+
+    @classmethod
+    def setUpClass(cls):
+        try:
+            import cvxpy
+        except ImportError:
+            pytest.skip("Requires cvxpy")
 
     def _test_converged(self, emb, known_values=None):
         """Test that the DMET has converged.
