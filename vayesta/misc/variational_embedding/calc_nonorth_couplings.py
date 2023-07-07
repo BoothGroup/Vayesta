@@ -20,7 +20,8 @@ def calc_ci_elements(ci, h1e, h2e, ovlp, mo, nmo, nocc, nact, ncore, enuc=0.0):
     nstate = len(ci)
     h = np.zeros((nstate, nstate))
     s = np.zeros((nstate, nstate))
-    rdm1 = np.zeros((nstate, nstate, nmo, nmo))
+    rdm1 = None
+    #rdm1 = np.zeros((nstate, nstate, nmo, nmo))
     for x in range(nstate):
         for w in range(x, nstate):
             # FIXME Can't have different numbers of nact, ncore here:
@@ -44,16 +45,16 @@ def calc_ci_elements(ci, h1e, h2e, ovlp, mo, nmo, nocc, nact, ncore, enuc=0.0):
                             s[x, w] += stmp * ci[w][iwa, iwb] * ci[x][ixa, ixb]
 
                             # Compute RDM1 contribution for this pair of determinants
-                            tmpPa = np.zeros((orbs.m_nmo, orbs.m_nmo))
-                            tmpPb = np.zeros((orbs.m_nmo, orbs.m_nmo))
-                            mb.evaluate_rdm1(vx[ixa], vx[ixb], vw[iwa], vw[iwb], stmp, tmpPa, tmpPb)
-                            rdm1[x, w] += (tmpPa + tmpPb) * ci[w][iwa, iwb] * ci[x][ixa, ixb]
+                            #tmpPa = np.zeros((orbs.m_nmo, orbs.m_nmo))
+                            #tmpPb = np.zeros((orbs.m_nmo, orbs.m_nmo))
+                            #mb.evaluate_rdm1(vx[ixa], vx[ixb], vw[iwa], vw[iwb], stmp, tmpPa, tmpPb)
+                            #rdm1[x, w] += (tmpPa + tmpPb) * ci[w][iwa, iwb] * ci[x][ixa, ixb]
 
-            rdm1[x, w] = np.linalg.multi_dot((mo[w], rdm1[x, w], mo[x].T))
+            #rdm1[x, w] = np.linalg.multi_dot((mo[w], rdm1[x, w], mo[x].T))
 
             h[w, x] = h[x, w]
             s[w, x] = s[x, w]
-            rdm1[w, x] = rdm1[x, w].T
+            #rdm1[w, x] = rdm1[x, w].T
 
     return rdm1, h, s
 
@@ -66,7 +67,8 @@ def calc_ci_elements_uhf(ci, h1e, h2e, ovlp, mo, nmo, nocc, nact, ncore, enuc=0.
     nstate = len(ci)
     h = np.zeros((nstate, nstate))
     s = np.zeros((nstate, nstate))
-    rdm1 = np.zeros((nstate, nstate, 2, nmo, nmo))
+    rdm1 = None
+    #rdm1 = np.zeros((nstate, nstate, 2, nmo, nmo))
     for x in range(nstate):
         for w in range(x, nstate):
 
@@ -99,19 +101,19 @@ def calc_ci_elements_uhf(ci, h1e, h2e, ovlp, mo, nmo, nocc, nact, ncore, enuc=0.
                             s[x, w] += stmp * ci[w][iwa, iwb] * ci[x][ixa, ixb]
 
                             # Compute RDM1 contribution for this pair of determinants
-                            tmpPa = np.zeros((orbs1.m_nmo, orbs1.m_nmo))
-                            tmpPb = np.zeros((orbs1.m_nmo, orbs1.m_nmo))
-                            mb.evaluate_rdm1(vxa[ixa], vxb[ixb], vwa[iwa], vwb[iwb], stmp, tmpPa, tmpPb)
-                            rdm1[x, w, 0] += tmpPa * ci[w][iwa, iwb] * ci[x][ixa, ixb]
-                            rdm1[x, w, 1] += tmpPb * ci[w][iwa, iwb] * ci[x][ixa, ixb]
+                            #tmpPa = np.zeros((orbs1.m_nmo, orbs1.m_nmo))
+                            #tmpPb = np.zeros((orbs1.m_nmo, orbs1.m_nmo))
+                            #mb.evaluate_rdm1(vxa[ixa], vxb[ixb], vwa[iwa], vwb[iwb], stmp, tmpPa, tmpPb)
+                            #rdm1[x, w, 0] += tmpPa * ci[w][iwa, iwb] * ci[x][ixa, ixb]
+                            #rdm1[x, w, 1] += tmpPb * ci[w][iwa, iwb] * ci[x][ixa, ixb]
 
-            rdm1[x, w, 0] = np.linalg.multi_dot((mo2[0], rdm1[x, w, 0], mo1[0].T))
-            rdm1[x, w, 0] = np.linalg.multi_dot((mo2[1], rdm1[x, w, 1], mo1[1].T))
+            #rdm1[x, w, 0] = np.linalg.multi_dot((mo2[0], rdm1[x, w, 0], mo1[0].T))
+            #rdm1[x, w, 0] = np.linalg.multi_dot((mo2[1], rdm1[x, w, 1], mo1[1].T))
 
             h[w, x] = h[x, w]
             s[w, x] = s[x, w]
-            rdm1[w, x, 0] = rdm1[x, w, 0].T
-            rdm1[w, x, 1] = rdm1[x, w, 1].T
+            #rdm1[w, x, 0] = rdm1[x, w, 0].T
+            #rdm1[w, x, 1] = rdm1[x, w, 1].T
     return rdm1, h, s
 
 
