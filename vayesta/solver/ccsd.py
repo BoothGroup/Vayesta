@@ -23,8 +23,11 @@ class RCCSD_Solver(ClusterSolver):
         level_shift: float = None  # Level shift for virtual orbitals to stabilize ccsd iterations
         init_guess: str = 'MP2'  # ['MP2', 'CISD']
         solve_lambda: bool = True  # If false, use Lambda=T approximation
+        n_moments: tuple  = None
         # Self-consistent mode
         sc_mode: int = None
+
+
 
     def kernel(self, t1=None, t2=None, l1=None, l2=None, coupled_fragments=None, t_diagnostic=True):
         mf_clus, frozen = self.hamil.to_pyscf_mf(allow_dummy_orbs=True, allow_df=True)
@@ -69,6 +72,35 @@ class RCCSD_Solver(ClusterSolver):
             l1, l2 = mycc.t1, mycc.t2
 
         self.wf = CCSD_WaveFunction(self.hamil.mo, mycc.t1, mycc.t2, l1=l1, l2=l2)
+
+        # In-cluster Moments
+        nmom = self.opts.n_moments
+        if nmom is not None:
+            try:
+                 from dyson.expressions import CCSD
+            except ImportError:
+                self.log.error("Dyson not found - required for moment calculations")
+                self.log.info("Skipping in-cluster moment calculations")
+                return
+            self.log.info("Calculating in-cluster CCSD moments %s"%str(nmom))
+            # expr = CCSD["1h"](mf_clus, t1=mycc.t1, t2=mycc.t2, l1=l1, l2=l2)
+            # vecs_bra = expr.build_gf_vectors(nmom[0], left=True)
+            # amps_bra = [expr.eom.vector_to_amplitudes(amps[n,p], ccm.nmo, ccm.nocc) for p in range(ccm.nmo) for n in range(nmom)]
+            # vecs_ket = expr.build_gf_vectors(nmom[0], left=False)
+            # amps_ket = [expr.eom.vector_to_amplitudes(amps[n,p], ccm.nmo, ccm.nocc) for p in range(ccm.nmo) for n in range(nmom)]
+            # self.ip_moment_amplitudes = (amps_bra, amps_ket)
+
+            # expr = CCSD["1p"](mf_clus, t1=mycc.t1, t2=mycc.t2, l1=l1, l2=l2)
+            # vecs_bra = expr.build_gf_vectors(nmom[0], left=True)
+            # amps_bra = [expr.eom.vector_to_amplitudes(amps[n,p], ccm.nmo, ccm.nocc) for p in range(ccm.nmo) for n in range(nmom)]
+            # vecs_ket = expr.build_gf_vectors(nmom[0], left=False)
+            # amps_ket = [expr.eom.vector_to_amplitudes(amps[n,p], ccm.nmo, ccm.nocc) for p in range(ccm.nmo) for n in range(nmom)]
+            # self.ea_moment_amplitudes = (amps_bra, amps_ket)
+
+            expr = CCSD["1h"](mf_clus, t1=mycc.t1, t2=mycc.t2, l1=l1, l2=l2)
+            self.hole_moments = expr.build_gf_moments(nmom[0])
+            expr = CCSD["1p"](mf_clus, t1=mycc.t1, t2=mycc.t2, l1=l1, l2=l2)
+            self.particle_moments = expr.build_gf_moments(nmom[1])
 
     def get_solver_class(self, mf):
         if hasattr(mf, "with_df") and mf.with_df is not None:
