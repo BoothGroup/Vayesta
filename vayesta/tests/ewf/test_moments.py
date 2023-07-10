@@ -30,7 +30,7 @@ class Test_RFCI(TestCase):
         fci_ea = fci.build_gf_moments(4)
 
         #Full bath EWF
-        ewf = vayesta.ewf.EWF(mf, bath_type='full', solver_options=dict(n_moments=(4,4)), solver='FCI')
+        ewf = vayesta.ewf.EWF(mf, bath_options=dict(bathtype='full'), solver_options=dict(n_moments=(4,4)), solver='FCI')
         ewf.kernel()
 
         for f in ewf.fragments:
