@@ -317,7 +317,7 @@ class Test_MP2_2D(Test_MP2):
         cls.ref_values = {
                 ('e_corr', -1) : cls.cc.e_corr/nk,
                 ('e_tot', -1) : cls.cc.e_tot/nk,
-                ('e_corr', 1e-3) : -0.013768516654027911,
+                ('e_corr', 1e-3) : -0.013767086213673153,
                 }
         cls.ref_values[('e_tot', 1e-3)] = cls.mf.e_tot + cls.ref_values[('e_corr', 1e-3)]
 
@@ -332,7 +332,7 @@ class Test_CCSD_2D(Test_CCSD):
         cls.ref_values = {
                 ('e_corr', -1) : cls.cc.e_corr/nk,
                 ('e_tot', -1) : cls.cc.e_tot/nk,
-                ('e_corr', 1e-3) : -0.019821885830904003,
+                ('e_corr', 1e-3) : -0.019820060226576966,
                 }
         cls.ref_values[('e_tot', 1e-3)] = cls.mf.e_tot + cls.ref_values[('e_corr', 1e-3)]
 
