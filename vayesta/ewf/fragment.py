@@ -72,6 +72,7 @@ class Fragment(BaseFragment):
         n_active: int = None
         ip_energy: np.ndarray = None
         ea_energy: np.ndarray = None
+        moms: tuple = None
 
         @property
         def dm1(self):
@@ -246,9 +247,13 @@ class Fragment(BaseFragment):
         proj = self.get_overlap('proj|cluster-occ')
         pwf = pwf.project(proj, inplace=False)
 
+        # Moments
+        
+        moms = cluster_solver.hole_moments, cluster_solver.particle_moments
+        
         # --- Add to results data class
         self._results = results = self.Results(fid=self.id, n_active=cluster.norb_active,
-                converged=cluster_solver.converged, wf=wf, pwf=pwf)
+                converged=cluster_solver.converged, wf=wf, pwf=pwf, moms=moms)
 
         self.hamil = cluster_solver.hamil
 

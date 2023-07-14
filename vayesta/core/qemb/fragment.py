@@ -76,6 +76,7 @@ class Fragment:
         # --- Wave-function
         wf: WaveFunction = None     # WaveFunction object (MP2, CCSD,...)
         pwf: WaveFunction = None    # Fragment-projected wave function
+        moms: tuple = None
 
 
     def __init__(self, base, fid, name, c_frag, c_env,
