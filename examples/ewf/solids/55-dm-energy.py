@@ -33,15 +33,19 @@ e_dm = emb.get_dm_energy()
 cc = pyscf.pbc.cc.KCCSD(kmf)
 cc.kernel()
 
+
+
+
 print("Total Energy")
-print("E(HF)=      %+16.8f Ha" % kmf.e_tot)
-print("E(Proj)=    %+16.8f Ha" % emb.e_tot)
-print("E(DM, gl)=  %+16.8f Ha" % emb._get_dm_energy_old(global_dm1=True, global_dm2=False))
-print("E(DM, ll)=  %+16.8f Ha" % emb._get_dm_energy_old(global_dm1=False, global_dm2=False))
-print("E(CCSD)=    %+16.8f Ha" % (kmf.e_tot + cc.e_corr))
+print("E(HF)=        %+16.8f Ha" % kmf.e_tot)
+print("E(EWF-DPart)= %+16.8f Ha"% emb.get_dmet_energy())
+print("E(EWF-Proj)=  %+16.8f Ha" % emb.e_tot)
+print("E(EWF-DM)=    %+16.8f Ha"% emb.get_dm_energy())
+print("E(CCSD)=      %+16.8f Ha" % cc.e_tot)
 
 print("\nCorrelation Energy")
-print("E(Proj)=    %+16.8f Ha" % emb.e_corr)
-print("E(DM, gl)=  %+16.8f Ha" % emb._get_dm_corr_energy_old(global_dm1=True, global_dm2=False))
-print("E(DM, ll)=  %+16.8f Ha" % emb._get_dm_corr_energy_old(global_dm1=False, global_dm2=False))
-print("E(CCSD)=    %+16.8f Ha" % cc.e_corr)
+print("E(EWF-DPart)= %+16.8f Ha"% (emb.get_dmet_energy()-kmf.e_tot))
+print("E(EWF-Proj)=  %+16.8f Ha" % emb.e_corr)
+print("E(EWF-DM)=    %+16.8f Ha"% emb.get_dm_corr_energy())
+print("E(CCSD)=      %+16.8f Ha" % cc.e_corr)
+
