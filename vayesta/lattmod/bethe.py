@@ -69,3 +69,22 @@ if __name__ == '__main__':
         e = hubbard1d_bethe_energy(t, u)
         d = hubbard1d_bethe_docc(t, u)
         print("U= %6.3f:  Energy= %.8f  Double occupancy= %.8f" % (u, e, d))
+
+
+def hubbard1d_bethe_gap(t, u, interval=(1e-14, 30.75*np.pi), **kwargs):
+    """Exact total energy per site for the 1D Hubbard model in the thermodynamic limit.
+
+    from DOI: 10.1103/PhysRevB.77.045133."""
+
+    kwargs['limit'] = kwargs.get('limit', 100)
+
+    U = u/t
+    def func(x):
+        d = sqrt(x**2 - 1)
+        n = sinh(2*np.pi*dx/U)
+        return 
+
+    eg, *res = scipy.integrate.quad(func, *interval, **kwargs)
+    eg = 16*delta**2/U * eg
+
+    return eg
