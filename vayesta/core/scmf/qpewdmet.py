@@ -12,11 +12,12 @@ class QPEWDMET_RHF(SCMF):
 
     name = "QP-EWDMET"
 
-    def __init__(self, emb, eta=1e-2, *args, **kwargs):
+    def __init__(self, emb, proj=2, eta=1e-2, *args, **kwargs):
         self.sc_fock = emb.get_fock()
         self.eta = eta # Broadening factor
         self.se = None
         self.v = None
+        self.proj = proj
         super().__init__(emb, *args, **kwargs)
 
     def update_mo_coeff(self, mf, diis=None):
@@ -43,9 +44,9 @@ class QPEWDMET_RHF(SCMF):
 
             c = np.linalg.multi_dot((f.c_frag.T, f.cluster.c_active))  # (frag|cls)
     
-            F = self.emb.get_fock()
-            Fc = np.einsum('pP,qQ,pq->PQ', f.cluster.c_active, f.cluster.c_active, F)
-            e_cls = np.diag(Fc)
+            fock = self.emb.get_fock()
+            fock_cls = np.einsum('pP,qQ,pq->PQ', f.cluster.c_active, f.cluster.c_active, fock)
+            e_cls = np.diag(fock_cls)
             
             v_cls = se.as_static_potential(e_cls, eta=self.eta)
             # Rotate into the fragment basis and tile for all fragments
