@@ -42,19 +42,19 @@ class QPEWDMET_RHF(SCMF):
             couplings_f = se.couplings
 
 
-            c = np.linalg.multi_dot((f.c_frag.T, f.cluster.c_active))  # (frag|cls)
+            cf = np.linalg.multi_dot((f.c_frag.T, f.cluster.c_active))  # Projector onto fragment (frag|cls)
     
             fock = self.emb.get_fock()
             fock_cls = np.einsum('pP,qQ,pq->PQ', f.cluster.c_active, f.cluster.c_active, fock)
             e_cls = np.diag(fock_cls)
             
-            v_cls = se.as_static_potential(e_cls, eta=self.eta)
+            v_cls = se.as_static_potential(e_cls, eta=self.eta) # Single particle potential from Klein Functional (used to update MF for the self-consistnecy)
             # Rotate into the fragment basis and tile for all fragments
             c_frag_canon = np.linalg.multi_dot((f.c_frag.T, f.cluster.c_active))
             v_frag = np.linalg.multi_dot((c_frag_canon, v_cls, c_frag_canon.T))  # (frag|frag)
             vs.append(v_frag)
     
-            se.couplings = np.dot(c, se.couplings) 
+            se.couplings = np.dot(cf, se.couplings) 
             energies.append(se.energies)
             couplings.append(se.couplings)
 
@@ -98,6 +98,7 @@ class QPEWDMET_RHF(SCMF):
         # (and bath effective interactions if not using an interacting bath)
 
         qp_ham = self.emb.get_fock() + self.v
+        #qp_ham = self.sc_fock
         qp_e, qp_c = np.linalg.eigh(qp_ham)
         self.qpham = qp_ham
         qp_mu = (qp_e[nelec//2-1] + qp_e[nelec//2] ) / 2
