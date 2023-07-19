@@ -63,9 +63,9 @@ class Test_CCSD(Test_MP2):
     @classmethod
     @cache
     def emb(cls, bno_threshold):
-        solver_opts = dict(conv_tol= 1e-10, conv_tol_normt=1e-8)
-        emb = vayesta.ewf.EWF(cls.mf, bath_options=dict(threshold=bno_threshold), solve_lambda=True,
-                solver_options=solver_opts)
+        solver_opts = dict(conv_tol= 1e-10, conv_tol_normt=1e-8, solve_lambda=True)
+        emb = vayesta.ewf.EWF(cls.mf, bath_options=dict(threshold=bno_threshold),
+                              solver_options=solver_opts)
         emb.kernel()
         return emb
 

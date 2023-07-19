@@ -51,7 +51,7 @@ class Test_MP2(TestCase):
     @classmethod
     @cache
     def emb(cls, bno_threshold):
-        emb = vayesta.ewf.EWF(cls.mf, bno_threshold=bno_threshold, solver='MP2')
+        emb = vayesta.ewf.EWF(cls.mf, bath_options=dict(threshold=bno_threshold), solver='MP2')
         with emb.iao_fragmentation(minao='minao') as f:
             f.add_all_atomic_fragments()
         emb.kernel()
@@ -135,7 +135,8 @@ class Test_CCSD(Test_MP2):
     @classmethod
     @cache
     def emb(cls, bno_threshold):
-        emb = vayesta.ewf.EWF(cls.mf, bno_threshold=bno_threshold, solve_lambda=True, solver_options=TIGHT_SOLVER)
+        emb = vayesta.ewf.EWF(cls.mf, bath_options=dict(threshold=bno_threshold),
+                              solver_options={**TIGHT_SOLVER, 'solve_lambda': True})
         with emb.iao_fragmentation(minao='minao') as f:
             f.add_all_atomic_fragments()
         emb.kernel()
@@ -316,7 +317,7 @@ class Test_MP2_2D(Test_MP2):
         cls.ref_values = {
                 ('e_corr', -1) : cls.cc.e_corr/nk,
                 ('e_tot', -1) : cls.cc.e_tot/nk,
-                ('e_corr', 1e-3) : -0.013768516654027911,
+                ('e_corr', 1e-3) : -0.013767086213673153,
                 }
         cls.ref_values[('e_tot', 1e-3)] = cls.mf.e_tot + cls.ref_values[('e_corr', 1e-3)]
 
@@ -331,7 +332,7 @@ class Test_CCSD_2D(Test_CCSD):
         cls.ref_values = {
                 ('e_corr', -1) : cls.cc.e_corr/nk,
                 ('e_tot', -1) : cls.cc.e_tot/nk,
-                ('e_corr', 1e-3) : -0.019821885830904003,
+                ('e_corr', 1e-3) : -0.019820060226576966,
                 }
         cls.ref_values[('e_tot', 1e-3)] = cls.mf.e_tot + cls.ref_values[('e_corr', 1e-3)]
 

@@ -28,7 +28,7 @@ with emb_sym.iao_fragmentation() as frag:
         # Add rotational symmetry
         # Set order of rotation (2: 180 degrees, 3: 120 degrees, 4: 90: degrees,...),
         # axis along which to rotate and center of rotation (default units for axis and center are Angstroms):
-        with frag.rotational_symmetry(order=5, axis='z'):
+        with frag.rotational_symmetry(order=5, axis=[0,0,1]):
             frag.add_atomic_fragment('C2')
             frag.add_atomic_fragment('H7')
 

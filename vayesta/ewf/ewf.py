@@ -54,20 +54,9 @@ class EWF(Embedding):
     Fragment = Fragment
     Options = Options
 
-    def __init__(self, mf, solver='CCSD', bno_threshold=None, bath_type=None, solve_lambda=None, log=None, **kwargs):
+    def __init__(self, mf, solver='CCSD', log=None, **kwargs):
         t0 = timer()
         super().__init__(mf, solver=solver, log=log, **kwargs)
-
-        # Backwards support
-        if bno_threshold is not None:
-            self.log.deprecated("keyword argument bno_threshold is deprecated!")
-            self.opts.bath_options = {**self.opts.bath_options, **dict(threshold=bno_threshold)}
-        if bath_type is not None:
-            self.log.deprecated("keyword argument bath_type is deprecated!")
-            self.opts.bath_options = {**self.opts.bath_options, **dict(bathtype=bath_type)}
-        if solve_lambda is not None:
-            self.log.deprecated("keyword argument solve_lambda is deprecated!")
-            self.opts.solver_options = {**self.opts.solver_options, **dict(solve_lambda=solve_lambda)}
 
         # Logging
         with self.log.indent():
@@ -237,20 +226,6 @@ class EWF(Embedding):
             else:
                 self.log.info("Global T1 diagnostic: %.5f", t1diag)
 
-    # --- Bardwards compatibility:
-    @deprecated("get_t1 is deprecated - use get_global_t1 instead.")
-    def get_t1(self, *args, **kwargs):
-        return self.get_global_t1(*args, **kwargs)
-    @deprecated("get_t2 is deprecated - use get_global_t2 instead.")
-    def get_t2(self, *args, **kwargs):
-        return self.get_global_t2(*args, **kwargs)
-    @deprecated("get_l1 is deprecated - use get_global_l1 instead.")
-    def get_l1(self, *args, **kwargs):
-        return self.get_global_l1(*args, **kwargs)
-    @deprecated("get_l2 is deprecated - use get_global_l2 instead.")
-    def get_l2(self, *args, **kwargs):
-        return self.get_global_l2(*args, **kwargs)
-
     # --- Density-matrices
     # --------------------
 
@@ -320,7 +295,7 @@ class EWF(Embedding):
     def get_e_corr(self, functional=None, **kwargs):
         functional = (functional or self.opts.energy_functional)
         if functional == 'projected':
-            # TODO: print deprecation message
+            self.log.warning("functional='projected' is deprecated; use functional='wf' instead.")
             functional = 'wf'
         if functional == 'wf':
             return self.get_wf_corr_energy(**kwargs)
@@ -345,10 +320,6 @@ class EWF(Embedding):
                 self.log.debug("%20s:  E(S)= %s  E(D)= %s  E(tot)= %s", x, energy_string(es), energy_string(ed), energy_string(ex))
             e_corr += x.symmetry_factor * ex
         return e_corr/self.ncells
-
-    def get_proj_corr_energy(self):
-        """TODO: deprecate in favor of get_wf_corr_energy."""
-        return self.get_wf_corr_energy()
 
     def get_dm_corr_energy(self, dm1='global-wf', dm2='projected-lambda', t_as_lambda=None, with_exxdiv=None):
         e1 = self.get_dm_corr_energy_e1(dm1=dm1, t_as_lambda=None, with_exxdiv=None)
@@ -470,10 +441,6 @@ class EWF(Embedding):
         e_corr = self.get_wf_corr_energy(*args, **kwargs)
         return self.e_mf + e_corr
 
-    def get_proj_energy(self, *args, **kwargs):
-        """TODO: deprecate in favor of get_wf_energy."""
-        return self.get_wf_energy(*args, **kwargs)
-
     def get_dm_energy(self, *args, **kwargs):
         e_corr = self.get_dm_corr_energy(*args, **kwargs)
         return self.e_mf + e_corr
@@ -536,35 +503,6 @@ class EWF(Embedding):
     @log_method()
     def get_intercluster_mp2_energy(self, *args, **kwargs):
         return get_intercluster_mp2_energy_rhf(self, *args, **kwargs)
-
-    # --- Deprecated
-
-    @deprecated(replacement='_get_atom_projectors')
-    def _get_atomic_coeffs(self, atoms=None, projection='sao'):
-        if atoms is None:
-            atoms = list(range(self.mol.natm))
-        natom = len(atoms)
-        projection = projection.lower()
-        if projection == 'sao':
-            frag = SAO_Fragmentation(self)
-        elif projection.replace('+', '').replace('/', '') == 'iaopao':
-            frag = IAOPAO_Fragmentation(self)
-        else:
-            raise ValueError("Invalid projection: %s" % projection)
-        frag.kernel()
-        c_atom = []
-        for atom in atoms:
-            name, indices = frag.get_atomic_fragment_indices(atom)
-            c_atom.append(frag.get_frag_coeff(indices))
-        return c_atom
-
-    @deprecated(replacement='get_corrfunc_mf')
-    def get_atomic_ssz_mf(self, dm1=None, atoms=None, projection='sao'):
-        return self.get_corrfunc_mf('Sz,Sz', dm1=dm1, atoms=atoms, projection=projection)
-
-    @deprecated(replacement='get_corrfunc')
-    def get_atomic_ssz(self, dm1=None, dm2=None, atoms=None, projection='sao', dm2_with_dm1=None):
-        return self.get_corrfunc('Sz,Sz', dm1=dm1, dm2=dm2, atoms=atoms, projection=projection, dm2_with_dm1=dm2_with_dm1)
 
     def _get_dm_energy_old(self, global_dm1=True, global_dm2=False):
         """Calculate total energy from reduced density-matrices.
@@ -642,137 +580,6 @@ class EWF(Embedding):
         else:
             wf = self.opts._debug_wf
         self._debug_wf = wf
-
-    # -------------------------------------------------------------------------------------------- #
-
-
-    # TODO: Reimplement PMO
-    #def make_atom_fragment(self, atoms, name=None, check_atoms=True, **kwargs):
-    #    """
-    #    Parameters
-    #    ---------
-    #    atoms : list of int/str or int/str
-    #        Atom labels of atoms in fragment.
-    #    name : str
-    #        Name of fragment.
-    #    """
-    #    # Atoms may be a single atom index/label
-    #    #if not isinstance(atoms, (tuple, list, np.ndarray)):
-    #    if np.isscalar(atoms):
-    #        atoms = [atoms]
-
-    #    # Check if atoms are valid labels of molecule
-    #    atom_labels_mol = [self.mol.atom_symbol(atomid) for atomid in range(self.mol.natm)]
-    #    if isinstance(atoms[0], str) and check_atoms:
-    #        for atom in atoms:
-    #            if atom not in atom_labels_mol:
-    #                raise ValueError("Atom with label %s not in molecule." % atom)
-
-    #    # Get atom indices/labels
-    #    if isinstance(atoms[0], (int, np.integer)):
-    #        atom_indices = atoms
-    #        atom_labels = [self.mol.atom_symbol(i) for i in atoms]
-    #    else:
-    #        atom_indices = np.nonzero(np.isin(atom_labels_mol, atoms))[0]
-    #        atom_labels = atoms
-    #    assert len(atom_indices) == len(atom_labels)
-
-    #    # Generate cluster name if not given
-    #    if name is None:
-    #        name = ",".join(atom_labels)
-
-    #    # Indices refers to AOs or IAOs, respectively
-
-    #    # Non-orthogonal AOs
-    #    if self.opts.fragment_type == "AO":
-    #        # Base atom for each AO
-    #        ao_atoms = np.asarray([ao[1] for ao in self.mol.ao_labels(None)])
-    #        indices = np.nonzero(np.isin(ao_atoms, atoms))[0]
-    #        C_local, C_env = self.make_local_ao_orbitals(indices)
-
-    #    # Lowdin orthonalized AOs
-    #    elif self.opts.fragment_type == "LAO":
-    #        lao_atoms = [lao[1] for lao in self.lao_labels]
-    #        indices = np.nonzero(np.isin(lao_atoms, atom_labels))[0]
-    #        C_local, C_env = self.make_local_lao_orbitals(indices)
-
-    #    # Orthogonal intrinsic AOs
-    #    elif self.opts.fragment_type == "IAO":
-    #        iao_atoms = [iao[0] for iao in self.iao_labels]
-    #        iao_indices = np.nonzero(np.isin(iao_atoms, atom_indices))[0]
-    #        C_local, C_env = self.make_local_iao_orbitals(iao_indices)
-
-    #    # Non-orthogonal intrinsic AOs
-    #    elif self.opts.fragment_type == "NonOrth-IAO":
-    #        ao_atoms = np.asarray([ao[1] for ao in self.mol.ao_labels(None)])
-    #        indices = np.nonzero(np.isin(ao_atoms, atom_labels))[0]
-    #        C_local, C_env = self.make_local_nonorth_iao_orbitals(indices, minao=self.opts.iao_minao)
-
-    #    # Projected molecular orbitals
-    #    # (AVAS paper)
-    #    elif self.opts.fragment_type == "PMO":
-    #        #ao_atoms = np.asarray([ao[1] for ao in self.mol.ao_labels(None)])
-    #        #indices = np.nonzero(np.isin(ao_atoms, atoms))[0]
-
-    #        # Use atom labels as AO labels
-    #        self.log.debug("Making occupied projector.")
-    #        Po = self.get_ao_projector(atom_labels, basis=kwargs.pop("basis_proj_occ", None))
-    #        self.log.debug("Making virtual projector.")
-    #        Pv = self.get_ao_projector(atom_labels, basis=kwargs.pop("basis_proj_vir", None))
-    #        self.log.debug("Done.")
-
-    #        o = (self.mo_occ > 0)
-    #        v = (self.mo_occ == 0)
-    #        C = self.mo_coeff
-    #        So = np.linalg.multi_dot((C[:,o].T, Po, C[:,o]))
-    #        Sv = np.linalg.multi_dot((C[:,v].T, Pv, C[:,v]))
-    #        eo, Vo = np.linalg.eigh(So)
-    #        ev, Vv = np.linalg.eigh(Sv)
-    #        rev = np.s_[::-1]
-    #        eo, Vo = eo[rev], Vo[:,rev]
-    #        ev, Vv = ev[rev], Vv[:,rev]
-    #        self.log.debug("Non-zero occupied eigenvalues:\n%r", eo[eo>1e-10])
-    #        self.log.debug("Non-zero virtual eigenvalues:\n%r", ev[ev>1e-10])
-    #        #tol = 1e-8
-    #        tol = 0.1
-    #        lo = eo > tol
-    #        lv = ev > tol
-    #        Co = np.dot(C[:,o], Vo)
-    #        Cv = np.dot(C[:,v], Vv)
-    #        C_local = np.hstack((Co[:,lo], Cv[:,lv]))
-    #        C_env = np.hstack((Co[:,~lo], Cv[:,~lv]))
-    #        self.log.debug("Number of local orbitals: %d", C_local.shape[-1])
-    #        self.log.debug("Number of environment orbitals: %d", C_env.shape[-1])
-
-    #    frag = self.make_fragment(name, C_local, C_env, atoms=atom_indices, **kwargs)
-
-    #    # TEMP
-    #    #ao_indices = get_ao_indices_at_atoms(self.mol, atomids)
-    #    ao_indices = helper.atom_labels_to_ao_indices(self.mol, atom_labels)
-    #    frag.ao_indices = ao_indices
-
-    #    return frag
-
-    #def collect_results(self, *attributes):
-    #    """Use MPI to collect results from all fragments."""
-
-    #    #self.log.debug("Collecting attributes %r from all clusters", (attributes,))
-    #    fragments = self.fragments
-
-    #    if mpi:
-    #        def reduce_fragment(attr, op=mpi.MPI.SUM, root=0):
-    #            res = mpi.world.reduce(np.asarray([getattr(f, attr) for f in fragments]), op=op, root=root)
-    #            return res
-    #    else:
-    #        def reduce_fragment(attr):
-    #            res = np.asarray([getattr(f, attr) for f in fragments])
-    #            return res
-
-    #    results = {}
-    #    for attr in attributes:
-    #        results[attr] = reduce_fragment(attr)
-
-    #    return results
 
 
 REWF = EWF

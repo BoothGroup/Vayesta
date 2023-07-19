@@ -1,6 +1,6 @@
 import pytest
-import sys
 import os
+import sys
 
 src = os.path.abspath(os.path.join(__file__, "..", "..", "..", "vayesta"))
 

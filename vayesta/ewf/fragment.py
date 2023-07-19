@@ -72,6 +72,7 @@ class Fragment(BaseFragment):
         n_active: int = None
         ip_energy: np.ndarray = None
         ea_energy: np.ndarray = None
+        moms: tuple = None
 
         @property
         def dm1(self):
@@ -123,10 +124,6 @@ class Fragment(BaseFragment):
         self.opts.c_cas_vir = c_cas_vir
         return c_cas_occ, c_cas_vir
 
-    @deprecated(replacement='add_external_corrections')
-    def tailor_with_fragments(self, fragments, projectors=1):
-        return self.add_external_corrections(fragments, projectors=projectors)
-
     def add_external_corrections(self, fragments, correction_type='tailor', projectors=1, test_extcorr=False, low_level_coul=True):
         """Add tailoring or external correction from other fragment solutions to CCSD solver.
 
@@ -177,63 +174,6 @@ class Fragment(BaseFragment):
     def get_init_guess(self, init_guess, solver, cluster):
         # FIXME
         return {}
-        # --- Project initial guess and integrals from previous cluster calculation with smaller eta:
-        # Use initial guess from previous calculations
-        # For self-consistent calculations, we can restart calculation:
-        #if init_guess is None and 'ccsd' in solver.lower():
-        #    if self.base.opts.sc_mode and self.base.iteration > 1:
-        #        self.log.debugv("Restarting using T1,T2 from previous iteration")
-        #        init_guess = {'t1' : self.results.t1, 't2' : self.results.t2}
-        #    elif self.base.opts.project_init_guess and self.results.t2 is not None:
-        #        self.log.debugv("Restarting using projected previous T1,T2")
-        #        # Projectors for occupied and virtual orbitals
-        #        p_occ = dot(self.c_active_occ.T, self.base.get_ovlp(), cluster.c_active_occ)
-        #        p_vir = dot(self.c_active_vir.T, self.base.get_ovlp(), cluster.c_active_vir)
-        #        #t1, t2 = init_guess.pop('t1'), init_guess.pop('t2')
-        #        t1, t2 = helper.transform_amplitudes(self.results.t1, self.results.t2, p_occ, p_vir)
-        #        init_guess = {'t1' : t1, 't2' : t2}
-        #if init_guess is None: init_guess = {}
-        #return init_guess
-
-    #def kernel(self, bno_threshold=None, bno_threshold_occ=None, bno_threshold_vir=None, solver=None, init_guess=None, eris=None):
-        #"""Run solver for a single BNO threshold.
-
-        #Parameters
-        #----------
-        #bno_threshold : float, optional
-        #    Bath natural orbital (BNO) threshold.
-        #solver : {'MP2', 'CISD', 'CCSD', 'FCI'}, optional
-        #    Correlated solver.
-
-        #Returns
-        #-------
-        #results : self.Results
-        #"""
-        #if bno_threshold is None:
-        #    bno_threshold = self.opts.bno_threshold
-        #if bno_threshold_occ is None:
-        #    bno_threshold_occ = self.opts.bno_threshold_occ
-        #if bno_threshold_vir is None:
-        #    bno_threshold_vir = self.opts.bno_threshold_vir
-
-        #bno_threshold = BNO_Threshold(self.opts.bno_truncation, bno_threshold)
-
-        #if bno_threshold_occ is not None:
-        #    bno_threshold_occ = BNO_Threshold(self.opts.bno_truncation, bno_threshold_occ)
-        #if bno_threshold_vir is not None:
-        #    bno_threshold_vir = BNO_Threshold(self.opts.bno_truncation, bno_threshold_vir)
-
-        #if solver is None:
-        #    solver = self.solver
-        #if self.bath is None:
-        #    self.make_bath()
-
-        #cluster = self.make_cluster(self.bath, bno_threshold=bno_threshold,
-        #        bno_threshold_occ=bno_threshold_occ, bno_threshold_vir=bno_threshold_vir)
-        #cluster.log_sizes(self.log.info, header="Orbitals for %s with %s" % (self, bno_threshold))
-
-        #if mpi:
-        #    self.base.communicate_clusters()
 
     def kernel(self, solver=None, init_guess=None):
 
@@ -307,9 +247,13 @@ class Fragment(BaseFragment):
         proj = self.get_overlap('proj|cluster-occ')
         pwf = pwf.project(proj, inplace=False)
 
+        # Moments
+        
+        moms = cluster_solver.hole_moments, cluster_solver.particle_moments
+        
         # --- Add to results data class
         self._results = results = self.Results(fid=self.id, n_active=cluster.norb_active,
-                converged=cluster_solver.converged, wf=wf, pwf=pwf)
+                converged=cluster_solver.converged, wf=wf, pwf=pwf, moms=moms)
 
         self.hamil = cluster_solver.hamil
 

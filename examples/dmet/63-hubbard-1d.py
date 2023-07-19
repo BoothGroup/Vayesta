@@ -20,6 +20,7 @@ with dmet.site_fragmentation() as f:
         f.add_atomic_fragment(list(range(site, site+nimp)))
 dmet.kernel()
 
+print(dmet.fragments)
 # Calculate a single fragment and use translational symmetry:
 dmet_sym = vayesta.dmet.DMET(mf, solver='FCI')
 # Specify the number of translational copies in direction of the three lattice vectors by passing a list with three

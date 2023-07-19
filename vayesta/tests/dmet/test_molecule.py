@@ -1,3 +1,5 @@
+import sys
+import pytest
 import unittest
 from vayesta import dmet
 from vayesta.tests.common import TestCase
@@ -12,6 +14,10 @@ class MoleculeTest(TestCase):
 
     @classmethod
     def setUpClass(cls):
+        try:
+            import cvxpy
+        except ImportError:
+            pytest.skip("Requires cvxpy")
         cls.mf = testsystems.h6_sto6g.rhf()
 
     @classmethod

@@ -17,7 +17,7 @@ class TestSolvers(TestCase):
     def _test(self, key):
         mf = getattr(getattr(testsystems, key[0]), key[1])()
 
-        emb = vayesta.ewf.EWF(mf, solver='CCSD', bath_type='full')
+        emb = vayesta.ewf.EWF(mf, solver='CCSD', bath_options=dict(bathtype='full'))
         emb.kernel()
 
         cc = pyscf.cc.CCSD(mf)

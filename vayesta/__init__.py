@@ -93,6 +93,7 @@ pyscf = import_package('PySCF')
 # Optional
 import_package('mpi4py', False)
 import_package('cvxpy', False)
+dyson = import_package('dyson', False)
 ebcc = import_package('ebcc', False)
 import_package('pygnme', False)
 
@@ -115,6 +116,14 @@ log.debug("  * Vayesta:  %s", vhash)
 pdir = os.path.dirname(os.path.dirname(pyscf.__file__))
 phash = get_git_hash(pdir)
 log.debug("  * PySCF:    %s", phash)
+if dyson is not None:
+    ddir = os.path.dirname(os.path.dirname(dyson.__file__))
+    dhash = get_git_hash(ddir)
+    log.debug("  * Dyson:    %s", dhash)
+if ebcc is not None:
+    edir = os.path.dirname(os.path.dirname(ebcc.__file__))
+    ehash = get_git_hash(edir)
+    log.debug("  * EBCC:     %s", ehash)
 
 # --- System information
 log.debug('System:  node= %s  processor= %s' % (platform.node(), platform.processor()))
