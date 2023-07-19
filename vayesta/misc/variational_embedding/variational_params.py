@@ -30,8 +30,6 @@ def optimise_full_varwav(emb, fs=None, lindep=1e-12, replace_wf=False):
 
     orig_ci = [f.results.wf.ci for f in emb.fragments]
 
-    for x in orig_ci:
-        print(x)
     i = 0
     if replace_wf:
         for ns, f in zip(nstates, emb.fragments):
