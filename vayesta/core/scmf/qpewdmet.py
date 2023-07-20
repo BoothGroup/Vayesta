@@ -52,6 +52,7 @@ class QPEWDMET_RHF(SCMF):
             # Rotate into the fragment basis and tile for all fragments
             c_frag_canon = np.linalg.multi_dot((f.c_frag.T, f.cluster.c_active))
             v_frag = np.linalg.multi_dot((c_frag_canon, v_cls, c_frag_canon.T))  # (frag|frag)
+
             vs.append(v_frag)
     
             se.couplings = np.dot(cf, se.couplings) 
@@ -68,7 +69,10 @@ class QPEWDMET_RHF(SCMF):
 
         # TODO: Will this only work for the 1D model? Check tiling with other models.
         self.v = scipy.linalg.block_diag(*vs) # (site|site)
-
+        v_old = self.v.copy()
+        if diis is not None:
+            self.v = diis.update(self.v)
+            print("DIIS updated change = %f"%(v_old - self.v).sum())
 
         self.sc_fock += self.v
         e, mo_coeff = np.linalg.eigh(self.sc_fock)
@@ -97,8 +101,8 @@ class QPEWDMET_RHF(SCMF):
         # Find qp-Green's function (used to define the self-consistent bath space
         # (and bath effective interactions if not using an interacting bath)
 
-        qp_ham = self.emb.get_fock() + self.v
-        #qp_ham = self.sc_fock
+        #qp_ham = self.emb.get_fock() + self.v
+        qp_ham = self.sc_fock
         qp_e, qp_c = np.linalg.eigh(qp_ham)
         self.qpham = qp_ham
         qp_mu = (qp_e[nelec//2-1] + qp_e[nelec//2] ) / 2
