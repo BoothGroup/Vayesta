@@ -12,15 +12,19 @@ class QPEWDMET_RHF(SCMF):
 
     name = "QP-EWDMET"
 
-    def __init__(self, emb, proj=2, eta=1e-2, *args, **kwargs):
+    def __init__(self, emb, proj=2, v_conv_tol=1e-5, eta=1e-2, *args, **kwargs):
         self.sc_fock = emb.get_fock()
         self.eta = eta # Broadening factor
         self.se = None
         self.v = None
+        self.v_last = None
+        self.v_conv_tol = v_conv_tol
         self.proj = proj
         super().__init__(emb, *args, **kwargs)
 
     def update_mo_coeff(self, mf, diis=None):
+        if self.v is not None:
+            self.v_last = self.v.copy()
         couplings = []
         energies = []
         vs = []
@@ -72,11 +76,19 @@ class QPEWDMET_RHF(SCMF):
         v_old = self.v.copy()
         if diis is not None:
             self.v = diis.update(self.v)
-            print("DIIS updated change = %f"%(v_old - self.v).sum())
 
         self.sc_fock += self.v
         e, mo_coeff = np.linalg.eigh(self.sc_fock)
         return mo_coeff
+
+    def check_convergence(self, e_tot, dm1, e_last=None, dm1_last=None, etol=None, dtol=None):
+        _, de, ddm = super().check_convergence(e_tot, dm1, e_last=e_last, dm1_last=dm1_last, etol=etol, dtol=dtol)
+        dv = np.inf
+        if self.v_last is not None:
+            dv = np.abs(self.v - self.v_last).sum()
+            if dv < self.v_conv_tol:
+                return True, dv, ddm
+        return False, dv, ddm
 
     def get_greens_function(self):
 
