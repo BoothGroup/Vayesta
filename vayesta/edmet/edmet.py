@@ -54,6 +54,17 @@ class EDMET(RDMET):
         eps = eps.reshape(-1)
         return eps, eps
 
+    @property
+    def e_nonlocal(self):
+        try:
+            return self._e_nonlocal
+        except AttributeError:
+            return 0.0
+
+    @e_nonlocal.setter
+    def e_nonlocal(self, value):
+        self._e_nonlocal = value
+
     def check_solver(self, solver):
         is_uhf = np.ndim(self.mo_coeff[1]) == 2
         is_eb = True
