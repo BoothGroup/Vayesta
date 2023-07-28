@@ -1037,11 +1037,6 @@ class Fragment:
         cluster_solver = solver_cls(cl_ham, **solver_opts)
         if self.opts.screening is not None:
             cluster_solver.hamil.add_screening(self._seris_ov)
-        if self.base.opts.ext_rpa_correction:
-            cumulant = self.base.opts.ext_rpa_correction == "cumulant"
-            if self.base.opts.ext_rpa_correction not in ["erpa", "cumulant"]:
-                raise ValueError("Unknown external rpa correction %s specified.")
-            e_loc_rpa = cl_ham.calc_loc_erpa(*self._seris_ov[1:], cumulant)
         return cluster_solver
 
     def get_ext_rpa_correction(self, hamil=None):
