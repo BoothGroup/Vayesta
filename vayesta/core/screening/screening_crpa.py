@@ -70,6 +70,8 @@ def get_frag_deltaW(mf, fragment, pcoupling=True, only_ov_screened=False, log=No
     """
 
     log.info("Generating screened interaction via static limit of cRPA.")
+    log.warning("This is poorly defined for non-CAS fragmentations.")
+    log.warning("This implementation is expensive, with O(N^6) computational cost per cluster.")
     try:
         l_a, l_b, crpa = set_up_W_crpa(mf, fragment, pcoupling, only_ov_screened=only_ov_screened, log=log)
     except cRPAError as e:
