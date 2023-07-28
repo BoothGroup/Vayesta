@@ -36,7 +36,6 @@ def _get_solver_class(is_uhf, is_eb, solver, log):
 
 
 def _get_solver_class_internal(is_uhf, is_eb, solver):
-    solver = solver.upper()
     # First check if we have a CC approach as implemented in pyscf.
     if solver == "CCSD" and not is_eb:
         # Use pyscf solvers.
@@ -48,13 +47,13 @@ def _get_solver_class_internal(is_uhf, is_eb, solver):
         if is_uhf or is_eb:
             raise ValueError("TCCSD is not implemented for unrestricted or electron-boson calculations!")
         return TRCCSD_Solver
-    if solver == "EXTCCSD":
+    if solver == "extCCSD":
         if is_eb:
             raise ValueError("extCCSD is not implemented for electron-boson calculations!")
         if is_uhf:
             return extUCCSD_Solver
         return extRCCSD_Solver
-    if solver == "COUPLEDCCSD":
+    if solver == "coupledCCSD":
         if is_eb:
             raise ValueError("coupledCCSD is not implemented for electron-boson calculations!")
         if is_uhf:
@@ -83,13 +82,14 @@ def _get_solver_class_internal(is_uhf, is_eb, solver):
             raise ValueError(
                 "Please specify a coupled electron-boson CC ansatz as a solver, for example CCSD-S-1-1,"
                 "rather than CCSD")
-
+        # This is just a wrapper to allow us to use the solver option as the ansatz kwarg in this case.
         def get_right_CC(*args, **kwargs):
-
-            if kwargs.get("ansatz", None) is not None:
-                raise ValueError(
-                    "Desired CC ansatz specified differently in solver and solver_options.ansatz."
-                    "Please use only specify via one approach, or ensure they agree.")
+            setansatz = kwargs.get("ansatz", None)
+            if setansatz is not None:
+                if setansatz != solver:
+                    raise ValueError(
+                        "Desired CC ansatz specified differently in solver and solver_options.ansatz."
+                        "Please use only specify via one approach, or ensure they agree.")
             kwargs["ansatz"] = solver
             return solverclass(*args, **kwargs)
 
