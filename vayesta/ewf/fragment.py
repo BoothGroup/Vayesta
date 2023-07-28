@@ -189,8 +189,9 @@ class Fragment(BaseFragment):
         init_guess = self.get_init_guess(init_guess, solver, cluster)
 
         # Create solver object
-        cluster_solver, e_corr_rpa = self.get_solver(solver)
-
+        cluster_solver = self.get_solver(solver)
+        # Calculate cluster energy at the level of RPA.
+        e_corr_rpa = self.get_ext_rpa_correction(cluster_solver.hamil)
         # --- Chemical potential
         cpt_frag = self.base.opts.global_frag_chempot
         if self.opts.nelectron_target is not None:

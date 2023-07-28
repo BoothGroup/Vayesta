@@ -1037,16 +1037,27 @@ class Fragment:
         cluster_solver = solver_cls(cl_ham, **solver_opts)
         if self.opts.screening is not None:
             cluster_solver.hamil.add_screening(self._seris_ov)
-        e_loc_rpa = None
         if self.base.opts.ext_rpa_correction:
             cumulant = self.base.opts.ext_rpa_correction == "cumulant"
             if self.base.opts.ext_rpa_correction not in ["erpa", "cumulant"]:
                 raise ValueError("Unknown external rpa correction %s specified.")
             e_loc_rpa = cl_ham.calc_loc_erpa(*self._seris_ov[1:], cumulant)
-        return cluster_solver, e_loc_rpa
+        return cluster_solver
+
+    def get_ext_rpa_correction(self, hamil=None):
+        e_loc_rpa = None
+        if self.base.opts.ext_rpa_correction:
+            hamil = hamil or self.hamil
+            cumulant = self.base.opts.ext_rpa_correction == "cumulant"
+            if self.base.opts.ext_rpa_correction not in ["erpa", "cumulant"]:
+                raise ValueError("Unknown external rpa correction %s specified.")
+            e_loc_rpa = hamil.calc_loc_erpa(*self._seris_ov[1:], cumulant)
+        return e_loc_rpa
 
     def get_frag_hamil(self):
         if self.opts.screening is not None:
+            #if self
+
             if "crpa_full" in self.opts.screening:
                 self.bos_freqs, self.couplings = get_frag_W(self.mf, self, pcoupling=("pcoupled" in self.opts.screening),
                                                             only_ov_screened=("ov" in self.opts.screening),
