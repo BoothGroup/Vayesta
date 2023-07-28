@@ -1039,7 +1039,7 @@ class Fragment:
             cluster_solver.hamil.add_screening(self._seris_ov)
         return cluster_solver
 
-    def get_ext_rpa_correction(self, hamil=None):
+    def get_local_rpa_correction(self, hamil=None):
         e_loc_rpa = None
         if self.base.opts.ext_rpa_correction:
             hamil = hamil or self.hamil
