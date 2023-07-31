@@ -280,8 +280,9 @@ class Fragment(BaseFragment):
             self.log.debugv("Passing fragment option %s to solver.", attr)
             solver_opts[attr] = getattr(self.opts, attr)
 
-        if solver.upper() == 'TCCSD':
-            solver_opts['tcc'] = True
+        has_actspace = ((solver == "TCCSD") or ("CCSDt" in solver) or
+                        (solver == "EBCC" and self.opts.solver_options['ansatz'] == "CCSDt"))
+        if has_actspace:
             # Set CAS orbitals
             if self.opts.c_cas_occ is None:
                 self.log.warning("Occupied CAS orbitals not set. Setting to occupied DMET cluster orbitals.")
@@ -291,7 +292,8 @@ class Fragment(BaseFragment):
                 self.opts.c_cas_vir = self._dmet_bath.c_cluster_vir
             solver_opts['c_cas_occ'] = self.opts.c_cas_occ
             solver_opts['c_cas_vir'] = self.opts.c_cas_vir
-            solver_opts['tcc_fci_opts'] = self.opts.tcc_fci_opts
+            if solver == "TCCSD":
+                solver_opts['tcc_fci_opts'] = self.opts.tcc_fci_opts
         elif solver.upper() == 'DUMP':
             solver_opts['filename'] = self.opts.solver_options['dumpfile']
         solver_opts['external_corrections'] = self.flags.external_corrections

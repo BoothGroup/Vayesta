@@ -2,7 +2,6 @@ from vayesta.solver.ccsd import RCCSD_Solver, UCCSD_Solver
 from vayesta.solver.cisd import RCISD_Solver, UCISD_Solver
 from vayesta.solver.coupled_ccsd import coupledRCCSD_Solver
 from vayesta.solver.dump import DumpSolver
-from vayesta.solver.ebcc import REBCC_Solver, UEBCC_Solver, EB_REBCC_Solver, EB_UEBCC_Solver
 from vayesta.solver.ebfci import EB_EBFCI_Solver, EB_UEBFCI_Solver
 from vayesta.solver.ext_ccsd import extRCCSD_Solver, extUCCSD_Solver
 from vayesta.solver.fci import FCI_Solver, UFCI_Solver
@@ -10,6 +9,12 @@ from vayesta.solver.hamiltonian import is_ham, is_uhf_ham, is_eb_ham, ClusterHam
 from vayesta.solver.mp2 import RMP2_Solver, UMP2_Solver
 from vayesta.solver.tccsd import TRCCSD_Solver
 
+try:
+    from vayesta.solver.ebcc import REBCC_Solver, UEBCC_Solver, EB_REBCC_Solver, EB_UEBCC_Solver
+except ImportError:
+    _has_ebcc = False
+else:
+    _has_ebcc = True
 
 def get_solver_class(ham, solver):
     assert (is_ham(ham))
@@ -62,6 +67,8 @@ def _get_solver_class_internal(is_uhf, is_eb, solver):
 
     # Now consider general CC ansatzes; these are solved via EBCC.
     if "CC" in solver:
+        if not _has_ebcc:
+            raise ImportError(f"{solver} solver is only accessible via ebcc. Please install ebcc.")
         if is_uhf:
             if is_eb:
                 solverclass = EB_UEBCC_Solver

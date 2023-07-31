@@ -5,6 +5,7 @@ import numpy as np
 from vayesta.core.types import WaveFunction, CCSD_WaveFunction
 from vayesta.core.util import dot, einsum
 from vayesta.solver.solver import ClusterSolver, UClusterSolver
+import ebcc
 
 
 class REBCC_Solver(ClusterSolver):
@@ -16,24 +17,21 @@ class REBCC_Solver(ClusterSolver):
         max_cycle: int = 200  # Max number of iterations
         conv_tol: float = None  # Convergence energy tolerance
         conv_tol_normt: float = None  # Convergence amplitude tolerance
+        c_cas_occ: np.array = None  # Hacky place to put active space orbitals.
+        c_cas_vir: np.array = None
 
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        try:
-            import ebcc
-        except ImportError as e:
-            raise ImportError("Cannot import ebcc; required to use as a solver.")
 
     @property
     def is_fCCSD(self):
         return self.opts.ansatz == "CCSD"
 
     def kernel(self):
-        import ebcc
         # Use pyscf mean-field representation.
         mf_clus, frozen = self.hamil.to_pyscf_mf(allow_dummy_orbs=False)
-        mycc = ebcc.EBCC(mf_clus, log=self.log, ansatz=self.opts.ansatz,
-                         **self.get_nonnull_solver_opts())
+
+        mf_clus.mo_coeff, space = self.get_space(self.hamil.cluster.c_active, mf_clus.mo_occ, frozen=frozen)
+
+        mycc = ebcc.EBCC(mf_clus, log=self.log, ansatz=self.opts.ansatz, space=space, **self.get_nonnull_solver_opts())
         mycc.kernel()
         self.converged = mycc.converged
         if self.opts.solve_lambda:
@@ -41,6 +39,18 @@ class REBCC_Solver(ClusterSolver):
             self.converged = self.converged and mycc.converged_lambda
         # Now just need to wrangle EBCC results into wavefunction format.
         self.construct_wavefunction(mycc, self.hamil.mo)
+
+    def get_space(self, mo_coeff, mo_occ, frozen=None):
+        s = self.hamil.orig_mf.get_ovlp()
+        c_active_occ = self.opts.c_cas_occ
+        c_active_vir = self.opts.c_cas_vir
+        if not (c_active_occ is None and c_active_vir is None):
+            c_active_occ = dot(mo_coeff.T, s, c_active_occ)
+            c_active_vir = dot(mo_coeff.T, s, c_active_vir)
+        mo_coeff = dot(mo_coeff.T, s, mo_coeff)
+
+        return gen_space(mo_coeff[:, mo_occ > 0], mo_coeff[:, mo_occ == 0], c_active_occ, c_active_vir,
+                         frozen_orbs=frozen)
 
     def get_nonnull_solver_opts(self):
         def add_nonull_opt(d, key, newkey):
@@ -96,7 +106,23 @@ class REBCC_Solver(ClusterSolver):
 class UEBCC_Solver(UClusterSolver, REBCC_Solver):
     @dataclasses.dataclass
     class Options(REBCC_Solver.Options, UClusterSolver.Options):
-        pass
+        c_cas_occ: np.array = (None, None)  # Hacky place to put active space orbitals.
+        c_cas_vir: np.array = (None, None)
+
+    def get_space(self, mo_coeff, mo_occ, frozen=None):
+
+        s = self.hamil.orig_mf.get_ovlp()
+        def _get_space(c, occ, co_cas, cv_cas, fr):
+            # Express active orbitals in terms of cluster orbitals.
+            co_cas = dot(c.T, s, co_cas)
+            cv_cas = dot(c.T, s, cv_cas)
+            c = dot(c.T, s, c)
+            return gen_space(c[:, occ > 0], c[:, occ == 0], co_cas, cv_cas, frozen_orbs=fr)
+        if frozen is None:
+            frozen = [None, None]
+        ca, spacea = _get_space(mo_coeff[0], mo_occ[0], self.opts.c_cas_occ[0], self.opts.c_cas_vir[0], frozen[0])
+        cb, spaceb = _get_space(mo_coeff[1], mo_occ[1], self.opts.c_cas_occ[1], self.opts.c_cas_vir[1], frozen[1])
+        return (ca, cb), (spacea, spaceb)
 
     # This should automatically work other than ensuring spin components are in a tuple.
     def construct_wavefunction(self, mycc, mo):
@@ -137,7 +163,7 @@ class UEBCC_Solver(UClusterSolver, REBCC_Solver):
             self.wf.make_rdm2 = make_rdm2
 
     def _debug_exact_wf(self, wf):
-        mo = self.cluster.mo
+        mo = self.hamil.mo
         # Project onto cluster:
         ovlp = self.hamil._fragment.base.get_ovlp()
         roa = dot(wf.mo.coeff_occ[0].T, ovlp, mo.coeff_occ[0])
@@ -218,3 +244,70 @@ class EB_UEBCC_Solver(EB_REBCC_Solver, UEBCC_Solver):
             return dm
 
         self.wf.make_rdmeb = make_rdmeb
+
+
+def gen_space(c_occ, c_vir, co_active=None, cv_active=None, frozen_orbs=None):
+    """Given the occupied and virtual orbital coefficients in the local cluster basis, which orbitals are frozen, and
+    any active space orbitals in this space generate appropriate coefficients and ebcc.Space inputs for a calculation.
+    Inputs:
+        c_occ: occupied orbital coefficients in local cluster basis.
+        c_vir: virtual orbital coefficients in local cluster basis.
+        co_active: occupied active space orbitals in local cluster basis.
+        cv_active: virtual active space orbitals in local cluster basis.
+        frozen_orbs: indices of orbitals to freeze in local cluster basis.
+    Outputs:
+        c: coefficients for the active space orbitals in the local cluster basis.
+        space: ebcc.Space object defining the resulting active space behaviours.
+    """
+    no, nv = c_occ.shape[1], c_vir.shape[1]
+
+    have_actspace = not (co_active is None and cv_active is None)
+
+    if co_active is None or cv_active is None:
+        if have_actspace:
+            raise ValueError("Active space must specify both occupied and virtual orbitals.")
+    # Default to just using original cluster orbitals.
+    c = np.hstack([c_occ, c_vir])
+
+    occupied = np.hstack([np.ones(no, dtype=bool), np.zeros(nv, dtype=bool)])
+    frozen = np.zeros(no + nv, dtype=bool)
+    if frozen_orbs is not None:
+        frozen[frozen_orbs] = True
+
+    def gen_actspace(c_full, c_act, c_frozen, tol=1e-8):
+        """Generate orbital rotation to define our space, along with frozen and active identifiers."""
+        # Check we don't have any overlap between frozen and active orbitals.
+        if c_frozen.shape[1] > 0:
+            af_ovlp = dot(c_act.T, c_frozen)
+            if not np.allclose(np.linalg.svd(af_ovlp)[1], 0, atol=tol):
+                raise ValueError("Specified frozen and active orbitals overlap!")
+        if c_act.shape[1] > 0:
+            # We could use the portion of the active space orbitals inside the cluster instead in future.
+            full_active_ovlp = dot(c_full.T, c_act)
+            if not np.allclose(np.linalg.svd(full_active_ovlp)[1], 1, atol=tol):
+                raise ValueError("Specified active orbitals are not spanned by the full cluster space!")
+        # Can now safely generate coefficients; get the space spanned by undetermined orbitals.
+        d_rest = dot(c_full, c_full.T) - dot(c_act, c_act.T) - dot(c_frozen, c_frozen.T)
+        e, c = np.linalg.eigh(d_rest)
+        c_rest = c[:, e > tol]
+        c = np.hstack([c_frozen, c_rest, c_act])
+        # Check that we have the right number of orbitals.
+        assert(c.shape[1] == c_full.shape[1])
+        # Generate information.
+        frozen_orbs = np.zeros(c.shape[1], dtype=bool)
+        active = np.zeros(c.shape[1], dtype=bool)
+        frozen_orbs[:c_frozen.shape[1]] = True
+        active[-c_act.shape[1]:] = True
+        return c, frozen_orbs, active
+
+    if have_actspace:
+        c_occ, frozen_occ, active_occ = gen_actspace(c_occ, co_active, c_occ[:, frozen[:no]])
+        c_vir, frozen_vir, active_vir = gen_actspace(c_vir, cv_active, c_vir[:, frozen[no:]])
+
+        c = np.hstack([c_occ, c_vir[:, ::-1]])
+        frozen = np.hstack([frozen_occ, frozen_vir[::-1]])
+        active = np.hstack([active_occ, active_vir[::-1]])
+    else:
+        active = np.zeros_like(frozen, dtype=bool)
+
+    return c, ebcc.Space(occupied=occupied, frozen=frozen, active=active)
