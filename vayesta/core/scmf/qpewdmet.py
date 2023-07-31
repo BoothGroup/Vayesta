@@ -2,9 +2,10 @@ import numpy as np
 import scipy.linalg
 
 from vayesta.core.scmf.scmf import SCMF
+from vayesta.lattmod import LatticeRHF
 
 from dyson import Lehmann, FCI, MBLGF, MixedMBLGF, NullLogger, AuxiliaryShift
-
+import pyscf.scf
 
 
 
@@ -12,8 +13,9 @@ class QPEWDMET_RHF(SCMF):
 
     name = "QP-EWDMET"
 
-    def __init__(self, emb, proj=2, v_conv_tol=1e-5, eta=1e-2, *args, **kwargs):
+    def __init__(self, emb, proj=2, v_conv_tol=1e-5, eta=1e-2, sc=False, *args, **kwargs):
         self.sc_fock = emb.get_fock()
+        self.sc = sc
         self.eta = eta # Broadening factor
         self.se = None
         self.v = None
@@ -28,6 +30,8 @@ class QPEWDMET_RHF(SCMF):
         couplings = []
         energies = []
         vs = []
+        print("ITER: %d" % self.iteration)
+        print(self.emb.fragments[0].cluster.c_active)
         for f in self.emb.fragments:
         
 
@@ -78,7 +82,18 @@ class QPEWDMET_RHF(SCMF):
             self.v = diis.update(self.v)
 
         self.sc_fock += self.v
-        e, mo_coeff = np.linalg.eigh(self.sc_fock)
+
+        if self.sc:
+            mf = LatticeRHF(self.emb.mf.mol)
+            def get_fock(*args, **kwargs):
+                return self.sc_fock
+            mf.get_fock = get_fock
+            e_tot = mf.kernel()
+            mo_coeff = mf.mo_coeff
+            scf_conv = mf.converged
+            self.log.info("SCF converged: {}, energy: {:.6f}".format(scf_conv, e_tot))
+        else:
+            e, mo_coeff = np.linalg.eigh(self.sc_fock)
         return mo_coeff
 
     def check_convergence(self, e_tot, dm1, e_last=None, dm1_last=None, etol=None, dtol=None):
