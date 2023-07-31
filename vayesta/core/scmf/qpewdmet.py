@@ -10,10 +10,10 @@ import pyscf.scf
 
 
 class QPEWDMET_RHF(SCMF):
-
+    """ Quasi-particle self-consistent energy weighted density matrix embedding """
     name = "QP-EWDMET"
 
-    def __init__(self, emb, proj=2, v_conv_tol=1e-5, eta=1e-2, sc=False, *args, **kwargs):
+    def __init__(self, emb, proj=2, v_conv_tol=1e-5, eta=1e-4, sc=True, *args, **kwargs):
         self.sc_fock = emb.get_fock()
         self.sc = sc
         self.eta = eta # Broadening factor
@@ -29,14 +29,10 @@ class QPEWDMET_RHF(SCMF):
             self.v_last = self.v.copy()
         couplings = []
         energies = []
-        vs = []
-        print("ITER: %d" % self.iteration)
-        print(self.emb.fragments[0].cluster.c_active)
+        self.v = np.zeros_like(self.sc_fock)
         for f in self.emb.fragments:
-        
-
+            # Calculate self energy from cluster moments
             th, tp = f.results.moms
-        
             vth, vtp = th.copy(), tp.copy()
             solverh = MBLGF(th, log=NullLogger())
             solverp = MBLGF(tp, log=NullLogger())
@@ -51,32 +47,50 @@ class QPEWDMET_RHF(SCMF):
 
 
             cf = np.linalg.multi_dot((f.c_frag.T, f.cluster.c_active))  # Projector onto fragment (frag|cls)
-    
+            cfc = cf.T @ cf
+
             fock = self.emb.get_fock()
             fock_cls = np.einsum('pP,qQ,pq->PQ', f.cluster.c_active, f.cluster.c_active, fock)
             e_cls = np.diag(fock_cls)
             
+            
+            #v += np.linalg.multi_dot((ca, v_frag, ca.T))
             v_cls = se.as_static_potential(e_cls, eta=self.eta) # Single particle potential from Klein Functional (used to update MF for the self-consistnecy)
-            # Rotate into the fragment basis and tile for all fragments
-            c_frag_canon = np.linalg.multi_dot((f.c_frag.T, f.cluster.c_active))
-            v_frag = np.linalg.multi_dot((c_frag_canon, v_cls, c_frag_canon.T))  # (frag|frag)
-
-            vs.append(v_frag)
-    
-            se.couplings = np.dot(cf, se.couplings) 
-            energies.append(se.energies)
-            couplings.append(se.couplings)
 
 
-        vcouplings = scipy.linalg.block_diag(*couplings)
+            if self.proj == 2:
+                v_frag = np.linalg.multi_dot((cf, v_cls, cf.T))  # (frag|frag)
+                self.v += np.linalg.multi_dot((f.c_frag, v_frag, f.c_frag.T))
 
+                couplings.append(f.c_frag @ cf @ se.couplings)
+                energies.append(se.energies)
+
+            elif self.proj == 1:
+
+                v_frag = np.linalg.multi_dot((cfc, v_cls))  # (frag|cls)
+                v_frag = 0.5 * (v_frag + v_frag.T)
+                self.v += np.linalg.multi_dot((f.cluster.c_active, v_frag, f.cluster.c_active.T))
+
+                sym_coup = (np.einsum('pa,qa->apq', np.dot(cfc, se.couplings) , se.couplings) + np.einsum('pa,qa->apq', se.couplings, np.dot(cfc, se.couplings))) * 0.5
+                couplings_cf = np.zeros((sym_coup.shape[0]*2, sym_coup.shape[1]))
+                for a in range(sym_coup.shape[0]):
+                    m = sym_coup[a]
+                    val, vec = np.linalg.eigh(m)
+                    w = vec[:,-2:] @ np.diag(np.sqrt(val[-2:], dtype=np.complex64))
+                    w = np.array(w, dtype=np.float64)
+                    couplings_cf[2*a:2*a+2] = w.T
+                
+                couplings.append(np.dot(f.cluster.c_active, couplings_cf.T))
+                energies.append(np.repeat(se.energies, 2)) 
+
+            
+            
+
+        couplings = np.hstack(couplings)
         energies = np.concatenate(energies)
-        se = Lehmann(energies, vcouplings)
+        self.se = Lehmann(energies, couplings)
 
-        self.se = se
-
-        # TODO: Will this only work for the 1D model? Check tiling with other models.
-        self.v = scipy.linalg.block_diag(*vs) # (site|site)
+        
         v_old = self.v.copy()
         if diis is not None:
             self.v = diis.update(self.v)
