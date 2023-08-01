@@ -56,8 +56,8 @@ for a in [1]:
 
     emb = vayesta.ewf.EWF(mf, solver='FCI', bath_options=dict(bathtype='ewdmet', max_order=1, order=1, dmet_threshold=1e-10), solver_options=dict(conv_tol=1e-12, init_guess='cisd', n_moments=nmom_max_fci))
     with emb.site_fragmentation() as f:
-        for i in range(0, natom, 2):
-            f.add_atomic_fragment([i, i+1])
+        with f.rotational_symmetry(order=int(natom/nfrag), axis='z') as rot:
+            f.add_atomic_fragment(range(nfrag))
     emb.qpewdmet_scmf(maxiter=maxiter, proj=2)
     emb.kernel()
     gf, gf_qp = emb.with_scmf.get_greens_function()
