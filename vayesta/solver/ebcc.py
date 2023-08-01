@@ -39,7 +39,7 @@ class REBCC_Solver(ClusterSolver):
             mycc.solve_lambda()
             self.converged = self.converged and mycc.converged_lambda
         # Now just need to wrangle EBCC results into wavefunction format.
-        self.construct_wavefunction(mycc, self.hamil.mo)
+        self.construct_wavefunction(mycc, self.hamil.get_mo(mf_clus.mo_coeff))
 
     def get_space(self, mo_coeff, mo_occ, frozen=None):
         s = self.hamil.orig_mf.get_ovlp()
@@ -78,6 +78,12 @@ class REBCC_Solver(ClusterSolver):
             self.wf = WaveFunction(mo)
             self.wf.make_rdm1 = mycc.make_rdm1_f
             self.wf.make_rdm2 = mycc.make_rdm2_f
+
+        # Need to rotate wavefunction back into original cluster active space.
+        o = mycc.mo_occ > 0
+        v = mycc.mo_occ == 0
+
+        self.wf.rotate(to=mycc.mo_coeff[np.ix_(o, o)], tv=mycc.mo_coeff[np.ix_(v, v)])
 
     def _debug_exact_wf(self, wf):
         assert (self.is_fCCSD)

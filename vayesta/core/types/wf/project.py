@@ -1,7 +1,7 @@
 """Utility functions for projection of wave functions."""
 
 import numpy as np
-from vayesta.core.util import einsum
+from vayesta.core.util import einsum, dot
 
 
 def project_c1(c1, p):
@@ -49,7 +49,7 @@ def symmetrize_uc2(c2, inplace=True):
 
 def transform_c1(c1, to, tv):
     if c1 is None: return None
-    return np.dot(to.T, c1, tv)
+    return dot(to.T, c1, tv)
 
 def transform_c2(c2, to, tv, to2=None, tv2=None):
     if c2 is None: return None

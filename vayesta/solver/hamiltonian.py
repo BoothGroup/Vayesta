@@ -86,7 +86,7 @@ class RClusterHamiltonian:
 
     @property
     def mo(self):
-        return Orbitals(self.cluster.c_active, occ=self.cluster.nocc_active)
+        return self.get_mo()
 
     @property
     def nelec(self):
@@ -103,6 +103,12 @@ class RClusterHamiltonian:
     def target_space_projector(self, c=None):
         """Projector to the target fragment space within our cluster."""
         return self._fragment.get_fragment_projector(self.cluster.c_active, c)
+
+    def get_mo(self, mo_coeff=None):
+        c = self.cluster.c_active
+        if mo_coeff is not None:
+            c = dot(c, mo_coeff)
+        return Orbitals(c, occ=self.cluster.nocc_active)
 
     # Integrals for the cluster calculations.
 
@@ -459,6 +465,13 @@ class UClusterHamiltonian(RClusterHamiltonian):
     @property
     def nelec(self):
         return self.cluster.nocc_active
+
+    def get_mo(self, mo_coeff=None):
+        c = self.cluster.c_active
+        if mo_coeff is not None:
+            c[0] = dot(c[0], mo_coeff[0])
+            c[1] = dot(c[1], mo_coeff[1])
+        return Orbitals(c, occ=self.cluster.nocc_active)
 
     # Integrals for the cluster calculations.
 

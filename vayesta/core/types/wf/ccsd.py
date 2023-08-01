@@ -323,7 +323,7 @@ class UCCSD_WaveFunction(RCCSD_WaveFunction):
         """
         wf = self if inplace else self.copy()
         if isinstance(to, np.ndarray) and len(to) == 2:
-            assert( isinstance(tv, np.ndarray) and len(tv) == 2)
+            assert(isinstance(tv, np.ndarray) and len(tv) == 2)
             trafo = lambda c: dot(c, block_diag(to, tv))
         else:
             trafo = [lambda c: dot(c, x) for x in (block_diag(to[0], tv[0]), block_diag(to[1], tv[1]))]
