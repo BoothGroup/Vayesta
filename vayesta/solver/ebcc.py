@@ -17,13 +17,14 @@ class REBCC_Solver(ClusterSolver):
         max_cycle: int = 200  # Max number of iterations
         conv_tol: float = None  # Convergence energy tolerance
         conv_tol_normt: float = None  # Convergence amplitude tolerance
+        store_as_ccsd: bool = True # Store results as CCSD_WaveFunction
         c_cas_occ: np.array = None  # Hacky place to put active space orbitals.
         c_cas_vir: np.array = None
 
 
     @property
     def is_fCCSD(self):
-        return self.opts.ansatz == "CCSD"
+        return self.opts.store_as_ccsd or self.opts.ansatz == "CCSD"
 
     def kernel(self):
         # Use pyscf mean-field representation.
@@ -71,6 +72,8 @@ class REBCC_Solver(ClusterSolver):
             except TypeError:
                 self.wf = CCSD_WaveFunction(mo, mycc.t1, mycc.t2)
         else:
+            self.log.warning(
+                "Storing EBCC wavefunction as generic wavefunction object; wavefunction-based estimators will work.")
             # Simply alias required quantities for now; this ensures functionality for arbitrary orders of CC via ebcc.
             self.wf = WaveFunction(mo)
             self.wf.make_rdm1 = mycc.make_rdm1_f
@@ -147,6 +150,8 @@ class UEBCC_Solver(UClusterSolver, REBCC_Solver):
                                             to_spin_tuple2(mycc.t2)
                                             )
         else:
+            self.log.warning(
+                "Storing EBCC wavefunction as generic wavefunction object; wavefunction-based estimators will work.")
             # Simply alias required quantities for now; this ensures functionality for arbitrary orders of CC.
             self.wf = WaveFunction(mo)
 
