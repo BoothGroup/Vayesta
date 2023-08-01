@@ -142,7 +142,7 @@ pyscf.out
 # Vayesta log files
 vlog.txt
 verr.txt
-
+f*.out
 # PySCF temp files
 tmp*
 !tmp*.*

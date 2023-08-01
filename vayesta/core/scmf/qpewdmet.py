@@ -45,12 +45,12 @@ class QPEWDMET_RHF(SCMF):
             energies_f = se.energies
             couplings_f = se.couplings
 
-
-            cf = np.linalg.multi_dot((f.c_frag.T, f.cluster.c_active))  # Projector onto fragment (frag|cls)
+            ovlp = self.emb.get_ovlp()
+            cf = f.c_frag.T @ ovlp @ f.cluster.c_active  # Projector onto fragment (frag|cls)
             cfc = cf.T @ cf
 
             fock = self.emb.get_fock()
-            fock_cls = np.einsum('pP,qQ,pq->PQ', f.cluster.c_active, f.cluster.c_active, fock)
+            fock_cls = f.cluster.c_active.T @ fock @ f.cluster.c_active
             e_cls = np.diag(fock_cls)
             
             
@@ -59,7 +59,7 @@ class QPEWDMET_RHF(SCMF):
 
 
             if self.proj == 2:
-                v_frag = np.linalg.multi_dot((cf, v_cls, cf.T))  # (frag|frag)
+                v_frag = np.linalg.multi_dot((cf, v_cls, cf.T))
                 self.v += np.linalg.multi_dot((f.c_frag, v_frag, f.c_frag.T))
 
                 couplings.append(f.c_frag @ cf @ se.couplings)
@@ -67,11 +67,12 @@ class QPEWDMET_RHF(SCMF):
 
             elif self.proj == 1:
 
-                v_frag = np.linalg.multi_dot((cfc, v_cls))  # (frag|cls)
+                v_frag = cfc @ v_cls  
                 v_frag = 0.5 * (v_frag + v_frag.T)
-                self.v += np.linalg.multi_dot((f.cluster.c_active, v_frag, f.cluster.c_active.T))
+                self.v += f.cluster.c_active @ v_frag @ f.cluster.c_active.T
 
-                sym_coup = (np.einsum('pa,qa->apq', np.dot(cfc, se.couplings) , se.couplings) + np.einsum('pa,qa->apq', se.couplings, np.dot(cfc, se.couplings))) * 0.5
+                sym_coup = np.einsum('pa,qa->apq', np.dot(cfc, se.couplings) , se.couplings) 
+                sym_coup = 0.5 * (sym_coup + sym_coup.transpose(0,2,1))
                 couplings_cf = np.zeros((sym_coup.shape[0]*2, sym_coup.shape[1]))
                 for a in range(sym_coup.shape[0]):
                     m = sym_coup[a]
@@ -80,11 +81,8 @@ class QPEWDMET_RHF(SCMF):
                     w = np.array(w, dtype=np.float64)
                     couplings_cf[2*a:2*a+2] = w.T
                 
-                couplings.append(np.dot(f.cluster.c_active, couplings_cf.T))
+                couplings.append(f.cluster.c_active @ couplings_cf.T)
                 energies.append(np.repeat(se.energies, 2)) 
-
-            
-            
 
         couplings = np.hstack(couplings)
         energies = np.concatenate(energies)
@@ -98,7 +96,9 @@ class QPEWDMET_RHF(SCMF):
         self.sc_fock += self.v
 
         if self.sc:
-            mf = LatticeRHF(self.emb.mf.mol)
+            #mf = LatticeRHF(self.emb.mf.mol)
+            mf_cls = type(self.emb.mf)
+            mf = mf_cls(self.emb.mf.mol)
             def get_fock(*args, **kwargs):
                 return self.sc_fock
             mf.get_fock = get_fock
