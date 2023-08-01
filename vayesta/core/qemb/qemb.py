@@ -67,7 +67,7 @@ class Options(OptionsBase):
     # --- Bath options
     bath_options: dict = OptionsBase.dict_with_defaults(
         # General
-        bathtype='dmet', canonicalize=True,
+        bathtype='dmet', canonicalize=True, occupation_tolerance=1e-6,
         # DMET bath
         dmet_threshold=1e-8,
         # R2 bath
