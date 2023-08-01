@@ -11,8 +11,8 @@ from dyson.util import build_spectral_function
 import matplotlib.pyplot as plt
 
 natom = 120
-nfrag = 2
-maxiter = 20
+nfrag = 1
+maxiter = 30
 nmom_max_fci = (8,8)
 nmom_max_bath=1
 

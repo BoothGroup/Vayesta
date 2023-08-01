@@ -30,7 +30,7 @@ for u in [6]:
     with emb.site_fragmentation() as f:
         f.add_atomic_fragment(list(range(nfrag)))
 
-    emb.qpewdmet_scmf()
+    emb.qpewdmet_scmf(maxiter=1)
     emb.kernel()
 
 
