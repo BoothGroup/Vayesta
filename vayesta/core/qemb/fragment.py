@@ -865,7 +865,7 @@ class Fragment:
             # RHF
             atol = self.opts.bath_options['occupation_tolerance']
             if np.ndim(occup[0]) == 0:
-                assert np.allclose(occup, 2*expected, rtol=0, atol=2*atol)
+                assert np.allclose(occup, 2*expected, rtol=0, atol=atol)
             else:
                 assert np.allclose(occup[0], expected, rtol=0, atol=atol)
                 assert np.allclose(occup[1], expected, rtol=0, atol=atol)
