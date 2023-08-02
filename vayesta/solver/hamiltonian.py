@@ -107,6 +107,9 @@ class RClusterHamiltonian:
     def get_mo(self, mo_coeff=None):
         c = self.cluster.c_active
         if mo_coeff is not None:
+            # This specifies the coefficients in the cluster basis used within the calculation.
+            # Note that we should then apply the opposite rotation to the resulting wavefunction, since Vayesta
+            # currently assumes the wavefunction is in the basis of c_active.
             c = dot(c, mo_coeff)
         return Orbitals(c, occ=self.cluster.nocc_active)
 
@@ -469,8 +472,7 @@ class UClusterHamiltonian(RClusterHamiltonian):
     def get_mo(self, mo_coeff=None):
         c = self.cluster.c_active
         if mo_coeff is not None:
-            c[0] = dot(c[0], mo_coeff[0])
-            c[1] = dot(c[1], mo_coeff[1])
+            c = tuple([dot(x, y) for x, y in zip(c, mo_coeff)])
         return Orbitals(c, occ=self.cluster.nocc_active)
 
     # Integrals for the cluster calculations.
