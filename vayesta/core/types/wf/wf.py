@@ -65,6 +65,12 @@ class WaveFunction:
     def make_rdm2(self, *args, **kwargs):
         raise AbstractMethodError
 
+    def rotate_ov(self, *args, **kwargs):
+        raise AbstractMethodError
+
+    def rotate(self, *args, **kwargs):
+        raise AbstractMethodError
+
     @staticmethod
     def from_pyscf(obj, **kwargs):
         # HF
