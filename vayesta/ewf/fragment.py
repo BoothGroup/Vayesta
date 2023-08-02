@@ -114,7 +114,8 @@ class Fragment(BaseFragment):
             c_env = frag.get_env_coeff(indices)
             bath = DMET_Bath(self, dmet_threshold=dmet_threshold)
             c_dmet = bath.make_dmet_bath(c_env)[0]
-            c_iao_occ, c_iao_vir = self.diagonalize_cluster_dm(c_iao, c_dmet, tol=2*dmet_threshold)
+            tol = self.opts.bath_options['occupation_tolerance']
+            c_iao_occ, c_iao_vir = self.diagonalize_cluster_dm(c_iao, c_dmet, tol=2*tol)
         else:
             c_iao_occ = c_iao_vir = None
 
