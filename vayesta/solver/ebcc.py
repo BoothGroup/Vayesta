@@ -73,9 +73,9 @@ class REBCC_Solver(ClusterSolver):
                 self.wf = CCSD_WaveFunction(mo, mycc.t1, mycc.t2, l1=mycc.l1.T, l2=mycc.l2.transpose(2, 3, 0, 1))
             except TypeError:
                 self.wf = CCSD_WaveFunction(mo, mycc.t1, mycc.t2)
+            self.wf.rotate(t=mycc.mo_coeff.T, inplace=True)
         else:
-            if not (np.allclose(mycc.mo_coeff[0], np.eye(mycc.nmo), atol=1e-8) and
-                    np.allclose(mycc.mo_coeff[1], np.eye(mycc.nmo), atol=1e-8)):
+            if not (np.allclose(mycc.mo_coeff, np.eye(mycc.nmo), atol=1e-8)):
                 raise ValueError("Generic wavefunction construction only works for canonical orbitals, please use "
                                  "`store_as_ccsd=True' in solver_options")
             self.log.warning(
@@ -86,7 +86,6 @@ class REBCC_Solver(ClusterSolver):
             self.wf.make_rdm2 = mycc.make_rdm2_f
 
         # Need to rotate wavefunction back into original cluster active space.
-        self.wf.rotate(t=mycc.mo_coeff.T, inplace=True)
 
     def _debug_exact_wf(self, wf):
         assert (self.is_fCCSD)
@@ -168,6 +167,7 @@ class UEBCC_Solver(UClusterSolver, REBCC_Solver):
                                             to_spin_tuple1(mycc.t1),
                                             to_spin_tuple2(mycc.t2)
                                             )
+            self.wf.rotate(t=[x.T for x in mycc.mo_coeff], inplace=True)
         else:
             # Simply alias required quantities for now; this ensures functionality for arbitrary orders of CC.
             self.wf = WaveFunction(mo)
@@ -188,8 +188,6 @@ class UEBCC_Solver(UClusterSolver, REBCC_Solver):
                 return (dm.aaaa, dm.aabb, dm.bbbb)
 
             self.wf.make_rdm2 = make_rdm2
-        print(*[np.linalg.norm(x) for x in (self.wf.t1, self.wf.t2aa, self.wf.t2ab, self.wf.t2ba, self.wf.t2bb)])
-        self.wf.rotate(t=[x.T for x in mycc.mo_coeff], inplace=True)
 
     def _debug_exact_wf(self, wf):
         mo = self.hamil.mo
@@ -227,10 +225,11 @@ class EB_REBCC_Solver(REBCC_Solver):
     @dataclasses.dataclass
     class Options(REBCC_Solver.Options):
         ansatz: str = "CCSD-S-1-1"
+        store_as_ccsd: bool = False # Store results as CCSD_WaveFunction
 
     @property
     def is_fCCSD(self):
-        return False
+        return self.opts.store_as_ccsd
 
     def get_nonnull_solver_opts(self):
         opts = super().get_nonnull_solver_opts()

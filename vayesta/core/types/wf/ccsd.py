@@ -201,6 +201,10 @@ class RCCSD_WaveFunction(wf_types.WaveFunction):
         wf.mo.basis_transform(lambda c: dot(c, block_diag(to, tv)), inplace=True)
         wf.t1 = transform_c1(wf.t1, to, tv)
         wf.t2 = transform_c2(wf.t2, to, tv)
+        if wf.l1 is not None:
+            wf.l1 = transform_uc1(wf.l1, to, tv)
+        if wf.l2 is not None:
+            wf.l2 = transform_uc2(wf.l2, to, tv)
         return wf
 
 class UCCSD_WaveFunction(RCCSD_WaveFunction):
@@ -373,6 +377,10 @@ class UCCSD_WaveFunction(RCCSD_WaveFunction):
         wf.mo.basis_transform(trafo, inplace=True)
         wf.t1 = transform_uc1(wf.t1, to, tv)
         wf.t2 = transform_uc2(wf.t2, to, tv)
+        if wf.l1 is not None:
+            wf.l1 = transform_uc1(wf.l1, to, tv)
+        if wf.l2 is not None:
+            wf.l2 = transform_uc2(wf.l2, to, tv)
         return wf
 
 
