@@ -36,7 +36,7 @@ jobs:
           python -m pip install setuptools --upgrade --user
 
           python -m pip install https://github.com/BoothGroup/dyson/archive/master.zip
-          python -m pip install .[dmet,ebcc,pygnme] --user
+          python -m pip install .[dmet,ebcc,pygnme] --user 
       - name: Run unit tests
         run: |
           python -m pip install pytest pytest-cov --user
