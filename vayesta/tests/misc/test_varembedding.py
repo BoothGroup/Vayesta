@@ -12,7 +12,13 @@ from vayesta.tests import testsystems
 class Test_UHF_var_emb(TestCase):
     @classmethod
     def setUpClass(cls):
+        try:
+            import pygnme
+        except ImportError:
+            pytest.skip("Variational Embedding requires pygnme")
+            
         cls.mf = testsystems.heli_631g.uhf()
+        
 
     @classmethod
     def tearDownClass(cls):
