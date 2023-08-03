@@ -9,7 +9,7 @@ import pyscf
 import pyscf.lo
 # --- Internal
 from vayesta.core.util import (OptionsBase, cache, deprecated, dot, einsum, energy_string, fix_orbital_sign, hstack,
-                               log_time, time_string, timer)
+                               log_time, time_string, timer, AbstractMethodError)
 from vayesta.core import spinalg
 from vayesta.core.types import Cluster
 from vayesta.core.symmetry import SymmetryIdentity
@@ -1051,8 +1051,6 @@ class Fragment:
 
     def get_frag_hamil(self):
         if self.opts.screening is not None:
-            #if self
-
             if "crpa_full" in self.opts.screening:
                 self.bos_freqs, self.couplings = get_frag_W(self.mf, self, pcoupling=("pcoupled" in self.opts.screening),
                                                             only_ov_screened=("ov" in self.opts.screening),

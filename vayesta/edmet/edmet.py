@@ -56,10 +56,7 @@ class EDMET(RDMET):
 
     @property
     def e_nonlocal(self):
-        try:
-            return self._e_nonlocal
-        except AttributeError:
-            return 0.0
+        return self._e_nonlocal or 0.0
 
     @e_nonlocal.setter
     def e_nonlocal(self, value):
@@ -385,5 +382,9 @@ class EDMET(RDMET):
                                              cluster_constrain=cluster_constrain)
         else:
             raise NotImplementedError
+
+    def _reset(self):
+        super()._reset()
+        self._e_nonlocal = None
 
 REDMET = EDMET
