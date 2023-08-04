@@ -13,6 +13,7 @@ from vayesta.core.types.wf.project import (project_c1, project_c2, project_uc1, 
 from vayesta.core.helper import pack_arrays, unpack_arrays
 from scipy.linalg import block_diag
 
+
 def CCSD_WaveFunction(mo, t1, t2, **kwargs):
     if mo.nspin == 1:
         cls = RCCSD_WaveFunction
@@ -186,7 +187,6 @@ class RCCSD_WaveFunction(wf_types.WaveFunction):
             raise ValueError("Provided rotation mixes occupied and virtual orbitals.")
         return self.rotate_ov(to, tv, inplace=inplace)
 
-
     def rotate_ov(self, to, tv, inplace=False):
         """Rotate wavefunction representation to another basis.
         Only rotations which don't mix occupied and virtual orbitals are supported.
@@ -206,6 +206,7 @@ class RCCSD_WaveFunction(wf_types.WaveFunction):
         if wf.l2 is not None:
             wf.l2 = transform_c2(wf.l2, to, tv)
         return wf
+
 
 class UCCSD_WaveFunction(RCCSD_WaveFunction):
 
@@ -356,7 +357,6 @@ class UCCSD_WaveFunction(RCCSD_WaveFunction):
 
         return self.rotate_ov((toa, tob), (tva, tvb), inplace=inplace)
 
-
     def rotate_ov(self, to, tv, inplace=False):
         """Rotate wavefunction representation to another basis.
         Only rotations which don't mix occupied and virtual orbitals are supported.
@@ -382,7 +382,6 @@ class UCCSD_WaveFunction(RCCSD_WaveFunction):
         if wf.l2 is not None:
             wf.l2 = transform_uc2(wf.l2, to, tv)
         return wf
-
 
     #def pack(self, dtype=float):
     #    """Pack into a single array of data type `dtype`.
