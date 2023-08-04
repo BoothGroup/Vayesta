@@ -370,8 +370,11 @@ lih_631g = TestMolecule(atom="Li 0 0 0; H 0 0 1.4", basis="6-31g")
 h2_ccpvdz = TestMolecule(atom="H1 0 0 0; H2 0 0 1.0", basis="cc-pvdz")
 h2_ccpvdz_df = TestMolecule(atom="H1 0 0 0; H2 0 0 1.0", basis="cc-pvdz", auxbasis="cc-pvdz-jkfit")
 
+h3_sto3g = TestMolecule(atom="H1 0 0 0; H2 0 0 1.0; H3 0 1.0 0", basis="sto3g", spin=1)
 h3_ccpvdz = TestMolecule(atom="H1 0 0 0; H2 0 0 1.0; H3 0 1.0 0", basis="cc-pvdz", spin=1)
 h3_ccpvdz_df = TestMolecule(atom="H1 0 0 0; H2 0 0 1.0; H3 0 1.0 0", basis="cc-pvdz", auxbasis="cc-pvdz-jkfit", spin=1)
+
+h4_sto3g = TestMolecule(atom="H1 0 0 0; H2 0 0 1.0; H3 0 1.0 0; H4 0 1.0 1.0", basis="sto3g", spin=0)
 
 heli_631g = TestMolecule(atom="He 0 0 0; Li 0 0 2.0", basis='6-31G', spin=1)
 h6_dz = TestMolecule(atom=molecules.ring('H', 6, 1.0), basis='cc-pVDZ')

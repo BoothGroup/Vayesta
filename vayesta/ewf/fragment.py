@@ -101,7 +101,7 @@ class Fragment(BaseFragment):
         self.solver_results = None
 
     def set_cas(self, iaos=None, c_occ=None, c_vir=None, minao='auto', dmet_threshold=None):
-        """Set complete active space for tailored CCSD"""
+        """Set complete active space for tailored CCSD and active-space CC methods."""
         if dmet_threshold is None:
             dmet_threshold = 2*self.opts.bath_options['dmet_threshold']
         if iaos is not None:
