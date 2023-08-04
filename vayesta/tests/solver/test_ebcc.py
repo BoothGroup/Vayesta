@@ -26,7 +26,7 @@ class TestCCSD(TestCase):
         emb.kernel()
         import ebcc
 
-        cc = ebcc.REBCC(mf, ansatz=key[-1])
+        cc = ebcc.EBCC(mf, ansatz=key[-1])
         cc.kernel()
 
         self.assertAlmostEqual(emb.e_corr, cc.e_corr)
@@ -35,20 +35,20 @@ class TestCCSD(TestCase):
     def test_rccsd_h2(self):
         return self._test(('h2_ccpvdz', 'rhf', 'CCSD'))
 
-    def test_rccsd_water_631g(self):
-        return self._test(('water_631g', 'rhf', 'CCSD'))
+    def test_rccsd_water_sto3g(self):
+        return self._test(('water_sto3g', 'rhf', 'CCSD'))
 
-    def test_uccsd_water_631g(self):
-        return self._test(('water_631g', 'uhf', 'CCSD'))
+    def test_uccsd_water_sto3g(self):
+        return self._test(('water_sto3g', 'uhf', 'CCSD'))
 
-    def test_uccsd_water_cation_631g(self):
-        return self._test(('water_cation_631g', 'uhf', 'CCSD'))
+    def test_uccsd_water_cation_sto3g(self):
+        return self._test(('water_cation_sto3g', 'uhf', 'CCSD'))
 
-    def test_rccsdt_water_631g(self):
-        return self._test(('water_631g', 'rhf', 'CCSDT'))
+    def test_rccsdt_water_sto3g(self):
+        return self._test(('water_sto3g', 'rhf', 'CCSDT'))
 
-    def test_uccsdt_water_cation_631g(self):
-        return self._test(('water_cation_631g', 'uhf', 'CCSDT'))
+    def test_uccsdt_water_cation_sto3g(self):
+        return self._test(('water_cation_sto3g', 'uhf', 'CCSDT'))
 
     def test_rccsdtprime_water_sto3g(self):
         return self._test(('water_sto3g', 'rhf', "CCSDt'", 'CCSDT'))
