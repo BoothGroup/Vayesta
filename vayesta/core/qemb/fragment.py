@@ -24,7 +24,7 @@ from vayesta.core.bath import EwDMET_Bath
 from vayesta.core.bath import MP2_Bath
 from vayesta.core.bath import Full_Bath
 from vayesta.core.bath import R2_Bath
-from vayesta.core.bath import RPA_Bath, RPAcorr_Bath
+from vayesta.core.bath import RPA_Bath
 
 # Other
 from vayesta.misc.cubefile import CubeFile
@@ -823,11 +823,6 @@ class Fragment:
                     c_buffer = None
                 return MP2_Bath(self, dmet_bath=dmet, occtype=occtype, c_buffer=c_buffer,
                                 project_dmet_order=project_dmet_order, project_dmet_mode=project_dmet_mode)
-            if btype == 'rpacorr':
-                project_dmet_order = self._get_bath_option('project_dmet_order', occtype)
-                project_dmet_mode = self._get_bath_option('project_dmet_mode', occtype)
-                return RPAcorr_Bath(self, dmet_bath=dmet, occtype=occtype, c_buffer=None,
-                                project_dmet_order=project_dmet_order, project_dmet_mode=project_dmet_mode)
             if btype == 'rpa':
                 project_dmet_order = self._get_bath_option('project_dmet_order', occtype)
                 project_dmet_mode = self._get_bath_option('project_dmet_mode', occtype)
@@ -841,7 +836,6 @@ class Fragment:
 
         def get_orbitals(occtype):
             factory = getattr(self, '_bath_factory_%s' % occtype[:3])
-            print("!!", factory)
             btype = self._get_bath_option('bathtype', occtype)
             if btype == 'dmet':
                 c_bath = None
@@ -858,9 +852,7 @@ class Fragment:
             elif btype in ['mp2', 'rpa', 'rpacorr']:
                 threshold = self._get_bath_option('threshold', occtype)
                 truncation = self._get_bath_option('truncation', occtype)
-                print("££", threshold, truncation)
                 bno_threshold = BNO_Threshold(truncation, threshold)
-                print("$$", factory, bno_threshold)
                 c_bath, c_frozen = factory.get_bath(bno_threshold)
             else:
                 raise ValueError

@@ -175,12 +175,6 @@ class RPA_Test(TestCase):
         n_vir_min = 0.0001553930018495784
         n_vir_mean = 0.003853626680636801
 
-        print(np.amax(rbno_bath_occ.occup), np.amin(rbno_bath_occ.occup), np.mean(rbno_bath_occ.occup))
-        print(np.amax(rbno_bath_vir.occup), np.amin(rbno_bath_vir.occup), np.mean(rbno_bath_vir.occup))
-
-        print(np.amax(ubno_bath_occ.occup[0]), np.amin(rbno_bath_occ.occup), np.mean(rbno_bath_occ.occup))
-        print(np.amax(rbno_bath_vir.occup), np.amin(rbno_bath_vir.occup), np.mean(rbno_bath_vir.occup))
-
         # RHF
         self.assertAlmostEqual(np.amax(rbno_bath_occ.occup), n_occ_max)
         self.assertAlmostEqual(np.amin(rbno_bath_occ.occup), n_occ_min)

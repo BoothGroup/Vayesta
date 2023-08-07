@@ -94,14 +94,7 @@ if __name__ == '__main__':
         #np.asarray([True, False, False])
         ]
     pack = pack_arrays(*arrays_in)
-
-    print(np.sum([sys.getsizeof(x) for x in arrays_in]))
-    print(sys.getsizeof(pack))
-
     arrays_out = unpack_arrays(pack)
-    print(len(arrays_out))
-    print(arrays_out)
-
     assert len(arrays_in) == len(arrays_out)
     for i, x in enumerate(arrays_in):
         if x is None:
