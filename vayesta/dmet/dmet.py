@@ -128,11 +128,10 @@ class DMET(Embedding):
             if type(nelec_mf) == tuple:
                 nelec_mf = sum(nelec_mf)
 
-            if self.opts.screening == 'mrpa':
-                for f in self.get_fragments(sym_parent=None):
-                    f.make_bath()
-                    f.make_cluster()
-                self.build_screened_eris()
+            for f in self.get_fragments(sym_parent=None):
+                f.make_bath()
+                f.make_cluster()
+            self.build_screened_eris()
 
             def electron_err(cpt, construct_bath=False):
                 err = self.calc_electron_number_defect(cpt, nelec_mf, sym_parents, nsym, construct_bath)

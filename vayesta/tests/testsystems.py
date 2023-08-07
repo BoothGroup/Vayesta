@@ -363,6 +363,7 @@ water_ccpvdz = TestMolecule(atom=molecules.water(), basis="cc-pvdz")
 water_ccpvdz_df = TestMolecule(atom=molecules.water(), basis="cc-pvdz", auxbasis="cc-pvdz-jkfit")
 
 ethanol_ccpvdz = TestMolecule(atom=molecules.ethanol(), basis="cc-pvdz")
+ethanol_631g_df = TestMolecule(atom=molecules.ethanol(), basis="6-31G", auxbasis="6-31G")
 
 lih_ccpvdz = TestMolecule(atom="Li 0 0 0; H 0 0 1.4", basis="cc-pvdz")
 lih_631g = TestMolecule(atom="Li 0 0 0; H 0 0 1.4", basis="6-31g")

@@ -54,6 +54,14 @@ class EDMET(RDMET):
         eps = eps.reshape(-1)
         return eps, eps
 
+    @property
+    def e_nonlocal(self):
+        return self._e_nonlocal or 0.0
+
+    @e_nonlocal.setter
+    def e_nonlocal(self, value):
+        self._e_nonlocal = value
+
     def check_solver(self, solver):
         is_uhf = np.ndim(self.mo_coeff[1]) == 2
         is_eb = True
@@ -374,5 +382,9 @@ class EDMET(RDMET):
                                              cluster_constrain=cluster_constrain)
         else:
             raise NotImplementedError
+
+    def _reset(self):
+        super()._reset()
+        self._e_nonlocal = None
 
 REDMET = EDMET
