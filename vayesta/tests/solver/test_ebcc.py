@@ -18,7 +18,7 @@ class TestEBCC(TestCase):
         try:
             import ebcc
         except ImportError:
-            pytest.skip("Requires cvxpy")
+            pytest.skip("Requires ebcc")
 
     def _test(self, system, mf, ansatz):
         # Test a complete bath calculation with given ansatz reproduces full calculation.
@@ -65,7 +65,7 @@ class TestEBCCActSpace(TestCase):
         try:
             import ebcc
         except ImportError:
-            pytest.skip("Requires cvxpy")
+            pytest.skip("Requires ebcc")
 
     def _test(self, system, mf, actansatz, fullansatz, bathtype='dmet', setcas=False):
         # Test that active space calculation with complete active space reproduces equivalent calculation using higher-

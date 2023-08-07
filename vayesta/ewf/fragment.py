@@ -280,8 +280,8 @@ class Fragment(BaseFragment):
             self.log.debugv("Passing fragment option %s to solver.", attr)
             solver_opts[attr] = getattr(self.opts, attr)
 
-        has_actspace = ((solver == "TCCSD") or ("CCSDt" in solver) or
-                        (solver == "EBCC" and self.opts.solver_options['ansatz'] == "CCSDt"))
+        has_actspace = ((solver == "TCCSD") or ("CCSDt'" in solver) or
+                        (solver.upper() == "EBCC" and self.opts.solver_options['ansatz'] == "CCSDt'"))
         if has_actspace:
             # Set CAS orbitals
             if self.opts.c_cas_occ is None:

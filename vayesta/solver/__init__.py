@@ -66,7 +66,9 @@ def _get_solver_class_internal(is_uhf, is_eb, solver):
         return coupledRCCSD_Solver
 
     # Now consider general CC ansatzes; these are solved via EBCC.
-    if "CC" in solver:
+    # Note that we support all capitalisations of `ebcc`, but need `CC` to be capitalised when also using this to
+    # specify an ansatz.
+    if "CC" in solver.upper():
         if not _has_ebcc:
             raise ImportError(f"{solver} solver is only accessible via ebcc. Please install ebcc.")
         if is_uhf:
@@ -79,10 +81,10 @@ def _get_solver_class_internal(is_uhf, is_eb, solver):
                 solverclass = EB_REBCC_Solver
             else:
                 solverclass = REBCC_Solver
-        if solver == "EBCC":
+        if solver.upper() == "EBCC":
             # Default to `opts.ansatz`.
             return solverclass
-        if solver[:2] == "EB":
+        if solver[:2].upper() == "EB":
             solver = solver[2:]
         if solver == "CCSD" and is_eb:
             # Need to specify CC level for coupled electron-boson model; throw an error rather than assume.

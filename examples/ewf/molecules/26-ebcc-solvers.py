@@ -25,13 +25,14 @@ casscf = pyscf.mcscf.CASSCF(mf, 8, 10)
 casscf.kernel()
 
 def get_emb_result(ansatz, bathtype='full'):
-    # Uses fastest available solver for given ansatz; PySCF if available, otherwise ebCC
+    # Uses fastest available solver for given ansatz; PySCF if available, otherwise ebcc.
     emb = vayesta.ewf.EWF(mf, solver=ansatz, bath_options=dict(bathtype=bathtype),
                           solver_options=dict(solve_lambda=False))
-    # Both these alternative specifications will always use an ebCC solver.
+    # Both these alternative specifications will always use an ebcc solver.
+    # Note that the capitalization of the solver name other than the ansatz is arbitrary.
     #emb = vayesta.ewf.EWF(mf, solver=f'EB{ansatz}', bath_options=dict(bathtype=bathtype),
     #                      solver_options=dict(solve_lambda=False))
-    #emb = vayesta.ewf.EWF(mf, solver='EBCC', bath_options=dict(bathtype=bathtype),
+    #emb = vayesta.ewf.EWF(mf, solver='ebcc', bath_options=dict(bathtype=bathtype),
     #                      solver_options=dict(solve_lambda=False, ansatz=ansatz))
 
     with emb.iao_fragmentation() as f:
