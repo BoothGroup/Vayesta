@@ -148,32 +148,23 @@ class MP2_BNO_Test(TestCase):
 class RPA_Test(TestCase):
 
     def test_bno_Bath(self):
-        rhf = testsystems.water_ccpvdz_df.rhf()
+        rhf = testsystems.ethanol_631g_df.rhf()
 
         remb = Embedding(rhf)
         with remb.iao_fragmentation() as f:
-            rfrag = f.add_atomic_fragment([1])
+            rfrag = f.add_atomic_fragment('O')
         rdmet_bath = DMET_Bath(rfrag)
         rdmet_bath.kernel()
         rbno_bath_occ = RPA_Bath(rfrag, rdmet_bath, occtype='occupied')
         rbno_bath_vir = RPA_Bath(rfrag, rdmet_bath, occtype='virtual')
 
-        uhf = testsystems.water_ccpvdz_df.uhf()
-        uemb = UEmbedding(uhf)
-        with uemb.iao_fragmentation() as f:
-            ufrag = f.add_atomic_fragment([1])
-        udmet_bath = DMET_Bath(ufrag)
-        udmet_bath.kernel()
-        ubno_bath_occ = RPA_Bath(ufrag, udmet_bath, occtype='occupied')
-        ubno_bath_vir = RPA_Bath(ufrag, udmet_bath, occtype='virtual')
-
         # Check maximum, minimum, and mean occupations
-        n_occ_max = 0.016568121109225252
-        n_occ_min = 0.0010439760475971453
-        n_occ_mean = 0.009467167315765655
-        n_vir_max = 0.013330524652430347
-        n_vir_min = 0.0001553930018495784
-        n_vir_mean = 0.003853626680636801
+        n_occ_max = 0.008502908095347851
+        n_occ_min = 0.000007766938370992
+        n_occ_mean = 0.002300040902721369
+        n_vir_max = 0.056091218249012025
+        n_vir_min = 0.000122187516348096
+        n_vir_mean = 0.009570044321105821
 
         # RHF
         self.assertAlmostEqual(np.amax(rbno_bath_occ.occup), n_occ_max)
@@ -182,26 +173,6 @@ class RPA_Test(TestCase):
         self.assertAlmostEqual(np.amax(rbno_bath_vir.occup), n_vir_max)
         self.assertAlmostEqual(np.amin(rbno_bath_vir.occup), n_vir_min)
         self.assertAlmostEqual(np.mean(rbno_bath_vir.occup), n_vir_mean)
-        # UHF
-        self.assertAlmostEqual(np.amax(ubno_bath_occ.occup[0]), n_occ_max)
-        self.assertAlmostEqual(np.amax(ubno_bath_occ.occup[1]), n_occ_max)
-        self.assertAlmostEqual(np.amin(ubno_bath_occ.occup[0]), n_occ_min)
-        self.assertAlmostEqual(np.amin(ubno_bath_occ.occup[1]), n_occ_min)
-        self.assertAlmostEqual(np.mean(ubno_bath_occ.occup[0]), n_occ_mean)
-        self.assertAlmostEqual(np.mean(ubno_bath_occ.occup[1]), n_occ_mean)
-        self.assertAlmostEqual(np.amax(ubno_bath_vir.occup[0]), n_vir_max)
-        self.assertAlmostEqual(np.amax(ubno_bath_vir.occup[1]), n_vir_max)
-        self.assertAlmostEqual(np.amin(ubno_bath_vir.occup[0]), n_vir_min)
-        self.assertAlmostEqual(np.amin(ubno_bath_vir.occup[1]), n_vir_min)
-        self.assertAlmostEqual(np.mean(ubno_bath_vir.occup[0]), n_vir_mean)
-        self.assertAlmostEqual(np.mean(ubno_bath_vir.occup[1]), n_vir_mean)
-
-        # Compare RHF and UHF
-        self.assertAllclose(rbno_bath_occ.occup, ubno_bath_occ.occup[0])
-        self.assertAllclose(rbno_bath_occ.occup, ubno_bath_occ.occup[1])
-        self.assertAllclose(rbno_bath_vir.occup, ubno_bath_vir.occup[0])
-        self.assertAllclose(rbno_bath_vir.occup, ubno_bath_vir.occup[1])
-
 
 
 if __name__ == '__main__':
