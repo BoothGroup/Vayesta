@@ -5,11 +5,10 @@ import vayesta.ewf
 from vayesta.core.util import cache
 from vayesta.tests import testsystems
 from vayesta.tests.common import TestCase
-
+import pytest
 
 class TestWaterRHF(TestCase):
     system = testsystems.water_631g_df
-    e_ref = {"mrpa":-1.123779303361342, "crpa":-1.1237769151822752}
 
     @classmethod
     def setUpClass(cls):
@@ -22,19 +21,21 @@ class TestWaterRHF(TestCase):
 
     @classmethod
     @cache
-    def emb(cls, bno_threshold, solver, screening):
+    def emb(cls, bno_threshold, solver):
         emb = vayesta.ewf.EWF(cls.mf, bath_options=dict(bathtype="rpa", threshold=bno_threshold), solver=solver,
-                screening=screening, solver_options=dict(conv_tol=1e-12))
+                              solver_options=dict(conv_tol=1e-12))
         emb.kernel()
         return emb
 
-    def test_ccsd_dmet(self):
-        emb = self.emb(np.inf, 'CCSD', None)
+    def test_ccsd_rpa_1(self):
+        eta=10**-(1.5)
+        emb = self.emb(eta, 'CCSD')
         emb.kernel()
-        self.assertAllclose(emb.e_tot, self.e_ref['mrpa'])
+        self.assertAllclose(emb.e_tot, -76.10582744548097)
 
-    def test_ccsd_001(self):
-        emb = self.emb(np.inf, 'CCSD', None)
+    @pytest.mark.slow
+    def test_ccsd_rpa_2(self):
+        eta=1e-2
+        emb = self.emb(eta, 'CCSD')
         emb.kernel()
-        self.assertAllclose(emb.e_tot, self.e_ref['mrpa'])
-
+        self.assertAllclose(emb.e_tot, -76.12444492796294)
