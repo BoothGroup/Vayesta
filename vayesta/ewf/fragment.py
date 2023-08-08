@@ -114,7 +114,8 @@ class Fragment(BaseFragment):
             c_env = frag.get_env_coeff(indices)
             bath = DMET_Bath(self, dmet_threshold=dmet_threshold)
             c_dmet = bath.make_dmet_bath(c_env)[0]
-            c_iao_occ, c_iao_vir = self.diagonalize_cluster_dm(c_iao, c_dmet, tol=2*dmet_threshold)
+            tol = self.opts.bath_options['occupation_tolerance']
+            c_iao_occ, c_iao_vir = self.diagonalize_cluster_dm(c_iao, c_dmet, tol=2*tol)
         else:
             c_iao_occ = c_iao_vir = None
 
@@ -190,7 +191,8 @@ class Fragment(BaseFragment):
 
         # Create solver object
         cluster_solver = self.get_solver(solver)
-
+        # Calculate cluster energy at the level of RPA.
+        e_corr_rpa = self.get_local_rpa_correction(cluster_solver.hamil)
         # --- Chemical potential
         cpt_frag = self.base.opts.global_frag_chempot
         if self.opts.nelectron_target is not None:
@@ -253,7 +255,7 @@ class Fragment(BaseFragment):
         
         # --- Add to results data class
         self._results = results = self.Results(fid=self.id, n_active=cluster.norb_active,
-                converged=cluster_solver.converged, wf=wf, pwf=pwf, moms=moms)
+                converged=cluster_solver.converged, wf=wf, pwf=pwf, moms=moms, e_corr_rpa=e_corr_rpa)
 
         self.hamil = cluster_solver.hamil
 

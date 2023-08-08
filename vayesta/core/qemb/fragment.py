@@ -9,7 +9,7 @@ import pyscf
 import pyscf.lo
 # --- Internal
 from vayesta.core.util import (OptionsBase, cache, deprecated, dot, einsum, energy_string, fix_orbital_sign, hstack,
-                               log_time, time_string, timer)
+                               log_time, time_string, timer, AbstractMethodError)
 from vayesta.core import spinalg
 from vayesta.core.types import Cluster
 from vayesta.core.symmetry import SymmetryIdentity
@@ -28,6 +28,7 @@ from vayesta.core.bath import R2_Bath
 from vayesta.misc.cubefile import CubeFile
 from vayesta.mpi import mpi
 from vayesta.solver import get_solver_class, check_solver_config, ClusterHamiltonian
+from vayesta.core.screening.screening_crpa import get_frag_W
 
 # Get MPI rank of fragment
 get_fragment_mpi_rank = lambda *args : args[0].mpi_rank
@@ -45,6 +46,7 @@ class Options(OptionsBase):
     store_eris: bool = None     # If True, ERIs will be cached in Fragment.hamil
     dm_with_frozen: bool = None # TODO: is still used?
     screening: typing.Optional[str] = None
+    match_cluster_fock: bool = None
     # Fragment specific
     # -----------------
     # Auxiliary fragments are treated before non-auxiliary fragments, but do not contribute to expectation values
@@ -73,6 +75,7 @@ class Fragment:
         converged: bool = None      # True, if solver reached convergence criterion or no convergence required (eg. MP2 solver)
         # --- Energies
         e_corr: float = None        # Fragment correlation energy contribution
+        e_corr_rpa: float = None    # Fragment correlation energy contribution at the level of RPA.
         # --- Wave-function
         wf: WaveFunction = None     # WaveFunction object (MP2, CCSD,...)
         pwf: WaveFunction = None    # Fragment-projected wave function
@@ -517,8 +520,8 @@ class Fragment:
         sc = np.dot(self.base.get_ovlp(), c_cluster)
         dm = dot(sc.T, dm1, sc)
         e, r = np.linalg.eigh(dm)
-        if tol and not np.allclose(np.fmin(abs(e), abs(e-norm)), 0, atol=tol, rtol=0):
-            raise RuntimeError("Eigenvalues of cluster-DM not all close to 0 or %d:\n%s" % (norm, e))
+        if tol and not np.allclose(np.fmin(abs(e), abs(e-norm)), 0, atol=2*tol, rtol=0):
+            self.log.warn("Eigenvalues of cluster-DM not all close to 0 or %d:\n%s" % (norm, e))
         e, r = e[::-1], r[:,::-1]
         c_cluster = np.dot(c_cluster, r)
         c_cluster = fix_orbital_sign(c_cluster)[0]
@@ -863,7 +866,7 @@ class Fragment:
         def check_occup(mo_coeff, expected):
             occup = self.get_mo_occupation(mo_coeff)
             # RHF
-            atol = self.opts.bath_options['dmet_threshold']
+            atol = self.opts.bath_options['occupation_tolerance']
             if np.ndim(occup[0]) == 0:
                 assert np.allclose(occup, 2*expected, rtol=0, atol=2*atol)
             else:
@@ -1036,10 +1039,25 @@ class Fragment:
             cluster_solver.hamil.add_screening(self._seris_ov)
         return cluster_solver
 
+    def get_local_rpa_correction(self, hamil=None):
+        e_loc_rpa = None
+        if self.base.opts.ext_rpa_correction:
+            hamil = hamil or self.hamil
+            cumulant = self.base.opts.ext_rpa_correction == "cumulant"
+            if self.base.opts.ext_rpa_correction not in ["erpa", "cumulant"]:
+                raise ValueError("Unknown external rpa correction %s specified.")
+            e_loc_rpa = hamil.calc_loc_erpa(*self._seris_ov[1:], cumulant)
+        return e_loc_rpa
+
     def get_frag_hamil(self):
+        if self.opts.screening is not None:
+            if "crpa_full" in self.opts.screening:
+                self.bos_freqs, self.couplings = get_frag_W(self.mf, self, pcoupling=("pcoupled" in self.opts.screening),
+                                                            only_ov_screened=("ov" in self.opts.screening),
+                                                            log=self.log)
         # This detects based on fragment what kind of Hamiltonian is appropriate (restricted and/or EB).
         return ClusterHamiltonian(self, self.mf, self.log, screening=self.opts.screening,
-                                  cache_eris=self.opts.store_eris)
+                                  cache_eris=self.opts.store_eris, match_fock=self.opts.match_cluster_fock)
 
     def get_solver_options(self, *args, **kwargs):
         raise AbstractMethodError

@@ -27,6 +27,8 @@ class Options(Embedding.Options):
     # --- Bath settings
     bath_options: dict = Embedding.Options.change_dict_defaults('bath_options',
             bathtype='mp2', threshold=1e-8)
+    solver_options: dict = Embedding.Options.change_dict_defaults('solver_options',
+            fermion_wf=True)
     #ewdmet_max_order: int = 1
     # If multiple bno thresholds are to be calculated, we can project integrals and amplitudes from a previous larger cluster:
     project_eris: bool = False          # Project ERIs from a pervious larger cluster (corresponding to larger eta), can result in a loss of accuracy especially for large basis sets!
@@ -139,12 +141,7 @@ class EWF(Embedding):
                 self.communicate_clusters()
 
         # --- Screened Coulomb interaction
-        if any(x.opts.screening is not None for x in fragments):
-            self.log.info("")
-            self.log.info("SCREENING INTERACTIONS")
-            self.log.info("======================")
-            with log_time(self.log.timing, "Time for screened interations: %s"):
-                self.build_screened_eris()
+        self.build_screened_eris()
 
         # --- Loop over fragments with no symmetry parent and with own MPI rank
         self.log.info("")
@@ -294,6 +291,7 @@ class EWF(Embedding):
 
     def get_e_corr(self, functional=None, **kwargs):
         functional = (functional or self.opts.energy_functional)
+
         if functional == 'projected':
             self.log.warning("functional='projected' is deprecated; use functional='wf' instead.")
             functional = 'wf'

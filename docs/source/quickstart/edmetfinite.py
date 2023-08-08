@@ -26,7 +26,7 @@ lda.kernel()
 # The KS object needs to be converted to a HF object:
 lda = lda.to_rhf()
 
-emb_lda = vayesta.edmet.EDMET(lda, dmet_threshold=1e-12, solver="EBCCSD",
+emb_lda = vayesta.edmet.EDMET(lda, bath_options=dict(dmet_threshold=1e-12), solver="CCSD-S-1-1",
                               oneshot=True, make_dd_moments=False)
 
 with emb_lda.iao_fragmentation() as f:
@@ -42,7 +42,7 @@ b3lyp.kernel()
 # The KS opbject needs to be converted to a HF object:
 b3lyp = b3lyp.to_rhf()
 
-emb_b3lyp = vayesta.edmet.EDMET(b3lyp, dmet_threshold=1e-12, solver="EBCCSD", oneshot=True, make_dd_moments=False)
+emb_b3lyp = vayesta.edmet.EDMET(b3lyp, bath_options=dict(dmet_threshold=1e-12), solver="CCSD-S-1-1", oneshot=True, make_dd_moments=False)
 with emb_b3lyp.iao_fragmentation() as f:
     f.add_all_atomic_fragments()
 emb_b3lyp.kernel()
@@ -51,7 +51,7 @@ emb_b3lyp.kernel()
 hf = pyscf.scf.RHF(mol).density_fit()
 hf.kernel()
 
-emb_hf = vayesta.edmet.EDMET(hf, dmet_threshold=1e-12, solver="EBCCSD",
+emb_hf = vayesta.edmet.EDMET(hf, bath_options=dict(dmet_threshold=1e-12), solver="CCSD-S-1-1",
                              oneshot=True, make_dd_moments=False)
 
 with emb_hf.iao_fragmentation() as f:
@@ -65,7 +65,7 @@ cc.kernel()
 print("E(LDA)=              %+16.8f Ha" % lda.e_tot)
 print("E(Emb. CCSD @LDA)=   %+16.8f Ha" % emb_lda.e_tot)
 print("E(HF @LDA)=          %+16.8f Ha" % emb_lda.e_mf)
-print("E(CCSD)=             %+16.8f Ha" % cc.)
+print("E(CCSD)=             %+16.8f Ha" % cc.e_tot)
 print("E(B3LYP)=            %+16.8f Ha" % b3lyp.e_tot)
 print("E(HF)=               %+16.8f Ha" % hf.e_tot)
 print("E(HF @B3LYP)=        %+16.8f Ha" % emb_b3lyp.e_mf)

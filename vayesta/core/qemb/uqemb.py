@@ -196,6 +196,13 @@ class UEmbedding(Embedding):
         eris = postscf_ao2mo(postscf, fock=fock, mo_energy=mo_energy, e_hf=e_hf)
         return eris
 
+    @log_method()
+    @with_doc(Embedding.build_screened_eris)
+    def build_screened_eris(self, *args, **kwargs):
+        if self.opts.ext_rpa_correction is not None:
+            raise NotImplementedError("External RPA correlation energy only implemented for restricted references!")
+        super().build_screened_eris(*args, **kwargs)
+
     def update_mf(self, mo_coeff, mo_energy=None, veff=None):
         """Update underlying mean-field object."""
         # Chech orthonormal MOs

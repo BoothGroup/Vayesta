@@ -25,7 +25,7 @@ from vayesta.core.ao2mo import kao2gmo_cderi
 from vayesta.core.ao2mo import postscf_ao2mo
 from vayesta.core.ao2mo import postscf_kao2gmo
 from vayesta.core.scmf import PDMET, Brueckner
-from vayesta.core.qemb.scrcoulomb import build_screened_eris
+from vayesta.core.screening.screening_moment import build_screened_eris
 from vayesta.mpi import mpi
 from vayesta.core.qemb.register import FragmentRegister
 from vayesta.rpa import ssRIRPA
@@ -67,7 +67,7 @@ class Options(OptionsBase):
     # --- Bath options
     bath_options: dict = OptionsBase.dict_with_defaults(
         # General
-        bathtype='dmet', canonicalize=True,
+        bathtype='dmet', canonicalize=True, occupation_tolerance=1e-8,
         # DMET bath
         dmet_threshold=1e-8,
         # R2 bath
@@ -105,7 +105,7 @@ class Options(OptionsBase):
             # EBFCI/EBCCSD
             max_boson_occ=2,
             # EBCC
-            ansatz=None, store_as_ccsd=None,
+            ansatz=None, store_as_ccsd=None, fermion_wf=False,
             # Dump
             dumpfile='clusters.h5',
             # MP2
@@ -113,7 +113,9 @@ class Options(OptionsBase):
     # --- Other
     symmetry_tol: float = 1e-6              # Tolerance (in Bohr) for atomic positions
     symmetry_mf_tol: float = 1e-5           # Tolerance for mean-field solution
-    screening: Optional[str] = None
+    screening: Optional[str] = None         # What form of screening to use in clusters.
+    ext_rpa_correction: Optional[str] = None
+    match_cluster_fock: bool = False
 
 class Embedding:
     """Base class for quantum embedding methods.
@@ -518,6 +520,12 @@ class Embedding:
         """Nuclear-repulsion energy per unit cell (not folded supercell)."""
         return self.mol.energy_nuc()/self.ncells
 
+    @property
+    def e_nonlocal(self):
+        if self.opts.ext_rpa_correction is None:
+            return 0.0
+        return self.e_rpa - sum([x.results.e_corr_rpa * x.symmetry_factor for x in self.get_fragments(sym_parent=None)])
+
     # Embedding properties
 
     @property
@@ -755,13 +763,33 @@ class Embedding:
     @log_method()
     @with_doc(build_screened_eris)
     def build_screened_eris(self, *args, **kwargs):
-        scrfrags = [x.opts.screening for x in self.fragments if x.opts.screening is not None]
-        if len(scrfrags) > 0:
-            # Calculate total dRPA energy in N^4 time; this is cheaper than screening calculations.
-            rpa = ssRIRPA(self.mf, log=self.log)
-            self.e_nonlocal, energy_error = rpa.kernel_energy(correction='linear')
-            if scrfrags.count("mrpa") > 0:
-                build_screened_eris(self, *args, **kwargs)
+        nmomscr = len([x.opts.screening for x in self.fragments if x.opts.screening == "mrpa"])
+        if self.opts.ext_rpa_correction:
+            cumulant = self.opts.ext_rpa_correction == "cumulant"
+            if nmomscr < self.nfrag:
+                raise NotImplementedError("External dRPA correction currently requires all fragments use mrpa screening.")
+
+            if self.opts.ext_rpa_correction not in ["erpa", "cumulant"]:
+                raise ValueError("Unknown external rpa correction %s specified.")
+            l_ = self.get_cderi(self.mf.mo_coeff)[0]
+            rpa = ssRIRPA(self.mf, log=self.log, Lpq=l_)
+            if cumulant:
+                l_ = l_[:, :self.nocc, self.nocc:].reshape((l_.shape[0], -1))
+                l_ = np.concatenate([l_, l_], axis=1)
+
+                m0 = rpa.kernel_moms(0, target_rot=l_)[0][0]
+                # Deduct effective mean-field contribution and project the RHS and we're done.
+                self.e_rpa = 0.5 * einsum("pq,pq->", m0 - l_, l_)
+            else:
+                # Calculate total dRPA energy in N^4 time; this is cheaper than screening calculations.
+                self.e_rpa, energy_error = rpa.kernel_energy(correction='linear')
+            self.log.info("Set total RPA correlation energy contribution as %s", energy_string(self.e_rpa))
+        if nmomscr > 0:
+            self.log.info("")
+            self.log.info("SCREENED INTERACTION SETUP")
+            self.log.info("==========================")
+            with log_time(self.log.timing, "Time for screened interation setup: %s"):
+                build_screened_eris(self, *args, store_m0=self.opts.ext_rpa_correction, **kwargs)
 
     # Symmetry between fragments
     # --------------------------
@@ -1561,6 +1589,7 @@ class Embedding:
     def _reset(self):
         self.e_corr = None
         self.converged = False
+        self.e_rpa = None
 
     def reset(self, *args, **kwargs):
         self._reset()
