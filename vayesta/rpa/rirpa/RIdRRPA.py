@@ -15,8 +15,16 @@ class ssRIdRRPA(ssRIRRPA):
     @with_doc(ssRIRRPA.kernel_moms)
     def kernel_moms(self, max_moment, target_rot=None, return_spatial=False, **kwargs):
         t_start = timer()
-        self.log.info("Running dRPA RHF code.")
-        tr_rot = None
+        self.log.debug("Running specialised dRPA RHF code.")
+
+        if target_rot is None:
+            self.log.warning(
+                "Warning; generating full moment rather than local component. Will scale as O(N^5)."
+            )
+            if return_spatial:
+                target_rot = np.eye(self.ov)
+            else:
+                target_rot = np.eye(self.ov_tot)
 
         ri_decomps = self.get_compressed_MP()
         ri_mp, ri_apb, ri_amb = ri_decomps
@@ -69,8 +77,6 @@ class ssRIdRRPA(ssRIRRPA):
             self.log.info(
                 "Overall RIRPA Moments wall time:  %s", time_string(timer() - t_start)
             )
-        if tr_rot is not None:
-            moments = np.tensordot(tr_rot, moments, ((1,), (0,)))
         return moments, err0
 
     @with_doc(ssRIRRPA._kernel_mom0)
@@ -90,8 +96,9 @@ class ssRIdRRPA(ssRIRRPA):
     ):
         t_start = timer()
         if analytic_lower_bound or adaptive_quad or integral_deduct != "HO":
-            raise NotImplementedError("Only mcore functionality is implemented in dRPA specific code.")
-        # If we have a rotation in the spinorbital basis, use the different spin channels as extra spatial contributions.
+            raise NotImplementedError("Only core functionality is implemented in dRPA specific code.")
+        # If we have a rotation in the spinorbital basis we need to stack the different spin channels as additional
+        # spatial rotations and then sum at the end.
         target_rot, stack_spin = self.check_target_rot(target_rot)
         trrot = None
         # We can then compress the spatial rotation.
