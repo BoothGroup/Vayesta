@@ -522,7 +522,8 @@ class Embedding:
     def e_nonlocal(self):
         if self.opts.ext_rpa_correction is None:
             return 0.0
-        return self.e_rpa - sum([x.results.e_corr_rpa * x.symmetry_factor for x in self.get_fragments(sym_parent=None)])
+        e_local = sum([x.results.e_corr_rpa * x.symmetry_factor for x in self.get_fragments(sym_parent=None)])
+        return self.e_rpa - (e_local / self.ncells)
 
     # Embedding properties
 
@@ -676,6 +677,7 @@ class Embedding:
             else:
                 # Calculate total dRPA energy in N^4 time; this is cheaper than screening calculations.
                 self.e_rpa, energy_error = rpa.kernel_energy(correction='linear')
+            self.e_rpa = self.e_rpa / self.ncells
             self.log.info("Set total RPA correlation energy contribution as %s", energy_string(self.e_rpa))
         if nmomscr > 0:
             self.log.info("")
