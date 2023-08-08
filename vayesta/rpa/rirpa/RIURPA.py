@@ -118,6 +118,45 @@ class ssRIURPA(ssRIRRPA):
 
         return ri_apb_eri, ri_neg_apb_eri
 
+    def get_ab_xc_ri(self):
+        # Have low-rank representation for interactions over and above coulomb interaction.
+        # Note that this is usually asymmetric, as correction is non-PSD.
+        ri_a_aa = [
+            einsum(
+                "npq,pi,qa->nia", x, self.mo_coeff_occ[0], self.mo_coeff_vir[0]
+            ).reshape((-1, self.ov[0]))
+            for x in self.rixc[0]
+        ]
+        ri_a_bb = [
+            einsum(
+                "npq,pi,qa->nia", x, self.mo_coeff_occ[1], self.mo_coeff_vir[1]
+            ).reshape((-1, self.ov[1]))
+            for x in self.rixc[1]
+        ]
+
+        ri_b_aa = [
+            ri_a_aa[0],
+            einsum(
+                "npq,qi,pa->nia",
+                self.rixc[0][1],
+                self.mo_coeff_occ[0],
+                self.mo_coeff_vir[0],
+            ).reshape((-1, self.ov[0])),
+        ]
+        ri_b_bb = [
+            ri_a_bb[0],
+            einsum(
+                "npq,qi,pa->nia",
+                self.rixc[1][1],
+                self.mo_coeff_occ[1],
+                self.mo_coeff_vir[1],
+            ).reshape((-1, self.ov[1])),
+        ]
+
+        ri_a_xc = [np.concatenate([x, y], axis=1) for x, y in zip(ri_a_aa, ri_a_bb)]
+        ri_b_xc = [np.concatenate([x, y], axis=1) for x, y in zip(ri_b_aa, ri_b_bb)]
+        return ri_a_xc, ri_b_xc
+
     def get_cderi(self, blksize=None):
         if self.lov is None:
             la, la_neg = get_cderi(self, (self.mo_coeff_occ[0], self.mo_coeff_vir[0]), compact=False, blksize=blksize)
