@@ -209,7 +209,7 @@ class ssRIdRRPA(ssRIRRPA):
         # Note that eri contribution to A and B is equal, so can get trace over one by dividing by two
         e3 = 2 * (sum(self.eps) + np.tensordot(cderi, cderi, ((0, 1), (0, 1))))
         if cderi_neg is not None:
-             e3 -= np.tensordot(cderi_neg, cderi_neg, ((0, 1), (0, 1)))
+             e3 -= 2 * np.tensordot(cderi_neg, cderi_neg, ((0, 1), (0, 1)))
         err /= 2
         self.e_corr_ss = 0.5 * (e1 + e2 - e3)
         self.log.info(
