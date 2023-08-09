@@ -36,7 +36,10 @@ jobs:
           python -m pip install setuptools --upgrade --user
 
           python -m pip install https://github.com/BoothGroup/dyson/archive/master.zip
-          python -m pip install .[dmet,ebcc,pygnme] --user 
+          python -m pip install pybind11
+          export pybind11_DIR=$(python -m pybind11 --cmakedir)
+          python -m pip install .[dmet,ebcc] --user 
+          python -m pip install .[pygnme] --user
       - name: Run unit tests
         run: |
           python -m pip install pytest pytest-cov --user
