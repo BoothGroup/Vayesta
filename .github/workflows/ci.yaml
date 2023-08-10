@@ -43,7 +43,7 @@ jobs:
       - name: Run unit tests
         run: |
           python -m pip install pytest pytest-cov --user
-          python .github/workflows/run_tests.py
+          python .github/workflows/run_tests.py 
       - name: Upload to codecov
         uses: codecov/codecov-action@v3
         with:
