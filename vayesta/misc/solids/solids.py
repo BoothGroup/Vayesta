@@ -124,7 +124,7 @@ def rocksalt(atoms=['Na', 'Cl'], a=5.6402, unitcell='primitive'):
         return amat, atom
     raise ValueError
 
-def perovskite(atoms=['Sr', 'Ti', 'O'], a=3.905):
+def perovskite(atoms=['Sr', 'Ti', 'O'], a=3.905, double_cell=False):
     if len(atoms) == 3:
         atoms = [atoms[0], atoms[1]] + 3*[atoms[2]]
     amat = a * np.eye(3)
@@ -135,6 +135,15 @@ def perovskite(atoms=['Sr', 'Ti', 'O'], a=3.905):
                 [1/2,   0,      1/2],
                 [1/2,   1/2,    0]
                 ])
+    if double_cell:
+        ix_ = {"x":0, "y":1, "z":2, True:2}[double_cell]
+        # Double cell along chosen axis.
+        atoms = 2*atoms
+        amat[ix_, ix_] *= 2
+        coords2 = coords.copy()
+        coords2[:, ix_] += a
+        coords = np.vstack((coords, coords2))
+
     atom = _make_atom(atoms, coords)
     return amat, atom
 
