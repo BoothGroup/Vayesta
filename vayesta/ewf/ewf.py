@@ -229,7 +229,7 @@ class EWF(Embedding):
     # Defaults
 
     def make_rdm1(self, *args, **kwargs):
-        if self.solver.lower() == 'ccsd':
+        if "cc" in self.solver.lower():
             return self._make_rdm1_ccsd_global_wf(*args, **kwargs)
         if self.solver.lower() == 'mp2':
             return self._make_rdm1_mp2_global_wf(*args, **kwargs)
