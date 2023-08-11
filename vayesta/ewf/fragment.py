@@ -100,6 +100,11 @@ class Fragment(BaseFragment):
         # For self-consistent mode
         self.solver_results = None
 
+    def _reset(self, *args, **kwargs):
+        super()._reset(*args, **kwargs)
+        # Need to unset these so can be regenerated each iteration.
+        self.opts.c_cas_occ = self.opts.c_cas_vir = None
+
     def set_cas(self, iaos=None, c_occ=None, c_vir=None, minao='auto', dmet_threshold=None):
         """Set complete active space for tailored CCSD and active-space CC methods."""
         if dmet_threshold is None:
