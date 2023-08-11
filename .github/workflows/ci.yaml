@@ -39,7 +39,8 @@ jobs:
           python -m pip install pybind11[global]
           export pybind11_DIR=$(python -m pybind11 --cmakedir)
           python -m pip install .[dmet,ebcc] --user 
-          python -m pip install -e .[pygnme] --user
+          python -m pip install .[pygnme] --user
+          export LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:$(python -c "import sysconfig; print(sysconfig.get_path('purelib'))")
       - name: Run unit tests
         run: |
           python -m pip install pytest pytest-cov --user
