@@ -5,12 +5,13 @@ from vayesta.core.vpyscf import uccsd_rdm
 # import pyscf
 # import pyscf.cc
 from vayesta.core import spinalg
-from vayesta.core.util import NotCalculatedError, Object, callif, einsum
+from vayesta.core.util import NotCalculatedError, Object, callif, einsum, dot
 from vayesta.core.types import wf as wf_types
 from vayesta.core.types.orbitals import SpatialOrbitals
 from vayesta.core.types.wf.project import (project_c1, project_c2, project_uc1, project_uc2, symmetrize_c2,
-                                           symmetrize_uc2)
+                                           symmetrize_uc2, transform_c1, transform_c2, transform_uc1, transform_uc2)
 from vayesta.core.helper import pack_arrays, unpack_arrays
+from scipy.linalg import block_diag
 
 
 def CCSD_WaveFunction(mo, t1, t2, **kwargs):
@@ -170,6 +171,42 @@ class RCCSD_WaveFunction(wf_types.WaveFunction):
     def as_fci(self):
         raise NotImplementedError
 
+    def rotate(self, t, inplace=False):
+        """Rotate wavefunction representation to another basis.
+        Only rotations which don't mix occupied and virtual orbitals are supported.
+        Assumes rotated orbitals have same occupancy ordering as originals.
+        """
+        o = self.mo.occ > 0
+        v = self.mo.occ == 0
+
+        to = t[np.ix_(o, o)]
+        tv = t[np.ix_(v, v)]
+        tov = t[np.ix_(o, v)]
+        tvo = t[np.ix_(v, o)]
+        if abs(tov).max() > 1e-12 or abs(tvo).max() > 1e-12:
+            raise ValueError("Provided rotation mixes occupied and virtual orbitals.")
+        return self.rotate_ov(to, tv, inplace=inplace)
+
+    def rotate_ov(self, to, tv, inplace=False):
+        """Rotate wavefunction representation to another basis.
+        Only rotations which don't mix occupied and virtual orbitals are supported.
+
+        Parameters
+        ----------
+        to : new occupied orbital coefficients in terms of current ones.
+        tv : new virtual orbital coefficients in terms of current ones.
+        inplace : Whether to transform in-place or return a new object.
+        """
+        wf = self if inplace else self.copy()
+        wf.mo.basis_transform(lambda c: dot(c, block_diag(to, tv)), inplace=True)
+        wf.t1 = transform_c1(wf.t1, to, tv)
+        wf.t2 = transform_c2(wf.t2, to, tv)
+        if wf.l1 is not None:
+            wf.l1 = transform_c1(wf.l1, to, tv)
+        if wf.l2 is not None:
+            wf.l2 = transform_c2(wf.l2, to, tv)
+        return wf
+
 
 class UCCSD_WaveFunction(RCCSD_WaveFunction):
 
@@ -295,6 +332,56 @@ class UCCSD_WaveFunction(RCCSD_WaveFunction):
             self.l1 = spinalg.multiply(self.l1, len(self.l1)*[factor])
         if self.l2 is not None:
             self.l2 = spinalg.multiply(self.l2, len(self.l2)*[factor])
+
+    def rotate(self, t, inplace=False):
+        """Rotate wavefunction representation to another basis.
+        Only rotations which don't mix occupied and virtual orbitals are supported.
+        Assumes rotated orbitals have same occupancy ordering as originals.
+        """
+        # Allow support for same rotation for alpha and beta.
+        if isinstance(t, np.ndarray) and t.ndim == 2:
+            t = (t, t)
+        def get_components(tsp, occ):
+            o = occ > 0
+            v = occ == 0
+            tspo = tsp[np.ix_(o, o)]
+            tspv = tsp[np.ix_(v, v)]
+            tspov = tsp[np.ix_(o, v)]
+            tspvo = tsp[np.ix_(v, o)]
+            if abs(tspov).max() > 1e-12 or abs(tspvo).max() > 1e-12:
+                raise ValueError("Provided rotation mixes occupied and virtual orbitals.")
+            return tspo, tspv
+
+        toa, tva = get_components(t[0], self.mo.alpha.occ)
+        tob, tvb = get_components(t[1], self.mo.beta.occ)
+
+        return self.rotate_ov((toa, tob), (tva, tvb), inplace=inplace)
+
+    def rotate_ov(self, to, tv, inplace=False):
+        """Rotate wavefunction representation to another basis.
+        Only rotations which don't mix occupied and virtual orbitals are supported.
+
+        Parameters
+        ----------
+        to : new occupied orbital coefficients in terms of current ones.
+        tv : new virtual orbital coefficients in terms of current ones.
+        inplace : Whether to transform in-place or return a new object.
+        """
+        wf = self if inplace else self.copy()
+        if isinstance(to, np.ndarray) and len(to) == 2:
+            assert(isinstance(tv, np.ndarray) and len(tv) == 2)
+            trafo = lambda c: dot(c, block_diag(to, tv))
+        else:
+            trafo = [lambda c: dot(c, x) for x in (block_diag(to[0], tv[0]), block_diag(to[1], tv[1]))]
+
+        wf.mo.basis_transform(trafo, inplace=True)
+        wf.t1 = transform_uc1(wf.t1, to, tv)
+        wf.t2 = transform_uc2(wf.t2, to, tv)
+        if wf.l1 is not None:
+            wf.l1 = transform_uc1(wf.l1, to, tv)
+        if wf.l2 is not None:
+            wf.l2 = transform_uc2(wf.l2, to, tv)
+        return wf
 
     #def pack(self, dtype=float):
     #    """Pack into a single array of data type `dtype`.

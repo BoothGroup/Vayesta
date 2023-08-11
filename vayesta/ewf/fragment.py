@@ -100,8 +100,13 @@ class Fragment(BaseFragment):
         # For self-consistent mode
         self.solver_results = None
 
+    def _reset(self, *args, **kwargs):
+        super()._reset(*args, **kwargs)
+        # Need to unset these so can be regenerated each iteration.
+        self.opts.c_cas_occ = self.opts.c_cas_vir = None
+
     def set_cas(self, iaos=None, c_occ=None, c_vir=None, minao='auto', dmet_threshold=None):
-        """Set complete active space for tailored CCSD"""
+        """Set complete active space for tailored CCSD and active-space CC methods."""
         if dmet_threshold is None:
             dmet_threshold = 2*self.opts.bath_options['dmet_threshold']
         if iaos is not None:
@@ -282,8 +287,9 @@ class Fragment(BaseFragment):
             self.log.debugv("Passing fragment option %s to solver.", attr)
             solver_opts[attr] = getattr(self.opts, attr)
 
-        if solver.upper() == 'TCCSD':
-            solver_opts['tcc'] = True
+        has_actspace = ((solver == "TCCSD") or ("CCSDt'" in solver) or
+                        (solver.upper() == "EBCC" and self.opts.solver_options['ansatz'] == "CCSDt'"))
+        if has_actspace:
             # Set CAS orbitals
             if self.opts.c_cas_occ is None:
                 self.log.warning("Occupied CAS orbitals not set. Setting to occupied DMET cluster orbitals.")
@@ -293,7 +299,8 @@ class Fragment(BaseFragment):
                 self.opts.c_cas_vir = self._dmet_bath.c_cluster_vir
             solver_opts['c_cas_occ'] = self.opts.c_cas_occ
             solver_opts['c_cas_vir'] = self.opts.c_cas_vir
-            solver_opts['tcc_fci_opts'] = self.opts.tcc_fci_opts
+            if solver == "TCCSD":
+                solver_opts['tcc_fci_opts'] = self.opts.tcc_fci_opts
         elif solver.upper() == 'DUMP':
             solver_opts['filename'] = self.opts.solver_options['dumpfile']
         solver_opts['external_corrections'] = self.flags.external_corrections
