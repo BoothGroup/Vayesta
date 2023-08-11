@@ -24,6 +24,8 @@ from vayesta.core.bath import EwDMET_Bath
 from vayesta.core.bath import MP2_Bath
 from vayesta.core.bath import Full_Bath
 from vayesta.core.bath import R2_Bath
+from vayesta.core.bath import RPA_Bath
+
 # Other
 from vayesta.misc.cubefile import CubeFile
 from vayesta.mpi import mpi
@@ -821,6 +823,11 @@ class Fragment:
                     c_buffer = None
                 return MP2_Bath(self, dmet_bath=dmet, occtype=occtype, c_buffer=c_buffer,
                                 project_dmet_order=project_dmet_order, project_dmet_mode=project_dmet_mode)
+            if btype == 'rpa':
+                project_dmet_order = self._get_bath_option('project_dmet_order', occtype)
+                project_dmet_mode = self._get_bath_option('project_dmet_mode', occtype)
+                return RPA_Bath(self, dmet_bath=dmet, occtype=occtype, c_buffer=None,
+                                project_dmet_order=project_dmet_order, project_dmet_mode=project_dmet_mode)
             raise NotImplementedError('bathtype= %s' % btype)
         self._bath_factory_occ = get_bath(occtype='occupied')
         self._bath_factory_vir = get_bath(occtype='virtual')
@@ -842,7 +849,7 @@ class Fragment:
             elif btype == 'ewdmet':
                 order = self._get_bath_option('order', occtype)
                 c_bath, c_frozen = factory.get_bath(order)
-            elif btype == 'mp2':
+            elif btype in ['mp2', 'rpa', 'rpacorr']:
                 threshold = self._get_bath_option('threshold', occtype)
                 truncation = self._get_bath_option('truncation', occtype)
                 bno_threshold = BNO_Threshold(truncation, threshold)

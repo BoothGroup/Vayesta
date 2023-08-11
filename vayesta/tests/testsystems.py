@@ -446,6 +446,12 @@ a = np.eye(3) * 3.0
 he_k321 = TestSolid(a, atom="He 0 0 0", basis="def2-svp", auxbasis="def2-svp-ri", kmesh=(3, 2, 1))
 he_s321 = TestSolid(a, atom="He 0 0 0", basis="def2-svp", auxbasis="def2-svp-ri", supercell=(3, 2, 1))
 
+a, atom = solids.graphene()
+opts = dict(basis='sto3g', auxbasis='sto3g', exp_to_discard=0.1, dimension=2)
+mesh = (2,1,1)
+graphene_sto3g_k211 = TestSolid(a=a, atom=atom, kmesh=mesh, **opts)
+graphene_sto3g_s211 = TestSolid(a=a, atom=atom, supercell=mesh, **opts)
+
 
 # Lattices
 

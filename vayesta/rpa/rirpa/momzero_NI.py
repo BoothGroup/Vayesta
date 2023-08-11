@@ -32,10 +32,10 @@ class NIMomZero(NumericalIntegratorClenCurInfinite):
         return (self.D**2 + freq**2) ** (-1)
 
     def get_Q(self, freq):
-        """Efficiently construct Q = S_R (D^{-1} G) S_L^T
-        This is generally the limiting
+        """Efficiently construct Q = S_R F S_L^T
+        This is generally the limiting step.
         """
-        S_L = einsum("np,p->np", self.S_L, self.get_F(freq))
+        S_L = self.S_L * self.get_F(freq)[None]
         return dot(self.S_R, S_L.T)
 
     @property
@@ -102,10 +102,10 @@ class MomzeroDeductNone(NIMomZero):
         Q = self.get_Q(freq)
 
         rrot = F
-        lrot = einsum("lq,q->lq", self.target_rot, rrot)
+        lrot = self.target_rot * rrot[None]
         val_aux = np.linalg.inv(np.eye(self.n_aux) + Q)
-        lres = np.dot(lrot, self.S_L.T)
-        res = dot(dot(lres, val_aux), einsum("np,p->np", self.S_R, rrot))
+        lres = dot(lrot, self.S_L.T)
+        res = dot(dot(lres, val_aux), self.S_R * rrot[None])
         return (self.target_rot + (freq**2) * (res - lrot)) / np.pi
 
 
@@ -169,7 +169,7 @@ class MomzeroDeductHigherOrder(MomzeroDeductD):
         lrot = einsum("lq,q->lq", self.target_rot, F)
         val_aux = np.linalg.inv(np.eye(self.n_aux) + Q) - np.eye(self.n_aux)
         res = dot(
-            dot(dot(lrot, self.S_L.T), val_aux), einsum("np,p->np", self.S_R, rrot)
+            dot(dot(lrot, self.S_L.T), val_aux), self.S_R * rrot[None]
         )
         res = (freq**2) * res / np.pi
         return res
@@ -194,9 +194,9 @@ class BaseMomzeroOffset(NumericalIntegratorBase):
     def eval_contrib(self, freq):
         # This should be real currently, so can safely do this.
         expval = np.exp(-freq * self.D)
-        lrot = einsum("lp,p->lp", self.target_rot, expval)
+        lrot = self.target_rot * expval[None]
         rrot = expval
-        res = dot(dot(lrot, self.S_L.T), einsum("np,p->np", self.S_R, rrot))
+        res = dot(dot(lrot, self.S_L.T), self.S_R * rrot[None])
         return res
 
     def eval_diag_contrib(self, freq):
@@ -238,3 +238,13 @@ def diag_sqrt_grad(D, freq):
 def diag_sqrt_deriv2(D, freq):
     M = (D + freq**2) ** (-1)
     return (-2 * M + 10 * (freq**2) * (M**2) - 8 * (freq**4) * (M**3)) / np.pi
+
+
+# Subclass for performing calculations with RHF quantities.
+
+class MomzeroDeductHigherOrder_dRHF(MomzeroDeductHigherOrder):
+    """All provided quantities are now in spatial orbitals. This actually only requires an additional factor in the
+    get_Q method."""
+    def get_Q(self, freq):
+        # Have equal contributions from both spin channels.
+        return 2 * super().get_Q(freq)
