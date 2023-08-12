@@ -5,7 +5,7 @@ import copy
 import itertools
 import os
 import os.path
-from typing import Optional
+from typing import *
 
 import numpy as np
 
@@ -31,6 +31,7 @@ from vayesta.core.util import (
     log_method,
     log_time,
     with_doc,
+    optional_import,
 )
 from vayesta.core import spinalg, eris
 from vayesta.core.scmf import PDMET, Brueckner
@@ -67,6 +68,8 @@ from vayesta.core.qemb.fragment import Fragment
 # from . import helper
 from vayesta.core.qemb.rdm import make_rdm1_demo_rhf
 from vayesta.core.qemb.rdm import make_rdm2_demo_rhf
+# Optional
+btensor = optional_import('btensor')
 
 
 @dataclasses.dataclass
@@ -1232,6 +1235,30 @@ class Embedding:
                 fx._dmet_bath = None
                 fx._occ_bath_factory = None
                 fx._vir_bath_factory = None
+
+    def _build_basis_dict(self, include_symmetry: bool = False) -> Dict[str, 'btensor.Basis']:
+        """Build dictionary containing BTensor basis objects."""
+        # Mean-field bases:
+        ao = btensor.Basis(self.mol.nao, metric=self.get_ovlp(), name='ao')
+        mo = ao.make_subbasis(self.mo_coeff, name='mo', orthonormal=True)
+        occ = mo.make_subbasis(self.mo_occ > 0, name='occ', orthonormal=True)
+        vir = mo.make_subbasis(self.mo_occ == 0, name='vir', orthonormal=True)
+        basis_dict = dict(ao=ao, mo=mo, occ=occ, vir=vir)
+        # Fragment specific bases:
+        frag_filter = {} if include_symmetry else dict(sym_parent=None)
+        for fx in self.get_fragments(**frag_filter):
+            # Fragment orbitals
+            c_frag = fx.get_overlap('mo|frag')
+            name_frag = f'frag[{fx.id}]'
+            basis_dict[name_frag] = mo.make_subbasis(c_frag, name=name_frag, orthonormal=True)
+            # Occupied cluster orbitals
+            c_occ = fx.get_overlap('mo[occ]|cluster[occ]')
+            name_occ = f'occ[{fx.id}]'
+            basis_dict[name_occ] = occ.make_subbasis(c_occ, name=name_occ, orthonormal=True)
+            c_vir = fx.get_overlap('mo[vir]|cluster[vir]')
+            name_vir = f'vir[{fx.id}]'
+            basis_dict[name_vir] = vir.make_subbasis(c_vir, name=name_vir, orthonormal=True)
+        return basis_dict
 
     # Results
     # -------

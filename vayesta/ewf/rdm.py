@@ -1,12 +1,14 @@
 """Routines to generate reduced density-matrices (RDMs) from spin-restricted quantum embedding calculations."""
+import functools
 
 import numpy as np
 
-from vayesta.core.util import NotCalculatedError, Object, dot, einsum
+from vayesta.core.util import NotCalculatedError, Object, dot, einsum, optional_import
 from vayesta.core.vpyscf import ccsd_rdm
 from vayesta.core.types import RMP2_WaveFunction
 from vayesta.core.types import RCCSD_WaveFunction
 from vayesta.mpi import mpi
+btensor = optional_import('btensor')
 
 
 def _get_mockcc(mo_coeff, max_memory):
@@ -461,6 +463,177 @@ def make_rdm1_ccsd_global_wf(
 
     return dm1
 
+
+def make_rdm1_ccsd_global_wf_btensor(emb, t_as_lambda=False, with_t1=True, svd_tol=1e-3, ovlp_tol=None, use_sym=True,
+                                     mpi_target=None):
+    """Make one-particle reduced density-matrix from partitioned fragment CCSD wave functions.
+
+    Parameters
+    ----------
+    emb : EWF
+        EWF embedding object.
+    t_as_lambda : bool, optional
+        Use T-amplitudes inplace of Lambda-amplitudes for CCSD density matrix. Default: False.
+    with_t1 : bool, optional
+        If False, T1 and L1 amplitudes are assumed 0. Default: False.
+    ovlp_tol : float, optional
+        Fragment pairs with a smaller than `ovlp_tol` maximum singular value in their cluster overlap,
+        will be skipped. Default: None.
+    use_sym : bool, optional
+        Make use of symmetry relations, to speed up calculation. Default: True.
+    mpi_target : int or None, optional
+
+    Returns
+    -------
+    dm1 : array(n(MO), n(MO))
+        One-particle reduced density matrix in MO basis.
+    """
+
+    basis_dict = emb._build_basis_dict(include_symmetry=True)
+    ao = basis_dict['ao']
+    mo = basis_dict['mo']
+    moo = basis_dict['occ']
+    mov = basis_dict['vir']
+
+    if svd_tol is not None:
+        bt_einsum_intersect = functools.partial(btensor.einsum, intersect_tol=svd_tol**2)
+    else:
+        bt_einsum_intersect = btensor.einsum
+
+    # === Fast algorithm via fragment-fragment loop
+    # --- Setup
+    total_xy = kept_xy = 0
+    # T1/L1-amplitudes can be summed directly
+    if with_t1:
+        t1 = emb.get_global_t1()
+        l1 = emb.get_global_l1(t_as_lambda=t_as_lambda)
+        t1 = btensor.Tensor(t1, basis=(moo, mov))
+        l1 = btensor.Tensor(l1, basis=(moo, mov))
+    else:
+        t1 = l1 = None
+    # Make projected WF available via remote memory access
+    if mpi:
+        # TODO: use L-amplitudes of cluster X and T-amplitudes,
+        # Only send T-amplitudes via RMA?
+        #rma = {x.id: x.results.pwf.pack() for x in emb.get_fragments(active=True, mpi_rank=mpi.rank)}
+        rma = {x.id: x.results.pwf.pack() for x in emb.get_fragments(contributes=True, mpi_rank=mpi.rank, sym_parent=None)}
+        rma = mpi.create_rma_dict(rma)
+
+    # --- Loop over pairs of fragments and add projected density-matrix contributions:
+    doo = btensor.zeros((moo, moo))
+    dvv = btensor.zeros((mov, mov))
+    dov = btensor.zeros((moo, mov)) if with_t1 else None
+
+    symfilter = dict(sym_parent=None) if use_sym else {}
+    maxgen = None if use_sym else 0
+
+    for fx in emb.get_fragments(contributes=True, mpi_rank=mpi.rank, **symfilter):
+        wfx = fx.results.pwf.as_ccsd()
+        theta = (2*wfx.t2 - wfx.t2.transpose(0, 1, 3, 2))
+
+        cxf = basis_dict[f'frag[{fx.id}]']
+        cxo = basis_dict[f'occ[{fx.id}]']
+        cxv = basis_dict[f'vir[{fx.id}]']
+        intersect_occ_xy = moo.make_intersect_basis(cxf)
+        theta = btensor.Tensor(theta, basis=(cxf, cxo, cxv, cxv), name=f"T2_{fx.id}")[intersect_occ_xy]
+
+        # Intermediates: leave left index in cluster-x basis:
+        doox = btensor.zeros((cxo, moo))
+        dvvx = btensor.zeros((cxv, mov))
+
+        # Loop over fragments y:
+        for fy_parent in emb.get_fragments(contributes=True, **symfilter):
+
+            if mpi:
+                if fy_parent.solver == 'MP2':
+                    wfy = RMP2_WaveFunction.unpack(rma[fy_parent.id]).as_ccsd()
+                else:
+                    wfy = RCCSD_WaveFunction.unpack(rma[fy_parent.id])
+            else:
+                wfy = fy_parent.results.pwf.as_ccsd()
+
+            l2parent = wfy.t2 if (t_as_lambda or fy_parent.solver == 'MP2') else wfy.l2
+            if l2parent is None:
+                raise RuntimeError("No L2-amplitudes found for %s!" % fy_parent)
+
+            for fy in fy_parent.loop_symmetry_children(include_self=True, maxgen=maxgen):
+                cyf = basis_dict[f'frag[{fy.id}]']
+                cyo = basis_dict[f'occ[{fy.id}]']
+                cyv = basis_dict[f'vir[{fy.id}]']
+
+                # --- If ovlp_tol is given, the cluster x-y pairs will be screened based on the
+                # largest singular value of the occupied and virtual overlap matrices
+                total_xy += 1
+                if ovlp_tol is not None:
+                    rxy_occ_norm = np.linalg.norm(cxo.get_overlap(cyo).to_numpy(), ord=2)
+                    rxy_vir_norm = np.linalg.norm(cxv.get_overlap(cyv).to_numpy(), ord=2)
+                    if min(rxy_occ_norm, rxy_vir_norm) < ovlp_tol:
+                        emb.log.debugv("Overlap of fragment pair %s - %s below %.2e; skipping pair.", fx, fy, ovlp_tol)
+                        continue
+                kept_xy += 1
+
+                intersect_occ_fy = moo.make_intersect_basis(cyf)
+                l2 = btensor.Tensor(l2parent, basis=(cyf, cyo, cyv, cyv))[intersect_occ_fy]
+
+                # --- Occupied
+                # T2 * L2 + T2 * L2.T + T2.T * L2 + T2.T * L2.T
+                doox -= bt_einsum_intersect('xjab,yjab->xy', theta, l2)/4
+                doox -= bt_einsum_intersect('xyab,yiba->xi', theta, l2)/4
+                doox -= bt_einsum_intersect('xiba,yxab->iy', theta, l2)/4
+                doox -= bt_einsum_intersect('xiba,xjba->ij', theta, l2)/4
+                # --- Virtual
+                # T2 * L2 + T2.T * L2.T + T2 * L2.T + T2.T * L2
+                dvvx += bt_einsum_intersect('yjab,yjac->bc', theta, l2)/4
+                dvvx += bt_einsum_intersect('yiba,yica->bc', theta, l2)/4
+                dvvx += bt_einsum_intersect('xyab,yxca->bc', theta, l2)/4
+                dvvx += bt_einsum_intersect('xyba,yxac->bc', theta, l2)/4
+
+        doo += doox
+        dvv += dvvx
+        # --- Use symmetry of fragments (rotations and translations)
+        if use_sym:
+            # Transform intermediates to AO basis:
+            doox3 = doox[ao, ao]
+            dvvx3 = dvvx[ao, ao]
+            # Loop over symmetry children of x:
+            for ao_sym in fx.loop_ao_symmetry_bases(ao):
+                doo += doox3.replace_basis((ao_sym, ao_sym))
+                dvv += dvvx3.replace_basis((ao_sym, ao_sym))
+
+        # D[occ,vir] <- "T2 * L1"
+        if with_t1:
+            l1x = l1[cxo, cxv]
+            dovx = (btensor.einsum('xjab,jb->xa', theta, l1x)[cxo] + btensor.einsum('xiba,xb->ia', theta, l1x)) / 2
+            dov += dovx
+            dovx = dovx[ao, ao]
+            if use_sym:
+                for ao_sym in fx.loop_ao_symmetry_bases(ao):
+                    dov += dovx.replace_basis((ao_sym, ao_sym))
+
+    if mpi:
+        rma.clear()
+        doo, dov, dvv = mpi.nreduce(doo, dov, dvv, target=mpi_target, logfunc=emb.log.timingv)
+        # Make sure no more MPI calls are made after returning some ranks early!
+        if mpi_target not in {None, mpi.rank}:
+            return None
+
+    if with_t1:
+        dov += (t1 + l1 - btensor.einsum('ie,me,ma->ia', t1, l1, t1))
+        dov += btensor.einsum('im,ma->ia', doo, t1)
+        dov -= btensor.einsum('ie,ae->ia', t1, dvv)
+        doo -= btensor.einsum('ja,ia->ij', t1, l1)
+        dvv += btensor.einsum('ia,ib->ab', t1, l1)
+
+    # --- Combine full DM:
+    dm1 = (doo + doo.T) + (dvv + dvv.T)
+    if with_t1:
+        dm1 += dov
+        dm1 += dov.T
+
+    # --- Some information:
+    emb.log.debug("Cluster-pairs: total= %d  kept= %d (%.1f%%)", total_xy, kept_xy, 100*kept_xy/total_xy)
+    dm1 = dm1.cob[mo, mo].to_numpy()
+    return dm1
 
 # --- Two-particle
 # ----------------
