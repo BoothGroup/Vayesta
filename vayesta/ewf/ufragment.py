@@ -11,8 +11,14 @@ from vayesta.ewf.fragment import Fragment as RFragment
 
 class Fragment(RFragment, BaseFragment):
 
-    def set_cas(self, *args, **kwargs):
-        raise NotImplementedError()
+    def set_cas(self, iaos=None, c_occ=None, c_vir=None, minao='auto', dmet_threshold=None):
+        """Set complete active space for tailored CCSD and active-space CC methods."""
+        if iaos is not None:
+                raise NotImplementedError("Unrestricted IAO-based CAS not implemented yet.")
+
+        self.opts.c_cas_occ = c_occ
+        self.opts.c_cas_vir = c_vir
+        return c_occ, c_vir
 
     def get_fragment_energy(self, c1, c2, hamil=None, fock=None, axis1='fragment', c2ba_order='ba'):
         """Calculate fragment correlation energy contribution from projected C1, C2.

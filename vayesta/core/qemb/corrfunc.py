@@ -7,7 +7,7 @@ from vayesta.core.util import dot, einsum, log_time
 from vayesta.misc import corrfunc
 
 
-def get_corrfunc_mf(emb, kind, dm1=None, atoms=None, projection='sao'):
+def get_corrfunc_mf(emb, kind, dm1=None, atoms=None, projection='sao', orbital_filter=None):
     """dm1 in MO basis"""
     if emb.spinsym == 'unrestricted' and kind.lower() in ('n,n', 'dn,dn'):
         raise NotImplementedError
@@ -34,7 +34,7 @@ def get_corrfunc_mf(emb, kind, dm1=None, atoms=None, projection='sao'):
     func = funcs.get(kind.lower())
     if func is None:
         raise ValueError(kind)
-    atoms1, atoms2, proj = emb._get_atom_projectors(atoms, projection)
+    atoms1, atoms2, proj = emb._get_atom_projectors(atoms, projection, orbital_filter=orbital_filter)
     corr = np.zeros((len(atoms1), len(atoms2)))
     for a, atom1 in enumerate(atoms1):
         for b, atom2 in enumerate(atoms2):

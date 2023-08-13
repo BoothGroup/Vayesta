@@ -16,16 +16,14 @@ import pyscf.cc
 import pyscf.pbc
 import pyscf.pbc.tools
 import pyscf.lib
+
 from pyscf.mp.mp2 import _mo_without_core
 from vayesta.core.foldscf import FoldedSCF, fold_scf
 from vayesta.core.util import (OptionsBase, OrthonormalityError, SymmetryError, dot, einsum, energy_string,
                                getattr_recursive, hstack, log_method, log_time, with_doc)
-from vayesta.core import spinalg
-from vayesta.core.ao2mo import kao2gmo_cderi
-from vayesta.core.ao2mo import postscf_ao2mo
-from vayesta.core.ao2mo import postscf_kao2gmo
+from vayesta.core import spinalg, eris
 from vayesta.core.scmf import PDMET, Brueckner
-from vayesta.core.qemb.scrcoulomb import build_screened_eris
+from vayesta.core.screening.screening_moment import build_screened_eris
 from vayesta.mpi import mpi
 from vayesta.core.qemb.register import FragmentRegister
 from vayesta.rpa import ssRIRPA
@@ -67,7 +65,7 @@ class Options(OptionsBase):
     # --- Bath options
     bath_options: dict = OptionsBase.dict_with_defaults(
         # General
-        bathtype='dmet', canonicalize=True,
+        bathtype='dmet', canonicalize=True, occupation_tolerance=1e-8,
         # DMET bath
         dmet_threshold=1e-8,
         # R2 bath
@@ -105,7 +103,7 @@ class Options(OptionsBase):
             # EBFCI/EBCCSD
             max_boson_occ=2,
             # EBCC
-            ansatz=None,
+            ansatz=None, store_as_ccsd=None, fermion_wf=False,
             # Dump
             dumpfile='clusters.h5',
             # MP2
@@ -113,7 +111,9 @@ class Options(OptionsBase):
     # --- Other
     symmetry_tol: float = 1e-6              # Tolerance (in Bohr) for atomic positions
     symmetry_mf_tol: float = 1e-5           # Tolerance for mean-field solution
-    screening: Optional[str] = None
+    screening: Optional[str] = None         # What form of screening to use in clusters.
+    ext_rpa_correction: Optional[str] = None
+    match_cluster_fock: bool = False
 
 class Embedding:
     """Base class for quantum embedding methods.
@@ -518,6 +518,13 @@ class Embedding:
         """Nuclear-repulsion energy per unit cell (not folded supercell)."""
         return self.mol.energy_nuc()/self.ncells
 
+    @property
+    def e_nonlocal(self):
+        if self.opts.ext_rpa_correction is None:
+            return 0.0
+        e_local = sum([x.results.e_corr_rpa * x.symmetry_factor for x in self.get_fragments(sym_parent=None)])
+        return self.e_rpa - (e_local / self.ncells)
+
     # Embedding properties
 
     @property
@@ -631,137 +638,53 @@ class Embedding:
         spow = pyscf.pbc.tools.k2gamma.to_supercell_ao_integrals(self.kcell, self.kpts, spowk)
         return spow
 
-    def get_cderi(self, mo_coeff, compact=False, blksize=None):
-        """Get density-fitted three-center integrals in MO basis."""
-        if compact:
-            raise NotImplementedError()
-        if self.kdf is not None:
-            return kao2gmo_cderi(self.kdf, mo_coeff)
+    get_cderi = eris.get_cderi
 
-        if np.ndim(mo_coeff[0]) == 1:
-            mo_coeff = (mo_coeff, mo_coeff)
+    get_eris_array = eris.get_eris_array
 
-        nao = self.mol.nao
-        naux = (self.df.auxcell.nao if hasattr(self.df, 'auxcell') else self.df.auxmol.nao)
-        cderi = np.zeros((naux, mo_coeff[0].shape[-1], mo_coeff[1].shape[-1]))
-        cderi_neg = None
-        if blksize is None:
-            blksize = int(1e9 / naux*nao*nao * 8)
-        # PBC:
-        if hasattr(self.df, 'sr_loop'):
-            blk0 = 0
-            for labr, labi, sign in self.df.sr_loop(compact=False, blksize=blksize):
-                assert np.allclose(labi, 0)
-                assert (cderi_neg is None)  # There should be only one block with sign -1
-                labr = labr.reshape(-1, nao, nao)
-                if (sign == 1):
-                    blk1 = (blk0 + labr.shape[0])
-                    blk = np.s_[blk0:blk1]
-                    blk0 = blk1
-                    cderi[blk] = einsum('Lab,ai,bj->Lij', labr, mo_coeff[0], mo_coeff[1])
-                elif (sign == -1):
-                    cderi_neg = einsum('Lab,ai,bj->Lij', labr, mo_coeff[0], mo_coeff[1])
-            return cderi, cderi_neg
-        # No PBC:
-        blk0 = 0
-        for lab  in self.df.loop(blksize=blksize):
-            blk1 = (blk0 + lab.shape[0])
-            blk = np.s_[blk0:blk1]
-            blk0 = blk1
-            lab = pyscf.lib.unpack_tril(lab)
-            cderi[blk] = einsum('Lab,ai,bj->Lij', lab, mo_coeff[0], mo_coeff[1])
-        return cderi, None
-
-    @log_method()
-    def get_eris_array(self, mo_coeff, compact=False):
-        """Get electron-repulsion integrals in MO basis as a NumPy array.
-
-        Parameters
-        ----------
-        mo_coeff: [list(4) of] (n(AO), n(MO)) array
-            MO coefficients.
-
-        Returns
-        -------
-        eris: (n(MO), n(MO), n(MO), n(MO)) array
-            Electron-repulsion integrals in MO basis.
-        """
-        # PBC with k-points:
-        if self.kdf is not None:
-            if compact:
-                raise NotImplementedError
-            if np.ndim(mo_coeff[0]) == 1:
-                mo_coeff = 4*[mo_coeff]
-            cderi1, cderi1_neg = kao2gmo_cderi(self.kdf, mo_coeff[:2])
-            if (mo_coeff[0] is mo_coeff[2]) and (mo_coeff[1] is mo_coeff[3]):
-                cderi2, cderi2_neg = cderi1, cderi1_neg
-            else:
-                cderi2, cderi2_neg = kao2gmo_cderi(self.kdf, mo_coeff[2:])
-            eris = einsum('Lij,Lkl->ijkl', cderi1.conj(), cderi2)
-            if cderi1_neg is not None:
-                eris -= einsum('Lij,Lkl->ijkl', cderi1_neg.conj(), cderi2_neg)
-            return eris
-        # Molecules and Gamma-point PBC:
-        if hasattr(self.mf, 'with_df') and self.mf.with_df is not None:
-            eris = self.mf.with_df.ao2mo(mo_coeff, compact=compact)
-        elif self.mf._eri is not None:
-            eris = pyscf.ao2mo.kernel(self.mf._eri, mo_coeff, compact=compact)
-        else:
-            eris = self.mol.ao2mo(mo_coeff, compact=compact)
-        if not compact:
-            if isinstance(mo_coeff, np.ndarray) and mo_coeff.ndim == 2:
-                shape = 4*[mo_coeff.shape[-1]]
-            else:
-                shape = [mo.shape[-1] for mo in mo_coeff]
-            eris = eris.reshape(shape)
-        return eris
-
-    @log_method()
-    def get_eris_object(self, postscf, fock=None):
-        """Get ERIs for post-SCF methods.
-
-        For folded PBC calculations, this folds the MO back into k-space
-        and contracts with the k-space three-center integrals..
-
-        Parameters
-        ----------
-        postscf: one of the following PySCF methods: MP2, CCSD, RCCSD, DFCCSD
-            Post-SCF method with attribute mo_coeff set.
-
-        Returns
-        -------
-        eris: _ChemistsERIs
-            ERIs which can be used for the respective post-scf method.
-        """
-        if fock is None:
-            if isinstance(postscf, pyscf.mp.mp2.MP2):
-                fock = self.get_fock()
-            elif isinstance(postscf, (pyscf.ci.cisd.CISD, pyscf.cc.ccsd.CCSD)):
-                fock = self.get_fock(with_exxdiv=False)
-            else:
-                raise ValueError("Unknown post-SCF method: %r", type(postscf))
-        # For MO energies, always use get_fock():
-        mo_act = _mo_without_core(postscf, postscf.mo_coeff)
-        mo_energy = einsum('ai,ab,bi->i', mo_act, self.get_fock(), mo_act)
-        e_hf = self.mf.e_tot
-
-        # Fold MOs into k-point sampled primitive cell, to perform efficient AO->MO transformation:
-        if self.kdf is not None:
-            return postscf_kao2gmo(postscf, self.kdf, fock=fock, mo_energy=mo_energy, e_hf=e_hf)
-        # Regular AO->MO transformation
-        eris = postscf_ao2mo(postscf, fock=fock, mo_energy=mo_energy, e_hf=e_hf)
-        return eris
+    get_eris_object = eris.get_eris_object
 
     @log_method()
     @with_doc(build_screened_eris)
     def build_screened_eris(self, *args, **kwargs):
-        scrfrags = [x.opts.screening for x in self.fragments if x.opts.screening is not None]
-        if len(scrfrags) > 0:
-            # Calculate total dRPA energy in N^4 time; this is cheaper than screening calculations.
-            rpa = ssRIRPA(self.mf, log=self.log)
-            self.e_nonlocal, energy_error = rpa.kernel_energy(correction='linear')
-            if scrfrags.count("mrpa") > 0:
-                build_screened_eris(self, *args, **kwargs)
+        nmomscr = len([x.opts.screening for x in self.fragments if x.opts.screening == "mrpa"])
+        lov = None
+        if self.opts.ext_rpa_correction:
+            cumulant = self.opts.ext_rpa_correction == "cumulant"
+            if nmomscr < self.nfrag:
+                raise NotImplementedError("External dRPA correction currently requires all fragments use mrpa screening.")
+
+            if self.opts.ext_rpa_correction not in ["erpa", "cumulant"]:
+                raise ValueError("Unknown external rpa correction %s specified.")
+            lov = self.get_cderi((self.mo_coeff_occ, self.mo_coeff_vir))
+            rpa = ssRIRPA(self.mf, log=self.log, lov=lov)
+            if cumulant:
+                lp = lov[0]
+                lp = lp.reshape((lp.shape[0], -1))
+                l_ = l_2 = lp
+
+                if lov[1] is not None:
+                    ln = lov[1].reshape((lov[1].shape[0], -1))
+                    l_ = np.concatenate([lp, ln], axis=0)
+                    l_2 = np.concatenate([lp, -ln], axis=0)
+
+                l_ = np.concatenate([l_, l_], axis=1)
+                l_2 = np.concatenate([l_2, l_2], axis=1)
+
+                m0 = rpa.kernel_moms(0, target_rot=l_)[0][0]
+                # Deduct effective mean-field contribution and project the RHS and we're done.
+                self.e_rpa = 0.5 * einsum("pq,pq->", m0 - l_, l_2)
+            else:
+                # Calculate total dRPA energy in N^4 time; this is cheaper than screening calculations.
+                self.e_rpa, energy_error = rpa.kernel_energy(correction='linear')
+            self.e_rpa = self.e_rpa / self.ncells
+            self.log.info("Set total RPA correlation energy contribution as %s", energy_string(self.e_rpa))
+        if nmomscr > 0:
+            self.log.info("")
+            self.log.info("SCREENED INTERACTION SETUP")
+            self.log.info("==========================")
+            with log_time(self.log.timing, "Time for screened interation setup: %s"):
+                build_screened_eris(self, *args, store_m0=self.opts.ext_rpa_correction, cderi_ov=lov, **kwargs)
 
     # Symmetry between fragments
     # --------------------------
@@ -1561,6 +1484,7 @@ class Embedding:
     def _reset(self):
         self.e_corr = None
         self.converged = False
+        self.e_rpa = None
 
     def reset(self, *args, **kwargs):
         self._reset()

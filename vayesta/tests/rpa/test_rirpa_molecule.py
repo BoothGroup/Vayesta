@@ -28,8 +28,12 @@ class MoleculeRPATest(TestCase):
 
         known_values = {"e_tot": -109.27376877774732}
         self._test_energy(orig_rpa, known_values)
-
-        rirpa = rpa.ssRIRPA(testsystems.n2_ccpvdz_df.rhf())
+        # Check dRPA specialised RHF code.
+        rirpa = rpa.rirpa.ssRIdRRPA(testsystems.n2_ccpvdz_df.rhf())
+        rirpa.kernel_energy()
+        self._test_energy(rirpa, known_values)
+        # Check spin-generic code.
+        rirpa = rpa.rirpa.ssRIRRPA(testsystems.n2_ccpvdz_df.rhf())
         rirpa.kernel_energy()
         self._test_energy(rirpa, known_values)
 
@@ -37,11 +41,14 @@ class MoleculeRPATest(TestCase):
         self._test_mom0(orig_rpa, rirpa_moms)
 
     def test_n2_ccpvdz_dRIRPA_error_estimates(self):
-        rirpa = rpa.ssRIRPA(testsystems.n2_ccpvdz_df.rhf())
+        rirpa = rpa.rirpa.ssRIRRPA(testsystems.n2_ccpvdz_df.rhf())
         # Use number of points where errors will be meaningful.
-        rirpa_moms, error_est = rirpa.kernel_moms(0, analytic_lower_bound=True, npoints=4)
-        self.assertAlmostEqual(error_est[0], 0.0600120085568549,)
-        self.assertAlmostEqual(error_est[1], 0.0003040334773499559)
+        # Note that with this few points the fact that the quadrature optimisation is not invariant to orbital rotations
+        # can cause issues, so we can just use a specific grid spacing.
+        rirpa_moms, error_est = rirpa.kernel_moms(0, analytic_lower_bound=True, npoints=4, ainit=1.5214230673470202,
+                                                  opt_quad=False)
+        self.assertAlmostEqual(error_est[0], 0.05074756294730469)
+        self.assertAlmostEqual(error_est[1], 0.00024838720802440015)
 
 if __name__ == '__main__':
     print('Running %s' % __file__)

@@ -94,8 +94,13 @@ class ssRPA:
             AmBrtinv = einsum("pn,n,qn->pq", c2, e2 ** (-0.5), c2)
             XpY = np.einsum("n,pq,qn->pn", self.freqs_ss ** (-0.5), AmBrt, c)
             XmY = np.einsum("n,pq,qn->pn", self.freqs_ss ** (0.5), AmBrtinv, c)
-        self.XpY_ss = (XpY[: self.ova], XpY[self.ova :])
-        self.XmY_ss = (XmY[: self.ova], XmY[self.ova :])
+
+        nov = self.ova
+        if self.ov_rot is not None:
+            nov = self.ov_rot[0].shape[0]
+
+        self.XpY_ss = (XpY[:nov], XpY[nov:])
+        self.XmY_ss = (XmY[:nov], XmY[nov:])
 
         self.freqs_sf = None
         self.log.timing("Time to solve RPA problem: %s", time_string(timer() - t0))
@@ -199,8 +204,7 @@ class ssRPA:
 
         return e
 
-    def _gen_arrays(self, xc_kernel=None, alpha=1.0):
-        t0 = timer()
+    def _gen_eps(self):
         # Only have diagonal components in canonical basis.
         eps = np.zeros((self.nocc, self.nvir))
         eps = eps + self.mf.mo_energy[self.nocc :]
@@ -208,18 +212,30 @@ class ssRPA:
         eps = eps.reshape((self.ova,))
 
         if self.ov_rot is not None:
-            eps = einsum("pn,n,qn->pq", self.ov_rot, eps, self.ov_rot)
-            # want to ensure diagonalise eps in our new basis; nb this also rotates the existing rotation for
-            # consistency.
-            eps, c = scipy.linalg.eigh(eps)
-            self.ov_rot = dot(c.T, self.ov_rot)
+            if self.ov_rot[0].shape[0] > 0:
+                epsa = einsum("pn,n,qn->pq", self.ov_rot[0], eps, self.ov_rot[0])
+                epsa, ca = scipy.linalg.eigh(epsa)
+                self.ov_rot = (dot(ca.T, self.ov_rot[0]), self.ov_rot[1])
+            if self.ov_rot[1].shape[0] > 0:
+                epsb = einsum("pn,n,qn->pq", self.ov_rot[1], eps, self.ov_rot[1])
+                epsb, cb = scipy.linalg.eigh(epsb)
+                self.ov_rot = (self.ov_rot[0], dot(cb.T, self.ov_rot[1]))
+        else:
+            epsa = epsb = eps
+        return epsa, epsb
 
-        AmB = np.concatenate([eps, eps])
+
+    def _gen_arrays(self, xc_kernel=None, alpha=1.0):
+        t0 = timer()
+
+        epsa, epsb = self._gen_eps()
+
+        AmB = np.concatenate([epsa, epsb])
 
         fullv = self.get_k()
         ApB = 2 * fullv * alpha
         if self.ov_rot is not None:
-            fullrot = scipy.linalg.block_diagonal(self.ov_rot, self.ov_rot)
+            fullrot = scipy.linalg.block_diag(self.ov_rot[0], self.ov_rot[1])
             ApB = dot(fullrot, ApB, fullrot.T)
 
         # At this point AmB is just epsilon so add in.
@@ -239,7 +255,7 @@ class ssRPA:
             M = dot(AmBrt, ApB, AmBrt)
 
         self.log.timing("Time to build RPA arrays: %s", time_string(timer() - t0))
-        return M, AmB, ApB, (eps, eps), fullv
+        return M, AmB, ApB, (epsa, epsb), fullv
 
     def get_k(self):
         eris = self.ao2mo()
@@ -319,29 +335,20 @@ class ssRPA:
         return ApB * alpha, AmB * alpha
 
     def gen_moms(self, max_mom, xc_kernel=None):
-        res = np.zeros((max_mom + 1, self.ov, self.ov))
+        nova = self.ova
+        nov = self.ov
+        if self.ov_rot is not None:
+            nova = self.ov_rot[0].shape[0]
+            nov = nova + self.ov_rot[1].shape[0]
+        res = np.zeros((max_mom+1, nov, nov))
         for x in range(max_mom + 1):
             # Have different spin components in general; these are alpha-alpha, alpha-beta and beta-beta.
-            res[x, : self.ova, : self.ova] = np.einsum(
-                "pn,n,qn->pq", self.XpY_ss[0], self.freqs_ss**x, self.XpY_ss[0]
-            )
-            res[x, self.ova :, self.ova :] = np.einsum(
-                "pn,n,qn->pq", self.XpY_ss[1], self.freqs_ss**x, self.XpY_ss[1]
-            )
-            res[x, : self.ova, self.ova :] = np.einsum(
-                "pn,n,qn->pq", self.XpY_ss[0], self.freqs_ss**x, self.XpY_ss[1]
-            )
-            res[x, self.ova :, : self.ova] = res[x][: self.ova, self.ova :].T
+            res[x, :nova, :nova] = np.einsum("pn,n,qn->pq", self.XpY_ss[0], self.freqs_ss ** x, self.XpY_ss[0])
+            res[x, nova:, nova:] = np.einsum("pn,n,qn->pq", self.XpY_ss[1], self.freqs_ss ** x, self.XpY_ss[1])
+            res[x, :nova, nova:] = np.einsum("pn,n,qn->pq", self.XpY_ss[0], self.freqs_ss ** x, self.XpY_ss[1])
+            res[x, nova:, :nova] = res[x][:nova, nova:].T
 
         return res
-
-    @property
-    def mo_coeff(self):
-        return self.mf.mo_coeff
-
-    @property
-    def nao(self):
-        return self.mf.mol.nao
 
     def ao2mo(self, mo_coeff=None, compact=False):
         """Get the ERIs in MO basis"""

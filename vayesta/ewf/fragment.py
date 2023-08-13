@@ -100,8 +100,13 @@ class Fragment(BaseFragment):
         # For self-consistent mode
         self.solver_results = None
 
+    def _reset(self, *args, **kwargs):
+        super()._reset(*args, **kwargs)
+        # Need to unset these so can be regenerated each iteration.
+        self.opts.c_cas_occ = self.opts.c_cas_vir = None
+
     def set_cas(self, iaos=None, c_occ=None, c_vir=None, minao='auto', dmet_threshold=None):
-        """Set complete active space for tailored CCSD"""
+        """Set complete active space for tailored CCSD and active-space CC methods."""
         if dmet_threshold is None:
             dmet_threshold = 2*self.opts.bath_options['dmet_threshold']
         if iaos is not None:
@@ -114,7 +119,8 @@ class Fragment(BaseFragment):
             c_env = frag.get_env_coeff(indices)
             bath = DMET_Bath(self, dmet_threshold=dmet_threshold)
             c_dmet = bath.make_dmet_bath(c_env)[0]
-            c_iao_occ, c_iao_vir = self.diagonalize_cluster_dm(c_iao, c_dmet, tol=2*dmet_threshold)
+            tol = self.opts.bath_options['occupation_tolerance']
+            c_iao_occ, c_iao_vir = self.diagonalize_cluster_dm(c_iao, c_dmet, tol=2*tol)
         else:
             c_iao_occ = c_iao_vir = None
 
@@ -190,7 +196,8 @@ class Fragment(BaseFragment):
 
         # Create solver object
         cluster_solver = self.get_solver(solver)
-
+        # Calculate cluster energy at the level of RPA.
+        e_corr_rpa = self.get_local_rpa_correction(cluster_solver.hamil)
         # --- Chemical potential
         cpt_frag = self.base.opts.global_frag_chempot
         if self.opts.nelectron_target is not None:
@@ -253,7 +260,7 @@ class Fragment(BaseFragment):
         
         # --- Add to results data class
         self._results = results = self.Results(fid=self.id, n_active=cluster.norb_active,
-                converged=cluster_solver.converged, wf=wf, pwf=pwf, moms=moms)
+                converged=cluster_solver.converged, wf=wf, pwf=pwf, moms=moms, e_corr_rpa=e_corr_rpa)
 
         self.hamil = cluster_solver.hamil
 
@@ -280,8 +287,9 @@ class Fragment(BaseFragment):
             self.log.debugv("Passing fragment option %s to solver.", attr)
             solver_opts[attr] = getattr(self.opts, attr)
 
-        if solver.upper() == 'TCCSD':
-            solver_opts['tcc'] = True
+        has_actspace = ((solver == "TCCSD") or ("CCSDt'" in solver) or
+                        (solver.upper() == "EBCC" and self.opts.solver_options['ansatz'] == "CCSDt'"))
+        if has_actspace:
             # Set CAS orbitals
             if self.opts.c_cas_occ is None:
                 self.log.warning("Occupied CAS orbitals not set. Setting to occupied DMET cluster orbitals.")
@@ -291,7 +299,8 @@ class Fragment(BaseFragment):
                 self.opts.c_cas_vir = self._dmet_bath.c_cluster_vir
             solver_opts['c_cas_occ'] = self.opts.c_cas_occ
             solver_opts['c_cas_vir'] = self.opts.c_cas_vir
-            solver_opts['tcc_fci_opts'] = self.opts.tcc_fci_opts
+            if solver == "TCCSD":
+                solver_opts['tcc_fci_opts'] = self.opts.tcc_fci_opts
         elif solver.upper() == 'DUMP':
             solver_opts['filename'] = self.opts.solver_options['dumpfile']
         solver_opts['external_corrections'] = self.flags.external_corrections

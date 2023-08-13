@@ -363,6 +363,7 @@ water_ccpvdz = TestMolecule(atom=molecules.water(), basis="cc-pvdz")
 water_ccpvdz_df = TestMolecule(atom=molecules.water(), basis="cc-pvdz", auxbasis="cc-pvdz-jkfit")
 
 ethanol_ccpvdz = TestMolecule(atom=molecules.ethanol(), basis="cc-pvdz")
+ethanol_631g_df = TestMolecule(atom=molecules.ethanol(), basis="6-31G", auxbasis="6-31G")
 
 lih_ccpvdz = TestMolecule(atom="Li 0 0 0; H 0 0 1.4", basis="cc-pvdz")
 lih_631g = TestMolecule(atom="Li 0 0 0; H 0 0 1.4", basis="6-31g")
@@ -370,8 +371,11 @@ lih_631g = TestMolecule(atom="Li 0 0 0; H 0 0 1.4", basis="6-31g")
 h2_ccpvdz = TestMolecule(atom="H1 0 0 0; H2 0 0 1.0", basis="cc-pvdz")
 h2_ccpvdz_df = TestMolecule(atom="H1 0 0 0; H2 0 0 1.0", basis="cc-pvdz", auxbasis="cc-pvdz-jkfit")
 
+h3_sto3g = TestMolecule(atom="H1 0 0 0; H2 0 0 1.0; H3 0 1.0 0", basis="sto3g", spin=1)
 h3_ccpvdz = TestMolecule(atom="H1 0 0 0; H2 0 0 1.0; H3 0 1.0 0", basis="cc-pvdz", spin=1)
 h3_ccpvdz_df = TestMolecule(atom="H1 0 0 0; H2 0 0 1.0; H3 0 1.0 0", basis="cc-pvdz", auxbasis="cc-pvdz-jkfit", spin=1)
+
+h4_sto3g = TestMolecule(atom="H1 0 0 0; H2 0 0 1.0; H3 0 1.0 0; H4 0 1.0 1.0", basis="sto3g", spin=0)
 
 heli_631g = TestMolecule(atom="He 0 0 0; Li 0 0 2.0", basis='6-31G', spin=1)
 h6_dz = TestMolecule(atom=molecules.ring('H', 6, 1.0), basis='cc-pVDZ')
@@ -444,6 +448,12 @@ lih_s221 = TestSolid(a=a, atom=atom, basis="def2-svp", auxbasis="def2-svp-ri", s
 a = np.eye(3) * 3.0
 he_k321 = TestSolid(a, atom="He 0 0 0", basis="def2-svp", auxbasis="def2-svp-ri", kmesh=(3, 2, 1))
 he_s321 = TestSolid(a, atom="He 0 0 0", basis="def2-svp", auxbasis="def2-svp-ri", supercell=(3, 2, 1))
+
+a, atom = solids.graphene()
+opts = dict(basis='sto3g', auxbasis='sto3g', exp_to_discard=0.1, dimension=2)
+mesh = (2,1,1)
+graphene_sto3g_k211 = TestSolid(a=a, atom=atom, kmesh=mesh, **opts)
+graphene_sto3g_s211 = TestSolid(a=a, atom=atom, supercell=mesh, **opts)
 
 
 # Lattices

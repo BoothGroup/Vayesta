@@ -1,6 +1,7 @@
 """Utility functions for projection of wave functions."""
 
 import numpy as np
+from vayesta.core.util import einsum, dot
 
 
 def project_c1(c1, p):
@@ -45,3 +46,27 @@ def symmetrize_uc2(c2, inplace=True):
     if len(c2) == 4:
         c2ab = (c2ab + c2[2].transpose(1,0,3,2))/2
     return (c2aa, c2ab, c2bb)
+
+def transform_c1(c1, to, tv):
+    if c1 is None: return None
+    return dot(to.T, c1, tv)
+
+def transform_c2(c2, to, tv, to2=None, tv2=None):
+    if c2 is None: return None
+    if to2 is None: to2 = to
+    if tv2 is None: tv2 = tv
+    # Use einsum for now- tensordot would be faster but less readable.
+    return einsum("ijab,iI,jJ,aA,bB->IJAB", c2, to, to2, tv, tv2)
+
+def transform_uc1(c1, to, tv):
+    if c1 is None: return None
+    return (transform_c1(c1[0], to[0], tv[0]),
+            transform_c1(c1[1], to[1], tv[1]))
+
+def transform_uc2(c2, to, tv):
+    if c2 is None: return None
+    c2ba = (c2[2] if len(c2) == 4 else c2[1].transpose(1,0,3,2))
+    return (transform_c2(c2[0], to[0], tv[0]),
+            transform_c2(c2[1], to[0], tv[0], to[1], tv[1]),
+            transform_c2(c2ba, to[1], tv[1], to[0], tv[0]),
+            transform_c2(c2[-1], to[1], tv[1]))

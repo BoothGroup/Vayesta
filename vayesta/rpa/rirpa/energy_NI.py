@@ -23,9 +23,9 @@ class NITrRootMP(NumericalIntegratorClenCurInfinite):
         out_shape = (1,)
         diag_shape = (1,)
         super().__init__(out_shape, diag_shape, npoints, log, True)
-        self.diagmat1 = self.D**2 + einsum("np,np->p", self.S_L, self.S_R)
-        self.diagmat2 = self.D**2
         self.diagRI = einsum("np,np->p", self.S_L, self.S_R)
+        self.diagmat1 = self.D**2 + self.diagRI
+        self.diagmat2 = self.D**2
 
     @property
     def n_aux(self):
@@ -39,7 +39,7 @@ class NITrRootMP(NumericalIntegratorClenCurInfinite):
         """Efficiently construct Q = S_R (D^{-1} G) S_L^T
         This is generally the limiting
         """
-        S_L = einsum("np,p->np", self.S_L, self.get_F(freq))
+        S_L = self.S_L * self.get_F(freq)[None]
         return dot(self.S_R, S_L.T)
 
     @property
@@ -104,6 +104,18 @@ class NITrRootMP(NumericalIntegratorClenCurInfinite):
         Q = self.get_Q(freq)
         F = self.get_F(freq)
         val_aux = np.linalg.inv(np.eye(self.n_aux) + Q) - np.eye(self.n_aux)
-        res = einsum("p,np,nm,mp,p->", F, self.S_L, val_aux, self.S_R, F)
+        lhs = dot(val_aux, self.S_L * F[None])
+        res = np.tensordot(lhs, self.S_R * F[None], ((0, 1), (0, 1)))
         res = (freq**2) * res / np.pi
         return np.array([res])
+
+
+class NITrRootMP_dRHF(NITrRootMP):
+    """All provided quantities are now in spatial orbitals. This actually only requires an additional factor in the
+    get_Q method."""
+    def get_Q(self, freq):
+        # Have equal contributions from both spin channels.
+        return 2 * super().get_Q(freq)
+
+    def eval_contrib(self, freq):
+        return 2 * super().eval_contrib(freq)
