@@ -117,3 +117,26 @@ class UEBCC_WaveFunction(REBCC_WaveFunction):
     @property
     def t2(self):
         return (self.t2aa, self.t2ab, self.t2bb)
+
+    def _pack_codegen_kwargs(self, *extra_kwargs, eris=False):
+        """
+        Pack all the possible keyword arguments for generated code
+        into a dictionary.
+        """
+        eris = False
+        # This is always accessed but never used for any density matrix calculation.
+        g = ebcc.util.Namespace()
+        g["aa"] = ebcc.util.Namespace()
+        g["aa"]["boo"] = g["aa"]["bov"] = g["aa"]["bvo"] = g["aa"]["bvv"] = np.zeros((self.nbos, 0, 0))
+        g["bb"] = g["aa"]
+        kwargs = dict(
+            v=eris,
+            g=g,
+            nocc=self.mo.nocc,
+            nvir=self.mo.nvir,
+            nbos=self.nbos,
+        )
+        for kw in extra_kwargs:
+            if kw is not None:
+                kwargs.update(kw)
+        return kwargs
