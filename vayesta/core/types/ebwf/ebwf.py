@@ -1,12 +1,14 @@
-import numpy as np
-
 from vayesta.core.types import wf
-from vayesta.core.util import *
+from vayesta.core.util import AbstractMethodError
 
-class EBWavefunction(wf.Wavefunction):
-    def __init__(self, mo, nbos, projector=None):
-        super().__init(mo, projector)
-        self.nbos = nbos
+class EBWavefunction(wf.WaveFunction):
+    def __init__(self, mo, mbos, projector=None):
+        super().__init__(mo, projector)
+        self.mbos = mbos
+
+    @property
+    def nbos(self):
+        return 0 if self.mbos is None else self.mbos.nbos
 
     def __repr__(self):
         return "%s(norb= %r, nocc= %r, nvir=%r, nbos= %r)" % (self.__class__.__name__, self.norb, self.nocc, self.nvir, self.nbos)
@@ -16,4 +18,3 @@ class EBWavefunction(wf.Wavefunction):
 
     def make_rdm_bb(self, *args, **kwargs):
         raise AbstractMethodError
-
