@@ -37,11 +37,16 @@ jobs:
           python -m pip install https://github.com/BoothGroup/dyson/archive/master.zip
           python -m pip install pybind11[global]
           export pybind11_DIR=$(python -m pybind11 --cmakedir)
-          python -m pip install -e .[dmet,ebcc,pygnme] --user 
+          python -m pip install .[dmet,ebcc,pygnme] --user 
       - name: Run unit tests
         run: |
+          echo DEBUG PRINT Printing LD_LIBRARY_PATH
+          echo $LD_LIBRARY_PATH
           export LD_LIBRARY_PATH=$(dirname $(python -c 'import pygnme;print(pygnme.__path__[0])') ):$LD_LIBRARY_PATH
           export LD_LIBRARY_PATH=$(dirname $(python -c 'import numpy;print(numpy.__path__[0])') ):$LD_LIBRARY_PATH
+          echo Updated LD_LIBRARY_PATH = $LD_LIBRARY_PATH
+          echo site_packages directory is at
+          dirname $(python -c 'import numpy;print(numpy.__path__[0])')
           python -m pip install pytest pytest-cov --user
           python .github/workflows/run_tests.py
       - name: Upload to codecov
