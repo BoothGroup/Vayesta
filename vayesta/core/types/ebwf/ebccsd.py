@@ -22,6 +22,11 @@ class REBCC_WaveFunction(ebwf.EBWavefunction):
         self._eqns = self.ansatz._get_eqns(self._spin_type)
 
     @property
+    def name(self):
+        """Get a string representation of the method name."""
+        return self._spin_type + self.ansatz.name
+
+    @property
     def t1(self):
         return self.amplitudes.t1
 
@@ -63,6 +68,18 @@ class REBCC_WaveFunction(ebwf.EBWavefunction):
 
     def make_rdm1(self, *args, **kwargs):
         return self._driver.make_rdm1_f(self, eris=False, amplitudes=self.amplitudes, lambdas=self.lambdas, hermitise=True)
+
+    def make_rdm2(self, *args, **kwargs):
+        return self._driver.make_rdm2_f(self, eris=False, amplitudes=self.amplitudes, lambdas=self.lambdas, hermitise=True)
+
+    def make_rdm1_b(self, *args, **kwargs):
+        return self._driver.make_rdm1_b(self, eris=False, amplitudes=self.amplitudes, lambdas=self.lambdas, hermitise=True)
+
+    def make_sing_b_dm(self, *args, **kwargs):
+        return self._driver.make_sing_b_dm(self, eris=False, amplitudes=self.amplitudes, lambdas=self.lambdas, hermitise=True)
+
+    def make_eb_coup_rdm(self, *args, **kwargs):
+        return self._driver.make_eb_coup_rdm(self, eris=False, amplitudes=self.amplitudes, lambdas=self.lambdas, hermitise=True)
 
 
 class UEBCC_WaveFunction(REBCC_WaveFunction):
