@@ -1,7 +1,9 @@
 import numpy as np
 import scipy.linalg
 
+import vayesta
 from vayesta.core.scmf.scmf import SCMF
+from vayesta.core.foldscf import FoldedSCF
 from vayesta.lattmod import LatticeRHF
 
 from dyson import Lehmann, FCI, MBLGF, MixedMBLGF, NullLogger, AuxiliaryShift
@@ -22,6 +24,11 @@ class QPEWDMET_RHF(SCMF):
         self.v_last = None
         self.v_conv_tol = v_conv_tol
         self.proj = proj
+
+        if 1:
+            self.v_hist = []
+            self.v_frag_hist = []
+            self.fock_hist = []
         super().__init__(emb, *args, **kwargs)
 
     def update_mo_coeff(self, mf, diis=None):
@@ -94,11 +101,17 @@ class QPEWDMET_RHF(SCMF):
             self.v = diis.update(self.v)
 
         self.sc_fock += self.v
+        self.v_frag_hist.append(v_frag.copy())
+        self.v_hist.append(self.v.copy())
+        self.fock_hist.append(self.sc_fock.copy())
 
         if self.sc:
             #mf = LatticeRHF(self.emb.mf.mol)
-            mf_cls = type(self.emb.mf)
-            mf = mf_cls(self.emb.mf.mol)
+            mf_class = type(self.emb.mf)
+            if mf_class is FoldedSCF:
+                # Temporary work around for k-SCF
+                raise NotImplementedError("QP-EWDMET with Fock re-diagonalisation not implemented for FoldedSCF")
+            mf = mf_class(self.emb.mf.mol)
             def get_fock(*args, **kwargs):
                 return self.sc_fock
             mf.get_fock = get_fock
@@ -107,7 +120,8 @@ class QPEWDMET_RHF(SCMF):
             scf_conv = mf.converged
             self.log.info("SCF converged: {}, energy: {:.6f}".format(scf_conv, e_tot))
         else:
-            e, mo_coeff = np.linalg.eigh(self.sc_fock)
+            e, mo_coeff = scipy.linalg.eigh(self.sc_fock, self.emb.get_ovlp())
+            assert np.allclose(self.sc_fock, self.sc_fock.T)
         return mo_coeff
 
     def check_convergence(self, e_tot, dm1, e_last=None, dm1_last=None, etol=None, dtol=None):
@@ -132,9 +146,13 @@ class QPEWDMET_RHF(SCMF):
         gf = Lehmann(*se_shifted.diagonalise_matrix_with_projection(self.emb.mf.get_fock()), chempot=se_shifted.chempot)
         dm = gf.occupied().moment(0) * 2.0
         nelec_gf = np.trace(dm)
-        assert(np.isclose(nelec_gf, gf.occupied().weights(occupancy=2).sum()))
-        print('Number of electrons in final (shifted) GF with dynamical self-energy: {}'.format(nelec_gf))
-        assert(np.isclose(nelec_gf, float(nelec)))
+        if not np.isclose(nelec_gf, gf.occupied().weights(occupancy=2).sum()):
+            vayesta.log.warning('Number of electrons in final (shifted) GF: %f'%nelec_gf)
+        else:
+            print('Number of electrons in final (shifted) GF with dynamical self-energy: %f'%nelec_gf)
+        
+        if not np.isclose(nelec_gf, float(nelec)):
+            vayesta.log.warning('Number of electrons in final (shifted) GF: %f'%nelec_gf)
 
         # TODO: Also, get the energy, IP, EA and gap from GF in the presence of the auxiliaries, as 
         # well as Fermi liquid parameters from the self-energy
