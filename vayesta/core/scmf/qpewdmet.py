@@ -15,7 +15,7 @@ class QPEWDMET_RHF(SCMF):
     """ Quasi-particle self-consistent energy weighted density matrix embedding """
     name = "QP-EWDMET"
 
-    def __init__(self, emb, proj=2, v_conv_tol=1e-5, eta=1e-4, sc=True, *args, **kwargs):
+    def __init__(self, emb, proj=2, v_conv_tol=1e-5, eta=1e-4, sc=True, store_hist=True, *args, **kwargs):
         self.sc_fock = emb.get_fock()
         self.sc = sc
         self.eta = eta # Broadening factor
@@ -29,6 +29,9 @@ class QPEWDMET_RHF(SCMF):
             self.v_hist = []
             self.v_frag_hist = []
             self.fock_hist = []
+            self.static_gap_hist = []
+            self.dynamic_gap_hist = []  
+
         super().__init__(emb, *args, **kwargs)
 
     def update_mo_coeff(self, mf, diis=None):
@@ -95,15 +98,23 @@ class QPEWDMET_RHF(SCMF):
         energies = np.concatenate(energies)
         self.se = Lehmann(energies, couplings)
 
-        
+        dynamic_gap = gap(energies)
+
         v_old = self.v.copy()
         if diis is not None:
             self.v = diis.update(self.v)
 
         self.sc_fock += self.v
-        self.v_frag_hist.append(v_frag.copy())
-        self.v_hist.append(self.v.copy())
-        self.fock_hist.append(self.sc_fock.copy())
+
+        gap = lambda es: e[len(e)//2] - e[len(e)//2-1]
+        static_gap = gap(energies)
+
+        if self.store_hist:        
+            self.v_frag_hist.append(v_frag.copy())
+            self.v_hist.append(self.v.copy())
+            self.fock_hist.append(self.sc_fock.copy())
+            self.static_gap_hist.append(static_gap)
+            self.dynamic_gap_hist.append(dynamic_gap)
 
         if self.sc:
             #mf = LatticeRHF(self.emb.mf.mol)
@@ -116,12 +127,24 @@ class QPEWDMET_RHF(SCMF):
                 return self.sc_fock
             mf.get_fock = get_fock
             e_tot = mf.kernel()
+
             mo_coeff = mf.mo_coeff
             scf_conv = mf.converged
+            static_gap = gap(mf.mo_energy) 
             self.log.info("SCF converged: {}, energy: {:.6f}".format(scf_conv, e_tot))
         else:
             e, mo_coeff = scipy.linalg.eigh(self.sc_fock, self.emb.get_ovlp())
-            assert np.allclose(self.sc_fock, self.sc_fock.T)
+            static_gap = gap(e)
+        if self.store_hist:        
+            self.v_frag_hist.append(v_frag.copy())
+            self.v_hist.append(self.v.copy())
+            self.fock_hist.append(self.sc_fock.copy())
+            self.static_gap_hist.append(static_gap)
+            self.dynamic_gap_hist.append(dynamic_gap)
+
+
+        self.log.info("Dynamic Gap = %f"%dynamic_gap)
+        self.log.info("Static Gap = %f"%static_gap)
         return mo_coeff
 
     def check_convergence(self, e_tot, dm1, e_last=None, dm1_last=None, etol=None, dtol=None):
