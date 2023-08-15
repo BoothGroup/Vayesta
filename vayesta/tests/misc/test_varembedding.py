@@ -36,6 +36,11 @@ class Test_UHF_var_emb(TestCase):
 class Test_RHF_var_emb(TestCase):
     @classmethod
     def setUpClass(cls):
+        try:
+            import pygnme
+        except ImportError:
+            pytest.skip("Variational Embedding requires pygnme")
+
         cls.mf = testsystems.h6_sto6g.rhf()
 
     @classmethod
