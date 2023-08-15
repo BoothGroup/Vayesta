@@ -24,8 +24,9 @@ class QPEWDMET_RHF(SCMF):
         self.v_last = None
         self.v_conv_tol = v_conv_tol
         self.proj = proj
+        self.store_hist = store_hist    
 
-        if 1:
+        if self.store_hist:
             self.v_hist = []
             self.v_frag_hist = []
             self.fock_hist = []
@@ -98,7 +99,8 @@ class QPEWDMET_RHF(SCMF):
         energies = np.concatenate(energies)
         self.se = Lehmann(energies, couplings)
 
-        dynamic_gap = gap(energies)
+        gap = lambda e: e[len(e)//2] - e[len(e)//2-1]
+        dynamic_gap = gap(self.se.energies)
 
         v_old = self.v.copy()
         if diis is not None:
@@ -106,7 +108,7 @@ class QPEWDMET_RHF(SCMF):
 
         self.sc_fock += self.v
 
-        gap = lambda es: e[len(e)//2] - e[len(e)//2-1]
+        
         static_gap = gap(energies)
 
         if self.store_hist:        
