@@ -85,14 +85,15 @@ class FCI_Solver(ClusterSolver):
                  from dyson.expressions import FCI
             except ImportError:
                 self.log.error("Dyson not found - required for moment calculations")
-                self.log.info("Skipping in-cluster moment calculations")
+                self.log.info("Skipping cluster moment calculations")
                 return
-            self.log.info("Calculating in-cluster FCI moments %s"%str(nmom))
-            mf_clus, frozen = self.hamil.to_pyscf_mf(allow_dummy_orbs=True, allow_df=True)
-            expr = FCI["1h"](mf_clus, c_ci=self.civec)
-            self.hole_moments = expr.build_gf_moments(nmom[0])
-            expr = FCI["1p"](mf_clus, c_ci=self.civec)
-            self.particle_moments = expr.build_gf_moments(nmom[1])
+            self.log.info("Calculating cluster FCI moments %s"%str(nmom))
+            with log_time(self.log.timing, "Time for cluster FCI moments: %s"):
+                mf_clus, frozen = self.hamil.to_pyscf_mf(allow_dummy_orbs=True, allow_df=True)
+                expr = FCI["1h"](mf_clus, e_ci=e_fci, c_ci=self.civec, h1e=heff, h2e=eris)
+                self.hole_moments = expr.build_gf_moments(nmom[0])
+                expr = FCI["1p"](mf_clus, e_ci=e_fci, c_ci=self.civec, h1e=heff, h2e=eris)
+                self.particle_moments = expr.build_gf_moments(nmom[1])
 
 
 class UFCI_Solver(UClusterSolver, FCI_Solver):
