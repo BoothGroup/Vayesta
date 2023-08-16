@@ -36,7 +36,7 @@ class REBCC_WaveFunction(EBWavefunction, RCCSD_WaveFunction):
     _spin_type = "R"
     _driver = ebcc.REBCC
 
-    def __init__(self, mo, ansatz, amplitudes, lambdas=None, mbos=None, projector=None):
+    def __init__(self, mo, ansatz, amplitudes, lambdas=None, mbos=None, projector=None, xi=None):
         super().__init__(mo, mbos, projector)
         self.amplitudes = amplitudes
         if lambdas is not None and len(lambdas) == 0:
@@ -47,6 +47,11 @@ class REBCC_WaveFunction(EBWavefunction, RCCSD_WaveFunction):
         else:
             self.ansatz = ebcc.Ansatz.from_string(ansatz)
         self._eqns = self.ansatz._get_eqns(self._spin_type)
+        self.xi = xi
+
+    @property
+    def options(self):
+        return ebcc.util.Namespace(shift=self.xi is not None)
 
     @property
     def name(self):
@@ -115,22 +120,32 @@ class REBCC_WaveFunction(EBWavefunction, RCCSD_WaveFunction):
                 kwargs.update(kw)
         return kwargs
 
-    def make_rdm1(self,  t_as_lambda=False, with_mf=True, ao_basis=False):
+    def make_rdm1(self,  t_as_lambda=False, with_mf=True, ao_basis=False, hermitise=True, **kwargs):
         assert(not t_as_lambda and with_mf and not ao_basis)
-        return self._driver.make_rdm1_f(self, eris=False, amplitudes=self.amplitudes, lambdas=self.lambdas, hermitise=True)
+        return self._driver.make_rdm1_f(self, eris=False, amplitudes=self.amplitudes, lambdas=self.lambdas,
+                                        hermitise=True, **kwargs)
 
-    def make_rdm2(self, t_as_lambda=False, with_dm1=True, ao_basis=False, approx_cumulant=True):
+    def make_rdm2(self, t_as_lambda=False, with_dm1=True, ao_basis=False, approx_cumulant=False, hermitise=True,
+                  **kwargs):
         assert(not t_as_lambda and with_dm1 and not ao_basis and not approx_cumulant)
-        return self._driver.make_rdm2_f(self, eris=False, amplitudes=self.amplitudes, lambdas=self.lambdas, hermitise=True)
+        return self._driver.make_rdm2_f(self, eris=False, amplitudes=self.amplitudes, lambdas=self.lambdas,
+                                        hermitise=hermitise, **kwargs)
 
-    def make_rdm1_b(self, *args, **kwargs):
-        return self._driver.make_rdm1_b(self, eris=False, amplitudes=self.amplitudes, lambdas=self.lambdas, hermitise=True)
+    def make_rdm1_b(self, hermitise=True, **kwargs):
+        return self._driver.make_rdm1_b(self, eris=False, amplitudes=self.amplitudes, lambdas=self.lambdas,
+                                        hermitise=hermitise, **kwargs)
 
-    def make_sing_b_dm(self, *args, **kwargs):
-        return self._driver.make_sing_b_dm(self, eris=False, amplitudes=self.amplitudes, lambdas=self.lambdas, hermitise=True)
+    def make_sing_b_dm(self, hermitise=True, **kwargs):
+        return self._driver.make_sing_b_dm(self, eris=False, amplitudes=self.amplitudes, lambdas=self.lambdas,
+                                           hermitise=hermitise, **kwargs)
 
-    def make_eb_coup_rdm(self, *args, **kwargs):
-        return self._driver.make_eb_coup_rdm(self, eris=False, amplitudes=self.amplitudes, lambdas=self.lambdas, hermitise=True)
+    def make_rdm_eb(self, hermitise=True, **kwargs):
+        dmeb = self._driver.make_eb_coup_rdm(self, eris=False, amplitudes=self.amplitudes, lambdas=self.lambdas,
+                                             hermitise=hermitise, **kwargs)
+        return (dmeb[0].transpose((1, 2, 0)) / 2, dmeb[0].transpose((1, 2, 0)) / 2)
+
+    make_rdm1_f = make_rdm1
+    make_rdm2_f = make_rdm2
 
     def copy(self):
         proj = callif(spinalg.copy, self.projector)
@@ -293,3 +308,9 @@ class UEBCC_WaveFunction(REBCC_WaveFunction, UCCSD_WaveFunction):
     def make_rdm2(self, *args, **kwargs):
         dm2 = super().make_rdm2(*args, **kwargs)
         return dm2.aaaa, dm2.aabb, dm2.bbbb
+
+    def make_rdm_eb(self, hermitise=True, **kwargs):
+        dmeb = self._driver.make_eb_coup_rdm(self, eris=False, amplitudes=self.amplitudes, lambdas=self.lambdas,
+                                             hermitise=hermitise, **kwargs)
+
+        return (dmeb.aa[0].transpose(1, 2, 0), dmeb.bb[0].transpose(1, 2, 0))

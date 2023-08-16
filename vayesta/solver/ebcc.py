@@ -27,7 +27,7 @@ class REBCC_Solver(ClusterSolver):
 
         mf_clus.mo_coeff, space = self.get_space(self.hamil.cluster.c_active, mf_clus.mo_occ, frozen=frozen)
 
-        mycc = ebcc.EBCC(mf_clus, log=self.log, ansatz=self.opts.ansatz, space=space, **self.get_nonnull_solver_opts())
+        mycc = ebcc.EBCC(mf_clus, log=self.log, ansatz=self.opts.ansatz, space=space, shift=False, **self.get_nonnull_solver_opts())
         mycc.kernel()
         self.converged = mycc.converged
         if self.opts.solve_lambda:
@@ -69,7 +69,6 @@ class REBCC_Solver(ClusterSolver):
             except TypeError:
                 self.wf = CCSD_WaveFunction(mo, mycc.t1, mycc.t2)
         else:
-
             self.wf = EBCC_WaveFunction(mo, mycc.ansatz, mycc.amplitudes, mycc.lambdas, None)
 
         # Need to rotate wavefunction back into original cluster active space.
@@ -209,6 +208,20 @@ class EB_REBCC_Solver(REBCC_Solver):
         # EBCC wants contribution  g_{xpq} p^\\dagger q b; need to transpose to get this contribution.
         return self.hamil.couplings.transpose(0, 2, 1)
 
+    def construct_wavefunction(self, mycc, mo):
+
+        nbosons = len(self.hamil.bos_freqs)
+
+        class dummy_mbos:
+            @property
+            def nbos(self):
+                return nbosons
+
+        self.wf = EBCC_WaveFunction(mo, mycc.ansatz, mycc.amplitudes, mycc.lambdas, mbos=dummy_mbos(),
+                                    xi=self.hamil.polaritonic_shift)
+        self.wf.rotate(t=mycc.mo_coeff.T, inplace=True)
+
+
 class EB_UEBCC_Solver(EB_REBCC_Solver, UEBCC_Solver):
     @dataclasses.dataclass
     class Options(UEBCC_Solver.Options, EB_REBCC_Solver.Options):
@@ -217,6 +230,19 @@ class EB_UEBCC_Solver(EB_REBCC_Solver, UEBCC_Solver):
     def get_couplings(self):
         # EBCC wants contribution  g_{xpq} p^\\dagger q b; need to transpose to get this contribution.
         return tuple([x.transpose(0, 2, 1) for x in self.hamil.couplings])
+
+    def construct_wavefunction(self, mycc, mo):
+
+        nbosons = len(self.hamil.bos_freqs)
+
+        class dummy_mbos:
+            @property
+            def nbos(self):
+                return nbosons
+
+        self.wf = EBCC_WaveFunction(mo, mycc.ansatz, mycc.amplitudes, mycc.lambdas, mbos=dummy_mbos(),
+                                    xi=self.hamil.polaritonic_shift)
+        self.wf.rotate(t=[x.T for x in mycc.mo_coeff], inplace=True)
 
 
 def gen_space(c_occ, c_vir, co_active=None, cv_active=None, frozen_orbs=None):

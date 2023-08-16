@@ -688,7 +688,7 @@ class EDMETFragment(DMETFragment):
         dm2 = wf.make_rdm2()
         if self.nbos > 0:
             self.check_qba_approx(dm1)
-        dm_eb = wf.make_rdmeb()
+        dm_eb = wf.make_rdm_eb()
         self._results = results = self.Results(fid=self.id, n_active=self.cluster.norb_active,
                 converged=True, wf=wf, dm1=dm1, dm2=dm2, dm_eb=dm_eb)
         results.e1, results.e2, results.e_fb = self.get_edmet_energy_contrib()
