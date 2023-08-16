@@ -65,8 +65,11 @@ def transform_uc1(c1, to, tv):
 
 def transform_uc2(c2, to, tv):
     if c2 is None: return None
-    c2ba = (c2[2] if len(c2) == 4 else c2[1].transpose(1,0,3,2))
-    return (transform_c2(c2[0], to[0], tv[0]),
-            transform_c2(c2[1], to[0], tv[0], to[1], tv[1]),
-            transform_c2(c2ba, to[1], tv[1], to[0], tv[0]),
-            transform_c2(c2[-1], to[1], tv[1]))
+    c2aa = transform_c2(c2[0], to[0], tv[0])
+    c2ab = transform_c2(c2[1], to[0], tv[0], to[1], tv[1])
+    c2bb = transform_c2(c2[-1], to[1], tv[1])
+    if len(c2) == 4:
+        c2ba = transform_c2(c2[2], to[1], tv[1], to[0], tv[0])
+        return c2aa, c2ab, c2ba, c2bb
+    else:
+        return c2aa, c2ab, c2bb

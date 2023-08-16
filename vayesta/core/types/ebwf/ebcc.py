@@ -1,3 +1,10 @@
+"""WaveFunction for interaction with ebcc solvers for arbitrary ansatzes.
+We subclass existing CCSD wavefunction functionality for the various utility functions (projection, symmetrisation etc),
+but don't implement these for higher-order terms for now.
+Where ebcc and pyscf have different conventions, we store quantities following the ebcc convention and return values
+by pyscf convention for consistency and compatibility with existing interfaces.
+"""
+
 from vayesta.core.types.ebwf import EBWavefunction
 from vayesta.core.types import RCCSD_WaveFunction, UCCSD_WaveFunction
 from vayesta.core import spinalg
@@ -21,6 +28,9 @@ def EBCC_WaveFunction(mo, *args, **kwargs):
 
 # Subclass existing CC methods only for the various utility functions (projection, symmetrisation etc).
 # Just need to set properties to correctly interact with the ebcc storage objects.
+# Notable convention differences between ebcc and pyscf:
+# - ebcc includes an additional factor of 1/2 in the definition of T2aaaa, T2bbbb, L2aaaa, L2bbbb etc.
+# - ebcc stores lambda amplitudes ai, abij while pyscf stores them ia, ijab.
 class REBCC_WaveFunction(EBWavefunction, RCCSD_WaveFunction):
 
     _spin_type = "R"
@@ -61,25 +71,25 @@ class REBCC_WaveFunction(EBWavefunction, RCCSD_WaveFunction):
 
     @property
     def l1(self):
-        return None if self.lambdas is None else self.lambdas.l1
+        return None if self.lambdas is None else self.lambdas.l1.T
 
     @l1.setter
     def l1(self, value):
         if value is None: return
         if self.lambdas is None:
             self.lambdas = ebcc.util.Namespace()
-        self.lambdas.l1 = value
+        self.lambdas.l1 = value.T
 
     @property
     def l2(self):
-        return None if self.lambdas is None else self.lambdas.l2
+        return None if self.lambdas is None else self.lambdas.l2.transpose((2, 3, 0, 1))
 
     @l2.setter
     def l2(self, value):
         if value is None: return
         if self.lambdas is None:
             self.lambdas = ebcc.util.Namespace()
-        self.lambdas.l2 = value
+        self.lambdas.l2 = value.transpose((2, 3, 0, 1))
 
     def _load_function(self, *args, **kwargs):
         return self._driver._load_function(self, *args, **kwargs)
@@ -199,11 +209,11 @@ class UEBCC_WaveFunction(REBCC_WaveFunction, UCCSD_WaveFunction):
 
     @property
     def l1a(self):
-        return None if self.lambdas is None else self.lambdas.l1.aa
+        return None if self.lambdas is None else self.lambdas.l1.aa.T
 
     @property
     def l1b(self):
-        return None if self.lambdas is None else self.lambdas.l1.bb
+        return None if self.lambdas is None else self.lambdas.l1.bb.T
 
     @property
     def l1(self):
@@ -214,16 +224,16 @@ class UEBCC_WaveFunction(REBCC_WaveFunction, UCCSD_WaveFunction):
         if value is None: return
         if self.lambdas is None:
             self.lambdas = ebcc.util.Namespace()
-        self.lambdas.l1.aa = value[0]
-        self.lambdas.l1.bb = value[1]
+        self.lambdas.l1.aa = value[0].T
+        self.lambdas.l1.bb = value[1].T
 
     @property
     def l2aa(self):
-        return None if self.lambdas is None else self.lambdas.l2.aaaa
+        return None if self.lambdas is None else 2 * self.lambdas.l2.aaaa.transpose(2, 3, 0, 1)
 
     @property
     def l2ab(self):
-        return None if self.lambdas is None else self.lambdas.l2.abab
+        return None if self.lambdas is None else self.lambdas.l2.abab.transpose(2, 3, 0, 1)
 
     @property
     def l2ba(self):
@@ -236,7 +246,7 @@ class UEBCC_WaveFunction(REBCC_WaveFunction, UCCSD_WaveFunction):
 
     @property
     def l2bb(self):
-        return None if self.lambdas is None else self.lambdas.l2.bbbb
+        return None if self.lambdas is None else 2 * self.lambdas.l2.bbbb.transpose(2, 3, 0, 1)
 
     @property
     def l2(self):
@@ -247,11 +257,11 @@ class UEBCC_WaveFunction(REBCC_WaveFunction, UCCSD_WaveFunction):
         if value is None: return
         if self.lambdas is None:
             self.lambdas = ebcc.util.Namespace()
-        self.lambdas.l2.aaaa = value[0]
-        self.lambdas.l2.abab = value[1]
-        self.lambdas.l2.bbbb = value[-1]
+        self.lambdas.l2.aaaa = value[0].transpose(2, 3, 0, 1) / 2.0
+        self.lambdas.l2.abab = value[1].transpose(2, 3, 0, 1)
+        self.lambdas.l2.bbbb = value[-1].transpose(2, 3, 0, 1) / 2.0
         if len(value) == 4:
-            self.lambdas.l2.baba = value[2]
+            self.lambdas.l2.baba = value[2].transpose(2, 3, 0, 1)
 
     def _pack_codegen_kwargs(self, *extra_kwargs, eris=False):
         """
@@ -277,9 +287,9 @@ class UEBCC_WaveFunction(REBCC_WaveFunction, UCCSD_WaveFunction):
         return kwargs
 
     def make_rdm1(self, *args, **kwargs):
-        dm1 = super(REBCC_WaveFunction, self).make_rdm1(*args, **kwargs)
+        dm1 = super().make_rdm1(*args, **kwargs)
         return dm1.aa, dm1.bb
 
     def make_rdm2(self, *args, **kwargs):
-        dm2 = super(REBCC_WaveFunction, self).make_rdm2(*args, **kwargs)
+        dm2 = super().make_rdm2(*args, **kwargs)
         return dm2.aaaa, dm2.aabb, dm2.bbbb
