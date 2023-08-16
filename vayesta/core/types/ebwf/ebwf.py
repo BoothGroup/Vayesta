@@ -2,7 +2,7 @@ from vayesta.core.types import wf
 from vayesta.core.util import AbstractMethodError
 
 class EBWavefunction(wf.WaveFunction):
-    def __init__(self, mo, mbos, projector=None):
+    def __init__(self, mo, mbos=None, projector=None):
         super().__init__(mo, projector)
         self.mbos = mbos
 
