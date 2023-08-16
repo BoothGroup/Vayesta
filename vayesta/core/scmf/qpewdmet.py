@@ -15,7 +15,7 @@ class QPEWDMET_RHF(SCMF):
     """ Quasi-particle self-consistent energy weighted density matrix embedding """
     name = "QP-EWDMET"
 
-    def __init__(self, emb, proj=2, v_conv_tol=1e-5, eta=1e-4, sc=True, store_hist=True, *args, **kwargs):
+    def __init__(self, emb, proj=2, v_conv_tol=1e-5, eta=1e-4, damping=0, sc=True, store_hist=True, *args, **kwargs):
         self.sc_fock = emb.get_fock()
         self.sc = sc
         self.eta = eta # Broadening factor
@@ -106,7 +106,8 @@ class QPEWDMET_RHF(SCMF):
         if diis is not None:
             self.v = diis.update(self.v)
 
-        self.sc_fock += self.v
+        new_fock = self.sc_fock + self.v
+        self.sc_fock = damping * self.sc_fock + (1-damping) * new_fock
 
         
         static_gap = gap(energies)
