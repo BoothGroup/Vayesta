@@ -73,6 +73,6 @@ class TestEBCCWavefunctions(TestCase):
     def test_rccsdt_water_sto3g(self):
         return self._test('water_sto3g', 'rhf', 'CCSDT')
 
-    @pytest.mark.veryslow
+    @pytest.mark.slow
     def test_uccsdt_water_cation_sto3g(self):
         return self._test('water_cation_sto3g', 'uhf', 'CCSDT')

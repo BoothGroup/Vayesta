@@ -51,7 +51,7 @@ class TestEBCC(TestCase):
     def test_rccsdt_water_sto3g(self):
         return self._test('water_sto3g', 'rhf', 'CCSDT')
 
-    @pytest.mark.veryslow
+    @pytest.mark.slow
     def test_uccsdt_water_cation_sto3g(self):
         return self._test('water_cation_sto3g', 'uhf', 'CCSDT')
 
@@ -94,7 +94,7 @@ class TestEBCCActSpace(TestCase):
     def test_uccsdtprime_water_sto3g_dmet(self):
         return self._test('water_sto3g', 'uhf', "CCSDt'", 'CCSDT', bathtype='dmet', setcas=False)
 
-    @pytest.mark.vslow
+    @pytest.mark.slow
     def test_rccsdtprime_h4_sto3g_setcas_full(self):
         return self._test('h4_sto3g', 'rhf', "CCSDt'", 'CCSDT', bathtype='full', setcas=True)
 
