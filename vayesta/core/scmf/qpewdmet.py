@@ -16,6 +16,27 @@ class QPEWDMET_RHF(SCMF):
     name = "QP-EWDMET"
 
     def __init__(self, emb, proj=2, v_conv_tol=1e-5, eta=1e-4, damping=0, sc=True, store_hist=True, *args, **kwargs):
+        """ 
+        Initialize QPEWDMET 
+        
+        Parameters
+        ----------
+        emb : QEmbedding o
+            Embedding object on which self consitency is based
+        proj : int 
+            Number of fragment projectors applied to cluster self-energy
+        v_conv_tol : float
+            Convergence threshold in Klein potential
+        eta : float
+            Broadening factor for Klein potential
+        damping : float
+            Damping factor for Fock matrix update
+        sc : bool
+            Use self-consistent determination of MOs for new Fock matrix
+        store_hist : bool
+            Store history throughout SCMF calculation (for debugging purposes)
+        """
+        
         self.sc_fock = emb.get_fock()
         self.sc = sc
         self.eta = eta # Broadening factor
@@ -36,6 +57,23 @@ class QPEWDMET_RHF(SCMF):
         super().__init__(emb, *args, **kwargs)
 
     def update_mo_coeff(self, mf, diis=None):
+        
+        """
+        Get new MO coefficients for a SCMF iteration.
+
+        Parameters
+        ----------
+        mf : PySCF compatible SCF object
+            Mean-field object.
+        diis : pyscf.lib.diis.DIIS object, optional
+            DIIS object.
+
+        Returns
+        -------
+        mo_coeff : ndarray
+            New MO coefficients.
+        """
+
         if self.v is not None:
             self.v_last = self.v.copy()
         couplings = []
@@ -160,6 +198,17 @@ class QPEWDMET_RHF(SCMF):
         return False, dv, ddm
 
     def get_greens_function(self):
+        """ 
+        Calculate the dynamic and static Green's function in the Lehmann representation
+        
+        Returns
+        -------
+        gf : Lehmann
+            Dynamic Green's function from Block Lanczos
+        gf_qp : Lehmann
+            Static Green's function from Fock matrix + Klein potential
+         """
+
 
         # Shift final auxiliaries to ensure right particle number
         nelec = self.emb.mf.mol.nelectron
