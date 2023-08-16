@@ -110,7 +110,7 @@ exclude_lines = [
 ]
 
 [tool.pytest.ini_options]
-addopts = "--import-mode=importlib -k 'not veryslow'"
+addopts = "--import-mode=importlib"
 testpaths = ["vayesta/tests"]
 markers = [
     "fast",
