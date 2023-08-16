@@ -2,7 +2,7 @@ import dataclasses
 
 import numpy as np
 
-from vayesta.core.types import WaveFunction, CCSD_WaveFunction
+from vayesta.core.types import WaveFunction, CCSD_WaveFunction, EBCC_WaveFunction
 from vayesta.core.util import dot, einsum
 from vayesta.solver.solver import ClusterSolver, UClusterSolver
 import ebcc
@@ -17,14 +17,9 @@ class REBCC_Solver(ClusterSolver):
         max_cycle: int = 200  # Max number of iterations
         conv_tol: float = None  # Convergence energy tolerance
         conv_tol_normt: float = None  # Convergence amplitude tolerance
-        store_as_ccsd: bool = True # Store results as CCSD_WaveFunction
+        store_as_ccsd: bool = False # Store results as CCSD_WaveFunction
         c_cas_occ: np.array = None  # Hacky place to put active space orbitals.
         c_cas_vir: np.array = None
-
-
-    @property
-    def is_fCCSD(self):
-        return self.opts.store_as_ccsd or self.opts.ansatz == "CCSD"
 
     def kernel(self):
         # Use pyscf mean-field representation.
@@ -67,25 +62,18 @@ class REBCC_Solver(ClusterSolver):
         return opts
 
     def construct_wavefunction(self, mycc, mo):
-        if self.is_fCCSD:
+        if self.opts.store_as_ccsd:
             # Can use existing functionality
             try:
                 self.wf = CCSD_WaveFunction(mo, mycc.t1, mycc.t2, l1=mycc.l1.T, l2=mycc.l2.transpose(2, 3, 0, 1))
             except TypeError:
                 self.wf = CCSD_WaveFunction(mo, mycc.t1, mycc.t2)
-            self.wf.rotate(t=mycc.mo_coeff.T, inplace=True)
         else:
-            if not (np.allclose(mycc.mo_coeff, np.eye(mycc.nmo), atol=1e-8)):
-                raise ValueError("Generic wavefunction construction only works for canonical orbitals, please use "
-                                 "`store_as_ccsd=True' in solver_options")
-            self.log.warning(
-                "Storing EBCC wavefunction as generic wavefunction object; wavefunction-based estimators will not work.")
-            # Simply alias required quantities for now; this could allow functionality for arbitrary orders of CC via ebcc.
-            self.wf = WaveFunction(mo)
-            self.wf.make_rdm1 = mycc.make_rdm1_f
-            self.wf.make_rdm2 = mycc.make_rdm2_f
+
+            self.wf = EBCC_WaveFunction(mo, mycc.ansatz, mycc.amplitudes, mycc.lambdas, None)
 
         # Need to rotate wavefunction back into original cluster active space.
+        self.wf.rotate(t=mycc.mo_coeff.T, inplace=True)
 
     def _debug_exact_wf(self, wf):
         assert (self.is_fCCSD)
@@ -140,7 +128,7 @@ class UEBCC_Solver(UClusterSolver, REBCC_Solver):
 
     # This should automatically work other than ensuring spin components are in a tuple.
     def construct_wavefunction(self, mycc, mo):
-        if self.is_fCCSD:
+        if self.opts.store_as_ccsd:
             # Can use existing functionality
             def to_spin_tuple1(x):
                 return x.aa, x.bb
@@ -167,27 +155,11 @@ class UEBCC_Solver(UClusterSolver, REBCC_Solver):
                                             to_spin_tuple1(mycc.t1),
                                             to_spin_tuple2(mycc.t2)
                                             )
-            self.wf.rotate(t=[x.T for x in mycc.mo_coeff], inplace=True)
         else:
-            # Simply alias required quantities for now; this ensures functionality for arbitrary orders of CC.
-            self.wf = WaveFunction(mo)
-            if not (np.allclose(mycc.mo_coeff[0], np.eye(mycc.nmo), atol=1e-8) and
-                    np.allclose(mycc.mo_coeff[1], np.eye(mycc.nmo), atol=1e-8)):
-                raise ValueError("Generic wavefunction construction only works for canonical orbitals, please use "
-                                 "`store_as_ccsd=True' in solver_options")
-            self.log.warning(
-                "Storing EBCC wavefunction as generic wavefunction object; wavefunction-based estimators will not work.")
-            def make_rdm1(*args, **kwargs):
-                dm = mycc.make_rdm1_f(*args, **kwargs)
-                return (dm.aa, dm.bb)
+            self.wf = EBCC_WaveFunction(mo, mycc.ansatz, mycc.amplitudes, mycc.lambdas, None)
 
-            self.wf.make_rdm1 = make_rdm1
+        self.wf.rotate(t=[x.T for x in mycc.mo_coeff], inplace=True)
 
-            def make_rdm2(*args, **kwargs):
-                dm = mycc.make_rdm2_f(*args, **kwargs)
-                return (dm.aaaa, dm.aabb, dm.bbbb)
-
-            self.wf.make_rdm2 = make_rdm2
 
     def _debug_exact_wf(self, wf):
         mo = self.hamil.mo
@@ -225,13 +197,7 @@ class EB_REBCC_Solver(REBCC_Solver):
     @dataclasses.dataclass
     class Options(REBCC_Solver.Options):
         ansatz: str = "CCSD-S-1-1"
-        fermion_wf: bool = False
-
-    @property
-    def is_fCCSD(self):
-        if self.opts.fermion_wf:
-            return super().is_fCCSD
-        return False
+        store_as_ccsd: bool = False  # Store results as fermionic CCSD_WaveFunction
 
     def get_nonnull_solver_opts(self):
         opts = super().get_nonnull_solver_opts()
@@ -243,18 +209,6 @@ class EB_REBCC_Solver(REBCC_Solver):
         # EBCC wants contribution  g_{xpq} p^\\dagger q b; need to transpose to get this contribution.
         return self.hamil.couplings.transpose(0, 2, 1)
 
-    def construct_wavefunction(self, mycc, mo):
-        super().construct_wavefunction(mycc, mo)
-
-        def make_rdmeb(*args, **kwargs):
-            dm = mycc.make_eb_coup_rdm()
-            # We just want the bosonic excitation component.
-            dm = dm[0].transpose(1, 2, 0)
-            return (dm / 2, dm / 2)
-
-        self.wf.make_rdmeb = make_rdmeb
-
-
 class EB_UEBCC_Solver(EB_REBCC_Solver, UEBCC_Solver):
     @dataclasses.dataclass
     class Options(UEBCC_Solver.Options, EB_REBCC_Solver.Options):
@@ -263,17 +217,6 @@ class EB_UEBCC_Solver(EB_REBCC_Solver, UEBCC_Solver):
     def get_couplings(self):
         # EBCC wants contribution  g_{xpq} p^\\dagger q b; need to transpose to get this contribution.
         return tuple([x.transpose(0, 2, 1) for x in self.hamil.couplings])
-
-    def construct_wavefunction(self, mycc, mo):
-        super().construct_wavefunction(mycc, mo)
-
-        def make_rdmeb(*args, **kwargs):
-            dm = mycc.make_eb_coup_rdm()
-            # We just want the bosonic excitation component.
-            dm = (dm.aa[0].transpose(1, 2, 0), dm.bb[0].transpose(1, 2, 0))
-            return dm
-
-        self.wf.make_rdmeb = make_rdmeb
 
 
 def gen_space(c_occ, c_vir, co_active=None, cv_active=None, frozen_orbs=None):
