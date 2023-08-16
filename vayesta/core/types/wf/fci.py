@@ -1,8 +1,10 @@
 import numpy as np
 import pyscf
 import pyscf.fci
-from vayesta.core.util import decompress_axes, dot, einsum, tril_indices_ndim, replace_attr
+from vayesta.core.util import decompress_axes, dot, einsum, tril_indices_ndim, callif, replace_attr
 from vayesta.core.types import wf as wf_types
+import scipy.sparse.linalg
+from vayesta.core import spinalg
 
 def FCI_WaveFunction(mo, ci, **kwargs):
     if mo.nspin == 1:
@@ -17,6 +19,10 @@ class RFCI_WaveFunction(wf_types.WaveFunction):
     def __init__(self, mo, ci, projector=None):
         super().__init__(mo, projector=projector)
         self.ci = ci
+
+    @property
+    def nfci(self):
+        return self.ci.size
 
     def make_rdm1(self, ao_basis=False, with_mf=True):
         dm1 = pyscf.fci.direct_spin1.make_rdm1(self.ci, self.norb, self.nelec)
@@ -47,7 +53,53 @@ class RFCI_WaveFunction(wf_types.WaveFunction):
         return einsum('ijkl,ai,bj,ck,dl->abcd', dm2, *(4*[self.mo.coeff]))
 
     def project(self, projector, inplace=False):
-        raise NotImplementedError
+        """Apply one-body projector to the FCI wavefunction using pyscf.
+        This is assumed to  indicate a one-body
+        """
+        wf = self if inplace else self.copy()
+        # Apply one-body operator of projector to ci string.
+        wf.ci = self._apply_onebody(projector)
+        return wf
+
+    def project_occ(self, projector, inplace=False):
+        """Apply projector onto the occupied indices of all CI coefficient tensors.
+        Note that `projector` is nocc x nocc.
+
+        Action of occupied projector can be written as
+        P^{x}_{occ} = P_{ij}^{x}
+        """
+        c0 = self.c0
+        # Get result of applying bare projector; need to keep original ci string just in case
+        ci0 = self.ci
+        # Pad projector from occupied to full orbital space.
+        projector = np.pad(projector, ((0, self.nvir),)).T
+
+        wf = self.project(projector, inplace)
+        wf.ci = (2*sum(np.diag(projector)) * ci0 - wf.ci) / c0
+
+        # Now just have to divide each coefficient by its excitation level; this corresponds to action of
+        #    R^{-1} = (1 + \sum_{i\in occ} i i^+)^{-1} = (N_{elec} + 1 - \sum_{i\in occ} i^+ i)^{-1}
+        # So we seek x to solve
+        #           x = R^{-1} a
+        # which could be obtained straightforwardly by solving
+        #           Rx = a.
+        # In practice, it is more stable to just compute the excitation level of each state and divide by it.
+        mf_vdensity_op = np.eye(self.norb) - np.pad(np.eye(self.nocc), ((0, self.nvir),))
+
+        # Set up sparse LinearOperator object to apply the hole counting operator to the FCI string.
+        def myop(ci):
+            return self._apply_onebody(mf_vdensity_op, ci)
+
+        cishape = wf.ci.shape
+        # Calculate excitation level+1 for all states using this operation.
+        ex_lvl = myop(np.full_like(wf.ci, fill_value=1.0).reshape(-1)).reshape(cishape)
+        ex_lvl[0,0] = 1.0
+        wf.ci = einsum("pq,pq->pq", ex_lvl**(-1), wf.ci)
+        return wf
+
+    def _apply_onebody(self, proj, ci=None):
+        ci = self.ci if ci is None else ci
+        return pyscf.fci.direct_spin1.contract_1e(proj, ci, self.norb, self.nelec)
 
     def restore(self, projector=None, inplace=False):
         raise NotImplementedError
@@ -55,6 +107,10 @@ class RFCI_WaveFunction(wf_types.WaveFunction):
     @property
     def c0(self):
         return self.ci[0,0]
+
+    def copy(self):
+        proj = callif(spinalg.copy, self.projector)
+        return type(self)(self.mo.copy(), spinalg.copy(self.ci), projector=proj)
 
     def as_unrestricted(self):
         mo = self.mo.to_spin_orbitals()
@@ -212,6 +268,47 @@ class UFCI_WaveFunction(RFCI_WaveFunction):
         return (einsum('ijkl,ai,bj,ck,dl->abcd', dm2[0], *(4*[moa])),
                 einsum('ijkl,ai,bj,ck,dl->abcd', dm2[1], *[moa, moa, mob, mob]),
                 einsum('ijkl,ai,bj,ck,dl->abcd', dm2[2], *(4*[mob])))
+
+    def project_occ(self, projector, inplace=False):
+        """Apply projector onto the occupied indices of all CI coefficient tensors.
+        Note that `projector` is nocc x nocc.
+
+        Action of occupied projector can be written as
+        P^{x}_{occ} = P_{ij}^{x}
+        """
+        c0 = self.c0
+        # Get result of applying bare projector; need to keep original ci string just in case
+        ci0 = self.ci
+        # Pad projector from occupied to full orbital space.
+        projector = (np.pad(projector[0], ((0, self.nvir[0]),)).T, np.pad(projector[1], ((0, self.nvir[1]),)).T)
+
+        wf = self.project(projector, inplace)
+        wf.ci = ((projector[0].trace() + projector[1].trace()) * ci0 - wf.ci) / c0
+
+        # Now just have to divide each coefficient by its excitation level; this corresponds to action of
+        #    R^{-1} = (1 + \sum_{i\in occ} i i^+)^{-1} = (N_{elec} + 1 - \sum_{i\in occ} i^+ i)^{-1}
+        # So we seek x to solve
+        #           x = R^{-1} a
+        # which could be obtained straightforwardly by solving
+        #           Rx = a.
+        # In practice, it is more stable to just compute the excitation level of each state and divide by it.
+        mf_vdensity_op = tuple([np.eye(self.norb[i]) - np.pad(np.eye(self.nocc[i]), ((0, self.nvir[i]),)) for i in [0, 1]])
+
+        # Set up sparse LinearOperator object to apply the hole counting operator to the FCI string.
+        def myop(ci):
+            return self._apply_onebody(mf_vdensity_op, ci)
+
+        cishape = wf.ci.shape
+        # Calculate excitation level+1 for all states using this operation.
+        ex_lvl = myop(np.full_like(wf.ci, fill_value=1.0).reshape(-1)).reshape(cishape)
+        ex_lvl[0,0] = 1.0
+        wf.ci = einsum("pq,pq->pq", ex_lvl**(-1), wf.ci)
+        return wf
+
+    def _apply_onebody(self, proj, ci=None):
+        ci = self.ci if ci is None else ci
+        assert(self.norb[0] == self.norb[1])
+        return pyscf.fci.direct_uhf.contract_1e(proj, ci, self.norb[0], self.nelec)
 
     def as_cisd(self, c0=None):
         if self.projector is not None:

@@ -95,6 +95,8 @@ import_package('mpi4py', False)
 import_package('cvxpy', False)
 dyson = import_package('dyson', False)
 ebcc = import_package('ebcc', False)
+import_package('pygnme', False)
+
 
 # --- Git hashes
 
