@@ -88,6 +88,13 @@ class Options(OptionsBase):
         addbuffer_occ=None, addbuffer_dmet_vir=None,
         canonicalize_occ=None, canonicalize_vir=None,
         )
+    # --- Bosonic bath options
+    bosonic_bath_options: dict = OptionsBase.dict_with_defaults(
+        # General
+        bathtype='drpa',
+        # projection options.
+
+        )
     # --- Solver options
     solver_options: dict = OptionsBase.dict_with_defaults(
             # General

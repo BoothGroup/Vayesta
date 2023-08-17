@@ -42,6 +42,7 @@ class Options(OptionsBase):
     # ------------------------
     # --- Bath options
     bath_options: dict = None
+    boson_bath_options: dict = None
     # --- Solver options
     solver_options: dict = None
     # --- Other
@@ -888,6 +889,14 @@ class Fragment:
 
         self.cluster = cluster
         return cluster
+
+    def get_bosonic_target_space(self):
+        """Get the target space for bosonic bath orbitals. This can either be the DMET cluster or the full space, and
+        can include a projection onto the fragment."""
+        pass
+
+    def set_bosonic_cluster(self):
+        """Set bosonic component of the """
 
     # --- Results
     # ===========
