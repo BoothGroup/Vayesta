@@ -10,7 +10,7 @@ if __name__ == "__main__":
         "--cov=vayesta",
     ]
 
-    if len(sys.argv) == 1 or sys.argv[1] != "--with-veryslow":
-        args.append("-m not veryslow")
+    if not (len(sys.argv) == 1 or sys.argv[1] != "--with-veryslow"):
+        args.append("-m veryslow or not veryslow")
 
     raise SystemExit(pytest.main(args))
