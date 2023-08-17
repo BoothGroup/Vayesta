@@ -134,8 +134,8 @@ def calc_ci_elements_uhf(ci, h1e, h2e, ovlp, mo, nmo, nocc, nact, ncore, enuc=0.
                             rdm1[x, w, 0] += tmpPa * ci[w][iwa, iwb] * ci[x][ixa, ixb]
                             rdm1[x, w, 1] += tmpPb * ci[w][iwa, iwb] * ci[x][ixa, ixb]
 
-            rdm1[x, w, 0] = np.linalg.multi_dot((mo2[0], rdm1[x, w, 0], mo1[0].T))
-            rdm1[x, w, 0] = np.linalg.multi_dot((mo2[1], rdm1[x, w, 1], mo1[1].T))
+            rdm1[x, w, 0] = np.linalg.multi_dot((mo[w][0], rdm1[x, w, 0], mo[x][0].T))
+            rdm1[x, w, 0] = np.linalg.multi_dot((mo[w][1], rdm1[x, w, 1], mo[x][1].T))
 
             h[w, x] = h[x, w]
             s[w, x] = s[x, w]
