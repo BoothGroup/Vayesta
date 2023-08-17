@@ -145,7 +145,7 @@ class QPEWDMET_RHF(SCMF):
             self.v = diis.update(self.v)
 
         new_fock = self.sc_fock + self.v
-        self.sc_fock = damping * self.sc_fock + (1-damping) * new_fock
+        self.sc_fock = self.damping * self.sc_fock + (1-self.damping) * new_fock
 
         
         static_gap = gap(energies)
