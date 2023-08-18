@@ -9,29 +9,37 @@ import pyscf.lib
 
 
 def get_cderi(emb, mo_coeff, compact=False, blksize=None):
-    """Get density-fitted three-center integrals in MO basis."""
     if compact:
         raise NotImplementedError()
     if emb.kdf is not None:
         return kao2gmo_cderi(emb.kdf, mo_coeff)
+    else:
+        return get_cderi_df(emb.mf, mo_coeff, compact=compact, blksize=blksize)
+
+
+def get_cderi_df(mf, mo_coeff, compact=False, blksize=None):
+    """Get density-fitted three-center integrals in MO basis."""
+    if compact:
+        raise NotImplementedError()
 
     if np.ndim(mo_coeff[0]) == 1:
         mo_coeff = (mo_coeff, mo_coeff)
 
-    nao = emb.mol.nao
+    nao = mf.mol.nao
+    df = mf.with_df
     try:
-        naux = (emb.df.auxcell.nao if hasattr(emb.df, 'auxcell') else emb.df.auxmol.nao)
+        naux = (df.auxcell.nao if hasattr(df, 'auxcell') else df.auxmol.nao)
     except AttributeError:
-        naux = emb.df.get_naoaux()
+        naux = df.get_naoaux()
 
     cderi = np.zeros((naux, mo_coeff[0].shape[-1], mo_coeff[1].shape[-1]))
     cderi_neg = None
     if blksize is None:
         blksize = int(1e9 / naux * nao * nao * 8)
     # PBC:
-    if hasattr(emb.df, 'sr_loop'):
+    if hasattr(df, 'sr_loop'):
         blk0 = 0
-        for labr, labi, sign in emb.df.sr_loop(compact=False, blksize=blksize):
+        for labr, labi, sign in df.sr_loop(compact=False, blksize=blksize):
             assert np.allclose(labi, 0)
             assert (cderi_neg is None)  # There should be only one block with sign -1
             labr = labr.reshape(-1, nao, nao)
@@ -45,7 +53,7 @@ def get_cderi(emb, mo_coeff, compact=False, blksize=None):
         return cderi, cderi_neg
     # No PBC:
     blk0 = 0
-    for lab in emb.df.loop(blksize=blksize):
+    for lab in df.loop(blksize=blksize):
         blk1 = (blk0 + lab.shape[0])
         blk = np.s_[blk0:blk1]
         blk0 = blk1
