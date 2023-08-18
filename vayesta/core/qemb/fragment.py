@@ -25,6 +25,9 @@ from vayesta.core.bath import MP2_Bath
 from vayesta.core.bath import Full_Bath
 from vayesta.core.bath import R2_Bath
 from vayesta.core.bath import RPA_Bath
+# Bosonic Bath
+from vayesta.core.bosonic_bath import RPA_Boson_Target_Space, RPA_QBA_Bath, Boson_Threshold
+from vayesta.core.types.bosonic_orbitals import QuasiBosonOrbitals
 
 # Other
 from vayesta.misc.cubefile import CubeFile
@@ -890,14 +893,31 @@ class Fragment:
         self.cluster = cluster
         return cluster
 
-    def get_bosonic_target_space(self):
+    def make_bosonic_bath_target(self):
         """Get the target space for bosonic bath orbitals. This can either be the DMET cluster or the full space, and
         can include a projection onto the fragment."""
-        pass
+        if self.opts.boson_bath_options.bathtype != "rpa":
+            return None, 0
 
-    def set_bosonic_cluster(self):
-        """Set bosonic component of the """
-        pass
+        target_space = RPA_Boson_Target_Space(self, target_orbitals=self.opts.boson_bath_options.target_orbitals,
+                                              local_projection=self.opts.boson_bath_options.local_projection)
+        target_excits = target_space.gen_target_excitation()
+        return target_excits, target_excits.shape[0]
+
+    def make_bosonic_cluster(self, m0_target):
+        """Set bosonic component of the cluster."""
+        if self.opts.boson_bath_options.bathtype != "rpa":
+            return
+
+        self._boson_bath_factory = RPA_QBA_Bath(self, target_m0=m0_target)
+
+        boson_threshold = Boson_Threshold(self.opts.boson_bath_options.truncation,
+                                          self.opts.boson_bath_options.threshold)
+
+        c_bath, c_frozen = self._boson_bath_factory.get_bath(boson_threshold=boson_threshold)
+        fullcluster = Cluster.from_coeffs(self.base.mo_coeff_occ, self.base.mo_coeff_vir, np.zeros((self.base.nao, 0)),
+                                          np.zeros((self.base.nao, 0)))
+        self.cluster.bosons = QuasiBosonOrbitals(fullcluster, coeff_ex=c_bath)
 
     # --- Results
     # ===========

@@ -139,7 +139,6 @@ class EWF(Embedding):
                 self.communicate_clusters()
 
         # --- Screened Coulomb interaction; either static or dynamic
-
         self.build_screened_interactions()
 
         # --- Loop over fragments with no symmetry parent and with own MPI rank

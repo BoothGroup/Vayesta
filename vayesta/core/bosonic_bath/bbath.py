@@ -1,5 +1,6 @@
-from vayesta.core.util import einsum, dot
+from vayesta.core.util import einsum, AbstractMethodError
 from vayesta.core.bath import BNO_Threshold, helper
+from vayesta.core.bath.bath import Bath
 import numpy as np
 import numbers
 
@@ -8,12 +9,11 @@ class Boson_Threshold(BNO_Threshold):
     def __init__(self, type, threshold):
         if type in ('electron-percent', 'excited-percent'):
             raise ValueError("Electron-percent and excited-percent are not supported truncations for bosonic baths.")
+        super().__init__(type, threshold)
 
-
-class Bosonic_Bath:
-    def __init__(self, target_m0, fragment):
-        self.target_m0 = target_m0
-        self.fragment = fragment
+class Bosonic_Bath(Bath):
+    def __init__(self, fragment):
+        super().__init__(fragment)
         self.coeff, self.occup = self.kernel()
 
     @property
@@ -36,19 +36,7 @@ class Bosonic_Bath:
         return coeff, occup
 
     def make_boson_coeff(self):
-        # Generate full local fermionic excitation space.
-        clus_ov = self.cluster_excitations
-        # Remove any contributions within the fermionic excitation space of the fragment.
-        m0_env = self.target_m0 - dot(dot(self.target_m0, clus_ov), clus_ov.T)
-        # Now we can construct the bosonic bath by diagonlising these contributions.
-        contribs = dot(m0_env, m0_env.T)
-        occup, c = np.linalg.eigh(contribs)
-        occuprtinv = occup ** (-0.5)
-
-        coeff = dot(m0_env.T, c * occuprtinv[None])
-        self.coeff = coeff
-        self.occup = occup
-        return coeff, occup
+        raise AbstractMethodError
 
     def get_bath(self, boson_threshold=None, **kwargs):
         return self.truncate_bosons(boson_threshold=boson_threshold, **kwargs)

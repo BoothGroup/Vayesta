@@ -92,8 +92,10 @@ class Options(OptionsBase):
     bosonic_bath_options: dict = OptionsBase.dict_with_defaults(
         # General
         bathtype=None,
-        # projection options.
+        # construction options.
         target_orbitals="full", local_projection='fragment',
+        # bath truncation options.
+        threshold=None, truncation='occupation'
         )
     # --- Solver options
     solver_options: dict = OptionsBase.dict_with_defaults(
@@ -671,24 +673,24 @@ class Embedding:
         self.log.info("==================")
 
         fragments = self.get_fragments(active=True, sym_parent=None, mpi_rank=mpi.rank)
-        fragdict = {f.id: f for f in fragments}
         with log_time(self.log.timing, "Total time for bath and clusters: %s"):
-            for x in fragments:
+
+            msg = "Generating required information for bosonic bath generation"
+            self.log.info(msg)
+            self.log.info(len(msg)*"-")
+            # Generate list of all required target information.
+            targets, ntarget = zip(*[x.make_bosonic_bath_target() for x in fragments])
+            target_rot = np.vstack([x for x in targets if x is not None])
+            rpa = ssRIRPA(self.mf)
+            moments = rpa.kernel_moms(max_moment=0, target_rot=target_rot)[0][0]
+            # Split this into individual fragment contributions.
+            moments = np.vsplit(moments, np.cumsum(ntarget)[:-1])
+            for x, moment in zip(fragments, moments):
                 msg = "Making bosonic bath for %s%s" % (x, (" on MPI process %d" % mpi.rank) if mpi else "")
                 self.log.info(msg)
                 self.log.info(len(msg)*"-")
                 with self.log.indent():
-                    if x._dmet_bath is None:
-                        # Make own bath:
-                        if x.flags.bath_parent_fragment_id is None:
-                            x.make_bath()
-                        # Copy bath (DMET, occupied, virtual) from other fragment:
-                        else:
-                            bath_parent = fragdict[x.flags.bath_parent_fragment_id]
-                            for attr in ('_dmet_bath', '_bath_factory_occ', '_bath_factory_vir'):
-                                setattr(x, attr, getattr(bath_parent, attr))
-                    if x._cluster is None:
-                        x.make_cluster()
+                    x.make_bosonic_cluster(moment)
 
 
     @log_method()

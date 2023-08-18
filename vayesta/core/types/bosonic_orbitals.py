@@ -29,6 +29,7 @@ class BosonicOrbitals:
         """This class represents a true bosonic excitation, so transformations of the fermionic basis have no effect."""
         pass
 
+
 class QuasiBosonOrbitals(BosonicOrbitals):
     """Class to represent quasi-bosonic excitations.
     Includes specification of orbital space
