@@ -21,6 +21,13 @@ class BosonicOrbitals:
     def nex(self):
         return self.coeff_ex.shape[1]
 
+    def copy(self):
+        return type(self)(coeff_ex=_copy(self.coeff_ex), coeff_dex=_copy(self.coeff_dex), energy=_copy(self.energy),
+                          labels=_copy(self.labels))
+
+    def fbasis_transform(self, *args, **kwargs):
+        """This class represents a true bosonic excitation, so transformations of the fermionic basis have no effect."""
+        pass
 
 class QuasiBosonOrbitals(BosonicOrbitals):
     """Class to represent quasi-bosonic excitations.
@@ -65,6 +72,16 @@ class QuasiBosonOrbitals(BosonicOrbitals):
             beta += dexb
         return alpha, beta
 
+    def copy(self):
+        return type(self)(forbitals=self.forbitals.copy(), coeff_ex=_copy(self.coeff_ex),
+                          coeff_dex=_copy(self.coeff_dex), energy=_copy(self.energy), labels=_copy(self.labels))
+
+    def fbasis_transform(self, trafo, inplace=False):
+        if not hasattr(trafo, '__len__'):
+            trafo = (trafo, trafo)
+        cp = self if inplace else self.copy()
+        cp.forbitals.basis_transform(trafo[0], inplace=True)
+        return cp
 
 def bcoeff_ov_to_o_v(cbos, no, nv):
     noa, nob = no if isinstance(no, tuple) else (no, no)
@@ -84,3 +101,17 @@ def bcoeff_mo2ao(cbos, co, cv, transpose=False):
 
     return _spinchannel_bcoeff_mo2ao(cbos[0], co[0], cv[0], transpose=transpose), \
         _spinchannel_bcoeff_mo2ao(cbos[1], co[1], cv[1], transpose=transpose)
+
+
+def _copy(x):
+    if x is None:
+        return None
+    if np.isscalar(x):
+        return x
+    if isinstance(x, tuple):
+        return tuple(_copy(y) for y in x)
+    if isinstance(x, list):
+        return [_copy(y) for y in x]
+    if isinstance(x, np.ndarray):
+        return x.copy()
+    raise ValueError

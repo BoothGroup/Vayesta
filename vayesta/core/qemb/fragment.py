@@ -897,6 +897,7 @@ class Fragment:
 
     def set_bosonic_cluster(self):
         """Set bosonic component of the """
+        pass
 
     # --- Results
     # ===========

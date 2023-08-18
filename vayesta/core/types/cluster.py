@@ -8,7 +8,7 @@ __all__ = ['Cluster', 'ClusterRHF', 'ClusterUHF']
 
 class Cluster:
 
-    def __init__(self, active_orbitals, frozen_orbitals):
+    def __init__(self, active_orbitals, frozen_orbitals, bosons=None):
         self.active_orbitals = active_orbitals
         self.frozen_orbitals = frozen_orbitals
         self.bosons = None
@@ -127,6 +127,8 @@ class Cluster:
         cp = self if inplace else self.copy()
         cp.active_orbitals.basis_transform(trafo, inplace=True)
         cp.frozen_orbitals.basis_transform(trafo, inplace=True)
+        if self.bosons is not None:
+            cp.bosons.fbasis_transform(trafo, inplace=True)
         return cp
 
 

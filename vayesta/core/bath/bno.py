@@ -12,7 +12,7 @@ class BNO_Threshold:
     def __init__(self, type, threshold):
         """
         number:             Fixed number of BNOs
-        occupation:         Occupation thresehold for BNOs ("eta")
+        occupation:         Occupation threshold for BNOs ("eta")
         truncation:         Maximum number of electrons to be ignored
         electron-percent:   Add BNOs until 100-x% of the total number of all electrons is captured
         excited-percent:    Add BNOs until 100-x% of the total number of excited electrons is captured

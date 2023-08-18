@@ -91,7 +91,7 @@ class Options(OptionsBase):
     # --- Bosonic bath options
     bosonic_bath_options: dict = OptionsBase.dict_with_defaults(
         # General
-        bathtype='drpa',
+        bathtype=None,
         # projection options.
         target_orbitals="full", local_projection='fragment',
         )
@@ -651,24 +651,52 @@ class Embedding:
 
     get_eris_object = eris.get_eris_object
 
-
     def build_screened_interactions(self, *args, **kwargs):
         """Build screened interactions, be they dynamic or static."""
 
-        if any([x.opts.screening is not None for x in self.fragments]):
+        have_static_screening = any([x.opts.screening is not None for x in self.fragments])
+        have_dynamic_screening = any([x.opts.bosonic_bath_options.bathtype is not None for x in self.fragments])
+
+        if have_static_screening and have_dynamic_screening:
+            raise ValueError("Cannot currently use both static screened coulomb interaction and bosonic baths at the same time.")
+
+        if have_static_screening:
             self.build_screened_eris(*args, **kwargs)
+        if have_dynamic_screening:
+            self.build_bosonic_bath(*args, **kwargs)
 
-        if
+    def build_bosonic_bath(self):
+        self.log.info("")
+        self.log.info("BOSONIC BATH SETUP")
+        self.log.info("==================")
 
-
-    def get_rpa_targets(self):
-        for
-
+        fragments = self.get_fragments(active=True, sym_parent=None, mpi_rank=mpi.rank)
+        fragdict = {f.id: f for f in fragments}
+        with log_time(self.log.timing, "Total time for bath and clusters: %s"):
+            for x in fragments:
+                msg = "Making bosonic bath for %s%s" % (x, (" on MPI process %d" % mpi.rank) if mpi else "")
+                self.log.info(msg)
+                self.log.info(len(msg)*"-")
+                with self.log.indent():
+                    if x._dmet_bath is None:
+                        # Make own bath:
+                        if x.flags.bath_parent_fragment_id is None:
+                            x.make_bath()
+                        # Copy bath (DMET, occupied, virtual) from other fragment:
+                        else:
+                            bath_parent = fragdict[x.flags.bath_parent_fragment_id]
+                            for attr in ('_dmet_bath', '_bath_factory_occ', '_bath_factory_vir'):
+                                setattr(x, attr, getattr(bath_parent, attr))
+                    if x._cluster is None:
+                        x.make_cluster()
 
 
     @log_method()
     @with_doc(build_screened_eris)
     def build_screened_eris(self, *args, **kwargs):
+        self.log.info("")
+        self.log.info("SCREENED INTERACTION SETUP")
+        self.log.info("==========================")
         nmomscr = len([x.opts.screening for x in self.fragments if x.opts.screening == "mrpa"])
         lov = None
         if self.opts.ext_rpa_correction:
