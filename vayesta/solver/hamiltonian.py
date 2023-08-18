@@ -7,6 +7,7 @@ import pyscf.scf
 
 from vayesta.core.util import dot, einsum, OptionsBase, break_into_lines, log_time, energy_string
 from vayesta.core.screening import screening_moment, screening_crpa
+from vayesta.core.bosonic_bath import BosonicHamiltonianProjector
 from vayesta.core.types import Orbitals
 from typing import Optional
 
@@ -25,7 +26,7 @@ def is_eb_ham(ham):
 
 def ClusterHamiltonian(fragment, mf, log=None, **kwargs):
     rhf = np.ndim(mf.mo_coeff[0]) == 1
-    eb = hasattr(fragment, "bos_freqs")
+    eb = hasattr(fragment, "bos_freqs") or fragment.cluster.inc_bosons
     if rhf:
         if eb:
             return EB_RClusterHamiltonian(fragment, mf, log=log, **kwargs)
@@ -744,12 +745,13 @@ class EB_RClusterHamiltonian(RClusterHamiltonian):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.unshifted_couplings = self._fragment.couplings
-        self.bos_freqs = self._fragment.bos_freqs
-        if self.opts.polaritonic_shift:
-            self.set_polaritonic_shift(self.bos_freqs, self.unshifted_couplings)
-        else:
-            self._polaritonic_shift = None
+
+        self._bos_freqs = None
+        self._unshifted_couplings = None
+
+        if hasattr(self._fragment, "bos_freqs"):
+            self.bos_freqs = self._fragment.bos_freqs
+            self.unshifted_couplings = self._fragment.couplings
 
     @property
     def polaritonic_shift(self):
@@ -764,6 +766,38 @@ class EB_RClusterHamiltonian(RClusterHamiltonian):
         if self.opts.polaritonic_shift:
             return self.get_polaritonic_shifted_couplings()
         return self.unshifted_couplings[0]
+
+    @property
+    def unshifted_couplings(self):
+        if self._unshifted_couplings is None:
+            self.generate_bosonic_interactions()
+        return self._unshifted_couplings
+
+    @unshifted_couplings.setter
+    def unshifted_couplings(self, value):
+        self._unshifted_couplings = value
+
+    @property
+    def bos_freqs(self):
+        if self._bos_freqs is None:
+            self.generate_bosonic_interactions()
+        return self._bos_freqs
+
+    @bos_freqs.setter
+    def bos_freqs(self, value):
+        self._bos_freqs = value
+
+    def initialise_bosons(self, bos_freqs, bos_couplings):
+        self.bos_freqs = bos_freqs
+        self.unshifted_couplings = bos_couplings
+        if self.opts.polaritonic_shift:
+            self.set_polaritonic_shift(self.bos_freqs, self.unshifted_couplings)
+        else:
+            self._polaritonic_shift = None
+
+    def generate_bosonic_interactions(self):
+        projector = BosonicHamiltonianProjector()
+        self.initialise_bosons(*projector.kernel())
 
     def set_polaritonic_shift(self, freqs, couplings):
         no = self.cluster.nocc_active
