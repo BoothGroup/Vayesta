@@ -11,6 +11,7 @@ class Cluster:
     def __init__(self, active_orbitals, frozen_orbitals):
         self.active_orbitals = active_orbitals
         self.frozen_orbitals = frozen_orbitals
+        self.bosons = None
 
     @staticmethod
     def from_coeffs(c_active_occ, c_active_vir, c_frozen_occ, c_frozen_vir):
@@ -114,6 +115,10 @@ class Cluster:
     @property
     def c_total_vir(self):
         return hstack_matrices(self.c_active_vir, self.c_frozen_vir)
+
+    @property
+    def inc_bosons(self):
+        return self.bosons is not None
 
     def copy(self):
         return type(self)(self.active_orbitals.copy(), self.frozen_orbitals.copy())

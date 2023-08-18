@@ -93,7 +93,7 @@ class Options(OptionsBase):
         # General
         bathtype='drpa',
         # projection options.
-
+        target_orbitals="full", local_projection='fragment',
         )
     # --- Solver options
     solver_options: dict = OptionsBase.dict_with_defaults(
@@ -650,6 +650,21 @@ class Embedding:
     get_eris_array = eris.get_eris_array
 
     get_eris_object = eris.get_eris_object
+
+
+    def build_screened_interactions(self, *args, **kwargs):
+        """Build screened interactions, be they dynamic or static."""
+
+        if any([x.opts.screening is not None for x in self.fragments]):
+            self.build_screened_eris(*args, **kwargs)
+
+        if
+
+
+    def get_rpa_targets(self):
+        for
+
+
 
     @log_method()
     @with_doc(build_screened_eris)

@@ -1,8 +1,12 @@
 from vayesta.core.bath.bath import Bath
 from vayesta.core.util import dot, einsum
+import numpy as np
 
-
-class RPA_Boson_Bath(Bath):
+class RPA_Boson_Target_Space(Bath):
+    """Class to obtain the target excitation space from which we'll construct our bosonic bath.
+    This can either start from either the DMET or fully extended cluster, and can be optionally projected onto
+    excitations local to the fragment in either just the occupied space or both the occupied and virtual spaces.
+    """
     def __init__(self, fragment, target_orbitals = "full", local_projection='fragment'):
         self.target_orbitals = target_orbitals
         self.local_projection = local_projection
@@ -37,9 +41,9 @@ class RPA_Boson_Bath(Bath):
             elif self.local_projection[-2:] == "ov":
                 return dot(self.mo_coeff_occ.T, self.ovlp, self.fragment.cluster.c_active_occ), \
                     dot(self.mo_coeff_vir.T, self.ovlp, self.fragment.cluster.c_active_vir)
-            else:
-                raise ValueError("Unknown fragment projection requested.")
-        return None, None
+        elif self.local_projection is None:
+            return None, None
+        raise ValueError("Unknown fragment projection requested.")
 
     def make_target_excitations(self):
         """Generate the targeted excitation space for a given fragment"""
@@ -54,7 +58,8 @@ class RPA_Boson_Bath(Bath):
             s_vir = dot(c_loc_vir.T, c_vir)
             c_vir = dot(c_vir, s_vir.T, s_vir)
 
-        return einsum("iI,aA->iaIA", c_occ, c_vir).reshape(c_occ.shape[0] * c_vir.shape[0], -1)
+        tar_ss = einsum("iI,aA->IAia", c_occ, c_vir).reshape(-1, c_occ.shape[0] * c_vir.shape[0])
+        return np.hstack((tar_ss, tar_ss))
 
     def _get_target_orbitals(self):
         if self.target_orbitals == "full":
