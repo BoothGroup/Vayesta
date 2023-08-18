@@ -66,7 +66,7 @@ dyson = [
     "dyson @ git+https://github.com/BoothGroup/dyson@master",
 ]
 ebcc = [
-    "ebcc"
+    "ebcc",
 ]
 
 pygnme = [
@@ -110,7 +110,7 @@ exclude_lines = [
 ]
 
 [tool.pytest.ini_options]
-addopts = "--import-mode=importlib -k 'not veryslow'"
+addopts = "--import-mode=importlib -m 'not veryslow'"
 testpaths = ["vayesta/tests"]
 markers = [
     "fast",

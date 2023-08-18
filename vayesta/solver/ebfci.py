@@ -26,7 +26,7 @@ class EB_EBFCI_Solver(ClusterSolver):
         self.wf = WaveFunction(self.hamil.mo)
         self.wf.make_rdm1 = lambda *args, **kwargs: solver.make_rdm1(*args, **kwargs)
         self.wf.make_rdm2 = lambda *args, **kwargs: solver.make_rdm2(*args, **kwargs)
-        self.wf.make_rdmeb = lambda *args, **kwargs: np.array(solver.make_rdm_eb(*args, **kwargs)) + \
+        self.wf.make_rdm_eb = lambda *args, **kwargs: np.array(solver.make_rdm_eb(*args, **kwargs)) + \
                                                      np.array(
                                                          self.hamil.get_eb_dm_polaritonic_shift(self.wf.make_rdm1()))
         self.wf.make_dd_moms = lambda max_mom, *args, **kwargs: solver.make_dd_moms(max_mom, *args, **kwargs)

@@ -748,6 +748,8 @@ class EB_RClusterHamiltonian(RClusterHamiltonian):
         self.bos_freqs = self._fragment.bos_freqs
         if self.opts.polaritonic_shift:
             self.set_polaritonic_shift(self.bos_freqs, self.unshifted_couplings)
+        else:
+            self._polaritonic_shift = None
 
     @property
     def polaritonic_shift(self):
