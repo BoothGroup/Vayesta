@@ -20,7 +20,7 @@ class Bosonic_Bath(Bath):
     def cluster_excitations(self):
         co = self.fragment.get_overlap('cluster[occ]|mo[occ]')
         cv = self.fragment.get_overlap('cluster[vir]|mo[vir]')
-        ov_ss = einsum("Ii,Aa->IAia", co, cv).reshape(-1, co.shape[1] * cv.shape[1])
+        ov_ss = einsum("Ii,Aa->IAia", co, cv).reshape(-1, co.shape[1] * cv.shape[1]) / np.sqrt(2)
         return np.hstack((ov_ss, ov_ss))
 
     def kernel(self):

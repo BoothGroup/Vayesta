@@ -39,14 +39,14 @@ class RPA_Boson_Target_Space(Bath):
             raise ValueError("Unknown target orbital requested.")
 
     def get_c_loc(self):
+        if self.local_projection is None:
+            return None, None
         if "fragment" in self.local_projection:
             if len(self.local_projection) == 8 or self.local_projection[-3:] == "occ":
                 return dot(self.mo_coeff_occ.T, self.ovlp, self.fragment.cluster.c_active_occ), None
             elif self.local_projection[-2:] == "ov":
                 return dot(self.mo_coeff_occ.T, self.ovlp, self.fragment.cluster.c_active_occ), \
                     dot(self.mo_coeff_vir.T, self.ovlp, self.fragment.cluster.c_active_vir)
-        elif self.local_projection is None:
-            return None, None
         raise ValueError("Unknown fragment projection requested.")
 
     def gen_target_excitation(self):
@@ -73,19 +73,6 @@ class RPA_Boson_Target_Space(Bath):
             return dmet_bath.c_cluster_occ, dmet_bath.c_cluster_vir
         raise ValueError("Unknown target orbital requested.")
 
-    def _get_local_orbitals(self):
-        c_loc_occ = None
-        c_loc_vir = None
-
-        if "fragment" in self.local_projection:
-            if len(self.local_projection) == 8 or self.local_projection[-3:] == "occ":
-                c_loc_occ = self.fragment.cluster.c_active_occ
-            elif self.local_projection[-2:] == "ov":
-                c_loc_occ = self.fragment.cluster.c_active_occ
-                c_loc_vir = self.fragment.cluster.c_active_vir
-            else:
-                raise ValueError("Unknown local projection requested.")
-        return c_loc_occ, c_loc_vir
 
 
 class RPA_QBA_Bath(Bosonic_Bath):
@@ -98,12 +85,17 @@ class RPA_QBA_Bath(Bosonic_Bath):
         clus_ov = self.cluster_excitations
         # Remove any contributions within the fermionic excitation space of the fragment.
         m0_env = self.target_m0 - dot(dot(self.target_m0, clus_ov.T), clus_ov)
-        # Now we can construct the bosonic bath by diagonlising these contributions.
+        # Now we can construct the bosonic bath by diagonalising these contributions.
         contribs = dot(m0_env, m0_env.T)
+        sort = np.s_[::-1]
         occup, c = np.linalg.eigh(contribs)
-        occuprtinv = occup ** (-0.5)
+        occup = occup[sort]
+        c = c[:, sort]
 
-        coeff = dot(occuprtinv[None] * c, m0_env)
+        occuprtinv = occup ** (-0.5)
+        coeff = dot((c * occuprtinv[None]).T, m0_env)
+
         self.coeff = coeff
         self.occup = occup
+
         return coeff, occup

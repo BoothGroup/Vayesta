@@ -2,15 +2,17 @@ import numpy as np
 from vayesta.core.util import einsum
 import pyscf.lib
 
+
 class BosonicHamiltonianProjector:
-    def __init__(self, cluster, mo_cderi_getter, mf):
+    def __init__(self, cluster, mo_cderi_getter, mf, fock=None):
         self.cluster = cluster
         if cluster.bosons is None:
             raise ValueError("Cluster has no defined bosons to generate interactions for!")
         # Functions to get
         self.mo_cderi_getter = mo_cderi_getter
         self.mf = mf
-        assert(self.cluster.inc_bosons)
+        self.fock = fock or mf.get_fock()
+        assert (self.cluster.inc_bosons)
         self._cderi_clus = None
         self._cderi_bos = None
 
@@ -57,6 +59,22 @@ class BosonicHamiltonianProjector:
         except AttributeError:
             return df.get_naoaux()
 
+    @property
+    def fock_a(self):
+        if self.fock[0].ndim == 1:
+            return self.fock
+        return self.fock[0]
+
+    @property
+    def fock_b(self):
+        if self.fock[0].ndim == 1:
+            return self.fock
+        return self.fock[1]
+
+    @property
+    def overlap(self):
+        return self.mf.get_ovlp()
+
     def _loop_df(self, blksize=None):
         nao = self.mf.mol.nao
         df = self.mf.with_df
@@ -67,6 +85,7 @@ class BosonicHamiltonianProjector:
         if hasattr(df, 'sr_loop'):
             blk0 = 0
             for labr, labi, sign in df.sr_loop(compact=False, blksize=blksize):
+                assert np.allclose(labi, 0)
                 assert np.allclose(labi, 0)
                 labr = labr.reshape(-1, nao, nao)
                 if (sign == 1):
@@ -93,28 +112,47 @@ class BosonicHamiltonianProjector:
     def project_freqs(self, exchange=False):
         if exchange:
             raise NotImplementedError
+
+        ca, cb = self.bcluster.coeff_3d_ao
+
+        hbb_fock = einsum("nia,mjb,ab,ij->nm", ca, ca, self.fock_a, self.overlap) + \
+                   einsum("nia,mjb,ab,ij->nm", cb, cb, self.fock_b, self.overlap) - \
+                   einsum("nia,mjb,ij,ab->nm", ca, ca, self.fock_a, self.overlap) - \
+                   einsum("nia,mjb,ij,ab->nm", cb, cb, self.fock_b, self.overlap)
+
         cderi_bos, cderi_bos_neg = self.cderi_bos
-        hbb = einsum("Ln,Lm->nm", cderi_bos, cderi_bos)
+        hbb_coulomb = einsum("Ln,Lm->nm", cderi_bos, cderi_bos)
         # Want to take eigenvectors of this coupling matrix as our bosonic auxiliaries.
+        hbb = hbb_fock + hbb_coulomb
         freqs, c = np.linalg.eigh(hbb)
         return freqs, c
 
     def project_couplings(self, exchange=False):
+        """Generate effective bosonic couplings. The two-body component of these is proportional to
+            V_npq \propto C_npq <pk||qc>, where C is the bosonic coefficient in the global particle-hole excitation
+        basis. (For the occupied-occupied block, there is an additional factor of -1).
+        """
         if exchange:
             raise NotImplementedError
         # For coulombic contributions we just need these cderis.
         cderi_clus, cderi_clus_neg = self.cderi_clus
         cderi_bos, cderi_bos_neg = self.cderi_bos
-        couplings = tuple([einsum("Ln,Lpq->npq", cderi_bos, x) for x in cderi_clus])
+        couplings_coulomb = [einsum("Ln,Lpq->npq", cderi_bos, x) for x in cderi_clus]
 
         if cderi_clus_neg[0] is not None:
             if cderi_bos_neg is None:
                 raise ValueError("Only have negative cderi contribution via one channel; something's gone wrong.")
-            #couplings = tuple([orig - einsum("Ln,Lpq->npq", cderi_bos, x) for orig, x in zip(couplings, cderi_clus_neg)])
+            # couplings = tuple([orig - einsum("Ln,Lpq->npq", cderi_bos, x) for orig, x in zip(couplings, cderi_clus_neg)])
             raise NotImplementedError("CDERI_neg contributions to bosons not yet supported")
+
+
+        nocc_clus = self.cluster.nocc_active
+        try:
+            nocca, noccb = nocc_clus
+        except TypeError:
+            nocca = noccb = nocc_clus
+
+
+        couplings = couplings_coulomb
+
         return couplings
-
-
-
-
-

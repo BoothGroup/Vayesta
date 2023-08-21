@@ -753,8 +753,7 @@ class EB_RClusterHamiltonian(RClusterHamiltonian):
         self._unshifted_couplings = None
 
         if hasattr(self._fragment, "bos_freqs"):
-            self.bos_freqs = self._fragment.bos_freqs
-            self.unshifted_couplings = self._fragment.couplings
+            self.initialise_bosons(self._fragment.bos_freqs, self._fragment.couplings)
 
     @property
     def polaritonic_shift(self):
