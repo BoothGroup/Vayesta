@@ -27,11 +27,12 @@ class BosonicHamiltonianProjector:
         if self._cderi_clus is None:
             c_active = self.cluster.c_active
             if c_active[0].ndim == 1:
-                cderi = self.mo_cderi_getter(c_active)
-                self._cderi_clus = (cderi, cderi)
+                cderi, cderi_neg = self.mo_cderi_getter(c_active)
+                self._cderi_clus = ((cderi, cderi), (cderi_neg, cderi_neg))
             else:
-                self._cderi_clus = (self.mo_cderi_getter(c_active[0]),
-                                    self.mo_cderi_getter(c_active[1]))
+                cderia, cderi_nega = self.mo_cderi_getter(c_active[0])
+                cderib, cderi_negb = self.mo_cderi_getter(c_active[1])
+                self._cderi_clus = ((cderia, cderib), (cderi_nega, cderi_negb))
         return self._cderi_clus
 
     @property
@@ -84,23 +85,10 @@ class BosonicHamiltonianProjector:
             lab = pyscf.lib.unpack_tril(lab)
             yield blk, lab
 
-    def project_hamiltonian(self, coupling_exchange=False, freq_exchange=False):
+    def kernel(self, coupling_exchange=False, freq_exchange=False):
         freqs, c = self.project_freqs(exchange=freq_exchange)
         couplings = self.project_couplings(exchange=coupling_exchange)
-        return freqs, einsum("nm,npq->mpq", c, couplings), c
-
-    def project_couplings(self, exchange=False):
-        if exchange:
-            raise NotImplementedError
-        # For coulombic contributions we just need these cderis.
-        cderi_clus, cderi_clus_neg = self.cderi_clus
-        cderi_bos, cderi_bos_neg = self.cderi_bos
-        couplings = einsum("Ln,Lpq->npq", cderi_bos, cderi_clus)
-        if cderi_clus_neg is not None:
-            if cderi_bos_neg is None:
-                raise ValueError("Only have negative cderi contribution via one channel; something's gone wrong.")
-            couplings -= einsum("Ln,Lpq->npq", cderi_bos_neg, cderi_clus_neg)
-        return couplings
+        return freqs, tuple([einsum("nm,npq->mpq", c, x) for x in couplings]), c
 
     def project_freqs(self, exchange=False):
         if exchange:
@@ -110,6 +98,22 @@ class BosonicHamiltonianProjector:
         # Want to take eigenvectors of this coupling matrix as our bosonic auxiliaries.
         freqs, c = np.linalg.eigh(hbb)
         return freqs, c
+
+    def project_couplings(self, exchange=False):
+        if exchange:
+            raise NotImplementedError
+        # For coulombic contributions we just need these cderis.
+        cderi_clus, cderi_clus_neg = self.cderi_clus
+        cderi_bos, cderi_bos_neg = self.cderi_bos
+        couplings = tuple([einsum("Ln,Lpq->npq", cderi_bos, x) for x in cderi_clus])
+
+        if cderi_clus_neg[0] is not None:
+            if cderi_bos_neg is None:
+                raise ValueError("Only have negative cderi contribution via one channel; something's gone wrong.")
+            #couplings = tuple([orig - einsum("Ln,Lpq->npq", cderi_bos, x) for orig, x in zip(couplings, cderi_clus_neg)])
+            raise NotImplementedError("CDERI_neg contributions to bosons not yet supported")
+        return couplings
+
 
 
 

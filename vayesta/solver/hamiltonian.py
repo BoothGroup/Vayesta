@@ -197,6 +197,9 @@ class RClusterHamiltonian:
         sl = tuple([occ if i == "o" else vir for i in block.lower()])
         return eris[sl]
 
+    def _get_cderi(self, coeff, *args, **kwargs):
+        return self._fragment.base.get_cderi(coeff)
+
     def get_cderi_bare(self, only_ov=False, compress=False, svd_threshold=1e-12):
 
         if only_ov:
@@ -206,7 +209,7 @@ class RClusterHamiltonian:
             mo_coeff = self.cluster.c_active
 
         with log_time(self.log.timing, "Time for 2e-integral transformation: %s"):
-            cderi, cderi_neg = self._fragment.base.get_cderi(mo_coeff)
+            cderi, cderi_neg = self.get_cderi(mo_coeff)
 
         if compress:
             # SVD and compress the cderi tensor. This scales as O(N_{aux} N_{clus}^4), so this will be worthwhile
@@ -672,8 +675,8 @@ class UClusterHamiltonian(RClusterHamiltonian):
             c_aa, c_bb = self.cluster.c_active
 
         with log_time(self.log.timing, "Time for 2e-integral transformation: %s"):
-            cderi_a, cderi_neg_a = self._fragment.base.get_cderi(c_aa)
-            cderi_b, cderi_neg_b = self._fragment.base.get_cderi(c_bb)
+            cderi_a, cderi_neg_a = self._get_cderi(c_aa)
+            cderi_b, cderi_neg_b = self._get_cderi(c_bb)
         cderi = (cderi_a, cderi_b)
         cderi_neg = (cderi_neg_a, cderi_neg_b)
 
@@ -798,7 +801,7 @@ class EB_RClusterHamiltonian(RClusterHamiltonian):
             self._polaritonic_shift = None
 
     def generate_bosonic_interactions(self):
-        projector = BosonicHamiltonianProjector(self.cluster, )
+        projector = BosonicHamiltonianProjector(self.cluster, self._get_cderi, self.orig_mf)
         self.initialise_bosons(*projector.kernel())
 
     def set_polaritonic_shift(self, freqs, couplings):

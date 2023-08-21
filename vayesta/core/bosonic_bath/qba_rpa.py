@@ -97,13 +97,13 @@ class RPA_QBA_Bath(Bosonic_Bath):
         # Generate full local fermionic excitation space.
         clus_ov = self.cluster_excitations
         # Remove any contributions within the fermionic excitation space of the fragment.
-        m0_env = self.target_m0 - dot(dot(self.target_m0, clus_ov), clus_ov.T)
+        m0_env = self.target_m0 - dot(dot(self.target_m0, clus_ov.T), clus_ov)
         # Now we can construct the bosonic bath by diagonlising these contributions.
         contribs = dot(m0_env, m0_env.T)
         occup, c = np.linalg.eigh(contribs)
         occuprtinv = occup ** (-0.5)
 
-        coeff = dot(m0_env.T, c * occuprtinv[None])
+        coeff = dot(occuprtinv[None] * c, m0_env)
         self.coeff = coeff
         self.occup = occup
         return coeff, occup

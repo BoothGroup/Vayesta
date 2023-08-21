@@ -95,7 +95,7 @@ class Options(OptionsBase):
         # construction options.
         target_orbitals="full", local_projection='fragment',
         # bath truncation options.
-        threshold=None, truncation='occupation'
+        threshold=1e-6, truncation='occupation'
         )
     # --- Solver options
     solver_options: dict = OptionsBase.dict_with_defaults(
@@ -657,9 +657,8 @@ class Embedding:
 
     def build_screened_interactions(self, *args, **kwargs):
         """Build screened interactions, be they dynamic or static."""
-
         have_static_screening = any([x.opts.screening is not None for x in self.fragments])
-        have_dynamic_screening = any([x.opts.bosonic_bath_options.bathtype is not None for x in self.fragments])
+        have_dynamic_screening = any([x.opts.bosonic_bath_options['bathtype'] is not None for x in self.fragments])
 
         if have_static_screening and have_dynamic_screening:
             raise ValueError("Cannot currently use both static screened coulomb interaction and bosonic baths at the same time.")

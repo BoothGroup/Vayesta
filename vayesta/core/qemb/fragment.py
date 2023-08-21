@@ -11,7 +11,7 @@ import pyscf.lo
 from vayesta.core.util import (OptionsBase, cache, deprecated, dot, einsum, energy_string, fix_orbital_sign, hstack,
                                log_time, time_string, timer, AbstractMethodError)
 from vayesta.core import spinalg
-from vayesta.core.types import Cluster
+from vayesta.core.types import Cluster, Orbitals
 from vayesta.core.symmetry import SymmetryIdentity
 from vayesta.core.symmetry import SymmetryTranslation
 import vayesta.core.ao2mo
@@ -45,7 +45,7 @@ class Options(OptionsBase):
     # ------------------------
     # --- Bath options
     bath_options: dict = None
-    boson_bath_options: dict = None
+    bosonic_bath_options: dict = None
     # --- Solver options
     solver_options: dict = None
     # --- Other
@@ -896,28 +896,27 @@ class Fragment:
     def make_bosonic_bath_target(self):
         """Get the target space for bosonic bath orbitals. This can either be the DMET cluster or the full space, and
         can include a projection onto the fragment."""
-        if self.opts.boson_bath_options.bathtype != "rpa":
+        if self.opts.bosonic_bath_options['bathtype'] != "rpa":
             return None, 0
 
-        target_space = RPA_Boson_Target_Space(self, target_orbitals=self.opts.boson_bath_options.target_orbitals,
-                                              local_projection=self.opts.boson_bath_options.local_projection)
+        target_space = RPA_Boson_Target_Space(self, target_orbitals=self.opts.bosonic_bath_options['target_orbitals'],
+                                              local_projection=self.opts.bosonic_bath_options['local_projection'])
         target_excits = target_space.gen_target_excitation()
         return target_excits, target_excits.shape[0]
 
     def make_bosonic_cluster(self, m0_target):
         """Set bosonic component of the cluster."""
-        if self.opts.boson_bath_options.bathtype != "rpa":
+        if self.opts.bosonic_bath_options['bathtype'] != "rpa":
             return
 
         self._boson_bath_factory = RPA_QBA_Bath(self, target_m0=m0_target)
 
-        boson_threshold = Boson_Threshold(self.opts.boson_bath_options.truncation,
-                                          self.opts.boson_bath_options.threshold)
+        boson_threshold = Boson_Threshold(self.opts.bosonic_bath_options['truncation'],
+                                          self.opts.bosonic_bath_options['threshold'])
 
         c_bath, c_frozen = self._boson_bath_factory.get_bath(boson_threshold=boson_threshold)
-        fullcluster = Cluster.from_coeffs(self.base.mo_coeff_occ, self.base.mo_coeff_vir, np.zeros((self.base.nao, 0)),
-                                          np.zeros((self.base.nao, 0)))
-        self.cluster.bosons = QuasiBosonOrbitals(fullcluster, coeff_ex=c_bath)
+        fullorbs = Orbitals(coeff=self.base.mo_coeff, occ=self.base.mo_occ)
+        self.cluster.bosons = QuasiBosonOrbitals(fullorbs, coeff_ex=c_bath)
 
     # --- Results
     # ===========

@@ -74,9 +74,9 @@ class QuasiBosonOrbitals(BosonicOrbitals):
     @property
     def coeff_3d_ao(self):
         """Get bosonic coefficient in basis of ao excitations"""
-        alpha, beta = bcoeff_mo2ao(self.coeff_ex_3d, self.forbitals.coeff, self.forbitals.coeff)
+        alpha, beta = bcoeff_mo2ao(self.coeff_ex_3d, self.forbitals.coeff_occ, self.forbitals.coeff_vir)
         if self.has_dex:
-            dexa, dexb = bcoeff_mo2ao(self.coeff_dex_3d, self.forbitals.coeff, self.forbitals.coeff, transpose=True)
+            dexa, dexb = bcoeff_mo2ao(self.coeff_dex_3d, self.forbitals.coeff_occ, self.forbitals.coeff_vir, transpose=True)
             alpha += dexa
             beta += dexb
         return alpha, beta

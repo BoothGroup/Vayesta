@@ -64,7 +64,7 @@ class Bosonic_Bath(Bath):
             log_space("Bath", occup[:boson_number])
             log_space("Rest", occup[boson_number:])
 
-        c_bath, c_rest = np.hsplit(coeff, [boson_number])
+        c_bath, c_rest = np.vsplit(coeff, [boson_number])
         return c_bath, c_rest
 
     def log_histogram(self, n_bos):
