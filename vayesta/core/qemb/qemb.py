@@ -649,6 +649,8 @@ class Embedding:
 
     get_cderi = eris.get_cderi
 
+    get_cderi_exspace = eris.get_cderi_exspace
+
     get_eris_array = eris.get_eris_array
 
     get_eris_object = eris.get_eris_object

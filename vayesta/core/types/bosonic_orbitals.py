@@ -25,6 +25,14 @@ class BosonicOrbitals:
         return type(self)(coeff_ex=_copy(self.coeff_ex), coeff_dex=_copy(self.coeff_dex), energy=_copy(self.energy),
                           labels=_copy(self.labels))
 
+    def rotate(self, U, inplace=False):
+        """Rotate bosonic basis by unitary U."""
+        cp = self if inplace else self.copy()
+        cp.coeff_ex = np.tensordot(U, cp.coeff_ex, axes=(0, 0))
+        if cp.coeff_dex is not None:
+            cp.coeff_dex = np.tensordot(U, cp.coeff_dex, axes=(0, 0))
+        return cp
+
     def fbasis_transform(self, *args, **kwargs):
         """This class represents a true bosonic excitation, so transformations of the fermionic basis have no effect."""
         pass

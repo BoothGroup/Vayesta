@@ -787,7 +787,9 @@ class EB_RClusterHamiltonian(RClusterHamiltonian):
     def bos_freqs(self, value):
         self._bos_freqs = value
 
-    def initialise_bosons(self, bos_freqs, bos_couplings):
+    def initialise_bosons(self, bos_freqs, bos_couplings, rotation=None):
+        if rotation is not None:
+            self.cluster.bosons.rotate(rotation, inplace=True)
         self.bos_freqs = bos_freqs
         self.unshifted_couplings = bos_couplings
         if self.opts.polaritonic_shift:
@@ -796,7 +798,7 @@ class EB_RClusterHamiltonian(RClusterHamiltonian):
             self._polaritonic_shift = None
 
     def generate_bosonic_interactions(self):
-        projector = BosonicHamiltonianProjector()
+        projector = BosonicHamiltonianProjector(self.cluster, )
         self.initialise_bosons(*projector.kernel())
 
     def set_polaritonic_shift(self, freqs, couplings):
