@@ -90,6 +90,10 @@ class RClusterHamiltonian:
         return self.get_mo()
 
     @property
+    def mbos(self):
+        return self.cluster.bosons
+
+    @property
     def nelec(self):
         return (self.cluster.nocc_active, self.cluster.nocc_active)
 
@@ -209,7 +213,7 @@ class RClusterHamiltonian:
             mo_coeff = self.cluster.c_active
 
         with log_time(self.log.timing, "Time for 2e-integral transformation: %s"):
-            cderi, cderi_neg = self.get_cderi(mo_coeff)
+            cderi, cderi_neg = self._get_cderi(mo_coeff)
 
         if compress:
             # SVD and compress the cderi tensor. This scales as O(N_{aux} N_{clus}^4), so this will be worthwhile
@@ -788,6 +792,10 @@ class EB_RClusterHamiltonian(RClusterHamiltonian):
     @bos_freqs.setter
     def bos_freqs(self, value):
         self._bos_freqs = value
+
+    @property
+    def mbos(self):
+        return self.cluster.bosons
 
     def initialise_bosons(self, bos_freqs, bos_couplings, rotation=None):
         if rotation is not None:

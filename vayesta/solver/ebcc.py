@@ -61,7 +61,7 @@ class REBCC_Solver(ClusterSolver):
             add_nonull_opt(opts, key, newkey)
         return opts
 
-    def construct_wavefunction(self, mycc, mo):
+    def construct_wavefunction(self, mycc, mo, mbos=None):
         if self.opts.store_as_ccsd:
             # Can use existing functionality
             try:
@@ -69,7 +69,7 @@ class REBCC_Solver(ClusterSolver):
             except TypeError:
                 self.wf = CCSD_WaveFunction(mo, mycc.t1, mycc.t2)
         else:
-            self.wf = EBCC_WaveFunction(mo, mycc.ansatz, mycc.amplitudes, mycc.lambdas, None)
+            self.wf = EBCC_WaveFunction(mo, mycc.ansatz, mycc.amplitudes, mycc.lambdas, mbos=mbos)
 
         # Need to rotate wavefunction back into original cluster active space.
         self.wf.rotate(t=mycc.mo_coeff.T, inplace=True)
@@ -126,7 +126,7 @@ class UEBCC_Solver(UClusterSolver, REBCC_Solver):
         return (ca, cb), (spacea, spaceb)
 
     # This should automatically work other than ensuring spin components are in a tuple.
-    def construct_wavefunction(self, mycc, mo):
+    def construct_wavefunction(self, mycc, mo, mbos=None):
         if self.opts.store_as_ccsd:
             # Can use existing functionality
             def to_spin_tuple1(x):
@@ -155,7 +155,7 @@ class UEBCC_Solver(UClusterSolver, REBCC_Solver):
                                             to_spin_tuple2(mycc.t2)
                                             )
         else:
-            self.wf = EBCC_WaveFunction(mo, mycc.ansatz, mycc.amplitudes, mycc.lambdas, None)
+            self.wf = EBCC_WaveFunction(mo, mycc.ansatz, mycc.amplitudes, mycc.lambdas, mbos=mbos)
 
         self.wf.rotate(t=[x.T for x in mycc.mo_coeff], inplace=True)
 
@@ -208,16 +208,11 @@ class EB_REBCC_Solver(REBCC_Solver):
         # EBCC wants contribution  g_{xpq} p^\\dagger q b; need to transpose to get this contribution.
         return self.hamil.couplings.transpose(0, 2, 1)
 
-    def construct_wavefunction(self, mycc, mo):
+    def construct_wavefunction(self, mycc, mo, mbos=None):
 
-        nbosons = len(self.hamil.bos_freqs)
+        ansatz = "CCSD" if mbos is None else mycc.ansatz
 
-        class dummy_mbos:
-            @property
-            def nbos(self):
-                return nbosons
-
-        self.wf = EBCC_WaveFunction(mo, mycc.ansatz, mycc.amplitudes, mycc.lambdas, mbos=dummy_mbos(),
+        self.wf = EBCC_WaveFunction(mo, ansatz, mycc.amplitudes, mycc.lambdas, mbos=mbos,
                                     xi=self.hamil.polaritonic_shift)
         self.wf.rotate(t=mycc.mo_coeff.T, inplace=True)
 
@@ -231,16 +226,9 @@ class EB_UEBCC_Solver(EB_REBCC_Solver, UEBCC_Solver):
         # EBCC wants contribution  g_{xpq} p^\\dagger q b; need to transpose to get this contribution.
         return tuple([x.transpose(0, 2, 1) for x in self.hamil.couplings])
 
-    def construct_wavefunction(self, mycc, mo):
+    def construct_wavefunction(self, mycc, mo, mbos=None):
 
-        nbosons = len(self.hamil.bos_freqs)
-
-        class dummy_mbos:
-            @property
-            def nbos(self):
-                return nbosons
-
-        self.wf = EBCC_WaveFunction(mo, mycc.ansatz, mycc.amplitudes, mycc.lambdas, mbos=dummy_mbos(),
+        self.wf = EBCC_WaveFunction(mo, mycc.ansatz, mycc.amplitudes, mycc.lambdas, mbos=mbos,
                                     xi=self.hamil.polaritonic_shift)
         self.wf.rotate(t=[x.T for x in mycc.mo_coeff], inplace=True)
 
