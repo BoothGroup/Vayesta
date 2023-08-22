@@ -202,6 +202,7 @@ class EB_REBCC_Solver(REBCC_Solver):
         opts = super().get_nonnull_solver_opts()
         opts["omega"] = self.hamil.bos_freqs
         opts["g"] = self.get_couplings()
+        opts["G"] = self.hamil.boson_nonconserving
         return opts
 
     def get_couplings(self):

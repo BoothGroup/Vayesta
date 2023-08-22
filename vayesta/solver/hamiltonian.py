@@ -755,7 +755,7 @@ class EB_RClusterHamiltonian(RClusterHamiltonian):
 
         self._bos_freqs = None
         self._unshifted_couplings = None
-
+        self.boson_nonconserving = None
         if hasattr(self._fragment, "bos_freqs"):
             self.initialise_bosons(self._fragment.bos_freqs, self._fragment.couplings)
 
@@ -797,19 +797,20 @@ class EB_RClusterHamiltonian(RClusterHamiltonian):
     def mbos(self):
         return self.cluster.bosons
 
-    def initialise_bosons(self, bos_freqs, bos_couplings, rotation=None):
+    def initialise_bosons(self, bos_freqs, bos_couplings, rotation=None, boson_nonconserving=None):
         if rotation is not None:
             self.cluster.bosons.rotate(rotation, inplace=True)
         self.bos_freqs = bos_freqs
         self.unshifted_couplings = bos_couplings
+        self.boson_nonconserving = boson_nonconserving
         if self.opts.polaritonic_shift:
             self.set_polaritonic_shift(self.bos_freqs, self.unshifted_couplings)
         else:
             self._polaritonic_shift = None
 
     def generate_bosonic_interactions(self):
-        projector = BosonicHamiltonianProjector(self.cluster, self._get_cderi, self.orig_mf)
-        self.initialise_bosons(*projector.kernel())
+        projector = BosonicHamiltonianProjector(self.cluster, self._get_cderi, self.orig_mf, log=self.log)
+        self.initialise_bosons(*projector.kernel(coupling_exchange=True))
 
     def set_polaritonic_shift(self, freqs, couplings):
         no = self.cluster.nocc_active
