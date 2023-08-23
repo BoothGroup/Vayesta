@@ -174,7 +174,7 @@ class BosonicHamiltonianProjector:
                 else:
                     raise NotImplementedError("CDERI_neg contributions to bosons not yet supported")
 
-        couplings = [x+y+z for x,y,z in zip(couplings_coulomb, couplings_exchange, couplings_fock)]
+        couplings = [x+y+z for x, y, z in zip(couplings_coulomb, couplings_exchange, couplings_fock)]
         return couplings
 
     def gen_nonconserving(self, couplings):
