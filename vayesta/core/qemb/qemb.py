@@ -669,6 +669,9 @@ class Embedding:
             self.build_bosonic_bath(*args, **kwargs)
 
     def build_bosonic_bath(self):
+        if self.spinsym != "restricted":
+            raise NotImplementedError("Bosonic baths are currently only compatible with a restricted formalism.")
+
         self.log.info("")
         self.log.info("BOSONIC BATH SETUP")
         self.log.info("==================")

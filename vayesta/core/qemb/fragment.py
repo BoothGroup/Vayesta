@@ -140,7 +140,7 @@ class Fragment:
         id : int
             Unique fragment ID.
         name : str
-            Name of framgnet.
+            Name of fragment.
         c_frag : (nAO, nFrag) array
             Fragment orbital coefficients.
         c_env : (nAO, nEnv) array

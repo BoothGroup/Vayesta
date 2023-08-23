@@ -43,20 +43,22 @@ class RPA_Boson_Target_Space(Bath):
             return None, None
         if "fragment" in self.local_projection:
             if len(self.local_projection) == 8 or self.local_projection[-3:] == "occ":
-                return dot(self.mo_coeff_occ.T, self.ovlp, self.fragment.cluster.c_active_occ), None
+                return dot(self.mo_coeff_occ.T, self.ovlp, self.fragment.c_frag), None
             elif self.local_projection[-2:] == "ov":
-                return dot(self.mo_coeff_occ.T, self.ovlp, self.fragment.cluster.c_active_occ), \
-                    dot(self.mo_coeff_vir.T, self.ovlp, self.fragment.cluster.c_active_vir)
+                return dot(self.mo_coeff_occ.T, self.ovlp, self.fragment.c_frag), \
+                    dot(self.mo_coeff_vir.T, self.ovlp, self.fragment.c_frag)
         raise ValueError("Unknown fragment projection requested.")
 
     def gen_target_excitation(self):
         """Generate the targeted excitation space for a given fragment"""
+        self.fragment.log.debug("Fragment %s generating RPA bosonic bath using %s excitations and projection onto %s.", self.fragment.id, self.target_orbitals, self.local_projection)
+
         # Obtain all values in the equivalent global space.
         c_occ, c_vir = self.get_c_target()
         c_loc_occ, c_loc_vir = self.get_c_loc()
 
         if c_loc_occ is not None:
-            s_occ = dot(c_loc_occ.T, c_occ)
+            s_occ = dot(c_loc_occ.T,  c_occ)
             c_occ = dot(c_occ, s_occ.T, s_occ)
         if c_loc_vir is not None:
             s_vir = dot(c_loc_vir.T, c_vir)
