@@ -55,7 +55,9 @@ class REBCC_WaveFunction(EBWavefunction, RCCSD_WaveFunction):
 
     @property
     def nbos(self):
-        return self.amplitudes.u11.shape[0] if self.mbos is None else self.mbos.nbos
+        if "s1" in self.amplitudes:
+            return self.amplitudes.s1.shape[0]
+        return 0
 
     @property
     def name(self):
@@ -173,10 +175,6 @@ class REBCC_WaveFunction(EBWavefunction, RCCSD_WaveFunction):
 class UEBCC_WaveFunction(REBCC_WaveFunction, UCCSD_WaveFunction):
     _spin_type = "U"
     _driver = ebcc.UEBCC
-
-    @property
-    def nbos(self):
-        return self.amplitudes.u11.aa.shape[0] if self.mbos is None else self.mbos.nbos
 
     @property
     def t1a(self):

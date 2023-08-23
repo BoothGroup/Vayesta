@@ -211,9 +211,7 @@ class EB_REBCC_Solver(REBCC_Solver):
 
     def construct_wavefunction(self, mycc, mo, mbos=None):
 
-        ansatz = "CCSD" if mbos is None else mycc.ansatz
-
-        self.wf = EBCC_WaveFunction(mo, ansatz, mycc.amplitudes, mycc.lambdas, mbos=mbos,
+        self.wf = EBCC_WaveFunction(mo, mycc.ansatz, mycc.amplitudes, mycc.lambdas, mbos=mbos,
                                     xi=self.hamil.polaritonic_shift)
         self.wf.rotate(t=mycc.mo_coeff.T, inplace=True)
 
