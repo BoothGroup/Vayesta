@@ -16,7 +16,7 @@ class BosonicBathTests(TestCase):
             pytest.skip("Requires ebcc")
 
     def _get_emb(self, mf, solver, target_orbs, local_projection, threshold):
-        emb = ewf.EWF(mf, solver=solver, bath_options=dict(bathtype="mp2", threshold=1e-4, project_dmet_order=1,
+        emb = ewf.EWF(mf, solver=solver, bath_options=dict(bathtype="mp2", threshold=threshold, project_dmet_order=1,
                                                            project_dmet_mode='full'),
                       bosonic_bath_options=dict(bathtype="rpa", target_orbitals=target_orbs,
                                                 local_projection=local_projection, threshold=threshold))
@@ -26,7 +26,7 @@ class BosonicBathTests(TestCase):
     def test_water_ccpvdz_CCSDS11_full_fragment(self):
         mf = testsystems.water_ccpvdz_df.rhf()
         e = self._get_emb(mf, "CCSD-S-1-1", "full", "fragment", 1e-3)
-        self.assertAlmostEqual(e, -76.20819369296306)
+        self.assertAlmostEqual(e, -76.16807860786547)
 
     def test_water_ccpvdz_CCSDSD11_dmet_fragment(self):
         mf = testsystems.water_ccpvdz_df.rhf()
@@ -36,9 +36,9 @@ class BosonicBathTests(TestCase):
     def test_water_ccpvdz_CCSDS11_full_noproj(self):
         mf = testsystems.water_ccpvdz_df.rhf()
         e = self._get_emb(mf, "CCSD-S-1-1", "full", None, 1e-5)
-        self.assertAlmostEqual(e, -76.20794471749221)
+        self.assertAlmostEqual(e, -76.21937784813458)
 
     def test_water_ccpvdz_CCSDS11_dmet_noproj(self):
         mf = testsystems.water_ccpvdz_df.rhf()
         e = self._get_emb(mf, "CCSD-S-1-1", "dmet", None, 1e-6)
-        self.assertAlmostEqual(e, -76.2080492824931)
+        self.assertAlmostEqual(e, -76.23158153460919)
