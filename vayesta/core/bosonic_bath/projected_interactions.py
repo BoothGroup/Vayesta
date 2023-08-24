@@ -235,4 +235,3 @@ class BosonicHamiltonianProjector:
             blk0 = blk1
             lab = pyscf.lib.unpack_tril(lab)
             yield blk, lab
-
