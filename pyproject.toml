@@ -81,6 +81,7 @@ dev = [
     "black>=22.6.0",
     "pytest",
     "pytest-cov",
+    "pre-commit",
 ]
 
 [tool.coverage.run]
