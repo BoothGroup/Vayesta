@@ -29,7 +29,7 @@ def check_solver_config(is_uhf, is_eb, solver, log):
 
 def _get_solver_class(is_uhf, is_eb, solver, log):
     try:
-        solver_cls = _get_solver_class_internal(is_uhf, is_eb, solver)
+        solver_cls = _get_solver_class_internal(is_uhf, is_eb, solver, log)
         return solver_cls
     except ValueError as e:
         spinmessage = "unrestricted" if is_uhf else "restricted"
@@ -40,7 +40,7 @@ def _get_solver_class(is_uhf, is_eb, solver, log):
         raise ValueError(fullmessage)
 
 
-def _get_solver_class_internal(is_uhf, is_eb, solver):
+def _get_solver_class_internal(is_uhf, is_eb, solver, log):
     # First check if we have a CC approach as implemented in pyscf.
     if solver == "CCSD" and not is_eb:
         # Use pyscf solvers.
@@ -87,10 +87,8 @@ def _get_solver_class_internal(is_uhf, is_eb, solver):
         if solver[:2].upper() == "EB":
             solver = solver[2:]
         if solver == "CCSD" and is_eb:
-            # Need to specify CC level for coupled electron-boson model; throw an error rather than assume.
-            raise ValueError(
-                "Please specify a coupled electron-boson CC ansatz as a solver, for example CCSD-S-1-1,"
-                "rather than CCSD")
+            log.warning("CCSD solver requested for coupled electron-boson system; defaulting to CCSD-SD-1-1.")
+            solver = "CCSD-SD-1-1"
         # This is just a wrapper to allow us to use the solver option as the ansatz kwarg in this case.
         def get_right_CC(*args, **kwargs):
             setansatz = kwargs.get("ansatz", None)

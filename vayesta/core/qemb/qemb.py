@@ -88,6 +88,15 @@ class Options(OptionsBase):
         addbuffer_occ=None, addbuffer_dmet_vir=None,
         canonicalize_occ=None, canonicalize_vir=None,
         )
+    # --- Bosonic bath options
+    bosonic_bath_options: dict = OptionsBase.dict_with_defaults(
+        # General
+        bathtype=None,
+        # construction options.
+        target_orbitals="full", local_projection='fragment',
+        # bath truncation options.
+        threshold=1e-6, truncation='occupation'
+        )
     # --- Solver options
     solver_options: dict = OptionsBase.dict_with_defaults(
             # General
@@ -640,13 +649,60 @@ class Embedding:
 
     get_cderi = eris.get_cderi
 
+    get_cderi_exspace = eris.get_cderi_exspace
+
     get_eris_array = eris.get_eris_array
 
     get_eris_object = eris.get_eris_object
 
+    def build_screened_interactions(self, *args, **kwargs):
+        """Build screened interactions, be they dynamic or static."""
+        have_static_screening = any([x.opts.screening is not None for x in self.fragments])
+        have_dynamic_screening = any([x.opts.bosonic_bath_options['bathtype'] is not None for x in self.fragments])
+
+        if have_static_screening and have_dynamic_screening:
+            raise ValueError("Cannot currently use both static screened coulomb interaction and bosonic baths at the same time.")
+
+        if have_static_screening:
+            self.build_screened_eris(*args, **kwargs)
+        if have_dynamic_screening:
+            self.build_bosonic_bath(*args, **kwargs)
+
+    def build_bosonic_bath(self):
+        if self.spinsym != "restricted":
+            raise NotImplementedError("Bosonic baths are currently only compatible with a restricted formalism.")
+
+        self.log.info("")
+        self.log.info("BOSONIC BATH SETUP")
+        self.log.info("==================")
+
+        fragments = self.get_fragments(active=True, sym_parent=None, mpi_rank=mpi.rank)
+        with log_time(self.log.timing, "Total time for bath and clusters: %s"):
+
+            msg = "Generating required information for bosonic bath generation"
+            self.log.info(msg)
+            self.log.info(len(msg)*"-")
+            # Generate list of all required target information.
+            targets, ntarget = zip(*[x.make_bosonic_bath_target() for x in fragments])
+            target_rot = np.vstack([x for x in targets if x is not None])
+            rpa = ssRIRPA(self.mf)
+            moments = rpa.kernel_moms(max_moment=0, target_rot=target_rot)[0][0]
+            # Split this into individual fragment contributions.
+            moments = np.vsplit(moments, np.cumsum(ntarget)[:-1])
+            for x, moment in zip(fragments, moments):
+                msg = "Making bosonic bath for %s%s" % (x, (" on MPI process %d" % mpi.rank) if mpi else "")
+                self.log.info(msg)
+                self.log.info(len(msg)*"-")
+                with self.log.indent():
+                    x.make_bosonic_cluster(moment)
+
+
     @log_method()
     @with_doc(build_screened_eris)
     def build_screened_eris(self, *args, **kwargs):
+        self.log.info("")
+        self.log.info("SCREENED INTERACTION SETUP")
+        self.log.info("==========================")
         nmomscr = len([x.opts.screening for x in self.fragments if x.opts.screening == "mrpa"])
         lov = None
         if self.opts.ext_rpa_correction:

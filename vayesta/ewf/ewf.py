@@ -138,8 +138,8 @@ class EWF(Embedding):
             with log_time(self.log.timing, "Time for MPI communication of clusters: %s"):
                 self.communicate_clusters()
 
-        # --- Screened Coulomb interaction
-        self.build_screened_eris()
+        # --- Screened Coulomb interaction; either static or dynamic
+        self.build_screened_interactions()
 
         # --- Loop over fragments with no symmetry parent and with own MPI rank
         self.log.info("")

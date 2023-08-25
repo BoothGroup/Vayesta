@@ -7,6 +7,7 @@ import pyscf.scf
 
 from vayesta.core.util import dot, einsum, OptionsBase, break_into_lines, log_time, energy_string
 from vayesta.core.screening import screening_moment, screening_crpa
+from vayesta.core.bosonic_bath import BosonicHamiltonianProjector
 from vayesta.core.types import Orbitals
 from typing import Optional
 
@@ -25,7 +26,7 @@ def is_eb_ham(ham):
 
 def ClusterHamiltonian(fragment, mf, log=None, **kwargs):
     rhf = np.ndim(mf.mo_coeff[0]) == 1
-    eb = hasattr(fragment, "bos_freqs")
+    eb = hasattr(fragment, "bos_freqs") or fragment.cluster.inc_bosons
     if rhf:
         if eb:
             return EB_RClusterHamiltonian(fragment, mf, log=log, **kwargs)
@@ -87,6 +88,10 @@ class RClusterHamiltonian:
     @property
     def mo(self):
         return self.get_mo()
+
+    @property
+    def mbos(self):
+        return self.cluster.bosons
 
     @property
     def nelec(self):
@@ -196,6 +201,9 @@ class RClusterHamiltonian:
         sl = tuple([occ if i == "o" else vir for i in block.lower()])
         return eris[sl]
 
+    def _get_cderi(self, coeff, *args, **kwargs):
+        return self._fragment.base.get_cderi(coeff)
+
     def get_cderi_bare(self, only_ov=False, compress=False, svd_threshold=1e-12):
 
         if only_ov:
@@ -205,7 +213,7 @@ class RClusterHamiltonian:
             mo_coeff = self.cluster.c_active
 
         with log_time(self.log.timing, "Time for 2e-integral transformation: %s"):
-            cderi, cderi_neg = self._fragment.base.get_cderi(mo_coeff)
+            cderi, cderi_neg = self._get_cderi(mo_coeff)
 
         if compress:
             # SVD and compress the cderi tensor. This scales as O(N_{aux} N_{clus}^4), so this will be worthwhile
@@ -671,8 +679,8 @@ class UClusterHamiltonian(RClusterHamiltonian):
             c_aa, c_bb = self.cluster.c_active
 
         with log_time(self.log.timing, "Time for 2e-integral transformation: %s"):
-            cderi_a, cderi_neg_a = self._fragment.base.get_cderi(c_aa)
-            cderi_b, cderi_neg_b = self._fragment.base.get_cderi(c_bb)
+            cderi_a, cderi_neg_a = self._get_cderi(c_aa)
+            cderi_b, cderi_neg_b = self._get_cderi(c_bb)
         cderi = (cderi_a, cderi_b)
         cderi_neg = (cderi_neg_a, cderi_neg_b)
 
@@ -744,12 +752,12 @@ class EB_RClusterHamiltonian(RClusterHamiltonian):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.unshifted_couplings = self._fragment.couplings
-        self.bos_freqs = self._fragment.bos_freqs
-        if self.opts.polaritonic_shift:
-            self.set_polaritonic_shift(self.bos_freqs, self.unshifted_couplings)
-        else:
-            self._polaritonic_shift = None
+
+        self._bos_freqs = None
+        self._unshifted_couplings = None
+        self.boson_nonconserving = None
+        if hasattr(self._fragment, "bos_freqs"):
+            self.initialise_bosons(self._fragment.bos_freqs, self._fragment.couplings)
 
     @property
     def polaritonic_shift(self):
@@ -764,6 +772,45 @@ class EB_RClusterHamiltonian(RClusterHamiltonian):
         if self.opts.polaritonic_shift:
             return self.get_polaritonic_shifted_couplings()
         return self.unshifted_couplings[0]
+
+    @property
+    def unshifted_couplings(self):
+        if self._unshifted_couplings is None:
+            self.generate_bosonic_interactions()
+        return self._unshifted_couplings
+
+    @unshifted_couplings.setter
+    def unshifted_couplings(self, value):
+        self._unshifted_couplings = value
+
+    @property
+    def bos_freqs(self):
+        if self._bos_freqs is None:
+            self.generate_bosonic_interactions()
+        return self._bos_freqs
+
+    @bos_freqs.setter
+    def bos_freqs(self, value):
+        self._bos_freqs = value
+
+    @property
+    def mbos(self):
+        return self.cluster.bosons
+
+    def initialise_bosons(self, bos_freqs, bos_couplings, rotation=None, boson_nonconserving=None):
+        if rotation is not None:
+            self.cluster.bosons.rotate(rotation, inplace=True)
+        self.bos_freqs = bos_freqs
+        self.unshifted_couplings = bos_couplings
+        self.boson_nonconserving = boson_nonconserving
+        if self.opts.polaritonic_shift:
+            self.set_polaritonic_shift(self.bos_freqs, self.unshifted_couplings)
+        else:
+            self._polaritonic_shift = None
+
+    def generate_bosonic_interactions(self):
+        projector = BosonicHamiltonianProjector(self.cluster, self._get_cderi, self.orig_mf, log=self.log)
+        self.initialise_bosons(*projector.kernel(coupling_exchange=True))
 
     def set_polaritonic_shift(self, freqs, couplings):
         no = self.cluster.nocc_active

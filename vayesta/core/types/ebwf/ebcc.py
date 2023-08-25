@@ -54,6 +54,12 @@ class REBCC_WaveFunction(EBWavefunction, RCCSD_WaveFunction):
         return ebcc.util.Namespace(shift=self.xi is not None)
 
     @property
+    def nbos(self):
+        if "s1" in self.amplitudes:
+            return self.amplitudes.s1.shape[0]
+        return 0
+
+    @property
     def name(self):
         """Get a string representation of the method name."""
         return self._spin_type + self.ansatz.name

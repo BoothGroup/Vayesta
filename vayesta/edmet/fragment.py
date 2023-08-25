@@ -612,6 +612,7 @@ class EDMETFragment(DMETFragment):
 
         # Decouple bosons here.
         self.bos_freqs, c = np.linalg.eigh(a_bos)
+        
         self.couplings = (einsum("nm,npq->mqp", c, couplings_aa), einsum("nm,npq->mqp", c, couplings_bb))
         # ccouplings[n,p,q] = <pi||qa>C_{nia}; can use this for energy evaluation later.
         self.energy_couplings = (einsum("nm,npq->mqp", c, ccouplings_aa), einsum("nm,npq->mqp", c, ccouplings_bb))

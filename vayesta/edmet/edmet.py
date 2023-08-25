@@ -20,6 +20,7 @@ class Options(RDMET.Options):
     occ_proj_kernel: bool = False
     boson_xc_kernel: bool = False
     bosonic_interaction: str = "xc"
+    solver: str = "CCSD-S-1-1"
     solver_options: dict = RDMET.Options.change_dict_defaults('solver_options',
             polaritonic_shift=True)
 

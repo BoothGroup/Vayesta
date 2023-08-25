@@ -1,6 +1,7 @@
 import numpy as np
 
 from vayesta.core.types.orbitals import Orbitals
+from vayesta.core.types.bosonic_orbitals import BosonicOrbitals
 from vayesta.core.spinalg import add_numbers, hstack_matrices
 
 __all__ = ['Cluster', 'ClusterRHF', 'ClusterUHF']
@@ -8,9 +9,10 @@ __all__ = ['Cluster', 'ClusterRHF', 'ClusterUHF']
 
 class Cluster:
 
-    def __init__(self, active_orbitals, frozen_orbitals):
+    def __init__(self, active_orbitals, frozen_orbitals, bosons=None):
         self.active_orbitals = active_orbitals
         self.frozen_orbitals = frozen_orbitals
+        self.bosons = None
 
     @staticmethod
     def from_coeffs(c_active_occ, c_active_vir, c_frozen_occ, c_frozen_vir):
@@ -115,6 +117,10 @@ class Cluster:
     def c_total_vir(self):
         return hstack_matrices(self.c_active_vir, self.c_frozen_vir)
 
+    @property
+    def inc_bosons(self):
+        return self.bosons is not None
+
     def copy(self):
         return type(self)(self.active_orbitals.copy(), self.frozen_orbitals.copy())
 
@@ -122,6 +128,8 @@ class Cluster:
         cp = self if inplace else self.copy()
         cp.active_orbitals.basis_transform(trafo, inplace=True)
         cp.frozen_orbitals.basis_transform(trafo, inplace=True)
+        if self.inc_bosons:
+            cp.bosons.fbasis_transform(trafo, inplace=True)
         return cp
 
 
