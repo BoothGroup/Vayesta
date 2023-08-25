@@ -1,9 +1,21 @@
 # --- Standard
 import dataclasses
+
 # --- External
 import numpy as np
-from vayesta.core.util import (NotCalculatedError, break_into_lines, cache, deprecated, dot, einsum, energy_string,
-                               log_method, log_time, time_string, timer)
+from vayesta.core.util import (
+    NotCalculatedError,
+    break_into_lines,
+    cache,
+    deprecated,
+    dot,
+    einsum,
+    energy_string,
+    log_method,
+    log_time,
+    time_string,
+    timer,
+)
 from vayesta.core.qemb import Embedding
 from vayesta.core.fragmentation import SAO_Fragmentation
 from vayesta.core.fragmentation import IAOPAO_Fragmentation
@@ -22,25 +34,25 @@ from vayesta.ewf.icmp2 import get_intercluster_mp2_energy_rhf
 @dataclasses.dataclass
 class Options(Embedding.Options):
     """Options for EWF calculations."""
+
     # --- Fragment settings
-    iao_minao : str = 'auto'            # Minimal basis for IAOs
+    iao_minao: str = "auto"  # Minimal basis for IAOs
     # --- Bath settings
-    bath_options: dict = Embedding.Options.change_dict_defaults('bath_options',
-            bathtype='mp2', threshold=1e-8)
-    #ewdmet_max_order: int = 1
+    bath_options: dict = Embedding.Options.change_dict_defaults("bath_options", bathtype="mp2", threshold=1e-8)
+    # ewdmet_max_order: int = 1
     # If multiple bno thresholds are to be calculated, we can project integrals and amplitudes from a previous larger cluster:
-    project_eris: bool = False          # Project ERIs from a pervious larger cluster (corresponding to larger eta), can result in a loss of accuracy especially for large basis sets!
-    project_init_guess: bool = True     # Project converted T1,T2 amplitudes from a previous larger cluster
-    energy_functional: str = 'wf'
+    project_eris: bool = False  # Project ERIs from a pervious larger cluster (corresponding to larger eta), can result in a loss of accuracy especially for large basis sets!
+    project_init_guess: bool = True  # Project converted T1,T2 amplitudes from a previous larger cluster
+    energy_functional: str = "wf"
     # Calculation modes
     calc_e_wf_corr: bool = True
     calc_e_dm_corr: bool = False
     # --- Solver settings
-    t_as_lambda: bool = None            # If True, use T-amplitudes inplace of Lambda-amplitudes
-    store_wf_type: str = None           # If set, fragment WFs will be converted to the respective type, before storing them
+    t_as_lambda: bool = None  # If True, use T-amplitudes inplace of Lambda-amplitudes
+    store_wf_type: str = None  # If set, fragment WFs will be converted to the respective type, before storing them
     # Counterpoise correction of BSSE
     bsse_correction: bool = True
-    bsse_rmax: float = 5.0              # In Angstrom
+    bsse_rmax: float = 5.0  # In Angstrom
     nelectron_target: int = None
     # --- Couple embedding problems (currently only CCSD)
     sc_mode: int = 0
@@ -50,11 +62,10 @@ class Options(Embedding.Options):
 
 
 class EWF(Embedding):
-
     Fragment = Fragment
     Options = Options
 
-    def __init__(self, mf, solver='CCSD', log=None, **kwargs):
+    def __init__(self, mf, solver="CCSD", log=None, **kwargs):
         t0 = timer()
         super().__init__(mf, solver=solver, log=log, **kwargs)
 
@@ -62,12 +73,12 @@ class EWF(Embedding):
         with self.log.indent():
             # Options
             self.log.info("Parameters of %s:", self.__class__.__name__)
-            self.log.info(break_into_lines(str(self.opts), newline='\n    '))
-            self.log.info("Time for %s setup: %s", self.__class__.__name__, time_string(timer()-t0))
+            self.log.info(break_into_lines(str(self.opts), newline="\n    "))
+            self.log.info("Time for %s setup: %s", self.__class__.__name__, time_string(timer() - t0))
 
     def __repr__(self):
-        keys = ['mf', 'solver']
-        fmt = ('%s(' + len(keys)*'%s: %r, ')[:-2] + ')'
+        keys = ["mf", "solver"]
+        fmt = ("%s(" + len(keys) * "%s: %r, ")[:-2] + ")"
         values = [self.__dict__[k] for k in keys]
         return fmt % (self.__class__.__name__, *[x for y in zip(keys, values) for x in y])
 
@@ -84,7 +95,7 @@ class EWF(Embedding):
     def tailor_all_fragments(self):
         for x in self.fragments:
             for y in self.fragments:
-                if (x == y):
+                if x == y:
                     continue
                 x.add_tailor_fragment(y)
 
@@ -118,7 +129,7 @@ class EWF(Embedding):
                     x.reset()
                 msg = "Making bath and clusters for %s%s" % (x, (" on MPI process %d" % mpi.rank) if mpi else "")
                 self.log.info(msg)
-                self.log.info(len(msg)*"-")
+                self.log.info(len(msg) * "-")
                 with self.log.indent():
                     if x._dmet_bath is None:
                         # Make own bath:
@@ -127,7 +138,7 @@ class EWF(Embedding):
                         # Copy bath (DMET, occupied, virtual) from other fragment:
                         else:
                             bath_parent = fragdict[x.flags.bath_parent_fragment_id]
-                            for attr in ('_dmet_bath', '_bath_factory_occ', '_bath_factory_vir'):
+                            for attr in ("_dmet_bath", "_bath_factory_occ", "_bath_factory_vir"):
                                 setattr(x, attr, getattr(bath_parent, attr))
                     if x._cluster is None:
                         x.make_cluster()
@@ -153,14 +164,14 @@ class EWF(Embedding):
                 for x in frags:
                     msg = "Solving %s%s" % (x, (" on MPI process %d" % mpi.rank) if mpi else "")
                     self.log.info(msg)
-                    self.log.info(len(msg)*"-")
+                    self.log.info(len(msg) * "-")
                     with self.log.indent():
                         x.kernel()
                 if mpi:
                     mpi.world.Barrier()
 
-        if self.solver.lower() == 'dump':
-            self.log.output("Clusters dumped to file '%s'", self.opts.solver_options['dumpfile'])
+        if self.solver.lower() == "dump":
+            self.log.output("Clusters dumped to file '%s'", self.opts.solver_options["dumpfile"])
             return
 
         # --- Check convergence of fragments
@@ -171,16 +182,16 @@ class EWF(Embedding):
 
         # --- Evaluate correlation energy and log information
         self.e_corr = self.get_e_corr()
-        self.log.output('E(MF)=   %s', energy_string(self.e_mf))
-        self.log.output('E(corr)= %s', energy_string(self.e_corr))
-        self.log.output('E(tot)=  %s', energy_string(self.e_tot))
-        self.log.info("Total wall time:  %s", time_string(timer()-t_start))
+        self.log.output("E(MF)=   %s", energy_string(self.e_mf))
+        self.log.output("E(corr)= %s", energy_string(self.e_corr))
+        self.log.output("E(tot)=  %s", energy_string(self.e_tot))
+        self.log.info("Total wall time:  %s", time_string(timer() - t_start))
         return self.e_tot
 
     def _all_converged(self, fragments):
         conv = True
         for fx in fragments:
-            conv = (conv and fx.results.converged)
+            conv = conv and fx.results.converged
         if mpi:
             conv = mpi.world.allreduce(conv, op=mpi.MPI.LAND)
         return conv
@@ -196,6 +207,7 @@ class EWF(Embedding):
     def get_global_l1(self, *args, t_as_lambda=None, **kwargs):
         get_lambda = True if not t_as_lambda else False
         return self.get_global_t1(*args, get_lambda=get_lambda, **kwargs)
+
     def get_global_l2(self, *args, t_as_lambda=None, **kwargs):
         get_lambda = True if not t_as_lambda else False
         return self.get_global_t2(*args, get_lambda=get_lambda, **kwargs)
@@ -205,16 +217,16 @@ class EWF(Embedding):
         for fx in self.get_fragments(active=True, mpi_rank=mpi.rank):
             wfx = fx.results.wf.as_ccsd()
             t1 = wfx.t1
-            nelec = 2*t1.shape[0]
+            nelec = 2 * t1.shape[0]
             t1diag = np.linalg.norm(t1) / np.sqrt(nelec)
             if t1diag >= warntol:
-                self.log.warning("T1 diagnostic for %-20s %.5f", str(f)+':', t1diag)
+                self.log.warning("T1 diagnostic for %-20s %.5f", str(f) + ":", t1diag)
             else:
-                self.log.info("T1 diagnostic for %-20s %.5f", str(f)+':', t1diag)
+                self.log.info("T1 diagnostic for %-20s %.5f", str(f) + ":", t1diag)
         # Global
         t1 = self.get_global_t1(mpi_target=0)
         if mpi.is_master:
-            nelec = 2*t1.shape[0]
+            nelec = 2 * t1.shape[0]
             t1diag = np.linalg.norm(t1) / np.sqrt(nelec)
             if t1diag >= warntol:
                 self.log.warning("Global T1 diagnostic: %.5f", t1diag)
@@ -229,17 +241,17 @@ class EWF(Embedding):
     def make_rdm1(self, *args, **kwargs):
         if "cc" in self.solver.lower():
             return self._make_rdm1_ccsd_global_wf(*args, **kwargs)
-        if self.solver.lower() == 'mp2':
+        if self.solver.lower() == "mp2":
             return self._make_rdm1_mp2_global_wf(*args, **kwargs)
-        if self.solver.lower() == 'fci':
+        if self.solver.lower() == "fci":
             return self.make_rdm1_demo(*args, **kwargs)
         raise NotImplementedError("make_rdm1 for solver '%s'" % self.solver)
 
     def make_rdm2(self, *args, **kwargs):
-        if self.solver.lower() == 'ccsd':
+        if self.solver.lower() == "ccsd":
             return self._make_rdm2_ccsd_proj_lambda(*args, **kwargs)
-            #return self._make_rdm2_ccsd(*args, **kwargs)
-        if self.solver.lower() == 'mp2':
+            # return self._make_rdm2_ccsd(*args, **kwargs)
+        if self.solver.lower() == "mp2":
             return self._make_rdm2_ccsd_proj_lambda(*args, t_as_lambda=True, **kwargs)
         raise NotImplementedError("make_rdm2 for solver '%s'" % self.solver)
 
@@ -288,16 +300,16 @@ class EWF(Embedding):
     # Correlation
 
     def get_e_corr(self, functional=None, **kwargs):
-        functional = (functional or self.opts.energy_functional)
+        functional = functional or self.opts.energy_functional
 
-        if functional == 'projected':
+        if functional == "projected":
             self.log.warning("functional='projected' is deprecated; use functional='wf' instead.")
-            functional = 'wf'
-        if functional == 'wf':
+            functional = "wf"
+        if functional == "wf":
             return self.get_wf_corr_energy(**kwargs)
-        if functional == 'dm-t2only':
+        if functional == "dm-t2only":
             return self.get_dm_corr_energy(t_as_lambda=True, **kwargs)
-        if functional == 'dm':
+        if functional == "dm":
             return self.get_dm_corr_energy(**kwargs)
         raise ValueError("Unknown energy functional: '%s'" % functional)
 
@@ -310,63 +322,67 @@ class EWF(Embedding):
                 ex = x.results.e_corr
             else:
                 wf = x.results.wf.as_cisd(c0=1.0)
-                px = x.get_overlap('frag|cluster-occ')
+                px = x.get_overlap("frag|cluster-occ")
                 wf = wf.project(px)
                 es, ed, ex = x.get_fragment_energy(wf.c1, wf.c2)
-                self.log.debug("%20s:  E(S)= %s  E(D)= %s  E(tot)= %s", x, energy_string(es), energy_string(ed), energy_string(ex))
+                self.log.debug(
+                    "%20s:  E(S)= %s  E(D)= %s  E(tot)= %s", x, energy_string(es), energy_string(ed), energy_string(ex)
+                )
             e_corr += x.symmetry_factor * ex
-        return e_corr/self.ncells
+        return e_corr / self.ncells
 
-    def get_dm_corr_energy(self, dm1='global-wf', dm2='projected-lambda', t_as_lambda=None, with_exxdiv=None):
+    def get_dm_corr_energy(self, dm1="global-wf", dm2="projected-lambda", t_as_lambda=None, with_exxdiv=None):
         e1 = self.get_dm_corr_energy_e1(dm1=dm1, t_as_lambda=None, with_exxdiv=None)
         e2 = self.get_dm_corr_energy_e2(dm2=dm2, t_as_lambda=t_as_lambda)
-        e_corr = (e1 + e2)
+        e_corr = e1 + e2
         self.log.debug("Ecorr(1)= %s  Ecorr(2)= %s  Ecorr= %s", *map(energy_string, (e1, e2, e_corr)))
         return e_corr
 
-    def get_dm_corr_energy_e1(self, dm1='global-wf', t_as_lambda=None, with_exxdiv=None):
+    def get_dm_corr_energy_e1(self, dm1="global-wf", t_as_lambda=None, with_exxdiv=None):
         # Correlation energy due to changes in 1-DM and non-cumulant 2-DM:
-        if dm1 == 'global-wf':
+        if dm1 == "global-wf":
             dm1 = self._make_rdm1_ccsd_global_wf(with_mf=False, t_as_lambda=t_as_lambda, ao_basis=True)
-        elif dm1 == '2p1l':
+        elif dm1 == "2p1l":
             dm1 = self._make_rdm1_ccsd(with_mf=False, t_as_lambda=t_as_lambda, ao_basis=True)
-        elif dm1 == '1p1l':
+        elif dm1 == "1p1l":
             dm1 = self._make_rdm1_ccsd_1p1l(with_mf=False, t_as_lambda=t_as_lambda, ao_basis=True)
         else:
             raise ValueError
 
         if with_exxdiv is None:
             if self.has_exxdiv:
-                with_exxdiv = np.all([x.solver == 'MP2' for x in self.fragments])
-                any_mp2 = np.any([x.solver == 'MP2' for x in self.fragments])
-                any_not_mp2 = np.any([x.solver != 'MP2' for x in self.fragments])
-                if (any_mp2 and any_not_mp2):
+                with_exxdiv = np.all([x.solver == "MP2" for x in self.fragments])
+                any_mp2 = np.any([x.solver == "MP2" for x in self.fragments])
+                any_not_mp2 = np.any([x.solver != "MP2" for x in self.fragments])
+                if any_mp2 and any_not_mp2:
                     self.log.warning("Both MP2 and not MP2 solvers detected - unclear usage of exxdiv!")
             else:
                 with_exxdiv = False
 
         fock = self.get_fock_for_energy(with_exxdiv=with_exxdiv)
-        e1 = np.sum(fock*dm1)
-        return e1/self.ncells
+        e1 = np.sum(fock * dm1)
+        return e1 / self.ncells
 
     @mpi.with_allreduce()
-    def get_dm_corr_energy_e2(self, dm2='projected-lambda', t_as_lambda=None):
+    def get_dm_corr_energy_e2(self, dm2="projected-lambda", t_as_lambda=None):
         """Correlation energy due to cumulant"""
         if t_as_lambda is None:
             t_as_lambda = self.opts.t_as_lambda
-        if dm2 == 'global-wf':
+        if dm2 == "global-wf":
             dm2 = self._make_rdm2_ccsd_global_wf(t_as_lambda=t_as_lambda, with_dm1=False)
             # TODO: AO basis, late DF contraction
-            if self.spinsym == 'restricted':
+            if self.spinsym == "restricted":
                 g = self.get_eris_array(self.mo_coeff)
-                e2 = einsum('pqrs,pqrs', g, dm2)/2
+                e2 = einsum("pqrs,pqrs", g, dm2) / 2
             else:
                 dm2aa, dm2ab, dm2bb = dm2
                 gaa, gab, gbb = self.get_eris_array_uhf(self.mo_coeff)
-                e2 = (einsum('pqrs,pqrs', gaa, dm2aa)/2
-                    + einsum('pqrs,pqrs', gbb, dm2bb)/2
-                    + einsum('pqrs,pqrs', gab, dm2ab))
-        elif dm2 == 'projected-lambda':
+                e2 = (
+                    einsum("pqrs,pqrs", gaa, dm2aa) / 2
+                    + einsum("pqrs,pqrs", gbb, dm2bb) / 2
+                    + einsum("pqrs,pqrs", gab, dm2ab)
+                )
+        elif dm2 == "projected-lambda":
             e2 = 0.0
             for x in self.get_fragments(contributes=True, sym_parent=None, mpi_rank=mpi.rank):
                 ex = x.results.e_corr_dm2cumulant
@@ -375,7 +391,7 @@ class EWF(Embedding):
                 e2 += x.symmetry_factor * x.sym_factor * ex
         else:
             raise ValueError("Unknown value for dm2: '%s'" % dm2)
-        return e2/self.ncells
+        return e2 / self.ncells
 
     def get_ccsd_corr_energy(self, full_wf=False):
         """Get projected correlation energy from partitioned CCSD WF.
@@ -389,41 +405,39 @@ class EWF(Embedding):
 
         # E(singles)
         fock = self.get_fock_for_energy(with_exxdiv=False)
-        fov =  dot(self.mo_coeff_occ.T, fock, self.mo_coeff_vir)
-        e_singles = 2*np.sum(fov*t1)
+        fov = dot(self.mo_coeff_occ.T, fock, self.mo_coeff_vir)
+        e_singles = 2 * np.sum(fov * t1)
 
         # E(doubles)
         if full_wf:
-            c2 = (self.get_global_t2() + einsum('ia,jb->ijab', t1, t1))
+            c2 = self.get_global_t2() + einsum("ia,jb->ijab", t1, t1)
             mos = (self.mo_coeff_occ, self.mo_coeff_vir, self.mo_coeff_vir, self.mo_coeff_occ)
             eris = self.get_eris_array(mos)
-            e_doubles = (2*einsum('ijab,iabj', c2, eris)
-                         - einsum('ijab,ibaj', c2, eris))
+            e_doubles = 2 * einsum("ijab,iabj", c2, eris) - einsum("ijab,ibaj", c2, eris)
         else:
             e_doubles = 0.0
             for x in self.get_fragments(contributes=True, sym_parent=None, mpi_rank=mpi.rank):
                 pwf = x.results.pwf.as_ccsd()
-                ro = x.get_overlap('mo-occ|cluster-occ')
-                rv = x.get_overlap('mo-vir|cluster-vir')
+                ro = x.get_overlap("mo-occ|cluster-occ")
+                rv = x.get_overlap("mo-vir|cluster-vir")
 
-                t1x = dot(ro.T, t1, rv) # N(frag) * N^2
-                c2x = pwf.t2 + einsum('ia,jb->ijab', pwf.t1, t1x)
+                t1x = dot(ro.T, t1, rv)  # N(frag) * N^2
+                c2x = pwf.t2 + einsum("ia,jb->ijab", pwf.t1, t1x)
 
                 noccx = x.cluster.nocc_active
                 nvirx = x.cluster.nvir_active
 
                 eris = x.hamil.get_eris_bare("ovvo")
 
-                px = x.get_overlap('frag|cluster-occ')
-                eris = einsum('xi,iabj->xabj', px, eris)
+                px = x.get_overlap("frag|cluster-occ")
+                eris = einsum("xi,iabj->xabj", px, eris)
                 wx = x.symmetry_factor * x.sym_factor
-                e_doubles += wx*(2*einsum('ijab,iabj', c2x, eris)
-                                 - einsum('ijab,ibaj', c2x, eris))
+                e_doubles += wx * (2 * einsum("ijab,iabj", c2x, eris) - einsum("ijab,ibaj", c2x, eris))
             if mpi:
                 e_doubles = mpi.world.allreduce(e_doubles)
 
-        self.log.timing("Time for E(CCSD)= %s", time_string(timer()-t0))
-        e_corr = (e_singles + e_doubles)
+        self.log.timing("Time for E(CCSD)= %s", time_string(timer() - t0))
+        e_corr = e_singles + e_doubles
         return e_corr / self.ncells
 
     # Total energy
@@ -479,13 +493,13 @@ class EWF(Embedding):
         for fx in self.get_fragments(contributes=True, sym_parent=None, flags=dict(is_envelop=True), mpi_rank=mpi.rank):
             ex = 0
             if occupied:
-                get_fbc = getattr(fx._bath_factory_occ, 'get_finite_bath_correction', False)
+                get_fbc = getattr(fx._bath_factory_occ, "get_finite_bath_correction", False)
                 if get_fbc:
                     ex += get_fbc(fx.cluster.c_active_occ, fx.cluster.c_frozen_occ)
                 else:
                     self.log.warning("%s does not have occupied BNOs - skipping fragment for FBC energy.", fx)
             if virtual:
-                get_fbc = getattr(fx._bath_factory_vir, 'get_finite_bath_correction', False)
+                get_fbc = getattr(fx._bath_factory_vir, "get_finite_bath_correction", False)
                 if get_fbc:
                     ex += get_fbc(fx.cluster.c_active_vir, fx.cluster.c_frozen_vir)
                 else:
@@ -549,7 +563,7 @@ class EWF(Embedding):
             # Calculate global 2RDM and contract with ERIs
             rdm2 = self._make_rdm2_ccsd_global_wf(t_as_lambda=t_as_lambda, with_dm1=False)
             eris = self.get_eris_array(self.mo_coeff)
-            e2 = einsum('pqrs,pqrs', eris, rdm2)/2
+            e2 = einsum("pqrs,pqrs", eris, rdm2) / 2
         else:
             # Fragment Local 2DM cumulant contribution
             e2 = self.get_dm_corr_energy_e2(t_as_lambda=t_as_lambda) * self.ncells
@@ -559,16 +573,17 @@ class EWF(Embedding):
     # --- Debugging
 
     def _debug_get_wf(self, kind):
-        if kind == 'random':
+        if kind == "random":
             return
-        if kind == 'exact':
-            if self.solver == 'CCSD':
+        if kind == "exact":
+            if self.solver == "CCSD":
                 import pyscf
                 import pyscf.cc
                 from vayesta.core.types import WaveFunction
+
                 cc = pyscf.cc.CCSD(self.mf)
                 cc.kernel()
-                if self.opts.solver_options['solve_lambda']:
+                if self.opts.solver_options["solve_lambda"]:
                     cc.solve_lambda()
                 wf = WaveFunction.from_pyscf(cc)
             else:

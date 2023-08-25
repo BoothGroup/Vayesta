@@ -22,9 +22,10 @@ class FCI_Solver(ClusterSolver):
         fix_spin: float = 0.0  # If set to a number, the given S^2 value will be enforced
         fix_spin_penalty: float = 1.0  # Penalty for fixing spin
         davidson_only: bool = True
-        init_guess: str = 'default'
+        init_guess: str = "default"
         init_guess_noise: float = 1e-5
-        n_moments: tuple  = None
+        n_moments: tuple = None
+
     cisd_solver = RCISD_Solver
 
     def __init__(self, *args, **kwargs):
@@ -35,8 +36,8 @@ class FCI_Solver(ClusterSolver):
         solver = solver_cls(self.hamil.orig_mf.mol)
         self.log.debugv("type(solver)= %r", type(solver))
         # Set options
-        if self.opts.init_guess == 'default':
-            self.opts.init_guess = 'CISD'
+        if self.opts.init_guess == "default":
+            self.opts.init_guess = "CISD"
         if self.opts.threads is not None:
             solver.threads = self.opts.threads
         if self.opts.conv_tol is not None:
@@ -82,12 +83,12 @@ class FCI_Solver(ClusterSolver):
         nmom = self.opts.n_moments
         if nmom is not None:
             try:
-                 from dyson.expressions import FCI
+                from dyson.expressions import FCI
             except ImportError:
                 self.log.error("Dyson not found - required for moment calculations")
                 self.log.info("Skipping in-cluster moment calculations")
                 return
-            self.log.info("Calculating in-cluster FCI moments %s"%str(nmom))
+            self.log.info("Calculating in-cluster FCI moments %s" % str(nmom))
             mf_clus, frozen = self.hamil.to_pyscf_mf(allow_dummy_orbs=True, allow_df=True)
             expr = FCI["1h"](mf_clus, c_ci=self.civec)
             self.hole_moments = expr.build_gf_moments(nmom[0])
@@ -106,7 +107,6 @@ class UFCI_Solver(UClusterSolver, FCI_Solver):
         return pyscf.fci.direct_uhf.FCISolver
 
     def kernel(self, ci=None):
-
         na, nb = self.hamil.ncas
         if na == nb:
             super().kernel(ci)
@@ -115,7 +115,8 @@ class UFCI_Solver(UClusterSolver, FCI_Solver):
         if ci is None and self.opts.init_guess == "CISD":
             self.log.warning(
                 "CISD initial guess not implemented for UHF FCI solver with different numbers of alpha and beta orbitals."
-                "Using meanfield guess.")
+                "Using meanfield guess."
+            )
         # Get dummy meanfield object, with padding, to represent the cluster.
         mf, orbs_to_freeze = self.hamil.to_pyscf_mf(allow_dummy_orbs=True, allow_df=False)
         # Get padded integrals from this.

@@ -32,7 +32,6 @@ def EBCC_WaveFunction(mo, *args, **kwargs):
 # - ebcc includes an additional factor of 1/2 in the definition of T2aaaa, T2bbbb, L2aaaa, L2bbbb etc.
 # - ebcc stores lambda amplitudes ai, abij while pyscf stores them ia, ijab.
 class REBCC_WaveFunction(EBWavefunction, RCCSD_WaveFunction):
-
     _spin_type = "R"
     _driver = ebcc.REBCC
 
@@ -86,7 +85,8 @@ class REBCC_WaveFunction(EBWavefunction, RCCSD_WaveFunction):
 
     @l1.setter
     def l1(self, value):
-        if value is None: return
+        if value is None:
+            return
         if self.lambdas is None:
             self.lambdas = ebcc.util.Namespace()
         self.lambdas.l1 = value.T
@@ -97,7 +97,8 @@ class REBCC_WaveFunction(EBWavefunction, RCCSD_WaveFunction):
 
     @l2.setter
     def l2(self, value):
-        if value is None: return
+        if value is None:
+            return
         if self.lambdas is None:
             self.lambdas = ebcc.util.Namespace()
         self.lambdas.l2 = value.transpose((2, 3, 0, 1))
@@ -126,28 +127,34 @@ class REBCC_WaveFunction(EBWavefunction, RCCSD_WaveFunction):
                 kwargs.update(kw)
         return kwargs
 
-    def make_rdm1(self,  t_as_lambda=False, with_mf=True, ao_basis=False, hermitise=True, **kwargs):
-        assert(not t_as_lambda and with_mf and not ao_basis)
-        return self._driver.make_rdm1_f(self, eris=False, amplitudes=self.amplitudes, lambdas=self.lambdas,
-                                        hermitise=True, **kwargs)
+    def make_rdm1(self, t_as_lambda=False, with_mf=True, ao_basis=False, hermitise=True, **kwargs):
+        assert not t_as_lambda and with_mf and not ao_basis
+        return self._driver.make_rdm1_f(
+            self, eris=False, amplitudes=self.amplitudes, lambdas=self.lambdas, hermitise=True, **kwargs
+        )
 
-    def make_rdm2(self, t_as_lambda=False, with_dm1=True, ao_basis=False, approx_cumulant=False, hermitise=True,
-                  **kwargs):
-        assert(not t_as_lambda and with_dm1 and not ao_basis and not approx_cumulant)
-        return self._driver.make_rdm2_f(self, eris=False, amplitudes=self.amplitudes, lambdas=self.lambdas,
-                                        hermitise=hermitise, **kwargs)
+    def make_rdm2(
+        self, t_as_lambda=False, with_dm1=True, ao_basis=False, approx_cumulant=False, hermitise=True, **kwargs
+    ):
+        assert not t_as_lambda and with_dm1 and not ao_basis and not approx_cumulant
+        return self._driver.make_rdm2_f(
+            self, eris=False, amplitudes=self.amplitudes, lambdas=self.lambdas, hermitise=hermitise, **kwargs
+        )
 
     def make_rdm1_b(self, hermitise=True, **kwargs):
-        return self._driver.make_rdm1_b(self, eris=False, amplitudes=self.amplitudes, lambdas=self.lambdas,
-                                        hermitise=hermitise, **kwargs)
+        return self._driver.make_rdm1_b(
+            self, eris=False, amplitudes=self.amplitudes, lambdas=self.lambdas, hermitise=hermitise, **kwargs
+        )
 
     def make_sing_b_dm(self, hermitise=True, **kwargs):
-        return self._driver.make_sing_b_dm(self, eris=False, amplitudes=self.amplitudes, lambdas=self.lambdas,
-                                           hermitise=hermitise, **kwargs)
+        return self._driver.make_sing_b_dm(
+            self, eris=False, amplitudes=self.amplitudes, lambdas=self.lambdas, hermitise=hermitise, **kwargs
+        )
 
     def make_rdm_eb(self, hermitise=True, **kwargs):
-        dmeb = self._driver.make_eb_coup_rdm(self, eris=False, amplitudes=self.amplitudes, lambdas=self.lambdas,
-                                             hermitise=hermitise, **kwargs)
+        dmeb = self._driver.make_eb_coup_rdm(
+            self, eris=False, amplitudes=self.amplitudes, lambdas=self.lambdas, hermitise=hermitise, **kwargs
+        )
         return (dmeb[0].transpose((1, 2, 0)) / 2, dmeb[0].transpose((1, 2, 0)) / 2)
 
     make_rdm1_f = make_rdm1
@@ -155,20 +162,27 @@ class REBCC_WaveFunction(EBWavefunction, RCCSD_WaveFunction):
 
     def copy(self):
         proj = callif(spinalg.copy, self.projector)
-        return type(self)(self.mo.copy(), deepcopy(self.ansatz), deepcopy(self.amplitudes), deepcopy(self.lambdas),
-                   None if self.mbos is None else self.mbos.copy(), proj)
+        return type(self)(
+            self.mo.copy(),
+            deepcopy(self.ansatz),
+            deepcopy(self.amplitudes),
+            deepcopy(self.lambdas),
+            None if self.mbos is None else self.mbos.copy(),
+            proj,
+        )
 
     def as_ccsd(self):
         proj = callif(spinalg.copy, self.projector)
-        return type(self)(self.mo.copy(), "CCSD", deepcopy(self.amplitudes), deepcopy(self.lambdas),
-                          self.mbos.copy(), proj)
+        return type(self)(
+            self.mo.copy(), "CCSD", deepcopy(self.amplitudes), deepcopy(self.lambdas), self.mbos.copy(), proj
+        )
 
     def rotate_ov(self, *args, **kwargs):
         # Note that this is slightly dodgy until we implement rotation of the coupled amplitudes.
         if "t3" in self.amplitudes:
             # can't access log within wavefunction classes currently; this should be a warning.
             pass
-            #raise NotImplementedError("Only rotation of CCSD components is implemented.")
+            # raise NotImplementedError("Only rotation of CCSD components is implemented.")
         return super().rotate_ov(*args, **kwargs)
 
 
@@ -242,7 +256,8 @@ class UEBCC_WaveFunction(REBCC_WaveFunction, UCCSD_WaveFunction):
 
     @l1.setter
     def l1(self, value):
-        if value is None: return
+        if value is None:
+            return
         if self.lambdas is None:
             self.lambdas = ebcc.util.Namespace()
         self.lambdas.l1.aa = value[0].T
@@ -275,7 +290,8 @@ class UEBCC_WaveFunction(REBCC_WaveFunction, UCCSD_WaveFunction):
 
     @l2.setter
     def l2(self, value):
-        if value is None: return
+        if value is None:
+            return
         if self.lambdas is None:
             self.lambdas = ebcc.util.Namespace()
         self.lambdas.l2.aaaa = value[0].transpose(2, 3, 0, 1) / 2.0
@@ -316,7 +332,8 @@ class UEBCC_WaveFunction(REBCC_WaveFunction, UCCSD_WaveFunction):
         return dm2.aaaa, dm2.aabb, dm2.bbbb
 
     def make_rdm_eb(self, hermitise=True, **kwargs):
-        dmeb = self._driver.make_eb_coup_rdm(self, eris=False, amplitudes=self.amplitudes, lambdas=self.lambdas,
-                                             hermitise=hermitise, **kwargs)
+        dmeb = self._driver.make_eb_coup_rdm(
+            self, eris=False, amplitudes=self.amplitudes, lambdas=self.lambdas, hermitise=hermitise, **kwargs
+        )
 
         return (dmeb.aa[0].transpose(1, 2, 0), dmeb.bb[0].transpose(1, 2, 0))

@@ -7,19 +7,19 @@ import vayesta.ewf
 
 
 cell = pyscf.pbc.gto.Cell()
-cell.atom = ['He 0.0 0.0 0.0']
+cell.atom = ["He 0.0 0.0 0.0"]
 cell.a = 1.4 * np.eye(3)
-cell.basis = 'def2-svp'
-cell.output = 'pyscf.out'
+cell.basis = "def2-svp"
+cell.output = "pyscf.out"
 cell.space_group_symmetry = True
 cell.symmorphic = True
 cell.build()
 # Enforce all symmetries in kpoint generation.
-kpts = cell.make_kpts([2,2,2], space_group_symmetry=True, time_reversal_symmetry=True, symmorphic=True)
+kpts = cell.make_kpts([2, 2, 2], space_group_symmetry=True, time_reversal_symmetry=True, symmorphic=True)
 
 # Hartree-Fock with k-points
 mf = pyscf.pbc.scf.KRHF(cell, kpts)
-mf = mf.density_fit(auxbasis='def2-svp-ri')
+mf = mf.density_fit(auxbasis="def2-svp-ri")
 mf.kernel()
 
 # Embedded calculation will automatically unfold the k-point sampled mean-field

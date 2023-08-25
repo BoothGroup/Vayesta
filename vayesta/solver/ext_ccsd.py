@@ -15,8 +15,8 @@ class extRCCSD_Solver(RCCSD_Solver):
 
     def get_callback(self):
         # Tailoring of T1 and T2
-        tailors = [ec for ec in self.opts.external_corrections if (ec[1] == 'tailor')]
-        externals = [ec for ec in self.opts.external_corrections if (ec[1] in ('external', 'delta-tailor'))]
+        tailors = [ec for ec in self.opts.external_corrections if (ec[1] == "tailor")]
+        externals = [ec for ec in self.opts.external_corrections if (ec[1] in ("external", "delta-tailor"))]
         if tailors and externals:
             raise NotImplementedError
         if tailors:

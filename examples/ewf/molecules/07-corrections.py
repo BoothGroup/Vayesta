@@ -12,8 +12,8 @@ O  0.0000   0.0000   0.1173
 H  0.0000   0.7572  -0.4692
 H  0.0000  -0.7572  -0.4692
 """
-mol.basis = 'cc-pVTZ'
-mol.output = 'pyscf.out'
+mol.basis = "cc-pVTZ"
+mol.output = "pyscf.out"
 mol.build()
 
 # Hartree-Fock
@@ -39,13 +39,16 @@ emb_sec = vayesta.ewf.EWF(mf, bath_options=dict(threshold=1e-4))
 with emb_sec.iao_fragmentation() as f:
     # The BNO threshold of the secondary fragments can be set directly, using `bno_threshold`,
     # or as a fraction of the CCSD threshold, using `bno_threshold_factor`:
-    with f.secondary_fragments(solver='MP2', bno_threshold=1e-6):
+    with f.secondary_fragments(solver="MP2", bno_threshold=1e-6):
         f.add_all_atomic_fragments()
 emb_sec.kernel()
 # The FBC can be combined with the secondary-fragment approach:
 e_fbc_sec = emb_sec.get_fbc_energy()
 
-print("E(Emb. CCSD)=            %+16.8f Ha  (error= %+.8f Ha)" % (emb.e_tot, emb.e_tot-cc.e_tot))
-print("E(Emb. CCSD + FBC)=      %+16.8f Ha  (error= %+.8f Ha)" % (emb.e_tot+e_fbc, emb.e_tot+e_fbc-cc.e_tot))
-print("E(Emb. CCSD/MP2)=        %+16.8f Ha  (error= %+.8f Ha)" % (emb_sec.e_tot, emb_sec.e_tot-cc.e_tot))
-print("E(Emb. CCSD/MP2 + FBC)=  %+16.8f Ha  (error= %+.8f Ha)" % (emb_sec.e_tot+e_fbc_sec, emb_sec.e_tot+e_fbc_sec-cc.e_tot))
+print("E(Emb. CCSD)=            %+16.8f Ha  (error= %+.8f Ha)" % (emb.e_tot, emb.e_tot - cc.e_tot))
+print("E(Emb. CCSD + FBC)=      %+16.8f Ha  (error= %+.8f Ha)" % (emb.e_tot + e_fbc, emb.e_tot + e_fbc - cc.e_tot))
+print("E(Emb. CCSD/MP2)=        %+16.8f Ha  (error= %+.8f Ha)" % (emb_sec.e_tot, emb_sec.e_tot - cc.e_tot))
+print(
+    "E(Emb. CCSD/MP2 + FBC)=  %+16.8f Ha  (error= %+.8f Ha)"
+    % (emb_sec.e_tot + e_fbc_sec, emb_sec.e_tot + e_fbc_sec - cc.e_tot)
+)

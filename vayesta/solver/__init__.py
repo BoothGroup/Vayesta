@@ -16,8 +16,9 @@ except ImportError:
 else:
     _has_ebcc = True
 
+
 def get_solver_class(ham, solver):
-    assert (is_ham(ham))
+    assert is_ham(ham)
     uhf = is_uhf_ham(ham)
     eb = is_eb_ham(ham)
     return _get_solver_class(uhf, eb, solver, ham.log)
@@ -89,6 +90,7 @@ def _get_solver_class_internal(is_uhf, is_eb, solver, log):
         if solver == "CCSD" and is_eb:
             log.warning("CCSD solver requested for coupled electron-boson system; defaulting to CCSD-SD-1-1.")
             solver = "CCSD-SD-1-1"
+
         # This is just a wrapper to allow us to use the solver option as the ansatz kwarg in this case.
         def get_right_CC(*args, **kwargs):
             setansatz = kwargs.get("ansatz", None)
@@ -96,7 +98,8 @@ def _get_solver_class_internal(is_uhf, is_eb, solver, log):
                 if setansatz != solver:
                     raise ValueError(
                         "Desired CC ansatz specified differently in solver and solver_options.ansatz."
-                        "Please use only specify via one approach, or ensure they agree.")
+                        "Please use only specify via one approach, or ensure they agree."
+                    )
             kwargs["ansatz"] = solver
             return solverclass(*args, **kwargs)
 

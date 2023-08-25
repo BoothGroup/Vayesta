@@ -16,12 +16,16 @@ class TestEBCCWavefunctions(TestCase):
             pytest.skip("Requires ebcc")
 
     def _test(self, system, mf, ansatz):
-        assert(mf in ["rhf", "uhf"])
+        assert mf in ["rhf", "uhf"]
         # Test a complete bath calculation with given ansatz reproduces full calculation.
         mymf = getattr(getattr(testsystems, system), mf)()
 
-        emborig = vayesta.ewf.EWF(mymf, solver=f'EB{ansatz}', bath_options=dict(bathtype='dmet'),
-                              solver_options=dict(solve_lambda=True, store_as_ccsd=True))
+        emborig = vayesta.ewf.EWF(
+            mymf,
+            solver=f"EB{ansatz}",
+            bath_options=dict(bathtype="dmet"),
+            solver_options=dict(solve_lambda=True, store_as_ccsd=True),
+        )
         with emborig.iao_fragmentation() as f:
             f.add_atomic_fragment([0])
         emborig.kernel()
@@ -30,7 +34,7 @@ class TestEBCCWavefunctions(TestCase):
 
         wf1 = f._results.wf
 
-        f.opts.solver_options['store_as_ccsd'] = False
+        f.opts.solver_options["store_as_ccsd"] = False
         f._results = None
         f._hamil = None
         f.kernel()
@@ -56,23 +60,23 @@ class TestEBCCWavefunctions(TestCase):
 
     @pytest.mark.fast
     def test_rccsd_h2(self):
-        return self._test('h2_ccpvdz', 'rhf', 'CCSD')
+        return self._test("h2_ccpvdz", "rhf", "CCSD")
 
     @pytest.mark.fast
     def test_rccsd_water_sto3g(self):
-        return self._test('water_sto3g', 'rhf', 'CCSD')
+        return self._test("water_sto3g", "rhf", "CCSD")
 
     @pytest.mark.fast
     def test_uccsd_water_sto3g(self):
-        return self._test('water_sto3g', 'uhf', 'CCSD')
+        return self._test("water_sto3g", "uhf", "CCSD")
 
     def test_uccsd_water_cation_sto3g(self):
-        return self._test('water_cation_sto3g', 'uhf', 'CCSD')
+        return self._test("water_cation_sto3g", "uhf", "CCSD")
 
     @pytest.mark.fast
     def test_rccsdt_water_sto3g(self):
-        return self._test('water_sto3g', 'rhf', 'CCSDT')
+        return self._test("water_sto3g", "rhf", "CCSDT")
 
     @pytest.mark.slow
     def test_uccsdt_water_cation_sto3g(self):
-        return self._test('water_cation_sto3g', 'uhf', 'CCSDT')
+        return self._test("water_cation_sto3g", "uhf", "CCSDT")

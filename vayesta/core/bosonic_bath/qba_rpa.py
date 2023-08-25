@@ -9,7 +9,8 @@ class RPA_Boson_Target_Space(Bath):
     This can either start from either the DMET or fully extended cluster, and can be optionally projected onto
     excitations local to the fragment in either just the occupied space or both the occupied and virtual spaces.
     """
-    def __init__(self, fragment, target_orbitals="full", local_projection='fragment'):
+
+    def __init__(self, fragment, target_orbitals="full", local_projection="fragment"):
         self.target_orbitals = target_orbitals
         self.local_projection = local_projection
         super().__init__(fragment)
@@ -30,11 +31,13 @@ class RPA_Boson_Target_Space(Bath):
 
     def get_c_target(self):
         if self.target_orbitals == "full":
-            return dot(self.mo_coeff_occ.T, self.ovlp, self.fragment.cluster.c_active_occ), \
-                dot(self.mo_coeff_vir.T, self.ovlp, self.fragment.cluster.c_active_vir)
+            return dot(self.mo_coeff_occ.T, self.ovlp, self.fragment.cluster.c_active_occ), dot(
+                self.mo_coeff_vir.T, self.ovlp, self.fragment.cluster.c_active_vir
+            )
         elif self.target_orbitals == "dmet":
-            return dot(self.mo_coeff_occ.T, self.ovlp, self.fragment._dmet_bath.c_cluster_occ), \
-                dot(self.mo_coeff_vir.T, self.ovlp, self.fragment._dmet_bath.c_cluster_vir)
+            return dot(self.mo_coeff_occ.T, self.ovlp, self.fragment._dmet_bath.c_cluster_occ), dot(
+                self.mo_coeff_vir.T, self.ovlp, self.fragment._dmet_bath.c_cluster_vir
+            )
         else:
             raise ValueError("Unknown target orbital requested.")
 
@@ -45,20 +48,26 @@ class RPA_Boson_Target_Space(Bath):
             if len(self.local_projection) == 8 or self.local_projection[-3:] == "occ":
                 return dot(self.mo_coeff_occ.T, self.ovlp, self.fragment.c_frag), None
             elif self.local_projection[-2:] == "ov":
-                return dot(self.mo_coeff_occ.T, self.ovlp, self.fragment.c_frag), \
-                    dot(self.mo_coeff_vir.T, self.ovlp, self.fragment.c_frag)
+                return dot(self.mo_coeff_occ.T, self.ovlp, self.fragment.c_frag), dot(
+                    self.mo_coeff_vir.T, self.ovlp, self.fragment.c_frag
+                )
         raise ValueError("Unknown fragment projection requested.")
 
     def gen_target_excitation(self):
         """Generate the targeted excitation space for a given fragment"""
-        self.fragment.log.debug("Fragment %s generating RPA bosonic bath using %s excitations and projection onto %s.", self.fragment.id, self.target_orbitals, self.local_projection)
+        self.fragment.log.debug(
+            "Fragment %s generating RPA bosonic bath using %s excitations and projection onto %s.",
+            self.fragment.id,
+            self.target_orbitals,
+            self.local_projection,
+        )
 
         # Obtain all values in the equivalent global space.
         c_occ, c_vir = self.get_c_target()
         c_loc_occ, c_loc_vir = self.get_c_loc()
 
         if c_loc_occ is not None:
-            s_occ = dot(c_loc_occ.T,  c_occ)
+            s_occ = dot(c_loc_occ.T, c_occ)
             c_occ = dot(c_occ, s_occ.T, s_occ)
         if c_loc_vir is not None:
             s_vir = dot(c_loc_vir.T, c_vir)
@@ -74,7 +83,6 @@ class RPA_Boson_Target_Space(Bath):
             dmet_bath = self.fragment._dmet_bath
             return dmet_bath.c_cluster_occ, dmet_bath.c_cluster_vir
         raise ValueError("Unknown target orbital requested.")
-
 
 
 class RPA_QBA_Bath(Bosonic_Bath):

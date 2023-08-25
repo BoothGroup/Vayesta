@@ -8,7 +8,6 @@ from vayesta.tests import testsystems
 
 @pytest.mark.slow
 class FoldSCF_RHF_Tests(TestCase):
-
     @classmethod
     def setUpClass(cls):
         cls.kmf = testsystems.he2_631g_k222.rhf()
@@ -47,7 +46,6 @@ class FoldSCF_RHF_Tests(TestCase):
 
 @pytest.mark.slow
 class FoldSCF_UHF_Tests(FoldSCF_RHF_Tests):
-
     @classmethod
     def setUpClass(cls):
         cls.kmf = testsystems.he2_631g_k222.uhf()
@@ -59,6 +57,6 @@ class FoldSCF_UHF_Tests(FoldSCF_RHF_Tests):
         cls.smf.kernel()
 
 
-if __name__ == '__main__':
-    print('Running %s' % __file__)
+if __name__ == "__main__":
+    print("Running %s" % __file__)
     unittest.main()

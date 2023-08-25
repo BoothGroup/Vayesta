@@ -7,9 +7,9 @@ import vayesta
 import vayesta.ewf
 
 mol = pyscf.gto.Mole()
-mol.atom = ['N 0 0 0', 'N 0 0 2']
-mol.basis = 'aug-cc-pvdz'
-mol.output = 'pyscf.out'
+mol.atom = ["N 0 0 0", "N 0 0 2"]
+mol.basis = "aug-cc-pvdz"
+mol.output = "pyscf.out"
 mol.build()
 
 # Hartree-Fock
@@ -24,15 +24,17 @@ casci.kernel()
 casscf = pyscf.mcscf.CASSCF(mf, 8, 10)
 casscf.kernel()
 
-def get_emb_result(ansatz, bathtype='full'):
+
+def get_emb_result(ansatz, bathtype="full"):
     # Uses fastest available solver for given ansatz; PySCF if available, otherwise ebcc.
-    emb = vayesta.ewf.EWF(mf, solver=ansatz, bath_options=dict(bathtype=bathtype),
-                          solver_options=dict(solve_lambda=False))
+    emb = vayesta.ewf.EWF(
+        mf, solver=ansatz, bath_options=dict(bathtype=bathtype), solver_options=dict(solve_lambda=False)
+    )
     # Both these alternative specifications will always use an ebcc solver.
     # Note that the capitalization of the solver name other than the ansatz is arbitrary.
-    #emb = vayesta.ewf.EWF(mf, solver=f'EB{ansatz}', bath_options=dict(bathtype=bathtype),
+    # emb = vayesta.ewf.EWF(mf, solver=f'EB{ansatz}', bath_options=dict(bathtype=bathtype),
     #                      solver_options=dict(solve_lambda=False))
-    #emb = vayesta.ewf.EWF(mf, solver='ebcc', bath_options=dict(bathtype=bathtype),
+    # emb = vayesta.ewf.EWF(mf, solver='ebcc', bath_options=dict(bathtype=bathtype),
     #                      solver_options=dict(solve_lambda=False, ansatz=ansatz))
 
     with emb.iao_fragmentation() as f:
@@ -41,9 +43,10 @@ def get_emb_result(ansatz, bathtype='full'):
     emb.kernel()
     return emb.e_tot
 
-e_ccsd = get_emb_result('CCSD', 'full')
-e_ccsdt = get_emb_result('CCSDT', 'dmet')
-e_ccsdtprime = get_emb_result("CCSDt'", 'full')
+
+e_ccsd = get_emb_result("CCSD", "full")
+e_ccsdt = get_emb_result("CCSDT", "dmet")
+e_ccsdtprime = get_emb_result("CCSDt'", "full")
 
 print("E(HF)=                                           %+16.8f Ha" % mf.e_tot)
 print("E(CASCI)=                                        %+16.8f Ha" % casci.e_tot)

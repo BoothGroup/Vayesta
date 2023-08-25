@@ -7,7 +7,7 @@ from vayesta.misc.molecules import ring
 import numpy as np
 
 
-def run_ewf(natom, r, n_per_frag=1, bath_options={"bathtype":"dmet"}):
+def run_ewf(natom, r, n_per_frag=1, bath_options={"bathtype": "dmet"}):
     if abs(natom / n_per_frag - natom // n_per_frag) > 1e-6:
         raise ValueError(f"Atoms per fragment ({n_per_frag}) doesn't exactly divide natoms ({natom})")
 
@@ -20,8 +20,8 @@ def run_ewf(natom, r, n_per_frag=1, bath_options={"bathtype":"dmet"}):
     mol.charge = 0
     mol.build()
 
-    rmf = scf.RHF(mol).density_fit();
-    rmf.conv_tol = 1e-12;
+    rmf = scf.RHF(mol).density_fit()
+    rmf.conv_tol = 1e-12
     rmf.kernel()
 
     out = rmf.stability(external=True)
@@ -53,7 +53,7 @@ def get_density_projected(emb, inc_mf=False):
 
 
 def get_occ_projected(emb):
-    p_frags = [x.get_overlap('frag|cluster-occ') for x in emb.fragments]
+    p_frags = [x.get_overlap("frag|cluster-occ") for x in emb.fragments]
     p_frags = [np.dot(x.T, x) for x in p_frags]
     wfs = [x.results.wf.project_occ(y) for x, y in zip(emb.fragments, p_frags)]
     h, s, dm = variational_params.get_wf_couplings(emb, wfs=wfs, inc_mf=True)
@@ -64,6 +64,7 @@ def get_occ_projected(emb):
 
 def gen_comp_graph(fname):
     import matplotlib.pyplot as plt
+
     fig, (ax0, ax1) = plt.subplots(2, 1, sharex=True)
     fig.set_tight_layout(True)
     plot_results(fname, False, ax=ax0)
@@ -75,6 +76,7 @@ def gen_comp_graph(fname):
 
 def draw_comparison_error(fname1, fname2):
     import matplotlib.pyplot as plt
+
     fig, (ax0, ax1) = plt.subplots(1, 2, sharex=True, sharey=True)
     fig.set_tight_layout(True)
     plot_results(fname1, True, ax0)
@@ -86,15 +88,28 @@ def draw_comparison_error(fname1, fname2):
 
 def plot_results(fname="results.txt", vsfci=False, ax=None, nodmenergy=True):
     import matplotlib.pyplot as plt
+
     if ax is None:
         ax = plt.subplots(1, 1)[1]
     res = np.genfromtxt(fname)
-    labs = ["$r_{HH}/\AA$", "HF", "FCI", "CCSD", "EWF-proj-wf", "EWF-dm-wf", "NO-CAS-CI", "NO-dproj", "NO-dproj-CAS-CI",
-            "NO-oproj", "NO-oproj-CAS-CI", "var-NO-FCI"]
+    labs = [
+        "$r_{HH}/\AA$",
+        "HF",
+        "FCI",
+        "CCSD",
+        "EWF-proj-wf",
+        "EWF-dm-wf",
+        "NO-CAS-CI",
+        "NO-dproj",
+        "NO-dproj-CAS-CI",
+        "NO-oproj",
+        "NO-oproj-CAS-CI",
+        "var-NO-FCI",
+    ]
 
     def remove_ind(results, labels, i):
-        labels = labels[:i] + labels[i + 1:]
-        results = np.concatenate([results[:, :i], results[:, i + 1:]], axis=1)
+        labels = labels[:i] + labels[i + 1 :]
+        results = np.concatenate([results[:, :i], results[:, i + 1 :]], axis=1)
         return results, labels
 
     if nodmenergy:
@@ -157,5 +172,4 @@ if __name__ == "__main__":
         res = (mf.e_tot, efci, ecc, eewf_wf, eewf_dm, e_barewf, e_dense_proj, e_dense_opt, e_occ_proj, e_occ_opt, e_opt)
 
         with open("results.txt", "a") as f:
-
             f.write((f" {r:4.2f} ") + ("   {:12.8f}  " * len(res)).format(*res) + "\n")

@@ -17,17 +17,15 @@ class RCCSD_Solver(ClusterSolver):
         max_cycle: int = 100  # Max number of iterations
         conv_tol: float = None  # Convergence energy tolerance
         conv_tol_normt: float = None  # Convergence amplitude tolerance
-        diis_space: int = None # DIIS space size
+        diis_space: int = None  # DIIS space size
         diis_start_cycle: int = None  # The step to start DIIS, default is 0
         iterative_damping: float = None  # self-consistent damping parameter
         level_shift: float = None  # Level shift for virtual orbitals to stabilize ccsd iterations
-        init_guess: str = 'MP2'  # ['MP2', 'CISD']
+        init_guess: str = "MP2"  # ['MP2', 'CISD']
         solve_lambda: bool = True  # If false, use Lambda=T approximation
-        n_moments: tuple  = None
+        n_moments: tuple = None
         # Self-consistent mode
         sc_mode: int = None
-
-
 
     def kernel(self, t1=None, t2=None, l1=None, l2=None, coupled_fragments=None, t_diagnostic=True):
         mf_clus, frozen = self.hamil.to_pyscf_mf(allow_dummy_orbs=True, allow_df=True)
@@ -77,12 +75,12 @@ class RCCSD_Solver(ClusterSolver):
         nmom = self.opts.n_moments
         if nmom is not None:
             try:
-                 from dyson.expressions import CCSD
+                from dyson.expressions import CCSD
             except ImportError:
                 self.log.error("Dyson not found - required for moment calculations")
                 self.log.info("Skipping in-cluster moment calculations")
                 return
-            self.log.info("Calculating in-cluster CCSD moments %s"%str(nmom))
+            self.log.info("Calculating in-cluster CCSD moments %s" % str(nmom))
             # expr = CCSD["1h"](mf_clus, t1=mycc.t1, t2=mycc.t2, l1=l1, l2=l2)
             # vecs_bra = expr.build_gf_vectors(nmom[0], left=True)
             # amps_bra = [expr.eom.vector_to_amplitudes(amps[n,p], ccm.nmo, ccm.nocc) for p in range(ccm.nmo) for n in range(nmom)]
@@ -108,10 +106,10 @@ class RCCSD_Solver(ClusterSolver):
         return pyscf.cc.ccsd.RCCSD
 
     def generate_init_guess(self, eris=None):
-        if self.opts.init_guess in ('default', 'MP2'):
+        if self.opts.init_guess in ("default", "MP2"):
             # CCSD will build MP2 amplitudes
             return None, None
-        if self.opts.init_guess == 'CISD':
+        if self.opts.init_guess == "CISD":
             cisd = CISD_Solver(self.hamil)
             cisd.kernel()
             wf = cisd.wf.as_ccsd()
@@ -151,10 +149,10 @@ class RCCSD_Solver(ClusterSolver):
         ro = dot(wf.mo.coeff_occ.T, ovlp, mo.coeff_occ)
         rv = dot(wf.mo.coeff_vir.T, ovlp, mo.coeff_vir)
         t1 = dot(ro.T, wf.t1, rv)
-        t2 = einsum('Ii,Jj,IJAB,Aa,Bb->ijab', ro, ro, wf.t2, rv, rv)
+        t2 = einsum("Ii,Jj,IJAB,Aa,Bb->ijab", ro, ro, wf.t2, rv, rv)
         if wf.l1 is not None:
             l1 = dot(ro.T, wf.l1, rv)
-            l2 = einsum('Ii,Jj,IJAB,Aa,Bb->ijab', ro, ro, wf.l2, rv, rv)
+            l2 = einsum("Ii,Jj,IJAB,Aa,Bb->ijab", ro, ro, wf.l2, rv, rv)
         else:
             l1 = l2 = None
         self.wf = CCSD_WaveFunction(mo, t1, t2, l1=l1, l2=l2)
@@ -192,17 +190,17 @@ class UCCSD_Solver(UClusterSolver, RCCSD_Solver):
         rvb = dot(wf.mo.coeff_vir[1].T, ovlp, mo.coeff_vir[1])
         t1a = dot(roa.T, wf.t1a, rva)
         t1b = dot(rob.T, wf.t1b, rvb)
-        t2aa = einsum('Ii,Jj,IJAB,Aa,Bb->ijab', roa, roa, wf.t2aa, rva, rva)
-        t2ab = einsum('Ii,Jj,IJAB,Aa,Bb->ijab', roa, rob, wf.t2ab, rva, rvb)
-        t2bb = einsum('Ii,Jj,IJAB,Aa,Bb->ijab', rob, rob, wf.t2bb, rvb, rvb)
+        t2aa = einsum("Ii,Jj,IJAB,Aa,Bb->ijab", roa, roa, wf.t2aa, rva, rva)
+        t2ab = einsum("Ii,Jj,IJAB,Aa,Bb->ijab", roa, rob, wf.t2ab, rva, rvb)
+        t2bb = einsum("Ii,Jj,IJAB,Aa,Bb->ijab", rob, rob, wf.t2bb, rvb, rvb)
         t1 = (t1a, t1b)
         t2 = (t2aa, t2ab, t2bb)
         if wf.l1 is not None:
             l1a = dot(roa.T, wf.l1a, rva)
             l1b = dot(rob.T, wf.l1b, rvb)
-            l2aa = einsum('Ii,Jj,IJAB,Aa,Bb->ijab', roa, roa, wf.l2aa, rva, rva)
-            l2ab = einsum('Ii,Jj,IJAB,Aa,Bb->ijab', roa, rob, wf.l2ab, rva, rvb)
-            l2bb = einsum('Ii,Jj,IJAB,Aa,Bb->ijab', rob, rob, wf.l2bb, rvb, rvb)
+            l2aa = einsum("Ii,Jj,IJAB,Aa,Bb->ijab", roa, roa, wf.l2aa, rva, rva)
+            l2ab = einsum("Ii,Jj,IJAB,Aa,Bb->ijab", roa, rob, wf.l2ab, rva, rvb)
+            l2bb = einsum("Ii,Jj,IJAB,Aa,Bb->ijab", rob, rob, wf.l2bb, rvb, rvb)
             l1 = (l1a, l1b)
             l2 = (l2aa, l2ab, l2bb)
         else:

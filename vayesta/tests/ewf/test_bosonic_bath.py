@@ -7,7 +7,6 @@ from vayesta.tests import testsystems
 
 
 class BosonicBathTests(TestCase):
-
     @classmethod
     def setUpClass(cls):
         try:
@@ -16,10 +15,14 @@ class BosonicBathTests(TestCase):
             pytest.skip("Requires ebcc")
 
     def _get_emb(self, mf, solver, target_orbs, local_projection, threshold):
-        emb = ewf.EWF(mf, solver=solver, bath_options=dict(bathtype="mp2", threshold=threshold, project_dmet_order=1,
-                                                           project_dmet_mode='full'),
-                      bosonic_bath_options=dict(bathtype="rpa", target_orbitals=target_orbs,
-                                                local_projection=local_projection, threshold=threshold))
+        emb = ewf.EWF(
+            mf,
+            solver=solver,
+            bath_options=dict(bathtype="mp2", threshold=threshold, project_dmet_order=1, project_dmet_mode="full"),
+            bosonic_bath_options=dict(
+                bathtype="rpa", target_orbitals=target_orbs, local_projection=local_projection, threshold=threshold
+            ),
+        )
         emb.kernel()
         return emb.e_tot
 

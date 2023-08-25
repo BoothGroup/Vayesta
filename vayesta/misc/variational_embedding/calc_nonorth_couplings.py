@@ -85,7 +85,6 @@ def calc_ci_elements(ci, h1e, h2e, ovlp, mo, nmo, nocc, nact, ncore, enuc=0.0):
 
 
 def calc_ci_elements_uhf(ci, h1e, h2e, ovlp, mo, nmo, nocc, nact, ncore, enuc=0.0):
-
     h1e, h2e, ovlp = owndata(h1e), owndata(h2e), owndata(ovlp)
     mo = tuple([tuple([owndata(y) for y in x]) for x in mo])
 

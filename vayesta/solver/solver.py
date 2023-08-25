@@ -20,12 +20,12 @@ class ClusterSolver:
         ---------
         """
         self.hamil = hamil
-        self.log = (log or hamil.log)
+        self.log = log or hamil.log
         # --- Options:
         self.opts = self.Options()
         self.opts.update(**kwargs)
         self.log.info("Parameters of %s:" % self.__class__.__name__)
-        self.log.info(break_into_lines(str(self.opts), newline='\n    '))
+        self.log.info(break_into_lines(str(self.opts), newline="\n    "))
 
         # --- Results
         self.converged = False
@@ -80,6 +80,7 @@ class ClusterSolver:
 
         class CptFound(RuntimeError):
             """Raise when electron error is below tolerance."""
+
             pass
 
         def kernel(self, *args, **kwargs):
@@ -102,8 +103,8 @@ class ClusterSolver:
 
                 replace = {}
                 if cpt:
-                    v_ext_0 = (self.v_ext if self.v_ext is not None else 0)
-                    replace['v_ext'] = self.calc_v_ext(v_ext_0, cpt)
+                    v_ext_0 = self.v_ext if self.v_ext is not None else 0
+                    replace["v_ext"] = self.calc_v_ext(v_ext_0, cpt)
                 # self.reset()
                 self.converged = False
                 with replace_attr(self.hamil, **replace):
@@ -112,14 +113,16 @@ class ClusterSolver:
                     raise ConvergenceError()
                 dm1 = self.wf.make_rdm1()
                 if np.ndim(p_frag[0]) == 1:
-                    ne_frag = einsum('xi,ij,xj->', p_frag, dm1, p_frag)
+                    ne_frag = einsum("xi,ij,xj->", p_frag, dm1, p_frag)
                 else:
-                    ne_frag = (einsum('xi,ij,xj->', p_frag[0], dm1[0], p_frag[0])
-                               + einsum('xi,ij,xj->', p_frag[1], dm1[1], p_frag[1]))
+                    ne_frag = einsum("xi,ij,xj->", p_frag[0], dm1[0], p_frag[0]) + einsum(
+                        "xi,ij,xj->", p_frag[1], dm1[1], p_frag[1]
+                    )
 
-                err = (ne_frag - nelectron)
-                self.log.debug("Fragment chemical potential= %+12.8f Ha:  electrons= %.8f  error= %+.3e", cpt, ne_frag,
-                               err)
+                err = ne_frag - nelectron
+                self.log.debug(
+                    "Fragment chemical potential= %+12.8f Ha:  electrons= %.8f  error= %+.3e", cpt, ne_frag, err
+                )
                 iterations += 1
                 if abs(err) < (atol + rtol * nelectron):
                     cpt_opt = cpt
@@ -135,7 +138,11 @@ class ClusterSolver:
             except CptFound:
                 self.log.debug(
                     "Chemical potential= %.6f leads to electron error= %.3e within tolerance (atol= %.1e, rtol= %.1e)",
-                    cpt_guess, err, atol, rtol)
+                    cpt_guess,
+                    err,
+                    atol,
+                    rtol,
+                )
                 return result
 
             # Not enough electrons in fragment space -> raise fragment chemical potential:
@@ -152,18 +159,21 @@ class ClusterSolver:
 
             for ntry in range(5):
                 try:
-                    cpt, res = scipy.optimize.brentq(electron_err, a=bounds[0], b=bounds[1], xtol=1e-12,
-                                                     full_output=True)
+                    cpt, res = scipy.optimize.brentq(
+                        electron_err, a=bounds[0], b=bounds[1], xtol=1e-12, full_output=True
+                    )
                     if res.converged:
                         raise RuntimeError(
-                            "Chemical potential converged to %+16.8f, but electron error is still %.3e" % (cpt, err))
+                            "Chemical potential converged to %+16.8f, but electron error is still %.3e" % (cpt, err)
+                        )
                 except CptFound:
                     break
                 # Could not find chemical potential in bracket:
                 except ValueError:
                     bounds *= 2
-                    self.log.warning("Interval for chemical potential search too small. New search interval: [%f %f]",
-                                     *bounds)
+                    self.log.warning(
+                        "Interval for chemical potential search too small. New search interval: [%f %f]", *bounds
+                    )
                     continue
                 # Could not convergence in bracket:
                 except ConvergenceError:
@@ -172,7 +182,7 @@ class ClusterSolver:
                     continue
                 raise RuntimeError("Invalid state: electron error= %.3e" % err)
             else:
-                errmsg = ("Could not find chemical potential within interval [%f %f]!" % (bounds[0], bounds[1]))
+                errmsg = "Could not find chemical potential within interval [%f %f]!" % (bounds[0], bounds[1])
                 self.log.critical(errmsg)
                 raise RuntimeError(errmsg)
 
@@ -190,7 +200,6 @@ class ClusterSolver:
 
 
 class UClusterSolver(ClusterSolver):
-
     def calc_v_ext(self, v_ext_0, cpt):
         pfrag = self.hamil.target_space_projector()
         # Surely None would be a better default?

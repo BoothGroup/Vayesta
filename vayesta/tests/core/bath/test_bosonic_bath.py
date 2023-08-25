@@ -6,7 +6,6 @@ import numpy as np
 
 
 class QBA_RPA_Bath_Test(TestCase):
-
     @classmethod
     def setUpClass(cls):
         try:
@@ -16,9 +15,14 @@ class QBA_RPA_Bath_Test(TestCase):
 
     def _get_occupation(self, target_orbs, local_projection):
         rhf = testsystems.ethanol_631g_df.rhf()
-        emb = vayesta.ewf.EWF(rhf, bosonic_bath_options=dict(bathtype='rpa', target_orbitals=target_orbs,
-                                                             local_projection=local_projection, threshold=1e-1),
-                              bath_options=dict(bathtype="mp2", threshold=1e-4), solver="CCSD-S-1-1")
+        emb = vayesta.ewf.EWF(
+            rhf,
+            bosonic_bath_options=dict(
+                bathtype="rpa", target_orbitals=target_orbs, local_projection=local_projection, threshold=1e-1
+            ),
+            bath_options=dict(bathtype="mp2", threshold=1e-4),
+            solver="CCSD-S-1-1",
+        )
         with emb.iao_fragmentation() as f:
             f.add_atomic_fragment([0])
         emb.kernel()
@@ -28,7 +32,7 @@ class QBA_RPA_Bath_Test(TestCase):
     def test_target_full_project_fragment(self):
         occ = self._get_occupation("full", "fragment")
         values = np.array([np.amin(occ), np.amax(occ), np.mean(occ)])
-        known_values = np.array([-1.23436133e-19,  3.65521662e-03,  5.97968938e-05])
+        known_values = np.array([-1.23436133e-19, 3.65521662e-03, 5.97968938e-05])
         self.assertAllclose(values, known_values)
 
     def test_target_dmet_project_fragment(self):

@@ -13,7 +13,6 @@ from vayesta.core.util import cache
 
 @pytest.mark.slow
 class Integral_Test(TestCase):
-
     @classmethod
     def setUpClass(cls):
         cls.mf = testsystems.water_631g.rhf()
@@ -33,10 +32,10 @@ class Integral_Test(TestCase):
 
     def get_eris_ref(self, mf, mo_coeff):
         if isinstance(mo_coeff, np.ndarray) and mo_coeff.ndim == 2:
-            shape = 4*[mo_coeff.shape[-1]]
+            shape = 4 * [mo_coeff.shape[-1]]
         else:
             shape = [mo.shape[-1] for mo in mo_coeff]
-        if hasattr(mf, 'with_df'):
+        if hasattr(mf, "with_df"):
             eris_ref = mf.with_df.ao2mo(mo_coeff, compact=False).reshape(shape)
         else:
             eris_ref = pyscf.ao2mo.kernel(mf.mol, mo_coeff, compact=False).reshape(shape)
@@ -55,12 +54,12 @@ class Integral_Test(TestCase):
         self.assertAllclose(eris, eris_ref)
 
         # Density-fitting
-        if not hasattr(mf, 'with_df'):
+        if not hasattr(mf, "with_df"):
             return
         cderi, cderi_neg = emb.get_cderi(mo_coeff)
-        eris = np.einsum('Lij,Lkl->ijkl', cderi, cderi)
+        eris = np.einsum("Lij,Lkl->ijkl", cderi, cderi)
         if cderi_neg is not None:
-            eris -= np.einsum('Lij,Lkl->ijkl', cderi_neg, cderi_neg)
+            eris -= np.einsum("Lij,Lkl->ijkl", cderi_neg, cderi_neg)
         self.assertAllclose(eris, eris_ref)
 
     def test_eris_4coeff(self):
@@ -68,7 +67,7 @@ class Integral_Test(TestCase):
         emb = self.get_embedding()
         mf = emb.mf
         nao = mf.mol.nao
-        nmos = [2,3,1,4]
+        nmos = [2, 3, 1, 4]
         np.random.seed(0)
         mo_coeffs = [np.random.rand(nao, nmos[i]) for i in range(4)]
 
@@ -77,73 +76,74 @@ class Integral_Test(TestCase):
         self.assertAllclose(eris, eris_ref)
 
         # Density-fitting
-        if not hasattr(mf, 'with_df'):
+        if not hasattr(mf, "with_df"):
             return
         cderi1, cderi_neg1 = emb.get_cderi(mo_coeffs[:2])
         cderi2, cderi_neg2 = emb.get_cderi(mo_coeffs[2:])
-        eris = np.einsum('Lij,Lkl->ijkl', cderi1, cderi2)
+        eris = np.einsum("Lij,Lkl->ijkl", cderi1, cderi2)
         if cderi_neg1 is not None:
-            eris -= np.einsum('Lij,Lkl->ijkl', cderi_neg1, cderi_neg2)
+            eris -= np.einsum("Lij,Lkl->ijkl", cderi_neg1, cderi_neg2)
         self.assertAllclose(eris, eris_ref)
 
 
 @pytest.mark.slow
 class Integral_DF_Test(Integral_Test):
-
     @classmethod
     def setUpClass(cls):
         cls.mf = testsystems.water_631g_df.rhf()
 
+
 @pytest.mark.slow
 class Integral_UHF_Test(Integral_Test):
-
     @classmethod
     def setUpClass(cls):
         cls.mf = testsystems.water_cation_631g.uhf()
 
+
 @pytest.mark.slow
 class Integral_DF_UHF_Test(Integral_Test):
-
     @classmethod
     def setUpClass(cls):
         cls.mf = testsystems.water_cation_631g_df.uhf()
 
+
 # PBC
+
 
 @pytest.mark.slow
 class Integral_PBC_Test(Integral_Test):
-
     @classmethod
     def setUpClass(cls):
         cls.mf = testsystems.h2_sto3g_s311.rhf()
 
+
 @pytest.mark.slow
 class Integral_PBC_UHF_Test(Integral_Test):
-
     @classmethod
     def setUpClass(cls):
         cls.mf = testsystems.h3_sto3g_s311.uhf()
 
+
 # PBC 2D
+
 
 @pytest.mark.slow
 class Integral_PBC_2D_Test(Integral_Test):
-
     @classmethod
     def setUpClass(cls):
         cls.mf = testsystems.h2_sto3g_s31.rhf()
 
+
 @pytest.mark.slow
 class Integral_PBC_2D_UHF_Test(Integral_Test):
-
     @classmethod
     def setUpClass(cls):
         cls.mf = testsystems.h3_sto3g_s31.uhf()
 
 
 # TODO: Figure out why this fails:
-#from vayesta.tests.cache import moles, cells
-#class IntegralTest(unittest.TestCase):
+# from vayesta.tests.cache import moles, cells
+# class IntegralTest(unittest.TestCase):
 #
 #    def test_eris_solid_2d(self):
 #
@@ -190,6 +190,6 @@ class Integral_PBC_2D_UHF_Test(Integral_Test):
 #        self.assertIsNone(np.testing.assert_allclose(eris, eris_expected))
 
 
-if __name__ == '__main__':
-    print('Running %s' % __file__)
+if __name__ == "__main__":
+    print("Running %s" % __file__)
     unittest.main()

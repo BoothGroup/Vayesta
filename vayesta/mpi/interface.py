@@ -10,13 +10,13 @@ from vayesta.mpi.scf import scf_with_mpi
 from vayesta.mpi.scf import gdf_with_mpi
 
 
-NdArrayMetadata = namedtuple('NdArrayMetadata', ['shape', 'dtype'])
+NdArrayMetadata = namedtuple("NdArrayMetadata", ["shape", "dtype"])
+
 
 class MPI_Interface:
-
     def __init__(self, mpi, required=False, log=None):
         self.log = log or logging.getLogger(__name__)
-        if mpi == 'mpi4py':
+        if mpi == "mpi4py":
             mpi = self._import_mpi4py(required=required)
         if mpi:
             self.MPI = mpi
@@ -35,8 +35,10 @@ class MPI_Interface:
     def _import_mpi4py(self, required=True):
         try:
             import mpi4py
+
             mpi4py.rc.threads = False
             from mpi4py import MPI as mpi
+
             return mpi
         except (ModuleNotFoundError, ImportError) as e:
             if required:
@@ -53,7 +55,7 @@ class MPI_Interface:
 
     @property
     def enabled(self):
-        return (self.size > 1)
+        return self.size > 1
 
     @property
     def disabled(self):
@@ -61,7 +63,7 @@ class MPI_Interface:
 
     @property
     def is_master(self):
-        return (self.rank == 0)
+        return self.rank == 0
 
     def get_new_tag(self):
         self._tag += 1
@@ -134,12 +136,15 @@ class MPI_Interface:
             # No MPI:
             if self.disabled:
                 return func
+
             @functools.wraps(func)
             def wrapper(*args, **kwargs):
                 res = func(*args, **kwargs)
                 res = self.world.reduce(res, **mpi_kwargs)
                 return res
+
             return wrapper
+
         return decorator
 
     def with_allreduce(self, **mpi_kwargs):
@@ -147,12 +152,15 @@ class MPI_Interface:
             # No MPI:
             if self.disabled:
                 return func
+
             @functools.wraps(func)
             def wrapper(*args, **kwargs):
                 res = func(*args, **kwargs)
                 res = self.world.allreduce(res, **mpi_kwargs)
                 return res
+
             return wrapper
+
         return decorator
 
     def only_master(self):
@@ -160,12 +168,15 @@ class MPI_Interface:
             # No MPI:
             if self.disabled:
                 return func
+
             @functools.wraps(func)
             def wrapper(*args, **kwargs):
                 if not self.is_master:
                     return None
                 return func(*args, **kwargs)
+
             return wrapper
+
         return decorator
 
     # --- Function wrapper at fragment level
@@ -178,6 +189,7 @@ class MPI_Interface:
                 return func
             # With MPI:
             tag2 = self.get_new_tag() if tag is None else tag
+
             @functools.wraps(func)
             def wrapper(*args, **kwargs):
                 if callable(source):
@@ -186,7 +198,7 @@ class MPI_Interface:
                     src = source
                 if self.rank == src:
                     res = func(*args, **kwargs)
-                    if (self.rank != dest):
+                    if self.rank != dest:
                         self.log.debugv("MPI[%d]<send>: func=%s dest=%d", self.rank, func.__name__, dest)
                         self.world.send(res, dest=dest, tag=tag2, **mpi_kwargs)
                         self.log.debugv("MPI[%d]<send>: done", self.rank)
@@ -199,7 +211,9 @@ class MPI_Interface:
                 else:
                     self.log.debugv("MPI[%d] <do nothing> func=%s source=%d ", self.rank, func.__name__, src)
                 return None
+
             return wrapper
+
         return decorator
 
     def create_rma_dict(self, dictionary):

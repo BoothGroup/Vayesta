@@ -14,11 +14,13 @@ from vayesta.core.bath.rpa import RPA_BNO_Bath
 
 from vayesta.core.bath.r2bath import R2_Bath_RHF
 
+
 def DMET_Bath(fragment, *args, **kwargs):
     if fragment.base.is_rhf:
         return DMET_Bath_RHF(fragment, *args, **kwargs)
     if fragment.base.is_uhf:
         return DMET_Bath_UHF(fragment, *args, **kwargs)
+
 
 def EwDMET_Bath(fragment, *args, **kwargs):
     if fragment.base.is_rhf:
@@ -26,11 +28,13 @@ def EwDMET_Bath(fragment, *args, **kwargs):
     if fragment.base.is_uhf:
         raise NotImplementedError
 
+
 def MP2_Bath(fragment, *args, **kwargs):
     if fragment.base.is_rhf:
         return MP2_Bath_RHF(fragment, *args, **kwargs)
     if fragment.base.is_uhf:
         return MP2_Bath_UHF(fragment, *args, **kwargs)
+
 
 def RPA_Bath(fragment, *args, **kwargs):
     if fragment.base.is_rhf:
@@ -38,11 +42,13 @@ def RPA_Bath(fragment, *args, **kwargs):
     if fragment.base.is_uhf:
         raise NotImplementedError
 
+
 def R2_Bath(fragment, *args, **kwargs):
     if fragment.base.is_rhf:
         return R2_Bath_RHF(fragment, *args, **kwargs)
     if fragment.base.is_uhf:
         raise NotImplementedError
+
 
 def Full_Bath(fragment, *args, **kwargs):
     if fragment.base.is_rhf:

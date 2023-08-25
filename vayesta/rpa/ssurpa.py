@@ -91,9 +91,7 @@ class ssURPA(ssRPA):
             M = np.einsum("p,pq,q->pq", AmB ** (0.5), ApB, AmB ** (0.5))
         else:
             # Grab A and B contributions for XC kernel.
-            ApB_xc, AmB_xc = self.get_xc_contribs(
-                xc_kernel, self.mo_coeff_occ, self.mo_coeff_vir, alpha
-            )
+            ApB_xc, AmB_xc = self.get_xc_contribs(xc_kernel, self.mo_coeff_occ, self.mo_coeff_vir, alpha)
             ApB = ApB + ApB_xc
             AmB = np.diag(AmB) + AmB_xc
             del ApB_xc, AmB_xc
@@ -127,8 +125,9 @@ class ssURPA(ssRPA):
         if isinstance(self.mf._eri, tuple):
             eris_aa = pyscf.ao2mo.kernel(self.mf._eri[0], mo_coeff[0], compact=False)
             eris_bb = pyscf.ao2mo.kernel(self.mf._eri[2], mo_coeff[1], compact=False)
-            eris_ab = pyscf.ao2mo.kernel(self.mf._eri[1], (mo_coeff[0], mo_coeff[0], mo_coeff[1], mo_coeff[1]),
-                                         compact=False)
+            eris_ab = pyscf.ao2mo.kernel(
+                self.mf._eri[1], (mo_coeff[0], mo_coeff[0], mo_coeff[1], mo_coeff[1]), compact=False
+            )
         else:
             # Call three-times to spin-restricted embedding
             self.log.debugv("Making (aa|aa) ERIs...")

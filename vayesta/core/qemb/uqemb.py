@@ -19,6 +19,7 @@ from vayesta.core.qemb.corrfunc import get_corrfunc_unrestricted
 from vayesta.core.qemb.rdm import make_rdm1_demo_uhf
 from vayesta.core.qemb.rdm import make_rdm2_demo_uhf
 
+
 class UEmbedding(Embedding):
     """Spin unrestricted quantum embedding."""
 
@@ -29,9 +30,9 @@ class UEmbedding(Embedding):
     is_rhf = False
     is_uhf = True
     # Use instead:
-    spinsym = 'unrestricted'
+    spinsym = "unrestricted"
 
-    #def get_init_veff(self):
+    # def get_init_veff(self):
     #    if self.opts.recalc_vhf:
     #        self.log.debug("Recalculating HF potential from MF object.")
     #        veff = self.mf.get_veff()
@@ -43,7 +44,7 @@ class UEmbedding(Embedding):
     #    e_hf = self.mf.energy_tot(vhf=veff)
     #    return veff, e_hf
 
-    #def _mpi_bcast_mf(self, mf):
+    # def _mpi_bcast_mf(self, mf):
     #    """Use mo_energy and mo_coeff from master MPI rank only."""
     #    # Check if all MPI ranks have the same mean-field MOs
     #    #mo_energy = mpi.world.gather(mf.mo_energy)
@@ -62,38 +63,33 @@ class UEmbedding(Embedding):
     @property
     def nmo(self):
         """Total number of molecular orbitals (MOs)."""
-        return (self.mo_coeff[0].shape[-1],
-                self.mo_coeff[1].shape[-1])
+        return (self.mo_coeff[0].shape[-1], self.mo_coeff[1].shape[-1])
 
     @property
     def nocc(self):
         """Number of occupied MOs."""
-        return (np.count_nonzero(self.mo_occ[0] > 0),
-                np.count_nonzero(self.mo_occ[1] > 0))
+        return (np.count_nonzero(self.mo_occ[0] > 0), np.count_nonzero(self.mo_occ[1] > 0))
 
     @property
     def nvir(self):
         """Number of virtual MOs."""
-        return (np.count_nonzero(self.mo_occ[0] == 0),
-                np.count_nonzero(self.mo_occ[1] == 0))
+        return (np.count_nonzero(self.mo_occ[0] == 0), np.count_nonzero(self.mo_occ[1] == 0))
 
     @property
     def mo_coeff_occ(self):
         """Occupied MO coefficients."""
-        return (self.mo_coeff[0][:,:self.nocc[0]],
-                self.mo_coeff[1][:,:self.nocc[1]])
+        return (self.mo_coeff[0][:, : self.nocc[0]], self.mo_coeff[1][:, : self.nocc[1]])
 
     @property
     def mo_coeff_vir(self):
         """Virtual MO coefficients."""
-        return (self.mo_coeff[0][:,self.nocc[0]:],
-                self.mo_coeff[1][:,self.nocc[1]:])
+        return (self.mo_coeff[0][:, self.nocc[0] :], self.mo_coeff[1][:, self.nocc[1] :])
 
-    def _check_orthonormal(self, *mo_coeff, mo_name='', **kwargs):
+    def _check_orthonormal(self, *mo_coeff, mo_name="", **kwargs):
         mo_coeff = spinalg.hstack_matrices(*mo_coeff)
         results = []
-        for s, spin in enumerate(('alpha', ' beta')):
-            name_s = '-'.join([spin, mo_name])
+        for s, spin in enumerate(("alpha", " beta")):
+            name_s = "-".join([spin, mo_name])
             res_s = super()._check_orthonormal(mo_coeff[s], mo_name=name_s, **kwargs)
             results.append(res_s)
         return tuple(zip(*results))
@@ -108,11 +104,12 @@ class UEmbedding(Embedding):
         v_exxdiv: array
             Divergent exact-exchange potential correction in AO basis.
         """
-        if not self.has_exxdiv: return 0, None
+        if not self.has_exxdiv:
+            return 0, None
         ovlp = self.get_ovlp()
-        sca = np.dot(ovlp, self.mo_coeff[0][:,:self.nocc[0]])
-        scb = np.dot(ovlp, self.mo_coeff[1][:,:self.nocc[1]])
-        nocc = (self.nocc[0] + self.nocc[1])/2
+        sca = np.dot(ovlp, self.mo_coeff[0][:, : self.nocc[0]])
+        scb = np.dot(ovlp, self.mo_coeff[1][:, : self.nocc[1]])
+        nocc = (self.nocc[0] + self.nocc[1]) / 2
         e_exxdiv = -self.madelung * nocc / self.ncells
         v_exxdiv_a = -self.madelung * np.dot(sca, sca.T)
         v_exxdiv_b = -self.madelung * np.dot(scb, scb.T)
@@ -143,13 +140,13 @@ class UEmbedding(Embedding):
                 raise NotImplementedError
             cderia, cderia_neg = kao2gmo_cderi(self.kdf, (moa, mo2a))
             cderib, cderib_neg = kao2gmo_cderi(self.kdf, (mob, mo2b))
-            eris_aa = einsum('Lij,Lkl->ijkl', cderia.conj(), cderia)
-            eris_ab = einsum('Lij,Lkl->ijkl', cderia.conj(), cderib)
-            eris_bb = einsum('Lij,Lkl->ijkl', cderib.conj(), cderib)
+            eris_aa = einsum("Lij,Lkl->ijkl", cderia.conj(), cderia)
+            eris_ab = einsum("Lij,Lkl->ijkl", cderia.conj(), cderib)
+            eris_bb = einsum("Lij,Lkl->ijkl", cderib.conj(), cderib)
             if cderia_neg is not None:
-                eris_aa -= einsum('Lij,Lkl->ijkl', cderia_neg.conj(), cderia_neg)
-                eris_ab -= einsum('Lij,Lkl->ijkl', cderia_neg.conj(), cderib_neg)
-                eris_bb -= einsum('Lij,Lkl->ijkl', cderib_neg.conj(), cderib_neg)
+                eris_aa -= einsum("Lij,Lkl->ijkl", cderia_neg.conj(), cderia_neg)
+                eris_ab -= einsum("Lij,Lkl->ijkl", cderia_neg.conj(), cderib_neg)
+                eris_bb -= einsum("Lij,Lkl->ijkl", cderib_neg.conj(), cderib_neg)
             return (eris_aa, eris_ab, eris_bb)
 
         eris_aa = super().get_eris_array((moa, mo2a, moa, mo2a), compact=compact)
@@ -183,9 +180,11 @@ class UEmbedding(Embedding):
                 raise ValueError("Unknown post-HF method: %r", type(postscf))
         # For MO energies, always use get_fock():
         act = postscf.get_frozen_mask()
-        mo_act = (postscf.mo_coeff[0][:,act[0]], postscf.mo_coeff[1][:,act[1]])
-        mo_energy = (einsum('ai,ab,bi->i', mo_act[0], self.get_fock()[0], mo_act[0]),
-                     einsum('ai,ab,bi->i', mo_act[1], self.get_fock()[1], mo_act[1]))
+        mo_act = (postscf.mo_coeff[0][:, act[0]], postscf.mo_coeff[1][:, act[1]])
+        mo_energy = (
+            einsum("ai,ab,bi->i", mo_act[0], self.get_fock()[0], mo_act[0]),
+            einsum("ai,ab,bi->i", mo_act[1], self.get_fock()[1], mo_act[1]),
+        )
         e_hf = self.mf.e_tot
 
         # 1) Fold MOs into k-point sampled primitive cell, to perform efficient AO->MO transformation:
@@ -206,9 +205,11 @@ class UEmbedding(Embedding):
     def update_mf(self, mo_coeff, mo_energy=None, veff=None):
         """Update underlying mean-field object."""
         # Chech orthonormal MOs
-        if not (np.allclose(dot(mo_coeff[0].T, self.get_ovlp(), mo_coeff[0]) - np.eye(mo_coeff[0].shape[-1]), 0)
-            and np.allclose(dot(mo_coeff[1].T, self.get_ovlp(), mo_coeff[1]) - np.eye(mo_coeff[1].shape[-1]), 0)):
-                raise ValueError("MO coefficients not orthonormal!")
+        if not (
+            np.allclose(dot(mo_coeff[0].T, self.get_ovlp(), mo_coeff[0]) - np.eye(mo_coeff[0].shape[-1]), 0)
+            and np.allclose(dot(mo_coeff[1].T, self.get_ovlp(), mo_coeff[1]) - np.eye(mo_coeff[1].shape[-1]), 0)
+        ):
+            raise ValueError("MO coefficients not orthonormal!")
         self.mf.mo_coeff = mo_coeff
         dm = self.mf.make_rdm1(mo_coeff=mo_coeff)
         if veff is None:
@@ -217,8 +218,10 @@ class UEmbedding(Embedding):
         if mo_energy is None:
             # Use diagonal of Fock matrix as MO energies
             fock = self.get_fock()
-            mo_energy = (einsum('ai,ab,bi->i', mo_coeff[0], fock[0], mo_coeff[0]),
-                         einsum('ai,ab,bi->i', mo_coeff[1], fock[1], mo_coeff[1]))
+            mo_energy = (
+                einsum("ai,ab,bi->i", mo_coeff[0], fock[0], mo_coeff[0]),
+                einsum("ai,ab,bi->i", mo_coeff[1], fock[1], mo_coeff[1]),
+            )
         self.mf.mo_energy = mo_energy
         self.mf.e_tot = self.mf.energy_tot(dm=dm, h1e=self.get_hcore(), vhf=veff)
 
@@ -229,13 +232,23 @@ class UEmbedding(Embedding):
             for child in children:
                 charge_err, spin_err = parent.get_tsymmetry_error(child, dm1=dm1)
                 if (charge_err > charge_tol) or (spin_err > spin_tol):
-                    raise RuntimeError("%s and %s not symmetric: charge error= %.3e spin error= %.3e !"
-                            % (parent.name, child.name, charge_err, spin_err))
-                self.log.debugv("Symmetry between %s and %s: charge error= %.3e spin error= %.3e", parent.name, child.name, charge_err, spin_err)
+                    raise RuntimeError(
+                        "%s and %s not symmetric: charge error= %.3e spin error= %.3e !"
+                        % (parent.name, child.name, charge_err, spin_err)
+                    )
+                self.log.debugv(
+                    "Symmetry between %s and %s: charge error= %.3e spin error= %.3e",
+                    parent.name,
+                    child.name,
+                    charge_err,
+                    spin_err,
+                )
 
     def _check_fragment_nelectron(self):
-        nelec_frags = (sum([f.sym_factor*f.nelectron[0] for f in self.loop()]),
-                       sum([f.sym_factor*f.nelectron[1] for f in self.loop()]))
+        nelec_frags = (
+            sum([f.sym_factor * f.nelectron[0] for f in self.loop()]),
+            sum([f.sym_factor * f.nelectron[1] for f in self.loop()]),
+        )
         self.log.info("Total number of mean-field electrons over all fragments= %.8f , %.8f", *nelec_frags)
         if abs(nelec_frags[0] - np.rint(nelec_frags[0])) > 1e-4 or abs(nelec_frags[1] - np.rint(nelec_frags[1])) > 1e-4:
             self.log.warning("Number of electrons not integer!")
@@ -254,14 +267,14 @@ class UEmbedding(Embedding):
     def make_rdm2_demo(self, *args, **kwargs):
         return make_rdm2_demo_uhf(self, *args, **kwargs)
 
-    def pop_analysis(self, dm1, mo_coeff=None, local_orbitals='lowdin', write=True, minao='auto', mpi_rank=0, **kwargs):
+    def pop_analysis(self, dm1, mo_coeff=None, local_orbitals="lowdin", write=True, minao="auto", mpi_rank=0, **kwargs):
         # IAO / PAOs are spin dependent - we need to build them here:
-        if isinstance(local_orbitals, str) and local_orbitals.lower() == 'iao+pao':
-            local_orbitals = self.get_lo_coeff('iao+pao', minao=minao)
+        if isinstance(local_orbitals, str) and local_orbitals.lower() == "iao+pao":
+            local_orbitals = self.get_lo_coeff("iao+pao", minao=minao)
         pop = []
-        for s, spin in enumerate(('alpha', 'beta')):
-            mo = (mo_coeff[s] if mo_coeff is not None else None)
-            lo = (local_orbitals if isinstance(local_orbitals, str) else local_orbitals[s])
+        for s, spin in enumerate(("alpha", "beta")):
+            mo = mo_coeff[s] if mo_coeff is not None else None
+            lo = local_orbitals if isinstance(local_orbitals, str) else local_orbitals[s]
             pop.append(super().pop_analysis(dm1[s], mo_coeff=mo, local_orbitals=lo, write=False, **kwargs))
         if write and (mpi.rank == mpi_rank):
             self.write_population(pop, **kwargs)
@@ -271,8 +284,8 @@ class UEmbedding(Embedding):
         charges = np.zeros(self.mol.natm)
         spins = np.zeros(self.mol.natm)
         for i, label in enumerate(self.mol.ao_labels(fmt=None)):
-            charges[label[0]] -= (pop[0][i] + pop[1][i])
-            spins[label[0]] += (pop[0][i] - pop[1][i])
+            charges[label[0]] -= pop[0][i] + pop[1][i]
+            spins[label[0]] += pop[0][i] - pop[1][i]
         charges += self.mol.atom_charges()
         return charges, spins
 

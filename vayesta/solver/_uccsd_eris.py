@@ -17,9 +17,9 @@
 #         Qiming Sun <osirpt.sun@gmail.com>
 #
 
-'''
+"""
 UCCSD with spatial integrals
-'''
+"""
 
 import numpy as np
 from pyscf import lib, ao2mo
@@ -31,11 +31,11 @@ def uao2mo(self, mo_coeff=None):
     nao = self.mo_coeff[0].shape[0]
     nmo_pair = nmoa * (nmoa + 1) // 2
     nao_pair = nao * (nao + 1) // 2
-    mem_incore = (max(nao_pair ** 2, nmoa ** 4) + nmo_pair ** 2) * 8 / 1e6
+    mem_incore = (max(nao_pair**2, nmoa**4) + nmo_pair**2) * 8 / 1e6
     mem_now = lib.current_memory()[0]
-    if (self._scf._eri is not None):
-        assert (np.ndim(self._scf._eri[0]) == 4)
-        if (mem_incore + mem_now < self.max_memory or self.incore_complete):
+    if self._scf._eri is not None:
+        assert np.ndim(self._scf._eri[0]) == 4
+        if mem_incore + mem_now < self.max_memory or self.incore_complete:
             ao2mofn = (
                 lambda mo_coeff: ao2mo.restore(1, ao2mo.full(self._scf._eri[0], mo_coeff), mo_coeff.shape[1]),
                 lambda mo_coeff: ao2mo.general(self._scf._eri[1], mo_coeff),
@@ -46,8 +46,9 @@ def uao2mo(self, mo_coeff=None):
         else:
             raise RuntimeError("Dense Cluster ERIs predicted to exceed available memory.")
     else:
-        raise NotImplementedError("Current modifications to only support spin-dependent eris in UCCSD without "
-                                  "density fitting.")
+        raise NotImplementedError(
+            "Current modifications to only support spin-dependent eris in UCCSD without " "density fitting."
+        )
 
 
 def _make_eris_incore(mycc, mo_coeff=None, ao2mofn=None):
@@ -124,7 +125,7 @@ def _make_eris_incore(mycc, mo_coeff=None, ao2mofn=None):
 
         ovVV = eris.ovVV.reshape(nocca * nvira, nvirb, nvirb)
         eris.ovVV = lib.pack_tril(ovVV).reshape(nocca, nvira, nvirb * (nvirb + 1) // 2)
-        vvVV = eris.vvVV.reshape(nvira ** 2, nvirb ** 2)
+        vvVV = eris.vvVV.reshape(nvira**2, nvirb**2)
         idxa = np.tril_indices(nvira)
         idxb = np.tril_indices(nvirb)
         eris.vvVV = lib.take_2d(vvVV, idxa[0] * nvira + idxa[1], idxb[0] * nvirb + idxb[1])

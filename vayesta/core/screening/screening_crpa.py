@@ -14,6 +14,7 @@ from pyscf import __config__
 class cRPAError(RuntimeError):
     pass
 
+
 def get_frag_W(mf, fragment, pcoupling=True, only_ov_screened=False, log=None):
     """Generates screened coulomb interaction due to screening at the level of cRPA.
     Note that this currently scales as O(N_frag N^6), so is not practical without further refinement.
@@ -81,7 +82,7 @@ def get_frag_deltaW(mf, fragment, pcoupling=True, only_ov_screened=False, log=No
     else:
         # Have a factor of -2 due to negative value of RPA dd response, and summation of
         # the excitation and deexcitation branches of the dd response.
-        static_fac = - 1.0 * (crpa.freqs_ss ** (-1))
+        static_fac = -1.0 * (crpa.freqs_ss ** (-1))
 
         delta_w = (
             einsum("npq,n,nrs->pqrs", l_a, static_fac, l_a) + einsum("nqp,n,nsr->pqrs", l_a, static_fac, l_a),
@@ -89,6 +90,7 @@ def get_frag_deltaW(mf, fragment, pcoupling=True, only_ov_screened=False, log=No
             einsum("npq,n,nrs->pqrs", l_b, static_fac, l_b) + einsum("nqp,n,nsr->pqrs", l_b, static_fac, l_b),
         )
     return delta_w, crpa
+
 
 def set_up_W_crpa(mf, fragment, pcoupling=True, only_ov_screened=False, log=None):
     is_rhf = np.ndim(mf.mo_coeff[1]) == 1
@@ -138,8 +140,8 @@ def set_up_W_crpa(mf, fragment, pcoupling=True, only_ov_screened=False, log=None
         # First, generate epsilon couplings between cluster and crpa spaces.
         eps_fb = [einsum("p,qp,rp->qr", e, l, nl) for e, l, nl in zip(eps, rot_loc, crpa.ov_rot)]
         # Then generate X and Y values for this correction.
-        x_crpa = [(p + m)/2 for p, m in zip(crpa.XpY_ss, crpa.XmY_ss)]
-        y_crpa = [(p - m)/2 for p, m in zip(crpa.XpY_ss, crpa.XmY_ss)]
+        x_crpa = [(p + m) / 2 for p, m in zip(crpa.XpY_ss, crpa.XmY_ss)]
+        y_crpa = [(p - m) / 2 for p, m in zip(crpa.XpY_ss, crpa.XmY_ss)]
         # Contract with epsilon values
         a_fb = [dot(e, x) for x, e in zip(x_crpa, eps_fb)]
         b_fb = [dot(e, y) for y, e in zip(y_crpa, eps_fb)]
@@ -149,28 +151,27 @@ def set_up_W_crpa(mf, fragment, pcoupling=True, only_ov_screened=False, log=None
         nv = fragment.cluster.nvir_active
         if isinstance(nv, int):
             nv = (nv, nv)
-        l_a[:, :no[0], no[0]:] += a_fb[0].T.reshape((a_fb[0].shape[-1], no[0], nv[0]))
-        l_b[:, :no[1], no[1]:] += a_fb[1].T.reshape((a_fb[1].shape[-1], no[1], nv[1]))
+        l_a[:, : no[0], no[0] :] += a_fb[0].T.reshape((a_fb[0].shape[-1], no[0], nv[0]))
+        l_b[:, : no[1], no[1] :] += a_fb[1].T.reshape((a_fb[1].shape[-1], no[1], nv[1]))
 
-        l_a[:, no[0]:, :no[0]] += b_fb[0].T.reshape((b_fb[0].shape[-1], no[0], nv[0])).transpose(0,2,1)
-        l_b[:, no[1]:, :no[1]] += b_fb[1].T.reshape((b_fb[1].shape[-1], no[1], nv[1])).transpose(0,2,1)
+        l_a[:, no[0] :, : no[0]] += b_fb[0].T.reshape((b_fb[0].shape[-1], no[0], nv[0])).transpose(0, 2, 1)
+        l_b[:, no[1] :, : no[1]] += b_fb[1].T.reshape((b_fb[1].shape[-1], no[1], nv[1])).transpose(0, 2, 1)
 
     if only_ov_screened:
         # Zero out all contributions screening oo or vv contributions.
         no = fragment.cluster.nocc_active
         if isinstance(no, int):
             no = (no, no)
-        l_a[:, no[0]:, no[0]:] = 0.0
-        l_a[:, :no[0], :no[0]] = 0.0
-        l_b[:, no[1]:, no[1]:] = 0.0
-        l_b[:, :no[1], :no[1]] = 0.0
+        l_a[:, no[0] :, no[0] :] = 0.0
+        l_a[:, : no[0], : no[0]] = 0.0
+        l_b[:, no[1] :, no[1] :] = 0.0
+        l_b[:, : no[1], : no[1]] = 0.0
     return l_a, l_b, crpa
 
 
 def get_crpa(orig_mf, f, log):
-
     def construct_loc_rot(f):
-        """Constructs the rotation of the overall mean-field space into which """
+        """Constructs the rotation of the overall mean-field space into which"""
         ro = f.get_overlap("cluster[occ]|mo[occ]")
         rv = f.get_overlap("cluster[vir]|mo[vir]")
 
@@ -198,17 +199,16 @@ def get_crpa(orig_mf, f, log):
 
 
 def ao2mo(mf, mo_coeff=None, ijslice=None):
-    """Get MO basis density-fitted integrals.
-    """
+    """Get MO basis density-fitted integrals."""
 
     if mo_coeff is None:
         mo_coeff = mf.mo_coeff
     nmo = mo_coeff.shape[1]
     naux = mf.with_df.get_naoaux()
-    mem_incore = (2 * nmo ** 2 * naux) * 8 / 1e6
+    mem_incore = (2 * nmo**2 * naux) * 8 / 1e6
     mem_now = lib.current_memory()[0]
 
-    mo = np.asarray(mo_coeff, order='F')
+    mo = np.asarray(mo_coeff, order="F")
     if ijslice is None:
         ijslice = (0, nmo, 0, nmo)
 
@@ -216,8 +216,8 @@ def ao2mo(mf, mo_coeff=None, ijslice=None):
 
     Lpq = None
     if (mem_incore + mem_now < 0.99 * mf.max_memory) or mf.mol.incore_anyway:
-        Lpq = _ao2mo.nr_e2(mf.with_df._cderi, mo, ijslice, aosym='s2', out=Lpq)
+        Lpq = _ao2mo.nr_e2(mf.with_df._cderi, mo, ijslice, aosym="s2", out=Lpq)
         return Lpq.reshape(*finshape)
     else:
-        logger.warn(mf, 'Memory may not be enough!')
+        logger.warn(mf, "Memory may not be enough!")
         raise NotImplementedError

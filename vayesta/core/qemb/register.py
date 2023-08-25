@@ -2,7 +2,6 @@ from vayesta.mpi import mpi
 
 
 class FragmentRegister:
-
     def __init__(self, mpi_size=None):
         self._next_id = -1
         if mpi_size is None:

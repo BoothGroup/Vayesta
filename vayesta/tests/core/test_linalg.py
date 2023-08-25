@@ -9,8 +9,7 @@ from vayesta.tests.common import TestCase
 @pytest.mark.fast
 class LinalgTests(TestCase):
     def test_recursive_block_svd(self):
-        """Test the recursive_block_svd function.
-        """
+        """Test the recursive_block_svd function."""
 
         n = 100
         np.random.seed(1)
@@ -18,8 +17,8 @@ class LinalgTests(TestCase):
         dm += dm.T
         fock = np.random.random((n, n)) - 0.5
         fock += fock.T
-        c_frag = np.random.random((n, n//2))
-        c_env = np.random.random((n, n-n//2))
+        c_frag = np.random.random((n, n // 2))
+        c_env = np.random.random((n, n - n // 2))
 
         dmocc1 = np.linalg.multi_dot((c_frag.T, fock, c_env))
         u, s, vh = np.linalg.svd(dmocc1)
@@ -37,9 +36,9 @@ class LinalgTests(TestCase):
 
         e_svd = np.linalg.eigh(np.dot(mo_svd, mo_svd.T))[0]
         e_svd2 = np.linalg.eigh(np.dot(mo_svd2, mo_svd2.T))[0]
-        self.assertAlmostEqual(np.max(np.abs(e_svd-e_svd2)), 0.0, 10)
+        self.assertAlmostEqual(np.max(np.abs(e_svd - e_svd2)), 0.0, 10)
 
 
-if __name__ == '__main__':
-    print('Running %s' % __file__)
+if __name__ == "__main__":
+    print("Running %s" % __file__)
     unittest.main()

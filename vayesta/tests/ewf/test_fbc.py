@@ -7,7 +7,6 @@ from vayesta.tests.common import TestCase
 
 
 class Test_Restricted(TestCase):
-
     @classmethod
     def setUpClass(cls):
         cls.mf = testsystems.water_631g.rhf()
@@ -42,7 +41,6 @@ class Test_Restricted(TestCase):
 
 
 class Test_Unrestricted(Test_Restricted):
-
     @classmethod
     def setUpClass(cls):
         cls.mf = testsystems.water_cation_631g.uhf()
@@ -60,6 +58,6 @@ class Test_Unrestricted(Test_Restricted):
         self.assertAllclose(emb.get_fbc_energy(occupied=False), -0.008843579257449625)
 
 
-if __name__ == '__main__':
-    print('Running %s' % __file__)
+if __name__ == "__main__":
+    print("Running %s" % __file__)
     unittest.main()

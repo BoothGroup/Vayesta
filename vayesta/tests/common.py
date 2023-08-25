@@ -15,7 +15,6 @@ class temporary_seed:
 
 
 class TestCase(unittest.TestCase):
-
     allclose_atol = 1e-8
     allclose_rtol = 1e-7
 
@@ -32,19 +31,18 @@ class TestCase(unittest.TestCase):
             # Add higher precision output:
             message = e.args[0]
             args = e.args[1:]
-            message += '\nHigh precision:\n x: %r\n y: %r' % (actual, desired)
+            message += "\nHigh precision:\n x: %r\n y: %r" % (actual, desired)
             e.args = (message, *args)
             raise
 
 
-if __name__ == '__main__':
-
-    a = np.random.rand(3,4)
-    b = np.random.rand(4,5)
+if __name__ == "__main__":
+    a = np.random.rand(3, 4)
+    b = np.random.rand(4, 5)
 
     test = TestCase()
 
     test.assertAllclose(a, a)
     test.assertAllclose((a, b), (a, b))
-    test.assertAllclose([[a,a], b], [[a,a], b])
+    test.assertAllclose([[a, a], b], [[a, a], b])
     test.assertAllclose(a, b)

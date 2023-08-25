@@ -4,19 +4,18 @@ from vayesta.core.scmf.scmf import SCMF
 
 
 class PDMET_RHF(SCMF):
-
     name = "p-DMET"
 
-    def __init__(self, *args, dm_type='default', **kwargs):
+    def __init__(self, *args, dm_type="default", **kwargs):
         super().__init__(*args, **kwargs)
         self.dm_type = dm_type.lower()
 
     def get_rdm1(self):
         """DM1 in MO basis."""
         dm_type = self.dm_type
-        if dm_type.startswith('default'):
+        if dm_type.startswith("default"):
             dm1 = self.emb.make_rdm1()
-        elif dm_type.startswith('demo'):
+        elif dm_type.startswith("demo"):
             dm1 = self.emb.make_rdm1_demo()
         else:
             raise NotImplementedError("dm_type= %r" % dm_type)
@@ -34,9 +33,9 @@ class PDMET_RHF(SCMF):
         if diis is not None:
             dm1 = diis.update(dm1)
         mo_occ, rot = np.linalg.eigh(dm1)
-        mo_occ, rot = mo_occ[::-1], rot[:,::-1]
+        mo_occ, rot = mo_occ[::-1], rot[:, ::-1]
         nocc = np.count_nonzero(mf.mo_occ > 0)
-        if abs(mo_occ[nocc-1] - mo_occ[nocc]) < 1e-8:
+        if abs(mo_occ[nocc - 1] - mo_occ[nocc]) < 1e-8:
             self.log.critical("p-DMET MO occupation numbers (occupied):\n%s", mo_occ[:nocc])
             self.log.critical("p-DMET MO occupation numbers (virtual):\n%s", mo_occ[nocc:])
             raise RuntimeError("Degeneracy in MO occupation!")
@@ -49,22 +48,21 @@ class PDMET_RHF(SCMF):
 
 
 class PDMET_UHF(PDMET_RHF):
-
     def get_rdm1(self):
         """DM1 in MO basis."""
         dm_type = self.dm_type
-        if dm_type.startswith('default'):
+        if dm_type.startswith("default"):
             dm1 = self.emb.make_rdm1()
-        elif dm_type.startswith('demo'):
+        elif dm_type.startswith("demo"):
             dm1 = self.emb.make_rdm1_demo()
         else:
             raise NotImplementedError("dm_type= %r" % dm_type)
         # Check electron number
-        nelec_err = abs(np.trace(dm1[0]+dm1[1]) - self.emb.mol.nelectron)
+        nelec_err = abs(np.trace(dm1[0] + dm1[1]) - self.emb.mol.nelectron)
         if nelec_err > 1e-5:
             self.log.warning("Large electron error in 1DM= %.3e", nelec_err)
         # Check spin
-        spin_err = abs(np.trace(dm1[0]-dm1[1]) - self.emb.mol.spin)
+        spin_err = abs(np.trace(dm1[0] - dm1[1]) - self.emb.mol.spin)
         if spin_err > 1e-5:
             self.log.warning("Large spin error in 1DM= %.3e", spin_err)
         return dm1
@@ -83,8 +81,8 @@ class PDMET_UHF(PDMET_RHF):
             dma, dmb = diis.update(np.asarray((dma, dmb)))
         mo_occ_a, rot_a = np.linalg.eigh(dma)
         mo_occ_b, rot_b = np.linalg.eigh(dmb)
-        mo_occ_a, rot_a = mo_occ_a[::-1], rot_a[:,::-1]
-        mo_occ_b, rot_b = mo_occ_b[::-1], rot_b[:,::-1]
+        mo_occ_a, rot_a = mo_occ_a[::-1], rot_a[:, ::-1]
+        mo_occ_b, rot_b = mo_occ_b[::-1], rot_b[:, ::-1]
         nocc_a = np.count_nonzero(mf.mo_occ[0] > 0)
         nocc_b = np.count_nonzero(mf.mo_occ[1] > 0)
 
@@ -93,8 +91,8 @@ class PDMET_UHF(PDMET_RHF):
             logger("p-DMET MO occupation numbers (beta-occupied):\n%s", mo_occ_b[:nocc_b])
             logger("p-DMET MO occupation numbers (alpha-virtual):\n%s", mo_occ_a[nocc_a:])
             logger("p-DMET MO occupation numbers (beta-virtual):\n%s", mo_occ_b[nocc_b:])
-        if min(abs(mo_occ_a[nocc_a-1] - mo_occ_a[nocc_a]),
-               abs(mo_occ_b[nocc_b-1] - mo_occ_b[nocc_b])) < 1e-8:
+
+        if min(abs(mo_occ_a[nocc_a - 1] - mo_occ_a[nocc_a]), abs(mo_occ_b[nocc_b - 1] - mo_occ_b[nocc_b])) < 1e-8:
             log_occupation(self.log.critical)
             raise RuntimeError("Degeneracy in MO occupation!")
         log_occupation(self.log.debugv)

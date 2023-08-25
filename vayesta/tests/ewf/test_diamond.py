@@ -9,7 +9,6 @@ from vayesta.tests.common import TestCase
 
 @pytest.mark.veryslow
 class DiamondTest(TestCase):
-
     @classmethod
     def setUpClass(cls):
         cls.mf = testsystems.diamond_sto3g_k333.rhf()
@@ -22,27 +21,27 @@ class DiamondTest(TestCase):
     @classmethod
     @cache
     def emb(cls, bno_threshold, symmetry=None):
-        emb = vayesta.ewf.EWF(cls.mf, bath_options=dict(threshold=bno_threshold),
-                solver_options=dict(solve_lambda=True))
-        center = (1/8, 1/8, 1/8) # point between C-atoms
+        emb = vayesta.ewf.EWF(
+            cls.mf, bath_options=dict(threshold=bno_threshold), solver_options=dict(solve_lambda=True)
+        )
+        center = (1 / 8, 1 / 8, 1 / 8)  # point between C-atoms
         with emb.fragmentation() as frag:
             if symmetry is None:
                 frag.add_atomic_fragment(0)
                 frag.add_atomic_fragment(1)
-            elif symmetry == 'rotation':
-                with frag.rotational_symmetry(2, axis=(1, 0, -1), center=center, unit='latvec'):
+            elif symmetry == "rotation":
+                with frag.rotational_symmetry(2, axis=(1, 0, -1), center=center, unit="latvec"):
                     frag.add_atomic_fragment(0)
-            elif symmetry == 'inversion':
-                with frag.inversion_symmetry(center=center, unit='latvec'):
+            elif symmetry == "inversion":
+                with frag.inversion_symmetry(center=center, unit="latvec"):
                     frag.add_atomic_fragment(0)
-            elif symmetry == 'mirror':
-                with frag.mirror_symmetry(center=center, axis=(1, 1, 1), unit='latvec'):
+            elif symmetry == "mirror":
+                with frag.mirror_symmetry(center=center, axis=(1, 1, 1), unit="latvec"):
                     frag.add_atomic_fragment(0)
             else:
                 raise ValueError
         emb.kernel()
         return emb
-
 
     # --- Tests for T-symmetry
 
@@ -54,14 +53,14 @@ class DiamondTest(TestCase):
 
     def test_corrfunc_dndn_tsymmetry(self):
         emb = self.emb(1e-4)
-        corr_nosym = emb.get_corrfunc('dN,dN', use_symmetry=False)
-        corr_sym = emb.get_corrfunc('dN,dN', use_symmetry=True)
+        corr_nosym = emb.get_corrfunc("dN,dN", use_symmetry=False)
+        corr_sym = emb.get_corrfunc("dN,dN", use_symmetry=True)
         self.assertAllclose(corr_sym, corr_nosym)
 
     def test_corrfunc_szsz_tsymmetry(self):
         emb = self.emb(1e-4)
-        corr_nosym = emb.get_corrfunc('Sz,Sz', use_symmetry=False)
-        corr_sym = emb.get_corrfunc('Sz,Sz', use_symmetry=True)
+        corr_nosym = emb.get_corrfunc("Sz,Sz", use_symmetry=False)
+        corr_sym = emb.get_corrfunc("Sz,Sz", use_symmetry=True)
         self.assertAllclose(corr_sym, corr_nosym)
 
     # --- Tests for combined symmetries
@@ -76,16 +75,16 @@ class DiamondTest(TestCase):
         self.assertAllclose(dm1_tsym, dm1_nosym)
 
     def test_dm1_rotation_symmetry(self):
-        return self._test_dm1_symmetry('rotation')
+        return self._test_dm1_symmetry("rotation")
 
     def test_dm1_inversion_symmetry(self):
-        return self._test_dm1_symmetry('inversion')
+        return self._test_dm1_symmetry("inversion")
 
     # TODO: Fix failing
-    #def test_dm1_mirror_symmetry(self):
+    # def test_dm1_mirror_symmetry(self):
     #    return self._test_dm1_symmetry('mirror')
 
 
-if __name__ == '__main__':
-    print('Running %s' % __file__)
+if __name__ == "__main__":
+    print("Running %s" % __file__)
     unittest.main()

@@ -7,19 +7,18 @@ import vayesta.ewf
 from vayesta.tests.common import TestCase
 from vayesta.tests import testsystems
 
+
 class Test_RHF(TestCase):
-
     def test(self):
-
-        #RHF
+        # RHF
         mf = testsystems.water_631g.rhf()
 
-        #CCSD
+        # CCSD
         cc = pyscf.cc.CCSD(mf)
         cc.kernel()
 
-        #Full bath EWF
-        ewf = vayesta.ewf.EWF(mf, bath_options=dict(bathtype='full'), solver_options=dict(solve_lambda=True))
+        # Full bath EWF
+        ewf = vayesta.ewf.EWF(mf, bath_options=dict(bathtype="full"), solver_options=dict(solve_lambda=True))
         ewf.kernel()
 
         ll = ewf._get_dm_corr_energy_old(global_dm1=False, global_dm2=False)
@@ -33,19 +32,18 @@ class Test_RHF(TestCase):
         self.assertAlmostEqual(gg, cc.e_corr)
         self.assertAlmostEqual(ewf.get_dm_energy(), cc.e_tot)
 
+
 class Test_UHF(TestCase):
-
     def test(self):
-
-        #RHF
+        # RHF
         mf = testsystems.water_cation_631g.uhf()
 
-        #CCSD
+        # CCSD
         cc = pyscf.cc.UCCSD(mf)
         cc.kernel()
 
-        #Full bath EWF
-        ewf = vayesta.ewf.EWF(mf, bath_options=dict(bathtype='full'), solver_options=dict(solve_lambda=True))
+        # Full bath EWF
+        ewf = vayesta.ewf.EWF(mf, bath_options=dict(bathtype="full"), solver_options=dict(solve_lambda=True))
         ewf.kernel()
 
         ll = ewf._get_dm_corr_energy_old(global_dm1=False, global_dm2=False)
@@ -58,6 +56,7 @@ class Test_UHF(TestCase):
         self.assertAlmostEqual(lg, cc.e_corr)
         self.assertAlmostEqual(gg, cc.e_corr)
         self.assertAlmostEqual(ewf.get_dm_energy(), cc.e_tot)
+
 
 #    def test_h2_solid(self):
 #
@@ -83,6 +82,6 @@ class Test_UHF(TestCase):
 #        self.assertAlmostEqual(gg, cc.e_corr)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     print("Running %s" % __file__)
     unittest.main()
