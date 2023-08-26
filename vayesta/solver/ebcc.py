@@ -36,7 +36,7 @@ class REBCC_Solver(ClusterSolver):
             mycc.solve_lambda()
             self.converged = self.converged and mycc.converged_lambda
         # Now just need to wrangle EBCC results into wavefunction format.
-        self.construct_wavefunction(mycc, self.hamil.get_mo(mf_clus.mo_coeff))
+        self.construct_wavefunction(mycc, self.hamil.get_mo(mf_clus.mo_coeff), mbos=self.hamil.mbos)
 
     def get_space(self, mo_coeff, mo_occ, frozen=None):
         s = self.hamil.orig_mf.get_ovlp()

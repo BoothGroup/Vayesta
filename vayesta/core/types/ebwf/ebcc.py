@@ -8,7 +8,7 @@ by pyscf convention for consistency and compatibility with existing interfaces.
 from vayesta.core.types.ebwf import EBWavefunction
 from vayesta.core.types import RCCSD_WaveFunction, UCCSD_WaveFunction
 from vayesta.core import spinalg
-from vayesta.core.util import callif, replace_attr
+from vayesta.core.util import callif, dot, einsum
 
 import ebcc
 import numpy as np
@@ -184,6 +184,56 @@ class REBCC_WaveFunction(EBWavefunction, RCCSD_WaveFunction):
             pass
             # raise NotImplementedError("Only rotation of CCSD components is implemented.")
         return super().rotate_ov(*args, **kwargs)
+
+    def expand_quasibosons(self, ovlp, fglobal=None):
+        """For a coupled electron-quasiboson wavefunction, expand the quasibosonic degrees of freedom into an overall,
+        fermionic wavefunction in the full space.
+        """
+        if self.nbos < 1:
+            return self.copy()
+        if not hasattr(self.mbos, "forbitals"):
+            raise ValueError(
+                "Bosonic component of wavefunction lacks information required for expansion of quasibosons."
+            )
+        # Default to using basis in which quasibosons are defined.
+        fglobal = fglobal or self.mbos.forbitals
+
+        # First, transform fermionic contributions.
+        ro_ferm = dot(fglobal.coeff_occ.T, ovlp, self.mo.coeff_occ)
+        rv_ferm = dot(fglobal.coeff_vir.T, ovlp, self.mo.coeff_vir)
+        t1 = dot(ro_ferm, self.t1, rv_ferm.T)
+        t2 = einsum("ijab,Ii,Jj,Aa,Bb->IJAB", self.t2, ro_ferm, ro_ferm, rv_ferm, rv_ferm)
+
+        # Now, transform bosonic contributions.
+        ca, cb = self.mbos.coeff_ex_3d
+
+        ro_bos = dot(fglobal.coeff_occ.T, ovlp, self.mbos.forbitals.coeff_occ)
+        rv_bos = dot(fglobal.coeff_vir.T, ovlp, self.mbos.forbitals.coeff_vir)
+
+        # Check that spin components are identical.
+        assert abs(ca - cb).max() < 1e-8
+        u11 = self.amplitudes.u11
+        s1 = self.amplitudes.s1
+        s2 = self.amplitudes.s2
+
+        rbos_global = einsum("nia,Ii,Aa->nIA", ca, ro_bos, rv_bos)
+
+        t1 += np.tensordot(s1, rbos_global, 1)
+        t2 += np.tensordot(rbos_global, einsum("nia,Ii,Aa->nIA", u11, ro_ferm, rv_ferm), ((0,), (0,))).transpose(
+            0, 2, 1, 3
+        )
+        t2 += einsum("nm,nia,mjb->ijab", s2, rbos_global, rbos_global)
+
+        print(ro_ferm.shape, ro_bos.shape, rbos_global.shape, t1.shape, t2.shape)
+
+        return type(self)(
+            fglobal.copy(),
+            "CCSD",
+            amplitudes=ebcc.util.Namespace(t1=t1, t2=t2),
+            lambdas=None,
+            mbos=None,
+            projector=None,
+        )
 
 
 class UEBCC_WaveFunction(REBCC_WaveFunction, UCCSD_WaveFunction):

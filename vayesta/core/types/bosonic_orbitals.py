@@ -1,6 +1,12 @@
 import numpy as np
 
 
+def QuasiBosonOrbitals(forbitals, *args, **kwargs):
+    if forbitals.coeff[0].ndim == 2:
+        return UQuasiBosonOrbitals(forbitals, *args, **kwargs)
+    return RQuasiBosonOrbitals(forbitals, *args, **kwargs)
+
+
 class BosonicOrbitals:
     """Base class for representing bosonic rotations, similar to Orbitals.
     Note that unlike fermionic indices our final degrees of freedom can be formed as a combination of both excitations
@@ -43,17 +49,13 @@ class BosonicOrbitals:
         pass
 
 
-class QuasiBosonOrbitals(BosonicOrbitals):
+class RQuasiBosonOrbitals(BosonicOrbitals):
     """Class to represent quasi-bosonic excitations.
     Includes specification of orbital space
     """
 
     def __init__(self, forbitals, *args, **kwargs):
-        # Ensure we have spin orbitals object, as will have spin-dependence here.
-        if hasattr(forbitals, "alpha"):
-            self.forbitals = self.forbitals
-        else:
-            self.forbitals = forbitals.to_spin_orbitals()
+        self.forbitals = forbitals
         super().__init__(*args, **kwargs)
 
     @property
@@ -62,11 +64,11 @@ class QuasiBosonOrbitals(BosonicOrbitals):
 
     @property
     def ova(self):
-        return self.forbitals.alpha.nocc * self.forbitals.alpha.nvir
+        return self.forbitals.nocc * self.forbitals.nvir
 
     @property
     def ovb(self):
-        return self.forbitals.beta.nocc * self.forbitals.beta.nvir
+        return self.forbitals.nocc * self.forbitals.nvir
 
     @property
     def coeff_ex_3d(self):
@@ -109,6 +111,16 @@ class QuasiBosonOrbitals(BosonicOrbitals):
         return cp
 
 
+class UQuasiBosonOrbitals(RQuasiBosonOrbitals):
+    @property
+    def ova(self):
+        return self.forbitals.alpha.nocc * self.forbitals.alpha.nvir
+
+    @property
+    def ovb(self):
+        return self.forbitals.beta.nocc * self.forbitals.beta.nvir
+
+
 def bcoeff_ov_to_o_v(cbos, no, nv):
     noa, nob = no if isinstance(no, tuple) else (no, no)
     nva, nvb = nv if isinstance(nv, tuple) else (nv, nv)
@@ -125,6 +137,11 @@ def bcoeff_mo2ao(cbos, co, cv, transpose=False):
         if transpose:
             cbos = cbos.transpose((0, 2, 1))
         return cbos
+
+    if co[0].ndim == 1:
+        co = (co, co)
+    if cv[0].ndim == 1:
+        cv = (cv, cv)
 
     return _spinchannel_bcoeff_mo2ao(cbos[0], co[0], cv[0], transpose=transpose), _spinchannel_bcoeff_mo2ao(
         cbos[1], co[1], cv[1], transpose=transpose
