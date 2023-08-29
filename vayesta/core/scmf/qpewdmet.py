@@ -15,7 +15,7 @@ class QPEWDMET_RHF(SCMF):
     """ Quasi-particle self-consistent energy weighted density matrix embedding """
     name = "QP-EWDMET"
 
-    def __init__(self, emb, proj=2, v_conv_tol=1e-5, eta=1e-4, damping=0, sc=True, store_hist=True, *args, **kwargs):
+    def __init__(self, emb, proj=2, v_conv_tol=1e-5, eta=1e-2, damping=0, sc=True, store_hist=True, *args, **kwargs):
         """ 
         Initialize QPEWDMET 
         
@@ -45,7 +45,8 @@ class QPEWDMET_RHF(SCMF):
         self.v_last = None
         self.v_conv_tol = v_conv_tol
         self.proj = proj
-        self.store_hist = store_hist    
+        self.store_hist = store_hist  
+        
 
         if self.store_hist:
             self.v_hist = []
@@ -53,8 +54,11 @@ class QPEWDMET_RHF(SCMF):
             self.fock_hist = []
             self.static_gap_hist = []
             self.dynamic_gap_hist = []  
+            self.mo_coeff_hist = []
 
         super().__init__(emb, *args, **kwargs)
+
+        self.damping = damping
 
     def update_mo_coeff(self, mf, diis=None):
         
@@ -144,18 +148,12 @@ class QPEWDMET_RHF(SCMF):
         if diis is not None:
             self.v = diis.update(self.v)
 
-        new_fock = self.sc_fock + self.v
+        new_fock = self.emb.get_fock() + self.v
         self.sc_fock = self.damping * self.sc_fock + (1-self.damping) * new_fock
-
+        #self.sc_fock = self.sc_fock + (1-self.damping) * self.v
         
         static_gap = gap(energies)
 
-        if self.store_hist:        
-            self.v_frag_hist.append(v_frag.copy())
-            self.v_hist.append(self.v.copy())
-            self.fock_hist.append(self.sc_fock.copy())
-            self.static_gap_hist.append(static_gap)
-            self.dynamic_gap_hist.append(dynamic_gap)
 
         if self.sc:
             #mf = LatticeRHF(self.emb.mf.mol)
@@ -182,7 +180,7 @@ class QPEWDMET_RHF(SCMF):
             self.fock_hist.append(self.sc_fock.copy())
             self.static_gap_hist.append(static_gap)
             self.dynamic_gap_hist.append(dynamic_gap)
-
+            self.mo_coeff_hist.append(mo_coeff.copy())
 
         self.log.info("Dynamic Gap = %f"%dynamic_gap)
         self.log.info("Static Gap = %f"%static_gap)
