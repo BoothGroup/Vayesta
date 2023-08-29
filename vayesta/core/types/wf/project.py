@@ -43,6 +43,37 @@ def project_uc2(c2, p):
     )
 
 
+def project_u11_ferm(u11, p):
+    if u11 is None:
+        return None
+    if p is None:
+        return u11
+    return np.tensordot(p, u11, axes=((1,), (1,))).transpose(1, 0, 2)
+
+
+def project_u11_bos(u11, p):
+    if p is None:
+        return u11
+    # Project bosonic basis.
+    return np.tensordot(p, u11, axes=((1,), (0,)))
+
+
+def project_s1(s1, p):
+    if s1 is None:
+        return None
+    if p is None:
+        return s1
+    return np.tensordot(p, s1, axes=((1,), (0,)))
+
+
+def project_s2(s2, p):
+    if s2 is None:
+        return None
+    if p is None:
+        return s2
+    return np.tensordot(p, s2, axes=((1,), (0,)))
+
+
 def symmetrize_c2(c2, inplace=True):
     if not inplace:
         c2 = c2.copy()
@@ -60,6 +91,13 @@ def symmetrize_uc2(c2, inplace=True):
     if len(c2) == 4:
         c2ab = (c2ab + c2[2].transpose(1, 0, 3, 2)) / 2
     return (c2aa, c2ab, c2bb)
+
+
+def symmetrize_s2(s2, inplace=True):
+    if not inplace:
+        s2 = s2.copy()
+    s2 = (s2 + s2.T) / 2
+    return s2
 
 
 def transform_c1(c1, to, tv):

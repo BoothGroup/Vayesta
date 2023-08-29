@@ -213,7 +213,13 @@ class EB_REBCC_Solver(REBCC_Solver):
 
     def construct_wavefunction(self, mycc, mo, mbos=None):
         self.wf = EBCC_WaveFunction(
-            mo, mycc.ansatz, mycc.amplitudes, mycc.lambdas, mbos=mbos, xi=self.hamil.polaritonic_shift
+            mo,
+            mycc.ansatz,
+            mycc.amplitudes,
+            mycc.lambdas,
+            mbos=mbos,
+            xi=self.hamil.polaritonic_shift,
+            ovlp_occ=self.hamil._fragment.get_overlap("cluster[occ]|mo[occ]"),
         )
         self.wf.rotate(t=mycc.mo_coeff.T, inplace=True)
 

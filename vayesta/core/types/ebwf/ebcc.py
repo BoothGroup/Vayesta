@@ -6,6 +6,14 @@ by pyscf convention for consistency and compatibility with existing interfaces.
 """
 
 from vayesta.core.types.ebwf import EBWavefunction
+from vayesta.core.types.wf.project import (
+    project_u11_ferm,
+    project_u11_bos,
+    project_s1,
+    project_s2,
+    symmetrize_c2,
+    symmetrize_s2,
+)
 from vayesta.core.types import RCCSD_WaveFunction, UCCSD_WaveFunction
 from vayesta.core import spinalg
 from vayesta.core.util import callif, dot, einsum
@@ -35,7 +43,7 @@ class REBCC_WaveFunction(EBWavefunction, RCCSD_WaveFunction):
     _spin_type = "R"
     _driver = ebcc.REBCC
 
-    def __init__(self, mo, ansatz, amplitudes, lambdas=None, mbos=None, projector=None, xi=None):
+    def __init__(self, mo, ansatz, amplitudes, lambdas=None, mbos=None, projector=None, xi=None, ovlp_occ=None):
         super().__init__(mo, mbos, projector)
         self.amplitudes = amplitudes
         if lambdas is not None and len(lambdas) == 0:
@@ -47,10 +55,16 @@ class REBCC_WaveFunction(EBWavefunction, RCCSD_WaveFunction):
             self.ansatz = ebcc.Ansatz.from_string(ansatz)
         self._eqns = self.ansatz._get_eqns(self._spin_type)
         self.xi = xi
+        # Need this to relate quasibosonic spaces to their original fermionic indices.
+        self._ovlp_occ = ovlp_occ
 
     @property
     def options(self):
         return ebcc.util.Namespace(shift=self.xi is not None)
+
+    @property
+    def inc_bosons(self):
+        return self.nbos > 0
 
     @property
     def nbos(self):
@@ -159,6 +173,64 @@ class REBCC_WaveFunction(EBWavefunction, RCCSD_WaveFunction):
 
     make_rdm1_f = make_rdm1
     make_rdm2_f = make_rdm2
+
+    def project(self, projector, inplace=False, project_bosons=True):
+        wf = super().project(projector, inplace)
+
+        if (not self.inc_bosons) or (not project_bosons):
+            return wf
+
+        # Construct projector for bosonic space.
+        # Note that we just directly project the bosonic amplitudes rather than storing in an intermediate state, as
+        # any efficiency gains are comparatively minimal.)
+        ex_coeff = np.tensordot(self.mbos.coeff_ex_3d[0], dot(projector, self._ovlp_occ), axes=((1,), (1,)))
+
+        pbos = 2 * np.tensordot(
+            ex_coeff, ex_coeff, axes=((1, 2), (1, 2))
+        )  # Sum over both spin components of the bosons.
+
+        wf.amplitudes.u11_ferm = project_u11_ferm(self.amplitudes.u11, dot(projector.T, projector))
+        wf.amplitudes.u11 = (
+            project_u11_ferm(self.amplitudes.u11, dot(projector.T, projector))
+            + project_u11_bos(self.amplitudes.u11, pbos)
+        ) / 2
+        wf.amplitudes.s1 = project_s1(self.amplitudes.s1, pbos)
+        if "s2" in self.amplitudes:
+            wf.amplitudes.s2 = project_s2(self.amplitudes.s2, pbos)
+
+        if wf.lambdas is None:
+            return wf
+
+        wf.lambdas.lu11_ferm = project_u11_ferm(
+            self.lambdas.lu11.transpose(0, 2, 1), dot(projector.T, projector)
+        ).transpose(0, 2, 1)
+        wf.lambdas.lu11 = (
+            project_u11_ferm(self.lambdas.lu11.transpose(0, 2, 1), dot(projector.T, projector)).transpose(0, 2, 1)
+            + project_u11_bos(self.lambdas.lu11, pbos)
+        ) / 2
+        wf.lambdas.ls1 = project_s1(self.lambdas.ls1, pbos)
+        if "ls2" in self.lambdas:
+            wf.lambdas.ls2 = project_s2(self.lambdas.ls2, pbos)
+        return wf
+
+    def restore(self, projector=None, inplace=False, sym=True):
+        if projector is None:
+            projector = self.projector
+        wf = self.project(projector.T, inplace=inplace, project_bosons=False)
+        wf.projector = None
+        if not sym:
+            return wf
+        wf.t2 = symmetrize_c2(wf.t2)
+        if wf.l2 is None:
+            return wf
+        wf.l2 = symmetrize_c2(wf.l2)
+
+        if "s2" in self.amplitudes:
+            wf.amplitudes.s2 = symmetrize_s2(wf.amplitudes.s2)
+        if wf.lambdas is not None:
+            if "ls2" in self.lambdas:
+                wf.lambdas.ls2 = symmetrize_s2(wf.lambdas.ls2)
+        return wf
 
     def copy(self):
         proj = callif(spinalg.copy, self.projector)
