@@ -94,6 +94,8 @@ def symmetrize_uc2(c2, inplace=True):
 
 
 def symmetrize_s2(s2, inplace=True):
+    if s2 is None:
+        return None
     if not inplace:
         s2 = s2.copy()
     s2 = (s2 + s2.T) / 2

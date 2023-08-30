@@ -63,10 +63,6 @@ class REBCC_WaveFunction(EBWavefunction, RCCSD_WaveFunction):
         return ebcc.util.Namespace(shift=self.xi is not None)
 
     @property
-    def inc_bosons(self):
-        return self.nbos > 0
-
-    @property
     def nbos(self):
         if "s1" in self.amplitudes:
             return self.amplitudes.s1.shape[0]
@@ -101,9 +97,7 @@ class REBCC_WaveFunction(EBWavefunction, RCCSD_WaveFunction):
     def l1(self, value):
         if value is None:
             return
-        if self.lambdas is None:
-            self.lambdas = ebcc.util.Namespace()
-        self.lambdas.l1 = value.T
+        self._set_lambda_value("l1", value.T)
 
     @property
     def l2(self):
@@ -113,9 +107,75 @@ class REBCC_WaveFunction(EBWavefunction, RCCSD_WaveFunction):
     def l2(self, value):
         if value is None:
             return
+        self._set_lambda_value("l2", value.transpose((2, 3, 0, 1)))
+
+    @property
+    def u11(self):
+        return self.amplitudes.get("u11", None)
+
+    @u11.setter
+    def u11(self, val):
+        if val is None:
+            return
+        self.amplitudes.u11 = val
+
+    @property
+    def s1(self):
+        return self.amplitudes.get("s1", None)
+
+    @s1.setter
+    def s1(self, val):
+        if val is not None:
+            self.amplitudes.s1 = val
+
+    @property
+    def s2(self):
+        return self.amplitudes.get("s2", None)
+
+    @s2.setter
+    def s2(self, val):
+        if val is not None:
+            self.amplitudes.s2 = val
+
+    @property
+    def lu11(self):
+        if self.lambdas is None:
+            return None
+        val = self.lambdas.get("lu11", None)
+        if val is not None:
+            val = val.transpose(0, 2, 1)
+        return val
+
+    @lu11.setter
+    def lu11(self, val):
+        if val is None:
+            return
+        self._set_lambda_value("lu11", val.transpose(0, 2, 1))
+
+    @property
+    def ls1(self):
+        return self.lambdas.get("ls1", None)
+
+    @ls1.setter
+    def ls1(self, val):
+        if val is not None:
+            self._set_lambda_value("ls1", val)
+
+    @property
+    def ls2(self):
+        return self.lambdas.get("ls2", None)
+
+    @ls2.setter
+    def ls2(self, val):
+        if val is not None:
+            self._set_lambda_value("ls2", val)
+
+    def _set_lambda_value(self, key, value):
+        if value is None:
+            return
         if self.lambdas is None:
             self.lambdas = ebcc.util.Namespace()
-        self.lambdas.l2 = value.transpose((2, 3, 0, 1))
+        self.lambdas[key] = value
 
     def _load_function(self, *args, **kwargs):
         return self._driver._load_function(self, *args, **kwargs)
@@ -189,28 +249,19 @@ class REBCC_WaveFunction(EBWavefunction, RCCSD_WaveFunction):
             ex_coeff, ex_coeff, axes=((1, 2), (1, 2))
         )  # Sum over both spin components of the bosons.
 
-        wf.amplitudes.u11_ferm = project_u11_ferm(self.amplitudes.u11, dot(projector.T, projector))
-        wf.amplitudes.u11 = (
-            project_u11_ferm(self.amplitudes.u11, dot(projector.T, projector))
-            + project_u11_bos(self.amplitudes.u11, pbos)
-        ) / 2
-        wf.amplitudes.s1 = project_s1(self.amplitudes.s1, pbos)
+        wf.amplitudes.u11_ferm = project_u11_ferm(self.u11, dot(projector.T, projector)).transpose(0, 2, 1)
+        wf.u11 = (project_u11_ferm(self.u11, dot(projector.T, projector)) + project_u11_bos(self.u11, pbos)) / 2
+        wf.s1 = project_s1(self.s1, pbos)
         if "s2" in self.amplitudes:
-            wf.amplitudes.s2 = project_s2(self.amplitudes.s2, pbos)
+            wf.s2 = project_s2(self.s2, pbos)
 
         if wf.lambdas is None:
             return wf
 
-        wf.lambdas.lu11_ferm = project_u11_ferm(
-            self.lambdas.lu11.transpose(0, 2, 1), dot(projector.T, projector)
-        ).transpose(0, 2, 1)
-        wf.lambdas.lu11 = (
-            project_u11_ferm(self.lambdas.lu11.transpose(0, 2, 1), dot(projector.T, projector)).transpose(0, 2, 1)
-            + project_u11_bos(self.lambdas.lu11, pbos)
-        ) / 2
-        wf.lambdas.ls1 = project_s1(self.lambdas.ls1, pbos)
-        if "ls2" in self.lambdas:
-            wf.lambdas.ls2 = project_s2(self.lambdas.ls2, pbos)
+        wf.lu11_ferm = project_u11_ferm(self.lu11, dot(projector.T, projector))
+        wf.lu11 = (project_u11_ferm(self.lu11, dot(projector.T, projector)) + project_u11_bos(self.lu11, pbos)) / 2
+        wf.ls1 = project_s1(self.ls1, pbos)
+        wf.ls2 = project_s2(self.ls2, pbos)
         return wf
 
     def restore(self, projector=None, inplace=False, sym=True):
@@ -221,15 +272,11 @@ class REBCC_WaveFunction(EBWavefunction, RCCSD_WaveFunction):
         if not sym:
             return wf
         wf.t2 = symmetrize_c2(wf.t2)
+        wf.s2 = symmetrize_s2(wf.s2)
         if wf.l2 is None:
             return wf
         wf.l2 = symmetrize_c2(wf.l2)
-
-        if "s2" in self.amplitudes:
-            wf.amplitudes.s2 = symmetrize_s2(wf.amplitudes.s2)
-        if wf.lambdas is not None:
-            if "ls2" in self.lambdas:
-                wf.lambdas.ls2 = symmetrize_s2(wf.lambdas.ls2)
+        wf.ls2 = symmetrize_s2(wf.ls2)
         return wf
 
     def copy(self):

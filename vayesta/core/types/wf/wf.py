@@ -58,6 +58,10 @@ class WaveFunction:
     def nelec(self):
         return self.mo.nelec
 
+    @property
+    def inc_bosons(self):
+        return False
+
     def make_rdm1(self, *args, **kwargs):
         raise AbstractMethodError
 

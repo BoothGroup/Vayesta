@@ -8,6 +8,10 @@ class EBWavefunction(WaveFunction):
         self.mbos = mbos
 
     @property
+    def inc_bosons(self):
+        return self.nbos > 0
+
+    @property
     def nbos(self):
         return 0 if self.mbos is None else self.mbos.nbos
 
