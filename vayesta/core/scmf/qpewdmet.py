@@ -213,7 +213,7 @@ class QPEWDMET_RHF(SCMF):
         shift = AuxiliaryShift(self.emb.get_fock(), self.se, nelec, occupancy=2, log=NullLogger())
         shift.kernel()
         se_shifted = shift.get_self_energy()
-        print('Final (shifted) auxiliaries: {} ({}o, {}v)'.format(se_shifted.naux, se_shifted.occupied().naux, se_shifted.virtual().naux))
+        vayesta.log.info('Final (shifted) auxiliaries: {} ({}o, {}v)'.format(se_shifted.naux, se_shifted.occupied().naux, se_shifted.virtual().naux))
         self.se_shifted = se_shifted
         # Find the Green's function
         gf = Lehmann(*se_shifted.diagonalise_matrix_with_projection(self.emb.mf.get_fock()), chempot=se_shifted.chempot)
@@ -222,7 +222,7 @@ class QPEWDMET_RHF(SCMF):
         if not np.isclose(nelec_gf, gf.occupied().weights(occupancy=2).sum()):
             vayesta.log.warning('Number of electrons in final (shifted) GF: %f'%nelec_gf)
         else:
-            print('Number of electrons in final (shifted) GF with dynamical self-energy: %f'%nelec_gf)
+            vayesta.log.info('Number of electrons in final (shifted) GF with dynamical self-energy: %f'%nelec_gf)
         
         if not np.isclose(nelec_gf, float(nelec)):
             vayesta.log.warning('Number of electrons in final (shifted) GF: %f'%nelec_gf)
