@@ -61,6 +61,8 @@ class RClusterHamiltonian:
         screening: Optional[str] = None
         cache_eris: bool = True
         match_fock: bool = True
+        boson_coupling_exchange: bool = True
+        boson_freq_exchange: bool = False
 
     @property
     def _scf_class(self):
@@ -848,7 +850,11 @@ class EB_RClusterHamiltonian(RClusterHamiltonian):
 
     def generate_bosonic_interactions(self):
         projector = BosonicHamiltonianProjector(self.cluster, self._get_cderi, self.orig_mf, log=self.log)
-        self.initialise_bosons(*projector.kernel(coupling_exchange=True))
+        self.initialise_bosons(
+            *projector.kernel(
+                coupling_exchange=self.opts.boson_coupling_exchange, freq_exchange=self.opts.boson_freq_exchange
+            )
+        )
 
     def set_polaritonic_shift(self, freqs, couplings):
         no = self.cluster.nocc_active

@@ -43,7 +43,18 @@ class REBCC_WaveFunction(EBWavefunction, RCCSD_WaveFunction):
     _spin_type = "R"
     _driver = ebcc.REBCC
 
-    def __init__(self, mo, ansatz, amplitudes, lambdas=None, mbos=None, projector=None, xi=None, ovlp_occ=None):
+    def __init__(
+        self,
+        mo,
+        ansatz,
+        amplitudes,
+        lambdas=None,
+        mbos=None,
+        projector=None,
+        xi=None,
+        ovlp_occ=None,
+        store_unshifted=True,
+    ):
         super().__init__(mo, mbos, projector)
         self.amplitudes = amplitudes
         if lambdas is not None and len(lambdas) == 0:
@@ -54,9 +65,14 @@ class REBCC_WaveFunction(EBWavefunction, RCCSD_WaveFunction):
         else:
             self.ansatz = ebcc.Ansatz.from_string(ansatz)
         self._eqns = self.ansatz._get_eqns(self._spin_type)
-        self.xi = xi
         # Need this to relate quasibosonic spaces to their original fermionic indices.
         self._ovlp_occ = ovlp_occ
+
+        if store_unshifted and xi is not None:
+            self.xi = None
+            self.apply_polaritonic_shift(-xi)
+        else:
+            self.xi = xi
 
     @property
     def options(self):
@@ -252,8 +268,7 @@ class REBCC_WaveFunction(EBWavefunction, RCCSD_WaveFunction):
         wf.amplitudes.u11_ferm = project_u11_ferm(self.u11, dot(projector.T, projector)).transpose(0, 2, 1)
         wf.u11 = (project_u11_ferm(self.u11, dot(projector.T, projector)) + project_u11_bos(self.u11, pbos)) / 2
         wf.s1 = project_s1(self.s1, pbos)
-        if "s2" in self.amplitudes:
-            wf.s2 = project_s2(self.s2, pbos)
+        wf.s2 = symmetrize_s2(project_s2(self.s2, pbos))
 
         if wf.lambdas is None:
             return wf
@@ -261,7 +276,7 @@ class REBCC_WaveFunction(EBWavefunction, RCCSD_WaveFunction):
         wf.lu11_ferm = project_u11_ferm(self.lu11, dot(projector.T, projector))
         wf.lu11 = (project_u11_ferm(self.lu11, dot(projector.T, projector)) + project_u11_bos(self.lu11, pbos)) / 2
         wf.ls1 = project_s1(self.ls1, pbos)
-        wf.ls2 = project_s2(self.ls2, pbos)
+        wf.ls2 = symmetrize_s2(project_s2(self.ls2, pbos))
         return wf
 
     def restore(self, projector=None, inplace=False, sym=True):
@@ -303,6 +318,19 @@ class REBCC_WaveFunction(EBWavefunction, RCCSD_WaveFunction):
             pass
             # raise NotImplementedError("Only rotation of CCSD components is implemented.")
         return super().rotate_ov(*args, **kwargs)
+
+    def apply_polaritonic_shift(self, xi):
+        """Convert wavefunction representation to use bosons defined as b_n^+ = \tilde{b}_n^+ + xi_n
+        Note that these are only the modifications that change wavefunction parameters; while it is possible to
+        convert wavefunction representations between bosonic operator definitions this does not mean that the shifted
+        and unshifted solutions are the same. To see this, consider the change in definition of intermediate
+        normalisation for the CC wavefunction under this transformation.
+        """
+
+        self.t1 = self.t1 - einsum("nia,n->ia", self.u11, xi)
+        if self.s2 is not None:
+            # Use symmetry of s2.
+            self.s1 = self.s1 - 2 * dot(self.s2, xi)
 
     def expand_quasibosons(self, ovlp, fglobal=None):
         """For a coupled electron-quasiboson wavefunction, expand the quasibosonic degrees of freedom into an overall,

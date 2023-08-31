@@ -393,7 +393,7 @@ class EWF(Embedding):
             raise ValueError("Unknown value for dm2: '%s'" % dm2)
         return e2 / self.ncells
 
-    def get_ccsd_corr_energy(self, full_wf=False):
+    def get_ccsd_corr_energy(self, full_wf=False, include_bosons=True):
         """Get projected correlation energy from partitioned CCSD WF.
 
         This is the projected (T1, T2) energy expression, instead of the
@@ -401,7 +401,7 @@ class EWF(Embedding):
 
         For testing only, UHF and MPI not implemented"""
         t0 = timer()
-        t1 = self.get_global_t1()
+        t1 = self.get_global_t1(include_bosons=include_bosons)
 
         # E(singles)
         fock = self.get_fock_for_energy(with_exxdiv=False)
@@ -410,7 +410,7 @@ class EWF(Embedding):
 
         # E(doubles)
         if full_wf:
-            c2 = self.get_global_t2() + einsum("ia,jb->ijab", t1, t1)
+            c2 = self.get_global_t2(include_bosons=include_bosons) + einsum("ia,jb->ijab", t1, t1)
             mos = (self.mo_coeff_occ, self.mo_coeff_vir, self.mo_coeff_vir, self.mo_coeff_occ)
             eris = self.get_eris_array(mos)
             e_doubles = 2 * einsum("ijab,iabj", c2, eris) - einsum("ijab,ibaj", c2, eris)
@@ -437,6 +437,7 @@ class EWF(Embedding):
                 e_doubles = mpi.world.allreduce(e_doubles)
 
         self.log.timing("Time for E(CCSD)= %s", time_string(timer() - t0))
+        self.log.info("E(CCSD) singles= %s  doubles= %s", energy_string(e_singles), energy_string(e_doubles))
         e_corr = e_singles + e_doubles
         return e_corr / self.ncells
 

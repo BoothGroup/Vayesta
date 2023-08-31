@@ -11,7 +11,7 @@ class Cluster:
     def __init__(self, active_orbitals, frozen_orbitals, bosons=None):
         self.active_orbitals = active_orbitals
         self.frozen_orbitals = frozen_orbitals
-        self.bosons = None
+        self.bosons = bosons
 
     @staticmethod
     def from_coeffs(c_active_occ, c_active_vir, c_frozen_occ, c_frozen_vir):
@@ -121,7 +121,11 @@ class Cluster:
         return self.bosons is not None
 
     def copy(self):
-        return type(self)(self.active_orbitals.copy(), self.frozen_orbitals.copy())
+        return type(self)(
+            self.active_orbitals.copy(),
+            self.frozen_orbitals.copy(),
+            None if self.bosons is None else self.bosons.copy(),
+        )
 
     def basis_transform(self, trafo, inplace=False):
         cp = self if inplace else self.copy()

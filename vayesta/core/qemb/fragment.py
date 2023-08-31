@@ -1203,6 +1203,8 @@ class Fragment:
             screening=self.opts.screening,
             cache_eris=self.opts.store_eris,
             match_fock=self.opts.match_cluster_fock,
+            boson_coupling_exchange=self.opts.solver_options["boson_coupling_exchange"],
+            boson_freq_exchange=self.opts.solver_options["boson_freq_exchange"],
         )
 
     def get_solver_options(self, *args, **kwargs):

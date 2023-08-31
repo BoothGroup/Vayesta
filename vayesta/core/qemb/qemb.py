@@ -159,6 +159,10 @@ class Options(OptionsBase):
         dumpfile="clusters.h5",
         # MP2
         compress_cderi=False,
+        # Bosonic construction options
+        polaritonic_shift=None,
+        boson_coupling_exchange=True,
+        boson_freq_exchange=False,
     )
     # --- Other
     symmetry_tol: float = 1e-6  # Tolerance (in Bohr) for atomic positions

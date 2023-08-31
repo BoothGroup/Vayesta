@@ -94,8 +94,7 @@ class BosonicHamiltonianProjector:
 
     def project_freqs(self, exchange=False):
         if exchange:
-            raise NotImplementedError
-
+            self.log.warning("Exchange contributions to bosonic frequencies have O(N_clus N^4); use with caution!")
         ca, cb = self.bcluster.coeff_3d_ao
 
         hbb_fock = (
@@ -107,8 +106,18 @@ class BosonicHamiltonianProjector:
 
         cderi_bos, cderi_bos_neg = self.cderi_bos
         hbb_coulomb = einsum("Ln,Lm->nm", cderi_bos, cderi_bos)
+        hbb_exchange = np.zeros_like(hbb_coulomb)
+        if exchange:
+            for i, (blk, lab) in enumerate(self._loop_df()):
+                sign = 1 if blk is not None else -1
+                # hbb_exchange += einsum("Lij,Lab,nia,mjb->nm", lab, lab, ca, ca)
+                temp = einsum("Lij,nia->Lnja", lab, ca)
+                hbb_exchange += sign * einsum("Lnja,Lab,mjb->nm", temp, lab, ca)
+                temp = einsum("Lij,nia->Lnja", lab, cb)
+                hbb_exchange += sign * einsum("Lnja,Lab,mjb->nm", temp, lab, cb)
+
         # Want to take eigenvectors of this coupling matrix as our bosonic auxiliaries.
-        hbb = hbb_fock + hbb_coulomb
+        hbb = hbb_fock + hbb_coulomb + hbb_exchange
         freqs, c = np.linalg.eigh(hbb)
         return freqs, c
 
