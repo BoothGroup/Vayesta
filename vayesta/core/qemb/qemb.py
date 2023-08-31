@@ -1368,6 +1368,15 @@ class Embedding:
     def get_max_cluster_size(self):
         return np.max([x.cluster.norb_active for x in self.fragments])
 
+    def get_mean_cluster_bosons(self):
+        clusbosons = [x.cluster.bosons for x in self.fragments]
+        return np.mean([x.nbos if x is not None else 0 for x in clusbosons])
+
+    def get_average_cluster_bosons(self, average="mean"):
+        if average == "mean":
+            return self.get_mean_cluster_bosons()
+        raise ValueError
+
     # --- Population analysis
     # -----------------------
 
