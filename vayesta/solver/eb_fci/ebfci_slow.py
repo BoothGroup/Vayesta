@@ -12,15 +12,13 @@ from pyscf.fci import rdm
 from pyscf.fci.direct_spin1 import _unpack_nelec
 
 
-def contract_all(h1e, g2e, hep, hpp, ci0, norbs, nelec, nbosons, max_occ,
-                 ecore=0.0, adj_zero_pho=False):
+def contract_all(h1e, g2e, hep, hpp, ci0, norbs, nelec, nbosons, max_occ, ecore=0.0, adj_zero_pho=False):
     # ci1  = contract_1e(h1e, ci0, norbs, nelec, nbosons, max_occ)
     contrib1 = contract_2e(g2e, ci0, norbs, nelec, nbosons, max_occ)
-    incbosons = (nbosons > 0 and max_occ > 0)
+    incbosons = nbosons > 0 and max_occ > 0
 
     if incbosons:
-        contrib2 = contract_ep(hep, ci0, norbs, nelec, nbosons, max_occ,
-                               adj_zero_pho=adj_zero_pho)
+        contrib2 = contract_ep(hep, ci0, norbs, nelec, nbosons, max_occ, adj_zero_pho=adj_zero_pho)
         contrib3 = contract_pp(hpp, ci0, norbs, nelec, nbosons, max_occ)
 
     cishape = make_shape(norbs, nelec, nbosons, max_occ)
@@ -38,8 +36,7 @@ def contract_all(h1e, g2e, hep, hpp, ci0, norbs, nelec, nbosons, max_occ,
 
 
 def make_shape(norbs, nelec, nbosons, max_occ):
-    """Construct the shape of a single FCI vector in the coupled electron-boson space.
-    """
+    """Construct the shape of a single FCI vector in the coupled electron-boson space."""
     neleca, nelecb = _unpack_nelec(nelec)
     na = cistring.num_strings(norbs, neleca)
     nb = cistring.num_strings(norbs, nelecb)
@@ -49,9 +46,11 @@ def make_shape(norbs, nelec, nbosons, max_occ):
 
 # Contract 1-electron integrals with fcivec.
 def contract_1e(h1e, fcivec, norb, nelec, nbosons, max_occ):
-    raise NotImplementedError("1 electron contraction is currently"
-                              "bugged for coupled electron-boson systems."
-                              "This should instead be folded into a two-body operator.")
+    raise NotImplementedError(
+        "1 electron contraction is currently"
+        "bugged for coupled electron-boson systems."
+        "This should instead be folded into a two-body operator."
+    )
     if isinstance(nelec, (int, numpy.integer)):
         nelecb = nelec // 2
         neleca = nelec - nelecb
@@ -181,9 +180,9 @@ def contract_ep(heb, fcivec, norb, nelec, nbosons, max_occ, adj_zero_pho=False):
 
 # Contract phonon-phonon portion of the Hamiltonian.
 
+
 def contract_pp(hpp, fcivec, norb, nelec, nbosons, max_occ):
-    """Arbitrary phonon-phonon coupling.
-    """
+    """Arbitrary phonon-phonon coupling."""
     cishape = make_shape(norb, nelec, nbosons, max_occ)
     ci0 = fcivec.reshape(cishape)
     fcinew = numpy.zeros_like(ci0)
@@ -279,15 +278,20 @@ def make_hdiag(h1e, g2e, hep, hpp, norb, nelec, nbosons, max_occ):
     cishape = make_shape(norb, nelec, nbosons, max_occ)
     hdiag = numpy.zeros(cishape)
     g2e = ao2mo.restore(1, g2e, norb)
-    diagj = numpy.einsum('iijj->ij', g2e)
-    diagk = numpy.einsum('ijji->ij', g2e)
+    diagj = numpy.einsum("iijj->ij", g2e)
+    diagk = numpy.einsum("ijji->ij", g2e)
     for ia, aocc in enumerate(occslista):
         for ib, bocc in enumerate(occslistb):
             e1 = h1e[aocc, aocc].sum() + h1e[bocc, bocc].sum()
-            e2 = diagj[aocc][:, aocc].sum() + diagj[aocc][:, bocc].sum() \
-                 + diagj[bocc][:, aocc].sum() + diagj[bocc][:, bocc].sum() \
-                 - diagk[aocc][:, aocc].sum() - diagk[bocc][:, bocc].sum()
-            hdiag[ia, ib] += e1 + e2 * .5
+            e2 = (
+                diagj[aocc][:, aocc].sum()
+                + diagj[aocc][:, bocc].sum()
+                + diagj[bocc][:, aocc].sum()
+                + diagj[bocc][:, bocc].sum()
+                - diagk[aocc][:, aocc].sum()
+                - diagk[bocc][:, bocc].sum()
+            )
+            hdiag[ia, ib] += e1 + e2 * 0.5
 
     # No electron-phonon part?
 
@@ -302,11 +306,24 @@ def make_hdiag(h1e, g2e, hep, hpp, norb, nelec, nbosons, max_occ):
     return hdiag.ravel()
 
 
-def kernel(h1e, g2e, hep, hpp, norb, nelec, nbosons, max_occ,
-           tol=1e-12, max_cycle=100, verbose=0, ecore=0,
-           returnhop=False, adj_zero_pho=False,
-           **kwargs):
-    h2e = fci_slow.absorb_h1e(h1e, g2e, norb, nelec, .5)
+def kernel(
+    h1e,
+    g2e,
+    hep,
+    hpp,
+    norb,
+    nelec,
+    nbosons,
+    max_occ,
+    tol=1e-12,
+    max_cycle=100,
+    verbose=0,
+    ecore=0,
+    returnhop=False,
+    adj_zero_pho=False,
+    **kwargs,
+):
+    h2e = fci_slow.absorb_h1e(h1e, g2e, norb, nelec, 0.5)
 
     cishape = make_shape(norb, nelec, nbosons, max_occ)
     ci0 = numpy.zeros(cishape)
@@ -315,8 +332,7 @@ def kernel(h1e, g2e, hep, hpp, norb, nelec, nbosons, max_occ,
     ci0.__setitem__((0, 0) + (0,) * nbosons, 1)
 
     def hop(c):
-        hc = contract_all(h1e, h2e, hep, hpp, c, norb,
-                          nelec, nbosons, max_occ, adj_zero_pho=adj_zero_pho)
+        hc = contract_all(h1e, h2e, hep, hpp, c, norb, nelec, nbosons, max_occ, adj_zero_pho=adj_zero_pho)
         return hc.reshape(-1)
 
     hdiag = make_hdiag(h1e, g2e, hep, hpp, norb, nelec, nbosons, max_occ)
@@ -324,21 +340,47 @@ def kernel(h1e, g2e, hep, hpp, norb, nelec, nbosons, max_occ,
     if returnhop:
         return hop, ci0, hdiag
 
-    e, c = lib.davidson(hop, ci0.reshape(-1), precond,
-                        tol=tol, max_cycle=max_cycle, verbose=verbose,
-                        **kwargs)
+    e, c = lib.davidson(hop, ci0.reshape(-1), precond, tol=tol, max_cycle=max_cycle, verbose=verbose, **kwargs)
     return e + ecore, c.reshape(cishape)
 
 
-def kernel_multiroot(h1e, g2e, hep, hpp, norb, nelec, nbosons, max_occ,
-                     tol=1e-12, max_cycle=100, verbose=0, ecore=0, nroots=2,
-                     returnhop=False, adj_zero_pho=False,
-                     **kwargs):
+def kernel_multiroot(
+    h1e,
+    g2e,
+    hep,
+    hpp,
+    norb,
+    nelec,
+    nbosons,
+    max_occ,
+    tol=1e-12,
+    max_cycle=100,
+    verbose=0,
+    ecore=0,
+    nroots=2,
+    returnhop=False,
+    adj_zero_pho=False,
+    **kwargs,
+):
     if nroots == 1:
-        return kernel(h1e, g2e, hep, hpp, norb, nelec, nbosons, max_occ,
-                      tol, max_cycle, verbose, ecore, returnhop, adj_zero_pho,
-                      **kwargs)
-    h2e = fci_slow.absorb_h1e(h1e, g2e, norb, nelec, .5)
+        return kernel(
+            h1e,
+            g2e,
+            hep,
+            hpp,
+            norb,
+            nelec,
+            nbosons,
+            max_occ,
+            tol,
+            max_cycle,
+            verbose,
+            ecore,
+            returnhop,
+            adj_zero_pho,
+            **kwargs,
+        )
+    h2e = fci_slow.absorb_h1e(h1e, g2e, norb, nelec, 0.5)
 
     cishape = make_shape(norb, nelec, nbosons, max_occ)
     ci0 = numpy.zeros(cishape)
@@ -348,8 +390,7 @@ def kernel_multiroot(h1e, g2e, hep, hpp, norb, nelec, nbosons, max_occ,
     ci0[:, 0] += numpy.random.random(ci0[:, 0].shape) * 1e-6
 
     def hop(c):
-        hc = contract_all(h1e, h2e, hep, hpp, c, norb,
-                          nelec, nbosons, max_occ, adj_zero_pho=adj_zero_pho)
+        hc = contract_all(h1e, h2e, hep, hpp, c, norb, nelec, nbosons, max_occ, adj_zero_pho=adj_zero_pho)
         return hc.reshape(-1)
 
     hdiag = make_hdiag(h1e, g2e, hep, hpp, norb, nelec, nbosons, max_occ)
@@ -357,15 +398,23 @@ def kernel_multiroot(h1e, g2e, hep, hpp, norb, nelec, nbosons, max_occ,
     if returnhop:
         return hop, ci0, hdiag
 
-    es, cs = lib.davidson(hop, ci0.reshape(-1), precond,
-                          tol=tol, max_cycle=max_cycle, verbose=verbose, nroots=nroots, max_space=20,
-                          **kwargs)
+    es, cs = lib.davidson(
+        hop,
+        ci0.reshape(-1),
+        precond,
+        tol=tol,
+        max_cycle=max_cycle,
+        verbose=verbose,
+        nroots=nroots,
+        max_space=20,
+        **kwargs,
+    )
     return es, cs
 
 
 # dm_pq = <|p^+ q|>
 def make_rdm1(fcivec, norb, nelec):
-    '''1-electron density matrix dm_pq = <|p^+ q|>'''
+    """1-electron density matrix dm_pq = <|p^+ q|>"""
     neleca, nelecb = _unpack_nelec(nelec)
     link_indexa = cistring.gen_linkstr_index(range(norb), neleca)
     link_indexb = cistring.gen_linkstr_index(range(norb), nelecb)
@@ -381,15 +430,15 @@ def make_rdm1(fcivec, norb, nelec):
     ci0 = fcivec.reshape(na, nb, -1)
     for str0, tab in enumerate(link_indexb):
         for a, i, str1, sign in tab:
-            rdm1[a, i] += sign * numpy.einsum('ax,ax->', ci0[:, str1], ci0[:, str0])
+            rdm1[a, i] += sign * numpy.einsum("ax,ax->", ci0[:, str1], ci0[:, str0])
     return rdm1
 
 
 def make_rdm12(fcivec, norb, nelec):
-    '''1-electron and 2-electron density matrices
+    """1-electron and 2-electron density matrices
     dm_qp = <|q^+ p|>
     dm_{pqrs} = <|p^+ r^+ s q|>
-    '''
+    """
     neleca, nelecb = _unpack_nelec(nelec)
     link_indexa = cistring.gen_linkstr_index(range(norb), neleca)
     link_indexb = cistring.gen_linkstr_index(range(norb), nelecb)
@@ -409,20 +458,20 @@ def make_rdm12(fcivec, norb, nelec):
             for a, i, str1, sign in tab:
                 t1[i, a, k] += sign * ci0[str0, str1]
 
-        rdm1 += numpy.einsum('mp,ijmp->ij', ci0[str0], t1)
+        rdm1 += numpy.einsum("mp,ijmp->ij", ci0[str0], t1)
         # i^+ j|0> => <0|j^+ i, so swap i and j
         #:rdm2 += numpy.einsum('ijmp,klmp->jikl', t1, t1)
-        tmp = lib.dot(t1.reshape(norb ** 2, -1), t1.reshape(norb ** 2, -1).T)
+        tmp = lib.dot(t1.reshape(norb**2, -1), t1.reshape(norb**2, -1).T)
         rdm2 += tmp.reshape((norb,) * 4).transpose(1, 0, 2, 3)
     rdm1, rdm2 = rdm.reorder_rdm(rdm1, rdm2, True)
     return rdm1, rdm2
 
 
 def make_rdm12s(fcivec, norb, nelec):
-    '''1-electron and 2-electron spin-resolved density matrices
+    """1-electron and 2-electron spin-resolved density matrices
     dm_qp = <|q^+ p|>
     dm_{pqrs} = <|p^+ r^+ s q|>
-    '''
+    """
     neleca, nelecb = _unpack_nelec(nelec)
     link_indexa = cistring.gen_linkstr_index(range(norb), neleca)
     link_indexb = cistring.gen_linkstr_index(range(norb), nelecb)
@@ -454,7 +503,7 @@ def make_rdm12s(fcivec, norb, nelec):
         # i^+ j|0> => <0|j^+ i, so swap i and j
         #:rdm2 += numpy.einsum('ijmp,klmp->jikl', t1, t1)
         # Calc <0|i^+ a b^+ j |0>
-        tmp = lib.dot(t1.reshape(nspinorb ** 2, -1), t1.reshape(nspinorb ** 2, -1).T)
+        tmp = lib.dot(t1.reshape(nspinorb**2, -1), t1.reshape(nspinorb**2, -1).T)
         rdm2 += tmp.reshape((nspinorb,) * 4).transpose(1, 0, 2, 3)
     # Need to fill in components where have two single excitations which are
     # spin disallowed, but in combination excitations conserve spin.
@@ -466,10 +515,12 @@ def make_rdm12s(fcivec, norb, nelec):
     #                    - rdm2[1::2,1::2,::2,::2].transpose([2,1,0,3])
     #                    + numpy.tensordot(rdm1[::2,::2], numpy.identity(norb), 0).transpose([0,2,3,1])
     #                )
-    rdm2[::2, 1::2, 1::2, ::2] = -numpy.einsum("pqrs->rqps", rdm2[1::2, 1::2, ::2, ::2]) + \
-                                 numpy.einsum("pq,rs->prsq", rdm1[::2, ::2], numpy.identity(norb))
-    rdm2[1::2, ::2, ::2, 1::2] = -numpy.einsum("pqrs->rqps", rdm2[::2, ::2, 1::2, 1::2]) + \
-                                 numpy.einsum("pq,rs->prsq", rdm1[1::2, 1::2], numpy.identity(norb))
+    rdm2[::2, 1::2, 1::2, ::2] = -numpy.einsum("pqrs->rqps", rdm2[1::2, 1::2, ::2, ::2]) + numpy.einsum(
+        "pq,rs->prsq", rdm1[::2, ::2], numpy.identity(norb)
+    )
+    rdm2[1::2, ::2, ::2, 1::2] = -numpy.einsum("pqrs->rqps", rdm2[::2, ::2, 1::2, 1::2]) + numpy.einsum(
+        "pq,rs->prsq", rdm1[1::2, 1::2], numpy.identity(norb)
+    )
     save = rdm2.copy()
     # This should hopefully work with spinorbitals.
     rdm1, rdm2 = rdm.reorder_rdm(rdm1, rdm2, True)
@@ -519,14 +570,14 @@ def make_eb_rdm(fcivec, norb, nelec, nbosons, max_occ):
             norm_slice = (slice(None, None, None),) * 2 + slices_for(ibos, nbosons, iocc)
             tempa[ex_slice] += t1a[norm_slice] * bos_cre[iocc]
             tempb[ex_slice] += t1b[norm_slice] * bos_cre[iocc]
-    rdm_fba = numpy.dot(tempa.reshape((norb ** 2 * nbosons, -1)), ci0.reshape(-1)).reshape((norb, norb, nbosons))
-    rdm_fbb = numpy.dot(tempb.reshape((norb ** 2 * nbosons, -1)), ci0.reshape(-1)).reshape((norb, norb, nbosons))
+    rdm_fba = numpy.dot(tempa.reshape((norb**2 * nbosons, -1)), ci0.reshape(-1)).reshape((norb, norb, nbosons))
+    rdm_fbb = numpy.dot(tempb.reshape((norb**2 * nbosons, -1)), ci0.reshape(-1)).reshape((norb, norb, nbosons))
     return rdm_fba, rdm_fbb
 
 
-def calc_dd_resp_mom(ci0, e0, max_mom, norb, nel, nbos, h1e, eri, hbb, heb, max_boson_occ, rdm1,
-                     trace=False,
-                     coeffs=None, **kwargs):
+def calc_dd_resp_mom(
+    ci0, e0, max_mom, norb, nel, nbos, h1e, eri, hbb, heb, max_boson_occ, rdm1, trace=False, coeffs=None, **kwargs
+):
     """
     Calculate up to the mth moment of the dd response, dealing with all spin components separately. To replace
     preceding function.
@@ -582,20 +633,20 @@ def calc_dd_resp_mom(ci0, e0, max_mom, norb, nel, nbos, h1e, eri, hbb, heb, max_
         bintermeds[iinter + 1] = numpy.zeros_like(t1b)
         for i in range(na):
             if trace:
-                aintermeds[iinter + 1][i] = hop(aintermeds[iinter][i]).reshape(-1) - \
-                                            e0 * aintermeds[iinter][i]
+                aintermeds[iinter + 1][i] = hop(aintermeds[iinter][i]).reshape(-1) - e0 * aintermeds[iinter][i]
             else:
                 for a in range(na):
-                    aintermeds[iinter + 1][a, i] = hop(aintermeds[iinter][a, i]).reshape(-1) - \
-                                                   e0 * aintermeds[iinter][a, i]
+                    aintermeds[iinter + 1][a, i] = (
+                        hop(aintermeds[iinter][a, i]).reshape(-1) - e0 * aintermeds[iinter][a, i]
+                    )
         for i in range(nb):
             if trace:
-                bintermeds[iinter + 1][i] = hop(bintermeds[iinter][i]).reshape(-1) - \
-                                            e0 * bintermeds[iinter][i]
+                bintermeds[iinter + 1][i] = hop(bintermeds[iinter][i]).reshape(-1) - e0 * bintermeds[iinter][i]
             else:
                 for a in range(nb):
-                    bintermeds[iinter + 1][a, i] = hop(bintermeds[iinter][a, i]).reshape(-1) - \
-                                                   e0 * bintermeds[iinter][a, i]
+                    bintermeds[iinter + 1][a, i] = (
+                        hop(bintermeds[iinter][a, i]).reshape(-1) - e0 * bintermeds[iinter][a, i]
+                    )
 
     # Need to adjust zeroth moment to remove ground state contributions; in all higher moments this is achieved by
     # deducting the reference energy.
@@ -614,13 +665,13 @@ def calc_dd_resp_mom(ci0, e0, max_mom, norb, nel, nbos, h1e, eri, hbb, heb, max_
             moments[imom] = (
                 numpy.dot(aintermed_l, aintermed_r.T),
                 numpy.dot(aintermed_l, bintermed_r.T),
-                numpy.dot(bintermed_l, bintermed_r.T)
+                numpy.dot(bintermed_l, bintermed_r.T),
             )
         else:
             moments[imom] = (
                 numpy.tensordot(aintermed_l, aintermed_r, (2, 2)),
                 numpy.tensordot(aintermed_l, bintermed_r, (2, 2)),
-                numpy.tensordot(bintermed_l, bintermed_r, (2, 2))
+                numpy.tensordot(bintermed_l, bintermed_r, (2, 2)),
             )
     # Need to add additional adjustment for zeroth moment, as there is a nonzero ground state
     # contribution in this case (the current value is in fact the double occupancy <0|n_{pq} n_{sr}|0>).
@@ -646,36 +697,30 @@ def calc_dd_resp_mom(ci0, e0, max_mom, norb, nel, nbos, h1e, eri, hbb, heb, max_
 
 
 def run(nelec, h1e, eri, hpp, hep, max_occ, returnhop=False, nroots=1, **kwargs):
-    """run a calculation using a pyscf mf object.
-    """
+    """run a calculation using a pyscf mf object."""
     norb = h1e.shape[1]
     nbosons = hpp.shape[0]
     if returnhop:
-        hop0 = kernel(h1e, eri, hep, hpp, norb, nelec, nbosons, max_occ,
-                      returnhop=True, **kwargs)
+        hop0 = kernel(h1e, eri, hep, hpp, norb, nelec, nbosons, max_occ, returnhop=True, **kwargs)
 
         # hop1 = fci_slow.kernel(h1e, eri, norb, nelec)#, returnhop=True)
         return hop0  # , hop1
     if nroots > 1:
-        es, cs = kernel_multiroot(h1e, eri, hep, hpp, norb, nelec, nbosons, max_occ, nroots=nroots,
-                                  **kwargs)
+        es, cs = kernel_multiroot(h1e, eri, hep, hpp, norb, nelec, nbosons, max_occ, nroots=nroots, **kwargs)
         return es, cs
 
     else:
-        res0 = kernel(h1e, eri, hep, hpp, norb, nelec, nbosons, max_occ,
-                      **kwargs)
+        res0 = kernel(h1e, eri, hep, hpp, norb, nelec, nbosons, max_occ, **kwargs)
 
         return res0
 
 
 def run_hub_test(returnhop=False, **kwargs):
-    return run_ep_hubbard(t=1.0, u=1.5, g=0.5, pp=0.1, nsite=2, nelec=2, nphonon=3,
-                          returnhop=returnhop)
+    return run_ep_hubbard(t=1.0, u=1.5, g=0.5, pp=0.1, nsite=2, nelec=2, nphonon=3, returnhop=returnhop)
 
 
 def run_ep_hubbard(t, u, g, pp, nsite, nelec, nphonon, returnhop=False, **kwargs):
-    """Run a calculation using a hubbard model coupled to some phonon modes.
-    """
+    """Run a calculation using a hubbard model coupled to some phonon modes."""
     idx = numpy.arange(nsite - 1)
     # 1 electron interactions.
     h1e = numpy.zeros((nsite, nsite))
@@ -692,6 +737,5 @@ def run_ep_hubbard(t, u, g, pp, nsite, nelec, nphonon, returnhop=False, **kwargs
     # Only have onsite coupling; so only couple .
     for i in range(nsite):
         hep[i, i, i] = g
-    res0 = kernel(h1e, eri, hep, hpp, nsite, nelec, nsite, nphonon,
-                  adj_zero_pho=False, returnhop=returnhop, **kwargs)
+    res0 = kernel(h1e, eri, hep, hpp, nsite, nelec, nsite, nphonon, adj_zero_pho=False, returnhop=returnhop, **kwargs)
     return res0

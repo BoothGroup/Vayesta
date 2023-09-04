@@ -9,11 +9,11 @@ def t2_residual_rhf_t3v(solver, fragment, t3, v):
     dt2 = np.zeros((nocc, nocc, nvir, nvir))
 
     # First term: 1/2 P_ab [t_ijmaef v_efbm]
-    dt2 += einsum('bemf, jimeaf -> ijab', gvvov - gvvov.transpose(0, 3, 2, 1), t3) / 2
-    dt2 += einsum('bemf, ijmaef -> ijab', gvvov, t3)
+    dt2 += einsum("bemf, jimeaf -> ijab", gvvov - gvvov.transpose(0, 3, 2, 1), t3) / 2
+    dt2 += einsum("bemf, ijmaef -> ijab", gvvov, t3)
     # Second term: -1/2 P_ij [t_imnabe v_jemn]
-    dt2 -= einsum('mjne, minbae -> ijab', gooov - govoo.transpose(0, 3, 2, 1), t3) / 2
-    dt2 -= einsum('mjne, imnabe -> ijab', gooov, t3)
+    dt2 -= einsum("mjne, minbae -> ijab", gooov - govoo.transpose(0, 3, 2, 1), t3) / 2
+    dt2 -= einsum("mjne, imnabe -> ijab", gooov, t3)
     # Permutation
     dt2 += dt2.transpose(1, 0, 3, 2)
 
@@ -36,51 +36,51 @@ def t_residual_rhf(solver, fragment, t1, t2, t3, t4, f, v, include_t3v=False):
 
     # --- T1 update
     # --- T3 * V
-    dt1 -= einsum('ijab, jiupab -> up', spinned_antiphys_g, t3)
+    dt1 -= einsum("ijab, jiupab -> up", spinned_antiphys_g, t3)
 
     # --- T2 update
     # --- T3 * F
     if np.allclose(fov, np.zeros_like(fov)):
         solver.log.info("fov block zero: No T3 * f contribution.")
     # (Fa) (Taba) contraction
-    dt2 += einsum('me, ijmabe -> ijab', fov, t3)
+    dt2 += einsum("me, ijmabe -> ijab", fov, t3)
     # (Fb) (Tabb) contraction
-    dt2 += einsum('me, jimbae -> ijab', fov, t3)
+    dt2 += einsum("me, jimbae -> ijab", fov, t3)
     solver.log.info("(T3 * F) -> T2 update norm from fragment {}: {}".format(fragment.id, np.linalg.norm(dt2)))
 
     # --- T4 * V
     # (Vaa) (Tabaa) contraction
-    t4v = einsum('mnef, ijmnabef -> ijab', antiphys_g, t4_abaa) / 4
+    t4v = einsum("mnef, ijmnabef -> ijab", antiphys_g, t4_abaa) / 4
     t4v += t4v.transpose(1, 0, 3, 2)
     # (Vab) (Tabab) contraction
-    t4v += einsum('menf, ijmnabef -> ijab', govov, t4_abab)
+    t4v += einsum("menf, ijmnabef -> ijab", govov, t4_abab)
     dt2 += t4v
 
     # --- (T1 T3) * V
     # Note: Approximate T1 by the CCSDTQ T1 amplitudes of this fragment.
     # TODO: Relax this approximation via the callback?
     t1t3v = np.zeros_like(dt2)
-    X_ = einsum('mnef, me -> nf', spinned_antiphys_g, t1)
-    t1t3v += einsum('nf, nijfab -> ijab', X_, t3)
+    X_ = einsum("mnef, me -> nf", spinned_antiphys_g, t1)
+    t1t3v += einsum("nf, nijfab -> ijab", X_, t3)
 
-    X_ = einsum('mnef, njiebf -> ijmb', antiphys_g, t3) / 2
-    X_ += einsum('menf, jinfeb -> ijmb', govov, t3)
-    t1t3v += einsum('ijmb, ma -> ijab', X_, t1)
+    X_ = einsum("mnef, njiebf -> ijmb", antiphys_g, t3) / 2
+    X_ += einsum("menf, jinfeb -> ijmb", govov, t3)
+    t1t3v += einsum("ijmb, ma -> ijab", X_, t1)
 
-    X_ = einsum('mnef, mjnfba -> ejab', antiphys_g, t3) / 2
-    X_ += einsum('menf, nmjbaf -> ejab', govov, t3)
-    t1t3v += einsum('ejab, ie -> ijab', X_, t1)
+    X_ = einsum("mnef, mjnfba -> ejab", antiphys_g, t3) / 2
+    X_ += einsum("menf, nmjbaf -> ejab", govov, t3)
+    t1t3v += einsum("ejab, ie -> ijab", X_, t1)
     # apply permutation
     t1t3v += t1t3v.transpose(1, 0, 3, 2)
     dt2 += t1t3v
     solver.log.info("T1 norm in ext corr from fragment {}: {}".format(fragment.id, np.linalg.norm(t1)))
 
-    # --- T3 * V 
+    # --- T3 * V
     if include_t3v:
         # Option to leave out this term, and instead perform T3 * V with the
         # integrals in the parent cluster later.
         # This will give a different result since the V operators
-        # will span a different space. Instead, here we just contract T3 with integrals 
+        # will span a different space. Instead, here we just contract T3 with integrals
         # in cluster y (FCI), rather than cluster x (CCSD)
         dt2 += t2_residual_rhf_t3v(solver, fragment, t3, v)
 

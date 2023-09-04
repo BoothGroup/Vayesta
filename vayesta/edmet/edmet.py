@@ -11,6 +11,7 @@ from vayesta.rpa import ssRPA, ssRIRPA
 from vayesta.edmet.fragment import EDMETFragment, EDMETFragmentExit
 from vayesta.solver import check_solver_config
 
+
 @dataclasses.dataclass
 class Options(RDMET.Options):
     maxiter: int = 1
@@ -21,8 +22,7 @@ class Options(RDMET.Options):
     boson_xc_kernel: bool = False
     bosonic_interaction: str = "xc"
     solver: str = "CCSD-S-1-1"
-    solver_options: dict = RDMET.Options.change_dict_defaults('solver_options',
-            polaritonic_shift=True)
+    solver_options: dict = RDMET.Options.change_dict_defaults("solver_options", polaritonic_shift=True)
 
 
 @dataclasses.dataclass
@@ -30,12 +30,12 @@ class EDMETResults:
     cluster_sizes: np.ndarray = None
     e_corr: float = None
 
-class EDMET(RDMET):
 
+class EDMET(RDMET):
     Fragment = EDMETFragment
     Options = Options
 
-    def __init__(self, mf, solver='EBFCI', log=None, **kwargs):
+    def __init__(self, mf, solver="EBFCI", log=None, **kwargs):
         # If we aren't running in oneshot mode we need to calculate the dd moments.
         if not kwargs.get("oneshot", False):
             kwargs["make_dd_moments"] = True
@@ -50,8 +50,8 @@ class EDMET(RDMET):
     @property
     def eps(self):
         eps = np.zeros((self.nocc, self.nvir))
-        eps = eps + self.mo_energy[self.nocc:]
-        eps = (eps.T - self.mo_energy[:self.nocc]).T
+        eps = eps + self.mo_energy[self.nocc :]
+        eps = (eps.T - self.mo_energy[: self.nocc]).T
         eps = eps.reshape(-1)
         return eps, eps
 
@@ -69,7 +69,6 @@ class EDMET(RDMET):
         check_solver_config(is_uhf, is_eb, solver, self.log)
 
     def kernel(self):
-
         t_start = timer()
 
         if self.nfrag == 0:
@@ -167,8 +166,9 @@ class EDMET(RDMET):
                         self.log.fatal("Could not find chemical potential bracket.")
                 # If we've got to here we've found a bracket.
                 [lo, hi] = sorted([cpt, new_cpt])
-                cpt, res = scipy.optimize.brentq(electron_err, a=lo, b=hi, full_output=True,
-                                                 xtol=self.opts.max_elec_err * nelec_mf)
+                cpt, res = scipy.optimize.brentq(
+                    electron_err, a=lo, b=hi, full_output=True, xtol=self.opts.max_elec_err * nelec_mf
+                )
                 # self.opts.max_elec_err * nelec_mf)
                 self.log.info("Converged chemical potential: %6.4e", cpt)
                 # Recalculate to ensure all fragments have up-to-date info. Brentq strangely seems to do an extra
@@ -193,7 +193,8 @@ class EDMET(RDMET):
                 "               coupled-boson={:12.8f} \n"
                 " nonlocal correlation energy={:12.8f} \n"
                 "           mean-field energy={:12.8f} \n"
-                "          correlation energy={:12.8f}".format(e1, e2, efb, self.e_nonlocal, emf, self.e_corr))
+                "          correlation energy={:12.8f}".format(e1, e2, efb, self.e_nonlocal, emf, self.e_corr)
+            )
             if self.opts.oneshot:
                 break
             # Want to do coupled DIIS optimisation of high-level rdms and local dd response moments.
@@ -224,7 +225,6 @@ class EDMET(RDMET):
         self.log.info("All done.")
 
     def set_up_fragments(self, sym_parents, nsym):
-
         # First, set up and run RPA. Note that our self-consistency only couples same-spin excitations so we can
         # solve a subset of the RPA equations.
         if self.with_df:
@@ -241,12 +241,11 @@ class EDMET(RDMET):
                 moms_interact = np.zeros_like(target_rot)
             # Get appropriate slices to obtain required active spaces.
             ovs_active = [f.ov_active_tot for f in sym_parents]
-            ovs_active_slices = [slice(sum(ovs_active[:i]), sum(ovs_active[:i + 1])) for i in
-                                 range(len(sym_parents))]
+            ovs_active_slices = [slice(sum(ovs_active[:i]), sum(ovs_active[: i + 1])) for i in range(len(sym_parents))]
             # Use interaction component of moment to generate bosonic degrees of freedom.
             rot_bos = [f.define_bosons(moms_interact[0, sl, :]) for (f, sl) in zip(sym_parents, ovs_active_slices)]
             nbos = [x.shape[0] for x in rot_bos]
-            bos_slices = [slice(sum(nbos[:i]), sum(nbos[:i + 1])) for i in range(len(sym_parents))]
+            bos_slices = [slice(sum(nbos[:i]), sum(nbos[: i + 1])) for i in range(len(sym_parents))]
             if sum(nbos) > 0:
                 # Calculate zeroth moment of bosonic degrees of freedom.
                 mom0_bos, est_errors = rpa.kernel_moms(0, np.concatenate(rot_bos, axis=0), npoints=48)
@@ -276,8 +275,7 @@ class EDMET(RDMET):
                 e_nonlocal -= f.construct_boson_hamil(mom0_bos, eps, self.xc_kernel) * nc
         self.e_nonlocal = e_nonlocal
 
-    def calc_electron_number_defect(self, chempot, nelec_target, parent_fragments, nsym,
-                                    construct_bath=True):
+    def calc_electron_number_defect(self, chempot, nelec_target, parent_fragments, nsym, construct_bath=True):
         self.log.info("Running chemical potential={:8.6e}".format(chempot))
         # Save original one-body hamiltonian calculation.
         saved_hcore = self.mf.get_hcore
@@ -314,8 +312,9 @@ class EDMET(RDMET):
         self.hl_rdms = [f.get_frag_hl_dm() for f in parent_fragments]
         self.hl_dd0 = hl_dd0
         self.hl_dd1 = hl_dd1
-        self.log.info("Chemical Potential {:8.6e} gives Total electron deviation {:6.4e}".format(
-            chempot, nelec_hl - nelec_target))
+        self.log.info(
+            "Chemical Potential {:8.6e} gives Total electron deviation {:6.4e}".format(chempot, nelec_hl - nelec_target)
+        )
         return nelec_hl - nelec_target
 
     def get_updated_correlation_kernel(self, curr_dd0, curr_dd1, sym_parents, sym_children):
@@ -329,11 +328,13 @@ class EDMET(RDMET):
 
             def combine(old, new):
                 return [[np.concatenate([a, b], axis=0) for a, b in zip(x, y)] for (x, y) in zip(old, new)]
+
         else:
             k = [np.zeros([self.nao] * 4) for x in range(3)]
 
             def combine(old, new):
                 return [old[x] + new[x] for x in range(3)]
+
         for d0, d1, parent, children in zip(curr_dd0, curr_dd1, sym_parents, sym_children):
             local_contrib = parent.construct_correlation_kernel_contrib(eps, d0, d1, eris=None)
             contrib = parent.get_correlation_kernel_contrib(local_contrib)
@@ -353,8 +354,10 @@ class EDMET(RDMET):
         elocs = [x.calc_exact_ac(eps, use_plasmon, deg) for x in self.fragments]
 
         new_correction = etot - sum(elocs)
-        self.log.info("Numerical integration of the adiabatic connection modified nonlocal energy estimate by %6.4e",
-                      new_correction - orig_correction)
+        self.log.info(
+            "Numerical integration of the adiabatic connection modified nonlocal energy estimate by %6.4e",
+            new_correction - orig_correction,
+        )
         return self.e_tot + new_correction - orig_correction
 
     def run_exact_full_ac(self, xc_kernel=None, deg=5, calc_local=False, cluster_constrain=False, npoints=48):
@@ -377,15 +380,21 @@ class EDMET(RDMET):
         if self.with_df:
             # Set up for RIRPA zeroth moment calculation.
             rpa = ssRIRPA(self.mf, xc, self.log)
-            local_rot = [np.concatenate([x.get_rot_to_mf_ov(), x.r_bos], axis=0) for x in self.fragments] if calc_local else None
+            local_rot = (
+                [np.concatenate([x.get_rot_to_mf_ov(), x.r_bos], axis=0) for x in self.fragments]
+                if calc_local
+                else None
+            )
             frag_proj = [x.get_fragment_projector_ov() for x in self.fragments] if calc_local else None
-            return rpa.direct_AC_integration(local_rot, frag_proj, deg=deg, npoints=npoints,
-                                             cluster_constrain=cluster_constrain)
+            return rpa.direct_AC_integration(
+                local_rot, frag_proj, deg=deg, npoints=npoints, cluster_constrain=cluster_constrain
+            )
         else:
             raise NotImplementedError
 
     def _reset(self):
         super()._reset()
         self._e_nonlocal = None
+
 
 REDMET = EDMET

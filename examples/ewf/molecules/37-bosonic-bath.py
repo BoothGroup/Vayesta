@@ -6,8 +6,8 @@ from vayesta.core.types import WaveFunction
 
 mol = pyscf.gto.Mole()
 mol.atom = molecules.arene(6)
-mol.basis = '6-31G'
-mol.output = 'pyscf.out'
+mol.basis = "6-31G"
+mol.output = "pyscf.out"
 mol.build()
 
 # Hartree-Fock
@@ -18,7 +18,7 @@ mf.kernel()
 cc = pyscf.cc.CCSD(mf)
 cc.kernel()
 
-bath_opts = dict(bathtype="mp2", threshold=1e-4, project_dmet_order=1, project_dmet_mode='full')
+bath_opts = dict(bathtype="mp2", threshold=1e-4, project_dmet_order=1, project_dmet_mode="full")
 bosonic_bath_opts = dict(bathtype="rpa", target_orbitals="full", local_projection="fragment", threshold=1e-3)
 
 # Embedded CCSD calculation with bare interactions and no energy correction.
@@ -44,6 +44,15 @@ emb_exact.kernel()
 
 # Note that mRPA screening and external corrections often cancel with each other in the case of the energy.
 print("E(CCSD)=                              %+16.8f Ha" % cc.e_tot)
-print("E(CCSD, projected locally)=           %+16.8f Ha  (external error= %+.8f Ha)" % (emb_exact.e_tot, emb_exact.e_tot-cc.e_tot))
-print("E(Emb. CCSD)=                         %+16.8f Ha  (internal error= %+.8f Ha)" % (emb_bare.e_tot, emb_bare.e_tot-emb_exact.e_tot))
-print("E(Emb. CCSD with bosons)=             %+16.8f Ha  (internal error= %+.8f Ha)" % (emb.e_tot, emb.e_tot-emb_exact.e_tot))
+print(
+    "E(CCSD, projected locally)=           %+16.8f Ha  (external error= %+.8f Ha)"
+    % (emb_exact.e_tot, emb_exact.e_tot - cc.e_tot)
+)
+print(
+    "E(Emb. CCSD)=                         %+16.8f Ha  (internal error= %+.8f Ha)"
+    % (emb_bare.e_tot, emb_bare.e_tot - emb_exact.e_tot)
+)
+print(
+    "E(Emb. CCSD with bosons)=             %+16.8f Ha  (internal error= %+.8f Ha)"
+    % (emb.e_tot, emb.e_tot - emb_exact.e_tot)
+)

@@ -3,10 +3,7 @@
 import numpy as np
 
 from vayesta.core.util import dot, einsum
-from vayesta.rpa.rirpa.NI_eval import (
-    NumericalIntegratorClenCurInfinite,
-    NIException
-)
+from vayesta.rpa.rirpa.NI_eval import NumericalIntegratorClenCurInfinite, NIException
 
 from vayesta.rpa.rirpa.momzero_NI import diag_sqrt_contrib, diag_sqrt_grad, diag_sqrt_deriv2
 
@@ -49,9 +46,7 @@ class NITrRootMP(NumericalIntegratorClenCurInfinite):
     @diagmat1.setter
     def diagmat1(self, val):
         if val is not None and any(val < 0.0):
-            raise NIException(
-                "Error in numerical integration; diagonal approximation is non-PSD"
-            )
+            raise NIException("Error in numerical integration; diagonal approximation is non-PSD")
         self._diagmat1 = val
 
     @property
@@ -61,9 +56,7 @@ class NITrRootMP(NumericalIntegratorClenCurInfinite):
     @diagmat2.setter
     def diagmat2(self, val):
         if val is not None and any(val < 0.0):
-            raise NIException(
-                "Error in numerical integration; diagonal approximation is non-PSD"
-            )
+            raise NIException("Error in numerical integration; diagonal approximation is non-PSD")
         self._diagmat2 = val
 
     def eval_diag_contrib(self, freq):
@@ -113,6 +106,7 @@ class NITrRootMP(NumericalIntegratorClenCurInfinite):
 class NITrRootMP_dRHF(NITrRootMP):
     """All provided quantities are now in spatial orbitals. This actually only requires an additional factor in the
     get_Q method."""
+
     def get_Q(self, freq):
         # Have equal contributions from both spin channels.
         return 2 * super().get_Q(freq)

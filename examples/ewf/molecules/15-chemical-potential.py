@@ -10,7 +10,7 @@ O  0.0000   0.0000   0.1173
 H  0.0000   0.7572  -0.4692
 H  0.0000  -0.7572  -0.4692
 """
-mol.basis = 'cc-pVDZ'
+mol.basis = "cc-pVDZ"
 mol.build()
 
 # Hartree-Fock
@@ -25,7 +25,7 @@ with emb.sao_fragmentation() as frag:
 emb.kernel()
 # Population analyis:
 dm1 = emb.make_rdm1(ao_basis=True)
-emb.pop_analysis(dm1, filename='pop.txt')
+emb.pop_analysis(dm1, filename="pop.txt")
 
 # --- Embedded CCSD with target number of electrons per fragment:
 emb_nelec = vayesta.ewf.EWF(mf, bath_options=dict(threshold=eta))
@@ -36,7 +36,7 @@ with emb_nelec.sao_fragmentation() as frag:
 emb_nelec.kernel()
 # Population analyis:
 dm1 = emb_nelec.make_rdm1(ao_basis=True)
-emb_nelec.pop_analysis(dm1, filename='pop-nelec.txt')
+emb_nelec.pop_analysis(dm1, filename="pop-nelec.txt")
 
 # --- Embedded CCSD with chemical potential, to ensure that democratically partitioned 1-DM has correct trace:
 emb_cpt = vayesta.ewf.EWF(mf, bath_options=dict(threshold=eta))
@@ -46,7 +46,7 @@ with emb_cpt.sao_fragmentation() as frag:
 emb_cpt.kernel()
 # Population analyis:
 dm1 = emb_cpt.make_rdm1(ao_basis=True)
-emb_cpt.pop_analysis(dm1, filename='pop-cpt.txt')
+emb_cpt.pop_analysis(dm1, filename="pop-cpt.txt")
 
 print("E(HF)=                             %+16.8f Ha" % mf.e_tot)
 print("E(emb. CCSD)=                      %+16.8f Ha" % emb.e_tot)

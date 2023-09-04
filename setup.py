@@ -13,16 +13,14 @@ setup_src = os.path.dirname(os.path.realpath(__file__))
 
 
 class CMakeExtension(Extension):
-    """Initialise the name of a CMake extension.
-    """
+    """Initialise the name of a CMake extension."""
 
     def __init__(self, name):
         super().__init__(name, sources=[])
 
 
 class CMakeBuild(build_ext):
-    """Build and configure a CMake extension.
-    """
+    """Build and configure a CMake extension."""
 
     def run(self):
         link_args = []
@@ -57,8 +55,7 @@ class CMakeBuild(build_ext):
 
 
 class CleanCommand(Command):
-    """Clean up files resulting from compilation except for .so shared objects.
-    """
+    """Clean up files resulting from compilation except for .so shared objects."""
 
     CLEAN_FILES = ["build", "dist", "*.egg-info"]
     user_options = []
@@ -80,13 +77,12 @@ class CleanCommand(Command):
 
 
 class DiscoverTests(test):
-    """Discover and dispatch tests.
-    """
+    """Discover and dispatch tests."""
 
     user_options = [
-            ("include-veryslow", "v", "Include tests marked as veryslow"),
-            ("include-slow", "s", "Include tests marked as slow"),
-            ("pytest-args=", "p", "Extra arguments for pytest"),
+        ("include-veryslow", "v", "Include tests marked as veryslow"),
+        ("include-slow", "s", "Include tests marked as slow"),
+        ("pytest-args=", "p", "Extra arguments for pytest"),
     ]
 
     def initialize_options(self):
@@ -118,8 +114,10 @@ class DiscoverTests(test):
 
 # From PySCF - ensure the order of build sub-commands:
 from distutils.command.build import build
-build.sub_commands = ([c for c in build.sub_commands if c[0] == 'build_ext'] +
-                      [c for c in build.sub_commands if c[0] != 'build_ext'])
+
+build.sub_commands = [c for c in build.sub_commands if c[0] == "build_ext"] + [
+    c for c in build.sub_commands if c[0] != "build_ext"
+]
 
 
 setup(
@@ -127,9 +125,9 @@ setup(
     include_package_data=True,
     ext_modules=[CMakeExtension("vayesta/libs")],
     cmdclass={
-            "build_ext": CMakeBuild,
-            "test": DiscoverTests,
-            "clean": CleanCommand,
+        "build_ext": CMakeBuild,
+        "test": DiscoverTests,
+        "clean": CleanCommand,
     },
     zip_safe=False,
 )

@@ -45,9 +45,7 @@ class NIMomZero(NumericalIntegratorClenCurInfinite):
     @diagmat1.setter
     def diagmat1(self, val):
         if val is not None and any(val < 0.0):
-            raise NIException(
-                "Error in numerical integration; diagonal approximation is non-PSD"
-            )
+            raise NIException("Error in numerical integration; diagonal approximation is non-PSD")
         self._diagmat1 = val
 
     @property
@@ -57,9 +55,7 @@ class NIMomZero(NumericalIntegratorClenCurInfinite):
     @diagmat2.setter
     def diagmat2(self, val):
         if val is not None and any(val < 0.0):
-            raise NIException(
-                "Error in numerical integration; diagonal approximation is non-PSD"
-            )
+            raise NIException("Error in numerical integration; diagonal approximation is non-PSD")
         self._diagmat2 = val
 
 
@@ -121,9 +117,7 @@ class MomzeroDeductD(MomzeroDeductNone):
         rrot = F
         lrot = einsum("lq,q->lq", self.target_rot, F)
         val_aux = np.linalg.inv(np.eye(self.n_aux) + Q)
-        res = dot(
-            dot(dot(lrot, self.S_L.T), val_aux), einsum("np,p->np", self.S_R, rrot)
-        )
+        res = dot(dot(dot(lrot, self.S_L.T), val_aux), einsum("np,p->np", self.S_R, rrot))
         res = (freq**2) * res / np.pi
         return res
 
@@ -168,9 +162,7 @@ class MomzeroDeductHigherOrder(MomzeroDeductD):
         rrot = F
         lrot = einsum("lq,q->lq", self.target_rot, F)
         val_aux = np.linalg.inv(np.eye(self.n_aux) + Q) - np.eye(self.n_aux)
-        res = dot(
-            dot(dot(lrot, self.S_L.T), val_aux), self.S_R * rrot[None]
-        )
+        res = dot(dot(dot(lrot, self.S_L.T), val_aux), self.S_R * rrot[None])
         res = (freq**2) * res / np.pi
         return res
 
@@ -215,9 +207,7 @@ class BaseMomzeroOffset(NumericalIntegratorBase):
         return 0.5 * np.multiply(self.D ** (-1), self.diagRI)
 
 
-class MomzeroOffsetCalcGaussLag(
-    BaseMomzeroOffset, NumericalIntegratorGaussianSemiInfinite
-):
+class MomzeroOffsetCalcGaussLag(BaseMomzeroOffset, NumericalIntegratorGaussianSemiInfinite):
     pass
 
 
@@ -242,9 +232,11 @@ def diag_sqrt_deriv2(D, freq):
 
 # Subclass for performing calculations with RHF quantities.
 
+
 class MomzeroDeductHigherOrder_dRHF(MomzeroDeductHigherOrder):
     """All provided quantities are now in spatial orbitals. This actually only requires an additional factor in the
     get_Q method."""
+
     def get_Q(self, freq):
         # Have equal contributions from both spin channels.
         return 2 * super().get_Q(freq)

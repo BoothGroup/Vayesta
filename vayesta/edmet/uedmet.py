@@ -6,7 +6,6 @@ from vayesta.edmet.ufragment import UEDMETFragment as Fragment
 
 
 class UEDMET(REDMET, UDMET):
-
     @property
     def eps(self):
         noa, nob = self.nocc

@@ -7,7 +7,6 @@ log = logging.getLogger(__name__)
 
 
 class RMA_Dict:
-
     def __init__(self, mpi):
         self.mpi = mpi
         self._writable = False
@@ -23,7 +22,6 @@ class RMA_Dict:
         return rma_dict
 
     class RMA_DictElement:
-
         def __init__(self, collection, location, data=None, shape=None, dtype=None):
             self.collection = collection
             self.location = location
@@ -33,36 +31,36 @@ class RMA_Dict:
             # Allocate RMA Window and put data
             self.win = None
             if self.dtype != type(None):
-                if (self.mpi.rank == self.location):
+                if self.mpi.rank == self.location:
                     self.local_init(data)
                 else:
                     self.remote_init()
 
         def local_init(self, data):
-            #if data is not None:
+            # if data is not None:
             #    winsize = (data.size * data.dtype.itemsize)
-            #else:
+            # else:
             #    winsize = 0
-            #self.win = self.mpi.MPI.Win.Allocate(winsize, comm=self.mpi.world)
-            #self.win = self.mpi.MPI.Win.Create(data, comm=self.mpi.world)
-            #if data is None:
+            # self.win = self.mpi.MPI.Win.Allocate(winsize, comm=self.mpi.world)
+            # self.win = self.mpi.MPI.Win.Create(data, comm=self.mpi.world)
+            # if data is None:
             #    return
 
-            winsize = (data.size * data.dtype.itemsize)
+            winsize = data.size * data.dtype.itemsize
             self.win = self.mpi.MPI.Win.Allocate(winsize, comm=self.mpi.world)
-            assert (self.shape == data.shape)
-            assert (self.dtype == data.dtype)
+            assert self.shape == data.shape
+            assert self.dtype == data.dtype
             self.rma_lock()
             self.rma_put(data)
             self.rma_unlock()
 
         def remote_init(self):
-            #if self.dtype == type(None):
+            # if self.dtype == type(None):
             #    return
             self.win = self.mpi.MPI.Win.Allocate(0, comm=self.mpi.world)
-            #self.win = self.mpi.MPI.Win.Create(None, comm=self.mpi.world)
-            #buf = np.empty(self.shape, dtype=self.dtype)
-            #self.win = self.mpi.MPI.Win.Create(buf, comm=self.mpi.world)
+            # self.win = self.mpi.MPI.Win.Create(None, comm=self.mpi.world)
+            # buf = np.empty(self.shape, dtype=self.dtype)
+            # self.win = self.mpi.MPI.Win.Create(buf, comm=self.mpi.world)
 
         @property
         def size(self):
@@ -70,14 +68,14 @@ class RMA_Dict:
                 return 0
             return np.product(self.shape)
 
-        #@property
-        #def itemsize(self):
+        # @property
+        # def itemsize(self):
         #    if self.dtype is type(None):
         #        return 0
         #    return self.dtype.itemsize
 
-        #@property
-        #def winsize(self):
+        # @property
+        # def winsize(self):
         #    return self.size * self.itemsize
 
         def get(self, shared_lock=True):
@@ -118,19 +116,26 @@ class RMA_Dict:
         if not self.readable:
             raise AttributeError("Cannot read from ArrayCollection from inside with-statement.")
         # Is local access without going via MPI.Get safe?
-        #if key in self.local_data:
+        # if key in self.local_data:
         #    return self.local_data[key]
         if self.mpi.disabled:
             return self._elements[key]
         element = self._elements[key]
-        log.debugv("RMA: origin= %d, target= %d, key= %r, shape= %r, dtype= %r", self.mpi.rank, element.location, key, element.shape, element.dtype)
+        log.debugv(
+            "RMA: origin= %d, target= %d, key= %r, shape= %r, dtype= %r",
+            self.mpi.rank,
+            element.location,
+            key,
+            element.shape,
+            element.dtype,
+        )
         return element.get()
 
     def __setitem__(self, key, value):
         if not self._writable:
             raise AttributeError("Cannot write to ArrayCollection outside of with-statement.")
         if not isinstance(value, (np.ndarray, type(None))):
-            #value = np.asarray(value)
+            # value = np.asarray(value)
             raise ValueError("Invalid type= %r" % type(value))
         if self.mpi.disabled:
             self._elements[key] = value
@@ -165,11 +170,11 @@ class RMA_Dict:
 
     def _get_metadata(self):
         """Get shapes and datatypes of local data."""
-        #return {key: (getattr(val, 'shape', None), getattr(val, 'dtype', type(None))) for key, val in self.local_data.items()}
+        # return {key: (getattr(val, 'shape', None), getattr(val, 'dtype', type(None))) for key, val in self.local_data.items()}
         mdata = {}
         for key, val in self.local_data.items():
-            shape = getattr(val, 'shape', None)
-            dtype = getattr(val, 'dtype', type(None))
+            shape = getattr(val, "shape", None)
+            dtype = getattr(val, "dtype", type(None))
             mdata[key] = (shape, dtype)
         return mdata
 
@@ -181,12 +186,12 @@ class RMA_Dict:
 
     def keys(self):
         if not self.readable:
-            raise RuntimeError("Cannot access keys inside of with-statement.""")
+            raise RuntimeError("Cannot access keys inside of with-statement." "")
         return self._elements.keys()
 
     def values(self):
         if not self.readable:
-            raise RuntimeError("Cannot access values inside of with-statement.""")
+            raise RuntimeError("Cannot access values inside of with-statement." "")
         return self._elements.values()
 
     def get_location(self, key):
@@ -205,11 +210,11 @@ class RMA_Dict:
         self.mpi.world.Barrier()
         mdata = self._get_metadata()
         allmdata = self.mpi.world.allgather(mdata)
-        assert (len(allmdata) == len(self.mpi))
+        assert len(allmdata) == len(self.mpi)
         elements = {}
         for rank, d in enumerate(allmdata):
             for key, mdata in d.items():
-                #print("Rank %d has key: %r" % (rank, key))
+                # print("Rank %d has key: %r" % (rank, key))
                 if key in elements:
                     raise AttributeError("Key '%s' used multiple times. Keys need to be unique." % key)
                 shape, dtype = mdata

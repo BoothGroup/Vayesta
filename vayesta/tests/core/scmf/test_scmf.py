@@ -8,6 +8,7 @@ from vayesta.core.util import cache
 
 class SCMF_Test(TestCase):
     solver = "CCSD"
+
     @classmethod
     def setUpClass(cls):
         cls.mf = testsystems.h2_dz.rhf()
@@ -19,12 +20,14 @@ class SCMF_Test(TestCase):
     @classmethod
     @cache
     def emb(cls, scmf=None):
-        emb = ewf.EWF(cls.mf, solver=cls.solver, solver_options=dict(solve_lambda=True), bath_options=dict(bathtype='dmet'))
+        emb = ewf.EWF(
+            cls.mf, solver=cls.solver, solver_options=dict(solve_lambda=True), bath_options=dict(bathtype="dmet")
+        )
         with emb.sao_fragmentation() as f:
             f.add_all_atomic_fragments()
-        if scmf == 'pdmet':
+        if scmf == "pdmet":
             emb.pdmet_scmf()
-        elif scmf == 'brueckner':
+        elif scmf == "brueckner":
             emb.brueckner_scmf()
         emb.kernel()
         return emb
@@ -32,7 +35,7 @@ class SCMF_Test(TestCase):
     def test_pdmet(self):
         """Test p-DMET."""
         emb0 = self.emb()
-        emb = self.emb('pdmet')
+        emb = self.emb("pdmet")
         self.assertAllclose(emb.with_scmf.e_tot_oneshot, emb0.e_tot)
         self.assertAllclose(emb.with_scmf.e_tot_oneshot, -1.1419060823155505)
         self.assertTrue(emb.with_scmf.converged)
@@ -41,7 +44,7 @@ class SCMF_Test(TestCase):
     def test_brueckner(self):
         """Test Brueckner DMET."""
         emb0 = self.emb()
-        emb = self.emb('brueckner')
+        emb = self.emb("brueckner")
         self.assertAllclose(emb.with_scmf.e_tot_oneshot, emb0.e_tot)
         self.assertAllclose(emb.with_scmf.e_tot_oneshot, -1.1419060823155505)
         self.assertTrue(emb.with_scmf.converged)
@@ -49,10 +52,10 @@ class SCMF_Test(TestCase):
 
 
 class SCMF_UHF_Test(SCMF_Test):
-
     @classmethod
     def setUpClass(cls):
         cls.mf = testsystems.h2_dz.rhf().to_uhf()
+
 
 class SCMF_TCCSD_Test(SCMF_Test):
     solver = "TCCSD"
@@ -60,7 +63,7 @@ class SCMF_TCCSD_Test(SCMF_Test):
     def test_pdmet(self):
         """Test p-DMET."""
         emb0 = self.emb()
-        emb = self.emb('pdmet')
+        emb = self.emb("pdmet")
         self.assertAllclose(emb.with_scmf.e_tot_oneshot, emb0.e_tot)
         self.assertAllclose(emb.with_scmf.e_tot_oneshot, -1.1419060814972688)
         self.assertTrue(emb.with_scmf.converged)
@@ -69,13 +72,13 @@ class SCMF_TCCSD_Test(SCMF_Test):
     def test_brueckner(self):
         """Test Brueckner DMET."""
         emb0 = self.emb()
-        emb = self.emb('brueckner')
+        emb = self.emb("brueckner")
         self.assertAllclose(emb.with_scmf.e_tot_oneshot, emb0.e_tot)
         self.assertAllclose(emb.with_scmf.e_tot_oneshot, -1.1419060814979487)
         self.assertTrue(emb.with_scmf.converged)
         self.assertAllclose(emb.with_scmf.e_tot, -1.1348718457034288)
 
 
-if __name__ == '__main__':
-    print('Running %s' % __file__)
+if __name__ == "__main__":
+    print("Running %s" % __file__)
     unittest.main()

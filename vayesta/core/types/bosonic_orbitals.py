@@ -7,6 +7,7 @@ class BosonicOrbitals:
     and deexcitations in our original bosonic basis.
     Name subject to change...
     """
+
     def __init__(self, coeff_ex, coeff_dex=None, energy=None, labels=None):
         self.coeff_ex = np.asarray(coeff_ex, dtype=float)
         self.coeff_dex = coeff_dex
@@ -22,8 +23,12 @@ class BosonicOrbitals:
         return self.coeff_ex.shape[1]
 
     def copy(self):
-        return type(self)(coeff_ex=_copy(self.coeff_ex), coeff_dex=_copy(self.coeff_dex), energy=_copy(self.energy),
-                          labels=_copy(self.labels))
+        return type(self)(
+            coeff_ex=_copy(self.coeff_ex),
+            coeff_dex=_copy(self.coeff_dex),
+            energy=_copy(self.energy),
+            labels=_copy(self.labels),
+        )
 
     def rotate(self, U, inplace=False):
         """Rotate bosonic basis by unitary U."""
@@ -69,28 +74,40 @@ class QuasiBosonOrbitals(BosonicOrbitals):
 
     @property
     def coeff_dex_3d(self):
-        return None if self.coeff_dex is None else bcoeff_ov_to_o_v(self.coeff_dex, self.forbitals.nocc, self.forbitals.nvir)
+        return (
+            None
+            if self.coeff_dex is None
+            else bcoeff_ov_to_o_v(self.coeff_dex, self.forbitals.nocc, self.forbitals.nvir)
+        )
 
     @property
     def coeff_3d_ao(self):
         """Get bosonic coefficient in basis of ao excitations"""
         alpha, beta = bcoeff_mo2ao(self.coeff_ex_3d, self.forbitals.coeff_occ, self.forbitals.coeff_vir)
         if self.has_dex:
-            dexa, dexb = bcoeff_mo2ao(self.coeff_dex_3d, self.forbitals.coeff_occ, self.forbitals.coeff_vir, transpose=True)
+            dexa, dexb = bcoeff_mo2ao(
+                self.coeff_dex_3d, self.forbitals.coeff_occ, self.forbitals.coeff_vir, transpose=True
+            )
             alpha += dexa
             beta += dexb
         return alpha, beta
 
     def copy(self):
-        return type(self)(forbitals=self.forbitals.copy(), coeff_ex=_copy(self.coeff_ex),
-                          coeff_dex=_copy(self.coeff_dex), energy=_copy(self.energy), labels=_copy(self.labels))
+        return type(self)(
+            forbitals=self.forbitals.copy(),
+            coeff_ex=_copy(self.coeff_ex),
+            coeff_dex=_copy(self.coeff_dex),
+            energy=_copy(self.energy),
+            labels=_copy(self.labels),
+        )
 
     def fbasis_transform(self, trafo, inplace=False):
-        if not hasattr(trafo, '__len__'):
+        if not hasattr(trafo, "__len__"):
             trafo = (trafo, trafo)
         cp = self if inplace else self.copy()
         cp.forbitals.basis_transform(trafo[0], inplace=True)
         return cp
+
 
 def bcoeff_ov_to_o_v(cbos, no, nv):
     noa, nob = no if isinstance(no, tuple) else (no, no)
@@ -100,6 +117,7 @@ def bcoeff_ov_to_o_v(cbos, no, nv):
     ca, cb = cbos[:, :ova], cbos[:, ova:]
     return ca.reshape((nbos, noa, nva)), cb.reshape((nbos, nob, nvb))
 
+
 def bcoeff_mo2ao(cbos, co, cv, transpose=False):
     def _spinchannel_bcoeff_mo2ao(cbos, co, cv, transpose=False):
         """Convert bosonic coefficients from MO basis to AO basis."""
@@ -108,8 +126,9 @@ def bcoeff_mo2ao(cbos, co, cv, transpose=False):
             cbos = cbos.transpose((0, 2, 1))
         return cbos
 
-    return _spinchannel_bcoeff_mo2ao(cbos[0], co[0], cv[0], transpose=transpose), \
-        _spinchannel_bcoeff_mo2ao(cbos[1], co[1], cv[1], transpose=transpose)
+    return _spinchannel_bcoeff_mo2ao(cbos[0], co[0], cv[0], transpose=transpose), _spinchannel_bcoeff_mo2ao(
+        cbos[1], co[1], cv[1], transpose=transpose
+    )
 
 
 def _copy(x):

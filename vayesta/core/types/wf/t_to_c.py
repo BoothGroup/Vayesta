@@ -6,6 +6,7 @@ GHF, and then spin integrated to RHF and UHF expressions.
 import numpy as np
 from vayesta.core.util import einsum
 
+
 def t1_uhf(c1):
     c1_aa, c1_bb = c1
     nocc = (c1_aa.shape[0], c1_bb.shape[0])
@@ -16,11 +17,13 @@ def t1_uhf(c1):
     t1_bb += einsum("ia->ia", c1_bb)
     return t1_aa, t1_bb
 
+
 def t1_rhf(c1):
     nocc, nvir = c1.shape
     t1 = np.zeros((nocc, nvir), dtype=np.float64)
     t1 += einsum("ia->ia", c1)
     return t1
+
 
 def t2_uhf(t1, c2):
     t1_aa, t1_bb = t1
@@ -40,12 +43,14 @@ def t2_uhf(t1, c2):
     t2_bbbb += einsum("ia,jb->ijab", t1_bb, t1_bb) * -1.0
     return t2_aaaa, t2_abab, t2_bbbb
 
+
 def t2_rhf(t1, c2):
     nocc, nvir = t1.shape
     t2 = np.zeros((nocc, nocc, nvir, nvir), dtype=np.float64)
     t2 += einsum("ijab->ijab", c2)
     t2 += einsum("ia,jb->ijab", t1, t1) * -1.0
     return t2
+
 
 def t3_uhf(t1, t2, c3):
     t1_aa, t1_bb = t1
@@ -107,6 +112,7 @@ def t3_uhf(t1, t2, c3):
     t3_bbbbbb += einsum("jb,kica->ijkabc", t1_bb, x0) * -1.0
     return t3_aaaaaa, t3_abaaba, t3_babbab, t3_bbbbbb
 
+
 def t3_rhf(t1, t2, c3):
     nocc, nvir = t1.shape
     t3 = np.zeros((nocc, nocc, nocc, nvir, nvir, nvir), dtype=np.float64)
@@ -122,6 +128,7 @@ def t3_rhf(t1, t2, c3):
     x0 += einsum("ia,jb->ijab", t1, t1) * -1.0
     t3 += einsum("jb,ikca->ijkabc", t1, x0) * -1.0
     return t3
+
 
 def t4_uhf(t1, t2, t3, c4):
     t1_aa, t1_bb = t1
@@ -377,6 +384,7 @@ def t4_uhf(t1, t2, t3, c4):
     t4_bbbbbbbb += einsum("kc,lijdab->ijklabcd", t1_bb, x3) * -1.0
     return t4_aaaaaaaa, t4_aaabaaab, t4_abababab, t4_abbbabbb, t4_bbbbbbbb
 
+
 def t4_rhf(t1, t2, t3, c4):
     nocc, nvir = t1.shape
     c4_abaaabaa, c4_abababab = c4
@@ -411,7 +419,7 @@ def t4_rhf(t1, t2, t3, c4):
     t4_abababab += einsum("ia,jklbcd->ijklabcd", t1, x1) * -1.0
     t4_abababab += einsum("kc,jilbad->ijklabcd", t1, x1) * -1.0
     t4_abaaabaa = np.zeros((nocc, nocc, nocc, nocc, nvir, nvir, nvir, nvir), dtype=np.float64)
-    #t4_abaaabaa += einsum("ikljacdb->ijklabcd", c4_abaaabaa)  # NOTE incorrect in generated eqns
+    # t4_abaaabaa += einsum("ikljacdb->ijklabcd", c4_abaaabaa)  # NOTE incorrect in generated eqns
     t4_abaaabaa += einsum("ijklabcd->ijklabcd", c4_abaaabaa)
     t4_abaaabaa += einsum("ia,kjlcbd->ijklabcd", t1, t3) * -1.0
     t4_abaaabaa += einsum("id,kjlabc->ijklabcd", t1, t3) * -1.0

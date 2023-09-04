@@ -9,15 +9,14 @@ from vayesta.tests.common import TestCase
 
 CENTER = np.asarray((0.1, 0.2, -0.3))
 co2_geom = [
-        ('C', CENTER),
-        ('O1', CENTER + np.asarray([0, 0, -1.163])),
-        ('O2', CENTER + np.asarray([0, 0, +1.163])),
-        ]
-co2 = TestMolecule(atom=co2_geom, basis='6-31G', incore_anyway=True)
+    ("C", CENTER),
+    ("O1", CENTER + np.asarray([0, 0, -1.163])),
+    ("O2", CENTER + np.asarray([0, 0, +1.163])),
+]
+co2 = TestMolecule(atom=co2_geom, basis="6-31G", incore_anyway=True)
 
 
 class TestCO2(TestCase):
-
     system = co2
 
     @classmethod
@@ -38,15 +37,15 @@ class TestCO2(TestCase):
         with emb.fragmentation() as f:
             if symmetry is None:
                 f.add_all_atomic_fragments()
-            elif symmetry == 'inversion':
+            elif symmetry == "inversion":
                 f.add_atomic_fragment(0)
                 with f.inversion_symmetry(center=CENTER):
                     f.add_atomic_fragment(1)
-            elif symmetry == 'reflection':
+            elif symmetry == "reflection":
                 f.add_atomic_fragment(0)
                 with f.mirror_symmetry(center=CENTER, **kwargs):
                     f.add_atomic_fragment(1)
-            elif symmetry == 'rotation':
+            elif symmetry == "rotation":
                 f.add_atomic_fragment(0)
                 with f.rotational_symmetry(center=CENTER, order=2, **kwargs):
                     f.add_atomic_fragment(1)
@@ -55,14 +54,14 @@ class TestCO2(TestCase):
 
     def test_inversion(self):
         emb = self.emb(np.inf)
-        emb_sym = self.emb(np.inf, symmetry='inversion')
+        emb_sym = self.emb(np.inf, symmetry="inversion")
         dm1 = emb.make_rdm1()
         dm1_sym = emb_sym.make_rdm1()
         self.assertAllclose(dm1_sym, dm1)
 
     def test_reflection(self):
         emb = self.emb(np.inf)
-        emb_sym = self.emb(np.inf, symmetry='reflection', axis='z')
+        emb_sym = self.emb(np.inf, symmetry="reflection", axis="z")
         dm1 = emb.make_rdm1()
         dm1_sym = emb_sym.make_rdm1()
         self.assertAllclose(dm1_sym, dm1)
@@ -71,12 +70,12 @@ class TestCO2(TestCase):
         emb = self.emb(np.inf)
         dm1 = emb.make_rdm1()
         # Test different rotation axes
-        for ax in ('x', 'y', (0.6, 1.3, 0)):
-            emb_sym = self.emb(np.inf, symmetry='rotation', axis=ax)
+        for ax in ("x", "y", (0.6, 1.3, 0)):
+            emb_sym = self.emb(np.inf, symmetry="rotation", axis=ax)
             dm1_sym = emb_sym.make_rdm1()
             self.assertAllclose(dm1_sym, dm1)
 
 
-if __name__ == '__main__':
-    print('Running %s' % __file__)
+if __name__ == "__main__":
+    print("Running %s" % __file__)
     unittest.main()

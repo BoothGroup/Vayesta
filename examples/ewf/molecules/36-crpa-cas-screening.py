@@ -7,14 +7,14 @@ from vayesta.misc import molecules
 
 mol = pyscf.gto.Mole()
 mol.atom = molecules.arene(6)
-mol.basis = 'cc-pVDZ'
-mol.output = 'pyscf.out'
+mol.basis = "cc-pVDZ"
+mol.output = "pyscf.out"
 mol.build()
 
 mf = pyscf.scf.RHF(mol).density_fit()
 mf.kernel()
 
-ncas = (4,4)
+ncas = (4, 4)
 
 # Reference CASCI
 mycasci = pyscf.mcscf.CASCI(mf, *ncas)
@@ -39,7 +39,16 @@ with casci_mrpa.cas_fragmentation() as f:
 casci_mrpa.kernel()
 
 print("E(HF)=                              %+16.8f Ha" % mf.e_tot)
-print("ΔE(CASCI)=                          %+16.8f Ha" % (mycasci.e_tot-mf.e_tot))
-print("ΔE(Emb. CASCI, bare interactions)=  %+16.8f Ha  (diff= %+.8f Ha)" % (casci_bare.e_tot-mf.e_tot, casci_bare.e_tot-mycasci.e_tot))
-print("ΔE(Emb. CASCI, cRPA screening)=     %+16.8f Ha  (diff= %+.8f Ha)" % (casci_crpa.e_tot-mf.e_tot, casci_crpa.e_tot-mycasci.e_tot))
-print("ΔE(Emb. CASCI, mRPA screening)=     %+16.8f Ha  (diff= %+.8f Ha)" % (casci_mrpa.e_tot-mf.e_tot, casci_mrpa.e_tot-mycasci.e_tot))
+print("ΔE(CASCI)=                          %+16.8f Ha" % (mycasci.e_tot - mf.e_tot))
+print(
+    "ΔE(Emb. CASCI, bare interactions)=  %+16.8f Ha  (diff= %+.8f Ha)"
+    % (casci_bare.e_tot - mf.e_tot, casci_bare.e_tot - mycasci.e_tot)
+)
+print(
+    "ΔE(Emb. CASCI, cRPA screening)=     %+16.8f Ha  (diff= %+.8f Ha)"
+    % (casci_crpa.e_tot - mf.e_tot, casci_crpa.e_tot - mycasci.e_tot)
+)
+print(
+    "ΔE(Emb. CASCI, mRPA screening)=     %+16.8f Ha  (diff= %+.8f Ha)"
+    % (casci_mrpa.e_tot - mf.e_tot, casci_mrpa.e_tot - mycasci.e_tot)
+)
