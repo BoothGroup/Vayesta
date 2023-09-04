@@ -849,7 +849,9 @@ class EB_RClusterHamiltonian(RClusterHamiltonian):
             self._polaritonic_shift = None
 
     def generate_bosonic_interactions(self):
-        projector = BosonicHamiltonianProjector(self.cluster, self._get_cderi, self.orig_mf, log=self.log)
+        projector = BosonicHamiltonianProjector(
+            self.cluster, self._get_cderi, self.orig_mf, log=self.log, kdf=self._fragment.base.kdf
+        )
         self.initialise_bosons(
             *projector.kernel(
                 coupling_exchange=self.opts.boson_coupling_exchange, freq_exchange=self.opts.boson_freq_exchange

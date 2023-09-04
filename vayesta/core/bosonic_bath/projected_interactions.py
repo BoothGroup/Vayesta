@@ -2,20 +2,23 @@ import numpy as np
 from vayesta.core.util import einsum, dot
 from vayesta.core.vlog import NoLogger
 import pyscf.lib
+from vayesta.core.ao2mo import kao2gmo_cderi
 
 
 class BosonicHamiltonianProjector:
-    def __init__(self, cluster, mo_cderi_getter, mf, fock=None, log=None):
+    def __init__(self, cluster, mo_cderi_getter, mf, fock=None, log=None, kdf=None):
         self.cluster = cluster
         if cluster.bosons is None:
             raise ValueError("Cluster has no defined bosons to generate interactions for!")
         # Functions to get
         self.mo_cderi_getter = mo_cderi_getter
         self.mf = mf
+        self.kdf = kdf
         self.fock = fock or mf.get_fock()
         assert self.cluster.inc_bosons
         self._cderi_clus = None
         self._cderi_bos = None
+        self._cderi_glob = None
         self.log = log or NoLogger()
 
     @property
@@ -42,14 +45,35 @@ class BosonicHamiltonianProjector:
     @property
     def cderi_bos(self):
         if self._cderi_bos is None:
-            rbos = sum(self.bcluster.coeff_3d_ao)
-            cderi = np.zeros((self.naux, self.bcluster.nbos))
-            cderi_neg = None
-            for blk, lab in self._loop_df():
-                if blk is not None:
-                    cderi[blk] = einsum("Lab,nab->Ln", lab, rbos)
+            if self.kdf is None:
+                # Can just loop over density cderis in AO basis.
+                rbos = sum(self.bcluster.coeff_3d_ao)
+                cderi = np.zeros((self.naux, self.bcluster.nbos))
+                cderi_neg = None
+                for blk, lab in self._loop_df():
+                    if blk is not None:
+                        cderi[blk] = einsum("Lab,nab->Ln", lab, rbos)
+                    else:
+                        cderi_neg = einsum("Lab,nab->Ln", lab, rbos)
+            else:
+                # Using unfolded mean-field; need to go via global cderis.
+                cderi, cderi_neg = self.cderi_glob_ov
+
+                if cderi[0].ndim == 3:
+                    rbosa, rbosb = self.bcluster.coeff_ex_3d
+                    cderia, cderib = cderi
+                    cderia_neg, cderib_neg = cderi_neg
+
+                    cderi = einsum("Lia,nia->Ln", cderia, rbosa) + einsum("Lia,nia->Ln", cderib, rbosb)
+                    cderi_neg = None
+                    if cderia_neg is not None:
+                        cderi_neg = einsum("Lia,nia->Ln", cderia_neg, rbosa) + einsum("Lia,nia->Ln", cderib_neg, rbosb)
                 else:
-                    cderi_neg = einsum("Lab,nab->Ln", lab, rbos)
+                    rbos = sum(self.bcluster.coeff_ex_3d)
+                    cderi = einsum("Lia,nia->Ln", cderi, rbos)
+                    if cderi_neg is not None:
+                        cderi_neg = einsum("Lia,nia->Ln", cderi_neg, rbos)
+
             self._cderi_bos = (cderi, cderi_neg)
         return self._cderi_bos
 
@@ -83,6 +107,46 @@ class BosonicHamiltonianProjector:
     def overlap(self):
         return self.mf.get_ovlp()
 
+    @property
+    def cderi_glob_ov(self):
+        """Gets the cderi in the global particle-hole excitation basis, with caching. For use with FoldedSCF mean-fields."""
+        if self.kdf is None:
+            self.log.warning("Obtaining global CDERI should only be necessary for FoldedSCF calculations.")
+        if self._cderi_glob is not None:
+            return self._cderi_glob
+        c = self.bcluster.forbitals.coeff
+        cderi, cderi_neg = self.cderi_glob
+        if c[0].ndim == 2:
+            noa, nob = self.bcluster.forbitals.nocc
+            cderi = (cderi[0][:, :noa, noa:], cderi[1][:, :nob, nob:])
+            if cderi_neg is not None:
+                cderi_neg = (cderi_neg[0][:, :noa, noa:], cderi_neg[1][:, :nob, nob:])
+        else:
+            no = self.bcluster.forbitals.nocc
+            cderi = cderi[:, :no, no:]
+            if cderi_neg is not None:
+                cderi_neg = cderi_neg[:, :no, no:]
+        return cderi, cderi_neg
+
+    @property
+    def cderi_glob(self):
+        """Gets the cderi in the global particle-hole excitation basis, with caching. For use with FoldedSCF mean-fields."""
+        if self.kdf is None:
+            self.log.warning("Obtaining global CDERI should only be necessary for FoldedSCF calculations.")
+        if self._cderi_glob is not None:
+            return self._cderi_glob
+        c = self.bcluster.forbitals.coeff
+        if c[0].ndim == 2:
+            cderia, cderia_neg = self.mo_cderi_getter((c[0], c[0]))
+            cderib, cderib_neg = self.mo_cderi_getter((c[1], c[1]))
+
+            self._cderi_glob = ((cderia, cderib), (cderia_neg, cderib_neg))
+        else:
+            if self._cderi_glob is None:
+                cderi, cderi_neg = self.mo_cderi_getter((c, c))
+                self._cderi_glob = (cderi, cderi_neg)
+        return self._cderi_glob
+
     def kernel(self, coupling_exchange=True, freq_exchange=False):
         self.log.info("Generating bosonic interactions")
         self.log.info("-------------------------------")
@@ -112,9 +176,9 @@ class BosonicHamiltonianProjector:
                 sign = 1 if blk is not None else -1
                 # hbb_exchange += einsum("Lij,Lab,nia,mjb->nm", lab, lab, ca, ca)
                 temp = einsum("Lij,nia->Lnja", lab, ca)
-                hbb_exchange += sign * einsum("Lnja,Lab,mjb->nm", temp, lab, ca)
+                hbb_exchange -= sign * einsum("Lnja,Lab,mjb->nm", temp, lab, ca)
                 temp = einsum("Lij,nia->Lnja", lab, cb)
-                hbb_exchange += sign * einsum("Lnja,Lab,mjb->nm", temp, lab, cb)
+                hbb_exchange -= sign * einsum("Lnja,Lab,mjb->nm", temp, lab, cb)
 
         # Want to take eigenvectors of this coupling matrix as our bosonic auxiliaries.
         hbb = hbb_fock + hbb_coulomb + hbb_exchange
@@ -163,28 +227,72 @@ class BosonicHamiltonianProjector:
         # Finally, optionally compute exchange contributions.
         couplings_exchange = [np.zeros_like(x) for x in couplings_coulomb]
 
+        c = self.cluster.c_active
+        if c[0].ndim == 1:
+            ca = cb = c
+        else:
+            ca, cb = c
+
         if exchange:
-            rbos_a, rbos_b = self.bcluster.coeff_3d_ao
-            c = self.cluster.c_active
-            if c[0].ndim == 1:
-                ca = cb = c
-            else:
-                ca, cb = c
-
-            # Want -C_{nkc}<pk|cq> = - C_{nkc} V_{Lpc} V_{Lkq}
-
-            def _gen_exchange_spinchannel_contrib(l, c, rbos):
-                la_loc = np.tensordot(l, c, axes=(2, 0))  # "Lab,bp->Lap"
-                temp = einsum("Lkp,Lcq->kcpq", la_loc, la_loc)
-                contrib = einsum("kcpq,nkc->npq", temp, rbos)
-                return contrib
-
-            for i, (blk, lab) in enumerate(self._loop_df()):
-                if blk is not None:
-                    couplings_exchange[0] = couplings_exchange[0] + _gen_exchange_spinchannel_contrib(lab, ca, rbos_a)
-                    couplings_exchange[1] = couplings_exchange[1] + _gen_exchange_spinchannel_contrib(lab, cb, rbos_b)
+            if self.kdf is not None:
+                cderi, cderi_neg = self.cderi_glob
+                rbosa, rbosb = self.bcluster.coeff_ex_3d
+                if cderi[0].ndim == 3:
+                    noa, nob = self.bcluster.forbitals.nocc
+                    cderia, cderib = cderi
+                    cderi_nega, cderi_negb = (None, None) if cderi_neg is None else cderi_neg
+                    ra = dot(ca.T, self.overlap, self.bcluster.forbitals.coeff[0])
+                    rb = dot(cb.T, self.overlap, self.bcluster.forbitals.coeff[1])
                 else:
-                    raise NotImplementedError("CDERI_neg contributions to bosons not yet supported")
+                    noa = nob = self.bcluster.forbitals.nocc
+                    cderia = cderib = cderi
+                    cderi_nega = cderi_negb = cderi_neg
+                    ra = rb = dot(c.T, self.overlap, self.bcluster.forbitals.coeff)
+
+                def _gen_exchange_spinchannel_contrib(rbos, cderi, rclus, no):
+                    # Want -C_{nkc}<pk|cq> = - C_{nkc} V_{Lpc} V_{Lkq}
+                    cderi = einsum("Lpq,rp->Lrq", cderi, rclus)
+                    contrib = -einsum("Lpi,Lqa,nia->npq", cderi[:, :, :no], cderi[:, :, no:], rbos)
+                    return contrib
+
+                couplings_exchange = [
+                    _gen_exchange_spinchannel_contrib(rbosa, cderia, ra, noa),
+                    _gen_exchange_spinchannel_contrib(rbosb, cderib, rb, nob),
+                ]
+
+                if cderi_nega is not None:
+                    couplings_exchange[0] = couplings_exchange[0] - _gen_exchange_spinchannel_contrib(
+                        rbosa, cderi_nega, ra, noa
+                    )
+                    couplings_exchange[1] = couplings_exchange[1] - _gen_exchange_spinchannel_contrib(
+                        rbosb, cderi_negb, rb, nob
+                    )
+
+            else:
+                rbos_a, rbos_b = self.bcluster.coeff_3d_ao
+
+                # Want -C_{nkc}<pk|cq> = - C_{nkc} V_{Lpc} V_{Lkq}
+                def _gen_exchange_spinchannel_contrib(l, c, rbos):
+                    la_loc = np.tensordot(l, c, axes=(2, 0))  # "Lab,bp->Lap"
+                    temp = einsum("Lkp,Lcq->kcpq", la_loc, la_loc)
+                    contrib = -einsum("kcpq,nkc->npq", temp, rbos)
+                    return contrib
+
+                for i, (blk, lab) in enumerate(self._loop_df()):
+                    if blk is not None:
+                        couplings_exchange[0] = couplings_exchange[0] + _gen_exchange_spinchannel_contrib(
+                            lab, ca, rbos_a
+                        )
+                        couplings_exchange[1] = couplings_exchange[1] + _gen_exchange_spinchannel_contrib(
+                            lab, cb, rbos_b
+                        )
+                    else:
+                        couplings_exchange[0] = couplings_exchange[0] - _gen_exchange_spinchannel_contrib(
+                            lab, ca, rbos_a
+                        )
+                        couplings_exchange[1] = couplings_exchange[1] - _gen_exchange_spinchannel_contrib(
+                            lab, cb, rbos_b
+                        )
 
         couplings = [x + y + z for x, y, z in zip(couplings_coulomb, couplings_exchange, couplings_fock)]
         return couplings
