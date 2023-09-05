@@ -11,6 +11,7 @@ from vayesta.mpi import mpi
 # Amplitudes
 from vayesta.ewf.amplitudes import get_global_t1_uhf
 from vayesta.ewf.amplitudes import get_global_t2_uhf
+
 # Density-matrices
 from vayesta.ewf.urdm import make_rdm1_ccsd
 from vayesta.ewf.urdm import make_rdm1_ccsd_global_wf
@@ -20,7 +21,6 @@ from vayesta.ewf.icmp2 import get_intercluster_mp2_energy_uhf
 
 
 class UEWF(REWF, UEmbedding):
-
     Fragment = Fragment
 
     # --- CC Amplitudes
@@ -38,18 +38,16 @@ class UEWF(REWF, UEmbedding):
                 self.log.error("No T1 amplitudes found for %s.", f)
                 continue
             nelec = t1[0].shape[0] + t1[1].shape[0]
-            t1diag = (np.linalg.norm(t1[0]) / np.sqrt(nelec),
-                      np.linalg.norm(t1[1]) / np.sqrt(nelec))
+            t1diag = (np.linalg.norm(t1[0]) / np.sqrt(nelec), np.linalg.norm(t1[1]) / np.sqrt(nelec))
             if max(t1diag) > warn_tol:
-                self.log.warning("T1 diagnostic for %-20s alpha= %.5f beta= %.5f", str(f)+':', *t1diag)
+                self.log.warning("T1 diagnostic for %-20s alpha= %.5f beta= %.5f", str(f) + ":", *t1diag)
             else:
-                self.log.info("T1 diagnostic for %-20s alpha= %.5f beta= %.5f", str(f)+':', *t1diag)
+                self.log.info("T1 diagnostic for %-20s alpha= %.5f beta= %.5f", str(f) + ":", *t1diag)
         # Global
         t1 = self.get_global_t1(mpi_target=0)
         if mpi.is_master:
             nelec = t1[0].shape[0] + t1[1].shape[0]
-            t1diag = (np.linalg.norm(t1[0]) / np.sqrt(nelec),
-                      np.linalg.norm(t1[1]) / np.sqrt(nelec))
+            t1diag = (np.linalg.norm(t1[0]) / np.sqrt(nelec), np.linalg.norm(t1[1]) / np.sqrt(nelec))
             if max(t1diag) > warn_tol:
                 self.log.warning("Global T1 diagnostic: alpha= %.5f beta= %.5f", *t1diag)
             else:
@@ -136,21 +134,23 @@ class UEWF(REWF, UEmbedding):
 
         # --- Core Hamiltonian + Non-cumulant 2DM contribution
         fa, fb = self.get_fock_for_energy(with_exxdiv=False)
-        e1 = (einsum('pi,pq,qj,ij->', self.mo_coeff[0], fa, self.mo_coeff[0], dm1a)
-            + einsum('pi,pq,qj,ij->', self.mo_coeff[1], fb, self.mo_coeff[1], dm1b))/self.ncells
+        e1 = (
+            einsum("pi,pq,qj,ij->", self.mo_coeff[0], fa, self.mo_coeff[0], dm1a)
+            + einsum("pi,pq,qj,ij->", self.mo_coeff[1], fb, self.mo_coeff[1], dm1b)
+        ) / self.ncells
 
         # --- Cumulant 2-DM contribution
         # Use global 2-DM
         if global_dm2:
             dm2aa, dm2ab, dm2bb = self._make_rdm2_ccsd_global_wf(t_as_lambda=t_as_lambda, with_dm1=False)
             eriaa = self.get_eris_array(self.mo_coeff[0])
-            e2 = einsum('pqrs,pqrs', eriaa, dm2aa) / 2
-            eriab = self.get_eris_array(2*[self.mo_coeff[0]] + 2*[self.mo_coeff[1]])
-            e2 += einsum('pqrs,pqrs', eriab, dm2ab)
+            e2 = einsum("pqrs,pqrs", eriaa, dm2aa) / 2
+            eriab = self.get_eris_array(2 * [self.mo_coeff[0]] + 2 * [self.mo_coeff[1]])
+            e2 += einsum("pqrs,pqrs", eriab, dm2ab)
             eribb = self.get_eris_array(self.mo_coeff[1])
-            e2 += einsum('pqrs,pqrs', eribb, dm2bb) / 2
+            e2 += einsum("pqrs,pqrs", eribb, dm2bb) / 2
         # Use fragment-local 2-DM
         else:
             e2 = self.get_dm_corr_energy_e2(t_as_lambda=t_as_lambda)
-        e_corr = (e1 + e2)
+        e_corr = e1 + e2
         return e_corr

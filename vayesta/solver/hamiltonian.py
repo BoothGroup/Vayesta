@@ -7,6 +7,7 @@ import pyscf.scf
 
 from vayesta.core.util import dot, einsum, OptionsBase, break_into_lines, log_time, energy_string
 from vayesta.core.screening import screening_moment, screening_crpa
+from vayesta.core.bosonic_bath import BosonicHamiltonianProjector
 from vayesta.core.types import Orbitals
 from typing import Optional
 
@@ -25,7 +26,7 @@ def is_eb_ham(ham):
 
 def ClusterHamiltonian(fragment, mf, log=None, **kwargs):
     rhf = np.ndim(mf.mo_coeff[0]) == 1
-    eb = hasattr(fragment, "bos_freqs")
+    eb = hasattr(fragment, "bos_freqs") or fragment.cluster.inc_bosons
     if rhf:
         if eb:
             return EB_RClusterHamiltonian(fragment, mf, log=log, **kwargs)
@@ -70,12 +71,12 @@ class RClusterHamiltonian:
         # Do we want to populate all parameters at initialisation, so fragment isn't actually saved here?
         self._fragment = fragment
         self._cluster = cluster
-        self.log = (log or fragment.log)
+        self.log = log or fragment.log
         # --- Options:
         self.opts = self.Options()
         self.opts.update(**kwargs)
         self.log.info("Parameters of %s:" % self.__class__.__name__)
-        self.log.info(break_into_lines(str(self.opts), newline='\n    '))
+        self.log.info(break_into_lines(str(self.opts), newline="\n    "))
         self.v_ext = None
         self._seris = None
         self._eris = None
@@ -87,6 +88,10 @@ class RClusterHamiltonian:
     @property
     def mo(self):
         return self.get_mo()
+
+    @property
+    def mbos(self):
+        return self.cluster.bosons
 
     @property
     def nelec(self):
@@ -133,12 +138,13 @@ class RClusterHamiltonian:
 
         if self._seris is not None and use_seris:
             # Generates the fock matrix if screened ERIs are used in place of bare eris.
-            occ = np.s_[:self.cluster.nocc_active]
+            occ = np.s_[: self.cluster.nocc_active]
 
             eris = self.get_eris_bare()
-            v_act_bare = 2 * einsum('iipq->pq', eris[occ, occ]) - einsum('iqpi->pq', eris[occ, :, :, occ])
-            v_act_seris = 2 * einsum('iipq->pq', self._seris[occ, occ]) - \
-                          einsum('iqpi->pq', self._seris[occ, :, :, occ])
+            v_act_bare = 2 * einsum("iipq->pq", eris[occ, occ]) - einsum("iqpi->pq", eris[occ, :, :, occ])
+            v_act_seris = 2 * einsum("iipq->pq", self._seris[occ, occ]) - einsum(
+                "iqpi->pq", self._seris[occ, :, :, occ]
+            )
 
             fock += v_act_seris - v_act_bare
 
@@ -149,8 +155,8 @@ class RClusterHamiltonian:
             eris = self.get_eris_screened()
         if fock is None:
             fock = self.get_fock(with_vext=False, with_exxdiv=with_exxdiv)
-        occ = np.s_[:self.cluster.nocc_active]
-        v_act = 2 * einsum('iipq->pq', eris[occ, occ]) - einsum('iqpi->pq', eris[occ, :, :, occ])
+        occ = np.s_[: self.cluster.nocc_active]
+        v_act = 2 * einsum("iipq->pq", eris[occ, occ]) - einsum("iqpi->pq", eris[occ, :, :, occ])
         h_eff = fock - v_act
         if with_vext and self.v_ext is not None:
             h_eff += self.v_ext
@@ -196,8 +202,10 @@ class RClusterHamiltonian:
         sl = tuple([occ if i == "o" else vir for i in block.lower()])
         return eris[sl]
 
-    def get_cderi_bare(self, only_ov=False, compress=False, svd_threshold=1e-12):
+    def _get_cderi(self, coeff, *args, **kwargs):
+        return self._fragment.base.get_cderi(coeff)
 
+    def get_cderi_bare(self, only_ov=False, compress=False, svd_threshold=1e-12):
         if only_ov:
             # We only need the (L|ov) block for MP2:
             mo_coeff = (self.cluster.c_active_occ, self.cluster.c_active_vir)
@@ -205,7 +213,7 @@ class RClusterHamiltonian:
             mo_coeff = self.cluster.c_active
 
         with log_time(self.log.timing, "Time for 2e-integral transformation: %s"):
-            cderi, cderi_neg = self._fragment.base.get_cderi(mo_coeff)
+            cderi, cderi_neg = self._get_cderi(mo_coeff)
 
         if compress:
             # SVD and compress the cderi tensor. This scales as O(N_{aux} N_{clus}^4), so this will be worthwhile
@@ -321,9 +329,14 @@ class RClusterHamiltonian:
         #   -using bare ERIs in cluster.
         #   -ERIs are PSD.
         #   -our mean-field has DF.
-        use_df = allow_df and np.ndim(clusmf.mo_coeff[1]) == 1 and self.opts.screening is None and \
-                 not (self._fragment.base.pbc_dimension in (1, 2)) and hasattr(self.orig_mf, 'with_df') \
-                 and self.orig_mf.with_df is not None
+        use_df = (
+            allow_df
+            and np.ndim(clusmf.mo_coeff[1]) == 1
+            and self.opts.screening is None
+            and not (self._fragment.base.pbc_dimension in (1, 2))
+            and hasattr(self.orig_mf, "with_df")
+            and self.orig_mf.with_df is not None
+        )
         clusmol.incore_anyway = not use_df
 
         if use_df:
@@ -345,13 +358,14 @@ class RClusterHamiltonian:
 
             heff = pad_to_match(self.get_heff(with_vext=True), dummy_energy)
 
-
         clusmf.get_hcore = lambda *args, **kwargs: heff
         if overwrite_fock:
             clusmf.get_fock = lambda *args, **kwargs: pad_to_match(
-                self.get_fock(with_vext=True, use_seris=not force_bare_eris), dummy_energy)
-            clusmf.get_veff = lambda *args, **kwargs: np.array(clusmf.get_fock(*args, **kwargs)) - \
-                                                      np.array(clusmf.get_hcore())
+                self.get_fock(with_vext=True, use_seris=not force_bare_eris), dummy_energy
+            )
+            clusmf.get_veff = lambda *args, **kwargs: np.array(clusmf.get_fock(*args, **kwargs)) - np.array(
+                clusmf.get_hcore()
+            )
 
         return clusmf, orbs_to_freeze
 
@@ -362,7 +376,7 @@ class RClusterHamiltonian:
             nao = self.ncas
         mo_energy = np.diag(self.get_fock(with_vext=with_vext, with_exxdiv=with_exxdiv))
         mo_occ = np.zeros_like(mo_energy)
-        mo_occ[:self.nelec[0]] = 2.0
+        mo_occ[: self.nelec[0]] = 2.0
         # Determine whether we want our cluster orbitals expressed in the basis of active orbitals, or in the AO basis.
         if ao_basis:
             mo_coeff = self.cluster.c_active
@@ -375,7 +389,6 @@ class RClusterHamiltonian:
     # Functionality for use with screened interactions and external corrections.
 
     def calc_loc_erpa(self, m0, amb, only_cumulant=False):
-
         no, nv = self.cluster.nocc_active, self.cluster.nvir_active
         nov = no * nv
         # Bare coulomb interaction in cluster ov-ov space.
@@ -397,15 +410,17 @@ class RClusterHamiltonian:
                     return m.reshape((no * nv, no * nv))
 
                 erpa = 0.5 * einsum("pq,qp->", pr(m0_aa + m0_ab + m0_ab.T + m0_bb - 2 * np.eye(nov)), v)
-                self.log.info("Computed fragment RPA cumulant energy contribution for cluster %s as %s",
-                              self._fragment.id,
-                              energy_string(erpa))
+                self.log.info(
+                    "Computed fragment RPA cumulant energy contribution for cluster %s as %s",
+                    self._fragment.id,
+                    energy_string(erpa),
+                )
                 return erpa
 
         else:
             d_aa, d_ab, d_bb = gen_spin_components(amb)
             # This should be zero.
-            assert (abs(d_ab).max() < 1e-10)
+            assert abs(d_ab).max() < 1e-10
 
             def compute_e_rrpa(proj):
                 def pr(m):
@@ -416,8 +431,11 @@ class RClusterHamiltonian:
                 erpa = 0.5 * (einsum("pq,qp->", pr(m0_aa), d_aa) + einsum("pq,qp->", pr(m0_bb), d_bb))
                 erpa += einsum("pq,qp->", pr(m0_aa + m0_ab + m0_ab.T + m0_bb), v)
                 erpa -= 0.5 * (pr(d_aa + v + d_bb + v).trace())
-                self.log.info("Computed fragment RPA energy contribution for cluster %s as %s", self._fragment.id,
-                              energy_string(erpa))
+                self.log.info(
+                    "Computed fragment RPA energy contribution for cluster %s as %s",
+                    self._fragment.id,
+                    energy_string(erpa),
+                )
                 return erpa
 
         compute_e_rrpa(np.eye(no))
@@ -437,8 +455,6 @@ class RClusterHamiltonian:
         self._seris = self._add_screening(seris_intermed, spin_integrate=True)
 
     def _add_screening(self, seris_intermed=None, spin_integrate=True):
-
-
         def spin_integrate_and_report(m, warn_threshold=1e-6):
             spat = (m[0] + m[1] + m[2] + m[1].transpose((2, 3, 0, 1))) / 4.0
 
@@ -451,7 +467,7 @@ class RClusterHamiltonian:
         if self.opts.screening is None:
             raise ValueError("Attempted to add screening to fragment with no screening protocol specified.")
         if self.opts.screening == "mrpa":
-            assert (seris_intermed is not None)
+            assert seris_intermed is not None
             # Use bare coulomb interaction from hamiltonian.
             bare_eris = self.get_eris_bare()
             seris = screening_moment.get_screened_eris_full(bare_eris, seris_intermed[0], log=self.log)
@@ -459,10 +475,13 @@ class RClusterHamiltonian:
                 seris = spin_integrate_and_report(seris)
         elif self.opts.screening[:4] == "crpa":
             bare_eris = self.get_eris_bare()
-            delta, crpa = screening_crpa.get_frag_deltaW(self.orig_mf, self._fragment,
-                                                         pcoupling=("pcoupled" in self.opts.screening),
-                                                         only_ov_screened=("ov" in self.opts.screening),
-                                                         log=self.log)
+            delta, crpa = screening_crpa.get_frag_deltaW(
+                self.orig_mf,
+                self._fragment,
+                pcoupling=("pcoupled" in self.opts.screening),
+                only_ov_screened=("ov" in self.opts.screening),
+                log=self.log,
+            )
             if "store" in self.opts.screening:
                 self.log.warning("Storing cRPA object in Hamiltonian- O(N^4) memory cost!")
                 self.crpa = crpa
@@ -488,7 +507,11 @@ class RClusterHamiltonian:
                 wstring = "W(%2s|%2s)" % (2 * spins[0], 2 * spins[1])
             self.log.info(
                 "Maximally screened element of %s: V= %.3e -> W= %.3e (delta= %.3e)",
-                wstring, bare[maxidx], screened[maxidx], screened[maxidx] - bare[maxidx])
+                wstring,
+                bare[maxidx],
+                screened[maxidx],
+                screened[maxidx] - bare[maxidx],
+            )
             # self.log.info(
             #    "           Corresponding norms%s: ||V||= %.3e, ||W||= %.3e, ||delta||= %.3e",
             #              " " * len(wstring), np.linalg.norm(bare), np.linalg.norm(screened),
@@ -517,8 +540,10 @@ class RClusterHamiltonian:
     def assert_equal_spin_channels(self, message=""):
         na, nb = self.ncas
         if na != nb:
-            raise NotImplementedError("Active spaces with different number of alpha and beta orbitals are not yet "
-                                      "supported with this configuration. %s" % message)
+            raise NotImplementedError(
+                "Active spaces with different number of alpha and beta orbitals are not yet "
+                "supported with this configuration. %s" % message
+            )
 
     def with_new_cluster(self, cluster):
         return self.__class__(self._fragment, self.orig_mf, self.log, cluster, **self.opts.asdict())
@@ -539,27 +564,27 @@ class UClusterHamiltonian(RClusterHamiltonian):
     def _scf_class(self):
         class UHF_spindep(pyscf.scf.uhf.UHF):
             def energy_elec(mf, dm=None, h1e=None, vhf=None):
-                '''Electronic energy of Unrestricted Hartree-Fock
+                """Electronic energy of Unrestricted Hartree-Fock
 
                 Note this function has side effects which cause mf.scf_summary updated.
 
                 Returns:
                     Hartree-Fock electronic energy and the 2-electron part contribution
-                '''
-                if dm is None: dm = mf.make_rdm1()
+                """
+                if dm is None:
+                    dm = mf.make_rdm1()
                 if h1e is None:
                     h1e = mf.get_hcore()
                 if isinstance(dm, np.ndarray) and dm.ndim == 2:
-                    dm = np.array((dm * .5, dm * .5))
+                    dm = np.array((dm * 0.5, dm * 0.5))
                 if vhf is None:
                     vhf = mf.get_veff(mf.mol, dm)
-                e1 = np.einsum('ij,ji->', h1e[0], dm[0])
-                e1 += np.einsum('ij,ji->', h1e[1], dm[1])
-                e_coul = (np.einsum('ij,ji->', vhf[0], dm[0]) +
-                          np.einsum('ij,ji->', vhf[1], dm[1])) * .5
+                e1 = np.einsum("ij,ji->", h1e[0], dm[0])
+                e1 += np.einsum("ij,ji->", h1e[1], dm[1])
+                e_coul = (np.einsum("ij,ji->", vhf[0], dm[0]) + np.einsum("ij,ji->", vhf[1], dm[1])) * 0.5
                 e_elec = (e1 + e_coul).real
-                mf.scf_summary['e1'] = e1.real
-                mf.scf_summary['e2'] = e_coul.real
+                mf.scf_summary["e1"] = e1.real
+                mf.scf_summary["e2"] = e_coul.real
                 # logger.debug(mf, 'E1 = %s  Ecoul = %s', e1, e_coul.real)
                 return e_elec, e_coul
 
@@ -586,25 +611,35 @@ class UClusterHamiltonian(RClusterHamiltonian):
         fa, fb = self._fragment.base.get_fock(with_exxdiv=with_exxdiv)
         fock = (dot(ca.T, fa, ca), dot(cb.T, fb, cb))
         if with_vext and self.v_ext is not None:
-            fock = ((fock[0] + self.v_ext[0]),
-                    (fock[1] + self.v_ext[1]))
+            fock = ((fock[0] + self.v_ext[0]), (fock[1] + self.v_ext[1]))
         if self._seris is not None and use_seris:
             # Generates the fock matrix if screened ERIs are used in place of bare eris.
             noa, nob = self.cluster.nocc_active
             oa = np.s_[:noa]
             ob = np.s_[:nob]
             saa, sab, sbb = self._seris
-            dfa = (einsum('iipq->pq', saa[oa, oa]) + einsum('pqii->pq', sab[:, :, ob, ob])  # Coulomb
-                   - einsum('ipqi->pq', saa[oa, :, :, oa]))  # Exchange
-            dfb = (einsum('iipq->pq', sbb[ob, ob]) + einsum('iipq->pq', sab[oa, oa])  # Coulomb
-                   - einsum('ipqi->pq', sbb[ob, :, :, ob]))  # Exchange
+            dfa = (
+                einsum("iipq->pq", saa[oa, oa])
+                + einsum("pqii->pq", sab[:, :, ob, ob])  # Coulomb
+                - einsum("ipqi->pq", saa[oa, :, :, oa])
+            )  # Exchange
+            dfb = (
+                einsum("iipq->pq", sbb[ob, ob])
+                + einsum("iipq->pq", sab[oa, oa])  # Coulomb
+                - einsum("ipqi->pq", sbb[ob, :, :, ob])
+            )  # Exchange
             gaa, gab, gbb = self.get_eris_bare()
-            dfa -= (einsum('iipq->pq', gaa[oa, oa]) + einsum('pqii->pq', gab[:, :, ob, ob])  # Coulomb
-                    - einsum('ipqi->pq', gaa[oa, :, :, oa]))  # Exchange
-            dfb -= (einsum('iipq->pq', gbb[ob, ob]) + einsum('iipq->pq', gab[oa, oa])  # Coulomb
-                    - einsum('ipqi->pq', gbb[ob, :, :, ob]))  # Exchange
-            fock = ((fock[0] + dfa),
-                    (fock[1] + dfb))
+            dfa -= (
+                einsum("iipq->pq", gaa[oa, oa])
+                + einsum("pqii->pq", gab[:, :, ob, ob])  # Coulomb
+                - einsum("ipqi->pq", gaa[oa, :, :, oa])
+            )  # Exchange
+            dfb -= (
+                einsum("iipq->pq", gbb[ob, ob])
+                + einsum("iipq->pq", gab[oa, oa])  # Coulomb
+                - einsum("ipqi->pq", gbb[ob, :, :, ob])
+            )  # Exchange
+            fock = ((fock[0] + dfa), (fock[1] + dfb))
 
         return fock
 
@@ -614,17 +649,22 @@ class UClusterHamiltonian(RClusterHamiltonian):
         if fock is None:
             fock = self.get_fock(with_vext=False, use_seris=False, with_exxdiv=with_exxdiv)
 
-        oa = np.s_[:self.cluster.nocc_active[0]]
-        ob = np.s_[:self.cluster.nocc_active[1]]
+        oa = np.s_[: self.cluster.nocc_active[0]]
+        ob = np.s_[: self.cluster.nocc_active[1]]
         gaa, gab, gbb = eris
-        va = (einsum('iipq->pq', gaa[oa, oa]) + einsum('pqii->pq', gab[:, :, ob, ob])  # Coulomb
-              - einsum('ipqi->pq', gaa[oa, :, :, oa]))  # Exchange
-        vb = (einsum('iipq->pq', gbb[ob, ob]) + einsum('iipq->pq', gab[oa, oa])  # Coulomb
-              - einsum('ipqi->pq', gbb[ob, :, :, ob]))  # Exchange
+        va = (
+            einsum("iipq->pq", gaa[oa, oa])
+            + einsum("pqii->pq", gab[:, :, ob, ob])  # Coulomb
+            - einsum("ipqi->pq", gaa[oa, :, :, oa])
+        )  # Exchange
+        vb = (
+            einsum("iipq->pq", gbb[ob, ob])
+            + einsum("iipq->pq", gab[oa, oa])  # Coulomb
+            - einsum("ipqi->pq", gbb[ob, :, :, ob])
+        )  # Exchange
         h_eff = (fock[0] - va, fock[1] - vb)
         if with_vext and self.v_ext is not None:
-            h_eff = ((h_eff[0] + self.v_ext[0]),
-                     (h_eff[1] + self.v_ext[1]))
+            h_eff = ((h_eff[0] + self.v_ext[0]), (h_eff[1] + self.v_ext[1]))
         return h_eff
 
     def get_eris_bare(self, block=None):
@@ -639,8 +679,12 @@ class UClusterHamiltonian(RClusterHamiltonian):
                 return self._eris
         else:
             if self._eris is None:
-                coeffs = [self.cluster.c_active_occ[int(i.upper() == i)] if i.lower() == "o" else
-                          self.cluster.c_active_vir[int(i.upper() == i)] for i in block]
+                coeffs = [
+                    self.cluster.c_active_occ[int(i.upper() == i)]
+                    if i.lower() == "o"
+                    else self.cluster.c_active_vir[int(i.upper() == i)]
+                    for i in block
+                ]
                 return self._fragment.base.get_eris_array(coeffs)
             else:
                 return self._get_eris_block(self._eris, block)
@@ -651,10 +695,12 @@ class UClusterHamiltonian(RClusterHamiltonian):
         flip = sum(sp) == 2 and sp[0] == 1
         if flip:  # Store ab not ba contribution.
             block = block[::-1]
-        d = {"o": slice(self.cluster.nocc_active[0]), "O": slice(self.cluster.nocc_active[1]),
-             "v": slice(self.cluster.nocc_active[0], self.cluster.norb_active[0]),
-             "V": slice(self.cluster.nocc_active[1], self.cluster.norb_active[1])
-             }
+        d = {
+            "o": slice(self.cluster.nocc_active[0]),
+            "O": slice(self.cluster.nocc_active[1]),
+            "v": slice(self.cluster.nocc_active[0], self.cluster.norb_active[0]),
+            "V": slice(self.cluster.nocc_active[1], self.cluster.norb_active[1]),
+        }
         sl = tuple([d[i] for i in block])
         res = eris[sum(sp) // 2][sl]
         if flip:
@@ -662,7 +708,6 @@ class UClusterHamiltonian(RClusterHamiltonian):
         return res
 
     def get_cderi_bare(self, only_ov=False, compress=False, svd_threshold=1e-12):
-
         if only_ov:
             # We only need the (L|ov) and (L|OV) blocks:
             c_aa = [self.cluster.c_active_occ[0], self.cluster.c_active_vir[0]]
@@ -671,8 +716,8 @@ class UClusterHamiltonian(RClusterHamiltonian):
             c_aa, c_bb = self.cluster.c_active
 
         with log_time(self.log.timing, "Time for 2e-integral transformation: %s"):
-            cderi_a, cderi_neg_a = self._fragment.base.get_cderi(c_aa)
-            cderi_b, cderi_neg_b = self._fragment.base.get_cderi(c_bb)
+            cderi_a, cderi_neg_a = self._get_cderi(c_aa)
+            cderi_b, cderi_neg_b = self._get_cderi(c_bb)
         cderi = (cderi_a, cderi_b)
         cderi_neg = (cderi_neg_a, cderi_neg_b)
 
@@ -698,8 +743,9 @@ class UClusterHamiltonian(RClusterHamiltonian):
 
     def to_pyscf_mf(self, allow_dummy_orbs=True, force_bare_eris=False, overwrite_fock=True, allow_df=False):
         # Need to overwrite fock integrals to avoid errors.
-        return super().to_pyscf_mf(allow_dummy_orbs=allow_dummy_orbs, force_bare_eris=force_bare_eris,
-                                   overwrite_fock=True, allow_df=allow_df)
+        return super().to_pyscf_mf(
+            allow_dummy_orbs=allow_dummy_orbs, force_bare_eris=force_bare_eris, overwrite_fock=True, allow_df=allow_df
+        )
 
     def get_clus_mf_info(self, ao_basis=False, with_vext=True, with_exxdiv=False):
         if ao_basis:
@@ -709,8 +755,8 @@ class UClusterHamiltonian(RClusterHamiltonian):
         fock = self.get_fock(with_vext=with_vext, with_exxdiv=with_exxdiv)
         mo_energy = (np.diag(fock[0]), np.diag(fock[1]))
         mo_occ = [np.zeros_like(x) for x in mo_energy]
-        mo_occ[0][:self.nelec[0]] = 1.0
-        mo_occ[1][:self.nelec[1]] = 1.0
+        mo_occ[0][: self.nelec[0]] = 1.0
+        mo_occ[1][: self.nelec[1]] = 1.0
         if mo_occ[0].shape == mo_occ[1].shape:
             mo_occ = np.array(mo_occ)
         # Determine whether we want our cluster orbitals expressed in the basis of active orbitals, or in the AO basis.
@@ -744,10 +790,12 @@ class EB_RClusterHamiltonian(RClusterHamiltonian):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.unshifted_couplings = self._fragment.couplings
-        self.bos_freqs = self._fragment.bos_freqs
-        if self.opts.polaritonic_shift:
-            self.set_polaritonic_shift(self.bos_freqs, self.unshifted_couplings)
+
+        self._bos_freqs = None
+        self._unshifted_couplings = None
+        self.boson_nonconserving = None
+        if hasattr(self._fragment, "bos_freqs"):
+            self.initialise_bosons(self._fragment.bos_freqs, self._fragment.couplings)
 
     @property
     def polaritonic_shift(self):
@@ -763,38 +811,86 @@ class EB_RClusterHamiltonian(RClusterHamiltonian):
             return self.get_polaritonic_shifted_couplings()
         return self.unshifted_couplings[0]
 
+    @property
+    def unshifted_couplings(self):
+        if self._unshifted_couplings is None:
+            self.generate_bosonic_interactions()
+        return self._unshifted_couplings
+
+    @unshifted_couplings.setter
+    def unshifted_couplings(self, value):
+        self._unshifted_couplings = value
+
+    @property
+    def bos_freqs(self):
+        if self._bos_freqs is None:
+            self.generate_bosonic_interactions()
+        return self._bos_freqs
+
+    @bos_freqs.setter
+    def bos_freqs(self, value):
+        self._bos_freqs = value
+
+    @property
+    def mbos(self):
+        return self.cluster.bosons
+
+    def initialise_bosons(self, bos_freqs, bos_couplings, rotation=None, boson_nonconserving=None):
+        if rotation is not None:
+            self.cluster.bosons.rotate(rotation, inplace=True)
+        self.bos_freqs = bos_freqs
+        self.unshifted_couplings = bos_couplings
+        self.boson_nonconserving = boson_nonconserving
+        if self.opts.polaritonic_shift:
+            self.set_polaritonic_shift(self.bos_freqs, self.unshifted_couplings)
+        else:
+            self._polaritonic_shift = None
+
+    def generate_bosonic_interactions(self):
+        projector = BosonicHamiltonianProjector(self.cluster, self._get_cderi, self.orig_mf, log=self.log)
+        self.initialise_bosons(*projector.kernel(coupling_exchange=True))
+
     def set_polaritonic_shift(self, freqs, couplings):
         no = self.cluster.nocc_active
         if isinstance(no, int):
             noa = nob = no
         else:
             noa, nob = no
-        self._polaritonic_shift = np.multiply(freqs ** (-1), einsum("npp->n", couplings[0][:, :noa, :noa]) +
-                                              einsum("npp->n", couplings[1][:, :nob, :nob]))
-        self.log.info("Applying Polaritonic shift gives energy change of %e",
-                      -sum(np.multiply(self._polaritonic_shift ** 2, freqs)))
+        self._polaritonic_shift = np.multiply(
+            freqs ** (-1), einsum("npp->n", couplings[0][:, :noa, :noa]) + einsum("npp->n", couplings[1][:, :nob, :nob])
+        )
+        self.log.info(
+            "Applying Polaritonic shift gives energy change of %e",
+            -sum(np.multiply(self._polaritonic_shift**2, freqs)),
+        )
 
     def get_heff(self, eris=None, fock=None, with_vext=True):
         heff = super().get_heff(eris, fock, with_vext)
         if self.opts.polaritonic_shift:
             fock_shift = self.get_polaritonic_fock_shift(self.unshifted_couplings)
             if not np.allclose(fock_shift[0], fock_shift[1]):
-                self.log.critical("Polaritonic shift breaks cluster spin symmetry; please either use an unrestricted"
-                                  "formalism or bosons without polaritonic shift.")
+                self.log.critical(
+                    "Polaritonic shift breaks cluster spin symmetry; please either use an unrestricted"
+                    "formalism or bosons without polaritonic shift."
+                )
             heff = heff + fock_shift[0]
         return heff
 
     def get_polaritonic_fock_shift(self, couplings):
-        return tuple([- einsum("npq,n->pq", x + x.transpose(0, 2, 1), self.polaritonic_shift) for x in couplings])
+        return tuple([-einsum("npq,n->pq", x + x.transpose(0, 2, 1), self.polaritonic_shift) for x in couplings])
 
     def get_polaritonic_shifted_couplings(self):
         temp = np.multiply(self.polaritonic_shift, self.bos_freqs) / (2 * self.cluster.nocc_active)
         couplings = tuple([x - einsum("pq,n->npq", np.eye(x.shape[1]), temp) for x in self.unshifted_couplings])
         if not np.allclose(couplings[0], couplings[1]):
-            self.log.critical("Polaritonic shifted bosonic fermion-boson couplings break cluster spin symmetry; please"
-                              " use an unrestricted formalism.")
-            raise RuntimeError("Polaritonic shifted bosonic fermion-boson couplings break cluster spin symmetry; please"
-                               " use an unrestricted formalism.")
+            self.log.critical(
+                "Polaritonic shifted bosonic fermion-boson couplings break cluster spin symmetry; please"
+                " use an unrestricted formalism."
+            )
+            raise RuntimeError(
+                "Polaritonic shifted bosonic fermion-boson couplings break cluster spin symmetry; please"
+                " use an unrestricted formalism."
+            )
         return couplings[0]
 
     def get_eb_dm_polaritonic_shift(self, dm1):

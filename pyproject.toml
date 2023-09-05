@@ -66,7 +66,7 @@ dyson = [
     "dyson @ git+https://github.com/BoothGroup/dyson@master",
 ]
 ebcc = [
-    "ebcc"
+    "ebcc",
 ]
 
 pygnme = [
@@ -78,8 +78,10 @@ dev = [
     "mpi4py>=3.0.0",
     "dyson @ git+https://github.com/BoothGroup/dyson@master",
     "ebcc",
+    "black>=22.6.0",
     "pytest",
     "pytest-cov",
+    "pre-commit",
 ]
 
 [tool.coverage.run]
@@ -110,10 +112,24 @@ exclude_lines = [
 ]
 
 [tool.pytest.ini_options]
-addopts = "--import-mode=importlib -k 'not veryslow'"
+addopts = "--import-mode=importlib -m 'not veryslow'"
 testpaths = ["vayesta/tests"]
 markers = [
     "fast",
     "slow",
     "veryslow",
 ]
+
+[tool.black]
+line-length = 120
+target-version = [
+    "py38",
+    "py39",
+    "py310",
+]
+include="\\.py"
+extend-exclude = """
+/(
+    __pycache__*
+/)
+"""

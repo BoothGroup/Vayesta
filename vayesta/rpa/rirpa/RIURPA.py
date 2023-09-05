@@ -104,8 +104,9 @@ class ssRIURPA(ssRIRRPA):
         lovb = lovb.reshape((lovb.shape[0], -1))
         if lova_neg is not None:
             if lovb_neg is None:
-                raise RuntimeError("Encountered negative cderi contribution in only one spin channel."
-                                   "Isn't this impossible?")
+                raise RuntimeError(
+                    "Encountered negative cderi contribution in only one spin channel." "Isn't this impossible?"
+                )
             lova_neg = lova_neg.reshape((lova_neg.shape[0], -1))
             lovb_neg = lovb_neg.reshape((lovb_neg.shape[0], -1))
 
@@ -122,15 +123,11 @@ class ssRIURPA(ssRIRRPA):
         # Have low-rank representation for interactions over and above coulomb interaction.
         # Note that this is usually asymmetric, as correction is non-PSD.
         ri_a_aa = [
-            einsum(
-                "npq,pi,qa->nia", x, self.mo_coeff_occ[0], self.mo_coeff_vir[0]
-            ).reshape((-1, self.ov[0]))
+            einsum("npq,pi,qa->nia", x, self.mo_coeff_occ[0], self.mo_coeff_vir[0]).reshape((-1, self.ov[0]))
             for x in self.rixc[0]
         ]
         ri_a_bb = [
-            einsum(
-                "npq,pi,qa->nia", x, self.mo_coeff_occ[1], self.mo_coeff_vir[1]
-            ).reshape((-1, self.ov[1]))
+            einsum("npq,pi,qa->nia", x, self.mo_coeff_occ[1], self.mo_coeff_vir[1]).reshape((-1, self.ov[1]))
             for x in self.rixc[1]
         ]
 

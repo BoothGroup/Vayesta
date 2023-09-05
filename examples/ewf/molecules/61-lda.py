@@ -13,13 +13,13 @@ O  0.0000   0.0000   0.1173
 H  0.0000   0.7572  -0.4692
 H  0.0000  -0.7572  -0.4692
 """
-mol.basis = 'cc-pVDZ'
-mol.output = 'pyscf.out'
+mol.basis = "cc-pVDZ"
+mol.output = "pyscf.out"
 mol.build()
 
 # LDA
 lda = pyscf.dft.RKS(mol)
-lda.xc = 'svwn'
+lda.xc = "svwn"
 lda.kernel()
 # The KS opbject needs to be converted to a HF object:
 lda_as_hf = pyscf.scf.RHF(mol)

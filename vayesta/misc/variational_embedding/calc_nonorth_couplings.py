@@ -71,10 +71,9 @@ def calc_ci_elements(ci, h1e, h2e, ovlp, mo, nmo, nocc, nact, ncore, enuc=0.0):
                             s[x, w] += stmp * ci[w][iwa, iwb] * ci[x][ixa, ixb]
 
                             # Compute RDM1 contribution for this pair of determinants
-                            tmpPa = np.zeros((orbs.m_nmo, orbs.m_nmo))
-                            tmpPb = np.zeros((orbs.m_nmo, orbs.m_nmo))
-                            mb.evaluate_rdm1(vx[ixa], vx[ixb], vw[iwa], vw[iwb], stmp, tmpPa, tmpPb)
-                            rdm1[x, w] += (tmpPa + tmpPb) * ci[w][iwa, iwb] * ci[x][ixa, ixb]
+                            tmpP1 = np.zeros((orbs.m_nmo, orbs.m_nmo))
+                            mb.evaluate_rdm1(vx[ixa], vx[ixb], vw[iwa], vw[iwb], stmp, tmpP1)
+                            rdm1[x, w] += tmpP1 * ci[w][iwa, iwb] * ci[x][ixa, ixb]
 
             rdm1[x, w] = np.linalg.multi_dot((mo[w], rdm1[x, w], mo[x].T))
 
@@ -86,7 +85,6 @@ def calc_ci_elements(ci, h1e, h2e, ovlp, mo, nmo, nocc, nact, ncore, enuc=0.0):
 
 
 def calc_ci_elements_uhf(ci, h1e, h2e, ovlp, mo, nmo, nocc, nact, ncore, enuc=0.0):
-
     h1e, h2e, ovlp = owndata(h1e), owndata(h2e), owndata(ovlp)
     mo = tuple([tuple([owndata(y) for y in x]) for x in mo])
 

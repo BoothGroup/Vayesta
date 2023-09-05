@@ -44,20 +44,21 @@ def build_screened_eris(emb, fragments=None, cderi_ov=None, store_m0=True, npoin
     # --- Setup
     if fragments is None:
         fragments = emb.get_fragments(active=True, sym_parent=None, mpi_rank=mpi.rank)
-    fragments = [f for f in fragments if f.opts.screening == 'mrpa']
+    fragments = [f for f in fragments if f.opts.screening == "mrpa"]
     if emb.df is None:
         raise NotImplementedError("Screened interactions require density-fitting.")
-    r_occs = [f.get_overlap('mo[occ]|cluster[occ]') for f in fragments]
-    r_virs = [f.get_overlap('mo[vir]|cluster[vir]') for f in fragments]
+    r_occs = [f.get_overlap("mo[occ]|cluster[occ]") for f in fragments]
+    r_virs = [f.get_overlap("mo[vir]|cluster[vir]") for f in fragments]
     target_rots, ovs_active = _get_target_rot(r_occs, r_virs)
 
     local_moments = calc_moms_RIRPA(emb.mf, target_rots, ovs_active, log, cderi_ov, npoints)
     # Could generate moments using N^6 moments instead, but just for debugging.
-    #local_moments, erpa = calc_moms_RPA(emb.mf, target_rots, ovs_active, log, cderi_ov, calc_e, npoints)
+    # local_moments, erpa = calc_moms_RPA(emb.mf, target_rots, ovs_active, log, cderi_ov, calc_e, npoints)
 
     # Then construct the RPA coupling matrix A-B, given by the diagonal matrix of energy differences.
     no = np.array(sum(emb.mf.mo_occ.T > 0))
-    if no.size == 1: no = np.array([int(no), int(no)])
+    if no.size == 1:
+        no = np.array([int(no), int(no)])
     norb = emb.mo_coeff[0].shape[0]
     nv = norb - no
 
@@ -72,8 +73,8 @@ def build_screened_eris(emb, fragments=None, cderi_ov=None, store_m0=True, npoin
         eps = (eps.T - mo_energy[:no_]).T
         eps = eps.reshape(-1)
         return eps
-    eps = np.concatenate([get_eps_singlespin(no[0], nv[0], mo_e[0]),
-                          get_eps_singlespin(no[1], nv[1], mo_e[1])])
+
+    eps = np.concatenate([get_eps_singlespin(no[0], nv[0], mo_e[0]), get_eps_singlespin(no[1], nv[1], mo_e[1])])
 
     # And use this to perform inversion to calculate interaction in cluster.
     seris_ov = []
@@ -85,7 +86,7 @@ def build_screened_eris(emb, fragments=None, cderi_ov=None, store_m0=True, npoin
         if min(e) < 1e-4:
             log.warning("Small eigenvalue of local rpa moment in %s: %e", f.name, min(e))
 
-        mominv = einsum("pn,n,qn->pq", c, e**(-1), c)
+        mominv = einsum("pn,n,qn->pq", c, e ** (-1), c)
         apb = dot(mominv, amb, mominv)
 
         # This is the renormalised coulomb kernel in the cluster.
@@ -125,13 +126,14 @@ def calc_moms_RIRPA(mf, target_rots, ovs_active, log, cderi_ov, npoints):
     for nov, rot in zip(ovs_active, target_rots):
         # Computation costs O(N^2 N_clus^2)
         # Get corresponding section of overall moment, then project to just local contribution.
-        mom = dot(momzero_interact[n:n+sum(nov)], rot.T)
+        mom = dot(momzero_interact[n : n + sum(nov)], rot.T)
         # This isn't exactly symmetric due to numerical integration, so enforce here.
         mom = (mom + mom.T) / 2
         local_moments += [mom]
         n += sum(nov)
 
     return local_moments
+
 
 def calc_moms_RPA(mf, target_rots, ovs_active, log, cderi_ov, calc_e, npoints):
     rpa = ssRPA(mf, log=log)
@@ -141,6 +143,7 @@ def calc_moms_RPA(mf, target_rots, ovs_active, log, cderi_ov, calc_e, npoints):
     for rot in target_rots:
         local_moments += [dot(rot, mom0, rot.T)]
     return local_moments, erpa
+
 
 def get_screened_eris_full(eris, seris_ov, copy=True, log=None):
     """Build full array of screened ERIs, given the bare ERIs and screening."""
@@ -152,22 +155,24 @@ def get_screened_eris_full(eris, seris_ov, copy=True, log=None):
         no1, no2 = ov.shape[0], ov.shape[2]
         o1, v1 = np.s_[:no1], np.s_[no1:]
         o2, v2 = np.s_[:no2], np.s_[no2:]
-        out[o1,v1,o2,v2] = ov
-        out[v1,o1,o2,v2] = ov.transpose([1, 0, 2, 3])
-        out[o1,v1,v2,o2] = ov.transpose([0, 1, 3, 2])
-        out[v1,o1,v2,o2] = ov.transpose([1, 0, 3, 2])
+        out[o1, v1, o2, v2] = ov
+        out[v1, o1, o2, v2] = ov.transpose([1, 0, 2, 3])
+        out[o1, v1, v2, o2] = ov.transpose([0, 1, 3, 2])
+        out[v1, o1, v2, o2] = ov.transpose([1, 0, 3, 2])
         return out
 
     if isinstance(eris, np.ndarray):
         eris = (eris, eris, eris)
 
-    seris = (replace_ov(eris[0], seris_ov[0], 'aa'),
-             replace_ov(eris[1], seris_ov[1], 'ab'),
-             replace_ov(eris[2], seris_ov[2], 'bb'))
+    seris = (
+        replace_ov(eris[0], seris_ov[0], "aa"),
+        replace_ov(eris[1], seris_ov[1], "ab"),
+        replace_ov(eris[2], seris_ov[2], "bb"),
+    )
     return seris
 
-def get_screened_eris_ccsd(eris, seris_ov, add_restore_bare=True, log=None):
 
+def get_screened_eris_ccsd(eris, seris_ov, add_restore_bare=True, log=None):
     if add_restore_bare:
         gaa = eris.ovov[:]
         gab = eris.ovOV[:]
@@ -176,20 +181,22 @@ def get_screened_eris_ccsd(eris, seris_ov, add_restore_bare=True, log=None):
     saa, sab, sbb = seris_ov
     # Alpha-alpha
     eris.ovov = saa
-    eris.ovvo = saa.transpose([0,1,3,2])
+    eris.ovvo = saa.transpose([0, 1, 3, 2])
     # Alpha-beta
     eris.ovOV = sab
-    eris.ovVO = sab.transpose([0,1,3,2])
+    eris.ovVO = sab.transpose([0, 1, 3, 2])
     # Beta-beta
     eris.OVOV = sbb
-    eris.OVVO = sbb.transpose([0,1,3,2])
+    eris.OVVO = sbb.transpose([0, 1, 3, 2])
     # Beta-alpha
-    eris.OVvo = sab.transpose([2,3,1,0])
+    eris.OVvo = sab.transpose([2, 3, 1, 0])
 
     # Add restore_bare function to remove screening later on
     if add_restore_bare:
+
         def get_bare(eris):
             return (gaa, gab, gbb)
+
         def restore_bare(eris):
             eris = get_screened_eris_ccsd(eris, eris.get_bare(), add_restore_bare=False)
             del eris.get_bare, eris.restore_bare
@@ -199,6 +206,7 @@ def get_screened_eris_ccsd(eris, seris_ov, add_restore_bare=True, log=None):
         eris.restore_bare = restore_bare.__get__(eris)
 
     return eris
+
 
 def _get_target_rot(r_active_occs, r_active_virs):
     """Given the definitions of our cluster spaces in terms of rotations of the occupied and virtual
@@ -240,13 +248,12 @@ def _get_target_rot(r_active_occs, r_active_virs):
         return rot, ov_active
 
     nfrag = len(r_active_occs)
-    assert(nfrag == len(r_active_virs))
+    assert nfrag == len(r_active_virs)
     ovs_active = np.full((nfrag, 2), fill_value=0)
 
     target_rots = []
 
     for i, (r_o, r_v) in enumerate(zip(r_active_occs, r_active_virs)):
-
         if isinstance(r_o, np.ndarray):
             r_o = (r_o, r_o)
             r_v = (r_v, r_v)

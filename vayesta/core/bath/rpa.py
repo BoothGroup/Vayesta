@@ -12,13 +12,12 @@ from vayesta.core.bath import helper
 
 import numpy as np
 
-class RPA_BNO_Bath(BNO_Bath):
 
-    def __init__(self, *args, project_dmet_order=0, project_dmet_mode='full', project_dmet=None, **kwargs):
+class RPA_BNO_Bath(BNO_Bath):
+    def __init__(self, *args, project_dmet_order=0, project_dmet_mode="full", project_dmet=None, **kwargs):
         self.project_dmet_order = project_dmet_order
         self.project_dmet_mode = project_dmet_mode
         super().__init__(*args, **kwargs)
-
 
     def make_bno_coeff(self, cderis=None):
         """Construct RPA bath natural orbital coefficients and occupation numbers.
@@ -43,14 +42,26 @@ class RPA_BNO_Bath(BNO_Bath):
             cderis = get_cderi(self.base, (self.base.mo_coeff_occ, self.base.mo_coeff_vir), compact=False)
 
         if self.occtype == "occupied":
-            proj = dot(self.dmet_bath.c_cluster_vir.T, self.base.get_ovlp(), self.fragment.c_frag,
-                       self.fragment.c_frag.T, self.base.get_ovlp(), self.dmet_bath.c_cluster_vir)
+            proj = dot(
+                self.dmet_bath.c_cluster_vir.T,
+                self.base.get_ovlp(),
+                self.fragment.c_frag,
+                self.fragment.c_frag.T,
+                self.base.get_ovlp(),
+                self.dmet_bath.c_cluster_vir,
+            )
 
             rot_vir = dot(self.dmet_bath.c_cluster_vir.T, self.base.get_ovlp(), self.base.mo_coeff_vir)
             rot_occ = np.eye(self.base.nocc)
         else:
-            proj = dot(self.dmet_bath.c_cluster_occ.T, self.base.get_ovlp(), self.fragment.c_frag, self.fragment.c_frag.T,
-                             self.base.get_ovlp(), self.dmet_bath.c_cluster_occ)
+            proj = dot(
+                self.dmet_bath.c_cluster_occ.T,
+                self.base.get_ovlp(),
+                self.fragment.c_frag,
+                self.fragment.c_frag.T,
+                self.base.get_ovlp(),
+                self.dmet_bath.c_cluster_occ,
+            )
             rot_occ = dot(self.dmet_bath.c_cluster_occ.T, self.base.get_ovlp(), self.base.mo_coeff_occ)
             rot_vir = np.eye(self.base.nvir)
 
@@ -72,23 +83,29 @@ class RPA_BNO_Bath(BNO_Bath):
             corr_dm = einsum("iajb,ab->ij", m0, proj)
         else:
             corr_dm = einsum("iajb,ij->ab", m0, proj)
-        t_eval = timer()-t0
+        t_eval = timer() - t0
 
         corr_dm = (corr_dm + corr_dm.T) / 2
 
         # --- Diagonalize environment-environment block
-        if self.occtype == 'occupied':
-            corr_dm = self._rotate_dm(corr_dm, dot(self.dmet_bath.c_env_occ.T, self.base.get_ovlp(), self.base.mo_coeff_occ))
-        elif self.occtype == 'virtual':
-            corr_dm = self._rotate_dm(corr_dm, dot(self.dmet_bath.c_env_vir.T, self.base.get_ovlp(), self.base.mo_coeff_vir))
+        if self.occtype == "occupied":
+            corr_dm = self._rotate_dm(
+                corr_dm, dot(self.dmet_bath.c_env_occ.T, self.base.get_ovlp(), self.base.mo_coeff_occ)
+            )
+        elif self.occtype == "virtual":
+            corr_dm = self._rotate_dm(
+                corr_dm, dot(self.dmet_bath.c_env_vir.T, self.base.get_ovlp(), self.base.mo_coeff_vir)
+            )
         t0 = timer()
         r_bno, n_bno = self._diagonalize_dm(corr_dm)
-        t_diag = timer()-t0
+        t_diag = timer() - t0
         c_bno = spinalg.dot(self.c_env, r_bno)
         c_bno = fix_orbital_sign(c_bno)[0]
 
-        self.log.timing("Time RPA bath:  evaluation= %s  diagonal.= %s  total= %s",
-                *map(time_string, (t_eval, t_diag, (timer()-t_init))))
+        self.log.timing(
+            "Time RPA bath:  evaluation= %s  diagonal.= %s  total= %s",
+            *map(time_string, (t_eval, t_diag, (timer() - t_init))),
+        )
 
         if min(n_bno) < 0.0:
             self.log.critical("Negative bath occupation number encountered: %s", n_bno)

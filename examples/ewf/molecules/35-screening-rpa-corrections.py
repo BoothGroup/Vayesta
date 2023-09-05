@@ -10,8 +10,8 @@ O  0.0000   0.0000   0.1173
 H  0.0000   0.7572  -0.4692
 H  0.0000  -0.7572  -0.4692
 """
-mol.basis = 'cc-pVTZ'
-mol.output = 'pyscf.out'
+mol.basis = "cc-pVTZ"
+mol.output = "pyscf.out"
 mol.build()
 
 # Hartree-Fock
@@ -39,11 +39,19 @@ e_nonlocal_erpa = emb.e_nonlocal
 
 # Note that mRPA screening and external corrections often cancel with each other in the case of the energy.
 print("E(CCSD)=                              %+16.8f Ha" % cc.e_tot)
-print("E(RPA)=                               %+16.8f Ha  (error= %+.8f Ha)" % (emb.e_mf + emb.e_rpa,
-                                                                               emb.e_mf + emb.e_rpa - cc.e_tot))
-print("E(Emb. CCSD)=                         %+16.8f Ha  (error= %+.8f Ha)" % (emb_bare.e_tot, emb_bare.e_tot-cc.e_tot))
-print("E(Emb. Screened CCSD)=                %+16.8f Ha  (error= %+.8f Ha)" % (emb.e_tot, emb.e_tot-cc.e_tot))
-print("E(Emb. Screened CCSD + \Delta E_k)=   %+16.8f Ha  (error= %+.8f Ha)" % (emb.e_tot+e_nonlocal_cumulant,
-                                                                               emb.e_tot+e_nonlocal_cumulant-cc.e_tot))
-print("E(Emb. Screened CCSD + \Delta RPA)=   %+16.8f Ha  (error= %+.8f Ha)" % (emb.e_tot+e_nonlocal_erpa,
-                                                                               emb.e_tot+e_nonlocal_erpa-cc.e_tot))
+print(
+    "E(RPA)=                               %+16.8f Ha  (error= %+.8f Ha)"
+    % (emb.e_mf + emb.e_rpa, emb.e_mf + emb.e_rpa - cc.e_tot)
+)
+print(
+    "E(Emb. CCSD)=                         %+16.8f Ha  (error= %+.8f Ha)" % (emb_bare.e_tot, emb_bare.e_tot - cc.e_tot)
+)
+print("E(Emb. Screened CCSD)=                %+16.8f Ha  (error= %+.8f Ha)" % (emb.e_tot, emb.e_tot - cc.e_tot))
+print(
+    "E(Emb. Screened CCSD + \Delta E_k)=   %+16.8f Ha  (error= %+.8f Ha)"
+    % (emb.e_tot + e_nonlocal_cumulant, emb.e_tot + e_nonlocal_cumulant - cc.e_tot)
+)
+print(
+    "E(Emb. Screened CCSD + \Delta RPA)=   %+16.8f Ha  (error= %+.8f Ha)"
+    % (emb.e_tot + e_nonlocal_erpa, emb.e_tot + e_nonlocal_erpa - cc.e_tot)
+)

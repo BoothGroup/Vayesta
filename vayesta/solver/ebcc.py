@@ -2,7 +2,7 @@ import dataclasses
 
 import numpy as np
 
-from vayesta.core.types import WaveFunction, CCSD_WaveFunction
+from vayesta.core.types import WaveFunction, CCSD_WaveFunction, EBCC_WaveFunction
 from vayesta.core.util import dot, einsum
 from vayesta.solver.solver import ClusterSolver, UClusterSolver
 import ebcc
@@ -17,14 +17,9 @@ class REBCC_Solver(ClusterSolver):
         max_cycle: int = 200  # Max number of iterations
         conv_tol: float = None  # Convergence energy tolerance
         conv_tol_normt: float = None  # Convergence amplitude tolerance
-        store_as_ccsd: bool = True # Store results as CCSD_WaveFunction
+        store_as_ccsd: bool = False  # Store results as CCSD_WaveFunction
         c_cas_occ: np.array = None  # Hacky place to put active space orbitals.
         c_cas_vir: np.array = None
-
-
-    @property
-    def is_fCCSD(self):
-        return self.opts.store_as_ccsd or self.opts.ansatz == "CCSD"
 
     def kernel(self):
         # Use pyscf mean-field representation.
@@ -32,7 +27,9 @@ class REBCC_Solver(ClusterSolver):
 
         mf_clus.mo_coeff, space = self.get_space(self.hamil.cluster.c_active, mf_clus.mo_occ, frozen=frozen)
 
-        mycc = ebcc.EBCC(mf_clus, log=self.log, ansatz=self.opts.ansatz, space=space, **self.get_nonnull_solver_opts())
+        mycc = ebcc.EBCC(
+            mf_clus, log=self.log, ansatz=self.opts.ansatz, space=space, shift=False, **self.get_nonnull_solver_opts()
+        )
         mycc.kernel()
         self.converged = mycc.converged
         if self.opts.solve_lambda:
@@ -45,15 +42,17 @@ class REBCC_Solver(ClusterSolver):
         s = self.hamil.orig_mf.get_ovlp()
         c_active_occ = self.opts.c_cas_occ
         c_active_vir = self.opts.c_cas_vir
-        if (c_active_occ is not None and c_active_vir is not None):
+        if c_active_occ is not None and c_active_vir is not None:
             c_active_occ = dot(mo_coeff.T, s, c_active_occ)
             c_active_vir = dot(mo_coeff.T, s, c_active_vir)
-        elif (c_active_occ is not None or c_active_vir is not None):
+        elif c_active_occ is not None or c_active_vir is not None:
             raise ValueError(
-                "Both or neither of the occupied and virtual components of an active space must be specified.")
+                "Both or neither of the occupied and virtual components of an active space must be specified."
+            )
         mo_coeff = dot(mo_coeff.T, s, mo_coeff)
-        return gen_space(mo_coeff[:, mo_occ > 0], mo_coeff[:, mo_occ == 0], c_active_occ, c_active_vir,
-                         frozen_orbs=frozen)
+        return gen_space(
+            mo_coeff[:, mo_occ > 0], mo_coeff[:, mo_occ == 0], c_active_occ, c_active_vir, frozen_orbs=frozen
+        )
 
     def get_nonnull_solver_opts(self):
         def add_nonull_opt(d, key, newkey):
@@ -66,39 +65,31 @@ class REBCC_Solver(ClusterSolver):
             add_nonull_opt(opts, key, newkey)
         return opts
 
-    def construct_wavefunction(self, mycc, mo):
-        if self.is_fCCSD:
+    def construct_wavefunction(self, mycc, mo, mbos=None):
+        if self.opts.store_as_ccsd:
             # Can use existing functionality
             try:
                 self.wf = CCSD_WaveFunction(mo, mycc.t1, mycc.t2, l1=mycc.l1.T, l2=mycc.l2.transpose(2, 3, 0, 1))
             except TypeError:
                 self.wf = CCSD_WaveFunction(mo, mycc.t1, mycc.t2)
-            self.wf.rotate(t=mycc.mo_coeff.T, inplace=True)
         else:
-            if not (np.allclose(mycc.mo_coeff, np.eye(mycc.nmo), atol=1e-8)):
-                raise ValueError("Generic wavefunction construction only works for canonical orbitals, please use "
-                                 "`store_as_ccsd=True' in solver_options")
-            self.log.warning(
-                "Storing EBCC wavefunction as generic wavefunction object; wavefunction-based estimators will not work.")
-            # Simply alias required quantities for now; this could allow functionality for arbitrary orders of CC via ebcc.
-            self.wf = WaveFunction(mo)
-            self.wf.make_rdm1 = mycc.make_rdm1_f
-            self.wf.make_rdm2 = mycc.make_rdm2_f
+            self.wf = EBCC_WaveFunction(mo, mycc.ansatz, mycc.amplitudes, mycc.lambdas, mbos=mbos)
 
         # Need to rotate wavefunction back into original cluster active space.
+        self.wf.rotate(t=mycc.mo_coeff.T, inplace=True)
 
     def _debug_exact_wf(self, wf):
-        assert (self.is_fCCSD)
+        assert self.is_fCCSD
         mo = self.hamil.mo
         # Project onto cluster:
         ovlp = self.hamil._fragment.base.get_ovlp()
         ro = dot(wf.mo.coeff_occ.T, ovlp, mo.coeff_occ)
         rv = dot(wf.mo.coeff_vir.T, ovlp, mo.coeff_vir)
         t1 = dot(ro.T, wf.t1, rv)
-        t2 = einsum('Ii,Jj,IJAB,Aa,Bb->ijab', ro, ro, wf.t2, rv, rv)
+        t2 = einsum("Ii,Jj,IJAB,Aa,Bb->ijab", ro, ro, wf.t2, rv, rv)
         if wf.l1 is not None:
             l1 = dot(ro.T, wf.l1, rv)
-            l2 = einsum('Ii,Jj,IJAB,Aa,Bb->ijab', ro, ro, wf.l2, rv, rv)
+            l2 = einsum("Ii,Jj,IJAB,Aa,Bb->ijab", ro, ro, wf.l2, rv, rv)
         else:
             l1 = l2 = None
         self.wf = CCSD_WaveFunction(mo, t1, t2, l1=l1, l2=l2)
@@ -121,17 +112,18 @@ class UEBCC_Solver(UClusterSolver, REBCC_Solver):
         c_cas_vir: np.array = (None, None)
 
     def get_space(self, mo_coeff, mo_occ, frozen=None):
-
         s = self.hamil.orig_mf.get_ovlp()
+
         def _get_space(c, occ, co_cas, cv_cas, fr):
             # Express active orbitals in terms of cluster orbitals.
-            if (co_cas is not None and cv_cas is not None):
+            if co_cas is not None and cv_cas is not None:
                 co_cas = dot(c.T, s, co_cas)
                 cv_cas = dot(c.T, s, cv_cas)
-            elif (co_cas is not None or cv_cas is not None):
+            elif co_cas is not None or cv_cas is not None:
                 raise ValueError("Both or neither of the occupied and virtual components of an active space.")
             c = dot(c.T, s, c)
             return gen_space(c[:, occ > 0], c[:, occ == 0], co_cas, cv_cas, frozen_orbs=fr)
+
         if frozen is None:
             frozen = [None, None]
         ca, spacea = _get_space(mo_coeff[0], mo_occ[0], self.opts.c_cas_occ[0], self.opts.c_cas_vir[0], frozen[0])
@@ -139,8 +131,8 @@ class UEBCC_Solver(UClusterSolver, REBCC_Solver):
         return (ca, cb), (spacea, spaceb)
 
     # This should automatically work other than ensuring spin components are in a tuple.
-    def construct_wavefunction(self, mycc, mo):
-        if self.is_fCCSD:
+    def construct_wavefunction(self, mycc, mo, mbos=None):
+        if self.opts.store_as_ccsd:
             # Can use existing functionality
             def to_spin_tuple1(x):
                 return x.aa, x.bb
@@ -156,38 +148,19 @@ class UEBCC_Solver(UClusterSolver, REBCC_Solver):
                 return antisymmetrize_t2(x.aaaa), x.abab, antisymmetrize_t2(x.bbbb)
 
             try:
-                self.wf = CCSD_WaveFunction(mo,
-                                            to_spin_tuple1(mycc.t1),
-                                            to_spin_tuple2(mycc.t2),
-                                            l1=tuple([x.T for x in to_spin_tuple1(mycc.l1)]),
-                                            l2=tuple([x.transpose(2, 3, 0, 1) for x in to_spin_tuple2(mycc.l2)]),
-                                            )
+                self.wf = CCSD_WaveFunction(
+                    mo,
+                    to_spin_tuple1(mycc.t1),
+                    to_spin_tuple2(mycc.t2),
+                    l1=tuple([x.T for x in to_spin_tuple1(mycc.l1)]),
+                    l2=tuple([x.transpose(2, 3, 0, 1) for x in to_spin_tuple2(mycc.l2)]),
+                )
             except TypeError:
-                self.wf = CCSD_WaveFunction(mo,
-                                            to_spin_tuple1(mycc.t1),
-                                            to_spin_tuple2(mycc.t2)
-                                            )
-            self.wf.rotate(t=[x.T for x in mycc.mo_coeff], inplace=True)
+                self.wf = CCSD_WaveFunction(mo, to_spin_tuple1(mycc.t1), to_spin_tuple2(mycc.t2))
         else:
-            # Simply alias required quantities for now; this ensures functionality for arbitrary orders of CC.
-            self.wf = WaveFunction(mo)
-            if not (np.allclose(mycc.mo_coeff[0], np.eye(mycc.nmo), atol=1e-8) and
-                    np.allclose(mycc.mo_coeff[1], np.eye(mycc.nmo), atol=1e-8)):
-                raise ValueError("Generic wavefunction construction only works for canonical orbitals, please use "
-                                 "`store_as_ccsd=True' in solver_options")
-            self.log.warning(
-                "Storing EBCC wavefunction as generic wavefunction object; wavefunction-based estimators will not work.")
-            def make_rdm1(*args, **kwargs):
-                dm = mycc.make_rdm1_f(*args, **kwargs)
-                return (dm.aa, dm.bb)
+            self.wf = EBCC_WaveFunction(mo, mycc.ansatz, mycc.amplitudes, mycc.lambdas, mbos=mbos)
 
-            self.wf.make_rdm1 = make_rdm1
-
-            def make_rdm2(*args, **kwargs):
-                dm = mycc.make_rdm2_f(*args, **kwargs)
-                return (dm.aaaa, dm.aabb, dm.bbbb)
-
-            self.wf.make_rdm2 = make_rdm2
+        self.wf.rotate(t=[x.T for x in mycc.mo_coeff], inplace=True)
 
     def _debug_exact_wf(self, wf):
         mo = self.hamil.mo
@@ -199,17 +172,17 @@ class UEBCC_Solver(UClusterSolver, REBCC_Solver):
         rvb = dot(wf.mo.coeff_vir[1].T, ovlp, mo.coeff_vir[1])
         t1a = dot(roa.T, wf.t1a, rva)
         t1b = dot(rob.T, wf.t1b, rvb)
-        t2aa = einsum('Ii,Jj,IJAB,Aa,Bb->ijab', roa, roa, wf.t2aa, rva, rva)
-        t2ab = einsum('Ii,Jj,IJAB,Aa,Bb->ijab', roa, rob, wf.t2ab, rva, rvb)
-        t2bb = einsum('Ii,Jj,IJAB,Aa,Bb->ijab', rob, rob, wf.t2bb, rvb, rvb)
+        t2aa = einsum("Ii,Jj,IJAB,Aa,Bb->ijab", roa, roa, wf.t2aa, rva, rva)
+        t2ab = einsum("Ii,Jj,IJAB,Aa,Bb->ijab", roa, rob, wf.t2ab, rva, rvb)
+        t2bb = einsum("Ii,Jj,IJAB,Aa,Bb->ijab", rob, rob, wf.t2bb, rvb, rvb)
         t1 = (t1a, t1b)
         t2 = (t2aa, t2ab, t2bb)
         if wf.l1 is not None:
             l1a = dot(roa.T, wf.l1a, rva)
             l1b = dot(rob.T, wf.l1b, rvb)
-            l2aa = einsum('Ii,Jj,IJAB,Aa,Bb->ijab', roa, roa, wf.l2aa, rva, rva)
-            l2ab = einsum('Ii,Jj,IJAB,Aa,Bb->ijab', roa, rob, wf.l2ab, rva, rvb)
-            l2bb = einsum('Ii,Jj,IJAB,Aa,Bb->ijab', rob, rob, wf.l2bb, rvb, rvb)
+            l2aa = einsum("Ii,Jj,IJAB,Aa,Bb->ijab", roa, roa, wf.l2aa, rva, rva)
+            l2ab = einsum("Ii,Jj,IJAB,Aa,Bb->ijab", roa, rob, wf.l2ab, rva, rvb)
+            l2bb = einsum("Ii,Jj,IJAB,Aa,Bb->ijab", rob, rob, wf.l2bb, rvb, rvb)
             l1 = (l1a, l1b)
             l2 = (l2aa, l2ab, l2bb)
         else:
@@ -225,34 +198,24 @@ class EB_REBCC_Solver(REBCC_Solver):
     @dataclasses.dataclass
     class Options(REBCC_Solver.Options):
         ansatz: str = "CCSD-S-1-1"
-        fermion_wf: bool = False
-
-    @property
-    def is_fCCSD(self):
-        if self.opts.fermion_wf:
-            return super().is_fCCSD
-        return False
+        store_as_ccsd: bool = False  # Store results as fermionic CCSD_WaveFunction
 
     def get_nonnull_solver_opts(self):
         opts = super().get_nonnull_solver_opts()
         opts["omega"] = self.hamil.bos_freqs
         opts["g"] = self.get_couplings()
+        opts["G"] = self.hamil.boson_nonconserving
         return opts
 
     def get_couplings(self):
         # EBCC wants contribution  g_{xpq} p^\\dagger q b; need to transpose to get this contribution.
         return self.hamil.couplings.transpose(0, 2, 1)
 
-    def construct_wavefunction(self, mycc, mo):
-        super().construct_wavefunction(mycc, mo)
-
-        def make_rdmeb(*args, **kwargs):
-            dm = mycc.make_eb_coup_rdm()
-            # We just want the bosonic excitation component.
-            dm = dm[0].transpose(1, 2, 0)
-            return (dm / 2, dm / 2)
-
-        self.wf.make_rdmeb = make_rdmeb
+    def construct_wavefunction(self, mycc, mo, mbos=None):
+        self.wf = EBCC_WaveFunction(
+            mo, mycc.ansatz, mycc.amplitudes, mycc.lambdas, mbos=mbos, xi=self.hamil.polaritonic_shift
+        )
+        self.wf.rotate(t=mycc.mo_coeff.T, inplace=True)
 
 
 class EB_UEBCC_Solver(EB_REBCC_Solver, UEBCC_Solver):
@@ -264,16 +227,11 @@ class EB_UEBCC_Solver(EB_REBCC_Solver, UEBCC_Solver):
         # EBCC wants contribution  g_{xpq} p^\\dagger q b; need to transpose to get this contribution.
         return tuple([x.transpose(0, 2, 1) for x in self.hamil.couplings])
 
-    def construct_wavefunction(self, mycc, mo):
-        super().construct_wavefunction(mycc, mo)
-
-        def make_rdmeb(*args, **kwargs):
-            dm = mycc.make_eb_coup_rdm()
-            # We just want the bosonic excitation component.
-            dm = (dm.aa[0].transpose(1, 2, 0), dm.bb[0].transpose(1, 2, 0))
-            return dm
-
-        self.wf.make_rdmeb = make_rdmeb
+    def construct_wavefunction(self, mycc, mo, mbos=None):
+        self.wf = EBCC_WaveFunction(
+            mo, mycc.ansatz, mycc.amplitudes, mycc.lambdas, mbos=mbos, xi=self.hamil.polaritonic_shift
+        )
+        self.wf.rotate(t=[x.T for x in mycc.mo_coeff], inplace=True)
 
 
 def gen_space(c_occ, c_vir, co_active=None, cv_active=None, frozen_orbs=None):
@@ -322,12 +280,12 @@ def gen_space(c_occ, c_vir, co_active=None, cv_active=None, frozen_orbs=None):
         c_rest = c[:, e > tol]
         c = np.hstack([c_frozen, c_rest, c_act])
         # Check that we have the right number of orbitals.
-        assert(c.shape[1] == c_full.shape[1])
+        assert c.shape[1] == c_full.shape[1]
         # Generate information.
         frozen_orbs = np.zeros(c.shape[1], dtype=bool)
         active = np.zeros(c.shape[1], dtype=bool)
-        frozen_orbs[:c_frozen.shape[1]] = True
-        active[-c_act.shape[1]:] = True
+        frozen_orbs[: c_frozen.shape[1]] = True
+        active[-c_act.shape[1] :] = True
         return c, frozen_orbs, active
 
     if have_actspace:

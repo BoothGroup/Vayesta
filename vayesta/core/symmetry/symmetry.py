@@ -11,31 +11,32 @@ def unit_vector(vector):
     """Returns the unit vector of the vector."""
     return vector / np.linalg.norm(vector)
 
+
 def angle_between(v1, v2):
     """Returns the angle in radians between vectors 'v1' and 'v2'::
 
-       >>> angle_between((1, 0, 0), (0, 1, 0))
-       1.5707963267948966
-       >>> angle_between((1, 0, 0), (1, 0, 0))
-       0.0
-       >>> angle_between((1, 0, 0), (-1, 0, 0))
-       3.141592653589793
+    >>> angle_between((1, 0, 0), (0, 1, 0))
+    1.5707963267948966
+    >>> angle_between((1, 0, 0), (1, 0, 0))
+    0.0
+    >>> angle_between((1, 0, 0), (-1, 0, 0))
+    3.141592653589793
     """
     u1 = unit_vector(v1)
     u2 = unit_vector(v2)
     return np.arccos(np.clip(np.dot(u1, u2), -1.0, 1.0))
 
-class Symmetry:
 
+class Symmetry:
     def __init__(self, mf, log=log):
         self.mf = mf
         self.nsubcells = None
         self.log = log
 
         if self.has_pbc:
-            #self.nsubcells = self.find_subcells(respect_dm1=self.mf.make_rdm1())
+            # self.nsubcells = self.find_subcells(respect_dm1=self.mf.make_rdm1())
             # MF is FoldedSCF
-            if hasattr(mf, 'nsubcells'):
+            if hasattr(mf, "nsubcells"):
                 self.nsubcells = mf.nsubcells
                 self.log.info("Found %d x %d x %d primitive subcells in unit cell", *self.nsubcells)
 
@@ -45,7 +46,7 @@ class Symmetry:
 
     @property
     def cell(self):
-        if (self.pbcndims == 0):
+        if self.pbcndims == 0:
             raise AttributeError
         return self.mol
 
@@ -55,28 +56,28 @@ class Symmetry:
 
     @property
     def natom_unique(self):
-        mf = getattr(self.mf, 'kmf', self.mf)
+        mf = getattr(self.mf, "kmf", self.mf)
         return mf.mol.natm
 
-    def get_unique_atoms(self): #, r_tol=1e-5):
+    def get_unique_atoms(self):  # , r_tol=1e-5):
         return list(range(self.natom_unique))
 
-        #if self.nsubcells is None:
+        # if self.nsubcells is None:
         #    return list(range(self.natom))
-        #avecs = self.primitive_lattice_vectors()
-        #bvecs = np.linalg.inv(avecs.T)
-        #atoms = []
-        #for atom, coords in enumerate(self.atom_coords()):
+        # avecs = self.primitive_lattice_vectors()
+        # bvecs = np.linalg.inv(avecs.T)
+        # atoms = []
+        # for atom, coords in enumerate(self.atom_coords()):
         #    coords = np.dot(coords, bvecs.T)
         #    if np.any(coords >= (1.0-r_tol)):
         #        continue
         #    atoms.append(atom)
-        #return atoms
+        # return atoms
 
     def primitive_lattice_vectors(self):
-        return self.lattice_vectors() / self.nsubcells[:,None]
+        return self.lattice_vectors() / self.nsubcells[:, None]
 
-    def atom_coords(self, unit='Bohr'):
+    def atom_coords(self, unit="Bohr"):
         return self.mol.atom_coords(unit=unit)
 
     def lattice_vectors(self):
@@ -94,7 +95,7 @@ class Symmetry:
 
     @property
     def has_pbc(self):
-        return (self.pbcndims > 0)
+        return self.pbcndims > 0
 
     def compare_atoms(self, atom1, atom2, respect_labels=False, respect_basis=True):
         """Compare atom symbol and (optionally) basis between atom1 and atom2."""
@@ -115,7 +116,6 @@ class Symmetry:
         if bas1 != bas2:
             return False
         return True
-
 
     def find_subcells(self, respect_basis=True, respect_labels=False, respect_dm1=None, r_tol=1e-5, dm1_tol=1e-6):
         """Find subcells within cell, with unit cell vectors parallel to the supercell.
@@ -151,13 +151,12 @@ class Symmetry:
             else:
                 dm1s = respect_dm1
 
-        coords_internal = np.einsum('ar,br->ab', coords, bvecs)
+        coords_internal = np.einsum("ar,br->ab", coords, bvecs)
 
-        checked = []    # Keep track of vectors which were already checked, to improve performance
+        checked = []  # Keep track of vectors which were already checked, to improve performance
         dvecs = [[] for i in range(3)]
         for atm1 in range(self.natom):
-            for atm2 in range(atm1+1, self.natom):
-
+            for atm2 in range(atm1 + 1, self.natom):
                 # 1) Compare atom symbol and basis
                 equal = self.compare_atoms(atm1, atm2, respect_basis=respect_basis, respect_labels=False)
                 if not equal:
@@ -165,7 +164,7 @@ class Symmetry:
 
                 pos1 = coords_internal[atm1]
                 pos2 = coords_internal[atm2]
-                dvec = (pos2 - pos1)
+                dvec = pos2 - pos1
 
                 # 3) Check parallel to one and only lattice vector
                 dim = np.argwhere(abs(dvec) > r_tol)
@@ -175,8 +174,8 @@ class Symmetry:
 
                 # Check if vector has been checked before
                 if checked:
-                    diff = (dvec[None] - np.asarray(checked))
-                    checked_before =  np.allclose(np.amin(abs(diff), axis=0), 0)
+                    diff = dvec[None] - np.asarray(checked)
+                    checked_before = np.allclose(np.amin(abs(diff), axis=0), 0)
                     if checked_before:
                         continue
                 checked.append(dvec)
@@ -185,7 +184,7 @@ class Symmetry:
                 if dvecs[dim]:
                     found = False
                     for i in range(1, 100):
-                        diff = np.linalg.norm(dvec[None]/i - dvecs[dim], axis=1)
+                        diff = np.linalg.norm(dvec[None] / i - dvecs[dim], axis=1)
                         if np.any(diff < r_tol):
                             found = True
                             break
@@ -194,7 +193,7 @@ class Symmetry:
 
                 # 5) Check if dvec is valid symmetry for all atoms:
                 tvec = np.dot(dvec, avecs)
-                reorder, _, phases = tsymmetry.reorder_atoms(self.cell, tvec, unit='Bohr')
+                reorder, _, phases = tsymmetry.reorder_atoms(self.cell, tvec, unit="Bohr")
                 if reorder is None:
                     continue
 
@@ -204,7 +203,7 @@ class Symmetry:
                     assert np.allclose(phases, 1)
                     dmsym = True
                     for dm1 in dm1s:
-                        dm1t = dm1[reorder][:,reorder]
+                        dm1t = dm1[reorder][:, reorder]
                         if not np.allclose(dm1, dm1t, rtol=0, atol=dm1_tol):
                             dmsym = False
                             break
@@ -216,14 +215,13 @@ class Symmetry:
 
         # Check that not more than a single vector was found for each dimension
         assert np.all([(len(dvecs[d]) <= 1) for d in range(3)])
-        nsubcells = [(1/(dvecs[d][0][d]) if dvecs[d] else 1) for d in range(3)]
+        nsubcells = [(1 / (dvecs[d][0][d]) if dvecs[d] else 1) for d in range(3)]
         assert np.allclose(np.rint(nsubcells), nsubcells)
 
         nsubcells = np.rint(nsubcells).astype(int)
         return nsubcells
 
-
-    #def find_primitive_cells_old(self, tol=1e-5):
+    # def find_primitive_cells_old(self, tol=1e-5):
     #    if self.pbcndims == 0:
     #        raise ValueError()
 
@@ -235,7 +233,6 @@ class Symmetry:
 
     #    #print(coords[3] - coords[1])
     #    #print(aavecs[3,1])
-
 
     #    tvecs = aavecs.reshape(self.natom*self.natom, 3)
     #    #tvecs = np.unique(tvecs, axis=0)
@@ -274,12 +271,12 @@ class Symmetry:
     #    print(tvecs_dim[1])
     #    print(tvecs_dim[2])
 
-    #    # Find most 
+    #    # Find most
     #    for d in range(3):
     #        pass
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     from timeit import default_timer as timer
 
     import pyscf
@@ -289,31 +286,30 @@ if __name__ == '__main__':
     import pyscf.pbc.tools
 
     cell = pyscf.pbc.gto.Cell()
-    cell.a = 3*np.eye(3)
-    #cell.a[0,2] += 2.0
-    #cell.atom = ['He 0 0 0', 'He 0 0 1', 'He 0 0 2.0000000001', 'He 0 1 2', 'He 2 2 1', 'He 5 5 5']
-    #cell.atom = ['He %f %f %f' % tuple(xyz) for xyz in np.random.rand(4,3)]
-    cell.atom = 'He 0 0 0'
-    cell.unit = 'Bohr'
-    cell.basis = 'def2-svp'
+    cell.a = 3 * np.eye(3)
+    # cell.a[0,2] += 2.0
+    # cell.atom = ['He 0 0 0', 'He 0 0 1', 'He 0 0 2.0000000001', 'He 0 1 2', 'He 2 2 1', 'He 5 5 5']
+    # cell.atom = ['He %f %f %f' % tuple(xyz) for xyz in np.random.rand(4,3)]
+    cell.atom = "He 0 0 0"
+    cell.unit = "Bohr"
+    cell.basis = "def2-svp"
     cell.build()
-    #cell.dimension = 2
-
+    # cell.dimension = 2
 
     sc = [1, 2, 3]
     cell = pyscf.pbc.tools.super_cell(cell, sc)
-    #cell.atom += ['Ne 1 2 3']
-    #cell.build()
+    # cell.atom += ['Ne 1 2 3']
+    # cell.build()
 
     mf = pyscf.pbc.scf.RHF(cell)
-    mf = mf.density_fit(auxbasis='def2-svp-ri')
+    mf = mf.density_fit(auxbasis="def2-svp-ri")
     mf.kernel()
     dm1 = mf.make_rdm1()
-    dm1 += 1e-7*np.random.rand(*dm1.shape)
+    dm1 += 1e-7 * np.random.rand(*dm1.shape)
 
     sym = Symmetry(cell)
     t0 = timer()
     ncells = sym.find_primitive_ncells(respect_dm1=dm1)
 
-    print(timer()-t0)
+    print(timer() - t0)
     print(ncells)

@@ -12,7 +12,7 @@ O  0.0000   0.0000   0.1173
 H  0.0000   0.7572  -0.4692
 H  0.0000  -0.7572  -0.4692
 """
-mol.basis = 'cc-pVDZ'
+mol.basis = "cc-pVDZ"
 mol.build()
 
 # Hartree-Fock

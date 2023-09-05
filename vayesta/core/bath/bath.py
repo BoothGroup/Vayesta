@@ -4,18 +4,17 @@ import numpy as np
 
 
 class Bath:
-
     def __init__(self, fragment):
         self.fragment = fragment
-        assert (self.spin_restricted or self.spin_unrestricted)
+        assert self.spin_restricted or self.spin_unrestricted
 
     @property
     def spin_restricted(self):
-        return (np.ndim(self.mf.mo_coeff[0]) == 1)
+        return np.ndim(self.mf.mo_coeff[0]) == 1
 
     @property
     def spin_unrestricted(self):
-        return (np.ndim(self.mf.mo_coeff[0]) == 2)
+        return np.ndim(self.mf.mo_coeff[0]) == 2
 
     @property
     def spinsym(self):

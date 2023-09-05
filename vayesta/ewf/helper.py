@@ -28,12 +28,12 @@ def orthogonalize_mo(c, s, tol=1e-6):
     assert np.allclose(s, s.T)
     l = np.linalg.cholesky(s)
     c2 = np.dot(l.T, c)
-    #chi = np.linalg.multi_dot((c.T, s, c))
+    # chi = np.linalg.multi_dot((c.T, s, c))
     chi = np.dot(c2.T, c2)
-    chi = (chi + chi.T)/2
+    chi = (chi + chi.T) / 2
     e, v = np.linalg.eigh(chi)
     assert np.all(e > 0)
-    r = einsum("ai,i,bi->ab", v, 1/np.sqrt(e), v)
+    r = einsum("ai,i,bi->ab", v, 1 / np.sqrt(e), v)
     c_out = np.dot(c, r)
     chi_out = np.linalg.multi_dot((c_out.T, s, c_out))
     # Check orthogonality within tol

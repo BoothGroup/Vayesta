@@ -4,6 +4,7 @@ from pyscf import gto, scf, mcscf, ao2mo, lib
 from vayesta.core.types import RFCI_WaveFunction, SpatialOrbitals
 from .calc_nonorth_couplings import calc_full_couplings, calc_full_couplings_uhf, calc_ci_elements, calc_ci_elements_uhf
 
+
 def get_emb_info(emb, wfs):
     h1e = emb.get_hcore()
     ovlp = emb.get_ovlp()
@@ -17,8 +18,9 @@ def get_emb_info(emb, wfs):
         h2e = emb.get_eris_array(np.eye(emb.nao)).reshape((emb.nao**2, emb.nao**2))
         nmo, nocc = emb.nao, emb.nocc
         nact = [x.mo.norb for x in wfs]
-        ncore = [[y - z for y,z in zip(emb.nocc, x.mo.nocc)] for x in wfs]
+        ncore = [[y - z for y, z in zip(emb.nocc, x.mo.nocc)] for x in wfs]
     return ovlp, h1e, h2e, nmo, nocc, nact, ncore
+
 
 def optimise_full_varwav(emb, fs=None, lindep=1e-12, replace_wf=False):
     fullham, fullovlp = gen_loc_hams(emb, fs)
@@ -34,13 +36,14 @@ def optimise_full_varwav(emb, fs=None, lindep=1e-12, replace_wf=False):
     if replace_wf:
         for ns, f in zip(nstates, emb.fragments):
             if f.sym_parent is None:
-                c = ci0[i:i + ns].reshape(f.results.wf.ci.shape)
+                c = ci0[i : i + ns].reshape(f.results.wf.ci.shape)
                 # Copy to avoid wiping any other copies.
                 f.results.wf = f.results.wf.copy()
                 f.results.wf.ci = c
             i += ns
 
     return w[0]
+
 
 def gen_loc_hams(emb, fs=None):
     if fs is None:
@@ -60,26 +63,26 @@ def gen_loc_hams(emb, fs=None):
     fullovlp = np.zeros_like(fullham)
     for i in range(len(fs)):
         for j in range(i, len(fs)):
-            fullham[i, j], fullovlp[i, j] = coupl_func(h1e, h2e, ovlp, mos[i], mos[j], nmo, nocc, nact[i],
-                                                                    nact[j], ncore[i], ncore[j], enuc=emb.e_nuc)
+            fullham[i, j], fullovlp[i, j] = coupl_func(
+                h1e, h2e, ovlp, mos[i], mos[j], nmo, nocc, nact[i], nact[j], ncore[i], ncore[j], enuc=emb.e_nuc
+            )
             fullham[j, i] = fullham[i, j].T
             fullovlp[j, i] = fullovlp[i, j].T
     return fullham, fullovlp
 
 
 def to_single_ham(fullham, fullovlp, returnsizes=False):
-
     nstates = sum([x.shape[1] for x in fullham[0]])
     h = np.zeros((nstates, nstates))
     s = np.zeros_like(h)
 
     ix = 0
-    for (hx, sx) in zip(fullham, fullovlp):
+    for hx, sx in zip(fullham, fullovlp):
         iy = 0
-        for (hloc, sloc) in zip(hx, sx):
+        for hloc, sloc in zip(hx, sx):
             dx, dy = hloc.shape
-            h[ix:ix+dx, iy:iy+dy] = hloc
-            s[ix:ix + dx, iy:iy + dy] = sloc
+            h[ix : ix + dx, iy : iy + dy] = hloc
+            s[ix : ix + dx, iy : iy + dy] = sloc
             iy += dy
         ix += dx
 
@@ -87,6 +90,7 @@ def to_single_ham(fullham, fullovlp, returnsizes=False):
         return h, s, [x.shape[1] for x in fullham[0]]
     else:
         return h, s
+
 
 def get_wf_couplings(emb, fs=None, wfs=None, mos=None, inc_mf=False):
     """Calculate the hamiltonian element between multiple FCI wavefunctions in different fragments.
@@ -111,7 +115,7 @@ def get_wf_couplings(emb, fs=None, wfs=None, mos=None, inc_mf=False):
 
     if inc_mf:
         mfwf = np.zeros_like(ci[-1])
-        mfwf[0,0] = 1.0
+        mfwf[0, 0] = 1.0
         ci += [mfwf]
 
         mos += [mos[-1]]

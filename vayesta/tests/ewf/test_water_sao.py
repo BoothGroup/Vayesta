@@ -7,8 +7,8 @@ from vayesta.tests.ewf import test_h2
 from vayesta.tests import testsystems
 from vayesta.tests.common import TestCase
 
-class Test_MP2(test_h2.Test_MP2):
 
+class Test_MP2(test_h2.Test_MP2):
     @classmethod
     def setUpClass(cls):
         cls.mf = testsystems.water_631g.rhf()
@@ -17,7 +17,7 @@ class Test_MP2(test_h2.Test_MP2):
     @classmethod
     @cache
     def emb(cls, bno_threshold):
-        emb = vayesta.ewf.EWF(cls.mf, solver='MP2', bath_options=dict(threshold=bno_threshold))
+        emb = vayesta.ewf.EWF(cls.mf, solver="MP2", bath_options=dict(threshold=bno_threshold))
         with emb.sao_fragmentation() as f:
             f.add_all_atomic_fragments()
         emb.kernel()
@@ -43,8 +43,8 @@ class Test_MP2(test_h2.Test_MP2):
         etot_dmet = emb.get_dmet_energy(part_cumulant=False)
         self.assertAllclose(etot_dmet, self.cc.e_tot, rtol=0)
         # Not implemented:
-        #etot_dmet = emb.get_dmet_energy(approx_cumulant=False)
-        #self.assertAllclose(etot_dmet, self.cc.e_tot, rtol=0)
+        # etot_dmet = emb.get_dmet_energy(approx_cumulant=False)
+        # self.assertAllclose(etot_dmet, self.cc.e_tot, rtol=0)
 
     def test_dmet_energy_dmet_bath(self):
         emb = self.emb(np.inf)
@@ -54,7 +54,6 @@ class Test_MP2(test_h2.Test_MP2):
 
 @pytest.mark.slow
 class Test_CCSD(test_h2.Test_CCSD):
-
     @classmethod
     def setUpClass(cls):
         cls.mf = testsystems.water_631g.rhf()
@@ -63,9 +62,8 @@ class Test_CCSD(test_h2.Test_CCSD):
     @classmethod
     @cache
     def emb(cls, bno_threshold):
-        solver_opts = dict(conv_tol= 1e-10, conv_tol_normt=1e-8, solve_lambda=True)
-        emb = vayesta.ewf.EWF(cls.mf, bath_options=dict(threshold=bno_threshold),
-                              solver_options=solver_opts)
+        solver_opts = dict(conv_tol=1e-10, conv_tol_normt=1e-8, solve_lambda=True)
+        emb = vayesta.ewf.EWF(cls.mf, bath_options=dict(threshold=bno_threshold), solver_options=solver_opts)
         with emb.sao_fragmentation() as f:
             f.add_all_atomic_fragments()
         emb.kernel()
@@ -100,7 +98,6 @@ class Test_CCSD(test_h2.Test_CCSD):
 
 
 class Test_UMP2(test_h2.Test_UMP2):
-
     @classmethod
     def setUpClass(cls):
         cls.mf = testsystems.water_cation_631g.uhf()
@@ -109,7 +106,7 @@ class Test_UMP2(test_h2.Test_UMP2):
     @classmethod
     @cache
     def emb(cls, bno_threshold):
-        emb = vayesta.ewf.EWF(cls.mf, solver='MP2', bath_options=dict(threshold=bno_threshold))
+        emb = vayesta.ewf.EWF(cls.mf, solver="MP2", bath_options=dict(threshold=bno_threshold))
         with emb.sao_fragmentation() as f:
             f.add_all_atomic_fragments()
         emb.kernel()
@@ -118,7 +115,6 @@ class Test_UMP2(test_h2.Test_UMP2):
 
 @pytest.mark.slow
 class Test_UCCSD(Test_CCSD, test_h2.Test_UCCSD):
-
     @classmethod
     def setUpClass(cls):
         cls.mf = testsystems.water_cation_631g.uhf()
@@ -132,7 +128,6 @@ class Test_UCCSD(Test_CCSD, test_h2.Test_UCCSD):
 
 @pytest.mark.slow
 class Test_RCCSD_vs_UCCSD(TestCase):
-
     @classmethod
     def setUpClass(cls):
         cls.rhf = testsystems.water_631g.rhf()
@@ -152,9 +147,8 @@ class Test_RCCSD_vs_UCCSD(TestCase):
     @classmethod
     @cache
     def remb(cls, bno_threshold):
-        solver_opts = dict(conv_tol= 1e-10, conv_tol_normt=1e-8, solve_lambda=True)
-        emb = vayesta.ewf.EWF(cls.rhf, bath_options=dict(threshold=bno_threshold),
-                              solver_options=solver_opts)
+        solver_opts = dict(conv_tol=1e-10, conv_tol_normt=1e-8, solve_lambda=True)
+        emb = vayesta.ewf.EWF(cls.rhf, bath_options=dict(threshold=bno_threshold), solver_options=solver_opts)
         with emb.sao_fragmentation() as f:
             f.add_all_atomic_fragments()
         emb.kernel()
@@ -163,9 +157,8 @@ class Test_RCCSD_vs_UCCSD(TestCase):
     @classmethod
     @cache
     def uemb(cls, bno_threshold):
-        solver_opts = dict(conv_tol= 1e-10, conv_tol_normt=1e-8, solve_lambda=True)
-        emb = vayesta.ewf.EWF(cls.uhf, bath_options=dict(threshold=bno_threshold),
-                              solver_options=solver_opts)
+        solver_opts = dict(conv_tol=1e-10, conv_tol_normt=1e-8, solve_lambda=True)
+        emb = vayesta.ewf.EWF(cls.uhf, bath_options=dict(threshold=bno_threshold), solver_options=solver_opts)
         with emb.sao_fragmentation() as f:
             f.add_all_atomic_fragments()
         emb.kernel()
@@ -193,7 +186,7 @@ class Test_RCCSD_vs_UCCSD(TestCase):
     def test_dm2_demo(self):
         rdm2 = self.remb(-1).make_rdm2(ao_basis=True)
         udm2aa, udm2ab, udm2bb = self.uemb(-1).make_rdm2(ao_basis=True)
-        udm2 = (udm2aa + udm2ab + udm2ab.transpose(2,3,0,1) + udm2bb)
+        udm2 = udm2aa + udm2ab + udm2ab.transpose(2, 3, 0, 1) + udm2bb
         self.assertAllclose(rdm2, udm2)
 
     def test_dmet_energy_full_bath(self):
@@ -228,6 +221,6 @@ class Test_RCCSD_vs_UCCSD(TestCase):
         self.assertAllclose(e_rdmet, e_udmet)
 
 
-if __name__ == '__main__':
-    print('Running %s' % __file__)
+if __name__ == "__main__":
+    print("Running %s" % __file__)
     unittest.main()

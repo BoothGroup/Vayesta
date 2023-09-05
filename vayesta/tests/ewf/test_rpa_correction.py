@@ -8,7 +8,6 @@ from vayesta.tests.common import TestCase
 
 
 class Test_RPA_Corrections_Ethanol_RHF(TestCase):
-
     system = testsystems.ethanol_631g_df
 
     @property
@@ -16,9 +15,9 @@ class Test_RPA_Corrections_Ethanol_RHF(TestCase):
         return self.system.rhf()
 
     def get_nl_energies(self, correction, bathtype="dmet"):
-
-        emb = vayesta.ewf.EWF(self.mf, bath_options={"bathtype":bathtype}, solver="CCSD",
-                screening="mrpa", ext_rpa_correction=correction)
+        emb = vayesta.ewf.EWF(
+            self.mf, bath_options={"bathtype": bathtype}, solver="CCSD", screening="mrpa", ext_rpa_correction=correction
+        )
         with emb.iao_fragmentation() as f:
             f.add_all_atomic_fragments()
         emb.kernel()
@@ -34,8 +33,10 @@ class Test_RPA_Corrections_Ethanol_RHF(TestCase):
         self.assertAlmostEqual(erpa, -0.5145262339186916)
         self.assertAlmostEqual(enl, -0.31553721476368396)
 
+
 class Test_RPA_Corrections_complete(Test_RPA_Corrections_Ethanol_RHF):
     """Tests with a complete bath in all clusters. This should give no nonlocal correction in any case."""
+
     system = testsystems.water_631g_df
 
     def test_rpa_correction(self):

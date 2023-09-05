@@ -147,7 +147,6 @@ class ssRIRRPA:
         eps = eps.reshape((self.ov,))
         return eps
 
-
     @property
     def D(self):
         eps = self.eps
@@ -203,41 +202,31 @@ class ssRIRRPA:
         t_start = timer()
 
         if target_rot is None:
-            self.log.warning(
-                "Warning; generating full moment rather than local component. Will scale as O(N^5)."
-            )
+            self.log.warning("Warning; generating full moment rather than local component. Will scale as O(N^5).")
             target_rot = np.eye(self.ov_tot)
 
         ri_decomps = self.get_compressed_MP()
         ri_mp, ri_apb, ri_amb = ri_decomps
         # First need to calculate zeroth moment.
         moments = np.zeros((max_moment + 1,) + target_rot.shape)
-        moments[0], err0 = self._kernel_mom0(
-            target_rot, ri_decomps=ri_decomps, **kwargs
-        )
+        moments[0], err0 = self._kernel_mom0(target_rot, ri_decomps=ri_decomps, **kwargs)
 
         t_start_higher = timer()
         if max_moment > 0:
             # Grab mean.
             D = self.D
-            moments[1] = einsum("pq,q->pq", target_rot, D) + dot(
-                target_rot, ri_amb[0].T, ri_amb[1]
-            )
+            moments[1] = einsum("pq,q->pq", target_rot, D) + dot(target_rot, ri_amb[0].T, ri_amb[1])
 
         if max_moment > 1:
             for i in range(2, max_moment + 1):
-                moments[i] = einsum("pq,q->pq", moments[i - 2], D**2) + dot(
-                    moments[i - 2], ri_mp[1].T, ri_mp[0]
-                )
+                moments[i] = einsum("pq,q->pq", moments[i - 2], D**2) + dot(moments[i - 2], ri_mp[1].T, ri_mp[0])
         self.record_memory()
         if max_moment > 0:
             self.log.info(
                 "RIRPA Higher Moments wall time:  %s",
                 time_string(timer() - t_start_higher),
             )
-            self.log.info(
-                "Overall RIRPA Moments wall time:  %s", time_string(timer() - t_start)
-            )
+            self.log.info("Overall RIRPA Moments wall time:  %s", time_string(timer() - t_start))
         return moments, err0
 
     def _kernel_mom0(
@@ -275,9 +264,7 @@ class ssRIRRPA:
         """
         t_start = timer()
         if target_rot is None:
-            self.log.warning(
-                "Warning; generating full moment rather than local component. Will scale as O(N^5)."
-            )
+            self.log.warning("Warning; generating full moment rather than local component. Will scale as O(N^5).")
             target_rot = np.eye(self.ov_tot)
         if ri_decomps is None:
             ri_mp, ri_apb, ri_amb = self.get_compressed_MP(alpha)
@@ -329,23 +316,15 @@ class ssRIRRPA:
         # Use Cauchy-Schwartz to both obtain an upper bound on resulting mom0 error, and efficiently obtain upper bound
         # on norm of low-rank portion of P^{-1}.
         if upper_bound is not None:
-            pinv_norm = np.linalg.norm(self.D ** (-2)) + np.linalg.norm(
-                ri_apb_inv[0]
-            ) * np.linalg.norm(ri_apb_inv[1])
+            pinv_norm = np.linalg.norm(self.D ** (-2)) + np.linalg.norm(ri_apb_inv[0]) * np.linalg.norm(ri_apb_inv[1])
             mom0_ub = upper_bound * pinv_norm
             self.check_errors(mom0_ub, target_rot.size)
         else:
             mom0_ub = None
 
-        mom_lb = (
-            self.test_eta0_error(mom0, target_rot, ri_apb, ri_amb)
-            if analytic_lower_bound
-            else None
-        )
+        mom_lb = self.test_eta0_error(mom0, target_rot, ri_apb, ri_amb) if analytic_lower_bound else None
 
-        self.log.info(
-            "RIRPA Zeroth Moment wall time:  %s", time_string(timer() - t_start)
-        )
+        self.log.info("RIRPA Zeroth Moment wall time:  %s", time_string(timer() - t_start))
 
         return mom0, (mom0_ub, mom_lb)
 
@@ -369,22 +348,15 @@ class ssRIRRPA:
         error = amb_exact - dot(mom0, apb, mom0.T)
         self.error = error
         e_norm = np.linalg.norm(error)
-        p_norm = np.linalg.norm(self.D) + np.linalg.norm(ri_apb[0]) * np.linalg.norm(
-            ri_apb[1]
-        )
-        peta_norm = np.linalg.norm(
-            einsum("p,qp->pq", self.D, mom0) + dot(ri_apb[0].T, dot(ri_apb[1], mom0.T))
-        )
+        p_norm = np.linalg.norm(self.D) + np.linalg.norm(ri_apb[0]) * np.linalg.norm(ri_apb[1])
+        peta_norm = np.linalg.norm(einsum("p,qp->pq", self.D, mom0) + dot(ri_apb[0].T, dot(ri_apb[1], mom0.T)))
         # Now to estimate resulting error estimate in eta0.
         try:
-            poly = np.polynomial.Polynomial(
-                [e_norm / p_norm, -2 * peta_norm / p_norm, 1]
-            )
+            poly = np.polynomial.Polynomial([e_norm / p_norm, -2 * peta_norm / p_norm, 1])
             roots = poly.roots()
         except np.linalg.LinAlgError:
             self.log.warning(
-                "Could not obtain eta0 error lower bound; this is usually due to vanishing norms: %e, "
-                "%e, %e.",
+                "Could not obtain eta0 error lower bound; this is usually due to vanishing norms: %e, " "%e, %e.",
                 e_norm,
                 p_norm,
                 peta_norm,
@@ -410,7 +382,6 @@ class ssRIRRPA:
         return integral[0] + offset, err
 
     def kernel_energy(self, npoints=48, ainit=10, correction="linear"):
-
         t_start = timer()
         e1, err = self.kernel_trMPrt(npoints, ainit)
         e2 = 0.0
@@ -418,28 +389,18 @@ class ssRIRRPA:
         # Note that eri contribution to A and B is equal, so can get trace over one by dividing by two
         e3 = sum(self.D) + einsum("np,np->", ri_apb_eri, ri_apb_eri) / 2
         if ri_apb_eri_neg is not None:
-             e3 -= einsum("np,np->", ri_apb_eri_neg, ri_apb_eri_neg) / 2
+            e3 -= einsum("np,np->", ri_apb_eri_neg, ri_apb_eri_neg) / 2
         err /= 2
         if self.rixc is not None and correction is not None:
             if correction.lower() == "linear":
                 ri_a_xc, ri_b_xc = self.get_ab_xc_ri()
-                eta0_xc, errs = self.kernel_moms(
-                    0, target_rot=ri_b_xc[0], npoints=npoints, ainit=ainit
-                )
+                eta0_xc, errs = self.kernel_moms(0, target_rot=ri_b_xc[0], npoints=npoints, ainit=ainit)
                 eta0_xc = eta0_xc[0]
-                err = tuple(
-                    [
-                        (err**2 + x / 2**2) ** 0.5 if x is not None else None
-                        for x in errs
-                    ]
-                )
+                err = tuple([(err**2 + x / 2**2) ** 0.5 if x is not None else None for x in errs])
                 val = np.dot(eta0_xc, ri_b_xc[1].T).trace() / 2
                 self.log.info("Approximated correlation energy contribution: %e", val)
                 e2 -= val
-                e3 += (
-                    einsum("np,np->", ri_a_xc[0], ri_a_xc[1])
-                    - einsum("np,np->", ri_b_xc[0], ri_b_xc[1]) / 2
-                )
+                e3 += einsum("np,np->", ri_a_xc[0], ri_a_xc[1]) - einsum("np,np->", ri_b_xc[0], ri_b_xc[1]) / 2
             elif correction.lower() == "xc_ac":
                 pass
         self.e_corr_ss = 0.5 * (e1 + e2 - e3)
@@ -464,12 +425,11 @@ class ssRIRRPA:
         fragment_projectors gives the projector within this local excitation space to the actual fragment."""
         # Get the coulomb integrals.
         ri_eri, ri_eri_neg = self.get_apb_eri_ri() / np.sqrt(2)
+
         # TODO use ri_eri_neg here.
         def get_eta_alpha(alpha, target_rot):
             newrirpa = self.__class__(self.mf, rixc=self.rixc, log=self.log)
-            moms, errs = newrirpa.kernel_moms(
-                0, target_rot=target_rot, npoints=npoints, alpha=alpha
-            )
+            moms, errs = newrirpa.kernel_moms(0, target_rot=target_rot, npoints=npoints, alpha=alpha)
             return moms[0]
 
         def run_ac_inter(func, deg=5):
@@ -481,15 +441,16 @@ class ssRIRRPA:
             return sum([w * func(p) for w, p in zip(weights, points)])
 
         if ri_eri_neg is not None:
-            raise NotImplementedError("Use of negative CDERI contributions with direct integration for the RIRPA "
-                                      "correlation energy not yet supported.")
+            raise NotImplementedError(
+                "Use of negative CDERI contributions with direct integration for the RIRPA "
+                "correlation energy not yet supported."
+            )
 
         naux_eri = ri_eri.shape[0]
         if local_rot is None or fragment_projectors is None:
             lrot = ri_eri
             rrot = ri_eri
         else:
-
             if cluster_constrain:
                 lrot = np.concatenate(local_rot, axis=0)
                 nloc_cum = np.cumsum([x.shape[0] for x in local_rot])
@@ -498,18 +459,12 @@ class ssRIRRPA:
 
                 def get_contrib(rot, proj):
                     lloc = dot(rot, ri_eri.T)
-                    return dot(
-                        lloc, lloc[: proj.shape[0]].T, proj, rot[: proj.shape[0]]
-                    )
+                    return dot(lloc, lloc[: proj.shape[0]].T, proj, rot[: proj.shape[0]])
 
                 # return dot(rot[:proj.shape[0]].T, proj, lloc[:proj.shape[0]], lloc.T)
             else:
-
                 lrot = np.concatenate(
-                    [
-                        dot(x[: p.shape[0]], ri_eri.T, ri_eri)
-                        for x, p in zip(local_rot, fragment_projectors)
-                    ],
+                    [dot(x[: p.shape[0]], ri_eri.T, ri_eri) for x, p in zip(local_rot, fragment_projectors)],
                     axis=0,
                 )
                 nloc_cum = np.cumsum([x.shape[0] for x in fragment_projectors])
@@ -576,20 +531,10 @@ class ssRIRRPA:
             if nosym:
                 # Ensure left isn't in our kwargs.
                 kwargs.pop("left", None)
-                e, c_l, c_r = pyscf.lib.eig(
-                    hop,
-                    x0,
-                    precond,
-                    max_space=max_space,
-                    nroots=nroots,
-                    left=True,
-                    **kwargs
-                )
+                e, c_l, c_r = pyscf.lib.eig(hop, x0, precond, max_space=max_space, nroots=nroots, left=True, **kwargs)
                 return e, np.array(c_l), np.array(c_r)
             else:
-                e, c = pyscf.lib.davidson(
-                    hop, x0, precond, max_space=max_space, nroots=nroots, **kwargs
-                )
+                e, c = pyscf.lib.davidson(hop, x0, precond, max_space=max_space, nroots=nroots, **kwargs)
                 return e, np.array(c)
 
         # Since A+B and A-B are symmetric can get eigenvalues straightforwardly.
@@ -603,9 +548,7 @@ class ssRIRRPA:
             raise RuntimeError("RPA approximation broken down!")
         # MP is asymmetric, so need to take care to obtain actual eigenvalues.
         # Use Davidson to obtain accurate right eigenvectors...
-        e_mp_r, c_l_approx, c_r = get_lowest_eigenvals(
-            self.D**2, *ri_mp, c0, nroots=nroots, nosym=True
-        )
+        e_mp_r, c_l_approx, c_r = get_lowest_eigenvals(self.D**2, *ri_mp, c0, nroots=nroots, nosym=True)
 
         if not calc_xy:
             return e_mp_r ** (0.5)
@@ -622,9 +565,7 @@ class ssRIRRPA:
         if nroots > 1:
             c_l = np.dot(np.linalg.inv(ovlp), c_l)
             # Now diagonalise in corresponding subspace to get eigenvalues.
-            subspace = einsum("np,p,mp->nm", c_l, self.D**2, c_r) + einsum(
-                "np,yp,yq,mq->nm", c_l, *ri_mp, c_r
-            )
+            subspace = einsum("np,p,mp->nm", c_l, self.D**2, c_r) + einsum("np,yp,yq,mq->nm", c_l, *ri_mp, c_r)
             e, c_sub = np.linalg.eig(subspace)
             # Now fold these eigenvectors into our definitions,
             xpy = np.dot(c_sub.T, c_r)
@@ -637,9 +578,7 @@ class ssRIRRPA:
         else:
             xpy = c_r / (ovlp ** (0.5))
             xmy = c_l / (ovlp ** (0.5))
-            e = einsum("p,p,p->", xmy, self.D**2, xpy) + einsum(
-                "p,yp,yq,q->", xmy, *ri_mp, xpy
-            )
+            e = einsum("p,p,p->", xmy, self.D**2, xpy) + einsum("p,yp,yq,q->", xmy, *ri_mp, xpy)
 
         return e ** (0.5), xpy, xmy
 
@@ -690,8 +629,10 @@ class ssRIRRPA:
             amb_lhs += [np.concatenate([ri_a_xc[0], ri_b_xc[0]], axis=0)]
             amb_rhs += [np.concatenate([ri_a_xc[1], -ri_b_xc[1]], axis=0)]
 
-        return (tuple([np.concatenate(x, axis=0) for x in [apb_lhs, apb_rhs]]),
-                tuple([np.concatenate(x, axis=0) for x in [amb_lhs, amb_rhs]]))
+        return (
+            tuple([np.concatenate(x, axis=0) for x in [apb_lhs, apb_rhs]]),
+            tuple([np.concatenate(x, axis=0) for x in [amb_lhs, amb_rhs]]),
+        )
 
     def compress_low_rank(self, ri_l, ri_r, name=None):
         return compress_low_rank(ri_l, ri_r, tol=self.svd_tol, log=self.log, name=name)
@@ -705,7 +646,7 @@ class ssRIRRPA:
             lov_neg = lov_neg.reshape((lov_neg.shape[0], -1))
 
         # Need to include factor of two since eris appear in both A and B.
-        ri_apb_eri = np.sqrt(2) * np.concatenate([lov, lov], axis = 1)
+        ri_apb_eri = np.sqrt(2) * np.concatenate([lov, lov], axis=1)
 
         ri_neg_apb_eri = None
         if lov_neg is not None:
@@ -717,29 +658,21 @@ class ssRIRRPA:
         # Have low-rank representation for interactions over and above coulomb interaction.
         # Note that this is usually asymmetric, as correction is non-PSD.
         ri_a_aa = [
-            einsum("npq,pi,qa->nia", x, self.mo_coeff_occ, self.mo_coeff_vir).reshape(
-                (-1, self.ov)
-            )
+            einsum("npq,pi,qa->nia", x, self.mo_coeff_occ, self.mo_coeff_vir).reshape((-1, self.ov))
             for x in self.rixc[0]
         ]
         ri_a_bb = [
-            einsum("npq,pi,qa->nia", x, self.mo_coeff_occ, self.mo_coeff_vir).reshape(
-                (-1, self.ov)
-            )
+            einsum("npq,pi,qa->nia", x, self.mo_coeff_occ, self.mo_coeff_vir).reshape((-1, self.ov))
             for x in self.rixc[1]
         ]
 
         ri_b_aa = [
             ri_a_aa[0],
-            einsum(
-                "npq,qi,pa->nia", self.rixc[0][1], self.mo_coeff_occ, self.mo_coeff_vir
-            ).reshape((-1, self.ov)),
+            einsum("npq,qi,pa->nia", self.rixc[0][1], self.mo_coeff_occ, self.mo_coeff_vir).reshape((-1, self.ov)),
         ]
         ri_b_bb = [
             ri_a_bb[0],
-            einsum(
-                "npq,qi,pa->nia", self.rixc[1][1], self.mo_coeff_occ, self.mo_coeff_vir
-            ).reshape((-1, self.ov)),
+            einsum("npq,qi,pa->nia", self.rixc[1][1], self.mo_coeff_occ, self.mo_coeff_vir).reshape((-1, self.ov)),
         ]
 
         ri_a_xc = [np.concatenate([x, y], axis=1) for x, y in zip(ri_a_aa, ri_a_bb)]
@@ -789,10 +722,7 @@ class ssRIRRPA:
         log_qvals = [get_log_qval(x) for x in freqs]
 
         def get_log_specvals(freq):
-            return sum(
-                np.log(fullrpa.freqs_ss**2 + freq**2)
-                - np.log(self.D**2 + freq**2)
-            )
+            return sum(np.log(fullrpa.freqs_ss**2 + freq**2) - np.log(self.D**2 + freq**2))
 
         log_specvals = [get_log_specvals(x) for x in freqs]
 
@@ -800,6 +730,7 @@ class ssRIRRPA:
 
     def record_memory(self):
         self.log.info("  %s", memory_string())
+
 
 def construct_product_RI(D, ri_1, ri_2):
     """Given two matrices expressed as low-rank modifications, cderi_1 and cderi_2, of some full-rank matrix D,
@@ -819,12 +750,8 @@ def construct_product_RI(D, ri_1, ri_2):
 
     U = np.dot(ri_1_R, ri_2_L.T)
 
-    ri_L = np.concatenate(
-        [ri_1_L, einsum("p,np->np", D, ri_2_L) + np.dot(U.T, ri_1_L) / 2], axis=0
-    )
-    ri_R = np.concatenate(
-        [einsum("p,np->np", D, ri_1_R) + np.dot(U, ri_2_R) / 2, ri_2_R], axis=0
-    )
+    ri_L = np.concatenate([ri_1_L, einsum("p,np->np", D, ri_2_L) + np.dot(U.T, ri_1_L) / 2], axis=0)
+    ri_R = np.concatenate([einsum("p,np->np", D, ri_1_R) + np.dot(U, ri_2_R) / 2, ri_2_R], axis=0)
     return ri_L, ri_R
 
 
@@ -844,9 +771,7 @@ def construct_inverse_RI(D, ri):
     urt_l = einsum("nm,m->nm", u, s ** (0.5))
     urt_r = einsum("n,nm->nm", s ** (0.5), v)
     # Evaluate the resulting RI
-    return einsum("p,np,nm->mp", D ** (-1), ri_L, urt_l), einsum(
-        "p,np,nm->mp", D ** (-1), ri_R, urt_r.T
-    )
+    return einsum("p,np,nm->mp", D ** (-1), ri_L, urt_l), einsum("p,np,nm->mp", D ** (-1), ri_R, urt_r.T)
 
 
 def compress_low_rank(ri_l, ri_r, tol=1e-12, log=None, name=None):

@@ -9,8 +9,7 @@ from pyscf import lib
 
 
 class ssRIdRRPA(ssRIRRPA):
-    """Class for computing direct RPA correlated quantites with a restricted reference state.
-    """
+    """Class for computing direct RPA correlated quantites with a restricted reference state."""
 
     @with_doc(ssRIRRPA.kernel_moms)
     def kernel_moms(self, max_moment, target_rot=None, return_spatial=False, **kwargs):
@@ -18,9 +17,7 @@ class ssRIdRRPA(ssRIRRPA):
         self.log.debug("Running specialised dRPA RHF code.")
 
         if target_rot is None:
-            self.log.warning(
-                "Warning; generating full moment rather than local component. Will scale as O(N^5)."
-            )
+            self.log.warning("Warning; generating full moment rather than local component. Will scale as O(N^5).")
             if return_spatial:
                 target_rot = np.eye(self.ov)
             else:
@@ -30,9 +27,7 @@ class ssRIdRRPA(ssRIRRPA):
         ri_mp, ri_apb, ri_amb = ri_decomps
         # First need to calculate zeroth moment. This only generates the spin-independent contribution in a single
         # spin channel; the spin-dependent contribution is just the identity rotated to our target rotation.
-        mom0, err0 = self._kernel_mom0(
-            target_rot, ri_decomps=ri_decomps, return_spatial=return_spatial, **kwargs
-        )
+        mom0, err0 = self._kernel_mom0(target_rot, ri_decomps=ri_decomps, return_spatial=return_spatial, **kwargs)
 
         moments = np.zeros((max_moment + 1,) + mom0.shape, dtype=mom0.dtype)
 
@@ -53,15 +48,16 @@ class ssRIdRRPA(ssRIRRPA):
             moments[1] = target_rot * eps[None]
 
         else:
+
             def gen_new_moment(prev_mom):
-                prev_aa, prev_bb = prev_mom[:, :self.ov], prev_mom[:, self.ov:]
+                prev_aa, prev_bb = prev_mom[:, : self.ov], prev_mom[:, self.ov :]
                 spat_vv = dot(prev_aa + prev_bb, ri_mp[1].T, ri_mp[0])
                 new_aa = spat_vv + prev_aa * (eps**2)[None]
                 new_bb = spat_vv + prev_bb * (eps**2)[None]
                 return np.concatenate((new_aa, new_bb), axis=1)
 
             if target_rot.shape[1] == self.ov:
-                moments[1, :, :self.ov] = target_rot * eps[None]
+                moments[1, :, : self.ov] = target_rot * eps[None]
             else:
                 moments[1] = target_rot * self.D[None]
 
@@ -74,9 +70,7 @@ class ssRIdRRPA(ssRIRRPA):
                 "RIRPA Higher Moments wall time:  %s",
                 time_string(timer() - t_start_higher),
             )
-            self.log.info(
-                "Overall RIRPA Moments wall time:  %s", time_string(timer() - t_start)
-            )
+            self.log.info("Overall RIRPA Moments wall time:  %s", time_string(timer() - t_start))
         return moments, err0
 
     @with_doc(ssRIRRPA._kernel_mom0)
@@ -92,7 +86,7 @@ class ssRIdRRPA(ssRIRRPA):
         ri_decomps=None,
         return_niworker=False,
         analytic_lower_bound=False,
-        return_spatial=False
+        return_spatial=False,
     ):
         t_start = timer()
         if analytic_lower_bound or adaptive_quad or integral_deduct != "HO":
@@ -149,19 +143,11 @@ class ssRIdRRPA(ssRIRRPA):
 
         # Factor of two from sum over spin channels.
         mom0_spinindependent -= dot(
-            dot(
-                dot(
-                    target_rot * self.eps[None] + 2 * integral, (ri_apb[1] * epsinv[None]).T
-                    ),
-                u
-            ),
-            ri_apb[0] * epsinv[None]
+            dot(dot(target_rot * self.eps[None] + 2 * integral, (ri_apb[1] * epsinv[None]).T), u),
+            ri_apb[0] * epsinv[None],
         )
 
-
-        self.log.info(
-            "RIRPA Zeroth Moment wall time:  %s", time_string(timer() - t_start)
-        )
+        self.log.info("RIRPA Zeroth Moment wall time:  %s", time_string(timer() - t_start))
 
         if trrot is not None:
             target_rot = dot(trrot, target_rot)
@@ -174,15 +160,19 @@ class ssRIdRRPA(ssRIRRPA):
             n = target_rot.shape[0]
             if stack_spin:
                 # Half of target rot are actually other spin.
-                 n = n// 2
+                n = n // 2
             mom0 = np.zeros((n, self.ov_tot))
 
             if stack_spin:
-                mom0[:, :self.ov] = target_rot[:n] + mom0_spinindependent[:n] + mom0_spinindependent[n:]  # Has aa and ab interactions.
-                mom0[:, self.ov:] = target_rot[n:] + mom0_spinindependent[n:] + mom0_spinindependent[:n]  # Has bb and ba interactions.
+                mom0[:, : self.ov] = (
+                    target_rot[:n] + mom0_spinindependent[:n] + mom0_spinindependent[n:]
+                )  # Has aa and ab interactions.
+                mom0[:, self.ov :] = (
+                    target_rot[n:] + mom0_spinindependent[n:] + mom0_spinindependent[:n]
+                )  # Has bb and ba interactions.
             else:
-                mom0[:, :self.ov] = target_rot + mom0_spinindependent
-                mom0[:, self.ov:] = mom0_spinindependent
+                mom0[:, : self.ov] = target_rot + mom0_spinindependent
+                mom0[:, self.ov :] = mom0_spinindependent
 
         return mom0, (None, None)
 
@@ -198,7 +188,6 @@ class ssRIdRRPA(ssRIRRPA):
         return integral[0] + offset, err
 
     def kernel_energy(self, npoints=48, ainit=10, correction="linear"):
-
         t_start = timer()
         e1, err = self.kernel_trMPrt(npoints, ainit)
         e2 = 0.0
@@ -209,7 +198,7 @@ class ssRIdRRPA(ssRIRRPA):
         # Note that eri contribution to A and B is equal, so can get trace over one by dividing by two
         e3 = 2 * (sum(self.eps) + np.tensordot(cderi, cderi, ((0, 1), (0, 1))))
         if cderi_neg is not None:
-             e3 -= 2 * np.tensordot(cderi_neg, cderi_neg, ((0, 1), (0, 1)))
+            e3 -= 2 * np.tensordot(cderi_neg, cderi_neg, ((0, 1), (0, 1)))
         err /= 2
         self.e_corr_ss = 0.5 * (e1 + e2 - e3)
         self.log.info(
@@ -227,8 +216,7 @@ class ssRIdRRPA(ssRIRRPA):
         if lov_neg is not None:
             lov_neg = lov_neg.reshape(lov_neg.shape[0], self.ov)
 
-            ri_apb = [np.concatenate([lov, lov_neg], axis=0),
-                      np.concatenate([lov, -lov_neg], axis=0)]
+            ri_apb = [np.concatenate([lov, lov_neg], axis=0), np.concatenate([lov, -lov_neg], axis=0)]
 
         if self.compress > 3:
             ri_apb = self.compress_low_rank(*ri_apb, name="A+B")
@@ -244,14 +232,12 @@ class ssRIdRRPA(ssRIRRPA):
     def check_target_rot(self, target_rot):
         stack_spins = False
         if target_rot is None:
-            self.log.warning(
-                "Warning; generating full moment rather than local component. Will scale as O(N^5)."
-            )
+            self.log.warning("Warning; generating full moment rather than local component. Will scale as O(N^5).")
             target_rot = np.eye(self.ov)
         elif target_rot.shape[1] == self.ov_tot:
             # Provided rotation is in spinorbital space. We want to convert to spatial, but record that we've done this
             # so we can convert back later.
-            target_rot = np.concatenate([target_rot[:, :self.ov], target_rot[:, self.ov:]], axis=0)
+            target_rot = np.concatenate([target_rot[:, : self.ov], target_rot[:, self.ov :]], axis=0)
             stack_spins = True
         return target_rot, stack_spins
 

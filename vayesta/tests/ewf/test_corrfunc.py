@@ -8,9 +8,8 @@ from vayesta.tests.common import TestCase
 
 
 class Test_RCCSD(TestCase):
-
     system = testsystems.h2_dz
-    solver = 'CCSD'
+    solver = "CCSD"
 
     @classmethod
     def setUpClass(cls):
@@ -29,9 +28,12 @@ class Test_RCCSD(TestCase):
     @classmethod
     @cache
     def remb(cls, bno_threshold, run_kernel=True):
-        remb = vayesta.ewf.EWF(cls.rhf, solver=cls.solver,
-                               bath_options=dict(threshold=bno_threshold),
-                               solver_options=dict(solve_lambda=True))
+        remb = vayesta.ewf.EWF(
+            cls.rhf,
+            solver=cls.solver,
+            bath_options=dict(threshold=bno_threshold),
+            solver_options=dict(solve_lambda=True),
+        )
         if run_kernel:
             remb.kernel()
         return remb
@@ -39,9 +41,12 @@ class Test_RCCSD(TestCase):
     @classmethod
     @cache
     def uemb(cls, bno_threshold, run_kernel=True):
-        uemb = vayesta.ewf.EWF(cls.uhf, solver=cls.solver,
-                               bath_options=dict(threshold=bno_threshold),
-                               solver_options=dict(solve_lambda=True))
+        uemb = vayesta.ewf.EWF(
+            cls.uhf,
+            solver=cls.solver,
+            bath_options=dict(threshold=bno_threshold),
+            solver_options=dict(solve_lambda=True),
+        )
         if run_kernel:
             uemb.kernel()
         return uemb
@@ -49,11 +54,11 @@ class Test_RCCSD(TestCase):
     def test_mf(self):
         remb = self.remb(np.inf, run_kernel=False)
         uemb = self.uemb(np.inf, run_kernel=False)
-        ssz_r = remb.get_corrfunc_mf('Sz,Sz')
-        ssz_u = uemb.get_corrfunc_mf('Sz,Sz')
+        ssz_r = remb.get_corrfunc_mf("Sz,Sz")
+        ssz_u = uemb.get_corrfunc_mf("Sz,Sz")
         self.assertAllclose(ssz_r, ssz_u, atol=1e-6)
         # OLD
-        ssz_old_u = uemb.get_corrfunc_mf('Sz,Sz')
+        ssz_old_u = uemb.get_corrfunc_mf("Sz,Sz")
         self.assertAllclose(ssz_old_u, ssz_u, atol=1e-6)
 
     def test_full_bath(self):
@@ -63,30 +68,30 @@ class Test_RCCSD(TestCase):
 
         dm1 = self.rcc.make_rdm1()
         dm2 = self.rcc.make_rdm2()
-        ssz = remb.get_corrfunc('Sz,Sz', dm1=dm1, dm2=dm2)
+        ssz = remb.get_corrfunc("Sz,Sz", dm1=dm1, dm2=dm2)
 
-        rssz = remb.get_corrfunc('Sz,Sz')
-        ussz = uemb.get_corrfunc('Sz,Sz')
+        rssz = remb.get_corrfunc("Sz,Sz")
+        ussz = uemb.get_corrfunc("Sz,Sz")
         self.assertAllclose(rssz, ssz, atol=1e-6)
         self.assertAllclose(ussz, ssz, atol=1e-6)
 
         # NEW
-        corr_r = remb.get_corrfunc('Sz,Sz')
-        corr_u = uemb.get_corrfunc('Sz,Sz')
+        corr_r = remb.get_corrfunc("Sz,Sz")
+        corr_u = uemb.get_corrfunc("Sz,Sz")
         self.assertAllclose(corr_r, ssz, atol=1e-6)
         self.assertAllclose(corr_u, ssz, atol=1e-6)
 
         # Full 2DMs
         rdm2 = remb.make_rdm2()
         udm2 = uemb.make_rdm2()
-        rssz = remb.get_corrfunc('Sz,Sz', dm2=rdm2)
-        ussz = uemb.get_corrfunc('Sz,Sz', dm2=udm2)
+        rssz = remb.get_corrfunc("Sz,Sz", dm2=rdm2)
+        ussz = uemb.get_corrfunc("Sz,Sz", dm2=udm2)
         self.assertAllclose(rssz, ssz, atol=1e-6)
         self.assertAllclose(ussz, ssz, atol=1e-6)
 
         # NEW
-        corr_r = remb.get_corrfunc('Sz,Sz', dm2=rdm2)
-        corr_u = uemb.get_corrfunc('Sz,Sz', dm2=udm2)
+        corr_r = remb.get_corrfunc("Sz,Sz", dm2=rdm2)
+        corr_u = uemb.get_corrfunc("Sz,Sz", dm2=udm2)
         self.assertAllclose(corr_r, ssz, atol=1e-6)
         self.assertAllclose(corr_u, ssz, atol=1e-6)
 
@@ -95,35 +100,35 @@ class Test_RCCSD(TestCase):
         remb = self.remb(eta)
         uemb = self.uemb(eta)
 
-        ssz = rssz = remb.get_corrfunc('Sz,Sz')
-        ussz = uemb.get_corrfunc('Sz,Sz')
+        ssz = rssz = remb.get_corrfunc("Sz,Sz")
+        ussz = uemb.get_corrfunc("Sz,Sz")
         self.assertAllclose(rssz, ssz, atol=1e-6)
         self.assertAllclose(ussz, ssz, atol=1e-6)
 
         # NEW
-        corr_r = remb.get_corrfunc('Sz,Sz')
-        corr_u = uemb.get_corrfunc('Sz,Sz')
+        corr_r = remb.get_corrfunc("Sz,Sz")
+        corr_u = uemb.get_corrfunc("Sz,Sz")
         self.assertAllclose(corr_r, ssz, atol=1e-6)
         self.assertAllclose(corr_u, ssz, atol=1e-6)
 
         # Full 2DMs
         rdm2 = remb.make_rdm2()
         udm2 = uemb.make_rdm2()
-        rssz = remb.get_corrfunc('Sz,Sz', dm2=rdm2)
-        ussz = uemb.get_corrfunc('Sz,Sz', dm2=udm2)
+        rssz = remb.get_corrfunc("Sz,Sz", dm2=rdm2)
+        ussz = uemb.get_corrfunc("Sz,Sz", dm2=udm2)
         self.assertAllclose(rssz, ssz, atol=1e-6)
         self.assertAllclose(ussz, ssz, atol=1e-6)
 
         # NEW
-        corr_r = remb.get_corrfunc('Sz,Sz', dm2=rdm2)
-        corr_u = uemb.get_corrfunc('Sz,Sz', dm2=udm2)
+        corr_r = remb.get_corrfunc("Sz,Sz", dm2=rdm2)
+        corr_u = uemb.get_corrfunc("Sz,Sz", dm2=udm2)
         self.assertAllclose(corr_r, ssz, atol=1e-6)
         self.assertAllclose(corr_u, ssz, atol=1e-6)
 
-class Test_RMP2(Test_RCCSD):
 
+class Test_RMP2(Test_RCCSD):
     system = testsystems.h2_dz
-    solver = 'MP2'
+    solver = "MP2"
 
     @classmethod
     def setUpClass(cls):
@@ -134,9 +139,8 @@ class Test_RMP2(Test_RCCSD):
 
 
 class Test_UCCSD(TestCase):
-
     system = testsystems.water_cation_631g
-    solver = 'CCSD'
+    solver = "CCSD"
 
     @classmethod
     def setUpClass(cls):
@@ -151,9 +155,12 @@ class Test_UCCSD(TestCase):
     @classmethod
     @cache
     def uemb(cls, bno_threshold):
-        uemb = vayesta.ewf.EWF(cls.uhf, solver=cls.solver,
-                               bath_options=dict(threshold=bno_threshold),
-                               solver_options=dict(solve_lambda=True))
+        uemb = vayesta.ewf.EWF(
+            cls.uhf,
+            solver=cls.solver,
+            bath_options=dict(threshold=bno_threshold),
+            solver_options=dict(solve_lambda=True),
+        )
         uemb.kernel()
         return uemb
 
@@ -164,27 +171,26 @@ class Test_UCCSD(TestCase):
         dm1 = self.ucc.make_rdm1()
         dm2 = self.ucc.make_rdm2()
         # Deprecated: get_corrfunc:
-        ssz = uemb.get_corrfunc('Sz,Sz', dm1=dm1, dm2=dm2, projection=projection)
+        ssz = uemb.get_corrfunc("Sz,Sz", dm1=dm1, dm2=dm2, projection=projection)
         udm2 = uemb.make_rdm2()
-        ssz_2 = uemb.get_corrfunc('Sz,Sz', dm2=udm2, dm2_with_dm1=True, projection=projection)
+        ssz_2 = uemb.get_corrfunc("Sz,Sz", dm2=udm2, dm2_with_dm1=True, projection=projection)
         self.assertAllclose(ssz_2, ssz, atol=1e-6)
 
         # Replacement: get_corrfunc('Sz,Sz', ...)
-        ssz_3 = uemb.get_corrfunc('Sz,Sz', dm2=udm2, dm2_with_dm1=True, projection=projection)
+        ssz_3 = uemb.get_corrfunc("Sz,Sz", dm2=udm2, dm2_with_dm1=True, projection=projection)
         self.assertAllclose(ssz_3, ssz, atol=1e-6)
-        ssz_4 = uemb.get_corrfunc('Sz,Sz', projection=projection)
+        ssz_4 = uemb.get_corrfunc("Sz,Sz", projection=projection)
         self.assertAllclose(ssz_4, ssz, atol=1e-6)
 
     def test_full_bath_sao(self):
-        self._test_full_bath('sao')
+        self._test_full_bath("sao")
 
     def test_full_bath_iaopao(self):
-        self._test_full_bath('iaopao')
+        self._test_full_bath("iaopao")
 
 
 class Test_UMP2(Test_UCCSD):
-
-    solver = 'MP2'
+    solver = "MP2"
 
     @classmethod
     def setUpClass(cls):
@@ -192,6 +198,6 @@ class Test_UMP2(Test_UCCSD):
         cls.ucc = cls.system.ump2()
 
 
-if __name__ == '__main__':
-    print('Running %s' % __file__)
+if __name__ == "__main__":
+    print("Running %s" % __file__)
     unittest.main()

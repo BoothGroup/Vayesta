@@ -9,7 +9,6 @@ from vayesta.tests import testsystems
 
 
 class TestRSpin(TestCase):
-
     system = testsystems.water_631g
 
     @classmethod
@@ -18,7 +17,7 @@ class TestRSpin(TestCase):
         nmo = cls.mf.mo_coeff.shape[-1]
         cls.nocc = np.count_nonzero(cls.mf.mo_occ > 0)
         cls.fock = np.diag(cls.mf.mo_energy)
-        cls.eris = pyscf.ao2mo.kernel(cls.mf.mol, cls.mf.mo_coeff, compact=False).reshape(4*[nmo])
+        cls.eris = pyscf.ao2mo.kernel(cls.mf.mol, cls.mf.mo_coeff, compact=False).reshape(4 * [nmo])
 
     @classmethod
     def tearDownClass(cls):
@@ -32,19 +31,20 @@ class TestRSpin(TestCase):
 
 
 class TestUSpin(TestRSpin):
-
     system = testsystems.water_cation_631g
 
     @classmethod
     def setUpClass(cls):
         cls.mf = cls.system.uhf()
-        cls.nocc = (np.count_nonzero(cls.mf.mo_occ[0]>0), np.count_nonzero(cls.mf.mo_occ[1]>0))
+        cls.nocc = (np.count_nonzero(cls.mf.mo_occ[0] > 0), np.count_nonzero(cls.mf.mo_occ[1] > 0))
         cls.fock = (np.diag(cls.mf.mo_energy[0]), np.diag(cls.mf.mo_energy[1]))
         nmoa = cls.mf.mo_coeff[0].shape[-1]
         nmob = cls.mf.mo_coeff[1].shape[-1]
-        eris_aa = pyscf.ao2mo.kernel(cls.mf.mol, cls.mf.mo_coeff[0], compact=False).reshape(4*[nmoa])
-        eris_bb = pyscf.ao2mo.kernel(cls.mf.mol, cls.mf.mo_coeff[1], compact=False).reshape(4*[nmob])
-        eris_ab = pyscf.ao2mo.kernel(cls.mf.mol, 2*[cls.mf.mo_coeff[0]] + 2*[cls.mf.mo_coeff[1]], compact=False).reshape(2*[nmoa]+2*[nmob])
+        eris_aa = pyscf.ao2mo.kernel(cls.mf.mol, cls.mf.mo_coeff[0], compact=False).reshape(4 * [nmoa])
+        eris_bb = pyscf.ao2mo.kernel(cls.mf.mol, cls.mf.mo_coeff[1], compact=False).reshape(4 * [nmob])
+        eris_ab = pyscf.ao2mo.kernel(
+            cls.mf.mol, 2 * [cls.mf.mo_coeff[0]] + 2 * [cls.mf.mo_coeff[1]], compact=False
+        ).reshape(2 * [nmoa] + 2 * [nmob])
         cls.eris = (eris_aa, eris_ab, eris_bb)
 
     def test_make_ccsd_eris(self):
@@ -54,6 +54,6 @@ class TestUSpin(TestRSpin):
         self.assertAllclose(eris, self.eris, atol=1e-13, rtol=0)
 
 
-if __name__ == '__main__':
-    print('Running %s' % __file__)
+if __name__ == "__main__":
+    print("Running %s" % __file__)
     unittest.main()

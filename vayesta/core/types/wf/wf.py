@@ -11,7 +11,6 @@ from vayesta.core.types.orbitals import SpatialOrbitals, SpinOrbitals
 
 
 class WaveFunction:
-
     def __init__(self, mo, projector=None):
         self.mo = mo
         self.projector = projector
@@ -76,11 +75,12 @@ class WaveFunction:
         # HF
         # TODO
         def eris_init(obj, mod):
-            if 'eris' in kwargs:
-                return kwargs['eris']
+            if "eris" in kwargs:
+                return kwargs["eris"]
             eris = importlib.import_module(mod.__name__)._ChemistsERIs()
             eris._common_init_(obj)
             return eris
+
         # MP2
         if isinstance(obj, pyscf.mp.ump2.UMP2):
             eris = eris_init(obj, pyscf.mp.ump2)
@@ -112,13 +112,13 @@ class WaveFunction:
             return wf.RCISD_WaveFunction(mo, c0, c1, c2)
         # FCI
         if isinstance(obj, pyscf.fci.direct_uhf.FCISolver):
-            mo = kwargs['mo']
+            mo = kwargs["mo"]
             return wf.UFCI_WaveFunction(mo, obj.ci)
         if isinstance(obj, pyscf.fci.direct_spin1.FCISolver):
-            mo = kwargs['mo']
+            mo = kwargs["mo"]
             if isinstance(mo, np.ndarray):
                 nelec = sum(obj.nelec)
-                assert (nelec % 2 == 0)
+                assert nelec % 2 == 0
                 nocc = nelec // 2
                 mo = SpatialOrbitals(mo, occ=nocc)
             return wf.RFCI_WaveFunction(mo, obj.ci)

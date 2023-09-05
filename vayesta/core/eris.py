@@ -9,48 +9,107 @@ import pyscf.lib
 
 
 def get_cderi(emb, mo_coeff, compact=False, blksize=None):
-    """Get density-fitted three-center integrals in MO basis."""
     if compact:
         raise NotImplementedError()
     if emb.kdf is not None:
         return kao2gmo_cderi(emb.kdf, mo_coeff)
+    else:
+        return get_cderi_df(emb.mf, mo_coeff, compact=compact, blksize=blksize)
+
+
+def get_cderi_df(mf, mo_coeff, compact=False, blksize=None):
+    """Get density-fitted three-center integrals in MO basis."""
+    if compact:
+        raise NotImplementedError()
 
     if np.ndim(mo_coeff[0]) == 1:
         mo_coeff = (mo_coeff, mo_coeff)
 
-    nao = emb.mol.nao
+    nao = mf.mol.nao
+    df = mf.with_df
     try:
-        naux = (emb.df.auxcell.nao if hasattr(emb.df, 'auxcell') else emb.df.auxmol.nao)
+        naux = df.auxcell.nao if hasattr(df, "auxcell") else df.auxmol.nao
     except AttributeError:
-        naux = emb.df.get_naoaux()
+        naux = df.get_naoaux()
 
     cderi = np.zeros((naux, mo_coeff[0].shape[-1], mo_coeff[1].shape[-1]))
     cderi_neg = None
     if blksize is None:
         blksize = int(1e9 / naux * nao * nao * 8)
     # PBC:
-    if hasattr(emb.df, 'sr_loop'):
+    if hasattr(df, "sr_loop"):
         blk0 = 0
-        for labr, labi, sign in emb.df.sr_loop(compact=False, blksize=blksize):
+        for labr, labi, sign in df.sr_loop(compact=False, blksize=blksize):
             assert np.allclose(labi, 0)
-            assert (cderi_neg is None)  # There should be only one block with sign -1
+            assert cderi_neg is None  # There should be only one block with sign -1
             labr = labr.reshape(-1, nao, nao)
-            if (sign == 1):
-                blk1 = (blk0 + labr.shape[0])
+            if sign == 1:
+                blk1 = blk0 + labr.shape[0]
                 blk = np.s_[blk0:blk1]
                 blk0 = blk1
-                cderi[blk] = einsum('Lab,ai,bj->Lij', labr, mo_coeff[0], mo_coeff[1])
-            elif (sign == -1):
-                cderi_neg = einsum('Lab,ai,bj->Lij', labr, mo_coeff[0], mo_coeff[1])
+                cderi[blk] = einsum("Lab,ai,bj->Lij", labr, mo_coeff[0], mo_coeff[1])
+            elif sign == -1:
+                cderi_neg = einsum("Lab,ai,bj->Lij", labr, mo_coeff[0], mo_coeff[1])
         return cderi, cderi_neg
     # No PBC:
     blk0 = 0
-    for lab in emb.df.loop(blksize=blksize):
-        blk1 = (blk0 + lab.shape[0])
+    for lab in df.loop(blksize=blksize):
+        blk1 = blk0 + lab.shape[0]
         blk = np.s_[blk0:blk1]
         blk0 = blk1
         lab = pyscf.lib.unpack_tril(lab)
-        cderi[blk] = einsum('Lab,ai,bj->Lij', lab, mo_coeff[0], mo_coeff[1])
+        cderi[blk] = einsum("Lab,ai,bj->Lij", lab, mo_coeff[0], mo_coeff[1])
+    return cderi, None
+
+
+def get_cderi_exspace(emb, ex_coeff, compact=False, blksize=None):
+    if compact:
+        raise NotImplementedError()
+    if emb.kdf is not None:
+        raise NotImplementedError()
+    else:
+        return get_cderi_df_exspace(emb.mf, ex_coeff, compact=compact, blksize=blksize)
+
+
+def get_cderi_df_exspace(mf, ex_coeff, compact=False, blksize=None):
+    """Get density-fitted three-center integrals in MO basis."""
+    if compact:
+        raise NotImplementedError()
+
+    nao = mf.mol.nao
+    df = mf.with_df
+    try:
+        naux = df.auxcell.nao if hasattr(df, "auxcell") else df.auxmol.nao
+    except AttributeError:
+        naux = df.get_naoaux()
+
+    cderi = np.zeros((naux, ex_coeff.shape[0]))
+    cderi_neg = None
+    if blksize is None:
+        blksize = int(1e9 / naux * nao * nao * 8)
+    # PBC:
+    if hasattr(df, "sr_loop"):
+        blk0 = 0
+        for labr, labi, sign in df.sr_loop(compact=False, blksize=blksize):
+            assert np.allclose(labi, 0)
+            assert cderi_neg is None  # There should be only one block with sign -1
+            labr = labr.reshape(-1, nao, nao)
+            if sign == 1:
+                blk1 = blk0 + labr.shape[0]
+                blk = np.s_[blk0:blk1]
+                blk0 = blk1
+                cderi[blk] = einsum("Lab,nab->Ln", labr, ex_coeff)
+            elif sign == -1:
+                cderi_neg = einsum("Lab,nab->Ln", labr, ex_coeff)
+        return cderi, cderi_neg
+    # No PBC:
+    blk0 = 0
+    for lab in df.loop(blksize=blksize):
+        blk1 = blk0 + lab.shape[0]
+        blk = np.s_[blk0:blk1]
+        blk0 = blk1
+        lab = pyscf.lib.unpack_tril(lab)
+        cderi[blk] = einsum("Lab,nab->Ln", lab, ex_coeff)
     return cderi, None
 
 
@@ -79,12 +138,12 @@ def get_eris_array(emb, mo_coeff, compact=False):
             cderi2, cderi2_neg = cderi1, cderi1_neg
         else:
             cderi2, cderi2_neg = kao2gmo_cderi(emb.kdf, mo_coeff[2:])
-        eris = einsum('Lij,Lkl->ijkl', cderi1.conj(), cderi2)
+        eris = einsum("Lij,Lkl->ijkl", cderi1.conj(), cderi2)
         if cderi1_neg is not None:
-            eris -= einsum('Lij,Lkl->ijkl', cderi1_neg.conj(), cderi2_neg)
+            eris -= einsum("Lij,Lkl->ijkl", cderi1_neg.conj(), cderi2_neg)
         return eris
     # Molecules and Gamma-point PBC:
-    if hasattr(emb.mf, 'with_df') and emb.mf.with_df is not None:
+    if hasattr(emb.mf, "with_df") and emb.mf.with_df is not None:
         eris = emb.mf.with_df.ao2mo(mo_coeff, compact=compact)
     elif emb.mf._eri is not None:
         eris = pyscf.ao2mo.kernel(emb.mf._eri, mo_coeff, compact=compact)
@@ -125,7 +184,7 @@ def get_eris_object(emb, postscf, fock=None):
             raise ValueError("Unknown post-SCF method: %r", type(postscf))
     # For MO energies, always use get_fock():
     mo_act = _mo_without_core(postscf, postscf.mo_coeff)
-    mo_energy = einsum('ai,ab,bi->i', mo_act, emb.get_fock(), mo_act)
+    mo_energy = einsum("ai,ab,bi->i", mo_act, emb.get_fock(), mo_act)
     e_hf = emb.mf.e_tot
 
     # Fold MOs into k-point sampled primitive cell, to perform efficient AO->MO transformation:

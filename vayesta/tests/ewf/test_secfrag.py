@@ -7,7 +7,6 @@ from vayesta.tests.common import TestCase
 
 
 class Test_Restricted(TestCase):
-
     @classmethod
     def setUpClass(cls):
         cls.mf = testsystems.water_631g.rhf()
@@ -22,7 +21,7 @@ class Test_Restricted(TestCase):
     def emb(cls, bno_threshold):
         emb = vayesta.ewf.EWF(cls.mf, bath_options=dict(threshold=bno_threshold, project_dmet_order=0))
         with emb.fragmentation() as f:
-            with f.secondary_fragments(solver='MP2', bno_threshold_factor=0.1):
+            with f.secondary_fragments(solver="MP2", bno_threshold_factor=0.1):
                 f.add_all_atomic_fragments()
         emb.kernel()
         return emb
@@ -52,7 +51,7 @@ class Test_RestrictedSym(Test_Restricted):
     def emb_nosym(cls, bno_threshold):
         emb = vayesta.ewf.EWF(cls.mf, bath_options=dict(threshold=bno_threshold, project_dmet_order=0))
         with emb.sao_fragmentation() as f:
-            with f.secondary_fragments(solver='MP2', bno_threshold_factor=0.1):
+            with f.secondary_fragments(solver="MP2", bno_threshold_factor=0.1):
                 f.add_all_atomic_fragments()
         emb.kernel()
         return emb
@@ -62,8 +61,8 @@ class Test_RestrictedSym(Test_Restricted):
     def emb_rotsym(cls, bno_threshold):
         emb = vayesta.ewf.EWF(cls.mf, bath_options=dict(threshold=bno_threshold, project_dmet_order=0))
         with emb.sao_fragmentation() as f:
-            with f.rotational_symmetry(order=6, axis='z'):
-                with f.secondary_fragments(solver='MP2', bno_threshold_factor=0.1):
+            with f.rotational_symmetry(order=6, axis="z"):
+                with f.secondary_fragments(solver="MP2", bno_threshold_factor=0.1):
                     f.add_atomic_fragment(0)
         emb.kernel()
         return emb
@@ -74,8 +73,8 @@ class Test_RestrictedSym(Test_Restricted):
         emb = vayesta.ewf.EWF(cls.mf, bath_options=dict(threshold=bno_threshold, project_dmet_order=0))
         with emb.sao_fragmentation() as f:
             with f.inversion_symmetry():
-                with f.rotational_symmetry(order=3, axis='z'):
-                    with f.secondary_fragments(solver='MP2', bno_threshold_factor=0.1):
+                with f.rotational_symmetry(order=3, axis="z"):
+                    with f.secondary_fragments(solver="MP2", bno_threshold_factor=0.1):
                         f.add_atomic_fragment(0)
         emb.kernel()
         return emb
@@ -85,8 +84,8 @@ class Test_RestrictedSym(Test_Restricted):
     def emb_mirrorsym(cls, bno_threshold):
         emb = vayesta.ewf.EWF(cls.mf, bath_options=dict(threshold=bno_threshold, project_dmet_order=0))
         with emb.sao_fragmentation() as f:
-            with f.mirror_symmetry(axis='x'):
-                with f.secondary_fragments(solver='MP2', bno_threshold_factor=0.1):
+            with f.mirror_symmetry(axis="x"):
+                with f.secondary_fragments(solver="MP2", bno_threshold_factor=0.1):
                     f.add_atomic_fragment(0)
                     f.add_atomic_fragment(1)
                     f.add_atomic_fragment(5)
@@ -116,7 +115,6 @@ class Test_RestrictedSym(Test_Restricted):
 
 
 class Test_Unrestricted(Test_Restricted):
-
     @classmethod
     def setUpClass(cls):
         cls.mf = testsystems.water_cation_631g.uhf()
@@ -134,6 +132,6 @@ class Test_Unrestricted(Test_Restricted):
         self.assertAllclose(emb.e_tot, -75.6830484961464)
 
 
-if __name__ == '__main__':
-    print('Running %s' % __file__)
+if __name__ == "__main__":
+    print("Running %s" % __file__)
     unittest.main()
