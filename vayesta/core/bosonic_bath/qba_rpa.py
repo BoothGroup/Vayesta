@@ -1,10 +1,26 @@
 from vayesta.core.bath.bath import Bath
-from vayesta.core.bosonic_bath.bbath import Bosonic_Bath
+from vayesta.core.bosonic_bath.bbath import RBosonic_Bath, UBosonicBath
 from vayesta.core.util import dot, einsum
 import numpy as np
 
 
-class RPA_Boson_Target_Space(Bath):
+def RPA_Boson_Target_Space(fragment, *args, **kwargs):
+    if fragment.base.spinsym == "restricted":
+        return RRPA_Boson_Target_Space(fragment, *args, **kwargs)
+    if fragment.base.spinsym == "unrestricted":
+        return URPA_Boson_Target_Space(fragment, *args, **kwargs)
+    raise ValueError("Cannot construct target space if system is neither restricted or unrestricted.")
+
+
+def RPA_QBA_Bath(fragment, *args, **kwargs):
+    if fragment.base.spinsym == "restricted":
+        return RRPA_QBA_Bath(fragment, *args, **kwargs)
+    if fragment.base.spinsym == "unrestricted":
+        return URPA_QBA_Bath(fragment, *args, **kwargs)
+    raise ValueError("Cannot construct target space if system is neither restricted or unrestricted.")
+
+
+class RRPA_Boson_Target_Space(Bath):
     """Class to obtain the target excitation space from which we'll construct our bosonic bath.
     This can either start from either the DMET or fully extended cluster, and can be optionally projected onto
     excitations local to the fragment in either just the occupied space or both the occupied and virtual spaces.
@@ -14,8 +30,6 @@ class RPA_Boson_Target_Space(Bath):
         self.target_orbitals = target_orbitals
         self.local_projection = local_projection
         super().__init__(fragment)
-        if not self.spin_restricted:
-            raise NotImplementedError("Spin-unrestricted RPA bosonic bath not yet implemented.")
 
     @property
     def mo_coeff_occ(self):
@@ -85,7 +99,33 @@ class RPA_Boson_Target_Space(Bath):
         raise ValueError("Unknown target orbital requested.")
 
 
-class RPA_QBA_Bath(Bosonic_Bath):
+class URPA_Boson_Target_Space(RRPA_Boson_Target_Space):
+    def get_c_target(self):
+        if self.target_orbitals == "full":
+            return dot(self.mo_coeff_occ.T, self.ovlp, self.fragment.cluster.c_active_occ), dot(
+                self.mo_coeff_vir.T, self.ovlp, self.fragment.cluster.c_active_vir
+            )
+        elif self.target_orbitals == "dmet":
+            return dot(self.mo_coeff_occ.T, self.ovlp, self.fragment._dmet_bath.c_cluster_occ), dot(
+                self.mo_coeff_vir.T, self.ovlp, self.fragment._dmet_bath.c_cluster_vir
+            )
+        else:
+            raise ValueError("Unknown target orbital requested.")
+
+    def get_c_loc(self):
+        if self.local_projection is None:
+            return None, None
+        if "fragment" in self.local_projection:
+            if len(self.local_projection) == 8 or self.local_projection[-3:] == "occ":
+                return dot(self.mo_coeff_occ.T, self.ovlp, self.fragment.c_frag), None
+            elif self.local_projection[-2:] == "ov":
+                return dot(self.mo_coeff_occ.T, self.ovlp, self.fragment.c_frag), dot(
+                    self.mo_coeff_vir.T, self.ovlp, self.fragment.c_frag
+                )
+        raise ValueError("Unknown fragment projection requested.")
+
+
+class RRPA_QBA_Bath(RBosonic_Bath):
     def __init__(self, fragment, target_m0):
         self.target_m0 = target_m0
         super().__init__(fragment)
@@ -109,3 +149,7 @@ class RPA_QBA_Bath(Bosonic_Bath):
         self.occup = occup
 
         return coeff, occup
+
+
+class URPA_QBA_Bath(RRPA_QBA_Bath, UBosonicBath):
+    pass

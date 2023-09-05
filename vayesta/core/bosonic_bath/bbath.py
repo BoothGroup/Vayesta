@@ -12,7 +12,7 @@ class Boson_Threshold(BNO_Threshold):
         super().__init__(type, threshold)
 
 
-class Bosonic_Bath(Bath):
+class RBosonic_Bath(Bath):
     def __init__(self, fragment):
         super().__init__(fragment)
         self.coeff, self.occup = self.kernel()
@@ -84,3 +84,16 @@ class Bosonic_Bath(Bath):
         bins = np.hstack([-np.inf, np.logspace(-3, -10, 8)[::-1], np.inf])
         labels = "    " + "".join("{:{w}}".format("E-%d" % d, w=5) for d in range(3, 11))
         self.log.info(helper.make_histogram(n_bos, bins=bins, labels=labels))
+
+
+class UBosonicBath(RBosonic_Bath):
+    def __init__(self, fragment):
+        super().__init__(fragment)
+
+    @property
+    def cluster_excitations(self):
+        coa, cob = self.fragment.get_overlap("cluster[occ]|mo[occ]")
+        cva, cvb = self.fragment.get_overlap("cluster[vir]|mo[vir]")
+        ova_ss = einsum("Ii,Aa->IAia", coa, cva).reshape(-1, coa.shape[1] * cva.shape[1]) / np.sqrt(2)
+        ovb_ss = einsum("Ii,Aa->IAia", cob, cvb).reshape(-1, cob.shape[1] * cvb.shape[1]) / np.sqrt(2)
+        return np.hstack((ova_ss, ovb_ss))
