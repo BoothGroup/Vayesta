@@ -83,8 +83,10 @@ class RRPA_Boson_Target_Space(Bath):
         if c_occ[0].ndim == 1:
             c_occ = (c_occ, c_occ)
             c_vir = (c_vir, c_vir)
-            c_loc_occ = (c_loc_occ, c_loc_occ)
-            c_loc_vir = (c_loc_vir, c_loc_vir)
+            if c_loc_occ is not None:
+                c_loc_occ = (c_loc_occ, c_loc_occ)
+            if c_loc_vir is not None:
+                c_loc_vir = (c_loc_vir, c_loc_vir)
 
         if c_loc_occ is not None:
             s_occ = [dot(x.T, y) for x, y in zip(c_loc_occ, c_occ)]
