@@ -80,15 +80,21 @@ class RRPA_Boson_Target_Space(Bath):
         c_occ, c_vir = self.get_c_target()
         c_loc_occ, c_loc_vir = self.get_c_loc()
 
-        if c_loc_occ is not None:
-            s_occ = dot(c_loc_occ.T, c_occ)
-            c_occ = dot(c_occ, s_occ.T, s_occ)
-        if c_loc_vir is not None:
-            s_vir = dot(c_loc_vir.T, c_vir)
-            c_vir = dot(c_vir, s_vir.T, s_vir)
+        if c_occ[0].ndim == 1:
+            c_occ = (c_occ, c_occ)
+            c_vir = (c_vir, c_vir)
+            c_loc_occ = (c_loc_occ, c_loc_occ)
+            c_loc_vir = (c_loc_vir, c_loc_vir)
 
-        tar_ss = einsum("iI,aA->IAia", c_occ, c_vir).reshape(-1, c_occ.shape[0] * c_vir.shape[0])
-        return np.hstack((tar_ss, tar_ss))
+        if c_loc_occ is not None:
+            s_occ = [dot(x.T, y) for x, y in zip(c_loc_occ, c_occ)]
+            c_occ = [dot(x, y.T, y) for x, y in zip(c_occ, s_occ)]
+        if c_loc_vir is not None:
+            s_vir = [dot(x.T, y) for x, y in zip(c_loc_vir, c_vir)]
+            c_vir = [dot(x, y.T, y) for x, y in zip(c_vir, s_vir)]
+
+        tar_ss = [einsum("iI,aA->IAia", x, y).reshape(-1, x.shape[0] * y.shape[0]) for x, y in zip(c_occ, c_vir)]
+        return np.hstack(tar_ss)
 
     def _get_target_orbitals(self):
         if self.target_orbitals == "full":
@@ -102,13 +108,13 @@ class RRPA_Boson_Target_Space(Bath):
 class URPA_Boson_Target_Space(RRPA_Boson_Target_Space):
     def get_c_target(self):
         if self.target_orbitals == "full":
-            return dot(self.mo_coeff_occ.T, self.ovlp, self.fragment.cluster.c_active_occ), dot(
-                self.mo_coeff_vir.T, self.ovlp, self.fragment.cluster.c_active_vir
-            )
+            return [dot(x.T, self.ovlp, y) for x, y in zip(self.mo_coeff_occ, self.fragment.cluster.c_active_occ)], [
+                dot(x.T, self.ovlp, y) for x, y in zip(self.mo_coeff_vir, self.fragment.cluster.c_active_vir)
+            ]
         elif self.target_orbitals == "dmet":
-            return dot(self.mo_coeff_occ.T, self.ovlp, self.fragment._dmet_bath.c_cluster_occ), dot(
-                self.mo_coeff_vir.T, self.ovlp, self.fragment._dmet_bath.c_cluster_vir
-            )
+            return [
+                dot(x.T, self.ovlp, y) for x, y in zip(self.mo_coeff_occ, self.fragment._dmet_bath.c_cluster_occ)
+            ], [dot(x.T, self.ovlp, y) for x, y in zip(self.mo_coeff_vir, self.fragment._dmet_bath.c_cluster_vir)]
         else:
             raise ValueError("Unknown target orbital requested.")
 
@@ -116,12 +122,12 @@ class URPA_Boson_Target_Space(RRPA_Boson_Target_Space):
         if self.local_projection is None:
             return None, None
         if "fragment" in self.local_projection:
-            if len(self.local_projection) == 8 or self.local_projection[-3:] == "occ":
-                return dot(self.mo_coeff_occ.T, self.ovlp, self.fragment.c_frag), None
+            if self.local_projection in ["fragment", "fragment_occ"]:
+                return [dot(x.T, self.ovlp, y) for x, y in zip(self.mo_coeff_occ, self.fragment.c_frag)], None
             elif self.local_projection[-2:] == "ov":
-                return dot(self.mo_coeff_occ.T, self.ovlp, self.fragment.c_frag), dot(
-                    self.mo_coeff_vir.T, self.ovlp, self.fragment.c_frag
-                )
+                return [dot(x.T, self.ovlp, y) for x, y in zip(self.mo_coeff_occ, self.fragment.c_frag)], [
+                    dot(x.T, self.ovlp, y) for x, y in zip(self.mo_coeff_vir, self.fragment.c_frag)
+                ]
         raise ValueError("Unknown fragment projection requested.")
 
 
