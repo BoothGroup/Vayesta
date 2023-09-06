@@ -199,8 +199,9 @@ class BosonicHamiltonianProjector:
         if cderi_clus_neg[0] is not None:
             if cderi_bos_neg is None:
                 raise ValueError("Only have negative cderi contribution via one channel; something's gone wrong.")
-            # couplings = tuple([orig - einsum("Ln,Lpq->npq", cderi_bos, x) for orig, x in zip(couplings, cderi_clus_neg)])
-            raise NotImplementedError("CDERI_neg contributions to bosons not yet supported")
+            couplings = tuple(
+                [orig - einsum("Ln,Lpq->npq", cderi_bos, x) for orig, x in zip(couplings_coulomb, cderi_clus_neg)]
+            )
 
         # Now compute fock contributions.
         def _gen_fock_spinchannel_contrib(rbos, pocc, pvir, c_active, fock):
