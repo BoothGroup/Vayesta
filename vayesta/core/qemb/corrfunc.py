@@ -52,6 +52,7 @@ def get_corrfunc(
     dm2_with_dm1=None,
     use_symmetry=True,
     orbital_filter=None,
+    slow_rdms=False,
 ):
     """Get expectation values <P(A) S_z P(B) S_z>, where P(X) are projectors onto atoms X.
 
@@ -85,6 +86,8 @@ def get_corrfunc(
     }[kind]
     if dm2_with_dm1 is None:
         dm2_with_dm1 = False
+        if dm2 is None and slow_rdms:
+            dm2 = emb._make_rdm2_ccsd_global_wf(with_dm1=False, slow=slow_rdms)
         if dm2 is not None:
             # Determine if DM2 contains DM1 by calculating norm
             norm = einsum("iikk->", dm2)
@@ -96,7 +99,7 @@ def get_corrfunc(
     # 1-DM contribution:
     with log_time(emb.log.timing, "Time for 1-DM contribution: %s"):
         if dm1 is None:
-            dm1 = emb.make_rdm1()
+            dm1 = emb.make_rdm1(slow=slow_rdms)
         for a, atom1 in enumerate(atoms1):
             tmp = np.dot(proj[atom1], dm1)
             for b, atom2 in enumerate(atoms2):
