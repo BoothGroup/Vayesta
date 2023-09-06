@@ -399,28 +399,28 @@ class UCCSD_WaveFunction(RCCSD_WaveFunction):
         return wf
 
     def pack(self, dtype=float):
-       """Pack into a single array of data type `dtype`.
-       Useful for communication via MPI."""
-       mo = self.mo.pack(dtype=dtype)
-       l1 = self.l1 if self.l1 is not None else [None, None]
-       l2 = self.l2 if self.l2 is not None else len(self.t2)*[None]
-       projector=self.projector
-       data = (mo, *self.t1, *self.t2, *l1, *l2, *projector)
-       pack = pack_arrays(*data, dtype=dtype)
-       return pack
+        """Pack into a single array of data type `dtype`.
+        Useful for communication via MPI."""
+        mo = self.mo.pack(dtype=dtype)
+        l1 = self.l1 if self.l1 is not None else [None, None]
+        l2 = self.l2 if self.l2 is not None else len(self.t2) * [None]
+        projector = self.projector
+        data = (mo, *self.t1, *self.t2, *l1, *l2, *projector)
+        pack = pack_arrays(*data, dtype=dtype)
+        return pack
 
     @classmethod
     def unpack(cls, packed):
-       """Unpack from a single array of data type `dtype`.
-       Useful for communication via MPI."""
-       mo, t1a, t1b, t2aa, t2ab, t2ba, t2bb, l1a, l1b, l2aa, l2ab, l2ba, l2bb, proja, projb = unpack_arrays(packed)
-       t1 = (t1a, t1b)
-       t2 = (t2aa, t2ab, t2ba, t2bb)
-       l1 = (l1a, l1b)
-       l2 = (l2aa, l2ab, l2ba, l2bb)
-       projector = (proja, projb)
-       mo = SpinOrbitals.unpack(mo)
-       wf = cls(mo, t1, t2, l1=l1, l2=l2)
-       if projector is not None:
-           wf.projector = projector
-       return wf
+        """Unpack from a single array of data type `dtype`.
+        Useful for communication via MPI."""
+        mo, t1a, t1b, t2aa, t2ab, t2ba, t2bb, l1a, l1b, l2aa, l2ab, l2ba, l2bb, proja, projb = unpack_arrays(packed)
+        t1 = (t1a, t1b)
+        t2 = (t2aa, t2ab, t2ba, t2bb)
+        l1 = (l1a, l1b)
+        l2 = (l2aa, l2ab, l2ba, l2bb)
+        projector = (proja, projb)
+        mo = SpinOrbitals.unpack(mo)
+        wf = cls(mo, t1, t2, l1=l1, l2=l2)
+        if projector is not None:
+            wf.projector = projector
+        return wf
