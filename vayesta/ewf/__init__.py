@@ -5,13 +5,14 @@ email:  max.nusspickel@gmail.com
 
 import pyscf
 import pyscf.scf
-import logging 
+import logging
 
-#from .ewf import EWF as REWF
+# from .ewf import EWF as REWF
 from vayesta.ewf.ewf import REWF
 from vayesta.ewf.uewf import UEWF
 
 log = logging.getLogger(__name__)
+
 
 def EWF(mf, *args, **kwargs):
     """Determine restricted or unrestricted by inspection of mean-field object"""

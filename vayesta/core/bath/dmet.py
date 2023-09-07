@@ -7,8 +7,8 @@ from vayesta.core.bath.bath import Bath
 
 DEFAULT_DMET_THRESHOLD = 1e-6
 
-class DMET_Bath_RHF(Bath):
 
+class DMET_Bath_RHF(Bath):
     def __init__(self, fragment, dmet_threshold=DEFAULT_DMET_THRESHOLD):
         super().__init__(fragment)
         self.dmet_threshold = dmet_threshold
@@ -24,7 +24,7 @@ class DMET_Bath_RHF(Bath):
 
     def get_cluster_electrons(self):
         """Number of cluster electrons."""
-        return 2*self.c_cluster_occ.shape[-1]
+        return 2 * self.c_cluster_occ.shape[-1]
 
     def get_occupied_bath(self, *args, **kwargs):
         """Inherited bath classes can overwrite this to return additional occupied bath orbitals."""
@@ -46,17 +46,28 @@ class DMET_Bath_RHF(Bath):
 
         # --- Separate occupied and virtual in cluster
         cluster = [self.c_frag, c_dmet]
-        self.base._check_orthonormal(*cluster, mo_name='cluster MO')
-        c_cluster_occ, c_cluster_vir = self.fragment.diagonalize_cluster_dm(*cluster, tol=2*self.dmet_threshold)
+        self.base._check_orthonormal(*cluster, mo_name="cluster MO")
+        tol = self.base.opts.bath_options["occupation_tolerance"]
+        c_cluster_occ, c_cluster_vir = self.fragment.diagonalize_cluster_dm(*cluster, tol=tol)
         # Canonicalize
         c_cluster_occ = self.fragment.canonicalize_mo(c_cluster_occ)[0]
         c_cluster_vir = self.fragment.canonicalize_mo(c_cluster_vir)[0]
         if self.base.is_rhf:
-            self.log.info("Cluster orbitals:  n(occ)= %3d  n(vir)= %3d", c_cluster_occ.shape[-1], c_cluster_vir.shape[-1])
+            self.log.info(
+                "Cluster orbitals:  n(occ)= %3d  n(vir)= %3d", c_cluster_occ.shape[-1], c_cluster_vir.shape[-1]
+            )
         else:
-            self.log.info("Alpha-cluster orbitals:  n(occ)= %3d  n(vir)= %3d", c_cluster_occ[0].shape[-1], c_cluster_vir[0].shape[-1])
-            self.log.info(" Beta-cluster orbitals:  n(occ)= %3d  n(vir)= %3d", c_cluster_occ[1].shape[-1], c_cluster_vir[1].shape[-1])
-        self.log.timing("Time for DMET bath:  %s", time_string(timer()-t0))
+            self.log.info(
+                "Alpha-cluster orbitals:  n(occ)= %3d  n(vir)= %3d",
+                c_cluster_occ[0].shape[-1],
+                c_cluster_vir[0].shape[-1],
+            )
+            self.log.info(
+                " Beta-cluster orbitals:  n(occ)= %3d  n(vir)= %3d",
+                c_cluster_occ[1].shape[-1],
+                c_cluster_vir[1].shape[-1],
+            )
+        self.log.timing("Time for DMET bath:  %s", time_string(timer() - t0))
         self.log.changeIndentLevel(-1)
 
         self.c_dmet = c_dmet
@@ -116,17 +127,18 @@ class DMET_Bath_RHF(Bath):
 
         # Divide by 2 to get eigenvalues in [0,1]
         sc = np.dot(self.base.get_ovlp(), c_env)
-        if dm1 is None: dm1 = self.mf.make_rdm1()
+        if dm1 is None:
+            dm1 = self.mf.make_rdm1()
         dm_env = dot(sc.T, dm1, sc) / 2
         try:
             eig, r = np.linalg.eigh(dm_env)
         except np.linalg.LinAlgError:
             eig, r = scipy.linalg.eigh(dm_env)
         # Sort: occ. env -> DMET bath -> vir. env
-        eig, r = eig[::-1], r[:,::-1]
-        if (eig.min() < -1e-8):
+        eig, r = eig[::-1], r[:, ::-1]
+        if eig.min() < -1e-8:
             self.log.error("Smallest eigenvalue of environment 1-DM below 0:  n= %.10e !", eig.min())
-        if ((eig.max()-1) > 1e-8):
+        if (eig.max() - 1) > 1e-8:
             self.log.error("Largest eigenvalue of environment 1-DM above 1:  n= %.10e !", eig.max())
         c_env = np.dot(c_env, r)
         c_env = fix_orbital_sign(c_env)[0]
@@ -135,26 +147,28 @@ class DMET_Bath_RHF(Bath):
             # FIXME
             raise NotImplementedError()
             # Work out tolerance which leads to nbath bath orbitals. This overwrites `tol`.
-            abseig = abs(eig[np.argsort(abs(eig-0.5))])
-            low, up = abseig[nbath-1], abseig[nbath]
+            abseig = abs(eig[np.argsort(abs(eig - 0.5))])
+            low, up = abseig[nbath - 1], abseig[nbath]
             if abs(low - up) < 1e-14:
-                raise RuntimeError("Degeneracy in env. DM does not allow for clear identification of %d bath orbitals!\nabs(eig)= %r"
-                        % (nbath, abseig[:nbath+5]))
-            tol = (low + up)/2
+                raise RuntimeError(
+                    "Degeneracy in env. DM does not allow for clear identification of %d bath orbitals!\nabs(eig)= %r"
+                    % (nbath, abseig[: nbath + 5])
+                )
+            tol = (low + up) / 2
             self.log.debugv("Tolerance for %3d bath orbitals= %.8g", nbath, tol)
 
-        mask_bath = np.logical_and(eig >= tol, eig <= 1-tol)
-        mask_occenv = (eig > 1-tol)
-        mask_virenv = (eig < tol)
+        mask_bath = np.logical_and(eig >= tol, eig <= 1 - tol)
+        mask_occenv = eig > 1 - tol
+        mask_virenv = eig < tol
         nbath = sum(mask_bath)
 
         noccenv = sum(mask_occenv)
         nvirenv = sum(mask_virenv)
         self.log.info("DMET bath:  n(Bath)= %4d  n(occ-Env)= %4d  n(vir-Env)= %4d", nbath, noccenv, nvirenv)
-        assert (nbath + noccenv + nvirenv == c_env.shape[-1])
-        c_bath = c_env[:,mask_bath].copy()
-        c_occenv = c_env[:,mask_occenv].copy()
-        c_virenv = c_env[:,mask_virenv].copy()
+        assert nbath + noccenv + nvirenv == c_env.shape[-1]
+        c_bath = c_env[:, mask_bath].copy()
+        c_occenv = c_env[:, mask_occenv].copy()
+        c_virenv = c_env[:, mask_virenv].copy()
 
         if verbose:
             self.log_info(eig, c_env)
@@ -179,9 +193,9 @@ class DMET_Bath_RHF(Bath):
         rb = dot(c_occ.T, ovlp, cb)
         d11 = np.dot(ra.T, ra)
         ea, ua = np.linalg.eigh(d11)
-        if (ea.min() < -1e-9):
+        if ea.min() < -1e-9:
             self.log.error("Min eigenvalue of frag. DM = %.6e !", ea.min())
-        if ((ea.max()-1) > 1e-9):
+        if (ea.max() - 1) > 1e-9:
             self.log.error("Max eigenvalue of frag. DM = %.6e !", ea.max())
         # Fragment singular values:
         ea = np.clip(ea, 0, 1)
@@ -189,38 +203,44 @@ class DMET_Bath_RHF(Bath):
         d21 = np.dot(rb.T, ra)
         ub = np.dot(d21, ua)
         sab = np.linalg.norm(ub, axis=0)
-        sb = sab/sa
-        mask_bath = (sb**2 >= self.dmet_threshold)
-        ub = ub[:,mask_bath]
+        sb = sab / sa
+        mask_bath = sb**2 >= self.dmet_threshold
+        ub = ub[:, mask_bath]
         # In AO basis
-        c_bath = np.dot(cb, ub/sab[mask_bath])
+        c_bath = np.dot(cb, ub / sab[mask_bath])
         return c_bath
 
     def log_info(self, eig, c_env, threshold=1e-10):
         tol = self.dmet_threshold
-        mask = np.logical_and(eig >= threshold, eig <= 1-threshold)
+        mask = np.logical_and(eig >= threshold, eig <= 1 - threshold)
         ovlp = self.base.get_ovlp()
-        maxocc = 2 if self.base.spinsym == 'restricted' else 1
+        maxocc = 2 if self.base.spinsym == "restricted" else 1
         if np.any(mask):
             self.log.info("Mean-field entangled orbitals:")
             self.log.info("      Bath  Occupation  Entanglement  Character")
-            self.log.info("      ----  ----------  ------------  ------------------------------------------------------")
+            self.log.info(
+                "      ----  ----------  ------------  ------------------------------------------------------"
+            )
             for idx, e in enumerate(eig[mask]):
-                bath = 'Yes' if (tol <= e <= 1-tol) else 'No'
-                entang = 4*e*(1-e)
+                bath = "Yes" if (tol <= e <= 1 - tol) else "No"
+                entang = 4 * e * (1 - e)
                 # Mulliken population of DMET orbital:
-                pop = einsum('a,b,ba->a', c_env[:,mask][:,idx], c_env[:,mask][:,idx], ovlp)
+                pop = einsum("a,b,ba->a", c_env[:, mask][:, idx], c_env[:, mask][:, idx], ovlp)
                 sort = np.argsort(-pop)
                 pop = pop[sort]
-                labels = np.asarray(self.mol.ao_labels(None))[sort][:min(len(pop), 4)]
-                char = ', '.join('%s %s%s (%.0f%%)' % (*(l[1:]), 100*pop[i]) for (i,l) in enumerate(labels))
-                self.log.info("  %2d  %4s  %10.3g  %12.3g  %s", idx+1, bath, e*maxocc, entang, char)
+                labels = np.asarray(self.mol.ao_labels(None))[sort][: min(len(pop), 4)]
+                char = ", ".join("%s %s%s (%.0f%%)" % (*(l[1:]), 100 * pop[i]) for (i, l) in enumerate(labels))
+                self.log.info("  %2d  %4s  %10.3g  %12.3g  %s", idx + 1, bath, e * maxocc, entang, char)
         # Calculate entanglement entropy
-        mask_bath = np.logical_and(eig >= tol, eig <= 1-tol)
-        entropy = np.sum(eig * (1-eig))
-        entropy_bath = np.sum(eig[mask_bath] * (1-eig[mask_bath]))
-        self.log.info("Entanglement entropy: total= %.3e  bath= %.3e (%.2f %%)",
-                entropy, entropy_bath, 100*entropy_bath/entropy)
+        mask_bath = np.logical_and(eig >= tol, eig <= 1 - tol)
+        entropy = np.sum(eig * (1 - eig))
+        entropy_bath = np.sum(eig[mask_bath] * (1 - eig[mask_bath]))
+        self.log.info(
+            "Entanglement entropy: total= %.3e  bath= %.3e (%.2f %%)",
+            entropy,
+            entropy_bath,
+            100 * entropy_bath / entropy,
+        )
 
     def use_ref_orbitals(self, c_bath, c_occenv, c_virenv, c_ref, reftol=0.8):
         """Not maintained!"""
@@ -254,9 +274,9 @@ class DMET_Bath_RHF(Bath):
             if np.any(mask_virenv):
                 self.log.debug("Largest remaining: %s", max(eig[mask_virenv]))
             # -- Update coefficient matrices
-            c_bath = np.hstack((c_bath, c_occenv[:,mask_occref], c_virenv[:,mask_virref]))
-            c_occenv = c_occenv[:,mask_occenv].copy()
-            c_virenv = c_virenv[:,mask_virenv].copy()
+            c_bath = np.hstack((c_bath, c_occenv[:, mask_occref], c_virenv[:, mask_virref]))
+            c_occenv = c_occenv[:, mask_occenv].copy()
+            c_virenv = c_virenv[:, mask_virenv].copy()
             nbath = c_bath.shape[-1]
             self.log.debug("New number of occupied environment orbitals: %d", c_occenv.shape[-1])
             self.log.debug("New number of virtual environment orbitals: %d", c_virenv.shape[-1])
@@ -272,10 +292,9 @@ class DMET_Bath_RHF(Bath):
 
 
 class DMET_Bath_UHF(DMET_Bath_RHF):
-
     def get_cluster_electrons(self):
         """Number of (alpha, beta) cluster electrons."""
-        return (self.c_cluster_occ[0].shape[-1] + self.c_cluster_occ[1].shape[-1])
+        return self.c_cluster_occ[0].shape[-1] + self.c_cluster_occ[1].shape[-1]
 
     def get_occupied_bath(self, *args, **kwargs):
         """Inherited bath classes can overwrite this to return additional occupied bath orbitals."""
@@ -288,10 +307,11 @@ class DMET_Bath_UHF(DMET_Bath_RHF):
         return np.zeros((2, nao, 0)), self.c_env_vir
 
     def make_dmet_bath(self, c_env, dm1=None, **kwargs):
-        if dm1 is None: dm1 = self.mf.make_rdm1()
+        if dm1 is None:
+            dm1 = self.mf.make_rdm1()
         results = []
-        for s, spin in enumerate(('alpha', 'beta')):
+        for s, spin in enumerate(("alpha", "beta")):
             self.log.info("Making %s-DMET bath", spin)
             # Use restricted DMET bath routine for each spin:
-            results.append(super().make_dmet_bath(c_env[s], dm1=2*dm1[s], **kwargs))
+            results.append(super().make_dmet_bath(c_env[s], dm1=2 * dm1[s], **kwargs))
         return tuple(zip(*results))

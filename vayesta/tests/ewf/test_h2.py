@@ -6,8 +6,8 @@ from vayesta.core.util import cache
 from vayesta.tests import testsystems
 from vayesta.tests.common import TestCase
 
-class Test_MP2(TestCase):
 
+class Test_MP2(TestCase):
     @classmethod
     def setUpClass(cls):
         cls.mf = testsystems.h2_dz.rhf()
@@ -22,7 +22,7 @@ class Test_MP2(TestCase):
     @classmethod
     @cache
     def emb(cls, bno_threshold):
-        emb = vayesta.ewf.EWF(cls.mf, bath_options=dict(threshold=bno_threshold), solver='MP2')
+        emb = vayesta.ewf.EWF(cls.mf, bath_options=dict(threshold=bno_threshold), solver="MP2")
         emb.kernel()
         return emb
 
@@ -53,8 +53,8 @@ class Test_MP2(TestCase):
         dm1 = emb.make_rdm1(late_t2_sym=False)
         self.assertAllclose(dm1, dm1_exact)
 
-class Test_CCSD(Test_MP2):
 
+class Test_CCSD(Test_MP2):
     @classmethod
     def setUpClass(cls):
         cls.mf = testsystems.h2_dz.rhf()
@@ -63,9 +63,8 @@ class Test_CCSD(Test_MP2):
     @classmethod
     @cache
     def emb(cls, bno_threshold):
-        solver_opts = dict(conv_tol= 1e-10, conv_tol_normt=1e-8, solve_lambda=True)
-        emb = vayesta.ewf.EWF(cls.mf, bath_options=dict(threshold=bno_threshold),
-                              solver_options=solver_opts)
+        solver_opts = dict(conv_tol=1e-10, conv_tol_normt=1e-8, solve_lambda=True)
+        emb = vayesta.ewf.EWF(cls.mf, bath_options=dict(threshold=bno_threshold), solver_options=solver_opts)
         emb.kernel()
         return emb
 
@@ -107,7 +106,6 @@ class Test_CCSD(Test_MP2):
 
 
 class Test_UMP2(Test_MP2):
-
     @classmethod
     def setUpClass(cls):
         cls.mf = testsystems.h2anion_dz.uhf()
@@ -121,7 +119,6 @@ class Test_UMP2(Test_MP2):
 
 
 class Test_UCCSD(Test_CCSD):
-
     @classmethod
     def setUpClass(cls):
         cls.mf = testsystems.h2anion_dz.uhf()
@@ -130,10 +127,11 @@ class Test_UCCSD(Test_CCSD):
     def test_global_dm2(self):
         pass
 
+
 # --- FCI
 
-class Test_FCI(TestCase):
 
+class Test_FCI(TestCase):
     @classmethod
     def setUpClass(cls):
         cls.mf = testsystems.h2_dz.rhf()
@@ -148,7 +146,7 @@ class Test_FCI(TestCase):
     @classmethod
     @cache
     def emb(cls, bno_threshold):
-        emb = vayesta.ewf.EWF(cls.mf, solver='FCI', bath_options=dict(threshold=bno_threshold))
+        emb = vayesta.ewf.EWF(cls.mf, solver="FCI", bath_options=dict(threshold=bno_threshold))
         emb.kernel()
         return emb
 
@@ -156,15 +154,15 @@ class Test_FCI(TestCase):
         emb = self.emb(-1)
         self.assertAllclose(emb.e_tot, self.fci.e_tot, rtol=0)
 
-class Test_UFCI(TestCase):
 
+class Test_UFCI(TestCase):
     @classmethod
     def setUpClass(cls):
         cls.mf = testsystems.h2anion_dz.uhf()
         cls.fci = testsystems.h2anion_dz.ufci()
 
-class Test_UFCI_dissoc(TestCase):
 
+class Test_UFCI_dissoc(TestCase):
     @classmethod
     def setUpClass(cls):
         # TODO ensure this tests works if density fitting is used.
@@ -180,7 +178,7 @@ class Test_UFCI_dissoc(TestCase):
     @classmethod
     @cache
     def emb(cls, bno_threshold):
-        emb = vayesta.ewf.EWF(cls.mf, bath_options=dict(bathtype="dmet"), solver='FCI')
+        emb = vayesta.ewf.EWF(cls.mf, bath_options=dict(bathtype="dmet"), solver="FCI")
         emb.kernel()
         return emb
 
@@ -189,6 +187,6 @@ class Test_UFCI_dissoc(TestCase):
         self.assertAllclose(emb.e_tot, self.fci.e_tot, rtol=0)
 
 
-if __name__ == '__main__':
-    print('Running %s' % __file__)
+if __name__ == "__main__":
+    print("Running %s" % __file__)
     unittest.main()

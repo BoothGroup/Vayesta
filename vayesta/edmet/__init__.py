@@ -12,6 +12,7 @@ from vayesta.edmet.uedmet import UEDMET
 
 log = logging.getLogger(__name__)
 
+
 def EDMET(mf, *args, **kwargs):
     """Determine restricted or unrestricted by inspection of mean-field object"""
     if isinstance(mf, pyscf.scf.uhf.UHF):

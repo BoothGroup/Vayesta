@@ -7,13 +7,12 @@ from vayesta.core.util import AbstractMethodError, SymmetryError, energy_string
 
 
 class SCMF:
-
     name = "SCMF"
 
     def __init__(self, emb, etol=1e-8, dtol=1e-6, maxiter=100, damping=0.0, diis=True):
         self.emb = emb
-        self.etol = (etol if etol is not None else np.inf)
-        self.dtol = (dtol if dtol is not None else np.inf)
+        self.etol = etol if etol is not None else np.inf
+        self.dtol = dtol if dtol is not None else np.inf
         self.maxiter = maxiter
         self.damping = damping
         self.diis = diis
@@ -24,7 +23,7 @@ class SCMF:
         self._mo_orig = self.mf.mo_coeff
         # Output
         self.converged = False
-        self.energies = []          # Total energy per iteration
+        self.energies = []  # Total energy per iteration
 
     @property
     def log(self):
@@ -57,32 +56,32 @@ class SCMF:
         raise AbstractMethodError()
 
     def check_convergence(self, e_tot, dm1, e_last=None, dm1_last=None, etol=None, dtol=None):
-        if etol is None: etol = self.etol
-        if dtol is None: dtol = self.dtol
+        if etol is None:
+            etol = self.etol
+        if dtol is None:
+            dtol = self.dtol
         if e_last is not None:
-            de = (e_tot - e_last)
+            de = e_tot - e_last
             # RHF:
             if self.emb.is_rhf:
-                ddm = abs(dm1-dm1_last).max() / 2
+                ddm = abs(dm1 - dm1_last).max() / 2
             else:
-            # UHF:
-                ddm = max(abs(dm1[0]-dm1_last[0]).max(),
-                          abs(dm1[1]-dm1_last[1]).max())
+                # UHF:
+                ddm = max(abs(dm1[0] - dm1_last[0]).max(), abs(dm1[1] - dm1_last[1]).max())
         else:
             de = ddm = np.inf
-        tighten = (1-self.damping)
-        if (abs(de) < tighten*etol) and (ddm < tighten*dtol):
+        tighten = 1 - self.damping
+        if (abs(de) < tighten * etol) and (ddm < tighten * dtol):
             return True, de, ddm
         return False, de, ddm
 
     def kernel(self, *args, **kwargs):
-        diis = (self.get_diis() if self.diis else None)
+        diis = self.get_diis() if self.diis else None
 
         e_last = dm1_last = None
-        for self.iteration in range(1, self.maxiter+1):
-
+        for self.iteration in range(1, self.maxiter + 1):
             self.log.info("%s iteration %3d", self.name, self.iteration)
-            self.log.info("%s==============", len(self.name)*"=")
+            self.log.info("%s==============", len(self.name) * "=")
 
             if self.iteration > 1:
                 self.emb.reset()
@@ -91,7 +90,7 @@ class SCMF:
             res = self.kernel_orig(*args, **kwargs)
             e_mf = self.mf.e_tot
             e_corr = self.emb.get_e_corr()
-            e_tot = (e_mf + e_corr)
+            e_tot = e_mf + e_corr
             self.energies.append(e_tot)
 
             # Update MF

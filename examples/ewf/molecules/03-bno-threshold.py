@@ -12,8 +12,8 @@ O  0.0000   0.0000   0.1173
 H  0.0000   0.7572  -0.4692
 H  0.0000  -0.7572  -0.4692
 """
-mol.basis = 'aug-cc-pVDZ'
-mol.output = 'pyscf.out'
+mol.basis = "aug-cc-pVDZ"
+mol.output = "pyscf.out"
 mol.build()
 
 # Hartree-Fock

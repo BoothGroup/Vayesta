@@ -14,6 +14,7 @@ class REBFCI:
         -FCI RDMs.
         -FCI response specification.
     """
+
     solver = ebfci_slow
 
     @dataclasses.dataclass
@@ -45,9 +46,18 @@ class REBFCI:
         h1e, eris = self.get_hamil(eris)
         couplings = self.hamil.couplings
         bos_freqs = self.hamil.bos_freqs
-        self.e_fci, self.civec = self.solver.kernel(h1e, eris, couplings, np.diag(bos_freqs), self.norb, self.nelec,
-                                                    self.nbos, max_occ=self.opts.max_boson_occ, tol=self.opts.conv_tol,
-                                                    max_cycle=self.opts.max_cycle)
+        self.e_fci, self.civec = self.solver.kernel(
+            h1e,
+            eris,
+            couplings,
+            np.diag(bos_freqs),
+            self.norb,
+            self.nelec,
+            self.nbos,
+            max_occ=self.opts.max_boson_occ,
+            tol=self.opts.conv_tol,
+            max_cycle=self.opts.max_cycle,
+        )
         return self.e_fci, self.civec
 
     def get_hamil(self, eris=None):
@@ -78,9 +88,20 @@ class REBFCI:
             dm1 = self.make_rdm1()
 
         self.dd_moms = self.solver.calc_dd_resp_mom(
-            civec, self.e_fci, max_mom, self.norb, self.nelec, self.nbos, h1e, eris,
-            np.diag(self.freqs), self.couplings, self.opts.max_boson_occ, dm1,
-            coeffs=coeffs)
+            civec,
+            self.e_fci,
+            max_mom,
+            self.norb,
+            self.nelec,
+            self.nbos,
+            h1e,
+            eris,
+            np.diag(self.freqs),
+            self.couplings,
+            self.opts.max_boson_occ,
+            dm1,
+            coeffs=coeffs,
+        )
         return self.dd_moms
 
 

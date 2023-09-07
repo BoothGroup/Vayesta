@@ -25,8 +25,8 @@ H14 -1.4188 -1.4188  1.4188
 H15  1.4188 -1.4188 -1.4188
 H16 -1.4188 -1.4188 -1.4188
 """
-mol.basis = 'cc-pVDZ'
-mol.output = 'pyscf.out'
+mol.basis = "cc-pVDZ"
+mol.output = "pyscf.out"
 mol.build()
 
 # Hartree-Fock
@@ -34,7 +34,7 @@ mf = pyscf.scf.RHF(mol)
 mf.kernel()
 
 # Embedded CCSD with rotational symmetry:
-emb_sym = vayesta.ewf.EWF(mf, solver='MP2', bath_options=dict(threshold=1e-4))
+emb_sym = vayesta.ewf.EWF(mf, solver="MP2", bath_options=dict(threshold=1e-4))
 
 # Do not call add_all_atomic_fragments, as it add the symmetry related atoms as fragments!
 with emb_sym.iao_fragmentation() as frag:
@@ -46,14 +46,14 @@ with emb_sym.iao_fragmentation() as frag:
     # Important when using multiple rotations:
     # Only use the minimal set of rotations which generate all atomic fragments,
     # i.e. do not add multiple 4th-order rotations here!
-    with frag.rotational_symmetry(order=4, axis=[0,0,1]):
-        with frag.rotational_symmetry(order=2, axis=[0,1,0]):
-            frag.add_atomic_fragment('C1')
-            frag.add_atomic_fragment('H9')
+    with frag.rotational_symmetry(order=4, axis=[0, 0, 1]):
+        with frag.rotational_symmetry(order=2, axis=[0, 1, 0]):
+            frag.add_atomic_fragment("C1")
+            frag.add_atomic_fragment("H9")
 emb_sym.kernel()
 
 # Reference calculation without rotational symmetry:
-emb = vayesta.ewf.EWF(mf, solver='MP2', bath_options=dict(threshold=1e-4))
+emb = vayesta.ewf.EWF(mf, solver="MP2", bath_options=dict(threshold=1e-4))
 emb.kernel()
 
 # Compare energies and density matrices:
@@ -63,10 +63,10 @@ dm1 = emb.make_rdm1()
 dm1_sym = emb_sym.make_rdm1()
 print("Difference in 1-RDM= %.3e" % np.linalg.norm(dm1 - dm1_sym))
 
-dndn_sym = emb_sym.get_corrfunc('dN,dN')
-dndn = emb.get_corrfunc('dN,dN')
+dndn_sym = emb_sym.get_corrfunc("dN,dN")
+dndn = emb.get_corrfunc("dN,dN")
 print("Difference in <dN,dN>= %.3e" % np.linalg.norm(dndn - dndn_sym))
 
-szsz_sym = emb_sym.get_corrfunc('Sz,Sz')
-szsz = emb.get_corrfunc('Sz,Sz')
+szsz_sym = emb_sym.get_corrfunc("Sz,Sz")
+szsz = emb.get_corrfunc("Sz,Sz")
 print("Difference in <Sz,Sz>= %.3e" % np.linalg.norm(szsz - szsz_sym))

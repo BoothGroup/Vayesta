@@ -63,9 +63,7 @@ class RPA:
             assert all(e > 1e-12)
             ecorr_contrib = 0.5 * (sum(freqs) - 0.5 * (ApB.trace() + AmB.trace()))
             XpY = np.einsum("n,pn->pn", freqs ** (-0.5), np.dot(AmB_rt, c))
-            XmY = np.einsum(
-                "n,pn->pn", freqs ** (0.5), np.dot(np.linalg.inv(AmB_rt), c)
-            )
+            XmY = np.einsum("n,pn->pn", freqs ** (0.5), np.dot(np.linalg.inv(AmB_rt), c))
             return (
                 freqs,
                 ecorr_contrib,
@@ -74,12 +72,8 @@ class RPA:
             )
 
         t0 = timer()
-        self.freqs_ss, self.e_corr_ss, self.XpY_ss, self.XmY_ss = solve_RPA_problem(
-            ApB_ss, AmB_ss
-        )
-        self.freqs_sf, self.e_corr_sf, self.XpY_sf, self.XmY_sf = solve_RPA_problem(
-            ApB_sf, AmB_sf
-        )
+        self.freqs_ss, self.e_corr_ss, self.XpY_ss, self.XmY_ss = solve_RPA_problem(ApB_ss, AmB_ss)
+        self.freqs_sf, self.e_corr_sf, self.XpY_sf, self.XmY_sf = solve_RPA_problem(ApB_sf, AmB_sf)
         self.log.timing("Time to solve RPA problems: %s", time_string(timer() - t0))
 
         if xc_kernel == "rpax":
@@ -141,9 +135,7 @@ class RPA:
             self.log.info("RPA using coulomb interaction kernel.")
             eris = self.ao2mo()
 
-            v = eris[: self.nocc, self.nocc :, : self.nocc, self.nocc :].reshape(
-                (self.ov, self.ov)
-            )
+            v = eris[: self.nocc, self.nocc :, : self.nocc, self.nocc :].reshape((self.ov, self.ov))
             # Only nonzero contribution is between same-spin excitations due to coulomb interaction.
             kernel = (
                 (2 * v, 2 * v),
@@ -156,9 +148,9 @@ class RPA:
             self.log.info("RPA using coulomb-exchange interaction kernel.")
             eris = self.ao2mo()
             v = eris[: self.nocc, self.nocc :, : self.nocc, self.nocc :]
-            ka = np.einsum(
-                "ijab->iajb", eris[: self.nocc, : self.nocc, self.nocc :, self.nocc :]
-            ).reshape((self.ov, self.ov))
+            ka = np.einsum("ijab->iajb", eris[: self.nocc, : self.nocc, self.nocc :, self.nocc :]).reshape(
+                (self.ov, self.ov)
+            )
             kb = np.einsum("ibja->iajb", v).reshape((self.ov, self.ov))
             v = v.reshape((self.ov, self.ov))
             kernel = (

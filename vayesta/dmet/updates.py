@@ -9,7 +9,6 @@ class Update:
         self.prev_params = None
 
     def _flatten_params(self, params):
-
         def get_shape(x):
             return [get_shape(y) if type(y) != np.ndarray else y.shape for y in x]
 
@@ -30,7 +29,7 @@ class Update:
 
         def get_nonflat(flat_params, shapes, x):
             if type(shapes[0]) == int:
-                return flat_params[x:x + np.product(shapes)].reshape(shapes), x + np.product(shapes)
+                return flat_params[x : x + np.product(shapes)].reshape(shapes), x + np.product(shapes)
             else:
                 finres = []
                 for shape in shapes:
@@ -39,7 +38,7 @@ class Update:
                 return finres, x
 
         nonflat_params, x = get_nonflat(params, self.param_shape, x)
-        assert (x == len(params))
+        assert x == len(params)
         return nonflat_params
 
 

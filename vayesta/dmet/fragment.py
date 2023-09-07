@@ -12,9 +12,9 @@ from vayesta.core.util import dot, log_time
 
 # We might want to move the useful things from here into core, since they seem pretty general.
 
+
 class DMETFragmentExit(Exception):
     pass
-
 
 
 class DMETFragment(Fragment):
@@ -27,7 +27,6 @@ class DMETFragment(Fragment):
         dm2: np.ndarray = None
 
     def __init__(self, *args, **kwargs):
-
         """
         Parameters
         ----------
@@ -67,6 +66,7 @@ class DMETFragment(Fragment):
             return None
 
         cluster_solver = self.get_solver(solver)
+
         # Chemical potential
         if chempot is not None:
             px = self.get_fragment_projector(self.cluster.c_active)
@@ -78,8 +78,13 @@ class DMETFragment(Fragment):
         with log_time(self.log.info, ("Time for %s solver:" % solver) + " %s"):
             cluster_solver.kernel()
         self.hamil = cluster_solver.hamil
-        self._results = results = self.Results(fid=self.id, wf=cluster_solver.wf, n_active=self.cluster.norb_active,
-                dm1=cluster_solver.wf.make_rdm1(), dm2=cluster_solver.wf.make_rdm2())
+        self._results = results = self.Results(
+            fid=self.id,
+            wf=cluster_solver.wf,
+            n_active=self.cluster.norb_active,
+            dm1=cluster_solver.wf.make_rdm1(),
+            dm2=cluster_solver.wf.make_rdm2(),
+        )
 
         self.hamil = cluster_solver.hamil
 
@@ -108,12 +113,12 @@ class DMETFragment(Fragment):
         occ = np.s_[:nocc]
         # Calculate the effective onebody interaction within the cluster.
         f_act = np.linalg.multi_dot((c_act.T, self.mf.get_fock(), c_act))
-        v_act = 2 * np.einsum('iipq->pq', eris[occ, occ]) - np.einsum('iqpi->pq', eris[occ, :, :, occ])
+        v_act = 2 * np.einsum("iipq->pq", eris[occ, occ]) - np.einsum("iqpi->pq", eris[occ, :, :, occ])
         h_eff = f_act - v_act
         h_bare = np.linalg.multi_dot((c_act.T, self.base.get_hcore(), c_act))
 
         e1 = 0.5 * dot(P_imp, h_bare + h_eff, self.results.dm1).trace()
-        e2 = 0.5 * np.einsum('pt,tqrs,pqrs->', P_imp, eris, self.results.dm2)
+        e2 = 0.5 * np.einsum("pt,tqrs,pqrs->", P_imp, eris, self.results.dm2)
         # Code to generate the HF energy contribution for testing purposes.
         # mf_dm1 = np.linalg.multi_dot((c_act.T, self.base.get_ovlp(), self.mf.make_rdm1(),\
         #                               self.base.get_ovlp(), c_act))

@@ -24,7 +24,7 @@ class CAS_Fragmentation(Fragmentation):
         if isinstance(orbitals[0], (int, np.integer)):
             orbital_indices = orbitals
             orbital_labels = (np.asarray(self.labels, dtype=object)[orbitals]).tolist()
-            orbital_labels = [('%s%3s %s%-s' % tuple(l)).strip() for l in orbital_labels]
+            orbital_labels = [("%s%3s %s%-s" % tuple(l)).strip() for l in orbital_labels]
             return orbital_indices, orbital_labels
         raise ValueError("A list of integers is required! orbitals= %r" % orbitals)
 
@@ -59,26 +59,27 @@ class CAS_Fragmentation(Fragmentation):
             nelec_curr += int(occ[anyocc[-1] - offset])
 
         if nelec_curr > nelec or offset > ncas:
-            raise ValueError(
-                "Cannot create CAS with required properties around Fermi level with current MO occupancy.")
+            raise ValueError("Cannot create CAS with required properties around Fermi level with current MO occupancy.")
 
         def check_for_degen(energies, po, pv, name=""):
             # Log orbital energies
-            for i in range(max(po-2, 0), min(pv+2, len(energies))):
+            for i in range(max(po - 2, 0), min(pv + 2, len(energies))):
                 if i < po:
-                    orbtype = 'core'
+                    orbtype = "core"
                 elif i >= pv:
-                    orbtype = 'external'
+                    orbtype = "external"
                 else:
-                    orbtype = 'CAS'
+                    orbtype = "CAS"
                 if i == po:
-                    self.log.info(62*'-')
-                self.log.info("MO %4d:  %-8s  occupation= %1d  energy= %s", i, orbtype, occ[i], energy_string(energies[i]))
-                if i == (pv-1):
-                    self.log.info(62*'-')
+                    self.log.info(62 * "-")
+                self.log.info(
+                    "MO %4d:  %-8s  occupation= %1d  energy= %s", i, orbtype, occ[i], energy_string(energies[i])
+                )
+                if i == (pv - 1):
+                    self.log.info(62 * "-")
 
             if po > 0:
-                ogap = energies[po] - energies[po-1]
+                ogap = energies[po] - energies[po - 1]
                 self.log.info("%sCAS occupied energy gap: %s", name, energy_string(ogap))
             elif po == 0:
                 self.log.info("%sCAS contains all occupied orbitals.", name)
@@ -93,7 +94,7 @@ class CAS_Fragmentation(Fragmentation):
             try:
                 vgap = energies[pv] - energies[pv - 1]
             except IndexError:
-                assert(pv == len(energies))
+                assert pv == len(energies)
                 self.log.info("%sCAS contains all virtual orbitals.", name)
                 vgap = np.inf
             else:
@@ -102,16 +103,15 @@ class CAS_Fragmentation(Fragmentation):
                 raise ValueError("Requested CAS splits degenerate virtual orbitals.")
 
         if self.emb.is_rhf:
-            check_for_degen(self.emb.mo_energy, anyocc[-1]-offset, anyocc[-1]-offset+ncas)
+            check_for_degen(self.emb.mo_energy, anyocc[-1] - offset, anyocc[-1] - offset + ncas)
         else:
-            check_for_degen(self.emb.mo_energy[0], anyocc[-1]-offset, anyocc[-1]-offset+ncas, "alpha ")
-            check_for_degen(self.emb.mo_energy[1], anyocc[-1]-offset, anyocc[-1]-offset+ncas, "beta ")
+            check_for_degen(self.emb.mo_energy[0], anyocc[-1] - offset, anyocc[-1] - offset + ncas, "alpha ")
+            check_for_degen(self.emb.mo_energy[1], anyocc[-1] - offset, anyocc[-1] - offset + ncas, "beta ")
 
-        orbs = list(range(anyocc[-1]-offset, anyocc[-1]-offset+ncas))
+        orbs = list(range(anyocc[-1] - offset, anyocc[-1] - offset + ncas))
         return self.add_orbital_fragment(orbs, name=name, **kwargs)
 
 
 class CAS_Fragmentation_UHF(Fragmentation_UHF, CAS_Fragmentation):
-
     def get_labels(self):
         return [("", "", "MO", str(x)) for x in range(0, self.nmo[0])]

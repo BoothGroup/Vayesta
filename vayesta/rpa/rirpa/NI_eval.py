@@ -116,10 +116,7 @@ class NumericalIntegratorBase:
         def get_deriv2_contrib(freq, weight, a):
             deriv = self.eval_diag_deriv_contrib(freq)
             deriv2 = self.eval_diag_deriv2_contrib(freq)
-            return (
-                2 * (weight / a) * (freq / a) * deriv
-                + weight * (freq / a) ** 2 * deriv2
-            )
+            return 2 * (weight / a) * (freq / a) * deriv + weight * (freq / a) ** 2 * deriv2
 
         return self._NI_eval_deriv(a, self.diag_shape, get_deriv2_contrib)
 
@@ -131,13 +128,9 @@ class NumericalIntegratorBase:
         )
         grad_1 = self.eval_diag_deriv_contrib(freq)
         deriv2_1 = self.eval_diag_deriv2_contrib(freq)
-        grad_2 = (
-            self.eval_diag_contrib(freq + delta / 2)
-            - self.eval_diag_contrib(freq - delta / 2)
-        ) / delta
+        grad_2 = (self.eval_diag_contrib(freq + delta / 2) - self.eval_diag_contrib(freq - delta / 2)) / delta
         deriv2_2 = (
-            self.eval_diag_deriv_contrib(freq + delta / 2)
-            - self.eval_diag_deriv_contrib(freq - delta / 2)
+            self.eval_diag_deriv_contrib(freq + delta / 2) - self.eval_diag_deriv_contrib(freq - delta / 2)
         ) / delta
         self.log.info("Max Grad Error=%6.4e", abs(grad_1 - grad_2).max())
         self.log.info("Max Deriv2 Error=%6.4e", abs(deriv2_1 - deriv2_2).max())
@@ -145,14 +138,8 @@ class NumericalIntegratorBase:
         self.log.info("Testing ensemble gradients w.r.t variation of a:")
         grad_1 = self.eval_diag_NI_approx_grad(a)
         deriv2_1 = self.eval_diag_NI_approx_deriv2(a)
-        grad_2 = (
-            self.eval_diag_NI_approx(a + delta / 2)
-            - self.eval_diag_NI_approx(a - delta / 2)
-        ) / delta
-        deriv2_2 = (
-            self.eval_diag_NI_approx_grad(a + delta / 2)
-            - self.eval_diag_NI_approx_grad(a - delta / 2)
-        ) / delta
+        grad_2 = (self.eval_diag_NI_approx(a + delta / 2) - self.eval_diag_NI_approx(a - delta / 2)) / delta
+        deriv2_2 = (self.eval_diag_NI_approx_grad(a + delta / 2) - self.eval_diag_NI_approx_grad(a - delta / 2)) / delta
         self.log.info("Max Grad Error=%6.4e", abs(grad_1 - grad_2).max())
         self.log.info("Max Deriv2 Error=%6.4e", abs(deriv2_1 - deriv2_2).max())
 
@@ -181,9 +168,8 @@ class NumericalIntegratorBase:
             optval = fvals[optarg]
             # Now find the values which are within reach of lowest value
             relevant = np.where(fvals < relevance_factor * optval)[0]
-
             minarg = min(relevant[0], optarg - 1)
-            maxarg = min(relevant[-1], optarg + 1)
+            maxarg = max(relevant[-1], optarg + 1)
             return [ainit * scale_fac**x for x in (optarg, minarg, maxarg)]
 
         solve = 1
@@ -204,17 +190,19 @@ class NumericalIntegratorBase:
             # Did we find a root?
             opt_min = not res.converged
         if opt_min:
-            res = scipy.optimize.minimize_scalar(
-                lambda freq: abs(get_val(freq)), bounds=(mini, maxi), method="bounded"
-            )
+            res = scipy.optimize.minimize_scalar(lambda freq: abs(get_val(freq)), bounds=(mini, maxi), method="bounded")
             if not res.success:
                 raise NIException("Could not optimise `a' value.")
             solve = res.x
             self.log.info(
-                "Used minimisation to optimise quadrature grid: a= %.2e  penalty value= %.2e "
-                "(smaller is better)",
+                "Used minimisation to optimise quadrature grid: a= %.2e  penalty value= %.2e " "(smaller is better)",
                 solve,
                 res.fun,
+            )
+        else:
+            self.log.info(
+                "Used newton optimisation to find optimal quadrature grid: a= %.2e",
+                solve,
             )
         return solve
 
@@ -254,9 +242,7 @@ class NumericalIntegratorBase:
             full_output=True,
         )
         if not info.success:
-            raise NIException(
-                "Adaptive gaussian quadrature could not compute integral."
-            )
+            raise NIException("Adaptive gaussian quadrature could not compute integral.")
         else:
             self.log.info(
                 "Successfully computed integral via adaptive quadrature using %d evaluations with estimated error of %6.4e",
@@ -314,9 +300,7 @@ class NumericalIntegratorClenCur(NumericalIntegratorBase):
         a = scipy.linalg.norm(integral_quarter - integral)
         b = scipy.linalg.norm(integral_half - integral)
         error = self.calculate_error(a, b)
-        self.log.info(
-            "Numerical Integration performed with estimated L2 norm error %6.4e.", error
-        )
+        self.log.info("Numerical Integration performed with estimated L2 norm error %6.4e.", error)
         return integral, error
 
     def calculate_error(self, a, b):
@@ -355,9 +339,7 @@ class NumericalIntegratorClenCur(NumericalIntegratorBase):
             )
 
         if not (any((real_roots > 0) & (real_roots < 1))):
-            self.log.critical(
-                "No real root found between 0 and 1 in NI error estimation; returning nan."
-            )
+            self.log.critical("No real root found between 0 and 1 in NI error estimation; returning nan.")
             return np.nan
         else:
             # This defines the values of e^{-\beta n_p}, where we seek the value of \alpha e^{-4 \beta n_p}
@@ -412,9 +394,7 @@ class NumericalIntegratorGaussianSemiInfinite(NumericalIntegratorBase):
                 "ill-conditioning in the quadrature construction. Watch out for floating-point overflows!"
             )
         self._points, self._weights = np.polynomial.laguerre.laggauss(value)
-        self._weights = np.array(
-            [w * np.exp(p) for (p, w) in zip(self._points, self._weights)]
-        )
+        self._weights = np.array([w * np.exp(p) for (p, w) in zip(self._points, self._weights)])
 
     def get_quad(self, a):
         if a < 0:
@@ -439,16 +419,8 @@ def gen_ClenCur_quad_semiinf(a, npoints):
     """Generate quadrature points and weights for Clenshaw-Curtis quadrature over semiinfinite range (0 to +inf)"""
     tvals = [(np.pi * j / (npoints + 1)) for j in range(1, npoints + 1)]
     points = [a / (np.tan(t / 2) ** 2) for t in tvals]
-    jsums = [
-        sum(
-            [np.sin(j * t) * (1 - np.cos(j * np.pi)) / j for j in range(1, npoints + 1)]
-        )
-        for t in tvals
-    ]
-    weights = [
-        a * (4 * np.sin(t) / ((npoints + 1) * (1 - np.cos(t)) ** 2)) * s
-        for (t, s) in zip(tvals, jsums)
-    ]
+    jsums = [sum([np.sin(j * t) * (1 - np.cos(j * np.pi)) / j for j in range(1, npoints + 1)]) for t in tvals]
+    weights = [a * (4 * np.sin(t) / ((npoints + 1) * (1 - np.cos(t)) ** 2)) * s for (t, s) in zip(tvals, jsums)]
     return points, weights
 
 

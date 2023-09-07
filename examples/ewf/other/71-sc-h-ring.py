@@ -15,15 +15,14 @@ import vayesta.ewf
 natom = 6
 
 for d in np.arange(0.5, 3.0001, 0.25):
-
     ring = pyscf.tools.ring.make(natom, d)
-    atom = [('H %f %f %f' % xyz) for xyz in ring]
+    atom = [("H %f %f %f" % xyz) for xyz in ring]
 
     mol = pyscf.gto.Mole()
     mol.atom = atom
-    mol.basis = 'aug-cc-pvdz'
+    mol.basis = "aug-cc-pvdz"
     mol.verbose = 10
-    mol.output = 'pyscf_out.txt'
+    mol.output = "pyscf_out.txt"
     mol.build()
 
     # Hartree-Fock
@@ -37,21 +36,21 @@ for d in np.arange(0.5, 3.0001, 0.25):
     # One-shot EWF-CCSD
     ecc = vayesta.ewf.EWF(mf, bath_options=dict(threshold=1e-4))
     with ecc.iao_fragmentation() as f:
-        with f.rotational_symmetry(6, axis='z'):
+        with f.rotational_symmetry(6, axis="z"):
             f.add_atomic_fragment([0])
     ecc.kernel()
 
     # Self-consistent EWF-CCSD
-    scecc = vayesta.ewf.EWF(mf, solver='TCCSD', bath_options=dict(threshold=1e-6), sc_mode=1)
+    scecc = vayesta.ewf.EWF(mf, solver="TCCSD", bath_options=dict(threshold=1e-6), sc_mode=1)
     with scecc.iao_fragmentation() as f:
-        with f.rotational_symmetry(6, axis='z'):
+        with f.rotational_symmetry(6, axis="z"):
             f.add_atomic_fragment([0])
     scecc.kernel()
 
-    print("E%-14s %+16.8f Ha" % ('(HF)=', mf.e_tot))
-    print("E%-14s %+16.8f Ha" % ('(CCSD)=', cc.e_tot))
-    print("E%-14s %+16.8f Ha" % ('(EWF-CCSD)=', ecc.e_tot))
-    print("E%-14s %+16.8f Ha" % ('(SC-EWF-CCSD)=', scecc.e_tot))
+    print("E%-14s %+16.8f Ha" % ("(HF)=", mf.e_tot))
+    print("E%-14s %+16.8f Ha" % ("(CCSD)=", cc.e_tot))
+    print("E%-14s %+16.8f Ha" % ("(EWF-CCSD)=", ecc.e_tot))
+    print("E%-14s %+16.8f Ha" % ("(SC-EWF-CCSD)=", scecc.e_tot))
 
     with open("energies.txt", "a") as f:
         f.write("%.2f  % 16.8f  % 16.8f  % 16.8f  %16.8f\n" % (d, mf.e_tot, cc.e_tot, ecc.e_tot, scecc.e_tot))

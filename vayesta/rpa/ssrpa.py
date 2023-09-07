@@ -94,8 +94,13 @@ class ssRPA:
             AmBrtinv = einsum("pn,n,qn->pq", c2, e2 ** (-0.5), c2)
             XpY = np.einsum("n,pq,qn->pn", self.freqs_ss ** (-0.5), AmBrt, c)
             XmY = np.einsum("n,pq,qn->pn", self.freqs_ss ** (0.5), AmBrtinv, c)
-        self.XpY_ss = (XpY[: self.ova], XpY[self.ova :])
-        self.XmY_ss = (XmY[: self.ova], XmY[self.ova :])
+
+        nov = self.ova
+        if self.ov_rot is not None:
+            nov = self.ov_rot[0].shape[0]
+
+        self.XpY_ss = (XpY[:nov], XpY[nov:])
+        self.XmY_ss = (XmY[:nov], XmY[nov:])
 
         self.freqs_sf = None
         self.log.timing("Time to solve RPA problem: %s", time_string(timer() - t0))
@@ -111,14 +116,10 @@ class ssRPA:
 
     def calc_energy_correction(self, xc_kernel, version=3):
         if xc_kernel is None:
-            raise ValueError(
-                "Without an xc-kernel the plasmon formula energy is exact."
-            )
+            raise ValueError("Without an xc-kernel the plasmon formula energy is exact.")
         t0 = timer()
         M, AmB, ApB, eps, fullv = self._gen_arrays(xc_kernel)
-        ApB_xc, AmB_xc = self.get_xc_contribs(
-            xc_kernel, self.mo_coeff_occ, self.mo_coeff_vir
-        )
+        ApB_xc, AmB_xc = self.get_xc_contribs(xc_kernel, self.mo_coeff_occ, self.mo_coeff_vir)
         A_xc = (ApB_xc + AmB_xc) / 2
         B_xc = (ApB_xc - AmB_xc) / 2
         full_mom0 = self.gen_moms(0, xc_kernel)[0]
@@ -137,31 +138,22 @@ class ssRPA:
             return sum([w * func(p) for w, p in zip(weights, points)])
 
         if version == 0:
-            e_plasmon = (
-                0.5 * (np.dot(full_mom0, ApB) - (0.5 * (ApB + AmB) - A_xc)).trace()
-            )
+            e_plasmon = 0.5 * (np.dot(full_mom0, ApB) - (0.5 * (ApB + AmB) - A_xc)).trace()
 
             # Full integration of the adiabatic connection.
             def get_val_alpha(alpha):
                 eta0 = get_eta_alpha(alpha)
-                return (
-                    einsum("pq,qp", A_xc + B_xc, eta0)
-                    + einsum("pq,qp", A_xc - B_xc, np.linalg.inv(eta0))
-                ) / 4
+                return (einsum("pq,qp", A_xc + B_xc, eta0) + einsum("pq,qp", A_xc - B_xc, np.linalg.inv(eta0))) / 4
 
             e = e_plasmon - run_ac_inter(get_val_alpha)
             e = (e, get_val_alpha)
         elif version == 1:
-            e_plasmon = (
-                0.5 * (np.dot(full_mom0, ApB) - (0.5 * (ApB + AmB) - A_xc)).trace()
-            )
+            e_plasmon = 0.5 * (np.dot(full_mom0, ApB) - (0.5 * (ApB + AmB) - A_xc)).trace()
 
             # Integration of adiabatic connection, but with approximation of the inverse eta0`
             def get_val_alpha(alpha):
                 eta0 = get_eta_alpha(alpha)
-                return (
-                    A_xc.trace() + einsum("pq,qp", B_xc, eta0 - np.eye(self.ov))
-                ) / 2
+                return (A_xc.trace() + einsum("pq,qp", B_xc, eta0 - np.eye(self.ov))) / 2
 
             e = e_plasmon - run_ac_inter(get_val_alpha)
             e = (e, get_val_alpha)
@@ -170,18 +162,11 @@ class ssRPA:
             e = 0.5 * (np.dot(full_mom0, ApB) - (0.5 * (ApB + AmB) - A_xc)).trace()
             e -= (
                 einsum("pq,qp->", A_xc + B_xc, full_mom0 + np.eye(self.ov))
-                + einsum(
-                    "pq,qp->", A_xc - B_xc, np.linalg.inv(full_mom0) + np.eye(self.ov)
-                )
+                + einsum("pq,qp->", A_xc - B_xc, np.linalg.inv(full_mom0) + np.eye(self.ov))
             ) / 8
         elif version == 3:
             # Linear approximation in AC and approx of inverse.
-            e = (
-                0.5
-                * (
-                    np.dot(full_mom0, ApB - B_xc / 2) - (0.5 * (ApB + AmB) - B_xc / 2)
-                ).trace()
-            )
+            e = 0.5 * (np.dot(full_mom0, ApB - B_xc / 2) - (0.5 * (ApB + AmB) - B_xc / 2)).trace()
         elif version == 4:
 
             def get_val_alpha(alpha):
@@ -199,8 +184,7 @@ class ssRPA:
 
         return e
 
-    def _gen_arrays(self, xc_kernel=None, alpha=1.0):
-        t0 = timer()
+    def _gen_eps(self):
         # Only have diagonal components in canonical basis.
         eps = np.zeros((self.nocc, self.nvir))
         eps = eps + self.mf.mo_energy[self.nocc :]
@@ -208,18 +192,29 @@ class ssRPA:
         eps = eps.reshape((self.ova,))
 
         if self.ov_rot is not None:
-            eps = einsum("pn,n,qn->pq", self.ov_rot, eps, self.ov_rot)
-            # want to ensure diagonalise eps in our new basis; nb this also rotates the existing rotation for
-            # consistency.
-            eps, c = scipy.linalg.eigh(eps)
-            self.ov_rot = dot(c.T, self.ov_rot)
+            if self.ov_rot[0].shape[0] > 0:
+                epsa = einsum("pn,n,qn->pq", self.ov_rot[0], eps, self.ov_rot[0])
+                epsa, ca = scipy.linalg.eigh(epsa)
+                self.ov_rot = (dot(ca.T, self.ov_rot[0]), self.ov_rot[1])
+            if self.ov_rot[1].shape[0] > 0:
+                epsb = einsum("pn,n,qn->pq", self.ov_rot[1], eps, self.ov_rot[1])
+                epsb, cb = scipy.linalg.eigh(epsb)
+                self.ov_rot = (self.ov_rot[0], dot(cb.T, self.ov_rot[1]))
+        else:
+            epsa = epsb = eps
+        return epsa, epsb
 
-        AmB = np.concatenate([eps, eps])
+    def _gen_arrays(self, xc_kernel=None, alpha=1.0):
+        t0 = timer()
+
+        epsa, epsb = self._gen_eps()
+
+        AmB = np.concatenate([epsa, epsb])
 
         fullv = self.get_k()
         ApB = 2 * fullv * alpha
         if self.ov_rot is not None:
-            fullrot = scipy.linalg.block_diagonal(self.ov_rot, self.ov_rot)
+            fullrot = scipy.linalg.block_diag(self.ov_rot[0], self.ov_rot[1])
             ApB = dot(fullrot, ApB, fullrot.T)
 
         # At this point AmB is just epsilon so add in.
@@ -229,9 +224,7 @@ class ssRPA:
             M = np.einsum("p,pq,q->pq", AmB ** (0.5), ApB, AmB ** (0.5))
         else:
             # Grab A and B contributions for XC kernel.
-            ApB_xc, AmB_xc = self.get_xc_contribs(
-                xc_kernel, self.mo_coeff_occ, self.mo_coeff_vir, alpha
-            )
+            ApB_xc, AmB_xc = self.get_xc_contribs(xc_kernel, self.mo_coeff_occ, self.mo_coeff_vir, alpha)
             ApB = ApB + ApB_xc
             AmB = np.diag(AmB) + AmB_xc
             del ApB_xc, AmB_xc
@@ -239,18 +232,16 @@ class ssRPA:
             M = dot(AmBrt, ApB, AmBrt)
 
         self.log.timing("Time to build RPA arrays: %s", time_string(timer() - t0))
-        return M, AmB, ApB, (eps, eps), fullv
+        return M, AmB, ApB, (epsa, epsb), fullv
 
     def get_k(self):
         eris = self.ao2mo()
         # Get coulomb interaction in occupied-virtual space.
-        v = eris[: self.nocc, self.nocc :, : self.nocc, self.nocc :].reshape(
-            (self.ova, self.ova)
-        )
+        v = eris[: self.nocc, self.nocc :, : self.nocc, self.nocc :].reshape((self.ova, self.ova))
         fullv = np.zeros((self.ov, self.ov))
-        fullv[: self.ova, : self.ova] = fullv[self.ova :, self.ova :] = fullv[
-            : self.ova, self.ova :
-        ] = fullv[self.ova :, : self.ova] = v
+        fullv[: self.ova, : self.ova] = fullv[self.ova :, self.ova :] = fullv[: self.ova, self.ova :] = fullv[
+            self.ova :, : self.ova
+        ] = v
         return fullv
 
     def get_xc_contribs(self, xc_kernel, c_o, c_v, alpha=1.0):
@@ -266,43 +257,43 @@ class ssRPA:
         ApB = np.zeros((self.ov, self.ov))
         AmB = np.zeros_like(ApB)
 
-        V_A_aa = einsum(
-            "pqrs,pi,qa,rj,sb->iajb", xc_kernel[0], c_o_a, c_v_a, c_o_a, c_v_a
-        ).reshape((self.ova, self.ova))
+        V_A_aa = einsum("pqrs,pi,qa,rj,sb->iajb", xc_kernel[0], c_o_a, c_v_a, c_o_a, c_v_a).reshape(
+            (self.ova, self.ova)
+        )
         ApB[: self.ova, : self.ova] += V_A_aa
         AmB[: self.ova, : self.ova] += V_A_aa
         del V_A_aa
-        V_B_aa = einsum(
-            "pqsr,pi,qa,rj,sb->iajb", xc_kernel[0], c_o_a, c_v_a, c_o_a, c_v_a
-        ).reshape((self.ova, self.ova))
+        V_B_aa = einsum("pqsr,pi,qa,rj,sb->iajb", xc_kernel[0], c_o_a, c_v_a, c_o_a, c_v_a).reshape(
+            (self.ova, self.ova)
+        )
         ApB[: self.ova, : self.ova] += V_B_aa
         AmB[: self.ova, : self.ova] -= V_B_aa
         del V_B_aa
-        V_A_ab = einsum(
-            "pqrs,pi,qa,rj,sb->iajb", xc_kernel[1], c_o_a, c_v_a, c_o_b, c_v_b
-        ).reshape((self.ova, self.ovb))
+        V_A_ab = einsum("pqrs,pi,qa,rj,sb->iajb", xc_kernel[1], c_o_a, c_v_a, c_o_b, c_v_b).reshape(
+            (self.ova, self.ovb)
+        )
         ApB[: self.ova, self.ova :] += V_A_ab
         ApB[self.ova :, : self.ova] += V_A_ab.T
         AmB[: self.ova, self.ova :] += V_A_ab
         AmB[self.ova :, : self.ova] += V_A_ab.T
         del V_A_ab
-        V_B_ab = einsum(
-            "pqsr,pi,qa,rj,sb->iajb", xc_kernel[1], c_o_a, c_v_a, c_o_b, c_v_b
-        ).reshape((self.ova, self.ovb))
+        V_B_ab = einsum("pqsr,pi,qa,rj,sb->iajb", xc_kernel[1], c_o_a, c_v_a, c_o_b, c_v_b).reshape(
+            (self.ova, self.ovb)
+        )
         ApB[: self.ova, self.ova :] += V_B_ab
         ApB[self.ova :, : self.ova] += V_B_ab.T
         AmB[: self.ova, self.ova :] -= V_B_ab
         AmB[self.ova :, : self.ova] -= V_B_ab.T
         del V_B_ab
-        V_A_bb = einsum(
-            "pqrs,pi,qa,rj,sb->iajb", xc_kernel[2], c_o_b, c_v_b, c_o_b, c_v_b
-        ).reshape((self.ovb, self.ovb))
+        V_A_bb = einsum("pqrs,pi,qa,rj,sb->iajb", xc_kernel[2], c_o_b, c_v_b, c_o_b, c_v_b).reshape(
+            (self.ovb, self.ovb)
+        )
         ApB[self.ova :, self.ova :] += V_A_bb
         AmB[self.ova :, self.ova :] += V_A_bb
         del V_A_bb
-        V_B_bb = einsum(
-            "pqsr,pi,qa,rj,sb->iajb", xc_kernel[2], c_o_b, c_v_b, c_o_b, c_v_b
-        ).reshape((self.ovb, self.ovb))
+        V_B_bb = einsum("pqsr,pi,qa,rj,sb->iajb", xc_kernel[2], c_o_b, c_v_b, c_o_b, c_v_b).reshape(
+            (self.ovb, self.ovb)
+        )
         ApB[self.ova :, self.ova :] += V_B_bb
         AmB[self.ova :, self.ova :] -= V_B_bb
         del V_B_bb
@@ -319,29 +310,20 @@ class ssRPA:
         return ApB * alpha, AmB * alpha
 
     def gen_moms(self, max_mom, xc_kernel=None):
-        res = np.zeros((max_mom + 1, self.ov, self.ov))
+        nova = self.ova
+        nov = self.ov
+        if self.ov_rot is not None:
+            nova = self.ov_rot[0].shape[0]
+            nov = nova + self.ov_rot[1].shape[0]
+        res = np.zeros((max_mom + 1, nov, nov))
         for x in range(max_mom + 1):
             # Have different spin components in general; these are alpha-alpha, alpha-beta and beta-beta.
-            res[x, : self.ova, : self.ova] = np.einsum(
-                "pn,n,qn->pq", self.XpY_ss[0], self.freqs_ss**x, self.XpY_ss[0]
-            )
-            res[x, self.ova :, self.ova :] = np.einsum(
-                "pn,n,qn->pq", self.XpY_ss[1], self.freqs_ss**x, self.XpY_ss[1]
-            )
-            res[x, : self.ova, self.ova :] = np.einsum(
-                "pn,n,qn->pq", self.XpY_ss[0], self.freqs_ss**x, self.XpY_ss[1]
-            )
-            res[x, self.ova :, : self.ova] = res[x][: self.ova, self.ova :].T
+            res[x, :nova, :nova] = np.einsum("pn,n,qn->pq", self.XpY_ss[0], self.freqs_ss**x, self.XpY_ss[0])
+            res[x, nova:, nova:] = np.einsum("pn,n,qn->pq", self.XpY_ss[1], self.freqs_ss**x, self.XpY_ss[1])
+            res[x, :nova, nova:] = np.einsum("pn,n,qn->pq", self.XpY_ss[0], self.freqs_ss**x, self.XpY_ss[1])
+            res[x, nova:, :nova] = res[x][:nova, nova:].T
 
         return res
-
-    @property
-    def mo_coeff(self):
-        return self.mf.mo_coeff
-
-    @property
-    def nao(self):
-        return self.mf.mol.nao
 
     def ao2mo(self, mo_coeff=None, compact=False):
         """Get the ERIs in MO basis"""

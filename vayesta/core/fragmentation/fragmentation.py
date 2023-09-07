@@ -11,6 +11,7 @@ from vayesta.core.symmetry.operation import PointGroupOperation
 from pymatgen.core import Molecule
 from pymatgen.symmetry.analyzer import PointGroupAnalyzer
 
+
 def check_orthonormal(log, mo_coeff, ovlp, mo_name="orbital", tol=1e-7):
     """Check orthonormality of mo_coeff.
 
@@ -27,8 +28,8 @@ def check_orthonormal(log, mo_coeff, ovlp, mo_name="orbital", tol=1e-7):
             log.debugv("Orthogonality error of %ss: L(2)= %.2e  L(inf)= %.2e", mo_name, l2, linf)
         return l2, linf
     # UHF
-    l2a, linfa = check_orthonormal(log, mo_coeff[0], ovlp, mo_name='alpha-%s' % mo_name, tol=tol)
-    l2b, linfb = check_orthonormal(log, mo_coeff[1], ovlp, mo_name='beta-%s' % mo_name, tol=tol)
+    l2a, linfa = check_orthonormal(log, mo_coeff[0], ovlp, mo_name="alpha-%s" % mo_name, tol=tol)
+    l2b, linfb = check_orthonormal(log, mo_coeff[1], ovlp, mo_name="beta-%s" % mo_name, tol=tol)
     return (l2a, l2b), (linfa, linfb)
 
 
@@ -41,8 +42,8 @@ class Fragmentation:
         self.emb = emb
         self.add_symmetric = add_symmetric
         self.log = log or emb.log
-        self.log.info('%s Fragmentation' % self.name)
-        self.log.info('%s--------------' % (len(self.name)*'-'))
+        self.log.info("%s Fragmentation" % self.name)
+        self.log.info("%s--------------" % (len(self.name) * "-"))
         self.ovlp = self.mf.get_ovlp()
         # Secondary fragment state:
         self.secfrag_register = []
@@ -76,8 +77,11 @@ class Fragmentation:
             translation = self.emb.symmetry.translation
             if translation is not None:
                 fragments_sym = self.emb.create_transsym_fragments(translation, fragments=self.fragments)
-                self.log.info("Adding %d translationally-symmetry related fragments from %d base fragments",
-                              len(fragments_sym), len(self.fragments))
+                self.log.info(
+                    "Adding %d translationally-symmetry related fragments from %d base fragments",
+                    len(fragments_sym),
+                    len(self.fragments),
+                )
                 self.fragments.extend(fragments_sym)
 
         # Add fragments to embedding class
@@ -88,11 +92,13 @@ class Fragmentation:
         orth = self.emb.has_orthonormal_fragmentation()
         comp = self.emb.has_complete_fragmentation()
         occcomp = self.emb.has_complete_occupied_fragmentation()
-        self.log.info("Fragmentation: orthogonal= %r, occupied-complete= %r, virtual-complete= %r",
-                      self.emb.has_orthonormal_fragmentation(),
-                      self.emb.has_complete_occupied_fragmentation(),
-                      self.emb.has_complete_virtual_fragmentation())
-        self.log.timing("Time for %s fragmentation: %s", self.name, time_string(timer()-self._time0))
+        self.log.info(
+            "Fragmentation: orthogonal= %r, occupied-complete= %r, virtual-complete= %r",
+            self.emb.has_orthonormal_fragmentation(),
+            self.emb.has_complete_occupied_fragmentation(),
+            self.emb.has_complete_virtual_fragmentation(),
+        )
+        self.log.timing("Time for %s fragmentation: %s", self.name, time_string(timer() - self._time0))
         del self._time0
         self.log.changeIndentLevel(-1)
 
@@ -182,7 +188,7 @@ class Fragmentation:
         atom_indices, atom_symbols = self.get_atom_indices_symbols(atoms)
         for idx, sym in zip(atom_indices, atom_symbols):
             for shell in shells:
-                orbitals.append('%d%3s %s' % (idx, sym, shell))
+                orbitals.append("%d%3s %s" % (idx, sym, shell))
         return self.add_orbital_fragment(orbitals, atoms=atom_indices, **kwargs)
 
     def add_orbital_fragment(self, orbitals, atom_filter=None, name=None, **kwargs):
@@ -220,7 +226,7 @@ class Fragmentation:
             fragments.append(frag)
         return fragments
 
-    def add_full_system(self, name='full-system', **kwargs):
+    def add_full_system(self, name="full-system", **kwargs):
         atoms = list(range(self.mol.natm))
         return self.add_atomic_fragment(atoms, name=name, **kwargs)
 
@@ -250,14 +256,15 @@ class Fragmentation:
     # --- Rotational symmetry fragments:
 
     @contextlib.contextmanager
-    def rotational_symmetry(self, order, axis, center=(0,0,0), unit='Ang'):
+    def rotational_symmetry(self, order, axis, center=(0, 0, 0), unit="Ang"):
         if self.secfrag_register:
             raise NotImplementedError("Rotational symmetries have to be added before adding secondary fragments")
         self.sym_register.append([])
         yield
         fragments = self.sym_register.pop()
-        fragments_sym = self.emb.create_rotsym_fragments(order, axis, center, fragments=fragments, unit=unit,
-                                                         symbol='R%d' % len(self.sym_register))
+        fragments_sym = self.emb.create_rotsym_fragments(
+            order, axis, center, fragments=fragments, unit=unit, symbol="R%d" % len(self.sym_register)
+        )
         self.log.info("Adding %d rotationally-symmetric fragments", len(fragments_sym))
         self.fragments.extend(fragments_sym)
         # For additional (nested) symmetries:
@@ -265,13 +272,13 @@ class Fragmentation:
             sym.extend(fragments_sym)
 
     @contextlib.contextmanager
-    def inversion_symmetry(self, center=(0,0,0), unit='Ang'):
+    def inversion_symmetry(self, center=(0, 0, 0), unit="Ang"):
         if self.secfrag_register:
             raise NotImplementedError("Symmetries have to be added before adding secondary fragments")
         self.sym_register.append([])
         yield
         fragments = self.sym_register.pop()
-        fragments_sym = self.emb.create_invsym_fragments(center, fragments=fragments, unit=unit, symbol='I')
+        fragments_sym = self.emb.create_invsym_fragments(center, fragments=fragments, unit=unit, symbol="I")
         self.log.info("Adding %d inversion-symmetric fragments", len(fragments_sym))
         self.fragments.extend(fragments_sym)
         # For additional (nested) symmetries:
@@ -279,45 +286,45 @@ class Fragmentation:
             sym.extend(fragments_sym)
 
     @contextlib.contextmanager
-    def mirror_symmetry(self, axis, center=(0,0,0), unit='Ang'):
+    def mirror_symmetry(self, axis, center=(0, 0, 0), unit="Ang"):
         if self.secfrag_register:
             raise NotImplementedError("Symmetries have to be added before adding secondary fragments")
         self.sym_register.append([])
         yield
         fragments = self.sym_register.pop()
-        fragments_sym = self.emb.create_mirrorsym_fragments(axis, center=center, fragments=fragments, unit=unit,
-                                                            symbol='M')
+        fragments_sym = self.emb.create_mirrorsym_fragments(
+            axis, center=center, fragments=fragments, unit=unit, symbol="M"
+        )
         self.log.info("Adding %d mirror-symmetric fragments", len(fragments_sym))
         self.fragments.extend(fragments_sym)
         # For additional (nested) symmetries:
         for sym in self.sym_register:
             sym.extend(fragments_sym)
 
-
     # --- Secondary fragments:
 
     @contextlib.contextmanager
-    def secondary_fragments(self, bno_threshold=None, bno_threshold_factor=0.1, solver='MP2'):
+    def secondary_fragments(self, bno_threshold=None, bno_threshold_factor=0.1, solver="MP2"):
         if self.secfrag_register:
             raise NotImplementedError("Nested secondary fragments")
         self.secfrag_register.append([])
         yield
         fragments = self.secfrag_register.pop()
-        fragments_sec = self._create_secondary_fragments(fragments, bno_threshold=bno_threshold,
-                                                         bno_threshold_factor=bno_threshold_factor, solver=solver)
+        fragments_sec = self._create_secondary_fragments(
+            fragments, bno_threshold=bno_threshold, bno_threshold_factor=bno_threshold_factor, solver=solver
+        )
         self.log.info("Adding %d secondary fragments", len(fragments_sec))
         self.fragments.extend(fragments_sec)
         # If we are already in a symmetry context, the symmetry-related secondary fragments should also be added:
         for sym in self.sym_register:
             sym.extend(fragments_sec)
 
-    def _create_secondary_fragments(self, fragments, bno_threshold=None, bno_threshold_factor=0.1, solver='MP2'):
-
+    def _create_secondary_fragments(self, fragments, bno_threshold=None, bno_threshold_factor=0.1, solver="MP2"):
         def _create_fragment(fx, flags=None, **kwargs):
             if fx.sym_parent is not None:
                 raise NotImplementedError("Secondary fragments need to be added before symmetry-derived fragments")
             flags = (flags or {}).copy()
-            flags['is_secfrag'] = True
+            flags["is_secfrag"] = True
             fx_copy = fx.copy(solver=solver, flags=flags, **kwargs)
             fx_copy.flags.bath_parent_fragment_id = fx.id
             self.log.debugv("Adding secondary fragment: %s", fx_copy)
@@ -325,24 +332,25 @@ class Fragmentation:
 
         fragments_sec = []
         for fx in fragments:
-
             bath_opts = fx.opts.bath_options.copy()
             if bno_threshold is not None:
-                bath_opts['threshold'] = bno_threshold
-                bath_opts.pop('threshold_occ', None)
-                bath_opts.pop('threshold_vir', None)
+                bath_opts["threshold"] = bno_threshold
+                bath_opts.pop("threshold_occ", None)
+                bath_opts.pop("threshold_vir", None)
             else:
-                if bath_opts.get('threshold', None) is not None:
-                    bath_opts['threshold'] *= bno_threshold_factor
-                if bath_opts.get('threshold_occ', None) is not None:
-                    bath_opts['threshold_occ'] *= bno_threshold_factor
-                if bath_opts.get('threshold_vir', None) is not None:
-                    bath_opts['threshold_vir'] *= bno_threshold_factor
-            frag = _create_fragment(fx, name='%s[x%d|+%s]' % (fx.name, fx.id, solver), bath_options=bath_opts)
+                if bath_opts.get("threshold", None) is not None:
+                    bath_opts["threshold"] *= bno_threshold_factor
+                if bath_opts.get("threshold_occ", None) is not None:
+                    bath_opts["threshold_occ"] *= bno_threshold_factor
+                if bath_opts.get("threshold_vir", None) is not None:
+                    bath_opts["threshold_vir"] *= bno_threshold_factor
+            frag = _create_fragment(fx, name="%s[x%d|+%s]" % (fx.name, fx.id, solver), bath_options=bath_opts)
             fragments_sec.append(frag)
             # Double counting
             wf_factor = -(fx.opts.wf_factor or 1)
-            frag = _create_fragment(fx, name='%s[x%d|-%s]' % (fx.name, fx.id, solver), wf_factor=wf_factor, flags=dict(is_envelop=False))
+            frag = _create_fragment(
+                fx, name="%s[x%d|-%s]" % (fx.name, fx.id, solver), wf_factor=wf_factor, flags=dict(is_envelop=False)
+            )
             fragments_sec.append(frag)
             fx.flags.is_envelop = False
         return fragments_sec
@@ -398,17 +406,18 @@ class Fragmentation:
 
     def symmetric_orth(self, mo_coeff, ovlp=None, tol=1e-15):
         """Use as mo_coeff = np.dot(mo_coeff, x) to get orthonormal orbitals."""
-        if ovlp is None: ovlp = self.get_ovlp()
+        if ovlp is None:
+            ovlp = self.get_ovlp()
         m = dot(mo_coeff.T, ovlp, mo_coeff)
         e, v = scipy.linalg.eigh(m)
         e_min = e.min()
-        keep = (e >= tol)
-        e, v = e[keep], v[:,keep]
-        x = dot(v/np.sqrt(e), v.T)
+        keep = e >= tol
+        e, v = e[keep], v[:, keep]
+        x = dot(v / np.sqrt(e), v.T)
         x = fix_orbital_sign(x)[0]
         return x, e_min
 
-    #def check_orth(self, mo_coeff, mo_name=None, tol=1e-7):
+    # def check_orth(self, mo_coeff, mo_name=None, tol=1e-7):
     #    """Check orthonormality of mo_coeff."""
     #    err = dot(mo_coeff.T, self.get_ovlp(), mo_coeff) - np.eye(mo_coeff.shape[-1])
     #    l2 = np.linalg.norm(err)
@@ -421,12 +430,14 @@ class Fragmentation:
     #    return l2, linf
 
     def check_orthonormal(self, mo_coeff, mo_name=None, tol=1e-7):
-        if mo_name is None: mo_name = self.name
+        if mo_name is None:
+            mo_name = self.name
         return check_orthonormal(self.log, mo_coeff, self.get_ovlp(), mo_name=mo_name, tol=tol)
 
     def get_atom_indices_symbols(self, atoms):
         """Convert a list of integer or strings to atom indices and symbols."""
-        if np.ndim(atoms) == 0: atoms = [atoms]
+        if np.ndim(atoms) == 0:
+            atoms = [atoms]
 
         if isinstance(atoms[0], (int, np.integer)):
             atom_indices = atoms
@@ -462,7 +473,8 @@ class Fragmentation:
             List of fragment orbitals indices, with coefficients corresponding to `self.coeff[:,indices]`.
         """
         atom_indices, atom_symbols = self.get_atom_indices_symbols(atoms)
-        if name is None: name = '/'.join(atom_symbols)
+        if name is None:
+            name = "/".join(atom_symbols)
         self.log.debugv("Atom indices of fragment %s: %r", name, atom_indices)
         self.log.debugv("Atom symbols of fragment %s: %r", name, atom_symbols)
         # Indices of IAOs based at atoms
@@ -475,12 +487,13 @@ class Fragmentation:
 
     def get_orbital_indices_labels(self, orbitals):
         """Convert a list of integer or strings to orbital indices and labels."""
-        if np.ndim(orbitals) == 0: orbitals = [orbitals]
+        if np.ndim(orbitals) == 0:
+            orbitals = [orbitals]
 
         if isinstance(orbitals[0], (int, np.integer)):
             orbital_indices = orbitals
             orbital_labels = (np.asarray(self.labels, dtype=object)[orbitals]).tolist()
-            orbital_labels = [('%d%3s %s%-s' % tuple(l)).strip() for l in orbital_labels]
+            orbital_labels = [("%d%3s %s%-s" % tuple(l)).strip() for l in orbital_labels]
             return orbital_indices, orbital_labels
         if isinstance(orbitals[0], str):
             orbital_labels = orbitals
@@ -496,19 +509,20 @@ class Fragmentation:
         if atom_filter is not None:
             raise NotImplementedError()
         indices, orbital_labels = self.get_orbital_indices_labels(orbitals)
-        if name is None: name = '/'.join(orbital_labels)
+        if name is None:
+            name = "/".join(orbital_labels)
         self.log.debugv("Orbital indices of fragment %s: %r", name, indices)
         self.log.debugv("Orbital labels of fragment %s: %r", name, orbital_labels)
         return name, indices
 
     def get_frag_coeff(self, indices):
         """Get fragment coefficients for a given set of orbital indices."""
-        c_frag = self.coeff[:,indices].copy()
+        c_frag = self.coeff[:, indices].copy()
         return c_frag
 
     def get_env_coeff(self, indices):
         """Get environment coefficients for a given set of orbital indices."""
         env = np.ones((self.coeff.shape[-1]), dtype=bool)
         env[indices] = False
-        c_env = self.coeff[:,env].copy()
+        c_env = self.coeff[:, env].copy()
         return c_env
