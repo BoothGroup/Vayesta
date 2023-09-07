@@ -13,9 +13,9 @@ import vayesta.ewf
 mol = pyscf.pbc.gto.Cell()
 mol.atom = "He 0 0 0"
 mol.a = 1.4 * np.eye(3)
-mol.basis = '6-31g'
+mol.basis = "6-31g"
 mol.verbose = 10
-mol.output = 'pyscf_out.txt'
+mol.output = "pyscf_out.txt"
 mol.build()
 
 # Hartree-Fock
@@ -32,12 +32,12 @@ with ecc.iao_fragmentation() as f:
     f.add_all_atomic_fragments()
 ecc.kernel()
 
-nocc = np.count_nonzero(mf.mo_occ>0)
-e_exxdiv = -nocc*pyscf.pbc.tools.madelung(mol, kpts=np.zeros((3,)))
+nocc = np.count_nonzero(mf.mo_occ > 0)
+e_exxdiv = -nocc * pyscf.pbc.tools.madelung(mol, kpts=np.zeros((3,)))
 print("E(exx-div)=  %+16.8f Ha" % e_exxdiv)
 
 print("E(HF)=       %+16.8f Ha" % mf.e_tot)
-print("E(CCSD)=     %+16.8f Ha" % cc.e_tot )
+print("E(CCSD)=     %+16.8f Ha" % cc.e_tot)
 print("E(EWF-CCSD)= %+16.8f Ha" % ecc.e_tot)
 
 assert np.allclose(cc.e_tot, ecc.e_tot)

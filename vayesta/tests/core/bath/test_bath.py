@@ -3,7 +3,7 @@ import unittest
 import numpy as np
 from vayesta.core.bath import DMET_Bath
 from vayesta.core.bath import EwDMET_Bath
-from vayesta.core.bath import MP2_Bath
+from vayesta.core.bath import MP2_Bath, RPA_Bath
 from vayesta.core.qemb import Embedding
 from vayesta.core.qemb import UEmbedding
 from vayesta.tests.common import TestCase
@@ -11,7 +11,6 @@ from vayesta.tests import testsystems
 
 
 class EwDMET_Bath_Test(TestCase):
-
     def test_ewdmet_bath(self):
         return True
         mf = testsystems.ethanol_ccpvdz.rhf()
@@ -27,11 +26,10 @@ class EwDMET_Bath_Test(TestCase):
         moments = np.arange(12)
         c_frag = frag.c_frag
         csc = np.linalg.multi_dot((c_frag.T, ovlp, mf.mo_coeff))
-        mom_full = np.einsum('xi,ik,yi->kxy', csc, np.power.outer(mf.mo_energy, moments), csc)
+        mom_full = np.einsum("xi,ik,yi->kxy", csc, np.power.outer(mf.mo_energy, moments), csc)
 
         # Test bath orbitals up to kmax = 4
         for kmax in range(0, 4):
-
             ewdmet_bath = EwDMET_Bath(frag, dmet_bath, max_order=kmax)
             ewdmet_bath.kernel()
 
@@ -44,34 +42,34 @@ class EwDMET_Bath_Test(TestCase):
             c_cluster_mo = np.dot(c_cluster, r)
 
             csc = np.linalg.multi_dot((c_frag.T, ovlp, c_cluster_mo))
-            mom_cluster = np.einsum('xi,ik,yi->kxy', csc, np.power.outer(e, moments), csc)
+            mom_cluster = np.einsum("xi,ik,yi->kxy", csc, np.power.outer(e, moments), csc)
 
             # Check "2n + 1"
-            for order in range(2*kmax + 2):
+            for order in range(2 * kmax + 2):
                 print("Testing EwDMET bath: kmax= %d moment= %d" % (kmax, order))
                 self.assertIsNone(np.testing.assert_allclose(mom_cluster[order], mom_full[order], atol=1e-7, rtol=1e-7))
 
-class BNO_Test(TestCase):
 
+class MP2_BNO_Test(TestCase):
     def test_bno_Bath(self):
         rhf = testsystems.ethanol_ccpvdz.rhf()
 
         remb = Embedding(rhf)
         with remb.iao_fragmentation() as f:
-            rfrag = f.add_atomic_fragment('O')
+            rfrag = f.add_atomic_fragment("O")
         rdmet_bath = DMET_Bath(rfrag)
         rdmet_bath.kernel()
-        rbno_bath_occ = MP2_Bath(rfrag, rdmet_bath, occtype='occupied')
-        rbno_bath_vir = MP2_Bath(rfrag, rdmet_bath, occtype='virtual')
+        rbno_bath_occ = MP2_Bath(rfrag, rdmet_bath, occtype="occupied")
+        rbno_bath_vir = MP2_Bath(rfrag, rdmet_bath, occtype="virtual")
 
         uhf = testsystems.ethanol_ccpvdz.uhf()
         uemb = UEmbedding(uhf)
         with uemb.iao_fragmentation() as f:
-            ufrag = f.add_atomic_fragment('O')
+            ufrag = f.add_atomic_fragment("O")
         udmet_bath = DMET_Bath(ufrag)
         udmet_bath.kernel()
-        ubno_bath_occ = MP2_Bath(ufrag, udmet_bath, occtype='occupied')
-        ubno_bath_vir = MP2_Bath(ufrag, udmet_bath, occtype='virtual')
+        ubno_bath_occ = MP2_Bath(ufrag, udmet_bath, occtype="occupied")
+        ubno_bath_vir = MP2_Bath(ufrag, udmet_bath, occtype="virtual")
 
         # Check maximum, minimum, and mean occupations
         n_occ_max = 0.005243099445814127
@@ -108,25 +106,24 @@ class BNO_Test(TestCase):
         self.assertAllclose(rbno_bath_vir.occup, ubno_bath_vir.occup[1])
 
     def test_project_dmet(self):
-
         rhf = testsystems.ethanol_ccpvdz.rhf()
         uhf = testsystems.ethanol_ccpvdz.uhf()
 
         remb = Embedding(rhf)
         with remb.iao_fragmentation() as f:
-            rfrag = f.add_atomic_fragment('O')
+            rfrag = f.add_atomic_fragment("O")
         rdmet_bath = DMET_Bath(rfrag)
         rdmet_bath.kernel()
-        rbno_bath_occ = MP2_Bath(rfrag, rdmet_bath, project_dmet='linear', occtype='occupied')
-        rbno_bath_vir = MP2_Bath(rfrag, rdmet_bath, project_dmet='linear', occtype='virtual')
+        rbno_bath_occ = MP2_Bath(rfrag, rdmet_bath, project_dmet="linear", occtype="occupied")
+        rbno_bath_vir = MP2_Bath(rfrag, rdmet_bath, project_dmet="linear", occtype="virtual")
 
         uemb = UEmbedding(uhf)
         with uemb.iao_fragmentation() as f:
-            ufrag = f.add_atomic_fragment('O')
+            ufrag = f.add_atomic_fragment("O")
         udmet_bath = DMET_Bath(ufrag)
         udmet_bath.kernel()
-        ubno_bath_occ = MP2_Bath(ufrag, udmet_bath, project_dmet='linear', occtype='occupied')
-        ubno_bath_vir = MP2_Bath(ufrag, udmet_bath, project_dmet='linear', occtype='virtual')
+        ubno_bath_occ = MP2_Bath(ufrag, udmet_bath, project_dmet="linear", occtype="occupied")
+        ubno_bath_vir = MP2_Bath(ufrag, udmet_bath, project_dmet="linear", occtype="virtual")
 
         # Check maximum, minimum, and mean occupations
         n_occ_mean = 7.377564076299791e-05
@@ -146,6 +143,35 @@ class BNO_Test(TestCase):
         self.assertAllclose(rbno_bath_vir.occup, ubno_bath_vir.occup[1])
 
 
-if __name__ == '__main__':
-    print('Running %s' % __file__)
+class RPA_Test(TestCase):
+    def test_bno_Bath(self):
+        rhf = testsystems.ethanol_631g_df.rhf()
+
+        remb = Embedding(rhf)
+        with remb.iao_fragmentation() as f:
+            rfrag = f.add_atomic_fragment("O")
+        rdmet_bath = DMET_Bath(rfrag)
+        rdmet_bath.kernel()
+        rbno_bath_occ = RPA_Bath(rfrag, rdmet_bath, occtype="occupied")
+        rbno_bath_vir = RPA_Bath(rfrag, rdmet_bath, occtype="virtual")
+
+        # Check maximum, minimum, and mean occupations
+        n_occ_max = 0.008502908095347851
+        n_occ_min = 0.000007766938370992
+        n_occ_mean = 0.002300040902721369
+        n_vir_max = 0.056091218249012025
+        n_vir_min = 0.000122187516348096
+        n_vir_mean = 0.009570044321105821
+
+        # RHF
+        self.assertAlmostEqual(np.amax(rbno_bath_occ.occup), n_occ_max)
+        self.assertAlmostEqual(np.amin(rbno_bath_occ.occup), n_occ_min)
+        self.assertAlmostEqual(np.mean(rbno_bath_occ.occup), n_occ_mean)
+        self.assertAlmostEqual(np.amax(rbno_bath_vir.occup), n_vir_max)
+        self.assertAlmostEqual(np.amin(rbno_bath_vir.occup), n_vir_min)
+        self.assertAlmostEqual(np.mean(rbno_bath_vir.occup), n_vir_mean)
+
+
+if __name__ == "__main__":
+    print("Running %s" % __file__)
     unittest.main()

@@ -13,12 +13,11 @@ from vayesta.tests import testsystems
 
 @pytest.mark.fast
 class TestSolvers(TestCase):
-
     def _test(self, key):
         mf = getattr(getattr(testsystems, key[0]), key[1])()
 
         solver_opts = dict(conv_tol=1e-10)
-        emb = vayesta.ewf.EWF(mf, solver='CISD', bath_options=dict(bathtype='full'), solver_options=solver_opts)
+        emb = vayesta.ewf.EWF(mf, solver="CISD", bath_options=dict(bathtype="full"), solver_options=solver_opts)
         emb.kernel()
 
         ci = pyscf.ci.CISD(mf)
@@ -29,12 +28,12 @@ class TestSolvers(TestCase):
         self.assertAlmostEqual(emb.e_tot, ci.e_tot)
 
     def test_rcisd_h2(self):
-        return self._test(('h2_ccpvdz', 'rhf'))
+        return self._test(("h2_ccpvdz", "rhf"))
 
     def test_ucisd_h3(self):
-        return self._test(('h3_ccpvdz', 'uhf'))
+        return self._test(("h3_ccpvdz", "uhf"))
 
 
-if __name__ == '__main__':
-    print('Running %s' % __file__)
+if __name__ == "__main__":
+    print("Running %s" % __file__)
     unittest.main()

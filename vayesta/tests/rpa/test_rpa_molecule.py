@@ -9,28 +9,25 @@ class MoleculeRPATest(TestCase):
     PLACES = 8
 
     def _test_energy(self, emb, known_values):
-        """Test the RPA energy.
-        """
+        """Test the RPA energy."""
 
-        self.assertAlmostEqual(emb.e_tot, known_values['e_tot'], self.PLACES)
+        self.assertAlmostEqual(emb.e_tot, known_values["e_tot"], self.PLACES)
 
     def test_lih_ccpvdz_RPAX(self):
-        """Tests for LiH cc-pvdz with RPAX.
-        """
+        """Tests for LiH cc-pvdz with RPAX."""
 
         emb = rpa.RPA(testsystems.lih_ccpvdz.rhf())
-        emb.kernel('rpax')
+        emb.kernel("rpax")
 
         known_values = {"e_tot": -8.021765296851472}
 
         self._test_energy(emb, known_values)
 
     def test_lih_ccpvdz_dRPA(self):
-        """Tests for LiH cc-pvdz with dPRA.
-        """
+        """Tests for LiH cc-pvdz with dPRA."""
 
         emb = rpa.RPA(testsystems.lih_ccpvdz.rhf())
-        emb.kernel('drpa')
+        emb.kernel("drpa")
 
         known_values = {"e_tot": -8.015594007709575}
 
@@ -42,8 +39,6 @@ class MoleculeRPATest(TestCase):
         self._test_energy(emb, known_values)
 
 
-
-
-if __name__ == '__main__':
-    print('Running %s' % __file__)
+if __name__ == "__main__":
+    print("Running %s" % __file__)
     unittest.main()

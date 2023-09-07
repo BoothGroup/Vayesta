@@ -3,7 +3,7 @@ import numpy as np
 import scipy.linalg
 
 from timeit import default_timer as timer
-from vayesta.core.util import dot, time_string
+from vayesta.core.util import dot, time_string, einsum
 
 
 class ssURPA(ssRPA):
@@ -43,9 +43,7 @@ class ssURPA(ssRPA):
         na, nb = self.nocc
         return self.mo_coeff[0][:, na:], self.mo_coeff[1][:, nb:]
 
-    def _gen_arrays(self, xc_kernel=None, alpha=1.0):
-        t0 = timer()
-
+    def _gen_eps(self):
         nocc_a, nocc_b = self.nocc
         nvir_a, nvir_b = self.nvir
         # Only have diagonal components in canonical basis.
@@ -58,6 +56,11 @@ class ssURPA(ssRPA):
         epsb = epsb + self.mf.mo_energy[1][nocc_b:]
         epsb = (epsb.T - self.mf.mo_energy[1][:nocc_b]).T
         epsb = epsb.reshape((self.ovb,))
+        return epsa, epsb
+
+    def _gen_arrays(self, xc_kernel=None, alpha=1.0):
+        t0 = timer()
+        epsa, epsb = self._gen_eps()
 
         if self.ov_rot is not None:
             epsa = einsum("pn,n,qn->pq", self.ov_rot[0], epsa, self.ov_rot[0])
@@ -78,7 +81,7 @@ class ssURPA(ssRPA):
         fullv = self.get_k()
         ApB = 2 * fullv * alpha
         if self.ov_rot is not None:
-            fullrot = scipy.linalg.block_diagonal(self.ov_rot[0], self.ov_rot[1])
+            fullrot = scipy.linalg.block_diag(self.ov_rot[0], self.ov_rot[1])
             ApB = dot(fullrot, ApB, fullrot.T)
 
         # At this point AmB is just epsilon so add in.
@@ -88,9 +91,7 @@ class ssURPA(ssRPA):
             M = np.einsum("p,pq,q->pq", AmB ** (0.5), ApB, AmB ** (0.5))
         else:
             # Grab A and B contributions for XC kernel.
-            ApB_xc, AmB_xc = self.get_xc_contribs(
-                xc_kernel, self.mo_coeff_occ, self.mo_coeff_vir, alpha
-            )
+            ApB_xc, AmB_xc = self.get_xc_contribs(xc_kernel, self.mo_coeff_occ, self.mo_coeff_vir, alpha)
             ApB = ApB + ApB_xc
             AmB = np.diag(AmB) + AmB_xc
             del ApB_xc, AmB_xc
@@ -124,8 +125,9 @@ class ssURPA(ssRPA):
         if isinstance(self.mf._eri, tuple):
             eris_aa = pyscf.ao2mo.kernel(self.mf._eri[0], mo_coeff[0], compact=False)
             eris_bb = pyscf.ao2mo.kernel(self.mf._eri[2], mo_coeff[1], compact=False)
-            eris_ab = pyscf.ao2mo.kernel(self.mf._eri[1], (mo_coeff[0], mo_coeff[0], mo_coeff[1], mo_coeff[1]),
-                                         compact=False)
+            eris_ab = pyscf.ao2mo.kernel(
+                self.mf._eri[1], (mo_coeff[0], mo_coeff[0], mo_coeff[1], mo_coeff[1]), compact=False
+            )
         else:
             # Call three-times to spin-restricted embedding
             self.log.debugv("Making (aa|aa) ERIs...")

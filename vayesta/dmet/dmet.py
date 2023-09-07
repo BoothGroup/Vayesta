@@ -15,7 +15,8 @@ from vayesta.dmet.updates import MixUpdate, DIISUpdate
 @dataclasses.dataclass
 class Options(Embedding.Options):
     """Options for DMET calculations."""
-    iao_minao: str = 'auto'  # Minimal basis for IAOs
+
+    iao_minao: str = "auto"  # Minimal basis for IAOs
     dm_with_frozen: bool = False  # Add frozen parts to cluster DMs
     # -- Self-consistency
     maxiter: int = 30
@@ -27,21 +28,24 @@ class Options(Embedding.Options):
     mixing_variable: str = "hl rdm"
     oneshot: bool = False
     # --- Solver options
-    solver_options: dict = Embedding.Options.change_dict_defaults('solver_options',
-            # CCSD
-            solve_lambda=True)
+    solver_options: dict = Embedding.Options.change_dict_defaults(
+        "solver_options",
+        # CCSD
+        solve_lambda=True,
+    )
+
 
 @dataclasses.dataclass
 class DMETResults:
     cluster_sizes: np.ndarray = None
     e_corr: float = None
 
-class DMET(Embedding):
 
+class DMET(Embedding):
     Fragment = DMETFragment
     Options = Options
 
-    def __init__(self, mf, solver='CCSD', log=None, **kwargs):
+    def __init__(self, mf, solver="CCSD", log=None, **kwargs):
         t_start = timer()
         # If we're running in oneshot mode will only do a single iteration, regardless of this setting, but good to have
         # consistent settings.
@@ -51,7 +55,7 @@ class DMET(Embedding):
         super().__init__(mf, solver=solver, log=log, **kwargs)
 
         self.log.info("Parameters of %s:", self.__class__.__name__)
-        self.log.info(break_into_lines(str(self.opts), newline='\n    '))
+        self.log.info(break_into_lines(str(self.opts), newline="\n    "))
 
         # --- Check input
         if not mf.converged:
@@ -71,14 +75,13 @@ class DMET(Embedding):
         return self.e_mf + self.e_corr
 
     def __repr__(self):
-        keys = ['mf', 'solver']
-        fmt = ('%s(' + len(keys) * '%s: %r, ')[:-2] + ')'
+        keys = ["mf", "solver"]
+        fmt = ("%s(" + len(keys) * "%s: %r, ")[:-2] + ")"
         values = [self.__dict__[k] for k in keys]
         return fmt % (self.__class__.__name__, *[x for y in zip(keys, values) for x in y])
 
     def kernel(self):
-        """Run DMET calculation.
-        """
+        """Run DMET calculation."""
         t_start = timer()
 
         if self.nfrag == 0:
@@ -86,9 +89,11 @@ class DMET(Embedding):
 
         maxiter = self.opts.maxiter
         # View this as a single number for now.
-        if self.opts.bath_options['bathtype'] == 'mp2' and maxiter > 1:
-            raise NotImplementedError("MP2 bath calculation is currently ignoring the correlation potential, so does"
-                                      " not work properly for self-consistent calculations.")
+        if self.opts.bath_options["bathtype"] == "mp2" and maxiter > 1:
+            raise NotImplementedError(
+                "MP2 bath calculation is currently ignoring the correlation potential, so does"
+                " not work properly for self-consistent calculations."
+            )
 
         fock = self.get_fock()
         if self.vcorr is None:
@@ -128,11 +133,10 @@ class DMET(Embedding):
             if type(nelec_mf) == tuple:
                 nelec_mf = sum(nelec_mf)
 
-            if self.opts.screening == 'mrpa':
-                for f in self.get_fragments(sym_parent=None):
-                    f.make_bath()
-                    f.make_cluster()
-                self.build_screened_eris()
+            for f in self.get_fragments(sym_parent=None):
+                f.make_bath()
+                f.make_cluster()
+            self.build_screened_eris()
 
             def electron_err(cpt, construct_bath=False):
                 err = self.calc_electron_number_defect(cpt, nelec_mf, sym_parents, nsym, construct_bath)
@@ -176,8 +180,9 @@ class DMET(Embedding):
                         break
                 # If we've got to here we've found a bracket.
                 [lo, hi] = sorted([cpt, new_cpt])
-                cpt, res = scipy.optimize.brentq(electron_err, a=lo, b=hi, full_output=True,
-                                                 xtol=self.opts.max_elec_err * nelec_mf)  # self.opts.max_elec_err * nelec_mf)
+                cpt, res = scipy.optimize.brentq(
+                    electron_err, a=lo, b=hi, full_output=True, xtol=self.opts.max_elec_err * nelec_mf
+                )  # self.opts.max_elec_err * nelec_mf)
                 self.log.info("Converged chemical potential: {:6.4e}".format(cpt))
                 # Recalculate to ensure all fragments have up-to-date info. Brentq strangely seems to do an extra
                 # calculation at the end...
@@ -241,8 +246,9 @@ class DMET(Embedding):
             nelec_hl += frag.get_nelectron_hl() * nsym[x]
 
         self.hl_rdms = [f.get_frag_hl_dm() for f in parent_fragments]
-        self.log.info("Chemical Potential {:8.6e} gives Total electron deviation {:6.4e}".format(
-            chempot, nelec_hl - nelec_target))
+        self.log.info(
+            "Chemical Potential {:8.6e} gives Total electron deviation {:6.4e}".format(chempot, nelec_hl - nelec_target)
+        )
         return nelec_hl - nelec_target
 
     def update_vcorr(self, fock, curr_rdms):
@@ -251,17 +257,16 @@ class DMET(Embedding):
         # Note that we want the total number of electrons, not just in fragments, and that this treats different spin
         # channels separately; for RHF the resultant problems are identical and so can just be solved once.
         # As such need to use the spin-dm, rather than spatial.
-        vcorr_new = perform_SDP_fit(self.mol.nelec[0], fock, self.get_impurity_coeffs(), [x / 2 for x in curr_rdms],
-                                    self.get_ovlp(), self.log)
+        vcorr_new = perform_SDP_fit(
+            self.mol.nelec[0], fock, self.get_impurity_coeffs(), [x / 2 for x in curr_rdms], self.get_ovlp(), self.log
+        )
         return vcorr_new
 
     def get_impurity_coeffs(self):
         sym_parents = self.get_symmetry_parent_fragments()
         sym_children = self.get_symmetry_child_fragments()
 
-        return [
-                [parent.c_frag] + [c.c_frag for c in children] for (parent, children) in zip(sym_parents, sym_children)
-        ]
+        return [[parent.c_frag] + [c.c_frag for c in children] for (parent, children) in zip(sym_parents, sym_children)]
 
     def print_results(self):  # , results):
         self.log.info("Energies")
@@ -270,10 +275,10 @@ class DMET(Embedding):
         # for i, frag in enumerate(self.loop()):
         #    e_corr = results["e_corr"][i]
         #    self.log.output(fmt, 'E(corr)[' + frag.trimmed_name() + ']=', e_corr)
-        self.log.output(fmt, 'E(corr)=', self.e_corr)
-        self.log.output(fmt, 'E(MF)=', self.e_mf)
-        self.log.output(fmt, 'E(nuc)=', self.mol.energy_nuc())
-        self.log.output(fmt, 'E(tot)=', self.e_tot)
+        self.log.output(fmt, "E(corr)=", self.e_corr)
+        self.log.output(fmt, "E(MF)=", self.e_mf)
+        self.log.output(fmt, "E(nuc)=", self.mol.energy_nuc())
+        self.log.output(fmt, "E(tot)=", self.e_tot)
 
     def print_clusters(self):
         """Print fragments of calculations."""
@@ -293,6 +298,7 @@ class DMET(Embedding):
         if dm2 is None:
             dm2 = self.make_rdm2()
         return super().get_corrfunc(kind, dm1=dm1, dm2=dm2, **kwargs)
+
 
 DMET.make_rdm1.__doc__ = DMET.make_rdm1_demo.__doc__
 DMET.make_rdm2.__doc__ = DMET.make_rdm2_demo.__doc__

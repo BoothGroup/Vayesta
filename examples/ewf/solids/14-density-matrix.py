@@ -10,19 +10,19 @@ import vayesta.ewf
 
 cell = pyscf.pbc.gto.Cell()
 a = 3.57
-cell.atom = 'He 0.0 0.0 0.0'
-cell.a = 3.0*np.eye(3)
-cell.basis = 'def2-svp'
+cell.atom = "He 0.0 0.0 0.0"
+cell.a = 3.0 * np.eye(3)
+cell.basis = "def2-svp"
 cell.verbose = 10
-cell.output = 'pyscf.out'
+cell.output = "pyscf.out"
 cell.build()
 
-kmesh = [2,2,2]
+kmesh = [2, 2, 2]
 kpts = cell.make_kpts(kmesh)
 
 # Hartree-Fock with k-points
 kmf = pyscf.pbc.scf.KRHF(cell, kpts)
-kmf = kmf.density_fit(auxbasis='def2-svp-ri')
+kmf = kmf.density_fit(auxbasis="def2-svp-ri")
 kmf.kernel()
 
 # Embedded calculation will automatically fold the k-point sampled mean-field to the supercell
@@ -33,7 +33,7 @@ dm1_demo = emb.make_rdm1_demo(ao_basis=True)
 dm1_emb = emb.make_rdm1(ao_basis=True)
 
 # Full system reference CCSD
-mf = emb.mf.density_fit(auxbasis='def2-svp-ri')
+mf = emb.mf.density_fit(auxbasis="def2-svp-ri")
 cc = pyscf.pbc.cc.CCSD(mf)
 cc.kernel()
 dm1_cc = cc.make_rdm1(ao_repr=True)

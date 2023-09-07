@@ -1,0 +1,14 @@
+    # Install via pre-commit by running
+    # `pre-commit install`
+    # See https://pre-commit.com for more information
+    # See https://pre-commit.com/hooks.html for more hooks
+    # We'll need to manually update the version of black used in our pre-commits via
+    # `pre-commit autoupdate`.
+    # This is a conscious decision on the part of the pre-commit developers; for more information
+    # see https://pre-commit.com/#using-the-latest-version-for-a-repository
+    repos:
+      - repo: https://github.com/ambv/black
+        rev: 23.7.0
+        hooks:
+          - id: black
+            language_version: python3.10

@@ -49,7 +49,8 @@ def perform_SDP_fit(nelec, fock, impurity_projectors, target_rdms, ovlp, log):
 
     # Want to construct the full correlation potential, in the AO basis.
     utot = sum(
-        [cp.matmul(aproj.T, cp.matmul(us[i], aproj)) for i, curr_proj in enumerate(AO_in_imps) for aproj in curr_proj])
+        [cp.matmul(aproj.T, cp.matmul(us[i], aproj)) for i, curr_proj in enumerate(AO_in_imps) for aproj in curr_proj]
+    )
     # import scipy
     # c_pao = np.linalg.inv(scipy.linalg.sqrtm(ovlp))
 
@@ -62,7 +63,8 @@ def perform_SDP_fit(nelec, fock, impurity_projectors, target_rdms, ovlp, log):
     # trace to orthogonal rotations (if you're using nonorthogonal fragment orbitals this will need a bit more thought).
     objective = cp.Minimize(
         sum([cp.trace(rdm1 @ ux) * ni for ni, rdm1, ux in zip(nsym, target_rdms, us)])
-        - alpha * nelec + cp.trace(cp.matmul(z, np.linalg.inv(ovlp)))
+        - alpha * nelec
+        + cp.trace(cp.matmul(z, np.linalg.inv(ovlp)))
     )
     prob = cp.Problem(objective, constraints)
 

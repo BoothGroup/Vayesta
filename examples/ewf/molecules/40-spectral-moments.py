@@ -22,26 +22,26 @@ H  0.0000  -0.7572  -0.4692
 
 mol.atom = vayesta.misc.molecules.alkane(4)
 print(mol.atom)
-mol.basis = 'sto-6g'
-mol.output = 'pyscf.out'
+mol.basis = "sto-6g"
+mol.output = "pyscf.out"
 mol.build()
 
 # Hartree-Fock
 mf = pyscf.scf.RHF(mol)
 mf.kernel()
 
-niter = (5,0)
+niter = (5, 0)
 
 # Embedded CCSD
 emb = vayesta.ewf.EWF(mf, bath_options=dict(threshold=-1), solver_options=dict(solve_lambda=True))
-emb.opts.nmoments= 2*niter[0] + 2
+emb.opts.nmoments = 2 * niter[0] + 2
 
 with emb.iao_fragmentation() as f:
     n = len(mol.atom)
-    f.add_atomic_fragment([0,1,2,3])
-    for i in range(4, n-4, 3):
-        f.add_atomic_fragment([i,i+1, i+2])
-    f.add_atomic_fragment([n-1,n-2,n-3,n-4])
+    f.add_atomic_fragment([0, 1, 2, 3])
+    for i in range(4, n - 4, 3):
+        f.add_atomic_fragment([i, i + 1, i + 2])
+    f.add_atomic_fragment([n - 1, n - 2, n - 3, n - 4])
 
 
 emb.kernel()
@@ -58,7 +58,7 @@ ip = gfcc.ipgfccsd(nroots=1)[0]
 
 th = gfcc.build_hole_moments()
 print(len(th))
-#tp = gfcc.build_part_moments()
+# tp = gfcc.build_part_moments()
 
 moms = vayesta.ewf.moments.make_ccsdgf_moms(emb)
 
@@ -66,13 +66,15 @@ print(th)
 print(moms[0])
 
 for i in range(len(th)):
-    th[i] = (th[i] + th[i].T)/2
-    moms[0][i] = (moms[0][i] + moms[0][i].T)/2
+    th[i] = (th[i] + th[i].T) / 2
+    moms[0][i] = (moms[0][i] + moms[0][i].T) / 2
 
 for i in range(len(th)):
     mask = np.abs(th[i]) > 1e-10
-    print("%d mom: norm = %e    maxerr = %e"%(i, np.linalg.norm(th[i]-moms[0][i]), (np.abs(th[i]-moms[0][i])).max()))
+    print(
+        "%d mom: norm = %e    maxerr = %e" % (i, np.linalg.norm(th[i] - moms[0][i]), (np.abs(th[i] - moms[0][i])).max())
+    )
 
 
 mask = np.abs(th) > 1e-10
-print(np.abs(th-moms[0]))
+print(np.abs(th - moms[0]))

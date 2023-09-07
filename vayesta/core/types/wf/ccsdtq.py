@@ -35,10 +35,12 @@ class RCCSDTQ_WaveFunction(wf_types.WaveFunction):
     def as_cisd(self, c0=1.0):
         return self.as_ccsd().as_cisd()
 
+
 class UCCSDTQ_WaveFunction(RCCSDTQ_WaveFunction):
     def _check_amps(self):
         if not (isinstance(self.t3, tuple) and len(self.t3) == 4):
             raise ValueError("t4 definition in UCCSDTQ wfn requires tuple of (aaa, aba, bab, bbb) spin signatures")
         if not (isinstance(self.t4, tuple) and len(self.t4) == 5):
             raise ValueError(
-                    "t4 definition in UCCSDTQ wfn requires tuple of (aaaa, aaab, abab, abbb, bbbb) spin signatures")
+                "t4 definition in UCCSDTQ wfn requires tuple of (aaaa, aaab, abab, abbb, bbbb) spin signatures"
+            )

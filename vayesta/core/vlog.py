@@ -27,23 +27,23 @@ TRACE   (*)      1  (-vvv)      To trace function flow
 """
 
 LVL_PREFIX = {
-   "FATAL" : "FATAL",
-   "CRITICAL" : "CRITICAL",
-   "ERROR" : "ERROR",
-   "WARNING" : "WARNING",
-   "DEPRECATED" : "WARNING",
-   "OUT" : "OUTPUT",
-   "DEBUG" : "DEBUG",
-   "DEBUGV" : "DEBUG",
-   "TRACE" : "TRACE",
-   }
+    "FATAL": "FATAL",
+    "CRITICAL": "CRITICAL",
+    "ERROR": "ERROR",
+    "WARNING": "WARNING",
+    "DEPRECATED": "WARNING",
+    "OUT": "OUTPUT",
+    "DEBUG": "DEBUG",
+    "DEBUGV": "DEBUG",
+    "TRACE": "TRACE",
+}
 
 
 class NoLogger:
-
     def __getattr__(self, key):
         """Return function which does nothing."""
-        return (lambda *args, **kwargs : None)
+        return lambda *args, **kwargs: None
+
 
 class LevelRangeFilter(logging.Filter):
     """Only log events with level in interval [low, high)."""
@@ -55,10 +55,11 @@ class LevelRangeFilter(logging.Filter):
 
     def filter(self, record):
         if self._low is None:
-            return (record.levelno < self._high)
+            return record.levelno < self._high
         if self._high is None:
-            return (self._low <= record.levelno)
-        return (self._low <= record.levelno < self._high)
+            return self._low <= record.levelno
+        return self._low <= record.levelno < self._high
+
 
 class LevelIncludeFilter(logging.Filter):
     """Only log events with level in include."""
@@ -68,7 +69,8 @@ class LevelIncludeFilter(logging.Filter):
         self._include = include
 
     def filter(self, record):
-        return (record.levelno in self._include)
+        return record.levelno in self._include
+
 
 class LevelExcludeFilter(logging.Filter):
     """Only log events with level not in exlude."""
@@ -78,14 +80,23 @@ class LevelExcludeFilter(logging.Filter):
         self._exclude = exclude
 
     def filter(self, record):
-        return (record.levelno not in self._exclude)
+        return record.levelno not in self._exclude
+
 
 class VFormatter(logging.Formatter):
     """Formatter which adds a prefix column and indentation."""
 
-    def __init__(self, *args,
-            show_level=True, show_mpi_rank=False, prefix_sep='|',
-            indent=False, indent_char=' ', indent_width=4, **kwargs):
+    def __init__(
+        self,
+        *args,
+        show_level=True,
+        show_mpi_rank=False,
+        prefix_sep="|",
+        indent=False,
+        indent_char=" ",
+        indent_width=4,
+        **kwargs,
+    ):
         super().__init__(*args, **kwargs)
 
         self.show_level = show_level
@@ -95,7 +106,7 @@ class VFormatter(logging.Formatter):
         if show_level:
             self.prefix_width += len(max(LVL_PREFIX.values(), key=len)) + 2
         if show_mpi_rank:
-            self.prefix_width += len(str(mpi.size-1)) + 6
+            self.prefix_width += len(str(mpi.size - 1)) + 6
 
         self.prefix_sep = prefix_sep
         self.indent = indent
@@ -108,10 +119,10 @@ class VFormatter(logging.Formatter):
         if self.show_level:
             prefix = LVL_PREFIX.get(record.levelname, "")
             if prefix:
-                prefix = '[%s]' % prefix
+                prefix = "[%s]" % prefix
         if self.show_mpi_rank:
-            prefix += '[MPI %d]' % mpi.rank
-        prefix = '%-*s%s' % (self.prefix_width, prefix, self.prefix_sep)
+            prefix += "[MPI %d]" % mpi.rank
+        prefix = "%-*s%s" % (self.prefix_width, prefix, self.prefix_sep)
         if self.indent:
             root = logging.getLogger()
             indent = root.indentLevel * self.indent_width * self.indent_char
@@ -119,6 +130,7 @@ class VFormatter(logging.Formatter):
         if prefix:
             lines = [((prefix + "  " + line) if line else prefix) for line in lines]
         return "\n".join(lines)
+
 
 class VStreamHandler(logging.StreamHandler):
     """Default stream handler with IndentedFormatter"""
@@ -129,22 +141,25 @@ class VStreamHandler(logging.StreamHandler):
             formatter = VFormatter()
         self.setFormatter(formatter)
 
+
 class VFileHandler(logging.FileHandler):
     """Default file handler with IndentedFormatter"""
 
-    def __init__(self, filename, mode='a', formatter=None, add_mpi_rank=True, delay=True, **kwargs):
+    def __init__(self, filename, mode="a", formatter=None, add_mpi_rank=True, delay=True, **kwargs):
         filename = get_logname(filename, add_mpi_rank=add_mpi_rank)
         super().__init__(filename, mode=mode, delay=delay, **kwargs)
         if formatter is None:
             formatter = VFormatter()
         self.setFormatter(formatter)
 
-def get_logname(name, add_mpi_rank=True, ext='txt'):
+
+def get_logname(name, add_mpi_rank=True, ext="txt"):
     if mpi and add_mpi_rank:
-        name = '%s.mpi%d' % (name, mpi.rank)
-    if ext and not name.endswith('.%s' % ext):
-        name = '%s.%s' % (name, ext)
+        name = "%s.mpi%d" % (name, mpi.rank)
+    if ext and not name.endswith(".%s" % ext):
+        name = "%s.%s" % (name, ext)
     return name
+
 
 def init_logging():
     """Call this to initialize and configure logging, when importing Vayesta.
@@ -161,15 +176,20 @@ def init_logging():
     def add_log_level(level, name, log_once=False):
         logging.addLevelName(level, name.upper())
         setattr(logging, name.upper(), level)
+
         def logForLevel(self, message, *args, **kwargs):
             if self.isEnabledFor(level):
                 self._log(level, message, args, **kwargs)
+
         if log_once:
             logForLevel = functools.lru_cache(None)(logForLevel)
+
         def logToRoot(message, *args, **kwargs):
             logging.log(level, message, *args, **kwargs)
+
         setattr(logging.getLoggerClass(), name, logForLevel)
         setattr(logging, name, logToRoot)
+
     add_log_level(100, "fatal")
     add_log_level(30, "deprecated", log_once=True)
     add_log_level(25, "output")
@@ -196,7 +216,6 @@ def init_logging():
         return root.indentLevel
 
     class indent(contextlib.ContextDecorator):
-
         def __init__(self, delta=1):
             self.delta = delta
             self.level_init = None
@@ -204,7 +223,7 @@ def init_logging():
 
         def __enter__(self):
             self.level_init = self.root.indentLevel
-            self.root.indentLevel = max(self.level_init+self.delta, 0)
+            self.root.indentLevel = max(self.level_init + self.delta, 0)
 
         def __exit__(self, *args):
             self.root.indentLevel = self.level_init

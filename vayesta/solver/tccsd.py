@@ -41,17 +41,17 @@ class TRCCSD_Solver(RCCSD_Solver):
         del fci, tham
 
         def tailor_func(kwargs):
-            cc = kwargs['mycc']
-            t1, t2 = kwargs['t1new'], kwargs['t2new']
+            cc = kwargs["mycc"]
+            t1, t2 = kwargs["t1new"], kwargs["t2new"]
             # Rotate & project CC amplitudes to CAS
-            t1_cc = einsum('IA,Ii,Aa->ia', t1, ro, rv)
-            t2_cc = einsum('IJAB,Ii,Jj,Aa,Bb->ijab', t2, ro, ro, rv, rv)
+            t1_cc = einsum("IA,Ii,Aa->ia", t1, ro, rv)
+            t2_cc = einsum("IJAB,Ii,Jj,Aa,Bb->ijab", t2, ro, ro, rv, rv)
             # Take difference wrt to FCI
-            dt1 = (wf.t1 - t1_cc)
-            dt2 = (wf.t2 - t2_cc)
+            dt1 = wf.t1 - t1_cc
+            dt2 = wf.t2 - t2_cc
             # Rotate back to CC space
-            dt1 = einsum('ia,Ii,Aa->IA', dt1, ro, rv)
-            dt2 = einsum('ijab,Ii,Jj,Aa,Bb->IJAB', dt2, ro, ro, rv, rv)
+            dt1 = einsum("ia,Ii,Aa->IA", dt1, ro, rv)
+            dt2 = einsum("ijab,Ii,Jj,Aa,Bb->IJAB", dt2, ro, ro, rv, rv)
             # Add correction
             t1 += dt1
             t2 += dt2

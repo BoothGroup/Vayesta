@@ -26,7 +26,7 @@ class Hubbard1DTests_10_0(TestCase):
         f0 = self.mf.get_fock()
         f0 = np.einsum("pq,pi,qj->ij", f0, self.mf.mo_coeff.conj(), self.mf.mo_coeff)
         f1 = np.diag(self.mf.mo_energy)
-        self.assertAlmostEqual(np.max(np.abs(f0-f1)), 0.0, 8)
+        self.assertAlmostEqual(np.max(np.abs(f0 - f1)), 0.0, 8)
 
 
 @pytest.mark.fast
@@ -59,6 +59,6 @@ class Hubbard1DTests_10_8(Hubbard1DTests_10_0):
         cls.known_values = {"e_tot": 7.0557280900008275}
 
 
-if __name__ == '__main__':
-    print('Running %s' % __file__)
+if __name__ == "__main__":
+    print("Running %s" % __file__)
     unittest.main()

@@ -7,9 +7,9 @@ import vayesta
 import vayesta.ewf
 
 mol = pyscf.gto.Mole()
-mol.atom = ['N 0 0 0', 'N 0 0 2']
-mol.basis = 'aug-cc-pvdz'
-mol.output = 'pyscf.out'
+mol.atom = ["N 0 0 0", "N 0 0 2"]
+mol.basis = "aug-cc-pvdz"
+mol.output = "pyscf.out"
 mol.build()
 
 # Hartree-Fock
@@ -25,7 +25,7 @@ casscf = pyscf.mcscf.CASSCF(mf, 8, 10)
 casscf.kernel()
 
 # FCI with DMET bath orbitals only
-emb = vayesta.ewf.EWF(mf, solver='FCI', bath_options=dict(bathtype='dmet'))
+emb = vayesta.ewf.EWF(mf, solver="FCI", bath_options=dict(bathtype="dmet"))
 with emb.iao_fragmentation() as f:
     f.add_atomic_fragment(0, sym_factor=2)
 emb.kernel()

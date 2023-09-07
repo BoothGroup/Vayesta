@@ -12,8 +12,8 @@ O  0.0000   0.0000   0.1173
 H  0.0000   0.7572  -0.4692
 H  0.0000  -0.7572  -0.4692
 """
-mol.basis = 'cc-pVDZ'
-mol.output = 'pyscf.txt'
+mol.basis = "cc-pVDZ"
+mol.output = "pyscf.txt"
 mol.build()
 
 # Hartree-Fock
@@ -21,7 +21,7 @@ mf = pyscf.scf.RHF(mol)
 mf.kernel()
 
 # Embedded CCSD
-emb = vayesta.ewf.EWF(mf, bath_options=dict(threshold=1e-6), solver_options=dict(n_moments=(2,4), solve_lambda=True))
+emb = vayesta.ewf.EWF(mf, bath_options=dict(threshold=1e-6), solver_options=dict(n_moments=(2, 4), solve_lambda=True))
 emb.kernel()
 
 # Reference full system CCSD:

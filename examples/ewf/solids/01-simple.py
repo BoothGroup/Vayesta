@@ -8,17 +8,17 @@ import vayesta.ewf
 
 # For an equivalent calculation enforcing symmetries, see examples/ewf/solids/01-simple-sym.py
 cell = pyscf.pbc.gto.Cell()
-cell.atom = ['He 0.0 0.0 0.0']
+cell.atom = ["He 0.0 0.0 0.0"]
 cell.a = 1.4 * np.eye(3)
-cell.basis = 'def2-svp'
-cell.output = 'pyscf.out'
+cell.basis = "def2-svp"
+cell.output = "pyscf.out"
 cell.build()
 
-kpts = cell.make_kpts([2,2,2])
+kpts = cell.make_kpts([2, 2, 2])
 
 # Hartree-Fock with k-points
 mf = pyscf.pbc.scf.KRHF(cell, kpts)
-mf = mf.density_fit(auxbasis='def2-svp-ri')
+mf = mf.density_fit(auxbasis="def2-svp-ri")
 mf.kernel()
 
 # Embedded calculation will automatically unfold the k-point sampled mean-field

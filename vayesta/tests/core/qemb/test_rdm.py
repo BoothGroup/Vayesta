@@ -13,7 +13,6 @@ from vayesta.tests.common import TestCase
 
 
 class Test_Restricted(TestCase):
-
     @classmethod
     def setUpClass(cls):
         cls.mf = testsystems.water_631g.rhf()
@@ -22,14 +21,14 @@ class Test_Restricted(TestCase):
     @classmethod
     def tearDownClass(cls):
         del cls.mf, cls.cc
-        if hasattr(cls, 'kmf'):
+        if hasattr(cls, "kmf"):
             del cls.kmf
         cls.emb.cache_clear()
 
     @classmethod
     @cache
     def emb(cls, bno_threshold):
-        mf = getattr(cls, 'kmf', cls.mf)
+        mf = getattr(cls, "kmf", cls.mf)
         solver_opts = dict(conv_tol=1e-10, conv_tol_normt=1e-8)
         emb = vayesta.ewf.EWF(mf, solver_options=solver_opts, bath_options=dict(threshold=bno_threshold))
         with emb.sao_fragmentation() as f:
@@ -39,7 +38,7 @@ class Test_Restricted(TestCase):
 
     @property
     def nkpts(self):
-        if hasattr(self, 'kmf'):
+        if hasattr(self, "kmf"):
             return len(self.kmf.kpts)
         return 1
 
@@ -66,36 +65,36 @@ class Test_Restricted(TestCase):
         e_nuc = self.mf.energy_nuc()
         h1e = self.mf.get_hcore()
         eri = pyscf.ao2mo.restore(1, self.mf._eri, h1e.shape[-1])
-        if getattr(self.mf, 'exxdiv', None) is not None:
+        if getattr(self.mf, "exxdiv", None) is not None:
             madelung = pyscf.pbc.tools.madelung(self.mf.mol, self.mf.kpt)
-            e_exxdiv = -madelung * self.mf.mol.nelectron/2 #/ len(self.mf.kpts)
+            e_exxdiv = -madelung * self.mf.mol.nelectron / 2  # / len(self.mf.kpts)
         else:
             e_exxdiv = 0
-        return (e_nuc + e_exxdiv + np.sum(h1e*dm1) + np.sum(dm2*eri)/2) / self.nkpts
+        return (e_nuc + e_exxdiv + np.sum(h1e * dm1) + np.sum(dm2 * eri) / 2) / self.nkpts
 
     def test_dmet_energy_part_2dm_full_bath(self):
         """Literature DMET energy."""
         emb = self.emb(-1)
         # DMET energy:
         e_dmet = emb.get_dmet_energy(part_cumulant=False)
-        self.assertAllclose(e_dmet, self.cc.e_tot/self.nkpts)
+        self.assertAllclose(e_dmet, self.cc.e_tot / self.nkpts)
         # DMET energy from DMs:
         dm1 = emb.make_rdm1_demo(ao_basis=True)
         dm2 = emb.make_rdm2_demo(ao_basis=True, part_cumulant=False)
         e_dmet = self._energy_from_dms(dm1, dm2)
-        self.assertAllclose(e_dmet, self.cc.e_tot/self.nkpts)
+        self.assertAllclose(e_dmet, self.cc.e_tot / self.nkpts)
 
     def test_dmet_energy_part_cumulant_full_bath(self):
         """Improved DMET energy."""
         emb = self.emb(-1)
         # DMET energy:
         e_dmet = emb.get_dmet_energy(part_cumulant=True)
-        self.assertAllclose(e_dmet, self.cc.e_tot/self.nkpts)
+        self.assertAllclose(e_dmet, self.cc.e_tot / self.nkpts)
         # DMET energy from DMs:
         dm1 = emb.make_rdm1_demo(ao_basis=True)
         dm2 = emb.make_rdm2_demo(ao_basis=True, part_cumulant=True)
         e_dmet = self._energy_from_dms(dm1, dm2)
-        self.assertAllclose(e_dmet, self.cc.e_tot/self.nkpts)
+        self.assertAllclose(e_dmet, self.cc.e_tot / self.nkpts)
 
     e_ref_dmet_part_2dm = -76.16067576457968
 
@@ -127,7 +126,6 @@ class Test_Restricted(TestCase):
 
 
 class Test_Unrestricted(Test_Restricted):
-
     @classmethod
     def setUpClass(cls):
         cls.mf = testsystems.water_cation_631g.uhf()
@@ -135,7 +133,7 @@ class Test_Unrestricted(Test_Restricted):
 
     def _energy_from_dms(self, dm1, dm2):
         dm1 = dm1[0] + dm1[1]
-        dm2 = dm2[0] + 2*dm2[1] + dm2[2]
+        dm2 = dm2[0] + 2 * dm2[1] + dm2[2]
         return super()._energy_from_dms(dm1, dm2)
 
     e_ref_dmet_part_2dm = -75.6952601321852
@@ -143,7 +141,6 @@ class Test_Unrestricted(Test_Restricted):
 
 
 class Test_PBC_Restricted(Test_Restricted):
-
     @classmethod
     def setUpClass(cls):
         cls.mf = testsystems.h2_sto3g_s311.rhf()
@@ -153,8 +150,8 @@ class Test_PBC_Restricted(Test_Restricted):
     e_ref_dmet_part_2dm = -3.848969147919312 / 3
     e_ref_dmet_part_cumulant = -3.8505073633380364 / 3
 
-class Test_PBC_Unrestricted(Test_Unrestricted):
 
+class Test_PBC_Unrestricted(Test_Unrestricted):
     @classmethod
     def setUpClass(cls):
         cls.mf = testsystems.h3_sto3g_s311.uhf()
@@ -165,6 +162,6 @@ class Test_PBC_Unrestricted(Test_Unrestricted):
     e_ref_dmet_part_cumulant = -1.7461038863675442
 
 
-if __name__ == '__main__':
-    print('Running %s' % __file__)
+if __name__ == "__main__":
+    print("Running %s" % __file__)
     unittest.main()

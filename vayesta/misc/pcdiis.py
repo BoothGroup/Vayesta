@@ -11,7 +11,6 @@ class PCDIIS(pyscf.lib.diis.DIIS):
         self.pref = pref
         super().__init__(*args, **kwargs)
 
-
     def update(self, x):
         y = np.dot(x, self.pref)
         y_new = super().update(y)
@@ -20,17 +19,17 @@ class PCDIIS(pyscf.lib.diis.DIIS):
         return x_new
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     import pyscf.gto
     import pyscf.scf
 
-    mol = pyscf.gto.Mole(atom='H 0 0 0 ; F 0 0 1', basis='cc-pVDZ')
+    mol = pyscf.gto.Mole(atom="H 0 0 0 ; F 0 0 1", basis="cc-pVDZ")
     mol.build()
     hf = pyscf.scf.RHF(mol)
     hf.kernel()
 
     nocc = np.count_nonzero(hf.mo_occ > 0)
-    c = hf.mo_coeff[:,:nocc]
+    c = hf.mo_coeff[:, :nocc]
     diis = PCDIIS(c)
     dm0 = hf.make_rdm1()
     dm1 = diis.update(dm0)

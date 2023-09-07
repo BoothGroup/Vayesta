@@ -10,15 +10,15 @@ from vayesta.misc import solids
 
 cell = pyscf.pbc.gto.Cell()
 cell.a, cell.atom = solids.graphene()
-cell.basis = 'cc-pVDZ'
-cell.output = 'pyscf.out'
+cell.basis = "cc-pVDZ"
+cell.output = "pyscf.out"
 cell.dimension = 2
 cell.build()
 
 # LDA
 lda = pyscf.pbc.dft.RKS(cell)
-lda = lda.density_fit(auxbasis='cc-pVDZ-ri')
-lda.xc = 'svwn'
+lda = lda.density_fit(auxbasis="cc-pVDZ-ri")
+lda.xc = "svwn"
 lda.kernel()
 # The KS opbject needs to be converted to a HF object
 # Do NOT use lda.to_rhf(), as this will remove the periodic boundary conditions
@@ -31,7 +31,7 @@ emb_lda.kernel()
 
 # HF
 hf = pyscf.pbc.scf.RHF(cell)
-hf = hf.density_fit(auxbasis='cc-pVDZ-ri')
+hf = hf.density_fit(auxbasis="cc-pVDZ-ri")
 hf.kernel()
 
 emb_hf = vayesta.ewf.EWF(hf, bath_options=dict(threshold=1e-6))

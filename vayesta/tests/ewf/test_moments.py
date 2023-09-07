@@ -10,11 +10,10 @@ import vayesta.ewf
 from vayesta.tests.common import TestCase
 from vayesta.tests import testsystems
 
+
 class Test_RFCI(TestCase):
-
     def test(self):
-
-        #RHF
+        # RHF
         mf = testsystems.h6_sto6g.rhf()
 
         try:
@@ -29,16 +28,18 @@ class Test_RFCI(TestCase):
         fci = FCI["1p"](mf)
         fci_ea = fci.build_gf_moments(4)
 
-        #Full bath EWF
-        ewf = vayesta.ewf.EWF(mf, bath_options=dict(bathtype='full'), solver_options=dict(n_moments=(4,4)), solver='FCI')
+        # Full bath EWF
+        ewf = vayesta.ewf.EWF(
+            mf, bath_options=dict(bathtype="full"), solver_options=dict(n_moments=(4, 4)), solver="FCI"
+        )
         ewf.kernel()
 
         for f in ewf.fragments:
-            ip, ea = f.results.moms 
+            ip, ea = f.results.moms
 
-            cx = f.get_overlap('mo|cluster')
-            ip = np.einsum('pP,qQ,nPQ->npq', cx, cx, ip)
-            ea = np.einsum('pP,qQ,nPQ->npq', cx, cx, ea)
+            cx = f.get_overlap("mo|cluster")
+            ip = np.einsum("pP,qQ,nPQ->npq", cx, cx, ip)
+            ea = np.einsum("pP,qQ,nPQ->npq", cx, cx, ea)
 
             self.assertTrue(np.allclose(ip, fci_ip, atol=1e-14))
             self.assertTrue(np.allclose(ea, fci_ea, atol=1e-14))
@@ -68,7 +69,7 @@ class Test_RFCI(TestCase):
 #         ewf.kernel()
 
 #         for f in ewf.fragments:
-#             ip, ea = f.results.moms 
+#             ip, ea = f.results.moms
 
 #             cx = f.get_overlap('mo|cluster')
 #             ip = np.einsum('pP,qQ,nPQ->npq', cx, cx, ip)
@@ -84,7 +85,6 @@ class Test_RFCI(TestCase):
 #             # self.assertTrue(np.allclose(ip, cc_ip))
 #             # self.assertTrue(np.allclose(ea, cc_ea))
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     print("Running %s" % __file__)
     unittest.main()
-

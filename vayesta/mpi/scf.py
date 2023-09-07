@@ -17,7 +17,7 @@ def scf_with_mpi(mpi, mf, mpi_rank=0, log=None):
     log = log or mpi.log or logging.getLogger(__name__)
 
     def mpi_kernel(self, *args, **kwargs):
-        df = getattr(self, 'with_df', None)
+        df = getattr(self, "with_df", None)
         if mpi.rank == mpi_rank:
             log.info("MPI rank= %3d is running SCF", mpi.rank)
             with log_time(log.timing, "Time for SCF: %s"):
@@ -28,10 +28,10 @@ def scf_with_mpi(mpi, mf, mpi_rank=0, log=None):
             # Generate auxiliary cell, compensation basis etc,..., but not 3c integrals:
             if df is not None:
                 # Molecules
-                if getattr(df, 'auxmol', False) is None:
+                if getattr(df, "auxmol", False) is None:
                     df.auxmol = pyscf.df.addons.make_auxmol(df.mol, df.auxbasis)
                 # Solids
-                elif getattr(df, 'auxcell', False) is None:
+                elif getattr(df, "auxcell", False) is None:
                     df.build(with_j3c=False)
             log.info("MPI rank= %3d is waiting for SCF results", mpi.rank)
         mpi.world.barrier()
@@ -56,7 +56,6 @@ def scf_with_mpi(mpi, mf, mpi_rank=0, log=None):
 
 
 def gdf_with_mpi(mpi, df, mpi_rank=0, log=None):
-
     log = log or mpi.log or logging.getLogger(__name__)
 
     if not isinstance(df._cderi_to_save, str):
@@ -66,7 +65,7 @@ def gdf_with_mpi(mpi, df, mpi_rank=0, log=None):
 
     pbc = isinstance(df, pyscf.pbc.df.GDF)
 
-    cderi_file = getattr(df._cderi_to_save, 'name', df._cderi_to_save)
+    cderi_file = getattr(df._cderi_to_save, "name", df._cderi_to_save)
     df._cderi_to_save = mpi.world.bcast(cderi_file, root=mpi_rank)
     log.debug("df._cderi_to_save= %s", df._cderi_to_save)
 
