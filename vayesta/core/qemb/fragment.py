@@ -1142,9 +1142,8 @@ class Fragment:
             dm1 = self.results.dm1
         if dm1 is None:
             raise ValueError("DM1 not found for %s" % self)
-        # Add frozen mean-field contribution:
-        dm1 = cluster.add_frozen_rdm1(dm1)
-        return self.base.pop_analysis(dm1, mo_coeff=cluster.coeff, **kwargs)
+        dm1 = cluster.make_frozen_rdm1() + spinalg.dot(cluster.coeff, dm1, spinalg.T(cluster.coeff))
+        return self.base.pop_analysis(dm1, **kwargs)
 
     def plot3d(self, filename, gridsize=(100, 100, 100), **kwargs):
         """Write cube density data of fragment orbitals to file."""
