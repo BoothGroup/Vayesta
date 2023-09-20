@@ -9,7 +9,7 @@ example_path = Path(__file__).parent.parent.parent / 'examples'
 examples_files = list(example_path.glob('**/*.py'))
 
 
-@pytest.fixture(params=examples_files[:4], ids=lambda x: Path(x).name)
+@pytest.fixture(params=examples_files, ids=lambda x: Path(x).name)
 def example_file(request):
     return request.param
 
