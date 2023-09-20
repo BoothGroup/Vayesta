@@ -60,9 +60,11 @@ class Brueckner_RHF(SCMF):
             bmo_occ = np.dot(self._mo_orig, v)[:, -nocc:]
 
         # Virtual space
-        dm_vir = np.linalg.inv(ovlp) - np.dot(bmo_occ, bmo_occ.T)
-        e, v = scipy.linalg.eigh(dm_vir, b=ovlp, type=2)
-        bmo_vir = v[:, -nvir:]
+        r = dot(mf.mo_coeff.T, ovlp, bmo_occ)
+        e, v = np.linalg.eigh(np.dot(r, r.T))
+        assert np.allclose(e[:nvir], 0)
+        assert np.allclose(e[nvir:], 1)
+        bmo_vir = np.dot(mf.mo_coeff, v)[:, :nvir]
 
         assert (bmo_occ.shape[-1] == nocc) and (bmo_vir.shape[-1] == nvir)
         mo_coeff = np.hstack((bmo_occ, bmo_vir))
