@@ -38,7 +38,7 @@ jobs:
           python -m pip install -e .[dmet,ebcc] --user 
       - name: Run unit tests
         run: |
-          python -m pip install pytest pytest-cov --user
+          python -m pip install pytest pytest-cov pytest-xdist --user
           python .github/workflows/run_tests.py
       - name: Upload to codecov
         uses: codecov/codecov-action@v3
