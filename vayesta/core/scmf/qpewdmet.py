@@ -15,7 +15,7 @@ class QPEWDMET_RHF(SCMF):
     """ Quasi-particle self-consistent energy weighted density matrix embedding """
     name = "QP-EWDMET"
 
-    def __init__(self, emb, proj=2, v_conv_tol=1e-5, eta=1e-2, damping=0, sc=True, store_hist=True, *args, **kwargs):
+    def __init__(self, emb, with_static=True, proj=2, v_conv_tol=1e-5, eta=1e-2, damping=0, sc=True, store_hist=True, *args, **kwargs):
         """ 
         Initialize QPEWDMET 
         
@@ -45,7 +45,8 @@ class QPEWDMET_RHF(SCMF):
         self.v_last = None
         self.v_conv_tol = v_conv_tol
         self.proj = proj
-        self.store_hist = store_hist  
+        self.store_hist = store_hist 
+        self.with_static = with_static 
         
 
         if self.store_hist:
@@ -109,7 +110,8 @@ class QPEWDMET_RHF(SCMF):
             
             #v += np.linalg.multi_dot((ca, v_frag, ca.T))
             v_cls = se.as_static_potential(e_cls, eta=self.eta) # Single particle potential from Klein Functional (used to update MF for the self-consistnecy)
-
+            if self.with_static:
+                v_cls += th[1] + tp[1] - fock_cls # Static self energy
 
             if self.proj == 2:
                 v_frag = np.linalg.multi_dot((cf, v_cls, cf.T))
