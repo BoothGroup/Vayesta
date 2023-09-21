@@ -14,6 +14,7 @@ def example_file(request):
     return request.param
 
 
+@pytest.mark.timeout(300)
 def test_example(example_file):
     spec = importlib.util.spec_from_file_location(example_file.name, str(example_file))
     example = importlib.util.module_from_spec(spec)
