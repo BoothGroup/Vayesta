@@ -51,7 +51,7 @@ class SCMF:
         """Original kernel of embedding method."""
         return self._kernel_orig
 
-    def update_mo_coeff(self, mf, diis=None):
+    def update_mo_coeff(self, mo_coeff, mo_occ, diis=None):
         """Get new set of MO coefficients.
 
         Must be implemented for any SCMF method."""
@@ -102,7 +102,7 @@ class SCMF:
             self.energies.append(e_tot)
 
             # Update MF
-            mo_coeff = self.update_mo_coeff(self.mf, diis=diis)
+            mo_coeff = self.update_mo_coeff(self.mf.mo_coeff, self.mf.mo_occ, diis=diis)
             self.emb.update_mf(mo_coeff)
 
             dm1 = self.mf.make_rdm1()

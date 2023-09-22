@@ -1,3 +1,5 @@
+from typing import *
+
 import numpy as np
 
 from vayesta.core.types.orbitals import Orbitals
@@ -149,6 +151,9 @@ class ClusterRHF(Cluster):
     def get_frozen_indices(self):
         return list(range(self.nocc_frozen)) + list(range(self.norb_total - self.nvir_frozen, self.norb_total))
 
+    def make_frozen_rdm1(self) -> np.ndarray:
+        return 2*np.dot(self.c_frozen_occ, self.c_frozen_occ.T)
+
     def repr_size(self):
         lines = []
         fmt = 10 * " " + 2 * "   %-15s" + "   %-5s"
@@ -193,6 +198,10 @@ class ClusterUHF(Cluster):
             list(range(self.nocc_frozen[1]))
             + list(range(self.norb_total[1] - self.nvir_frozen[1], self.norb_total[1])),
         )
+
+    def make_frozen_rdm1(self) -> Tuple[np.ndarray, np.ndarray]:
+        return (np.dot(self.c_frozen_occ[0], self.c_frozen_occ[0].T),
+                np.dot(self.c_frozen_occ[1], self.c_frozen_occ[1].T))
 
     def repr_size(self):
         lines = []
