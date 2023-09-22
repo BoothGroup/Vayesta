@@ -25,29 +25,37 @@ class PDMET_RHF(SCMF):
             self.log.warning("Large electron error in 1DM= %.3e", nelec_err)
         return dm1
 
-    def update_mo_coeff(self, mf, diis=None):
-        dm1 = self.get_rdm1()
+    def update_mo_coeff(self, mo_coeff, mo_occ, diis=None, dm1=None, mo_orig=None):
+        if dm1 is None:
+            dm1 = self.get_rdm1()
+        if mo_orig is None:
+            mo_orig = self._mo_orig
         # Transform to original MO basis
-        r = dot(self.emb.mo_coeff.T, self.emb.get_ovlp(), self._mo_orig)
+        r = dot(mo_coeff.T, self.emb.get_ovlp(), mo_orig)
         dm1 = dot(r.T, dm1, r)
         if diis is not None:
             dm1 = diis.update(dm1)
-        mo_occ, rot = np.linalg.eigh(dm1)
-        mo_occ, rot = mo_occ[::-1], rot[:, ::-1]
-        nocc = np.count_nonzero(mf.mo_occ > 0)
-        if abs(mo_occ[nocc - 1] - mo_occ[nocc]) < 1e-8:
-            self.log.critical("p-DMET MO occupation numbers (occupied):\n%s", mo_occ[:nocc])
-            self.log.critical("p-DMET MO occupation numbers (virtual):\n%s", mo_occ[nocc:])
+        mo_occ_new, rot = np.linalg.eigh(dm1)
+        mo_occ_new, rot = mo_occ_new[::-1], rot[:, ::-1]
+        nocc = np.count_nonzero(mo_occ > 0)
+        if abs(mo_occ_new[nocc - 1] - mo_occ_new[nocc]) < 1e-8:
+            self.log.critical("p-DMET MO occupation numbers (occupied):\n%s", mo_occ_new[:nocc])
+            self.log.critical("p-DMET MO occupation numbers (virtual):\n%s", mo_occ_new[nocc:])
             raise RuntimeError("Degeneracy in MO occupation!")
         else:
-            self.log.debug("p-DMET MO occupation numbers (occupied):\n%s", mo_occ[:nocc])
-            self.log.debug("p-DMET MO occupation numbers (virtual):\n%s", mo_occ[nocc:])
-        mo_coeff = np.dot(self._mo_orig, rot)
+            self.log.debug("p-DMET MO occupation numbers (occupied):\n%s", mo_occ_new[:nocc])
+            self.log.debug("p-DMET MO occupation numbers (virtual):\n%s", mo_occ_new[nocc:])
+        mo_coeff = np.dot(mo_orig, rot)
         mo_coeff = fix_orbital_sign(mo_coeff)[0]
         return mo_coeff
 
 
 class PDMET_UHF(PDMET_RHF):
+
+    def get_diis(self):
+        """Two separate DIIS objects for alpha and beta orbitals."""
+        return super().get_diis(), super().get_diis()
+
     def get_rdm1(self):
         """DM1 in MO basis."""
         dm_type = self.dm_type
@@ -67,38 +75,20 @@ class PDMET_UHF(PDMET_RHF):
             self.log.warning("Large spin error in 1DM= %.3e", spin_err)
         return dm1
 
-    def update_mo_coeff(self, mf, diis=None):
-        dma, dmb = self.get_rdm1()
-        mo_coeff = self.emb.mo_coeff
-        ovlp = self.emb.get_ovlp()
-        # Transform DM to original MO basis
-        ra = dot(mo_coeff[0].T, ovlp, self._mo_orig[0])
-        rb = dot(mo_coeff[1].T, ovlp, self._mo_orig[1])
-        dma = dot(ra.T, dma, ra)
-        dmb = dot(rb.T, dmb, rb)
+    def update_mo_coeff(self, mo_coeff, mo_occ, diis=None, dm1=None, mo_orig=None):
+        if dm1 is None:
+            dm1a, dm1b = self.get_rdm1()
+        else:
+            dm1a, dm1b = dm1
         if diis is not None:
-            assert dma.shape == dmb.shape
-            dma, dmb = diis.update(np.asarray((dma, dmb)))
-        mo_occ_a, rot_a = np.linalg.eigh(dma)
-        mo_occ_b, rot_b = np.linalg.eigh(dmb)
-        mo_occ_a, rot_a = mo_occ_a[::-1], rot_a[:, ::-1]
-        mo_occ_b, rot_b = mo_occ_b[::-1], rot_b[:, ::-1]
-        nocc_a = np.count_nonzero(mf.mo_occ[0] > 0)
-        nocc_b = np.count_nonzero(mf.mo_occ[1] > 0)
-
-        def log_occupation(logger):
-            logger("p-DMET MO occupation numbers (alpha-occupied):\n%s", mo_occ_a[:nocc_a])
-            logger("p-DMET MO occupation numbers (beta-occupied):\n%s", mo_occ_b[:nocc_b])
-            logger("p-DMET MO occupation numbers (alpha-virtual):\n%s", mo_occ_a[nocc_a:])
-            logger("p-DMET MO occupation numbers (beta-virtual):\n%s", mo_occ_b[nocc_b:])
-
-        if min(abs(mo_occ_a[nocc_a - 1] - mo_occ_a[nocc_a]), abs(mo_occ_b[nocc_b - 1] - mo_occ_b[nocc_b])) < 1e-8:
-            log_occupation(self.log.critical)
-            raise RuntimeError("Degeneracy in MO occupation!")
-        log_occupation(self.log.debugv)
-
-        mo_coeff_a = np.dot(self._mo_orig[0], rot_a)
-        mo_coeff_b = np.dot(self._mo_orig[1], rot_b)
-        mo_coeff_a = fix_orbital_sign(mo_coeff_a)[0]
-        mo_coeff_b = fix_orbital_sign(mo_coeff_b)[0]
-        return (mo_coeff_a, mo_coeff_b)
+            diisa, diisb = diis
+        else:
+            diisa = diisb = None
+        if mo_orig is None:
+            mo_orig = self._mo_orig
+        self.log.debug("Updating alpha MOs")
+        mo_coeff_new_a = super().update_mo_coeff(mo_coeff[0], mo_occ[0], diis=diisa, dm1=dm1a, mo_orig=mo_orig[0])
+        self.log.debug("Updating beta MOs")
+        mo_coeff_new_b = super().update_mo_coeff(mo_coeff[1], mo_occ[1], diis=diisb, dm1=dm1b, mo_orig=mo_orig[1])
+        mo_coeff_new = (mo_coeff_new_a, mo_coeff_new_b)
+        return mo_coeff_new
