@@ -11,7 +11,7 @@ examples_files = list(example_path.glob('**/*.py'))
 timings = {}
 
 
-@pytest.fixture(params=examples_files, ids=lambda x: x.name)
+@pytest.fixture(params=examples_files, ids=lambda x: '/'.join([x.parent.name, x.name]))
 def example_file(request):
     return request.param
 
@@ -30,5 +30,5 @@ def test_example(example_file):
     sys.modules["module.name"] = example
     t_start = perf_counter()
     spec.loader.exec_module(example)
-    timings[example_file.name] = perf_counter() - t_start
+    timings['/'.join([example_file.parent.name, example_file.name])] = perf_counter() - t_start
 
