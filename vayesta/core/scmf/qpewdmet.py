@@ -164,8 +164,9 @@ class QPEWDMET_RHF(SCMF):
                 # Temporary work around for k-SCF
                 raise NotImplementedError("QP-EWDMET with Fock re-diagonalisation not implemented for FoldedSCF")
             mf = mf_class(self.emb.mf.mol)
+            mf.get_fock_old = mf.get_fock
             def get_fock(*args, **kwargs):
-                return self.sc_fock
+                return mf.get_fock_old(*args, **kwargs) + self.v
             mf.get_fock = get_fock
             e_tot = mf.kernel()
 
