@@ -127,6 +127,6 @@ def _get_solver_class_internal(is_uhf, is_eb, solver, log):
             return UCISD_Solver
         else:
             return RCISD_Solver
-    if solver == "DUMP":
+    if solver.upper() == "DUMP":
         return DumpSolver
     raise ValueError("Unknown solver: %s" % solver)
