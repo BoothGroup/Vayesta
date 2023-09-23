@@ -22,11 +22,12 @@ jobs:
           - {python-version: "3.11", os: ubuntu-latest, documentation: False}
 
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
       - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v2
+        uses: actions/setup-python@v4
         with:
           python-version: ${{ matrix.python-version }}
+          cache: 'pip'
       - name: Upgrade pip
         run: |
           python -m pip install --upgrade pip
@@ -36,8 +37,6 @@ jobs:
           python -m pip install setuptools --upgrade --user
           python -m pip install https://github.com/BoothGroup/dyson/archive/master.zip
           python -m pip install -e .[dmet,ebcc] --user
-        with:
-          cache: 'pip'
       - name: Run unit tests
         run: |
           python -m pip install pytest pytest-cov --user
@@ -72,11 +71,12 @@ jobs:
       fail-fast: false
 
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
       - name: Set up Python 3.8
-        uses: actions/setup-python@v2
+        uses: actions/setup-python@v4
         with:
           python-version: 3.8
+          cache: 'pip'
       - name: Upgrade pip
         run: |
           python -m pip install --upgrade pip
@@ -89,4 +89,3 @@ jobs:
         run: |
           python -m pip install pytest pytest-cov --user
           python .github/workflows/run_tests.py
-
