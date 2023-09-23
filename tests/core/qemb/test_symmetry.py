@@ -3,7 +3,7 @@ import numpy as np
 import vayesta
 import vayesta.ewf
 from vayesta.core.util import cache
-from tests.systems import TestMolecule
+from tests.systems import MoleculeTestSystem
 from tests.common import TestCase
 
 
@@ -13,7 +13,7 @@ co2_geom = [
     ("O1", CENTER + np.asarray([0, 0, -1.163])),
     ("O2", CENTER + np.asarray([0, 0, +1.163])),
 ]
-co2 = TestMolecule(atom=co2_geom, basis="6-31G", incore_anyway=True)
+co2 = MoleculeTestSystem(atom=co2_geom, basis="6-31G", incore_anyway=True)
 
 
 class TestCO2(TestCase):
