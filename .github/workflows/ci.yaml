@@ -32,13 +32,13 @@ jobs:
           python -m pip install --upgrade pip
       - name: Install Vayesta along with dependencies
         run: |
-          python -m pip install wheel --user
-          python -m pip install setuptools --upgrade --user
+          python -m pip install wheel
+          python -m pip install setuptools --upgrade
           python -m pip install https://github.com/BoothGroup/dyson/archive/master.zip
-          python -m pip install -e .[dmet,ebcc] --user 
+          python -m pip install -e .[dmet,ebcc]
       - name: Run unit tests
         run: |
-          python -m pip install pytest pytest-cov --user
+          python -m pip install pytest pytest-cov
           python .github/workflows/run_tests.py
       - name: Upload to codecov
         uses: codecov/codecov-action@v3
@@ -80,11 +80,10 @@ jobs:
           python -m pip install --upgrade pip
       - name: Install Vayesta
         run: |
-          python -m pip install wheel --user
-          python -m pip install setuptools --upgrade --user
-          python -m pip install . --user
+          python -m pip install wheel
+          python -m pip install setuptools --upgrade
+          python -m pip install .
       - name: Run unit tests
         run: |
-          python -m pip install pytest pytest-cov --user
+          python -m pip install pytest pytest-cov
           python .github/workflows/run_tests.py
-
