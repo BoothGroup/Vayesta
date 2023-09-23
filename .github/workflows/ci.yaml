@@ -39,7 +39,7 @@ jobs:
       - name: Run unit tests
         run: |
           python -m pip install pytest pytest-cov
-          python .github/workflows/run_tests.py
+          pytest tests --cov=vayesta
       - name: Upload to codecov
         uses: codecov/codecov-action@v3
         with:
@@ -86,4 +86,4 @@ jobs:
       - name: Run unit tests
         run: |
           python -m pip install pytest pytest-cov
-          python .github/workflows/run_tests.py
+          pytest tests --cov=vayesta
