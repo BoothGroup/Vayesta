@@ -24,6 +24,7 @@ from vayesta.mpi import mpi
 # Logging
 from vayesta.core import vlog
 
+
 if args.output_dir:
     os.makedirs(args.output_dir, exist_ok=True)
 
