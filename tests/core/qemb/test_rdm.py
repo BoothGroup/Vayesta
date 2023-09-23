@@ -160,8 +160,3 @@ class Test_PBC_Unrestricted(Test_Unrestricted):
 
     e_ref_dmet_part_2dm = -1.7456278335868185
     e_ref_dmet_part_cumulant = -1.7461038863675442
-
-
-if __name__ == "__main__":
-    print("Running %s" % __file__)
-    unittest.main()

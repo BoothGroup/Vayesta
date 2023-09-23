@@ -113,8 +113,3 @@ class KAO2GMO_Tests(TestCase):
                 "Lij,Lkl->ijkl", cderi_neg.conj(), cderi_neg
             )
             self.assertIsNone(np.testing.assert_almost_equal(eri, eri_expected))
-
-
-if __name__ == "__main__":
-    print("Running %s" % __file__)
-    unittest.main()

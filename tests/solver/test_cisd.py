@@ -32,8 +32,3 @@ class TestSolvers(TestCase):
 
     def test_ucisd_h3(self):
         return self._test(("h3_ccpvdz", "uhf"))
-
-
-if __name__ == "__main__":
-    print("Running %s" % __file__)
-    unittest.main()

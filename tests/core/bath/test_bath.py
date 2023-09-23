@@ -170,8 +170,3 @@ class RPA_Test(TestCase):
         self.assertAlmostEqual(np.amax(rbno_bath_vir.occup), n_vir_max)
         self.assertAlmostEqual(np.amin(rbno_bath_vir.occup), n_vir_min)
         self.assertAlmostEqual(np.mean(rbno_bath_vir.occup), n_vir_mean)
-
-
-if __name__ == "__main__":
-    print("Running %s" % __file__)
-    unittest.main()

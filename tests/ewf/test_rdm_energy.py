@@ -80,8 +80,3 @@ class Test_UHF(TestCase):
 #        self.assertAlmostEqual(gl, cc.e_corr)
 #        self.assertAlmostEqual(lg, cc.e_corr)
 #        self.assertAlmostEqual(gg, cc.e_corr)
-
-
-if __name__ == "__main__":
-    print("Running %s" % __file__)
-    unittest.main()

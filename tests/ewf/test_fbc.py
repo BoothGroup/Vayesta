@@ -56,8 +56,3 @@ class Test_Unrestricted(Test_Restricted):
     def test_finite_bath_vir(self):
         emb = self.emb(1e-3)
         self.assertAllclose(emb.get_fbc_energy(occupied=False), -0.008843579257449625)
-
-
-if __name__ == "__main__":
-    print("Running %s" % __file__)
-    unittest.main()

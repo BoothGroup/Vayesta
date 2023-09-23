@@ -55,8 +55,3 @@ class FoldSCF_UHF_Tests(FoldSCF_RHF_Tests):
         cls.smf.conv_tol = 1e-12
         cls.smf = cls.smf.density_fit()
         cls.smf.kernel()
-
-
-if __name__ == "__main__":
-    print("Running %s" % __file__)
-    unittest.main()

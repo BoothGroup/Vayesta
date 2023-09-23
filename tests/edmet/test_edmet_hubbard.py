@@ -112,8 +112,3 @@ class EDMET_Hubbard_Tests(TestCase):
         known_values = {"e_tot": -49.255623407653644}
 
         self._test_energy(emb, known_values)
-
-
-if __name__ == "__main__":
-    print("Running %s" % __file__)
-    unittest.main()

@@ -315,8 +315,3 @@ class CellFragmentTests(TestCase):
         self.assertAlmostEqual(self.trace(c_bath), 0.00000000000000, self.PLACES)
         self.assertAlmostEqual(self.trace(c_occenv), 8.60025893931299, self.PLACES)
         self.assertAlmostEqual(self.trace(c_virenv), 38.23956182500297, self.PLACES)
-
-
-if __name__ == "__main__":
-    print("Running %s" % __file__)
-    unittest.main()

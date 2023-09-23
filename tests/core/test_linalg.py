@@ -37,8 +37,3 @@ class LinalgTests(TestCase):
         e_svd = np.linalg.eigh(np.dot(mo_svd, mo_svd.T))[0]
         e_svd2 = np.linalg.eigh(np.dot(mo_svd2, mo_svd2.T))[0]
         self.assertAlmostEqual(np.max(np.abs(e_svd - e_svd2)), 0.0, 10)
-
-
-if __name__ == "__main__":
-    print("Running %s" % __file__)
-    unittest.main()

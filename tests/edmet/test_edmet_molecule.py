@@ -159,8 +159,3 @@ class MolecularEDMETTest(TestCase):
         uemb.kernel()
 
         self._test_energy(uemb, known_values)
-
-
-if __name__ == "__main__":
-    print("Running %s" % __file__)
-    unittest.main()

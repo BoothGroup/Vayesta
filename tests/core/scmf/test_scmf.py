@@ -77,8 +77,3 @@ class SCMF_TCCSD_Test(SCMF_Test):
         self.assertAllclose(emb.with_scmf.e_tot_oneshot, -1.1419060814979487)
         self.assertTrue(emb.with_scmf.converged)
         self.assertAllclose(emb.with_scmf.e_tot, -1.1348718457034288)
-
-
-if __name__ == "__main__":
-    print("Running %s" % __file__)
-    unittest.main()

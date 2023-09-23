@@ -130,8 +130,3 @@ class Test_Unrestricted(Test_Restricted):
     def test_full_bath(self):
         emb = self.emb(-1)
         self.assertAllclose(emb.e_tot, -75.6830484961464)
-
-
-if __name__ == "__main__":
-    print("Running %s" % __file__)
-    unittest.main()

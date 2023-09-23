@@ -81,7 +81,3 @@ class Test_RFCI(TestCase):
 
 #             # self.assertTrue(np.allclose(ip, cc_ip))
 #             # self.assertTrue(np.allclose(ea, cc_ea))
-
-if __name__ == "__main__":
-    print("Running %s" % __file__)
-    unittest.main()

@@ -113,8 +113,3 @@ class HubbardDMETTests(TestCase):
 
         self._test_converged(emb)
         self._test_energy(emb, known_values)
-
-
-if __name__ == "__main__":
-    print("Running %s" % __file__)
-    unittest.main()

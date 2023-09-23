@@ -54,8 +54,3 @@ class HubbardDFEDMETTests(TestCase):
         known_values = {"e_clus": -8.01015928145061, "e_nl": -0.5338487284590787}
 
         self._test_energy(emb, dfedmet, known_values)
-
-
-if __name__ == "__main__":
-    print("Running %s" % __file__)
-    unittest.main()

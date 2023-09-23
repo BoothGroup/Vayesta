@@ -83,8 +83,3 @@ class DiamondTest(TestCase):
     # TODO: Fix failing
     # def test_dm1_mirror_symmetry(self):
     #    return self._test_dm1_symmetry('mirror')
-
-
-if __name__ == "__main__":
-    print("Running %s" % __file__)
-    unittest.main()

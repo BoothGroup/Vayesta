@@ -141,8 +141,3 @@ class HubbardEWFTests(TestCase):
         known_values = {"e_tot": -84.3268698533661}
 
         self._test_energy(emb, known_values)
-
-
-if __name__ == "__main__":
-    print("Running %s" % __file__)
-    unittest.main()

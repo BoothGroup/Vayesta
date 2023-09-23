@@ -167,8 +167,3 @@ class PostSCF_KAO2GMO_Tests(TestCase):
                         continue
                     val = getattr(eris, attr)
                     self.assertAllclose(val, expected)
-
-
-if __name__ == "__main__":
-    print("Running %s" % __file__)
-    unittest.main()

@@ -88,8 +88,3 @@ class MoleculeRPATest(TestCase):
         emb = rpa.ssRPA(getattr(systems, key).rhf())
         emb.kernel()
         self._test_energy(emb, known_values_drpa)
-
-
-if __name__ == "__main__":
-    print("Running %s" % __file__)
-    unittest.main()

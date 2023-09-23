@@ -33,8 +33,3 @@ class MoleculeRPATest(TestCase):
         rirpa = rpa.ssRIRPA(getattr(systems, key).rhf())
 
         self._test_mom0(emb, rirpa)
-
-
-if __name__ == "__main__":
-    print("Running %s" % __file__)
-    unittest.main()

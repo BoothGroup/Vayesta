@@ -608,8 +608,3 @@ class TestRegEC_CCSD(TestCase):
     def test_water_ec_regression_proj2_ccsdv(self):
         e_tot = self._test_water_ec_regression(mode="external", projectors=2, low_level_coul=True)
         self.assertAlmostEqual(e_tot, -76.24017093290053)
-
-
-if __name__ == "__main__":
-    print("Running %s" % __file__)
-    unittest.main()

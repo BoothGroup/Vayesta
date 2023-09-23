@@ -47,8 +47,3 @@ class MoleculeRPATest(TestCase):
         )
         self.assertAlmostEqual(error_est[0], 0.05074756294730469)
         self.assertAlmostEqual(error_est[1], 0.00024838720802440015)
-
-
-if __name__ == "__main__":
-    print("Running %s" % __file__)
-    unittest.main()

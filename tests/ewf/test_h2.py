@@ -185,8 +185,3 @@ class Test_UFCI_dissoc(TestCase):
     def test_energy(self):
         emb = self.emb(-1)
         self.assertAllclose(emb.e_tot, self.fci.e_tot, rtol=0)
-
-
-if __name__ == "__main__":
-    print("Running %s" % __file__)
-    unittest.main()

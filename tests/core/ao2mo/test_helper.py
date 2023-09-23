@@ -88,8 +88,3 @@ class Test_UHF(TestCase):
         d2 = uccsd_rdm._gamma2_intermediates(cc, cc.t1, cc.t2, cc.l1, cc.l2)
         e_test = helper.contract_dm2intermeds_eris_uhf(d2, self.eris)
         self.assertAllclose(e_test, self.e_ref)
-
-
-if __name__ == "__main__":
-    print("Running %s" % __file__)
-    unittest.main()

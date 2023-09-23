@@ -195,8 +195,3 @@ class Test_DM_FCI_UHF(Test_DM_FCI):
                 einsum("ijkl,ai,bj,ck,dl->abcd", dm2_ref[2], *(4 * [self.mf.mo_coeff[1]])),
             )
         return dm2_ref
-
-
-if __name__ == "__main__":
-    print("Running %s" % __file__)
-    unittest.main()

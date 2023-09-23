@@ -37,8 +37,3 @@ class MoleculeRPATest(TestCase):
         emb.kernel()
 
         self._test_energy(emb, known_values)
-
-
-if __name__ == "__main__":
-    print("Running %s" % __file__)
-    unittest.main()

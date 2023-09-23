@@ -78,8 +78,3 @@ class TestUFCI(TestUCCSD):
     @classmethod
     def setUpClass(cls):
         cls.mf = systems.water_cation_sto3g.rhf()
-
-
-if __name__ == "__main__":
-    print("Running %s" % __file__)
-    unittest.main()

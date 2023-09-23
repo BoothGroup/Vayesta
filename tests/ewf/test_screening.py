@@ -63,8 +63,3 @@ class TestTwoHoleRHF(TestTwoElectron):
     @classmethod
     def setUpClass(cls):
         cls.mf = cls.system.rhf()
-
-
-if __name__ == "__main__":
-    print("Running %s" % __file__)
-    unittest.main()

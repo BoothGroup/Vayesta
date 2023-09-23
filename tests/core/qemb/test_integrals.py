@@ -188,8 +188,3 @@ class Integral_PBC_2D_UHF_Test(Integral_Test):
 #              - np.einsum('Lij,Lkl->ijkl', cderi1_neg, cderi2_neg))
 #        eris_expected = mf_sc.with_df.ao2mo(mo_coeffs, compact=False).reshape(nmos)
 #        self.assertIsNone(np.testing.assert_allclose(eris, eris_expected))
-
-
-if __name__ == "__main__":
-    print("Running %s" % __file__)
-    unittest.main()

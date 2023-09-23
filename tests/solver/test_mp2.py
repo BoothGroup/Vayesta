@@ -34,8 +34,3 @@ class TestSolvers(unittest.TestCase):
 
     def test_ump2_h2o_df(self):
         return self._test(("water_cation_631g_df", "uhf"))
-
-
-if __name__ == "__main__":
-    print("Running %s" % __file__)
-    unittest.main()

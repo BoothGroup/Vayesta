@@ -74,8 +74,3 @@ class TestCO2(TestCase):
             emb_sym = self.emb(np.inf, symmetry="rotation", axis=ax)
             dm1_sym = emb_sym.make_rdm1()
             self.assertAllclose(dm1_sym, dm1)
-
-
-if __name__ == "__main__":
-    print("Running %s" % __file__)
-    unittest.main()

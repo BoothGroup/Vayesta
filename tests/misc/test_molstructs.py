@@ -172,8 +172,3 @@ class MolstructsTests(TestCase):
         }
 
         self._test_nuclear_energy(mol, known_values)
-
-
-if __name__ == "__main__":
-    print("Running %s" % __file__)
-    unittest.main()

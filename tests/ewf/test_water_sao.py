@@ -219,8 +219,3 @@ class Test_RCCSD_vs_UCCSD(TestCase):
         e_rdmet = remb.get_dmet_energy(approx_cumulant=False)
         e_udmet = uemb.get_dmet_energy(approx_cumulant=False)
         self.assertAllclose(e_rdmet, e_udmet)
-
-
-if __name__ == "__main__":
-    print("Running %s" % __file__)
-    unittest.main()

@@ -196,8 +196,3 @@ class Test_UMP2(Test_UCCSD):
     def setUpClass(cls):
         cls.uhf = cls.system.uhf()
         cls.ucc = cls.system.ump2()
-
-
-if __name__ == "__main__":
-    print("Running %s" % __file__)
-    unittest.main()

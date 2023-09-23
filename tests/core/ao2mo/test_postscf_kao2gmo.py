@@ -92,8 +92,3 @@ class Test_UCCSD(Test_CCSD):
         # PySCF version < v2.1:
         if hasattr(eris, "e_hf"):
             self.assertAllclose(eris.e_hf, eris_ref.e_hf)
-
-
-if __name__ == "__main__":
-    print("Running %s" % __file__)
-    unittest.main()

@@ -108,8 +108,3 @@ class ICMP2_UHF_PBC_Test(ICMP2_Test):
         self.assertAllclose(e_ic, -0.0013459605792552982)
         e_ic = emb.get_intercluster_mp2_energy(1e-8)
         self.assertAllclose(e_ic, -0.0010737526376497356)
-
-
-if __name__ == "__main__":
-    print("Running %s" % __file__)
-    unittest.main()

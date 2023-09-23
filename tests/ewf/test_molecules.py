@@ -498,8 +498,3 @@ class MoleculeTestsUnrestricted(unittest.TestCase):
 
         self.assertAlmostEqual(remb.e_corr, uemb.e_corr, self.PLACES_ENERGY)
         self.assertAlmostEqual(remb.e_corr, -0.018721331700187655, self.PLACES_ENERGY)
-
-
-if __name__ == "__main__":
-    print("Running %s" % __file__)
-    unittest.main()

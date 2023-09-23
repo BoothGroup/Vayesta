@@ -57,8 +57,3 @@ class Hubbard2DTests_6_8(Hubbard2DTests_6_0):
         cls.mf = lattmod.LatticeMF(cls.mol)
         cls.mf.kernel()
         cls.known_values = {"e_tot": 12.28718707889798}
-
-
-if __name__ == "__main__":
-    print("Running %s" % __file__)
-    unittest.main()

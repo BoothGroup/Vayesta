@@ -133,8 +133,3 @@ class TestExternalCorrection(TestRestricted):
     def test_dm_energy_all_2p(self):
         emb = self.emb(1e-4, "all-2p")
         self.assertAllclose(emb.get_dm_corr_energy(), -0.4109557775015299, atol=1e-6, rtol=0)
-
-
-if __name__ == "__main__":
-    print("Running %s" % __file__)
-    unittest.main()

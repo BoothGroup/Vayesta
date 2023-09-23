@@ -336,8 +336,3 @@ class Test_CCSD_2D(Test_CCSD):
             ("e_corr", 1e-3): -0.019820060226576966,
         }
         cls.ref_values[("e_tot", 1e-3)] = cls.mf.e_tot + cls.ref_values[("e_corr", 1e-3)]
-
-
-if __name__ == "__main__":
-    print("Running %s" % __file__)
-    unittest.main()
