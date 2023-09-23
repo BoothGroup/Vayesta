@@ -3,7 +3,7 @@ import unittest
 
 from vayesta import edmet
 from tests.common import TestCase
-from tests import testsystems
+from tests import systems
 
 
 class EDMET_Hubbard_Tests(TestCase):
@@ -24,7 +24,7 @@ class EDMET_Hubbard_Tests(TestCase):
         """Tests for N=6 U=0 Hubbard model with single site impurities."""
 
         emb = edmet.EDMET(
-            testsystems.hubb_6_u0.rhf(),
+            systems.hubb_6_u0.rhf(),
             solver="FCI",
             solver_options={"max_boson_occ": 1},
         )
@@ -42,7 +42,7 @@ class EDMET_Hubbard_Tests(TestCase):
         """Tests for N=6 U=0 Hubbard model with double site impurities."""
 
         emb = edmet.EDMET(
-            testsystems.hubb_6_u0.rhf(),
+            systems.hubb_6_u0.rhf(),
             solver="FCI",
             solver_options={"max_boson_occ": 6},
         )
@@ -59,7 +59,7 @@ class EDMET_Hubbard_Tests(TestCase):
         """Tests for N=10 U=2 Hubbard model with double site impurities."""
 
         emb = edmet.EDMET(
-            testsystems.hubb_10_u2.rhf(),
+            systems.hubb_10_u2.rhf(),
             solver="FCI",
             solver_options={"max_boson_occ": 2},
             bosonic_interaction="direct",
@@ -79,7 +79,7 @@ class EDMET_Hubbard_Tests(TestCase):
         """Tests for 6x6 U=0 Hubbard model with single site impurities."""
 
         emb = edmet.EDMET(
-            testsystems.hubb_6x6_u0_1x1imp.rhf(),
+            systems.hubb_6x6_u0_1x1imp.rhf(),
             solver="FCI",
             solver_options={"max_boson_occ": 2},
         )
@@ -97,7 +97,7 @@ class EDMET_Hubbard_Tests(TestCase):
         """Tests for 6x6 U=6 Hubbard model with single site impurities."""
 
         emb = edmet.EDMET(
-            testsystems.hubb_6x6_u6_1x1imp.rhf(),
+            systems.hubb_6x6_u6_1x1imp.rhf(),
             solver="FCI",
             solver_options={"max_boson_occ": 2},
             bosonic_interaction="direct",

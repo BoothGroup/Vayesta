@@ -8,15 +8,15 @@ import pyscf.pbc
 import vayesta
 import vayesta.ewf
 from vayesta.core.util import cache
-from tests import testsystems
+from tests import systems
 from tests.common import TestCase
 
 
 class Test_Restricted(TestCase):
     @classmethod
     def setUpClass(cls):
-        cls.mf = testsystems.water_631g.rhf()
-        cls.cc = testsystems.water_631g.rccsd()
+        cls.mf = systems.water_631g.rhf()
+        cls.cc = systems.water_631g.rccsd()
 
     @classmethod
     def tearDownClass(cls):
@@ -128,8 +128,8 @@ class Test_Restricted(TestCase):
 class Test_Unrestricted(Test_Restricted):
     @classmethod
     def setUpClass(cls):
-        cls.mf = testsystems.water_cation_631g.uhf()
-        cls.cc = testsystems.water_cation_631g.uccsd()
+        cls.mf = systems.water_cation_631g.uhf()
+        cls.cc = systems.water_cation_631g.uccsd()
 
     def _energy_from_dms(self, dm1, dm2):
         dm1 = dm1[0] + dm1[1]
@@ -143,9 +143,9 @@ class Test_Unrestricted(Test_Restricted):
 class Test_PBC_Restricted(Test_Restricted):
     @classmethod
     def setUpClass(cls):
-        cls.mf = testsystems.h2_sto3g_s311.rhf()
-        cls.kmf = testsystems.h2_sto3g_k311.rhf()
-        cls.cc = testsystems.h2_sto3g_s311.rccsd()
+        cls.mf = systems.h2_sto3g_s311.rhf()
+        cls.kmf = systems.h2_sto3g_k311.rhf()
+        cls.cc = systems.h2_sto3g_s311.rccsd()
 
     e_ref_dmet_part_2dm = -3.848969147919312 / 3
     e_ref_dmet_part_cumulant = -3.8505073633380364 / 3
@@ -154,9 +154,9 @@ class Test_PBC_Restricted(Test_Restricted):
 class Test_PBC_Unrestricted(Test_Unrestricted):
     @classmethod
     def setUpClass(cls):
-        cls.mf = testsystems.h3_sto3g_s311.uhf()
-        cls.kmf = testsystems.h3_sto3g_k311.uhf()
-        cls.cc = testsystems.h3_sto3g_s311.uccsd()
+        cls.mf = systems.h3_sto3g_s311.uhf()
+        cls.kmf = systems.h3_sto3g_k311.uhf()
+        cls.cc = systems.h3_sto3g_s311.uccsd()
 
     e_ref_dmet_part_2dm = -1.7456278335868185
     e_ref_dmet_part_cumulant = -1.7461038863675442

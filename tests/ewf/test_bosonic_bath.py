@@ -2,7 +2,7 @@ import pytest
 
 from vayesta import ewf
 from tests.common import TestCase
-from tests import testsystems
+from tests import systems
 
 
 class BosonicBathTests(TestCase):
@@ -26,21 +26,21 @@ class BosonicBathTests(TestCase):
         return emb.e_tot
 
     def test_water_ccpvdz_CCSDS11_full_fragment(self):
-        mf = testsystems.water_ccpvdz_df.rhf()
+        mf = systems.water_ccpvdz_df.rhf()
         e = self._get_emb(mf, "CCSD-S-1-1", "full", "fragment", 1e-3)
         self.assertAlmostEqual(e, -76.16807860786547)
 
     def test_water_ccpvdz_CCSDSD11_dmet_fragment(self):
-        mf = testsystems.water_ccpvdz_df.rhf()
+        mf = systems.water_ccpvdz_df.rhf()
         e = self._get_emb(mf, "CCSD-SD-1-1", "dmet", "fragment", 1e-4)
         self.assertAlmostEqual(e, -76.20829873999101)
 
     def test_water_ccpvdz_CCSDS11_full_noproj(self):
-        mf = testsystems.water_ccpvdz_df.rhf()
+        mf = systems.water_ccpvdz_df.rhf()
         e = self._get_emb(mf, "CCSD-S-1-1", "full", None, 1e-5)
         self.assertAlmostEqual(e, -76.21937784813458)
 
     def test_water_ccpvdz_CCSDS11_dmet_noproj(self):
-        mf = testsystems.water_ccpvdz_df.rhf()
+        mf = systems.water_ccpvdz_df.rhf()
         e = self._get_emb(mf, "CCSD-S-1-1", "dmet", None, 1e-6)
         self.assertAlmostEqual(e, -76.23158153460919)

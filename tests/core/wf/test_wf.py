@@ -5,14 +5,14 @@ import vayesta
 import vayesta.ewf
 from vayesta.core.util import cache, einsum
 from tests.common import TestCase
-from tests import testsystems
+from tests import systems
 
 
 class Test_UFCI_wf_w_dummy(TestCase):
     @classmethod
     def setUpClass(cls):
-        cls.mf = testsystems.heli_631g.uhf()
-        cls.ufci = testsystems.heli_631g.ufci()
+        cls.mf = systems.heli_631g.uhf()
+        cls.ufci = systems.heli_631g.ufci()
 
     @classmethod
     def tearDownClass(cls):
@@ -76,8 +76,8 @@ class Test_DM(TestCase):
 
     @classmethod
     def setUpClass(cls):
-        cls.mf = testsystems.water_631g.rhf()
-        cls.cc = testsystems.water_631g.rccsd()
+        cls.mf = systems.water_631g.rhf()
+        cls.cc = systems.water_631g.rccsd()
 
     @classmethod
     def tearDownClass(cls):
@@ -129,8 +129,8 @@ class Test_DM_MP2(Test_DM):
 
     @classmethod
     def setUpClass(cls):
-        cls.mf = testsystems.water_631g.rhf()
-        cls.cc = testsystems.water_631g.rmp2()
+        cls.mf = systems.water_631g.rhf()
+        cls.cc = systems.water_631g.rmp2()
 
     # def test_dm2(self):
     #    pass
@@ -139,8 +139,8 @@ class Test_DM_MP2(Test_DM):
 class Test_DM_UHF(Test_DM):
     @classmethod
     def setUpClass(cls):
-        cls.mf = testsystems.water_cation_631g.uhf()
-        cls.cc = testsystems.water_cation_631g.uccsd()
+        cls.mf = systems.water_cation_631g.uhf()
+        cls.cc = systems.water_cation_631g.uccsd()
 
 
 class Test_DM_FCI(Test_DM):
@@ -149,8 +149,8 @@ class Test_DM_FCI(Test_DM):
 
     @classmethod
     def setUpClass(cls):
-        cls.mf = testsystems.water_sto3g.rhf()
-        cls.cc = testsystems.water_sto3g.rfci()
+        cls.mf = systems.water_sto3g.rhf()
+        cls.cc = systems.water_sto3g.rfci()
 
     def get_dm1_ref(self, ao_repr=False):
         args = (self.cc.ci, self.mf.mol.nao, self.mf.mol.nelectron)
@@ -170,8 +170,8 @@ class Test_DM_FCI(Test_DM):
 class Test_DM_FCI_UHF(Test_DM_FCI):
     @classmethod
     def setUpClass(cls):
-        cls.mf = testsystems.water_cation_sto3g.uhf()
-        cls.cc = testsystems.water_cation_sto3g.ufci()
+        cls.mf = systems.water_cation_sto3g.uhf()
+        cls.cc = systems.water_cation_sto3g.ufci()
 
     def get_dm1_ref(self, ao_repr=False):
         nelec = (np.count_nonzero(self.mf.mo_occ[0] > 0), np.count_nonzero(self.mf.mo_occ[1] > 0))

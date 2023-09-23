@@ -5,11 +5,11 @@ import pyscf.ao2mo
 from vayesta.core.ao2mo import helper
 from vayesta.core.vpyscf import uccsd_rdm
 from tests.common import TestCase
-from tests import testsystems
+from tests import systems
 
 
 class Test_RHF(TestCase):
-    system = testsystems.water_631g
+    system = systems.water_631g
 
     @classmethod
     def setUpClass(cls):
@@ -38,7 +38,7 @@ class Test_RHF(TestCase):
 
 
 class Test_UHF(TestCase):
-    system = testsystems.water_cation_631g
+    system = systems.water_cation_631g
 
     @classmethod
     def setUpClass(cls):

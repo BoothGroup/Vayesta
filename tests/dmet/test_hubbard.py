@@ -2,7 +2,7 @@ import pytest
 import unittest
 from vayesta import dmet
 from tests.common import TestCase
-from tests import testsystems
+from tests import systems
 
 
 class HubbardDMETTests(TestCase):
@@ -28,7 +28,7 @@ class HubbardDMETTests(TestCase):
     def test_6_u0_1imp(self):
         """Tests for N=6 U=0 Hubbard model with single site impurities."""
         emb = dmet.DMET(
-            testsystems.hubb_6_u0.rhf(), solver="FCI", charge_consistent=False, conv_tol=self.CONV_TOL, maxiter=50
+            systems.hubb_6_u0.rhf(), solver="FCI", charge_consistent=False, conv_tol=self.CONV_TOL, maxiter=50
         )
         with emb.site_fragmentation() as f:
             frag = f.add_atomic_fragment(0)
@@ -43,7 +43,7 @@ class HubbardDMETTests(TestCase):
     def test_10_u2_2imp(self):
         """Tests for N=10 U=2 Hubbard model with double site impurities."""
         emb = dmet.DMET(
-            testsystems.hubb_10_u2.rhf(), solver="FCI", charge_consistent=False, conv_tol=self.CONV_TOL, maxiter=50
+            systems.hubb_10_u2.rhf(), solver="FCI", charge_consistent=False, conv_tol=self.CONV_TOL, maxiter=50
         )
         with emb.site_fragmentation() as f:
             frag = f.add_atomic_fragment([0, 1])
@@ -58,7 +58,7 @@ class HubbardDMETTests(TestCase):
     def test_6x6_u0_1x1imp(self):
         """Tests for 6x6 U=0 Hubbard model with single site impurities."""
         emb = dmet.DMET(
-            testsystems.hubb_6x6_u0_1x1imp.rhf(),
+            systems.hubb_6x6_u0_1x1imp.rhf(),
             solver="FCI",
             charge_consistent=False,
             conv_tol=self.CONV_TOL,
@@ -77,7 +77,7 @@ class HubbardDMETTests(TestCase):
     def test_6x6_u6_1x1imp(self):
         """Tests for 6x6 U=6 Hubbard model with single site impurities."""
         emb = dmet.DMET(
-            testsystems.hubb_6x6_u6_1x1imp.rhf(),
+            systems.hubb_6x6_u6_1x1imp.rhf(),
             solver="FCI",
             charge_consistent=False,
             conv_tol=self.CONV_TOL,
@@ -97,7 +97,7 @@ class HubbardDMETTests(TestCase):
     def test_8x8_u2_2x2imp(self):
         """Tests for 8x8 U=2 Hubbard model with 2x2 impurities."""
         emb = dmet.DMET(
-            testsystems.hubb_8x8_u2_2x2imp.rhf(),
+            systems.hubb_8x8_u2_2x2imp.rhf(),
             solver="FCI",
             charge_consistent=False,
             conv_tol=self.CONV_TOL,

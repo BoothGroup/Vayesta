@@ -3,12 +3,12 @@ import numpy as np
 import vayesta
 import vayesta.ewf
 from vayesta.core.util import cache
-from tests import testsystems
+from tests import systems
 from tests.common import TestCase
 
 
 class Test_RCCSD(TestCase):
-    system = testsystems.h2_dz
+    system = systems.h2_dz
     solver = "CCSD"
 
     @classmethod
@@ -127,7 +127,7 @@ class Test_RCCSD(TestCase):
 
 
 class Test_RMP2(Test_RCCSD):
-    system = testsystems.h2_dz
+    system = systems.h2_dz
     solver = "MP2"
 
     @classmethod
@@ -139,7 +139,7 @@ class Test_RMP2(Test_RCCSD):
 
 
 class Test_UCCSD(TestCase):
-    system = testsystems.water_cation_631g
+    system = systems.water_cation_631g
     solver = "CCSD"
 
     @classmethod

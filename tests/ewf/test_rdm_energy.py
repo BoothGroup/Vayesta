@@ -5,13 +5,13 @@ import pyscf.cc
 
 import vayesta.ewf
 from tests.common import TestCase
-from tests import testsystems
+from tests import systems
 
 
 class Test_RHF(TestCase):
     def test(self):
         # RHF
-        mf = testsystems.water_631g.rhf()
+        mf = systems.water_631g.rhf()
 
         # CCSD
         cc = pyscf.cc.CCSD(mf)
@@ -36,7 +36,7 @@ class Test_RHF(TestCase):
 class Test_UHF(TestCase):
     def test(self):
         # RHF
-        mf = testsystems.water_cation_631g.uhf()
+        mf = systems.water_cation_631g.uhf()
 
         # CCSD
         cc = pyscf.cc.UCCSD(mf)
@@ -61,7 +61,7 @@ class Test_UHF(TestCase):
 #    def test_h2_solid(self):
 #
 #        #RHF
-#        mf = testsystems.h2_sto3g_331_2d.rhf()
+#        mf = systems.h2_sto3g_331_2d.rhf()
 #
 #        #CCSD
 #        cc = pyscf.cc.CCSD(mf)

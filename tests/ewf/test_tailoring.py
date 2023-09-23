@@ -2,7 +2,7 @@ import unittest
 import vayesta
 import vayesta.ewf
 from vayesta.core.util import cache
-from tests import testsystems
+from tests import systems
 from tests.common import TestCase
 
 
@@ -11,7 +11,7 @@ class TestRestricted(TestCase):
 
     @classmethod
     def setUpClass(cls):
-        cls.mf = testsystems.n2_sto_150pm.rhf()
+        cls.mf = systems.n2_sto_150pm.rhf()
 
     @classmethod
     def tearDownClass(cls):
@@ -71,13 +71,13 @@ class TestRestricted(TestCase):
 class TestUnrestrictedS0(TestRestricted):
     @classmethod
     def setUpClass(cls):
-        cls.mf = testsystems.n2_sto_150pm.rhf().to_uhf()
+        cls.mf = systems.n2_sto_150pm.rhf().to_uhf()
 
 
 class TestUnrestrictedS4(TestRestricted):
     @classmethod
     def setUpClass(cls):
-        cls.mf = testsystems.n2_sto_s4_150pm.uhf()
+        cls.mf = systems.n2_sto_s4_150pm.uhf()
 
     def test_wf_energy_onsite(self):
         emb = self.emb(1e-4, "onsite")

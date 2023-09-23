@@ -7,7 +7,7 @@ import vayesta
 import vayesta.ewf
 
 from tests.common import TestCase
-from tests import testsystems
+from tests import systems
 
 
 # @pytest.mark.fast
@@ -17,14 +17,14 @@ class TestFullEC_tailor(TestCase):
         cls.fci = {}
         cls.mf = {}
 
-        cls.mf["lih_631g"] = testsystems.lih_631g.rhf()
+        cls.mf["lih_631g"] = systems.lih_631g.rhf()
         cls.fci["lih_631g"] = pyscf.fci.FCI(cls.mf["lih_631g"])
         cls.fci["lih_631g"].threads = 1
         cls.fci["lih_631g"].conv_tol = 1.0e-12
         cls.fci["lih_631g"].davidson_only = True
         cls.fci["lih_631g"].kernel()
 
-        cls.mf["lih_ccpvdz"] = testsystems.lih_ccpvdz.rhf()
+        cls.mf["lih_ccpvdz"] = systems.lih_ccpvdz.rhf()
         cls.fci["lih_ccpvdz"] = pyscf.fci.FCI(cls.mf["lih_ccpvdz"])
         cls.fci["lih_ccpvdz"].threads = 1
         cls.fci["lih_ccpvdz"].conv_tol = 1.0e-12
@@ -48,7 +48,7 @@ class TestFullEC_tailor(TestCase):
         low_level_coul=False,
         store_wf_ccsdtq=True,
     ):
-        mf = getattr(getattr(testsystems, key[0]), key[1])()
+        mf = getattr(getattr(systems, key[0]), key[1])()
         if fcifragtype == "fullsystem":
             emb = vayesta.ewf.EWF(mf, solver_options={"conv_tol": 1.0e-12})
             fci_frags = []
@@ -365,7 +365,7 @@ class TestHubCompleteEC(TestCase):
         and complete FCI fragment
         """
 
-        mf = testsystems.hubb_10_u4.rhf()
+        mf = systems.hubb_10_u4.rhf()
 
         emb = vayesta.ewf.EWF(mf)
         emb.opts.solver_options["conv_tol"] = 1.0e-12
@@ -425,7 +425,7 @@ class TestHubBathEC(TestCase):
         external correction, should still be exact.
         """
 
-        mf = testsystems.hubb_10_u2.rhf()
+        mf = systems.hubb_10_u2.rhf()
 
         emb = vayesta.ewf.EWF(mf)
         emb.opts.solver_options["conv_tol"] = 1.0e-12
@@ -469,7 +469,7 @@ class TestECSym(TestCase):
     def _test_10_u2_eccc_sym(self, mode, low_level_coul=True, proj=0):
         """Test symmetry in external correction via comparison to system without use of symmetry"""
 
-        mf = testsystems.hubb_10_u2.rhf()
+        mf = systems.hubb_10_u2.rhf()
 
         emb = vayesta.ewf.EWF(mf)
         emb.opts.solver_options["conv_tol"] = 1.0e-12
@@ -560,7 +560,7 @@ class TestECSym(TestCase):
 @pytest.mark.fast
 class TestRegEC_CCSD(TestCase):
     def _test_water_ec_regression(self, mode=None, projectors=None, low_level_coul=True):
-        mf = testsystems.water_ccpvdz_df.rhf()
+        mf = systems.water_ccpvdz_df.rhf()
 
         emb = vayesta.ewf.EWF(mf)
         emb.opts.solver_options["conv_tol"] = 1.0e-12

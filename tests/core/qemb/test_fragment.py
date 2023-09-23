@@ -5,7 +5,7 @@ from pyscf import lib
 from vayesta.core.qemb import Embedding, UEmbedding
 from vayesta.core.bath import DMET_Bath, MP2_Bath
 from tests.common import temporary_seed, TestCase
-from tests import testsystems
+from tests import systems
 
 # TODO readd some tests for ghost atoms
 
@@ -16,7 +16,7 @@ class MolFragmentTests(TestCase):
 
     @classmethod
     def setUpClass(cls):
-        cls.mf = testsystems.water_ccpvdz_df.rhf()
+        cls.mf = systems.water_ccpvdz_df.rhf()
 
     @classmethod
     def tearDownClass(cls):
@@ -221,7 +221,7 @@ class UMolFragmentTests(MolFragmentTests):
 
     @classmethod
     def setUpClass(cls):
-        cls.mf = testsystems.water_ccpvdz_df.uhf()
+        cls.mf = systems.water_ccpvdz_df.uhf()
 
     def trace(self, c):
         ca, cb = c
@@ -241,7 +241,7 @@ class CellFragmentTests(TestCase):
 
     @classmethod
     def setUpClass(cls):
-        cls.mf = testsystems.he2_631g_k222.rhf()
+        cls.mf = systems.he2_631g_k222.rhf()
 
     @classmethod
     def tearDownClass(cls):

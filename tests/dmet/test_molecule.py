@@ -2,7 +2,7 @@ import pytest
 import unittest
 from vayesta import dmet
 from tests.common import TestCase
-from tests import testsystems
+from tests import systems
 
 
 FCI_SOLVER_OPTS = dict(davidson_only=False, init_guess="mf")
@@ -18,7 +18,7 @@ class MoleculeTest(TestCase):
             import cvxpy
         except ImportError:
             pytest.skip("Requires cvxpy")
-        cls.mf = testsystems.h6_sto6g.rhf()
+        cls.mf = systems.h6_sto6g.rhf()
 
     @classmethod
     def tearDownClass(cls):
@@ -36,7 +36,7 @@ class MoleculeTest(TestCase):
     def test_cc(self):
         """Test H6 STO-6G with FCI solver, IAO fragmentation and charge consistency."""
         emb = dmet.DMET(
-            testsystems.h6_sto6g.rhf(),
+            systems.h6_sto6g.rhf(),
             solver="FCI",
             charge_consistent=True,
             bath_options=dict(bathtype="dmet"),
@@ -57,7 +57,7 @@ class MoleculeTest(TestCase):
     def test_nocc(self):
         """Test H6 STO-6G with FCI solver, IAO fragmentation and no charge consistency."""
         emb = dmet.DMET(
-            testsystems.h6_sto6g.rhf(),
+            systems.h6_sto6g.rhf(),
             solver="FCI",
             charge_consistent=False,
             bath_options=dict(bathtype="dmet"),
@@ -78,7 +78,7 @@ class MoleculeTest(TestCase):
     def test_nocc_ccsd(self):
         """Test H6 STO-6G with FCI solver, IAO fragmentation and no charge consistency."""
         emb = dmet.DMET(
-            testsystems.h6_sto6g.rhf(),
+            systems.h6_sto6g.rhf(),
             solver="CCSD",
             charge_consistent=False,
             bath_options=dict(bathtype="dmet"),
@@ -97,7 +97,7 @@ class MoleculeTest(TestCase):
 
     def test_renorm_interaction(self):
         emb = dmet.DMET(
-            testsystems.h6_sto6g_df.uhf(),
+            systems.h6_sto6g_df.uhf(),
             solver="FCI",
             charge_consistent=False,
             bath_options=dict(bathtype="dmet"),
@@ -119,7 +119,7 @@ class MoleculeTest(TestCase):
     def test_full_bath(self):
         """Test H6 STO-6G with FCI solver, IAO fragmentation and complete bath."""
         emb = dmet.DMET(
-            testsystems.h6_sto6g.rhf(),
+            systems.h6_sto6g.rhf(),
             solver="FCI",
             charge_consistent=False,
             bath_options=dict(bathtype="full"),

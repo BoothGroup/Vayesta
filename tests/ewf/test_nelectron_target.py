@@ -3,7 +3,7 @@ import numpy as np
 import vayesta
 import vayesta.ewf
 from vayesta.core.util import cache
-from tests import testsystems
+from tests import systems
 from tests.common import TestCase
 
 
@@ -13,7 +13,7 @@ class TestCCSD(TestCase):
 
     @classmethod
     def setUpClass(cls):
-        cls.mf = testsystems.water_631g.rhf()
+        cls.mf = systems.water_631g.rhf()
 
     @classmethod
     @cache
@@ -61,7 +61,7 @@ class TestUCCSD(TestCCSD):
 
     @classmethod
     def setUpClass(cls):
-        cls.mf = testsystems.water_cation_631g.uhf()
+        cls.mf = systems.water_cation_631g.uhf()
 
 
 class TestFCI(TestCCSD):
@@ -69,7 +69,7 @@ class TestFCI(TestCCSD):
 
     @classmethod
     def setUpClass(cls):
-        cls.mf = testsystems.water_sto3g.rhf()
+        cls.mf = systems.water_sto3g.rhf()
 
 
 class TestUFCI(TestUCCSD):
@@ -77,7 +77,7 @@ class TestUFCI(TestUCCSD):
 
     @classmethod
     def setUpClass(cls):
-        cls.mf = testsystems.water_cation_sto3g.rhf()
+        cls.mf = systems.water_cation_sto3g.rhf()
 
 
 if __name__ == "__main__":

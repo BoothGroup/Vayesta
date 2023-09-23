@@ -8,18 +8,18 @@ import pyscf
 from vayesta.core.ao2mo import postscf_kao2gmo
 from vayesta.core.ao2mo import postscf_kao2gmo_uhf
 from tests.common import TestCase
-from tests import testsystems
+from tests import systems
 
 
 @pytest.mark.slow
 class PostSCF_KAO2GMO_Tests(TestCase):
     def test_rhf(self):
-        cell = testsystems.he_k321.mol
-        khf = testsystems.he_k321.rhf()
-        kpts = testsystems.he_k321.kpts
+        cell = systems.he_k321.mol
+        khf = systems.he_k321.rhf()
+        kpts = systems.he_k321.kpts
         gdf = khf.with_df
-        scell = testsystems.he_s321.mol
-        shf = testsystems.he_s321.rhf()
+        scell = systems.he_s321.mol
+        shf = systems.he_s321.rhf()
         self.assertAlmostEqual(shf.e_tot / len(kpts), khf.e_tot)
 
         nao = scell.nao
@@ -71,12 +71,12 @@ class PostSCF_KAO2GMO_Tests(TestCase):
                     self.assertIsNone(np.testing.assert_almost_equal(val, expected))
 
     def test_rhf_2d(self):
-        cell = testsystems.he_k32.mol
-        khf = testsystems.he_k32.rhf()
-        kpts = testsystems.he_k32.kpts
+        cell = systems.he_k32.mol
+        khf = systems.he_k32.rhf()
+        kpts = systems.he_k32.kpts
         gdf = khf.with_df
-        scell = testsystems.he_s32.mol
-        shf = testsystems.he_s32.rhf()
+        scell = systems.he_s32.mol
+        shf = systems.he_s32.rhf()
         self.assertAlmostEqual(shf.e_tot / len(kpts), khf.e_tot)
 
         nao = scell.nao
@@ -118,12 +118,12 @@ class PostSCF_KAO2GMO_Tests(TestCase):
                     self.assertIsNone(np.testing.assert_almost_equal(val, expected))
 
     def test_uhf(self):
-        cell = testsystems.lih_k221.mol
-        khf = testsystems.lih_k221.uhf()
-        kpts = testsystems.lih_k221.kpts
+        cell = systems.lih_k221.mol
+        khf = systems.lih_k221.uhf()
+        kpts = systems.lih_k221.kpts
         gdf = khf.with_df
-        scell = testsystems.lih_s221.mol
-        shf = testsystems.lih_s221.uhf()
+        scell = systems.lih_s221.mol
+        shf = systems.lih_s221.uhf()
         self.assertAlmostEqual(shf.e_tot / len(kpts), khf.e_tot)
 
         nao = scell.nao

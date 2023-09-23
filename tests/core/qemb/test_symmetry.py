@@ -3,7 +3,7 @@ import numpy as np
 import vayesta
 import vayesta.ewf
 from vayesta.core.util import cache
-from tests.testsystems import TestMolecule
+from tests.systems import TestMolecule
 from tests.common import TestCase
 
 

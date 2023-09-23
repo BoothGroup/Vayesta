@@ -4,7 +4,7 @@ import unittest
 import vayesta
 from vayesta import edmet
 from tests.common import TestCase
-from tests import testsystems
+from tests import systems
 
 
 class MolecularDFEDMETTest(TestCase):
@@ -24,7 +24,7 @@ class MolecularDFEDMETTest(TestCase):
 
     def test_h6_sto6g_FCI_IAO_1occ(self):
         emb = edmet.EDMET(
-            testsystems.h6_sto6g_df.rhf(),
+            systems.h6_sto6g_df.rhf(),
             solver="FCI",
             solver_options={"max_boson_occ": 1, "conv_tol": 1e-12},
             conv_tol=self.CONV_TOL,
@@ -44,7 +44,7 @@ class MolecularDFEDMETTest(TestCase):
 
     def test_h6_sto6g_FCI_IAO_2occ(self):
         emb = edmet.EDMET(
-            testsystems.h6_sto6g_df.rhf(),
+            systems.h6_sto6g_df.rhf(),
             solver="FCI",
             solver_options={"max_boson_occ": 2, "conv_tol": 1e-12},
             conv_tol=self.CONV_TOL,
@@ -59,7 +59,7 @@ class MolecularDFEDMETTest(TestCase):
         emb.kernel()
 
         uemb = edmet.EDMET(
-            testsystems.h6_sto6g_df.uhf(),
+            systems.h6_sto6g_df.uhf(),
             solver="FCI",
             solver_options={"max_boson_occ": 2, "conv_tol": 1e-12},
             conv_tol=self.CONV_TOL,
@@ -81,7 +81,7 @@ class MolecularDFEDMETTest(TestCase):
     @unittest.skipIf(vayesta.ebcc is None, "EBCC installation not found.")
     def test_h2o_ccpvdz_EBCCSD_IAO(self):
         emb = edmet.EDMET(
-            testsystems.water_ccpvdz_df.rhf(),
+            systems.water_ccpvdz_df.rhf(),
             solver="CCSD-S-1-1",
             conv_tol=self.CONV_TOL,
             oneshot=True,
@@ -97,7 +97,7 @@ class MolecularDFEDMETTest(TestCase):
         self._test_energy(emb, known_values)
 
         uemb = edmet.EDMET(
-            testsystems.water_ccpvdz_df.uhf(),
+            systems.water_ccpvdz_df.uhf(),
             solver="CCSD-S-1-1",
             conv_tol=self.CONV_TOL,
             oneshot=True,

@@ -4,7 +4,7 @@ import vayesta
 import vayesta.ewf
 
 from tests.common import TestCase
-from tests import testsystems
+from tests import systems
 
 
 class TestEBCCWavefunctions(TestCase):
@@ -18,7 +18,7 @@ class TestEBCCWavefunctions(TestCase):
     def _test(self, system, mf, ansatz):
         assert mf in ["rhf", "uhf"]
         # Test a complete bath calculation with given ansatz reproduces full calculation.
-        mymf = getattr(getattr(testsystems, system), mf)()
+        mymf = getattr(getattr(systems, system), mf)()
 
         emborig = vayesta.ewf.EWF(
             mymf,

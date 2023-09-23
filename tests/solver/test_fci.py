@@ -6,13 +6,13 @@ import pyscf.fci
 
 import vayesta
 import vayesta.ewf
-from tests import testsystems
+from tests import systems
 
 
 @pytest.mark.fast
 class TestSolvers(unittest.TestCase):
     def _test(self, key, ss=None, places=8):
-        mf = getattr(getattr(testsystems, key[0]), key[1])()
+        mf = getattr(getattr(systems, key[0]), key[1])()
 
         emb = vayesta.ewf.EWF(mf, solver="FCI", bath_options=dict(bathtype="full"), solver_options={"conv_tol": 1e-12})
         emb.kernel()

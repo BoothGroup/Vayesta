@@ -1,5 +1,5 @@
 from tests.common import TestCase
-from tests import testsystems
+from tests import systems
 import vayesta.ewf
 import pytest
 import numpy as np
@@ -14,7 +14,7 @@ class QBA_RPA_Bath_Test(TestCase):
             pytest.skip("Requires ebcc")
 
     def _get_occupation(self, target_orbs, local_projection):
-        rhf = testsystems.ethanol_631g_df.rhf()
+        rhf = systems.ethanol_631g_df.rhf()
         emb = vayesta.ewf.EWF(
             rhf,
             bosonic_bath_options=dict(

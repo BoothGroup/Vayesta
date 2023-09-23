@@ -3,7 +3,7 @@ from pyscf import lib
 import vayesta
 import vayesta.ewf
 from tests.common import TestCase
-from tests import testsystems
+from tests import systems
 
 
 class Test_UHF_var_emb(TestCase):
@@ -14,7 +14,7 @@ class Test_UHF_var_emb(TestCase):
         except ImportError:
             pytest.skip("Variational Embedding requires pygnme")
 
-        cls.mf = testsystems.heli_631g.uhf()
+        cls.mf = systems.heli_631g.uhf()
 
     @classmethod
     def tearDownClass(cls):
@@ -45,7 +45,7 @@ class Test_RHF_var_emb(TestCase):
         except ImportError:
             pytest.skip("Variational Embedding requires pygnme")
 
-        cls.mf = testsystems.h6_sto6g.rhf()
+        cls.mf = systems.h6_sto6g.rhf()
 
     @classmethod
     def tearDownClass(cls):

@@ -4,15 +4,15 @@ import numpy as np
 import vayesta
 from vayesta.core.util import cache
 from tests.ewf import test_h2
-from tests import testsystems
+from tests import systems
 from tests.common import TestCase
 
 
 class Test_MP2(test_h2.Test_MP2):
     @classmethod
     def setUpClass(cls):
-        cls.mf = testsystems.water_631g.rhf()
-        cls.cc = testsystems.water_631g.rmp2()
+        cls.mf = systems.water_631g.rhf()
+        cls.cc = systems.water_631g.rmp2()
 
     @classmethod
     @cache
@@ -56,8 +56,8 @@ class Test_MP2(test_h2.Test_MP2):
 class Test_CCSD(test_h2.Test_CCSD):
     @classmethod
     def setUpClass(cls):
-        cls.mf = testsystems.water_631g.rhf()
-        cls.cc = testsystems.water_631g.rccsd()
+        cls.mf = systems.water_631g.rhf()
+        cls.cc = systems.water_631g.rccsd()
 
     @classmethod
     @cache
@@ -100,8 +100,8 @@ class Test_CCSD(test_h2.Test_CCSD):
 class Test_UMP2(test_h2.Test_UMP2):
     @classmethod
     def setUpClass(cls):
-        cls.mf = testsystems.water_cation_631g.uhf()
-        cls.cc = testsystems.water_cation_631g.ump2()
+        cls.mf = systems.water_cation_631g.uhf()
+        cls.cc = systems.water_cation_631g.ump2()
 
     @classmethod
     @cache
@@ -117,8 +117,8 @@ class Test_UMP2(test_h2.Test_UMP2):
 class Test_UCCSD(Test_CCSD, test_h2.Test_UCCSD):
     @classmethod
     def setUpClass(cls):
-        cls.mf = testsystems.water_cation_631g.uhf()
-        cls.cc = testsystems.water_cation_631g.uccsd()
+        cls.mf = systems.water_cation_631g.uhf()
+        cls.cc = systems.water_cation_631g.uccsd()
 
     def test_dmet_energy_dmet_bath(self):
         emb = self.emb(np.inf)
@@ -130,10 +130,10 @@ class Test_UCCSD(Test_CCSD, test_h2.Test_UCCSD):
 class Test_RCCSD_vs_UCCSD(TestCase):
     @classmethod
     def setUpClass(cls):
-        cls.rhf = testsystems.water_631g.rhf()
-        cls.uhf = testsystems.water_631g.uhf()
-        cls.rcc = testsystems.water_631g.rccsd()
-        cls.ucc = testsystems.water_631g.uccsd()
+        cls.rhf = systems.water_631g.rhf()
+        cls.uhf = systems.water_631g.uhf()
+        cls.rcc = systems.water_631g.rccsd()
+        cls.ucc = systems.water_631g.uccsd()
 
     @classmethod
     def tearDownClass(cls):

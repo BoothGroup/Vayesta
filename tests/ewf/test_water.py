@@ -1,12 +1,12 @@
 import pytest
 import unittest
 from tests.ewf import test_h2
-from tests import testsystems
+from tests import systems
 
 
 @pytest.mark.slow
 class Test_MP2(test_h2.Test_MP2):
-    system = testsystems.water_631g
+    system = systems.water_631g
 
     @classmethod
     def setUpClass(cls):
@@ -16,7 +16,7 @@ class Test_MP2(test_h2.Test_MP2):
 
 @pytest.mark.slow
 class Test_CCSD(test_h2.Test_CCSD):
-    system = testsystems.water_631g
+    system = systems.water_631g
 
     @classmethod
     def setUpClass(cls):
@@ -26,7 +26,7 @@ class Test_CCSD(test_h2.Test_CCSD):
 
 @pytest.mark.slow
 class Test_UMP2(test_h2.Test_UMP2):
-    system = testsystems.water_cation_631g
+    system = systems.water_cation_631g
 
     @classmethod
     def setUpClass(cls):
@@ -36,7 +36,7 @@ class Test_UMP2(test_h2.Test_UMP2):
 
 @pytest.mark.slow
 class Test_UCCSD(test_h2.Test_UCCSD):
-    system = testsystems.water_cation_631g
+    system = systems.water_cation_631g
 
     @classmethod
     def setUpClass(cls):

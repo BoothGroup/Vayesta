@@ -7,13 +7,13 @@ from vayesta.core.bath import MP2_Bath, RPA_Bath
 from vayesta.core.qemb import Embedding
 from vayesta.core.qemb import UEmbedding
 from tests.common import TestCase
-from tests import testsystems
+from tests import systems
 
 
 class EwDMET_Bath_Test(TestCase):
     def test_ewdmet_bath(self):
         return True
-        mf = testsystems.ethanol_ccpvdz.rhf()
+        mf = systems.ethanol_ccpvdz.rhf()
 
         emb = Embedding(mf)
         with emb.iao_fragmentation() as f:
@@ -52,7 +52,7 @@ class EwDMET_Bath_Test(TestCase):
 
 class MP2_BNO_Test(TestCase):
     def test_bno_Bath(self):
-        rhf = testsystems.ethanol_ccpvdz.rhf()
+        rhf = systems.ethanol_ccpvdz.rhf()
 
         remb = Embedding(rhf)
         with remb.iao_fragmentation() as f:
@@ -62,7 +62,7 @@ class MP2_BNO_Test(TestCase):
         rbno_bath_occ = MP2_Bath(rfrag, rdmet_bath, occtype="occupied")
         rbno_bath_vir = MP2_Bath(rfrag, rdmet_bath, occtype="virtual")
 
-        uhf = testsystems.ethanol_ccpvdz.uhf()
+        uhf = systems.ethanol_ccpvdz.uhf()
         uemb = UEmbedding(uhf)
         with uemb.iao_fragmentation() as f:
             ufrag = f.add_atomic_fragment("O")
@@ -106,8 +106,8 @@ class MP2_BNO_Test(TestCase):
         self.assertAllclose(rbno_bath_vir.occup, ubno_bath_vir.occup[1])
 
     def test_project_dmet(self):
-        rhf = testsystems.ethanol_ccpvdz.rhf()
-        uhf = testsystems.ethanol_ccpvdz.uhf()
+        rhf = systems.ethanol_ccpvdz.rhf()
+        uhf = systems.ethanol_ccpvdz.uhf()
 
         remb = Embedding(rhf)
         with remb.iao_fragmentation() as f:
@@ -145,7 +145,7 @@ class MP2_BNO_Test(TestCase):
 
 class RPA_Test(TestCase):
     def test_bno_Bath(self):
-        rhf = testsystems.ethanol_631g_df.rhf()
+        rhf = systems.ethanol_631g_df.rhf()
 
         remb = Embedding(rhf)
         with remb.iao_fragmentation() as f:

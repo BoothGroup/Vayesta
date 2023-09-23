@@ -1,13 +1,13 @@
 import vayesta
 import vayesta.ewf
 from vayesta.core.util import cache
-from tests import testsystems
+from tests import systems
 from tests.common import TestCase
 import pytest
 
 
 class TestWaterRHF(TestCase):
-    system = testsystems.water_631g_df
+    system = systems.water_631g_df
 
     @classmethod
     def setUpClass(cls):

@@ -5,7 +5,7 @@ import vayesta
 
 from vayesta.core.util import cache
 from tests.common import TestCase
-from tests import testsystems
+from tests import systems
 
 
 class ICMP2_Test(TestCase):
@@ -37,7 +37,7 @@ class ICMP2_Test(TestCase):
 class ICMP2_RHF_Test(ICMP2_Test):
     @classmethod
     def setUpClass(cls):
-        cls.mf = testsystems.water_631g_df.rhf()
+        cls.mf = systems.water_631g_df.rhf()
 
     def test_dmet_bath(self):
         emb = self.emb(np.inf)
@@ -55,7 +55,7 @@ class ICMP2_RHF_Test(ICMP2_Test):
 class ICMP2_UHF_Test(ICMP2_Test):
     @classmethod
     def setUpClass(cls):
-        cls.mf = testsystems.water_cation_631g_df.uhf()
+        cls.mf = systems.water_cation_631g_df.uhf()
 
     def test_dmet_bath(self):
         emb = self.emb(np.inf)
@@ -73,7 +73,7 @@ class ICMP2_UHF_Test(ICMP2_Test):
 class ICMP2_RHF_PBC_Test(ICMP2_Test):
     @classmethod
     def setUpClass(cls):
-        cls.mf = testsystems.h2_sto3g_k311.rhf()
+        cls.mf = systems.h2_sto3g_k311.rhf()
 
     def test_dmet_bath(self):
         emb = self.emb(np.inf)
@@ -93,7 +93,7 @@ class ICMP2_RHF_PBC_Test(ICMP2_Test):
 class ICMP2_UHF_PBC_Test(ICMP2_Test):
     @classmethod
     def setUpClass(cls):
-        cls.mf = testsystems.h3_sto3g_k311.uhf()
+        cls.mf = systems.h3_sto3g_k311.uhf()
 
     def test_dmet_bath(self):
         emb = self.emb(np.inf)

@@ -2,7 +2,7 @@ import unittest
 
 from vayesta import ewf
 from tests.common import TestCase
-from tests import testsystems
+from tests import systems
 
 
 class HubbardEWFTests(TestCase):
@@ -18,7 +18,7 @@ class HubbardEWFTests(TestCase):
         """Tests for N=6 U=0 Hubbard model with single site impurities."""
 
         emb = ewf.EWF(
-            testsystems.hubb_6_u0.rhf(),
+            systems.hubb_6_u0.rhf(),
             bath_options=dict(threshold=1e-8),
             solver_options={
                 "conv_tol": self.CONV_TOL,
@@ -37,7 +37,7 @@ class HubbardEWFTests(TestCase):
         """Tests for N=10 U=2 Hubbard model with double site impurities."""
 
         emb = ewf.EWF(
-            testsystems.hubb_10_u2.rhf(),
+            systems.hubb_10_u2.rhf(),
             bath_options=dict(threshold=1e-8),
             solver_options={
                 "conv_tol": self.CONV_TOL,
@@ -56,7 +56,7 @@ class HubbardEWFTests(TestCase):
         """Tests for N=10 U=2 Hubbard model with double site impurities, with a uhf reference."""
 
         emb = ewf.EWF(
-            testsystems.hubb_10_u2.rhf(),
+            systems.hubb_10_u2.rhf(),
             bath_options=dict(threshold=1e-2),
             solver_options={
                 "conv_tol": self.CONV_TOL,
@@ -69,7 +69,7 @@ class HubbardEWFTests(TestCase):
         emb.kernel()
 
         uemb = ewf.EWF(
-            testsystems.hubb_10_u2.uhf(),
+            systems.hubb_10_u2.uhf(),
             bath_options=dict(threshold=1e-2),
             solver_options={
                 "conv_tol": self.CONV_TOL,
@@ -89,7 +89,7 @@ class HubbardEWFTests(TestCase):
         """Tests for 6x6 U=0 Hubbard model with single site impurities."""
 
         emb = ewf.EWF(
-            testsystems.hubb_6x6_u0_1x1imp.rhf(),
+            systems.hubb_6x6_u0_1x1imp.rhf(),
             bath_options=dict(threshold=1e-8),
             solver_options={
                 "conv_tol": self.CONV_TOL,
@@ -108,7 +108,7 @@ class HubbardEWFTests(TestCase):
         """Tests for 6x6 U=6 Hubbard model with single site impurities."""
 
         emb = ewf.EWF(
-            testsystems.hubb_6x6_u6_1x1imp.rhf(),
+            systems.hubb_6x6_u6_1x1imp.rhf(),
             bath_options=dict(threshold=1e-8),
             solver_options={
                 "conv_tol": self.CONV_TOL,
@@ -127,7 +127,7 @@ class HubbardEWFTests(TestCase):
         """Tests for 8x8 U=2 Hubbard model with 2x2 impurities."""
 
         emb = ewf.EWF(
-            testsystems.hubb_8x8_u2_2x2imp.rhf(),
+            systems.hubb_8x8_u2_2x2imp.rhf(),
             bath_options=dict(threshold=1e-8),
             solver_options={
                 "conv_tol": self.CONV_TOL,

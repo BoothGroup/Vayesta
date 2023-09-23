@@ -4,7 +4,7 @@ import vayesta
 import vayesta.ewf
 
 from tests.common import TestCase
-from tests import testsystems
+from tests import systems
 
 # Note that ebCC currently doesn't support density fitting, so we're just testing non-DF results here.
 
@@ -19,7 +19,7 @@ class TestEBCC(TestCase):
 
     def _test(self, system, mf, ansatz):
         # Test a complete bath calculation with given ansatz reproduces full calculation.
-        mymf = getattr(getattr(testsystems, system), mf)()
+        mymf = getattr(getattr(systems, system), mf)()
 
         emb = vayesta.ewf.EWF(
             mymf,
@@ -71,7 +71,7 @@ class TestEBCCActSpace(TestCase):
     def _test(self, system, mf, actansatz, fullansatz, bathtype="dmet", setcas=False):
         # Test that active space calculation with complete active space reproduces equivalent calculation using higher-
         # level approach of active space. This defaults to a DMET bath space.
-        mymf = getattr(getattr(testsystems, system), mf)()
+        mymf = getattr(getattr(systems, system), mf)()
 
         embfull = vayesta.ewf.EWF(
             mymf,

@@ -3,12 +3,12 @@ import numpy as np
 import vayesta
 import vayesta.ewf
 from vayesta.core.util import cache
-from tests import testsystems
+from tests import systems
 from tests.common import TestCase
 
 
 class TestTwoElectron(TestCase):
-    system = testsystems.h2_ccpvdz_df
+    system = systems.h2_ccpvdz_df
     e_ref = {"mrpa": -1.123779303361342, "crpa": -1.1237769151822752}
 
     @classmethod
@@ -55,7 +55,7 @@ class TestTwoElectron(TestCase):
 
 
 class TestTwoHole(TestTwoElectron):
-    system = testsystems.f2_sto6g_df
+    system = systems.f2_sto6g_df
     e_ref = {"mrpa": -197.84155758368854, "crpa": -197.83928243962046}
 
 

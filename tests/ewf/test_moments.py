@@ -5,13 +5,13 @@ import numpy as np
 import vayesta
 import vayesta.ewf
 from tests.common import TestCase
-from tests import testsystems
+from tests import systems
 
 
 class Test_RFCI(TestCase):
     def test(self):
         # RHF
-        mf = testsystems.h6_sto6g.rhf()
+        mf = systems.h6_sto6g.rhf()
 
         try:
             from dyson.expressions import FCI
@@ -47,7 +47,7 @@ class Test_RFCI(TestCase):
 #     def test(self):
 
 #         #RHF
-#         mf = testsystems.water_sto3g.rhf()
+#         mf = systems.water_sto3g.rhf()
 
 #         try:
 #             from dyson.expressions import CCSD

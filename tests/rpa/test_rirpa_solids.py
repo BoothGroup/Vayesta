@@ -2,7 +2,7 @@ import pytest
 
 from vayesta import rpa
 from tests.common import TestCase
-from tests import testsystems
+from tests import systems
 
 
 class DiamondRIRPATest(TestCase):
@@ -10,7 +10,7 @@ class DiamondRIRPATest(TestCase):
 
     @classmethod
     def setUpClass(cls):
-        cls.sys = testsystems.diamond_sto3g_s211
+        cls.sys = systems.diamond_sto3g_s211
         cls.known_results = dict(e_tot=-149.51936410641733, e_corr=-0.19193623440986585)
 
     def _test_energy(self, myrpa):
@@ -55,5 +55,5 @@ class DiamondRIRPATest(TestCase):
 class GrapheneRIRPATest(DiamondRIRPATest):
     @classmethod
     def setUpClass(cls):
-        cls.sys = testsystems.graphene_sto3g_s211
+        cls.sys = systems.graphene_sto3g_s211
         cls.known_results = dict(e_tot=-150.15057360171875, e_corr=-0.17724246753903117)

@@ -8,13 +8,13 @@ import vayesta
 import vayesta.ewf
 
 from tests.common import TestCase
-from tests import testsystems
+from tests import systems
 
 
 @pytest.mark.fast
 class TestSolvers(TestCase):
     def _test(self, key):
-        mf = getattr(getattr(testsystems, key[0]), key[1])()
+        mf = getattr(getattr(systems, key[0]), key[1])()
 
         solver_opts = dict(conv_tol=1e-10)
         emb = vayesta.ewf.EWF(mf, solver="CISD", bath_options=dict(bathtype="full"), solver_options=solver_opts)

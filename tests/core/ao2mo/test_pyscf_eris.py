@@ -5,11 +5,11 @@ import pyscf.ao2mo
 from vayesta.core.ao2mo import helper
 from vayesta.core.ao2mo import pyscf_eris
 from tests.common import TestCase
-from tests import testsystems
+from tests import systems
 
 
 class TestRSpin(TestCase):
-    system = testsystems.water_631g
+    system = systems.water_631g
 
     @classmethod
     def setUpClass(cls):
@@ -31,7 +31,7 @@ class TestRSpin(TestCase):
 
 
 class TestUSpin(TestRSpin):
-    system = testsystems.water_cation_631g
+    system = systems.water_cation_631g
 
     @classmethod
     def setUpClass(cls):

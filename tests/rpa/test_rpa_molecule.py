@@ -2,7 +2,7 @@ import unittest
 
 from vayesta import rpa
 from tests.common import TestCase
-from tests import testsystems
+from tests import systems
 
 
 class MoleculeRPATest(TestCase):
@@ -16,7 +16,7 @@ class MoleculeRPATest(TestCase):
     def test_lih_ccpvdz_RPAX(self):
         """Tests for LiH cc-pvdz with RPAX."""
 
-        emb = rpa.RPA(testsystems.lih_ccpvdz.rhf())
+        emb = rpa.RPA(systems.lih_ccpvdz.rhf())
         emb.kernel("rpax")
 
         known_values = {"e_tot": -8.021765296851472}
@@ -26,14 +26,14 @@ class MoleculeRPATest(TestCase):
     def test_lih_ccpvdz_dRPA(self):
         """Tests for LiH cc-pvdz with dPRA."""
 
-        emb = rpa.RPA(testsystems.lih_ccpvdz.rhf())
+        emb = rpa.RPA(systems.lih_ccpvdz.rhf())
         emb.kernel("drpa")
 
         known_values = {"e_tot": -8.015594007709575}
 
         self._test_energy(emb, known_values)
 
-        emb = rpa.ssRPA(testsystems.lih_ccpvdz.rhf())
+        emb = rpa.ssRPA(systems.lih_ccpvdz.rhf())
         emb.kernel()
 
         self._test_energy(emb, known_values)

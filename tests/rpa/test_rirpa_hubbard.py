@@ -2,7 +2,7 @@ import unittest
 
 from vayesta import rpa
 from tests.common import TestCase
-from tests import testsystems
+from tests import systems
 
 
 class MoleculeRPATest(TestCase):
@@ -26,11 +26,11 @@ class MoleculeRPATest(TestCase):
         key = "hubb_14_u4_df"
         known_values_drpa = {"e_tot": -7.776536889696544}
 
-        emb = rpa.ssRPA(getattr(testsystems, key).rhf())
+        emb = rpa.ssRPA(getattr(systems, key).rhf())
         emb.kernel()
         self._test_energy(emb, known_values_drpa)
 
-        rirpa = rpa.ssRIRPA(getattr(testsystems, key).rhf())
+        rirpa = rpa.ssRIRPA(getattr(systems, key).rhf())
 
         self._test_mom0(emb, rirpa)
 

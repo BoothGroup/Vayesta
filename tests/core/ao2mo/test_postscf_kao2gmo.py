@@ -1,7 +1,7 @@
 import pytest
 import unittest
 from tests.common import TestCase
-from tests import testsystems
+from tests import systems
 from vayesta.core.util import replace_attr
 from vayesta.core.ao2mo import postscf_kao2gmo
 from vayesta.core.ao2mo import postscf_kao2gmo_uhf
@@ -11,8 +11,8 @@ from vayesta.core.ao2mo import postscf_kao2gmo_uhf
 class Test_CCSD(TestCase):
     @classmethod
     def setUpClass(cls):
-        cls.mf = testsystems.h2_sto3g_k311.rhf()
-        cls.cc = testsystems.h2_sto3g_s311.rccsd()
+        cls.mf = systems.h2_sto3g_k311.rhf()
+        cls.cc = systems.h2_sto3g_s311.rccsd()
 
     @classmethod
     def tearDownClass(cls):
@@ -45,8 +45,8 @@ class Test_CCSD(TestCase):
 class Test_UCCSD(Test_CCSD):
     @classmethod
     def setUpClass(cls):
-        cls.mf = testsystems.h3_sto3g_k311.uhf()
-        cls.cc = testsystems.h3_sto3g_s311.uccsd()
+        cls.mf = systems.h3_sto3g_k311.uhf()
+        cls.cc = systems.h3_sto3g_s311.uccsd()
 
     def test_postscf_kao2gmo(self):
         eris_ref = self.cc.ao2mo()

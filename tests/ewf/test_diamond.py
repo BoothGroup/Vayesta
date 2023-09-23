@@ -3,7 +3,7 @@ import unittest
 import vayesta
 import vayesta.ewf
 from vayesta.core.util import cache
-from tests import testsystems
+from tests import systems
 from tests.common import TestCase
 
 
@@ -11,7 +11,7 @@ from tests.common import TestCase
 class DiamondTest(TestCase):
     @classmethod
     def setUpClass(cls):
-        cls.mf = testsystems.diamond_sto3g_k333.rhf()
+        cls.mf = systems.diamond_sto3g_k333.rhf()
 
     @classmethod
     def tearDownClass(cls):

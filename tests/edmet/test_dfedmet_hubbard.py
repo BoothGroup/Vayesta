@@ -3,7 +3,7 @@ import unittest
 
 from vayesta import edmet
 from tests.common import TestCase
-from tests import testsystems
+from tests import systems
 
 
 class HubbardDFEDMETTests(TestCase):
@@ -28,7 +28,7 @@ class HubbardDFEDMETTests(TestCase):
         (not long!).
         """
         emb = edmet.EDMET(
-            testsystems.hubb_14_u4.rhf(),
+            systems.hubb_14_u4.rhf(),
             solver="FCI",
             solver_options={"max_boson_occ": 2},
             maxiter=1,
@@ -40,7 +40,7 @@ class HubbardDFEDMETTests(TestCase):
         emb.kernel()
 
         dfedmet = edmet.EDMET(
-            testsystems.hubb_14_u4_df.rhf(),
+            systems.hubb_14_u4_df.rhf(),
             solver="FCI",
             solver_options={"max_boson_occ": 2},
             maxiter=1,

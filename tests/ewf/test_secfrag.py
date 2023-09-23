@@ -2,14 +2,14 @@ import unittest
 import vayesta
 import vayesta.ewf
 from vayesta.core.util import cache
-from tests import testsystems
+from tests import systems
 from tests.common import TestCase
 
 
 class Test_Restricted(TestCase):
     @classmethod
     def setUpClass(cls):
-        cls.mf = testsystems.water_631g.rhf()
+        cls.mf = systems.water_631g.rhf()
 
     @classmethod
     def tearDownClass(cls):
@@ -44,7 +44,7 @@ class Test_RestrictedSym(Test_Restricted):
 
     @classmethod
     def setUpClass(cls):
-        cls.mf = testsystems.h6_dz.rhf()
+        cls.mf = systems.h6_dz.rhf()
 
     @classmethod
     @cache
@@ -117,7 +117,7 @@ class Test_RestrictedSym(Test_Restricted):
 class Test_Unrestricted(Test_Restricted):
     @classmethod
     def setUpClass(cls):
-        cls.mf = testsystems.water_cation_631g.uhf()
+        cls.mf = systems.water_cation_631g.uhf()
 
     def test_dmet_bath(self):
         emb = self.emb(100)

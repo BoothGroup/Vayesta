@@ -2,7 +2,7 @@ import unittest
 
 from vayesta import ewf
 from tests.common import TestCase
-from tests import testsystems
+from tests import systems
 from vayesta.core.util import cache
 
 
@@ -11,7 +11,7 @@ class SCMF_Test(TestCase):
 
     @classmethod
     def setUpClass(cls):
-        cls.mf = testsystems.h2_dz.rhf()
+        cls.mf = systems.h2_dz.rhf()
 
     @classmethod
     def tearDownClass(cls):
@@ -54,7 +54,7 @@ class SCMF_Test(TestCase):
 class SCMF_UHF_Test(SCMF_Test):
     @classmethod
     def setUpClass(cls):
-        cls.mf = testsystems.h2_dz.rhf().to_uhf()
+        cls.mf = systems.h2_dz.rhf().to_uhf()
 
 
 class SCMF_TCCSD_Test(SCMF_Test):

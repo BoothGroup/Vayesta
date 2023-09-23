@@ -1,11 +1,11 @@
 import vayesta
 import vayesta.ewf
-from tests import testsystems
+from tests import systems
 from tests.common import TestCase
 
 
 class Test_RPA_Corrections_Ethanol_RHF(TestCase):
-    system = testsystems.ethanol_631g_df
+    system = systems.ethanol_631g_df
 
     @property
     def mf(self):
@@ -34,7 +34,7 @@ class Test_RPA_Corrections_Ethanol_RHF(TestCase):
 class Test_RPA_Corrections_complete(Test_RPA_Corrections_Ethanol_RHF):
     """Tests with a complete bath in all clusters. This should give no nonlocal correction in any case."""
 
-    system = testsystems.water_631g_df
+    system = systems.water_631g_df
 
     def test_rpa_correction(self):
         enl, erpa = self.get_nl_energies("erpa", "full")

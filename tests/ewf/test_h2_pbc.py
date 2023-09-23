@@ -7,7 +7,7 @@ import pyscf.pbc.tools
 import vayesta
 import vayesta.ewf
 from vayesta.core.util import cache
-from tests import testsystems
+from tests import systems
 from tests.common import TestCase
 
 
@@ -20,8 +20,8 @@ TIGHT_SOLVER = dict(conv_tol=1e-10, conv_tol_normt=1e-8)
 class Test_MP2(TestCase):
     @classmethod
     def setUpClass(cls):
-        cls.mf = testsystems.h2_sto3g_k311.rhf()
-        cls.cc = testsystems.h2_sto3g_s311.rmp2()
+        cls.mf = systems.h2_sto3g_k311.rhf()
+        cls.cc = systems.h2_sto3g_s311.rmp2()
         nk = len(cls.mf.kpts)
         cls.ref_values = {
             ("e_corr", -1): cls.cc.e_corr / nk,
@@ -118,8 +118,8 @@ class Test_MP2(TestCase):
 class Test_CCSD(Test_MP2):
     @classmethod
     def setUpClass(cls):
-        cls.mf = testsystems.h2_sto3g_k311.rhf()
-        cls.cc = testsystems.h2_sto3g_s311.rccsd()
+        cls.mf = systems.h2_sto3g_k311.rhf()
+        cls.cc = systems.h2_sto3g_s311.rccsd()
         nk = len(cls.mf.kpts)
         cls.ref_values = {
             ("e_corr", -1): cls.cc.e_corr / nk,
@@ -206,8 +206,8 @@ class Test_CCSD(Test_MP2):
 class Test_UMP2(Test_MP2):
     @classmethod
     def setUpClass(cls):
-        cls.mf = testsystems.h3_sto3g_k311.uhf()
-        cls.cc = testsystems.h3_sto3g_s311.ump2()
+        cls.mf = systems.h3_sto3g_k311.uhf()
+        cls.cc = systems.h3_sto3g_s311.ump2()
         nk = len(cls.mf.kpts)
         cls.ref_values = {
             ("e_corr", -1): cls.cc.e_corr / nk,
@@ -258,8 +258,8 @@ class Test_UMP2(Test_MP2):
 class Test_UCCSD(Test_CCSD):
     @classmethod
     def setUpClass(cls):
-        cls.mf = testsystems.h3_sto3g_k311.uhf()
-        cls.cc = testsystems.h3_sto3g_s311.uccsd()
+        cls.mf = systems.h3_sto3g_k311.uhf()
+        cls.cc = systems.h3_sto3g_s311.uccsd()
         nk = len(cls.mf.kpts)
         cls.ref_values = {
             ("e_corr", -1): cls.cc.e_corr / nk,
@@ -312,8 +312,8 @@ class Test_UCCSD(Test_CCSD):
 class Test_MP2_2D(Test_MP2):
     @classmethod
     def setUpClass(cls):
-        cls.mf = testsystems.h2_sto3g_k31.rhf()
-        cls.cc = testsystems.h2_sto3g_s31.rmp2()
+        cls.mf = systems.h2_sto3g_k31.rhf()
+        cls.cc = systems.h2_sto3g_s31.rmp2()
         nk = len(cls.mf.kpts)
         cls.ref_values = {
             ("e_corr", -1): cls.cc.e_corr / nk,
@@ -327,8 +327,8 @@ class Test_MP2_2D(Test_MP2):
 class Test_CCSD_2D(Test_CCSD):
     @classmethod
     def setUpClass(cls):
-        cls.mf = testsystems.h2_sto3g_k31.rhf()
-        cls.cc = testsystems.h2_sto3g_s31.rccsd()
+        cls.mf = systems.h2_sto3g_k31.rhf()
+        cls.cc = systems.h2_sto3g_s31.rccsd()
         nk = len(cls.mf.kpts)
         cls.ref_values = {
             ("e_corr", -1): cls.cc.e_corr / nk,

@@ -3,15 +3,15 @@ import numpy as np
 import vayesta
 import vayesta.ewf
 from vayesta.core.util import cache
-from tests import testsystems
+from tests import systems
 from tests.common import TestCase
 
 
 class Test_MP2(TestCase):
     @classmethod
     def setUpClass(cls):
-        cls.mf = testsystems.h2_dz.rhf()
-        cls.cc = testsystems.h2_dz.rmp2()
+        cls.mf = systems.h2_dz.rhf()
+        cls.cc = systems.h2_dz.rmp2()
 
     @classmethod
     def tearDownClass(cls):
@@ -57,8 +57,8 @@ class Test_MP2(TestCase):
 class Test_CCSD(Test_MP2):
     @classmethod
     def setUpClass(cls):
-        cls.mf = testsystems.h2_dz.rhf()
-        cls.cc = testsystems.h2_dz.rccsd()
+        cls.mf = systems.h2_dz.rhf()
+        cls.cc = systems.h2_dz.rccsd()
 
     @classmethod
     @cache
@@ -108,8 +108,8 @@ class Test_CCSD(Test_MP2):
 class Test_UMP2(Test_MP2):
     @classmethod
     def setUpClass(cls):
-        cls.mf = testsystems.h2anion_dz.uhf()
-        cls.cc = testsystems.h2anion_dz.ump2()
+        cls.mf = systems.h2anion_dz.uhf()
+        cls.cc = systems.h2anion_dz.ump2()
 
     def test_global_dm1(self):
         emb = self.emb(-1)
@@ -121,8 +121,8 @@ class Test_UMP2(Test_MP2):
 class Test_UCCSD(Test_CCSD):
     @classmethod
     def setUpClass(cls):
-        cls.mf = testsystems.h2anion_dz.uhf()
-        cls.cc = testsystems.h2anion_dz.uccsd()
+        cls.mf = systems.h2anion_dz.uhf()
+        cls.cc = systems.h2anion_dz.uccsd()
 
     def test_global_dm2(self):
         pass
@@ -134,8 +134,8 @@ class Test_UCCSD(Test_CCSD):
 class Test_FCI(TestCase):
     @classmethod
     def setUpClass(cls):
-        cls.mf = testsystems.h2_dz.rhf()
-        cls.fci = testsystems.h2_dz.rfci()
+        cls.mf = systems.h2_dz.rhf()
+        cls.fci = systems.h2_dz.rfci()
 
     @classmethod
     def tearDownClass(cls):
@@ -158,16 +158,16 @@ class Test_FCI(TestCase):
 class Test_UFCI(TestCase):
     @classmethod
     def setUpClass(cls):
-        cls.mf = testsystems.h2anion_dz.uhf()
-        cls.fci = testsystems.h2anion_dz.ufci()
+        cls.mf = systems.h2anion_dz.uhf()
+        cls.fci = systems.h2anion_dz.ufci()
 
 
 class Test_UFCI_dissoc(TestCase):
     @classmethod
     def setUpClass(cls):
         # TODO ensure this tests works if density fitting is used.
-        cls.mf = testsystems.h2_sto3g_dissoc.uhf_stable()
-        cls.fci = testsystems.h2_sto3g_dissoc.ufci()
+        cls.mf = systems.h2_sto3g_dissoc.uhf_stable()
+        cls.fci = systems.h2_sto3g_dissoc.ufci()
 
     @classmethod
     def tearDownClass(cls):

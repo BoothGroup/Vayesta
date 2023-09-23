@@ -3,7 +3,7 @@ import numpy as np
 
 from vayesta import ewf
 from tests.common import TestCase
-from tests import testsystems
+from tests import systems
 
 
 BATH_OPTS = dict(project_dmet_order=0)
@@ -78,7 +78,7 @@ class MoleculeTests(TestCase):
         """Tests EWF for LiH cc-pvdz with IAO atomic fragmentation."""
 
         emb = ewf.EWF(
-            testsystems.lih_ccpvdz.rhf(),
+            systems.lih_ccpvdz.rhf(),
             bath_options={"bathtype": "full", **BATH_OPTS},
             solver_options={
                 "solve_lambda": True,
@@ -116,7 +116,7 @@ class MoleculeTests(TestCase):
         """Tests EWF for LiH cc-pvdz with SAO orbital fragmentation."""
 
         emb = ewf.EWF(
-            testsystems.lih_ccpvdz.rhf(),
+            systems.lih_ccpvdz.rhf(),
             bath_options={"threshold": 1e-5 / 2, **BATH_OPTS},
             solver_options={
                 "conv_tol": self.CONV_TOL,
@@ -136,7 +136,7 @@ class MoleculeTests(TestCase):
         """Tests EWF for LiH cc-pvdz with SAO atomic fragmentation."""
 
         emb = ewf.EWF(
-            testsystems.lih_ccpvdz.rhf(),
+            systems.lih_ccpvdz.rhf(),
             bath_options={"bathtype": "dmet"},
             solver_options={
                 "conv_tol": self.CONV_TOL,
@@ -155,7 +155,7 @@ class MoleculeTests(TestCase):
         """Tests EWF for H2O cc-pvdz with FCI solver."""
 
         emb = ewf.EWF(
-            testsystems.water_ccpvdz.rhf(),
+            systems.water_ccpvdz.rhf(),
             bath_options={"bathtype": "dmet"},
             solver="FCI",
             solver_options={
@@ -176,7 +176,7 @@ class MoleculeTests(TestCase):
         """Tests EWF for H2O cc-pvdz with FCI solver."""
 
         emb = ewf.EWF(
-            testsystems.water_ccpvdz.rhf(),
+            systems.water_ccpvdz.rhf(),
             bath_options={"bathtype": "dmet"},
             solver="FCI",
             solver_options={
@@ -194,7 +194,7 @@ class MoleculeTests(TestCase):
         """Tests EWF for H2O cc-pvdz with FCI solver."""
 
         emb = ewf.EWF(
-            testsystems.water_ccpvdz.rhf(),
+            systems.water_ccpvdz.rhf(),
             solver="TCCSD",
             bath_options={"threshold": 1e-4 / 2, **BATH_OPTS},
             solver_options={
@@ -213,7 +213,7 @@ class MoleculeTests(TestCase):
     def test_tccsd_solver(self):
         """Tests EWF for H2O cc-pvdz with TCCSD solver and CAS picker."""
         emb = ewf.EWF(
-            testsystems.water_ccpvdz.rhf(),
+            systems.water_ccpvdz.rhf(),
             solver="TCCSD",
             bath_options={"threshold": 1e-4 / 2, **BATH_OPTS},
             solver_options={
@@ -232,7 +232,7 @@ class MoleculeTests(TestCase):
         """Tests EWF for H2O cc-pvdz with tailoring FCI fragment.
         (Should reproduce result of test_tccsd_solver)"""
         emb = ewf.EWF(
-            testsystems.water_ccpvdz.rhf(),
+            systems.water_ccpvdz.rhf(),
             bath_options={"threshold": 1e-4 / 2, **BATH_OPTS},
             solver_options={
                 "conv_tol": self.CONV_TOL,
@@ -256,7 +256,7 @@ class MoleculeTests(TestCase):
         """Tests EWF for H2O cc-pvdz with self-consistency."""
 
         emb = ewf.EWF(
-            testsystems.water_ccpvdz.rhf(),
+            systems.water_ccpvdz.rhf(),
             bath_options={"threshold": 1e-4 / 2, **BATH_OPTS},
             sc_mode=1,
             solver_options={
@@ -277,7 +277,7 @@ class MoleculeTests(TestCase):
         """Compares CCSD and CISD solvers for a two-electron system."""
 
         ecisd = ewf.EWF(
-            testsystems.h2_ccpvdz.rhf(),
+            systems.h2_ccpvdz.rhf(),
             bath_options=dict(bathtype="dmet"),
             solver="CISD",
             solver_options={
@@ -288,7 +288,7 @@ class MoleculeTests(TestCase):
         ecisd.kernel()
 
         eccsd = ewf.EWF(
-            testsystems.h2_ccpvdz.rhf(),
+            systems.h2_ccpvdz.rhf(),
             bath_options=dict(bathtype="dmet"),
             solver="CCSD",
             solver_options={
@@ -303,14 +303,14 @@ class MoleculeTests(TestCase):
 
     def test_h2o_mp2_compression(self):
         """Compares MP2 solver with ERIs, uncompressed CDERIs, and compressed CDERIs."""
-        rewf = ewf.EWF(testsystems.water_ccpvdz.rhf(), bath_options=dict(bathtype="dmet"), solver="MP2")
+        rewf = ewf.EWF(systems.water_ccpvdz.rhf(), bath_options=dict(bathtype="dmet"), solver="MP2")
 
         with rewf.iao_fragmentation() as f:
             f.add_all_atomic_fragments()
         rewf.kernel()
 
         df_rewf = ewf.EWF(
-            testsystems.water_ccpvdz_df.rhf(),
+            systems.water_ccpvdz_df.rhf(),
             bath_options=dict(bathtype="dmet"),
             solver="MP2",
             solver_options={"compress_cderi": False},
@@ -322,7 +322,7 @@ class MoleculeTests(TestCase):
         self.assertAlmostEqual(rewf.e_corr, df_rewf.e_corr, int(np.log10(abs(rewf.e_mf - df_rewf.e_mf))))
 
         cdf_rewf = ewf.EWF(
-            testsystems.water_ccpvdz_df.rhf(),
+            systems.water_ccpvdz_df.rhf(),
             bath_options=dict(bathtype="dmet"),
             solver="MP2",
             solver_options={"compress_cderi": True},
@@ -343,7 +343,7 @@ class MoleculeTestsUnrestricted(unittest.TestCase):
         """Compares RHF to UHF LiH cc-pvdz."""
 
         rewf = ewf.EWF(
-            testsystems.lih_ccpvdz.rhf(),
+            systems.lih_ccpvdz.rhf(),
             bath_options=dict(bathtype="dmet"),
             solver_options={
                 "conv_tol": self.CONV_TOL,
@@ -355,7 +355,7 @@ class MoleculeTestsUnrestricted(unittest.TestCase):
         rewf.kernel()
 
         uewf = ewf.UEWF(
-            testsystems.lih_ccpvdz.uhf(),
+            systems.lih_ccpvdz.uhf(),
             bath_options=dict(bathtype="dmet"),
             solver_options={
                 "conv_tol": self.CONV_TOL,
@@ -373,7 +373,7 @@ class MoleculeTestsUnrestricted(unittest.TestCase):
         """Compares RHF to UHF LiH cc-pvdz."""
 
         rewf = ewf.EWF(
-            testsystems.lih_ccpvdz.rhf(),
+            systems.lih_ccpvdz.rhf(),
             solver="CISD",
             bath_options=dict(bathtype="dmet"),
             solver_options={
@@ -386,7 +386,7 @@ class MoleculeTestsUnrestricted(unittest.TestCase):
         rewf.kernel()
 
         uewf = ewf.UEWF(
-            testsystems.lih_ccpvdz.uhf(),
+            systems.lih_ccpvdz.uhf(),
             solver="CISD",
             bath_options=dict(bathtype="dmet"),
             solver_options={
@@ -405,7 +405,7 @@ class MoleculeTestsUnrestricted(unittest.TestCase):
         """Compares RHF to UHF with an FCI solver for H2 cc-pvdz."""
 
         rewf = ewf.EWF(
-            testsystems.h2_ccpvdz.rhf(),
+            systems.h2_ccpvdz.rhf(),
             solver="FCI",
             bath_options=dict(bathtype="dmet"),
             solver_options={
@@ -417,7 +417,7 @@ class MoleculeTestsUnrestricted(unittest.TestCase):
         rewf.kernel()
 
         uewf = ewf.UEWF(
-            testsystems.h2_ccpvdz.uhf(),
+            systems.h2_ccpvdz.uhf(),
             solver="FCI",
             bath_options=dict(bathtype="dmet"),
             solver_options={
@@ -435,7 +435,7 @@ class MoleculeTestsUnrestricted(unittest.TestCase):
         """Compares RHF to UHF LiH cc-pvdz using a 2,4 CAS as a fragment."""
 
         rewf = ewf.EWF(
-            testsystems.lih_ccpvdz.rhf(),
+            systems.lih_ccpvdz.rhf(),
             bath_options=dict(bathtype="dmet"),
             solver_options={
                 "conv_tol": self.CONV_TOL,
@@ -447,7 +447,7 @@ class MoleculeTestsUnrestricted(unittest.TestCase):
         rewf.kernel()
 
         uewf = ewf.UEWF(
-            testsystems.lih_ccpvdz.uhf(),
+            systems.lih_ccpvdz.uhf(),
             bath_options=dict(bathtype="dmet"),
             solver_options={
                 "conv_tol": self.CONV_TOL,
@@ -466,7 +466,7 @@ class MoleculeTestsUnrestricted(unittest.TestCase):
         Also compares to ensure UHF obtains the same result."""
 
         remb = ewf.EWF(
-            testsystems.water_ccpvdz.rhf(),
+            systems.water_ccpvdz.rhf(),
             bath_options={"bathtype": "dmet"},
             solver_options={
                 "conv_tol": self.CONV_TOL,
@@ -484,7 +484,7 @@ class MoleculeTestsUnrestricted(unittest.TestCase):
         self.assertAlmostEqual(nel, 8.0, places=4)
 
         uemb = ewf.EWF(
-            testsystems.water_ccpvdz.uhf(),
+            systems.water_ccpvdz.uhf(),
             bath_options={"bathtype": "dmet"},
             solver_options={
                 "conv_tol": self.CONV_TOL,

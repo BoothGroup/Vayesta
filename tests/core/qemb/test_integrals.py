@@ -6,7 +6,7 @@ import pyscf
 import pyscf.scf
 import pyscf.ao2mo
 from tests.common import TestCase
-from tests import testsystems
+from tests import systems
 from vayesta.core.qemb import Embedding, UEmbedding
 from vayesta.core.util import cache
 
@@ -15,7 +15,7 @@ from vayesta.core.util import cache
 class Integral_Test(TestCase):
     @classmethod
     def setUpClass(cls):
-        cls.mf = testsystems.water_631g.rhf()
+        cls.mf = systems.water_631g.rhf()
 
     @classmethod
     def tearDownClass(cls):
@@ -90,21 +90,21 @@ class Integral_Test(TestCase):
 class Integral_DF_Test(Integral_Test):
     @classmethod
     def setUpClass(cls):
-        cls.mf = testsystems.water_631g_df.rhf()
+        cls.mf = systems.water_631g_df.rhf()
 
 
 @pytest.mark.slow
 class Integral_UHF_Test(Integral_Test):
     @classmethod
     def setUpClass(cls):
-        cls.mf = testsystems.water_cation_631g.uhf()
+        cls.mf = systems.water_cation_631g.uhf()
 
 
 @pytest.mark.slow
 class Integral_DF_UHF_Test(Integral_Test):
     @classmethod
     def setUpClass(cls):
-        cls.mf = testsystems.water_cation_631g_df.uhf()
+        cls.mf = systems.water_cation_631g_df.uhf()
 
 
 # PBC
@@ -114,14 +114,14 @@ class Integral_DF_UHF_Test(Integral_Test):
 class Integral_PBC_Test(Integral_Test):
     @classmethod
     def setUpClass(cls):
-        cls.mf = testsystems.h2_sto3g_s311.rhf()
+        cls.mf = systems.h2_sto3g_s311.rhf()
 
 
 @pytest.mark.slow
 class Integral_PBC_UHF_Test(Integral_Test):
     @classmethod
     def setUpClass(cls):
-        cls.mf = testsystems.h3_sto3g_s311.uhf()
+        cls.mf = systems.h3_sto3g_s311.uhf()
 
 
 # PBC 2D
@@ -131,14 +131,14 @@ class Integral_PBC_UHF_Test(Integral_Test):
 class Integral_PBC_2D_Test(Integral_Test):
     @classmethod
     def setUpClass(cls):
-        cls.mf = testsystems.h2_sto3g_s31.rhf()
+        cls.mf = systems.h2_sto3g_s31.rhf()
 
 
 @pytest.mark.slow
 class Integral_PBC_2D_UHF_Test(Integral_Test):
     @classmethod
     def setUpClass(cls):
-        cls.mf = testsystems.h3_sto3g_s31.uhf()
+        cls.mf = systems.h3_sto3g_s31.uhf()
 
 
 # TODO: Figure out why this fails:

@@ -11,16 +11,16 @@ import pyscf.pbc.tools
 
 from vayesta.core.ao2mo import kao2gmo_cderi
 from tests.common import TestCase
-from tests import testsystems
+from tests import systems
 
 
 @pytest.mark.slow
 class KAO2GMO_Tests(TestCase):
     def test_kao2gmo_cderi_3d(self):
-        cell = testsystems.he_k321.mol
-        kmf = testsystems.he_k321.rhf()
+        cell = systems.he_k321.mol
+        kmf = systems.he_k321.rhf()
         kmesh = (3, 2, 1)
-        kpts = testsystems.he_k321.kpts
+        kpts = systems.he_k321.kpts
         gdf = kmf.with_df
 
         nmo1, nmo2 = 1, 2
@@ -49,10 +49,10 @@ class KAO2GMO_Tests(TestCase):
             self.assertIsNone(np.testing.assert_almost_equal(eri, eri_expected))
 
     def test_kao2gmo_cderi_2d(self):
-        cell = testsystems.he_k32.mol
-        kmf = testsystems.he_k32.rhf()
+        cell = systems.he_k32.mol
+        kmf = systems.he_k32.rhf()
         kmesh = (3, 2, 1)
-        kpts = testsystems.he_k32.kpts
+        kpts = systems.he_k32.kpts
         gdf = kmf.with_df
 
         nmo1, nmo2 = 1, 2
@@ -82,10 +82,10 @@ class KAO2GMO_Tests(TestCase):
             self.assertIsNone(np.testing.assert_almost_equal(eri, eri_expected))
 
     def test_kao2gmo_cderi_1d(self):
-        cell = testsystems.he_k3.mol
-        kmf = testsystems.he_k3.rhf()
+        cell = systems.he_k3.mol
+        kmf = systems.he_k3.rhf()
         kmesh = (3, 1, 1)
-        kpts = testsystems.he_k3.kpts
+        kpts = systems.he_k3.kpts
         gdf = kmf.with_df
 
         nmo1, nmo2 = 1, 2

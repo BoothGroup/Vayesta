@@ -3,17 +3,17 @@ import unittest
 from pyscf.pbc import scf
 from vayesta.core import foldscf
 from tests.common import TestCase
-from tests import testsystems
+from tests import systems
 
 
 @pytest.mark.slow
 class FoldSCF_RHF_Tests(TestCase):
     @classmethod
     def setUpClass(cls):
-        cls.kmf = testsystems.he2_631g_k222.rhf()
+        cls.kmf = systems.he2_631g_k222.rhf()
         cls.mf = foldscf.fold_scf(cls.kmf)
-        cls.scell = testsystems.he2_631g_s222.mol
-        cls.smf = testsystems.he2_631g_s222.rhf()
+        cls.scell = systems.he2_631g_s222.mol
+        cls.smf = systems.he2_631g_s222.rhf()
 
     @classmethod
     def teardownClass(cls):
@@ -48,9 +48,9 @@ class FoldSCF_RHF_Tests(TestCase):
 class FoldSCF_UHF_Tests(FoldSCF_RHF_Tests):
     @classmethod
     def setUpClass(cls):
-        cls.kmf = testsystems.he2_631g_k222.uhf()
+        cls.kmf = systems.he2_631g_k222.uhf()
         cls.mf = foldscf.fold_scf(cls.kmf)
-        cls.scell = testsystems.he2_631g_s222.mol
+        cls.scell = systems.he2_631g_s222.mol
         cls.smf = scf.UHF(cls.scell)
         cls.smf.conv_tol = 1e-12
         cls.smf = cls.smf.density_fit()
