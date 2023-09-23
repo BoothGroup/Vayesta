@@ -106,11 +106,11 @@ def _get_solver_class_ebcc(solver: str, is_uhf: bool, is_eb: bool, log: Logger) 
 
     # This is just a wrapper to allow us to use the solver option as the ansatz kwarg in this case.
     def get_right_cc(*args, **kwargs):
-        setansatz = kwargs.get("ansatz", None)
+        setansatz = kwargs.get("ansatz", solver)
         if setansatz != solver:
             raise ValueError(
-                "Desired CC ansatz specified differently in solver and solver_options.ansatz."
-                "Please use only specify via one approach, or ensure they agree."
+                f"solver '{solver}' does not match solver_options.ansatz "
+                f"{'setansatz'}; only specify via one argument or ensure they agree"
             )
         kwargs["ansatz"] = solver
         return solver_cls(*args, **kwargs)
