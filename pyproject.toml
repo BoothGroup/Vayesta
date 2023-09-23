@@ -116,7 +116,7 @@ addopts = [
     "--import-mode=importlib",
     "-m 'not veryslow'",
     ]
-pythonpath = ["tests"]
+pythonpath = ["."]
 testpaths = ["tests"]
 markers = [
     "fast",
