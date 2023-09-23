@@ -1,11 +1,11 @@
-import pytest
-import unittest
 import numpy as np
+import pytest
+
 import vayesta
-from vayesta.core.util import cache
-from tests.ewf import test_h2
 from tests import systems
 from tests.common import TestCase
+from tests.ewf import test_h2
+from vayesta.core.util import cache
 
 
 class Test_MP2(test_h2.Test_MP2):

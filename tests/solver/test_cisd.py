@@ -1,14 +1,11 @@
-import pytest
-import unittest
-
 import pyscf
 import pyscf.ci
+import pytest
 
 import vayesta
 import vayesta.ewf
-
-from tests.common import TestCase
 from tests import systems
+from tests.common import TestCase
 
 
 @pytest.mark.fast

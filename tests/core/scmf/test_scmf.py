@@ -1,5 +1,3 @@
-import unittest
-
 from vayesta import ewf
 from tests.common import TestCase
 from tests import systems

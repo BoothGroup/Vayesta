@@ -1,9 +1,8 @@
-import pytest
-import unittest
 import numpy as np
+import pytest
 
-from vayesta import lattmod
 from tests.common import TestCase
+from vayesta import lattmod
 
 
 @pytest.mark.fast

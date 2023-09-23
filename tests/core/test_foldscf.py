@@ -1,5 +1,4 @@
 import pytest
-import unittest
 from pyscf.pbc import scf
 from vayesta.core import foldscf
 from tests.common import TestCase

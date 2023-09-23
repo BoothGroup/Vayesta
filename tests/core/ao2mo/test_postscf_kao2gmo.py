@@ -1,5 +1,4 @@
 import pytest
-import unittest
 from tests.common import TestCase
 from tests import systems
 from vayesta.core.util import replace_attr

@@ -2,9 +2,9 @@ import pytest
 
 import vayesta
 import vayesta.ewf
-
-from tests.common import TestCase
 from tests import systems
+from tests.common import TestCase
+
 
 # Note that ebCC currently doesn't support density fitting, so we're just testing non-DF results here.
 

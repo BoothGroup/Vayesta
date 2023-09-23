@@ -1,12 +1,10 @@
 import pytest
-import unittest
-
 from pyscf import gto
 from pyscf.pbc import gto as pbc_gto
 
+from tests.common import TestCase
 from vayesta.misc import molecules
 from vayesta.misc import solids
-from tests.common import TestCase
 
 
 @pytest.mark.fast
@@ -93,7 +91,7 @@ class MolstructsTests(TestCase):
         mol = gto.M(atom=molecules.no2(), spin=1, verbose=0)
         known_values = {
             "e_nuc": 65.07473745355408,
-            #'e_tot': -201.27201791520167,  # UHF not very stable
+            # 'e_tot': -201.27201791520167,  # UHF not very stable
         }
 
         self._test_nuclear_energy(mol, known_values)

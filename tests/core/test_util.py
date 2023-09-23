@@ -1,5 +1,4 @@
 import pytest
-import unittest
 
 import numpy as np
 from vayesta.core.util import einsum

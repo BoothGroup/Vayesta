@@ -1,9 +1,10 @@
 import pytest
 from pyscf import lib
+
 import vayesta
 import vayesta.ewf
-from tests.common import TestCase
 from tests import systems
+from tests.common import TestCase
 
 
 class Test_UHF_var_emb(TestCase):

@@ -1,8 +1,8 @@
-import pytest
 import unittest
 
 import pyscf
 import pyscf.fci
+import pytest
 
 import vayesta
 import vayesta.ewf

@@ -1,15 +1,14 @@
-import pytest
-import unittest
 import numpy as np
 import pyscf
 import pyscf.pbc
 import pyscf.pbc.tools
+import pytest
+
 import vayesta
 import vayesta.ewf
-from vayesta.core.util import cache
 from tests import systems
 from tests.common import TestCase
-
+from vayesta.core.util import cache
 
 pyscf_version = [int(x) for x in pyscf.__version__.split(".")]
 pyscf_version_atleast_2_1 = np.all(np.asarray(pyscf_version) >= (2, 1, 0))

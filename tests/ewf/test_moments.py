@@ -1,11 +1,10 @@
-import unittest
-import pytest
 import numpy as np
+import pytest
 
 import vayesta
 import vayesta.ewf
-from tests.common import TestCase
 from tests import systems
+from tests.common import TestCase
 
 
 class Test_RFCI(TestCase):
@@ -40,7 +39,6 @@ class Test_RFCI(TestCase):
 
             self.assertTrue(np.allclose(ip, fci_ip, atol=1e-14))
             self.assertTrue(np.allclose(ea, fci_ea, atol=1e-14))
-
 
 # class Test_RCCSD(TestCase):
 

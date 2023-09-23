@@ -1,9 +1,10 @@
+import pytest
+
 import vayesta
 import vayesta.ewf
-from vayesta.core.util import cache
 from tests import systems
 from tests.common import TestCase
-import pytest
+from vayesta.core.util import cache
 
 
 class TestWaterRHF(TestCase):

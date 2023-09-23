@@ -1,8 +1,7 @@
 import pytest
-import unittest
 
-from vayesta.lattmod import bethe
 from tests.common import TestCase
+from vayesta.lattmod import bethe
 
 
 @pytest.mark.fast

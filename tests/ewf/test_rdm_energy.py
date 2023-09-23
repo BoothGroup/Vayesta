@@ -1,11 +1,9 @@
-import unittest
-
 import pyscf
 import pyscf.cc
 
 import vayesta.ewf
-from tests.common import TestCase
 from tests import systems
+from tests.common import TestCase
 
 
 class Test_RHF(TestCase):
@@ -56,7 +54,6 @@ class Test_UHF(TestCase):
         self.assertAlmostEqual(lg, cc.e_corr)
         self.assertAlmostEqual(gg, cc.e_corr)
         self.assertAlmostEqual(ewf.get_dm_energy(), cc.e_tot)
-
 
 #    def test_h2_solid(self):
 #

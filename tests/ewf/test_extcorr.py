@@ -1,13 +1,10 @@
-import pytest
-import unittest
-
 import pyscf
+import pytest
 
 import vayesta
 import vayesta.ewf
-
-from tests.common import TestCase
 from tests import systems
+from tests.common import TestCase
 
 
 # @pytest.mark.fast
@@ -39,14 +36,14 @@ class TestFullEC_tailor(TestCase):
         del cls.mf
 
     def _test(
-        cls,
-        key,
-        proj=0,
-        bathtype="full",
-        fcifragtype="atomic",
-        mode="external",
-        low_level_coul=False,
-        store_wf_ccsdtq=True,
+            cls,
+            key,
+            proj=0,
+            bathtype="full",
+            fcifragtype="atomic",
+            mode="external",
+            low_level_coul=False,
+            store_wf_ccsdtq=True,
     ):
         mf = getattr(getattr(systems, key[0]), key[1])()
         if fcifragtype == "fullsystem":

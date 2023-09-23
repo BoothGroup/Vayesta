@@ -1,8 +1,8 @@
 import pytest
 
-from vayesta import rpa
-from tests.common import TestCase
 from tests import systems
+from tests.common import TestCase
+from vayesta import rpa
 
 
 class DiamondRIRPATest(TestCase):

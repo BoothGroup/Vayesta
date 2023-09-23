@@ -1,5 +1,4 @@
 import pytest
-import unittest
 from vayesta import dmet
 from tests.common import TestCase
 from tests import systems

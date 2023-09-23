@@ -1,8 +1,8 @@
 import pytest
 
-from vayesta import ewf
-from tests.common import TestCase
 from tests import systems
+from tests.common import TestCase
+from vayesta import ewf
 
 
 class BosonicBathTests(TestCase):

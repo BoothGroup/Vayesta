@@ -1,10 +1,10 @@
 import unittest
+
 import numpy as np
 
-from vayesta import ewf
-from tests.common import TestCase
 from tests import systems
-
+from tests.common import TestCase
+from vayesta import ewf
 
 BATH_OPTS = dict(project_dmet_order=0)
 

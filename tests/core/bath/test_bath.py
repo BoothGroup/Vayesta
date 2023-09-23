@@ -1,5 +1,3 @@
-import unittest
-
 import numpy as np
 from vayesta.core.bath import DMET_Bath
 from vayesta.core.bath import EwDMET_Bath

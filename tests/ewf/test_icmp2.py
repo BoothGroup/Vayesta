@@ -1,11 +1,9 @@
-import unittest
 import numpy as np
 
 import vayesta
-
-from vayesta.core.util import cache
-from tests.common import TestCase
 from tests import systems
+from tests.common import TestCase
+from vayesta.core.util import cache
 
 
 class ICMP2_Test(TestCase):

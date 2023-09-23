@@ -1,9 +1,8 @@
-import unittest
 import vayesta
 import vayesta.ewf
-from vayesta.core.util import cache
 from tests import systems
 from tests.common import TestCase
+from vayesta.core.util import cache
 
 
 class Test_Restricted(TestCase):

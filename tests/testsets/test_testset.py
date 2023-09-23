@@ -1,18 +1,17 @@
-from collections import namedtuple, defaultdict
 import unittest
+from collections import namedtuple, defaultdict
 
 import numpy as np
-import pytest
 import pyscf
-import pyscf.scf
-import pyscf.mp
 import pyscf.cc
+import pyscf.mp
+import pyscf.scf
+
 import vayesta
 import vayesta.ewf
+from tests.common import TestCase
 from vayesta.core.util import timer
 from vayesta.misc import gmtkn55
-from tests.common import TestCase
-
 
 Result = namedtuple("Result", ["ncluster_mean", "ncluster_max", "energy_dm_error", "energy_wf_error", "time"])
 
@@ -68,8 +67,8 @@ class Test_TestSet(TestCase):
                 n_max[idx] = max(n_max[idx], result.ncluster_max)
                 e_dm_mae[idx] += abs(result.energy_dm_error)
                 e_wf_mae[idx] += abs(result.energy_wf_error)
-                e_dm_rmse[idx] += result.energy_dm_error**2
-                e_wf_rmse[idx] += result.energy_wf_error**2
+                e_dm_rmse[idx] += result.energy_dm_error ** 2
+                e_wf_rmse[idx] += result.energy_wf_error ** 2
                 t_mean[idx] += result.time
             n_mean[idx] = n_mean[idx] / len(samples)
             e_dm_mae[idx] = e_dm_mae[idx] / len(samples)

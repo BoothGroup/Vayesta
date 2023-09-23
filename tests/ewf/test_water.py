@@ -1,7 +1,7 @@
 import pytest
-import unittest
-from tests.ewf import test_h2
+
 from tests import systems
+from tests.ewf import test_h2
 
 
 @pytest.mark.slow
