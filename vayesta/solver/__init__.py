@@ -101,16 +101,16 @@ def _get_solver_class_ebcc(solver: str, is_uhf: bool, is_eb: bool, log: Logger) 
     if solver[:2] == "EB":
         solver = solver[2:]
     if solver == "CCSD" and is_eb:
-        log.warning("CCSD solver requested for coupled electron-boson system; defaulting to CCSD-SD-1-1.")
         solver = "CCSD-SD-1-1"
+        log.warning(f"CCSD solver requested for coupled electron-boson system; defaulting to {solver}.")
 
     # This is just a wrapper to allow us to use the solver option as the ansatz kwarg in this case.
     def get_right_cc(*args, **kwargs):
-        setansatz = kwargs.get("ansatz", solver)
-        if setansatz != solver:
+        setansatz = kwargs.get("ansatz", None)
+        if setansatz is not None and setansatz != solver:
             raise ValueError(
                 f"solver '{solver}' does not match solver_options.ansatz "
-                f"{'setansatz'}; only specify via one argument or ensure they agree"
+                f"'{setansatz}'; only specify via one argument or ensure they agree"
             )
         kwargs["ansatz"] = solver
         return solver_cls(*args, **kwargs)
