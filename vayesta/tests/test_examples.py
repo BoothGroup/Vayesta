@@ -27,8 +27,6 @@ def report_timings() -> None:
 def test_example(example_file):
     spec = importlib.util.spec_from_file_location(example_file.name, str(example_file))
     example = importlib.util.module_from_spec(spec)
-    sys.modules["module.name"] = example
     t_start = perf_counter()
     spec.loader.exec_module(example)
     timings['/'.join([example_file.parent.name, example_file.name])] = perf_counter() - t_start
-
