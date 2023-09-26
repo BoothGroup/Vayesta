@@ -219,7 +219,8 @@ class QPEWDMET_RHF(SCMF):
         vayesta.log.info('Final (shifted) auxiliaries: {} ({}o, {}v)'.format(se_shifted.naux, se_shifted.occupied().naux, se_shifted.virtual().naux))
         self.se_shifted = se_shifted
         # Find the Green's function
-        gf = Lehmann(*se_shifted.diagonalise_matrix_with_projection(self.emb.mf.get_fock()), chempot=se_shifted.chempot)
+        fock = self.sc_fock if self.with_static else self.emb.mf.get_fock()
+        gf = Lehmann(*se_shifted.diagonalise_matrix_with_projection(fock), chempot=se_shifted.chempot)
         dm = gf.occupied().moment(0) * 2.0
         nelec_gf = np.trace(dm)
         if not np.isclose(nelec_gf, gf.occupied().weights(occupancy=2).sum()):
