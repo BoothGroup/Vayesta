@@ -15,7 +15,7 @@ class QPEWDMET_RHF(SCMF):
     """ Quasi-particle self-consistent energy weighted density matrix embedding """
     name = "QP-EWDMET"
 
-    def __init__(self, emb, with_static=True, proj=2, v_conv_tol=1e-5, eta=1e-2, damping=0, sc=True, store_hist=True, *args, **kwargs):
+    def __init__(self, emb, with_static=True, proj=2, v_conv_tol=1e-5, eta=1e-2, damping=0, sc=True, store_hist=True, use_sym=False, *args, **kwargs):
         """ 
         Initialize QPEWDMET 
         
@@ -47,6 +47,7 @@ class QPEWDMET_RHF(SCMF):
         self.proj = proj
         self.store_hist = store_hist 
         self.with_static = with_static 
+        self.use_sym = use_sym
         
 
         if self.store_hist:
@@ -84,7 +85,9 @@ class QPEWDMET_RHF(SCMF):
         couplings = []
         energies = []
         self.v = np.zeros_like(self.sc_fock)
-        for f in self.emb.fragments:
+
+        fragments = self.emb.get_fragments(sym_parent=None) if self.use_sym else self.emb.get_fragments()
+        for f in fragments:
             # Calculate self energy from cluster moments
             th, tp = f.results.moms
             vth, vtp = th.copy(), tp.copy()
@@ -115,16 +118,23 @@ class QPEWDMET_RHF(SCMF):
 
             if self.proj == 2:
                 v_frag = np.linalg.multi_dot((cf, v_cls, cf.T))
+                
                 self.v += np.linalg.multi_dot((f.c_frag, v_frag, f.c_frag.T))
-
                 couplings.append(f.c_frag @ cf @ se.couplings)
                 energies.append(se.energies)
+                if self.use_sym:
+                    for fc in f.get_symmetry_children():
+                        self.v += np.linalg.multi_dot((fc.c_frag, v_frag, fc.c_frag.T))
+                        couplings.append(fc.c_frag @ cf @ se.couplings)
+                        energies.append(se.energies)
+
+                    
 
             elif self.proj == 1:
 
                 v_frag = cfc @ v_cls  
                 v_frag = 0.5 * (v_frag + v_frag.T)
-                self.v += f.cluster.c_active @ v_frag @ f.cluster.c_active.T
+                
 
                 sym_coup = np.einsum('pa,qa->apq', np.dot(cfc, se.couplings) , se.couplings) 
                 sym_coup = 0.5 * (sym_coup + sym_coup.transpose(0,2,1))
@@ -135,9 +145,18 @@ class QPEWDMET_RHF(SCMF):
                     w = vec[:,-2:] @ np.diag(np.sqrt(val[-2:], dtype=np.complex64))
                     w = np.array(w, dtype=np.float64)
                     couplings_cf[2*a:2*a+2] = w.T
-                
+
+                self.v += f.cluster.c_active @ v_frag @ f.cluster.c_active.T
                 couplings.append(f.cluster.c_active @ couplings_cf.T)
                 energies.append(np.repeat(se.energies, 2)) 
+
+                if self.use_sym:
+                    for fc in f.get_symmetry_children():
+                        self.v += fc.cluster.c_active @ v_frag @ fc.cluster.c_active.T
+                        couplings.append(fc.cluster.c_active @ couplings_cf.T)
+                        energies.append(np.repeat(se.energies, 2)) 
+
+
 
         couplings = np.hstack(couplings)
         energies = np.concatenate(energies)
@@ -164,10 +183,13 @@ class QPEWDMET_RHF(SCMF):
                 # Temporary work around for k-SCF
                 raise NotImplementedError("QP-EWDMET with Fock re-diagonalisation not implemented for FoldedSCF")
             mf = mf_class(self.emb.mf.mol)
-            mf.get_fock_old = mf.get_fock
-            def get_fock(*args, **kwargs):
-                return mf.get_fock_old(*args, **kwargs) + self.v
-            mf.get_fock = get_fock
+            #mf.get_fock_old = mf.get_fock
+            #def get_fock(*args, **kwargs):
+            #    return mf.get_fock_old(*args, **kwargs) + self.v
+
+            def get_hcore(*args, **kwargs):
+                return mf.mol.h1e + self.v
+            mf.get_hcore = get_hcore
             e_tot = mf.kernel()
 
             mo_coeff = mf.mo_coeff
