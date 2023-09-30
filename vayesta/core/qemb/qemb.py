@@ -81,7 +81,7 @@ class Options(OptionsBase):
         # General
         bathtype="dmet",
         canonicalize=True,
-        occupation_tolerance=1e-8,
+        occupation_tolerance=1e-6,
         # DMET bath
         dmet_threshold=1e-8,
         # R2 bath
