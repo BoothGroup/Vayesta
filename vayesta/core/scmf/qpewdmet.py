@@ -15,7 +15,7 @@ class QPEWDMET_RHF(SCMF):
     """ Quasi-particle self-consistent energy weighted density matrix embedding """
     name = "QP-EWDMET"
 
-    def __init__(self, emb, with_static=True, proj=2, v_conv_tol=1e-5, eta=1e-2, damping=0, sc=True, store_hist=True, use_sym=False, *args, **kwargs):
+    def __init__(self, emb, with_static=True, proj=2, v_conv_tol=1e-5, eta=1e-2, damping=0, sc=True, store_hist=True, use_sym=False, v_init=None, *args, **kwargs):
         """ 
         Initialize QPEWDMET 
         
@@ -35,6 +35,10 @@ class QPEWDMET_RHF(SCMF):
             Use self-consistent determination of MOs for new Fock matrix
         store_hist : bool
             Store history throughout SCMF calculation (for debugging purposes)
+        use_sym : bool
+            Use fragment symmetry
+        v_init : ndarray
+            Inital static potential
         """
         
         self.sc_fock = emb.get_fock()
@@ -48,6 +52,21 @@ class QPEWDMET_RHF(SCMF):
         self.store_hist = store_hist 
         self.with_static = with_static 
         self.use_sym = use_sym
+        self.v_init = v_init
+
+        if self.v_init is not None:
+            
+            e, mo_coeff = self.fock_scf(self.v_init)
+            self.emb.update_mf(mo_coeff)
+
+            dm1 = self.mf.make_rdm1()
+            # Check symmetry - needs fixing
+            try:
+                self.emb.check_fragment_symmetry(dm1)
+            except SymmetryError:
+                self.log.error("Symmetry check failed in %s", self.name)
+                self.converged = False
+                
         
 
         if self.store_hist:
@@ -172,33 +191,13 @@ class QPEWDMET_RHF(SCMF):
         new_fock = self.emb.get_fock() + self.v
         self.sc_fock = self.damping * self.sc_fock + (1-self.damping) * new_fock
         #self.sc_fock = self.sc_fock + (1-self.damping) * self.v
-        
-        static_gap = gap(energies)
 
 
         if self.sc:
-            #mf = LatticeRHF(self.emb.mf.mol)
-            mf_class = type(self.emb.mf)
-            if mf_class is FoldedSCF:
-                # Temporary work around for k-SCF
-                raise NotImplementedError("QP-EWDMET with Fock re-diagonalisation not implemented for FoldedSCF")
-            mf = mf_class(self.emb.mf.mol)
-            #mf.get_fock_old = mf.get_fock
-            #def get_fock(*args, **kwargs):
-            #    return mf.get_fock_old(*args, **kwargs) + self.v
-
-            def get_hcore(*args, **kwargs):
-                return mf.mol.h1e + self.v
-            mf.get_hcore = get_hcore
-            e_tot = mf.kernel()
-
-            mo_coeff = mf.mo_coeff
-            scf_conv = mf.converged
-            static_gap = gap(mf.mo_energy) 
-            self.log.info("SCF converged: {}, energy: {:.6f}".format(scf_conv, e_tot))
+            e, mo_coeff = self.fock_scf(self.v)
         else:
             e, mo_coeff = scipy.linalg.eigh(self.sc_fock, self.emb.get_ovlp())
-            static_gap = gap(e)
+        static_gap = gap(e)
         if self.store_hist:        
             self.v_frag_hist.append(v_frag.copy())
             self.v_hist.append(self.v.copy())
@@ -210,6 +209,56 @@ class QPEWDMET_RHF(SCMF):
         self.log.info("Dynamic Gap = %f"%dynamic_gap)
         self.log.info("Static Gap = %f"%static_gap)
         return mo_coeff
+
+    def fock_scf(self, v):
+        """
+            Relax density in presence of new static potential
+
+            Parameters
+            ----------
+            v : ndarray
+                Static potential
+            
+            Returns
+            -------
+            mo_coeff : ndarray
+                New MO coefficients.
+        """
+
+        #mf = LatticeRHF(self.emb.mf.mol)
+        mf_class = type(self.emb.mf)
+        if mf_class is FoldedSCF:
+            # Temporary work around for k-SCF
+            raise NotImplementedError("QP-EWDMET with Fock re-diagonalisation not implemented for FoldedSCF")
+        mf = mf_class(self.emb.mf.mol)
+        #mf.get_fock_old = mf.get_fock
+        #def get_fock(*args, **kwargs):
+        #    return mf.get_fock_old(*args, **kwargs) + self.v
+
+        def get_hcore(*args, **kwargs):
+            return mf.mol.h1e + v
+        mf.get_hcore = get_hcore
+        e_tot = mf.kernel()
+
+
+        # def get_fock(dm):
+        #     dm_ao = np.linalg.multi_dot((mf.mo_coeff, dm, mf.mo_coeff.T))
+        #     fock = mf.get_fock(dm=dm_ao)
+        #     return np.linalg.multi_dot((mf.mo_coeff.T, fock, mf.mo_coeff))
+
+        # # Use the DensityRelaxation class to relax the density matrix such
+        # # that it is self-consistent with the Fock matrix, and the number of
+        # # electrons is correct
+        # solver = DensityRelaxation(get_fock, se, mol.nelectron)
+        # solver.conv_tol = 1e-10
+        # solver.max_cycle_inner = 30
+        # solver.kernel()
+
+        if mf.converged:
+            self.log.info("SCF converged, energy: {:.6f}".format(e_tot))
+        else:
+            self.log.warning("SCF NOT converged, energy: {:.6f}".format(me_tot))
+        return mf.mo_energy, mf.mo_coeff
 
     def check_convergence(self, e_tot, dm1, e_last=None, dm1_last=None, etol=None, dtol=None):
         _, de, ddm = super().check_convergence(e_tot, dm1, e_last=e_last, dm1_last=dm1_last, etol=etol, dtol=dtol)
