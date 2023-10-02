@@ -54,18 +54,7 @@ class QPEWDMET_RHF(SCMF):
         self.use_sym = use_sym
         self.v_init = v_init
 
-        if self.v_init is not None:
-            
-            e, mo_coeff = self.fock_scf(self.v_init)
-            self.emb.update_mf(mo_coeff)
-
-            dm1 = self.mf.make_rdm1()
-            # Check symmetry - needs fixing
-            try:
-                self.emb.check_fragment_symmetry(dm1)
-            except SymmetryError:
-                self.log.error("Symmetry check failed in %s", self.name)
-                self.converged = False
+        
                 
         
 
@@ -80,6 +69,19 @@ class QPEWDMET_RHF(SCMF):
         super().__init__(emb, *args, **kwargs)
 
         self.damping = damping
+
+        if self.v_init is not None:
+            
+            e, mo_coeff = self.fock_scf(self.v_init)
+            self.emb.update_mf(mo_coeff)
+
+            dm1 = self.mf.make_rdm1()
+            # Check symmetry - needs fixing
+            try:
+                self.emb.check_fragment_symmetry(dm1)
+            except SymmetryError:
+                self.log.error("Symmetry check failed in %s", self.name)
+                self.converged = False
 
     def update_mo_coeff(self, mf, diis=None):
         
