@@ -15,7 +15,7 @@ class QPEWDMET_RHF(SCMF):
     """ Quasi-particle self-consistent energy weighted density matrix embedding """
     name = "QP-EWDMET"
 
-    def __init__(self, emb, with_static=True, proj=2, v_conv_tol=1e-5, eta=1e-2, damping=0, sc=True, store_hist=True, use_sym=False, v_init=None, *args, **kwargs):
+    def __init__(self, emb, with_static=True, proj=2, v_conv_tol=1e-5, eta=1e-2, damping=0, sc=True, store_hist=True, store_scfs=False, use_sym=False, v_init=None, *args, **kwargs):
         """ 
         Initialize QPEWDMET 
         
@@ -53,6 +53,7 @@ class QPEWDMET_RHF(SCMF):
         self.with_static = with_static 
         self.use_sym = use_sym
         self.v_init = v_init
+        self.store_scfs = store_scfs
 
         
                 
@@ -65,6 +66,9 @@ class QPEWDMET_RHF(SCMF):
             self.static_gap_hist = []
             self.dynamic_gap_hist = []  
             self.mo_coeff_hist = []
+
+        if self.store_scfs and self.sc:
+            self.scfs = []
 
         super().__init__(emb, *args, **kwargs)
 
@@ -238,7 +242,7 @@ class QPEWDMET_RHF(SCMF):
         #    return mf.get_fock_old(*args, **kwargs) + self.v
 
         def get_hcore(*args, **kwargs):
-            return mf.mol.h1e + v
+            return self.emb.mf.get_hcore() + v
         mf.get_hcore = get_hcore
         e_tot = mf.kernel()
 
@@ -259,7 +263,10 @@ class QPEWDMET_RHF(SCMF):
         if mf.converged:
             self.log.info("SCF converged, energy: {:.6f}".format(e_tot))
         else:
-            self.log.warning("SCF NOT converged, energy: {:.6f}".format(me_tot))
+            self.log.warning("SCF NOT converged, energy: {:.6f}".format(e_tot))
+
+        if self.store_scfs:
+            self.scfs.append(mf)
         return mf.mo_energy, mf.mo_coeff
 
     def check_convergence(self, e_tot, dm1, e_last=None, dm1_last=None, etol=None, dtol=None):
