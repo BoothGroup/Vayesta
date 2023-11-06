@@ -360,8 +360,9 @@ class RClusterHamiltonian:
 
         clusmf.get_hcore = lambda *args, **kwargs: heff
         if overwrite_fock:
-            clusmf.get_fock = lambda *args, **kwargs: pad_to_match(
+            clusmf.get_fock = lambda *args, **kwargs: np.asarray(pad_to_match(
                 self.get_fock(with_vext=True, use_seris=not force_bare_eris), dummy_energy
+                )
             )
             clusmf.get_veff = lambda *args, **kwargs: np.array(clusmf.get_fock(*args, **kwargs)) - np.array(
                 clusmf.get_hcore()
@@ -639,7 +640,7 @@ class UClusterHamiltonian(RClusterHamiltonian):
                 + einsum("iipq->pq", gab[oa, oa])  # Coulomb
                 - einsum("ipqi->pq", gbb[ob, :, :, ob])
             )  # Exchange
-            fock = ((fock[0] + dfa), (fock[1] + dfb))
+            fock = np.asarray((fock[0] + dfa), (fock[1] + dfb))
 
         return fock
 
