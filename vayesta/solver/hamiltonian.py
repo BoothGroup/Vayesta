@@ -640,7 +640,7 @@ class UClusterHamiltonian(RClusterHamiltonian):
                 + einsum("iipq->pq", gab[oa, oa])  # Coulomb
                 - einsum("ipqi->pq", gbb[ob, :, :, ob])
             )  # Exchange
-            fock = np.asarray((fock[0] + dfa), (fock[1] + dfb))
+            fock = np.asarray(((fock[0] + dfa), (fock[1] + dfb)))
 
         return fock
 
