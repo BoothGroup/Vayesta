@@ -308,6 +308,7 @@ class Fragment(BaseFragment):
             or ("CCSDt'" in solver)
             or ("CCSDt" in solver)
             or (solver.upper() == "EBCC" and self.opts.solver_options["ansatz"] == "CCSDt'")
+            or (solver.upper() == "EBCC" and self.opts.solver_options["ansatz"] == "CCSDt")
         )
         if has_actspace:
             # Set CAS orbitals
