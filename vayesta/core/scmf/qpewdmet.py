@@ -42,6 +42,7 @@ class QPEWDMET_RHF(SCMF):
         """
         
         self.sc_fock = emb.get_fock()
+        self.static_self_energy = np.zeros_like(self.sc_fock)
         self.sc = sc
         self.eta = eta # Broadening factor
         self.se = None
@@ -50,14 +51,11 @@ class QPEWDMET_RHF(SCMF):
         self.v_conv_tol = v_conv_tol
         self.proj = proj
         self.store_hist = store_hist 
-        self.with_static = with_static 
         self.use_sym = use_sym
         self.v_init = v_init
-        self.store_scfs = store_scfs
-
+        self.store_scfs = store_scfs    
         
-                
-        
+        super().__init__(emb, *args, **kwargs)
 
         if self.store_hist:
             self.v_hist = []
@@ -67,10 +65,10 @@ class QPEWDMET_RHF(SCMF):
             self.dynamic_gap_hist = []  
             self.mo_coeff_hist = []
 
+            self.mom_hist = []
+
         if self.store_scfs and self.sc:
             self.scfs = []
-
-        super().__init__(emb, *args, **kwargs)
 
         self.damping = damping
 
@@ -107,14 +105,23 @@ class QPEWDMET_RHF(SCMF):
 
         if self.v is not None:
             self.v_last = self.v.copy()
+
+        self.fock = self.emb.get_fock()
         couplings = []
         energies = []
-        self.v = np.zeros_like(self.sc_fock)
+        self.v = np.zeros_like(self.fock)
+        self.static_se = np.zeros_like(self.fock)
 
         fragments = self.emb.get_fragments(sym_parent=None) if self.use_sym else self.emb.get_fragments()
-        for f in fragments:
+        for i, f in enumerate(fragments):
             # Calculate self energy from cluster moments
             th, tp = f.results.moms
+
+            if self.store_hist:
+                thc = np.einsum('pP,qQ,nPQ->npq', f.cluster.c_active, f.cluster.c_active, th)
+                tpc = np.einsum('pP,qQ,nPQ->npq', f.cluster.c_active, f.cluster.c_active, tp)
+                self.mom_hist.append((thc,tpc))
+
             vth, vtp = th.copy(), tp.copy()
             solverh = MBLGF(th, log=NullLogger())
             solverp = MBLGF(tp, log=NullLogger())
@@ -131,25 +138,27 @@ class QPEWDMET_RHF(SCMF):
             cf = f.c_frag.T @ ovlp @ f.cluster.c_active  # Projector onto fragment (frag|cls)
             cfc = cf.T @ cf
 
-            fock = self.emb.get_fock()
-            fock_cls = f.cluster.c_active.T @ fock @ f.cluster.c_active
+            
+            fock_cls = f.cluster.c_active.T @ self.fock @ f.cluster.c_active
             e_cls = np.diag(fock_cls)
             
             
             #v += np.linalg.multi_dot((ca, v_frag, ca.T))
             v_cls = se.as_static_potential(e_cls, eta=self.eta) # Single particle potential from Klein Functional (used to update MF for the self-consistnecy)
-            if self.with_static:
-                v_cls += th[1] + tp[1] - fock_cls # Static self energy
+            
+            static_se_cls = th[1] + tp[1] - fock_cls # Static self energy
 
             if self.proj == 2:
                 v_frag = np.linalg.multi_dot((cf, v_cls, cf.T))
-                
+                static_se_frag = np.linalg.multi_dot((cf, static_se_cls, cf.T))
                 self.v += np.linalg.multi_dot((f.c_frag, v_frag, f.c_frag.T))
+                self.static_self_energy += np.linalg.multi_dot((f.c_frag, static_se_frag, f.c_frag.T))
                 couplings.append(f.c_frag @ cf @ se.couplings)
                 energies.append(se.energies)
                 if self.use_sym:
                     for fc in f.get_symmetry_children():
                         self.v += np.linalg.multi_dot((fc.c_frag, v_frag, fc.c_frag.T))
+                        self.static_self_energy += np.linalg.multi_dot((fc.c_frag, static_se_frag, fc.c_frag.T))
                         couplings.append(fc.c_frag @ cf @ se.couplings)
                         energies.append(se.energies)
 
@@ -160,6 +169,8 @@ class QPEWDMET_RHF(SCMF):
                 v_frag = cfc @ v_cls  
                 v_frag = 0.5 * (v_frag + v_frag.T)
                 
+                static_self_energy_frag = cfc @ static_se_cls
+                static_self_energy_frag = 0.5 * (static_self_energy_frag + static_self_energy_frag.T)
 
                 sym_coup = np.einsum('pa,qa->apq', np.dot(cfc, se.couplings) , se.couplings) 
                 sym_coup = 0.5 * (sym_coup + sym_coup.transpose(0,2,1))
@@ -172,12 +183,15 @@ class QPEWDMET_RHF(SCMF):
                     couplings_cf[2*a:2*a+2] = w.T
 
                 self.v += f.cluster.c_active @ v_frag @ f.cluster.c_active.T
+                self.static_self_energy += f.cluster.c_active @ static_self_energy_frag @ f.cluster.c_active.T
+
                 couplings.append(f.cluster.c_active @ couplings_cf.T)
                 energies.append(np.repeat(se.energies, 2)) 
 
                 if self.use_sym:
                     for fc in f.get_symmetry_children():
                         self.v += fc.cluster.c_active @ v_frag @ fc.cluster.c_active.T
+                        self.static_self_energy += fc.cluster.c_active @ static_self_energy_frag @ fc.cluster.c_active.T
                         couplings.append(fc.cluster.c_active @ couplings_cf.T)
                         energies.append(np.repeat(se.energies, 2)) 
 
@@ -194,8 +208,8 @@ class QPEWDMET_RHF(SCMF):
         if diis is not None:
             self.v = diis.update(self.v)
 
-        new_fock = self.emb.get_fock() + self.v
-        self.sc_fock = self.damping * self.sc_fock + (1-self.damping) * new_fock
+        new_fock = self.fock + self.v
+        self.sc_fock = self.damping * self.fock + (1-self.damping) * new_fock
         #self.sc_fock = self.sc_fock + (1-self.damping) * self.v
 
 
@@ -299,7 +313,7 @@ class QPEWDMET_RHF(SCMF):
         vayesta.log.info('Final (shifted) auxiliaries: {} ({}o, {}v)'.format(se_shifted.naux, se_shifted.occupied().naux, se_shifted.virtual().naux))
         self.se_shifted = se_shifted
         # Find the Green's function
-        fock = self.sc_fock if self.with_static else self.emb.mf.get_fock()
+        fock = self.fock + self.static_self_energy
         gf = Lehmann(*se_shifted.diagonalise_matrix_with_projection(fock), chempot=se_shifted.chempot)
         dm = gf.occupied().moment(0) * 2.0
         nelec_gf = np.trace(dm)
@@ -318,7 +332,7 @@ class QPEWDMET_RHF(SCMF):
         # (and bath effective interactions if not using an interacting bath)
 
         #qp_ham = self.emb.get_fock() + self.v
-        qp_ham = self.sc_fock
+        qp_ham = self.fock + self.static_self_energy + self.v
         qp_e, qp_c = np.linalg.eigh(qp_ham)
         self.qpham = qp_ham
         qp_mu = (qp_e[nelec//2-1] + qp_e[nelec//2] ) / 2
