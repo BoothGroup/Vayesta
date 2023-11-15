@@ -85,7 +85,7 @@ class QPEWDMET_RHF(SCMF):
                 self.log.error("Symmetry check failed in %s", self.name)
                 self.converged = False
 
-    def update_mo_coeff(self, mf, diis=None):
+    def update_mo_coeff(self, mo_coeff, mo_occ, diis=None):
         
         """
         Get new MO coefficients for a SCMF iteration.
