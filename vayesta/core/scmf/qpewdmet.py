@@ -174,19 +174,24 @@ class QPEWDMET_RHF(SCMF):
 
                 sym_coup = np.einsum('pa,qa->apq', np.dot(cfc, se.couplings) , se.couplings) 
                 sym_coup = 0.5 * (sym_coup + sym_coup.transpose(0,2,1))
-                couplings_cf = np.zeros((sym_coup.shape[0]*2, sym_coup.shape[1]))
+                
+                rank = 2#sym_coup.shape[1] # rank / multiplicity 
+                tol = 1e-12
+                couplings_cf = np.zeros((sym_coup.shape[0]*rank, sym_coup.shape[1]), dtype=np.complex64)
                 for a in range(sym_coup.shape[0]):
                     m = sym_coup[a]
                     val, vec = np.linalg.eigh(m)
-                    w = vec[:,-2:] @ np.diag(np.sqrt(val[-2:], dtype=np.complex64))
-                    w = np.array(w, dtype=np.float64)
-                    couplings_cf[2*a:2*a+2] = w.T
+                    idx = np.argsort(np.abs(val))[-rank:]
+                    assert (np.abs(val) > tol).sum() == 2
+                    w = vec[:,idx] @ np.diag(np.sqrt(val[idx], dtype=np.complex64))
+                    #w = np.array(w, dtype=np.float64)
+                    couplings_cf[rank*a:rank*(a+1)] = w.T
 
                 self.v += f.cluster.c_active @ v_frag @ f.cluster.c_active.T
                 self.static_self_energy += f.cluster.c_active @ static_self_energy_frag @ f.cluster.c_active.T
 
                 couplings.append(f.cluster.c_active @ couplings_cf.T)
-                energies.append(np.repeat(se.energies, 2)) 
+                energies.append(np.repeat(se.energies, rank)) 
 
                 if self.use_sym:
                     for fc in f.get_symmetry_children():
