@@ -225,7 +225,14 @@ class EB_UEBCC_Solver(EB_REBCC_Solver, UEBCC_Solver):
 
     def get_couplings(self):
         # EBCC wants contribution  g_{xpq} p^\\dagger q b; need to transpose to get this contribution.
-        return tuple([x.transpose(0, 2, 1) for x in self.hamil.couplings])
+        #return tuple([x.transpose(0, 2, 1) for x in self.hamil.couplings])
+        # EBCC now wants an array, with spin as the first index
+        assert(np.allclose(self.hamil.couplings[0].shape, self.hamil.couplings[1].shape))
+        sh = self.hamil.couplings[0].shape
+        g = np.zeros((2, sh[0], sh[2], sh[1]), dtype=self.hamil.couplings[0].dtype)
+        g[0,:,:,:] = self.hamil.couplings[0].transpose(0,2,1)
+        g[1,:,:,:] = self.hamil.couplings[1].transpose(0,2,1)
+        return g 
 
     def construct_wavefunction(self, mycc, mo, mbos=None):
         self.wf = EBCC_WaveFunction(
