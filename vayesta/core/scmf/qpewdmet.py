@@ -182,6 +182,8 @@ class QPEWDMET_RHF(SCMF):
                     m = sym_coup[a]
                     val, vec = np.linalg.eigh(m)
                     idx = np.argsort(np.abs(val))[-rank:]
+                    print(val)
+                    print(np.abs(val) > tol)
                     assert (np.abs(val) > tol).sum() == 2
                     w = vec[:,idx] @ np.diag(np.sqrt(val[idx], dtype=np.complex64))
                     #w = np.array(w, dtype=np.float64)
@@ -311,14 +313,15 @@ class QPEWDMET_RHF(SCMF):
 
 
         # Shift final auxiliaries to ensure right particle number
+        fock = self.fock + self.static_self_energy
         nelec = self.emb.mf.mol.nelectron
-        shift = AuxiliaryShift(self.emb.get_fock(), self.se, nelec, occupancy=2, log=NullLogger())
+        shift = AuxiliaryShift(fock, self.se, nelec, occupancy=2, log=NullLogger())
         shift.kernel()
         se_shifted = shift.get_self_energy()
         vayesta.log.info('Final (shifted) auxiliaries: {} ({}o, {}v)'.format(se_shifted.naux, se_shifted.occupied().naux, se_shifted.virtual().naux))
         self.se_shifted = se_shifted
         # Find the Green's function
-        fock = self.fock + self.static_self_energy
+        
         gf = Lehmann(*se_shifted.diagonalise_matrix_with_projection(fock), chempot=se_shifted.chempot)
         dm = gf.occupied().moment(0) * 2.0
         nelec_gf = np.trace(dm)
