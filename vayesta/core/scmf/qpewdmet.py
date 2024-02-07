@@ -151,13 +151,6 @@ class QPEWDMET_RHF(SCMF):
             # Calculate self energy from cluster moments
             th, tp = f.results.moms
 
-            # print('Moms')
-
-            # print([np.allclose(th[i], (th[i]+th[i].T)*0.5) for i in range(len(th))])
-            # print([np.allclose(tp[i], (tp[i]+tp[i].T)*0.5) for i in range(len(tp))])
-            # print(th)
-            # print(tp)
-
             if self.store_hist:
                 thc = np.einsum('pP,qQ,nPQ->npq', f.cluster.c_active, f.cluster.c_active, th)
                 tpc = np.einsum('pP,qQ,nPQ->npq', f.cluster.c_active, f.cluster.c_active, tp)
@@ -217,7 +210,7 @@ class QPEWDMET_RHF(SCMF):
                 sym_coup = np.einsum('pa,qa->apq', np.dot(cfc, se.couplings) , se.couplings) 
                 sym_coup = 0.5 * (sym_coup + sym_coup.transpose(0,2,1))
                 
-                rank = 2#sym_coup.shape[1] # rank / multiplicity 
+                rank = 2 # rank / multiplicity 
                 tol = 1e-12
                 couplings_cf, energies_cf = [], []
                 for a in range(sym_coup.shape[0]):
@@ -251,9 +244,6 @@ class QPEWDMET_RHF(SCMF):
         
         if self.proj == 1:
             self.se = remove_se_degeneracy(self.se)
-            # print("Removed se degen")
-            # print(self.se.energies.shape, self.se.couplings.shape)
-            # print(self.se.energies)
 
         gap = lambda e: e[len(e)//2] - e[len(e)//2-1]
         dynamic_gap = gap(self.se.energies)
@@ -379,12 +369,6 @@ class QPEWDMET_RHF(SCMF):
         
         if not np.isclose(nelec_gf, float(nelec)):
             vayesta.log.warning('Number of electrons in final (shifted) GF: %f'%nelec_gf)
-
-        # TODO: Also, get the energy, IP, EA and gap from GF in the presence of the auxiliaries, as 
-        # well as Fermi liquid parameters from the self-energy
-
-        # Find qp-Green's function (used to define the self-consistent bath space
-        # (and bath effective interactions if not using an interacting bath)
 
         #qp_ham = self.emb.get_fock() + self.v
         qp_ham = self.fock + self.static_self_energy + self.v
