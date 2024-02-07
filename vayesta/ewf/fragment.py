@@ -282,6 +282,7 @@ class Fragment(BaseFragment):
         # --- Correlation energy contributions
         if self.opts.calc_e_wf_corr:
             ci = wf.as_cisd(c0=1.0)
+
             ci = ci.project(proj)
             es, ed, results.e_corr = self.get_fragment_energy(ci.c1, ci.c2, hamil=self.hamil)
             self.log.debug(
@@ -376,6 +377,13 @@ class Fragment(BaseFragment):
         g_ovvo = hamil.get_eris_bare(block="ovvo")
 
         if axis1 == "fragment":
+            # print("vayesta")
+            # print(px)
+            # print(c2.shape)
+            # print(c2)
+            #print(g_ovvo)
+            
+            
             e_doubles = 2 * einsum("xi,xjab,iabj", px, c2, g_ovvo) - einsum("xi,xjab,ibaj", px, c2, g_ovvo)
         else:
             e_doubles = 2 * einsum("ijab,iabj", c2, g_ovvo) - einsum("ijab,ibaj", c2, g_ovvo)

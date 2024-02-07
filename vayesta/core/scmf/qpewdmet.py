@@ -9,7 +9,41 @@ from vayesta.lattmod import LatticeRHF
 from dyson import Lehmann, FCI, MBLGF, MixedMBLGF, NullLogger, AuxiliaryShift
 import pyscf.scf
 
+def get_unique(array, atol=1e-15):
+    
+    # Find elements of a sorted float array which are unique up to a tolerance
+    
+    assert len(array.shape) == 1
+    
+    i = 0
+    slices = []
+    while i < len(array):
+        j = 1
+        idxs = [i]
+        while i+j < len(array):
+            if np.abs(array[i] - array[i+j]) < atol:
+                idxs.append(i+j)
+                j += 1
+            else: 
+                break
+        i = i + j
+        slices.append(np.s_[idxs[0]:idxs[-1]+1])
+    new_array = np.array([array[s].mean() for s in slices])
+    return new_array, slices
 
+def remove_se_degeneracy(se, atol=1e-6):
+    e, v = se.energies, se.couplings
+    e_new, slices = get_unique(e, atol=1e-8)
+    energies, couplings = [], []
+    for i, s in enumerate(slices):
+        mat = np.einsum('pa,qa->pq', v[:,s], v[:,s]).real
+        val, vec = np.linalg.eigh(mat)
+        idx = np.abs(val) > atol
+        w = vec[:,idx] @ np.diag(np.sqrt(val[idx], dtype=np.complex64))
+        couplings.append(w)
+        energies += [e_new[i] for _ in range(idx.sum())]
+    couplings = np.hstack(couplings).real
+    return Lehmann(np.array(energies), np.array(couplings))
 
 class QPEWDMET_RHF(SCMF):
     """ Quasi-particle self-consistent energy weighted density matrix embedding """
@@ -117,6 +151,13 @@ class QPEWDMET_RHF(SCMF):
             # Calculate self energy from cluster moments
             th, tp = f.results.moms
 
+            # print('Moms')
+
+            # print([np.allclose(th[i], (th[i]+th[i].T)*0.5) for i in range(len(th))])
+            # print([np.allclose(tp[i], (tp[i]+tp[i].T)*0.5) for i in range(len(tp))])
+            # print(th)
+            # print(tp)
+
             if self.store_hist:
                 thc = np.einsum('pP,qQ,nPQ->npq', f.cluster.c_active, f.cluster.c_active, th)
                 tpc = np.einsum('pP,qQ,nPQ->npq', f.cluster.c_active, f.cluster.c_active, tp)
@@ -130,16 +171,17 @@ class QPEWDMET_RHF(SCMF):
 
 
             se = solver.get_self_energy()
-            
+
             energies_f = se.energies
             couplings_f = se.couplings
 
             ovlp = self.emb.get_ovlp()
-            cf = f.c_frag.T @ ovlp @ f.cluster.c_active  # Projector onto fragment (frag|cls)
-            cfc = cf.T @ cf
+            c = f.get_overlap('mo|cluster')
+            fc = f.get_overlap('frag|cluster')
+            cfc = fc.T @ fc
 
             
-            fock_cls = f.cluster.c_active.T @ self.fock @ f.cluster.c_active
+            fock_cls = c.T @ self.fock @ c
             e_cls = np.diag(fock_cls)
             
             
@@ -156,10 +198,10 @@ class QPEWDMET_RHF(SCMF):
                 couplings.append(f.c_frag @ cf @ se.couplings)
                 energies.append(se.energies)
                 if self.use_sym:
-                    for fc in f.get_symmetry_children():
-                        self.v += np.linalg.multi_dot((fc.c_frag, v_frag, fc.c_frag.T))
-                        self.static_self_energy += np.linalg.multi_dot((fc.c_frag, static_se_frag, fc.c_frag.T))
-                        couplings.append(fc.c_frag @ cf @ se.couplings)
+                    for child in f.get_symmetry_children():
+                        self.v += np.linalg.multi_dot((child.c_frag, v_frag, child.c_frag.T))
+                        self.static_self_energy += np.linalg.multi_dot((child.c_frag, static_se_frag, child.c_frag.T))
+                        couplings.append(child.c_frag @ fc @ se.couplings)
                         energies.append(se.energies)
 
                     
@@ -177,23 +219,22 @@ class QPEWDMET_RHF(SCMF):
                 
                 rank = 2#sym_coup.shape[1] # rank / multiplicity 
                 tol = 1e-12
-                couplings_cf = np.zeros((sym_coup.shape[0]*rank, sym_coup.shape[1]), dtype=np.complex64)
+                couplings_cf, energies_cf = [], []
                 for a in range(sym_coup.shape[0]):
                     m = sym_coup[a]
                     val, vec = np.linalg.eigh(m)
-                    idx = np.argsort(np.abs(val))[-rank:]
-                    print(val)
-                    print(np.abs(val) > tol)
-                    assert (np.abs(val) > tol).sum() == 2
+                    idx = np.abs(val) > tol
+                    assert (np.abs(val) > tol).sum() <= rank
                     w = vec[:,idx] @ np.diag(np.sqrt(val[idx], dtype=np.complex64))
-                    #w = np.array(w, dtype=np.float64)
-                    couplings_cf[rank*a:rank*(a+1)] = w.T
+                    couplings_cf.append(w)
+                    energies_cf += [se.energies[a] for e in range(idx.sum())]
 
+                couplings_cf = np.hstack(couplings_cf)
                 self.v += f.cluster.c_active @ v_frag @ f.cluster.c_active.T
                 self.static_self_energy += f.cluster.c_active @ static_self_energy_frag @ f.cluster.c_active.T
 
-                couplings.append(f.cluster.c_active @ couplings_cf.T)
-                energies.append(np.repeat(se.energies, rank)) 
+                couplings.append( c @ couplings_cf)
+                energies.append(energies_cf)    
 
                 if self.use_sym:
                     for fc in f.get_symmetry_children():
@@ -207,6 +248,12 @@ class QPEWDMET_RHF(SCMF):
         couplings = np.hstack(couplings)
         energies = np.concatenate(energies)
         self.se = Lehmann(energies, couplings)
+        
+        if self.proj == 1:
+            self.se = remove_se_degeneracy(self.se)
+            # print("Removed se degen")
+            # print(self.se.energies.shape, self.se.couplings.shape)
+            # print(self.se.energies)
 
         gap = lambda e: e[len(e)//2] - e[len(e)//2-1]
         dynamic_gap = gap(self.se.energies)
@@ -279,7 +326,7 @@ class QPEWDMET_RHF(SCMF):
         # solver = DensityRelaxation(get_fock, se, mol.nelectron)
         # solver.conv_tol = 1e-10
         # solver.max_cycle_inner = 30
-        # solver.kernel()
+        # solver.kernel()2
 
         if mf.converged:
             self.log.info("SCF converged, energy: {:.6f}".format(e_tot))
@@ -321,7 +368,7 @@ class QPEWDMET_RHF(SCMF):
         vayesta.log.info('Final (shifted) auxiliaries: {} ({}o, {}v)'.format(se_shifted.naux, se_shifted.occupied().naux, se_shifted.virtual().naux))
         self.se_shifted = se_shifted
         # Find the Green's function
-        
+
         gf = Lehmann(*se_shifted.diagonalise_matrix_with_projection(fock), chempot=se_shifted.chempot)
         dm = gf.occupied().moment(0) * 2.0
         nelec_gf = np.trace(dm)
