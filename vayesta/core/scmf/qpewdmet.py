@@ -31,25 +31,11 @@ def get_unique(array, atol=1e-15):
     new_array = np.array([array[s].mean() for s in slices])
     return new_array, slices
 
-def remove_se_degeneracy(se, atol=1e-6):
-    e, v = se.energies, se.couplings
-    e_new, slices = get_unique(e, atol=1e-8)
-    energies, couplings = [], []
-    for i, s in enumerate(slices):
-        mat = np.einsum('pa,qa->pq', v[:,s], v[:,s]).real
-        val, vec = np.linalg.eigh(mat)
-        idx = np.abs(val) > atol
-        w = vec[:,idx] @ np.diag(np.sqrt(val[idx], dtype=np.complex64))
-        couplings.append(w)
-        energies += [e_new[i] for _ in range(idx.sum())]
-    couplings = np.hstack(couplings).real
-    return Lehmann(np.array(energies), np.array(couplings))
-
 class QPEWDMET_RHF(SCMF):
     """ Quasi-particle self-consistent energy weighted density matrix embedding """
     name = "QP-EWDMET"
 
-    def __init__(self, emb, with_static=True, proj=2, v_conv_tol=1e-5, eta=1e-2, damping=0, sc=True, store_hist=True, store_scfs=False, use_sym=False, v_init=None, *args, **kwargs):
+    def __init__(self, emb, with_static=True, proj=2, v_conv_tol=1e-5, eta=1e-2, damping=0, sc=True, store_hist=True, store_scfs=False, use_sym=False, v_init=None, se_degen_tol=1e-6, se_eval_tol=1e-6, drop_non_causal=False, *args, **kwargs):
         """ 
         Initialize QPEWDMET 
         
@@ -87,7 +73,10 @@ class QPEWDMET_RHF(SCMF):
         self.store_hist = store_hist 
         self.use_sym = use_sym
         self.v_init = v_init
-        self.store_scfs = store_scfs    
+        self.store_scfs = store_scfs
+        self.se_degen_tol = se_degen_tol
+        self.se_eval_tol = se_eval_tol
+        self.drop_non_causal = drop_non_causal
         
         super().__init__(emb, *args, **kwargs)
 
@@ -170,6 +159,7 @@ class QPEWDMET_RHF(SCMF):
 
             ovlp = self.emb.get_ovlp()
             mc = f.get_overlap('mo|cluster')
+            mf = f.get_overlap('mo|frag')
             fc = f.get_overlap('frag|cluster')
             cfc = fc.T @ fc
 
@@ -184,13 +174,15 @@ class QPEWDMET_RHF(SCMF):
             static_se_cls = th[1] + tp[1] - fock_cls # Static self energy
 
             if self.proj == 2:
-                v_frag = np.linalg.multi_dot((cf, v_cls, cf.T))
-                static_se_frag = np.linalg.multi_dot((cf, static_se_cls, cf.T))
-                self.v += np.linalg.multi_dot((f.c_frag, v_frag, f.c_frag.T))
-                self.static_self_energy += np.linalg.multi_dot((f.c_frag, static_se_frag, f.c_frag.T))
-                couplings.append(f.c_frag @ cf @ se.couplings)
+                v_frag = fc @ v_cls @ fc.T
+                static_se_frag = fc @ static_se_cls @ fc.T
+                self.v += f.c_frag @ v_frag @ f.c_frag.T
+                self.static_self_energy += f.c_frag @ static_se_frag @ f.c_frag.T
+                couplings.append(mf @ fc @ se.couplings)
                 energies.append(se.energies)
+
                 if self.use_sym:
+                    # FIX
                     for child in f.get_symmetry_children():
                         self.v += np.linalg.multi_dot((child.c_frag, v_frag, child.c_frag.T))
                         self.static_self_energy += np.linalg.multi_dot((child.c_frag, static_se_frag, child.c_frag.T))
@@ -243,7 +235,7 @@ class QPEWDMET_RHF(SCMF):
         self.se = Lehmann(energies, couplings)
         
         if self.proj == 1:
-            self.se = remove_se_degeneracy(self.se)
+            self.se = self.remove_se_degeneracy(self.se, dtol=self.se_degen_tol, etol=self.se_eval_tol)
 
         gap = lambda e: e[len(e)//2] - e[len(e)//2-1]
         dynamic_gap = gap(self.se.energies)
@@ -273,6 +265,32 @@ class QPEWDMET_RHF(SCMF):
         self.log.info("Dynamic Gap = %f"%dynamic_gap)
         self.log.info("Static Gap = %f"%static_gap)
         return mo_coeff
+
+
+    def remove_se_degeneracy(self, se, dtol=1e-8, etol=1e-6):
+        self.log.info("Removing degeneracy in self-energy - degenerate energy tol=%e   evec tol=%e"%(dtol, etol))
+        e, v = se.energies, se.couplings
+        e_new, slices = get_unique(e, atol=dtol)#
+        self.log.info("Number of energies = %d,  unique = %d"%(len(e),len(e_new)))
+        energies, couplings = [], []
+        for i, s in enumerate(slices):
+            mat = np.einsum('pa,qa->pq', v[:,s], v[:,s]).real
+            val, vec = np.linalg.eigh(mat)
+            if self.drop_non_causal:
+                idx = val > etol
+            else:
+                idx = np.abs(val) > etol
+            if np.sum(val[idx] < -etol) > 0:
+                self.log.warning("Large negative eigenvalues - non-causal self-energy")
+            w = vec[:,idx] @ np.diag(np.sqrt(val[idx], dtype=np.complex64))
+            couplings.append(w)
+            energies += [e_new[i] for _ in range(idx.sum())]
+
+            self.log.info("    | E = %e << %s"%(e_new[i],e[s]))
+            self.log.info("       evals: %s"%val)
+            self.log.info("       kept:  %s"%(val[idx]))   
+        couplings = np.hstack(couplings).real
+        return Lehmann(np.array(energies), np.array(couplings))
 
     def fock_scf(self, v):
         """
