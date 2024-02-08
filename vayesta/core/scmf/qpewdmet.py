@@ -177,7 +177,7 @@ class QPEWDMET_RHF(SCMF):
                 v_frag = fc @ v_cls @ fc.T
                 static_se_frag = fc @ static_se_cls @ fc.T
                 self.v += f.c_frag @ v_frag @ f.c_frag.T
-                self.static_self_energy += f.c_frag @ static_se_frag @ f.c_frag.T
+                self.static_self_energy += mf @ static_se_frag @ mf.T
                 couplings.append(mf @ fc @ se.couplings)
                 energies.append(se.energies)
 
