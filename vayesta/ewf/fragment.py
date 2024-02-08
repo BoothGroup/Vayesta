@@ -377,13 +377,6 @@ class Fragment(BaseFragment):
         g_ovvo = hamil.get_eris_bare(block="ovvo")
 
         if axis1 == "fragment":
-            # print("vayesta")
-            # print(px)
-            # print(c2.shape)
-            # print(c2)
-            #print(g_ovvo)
-            
-            
             e_doubles = 2 * einsum("xi,xjab,iabj", px, c2, g_ovvo) - einsum("xi,xjab,ibaj", px, c2, g_ovvo)
         else:
             e_doubles = 2 * einsum("ijab,iabj", c2, g_ovvo) - einsum("ijab,ibaj", c2, g_ovvo)

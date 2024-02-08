@@ -169,12 +169,12 @@ class QPEWDMET_RHF(SCMF):
             couplings_f = se.couplings
 
             ovlp = self.emb.get_ovlp()
-            c = f.get_overlap('mo|cluster')
+            mc = f.get_overlap('mo|cluster')
             fc = f.get_overlap('frag|cluster')
             cfc = fc.T @ fc
 
             
-            fock_cls = c.T @ self.fock @ c
+            fock_cls = mc.T @ self.fock @ mc
             e_cls = np.diag(fock_cls)
             
             
@@ -224,9 +224,9 @@ class QPEWDMET_RHF(SCMF):
 
                 couplings_cf = np.hstack(couplings_cf)
                 self.v += f.cluster.c_active @ v_frag @ f.cluster.c_active.T
-                self.static_self_energy += f.cluster.c_active @ static_self_energy_frag @ f.cluster.c_active.T
+                self.static_self_energy += mc @ static_self_energy_frag @ mc.T
 
-                couplings.append( c @ couplings_cf)
+                couplings.append(mc @ couplings_cf)
                 energies.append(energies_cf)    
 
                 if self.use_sym:
