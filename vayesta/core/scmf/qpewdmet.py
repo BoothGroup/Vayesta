@@ -151,7 +151,6 @@ class QPEWDMET_RHF(SCMF):
             solver = MixedMBLGF(solverh, solverp)
             solver.kernel()
 
-
             se = solver.get_self_energy()
 
             energies_f = se.energies
@@ -162,15 +161,11 @@ class QPEWDMET_RHF(SCMF):
             mf = f.get_overlap('mo|frag')
             fc = f.get_overlap('frag|cluster')
             cfc = fc.T @ fc
-
             
-            fock_cls = mc.T @ self.fock @ mc
+            fock_cls = f.cluster.c_active.T @ ovlp @ self.fock @ ovlp @ f.cluster.c_active
             e_cls = np.diag(fock_cls)
             
-            
-            #v += np.linalg.multi_dot((ca, v_frag, ca.T))
-            v_cls = se.as_static_potential(e_cls, eta=self.eta) # Single particle potential from Klein Functional (used to update MF for the self-consistnecy)
-            
+            v_cls = se.as_static_potential(e_cls, eta=self.eta) # Static potential (used to update MF for the self-consistnecy)
             static_se_cls = th[1] + tp[1] - fock_cls # Static self energy
 
             if self.proj == 2:
@@ -182,14 +177,13 @@ class QPEWDMET_RHF(SCMF):
                 energies.append(se.energies)
 
                 if self.use_sym:
-                    # FIX
                     for child in f.get_symmetry_children():
-                        self.v += np.linalg.multi_dot((child.c_frag, v_frag, child.c_frag.T))
-                        self.static_self_energy += np.linalg.multi_dot((child.c_frag, static_se_frag, child.c_frag.T))
-                        couplings.append(child.c_frag @ fc @ se.couplings)
+                        self.v += child.c_frag @ v_frag @ child.c_frag.T
+                        mf_child = child.get_overlap('mo|frag')
+                        fc_child = child.get_overlap('frag|cluster')
+                        self.static_self_energy += mf_child @ static_se_frag, mf_child.T
+                        couplings.append(mf_child @ fc_child @ se.couplings)
                         energies.append(se.energies)
-
-                    
 
             elif self.proj == 1:
 
@@ -222,11 +216,12 @@ class QPEWDMET_RHF(SCMF):
                 energies.append(energies_cf)    
 
                 if self.use_sym:
-                    for fc in f.get_symmetry_children():
-                        self.v += fc.cluster.c_active @ v_frag @ fc.cluster.c_active.T
-                        self.static_self_energy += fc.cluster.c_active @ static_self_energy_frag @ fc.cluster.c_active.T
-                        couplings.append(fc.cluster.c_active @ couplings_cf.T)
-                        energies.append(np.repeat(se.energies, 2)) 
+                    for child in f.get_symmetry_children():
+                        self.v += child.cluster.c_active @ v_frag @ child.cluster.c_active.T
+                        mc_child = child.get_overlap('mo|frag')
+                        self.static_self_energy += mc_child @ static_self_energy_frag @ mc_child.T
+                        couplings.append(mc_child @ couplings_cf.T)
+                        energies.append(energies_cf)
 
 
 
@@ -288,7 +283,7 @@ class QPEWDMET_RHF(SCMF):
 
             self.log.info("    | E = %e << %s"%(e_new[i],e[s]))
             self.log.info("       evals: %s"%val)
-            self.log.info("       kept:  %s"%(val[idx]))   
+            self.log.info("       kept:  %s"%(val[idx]))
         couplings = np.hstack(couplings).real
         return Lehmann(np.array(energies), np.array(couplings))
 
