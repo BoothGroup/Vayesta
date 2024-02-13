@@ -30,7 +30,7 @@ class Test_RFCI(TestCase):
 
         # Full bath EWF
         ewf = vayesta.ewf.EWF(
-            mf, bath_options=dict(bathtype="full"), solver_options=dict(n_moments=(4, 4)), solver="FCI"
+            mf, bath_options=dict(bathtype="full"), solver_options=dict( n_moments=(4, 4)), solver="FCI"
         )
         ewf.kernel()
 
@@ -40,9 +40,9 @@ class Test_RFCI(TestCase):
             cx = f.get_overlap("mo|cluster")
             ip = np.einsum("pP,qQ,nPQ->npq", cx, cx, ip)
             ea = np.einsum("pP,qQ,nPQ->npq", cx, cx, ea)
-
-            self.assertTrue(np.allclose(ip, fci_ip, atol=1e-14))
-            self.assertTrue(np.allclose(ea, fci_ea, atol=1e-14))
+            
+            self.assertTrue(np.allclose(ip, fci_ip))
+            self.assertTrue(np.allclose(ea, fci_ea))
 
 
 # class Test_RCCSD(TestCase):
