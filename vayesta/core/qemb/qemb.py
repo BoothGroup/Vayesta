@@ -81,7 +81,7 @@ class Options(OptionsBase):
         # General
         bathtype="dmet",
         canonicalize=True,
-        occupation_tolerance=1e-8,
+        occupation_tolerance=1e-6,
         # DMET bath
         dmet_threshold=1e-8,
         # R2 bath
@@ -1574,7 +1574,7 @@ class Embedding:
         for s in range(nspin):
             nmo_s = tspin(self.nmo, s)
             nelec_s = tspin(nelec, s)
-            fragments = self.get_fragments(active=True, flags=dict(is_secfrag=False))
+            fragments = self.get_fragments(contributes=True, flags=dict(is_secfrag=False))
             if not fragments:
                 return False
             c_frags = np.hstack([tspin(x.c_frag, s) for x in fragments])
