@@ -80,9 +80,15 @@ class SCMF:
     def kernel(self, *args, **kwargs):
         
         if self.diis:
-            diis = self.get_diis() 
-            diis.space = self.diis_space
-            diis.min_space = self.diis_min_space
+            diis = self.get_diis()
+            if type(diis) is tuple:
+                # Unrestricted
+                diis[0].space, diis[1].space = self.diis_space, self.diis_space
+                diis[0].min_space, diis[1].min_space = self.diis_min_space, self.diis_min_space
+            else:
+                # Restricted
+                diis.space = self.diis_space
+                diis.min_space = self.diis_min_space
         else:
             diis = None
 
