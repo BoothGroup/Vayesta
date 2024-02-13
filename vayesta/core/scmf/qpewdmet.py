@@ -3,39 +3,19 @@ import scipy.linalg
 
 import vayesta
 from vayesta.core.scmf.scmf import SCMF
+from vayesta.ewf.self_energy import make_self_energy_1proj, make_self_energy_2proj
 from vayesta.core.foldscf import FoldedSCF
 from vayesta.lattmod import LatticeRHF
 
-from dyson import Lehmann, FCI, MBLGF, MixedMBLGF, NullLogger, AuxiliaryShift
-import pyscf.scf
 
-def get_unique(array, atol=1e-15):
-    
-    # Find elements of a sorted float array which are unique up to a tolerance
-    
-    assert len(array.shape) == 1
-    
-    i = 0
-    slices = []
-    while i < len(array):
-        j = 1
-        idxs = [i]
-        while i+j < len(array):
-            if np.abs(array[i] - array[i+j]) < atol:
-                idxs.append(i+j)
-                j += 1
-            else: 
-                break
-        i = i + j
-        slices.append(np.s_[idxs[0]:idxs[-1]+1])
-    new_array = np.array([array[s].mean() for s in slices])
-    return new_array, slices
+from dyson import Lehmann, MBLGF, MixedMBLGF, NullLogger, AuxiliaryShift
+import pyscf.scf
 
 class QPEWDMET_RHF(SCMF):
     """ Quasi-particle self-consistent energy weighted density matrix embedding """
     name = "QP-EWDMET"
 
-    def __init__(self, emb, with_static=True, proj=2, v_conv_tol=1e-5, eta=1e-2, damping=0, sc=True, store_hist=True, store_scfs=False, use_sym=False, v_init=None, se_degen_tol=1e-6, se_eval_tol=1e-6, drop_non_causal=False, *args, **kwargs):
+    def __init__(self, emb, proj=2, static_potential_conv_tol=1e-5, eta=1e-2, damping=0, sc=True, store_hist=True, store_scfs=False, use_sym=False, static_potential_init=None, se_degen_tol=1e-6, se_eval_tol=1e-6, drop_non_causal=False, *args, **kwargs):
         """ 
         Initialize QPEWDMET 
         
@@ -45,10 +25,10 @@ class QPEWDMET_RHF(SCMF):
             Embedding object on which self consitency is based
         proj : int 
             Number of fragment projectors applied to cluster self-energy
-        v_conv_tol : float
-            Convergence threshold in Klein potential
+        static_potential_conv_tol : float
+            Convergence threshold for static potential
         eta : float
-            Broadening factor for Klein potential
+            Broadening factor for static potential
         damping : float
             Damping factor for Fock matrix update
         sc : bool
@@ -57,7 +37,7 @@ class QPEWDMET_RHF(SCMF):
             Store history throughout SCMF calculation (for debugging purposes)
         use_sym : bool
             Use fragment symmetry
-        v_init : ndarray
+        static_potential_init : ndarray
             Inital static potential
         """
         
@@ -65,14 +45,14 @@ class QPEWDMET_RHF(SCMF):
         self.static_self_energy = np.zeros_like(self.sc_fock)
         self.sc = sc
         self.eta = eta # Broadening factor
-        self.se = None
-        self.v = None
-        self.v_last = None
-        self.v_conv_tol = v_conv_tol
+        self.self_energy = None
+        self.static_potential = None
+        self.static_potential_last = None
+        self.static_potential_conv_tol = static_potential_conv_tol
         self.proj = proj
         self.store_hist = store_hist 
         self.use_sym = use_sym
-        self.v_init = v_init
+        self.static_potential_init = static_potential_init
         self.store_scfs = store_scfs
         self.se_degen_tol = se_degen_tol
         self.se_eval_tol = se_eval_tol
@@ -81,8 +61,8 @@ class QPEWDMET_RHF(SCMF):
         super().__init__(emb, *args, **kwargs)
 
         if self.store_hist:
-            self.v_hist = []
-            self.v_frag_hist = []
+            self.static_potential_hist = []
+            self.static_potential_frag_hist = []
             self.fock_hist = []
             self.static_gap_hist = []
             self.dynamic_gap_hist = []  
@@ -95,9 +75,9 @@ class QPEWDMET_RHF(SCMF):
 
         self.damping = damping
 
-        if self.v_init is not None:
+        if self.static_potential_init is not None:
             
-            e, mo_coeff = self.fock_scf(self.v_init)
+            e, mo_coeff = self.fock_scf(self.static_potential_init)
             self.emb.update_mf(mo_coeff)
 
             dm1 = self.mf.make_rdm1()
@@ -126,132 +106,42 @@ class QPEWDMET_RHF(SCMF):
             New MO coefficients.
         """
 
-        if self.v is not None:
-            self.v_last = self.v.copy()
+        if self.static_potential is not None:
+            self.static_potential_last = self.static_potential.copy()
 
         self.fock = self.emb.get_fock()
         couplings = []
         energies = []
-        self.v = np.zeros_like(self.fock)
-        self.static_se = np.zeros_like(self.fock)
+        self.static_potential = np.zeros_like(self.fock)
+        self.static_self_energy = np.zeros_like(self.fock)
 
-        fragments = self.emb.get_fragments(sym_parent=None) if self.use_sym else self.emb.get_fragments()
-        for i, f in enumerate(fragments):
-            # Calculate self energy from cluster moments
-            th, tp = f.results.moms
-
-            if self.store_hist:
-                thc = np.einsum('pP,qQ,nPQ->npq', f.cluster.c_active, f.cluster.c_active, th)
-                tpc = np.einsum('pP,qQ,nPQ->npq', f.cluster.c_active, f.cluster.c_active, tp)
-                self.mom_hist.append((thc,tpc))
-
-            vth, vtp = th.copy(), tp.copy()
-            solverh = MBLGF(th, log=NullLogger())
-            solverp = MBLGF(tp, log=NullLogger())
-            solver = MixedMBLGF(solverh, solverp)
-            solver.kernel()
-
-            se = solver.get_self_energy()
-
-            energies_f = se.energies
-            couplings_f = se.couplings
-
-            ovlp = self.emb.get_ovlp()
-            mc = f.get_overlap('mo|cluster')
-            mf = f.get_overlap('mo|frag')
-            fc = f.get_overlap('frag|cluster')
-            cfc = fc.T @ fc
-            
-            fock_cls = f.cluster.c_active.T @ ovlp @ self.fock @ ovlp @ f.cluster.c_active
-            e_cls = np.diag(fock_cls)
-            
-            v_cls = se.as_static_potential(e_cls, eta=self.eta) # Static potential (used to update MF for the self-consistnecy)
-            static_se_cls = th[1] + tp[1] - fock_cls # Static self energy
-
-            if self.proj == 2:
-                v_frag = fc @ v_cls @ fc.T
-                static_se_frag = fc @ static_se_cls @ fc.T
-                self.v += f.c_frag @ v_frag @ f.c_frag.T
-                self.static_self_energy += mf @ static_se_frag @ mf.T
-                couplings.append(mf @ fc @ se.couplings)
-                energies.append(se.energies)
-
-                if self.use_sym:
-                    for child in f.get_symmetry_children():
-                        self.v += child.c_frag @ v_frag @ child.c_frag.T
-                        mf_child = child.get_overlap('mo|frag')
-                        fc_child = child.get_overlap('frag|cluster')
-                        self.static_self_energy += mf_child @ static_se_frag, mf_child.T
-                        couplings.append(mf_child @ fc_child @ se.couplings)
-                        energies.append(se.energies)
-
-            elif self.proj == 1:
-
-                v_frag = cfc @ v_cls  
-                v_frag = 0.5 * (v_frag + v_frag.T)
-                
-                static_self_energy_frag = cfc @ static_se_cls
-                static_self_energy_frag = 0.5 * (static_self_energy_frag + static_self_energy_frag.T)
-
-                sym_coup = np.einsum('pa,qa->apq', np.dot(cfc, se.couplings) , se.couplings) 
-                sym_coup = 0.5 * (sym_coup + sym_coup.transpose(0,2,1))
-                
-                rank = 2 # rank / multiplicity 
-                tol = 1e-12
-                couplings_cf, energies_cf = [], []
-                for a in range(sym_coup.shape[0]):
-                    m = sym_coup[a]
-                    val, vec = np.linalg.eigh(m)
-                    idx = np.abs(val) > tol
-                    assert (np.abs(val) > tol).sum() <= rank
-                    w = vec[:,idx] @ np.diag(np.sqrt(val[idx], dtype=np.complex64))
-                    couplings_cf.append(w)
-                    energies_cf += [se.energies[a] for e in range(idx.sum())]
-
-                couplings_cf = np.hstack(couplings_cf)
-                self.v += f.cluster.c_active @ v_frag @ f.cluster.c_active.T
-                self.static_self_energy += mc @ static_self_energy_frag @ mc.T
-
-                couplings.append(mc @ couplings_cf)
-                energies.append(energies_cf)    
-
-                if self.use_sym:
-                    for child in f.get_symmetry_children():
-                        self.v += child.cluster.c_active @ v_frag @ child.cluster.c_active.T
-                        mc_child = child.get_overlap('mo|frag')
-                        self.static_self_energy += mc_child @ static_self_energy_frag @ mc_child.T
-                        couplings.append(mc_child @ couplings_cf.T)
-                        energies.append(energies_cf)
-
-
-
-        couplings = np.hstack(couplings)
-        energies = np.concatenate(energies)
-        self.se = Lehmann(energies, couplings)
-        
         if self.proj == 1:
-            self.se = self.remove_se_degeneracy(self.se, dtol=self.se_degen_tol, etol=self.se_eval_tol)
+            self.self_energy, self.static_self_energy, self.static_potential = make_self_energy_1proj(self.emb, use_sym=self.use_sym, eta=self.eta, se_degen_tol=self.se_degen_tol, se_eval_tol=self.se_eval_tol)
+        elif self.proj == 2:
+            self.self_energy, self.static_self_energy, self.static_potential = make_self_energy_2proj(self.emb, use_sym=self.use_sym, eta=self.eta)
+        else:
+            return NotImpementedError()
 
         gap = lambda e: e[len(e)//2] - e[len(e)//2-1]
-        dynamic_gap = gap(self.se.energies)
+        dynamic_gap = gap(self.self_energy.energies)
 
-        v_old = self.v.copy()
+        v_old = self.static_potential.copy()
         if diis is not None:
-            self.v = diis.update(self.v)
+            self.static_potential = diis.update(self.static_potential)
 
-        new_fock = self.fock + self.v
+        new_fock = self.fock + self.static_potential
         self.sc_fock = self.damping * self.fock + (1-self.damping) * new_fock
-        #self.sc_fock = self.sc_fock + (1-self.damping) * self.v
+        #self.sc_fock = self.sc_fock + (1-self.damping) * self.static_potential
 
 
         if self.sc:
-            e, mo_coeff = self.fock_scf(self.v)
+            e, mo_coeff = self.fock_scf(self.static_potential)
         else:
             e, mo_coeff = scipy.linalg.eigh(self.sc_fock, self.emb.get_ovlp())
         static_gap = gap(e)
         if self.store_hist:        
-            self.v_frag_hist.append(v_frag.copy())
-            self.v_hist.append(self.v.copy())
+            #self.static_potential_frag_hist.append(v_frag.copy())
+            self.static_potential_hist.append(self.static_potential.copy())
             self.fock_hist.append(self.sc_fock.copy())
             self.static_gap_hist.append(static_gap)
             self.dynamic_gap_hist.append(dynamic_gap)
@@ -260,32 +150,6 @@ class QPEWDMET_RHF(SCMF):
         self.log.info("Dynamic Gap = %f"%dynamic_gap)
         self.log.info("Static Gap = %f"%static_gap)
         return mo_coeff
-
-
-    def remove_se_degeneracy(self, se, dtol=1e-8, etol=1e-6):
-        self.log.info("Removing degeneracy in self-energy - degenerate energy tol=%e   evec tol=%e"%(dtol, etol))
-        e, v = se.energies, se.couplings
-        e_new, slices = get_unique(e, atol=dtol)#
-        self.log.info("Number of energies = %d,  unique = %d"%(len(e),len(e_new)))
-        energies, couplings = [], []
-        for i, s in enumerate(slices):
-            mat = np.einsum('pa,qa->pq', v[:,s], v[:,s]).real
-            val, vec = np.linalg.eigh(mat)
-            if self.drop_non_causal:
-                idx = val > etol
-            else:
-                idx = np.abs(val) > etol
-            if np.sum(val[idx] < -etol) > 0:
-                self.log.warning("Large negative eigenvalues - non-causal self-energy")
-            w = vec[:,idx] @ np.diag(np.sqrt(val[idx], dtype=np.complex64))
-            couplings.append(w)
-            energies += [e_new[i] for _ in range(idx.sum())]
-
-            self.log.info("    | E = %e << %s"%(e_new[i],e[s]))
-            self.log.info("       evals: %s"%val)
-            self.log.info("       kept:  %s"%(val[idx]))
-        couplings = np.hstack(couplings).real
-        return Lehmann(np.array(energies), np.array(couplings))
 
     def fock_scf(self, v):
         """
@@ -310,7 +174,7 @@ class QPEWDMET_RHF(SCMF):
         mf = mf_class(self.emb.mf.mol)
         #mf.get_fock_old = mf.get_fock
         #def get_fock(*args, **kwargs):
-        #    return mf.get_fock_old(*args, **kwargs) + self.v
+        #    return mf.get_fock_old(*args, **kwargs) + self.static_potential
 
         def get_hcore(*args, **kwargs):
             return self.emb.mf.get_hcore() + v
@@ -343,9 +207,9 @@ class QPEWDMET_RHF(SCMF):
     def check_convergence(self, e_tot, dm1, e_last=None, dm1_last=None, etol=None, dtol=None):
         _, de, ddm = super().check_convergence(e_tot, dm1, e_last=e_last, dm1_last=dm1_last, etol=etol, dtol=dtol)
         dv = np.inf
-        if self.v_last is not None:
-            dv = np.abs(self.v - self.v_last).sum()
-            if dv < self.v_conv_tol:
+        if self.static_potential_last is not None:
+            dv = np.abs(self.static_potential - self.static_potential_last).sum()
+            if dv < self.static_potential_conv_tol:
                 return True, dv, ddm
         return False, dv, ddm
 
@@ -365,7 +229,7 @@ class QPEWDMET_RHF(SCMF):
         # Shift final auxiliaries to ensure right particle number
         fock = self.fock + self.static_self_energy
         nelec = self.emb.mf.mol.nelectron
-        shift = AuxiliaryShift(fock, self.se, nelec, occupancy=2, log=NullLogger())
+        shift = AuxiliaryShift(fock, self.self_energy, nelec, occupancy=2, log=NullLogger())
         shift.kernel()
         se_shifted = shift.get_self_energy()
         vayesta.log.info('Final (shifted) auxiliaries: {} ({}o, {}v)'.format(se_shifted.naux, se_shifted.occupied().naux, se_shifted.virtual().naux))
@@ -383,8 +247,8 @@ class QPEWDMET_RHF(SCMF):
         if not np.isclose(nelec_gf, float(nelec)):
             vayesta.log.warning('Number of electrons in final (shifted) GF: %f'%nelec_gf)
 
-        #qp_ham = self.emb.get_fock() + self.v
-        qp_ham = self.fock + self.static_self_energy + self.v
+        #qp_ham = self.emb.get_fock() + self.static_potential
+        qp_ham = self.fock + self.static_self_energy + self.static_potential
         qp_e, qp_c = np.linalg.eigh(qp_ham)
         self.qpham = qp_ham
         qp_mu = (qp_e[nelec//2-1] + qp_e[nelec//2] ) / 2
