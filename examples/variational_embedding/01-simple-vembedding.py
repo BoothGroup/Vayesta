@@ -73,7 +73,7 @@ def get_density_projected(emb, inc_mf=False):
     wfs = [x.project(y) for x, y in zip(barewfs, p_frags)]
     # Now, optimize their relative weights as above.
     h, s, dm = variational_params.get_wf_couplings(emb, emb.fragments, wfs, inc_mf=inc_mf)
-    # Also compute the sum of all the contributions (including the off-diagonal ones??)
+    # Also compute the variational energy of the state without optimization 
     sum_energy = sum(h.reshape(-1)) / sum(s.reshape(-1))
     w, v, seig = lib.linalg_helper.safe_eigh(h, s, lindep=1e-12)
     return sum_energy, w[0]
@@ -94,7 +94,7 @@ def get_occ_projected(emb):
     # Note that inc_mf is True, meaning that the Hartree--Fock is explicitly included to the
     # list of states considered, and its relative weight also variationally optimized.
     h, s, dm = variational_params.get_wf_couplings(emb, wfs=wfs, inc_mf=True)
-    # Also compute the sum of all the contributions (including the off-diagonal ones??)
+    # Also compute the variational energy of the state without optimization 
     sum_energy = sum(h.reshape(-1)) / sum(s.reshape(-1))
     w, v, seig = lib.linalg_helper.safe_eigh(h, s, lindep=1e-12)
     return sum_energy, w[0]
@@ -145,9 +145,9 @@ def plot_results(fname="results.txt", vsfci=False, ax=None, nodmenergy=True):
         "var-NO-FCI",
     ]
     # NO-CAS-CI = No projectors. Optimize relative contributions variationally.
-    # NO-dproj = Density projector. Just sum of (all) wave function contributions (inc. off-diagonal?)
+    # NO-dproj = Variational energy with Density projector (no further optimization).
     # NO-dproj-CAS-CI = Density projector. Optimize relative contributions of all variationally
-    # NO-oproj = Occupied hole projector. Just sum of (all) wave function contributions (inc. off-diagonal?)
+    # NO-oproj = Variational energy with Occupied hole projector. (no further optimization).
     # NO-oproj-CAS-CI = Occupied hole projector. Variationally optimize relative cluster contributions.
     # var-NO-FCI = Full variational optimization over clusters. No projectors.
 
@@ -194,7 +194,7 @@ if __name__ == "__main__":
         # This uses the bare local wavefunctions with no projectors
         e_barewf = get_wf_composite(emb)
         # This uses the density projected local wavefunctions, and also returns the energy of a sum of these
-        # wavefunctions.
+        # wavefunctions (i.e. the unoptimized variational energy).
         e_dense_proj, e_dense_opt = get_density_projected(emb)
         # This does the same, but with the local wavefunction projected via the occupied projector (as in standard EWF).
         e_occ_proj, e_occ_opt = get_occ_projected(emb)
